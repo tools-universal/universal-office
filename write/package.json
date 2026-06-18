@@ -1,0 +1,23 @@
+{
+  "name": "universal-write",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Editor de texto compatível com Microsoft Word (formato e renderização) — parte do monorepo Universal Office",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lab": "pwsh -ExecutionPolicy Bypass -File tools/word-lab/run-experiment.ps1",
+    "pixel:word": "powershell -ExecutionPolicy Bypass -File tools/word-lab/rasterize-pdf.ps1 -Pdf tools/word-lab/results/line-oracle/oracle.pdf -OutDir tools/word-lab/results/pixel/word -Dpi 96",
+    "pixel:compare": "node tools/pixel-compare.mjs tools/word-lab/results/pixel/word tools/word-lab/results/pixel/ours tools/word-lab/results/pixel/diff 48"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

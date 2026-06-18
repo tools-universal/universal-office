@@ -1,0 +1,15 @@
+{
+  "name": "@wordnext/export",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "description": "Exportadores do modelo WordNext para HTML, Markdown e XPS",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@wordnext/docx-core": "*"
+  }
+}

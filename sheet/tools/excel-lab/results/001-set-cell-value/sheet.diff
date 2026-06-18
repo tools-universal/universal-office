@@ -1,0 +1,20 @@
+diff --git "a/D:\\Projects\\OfficeNext\\SheetNext\\tools\\excel-lab\\results\\001-set-cell-value\\before\\xl\\worksheets\\sheet1.xml" "b/D:\\Projects\\OfficeNext\\SheetNext\\tools\\excel-lab\\results\\001-set-cell-value\\after\\xl\\worksheets\\sheet1.xml"
+index a744be9..a319706 100644
+--- "a/D:\\Projects\\OfficeNext\\SheetNext\\tools\\excel-lab\\results\\001-set-cell-value\\before\\xl\\worksheets\\sheet1.xml"
++++ "b/D:\\Projects\\OfficeNext\\SheetNext\\tools\\excel-lab\\results\\001-set-cell-value\\after\\xl\\worksheets\\sheet1.xml"
+@@ -5,6 +5,12 @@
+     <sheetView tabSelected="1" workbookViewId="0" />
+   </sheetViews>
+   <sheetFormatPr defaultRowHeight="15" x14ac:dyDescent="0.25" />
+-  <sheetData />
++  <sheetData>
++    <row r="1" spans="1:1" x14ac:dyDescent="0.25">
++      <c r="A1" t="s">
++        <v>0</v>
++      </c>
++    </row>
++  </sheetData>
+   <pageMargins left="0.511811024" right="0.511811024" top="0.78740157499999996" bottom="0.78740157499999996" header="0.31496062000000002" footer="0.31496062000000002" />
+ </worksheet>
+\ No newline at end of file
+

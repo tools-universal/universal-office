@@ -1,0 +1,14 @@
+diff --git "a/D:\\Projects\\OfficeNext\\SheetNext\\tools\\excel-lab\\results\\004-bold-cell\\before\\xl\\worksheets\\sheet1.xml" "b/D:\\Projects\\OfficeNext\\SheetNext\\tools\\excel-lab\\results\\004-bold-cell\\after\\xl\\worksheets\\sheet1.xml"
+index 0007c85..cdc67a4 100644
+--- "a/D:\\Projects\\OfficeNext\\SheetNext\\tools\\excel-lab\\results\\004-bold-cell\\before\\xl\\worksheets\\sheet1.xml"
++++ "b/D:\\Projects\\OfficeNext\\SheetNext\\tools\\excel-lab\\results\\004-bold-cell\\after\\xl\\worksheets\\sheet1.xml"
+@@ -7,7 +7,7 @@
+   <sheetFormatPr defaultRowHeight="15" x14ac:dyDescent="0.25" />
+   <sheetData>
+     <row r="1" spans="1:1" x14ac:dyDescent="0.25">
+-      <c r="A1" t="s">
++      <c r="A1" s="1" t="s">
+         <v>0</v>
+       </c>
+     </row>
+

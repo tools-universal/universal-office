@@ -1,0 +1,15 @@
+{
+  "name": "@wordnext/layout",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Motor de layout fiel ao Word (fase 2 — ver ARCHITECTURE.md)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@wordnext/docx-core": "*"
+  }
+}

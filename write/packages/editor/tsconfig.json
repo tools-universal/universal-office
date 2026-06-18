@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "baseUrl": ".",
+    "paths": {
+      "@wordnext/docx-core": ["../docx-core/src/index.ts"],
+      "@wordnext/layout": ["../layout/src/index.ts"],
+      "@wordnext/pdf": ["../pdf/src/index.ts"]
+    }
+  },
+  "include": ["src", "demo"]
+}

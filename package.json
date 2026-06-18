@@ -1,0 +1,19 @@
+{
+  "name": "universal-office",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Suíte Universal Office — editor de texto (write) e planilha eletrônica (sheet) compatíveis com Microsoft Office (formato e renderização).",
+  "scripts": {
+    "install:all": "npm install --prefix write && npm install --prefix sheet",
+    "build": "npm run build:write && npm run build:sheet",
+    "build:write": "npm run build --prefix write",
+    "build:sheet": "npm run build --prefix sheet",
+    "test": "npm run test:write && npm run test:sheet",
+    "test:write": "npm run test --prefix write",
+    "test:sheet": "npm run test --prefix sheet",
+    "lab:word": "npm run lab --prefix write",
+    "lab:excel": "npm run lab --prefix sheet",
+    "pixel:word": "npm run pixel:word --prefix write",
+    "pixel:excel": "npm run pixel:excel --prefix sheet"
+  }
+}

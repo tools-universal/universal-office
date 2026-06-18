@@ -1,0 +1,18 @@
+{
+  "name": "@wordnext/editor",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Webcomponent <word-next> com renderização em canvas (fase 3 — ver ARCHITECTURE.md)",
+  "scripts": {
+    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@wordnext/docx-core=../docx-core/src/index.ts --alias:@wordnext/layout=../layout/src/index.ts --alias:@wordnext/pdf=../pdf/src/index.ts --alias:@wordnext/export=../export/src/index.ts --alias:@wordnext/odf=../odf/src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@universal-material/web": "^3.9.4",
+    "@wordnext/docx-core": "*",
+    "@wordnext/export": "*",
+    "@wordnext/layout": "*",
+    "@wordnext/odf": "*",
+    "@wordnext/pdf": "*"
+  }
+}

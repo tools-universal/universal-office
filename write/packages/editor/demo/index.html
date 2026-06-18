@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>WordNext</title>
+  <style>
+    /* ── Fonte da interface: Poppins (subset latin do bundle Kûara) ── */
+    @font-face { font-family:'Poppins'; font-style:normal; font-weight:400; font-display:swap; src:url('fonts/poppins-400.woff2') format('woff2'); }
+    @font-face { font-family:'Poppins'; font-style:normal; font-weight:500; font-display:swap; src:url('fonts/poppins-500.woff2') format('woff2'); }
+    @font-face { font-family:'Poppins'; font-style:normal; font-weight:600; font-display:swap; src:url('fonts/poppins-600.woff2') format('woff2'); }
+    @font-face { font-family:'Poppins'; font-style:normal; font-weight:700; font-display:swap; src:url('fonts/poppins-700.woff2') format('woff2'); }
+    @font-face { font-family:'Poppins'; font-style:italic; font-weight:400; font-display:swap; src:url('fonts/poppins-italic-400.woff2') format('woff2'); }
+    /* ── Ícones Material Symbols Rounded ── */
+    @font-face { font-family:'Material Symbols Rounded'; font-style:normal; font-weight:400; font-display:block; src:url('fonts/material-symbols-rounded.woff2') format('woff2'); }
+    .micon {
+      font-family:'Material Symbols Rounded'; font-weight:400; font-style:normal;
+      font-size:20px; line-height:1; letter-spacing:normal; text-transform:none;
+      display:inline-block; white-space:nowrap; direction:ltr;
+      -webkit-font-feature-settings:'liga'; -webkit-font-smoothing:antialiased;
+      font-variation-settings:'opsz' 24, 'wght' 400, 'GRAD' 0, 'FILL' 0;
+      pointer-events:none; user-select:none;
+    }
+    @keyframes wnPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(232,181,0,0); }
+      30% { box-shadow: 0 0 0 4px rgba(232,181,0,0.9); }
+    }
+    .wn-pulse { animation: wnPulse 0.5s ease-out 2; }
+    /* ── Material Design 3 — superfícies NEUTRAS (sem branding). A cor primária
+         padrão é monocromática (preto no claro); o seletor de cor troca só ela. ── */
+    /* ── Tokens da app = aliases das variáveis GERADAS pelo theme generator do
+         @universal-material/web (injetadas em <style id="u-theme"> via theme.ts).
+         Os --u-color-* usam light-dark(), então claro/escuro segue o `color-scheme`
+         do <html> (definido por applyMode). Os fallbacks cobrem o 1º frame antes
+         da injeção. ── */
+    :root {
+      color-scheme: light;
+      --md-primary: var(--u-color-primary, #005bc0);
+      --md-on-primary: var(--u-color-on-primary, #ffffff);
+      --md-background: var(--u-color-surface, #faf9fd);
+      --md-on-background: var(--u-color-on-surface, #1b1b1f);
+      --md-surface: var(--u-color-surface, #faf9fd);
+      --md-on-surface: var(--u-color-on-surface, #1b1b1f);
+      --md-surface-variant: var(--u-color-surface-variant, #e1e2ec);
+      --md-on-surface-variant: var(--u-color-on-surface-variant, #44474f);
+      --md-surface-lowest: var(--u-color-surface-container-lowest, #ffffff);
+      --md-surface-low: var(--u-color-surface-container-low, #f4f3f7);
+      --md-surface-container: var(--u-color-surface-container, #efedf1);
+      --md-surface-high: var(--u-color-surface-container-high, #e9e7ec);
+      --md-surface-highest: var(--u-color-surface-container-highest, #e3e2e6);
+      --md-outline: var(--u-color-outline, #74777f);
+      --md-outline-variant: var(--u-color-outline-variant, #c4c6d0);
+      --md-secondary-container: var(--u-color-secondary-container, #dbe2f9);
+      --md-on-secondary-container: var(--u-color-on-secondary-container, #141b2c);
+      --md-shadow: light-dark(rgba(0,0,0,.16), rgba(0,0,0,.5));
+      /* fundo do estado ativo: tinta da primária */
+      --md-active-bg: color-mix(in srgb, var(--md-primary) 14%, transparent);
+
+      /* aliases → tokens de SUPERFÍCIE do Material (hierarquia de elevação M3) */
+      --bg: var(--u-color-surface);                       /* base do app */
+      --chrome: var(--u-color-surface-container);          /* header/rodapé/painéis */
+      --text: var(--md-on-surface);
+      --text-2: var(--md-on-surface-variant);
+      --border: var(--md-outline-variant);
+      --hover: var(--u-color-surface-container-highest);   /* realce de hover */
+      --active: var(--md-active-bg);
+      --accent: var(--md-primary);
+      --canvas: var(--u-color-surface-container-high);     /* área atrás das folhas */
+      --shadow: 0 1px 3px var(--md-shadow);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; height: 100vh; display: flex; flex-direction: column;
+      font-family: "Poppins", "Segoe UI", system-ui, sans-serif; font-size: 14px;
+      background: var(--bg); color: var(--text);
+    }
+    /* ───── header (mesclado com a barra de título da janela) ───── */
+    header {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--u-color-surface); /* mesma cor do app/barra de título, sem divider */
+      -webkit-app-region: drag; /* Electron: arrasta a janela pelo header */
+      /* logo alinhado à esquerda do container da toolbar (16px); à direita,
+         reserva o espaço dos controles de janela do SO (overlay) */
+      padding: 8px 16px; /* simétrico no browser */
+      min-height: 48px;
+    }
+    /* SÓ no Electron: reserva a área dos controles da janela (overlay) + folga
+       p/ o "Salvar .docx" não colar no minimizar. No browser não há overlay,
+       então o padding fica simétrico (16px). A classe .electron é setada em
+       main.ts quando a ponte (window.wordnext) existe. */
+    html.electron header {
+      padding-right: calc(100vw - env(titlebar-area-width, calc(100vw - 16px)) + 16px);
+    }
+    /* controles do header não arrastam a janela */
+    header input, header button, header nav, header .head-right { -webkit-app-region: no-drag; }
+    .logo {
+      width: 32px; height: 32px; flex: none;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--u-color-primary, var(--md-primary, #1a73e8));
+    }
+    .logo svg { width: 100%; height: 100%; display: block; color: inherit; }
+    .head-main { display: flex; flex-direction: column; min-width: 0; }
+    #docTitle {
+      font-size: 18px; border: 1px solid transparent; border-radius: 4px;
+      padding: 1px 8px; outline: none; background: transparent; color: var(--text);
+      max-width: 50vw;
+    }
+    #docTitle:hover { border-color: var(--border); }
+    #docTitle:focus { border-color: var(--accent); }
+    nav.menus { display: flex; gap: 2px; font-size: 14px; }
+    nav.menus > div { position: relative; }
+    nav.menus button.menu {
+      border: 0; background: transparent; color: var(--text); padding: 2px 8px;
+      border-radius: 4px; cursor: pointer; font-size: 14px;
+    }
+    nav.menus button.menu:hover, nav.menus button.menu.open { background: var(--hover); }
+    .dropdown {
+      display: none; position: absolute; top: 26px; left: 0; z-index: 50;
+      background: var(--chrome); border: 1px solid var(--border); border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.2); padding: 6px 0; min-width: 230px;
+    }
+    .dropdown.show { display: block; }
+    .dropdown button {
+      display: flex; justify-content: space-between; gap: 24px; width: 100%;
+      border: 0; background: transparent; color: var(--text); text-align: left;
+      padding: 7px 18px; cursor: pointer; font-size: 14px;
+    }
+    .dropdown button:hover { background: var(--hover); }
+    .dropdown .sep { border-top: 1px solid var(--border); margin: 6px 0; }
+    .dropdown .kbd { color: var(--text-2); font-size: 12px; }
+    .head-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    /* botões Material do header não arrastam a janela (Electron) */
+    header u-button, header u-icon-button { -webkit-app-region: no-drag; }
+    .accent-menu {
+      position: fixed; z-index: 80; background: var(--u-color-surface-container-high);
+      border: 1px solid var(--md-outline-variant); border-radius: 14px;
+      box-shadow: 0 12px 32px var(--md-shadow); padding: 10px;
+      display: grid; grid-template-columns: repeat(4, 32px); gap: 9px;
+    }
+    .accent-sw {
+      width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent;
+      cursor: pointer; padding: 0; position: relative; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
+    }
+    .accent-sw:hover { transform: scale(1.1); }
+    .accent-sw.sel { border-color: var(--md-on-surface); }
+    .accent-sw.sel::after {
+      content: "✓"; position: absolute; inset: 0; display: grid; place-items: center;
+      color: #fff; font-size: 14px; font-weight: 700; text-shadow: 0 0 3px rgba(0,0,0,.6);
+    }
+    /* ───── toolbar (MD3 — cinza do tema, colapso por prioridade) ───── */
+    #toolbarRow { padding: 4px 16px 10px; position: relative; }
+    #toolbar {
+      display: flex; align-items: center; gap: 2px; min-width: 0; overflow: hidden;
+      background: var(--u-color-surface-container); border-radius: 16px; padding: 7px 8px;
+    }
+    /* grupos de controles (separador embutido via ::before) */
+    .tb-g { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+    .tb-g::before {
+      content: ""; width: 1px; height: 24px; background: var(--md-outline-variant); margin: 0 7px 0 5px;
+    }
+    /* gatilhos e "⋮" são BOTÕES: o divisor vai FORA (absoluto, à esquerda) e não
+       dentro da área clicável/hover/ripple do botão */
+    .tb-trig, .tb-more { margin-left: 13px; }
+    .tb-trig::before, .tb-more::before {
+      content: ""; position: absolute; left: -7px; top: 50%; transform: translateY(-50%);
+      width: 1px; height: 24px; background: var(--md-outline-variant);
+    }
+    .tb-first { margin-left: 0; }
+    .tb-first::before { display: none; }
+    .tb-pop .tb-g::before { display: none; }
+    /* qualquer clicável que receba <u-ripple> precisa ser âncora de posição */
+    :has(> u-ripple) { position: relative; }
+    /* controles MD3 (escopo .tb-g → funcionam inline E dentro do popover) */
+    .tb-g button, .tb-g select, .tb-g input[type=color] {
+      height: 38px; min-width: 38px; border: 0; border-radius: 10px; background: transparent;
+      color: var(--md-on-surface-variant); cursor: pointer; font-size: 13px; padding: 0 4px;
+      font-family: inherit;
+    }
+    .tb-g button { display: inline-flex; align-items: center; justify-content: center; }
+    .tb-g .micon { font-size: 20px; }
+    .tb-g button:hover, .tb-g select:hover { background: var(--u-color-surface-container-highest); }
+    .tb-g button.active { background: var(--md-active-bg); color: var(--md-primary); }
+    /* toolbar desabilitada (Modo de Exibição Protegido) */
+    #toolbarRow.tb-locked { opacity: .5; pointer-events: none; filter: grayscale(.4); }
+    .tb-g select { padding: 0 6px; }
+    .tb-g input[type=color] { padding: 3px; width: 32px; }
+    .tb-g input[type=text] {
+      height: 30px; border: 1px solid var(--md-outline-variant); border-radius: 9px;
+      background: var(--u-color-surface-container-lowest); color: var(--md-on-surface); padding: 0 10px; width: 120px;
+    }
+    /* gatilho de grupo colapsado + overflow "⋮" */
+    .tb-trig, .tb-more {
+      display: inline-flex; align-items: center; gap: 3px; height: 38px; padding: 0 8px;
+      border: 0; border-radius: 10px; background: transparent; color: var(--md-on-surface-variant);
+      cursor: pointer; font: inherit; font-size: 14px; flex: none;
+    }
+    .tb-trig:hover, .tb-more:hover { background: var(--u-color-surface-container-highest); }
+    .tb-trig .chev { font-size: 9px; opacity: .65; }
+    /* popover dos grupos colapsados */
+    .tb-pop {
+      position: absolute; z-index: 70; background: var(--u-color-surface-container-high);
+      border: 1px solid var(--md-outline-variant); border-radius: 14px;
+      box-shadow: 0 12px 32px var(--md-shadow); padding: 6px 8px 8px;
+      max-width: calc(100vw - 24px);
+    }
+    .tb-pop-lbl {
+      font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--md-on-surface-variant); padding: 6px 6px 4px;
+    }
+    .tb-pop-sec + .tb-pop-sec { border-top: 1px solid var(--md-outline-variant); margin-top: 4px; }
+    /* ───── gatilho de menu por ícone (selects "iconificados") ───── */
+    .tb-menu {
+      display: inline-flex; align-items: center; gap: 2px; height: 38px; min-width: 38px;
+      padding: 0 5px; border: 0; border-radius: 10px; background: transparent;
+      color: var(--md-on-surface-variant); cursor: pointer; font: inherit; flex: none;
+    }
+    .tb-menu:hover { background: var(--u-color-surface-container-highest); }
+    .tb-menu.active { background: var(--md-active-bg); color: var(--md-primary); }
+    .tb-menu .micon { font-size: 20px; }
+    .tb-menu .chev { font-size: 9px; opacity: .6; }
+    .tb-menu .tb-menu-num { font-size: 13px; font-weight: 600; min-width: 16px; text-align: center; }
+    /* swatch de cor (realce) dentro do gatilho */
+    .tb-menu .tb-menu-sw { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--md-outline-variant); }
+    .tb-zoom .tb-menu-num { min-width: 34px; }
+    /* caixa de tamanho da fonte (− [11] +) estilo Google Docs */
+    .tb-g input.tb-size {
+      height: 34px; width: 42px; padding: 0; text-align: center;
+      border: 1px solid var(--md-outline-variant); border-radius: 8px;
+      background: var(--u-color-surface-container-lowest); color: var(--md-on-surface);
+      font: inherit; font-size: 13px;
+    }
+    .tb-g input.tb-size:focus { outline: none; border-color: var(--md-primary); }
+    /* botão de cor do texto: ícone "A" + barra colorida embaixo */
+    .tb-color { position: relative; }
+    .tb-color .tb-color-bar {
+      position: absolute; left: 50%; transform: translateX(-50%); bottom: 5px;
+      width: 18px; height: 3px; border-radius: 2px; background: #000;
+    }
+    /* ───── menu flutuante (dropdown dos ícones + menu de contexto) ───── */
+    .wn-menu {
+      position: fixed; z-index: 120; min-width: 200px; max-height: min(70vh, 480px); overflow: auto;
+      background: var(--u-color-surface-container-high); border: 1px solid var(--md-outline-variant);
+      border-radius: 12px; box-shadow: 0 12px 32px var(--md-shadow); padding: 5px;
+      font-size: 13.5px; color: var(--md-on-surface);
+    }
+    .wn-menu-item {
+      display: flex; align-items: center; gap: 12px; width: 100%; height: 34px;
+      padding: 0 14px 0 10px; border: 0; border-radius: 8px; background: transparent;
+      color: var(--md-on-surface); cursor: pointer; font: inherit; font-size: 13.5px; text-align: left;
+    }
+    .wn-menu-item:hover { background: var(--u-color-surface-container-highest); }
+    .wn-menu-item[disabled] { opacity: .38; pointer-events: none; }
+    .wn-menu-item.checked { background: var(--md-active-bg); }
+    .wn-menu-item.checked .lead { color: var(--md-primary); }
+    /* slot único à esquerda (ícone / swatch / check) — largura fixa p/ alinhar rótulos */
+    .wn-menu-item .lead {
+      width: 22px; flex: none; font-size: 19px; color: var(--md-on-surface-variant);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .wn-menu-item .lead .sw { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--md-outline-variant); }
+    .wn-menu-item .lb { flex: 1 1 auto; white-space: nowrap; }
+    .wn-menu-item .sc { margin-left: 24px; font-size: 11.5px; color: var(--md-on-surface-variant); opacity: .8; }
+    .wn-menu-sep { height: 1px; background: var(--md-outline-variant); margin: 5px 8px; }
+    /* menu de contexto via <u-menu> do @universal-material/web */
+    u-menu-item .micon { font-size: 20px; }
+    u-menu-item .u-ctx-kbd { font-size: 11.5px; opacity: .7; white-space: nowrap; }
+    u-menu .u-ctx-sep { height: 1px; background: var(--md-outline-variant); margin: 4px 10px; }
+    b, i, u, s { pointer-events: none; }
+    /* ───── diálogo (Localizar e substituir) ───── */
+    .dlg-backdrop { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.32); display: flex; align-items: flex-start; justify-content: center; }
+    .dlg {
+      margin-top: 12vh; width: 360px; max-width: calc(100vw - 32px);
+      background: var(--u-color-surface-container-high); border-radius: 16px;
+      box-shadow: 0 16px 48px var(--md-shadow); padding: 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .dlg-head { display: flex; align-items: center; }
+    .dlg-title { font-weight: 600; font-size: 15px; color: var(--md-on-surface); }
+    .dlg-x {
+      margin-left: auto; border: 0; background: transparent; color: var(--md-on-surface-variant);
+      cursor: pointer; border-radius: 999px; width: 32px; height: 32px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .dlg-x:hover { background: var(--u-color-surface-container-highest); }
+    .dlg input[type=text] {
+      height: 40px; border: 1px solid var(--md-outline-variant); border-radius: 10px;
+      background: var(--u-color-surface-container-lowest); color: var(--md-on-surface); padding: 0 12px;
+      font: inherit; font-size: 14px;
+    }
+    .dlg input[type=text]:focus { outline: none; border-color: var(--md-primary); }
+    .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+    .dlg-btn {
+      height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--md-outline-variant);
+      background: var(--u-color-surface-container-lowest); color: var(--md-on-surface); font: inherit;
+      font-size: 13.5px; font-weight: 600; cursor: pointer;
+    }
+    .dlg-btn:hover { background: var(--u-color-surface-container-highest); }
+    .dlg-btn.primary { background: var(--md-primary); color: var(--md-on-primary); border-color: var(--md-primary); }
+    /* modo foco = APENAS tela cheia (renderiza o modo atual). NÃO altera a
+       visibilidade de NENHUMA barra — só a Leitura esconde barras. */
+    /* modo leitura: esconde a toolbar, os avisos e as anotações (mantém header + rodapé) */
+    body.reading #toolbarRow { display: none; }
+    body.reading #commentsPanel { display: none !important; }
+    /* barras de aviso: NUNCA display:none (senão os u-button dentro medem 0 px
+       enquanto escondidos e colapsam a largura). "off"/leitura colapsa via max-height. */
+    #protectedBar { overflow: hidden; }
+    #protectedBar.bar-off, body.reading #protectedBar {
+      max-height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important;
+      opacity: 0 !important; pointer-events: none !important;
+    }
+    /* os componentes u-* esperam o display do host via CSS global (não vem nas
+       styles do shadow); sem isto o host vira block e colapsa a largura */
+    u-button, u-icon-button { display: inline-flex; vertical-align: middle; }
+    /* utilitários de cor do Material (text-bg = fundo container + cor on-container) */
+    .u-text-bg-info-container { color: var(--u-color-on-info-container) !important; background-color: var(--u-color-info-container) !important; }
+    .u-text-bg-warning-container { color: var(--u-color-on-warning-container) !important; background-color: var(--u-color-warning-container) !important; }
+    /* cores dos botões das barras: ação = cor sólida do status (filled.primary);
+       fechar (ícone) = on-X-container */
+    #enableEditing { --u-filled-button-primary-container-color: var(--u-color-warning); --u-filled-button-primary-text-color: var(--u-color-on-warning); }
+    /* O u-dialog entra com 'show' (scale 0→1, one-shot, sem fill-mode). Numa
+       renderização sem avanço do clock de animação (offscreen/ociosa/throttled,
+       janela em background), a animação fica congelada no frame 'from' e a
+       .container trava em scale(0) — o diálogo nunca aparece. Como é um aviso de
+       segurança (tem que aparecer sempre), removemos a animação de entrada: a
+       .container surge em scale(1) na hora. O fechar é tratado no JS sem
+       depender de animação (closeFieldsDialog). */
+    #fieldsDialog::part(container) { animation: none; transform: none; }
+    /* ícone (hero) do diálogo a 24px — .micon fixa 20px por padrão */
+    #fieldsDialog [slot="icon"] { font-size: 24px; }
+    /* ───── editor ───── */
+    word-next { min-height: 0; background: var(--canvas) !important; }
+    /* Leitura: fundo da cor da página (as raias se separam pelos divisores) */
+    word-next.view-read { background: #fff !important; }
+    .comment-card { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; font-size: 13px; background: var(--u-color-surface-container-low); }
+    .comment-card:hover { background: var(--hover); }
+    .comment-card.active { border-color: var(--accent); background: var(--active); box-shadow: 0 0 0 2px var(--u-color-primary, #1a73e8); }
+    .comment-card .who { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+    .comment-card .del { float: right; border: 0; background: transparent; color: var(--text-2); cursor: pointer; }
+    /* OVERLAY de cartões inline: aparece AO LADO DA PÁGINA (não no painel).
+       O painel direito segue sendo uma lista simples (não se altera). */
+    #inlineCommentsOverlay {
+      position: fixed; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 5;
+      display: none;
+    }
+    body.inline-comments #inlineCommentsOverlay { display: block; }
+    #inlineCommentsOverlay .comment-card {
+      position: absolute; width: 220px; pointer-events: auto;
+      background: var(--u-color-surface-container-low);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 10px; font-size: 13px; cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      transition: top 120ms ease-out, transform 120ms ease-out;
+    }
+    #inlineCommentsOverlay .comment-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--u-color-primary, #1a73e8);
+    }
+    #inlineCommentsOverlay .comment-card .who { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+    #inlineCommentsOverlay .comment-card .del { float: right; border: 0; background: transparent; color: var(--text-2); cursor: pointer; }
+    /* Faixa âmbar VERTICAL no lado esquerdo do card */
+    #inlineCommentsOverlay .comment-card::before {
+      content: ''; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px;
+      background: rgba(255, 187, 0, 0.6); border-radius: 2px;
+    }
+    /* Linha HORIZONTAL pontilhada do card pra esquerda (até a página). Aparece
+       só quando o card está na posição ideal (sem empilhamento por colisão). */
+    #inlineCommentsOverlay .comment-card.anchored::after {
+      content: ''; position: absolute; right: 100%; top: 50%; width: 80px; height: 0;
+      border-top: 1px dotted rgba(255, 187, 0, 0.55);
+      margin-right: 12px;
+      pointer-events: none;
+    }
+    /* ───── statusbar ───── */
+    footer {
+      display: flex; align-items: center; gap: 12px; padding: 4px 16px;
+      border-top: 1px solid var(--border); background: var(--chrome);
+      color: var(--text-2); font-size: 12px;
+    }
+    footer .views { display: flex; gap: 2px; margin-left: auto; }
+    footer .views button, footer select {
+      border: 0; background: transparent; color: var(--text-2); padding: 4px 8px;
+      border-radius: 10px; cursor: pointer; font-size: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    footer .views button .micon { font-size: 19px; }
+    footer .views button:hover { background: var(--hover); }
+    footer .views button.active { background: var(--active); color: var(--text); }
+    #dropOverlay {
+      display: none; position: fixed; inset: 0; z-index: 100; background: rgba(26,115,232,.12);
+      border: 3px dashed var(--accent); border-radius: 12px; margin: 12px;
+      place-items: center; font-size: 22px; color: var(--accent); pointer-events: none;
+    }
+    #dropOverlay.show { display: grid; }
+  </style>
+</head>
+<body>
+  <header>
+    <!-- Logo: deriva tudo de `currentColor` (cor herda do .logo no CSS). -->
+    <div class="logo" aria-label="WordNext">
+      <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+        <defs>
+          <style>
+            #topSheet  stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #fff 22%); }
+            #topSheet  stop:nth-child(2){ stop-color: currentColor; }
+            #topSheet  stop:nth-child(3){ stop-color: color-mix(in srgb, currentColor, #000 22%); }
+            #midSheet  stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #000  8%); }
+            #midSheet  stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #000 38%); }
+            #backSheet stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #000 28%); }
+            #backSheet stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #000 52%); }
+            #fold      stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #fff 55%); }
+            #fold      stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #fff 30%); }
+            #ink       stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #fff 90%); }
+            #ink       stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #fff 74%); }
+            #gloss     stop{ stop-color: color-mix(in srgb, currentColor, #fff 96%); }
+            feDropShadow{ flood-color: color-mix(in srgb, currentColor, #000 68%); }
+          </style>
+          <linearGradient id="topSheet" x1="0.12" y1="0" x2="0.7" y2="1">
+            <stop offset="0"/><stop offset="0.5"/><stop offset="1"/>
+          </linearGradient>
+          <linearGradient id="midSheet" x1="0.1" y1="0" x2="0.7" y2="1">
+            <stop offset="0"/><stop offset="1"/>
+          </linearGradient>
+          <linearGradient id="backSheet" x1="0.1" y1="0" x2="0.7" y2="1">
+            <stop offset="0"/><stop offset="1"/>
+          </linearGradient>
+          <linearGradient id="fold" x1="0.1" y1="0.1" x2="0.9" y2="1">
+            <stop offset="0"/><stop offset="1"/>
+          </linearGradient>
+          <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0"/><stop offset="1"/>
+          </linearGradient>
+          <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-opacity="0.30"/><stop offset="0.42" stop-opacity="0"/>
+          </linearGradient>
+          <filter id="shBack" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="9" stdDeviation="11" flood-opacity="0.30"/></filter>
+          <filter id="shMid" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-opacity="0.22"/></filter>
+          <filter id="shTop" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="7" stdDeviation="8" flood-opacity="0.22"/></filter>
+          <filter id="shFold" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="2" dy="3" stdDeviation="3" flood-opacity="0.24"/></filter>
+          <clipPath id="pageClip">
+            <path d="M128 30 L354 30 L442 118 L442 428 Q442 454 416 454 L128 454 Q102 454 102 428 L102 56 Q102 30 128 30 Z"/>
+          </clipPath>
+        </defs>
+        <path transform="translate(-32 28)" d="M128 30 L354 30 L442 118 L442 428 Q442 454 416 454 L128 454 Q102 454 102 428 L102 56 Q102 30 128 30 Z" fill="url(#backSheet)" filter="url(#shBack)"/>
+        <path transform="translate(-16 14)" d="M128 30 L354 30 L442 118 L442 428 Q442 454 416 454 L128 454 Q102 454 102 428 L102 56 Q102 30 128 30 Z" fill="url(#midSheet)" filter="url(#shMid)"/>
+        <path d="M128 30 L354 30 L442 118 L442 428 Q442 454 416 454 L128 454 Q102 454 102 428 L102 56 Q102 30 128 30 Z" fill="url(#topSheet)" filter="url(#shTop)"/>
+        <path d="M128 30 L354 30 L442 118 L442 428 Q442 454 416 454 L128 454 Q102 454 102 428 L102 56 Q102 30 128 30 Z" fill="url(#gloss)"/>
+        <g clip-path="url(#pageClip)">
+          <path d="M354 30 L442 118 L370 118 Q354 118 354 102 L354 30 Z" fill="url(#fold)" filter="url(#shFold)"/>
+        </g>
+        <path fill="url(#ink)" d="M160 92 L190 92 Q193 92 193 95 L193 97 Q193 100 190 100 L179 100 L179 168 L190 168 Q193 168 193 171 L193 173 Q193 176 190 176 L160 176 Q157 176 157 173 L157 171 Q157 168 160 168 L171 168 L171 100 L160 100 Q157 100 157 97 L157 95 Q157 92 160 92 Z"/>
+        <g fill="url(#ink)">
+          <rect x="150" y="206" width="244" height="16" rx="8"/>
+          <rect x="150" y="250" width="244" height="16" rx="8"/>
+          <rect x="150" y="294" width="244" height="16" rx="8"/>
+          <rect x="150" y="338" width="244" height="16" rx="8"/>
+          <rect x="150" y="382" width="160" height="16" rx="8"/>
+        </g>
+      </svg>
+    </div>
+    <nav class="menus">
+        <div>
+          <button class="menu" id="menuFile">Arquivo</button>
+          <div class="dropdown" id="ddFile">
+            <button id="actNew">Novo <span class="kbd"></span></button>
+            <button id="actOpen">Abrir… <span class="kbd">Ctrl+O</span></button>
+            <div class="sep"></div>
+            <button id="actSave">Salvar <span class="kbd">Ctrl+S</span></button>
+            <button id="actSaveAs">Salvar como…</button>
+            <div class="sep"></div>
+            <button id="actExportPdf">Baixar PDF</button>
+            <button id="actExportHtml" title="Segure Shift p/ versão slim (sem imagens)">Baixar HTML</button>
+            <button id="actExportMd" title="Segure Shift p/ versão slim (sem imagens)">Baixar Markdown</button>
+            <button id="actExportOdt" title="OpenDocument (LibreOffice/OpenOffice)">Baixar ODT</button>
+            <button id="actExportXps">Baixar XPS</button>
+            <div class="sep"></div>
+            <button id="actPrint">Imprimir <span class="kbd">Ctrl+P</span></button>
+            <div class="sep"></div>
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 18px">
+              <span style="font-size:13px">Autosave</span>
+              <select id="autosaveSel" style="margin-left:auto">
+                <option value="0">Desativado</option>
+                <option value="1">1 min</option>
+                <option value="5">5 min</option>
+                <option value="10" selected>10 min (Word)</option>
+                <option value="30">30 min</option>
+              </select>
+            </div>
+            <div class="sep"></div>
+            <div id="recentList" style="padding: 2px 18px; color: var(--text-2); font-size: 12px;">Recentes aparecem aqui</div>
+          </div>
+        </div>
+        <div>
+          <button class="menu" id="menuInsert">Inserir</button>
+          <div class="dropdown" id="ddInsert">
+            <button id="actImage">Imagem…</button>
+            <button id="actPageBreak">Quebra de página <span class="kbd">Ctrl+Enter</span></button>
+            <button id="actComment">Comentário…</button>
+            <button id="actToc">Atualizar sumário</button>
+            <div class="sep"></div>
+            <button id="actFieldPage">Campo: Número da página</button>
+            <button id="actFieldNumPages">Campo: Total de páginas</button>
+            <button id="actFieldDate">Campo: Data</button>
+            <div class="sep"></div>
+            <button id="actHeader">Cabeçalho</button>
+            <button id="actFooter">Rodapé</button>
+            <div class="sep"></div>
+            <button id="actBullets2">Lista com marcadores</button>
+            <button id="actNumbers2">Lista numerada</button>
+          </div>
+        </div>
+    </nav>
+    <input id="docTitle" value="Documento sem título" spellcheck="false" title="Título do documento" />
+    <div class="head-right">
+      <u-icon-button id="accentBtn" variant="standard" title="Cor de destaque"><span class="micon">palette</span></u-icon-button>
+      <u-icon-button id="darkToggle" variant="standard" title="Tema"><span class="micon" id="darkToggleIcon">brightness_auto</span></u-icon-button>
+      <u-button id="saveBtn" variant="filled"><span class="micon" slot="icon">save</span><span id="saveBtnLabel">Salvar .docx</span></u-button>
+    </div>
+  </header>
+  <div id="accentMenu" class="accent-menu" style="display:none">
+    <button class="accent-sw" data-accent="neutral" title="Padrão (preto/branco)" style="background:linear-gradient(135deg,#111 0 50%,#fff 50% 100%)"></button>
+    <button class="accent-sw" data-accent="teal" title="Teal" style="background:#1F7A75"></button>
+    <button class="accent-sw" data-accent="blue" title="Azul" style="background:#1A73E8"></button>
+    <button class="accent-sw" data-accent="green" title="Verde" style="background:#3F8E3F"></button>
+    <button class="accent-sw" data-accent="amber" title="Âmbar" style="background:#A6791F"></button>
+    <button class="accent-sw" data-accent="red" title="Vermelho" style="background:#C0392B"></button>
+    <button class="accent-sw" data-accent="purple" title="Roxo" style="background:#6750A4"></button>
+  </div>
+  <div id="findDialog" class="dlg-backdrop" style="display:none">
+    <div class="dlg" role="dialog" aria-label="Localizar e substituir">
+      <div class="dlg-head">
+        <span class="dlg-title">Localizar e substituir</span>
+        <button id="findClose" class="dlg-x" title="Fechar (Esc)"><span class="micon">close</span></button>
+      </div>
+      <input type="text" id="findText" placeholder="Localizar" />
+      <input type="text" id="replText" placeholder="Substituir por" />
+      <div class="dlg-actions">
+        <button id="findNext" class="dlg-btn">Localizar próxima</button>
+        <button id="replaceAll" class="dlg-btn primary">Substituir tudo</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toolbarRow">
+  <div id="toolbar">
+    <!-- ── Ordem espelhando a barra do Google Docs ── -->
+    <div class="tb-g" data-g="tools" data-label="Ferramentas" data-prio="4" data-icon="undo">
+      <button id="undo" title="Desfazer (Ctrl+Z)"><span class="micon">undo</span></button>
+      <button id="redo" title="Refazer (Ctrl+Y)"><span class="micon">redo</span></button>
+      <button id="print" title="Imprimir (Ctrl+P)"><span class="micon">print</span></button>
+      <button id="spell" title="Verificação ortográfica"><span class="micon">spellcheck</span></button>
+      <button id="painter" title="Pincel de formatação"><span class="micon">format_paint</span></button>
+      <button id="zoomMenu" class="tb-menu tb-zoom" title="Zoom"><span class="tb-menu-num">100%</span><span class="chev">▾</span></button>
+    </div>
+    <div class="tb-g" data-g="style" data-label="Estilo" data-prio="8" data-icon="format_size">
+      <select id="style" title="Estilo de parágrafo">
+        <option value="">Texto normal</option>
+        <option value="Ttulo">Título</option>
+        <option value="Ttulo1">Título 1</option>
+        <option value="Ttulo2">Título 2</option>
+        <option value="Ttulo3">Título 3</option>
+      </select>
+    </div>
+    <div class="tb-g" data-g="font" data-label="Fonte" data-prio="8" data-icon="font_download">
+      <select id="font" title="Fonte"><option>Aptos</option><option>Calibri</option></select>
+    </div>
+    <div class="tb-g" data-g="size" data-label="Tamanho da fonte" data-prio="7" data-icon="text_fields">
+      <button id="shrink" title="Diminuir fonte"><span class="micon">remove</span></button>
+      <input id="size" class="tb-size" type="text" inputmode="numeric" maxlength="3" value="11" title="Tamanho da fonte" />
+      <button id="grow" title="Aumentar fonte"><span class="micon">add</span></button>
+    </div>
+    <div class="tb-g" data-g="format" data-label="Formatação" data-prio="9" data-icon="format_bold">
+      <button id="bold" title="Negrito (Ctrl+B)"><span class="micon">format_bold</span></button>
+      <button id="italic" title="Itálico (Ctrl+I)"><span class="micon">format_italic</span></button>
+      <button id="underline" title="Sublinhado (Ctrl+U)"><span class="micon">format_underlined</span></button>
+      <button id="colorBtn" class="tb-color" title="Cor do texto"><span class="micon">format_color_text</span><span class="tb-color-bar" id="colorBar"></span></button>
+      <input type="color" id="color" value="#000000" style="display:none" />
+      <select id="highlight" title="Cor de realce do texto" data-menu="format_ink_highlighter">
+        <option value="">Sem realce</option><option value="yellow">Amarelo</option>
+        <option value="green">Verde</option><option value="cyan">Ciano</option>
+        <option value="magenta">Magenta</option>
+      </select>
+    </div>
+    <div class="tb-g" data-g="insert" data-label="Inserir" data-prio="5" data-icon="link">
+      <button id="linkBtn" title="Inserir link (Ctrl+K)"><span class="micon">link</span></button>
+      <button id="commentBtn" title="Adicionar comentário"><span class="micon">add_comment</span></button>
+      <button id="imageBtn" title="Inserir imagem"><span class="micon">image</span></button>
+    </div>
+    <div class="tb-g" data-g="para" data-label="Parágrafo" data-prio="6" data-icon="format_align_left">
+      <button id="alignMenu" class="tb-menu" title="Alinhamento"><span class="micon">format_align_left</span><span class="chev">▾</span></button>
+      <select id="spacing" title="Espaçamento entre linhas e parágrafo" data-menu="format_line_spacing">
+        <option value="240">1,0</option><option value="259" selected>1,08</option>
+        <option value="360">1,5</option><option value="480">2,0</option>
+      </select>
+      <button id="checklist" title="Lista de tarefas"><span class="micon">checklist</span></button>
+      <button id="bullets" title="Lista com marcadores"><span class="micon">format_list_bulleted</span></button>
+      <button id="numbers" title="Lista numerada"><span class="micon">format_list_numbered</span></button>
+      <button id="outdent" title="Diminuir recuo"><span class="micon">format_indent_decrease</span></button>
+      <button id="indent" title="Aumentar recuo"><span class="micon">format_indent_increase</span></button>
+      <button id="clear" title="Limpar formatação"><span class="micon">format_clear</span></button>
+    </div>
+    <!-- ── extras WordNext (fora do conjunto do Google Docs): sempre no "⋮" ── -->
+    <div class="tb-g" data-g="extras" data-label="Mais ferramentas" data-prio="0" data-icon="more_horiz">
+      <button id="strike" title="Tachado"><span class="micon">format_strikethrough</span></button>
+      <button id="sub" title="Subscrito"><span class="micon">subscript</span></button>
+      <button id="sup" title="Sobrescrito"><span class="micon">superscript</span></button>
+      <button id="case" title="Maiúsculas/minúsculas"><span class="micon">match_case</span></button>
+      <input type="color" id="shading" title="Sombreamento do parágrafo" value="#ffffff" />
+      <button id="border" title="Bordas do parágrafo"><span class="micon">border_all</span></button>
+      <button id="marks" title="Mostrar marcas de parágrafo"><span class="micon">format_paragraph</span></button>
+      <select id="spaceAfter" title="Espaço depois do parágrafo" data-menu="density_medium">
+        <option value="">Depois: 8pt</option><option value="0">Depois: 0</option>
+        <option value="240">Depois: 12pt</option>
+      </select>
+      <select id="charSpacing" title="Espaçamento de caracteres" data-menu="format_letter_spacing">
+        <option value="">Espaç. normal</option><option value="20">Expandido 1pt</option>
+        <option value="40">Expandido 2pt</option><option value="-10">Condensado</option>
+      </select>
+      <select id="specialIndent" title="Recuo especial" data-menu="keyboard_tab">
+        <option value="none">Sem recuo esp.</option><option value="firstLine">Primeira linha</option>
+        <option value="hanging">Deslocamento</option>
+      </select>
+      <select id="orientation" title="Orientação" data-menu="screen_rotation"><option value="portrait">Retrato</option><option value="landscape">Paisagem</option></select>
+      <select id="pagesize" title="Tamanho do papel" data-menu="aspect_ratio"><option value="A4">A4</option><option value="Letter">Carta</option></select>
+      <select id="margins" title="Margens" data-menu="margin"><option value="normal">Margens normais</option><option value="narrow">Estreitas</option><option value="wide">Largas</option></select>
+      <button id="findOpen" title="Localizar e substituir (Ctrl+F)"><span class="micon">search</span></button>
+    </div>
+    <input type="file" id="imageFile" accept="image/png,image/jpeg,image/gif" style="display:none" />
+    <input type="file" id="docxFile" accept=".docx,.odt" style="display:none" />
+  </div>
+  </div>
+
+  <div id="protectedBar" class="u-text-bg-warning-container bar-off" style="display:flex;padding:5px 16px;font-size:13px;align-items:center;gap:10px">
+    <span>🛡 <b>MODO DE EXIBIÇÃO PROTEGIDO</b> — Tenha cuidado: arquivos da Internet podem conter vírus. A menos que você precise editar, é mais seguro permanecer no Modo de Exibição Protegido.</span>
+    <u-button id="enableEditing" variant="filled" size="extra-small" style="margin-left:auto;white-space:nowrap">Habilitar Edição</u-button>
+  </div>
+  <u-dialog id="fieldsDialog">
+    <span slot="icon" class="micon">gpp_maybe</span>
+    <span slot="headline">Aviso de Segurança</span>
+    <span>Este documento contém campos que podem fazer referência a outros componentes (sumário, datas, números de página). Deseja atualizá-los?</span>
+    <!-- .actions usa flex-direction:row-reverse → o 1º no DOM fica à DIREITA;
+         por isso a ação primária (Atualizar) vem primeiro p/ ficar à direita -->
+    <u-button slot="actions" id="updateFields" variant="filled">Atualizar Campos</u-button>
+    <u-button slot="actions" id="dismissFields" variant="text">Agora não</u-button>
+  </u-dialog>
+  <div style="display:flex;flex:1;min-height:0">
+    <word-next id="wn" fonts="/tools/word-lab/fonts" style="flex:1;min-width:0"></word-next>
+    <aside id="commentsPanel" style="display:none;width:260px;flex:none;overflow:auto;border-left:1px solid var(--border);background:var(--chrome);padding:10px">
+      <div style="display:flex;align-items:center;margin-bottom:8px;gap:4px">
+        <b style="flex:1">Anotações</b>
+        <u-icon-button id="commentsInlineToggle" variant="standard" title="Mostrar cartões ao lado da página"><span class="micon">view_sidebar</span></u-icon-button>
+        <u-icon-button id="commentsClose" variant="standard" title="Fechar"><span class="micon">close</span></u-icon-button>
+      </div>
+      <div id="commentsList"></div>
+    </aside>
+  </div>
+
+  <!-- Cartões inline ao lado da página — overlay fixo independente do painel -->
+  <div id="inlineCommentsOverlay"></div>
+
+  <footer>
+    <span id="status">1 página · 0 palavras</span>
+    <div class="views">
+      <button data-view="print" class="active" title="Layout de impressão"><span class="micon">description</span></button>
+      <button data-view="web" title="Layout da Web"><span class="micon">web</span></button>
+      <button data-view="read" title="Modo de leitura"><span class="micon">menu_book</span></button>
+      <button data-view="focus" title="Modo foco (Esc para sair)"><span class="micon">center_focus_strong</span></button>
+    </div>
+    <span style="display:flex;align-items:center;gap:8px">
+      <button id="zoomOut" title="Reduzir" style="border:0;background:transparent;color:var(--text-2);cursor:pointer">−</button>
+      <input type="range" id="zoom" min="10" max="500" value="100" step="5"
+        title="Zoom (Ctrl+scroll no documento)" style="width:130px;accent-color:var(--accent)" />
+      <button id="zoomIn" title="Ampliar" style="border:0;background:transparent;color:var(--text-2);cursor:pointer">+</button>
+      <span id="zoomLabel" style="min-width:42px;text-align:right">100%</span>
+    </span>
+  </footer>
+
+  <div id="hfHint" style="display:none;position:fixed;z-index:90;background:#2b579a;color:#fff;font-size:12px;padding:4px 9px;border-radius:6px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25)">Duplo-clique para editar</div>
+  <div id="dropOverlay">Solte o .docx para abrir</div>
+  <script type="module" src="./bundle.js"></script>
+</body>
+</html>

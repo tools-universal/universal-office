@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.tsbuildinfo
+# Artefatos binários intermediários do lab (os XML extraídos e diffs SÃO versionados)
+tools/excel-lab/results/**/*.xlsx
+~$*

@@ -1,0 +1,60 @@
+export { DocxPackage } from './package.js';
+export { parseXml, childElements, firstChild, textContent, type XmlElement } from './xml.js';
+export {
+  readDocument,
+  DEFAULT_RUN_PROPS,
+  type DocumentModel,
+  type Paragraph,
+  type Run,
+  type RunProps,
+  type ParaProps,
+  type NumberingProps,
+  type SectPr,
+  type InlineImage,
+  type NoteRef,
+  type BorderEdge,
+  type ParagraphBorders,
+  EMU_PER_TWIP,
+} from './document.js';
+export {
+  readFullDocument,
+  type FullDocument,
+  type Block,
+  type ParagraphBlock,
+  type TableBlock,
+  type TableRow,
+  type TableCell,
+  type Section,
+  type HeaderFooterSet,
+  type CommentInfo,
+  type HfRef,
+  type TableBorders,
+} from './fulldoc.js';
+export {
+  insertText,
+  deleteRange,
+  splitParagraph,
+  mergeWithPrevious,
+  applyRunProps,
+  applyParaProps,
+  propsAt,
+  selectionRunProps,
+  normalizeParagraph,
+  paraText,
+  paraLength,
+  comparePos,
+  normalizeRange,
+  type DocPosition,
+  type DocRange,
+} from './model-ops.js';
+export {
+  serializeDocument,
+  serializeBlocks,
+  tableXml,
+  writeDocument,
+  serializeHfPart,
+  type HfPartInfo,
+  type WriteOptions,
+  type CommentOut,
+} from './serialize.js';
+export { readStyles, type StylesMap, type ResolvedStyle } from './styles.js';

@@ -1,0 +1,16 @@
+{
+  "name": "@wordnext/app-electron",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shell Electron embarcando o <word-next> (fase 5 — ver ARCHITECTURE.md)",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@wordnext/editor": "*"
+  },
+  "devDependencies": {
+    "electron": "^42.4.0"
+  }
+}

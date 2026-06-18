@@ -1,0 +1,18 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Lab — artefatos binários intermediários (XML extraídos e diffs SÃO versionados)
+**/tools/word-lab/results/**/*.docx
+**/tools/excel-lab/results/**/*.xlsx
+
+# Office lock files
+~$*
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

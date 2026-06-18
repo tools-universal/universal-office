@@ -1,0 +1,10 @@
+// Ponte segura renderer ↔ main: abrir .docx com leitura do Mark-of-the-Web.
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('wordnext', {
+  /** Abre diálogo nativo; retorna { name, bytes, motw } ou null.
+   *  motw = o arquivo tem Zone.Identifier (critério REAL do Word). */
+  openDocx: () => ipcRenderer.invoke('wn:open-docx'),
+  /** Sincroniza a cor dos controles de janela (titleBarOverlay) com o tema. */
+  setTitleTheme: (dark) => ipcRenderer.invoke('wn:title-theme', !!dark),
+});

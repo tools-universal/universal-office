@@ -1,0 +1,278 @@
+import '../src/universal-sheet';
+import type { UniversalSheetElement } from '../src/universal-sheet';
+import { openMenu, type MenuItem } from './menu.js';
+import { rippleAll } from './ripple.js';
+import { applyGeneratedTheme } from './theme.js';
+import '@universal-material/web/button/button.js';
+import '@universal-material/web/button/icon-button.js';
+
+const us = document.getElementById('us') as UniversalSheetElement;
+const $ = (id: string) => document.getElementById(id)!;
+const titleInput = $('docTitle') as HTMLInputElement;
+
+// ───────────────────────── modos de cor ─────────────────────────
+type ColorMode = 'auto' | 'light' | 'dark' | 'black';
+const MODE_LABELS: Record<ColorMode, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro', black: 'Escuro total' };
+const MODE_ICONS: Record<ColorMode, string> = { auto: 'brightness_auto', light: 'light_mode', dark: 'dark_mode', black: 'bedtime' };
+let colorMode: ColorMode = 'auto';
+const prefersDark = matchMedia('(prefers-color-scheme: dark)');
+const applyMode = (m: ColorMode): void => {
+  colorMode = m;
+  document.documentElement.style.colorScheme = m === 'auto' ? 'light dark' : m === 'light' ? 'light' : 'dark';
+  $('darkToggleIcon').textContent = MODE_ICONS[m];
+  localStorage.setItem('us-mode', m);
+};
+prefersDark.addEventListener('change', () => { if (colorMode === 'auto') applyMode('auto'); });
+$('darkToggle').addEventListener('mousedown', (e) => e.preventDefault());
+$('darkToggle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const item = (m: ColorMode): MenuItem => ({ label: MODE_LABELS[m], checked: colorMode === m, onClick: () => applyMode(m) });
+  openMenu([item('auto'), item('light'), item('dark'), item('black')], { anchor: $('darkToggle') });
+});
+
+// ───────────── cor de destaque ─────────────
+const accentMenu = $('accentMenu');
+const applyAccent = (a: string): void => {
+  applyGeneratedTheme(a);
+  accentMenu.querySelectorAll<HTMLElement>('.accent-sw').forEach((b) =>
+    b.classList.toggle('sel', b.dataset.accent === (a || 'neutral')));
+};
+$('accentBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (accentMenu.style.display !== 'none') { accentMenu.style.display = 'none'; return; }
+  const r = $('accentBtn').getBoundingClientRect();
+  accentMenu.style.display = 'grid';
+  accentMenu.style.top = `${r.bottom + 6}px`;
+  accentMenu.style.left = `${Math.max(8, r.right - accentMenu.offsetWidth)}px`;
+});
+accentMenu.querySelectorAll<HTMLElement>('.accent-sw').forEach((b) =>
+  b.addEventListener('click', () => {
+    applyAccent(b.dataset.accent!); localStorage.setItem('us-accent', b.dataset.accent!); accentMenu.style.display = 'none';
+  }),
+);
+document.addEventListener('mousedown', (e) => {
+  if (accentMenu.style.display !== 'none' && !accentMenu.contains(e.target as Node) &&
+      !(e.target as HTMLElement)?.closest?.('#accentBtn')) accentMenu.style.display = 'none';
+});
+
+// ───────────────────────── menus ─────────────────────────
+const menus: [string, string][] = [['menuFile', 'ddFile'], ['menuInsert', 'ddInsert'], ['menuFormat', 'ddFormat']];
+for (const [btn, dd] of menus) {
+  $(btn).addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = $(dd).classList.contains('show');
+    closeMenus();
+    if (!open) { $(dd).classList.add('show'); $(btn).classList.add('open'); }
+  });
+}
+function closeMenus(): void {
+  for (const [btn, dd] of menus) { $(dd).classList.remove('show'); $(btn).classList.remove('open'); }
+}
+document.addEventListener('click', closeMenus);
+
+// ───────────────────────── arquivo ─────────────────────────
+type FsHandle = FileSystemFileHandle | null;
+let fileHandle: FsHandle = null;
+
+function setTitle(name: string): void {
+  titleInput.value = name.replace(/\.xlsx$/i, '');
+  document.title = `${titleInput.value} — Universal Sheet`;
+}
+function flashStatus(msg: string): void {
+  const st = $('status');
+  const prev = st.textContent;
+  st.textContent = msg;
+  setTimeout(() => { st.textContent = prev; }, 1800);
+}
+function downloadBlob(data: BlobPart, filename: string, type: string): void {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data], { type }));
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function openBytes(bytes: Uint8Array, name: string): void {
+  try { us.loadXlsx(bytes); } catch { flashStatus(`⚠ "${name}" não é uma planilha válida`); return; }
+  fileHandle = null;
+  setTitle(name);
+  renderTabs();
+  flashStatus(`"${name}" aberto ✓`);
+}
+async function actionOpen(): Promise<void> {
+  closeMenus();
+  if ('showOpenFilePicker' in window) {
+    try {
+      const [h] = await (window as unknown as {
+        showOpenFilePicker: (o: object) => Promise<FileSystemFileHandle[]>;
+      }).showOpenFilePicker({
+        types: [{ description: 'Planilha', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }],
+      });
+      const file = await h!.getFile();
+      fileHandle = h!;
+      openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
+      return;
+    } catch { return; }
+  }
+  ($('xlsxFile') as HTMLInputElement).click();
+}
+($('xlsxFile')).addEventListener('change', async (e) => {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  if (file) openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
+  (e.target as HTMLInputElement).value = '';
+});
+async function actionSave(saveAs: boolean): Promise<void> {
+  closeMenus();
+  const bytes = us.saveXlsx();
+  const suggested = `${titleInput.value || 'Pasta'}.xlsx`;
+  if ('showSaveFilePicker' in window) {
+    try {
+      if (!fileHandle || saveAs) {
+        fileHandle = await (window as unknown as {
+          showSaveFilePicker: (o: object) => Promise<FileSystemFileHandle>;
+        }).showSaveFilePicker({
+          suggestedName: suggested,
+          types: [{ description: 'Planilha', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }],
+        });
+      }
+      const w = await fileHandle.createWritable();
+      await w.write(new Blob([bytes.buffer as ArrayBuffer]));
+      await w.close();
+      flashStatus('Salvo ✓');
+      return;
+    } catch { return; }
+  }
+  downloadBlob(bytes.buffer as ArrayBuffer, suggested,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  flashStatus('Baixado .xlsx ✓');
+}
+$('actNew').addEventListener('click', () => { closeMenus(); flashStatus('Novo: em breve'); });
+$('actOpen').addEventListener('click', () => void actionOpen());
+$('actSave').addEventListener('click', () => void actionSave(false));
+$('saveBtn').addEventListener('click', () => void actionSave(false));
+$('actSaveAs').addEventListener('click', () => void actionSave(true));
+$('actExportCsv').addEventListener('click', () => { closeMenus(); flashStatus('Exportar CSV: em breve'); });
+$('actPrint').addEventListener('click', () => { closeMenus(); window.print(); });
+titleInput.addEventListener('change', () => { document.title = `${titleInput.value} — Universal Sheet`; });
+
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'o') { e.preventDefault(); void actionOpen(); }
+  if (k === 's') { e.preventDefault(); void actionSave(e.shiftKey); }
+  if (k === 'p') { e.preventDefault(); window.print(); }
+});
+
+// drag & drop
+let dragDepth = 0;
+document.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; $('dropOverlay').classList.add('show'); });
+document.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('dropOverlay').classList.remove('show'); } });
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  $('dropOverlay').classList.remove('show');
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (/\.xlsx$/i.test(file.name) || (bytes[0] === 0x50 && bytes[1] === 0x4b)) openBytes(bytes, file.name);
+  else flashStatus(`⚠ "${file.name}" não parece ser .xlsx`);
+});
+
+// ───────────────────────── abas de planilha ─────────────────────────
+function renderTabs(): void {
+  const names = us.getSheetNames();
+  const host = $('sheetTabs');
+  host.replaceChildren();
+  names.forEach((n, i) => {
+    const b = document.createElement('button');
+    b.className = 'tab' + (i === 0 ? ' active' : '');
+    b.textContent = n;
+    b.addEventListener('click', () => {
+      us.selectSheet(i);
+      host.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+      b.classList.add('active');
+    });
+    host.appendChild(b);
+  });
+  const add = document.createElement('button');
+  add.className = 'add';
+  add.title = 'Nova planilha';
+  add.innerHTML = '<span class="micon" style="font-size:18px">add</span>';
+  add.addEventListener('click', () => flashStatus('Nova planilha: em breve'));
+  host.appendChild(add);
+}
+
+// ───────────────────────── barra de fórmulas ─────────────────────────
+const cellRef = $('cellRef') as HTMLInputElement;
+const fxInput = $('fxInput') as HTMLInputElement;
+us.addEventListener('us-selection', ((e: CustomEvent) => {
+  cellRef.value = e.detail.ref;
+  fxInput.value = e.detail.formula || e.detail.display || '';
+}) as EventListener);
+cellRef.addEventListener('change', () => { try { us.goToRef(cellRef.value.trim().toUpperCase()); } catch { /* ref inválida */ } });
+
+// ───────────────────────── zoom ─────────────────────────
+const zoomSlider = $('zoom') as HTMLInputElement;
+const zoomLabel = $('zoomLabel');
+let zoom = 1;
+const showZoom = (z: number): void => {
+  zoom = z;
+  const pct = Math.round(z * 100);
+  zoomSlider.value = String(pct);
+  zoomLabel.textContent = `${pct}%`;
+  $('zoomNum').textContent = `${pct}%`;
+};
+zoomSlider.addEventListener('input', () => us.setZoom(parseInt(zoomSlider.value, 10) / 100));
+$('zoomOut').addEventListener('click', () => us.setZoom(zoom / 1.1));
+$('zoomIn').addEventListener('click', () => us.setZoom(zoom * 1.1));
+us.addEventListener('us-zoom', ((e: CustomEvent) => showZoom(e.detail.zoom)) as EventListener);
+const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
+$('zoomMenu').addEventListener('click', (e) => {
+  e.stopPropagation();
+  openMenu(ZOOMS.map((z) => ({ label: `${z}%`, checked: z === Math.round(zoom * 100), onClick: () => us.setZoom(z / 100) })), { anchor: $('zoomMenu') });
+});
+
+// ───────────────────────── toolbar (formatação — em breve) ─────────────────────────
+const soon = (id: string): void => { $(id).addEventListener('click', () => flashStatus('Edição de células: em breve')); };
+for (const id of ['undo', 'redo', 'bold', 'italic', 'underline', 'shrink', 'grow', 'merge', 'borders',
+  'alignMenu', 'valignMenu', 'wrap', 'numFmtMenu', 'percent', 'currency', 'condFormat', 'filter',
+  'actInsChart', 'actInsFunc', 'actInsLink', 'actFmtCells', 'actFmtRowH', 'actFmtColW', 'actFmtSheet']) {
+  if ($(id)) soon(id);
+}
+$('print').addEventListener('click', () => window.print());
+const onSel = (id: string, fn: (v: string) => void) => $(id).addEventListener('change', (e) => fn((e.target as HTMLSelectElement).value));
+onSel('font', () => flashStatus('Fonte: em breve'));
+$('colorBtn').addEventListener('click', () => ($('color') as HTMLInputElement).click());
+($('color') as HTMLInputElement).addEventListener('change', (e) => {
+  const v = (e.target as HTMLInputElement).value;
+  ($('colorBar')).style.background = v; flashStatus('Cor do texto: em breve');
+});
+$('fillBtn').addEventListener('click', () => ($('fill') as HTMLInputElement).click());
+($('fill') as HTMLInputElement).addEventListener('change', (e) => {
+  const v = (e.target as HTMLInputElement).value;
+  ($('fillBar')).style.background = v; flashStatus('Preenchimento: em breve');
+});
+
+// visões do rodapé
+for (const btn of document.querySelectorAll<HTMLButtonElement>('footer [data-view]')) {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('footer [data-view]').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (btn.dataset.view !== 'normal') flashStatus('Modos de exibição: em breve');
+  });
+}
+
+// ───────────────────────── boot ─────────────────────────
+applyAccent(localStorage.getItem('us-accent') || 'green');
+applyMode((localStorage.getItem('us-mode') as ColorMode) || 'auto');
+rippleAll(document, '#toolbarRow .tb-g button, footer [data-view]');
+
+(async () => {
+  try {
+    const res = await fetch('/samples/showcase.xlsx');
+    if (res.ok) {
+      openBytes(new Uint8Array(await res.arrayBuffer()), 'showcase.xlsx');
+      us.setZoom(1);
+    }
+  } catch { /* sem sample */ }
+})();
