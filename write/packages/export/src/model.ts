@@ -7,7 +7,7 @@ import type {
   TableBlock,
   CommentInfo,
   SectPr,
-} from '@wordnext/docx-core';
+} from '@universal-office/docx-core';
 
 export interface ExportDoc {
   title?: string;

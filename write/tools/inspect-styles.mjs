@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { unzipSync } from 'fflate';
-const z = unzipSync(new Uint8Array(readFileSync(process.argv[2] ?? 'D:/Projects/OfficeNext/WordNext/samples/Catalogo-Recursos-Word.docx')));
+const z = unzipSync(new Uint8Array(readFileSync(process.argv[2] ?? 'D:/Projects/OfficeNext/write/samples/Catalogo-Recursos-Word.docx')));
 const s = new TextDecoder().decode(z['word/styles.xml']);
 for (const id of (process.argv[3] ?? 'Title,Heading1,Heading2').split(',')) {
   const i = s.indexOf(`w:styleId="${id}"`);

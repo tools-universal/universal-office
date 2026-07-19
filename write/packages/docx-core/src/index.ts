@@ -12,6 +12,7 @@ export {
   type SectPr,
   type InlineImage,
   type NoteRef,
+  type CustomInline,
   type BorderEdge,
   type ParagraphBorders,
   EMU_PER_TWIP,
@@ -32,6 +33,7 @@ export {
 } from './fulldoc.js';
 export {
   insertText,
+  insertRun,
   deleteRange,
   splitParagraph,
   mergeWithPrevious,

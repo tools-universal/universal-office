@@ -1,0 +1,91 @@
+<svg viewBox="0 0 1024 900" xmlns="http://www.w3.org/2000/svg" fill="currentColor" role="img" aria-label="Universal Slides">
+  <defs>
+    <style>
+      /* Tudo deriva de currentColor. Troque `color` para tintar. */
+      svg{ color: #FF5630; }
+    </style>
+    <!-- Rotacoes de matiz aplicadas sobre currentColor -->
+    <filter id="h-warm" color-interpolation-filters="sRGB">
+      <feColorMatrix type="hueRotate" values="18"/>
+    </filter>
+    <filter id="h-pink" color-interpolation-filters="sRGB">
+      <feColorMatrix type="hueRotate" values="-36"/>
+    </filter>
+    <filter id="h-magenta" color-interpolation-filters="sRGB">
+      <feColorMatrix type="hueRotate" values="-59"/>
+    </filter>
+    <!-- Simbolo: mesma familia de matiz, bem mais escuro -->
+    <filter id="h-deep" color-interpolation-filters="sRGB">
+      <feColorMatrix type="hueRotate" values="-52"/>
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="0.40"/>
+        <feFuncG type="linear" slope="0.34"/>
+        <feFuncB type="linear" slope="0.44"/>
+      </feComponentTransfer>
+    </filter>
+
+    <!-- Rampas de mistura entre as camadas de matiz -->
+    <linearGradient id="ramp-b" gradientUnits="userSpaceOnUse" x1="80" y1="340" x2="960" y2="560">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.42" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="ramp-c" gradientUnits="userSpaceOnUse" x1="80" y1="340" x2="960" y2="560">
+      <stop offset="0.42" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.78" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="ramp-d" gradientUnits="userSpaceOnUse" x1="80" y1="340" x2="960" y2="560">
+      <stop offset="0.78" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="1"/>
+    </linearGradient>
+
+    <mask id="m-b"><rect width="1024" height="900" fill="url(#ramp-b)"/></mask>
+    <mask id="m-c"><rect width="1024" height="900" fill="url(#ramp-c)"/></mask>
+    <mask id="m-d"><rect width="1024" height="900" fill="url(#ramp-d)"/></mask>
+
+    <!-- Pintura reutilizavel: gradiente construido por empilhamento -->
+    <g id="paint">
+      <rect width="1024" height="900" filter="url(#h-warm)"/>
+      <rect width="1024" height="900" mask="url(#m-b)"/>
+      <rect width="1024" height="900" filter="url(#h-pink)" mask="url(#m-c)"/>
+      <rect width="1024" height="900" filter="url(#h-magenta)" mask="url(#m-d)"/>
+    </g>
+
+    <!-- Recortes dos cartoes -->
+    <clipPath id="c-back"><rect x="186" y="62" width="676" height="220" rx="46"/></clipPath>
+    <clipPath id="c-mid"><rect x="138" y="122" width="772" height="220" rx="52"/></clipPath>
+    <clipPath id="c-front"><rect x="80" y="186" width="880" height="648" rx="64"/></clipPath>
+  </defs>
+
+  <!-- Cartao de tras -->
+  <g clip-path="url(#c-back)">
+    <use href="#paint"/>
+    <rect width="1024" height="900" fill="#000" opacity="0.14"/>
+  </g>
+  <rect x="186" y="62" width="676" height="220" rx="46" fill="none"
+        stroke="#fff" stroke-opacity="0.28" stroke-width="4"/>
+
+  <!-- Cartao do meio -->
+  <g clip-path="url(#c-mid)">
+    <use href="#paint"/>
+    <rect width="1024" height="900" fill="#000" opacity="0.07"/>
+  </g>
+  <rect x="138" y="122" width="772" height="220" rx="52" fill="none"
+        stroke="#fff" stroke-opacity="0.32" stroke-width="4"/>
+
+  <!-- Cartao da frente -->
+  <g clip-path="url(#c-front)"><use href="#paint"/></g>
+  <rect x="82.5" y="188.5" width="875" height="643" rx="61" fill="none"
+        stroke="#fff" stroke-opacity="0.30" stroke-width="5"/>
+
+  <!-- Simbolo: linha de tendencia + play -->
+  <g filter="url(#h-deep)">
+    <path d="M 240 548 C 300 470, 350 402, 408 398 C 462 394, 490 452, 528 486
+             C 560 514, 596 512, 636 470 L 828 288"
+          fill="none" stroke="currentColor" stroke-width="58"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 492 606 L 616 672 L 492 738 Z"
+          stroke="currentColor" stroke-width="34" stroke-linejoin="round"/>
+  </g>
+</svg>

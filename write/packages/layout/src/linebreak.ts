@@ -1,10 +1,10 @@
 import type { SfntFont } from './font/sfnt.js';
 
 /**
- * Quebra de linha estilo Word (greedy, primeira-que-couber):
+ * Quebra de linha estilo app de referência (greedy, primeira-que-couber):
  *  - linhas quebram no início da palavra que não coube;
  *  - espaços ao fim da linha NUNCA causam quebra — podem "pendurar" além da
- *    margem (comportamento clássico do Word);
+ *    margem (comportamento clássico do app de referência);
  *  - palavra maior que a linha quebra em granularidade de caractere.
  *
  * Unidades: twips. Validado contra o oráculo word-lab (Information(10)).

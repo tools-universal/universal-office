@@ -1,4 +1,4 @@
-// Smoke test do @wordnext/pdf: layout real (breakRich) → PDF, com o MESMO
+// Smoke test do @universal-office/pdf: layout real (breakRich) → PDF, com o MESMO
 // algoritmo de posicionamento por glifo do editor (snap de 1/600", baseline).
 // Gera temp/smoke.pdf para rasterizar com tools/word-lab/rasterize-pdf.ps1.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -15,7 +15,7 @@ try { sfnt.setAdvanceTable(JSON.parse(readFileSync(`${FONTS}/aptos-advances.json
 const fonts = { resolve: () => sfnt };
 
 const text =
-  'O WordNext gera PDF próprio reaproveitando o layout do editor. ' +
+  'O UniversalWrite gera PDF próprio reaproveitando o layout do editor. ' +
   'Cada glifo é posicionado exatamente onde o canvas o desenha, com o ' +
   'mesmo arredondamento de 1/600 de polegada que o Word usa para o pitch. ' +
   'Acentuação: ção, ável, índice, número, José. Kerning: AVATAR Wave To.';

@@ -12,7 +12,7 @@ describe('imagens inline', () => {
     return;
   }
 
-  it('lê imagem criada pelo Word, re-serializa, e o modelo relido bate', () => {
+  it('lê imagem criada pelo app de referência, re-serializa, e o modelo relido bate', () => {
     const pkg = DocxPackage.load(new Uint8Array(readFileSync(src)));
     const model = readDocument(pkg);
     const allRuns = model.paragraphs.flatMap((p) => p.runs);

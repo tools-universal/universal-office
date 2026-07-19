@@ -2,9 +2,9 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>WordNext</title>
+  <title>Write</title>
   <style>
-    /* ── Fonte da interface: Poppins (subset latin do bundle Kûara) ── */
+    /* ── Font da interface: Poppins (subset latin do bundle Kûara) ── */
     @font-face { font-family:'Poppins'; font-style:normal; font-weight:400; font-display:swap; src:url('fonts/poppins-400.woff2') format('woff2'); }
     @font-face { font-family:'Poppins'; font-style:normal; font-weight:500; font-display:swap; src:url('fonts/poppins-500.woff2') format('woff2'); }
     @font-face { font-family:'Poppins'; font-style:normal; font-weight:600; font-display:swap; src:url('fonts/poppins-600.woff2') format('woff2'); }
@@ -24,7 +24,7 @@
       0%, 100% { box-shadow: 0 0 0 0 rgba(232,181,0,0); }
       30% { box-shadow: 0 0 0 4px rgba(232,181,0,0.9); }
     }
-    .wn-pulse { animation: wnPulse 0.5s ease-out 2; }
+    .uw-pulse { animation: wnPulse 0.5s ease-out 2; }
     /* ── Material Design 3 — superfícies NEUTRAS (sem branding). A cor primária
          padrão é monocromática (preto no claro); o seletor de cor troca só ela. ── */
     /* ── Tokens da app = aliases das variáveis GERADAS pelo theme generator do
@@ -84,7 +84,7 @@
       min-height: 48px;
     }
     /* SÓ no Electron: reserva a área dos controles da janela (overlay) + folga
-       p/ o "Salvar .docx" não colar no minimizar. No browser não há overlay,
+       p/ o "Save .docx" não colar no minimizar. No browser não há overlay,
        então o padding fica simétrico (16px). A classe .electron é setada em
        main.ts quando a ponte (window.wordnext) existe. */
     html.electron header {
@@ -236,36 +236,36 @@
       width: 18px; height: 3px; border-radius: 2px; background: #000;
     }
     /* ───── menu flutuante (dropdown dos ícones + menu de contexto) ───── */
-    .wn-menu {
+    .uw-menu {
       position: fixed; z-index: 120; min-width: 200px; max-height: min(70vh, 480px); overflow: auto;
       background: var(--u-color-surface-container-high); border: 1px solid var(--md-outline-variant);
       border-radius: 12px; box-shadow: 0 12px 32px var(--md-shadow); padding: 5px;
       font-size: 13.5px; color: var(--md-on-surface);
     }
-    .wn-menu-item {
+    .uw-menu-item {
       display: flex; align-items: center; gap: 12px; width: 100%; height: 34px;
       padding: 0 14px 0 10px; border: 0; border-radius: 8px; background: transparent;
       color: var(--md-on-surface); cursor: pointer; font: inherit; font-size: 13.5px; text-align: left;
     }
-    .wn-menu-item:hover { background: var(--u-color-surface-container-highest); }
-    .wn-menu-item[disabled] { opacity: .38; pointer-events: none; }
-    .wn-menu-item.checked { background: var(--md-active-bg); }
-    .wn-menu-item.checked .lead { color: var(--md-primary); }
+    .uw-menu-item:hover { background: var(--u-color-surface-container-highest); }
+    .uw-menu-item[disabled] { opacity: .38; pointer-events: none; }
+    .uw-menu-item.checked { background: var(--md-active-bg); }
+    .uw-menu-item.checked .lead { color: var(--md-primary); }
     /* slot único à esquerda (ícone / swatch / check) — largura fixa p/ alinhar rótulos */
-    .wn-menu-item .lead {
+    .uw-menu-item .lead {
       width: 22px; flex: none; font-size: 19px; color: var(--md-on-surface-variant);
       display: inline-flex; align-items: center; justify-content: center;
     }
-    .wn-menu-item .lead .sw { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--md-outline-variant); }
-    .wn-menu-item .lb { flex: 1 1 auto; white-space: nowrap; }
-    .wn-menu-item .sc { margin-left: 24px; font-size: 11.5px; color: var(--md-on-surface-variant); opacity: .8; }
-    .wn-menu-sep { height: 1px; background: var(--md-outline-variant); margin: 5px 8px; }
+    .uw-menu-item .lead .sw { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--md-outline-variant); }
+    .uw-menu-item .lb { flex: 1 1 auto; white-space: nowrap; }
+    .uw-menu-item .sc { margin-left: 24px; font-size: 11.5px; color: var(--md-on-surface-variant); opacity: .8; }
+    .uw-menu-sep { height: 1px; background: var(--md-outline-variant); margin: 5px 8px; }
     /* menu de contexto via <u-menu> do @universal-material/web */
     u-menu-item .micon { font-size: 20px; }
     u-menu-item .u-ctx-kbd { font-size: 11.5px; opacity: .7; white-space: nowrap; }
     u-menu .u-ctx-sep { height: 1px; background: var(--md-outline-variant); margin: 4px 10px; }
     b, i, u, s { pointer-events: none; }
-    /* ───── diálogo (Localizar e substituir) ───── */
+    /* ───── diálogo (Find and replace) ───── */
     .dlg-backdrop { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.32); display: flex; align-items: flex-start; justify-content: center; }
     .dlg {
       margin-top: 12vh; width: 360px; max-width: calc(100vw - 32px);
@@ -327,9 +327,9 @@
     /* ícone (hero) do diálogo a 24px — .micon fixa 20px por padrão */
     #fieldsDialog [slot="icon"] { font-size: 24px; }
     /* ───── editor ───── */
-    word-next { min-height: 0; background: var(--canvas) !important; }
+    universal-write { min-height: 0; background: var(--canvas) !important; }
     /* Leitura: fundo da cor da página (as raias se separam pelos divisores) */
-    word-next.view-read { background: #fff !important; }
+    universal-write.view-read { background: #fff !important; }
     .comment-card { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; font-size: 13px; background: var(--u-color-surface-container-low); }
     .comment-card:hover { background: var(--hover); }
     .comment-card.active { border-color: var(--accent); background: var(--active); box-shadow: 0 0 0 2px var(--u-color-primary, #1a73e8); }
@@ -398,7 +398,7 @@
 <body>
   <header>
     <!-- Logo: deriva tudo de `currentColor` (cor herda do .logo no CSS). -->
-    <div class="logo" aria-label="WordNext">
+    <div class="logo" aria-label="Write">
       <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
         <defs>
           <style>
@@ -461,83 +461,86 @@
     </div>
     <nav class="menus">
         <div>
-          <button class="menu" id="menuFile">Arquivo</button>
+          <button class="menu" id="menuFile">File</button>
           <div class="dropdown" id="ddFile">
-            <button id="actNew">Novo <span class="kbd"></span></button>
-            <button id="actOpen">Abrir… <span class="kbd">Ctrl+O</span></button>
+            <button id="actNew">New <span class="kbd"></span></button>
+            <button id="actOpen">Open… <span class="kbd">Ctrl+O</span></button>
             <div class="sep"></div>
-            <button id="actSave">Salvar <span class="kbd">Ctrl+S</span></button>
-            <button id="actSaveAs">Salvar como…</button>
+            <button id="actSave">Save <span class="kbd">Ctrl+S</span></button>
+            <button id="actSaveAs">Save as…</button>
             <div class="sep"></div>
-            <button id="actExportPdf">Baixar PDF</button>
-            <button id="actExportHtml" title="Segure Shift p/ versão slim (sem imagens)">Baixar HTML</button>
-            <button id="actExportMd" title="Segure Shift p/ versão slim (sem imagens)">Baixar Markdown</button>
-            <button id="actExportOdt" title="OpenDocument (LibreOffice/OpenOffice)">Baixar ODT</button>
-            <button id="actExportXps">Baixar XPS</button>
+            <button id="actExportPdf">Download PDF</button>
+            <button id="actExportHtml" title="Hold Shift for slim version (no images)">Download HTML</button>
+            <button id="actExportMd" title="Hold Shift for slim version (no images)">Download Markdown</button>
+            <button id="actExportOdt" title="OpenDocument (LibreOffice/OpenOffice)">Download ODT</button>
+            <button id="actExportXps">Download XPS</button>
             <div class="sep"></div>
-            <button id="actPrint">Imprimir <span class="kbd">Ctrl+P</span></button>
+            <button id="actPrint">Print <span class="kbd">Ctrl+P</span></button>
+            <div class="sep"></div>
+            <button id="actCompare" title="Compares the current document (or a file) with another .docx">Compare with…</button>
             <div class="sep"></div>
             <div style="display:flex;align-items:center;gap:8px;padding:6px 18px">
               <span style="font-size:13px">Autosave</span>
               <select id="autosaveSel" style="margin-left:auto">
-                <option value="0">Desativado</option>
+                <option value="0">Off</option>
                 <option value="1">1 min</option>
                 <option value="5">5 min</option>
-                <option value="10" selected>10 min (Word)</option>
+                <option value="10" selected>10 min (reference)</option>
                 <option value="30">30 min</option>
               </select>
             </div>
             <div class="sep"></div>
-            <div id="recentList" style="padding: 2px 18px; color: var(--text-2); font-size: 12px;">Recentes aparecem aqui</div>
+            <div id="recentList" style="padding: 2px 18px; color: var(--text-2); font-size: 12px;">Recent files appear here</div>
           </div>
         </div>
         <div>
-          <button class="menu" id="menuInsert">Inserir</button>
+          <button class="menu" id="menuInsert">Insert</button>
           <div class="dropdown" id="ddInsert">
-            <button id="actImage">Imagem…</button>
-            <button id="actPageBreak">Quebra de página <span class="kbd">Ctrl+Enter</span></button>
-            <button id="actComment">Comentário…</button>
-            <button id="actToc">Atualizar sumário</button>
+            <button id="actImage">Image…</button>
+            <button id="actMention">Example mention (@Ada Lovelace)</button>
+            <button id="actPageBreak">Page break <span class="kbd">Ctrl+Enter</span></button>
+            <button id="actComment">Comment…</button>
+            <button id="actToc">Update table of contents</button>
             <div class="sep"></div>
-            <button id="actFieldPage">Campo: Número da página</button>
-            <button id="actFieldNumPages">Campo: Total de páginas</button>
-            <button id="actFieldDate">Campo: Data</button>
+            <button id="actFieldPage">Field: Page number</button>
+            <button id="actFieldNumPages">Field: Page count</button>
+            <button id="actFieldDate">Field: Date</button>
             <div class="sep"></div>
-            <button id="actHeader">Cabeçalho</button>
-            <button id="actFooter">Rodapé</button>
+            <button id="actHeader">Header</button>
+            <button id="actFooter">Footer</button>
             <div class="sep"></div>
-            <button id="actBullets2">Lista com marcadores</button>
-            <button id="actNumbers2">Lista numerada</button>
+            <button id="actBullets2">Bulleted list</button>
+            <button id="actNumbers2">Numbered list</button>
           </div>
         </div>
     </nav>
-    <input id="docTitle" value="Documento sem título" spellcheck="false" title="Título do documento" />
+    <input id="docTitle" value="Untitled document" spellcheck="false" title="Document title" />
     <div class="head-right">
-      <u-icon-button id="accentBtn" variant="standard" title="Cor de destaque"><span class="micon">palette</span></u-icon-button>
-      <u-icon-button id="darkToggle" variant="standard" title="Tema"><span class="micon" id="darkToggleIcon">brightness_auto</span></u-icon-button>
-      <u-button id="saveBtn" variant="filled"><span class="micon" slot="icon">save</span><span id="saveBtnLabel">Salvar .docx</span></u-button>
+      <u-icon-button id="accentBtn" variant="standard" title="Accent color"><span class="micon">palette</span></u-icon-button>
+      <u-icon-button id="darkToggle" variant="standard" title="Theme"><span class="micon" id="darkToggleIcon">brightness_auto</span></u-icon-button>
+      <u-button id="saveBtn" variant="filled"><span class="micon" slot="icon">save</span><span id="saveBtnLabel">Save .docx</span></u-button>
     </div>
   </header>
   <div id="accentMenu" class="accent-menu" style="display:none">
-    <button class="accent-sw" data-accent="neutral" title="Padrão (preto/branco)" style="background:linear-gradient(135deg,#111 0 50%,#fff 50% 100%)"></button>
+    <button class="accent-sw" data-accent="neutral" title="Default (black/white)" style="background:linear-gradient(135deg,#111 0 50%,#fff 50% 100%)"></button>
     <button class="accent-sw" data-accent="teal" title="Teal" style="background:#1F7A75"></button>
-    <button class="accent-sw" data-accent="blue" title="Azul" style="background:#1A73E8"></button>
-    <button class="accent-sw" data-accent="green" title="Verde" style="background:#3F8E3F"></button>
-    <button class="accent-sw" data-accent="amber" title="Âmbar" style="background:#A6791F"></button>
-    <button class="accent-sw" data-accent="red" title="Vermelho" style="background:#C0392B"></button>
-    <button class="accent-sw" data-accent="purple" title="Roxo" style="background:#6750A4"></button>
+    <button class="accent-sw" data-accent="blue" title="Blue" style="background:#1A73E8"></button>
+    <button class="accent-sw" data-accent="green" title="Green" style="background:#3F8E3F"></button>
+    <button class="accent-sw" data-accent="amber" title="Amber" style="background:#A6791F"></button>
+    <button class="accent-sw" data-accent="red" title="Red" style="background:#C0392B"></button>
+    <button class="accent-sw" data-accent="purple" title="Purple" style="background:#6750A4"></button>
   </div>
   <div id="findDialog" class="dlg-backdrop" style="display:none">
-    <div class="dlg" role="dialog" aria-label="Localizar e substituir">
+    <div class="dlg" role="dialog" aria-label="Find and replace">
       <div class="dlg-head">
-        <span class="dlg-title">Localizar e substituir</span>
-        <button id="findClose" class="dlg-x" title="Fechar (Esc)"><span class="micon">close</span></button>
+        <span class="dlg-title">Find and replace</span>
+        <button id="findClose" class="dlg-x" title="Close (Esc)"><span class="micon">close</span></button>
       </div>
-      <input type="text" id="findText" placeholder="Localizar" />
-      <input type="text" id="replText" placeholder="Substituir por" />
+      <input type="text" id="findText" placeholder="Find" />
+      <input type="text" id="replText" placeholder="Replace with" />
       <div class="dlg-actions">
-        <button id="findNext" class="dlg-btn">Localizar próxima</button>
-        <button id="replaceAll" class="dlg-btn primary">Substituir tudo</button>
+        <button id="findNext" class="dlg-btn">Find next</button>
+        <button id="replaceAll" class="dlg-btn primary">Replace all</button>
       </div>
     </div>
   </div>
@@ -545,86 +548,86 @@
   <div id="toolbarRow">
   <div id="toolbar">
     <!-- ── Ordem espelhando a barra do Google Docs ── -->
-    <div class="tb-g" data-g="tools" data-label="Ferramentas" data-prio="4" data-icon="undo">
-      <button id="undo" title="Desfazer (Ctrl+Z)"><span class="micon">undo</span></button>
-      <button id="redo" title="Refazer (Ctrl+Y)"><span class="micon">redo</span></button>
-      <button id="print" title="Imprimir (Ctrl+P)"><span class="micon">print</span></button>
-      <button id="spell" title="Verificação ortográfica"><span class="micon">spellcheck</span></button>
-      <button id="painter" title="Pincel de formatação"><span class="micon">format_paint</span></button>
+    <div class="tb-g" data-g="tools" data-label="Tools" data-prio="4" data-icon="undo">
+      <button id="undo" title="Undo (Ctrl+Z)"><span class="micon">undo</span></button>
+      <button id="redo" title="Redo (Ctrl+Y)"><span class="micon">redo</span></button>
+      <button id="print" title="Print (Ctrl+P)"><span class="micon">print</span></button>
+      <button id="spell" title="Spell check"><span class="micon">spellcheck</span></button>
+      <button id="painter" title="Format painter"><span class="micon">format_paint</span></button>
       <button id="zoomMenu" class="tb-menu tb-zoom" title="Zoom"><span class="tb-menu-num">100%</span><span class="chev">▾</span></button>
     </div>
-    <div class="tb-g" data-g="style" data-label="Estilo" data-prio="8" data-icon="format_size">
-      <select id="style" title="Estilo de parágrafo">
-        <option value="">Texto normal</option>
-        <option value="Ttulo">Título</option>
-        <option value="Ttulo1">Título 1</option>
-        <option value="Ttulo2">Título 2</option>
-        <option value="Ttulo3">Título 3</option>
+    <div class="tb-g" data-g="style" data-label="Style" data-prio="8" data-icon="format_size">
+      <select id="style" title="Paragraph style">
+        <option value="">Normal text</option>
+        <option value="Ttulo">Title</option>
+        <option value="Ttulo1">Heading 1</option>
+        <option value="Ttulo2">Heading 2</option>
+        <option value="Ttulo3">Heading 3</option>
       </select>
     </div>
-    <div class="tb-g" data-g="font" data-label="Fonte" data-prio="8" data-icon="font_download">
-      <select id="font" title="Fonte"><option>Aptos</option><option>Calibri</option></select>
+    <div class="tb-g" data-g="font" data-label="Font" data-prio="8" data-icon="font_download">
+      <select id="font" title="Font"><option>Aptos</option><option>Calibri</option></select>
     </div>
-    <div class="tb-g" data-g="size" data-label="Tamanho da fonte" data-prio="7" data-icon="text_fields">
-      <button id="shrink" title="Diminuir fonte"><span class="micon">remove</span></button>
-      <input id="size" class="tb-size" type="text" inputmode="numeric" maxlength="3" value="11" title="Tamanho da fonte" />
-      <button id="grow" title="Aumentar fonte"><span class="micon">add</span></button>
+    <div class="tb-g" data-g="size" data-label="Font size" data-prio="7" data-icon="text_fields">
+      <button id="shrink" title="Decrease font size"><span class="micon">remove</span></button>
+      <input id="size" class="tb-size" type="text" inputmode="numeric" maxlength="3" value="11" title="Font size" />
+      <button id="grow" title="Increase font size"><span class="micon">add</span></button>
     </div>
-    <div class="tb-g" data-g="format" data-label="Formatação" data-prio="9" data-icon="format_bold">
-      <button id="bold" title="Negrito (Ctrl+B)"><span class="micon">format_bold</span></button>
-      <button id="italic" title="Itálico (Ctrl+I)"><span class="micon">format_italic</span></button>
-      <button id="underline" title="Sublinhado (Ctrl+U)"><span class="micon">format_underlined</span></button>
-      <button id="colorBtn" class="tb-color" title="Cor do texto"><span class="micon">format_color_text</span><span class="tb-color-bar" id="colorBar"></span></button>
+    <div class="tb-g" data-g="format" data-label="Formatting" data-prio="9" data-icon="format_bold">
+      <button id="bold" title="Bold (Ctrl+B)"><span class="micon">format_bold</span></button>
+      <button id="italic" title="Italic (Ctrl+I)"><span class="micon">format_italic</span></button>
+      <button id="underline" title="Underline (Ctrl+U)"><span class="micon">format_underlined</span></button>
+      <button id="colorBtn" class="tb-color" title="Text color"><span class="micon">format_color_text</span><span class="tb-color-bar" id="colorBar"></span></button>
       <input type="color" id="color" value="#000000" style="display:none" />
-      <select id="highlight" title="Cor de realce do texto" data-menu="format_ink_highlighter">
-        <option value="">Sem realce</option><option value="yellow">Amarelo</option>
-        <option value="green">Verde</option><option value="cyan">Ciano</option>
+      <select id="highlight" title="Text highlight color" data-menu="format_ink_highlighter">
+        <option value="">No highlight</option><option value="yellow">Yellow</option>
+        <option value="green">Green</option><option value="cyan">Cyan</option>
         <option value="magenta">Magenta</option>
       </select>
     </div>
-    <div class="tb-g" data-g="insert" data-label="Inserir" data-prio="5" data-icon="link">
-      <button id="linkBtn" title="Inserir link (Ctrl+K)"><span class="micon">link</span></button>
-      <button id="commentBtn" title="Adicionar comentário"><span class="micon">add_comment</span></button>
-      <button id="imageBtn" title="Inserir imagem"><span class="micon">image</span></button>
+    <div class="tb-g" data-g="insert" data-label="Insert" data-prio="5" data-icon="link">
+      <button id="linkBtn" title="Insert link (Ctrl+K)"><span class="micon">link</span></button>
+      <button id="commentBtn" title="Add comment"><span class="micon">add_comment</span></button>
+      <button id="imageBtn" title="Insert image"><span class="micon">image</span></button>
     </div>
-    <div class="tb-g" data-g="para" data-label="Parágrafo" data-prio="6" data-icon="format_align_left">
-      <button id="alignMenu" class="tb-menu" title="Alinhamento"><span class="micon">format_align_left</span><span class="chev">▾</span></button>
-      <select id="spacing" title="Espaçamento entre linhas e parágrafo" data-menu="format_line_spacing">
+    <div class="tb-g" data-g="para" data-label="Paragraph" data-prio="6" data-icon="format_align_left">
+      <button id="alignMenu" class="tb-menu" title="Alignment"><span class="micon">format_align_left</span><span class="chev">▾</span></button>
+      <select id="spacing" title="Line and paragraph spacing" data-menu="format_line_spacing">
         <option value="240">1,0</option><option value="259" selected>1,08</option>
         <option value="360">1,5</option><option value="480">2,0</option>
       </select>
-      <button id="checklist" title="Lista de tarefas"><span class="micon">checklist</span></button>
-      <button id="bullets" title="Lista com marcadores"><span class="micon">format_list_bulleted</span></button>
-      <button id="numbers" title="Lista numerada"><span class="micon">format_list_numbered</span></button>
-      <button id="outdent" title="Diminuir recuo"><span class="micon">format_indent_decrease</span></button>
-      <button id="indent" title="Aumentar recuo"><span class="micon">format_indent_increase</span></button>
-      <button id="clear" title="Limpar formatação"><span class="micon">format_clear</span></button>
+      <button id="checklist" title="Task list"><span class="micon">checklist</span></button>
+      <button id="bullets" title="Bulleted list"><span class="micon">format_list_bulleted</span></button>
+      <button id="numbers" title="Numbered list"><span class="micon">format_list_numbered</span></button>
+      <button id="outdent" title="Decrease indent"><span class="micon">format_indent_decrease</span></button>
+      <button id="indent" title="Increase indent"><span class="micon">format_indent_increase</span></button>
+      <button id="clear" title="Clear formatting"><span class="micon">format_clear</span></button>
     </div>
-    <!-- ── extras WordNext (fora do conjunto do Google Docs): sempre no "⋮" ── -->
-    <div class="tb-g" data-g="extras" data-label="Mais ferramentas" data-prio="0" data-icon="more_horiz">
-      <button id="strike" title="Tachado"><span class="micon">format_strikethrough</span></button>
-      <button id="sub" title="Subscrito"><span class="micon">subscript</span></button>
-      <button id="sup" title="Sobrescrito"><span class="micon">superscript</span></button>
-      <button id="case" title="Maiúsculas/minúsculas"><span class="micon">match_case</span></button>
-      <input type="color" id="shading" title="Sombreamento do parágrafo" value="#ffffff" />
-      <button id="border" title="Bordas do parágrafo"><span class="micon">border_all</span></button>
-      <button id="marks" title="Mostrar marcas de parágrafo"><span class="micon">format_paragraph</span></button>
-      <select id="spaceAfter" title="Espaço depois do parágrafo" data-menu="density_medium">
-        <option value="">Depois: 8pt</option><option value="0">Depois: 0</option>
-        <option value="240">Depois: 12pt</option>
+    <!-- ── extras Write (fora do conjunto do Google Docs): sempre no "⋮" ── -->
+    <div class="tb-g" data-g="extras" data-label="More tools" data-prio="0" data-icon="more_horiz">
+      <button id="strike" title="Strikethrough"><span class="micon">format_strikethrough</span></button>
+      <button id="sub" title="Subscript"><span class="micon">subscript</span></button>
+      <button id="sup" title="Superscript"><span class="micon">superscript</span></button>
+      <button id="case" title="Change case"><span class="micon">match_case</span></button>
+      <input type="color" id="shading" title="Paragraph shading" value="#ffffff" />
+      <button id="border" title="Paragraph borders"><span class="micon">border_all</span></button>
+      <button id="marks" title="Show paragraph marks"><span class="micon">format_paragraph</span></button>
+      <select id="spaceAfter" title="Space after paragraph" data-menu="density_medium">
+        <option value="">After: 8pt</option><option value="0">After: 0</option>
+        <option value="240">After: 12pt</option>
       </select>
-      <select id="charSpacing" title="Espaçamento de caracteres" data-menu="format_letter_spacing">
-        <option value="">Espaç. normal</option><option value="20">Expandido 1pt</option>
-        <option value="40">Expandido 2pt</option><option value="-10">Condensado</option>
+      <select id="charSpacing" title="Character spacing" data-menu="format_letter_spacing">
+        <option value="">Normal spacing</option><option value="20">Expanded 1pt</option>
+        <option value="40">Expanded 2pt</option><option value="-10">Condensed</option>
       </select>
-      <select id="specialIndent" title="Recuo especial" data-menu="keyboard_tab">
-        <option value="none">Sem recuo esp.</option><option value="firstLine">Primeira linha</option>
-        <option value="hanging">Deslocamento</option>
+      <select id="specialIndent" title="Special indent" data-menu="keyboard_tab">
+        <option value="none">No special indent</option><option value="firstLine">First line</option>
+        <option value="hanging">Hanging</option>
       </select>
-      <select id="orientation" title="Orientação" data-menu="screen_rotation"><option value="portrait">Retrato</option><option value="landscape">Paisagem</option></select>
-      <select id="pagesize" title="Tamanho do papel" data-menu="aspect_ratio"><option value="A4">A4</option><option value="Letter">Carta</option></select>
-      <select id="margins" title="Margens" data-menu="margin"><option value="normal">Margens normais</option><option value="narrow">Estreitas</option><option value="wide">Largas</option></select>
-      <button id="findOpen" title="Localizar e substituir (Ctrl+F)"><span class="micon">search</span></button>
+      <select id="orientation" title="Orientation" data-menu="screen_rotation"><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select>
+      <select id="pagesize" title="Paper size" data-menu="aspect_ratio"><option value="A4">A4</option><option value="Letter">Letter</option></select>
+      <select id="margins" title="Margins" data-menu="margin"><option value="normal">Normal margins</option><option value="narrow">Narrow</option><option value="wide">Wide</option></select>
+      <button id="findOpen" title="Find and replace (Ctrl+F)"><span class="micon">search</span></button>
     </div>
     <input type="file" id="imageFile" accept="image/png,image/jpeg,image/gif" style="display:none" />
     <input type="file" id="docxFile" accept=".docx,.odt" style="display:none" />
@@ -632,25 +635,26 @@
   </div>
 
   <div id="protectedBar" class="u-text-bg-warning-container bar-off" style="display:flex;padding:5px 16px;font-size:13px;align-items:center;gap:10px">
-    <span>🛡 <b>MODO DE EXIBIÇÃO PROTEGIDO</b> — Tenha cuidado: arquivos da Internet podem conter vírus. A menos que você precise editar, é mais seguro permanecer no Modo de Exibição Protegido.</span>
-    <u-button id="enableEditing" variant="filled" size="extra-small" style="margin-left:auto;white-space:nowrap">Habilitar Edição</u-button>
+    <span>🛡 <b>PROTECTED VIEW</b> — Be careful: files from the Internet can contain viruses. Unless you need to edit, it is safer to stay in Protected View.</span>
+    <u-button id="enableEditing" variant="filled" size="extra-small" style="margin-left:auto;white-space:nowrap">Enable Editing</u-button>
   </div>
   <u-dialog id="fieldsDialog">
     <span slot="icon" class="micon">gpp_maybe</span>
-    <span slot="headline">Aviso de Segurança</span>
-    <span>Este documento contém campos que podem fazer referência a outros componentes (sumário, datas, números de página). Deseja atualizá-los?</span>
+    <span slot="headline">Security Warning</span>
+    <span>This document contains fields that may reference other components (table of contents, dates, page numbers). Do you want to update them?</span>
     <!-- .actions usa flex-direction:row-reverse → o 1º no DOM fica à DIREITA;
          por isso a ação primária (Atualizar) vem primeiro p/ ficar à direita -->
-    <u-button slot="actions" id="updateFields" variant="filled">Atualizar Campos</u-button>
-    <u-button slot="actions" id="dismissFields" variant="text">Agora não</u-button>
+    <u-button slot="actions" id="updateFields" variant="filled">Update Fields</u-button>
+    <u-button slot="actions" id="dismissFields" variant="text">Not now</u-button>
   </u-dialog>
   <div style="display:flex;flex:1;min-height:0">
-    <word-next id="wn" fonts="/tools/word-lab/fonts" style="flex:1;min-width:0"></word-next>
+    <universal-write id="wn" fonts="/tools/word-lab/fonts" style="flex:1;min-width:0"></universal-write>
+    <universal-write-diff id="wd" style="flex:1;min-width:0;display:none"></universal-write-diff>
     <aside id="commentsPanel" style="display:none;width:260px;flex:none;overflow:auto;border-left:1px solid var(--border);background:var(--chrome);padding:10px">
       <div style="display:flex;align-items:center;margin-bottom:8px;gap:4px">
-        <b style="flex:1">Anotações</b>
-        <u-icon-button id="commentsInlineToggle" variant="standard" title="Mostrar cartões ao lado da página"><span class="micon">view_sidebar</span></u-icon-button>
-        <u-icon-button id="commentsClose" variant="standard" title="Fechar"><span class="micon">close</span></u-icon-button>
+        <b style="flex:1">Comments</b>
+        <u-icon-button id="commentsInlineToggle" variant="standard" title="Show cards beside the page"><span class="micon">view_sidebar</span></u-icon-button>
+        <u-icon-button id="commentsClose" variant="standard" title="Close"><span class="micon">close</span></u-icon-button>
       </div>
       <div id="commentsList"></div>
     </aside>
@@ -660,24 +664,24 @@
   <div id="inlineCommentsOverlay"></div>
 
   <footer>
-    <span id="status">1 página · 0 palavras</span>
+    <span id="status">1 page · 0 words</span>
     <div class="views">
-      <button data-view="print" class="active" title="Layout de impressão"><span class="micon">description</span></button>
-      <button data-view="web" title="Layout da Web"><span class="micon">web</span></button>
-      <button data-view="read" title="Modo de leitura"><span class="micon">menu_book</span></button>
-      <button data-view="focus" title="Modo foco (Esc para sair)"><span class="micon">center_focus_strong</span></button>
+      <button data-view="print" class="active" title="Print layout"><span class="micon">description</span></button>
+      <button data-view="web" title="Web layout"><span class="micon">web</span></button>
+      <button data-view="read" title="Read mode"><span class="micon">menu_book</span></button>
+      <button data-view="focus" title="Focus mode (Esc to exit)"><span class="micon">center_focus_strong</span></button>
     </div>
     <span style="display:flex;align-items:center;gap:8px">
-      <button id="zoomOut" title="Reduzir" style="border:0;background:transparent;color:var(--text-2);cursor:pointer">−</button>
+      <button id="zoomOut" title="Zoom out" style="border:0;background:transparent;color:var(--text-2);cursor:pointer">−</button>
       <input type="range" id="zoom" min="10" max="500" value="100" step="5"
-        title="Zoom (Ctrl+scroll no documento)" style="width:130px;accent-color:var(--accent)" />
-      <button id="zoomIn" title="Ampliar" style="border:0;background:transparent;color:var(--text-2);cursor:pointer">+</button>
+        title="Zoom (Ctrl+scroll on the document)" style="width:130px;accent-color:var(--accent)" />
+      <button id="zoomIn" title="Zoom in" style="border:0;background:transparent;color:var(--text-2);cursor:pointer">+</button>
       <span id="zoomLabel" style="min-width:42px;text-align:right">100%</span>
     </span>
   </footer>
 
-  <div id="hfHint" style="display:none;position:fixed;z-index:90;background:#2b579a;color:#fff;font-size:12px;padding:4px 9px;border-radius:6px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25)">Duplo-clique para editar</div>
-  <div id="dropOverlay">Solte o .docx para abrir</div>
+  <div id="hfHint" style="display:none;position:fixed;z-index:90;background:#2b579a;color:#fff;font-size:12px;padding:4px 9px;border-radius:6px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25)">Double-click to edit</div>
+  <div id="dropOverlay">Drop the .docx to open</div>
   <script type="module" src="./bundle.js"></script>
 </body>
 </html>

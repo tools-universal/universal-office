@@ -7,9 +7,9 @@ import { DocxPackage, readDocument, readFullDocument } from '../src/index.js';
  * "perfeitamente". Cada teste descreve um recurso presente no arquivo.
  * (Os números vêm da dissecação do XML — ver results/catalogo/.)
  */
-const CATALOG = 'D:\\Projects\\OfficeNext\\WordNext\\samples\\Catalogo-Recursos-Word.docx';
+const CATALOG = 'D:\\Projects\\OfficeNext\\write\\samples\\Catalogo-Recursos-Word.docx';
 
-describe('Catálogo de recursos do Word', () => {
+describe('Catálogo de recursos do app de referência', () => {
   if (!existsSync(CATALOG)) {
     it.skip('catálogo ausente', () => {});
     return;

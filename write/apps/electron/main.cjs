@@ -1,4 +1,4 @@
-// Shell Electron do WordNext — v1: embarca o demo do <word-next> servindo a
+// Shell Electron do UniversalWrite — v1: embarca o demo do <universal-write> servindo a
 // raiz do repositório por um servidor estático interno (fetch de docx/fontes
 // não funciona via file://).
 const { app, BrowserWindow, ipcMain, dialog, nativeImage } = require('electron');
@@ -31,6 +31,23 @@ ipcMain.handle('wn:open-docx', async () => {
     name: basename(filePath),
     bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
     motw: hasMarkOfTheWeb(filePath),
+  };
+});
+
+// Segundo documento para a comparação ("Comparar com…"). Sem MOTW: o diff é
+// somente leitura, não passa pelo Modo Protegido.
+ipcMain.handle('wn:open-docx-compare', async (e, title) => {
+  const result = await dialog.showOpenDialog({
+    title: title || 'Comparar com…',
+    filters: [{ name: 'Documento do Word', extensions: ['docx'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const filePath = result.filePaths[0];
+  const bytes = readFileSync(filePath);
+  return {
+    name: basename(filePath),
+    bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
   };
 });
 
@@ -115,7 +132,7 @@ app.whenReady().then(async () => {
   const win = new BrowserWindow({
     width: 1100,
     height: 900,
-    title: 'WordNext',
+    title: 'UniversalWrite',
     backgroundColor: '#ffffff',
     icon: iconPath, // ignorado em macOS (que usa o dock); pega Windows/Linux
     // Barra de título mesclada: a janela é frameless e o header do app vira a

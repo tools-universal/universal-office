@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Examples — Universal Write</title>
+  <meta name="description" content="Complete, copy-paste examples for the <universal-write> and <universal-write-diff> web components: toolbar, file I/O, export, plugins, and comparison." />
+  <link rel="icon" type="image/svg+xml" href="../../assets/icons/universal-office.svg" />
+  <link rel="stylesheet" href="../../assets/style.css" />
+  <script src="../../assets/theme.js"></script>
+</head>
+<body>
+
+  <header class="topbar">
+    <a class="brand" href="../../index.html">
+      <img class="brand-logo" src="../../assets/icons/universal-office.svg" width="30" height="30" alt="Universal Office" />
+      Universal Office<span class="beta">Beta</span>
+    </a>
+    <nav>
+      <a href="../../index.html">Home</a>
+      <a href="index.html" class="active">Documentation</a>
+      <a href="../universal-write-diff/index.html">&lt;universal-write-diff&gt;</a>
+    </nav>
+    <div class="theme-switch" role="group" aria-label="Theme">
+      <button type="button" data-theme="auto" title="Auto (system)" aria-label="Auto theme"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
+      <button type="button" data-theme="light" title="Light" aria-label="Light theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <button type="button" data-theme="dark" title="Dark" aria-label="Dark theme"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+    </div>
+  </header>
+
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <div class="group">
+        <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/write.svg" alt="" />Universal Write</p>
+        <ul>
+          <li><a href="index.html">Getting started</a></li>
+          <li><a href="examples.html" class="active">Examples</a></li>
+          <li><a href="api.html">API reference</a></li>
+          <li><a href="events.html">Events</a></li>
+          <li><a href="plugins.html">Plugins</a></li>
+          <li><a href="compatibility.html">Compatibility</a></li>
+        </ul>
+      </div>
+      <div class="group">
+        <p class="title">Comparison</p>
+        <ul>
+          <li><a href="../universal-write-diff/index.html">&lt;universal-write-diff&gt;</a></li>
+        </ul>
+      </div>
+      <div class="group">
+        <p class="title">Suite</p>
+        <ul>
+          <li><span class="soon-item"><img class="nav-ico" src="../../assets/icons/sheet.svg" alt="" />Universal Sheet <span class="soon-tag">soon</span></span></li>
+          <li><span class="soon-item"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides <span class="soon-tag">soon</span></span></li>
+        </ul>
+      </div>
+    </aside>
+
+    <main class="content">
+      <h1>Examples</h1>
+      <p class="lead-doc">
+        End-to-end, copy-paste examples. Each one assumes the package is installed
+        (<code>npm install @universal-office/write</code>) and imported once so the custom
+        elements register themselves:
+      </p>
+      <pre><code>import '@universal-office/write';</code></pre>
+      <div class="callout">
+        <p>
+          Snippets reference an <code>editor</code> obtained with
+          <code>const editor = document.getElementById('editor');</code> and, in the
+          comparison examples, a <code>wd</code> for the
+          <code>&lt;universal-write-diff&gt;</code> element.
+        </p>
+      </div>
+
+      <h2 id="live">Live demos</h2>
+      <p>
+        These run the real <code>&lt;universal-write&gt;</code> and
+        <code>&lt;universal-write-diff&gt;</code> components right here in your browser —
+        no backend. <strong>Open your own <code>.docx</code></strong>, edit it, use the
+        toolbar, export it, type <code>@</code> for a mention, and — in the comparison —
+        open either side and toggle the view. The copy-paste library below covers every
+        part of the API in isolation.
+      </p>
+
+      <h3 id="live-editor">Editor</h3>
+      <p>
+        The toolbar and status bar are <strong>built into the component</strong> — just
+        toggle the boolean <code>topbar</code> and <code>bottombar</code> attributes, no
+        external chrome to wire.
+      </p>
+      <div class="demo-controls" id="ed-modes">
+        <label class="lbl"><input type="checkbox" id="ed-top" checked /> topbar</label>
+        <label class="lbl"><input type="checkbox" id="ed-bottom" checked /> bottombar</label>
+      </div>
+      <div class="demo">
+        <div class="demo-stage">
+          <universal-write id="ed" fonts="/assets/fonts" topbar bottombar></universal-write>
+        </div>
+      </div>
+      <details>
+        <summary>Show source</summary>
+        <pre><code>import '@universal-office/write';
+import { createMentionPlugin } from '@universal-office/write';
+
+// The toolbar + status bar are built in — just set the attributes:
+//   &lt;universal-write topbar bottombar&gt;&lt;/universal-write&gt;
+const ed = document.getElementById('ed');
+
+// …or toggle them at runtime via properties:
+ed.topbar = true;      // boolean
+ed.bottombar = true;   // boolean
+
+ed.use(createMentionPlugin({ prefix: '@', source: fetchPeople }));
+
+ed.addEventListener('uw-ready', async () =&gt; {
+  const bytes = new Uint8Array(await (await fetch('/samples/demo.docx')).arrayBuffer());
+  ed.load(bytes, 'auto', { protected: false });   // editable straight away
+  ed.focusEditor();
+});</code></pre>
+      </details>
+
+
+      <h3 id="live-diff">Comparison</h3>
+      <div class="demo">
+        <div class="demo-toolbar" id="uwd-tb">
+          <span class="lbl">View</span>
+          <u-icon-button shape="square" data-view="all" variant="standard" title="All blocks"><svg class="micon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M180-510q-24 0-42-18t-18-42v-210q0-24 18-42t42-18h600q24 0 42 18t18 42v210q0 24-18 42t-42 18H180Zm0-60h600v-210H180v210Zm0 450q-24 0-42-18t-18-42v-210q0-24 18-42t42-18h600q24 0 42 18t18 42v210q0 24-18 42t-42 18H180Zm0-60h600v-210H180v210Zm0-600v210-210Zm0 390v210-210Z"/></svg></u-icon-button>
+          <u-icon-button shape="square" data-view="diffs" variant="standard" title="Only changes"><svg class="micon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M490-610v54q0 12.75 8.68 21.37 8.67 8.63 21.5 8.63 12.82 0 21.32-8.63 8.5-8.62 8.5-21.37v-54h54q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5h-54v-54q0-12.75-8.68-21.38-8.67-8.62-21.5-8.62-12.82 0-21.32 8.62-8.5 8.63-8.5 21.38v54h-54q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5h54Zm-54 240h168q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5H436q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5ZM260-160q-24 0-42-18t-18-42v-640q0-24 18-42t42-18h323q12.44 0 23.72 5T626-902l196 196q8 8 13 19.28 5 11.28 5 23.72v443q0 24-18 42t-42 18H260Zm0-60h520v-442L578-860H260v640ZM140-40q-24 0-42-18t-18-42v-589q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v589h468q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32Q620.75-40 608-40H140Zm120-180v-640 640Z"/></svg></u-icon-button>
+          <span class="sep"></span>
+          <u-button id="uwd-open-a" variant="text"><svg class="micon" slot="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M349-250h262q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5H349q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5Zm0-170h262q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5H349q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5ZM220-80q-24 0-42-18t-18-42v-680q0-24 18-42t42-18h336q12.44 0 23.72 5T599-862l183 183q8 8 13 19.28 5 11.28 5 23.72v496q0 24-18 42t-42 18H220Zm331-584v-156H220v680h520v-494H581q-12.75 0-21.37-8.63Q551-651.25 551-664ZM220-820v186-186 680-680Z"/></svg>Open left</u-button>
+          <u-button id="uwd-open-b" variant="text"><svg class="micon" slot="icon" viewBox="0 -960 960 960" aria-hidden="true"><path d="M349-250h262q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5H349q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5Zm0-170h262q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5H349q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5ZM220-80q-24 0-42-18t-18-42v-680q0-24 18-42t42-18h336q12.44 0 23.72 5T599-862l183 183q8 8 13 19.28 5 11.28 5 23.72v496q0 24-18 42t-42 18H220Zm331-584v-156H220v680h520v-494H581q-12.75 0-21.37-8.63Q551-651.25 551-664ZM220-820v186-186 680-680Z"/></svg>Open right</u-button>
+          <span class="spacer"></span>
+          <span class="lbl" id="uwd-stats"></span>
+          <input type="file" id="uwd-file-a" accept=".docx" hidden />
+          <input type="file" id="uwd-file-b" accept=".docx" hidden />
+        </div>
+        <div class="demo-stage">
+          <universal-write-diff id="wd" left-label="rel-v1.docx" right-label="rel-v2.docx"></universal-write-diff>
+        </div>
+      </div>
+      <details>
+        <summary>Show source</summary>
+        <pre><code>import '@universal-office/write';
+
+const wd = document.getElementById('wd');
+const bytes = async (u) =&gt; new Uint8Array(await (await fetch(u)).arrayBuffer());
+
+wd.addEventListener('ready', (e) =&gt; {
+  const s = e.detail.stats;
+  console.log(`+${s.inserted} −${s.deleted} ~${s.changed} ✎${s.formatOnly}`);
+});
+
+let a, b, aLabel = 'rel-v1.docx', bLabel = 'rel-v2.docx';
+const run = () =&gt; { if (a &amp;&amp; b) wd.loadPair(a, b, { leftLabel: aLabel, rightLabel: bLabel }); };
+a = await bytes('/samples/rel-v1.docx');
+b = await bytes('/samples/rel-v2.docx');
+run();
+
+// Swap either side for a file from disk
+openLeft.onclick = () =&gt; fileLeft.click();
+fileLeft.onchange = async (e) =&gt; {
+  a = new Uint8Array(await e.target.files[0].arrayBuffer());
+  aLabel = e.target.files[0].name;
+  run();
+};
+
+// Toggle between the full document and changes only
+viewButtons.forEach(btn =&gt; btn.onclick = () =&gt; { wd.view = btn.dataset.view; });</code></pre>
+      </details>
+
+      <p class="demo-note">
+        The demos above load small sample documents (a rich <code>demo.docx</code> for the editor,
+        and <code>rel-v1</code>/<code>rel-v2</code> for the comparison) and render entirely on the
+        client. Everything below is a focused, copy-paste snippet library.
+      </p>
+
+      <h2 id="editor">Editor</h2>
+
+      <h3 id="minimal">Minimal editor</h3>
+      <p>The smallest working setup: a tag, an import, and a sample document loaded on ready.</p>
+      <pre><code>&lt;universal-write id="editor" fonts="/fonts" style="height:100vh"&gt;&lt;/universal-write&gt;</code></pre>
+      <pre><code>import '@universal-office/write';
+
+const editor = document.getElementById('editor');
+
+editor.addEventListener('uw-ready', async () =&gt; {
+  const resp = await fetch('/samples/welcome.docx');
+  if (resp.ok) editor.load(new Uint8Array(await resp.arrayBuffer()), 'auto', { protected: false });
+  else editor.newDocument();
+  editor.focusEditor();
+});</code></pre>
+
+      <h3 id="toolbar">Formatting toolbar</h3>
+      <p>Wire buttons to the run/paragraph formatting API. The editor keeps the model in sync.</p>
+      <pre><code>&lt;div class="toolbar"&gt;
+  &lt;button data-cmd="bold"&gt;&lt;b&gt;B&lt;/b&gt;&lt;/button&gt;
+  &lt;button data-cmd="italic"&gt;&lt;i&gt;I&lt;/i&gt;&lt;/button&gt;
+  &lt;button data-cmd="underline"&gt;&lt;u&gt;U&lt;/u&gt;&lt;/button&gt;
+  &lt;button data-align="left"&gt;Left&lt;/button&gt;
+  &lt;button data-align="center"&gt;Center&lt;/button&gt;
+  &lt;button data-align="both"&gt;Justify&lt;/button&gt;
+  &lt;button data-list="bullet"&gt;• List&lt;/button&gt;
+  &lt;button data-list="decimal"&gt;1. List&lt;/button&gt;
+  &lt;select id="size"&gt;&lt;option&gt;11&lt;/option&gt;&lt;option&gt;14&lt;/option&gt;&lt;option&gt;18&lt;/option&gt;&lt;/select&gt;
+&lt;/div&gt;
+&lt;universal-write id="editor" fonts="/fonts"&gt;&lt;/universal-write&gt;</code></pre>
+      <pre><code>import '@universal-office/write';
+
+const editor = document.getElementById('editor');
+
+document.querySelectorAll('[data-cmd]').forEach((b) =&gt;
+  b.addEventListener('click', () =&gt; editor.toggleRunProp(b.dataset.cmd)));
+
+document.querySelectorAll('[data-align]').forEach((b) =&gt;
+  b.addEventListener('click', () =&gt; editor.setAlignment(b.dataset.align)));
+
+document.querySelectorAll('[data-list]').forEach((b) =&gt;
+  b.addEventListener('click', () =&gt; editor.toggleList(b.dataset.list)));
+
+document.getElementById('size').addEventListener('change', (e) =&gt;
+  editor.setFontSize(Number(e.target.value)));</code></pre>
+
+      <h3 id="undo">Undo, redo and keyboard</h3>
+      <p>The editor handles its own shortcuts; expose buttons for a custom chrome:</p>
+      <pre><code>undoBtn.onclick = () =&gt; editor.undo();
+redoBtn.onclick = () =&gt; editor.redo();
+selectAllBtn.onclick = () =&gt; editor.selectAll();</code></pre>
+
+      <h2 id="files">Files &amp; export</h2>
+
+      <h3 id="open-save">Open and save .docx</h3>
+      <p>Uses the File System Access API when available, with a download fallback for saving.</p>
+      <pre><code>const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+async function open() {
+  const [handle] = await window.showOpenFilePicker({
+    types: [{ description: 'Word document', accept: { [DOCX]: ['.docx'] } }],
+  });
+  const file = await handle.getFile();
+  editor.load(new Uint8Array(await file.arrayBuffer()), 'auto', { protected: false });
+}
+
+async function save() {
+  download(await editor.save('docx'), 'document.docx', DOCX);
+}
+
+function download(data, filename, type) {
+  const url = URL.createObjectURL(new Blob([data], { type }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+  a.click();
+  URL.revokeObjectURL(url);
+}</code></pre>
+
+      <h3 id="export">Export menu</h3>
+      <p>Every format goes through the same <code>save(format)</code> — always awaited.</p>
+      <pre><code>pdfBtn.onclick  = async () =&gt; download(await editor.save('pdf'), 'document.pdf', 'application/pdf');
+odtBtn.onclick  = async () =&gt; download(await editor.save('odt'), 'document.odt', 'application/vnd.oasis.opendocument.text');
+xpsBtn.onclick  = async () =&gt; download(await editor.save('xps'), 'document.xps', 'application/oxps');
+
+htmlBtn.onclick = async () =&gt; {
+  const html = await editor.save('html', { title: 'My document' });   // returns a string
+  download(new TextEncoder().encode(html), 'document.html', 'text/html');
+};
+
+mdBtn.onclick = async () =&gt; {
+  const md = await editor.save('markdown', { images: false });        // omit images
+  download(new TextEncoder().encode(md), 'document.md', 'text/markdown');
+};
+
+printBtn.onclick = () =&gt; editor.print();</code></pre>
+
+      <h3 id="insert-image">Insert an image</h3>
+      <pre><code>fileInput.addEventListener('change', async (e) =&gt; {
+  const file = e.target.files[0];
+  if (!file) return;
+  const ext = file.type.replace('image/', ''); // 'png' | 'jpeg' | 'gif'
+  await editor.insertImage(new Uint8Array(await file.arrayBuffer()), ext);
+});</code></pre>
+
+      <h2 id="interface">Interface</h2>
+
+      <h3 id="status-bar">Reactive status bar</h3>
+      <p>Keep a word/page count and zoom indicator in sync using events.</p>
+      <pre><code>const status = document.getElementById('status');
+
+editor.addEventListener('uw-change', render);
+editor.addEventListener('uw-zoom', render);
+editor.addEventListener('uw-ready', render);
+
+function render() {
+  const st = editor.stats();
+  const zoom = Math.round(editor.getZoom() * 100);
+  status.textContent =
+    `Page ${st.page} of ${st.pages} · ${st.words} words · ${zoom}%`;
+}</code></pre>
+
+      <h3 id="zoom">Zoom controls</h3>
+      <pre><code>zoomInBtn.onclick  = () =&gt; editor.setZoom(editor.getZoom() + 0.1);
+zoomOutBtn.onclick = () =&gt; editor.setZoom(editor.getZoom() - 0.1);
+fitBtn.onclick     = () =&gt; editor.setZoom(1);</code></pre>
+
+      <h3 id="protected">"Enable Editing" bar</h3>
+      <p>Show a banner while a freshly opened document is in Protected View.</p>
+      <pre><code>editor.addEventListener('uw-protected', (e) =&gt; {
+  banner.hidden = !e.detail.active;
+});
+
+enableBtn.onclick = () =&gt; editor.enableEditing();</code></pre>
+
+      <h3 id="find-replace">Find &amp; replace</h3>
+      <pre><code>findBtn.onclick = () =&gt; {
+  const found = editor.findNext(findInput.value);
+  if (!found) status.textContent = 'No more matches';
+};
+
+replaceAllBtn.onclick = () =&gt; {
+  const n = editor.replaceAll(findInput.value, replaceInput.value);
+  status.textContent = `${n} replacement(s)`;
+};</code></pre>
+
+      <h3 id="comments">Comments panel</h3>
+      <p>Add a comment on the selection, list them, and jump to one on click.</p>
+      <pre><code>addCommentBtn.onclick = () =&gt; {
+  const id = editor.addComment(commentInput.value, 'Alice');
+  if (id === null) status.textContent = 'Select some text first';
+};
+
+editor.addEventListener('uw-comments-changed', renderComments);
+
+function renderComments() {
+  panel.replaceChildren();
+  for (const c of editor.getComments()) {
+    const row = document.createElement('button');
+    row.textContent = `${c.author ?? 'Anon'}: ${c.text}`;
+    row.onclick = () =&gt; editor.goToComment(c.id);
+    panel.append(row);
+  }
+}
+
+// Clicking a comment mark inside the document reports the ids
+editor.addEventListener('uw-comment-click', (e) =&gt; {
+  console.log('clicked comments', e.detail.ids);
+});</code></pre>
+
+      <h2 id="offline">Offline (no backend)</h2>
+      <p>
+        With <code>manual-init</code>, provide the fonts and the document as bytes — the
+        component makes no network request. Ideal for desktop shells and air-gapped apps.
+      </p>
+      <pre><code>&lt;universal-write id="editor" manual-init&gt;&lt;/universal-write&gt;</code></pre>
+      <pre><code>import '@universal-office/write';
+
+const editor = document.getElementById('editor');
+
+const load = async (url) =&gt; new Uint8Array(await (await fetch(url)).arrayBuffer());
+
+await editor.initialize({
+  fonts: [
+    { family: 'Aptos', variant: 'regular',    data: await load('/fonts/Aptos.ttf') },
+    { family: 'Aptos', variant: 'bold',       data: await load('/fonts/Aptos-Bold.ttf') },
+    { family: 'Aptos', variant: 'italic',     data: await load('/fonts/Aptos-Italic.ttf') },
+    { family: 'Aptos', variant: 'boldItalic', data: await load('/fonts/Aptos-BoldItalic.ttf') },
+  ],
+  document: { bytes: await load('/samples/welcome.docx'), format: 'docx', protected: false },
+});</code></pre>
+
+      <h2 id="plugins">Plugins</h2>
+
+      <h3 id="mentions">Mentions</h3>
+      <p>Type <code>@</code> to open a suggestions popover backed by your API.</p>
+      <pre><code>import { createMentionPlugin } from '@universal-office/write';
+
+editor.use(createMentionPlugin({
+  prefix: '@',
+  background: '#dce8ff',
+  color: '#174ea6',
+  maxSuggestions: 8,
+  emptyLabel: 'No people found',
+  source: async (query) =&gt; {
+    const resp = await fetch(`/api/people?q=${encodeURIComponent(query)}`);
+    return resp.json(); // [{ id, label }, ...]
+  },
+}));</code></pre>
+
+      <h3 id="chip">Custom inline (chip)</h3>
+      <p>Register a renderer, then insert atomic inlines that survive save/reopen.</p>
+      <pre><code>const chips = {
+  id: 'myapp.chips',
+  inlineRenderers: [{
+    type: 'chip',
+    toText: (data) =&gt; data.name,
+    measure: ({ fallbackText, measureText }) =&gt; ({ widthTwips: measureText(fallbackText) + 200 }),
+    draw: ({ ctx, xTwips, yTwips, scale, fallbackText }) =&gt; {
+      ctx.fillStyle = '#e8def8';
+      ctx.fillRect(xTwips * scale, yTwips * scale, 300 * scale, 100 * scale);
+      ctx.fillStyle = '#381e72';
+      ctx.fillText(fallbackText, (xTwips + 50) * scale, yTwips * scale);
+    },
+  }],
+};
+
+editor.use(chips);
+insertChipBtn.onclick = () =&gt; editor.insertCustomInline('chip', { name: 'Proposal' });</code></pre>
+
+      <h2 id="comparison">Comparison</h2>
+
+      <h3 id="compare-two">Compare two files</h3>
+      <p>Feed two <code>.docx</code> files into <code>&lt;universal-write-diff&gt;</code>.</p>
+      <pre><code>&lt;input type="file" id="a" accept=".docx"&gt;
+&lt;input type="file" id="b" accept=".docx"&gt;
+&lt;universal-write-diff id="wd" view="all" left-label="Original" right-label="Modified"&gt;&lt;/universal-write-diff&gt;</code></pre>
+      <pre><code>import '@universal-office/write';
+
+const wd = document.getElementById('wd');
+const bytesOf = async (input) =&gt; new Uint8Array(await input.files[0].arrayBuffer());
+
+async function run() {
+  const a = document.getElementById('a');
+  const b = document.getElementById('b');
+  if (!a.files[0] || !b.files[0]) return;
+  wd.loadPair(await bytesOf(a), await bytesOf(b), {
+    leftLabel: a.files[0].name,
+    rightLabel: b.files[0].name,
+  });
+}
+
+document.getElementById('a').addEventListener('change', run);
+document.getElementById('b').addEventListener('change', run);
+
+wd.addEventListener('ready', (e) =&gt; {
+  const s = e.detail.stats;
+  console.log(`+${s.inserted} −${s.deleted} ~${s.changed} ✎${s.formatOnly}`);
+});</code></pre>
+
+      <h3 id="compare-current">Compare with the current document</h3>
+      <p>Serialize the editor's state and diff it against a chosen file — the desktop app's "Compare with…" flow.</p>
+      <pre><code>async function compareWith(file) {
+  const current = await editor.save('docx');
+  const other = new Uint8Array(await file.arrayBuffer());
+  wd.loadPair(current, other, { leftLabel: 'Current document', rightLabel: file.name });
+  editor.style.display = 'none';
+  wd.style.display = 'flex';
+}
+
+wd.addEventListener('close-request', () =&gt; {
+  wd.style.display = 'none';
+  editor.style.display = '';
+});</code></pre>
+
+      <h3 id="diff-programmatic">Programmatic diff (report / CI)</h3>
+      <p>Skip the UI and compute the diff directly — useful for change reports or gating a pipeline.</p>
+      <pre><code>import { diffDocuments, DocxPackage, readFullDocument } from '@universal-office/write';
+
+const a = readFullDocument(DocxPackage.load(aBytes));
+const b = readFullDocument(DocxPackage.load(bBytes));
+
+const { edits, stats } = diffDocuments(a, b, { algorithm: 'histogram', intraWord: true });
+
+if (stats.changed + stats.inserted + stats.deleted &gt; 0) {
+  console.log('Documents differ:', stats);
+  for (const e of edits) {
+    if (e.kind !== 'equal') console.log(e.kind, 'blocks', e.a, '→', e.b);
+  }
+}</code></pre>
+
+      <div class="pager">
+        <a href="index.html"><small>Previous</small>← Getting started</a>
+        <a class="next" href="api.html"><small>Next</small>API reference →</a>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import '/assets/universal-office.js?v=15';
+    const { createMentionPlugin } = window.UniversalOffice;
+    const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const bytesOf = async (u) => new Uint8Array(await (await fetch(u)).arrayBuffer());
+    const download = (data, name, type) => {
+      const url = URL.createObjectURL(new Blob([data], { type }));
+      const a = Object.assign(document.createElement('a'), { href: url, download: name });
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    const PEOPLE = [
+      { id: 'ada', label: 'Ada Lovelace' }, { id: 'grace', label: 'Grace Hopper' },
+      { id: 'alan', label: 'Alan Turing' }, { id: 'margaret', label: 'Margaret Hamilton' },
+      { id: 'linus', label: 'Linus Torvalds' },
+    ];
+
+    // --- Editor (built-in topbar/bottombar) ---
+    const ed = document.getElementById('ed');
+    ed.use(createMentionPlugin({
+      prefix: '@', maxSuggestions: 6, emptyLabel: 'No match',
+      source: (q) => PEOPLE.filter((p) => p.label.toLowerCase().includes(q.trim().toLowerCase())),
+    }));
+    ed.addEventListener('uw-ready', async () => {
+      try { ed.load(await bytesOf('/assets/samples/demo.docx'), 'auto', { protected: false }); }
+      catch (e) { console.error(e); }
+      ed.focusEditor();
+    });
+
+    // API: topbar / bottombar are boolean
+    document.getElementById('ed-top').onchange = (e) => { ed.topbar = e.target.checked; };
+    document.getElementById('ed-bottom').onchange = (e) => { ed.bottombar = e.target.checked; };
+
+    // --- Comparison ---
+    const wd = document.getElementById('wd');
+    const wdStats = document.getElementById('uwd-stats');
+    wd.addEventListener('ready', (e) => {
+      const s = e.detail.stats;
+      wdStats.textContent = `+${s.inserted}  −${s.deleted}  ~${s.changed}  ✎${s.formatOnly}  =${s.equal}`;
+    });
+
+    // Two sides, either can be swapped for a file from disk
+    let aBytes, bBytes, aLabel = 'rel-v1.docx', bLabel = 'rel-v2.docx';
+    const runDiff = () => { if (aBytes && bBytes) wd.loadPair(aBytes, bBytes, { leftLabel: aLabel, rightLabel: bLabel }); };
+    (async () => {
+      aBytes = await bytesOf('/assets/samples/rel-v1.docx');
+      bBytes = await bytesOf('/assets/samples/rel-v2.docx');
+      runDiff();
+    })();
+
+    const wdFileA = document.getElementById('uwd-file-a');
+    const wdFileB = document.getElementById('uwd-file-b');
+    document.getElementById('uwd-open-a').onclick = () => wdFileA.click();
+    document.getElementById('uwd-open-b').onclick = () => wdFileB.click();
+    wdFileA.onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      aBytes = new Uint8Array(await f.arrayBuffer()); aLabel = f.name; wdFileA.value = ''; runDiff();
+    };
+    wdFileB.onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      bBytes = new Uint8Array(await f.arrayBuffer()); bLabel = f.name; wdFileB.value = ''; runDiff();
+    };
+
+    document.querySelectorAll('[data-view]').forEach((b) => (b.onclick = () => { wd.view = b.dataset.view; }));
+  </script>
+
+</body>
+</html>

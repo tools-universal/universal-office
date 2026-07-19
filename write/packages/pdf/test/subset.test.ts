@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
-import { SfntFont } from '@wordnext/layout';
+import { join } from 'node:path';
+import { SfntFont } from '@universal-office/layout';
 import { subsetTrueType } from '../src/index.js';
 
-const FONT = 'D:\\Projects\\OfficeNext\\WordNext\\tools\\word-lab\\fonts\\calibri.ttf';
+const FONT = join(__dirname, '..', '..', '..', 'tools', 'word-lab', 'fonts', 'calibri.ttf');
 
 describe('subset de TrueType', () => {
   if (!existsSync(FONT)) { it.skip('fonte ausente', () => {}); return; }

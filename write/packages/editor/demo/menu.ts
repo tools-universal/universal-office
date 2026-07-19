@@ -37,19 +37,19 @@ export function closeMenu(): void {
 export function openMenu(items: MenuItem[], at: Anchor): void {
   closeMenu();
   const menu = document.createElement('div');
-  menu.className = 'wn-menu';
+  menu.className = 'uw-menu';
   menu.setAttribute('role', 'menu');
 
   for (const it of items) {
     if (it.sep) {
       const s = document.createElement('div');
-      s.className = 'wn-menu-sep';
+      s.className = 'uw-menu-sep';
       menu.appendChild(s);
       continue;
     }
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'wn-menu-item';
+    b.className = 'uw-menu-item';
     if (it.disabled) b.disabled = true;
     if (it.checked) b.classList.add('checked');
 

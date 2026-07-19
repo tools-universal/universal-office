@@ -1,0 +1,45 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Universal Write" style="color:#2E78F5">
+  <defs>
+    <style>
+      #topSheet  stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #fff 22%); }
+      #topSheet  stop:nth-child(2){ stop-color: currentColor; }
+      #topSheet  stop:nth-child(3){ stop-color: color-mix(in srgb, currentColor, #000 22%); }
+      #midSheet  stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #000  8%); }
+      #midSheet  stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #000 38%); }
+      #backSheet stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #000 28%); }
+      #backSheet stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #000 52%); }
+      #fold      stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #fff 55%); }
+      #fold      stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #fff 30%); }
+      #ink       stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #fff 90%); }
+      #ink       stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #fff 74%); }
+      #gloss     stop{ stop-color: color-mix(in srgb, currentColor, #fff 96%); }
+      feDropShadow{ flood-color: color-mix(in srgb, currentColor, #000 68%); }
+    </style>
+    <linearGradient id="topSheet" x1="0.12" y1="0" x2="0.7" y2="1">
+      <stop offset="0"/><stop offset="0.5"/><stop offset="1"/>
+    </linearGradient>
+    <linearGradient id="midSheet" x1="0.1" y1="0" x2="0.7" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>
+    <linearGradient id="backSheet" x1="0.1" y1="0" x2="0.7" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>
+    <linearGradient id="fold" x1="0.1" y1="0.1" x2="0.9" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-opacity="0.30"/><stop offset="0.42" stop-opacity="0"/></linearGradient>
+    <filter id="shBack" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="9" stdDeviation="11" flood-opacity="0.30"/></filter>
+    <filter id="shMid" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-opacity="0.22"/></filter>
+    <filter id="shTop" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="7" stdDeviation="8" flood-opacity="0.22"/></filter>
+    <filter id="shFold" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="2" dy="3" stdDeviation="3" flood-opacity="0.24"/></filter>
+    <clipPath id="pageClip"><path d="M128 30 L354 30 L442 118 L442 428 Q442 454 416 454 L128 454 Q102 454 102 428 L102 56 Q102 30 128 30 Z"/></clipPath>
+  </defs>
+  <path transform="translate(-32 28)" d="M128 30 L354 30 L442 118 L442 428 Q442 454 416 454 L128 454 Q102 454 102 428 L102 56 Q102 30 128 30 Z" fill="url(#backSheet)" filter="url(#shBack)"/>
+  <path transform="translate(-16 14)" d="M128 30 L354 30 L442 118 L442 428 Q442 454 416 454 L128 454 Q102 454 102 428 L102 56 Q102 30 128 30 Z" fill="url(#midSheet)" filter="url(#shMid)"/>
+  <path d="M128 30 L354 30 L442 118 L442 428 Q442 454 416 454 L128 454 Q102 454 102 428 L102 56 Q102 30 128 30 Z" fill="url(#topSheet)" filter="url(#shTop)"/>
+  <path d="M128 30 L354 30 L442 118 L442 428 Q442 454 416 454 L128 454 Q102 454 102 428 L102 56 Q102 30 128 30 Z" fill="url(#gloss)"/>
+  <g clip-path="url(#pageClip)"><path d="M354 30 L442 118 L370 118 Q354 118 354 102 L354 30 Z" fill="url(#fold)" filter="url(#shFold)"/></g>
+  <path fill="url(#ink)" d="M160 92 L190 92 Q193 92 193 95 L193 97 Q193 100 190 100 L179 100 L179 168 L190 168 Q193 168 193 171 L193 173 Q193 176 190 176 L160 176 Q157 176 157 173 L157 171 Q157 168 160 168 L171 168 L171 100 L160 100 Q157 100 157 97 L157 95 Q157 92 160 92 Z"/>
+  <g fill="url(#ink)">
+    <rect x="150" y="206" width="244" height="16" rx="8"/>
+    <rect x="150" y="250" width="244" height="16" rx="8"/>
+    <rect x="150" y="294" width="244" height="16" rx="8"/>
+    <rect x="150" y="338" width="244" height="16" rx="8"/>
+    <rect x="150" y="382" width="160" height="16" rx="8"/>
+  </g>
+</svg>

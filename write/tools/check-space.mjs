@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { unzipSync } from 'fflate';
-const z = unzipSync(new Uint8Array(readFileSync('D:/Projects/OfficeNext/WordNext/tools/word-lab/results/advance-table/calib-aptos-bold.xps')));
+const z = unzipSync(new Uint8Array(readFileSync('D:/Projects/OfficeNext/write/tools/word-lab/results/advance-table/calib-aptos-bold.xps')));
 const k = Object.keys(z).find((k) => /Pages\/1\.fpage/.test(k));
 const f = new TextDecoder('utf-16le').decode(z[k]);
 const els = [...f.matchAll(/<Glyphs[^>]*UnicodeString="([^"]*)"[^>]*Indices="([^"]*)"/gs)];

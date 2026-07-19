@@ -6,7 +6,7 @@ import {
   type HfPartInfo, type DocumentModel, type Paragraph,
 } from '../src/index.js';
 
-const CATALOG = 'D:\\Projects\\OfficeNext\\WordNext\\samples\\Catalogo-Recursos-Word.docx';
+const CATALOG = 'D:\\Projects\\OfficeNext\\write\\samples\\Catalogo-Recursos-Word.docx';
 
 const blankModel = (): DocumentModel => ({
   paragraphs: [{ runs: [], props: {} }],
@@ -23,7 +23,7 @@ describe('estilos reais de styles.xml', () => {
   const doc = readFullDocument(pkg);
 
   it('Title do catálogo: styleId duplicado → ÚLTIMA definição vence (centro, 32pt, negrito)', () => {
-    // o styles.xml do catálogo define Title 2× — o Word usa a última
+    // o styles.xml do catálogo define Title 2× — o app de referência usa a última
     const title = doc.styles.get('Title')!;
     expect(title).toBeTruthy();
     expect(title.para.alignment).toBe('center');
@@ -84,13 +84,13 @@ describe('edição de cabeçalho/rodapé', () => {
     insertText(m, { para: 0, offset: 0 }, 'corpo');
     const pkg = DocxPackage.empty();
     const hf: HfPartInfo[] = [{
-      kind: 'header', type: 'default', rid: 'rIdWnheader', path: 'word/wn-header1.xml',
+      kind: 'header', type: 'default', rid: 'rIdWnheader', path: 'word/uw-header1.xml',
       paragraphs: [{ runs: [{ text: 'Cabeçalho editado', props: { bold: false, italic: false, underline: false, strike: false, allCaps: false, smallCaps: false } }], props: {} }],
       dirty: true,
     }];
     writeDocument(pkg, m, hf);
-    expect(pkg.getPartText('word/wn-header1.xml')).toContain('Cabeçalho editado');
-    expect(pkg.getPartText('word/_rels/document.xml.rels')).toContain('wn-header1.xml');
+    expect(pkg.getPartText('word/uw-header1.xml')).toContain('Cabeçalho editado');
+    expect(pkg.getPartText('word/_rels/document.xml.rels')).toContain('uw-header1.xml');
     expect(pkg.getPartText('[Content_Types].xml')).toContain('header+xml');
     expect(pkg.documentXml()).toContain('<w:headerReference w:type="default" r:id="rIdWnheader"/>');
   });

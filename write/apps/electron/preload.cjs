@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('wordnext', {
   /** Abre diálogo nativo; retorna { name, bytes, motw } ou null.
    *  motw = o arquivo tem Zone.Identifier (critério REAL do Word). */
   openDocx: () => ipcRenderer.invoke('wn:open-docx'),
+  /** Diálogo p/ escolher o outro lado da comparação; { name, bytes } ou null. */
+  openDocxForCompare: (title) => ipcRenderer.invoke('wn:open-docx-compare', String(title ?? 'Comparar com…')),
   /** Sincroniza a cor dos controles de janela (titleBarOverlay) com o tema. */
   setTitleTheme: (dark) => ipcRenderer.invoke('wn:title-theme', !!dark),
 });

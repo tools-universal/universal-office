@@ -2,7 +2,7 @@
  * Conversão de comprimentos ODF para twips.
  *
  * ODF usa unidades CSS-like: "2cm", "0.5in", "12pt", "1.27cm", "10mm", "120px".
- * O modelo do WordNext mede tudo em twips (1/20 pt). Equivalências:
+ * O modelo do Write mede tudo em twips (1/20 pt). Equivalências:
  *   1 in  = 1440 twips
  *   1 cm  = 567  twips  (1440 / 2.54)
  *   1 mm  = 56.7 twips

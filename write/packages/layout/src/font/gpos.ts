@@ -1,6 +1,6 @@
 /**
  * Parser mínimo de GPOS para kerning de pares (lookup type 2 / PairPos,
- * formatos 1 e 2, incl. extensão type 9). O Word moderno (DirectWrite)
+ * formatos 1 e 2, incl. extensão type 9). O app de referência moderno (DirectWrite)
  * aplica a feature 'kern' por padrão — sem isso os advances divergem
  * ±0.2-0.6 unidades de 1/600" por par (visto no word-lab).
  *

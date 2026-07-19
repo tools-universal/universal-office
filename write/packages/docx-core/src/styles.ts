@@ -5,13 +5,17 @@ import { readBorderEdge, type ParaProps, type RunProps, type ParagraphBorders } 
 /**
  * Leitura de styles.xml: resolve a cadeia basedOn + docDefaults e expõe,
  * por styleId, as propriedades de parágrafo e de run que o estilo define.
- * É isso que faz alinhamento/tamanho/cor carregarem como no Word — a tabela
+ * É isso que faz alinhamento/tamanho/cor carregarem como no app de referência — a tabela
  * hardcoded anterior só valia para o template de uma máquina.
  */
 
 export interface ResolvedStyle {
   para: Partial<ParaProps>;
   run: Partial<RunProps>;
+  /** Nome de exibição (w:name) — p/ a lista de estilos da UI. */
+  name?: string;
+  /** paragraph | character (w:type). */
+  type?: 'paragraph' | 'character';
 }
 
 export type StylesMap = Map<string, ResolvedStyle>;
@@ -90,7 +94,10 @@ export function readStyles(pkg: DocxPackage): StylesMap {
   );
 
   // primeiro: lê os estilos crus
-  interface Raw { basedOn?: string; para: Partial<ParaProps>; run: Partial<RunProps> }
+  interface Raw {
+    basedOn?: string; name?: string; type: 'paragraph' | 'character';
+    para: Partial<ParaProps>; run: Partial<RunProps>;
+  }
   const raw = new Map<string, Raw>();
   for (const st of childElements(root, 'w:style')) {
     if (st.attrs['w:type'] !== 'paragraph' && st.attrs['w:type'] !== 'character') continue;
@@ -98,6 +105,8 @@ export function readStyles(pkg: DocxPackage): StylesMap {
     if (!id) continue;
     raw.set(id, {
       basedOn: firstChild(st, 'w:basedOn')?.attrs['w:val'],
+      name: firstChild(st, 'w:name')?.attrs['w:val'],
+      type: st.attrs['w:type'] === 'character' ? 'character' : 'paragraph',
       para: readStyleParaProps(firstChild(st, 'w:pPr')),
       run: readStyleRunProps(firstChild(st, 'w:rPr')),
     });
@@ -116,6 +125,8 @@ export function readStyles(pkg: DocxPackage): StylesMap {
     const resolved: ResolvedStyle = {
       para: { ...base.para, ...r.para },
       run: { ...base.run, ...r.run },
+      name: r.name,
+      type: r.type,
     };
     out.set(id, resolved);
     return resolved;

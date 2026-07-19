@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { DocxPackage } from '../src/index.js';
 
-// Usa os .docx gerados pelo Word real no word-lab como corpus de teste.
+// Usa os .docx gerados pelo app de referência no word-lab como corpus de teste.
 const resultsDir = join(__dirname, '../../../tools/word-lab/results');
 
 function corpus(): string[] {
@@ -35,7 +35,7 @@ describe('DocxPackage round-trip sem perdas', () => {
       for (const name of pkg.partNames()) {
         expect(reloaded.getPart(name)).toEqual(pkg.getPart(name));
       }
-      // E o Word deve conseguir reabrir: o pacote relido contém document.xml válido
+      // E o app de referência deve conseguir reabrir: o pacote relido contém document.xml válido
       expect(reloaded.documentXml()).toContain('<w:document');
     });
   }

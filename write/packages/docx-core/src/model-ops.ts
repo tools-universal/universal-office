@@ -9,12 +9,12 @@ import {
 
 /**
  * Operações de edição sobre o DocumentModel, espelhando o comportamento
- * observado do Word (FINDINGS.md):
+ * observado do app de referência (FINDINGS.md):
  *  - formatação parcial divide runs no limite exato;
  *  - Enter divide o parágrafo; Backspace na fronteira funde (o parágrafo
  *    resultante herda as props do SEGUNDO — identidade na marca ¶ final);
- *  - runs adjacentes com props idênticas são normalizados (como o Word faz
- *    ao salvar).
+ *  - runs adjacentes com props idênticas são normalizados (como o app de
+ *    referência faz ao salvar).
  */
 
 export interface DocPosition {
@@ -57,7 +57,7 @@ const sameComments = (a?: number[], b?: number[]): boolean => {
 
 /** Funde runs adjacentes idênticos e remove vazios.
  *  Runs especiais (imagem/campo/nota) nunca se fundem e preservam extras. */
-const isSpecial = (r: Run): boolean => !!(r.image || r.field || r.noteRef);
+const isSpecial = (r: Run): boolean => !!(r.image || r.field || r.noteRef || r.custom);
 
 export function normalizeParagraph(p: Paragraph): void {
   const out: Run[] = [];
@@ -91,7 +91,7 @@ function splitAt(p: Paragraph, offset: number): number {
   return p.runs.length;
 }
 
-/** Props efetivas no ponto de inserção (herda do caractere anterior, como o Word). */
+/** Props efetivas no ponto de inserção (herda do caractere anterior, como o app de referência). */
 export function propsAt(model: DocumentModel, pos: DocPosition): RunProps {
   const p = model.paragraphs[pos.para];
   if (!p || p.runs.length === 0) return { ...DEFAULT_RUN_PROPS };
@@ -117,12 +117,21 @@ export function insertText(
   return { para: pos.para, offset: pos.offset + text.length };
 }
 
+/** Insere um run completo sem perder metadados especiais (imagem/campo/plugin). */
+export function insertRun(model: DocumentModel, pos: DocPosition, run: Run): DocPosition {
+  const p = model.paragraphs[pos.para]!;
+  const idx = splitAt(p, pos.offset);
+  p.runs.splice(idx, 0, { ...run, props: { ...run.props } });
+  normalizeParagraph(p);
+  return { para: pos.para, offset: pos.offset + run.text.length };
+}
+
 export function splitParagraph(model: DocumentModel, pos: DocPosition): DocPosition {
   const p = model.paragraphs[pos.para]!;
   const idx = splitAt(p, pos.offset);
   const tailRuns = p.runs.slice(idx);
   p.runs = p.runs.slice(0, idx);
-  // Word: o parágrafo NOVO fica com a primeira metade (¶ novo inserido);
+  // app de referência: o parágrafo NOVO fica com a primeira metade (¶ novo inserido);
   // o original desce com a segunda. Props de parágrafo são copiadas.
   const tail: Paragraph = { runs: tailRuns, props: { ...p.props } };
   model.paragraphs.splice(pos.para + 1, 0, tail);
@@ -171,6 +180,7 @@ function rebuildDelete(p: Paragraph, from: number, to: number): void {
         ...(run.field ? { field: run.field } : {}),
         ...(intact && run.image ? { image: run.image } : {}),
         ...(intact && run.noteRef ? { noteRef: run.noteRef } : {}),
+        ...(intact && run.custom ? { custom: run.custom } : {}),
       });
     }
   }

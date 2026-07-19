@@ -47,9 +47,33 @@ function drawingXml(run: Run): string {
 }
 
 function runXml(run: Run): string {
+  if (run.custom) {
+    const type = run.custom.type;
+    if (!/^[a-zA-Z0-9._-]+$/.test(type)) {
+      throw new Error(`tipo de inline customizado inválido: ${type}`);
+    }
+    const json = JSON.stringify(run.custom.data);
+    if (json === undefined) throw new Error(`dados do inline "${type}" não são serializáveis em JSON`);
+    const tag = `wordnext:inline:${type}:${encodeURIComponent(json)}`;
+    const fallbackRun: Run = {
+      text: run.custom.fallbackText,
+      props: run.props,
+    };
+    return (
+      `<w:sdt><w:sdtPr>` +
+      `<w:alias w:val="${escAttr(run.custom.fallbackText)}"/>` +
+      `<w:tag w:val="${escAttr(tag)}"/>` +
+      `<w:lock w:val="sdtLocked"/>` +
+      `</w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`
+    );
+  }
   if (run.image) {
     return `<w:r>${drawingXml(run)}</w:r>`;
   }
+  // caixa de texto: não reconstruímos o XML do drawing (não guardamos o cru).
+  // Emite nada — o mesmo que antes de existir o parse (headers/footers com
+  // timbrado são preservados byte-a-byte pela camada de partes).
+  if (run.textbox) return '';
   const p = run.props;
   const rpr: string[] = [];
   if (p.fontAscii) {
@@ -104,7 +128,7 @@ function paraXml(para: Paragraph): string {
   const runParts: string[] = [];
   para.runs.forEach((r, i) => {
     for (const [id, fi] of firstOf) if (fi === i) runParts.push(`<w:commentRangeStart w:id="${id}"/>`);
-    // run de CAMPO: emite fldSimple (Word atualiza sozinho) com o cache atual
+    // run de CAMPO: emite fldSimple (o app de referência atualiza sozinho) com o cache atual
     if (r.field) {
       runParts.push(`<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>`);
     } else runParts.push(runXml(r));
@@ -212,11 +236,12 @@ export function sectPrInner(s: SectPr, refs: HfRefXml[] = []): string {
     ? `<w:cols w:space="${s.cols.spaceTwips}" w:num="${s.cols.count}"` +
       `${s.cols.sep ? ' w:sep="true"' : ''} w:equalWidth="true"/>`
     : '';
+  const titlePg = s.titlePg ? '<w:titlePg/>' : '';
   return (
     `${refsXml}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/>` +
     `<w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" ` +
     `w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" ` +
-    `w:header="708" w:footer="708" w:gutter="0"/>${cols}`
+    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${cols}${titlePg}`
   );
 }
 
@@ -355,7 +380,7 @@ export function writeDocument(
   // comentários: regrava word/comments.xml + rel + content-type
   if (opts.comments && opts.comments.length > 0) {
     const body = opts.comments.map((c) =>
-      `<w:comment w:id="${c.id}" w:author="${escAttr(c.author ?? 'WordNext')}" w:initials="WN">` +
+      `<w:comment w:id="${c.id}" w:author="${escAttr(c.author ?? 'Write')}" w:initials="WN">` +
       `<w:p><w:r><w:t xml:space="preserve">${esc(c.text)}</w:t></w:r></w:p></w:comment>`,
     ).join('');
     pkg.setPartText('word/comments.xml',

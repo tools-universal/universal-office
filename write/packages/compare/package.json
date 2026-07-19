@@ -1,0 +1,16 @@
+{
+  "name": "@universal-office/compare",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Diff de documentos sobre o modelo do docx-core + webcomponent <universal-write-diff> (algoritmo portado do OpenCompare)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:demo": "esbuild src/index.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal-office/docx-core=../docx-core/src/index.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@universal-office/docx-core": "*"
+  }
+}

@@ -1,14 +1,14 @@
 {
-  "name": "@wordnext/app-electron",
+  "name": "@universal-office/app-electron",
   "version": "0.0.1",
   "private": true,
-  "description": "Shell Electron embarcando o <word-next> (fase 5 — ver ARCHITECTURE.md)",
+  "description": "Shell Electron embarcando o <universal-write> (fase 5 — ver ARCHITECTURE.md)",
   "main": "main.cjs",
   "scripts": {
     "start": "electron ."
   },
   "dependencies": {
-    "@wordnext/editor": "*"
+    "@universal-office/write": "*"
   },
   "devDependencies": {
     "electron": "^42.4.0"

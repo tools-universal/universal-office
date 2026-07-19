@@ -4,12 +4,12 @@ import { join } from 'node:path';
 import { SfntFont } from '../src/font/sfnt.js';
 import { breakRich, type FontRegistry } from '../src/richbreak.js';
 
-/** Valida tabs contra o tab-oracle (posições de caret no Word, ±0.75pt). */
+/** Valida tabs contra o tab-oracle (posições de caret no app de referência, ±0.75pt). */
 const labDir = join(__dirname, '../../../tools/word-lab');
 const oraclePath = join(labDir, 'results/tab-oracle/oracle.json');
 const aptosPath = join(labDir, 'fonts/aptos-regular.ttf');
 
-describe('tab stops vs oráculo do Word', () => {
+describe('tab stops vs oráculo de referência', () => {
   if (!existsSync(oraclePath) || !existsSync(aptosPath)) {
     it.skip('oráculo ausente — rode generate-tab-oracle.ps1', () => {});
     return;
@@ -22,11 +22,11 @@ describe('tab stops vs oráculo do Word', () => {
   const font = new SfntFont(new Uint8Array(readFileSync(aptosPath)));
   const fonts: FontRegistry = { resolve: () => font };
 
-  it('default tab stop do Word é 35.4pt (708 twips)', () => {
+  it('default tab stop do app de referência é 35.4pt (708 twips)', () => {
     expect(oracle.defaultTabStopPt).toBeCloseTo(35.4, 1);
   });
 
-  it('posições após cada tab batem com o caret do Word (±0.75pt)', () => {
+  it('posições após cada tab batem com o caret do app de referência (±0.75pt)', () => {
     const { charAdvances } = breakRich(
       [{ text: oracle.text, variant: 'regular', sizePt: 11 }],
       fonts,

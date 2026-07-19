@@ -2,7 +2,7 @@ import type { SfntFont } from './font/sfnt.js';
 
 /**
  * Quebra de linha com runs heterogêneos, tabs e recuos especiais.
- * Regras validadas contra o Word (FINDINGS.md):
+ * Regras validadas contra o app de referência (FINDINGS.md):
  *  - greedy, quebra no início da palavra que não coube;
  *  - espaços E TABS finais nunca causam quebra (penduram);
  *  - tab avança ao próximo múltiplo de defaultTabStop (708tw) contado da
@@ -95,7 +95,7 @@ export function breakRich(
       else if (isTab || ch === '\n' || ch === '\f') adv = 0;
       else {
         adv = font.advanceTwips(ch.codePointAt(0)!, span.sizePt) + ls;
-        // kerning do par (ch, próximo) — o Word aplica 'kern' por padrão
+        // kerning do par (ch, próximo) — o app de referência aplica 'kern' por padrão
         const next = span.text[i + 1];
         if (next && next !== ' ' && next !== '\t' && ch !== ' ') {
           adv += font.kernTwips(ch.codePointAt(0)!, next.codePointAt(0)!, span.sizePt);

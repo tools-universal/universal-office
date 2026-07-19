@@ -4,7 +4,7 @@ import type { PdfWriter } from './writer.js';
 
 /**
  * O mínimo que o gerador de PDF precisa saber de um programa de fonte TrueType.
- * A SfntFont do @wordnext/layout satisfaz esta interface estruturalmente, então
+ * A SfntFont do @universal-office/layout satisfaz esta interface estruturalmente, então
  * o pacote de PDF não depende dela — só dos bytes + estas consultas.
  */
 export interface FontProgram {

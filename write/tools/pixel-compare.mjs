@@ -1,4 +1,4 @@
-// Compara PNGs Word×WordNext em escala de cinza com tolerância de antialias.
+// Compara PNGs Word×UniversalWrite em escala de cinza com tolerância de antialias.
 // Uso: node tools/pixel-compare.mjs <wordDir> <oursDir> <outDir> [tolerância 0-255]
 import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';

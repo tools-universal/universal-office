@@ -22,7 +22,7 @@ import {
   type BorderEdge,
   type StylesMap,
   type ResolvedStyle as DocxResolvedStyle,
-} from '@wordnext/docx-core';
+} from '@universal-office/docx-core';
 import { OdfPackage } from './zip.js';
 import { lengthToTwips } from './units.js';
 import {
@@ -81,7 +81,7 @@ export function isOdt(bytes: Uint8Array): boolean {
   return mime?.trim() === ODT_MIMETYPE;
 }
 
-/** Lê um .odt (bytes do ZIP) para o modelo FullDocument do WordNext. */
+/** Lê um .odt (bytes do ZIP) para o modelo FullDocument do Write. */
 export function readOdt(bytes: Uint8Array): FullDocument {
   const pkg = OdfPackage.load(bytes);
   const contentXml = pkg.getPartText('content.xml');
@@ -570,8 +570,11 @@ function decodeBase64(b64: string): Uint8Array {
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
     return out;
   }
-  // Node
-  return new Uint8Array(Buffer.from(b64, 'base64'));
+  // Node — feature-detect via globalThis (sem referência estática a Buffer,
+  // que quebraria o bundle browser sem polyfill)
+  const g = globalThis as { Buffer?: { from(s: string, e: string): Uint8Array } };
+  if (g.Buffer) return new Uint8Array(g.Buffer.from(b64, 'base64'));
+  throw new Error('sem decodificador base64 (atob/Buffer) no ambiente');
 }
 
 // ───────────────────────── bordas / sombreamento ─────────────────────────

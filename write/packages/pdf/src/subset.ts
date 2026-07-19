@@ -85,10 +85,15 @@ function doSubset(bytes: Uint8Array, usedGids: Iterable<number>): Uint8Array {
   locaView.setUint32(numGlyphs * 4, acc);
   const newGlyf = concat(glyfParts);
 
-  // head com loca longo e checkSumAdjustment zerado (recalculado ao final)
-  const newHead = bytes.slice(head.offset, head.offset + head.length);
-  new DataView(newHead.buffer).setUint16(50, 1); // indexToLocFormat = long
-  new DataView(newHead.buffer).setUint32(8, 0);   // checkSumAdjustment = 0
+  // head com loca longo e checkSumAdjustment zerado (recalculado ao final).
+  // CUIDADO: `bytes` pode ser uma VIEW (ex.: Buffer do Node compartilha o pool);
+  // copia explícita + DataView sem esquecer o byteOffset, senão o setUint16
+  // escreveria fora do head (e o subset sairia com loca curto ↔ tabela longa).
+  const newHead = new Uint8Array(head.length);
+  newHead.set(bytes.subarray(head.offset, head.offset + head.length));
+  const headView = new DataView(newHead.buffer, newHead.byteOffset, newHead.byteLength);
+  headView.setUint16(50, 1); // indexToLocFormat = long
+  headView.setUint32(8, 0);  // checkSumAdjustment = 0
 
   const out: { tag: string; data: Uint8Array }[] = [];
   for (const [tag, t] of dir) {

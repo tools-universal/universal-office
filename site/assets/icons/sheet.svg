@@ -1,0 +1,57 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Universal Sheet">
+  <defs>
+    <style>
+      /* Tudo deriva de currentColor. Troque `color` para tintar; remova a linha para herdar puro. */
+      svg{ color: #2E8B4E; }
+
+      #bg    stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #fff  9%); }
+      #bg    stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #000 12%); }
+
+      #barL  stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #fff 46%); }
+      #barL  stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #fff 33%); }
+
+      #barM  stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #fff 13%); }
+      #barM  stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #fff  2%); }
+
+      #barD  stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #000 50%); }
+      #barD  stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #000 60%); }
+
+      #lineG stop:nth-child(1){ stop-color: color-mix(in srgb, currentColor, #000 44%); }
+      #lineG stop:nth-child(2){ stop-color: color-mix(in srgb, currentColor, #000 56%); }
+
+      .rim   { stroke: color-mix(in srgb, currentColor, #fff 16%); }
+      feDropShadow{ flood-color: color-mix(in srgb, currentColor, #000 72%); }
+    </style>
+
+    <linearGradient id="bg" x1="0.9" y1="0.1" x2="0.1" y2="0.9">
+      <stop offset="0"/><stop offset="1"/>
+    </linearGradient>
+    <linearGradient id="barL" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>
+    <linearGradient id="barM" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>
+    <linearGradient id="barD" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>
+    <linearGradient id="lineG" gradientUnits="userSpaceOnUse" x1="0" y1="66" x2="0" y2="214"><stop offset="0"/><stop offset="1"/></linearGradient>
+
+    <filter id="shSquircle" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-opacity="0.28"/>
+    </filter>
+    <filter id="shLine" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <!-- app squircle -->
+  <rect class="rim" x="32" y="28" width="448" height="448" rx="54" fill="url(#bg)" stroke-width="2.5" filter="url(#shSquircle)"/>
+
+  <!-- bars -->
+  <rect x="74"  y="324" width="72" height="108" rx="11" fill="url(#barD)"/>
+  <rect x="166" y="232" width="74" height="200" rx="11" fill="url(#barL)"/>
+  <rect x="260" y="284" width="76" height="148" rx="11" fill="url(#barM)"/>
+  <rect x="356" y="174" width="72" height="258" rx="11" fill="url(#barL)"/>
+
+  <!-- trend line + arrow -->
+  <g filter="url(#shLine)">
+    <path fill="none" stroke="url(#lineG)" stroke-width="27" stroke-linejoin="round" stroke-linecap="round"
+          d="M82 272 L220 150 L284 214 L401 105"/>
+    <path fill="url(#lineG)" d="M444 66 L426 132 L377 79 Z"/>
+  </g>
+</svg>

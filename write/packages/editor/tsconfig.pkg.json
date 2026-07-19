@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@universal-office/docx-core": ["../docx-core/src/index.ts"],
+      "@universal-office/layout": ["../layout/src/index.ts"],
+      "@universal-office/pdf": ["../pdf/src/index.ts"],
+      "@universal-office/export": ["../export/src/index.ts"],
+      "@universal-office/odf": ["../odf/src/index.ts"],
+      "@universal-office/compare": ["../compare/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

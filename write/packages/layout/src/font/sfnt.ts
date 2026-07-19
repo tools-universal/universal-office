@@ -6,7 +6,7 @@
  *   cmap  → char → glyph id (formats 4 e 12)
  *   OS/2  → usWinAscent/usWinDescent, sTypoAscender/Descender/LineGap
  *
- * O Word calcula altura de linha a partir dessas tabelas; qual fórmula
+ * O app de referência calcula altura de linha a partir dessas tabelas; qual fórmula
  * exata ele usa é validado empiricamente contra o oráculo (word-lab).
  */
 
@@ -78,7 +78,7 @@ export class SfntFont {
   private kernMap: KernMap;
 
   /** Ajuste de kerning (par prev→cur) em TWIPS no em de dispositivo.
-   *  O Word (DirectWrite) aplica a feature kern por padrão. */
+   *  O app de referência (DirectWrite) aplica a feature kern por padrão. */
   kernTwips(prevCodePoint: number, codePoint: number, sizePt: number): number {
     const g1 = this.glyphId(prevCodePoint);
     const g2 = this.glyphId(codePoint);
@@ -176,7 +176,7 @@ export class SfntFont {
     return w;
   }
 
-  /** Tabela empírica de advances do Word (hinting/ClearType), por tamanho:
+  /** Tabela empírica de advances do app de referência (hinting/ClearType), por tamanho:
    *  { "11": { "a": twips, ... } } — extraída via word-lab/extract-advances.mjs.
    *  O hinting altera advances em até ±3% vs escala linear; sem a tabela o
    *  texto deriva ao longo da linha (visto no pixel-diff). */
@@ -187,7 +187,7 @@ export class SfntFont {
   }
 
   /** Advance de um code point em TWIPS para um tamanho em pontos.
-   *  1º tabela empírica do Word; fallback: escala linear com o em
+   *  1º tabela empírica do app de referência; fallback: escala linear com o em
    *  arredondado ao pixel de 600 DPI (11pt → 92/600" = 11.04pt). */
   advanceTwips(codePoint: number, sizePt: number): number {
     if (this.advanceTable) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Block, ParagraphBlock, TableBlock, Paragraph } from '@wordnext/docx-core';
+import type { Block, ParagraphBlock, TableBlock, Paragraph } from '@universal-office/docx-core';
 import { readOdt, isOdt } from './index.js';
 import { writeZip } from './zip.js';
 

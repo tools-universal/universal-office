@@ -5,7 +5,7 @@ import {
   type DocumentModel,
 } from '../src/index.js';
 
-const CATALOG = 'D:\\Projects\\OfficeNext\\WordNext\\samples\\Catalogo-Recursos-Word.docx';
+const CATALOG = 'D:\\Projects\\OfficeNext\\write\\samples\\Catalogo-Recursos-Word.docx';
 
 const blankModel = (): DocumentModel => ({
   paragraphs: [{ runs: [], props: {} }],

@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- Demo standalone do <universal-write-diff>: carrega dois .docx por querystring
+     (?a=/caminho.docx&b=/caminho.docx) ou o par padrão de temp/. Servir a
+     partir da raiz do write/ (python -m http.server). -->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>universal-write-diff — demo</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; font-family: system-ui, sans-serif; }
+    universal-write-diff { flex: 1; min-height: 0; }
+  </style>
+</head>
+<body>
+  <universal-write-diff id="wd"></universal-write-diff>
+  <script type="module">
+    import '/packages/compare/demo/bundle.js';
+    const q = new URLSearchParams(location.search);
+    const aPath = q.get('a') ?? '/temp/rel-v1.docx';
+    const bPath = q.get('b') ?? '/temp/rel-v2.docx';
+    const get = async (p) => new Uint8Array(await (await fetch(p)).arrayBuffer());
+    const wd = document.getElementById('wd');
+    wd.loadPair(await get(aPath), await get(bPath), {
+      leftLabel: aPath.split('/').pop(),
+      rightLabel: bPath.split('/').pop(),
+    });
+  </script>
+</body>
+</html>

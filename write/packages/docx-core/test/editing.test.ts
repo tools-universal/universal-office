@@ -21,7 +21,7 @@ function blankModel(): DocumentModel {
   };
 }
 
-describe('operações de edição (espelham FINDINGS do Word)', () => {
+describe('operações de edição (espelham FINDINGS do app de referência)', () => {
   it('digitar, formatar parcialmente (divide o run), Enter e Backspace', () => {
     const m = blankModel();
     insertText(m, { para: 0, offset: 0 }, 'Hello world');
@@ -61,7 +61,7 @@ describe('operações de edição (espelham FINDINGS do Word)', () => {
     expect(paraText(m.paragraphs[0]!)).toBe('aY');
   });
 
-  it('round-trip de edição: ler docx do Word, editar, serializar, reler', () => {
+  it('round-trip de edição: ler docx do app de referência, editar, serializar, reler', () => {
     const src = join(labDir, 'results/001-type-text/after.docx');
     const pkg = DocxPackage.load(new Uint8Array(readFileSync(src)));
     const model = readDocument(pkg);
@@ -83,7 +83,7 @@ describe('operações de edição (espelham FINDINGS do Word)', () => {
     expect(model2.paragraphs[0]!.runs[0]!.props.color).toBe('FF0000');
     expect(model2.paragraphs[0]!.props.alignment).toBe('center');
 
-    // grava para validação no Word real (validate-edited.ps1)
+    // grava para validação no app de referência (validate-edited.ps1)
     const outDir = join(labDir, 'results/edited');
     mkdirSync(outDir, { recursive: true });
     writeFileSync(join(outDir, 'edited.docx'), bytes);

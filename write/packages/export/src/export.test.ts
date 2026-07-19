@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_RUN_PROPS, type Paragraph, type RunProps, type TableBlock } from '@wordnext/docx-core';
+import { DEFAULT_RUN_PROPS, type Paragraph, type RunProps, type TableBlock } from '@universal-office/docx-core';
 import { toHtml } from './html.js';
 import { toMarkdown } from './markdown.js';
 import type { ExportDoc } from './model.js';
@@ -69,7 +69,7 @@ describe('toHtml', () => {
       comments: [{ id: 3, author: 'Ana', text: 'rever isto' }],
     };
     const h = toHtml(doc, { fullDocument: false });
-    expect(h).toContain('class="wn-comment"');
+    expect(h).toContain('class="uw-comment"');
     expect(h).toContain('rever isto');
     expect(h).toContain('Comentários');
   });
@@ -143,7 +143,7 @@ describe('opção images:omit (slim)', () => {
     expect(full).toContain('data:image/jpeg;base64');
     expect(slim).not.toContain('<img');
     expect(slim).not.toContain('data:image/');
-    expect(slim).toContain('class="wn-img-placeholder"');
+    expect(slim).toContain('class="uw-img-placeholder"');
     // placeholder traz fallback inline → funciona embeddado sem a CSS
     expect(slim).toContain('style="display:inline-block');
     expect(slim).toContain('aria-label="imagem"');
@@ -169,7 +169,7 @@ describe('opção images:omit (slim)', () => {
     const doc: ExportDoc = { paragraphs: [para('antes')], tableAnchors: [{ beforePara: 1, table }] };
     const slim = toHtml(doc, { fullDocument: false, images: 'omit' });
     expect(slim).not.toContain('<img');
-    expect(slim).toContain('wn-img-placeholder');
+    expect(slim).toContain('uw-img-placeholder');
   });
 
   it('default mantém comportamento antigo (images embutidas)', () => {

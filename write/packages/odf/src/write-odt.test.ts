@@ -6,7 +6,7 @@ import {
   type Paragraph,
   type RunProps,
   type TableBlock,
-} from '@wordnext/docx-core';
+} from '@universal-office/docx-core';
 import { writeOdt } from './write-odt.js';
 import { readOdt } from './index.js';
 

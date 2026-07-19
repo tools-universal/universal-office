@@ -1,4 +1,4 @@
-// Mede a deriva horizontal entre Word e WordNext: para cada linha de texto,
+// Mede a deriva horizontal entre Word e UniversalWrite: para cada linha de texto,
 // acha o melhor deslocamento (cross-correlação do perfil de tinta) em janelas
 // ao longo da linha. Saída: deslocamento por janela → mostra deriva cumulativa.
 import { readFileSync } from 'node:fs';

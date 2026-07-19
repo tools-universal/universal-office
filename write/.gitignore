@@ -1,4 +1,5 @@
 node_modules/
+packages/editor/demo/offline-bundle.js
 dist/
 temp/
 samples/

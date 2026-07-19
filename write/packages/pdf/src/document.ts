@@ -39,7 +39,7 @@ const fmt = (n: number): string => {
 
 /**
  * Página PDF. As coordenadas de entrada usam origem no canto SUPERIOR esquerdo
- * (y cresce para baixo, como no canvas/Word); a conversão para o sistema do PDF
+ * (y cresce para baixo, como no canvas/app de referência); a conversão para o sistema do PDF
  * (origem inferior esquerda) é feita aqui.
  */
 export class PdfPage {
@@ -135,17 +135,35 @@ export class PdfDocument {
     return handle;
   }
 
-  /** Embute pixels RGBA crus (alpha descartado) via DeviceRGB + FlateDecode. */
+  /**
+   * Embute pixels RGBA crus via DeviceRGB + FlateDecode. Quando o alpha não é
+   * trivial (algum pixel < 255), o canal vira um /SMask DeviceGray — PNGs com
+   * transparência preservam o recorte no PDF.
+   */
   embedRgba(rgba: Uint8Array, widthPx: number, heightPx: number): PdfImage {
     const rgb = new Uint8Array(widthPx * heightPx * 3);
-    for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
+    const alpha = new Uint8Array(widthPx * heightPx);
+    let hasAlpha = false;
+    for (let i = 0, j = 0, k = 0; i < rgba.length; i += 4, j += 3, k++) {
       rgb[j] = rgba[i]!;
       rgb[j + 1] = rgba[i + 1]!;
       rgb[j + 2] = rgba[i + 2]!;
+      const a = rgba[i + 3]!;
+      alpha[k] = a;
+      if (a !== 255) hasAlpha = true;
+    }
+    let smask = '';
+    if (hasAlpha) {
+      const smaskNum = this.writer.addStream(
+        `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} ` +
+          `/ColorSpace /DeviceGray /BitsPerComponent 8`,
+        alpha,
+      );
+      smask = ` /SMask ${smaskNum} 0 R`;
     }
     const objNum = this.writer.addStream(
       `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} ` +
-        `/ColorSpace /DeviceRGB /BitsPerComponent 8`,
+        `/ColorSpace /DeviceRGB /BitsPerComponent 8${smask}`,
       rgb,
     );
     const handle: PdfImage = { resourceName: `Im${this.images.length}`, objNum };

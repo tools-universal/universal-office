@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { DocxPackage, readFullDocument, parseXml, childElements } from '../packages/docx-core/dist/index.js';
 
-const pkg = DocxPackage.load(new Uint8Array(readFileSync('D:/Projects/OfficeNext/WordNext/Catalogo-Recursos-Word.docx')));
+const pkg = DocxPackage.load(new Uint8Array(readFileSync('D:/Projects/OfficeNext/write/Catalogo-Recursos-Word.docx')));
 const fnXml = pkg.getPartText('word/footnotes.xml');
 console.log('footnotes.xml presente:', !!fnXml, 'tamanho:', fnXml?.length);
 const root = parseXml(fnXml);

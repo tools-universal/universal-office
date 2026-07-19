@@ -26,7 +26,7 @@ import type {
   ParagraphBorders,
   BorderEdge,
   CommentInfo,
-} from '@wordnext/docx-core';
+} from '@universal-office/docx-core';
 
 export interface WriteOdtOptions {
   /** Como tratar imagens. 'embed' (default) inclui no Pictures/; 'omit' descarta. */
@@ -280,7 +280,7 @@ function paragraphXml(para: Paragraph, ctx: Ctx, opts: {
 
 function headingLevelOf(p: Paragraph): number {
   const id = p.props.styleId ?? '';
-  // "Title" / "Subtitle" do Word não trazem número → mapeia p/ 1 e 2.
+  // "Title" / "Subtitle" do app de referência não trazem número → mapeia p/ 1 e 2.
   if (/^title$/i.test(id) || /^t[íi]tulo$/i.test(id)) return 1;
   if (/^subtitle$/i.test(id) || /^subt[íi]tulo$/i.test(id)) return 2;
   const m = id.match(/(?:heading|t[íi]tulo|titulo)\s*([1-9])/i) ?? id.match(/^h([1-6])$/i);

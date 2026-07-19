@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Write — offline smoke</title>
+  <style>
+    html, body { margin: 0; height: 100%; font: 14px system-ui, sans-serif; background: #202124; color: #fff; }
+    body { display: grid; grid-template-rows: 48px 1fr; }
+    header { display: flex; align-items: center; gap: 14px; padding: 0 16px; background: #151618; }
+    header strong { font-size: 14px; }
+    #status { color: #c7d2fe; }
+    .offline { margin-left: auto; color: #86efac; font-size: 12px; }
+    universal-write { min-height: 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Demo interativo de mentions</strong>
+    <span id="status">Inicializando bundle autocontido…</span>
+    <span class="offline">offline · sem backend</span>
+  </header>
+  <universal-write manual-init></universal-write>
+  <script type="module" src="./offline-bundle.js?v=interactive-mentions-2"></script>
+</body>
+</html>

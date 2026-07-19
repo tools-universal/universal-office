@@ -6,9 +6,9 @@
     "types": [],
     "baseUrl": ".",
     "paths": {
-      "@wordnext/docx-core": ["../docx-core/src/index.ts"],
-      "@wordnext/layout": ["../layout/src/index.ts"],
-      "@wordnext/pdf": ["../pdf/src/index.ts"]
+      "@universal-office/docx-core": ["../docx-core/src/index.ts"],
+      "@universal-office/layout": ["../layout/src/index.ts"],
+      "@universal-office/pdf": ["../pdf/src/index.ts"]
     }
   },
   "include": ["src", "demo"]

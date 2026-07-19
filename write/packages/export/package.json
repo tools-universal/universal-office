@@ -1,15 +1,20 @@
 {
-  "name": "@wordnext/export",
+  "name": "@universal-office/export",
   "version": "0.0.1",
   "type": "module",
+  "sideEffects": false,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "description": "Exportadores do modelo WordNext para HTML, Markdown e XPS",
+  "description": "Exportadores do modelo Write para HTML, Markdown e XPS",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@wordnext/docx-core": "*"
+    "@universal-office/docx-core": "*",
+    "@tools-universal/office-converter": "file:../../../vendor/office-converter/packages/office-converter",
+    "@tools-universal/docs-processing": "file:../../../vendor/office-converter/vendor/docs-processing/packages/processing",
+    "@tools-universal/sheets-processing": "file:../../../vendor/office-converter/vendor/sheets-processing/packages/processing",
+    "@tools-universal/slides-processing": "file:../../../vendor/office-converter/vendor/slides-processing/packages/processing"
   }
 }

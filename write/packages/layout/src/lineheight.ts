@@ -1,9 +1,9 @@
 import type { SfntFont } from './font/sfnt.js';
 
 /**
- * Modelo vertical do Word (derivado empiricamente — ver word-lab/FINDINGS.md):
+ * Modelo vertical do app de referência (derivado empiricamente — ver word-lab/FINDINGS.md):
  *
- * 1. O Word arredonda o em ao pixel de dispositivo de 600 DPI:
+ * 1. O app de referência arredonda o em ao pixel de dispositivo de 600 DPI:
  *      deviceEmPt = round(sizePt * 600/72) * 72/600
  *    (11pt → 92 unidades → 11.04pt; o XPS expõe isso em FontRenderingEmSize)
  * 2. Altura "single" da linha = (hheaAscent + |hheaDescent| + lineGap) / upem

@@ -1,4 +1,4 @@
-import { childElements, firstChild, type XmlElement } from '@wordnext/docx-core';
+import { childElements, firstChild, type XmlElement } from '@universal-office/docx-core';
 import { lengthToTwips, lengthToHalfPt } from './units.js';
 import type { ResolvedRunProps, ResolvedParaProps } from './props.js';
 

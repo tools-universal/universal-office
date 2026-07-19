@@ -50,7 +50,7 @@ export interface Page {
 
 /**
  * Paginação v1: parágrafos simples, uma coluna, sem viúvas/órfãs ainda
- * (o Word ativa widow/orphan control por padrão — TODO experimento).
+ * (o app de referência ativa widow/orphan control por padrão — TODO experimento).
  */
 export function paginate(paragraphs: ParagraphInput[], sect: SectionGeometry): Page[] {
   const availWidth = sect.pageWidth - sect.marginLeft - sect.marginRight;

@@ -1,3 +1,5953 @@
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err2) => function __init() {
+  if (err2) throw err2[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e8) {
+    throw err2 = [e8], e8;
+  }
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// ../../node_modules/tslib/tslib.es6.mjs
+function __decorate(decorators, target, key, desc) {
+  var c4 = arguments.length, r6 = c4 < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d3;
+  if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r6 = Reflect.decorate(decorators, target, key, desc);
+  else for (var i7 = decorators.length - 1; i7 >= 0; i7--) if (d3 = decorators[i7]) r6 = (c4 < 3 ? d3(r6) : c4 > 3 ? d3(target, key, r6) : d3(target, key)) || r6;
+  return c4 > 3 && r6 && Object.defineProperty(target, key, r6), r6;
+}
+var init_tslib_es6 = __esm({
+  "../../node_modules/tslib/tslib.es6.mjs"() {
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/css-tag.js
+var t, e, s, o, n, r, i2, S, c;
+var init_css_tag = __esm({
+  "../../node_modules/@lit/reactive-element/css-tag.js"() {
+    t = globalThis;
+    e = t.ShadowRoot && (void 0 === t.ShadyCSS || t.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
+    s = /* @__PURE__ */ Symbol();
+    o = /* @__PURE__ */ new WeakMap();
+    n = class {
+      constructor(t5, e8, o8) {
+        if (this._$cssResult$ = true, o8 !== s) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
+        this.cssText = t5, this.t = e8;
+      }
+      get styleSheet() {
+        let t5 = this.o;
+        const s4 = this.t;
+        if (e && void 0 === t5) {
+          const e8 = void 0 !== s4 && 1 === s4.length;
+          e8 && (t5 = o.get(s4)), void 0 === t5 && ((this.o = t5 = new CSSStyleSheet()).replaceSync(this.cssText), e8 && o.set(s4, t5));
+        }
+        return t5;
+      }
+      toString() {
+        return this.cssText;
+      }
+    };
+    r = (t5) => new n("string" == typeof t5 ? t5 : t5 + "", void 0, s);
+    i2 = (t5, ...e8) => {
+      const o8 = 1 === t5.length ? t5[0] : e8.reduce((e9, s4, o9) => e9 + ((t6) => {
+        if (true === t6._$cssResult$) return t6.cssText;
+        if ("number" == typeof t6) return t6;
+        throw Error("Value passed to 'css' function must be a 'css' function result: " + t6 + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
+      })(s4) + t5[o9 + 1], t5[0]);
+      return new n(o8, t5, s);
+    };
+    S = (s4, o8) => {
+      if (e) s4.adoptedStyleSheets = o8.map((t5) => t5 instanceof CSSStyleSheet ? t5 : t5.styleSheet);
+      else for (const e8 of o8) {
+        const o9 = document.createElement("style"), n5 = t.litNonce;
+        void 0 !== n5 && o9.setAttribute("nonce", n5), o9.textContent = e8.cssText, s4.appendChild(o9);
+      }
+    };
+    c = e ? (t5) => t5 : (t5) => t5 instanceof CSSStyleSheet ? ((t6) => {
+      let e8 = "";
+      for (const s4 of t6.cssRules) e8 += s4.cssText;
+      return r(e8);
+    })(t5) : t5;
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/reactive-element.js
+var i3, e2, h, r2, o2, n2, a, c2, l, p, d, u, f, b, y;
+var init_reactive_element = __esm({
+  "../../node_modules/@lit/reactive-element/reactive-element.js"() {
+    init_css_tag();
+    init_css_tag();
+    ({ is: i3, defineProperty: e2, getOwnPropertyDescriptor: h, getOwnPropertyNames: r2, getOwnPropertySymbols: o2, getPrototypeOf: n2 } = Object);
+    a = globalThis;
+    c2 = a.trustedTypes;
+    l = c2 ? c2.emptyScript : "";
+    p = a.reactiveElementPolyfillSupport;
+    d = (t5, s4) => t5;
+    u = { toAttribute(t5, s4) {
+      switch (s4) {
+        case Boolean:
+          t5 = t5 ? l : null;
+          break;
+        case Object:
+        case Array:
+          t5 = null == t5 ? t5 : JSON.stringify(t5);
+      }
+      return t5;
+    }, fromAttribute(t5, s4) {
+      let i7 = t5;
+      switch (s4) {
+        case Boolean:
+          i7 = null !== t5;
+          break;
+        case Number:
+          i7 = null === t5 ? null : Number(t5);
+          break;
+        case Object:
+        case Array:
+          try {
+            i7 = JSON.parse(t5);
+          } catch (t6) {
+            i7 = null;
+          }
+      }
+      return i7;
+    } };
+    f = (t5, s4) => !i3(t5, s4);
+    b = { attribute: true, type: String, converter: u, reflect: false, useDefault: false, hasChanged: f };
+    Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), a.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
+    y = class extends HTMLElement {
+      static addInitializer(t5) {
+        this._$Ei(), (this.l ??= []).push(t5);
+      }
+      static get observedAttributes() {
+        return this.finalize(), this._$Eh && [...this._$Eh.keys()];
+      }
+      static createProperty(t5, s4 = b) {
+        if (s4.state && (s4.attribute = false), this._$Ei(), this.prototype.hasOwnProperty(t5) && ((s4 = Object.create(s4)).wrapped = true), this.elementProperties.set(t5, s4), !s4.noAccessor) {
+          const i7 = /* @__PURE__ */ Symbol(), h3 = this.getPropertyDescriptor(t5, i7, s4);
+          void 0 !== h3 && e2(this.prototype, t5, h3);
+        }
+      }
+      static getPropertyDescriptor(t5, s4, i7) {
+        const { get: e8, set: r6 } = h(this.prototype, t5) ?? { get() {
+          return this[s4];
+        }, set(t6) {
+          this[s4] = t6;
+        } };
+        return { get: e8, set(s5) {
+          const h3 = e8?.call(this);
+          r6?.call(this, s5), this.requestUpdate(t5, h3, i7);
+        }, configurable: true, enumerable: true };
+      }
+      static getPropertyOptions(t5) {
+        return this.elementProperties.get(t5) ?? b;
+      }
+      static _$Ei() {
+        if (this.hasOwnProperty(d("elementProperties"))) return;
+        const t5 = n2(this);
+        t5.finalize(), void 0 !== t5.l && (this.l = [...t5.l]), this.elementProperties = new Map(t5.elementProperties);
+      }
+      static finalize() {
+        if (this.hasOwnProperty(d("finalized"))) return;
+        if (this.finalized = true, this._$Ei(), this.hasOwnProperty(d("properties"))) {
+          const t6 = this.properties, s4 = [...r2(t6), ...o2(t6)];
+          for (const i7 of s4) this.createProperty(i7, t6[i7]);
+        }
+        const t5 = this[Symbol.metadata];
+        if (null !== t5) {
+          const s4 = litPropertyMetadata.get(t5);
+          if (void 0 !== s4) for (const [t6, i7] of s4) this.elementProperties.set(t6, i7);
+        }
+        this._$Eh = /* @__PURE__ */ new Map();
+        for (const [t6, s4] of this.elementProperties) {
+          const i7 = this._$Eu(t6, s4);
+          void 0 !== i7 && this._$Eh.set(i7, t6);
+        }
+        this.elementStyles = this.finalizeStyles(this.styles);
+      }
+      static finalizeStyles(s4) {
+        const i7 = [];
+        if (Array.isArray(s4)) {
+          const e8 = new Set(s4.flat(1 / 0).reverse());
+          for (const s5 of e8) i7.unshift(c(s5));
+        } else void 0 !== s4 && i7.push(c(s4));
+        return i7;
+      }
+      static _$Eu(t5, s4) {
+        const i7 = s4.attribute;
+        return false === i7 ? void 0 : "string" == typeof i7 ? i7 : "string" == typeof t5 ? t5.toLowerCase() : void 0;
+      }
+      constructor() {
+        super(), this._$Ep = void 0, this.isUpdatePending = false, this.hasUpdated = false, this._$Em = null, this._$Ev();
+      }
+      _$Ev() {
+        this._$ES = new Promise((t5) => this.enableUpdating = t5), this._$AL = /* @__PURE__ */ new Map(), this._$E_(), this.requestUpdate(), this.constructor.l?.forEach((t5) => t5(this));
+      }
+      addController(t5) {
+        (this._$EO ??= /* @__PURE__ */ new Set()).add(t5), void 0 !== this.renderRoot && this.isConnected && t5.hostConnected?.();
+      }
+      removeController(t5) {
+        this._$EO?.delete(t5);
+      }
+      _$E_() {
+        const t5 = /* @__PURE__ */ new Map(), s4 = this.constructor.elementProperties;
+        for (const i7 of s4.keys()) this.hasOwnProperty(i7) && (t5.set(i7, this[i7]), delete this[i7]);
+        t5.size > 0 && (this._$Ep = t5);
+      }
+      createRenderRoot() {
+        const t5 = this.shadowRoot ?? this.attachShadow(this.constructor.shadowRootOptions);
+        return S(t5, this.constructor.elementStyles), t5;
+      }
+      connectedCallback() {
+        this.renderRoot ??= this.createRenderRoot(), this.enableUpdating(true), this._$EO?.forEach((t5) => t5.hostConnected?.());
+      }
+      enableUpdating(t5) {
+      }
+      disconnectedCallback() {
+        this._$EO?.forEach((t5) => t5.hostDisconnected?.());
+      }
+      attributeChangedCallback(t5, s4, i7) {
+        this._$AK(t5, i7);
+      }
+      _$ET(t5, s4) {
+        const i7 = this.constructor.elementProperties.get(t5), e8 = this.constructor._$Eu(t5, i7);
+        if (void 0 !== e8 && true === i7.reflect) {
+          const h3 = (void 0 !== i7.converter?.toAttribute ? i7.converter : u).toAttribute(s4, i7.type);
+          this._$Em = t5, null == h3 ? this.removeAttribute(e8) : this.setAttribute(e8, h3), this._$Em = null;
+        }
+      }
+      _$AK(t5, s4) {
+        const i7 = this.constructor, e8 = i7._$Eh.get(t5);
+        if (void 0 !== e8 && this._$Em !== e8) {
+          const t6 = i7.getPropertyOptions(e8), h3 = "function" == typeof t6.converter ? { fromAttribute: t6.converter } : void 0 !== t6.converter?.fromAttribute ? t6.converter : u;
+          this._$Em = e8;
+          const r6 = h3.fromAttribute(s4, t6.type);
+          this[e8] = r6 ?? this._$Ej?.get(e8) ?? r6, this._$Em = null;
+        }
+      }
+      requestUpdate(t5, s4, i7, e8 = false, h3) {
+        if (void 0 !== t5) {
+          const r6 = this.constructor;
+          if (false === e8 && (h3 = this[t5]), i7 ??= r6.getPropertyOptions(t5), !((i7.hasChanged ?? f)(h3, s4) || i7.useDefault && i7.reflect && h3 === this._$Ej?.get(t5) && !this.hasAttribute(r6._$Eu(t5, i7)))) return;
+          this.C(t5, s4, i7);
+        }
+        false === this.isUpdatePending && (this._$ES = this._$EP());
+      }
+      C(t5, s4, { useDefault: i7, reflect: e8, wrapped: h3 }, r6) {
+        i7 && !(this._$Ej ??= /* @__PURE__ */ new Map()).has(t5) && (this._$Ej.set(t5, r6 ?? s4 ?? this[t5]), true !== h3 || void 0 !== r6) || (this._$AL.has(t5) || (this.hasUpdated || i7 || (s4 = void 0), this._$AL.set(t5, s4)), true === e8 && this._$Em !== t5 && (this._$Eq ??= /* @__PURE__ */ new Set()).add(t5));
+      }
+      async _$EP() {
+        this.isUpdatePending = true;
+        try {
+          await this._$ES;
+        } catch (t6) {
+          Promise.reject(t6);
+        }
+        const t5 = this.scheduleUpdate();
+        return null != t5 && await t5, !this.isUpdatePending;
+      }
+      scheduleUpdate() {
+        return this.performUpdate();
+      }
+      performUpdate() {
+        if (!this.isUpdatePending) return;
+        if (!this.hasUpdated) {
+          if (this.renderRoot ??= this.createRenderRoot(), this._$Ep) {
+            for (const [t7, s5] of this._$Ep) this[t7] = s5;
+            this._$Ep = void 0;
+          }
+          const t6 = this.constructor.elementProperties;
+          if (t6.size > 0) for (const [s5, i7] of t6) {
+            const { wrapped: t7 } = i7, e8 = this[s5];
+            true !== t7 || this._$AL.has(s5) || void 0 === e8 || this.C(s5, void 0, i7, e8);
+          }
+        }
+        let t5 = false;
+        const s4 = this._$AL;
+        try {
+          t5 = this.shouldUpdate(s4), t5 ? (this.willUpdate(s4), this._$EO?.forEach((t6) => t6.hostUpdate?.()), this.update(s4)) : this._$EM();
+        } catch (s5) {
+          throw t5 = false, this._$EM(), s5;
+        }
+        t5 && this._$AE(s4);
+      }
+      willUpdate(t5) {
+      }
+      _$AE(t5) {
+        this._$EO?.forEach((t6) => t6.hostUpdated?.()), this.hasUpdated || (this.hasUpdated = true, this.firstUpdated(t5)), this.updated(t5);
+      }
+      _$EM() {
+        this._$AL = /* @__PURE__ */ new Map(), this.isUpdatePending = false;
+      }
+      get updateComplete() {
+        return this.getUpdateComplete();
+      }
+      getUpdateComplete() {
+        return this._$ES;
+      }
+      shouldUpdate(t5) {
+        return true;
+      }
+      update(t5) {
+        this._$Eq &&= this._$Eq.forEach((t6) => this._$ET(t6, this[t6])), this._$EM();
+      }
+      updated(t5) {
+      }
+      firstUpdated(t5) {
+      }
+    };
+    y.elementStyles = [], y.shadowRootOptions = { mode: "open" }, y[d("elementProperties")] = /* @__PURE__ */ new Map(), y[d("finalized")] = /* @__PURE__ */ new Map(), p?.({ ReactiveElement: y }), (a.reactiveElementVersions ??= []).push("2.1.2");
+  }
+});
+
+// ../../node_modules/lit-html/lit-html.js
+function V(t5, i7) {
+  if (!u2(t5) || !t5.hasOwnProperty("raw")) throw Error("invalid template strings array");
+  return void 0 !== e3 ? e3.createHTML(i7) : i7;
+}
+function M(t5, i7, s4 = t5, e8) {
+  if (i7 === E) return i7;
+  let h3 = void 0 !== e8 ? s4._$Co?.[e8] : s4._$Cl;
+  const o8 = a2(i7) ? void 0 : i7._$litDirective$;
+  return h3?.constructor !== o8 && (h3?._$AO?.(false), void 0 === o8 ? h3 = void 0 : (h3 = new o8(t5), h3._$AT(t5, s4, e8)), void 0 !== e8 ? (s4._$Co ??= [])[e8] = h3 : s4._$Cl = h3), void 0 !== h3 && (i7 = M(t5, h3._$AS(t5, i7.values), h3, e8)), i7;
+}
+var t2, i4, s2, e3, h2, o3, n3, r3, l2, c3, a2, u2, d2, f2, v, _, m, p2, g, $, y2, x2, b3, w, T, E, A, C, P, N, S2, R, k, H, I, L, z, Z, B, D;
+var init_lit_html = __esm({
+  "../../node_modules/lit-html/lit-html.js"() {
+    t2 = globalThis;
+    i4 = (t5) => t5;
+    s2 = t2.trustedTypes;
+    e3 = s2 ? s2.createPolicy("lit-html", { createHTML: (t5) => t5 }) : void 0;
+    h2 = "$lit$";
+    o3 = `lit$${Math.random().toFixed(9).slice(2)}$`;
+    n3 = "?" + o3;
+    r3 = `<${n3}>`;
+    l2 = document;
+    c3 = () => l2.createComment("");
+    a2 = (t5) => null === t5 || "object" != typeof t5 && "function" != typeof t5;
+    u2 = Array.isArray;
+    d2 = (t5) => u2(t5) || "function" == typeof t5?.[Symbol.iterator];
+    f2 = "[ 	\n\f\r]";
+    v = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g;
+    _ = /-->/g;
+    m = />/g;
+    p2 = RegExp(`>|${f2}(?:([^\\s"'>=/]+)(${f2}*=${f2}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`, "g");
+    g = /'/g;
+    $ = /"/g;
+    y2 = /^(?:script|style|textarea|title)$/i;
+    x2 = (t5) => (i7, ...s4) => ({ _$litType$: t5, strings: i7, values: s4 });
+    b3 = x2(1);
+    w = x2(2);
+    T = x2(3);
+    E = /* @__PURE__ */ Symbol.for("lit-noChange");
+    A = /* @__PURE__ */ Symbol.for("lit-nothing");
+    C = /* @__PURE__ */ new WeakMap();
+    P = l2.createTreeWalker(l2, 129);
+    N = (t5, i7) => {
+      const s4 = t5.length - 1, e8 = [];
+      let n5, l3 = 2 === i7 ? "<svg>" : 3 === i7 ? "<math>" : "", c4 = v;
+      for (let i8 = 0; i8 < s4; i8++) {
+        const s5 = t5[i8];
+        let a3, u3, d3 = -1, f3 = 0;
+        for (; f3 < s5.length && (c4.lastIndex = f3, u3 = c4.exec(s5), null !== u3); ) f3 = c4.lastIndex, c4 === v ? "!--" === u3[1] ? c4 = _ : void 0 !== u3[1] ? c4 = m : void 0 !== u3[2] ? (y2.test(u3[2]) && (n5 = RegExp("</" + u3[2], "g")), c4 = p2) : void 0 !== u3[3] && (c4 = p2) : c4 === p2 ? ">" === u3[0] ? (c4 = n5 ?? v, d3 = -1) : void 0 === u3[1] ? d3 = -2 : (d3 = c4.lastIndex - u3[2].length, a3 = u3[1], c4 = void 0 === u3[3] ? p2 : '"' === u3[3] ? $ : g) : c4 === $ || c4 === g ? c4 = p2 : c4 === _ || c4 === m ? c4 = v : (c4 = p2, n5 = void 0);
+        const x3 = c4 === p2 && t5[i8 + 1].startsWith("/>") ? " " : "";
+        l3 += c4 === v ? s5 + r3 : d3 >= 0 ? (e8.push(a3), s5.slice(0, d3) + h2 + s5.slice(d3) + o3 + x3) : s5 + o3 + (-2 === d3 ? i8 : x3);
+      }
+      return [V(t5, l3 + (t5[s4] || "<?>") + (2 === i7 ? "</svg>" : 3 === i7 ? "</math>" : "")), e8];
+    };
+    S2 = class _S {
+      constructor({ strings: t5, _$litType$: i7 }, e8) {
+        let r6;
+        this.parts = [];
+        let l3 = 0, a3 = 0;
+        const u3 = t5.length - 1, d3 = this.parts, [f3, v2] = N(t5, i7);
+        if (this.el = _S.createElement(f3, e8), P.currentNode = this.el.content, 2 === i7 || 3 === i7) {
+          const t6 = this.el.content.firstChild;
+          t6.replaceWith(...t6.childNodes);
+        }
+        for (; null !== (r6 = P.nextNode()) && d3.length < u3; ) {
+          if (1 === r6.nodeType) {
+            if (r6.hasAttributes()) for (const t6 of r6.getAttributeNames()) if (t6.endsWith(h2)) {
+              const i8 = v2[a3++], s4 = r6.getAttribute(t6).split(o3), e9 = /([.?@])?(.*)/.exec(i8);
+              d3.push({ type: 1, index: l3, name: e9[2], strings: s4, ctor: "." === e9[1] ? I : "?" === e9[1] ? L : "@" === e9[1] ? z : H }), r6.removeAttribute(t6);
+            } else t6.startsWith(o3) && (d3.push({ type: 6, index: l3 }), r6.removeAttribute(t6));
+            if (y2.test(r6.tagName)) {
+              const t6 = r6.textContent.split(o3), i8 = t6.length - 1;
+              if (i8 > 0) {
+                r6.textContent = s2 ? s2.emptyScript : "";
+                for (let s4 = 0; s4 < i8; s4++) r6.append(t6[s4], c3()), P.nextNode(), d3.push({ type: 2, index: ++l3 });
+                r6.append(t6[i8], c3());
+              }
+            }
+          } else if (8 === r6.nodeType) if (r6.data === n3) d3.push({ type: 2, index: l3 });
+          else {
+            let t6 = -1;
+            for (; -1 !== (t6 = r6.data.indexOf(o3, t6 + 1)); ) d3.push({ type: 7, index: l3 }), t6 += o3.length - 1;
+          }
+          l3++;
+        }
+      }
+      static createElement(t5, i7) {
+        const s4 = l2.createElement("template");
+        return s4.innerHTML = t5, s4;
+      }
+    };
+    R = class {
+      constructor(t5, i7) {
+        this._$AV = [], this._$AN = void 0, this._$AD = t5, this._$AM = i7;
+      }
+      get parentNode() {
+        return this._$AM.parentNode;
+      }
+      get _$AU() {
+        return this._$AM._$AU;
+      }
+      u(t5) {
+        const { el: { content: i7 }, parts: s4 } = this._$AD, e8 = (t5?.creationScope ?? l2).importNode(i7, true);
+        P.currentNode = e8;
+        let h3 = P.nextNode(), o8 = 0, n5 = 0, r6 = s4[0];
+        for (; void 0 !== r6; ) {
+          if (o8 === r6.index) {
+            let i8;
+            2 === r6.type ? i8 = new k(h3, h3.nextSibling, this, t5) : 1 === r6.type ? i8 = new r6.ctor(h3, r6.name, r6.strings, this, t5) : 6 === r6.type && (i8 = new Z(h3, this, t5)), this._$AV.push(i8), r6 = s4[++n5];
+          }
+          o8 !== r6?.index && (h3 = P.nextNode(), o8++);
+        }
+        return P.currentNode = l2, e8;
+      }
+      p(t5) {
+        let i7 = 0;
+        for (const s4 of this._$AV) void 0 !== s4 && (void 0 !== s4.strings ? (s4._$AI(t5, s4, i7), i7 += s4.strings.length - 2) : s4._$AI(t5[i7])), i7++;
+      }
+    };
+    k = class _k {
+      get _$AU() {
+        return this._$AM?._$AU ?? this._$Cv;
+      }
+      constructor(t5, i7, s4, e8) {
+        this.type = 2, this._$AH = A, this._$AN = void 0, this._$AA = t5, this._$AB = i7, this._$AM = s4, this.options = e8, this._$Cv = e8?.isConnected ?? true;
+      }
+      get parentNode() {
+        let t5 = this._$AA.parentNode;
+        const i7 = this._$AM;
+        return void 0 !== i7 && 11 === t5?.nodeType && (t5 = i7.parentNode), t5;
+      }
+      get startNode() {
+        return this._$AA;
+      }
+      get endNode() {
+        return this._$AB;
+      }
+      _$AI(t5, i7 = this) {
+        t5 = M(this, t5, i7), a2(t5) ? t5 === A || null == t5 || "" === t5 ? (this._$AH !== A && this._$AR(), this._$AH = A) : t5 !== this._$AH && t5 !== E && this._(t5) : void 0 !== t5._$litType$ ? this.$(t5) : void 0 !== t5.nodeType ? this.T(t5) : d2(t5) ? this.k(t5) : this._(t5);
+      }
+      O(t5) {
+        return this._$AA.parentNode.insertBefore(t5, this._$AB);
+      }
+      T(t5) {
+        this._$AH !== t5 && (this._$AR(), this._$AH = this.O(t5));
+      }
+      _(t5) {
+        this._$AH !== A && a2(this._$AH) ? this._$AA.nextSibling.data = t5 : this.T(l2.createTextNode(t5)), this._$AH = t5;
+      }
+      $(t5) {
+        const { values: i7, _$litType$: s4 } = t5, e8 = "number" == typeof s4 ? this._$AC(t5) : (void 0 === s4.el && (s4.el = S2.createElement(V(s4.h, s4.h[0]), this.options)), s4);
+        if (this._$AH?._$AD === e8) this._$AH.p(i7);
+        else {
+          const t6 = new R(e8, this), s5 = t6.u(this.options);
+          t6.p(i7), this.T(s5), this._$AH = t6;
+        }
+      }
+      _$AC(t5) {
+        let i7 = C.get(t5.strings);
+        return void 0 === i7 && C.set(t5.strings, i7 = new S2(t5)), i7;
+      }
+      k(t5) {
+        u2(this._$AH) || (this._$AH = [], this._$AR());
+        const i7 = this._$AH;
+        let s4, e8 = 0;
+        for (const h3 of t5) e8 === i7.length ? i7.push(s4 = new _k(this.O(c3()), this.O(c3()), this, this.options)) : s4 = i7[e8], s4._$AI(h3), e8++;
+        e8 < i7.length && (this._$AR(s4 && s4._$AB.nextSibling, e8), i7.length = e8);
+      }
+      _$AR(t5 = this._$AA.nextSibling, s4) {
+        for (this._$AP?.(false, true, s4); t5 !== this._$AB; ) {
+          const s5 = i4(t5).nextSibling;
+          i4(t5).remove(), t5 = s5;
+        }
+      }
+      setConnected(t5) {
+        void 0 === this._$AM && (this._$Cv = t5, this._$AP?.(t5));
+      }
+    };
+    H = class {
+      get tagName() {
+        return this.element.tagName;
+      }
+      get _$AU() {
+        return this._$AM._$AU;
+      }
+      constructor(t5, i7, s4, e8, h3) {
+        this.type = 1, this._$AH = A, this._$AN = void 0, this.element = t5, this.name = i7, this._$AM = e8, this.options = h3, s4.length > 2 || "" !== s4[0] || "" !== s4[1] ? (this._$AH = Array(s4.length - 1).fill(new String()), this.strings = s4) : this._$AH = A;
+      }
+      _$AI(t5, i7 = this, s4, e8) {
+        const h3 = this.strings;
+        let o8 = false;
+        if (void 0 === h3) t5 = M(this, t5, i7, 0), o8 = !a2(t5) || t5 !== this._$AH && t5 !== E, o8 && (this._$AH = t5);
+        else {
+          const e9 = t5;
+          let n5, r6;
+          for (t5 = h3[0], n5 = 0; n5 < h3.length - 1; n5++) r6 = M(this, e9[s4 + n5], i7, n5), r6 === E && (r6 = this._$AH[n5]), o8 ||= !a2(r6) || r6 !== this._$AH[n5], r6 === A ? t5 = A : t5 !== A && (t5 += (r6 ?? "") + h3[n5 + 1]), this._$AH[n5] = r6;
+        }
+        o8 && !e8 && this.j(t5);
+      }
+      j(t5) {
+        t5 === A ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t5 ?? "");
+      }
+    };
+    I = class extends H {
+      constructor() {
+        super(...arguments), this.type = 3;
+      }
+      j(t5) {
+        this.element[this.name] = t5 === A ? void 0 : t5;
+      }
+    };
+    L = class extends H {
+      constructor() {
+        super(...arguments), this.type = 4;
+      }
+      j(t5) {
+        this.element.toggleAttribute(this.name, !!t5 && t5 !== A);
+      }
+    };
+    z = class extends H {
+      constructor(t5, i7, s4, e8, h3) {
+        super(t5, i7, s4, e8, h3), this.type = 5;
+      }
+      _$AI(t5, i7 = this) {
+        if ((t5 = M(this, t5, i7, 0) ?? A) === E) return;
+        const s4 = this._$AH, e8 = t5 === A && s4 !== A || t5.capture !== s4.capture || t5.once !== s4.once || t5.passive !== s4.passive, h3 = t5 !== A && (s4 === A || e8);
+        e8 && this.element.removeEventListener(this.name, this, s4), h3 && this.element.addEventListener(this.name, this, t5), this._$AH = t5;
+      }
+      handleEvent(t5) {
+        "function" == typeof this._$AH ? this._$AH.call(this.options?.host ?? this.element, t5) : this._$AH.handleEvent(t5);
+      }
+    };
+    Z = class {
+      constructor(t5, i7, s4) {
+        this.element = t5, this.type = 6, this._$AN = void 0, this._$AM = i7, this.options = s4;
+      }
+      get _$AU() {
+        return this._$AM._$AU;
+      }
+      _$AI(t5) {
+        M(this, t5);
+      }
+    };
+    B = t2.litHtmlPolyfillSupport;
+    B?.(S2, k), (t2.litHtmlVersions ??= []).push("3.3.3");
+    D = (t5, i7, s4) => {
+      const e8 = s4?.renderBefore ?? i7;
+      let h3 = e8._$litPart$;
+      if (void 0 === h3) {
+        const t6 = s4?.renderBefore ?? null;
+        e8._$litPart$ = h3 = new k(i7.insertBefore(c3(), t6), t6, void 0, s4 ?? {});
+      }
+      return h3._$AI(t5), h3;
+    };
+  }
+});
+
+// ../../node_modules/lit-element/lit-element.js
+var s3, i5, o4;
+var init_lit_element = __esm({
+  "../../node_modules/lit-element/lit-element.js"() {
+    init_reactive_element();
+    init_reactive_element();
+    init_lit_html();
+    init_lit_html();
+    s3 = globalThis;
+    i5 = class extends y {
+      constructor() {
+        super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
+      }
+      createRenderRoot() {
+        const t5 = super.createRenderRoot();
+        return this.renderOptions.renderBefore ??= t5.firstChild, t5;
+      }
+      update(t5) {
+        const r6 = this.render();
+        this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t5), this._$Do = D(r6, this.renderRoot, this.renderOptions);
+      }
+      connectedCallback() {
+        super.connectedCallback(), this._$Do?.setConnected(true);
+      }
+      disconnectedCallback() {
+        super.disconnectedCallback(), this._$Do?.setConnected(false);
+      }
+      render() {
+        return E;
+      }
+    };
+    i5._$litElement$ = true, i5["finalized"] = true, s3.litElementHydrateSupport?.({ LitElement: i5 });
+    o4 = s3.litElementPolyfillSupport;
+    o4?.({ LitElement: i5 });
+    (s3.litElementVersions ??= []).push("4.2.2");
+  }
+});
+
+// ../../node_modules/lit-html/is-server.js
+var init_is_server = __esm({
+  "../../node_modules/lit-html/is-server.js"() {
+  }
+});
+
+// ../../node_modules/lit/index.js
+var init_lit = __esm({
+  "../../node_modules/lit/index.js"() {
+    init_reactive_element();
+    init_lit_html();
+    init_lit_element();
+    init_is_server();
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/decorators/custom-element.js
+var t3;
+var init_custom_element = __esm({
+  "../../node_modules/@lit/reactive-element/decorators/custom-element.js"() {
+    t3 = (t5) => (e8, o8) => {
+      void 0 !== o8 ? o8.addInitializer(() => {
+        customElements.define(t5, e8);
+      }) : customElements.define(t5, e8);
+    };
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/decorators/property.js
+function n4(t5) {
+  return (e8, o8) => "object" == typeof o8 ? r4(t5, e8, o8) : ((t6, e9, o9) => {
+    const r6 = e9.hasOwnProperty(o9);
+    return e9.constructor.createProperty(o9, t6), r6 ? Object.getOwnPropertyDescriptor(e9, o9) : void 0;
+  })(t5, e8, o8);
+}
+var o5, r4;
+var init_property = __esm({
+  "../../node_modules/@lit/reactive-element/decorators/property.js"() {
+    init_reactive_element();
+    o5 = { attribute: true, type: String, converter: u, reflect: false, hasChanged: f };
+    r4 = (t5 = o5, e8, r6) => {
+      const { kind: n5, metadata: i7 } = r6;
+      let s4 = globalThis.litPropertyMetadata.get(i7);
+      if (void 0 === s4 && globalThis.litPropertyMetadata.set(i7, s4 = /* @__PURE__ */ new Map()), "setter" === n5 && ((t5 = Object.create(t5)).wrapped = true), s4.set(r6.name, t5), "accessor" === n5) {
+        const { name: o8 } = r6;
+        return { set(r7) {
+          const n6 = e8.get.call(this);
+          e8.set.call(this, r7), this.requestUpdate(o8, n6, t5, true, r7);
+        }, init(e9) {
+          return void 0 !== e9 && this.C(o8, void 0, t5, e9), e9;
+        } };
+      }
+      if ("setter" === n5) {
+        const { name: o8 } = r6;
+        return function(r7) {
+          const n6 = this[o8];
+          e8.call(this, r7), this.requestUpdate(o8, n6, t5, true, r7);
+        };
+      }
+      throw Error("Unsupported decorator location: " + n5);
+    };
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/decorators/state.js
+function r5(r6) {
+  return n4({ ...r6, state: true, attribute: false });
+}
+var init_state = __esm({
+  "../../node_modules/@lit/reactive-element/decorators/state.js"() {
+    init_property();
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/decorators/event-options.js
+var init_event_options = __esm({
+  "../../node_modules/@lit/reactive-element/decorators/event-options.js"() {
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/decorators/base.js
+var e4;
+var init_base = __esm({
+  "../../node_modules/@lit/reactive-element/decorators/base.js"() {
+    e4 = (e8, t5, c4) => (c4.configurable = true, c4.enumerable = true, Reflect.decorate && "object" != typeof t5 && Object.defineProperty(e8, t5, c4), c4);
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/decorators/query.js
+function e5(e8, r6) {
+  return (n5, s4, i7) => {
+    const o8 = (t5) => t5.renderRoot?.querySelector(e8) ?? null;
+    if (r6) {
+      const { get: e9, set: r7 } = "object" == typeof s4 ? n5 : i7 ?? /* @__PURE__ */ (() => {
+        const t5 = /* @__PURE__ */ Symbol();
+        return { get() {
+          return this[t5];
+        }, set(e10) {
+          this[t5] = e10;
+        } };
+      })();
+      return e4(n5, s4, { get() {
+        let t5 = e9.call(this);
+        return void 0 === t5 && (t5 = o8(this), (null !== t5 || this.hasUpdated) && r7.call(this, t5)), t5;
+      } });
+    }
+    return e4(n5, s4, { get() {
+      return o8(this);
+    } });
+  };
+}
+var init_query = __esm({
+  "../../node_modules/@lit/reactive-element/decorators/query.js"() {
+    init_base();
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/decorators/query-all.js
+var init_query_all = __esm({
+  "../../node_modules/@lit/reactive-element/decorators/query-all.js"() {
+    init_base();
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/decorators/query-async.js
+var init_query_async = __esm({
+  "../../node_modules/@lit/reactive-element/decorators/query-async.js"() {
+    init_base();
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/decorators/query-assigned-elements.js
+function o6(o8) {
+  return (e8, n5) => {
+    const { slot: r6, selector: s4 } = o8 ?? {}, c4 = "slot" + (r6 ? `[name=${r6}]` : ":not([name])");
+    return e4(e8, n5, { get() {
+      const t5 = this.renderRoot?.querySelector(c4), e9 = t5?.assignedElements(o8) ?? [];
+      return void 0 === s4 ? e9 : e9.filter((t6) => t6.matches(s4));
+    } });
+  };
+}
+var init_query_assigned_elements = __esm({
+  "../../node_modules/@lit/reactive-element/decorators/query-assigned-elements.js"() {
+    init_base();
+  }
+});
+
+// ../../node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js
+var init_query_assigned_nodes = __esm({
+  "../../node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js"() {
+    init_base();
+  }
+});
+
+// ../../node_modules/lit/decorators.js
+var init_decorators = __esm({
+  "../../node_modules/lit/decorators.js"() {
+    init_custom_element();
+    init_property();
+    init_state();
+    init_event_options();
+    init_query();
+    init_query_all();
+    init_query_async();
+    init_query_assigned_elements();
+    init_query_assigned_nodes();
+  }
+});
+
+// ../../node_modules/lit-html/directive.js
+var t4, e6, i6;
+var init_directive = __esm({
+  "../../node_modules/lit-html/directive.js"() {
+    t4 = { ATTRIBUTE: 1, CHILD: 2, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4, EVENT: 5, ELEMENT: 6 };
+    e6 = (t5) => (...e8) => ({ _$litDirective$: t5, values: e8 });
+    i6 = class {
+      constructor(t5) {
+      }
+      get _$AU() {
+        return this._$AM._$AU;
+      }
+      _$AT(t5, e8, i7) {
+        this._$Ct = t5, this._$AM = e8, this._$Ci = i7;
+      }
+      _$AS(t5, e8) {
+        return this.update(t5, e8);
+      }
+      update(t5, e8) {
+        return this.render(...e8);
+      }
+    };
+  }
+});
+
+// ../../node_modules/lit-html/directives/class-map.js
+var e7;
+var init_class_map = __esm({
+  "../../node_modules/lit-html/directives/class-map.js"() {
+    init_lit_html();
+    init_directive();
+    e7 = e6(class extends i6 {
+      constructor(t5) {
+        if (super(t5), t5.type !== t4.ATTRIBUTE || "class" !== t5.name || t5.strings?.length > 2) throw Error("`classMap()` can only be used in the `class` attribute and must be the only part in the attribute.");
+      }
+      render(t5) {
+        return " " + Object.keys(t5).filter((s4) => t5[s4]).join(" ") + " ";
+      }
+      update(s4, [i7]) {
+        if (void 0 === this.st) {
+          this.st = /* @__PURE__ */ new Set(), void 0 !== s4.strings && (this.nt = new Set(s4.strings.join(" ").split(/\s/).filter((t5) => "" !== t5)));
+          for (const t5 in i7) i7[t5] && !this.nt?.has(t5) && this.st.add(t5);
+          return this.render(i7);
+        }
+        const r6 = s4.element.classList;
+        for (const t5 of this.st) t5 in i7 || (r6.remove(t5), this.st.delete(t5));
+        for (const t5 in i7) {
+          const s5 = !!i7[t5];
+          s5 === this.st.has(t5) || this.nt?.has(t5) || (s5 ? (r6.add(t5), this.st.add(t5)) : (r6.remove(t5), this.st.delete(t5)));
+        }
+        return E;
+      }
+    });
+  }
+});
+
+// ../../node_modules/lit/directives/class-map.js
+var init_class_map2 = __esm({
+  "../../node_modules/lit/directives/class-map.js"() {
+    init_class_map();
+  }
+});
+
+// ../../node_modules/@universal-material/web/button/button.styles.js
+var styles;
+var init_button_styles = __esm({
+  "../../node_modules/@universal-material/web/button/button.styles.js"() {
+    init_lit();
+    styles = i2`
+  :host {
+    --u-common-button-line-height: var(--u-label-large-line-height, 1.25rem);
+    --u-common-button-font-size: var(--u-label-large-font-size, .875rem);
+    --u-common-button-font-weight: var(--u-font-weight-medium, 500);
+    --_common-button-padding: var(--u-common-button-padding, 16px);
+    --_extra-small-font-size: var(--u-common-button-extra-small-font-size, .875rem);
+    --_small-font-size: var(--u-common-button-small-font-size, .875rem);
+    --_medium-font-size: var(--u-common-button-medium-font-size, 1rem);
+    --_large-font-size: var(--u-common-button-large-font-size, 1.5rem);
+    --_extra-large-font-size: var(--u-common-button-extra-large-font-size, 2rem);
+    --_extra-small-font-weight: var(--u-common-button-extra-small-font-weight, var(--u-font-weight-medium, 500));
+    --_small-font-weight: var(--u-common-button-small-font-weight, var(--u-font-weight-medium, 500));
+    --_medium-font-weight: var(--u-common-button-medium-font-weight, var(--u-font-weight-medium, 500));
+    --_large-font-weight: var(--u-common-button-large-font-weight, var(--u-font-weight-regular, 400));
+    --_extra-large-font-weight: var(--u-common-button-extra-large-font-weight, var(--u-font-weight-regular, 400));
+    --_extra-small-size: var(--u-common-button-extra-small-height, 32px);
+    --_small-size: var(--u-common-button-small-height, 40px);
+    --_medium-size: var(--u-common-button-medium-height, 56px);
+    --_large-size: var(--u-common-button-large-height, 96px);
+    --_extra-large-size: var(--u-common-button-extra-large-height, 136px);
+    --_extra-small-icon-size: var(--u-icon-button-extra-small-icon-size, 1.25rem);
+    --_small-icon-size: var(--u-icon-button-small-icon-size, 1.25rem);
+    --_medium-icon-size: var(--u-icon-button-medium-icon-size, 1.5rem);
+    --_large-icon-size: var(--u-icon-button-large-icon-size, 2rem);
+    --_extra-large-icon-size: var(--u-icon-button-extra-large-icon-size, 2.5rem);
+    --_extra-small-icon-margin: var(--u-icon-button-extra-small-icon-margin, 8px);
+    --_small-icon-margin: var(--u-icon-button-small-icon-margin, 8px);
+    --_medium-icon-margin: var(--u-icon-button-medium-icon-margin, 8px);
+    --_large-icon-margin: var(--u-icon-button-large-icon-margin, 12px);
+    --_extra-large-icon-margin: var(--u-icon-button-extra-large-icon-margin, 16px);
+    --_extra-small-padding: var(--u-common-button-extra-small-padding, 12px);
+    --_small-padding: var(--u-common-button-small-padding, 16px);
+    --_medium-padding: var(--u-common-button-medium-padding, 24px);
+    --_large-padding: var(--u-common-button-large-padding, 48px);
+    --_extra-large-padding: var(--u-common-button-extra-large-padding, 64px);
+    --_extra-small-square-shape-corner: var(--u-common-button-extra-small-square-shape-corner, 12px);
+    --_small-square-shape-corner: var(--u-common-button-small-square-shape-corner, 12px);
+    --_medium-square-shape-corner: var(--u-common-button-medium-square-shape-corner, 16px);
+    --_large-square-shape-corner: var(--u-common-button-large-square-shape-corner, 28px);
+    --_extra-large-square-shape-corner: var(--u-common-button-extra-large-square-shape-corner, 28px);
+    --_extra-small-pressed-shape-corner: var(--u-common-button-extra-small-pressed-shape-corner, 8px);
+    --_small-pressed-shape-corner: var(--u-common-button-small-pressed-shape-corner, 8px);
+    --_medium-pressed-shape-corner: var(--u-common-button-medium-pressed-shape-corner, 12px);
+    --_large-pressed-shape-corner: var(--u-common-button-large-pressed-shape-corner, 16px);
+    --_extra-large-pressed-shape-corner: var(--u-common-button-extra-large-pressed-shape-corner, 16px);
+    --_font-size: var(--_small-font-size);
+    --_font-weight: var(--_small-font-weight);
+    --_padding: var(--_small-padding);
+    --_icon-margin: var(--_small-icon-margin);
+    --_round-shape-corner: var(--u-common-button-round-shape-corner, calc(var(--_size) / 2));
+  }
+
+  .extra-small {
+    --_font-size: var(--_extra-small-font-size);
+    --_font-weight: var(--_extra-small-font-weight);
+    --_padding: var(--_extra-small-padding);
+    --_icon-margin: var(--_extra-small-icon-margin);
+  }
+
+  .medium {
+    --_font-size: var(--_medium-font-size);
+    --_font-weight: var(--_medium-font-weight);
+    --_padding: var(--_medium-padding);
+    --_icon-margin: var(--_medium-icon-margin);
+  }
+
+  .large {
+    --_font-size: var(--_large-font-size);
+    --_font-weight: var(--_large-font-weight);
+    --_padding: var(--_large-padding);
+    --_icon-margin: var(--_large-icon-margin);
+  }
+
+  .extra-large {
+    --_font-size: var(--_extra-large-font-size);
+    --_font-weight: var(--_extra-large-font-weight);
+    --_padding: var(--_extra-large-padding);
+    --_icon-margin: var(--_extra-large-icon-margin);
+  }
+
+  .container {
+    font-family: var(--u-font-family, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
+    font-size: var(--_font-size);
+    font-weight: var(--_font-weight);
+    padding-inline: var(--_padding);
+    box-sizing: border-box;
+  }
+
+  .filled.primary, .filled.primary.selected {
+    background-color: var(--u-filled-button-primary-container-color, var(--u-color-primary, rgb(103, 80, 164)));
+    color: var(--u-filled-button-primary-text-color, var(--u-color-on-primary, rgb(255, 255, 255)));
+  }
+  .filled.secondary, .filled.secondary.selected {
+    background-color: var(--u-filled-button-secondary-container-color, var(--u-color-secondary, rgb(98, 91, 113)));
+    color: var(--u-filled-button-secondary-text-color, var(--u-color-on-secondary, rgb(255, 255, 255)));
+  }
+  .filled.tertiary, .filled.tertiary.selected {
+    background-color: var(--u-filled-button-tertiary-container-color, var(--u-color-tertiary, rgb(125, 82, 96)));
+    color: var(--u-filled-button-tertiary-text-color, var(--u-color-on-tertiary, rgb(255, 255, 255)));
+  }
+  .filled.error, .filled.error.selected {
+    background-color: var(--u-filled-button-error-container-color, var(--u-color-error, rgb(179, 38, 30)));
+    color: var(--u-filled-button-error-text-color, var(--u-color-on-error, rgb(255, 255, 255)));
+  }
+  .filled.toggle {
+    background-color: var(--u-filled-button-container-unselected-color, var(--u-color-surface-container, rgb(243, 237, 247)));
+    color: var(--u-filled-button-unselected-text-color, var(--u-color-on-surface-variant, rgb(73, 69, 79)));
+  }
+
+  .tonal {
+    background-color: var(--u-tonal-button-container-color, var(--u-color-secondary-container, rgb(232, 222, 248)));
+    color: var(--u-tonal-button-text-color, var(--u-color-on-secondary-container, rgb(29, 25, 43)));
+  }
+  .tonal.selected {
+    background-color: var(--u-tonal-button-container-selected-color, var(--u-color-secondary, rgb(98, 91, 113)));
+    color: var(--u-tonal-button-text-selected-color, var(--u-color-on-secondary, rgb(255, 255, 255)));
+  }
+
+  .elevated {
+    background-color: var(--u-elevated-button-container-color, var(--u-color-surface-container-low, rgb(247, 242, 250)));
+    color: var(--u-elevated-button-text-color, var(--u-color-primary, rgb(103, 80, 164)));
+  }
+  .elevated.selected {
+    background-color: var(--u-elevated-button-container-selected-color, var(--u-color-primary, rgb(103, 80, 164)));
+    color: var(--u-elevated-button-text-selected-color, var(--u-color-on-primary, rgb(255, 255, 255)));
+  }
+
+  @media (hover: hover) {
+    .filled:hover:not(:focus-within):not(:active),
+    .tonal:hover:not(:focus-within):not(:active) {
+      --u-elevation-level: var(--u-filled-button-hover-elevation-level, 1);
+    }
+  }
+  .text {
+    color: var(--u-text-button-text-color, var(--_color-primary));
+  }
+
+  .outlined {
+    color: var(--u-outlined-button-text-color, var(--u-text-button-text-color, var(--_color-primary)));
+    border: 1px solid var(--u-outlined-button-outline-color, var(--u-color-outline, rgb(121, 116, 126)));
+  }
+  .outlined.selected {
+    background-color: var(--u-outlined-button-container-selected-color, var(--u-color-inverse-surface, rgb(50, 47, 53)));
+    color: var(--u-outlined-button-text-selected-color, var(--u-color-on-inverse-surface, rgb(245, 239, 247)));
+  }
+  .outlined.disabled {
+    border-color: var(--u-outlined-button-disabled-border-color, color-mix(in srgb, var(--u-color-on-surface, rgb(29, 27, 32)) var(--u-outlined-button-disabled-border-opacity, 12%), transparent)) !important;
+  }
+  .outlined.disabled:not(.selected) {
+    background-color: transparent !important;
+  }
+
+  .elevated {
+    --u-elevation-level: var(--u-elevated-button-elevation-level, 1);
+    color: var(--u-elevated-button-text-color, var(--_color-primary));
+  }
+  @media (hover: hover) {
+    .elevated:hover {
+      --u-elevation-level: var(--u-elevated-button-hover-elevation-level, 2);
+    }
+  }
+
+  .container:not(.has-icon) .icon-container {
+    display: none;
+  }
+
+  .content {
+    gap: var(--_icon-margin);
+  }
+
+  .icon {
+    font-size: var(--_icon-size);
+  }
+
+  .trailing-icon .content {
+    flex-direction: row-reverse;
+  }
+
+  #label {
+    display: inline-block;
+  }
+
+  .label {
+    display: inline-block;
+    inset-inline-start: 0;
+    transition-duration: calc(var(--_morph-duration) * 0.7);
+  }
+
+  .label-container {
+    position: relative;
+  }
+  .label-container.animate {
+    transition: width var(--_morph-duration) linear;
+  }
+
+  .label-default {
+    opacity: 1;
+    transition-delay: calc(var(--_morph-duration) / 2);
+  }
+
+  .label-selected {
+    position: absolute;
+    opacity: 0;
+    transition-delay: 0ms;
+  }
+
+  .selected.has-selection-label .label-default {
+    position: absolute;
+    opacity: 0;
+    transition-delay: 0ms;
+  }
+  .selected.has-selection-label .label-selected {
+    position: static;
+    opacity: 1;
+    transition-delay: calc(var(--_morph-duration) / 2);
+  }
+`;
+  }
+});
+
+// ../../node_modules/lit-html/directives/if-defined.js
+var o7;
+var init_if_defined = __esm({
+  "../../node_modules/lit-html/directives/if-defined.js"() {
+    init_lit_html();
+    o7 = (o8) => o8 ?? A;
+  }
+});
+
+// ../../node_modules/lit/directives/if-defined.js
+var init_if_defined2 = __esm({
+  "../../node_modules/lit/directives/if-defined.js"() {
+    init_if_defined();
+  }
+});
+
+// ../../node_modules/@universal-material/web/shared/base.styles.js
+var styles2;
+var init_base_styles = __esm({
+  "../../node_modules/@universal-material/web/shared/base.styles.js"() {
+    init_lit();
+    styles2 = i2`
+  :host,
+  * {
+    --_focus-ring-color: var(--u-focus-ring-color, var(--u-color-secondary, rgb(98, 91, 113)));
+    --_focus-ring-outline-offset: var(--u-focus-ring-outline-offset, 2px);
+    font-family: var(--u-font-family, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
+    box-sizing: border-box;
+    outline: 0;
+  }
+
+  .force-focus-ring .focus-ring,
+  :host(.force-focus-ring) .focus-ring,
+  .focus-ring:focus-visible {
+    animation: u-focus-pulse 500ms ease;
+    animation-fill-mode: forwards;
+    outline-offset: var(--_focus-ring-outline-offset);
+  }
+
+  @keyframes u-focus-pulse {
+    0% {
+      outline: 0 solid var(--_focus-ring-color);
+    }
+    50% {
+      outline: 6px solid var(--_focus-ring-color);
+    }
+    100% {
+      outline: 4px solid var(--_focus-ring-color);
+    }
+  }
+`;
+  }
+});
+
+// ../../node_modules/@universal-material/web/shared/button-wrapper.styles.js
+var styles3;
+var init_button_wrapper_styles = __esm({
+  "../../node_modules/@universal-material/web/shared/button-wrapper.styles.js"() {
+    init_lit();
+    styles3 = i2`
+  :host {
+    --_color-primary: var(--u-color-primary, rgb(103, 80, 164));
+    -webkit-tap-highlight-color: transparent;
+    --u-elevation-level: 0;
+    display: inline-block;
+  }
+
+  .container {
+    position: relative;
+    font-family: var(--u-font-family, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
+    appearance: none !important;
+  }
+
+  .disabled {
+    --u-elevation-level: 0 !important;
+    background-color: var(--u-button-disabled-bg-color, color-mix(in srgb, var(--u-color-on-surface, rgb(29, 27, 32)) var(--u-button-disabled-background-opacity, 10%), transparent)) !important;
+    color: var(--u-button-disabled-text-color, color-mix(in srgb, var(--u-color-on-surface, rgb(29, 27, 32)) var(--u-button-disabled-opacity, 38%), transparent)) !important;
+  }
+  .disabled .button {
+    cursor: default;
+  }
+
+  * {
+    color: inherit;
+  }
+
+  u-elevation {
+    z-index: -1;
+  }
+
+  .button {
+    cursor: pointer;
+    position: absolute;
+    inset-inline-start: 0;
+    inset-block-start: 0;
+    width: 100%;
+    height: 100%;
+    font-family: inherit;
+    border-radius: inherit;
+    color: inherit;
+    border: none;
+    margin: 0;
+    padding: 0;
+    text-align: center;
+    white-space: nowrap;
+    background: transparent;
+    user-select: none;
+    text-decoration: none;
+    outline: 0;
+    z-index: 0;
+  }
+
+  .content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    border-radius: inherit;
+    width: 100%;
+    height: 100%;
+  }
+`;
+  }
+});
+
+// ../../node_modules/@universal-material/web/shared/events/redispatch-event.js
+var redispatchEvent;
+var init_redispatch_event = __esm({
+  "../../node_modules/@universal-material/web/shared/events/redispatch-event.js"() {
+    redispatchEvent = (element, event, newType = null) => {
+      if (event.bubbles && (!element.shadowRoot || event.composed)) {
+        event.stopPropagation();
+      }
+      const copy = Reflect.construct(event.constructor, [newType ?? event.type, event]);
+      const dispatched = element.dispatchEvent(copy);
+      if (!dispatched) {
+        event.preventDefault();
+      }
+      return dispatched;
+    };
+  }
+});
+
+// ../../node_modules/@universal-material/web/elevation/elevation.styles.js
+var styles4;
+var init_elevation_styles = __esm({
+  "../../node_modules/@universal-material/web/elevation/elevation.styles.js"() {
+    init_lit();
+    styles4 = i2`
+  :host {
+    --_level: var(--u-elevation-level, 0);
+    --_shadow-color: var(--u-color-shadow, rgb(0, 0, 0));
+    -webkit-tap-highlight-color: transparent;
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  :host::before, :host::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    transition: box-shadow 150ms ease-in-out;
+  }
+  :host::before {
+    box-shadow: 0 calc(1px * (clamp(0, var(--_level), 1) + clamp(0, var(--_level) - 3, 1) + 2 * clamp(0, var(--_level) - 4, 1))) calc(1px * (2 * clamp(0, var(--_level), 1) + clamp(0, var(--_level) - 2, 1) + clamp(0, var(--_level) - 4, 1))) 0 var(--_shadow-color);
+    opacity: 0.3;
+  }
+  :host::after {
+    box-shadow: 0 calc(1px * (clamp(0, var(--_level), 1) + clamp(0, var(--_level) - 1, 1) + 2 * clamp(0, var(--_level) - 2, 3))) calc(1px * (3 * clamp(0, var(--_level), 2) + 2 * clamp(0, var(--_level) - 2, 3))) calc(1px * (clamp(0, var(--_level), 4) + 2 * clamp(0, var(--_level) - 4, 1))) var(--_shadow-color);
+    opacity: 0.15;
+  }
+`;
+  }
+});
+
+// ../../node_modules/@universal-material/web/elevation/elevation.js
+var Elevation;
+var init_elevation = __esm({
+  "../../node_modules/@universal-material/web/elevation/elevation.js"() {
+    init_tslib_es6();
+    init_lit();
+    init_decorators();
+    init_elevation_styles();
+    Elevation = class Elevation2 extends i5 {
+      static {
+        this.styles = styles4;
+      }
+      connectedCallback() {
+        super.connectedCallback();
+        this.ariaHidden = "true";
+      }
+    };
+    Elevation = __decorate([
+      t3("u-elevation")
+    ], Elevation);
+  }
+});
+
+// ../../node_modules/@universal-material/web/ripple/ripple.styles.js
+var styles5;
+var init_ripple_styles = __esm({
+  "../../node_modules/@universal-material/web/ripple/ripple.styles.js"() {
+    init_lit();
+    styles5 = i2`
+  :host,
+  .ripple-container::before {
+    --_ripple-hover-color: var(--u-ripple-hover-color, var(--u-ripple-color, var(--u-state-layer-color, currentColor)));
+    --_ripple-pressed-color: var(--u-ripple-pressed-color, var(--u-ripple-color, var(--u-state-layer-color, currentColor)));
+    --_ripple-hover-opacity: var(--u-ripple-pressed-opacity, var(--u-state-hover-opacity, 0.08));
+    --_ripple-pressed-opacity: var(--u-ripple-pressed-opacity, .2);
+    display: block;
+    inset: 0;
+    isolation: isolate;
+  }
+
+  .ripple-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: var(--u-ripple-border-radius, inherit);
+  }
+
+  .ripple-container::before {
+    content: "";
+    background: var(--_ripple-hover-color);
+    opacity: 0;
+    transition: opacity 200ms;
+  }
+
+  @media (hover: hover) {
+    :host(:not([disabled]):hover) .ripple-container::before {
+      content: "";
+      background: var(--_ripple-hover-color);
+      opacity: var(--_ripple-hover-opacity);
+    }
+  }
+  :host,
+  .ripple-container::before,
+  .ripple {
+    position: absolute;
+    border-radius: inherit;
+  }
+
+  .ripple {
+    top: 50%;
+    left: 50%;
+    background: var(--_ripple-pressed-color);
+    border-radius: 50%;
+    box-shadow: 0 0 64px 64px var(--_ripple-pressed-color);
+    opacity: var(--_ripple-pressed-opacity);
+    transform: scale3d(0, 0, 1);
+    pointer-events: none;
+    will-change: transform;
+  }
+  .ripple.show {
+    transition: transform calc(var(--_ripple-transition-duration) / var(--u-ripple-speed, 1)) cubic-bezier(0.19, 1, 0.22, 1), opacity calc(750ms / var(--u-ripple-speed, 1));
+    transform: scale3d(1, 1, 1);
+  }
+  .ripple.show-forced {
+    transition: transform calc(var(--_ripple-transition-duration) / var(--u-ripple-speed, 1)) cubic-bezier(0.19, 1, 0.22, 1), opacity calc(200ms / var(--u-ripple-speed, 1)) 300ms;
+    transform: scale3d(2, 2, 1);
+    opacity: 0;
+  }
+  .ripple.dismiss {
+    opacity: 0;
+    transform: scale3d(2, 2, 1);
+  }
+
+  ::slotted(*) {
+    position: absolute !important;
+    inset: 0;
+    border-radius: inherit;
+  }
+`;
+  }
+});
+
+// ../../node_modules/@universal-material/web/ripple/ripple.js
+var Ripple_1, Ripple;
+var init_ripple = __esm({
+  "../../node_modules/@universal-material/web/ripple/ripple.js"() {
+    init_tslib_es6();
+    init_lit();
+    init_decorators();
+    init_ripple_styles();
+    Ripple = class Ripple2 extends i5 {
+      static {
+        Ripple_1 = this;
+      }
+      static {
+        this.styles = styles5;
+      }
+      constructor() {
+        super();
+        this.isTouching = false;
+        this.disabled = false;
+      }
+      render() {
+        return b3`<div class="ripple-container"></div><slot></slot>`;
+      }
+      connectedCallback() {
+        super.connectedCallback();
+        this.attachEvents();
+        this.ariaHidden = "true";
+      }
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this.dettachEvents();
+      }
+      attachEvents() {
+        this.addEventListener("mousedown", this.handleMouseDown);
+        this.addEventListener("touchstart", this.handleTouchStart);
+      }
+      dettachEvents() {
+        this.removeEventListener("mousedown", this.handleMouseDown);
+        this.removeEventListener("touchstart", this.handleTouchStart);
+      }
+      handleMouseDown(e8) {
+        if (this.isTouching || !this.canCreateRipple()) {
+          return;
+        }
+        this.createRipple(e8.clientX, e8.clientY, "mouseup");
+      }
+      handleTouchStart(e8) {
+        if (!this.canCreateRipple()) {
+          return;
+        }
+        this.isTouching = true;
+        const dismiss = this.createRipple(e8.touches[0].clientX, e8.touches[0].clientY, "touchend");
+        this.addEventListener("touchmove", dismiss);
+      }
+      canCreateRipple() {
+        return !this.disabled;
+      }
+      createRipple(targetX = null, targetY = null, releaseEventName = null) {
+        const preClientRect = this.rippleContainer.getBoundingClientRect();
+        targetX ??= preClientRect.x + this.rippleContainer.clientWidth / 2;
+        targetY ??= preClientRect.y + this.rippleContainer.clientHeight / 2;
+        const ripple = document.createElement("DIV");
+        ripple.classList.add("ripple");
+        this.rippleContainer.appendChild(ripple);
+        requestAnimationFrame(() => {
+          const clientRect = this.getBoundingClientRect();
+          const largestDimensionSize = Math.max(this.clientWidth, this.clientHeight);
+          const rippleSize = largestDimensionSize * 2;
+          Ripple_1._setElementSquareSizeAndCenter(ripple, rippleSize);
+          ripple.style.setProperty("--_ripple-transition-duration", `${1080 * Math.pow(rippleSize, 0.3)}ms`);
+          const x3 = targetX - clientRect.left + (rippleSize - this.rippleContainer.clientWidth) / 2;
+          const y3 = targetY - clientRect.top + (rippleSize - this.rippleContainer.clientHeight) / 2;
+          ripple.style.transformOrigin = `${x3}px ${y3}px`;
+          ripple.classList.add(releaseEventName ? "show" : "show-forced");
+        });
+        const interval = setInterval(() => {
+          if (!ripple.classList.contains("dismiss") && !ripple.classList.contains("show-forced")) {
+            return;
+          }
+          const animations = ripple.getAnimations();
+          if (animations.length) {
+            return;
+          }
+          clearInterval(interval);
+          ripple.remove();
+        }, 1e3);
+        if (!releaseEventName) {
+          return null;
+        }
+        return this.createDismissEvent(ripple, releaseEventName);
+      }
+      createDismissEvent(ripple, releaseEventName) {
+        const dismiss = () => {
+          ripple.classList.add("dismiss");
+          this.isTouching = false;
+          this.removeEventListener("dragover", dismiss);
+          this.removeEventListener("mouseleave", dismiss);
+          window.removeEventListener(releaseEventName, dismiss);
+        };
+        this.addEventListener("dragover", dismiss);
+        this.addEventListener("mouseleave", dismiss);
+        window.addEventListener(releaseEventName, dismiss);
+        return dismiss;
+      }
+      static _setElementSquareSizeAndCenter(element, size) {
+        element.style.top = "50%";
+        element.style.left = "50%";
+        element.style.width = `${size}px`;
+        element.style.height = `${size}px`;
+        element.style.marginLeft = `${-size / 2}px`;
+        element.style.marginTop = `${-size / 2}px`;
+      }
+    };
+    __decorate([
+      n4({ type: Boolean, reflect: true })
+    ], Ripple.prototype, "disabled", void 0);
+    __decorate([
+      e5(".ripple-container")
+    ], Ripple.prototype, "rippleContainer", void 0);
+    Ripple = Ripple_1 = __decorate([
+      t3("u-ripple")
+    ], Ripple);
+  }
+});
+
+// ../../node_modules/@universal-material/web/shared/button-wrapper.js
+var ButtonWrapper;
+var init_button_wrapper = __esm({
+  "../../node_modules/@universal-material/web/shared/button-wrapper.js"() {
+    init_tslib_es6();
+    init_lit();
+    init_decorators();
+    init_class_map2();
+    init_if_defined2();
+    init_base_styles();
+    init_button_wrapper_styles();
+    init_redispatch_event();
+    init_elevation();
+    init_ripple();
+    ButtonWrapper = class extends i5 {
+      constructor() {
+        super(...arguments);
+        this.disabled = false;
+        this.renderRipple = true;
+        this.innerRole = null;
+      }
+      static {
+        this.styles = [styles2, styles3];
+      }
+      get pathname() {
+        return this.buttonElement?.pathname;
+      }
+      render() {
+        const contents = typeof this.href === "string" ? this.#renderLink() : this.#renderButton();
+        const containerClasses = e7(this._getContainerClasses());
+        return b3`<div class="container ${containerClasses}" part="container"> ${contents}</div>`;
+      }
+      _getContainerClasses() {
+        return { disabled: this.disabled };
+      }
+      #renderButton() {
+        return b3`
+      <div class="content">${this._renderContent()}</div>
+      <button
+        id="button"
+        class="button focus-ring"
+        ?disabled=${this.disabled}
+        aria-label=${this.getAriaLabel() || A}
+        aria-labelledby="${this.getAriaLabel() ? A : "text"}"
+        .role=${this.innerRole}
+        type="button"
+        @click=${this.#innerClickHandler}>
+        <u-ripple ?disabled=${this.disabled || !this.renderRipple}></u-ripple>
+        <u-elevation></u-elevation>
+      </button>
+    `;
+      }
+      #renderLink() {
+        return b3`
+      <div class="content">${this._renderContent()}</div>
+      <a
+        id="link"
+        class="button"
+        href=${this.disabled ? A : o7(this.href)}
+        aria-disabled=${this.disabled || A}
+        aria-label=${this.ariaLabel || A}
+        aria-labelledby="${this.ariaLabel ? A : "text"}"
+        .role=${this.innerRole}
+        target=${this.target || A}
+        @click=${this.#innerClickHandler}>
+        <u-elevation></u-elevation>
+        <u-ripple ?disabled=${this.disabled || !this.renderRipple}></u-ripple>
+      </a>
+    `;
+      }
+      connectedCallback() {
+        super.connectedCallback();
+        this.addEventListener("focus", this.#innerFocusHandler);
+      }
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this.removeEventListener("focus", this.#innerFocusHandler);
+      }
+      focus() {
+        this.buttonElement?.focus();
+      }
+      blur() {
+        this.buttonElement?.blur();
+      }
+      getAriaLabel() {
+        return this.ariaLabel;
+      }
+      #innerFocusHandler() {
+        const tabIndexAttributeValue = this.getAttribute("tabindex");
+        if (tabIndexAttributeValue !== "0") {
+          return;
+        }
+        this.removeAttribute("tabindex");
+        setTimeout(() => this.buttonElement?.focus());
+      }
+      #innerClickHandler(event) {
+        if (this.disabled) {
+          return;
+        }
+        const preventDefault = !redispatchEvent(this, event);
+        if (preventDefault) {
+          return;
+        }
+        if (!event.pointerType) {
+          this._ripple.createRipple();
+        }
+        this._handleClick(event);
+      }
+      _handleClick(_2) {
+      }
+    };
+    __decorate([
+      n4({ type: Boolean, reflect: true })
+    ], ButtonWrapper.prototype, "disabled", void 0);
+    __decorate([
+      r5()
+    ], ButtonWrapper.prototype, "renderRipple", void 0);
+    __decorate([
+      n4()
+    ], ButtonWrapper.prototype, "href", void 0);
+    __decorate([
+      n4()
+    ], ButtonWrapper.prototype, "target", void 0);
+    __decorate([
+      n4()
+    ], ButtonWrapper.prototype, "name", void 0);
+    __decorate([
+      e5(".button")
+    ], ButtonWrapper.prototype, "buttonElement", void 0);
+    __decorate([
+      e5("u-ripple")
+    ], ButtonWrapper.prototype, "_ripple", void 0);
+  }
+});
+
+// ../../node_modules/@universal-material/web/button/button-base.styles.js
+var styles6;
+var init_button_base_styles = __esm({
+  "../../node_modules/@universal-material/web/button/button-base.styles.js"() {
+    init_lit();
+    styles6 = i2`
+  :host {
+    --_morph-duration: var(--u-button-morph-duration, 125ms);
+  }
+
+  .container {
+    transition: background-color var(--_morph-duration) linear, border-radius var(--_morph-duration) linear, color var(--_morph-duration) linear;
+  }
+
+  .icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 1em;
+    height: 1em;
+    line-height: 1em;
+  }
+
+  ::slotted([slot=icon]) {
+    display: inline-block;
+  }
+`;
+  }
+});
+
+// ../../node_modules/@universal-material/web/button/button-base.js
+var ButtonBase;
+var init_button_base = __esm({
+  "../../node_modules/@universal-material/web/button/button-base.js"() {
+    init_tslib_es6();
+    init_decorators();
+    init_button_wrapper();
+    init_button_base_styles();
+    ButtonBase = class extends ButtonWrapper {
+      static {
+        this.formAssociated = true;
+      }
+      static {
+        this.styles = [ButtonWrapper.styles, styles6];
+      }
+      get form() {
+        return this.#elementInternals.form;
+      }
+      #elementInternals;
+      constructor() {
+        super();
+        this.type = "submit";
+        this.value = "";
+        this.#elementInternals = this.attachInternals();
+      }
+      _handleClick(_2) {
+        if (this.type === "button" || !!this.href) {
+          return;
+        }
+        if (!this.form) {
+          return;
+        }
+        this.#elementInternals.setFormValue(this.value);
+        if (this.type === "reset") {
+          this.form.reset();
+          return;
+        }
+        this.form.addEventListener("submit", (submitEvent) => {
+          Object.defineProperty(submitEvent, "submitter", {
+            configurable: true,
+            enumerable: true,
+            get: () => this
+          });
+        }, { capture: true, once: true });
+        this.form.requestSubmit();
+      }
+    };
+    __decorate([
+      n4()
+    ], ButtonBase.prototype, "type", void 0);
+    __decorate([
+      n4({ reflect: true })
+    ], ButtonBase.prototype, "value", void 0);
+  }
+});
+
+// ../../node_modules/@universal-material/web/button/toggle-button.styles.js
+var styles7;
+var init_toggle_button_styles = __esm({
+  "../../node_modules/@universal-material/web/button/toggle-button.styles.js"() {
+    init_lit();
+    styles7 = i2`
+  :host {
+    --_size: var(--_small-size);
+    --_square-shape-corner: var(--_small-square-shape-corner);
+    --_pressed-shape-corner: var(--_small-pressed-shape-corner);
+    --_icon-size: var(--_small-icon-size);
+  }
+
+  .extra-small {
+    --_size: var(--_extra-small-size);
+    --_icon-size: var(--_extra-small-icon-size);
+    --_square-shape-corner: var(--_extra-small-square-shape-corner);
+    --_pressed-shape-corner: var(--_extra-small-pressed-shape-corner);
+  }
+
+  .medium {
+    --_size: var(--_medium-size);
+    --_icon-size: var(--_medium-icon-size);
+    --_square-shape-corner: var(--_medium-square-shape-corner);
+    --_pressed-shape-corner: var(--_medium-pressed-shape-corner);
+  }
+
+  .large {
+    --_size: var(--_large-size);
+    --_icon-size: var(--_large-icon-size);
+    --_square-shape-corner: var(--_large-square-shape-corner);
+    --_pressed-shape-corner: var(--_large-pressed-shape-corner);
+  }
+
+  .extra-large {
+    --_size: var(--_extra-large-size);
+    --_icon-size: var(--_extra-large-icon-size);
+    --_square-shape-corner: var(--_extra-large-square-shape-corner);
+    --_pressed-shape-corner: var(--_extra-large-pressed-shape-corner);
+  }
+
+  .container {
+    height: var(--_size);
+  }
+
+  .round {
+    border-radius: var(--_round-shape-corner);
+  }
+
+  .square {
+    border-radius: var(--_square-shape-corner);
+  }
+
+  .selected.toggle-shape.round {
+    border-radius: var(--_square-shape-corner);
+  }
+  .selected.toggle-shape.square {
+    border-radius: var(--_round-shape-corner);
+  }
+
+  :host(:active) .toggle-shape:not(.disabled) {
+    border-radius: var(--_pressed-shape-corner);
+  }
+
+  .icon-container {
+    position: relative;
+    width: var(--_icon-size);
+    height: 1px;
+  }
+
+  .icon-default {
+    opacity: 1;
+  }
+
+  .icon-selected {
+    opacity: 0;
+    transition-delay: calc(var(--_morph-duration) / 2);
+  }
+
+  .selected.selection-icon .icon-default {
+    opacity: 0;
+    transition-delay: 0ms;
+  }
+  .selected.selection-icon .icon-selected {
+    opacity: 1;
+    transition-delay: calc(var(--_morph-duration) / 2);
+  }
+
+  .icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--_icon-size);
+    transform: translate3d(-50%, -50%, 0);
+    transition: opacity var(--_morph-duration) linear;
+  }
+`;
+  }
+});
+
+// ../../node_modules/@universal-material/web/button/toggle-button.js
+var ToggleButton;
+var init_toggle_button = __esm({
+  "../../node_modules/@universal-material/web/button/toggle-button.js"() {
+    init_tslib_es6();
+    init_decorators();
+    init_button_base();
+    init_toggle_button_styles();
+    ToggleButton = class extends ButtonBase {
+      constructor() {
+        super(...arguments);
+        this.toggle = false;
+        this.toggleShape = false;
+        this.selected = false;
+        this.shape = "round";
+        this.size = "small";
+        this.ariaLabelSelected = "";
+        this._hasSelectionIcon = false;
+      }
+      static {
+        this.styles = [ButtonBase.styles, styles7];
+      }
+      _getContainerClasses() {
+        return {
+          ...super._getContainerClasses(),
+          [this.shape]: true,
+          [this.size]: true,
+          selected: this.selected,
+          toggle: this.toggle,
+          "toggle-shape": this.toggleShape,
+          "selection-icon": this._hasSelectionIcon
+        };
+      }
+      _handleClick(event) {
+        super._handleClick(event);
+        if (!this.toggle) {
+          return;
+        }
+        this.selected = !this.selected;
+        this.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      getAriaLabel() {
+        return this.selected ? this.ariaLabelSelected || super.getAriaLabel() : super.getAriaLabel();
+      }
+      _handleSelectedIconSlotChange(e8) {
+        this._hasSelectionIcon = e8.target.assignedElements({ flatten: true }).length > 0;
+      }
+    };
+    __decorate([
+      n4({ type: Boolean, reflect: true })
+    ], ToggleButton.prototype, "toggle", void 0);
+    __decorate([
+      n4({ attribute: "toggle-shape", type: Boolean, reflect: true })
+    ], ToggleButton.prototype, "toggleShape", void 0);
+    __decorate([
+      n4({ type: Boolean, reflect: true })
+    ], ToggleButton.prototype, "selected", void 0);
+    __decorate([
+      n4({ reflect: true })
+    ], ToggleButton.prototype, "shape", void 0);
+    __decorate([
+      n4({ reflect: true })
+    ], ToggleButton.prototype, "size", void 0);
+    __decorate([
+      n4({ attribute: "aria-label-selected" })
+    ], ToggleButton.prototype, "ariaLabelSelected", void 0);
+    __decorate([
+      r5()
+    ], ToggleButton.prototype, "_hasSelectionIcon", void 0);
+  }
+});
+
+// ../../node_modules/@universal-material/web/button/button.js
+var Button;
+var init_button = __esm({
+  "../../node_modules/@universal-material/web/button/button.js"() {
+    init_tslib_es6();
+    init_lit();
+    init_decorators();
+    init_class_map2();
+    init_button_styles();
+    init_toggle_button();
+    init_ripple();
+    Button = class Button2 extends ToggleButton {
+      constructor() {
+        super(...arguments);
+        this.variant = "filled";
+        this.color = "primary";
+        this.trailingIcon = false;
+        this._hasIcon = false;
+        this._hasSelectionLabel = false;
+        this.animateTextChange = false;
+      }
+      static {
+        this.styles = [ToggleButton.styles, styles];
+      }
+      #textSizeObserver;
+      firstUpdated(changedProperties) {
+        super.firstUpdated(changedProperties);
+        this.#textSizeObserver = new ResizeObserver(() => this.#setTextWrapperWidth());
+        this.#textSizeObserver.observe(this._text);
+        this.#setTextWrapperWidth();
+      }
+      #setTextWrapperWidth() {
+        const width = `${this._text.offsetWidth}px`;
+        this._textWrapper.style.width = width;
+        const animateTextChange = !!parseInt(width, 10);
+        if (this.animateTextChange === animateTextChange) {
+          return;
+        }
+        setTimeout(() => this.animateTextChange = animateTextChange);
+      }
+      _getContainerClasses() {
+        return {
+          ...super._getContainerClasses(),
+          [this.color]: true,
+          [this.variant]: true,
+          "trailing-icon": this.trailingIcon,
+          "has-icon": this._hasIcon,
+          "has-selection-label": this._hasSelectionLabel
+        };
+      }
+      _renderContent() {
+        const labelContainerClasses = { animate: this.animateTextChange };
+        return b3`
+      <span class="icon-container" aria-hidden="true">
+        <span class="icon icon-default">
+          <slot name="icon" @slotchange="${this.#handleIconSlotChange}"></slot>
+        </span>
+        <span class="icon icon-selected">
+          <slot name="icon-selected" @slotchange="${this._handleSelectedIconSlotChange}"></slot>
+        </span>
+      </span>
+
+      <span class="label-container ${e7(labelContainerClasses)}">
+        <span id="label">
+          <span class="label label-default">
+            <slot></slot>
+          </span>
+          <span class="label label-selected">
+            <slot name="label-selected" @slotchange="${this.#handleSelectedLabelSlotChange}"></slot>
+          </span>
+        </span>
+      </span>
+    `;
+      }
+      #handleIconSlotChange(e8) {
+        this._hasIcon = e8.target.assignedElements({ flatten: true }).length > 0;
+      }
+      #handleSelectedLabelSlotChange(e8) {
+        this._hasSelectionLabel = e8.target.assignedElements({ flatten: true }).length > 0;
+      }
+    };
+    __decorate([
+      n4()
+    ], Button.prototype, "variant", void 0);
+    __decorate([
+      n4()
+    ], Button.prototype, "color", void 0);
+    __decorate([
+      n4({ type: Boolean, attribute: "trailing-icon", reflect: true })
+    ], Button.prototype, "trailingIcon", void 0);
+    __decorate([
+      r5()
+    ], Button.prototype, "_hasIcon", void 0);
+    __decorate([
+      r5()
+    ], Button.prototype, "_hasSelectionLabel", void 0);
+    __decorate([
+      r5()
+    ], Button.prototype, "animateTextChange", void 0);
+    __decorate([
+      e5(".label-container", true)
+    ], Button.prototype, "_textWrapper", void 0);
+    __decorate([
+      e5("#label", true)
+    ], Button.prototype, "_text", void 0);
+    Button = __decorate([
+      t3("u-button")
+    ], Button);
+  }
+});
+
+// ../../node_modules/@universal-material/web/button/icon-button.styles.js
+var styles8;
+var init_icon_button_styles = __esm({
+  "../../node_modules/@universal-material/web/button/icon-button.styles.js"() {
+    init_lit();
+    styles8 = i2`
+  :host {
+    --_round-shape-corner: var(--u-icon-button-round-shape-corner, calc(var(--_size) / 2));
+    --_square-shape-corner: var(--u-icon-button-square-shape-corner, 12px);
+    --_extra-small-size: var(--u-icon-button-extra-small-size, 32px);
+    --_small-size: var(--u-icon-button-small-size, 40px);
+    --_medium-size: var(--u-icon-button-medium-size, 56px);
+    --_large-size: var(--u-icon-button-large-size, 96px);
+    --_extra-large-size: var(--u-icon-button-extra-large-size, 136px);
+    --_extra-small-narrow-width: var(--u-icon-button-extra-small-narrow-width, 28px);
+    --_small-narrow-width: var(--u-icon-button-small-narrow-width, 32px);
+    --_medium-narrow-width: var(--u-icon-button-medium-narrow-width, 48px);
+    --_large-narrow-width: var(--u-icon-button-large-narrow-width, 64px);
+    --_extra-large-narrow-width: var(--u-icon-button-extra-large-narrow-width, 104px);
+    --_extra-small-wide-width: var(--u-icon-button-extra-small-wide-width, 40px);
+    --_small-wide-width: var(--u-icon-button-small-wide-width, 52px);
+    --_medium-wide-width: var(--u-icon-button-medium-wide-width, 72px);
+    --_large-wide-width: var(--u-icon-button-large-wide-width, 128px);
+    --_extra-large-wide-width: var(--u-icon-button-extra-large-wide-width, 184px);
+    --_extra-small-icon-size: var(--u-icon-button-extra-small-icon-size, 1.25rem);
+    --_small-icon-size: var(--u-icon-button-small-icon-size, 1.5rem);
+    --_medium-icon-size: var(--u-icon-button-medium-icon-size, 1.5rem);
+    --_large-icon-size: var(--u-icon-button-large-icon-size, 2rem);
+    --_extra-large-icon-size: var(--u-icon-button-extra-large-icon-size, 2.5rem);
+    --_extra-small-square-shape-corner: var(--u-icon-button-extra-small-square-shape-corner, 12px);
+    --_small-square-shape-corner: var(--u-icon-button-small-square-shape-corner, 12px);
+    --_medium-square-shape-corner: var(--u-icon-button-medium-square-shape-corner, 16px);
+    --_large-square-shape-corner: var(--u-icon-button-large-square-shape-corner, 28px);
+    --_extra-large-square-shape-corner: var(--u-icon-button-extra-large-square-shape-corner, 28px);
+    --_extra-small-pressed-shape-corner: var(--u-icon-button-extra-small-pressed-shape-corner, 8px);
+    --_small-pressed-shape-corner: var(--u-icon-button-small-pressed-shape-corner, 8px);
+    --_medium-pressed-shape-corner: var(--u-icon-button-medium-pressed-shape-corner, 12px);
+    --_large-pressed-shape-corner: var(--u-icon-button-large-pressed-shape-corner, 16px);
+    --_extra-large-pressed-shape-corner: var(--u-icon-button-extra-large-pressed-shape-corner, 16px);
+    --_narrow-width: var(--_small-narrow-width);
+    --_wide-width: var(--_small-wide-width);
+  }
+
+  .container {
+    width: var(--_size);
+    height: var(--_size);
+    font-family: var(--u-font-family, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
+  }
+
+  .extra-small {
+    --_narrow-width: var(--_extra-small-narrow-width);
+    --_wide-width: var(--_extra-small-wide-width);
+  }
+
+  .medium {
+    --_narrow-width: var(--_medium-narrow-width);
+    --_wide-width: var(--_medium-wide-width);
+  }
+
+  .large {
+    --_narrow-width: var(--_large-narrow-width);
+    --_wide-width: var(--_large-wide-width);
+  }
+
+  .extra-large {
+    --_narrow-width: var(--_extra-large-narrow-width);
+    --_wide-width: var(--_extra-large-wide-width);
+  }
+
+  .narrow {
+    width: var(--_narrow-width);
+  }
+
+  .wide {
+    width: var(--_wide-width);
+  }
+
+  .filled, .filled.selected {
+    background-color: var(--u-filled-icon-button-container-color, var(--u-color-primary, rgb(103, 80, 164)));
+    color: var(--u-filled-icon-button-text-color, var(--u-color-on-primary, rgb(255, 255, 255)));
+  }
+  .filled.toggle {
+    background-color: var(--u-filled-icon-button-unselected-container-color, var(--u-color-surface-container, rgb(243, 237, 247)));
+    color: var(--u-filled-icon-button-unselected-text-color, var(--u-color-on-surface-variant, rgb(73, 69, 79)));
+  }
+
+  .tonal {
+    background-color: var(--u-total-icon-button-unselected-container-color, var(--u-color-secondary-container, rgb(232, 222, 248)));
+    color: var(--u-tonal-icon-button-unselected-text-color, var(--u-color-on-secondary-container, rgb(29, 25, 43)));
+  }
+  .tonal.selected {
+    background-color: var(--u-tonal-icon-button-container-color, var(--u-color-secondary, rgb(98, 91, 113)));
+    color: var(--u-tonal-icon-button-text-color, var(--u-color-on-secondary, rgb(255, 255, 255)));
+  }
+
+  .standard {
+    color: var(--u-standard-icon-button-color, var(--u-color-on-surface-variant, rgb(73, 69, 79)));
+  }
+  .standard.selected {
+    color: var(--u-standard-icon-button-selected-text-color, var(--u-color-primary, rgb(103, 80, 164)));
+    background-color: var(--u-standard-icon-button-selected-container-color, transparent);
+  }
+
+  .outlined {
+    color: var(--u-outlined-icon-button-color, var(--u-color-on-surface-variant, rgb(73, 69, 79)));
+  }
+  .outlined, .outlined.selected.disabled {
+    border: 1px solid var(--u-color-outline-variant, rgb(202, 196, 208));
+  }
+  .outlined.selected {
+    border: none;
+    background-color: var(--u-outlined-icon-button-selected-container-color, var(--u-color-inverse-surface, rgb(50, 47, 53)));
+    color: var(--u-outlined-icon-button-selected-text-color, var(--u-color-on-inverse-surface, rgb(245, 239, 247)));
+  }
+  .outlined.disabled {
+    color: var(--u-outlined-icon-button-disabled-icon-color, color-mix(in srgb, var(--u-color-on-surface, rgb(29, 27, 32)) var(--u-outlined-icon-button-disabled-border-opacity, 10%), transparent)) !important;
+  }
+`;
+  }
+});
+
+// ../../node_modules/@universal-material/web/button/icon-button.js
+var IconButton;
+var init_icon_button = __esm({
+  "../../node_modules/@universal-material/web/button/icon-button.js"() {
+    init_tslib_es6();
+    init_lit();
+    init_decorators();
+    init_icon_button_styles();
+    init_toggle_button();
+    IconButton = class IconButton2 extends ToggleButton {
+      constructor() {
+        super(...arguments);
+        this.variant = "standard";
+        this.width = "default";
+      }
+      static {
+        this.styles = [ToggleButton.styles, styles8];
+      }
+      _getContainerClasses() {
+        return {
+          ...super._getContainerClasses(),
+          [this.variant]: true,
+          [this.width]: true
+        };
+      }
+      _renderContent() {
+        return b3`
+      <span class="icon-container" aria-hidden="true">
+        <span class="icon icon-default">
+          <slot></slot>
+        </span>
+        <span class="icon icon-selected">
+          <slot name="selected" @slotchange="${this._handleSelectedIconSlotChange}"></slot>
+        </span>
+      </span>
+    `;
+      }
+    };
+    __decorate([
+      n4()
+    ], IconButton.prototype, "variant", void 0);
+    __decorate([
+      n4()
+    ], IconButton.prototype, "width", void 0);
+    IconButton = __decorate([
+      t3("u-icon-button")
+    ], IconButton);
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/utils/math_utils.js
+function signum(num) {
+  if (num < 0) {
+    return -1;
+  } else if (num === 0) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+function lerp(start, stop, amount) {
+  return (1 - amount) * start + amount * stop;
+}
+function clampInt(min, max2, input) {
+  if (input < min) {
+    return min;
+  } else if (input > max2) {
+    return max2;
+  }
+  return input;
+}
+function clampDouble(min, max2, input) {
+  if (input < min) {
+    return min;
+  } else if (input > max2) {
+    return max2;
+  }
+  return input;
+}
+function sanitizeDegreesInt(degrees) {
+  degrees = degrees % 360;
+  if (degrees < 0) {
+    degrees = degrees + 360;
+  }
+  return degrees;
+}
+function sanitizeDegreesDouble(degrees) {
+  degrees = degrees % 360;
+  if (degrees < 0) {
+    degrees = degrees + 360;
+  }
+  return degrees;
+}
+function differenceDegrees(a3, b5) {
+  return 180 - Math.abs(Math.abs(a3 - b5) - 180);
+}
+function matrixMultiply(row, matrix) {
+  const a3 = row[0] * matrix[0][0] + row[1] * matrix[0][1] + row[2] * matrix[0][2];
+  const b5 = row[0] * matrix[1][0] + row[1] * matrix[1][1] + row[2] * matrix[1][2];
+  const c4 = row[0] * matrix[2][0] + row[1] * matrix[2][1] + row[2] * matrix[2][2];
+  return [a3, b5, c4];
+}
+var init_math_utils = __esm({
+  "../../node_modules/@material/material-color-utilities/utils/math_utils.js"() {
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/utils/color_utils.js
+function argbFromRgb(red, green, blue) {
+  return (255 << 24 | (red & 255) << 16 | (green & 255) << 8 | blue & 255) >>> 0;
+}
+function argbFromLinrgb(linrgb) {
+  const r6 = delinearized(linrgb[0]);
+  const g2 = delinearized(linrgb[1]);
+  const b5 = delinearized(linrgb[2]);
+  return argbFromRgb(r6, g2, b5);
+}
+function redFromArgb(argb) {
+  return argb >> 16 & 255;
+}
+function greenFromArgb(argb) {
+  return argb >> 8 & 255;
+}
+function blueFromArgb(argb) {
+  return argb & 255;
+}
+function argbFromXyz(x3, y3, z2) {
+  const matrix = XYZ_TO_SRGB;
+  const linearR = matrix[0][0] * x3 + matrix[0][1] * y3 + matrix[0][2] * z2;
+  const linearG = matrix[1][0] * x3 + matrix[1][1] * y3 + matrix[1][2] * z2;
+  const linearB = matrix[2][0] * x3 + matrix[2][1] * y3 + matrix[2][2] * z2;
+  const r6 = delinearized(linearR);
+  const g2 = delinearized(linearG);
+  const b5 = delinearized(linearB);
+  return argbFromRgb(r6, g2, b5);
+}
+function xyzFromArgb(argb) {
+  const r6 = linearized(redFromArgb(argb));
+  const g2 = linearized(greenFromArgb(argb));
+  const b5 = linearized(blueFromArgb(argb));
+  return matrixMultiply([r6, g2, b5], SRGB_TO_XYZ);
+}
+function argbFromLstar(lstar) {
+  const y3 = yFromLstar(lstar);
+  const component = delinearized(y3);
+  return argbFromRgb(component, component, component);
+}
+function lstarFromArgb(argb) {
+  const y3 = xyzFromArgb(argb)[1];
+  return 116 * labF(y3 / 100) - 16;
+}
+function yFromLstar(lstar) {
+  return 100 * labInvf((lstar + 16) / 116);
+}
+function lstarFromY(y3) {
+  return labF(y3 / 100) * 116 - 16;
+}
+function linearized(rgbComponent) {
+  const normalized = rgbComponent / 255;
+  if (normalized <= 0.040449936) {
+    return normalized / 12.92 * 100;
+  } else {
+    return Math.pow((normalized + 0.055) / 1.055, 2.4) * 100;
+  }
+}
+function delinearized(rgbComponent) {
+  const normalized = rgbComponent / 100;
+  let delinearized2 = 0;
+  if (normalized <= 31308e-7) {
+    delinearized2 = normalized * 12.92;
+  } else {
+    delinearized2 = 1.055 * Math.pow(normalized, 1 / 2.4) - 0.055;
+  }
+  return clampInt(0, 255, Math.round(delinearized2 * 255));
+}
+function whitePointD65() {
+  return WHITE_POINT_D65;
+}
+function labF(t5) {
+  const e8 = 216 / 24389;
+  const kappa = 24389 / 27;
+  if (t5 > e8) {
+    return Math.pow(t5, 1 / 3);
+  } else {
+    return (kappa * t5 + 16) / 116;
+  }
+}
+function labInvf(ft) {
+  const e8 = 216 / 24389;
+  const kappa = 24389 / 27;
+  const ft3 = ft * ft * ft;
+  if (ft3 > e8) {
+    return ft3;
+  } else {
+    return (116 * ft - 16) / kappa;
+  }
+}
+var SRGB_TO_XYZ, XYZ_TO_SRGB, WHITE_POINT_D65;
+var init_color_utils = __esm({
+  "../../node_modules/@material/material-color-utilities/utils/color_utils.js"() {
+    init_math_utils();
+    SRGB_TO_XYZ = [
+      [0.41233895, 0.35762064, 0.18051042],
+      [0.2126, 0.7152, 0.0722],
+      [0.01932141, 0.11916382, 0.95034478]
+    ];
+    XYZ_TO_SRGB = [
+      [
+        3.2413774792388685,
+        -1.5376652402851851,
+        -0.49885366846268053
+      ],
+      [
+        -0.9691452513005321,
+        1.8758853451067872,
+        0.04156585616912061
+      ],
+      [
+        0.05562093689691305,
+        -0.20395524564742123,
+        1.0571799111220335
+      ]
+    ];
+    WHITE_POINT_D65 = [95.047, 100, 108.883];
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/hct/viewing_conditions.js
+var ViewingConditions;
+var init_viewing_conditions = __esm({
+  "../../node_modules/@material/material-color-utilities/hct/viewing_conditions.js"() {
+    init_color_utils();
+    init_math_utils();
+    ViewingConditions = class _ViewingConditions {
+      /**
+       * Create ViewingConditions from a simple, physically relevant, set of
+       * parameters.
+       *
+       * @param whitePoint White point, measured in the XYZ color space.
+       *     default = D65, or sunny day afternoon
+       * @param adaptingLuminance The luminance of the adapting field. Informally,
+       *     how bright it is in the room where the color is viewed. Can be
+       *     calculated from lux by multiplying lux by 0.0586. default = 11.72,
+       *     or 200 lux.
+       * @param backgroundLstar The lightness of the area surrounding the color.
+       *     measured by L* in L*a*b*. default = 50.0
+       * @param surround A general description of the lighting surrounding the
+       *     color. 0 is pitch dark, like watching a movie in a theater. 1.0 is a
+       *     dimly light room, like watching TV at home at night. 2.0 means there
+       *     is no difference between the lighting on the color and around it.
+       *     default = 2.0
+       * @param discountingIlluminant Whether the eye accounts for the tint of the
+       *     ambient lighting, such as knowing an apple is still red in green light.
+       *     default = false, the eye does not perform this process on
+       *       self-luminous objects like displays.
+       */
+      static make(whitePoint = whitePointD65(), adaptingLuminance = 200 / Math.PI * yFromLstar(50) / 100, backgroundLstar = 50, surround = 2, discountingIlluminant = false) {
+        const xyz = whitePoint;
+        const rW = xyz[0] * 0.401288 + xyz[1] * 0.650173 + xyz[2] * -0.051461;
+        const gW = xyz[0] * -0.250268 + xyz[1] * 1.204414 + xyz[2] * 0.045854;
+        const bW = xyz[0] * -2079e-6 + xyz[1] * 0.048952 + xyz[2] * 0.953127;
+        const f3 = 0.8 + surround / 10;
+        const c4 = f3 >= 0.9 ? lerp(0.59, 0.69, (f3 - 0.9) * 10) : lerp(0.525, 0.59, (f3 - 0.8) * 10);
+        let d3 = discountingIlluminant ? 1 : f3 * (1 - 1 / 3.6 * Math.exp((-adaptingLuminance - 42) / 92));
+        d3 = d3 > 1 ? 1 : d3 < 0 ? 0 : d3;
+        const nc = f3;
+        const rgbD = [
+          d3 * (100 / rW) + 1 - d3,
+          d3 * (100 / gW) + 1 - d3,
+          d3 * (100 / bW) + 1 - d3
+        ];
+        const k2 = 1 / (5 * adaptingLuminance + 1);
+        const k4 = k2 * k2 * k2 * k2;
+        const k4F = 1 - k4;
+        const fl2 = k4 * adaptingLuminance + 0.1 * k4F * k4F * Math.cbrt(5 * adaptingLuminance);
+        const n5 = yFromLstar(backgroundLstar) / whitePoint[1];
+        const z2 = 1.48 + Math.sqrt(n5);
+        const nbb = 0.725 / Math.pow(n5, 0.2);
+        const ncb = nbb;
+        const rgbAFactors = [
+          Math.pow(fl2 * rgbD[0] * rW / 100, 0.42),
+          Math.pow(fl2 * rgbD[1] * gW / 100, 0.42),
+          Math.pow(fl2 * rgbD[2] * bW / 100, 0.42)
+        ];
+        const rgbA = [
+          400 * rgbAFactors[0] / (rgbAFactors[0] + 27.13),
+          400 * rgbAFactors[1] / (rgbAFactors[1] + 27.13),
+          400 * rgbAFactors[2] / (rgbAFactors[2] + 27.13)
+        ];
+        const aw = (2 * rgbA[0] + rgbA[1] + 0.05 * rgbA[2]) * nbb;
+        return new _ViewingConditions(n5, aw, nbb, ncb, c4, nc, rgbD, fl2, Math.pow(fl2, 0.25), z2);
+      }
+      /**
+       * Parameters are intermediate values of the CAM16 conversion process. Their
+       * names are shorthand for technical color science terminology, this class
+       * would not benefit from documenting them individually. A brief overview
+       * is available in the CAM16 specification, and a complete overview requires
+       * a color science textbook, such as Fairchild's Color Appearance Models.
+       */
+      constructor(n5, aw, nbb, ncb, c4, nc, rgbD, fl2, fLRoot, z2) {
+        this.n = n5;
+        this.aw = aw;
+        this.nbb = nbb;
+        this.ncb = ncb;
+        this.c = c4;
+        this.nc = nc;
+        this.rgbD = rgbD;
+        this.fl = fl2;
+        this.fLRoot = fLRoot;
+        this.z = z2;
+      }
+    };
+    ViewingConditions.DEFAULT = ViewingConditions.make();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/hct/cam16.js
+var Cam16;
+var init_cam16 = __esm({
+  "../../node_modules/@material/material-color-utilities/hct/cam16.js"() {
+    init_color_utils();
+    init_math_utils();
+    init_viewing_conditions();
+    Cam16 = class _Cam16 {
+      /**
+       * All of the CAM16 dimensions can be calculated from 3 of the dimensions, in
+       * the following combinations:
+       *      -  {j or q} and {c, m, or s} and hue
+       *      - jstar, astar, bstar
+       * Prefer using a static method that constructs from 3 of those dimensions.
+       * This constructor is intended for those methods to use to return all
+       * possible dimensions.
+       *
+       * @param hue
+       * @param chroma informally, colorfulness / color intensity. like saturation
+       *     in HSL, except perceptually accurate.
+       * @param j lightness
+       * @param q brightness; ratio of lightness to white point's lightness
+       * @param m colorfulness
+       * @param s saturation; ratio of chroma to white point's chroma
+       * @param jstar CAM16-UCS J coordinate
+       * @param astar CAM16-UCS a coordinate
+       * @param bstar CAM16-UCS b coordinate
+       */
+      constructor(hue, chroma, j, q, m2, s4, jstar, astar, bstar) {
+        this.hue = hue;
+        this.chroma = chroma;
+        this.j = j;
+        this.q = q;
+        this.m = m2;
+        this.s = s4;
+        this.jstar = jstar;
+        this.astar = astar;
+        this.bstar = bstar;
+      }
+      /**
+       * CAM16 instances also have coordinates in the CAM16-UCS space, called J*,
+       * a*, b*, or jstar, astar, bstar in code. CAM16-UCS is included in the CAM16
+       * specification, and is used to measure distances between colors.
+       */
+      distance(other) {
+        const dJ = this.jstar - other.jstar;
+        const dA = this.astar - other.astar;
+        const dB = this.bstar - other.bstar;
+        const dEPrime = Math.sqrt(dJ * dJ + dA * dA + dB * dB);
+        const dE = 1.41 * Math.pow(dEPrime, 0.63);
+        return dE;
+      }
+      /**
+       * @param argb ARGB representation of a color.
+       * @return CAM16 color, assuming the color was viewed in default viewing
+       *     conditions.
+       */
+      static fromInt(argb) {
+        return _Cam16.fromIntInViewingConditions(argb, ViewingConditions.DEFAULT);
+      }
+      /**
+       * @param argb ARGB representation of a color.
+       * @param viewingConditions Information about the environment where the color
+       *     was observed.
+       * @return CAM16 color.
+       */
+      static fromIntInViewingConditions(argb, viewingConditions) {
+        const red = (argb & 16711680) >> 16;
+        const green = (argb & 65280) >> 8;
+        const blue = argb & 255;
+        const redL = linearized(red);
+        const greenL = linearized(green);
+        const blueL = linearized(blue);
+        const x3 = 0.41233895 * redL + 0.35762064 * greenL + 0.18051042 * blueL;
+        const y3 = 0.2126 * redL + 0.7152 * greenL + 0.0722 * blueL;
+        const z2 = 0.01932141 * redL + 0.11916382 * greenL + 0.95034478 * blueL;
+        const rC = 0.401288 * x3 + 0.650173 * y3 - 0.051461 * z2;
+        const gC = -0.250268 * x3 + 1.204414 * y3 + 0.045854 * z2;
+        const bC = -2079e-6 * x3 + 0.048952 * y3 + 0.953127 * z2;
+        const rD = viewingConditions.rgbD[0] * rC;
+        const gD = viewingConditions.rgbD[1] * gC;
+        const bD = viewingConditions.rgbD[2] * bC;
+        const rAF = Math.pow(viewingConditions.fl * Math.abs(rD) / 100, 0.42);
+        const gAF = Math.pow(viewingConditions.fl * Math.abs(gD) / 100, 0.42);
+        const bAF = Math.pow(viewingConditions.fl * Math.abs(bD) / 100, 0.42);
+        const rA = signum(rD) * 400 * rAF / (rAF + 27.13);
+        const gA = signum(gD) * 400 * gAF / (gAF + 27.13);
+        const bA = signum(bD) * 400 * bAF / (bAF + 27.13);
+        const a3 = (11 * rA + -12 * gA + bA) / 11;
+        const b5 = (rA + gA - 2 * bA) / 9;
+        const u3 = (20 * rA + 20 * gA + 21 * bA) / 20;
+        const p22 = (40 * rA + 20 * gA + bA) / 20;
+        const atan2 = Math.atan2(b5, a3);
+        const atanDegrees = atan2 * 180 / Math.PI;
+        const hue = atanDegrees < 0 ? atanDegrees + 360 : atanDegrees >= 360 ? atanDegrees - 360 : atanDegrees;
+        const hueRadians = hue * Math.PI / 180;
+        const ac = p22 * viewingConditions.nbb;
+        const j = 100 * Math.pow(ac / viewingConditions.aw, viewingConditions.c * viewingConditions.z);
+        const q = 4 / viewingConditions.c * Math.sqrt(j / 100) * (viewingConditions.aw + 4) * viewingConditions.fLRoot;
+        const huePrime = hue < 20.14 ? hue + 360 : hue;
+        const eHue = 0.25 * (Math.cos(huePrime * Math.PI / 180 + 2) + 3.8);
+        const p1 = 5e4 / 13 * eHue * viewingConditions.nc * viewingConditions.ncb;
+        const t5 = p1 * Math.sqrt(a3 * a3 + b5 * b5) / (u3 + 0.305);
+        const alpha = Math.pow(t5, 0.9) * Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73);
+        const c4 = alpha * Math.sqrt(j / 100);
+        const m2 = c4 * viewingConditions.fLRoot;
+        const s4 = 50 * Math.sqrt(alpha * viewingConditions.c / (viewingConditions.aw + 4));
+        const jstar = (1 + 100 * 7e-3) * j / (1 + 7e-3 * j);
+        const mstar = 1 / 0.0228 * Math.log(1 + 0.0228 * m2);
+        const astar = mstar * Math.cos(hueRadians);
+        const bstar = mstar * Math.sin(hueRadians);
+        return new _Cam16(hue, c4, j, q, m2, s4, jstar, astar, bstar);
+      }
+      /**
+       * @param j CAM16 lightness
+       * @param c CAM16 chroma
+       * @param h CAM16 hue
+       */
+      static fromJch(j, c4, h3) {
+        return _Cam16.fromJchInViewingConditions(j, c4, h3, ViewingConditions.DEFAULT);
+      }
+      /**
+       * @param j CAM16 lightness
+       * @param c CAM16 chroma
+       * @param h CAM16 hue
+       * @param viewingConditions Information about the environment where the color
+       *     was observed.
+       */
+      static fromJchInViewingConditions(j, c4, h3, viewingConditions) {
+        const q = 4 / viewingConditions.c * Math.sqrt(j / 100) * (viewingConditions.aw + 4) * viewingConditions.fLRoot;
+        const m2 = c4 * viewingConditions.fLRoot;
+        const alpha = c4 / Math.sqrt(j / 100);
+        const s4 = 50 * Math.sqrt(alpha * viewingConditions.c / (viewingConditions.aw + 4));
+        const hueRadians = h3 * Math.PI / 180;
+        const jstar = (1 + 100 * 7e-3) * j / (1 + 7e-3 * j);
+        const mstar = 1 / 0.0228 * Math.log(1 + 0.0228 * m2);
+        const astar = mstar * Math.cos(hueRadians);
+        const bstar = mstar * Math.sin(hueRadians);
+        return new _Cam16(h3, c4, j, q, m2, s4, jstar, astar, bstar);
+      }
+      /**
+       * @param jstar CAM16-UCS lightness.
+       * @param astar CAM16-UCS a dimension. Like a* in L*a*b*, it is a Cartesian
+       *     coordinate on the Y axis.
+       * @param bstar CAM16-UCS b dimension. Like a* in L*a*b*, it is a Cartesian
+       *     coordinate on the X axis.
+       */
+      static fromUcs(jstar, astar, bstar) {
+        return _Cam16.fromUcsInViewingConditions(jstar, astar, bstar, ViewingConditions.DEFAULT);
+      }
+      /**
+       * @param jstar CAM16-UCS lightness.
+       * @param astar CAM16-UCS a dimension. Like a* in L*a*b*, it is a Cartesian
+       *     coordinate on the Y axis.
+       * @param bstar CAM16-UCS b dimension. Like a* in L*a*b*, it is a Cartesian
+       *     coordinate on the X axis.
+       * @param viewingConditions Information about the environment where the color
+       *     was observed.
+       */
+      static fromUcsInViewingConditions(jstar, astar, bstar, viewingConditions) {
+        const a3 = astar;
+        const b5 = bstar;
+        const m2 = Math.sqrt(a3 * a3 + b5 * b5);
+        const M2 = (Math.exp(m2 * 0.0228) - 1) / 0.0228;
+        const c4 = M2 / viewingConditions.fLRoot;
+        let h3 = Math.atan2(b5, a3) * (180 / Math.PI);
+        if (h3 < 0) {
+          h3 += 360;
+        }
+        const j = jstar / (1 - (jstar - 100) * 7e-3);
+        return _Cam16.fromJchInViewingConditions(j, c4, h3, viewingConditions);
+      }
+      /**
+       *  @return ARGB representation of color, assuming the color was viewed in
+       *     default viewing conditions, which are near-identical to the default
+       *     viewing conditions for sRGB.
+       */
+      toInt() {
+        return this.viewed(ViewingConditions.DEFAULT);
+      }
+      /**
+       * @param viewingConditions Information about the environment where the color
+       *     will be viewed.
+       * @return ARGB representation of color
+       */
+      viewed(viewingConditions) {
+        const alpha = this.chroma === 0 || this.j === 0 ? 0 : this.chroma / Math.sqrt(this.j / 100);
+        const t5 = Math.pow(alpha / Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73), 1 / 0.9);
+        const hRad = this.hue * Math.PI / 180;
+        const eHue = 0.25 * (Math.cos(hRad + 2) + 3.8);
+        const ac = viewingConditions.aw * Math.pow(this.j / 100, 1 / viewingConditions.c / viewingConditions.z);
+        const p1 = eHue * (5e4 / 13) * viewingConditions.nc * viewingConditions.ncb;
+        const p22 = ac / viewingConditions.nbb;
+        const hSin = Math.sin(hRad);
+        const hCos = Math.cos(hRad);
+        const gamma = 23 * (p22 + 0.305) * t5 / (23 * p1 + 11 * t5 * hCos + 108 * t5 * hSin);
+        const a3 = gamma * hCos;
+        const b5 = gamma * hSin;
+        const rA = (460 * p22 + 451 * a3 + 288 * b5) / 1403;
+        const gA = (460 * p22 - 891 * a3 - 261 * b5) / 1403;
+        const bA = (460 * p22 - 220 * a3 - 6300 * b5) / 1403;
+        const rCBase = Math.max(0, 27.13 * Math.abs(rA) / (400 - Math.abs(rA)));
+        const rC = signum(rA) * (100 / viewingConditions.fl) * Math.pow(rCBase, 1 / 0.42);
+        const gCBase = Math.max(0, 27.13 * Math.abs(gA) / (400 - Math.abs(gA)));
+        const gC = signum(gA) * (100 / viewingConditions.fl) * Math.pow(gCBase, 1 / 0.42);
+        const bCBase = Math.max(0, 27.13 * Math.abs(bA) / (400 - Math.abs(bA)));
+        const bC = signum(bA) * (100 / viewingConditions.fl) * Math.pow(bCBase, 1 / 0.42);
+        const rF = rC / viewingConditions.rgbD[0];
+        const gF = gC / viewingConditions.rgbD[1];
+        const bF = bC / viewingConditions.rgbD[2];
+        const x3 = 1.86206786 * rF - 1.01125463 * gF + 0.14918677 * bF;
+        const y3 = 0.38752654 * rF + 0.62144744 * gF - 897398e-8 * bF;
+        const z2 = -0.0158415 * rF - 0.03412294 * gF + 1.04996444 * bF;
+        const argb = argbFromXyz(x3, y3, z2);
+        return argb;
+      }
+      /// Given color expressed in XYZ and viewed in [viewingConditions], convert to
+      /// CAM16.
+      static fromXyzInViewingConditions(x3, y3, z2, viewingConditions) {
+        const rC = 0.401288 * x3 + 0.650173 * y3 - 0.051461 * z2;
+        const gC = -0.250268 * x3 + 1.204414 * y3 + 0.045854 * z2;
+        const bC = -2079e-6 * x3 + 0.048952 * y3 + 0.953127 * z2;
+        const rD = viewingConditions.rgbD[0] * rC;
+        const gD = viewingConditions.rgbD[1] * gC;
+        const bD = viewingConditions.rgbD[2] * bC;
+        const rAF = Math.pow(viewingConditions.fl * Math.abs(rD) / 100, 0.42);
+        const gAF = Math.pow(viewingConditions.fl * Math.abs(gD) / 100, 0.42);
+        const bAF = Math.pow(viewingConditions.fl * Math.abs(bD) / 100, 0.42);
+        const rA = signum(rD) * 400 * rAF / (rAF + 27.13);
+        const gA = signum(gD) * 400 * gAF / (gAF + 27.13);
+        const bA = signum(bD) * 400 * bAF / (bAF + 27.13);
+        const a3 = (11 * rA + -12 * gA + bA) / 11;
+        const b5 = (rA + gA - 2 * bA) / 9;
+        const u3 = (20 * rA + 20 * gA + 21 * bA) / 20;
+        const p22 = (40 * rA + 20 * gA + bA) / 20;
+        const atan2 = Math.atan2(b5, a3);
+        const atanDegrees = atan2 * 180 / Math.PI;
+        const hue = atanDegrees < 0 ? atanDegrees + 360 : atanDegrees >= 360 ? atanDegrees - 360 : atanDegrees;
+        const hueRadians = hue * Math.PI / 180;
+        const ac = p22 * viewingConditions.nbb;
+        const J = 100 * Math.pow(ac / viewingConditions.aw, viewingConditions.c * viewingConditions.z);
+        const Q = 4 / viewingConditions.c * Math.sqrt(J / 100) * (viewingConditions.aw + 4) * viewingConditions.fLRoot;
+        const huePrime = hue < 20.14 ? hue + 360 : hue;
+        const eHue = 1 / 4 * (Math.cos(huePrime * Math.PI / 180 + 2) + 3.8);
+        const p1 = 5e4 / 13 * eHue * viewingConditions.nc * viewingConditions.ncb;
+        const t5 = p1 * Math.sqrt(a3 * a3 + b5 * b5) / (u3 + 0.305);
+        const alpha = Math.pow(t5, 0.9) * Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73);
+        const C2 = alpha * Math.sqrt(J / 100);
+        const M2 = C2 * viewingConditions.fLRoot;
+        const s4 = 50 * Math.sqrt(alpha * viewingConditions.c / (viewingConditions.aw + 4));
+        const jstar = (1 + 100 * 7e-3) * J / (1 + 7e-3 * J);
+        const mstar = Math.log(1 + 0.0228 * M2) / 0.0228;
+        const astar = mstar * Math.cos(hueRadians);
+        const bstar = mstar * Math.sin(hueRadians);
+        return new _Cam16(hue, C2, J, Q, M2, s4, jstar, astar, bstar);
+      }
+      /// XYZ representation of CAM16 seen in [viewingConditions].
+      xyzInViewingConditions(viewingConditions) {
+        const alpha = this.chroma === 0 || this.j === 0 ? 0 : this.chroma / Math.sqrt(this.j / 100);
+        const t5 = Math.pow(alpha / Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73), 1 / 0.9);
+        const hRad = this.hue * Math.PI / 180;
+        const eHue = 0.25 * (Math.cos(hRad + 2) + 3.8);
+        const ac = viewingConditions.aw * Math.pow(this.j / 100, 1 / viewingConditions.c / viewingConditions.z);
+        const p1 = eHue * (5e4 / 13) * viewingConditions.nc * viewingConditions.ncb;
+        const p22 = ac / viewingConditions.nbb;
+        const hSin = Math.sin(hRad);
+        const hCos = Math.cos(hRad);
+        const gamma = 23 * (p22 + 0.305) * t5 / (23 * p1 + 11 * t5 * hCos + 108 * t5 * hSin);
+        const a3 = gamma * hCos;
+        const b5 = gamma * hSin;
+        const rA = (460 * p22 + 451 * a3 + 288 * b5) / 1403;
+        const gA = (460 * p22 - 891 * a3 - 261 * b5) / 1403;
+        const bA = (460 * p22 - 220 * a3 - 6300 * b5) / 1403;
+        const rCBase = Math.max(0, 27.13 * Math.abs(rA) / (400 - Math.abs(rA)));
+        const rC = signum(rA) * (100 / viewingConditions.fl) * Math.pow(rCBase, 1 / 0.42);
+        const gCBase = Math.max(0, 27.13 * Math.abs(gA) / (400 - Math.abs(gA)));
+        const gC = signum(gA) * (100 / viewingConditions.fl) * Math.pow(gCBase, 1 / 0.42);
+        const bCBase = Math.max(0, 27.13 * Math.abs(bA) / (400 - Math.abs(bA)));
+        const bC = signum(bA) * (100 / viewingConditions.fl) * Math.pow(bCBase, 1 / 0.42);
+        const rF = rC / viewingConditions.rgbD[0];
+        const gF = gC / viewingConditions.rgbD[1];
+        const bF = bC / viewingConditions.rgbD[2];
+        const x3 = 1.86206786 * rF - 1.01125463 * gF + 0.14918677 * bF;
+        const y3 = 0.38752654 * rF + 0.62144744 * gF - 897398e-8 * bF;
+        const z2 = -0.0158415 * rF - 0.03412294 * gF + 1.04996444 * bF;
+        return [x3, y3, z2];
+      }
+    };
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/hct/hct_solver.js
+var HctSolver;
+var init_hct_solver = __esm({
+  "../../node_modules/@material/material-color-utilities/hct/hct_solver.js"() {
+    init_color_utils();
+    init_math_utils();
+    init_cam16();
+    init_viewing_conditions();
+    HctSolver = class _HctSolver {
+      /**
+       * Sanitizes a small enough angle in radians.
+       *
+       * @param angle An angle in radians; must not deviate too much
+       * from 0.
+       * @return A coterminal angle between 0 and 2pi.
+       */
+      static sanitizeRadians(angle) {
+        return (angle + Math.PI * 8) % (Math.PI * 2);
+      }
+      /**
+       * Delinearizes an RGB component, returning a floating-point
+       * number.
+       *
+       * @param rgbComponent 0.0 <= rgb_component <= 100.0, represents
+       * linear R/G/B channel
+       * @return 0.0 <= output <= 255.0, color channel converted to
+       * regular RGB space
+       */
+      static trueDelinearized(rgbComponent) {
+        const normalized = rgbComponent / 100;
+        let delinearized2 = 0;
+        if (normalized <= 31308e-7) {
+          delinearized2 = normalized * 12.92;
+        } else {
+          delinearized2 = 1.055 * Math.pow(normalized, 1 / 2.4) - 0.055;
+        }
+        return delinearized2 * 255;
+      }
+      static chromaticAdaptation(component) {
+        const af = Math.pow(Math.abs(component), 0.42);
+        return signum(component) * 400 * af / (af + 27.13);
+      }
+      /**
+       * Returns the hue of a linear RGB color in CAM16.
+       *
+       * @param linrgb The linear RGB coordinates of a color.
+       * @return The hue of the color in CAM16, in radians.
+       */
+      static hueOf(linrgb) {
+        const scaledDiscount = matrixMultiply(linrgb, _HctSolver.SCALED_DISCOUNT_FROM_LINRGB);
+        const rA = _HctSolver.chromaticAdaptation(scaledDiscount[0]);
+        const gA = _HctSolver.chromaticAdaptation(scaledDiscount[1]);
+        const bA = _HctSolver.chromaticAdaptation(scaledDiscount[2]);
+        const a3 = (11 * rA + -12 * gA + bA) / 11;
+        const b5 = (rA + gA - 2 * bA) / 9;
+        return Math.atan2(b5, a3);
+      }
+      static areInCyclicOrder(a3, b5, c4) {
+        const deltaAB = _HctSolver.sanitizeRadians(b5 - a3);
+        const deltaAC = _HctSolver.sanitizeRadians(c4 - a3);
+        return deltaAB < deltaAC;
+      }
+      /**
+       * Solves the lerp equation.
+       *
+       * @param source The starting number.
+       * @param mid The number in the middle.
+       * @param target The ending number.
+       * @return A number t such that lerp(source, target, t) = mid.
+       */
+      static intercept(source, mid, target) {
+        return (mid - source) / (target - source);
+      }
+      static lerpPoint(source, t5, target) {
+        return [
+          source[0] + (target[0] - source[0]) * t5,
+          source[1] + (target[1] - source[1]) * t5,
+          source[2] + (target[2] - source[2]) * t5
+        ];
+      }
+      /**
+       * Intersects a segment with a plane.
+       *
+       * @param source The coordinates of point A.
+       * @param coordinate The R-, G-, or B-coordinate of the plane.
+       * @param target The coordinates of point B.
+       * @param axis The axis the plane is perpendicular with. (0: R, 1:
+       * G, 2: B)
+       * @return The intersection point of the segment AB with the plane
+       * R=coordinate, G=coordinate, or B=coordinate
+       */
+      static setCoordinate(source, coordinate, target, axis) {
+        const t5 = _HctSolver.intercept(source[axis], coordinate, target[axis]);
+        return _HctSolver.lerpPoint(source, t5, target);
+      }
+      static isBounded(x3) {
+        return 0 <= x3 && x3 <= 100;
+      }
+      /**
+       * Returns the nth possible vertex of the polygonal intersection.
+       *
+       * @param y The Y value of the plane.
+       * @param n The zero-based index of the point. 0 <= n <= 11.
+       * @return The nth possible vertex of the polygonal intersection
+       * of the y plane and the RGB cube, in linear RGB coordinates, if
+       * it exists. If this possible vertex lies outside of the cube,
+       * [-1.0, -1.0, -1.0] is returned.
+       */
+      static nthVertex(y3, n5) {
+        const kR = _HctSolver.Y_FROM_LINRGB[0];
+        const kG = _HctSolver.Y_FROM_LINRGB[1];
+        const kB = _HctSolver.Y_FROM_LINRGB[2];
+        const coordA = n5 % 4 <= 1 ? 0 : 100;
+        const coordB = n5 % 2 === 0 ? 0 : 100;
+        if (n5 < 4) {
+          const g2 = coordA;
+          const b5 = coordB;
+          const r6 = (y3 - g2 * kG - b5 * kB) / kR;
+          if (_HctSolver.isBounded(r6)) {
+            return [r6, g2, b5];
+          } else {
+            return [-1, -1, -1];
+          }
+        } else if (n5 < 8) {
+          const b5 = coordA;
+          const r6 = coordB;
+          const g2 = (y3 - r6 * kR - b5 * kB) / kG;
+          if (_HctSolver.isBounded(g2)) {
+            return [r6, g2, b5];
+          } else {
+            return [-1, -1, -1];
+          }
+        } else {
+          const r6 = coordA;
+          const g2 = coordB;
+          const b5 = (y3 - r6 * kR - g2 * kG) / kB;
+          if (_HctSolver.isBounded(b5)) {
+            return [r6, g2, b5];
+          } else {
+            return [-1, -1, -1];
+          }
+        }
+      }
+      /**
+       * Finds the segment containing the desired color.
+       *
+       * @param y The Y value of the color.
+       * @param targetHue The hue of the color.
+       * @return A list of two sets of linear RGB coordinates, each
+       * corresponding to an endpoint of the segment containing the
+       * desired color.
+       */
+      static bisectToSegment(y3, targetHue) {
+        let left = [-1, -1, -1];
+        let right = left;
+        let leftHue = 0;
+        let rightHue = 0;
+        let initialized = false;
+        let uncut = true;
+        for (let n5 = 0; n5 < 12; n5++) {
+          const mid = _HctSolver.nthVertex(y3, n5);
+          if (mid[0] < 0) {
+            continue;
+          }
+          const midHue = _HctSolver.hueOf(mid);
+          if (!initialized) {
+            left = mid;
+            right = mid;
+            leftHue = midHue;
+            rightHue = midHue;
+            initialized = true;
+            continue;
+          }
+          if (uncut || _HctSolver.areInCyclicOrder(leftHue, midHue, rightHue)) {
+            uncut = false;
+            if (_HctSolver.areInCyclicOrder(leftHue, targetHue, midHue)) {
+              right = mid;
+              rightHue = midHue;
+            } else {
+              left = mid;
+              leftHue = midHue;
+            }
+          }
+        }
+        return [left, right];
+      }
+      static midpoint(a3, b5) {
+        return [
+          (a3[0] + b5[0]) / 2,
+          (a3[1] + b5[1]) / 2,
+          (a3[2] + b5[2]) / 2
+        ];
+      }
+      static criticalPlaneBelow(x3) {
+        return Math.floor(x3 - 0.5);
+      }
+      static criticalPlaneAbove(x3) {
+        return Math.ceil(x3 - 0.5);
+      }
+      /**
+       * Finds a color with the given Y and hue on the boundary of the
+       * cube.
+       *
+       * @param y The Y value of the color.
+       * @param targetHue The hue of the color.
+       * @return The desired color, in linear RGB coordinates.
+       */
+      static bisectToLimit(y3, targetHue) {
+        const segment = _HctSolver.bisectToSegment(y3, targetHue);
+        let left = segment[0];
+        let leftHue = _HctSolver.hueOf(left);
+        let right = segment[1];
+        for (let axis = 0; axis < 3; axis++) {
+          if (left[axis] !== right[axis]) {
+            let lPlane = -1;
+            let rPlane = 255;
+            if (left[axis] < right[axis]) {
+              lPlane = _HctSolver.criticalPlaneBelow(_HctSolver.trueDelinearized(left[axis]));
+              rPlane = _HctSolver.criticalPlaneAbove(_HctSolver.trueDelinearized(right[axis]));
+            } else {
+              lPlane = _HctSolver.criticalPlaneAbove(_HctSolver.trueDelinearized(left[axis]));
+              rPlane = _HctSolver.criticalPlaneBelow(_HctSolver.trueDelinearized(right[axis]));
+            }
+            for (let i7 = 0; i7 < 8; i7++) {
+              if (Math.abs(rPlane - lPlane) <= 1) {
+                break;
+              } else {
+                const mPlane = Math.floor((lPlane + rPlane) / 2);
+                const midPlaneCoordinate = _HctSolver.CRITICAL_PLANES[mPlane];
+                const mid = _HctSolver.setCoordinate(left, midPlaneCoordinate, right, axis);
+                const midHue = _HctSolver.hueOf(mid);
+                if (_HctSolver.areInCyclicOrder(leftHue, targetHue, midHue)) {
+                  right = mid;
+                  rPlane = mPlane;
+                } else {
+                  left = mid;
+                  leftHue = midHue;
+                  lPlane = mPlane;
+                }
+              }
+            }
+          }
+        }
+        return _HctSolver.midpoint(left, right);
+      }
+      static inverseChromaticAdaptation(adapted) {
+        const adaptedAbs = Math.abs(adapted);
+        const base = Math.max(0, 27.13 * adaptedAbs / (400 - adaptedAbs));
+        return signum(adapted) * Math.pow(base, 1 / 0.42);
+      }
+      /**
+       * Finds a color with the given hue, chroma, and Y.
+       *
+       * @param hueRadians The desired hue in radians.
+       * @param chroma The desired chroma.
+       * @param y The desired Y.
+       * @return The desired color as a hexadecimal integer, if found; 0
+       * otherwise.
+       */
+      static findResultByJ(hueRadians, chroma, y3) {
+        let j = Math.sqrt(y3) * 11;
+        const viewingConditions = ViewingConditions.DEFAULT;
+        const tInnerCoeff = 1 / Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73);
+        const eHue = 0.25 * (Math.cos(hueRadians + 2) + 3.8);
+        const p1 = eHue * (5e4 / 13) * viewingConditions.nc * viewingConditions.ncb;
+        const hSin = Math.sin(hueRadians);
+        const hCos = Math.cos(hueRadians);
+        for (let iterationRound = 0; iterationRound < 5; iterationRound++) {
+          const jNormalized = j / 100;
+          const alpha = chroma === 0 || j === 0 ? 0 : chroma / Math.sqrt(jNormalized);
+          const t5 = Math.pow(alpha * tInnerCoeff, 1 / 0.9);
+          const ac = viewingConditions.aw * Math.pow(jNormalized, 1 / viewingConditions.c / viewingConditions.z);
+          const p22 = ac / viewingConditions.nbb;
+          const gamma = 23 * (p22 + 0.305) * t5 / (23 * p1 + 11 * t5 * hCos + 108 * t5 * hSin);
+          const a3 = gamma * hCos;
+          const b5 = gamma * hSin;
+          const rA = (460 * p22 + 451 * a3 + 288 * b5) / 1403;
+          const gA = (460 * p22 - 891 * a3 - 261 * b5) / 1403;
+          const bA = (460 * p22 - 220 * a3 - 6300 * b5) / 1403;
+          const rCScaled = _HctSolver.inverseChromaticAdaptation(rA);
+          const gCScaled = _HctSolver.inverseChromaticAdaptation(gA);
+          const bCScaled = _HctSolver.inverseChromaticAdaptation(bA);
+          const linrgb = matrixMultiply([rCScaled, gCScaled, bCScaled], _HctSolver.LINRGB_FROM_SCALED_DISCOUNT);
+          if (linrgb[0] < 0 || linrgb[1] < 0 || linrgb[2] < 0) {
+            return 0;
+          }
+          const kR = _HctSolver.Y_FROM_LINRGB[0];
+          const kG = _HctSolver.Y_FROM_LINRGB[1];
+          const kB = _HctSolver.Y_FROM_LINRGB[2];
+          const fnj = kR * linrgb[0] + kG * linrgb[1] + kB * linrgb[2];
+          if (fnj <= 0) {
+            return 0;
+          }
+          if (iterationRound === 4 || Math.abs(fnj - y3) < 2e-3) {
+            if (linrgb[0] > 100.01 || linrgb[1] > 100.01 || linrgb[2] > 100.01) {
+              return 0;
+            }
+            return argbFromLinrgb(linrgb);
+          }
+          j = j - (fnj - y3) * j / (2 * fnj);
+        }
+        return 0;
+      }
+      /**
+       * Finds an sRGB color with the given hue, chroma, and L*, if
+       * possible.
+       *
+       * @param hueDegrees The desired hue, in degrees.
+       * @param chroma The desired chroma.
+       * @param lstar The desired L*.
+       * @return A hexadecimal representing the sRGB color. The color
+       * has sufficiently close hue, chroma, and L* to the desired
+       * values, if possible; otherwise, the hue and L* will be
+       * sufficiently close, and chroma will be maximized.
+       */
+      static solveToInt(hueDegrees, chroma, lstar) {
+        if (chroma < 1e-4 || lstar < 1e-4 || lstar > 99.9999) {
+          return argbFromLstar(lstar);
+        }
+        hueDegrees = sanitizeDegreesDouble(hueDegrees);
+        const hueRadians = hueDegrees / 180 * Math.PI;
+        const y3 = yFromLstar(lstar);
+        const exactAnswer = _HctSolver.findResultByJ(hueRadians, chroma, y3);
+        if (exactAnswer !== 0) {
+          return exactAnswer;
+        }
+        const linrgb = _HctSolver.bisectToLimit(y3, hueRadians);
+        return argbFromLinrgb(linrgb);
+      }
+      /**
+       * Finds an sRGB color with the given hue, chroma, and L*, if
+       * possible.
+       *
+       * @param hueDegrees The desired hue, in degrees.
+       * @param chroma The desired chroma.
+       * @param lstar The desired L*.
+       * @return An CAM16 object representing the sRGB color. The color
+       * has sufficiently close hue, chroma, and L* to the desired
+       * values, if possible; otherwise, the hue and L* will be
+       * sufficiently close, and chroma will be maximized.
+       */
+      static solveToCam(hueDegrees, chroma, lstar) {
+        return Cam16.fromInt(_HctSolver.solveToInt(hueDegrees, chroma, lstar));
+      }
+    };
+    HctSolver.SCALED_DISCOUNT_FROM_LINRGB = [
+      [
+        0.001200833568784504,
+        0.002389694492170889,
+        2795742885861124e-19
+      ],
+      [
+        5891086651375999e-19,
+        0.0029785502573438758,
+        3270666104008398e-19
+      ],
+      [
+        10146692491640572e-20,
+        5364214359186694e-19,
+        0.0032979401770712076
+      ]
+    ];
+    HctSolver.LINRGB_FROM_SCALED_DISCOUNT = [
+      [
+        1373.2198709594231,
+        -1100.4251190754821,
+        -7.278681089101213
+      ],
+      [
+        -271.815969077903,
+        559.6580465940733,
+        -32.46047482791194
+      ],
+      [
+        1.9622899599665666,
+        -57.173814538844006,
+        308.7233197812385
+      ]
+    ];
+    HctSolver.Y_FROM_LINRGB = [0.2126, 0.7152, 0.0722];
+    HctSolver.CRITICAL_PLANES = [
+      0.015176349177441876,
+      0.045529047532325624,
+      0.07588174588720938,
+      0.10623444424209313,
+      0.13658714259697685,
+      0.16693984095186062,
+      0.19729253930674434,
+      0.2276452376616281,
+      0.2579979360165119,
+      0.28835063437139563,
+      0.3188300904430532,
+      0.350925934958123,
+      0.3848314933096426,
+      0.42057480301049466,
+      0.458183274052838,
+      0.4976837250274023,
+      0.5391024159806381,
+      0.5824650784040898,
+      0.6277969426914107,
+      0.6751227633498623,
+      0.7244668422128921,
+      0.775853049866786,
+      0.829304845476233,
+      0.8848452951698498,
+      0.942497089126609,
+      1.0022825574869039,
+      1.0642236851973577,
+      1.1283421258858297,
+      1.1946592148522128,
+      1.2631959812511864,
+      1.3339731595349034,
+      1.407011200216447,
+      1.4823302800086415,
+      1.5599503113873272,
+      1.6398909516233677,
+      1.7221716113234105,
+      1.8068114625156377,
+      1.8938294463134073,
+      1.9832442801866852,
+      2.075074464868551,
+      2.1693382909216234,
+      2.2660538449872063,
+      2.36523901573795,
+      2.4669114995532007,
+      2.5710888059345764,
+      2.6777882626779785,
+      2.7870270208169257,
+      2.898822059350997,
+      3.0131901897720907,
+      3.1301480604002863,
+      3.2497121605402226,
+      3.3718988244681087,
+      3.4967242352587946,
+      3.624204428461639,
+      3.754355295633311,
+      3.887192587735158,
+      4.022731918402185,
+      4.160988767090289,
+      4.301978482107941,
+      4.445716283538092,
+      4.592217266055746,
+      4.741496401646282,
+      4.893568542229298,
+      5.048448422192488,
+      5.20615066083972,
+      5.3666897647573375,
+      5.5300801301023865,
+      5.696336044816294,
+      5.865471690767354,
+      6.037501145825082,
+      6.212438385869475,
+      6.390297286737924,
+      6.571091626112461,
+      6.7548350853498045,
+      6.941541251256611,
+      7.131223617812143,
+      7.323895587840543,
+      7.5195704746346665,
+      7.7182615035334345,
+      7.919981813454504,
+      8.124744458384042,
+      8.332562408825165,
+      8.543448553206703,
+      8.757415699253682,
+      8.974476575321063,
+      9.194643831691977,
+      9.417930041841839,
+      9.644347703669503,
+      9.873909240696694,
+      10.106627003236781,
+      10.342513269534024,
+      10.58158024687427,
+      10.8238400726681,
+      11.069304815507364,
+      11.317986476196008,
+      11.569896988756009,
+      11.825048221409341,
+      12.083451977536606,
+      12.345119996613247,
+      12.610063955123938,
+      12.878295467455942,
+      13.149826086772048,
+      13.42466730586372,
+      13.702830557985108,
+      13.984327217668513,
+      14.269168601521828,
+      14.55736596900856,
+      14.848930523210871,
+      15.143873411576273,
+      15.44220572664832,
+      15.743938506781891,
+      16.04908273684337,
+      16.35764934889634,
+      16.66964922287304,
+      16.985093187232053,
+      17.30399201960269,
+      17.62635644741625,
+      17.95219714852476,
+      18.281524751807332,
+      18.614349837764564,
+      18.95068293910138,
+      19.290534541298456,
+      19.633915083172692,
+      19.98083495742689,
+      20.331304511189067,
+      20.685334046541502,
+      21.042933821039977,
+      21.404114048223256,
+      21.76888489811322,
+      22.137256497705877,
+      22.50923893145328,
+      22.884842241736916,
+      23.264076429332462,
+      23.6469514538663,
+      24.033477234264016,
+      24.42366364919083,
+      24.817520537484558,
+      25.21505769858089,
+      25.61628489293138,
+      26.021211842414342,
+      26.429848230738664,
+      26.842203703840827,
+      27.258287870275353,
+      27.678110301598522,
+      28.10168053274597,
+      28.529008062403893,
+      28.96010235337422,
+      29.39497283293396,
+      29.83362889318845,
+      30.276079891419332,
+      30.722335150426627,
+      31.172403958865512,
+      31.62629557157785,
+      32.08401920991837,
+      32.54558406207592,
+      33.010999283389665,
+      33.4802739966603,
+      33.953417292456834,
+      34.430438229418264,
+      34.911345834551085,
+      35.39614910352207,
+      35.88485700094671,
+      36.37747846067349,
+      36.87402238606382,
+      37.37449765026789,
+      37.87891309649659,
+      38.38727753828926,
+      38.89959975977785,
+      39.41588851594697,
+      39.93615253289054,
+      40.460400508064545,
+      40.98864111053629,
+      41.520882981230194,
+      42.05713473317016,
+      42.597404951718396,
+      43.141702194811224,
+      43.6900349931913,
+      44.24241185063697,
+      44.798841244188324,
+      45.35933162437017,
+      45.92389141541209,
+      46.49252901546552,
+      47.065252796817916,
+      47.64207110610409,
+      48.22299226451468,
+      48.808024568002054,
+      49.3971762874833,
+      49.9904556690408,
+      50.587870934119984,
+      51.189430279724725,
+      51.79514187861014,
+      52.40501387947288,
+      53.0190544071392,
+      53.637271562750364,
+      54.259673423945976,
+      54.88626804504493,
+      55.517063457223934,
+      56.15206766869424,
+      56.79128866487574,
+      57.43473440856916,
+      58.08241284012621,
+      58.734331877617365,
+      59.39049941699807,
+      60.05092333227251,
+      60.715611475655585,
+      61.38457167773311,
+      62.057811747619894,
+      62.7353394731159,
+      63.417162620860914,
+      64.10328893648692,
+      64.79372614476921,
+      65.48848194977529,
+      66.18756403501224,
+      66.89098006357258,
+      67.59873767827808,
+      68.31084450182222,
+      69.02730813691093,
+      69.74813616640164,
+      70.47333615344107,
+      71.20291564160104,
+      71.93688215501312,
+      72.67524319850172,
+      73.41800625771542,
+      74.16517879925733,
+      74.9167682708136,
+      75.67278210128072,
+      76.43322770089146,
+      77.1981124613393,
+      77.96744375590167,
+      78.74122893956174,
+      79.51947534912904,
+      80.30219030335869,
+      81.08938110306934,
+      81.88105503125999,
+      82.67721935322541,
+      83.4778813166706,
+      84.28304815182372,
+      85.09272707154808,
+      85.90692527145302,
+      86.72564993000343,
+      87.54890820862819,
+      88.3767072518277,
+      89.2090541872801,
+      90.04595612594655,
+      90.88742016217518,
+      91.73345337380438,
+      92.58406282226491,
+      93.43925555268066,
+      94.29903859396902,
+      95.16341895893969,
+      96.03240364439274,
+      96.9059996312159,
+      97.78421388448044,
+      98.6670533535366,
+      99.55452497210776
+    ];
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/hct/hct.js
+var Hct;
+var init_hct = __esm({
+  "../../node_modules/@material/material-color-utilities/hct/hct.js"() {
+    init_color_utils();
+    init_cam16();
+    init_hct_solver();
+    init_viewing_conditions();
+    Hct = class _Hct {
+      static from(hue, chroma, tone) {
+        return new _Hct(HctSolver.solveToInt(hue, chroma, tone));
+      }
+      /**
+       * @param argb ARGB representation of a color.
+       * @return HCT representation of a color in default viewing conditions
+       */
+      static fromInt(argb) {
+        return new _Hct(argb);
+      }
+      toInt() {
+        return this.argb;
+      }
+      /**
+       * A number, in degrees, representing ex. red, orange, yellow, etc.
+       * Ranges from 0 <= hue < 360.
+       */
+      get hue() {
+        return this.internalHue;
+      }
+      /**
+       * @param newHue 0 <= newHue < 360; invalid values are corrected.
+       * Chroma may decrease because chroma has a different maximum for any given
+       * hue and tone.
+       */
+      set hue(newHue) {
+        this.setInternalState(HctSolver.solveToInt(newHue, this.internalChroma, this.internalTone));
+      }
+      get chroma() {
+        return this.internalChroma;
+      }
+      /**
+       * @param newChroma 0 <= newChroma < ?
+       * Chroma may decrease because chroma has a different maximum for any given
+       * hue and tone.
+       */
+      set chroma(newChroma) {
+        this.setInternalState(HctSolver.solveToInt(this.internalHue, newChroma, this.internalTone));
+      }
+      /** Lightness. Ranges from 0 to 100. */
+      get tone() {
+        return this.internalTone;
+      }
+      /**
+       * @param newTone 0 <= newTone <= 100; invalid valids are corrected.
+       * Chroma may decrease because chroma has a different maximum for any given
+       * hue and tone.
+       */
+      set tone(newTone) {
+        this.setInternalState(HctSolver.solveToInt(this.internalHue, this.internalChroma, newTone));
+      }
+      constructor(argb) {
+        this.argb = argb;
+        const cam = Cam16.fromInt(argb);
+        this.internalHue = cam.hue;
+        this.internalChroma = cam.chroma;
+        this.internalTone = lstarFromArgb(argb);
+        this.argb = argb;
+      }
+      setInternalState(argb) {
+        const cam = Cam16.fromInt(argb);
+        this.internalHue = cam.hue;
+        this.internalChroma = cam.chroma;
+        this.internalTone = lstarFromArgb(argb);
+        this.argb = argb;
+      }
+      /**
+       * Translates a color into different [ViewingConditions].
+       *
+       * Colors change appearance. They look different with lights on versus off,
+       * the same color, as in hex code, on white looks different when on black.
+       * This is called color relativity, most famously explicated by Josef Albers
+       * in Interaction of Color.
+       *
+       * In color science, color appearance models can account for this and
+       * calculate the appearance of a color in different settings. HCT is based on
+       * CAM16, a color appearance model, and uses it to make these calculations.
+       *
+       * See [ViewingConditions.make] for parameters affecting color appearance.
+       */
+      inViewingConditions(vc) {
+        const cam = Cam16.fromInt(this.toInt());
+        const viewedInVc = cam.xyzInViewingConditions(vc);
+        const recastInVc = Cam16.fromXyzInViewingConditions(viewedInVc[0], viewedInVc[1], viewedInVc[2], ViewingConditions.make());
+        const recastHct = _Hct.from(recastInVc.hue, recastInVc.chroma, lstarFromY(viewedInVc[1]));
+        return recastHct;
+      }
+    };
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/blend/blend.js
+var init_blend = __esm({
+  "../../node_modules/@material/material-color-utilities/blend/blend.js"() {
+    init_cam16();
+    init_hct();
+    init_color_utils();
+    init_math_utils();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/contrast/contrast.js
+var Contrast;
+var init_contrast = __esm({
+  "../../node_modules/@material/material-color-utilities/contrast/contrast.js"() {
+    init_color_utils();
+    init_math_utils();
+    Contrast = class _Contrast {
+      /**
+       * Returns a contrast ratio, which ranges from 1 to 21.
+       *
+       * @param toneA Tone between 0 and 100. Values outside will be clamped.
+       * @param toneB Tone between 0 and 100. Values outside will be clamped.
+       */
+      static ratioOfTones(toneA, toneB) {
+        toneA = clampDouble(0, 100, toneA);
+        toneB = clampDouble(0, 100, toneB);
+        return _Contrast.ratioOfYs(yFromLstar(toneA), yFromLstar(toneB));
+      }
+      static ratioOfYs(y1, y22) {
+        const lighter = y1 > y22 ? y1 : y22;
+        const darker = lighter === y22 ? y1 : y22;
+        return (lighter + 5) / (darker + 5);
+      }
+      /**
+       * Returns a tone >= tone parameter that ensures ratio parameter.
+       * Return value is between 0 and 100.
+       * Returns -1 if ratio cannot be achieved with tone parameter.
+       *
+       * @param tone Tone return value must contrast with.
+       * Range is 0 to 100. Invalid values will result in -1 being returned.
+       * @param ratio Contrast ratio of return value and tone.
+       * Range is 1 to 21, invalid values have undefined behavior.
+       */
+      static lighter(tone, ratio) {
+        if (tone < 0 || tone > 100) {
+          return -1;
+        }
+        const darkY = yFromLstar(tone);
+        const lightY = ratio * (darkY + 5) - 5;
+        const realContrast = _Contrast.ratioOfYs(lightY, darkY);
+        const delta = Math.abs(realContrast - ratio);
+        if (realContrast < ratio && delta > 0.04) {
+          return -1;
+        }
+        const returnValue = lstarFromY(lightY) + 0.4;
+        if (returnValue < 0 || returnValue > 100) {
+          return -1;
+        }
+        return returnValue;
+      }
+      /**
+       * Returns a tone <= tone parameter that ensures ratio parameter.
+       * Return value is between 0 and 100.
+       * Returns -1 if ratio cannot be achieved with tone parameter.
+       *
+       * @param tone Tone return value must contrast with.
+       * Range is 0 to 100. Invalid values will result in -1 being returned.
+       * @param ratio Contrast ratio of return value and tone.
+       * Range is 1 to 21, invalid values have undefined behavior.
+       */
+      static darker(tone, ratio) {
+        if (tone < 0 || tone > 100) {
+          return -1;
+        }
+        const lightY = yFromLstar(tone);
+        const darkY = (lightY + 5) / ratio - 5;
+        const realContrast = _Contrast.ratioOfYs(lightY, darkY);
+        const delta = Math.abs(realContrast - ratio);
+        if (realContrast < ratio && delta > 0.04) {
+          return -1;
+        }
+        const returnValue = lstarFromY(darkY) - 0.4;
+        if (returnValue < 0 || returnValue > 100) {
+          return -1;
+        }
+        return returnValue;
+      }
+      /**
+       * Returns a tone >= tone parameter that ensures ratio parameter.
+       * Return value is between 0 and 100.
+       * Returns 100 if ratio cannot be achieved with tone parameter.
+       *
+       * This method is unsafe because the returned value is guaranteed to be in
+       * bounds for tone, i.e. between 0 and 100. However, that value may not reach
+       * the ratio with tone. For example, there is no color lighter than T100.
+       *
+       * @param tone Tone return value must contrast with.
+       * Range is 0 to 100. Invalid values will result in 100 being returned.
+       * @param ratio Desired contrast ratio of return value and tone parameter.
+       * Range is 1 to 21, invalid values have undefined behavior.
+       */
+      static lighterUnsafe(tone, ratio) {
+        const lighterSafe = _Contrast.lighter(tone, ratio);
+        return lighterSafe < 0 ? 100 : lighterSafe;
+      }
+      /**
+       * Returns a tone >= tone parameter that ensures ratio parameter.
+       * Return value is between 0 and 100.
+       * Returns 100 if ratio cannot be achieved with tone parameter.
+       *
+       * This method is unsafe because the returned value is guaranteed to be in
+       * bounds for tone, i.e. between 0 and 100. However, that value may not reach
+       * the [ratio with [tone]. For example, there is no color darker than T0.
+       *
+       * @param tone Tone return value must contrast with.
+       * Range is 0 to 100. Invalid values will result in 0 being returned.
+       * @param ratio Desired contrast ratio of return value and tone parameter.
+       * Range is 1 to 21, invalid values have undefined behavior.
+       */
+      static darkerUnsafe(tone, ratio) {
+        const darkerSafe = _Contrast.darker(tone, ratio);
+        return darkerSafe < 0 ? 0 : darkerSafe;
+      }
+    };
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js
+var DislikeAnalyzer;
+var init_dislike_analyzer = __esm({
+  "../../node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js"() {
+    init_hct();
+    DislikeAnalyzer = class _DislikeAnalyzer {
+      /**
+       * Returns true if a color is disliked.
+       *
+       * @param hct A color to be judged.
+       * @return Whether the color is disliked.
+       *
+       * Disliked is defined as a dark yellow-green that is not neutral.
+       */
+      static isDisliked(hct) {
+        const huePasses = Math.round(hct.hue) >= 90 && Math.round(hct.hue) <= 111;
+        const chromaPasses = Math.round(hct.chroma) > 16;
+        const tonePasses = Math.round(hct.tone) < 65;
+        return huePasses && chromaPasses && tonePasses;
+      }
+      /**
+       * If a color is disliked, lighten it to make it likable.
+       *
+       * @param hct A color to be judged.
+       * @return A new color if the original color is disliked, or the original
+       *   color if it is acceptable.
+       */
+      static fixIfDisliked(hct) {
+        if (_DislikeAnalyzer.isDisliked(hct)) {
+          return Hct.from(hct.hue, hct.chroma, 70);
+        }
+        return hct;
+      }
+    };
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js
+var DynamicColor;
+var init_dynamic_color = __esm({
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js"() {
+    init_contrast();
+    init_math_utils();
+    DynamicColor = class _DynamicColor {
+      /**
+       * Create a DynamicColor defined by a TonalPalette and HCT tone.
+       *
+       * @param args Functions with DynamicScheme as input. Must provide a palette
+       * and tone. May provide a background DynamicColor and ToneDeltaConstraint.
+       */
+      static fromPalette(args) {
+        return new _DynamicColor(args.name ?? "", args.palette, args.tone, args.isBackground ?? false, args.background, args.secondBackground, args.contrastCurve, args.toneDeltaPair);
+      }
+      /**
+       * The base constructor for DynamicColor.
+       *
+       * _Strongly_ prefer using one of the convenience constructors. This class is
+       * arguably too flexible to ensure it can support any scenario. Functional
+       * arguments allow  overriding without risks that come with subclasses.
+       *
+       * For example, the default behavior of adjust tone at max contrast
+       * to be at a 7.0 ratio with its background is principled and
+       * matches accessibility guidance. That does not mean it's the desired
+       * approach for _every_ design system, and every color pairing,
+       * always, in every case.
+       *
+       * @param name The name of the dynamic color. Defaults to empty.
+       * @param palette Function that provides a TonalPalette given
+       * DynamicScheme. A TonalPalette is defined by a hue and chroma, so this
+       * replaces the need to specify hue/chroma. By providing a tonal palette, when
+       * contrast adjustments are made, intended chroma can be preserved.
+       * @param tone Function that provides a tone, given a DynamicScheme.
+       * @param isBackground Whether this dynamic color is a background, with
+       * some other color as the foreground. Defaults to false.
+       * @param background The background of the dynamic color (as a function of a
+       *     `DynamicScheme`), if it exists.
+       * @param secondBackground A second background of the dynamic color (as a
+       *     function of a `DynamicScheme`), if it
+       * exists.
+       * @param contrastCurve A `ContrastCurve` object specifying how its contrast
+       * against its background should behave in various contrast levels options.
+       * @param toneDeltaPair A `ToneDeltaPair` object specifying a tone delta
+       * constraint between two colors. One of them must be the color being
+       * constructed.
+       */
+      constructor(name, palette, tone, isBackground, background, secondBackground, contrastCurve, toneDeltaPair) {
+        this.name = name;
+        this.palette = palette;
+        this.tone = tone;
+        this.isBackground = isBackground;
+        this.background = background;
+        this.secondBackground = secondBackground;
+        this.contrastCurve = contrastCurve;
+        this.toneDeltaPair = toneDeltaPair;
+        this.hctCache = /* @__PURE__ */ new Map();
+        if (!background && secondBackground) {
+          throw new Error(`Color ${name} has secondBackgrounddefined, but background is not defined.`);
+        }
+        if (!background && contrastCurve) {
+          throw new Error(`Color ${name} has contrastCurvedefined, but background is not defined.`);
+        }
+        if (background && !contrastCurve) {
+          throw new Error(`Color ${name} has backgrounddefined, but contrastCurve is not defined.`);
+        }
+      }
+      /**
+       * Return a ARGB integer (i.e. a hex code).
+       *
+       * @param scheme Defines the conditions of the user interface, for example,
+       * whether or not it is dark mode or light mode, and what the desired
+       * contrast level is.
+       */
+      getArgb(scheme) {
+        return this.getHct(scheme).toInt();
+      }
+      /**
+       * Return a color, expressed in the HCT color space, that this
+       * DynamicColor is under the conditions in scheme.
+       *
+       * @param scheme Defines the conditions of the user interface, for example,
+       * whether or not it is dark mode or light mode, and what the desired
+       * contrast level is.
+       */
+      getHct(scheme) {
+        const cachedAnswer = this.hctCache.get(scheme);
+        if (cachedAnswer != null) {
+          return cachedAnswer;
+        }
+        const tone = this.getTone(scheme);
+        const answer = this.palette(scheme).getHct(tone);
+        if (this.hctCache.size > 4) {
+          this.hctCache.clear();
+        }
+        this.hctCache.set(scheme, answer);
+        return answer;
+      }
+      /**
+       * Return a tone, T in the HCT color space, that this DynamicColor is under
+       * the conditions in scheme.
+       *
+       * @param scheme Defines the conditions of the user interface, for example,
+       * whether or not it is dark mode or light mode, and what the desired
+       * contrast level is.
+       */
+      getTone(scheme) {
+        const decreasingContrast = scheme.contrastLevel < 0;
+        if (this.toneDeltaPair) {
+          const toneDeltaPair = this.toneDeltaPair(scheme);
+          const roleA = toneDeltaPair.roleA;
+          const roleB = toneDeltaPair.roleB;
+          const delta = toneDeltaPair.delta;
+          const polarity = toneDeltaPair.polarity;
+          const stayTogether = toneDeltaPair.stayTogether;
+          const bg = this.background(scheme);
+          const bgTone = bg.getTone(scheme);
+          const aIsNearer = polarity === "nearer" || polarity === "lighter" && !scheme.isDark || polarity === "darker" && scheme.isDark;
+          const nearer = aIsNearer ? roleA : roleB;
+          const farther = aIsNearer ? roleB : roleA;
+          const amNearer = this.name === nearer.name;
+          const expansionDir = scheme.isDark ? 1 : -1;
+          const nContrast = nearer.contrastCurve.get(scheme.contrastLevel);
+          const fContrast = farther.contrastCurve.get(scheme.contrastLevel);
+          const nInitialTone = nearer.tone(scheme);
+          let nTone = Contrast.ratioOfTones(bgTone, nInitialTone) >= nContrast ? nInitialTone : _DynamicColor.foregroundTone(bgTone, nContrast);
+          const fInitialTone = farther.tone(scheme);
+          let fTone = Contrast.ratioOfTones(bgTone, fInitialTone) >= fContrast ? fInitialTone : _DynamicColor.foregroundTone(bgTone, fContrast);
+          if (decreasingContrast) {
+            nTone = _DynamicColor.foregroundTone(bgTone, nContrast);
+            fTone = _DynamicColor.foregroundTone(bgTone, fContrast);
+          }
+          if ((fTone - nTone) * expansionDir >= delta) {
+          } else {
+            fTone = clampDouble(0, 100, nTone + delta * expansionDir);
+            if ((fTone - nTone) * expansionDir >= delta) {
+            } else {
+              nTone = clampDouble(0, 100, fTone - delta * expansionDir);
+            }
+          }
+          if (50 <= nTone && nTone < 60) {
+            if (expansionDir > 0) {
+              nTone = 60;
+              fTone = Math.max(fTone, nTone + delta * expansionDir);
+            } else {
+              nTone = 49;
+              fTone = Math.min(fTone, nTone + delta * expansionDir);
+            }
+          } else if (50 <= fTone && fTone < 60) {
+            if (stayTogether) {
+              if (expansionDir > 0) {
+                nTone = 60;
+                fTone = Math.max(fTone, nTone + delta * expansionDir);
+              } else {
+                nTone = 49;
+                fTone = Math.min(fTone, nTone + delta * expansionDir);
+              }
+            } else {
+              if (expansionDir > 0) {
+                fTone = 60;
+              } else {
+                fTone = 49;
+              }
+            }
+          }
+          return amNearer ? nTone : fTone;
+        } else {
+          let answer = this.tone(scheme);
+          if (this.background == null) {
+            return answer;
+          }
+          const bgTone = this.background(scheme).getTone(scheme);
+          const desiredRatio = this.contrastCurve.get(scheme.contrastLevel);
+          if (Contrast.ratioOfTones(bgTone, answer) >= desiredRatio) {
+          } else {
+            answer = _DynamicColor.foregroundTone(bgTone, desiredRatio);
+          }
+          if (decreasingContrast) {
+            answer = _DynamicColor.foregroundTone(bgTone, desiredRatio);
+          }
+          if (this.isBackground && 50 <= answer && answer < 60) {
+            if (Contrast.ratioOfTones(49, bgTone) >= desiredRatio) {
+              answer = 49;
+            } else {
+              answer = 60;
+            }
+          }
+          if (this.secondBackground) {
+            const [bg1, bg2] = [this.background, this.secondBackground];
+            const [bgTone1, bgTone2] = [bg1(scheme).getTone(scheme), bg2(scheme).getTone(scheme)];
+            const [upper, lower] = [Math.max(bgTone1, bgTone2), Math.min(bgTone1, bgTone2)];
+            if (Contrast.ratioOfTones(upper, answer) >= desiredRatio && Contrast.ratioOfTones(lower, answer) >= desiredRatio) {
+              return answer;
+            }
+            const lightOption = Contrast.lighter(upper, desiredRatio);
+            const darkOption = Contrast.darker(lower, desiredRatio);
+            const availables = [];
+            if (lightOption !== -1)
+              availables.push(lightOption);
+            if (darkOption !== -1)
+              availables.push(darkOption);
+            const prefersLight = _DynamicColor.tonePrefersLightForeground(bgTone1) || _DynamicColor.tonePrefersLightForeground(bgTone2);
+            if (prefersLight) {
+              return lightOption < 0 ? 100 : lightOption;
+            }
+            if (availables.length === 1) {
+              return availables[0];
+            }
+            return darkOption < 0 ? 0 : darkOption;
+          }
+          return answer;
+        }
+      }
+      /**
+       * Given a background tone, find a foreground tone, while ensuring they reach
+       * a contrast ratio that is as close to [ratio] as possible.
+       *
+       * @param bgTone Tone in HCT. Range is 0 to 100, undefined behavior when it
+       *     falls outside that range.
+       * @param ratio The contrast ratio desired between bgTone and the return
+       *     value.
+       */
+      static foregroundTone(bgTone, ratio) {
+        const lighterTone = Contrast.lighterUnsafe(bgTone, ratio);
+        const darkerTone = Contrast.darkerUnsafe(bgTone, ratio);
+        const lighterRatio = Contrast.ratioOfTones(lighterTone, bgTone);
+        const darkerRatio = Contrast.ratioOfTones(darkerTone, bgTone);
+        const preferLighter = _DynamicColor.tonePrefersLightForeground(bgTone);
+        if (preferLighter) {
+          const negligibleDifference = Math.abs(lighterRatio - darkerRatio) < 0.1 && lighterRatio < ratio && darkerRatio < ratio;
+          return lighterRatio >= ratio || lighterRatio >= darkerRatio || negligibleDifference ? lighterTone : darkerTone;
+        } else {
+          return darkerRatio >= ratio || darkerRatio >= lighterRatio ? darkerTone : lighterTone;
+        }
+      }
+      /**
+       * Returns whether [tone] prefers a light foreground.
+       *
+       * People prefer white foregrounds on ~T60-70. Observed over time, and also
+       * by Andrew Somers during research for APCA.
+       *
+       * T60 used as to create the smallest discontinuity possible when skipping
+       * down to T49 in order to ensure light foregrounds.
+       * Since `tertiaryContainer` in dark monochrome scheme requires a tone of
+       * 60, it should not be adjusted. Therefore, 60 is excluded here.
+       */
+      static tonePrefersLightForeground(tone) {
+        return Math.round(tone) < 60;
+      }
+      /**
+       * Returns whether [tone] can reach a contrast ratio of 4.5 with a lighter
+       * color.
+       */
+      static toneAllowsLightForeground(tone) {
+        return Math.round(tone) <= 49;
+      }
+      /**
+       * Adjust a tone such that white has 4.5 contrast, if the tone is
+       * reasonably close to supporting it.
+       */
+      static enableLightForeground(tone) {
+        if (_DynamicColor.tonePrefersLightForeground(tone) && !_DynamicColor.toneAllowsLightForeground(tone)) {
+          return 49;
+        }
+        return tone;
+      }
+    };
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/palettes/tonal_palette.js
+var TonalPalette, KeyColor;
+var init_tonal_palette = __esm({
+  "../../node_modules/@material/material-color-utilities/palettes/tonal_palette.js"() {
+    init_hct();
+    TonalPalette = class _TonalPalette {
+      /**
+       * @param argb ARGB representation of a color
+       * @return Tones matching that color's hue and chroma.
+       */
+      static fromInt(argb) {
+        const hct = Hct.fromInt(argb);
+        return _TonalPalette.fromHct(hct);
+      }
+      /**
+       * @param hct Hct
+       * @return Tones matching that color's hue and chroma.
+       */
+      static fromHct(hct) {
+        return new _TonalPalette(hct.hue, hct.chroma, hct);
+      }
+      /**
+       * @param hue HCT hue
+       * @param chroma HCT chroma
+       * @return Tones matching hue and chroma.
+       */
+      static fromHueAndChroma(hue, chroma) {
+        const keyColor = new KeyColor(hue, chroma).create();
+        return new _TonalPalette(hue, chroma, keyColor);
+      }
+      constructor(hue, chroma, keyColor) {
+        this.hue = hue;
+        this.chroma = chroma;
+        this.keyColor = keyColor;
+        this.cache = /* @__PURE__ */ new Map();
+      }
+      /**
+       * @param tone HCT tone, measured from 0 to 100.
+       * @return ARGB representation of a color with that tone.
+       */
+      tone(tone) {
+        let argb = this.cache.get(tone);
+        if (argb === void 0) {
+          argb = Hct.from(this.hue, this.chroma, tone).toInt();
+          this.cache.set(tone, argb);
+        }
+        return argb;
+      }
+      /**
+       * @param tone HCT tone.
+       * @return HCT representation of a color with that tone.
+       */
+      getHct(tone) {
+        return Hct.fromInt(this.tone(tone));
+      }
+    };
+    KeyColor = class {
+      constructor(hue, requestedChroma) {
+        this.hue = hue;
+        this.requestedChroma = requestedChroma;
+        this.chromaCache = /* @__PURE__ */ new Map();
+        this.maxChromaValue = 200;
+      }
+      /**
+       * Creates a key color from a [hue] and a [chroma].
+       * The key color is the first tone, starting from T50, matching the given hue
+       * and chroma.
+       *
+       * @return Key color [Hct]
+       */
+      create() {
+        const pivotTone = 50;
+        const toneStepSize = 1;
+        const epsilon = 0.01;
+        let lowerTone = 0;
+        let upperTone = 100;
+        while (lowerTone < upperTone) {
+          const midTone = Math.floor((lowerTone + upperTone) / 2);
+          const isAscending = this.maxChroma(midTone) < this.maxChroma(midTone + toneStepSize);
+          const sufficientChroma = this.maxChroma(midTone) >= this.requestedChroma - epsilon;
+          if (sufficientChroma) {
+            if (Math.abs(lowerTone - pivotTone) < Math.abs(upperTone - pivotTone)) {
+              upperTone = midTone;
+            } else {
+              if (lowerTone === midTone) {
+                return Hct.from(this.hue, this.requestedChroma, lowerTone);
+              }
+              lowerTone = midTone;
+            }
+          } else {
+            if (isAscending) {
+              lowerTone = midTone + toneStepSize;
+            } else {
+              upperTone = midTone;
+            }
+          }
+        }
+        return Hct.from(this.hue, this.requestedChroma, lowerTone);
+      }
+      // Find the maximum chroma for a given tone
+      maxChroma(tone) {
+        if (this.chromaCache.has(tone)) {
+          return this.chromaCache.get(tone);
+        }
+        const chroma = Hct.from(this.hue, this.maxChromaValue, tone).chroma;
+        this.chromaCache.set(tone, chroma);
+        return chroma;
+      }
+    };
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js
+var ContrastCurve;
+var init_contrast_curve = __esm({
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js"() {
+    init_math_utils();
+    ContrastCurve = class {
+      /**
+       * Creates a `ContrastCurve` object.
+       *
+       * @param low Value for contrast level -1.0
+       * @param normal Value for contrast level 0.0
+       * @param medium Value for contrast level 0.5
+       * @param high Value for contrast level 1.0
+       */
+      constructor(low, normal, medium, high) {
+        this.low = low;
+        this.normal = normal;
+        this.medium = medium;
+        this.high = high;
+      }
+      /**
+       * Returns the value at a given contrast level.
+       *
+       * @param contrastLevel The contrast level. 0.0 is the default (normal); -1.0
+       *     is the lowest; 1.0 is the highest.
+       * @return The value. For contrast ratios, a number between 1.0 and 21.0.
+       */
+      get(contrastLevel) {
+        if (contrastLevel <= -1) {
+          return this.low;
+        } else if (contrastLevel < 0) {
+          return lerp(this.low, this.normal, (contrastLevel - -1) / 1);
+        } else if (contrastLevel < 0.5) {
+          return lerp(this.normal, this.medium, (contrastLevel - 0) / 0.5);
+        } else if (contrastLevel < 1) {
+          return lerp(this.medium, this.high, (contrastLevel - 0.5) / 0.5);
+        } else {
+          return this.high;
+        }
+      }
+    };
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js
+var ToneDeltaPair;
+var init_tone_delta_pair = __esm({
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js"() {
+    ToneDeltaPair = class {
+      /**
+       * Documents a constraint in tone distance between two DynamicColors.
+       *
+       * The polarity is an adjective that describes "A", compared to "B".
+       *
+       * For instance, ToneDeltaPair(A, B, 15, 'darker', stayTogether) states that
+       * A's tone should be at least 15 darker than B's.
+       *
+       * 'nearer' and 'farther' describes closeness to the surface roles. For
+       * instance, ToneDeltaPair(A, B, 10, 'nearer', stayTogether) states that A
+       * should be 10 lighter than B in light mode, and 10 darker than B in dark
+       * mode.
+       *
+       * @param roleA The first role in a pair.
+       * @param roleB The second role in a pair.
+       * @param delta Required difference between tones. Absolute value, negative
+       * values have undefined behavior.
+       * @param polarity The relative relation between tones of roleA and roleB,
+       * as described above.
+       * @param stayTogether Whether these two roles should stay on the same side of
+       * the "awkward zone" (T50-59). This is necessary for certain cases where
+       * one role has two backgrounds.
+       */
+      constructor(roleA, roleB, delta, polarity, stayTogether) {
+        this.roleA = roleA;
+        this.roleB = roleB;
+        this.delta = delta;
+        this.polarity = polarity;
+        this.stayTogether = stayTogether;
+      }
+    };
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/variant.js
+var Variant;
+var init_variant = __esm({
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/variant.js"() {
+    (function(Variant2) {
+      Variant2[Variant2["MONOCHROME"] = 0] = "MONOCHROME";
+      Variant2[Variant2["NEUTRAL"] = 1] = "NEUTRAL";
+      Variant2[Variant2["TONAL_SPOT"] = 2] = "TONAL_SPOT";
+      Variant2[Variant2["VIBRANT"] = 3] = "VIBRANT";
+      Variant2[Variant2["EXPRESSIVE"] = 4] = "EXPRESSIVE";
+      Variant2[Variant2["FIDELITY"] = 5] = "FIDELITY";
+      Variant2[Variant2["CONTENT"] = 6] = "CONTENT";
+      Variant2[Variant2["RAINBOW"] = 7] = "RAINBOW";
+      Variant2[Variant2["FRUIT_SALAD"] = 8] = "FRUIT_SALAD";
+    })(Variant || (Variant = {}));
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js
+function isFidelity(scheme) {
+  return scheme.variant === Variant.FIDELITY || scheme.variant === Variant.CONTENT;
+}
+function isMonochrome(scheme) {
+  return scheme.variant === Variant.MONOCHROME;
+}
+function findDesiredChromaByTone(hue, chroma, tone, byDecreasingTone) {
+  let answer = tone;
+  let closestToChroma = Hct.from(hue, chroma, tone);
+  if (closestToChroma.chroma < chroma) {
+    let chromaPeak = closestToChroma.chroma;
+    while (closestToChroma.chroma < chroma) {
+      answer += byDecreasingTone ? -1 : 1;
+      const potentialSolution = Hct.from(hue, chroma, answer);
+      if (chromaPeak > potentialSolution.chroma) {
+        break;
+      }
+      if (Math.abs(potentialSolution.chroma - chroma) < 0.4) {
+        break;
+      }
+      const potentialDelta = Math.abs(potentialSolution.chroma - chroma);
+      const currentDelta = Math.abs(closestToChroma.chroma - chroma);
+      if (potentialDelta < currentDelta) {
+        closestToChroma = potentialSolution;
+      }
+      chromaPeak = Math.max(chromaPeak, potentialSolution.chroma);
+    }
+  }
+  return answer;
+}
+var MaterialDynamicColors;
+var init_material_dynamic_colors = __esm({
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js"() {
+    init_dislike_analyzer();
+    init_hct();
+    init_contrast_curve();
+    init_dynamic_color();
+    init_tone_delta_pair();
+    init_variant();
+    MaterialDynamicColors = class _MaterialDynamicColors {
+      static highestSurface(s4) {
+        return s4.isDark ? _MaterialDynamicColors.surfaceBright : _MaterialDynamicColors.surfaceDim;
+      }
+    };
+    MaterialDynamicColors.contentAccentToneDelta = 15;
+    MaterialDynamicColors.primaryPaletteKeyColor = DynamicColor.fromPalette({
+      name: "primary_palette_key_color",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => s4.primaryPalette.keyColor.tone
+    });
+    MaterialDynamicColors.secondaryPaletteKeyColor = DynamicColor.fromPalette({
+      name: "secondary_palette_key_color",
+      palette: (s4) => s4.secondaryPalette,
+      tone: (s4) => s4.secondaryPalette.keyColor.tone
+    });
+    MaterialDynamicColors.tertiaryPaletteKeyColor = DynamicColor.fromPalette({
+      name: "tertiary_palette_key_color",
+      palette: (s4) => s4.tertiaryPalette,
+      tone: (s4) => s4.tertiaryPalette.keyColor.tone
+    });
+    MaterialDynamicColors.neutralPaletteKeyColor = DynamicColor.fromPalette({
+      name: "neutral_palette_key_color",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.neutralPalette.keyColor.tone
+    });
+    MaterialDynamicColors.neutralVariantPaletteKeyColor = DynamicColor.fromPalette({
+      name: "neutral_variant_palette_key_color",
+      palette: (s4) => s4.neutralVariantPalette,
+      tone: (s4) => s4.neutralVariantPalette.keyColor.tone
+    });
+    MaterialDynamicColors.background = DynamicColor.fromPalette({
+      name: "background",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? 6 : 98,
+      isBackground: true
+    });
+    MaterialDynamicColors.onBackground = DynamicColor.fromPalette({
+      name: "on_background",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? 90 : 10,
+      background: (s4) => MaterialDynamicColors.background,
+      contrastCurve: new ContrastCurve(3, 3, 4.5, 7)
+    });
+    MaterialDynamicColors.surface = DynamicColor.fromPalette({
+      name: "surface",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? 6 : 98,
+      isBackground: true
+    });
+    MaterialDynamicColors.surfaceDim = DynamicColor.fromPalette({
+      name: "surface_dim",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? 6 : new ContrastCurve(87, 87, 80, 75).get(s4.contrastLevel),
+      isBackground: true
+    });
+    MaterialDynamicColors.surfaceBright = DynamicColor.fromPalette({
+      name: "surface_bright",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? new ContrastCurve(24, 24, 29, 34).get(s4.contrastLevel) : 98,
+      isBackground: true
+    });
+    MaterialDynamicColors.surfaceContainerLowest = DynamicColor.fromPalette({
+      name: "surface_container_lowest",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? new ContrastCurve(4, 4, 2, 0).get(s4.contrastLevel) : 100,
+      isBackground: true
+    });
+    MaterialDynamicColors.surfaceContainerLow = DynamicColor.fromPalette({
+      name: "surface_container_low",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? new ContrastCurve(10, 10, 11, 12).get(s4.contrastLevel) : new ContrastCurve(96, 96, 96, 95).get(s4.contrastLevel),
+      isBackground: true
+    });
+    MaterialDynamicColors.surfaceContainer = DynamicColor.fromPalette({
+      name: "surface_container",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? new ContrastCurve(12, 12, 16, 20).get(s4.contrastLevel) : new ContrastCurve(94, 94, 92, 90).get(s4.contrastLevel),
+      isBackground: true
+    });
+    MaterialDynamicColors.surfaceContainerHigh = DynamicColor.fromPalette({
+      name: "surface_container_high",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? new ContrastCurve(17, 17, 21, 25).get(s4.contrastLevel) : new ContrastCurve(92, 92, 88, 85).get(s4.contrastLevel),
+      isBackground: true
+    });
+    MaterialDynamicColors.surfaceContainerHighest = DynamicColor.fromPalette({
+      name: "surface_container_highest",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? new ContrastCurve(22, 22, 26, 30).get(s4.contrastLevel) : new ContrastCurve(90, 90, 84, 80).get(s4.contrastLevel),
+      isBackground: true
+    });
+    MaterialDynamicColors.onSurface = DynamicColor.fromPalette({
+      name: "on_surface",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? 90 : 10,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
+    });
+    MaterialDynamicColors.surfaceVariant = DynamicColor.fromPalette({
+      name: "surface_variant",
+      palette: (s4) => s4.neutralVariantPalette,
+      tone: (s4) => s4.isDark ? 30 : 90,
+      isBackground: true
+    });
+    MaterialDynamicColors.onSurfaceVariant = DynamicColor.fromPalette({
+      name: "on_surface_variant",
+      palette: (s4) => s4.neutralVariantPalette,
+      tone: (s4) => s4.isDark ? 80 : 30,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
+    });
+    MaterialDynamicColors.inverseSurface = DynamicColor.fromPalette({
+      name: "inverse_surface",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? 90 : 20
+    });
+    MaterialDynamicColors.inverseOnSurface = DynamicColor.fromPalette({
+      name: "inverse_on_surface",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => s4.isDark ? 20 : 95,
+      background: (s4) => MaterialDynamicColors.inverseSurface,
+      contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
+    });
+    MaterialDynamicColors.outline = DynamicColor.fromPalette({
+      name: "outline",
+      palette: (s4) => s4.neutralVariantPalette,
+      tone: (s4) => s4.isDark ? 60 : 50,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1.5, 3, 4.5, 7)
+    });
+    MaterialDynamicColors.outlineVariant = DynamicColor.fromPalette({
+      name: "outline_variant",
+      palette: (s4) => s4.neutralVariantPalette,
+      tone: (s4) => s4.isDark ? 30 : 80,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5)
+    });
+    MaterialDynamicColors.shadow = DynamicColor.fromPalette({
+      name: "shadow",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => 0
+    });
+    MaterialDynamicColors.scrim = DynamicColor.fromPalette({
+      name: "scrim",
+      palette: (s4) => s4.neutralPalette,
+      tone: (s4) => 0
+    });
+    MaterialDynamicColors.surfaceTint = DynamicColor.fromPalette({
+      name: "surface_tint",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => s4.isDark ? 80 : 40,
+      isBackground: true
+    });
+    MaterialDynamicColors.primary = DynamicColor.fromPalette({
+      name: "primary",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => {
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 100 : 0;
+        }
+        return s4.isDark ? 80 : 40;
+      },
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.primaryContainer, MaterialDynamicColors.primary, 10, "nearer", false)
+    });
+    MaterialDynamicColors.onPrimary = DynamicColor.fromPalette({
+      name: "on_primary",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => {
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 10 : 90;
+        }
+        return s4.isDark ? 20 : 100;
+      },
+      background: (s4) => MaterialDynamicColors.primary,
+      contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
+    });
+    MaterialDynamicColors.primaryContainer = DynamicColor.fromPalette({
+      name: "primary_container",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => {
+        if (isFidelity(s4)) {
+          return s4.sourceColorHct.tone;
+        }
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 85 : 25;
+        }
+        return s4.isDark ? 30 : 90;
+      },
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.primaryContainer, MaterialDynamicColors.primary, 10, "nearer", false)
+    });
+    MaterialDynamicColors.onPrimaryContainer = DynamicColor.fromPalette({
+      name: "on_primary_container",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => {
+        if (isFidelity(s4)) {
+          return DynamicColor.foregroundTone(MaterialDynamicColors.primaryContainer.tone(s4), 4.5);
+        }
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 0 : 100;
+        }
+        return s4.isDark ? 90 : 30;
+      },
+      background: (s4) => MaterialDynamicColors.primaryContainer,
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
+    });
+    MaterialDynamicColors.inversePrimary = DynamicColor.fromPalette({
+      name: "inverse_primary",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => s4.isDark ? 40 : 80,
+      background: (s4) => MaterialDynamicColors.inverseSurface,
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 7)
+    });
+    MaterialDynamicColors.secondary = DynamicColor.fromPalette({
+      name: "secondary",
+      palette: (s4) => s4.secondaryPalette,
+      tone: (s4) => s4.isDark ? 80 : 40,
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.secondaryContainer, MaterialDynamicColors.secondary, 10, "nearer", false)
+    });
+    MaterialDynamicColors.onSecondary = DynamicColor.fromPalette({
+      name: "on_secondary",
+      palette: (s4) => s4.secondaryPalette,
+      tone: (s4) => {
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 10 : 100;
+        } else {
+          return s4.isDark ? 20 : 100;
+        }
+      },
+      background: (s4) => MaterialDynamicColors.secondary,
+      contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
+    });
+    MaterialDynamicColors.secondaryContainer = DynamicColor.fromPalette({
+      name: "secondary_container",
+      palette: (s4) => s4.secondaryPalette,
+      tone: (s4) => {
+        const initialTone = s4.isDark ? 30 : 90;
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 30 : 85;
+        }
+        if (!isFidelity(s4)) {
+          return initialTone;
+        }
+        return findDesiredChromaByTone(s4.secondaryPalette.hue, s4.secondaryPalette.chroma, initialTone, s4.isDark ? false : true);
+      },
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.secondaryContainer, MaterialDynamicColors.secondary, 10, "nearer", false)
+    });
+    MaterialDynamicColors.onSecondaryContainer = DynamicColor.fromPalette({
+      name: "on_secondary_container",
+      palette: (s4) => s4.secondaryPalette,
+      tone: (s4) => {
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 90 : 10;
+        }
+        if (!isFidelity(s4)) {
+          return s4.isDark ? 90 : 30;
+        }
+        return DynamicColor.foregroundTone(MaterialDynamicColors.secondaryContainer.tone(s4), 4.5);
+      },
+      background: (s4) => MaterialDynamicColors.secondaryContainer,
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
+    });
+    MaterialDynamicColors.tertiary = DynamicColor.fromPalette({
+      name: "tertiary",
+      palette: (s4) => s4.tertiaryPalette,
+      tone: (s4) => {
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 90 : 25;
+        }
+        return s4.isDark ? 80 : 40;
+      },
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.tertiaryContainer, MaterialDynamicColors.tertiary, 10, "nearer", false)
+    });
+    MaterialDynamicColors.onTertiary = DynamicColor.fromPalette({
+      name: "on_tertiary",
+      palette: (s4) => s4.tertiaryPalette,
+      tone: (s4) => {
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 10 : 90;
+        }
+        return s4.isDark ? 20 : 100;
+      },
+      background: (s4) => MaterialDynamicColors.tertiary,
+      contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
+    });
+    MaterialDynamicColors.tertiaryContainer = DynamicColor.fromPalette({
+      name: "tertiary_container",
+      palette: (s4) => s4.tertiaryPalette,
+      tone: (s4) => {
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 60 : 49;
+        }
+        if (!isFidelity(s4)) {
+          return s4.isDark ? 30 : 90;
+        }
+        const proposedHct = s4.tertiaryPalette.getHct(s4.sourceColorHct.tone);
+        return DislikeAnalyzer.fixIfDisliked(proposedHct).tone;
+      },
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.tertiaryContainer, MaterialDynamicColors.tertiary, 10, "nearer", false)
+    });
+    MaterialDynamicColors.onTertiaryContainer = DynamicColor.fromPalette({
+      name: "on_tertiary_container",
+      palette: (s4) => s4.tertiaryPalette,
+      tone: (s4) => {
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 0 : 100;
+        }
+        if (!isFidelity(s4)) {
+          return s4.isDark ? 90 : 30;
+        }
+        return DynamicColor.foregroundTone(MaterialDynamicColors.tertiaryContainer.tone(s4), 4.5);
+      },
+      background: (s4) => MaterialDynamicColors.tertiaryContainer,
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
+    });
+    MaterialDynamicColors.error = DynamicColor.fromPalette({
+      name: "error",
+      palette: (s4) => s4.errorPalette,
+      tone: (s4) => s4.isDark ? 80 : 40,
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.errorContainer, MaterialDynamicColors.error, 10, "nearer", false)
+    });
+    MaterialDynamicColors.onError = DynamicColor.fromPalette({
+      name: "on_error",
+      palette: (s4) => s4.errorPalette,
+      tone: (s4) => s4.isDark ? 20 : 100,
+      background: (s4) => MaterialDynamicColors.error,
+      contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
+    });
+    MaterialDynamicColors.errorContainer = DynamicColor.fromPalette({
+      name: "error_container",
+      palette: (s4) => s4.errorPalette,
+      tone: (s4) => s4.isDark ? 30 : 90,
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.errorContainer, MaterialDynamicColors.error, 10, "nearer", false)
+    });
+    MaterialDynamicColors.onErrorContainer = DynamicColor.fromPalette({
+      name: "on_error_container",
+      palette: (s4) => s4.errorPalette,
+      tone: (s4) => {
+        if (isMonochrome(s4)) {
+          return s4.isDark ? 90 : 10;
+        }
+        return s4.isDark ? 90 : 30;
+      },
+      background: (s4) => MaterialDynamicColors.errorContainer,
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
+    });
+    MaterialDynamicColors.primaryFixed = DynamicColor.fromPalette({
+      name: "primary_fixed",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 40 : 90,
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.primaryFixed, MaterialDynamicColors.primaryFixedDim, 10, "lighter", true)
+    });
+    MaterialDynamicColors.primaryFixedDim = DynamicColor.fromPalette({
+      name: "primary_fixed_dim",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 30 : 80,
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.primaryFixed, MaterialDynamicColors.primaryFixedDim, 10, "lighter", true)
+    });
+    MaterialDynamicColors.onPrimaryFixed = DynamicColor.fromPalette({
+      name: "on_primary_fixed",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 100 : 10,
+      background: (s4) => MaterialDynamicColors.primaryFixedDim,
+      secondBackground: (s4) => MaterialDynamicColors.primaryFixed,
+      contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
+    });
+    MaterialDynamicColors.onPrimaryFixedVariant = DynamicColor.fromPalette({
+      name: "on_primary_fixed_variant",
+      palette: (s4) => s4.primaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 90 : 30,
+      background: (s4) => MaterialDynamicColors.primaryFixedDim,
+      secondBackground: (s4) => MaterialDynamicColors.primaryFixed,
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
+    });
+    MaterialDynamicColors.secondaryFixed = DynamicColor.fromPalette({
+      name: "secondary_fixed",
+      palette: (s4) => s4.secondaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 80 : 90,
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.secondaryFixed, MaterialDynamicColors.secondaryFixedDim, 10, "lighter", true)
+    });
+    MaterialDynamicColors.secondaryFixedDim = DynamicColor.fromPalette({
+      name: "secondary_fixed_dim",
+      palette: (s4) => s4.secondaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 70 : 80,
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.secondaryFixed, MaterialDynamicColors.secondaryFixedDim, 10, "lighter", true)
+    });
+    MaterialDynamicColors.onSecondaryFixed = DynamicColor.fromPalette({
+      name: "on_secondary_fixed",
+      palette: (s4) => s4.secondaryPalette,
+      tone: (s4) => 10,
+      background: (s4) => MaterialDynamicColors.secondaryFixedDim,
+      secondBackground: (s4) => MaterialDynamicColors.secondaryFixed,
+      contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
+    });
+    MaterialDynamicColors.onSecondaryFixedVariant = DynamicColor.fromPalette({
+      name: "on_secondary_fixed_variant",
+      palette: (s4) => s4.secondaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 25 : 30,
+      background: (s4) => MaterialDynamicColors.secondaryFixedDim,
+      secondBackground: (s4) => MaterialDynamicColors.secondaryFixed,
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
+    });
+    MaterialDynamicColors.tertiaryFixed = DynamicColor.fromPalette({
+      name: "tertiary_fixed",
+      palette: (s4) => s4.tertiaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 40 : 90,
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.tertiaryFixed, MaterialDynamicColors.tertiaryFixedDim, 10, "lighter", true)
+    });
+    MaterialDynamicColors.tertiaryFixedDim = DynamicColor.fromPalette({
+      name: "tertiary_fixed_dim",
+      palette: (s4) => s4.tertiaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 30 : 80,
+      isBackground: true,
+      background: (s4) => MaterialDynamicColors.highestSurface(s4),
+      contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
+      toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.tertiaryFixed, MaterialDynamicColors.tertiaryFixedDim, 10, "lighter", true)
+    });
+    MaterialDynamicColors.onTertiaryFixed = DynamicColor.fromPalette({
+      name: "on_tertiary_fixed",
+      palette: (s4) => s4.tertiaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 100 : 10,
+      background: (s4) => MaterialDynamicColors.tertiaryFixedDim,
+      secondBackground: (s4) => MaterialDynamicColors.tertiaryFixed,
+      contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
+    });
+    MaterialDynamicColors.onTertiaryFixedVariant = DynamicColor.fromPalette({
+      name: "on_tertiary_fixed_variant",
+      palette: (s4) => s4.tertiaryPalette,
+      tone: (s4) => isMonochrome(s4) ? 90 : 30,
+      background: (s4) => MaterialDynamicColors.tertiaryFixedDim,
+      secondBackground: (s4) => MaterialDynamicColors.tertiaryFixed,
+      contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
+    });
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js
+var DynamicScheme;
+var init_dynamic_scheme = __esm({
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js"() {
+    init_hct();
+    init_tonal_palette();
+    init_math_utils();
+    init_material_dynamic_colors();
+    DynamicScheme = class {
+      constructor(args) {
+        this.sourceColorArgb = args.sourceColorArgb;
+        this.variant = args.variant;
+        this.contrastLevel = args.contrastLevel;
+        this.isDark = args.isDark;
+        this.sourceColorHct = Hct.fromInt(args.sourceColorArgb);
+        this.primaryPalette = args.primaryPalette;
+        this.secondaryPalette = args.secondaryPalette;
+        this.tertiaryPalette = args.tertiaryPalette;
+        this.neutralPalette = args.neutralPalette;
+        this.neutralVariantPalette = args.neutralVariantPalette;
+        this.errorPalette = TonalPalette.fromHueAndChroma(25, 84);
+      }
+      /**
+       * Support design spec'ing Dynamic Color by schemes that specify hue
+       * rotations that should be applied at certain breakpoints.
+       * @param sourceColor the source color of the theme, in HCT.
+       * @param hues The "breakpoints", i.e. the hues at which a rotation should
+       * be apply.
+       * @param rotations The rotation that should be applied when source color's
+       * hue is >= the same index in hues array, and <= the hue at the next index
+       * in hues array.
+       */
+      static getRotatedHue(sourceColor, hues, rotations) {
+        const sourceHue = sourceColor.hue;
+        if (hues.length !== rotations.length) {
+          throw new Error(`mismatch between hue length ${hues.length} & rotations ${rotations.length}`);
+        }
+        if (rotations.length === 1) {
+          return sanitizeDegreesDouble(sourceColor.hue + rotations[0]);
+        }
+        const size = hues.length;
+        for (let i7 = 0; i7 <= size - 2; i7++) {
+          const thisHue = hues[i7];
+          const nextHue = hues[i7 + 1];
+          if (thisHue < sourceHue && sourceHue < nextHue) {
+            return sanitizeDegreesDouble(sourceHue + rotations[i7]);
+          }
+        }
+        return sourceHue;
+      }
+      getArgb(dynamicColor) {
+        return dynamicColor.getArgb(this);
+      }
+      getHct(dynamicColor) {
+        return dynamicColor.getHct(this);
+      }
+      get primaryPaletteKeyColor() {
+        return this.getArgb(MaterialDynamicColors.primaryPaletteKeyColor);
+      }
+      get secondaryPaletteKeyColor() {
+        return this.getArgb(MaterialDynamicColors.secondaryPaletteKeyColor);
+      }
+      get tertiaryPaletteKeyColor() {
+        return this.getArgb(MaterialDynamicColors.tertiaryPaletteKeyColor);
+      }
+      get neutralPaletteKeyColor() {
+        return this.getArgb(MaterialDynamicColors.neutralPaletteKeyColor);
+      }
+      get neutralVariantPaletteKeyColor() {
+        return this.getArgb(MaterialDynamicColors.neutralVariantPaletteKeyColor);
+      }
+      get background() {
+        return this.getArgb(MaterialDynamicColors.background);
+      }
+      get onBackground() {
+        return this.getArgb(MaterialDynamicColors.onBackground);
+      }
+      get surface() {
+        return this.getArgb(MaterialDynamicColors.surface);
+      }
+      get surfaceDim() {
+        return this.getArgb(MaterialDynamicColors.surfaceDim);
+      }
+      get surfaceBright() {
+        return this.getArgb(MaterialDynamicColors.surfaceBright);
+      }
+      get surfaceContainerLowest() {
+        return this.getArgb(MaterialDynamicColors.surfaceContainerLowest);
+      }
+      get surfaceContainerLow() {
+        return this.getArgb(MaterialDynamicColors.surfaceContainerLow);
+      }
+      get surfaceContainer() {
+        return this.getArgb(MaterialDynamicColors.surfaceContainer);
+      }
+      get surfaceContainerHigh() {
+        return this.getArgb(MaterialDynamicColors.surfaceContainerHigh);
+      }
+      get surfaceContainerHighest() {
+        return this.getArgb(MaterialDynamicColors.surfaceContainerHighest);
+      }
+      get onSurface() {
+        return this.getArgb(MaterialDynamicColors.onSurface);
+      }
+      get surfaceVariant() {
+        return this.getArgb(MaterialDynamicColors.surfaceVariant);
+      }
+      get onSurfaceVariant() {
+        return this.getArgb(MaterialDynamicColors.onSurfaceVariant);
+      }
+      get inverseSurface() {
+        return this.getArgb(MaterialDynamicColors.inverseSurface);
+      }
+      get inverseOnSurface() {
+        return this.getArgb(MaterialDynamicColors.inverseOnSurface);
+      }
+      get outline() {
+        return this.getArgb(MaterialDynamicColors.outline);
+      }
+      get outlineVariant() {
+        return this.getArgb(MaterialDynamicColors.outlineVariant);
+      }
+      get shadow() {
+        return this.getArgb(MaterialDynamicColors.shadow);
+      }
+      get scrim() {
+        return this.getArgb(MaterialDynamicColors.scrim);
+      }
+      get surfaceTint() {
+        return this.getArgb(MaterialDynamicColors.surfaceTint);
+      }
+      get primary() {
+        return this.getArgb(MaterialDynamicColors.primary);
+      }
+      get onPrimary() {
+        return this.getArgb(MaterialDynamicColors.onPrimary);
+      }
+      get primaryContainer() {
+        return this.getArgb(MaterialDynamicColors.primaryContainer);
+      }
+      get onPrimaryContainer() {
+        return this.getArgb(MaterialDynamicColors.onPrimaryContainer);
+      }
+      get inversePrimary() {
+        return this.getArgb(MaterialDynamicColors.inversePrimary);
+      }
+      get secondary() {
+        return this.getArgb(MaterialDynamicColors.secondary);
+      }
+      get onSecondary() {
+        return this.getArgb(MaterialDynamicColors.onSecondary);
+      }
+      get secondaryContainer() {
+        return this.getArgb(MaterialDynamicColors.secondaryContainer);
+      }
+      get onSecondaryContainer() {
+        return this.getArgb(MaterialDynamicColors.onSecondaryContainer);
+      }
+      get tertiary() {
+        return this.getArgb(MaterialDynamicColors.tertiary);
+      }
+      get onTertiary() {
+        return this.getArgb(MaterialDynamicColors.onTertiary);
+      }
+      get tertiaryContainer() {
+        return this.getArgb(MaterialDynamicColors.tertiaryContainer);
+      }
+      get onTertiaryContainer() {
+        return this.getArgb(MaterialDynamicColors.onTertiaryContainer);
+      }
+      get error() {
+        return this.getArgb(MaterialDynamicColors.error);
+      }
+      get onError() {
+        return this.getArgb(MaterialDynamicColors.onError);
+      }
+      get errorContainer() {
+        return this.getArgb(MaterialDynamicColors.errorContainer);
+      }
+      get onErrorContainer() {
+        return this.getArgb(MaterialDynamicColors.onErrorContainer);
+      }
+      get primaryFixed() {
+        return this.getArgb(MaterialDynamicColors.primaryFixed);
+      }
+      get primaryFixedDim() {
+        return this.getArgb(MaterialDynamicColors.primaryFixedDim);
+      }
+      get onPrimaryFixed() {
+        return this.getArgb(MaterialDynamicColors.onPrimaryFixed);
+      }
+      get onPrimaryFixedVariant() {
+        return this.getArgb(MaterialDynamicColors.onPrimaryFixedVariant);
+      }
+      get secondaryFixed() {
+        return this.getArgb(MaterialDynamicColors.secondaryFixed);
+      }
+      get secondaryFixedDim() {
+        return this.getArgb(MaterialDynamicColors.secondaryFixedDim);
+      }
+      get onSecondaryFixed() {
+        return this.getArgb(MaterialDynamicColors.onSecondaryFixed);
+      }
+      get onSecondaryFixedVariant() {
+        return this.getArgb(MaterialDynamicColors.onSecondaryFixedVariant);
+      }
+      get tertiaryFixed() {
+        return this.getArgb(MaterialDynamicColors.tertiaryFixed);
+      }
+      get tertiaryFixedDim() {
+        return this.getArgb(MaterialDynamicColors.tertiaryFixedDim);
+      }
+      get onTertiaryFixed() {
+        return this.getArgb(MaterialDynamicColors.onTertiaryFixed);
+      }
+      get onTertiaryFixedVariant() {
+        return this.getArgb(MaterialDynamicColors.onTertiaryFixedVariant);
+      }
+    };
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/palettes/core_palette.js
+var CorePalette;
+var init_core_palette = __esm({
+  "../../node_modules/@material/material-color-utilities/palettes/core_palette.js"() {
+    init_hct();
+    init_tonal_palette();
+    CorePalette = class _CorePalette {
+      /**
+       * @param argb ARGB representation of a color
+       */
+      static of(argb) {
+        return new _CorePalette(argb, false);
+      }
+      /**
+       * @param argb ARGB representation of a color
+       */
+      static contentOf(argb) {
+        return new _CorePalette(argb, true);
+      }
+      /**
+       * Create a [CorePalette] from a set of colors
+       */
+      static fromColors(colors) {
+        return _CorePalette.createPaletteFromColors(false, colors);
+      }
+      /**
+       * Create a content [CorePalette] from a set of colors
+       */
+      static contentFromColors(colors) {
+        return _CorePalette.createPaletteFromColors(true, colors);
+      }
+      static createPaletteFromColors(content, colors) {
+        const palette = new _CorePalette(colors.primary, content);
+        if (colors.secondary) {
+          const p3 = new _CorePalette(colors.secondary, content);
+          palette.a2 = p3.a1;
+        }
+        if (colors.tertiary) {
+          const p3 = new _CorePalette(colors.tertiary, content);
+          palette.a3 = p3.a1;
+        }
+        if (colors.error) {
+          const p3 = new _CorePalette(colors.error, content);
+          palette.error = p3.a1;
+        }
+        if (colors.neutral) {
+          const p3 = new _CorePalette(colors.neutral, content);
+          palette.n1 = p3.n1;
+        }
+        if (colors.neutralVariant) {
+          const p3 = new _CorePalette(colors.neutralVariant, content);
+          palette.n2 = p3.n2;
+        }
+        return palette;
+      }
+      constructor(argb, isContent) {
+        const hct = Hct.fromInt(argb);
+        const hue = hct.hue;
+        const chroma = hct.chroma;
+        if (isContent) {
+          this.a1 = TonalPalette.fromHueAndChroma(hue, chroma);
+          this.a2 = TonalPalette.fromHueAndChroma(hue, chroma / 3);
+          this.a3 = TonalPalette.fromHueAndChroma(hue + 60, chroma / 2);
+          this.n1 = TonalPalette.fromHueAndChroma(hue, Math.min(chroma / 12, 4));
+          this.n2 = TonalPalette.fromHueAndChroma(hue, Math.min(chroma / 6, 8));
+        } else {
+          this.a1 = TonalPalette.fromHueAndChroma(hue, Math.max(48, chroma));
+          this.a2 = TonalPalette.fromHueAndChroma(hue, 16);
+          this.a3 = TonalPalette.fromHueAndChroma(hue + 60, 24);
+          this.n1 = TonalPalette.fromHueAndChroma(hue, 4);
+          this.n2 = TonalPalette.fromHueAndChroma(hue, 8);
+        }
+        this.error = TonalPalette.fromHueAndChroma(25, 84);
+      }
+    };
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/quantize/lab_point_provider.js
+var init_lab_point_provider = __esm({
+  "../../node_modules/@material/material-color-utilities/quantize/lab_point_provider.js"() {
+    init_color_utils();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_wsmeans.js
+var init_quantizer_wsmeans = __esm({
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_wsmeans.js"() {
+    init_lab_point_provider();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_map.js
+var init_quantizer_map = __esm({
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_map.js"() {
+    init_color_utils();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_wu.js
+var init_quantizer_wu = __esm({
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_wu.js"() {
+    init_color_utils();
+    init_quantizer_map();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_celebi.js
+var init_quantizer_celebi = __esm({
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_celebi.js"() {
+    init_quantizer_wsmeans();
+    init_quantizer_wu();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme.js
+var init_scheme = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme.js"() {
+    init_core_palette();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_android.js
+var init_scheme_android = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_android.js"() {
+    init_core_palette();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/temperature/temperature_cache.js
+var init_temperature_cache = __esm({
+  "../../node_modules/@material/material-color-utilities/temperature/temperature_cache.js"() {
+    init_hct();
+    init_color_utils();
+    init_math_utils();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_content.js
+var init_scheme_content = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_content.js"() {
+    init_dislike_analyzer();
+    init_dynamic_scheme();
+    init_variant();
+    init_tonal_palette();
+    init_temperature_cache();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_expressive.js
+var SchemeExpressive;
+var init_scheme_expressive = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_expressive.js"() {
+    init_dynamic_scheme();
+    init_variant();
+    init_tonal_palette();
+    init_math_utils();
+    SchemeExpressive = class _SchemeExpressive extends DynamicScheme {
+      constructor(sourceColorHct, isDark, contrastLevel) {
+        super({
+          sourceColorArgb: sourceColorHct.toInt(),
+          variant: Variant.EXPRESSIVE,
+          contrastLevel,
+          isDark,
+          primaryPalette: TonalPalette.fromHueAndChroma(sanitizeDegreesDouble(sourceColorHct.hue + 240), 40),
+          secondaryPalette: TonalPalette.fromHueAndChroma(DynamicScheme.getRotatedHue(sourceColorHct, _SchemeExpressive.hues, _SchemeExpressive.secondaryRotations), 24),
+          tertiaryPalette: TonalPalette.fromHueAndChroma(DynamicScheme.getRotatedHue(sourceColorHct, _SchemeExpressive.hues, _SchemeExpressive.tertiaryRotations), 32),
+          neutralPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue + 15, 8),
+          neutralVariantPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue + 15, 12)
+        });
+      }
+    };
+    SchemeExpressive.hues = [
+      0,
+      21,
+      51,
+      121,
+      151,
+      191,
+      271,
+      321,
+      360
+    ];
+    SchemeExpressive.secondaryRotations = [
+      45,
+      95,
+      45,
+      20,
+      45,
+      90,
+      45,
+      45,
+      45
+    ];
+    SchemeExpressive.tertiaryRotations = [
+      120,
+      120,
+      20,
+      45,
+      20,
+      15,
+      20,
+      120,
+      120
+    ];
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_fidelity.js
+var init_scheme_fidelity = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_fidelity.js"() {
+    init_dislike_analyzer();
+    init_dynamic_scheme();
+    init_variant();
+    init_tonal_palette();
+    init_temperature_cache();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_fruit_salad.js
+var init_scheme_fruit_salad = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_fruit_salad.js"() {
+    init_dynamic_scheme();
+    init_variant();
+    init_tonal_palette();
+    init_math_utils();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_monochrome.js
+var init_scheme_monochrome = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_monochrome.js"() {
+    init_dynamic_scheme();
+    init_variant();
+    init_tonal_palette();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_neutral.js
+var init_scheme_neutral = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_neutral.js"() {
+    init_dynamic_scheme();
+    init_variant();
+    init_tonal_palette();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_rainbow.js
+var init_scheme_rainbow = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_rainbow.js"() {
+    init_dynamic_scheme();
+    init_variant();
+    init_tonal_palette();
+    init_math_utils();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_tonal_spot.js
+var init_scheme_tonal_spot = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_tonal_spot.js"() {
+    init_dynamic_scheme();
+    init_variant();
+    init_tonal_palette();
+    init_math_utils();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js
+var SchemeVibrant;
+var init_scheme_vibrant = __esm({
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js"() {
+    init_dynamic_scheme();
+    init_variant();
+    init_tonal_palette();
+    SchemeVibrant = class _SchemeVibrant extends DynamicScheme {
+      constructor(sourceColorHct, isDark, contrastLevel) {
+        super({
+          sourceColorArgb: sourceColorHct.toInt(),
+          variant: Variant.VIBRANT,
+          contrastLevel,
+          isDark,
+          primaryPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue, 200),
+          secondaryPalette: TonalPalette.fromHueAndChroma(DynamicScheme.getRotatedHue(sourceColorHct, _SchemeVibrant.hues, _SchemeVibrant.secondaryRotations), 24),
+          tertiaryPalette: TonalPalette.fromHueAndChroma(DynamicScheme.getRotatedHue(sourceColorHct, _SchemeVibrant.hues, _SchemeVibrant.tertiaryRotations), 32),
+          neutralPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue, 10),
+          neutralVariantPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue, 12)
+        });
+      }
+    };
+    SchemeVibrant.hues = [
+      0,
+      41,
+      61,
+      101,
+      131,
+      181,
+      251,
+      301,
+      360
+    ];
+    SchemeVibrant.secondaryRotations = [
+      18,
+      15,
+      10,
+      12,
+      15,
+      18,
+      15,
+      12,
+      12
+    ];
+    SchemeVibrant.tertiaryRotations = [
+      35,
+      30,
+      20,
+      25,
+      30,
+      35,
+      30,
+      25,
+      25
+    ];
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/score/score.js
+function compare(a3, b5) {
+  if (a3.score > b5.score) {
+    return -1;
+  } else if (a3.score < b5.score) {
+    return 1;
+  }
+  return 0;
+}
+var SCORE_OPTION_DEFAULTS, Score;
+var init_score = __esm({
+  "../../node_modules/@material/material-color-utilities/score/score.js"() {
+    init_hct();
+    init_math_utils();
+    SCORE_OPTION_DEFAULTS = {
+      desired: 4,
+      fallbackColorARGB: 4282549748,
+      filter: true
+      // Avoid unsuitable colors.
+    };
+    Score = class _Score {
+      constructor() {
+      }
+      /**
+       * Given a map with keys of colors and values of how often the color appears,
+       * rank the colors based on suitability for being used for a UI theme.
+       *
+       * @param colorsToPopulation map with keys of colors and values of how often
+       *     the color appears, usually from a source image.
+       * @param {ScoreOptions} options optional parameters.
+       * @return Colors sorted by suitability for a UI theme. The most suitable
+       *     color is the first item, the least suitable is the last. There will
+       *     always be at least one color returned. If all the input colors
+       *     were not suitable for a theme, a default fallback color will be
+       *     provided, Google Blue.
+       */
+      static score(colorsToPopulation, options) {
+        const { desired, fallbackColorARGB, filter } = { ...SCORE_OPTION_DEFAULTS, ...options };
+        const colorsHct = [];
+        const huePopulation = new Array(360).fill(0);
+        let populationSum = 0;
+        for (const [argb, population] of colorsToPopulation.entries()) {
+          const hct = Hct.fromInt(argb);
+          colorsHct.push(hct);
+          const hue = Math.floor(hct.hue);
+          huePopulation[hue] += population;
+          populationSum += population;
+        }
+        const hueExcitedProportions = new Array(360).fill(0);
+        for (let hue = 0; hue < 360; hue++) {
+          const proportion = huePopulation[hue] / populationSum;
+          for (let i7 = hue - 14; i7 < hue + 16; i7++) {
+            const neighborHue = sanitizeDegreesInt(i7);
+            hueExcitedProportions[neighborHue] += proportion;
+          }
+        }
+        const scoredHct = new Array();
+        for (const hct of colorsHct) {
+          const hue = sanitizeDegreesInt(Math.round(hct.hue));
+          const proportion = hueExcitedProportions[hue];
+          if (filter && (hct.chroma < _Score.CUTOFF_CHROMA || proportion <= _Score.CUTOFF_EXCITED_PROPORTION)) {
+            continue;
+          }
+          const proportionScore = proportion * 100 * _Score.WEIGHT_PROPORTION;
+          const chromaWeight = hct.chroma < _Score.TARGET_CHROMA ? _Score.WEIGHT_CHROMA_BELOW : _Score.WEIGHT_CHROMA_ABOVE;
+          const chromaScore = (hct.chroma - _Score.TARGET_CHROMA) * chromaWeight;
+          const score = proportionScore + chromaScore;
+          scoredHct.push({ hct, score });
+        }
+        scoredHct.sort(compare);
+        const chosenColors = [];
+        for (let differenceDegrees2 = 90; differenceDegrees2 >= 15; differenceDegrees2--) {
+          chosenColors.length = 0;
+          for (const { hct } of scoredHct) {
+            const duplicateHue = chosenColors.find((chosenHct) => {
+              return differenceDegrees(hct.hue, chosenHct.hue) < differenceDegrees2;
+            });
+            if (!duplicateHue) {
+              chosenColors.push(hct);
+            }
+            if (chosenColors.length >= desired)
+              break;
+          }
+          if (chosenColors.length >= desired)
+            break;
+        }
+        const colors = [];
+        if (chosenColors.length === 0) {
+          colors.push(fallbackColorARGB);
+        }
+        for (const chosenHct of chosenColors) {
+          colors.push(chosenHct.toInt());
+        }
+        return colors;
+      }
+    };
+    Score.TARGET_CHROMA = 48;
+    Score.WEIGHT_PROPORTION = 0.7;
+    Score.WEIGHT_CHROMA_ABOVE = 0.3;
+    Score.WEIGHT_CHROMA_BELOW = 0.1;
+    Score.CUTOFF_CHROMA = 5;
+    Score.CUTOFF_EXCITED_PROPORTION = 0.01;
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/utils/string_utils.js
+function hexFromArgb(argb) {
+  const r6 = redFromArgb(argb);
+  const g2 = greenFromArgb(argb);
+  const b5 = blueFromArgb(argb);
+  const outParts = [r6.toString(16), g2.toString(16), b5.toString(16)];
+  for (const [i7, part] of outParts.entries()) {
+    if (part.length === 1) {
+      outParts[i7] = "0" + part;
+    }
+  }
+  return "#" + outParts.join("");
+}
+function argbFromHex(hex) {
+  hex = hex.replace("#", "");
+  const isThree = hex.length === 3;
+  const isSix = hex.length === 6;
+  const isEight = hex.length === 8;
+  if (!isThree && !isSix && !isEight) {
+    throw new Error("unexpected hex " + hex);
+  }
+  let r6 = 0;
+  let g2 = 0;
+  let b5 = 0;
+  if (isThree) {
+    r6 = parseIntHex(hex.slice(0, 1).repeat(2));
+    g2 = parseIntHex(hex.slice(1, 2).repeat(2));
+    b5 = parseIntHex(hex.slice(2, 3).repeat(2));
+  } else if (isSix) {
+    r6 = parseIntHex(hex.slice(0, 2));
+    g2 = parseIntHex(hex.slice(2, 4));
+    b5 = parseIntHex(hex.slice(4, 6));
+  } else if (isEight) {
+    r6 = parseIntHex(hex.slice(2, 4));
+    g2 = parseIntHex(hex.slice(4, 6));
+    b5 = parseIntHex(hex.slice(6, 8));
+  }
+  return (255 << 24 | (r6 & 255) << 16 | (g2 & 255) << 8 | b5 & 255) >>> 0;
+}
+function parseIntHex(value) {
+  return parseInt(value, 16);
+}
+var init_string_utils = __esm({
+  "../../node_modules/@material/material-color-utilities/utils/string_utils.js"() {
+    init_color_utils();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/utils/image_utils.js
+var init_image_utils = __esm({
+  "../../node_modules/@material/material-color-utilities/utils/image_utils.js"() {
+    init_quantizer_celebi();
+    init_score();
+    init_color_utils();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/utils/theme_utils.js
+var init_theme_utils = __esm({
+  "../../node_modules/@material/material-color-utilities/utils/theme_utils.js"() {
+    init_blend();
+    init_core_palette();
+    init_scheme();
+    init_image_utils();
+    init_string_utils();
+  }
+});
+
+// ../../node_modules/@material/material-color-utilities/index.js
+var init_material_color_utilities = __esm({
+  "../../node_modules/@material/material-color-utilities/index.js"() {
+    init_blend();
+    init_contrast();
+    init_dislike_analyzer();
+    init_dynamic_color();
+    init_dynamic_scheme();
+    init_material_dynamic_colors();
+    init_cam16();
+    init_hct();
+    init_viewing_conditions();
+    init_core_palette();
+    init_tonal_palette();
+    init_quantizer_celebi();
+    init_quantizer_map();
+    init_quantizer_wsmeans();
+    init_quantizer_wu();
+    init_scheme();
+    init_scheme_android();
+    init_scheme_content();
+    init_scheme_expressive();
+    init_scheme_fidelity();
+    init_scheme_fruit_salad();
+    init_scheme_monochrome();
+    init_scheme_neutral();
+    init_scheme_rainbow();
+    init_scheme_tonal_spot();
+    init_scheme_vibrant();
+    init_score();
+    init_temperature_cache();
+    init_color_utils();
+    init_math_utils();
+    init_string_utils();
+    init_image_utils();
+    init_theme_utils();
+  }
+});
+
+// ../../node_modules/@universal-material/web/theme/css-var-builder.js
+var CssVarBuilder;
+var init_css_var_builder = __esm({
+  "../../node_modules/@universal-material/web/theme/css-var-builder.js"() {
+    init_material_color_utilities();
+    CssVarBuilder = class _CssVarBuilder {
+      constructor() {
+        this.content = "";
+      }
+      static create() {
+        return new _CssVarBuilder();
+      }
+      add(name, value) {
+        const cssVar = `  ${name}: ${value};
+`;
+        this.content += cssVar;
+        return this;
+      }
+      addFromArgb(name, argb) {
+        this.add(`--u-color-${name}`, hexFromArgb(argb));
+        return this;
+      }
+      addLightAndDarkFromArgb(name, lightArgb, darkArgb) {
+        this.add(`--u-color-${name}`, `light-dark(${hexFromArgb(lightArgb)}, ${hexFromArgb(darkArgb)})`);
+        return this;
+      }
+      build() {
+        return this.content;
+      }
+    };
+  }
+});
+
+// ../../node_modules/@universal-material/web/theme/neutral-colors.js
+var neutralColors, neutralVariantColors;
+var init_neutral_colors = __esm({
+  "../../node_modules/@universal-material/web/theme/neutral-colors.js"() {
+    neutralColors = [
+      { name: "surface", lightTone: 98, darkTone: 6 },
+      { name: "surface-bright", lightTone: 98, darkTone: 24 },
+      { name: "surface-dim", lightTone: 87, darkTone: 6 },
+      { name: "surface-container-lowest", lightTone: 100, darkTone: 4 },
+      { name: "surface-container-low", lightTone: 96, darkTone: 10 },
+      { name: "surface-container", lightTone: 94, darkTone: 12 },
+      { name: "surface-container-high", lightTone: 92, darkTone: 17 },
+      { name: "surface-container-highest", lightTone: 90, darkTone: 22 },
+      { name: "on-surface", lightTone: 10, darkTone: 90 },
+      { name: "light", fixedTone: 98 },
+      { name: "on-light", fixedTone: 10 },
+      { name: "dark", fixedTone: 6 },
+      { name: "on-dark", fixedTone: 90 },
+      { name: "scrim", fixedTone: 0 },
+      { name: "shadow", fixedTone: 0 }
+    ];
+    neutralVariantColors = [
+      { name: "surface-variant", lightTone: 90, darkTone: 30 },
+      { name: "on-surface-variant", lightTone: 30, darkTone: 80 },
+      { name: "outline", lightTone: 50, darkTone: 60 },
+      { name: "outline-variant", lightTone: 80, darkTone: 30 }
+    ];
+  }
+});
+
+// ../../node_modules/@universal-material/web/theme/theme-builder.js
+var getCss, ThemeBuilder;
+var init_theme_builder = __esm({
+  "../../node_modules/@universal-material/web/theme/theme-builder.js"() {
+    init_material_color_utilities();
+    init_css_var_builder();
+    init_neutral_colors();
+    getCss = (selector, content) => `${selector} {
+${content}}`;
+    ThemeBuilder = class _ThemeBuilder {
+      #corePalette;
+      constructor(primaryColorHex) {
+        this.colors = [];
+        this.partial = false;
+        this.cssClass = null;
+        this.#corePalette = CorePalette.of(argbFromHex(primaryColorHex));
+        this.addColorFromPalette("primary", this.#corePalette.a1);
+      }
+      static create(primaryColorHex) {
+        return new _ThemeBuilder(primaryColorHex);
+      }
+      static createPartial(primaryColorHex) {
+        const themeBuilder = new _ThemeBuilder(primaryColorHex);
+        themeBuilder.partial = true;
+        return themeBuilder;
+      }
+      addColorFromHex(name, hex) {
+        const palette = TonalPalette.fromInt(argbFromHex(hex));
+        this.addColorFromPalette(name, palette);
+        return this;
+      }
+      addColorFromPalette(name, palette) {
+        this.colors.push({ name, lightTone: 40, darkTone: 80, tonalPalette: palette });
+        this.colors.push({ name: `on-${name}`, lightTone: 100, darkTone: 20, tonalPalette: palette });
+        this.colors.push({ name: `${name}-container`, lightTone: 90, darkTone: 30, tonalPalette: palette });
+        this.colors.push({ name: `on-${name}-container`, lightTone: 10, darkTone: 90, tonalPalette: palette });
+        this.colors.push({ name: `${name}-fixed`, fixedTone: 90, tonalPalette: palette });
+        this.colors.push({ name: `${name}-fixed-dim`, fixedTone: 80, tonalPalette: palette });
+        this.colors.push({ name: `on-${name}-fixed`, fixedTone: 10, tonalPalette: palette });
+        this.colors.push({ name: `on-${name}-fixed-variant`, fixedTone: 30, tonalPalette: palette });
+        return this;
+      }
+      addStaticColor(name, hex, tone = 80) {
+        const palette = TonalPalette.fromInt(argbFromHex(hex));
+        this.colors.push({ name, fixedTone: tone, tonalPalette: palette });
+        this.colors.push({ name: `on-${name}`, fixedTone: 15, tonalPalette: palette });
+        this.colors.push({ name: `${name}-container`, fixedTone: 90, tonalPalette: palette });
+        this.colors.push({ name: `on-${name}-container`, fixedTone: 15, tonalPalette: palette });
+        return this;
+      }
+      setCssClass(cssClass) {
+        this.cssClass = cssClass;
+        return this;
+      }
+      ensureCssClassStartsWithDot() {
+        if (!this.cssClass || this.cssClass.startsWith(".")) {
+          return;
+        }
+        this.cssClass = `.${this.cssClass}`;
+      }
+      ensureThemeColors() {
+        if (!this.colors.find((c4) => c4.name === "secondary")) {
+          this.addColorFromPalette("secondary", this.#corePalette.a2);
+        }
+        if (!this.colors.find((c4) => c4.name === "tertiary")) {
+          this.addColorFromPalette("tertiary", this.#corePalette.a3);
+        }
+      }
+      ensureStatusColors() {
+        if (!this.colors.find((c4) => c4.name === "success")) {
+          this.addStaticColor("success", "#198754", 60);
+        }
+        if (!this.colors.find((c4) => c4.name === "info")) {
+          this.addStaticColor("info", "#0dcaf0");
+        }
+        if (!this.colors.find((c4) => c4.name === "warning")) {
+          this.addStaticColor("warning", "#ffc107");
+        }
+        if (!this.colors.find((c4) => c4.name === "error")) {
+          this.addColorFromHex("error", "#b3261e");
+        }
+      }
+      getNeutralVariables() {
+        const builder = CssVarBuilder.create();
+        this.addColors(builder, neutralColors, this.#corePalette.n1);
+        builder.add("--u-color-body", "var(--u-color-surface)").add("--u-color-inverse-body", "var(--u-color-inverse-surface)").add("--u-color-on-body", "var(--u-color-on-surface)").add("--u-color-on-inverse-body", "var(--u-color-on-inverse-surface)");
+        return builder.build();
+      }
+      getNeutralVariantVariables() {
+        const builder = CssVarBuilder.create();
+        this.addColors(builder, neutralVariantColors, this.#corePalette.n2);
+        return builder.build();
+      }
+      getColorVariables(color) {
+        const builder = CssVarBuilder.create();
+        this.addToneColor(builder, color, color.tonalPalette);
+        return builder.build();
+      }
+      getColorsVariables() {
+        let variables = "";
+        for (const color of this.colors) {
+          variables += this.getColorVariables(color);
+        }
+        variables += this.getNeutralVariables();
+        variables += this.getNeutralVariantVariables();
+        return variables;
+      }
+      addColors(builder, colors, palette) {
+        for (const color of colors) {
+          this.addToneColor(builder, color, palette);
+        }
+      }
+      addToneColor(builder, color, palette) {
+        if (color.fixedTone !== void 0) {
+          builder.addFromArgb(color.name, palette.tone(color.fixedTone));
+          return;
+        }
+        const inverseName = `inverse-${color.name}`.replace("inverse-on", "on-inverse");
+        builder.addLightAndDarkFromArgb(color.name, palette.tone(color.lightTone), palette.tone(color.darkTone)).addLightAndDarkFromArgb(inverseName, palette.tone(color.darkTone), palette.tone(color.lightTone));
+        if (color.name === "surface" || color.name === "on-surface") {
+          const prefix = color.name.startsWith("on-") ? "on-" : "";
+          builder.addFromArgb(`${prefix}light-surface`, palette.tone(color.lightTone));
+          builder.addFromArgb(`${prefix}dark-surface`, palette.tone(color.darkTone));
+        }
+      }
+      build() {
+        this.ensureCssClassStartsWithDot();
+        const selector = this.cssClass ?? ":root";
+        this.ensureThemeColors();
+        if (!this.partial) {
+          this.ensureStatusColors();
+        }
+        const variables = `${getCss(selector, this.getColorsVariables())}
+`;
+        return variables;
+      }
+    };
+  }
+});
+
+// ../../node_modules/@universal-material/web/theme/index.js
+var init_theme = __esm({
+  "../../node_modules/@universal-material/web/theme/index.js"() {
+    init_theme_builder();
+  }
+});
+
+// src/chrome-icons.ts
+var ICON;
+var init_chrome_icons = __esm({
+  "src/chrome-icons.ts"() {
+    "use strict";
+    ICON = {
+      "format_bold": `<path d="M335-200q-25 0-42.5-17.5T275-260v-440q0-25 17.5-42.5T335-760h168q66 0 114.5 42T666-612q0 38-21 70t-56 49v6q43 14 69.5 50t26.5 81q0 68-52.5 112T510-200H335Zm26-76h144q38 0 66-25t28-63q0-37-28-62t-66-25H361v175Zm0-247h136q35 0 60.5-23t25.5-58q0-35-25.5-58.5T497-686H361v163Z"/>`,
+      "format_italic": `<path d="M264-199q-16.8 0-28.4-11.64-11.6-11.64-11.6-28.5t11.6-28.36Q247.2-279 264-279h94l139-409H378q-16.8 0-28.4-11.64-11.6-11.64-11.6-28.5t11.6-28.36Q361.2-768 378-768h300q16.8 0 28.4 11.64 11.6 11.64 11.6 28.5t-11.6 28.36Q694.8-688 678-688h-94L445-279h119q16.8 0 28.4 11.64 11.6 11.64 11.6 28.5t-11.6 28.36Q580.8-199 564-199H264Z"/>`,
+      "format_underlined": `<path d="M230-140q-13 0-21.5-8.5T200-170q0-13 8.5-21.5T230-200h500q13 0 21.5 8.5T760-170q0 13-8.5 21.5T730-140H230Zm93.5-198.5Q267-397 267-497v-302q0-17 12.5-29t29.5-12q17 0 29 12t12 29v302q0 63 34 101t96 38q62 0 96-38t34-101v-302q0-17 12.5-29t29.5-12q17 0 29 12t12 29v302q0 100-56.5 158.5T480-280q-100 0-156.5-58.5Z"/>`,
+      "format_align_left": `<path d="M150-120q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h420q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h420q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Z"/>`,
+      "format_align_center": `<path d="M150-120q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm160-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h340q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H310ZM150-450q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm160-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h340q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H310ZM150-780q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Z"/>`,
+      "format_align_right": `<path d="M150-780q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm240 165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h420q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H390ZM150-450q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm240 165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h420q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H390ZM150-120q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Z"/>`,
+      "format_align_justify": `<path d="M150-120q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Z"/>`,
+      "format_list_bulleted": `<path d="M407-198q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h403q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H407Zm0-252q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h403q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H407Zm0-253q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h403q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H407ZM189-161q-28.05 0-48.02-19Q121-199 121-227.5t19.5-48q19.5-19.5 48-19.5t47.5 19.98q19 19.97 19 48.02 0 27.23-19.39 46.61Q216.23-161 189-161Zm0-252q-28.05 0-48.02-19.5Q121-452 121-480t19.98-47.5Q160.95-547 189-547q27.23 0 46.61 19.5Q255-508 255-480t-19.39 47.5Q216.23-413 189-413Zm-48.5-272.5Q121-705 121-733t19.5-47.5Q160-800 188-800t47.5 19.5Q255-761 255-733t-19.5 47.5Q216-666 188-666t-47.5-19.5Z"/>`,
+      "format_list_numbered": `<path d="M150-80q-13 0-21.5-8.5T120-110q0-13 8.5-21.5T150-140h70v-30h-30q-13 0-21.5-8.5T160-200q0-13 8.5-21.5T190-230h30v-30h-70q-13 0-21.5-8.5T120-290q0-13 8.5-21.5T150-320h90q17 0 28.5 11.5T280-280v40q0 17-11.5 28.5T240-200q17 0 28.5 11.5T280-160v40q0 17-11.5 28.5T240-80h-90Zm-7-280q-9 0-16-7t-7-16v-87q0-17 11.5-28.5T160-510h60v-30h-70q-13 0-21.5-8.5T120-570q0-13 8.5-21.5T150-600h90q17 0 28.5 11.5T280-560v70q0 17-11.5 28.5T240-450h-60v30h70q13 0 21.5 8.5T280-390q0 13-8.5 21.5T250-360H143Zm45.5-288.5Q180-657 180-670v-150h-30q-13 0-21.5-8.5T120-850q0-13 8.5-21.5T150-880h68q9 0 15.5 6.5T240-858v188q0 13-8.5 21.5T210-640q-13 0-21.5-8.5ZM399-209q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h411q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H399Zm0-243q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h411q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H399Zm0-243q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h411q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H399Z"/>`,
+      "undo": `<path d="M289-200q-13 0-21.5-8.5T259-230q0-13 8.5-21.5T289-260h280q70 0 120.5-46.5T740-422q0-69-50.5-115.5T569-584H274l93 93q9 9 9 21t-9 21q-9 9-21 9t-21-9L181-593q-5-5-7-10t-2-11q0-6 2-11t7-10l144-144q9-9 21-9t21 9q9 9 9 21t-9 21l-93 93h294q95 0 163.5 64T800-422q0 94-68.5 158T568-200H289Z"/>`,
+      "redo": `<path d="M686-584H391q-70 0-120.5 46.5T220-422q0 69 50.5 115.5T391-260h280q13 0 21.5 8.5T701-230q0 13-8.5 21.5T671-200H392q-95 0-163.5-64T160-422q0-94 68.5-158T392-644h294l-93-93q-9-9-9-21t9-21q9-9 21-9t21 9l144 144q5 5 7 10t2 11q0 6-2 11t-7 10L635-449q-9 9-21 9t-21-9q-9-9-9-21t9-21l93-93Z"/>`,
+      "zoom_out": `<path d="M305-556q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h141q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H305Zm73 227q-108.16 0-183.08-75Q120-479 120-585t75-181q75-75 181.5-75t181 75Q632-691 632-584.85 632-542 618-502q-14 40-42 75l242 240q9 8.56 9 21.78T818-143q-9 9-22.22 9-13.22 0-21.78-9L533-384q-30 26-69.96 40.5Q423.08-329 378-329Zm-1-60q81.25 0 138.13-57.5Q572-504 572-585t-56.87-138.5Q458.25-781 377-781q-82.08 0-139.54 57.5Q180-666 180-585t57.46 138.5Q294.92-389 377-389Z"/>`,
+      "zoom_in": `<path d="M346-556h-52q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h52v-51q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v51h51q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5h-51v52q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37v-52Zm32 227q-108.16 0-183.08-75Q120-479 120-585t75-181q75-75 181.5-75t181 75Q632-691 632-584.85 632-542 618-502q-14 40-42 75l242 240q9 8.56 9 21.78T818-143q-9 9-22.22 9-13.22 0-21.78-9L533-384q-30 26-69.96 40.5Q423.08-329 378-329Zm-1-60q81.25 0 138.13-57.5Q572-504 572-585t-56.87-138.5Q458.25-781 377-781q-82.08 0-139.54 57.5Q180-666 180-585t57.46 138.5Q294.92-389 377-389Z"/>`,
+      "folder_open": `<path d="M140-160q-23 0-41.5-18.5T80-220v-520q0-23 18.5-41.5T140-800h256q12.44 0 23.72 5t19.37 13.09L481-740h369q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H455l-60-60H140v520l90-355q5-20 21.83-32.5Q268.65-620 289-620h574q29 0 47.5 23t10.5 52l-88 339q-6 24-22 35t-41 11H140Zm63-60h572l84-340H287l-84 340Zm-63-353v-167 167Zm63 353 84-340-84 340Z"/>`,
+      "save": `<path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h478q12.44 0 23.72 5T701-822l121 121q8 8 13 19.28 5 11.28 5 23.72v478q0 24-18 42t-42 18H180Zm600-536L656-780H180v600h600v-476ZM553.5-275.26q30.5-30.27 30.5-73.5 0-43.24-30.26-73.74-30.27-30.5-73.5-30.5-43.24 0-73.74 30.26-30.5 30.27-30.5 73.5 0 43.24 30.26 73.74 30.27 30.5 73.5 30.5 43.24 0 73.74-30.26ZM263-584h298q12.75 0 21.38-8.63Q591-601.25 591-614v-83q0-12.75-8.62-21.38Q573.75-727 561-727H263q-12.75 0-21.37 8.62Q233-709.75 233-697v83q0 12.75 8.63 21.37Q250.25-584 263-584Zm-83-72v476-600 124Z"/>`,
+      "picture_as_pdf": `<path d="M368-514h48q15.73 0 26.36-10.64Q453-535.28 453-551v-48q0-15.72-10.64-26.36Q431.73-636 416-636h-66q-7.6 0-13.3 5-5.7 5-5.7 13.41v168.18q0 8.41 5.5 13.41t13.5 5q8 0 13-5.7t5-13.3v-64Zm0-37v-48h48v48h-48Zm213 120q15 0 26-10.64 11-10.63 11-26.36v-131q0-15.72-11-26.36Q596-636 581-636h-65q-7.6 0-13.3 5-5.7 5-5.7 13.36v167.28q0 8.36 5.7 13.86T516-431h65Zm-47-37v-131h47v131h-47Zm170-46h32q8 0 13-5.5t5-13.5q0-8-5-13t-13-5h-32v-48h32q8 0 13-5.5t5-13.5q0-8-5-13t-13-5h-50q-7.6 0-13.3 5-5.7 5-5.7 13.41v168.18q0 8.41 5.5 13.41t13.5 5q8 0 13-5.7t5-13.3v-64ZM260-200q-24 0-42-18t-18-42v-560q0-24 18-42t42-18h560q24 0 42 18t18 42v560q0 24-18 42t-42 18H260Zm0-60h560v-560H260v560ZM140-80q-24 0-42-18t-18-42v-590q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v590h590q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32Q742.75-80 730-80H140Zm120-740v560-560Z"/>`,
+      "html": `<path d="M0-384v-192q0-10.4 7-17.2 7-6.8 17-6.8t17 6.8q7 6.8 7 17.2v65h108v-65q0-10.4 7-17.2 7-6.8 17-6.8t17 6.8q7 6.8 7 17.2v192q0 10.4-7 17.2-7 6.8-17 6.8t-17-6.8q-7-6.8-7-17.2v-79H48v79q0 10.4-7 17.2-7 6.8-17 6.8t-17-6.8q-7-6.8-7-17.2Zm316 0v-168h-46q-10.4 0-17.2-7-6.8-7-6.8-17t6.8-17q6.8-7 17.2-7h140q10.4 0 17.2 7 6.8 7 6.8 17t-6.8 17q-6.8 7-17.2 7h-46v168q0 10.4-7 17.2-7 6.8-17 6.8t-17-6.8q-7-6.8-7-17.2Zm160 0v-182q0-15 9.5-24.5T510-600h200q15 0 24.5 9.5T744-566v182q0 10.4-7 17.2-7 6.8-17 6.8t-17-6.8q-7-6.8-7-17.2v-168h-62v126q0 10.4-6.8 17.2-6.8 6.8-17.2 6.8-10.4 0-17.2-6.8-6.8-6.8-6.8-17.2v-126h-62v168q0 10.4-7 17.2-7 6.8-17 6.8t-17-6.8q-7-6.8-7-17.2Zm349 24q-9 0-16-6.5t-7-15.5v-194q0-10.4 7-17.2 7-6.8 17-6.8t17 6.8q7 6.8 7 17.2v168h86q10.4 0 17.2 7 6.8 7 6.8 17t-6.8 17q-6.8 7-17.2 7H825Z"/>`,
+      "format_paragraph": `<path d="M398.5-168.63Q390-177.25 390-190v-230h-40q-78.85 0-134.43-55.61Q160-531.21 160-610.11q0-78.89 55.57-134.39Q271.15-800 350-800h340q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5h-80v550q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37v-550H450v550q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63Z"/>`,
+      "article": `<path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm0-600v600-600Zm127 501h215q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5H307q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5Zm0-171h346q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5H307q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5Zm0-171h346q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5H307q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5Z"/>`,
+      "menu_book": `<path d="M248-300q53.57 0 104.28 12.5Q403-275 452-250v-427q-45-30-97.62-46.5Q301.76-740 248-740q-38 0-74.5 9.5T100-707v434q31-14 70.5-20.5T248-300Zm264 50q50-25 98-37.5T712-300q38 0 78.5 6t69.5 16v-429q-34-17-71.82-25-37.82-8-76.18-8-54 0-104.5 16.5T512-677v427Zm-44.5 77.5Q461-174 456-178q-47-29-99.85-45-52.84-16-108.15-16-36.54 0-71.77 9T106-208q-23.1 11-44.55-3Q40-225 40-251v-463q0-15 7-27.5T68-761q42-20 87.39-29.5 45.4-9.5 92.61-9.5 63 0 122.5 17T482-731q51-35 109.5-52T712-800q46.87 0 91.93 9.5Q849-781 891-761q14 7 21.5 19.5T920-714v463q0 27.89-22.5 42.45Q875-194 853-208q-34-14-69.23-22.5Q748.54-239 712-239q-54.27 0-106.14 16Q554-207 508-178q-5 4-11.5 5.5T482-171q-8 0-14.5-1.5ZM276-489Zm284-119q0-5.52 4.02-11.34 4.03-5.82 8.98-7.66 30-11 61.34-17 31.33-6 65.91-6 21.61 0 42.68 2.5T784-640q6 2 11 7.4 5 5.39 5 12.13 0 11.47-7.5 17.47-7.5 6-18.5 3-16.8-5-35.4-7.5Q720-610 700-610q-29 0-56 5.5T591-588q-14 5-22.5-.5T560-608Zm0 220q0-5.81 4.02-11.94 4.03-6.12 8.98-8.06 30-11 61.34-16.5 31.33-5.5 65.91-5.5 21.61 0 42.68 2.5T784-420q6 2 11 7.4 5 5.39 5 12.13 0 11.47-7.5 17.47-7.5 6-18.5 3-16.8-5-35.4-7.5Q720-390 700-390q-29 0-56 5t-53 16q-14 5-22.5 0t-8.5-19Zm0-110q0-5.52 4.02-11.34 4.03-5.82 8.98-7.66 30-11 61.34-17 31.33-6 65.91-6 21.61 0 42.68 2.5T784-530q6 2 11 7.4 5 5.39 5 12.13 0 11.47-7.5 17.47-7.5 6-18.5 3-16.8-5-35.4-7.5Q720-500 700-500q-29 0-56 5.5T591-478q-14 5-22.5-.5T560-498Z"/>`,
+      "language": `<path d="M323-111.5Q250-143 196-197t-85-127.5Q80-398 80-482t31-156.5Q142-711 196-765t127-84.5Q396-880 480-880t157 30.5Q710-819 764-765t85 126.5Q880-566 880-482t-31 157.5Q818-251 764-197t-127 85.5Q564-80 480-80t-157-31.5ZM480-138q35-36 58.5-82.5T577-331H384q14 60 37.5 108t58.5 85Zm-85-12q-25-38-43-82t-30-99H172q38 71 88 111.5T395-150Zm171-1q72-23 129.5-69T788-331H639q-13 54-30.5 98T566-151ZM152-391h159q-3-27-3.5-48.5T307-482q0-25 1-44.5t4-43.5H152q-7 24-9.5 43t-2.5 45q0 26 2.5 46.5T152-391Zm221 0h215q4-31 5-50.5t1-40.5q0-20-1-38.5t-5-49.5H373q-4 31-5 49.5t-1 38.5q0 21 1 40.5t5 50.5Zm275 0h160q7-24 9.5-44.5T820-482q0-26-2.5-45t-9.5-43H649q3 35 4 53.5t1 34.5q0 22-1.5 41.5T648-391Zm-10-239h150q-33-69-90.5-115T565-810q25 37 42.5 80T638-630Zm-254 0h194q-11-53-37-102.5T480-820q-32 27-54 71t-42 119Zm-212 0h151q11-54 28-96.5t43-82.5q-75 19-131 64t-91 115Z"/>`,
+      "note_add": `<path d="M450-363v99q0 12.75 8.68 21.37 8.67 8.63 21.5 8.63 12.82 0 21.32-8.63 8.5-8.62 8.5-21.37v-99h100q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5H510v-100q0-12.75-8.68-21.38-8.67-8.62-21.5-8.62-12.82 0-21.32 8.62-8.5 8.63-8.5 21.38v100H350q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5h100ZM220-80q-24 0-42-18t-18-42v-680q0-24 18-42t42-18h336q12.44 0 23.72 5T599-862l183 183q8 8 13 19.28 5 11.28 5 23.72v496q0 24-18 42t-42 18H220Zm331-584v-156H220v680h520v-494H581q-12.75 0-21.37-8.63Q551-651.25 551-664ZM220-820v186-186 680-680Z"/>`,
+      "content_cut": `<path d="M481-415 364-298q11 17 13.5 33t2.5 35q0 64-43 107T230-80q-64 0-107-43T80-230q0-64 43-107t107-43q18 0 35.5 5t36.5 15l116-116-118-118q-17 8-34.5 11t-35.5 3q-64 0-107-43T80-730q0-64 43-107t107-43q64 0 107 43t43 107q0 19-2.5 36T367-662l468 468q23 23 10.5 51.5T801-114q-9 0-17.5-3.5T768-128L481-415Zm118-112-66-66 235-235q7-7 15.5-10.5T801-842q32 0 43.5 29T834-762L599-527ZM294-666q26-26 26-64t-26-64q-26-26-64-26t-64 26q-26 26-26 64t26 64q26 26 64 26t64-26Zm202.5 203.5Q502-468 502-476t-5.5-13.5Q491-495 483-495t-13.5 5.5Q464-484 464-476t5.5 13.5Q475-457 483-457t13.5-5.5ZM294-166q26-26 26-64t-26-64q-26-26-64-26t-64 26q-26 26-26 64t26 64q26 26 64 26t64-26Z"/>`,
+      "content_copy": `<path d="M300-200q-24 0-42-18t-18-42v-560q0-24 18-42t42-18h440q24 0 42 18t18 42v560q0 24-18 42t-42 18H300Zm0-60h440v-560H300v560ZM180-80q-24 0-42-18t-18-42v-590q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v590h470q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32Q662.75-80 650-80H180Zm120-180v-560 560Z"/>`,
+      "content_paste": `<path d="M180-120q-26 0-43-17t-17-43v-600q0-26 17-43t43-17h202q7-35 34.5-57.5T480-920q36 0 63.5 22.5T578-840h202q26 0 43 17t17 43v600q0 26-17 43t-43 17H180Zm0-60h600v-600h-60v60q0 12.75-8.62 21.37Q702.75-690 690-690H270q-12.75 0-21.37-8.63Q240-707.25 240-720v-60h-60v600Zm328.5-611.5Q520-803 520-820t-11.5-28.5Q497-860 480-860t-28.5 11.5Q440-837 440-820t11.5 28.5Q463-780 480-780t28.5-11.5Z"/>`,
+      "format_paint": `<path d="M437-80q-24 0-42-17.63-18-17.62-18-42.37v-200H220q-24 0-42-18t-18-42v-303q0-55 39.66-96 39.65-41 95.34-41h475q12.75 0 21.38 8.62Q800-822.75 800-810v410q0 24-18 42t-42 18H583v200q0 24.75-18 42.37Q547-80 523-80h-86ZM220-554h520v-226h-56v141q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37v-141h-71v55q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37v-55H295q-32 0-53.5 23T220-703v149Zm0 154h520v-94H220v94Zm0 0v-94 94Z"/>`,
+      "format_clear": `<path d="m507-524-77-76 24-56h-58q-26 0-38.5-16T345-708q0-20 13-36t39-16h353q21 0 35.5 14.5T800-710q0 21-14.5 35.5T750-660H565l-58 136ZM785-77 457-406l-75 176q-6 14-18.5 22t-27.5 8q-27 0-42-22.5t-4-47.5l90-212L77-785q-9-9-9-21t9-21q9-9 21-9t21 9l708 708q9 9 9 21t-9 21q-9 9-21 9t-21-9Z"/>`,
+      "find_replace": `<path d="M440-740q-70 0-127 39t-80 103q-4 11-15 16.5t-22 2.5q-12-3-18.5-13.5T175-615q29-83 101.5-134T440-800q65 0 121.5 30t98.5 81v-81q0-13 8.5-21.5T690-800q13 0 21.5 8.5T720-770v168q0 13-8.5 21.5T690-572H522q-13 0-21.5-8.5T492-602q0-13 8.5-21.5T522-632h104q-32-48-80.5-78T440-740Zm0 499q-65 0-122.5-27T220-346v76q0 13-8.5 21.5T190-240q-13 0-21.5-8.5T160-270v-168q0-13 8.5-21.5T190-468h168q13 0 21.5 8.5T388-438q0 13-8.5 21.5T358-408H249q33 48 83 77.5T440-301q67 0 121-37.5t80-98.5q5-12 15.5-19.5T680-461q13 3 19.5 14t1.5 23q-8 21-19.5 40.5T656-347l163 163q9 9 9 21t-9 21q-9 9-21.5 9t-21.5-9L613-304q-37 31-81 47t-92 16Z"/>`,
+      "image": `<path d="M180-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h600q24 0 42 18t18 42v600q0 24-18 42t-42 18H180Zm0-60h600v-600H180v600Zm0 0v-600 600Zm86-97h429q8.5 0 12.75-8t-.75-16L590-457q-5-6-12-6t-12 6L446-302l-81-111q-5-6-12-6t-12 6l-86 112q-6 8-1.75 16t12.75 8Z"/>`,
+      "insert_page_break": `<path d="M220-80q-24.75 0-42.37-17.63Q160-115.25 160-140v-140q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v140h520v-140q0-12.75 8.68-21.38 8.67-8.62 21.5-8.62 12.82 0 21.32 8.62 8.5 8.63 8.5 21.38v140q0 24.75-17.62 42.37Q764.75-80 740-80H220Zm-60-740q0-24.75 17.63-42.38Q195.25-880 220-880h336q12.44 0 23.72 5T599-862l183 183q8 8 13 19.28 5 11.28 5 23.72v116q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37v-114H581q-12.75 0-21.37-8.63Q551-651.25 551-664v-156H220v300q0 12.75-8.68 21.37-8.67 8.63-21.5 8.63-12.82 0-21.32-8.63-8.5-8.62-8.5-21.37v-300Zm220 450q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h200q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H380Zm320 0q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h190q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H700Zm-630 0q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32Q57.25-430 70-430h190q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H70Zm410-120Zm0 180Z"/>`,
+      "add_comment": `<path d="M450-530v100q0 12.75 8.68 21.37 8.67 8.63 21.5 8.63 12.82 0 21.32-8.63 8.5-8.62 8.5-21.37v-100h100q12.75 0 21.38-8.68 8.62-8.67 8.62-21.5 0-12.82-8.62-21.32-8.63-8.5-21.38-8.5H510v-100q0-12.75-8.68-21.38-8.67-8.62-21.5-8.62-12.82 0-21.32 8.62-8.5 8.63-8.5 21.38v100H350q-12.75 0-21.37 8.68-8.63 8.67-8.63 21.5 0 12.82 8.63 21.32 8.62 8.5 21.37 8.5h100ZM240-240 131-131q-14 14-32.5 6.34Q80-132.31 80-152v-668q0-24 18-42t42-18h680q24 0 42 18t18 42v520q0 24-18 42t-42 18H240Zm-26-60h606v-520H140v600l74-80Zm-74 0v-520 520Z"/>`,
+      "toc": `<path d="M150-280q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h490q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm0-170q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h490q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm0-170q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h490q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm659.5 340q-12.5 0-21-8.63-8.5-8.62-8.5-21.37 0-12 8.63-21 8.62-9 21.37-9 12 0 21 9t9 21.5q0 12.5-9 21t-21.5 8.5Zm0-170q-12.5 0-21-8.63-8.5-8.62-8.5-21.37 0-12 8.63-21 8.62-9 21.37-9 12 0 21 9t9 21.5q0 12.5-9 21t-21.5 8.5Zm0-170q-12.5 0-21-8.63-8.5-8.62-8.5-21.37 0-12 8.63-21 8.62-9 21.37-9 12 0 21 9t9 21.5q0 12.5-9 21t-21.5 8.5Z"/>`,
+      "format_strikethrough": `<path d="M110-410q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32Q97.25-470 110-470h740q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H110Zm320-120v-170H250q-20.83 0-35.42-14.62Q200-729.24 200-750.12q0-20.88 14.58-35.38Q229.17-800 250-800h460q20.83 0 35.42 14.62Q760-770.76 760-749.88q0 20.88-14.58 35.38Q730.83-700 710-700H530v170H430Zm0 180h100v140q0 20.83-14.62 35.42Q500.76-160 479.88-160q-20.88 0-35.38-14.58Q430-189.17 430-210v-140Z"/>`,
+      "superscript": `<path d="M799-630q-12.75 0-21.37-8.63Q769-647.25 769-660v-40q0-12.75 8.63-21.38Q786.25-730 799-730h91v-40H784q-6 0-10.5-4.5T769-785q0-6 4.5-10.5T784-800h106q12.75 0 21.38 8.62Q920-782.75 920-770v40q0 12.75-8.62 21.37Q902.75-700 890-700h-91v40h106q6 0 10.5 4.5T920-645q0 6-4.5 10.5T905-630H799ZM300-160q-21.29 0-31.14-18.5Q259-197 270-215l150-236-136-213q-11-18-1.5-37t31.03-19q9.94 0 18.22 4.45T345-703l124 196 124-196q4.89-8.1 13.45-12.55 8.57-4.45 17.53-4.45 22.02 0 31.52 19t-1.5 37L518-451l150 236q11 18 .84 36.5-10.15 18.5-30.46 18.5-9.38 0-17.84-4.45Q612.08-168.9 607-177L469-394 331-177q-4.89 8.1-13.46 12.55Q308.97-160 300-160Z"/>`,
+      "subscript": `<path d="M799-160q-12.75 0-21.37-8.63Q769-177.25 769-190v-40q0-12.75 8.63-21.38Q786.25-260 799-260h91v-40H784q-6 0-10.5-4.5T769-315q0-6 4.5-10.5T784-330h106q12.75 0 21.38 8.62Q920-312.75 920-300v40q0 12.75-8.62 21.37Q902.75-230 890-230h-91v40h106q6 0 10.5 4.5T920-175q0 6-4.5 10.5T905-160H799Zm-499-80q-21.29 0-31.14-18.5Q259-277 270-295l150-236-136-213q-11-18-1.5-37t31.03-19q9.94 0 18.22 4.45T345-783l124 196 124-196q4.89-8.1 13.45-12.55 8.57-4.45 17.53-4.45 22.02 0 31.52 19t-1.5 37L518-531l150 236q11 18 .84 36.5-10.15 18.5-30.46 18.5-9.38 0-17.84-4.45Q612.08-248.9 607-257L469-474 331-257q-4.89 8.1-13.46 12.55Q308.97-240 300-240Z"/>`,
+      "format_color_text": `<path d="M110 0Q97 0 88.5-8.5T80-30v-100q0-13 8.5-21.5T110-160h740q13 0 21.5 8.5T880-130v100q0 13-8.5 21.5T850 0H110Zm161-280q-19 0-29-15.5t-3-32.5l192-488q5-11 14-17.5t20-6.5h30q11 0 20 6.5t14 17.5l192 489q7 17-3.5 32T689-280q-11 0-20-6t-13-17l-48-127H352l-49 128q-4 10-12.5 16t-19.5 6Zm105-214h208L482-765h-4L376-494Z"/>`,
+      "format_ink_highlighter": `<path d="M140 0q-25 0-42.5-18T80-61q0-25 18-42.5t43-17.5h679q25 0 42.5 17.5T880-61q0 25-18 43T819 0H140Zm441-474L466-589 284-407l115 115 182-182Zm-72-158 115 115 186-186-115-115-186 186Zm-64-21 200 200-194 194q-19 19-52.5 19T346-259l-11-11-25 25q-8 8-19.5 13t-23.5 5h-94q-10 0-13.5-9.5T163-253l94-94-4-4q-22-22-21.5-55.5T254-462l191-191Zm0 0 210-210q17-17 43-17t43 17l112 112q17 17 16.5 45.5T852-660L645-453 445-653Z"/>`,
+      "format_line_spacing": `<path d="m210-683-67 66q-9 8-21 8t-21-9q-9-9-9-21t9-21l118-118q5-5 10-7t11-2q6 0 11 2t10 7l118 118q9 9 9 21t-9 21q-9 9-21 8.5t-21-8.5l-67-65v408l67-66q9-8 21-8t21 9q9 9 9 21t-9 21L261-180q-5 5-10 7t-11 2q-6 0-11-2t-10-7L101-298q-9-9-9-21t9-21q9-9 21-8.5t21 8.5l67 65v-408Zm300 483q-13 0-21.5-8.5T480-230q0-13 8.5-21.5T510-260h340q13 0 21.5 8.5T880-230q0 13-8.5 21.5T850-200H510Zm0-250q-13 0-21.5-8.5T480-480q0-13 8.5-21.5T510-510h340q13 0 21.5 8.5T880-480q0 13-8.5 21.5T850-450H510Zm0-250q-13 0-21.5-8.5T480-730q0-13 8.5-21.5T510-760h340q13 0 21.5 8.5T880-730q0 13-8.5 21.5T850-700H510Z"/>`,
+      "format_indent_increase": `<path d="M150-120q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm320-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h340q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H470Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h340q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H470Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h340q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H470ZM150-780q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm-5 412q-8 7-16.5 3.25T120-379v-205q0-9.92 9.5-13.46Q139-601 146-594l104 104q5 5 5 10.5t-5 10.5L145-368Z"/>`,
+      "format_indent_decrease": `<path d="M150-120q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm320-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h340q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H470Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h340q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H470Zm0-165q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h340q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H470ZM150-780q-12.75 0-21.37-8.68-8.63-8.67-8.63-21.5 0-12.82 8.63-21.32 8.62-8.5 21.37-8.5h660q12.75 0 21.38 8.68 8.62 8.67 8.62 21.5 0 12.82-8.62 21.32-8.63 8.5-21.38 8.5H150Zm85 412L131-472q-5-4.64-5-10.82 0-6.18 5-11.18l105-100q8-7 16.5-3.46T261-584v205q0 10.5-9.5 14.25T235-368Z"/>`
+    };
+  }
+});
+
+// src/chrome.ts
+var chrome_exports = {};
+__export(chrome_exports, {
+  CHROME_CSS: () => CHROME_CSS,
+  setupChrome: () => setupChrome
+});
+function ensureTheme() {
+  if (themeStyle) return;
+  themeStyle = document.createElement("style");
+  themeStyle.id = "uw-theme";
+  themeStyle.textContent = ThemeBuilder.create("#1A73E8").build();
+  document.head.appendChild(themeStyle);
+  if (!document.documentElement.style.colorScheme) {
+    document.documentElement.style.colorScheme = "light dark";
+  }
+}
+function download(data, name, type) {
+  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const a3 = Object.assign(document.createElement("a"), { href: url, download: name });
+  a3.click();
+  URL.revokeObjectURL(url);
+}
+function buildToolbar(el, editor) {
+  el.innerHTML = `<div class="uw-bar">
+    ${iconBtn("new", "note_add", "New document")}
+    ${iconBtn("open", "folder_open", "Open .docx")}
+    ${iconBtn("save", "save", "Save .docx")}
+    ${SEP}
+    ${iconBtn("cut", "content_cut", "Cut")}
+    ${iconBtn("copy", "content_copy", "Copy")}
+    ${iconBtn("paste", "content_paste", "Paste")}
+    ${iconBtn("painter", "format_paint", "Clone formatting")}
+    ${iconBtn("clear", "format_clear", "Clear direct formatting")}
+    ${SEP}
+    ${iconBtn("undo", "undo", "Undo")}
+    ${iconBtn("redo", "redo", "Redo")}
+    ${SEP}
+    ${iconBtn("find", "find_replace", "Find & replace")}
+    ${SEP}
+    ${iconBtn("image", "image", "Insert image")}
+    ${iconBtn("pagebreak", "insert_page_break", "Insert page break")}
+    ${iconBtn("comment", "add_comment", "Insert comment")}
+    ${iconBtn("toc", "toc", "Update table of contents")}
+    ${SEP}
+    ${textBtn("marks", "&para;", "Formatting marks")}
+    <input type="file" data-a="file-docx" accept=".docx" hidden />
+    <input type="file" data-a="file-img" accept="image/*" hidden />
+  </div>
+  <div class="uw-bar">
+    ${sel("style", "Paragraph style", STYLE_OPTS)}
+    ${sel("font", "Font", FONT_OPTS)}
+    ${textBtn("shrink", "A&minus;", "Decrease font size")}
+    <input type="number" class="uw-size" data-a="size" min="1" max="400" title="Font size" />
+    ${textBtn("grow", "A+", "Increase font size")}
+    ${SEP}
+    ${iconBtn("bold", "format_bold", "Bold")}
+    ${iconBtn("italic", "format_italic", "Italic")}
+    ${iconBtn("underline", "format_underlined", "Underline")}
+    ${iconBtn("strike", "format_strikethrough", "Strikethrough")}
+    ${iconBtn("sup", "superscript", "Superscript")}
+    ${iconBtn("sub", "subscript", "Subscript")}
+    ${SEP}
+    <input type="color" class="uw-color" data-a="color" title="Font color" value="#000000" />
+    ${sel("hl", "Highlight color", HL_OPTS)}
+    ${SEP}
+    ${iconBtn("align:left", "format_align_left", "Align left")}
+    ${iconBtn("align:center", "format_align_center", "Align center")}
+    ${iconBtn("align:right", "format_align_right", "Align right")}
+    ${iconBtn("align:both", "format_align_justify", "Justify")}
+    ${SEP}
+    ${sel("spacing", "Line spacing", SPACING_OPTS)}
+    ${iconBtn("list:bullet", "format_list_bulleted", "Bulleted list")}
+    ${iconBtn("list:decimal", "format_list_numbered", "Numbered list")}
+    ${iconBtn("outdent", "format_indent_decrease", "Decrease indent")}
+    ${iconBtn("indent", "format_indent_increase", "Increase indent")}
+  </div>`;
+  const fileDocx = el.querySelector('[data-a="file-docx"]');
+  const fileImg = el.querySelector('[data-a="file-img"]');
+  const act = {
+    new: () => editor.newDocument(),
+    open: () => fileDocx.click(),
+    save: () => download(editor.saveDocx(), "document.docx", DOCX_MIME),
+    cut: () => void editor.cut(),
+    copy: () => void editor.copy(),
+    paste: () => void editor.paste(),
+    painter: () => editor.copyFormat(),
+    clear: () => editor.clearFormatting(),
+    undo: () => editor.undo(),
+    redo: () => editor.redo(),
+    find: () => {
+      const q = prompt("Find:");
+      if (!q) return;
+      const r6 = prompt("Replace with (blank = just find next):");
+      if (r6) {
+        const n5 = editor.replaceAll(q, r6);
+        if (n5 === 0) alert("No matches");
+      } else editor.findNext(q);
+    },
+    image: () => fileImg.click(),
+    pagebreak: () => editor.insertPageBreak(),
+    comment: () => {
+      const t5 = prompt("Comment:");
+      if (t5) editor.addComment(t5);
+    },
+    toc: () => editor.updateToc(),
+    marks: () => editor.toggleMarks(),
+    bold: () => editor.toggleRunProp("bold"),
+    italic: () => editor.toggleRunProp("italic"),
+    underline: () => editor.toggleRunProp("underline"),
+    strike: () => editor.toggleRunProp("strike"),
+    sup: () => editor.toggleVertAlign("superscript"),
+    sub: () => editor.toggleVertAlign("subscript"),
+    grow: () => editor.growFont(1),
+    shrink: () => editor.growFont(-1),
+    "align:left": () => editor.setAlignment("left"),
+    "align:center": () => editor.setAlignment("center"),
+    "align:right": () => editor.setAlignment("right"),
+    "align:both": () => editor.setAlignment("both"),
+    "list:bullet": () => editor.toggleList("bullet"),
+    "list:decimal": () => editor.toggleList("decimal"),
+    outdent: () => editor.indent(-1),
+    indent: () => editor.indent(1)
+  };
+  el.querySelectorAll("u-icon-button[data-a], u-button[data-a]").forEach((b5) => {
+    const key = b5.dataset["a"];
+    b5.addEventListener("click", () => {
+      act[key]?.();
+      editor.focusEditor();
+    });
+  });
+  fileDocx.addEventListener("change", async () => {
+    const f3 = fileDocx.files?.[0];
+    if (!f3) return;
+    editor.loadDocx(new Uint8Array(await f3.arrayBuffer()), { protected: false });
+    editor.focusEditor();
+    fileDocx.value = "";
+  });
+  fileImg.addEventListener("change", async () => {
+    const f3 = fileImg.files?.[0];
+    if (!f3) return;
+    const ext = f3.type.replace("image/", "") || "png";
+    await editor.insertImage(new Uint8Array(await f3.arrayBuffer()), ext);
+    editor.focusEditor();
+    fileImg.value = "";
+  });
+  const styleSel = el.querySelector('[data-a="style"]');
+  const fontSel = el.querySelector('[data-a="font"]');
+  const sizeInp = el.querySelector('[data-a="size"]');
+  const colorInp = el.querySelector('[data-a="color"]');
+  const hlSel = el.querySelector('[data-a="hl"]');
+  const spacingSel = el.querySelector('[data-a="spacing"]');
+  styleSel.addEventListener("change", () => {
+    editor.applyStyle(styleSel.value || void 0);
+    editor.focusEditor();
+  });
+  fontSel.addEventListener("change", () => {
+    editor.setFontFamily(fontSel.value);
+    editor.focusEditor();
+  });
+  sizeInp.addEventListener("change", () => {
+    const v2 = Number(sizeInp.value);
+    if (v2 > 0) editor.setFontSize(v2);
+    editor.focusEditor();
+  });
+  colorInp.addEventListener("change", () => {
+    editor.setColor(colorInp.value.slice(1).toUpperCase());
+    editor.focusEditor();
+  });
+  hlSel.addEventListener("change", () => {
+    editor.setHighlight(hlSel.value || void 0);
+    editor.focusEditor();
+  });
+  spacingSel.addEventListener("change", () => {
+    editor.setLineSpacing(Number(spacingSel.value));
+    editor.focusEditor();
+  });
+  const setActive = (key, on2) => {
+    el.querySelector(`[data-a="${key}"]`)?.toggleAttribute("selected", on2);
+  };
+  return () => {
+    const st = editor.getSelectionState();
+    const run = st.run;
+    const para = st.para;
+    setActive("bold", !!run["bold"]);
+    setActive("italic", !!run["italic"]);
+    setActive("underline", !!run["underline"]);
+    setActive("strike", !!run["strike"]);
+    setActive("sup", run["vertAlign"] === "superscript");
+    setActive("sub", run["vertAlign"] === "subscript");
+    setActive("painter", editor.painterActive());
+    setActive("marks", !!st.marks);
+    const a3 = para["alignment"];
+    setActive("align:left", a3 === "left" || a3 === void 0);
+    setActive("align:center", a3 === "center");
+    setActive("align:right", a3 === "right");
+    setActive("align:both", a3 === "both");
+    const list = para["numbering"]?.kind;
+    setActive("list:bullet", list === "bullet");
+    setActive("list:decimal", list === "decimal");
+    styleSel.value = para["styleId"] ?? "";
+    const font = run["fontAscii"] ?? "";
+    fontSel.querySelector("option[data-dyn]")?.remove();
+    if (font && font !== "Aptos" && font !== "Calibri") {
+      const opt = document.createElement("option");
+      opt.value = font;
+      opt.textContent = font;
+      opt.dataset["dyn"] = "1";
+      fontSel.insertBefore(opt, fontSel.firstChild);
+    }
+    fontSel.value = font;
+    const half = run["szHalfPt"];
+    if (half) sizeInp.value = String(half / 2);
+    const color = run["color"];
+    if (color && /^[0-9a-fA-F]{6}$/.test(color)) colorInp.value = `#${color}`;
+  };
+}
+function buildBottomBar(el, editor) {
+  el.innerHTML = `<div class="uw-bar">
+    <span class="uw-status" data-a="status"></span>
+    <span class="uw-spacer"></span>
+    <span class="uw-view">
+      ${iconBtn("view:print", "article", "Print layout")}
+      ${iconBtn("view:web", "language", "Web layout")}
+      ${iconBtn("view:read", "menu_book", "Read mode")}
+    </span>
+    <span class="uw-sep"></span>
+    ${iconBtn("zoomout", "zoom_out", "Zoom out")}
+    <span class="uw-status" data-a="zoom" style="min-width:44px;text-align:center"></span>
+    ${iconBtn("zoomin", "zoom_in", "Zoom in")}
+  </div>`;
+  const act = {
+    "view:print": () => editor.setView("print"),
+    "view:web": () => editor.setView("web"),
+    "view:read": () => editor.setView("read"),
+    zoomout: () => editor.setZoom(Math.max(0.2, editor.getZoom() - 0.1)),
+    zoomin: () => editor.setZoom(Math.min(5, editor.getZoom() + 0.1))
+  };
+  el.querySelectorAll("[data-a]").forEach((b5) => {
+    const key = b5.dataset["a"];
+    if (act[key]) b5.addEventListener("click", () => {
+      act[key]();
+      editor.focusEditor();
+    });
+  });
+  const statusEl = el.querySelector('[data-a="status"]');
+  const zoomEl = el.querySelector('[data-a="zoom"]');
+  return () => {
+    const s4 = editor.stats();
+    statusEl.textContent = `Page ${s4.page} of ${s4.pages} \xB7 ${s4.words} word${s4.words === 1 ? "" : "s"}`;
+    zoomEl.textContent = `${Math.round(editor.getZoom() * 100)}%`;
+    const view = editor.getView();
+    for (const v2 of ["print", "web", "read"]) {
+      el.querySelector(`[data-a="view:${v2}"]`)?.toggleAttribute("selected", view === v2);
+    }
+  };
+}
+function setupChrome(editor, topbarEl, bottombarEl, opts) {
+  ensureTheme();
+  const root = topbarEl.getRootNode();
+  if (!root.querySelector("#uw-chrome-style")) {
+    const s4 = document.createElement("style");
+    s4.id = "uw-chrome-style";
+    s4.textContent = CHROME_CSS;
+    root.appendChild(s4);
+  }
+  const syncers = [];
+  topbarEl.replaceChildren();
+  if (opts.topbar) syncers.push(buildToolbar(topbarEl, editor));
+  bottombarEl.replaceChildren();
+  if (opts.bottombar) syncers.push(buildBottomBar(bottombarEl, editor));
+  const sync = () => {
+    for (const fn of syncers) fn();
+  };
+  sync();
+  return { sync };
+}
+var svg, iconBtn, textBtn, sel, SEP, themeStyle, CHROME_CSS, DOCX_MIME, STYLE_OPTS, FONT_OPTS, HL_OPTS, SPACING_OPTS;
+var init_chrome = __esm({
+  "src/chrome.ts"() {
+    "use strict";
+    init_button();
+    init_icon_button();
+    init_theme();
+    init_chrome_icons();
+    svg = (name) => `<svg class="uw-ic" viewBox="0 -960 960 960" aria-hidden="true">${ICON[name] ?? ""}</svg>`;
+    iconBtn = (id, name, title) => `<u-icon-button shape="square" variant="standard" data-a="${id}" title="${title}">${svg(name)}</u-icon-button>`;
+    textBtn = (id, text2, title) => `<u-icon-button shape="square" variant="standard" data-a="${id}" title="${title}"><span class="uw-glyph">${text2}</span></u-icon-button>`;
+    sel = (id, title, options, cls = "uw-sel") => `<select class="${cls}" data-a="${id}" title="${title}">${options}</select>`;
+    SEP = '<span class="uw-sep"></span>';
+    themeStyle = null;
+    CHROME_CSS = /* css */
+    `
+.uw-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 10px;
+  font-family: system-ui, sans-serif; box-sizing: border-box; width: 100%; }
+.uw-topbar .uw-bar { gap: 2px; padding: 4px 8px; }
+.uw-topbar .uw-bar + .uw-bar { padding-top: 0; }
+.uw-ic { width: 20px; height: 20px; display: inline-block; fill: currentColor; pointer-events: none; }
+.uw-glyph { font-size: 17px; line-height: 1; pointer-events: none; }
+.uw-sep { width: 1px; align-self: stretch; margin: 4px 4px; background: var(--u-color-outline-variant, #ccc); }
+.uw-spacer { flex: 1 1 auto; }
+.uw-topbar u-icon-button, .uw-topbar u-button, .uw-bottombar u-icon-button { vertical-align: middle; }
+.uw-sel, .uw-size {
+  font: inherit; font-size: 12.5px; height: 30px;
+  border: 1px solid var(--u-color-outline-variant, #ccc); border-radius: 6px;
+  background: var(--u-color-surface, #fff); color: var(--u-color-on-surface, #1b1b1f);
+}
+.uw-sel { padding: 0 4px; max-width: 132px; }
+.uw-size { width: 46px; text-align: center; padding: 0 4px; }
+.uw-color {
+  width: 32px; height: 30px; padding: 2px; cursor: pointer;
+  border: 1px solid var(--u-color-outline-variant, #ccc); border-radius: 6px;
+  background: var(--u-color-surface, #fff);
+}
+.uw-status { font-size: 12.5px; color: var(--u-color-on-surface-variant, #555);
+  font-variant-numeric: tabular-nums; padding: 0 4px; }
+.uw-bottombar .uw-bar { padding: 4px 12px; }
+.uw-view { display: inline-flex; gap: 2px; }
+`;
+    DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    STYLE_OPTS = `<option value="">Normal</option><option value="Heading1">Heading 1</option><option value="Heading2">Heading 2</option><option value="Heading3">Heading 3</option><option value="Title">Title</option>`;
+    FONT_OPTS = `<option>Aptos</option><option>Calibri</option>`;
+    HL_OPTS = `<option value="">No highlight</option><option value="yellow">Yellow</option><option value="green">Green</option><option value="cyan">Cyan</option><option value="magenta">Magenta</option>`;
+    SPACING_OPTS = `<option value="240">1.0</option><option value="276">1.15</option><option value="360">1.5</option><option value="480">2.0</option>`;
+  }
+});
+
 // ../../node_modules/fflate/esm/browser.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -1044,7 +6994,7 @@ var DocxPackage = class _DocxPackage {
     }
     const pkg = new _DocxPackage(new Map(Object.entries(unzipped)));
     if (!pkg.getPart("word/document.xml")) {
-      throw new Error("Pacote sem word/document.xml \u2014 n\xE3o \xE9 um documento do Word");
+      throw new Error("Pacote sem word/document.xml \u2014 n\xE3o \xE9 um documento .docx v\xE1lido");
     }
     return pkg;
   }
@@ -1342,10 +7292,38 @@ function readRunsInto(runs, container, ctx, inherit) {
       }
     } else if (child.name === "w:sdt") {
       const content = findDeep(child, "w:sdtContent");
-      if (content) readRunsInto(runs, content, ctx, inherit);
+      const sdtPr = firstChild(child, "w:sdtPr");
+      const tag = sdtPr ? firstChild(sdtPr, "w:tag")?.attrs["w:val"] : void 0;
+      const custom = parseCustomInlineTag(tag);
+      if (content && custom) {
+        const nested = [];
+        readRunsInto(nested, content, ctx, inherit);
+        const fallbackText = nested.map((run) => run.text).join("");
+        runs.push({
+          text: "\uFFFC",
+          props: { ...nested[0]?.props ?? DEFAULT_RUN_PROPS },
+          custom: { ...custom, fallbackText }
+        });
+      } else if (content) {
+        readRunsInto(runs, content, ctx, inherit);
+      }
     } else if (child.name === "w:smartTag" || child.name === "w:ins") {
       readRunsInto(runs, child, ctx, inherit);
     }
+  }
+}
+var CUSTOM_INLINE_TAG_PREFIX = "wordnext:inline:";
+function parseCustomInlineTag(tag) {
+  if (!tag?.startsWith(CUSTOM_INLINE_TAG_PREFIX)) return void 0;
+  const payload = tag.slice(CUSTOM_INLINE_TAG_PREFIX.length);
+  const split = payload.indexOf(":");
+  if (split <= 0) return void 0;
+  const type = payload.slice(0, split);
+  if (!/^[a-zA-Z0-9._-]+$/.test(type)) return void 0;
+  try {
+    return { type, data: JSON.parse(decodeURIComponent(payload.slice(split + 1))) };
+  } catch {
+    return void 0;
   }
 }
 function collectMathText(el) {
@@ -1879,7 +7857,7 @@ var sameComments = (a3, b5) => {
   if (!a3 || !b5 || a3.length !== b5.length) return false;
   return a3.every((v2, i7) => v2 === b5[i7]);
 };
-var isSpecial = (r6) => !!(r6.image || r6.field || r6.noteRef);
+var isSpecial = (r6) => !!(r6.image || r6.field || r6.noteRef || r6.custom);
 function normalizeParagraph(p3) {
   const out = [];
   for (const run of p3.runs) {
@@ -1927,6 +7905,13 @@ function insertText(model, pos, text2, props) {
   normalizeParagraph(p3);
   return { para: pos.para, offset: pos.offset + text2.length };
 }
+function insertRun(model, pos, run) {
+  const p3 = model.paragraphs[pos.para];
+  const idx = splitAt(p3, pos.offset);
+  p3.runs.splice(idx, 0, { ...run, props: { ...run.props } });
+  normalizeParagraph(p3);
+  return { para: pos.para, offset: pos.offset + run.text.length };
+}
 function splitParagraph(model, pos) {
   const p3 = model.paragraphs[pos.para];
   const idx = splitAt(p3, pos.offset);
@@ -1973,7 +7958,8 @@ function rebuildDelete(p3, from, to) {
         props: run.props,
         ...run.field ? { field: run.field } : {},
         ...intact && run.image ? { image: run.image } : {},
-        ...intact && run.noteRef ? { noteRef: run.noteRef } : {}
+        ...intact && run.noteRef ? { noteRef: run.noteRef } : {},
+        ...intact && run.custom ? { custom: run.custom } : {}
       });
     }
   }
@@ -2031,6 +8017,20 @@ function drawingXml(run) {
   return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n5}" name="Imagem ${n5}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${n5}" name="Imagem ${n5}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`;
 }
 function runXml(run) {
+  if (run.custom) {
+    const type = run.custom.type;
+    if (!/^[a-zA-Z0-9._-]+$/.test(type)) {
+      throw new Error(`tipo de inline customizado inv\xE1lido: ${type}`);
+    }
+    const json = JSON.stringify(run.custom.data);
+    if (json === void 0) throw new Error(`dados do inline "${type}" n\xE3o s\xE3o serializ\xE1veis em JSON`);
+    const tag = `wordnext:inline:${type}:${encodeURIComponent(json)}`;
+    const fallbackRun = {
+      text: run.custom.fallbackText,
+      props: run.props
+    };
+    return `<w:sdt><w:sdtPr><w:alias w:val="${escAttr(run.custom.fallbackText)}"/><w:tag w:val="${escAttr(tag)}"/><w:lock w:val="sdtLocked"/></w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`;
+  }
   if (run.image) {
     return `<w:r>${drawingXml(run)}</w:r>`;
   }
@@ -2216,7 +8216,7 @@ function writeDocument(pkg, model, hfParts = [], opts = {}) {
   drawingId = 0;
   if (opts.comments && opts.comments.length > 0) {
     const body = opts.comments.map(
-      (c4) => `<w:comment w:id="${c4.id}" w:author="${escAttr(c4.author ?? "WordNext")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc(c4.text)}</w:t></w:r></w:p></w:comment>`
+      (c4) => `<w:comment w:id="${c4.id}" w:author="${escAttr(c4.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc(c4.text)}</w:t></w:r></w:p></w:comment>`
     ).join("");
     pkg.setPartText(
       "word/comments.xml",
@@ -2527,7 +8527,7 @@ var SfntFont = class {
   }
   kernMap;
   /** Ajuste de kerning (par prev→cur) em TWIPS no em de dispositivo.
-   *  O Word (DirectWrite) aplica a feature kern por padrão. */
+   *  O app de referência (DirectWrite) aplica a feature kern por padrão. */
   kernTwips(prevCodePoint, codePoint, sizePt) {
     const g1 = this.glyphId(prevCodePoint);
     const g2 = this.glyphId(codePoint);
@@ -2616,7 +8616,7 @@ var SfntFont = class {
     this.advanceCache.set(glyphId, w2);
     return w2;
   }
-  /** Tabela empírica de advances do Word (hinting/ClearType), por tamanho:
+  /** Tabela empírica de advances do app de referência (hinting/ClearType), por tamanho:
    *  { "11": { "a": twips, ... } } — extraída via word-lab/extract-advances.mjs.
    *  O hinting altera advances em até ±3% vs escala linear; sem a tabela o
    *  texto deriva ao longo da linha (visto no pixel-diff). */
@@ -2625,7 +8625,7 @@ var SfntFont = class {
     this.advanceTable = table;
   }
   /** Advance de um code point em TWIPS para um tamanho em pontos.
-   *  1º tabela empírica do Word; fallback: escala linear com o em
+   *  1º tabela empírica do app de referência; fallback: escala linear com o em
    *  arredondado ao pixel de 600 DPI (11pt → 92/600" = 11.04pt). */
   advanceTwips(codePoint, sizePt) {
     if (this.advanceTable) {
@@ -3029,9 +9029,11 @@ function doSubset(bytes, usedGids) {
   }
   locaView.setUint32(numGlyphs * 4, acc);
   const newGlyf = concat(glyfParts);
-  const newHead = bytes.slice(head.offset, head.offset + head.length);
-  new DataView(newHead.buffer).setUint16(50, 1);
-  new DataView(newHead.buffer).setUint32(8, 0);
+  const newHead = new Uint8Array(head.length);
+  newHead.set(bytes.subarray(head.offset, head.offset + head.length));
+  const headView = new DataView(newHead.buffer, newHead.byteOffset, newHead.byteLength);
+  headView.setUint16(50, 1);
+  headView.setUint32(8, 0);
   const out = [];
   for (const [tag, t5] of dir) {
     if (!KEEP.has(tag)) continue;
@@ -3278,16 +9280,33 @@ var PdfDocument = class {
     this.images.push({ handle, objNum });
     return handle;
   }
-  /** Embute pixels RGBA crus (alpha descartado) via DeviceRGB + FlateDecode. */
+  /**
+   * Embute pixels RGBA crus via DeviceRGB + FlateDecode. Quando o alpha não é
+   * trivial (algum pixel < 255), o canal vira um /SMask DeviceGray — PNGs com
+   * transparência preservam o recorte no PDF.
+   */
   embedRgba(rgba, widthPx, heightPx) {
     const rgb2 = new Uint8Array(widthPx * heightPx * 3);
-    for (let i7 = 0, j = 0; i7 < rgba.length; i7 += 4, j += 3) {
+    const alpha = new Uint8Array(widthPx * heightPx);
+    let hasAlpha = false;
+    for (let i7 = 0, j = 0, k2 = 0; i7 < rgba.length; i7 += 4, j += 3, k2++) {
       rgb2[j] = rgba[i7];
       rgb2[j + 1] = rgba[i7 + 1];
       rgb2[j + 2] = rgba[i7 + 2];
+      const a3 = rgba[i7 + 3];
+      alpha[k2] = a3;
+      if (a3 !== 255) hasAlpha = true;
+    }
+    let smask = "";
+    if (hasAlpha) {
+      const smaskNum = this.writer.addStream(
+        `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceGray /BitsPerComponent 8`,
+        alpha
+      );
+      smask = ` /SMask ${smaskNum} 0 R`;
     }
     const objNum = this.writer.addStream(
-      `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceRGB /BitsPerComponent 8`,
+      `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceRGB /BitsPerComponent 8${smask}`,
       rgb2
     );
     const handle = { resourceName: `Im${this.images.length}`, objNum };
@@ -3420,7 +9439,7 @@ function edgeCss(e8) {
 function runHtml(run, ctx) {
   if (run.image) {
     if (ctx.imagesMode === "omit") {
-      return `<span class="wn-img-placeholder" aria-label="imagem" style="display:inline-block;padding:0 .35em;margin:0 .15em;background:rgba(0,0,0,.06);border-radius:4px;font-size:.9em;color:#777">\u{1F4F7}</span>`;
+      return `<span class="uw-img-placeholder" aria-label="imagem" style="display:inline-block;padding:0 .35em;margin:0 .15em;background:rgba(0,0,0,.06);border-radius:4px;font-size:.9em;color:#777">\u{1F4F7}</span>`;
     }
     const w2 = twipsToPx(run.image.widthTwips);
     const h3 = twipsToPx(run.image.heightTwips);
@@ -3432,7 +9451,7 @@ function runHtml(run, ctx) {
     const paras = (run.noteRef.kind === "footnote" ? ctx.footnotes : ctx.endnotes).get(run.noteRef.id);
     const noteHtml = paras?.map((np) => np.runs.map((r6) => escapeHtml(r6.text)).join("")).join(" ").trim() ?? "";
     ctx.notes.push({ kind: run.noteRef.kind, id: run.noteRef.id, html: escapeHtml(noteHtml) });
-    return `<sup class="wn-note"><a id="noteref-${seq}" href="#note-${seq}">${seq}</a></sup>`;
+    return `<sup class="uw-note"><a id="noteref-${seq}" href="#note-${seq}">${seq}</a></sup>`;
   }
   let text2 = escapeHtml(run.text);
   if (!text2) return "";
@@ -3459,7 +9478,7 @@ function runHtml(run, ctx) {
       const c4 = ctx.comments.get(id);
       return c4 ? `${c4.author ?? "An\xF4nimo"}: ${c4.text}` : "";
     }).filter(Boolean).join(" | ");
-    inner = `<span class="wn-comment" data-comment="${p3.commentIds.join(",")}" title="${escapeAttr(tips)}">${inner}</span>`;
+    inner = `<span class="uw-comment" data-comment="${p3.commentIds.join(",")}" title="${escapeAttr(tips)}">${inner}</span>`;
   }
   return inner;
 }
@@ -3550,7 +9569,7 @@ function bodyHtml(doc, ctx) {
   }
   flushList();
   if (ctx.notes.length) {
-    parts.push('<hr><section class="wn-notes"><ol>');
+    parts.push('<hr><section class="uw-notes"><ol>');
     ctx.notes.forEach((n5, idx) => {
       parts.push(`<li id="note-${idx + 1}">${n5.html} <a href="#noteref-${idx + 1}">\u21A9</a></li>`);
     });
@@ -3558,10 +9577,10 @@ function bodyHtml(doc, ctx) {
   }
   const used = [...ctx.usedComments].filter((id) => ctx.comments.has(id));
   if (used.length) {
-    parts.push('<section class="wn-comments"><h2>Coment\xE1rios</h2><ol>');
+    parts.push('<section class="uw-comments"><h2>Coment\xE1rios</h2><ol>');
     for (const id of used) {
       const c4 = ctx.comments.get(id);
-      parts.push(`<li id="cmt-${id}"><span class="wn-author">${escapeHtml(c4.author ?? "An\xF4nimo")}</span>: ${escapeHtml(c4.text)}</li>`);
+      parts.push(`<li id="cmt-${id}"><span class="uw-author">${escapeHtml(c4.author ?? "An\xF4nimo")}</span>: ${escapeHtml(c4.text)}</li>`);
     }
     parts.push("</ol></section>");
   }
@@ -3580,12 +9599,12 @@ img { max-width: 100%; height: auto; }
 table { border-collapse: collapse; margin: 1em 0; width: 100%; }
 td, th { border: 1px solid #bbb; padding: .4em .6em; vertical-align: top; }
 ul, ol { margin: 0 0 .75em; padding-left: 1.6em; }
-sup.wn-note a { text-decoration: none; }
-.wn-comment { background: rgba(255,187,0,.28); border-bottom: 1px dotted #c79100; cursor: help; }
-.wn-img-placeholder { display: inline-block; padding: 0 .35em; margin: 0 .15em; background: rgba(0,0,0,.06); border-radius: 4px; font-size: .9em; color: #777; }
-.wn-comments { margin-top: 2.5rem; border-top: 1px solid #ccc; padding-top: 1rem; font-size: .9rem; color: #555; }
-.wn-comments .wn-author { font-weight: 600; }
-.wn-notes { font-size: .85rem; color: #555; }
+sup.uw-note a { text-decoration: none; }
+.uw-comment { background: rgba(255,187,0,.28); border-bottom: 1px dotted #c79100; cursor: help; }
+.uw-img-placeholder { display: inline-block; padding: 0 .35em; margin: 0 .15em; background: rgba(0,0,0,.06); border-radius: 4px; font-size: .9em; color: #777; }
+.uw-comments { margin-top: 2.5rem; border-top: 1px solid #ccc; padding-top: 1rem; font-size: .9rem; color: #555; }
+.uw-comments .uw-author { font-weight: 600; }
+.uw-notes { font-size: .85rem; color: #555; }
 hr { border: none; border-top: 1px solid #ccc; margin: 2rem 0 .5rem; }
 `;
 function toHtml(doc, opts = {}) {
@@ -4753,8 +10772,8 @@ function readCell(cellEl, ctx) {
   if (borders) cell.borders = borders;
   return cell;
 }
-function readImage(frame, ctx) {
-  const imageEl = firstChild(frame, "draw:image");
+function readImage(frame2, ctx) {
+  const imageEl = firstChild(frame2, "draw:image");
   if (!imageEl) return void 0;
   let data;
   let ext = "png";
@@ -4773,8 +10792,8 @@ function readImage(frame, ctx) {
     }
   }
   if (!data) return void 0;
-  const widthTwips = lengthToTwips(frame.attrs["svg:width"]) ?? 0;
-  const heightTwips = lengthToTwips(frame.attrs["svg:height"]) ?? 0;
+  const widthTwips = lengthToTwips(frame2.attrs["svg:width"]) ?? 0;
+  const heightTwips = lengthToTwips(frame2.attrs["svg:height"]) ?? 0;
   return { data, ext, widthTwips, heightTwips };
 }
 function decodeBase64(b64) {
@@ -4784,7 +10803,9 @@ function decodeBase64(b64) {
     for (let i7 = 0; i7 < bin.length; i7++) out[i7] = bin.charCodeAt(i7);
     return out;
   }
-  return new Uint8Array(Buffer.from(b64, "base64"));
+  const g2 = globalThis;
+  if (g2.Buffer) return new Uint8Array(g2.Buffer.from(b64, "base64"));
+  throw new Error("sem decodificador base64 (atob/Buffer) no ambiente");
 }
 function applyParaBorders(index, styleName, props) {
   const borders = bordersFromStyle(index, styleName);
@@ -5041,7 +11062,7 @@ function buildXps(input) {
   return zipSync(z2, { level: 6 });
 }
 
-// src/word-next.ts
+// src/universal-write.ts
 var PX_PER_TWIP = 96 / 72 / TWIPS_PER_PT;
 var STYLES = {
   "Ttulo1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
@@ -5069,11 +11090,12 @@ var Registry = class {
   }
   sets;
   resolve(family, variant) {
-    const set = family && this.sets[family.split(" ")[0]] || this.sets["Aptos"];
-    return set[variant];
+    const requested = family ? this.sets[family.split(" ")[0]] : void 0;
+    const aptos = this.sets["Aptos"];
+    return requested?.[variant] ?? aptos[variant] ?? aptos.regular;
   }
 };
-var WordNextElement = class extends HTMLElement {
+var UniversalWriteElement = class extends HTMLElement {
   model = null;
   pkg = null;
   fullDoc = null;
@@ -5092,6 +11114,9 @@ var WordNextElement = class extends HTMLElement {
   fontBytes = {};
   container;
   input;
+  topbarEl;
+  bottombarEl;
+  chromeSync = null;
   selection = {
     anchor: { para: 0, offset: 0 },
     focus: { para: 0, offset: 0 }
@@ -5110,6 +11135,17 @@ var WordNextElement = class extends HTMLElement {
   canvases = [];
   caretVisible = true;
   caretTimer = 0;
+  readResizeQueued = false;
+  handleWindowResize = () => {
+    if (this.view !== "read" || this.readResizeQueued) return;
+    this.readResizeQueued = true;
+    requestAnimationFrame(() => {
+      this.readResizeQueued = false;
+      if (!this.isConnected) return;
+      this.fitReadZoom();
+      this.refresh();
+    });
+  };
   undoStack = [];
   redoStack = [];
   pendingProps = null;
@@ -5120,13 +11156,22 @@ var WordNextElement = class extends HTMLElement {
   // pelo "Colar" para preservar a formatação dos runs da ORIGEM.
   richClip = null;
   onSelectionChange = null;
+  /** Fontes em memória usadas pela inicialização automática, sem fetch/backend. */
+  fontAssets;
+  /** Documento inicial em memória usado pela inicialização automática. */
+  documentSource;
+  initialization = null;
+  initialized = false;
+  plugins = /* @__PURE__ */ new Map();
+  pluginCleanups = /* @__PURE__ */ new Map();
+  inlineRenderers = /* @__PURE__ */ new Map();
   constructor() {
     super();
     const root = this.attachShadow({ mode: "open" });
     const style = document.createElement("style");
     style.textContent = `
       :host { display:block; background:#e8e8e8; overflow:auto; position:relative; outline:none; }
-      /* p\xE1ginas lado a lado quando o zoom abre espa\xE7o (como no Word) */
+      /* p\xE1ginas lado a lado quando o zoom abre espa\xE7o (como no app de refer\xEAncia) */
       .pages {
         padding: 24px;
         display: flex;
@@ -5140,6 +11185,10 @@ var WordNextElement = class extends HTMLElement {
       .page { background:white; outline:1px solid var(--md-outline-variant, rgba(0,0,0,.18)); outline-offset:-1px; display:block; cursor:text; flex: none; }
       :host(.view-web) .page, :host(.view-draft) .page { margin: 0 auto; }
       :host(.view-web) .page, :host(.view-draft) .page { outline:none; }
+      /* Web/Rascunho s\xE3o CONT\xCDNUOS: sem "desk" cinza em volta \u2014 o fundo \xE9 a
+         pr\xF3pria cor da p\xE1gina (a folha preenche a largura). */
+      :host(.view-web), :host(.view-draft) { background: #ffffff; }
+      :host(.view-web.page-dark), :host(.view-draft.page-dark) { background: #1e1e1e; }
       /* Leitura: fundo da COR DA P\xC1GINA; p\xE1ginas em RAIAS lado a lado, sem
          espa\xE7o entre elas \u2014 a borda sutil de cada p\xE1gina vira o divisor da raia.
          As p\xE1ginas fora do bloco vis\xEDvel ficam display:none. */
@@ -5150,72 +11199,252 @@ var WordNextElement = class extends HTMLElement {
       :host(.view-read) .page.read-divider { border-left: 1px solid var(--md-outline-variant, rgba(0,0,0,.18)); }
       :host(.view-outline) .page { outline:none; }
       textarea.proxy { position:absolute; opacity:0; width:1px; height:1em; padding:0; border:0; resize:none; }
+      /* barras opcionais (topbar/bottombar) \u2014 sticky para preservar o scroll do host */
+      /* sticky nos DOIS eixos (left:0) \u2014 sen\xE3o a barra rola junto quando o
+         documento gera scroll horizontal (ex.: zoom alto). A largura \xE9 a do
+         viewport (o host de scroll), ent\xE3o cobre a faixa vis\xEDvel em qualquer
+         posi\xE7\xE3o de scroll. */
+      .uw-topbar, .uw-bottombar { position: sticky; left: 0; z-index: 30; flex: none;
+        width: 100%; box-sizing: border-box;
+        background: var(--u-color-surface-container, #eef0f2); color: var(--u-color-on-surface, #1b1b1f); }
+      .uw-topbar { top: 0; border-bottom: 1px solid var(--u-color-outline-variant, rgba(0,0,0,.14)); }
+      .uw-bottombar { bottom: 0; border-top: 1px solid var(--u-color-outline-variant, rgba(0,0,0,.14)); }
+      .uw-topbar:empty, .uw-bottombar:empty { display: none; }
     `;
     this.container = document.createElement("div");
     this.container.className = "pages";
+    this.topbarEl = document.createElement("div");
+    this.topbarEl.className = "uw-topbar";
+    this.bottombarEl = document.createElement("div");
+    this.bottombarEl.className = "uw-bottombar";
     this.input = document.createElement("textarea");
     this.input.className = "proxy";
     this.input.setAttribute("aria-hidden", "true");
-    root.append(style, this.container, this.input);
+    root.append(style, this.topbarEl, this.container, this.bottombarEl, this.input);
     this.bindEvents();
+  }
+  // ─────────────────────── chrome (barras) ───────────────────────
+  static get observedAttributes() {
+    return ["topbar", "bottombar"];
+  }
+  attributeChangedCallback(name) {
+    if ((name === "topbar" || name === "bottombar") && this.initialized) void this.updateChrome();
+  }
+  /** Barra de ferramentas superior (única). */
+  get topbar() {
+    return this.hasAttribute("topbar");
+  }
+  set topbar(v2) {
+    if (v2) this.setAttribute("topbar", "");
+    else this.removeAttribute("topbar");
+  }
+  /** Visibilidade da barra inferior (status). */
+  get bottombar() {
+    return this.hasAttribute("bottombar");
+  }
+  set bottombar(v2) {
+    if (v2) this.setAttribute("bottombar", "");
+    else this.removeAttribute("bottombar");
+  }
+  chromeReq = 0;
+  chromeListenersBound = false;
+  /** (Re)constrói as barras conforme os atributos topbar/bottombar. */
+  async updateChrome() {
+    const topbar = this.topbar;
+    const bottombar = this.bottombar;
+    if (!topbar && !bottombar) {
+      this.topbarEl.replaceChildren();
+      this.bottombarEl.replaceChildren();
+      this.chromeSync = null;
+      return;
+    }
+    const req = ++this.chromeReq;
+    const { setupChrome: setupChrome2 } = await Promise.resolve().then(() => (init_chrome(), chrome_exports));
+    if (req !== this.chromeReq) return;
+    const handle = setupChrome2(this, this.topbarEl, this.bottombarEl, { topbar, bottombar });
+    this.chromeSync = handle.sync;
+    if (!this.chromeListenersBound) {
+      const relay = () => this.chromeSync?.();
+      this.addEventListener("uw-zoom", relay);
+      this.addEventListener("uw-change", relay);
+      this.chromeListenersBound = true;
+    }
   }
   // ───────────────────────── carga ─────────────────────────
   async connectedCallback() {
-    const src = this.getAttribute("src");
-    const fontsBase = this.getAttribute("fonts") ?? "";
-    const files = [
-      ["Aptos", "aptos-regular.ttf", "400", "normal"],
-      ["Aptos", "aptos-bold.ttf", "700", "normal"],
-      ["Aptos", "aptos-italic.ttf", "400", "italic"],
-      ["Aptos", "aptos-bolditalic.ttf", "700", "italic"],
-      ["Calibri", "calibri.ttf", "400", "normal"],
-      ["Calibri", "calibrib.ttf", "700", "normal"],
-      ["Calibri", "calibrii.ttf", "400", "italic"],
-      ["Calibri", "calibriz.ttf", "700", "italic"]
-    ];
-    const buffers = await Promise.all(
-      files.map(async ([, f3]) => (await fetch(`${fontsBase}/${f3}`)).arrayBuffer())
-    );
+    window.addEventListener("resize", this.handleWindowResize);
+    if (this.initialized) this.startCaret();
+    if (!this.hasAttribute("manual-init")) await this.initialize();
+  }
+  disconnectedCallback() {
+    window.removeEventListener("resize", this.handleWindowResize);
+    window.clearInterval(this.caretTimer);
+    this.caretTimer = 0;
+  }
+  /**
+   * Inicializa o componente. Com fonts + document em memória, não executa
+   * nenhum fetch e funciona em apps estáticos, Electron e WebViews offline.
+   */
+  async initialize(options = {}) {
+    if (this.initialized) return;
+    if (!this.initialization) {
+      this.initialization = this.initializeInternal(options).catch((error) => {
+        this.initialization = null;
+        throw error;
+      });
+    }
+    await this.initialization;
+  }
+  async initializeInternal(options) {
+    const suppliedFonts = options.fonts ?? this.fontAssets;
+    const assets = suppliedFonts ?? await this.fetchDefaultFontAssets();
+    await this.installFontAssets(assets);
+    const source = options.document ?? this.documentSource;
+    if (source) this.loadDocumentSource(source);
+    else {
+      const src = this.getAttribute("src");
+      if (src) {
+        const bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
+        this.loadDocx(bytes);
+      } else this.newDocument();
+    }
+    this.initialized = true;
+    if (this.isConnected) this.startCaret();
+    if (this.topbar || this.bottombar) void this.updateChrome();
+    this.dispatchEvent(new CustomEvent("uw-ready", {
+      detail: { offline: suppliedFonts !== void 0, plugins: this.pluginIds() }
+    }));
+  }
+  loadDocumentSource(source) {
+    if ((source.format ?? "docx") === "odt") {
+      this.loadOdt(source.bytes, { protected: source.protected });
+    } else {
+      this.loadDocx(source.bytes, { protected: source.protected });
+    }
+  }
+  async installFontAssets(assets) {
     const sets = {};
-    for (let i7 = 0; i7 < files.length; i7++) {
-      const [fam, , weight, fstyle] = files[i7];
-      const face = new FontFace(fam, buffers[i7], { weight, style: fstyle });
-      await face.load();
-      document.fonts.add(face);
-      sets[fam] ??= {};
-      const variant = weight === "700" && fstyle === "italic" ? "boldItalic" : weight === "700" ? "bold" : fstyle === "italic" ? "italic" : "regular";
-      const fontBytes = new Uint8Array(buffers[i7]);
-      sets[fam][variant] = new SfntFont(fontBytes);
-      (this.fontBytes[fam] ??= {})[variant] = fontBytes;
+    this.fontBytes = {};
+    for (const asset of assets) {
+      const bytes = asset.data instanceof Uint8Array ? asset.data : new Uint8Array(asset.data);
+      const weight = asset.weight ?? (asset.variant === "bold" || asset.variant === "boldItalic" ? "700" : "400");
+      const style = asset.style ?? (asset.variant === "italic" || asset.variant === "boldItalic" ? "italic" : "normal");
+      const faceBytes = bytes.slice().buffer;
+      const face = new FontFace(asset.family, faceBytes, { weight, style });
+      document.fonts.add(await face.load());
+      sets[asset.family] ??= {};
+      const font = new SfntFont(bytes);
+      if (asset.advances) font.setAdvanceTable(asset.advances);
+      sets[asset.family][asset.variant] = font;
+      (this.fontBytes[asset.family] ??= {})[asset.variant] = bytes;
+    }
+    const aptos = sets["Aptos"];
+    if (!aptos?.regular || !aptos.bold || !aptos.italic || !aptos.boldItalic) {
+      throw new Error("initialize(): provide the four Aptos font variants");
     }
     this.fonts = new Registry(sets);
-    const tableFiles = [
-      ["Aptos", "regular", "aptos-advances.json"],
-      ["Aptos", "bold", "aptos-bold-advances.json"],
-      ["Aptos", "italic", "aptos-italic-advances.json"],
-      ["Aptos", "boldItalic", "aptos-bolditalic-advances.json"],
-      ["Calibri", "regular", "calibri-advances.json"],
-      ["Calibri", "bold", "calibri-bold-advances.json"],
-      ["Calibri", "italic", "calibri-italic-advances.json"],
-      ["Calibri", "boldItalic", "calibri-bolditalic-advances.json"]
+  }
+  async fetchDefaultFontAssets() {
+    const fontsBase = this.getAttribute("fonts") ?? "";
+    const files = [
+      ["Aptos", "aptos-regular.ttf", "regular"],
+      ["Aptos", "aptos-bold.ttf", "bold"],
+      ["Aptos", "aptos-italic.ttf", "italic"],
+      ["Aptos", "aptos-bolditalic.ttf", "boldItalic"],
+      ["Calibri", "calibri.ttf", "regular"],
+      ["Calibri", "calibrib.ttf", "bold"],
+      ["Calibri", "calibrii.ttf", "italic"],
+      ["Calibri", "calibriz.ttf", "boldItalic"]
     ];
-    await Promise.all(tableFiles.map(async ([fam, variant, file]) => {
+    const tableName = (family, variant) => {
+      const prefix = family.toLowerCase();
+      const suffix = variant === "regular" ? "" : variant === "boldItalic" ? "-bolditalic" : `-${variant}`;
+      return `${prefix}${suffix}-advances.json`;
+    };
+    return Promise.all(files.map(async ([family, file, variant]) => {
+      const data = new Uint8Array(await (await fetch(`${fontsBase}/${file}`)).arrayBuffer());
+      let advances;
       try {
-        const table = await (await fetch(`${fontsBase}/${file}`)).json();
-        sets[fam]?.[variant]?.setAdvanceTable(table);
+        advances = await (await fetch(`${fontsBase}/${tableName(family, variant)}`)).json();
       } catch {
       }
+      return { family, variant, data, advances };
     }));
-    if (src) {
-      const bytes = new Uint8Array(await (await fetch(src)).arrayBuffer());
-      this.loadDocx(bytes);
-    } else {
-      this.newDocument();
-    }
-    this.startCaret();
-    this.dispatchEvent(new CustomEvent("wn-ready"));
   }
-  // ───────── Modo de Exibição Protegido (mecânica do Word) ─────────
+  /** Instala um plugin na instância (sem registro global e sem backend). */
+  use(plugin) {
+    if (!plugin.id.trim()) throw new Error("plugin.id is required");
+    if (this.plugins.has(plugin.id)) throw new Error(`plugin already installed: ${plugin.id}`);
+    for (const renderer of plugin.inlineRenderers ?? []) {
+      if (!/^[a-zA-Z0-9._-]+$/.test(renderer.type)) {
+        throw new Error(`invalid inline type: ${renderer.type}`);
+      }
+      const current2 = this.inlineRenderers.get(renderer.type);
+      if (current2) {
+        throw new Error(`inline "${renderer.type}" already registered by ${current2.owner}`);
+      }
+    }
+    this.plugins.set(plugin.id, plugin);
+    for (const renderer of plugin.inlineRenderers ?? []) {
+      this.inlineRenderers.set(renderer.type, { owner: plugin.id, renderer });
+    }
+    try {
+      const cleanup = plugin.setup?.({ editor: this });
+      if (cleanup) this.pluginCleanups.set(plugin.id, cleanup);
+    } catch (error) {
+      this.plugins.delete(plugin.id);
+      for (const [type, entry] of this.inlineRenderers) {
+        if (entry.owner === plugin.id) this.inlineRenderers.delete(type);
+      }
+      throw error;
+    }
+    if (this.model) this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-plugin-added", { detail: { id: plugin.id } }));
+  }
+  /** Remove o plugin e seus renderers; o conteúdo permanece com fallback textual. */
+  unuse(id) {
+    if (!this.plugins.has(id)) return false;
+    try {
+      this.pluginCleanups.get(id)?.();
+    } finally {
+      this.pluginCleanups.delete(id);
+      this.plugins.delete(id);
+      for (const [type, entry] of this.inlineRenderers) {
+        if (entry.owner === id) this.inlineRenderers.delete(type);
+      }
+    }
+    if (this.model) this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-plugin-removed", { detail: { id } }));
+    return true;
+  }
+  pluginIds() {
+    return [...this.plugins.keys()];
+  }
+  /** Insere um inline atômico na seleção atual. */
+  insertCustomInline(type, data, options = {}) {
+    if (!this.model || this.locked()) return;
+    const renderer = this.inlineRenderers.get(type)?.renderer;
+    const fallbackText = options.fallbackText ?? renderer?.toText?.(data) ?? String(data ?? "");
+    this.snapshot();
+    if (this.hasSelection()) {
+      const deleted = this.deleteSelection();
+      this.selection = { anchor: deleted, focus: deleted };
+    }
+    const props = { ...this.pendingProps ?? this.currentProps() };
+    const pos = insertRun(this.model, this.selection.focus, {
+      text: "\uFFFC",
+      props,
+      custom: { type, data, fallbackText }
+    });
+    this.pendingProps = null;
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    this.scrollCaretIntoView();
+    this.dispatchEvent(new CustomEvent("uw-custom-inline-inserted", {
+      detail: { type, data, fallbackText }
+    }));
+  }
+  // ───────── Modo de Exibição Protegido (mecânica do app de referência) ─────────
   /** Arquivos abertos entram protegidos: leitura até "Habilitar Edição". */
   protectedMode = false;
   isProtected() {
@@ -5224,7 +11453,7 @@ var WordNextElement = class extends HTMLElement {
   enableEditing() {
     if (!this.protectedMode) return;
     this.protectedMode = false;
-    this.dispatchEvent(new CustomEvent("wn-protected", {
+    this.dispatchEvent(new CustomEvent("uw-protected", {
       detail: { active: false, hasFields: this.hasExternalFields() }
     }));
     this.refresh();
@@ -5242,7 +11471,7 @@ var WordNextElement = class extends HTMLElement {
     return this.protectedMode || this.view === "read";
   }
   /** Carrega um .docx (bytes). opts.protected = decisão pelo critério do
-   *  Word: Mark-of-the-Web (Electron lê o Zone.Identifier real; browser usa
+   *  app de referência: Mark-of-the-Web (Electron lê o Zone.Identifier real; browser usa
    *  Trusted Documents). Default: protegido (conservador). */
   loadDocx(bytes, opts = {}) {
     this.protectedMode = opts.protected ?? true;
@@ -5261,9 +11490,9 @@ var WordNextElement = class extends HTMLElement {
     this.installFullDoc();
   }
   /** Comum entre loadDocx e loadOdt — popula model/sections/floatImages a
-   *  partir de this.fullDoc e dispara wn-protected. */
+   *  partir de this.fullDoc e dispara uw-protected. */
   installFullDoc() {
-    if (!this.fullDoc) throw new Error("installFullDoc sem fullDoc");
+    if (!this.fullDoc) throw new Error("installFullDoc without fullDoc");
     const paragraphs = [];
     this.tableAnchors = [];
     for (const block of this.fullDoc.blocks) {
@@ -5327,7 +11556,7 @@ var WordNextElement = class extends HTMLElement {
     this.undoStack = [];
     this.redoStack = [];
     this.refresh();
-    this.dispatchEvent(new CustomEvent("wn-protected", {
+    this.dispatchEvent(new CustomEvent("uw-protected", {
       detail: { active: this.protectedMode, hasFields: this.hasExternalFields() }
     }));
   }
@@ -5356,6 +11585,7 @@ var WordNextElement = class extends HTMLElement {
   }
   setDarkPage(dark) {
     this.pageDark = dark;
+    this.classList.toggle("page-dark", dark);
     this.refresh();
     this.paint();
   }
@@ -5472,7 +11702,7 @@ var WordNextElement = class extends HTMLElement {
     }
     let ref = refs.find((r6) => r6.type === partType);
     if (!ref) {
-      ref = { type: partType, rid: `rIdWn${kind}${partType}`, path: `word/wn-${kind}-${partType}.xml` };
+      ref = { type: partType, rid: `rIdWn${kind}${partType}`, path: `word/uw-${kind}-${partType}.xml` };
       refs.push(ref);
       this.dirtyHf.add(ref.path);
     }
@@ -5503,7 +11733,7 @@ var WordNextElement = class extends HTMLElement {
     this.undoStack = [];
     this.redoStack = [];
     this.refresh();
-    this.dispatchEvent(new CustomEvent("wn-hfmode", { detail: { active: true, kind } }));
+    this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: true, kind } }));
   }
   exitHeaderFooter() {
     if (!this.hfEdit || !this.savedBody) return;
@@ -5518,7 +11748,7 @@ var WordNextElement = class extends HTMLElement {
     this.savedBody = null;
     this.hfEdit = null;
     this.refresh();
-    this.dispatchEvent(new CustomEvent("wn-hfmode", { detail: { active: false } }));
+    this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: false } }));
   }
   /** Desloca âncoras de tabela/seção quando parágrafos entram/saem. */
   shiftAnchors(fromPara, delta) {
@@ -5540,7 +11770,7 @@ var WordNextElement = class extends HTMLElement {
     } else if (prev === "read") this.zoom = this.zoomBeforeRead;
     this.refresh();
     this.scrollTop = 0;
-    if (this.zoom !== z0) this.dispatchEvent(new CustomEvent("wn-zoom", { detail: { zoom: this.zoom } }));
+    if (this.zoom !== z0) this.dispatchEvent(new CustomEvent("uw-zoom", { detail: { zoom: this.zoom } }));
   }
   getView() {
     return this.view;
@@ -5597,7 +11827,7 @@ var WordNextElement = class extends HTMLElement {
     this.zoom = clamped;
     this.refresh();
     this.scrollTop = docY * clamped / old - anchor;
-    this.dispatchEvent(new CustomEvent("wn-zoom", { detail: { zoom: clamped } }));
+    this.dispatchEvent(new CustomEvent("uw-zoom", { detail: { zoom: clamped } }));
   }
   getZoom() {
     return this.zoom;
@@ -5608,11 +11838,16 @@ var WordNextElement = class extends HTMLElement {
     return this.showMarks;
   }
   getSelectionState() {
-    const run = this.pendingProps ?? this.currentProps();
+    const run = { ...this.pendingProps ?? this.currentProps() };
     const p3 = this.model?.paragraphs[this.selection.focus.para];
     const st = p3 ? this.styleOf(p3) : void 0;
+    const dd = this.docDefaults();
     const para = { ...p3?.props ?? {} };
     if (para.alignment === void 0) para.alignment = st?.alignment;
+    if (run.fontAscii === void 0) run.fontAscii = st?.fontAscii ?? dd.run.fontAscii ?? "Aptos";
+    if (run.szHalfPt === void 0) {
+      run.szHalfPt = st?.sizePt !== void 0 ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
+    }
     return { run, para, view: this.view, marks: this.showMarks };
   }
   toggleRunProp(key) {
@@ -5790,12 +12025,26 @@ var WordNextElement = class extends HTMLElement {
     const { start, end } = normalizeRange(this.range());
     const parts = [];
     for (let pi = start.para; pi <= end.para; pi++) {
-      const text2 = paraText(this.model.paragraphs[pi]);
+      const paragraph = this.model.paragraphs[pi];
       const from = pi === start.para ? start.offset : 0;
-      const to = pi === end.para ? end.offset : text2.length;
-      parts.push(text2.slice(from, to));
+      const to = pi === end.para ? end.offset : paraLength(paragraph);
+      parts.push(this.plainTextSlice(paragraph, from, to));
     }
     return parts.join("\n");
+  }
+  plainTextSlice(paragraph, from, to) {
+    let out = "";
+    let acc = 0;
+    for (const run of paragraph.runs) {
+      const start = acc;
+      const end = acc + run.text.length;
+      acc = end;
+      const sliceStart = Math.max(from, start);
+      const sliceEnd = Math.min(to, end);
+      if (sliceEnd <= sliceStart) continue;
+      out += run.custom ? run.custom.fallbackText : run.text.slice(sliceStart - start, sliceEnd - start);
+    }
+    return out;
   }
   /** pos está dentro da seleção atual (range normalizado)? */
   posInSelection(pos) {
@@ -5820,7 +12069,10 @@ var WordNextElement = class extends HTMLElement {
         const rs = acc, re = acc + run.text.length;
         acc = re;
         const s4 = Math.max(from, rs), e8 = Math.min(to, re);
-        if (e8 > s4) runs.push({ text: run.text.slice(s4 - rs, e8 - rs), props: { ...run.props } });
+        if (e8 > s4) runs.push({
+          text: run.custom ? run.custom.fallbackText : run.text.slice(s4 - rs, e8 - rs),
+          props: { ...run.props }
+        });
       }
       paras.push({ runs });
     }
@@ -5846,6 +12098,7 @@ var WordNextElement = class extends HTMLElement {
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
     this.onSelectionChange?.();
+    this.chromeSync?.();
   }
   /** Colar (Ctrl+V): respeita a formatação da ORIGEM (rico) quando o texto do
    * sistema ainda casa com a cópia interna; senão cola texto externo herdando o destino. */
@@ -5857,6 +12110,7 @@ var WordNextElement = class extends HTMLElement {
       if (this.richClip && this.richClip.text === t5.replace(/\r\n?/g, "\n")) this.insertRich(this.richClip);
       else this.pasteText(t5);
       this.onSelectionChange?.();
+      this.chromeSync?.();
     } catch {
     }
   }
@@ -5868,6 +12122,7 @@ var WordNextElement = class extends HTMLElement {
       if (t5) {
         this.pasteText(t5);
         this.onSelectionChange?.();
+        this.chromeSync?.();
       }
     } catch {
     }
@@ -5965,9 +12220,9 @@ var WordNextElement = class extends HTMLElement {
   insertPageBreak() {
     this.type("\f");
   }
-  /** Insere um CAMPO no caret (variáveis de cabeçalho/rodapé do Word).
+  /** Insere um CAMPO no caret (variáveis de cabeçalho/rodapé do app de referência).
    *  O texto é o token que o paint substitui por página; ao salvar vira
-   *  fldSimple e o próprio Word passa a atualizá-lo. */
+   *  fldSimple e o próprio app de referência passa a atualizá-lo. */
   insertField(kind) {
     if (!this.model || this.locked()) return;
     this.snapshot();
@@ -6011,7 +12266,7 @@ var WordNextElement = class extends HTMLElement {
   }
   // ───────────────── sumário (TOC) ─────────────────
   /** Gera/atualiza o sumário a partir dos títulos, com páginas do NOSSO
-   *  layout e leader pontilhado — o equivalente do F9 do Word. */
+   *  layout e leader pontilhado — o equivalente do F9 do app de referência. */
   updateToc() {
     if (!this.model || this.locked()) return false;
     const tocIdx = this.model.paragraphs.findIndex((p3) => p3.props.tocInstr);
@@ -6088,7 +12343,7 @@ var WordNextElement = class extends HTMLElement {
    * Posição CSS-pixel (top-left + altura) da PRIMEIRA linha que carrega este
    * comentário, no espaço de scroll do editor (somando canvas.offsetTop ao
    * y da linha). Permite à camada DOM posicionar cards "inline" alinhados ao
-   * trecho anotado (gap do Word: comentários na margem como o Google Docs).
+   * trecho anotado (gap do app de referência: comentários na margem como o Google Docs).
    */
   commentAnchorPx(id) {
     if (!this.model) return null;
@@ -6141,7 +12396,7 @@ var WordNextElement = class extends HTMLElement {
     return null;
   }
   /** Comenta a seleção atual. Retorna o id (ou null sem seleção). */
-  addComment(text2, author = "Voc\xEA") {
+  addComment(text2, author = "You") {
     if (!this.model || !this.hasSelection() || !text2.trim() || this.locked()) return null;
     if (!this.fullDoc) {
       this.fullDoc = {
@@ -6159,7 +12414,7 @@ var WordNextElement = class extends HTMLElement {
     applyRunProps(this.model, this.range(), { commentIds: [id] });
     this.fullDoc.comments.push({ id, author, text: text2.trim() });
     this.refresh();
-    this.dispatchEvent(new CustomEvent("wn-comments-changed"));
+    this.dispatchEvent(new CustomEvent("uw-comments-changed"));
     return id;
   }
   removeComment(id) {
@@ -6175,7 +12430,7 @@ var WordNextElement = class extends HTMLElement {
       }
     }
     this.refresh();
-    this.dispatchEvent(new CustomEvent("wn-comments-changed"));
+    this.dispatchEvent(new CustomEvent("uw-comments-changed"));
   }
   /** Seleciona e rola até o intervalo do comentário. */
   goToComment(id) {
@@ -6272,7 +12527,7 @@ var WordNextElement = class extends HTMLElement {
     this.refresh();
   }
   saveDocx() {
-    if (!this.model) throw new Error("sem documento");
+    if (!this.model) throw new Error("no document");
     if (this.hfEdit) this.exitHeaderFooter();
     const pkg = this.pkg ?? DocxPackage.empty();
     const hfParts = [];
@@ -6322,13 +12577,22 @@ var WordNextElement = class extends HTMLElement {
   buildExportDoc(title, imageDataUris) {
     return {
       title,
-      paragraphs: this.model?.paragraphs ?? [],
+      paragraphs: this.model?.paragraphs.map((paragraph) => this.withPluginFallback(paragraph)) ?? [],
       tableAnchors: this.tableAnchors,
       comments: this.fullDoc?.comments ?? [],
       footnotes: this.fullDoc?.footnotes,
       endnotes: this.fullDoc?.endnotes,
       sectPr: this.model?.sectPr,
       imageDataUris
+    };
+  }
+  withPluginFallback(paragraph) {
+    return {
+      props: paragraph.props,
+      runs: paragraph.runs.map((run) => run.custom ? {
+        text: run.custom.fallbackText,
+        props: run.props
+      } : run)
     };
   }
   /**
@@ -6420,16 +12684,16 @@ var WordNextElement = class extends HTMLElement {
   /**
    * Exporta ODT (OpenDocument Text) p/ LibreOffice/OpenOffice. Reconstrói um
    * FullDocument leve a partir do estado VIVO do editor (model + tableAnchors)
-   * — passa pelo writeOdt do @wordnext/odf.
+   * — passa pelo writeOdt do @universal-office/odf.
    */
   exportOdt(opts = {}) {
-    if (!this.model) throw new Error("documento n\xE3o carregado");
+    if (!this.model) throw new Error("document not loaded");
     const blocks = [];
     this.model.paragraphs.forEach((paragraph, pi) => {
       for (const a3 of this.tableAnchors) {
         if (a3.beforePara === pi) blocks.push(a3.table);
       }
-      blocks.push({ type: "paragraph", paragraph });
+      blocks.push({ type: "paragraph", paragraph: this.withPluginFallback(paragraph) });
     });
     for (const a3 of this.tableAnchors) {
       if (a3.beforePara >= this.model.paragraphs.length) blocks.push(a3.table);
@@ -6469,14 +12733,14 @@ var WordNextElement = class extends HTMLElement {
         best = i7;
       }
     });
-    return best + 1;
+    return Math.min(best + 1, this.pageCount);
   }
-  /** Estatísticas para a barra de status (como a do Word). */
+  /** Estatísticas para a barra de status (como a do app de referência). */
   stats() {
     let words = 0, chars = 0;
     if (this.model) {
       for (const p3 of this.model.paragraphs) {
-        const t5 = paraText(p3);
+        const t5 = this.plainTextSlice(p3, 0, paraLength(p3));
         chars += t5.length;
         words += (t5.match(/\S+/g) ?? []).length;
       }
@@ -6497,7 +12761,7 @@ var WordNextElement = class extends HTMLElement {
     if (wasView !== "print") this.setView(wasView);
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(`<!doctype html><title>WordNext \u2014 imprimir</title><body style="margin:0">${imgs.join("")}</body>`);
+    win.document.write(`<!doctype html><title>Write \u2014 imprimir</title><body style="margin:0">${imgs.join("")}</body>`);
     win.document.close();
     win.focus();
     setTimeout(() => win.print(), 200);
@@ -6522,6 +12786,7 @@ var WordNextElement = class extends HTMLElement {
     } else {
       this.pendingProps = { ...this.pendingProps ?? this.currentProps(), ...patch };
       this.onSelectionChange?.();
+      this.chromeSync?.();
     }
   }
   formatPara(patch) {
@@ -6568,7 +12833,7 @@ var WordNextElement = class extends HTMLElement {
     if (this.undoStack.length > 200) this.undoStack.shift();
     this.redoStack.length = 0;
     if (!this.quietChange) {
-      this.dispatchEvent(new CustomEvent("wn-change"));
+      this.dispatchEvent(new CustomEvent("uw-change"));
     }
   }
   popHistory(from, to) {
@@ -6595,6 +12860,11 @@ var WordNextElement = class extends HTMLElement {
   }
   type(text2) {
     if (!this.model || this.locked()) return;
+    const before = new CustomEvent("uw-before-input", {
+      cancelable: true,
+      detail: { text: text2 }
+    });
+    if (!this.dispatchEvent(before)) return;
     this.snapshot();
     if (this.hasSelection()) {
       const pos2 = this.deleteSelection();
@@ -6606,6 +12876,7 @@ var WordNextElement = class extends HTMLElement {
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
     this.scrollCaretIntoView();
+    this.dispatchEvent(new CustomEvent("uw-input", { detail: { text: text2 } }));
   }
   pressEnter() {
     if (!this.model || this.locked()) return;
@@ -6803,16 +13074,6 @@ var WordNextElement = class extends HTMLElement {
         this.ensureVisiblePainted();
       });
     });
-    let readResizeQueued = false;
-    window.addEventListener("resize", () => {
-      if (this.view !== "read" || readResizeQueued) return;
-      readResizeQueued = true;
-      requestAnimationFrame(() => {
-        readResizeQueued = false;
-        this.fitReadZoom();
-        this.refresh();
-      });
-    });
     this.addEventListener("mousedown", (e8) => {
       const hit = this.hitTest(e8);
       if (!hit) return;
@@ -6824,6 +13085,7 @@ var WordNextElement = class extends HTMLElement {
         }
         this.focusEditor();
         this.onSelectionChange?.();
+        this.chromeSync?.();
         return;
       }
       if (e8.ctrlKey && this.model) {
@@ -6847,7 +13109,7 @@ var WordNextElement = class extends HTMLElement {
         for (const run of para?.runs ?? []) {
           const end = acc + run.text.length;
           if (hit.offset >= acc && hit.offset < end && run.props.commentIds?.length) {
-            this.dispatchEvent(new CustomEvent("wn-comment-click", {
+            this.dispatchEvent(new CustomEvent("uw-comment-click", {
               detail: { ids: run.props.commentIds }
             }));
             break;
@@ -6892,6 +13154,7 @@ var WordNextElement = class extends HTMLElement {
       if (!plain && this.richClip && this.richClip.text === text2.replace(/\r\n?/g, "\n")) this.insertRich(this.richClip);
       else if (text2) this.pasteText(text2);
       this.onSelectionChange?.();
+      this.chromeSync?.();
     });
     this.addEventListener("mousemove", (e8) => {
       if (this.view !== "print" || this.hfEdit || !this.model) return;
@@ -6901,7 +13164,7 @@ var WordNextElement = class extends HTMLElement {
       this.style.cursor = wantHint ? "pointer" : "";
       if (kind !== this.lastHoverHf) {
         this.lastHoverHf = kind;
-        this.dispatchEvent(new CustomEvent("wn-hfhover", {
+        this.dispatchEvent(new CustomEvent("uw-hfhover", {
           detail: { kind: wantHint ? kind : null, x: e8.clientX, y: e8.clientY }
         }));
       }
@@ -6909,7 +13172,7 @@ var WordNextElement = class extends HTMLElement {
     this.addEventListener("mouseleave", () => {
       if (this.lastHoverHf !== null) {
         this.lastHoverHf = null;
-        this.dispatchEvent(new CustomEvent("wn-hfhover", { detail: { kind: null } }));
+        this.dispatchEvent(new CustomEvent("uw-hfhover", { detail: { kind: null } }));
       }
     });
     this.addEventListener("dblclick", (e8) => {
@@ -6917,7 +13180,7 @@ var WordNextElement = class extends HTMLElement {
         const zone = this.hfZoneAt(e8);
         if (zone) {
           if (this.protectedMode) {
-            this.dispatchEvent(new CustomEvent("wn-blocked", { detail: { reason: "protected" } }));
+            this.dispatchEvent(new CustomEvent("uw-blocked", { detail: { reason: "protected" } }));
             return;
           }
           this.enterHeaderFooter(zone.kind, zone.page);
@@ -6927,6 +13190,7 @@ var WordNextElement = class extends HTMLElement {
       if (this.hfEdit && !this.hfClickInActiveBand(e8)) {
         this.exitHeaderFooter();
         this.onSelectionChange?.();
+        this.chromeSync?.();
         return;
       }
       const hit = this.hitTest(e8);
@@ -6963,12 +13227,14 @@ var WordNextElement = class extends HTMLElement {
           e8.preventDefault();
           this.moveWord(k2 === "ArrowRight" ? 1 : -1, e8.shiftKey);
           this.onSelectionChange?.();
+          this.chromeSync?.();
           return;
         }
         if (k2 === "Backspace" || k2 === "Delete") {
           e8.preventDefault();
           this.deleteWord(k2 === "Delete" ? 1 : -1);
           this.onSelectionChange?.();
+          this.chromeSync?.();
           return;
         }
         if (k2.toLowerCase() === "c") {
@@ -7002,6 +13268,7 @@ var WordNextElement = class extends HTMLElement {
           e8.preventDefault();
           fn2();
           this.onSelectionChange?.();
+          this.chromeSync?.();
           return;
         }
       }
@@ -7011,6 +13278,7 @@ var WordNextElement = class extends HTMLElement {
         this.scrollTop += step;
         for (let n5 = 0; n5 < 20; n5++) this.moveCaret(k2 === "PageDown" ? "down" : "up", e8.shiftKey);
         this.onSelectionChange?.();
+        this.chromeSync?.();
         return;
       }
       if (ctrl && (k2 === "Home" || k2 === "End")) {
@@ -7022,6 +13290,7 @@ var WordNextElement = class extends HTMLElement {
         this.refresh();
         this.scrollCaretIntoView();
         this.onSelectionChange?.();
+        this.chromeSync?.();
         return;
       }
       if (k2 === "Tab") {
@@ -7035,12 +13304,14 @@ var WordNextElement = class extends HTMLElement {
           });
         } else if (!e8.shiftKey) this.type("	");
         this.onSelectionChange?.();
+        this.chromeSync?.();
         return;
       }
       if (k2 === "Escape" && this.hfEdit) {
         e8.preventDefault();
         this.exitHeaderFooter();
         this.onSelectionChange?.();
+        this.chromeSync?.();
         return;
       }
       const nav = {
@@ -7050,7 +13321,7 @@ var WordNextElement = class extends HTMLElement {
         ArrowDown: () => this.moveCaret("down", e8.shiftKey),
         Home: () => this.moveCaret("home", e8.shiftKey),
         End: () => this.moveCaret("end", e8.shiftKey),
-        // Ctrl+Enter = quebra de página (como no Word)
+        // Ctrl+Enter = quebra de página (como no app de referência)
         Enter: () => ctrl ? this.type("\f") : this.pressEnter(),
         Backspace: () => this.pressBackspace(),
         Delete: () => this.pressDelete()
@@ -7060,6 +13331,7 @@ var WordNextElement = class extends HTMLElement {
         e8.preventDefault();
         fn();
         this.onSelectionChange?.();
+        this.chromeSync?.();
       }
     });
   }
@@ -7115,26 +13387,59 @@ var WordNextElement = class extends HTMLElement {
   buildSpans(p3) {
     const st = this.styleOf(p3);
     const spans = p3.runs.map((r6) => {
-      if (r6.image) {
-        return {
-          text: r6.text || "\uFFFC",
-          variant: "regular",
-          sizePt: 11,
-          imageWidthTwips: r6.image.widthTwips,
-          imageHeightTwips: r6.image.heightTwips
-        };
-      }
-      let text2 = r6.text;
-      if (r6.props.allCaps || r6.props.smallCaps) text2 = text2.toUpperCase();
       const dd = this.docDefaults();
       const base = r6.props.szHalfPt !== void 0 ? r6.props.szHalfPt / 2 : st?.sizePt ?? (dd.run.szHalfPt !== void 0 ? dd.run.szHalfPt / 2 : 11);
       const size = r6.props.vertAlign ? base * 0.65 : base;
       const bold = r6.props.bold || (st?.bold ?? false);
       const italic = r6.props.italic || (st?.italic ?? false);
       const variant = bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
+      const family = r6.props.fontAscii ?? st?.fontAscii ?? dd.run.fontAscii;
+      if (r6.image) {
+        return {
+          text: r6.text || "\uFFFC",
+          family,
+          variant,
+          sizePt: size,
+          imageWidthTwips: r6.image.widthTwips,
+          imageHeightTwips: r6.image.heightTwips
+        };
+      }
+      if (r6.custom) {
+        const font = this.fonts.resolve(family, variant);
+        const measureText = (text3) => {
+          const chars = Array.from(text3);
+          let width = 0;
+          for (let i7 = 0; i7 < chars.length; i7++) {
+            const cp = chars[i7].codePointAt(0);
+            width += font.advanceTwips(cp, size);
+            const next = chars[i7 + 1]?.codePointAt(0);
+            if (next !== void 0) width += font.kernTwips(cp, next, size);
+          }
+          return width;
+        };
+        const renderer = this.inlineRenderers.get(r6.custom.type)?.renderer;
+        const fallbackText = renderer?.toText?.(r6.custom.data) ?? r6.custom.fallbackText;
+        const measured = renderer?.measure?.({
+          data: r6.custom.data,
+          fallbackText,
+          props: r6.props,
+          sizePt: size,
+          measureText
+        });
+        return {
+          text: "\uFFFC",
+          family,
+          variant,
+          sizePt: size,
+          imageWidthTwips: Math.max(1, measured?.widthTwips ?? measureText(fallbackText)),
+          imageHeightTwips: measured?.heightTwips ?? size * TWIPS_PER_PT
+        };
+      }
+      let text2 = r6.text;
+      if (r6.props.allCaps || r6.props.smallCaps) text2 = text2.toUpperCase();
       return {
         text: text2,
-        family: r6.props.fontAscii ?? st?.fontAscii ?? dd.run.fontAscii,
+        family,
         variant,
         sizePt: size,
         letterSpacingTwips: r6.props.charSpacingTwips
@@ -7246,6 +13551,15 @@ var WordNextElement = class extends HTMLElement {
     let pendingDropCap = null;
     let page = 0;
     let y3 = marginT;
+    const CONT_TILE_PX = 4e3;
+    const tileTwips = isPaged ? Infinity : CONT_TILE_PX / (PX_PER_TWIP * this.zoom);
+    const tileBottoms = [];
+    const contTileBreak = (need) => {
+      if (!isPaged && y3 > (page === 0 ? marginT : 0) && y3 + need > tileTwips) {
+        page++;
+        y3 = 0;
+      }
+    };
     const listCounters = [0, 0, 0];
     let prevWasList = false;
     const ROMANS = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"];
@@ -7287,10 +13601,12 @@ var WordNextElement = class extends HTMLElement {
         if (isPaged && y3 + tl.heightTwips > contentBottom && tl.heightTwips < contentBottom - marginT) {
           newPage();
         }
+        contTileBreak(tl.heightTwips);
         tl.page = page;
         tl.yTwips = y3;
         this.tableLayouts.push(tl);
         y3 += tl.heightTwips + 160;
+        tileBottoms[page] = y3;
       }
       const st = this.styleOf(p3);
       const outlineIndent = this.view === "outline" ? st ? 0 : 720 : 0;
@@ -7393,6 +13709,7 @@ var WordNextElement = class extends HTMLElement {
           fnReserved += noteCount * FN_LINE + (pageHadNotes ? 0 : FN_SEP);
           pageHadNotes = true;
         }
+        contTileBreak(lh);
         if (isPaged && y3 + lh > contentBottom - fnReserved) {
           breakColumn();
           const onNewPage = col === 0;
@@ -7454,6 +13771,7 @@ var WordNextElement = class extends HTMLElement {
           justifyExtraPerSpace: justifyExtra
         });
         y3 += lh;
+        if (!isPaged) tileBottoms[page] = y3;
         const fullText = spans.map((sp) => sp.text).join("");
         if (isPaged && rich.end > 0 && fullText[rich.end - 1] === "\f") {
           newPage();
@@ -7484,14 +13802,20 @@ var WordNextElement = class extends HTMLElement {
       });
     }
     this.pageCount = isPaged ? page + 1 : 1;
-    if (!isPaged) this.continuousHeight = y3 + 600;
+    if (!isPaged) {
+      this.continuousHeight = y3 + 600;
+      tileBottoms[page] = y3;
+      this.tileHeights = tileBottoms.map((b5, i7) => (b5 ?? 0) + (i7 === page ? 600 : 0));
+    } else {
+      this.tileHeights = [];
+    }
   }
   /** Substitui PAGE/NUMPAGES no texto de header/footer. */
   substField(text2, pageIdx) {
     return text2.replace(/\bPAGE\b/g, String(pageIdx + 1)).replace(/\bNUMPAGES\b/g, String(this.pageCount));
   }
   /** Renderiza cabeçalho/rodapé com layout real: runs formatados, alinhamento
-   *  do parágrafo, tabs centro/direita (default do Word) e campos por página. */
+   *  do parágrafo, tabs centro/direita (default do app de referência) e campos por página. */
   paintHf(ctx, scale, paras, originXTwips, topYTwips, widthTwips, pageIdx, color) {
     if (!this.fonts) return;
     const defaultTabs = [
@@ -7540,7 +13864,8 @@ var WordNextElement = class extends HTMLElement {
         for (const seg of line.segments) {
           const span = spans[seg.spanIndex];
           const run = runs[seg.spanIndex];
-          const txt = span.text.slice(seg.start, seg.end);
+          const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
+          const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
           if (!txt.trim()) continue;
           const fam = span.family?.split(" ")[0] === "Calibri" ? "Calibri" : "Aptos";
           const fontPx = deviceEmPt(span.sizePt) * TWIPS_PER_PT * scale;
@@ -7632,7 +13957,8 @@ var WordNextElement = class extends HTMLElement {
             for (const seg of line.segments) {
               const span = spans[seg.spanIndex];
               const run = p3.runs[seg.spanIndex];
-              const txt = span.text.slice(seg.start, seg.end);
+              const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
+              const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
               if (!txt) continue;
               pending.push({
                 row: ri,
@@ -7685,6 +14011,8 @@ var WordNextElement = class extends HTMLElement {
     return tl;
   }
   continuousHeight = 0;
+  /** Altura (twips) de cada tile no modo contínuo (Web/Rascunho). */
+  tileHeights = [];
   dropCapFloats = [];
   /** topo (twips) da banda do HF em edição — usado p/ desenhar o rótulo/borda. */
   hfRegionTopTwips = 0;
@@ -7867,6 +14195,7 @@ var WordNextElement = class extends HTMLElement {
     this.ensureVisiblePainted();
     this.positionProxy();
     this.onSelectionChange?.();
+    this.chromeSync?.();
   }
   /** Mantém a textarea-proxy JUNTO AO CARET: o browser rola o elemento
    *  focado para a vista ao digitar — se a proxy ficasse no fim do
@@ -7895,10 +14224,12 @@ var WordNextElement = class extends HTMLElement {
     const isPaged = this.view === "print" || this.view === "read";
     const widthT = this.view === "web" ? this.contentWidthTwips() + 1200 : s4.pageWidthTwips;
     const heightT = isPaged ? s4.pageHeightTwips : Math.max(this.continuousHeight, 3e3);
-    const count = isPaged ? this.pageCount : 1;
+    const count = isPaged ? this.pageCount : this.tileHeights.length;
     const cssOf = (i7) => {
       let w2 = widthT, h3 = heightT;
-      if (isPaged && this.hfEdit && this.savedBody) {
+      if (!isPaged) {
+        h3 = this.tileHeights[i7] ?? heightT;
+      } else if (isPaged && this.hfEdit && this.savedBody) {
         const sp = this.sectPrForSavedPage(i7);
         w2 = sp.pageWidthTwips;
         h3 = sp.pageHeightTwips;
@@ -7992,7 +14323,7 @@ var WordNextElement = class extends HTMLElement {
     const dpr = window.devicePixelRatio || 1;
     const active = filter ?? this.allocatedPages;
     if (active.size === 0) return;
-    const sel = normalizeRange(this.range());
+    const sel2 = normalizeRange(this.range());
     const hasSel = this.hasSelection();
     const pageBg = this.pageDark ? "#1e1e1e" : "#ffffff";
     const scales = [];
@@ -8038,7 +14369,7 @@ var WordNextElement = class extends HTMLElement {
         ctxA.setLineDash([]);
         ctxA.font = `600 ${9 * TWIPS_PER_PT * scale}px Aptos`;
         ctxA.fillStyle = this.pageDark ? "#9bc0ff" : "#2b579a";
-        const label = this.hfEdit.kind === "header" ? "Cabe\xE7alho" : "Rodap\xE9";
+        const label = this.hfEdit.kind === "header" ? "Header" : "Footer";
         ctxA.fillText(label, sp.marginLeftTwips * scale, (bandTop + 200) * scale);
         ctxA.restore();
       }
@@ -8047,7 +14378,7 @@ var WordNextElement = class extends HTMLElement {
       for (const line of pl.lines) {
         const pg = pgOf(line.page);
         const ctx = ctxs[pg];
-        if (ctx) this.paintLine(ctx, pl, line, scales[pg], sel, hasSel);
+        if (ctx) this.paintLine(ctx, pl, line, scales[pg], sel2, hasSel);
       }
     }
     const ink = this.pageDark ? "#e8eaed" : "#000";
@@ -8192,7 +14523,7 @@ var WordNextElement = class extends HTMLElement {
       }
     }
   }
-  paintLine(ctx, pl, line, scale, sel, hasSel) {
+  paintLine(ctx, pl, line, scale, sel2, hasSel) {
     const para = this.model.paragraphs[line.para];
     const st = this.styleOf(para);
     const effBorders = para.props.borders ?? st?.borders;
@@ -8257,9 +14588,9 @@ var WordNextElement = class extends HTMLElement {
         if (isLast) stroke(b5.bottom, x0, y1, x1, y1);
       }
     }
-    if (hasSel && line.para >= sel.start.para && line.para <= sel.end.para) {
-      const from = Math.max(line.rich.start, line.para === sel.start.para ? sel.start.offset : 0);
-      const to = Math.min(line.rich.end, line.para === sel.end.para ? sel.end.offset : line.rich.end);
+    if (hasSel && line.para >= sel2.start.para && line.para <= sel2.end.para) {
+      const from = Math.max(line.rich.start, line.para === sel2.start.para ? sel2.start.offset : 0);
+      const to = Math.min(line.rich.end, line.para === sel2.end.para ? sel2.end.offset : line.rich.end);
       if (to > from) {
         const x1 = this.caretX({ para: line.para, offset: from }, line);
         const x22 = this.caretX({ para: line.para, offset: to }, line);
@@ -8277,6 +14608,56 @@ var WordNextElement = class extends HTMLElement {
       const span = pl.spans[seg.spanIndex];
       const run = para.runs[seg.spanIndex];
       const props = run?.props;
+      if (run?.custom) {
+        const family2 = span.family?.split(" ")[0] === "Calibri" ? "Calibri" : "Aptos";
+        const fontPx2 = deviceEmPt(span.sizePt) * TWIPS_PER_PT * scale;
+        const variant2 = span.variant;
+        ctx.font = `${variant2 === "italic" || variant2 === "boldItalic" ? "italic " : ""}${variant2 === "bold" || variant2 === "boldItalic" ? "700" : "400"} ${fontPx2}px ${family2}`;
+        const ink = this.inkColor(props?.color ?? st?.color);
+        ctx.fillStyle = ink;
+        const globalStart2 = pl.spanCharStart[seg.spanIndex] + seg.start;
+        let widthTwips = 0;
+        for (let i7 = 0; i7 < seg.end - seg.start; i7++) {
+          widthTwips += pl.charAdvances[globalStart2 + i7];
+        }
+        const renderer = this.inlineRenderers.get(run.custom.type)?.renderer;
+        const fallbackText = renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText;
+        const font = this.fonts.resolve(span.family, variant2);
+        const measureText = (text2) => {
+          const chars = Array.from(text2);
+          let width = 0;
+          for (let i7 = 0; i7 < chars.length; i7++) {
+            const cp = chars[i7].codePointAt(0);
+            width += font.advanceTwips(cp, span.sizePt);
+            const next = chars[i7 + 1]?.codePointAt(0);
+            if (next !== void 0) width += font.kernTwips(cp, next, span.sizePt);
+          }
+          return width;
+        };
+        if (renderer?.draw) {
+          const drawContext = {
+            data: run.custom.data,
+            fallbackText,
+            props: run.props,
+            sizePt: span.sizePt,
+            measureText,
+            ctx,
+            xTwips: x3,
+            yTwips: line.yTwips,
+            baselineTwips: line.baselineTwips,
+            widthTwips,
+            heightTwips: line.heightTwips,
+            scale,
+            dark: this.pageDark,
+            color: ink
+          };
+          renderer.draw(drawContext);
+        } else {
+          ctx.fillText(fallbackText, x3 * scale, line.baselineTwips * scale);
+        }
+        x3 += widthTwips;
+        continue;
+      }
       if (run?.image) {
         const img = run.image;
         const bmp = this.bitmapFor(img);
@@ -8415,11 +14796,11 @@ var WordNextElement = class extends HTMLElement {
   /**
    * Gera um PDF do documento reaproveitando o MESMO layout do canvas
    * (layoutCache, tabelas, imagens). Cada glifo é posicionado exatamente onde o
-   * editor o desenha — inclusive o snap de 1/600" e a baseline do Word — de modo
+   * editor o desenha — inclusive o snap de 1/600" e a baseline do app de referência — de modo
    * que o PDF reproduz a página glifo a glifo.
    */
   async exportPdf() {
-    if (!this.model || !this.fonts) throw new Error("documento n\xE3o carregado");
+    if (!this.model || !this.fonts) throw new Error("document not loaded");
     await this.ensureImagesDecoded();
     const T2 = TWIPS_PER_PT;
     const doc = new PdfDocument({ compress: true });
@@ -8431,7 +14812,7 @@ var WordNextElement = class extends HTMLElement {
       if (!e8) {
         const fam = family?.split(" ")[0] === "Calibri" ? "Calibri" : "Aptos";
         const bytes = this.fontBytes[fam]?.[variant] ?? this.fontBytes["Aptos"]?.["regular"];
-        if (!bytes) throw new Error("fonte sem bytes para embutir no PDF");
+        if (!bytes) throw new Error("font has no bytes to embed in the PDF");
         e8 = doc.embedFont(`${fam}-${variant}`, bytes, {
           unitsPerEm: sf.metrics.unitsPerEm,
           ascender: sf.metrics.ascender,
@@ -8526,7 +14907,7 @@ var WordNextElement = class extends HTMLElement {
    * ficam para uma versão futura — o foco aqui é texto + paginação corretos.
    */
   exportXps() {
-    if (!this.model || !this.fonts) throw new Error("documento n\xE3o carregado");
+    if (!this.model || !this.fonts) throw new Error("document not loaded");
     const T2 = TWIPS_PER_PT;
     const pages = [];
     const total = Math.max(1, this.pageCount);
@@ -8552,7 +14933,8 @@ var WordNextElement = class extends HTMLElement {
         const span = pl.spans[seg.spanIndex];
         const run = runs[seg.spanIndex];
         if (!span) continue;
-        const txt = span.text.slice(seg.start, seg.end);
+        const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
+        const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
         if (!txt.trim()) continue;
         page.glyphs.push({
           text: txt,
@@ -8685,7 +15067,9 @@ var WordNextElement = class extends HTMLElement {
         for (const seg of line.segments) {
           const span = spans[seg.spanIndex];
           if (!span) continue;
-          const txt = span.text.slice(seg.start, seg.end);
+          const run = runs[seg.spanIndex];
+          const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
+          const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
           if (!txt.trim()) continue;
           page.glyphs.push({
             text: txt,
@@ -8808,6 +15192,28 @@ var WordNextElement = class extends HTMLElement {
       const span = pl.spans[seg.spanIndex];
       const run = para.runs[seg.spanIndex];
       const props = run?.props;
+      if (run?.custom) {
+        const globalStart2 = pl.spanCharStart[seg.spanIndex] + seg.start;
+        let widthTwips = 0;
+        for (let i7 = 0; i7 < seg.end - seg.start; i7++) {
+          widthTwips += pl.charAdvances[globalStart2 + i7];
+        }
+        const renderer = this.inlineRenderers.get(run.custom.type)?.renderer;
+        const fallbackText = renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText;
+        this.pdfGlyphsAt(
+          page,
+          emb,
+          span.family,
+          span.variant,
+          span.sizePt,
+          this.pdfColor(props?.color ?? st?.color),
+          fallbackText,
+          x3,
+          line.baselineTwips
+        );
+        x3 += widthTwips;
+        continue;
+      }
       if (run?.image) {
         const img = run.image;
         this.pdfImage(doc, page, img, x3 / T2, (line.baselineTwips - img.heightTwips) / T2, img.widthTwips / T2, img.heightTwips / T2);
@@ -8996,7 +15402,7 @@ var WordNextElement = class extends HTMLElement {
   }
   /**
    * Embute (cacheado) e desenha uma imagem. Reencoda como JPEG e reamostra ao
-   * tamanho EXIBIDO (~150 DPI), como o Word faz — evita PDFs gigantes (RGBA cru
+   * tamanho EXIBIDO (~150 DPI), como o app de referência faz — evita PDFs gigantes (RGBA cru
    * de fotos em 4K explodia para dezenas de MB). Alpha é achatado em branco.
    */
   pdfImage(doc, page, img, xPt, yTopPt, wPt, hPt) {
@@ -9031,838 +15437,1431 @@ function dataUrlToBytes(dataUrl) {
   for (let i7 = 0; i7 < bin.length; i7++) out[i7] = bin.charCodeAt(i7);
   return out;
 }
-customElements.define("word-next", WordNextElement);
+customElements.define("universal-write", UniversalWriteElement);
 
-// ../../node_modules/tslib/tslib.es6.mjs
-function __decorate(decorators, target, key, desc) {
-  var c4 = arguments.length, r6 = c4 < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d3;
-  if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r6 = Reflect.decorate(decorators, target, key, desc);
-  else for (var i7 = decorators.length - 1; i7 >= 0; i7--) if (d3 = decorators[i7]) r6 = (c4 < 3 ? d3(r6) : c4 > 3 ? d3(target, key, r6) : d3(target, key)) || r6;
-  return c4 > 3 && r6 && Object.defineProperty(target, key, r6), r6;
+// ../compare/src/myers.ts
+function myersDiff(n5, m2, eq) {
+  if (n5 === 0 && m2 === 0) return [];
+  if (n5 === 0) {
+    const out = [];
+    for (let j = 0; j < m2; j++) {
+      out.push({ op: "insert", aIndex: -1, bIndex: j });
+    }
+    return out;
+  }
+  if (m2 === 0) {
+    const out = [];
+    for (let i7 = 0; i7 < n5; i7++) {
+      out.push({ op: "delete", aIndex: i7, bIndex: -1 });
+    }
+    return out;
+  }
+  const max2 = n5 + m2;
+  const size = 2 * max2 + 1;
+  const trace = [];
+  const V2 = new Int32Array(size);
+  outer: for (let d3 = 0; d3 <= max2; d3++) {
+    trace.push(new Int32Array(V2));
+    for (let k2 = -d3; k2 <= d3; k2 += 2) {
+      const kIdx = k2 + max2;
+      let x4;
+      if (k2 === -d3) {
+        x4 = V2[kIdx + 1] ?? 0;
+      } else if (k2 === d3) {
+        x4 = (V2[kIdx - 1] ?? 0) + 1;
+      } else {
+        const down = V2[kIdx + 1] ?? 0;
+        const right = (V2[kIdx - 1] ?? 0) + 1;
+        x4 = down > right ? down : right;
+      }
+      let y4 = x4 - k2;
+      while (x4 < n5 && y4 < m2 && eq(x4, y4)) {
+        x4++;
+        y4++;
+      }
+      V2[kIdx] = x4;
+      if (x4 >= n5 && y4 >= m2) {
+        break outer;
+      }
+    }
+  }
+  const ops = [];
+  let x3 = n5;
+  let y3 = m2;
+  for (let d3 = trace.length - 1; d3 >= 0; d3--) {
+    const Vd = trace[d3];
+    if (!Vd) break;
+    const k2 = x3 - y3;
+    const kIdx = k2 + max2;
+    let prevK;
+    if (k2 === -d3) {
+      prevK = k2 + 1;
+    } else if (k2 === d3) {
+      prevK = k2 - 1;
+    } else {
+      const down = Vd[kIdx + 1] ?? 0;
+      const right = Vd[kIdx - 1] ?? 0;
+      prevK = down > right ? k2 + 1 : k2 - 1;
+    }
+    const prevX = Vd[prevK + max2] ?? 0;
+    const prevY = prevX - prevK;
+    while (x3 > prevX && y3 > prevY) {
+      ops.push({ op: "equal", aIndex: x3 - 1, bIndex: y3 - 1 });
+      x3--;
+      y3--;
+    }
+    if (d3 > 0) {
+      if (x3 === prevX) {
+        ops.push({ op: "insert", aIndex: -1, bIndex: y3 - 1 });
+      } else {
+        ops.push({ op: "delete", aIndex: x3 - 1, bIndex: -1 });
+      }
+      x3 = prevX;
+      y3 = prevY;
+    }
+  }
+  ops.reverse();
+  return ops;
 }
 
-// ../../node_modules/@lit/reactive-element/css-tag.js
-var t = globalThis;
-var e = t.ShadowRoot && (void 0 === t.ShadyCSS || t.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
-var s = /* @__PURE__ */ Symbol();
-var o = /* @__PURE__ */ new WeakMap();
-var n = class {
-  constructor(t5, e8, o8) {
-    if (this._$cssResult$ = true, o8 !== s) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
-    this.cssText = t5, this.t = e8;
-  }
-  get styleSheet() {
-    let t5 = this.o;
-    const s4 = this.t;
-    if (e && void 0 === t5) {
-      const e8 = void 0 !== s4 && 1 === s4.length;
-      e8 && (t5 = o.get(s4)), void 0 === t5 && ((this.o = t5 = new CSSStyleSheet()).replaceSync(this.cssText), e8 && o.set(s4, t5));
+// ../compare/src/histogram.ts
+function histogramDiff(n5, m2, eq, getKeyA, getKeyB) {
+  if (n5 === 0 && m2 === 0) return [];
+  if (n5 === 0) {
+    const out = [];
+    for (let j = 0; j < m2; j++) {
+      out.push({ op: "insert", aIndex: -1, bIndex: j });
     }
-    return t5;
+    return out;
   }
-  toString() {
-    return this.cssText;
-  }
-};
-var r = (t5) => new n("string" == typeof t5 ? t5 : t5 + "", void 0, s);
-var i2 = (t5, ...e8) => {
-  const o8 = 1 === t5.length ? t5[0] : e8.reduce((e9, s4, o9) => e9 + ((t6) => {
-    if (true === t6._$cssResult$) return t6.cssText;
-    if ("number" == typeof t6) return t6;
-    throw Error("Value passed to 'css' function must be a 'css' function result: " + t6 + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
-  })(s4) + t5[o9 + 1], t5[0]);
-  return new n(o8, t5, s);
-};
-var S = (s4, o8) => {
-  if (e) s4.adoptedStyleSheets = o8.map((t5) => t5 instanceof CSSStyleSheet ? t5 : t5.styleSheet);
-  else for (const e8 of o8) {
-    const o9 = document.createElement("style"), n5 = t.litNonce;
-    void 0 !== n5 && o9.setAttribute("nonce", n5), o9.textContent = e8.cssText, s4.appendChild(o9);
-  }
-};
-var c = e ? (t5) => t5 : (t5) => t5 instanceof CSSStyleSheet ? ((t6) => {
-  let e8 = "";
-  for (const s4 of t6.cssRules) e8 += s4.cssText;
-  return r(e8);
-})(t5) : t5;
-
-// ../../node_modules/@lit/reactive-element/reactive-element.js
-var { is: i3, defineProperty: e2, getOwnPropertyDescriptor: h, getOwnPropertyNames: r2, getOwnPropertySymbols: o2, getPrototypeOf: n2 } = Object;
-var a = globalThis;
-var c2 = a.trustedTypes;
-var l = c2 ? c2.emptyScript : "";
-var p = a.reactiveElementPolyfillSupport;
-var d = (t5, s4) => t5;
-var u = { toAttribute(t5, s4) {
-  switch (s4) {
-    case Boolean:
-      t5 = t5 ? l : null;
-      break;
-    case Object:
-    case Array:
-      t5 = null == t5 ? t5 : JSON.stringify(t5);
-  }
-  return t5;
-}, fromAttribute(t5, s4) {
-  let i7 = t5;
-  switch (s4) {
-    case Boolean:
-      i7 = null !== t5;
-      break;
-    case Number:
-      i7 = null === t5 ? null : Number(t5);
-      break;
-    case Object:
-    case Array:
-      try {
-        i7 = JSON.parse(t5);
-      } catch (t6) {
-        i7 = null;
-      }
-  }
-  return i7;
-} };
-var f = (t5, s4) => !i3(t5, s4);
-var b = { attribute: true, type: String, converter: u, reflect: false, useDefault: false, hasChanged: f };
-Symbol.metadata ??= /* @__PURE__ */ Symbol("metadata"), a.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
-var y = class extends HTMLElement {
-  static addInitializer(t5) {
-    this._$Ei(), (this.l ??= []).push(t5);
-  }
-  static get observedAttributes() {
-    return this.finalize(), this._$Eh && [...this._$Eh.keys()];
-  }
-  static createProperty(t5, s4 = b) {
-    if (s4.state && (s4.attribute = false), this._$Ei(), this.prototype.hasOwnProperty(t5) && ((s4 = Object.create(s4)).wrapped = true), this.elementProperties.set(t5, s4), !s4.noAccessor) {
-      const i7 = /* @__PURE__ */ Symbol(), h3 = this.getPropertyDescriptor(t5, i7, s4);
-      void 0 !== h3 && e2(this.prototype, t5, h3);
+  if (m2 === 0) {
+    const out = [];
+    for (let i7 = 0; i7 < n5; i7++) {
+      out.push({ op: "delete", aIndex: i7, bIndex: -1 });
     }
+    return out;
   }
-  static getPropertyDescriptor(t5, s4, i7) {
-    const { get: e8, set: r6 } = h(this.prototype, t5) ?? { get() {
-      return this[s4];
-    }, set(t6) {
-      this[s4] = t6;
-    } };
-    return { get: e8, set(s5) {
-      const h3 = e8?.call(this);
-      r6?.call(this, s5), this.requestUpdate(t5, h3, i7);
-    }, configurable: true, enumerable: true };
-  }
-  static getPropertyOptions(t5) {
-    return this.elementProperties.get(t5) ?? b;
-  }
-  static _$Ei() {
-    if (this.hasOwnProperty(d("elementProperties"))) return;
-    const t5 = n2(this);
-    t5.finalize(), void 0 !== t5.l && (this.l = [...t5.l]), this.elementProperties = new Map(t5.elementProperties);
-  }
-  static finalize() {
-    if (this.hasOwnProperty(d("finalized"))) return;
-    if (this.finalized = true, this._$Ei(), this.hasOwnProperty(d("properties"))) {
-      const t6 = this.properties, s4 = [...r2(t6), ...o2(t6)];
-      for (const i7 of s4) this.createProperty(i7, t6[i7]);
-    }
-    const t5 = this[Symbol.metadata];
-    if (null !== t5) {
-      const s4 = litPropertyMetadata.get(t5);
-      if (void 0 !== s4) for (const [t6, i7] of s4) this.elementProperties.set(t6, i7);
-    }
-    this._$Eh = /* @__PURE__ */ new Map();
-    for (const [t6, s4] of this.elementProperties) {
-      const i7 = this._$Eu(t6, s4);
-      void 0 !== i7 && this._$Eh.set(i7, t6);
-    }
-    this.elementStyles = this.finalizeStyles(this.styles);
-  }
-  static finalizeStyles(s4) {
-    const i7 = [];
-    if (Array.isArray(s4)) {
-      const e8 = new Set(s4.flat(1 / 0).reverse());
-      for (const s5 of e8) i7.unshift(c(s5));
-    } else void 0 !== s4 && i7.push(c(s4));
-    return i7;
-  }
-  static _$Eu(t5, s4) {
-    const i7 = s4.attribute;
-    return false === i7 ? void 0 : "string" == typeof i7 ? i7 : "string" == typeof t5 ? t5.toLowerCase() : void 0;
-  }
-  constructor() {
-    super(), this._$Ep = void 0, this.isUpdatePending = false, this.hasUpdated = false, this._$Em = null, this._$Ev();
-  }
-  _$Ev() {
-    this._$ES = new Promise((t5) => this.enableUpdating = t5), this._$AL = /* @__PURE__ */ new Map(), this._$E_(), this.requestUpdate(), this.constructor.l?.forEach((t5) => t5(this));
-  }
-  addController(t5) {
-    (this._$EO ??= /* @__PURE__ */ new Set()).add(t5), void 0 !== this.renderRoot && this.isConnected && t5.hostConnected?.();
-  }
-  removeController(t5) {
-    this._$EO?.delete(t5);
-  }
-  _$E_() {
-    const t5 = /* @__PURE__ */ new Map(), s4 = this.constructor.elementProperties;
-    for (const i7 of s4.keys()) this.hasOwnProperty(i7) && (t5.set(i7, this[i7]), delete this[i7]);
-    t5.size > 0 && (this._$Ep = t5);
-  }
-  createRenderRoot() {
-    const t5 = this.shadowRoot ?? this.attachShadow(this.constructor.shadowRootOptions);
-    return S(t5, this.constructor.elementStyles), t5;
-  }
-  connectedCallback() {
-    this.renderRoot ??= this.createRenderRoot(), this.enableUpdating(true), this._$EO?.forEach((t5) => t5.hostConnected?.());
-  }
-  enableUpdating(t5) {
-  }
-  disconnectedCallback() {
-    this._$EO?.forEach((t5) => t5.hostDisconnected?.());
-  }
-  attributeChangedCallback(t5, s4, i7) {
-    this._$AK(t5, i7);
-  }
-  _$ET(t5, s4) {
-    const i7 = this.constructor.elementProperties.get(t5), e8 = this.constructor._$Eu(t5, i7);
-    if (void 0 !== e8 && true === i7.reflect) {
-      const h3 = (void 0 !== i7.converter?.toAttribute ? i7.converter : u).toAttribute(s4, i7.type);
-      this._$Em = t5, null == h3 ? this.removeAttribute(e8) : this.setAttribute(e8, h3), this._$Em = null;
-    }
-  }
-  _$AK(t5, s4) {
-    const i7 = this.constructor, e8 = i7._$Eh.get(t5);
-    if (void 0 !== e8 && this._$Em !== e8) {
-      const t6 = i7.getPropertyOptions(e8), h3 = "function" == typeof t6.converter ? { fromAttribute: t6.converter } : void 0 !== t6.converter?.fromAttribute ? t6.converter : u;
-      this._$Em = e8;
-      const r6 = h3.fromAttribute(s4, t6.type);
-      this[e8] = r6 ?? this._$Ej?.get(e8) ?? r6, this._$Em = null;
-    }
-  }
-  requestUpdate(t5, s4, i7, e8 = false, h3) {
-    if (void 0 !== t5) {
-      const r6 = this.constructor;
-      if (false === e8 && (h3 = this[t5]), i7 ??= r6.getPropertyOptions(t5), !((i7.hasChanged ?? f)(h3, s4) || i7.useDefault && i7.reflect && h3 === this._$Ej?.get(t5) && !this.hasAttribute(r6._$Eu(t5, i7)))) return;
-      this.C(t5, s4, i7);
-    }
-    false === this.isUpdatePending && (this._$ES = this._$EP());
-  }
-  C(t5, s4, { useDefault: i7, reflect: e8, wrapped: h3 }, r6) {
-    i7 && !(this._$Ej ??= /* @__PURE__ */ new Map()).has(t5) && (this._$Ej.set(t5, r6 ?? s4 ?? this[t5]), true !== h3 || void 0 !== r6) || (this._$AL.has(t5) || (this.hasUpdated || i7 || (s4 = void 0), this._$AL.set(t5, s4)), true === e8 && this._$Em !== t5 && (this._$Eq ??= /* @__PURE__ */ new Set()).add(t5));
-  }
-  async _$EP() {
-    this.isUpdatePending = true;
-    try {
-      await this._$ES;
-    } catch (t6) {
-      Promise.reject(t6);
-    }
-    const t5 = this.scheduleUpdate();
-    return null != t5 && await t5, !this.isUpdatePending;
-  }
-  scheduleUpdate() {
-    return this.performUpdate();
-  }
-  performUpdate() {
-    if (!this.isUpdatePending) return;
-    if (!this.hasUpdated) {
-      if (this.renderRoot ??= this.createRenderRoot(), this._$Ep) {
-        for (const [t7, s5] of this._$Ep) this[t7] = s5;
-        this._$Ep = void 0;
-      }
-      const t6 = this.constructor.elementProperties;
-      if (t6.size > 0) for (const [s5, i7] of t6) {
-        const { wrapped: t7 } = i7, e8 = this[s5];
-        true !== t7 || this._$AL.has(s5) || void 0 === e8 || this.C(s5, void 0, i7, e8);
-      }
-    }
-    let t5 = false;
-    const s4 = this._$AL;
-    try {
-      t5 = this.shouldUpdate(s4), t5 ? (this.willUpdate(s4), this._$EO?.forEach((t6) => t6.hostUpdate?.()), this.update(s4)) : this._$EM();
-    } catch (s5) {
-      throw t5 = false, this._$EM(), s5;
-    }
-    t5 && this._$AE(s4);
-  }
-  willUpdate(t5) {
-  }
-  _$AE(t5) {
-    this._$EO?.forEach((t6) => t6.hostUpdated?.()), this.hasUpdated || (this.hasUpdated = true, this.firstUpdated(t5)), this.updated(t5);
-  }
-  _$EM() {
-    this._$AL = /* @__PURE__ */ new Map(), this.isUpdatePending = false;
-  }
-  get updateComplete() {
-    return this.getUpdateComplete();
-  }
-  getUpdateComplete() {
-    return this._$ES;
-  }
-  shouldUpdate(t5) {
-    return true;
-  }
-  update(t5) {
-    this._$Eq &&= this._$Eq.forEach((t6) => this._$ET(t6, this[t6])), this._$EM();
-  }
-  updated(t5) {
-  }
-  firstUpdated(t5) {
-  }
-};
-y.elementStyles = [], y.shadowRootOptions = { mode: "open" }, y[d("elementProperties")] = /* @__PURE__ */ new Map(), y[d("finalized")] = /* @__PURE__ */ new Map(), p?.({ ReactiveElement: y }), (a.reactiveElementVersions ??= []).push("2.1.2");
-
-// ../../node_modules/lit-html/lit-html.js
-var t2 = globalThis;
-var i4 = (t5) => t5;
-var s2 = t2.trustedTypes;
-var e3 = s2 ? s2.createPolicy("lit-html", { createHTML: (t5) => t5 }) : void 0;
-var h2 = "$lit$";
-var o3 = `lit$${Math.random().toFixed(9).slice(2)}$`;
-var n3 = "?" + o3;
-var r3 = `<${n3}>`;
-var l2 = document;
-var c3 = () => l2.createComment("");
-var a2 = (t5) => null === t5 || "object" != typeof t5 && "function" != typeof t5;
-var u2 = Array.isArray;
-var d2 = (t5) => u2(t5) || "function" == typeof t5?.[Symbol.iterator];
-var f2 = "[ 	\n\f\r]";
-var v = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g;
-var _ = /-->/g;
-var m = />/g;
-var p2 = RegExp(`>|${f2}(?:([^\\s"'>=/]+)(${f2}*=${f2}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`, "g");
-var g = /'/g;
-var $ = /"/g;
-var y2 = /^(?:script|style|textarea|title)$/i;
-var x2 = (t5) => (i7, ...s4) => ({ _$litType$: t5, strings: i7, values: s4 });
-var b3 = x2(1);
-var w = x2(2);
-var T = x2(3);
-var E = /* @__PURE__ */ Symbol.for("lit-noChange");
-var A = /* @__PURE__ */ Symbol.for("lit-nothing");
-var C = /* @__PURE__ */ new WeakMap();
-var P = l2.createTreeWalker(l2, 129);
-function V(t5, i7) {
-  if (!u2(t5) || !t5.hasOwnProperty("raw")) throw Error("invalid template strings array");
-  return void 0 !== e3 ? e3.createHTML(i7) : i7;
+  const ops = [];
+  recurse(0, n5, 0, m2, eq, getKeyA, getKeyB, ops);
+  return ops;
 }
-var N = (t5, i7) => {
-  const s4 = t5.length - 1, e8 = [];
-  let n5, l3 = 2 === i7 ? "<svg>" : 3 === i7 ? "<math>" : "", c4 = v;
-  for (let i8 = 0; i8 < s4; i8++) {
-    const s5 = t5[i8];
-    let a3, u3, d3 = -1, f3 = 0;
-    for (; f3 < s5.length && (c4.lastIndex = f3, u3 = c4.exec(s5), null !== u3); ) f3 = c4.lastIndex, c4 === v ? "!--" === u3[1] ? c4 = _ : void 0 !== u3[1] ? c4 = m : void 0 !== u3[2] ? (y2.test(u3[2]) && (n5 = RegExp("</" + u3[2], "g")), c4 = p2) : void 0 !== u3[3] && (c4 = p2) : c4 === p2 ? ">" === u3[0] ? (c4 = n5 ?? v, d3 = -1) : void 0 === u3[1] ? d3 = -2 : (d3 = c4.lastIndex - u3[2].length, a3 = u3[1], c4 = void 0 === u3[3] ? p2 : '"' === u3[3] ? $ : g) : c4 === $ || c4 === g ? c4 = p2 : c4 === _ || c4 === m ? c4 = v : (c4 = p2, n5 = void 0);
-    const x3 = c4 === p2 && t5[i8 + 1].startsWith("/>") ? " " : "";
-    l3 += c4 === v ? s5 + r3 : d3 >= 0 ? (e8.push(a3), s5.slice(0, d3) + h2 + s5.slice(d3) + o3 + x3) : s5 + o3 + (-2 === d3 ? i8 : x3);
-  }
-  return [V(t5, l3 + (t5[s4] || "<?>") + (2 === i7 ? "</svg>" : 3 === i7 ? "</math>" : "")), e8];
-};
-var S2 = class _S {
-  constructor({ strings: t5, _$litType$: i7 }, e8) {
-    let r6;
-    this.parts = [];
-    let l3 = 0, a3 = 0;
-    const u3 = t5.length - 1, d3 = this.parts, [f3, v2] = N(t5, i7);
-    if (this.el = _S.createElement(f3, e8), P.currentNode = this.el.content, 2 === i7 || 3 === i7) {
-      const t6 = this.el.content.firstChild;
-      t6.replaceWith(...t6.childNodes);
+function recurse(a0, a1, b0, b1, eq, getKeyA, getKeyB, out) {
+  if (a0 >= a1 && b0 >= b1) return;
+  if (a0 >= a1) {
+    for (let j = b0; j < b1; j++) {
+      out.push({ op: "insert", aIndex: -1, bIndex: j });
     }
-    for (; null !== (r6 = P.nextNode()) && d3.length < u3; ) {
-      if (1 === r6.nodeType) {
-        if (r6.hasAttributes()) for (const t6 of r6.getAttributeNames()) if (t6.endsWith(h2)) {
-          const i8 = v2[a3++], s4 = r6.getAttribute(t6).split(o3), e9 = /([.?@])?(.*)/.exec(i8);
-          d3.push({ type: 1, index: l3, name: e9[2], strings: s4, ctor: "." === e9[1] ? I : "?" === e9[1] ? L : "@" === e9[1] ? z : H }), r6.removeAttribute(t6);
-        } else t6.startsWith(o3) && (d3.push({ type: 6, index: l3 }), r6.removeAttribute(t6));
-        if (y2.test(r6.tagName)) {
-          const t6 = r6.textContent.split(o3), i8 = t6.length - 1;
-          if (i8 > 0) {
-            r6.textContent = s2 ? s2.emptyScript : "";
-            for (let s4 = 0; s4 < i8; s4++) r6.append(t6[s4], c3()), P.nextNode(), d3.push({ type: 2, index: ++l3 });
-            r6.append(t6[i8], c3());
+    return;
+  }
+  if (b0 >= b1) {
+    for (let i7 = a0; i7 < a1; i7++) {
+      out.push({ op: "delete", aIndex: i7, bIndex: -1 });
+    }
+    return;
+  }
+  const histA = /* @__PURE__ */ new Map();
+  for (let i7 = a0; i7 < a1; i7++) {
+    const k2 = getKeyA(i7);
+    const bucket = histA.get(k2);
+    if (bucket) {
+      bucket.push(i7);
+    } else {
+      histA.set(k2, [i7]);
+    }
+  }
+  let bestCount = Number.POSITIVE_INFINITY;
+  let bestSpan = -1;
+  let bestShift = Number.POSITIVE_INFINITY;
+  let bestAL = -1;
+  let bestAR = -1;
+  let bestBL = -1;
+  for (let j = b0; j < b1; j++) {
+    const k2 = getKeyB(j);
+    const bucket = histA.get(k2);
+    if (!bucket) continue;
+    const count = bucket.length;
+    for (const aIdx of bucket) {
+      if (!eq(aIdx, j)) continue;
+      let aL = aIdx;
+      let bL = j;
+      while (aL > a0 && bL > b0 && eq(aL - 1, bL - 1)) {
+        aL--;
+        bL--;
+      }
+      let aR = aIdx + 1;
+      let bR = j + 1;
+      while (aR < a1 && bR < b1 && eq(aR, bR)) {
+        aR++;
+        bR++;
+      }
+      const span = aR - aL;
+      const shift = aL > bL ? aL - bL : bL - aL;
+      let better = false;
+      if (count < bestCount) {
+        better = true;
+      } else if (count === bestCount) {
+        if (span > bestSpan) {
+          better = true;
+        } else if (span === bestSpan) {
+          if (shift < bestShift) {
+            better = true;
+          } else if (shift === bestShift) {
+            if (bL < bestBL) {
+              better = true;
+            } else if (bL === bestBL && aL < bestAL) {
+              better = true;
+            }
           }
         }
-      } else if (8 === r6.nodeType) if (r6.data === n3) d3.push({ type: 2, index: l3 });
-      else {
-        let t6 = -1;
-        for (; -1 !== (t6 = r6.data.indexOf(o3, t6 + 1)); ) d3.push({ type: 7, index: l3 }), t6 += o3.length - 1;
       }
-      l3++;
+      if (better) {
+        bestCount = count;
+        bestSpan = span;
+        bestShift = shift;
+        bestAL = aL;
+        bestAR = aR;
+        bestBL = bL;
+      }
     }
   }
-  static createElement(t5, i7) {
-    const s4 = l2.createElement("template");
-    return s4.innerHTML = t5, s4;
+  if (bestAL === -1) {
+    const subOps = myersDiff(a1 - a0, b1 - b0, (i7, j) => eq(a0 + i7, b0 + j));
+    for (const op of subOps) {
+      out.push({
+        op: op.op,
+        aIndex: op.aIndex >= 0 ? op.aIndex + a0 : -1,
+        bIndex: op.bIndex >= 0 ? op.bIndex + b0 : -1
+      });
+    }
+    return;
   }
-};
-function M(t5, i7, s4 = t5, e8) {
-  if (i7 === E) return i7;
-  let h3 = void 0 !== e8 ? s4._$Co?.[e8] : s4._$Cl;
-  const o8 = a2(i7) ? void 0 : i7._$litDirective$;
-  return h3?.constructor !== o8 && (h3?._$AO?.(false), void 0 === o8 ? h3 = void 0 : (h3 = new o8(t5), h3._$AT(t5, s4, e8)), void 0 !== e8 ? (s4._$Co ??= [])[e8] = h3 : s4._$Cl = h3), void 0 !== h3 && (i7 = M(t5, h3._$AS(t5, i7.values), h3, e8)), i7;
+  const bRight = bestBL + (bestAR - bestAL);
+  recurse(a0, bestAL, b0, bestBL, eq, getKeyA, getKeyB, out);
+  for (let off = 0; off < bestAR - bestAL; off++) {
+    out.push({ op: "equal", aIndex: bestAL + off, bIndex: bestBL + off });
+  }
+  recurse(bestAR, a1, bRight, b1, eq, getKeyA, getKeyB, out);
 }
-var R = class {
-  constructor(t5, i7) {
-    this._$AV = [], this._$AN = void 0, this._$AD = t5, this._$AM = i7;
-  }
-  get parentNode() {
-    return this._$AM.parentNode;
-  }
-  get _$AU() {
-    return this._$AM._$AU;
-  }
-  u(t5) {
-    const { el: { content: i7 }, parts: s4 } = this._$AD, e8 = (t5?.creationScope ?? l2).importNode(i7, true);
-    P.currentNode = e8;
-    let h3 = P.nextNode(), o8 = 0, n5 = 0, r6 = s4[0];
-    for (; void 0 !== r6; ) {
-      if (o8 === r6.index) {
-        let i8;
-        2 === r6.type ? i8 = new k(h3, h3.nextSibling, this, t5) : 1 === r6.type ? i8 = new r6.ctor(h3, r6.name, r6.strings, this, t5) : 6 === r6.type && (i8 = new Z(h3, this, t5)), this._$AV.push(i8), r6 = s4[++n5];
-      }
-      o8 !== r6?.index && (h3 = P.nextNode(), o8++);
-    }
-    return P.currentNode = l2, e8;
-  }
-  p(t5) {
-    let i7 = 0;
-    for (const s4 of this._$AV) void 0 !== s4 && (void 0 !== s4.strings ? (s4._$AI(t5, s4, i7), i7 += s4.strings.length - 2) : s4._$AI(t5[i7])), i7++;
-  }
-};
-var k = class _k {
-  get _$AU() {
-    return this._$AM?._$AU ?? this._$Cv;
-  }
-  constructor(t5, i7, s4, e8) {
-    this.type = 2, this._$AH = A, this._$AN = void 0, this._$AA = t5, this._$AB = i7, this._$AM = s4, this.options = e8, this._$Cv = e8?.isConnected ?? true;
-  }
-  get parentNode() {
-    let t5 = this._$AA.parentNode;
-    const i7 = this._$AM;
-    return void 0 !== i7 && 11 === t5?.nodeType && (t5 = i7.parentNode), t5;
-  }
-  get startNode() {
-    return this._$AA;
-  }
-  get endNode() {
-    return this._$AB;
-  }
-  _$AI(t5, i7 = this) {
-    t5 = M(this, t5, i7), a2(t5) ? t5 === A || null == t5 || "" === t5 ? (this._$AH !== A && this._$AR(), this._$AH = A) : t5 !== this._$AH && t5 !== E && this._(t5) : void 0 !== t5._$litType$ ? this.$(t5) : void 0 !== t5.nodeType ? this.T(t5) : d2(t5) ? this.k(t5) : this._(t5);
-  }
-  O(t5) {
-    return this._$AA.parentNode.insertBefore(t5, this._$AB);
-  }
-  T(t5) {
-    this._$AH !== t5 && (this._$AR(), this._$AH = this.O(t5));
-  }
-  _(t5) {
-    this._$AH !== A && a2(this._$AH) ? this._$AA.nextSibling.data = t5 : this.T(l2.createTextNode(t5)), this._$AH = t5;
-  }
-  $(t5) {
-    const { values: i7, _$litType$: s4 } = t5, e8 = "number" == typeof s4 ? this._$AC(t5) : (void 0 === s4.el && (s4.el = S2.createElement(V(s4.h, s4.h[0]), this.options)), s4);
-    if (this._$AH?._$AD === e8) this._$AH.p(i7);
-    else {
-      const t6 = new R(e8, this), s5 = t6.u(this.options);
-      t6.p(i7), this.T(s5), this._$AH = t6;
-    }
-  }
-  _$AC(t5) {
-    let i7 = C.get(t5.strings);
-    return void 0 === i7 && C.set(t5.strings, i7 = new S2(t5)), i7;
-  }
-  k(t5) {
-    u2(this._$AH) || (this._$AH = [], this._$AR());
-    const i7 = this._$AH;
-    let s4, e8 = 0;
-    for (const h3 of t5) e8 === i7.length ? i7.push(s4 = new _k(this.O(c3()), this.O(c3()), this, this.options)) : s4 = i7[e8], s4._$AI(h3), e8++;
-    e8 < i7.length && (this._$AR(s4 && s4._$AB.nextSibling, e8), i7.length = e8);
-  }
-  _$AR(t5 = this._$AA.nextSibling, s4) {
-    for (this._$AP?.(false, true, s4); t5 !== this._$AB; ) {
-      const s5 = i4(t5).nextSibling;
-      i4(t5).remove(), t5 = s5;
-    }
-  }
-  setConnected(t5) {
-    void 0 === this._$AM && (this._$Cv = t5, this._$AP?.(t5));
-  }
-};
-var H = class {
-  get tagName() {
-    return this.element.tagName;
-  }
-  get _$AU() {
-    return this._$AM._$AU;
-  }
-  constructor(t5, i7, s4, e8, h3) {
-    this.type = 1, this._$AH = A, this._$AN = void 0, this.element = t5, this.name = i7, this._$AM = e8, this.options = h3, s4.length > 2 || "" !== s4[0] || "" !== s4[1] ? (this._$AH = Array(s4.length - 1).fill(new String()), this.strings = s4) : this._$AH = A;
-  }
-  _$AI(t5, i7 = this, s4, e8) {
-    const h3 = this.strings;
-    let o8 = false;
-    if (void 0 === h3) t5 = M(this, t5, i7, 0), o8 = !a2(t5) || t5 !== this._$AH && t5 !== E, o8 && (this._$AH = t5);
-    else {
-      const e9 = t5;
-      let n5, r6;
-      for (t5 = h3[0], n5 = 0; n5 < h3.length - 1; n5++) r6 = M(this, e9[s4 + n5], i7, n5), r6 === E && (r6 = this._$AH[n5]), o8 ||= !a2(r6) || r6 !== this._$AH[n5], r6 === A ? t5 = A : t5 !== A && (t5 += (r6 ?? "") + h3[n5 + 1]), this._$AH[n5] = r6;
-    }
-    o8 && !e8 && this.j(t5);
-  }
-  j(t5) {
-    t5 === A ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t5 ?? "");
-  }
-};
-var I = class extends H {
-  constructor() {
-    super(...arguments), this.type = 3;
-  }
-  j(t5) {
-    this.element[this.name] = t5 === A ? void 0 : t5;
-  }
-};
-var L = class extends H {
-  constructor() {
-    super(...arguments), this.type = 4;
-  }
-  j(t5) {
-    this.element.toggleAttribute(this.name, !!t5 && t5 !== A);
-  }
-};
-var z = class extends H {
-  constructor(t5, i7, s4, e8, h3) {
-    super(t5, i7, s4, e8, h3), this.type = 5;
-  }
-  _$AI(t5, i7 = this) {
-    if ((t5 = M(this, t5, i7, 0) ?? A) === E) return;
-    const s4 = this._$AH, e8 = t5 === A && s4 !== A || t5.capture !== s4.capture || t5.once !== s4.once || t5.passive !== s4.passive, h3 = t5 !== A && (s4 === A || e8);
-    e8 && this.element.removeEventListener(this.name, this, s4), h3 && this.element.addEventListener(this.name, this, t5), this._$AH = t5;
-  }
-  handleEvent(t5) {
-    "function" == typeof this._$AH ? this._$AH.call(this.options?.host ?? this.element, t5) : this._$AH.handleEvent(t5);
-  }
-};
-var Z = class {
-  constructor(t5, i7, s4) {
-    this.element = t5, this.type = 6, this._$AN = void 0, this._$AM = i7, this.options = s4;
-  }
-  get _$AU() {
-    return this._$AM._$AU;
-  }
-  _$AI(t5) {
-    M(this, t5);
-  }
-};
-var B = t2.litHtmlPolyfillSupport;
-B?.(S2, k), (t2.litHtmlVersions ??= []).push("3.3.3");
-var D = (t5, i7, s4) => {
-  const e8 = s4?.renderBefore ?? i7;
-  let h3 = e8._$litPart$;
-  if (void 0 === h3) {
-    const t6 = s4?.renderBefore ?? null;
-    e8._$litPart$ = h3 = new k(i7.insertBefore(c3(), t6), t6, void 0, s4 ?? {});
-  }
-  return h3._$AI(t5), h3;
-};
 
-// ../../node_modules/lit-element/lit-element.js
-var s3 = globalThis;
-var i5 = class extends y {
-  constructor() {
-    super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
+// ../compare/src/tokens.ts
+function fnv1a(bytes) {
+  let h3 = 2166136261;
+  for (let i7 = 0; i7 < bytes.length; i7++) {
+    h3 ^= bytes[i7];
+    h3 = Math.imul(h3, 16777619);
   }
-  createRenderRoot() {
-    const t5 = super.createRenderRoot();
-    return this.renderOptions.renderBefore ??= t5.firstChild, t5;
+  return (h3 >>> 0).toString(16);
+}
+function bytesEqual(a3, b5) {
+  if (a3 === b5) return true;
+  if (a3.byteLength !== b5.byteLength) return false;
+  for (let i7 = 0; i7 < a3.byteLength; i7++) {
+    if (a3[i7] !== b5[i7]) return false;
   }
-  update(t5) {
-    const r6 = this.render();
-    this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t5), this._$Do = D(r6, this.renderRoot, this.renderOptions);
+  return true;
+}
+var SEP2 = "";
+var sanitize = (s4) => s4.includes(SEP2) ? s4.split(SEP2).join("") : s4;
+var imageContentMarker = (data) => `${SEP2}img:${data.byteLength}:${fnv1a(data)}${SEP2}`;
+var frame = (tag, s4) => `${SEP2}${tag}${s4.length}${SEP2}${s4}`;
+function runPropsSig(p3) {
+  return [
+    p3.bold ? "b" : "",
+    p3.italic ? "i" : "",
+    p3.underline ? `u${p3.underlineStyle ?? "single"}${p3.underlineColor ?? ""}` : "",
+    p3.strike ? "s" : "",
+    p3.doubleStrike ? "ds" : "",
+    p3.vertAlign ?? "",
+    p3.szHalfPt ?? "",
+    p3.color ?? "",
+    p3.highlight ?? "",
+    p3.fontAscii ?? "",
+    p3.allCaps ? "ac" : "",
+    p3.smallCaps ? "sc" : "",
+    p3.charSpacingTwips ?? "",
+    p3.link ?? "",
+    p3.isMath ? "m" : ""
+  ].join("|");
+}
+function paraPropsSig(p3) {
+  return [
+    p3.alignment ?? "",
+    p3.styleId ?? "",
+    p3.numbering ? `${p3.numbering.kind}:${p3.numbering.ilvl}` : "",
+    p3.indentLeftTwips ?? "",
+    p3.indentRightTwips ?? "",
+    p3.indentFirstLineTwips ?? "",
+    p3.lineTwentieths ?? "",
+    p3.spaceAfterTwips ?? "",
+    p3.spaceBeforeTwips ?? "",
+    p3.tocInstr ?? "",
+    p3.tocEntry ? "t" : "",
+    p3.tabStops ? JSON.stringify(p3.tabStops) : "",
+    p3.shadingHex ?? "",
+    p3.boxBorder ? "bb" : "",
+    p3.borders ? JSON.stringify(p3.borders) : "",
+    p3.pageBreakBefore ? "pb" : "",
+    p3.dropCap ? "dc" : "",
+    p3.sectionBreak ? JSON.stringify(p3.sectionBreak.sectPr) : ""
+  ].join("|");
+}
+function paragraphContentKey(p3) {
+  const segs = [];
+  let prevField = null;
+  for (const r6 of p3.runs) {
+    if (r6.field !== void 0) {
+      const instr = sanitize(r6.field.trim());
+      if (prevField !== instr) segs.push(`${SEP2}fld:${instr}${SEP2}`);
+      prevField = instr;
+      continue;
+    }
+    prevField = null;
+    if (r6.image) {
+      segs.push(imageContentMarker(r6.image.data));
+    } else if (r6.noteRef) {
+      segs.push(`${SEP2}note:${r6.noteRef.kind}${SEP2}`);
+    } else if (r6.custom) {
+      const t5 = sanitize(r6.custom.type);
+      segs.push(`${SEP2}custom:${t5.length}:${t5}:${sanitize(r6.custom.fallbackText)}${SEP2}`);
+    } else {
+      segs.push(sanitize(r6.text));
+    }
   }
-  connectedCallback() {
-    super.connectedCallback(), this._$Do?.setConnected(true);
+  return segs.join("");
+}
+function paragraphFormatKey(p3) {
+  const segs = [];
+  let curSig = "";
+  let curLen = 0;
+  let curImg = "";
+  const flush = () => {
+    if (curLen > 0 || curImg) segs.push(`${curLen}:${curSig}${curImg}`);
+    curLen = 0;
+    curImg = "";
+  };
+  for (const r6 of p3.runs) {
+    const sig = runPropsSig(r6.props);
+    const img = r6.image ? `img[${r6.image.widthTwips}x${r6.image.heightTwips}${r6.image.floating ? `@${r6.image.offsetXTwips ?? 0},${r6.image.offsetYTwips ?? 0}` : ""}]` : "";
+    if (sig !== curSig || img) {
+      flush();
+      curSig = sig;
+      curImg = img;
+    }
+    curLen += r6.text.length;
+    if (img) flush();
   }
-  disconnectedCallback() {
-    super.disconnectedCallback(), this._$Do?.setConnected(false);
+  flush();
+  return `${paraPropsSig(p3.props)}${SEP2}${segs.join(SEP2)}`;
+}
+function collectParagraphImages(p3, out) {
+  for (const r6 of p3.runs) {
+    if (r6.image) out.push(r6.image.data);
   }
-  render() {
-    return E;
+}
+function cellContentKey(c4) {
+  const parts = [
+    ...c4.paragraphs.map((p3) => frame("P", paragraphContentKey(p3))),
+    ...c4.tables.map((t5) => frame("T", tableContentKey(t5)))
+  ];
+  return `${parts.join("")}${SEP2}span${c4.gridSpan}`;
+}
+function tableContentKey(t5) {
+  return t5.rows.map((row) => frame("R", row.cells.map((c4) => frame("C", cellContentKey(c4))).join(""))).join("");
+}
+function cellFormatKey(c4) {
+  const parts = [
+    ...c4.paragraphs.map((p3) => frame("P", paragraphFormatKey(p3))),
+    ...c4.tables.map((t5) => frame("T", tableFormatKey(t5)))
+  ];
+  return [
+    parts.join(""),
+    c4.widthTwips ?? "",
+    c4.shadingHex ?? "",
+    c4.borders ? JSON.stringify(c4.borders) : ""
+  ].join(SEP2);
+}
+function tableFormatKey(t5) {
+  const rows = t5.rows.map((row) => frame("R", row.cells.map((c4) => frame("C", cellFormatKey(c4))).join(""))).join("");
+  return [
+    t5.gridColsTwips.join(","),
+    t5.borders ? JSON.stringify(t5.borders) : "",
+    rows
+  ].join(SEP2);
+}
+function collectTableImages(t5, out) {
+  for (const row of t5.rows) {
+    for (const cell of row.cells) {
+      for (const p3 of cell.paragraphs) collectParagraphImages(p3, out);
+      for (const nested of cell.tables) collectTableImages(nested, out);
+    }
   }
-};
-i5._$litElement$ = true, i5["finalized"] = true, s3.litElementHydrateSupport?.({ LitElement: i5 });
-var o4 = s3.litElementPolyfillSupport;
-o4?.({ LitElement: i5 });
-(s3.litElementVersions ??= []).push("4.2.2");
-
-// ../../node_modules/@lit/reactive-element/decorators/custom-element.js
-var t3 = (t5) => (e8, o8) => {
-  void 0 !== o8 ? o8.addInitializer(() => {
-    customElements.define(t5, e8);
-  }) : customElements.define(t5, e8);
-};
-
-// ../../node_modules/@lit/reactive-element/decorators/property.js
-var o5 = { attribute: true, type: String, converter: u, reflect: false, hasChanged: f };
-var r4 = (t5 = o5, e8, r6) => {
-  const { kind: n5, metadata: i7 } = r6;
-  let s4 = globalThis.litPropertyMetadata.get(i7);
-  if (void 0 === s4 && globalThis.litPropertyMetadata.set(i7, s4 = /* @__PURE__ */ new Map()), "setter" === n5 && ((t5 = Object.create(t5)).wrapped = true), s4.set(r6.name, t5), "accessor" === n5) {
-    const { name: o8 } = r6;
-    return { set(r7) {
-      const n6 = e8.get.call(this);
-      e8.set.call(this, r7), this.requestUpdate(o8, n6, t5, true, r7);
-    }, init(e9) {
-      return void 0 !== e9 && this.C(o8, void 0, t5, e9), e9;
-    } };
-  }
-  if ("setter" === n5) {
-    const { name: o8 } = r6;
-    return function(r7) {
-      const n6 = this[o8];
-      e8.call(this, r7), this.requestUpdate(o8, n6, t5, true, r7);
+}
+function tokenizeBlock(block) {
+  if (block.type === "paragraph") {
+    const images2 = [];
+    collectParagraphImages(block.paragraph, images2);
+    return {
+      kind: "paragraph",
+      block,
+      contentKey: frame("p", paragraphContentKey(block.paragraph)),
+      formatKey: paragraphFormatKey(block.paragraph),
+      images: images2
     };
   }
-  throw Error("Unsupported decorator location: " + n5);
+  const images = [];
+  collectTableImages(block, images);
+  return {
+    kind: "table",
+    block,
+    contentKey: frame("t", tableContentKey(block)),
+    formatKey: tableFormatKey(block),
+    images
+  };
+}
+function tokenizeBlocks(blocks) {
+  return blocks.map(tokenizeBlock);
+}
+function tokensEqual(a3, b5) {
+  if (a3.contentKey !== b5.contentKey) return false;
+  if (a3.images.length !== b5.images.length) return false;
+  for (let i7 = 0; i7 < a3.images.length; i7++) {
+    if (!bytesEqual(a3.images[i7], b5.images[i7])) return false;
+  }
+  return true;
+}
+var rowContentKey = (row) => row.cells.map((c4) => frame("C", cellContentKey(c4))).join("");
+var rowFormatKey = (row) => row.cells.map((c4) => frame("C", cellFormatKey(c4))).join("");
+
+// ../compare/src/diff.ts
+var DEFAULT_DOC_DIFF_OPTIONS = {
+  algorithm: "histogram",
+  intraWord: true
 };
-function n4(t5) {
-  return (e8, o8) => "object" == typeof o8 ? r4(t5, e8, o8) : ((t6, e9, o9) => {
-    const r6 = e9.hasOwnProperty(o9);
-    return e9.constructor.createProperty(o9, t6), r6 ? Object.getOwnPropertyDescriptor(e9, o9) : void 0;
-  })(t5, e8, o8);
-}
-
-// ../../node_modules/@lit/reactive-element/decorators/state.js
-function r5(r6) {
-  return n4({ ...r6, state: true, attribute: false });
-}
-
-// ../../node_modules/@lit/reactive-element/decorators/base.js
-var e4 = (e8, t5, c4) => (c4.configurable = true, c4.enumerable = true, Reflect.decorate && "object" != typeof t5 && Object.defineProperty(e8, t5, c4), c4);
-
-// ../../node_modules/@lit/reactive-element/decorators/query.js
-function e5(e8, r6) {
-  return (n5, s4, i7) => {
-    const o8 = (t5) => t5.renderRoot?.querySelector(e8) ?? null;
-    if (r6) {
-      const { get: e9, set: r7 } = "object" == typeof s4 ? n5 : i7 ?? /* @__PURE__ */ (() => {
-        const t5 = /* @__PURE__ */ Symbol();
-        return { get() {
-          return this[t5];
-        }, set(e10) {
-          this[t5] = e10;
-        } };
-      })();
-      return e4(n5, s4, { get() {
-        let t5 = e9.call(this);
-        return void 0 === t5 && (t5 = o8(this), (null !== t5 || this.hasUpdated) && r7.call(this, t5)), t5;
-      } });
+function opsToRuns(ops, aTokens, bTokens) {
+  const tagged = ops.map((o8) => {
+    if (o8.op === "equal" && aTokens[o8.aIndex].formatKey !== bTokens[o8.bIndex].formatKey) {
+      return { op: "format", aIndex: o8.aIndex, bIndex: o8.bIndex };
     }
-    return e4(n5, s4, { get() {
-      return o8(this);
-    } });
-  };
+    return o8;
+  });
+  const runs = [];
+  let i7 = 0;
+  let aPos = 0;
+  let bPos = 0;
+  while (i7 < tagged.length) {
+    const op = tagged[i7];
+    let j = i7 + 1;
+    while (j < tagged.length && tagged[j].op === op.op) j++;
+    const slice = tagged.slice(i7, j);
+    const aIdxs = [];
+    const bIdxs = [];
+    for (const s4 of slice) {
+      if (s4.aIndex >= 0) aIdxs.push(s4.aIndex);
+      if (s4.bIndex >= 0) bIdxs.push(s4.bIndex);
+    }
+    runs.push({
+      kind: op.op,
+      aIdxs,
+      bIdxs,
+      aStart: aPos + 1,
+      bStart: bPos + 1
+    });
+    aPos += aIdxs.length;
+    bPos += bIdxs.length;
+    i7 = j;
+  }
+  return runs;
 }
-
-// ../../node_modules/@lit/reactive-element/decorators/query-assigned-elements.js
-function o6(o8) {
-  return (e8, n5) => {
-    const { slot: r6, selector: s4 } = o8 ?? {}, c4 = "slot" + (r6 ? `[name=${r6}]` : ":not([name])");
-    return e4(e8, n5, { get() {
-      const t5 = this.renderRoot?.querySelector(c4), e9 = t5?.assignedElements(o8) ?? [];
-      return void 0 === s4 ? e9 : e9.filter((t6) => t6.matches(s4));
-    } });
-  };
+function runsToEdits(runs) {
+  const edits = [];
+  let i7 = 0;
+  while (i7 < runs.length) {
+    const r6 = runs[i7];
+    const next = runs[i7 + 1];
+    if (r6.kind === "delete" && next && next.kind === "insert") {
+      edits.push({
+        kind: "change",
+        a: { start: r6.aStart, end: r6.aStart + r6.aIdxs.length - 1 },
+        b: { start: next.bStart, end: next.bStart + next.bIdxs.length - 1 },
+        aBlocks: r6.aIdxs,
+        bBlocks: next.bIdxs
+      });
+      i7 += 2;
+      continue;
+    }
+    if (r6.kind === "insert" && next && next.kind === "delete") {
+      edits.push({
+        kind: "change",
+        a: { start: next.aStart, end: next.aStart + next.aIdxs.length - 1 },
+        b: { start: r6.bStart, end: r6.bStart + r6.bIdxs.length - 1 },
+        aBlocks: next.aIdxs,
+        bBlocks: r6.bIdxs
+      });
+      i7 += 2;
+      continue;
+    }
+    if (r6.kind === "equal" || r6.kind === "format") {
+      edits.push({
+        kind: r6.kind === "format" ? "change" : "equal",
+        a: { start: r6.aStart, end: r6.aStart + r6.aIdxs.length - 1 },
+        b: { start: r6.bStart, end: r6.bStart + r6.bIdxs.length - 1 },
+        aBlocks: r6.aIdxs,
+        bBlocks: r6.bIdxs,
+        ...r6.kind === "format" ? { formatOnly: true, importance: "minor" } : {}
+      });
+    } else if (r6.kind === "delete") {
+      edits.push({
+        kind: "delete",
+        a: { start: r6.aStart, end: r6.aStart + r6.aIdxs.length - 1 },
+        b: { start: r6.bStart, end: r6.bStart - 1 },
+        aBlocks: r6.aIdxs,
+        bBlocks: []
+      });
+    } else {
+      edits.push({
+        kind: "insert",
+        a: { start: r6.aStart, end: r6.aStart - 1 },
+        b: { start: r6.bStart, end: r6.bStart + r6.bIdxs.length - 1 },
+        aBlocks: [],
+        bBlocks: r6.bIdxs
+      });
+    }
+    i7++;
+  }
+  return edits;
 }
-
-// ../../node_modules/@universal-material/web/ripple/ripple.styles.js
-var styles = i2`
-  :host,
-  .ripple-container::before {
-    --_ripple-hover-color: var(--u-ripple-hover-color, var(--u-ripple-color, var(--u-state-layer-color, currentColor)));
-    --_ripple-pressed-color: var(--u-ripple-pressed-color, var(--u-ripple-color, var(--u-state-layer-color, currentColor)));
-    --_ripple-hover-opacity: var(--u-ripple-pressed-opacity, var(--u-state-hover-opacity, 0.08));
-    --_ripple-pressed-opacity: var(--u-ripple-pressed-opacity, .2);
-    display: block;
-    inset: 0;
-    isolation: isolate;
+function wordTokens(text2) {
+  const out = [];
+  const re = /\S+|\s+/g;
+  let m2;
+  while ((m2 = re.exec(text2)) !== null) {
+    out.push({ start: m2.index, end: m2.index + m2[0].length, text: m2[0] });
   }
-
-  .ripple-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    border-radius: var(--u-ripple-border-radius, inherit);
-  }
-
-  .ripple-container::before {
-    content: "";
-    background: var(--_ripple-hover-color);
-    opacity: 0;
-    transition: opacity 200ms;
-  }
-
-  @media (hover: hover) {
-    :host(:not([disabled]):hover) .ripple-container::before {
-      content: "";
-      background: var(--_ripple-hover-color);
-      opacity: var(--_ripple-hover-opacity);
+  return out;
+}
+function intraWordMarks(aText, bText, pairOffset) {
+  if (aText === bText) return [];
+  const aToks = wordTokens(aText);
+  const bToks = wordTokens(bText);
+  const ops = myersDiff(
+    aToks.length,
+    bToks.length,
+    (i7, j) => aToks[i7].text === bToks[j].text
+  );
+  const marks = [];
+  let hasEqual = false;
+  for (const op of ops) {
+    if (op.op === "equal") {
+      if (/\S/.test(aToks[op.aIndex].text)) hasEqual = true;
+    } else if (op.op === "delete") {
+      const t5 = aToks[op.aIndex];
+      marks.push({ kind: "delete", side: "a", pairOffset, startCh: t5.start, endCh: t5.end });
+    } else {
+      const t5 = bToks[op.bIndex];
+      marks.push({ kind: "insert", side: "b", pairOffset, startCh: t5.start, endCh: t5.end });
     }
   }
-  :host,
-  .ripple-container::before,
-  .ripple {
-    position: absolute;
-    border-radius: inherit;
+  if (!hasEqual) return [];
+  const merged = [];
+  for (const mk of marks) {
+    const last = merged[merged.length - 1];
+    if (last && last.side === mk.side && last.kind === mk.kind && last.endCh === mk.startCh) {
+      last.endCh = mk.endCh;
+    } else {
+      merged.push(mk);
+    }
   }
+  return merged;
+}
+function tableRowDiff(a3, b5) {
+  if (a3.type !== "table" || b5.type !== "table") return null;
+  const aKeys = a3.rows.map(rowContentKey);
+  const bKeys = b5.rows.map(rowContentKey);
+  const ops = histogramDiff(
+    a3.rows.length,
+    b5.rows.length,
+    (i8, j) => aKeys[i8] === bKeys[j],
+    (i8) => aKeys[i8],
+    (j) => bKeys[j]
+  );
+  const out = [];
+  let i7 = 0;
+  const tagged = ops.map((o8) => ({
+    op: o8.op === "equal" && rowFormatKey(a3.rows[o8.aIndex]) !== rowFormatKey(b5.rows[o8.bIndex]) ? "format" : o8.op,
+    aIndex: o8.aIndex,
+    bIndex: o8.bIndex
+  }));
+  while (i7 < tagged.length) {
+    const op = tagged[i7];
+    let j = i7 + 1;
+    while (j < tagged.length && tagged[j].op === op.op) j++;
+    const slice = tagged.slice(i7, j);
+    const aRows = slice.filter((s4) => s4.aIndex >= 0).map((s4) => s4.aIndex);
+    const bRows = slice.filter((s4) => s4.bIndex >= 0).map((s4) => s4.bIndex);
+    const last = out[out.length - 1];
+    if (op.op === "insert" && last && last.kind === "delete" && last.bRows.length === 0) {
+      last.kind = "change";
+      last.bRows = bRows;
+    } else if (op.op === "delete" && last && last.kind === "insert" && last.aRows.length === 0) {
+      last.kind = "change";
+      last.aRows = aRows;
+    } else {
+      out.push({
+        kind: op.op === "format" ? "change" : op.op === "equal" ? "equal" : op.op,
+        aRows,
+        bRows,
+        ...op.op === "format" ? { formatOnly: true } : {}
+      });
+    }
+    i7 = j;
+  }
+  return out;
+}
+function diffBlocks(aBlocks, bBlocks, opts = {}) {
+  const o8 = { ...DEFAULT_DOC_DIFF_OPTIONS, ...opts };
+  const aTokens = tokenizeBlocks(aBlocks);
+  const bTokens = tokenizeBlocks(bBlocks);
+  const eq = (i7, j) => tokensEqual(aTokens[i7], bTokens[j]);
+  const ops = o8.algorithm === "myers" ? myersDiff(aTokens.length, bTokens.length, eq) : histogramDiff(
+    aTokens.length,
+    bTokens.length,
+    eq,
+    (i7) => aTokens[i7].contentKey,
+    (j) => bTokens[j].contentKey
+  );
+  const edits = runsToEdits(opsToRuns(ops, aTokens, bTokens));
+  for (const e8 of edits) {
+    if (e8.kind !== "change" || e8.formatOnly) continue;
+    const pairs = Math.min(e8.aBlocks.length, e8.bBlocks.length);
+    const intra = [];
+    const tableRows = [];
+    let anyTable = false;
+    for (let p3 = 0; p3 < pairs; p3++) {
+      const aB = aBlocks[e8.aBlocks[p3]];
+      const bB = bBlocks[e8.bBlocks[p3]];
+      if (aB.type === "paragraph" && bB.type === "paragraph") {
+        if (o8.intraWord) {
+          intra.push(...intraWordMarks(paraText(aB.paragraph), paraText(bB.paragraph), p3));
+        }
+        tableRows.push(null);
+      } else {
+        const rd = tableRowDiff(aB, bB);
+        tableRows.push(rd);
+        if (rd) anyTable = true;
+      }
+    }
+    if (intra.length > 0) e8.intra = intra;
+    if (anyTable) e8.tableRows = tableRows;
+  }
+  const stats = { inserted: 0, deleted: 0, changed: 0, formatOnly: 0, equal: 0 };
+  for (const e8 of edits) {
+    if (e8.kind === "equal") stats.equal += e8.aBlocks.length;
+    else if (e8.kind === "insert") stats.inserted += e8.bBlocks.length;
+    else if (e8.kind === "delete") stats.deleted += e8.aBlocks.length;
+    else if (e8.formatOnly) stats.formatOnly += e8.aBlocks.length;
+    else stats.changed += Math.max(e8.aBlocks.length, e8.bBlocks.length);
+  }
+  return { edits, stats };
+}
+function diffDocuments(a3, b5, opts = {}) {
+  return diffBlocks(a3.blocks, b5.blocks, opts);
+}
 
-  .ripple {
-    top: 50%;
-    left: 50%;
-    background: var(--_ripple-pressed-color);
-    border-radius: 50%;
-    box-shadow: 0 0 64px 64px var(--_ripple-pressed-color);
-    opacity: var(--_ripple-pressed-opacity);
-    transform: scale3d(0, 0, 1);
-    pointer-events: none;
-    will-change: transform;
+// ../compare/src/universal-write-diff.ts
+var Base = typeof HTMLElement !== "undefined" ? HTMLElement : class {
+};
+var HIGHLIGHT = {
+  yellow: "#ffff00",
+  green: "#00ff00",
+  cyan: "#00ffff",
+  magenta: "#ff00ff",
+  blue: "#0000ff",
+  red: "#ff0000",
+  darkBlue: "#00008b",
+  darkCyan: "#008b8b",
+  darkGreen: "#006400",
+  darkMagenta: "#8b008b",
+  darkRed: "#8b0000",
+  darkYellow: "#808000",
+  darkGray: "#a9a9a9",
+  lightGray: "#d3d3d3",
+  black: "#000000",
+  white: "#ffffff"
+};
+var hex6 = (s4) => s4 && /^[0-9a-fA-F]{6}$/.test(s4) ? `#${s4}` : null;
+var MIME = {
+  png: "image/png",
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  gif: "image/gif",
+  bmp: "image/bmp",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  emf: "image/emf"
+};
+var STYLE2 = (
+  /* css */
+  `
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-family: system-ui, sans-serif;
+  /* Conven\xE7\xF5es de cor do OpenCompare (insert verde, delete vermelho,
+     change vermelho no par, minor/formata\xE7\xE3o azul). */
+  --uwd-insert-bg: light-dark(rgba(63,185,80,0.15), rgba(63,185,80,0.18));
+  --uwd-insert-bg-intra: light-dark(rgba(63,185,80,0.40), rgba(63,185,80,0.45));
+  --uwd-delete-bg: light-dark(rgba(248,81,73,0.15), rgba(248,81,73,0.18));
+  --uwd-delete-bg-intra: light-dark(rgba(248,81,73,0.40), rgba(248,81,73,0.45));
+  --uwd-minor-bg: light-dark(rgba(59,130,246,0.12), rgba(59,130,246,0.16));
+  --uwd-stripe-insert: #3fb950;
+  --uwd-stripe-delete: #f85149;
+  --uwd-stripe-minor: #3b82f6;
+  --uwd-border: light-dark(#d0d7de, #3d444d);
+  --uwd-text: light-dark(#1f2328, #e6edf3);
+  --uwd-text-2: light-dark(#59636e, #9198a1);
+  --uwd-chrome: light-dark(#f6f8fa, #151b23);
+  --uwd-page: light-dark(#ffffff, #0d1117);
+  color: var(--uwd-text);
+  background: var(--uwd-page);
+}
+.uwd-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--uwd-border);
+  background: var(--uwd-chrome);
+  font-size: 13px;
+  flex: none;
+}
+.uwd-header .uwd-stats { display: flex; gap: 10px; color: var(--uwd-text-2); }
+.uwd-stat::before { content: "\u25CF"; margin-right: 4px; font-size: 10px; }
+.uwd-stat--ins::before { color: var(--uwd-stripe-insert); }
+.uwd-stat--del::before { color: var(--uwd-stripe-delete); }
+.uwd-stat--chg::before { color: var(--uwd-stripe-delete); }
+.uwd-stat--fmt::before { color: var(--uwd-stripe-minor); }
+.uwd-header .uwd-spacer { flex: 1; }
+.uwd-header button {
+  border: 1px solid var(--uwd-border);
+  background: transparent;
+  color: var(--uwd-text);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.uwd-header button[data-on="1"] { background: var(--uwd-minor-bg); border-color: var(--uwd-stripe-minor); }
+.uwd-header .uwd-close { border: none; font-size: 16px; line-height: 1; padding: 2px 8px; }
+.uwd-body { flex: 1; overflow: auto; min-height: 0; }
+.uwd-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+}
+.uwd-pane-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  grid-column: span 2;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--uwd-text-2);
+  background: var(--uwd-chrome);
+  border-bottom: 1px solid var(--uwd-border);
+}
+.uwd-gutter {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--uwd-text-2);
+  text-align: right;
+  user-select: none;
+  border-right: 1px solid var(--uwd-border);
+}
+.uwd-cell {
+  position: relative;
+  padding: 4px 12px 4px 14px;
+  overflow-wrap: anywhere;
+  border-right: 1px solid var(--uwd-border);
+}
+.uwd-cell::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--stripe, transparent);
+}
+.uwd-cell[data-kind="insert"] { --stripe: var(--uwd-stripe-insert); background: var(--uwd-insert-bg); }
+.uwd-cell[data-kind="delete"] { --stripe: var(--uwd-stripe-delete); background: var(--uwd-delete-bg); }
+.uwd-cell[data-kind="change"] { --stripe: var(--uwd-stripe-delete); background: var(--uwd-delete-bg); }
+.uwd-cell[data-kind="format"] { --stripe: var(--uwd-stripe-minor); background: var(--uwd-minor-bg); }
+.uwd-cell[data-kind="pad"] {
+  background:
+    repeating-linear-gradient(45deg, transparent, transparent 6px,
+      light-dark(rgba(0,0,0,0.04), rgba(255,255,255,0.05)) 6px,
+      light-dark(rgba(0,0,0,0.04), rgba(255,255,255,0.05)) 8px);
+}
+.uwd-intra--ins { background: var(--uwd-insert-bg-intra); border-radius: 2px; }
+.uwd-intra--del { background: var(--uwd-delete-bg-intra); border-radius: 2px; }
+.uwd-band {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4px;
+  font-size: 12px;
+  color: var(--uwd-text-2);
+  background: var(--uwd-chrome);
+  border-top: 1px solid var(--uwd-border);
+  border-bottom: 1px solid var(--uwd-border);
+  cursor: pointer;
+  user-select: none;
+}
+.uwd-band:hover { background: var(--uwd-minor-bg); }
+.uwd-para { margin: 0; min-height: 1.2em; }
+.uwd-para img { max-width: 100%; height: auto; vertical-align: bottom; }
+.uwd-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  background: var(--uwd-minor-bg);
+  color: var(--uwd-text-2);
+  vertical-align: middle;
+}
+table.uwd-table { border-collapse: collapse; margin: 2px 0; width: 100%; }
+table.uwd-table td {
+  border: 1px solid var(--uwd-border);
+  padding: 2px 6px;
+  vertical-align: top;
+}
+tr.uwd-row--insert { background: var(--uwd-insert-bg); }
+tr.uwd-row--delete { background: var(--uwd-delete-bg); }
+tr.uwd-row--change { background: var(--uwd-delete-bg); }
+tr.uwd-row--format { background: var(--uwd-minor-bg); }
+.uwd-empty { color: var(--uwd-text-2); font-style: italic; padding: 24px; text-align: center; }
+`
+);
+var UniversalWriteDiffElement = class extends Base {
+  static get observedAttributes() {
+    return ["view", "left-label", "right-label"];
   }
-  .ripple.show {
-    transition: transform calc(var(--_ripple-transition-duration) / var(--u-ripple-speed, 1)) cubic-bezier(0.19, 1, 0.22, 1), opacity calc(750ms / var(--u-ripple-speed, 1));
-    transform: scale3d(1, 1, 1);
-  }
-  .ripple.show-forced {
-    transition: transform calc(var(--_ripple-transition-duration) / var(--u-ripple-speed, 1)) cubic-bezier(0.19, 1, 0.22, 1), opacity calc(200ms / var(--u-ripple-speed, 1)) 300ms;
-    transform: scale3d(2, 2, 1);
-    opacity: 0;
-  }
-  .ripple.dismiss {
-    opacity: 0;
-    transform: scale3d(2, 2, 1);
-  }
-
-  ::slotted(*) {
-    position: absolute !important;
-    inset: 0;
-    border-radius: inherit;
-  }
-`;
-
-// ../../node_modules/@universal-material/web/ripple/ripple.js
-var Ripple_1;
-var Ripple = class Ripple2 extends i5 {
-  static {
-    Ripple_1 = this;
-  }
-  static {
-    this.styles = styles;
-  }
+  _shadow;
+  _aDoc = null;
+  _bDoc = null;
+  _diff = null;
+  _blobUrls = [];
+  _expandedBands = /* @__PURE__ */ new Set();
+  _renderScheduled = false;
   constructor() {
     super();
-    this.isTouching = false;
-    this.disabled = false;
+    this._shadow = this.attachShadow({ mode: "open" });
   }
-  render() {
-    return b3`<div class="ripple-container"></div><slot></slot>`;
+  attributeChangedCallback() {
+    this._schedule();
   }
   connectedCallback() {
-    super.connectedCallback();
-    this.attachEvents();
-    this.ariaHidden = "true";
+    if (this._diff) this._schedule();
   }
   disconnectedCallback() {
-    super.disconnectedCallback();
-    this.dettachEvents();
+    this._revokeBlobs();
   }
-  attachEvents() {
-    this.addEventListener("mousedown", this.handleMouseDown);
-    this.addEventListener("touchstart", this.handleTouchStart);
+  get view() {
+    return this.getAttribute("view") === "diffs" ? "diffs" : "all";
   }
-  dettachEvents() {
-    this.removeEventListener("mousedown", this.handleMouseDown);
-    this.removeEventListener("touchstart", this.handleTouchStart);
+  set view(v2) {
+    this.setAttribute("view", v2);
   }
-  handleMouseDown(e8) {
-    if (this.isTouching || !this.canCreateRipple()) {
-      return;
-    }
-    this.createRipple(e8.clientX, e8.clientY, "mouseup");
+  /** Carrega e compara dois .docx (bytes). */
+  loadPair(aBytes, bBytes, opts = {}) {
+    const aDoc = readFullDocument(DocxPackage.load(aBytes));
+    const bDoc = readFullDocument(DocxPackage.load(bBytes));
+    this.loadDocuments(aDoc, bDoc, opts);
   }
-  handleTouchStart(e8) {
-    if (!this.canCreateRipple()) {
-      return;
-    }
-    this.isTouching = true;
-    const dismiss = this.createRipple(e8.touches[0].clientX, e8.touches[0].clientY, "touchend");
-    this.addEventListener("touchmove", dismiss);
-  }
-  canCreateRipple() {
-    return !this.disabled;
-  }
-  createRipple(targetX = null, targetY = null, releaseEventName = null) {
-    const preClientRect = this.rippleContainer.getBoundingClientRect();
-    targetX ??= preClientRect.x + this.rippleContainer.clientWidth / 2;
-    targetY ??= preClientRect.y + this.rippleContainer.clientHeight / 2;
-    const ripple = document.createElement("DIV");
-    ripple.classList.add("ripple");
-    this.rippleContainer.appendChild(ripple);
-    requestAnimationFrame(() => {
-      const clientRect = this.getBoundingClientRect();
-      const largestDimensionSize = Math.max(this.clientWidth, this.clientHeight);
-      const rippleSize = largestDimensionSize * 2;
-      Ripple_1._setElementSquareSizeAndCenter(ripple, rippleSize);
-      ripple.style.setProperty("--_ripple-transition-duration", `${1080 * Math.pow(rippleSize, 0.3)}ms`);
-      const x3 = targetX - clientRect.left + (rippleSize - this.rippleContainer.clientWidth) / 2;
-      const y3 = targetY - clientRect.top + (rippleSize - this.rippleContainer.clientHeight) / 2;
-      ripple.style.transformOrigin = `${x3}px ${y3}px`;
-      ripple.classList.add(releaseEventName ? "show" : "show-forced");
+  /** Compara dois documentos já parseados. */
+  loadDocuments(aDoc, bDoc, opts = {}) {
+    this._aDoc = aDoc;
+    this._bDoc = bDoc;
+    if (opts.leftLabel !== void 0) this.setAttribute("left-label", opts.leftLabel);
+    if (opts.rightLabel !== void 0) this.setAttribute("right-label", opts.rightLabel);
+    this._diff = diffDocuments(aDoc, bDoc);
+    this._expandedBands.clear();
+    this._schedule();
+    queueMicrotask(() => {
+      this.dispatchEvent(new CustomEvent("ready", {
+        detail: { stats: this._diff.stats },
+        bubbles: true,
+        composed: true
+      }));
     });
-    const interval = setInterval(() => {
-      if (!ripple.classList.contains("dismiss") && !ripple.classList.contains("show-forced")) {
-        return;
-      }
-      const animations = ripple.getAnimations();
-      if (animations.length) {
-        return;
-      }
-      clearInterval(interval);
-      ripple.remove();
-    }, 1e3);
-    if (!releaseEventName) {
-      return null;
+  }
+  get stats() {
+    return this._diff?.stats ?? null;
+  }
+  _schedule() {
+    if (this._renderScheduled) return;
+    this._renderScheduled = true;
+    queueMicrotask(() => {
+      this._renderScheduled = false;
+      this._render();
+    });
+  }
+  _revokeBlobs() {
+    for (const u3 of this._blobUrls) URL.revokeObjectURL(u3);
+    this._blobUrls = [];
+  }
+  // ───────────────────────── render ─────────────────────────
+  _render() {
+    if (!this.isConnected) return;
+    this._revokeBlobs();
+    const doc = this.ownerDocument;
+    const root = doc.createElement("div");
+    root.style.cssText = "display:flex;flex-direction:column;min-height:0;height:100%;";
+    const style = doc.createElement("style");
+    style.textContent = STYLE2;
+    if (!this._diff || !this._aDoc || !this._bDoc) {
+      const empty = doc.createElement("div");
+      empty.className = "uwd-empty";
+      empty.textContent = "No comparison loaded \u2014 call loadPair(aBytes, bBytes).";
+      root.append(empty);
+      this._shadow.replaceChildren(style, root);
+      return;
     }
-    return this.createDismissEvent(ripple, releaseEventName);
+    root.append(this._renderHeader(doc));
+    const body = doc.createElement("div");
+    body.className = "uwd-body";
+    const grid = doc.createElement("div");
+    grid.className = "uwd-grid";
+    const headA = doc.createElement("div");
+    headA.className = "uwd-pane-header";
+    headA.textContent = this.getAttribute("left-label") ?? "Original";
+    const headB = doc.createElement("div");
+    headB.className = "uwd-pane-header";
+    headB.textContent = this.getAttribute("right-label") ?? "Modified";
+    grid.append(headA, headB);
+    const rows = this._buildRows();
+    const showAll = this.view !== "diffs";
+    let i7 = 0;
+    while (i7 < rows.length) {
+      const row = rows[i7];
+      if (!showAll && row.kind === "equal" && !this._expandedBands.has(row.editIndex)) {
+        let j = i7;
+        while (j < rows.length && rows[j].kind === "equal" && rows[j].editIndex === row.editIndex) j++;
+        grid.append(this._renderBand(doc, row.editIndex, j - i7));
+        i7 = j;
+        continue;
+      }
+      this._renderRow(doc, grid, row);
+      i7++;
+    }
+    if (rows.length === 0) {
+      const empty = doc.createElement("div");
+      empty.className = "uwd-empty";
+      empty.style.gridColumn = "1 / -1";
+      empty.textContent = "Empty documents.";
+      grid.append(empty);
+    }
+    body.append(grid);
+    root.append(body);
+    this._shadow.replaceChildren(style, root);
   }
-  createDismissEvent(ripple, releaseEventName) {
-    const dismiss = () => {
-      ripple.classList.add("dismiss");
-      this.isTouching = false;
-      this.removeEventListener("dragover", dismiss);
-      this.removeEventListener("mouseleave", dismiss);
-      window.removeEventListener(releaseEventName, dismiss);
+  _renderHeader(doc) {
+    const stats = this._diff.stats;
+    const header = doc.createElement("div");
+    header.className = "uwd-header";
+    const statsBox = doc.createElement("div");
+    statsBox.className = "uwd-stats";
+    const stat = (cls, label, n5) => {
+      if (n5 === 0) return;
+      const s4 = doc.createElement("span");
+      s4.className = `uwd-stat uwd-stat--${cls}`;
+      s4.textContent = `${n5} ${label}`;
+      statsBox.append(s4);
     };
-    this.addEventListener("dragover", dismiss);
-    this.addEventListener("mouseleave", dismiss);
-    window.addEventListener(releaseEventName, dismiss);
-    return dismiss;
+    stat("ins", "inserted", stats.inserted);
+    stat("del", "deleted", stats.deleted);
+    stat("chg", "changed", stats.changed);
+    stat("fmt", "formatting", stats.formatOnly);
+    if (statsBox.childElementCount === 0) {
+      const s4 = doc.createElement("span");
+      s4.textContent = "Identical documents";
+      statsBox.append(s4);
+    }
+    header.append(statsBox);
+    const spacer = doc.createElement("div");
+    spacer.className = "uwd-spacer";
+    header.append(spacer);
+    const toggle = doc.createElement("button");
+    toggle.textContent = "Only changes";
+    toggle.dataset["on"] = this.view === "diffs" ? "1" : "0";
+    toggle.addEventListener("click", () => {
+      this.view = this.view === "diffs" ? "all" : "diffs";
+    });
+    header.append(toggle);
+    const close = doc.createElement("button");
+    close.className = "uwd-close";
+    close.title = "Close comparison";
+    close.textContent = "\u2715";
+    close.addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("close-request", { bubbles: true, composed: true }));
+    });
+    header.append(close);
+    return header;
   }
-  static _setElementSquareSizeAndCenter(element, size) {
-    element.style.top = "50%";
-    element.style.left = "50%";
-    element.style.width = `${size}px`;
-    element.style.height = `${size}px`;
-    element.style.marginLeft = `${-size / 2}px`;
-    element.style.marginTop = `${-size / 2}px`;
+  _buildRows() {
+    const rows = [];
+    const edits = this._diff.edits;
+    for (let e8 = 0; e8 < edits.length; e8++) {
+      const edit = edits[e8];
+      const kind = edit.kind === "change" && edit.formatOnly ? "format" : edit.kind;
+      const n5 = Math.max(edit.aBlocks.length, edit.bBlocks.length);
+      for (let p3 = 0; p3 < n5; p3++) {
+        rows.push({
+          kind,
+          editIndex: e8,
+          pairOffset: p3,
+          aBlock: edit.aBlocks[p3] ?? null,
+          bBlock: edit.bBlocks[p3] ?? null
+        });
+      }
+    }
+    return rows;
+  }
+  _renderBand(doc, editIndex, count) {
+    const band = doc.createElement("div");
+    band.className = "uwd-band";
+    band.textContent = `\u2026 ${count} unchanged block${count === 1 ? "" : "s"} \u2026`;
+    band.addEventListener("click", () => {
+      this._expandedBands.add(editIndex);
+      this._schedule();
+    });
+    return band;
+  }
+  _renderRow(doc, grid, row) {
+    const edit = this._diff.edits[row.editIndex];
+    grid.append(this._gutter(doc, row.aBlock));
+    grid.append(this._cell(doc, "a", row, edit));
+    grid.append(this._gutter(doc, row.bBlock));
+    grid.append(this._cell(doc, "b", row, edit));
+  }
+  _gutter(doc, blockIdx) {
+    const g2 = doc.createElement("div");
+    g2.className = "uwd-gutter";
+    g2.textContent = blockIdx === null ? "" : String(blockIdx + 1);
+    return g2;
+  }
+  _cell(doc, side, row, edit) {
+    const cell = doc.createElement("div");
+    cell.className = "uwd-cell";
+    const blockIdx = side === "a" ? row.aBlock : row.bBlock;
+    const docModel = side === "a" ? this._aDoc : this._bDoc;
+    if (blockIdx === null) {
+      cell.dataset["kind"] = "pad";
+      return cell;
+    }
+    if (row.kind !== "equal") cell.dataset["kind"] = row.kind;
+    const block = docModel.blocks[blockIdx];
+    const marks = row.kind === "change" ? (edit.intra ?? []).filter((m2) => m2.side === side && m2.pairOffset === row.pairOffset) : [];
+    const rowDiff = row.kind === "change" ? edit.tableRows?.[row.pairOffset] ?? null : null;
+    if (block.type === "paragraph") {
+      cell.append(this._renderParagraph(doc, block.paragraph, marks));
+      if (row.kind === "format") {
+        const badge = doc.createElement("span");
+        badge.className = "uwd-badge";
+        badge.textContent = "formatting";
+        cell.append(badge);
+      }
+    } else {
+      cell.append(this._renderTable(doc, block, side, rowDiff));
+    }
+    cell.addEventListener("click", () => {
+      this.dispatchEvent(new CustomEvent("block-click", {
+        detail: { editIndex: row.editIndex, side, blockIndex: blockIdx },
+        bubbles: true,
+        composed: true
+      }));
+    });
+    return cell;
+  }
+  // ─────────────── blocos ───────────────
+  _renderParagraph(doc, p3, marks) {
+    const el = doc.createElement("div");
+    el.className = "uwd-para";
+    const pr = p3.props;
+    if (pr.alignment && pr.alignment !== "left") {
+      el.style.textAlign = pr.alignment === "both" ? "justify" : pr.alignment;
+    }
+    if (pr.indentLeftTwips) el.style.paddingLeft = `${pr.indentLeftTwips / 20}pt`;
+    if (pr.indentRightTwips) el.style.paddingRight = `${pr.indentRightTwips / 20}pt`;
+    if (pr.indentFirstLineTwips) el.style.textIndent = `${pr.indentFirstLineTwips / 20}pt`;
+    if (pr.spaceBeforeTwips) el.style.marginTop = `${pr.spaceBeforeTwips / 20}pt`;
+    if (pr.spaceAfterTwips) el.style.marginBottom = `${pr.spaceAfterTwips / 20}pt`;
+    const shd = hex6(pr.shadingHex);
+    if (shd) el.style.background = shd;
+    if (pr.numbering) {
+      const marker = doc.createElement("span");
+      marker.textContent = pr.numbering.kind === "bullet" ? "\u2022 " : "# ";
+      marker.style.paddingLeft = `${pr.numbering.ilvl * 18}pt`;
+      el.append(marker);
+    }
+    let offset = 0;
+    for (const r6 of p3.runs) {
+      const len = r6.text.length;
+      const runMarks = marks.filter((m2) => m2.startCh < offset + len && m2.endCh > offset).map((m2) => ({
+        start: Math.max(0, m2.startCh - offset),
+        end: Math.min(len, m2.endCh - offset),
+        kind: m2.kind
+      })).sort((x3, y3) => x3.start - y3.start);
+      el.append(...this._renderRun(doc, r6, runMarks));
+      offset += len;
+    }
+    return el;
+  }
+  _renderRun(doc, r6, marks) {
+    if (r6.image) {
+      const img = doc.createElement("img");
+      const mime = MIME[r6.image.ext.toLowerCase()] ?? "application/octet-stream";
+      const bytes = r6.image.data;
+      const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      const url = URL.createObjectURL(new Blob([buf], { type: mime }));
+      this._blobUrls.push(url);
+      img.src = url;
+      img.width = Math.round(r6.image.widthTwips / 15);
+      img.height = Math.round(r6.image.heightTwips / 15);
+      if (marks.length > 0) {
+        const wrap = doc.createElement("span");
+        wrap.className = marks[0].kind === "insert" ? "uwd-intra--ins" : "uwd-intra--del";
+        wrap.append(img);
+        return [wrap];
+      }
+      return [img];
+    }
+    const base = this._styledSpan(doc, r6);
+    const text2 = r6.text;
+    if (marks.length === 0) {
+      base.textContent = text2;
+      return [base];
+    }
+    let pos = 0;
+    for (const m2 of marks) {
+      if (m2.start > pos) base.append(doc.createTextNode(text2.slice(pos, m2.start)));
+      const mark = doc.createElement("span");
+      mark.className = m2.kind === "insert" ? "uwd-intra--ins" : "uwd-intra--del";
+      mark.textContent = text2.slice(m2.start, m2.end);
+      base.append(mark);
+      pos = m2.end;
+    }
+    if (pos < text2.length) base.append(doc.createTextNode(text2.slice(pos)));
+    return [base];
+  }
+  _styledSpan(doc, r6) {
+    const s4 = doc.createElement("span");
+    const p3 = r6.props;
+    if (p3.bold) s4.style.fontWeight = "700";
+    if (p3.italic || p3.isMath) s4.style.fontStyle = "italic";
+    const deco = [];
+    if (p3.underline) deco.push("underline");
+    if (p3.strike || p3.doubleStrike) deco.push("line-through");
+    if (deco.length) s4.style.textDecoration = deco.join(" ");
+    const uc = hex6(p3.underlineColor);
+    if (uc) s4.style.textDecorationColor = uc;
+    if (p3.szHalfPt) s4.style.fontSize = `${p3.szHalfPt / 2}pt`;
+    const fg = hex6(p3.color);
+    if (fg) s4.style.color = fg;
+    if (p3.highlight && HIGHLIGHT[p3.highlight]) s4.style.background = HIGHLIGHT[p3.highlight];
+    if (p3.fontAscii) s4.style.fontFamily = `"${p3.fontAscii}", sans-serif`;
+    if (p3.allCaps) s4.style.textTransform = "uppercase";
+    if (p3.smallCaps) s4.style.fontVariant = "small-caps";
+    if (p3.vertAlign === "superscript") {
+      s4.style.verticalAlign = "super";
+      s4.style.fontSize = "smaller";
+    }
+    if (p3.vertAlign === "subscript") {
+      s4.style.verticalAlign = "sub";
+      s4.style.fontSize = "smaller";
+    }
+    if (p3.link) {
+      s4.style.color = "#0563c1";
+      s4.style.textDecoration = "underline";
+      s4.title = p3.link;
+    }
+    return s4;
+  }
+  _renderTable(doc, t5, side, rowDiff) {
+    const rowKind = /* @__PURE__ */ new Map();
+    if (rowDiff) {
+      for (const rd of rowDiff) {
+        const idxs = side === "a" ? rd.aRows : rd.bRows;
+        const kind = rd.kind === "change" && rd.formatOnly ? "format" : rd.kind === "change" ? "change" : rd.kind;
+        for (const idx of idxs) {
+          if (kind !== "equal") rowKind.set(idx, kind);
+        }
+      }
+    }
+    const el = doc.createElement("table");
+    el.className = "uwd-table";
+    for (let ri = 0; ri < t5.rows.length; ri++) {
+      const tr = doc.createElement("tr");
+      const kind = rowKind.get(ri);
+      if (kind && kind !== "equal") tr.className = `uwd-row--${kind}`;
+      for (const c4 of t5.rows[ri].cells) {
+        const td2 = doc.createElement("td");
+        if (c4.gridSpan > 1) td2.colSpan = c4.gridSpan;
+        const cellShd = hex6(c4.shadingHex);
+        if (cellShd) td2.style.background = cellShd;
+        for (const cp of c4.paragraphs) td2.append(this._renderParagraph(doc, cp, []));
+        for (const nested of c4.tables) td2.append(this._renderTable(doc, nested, side, null));
+        tr.append(td2);
+      }
+      el.append(tr);
+    }
+    return el;
   }
 };
-__decorate([
-  n4({ type: Boolean, reflect: true })
-], Ripple.prototype, "disabled", void 0);
-__decorate([
-  e5(".ripple-container")
-], Ripple.prototype, "rippleContainer", void 0);
-Ripple = Ripple_1 = __decorate([
-  t3("u-ripple")
-], Ripple);
+if (typeof customElements !== "undefined" && !customElements.get("universal-write-diff")) {
+  customElements.define("universal-write-diff", UniversalWriteDiffElement);
+}
+
+// src/mention-plugin.ts
+function createMentionPlugin(options = {}) {
+  const prefix = options.prefix ?? "@";
+  return {
+    id: "universalwrite.mention",
+    inlineRenderers: [{
+      type: "mention",
+      toText: (data) => `${prefix}${data.label}`,
+      measure: ({ fallbackText, measureText }) => ({
+        widthTwips: measureText(fallbackText) + 180
+      }),
+      draw: (context) => drawMention(context, options)
+    }],
+    setup: options.source ? ({ editor }) => setupMentionAutocomplete(editor, options, prefix) : void 0
+  };
+}
+function setupMentionAutocomplete(editor, options, prefix) {
+  const source = options.source;
+  const maxSuggestions = Math.max(1, options.maxSuggestions ?? 8);
+  const popup = document.createElement("div");
+  popup.hidden = true;
+  popup.className = "wordnext-mention-menu";
+  popup.setAttribute("role", "listbox");
+  popup.setAttribute("aria-label", "Mention suggestions");
+  Object.assign(popup.style, {
+    position: "fixed",
+    zIndex: "2147483647",
+    width: "280px",
+    maxHeight: "260px",
+    overflowY: "auto",
+    padding: "6px",
+    border: "1px solid rgba(127,127,127,.35)",
+    borderRadius: "10px",
+    background: "#fff",
+    color: "#202124",
+    boxShadow: "0 12px 32px rgba(0,0,0,.28)",
+    font: "14px/1.35 system-ui, sans-serif"
+  });
+  document.body.append(popup);
+  let active = false;
+  let query = "";
+  let items = [];
+  let selected = 0;
+  let request = 0;
+  const position = () => {
+    const rect = editor.getBoundingClientRect();
+    const left = Math.max(12, Math.min(window.innerWidth - 304, rect.left + 48));
+    const top = Math.max(12, Math.min(window.innerHeight - 284, rect.top + 88));
+    popup.style.left = `${Math.round(left)}px`;
+    popup.style.top = `${Math.round(top)}px`;
+  };
+  const choose = (item) => {
+    close();
+    editor.insertCustomInline("mention", item);
+    editor.focusEditor();
+  };
+  const render = () => {
+    popup.replaceChildren();
+    popup.hidden = !active;
+    if (!active) return;
+    const heading = document.createElement("div");
+    heading.textContent = query ? `${prefix}${query}` : "Escolha uma pessoa";
+    Object.assign(heading.style, {
+      padding: "6px 10px 8px",
+      color: "#5f6368",
+      fontSize: "12px",
+      fontWeight: "600"
+    });
+    popup.append(heading);
+    if (items.length === 0) {
+      const empty = document.createElement("div");
+      empty.textContent = options.emptyLabel ?? "No mentions found";
+      Object.assign(empty.style, { padding: "10px", color: "#6b7280" });
+      popup.append(empty);
+      return;
+    }
+    items.forEach((item, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.id = `wordnext-mention-option-${index}`;
+      button.dataset.index = String(index);
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", String(index === selected));
+      button.textContent = `${prefix}${item.label}`;
+      Object.assign(button.style, {
+        display: "block",
+        width: "100%",
+        padding: "9px 10px",
+        border: "0",
+        borderRadius: "7px",
+        background: index === selected ? "#e8f0fe" : "transparent",
+        color: index === selected ? "#174ea6" : "#202124",
+        textAlign: "left",
+        cursor: "pointer",
+        font: "inherit"
+      });
+      button.addEventListener("mouseenter", () => {
+        selected = index;
+        render();
+      });
+      button.addEventListener("click", () => choose(item));
+      popup.append(button);
+    });
+    popup.setAttribute("aria-activedescendant", `wordnext-mention-option-${selected}`);
+  };
+  const refresh = async () => {
+    const current2 = ++request;
+    let result;
+    try {
+      result = await source(query);
+    } catch {
+      result = [];
+    }
+    if (!active || current2 !== request) return;
+    items = result.slice(0, maxSuggestions);
+    selected = Math.min(selected, Math.max(0, items.length - 1));
+    render();
+  };
+  function open() {
+    active = true;
+    query = "";
+    items = [];
+    selected = 0;
+    position();
+    render();
+    void refresh();
+  }
+  function close() {
+    active = false;
+    query = "";
+    items = [];
+    request++;
+    popup.hidden = true;
+    popup.replaceChildren();
+    popup.removeAttribute("aria-activedescendant");
+  }
+  const onBeforeInput = (raw) => {
+    const event = raw;
+    const text2 = event.detail?.text ?? "";
+    if (!active) {
+      if (text2 === prefix) {
+        event.preventDefault();
+        open();
+      }
+      return;
+    }
+    event.preventDefault();
+    if (!text2 || /[\r\n\t ]/.test(text2)) {
+      close();
+      return;
+    }
+    query += text2;
+    selected = 0;
+    void refresh();
+  };
+  const onKeyDown = (event) => {
+    if (!active) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (items.length) {
+        selected = (selected + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+        render();
+      }
+      return;
+    }
+    if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const item = items[selected];
+      if (item) choose(item);
+      else close();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      close();
+      return;
+    }
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (!query) close();
+      else {
+        query = query.slice(0, -1);
+        selected = 0;
+        void refresh();
+      }
+    }
+  };
+  const onPointerDown = (event) => {
+    if (active && event.target !== editor && !popup.contains(event.target)) close();
+  };
+  const onLayout = () => {
+    if (active) position();
+  };
+  editor.addEventListener("uw-before-input", onBeforeInput);
+  editor.addEventListener("keydown", onKeyDown, true);
+  popup.addEventListener("mousedown", (event) => event.preventDefault());
+  window.addEventListener("mousedown", onPointerDown);
+  window.addEventListener("resize", onLayout);
+  editor.addEventListener("scroll", onLayout);
+  return () => {
+    editor.removeEventListener("uw-before-input", onBeforeInput);
+    editor.removeEventListener("keydown", onKeyDown, true);
+    window.removeEventListener("mousedown", onPointerDown);
+    window.removeEventListener("resize", onLayout);
+    editor.removeEventListener("scroll", onLayout);
+    popup.remove();
+  };
+}
+function drawMention(context, options) {
+  const { ctx, xTwips, yTwips, baselineTwips, widthTwips, heightTwips, scale } = context;
+  const x3 = xTwips * scale;
+  const y3 = (yTwips + 16) * scale;
+  const width = widthTwips * scale;
+  const height = Math.max(1, heightTwips - 32) * scale;
+  const radius = Math.min(80 * scale, height / 2);
+  ctx.save();
+  ctx.fillStyle = options.background ?? (context.dark ? "#394b63" : "#dce8ff");
+  ctx.beginPath();
+  ctx.moveTo(x3 + radius, y3);
+  ctx.lineTo(x3 + width - radius, y3);
+  ctx.quadraticCurveTo(x3 + width, y3, x3 + width, y3 + radius);
+  ctx.lineTo(x3 + width, y3 + height - radius);
+  ctx.quadraticCurveTo(x3 + width, y3 + height, x3 + width - radius, y3 + height);
+  ctx.lineTo(x3 + radius, y3 + height);
+  ctx.quadraticCurveTo(x3, y3 + height, x3, y3 + height - radius);
+  ctx.lineTo(x3, y3 + radius);
+  ctx.quadraticCurveTo(x3, y3, x3 + radius, y3);
+  ctx.fill();
+  ctx.fillStyle = options.color ?? (context.dark ? "#d8e6ff" : "#174ea6");
+  ctx.fillText(context.fallbackText, x3 + 90 * scale, baselineTwips * scale);
+  ctx.restore();
+}
 
 // demo/ripple.ts
+init_ripple();
 function attachRipple(el) {
   if (el.querySelector(":scope > u-ripple")) return;
   el.appendChild(document.createElement("u-ripple"));
@@ -9874,6 +16873,9 @@ function rippleAll(root, selector) {
 // demo/menu.ts
 var current = null;
 var detach = null;
+function menuOpen() {
+  return !!current;
+}
 function closeMenu() {
   if (current) {
     current.remove();
@@ -9887,18 +16889,18 @@ function closeMenu() {
 function openMenu(items, at) {
   closeMenu();
   const menu = document.createElement("div");
-  menu.className = "wn-menu";
+  menu.className = "uw-menu";
   menu.setAttribute("role", "menu");
   for (const it of items) {
     if (it.sep) {
       const s4 = document.createElement("div");
-      s4.className = "wn-menu-sep";
+      s4.className = "uw-menu-sep";
       menu.appendChild(s4);
       continue;
     }
     const b5 = document.createElement("button");
     b5.type = "button";
-    b5.className = "wn-menu-item";
+    b5.className = "uw-menu-item";
     if (it.disabled) b5.disabled = true;
     if (it.checked) b5.classList.add("checked");
     const lead = document.createElement("span");
@@ -9979,35 +16981,35 @@ function openMenu(items, at) {
 var numRefreshers = [];
 function setupIconMenus() {
   const sels = document.querySelectorAll("#toolbar select[data-menu]");
-  sels.forEach((sel) => {
-    const icon = sel.dataset.menu ?? "expand_more";
-    const showNum = sel.dataset.menuNum === "1";
-    const isColor = sel.id === "highlight";
+  sels.forEach((sel2) => {
+    const icon = sel2.dataset.menu ?? "expand_more";
+    const showNum = sel2.dataset.menuNum === "1";
+    const isColor = sel2.id === "highlight";
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "tb-menu";
-    btn.title = sel.title;
+    btn.title = sel2.title;
     const render = () => {
-      const head = showNum ? `<span class="tb-menu-num">${sel.value || "11"}</span>` : `<span class="micon">${icon}</span>`;
+      const head = showNum ? `<span class="tb-menu-num">${sel2.value || "11"}</span>` : `<span class="micon">${icon}</span>`;
       btn.innerHTML = `${head}<span class="chev">\u25BE</span>`;
-      const isDefault = sel.selectedIndex <= 0 || sel.value === "";
+      const isDefault = sel2.selectedIndex <= 0 || sel2.value === "";
       btn.classList.toggle("active", !showNum && !isDefault);
     };
     render();
     if (showNum) numRefreshers.push(render);
-    sel.style.display = "none";
-    sel.insertAdjacentElement("beforebegin", btn);
+    sel2.style.display = "none";
+    sel2.insertAdjacentElement("beforebegin", btn);
     attachRipple(btn);
     btn.addEventListener("mousedown", (e8) => e8.preventDefault());
     btn.addEventListener("click", (e8) => {
       e8.stopPropagation();
-      const items = Array.from(sel.options).map((o8) => ({
+      const items = Array.from(sel2.options).map((o8) => ({
         label: o8.textContent ?? o8.value,
-        checked: o8.value === sel.value,
+        checked: o8.value === sel2.value,
         swatch: isColor ? o8.value || "" : void 0,
         onClick: () => {
-          sel.value = o8.value;
-          sel.dispatchEvent(new Event("change", { bubbles: true }));
+          sel2.value = o8.value;
+          sel2.dispatchEvent(new Event("change", { bubbles: true }));
           render();
         }
       }));
@@ -10155,84 +17157,16 @@ function setupCollapsibleToolbar() {
   };
 }
 
-// ../../node_modules/lit-html/directive.js
-var t4 = { ATTRIBUTE: 1, CHILD: 2, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4, EVENT: 5, ELEMENT: 6 };
-var e6 = (t5) => (...e8) => ({ _$litDirective$: t5, values: e8 });
-var i6 = class {
-  constructor(t5) {
-  }
-  get _$AU() {
-    return this._$AM._$AU;
-  }
-  _$AT(t5, e8, i7) {
-    this._$Ct = t5, this._$AM = e8, this._$Ci = i7;
-  }
-  _$AS(t5, e8) {
-    return this.update(t5, e8);
-  }
-  update(t5, e8) {
-    return this.render(...e8);
-  }
-};
-
-// ../../node_modules/lit-html/directives/class-map.js
-var e7 = e6(class extends i6 {
-  constructor(t5) {
-    if (super(t5), t5.type !== t4.ATTRIBUTE || "class" !== t5.name || t5.strings?.length > 2) throw Error("`classMap()` can only be used in the `class` attribute and must be the only part in the attribute.");
-  }
-  render(t5) {
-    return " " + Object.keys(t5).filter((s4) => t5[s4]).join(" ") + " ";
-  }
-  update(s4, [i7]) {
-    if (void 0 === this.st) {
-      this.st = /* @__PURE__ */ new Set(), void 0 !== s4.strings && (this.nt = new Set(s4.strings.join(" ").split(/\s/).filter((t5) => "" !== t5)));
-      for (const t5 in i7) i7[t5] && !this.nt?.has(t5) && this.st.add(t5);
-      return this.render(i7);
-    }
-    const r6 = s4.element.classList;
-    for (const t5 of this.st) t5 in i7 || (r6.remove(t5), this.st.delete(t5));
-    for (const t5 in i7) {
-      const s5 = !!i7[t5];
-      s5 === this.st.has(t5) || this.nt?.has(t5) || (s5 ? (r6.add(t5), this.st.add(t5)) : (r6.remove(t5), this.st.delete(t5)));
-    }
-    return E;
-  }
-});
-
-// ../../node_modules/@universal-material/web/shared/base.styles.js
-var styles2 = i2`
-  :host,
-  * {
-    --_focus-ring-color: var(--u-focus-ring-color, var(--u-color-secondary, rgb(98, 91, 113)));
-    --_focus-ring-outline-offset: var(--u-focus-ring-outline-offset, 2px);
-    font-family: var(--u-font-family, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
-    box-sizing: border-box;
-    outline: 0;
-  }
-
-  .force-focus-ring .focus-ring,
-  :host(.force-focus-ring) .focus-ring,
-  .focus-ring:focus-visible {
-    animation: u-focus-pulse 500ms ease;
-    animation-fill-mode: forwards;
-    outline-offset: var(--_focus-ring-outline-offset);
-  }
-
-  @keyframes u-focus-pulse {
-    0% {
-      outline: 0 solid var(--_focus-ring-color);
-    }
-    50% {
-      outline: 6px solid var(--_focus-ring-color);
-    }
-    100% {
-      outline: 4px solid var(--_focus-ring-color);
-    }
-  }
-`;
+// ../../node_modules/@universal-material/web/menu/menu.js
+init_tslib_es6();
+init_lit();
+init_decorators();
+init_class_map2();
+init_base_styles();
 
 // ../../node_modules/@universal-material/web/menu/menu.styles.js
-var styles3 = i2`
+init_lit();
+var styles9 = i2`
   :host {
     --u-elevation-level: var(--u-menu-elevation-level, 2);
     display: block;
@@ -10306,49 +17240,8 @@ var styles3 = i2`
   }
 `;
 
-// ../../node_modules/@universal-material/web/elevation/elevation.styles.js
-var styles4 = i2`
-  :host {
-    --_level: var(--u-elevation-level, 0);
-    --_shadow-color: var(--u-color-shadow, rgb(0, 0, 0));
-    -webkit-tap-highlight-color: transparent;
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-  }
-  :host::before, :host::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    transition: box-shadow 150ms ease-in-out;
-  }
-  :host::before {
-    box-shadow: 0 calc(1px * (clamp(0, var(--_level), 1) + clamp(0, var(--_level) - 3, 1) + 2 * clamp(0, var(--_level) - 4, 1))) calc(1px * (2 * clamp(0, var(--_level), 1) + clamp(0, var(--_level) - 2, 1) + clamp(0, var(--_level) - 4, 1))) 0 var(--_shadow-color);
-    opacity: 0.3;
-  }
-  :host::after {
-    box-shadow: 0 calc(1px * (clamp(0, var(--_level), 1) + clamp(0, var(--_level) - 1, 1) + 2 * clamp(0, var(--_level) - 2, 3))) calc(1px * (3 * clamp(0, var(--_level), 2) + 2 * clamp(0, var(--_level) - 2, 3))) calc(1px * (clamp(0, var(--_level), 4) + 2 * clamp(0, var(--_level) - 4, 1))) var(--_shadow-color);
-    opacity: 0.15;
-  }
-`;
-
-// ../../node_modules/@universal-material/web/elevation/elevation.js
-var Elevation = class Elevation2 extends i5 {
-  static {
-    this.styles = styles4;
-  }
-  connectedCallback() {
-    super.connectedCallback();
-    this.ariaHidden = "true";
-  }
-};
-Elevation = __decorate([
-  t3("u-elevation")
-], Elevation);
-
 // ../../node_modules/@universal-material/web/menu/menu.js
+init_elevation();
 var Menu = class Menu2 extends i5 {
   constructor() {
     super(...arguments);
@@ -10386,7 +17279,7 @@ var Menu = class Menu2 extends i5 {
     };
   }
   static {
-    this.styles = [styles2, styles3];
+    this.styles = [styles2, styles9];
   }
   #open;
   #preInitOpen;
@@ -10676,209 +17569,15 @@ Menu = __decorate([
   t3("u-menu")
 ], Menu);
 
-// ../../node_modules/lit-html/directives/if-defined.js
-var o7 = (o8) => o8 ?? A;
-
-// ../../node_modules/@universal-material/web/shared/button-wrapper.styles.js
-var styles5 = i2`
-  :host {
-    --_color-primary: var(--u-color-primary, rgb(103, 80, 164));
-    -webkit-tap-highlight-color: transparent;
-    --u-elevation-level: 0;
-    display: inline-block;
-  }
-
-  .container {
-    position: relative;
-    font-family: var(--u-font-family, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
-    appearance: none !important;
-  }
-
-  .disabled {
-    --u-elevation-level: 0 !important;
-    background-color: var(--u-button-disabled-bg-color, color-mix(in srgb, var(--u-color-on-surface, rgb(29, 27, 32)) var(--u-button-disabled-background-opacity, 10%), transparent)) !important;
-    color: var(--u-button-disabled-text-color, color-mix(in srgb, var(--u-color-on-surface, rgb(29, 27, 32)) var(--u-button-disabled-opacity, 38%), transparent)) !important;
-  }
-  .disabled .button {
-    cursor: default;
-  }
-
-  * {
-    color: inherit;
-  }
-
-  u-elevation {
-    z-index: -1;
-  }
-
-  .button {
-    cursor: pointer;
-    position: absolute;
-    inset-inline-start: 0;
-    inset-block-start: 0;
-    width: 100%;
-    height: 100%;
-    font-family: inherit;
-    border-radius: inherit;
-    color: inherit;
-    border: none;
-    margin: 0;
-    padding: 0;
-    text-align: center;
-    white-space: nowrap;
-    background: transparent;
-    user-select: none;
-    text-decoration: none;
-    outline: 0;
-    z-index: 0;
-  }
-
-  .content {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    white-space: nowrap;
-    border-radius: inherit;
-    width: 100%;
-    height: 100%;
-  }
-`;
-
-// ../../node_modules/@universal-material/web/shared/events/redispatch-event.js
-var redispatchEvent = (element, event, newType = null) => {
-  if (event.bubbles && (!element.shadowRoot || event.composed)) {
-    event.stopPropagation();
-  }
-  const copy = Reflect.construct(event.constructor, [newType ?? event.type, event]);
-  const dispatched = element.dispatchEvent(copy);
-  if (!dispatched) {
-    event.preventDefault();
-  }
-  return dispatched;
-};
-
-// ../../node_modules/@universal-material/web/shared/button-wrapper.js
-var ButtonWrapper = class extends i5 {
-  constructor() {
-    super(...arguments);
-    this.disabled = false;
-    this.renderRipple = true;
-    this.innerRole = null;
-  }
-  static {
-    this.styles = [styles2, styles5];
-  }
-  get pathname() {
-    return this.buttonElement?.pathname;
-  }
-  render() {
-    const contents = typeof this.href === "string" ? this.#renderLink() : this.#renderButton();
-    const containerClasses = e7(this._getContainerClasses());
-    return b3`<div class="container ${containerClasses}" part="container"> ${contents}</div>`;
-  }
-  _getContainerClasses() {
-    return { disabled: this.disabled };
-  }
-  #renderButton() {
-    return b3`
-      <div class="content">${this._renderContent()}</div>
-      <button
-        id="button"
-        class="button focus-ring"
-        ?disabled=${this.disabled}
-        aria-label=${this.getAriaLabel() || A}
-        aria-labelledby="${this.getAriaLabel() ? A : "text"}"
-        .role=${this.innerRole}
-        type="button"
-        @click=${this.#innerClickHandler}>
-        <u-ripple ?disabled=${this.disabled || !this.renderRipple}></u-ripple>
-        <u-elevation></u-elevation>
-      </button>
-    `;
-  }
-  #renderLink() {
-    return b3`
-      <div class="content">${this._renderContent()}</div>
-      <a
-        id="link"
-        class="button"
-        href=${this.disabled ? A : o7(this.href)}
-        aria-disabled=${this.disabled || A}
-        aria-label=${this.ariaLabel || A}
-        aria-labelledby="${this.ariaLabel ? A : "text"}"
-        .role=${this.innerRole}
-        target=${this.target || A}
-        @click=${this.#innerClickHandler}>
-        <u-elevation></u-elevation>
-        <u-ripple ?disabled=${this.disabled || !this.renderRipple}></u-ripple>
-      </a>
-    `;
-  }
-  connectedCallback() {
-    super.connectedCallback();
-    this.addEventListener("focus", this.#innerFocusHandler);
-  }
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this.removeEventListener("focus", this.#innerFocusHandler);
-  }
-  focus() {
-    this.buttonElement?.focus();
-  }
-  blur() {
-    this.buttonElement?.blur();
-  }
-  getAriaLabel() {
-    return this.ariaLabel;
-  }
-  #innerFocusHandler() {
-    const tabIndexAttributeValue = this.getAttribute("tabindex");
-    if (tabIndexAttributeValue !== "0") {
-      return;
-    }
-    this.removeAttribute("tabindex");
-    setTimeout(() => this.buttonElement?.focus());
-  }
-  #innerClickHandler(event) {
-    if (this.disabled) {
-      return;
-    }
-    const preventDefault = !redispatchEvent(this, event);
-    if (preventDefault) {
-      return;
-    }
-    if (!event.pointerType) {
-      this._ripple.createRipple();
-    }
-    this._handleClick(event);
-  }
-  _handleClick(_2) {
-  }
-};
-__decorate([
-  n4({ type: Boolean, reflect: true })
-], ButtonWrapper.prototype, "disabled", void 0);
-__decorate([
-  r5()
-], ButtonWrapper.prototype, "renderRipple", void 0);
-__decorate([
-  n4()
-], ButtonWrapper.prototype, "href", void 0);
-__decorate([
-  n4()
-], ButtonWrapper.prototype, "target", void 0);
-__decorate([
-  n4()
-], ButtonWrapper.prototype, "name", void 0);
-__decorate([
-  e5(".button")
-], ButtonWrapper.prototype, "buttonElement", void 0);
-__decorate([
-  e5("u-ripple")
-], ButtonWrapper.prototype, "_ripple", void 0);
+// ../../node_modules/@universal-material/web/menu/menu-item.js
+init_tslib_es6();
+init_lit();
+init_decorators();
+init_button_wrapper();
 
 // ../../node_modules/@universal-material/web/menu/menu-item.styles.js
-var styles6 = i2`
+init_lit();
+var styles10 = i2`
   :host {
     display: block;
     --_menu-item-icon-size: var(--u-menu-item-icon-size, 1.5rem);
@@ -10944,7 +17643,7 @@ var MenuItem = class MenuItem2 extends ButtonWrapper {
     this.#handleMouseEnter = () => this.dispatchEvent(new CustomEvent("menu-item-mouseenter", { bubbles: true }));
   }
   static {
-    this.styles = [ButtonWrapper.styles, styles6];
+    this.styles = [ButtonWrapper.styles, styles10];
   }
   connectedCallback() {
     super.connectedCallback();
@@ -11063,3071 +17762,8 @@ function openContextMenu(x3, y3, items) {
   anchorEl = anchor;
 }
 
-// ../../node_modules/@material/material-color-utilities/utils/math_utils.js
-function signum(num) {
-  if (num < 0) {
-    return -1;
-  } else if (num === 0) {
-    return 0;
-  } else {
-    return 1;
-  }
-}
-function lerp(start, stop, amount) {
-  return (1 - amount) * start + amount * stop;
-}
-function clampInt(min, max2, input) {
-  if (input < min) {
-    return min;
-  } else if (input > max2) {
-    return max2;
-  }
-  return input;
-}
-function clampDouble(min, max2, input) {
-  if (input < min) {
-    return min;
-  } else if (input > max2) {
-    return max2;
-  }
-  return input;
-}
-function sanitizeDegreesInt(degrees) {
-  degrees = degrees % 360;
-  if (degrees < 0) {
-    degrees = degrees + 360;
-  }
-  return degrees;
-}
-function sanitizeDegreesDouble(degrees) {
-  degrees = degrees % 360;
-  if (degrees < 0) {
-    degrees = degrees + 360;
-  }
-  return degrees;
-}
-function differenceDegrees(a3, b5) {
-  return 180 - Math.abs(Math.abs(a3 - b5) - 180);
-}
-function matrixMultiply(row, matrix) {
-  const a3 = row[0] * matrix[0][0] + row[1] * matrix[0][1] + row[2] * matrix[0][2];
-  const b5 = row[0] * matrix[1][0] + row[1] * matrix[1][1] + row[2] * matrix[1][2];
-  const c4 = row[0] * matrix[2][0] + row[1] * matrix[2][1] + row[2] * matrix[2][2];
-  return [a3, b5, c4];
-}
-
-// ../../node_modules/@material/material-color-utilities/utils/color_utils.js
-var SRGB_TO_XYZ = [
-  [0.41233895, 0.35762064, 0.18051042],
-  [0.2126, 0.7152, 0.0722],
-  [0.01932141, 0.11916382, 0.95034478]
-];
-var XYZ_TO_SRGB = [
-  [
-    3.2413774792388685,
-    -1.5376652402851851,
-    -0.49885366846268053
-  ],
-  [
-    -0.9691452513005321,
-    1.8758853451067872,
-    0.04156585616912061
-  ],
-  [
-    0.05562093689691305,
-    -0.20395524564742123,
-    1.0571799111220335
-  ]
-];
-var WHITE_POINT_D65 = [95.047, 100, 108.883];
-function argbFromRgb(red, green, blue) {
-  return (255 << 24 | (red & 255) << 16 | (green & 255) << 8 | blue & 255) >>> 0;
-}
-function argbFromLinrgb(linrgb) {
-  const r6 = delinearized(linrgb[0]);
-  const g2 = delinearized(linrgb[1]);
-  const b5 = delinearized(linrgb[2]);
-  return argbFromRgb(r6, g2, b5);
-}
-function redFromArgb(argb) {
-  return argb >> 16 & 255;
-}
-function greenFromArgb(argb) {
-  return argb >> 8 & 255;
-}
-function blueFromArgb(argb) {
-  return argb & 255;
-}
-function argbFromXyz(x3, y3, z2) {
-  const matrix = XYZ_TO_SRGB;
-  const linearR = matrix[0][0] * x3 + matrix[0][1] * y3 + matrix[0][2] * z2;
-  const linearG = matrix[1][0] * x3 + matrix[1][1] * y3 + matrix[1][2] * z2;
-  const linearB = matrix[2][0] * x3 + matrix[2][1] * y3 + matrix[2][2] * z2;
-  const r6 = delinearized(linearR);
-  const g2 = delinearized(linearG);
-  const b5 = delinearized(linearB);
-  return argbFromRgb(r6, g2, b5);
-}
-function xyzFromArgb(argb) {
-  const r6 = linearized(redFromArgb(argb));
-  const g2 = linearized(greenFromArgb(argb));
-  const b5 = linearized(blueFromArgb(argb));
-  return matrixMultiply([r6, g2, b5], SRGB_TO_XYZ);
-}
-function argbFromLstar(lstar) {
-  const y3 = yFromLstar(lstar);
-  const component = delinearized(y3);
-  return argbFromRgb(component, component, component);
-}
-function lstarFromArgb(argb) {
-  const y3 = xyzFromArgb(argb)[1];
-  return 116 * labF(y3 / 100) - 16;
-}
-function yFromLstar(lstar) {
-  return 100 * labInvf((lstar + 16) / 116);
-}
-function lstarFromY(y3) {
-  return labF(y3 / 100) * 116 - 16;
-}
-function linearized(rgbComponent) {
-  const normalized = rgbComponent / 255;
-  if (normalized <= 0.040449936) {
-    return normalized / 12.92 * 100;
-  } else {
-    return Math.pow((normalized + 0.055) / 1.055, 2.4) * 100;
-  }
-}
-function delinearized(rgbComponent) {
-  const normalized = rgbComponent / 100;
-  let delinearized2 = 0;
-  if (normalized <= 31308e-7) {
-    delinearized2 = normalized * 12.92;
-  } else {
-    delinearized2 = 1.055 * Math.pow(normalized, 1 / 2.4) - 0.055;
-  }
-  return clampInt(0, 255, Math.round(delinearized2 * 255));
-}
-function whitePointD65() {
-  return WHITE_POINT_D65;
-}
-function labF(t5) {
-  const e8 = 216 / 24389;
-  const kappa = 24389 / 27;
-  if (t5 > e8) {
-    return Math.pow(t5, 1 / 3);
-  } else {
-    return (kappa * t5 + 16) / 116;
-  }
-}
-function labInvf(ft) {
-  const e8 = 216 / 24389;
-  const kappa = 24389 / 27;
-  const ft3 = ft * ft * ft;
-  if (ft3 > e8) {
-    return ft3;
-  } else {
-    return (116 * ft - 16) / kappa;
-  }
-}
-
-// ../../node_modules/@material/material-color-utilities/hct/viewing_conditions.js
-var ViewingConditions = class _ViewingConditions {
-  /**
-   * Create ViewingConditions from a simple, physically relevant, set of
-   * parameters.
-   *
-   * @param whitePoint White point, measured in the XYZ color space.
-   *     default = D65, or sunny day afternoon
-   * @param adaptingLuminance The luminance of the adapting field. Informally,
-   *     how bright it is in the room where the color is viewed. Can be
-   *     calculated from lux by multiplying lux by 0.0586. default = 11.72,
-   *     or 200 lux.
-   * @param backgroundLstar The lightness of the area surrounding the color.
-   *     measured by L* in L*a*b*. default = 50.0
-   * @param surround A general description of the lighting surrounding the
-   *     color. 0 is pitch dark, like watching a movie in a theater. 1.0 is a
-   *     dimly light room, like watching TV at home at night. 2.0 means there
-   *     is no difference between the lighting on the color and around it.
-   *     default = 2.0
-   * @param discountingIlluminant Whether the eye accounts for the tint of the
-   *     ambient lighting, such as knowing an apple is still red in green light.
-   *     default = false, the eye does not perform this process on
-   *       self-luminous objects like displays.
-   */
-  static make(whitePoint = whitePointD65(), adaptingLuminance = 200 / Math.PI * yFromLstar(50) / 100, backgroundLstar = 50, surround = 2, discountingIlluminant = false) {
-    const xyz = whitePoint;
-    const rW = xyz[0] * 0.401288 + xyz[1] * 0.650173 + xyz[2] * -0.051461;
-    const gW = xyz[0] * -0.250268 + xyz[1] * 1.204414 + xyz[2] * 0.045854;
-    const bW = xyz[0] * -2079e-6 + xyz[1] * 0.048952 + xyz[2] * 0.953127;
-    const f3 = 0.8 + surround / 10;
-    const c4 = f3 >= 0.9 ? lerp(0.59, 0.69, (f3 - 0.9) * 10) : lerp(0.525, 0.59, (f3 - 0.8) * 10);
-    let d3 = discountingIlluminant ? 1 : f3 * (1 - 1 / 3.6 * Math.exp((-adaptingLuminance - 42) / 92));
-    d3 = d3 > 1 ? 1 : d3 < 0 ? 0 : d3;
-    const nc = f3;
-    const rgbD = [
-      d3 * (100 / rW) + 1 - d3,
-      d3 * (100 / gW) + 1 - d3,
-      d3 * (100 / bW) + 1 - d3
-    ];
-    const k2 = 1 / (5 * adaptingLuminance + 1);
-    const k4 = k2 * k2 * k2 * k2;
-    const k4F = 1 - k4;
-    const fl2 = k4 * adaptingLuminance + 0.1 * k4F * k4F * Math.cbrt(5 * adaptingLuminance);
-    const n5 = yFromLstar(backgroundLstar) / whitePoint[1];
-    const z2 = 1.48 + Math.sqrt(n5);
-    const nbb = 0.725 / Math.pow(n5, 0.2);
-    const ncb = nbb;
-    const rgbAFactors = [
-      Math.pow(fl2 * rgbD[0] * rW / 100, 0.42),
-      Math.pow(fl2 * rgbD[1] * gW / 100, 0.42),
-      Math.pow(fl2 * rgbD[2] * bW / 100, 0.42)
-    ];
-    const rgbA = [
-      400 * rgbAFactors[0] / (rgbAFactors[0] + 27.13),
-      400 * rgbAFactors[1] / (rgbAFactors[1] + 27.13),
-      400 * rgbAFactors[2] / (rgbAFactors[2] + 27.13)
-    ];
-    const aw = (2 * rgbA[0] + rgbA[1] + 0.05 * rgbA[2]) * nbb;
-    return new _ViewingConditions(n5, aw, nbb, ncb, c4, nc, rgbD, fl2, Math.pow(fl2, 0.25), z2);
-  }
-  /**
-   * Parameters are intermediate values of the CAM16 conversion process. Their
-   * names are shorthand for technical color science terminology, this class
-   * would not benefit from documenting them individually. A brief overview
-   * is available in the CAM16 specification, and a complete overview requires
-   * a color science textbook, such as Fairchild's Color Appearance Models.
-   */
-  constructor(n5, aw, nbb, ncb, c4, nc, rgbD, fl2, fLRoot, z2) {
-    this.n = n5;
-    this.aw = aw;
-    this.nbb = nbb;
-    this.ncb = ncb;
-    this.c = c4;
-    this.nc = nc;
-    this.rgbD = rgbD;
-    this.fl = fl2;
-    this.fLRoot = fLRoot;
-    this.z = z2;
-  }
-};
-ViewingConditions.DEFAULT = ViewingConditions.make();
-
-// ../../node_modules/@material/material-color-utilities/hct/cam16.js
-var Cam16 = class _Cam16 {
-  /**
-   * All of the CAM16 dimensions can be calculated from 3 of the dimensions, in
-   * the following combinations:
-   *      -  {j or q} and {c, m, or s} and hue
-   *      - jstar, astar, bstar
-   * Prefer using a static method that constructs from 3 of those dimensions.
-   * This constructor is intended for those methods to use to return all
-   * possible dimensions.
-   *
-   * @param hue
-   * @param chroma informally, colorfulness / color intensity. like saturation
-   *     in HSL, except perceptually accurate.
-   * @param j lightness
-   * @param q brightness; ratio of lightness to white point's lightness
-   * @param m colorfulness
-   * @param s saturation; ratio of chroma to white point's chroma
-   * @param jstar CAM16-UCS J coordinate
-   * @param astar CAM16-UCS a coordinate
-   * @param bstar CAM16-UCS b coordinate
-   */
-  constructor(hue, chroma, j, q, m2, s4, jstar, astar, bstar) {
-    this.hue = hue;
-    this.chroma = chroma;
-    this.j = j;
-    this.q = q;
-    this.m = m2;
-    this.s = s4;
-    this.jstar = jstar;
-    this.astar = astar;
-    this.bstar = bstar;
-  }
-  /**
-   * CAM16 instances also have coordinates in the CAM16-UCS space, called J*,
-   * a*, b*, or jstar, astar, bstar in code. CAM16-UCS is included in the CAM16
-   * specification, and is used to measure distances between colors.
-   */
-  distance(other) {
-    const dJ = this.jstar - other.jstar;
-    const dA = this.astar - other.astar;
-    const dB = this.bstar - other.bstar;
-    const dEPrime = Math.sqrt(dJ * dJ + dA * dA + dB * dB);
-    const dE = 1.41 * Math.pow(dEPrime, 0.63);
-    return dE;
-  }
-  /**
-   * @param argb ARGB representation of a color.
-   * @return CAM16 color, assuming the color was viewed in default viewing
-   *     conditions.
-   */
-  static fromInt(argb) {
-    return _Cam16.fromIntInViewingConditions(argb, ViewingConditions.DEFAULT);
-  }
-  /**
-   * @param argb ARGB representation of a color.
-   * @param viewingConditions Information about the environment where the color
-   *     was observed.
-   * @return CAM16 color.
-   */
-  static fromIntInViewingConditions(argb, viewingConditions) {
-    const red = (argb & 16711680) >> 16;
-    const green = (argb & 65280) >> 8;
-    const blue = argb & 255;
-    const redL = linearized(red);
-    const greenL = linearized(green);
-    const blueL = linearized(blue);
-    const x3 = 0.41233895 * redL + 0.35762064 * greenL + 0.18051042 * blueL;
-    const y3 = 0.2126 * redL + 0.7152 * greenL + 0.0722 * blueL;
-    const z2 = 0.01932141 * redL + 0.11916382 * greenL + 0.95034478 * blueL;
-    const rC = 0.401288 * x3 + 0.650173 * y3 - 0.051461 * z2;
-    const gC = -0.250268 * x3 + 1.204414 * y3 + 0.045854 * z2;
-    const bC = -2079e-6 * x3 + 0.048952 * y3 + 0.953127 * z2;
-    const rD = viewingConditions.rgbD[0] * rC;
-    const gD = viewingConditions.rgbD[1] * gC;
-    const bD = viewingConditions.rgbD[2] * bC;
-    const rAF = Math.pow(viewingConditions.fl * Math.abs(rD) / 100, 0.42);
-    const gAF = Math.pow(viewingConditions.fl * Math.abs(gD) / 100, 0.42);
-    const bAF = Math.pow(viewingConditions.fl * Math.abs(bD) / 100, 0.42);
-    const rA = signum(rD) * 400 * rAF / (rAF + 27.13);
-    const gA = signum(gD) * 400 * gAF / (gAF + 27.13);
-    const bA = signum(bD) * 400 * bAF / (bAF + 27.13);
-    const a3 = (11 * rA + -12 * gA + bA) / 11;
-    const b5 = (rA + gA - 2 * bA) / 9;
-    const u3 = (20 * rA + 20 * gA + 21 * bA) / 20;
-    const p22 = (40 * rA + 20 * gA + bA) / 20;
-    const atan2 = Math.atan2(b5, a3);
-    const atanDegrees = atan2 * 180 / Math.PI;
-    const hue = atanDegrees < 0 ? atanDegrees + 360 : atanDegrees >= 360 ? atanDegrees - 360 : atanDegrees;
-    const hueRadians = hue * Math.PI / 180;
-    const ac = p22 * viewingConditions.nbb;
-    const j = 100 * Math.pow(ac / viewingConditions.aw, viewingConditions.c * viewingConditions.z);
-    const q = 4 / viewingConditions.c * Math.sqrt(j / 100) * (viewingConditions.aw + 4) * viewingConditions.fLRoot;
-    const huePrime = hue < 20.14 ? hue + 360 : hue;
-    const eHue = 0.25 * (Math.cos(huePrime * Math.PI / 180 + 2) + 3.8);
-    const p1 = 5e4 / 13 * eHue * viewingConditions.nc * viewingConditions.ncb;
-    const t5 = p1 * Math.sqrt(a3 * a3 + b5 * b5) / (u3 + 0.305);
-    const alpha = Math.pow(t5, 0.9) * Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73);
-    const c4 = alpha * Math.sqrt(j / 100);
-    const m2 = c4 * viewingConditions.fLRoot;
-    const s4 = 50 * Math.sqrt(alpha * viewingConditions.c / (viewingConditions.aw + 4));
-    const jstar = (1 + 100 * 7e-3) * j / (1 + 7e-3 * j);
-    const mstar = 1 / 0.0228 * Math.log(1 + 0.0228 * m2);
-    const astar = mstar * Math.cos(hueRadians);
-    const bstar = mstar * Math.sin(hueRadians);
-    return new _Cam16(hue, c4, j, q, m2, s4, jstar, astar, bstar);
-  }
-  /**
-   * @param j CAM16 lightness
-   * @param c CAM16 chroma
-   * @param h CAM16 hue
-   */
-  static fromJch(j, c4, h3) {
-    return _Cam16.fromJchInViewingConditions(j, c4, h3, ViewingConditions.DEFAULT);
-  }
-  /**
-   * @param j CAM16 lightness
-   * @param c CAM16 chroma
-   * @param h CAM16 hue
-   * @param viewingConditions Information about the environment where the color
-   *     was observed.
-   */
-  static fromJchInViewingConditions(j, c4, h3, viewingConditions) {
-    const q = 4 / viewingConditions.c * Math.sqrt(j / 100) * (viewingConditions.aw + 4) * viewingConditions.fLRoot;
-    const m2 = c4 * viewingConditions.fLRoot;
-    const alpha = c4 / Math.sqrt(j / 100);
-    const s4 = 50 * Math.sqrt(alpha * viewingConditions.c / (viewingConditions.aw + 4));
-    const hueRadians = h3 * Math.PI / 180;
-    const jstar = (1 + 100 * 7e-3) * j / (1 + 7e-3 * j);
-    const mstar = 1 / 0.0228 * Math.log(1 + 0.0228 * m2);
-    const astar = mstar * Math.cos(hueRadians);
-    const bstar = mstar * Math.sin(hueRadians);
-    return new _Cam16(h3, c4, j, q, m2, s4, jstar, astar, bstar);
-  }
-  /**
-   * @param jstar CAM16-UCS lightness.
-   * @param astar CAM16-UCS a dimension. Like a* in L*a*b*, it is a Cartesian
-   *     coordinate on the Y axis.
-   * @param bstar CAM16-UCS b dimension. Like a* in L*a*b*, it is a Cartesian
-   *     coordinate on the X axis.
-   */
-  static fromUcs(jstar, astar, bstar) {
-    return _Cam16.fromUcsInViewingConditions(jstar, astar, bstar, ViewingConditions.DEFAULT);
-  }
-  /**
-   * @param jstar CAM16-UCS lightness.
-   * @param astar CAM16-UCS a dimension. Like a* in L*a*b*, it is a Cartesian
-   *     coordinate on the Y axis.
-   * @param bstar CAM16-UCS b dimension. Like a* in L*a*b*, it is a Cartesian
-   *     coordinate on the X axis.
-   * @param viewingConditions Information about the environment where the color
-   *     was observed.
-   */
-  static fromUcsInViewingConditions(jstar, astar, bstar, viewingConditions) {
-    const a3 = astar;
-    const b5 = bstar;
-    const m2 = Math.sqrt(a3 * a3 + b5 * b5);
-    const M2 = (Math.exp(m2 * 0.0228) - 1) / 0.0228;
-    const c4 = M2 / viewingConditions.fLRoot;
-    let h3 = Math.atan2(b5, a3) * (180 / Math.PI);
-    if (h3 < 0) {
-      h3 += 360;
-    }
-    const j = jstar / (1 - (jstar - 100) * 7e-3);
-    return _Cam16.fromJchInViewingConditions(j, c4, h3, viewingConditions);
-  }
-  /**
-   *  @return ARGB representation of color, assuming the color was viewed in
-   *     default viewing conditions, which are near-identical to the default
-   *     viewing conditions for sRGB.
-   */
-  toInt() {
-    return this.viewed(ViewingConditions.DEFAULT);
-  }
-  /**
-   * @param viewingConditions Information about the environment where the color
-   *     will be viewed.
-   * @return ARGB representation of color
-   */
-  viewed(viewingConditions) {
-    const alpha = this.chroma === 0 || this.j === 0 ? 0 : this.chroma / Math.sqrt(this.j / 100);
-    const t5 = Math.pow(alpha / Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73), 1 / 0.9);
-    const hRad = this.hue * Math.PI / 180;
-    const eHue = 0.25 * (Math.cos(hRad + 2) + 3.8);
-    const ac = viewingConditions.aw * Math.pow(this.j / 100, 1 / viewingConditions.c / viewingConditions.z);
-    const p1 = eHue * (5e4 / 13) * viewingConditions.nc * viewingConditions.ncb;
-    const p22 = ac / viewingConditions.nbb;
-    const hSin = Math.sin(hRad);
-    const hCos = Math.cos(hRad);
-    const gamma = 23 * (p22 + 0.305) * t5 / (23 * p1 + 11 * t5 * hCos + 108 * t5 * hSin);
-    const a3 = gamma * hCos;
-    const b5 = gamma * hSin;
-    const rA = (460 * p22 + 451 * a3 + 288 * b5) / 1403;
-    const gA = (460 * p22 - 891 * a3 - 261 * b5) / 1403;
-    const bA = (460 * p22 - 220 * a3 - 6300 * b5) / 1403;
-    const rCBase = Math.max(0, 27.13 * Math.abs(rA) / (400 - Math.abs(rA)));
-    const rC = signum(rA) * (100 / viewingConditions.fl) * Math.pow(rCBase, 1 / 0.42);
-    const gCBase = Math.max(0, 27.13 * Math.abs(gA) / (400 - Math.abs(gA)));
-    const gC = signum(gA) * (100 / viewingConditions.fl) * Math.pow(gCBase, 1 / 0.42);
-    const bCBase = Math.max(0, 27.13 * Math.abs(bA) / (400 - Math.abs(bA)));
-    const bC = signum(bA) * (100 / viewingConditions.fl) * Math.pow(bCBase, 1 / 0.42);
-    const rF = rC / viewingConditions.rgbD[0];
-    const gF = gC / viewingConditions.rgbD[1];
-    const bF = bC / viewingConditions.rgbD[2];
-    const x3 = 1.86206786 * rF - 1.01125463 * gF + 0.14918677 * bF;
-    const y3 = 0.38752654 * rF + 0.62144744 * gF - 897398e-8 * bF;
-    const z2 = -0.0158415 * rF - 0.03412294 * gF + 1.04996444 * bF;
-    const argb = argbFromXyz(x3, y3, z2);
-    return argb;
-  }
-  /// Given color expressed in XYZ and viewed in [viewingConditions], convert to
-  /// CAM16.
-  static fromXyzInViewingConditions(x3, y3, z2, viewingConditions) {
-    const rC = 0.401288 * x3 + 0.650173 * y3 - 0.051461 * z2;
-    const gC = -0.250268 * x3 + 1.204414 * y3 + 0.045854 * z2;
-    const bC = -2079e-6 * x3 + 0.048952 * y3 + 0.953127 * z2;
-    const rD = viewingConditions.rgbD[0] * rC;
-    const gD = viewingConditions.rgbD[1] * gC;
-    const bD = viewingConditions.rgbD[2] * bC;
-    const rAF = Math.pow(viewingConditions.fl * Math.abs(rD) / 100, 0.42);
-    const gAF = Math.pow(viewingConditions.fl * Math.abs(gD) / 100, 0.42);
-    const bAF = Math.pow(viewingConditions.fl * Math.abs(bD) / 100, 0.42);
-    const rA = signum(rD) * 400 * rAF / (rAF + 27.13);
-    const gA = signum(gD) * 400 * gAF / (gAF + 27.13);
-    const bA = signum(bD) * 400 * bAF / (bAF + 27.13);
-    const a3 = (11 * rA + -12 * gA + bA) / 11;
-    const b5 = (rA + gA - 2 * bA) / 9;
-    const u3 = (20 * rA + 20 * gA + 21 * bA) / 20;
-    const p22 = (40 * rA + 20 * gA + bA) / 20;
-    const atan2 = Math.atan2(b5, a3);
-    const atanDegrees = atan2 * 180 / Math.PI;
-    const hue = atanDegrees < 0 ? atanDegrees + 360 : atanDegrees >= 360 ? atanDegrees - 360 : atanDegrees;
-    const hueRadians = hue * Math.PI / 180;
-    const ac = p22 * viewingConditions.nbb;
-    const J = 100 * Math.pow(ac / viewingConditions.aw, viewingConditions.c * viewingConditions.z);
-    const Q = 4 / viewingConditions.c * Math.sqrt(J / 100) * (viewingConditions.aw + 4) * viewingConditions.fLRoot;
-    const huePrime = hue < 20.14 ? hue + 360 : hue;
-    const eHue = 1 / 4 * (Math.cos(huePrime * Math.PI / 180 + 2) + 3.8);
-    const p1 = 5e4 / 13 * eHue * viewingConditions.nc * viewingConditions.ncb;
-    const t5 = p1 * Math.sqrt(a3 * a3 + b5 * b5) / (u3 + 0.305);
-    const alpha = Math.pow(t5, 0.9) * Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73);
-    const C2 = alpha * Math.sqrt(J / 100);
-    const M2 = C2 * viewingConditions.fLRoot;
-    const s4 = 50 * Math.sqrt(alpha * viewingConditions.c / (viewingConditions.aw + 4));
-    const jstar = (1 + 100 * 7e-3) * J / (1 + 7e-3 * J);
-    const mstar = Math.log(1 + 0.0228 * M2) / 0.0228;
-    const astar = mstar * Math.cos(hueRadians);
-    const bstar = mstar * Math.sin(hueRadians);
-    return new _Cam16(hue, C2, J, Q, M2, s4, jstar, astar, bstar);
-  }
-  /// XYZ representation of CAM16 seen in [viewingConditions].
-  xyzInViewingConditions(viewingConditions) {
-    const alpha = this.chroma === 0 || this.j === 0 ? 0 : this.chroma / Math.sqrt(this.j / 100);
-    const t5 = Math.pow(alpha / Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73), 1 / 0.9);
-    const hRad = this.hue * Math.PI / 180;
-    const eHue = 0.25 * (Math.cos(hRad + 2) + 3.8);
-    const ac = viewingConditions.aw * Math.pow(this.j / 100, 1 / viewingConditions.c / viewingConditions.z);
-    const p1 = eHue * (5e4 / 13) * viewingConditions.nc * viewingConditions.ncb;
-    const p22 = ac / viewingConditions.nbb;
-    const hSin = Math.sin(hRad);
-    const hCos = Math.cos(hRad);
-    const gamma = 23 * (p22 + 0.305) * t5 / (23 * p1 + 11 * t5 * hCos + 108 * t5 * hSin);
-    const a3 = gamma * hCos;
-    const b5 = gamma * hSin;
-    const rA = (460 * p22 + 451 * a3 + 288 * b5) / 1403;
-    const gA = (460 * p22 - 891 * a3 - 261 * b5) / 1403;
-    const bA = (460 * p22 - 220 * a3 - 6300 * b5) / 1403;
-    const rCBase = Math.max(0, 27.13 * Math.abs(rA) / (400 - Math.abs(rA)));
-    const rC = signum(rA) * (100 / viewingConditions.fl) * Math.pow(rCBase, 1 / 0.42);
-    const gCBase = Math.max(0, 27.13 * Math.abs(gA) / (400 - Math.abs(gA)));
-    const gC = signum(gA) * (100 / viewingConditions.fl) * Math.pow(gCBase, 1 / 0.42);
-    const bCBase = Math.max(0, 27.13 * Math.abs(bA) / (400 - Math.abs(bA)));
-    const bC = signum(bA) * (100 / viewingConditions.fl) * Math.pow(bCBase, 1 / 0.42);
-    const rF = rC / viewingConditions.rgbD[0];
-    const gF = gC / viewingConditions.rgbD[1];
-    const bF = bC / viewingConditions.rgbD[2];
-    const x3 = 1.86206786 * rF - 1.01125463 * gF + 0.14918677 * bF;
-    const y3 = 0.38752654 * rF + 0.62144744 * gF - 897398e-8 * bF;
-    const z2 = -0.0158415 * rF - 0.03412294 * gF + 1.04996444 * bF;
-    return [x3, y3, z2];
-  }
-};
-
-// ../../node_modules/@material/material-color-utilities/hct/hct_solver.js
-var HctSolver = class _HctSolver {
-  /**
-   * Sanitizes a small enough angle in radians.
-   *
-   * @param angle An angle in radians; must not deviate too much
-   * from 0.
-   * @return A coterminal angle between 0 and 2pi.
-   */
-  static sanitizeRadians(angle) {
-    return (angle + Math.PI * 8) % (Math.PI * 2);
-  }
-  /**
-   * Delinearizes an RGB component, returning a floating-point
-   * number.
-   *
-   * @param rgbComponent 0.0 <= rgb_component <= 100.0, represents
-   * linear R/G/B channel
-   * @return 0.0 <= output <= 255.0, color channel converted to
-   * regular RGB space
-   */
-  static trueDelinearized(rgbComponent) {
-    const normalized = rgbComponent / 100;
-    let delinearized2 = 0;
-    if (normalized <= 31308e-7) {
-      delinearized2 = normalized * 12.92;
-    } else {
-      delinearized2 = 1.055 * Math.pow(normalized, 1 / 2.4) - 0.055;
-    }
-    return delinearized2 * 255;
-  }
-  static chromaticAdaptation(component) {
-    const af = Math.pow(Math.abs(component), 0.42);
-    return signum(component) * 400 * af / (af + 27.13);
-  }
-  /**
-   * Returns the hue of a linear RGB color in CAM16.
-   *
-   * @param linrgb The linear RGB coordinates of a color.
-   * @return The hue of the color in CAM16, in radians.
-   */
-  static hueOf(linrgb) {
-    const scaledDiscount = matrixMultiply(linrgb, _HctSolver.SCALED_DISCOUNT_FROM_LINRGB);
-    const rA = _HctSolver.chromaticAdaptation(scaledDiscount[0]);
-    const gA = _HctSolver.chromaticAdaptation(scaledDiscount[1]);
-    const bA = _HctSolver.chromaticAdaptation(scaledDiscount[2]);
-    const a3 = (11 * rA + -12 * gA + bA) / 11;
-    const b5 = (rA + gA - 2 * bA) / 9;
-    return Math.atan2(b5, a3);
-  }
-  static areInCyclicOrder(a3, b5, c4) {
-    const deltaAB = _HctSolver.sanitizeRadians(b5 - a3);
-    const deltaAC = _HctSolver.sanitizeRadians(c4 - a3);
-    return deltaAB < deltaAC;
-  }
-  /**
-   * Solves the lerp equation.
-   *
-   * @param source The starting number.
-   * @param mid The number in the middle.
-   * @param target The ending number.
-   * @return A number t such that lerp(source, target, t) = mid.
-   */
-  static intercept(source, mid, target) {
-    return (mid - source) / (target - source);
-  }
-  static lerpPoint(source, t5, target) {
-    return [
-      source[0] + (target[0] - source[0]) * t5,
-      source[1] + (target[1] - source[1]) * t5,
-      source[2] + (target[2] - source[2]) * t5
-    ];
-  }
-  /**
-   * Intersects a segment with a plane.
-   *
-   * @param source The coordinates of point A.
-   * @param coordinate The R-, G-, or B-coordinate of the plane.
-   * @param target The coordinates of point B.
-   * @param axis The axis the plane is perpendicular with. (0: R, 1:
-   * G, 2: B)
-   * @return The intersection point of the segment AB with the plane
-   * R=coordinate, G=coordinate, or B=coordinate
-   */
-  static setCoordinate(source, coordinate, target, axis) {
-    const t5 = _HctSolver.intercept(source[axis], coordinate, target[axis]);
-    return _HctSolver.lerpPoint(source, t5, target);
-  }
-  static isBounded(x3) {
-    return 0 <= x3 && x3 <= 100;
-  }
-  /**
-   * Returns the nth possible vertex of the polygonal intersection.
-   *
-   * @param y The Y value of the plane.
-   * @param n The zero-based index of the point. 0 <= n <= 11.
-   * @return The nth possible vertex of the polygonal intersection
-   * of the y plane and the RGB cube, in linear RGB coordinates, if
-   * it exists. If this possible vertex lies outside of the cube,
-   * [-1.0, -1.0, -1.0] is returned.
-   */
-  static nthVertex(y3, n5) {
-    const kR = _HctSolver.Y_FROM_LINRGB[0];
-    const kG = _HctSolver.Y_FROM_LINRGB[1];
-    const kB = _HctSolver.Y_FROM_LINRGB[2];
-    const coordA = n5 % 4 <= 1 ? 0 : 100;
-    const coordB = n5 % 2 === 0 ? 0 : 100;
-    if (n5 < 4) {
-      const g2 = coordA;
-      const b5 = coordB;
-      const r6 = (y3 - g2 * kG - b5 * kB) / kR;
-      if (_HctSolver.isBounded(r6)) {
-        return [r6, g2, b5];
-      } else {
-        return [-1, -1, -1];
-      }
-    } else if (n5 < 8) {
-      const b5 = coordA;
-      const r6 = coordB;
-      const g2 = (y3 - r6 * kR - b5 * kB) / kG;
-      if (_HctSolver.isBounded(g2)) {
-        return [r6, g2, b5];
-      } else {
-        return [-1, -1, -1];
-      }
-    } else {
-      const r6 = coordA;
-      const g2 = coordB;
-      const b5 = (y3 - r6 * kR - g2 * kG) / kB;
-      if (_HctSolver.isBounded(b5)) {
-        return [r6, g2, b5];
-      } else {
-        return [-1, -1, -1];
-      }
-    }
-  }
-  /**
-   * Finds the segment containing the desired color.
-   *
-   * @param y The Y value of the color.
-   * @param targetHue The hue of the color.
-   * @return A list of two sets of linear RGB coordinates, each
-   * corresponding to an endpoint of the segment containing the
-   * desired color.
-   */
-  static bisectToSegment(y3, targetHue) {
-    let left = [-1, -1, -1];
-    let right = left;
-    let leftHue = 0;
-    let rightHue = 0;
-    let initialized = false;
-    let uncut = true;
-    for (let n5 = 0; n5 < 12; n5++) {
-      const mid = _HctSolver.nthVertex(y3, n5);
-      if (mid[0] < 0) {
-        continue;
-      }
-      const midHue = _HctSolver.hueOf(mid);
-      if (!initialized) {
-        left = mid;
-        right = mid;
-        leftHue = midHue;
-        rightHue = midHue;
-        initialized = true;
-        continue;
-      }
-      if (uncut || _HctSolver.areInCyclicOrder(leftHue, midHue, rightHue)) {
-        uncut = false;
-        if (_HctSolver.areInCyclicOrder(leftHue, targetHue, midHue)) {
-          right = mid;
-          rightHue = midHue;
-        } else {
-          left = mid;
-          leftHue = midHue;
-        }
-      }
-    }
-    return [left, right];
-  }
-  static midpoint(a3, b5) {
-    return [
-      (a3[0] + b5[0]) / 2,
-      (a3[1] + b5[1]) / 2,
-      (a3[2] + b5[2]) / 2
-    ];
-  }
-  static criticalPlaneBelow(x3) {
-    return Math.floor(x3 - 0.5);
-  }
-  static criticalPlaneAbove(x3) {
-    return Math.ceil(x3 - 0.5);
-  }
-  /**
-   * Finds a color with the given Y and hue on the boundary of the
-   * cube.
-   *
-   * @param y The Y value of the color.
-   * @param targetHue The hue of the color.
-   * @return The desired color, in linear RGB coordinates.
-   */
-  static bisectToLimit(y3, targetHue) {
-    const segment = _HctSolver.bisectToSegment(y3, targetHue);
-    let left = segment[0];
-    let leftHue = _HctSolver.hueOf(left);
-    let right = segment[1];
-    for (let axis = 0; axis < 3; axis++) {
-      if (left[axis] !== right[axis]) {
-        let lPlane = -1;
-        let rPlane = 255;
-        if (left[axis] < right[axis]) {
-          lPlane = _HctSolver.criticalPlaneBelow(_HctSolver.trueDelinearized(left[axis]));
-          rPlane = _HctSolver.criticalPlaneAbove(_HctSolver.trueDelinearized(right[axis]));
-        } else {
-          lPlane = _HctSolver.criticalPlaneAbove(_HctSolver.trueDelinearized(left[axis]));
-          rPlane = _HctSolver.criticalPlaneBelow(_HctSolver.trueDelinearized(right[axis]));
-        }
-        for (let i7 = 0; i7 < 8; i7++) {
-          if (Math.abs(rPlane - lPlane) <= 1) {
-            break;
-          } else {
-            const mPlane = Math.floor((lPlane + rPlane) / 2);
-            const midPlaneCoordinate = _HctSolver.CRITICAL_PLANES[mPlane];
-            const mid = _HctSolver.setCoordinate(left, midPlaneCoordinate, right, axis);
-            const midHue = _HctSolver.hueOf(mid);
-            if (_HctSolver.areInCyclicOrder(leftHue, targetHue, midHue)) {
-              right = mid;
-              rPlane = mPlane;
-            } else {
-              left = mid;
-              leftHue = midHue;
-              lPlane = mPlane;
-            }
-          }
-        }
-      }
-    }
-    return _HctSolver.midpoint(left, right);
-  }
-  static inverseChromaticAdaptation(adapted) {
-    const adaptedAbs = Math.abs(adapted);
-    const base = Math.max(0, 27.13 * adaptedAbs / (400 - adaptedAbs));
-    return signum(adapted) * Math.pow(base, 1 / 0.42);
-  }
-  /**
-   * Finds a color with the given hue, chroma, and Y.
-   *
-   * @param hueRadians The desired hue in radians.
-   * @param chroma The desired chroma.
-   * @param y The desired Y.
-   * @return The desired color as a hexadecimal integer, if found; 0
-   * otherwise.
-   */
-  static findResultByJ(hueRadians, chroma, y3) {
-    let j = Math.sqrt(y3) * 11;
-    const viewingConditions = ViewingConditions.DEFAULT;
-    const tInnerCoeff = 1 / Math.pow(1.64 - Math.pow(0.29, viewingConditions.n), 0.73);
-    const eHue = 0.25 * (Math.cos(hueRadians + 2) + 3.8);
-    const p1 = eHue * (5e4 / 13) * viewingConditions.nc * viewingConditions.ncb;
-    const hSin = Math.sin(hueRadians);
-    const hCos = Math.cos(hueRadians);
-    for (let iterationRound = 0; iterationRound < 5; iterationRound++) {
-      const jNormalized = j / 100;
-      const alpha = chroma === 0 || j === 0 ? 0 : chroma / Math.sqrt(jNormalized);
-      const t5 = Math.pow(alpha * tInnerCoeff, 1 / 0.9);
-      const ac = viewingConditions.aw * Math.pow(jNormalized, 1 / viewingConditions.c / viewingConditions.z);
-      const p22 = ac / viewingConditions.nbb;
-      const gamma = 23 * (p22 + 0.305) * t5 / (23 * p1 + 11 * t5 * hCos + 108 * t5 * hSin);
-      const a3 = gamma * hCos;
-      const b5 = gamma * hSin;
-      const rA = (460 * p22 + 451 * a3 + 288 * b5) / 1403;
-      const gA = (460 * p22 - 891 * a3 - 261 * b5) / 1403;
-      const bA = (460 * p22 - 220 * a3 - 6300 * b5) / 1403;
-      const rCScaled = _HctSolver.inverseChromaticAdaptation(rA);
-      const gCScaled = _HctSolver.inverseChromaticAdaptation(gA);
-      const bCScaled = _HctSolver.inverseChromaticAdaptation(bA);
-      const linrgb = matrixMultiply([rCScaled, gCScaled, bCScaled], _HctSolver.LINRGB_FROM_SCALED_DISCOUNT);
-      if (linrgb[0] < 0 || linrgb[1] < 0 || linrgb[2] < 0) {
-        return 0;
-      }
-      const kR = _HctSolver.Y_FROM_LINRGB[0];
-      const kG = _HctSolver.Y_FROM_LINRGB[1];
-      const kB = _HctSolver.Y_FROM_LINRGB[2];
-      const fnj = kR * linrgb[0] + kG * linrgb[1] + kB * linrgb[2];
-      if (fnj <= 0) {
-        return 0;
-      }
-      if (iterationRound === 4 || Math.abs(fnj - y3) < 2e-3) {
-        if (linrgb[0] > 100.01 || linrgb[1] > 100.01 || linrgb[2] > 100.01) {
-          return 0;
-        }
-        return argbFromLinrgb(linrgb);
-      }
-      j = j - (fnj - y3) * j / (2 * fnj);
-    }
-    return 0;
-  }
-  /**
-   * Finds an sRGB color with the given hue, chroma, and L*, if
-   * possible.
-   *
-   * @param hueDegrees The desired hue, in degrees.
-   * @param chroma The desired chroma.
-   * @param lstar The desired L*.
-   * @return A hexadecimal representing the sRGB color. The color
-   * has sufficiently close hue, chroma, and L* to the desired
-   * values, if possible; otherwise, the hue and L* will be
-   * sufficiently close, and chroma will be maximized.
-   */
-  static solveToInt(hueDegrees, chroma, lstar) {
-    if (chroma < 1e-4 || lstar < 1e-4 || lstar > 99.9999) {
-      return argbFromLstar(lstar);
-    }
-    hueDegrees = sanitizeDegreesDouble(hueDegrees);
-    const hueRadians = hueDegrees / 180 * Math.PI;
-    const y3 = yFromLstar(lstar);
-    const exactAnswer = _HctSolver.findResultByJ(hueRadians, chroma, y3);
-    if (exactAnswer !== 0) {
-      return exactAnswer;
-    }
-    const linrgb = _HctSolver.bisectToLimit(y3, hueRadians);
-    return argbFromLinrgb(linrgb);
-  }
-  /**
-   * Finds an sRGB color with the given hue, chroma, and L*, if
-   * possible.
-   *
-   * @param hueDegrees The desired hue, in degrees.
-   * @param chroma The desired chroma.
-   * @param lstar The desired L*.
-   * @return An CAM16 object representing the sRGB color. The color
-   * has sufficiently close hue, chroma, and L* to the desired
-   * values, if possible; otherwise, the hue and L* will be
-   * sufficiently close, and chroma will be maximized.
-   */
-  static solveToCam(hueDegrees, chroma, lstar) {
-    return Cam16.fromInt(_HctSolver.solveToInt(hueDegrees, chroma, lstar));
-  }
-};
-HctSolver.SCALED_DISCOUNT_FROM_LINRGB = [
-  [
-    0.001200833568784504,
-    0.002389694492170889,
-    2795742885861124e-19
-  ],
-  [
-    5891086651375999e-19,
-    0.0029785502573438758,
-    3270666104008398e-19
-  ],
-  [
-    10146692491640572e-20,
-    5364214359186694e-19,
-    0.0032979401770712076
-  ]
-];
-HctSolver.LINRGB_FROM_SCALED_DISCOUNT = [
-  [
-    1373.2198709594231,
-    -1100.4251190754821,
-    -7.278681089101213
-  ],
-  [
-    -271.815969077903,
-    559.6580465940733,
-    -32.46047482791194
-  ],
-  [
-    1.9622899599665666,
-    -57.173814538844006,
-    308.7233197812385
-  ]
-];
-HctSolver.Y_FROM_LINRGB = [0.2126, 0.7152, 0.0722];
-HctSolver.CRITICAL_PLANES = [
-  0.015176349177441876,
-  0.045529047532325624,
-  0.07588174588720938,
-  0.10623444424209313,
-  0.13658714259697685,
-  0.16693984095186062,
-  0.19729253930674434,
-  0.2276452376616281,
-  0.2579979360165119,
-  0.28835063437139563,
-  0.3188300904430532,
-  0.350925934958123,
-  0.3848314933096426,
-  0.42057480301049466,
-  0.458183274052838,
-  0.4976837250274023,
-  0.5391024159806381,
-  0.5824650784040898,
-  0.6277969426914107,
-  0.6751227633498623,
-  0.7244668422128921,
-  0.775853049866786,
-  0.829304845476233,
-  0.8848452951698498,
-  0.942497089126609,
-  1.0022825574869039,
-  1.0642236851973577,
-  1.1283421258858297,
-  1.1946592148522128,
-  1.2631959812511864,
-  1.3339731595349034,
-  1.407011200216447,
-  1.4823302800086415,
-  1.5599503113873272,
-  1.6398909516233677,
-  1.7221716113234105,
-  1.8068114625156377,
-  1.8938294463134073,
-  1.9832442801866852,
-  2.075074464868551,
-  2.1693382909216234,
-  2.2660538449872063,
-  2.36523901573795,
-  2.4669114995532007,
-  2.5710888059345764,
-  2.6777882626779785,
-  2.7870270208169257,
-  2.898822059350997,
-  3.0131901897720907,
-  3.1301480604002863,
-  3.2497121605402226,
-  3.3718988244681087,
-  3.4967242352587946,
-  3.624204428461639,
-  3.754355295633311,
-  3.887192587735158,
-  4.022731918402185,
-  4.160988767090289,
-  4.301978482107941,
-  4.445716283538092,
-  4.592217266055746,
-  4.741496401646282,
-  4.893568542229298,
-  5.048448422192488,
-  5.20615066083972,
-  5.3666897647573375,
-  5.5300801301023865,
-  5.696336044816294,
-  5.865471690767354,
-  6.037501145825082,
-  6.212438385869475,
-  6.390297286737924,
-  6.571091626112461,
-  6.7548350853498045,
-  6.941541251256611,
-  7.131223617812143,
-  7.323895587840543,
-  7.5195704746346665,
-  7.7182615035334345,
-  7.919981813454504,
-  8.124744458384042,
-  8.332562408825165,
-  8.543448553206703,
-  8.757415699253682,
-  8.974476575321063,
-  9.194643831691977,
-  9.417930041841839,
-  9.644347703669503,
-  9.873909240696694,
-  10.106627003236781,
-  10.342513269534024,
-  10.58158024687427,
-  10.8238400726681,
-  11.069304815507364,
-  11.317986476196008,
-  11.569896988756009,
-  11.825048221409341,
-  12.083451977536606,
-  12.345119996613247,
-  12.610063955123938,
-  12.878295467455942,
-  13.149826086772048,
-  13.42466730586372,
-  13.702830557985108,
-  13.984327217668513,
-  14.269168601521828,
-  14.55736596900856,
-  14.848930523210871,
-  15.143873411576273,
-  15.44220572664832,
-  15.743938506781891,
-  16.04908273684337,
-  16.35764934889634,
-  16.66964922287304,
-  16.985093187232053,
-  17.30399201960269,
-  17.62635644741625,
-  17.95219714852476,
-  18.281524751807332,
-  18.614349837764564,
-  18.95068293910138,
-  19.290534541298456,
-  19.633915083172692,
-  19.98083495742689,
-  20.331304511189067,
-  20.685334046541502,
-  21.042933821039977,
-  21.404114048223256,
-  21.76888489811322,
-  22.137256497705877,
-  22.50923893145328,
-  22.884842241736916,
-  23.264076429332462,
-  23.6469514538663,
-  24.033477234264016,
-  24.42366364919083,
-  24.817520537484558,
-  25.21505769858089,
-  25.61628489293138,
-  26.021211842414342,
-  26.429848230738664,
-  26.842203703840827,
-  27.258287870275353,
-  27.678110301598522,
-  28.10168053274597,
-  28.529008062403893,
-  28.96010235337422,
-  29.39497283293396,
-  29.83362889318845,
-  30.276079891419332,
-  30.722335150426627,
-  31.172403958865512,
-  31.62629557157785,
-  32.08401920991837,
-  32.54558406207592,
-  33.010999283389665,
-  33.4802739966603,
-  33.953417292456834,
-  34.430438229418264,
-  34.911345834551085,
-  35.39614910352207,
-  35.88485700094671,
-  36.37747846067349,
-  36.87402238606382,
-  37.37449765026789,
-  37.87891309649659,
-  38.38727753828926,
-  38.89959975977785,
-  39.41588851594697,
-  39.93615253289054,
-  40.460400508064545,
-  40.98864111053629,
-  41.520882981230194,
-  42.05713473317016,
-  42.597404951718396,
-  43.141702194811224,
-  43.6900349931913,
-  44.24241185063697,
-  44.798841244188324,
-  45.35933162437017,
-  45.92389141541209,
-  46.49252901546552,
-  47.065252796817916,
-  47.64207110610409,
-  48.22299226451468,
-  48.808024568002054,
-  49.3971762874833,
-  49.9904556690408,
-  50.587870934119984,
-  51.189430279724725,
-  51.79514187861014,
-  52.40501387947288,
-  53.0190544071392,
-  53.637271562750364,
-  54.259673423945976,
-  54.88626804504493,
-  55.517063457223934,
-  56.15206766869424,
-  56.79128866487574,
-  57.43473440856916,
-  58.08241284012621,
-  58.734331877617365,
-  59.39049941699807,
-  60.05092333227251,
-  60.715611475655585,
-  61.38457167773311,
-  62.057811747619894,
-  62.7353394731159,
-  63.417162620860914,
-  64.10328893648692,
-  64.79372614476921,
-  65.48848194977529,
-  66.18756403501224,
-  66.89098006357258,
-  67.59873767827808,
-  68.31084450182222,
-  69.02730813691093,
-  69.74813616640164,
-  70.47333615344107,
-  71.20291564160104,
-  71.93688215501312,
-  72.67524319850172,
-  73.41800625771542,
-  74.16517879925733,
-  74.9167682708136,
-  75.67278210128072,
-  76.43322770089146,
-  77.1981124613393,
-  77.96744375590167,
-  78.74122893956174,
-  79.51947534912904,
-  80.30219030335869,
-  81.08938110306934,
-  81.88105503125999,
-  82.67721935322541,
-  83.4778813166706,
-  84.28304815182372,
-  85.09272707154808,
-  85.90692527145302,
-  86.72564993000343,
-  87.54890820862819,
-  88.3767072518277,
-  89.2090541872801,
-  90.04595612594655,
-  90.88742016217518,
-  91.73345337380438,
-  92.58406282226491,
-  93.43925555268066,
-  94.29903859396902,
-  95.16341895893969,
-  96.03240364439274,
-  96.9059996312159,
-  97.78421388448044,
-  98.6670533535366,
-  99.55452497210776
-];
-
-// ../../node_modules/@material/material-color-utilities/hct/hct.js
-var Hct = class _Hct {
-  static from(hue, chroma, tone) {
-    return new _Hct(HctSolver.solveToInt(hue, chroma, tone));
-  }
-  /**
-   * @param argb ARGB representation of a color.
-   * @return HCT representation of a color in default viewing conditions
-   */
-  static fromInt(argb) {
-    return new _Hct(argb);
-  }
-  toInt() {
-    return this.argb;
-  }
-  /**
-   * A number, in degrees, representing ex. red, orange, yellow, etc.
-   * Ranges from 0 <= hue < 360.
-   */
-  get hue() {
-    return this.internalHue;
-  }
-  /**
-   * @param newHue 0 <= newHue < 360; invalid values are corrected.
-   * Chroma may decrease because chroma has a different maximum for any given
-   * hue and tone.
-   */
-  set hue(newHue) {
-    this.setInternalState(HctSolver.solveToInt(newHue, this.internalChroma, this.internalTone));
-  }
-  get chroma() {
-    return this.internalChroma;
-  }
-  /**
-   * @param newChroma 0 <= newChroma < ?
-   * Chroma may decrease because chroma has a different maximum for any given
-   * hue and tone.
-   */
-  set chroma(newChroma) {
-    this.setInternalState(HctSolver.solveToInt(this.internalHue, newChroma, this.internalTone));
-  }
-  /** Lightness. Ranges from 0 to 100. */
-  get tone() {
-    return this.internalTone;
-  }
-  /**
-   * @param newTone 0 <= newTone <= 100; invalid valids are corrected.
-   * Chroma may decrease because chroma has a different maximum for any given
-   * hue and tone.
-   */
-  set tone(newTone) {
-    this.setInternalState(HctSolver.solveToInt(this.internalHue, this.internalChroma, newTone));
-  }
-  constructor(argb) {
-    this.argb = argb;
-    const cam = Cam16.fromInt(argb);
-    this.internalHue = cam.hue;
-    this.internalChroma = cam.chroma;
-    this.internalTone = lstarFromArgb(argb);
-    this.argb = argb;
-  }
-  setInternalState(argb) {
-    const cam = Cam16.fromInt(argb);
-    this.internalHue = cam.hue;
-    this.internalChroma = cam.chroma;
-    this.internalTone = lstarFromArgb(argb);
-    this.argb = argb;
-  }
-  /**
-   * Translates a color into different [ViewingConditions].
-   *
-   * Colors change appearance. They look different with lights on versus off,
-   * the same color, as in hex code, on white looks different when on black.
-   * This is called color relativity, most famously explicated by Josef Albers
-   * in Interaction of Color.
-   *
-   * In color science, color appearance models can account for this and
-   * calculate the appearance of a color in different settings. HCT is based on
-   * CAM16, a color appearance model, and uses it to make these calculations.
-   *
-   * See [ViewingConditions.make] for parameters affecting color appearance.
-   */
-  inViewingConditions(vc) {
-    const cam = Cam16.fromInt(this.toInt());
-    const viewedInVc = cam.xyzInViewingConditions(vc);
-    const recastInVc = Cam16.fromXyzInViewingConditions(viewedInVc[0], viewedInVc[1], viewedInVc[2], ViewingConditions.make());
-    const recastHct = _Hct.from(recastInVc.hue, recastInVc.chroma, lstarFromY(viewedInVc[1]));
-    return recastHct;
-  }
-};
-
-// ../../node_modules/@material/material-color-utilities/contrast/contrast.js
-var Contrast = class _Contrast {
-  /**
-   * Returns a contrast ratio, which ranges from 1 to 21.
-   *
-   * @param toneA Tone between 0 and 100. Values outside will be clamped.
-   * @param toneB Tone between 0 and 100. Values outside will be clamped.
-   */
-  static ratioOfTones(toneA, toneB) {
-    toneA = clampDouble(0, 100, toneA);
-    toneB = clampDouble(0, 100, toneB);
-    return _Contrast.ratioOfYs(yFromLstar(toneA), yFromLstar(toneB));
-  }
-  static ratioOfYs(y1, y22) {
-    const lighter = y1 > y22 ? y1 : y22;
-    const darker = lighter === y22 ? y1 : y22;
-    return (lighter + 5) / (darker + 5);
-  }
-  /**
-   * Returns a tone >= tone parameter that ensures ratio parameter.
-   * Return value is between 0 and 100.
-   * Returns -1 if ratio cannot be achieved with tone parameter.
-   *
-   * @param tone Tone return value must contrast with.
-   * Range is 0 to 100. Invalid values will result in -1 being returned.
-   * @param ratio Contrast ratio of return value and tone.
-   * Range is 1 to 21, invalid values have undefined behavior.
-   */
-  static lighter(tone, ratio) {
-    if (tone < 0 || tone > 100) {
-      return -1;
-    }
-    const darkY = yFromLstar(tone);
-    const lightY = ratio * (darkY + 5) - 5;
-    const realContrast = _Contrast.ratioOfYs(lightY, darkY);
-    const delta = Math.abs(realContrast - ratio);
-    if (realContrast < ratio && delta > 0.04) {
-      return -1;
-    }
-    const returnValue = lstarFromY(lightY) + 0.4;
-    if (returnValue < 0 || returnValue > 100) {
-      return -1;
-    }
-    return returnValue;
-  }
-  /**
-   * Returns a tone <= tone parameter that ensures ratio parameter.
-   * Return value is between 0 and 100.
-   * Returns -1 if ratio cannot be achieved with tone parameter.
-   *
-   * @param tone Tone return value must contrast with.
-   * Range is 0 to 100. Invalid values will result in -1 being returned.
-   * @param ratio Contrast ratio of return value and tone.
-   * Range is 1 to 21, invalid values have undefined behavior.
-   */
-  static darker(tone, ratio) {
-    if (tone < 0 || tone > 100) {
-      return -1;
-    }
-    const lightY = yFromLstar(tone);
-    const darkY = (lightY + 5) / ratio - 5;
-    const realContrast = _Contrast.ratioOfYs(lightY, darkY);
-    const delta = Math.abs(realContrast - ratio);
-    if (realContrast < ratio && delta > 0.04) {
-      return -1;
-    }
-    const returnValue = lstarFromY(darkY) - 0.4;
-    if (returnValue < 0 || returnValue > 100) {
-      return -1;
-    }
-    return returnValue;
-  }
-  /**
-   * Returns a tone >= tone parameter that ensures ratio parameter.
-   * Return value is between 0 and 100.
-   * Returns 100 if ratio cannot be achieved with tone parameter.
-   *
-   * This method is unsafe because the returned value is guaranteed to be in
-   * bounds for tone, i.e. between 0 and 100. However, that value may not reach
-   * the ratio with tone. For example, there is no color lighter than T100.
-   *
-   * @param tone Tone return value must contrast with.
-   * Range is 0 to 100. Invalid values will result in 100 being returned.
-   * @param ratio Desired contrast ratio of return value and tone parameter.
-   * Range is 1 to 21, invalid values have undefined behavior.
-   */
-  static lighterUnsafe(tone, ratio) {
-    const lighterSafe = _Contrast.lighter(tone, ratio);
-    return lighterSafe < 0 ? 100 : lighterSafe;
-  }
-  /**
-   * Returns a tone >= tone parameter that ensures ratio parameter.
-   * Return value is between 0 and 100.
-   * Returns 100 if ratio cannot be achieved with tone parameter.
-   *
-   * This method is unsafe because the returned value is guaranteed to be in
-   * bounds for tone, i.e. between 0 and 100. However, that value may not reach
-   * the [ratio with [tone]. For example, there is no color darker than T0.
-   *
-   * @param tone Tone return value must contrast with.
-   * Range is 0 to 100. Invalid values will result in 0 being returned.
-   * @param ratio Desired contrast ratio of return value and tone parameter.
-   * Range is 1 to 21, invalid values have undefined behavior.
-   */
-  static darkerUnsafe(tone, ratio) {
-    const darkerSafe = _Contrast.darker(tone, ratio);
-    return darkerSafe < 0 ? 0 : darkerSafe;
-  }
-};
-
-// ../../node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js
-var DislikeAnalyzer = class _DislikeAnalyzer {
-  /**
-   * Returns true if a color is disliked.
-   *
-   * @param hct A color to be judged.
-   * @return Whether the color is disliked.
-   *
-   * Disliked is defined as a dark yellow-green that is not neutral.
-   */
-  static isDisliked(hct) {
-    const huePasses = Math.round(hct.hue) >= 90 && Math.round(hct.hue) <= 111;
-    const chromaPasses = Math.round(hct.chroma) > 16;
-    const tonePasses = Math.round(hct.tone) < 65;
-    return huePasses && chromaPasses && tonePasses;
-  }
-  /**
-   * If a color is disliked, lighten it to make it likable.
-   *
-   * @param hct A color to be judged.
-   * @return A new color if the original color is disliked, or the original
-   *   color if it is acceptable.
-   */
-  static fixIfDisliked(hct) {
-    if (_DislikeAnalyzer.isDisliked(hct)) {
-      return Hct.from(hct.hue, hct.chroma, 70);
-    }
-    return hct;
-  }
-};
-
-// ../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js
-var DynamicColor = class _DynamicColor {
-  /**
-   * Create a DynamicColor defined by a TonalPalette and HCT tone.
-   *
-   * @param args Functions with DynamicScheme as input. Must provide a palette
-   * and tone. May provide a background DynamicColor and ToneDeltaConstraint.
-   */
-  static fromPalette(args) {
-    return new _DynamicColor(args.name ?? "", args.palette, args.tone, args.isBackground ?? false, args.background, args.secondBackground, args.contrastCurve, args.toneDeltaPair);
-  }
-  /**
-   * The base constructor for DynamicColor.
-   *
-   * _Strongly_ prefer using one of the convenience constructors. This class is
-   * arguably too flexible to ensure it can support any scenario. Functional
-   * arguments allow  overriding without risks that come with subclasses.
-   *
-   * For example, the default behavior of adjust tone at max contrast
-   * to be at a 7.0 ratio with its background is principled and
-   * matches accessibility guidance. That does not mean it's the desired
-   * approach for _every_ design system, and every color pairing,
-   * always, in every case.
-   *
-   * @param name The name of the dynamic color. Defaults to empty.
-   * @param palette Function that provides a TonalPalette given
-   * DynamicScheme. A TonalPalette is defined by a hue and chroma, so this
-   * replaces the need to specify hue/chroma. By providing a tonal palette, when
-   * contrast adjustments are made, intended chroma can be preserved.
-   * @param tone Function that provides a tone, given a DynamicScheme.
-   * @param isBackground Whether this dynamic color is a background, with
-   * some other color as the foreground. Defaults to false.
-   * @param background The background of the dynamic color (as a function of a
-   *     `DynamicScheme`), if it exists.
-   * @param secondBackground A second background of the dynamic color (as a
-   *     function of a `DynamicScheme`), if it
-   * exists.
-   * @param contrastCurve A `ContrastCurve` object specifying how its contrast
-   * against its background should behave in various contrast levels options.
-   * @param toneDeltaPair A `ToneDeltaPair` object specifying a tone delta
-   * constraint between two colors. One of them must be the color being
-   * constructed.
-   */
-  constructor(name, palette, tone, isBackground, background, secondBackground, contrastCurve, toneDeltaPair) {
-    this.name = name;
-    this.palette = palette;
-    this.tone = tone;
-    this.isBackground = isBackground;
-    this.background = background;
-    this.secondBackground = secondBackground;
-    this.contrastCurve = contrastCurve;
-    this.toneDeltaPair = toneDeltaPair;
-    this.hctCache = /* @__PURE__ */ new Map();
-    if (!background && secondBackground) {
-      throw new Error(`Color ${name} has secondBackgrounddefined, but background is not defined.`);
-    }
-    if (!background && contrastCurve) {
-      throw new Error(`Color ${name} has contrastCurvedefined, but background is not defined.`);
-    }
-    if (background && !contrastCurve) {
-      throw new Error(`Color ${name} has backgrounddefined, but contrastCurve is not defined.`);
-    }
-  }
-  /**
-   * Return a ARGB integer (i.e. a hex code).
-   *
-   * @param scheme Defines the conditions of the user interface, for example,
-   * whether or not it is dark mode or light mode, and what the desired
-   * contrast level is.
-   */
-  getArgb(scheme) {
-    return this.getHct(scheme).toInt();
-  }
-  /**
-   * Return a color, expressed in the HCT color space, that this
-   * DynamicColor is under the conditions in scheme.
-   *
-   * @param scheme Defines the conditions of the user interface, for example,
-   * whether or not it is dark mode or light mode, and what the desired
-   * contrast level is.
-   */
-  getHct(scheme) {
-    const cachedAnswer = this.hctCache.get(scheme);
-    if (cachedAnswer != null) {
-      return cachedAnswer;
-    }
-    const tone = this.getTone(scheme);
-    const answer = this.palette(scheme).getHct(tone);
-    if (this.hctCache.size > 4) {
-      this.hctCache.clear();
-    }
-    this.hctCache.set(scheme, answer);
-    return answer;
-  }
-  /**
-   * Return a tone, T in the HCT color space, that this DynamicColor is under
-   * the conditions in scheme.
-   *
-   * @param scheme Defines the conditions of the user interface, for example,
-   * whether or not it is dark mode or light mode, and what the desired
-   * contrast level is.
-   */
-  getTone(scheme) {
-    const decreasingContrast = scheme.contrastLevel < 0;
-    if (this.toneDeltaPair) {
-      const toneDeltaPair = this.toneDeltaPair(scheme);
-      const roleA = toneDeltaPair.roleA;
-      const roleB = toneDeltaPair.roleB;
-      const delta = toneDeltaPair.delta;
-      const polarity = toneDeltaPair.polarity;
-      const stayTogether = toneDeltaPair.stayTogether;
-      const bg = this.background(scheme);
-      const bgTone = bg.getTone(scheme);
-      const aIsNearer = polarity === "nearer" || polarity === "lighter" && !scheme.isDark || polarity === "darker" && scheme.isDark;
-      const nearer = aIsNearer ? roleA : roleB;
-      const farther = aIsNearer ? roleB : roleA;
-      const amNearer = this.name === nearer.name;
-      const expansionDir = scheme.isDark ? 1 : -1;
-      const nContrast = nearer.contrastCurve.get(scheme.contrastLevel);
-      const fContrast = farther.contrastCurve.get(scheme.contrastLevel);
-      const nInitialTone = nearer.tone(scheme);
-      let nTone = Contrast.ratioOfTones(bgTone, nInitialTone) >= nContrast ? nInitialTone : _DynamicColor.foregroundTone(bgTone, nContrast);
-      const fInitialTone = farther.tone(scheme);
-      let fTone = Contrast.ratioOfTones(bgTone, fInitialTone) >= fContrast ? fInitialTone : _DynamicColor.foregroundTone(bgTone, fContrast);
-      if (decreasingContrast) {
-        nTone = _DynamicColor.foregroundTone(bgTone, nContrast);
-        fTone = _DynamicColor.foregroundTone(bgTone, fContrast);
-      }
-      if ((fTone - nTone) * expansionDir >= delta) {
-      } else {
-        fTone = clampDouble(0, 100, nTone + delta * expansionDir);
-        if ((fTone - nTone) * expansionDir >= delta) {
-        } else {
-          nTone = clampDouble(0, 100, fTone - delta * expansionDir);
-        }
-      }
-      if (50 <= nTone && nTone < 60) {
-        if (expansionDir > 0) {
-          nTone = 60;
-          fTone = Math.max(fTone, nTone + delta * expansionDir);
-        } else {
-          nTone = 49;
-          fTone = Math.min(fTone, nTone + delta * expansionDir);
-        }
-      } else if (50 <= fTone && fTone < 60) {
-        if (stayTogether) {
-          if (expansionDir > 0) {
-            nTone = 60;
-            fTone = Math.max(fTone, nTone + delta * expansionDir);
-          } else {
-            nTone = 49;
-            fTone = Math.min(fTone, nTone + delta * expansionDir);
-          }
-        } else {
-          if (expansionDir > 0) {
-            fTone = 60;
-          } else {
-            fTone = 49;
-          }
-        }
-      }
-      return amNearer ? nTone : fTone;
-    } else {
-      let answer = this.tone(scheme);
-      if (this.background == null) {
-        return answer;
-      }
-      const bgTone = this.background(scheme).getTone(scheme);
-      const desiredRatio = this.contrastCurve.get(scheme.contrastLevel);
-      if (Contrast.ratioOfTones(bgTone, answer) >= desiredRatio) {
-      } else {
-        answer = _DynamicColor.foregroundTone(bgTone, desiredRatio);
-      }
-      if (decreasingContrast) {
-        answer = _DynamicColor.foregroundTone(bgTone, desiredRatio);
-      }
-      if (this.isBackground && 50 <= answer && answer < 60) {
-        if (Contrast.ratioOfTones(49, bgTone) >= desiredRatio) {
-          answer = 49;
-        } else {
-          answer = 60;
-        }
-      }
-      if (this.secondBackground) {
-        const [bg1, bg2] = [this.background, this.secondBackground];
-        const [bgTone1, bgTone2] = [bg1(scheme).getTone(scheme), bg2(scheme).getTone(scheme)];
-        const [upper, lower] = [Math.max(bgTone1, bgTone2), Math.min(bgTone1, bgTone2)];
-        if (Contrast.ratioOfTones(upper, answer) >= desiredRatio && Contrast.ratioOfTones(lower, answer) >= desiredRatio) {
-          return answer;
-        }
-        const lightOption = Contrast.lighter(upper, desiredRatio);
-        const darkOption = Contrast.darker(lower, desiredRatio);
-        const availables = [];
-        if (lightOption !== -1)
-          availables.push(lightOption);
-        if (darkOption !== -1)
-          availables.push(darkOption);
-        const prefersLight = _DynamicColor.tonePrefersLightForeground(bgTone1) || _DynamicColor.tonePrefersLightForeground(bgTone2);
-        if (prefersLight) {
-          return lightOption < 0 ? 100 : lightOption;
-        }
-        if (availables.length === 1) {
-          return availables[0];
-        }
-        return darkOption < 0 ? 0 : darkOption;
-      }
-      return answer;
-    }
-  }
-  /**
-   * Given a background tone, find a foreground tone, while ensuring they reach
-   * a contrast ratio that is as close to [ratio] as possible.
-   *
-   * @param bgTone Tone in HCT. Range is 0 to 100, undefined behavior when it
-   *     falls outside that range.
-   * @param ratio The contrast ratio desired between bgTone and the return
-   *     value.
-   */
-  static foregroundTone(bgTone, ratio) {
-    const lighterTone = Contrast.lighterUnsafe(bgTone, ratio);
-    const darkerTone = Contrast.darkerUnsafe(bgTone, ratio);
-    const lighterRatio = Contrast.ratioOfTones(lighterTone, bgTone);
-    const darkerRatio = Contrast.ratioOfTones(darkerTone, bgTone);
-    const preferLighter = _DynamicColor.tonePrefersLightForeground(bgTone);
-    if (preferLighter) {
-      const negligibleDifference = Math.abs(lighterRatio - darkerRatio) < 0.1 && lighterRatio < ratio && darkerRatio < ratio;
-      return lighterRatio >= ratio || lighterRatio >= darkerRatio || negligibleDifference ? lighterTone : darkerTone;
-    } else {
-      return darkerRatio >= ratio || darkerRatio >= lighterRatio ? darkerTone : lighterTone;
-    }
-  }
-  /**
-   * Returns whether [tone] prefers a light foreground.
-   *
-   * People prefer white foregrounds on ~T60-70. Observed over time, and also
-   * by Andrew Somers during research for APCA.
-   *
-   * T60 used as to create the smallest discontinuity possible when skipping
-   * down to T49 in order to ensure light foregrounds.
-   * Since `tertiaryContainer` in dark monochrome scheme requires a tone of
-   * 60, it should not be adjusted. Therefore, 60 is excluded here.
-   */
-  static tonePrefersLightForeground(tone) {
-    return Math.round(tone) < 60;
-  }
-  /**
-   * Returns whether [tone] can reach a contrast ratio of 4.5 with a lighter
-   * color.
-   */
-  static toneAllowsLightForeground(tone) {
-    return Math.round(tone) <= 49;
-  }
-  /**
-   * Adjust a tone such that white has 4.5 contrast, if the tone is
-   * reasonably close to supporting it.
-   */
-  static enableLightForeground(tone) {
-    if (_DynamicColor.tonePrefersLightForeground(tone) && !_DynamicColor.toneAllowsLightForeground(tone)) {
-      return 49;
-    }
-    return tone;
-  }
-};
-
-// ../../node_modules/@material/material-color-utilities/palettes/tonal_palette.js
-var TonalPalette = class _TonalPalette {
-  /**
-   * @param argb ARGB representation of a color
-   * @return Tones matching that color's hue and chroma.
-   */
-  static fromInt(argb) {
-    const hct = Hct.fromInt(argb);
-    return _TonalPalette.fromHct(hct);
-  }
-  /**
-   * @param hct Hct
-   * @return Tones matching that color's hue and chroma.
-   */
-  static fromHct(hct) {
-    return new _TonalPalette(hct.hue, hct.chroma, hct);
-  }
-  /**
-   * @param hue HCT hue
-   * @param chroma HCT chroma
-   * @return Tones matching hue and chroma.
-   */
-  static fromHueAndChroma(hue, chroma) {
-    const keyColor = new KeyColor(hue, chroma).create();
-    return new _TonalPalette(hue, chroma, keyColor);
-  }
-  constructor(hue, chroma, keyColor) {
-    this.hue = hue;
-    this.chroma = chroma;
-    this.keyColor = keyColor;
-    this.cache = /* @__PURE__ */ new Map();
-  }
-  /**
-   * @param tone HCT tone, measured from 0 to 100.
-   * @return ARGB representation of a color with that tone.
-   */
-  tone(tone) {
-    let argb = this.cache.get(tone);
-    if (argb === void 0) {
-      argb = Hct.from(this.hue, this.chroma, tone).toInt();
-      this.cache.set(tone, argb);
-    }
-    return argb;
-  }
-  /**
-   * @param tone HCT tone.
-   * @return HCT representation of a color with that tone.
-   */
-  getHct(tone) {
-    return Hct.fromInt(this.tone(tone));
-  }
-};
-var KeyColor = class {
-  constructor(hue, requestedChroma) {
-    this.hue = hue;
-    this.requestedChroma = requestedChroma;
-    this.chromaCache = /* @__PURE__ */ new Map();
-    this.maxChromaValue = 200;
-  }
-  /**
-   * Creates a key color from a [hue] and a [chroma].
-   * The key color is the first tone, starting from T50, matching the given hue
-   * and chroma.
-   *
-   * @return Key color [Hct]
-   */
-  create() {
-    const pivotTone = 50;
-    const toneStepSize = 1;
-    const epsilon = 0.01;
-    let lowerTone = 0;
-    let upperTone = 100;
-    while (lowerTone < upperTone) {
-      const midTone = Math.floor((lowerTone + upperTone) / 2);
-      const isAscending = this.maxChroma(midTone) < this.maxChroma(midTone + toneStepSize);
-      const sufficientChroma = this.maxChroma(midTone) >= this.requestedChroma - epsilon;
-      if (sufficientChroma) {
-        if (Math.abs(lowerTone - pivotTone) < Math.abs(upperTone - pivotTone)) {
-          upperTone = midTone;
-        } else {
-          if (lowerTone === midTone) {
-            return Hct.from(this.hue, this.requestedChroma, lowerTone);
-          }
-          lowerTone = midTone;
-        }
-      } else {
-        if (isAscending) {
-          lowerTone = midTone + toneStepSize;
-        } else {
-          upperTone = midTone;
-        }
-      }
-    }
-    return Hct.from(this.hue, this.requestedChroma, lowerTone);
-  }
-  // Find the maximum chroma for a given tone
-  maxChroma(tone) {
-    if (this.chromaCache.has(tone)) {
-      return this.chromaCache.get(tone);
-    }
-    const chroma = Hct.from(this.hue, this.maxChromaValue, tone).chroma;
-    this.chromaCache.set(tone, chroma);
-    return chroma;
-  }
-};
-
-// ../../node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js
-var ContrastCurve = class {
-  /**
-   * Creates a `ContrastCurve` object.
-   *
-   * @param low Value for contrast level -1.0
-   * @param normal Value for contrast level 0.0
-   * @param medium Value for contrast level 0.5
-   * @param high Value for contrast level 1.0
-   */
-  constructor(low, normal, medium, high) {
-    this.low = low;
-    this.normal = normal;
-    this.medium = medium;
-    this.high = high;
-  }
-  /**
-   * Returns the value at a given contrast level.
-   *
-   * @param contrastLevel The contrast level. 0.0 is the default (normal); -1.0
-   *     is the lowest; 1.0 is the highest.
-   * @return The value. For contrast ratios, a number between 1.0 and 21.0.
-   */
-  get(contrastLevel) {
-    if (contrastLevel <= -1) {
-      return this.low;
-    } else if (contrastLevel < 0) {
-      return lerp(this.low, this.normal, (contrastLevel - -1) / 1);
-    } else if (contrastLevel < 0.5) {
-      return lerp(this.normal, this.medium, (contrastLevel - 0) / 0.5);
-    } else if (contrastLevel < 1) {
-      return lerp(this.medium, this.high, (contrastLevel - 0.5) / 0.5);
-    } else {
-      return this.high;
-    }
-  }
-};
-
-// ../../node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js
-var ToneDeltaPair = class {
-  /**
-   * Documents a constraint in tone distance between two DynamicColors.
-   *
-   * The polarity is an adjective that describes "A", compared to "B".
-   *
-   * For instance, ToneDeltaPair(A, B, 15, 'darker', stayTogether) states that
-   * A's tone should be at least 15 darker than B's.
-   *
-   * 'nearer' and 'farther' describes closeness to the surface roles. For
-   * instance, ToneDeltaPair(A, B, 10, 'nearer', stayTogether) states that A
-   * should be 10 lighter than B in light mode, and 10 darker than B in dark
-   * mode.
-   *
-   * @param roleA The first role in a pair.
-   * @param roleB The second role in a pair.
-   * @param delta Required difference between tones. Absolute value, negative
-   * values have undefined behavior.
-   * @param polarity The relative relation between tones of roleA and roleB,
-   * as described above.
-   * @param stayTogether Whether these two roles should stay on the same side of
-   * the "awkward zone" (T50-59). This is necessary for certain cases where
-   * one role has two backgrounds.
-   */
-  constructor(roleA, roleB, delta, polarity, stayTogether) {
-    this.roleA = roleA;
-    this.roleB = roleB;
-    this.delta = delta;
-    this.polarity = polarity;
-    this.stayTogether = stayTogether;
-  }
-};
-
-// ../../node_modules/@material/material-color-utilities/dynamiccolor/variant.js
-var Variant;
-(function(Variant2) {
-  Variant2[Variant2["MONOCHROME"] = 0] = "MONOCHROME";
-  Variant2[Variant2["NEUTRAL"] = 1] = "NEUTRAL";
-  Variant2[Variant2["TONAL_SPOT"] = 2] = "TONAL_SPOT";
-  Variant2[Variant2["VIBRANT"] = 3] = "VIBRANT";
-  Variant2[Variant2["EXPRESSIVE"] = 4] = "EXPRESSIVE";
-  Variant2[Variant2["FIDELITY"] = 5] = "FIDELITY";
-  Variant2[Variant2["CONTENT"] = 6] = "CONTENT";
-  Variant2[Variant2["RAINBOW"] = 7] = "RAINBOW";
-  Variant2[Variant2["FRUIT_SALAD"] = 8] = "FRUIT_SALAD";
-})(Variant || (Variant = {}));
-
-// ../../node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js
-function isFidelity(scheme) {
-  return scheme.variant === Variant.FIDELITY || scheme.variant === Variant.CONTENT;
-}
-function isMonochrome(scheme) {
-  return scheme.variant === Variant.MONOCHROME;
-}
-function findDesiredChromaByTone(hue, chroma, tone, byDecreasingTone) {
-  let answer = tone;
-  let closestToChroma = Hct.from(hue, chroma, tone);
-  if (closestToChroma.chroma < chroma) {
-    let chromaPeak = closestToChroma.chroma;
-    while (closestToChroma.chroma < chroma) {
-      answer += byDecreasingTone ? -1 : 1;
-      const potentialSolution = Hct.from(hue, chroma, answer);
-      if (chromaPeak > potentialSolution.chroma) {
-        break;
-      }
-      if (Math.abs(potentialSolution.chroma - chroma) < 0.4) {
-        break;
-      }
-      const potentialDelta = Math.abs(potentialSolution.chroma - chroma);
-      const currentDelta = Math.abs(closestToChroma.chroma - chroma);
-      if (potentialDelta < currentDelta) {
-        closestToChroma = potentialSolution;
-      }
-      chromaPeak = Math.max(chromaPeak, potentialSolution.chroma);
-    }
-  }
-  return answer;
-}
-var MaterialDynamicColors = class _MaterialDynamicColors {
-  static highestSurface(s4) {
-    return s4.isDark ? _MaterialDynamicColors.surfaceBright : _MaterialDynamicColors.surfaceDim;
-  }
-};
-MaterialDynamicColors.contentAccentToneDelta = 15;
-MaterialDynamicColors.primaryPaletteKeyColor = DynamicColor.fromPalette({
-  name: "primary_palette_key_color",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => s4.primaryPalette.keyColor.tone
-});
-MaterialDynamicColors.secondaryPaletteKeyColor = DynamicColor.fromPalette({
-  name: "secondary_palette_key_color",
-  palette: (s4) => s4.secondaryPalette,
-  tone: (s4) => s4.secondaryPalette.keyColor.tone
-});
-MaterialDynamicColors.tertiaryPaletteKeyColor = DynamicColor.fromPalette({
-  name: "tertiary_palette_key_color",
-  palette: (s4) => s4.tertiaryPalette,
-  tone: (s4) => s4.tertiaryPalette.keyColor.tone
-});
-MaterialDynamicColors.neutralPaletteKeyColor = DynamicColor.fromPalette({
-  name: "neutral_palette_key_color",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.neutralPalette.keyColor.tone
-});
-MaterialDynamicColors.neutralVariantPaletteKeyColor = DynamicColor.fromPalette({
-  name: "neutral_variant_palette_key_color",
-  palette: (s4) => s4.neutralVariantPalette,
-  tone: (s4) => s4.neutralVariantPalette.keyColor.tone
-});
-MaterialDynamicColors.background = DynamicColor.fromPalette({
-  name: "background",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? 6 : 98,
-  isBackground: true
-});
-MaterialDynamicColors.onBackground = DynamicColor.fromPalette({
-  name: "on_background",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? 90 : 10,
-  background: (s4) => MaterialDynamicColors.background,
-  contrastCurve: new ContrastCurve(3, 3, 4.5, 7)
-});
-MaterialDynamicColors.surface = DynamicColor.fromPalette({
-  name: "surface",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? 6 : 98,
-  isBackground: true
-});
-MaterialDynamicColors.surfaceDim = DynamicColor.fromPalette({
-  name: "surface_dim",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? 6 : new ContrastCurve(87, 87, 80, 75).get(s4.contrastLevel),
-  isBackground: true
-});
-MaterialDynamicColors.surfaceBright = DynamicColor.fromPalette({
-  name: "surface_bright",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? new ContrastCurve(24, 24, 29, 34).get(s4.contrastLevel) : 98,
-  isBackground: true
-});
-MaterialDynamicColors.surfaceContainerLowest = DynamicColor.fromPalette({
-  name: "surface_container_lowest",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? new ContrastCurve(4, 4, 2, 0).get(s4.contrastLevel) : 100,
-  isBackground: true
-});
-MaterialDynamicColors.surfaceContainerLow = DynamicColor.fromPalette({
-  name: "surface_container_low",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? new ContrastCurve(10, 10, 11, 12).get(s4.contrastLevel) : new ContrastCurve(96, 96, 96, 95).get(s4.contrastLevel),
-  isBackground: true
-});
-MaterialDynamicColors.surfaceContainer = DynamicColor.fromPalette({
-  name: "surface_container",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? new ContrastCurve(12, 12, 16, 20).get(s4.contrastLevel) : new ContrastCurve(94, 94, 92, 90).get(s4.contrastLevel),
-  isBackground: true
-});
-MaterialDynamicColors.surfaceContainerHigh = DynamicColor.fromPalette({
-  name: "surface_container_high",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? new ContrastCurve(17, 17, 21, 25).get(s4.contrastLevel) : new ContrastCurve(92, 92, 88, 85).get(s4.contrastLevel),
-  isBackground: true
-});
-MaterialDynamicColors.surfaceContainerHighest = DynamicColor.fromPalette({
-  name: "surface_container_highest",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? new ContrastCurve(22, 22, 26, 30).get(s4.contrastLevel) : new ContrastCurve(90, 90, 84, 80).get(s4.contrastLevel),
-  isBackground: true
-});
-MaterialDynamicColors.onSurface = DynamicColor.fromPalette({
-  name: "on_surface",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? 90 : 10,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
-});
-MaterialDynamicColors.surfaceVariant = DynamicColor.fromPalette({
-  name: "surface_variant",
-  palette: (s4) => s4.neutralVariantPalette,
-  tone: (s4) => s4.isDark ? 30 : 90,
-  isBackground: true
-});
-MaterialDynamicColors.onSurfaceVariant = DynamicColor.fromPalette({
-  name: "on_surface_variant",
-  palette: (s4) => s4.neutralVariantPalette,
-  tone: (s4) => s4.isDark ? 80 : 30,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
-});
-MaterialDynamicColors.inverseSurface = DynamicColor.fromPalette({
-  name: "inverse_surface",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? 90 : 20
-});
-MaterialDynamicColors.inverseOnSurface = DynamicColor.fromPalette({
-  name: "inverse_on_surface",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => s4.isDark ? 20 : 95,
-  background: (s4) => MaterialDynamicColors.inverseSurface,
-  contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
-});
-MaterialDynamicColors.outline = DynamicColor.fromPalette({
-  name: "outline",
-  palette: (s4) => s4.neutralVariantPalette,
-  tone: (s4) => s4.isDark ? 60 : 50,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1.5, 3, 4.5, 7)
-});
-MaterialDynamicColors.outlineVariant = DynamicColor.fromPalette({
-  name: "outline_variant",
-  palette: (s4) => s4.neutralVariantPalette,
-  tone: (s4) => s4.isDark ? 30 : 80,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5)
-});
-MaterialDynamicColors.shadow = DynamicColor.fromPalette({
-  name: "shadow",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => 0
-});
-MaterialDynamicColors.scrim = DynamicColor.fromPalette({
-  name: "scrim",
-  palette: (s4) => s4.neutralPalette,
-  tone: (s4) => 0
-});
-MaterialDynamicColors.surfaceTint = DynamicColor.fromPalette({
-  name: "surface_tint",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => s4.isDark ? 80 : 40,
-  isBackground: true
-});
-MaterialDynamicColors.primary = DynamicColor.fromPalette({
-  name: "primary",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => {
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 100 : 0;
-    }
-    return s4.isDark ? 80 : 40;
-  },
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.primaryContainer, MaterialDynamicColors.primary, 10, "nearer", false)
-});
-MaterialDynamicColors.onPrimary = DynamicColor.fromPalette({
-  name: "on_primary",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => {
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 10 : 90;
-    }
-    return s4.isDark ? 20 : 100;
-  },
-  background: (s4) => MaterialDynamicColors.primary,
-  contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
-});
-MaterialDynamicColors.primaryContainer = DynamicColor.fromPalette({
-  name: "primary_container",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => {
-    if (isFidelity(s4)) {
-      return s4.sourceColorHct.tone;
-    }
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 85 : 25;
-    }
-    return s4.isDark ? 30 : 90;
-  },
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.primaryContainer, MaterialDynamicColors.primary, 10, "nearer", false)
-});
-MaterialDynamicColors.onPrimaryContainer = DynamicColor.fromPalette({
-  name: "on_primary_container",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => {
-    if (isFidelity(s4)) {
-      return DynamicColor.foregroundTone(MaterialDynamicColors.primaryContainer.tone(s4), 4.5);
-    }
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 0 : 100;
-    }
-    return s4.isDark ? 90 : 30;
-  },
-  background: (s4) => MaterialDynamicColors.primaryContainer,
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
-});
-MaterialDynamicColors.inversePrimary = DynamicColor.fromPalette({
-  name: "inverse_primary",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => s4.isDark ? 40 : 80,
-  background: (s4) => MaterialDynamicColors.inverseSurface,
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 7)
-});
-MaterialDynamicColors.secondary = DynamicColor.fromPalette({
-  name: "secondary",
-  palette: (s4) => s4.secondaryPalette,
-  tone: (s4) => s4.isDark ? 80 : 40,
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.secondaryContainer, MaterialDynamicColors.secondary, 10, "nearer", false)
-});
-MaterialDynamicColors.onSecondary = DynamicColor.fromPalette({
-  name: "on_secondary",
-  palette: (s4) => s4.secondaryPalette,
-  tone: (s4) => {
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 10 : 100;
-    } else {
-      return s4.isDark ? 20 : 100;
-    }
-  },
-  background: (s4) => MaterialDynamicColors.secondary,
-  contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
-});
-MaterialDynamicColors.secondaryContainer = DynamicColor.fromPalette({
-  name: "secondary_container",
-  palette: (s4) => s4.secondaryPalette,
-  tone: (s4) => {
-    const initialTone = s4.isDark ? 30 : 90;
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 30 : 85;
-    }
-    if (!isFidelity(s4)) {
-      return initialTone;
-    }
-    return findDesiredChromaByTone(s4.secondaryPalette.hue, s4.secondaryPalette.chroma, initialTone, s4.isDark ? false : true);
-  },
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.secondaryContainer, MaterialDynamicColors.secondary, 10, "nearer", false)
-});
-MaterialDynamicColors.onSecondaryContainer = DynamicColor.fromPalette({
-  name: "on_secondary_container",
-  palette: (s4) => s4.secondaryPalette,
-  tone: (s4) => {
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 90 : 10;
-    }
-    if (!isFidelity(s4)) {
-      return s4.isDark ? 90 : 30;
-    }
-    return DynamicColor.foregroundTone(MaterialDynamicColors.secondaryContainer.tone(s4), 4.5);
-  },
-  background: (s4) => MaterialDynamicColors.secondaryContainer,
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
-});
-MaterialDynamicColors.tertiary = DynamicColor.fromPalette({
-  name: "tertiary",
-  palette: (s4) => s4.tertiaryPalette,
-  tone: (s4) => {
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 90 : 25;
-    }
-    return s4.isDark ? 80 : 40;
-  },
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.tertiaryContainer, MaterialDynamicColors.tertiary, 10, "nearer", false)
-});
-MaterialDynamicColors.onTertiary = DynamicColor.fromPalette({
-  name: "on_tertiary",
-  palette: (s4) => s4.tertiaryPalette,
-  tone: (s4) => {
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 10 : 90;
-    }
-    return s4.isDark ? 20 : 100;
-  },
-  background: (s4) => MaterialDynamicColors.tertiary,
-  contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
-});
-MaterialDynamicColors.tertiaryContainer = DynamicColor.fromPalette({
-  name: "tertiary_container",
-  palette: (s4) => s4.tertiaryPalette,
-  tone: (s4) => {
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 60 : 49;
-    }
-    if (!isFidelity(s4)) {
-      return s4.isDark ? 30 : 90;
-    }
-    const proposedHct = s4.tertiaryPalette.getHct(s4.sourceColorHct.tone);
-    return DislikeAnalyzer.fixIfDisliked(proposedHct).tone;
-  },
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.tertiaryContainer, MaterialDynamicColors.tertiary, 10, "nearer", false)
-});
-MaterialDynamicColors.onTertiaryContainer = DynamicColor.fromPalette({
-  name: "on_tertiary_container",
-  palette: (s4) => s4.tertiaryPalette,
-  tone: (s4) => {
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 0 : 100;
-    }
-    if (!isFidelity(s4)) {
-      return s4.isDark ? 90 : 30;
-    }
-    return DynamicColor.foregroundTone(MaterialDynamicColors.tertiaryContainer.tone(s4), 4.5);
-  },
-  background: (s4) => MaterialDynamicColors.tertiaryContainer,
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
-});
-MaterialDynamicColors.error = DynamicColor.fromPalette({
-  name: "error",
-  palette: (s4) => s4.errorPalette,
-  tone: (s4) => s4.isDark ? 80 : 40,
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 7),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.errorContainer, MaterialDynamicColors.error, 10, "nearer", false)
-});
-MaterialDynamicColors.onError = DynamicColor.fromPalette({
-  name: "on_error",
-  palette: (s4) => s4.errorPalette,
-  tone: (s4) => s4.isDark ? 20 : 100,
-  background: (s4) => MaterialDynamicColors.error,
-  contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
-});
-MaterialDynamicColors.errorContainer = DynamicColor.fromPalette({
-  name: "error_container",
-  palette: (s4) => s4.errorPalette,
-  tone: (s4) => s4.isDark ? 30 : 90,
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.errorContainer, MaterialDynamicColors.error, 10, "nearer", false)
-});
-MaterialDynamicColors.onErrorContainer = DynamicColor.fromPalette({
-  name: "on_error_container",
-  palette: (s4) => s4.errorPalette,
-  tone: (s4) => {
-    if (isMonochrome(s4)) {
-      return s4.isDark ? 90 : 10;
-    }
-    return s4.isDark ? 90 : 30;
-  },
-  background: (s4) => MaterialDynamicColors.errorContainer,
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
-});
-MaterialDynamicColors.primaryFixed = DynamicColor.fromPalette({
-  name: "primary_fixed",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 40 : 90,
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.primaryFixed, MaterialDynamicColors.primaryFixedDim, 10, "lighter", true)
-});
-MaterialDynamicColors.primaryFixedDim = DynamicColor.fromPalette({
-  name: "primary_fixed_dim",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 30 : 80,
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.primaryFixed, MaterialDynamicColors.primaryFixedDim, 10, "lighter", true)
-});
-MaterialDynamicColors.onPrimaryFixed = DynamicColor.fromPalette({
-  name: "on_primary_fixed",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 100 : 10,
-  background: (s4) => MaterialDynamicColors.primaryFixedDim,
-  secondBackground: (s4) => MaterialDynamicColors.primaryFixed,
-  contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
-});
-MaterialDynamicColors.onPrimaryFixedVariant = DynamicColor.fromPalette({
-  name: "on_primary_fixed_variant",
-  palette: (s4) => s4.primaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 90 : 30,
-  background: (s4) => MaterialDynamicColors.primaryFixedDim,
-  secondBackground: (s4) => MaterialDynamicColors.primaryFixed,
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
-});
-MaterialDynamicColors.secondaryFixed = DynamicColor.fromPalette({
-  name: "secondary_fixed",
-  palette: (s4) => s4.secondaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 80 : 90,
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.secondaryFixed, MaterialDynamicColors.secondaryFixedDim, 10, "lighter", true)
-});
-MaterialDynamicColors.secondaryFixedDim = DynamicColor.fromPalette({
-  name: "secondary_fixed_dim",
-  palette: (s4) => s4.secondaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 70 : 80,
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.secondaryFixed, MaterialDynamicColors.secondaryFixedDim, 10, "lighter", true)
-});
-MaterialDynamicColors.onSecondaryFixed = DynamicColor.fromPalette({
-  name: "on_secondary_fixed",
-  palette: (s4) => s4.secondaryPalette,
-  tone: (s4) => 10,
-  background: (s4) => MaterialDynamicColors.secondaryFixedDim,
-  secondBackground: (s4) => MaterialDynamicColors.secondaryFixed,
-  contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
-});
-MaterialDynamicColors.onSecondaryFixedVariant = DynamicColor.fromPalette({
-  name: "on_secondary_fixed_variant",
-  palette: (s4) => s4.secondaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 25 : 30,
-  background: (s4) => MaterialDynamicColors.secondaryFixedDim,
-  secondBackground: (s4) => MaterialDynamicColors.secondaryFixed,
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
-});
-MaterialDynamicColors.tertiaryFixed = DynamicColor.fromPalette({
-  name: "tertiary_fixed",
-  palette: (s4) => s4.tertiaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 40 : 90,
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.tertiaryFixed, MaterialDynamicColors.tertiaryFixedDim, 10, "lighter", true)
-});
-MaterialDynamicColors.tertiaryFixedDim = DynamicColor.fromPalette({
-  name: "tertiary_fixed_dim",
-  palette: (s4) => s4.tertiaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 30 : 80,
-  isBackground: true,
-  background: (s4) => MaterialDynamicColors.highestSurface(s4),
-  contrastCurve: new ContrastCurve(1, 1, 3, 4.5),
-  toneDeltaPair: (s4) => new ToneDeltaPair(MaterialDynamicColors.tertiaryFixed, MaterialDynamicColors.tertiaryFixedDim, 10, "lighter", true)
-});
-MaterialDynamicColors.onTertiaryFixed = DynamicColor.fromPalette({
-  name: "on_tertiary_fixed",
-  palette: (s4) => s4.tertiaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 100 : 10,
-  background: (s4) => MaterialDynamicColors.tertiaryFixedDim,
-  secondBackground: (s4) => MaterialDynamicColors.tertiaryFixed,
-  contrastCurve: new ContrastCurve(4.5, 7, 11, 21)
-});
-MaterialDynamicColors.onTertiaryFixedVariant = DynamicColor.fromPalette({
-  name: "on_tertiary_fixed_variant",
-  palette: (s4) => s4.tertiaryPalette,
-  tone: (s4) => isMonochrome(s4) ? 90 : 30,
-  background: (s4) => MaterialDynamicColors.tertiaryFixedDim,
-  secondBackground: (s4) => MaterialDynamicColors.tertiaryFixed,
-  contrastCurve: new ContrastCurve(3, 4.5, 7, 11)
-});
-
-// ../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js
-var DynamicScheme = class {
-  constructor(args) {
-    this.sourceColorArgb = args.sourceColorArgb;
-    this.variant = args.variant;
-    this.contrastLevel = args.contrastLevel;
-    this.isDark = args.isDark;
-    this.sourceColorHct = Hct.fromInt(args.sourceColorArgb);
-    this.primaryPalette = args.primaryPalette;
-    this.secondaryPalette = args.secondaryPalette;
-    this.tertiaryPalette = args.tertiaryPalette;
-    this.neutralPalette = args.neutralPalette;
-    this.neutralVariantPalette = args.neutralVariantPalette;
-    this.errorPalette = TonalPalette.fromHueAndChroma(25, 84);
-  }
-  /**
-   * Support design spec'ing Dynamic Color by schemes that specify hue
-   * rotations that should be applied at certain breakpoints.
-   * @param sourceColor the source color of the theme, in HCT.
-   * @param hues The "breakpoints", i.e. the hues at which a rotation should
-   * be apply.
-   * @param rotations The rotation that should be applied when source color's
-   * hue is >= the same index in hues array, and <= the hue at the next index
-   * in hues array.
-   */
-  static getRotatedHue(sourceColor, hues, rotations) {
-    const sourceHue = sourceColor.hue;
-    if (hues.length !== rotations.length) {
-      throw new Error(`mismatch between hue length ${hues.length} & rotations ${rotations.length}`);
-    }
-    if (rotations.length === 1) {
-      return sanitizeDegreesDouble(sourceColor.hue + rotations[0]);
-    }
-    const size = hues.length;
-    for (let i7 = 0; i7 <= size - 2; i7++) {
-      const thisHue = hues[i7];
-      const nextHue = hues[i7 + 1];
-      if (thisHue < sourceHue && sourceHue < nextHue) {
-        return sanitizeDegreesDouble(sourceHue + rotations[i7]);
-      }
-    }
-    return sourceHue;
-  }
-  getArgb(dynamicColor) {
-    return dynamicColor.getArgb(this);
-  }
-  getHct(dynamicColor) {
-    return dynamicColor.getHct(this);
-  }
-  get primaryPaletteKeyColor() {
-    return this.getArgb(MaterialDynamicColors.primaryPaletteKeyColor);
-  }
-  get secondaryPaletteKeyColor() {
-    return this.getArgb(MaterialDynamicColors.secondaryPaletteKeyColor);
-  }
-  get tertiaryPaletteKeyColor() {
-    return this.getArgb(MaterialDynamicColors.tertiaryPaletteKeyColor);
-  }
-  get neutralPaletteKeyColor() {
-    return this.getArgb(MaterialDynamicColors.neutralPaletteKeyColor);
-  }
-  get neutralVariantPaletteKeyColor() {
-    return this.getArgb(MaterialDynamicColors.neutralVariantPaletteKeyColor);
-  }
-  get background() {
-    return this.getArgb(MaterialDynamicColors.background);
-  }
-  get onBackground() {
-    return this.getArgb(MaterialDynamicColors.onBackground);
-  }
-  get surface() {
-    return this.getArgb(MaterialDynamicColors.surface);
-  }
-  get surfaceDim() {
-    return this.getArgb(MaterialDynamicColors.surfaceDim);
-  }
-  get surfaceBright() {
-    return this.getArgb(MaterialDynamicColors.surfaceBright);
-  }
-  get surfaceContainerLowest() {
-    return this.getArgb(MaterialDynamicColors.surfaceContainerLowest);
-  }
-  get surfaceContainerLow() {
-    return this.getArgb(MaterialDynamicColors.surfaceContainerLow);
-  }
-  get surfaceContainer() {
-    return this.getArgb(MaterialDynamicColors.surfaceContainer);
-  }
-  get surfaceContainerHigh() {
-    return this.getArgb(MaterialDynamicColors.surfaceContainerHigh);
-  }
-  get surfaceContainerHighest() {
-    return this.getArgb(MaterialDynamicColors.surfaceContainerHighest);
-  }
-  get onSurface() {
-    return this.getArgb(MaterialDynamicColors.onSurface);
-  }
-  get surfaceVariant() {
-    return this.getArgb(MaterialDynamicColors.surfaceVariant);
-  }
-  get onSurfaceVariant() {
-    return this.getArgb(MaterialDynamicColors.onSurfaceVariant);
-  }
-  get inverseSurface() {
-    return this.getArgb(MaterialDynamicColors.inverseSurface);
-  }
-  get inverseOnSurface() {
-    return this.getArgb(MaterialDynamicColors.inverseOnSurface);
-  }
-  get outline() {
-    return this.getArgb(MaterialDynamicColors.outline);
-  }
-  get outlineVariant() {
-    return this.getArgb(MaterialDynamicColors.outlineVariant);
-  }
-  get shadow() {
-    return this.getArgb(MaterialDynamicColors.shadow);
-  }
-  get scrim() {
-    return this.getArgb(MaterialDynamicColors.scrim);
-  }
-  get surfaceTint() {
-    return this.getArgb(MaterialDynamicColors.surfaceTint);
-  }
-  get primary() {
-    return this.getArgb(MaterialDynamicColors.primary);
-  }
-  get onPrimary() {
-    return this.getArgb(MaterialDynamicColors.onPrimary);
-  }
-  get primaryContainer() {
-    return this.getArgb(MaterialDynamicColors.primaryContainer);
-  }
-  get onPrimaryContainer() {
-    return this.getArgb(MaterialDynamicColors.onPrimaryContainer);
-  }
-  get inversePrimary() {
-    return this.getArgb(MaterialDynamicColors.inversePrimary);
-  }
-  get secondary() {
-    return this.getArgb(MaterialDynamicColors.secondary);
-  }
-  get onSecondary() {
-    return this.getArgb(MaterialDynamicColors.onSecondary);
-  }
-  get secondaryContainer() {
-    return this.getArgb(MaterialDynamicColors.secondaryContainer);
-  }
-  get onSecondaryContainer() {
-    return this.getArgb(MaterialDynamicColors.onSecondaryContainer);
-  }
-  get tertiary() {
-    return this.getArgb(MaterialDynamicColors.tertiary);
-  }
-  get onTertiary() {
-    return this.getArgb(MaterialDynamicColors.onTertiary);
-  }
-  get tertiaryContainer() {
-    return this.getArgb(MaterialDynamicColors.tertiaryContainer);
-  }
-  get onTertiaryContainer() {
-    return this.getArgb(MaterialDynamicColors.onTertiaryContainer);
-  }
-  get error() {
-    return this.getArgb(MaterialDynamicColors.error);
-  }
-  get onError() {
-    return this.getArgb(MaterialDynamicColors.onError);
-  }
-  get errorContainer() {
-    return this.getArgb(MaterialDynamicColors.errorContainer);
-  }
-  get onErrorContainer() {
-    return this.getArgb(MaterialDynamicColors.onErrorContainer);
-  }
-  get primaryFixed() {
-    return this.getArgb(MaterialDynamicColors.primaryFixed);
-  }
-  get primaryFixedDim() {
-    return this.getArgb(MaterialDynamicColors.primaryFixedDim);
-  }
-  get onPrimaryFixed() {
-    return this.getArgb(MaterialDynamicColors.onPrimaryFixed);
-  }
-  get onPrimaryFixedVariant() {
-    return this.getArgb(MaterialDynamicColors.onPrimaryFixedVariant);
-  }
-  get secondaryFixed() {
-    return this.getArgb(MaterialDynamicColors.secondaryFixed);
-  }
-  get secondaryFixedDim() {
-    return this.getArgb(MaterialDynamicColors.secondaryFixedDim);
-  }
-  get onSecondaryFixed() {
-    return this.getArgb(MaterialDynamicColors.onSecondaryFixed);
-  }
-  get onSecondaryFixedVariant() {
-    return this.getArgb(MaterialDynamicColors.onSecondaryFixedVariant);
-  }
-  get tertiaryFixed() {
-    return this.getArgb(MaterialDynamicColors.tertiaryFixed);
-  }
-  get tertiaryFixedDim() {
-    return this.getArgb(MaterialDynamicColors.tertiaryFixedDim);
-  }
-  get onTertiaryFixed() {
-    return this.getArgb(MaterialDynamicColors.onTertiaryFixed);
-  }
-  get onTertiaryFixedVariant() {
-    return this.getArgb(MaterialDynamicColors.onTertiaryFixedVariant);
-  }
-};
-
-// ../../node_modules/@material/material-color-utilities/palettes/core_palette.js
-var CorePalette = class _CorePalette {
-  /**
-   * @param argb ARGB representation of a color
-   */
-  static of(argb) {
-    return new _CorePalette(argb, false);
-  }
-  /**
-   * @param argb ARGB representation of a color
-   */
-  static contentOf(argb) {
-    return new _CorePalette(argb, true);
-  }
-  /**
-   * Create a [CorePalette] from a set of colors
-   */
-  static fromColors(colors) {
-    return _CorePalette.createPaletteFromColors(false, colors);
-  }
-  /**
-   * Create a content [CorePalette] from a set of colors
-   */
-  static contentFromColors(colors) {
-    return _CorePalette.createPaletteFromColors(true, colors);
-  }
-  static createPaletteFromColors(content, colors) {
-    const palette = new _CorePalette(colors.primary, content);
-    if (colors.secondary) {
-      const p3 = new _CorePalette(colors.secondary, content);
-      palette.a2 = p3.a1;
-    }
-    if (colors.tertiary) {
-      const p3 = new _CorePalette(colors.tertiary, content);
-      palette.a3 = p3.a1;
-    }
-    if (colors.error) {
-      const p3 = new _CorePalette(colors.error, content);
-      palette.error = p3.a1;
-    }
-    if (colors.neutral) {
-      const p3 = new _CorePalette(colors.neutral, content);
-      palette.n1 = p3.n1;
-    }
-    if (colors.neutralVariant) {
-      const p3 = new _CorePalette(colors.neutralVariant, content);
-      palette.n2 = p3.n2;
-    }
-    return palette;
-  }
-  constructor(argb, isContent) {
-    const hct = Hct.fromInt(argb);
-    const hue = hct.hue;
-    const chroma = hct.chroma;
-    if (isContent) {
-      this.a1 = TonalPalette.fromHueAndChroma(hue, chroma);
-      this.a2 = TonalPalette.fromHueAndChroma(hue, chroma / 3);
-      this.a3 = TonalPalette.fromHueAndChroma(hue + 60, chroma / 2);
-      this.n1 = TonalPalette.fromHueAndChroma(hue, Math.min(chroma / 12, 4));
-      this.n2 = TonalPalette.fromHueAndChroma(hue, Math.min(chroma / 6, 8));
-    } else {
-      this.a1 = TonalPalette.fromHueAndChroma(hue, Math.max(48, chroma));
-      this.a2 = TonalPalette.fromHueAndChroma(hue, 16);
-      this.a3 = TonalPalette.fromHueAndChroma(hue + 60, 24);
-      this.n1 = TonalPalette.fromHueAndChroma(hue, 4);
-      this.n2 = TonalPalette.fromHueAndChroma(hue, 8);
-    }
-    this.error = TonalPalette.fromHueAndChroma(25, 84);
-  }
-};
-
-// ../../node_modules/@material/material-color-utilities/scheme/scheme_expressive.js
-var SchemeExpressive = class _SchemeExpressive extends DynamicScheme {
-  constructor(sourceColorHct, isDark, contrastLevel) {
-    super({
-      sourceColorArgb: sourceColorHct.toInt(),
-      variant: Variant.EXPRESSIVE,
-      contrastLevel,
-      isDark,
-      primaryPalette: TonalPalette.fromHueAndChroma(sanitizeDegreesDouble(sourceColorHct.hue + 240), 40),
-      secondaryPalette: TonalPalette.fromHueAndChroma(DynamicScheme.getRotatedHue(sourceColorHct, _SchemeExpressive.hues, _SchemeExpressive.secondaryRotations), 24),
-      tertiaryPalette: TonalPalette.fromHueAndChroma(DynamicScheme.getRotatedHue(sourceColorHct, _SchemeExpressive.hues, _SchemeExpressive.tertiaryRotations), 32),
-      neutralPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue + 15, 8),
-      neutralVariantPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue + 15, 12)
-    });
-  }
-};
-SchemeExpressive.hues = [
-  0,
-  21,
-  51,
-  121,
-  151,
-  191,
-  271,
-  321,
-  360
-];
-SchemeExpressive.secondaryRotations = [
-  45,
-  95,
-  45,
-  20,
-  45,
-  90,
-  45,
-  45,
-  45
-];
-SchemeExpressive.tertiaryRotations = [
-  120,
-  120,
-  20,
-  45,
-  20,
-  15,
-  20,
-  120,
-  120
-];
-
-// ../../node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js
-var SchemeVibrant = class _SchemeVibrant extends DynamicScheme {
-  constructor(sourceColorHct, isDark, contrastLevel) {
-    super({
-      sourceColorArgb: sourceColorHct.toInt(),
-      variant: Variant.VIBRANT,
-      contrastLevel,
-      isDark,
-      primaryPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue, 200),
-      secondaryPalette: TonalPalette.fromHueAndChroma(DynamicScheme.getRotatedHue(sourceColorHct, _SchemeVibrant.hues, _SchemeVibrant.secondaryRotations), 24),
-      tertiaryPalette: TonalPalette.fromHueAndChroma(DynamicScheme.getRotatedHue(sourceColorHct, _SchemeVibrant.hues, _SchemeVibrant.tertiaryRotations), 32),
-      neutralPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue, 10),
-      neutralVariantPalette: TonalPalette.fromHueAndChroma(sourceColorHct.hue, 12)
-    });
-  }
-};
-SchemeVibrant.hues = [
-  0,
-  41,
-  61,
-  101,
-  131,
-  181,
-  251,
-  301,
-  360
-];
-SchemeVibrant.secondaryRotations = [
-  18,
-  15,
-  10,
-  12,
-  15,
-  18,
-  15,
-  12,
-  12
-];
-SchemeVibrant.tertiaryRotations = [
-  35,
-  30,
-  20,
-  25,
-  30,
-  35,
-  30,
-  25,
-  25
-];
-
-// ../../node_modules/@material/material-color-utilities/score/score.js
-var SCORE_OPTION_DEFAULTS = {
-  desired: 4,
-  fallbackColorARGB: 4282549748,
-  filter: true
-  // Avoid unsuitable colors.
-};
-function compare(a3, b5) {
-  if (a3.score > b5.score) {
-    return -1;
-  } else if (a3.score < b5.score) {
-    return 1;
-  }
-  return 0;
-}
-var Score = class _Score {
-  constructor() {
-  }
-  /**
-   * Given a map with keys of colors and values of how often the color appears,
-   * rank the colors based on suitability for being used for a UI theme.
-   *
-   * @param colorsToPopulation map with keys of colors and values of how often
-   *     the color appears, usually from a source image.
-   * @param {ScoreOptions} options optional parameters.
-   * @return Colors sorted by suitability for a UI theme. The most suitable
-   *     color is the first item, the least suitable is the last. There will
-   *     always be at least one color returned. If all the input colors
-   *     were not suitable for a theme, a default fallback color will be
-   *     provided, Google Blue.
-   */
-  static score(colorsToPopulation, options) {
-    const { desired, fallbackColorARGB, filter } = { ...SCORE_OPTION_DEFAULTS, ...options };
-    const colorsHct = [];
-    const huePopulation = new Array(360).fill(0);
-    let populationSum = 0;
-    for (const [argb, population] of colorsToPopulation.entries()) {
-      const hct = Hct.fromInt(argb);
-      colorsHct.push(hct);
-      const hue = Math.floor(hct.hue);
-      huePopulation[hue] += population;
-      populationSum += population;
-    }
-    const hueExcitedProportions = new Array(360).fill(0);
-    for (let hue = 0; hue < 360; hue++) {
-      const proportion = huePopulation[hue] / populationSum;
-      for (let i7 = hue - 14; i7 < hue + 16; i7++) {
-        const neighborHue = sanitizeDegreesInt(i7);
-        hueExcitedProportions[neighborHue] += proportion;
-      }
-    }
-    const scoredHct = new Array();
-    for (const hct of colorsHct) {
-      const hue = sanitizeDegreesInt(Math.round(hct.hue));
-      const proportion = hueExcitedProportions[hue];
-      if (filter && (hct.chroma < _Score.CUTOFF_CHROMA || proportion <= _Score.CUTOFF_EXCITED_PROPORTION)) {
-        continue;
-      }
-      const proportionScore = proportion * 100 * _Score.WEIGHT_PROPORTION;
-      const chromaWeight = hct.chroma < _Score.TARGET_CHROMA ? _Score.WEIGHT_CHROMA_BELOW : _Score.WEIGHT_CHROMA_ABOVE;
-      const chromaScore = (hct.chroma - _Score.TARGET_CHROMA) * chromaWeight;
-      const score = proportionScore + chromaScore;
-      scoredHct.push({ hct, score });
-    }
-    scoredHct.sort(compare);
-    const chosenColors = [];
-    for (let differenceDegrees2 = 90; differenceDegrees2 >= 15; differenceDegrees2--) {
-      chosenColors.length = 0;
-      for (const { hct } of scoredHct) {
-        const duplicateHue = chosenColors.find((chosenHct) => {
-          return differenceDegrees(hct.hue, chosenHct.hue) < differenceDegrees2;
-        });
-        if (!duplicateHue) {
-          chosenColors.push(hct);
-        }
-        if (chosenColors.length >= desired)
-          break;
-      }
-      if (chosenColors.length >= desired)
-        break;
-    }
-    const colors = [];
-    if (chosenColors.length === 0) {
-      colors.push(fallbackColorARGB);
-    }
-    for (const chosenHct of chosenColors) {
-      colors.push(chosenHct.toInt());
-    }
-    return colors;
-  }
-};
-Score.TARGET_CHROMA = 48;
-Score.WEIGHT_PROPORTION = 0.7;
-Score.WEIGHT_CHROMA_ABOVE = 0.3;
-Score.WEIGHT_CHROMA_BELOW = 0.1;
-Score.CUTOFF_CHROMA = 5;
-Score.CUTOFF_EXCITED_PROPORTION = 0.01;
-
-// ../../node_modules/@material/material-color-utilities/utils/string_utils.js
-function hexFromArgb(argb) {
-  const r6 = redFromArgb(argb);
-  const g2 = greenFromArgb(argb);
-  const b5 = blueFromArgb(argb);
-  const outParts = [r6.toString(16), g2.toString(16), b5.toString(16)];
-  for (const [i7, part] of outParts.entries()) {
-    if (part.length === 1) {
-      outParts[i7] = "0" + part;
-    }
-  }
-  return "#" + outParts.join("");
-}
-function argbFromHex(hex) {
-  hex = hex.replace("#", "");
-  const isThree = hex.length === 3;
-  const isSix = hex.length === 6;
-  const isEight = hex.length === 8;
-  if (!isThree && !isSix && !isEight) {
-    throw new Error("unexpected hex " + hex);
-  }
-  let r6 = 0;
-  let g2 = 0;
-  let b5 = 0;
-  if (isThree) {
-    r6 = parseIntHex(hex.slice(0, 1).repeat(2));
-    g2 = parseIntHex(hex.slice(1, 2).repeat(2));
-    b5 = parseIntHex(hex.slice(2, 3).repeat(2));
-  } else if (isSix) {
-    r6 = parseIntHex(hex.slice(0, 2));
-    g2 = parseIntHex(hex.slice(2, 4));
-    b5 = parseIntHex(hex.slice(4, 6));
-  } else if (isEight) {
-    r6 = parseIntHex(hex.slice(2, 4));
-    g2 = parseIntHex(hex.slice(4, 6));
-    b5 = parseIntHex(hex.slice(6, 8));
-  }
-  return (255 << 24 | (r6 & 255) << 16 | (g2 & 255) << 8 | b5 & 255) >>> 0;
-}
-function parseIntHex(value) {
-  return parseInt(value, 16);
-}
-
-// ../../node_modules/@universal-material/web/theme/css-var-builder.js
-var CssVarBuilder = class _CssVarBuilder {
-  constructor() {
-    this.content = "";
-  }
-  static create() {
-    return new _CssVarBuilder();
-  }
-  add(name, value) {
-    const cssVar = `  ${name}: ${value};
-`;
-    this.content += cssVar;
-    return this;
-  }
-  addFromArgb(name, argb) {
-    this.add(`--u-color-${name}`, hexFromArgb(argb));
-    return this;
-  }
-  addLightAndDarkFromArgb(name, lightArgb, darkArgb) {
-    this.add(`--u-color-${name}`, `light-dark(${hexFromArgb(lightArgb)}, ${hexFromArgb(darkArgb)})`);
-    return this;
-  }
-  build() {
-    return this.content;
-  }
-};
-
-// ../../node_modules/@universal-material/web/theme/neutral-colors.js
-var neutralColors = [
-  { name: "surface", lightTone: 98, darkTone: 6 },
-  { name: "surface-bright", lightTone: 98, darkTone: 24 },
-  { name: "surface-dim", lightTone: 87, darkTone: 6 },
-  { name: "surface-container-lowest", lightTone: 100, darkTone: 4 },
-  { name: "surface-container-low", lightTone: 96, darkTone: 10 },
-  { name: "surface-container", lightTone: 94, darkTone: 12 },
-  { name: "surface-container-high", lightTone: 92, darkTone: 17 },
-  { name: "surface-container-highest", lightTone: 90, darkTone: 22 },
-  { name: "on-surface", lightTone: 10, darkTone: 90 },
-  { name: "light", fixedTone: 98 },
-  { name: "on-light", fixedTone: 10 },
-  { name: "dark", fixedTone: 6 },
-  { name: "on-dark", fixedTone: 90 },
-  { name: "scrim", fixedTone: 0 },
-  { name: "shadow", fixedTone: 0 }
-];
-var neutralVariantColors = [
-  { name: "surface-variant", lightTone: 90, darkTone: 30 },
-  { name: "on-surface-variant", lightTone: 30, darkTone: 80 },
-  { name: "outline", lightTone: 50, darkTone: 60 },
-  { name: "outline-variant", lightTone: 80, darkTone: 30 }
-];
-
-// ../../node_modules/@universal-material/web/theme/theme-builder.js
-var getCss = (selector, content) => `${selector} {
-${content}}`;
-var ThemeBuilder = class _ThemeBuilder {
-  #corePalette;
-  constructor(primaryColorHex) {
-    this.colors = [];
-    this.partial = false;
-    this.cssClass = null;
-    this.#corePalette = CorePalette.of(argbFromHex(primaryColorHex));
-    this.addColorFromPalette("primary", this.#corePalette.a1);
-  }
-  static create(primaryColorHex) {
-    return new _ThemeBuilder(primaryColorHex);
-  }
-  static createPartial(primaryColorHex) {
-    const themeBuilder = new _ThemeBuilder(primaryColorHex);
-    themeBuilder.partial = true;
-    return themeBuilder;
-  }
-  addColorFromHex(name, hex) {
-    const palette = TonalPalette.fromInt(argbFromHex(hex));
-    this.addColorFromPalette(name, palette);
-    return this;
-  }
-  addColorFromPalette(name, palette) {
-    this.colors.push({ name, lightTone: 40, darkTone: 80, tonalPalette: palette });
-    this.colors.push({ name: `on-${name}`, lightTone: 100, darkTone: 20, tonalPalette: palette });
-    this.colors.push({ name: `${name}-container`, lightTone: 90, darkTone: 30, tonalPalette: palette });
-    this.colors.push({ name: `on-${name}-container`, lightTone: 10, darkTone: 90, tonalPalette: palette });
-    this.colors.push({ name: `${name}-fixed`, fixedTone: 90, tonalPalette: palette });
-    this.colors.push({ name: `${name}-fixed-dim`, fixedTone: 80, tonalPalette: palette });
-    this.colors.push({ name: `on-${name}-fixed`, fixedTone: 10, tonalPalette: palette });
-    this.colors.push({ name: `on-${name}-fixed-variant`, fixedTone: 30, tonalPalette: palette });
-    return this;
-  }
-  addStaticColor(name, hex, tone = 80) {
-    const palette = TonalPalette.fromInt(argbFromHex(hex));
-    this.colors.push({ name, fixedTone: tone, tonalPalette: palette });
-    this.colors.push({ name: `on-${name}`, fixedTone: 15, tonalPalette: palette });
-    this.colors.push({ name: `${name}-container`, fixedTone: 90, tonalPalette: palette });
-    this.colors.push({ name: `on-${name}-container`, fixedTone: 15, tonalPalette: palette });
-    return this;
-  }
-  setCssClass(cssClass) {
-    this.cssClass = cssClass;
-    return this;
-  }
-  ensureCssClassStartsWithDot() {
-    if (!this.cssClass || this.cssClass.startsWith(".")) {
-      return;
-    }
-    this.cssClass = `.${this.cssClass}`;
-  }
-  ensureThemeColors() {
-    if (!this.colors.find((c4) => c4.name === "secondary")) {
-      this.addColorFromPalette("secondary", this.#corePalette.a2);
-    }
-    if (!this.colors.find((c4) => c4.name === "tertiary")) {
-      this.addColorFromPalette("tertiary", this.#corePalette.a3);
-    }
-  }
-  ensureStatusColors() {
-    if (!this.colors.find((c4) => c4.name === "success")) {
-      this.addStaticColor("success", "#198754", 60);
-    }
-    if (!this.colors.find((c4) => c4.name === "info")) {
-      this.addStaticColor("info", "#0dcaf0");
-    }
-    if (!this.colors.find((c4) => c4.name === "warning")) {
-      this.addStaticColor("warning", "#ffc107");
-    }
-    if (!this.colors.find((c4) => c4.name === "error")) {
-      this.addColorFromHex("error", "#b3261e");
-    }
-  }
-  getNeutralVariables() {
-    const builder = CssVarBuilder.create();
-    this.addColors(builder, neutralColors, this.#corePalette.n1);
-    builder.add("--u-color-body", "var(--u-color-surface)").add("--u-color-inverse-body", "var(--u-color-inverse-surface)").add("--u-color-on-body", "var(--u-color-on-surface)").add("--u-color-on-inverse-body", "var(--u-color-on-inverse-surface)");
-    return builder.build();
-  }
-  getNeutralVariantVariables() {
-    const builder = CssVarBuilder.create();
-    this.addColors(builder, neutralVariantColors, this.#corePalette.n2);
-    return builder.build();
-  }
-  getColorVariables(color) {
-    const builder = CssVarBuilder.create();
-    this.addToneColor(builder, color, color.tonalPalette);
-    return builder.build();
-  }
-  getColorsVariables() {
-    let variables = "";
-    for (const color of this.colors) {
-      variables += this.getColorVariables(color);
-    }
-    variables += this.getNeutralVariables();
-    variables += this.getNeutralVariantVariables();
-    return variables;
-  }
-  addColors(builder, colors, palette) {
-    for (const color of colors) {
-      this.addToneColor(builder, color, palette);
-    }
-  }
-  addToneColor(builder, color, palette) {
-    if (color.fixedTone !== void 0) {
-      builder.addFromArgb(color.name, palette.tone(color.fixedTone));
-      return;
-    }
-    const inverseName = `inverse-${color.name}`.replace("inverse-on", "on-inverse");
-    builder.addLightAndDarkFromArgb(color.name, palette.tone(color.lightTone), palette.tone(color.darkTone)).addLightAndDarkFromArgb(inverseName, palette.tone(color.darkTone), palette.tone(color.lightTone));
-    if (color.name === "surface" || color.name === "on-surface") {
-      const prefix = color.name.startsWith("on-") ? "on-" : "";
-      builder.addFromArgb(`${prefix}light-surface`, palette.tone(color.lightTone));
-      builder.addFromArgb(`${prefix}dark-surface`, palette.tone(color.darkTone));
-    }
-  }
-  build() {
-    this.ensureCssClassStartsWithDot();
-    const selector = this.cssClass ?? ":root";
-    this.ensureThemeColors();
-    if (!this.partial) {
-      this.ensureStatusColors();
-    }
-    const variables = `${getCss(selector, this.getColorsVariables())}
-`;
-    return variables;
-  }
-};
-
 // demo/theme.ts
+init_theme();
 var ACCENT_SEEDS = {
   neutral: "#5F6368",
   teal: "#1F7A75",
@@ -14149,710 +17785,15 @@ function applyGeneratedTheme(accent) {
   styleEl.textContent = css;
 }
 
-// ../../node_modules/@universal-material/web/button/button.styles.js
-var styles7 = i2`
-  :host {
-    --u-common-button-line-height: var(--u-label-large-line-height, 1.25rem);
-    --u-common-button-font-size: var(--u-label-large-font-size, .875rem);
-    --u-common-button-font-weight: var(--u-font-weight-medium, 500);
-    --_common-button-padding: var(--u-common-button-padding, 16px);
-    --_extra-small-font-size: var(--u-common-button-extra-small-font-size, .875rem);
-    --_small-font-size: var(--u-common-button-small-font-size, .875rem);
-    --_medium-font-size: var(--u-common-button-medium-font-size, 1rem);
-    --_large-font-size: var(--u-common-button-large-font-size, 1.5rem);
-    --_extra-large-font-size: var(--u-common-button-extra-large-font-size, 2rem);
-    --_extra-small-font-weight: var(--u-common-button-extra-small-font-weight, var(--u-font-weight-medium, 500));
-    --_small-font-weight: var(--u-common-button-small-font-weight, var(--u-font-weight-medium, 500));
-    --_medium-font-weight: var(--u-common-button-medium-font-weight, var(--u-font-weight-medium, 500));
-    --_large-font-weight: var(--u-common-button-large-font-weight, var(--u-font-weight-regular, 400));
-    --_extra-large-font-weight: var(--u-common-button-extra-large-font-weight, var(--u-font-weight-regular, 400));
-    --_extra-small-size: var(--u-common-button-extra-small-height, 32px);
-    --_small-size: var(--u-common-button-small-height, 40px);
-    --_medium-size: var(--u-common-button-medium-height, 56px);
-    --_large-size: var(--u-common-button-large-height, 96px);
-    --_extra-large-size: var(--u-common-button-extra-large-height, 136px);
-    --_extra-small-icon-size: var(--u-icon-button-extra-small-icon-size, 1.25rem);
-    --_small-icon-size: var(--u-icon-button-small-icon-size, 1.25rem);
-    --_medium-icon-size: var(--u-icon-button-medium-icon-size, 1.5rem);
-    --_large-icon-size: var(--u-icon-button-large-icon-size, 2rem);
-    --_extra-large-icon-size: var(--u-icon-button-extra-large-icon-size, 2.5rem);
-    --_extra-small-icon-margin: var(--u-icon-button-extra-small-icon-margin, 8px);
-    --_small-icon-margin: var(--u-icon-button-small-icon-margin, 8px);
-    --_medium-icon-margin: var(--u-icon-button-medium-icon-margin, 8px);
-    --_large-icon-margin: var(--u-icon-button-large-icon-margin, 12px);
-    --_extra-large-icon-margin: var(--u-icon-button-extra-large-icon-margin, 16px);
-    --_extra-small-padding: var(--u-common-button-extra-small-padding, 12px);
-    --_small-padding: var(--u-common-button-small-padding, 16px);
-    --_medium-padding: var(--u-common-button-medium-padding, 24px);
-    --_large-padding: var(--u-common-button-large-padding, 48px);
-    --_extra-large-padding: var(--u-common-button-extra-large-padding, 64px);
-    --_extra-small-square-shape-corner: var(--u-common-button-extra-small-square-shape-corner, 12px);
-    --_small-square-shape-corner: var(--u-common-button-small-square-shape-corner, 12px);
-    --_medium-square-shape-corner: var(--u-common-button-medium-square-shape-corner, 16px);
-    --_large-square-shape-corner: var(--u-common-button-large-square-shape-corner, 28px);
-    --_extra-large-square-shape-corner: var(--u-common-button-extra-large-square-shape-corner, 28px);
-    --_extra-small-pressed-shape-corner: var(--u-common-button-extra-small-pressed-shape-corner, 8px);
-    --_small-pressed-shape-corner: var(--u-common-button-small-pressed-shape-corner, 8px);
-    --_medium-pressed-shape-corner: var(--u-common-button-medium-pressed-shape-corner, 12px);
-    --_large-pressed-shape-corner: var(--u-common-button-large-pressed-shape-corner, 16px);
-    --_extra-large-pressed-shape-corner: var(--u-common-button-extra-large-pressed-shape-corner, 16px);
-    --_font-size: var(--_small-font-size);
-    --_font-weight: var(--_small-font-weight);
-    --_padding: var(--_small-padding);
-    --_icon-margin: var(--_small-icon-margin);
-    --_round-shape-corner: var(--u-common-button-round-shape-corner, calc(var(--_size) / 2));
-  }
+// demo/main.ts
+init_button();
+init_icon_button();
 
-  .extra-small {
-    --_font-size: var(--_extra-small-font-size);
-    --_font-weight: var(--_extra-small-font-weight);
-    --_padding: var(--_extra-small-padding);
-    --_icon-margin: var(--_extra-small-icon-margin);
-  }
-
-  .medium {
-    --_font-size: var(--_medium-font-size);
-    --_font-weight: var(--_medium-font-weight);
-    --_padding: var(--_medium-padding);
-    --_icon-margin: var(--_medium-icon-margin);
-  }
-
-  .large {
-    --_font-size: var(--_large-font-size);
-    --_font-weight: var(--_large-font-weight);
-    --_padding: var(--_large-padding);
-    --_icon-margin: var(--_large-icon-margin);
-  }
-
-  .extra-large {
-    --_font-size: var(--_extra-large-font-size);
-    --_font-weight: var(--_extra-large-font-weight);
-    --_padding: var(--_extra-large-padding);
-    --_icon-margin: var(--_extra-large-icon-margin);
-  }
-
-  .container {
-    font-family: var(--u-font-family, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
-    font-size: var(--_font-size);
-    font-weight: var(--_font-weight);
-    padding-inline: var(--_padding);
-    box-sizing: border-box;
-  }
-
-  .filled.primary, .filled.primary.selected {
-    background-color: var(--u-filled-button-primary-container-color, var(--u-color-primary, rgb(103, 80, 164)));
-    color: var(--u-filled-button-primary-text-color, var(--u-color-on-primary, rgb(255, 255, 255)));
-  }
-  .filled.secondary, .filled.secondary.selected {
-    background-color: var(--u-filled-button-secondary-container-color, var(--u-color-secondary, rgb(98, 91, 113)));
-    color: var(--u-filled-button-secondary-text-color, var(--u-color-on-secondary, rgb(255, 255, 255)));
-  }
-  .filled.tertiary, .filled.tertiary.selected {
-    background-color: var(--u-filled-button-tertiary-container-color, var(--u-color-tertiary, rgb(125, 82, 96)));
-    color: var(--u-filled-button-tertiary-text-color, var(--u-color-on-tertiary, rgb(255, 255, 255)));
-  }
-  .filled.error, .filled.error.selected {
-    background-color: var(--u-filled-button-error-container-color, var(--u-color-error, rgb(179, 38, 30)));
-    color: var(--u-filled-button-error-text-color, var(--u-color-on-error, rgb(255, 255, 255)));
-  }
-  .filled.toggle {
-    background-color: var(--u-filled-button-container-unselected-color, var(--u-color-surface-container, rgb(243, 237, 247)));
-    color: var(--u-filled-button-unselected-text-color, var(--u-color-on-surface-variant, rgb(73, 69, 79)));
-  }
-
-  .tonal {
-    background-color: var(--u-tonal-button-container-color, var(--u-color-secondary-container, rgb(232, 222, 248)));
-    color: var(--u-tonal-button-text-color, var(--u-color-on-secondary-container, rgb(29, 25, 43)));
-  }
-  .tonal.selected {
-    background-color: var(--u-tonal-button-container-selected-color, var(--u-color-secondary, rgb(98, 91, 113)));
-    color: var(--u-tonal-button-text-selected-color, var(--u-color-on-secondary, rgb(255, 255, 255)));
-  }
-
-  .elevated {
-    background-color: var(--u-elevated-button-container-color, var(--u-color-surface-container-low, rgb(247, 242, 250)));
-    color: var(--u-elevated-button-text-color, var(--u-color-primary, rgb(103, 80, 164)));
-  }
-  .elevated.selected {
-    background-color: var(--u-elevated-button-container-selected-color, var(--u-color-primary, rgb(103, 80, 164)));
-    color: var(--u-elevated-button-text-selected-color, var(--u-color-on-primary, rgb(255, 255, 255)));
-  }
-
-  @media (hover: hover) {
-    .filled:hover:not(:focus-within):not(:active),
-    .tonal:hover:not(:focus-within):not(:active) {
-      --u-elevation-level: var(--u-filled-button-hover-elevation-level, 1);
-    }
-  }
-  .text {
-    color: var(--u-text-button-text-color, var(--_color-primary));
-  }
-
-  .outlined {
-    color: var(--u-outlined-button-text-color, var(--u-text-button-text-color, var(--_color-primary)));
-    border: 1px solid var(--u-outlined-button-outline-color, var(--u-color-outline, rgb(121, 116, 126)));
-  }
-  .outlined.selected {
-    background-color: var(--u-outlined-button-container-selected-color, var(--u-color-inverse-surface, rgb(50, 47, 53)));
-    color: var(--u-outlined-button-text-selected-color, var(--u-color-on-inverse-surface, rgb(245, 239, 247)));
-  }
-  .outlined.disabled {
-    border-color: var(--u-outlined-button-disabled-border-color, color-mix(in srgb, var(--u-color-on-surface, rgb(29, 27, 32)) var(--u-outlined-button-disabled-border-opacity, 12%), transparent)) !important;
-  }
-  .outlined.disabled:not(.selected) {
-    background-color: transparent !important;
-  }
-
-  .elevated {
-    --u-elevation-level: var(--u-elevated-button-elevation-level, 1);
-    color: var(--u-elevated-button-text-color, var(--_color-primary));
-  }
-  @media (hover: hover) {
-    .elevated:hover {
-      --u-elevation-level: var(--u-elevated-button-hover-elevation-level, 2);
-    }
-  }
-
-  .container:not(.has-icon) .icon-container {
-    display: none;
-  }
-
-  .content {
-    gap: var(--_icon-margin);
-  }
-
-  .icon {
-    font-size: var(--_icon-size);
-  }
-
-  .trailing-icon .content {
-    flex-direction: row-reverse;
-  }
-
-  #label {
-    display: inline-block;
-  }
-
-  .label {
-    display: inline-block;
-    inset-inline-start: 0;
-    transition-duration: calc(var(--_morph-duration) * 0.7);
-  }
-
-  .label-container {
-    position: relative;
-  }
-  .label-container.animate {
-    transition: width var(--_morph-duration) linear;
-  }
-
-  .label-default {
-    opacity: 1;
-    transition-delay: calc(var(--_morph-duration) / 2);
-  }
-
-  .label-selected {
-    position: absolute;
-    opacity: 0;
-    transition-delay: 0ms;
-  }
-
-  .selected.has-selection-label .label-default {
-    position: absolute;
-    opacity: 0;
-    transition-delay: 0ms;
-  }
-  .selected.has-selection-label .label-selected {
-    position: static;
-    opacity: 1;
-    transition-delay: calc(var(--_morph-duration) / 2);
-  }
-`;
-
-// ../../node_modules/@universal-material/web/button/button-base.styles.js
-var styles8 = i2`
-  :host {
-    --_morph-duration: var(--u-button-morph-duration, 125ms);
-  }
-
-  .container {
-    transition: background-color var(--_morph-duration) linear, border-radius var(--_morph-duration) linear, color var(--_morph-duration) linear;
-  }
-
-  .icon {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 1em;
-    height: 1em;
-    line-height: 1em;
-  }
-
-  ::slotted([slot=icon]) {
-    display: inline-block;
-  }
-`;
-
-// ../../node_modules/@universal-material/web/button/button-base.js
-var ButtonBase = class extends ButtonWrapper {
-  static {
-    this.formAssociated = true;
-  }
-  static {
-    this.styles = [ButtonWrapper.styles, styles8];
-  }
-  get form() {
-    return this.#elementInternals.form;
-  }
-  #elementInternals;
-  constructor() {
-    super();
-    this.type = "submit";
-    this.value = "";
-    this.#elementInternals = this.attachInternals();
-  }
-  _handleClick(_2) {
-    if (this.type === "button" || !!this.href) {
-      return;
-    }
-    if (!this.form) {
-      return;
-    }
-    this.#elementInternals.setFormValue(this.value);
-    if (this.type === "reset") {
-      this.form.reset();
-      return;
-    }
-    this.form.addEventListener("submit", (submitEvent) => {
-      Object.defineProperty(submitEvent, "submitter", {
-        configurable: true,
-        enumerable: true,
-        get: () => this
-      });
-    }, { capture: true, once: true });
-    this.form.requestSubmit();
-  }
-};
-__decorate([
-  n4()
-], ButtonBase.prototype, "type", void 0);
-__decorate([
-  n4({ reflect: true })
-], ButtonBase.prototype, "value", void 0);
-
-// ../../node_modules/@universal-material/web/button/toggle-button.styles.js
-var styles9 = i2`
-  :host {
-    --_size: var(--_small-size);
-    --_square-shape-corner: var(--_small-square-shape-corner);
-    --_pressed-shape-corner: var(--_small-pressed-shape-corner);
-    --_icon-size: var(--_small-icon-size);
-  }
-
-  .extra-small {
-    --_size: var(--_extra-small-size);
-    --_icon-size: var(--_extra-small-icon-size);
-    --_square-shape-corner: var(--_extra-small-square-shape-corner);
-    --_pressed-shape-corner: var(--_extra-small-pressed-shape-corner);
-  }
-
-  .medium {
-    --_size: var(--_medium-size);
-    --_icon-size: var(--_medium-icon-size);
-    --_square-shape-corner: var(--_medium-square-shape-corner);
-    --_pressed-shape-corner: var(--_medium-pressed-shape-corner);
-  }
-
-  .large {
-    --_size: var(--_large-size);
-    --_icon-size: var(--_large-icon-size);
-    --_square-shape-corner: var(--_large-square-shape-corner);
-    --_pressed-shape-corner: var(--_large-pressed-shape-corner);
-  }
-
-  .extra-large {
-    --_size: var(--_extra-large-size);
-    --_icon-size: var(--_extra-large-icon-size);
-    --_square-shape-corner: var(--_extra-large-square-shape-corner);
-    --_pressed-shape-corner: var(--_extra-large-pressed-shape-corner);
-  }
-
-  .container {
-    height: var(--_size);
-  }
-
-  .round {
-    border-radius: var(--_round-shape-corner);
-  }
-
-  .square {
-    border-radius: var(--_square-shape-corner);
-  }
-
-  .selected.toggle-shape.round {
-    border-radius: var(--_square-shape-corner);
-  }
-  .selected.toggle-shape.square {
-    border-radius: var(--_round-shape-corner);
-  }
-
-  :host(:active) .toggle-shape:not(.disabled) {
-    border-radius: var(--_pressed-shape-corner);
-  }
-
-  .icon-container {
-    position: relative;
-    width: var(--_icon-size);
-    height: 1px;
-  }
-
-  .icon-default {
-    opacity: 1;
-  }
-
-  .icon-selected {
-    opacity: 0;
-    transition-delay: calc(var(--_morph-duration) / 2);
-  }
-
-  .selected.selection-icon .icon-default {
-    opacity: 0;
-    transition-delay: 0ms;
-  }
-  .selected.selection-icon .icon-selected {
-    opacity: 1;
-    transition-delay: calc(var(--_morph-duration) / 2);
-  }
-
-  .icon {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--_icon-size);
-    transform: translate3d(-50%, -50%, 0);
-    transition: opacity var(--_morph-duration) linear;
-  }
-`;
-
-// ../../node_modules/@universal-material/web/button/toggle-button.js
-var ToggleButton = class extends ButtonBase {
-  constructor() {
-    super(...arguments);
-    this.toggle = false;
-    this.toggleShape = false;
-    this.selected = false;
-    this.shape = "round";
-    this.size = "small";
-    this.ariaLabelSelected = "";
-    this._hasSelectionIcon = false;
-  }
-  static {
-    this.styles = [ButtonBase.styles, styles9];
-  }
-  _getContainerClasses() {
-    return {
-      ...super._getContainerClasses(),
-      [this.shape]: true,
-      [this.size]: true,
-      selected: this.selected,
-      toggle: this.toggle,
-      "toggle-shape": this.toggleShape,
-      "selection-icon": this._hasSelectionIcon
-    };
-  }
-  _handleClick(event) {
-    super._handleClick(event);
-    if (!this.toggle) {
-      return;
-    }
-    this.selected = !this.selected;
-    this.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-  getAriaLabel() {
-    return this.selected ? this.ariaLabelSelected || super.getAriaLabel() : super.getAriaLabel();
-  }
-  _handleSelectedIconSlotChange(e8) {
-    this._hasSelectionIcon = e8.target.assignedElements({ flatten: true }).length > 0;
-  }
-};
-__decorate([
-  n4({ type: Boolean, reflect: true })
-], ToggleButton.prototype, "toggle", void 0);
-__decorate([
-  n4({ attribute: "toggle-shape", type: Boolean, reflect: true })
-], ToggleButton.prototype, "toggleShape", void 0);
-__decorate([
-  n4({ type: Boolean, reflect: true })
-], ToggleButton.prototype, "selected", void 0);
-__decorate([
-  n4({ reflect: true })
-], ToggleButton.prototype, "shape", void 0);
-__decorate([
-  n4({ reflect: true })
-], ToggleButton.prototype, "size", void 0);
-__decorate([
-  n4({ attribute: "aria-label-selected" })
-], ToggleButton.prototype, "ariaLabelSelected", void 0);
-__decorate([
-  r5()
-], ToggleButton.prototype, "_hasSelectionIcon", void 0);
-
-// ../../node_modules/@universal-material/web/button/button.js
-var Button = class Button2 extends ToggleButton {
-  constructor() {
-    super(...arguments);
-    this.variant = "filled";
-    this.color = "primary";
-    this.trailingIcon = false;
-    this._hasIcon = false;
-    this._hasSelectionLabel = false;
-    this.animateTextChange = false;
-  }
-  static {
-    this.styles = [ToggleButton.styles, styles7];
-  }
-  #textSizeObserver;
-  firstUpdated(changedProperties) {
-    super.firstUpdated(changedProperties);
-    this.#textSizeObserver = new ResizeObserver(() => this.#setTextWrapperWidth());
-    this.#textSizeObserver.observe(this._text);
-    this.#setTextWrapperWidth();
-  }
-  #setTextWrapperWidth() {
-    const width = `${this._text.offsetWidth}px`;
-    this._textWrapper.style.width = width;
-    const animateTextChange = !!parseInt(width, 10);
-    if (this.animateTextChange === animateTextChange) {
-      return;
-    }
-    setTimeout(() => this.animateTextChange = animateTextChange);
-  }
-  _getContainerClasses() {
-    return {
-      ...super._getContainerClasses(),
-      [this.color]: true,
-      [this.variant]: true,
-      "trailing-icon": this.trailingIcon,
-      "has-icon": this._hasIcon,
-      "has-selection-label": this._hasSelectionLabel
-    };
-  }
-  _renderContent() {
-    const labelContainerClasses = { animate: this.animateTextChange };
-    return b3`
-      <span class="icon-container" aria-hidden="true">
-        <span class="icon icon-default">
-          <slot name="icon" @slotchange="${this.#handleIconSlotChange}"></slot>
-        </span>
-        <span class="icon icon-selected">
-          <slot name="icon-selected" @slotchange="${this._handleSelectedIconSlotChange}"></slot>
-        </span>
-      </span>
-
-      <span class="label-container ${e7(labelContainerClasses)}">
-        <span id="label">
-          <span class="label label-default">
-            <slot></slot>
-          </span>
-          <span class="label label-selected">
-            <slot name="label-selected" @slotchange="${this.#handleSelectedLabelSlotChange}"></slot>
-          </span>
-        </span>
-      </span>
-    `;
-  }
-  #handleIconSlotChange(e8) {
-    this._hasIcon = e8.target.assignedElements({ flatten: true }).length > 0;
-  }
-  #handleSelectedLabelSlotChange(e8) {
-    this._hasSelectionLabel = e8.target.assignedElements({ flatten: true }).length > 0;
-  }
-};
-__decorate([
-  n4()
-], Button.prototype, "variant", void 0);
-__decorate([
-  n4()
-], Button.prototype, "color", void 0);
-__decorate([
-  n4({ type: Boolean, attribute: "trailing-icon", reflect: true })
-], Button.prototype, "trailingIcon", void 0);
-__decorate([
-  r5()
-], Button.prototype, "_hasIcon", void 0);
-__decorate([
-  r5()
-], Button.prototype, "_hasSelectionLabel", void 0);
-__decorate([
-  r5()
-], Button.prototype, "animateTextChange", void 0);
-__decorate([
-  e5(".label-container", true)
-], Button.prototype, "_textWrapper", void 0);
-__decorate([
-  e5("#label", true)
-], Button.prototype, "_text", void 0);
-Button = __decorate([
-  t3("u-button")
-], Button);
-
-// ../../node_modules/@universal-material/web/button/icon-button.styles.js
-var styles10 = i2`
-  :host {
-    --_round-shape-corner: var(--u-icon-button-round-shape-corner, calc(var(--_size) / 2));
-    --_square-shape-corner: var(--u-icon-button-square-shape-corner, 12px);
-    --_extra-small-size: var(--u-icon-button-extra-small-size, 32px);
-    --_small-size: var(--u-icon-button-small-size, 40px);
-    --_medium-size: var(--u-icon-button-medium-size, 56px);
-    --_large-size: var(--u-icon-button-large-size, 96px);
-    --_extra-large-size: var(--u-icon-button-extra-large-size, 136px);
-    --_extra-small-narrow-width: var(--u-icon-button-extra-small-narrow-width, 28px);
-    --_small-narrow-width: var(--u-icon-button-small-narrow-width, 32px);
-    --_medium-narrow-width: var(--u-icon-button-medium-narrow-width, 48px);
-    --_large-narrow-width: var(--u-icon-button-large-narrow-width, 64px);
-    --_extra-large-narrow-width: var(--u-icon-button-extra-large-narrow-width, 104px);
-    --_extra-small-wide-width: var(--u-icon-button-extra-small-wide-width, 40px);
-    --_small-wide-width: var(--u-icon-button-small-wide-width, 52px);
-    --_medium-wide-width: var(--u-icon-button-medium-wide-width, 72px);
-    --_large-wide-width: var(--u-icon-button-large-wide-width, 128px);
-    --_extra-large-wide-width: var(--u-icon-button-extra-large-wide-width, 184px);
-    --_extra-small-icon-size: var(--u-icon-button-extra-small-icon-size, 1.25rem);
-    --_small-icon-size: var(--u-icon-button-small-icon-size, 1.5rem);
-    --_medium-icon-size: var(--u-icon-button-medium-icon-size, 1.5rem);
-    --_large-icon-size: var(--u-icon-button-large-icon-size, 2rem);
-    --_extra-large-icon-size: var(--u-icon-button-extra-large-icon-size, 2.5rem);
-    --_extra-small-square-shape-corner: var(--u-icon-button-extra-small-square-shape-corner, 12px);
-    --_small-square-shape-corner: var(--u-icon-button-small-square-shape-corner, 12px);
-    --_medium-square-shape-corner: var(--u-icon-button-medium-square-shape-corner, 16px);
-    --_large-square-shape-corner: var(--u-icon-button-large-square-shape-corner, 28px);
-    --_extra-large-square-shape-corner: var(--u-icon-button-extra-large-square-shape-corner, 28px);
-    --_extra-small-pressed-shape-corner: var(--u-icon-button-extra-small-pressed-shape-corner, 8px);
-    --_small-pressed-shape-corner: var(--u-icon-button-small-pressed-shape-corner, 8px);
-    --_medium-pressed-shape-corner: var(--u-icon-button-medium-pressed-shape-corner, 12px);
-    --_large-pressed-shape-corner: var(--u-icon-button-large-pressed-shape-corner, 16px);
-    --_extra-large-pressed-shape-corner: var(--u-icon-button-extra-large-pressed-shape-corner, 16px);
-    --_narrow-width: var(--_small-narrow-width);
-    --_wide-width: var(--_small-wide-width);
-  }
-
-  .container {
-    width: var(--_size);
-    height: var(--_size);
-    font-family: var(--u-font-family, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
-  }
-
-  .extra-small {
-    --_narrow-width: var(--_extra-small-narrow-width);
-    --_wide-width: var(--_extra-small-wide-width);
-  }
-
-  .medium {
-    --_narrow-width: var(--_medium-narrow-width);
-    --_wide-width: var(--_medium-wide-width);
-  }
-
-  .large {
-    --_narrow-width: var(--_large-narrow-width);
-    --_wide-width: var(--_large-wide-width);
-  }
-
-  .extra-large {
-    --_narrow-width: var(--_extra-large-narrow-width);
-    --_wide-width: var(--_extra-large-wide-width);
-  }
-
-  .narrow {
-    width: var(--_narrow-width);
-  }
-
-  .wide {
-    width: var(--_wide-width);
-  }
-
-  .filled, .filled.selected {
-    background-color: var(--u-filled-icon-button-container-color, var(--u-color-primary, rgb(103, 80, 164)));
-    color: var(--u-filled-icon-button-text-color, var(--u-color-on-primary, rgb(255, 255, 255)));
-  }
-  .filled.toggle {
-    background-color: var(--u-filled-icon-button-unselected-container-color, var(--u-color-surface-container, rgb(243, 237, 247)));
-    color: var(--u-filled-icon-button-unselected-text-color, var(--u-color-on-surface-variant, rgb(73, 69, 79)));
-  }
-
-  .tonal {
-    background-color: var(--u-total-icon-button-unselected-container-color, var(--u-color-secondary-container, rgb(232, 222, 248)));
-    color: var(--u-tonal-icon-button-unselected-text-color, var(--u-color-on-secondary-container, rgb(29, 25, 43)));
-  }
-  .tonal.selected {
-    background-color: var(--u-tonal-icon-button-container-color, var(--u-color-secondary, rgb(98, 91, 113)));
-    color: var(--u-tonal-icon-button-text-color, var(--u-color-on-secondary, rgb(255, 255, 255)));
-  }
-
-  .standard {
-    color: var(--u-standard-icon-button-color, var(--u-color-on-surface-variant, rgb(73, 69, 79)));
-  }
-  .standard.selected {
-    color: var(--u-standard-icon-button-selected-text-color, var(--u-color-primary, rgb(103, 80, 164)));
-    background-color: var(--u-standard-icon-button-selected-container-color, transparent);
-  }
-
-  .outlined {
-    color: var(--u-outlined-icon-button-color, var(--u-color-on-surface-variant, rgb(73, 69, 79)));
-  }
-  .outlined, .outlined.selected.disabled {
-    border: 1px solid var(--u-color-outline-variant, rgb(202, 196, 208));
-  }
-  .outlined.selected {
-    border: none;
-    background-color: var(--u-outlined-icon-button-selected-container-color, var(--u-color-inverse-surface, rgb(50, 47, 53)));
-    color: var(--u-outlined-icon-button-selected-text-color, var(--u-color-on-inverse-surface, rgb(245, 239, 247)));
-  }
-  .outlined.disabled {
-    color: var(--u-outlined-icon-button-disabled-icon-color, color-mix(in srgb, var(--u-color-on-surface, rgb(29, 27, 32)) var(--u-outlined-icon-button-disabled-border-opacity, 10%), transparent)) !important;
-  }
-`;
-
-// ../../node_modules/@universal-material/web/button/icon-button.js
-var IconButton = class IconButton2 extends ToggleButton {
-  constructor() {
-    super(...arguments);
-    this.variant = "standard";
-    this.width = "default";
-  }
-  static {
-    this.styles = [ToggleButton.styles, styles10];
-  }
-  _getContainerClasses() {
-    return {
-      ...super._getContainerClasses(),
-      [this.variant]: true,
-      [this.width]: true
-    };
-  }
-  _renderContent() {
-    return b3`
-      <span class="icon-container" aria-hidden="true">
-        <span class="icon icon-default">
-          <slot></slot>
-        </span>
-        <span class="icon icon-selected">
-          <slot name="selected" @slotchange="${this._handleSelectedIconSlotChange}"></slot>
-        </span>
-      </span>
-    `;
-  }
-};
-__decorate([
-  n4()
-], IconButton.prototype, "variant", void 0);
-__decorate([
-  n4()
-], IconButton.prototype, "width", void 0);
-IconButton = __decorate([
-  t3("u-icon-button")
-], IconButton);
+// ../../node_modules/@universal-material/web/dialog/dialog.js
+init_tslib_es6();
+init_lit();
+init_decorators();
+init_base_styles();
 
 // ../../node_modules/@universal-material/web/config.js
 var _config = {
@@ -15121,7 +18062,7 @@ var mathMl$1 = freeze(["math", "menclose", "merror", "mfenced", "mfrac", "mglyph
 var mathMlDisallowed = freeze(["maction", "maligngroup", "malignmark", "mlongdiv", "mscarries", "mscarry", "msgroup", "mstack", "msline", "msrow", "semantics", "annotation", "annotation-xml", "mprescripts", "none"]);
 var text = freeze(["#text"]);
 var html = freeze(["accept", "action", "align", "alt", "autocapitalize", "autocomplete", "autopictureinpicture", "autoplay", "background", "bgcolor", "border", "capture", "cellpadding", "cellspacing", "checked", "cite", "class", "clear", "color", "cols", "colspan", "command", "commandfor", "controls", "controlslist", "coords", "crossorigin", "datetime", "decoding", "default", "dir", "disabled", "disablepictureinpicture", "disableremoteplayback", "download", "draggable", "enctype", "enterkeyhint", "exportparts", "face", "for", "headers", "height", "hidden", "high", "href", "hreflang", "id", "inert", "inputmode", "integrity", "ismap", "kind", "label", "lang", "list", "loading", "loop", "low", "max", "maxlength", "media", "method", "min", "minlength", "multiple", "muted", "name", "nonce", "noshade", "novalidate", "nowrap", "open", "optimum", "part", "pattern", "placeholder", "playsinline", "popover", "popovertarget", "popovertargetaction", "poster", "preload", "pubdate", "radiogroup", "readonly", "rel", "required", "rev", "reversed", "role", "rows", "rowspan", "spellcheck", "scope", "selected", "shape", "size", "sizes", "slot", "span", "srclang", "start", "src", "srcset", "step", "style", "summary", "tabindex", "title", "translate", "type", "usemap", "valign", "value", "width", "wrap", "xmlns"]);
-var svg = freeze(["accent-height", "accumulate", "additive", "alignment-baseline", "amplitude", "ascent", "attributename", "attributetype", "azimuth", "basefrequency", "baseline-shift", "begin", "bias", "by", "class", "clip", "clippathunits", "clip-path", "clip-rule", "color", "color-interpolation", "color-interpolation-filters", "color-profile", "color-rendering", "cx", "cy", "d", "dx", "dy", "diffuseconstant", "direction", "display", "divisor", "dur", "edgemode", "elevation", "end", "exponent", "fill", "fill-opacity", "fill-rule", "filter", "filterunits", "flood-color", "flood-opacity", "font-family", "font-size", "font-size-adjust", "font-stretch", "font-style", "font-variant", "font-weight", "fx", "fy", "g1", "g2", "glyph-name", "glyphref", "gradientunits", "gradienttransform", "height", "href", "id", "image-rendering", "in", "in2", "intercept", "k", "k1", "k2", "k3", "k4", "kerning", "keypoints", "keysplines", "keytimes", "lang", "lengthadjust", "letter-spacing", "kernelmatrix", "kernelunitlength", "lighting-color", "local", "marker-end", "marker-mid", "marker-start", "markerheight", "markerunits", "markerwidth", "maskcontentunits", "maskunits", "max", "mask", "mask-type", "media", "method", "mode", "min", "name", "numoctaves", "offset", "operator", "opacity", "order", "orient", "orientation", "origin", "overflow", "paint-order", "path", "pathlength", "patterncontentunits", "patterntransform", "patternunits", "points", "preservealpha", "preserveaspectratio", "primitiveunits", "r", "rx", "ry", "radius", "refx", "refy", "repeatcount", "repeatdur", "restart", "result", "rotate", "scale", "seed", "shape-rendering", "slope", "specularconstant", "specularexponent", "spreadmethod", "startoffset", "stddeviation", "stitchtiles", "stop-color", "stop-opacity", "stroke-dasharray", "stroke-dashoffset", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-opacity", "stroke", "stroke-width", "style", "surfacescale", "systemlanguage", "tabindex", "tablevalues", "targetx", "targety", "transform", "transform-origin", "text-anchor", "text-decoration", "text-rendering", "textlength", "type", "u1", "u2", "unicode", "values", "viewbox", "visibility", "version", "vert-adv-y", "vert-origin-x", "vert-origin-y", "width", "word-spacing", "wrap", "writing-mode", "xchannelselector", "ychannelselector", "x", "x1", "x2", "xmlns", "y", "y1", "y2", "z", "zoomandpan"]);
+var svg2 = freeze(["accent-height", "accumulate", "additive", "alignment-baseline", "amplitude", "ascent", "attributename", "attributetype", "azimuth", "basefrequency", "baseline-shift", "begin", "bias", "by", "class", "clip", "clippathunits", "clip-path", "clip-rule", "color", "color-interpolation", "color-interpolation-filters", "color-profile", "color-rendering", "cx", "cy", "d", "dx", "dy", "diffuseconstant", "direction", "display", "divisor", "dur", "edgemode", "elevation", "end", "exponent", "fill", "fill-opacity", "fill-rule", "filter", "filterunits", "flood-color", "flood-opacity", "font-family", "font-size", "font-size-adjust", "font-stretch", "font-style", "font-variant", "font-weight", "fx", "fy", "g1", "g2", "glyph-name", "glyphref", "gradientunits", "gradienttransform", "height", "href", "id", "image-rendering", "in", "in2", "intercept", "k", "k1", "k2", "k3", "k4", "kerning", "keypoints", "keysplines", "keytimes", "lang", "lengthadjust", "letter-spacing", "kernelmatrix", "kernelunitlength", "lighting-color", "local", "marker-end", "marker-mid", "marker-start", "markerheight", "markerunits", "markerwidth", "maskcontentunits", "maskunits", "max", "mask", "mask-type", "media", "method", "mode", "min", "name", "numoctaves", "offset", "operator", "opacity", "order", "orient", "orientation", "origin", "overflow", "paint-order", "path", "pathlength", "patterncontentunits", "patterntransform", "patternunits", "points", "preservealpha", "preserveaspectratio", "primitiveunits", "r", "rx", "ry", "radius", "refx", "refy", "repeatcount", "repeatdur", "restart", "result", "rotate", "scale", "seed", "shape-rendering", "slope", "specularconstant", "specularexponent", "spreadmethod", "startoffset", "stddeviation", "stitchtiles", "stop-color", "stop-opacity", "stroke-dasharray", "stroke-dashoffset", "stroke-linecap", "stroke-linejoin", "stroke-miterlimit", "stroke-opacity", "stroke", "stroke-width", "style", "surfacescale", "systemlanguage", "tabindex", "tablevalues", "targetx", "targety", "transform", "transform-origin", "text-anchor", "text-decoration", "text-rendering", "textlength", "type", "u1", "u2", "unicode", "values", "viewbox", "visibility", "version", "vert-adv-y", "vert-origin-x", "vert-origin-y", "width", "word-spacing", "wrap", "writing-mode", "xchannelselector", "ychannelselector", "x", "x1", "x2", "xmlns", "y", "y1", "y2", "z", "zoomandpan"]);
 var mathMl = freeze(["accent", "accentunder", "align", "bevelled", "close", "columnalign", "columnlines", "columnspacing", "columnspan", "denomalign", "depth", "dir", "display", "displaystyle", "encoding", "fence", "frame", "height", "href", "id", "largeop", "length", "linethickness", "lquote", "lspace", "mathbackground", "mathcolor", "mathsize", "mathvariant", "maxsize", "minsize", "movablelimits", "notation", "numalign", "open", "rowalign", "rowlines", "rowspacing", "rowspan", "rspace", "rquote", "scriptlevel", "scriptminsize", "scriptsizemultiplier", "selection", "separator", "separators", "stretchy", "subscriptshift", "supscriptshift", "symmetric", "voffset", "width", "xmlns"]);
 var xml = freeze(["xlink:href", "xml:id", "xlink:title", "xml:space", "xmlns:xlink"]);
 var MUSTACHE_EXPR = seal(/{{[\w\W]*|^[\w\W]*}}/g);
@@ -15281,7 +18222,7 @@ function createDOMPurify() {
   let ALLOWED_TAGS = null;
   const DEFAULT_ALLOWED_TAGS = addToSet({}, [...html$1, ...svg$1, ...svgFilters, ...mathMl$1, ...text]);
   let ALLOWED_ATTR = null;
-  const DEFAULT_ALLOWED_ATTR = addToSet({}, [...html, ...svg, ...mathMl, ...xml]);
+  const DEFAULT_ALLOWED_ATTR = addToSet({}, [...html, ...svg2, ...mathMl, ...xml]);
   let CUSTOM_ELEMENT_HANDLING = Object.seal(create(null, {
     tagNameCheck: {
       writable: true,
@@ -15484,12 +18425,12 @@ function createDOMPurify() {
       }
       if (USE_PROFILES.svg === true) {
         addToSet(ALLOWED_TAGS, svg$1);
-        addToSet(ALLOWED_ATTR, svg);
+        addToSet(ALLOWED_ATTR, svg2);
         addToSet(ALLOWED_ATTR, xml);
       }
       if (USE_PROFILES.svgFilters === true) {
         addToSet(ALLOWED_TAGS, svgFilters);
-        addToSet(ALLOWED_ATTR, svg);
+        addToSet(ALLOWED_ATTR, svg2);
         addToSet(ALLOWED_ATTR, xml);
       }
       if (USE_PROFILES.mathMl === true) {
@@ -16310,6 +19251,7 @@ function createDOMPurify() {
 var purify = createDOMPurify();
 
 // ../../node_modules/@universal-material/web/dialog/dialog-builder.js
+init_button();
 var DialogBuilder = class {
   #headline;
   constructor(message) {
@@ -16384,6 +19326,7 @@ var ConfirmDialogBuilder = class _ConfirmDialogBuilder extends DialogBuilder {
 };
 
 // ../../node_modules/@universal-material/web/dialog/dialog.styles.js
+init_lit();
 var styles11 = i2`
   :host {
     --u-elevation-level: var(--u-dialog-elevation, 3);
@@ -16564,6 +19507,7 @@ var MessageDialogBuilder = class _MessageDialogBuilder extends DialogBuilder {
 };
 
 // ../../node_modules/@universal-material/web/dialog/dialog.js
+init_elevation();
 var topDividerClass = "top-divider";
 var bottomDividerClass = "bottom-divider";
 var Dialog = class Dialog2 extends i5 {
@@ -16790,9 +19734,10 @@ Dialog = __decorate([
 
 // demo/main.ts
 var wn = document.getElementById("wn");
+wn.use(createMentionPlugin());
 var $2 = (id) => document.getElementById(id);
 var titleInput = $2("docTitle");
-var MODE_LABELS = { auto: "Autom\xE1tico", light: "Claro", dark: "Escuro", black: "Escuro total" };
+var MODE_LABELS = { auto: "Automatic", light: "Claro", dark: "Escuro", black: "Escuro total" };
 var MODE_ICONS = { auto: "brightness_auto", light: "light_mode", dark: "dark_mode", black: "bedtime" };
 var colorMode = "auto";
 var prefersDark = matchMedia("(prefers-color-scheme: dark)");
@@ -16803,7 +19748,7 @@ var applyMode = (m2) => {
   wn.setDarkPage(m2 === "black");
   $2("darkToggleIcon").textContent = MODE_ICONS[m2];
   window.wordnext?.setTitleTheme?.(effectiveDark(m2));
-  localStorage.setItem("wn-mode", m2);
+  localStorage.setItem("uw-mode", m2);
 };
 prefersDark.addEventListener("change", () => {
   if (colorMode === "auto") applyMode("auto");
@@ -16835,7 +19780,7 @@ $2("accentBtn").addEventListener("click", (e8) => {
 accentMenu.querySelectorAll(".accent-sw").forEach(
   (b5) => b5.addEventListener("click", () => {
     applyAccent(b5.dataset.accent);
-    localStorage.setItem("wn-accent-v2", b5.dataset.accent);
+    localStorage.setItem("uw-accent-v2", b5.dataset.accent);
     accentMenu.style.display = "none";
   })
 );
@@ -16865,30 +19810,30 @@ var fileHandle = null;
 var recents = [];
 var bridge = window.wordnext;
 document.documentElement.classList.toggle("electron", !!bridge);
-var trusted = new Set(JSON.parse(localStorage.getItem("wn-trusted") ?? "[]"));
+var trusted = new Set(JSON.parse(localStorage.getItem("uw-trusted") ?? "[]"));
 var currentTrustKey = null;
 var trustKeyOf = (f3) => `${f3.name}|${f3.size}|${f3.lastModified}`;
 var rememberTrust = (key) => {
   if (!key) return;
   trusted.add(key);
-  localStorage.setItem("wn-trusted", JSON.stringify([...trusted]));
+  localStorage.setItem("uw-trusted", JSON.stringify([...trusted]));
 };
 function setTitle(name) {
   titleInput.value = name.replace(/\.(docx|odt)$/i, "");
-  document.title = `${titleInput.value} \u2014 WordNext`;
+  document.title = `${titleInput.value} \u2014 Write`;
 }
 var currentFormat = "docx";
 function setCurrentFormat(fmt2) {
   currentFormat = fmt2;
   const lbl = document.getElementById("saveBtnLabel");
-  if (lbl) lbl.textContent = `Salvar .${fmt2}`;
+  if (lbl) lbl.textContent = `Save .${fmt2}`;
 }
 function rememberRecent(name, handle) {
   const i7 = recents.findIndex((r6) => r6.name === name);
   if (i7 >= 0) recents.splice(i7, 1);
   recents.unshift({ name, handle });
   recents.splice(6);
-  localStorage.setItem("wn-recents", JSON.stringify(recents.map((r6) => r6.name)));
+  localStorage.setItem("uw-recents", JSON.stringify(recents.map((r6) => r6.name)));
   renderRecents();
 }
 function renderRecents() {
@@ -16918,7 +19863,7 @@ function openBytes(bytes, name, handle, security) {
     if (isOdtFile) wn.loadOdt(bytes, { protected: isProtected });
     else wn.loadDocx(bytes, { protected: isProtected });
   } catch {
-    flashStatus(`\u26A0 "${name}" n\xE3o \xE9 um documento v\xE1lido ou est\xE1 corrompido`);
+    flashStatus(`\u26A0 "${name}" is not a valid document or is corrupted`);
     return;
   }
   setCurrentFormat(isOdtFile ? "odt" : "docx");
@@ -16944,7 +19889,7 @@ async function actionOpen() {
     try {
       const [handle] = await window.showOpenFilePicker({
         types: [{
-          description: "Documentos",
+          description: "Documents",
           accept: {
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
             "application/vnd.oasis.opendocument.text": [".odt"]
@@ -16972,12 +19917,12 @@ function bytesForFormat(fmt2) {
 }
 function pickerTypes() {
   return [
-    { description: "Documento do Word", accept: { "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"] } },
+    { description: "Reference app document", accept: { "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"] } },
     { description: "OpenDocument Text", accept: { "application/vnd.oasis.opendocument.text": [".odt"] } }
   ];
 }
 function nameForFormat(fmt2) {
-  return `${titleInput.value || "Documento"}.${fmt2}`;
+  return `${titleInput.value || "Document"}.${fmt2}`;
 }
 function detectFormatFromName(name) {
   return /\.odt$/i.test(name) ? "odt" : "docx";
@@ -17030,7 +19975,7 @@ $2("actNew").addEventListener("click", () => {
   closeMenus();
   fileHandle = null;
   wn.newDocument();
-  setTitle("Documento sem t\xEDtulo");
+  setTitle("Untitled document");
   setCurrentFormat("docx");
   wn.focusEditor();
 });
@@ -17045,7 +19990,7 @@ function downloadBlob(data, filename, type) {
   a3.click();
   setTimeout(() => URL.revokeObjectURL(a3.href), 4e3);
 }
-var docName = () => titleInput.value || "Documento";
+var docName = () => titleInput.value || "Document";
 $2("actExportPdf").addEventListener("click", () => void (async () => {
   closeMenus();
   const bytes = await wn.exportPdf();
@@ -17088,10 +20033,80 @@ $2("actPrint").addEventListener("click", () => {
   wn.print();
 });
 titleInput.addEventListener("change", () => {
-  document.title = `${titleInput.value} \u2014 WordNext`;
+  document.title = `${titleInput.value} \u2014 Write`;
+});
+var wd = document.getElementById("wd");
+async function pickDocxForCompare() {
+  if (bridge) {
+    try {
+      const r6 = bridge.openDocxForCompare ? await bridge.openDocxForCompare("Compare with\u2026") : await bridge.openDocx();
+      return r6 ? { name: r6.name, bytes: new Uint8Array(r6.bytes) } : null;
+    } catch {
+      flashStatus("\u26A0 Could not read the selected file");
+      return null;
+    }
+  }
+  if ("showOpenFilePicker" in window) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{
+          description: "Word document",
+          accept: { "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"] }
+        }]
+      });
+      const file = await handle.getFile();
+      return { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
+    } catch {
+      return null;
+    }
+  }
+  flashStatus("\u26A0 Comparison requires Electron or a browser with File System Access");
+  return null;
+}
+function closeCompare() {
+  wd.style.display = "none";
+  wn.style.display = "";
+  wn.focusEditor();
+}
+wd.addEventListener("close-request", closeCompare);
+wd.addEventListener("ready", (e8) => {
+  const s4 = e8.detail.stats;
+  flashStatus(`Comparison: +${s4.inserted} \u2212${s4.deleted} ~${s4.changed} \u270E${s4.formatOnly}`);
 });
 document.addEventListener("keydown", (e8) => {
+  if (e8.key !== "Escape" || wd.style.display === "none") return;
+  if (menuOpen() || document.querySelector(".dropdown.show")) return;
+  if ($2("findDialog").style.display !== "none") return;
+  if (document.body.classList.contains("focus-mode")) return;
+  closeCompare();
+});
+async function actionCompare() {
+  closeMenus();
+  const other = await pickDocxForCompare();
+  if (!other) return;
+  let current2;
+  try {
+    current2 = wn.saveDocx();
+  } catch {
+    flashStatus("\u26A0 The editor is still loading \u2014 try again in a moment");
+    return;
+  }
+  try {
+    wd.loadPair(current2, other.bytes, {
+      leftLabel: `${docName()} (atual)`,
+      rightLabel: other.name
+    });
+  } catch {
+    flashStatus(`\u26A0 "${other.name}" is not a valid .docx`);
+    return;
+  }
+  wn.style.display = "none";
+  wd.style.display = "flex";
+}
+$2("actCompare").addEventListener("click", () => void actionCompare());
+document.addEventListener("keydown", (e8) => {
   if (!(e8.ctrlKey || e8.metaKey)) return;
+  if (wd.style.display !== "none") return;
   const k2 = e8.key.toLowerCase();
   if (k2 === "o") {
     e8.preventDefault();
@@ -17167,7 +20182,7 @@ document.addEventListener("drop", async (e8) => {
   if (looksDocLike) {
     openBytes(bytes, file.name, null, { trustKey: trustKeyOf(file) });
   } else {
-    flashStatus(`\u26A0 "${file.name}" n\xE3o parece ser .docx nem .odt`);
+    flashStatus(`\u26A0 "${file.name}" doesn't look like a .docx or .odt`);
   }
 });
 var sizeSel = $2("size");
@@ -17225,14 +20240,14 @@ on("case", () => {
   caseUpper = !caseUpper;
 });
 on("print", () => wn.print());
-on("spell", () => flashStatus("Verifica\xE7\xE3o ortogr\xE1fica: nenhum erro encontrado"));
+on("spell", () => flashStatus("Spell check: no errors found"));
 on("checklist", () => flashStatus("Lista de tarefas: em breve"));
 on("imageBtn", () => $2("imageFile").click());
 on("commentBtn", () => {
-  const text2 = window.prompt("Texto da anota\xE7\xE3o:");
+  const text2 = window.prompt("Comment text:");
   if (text2) {
     const id = wn.addComment(text2);
-    flashStatus(id === null ? "Selecione um trecho para comentar" : "Anota\xE7\xE3o adicionada \u2713");
+    flashStatus(id === null ? "Selecione um trecho para comentar" : "Comment added \u2713");
   }
 });
 on("linkBtn", () => {
@@ -17304,7 +20319,7 @@ $2("zoomIn").addEventListener("click", () => {
   wn.setZoom(wn.getZoom() * 1.1);
   wn.focusEditor();
 });
-wn.addEventListener("wn-zoom", ((e8) => showZoom(e8.detail.zoom)));
+wn.addEventListener("uw-zoom", ((e8) => showZoom(e8.detail.zoom)));
 $2("color").addEventListener("change", (e8) => {
   wn.setColor(e8.target.value.slice(1).toUpperCase());
   wn.focusEditor();
@@ -17317,6 +20332,16 @@ $2("shading").addEventListener("change", (e8) => {
 $2("actImage").addEventListener("click", () => {
   closeMenus();
   $2("imageFile").click();
+});
+$2("actMention").addEventListener("click", () => {
+  closeMenus();
+  if (wn.isProtected()) {
+    flashStatus("Enable editing before inserting a mention");
+    return;
+  }
+  const label = "Ada Lovelace";
+  wn.insertCustomInline("mention", { id: label.toLowerCase().replace(/\s+/g, "-"), label });
+  wn.focusEditor();
 });
 on("actPageBreak", () => {
   closeMenus();
@@ -17336,21 +20361,21 @@ on("actFieldDate", () => {
 });
 $2("actToc").addEventListener("click", () => {
   closeMenus();
-  flashStatus(wn.updateToc() ? "Sum\xE1rio atualizado \u2713" : "Documento sem campo de sum\xE1rio");
+  flashStatus(wn.updateToc() ? "Table of contents updated \u2713" : "Document has no table-of-contents field");
   wn.focusEditor();
 });
 $2("actComment").addEventListener("click", () => {
   closeMenus();
-  const text2 = window.prompt("Texto da anota\xE7\xE3o:");
+  const text2 = window.prompt("Comment text:");
   if (text2) {
     const id = wn.addComment(text2);
-    flashStatus(id === null ? "Selecione um trecho para comentar" : "Anota\xE7\xE3o adicionada \u2713");
+    flashStatus(id === null ? "Selecione um trecho para comentar" : "Comment added \u2713");
   }
   wn.focusEditor();
 });
 var wasProtected = false;
 var enabledByUser = false;
-wn.addEventListener("wn-protected", ((e8) => {
+wn.addEventListener("uw-protected", ((e8) => {
   $2("protectedBar").classList.toggle("bar-off", !e8.detail.active);
   $2("toolbarRow").classList.toggle("tb-locked", !!e8.detail.active);
   if (enabledByUser && e8.detail.hasFields) {
@@ -17359,7 +20384,7 @@ wn.addEventListener("wn-protected", ((e8) => {
   if (!e8.detail.active) {
     rememberTrust(currentTrustKey);
     if (wasProtected && fileHandle) {
-      void actionSave(false).then(() => flashStatus("Edi\xE7\xE3o habilitada \u2014 salvo \u2713"));
+      void actionSave(false).then(() => flashStatus("Editing enabled \u2014 saved \u2713"));
     }
   }
   wasProtected = e8.detail.active;
@@ -17367,13 +20392,13 @@ wn.addEventListener("wn-protected", ((e8) => {
 var dirty = false;
 var lastAutosave = Date.now();
 var autosaveSel = $2("autosaveSel");
-autosaveSel.value = localStorage.getItem("wn-autosave-min") ?? "10";
+autosaveSel.value = localStorage.getItem("uw-autosave-min") ?? "10";
 autosaveSel.addEventListener("change", () => {
-  localStorage.setItem("wn-autosave-min", autosaveSel.value);
+  localStorage.setItem("uw-autosave-min", autosaveSel.value);
   flashStatus(autosaveSel.value === "0" ? "Autosave desativado" : `Autosave: a cada ${autosaveSel.value} min`);
 });
 function checkAutosave() {
-  const min = parseFloat(localStorage.getItem("wn-autosave-min") ?? "10");
+  const min = parseFloat(localStorage.getItem("uw-autosave-min") ?? "10");
   if (min <= 0 || !dirty) return;
   if (Date.now() - lastAutosave < min * 6e4) return;
   if (!fileHandle) {
@@ -17387,30 +20412,30 @@ function checkAutosave() {
     flashStatus("Autosave \u2713");
   });
 }
-wn.addEventListener("wn-change", () => {
+wn.addEventListener("uw-change", () => {
   dirty = true;
   window.setTimeout(checkAutosave, 800);
 });
 window.setInterval(checkAutosave, 15e3);
-wn.addEventListener("wn-blocked", (() => {
+wn.addEventListener("uw-blocked", (() => {
   const bar = $2("protectedBar");
   const btn = $2("enableEditing");
   bar.scrollIntoView({ block: "nearest" });
-  btn.classList.remove("wn-pulse");
+  btn.classList.remove("uw-pulse");
   void btn.offsetWidth;
-  btn.classList.add("wn-pulse");
-  flashStatus('\u{1F512} Documento protegido \u2014 clique em "Habilitar Edi\xE7\xE3o" para editar');
+  btn.classList.add("uw-pulse");
+  flashStatus('\u{1F512} Protected document \u2014 click "Enable Editing" to edit');
 }));
 $2("enableEditing").addEventListener("click", () => {
   enabledByUser = true;
   wn.enableEditing();
   enabledByUser = false;
-  flashStatus("Edi\xE7\xE3o habilitada");
+  flashStatus("Editing enabled");
 });
-wn.addEventListener("wn-hfhover", ((e8) => {
+wn.addEventListener("uw-hfhover", ((e8) => {
   const hint = $2("hfHint");
   if (e8.detail.kind) {
-    hint.textContent = `Duplo-clique para editar ${e8.detail.kind === "header" ? "cabe\xE7alho" : "rodap\xE9"}`;
+    hint.textContent = `Double-click to edit ${e8.detail.kind === "header" ? "header" : "footer"}`;
     hint.style.left = `${e8.detail.x + 14}px`;
     hint.style.top = `${e8.detail.y + 14}px`;
     hint.style.display = "block";
@@ -17432,14 +20457,14 @@ $2("fieldsDialog").addEventListener("cancel", (e8) => {
 });
 $2("updateFields").addEventListener("click", () => {
   closeFieldsDialog();
-  flashStatus(wn.updateToc() ? "Campos atualizados \u2713" : "Nenhum campo de sum\xE1rio para atualizar");
+  flashStatus(wn.updateToc() ? "Campos atualizados \u2713" : "No table-of-contents field to update");
   wn.focusEditor();
 });
 $2("dismissFields").addEventListener("click", () => {
   closeFieldsDialog();
   wn.focusEditor();
 });
-var inlineComments = localStorage.getItem("wn-inline-comments") === "1";
+var inlineComments = localStorage.getItem("uw-inline-comments") === "1";
 document.body.classList.toggle("inline-comments", inlineComments);
 function buildCard(c4, active) {
   const card = document.createElement("div");
@@ -17448,14 +20473,14 @@ function buildCard(c4, active) {
   const del = document.createElement("button");
   del.className = "del";
   del.textContent = "\u{1F5D1}";
-  del.title = "Excluir anota\xE7\xE3o";
+  del.title = "Delete comment";
   del.addEventListener("click", (e8) => {
     e8.stopPropagation();
     wn.removeComment(c4.id);
   });
   const who = document.createElement("div");
   who.className = "who";
-  who.textContent = c4.author ?? "An\xF4nimo";
+  who.textContent = c4.author ?? "Anonymous";
   const body = document.createElement("div");
   body.textContent = c4.text;
   card.append(del, who, body);
@@ -17529,8 +20554,8 @@ function positionInlineCards() {
     prevBottom = finalTop + h3;
   }
 }
-wn.addEventListener("wn-comments-changed", () => renderComments());
-wn.addEventListener("wn-comment-click", ((e8) => renderComments(e8.detail.ids)));
+wn.addEventListener("uw-comments-changed", () => renderComments());
+wn.addEventListener("uw-comment-click", ((e8) => renderComments(e8.detail.ids)));
 var lastWnScroll = -1;
 function inlineRafLoop() {
   if (!inlineComments) return;
@@ -17549,7 +20574,7 @@ if (inlineComments) startInlineSync();
 window.addEventListener("resize", () => {
   if (inlineComments) positionInlineCards();
 });
-wn.addEventListener("wn-change", () => {
+wn.addEventListener("uw-change", () => {
   if (inlineComments) positionInlineCards();
 });
 for (const ev of ["wheel", "touchmove", "keyup", "mouseup"]) {
@@ -17559,7 +20584,7 @@ for (const ev of ["wheel", "touchmove", "keyup", "mouseup"]) {
 }
 $2("commentsInlineToggle").addEventListener("click", () => {
   inlineComments = !inlineComments;
-  localStorage.setItem("wn-inline-comments", inlineComments ? "1" : "0");
+  localStorage.setItem("uw-inline-comments", inlineComments ? "1" : "0");
   document.body.classList.toggle("inline-comments", inlineComments);
   renderComments(lastActiveIds);
   if (inlineComments) startInlineSync();
@@ -17589,7 +20614,7 @@ $2("findNext").addEventListener("click", () => {
 });
 $2("replaceAll").addEventListener("click", () => {
   const n5 = wn.replaceAll($2("findText").value, $2("replText").value);
-  flashStatus(`${n5} substitui\xE7\xF5es`);
+  flashStatus(`${n5} replacements`);
 });
 var setActiveView = (v2) => document.querySelectorAll('footer [data-view]:not([data-view="focus"])').forEach((b5) => b5.classList.toggle("active", b5.dataset.view === v2));
 var enterFocus = () => {
@@ -17647,10 +20672,23 @@ var syncToolbar = () => {
   set("painter", wn.painterActive());
   if (st.run.szHalfPt) sizeSel.value = String(st.run.szHalfPt / 2);
   $2("style").value = st.para.styleId ?? "";
-  if (st.run.fontAscii) $2("font").value = st.run.fontAscii.startsWith("Calibri") ? "Calibri" : "Aptos";
+  if (st.run.fontAscii) {
+    const fs = $2("font");
+    const raw = st.run.fontAscii;
+    const f3 = raw.startsWith("Calibri") ? "Calibri" : raw.startsWith("Aptos") ? "Aptos" : raw;
+    fs.querySelector("option[data-dyn]")?.remove();
+    if (f3 !== "Aptos" && f3 !== "Calibri") {
+      const o8 = document.createElement("option");
+      o8.value = f3;
+      o8.textContent = f3;
+      o8.dataset["dyn"] = "1";
+      fs.insertBefore(o8, fs.firstChild);
+    }
+    fs.value = f3;
+  }
   refreshIconMenus();
   const s4 = wn.stats();
-  $2("status").textContent = `P\xE1gina ${s4.page} de ${s4.pages} \xB7 ${s4.words} palavra${s4.words === 1 ? "" : "s"} \xB7 par\xE1grafo ${s4.paragraph}`;
+  $2("status").textContent = `Page ${s4.page} of ${s4.pages} \xB7 ${s4.words} word${s4.words === 1 ? "" : "s"} \xB7 paragraph ${s4.paragraph}`;
 };
 wn.onSelectionChange = syncToolbar;
 wn.addEventListener("contextmenu", (e8) => {
@@ -17664,52 +20702,52 @@ wn.addEventListener("contextmenu", (e8) => {
     syncToolbar();
   };
   const items = [
-    { icon: "content_cut", label: "Recortar", shortcut: "Ctrl+X", disabled: !hasSel || ro, onClick: () => {
+    { icon: "content_cut", label: "Cut", shortcut: "Ctrl+X", disabled: !hasSel || ro, onClick: () => {
       void wn.cut();
     } },
-    { icon: "content_copy", label: "Copiar", shortcut: "Ctrl+C", disabled: !hasSel, onClick: () => {
+    { icon: "content_copy", label: "Copy", shortcut: "Ctrl+C", disabled: !hasSel, onClick: () => {
       void wn.copy();
     } },
-    { icon: "content_paste", label: "Colar", shortcut: "Ctrl+V", disabled: ro, onClick: () => {
+    { icon: "content_paste", label: "Paste", shortcut: "Ctrl+V", disabled: ro, onClick: () => {
       void wn.paste().then(sync);
     } },
-    { icon: "content_paste_off", label: "Colar sem formata\xE7\xE3o", shortcut: "Ctrl+Shift+V", disabled: ro, onClick: () => {
+    { icon: "content_paste_off", label: "Paste without formatting", shortcut: "Ctrl+Shift+V", disabled: ro, onClick: () => {
       void wn.pastePlain().then(sync);
     } },
     { sep: true },
-    { icon: "format_bold", label: "Negrito", shortcut: "Ctrl+B", checked: st.run.bold, disabled: ro, onClick: () => {
+    { icon: "format_bold", label: "Bold", shortcut: "Ctrl+B", checked: st.run.bold, disabled: ro, onClick: () => {
       wn.toggleRunProp("bold");
       sync();
     } },
-    { icon: "format_italic", label: "It\xE1lico", shortcut: "Ctrl+I", checked: st.run.italic, disabled: ro, onClick: () => {
+    { icon: "format_italic", label: "Italic", shortcut: "Ctrl+I", checked: st.run.italic, disabled: ro, onClick: () => {
       wn.toggleRunProp("italic");
       sync();
     } },
-    { icon: "format_underlined", label: "Sublinhado", shortcut: "Ctrl+U", checked: st.run.underline, disabled: ro, onClick: () => {
+    { icon: "format_underlined", label: "Underline", shortcut: "Ctrl+U", checked: st.run.underline, disabled: ro, onClick: () => {
       wn.toggleRunProp("underline");
       sync();
     } },
     { sep: true },
-    { icon: "format_list_bulleted", label: "Marcadores", checked: st.para.numbering?.kind === "bullet", disabled: ro, onClick: () => {
+    { icon: "format_list_bulleted", label: "Bullets", checked: st.para.numbering?.kind === "bullet", disabled: ro, onClick: () => {
       wn.toggleList("bullet");
       sync();
     } },
-    { icon: "format_list_numbered", label: "Numera\xE7\xE3o", checked: st.para.numbering?.kind === "decimal", disabled: ro, onClick: () => {
+    { icon: "format_list_numbered", label: "Numbering", checked: st.para.numbering?.kind === "decimal", disabled: ro, onClick: () => {
       wn.toggleList("decimal");
       sync();
     } },
     { sep: true },
-    { icon: "add_comment", label: "Novo coment\xE1rio\u2026", disabled: !hasSel || ro, onClick: () => {
-      const text2 = window.prompt("Texto da anota\xE7\xE3o:");
+    { icon: "add_comment", label: "New comment\u2026", disabled: !hasSel || ro, onClick: () => {
+      const text2 = window.prompt("Comment text:");
       if (text2) {
         const id = wn.addComment(text2);
-        flashStatus(id === null ? "Selecione um trecho para comentar" : "Anota\xE7\xE3o adicionada \u2713");
+        flashStatus(id === null ? "Selecione um trecho para comentar" : "Comment added \u2713");
       }
       wn.focusEditor();
     } },
-    { icon: "search", label: "Localizar e substituir\u2026", shortcut: "Ctrl+F", onClick: () => openFind(false) },
+    { icon: "search", label: "Find and replace\u2026", shortcut: "Ctrl+F", onClick: () => openFind(false) },
     { sep: true },
-    { icon: "select_all", label: "Selecionar tudo", shortcut: "Ctrl+A", onClick: () => {
+    { icon: "select_all", label: "Select all", shortcut: "Ctrl+A", onClick: () => {
       wn.selectAll();
       sync();
     } }
@@ -17723,11 +20761,11 @@ wn.addEventListener("scroll", () => {
   setTimeout(() => {
     statusScrollTick = false;
     const s4 = wn.stats();
-    $2("status").textContent = `P\xE1gina ${s4.page} de ${s4.pages} \xB7 ${s4.words} palavra${s4.words === 1 ? "" : "s"} \xB7 par\xE1grafo ${s4.paragraph}`;
+    $2("status").textContent = `Page ${s4.page} of ${s4.pages} \xB7 ${s4.words} word${s4.words === 1 ? "" : "s"} \xB7 paragraph ${s4.paragraph}`;
   }, 150);
 });
-applyAccent(localStorage.getItem("wn-accent-v2") || "blue");
-applyMode(localStorage.getItem("wn-mode") || "auto");
+applyAccent(localStorage.getItem("uw-accent-v2") || "blue");
+applyMode(localStorage.getItem("uw-mode") || "auto");
 setupIconMenus();
 setupCollapsibleToolbar();
 rippleAll(document, "#toolbarRow .tb-g button, footer .views button, .dlg-btn");
@@ -17741,7 +20779,7 @@ window.__wnDemo = {
     lastAutosave = 0;
   }
 };
-wn.addEventListener("wn-ready", async () => {
+wn.addEventListener("uw-ready", async () => {
   setTimeout(() => renderComments(), 1500);
   try {
     const resp = await fetch("/samples/Catalogo-Recursos-Word.docx");

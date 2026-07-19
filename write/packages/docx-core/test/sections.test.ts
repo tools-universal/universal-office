@@ -6,8 +6,8 @@ import {
   type DocumentModel, type HfPartInfo,
 } from '../src/index.js';
 
-const CATALOG = 'D:\\Projects\\OfficeNext\\WordNext\\samples\\Catalogo-Recursos-Word.docx';
-const labOut = 'D:\\Projects\\OfficeNext\\WordNext\\tools\\word-lab\\results\\edited';
+const CATALOG = 'D:\\Projects\\OfficeNext\\write\\samples\\Catalogo-Recursos-Word.docx';
+const labOut = 'D:\\Projects\\OfficeNext\\write\\tools\\word-lab\\results\\edited';
 
 const blank = (): DocumentModel => ({
   paragraphs: [{ runs: [], props: {} }],

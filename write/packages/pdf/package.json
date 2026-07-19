@@ -1,8 +1,9 @@
 {
-  "name": "@wordnext/pdf",
+  "name": "@universal-office/pdf",
   "version": "0.0.1",
   "type": "module",
-  "description": "Gerador de PDF do WordNext (writer PDF + embed de TrueType + render de conteúdo posicionado)",
+  "sideEffects": false,
+  "description": "Gerador de PDF do Write (writer PDF + embed de TrueType + render de conteúdo posicionado)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

@@ -24,7 +24,7 @@ export interface RunProps {
   szHalfPt?: number;
   /** hex RRGGBB (w:color). */
   color?: string;
-  /** w:highlight (nomes do Word: yellow, green, cyan, ...). */
+  /** w:highlight (nomes do app de referência: yellow, green, cyan, ...). */
   highlight?: string;
   fontAscii?: string;
   allCaps: boolean;
@@ -49,10 +49,13 @@ export const DEFAULT_RUN_PROPS: RunProps = {
 };
 
 export interface InlineImage {
-  /** bytes da parte de mídia. */
+  /** bytes da parte de mídia (fallback raster: png, jpeg, gif...). */
   data: Uint8Array;
   /** extensão (png, jpeg, gif...). */
   ext: string;
+  /** asvg:svgBlip — versão VETORIAL da imagem (Office 2016+). Quando presente,
+   *  o Word renderiza este SVG; usá-lo evita a pixelização do raster de fallback. */
+  svg?: Uint8Array;
   widthTwips: number;
   heightTwips: number;
   /** wp:anchor (flutuante) em vez de wp:inline. */
@@ -62,9 +65,31 @@ export interface InlineImage {
   offsetYTwips?: number;
 }
 
+/** Caixa de texto de DrawingML (wps:txbx / VML v:textbox) — usada em
+ *  timbrados de cabeçalho e afins. Renderizamos o texto no ponto ancorado. */
+export interface DrawingTextbox {
+  paras: Paragraph[];
+  widthTwips: number;
+  heightTwips: number;
+  floating?: boolean;
+  offsetXTwips?: number;
+  offsetYTwips?: number;
+}
+
 export interface NoteRef {
   kind: 'footnote' | 'endnote';
   id: number;
+}
+
+/**
+ * Conteúdo inline definido por plugin. No modelo ele ocupa um único caractere
+ * U+FFFC; fallbackText é o texto exibido pelo Word dentro de um w:sdt e também
+ * o fallback quando o plugin não está instalado.
+ */
+export interface CustomInline {
+  type: string;
+  data: unknown;
+  fallbackText: string;
 }
 
 export interface Run {
@@ -72,10 +97,14 @@ export interface Run {
   text: string;
   props: RunProps;
   image?: InlineImage;
+  /** Caixa de texto ancorada (DrawingML). */
+  textbox?: DrawingTextbox;
   /** Marcador de nota (rodapé/fim). */
   noteRef?: NoteRef;
   /** Instrução de campo (w:fldSimple w:instr), ex.: " PAGE ". */
   field?: string;
+  /** Nó inline atômico registrado por plugin. */
+  custom?: CustomInline;
 }
 
 export const EMU_PER_TWIP = 635;
@@ -178,6 +207,13 @@ export interface SectPr {
     /** w:sep — linha separadora entre colunas. */
     sep: boolean;
   };
+  /** w:titlePg — a 1ª página usa header/footer "first". Sem isto, a 1ª
+   *  página usa o header/footer default (regra do Word). */
+  titlePg?: boolean;
+  /** w:pgMar/@w:header — distância do topo da página ao cabeçalho (twips). */
+  headerDistanceTwips?: number;
+  /** w:pgMar/@w:footer — distância da base da página ao rodapé (twips). */
+  footerDistanceTwips?: number;
 }
 
 export interface DocumentModel {
@@ -254,9 +290,13 @@ function readDrawing(drawing: XmlElement, resolveImage: ImageResolver): InlineIm
   if (!extent || !rid) return undefined;
   const media = resolveImage(rid);
   if (!media) return undefined;
+  // versão vetorial (asvg:svgBlip no extLst do a:blip) — preferida pelo Word
+  const svgRid = findDeep(blip, 'asvg:svgBlip')?.attrs['r:embed'];
+  const svgMedia = svgRid ? resolveImage(svgRid) : undefined;
   const img: InlineImage = {
     data: media.data,
     ext: media.ext,
+    ...(svgMedia ? { svg: svgMedia.data } : {}),
     widthTwips: parseInt(extent.attrs['cx'] ?? '0', 10) / EMU_PER_TWIP,
     heightTwips: parseInt(extent.attrs['cy'] ?? '0', 10) / EMU_PER_TWIP,
   };
@@ -270,6 +310,33 @@ function readDrawing(drawing: XmlElement, resolveImage: ImageResolver): InlineIm
     if (offV) img.offsetYTwips = parseInt(textContentOf(offV), 10) / EMU_PER_TWIP;
   }
   return img;
+}
+
+/** Caixa de texto de um <w:drawing> (wps:txbx no mc:Choice, ou v:textbox no
+ *  fallback VML). Lê o PRIMEIRO w:txbxContent (o moderno) e seus parágrafos. */
+function readTextbox(drawing: XmlElement, ctx: ReadContext): DrawingTextbox | undefined {
+  const txbx = findDeep(drawing, 'w:txbxContent');
+  if (!txbx) return undefined;
+  const paras: Paragraph[] = [];
+  for (const p of childElements(txbx, 'w:p')) paras.push(readParagraph(p, ctx));
+  if (!paras.length) return undefined;
+  const extent = findDeep(drawing, 'wp:extent');
+  const tb: DrawingTextbox = {
+    paras,
+    widthTwips: extent ? parseInt(extent.attrs['cx'] ?? '0', 10) / EMU_PER_TWIP : 0,
+    heightTwips: extent ? parseInt(extent.attrs['cy'] ?? '0', 10) / EMU_PER_TWIP : 0,
+  };
+  const anchor = firstChild(drawing, 'wp:anchor');
+  if (anchor) {
+    tb.floating = true;
+    const posH = firstChild(anchor, 'wp:positionH');
+    const posV = firstChild(anchor, 'wp:positionV');
+    const offH = posH && firstChild(posH, 'wp:posOffset');
+    const offV = posV && firstChild(posV, 'wp:posOffset');
+    if (offH) tb.offsetXTwips = parseInt(textContentOf(offH), 10) / EMU_PER_TWIP;
+    if (offV) tb.offsetYTwips = parseInt(textContentOf(offV), 10) / EMU_PER_TWIP;
+  }
+  return tb;
 }
 
 function textContentOf(el: XmlElement): string {
@@ -318,10 +385,40 @@ function readRunsInto(
       }
     } else if (child.name === 'w:sdt') {
       const content = findDeep(child, 'w:sdtContent');
-      if (content) readRunsInto(runs, content, ctx, inherit);
+      const sdtPr = firstChild(child, 'w:sdtPr');
+      const tag = sdtPr ? firstChild(sdtPr, 'w:tag')?.attrs['w:val'] : undefined;
+      const custom = parseCustomInlineTag(tag);
+      if (content && custom) {
+        const nested: Run[] = [];
+        readRunsInto(nested, content, ctx, inherit);
+        const fallbackText = nested.map((run) => run.text).join('');
+        runs.push({
+          text: '\uFFFC',
+          props: { ...(nested[0]?.props ?? DEFAULT_RUN_PROPS) },
+          custom: { ...custom, fallbackText },
+        });
+      } else if (content) {
+        readRunsInto(runs, content, ctx, inherit);
+      }
     } else if (child.name === 'w:smartTag' || child.name === 'w:ins') {
       readRunsInto(runs, child, ctx, inherit);
     }
+  }
+}
+
+const CUSTOM_INLINE_TAG_PREFIX = 'wordnext:inline:';
+
+function parseCustomInlineTag(tag: string | undefined): Omit<CustomInline, 'fallbackText'> | undefined {
+  if (!tag?.startsWith(CUSTOM_INLINE_TAG_PREFIX)) return undefined;
+  const payload = tag.slice(CUSTOM_INLINE_TAG_PREFIX.length);
+  const split = payload.indexOf(':');
+  if (split <= 0) return undefined;
+  const type = payload.slice(0, split);
+  if (!/^[a-zA-Z0-9._-]+$/.test(type)) return undefined;
+  try {
+    return { type, data: JSON.parse(decodeURIComponent(payload.slice(split + 1))) as unknown };
+  } catch {
+    return undefined;
   }
 }
 
@@ -416,6 +513,24 @@ function readSingleRun(
       if (text) { flush(text); text = ''; }
       const image = readDrawing(child, ctx.resolveImage);
       if (image) runs.push({ text: '￼', props: { ...rProps }, image });
+      else {
+        const textbox = readTextbox(child, ctx);
+        if (textbox) runs.push({ text: '￼', props: { ...rProps }, textbox });
+      }
+    } else if (child.name === 'mc:AlternateContent') {
+      // formas/caixas de texto de DrawingML: o w:drawing moderno fica em
+      // mc:Choice (Requires="wps"); o mc:Fallback é VML. Descemos no drawing.
+      const choice = firstChild(child, 'mc:Choice') ?? child;
+      const drawing = findDeep(choice, 'w:drawing');
+      if (drawing) {
+        if (text) { flush(text); text = ''; }
+        const image = readDrawing(drawing, ctx.resolveImage);
+        if (image) runs.push({ text: '￼', props: { ...rProps }, image });
+        else {
+          const textbox = readTextbox(drawing, ctx);
+          if (textbox) runs.push({ text: '￼', props: { ...rProps }, textbox });
+        }
+      }
     }
   }
   if (text.length > 0) flush(text);
@@ -561,6 +676,8 @@ export function readSectPr(sectEl: XmlElement | undefined): SectPr {
     marginRightTwips: tw(pgMar, 'w:right', 1701),
     marginTopTwips: tw(pgMar, 'w:top', 1417),
     marginBottomTwips: tw(pgMar, 'w:bottom', 1417),
+    headerDistanceTwips: tw(pgMar, 'w:header', 720),
+    footerDistanceTwips: tw(pgMar, 'w:footer', 720),
   };
   const num = colsEl ? parseInt(colsEl.attrs['w:num'] ?? '1', 10) : 1;
   if (num > 1) {
@@ -569,6 +686,10 @@ export function readSectPr(sectEl: XmlElement | undefined): SectPr {
       spaceTwips: parseInt(colsEl!.attrs['w:space'] ?? '720', 10),
       sep: colsEl!.attrs['w:sep'] === 'true' || colsEl!.attrs['w:sep'] === '1',
     };
+  }
+  const titlePg = sectEl && firstChild(sectEl, 'w:titlePg');
+  if (titlePg && titlePg.attrs['w:val'] !== '0' && titlePg.attrs['w:val'] !== 'false') {
+    sect.titlePg = true;
   }
   return sect;
 }

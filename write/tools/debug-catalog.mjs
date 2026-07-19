@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { unzipSync } from 'fflate';
 
-const z = unzipSync(new Uint8Array(readFileSync('D:/Projects/OfficeNext/WordNext/Catalogo-Recursos-Word.docx')));
+const z = unzipSync(new Uint8Array(readFileSync('D:/Projects/OfficeNext/write/Catalogo-Recursos-Word.docx')));
 const dec = new TextDecoder();
 const doc = dec.decode(z['word/document.xml']);
 

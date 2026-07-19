@@ -1,7 +1,7 @@
-// Exporta o modelo WordNext para HTML semântico e fluido (NÃO paginado) —
+// Exporta o modelo Write para HTML semântico e fluido (NÃO paginado) —
 // pensado para ler na web: títulos h1-6, listas aninhadas, tabelas, imagens
 // embutidas (data URI), notas de rodapé/fim e ANOTAÇÕES inline (realce + lista).
-import type { Paragraph, Run, TableBlock, CommentInfo, BorderEdge } from '@wordnext/docx-core';
+import type { Paragraph, Run, TableBlock, CommentInfo, BorderEdge } from '@universal-office/docx-core';
 import {
   type ExportDoc,
   orderedBlocks,
@@ -57,7 +57,7 @@ function runHtml(run: Run, ctx: Ctx): string {
     if (ctx.imagesMode === 'omit') {
       // style inline = funciona mesmo em fragmento (fullDocument:false), sem
       // depender da CSS embutida. A classe fica para quem quer sobrescrever.
-      return `<span class="wn-img-placeholder" aria-label="imagem" ` +
+      return `<span class="uw-img-placeholder" aria-label="imagem" ` +
         `style="display:inline-block;padding:0 .35em;margin:0 .15em;` +
         `background:rgba(0,0,0,.06);border-radius:4px;font-size:.9em;color:#777">📷</span>`;
     }
@@ -71,7 +71,7 @@ function runHtml(run: Run, ctx: Ctx): string {
     const paras = (run.noteRef.kind === 'footnote' ? ctx.footnotes : ctx.endnotes).get(run.noteRef.id);
     const noteHtml = paras?.map((np) => np.runs.map((r) => escapeHtml(r.text)).join('')).join(' ').trim() ?? '';
     ctx.notes.push({ kind: run.noteRef.kind, id: run.noteRef.id, html: escapeHtml(noteHtml) });
-    return `<sup class="wn-note"><a id="noteref-${seq}" href="#note-${seq}">${seq}</a></sup>`;
+    return `<sup class="uw-note"><a id="noteref-${seq}" href="#note-${seq}">${seq}</a></sup>`;
   }
   let text = escapeHtml(run.text);
   if (!text) return '';
@@ -100,7 +100,7 @@ function runHtml(run: Run, ctx: Ctx): string {
       const c = ctx.comments.get(id);
       return c ? `${c.author ?? 'Anônimo'}: ${c.text}` : '';
     }).filter(Boolean).join(' | ');
-    inner = `<span class="wn-comment" data-comment="${p.commentIds.join(',')}" title="${escapeAttr(tips)}">${inner}</span>`;
+    inner = `<span class="uw-comment" data-comment="${p.commentIds.join(',')}" title="${escapeAttr(tips)}">${inner}</span>`;
   }
   return inner;
 }
@@ -197,7 +197,7 @@ function bodyHtml(doc: ExportDoc, ctx: Ctx): string {
 
   // notas de rodapé/fim
   if (ctx.notes.length) {
-    parts.push('<hr><section class="wn-notes"><ol>');
+    parts.push('<hr><section class="uw-notes"><ol>');
     ctx.notes.forEach((n, idx) => {
       parts.push(`<li id="note-${idx + 1}">${n.html} <a href="#noteref-${idx + 1}">↩</a></li>`);
     });
@@ -207,10 +207,10 @@ function bodyHtml(doc: ExportDoc, ctx: Ctx): string {
   // comentários referenciados (anotações)
   const used = [...ctx.usedComments].filter((id) => ctx.comments.has(id));
   if (used.length) {
-    parts.push('<section class="wn-comments"><h2>Comentários</h2><ol>');
+    parts.push('<section class="uw-comments"><h2>Comentários</h2><ol>');
     for (const id of used) {
       const c = ctx.comments.get(id)!;
-      parts.push(`<li id="cmt-${id}"><span class="wn-author">${escapeHtml(c.author ?? 'Anônimo')}</span>: ${escapeHtml(c.text)}</li>`);
+      parts.push(`<li id="cmt-${id}"><span class="uw-author">${escapeHtml(c.author ?? 'Anônimo')}</span>: ${escapeHtml(c.text)}</li>`);
     }
     parts.push('</ol></section>');
   }
@@ -230,12 +230,12 @@ img { max-width: 100%; height: auto; }
 table { border-collapse: collapse; margin: 1em 0; width: 100%; }
 td, th { border: 1px solid #bbb; padding: .4em .6em; vertical-align: top; }
 ul, ol { margin: 0 0 .75em; padding-left: 1.6em; }
-sup.wn-note a { text-decoration: none; }
-.wn-comment { background: rgba(255,187,0,.28); border-bottom: 1px dotted #c79100; cursor: help; }
-.wn-img-placeholder { display: inline-block; padding: 0 .35em; margin: 0 .15em; background: rgba(0,0,0,.06); border-radius: 4px; font-size: .9em; color: #777; }
-.wn-comments { margin-top: 2.5rem; border-top: 1px solid #ccc; padding-top: 1rem; font-size: .9rem; color: #555; }
-.wn-comments .wn-author { font-weight: 600; }
-.wn-notes { font-size: .85rem; color: #555; }
+sup.uw-note a { text-decoration: none; }
+.uw-comment { background: rgba(255,187,0,.28); border-bottom: 1px dotted #c79100; cursor: help; }
+.uw-img-placeholder { display: inline-block; padding: 0 .35em; margin: 0 .15em; background: rgba(0,0,0,.06); border-radius: 4px; font-size: .9em; color: #777; }
+.uw-comments { margin-top: 2.5rem; border-top: 1px solid #ccc; padding-top: 1rem; font-size: .9rem; color: #555; }
+.uw-comments .uw-author { font-weight: 600; }
+.uw-notes { font-size: .85rem; color: #555; }
 hr { border: none; border-top: 1px solid #ccc; margin: 2rem 0 .5rem; }
 `;
 

@@ -1,16 +1,20 @@
-import '../src/word-next.js';
-import type { WordNextElement, ViewMode } from '../src/word-next.js';
+import '../src/universal-write.js';
+import type { UniversalWriteElement, ViewMode } from '../src/universal-write.js';
+import '@universal-office/compare';
+import type { UniversalWriteDiffElement } from '@universal-office/compare';
+import { createMentionPlugin } from '../src/mention-plugin.js';
 import { setupCollapsibleToolbar, setupIconMenus, refreshIconMenus } from './toolbar.js';
-import { openMenu, type MenuItem } from './menu.js';
+import { openMenu, menuOpen, type MenuItem } from './menu.js';
 import { openContextMenu, type CtxItem } from './context-menu.js';
 import { rippleAll } from './ripple.js';
 import { applyGeneratedTheme } from './theme.js';
-import { isOdt } from '@wordnext/odf';
+import { isOdt } from '@universal-office/odf';
 import '@universal-material/web/button/button.js';
 import '@universal-material/web/button/icon-button.js';
 import '@universal-material/web/dialog/dialog.js';
 
-const wn = document.getElementById('wn') as WordNextElement;
+const wn = document.getElementById('wn') as UniversalWriteElement;
+wn.use(createMentionPlugin());
 const $ = (id: string) => document.getElementById(id)!;
 const titleInput = $('docTitle') as HTMLInputElement;
 
@@ -18,7 +22,7 @@ const titleInput = $('docTitle') as HTMLInputElement;
 // 4 modos. Claro/Escuro são resolvidos pelo `color-scheme` (as variáveis usam
 // light-dark()); "Escuro total" ainda escurece a FOLHA do editor (setDarkPage).
 type ColorMode = 'auto' | 'light' | 'dark' | 'black';
-const MODE_LABELS: Record<ColorMode, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro', black: 'Escuro total' };
+const MODE_LABELS: Record<ColorMode, string> = { auto: 'Automatic', light: 'Claro', dark: 'Escuro', black: 'Escuro total' };
 const MODE_ICONS: Record<ColorMode, string> = { auto: 'brightness_auto', light: 'light_mode', dark: 'dark_mode', black: 'bedtime' };
 let colorMode: ColorMode = 'auto';
 const prefersDark = matchMedia('(prefers-color-scheme: dark)');
@@ -31,9 +35,9 @@ const applyMode = (m: ColorMode): void => {
   $('darkToggleIcon').textContent = MODE_ICONS[m]; // ícone Material dentro do u-icon-button
   (window as unknown as { wordnext?: { setTitleTheme?: (d: boolean) => void } })
     .wordnext?.setTitleTheme?.(effectiveDark(m));
-  localStorage.setItem('wn-mode', m);
+  localStorage.setItem('uw-mode', m);
 };
-// "Automático" reage à troca do SO (folha branca; só chrome/título mudam)
+// "Automatic" reage à troca do SO (folha branca; só chrome/título mudam)
 prefersDark.addEventListener('change', () => { if (colorMode === 'auto') applyMode('auto'); });
 $('darkToggle').addEventListener('mousedown', (e) => e.preventDefault());
 $('darkToggle').addEventListener('click', (e) => {
@@ -59,7 +63,7 @@ $('accentBtn').addEventListener('click', (e) => {
   accentMenu.style.left = `${Math.max(8, r.right - accentMenu.offsetWidth)}px`;
 });
 accentMenu.querySelectorAll<HTMLElement>('.accent-sw').forEach((b) =>
-  b.addEventListener('click', () => { applyAccent(b.dataset.accent!); localStorage.setItem('wn-accent-v2', b.dataset.accent!); accentMenu.style.display = 'none'; }),
+  b.addEventListener('click', () => { applyAccent(b.dataset.accent!); localStorage.setItem('uw-accent-v2', b.dataset.accent!); accentMenu.style.display = 'none'; }),
 );
 document.addEventListener('mousedown', (e) => {
   // fecha ao clicar fora — usa closest p/ ignorar cliques no ícone DENTRO do u-icon-button
@@ -87,28 +91,30 @@ type FsHandle = FileSystemFileHandle | null;
 let fileHandle: FsHandle = null;
 const recents: { name: string; handle: FsHandle }[] = [];
 
-// ───── critério do Word p/ Modo Protegido ─────
+// ───── critério do app de referência p/ Modo Protegido ─────
 // Electron: Mark-of-the-Web real (Zone.Identifier) via ponte do main process.
 // Browser: Trusted Documents — arquivos já habilitados/salvos reabrem editáveis.
 interface ElectronBridge {
   openDocx(): Promise<{ name: string; bytes: ArrayBuffer; motw: boolean } | null>;
+  /** Diálogo com título custom p/ escolher o outro lado da comparação. */
+  openDocxForCompare?(title: string): Promise<{ name: string; bytes: ArrayBuffer } | null>;
 }
 const bridge = (window as unknown as { wordnext?: ElectronBridge }).wordnext;
 // marca o app como Electron → CSS reserva a área dos controles da janela só aqui
 document.documentElement.classList.toggle('electron', !!bridge);
 
-const trusted = new Set<string>(JSON.parse(localStorage.getItem('wn-trusted') ?? '[]'));
+const trusted = new Set<string>(JSON.parse(localStorage.getItem('uw-trusted') ?? '[]'));
 let currentTrustKey: string | null = null;
 const trustKeyOf = (f: File) => `${f.name}|${f.size}|${f.lastModified}`;
 const rememberTrust = (key: string | null) => {
   if (!key) return;
   trusted.add(key);
-  localStorage.setItem('wn-trusted', JSON.stringify([...trusted]));
+  localStorage.setItem('uw-trusted', JSON.stringify([...trusted]));
 };
 
 function setTitle(name: string): void {
   titleInput.value = name.replace(/\.(docx|odt)$/i, '');
-  document.title = `${titleInput.value} — WordNext`;
+  document.title = `${titleInput.value} — Write`;
 }
 
 // formato do arquivo aberto/salvo — Save usa esse formato; Save As pode trocar
@@ -117,7 +123,7 @@ let currentFormat: DocFormat = 'docx';
 function setCurrentFormat(fmt: DocFormat): void {
   currentFormat = fmt;
   const lbl = document.getElementById('saveBtnLabel');
-  if (lbl) lbl.textContent = `Salvar .${fmt}`;
+  if (lbl) lbl.textContent = `Save .${fmt}`;
 }
 
 function rememberRecent(name: string, handle: FsHandle): void {
@@ -125,7 +131,7 @@ function rememberRecent(name: string, handle: FsHandle): void {
   if (i >= 0) recents.splice(i, 1);
   recents.unshift({ name, handle });
   recents.splice(6);
-  localStorage.setItem('wn-recents', JSON.stringify(recents.map((r) => r.name)));
+  localStorage.setItem('uw-recents', JSON.stringify(recents.map((r) => r.name)));
   renderRecents();
 }
 function renderRecents(): void {
@@ -150,7 +156,7 @@ function openBytes(
   handle: FsHandle,
   security?: { motw?: boolean; trustKey?: string },
 ): void {
-  // critério do Word: MOTW manda; Trusted Documents libera os já confiados
+  // critério do app de referência: MOTW manda; Trusted Documents libera os já confiados
   const key = security?.trustKey ?? null;
   const isTrusted = key !== null && trusted.has(key);
   const isProtected = security?.motw !== undefined
@@ -161,7 +167,7 @@ function openBytes(
     if (isOdtFile) wn.loadOdt(bytes, { protected: isProtected });
     else wn.loadDocx(bytes, { protected: isProtected });
   } catch {
-    flashStatus(`⚠ "${name}" não é um documento válido ou está corrompido`);
+    flashStatus(`⚠ "${name}" is not a valid document or is corrupted`);
     return;
   }
   setCurrentFormat(isOdtFile ? 'odt' : 'docx');
@@ -191,7 +197,7 @@ async function actionOpen(): Promise<void> {
         showOpenFilePicker: (o: object) => Promise<FileSystemFileHandle[]>;
       }).showOpenFilePicker({
         types: [{
-          description: 'Documentos',
+          description: 'Documents',
           accept: {
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
             'application/vnd.oasis.opendocument.text': ['.odt'],
@@ -218,12 +224,12 @@ function bytesForFormat(fmt: DocFormat): Uint8Array {
 }
 function pickerTypes(): { description: string; accept: Record<string, string[]> }[] {
   return [
-    { description: 'Documento do Word', accept: { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] } },
+    { description: 'Reference app document', accept: { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] } },
     { description: 'OpenDocument Text', accept: { 'application/vnd.oasis.opendocument.text': ['.odt'] } },
   ];
 }
 function nameForFormat(fmt: DocFormat): string {
-  return `${titleInput.value || 'Documento'}.${fmt}`;
+  return `${titleInput.value || 'Document'}.${fmt}`;
 }
 function detectFormatFromName(name: string): DocFormat {
   return /\.odt$/i.test(name) ? 'odt' : 'docx';
@@ -253,7 +259,7 @@ async function actionSave(saveAs: boolean): Promise<void> {
       await w.write(new Blob([bytes.buffer as ArrayBuffer]));
       await w.close();
       rememberRecent(fileHandle.name, fileHandle);
-      // arquivo salvo por você é confiável (como no Word)
+      // arquivo salvo por você é confiável (como no app de referência)
       try {
         const f = await fileHandle.getFile();
         currentTrustKey = trustKeyOf(f);
@@ -279,7 +285,7 @@ function flashStatus(msg: string): void {
   setTimeout(() => { st.textContent = prev; }, 1800);
 }
 
-$('actNew').addEventListener('click', () => { closeMenus(); fileHandle = null; wn.newDocument(); setTitle('Documento sem título'); setCurrentFormat('docx'); wn.focusEditor(); });
+$('actNew').addEventListener('click', () => { closeMenus(); fileHandle = null; wn.newDocument(); setTitle('Untitled document'); setCurrentFormat('docx'); wn.focusEditor(); });
 $('actOpen').addEventListener('click', () => void actionOpen());
 $('actSave').addEventListener('click', () => void actionSave(false));
 $('saveBtn').addEventListener('click', () => void actionSave(false));
@@ -291,7 +297,7 @@ function downloadBlob(data: BlobPart, filename: string, type: string): void {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
-const docName = (): string => titleInput.value || 'Documento';
+const docName = (): string => titleInput.value || 'Document';
 $('actExportPdf').addEventListener('click', () => void (async () => {
   closeMenus();
   const bytes = await wn.exportPdf();
@@ -329,10 +335,101 @@ $('actExportXps').addEventListener('click', () => void (async () => {
   flashStatus('XPS exportado ✓');
 })());
 $('actPrint').addEventListener('click', () => { closeMenus(); wn.print(); });
-titleInput.addEventListener('change', () => { document.title = `${titleInput.value} — WordNext`; });
+titleInput.addEventListener('change', () => { document.title = `${titleInput.value} — Write`; });
+
+// ─────────────────── comparação de documentos ───────────────────
+// "Comparar com…": o lado esquerdo é o ESTADO ATUAL do editor (com edições
+// não salvas); o direito é um .docx escolhido. A exibição troca o <universal-write>
+// pelo <universal-write-diff> — fechar volta ao editor intacto.
+const wd = document.getElementById('wd') as UniversalWriteDiffElement;
+
+async function pickDocxForCompare(): Promise<{ name: string; bytes: Uint8Array } | null> {
+  if (bridge) {
+    // O invoke rejeita se a leitura falhar no main (arquivo sumiu entre o
+    // diálogo e o read, share desconectado, EBUSY...) — sem o catch isso
+    // viraria unhandled rejection silenciosa.
+    try {
+      const r = bridge.openDocxForCompare
+        ? await bridge.openDocxForCompare('Compare with…')
+        : await bridge.openDocx();
+      return r ? { name: r.name, bytes: new Uint8Array(r.bytes) } : null;
+    } catch {
+      flashStatus('⚠ Could not read the selected file');
+      return null;
+    }
+  }
+  if ('showOpenFilePicker' in window) {
+    try {
+      const [handle] = await (window as unknown as {
+        showOpenFilePicker: (o: object) => Promise<FileSystemFileHandle[]>;
+      }).showOpenFilePicker({
+        types: [{
+          description: 'Word document',
+          accept: { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] },
+        }],
+      });
+      const file = await handle!.getFile();
+      return { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
+    } catch { return null; } // cancelado
+  }
+  flashStatus('⚠ Comparison requires Electron or a browser with File System Access');
+  return null;
+}
+
+function closeCompare(): void {
+  wd.style.display = 'none';
+  wn.style.display = '';
+  wn.focusEditor();
+}
+wd.addEventListener('close-request', closeCompare);
+wd.addEventListener('ready', (e) => {
+  const s = (e as CustomEvent<{ stats: { inserted: number; deleted: number; changed: number; formatOnly: number } }>).detail.stats;
+  flashStatus(`Comparison: +${s.inserted} −${s.deleted} ~${s.changed} ✎${s.formatOnly}`);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || wd.style.display === 'none') return;
+  // Esc destinado a outra UI não fecha o diff: menus flutuantes (menu.ts os
+  // fecha em capture sem stopPropagation), dropdowns do header, diálogo de
+  // localizar e modo foco têm precedência.
+  if (menuOpen() || document.querySelector('.dropdown.show')) return;
+  if ($('findDialog').style.display !== 'none') return;
+  if (document.body.classList.contains('focus-mode')) return;
+  closeCompare();
+});
+
+async function actionCompare(): Promise<void> {
+  closeMenus();
+  const other = await pickDocxForCompare();
+  if (!other) return;
+  // saveDocx e loadPair falham por motivos diferentes — mensagens separadas
+  // (culpar o arquivo escolhido quando o editor nem terminou de iniciar
+  // mandaria o usuário atrás do problema errado).
+  let current: Uint8Array;
+  try {
+    current = wn.saveDocx();
+  } catch {
+    flashStatus('⚠ The editor is still loading — try again in a moment');
+    return;
+  }
+  try {
+    wd.loadPair(current, other.bytes, {
+      leftLabel: `${docName()} (atual)`,
+      rightLabel: other.name,
+    });
+  } catch {
+    flashStatus(`⚠ "${other.name}" is not a valid .docx`);
+    return;
+  }
+  wn.style.display = 'none';
+  wd.style.display = 'flex';
+}
+$('actCompare').addEventListener('click', () => void actionCompare());
 
 document.addEventListener('keydown', (e) => {
   if (!(e.ctrlKey || e.metaKey)) return;
+  // Durante a comparação o editor está oculto — Ctrl+F/O/S/P agiriam sobre o
+  // documento invisível (replaceAll mutaria o que o usuário não vê).
+  if (wd.style.display !== 'none') return;
   const k = e.key.toLowerCase();
   if (k === 'o') { e.preventDefault(); void actionOpen(); }
   if (k === 's') { e.preventDefault(); void actionSave(e.shiftKey); }
@@ -381,7 +478,7 @@ document.addEventListener('drop', async (e) => {
   if (looksDocLike) {
     openBytes(bytes, file.name, null, { trustKey: trustKeyOf(file) });
   } else {
-    flashStatus(`⚠ "${file.name}" não parece ser .docx nem .odt`);
+    flashStatus(`⚠ "${file.name}" doesn't look like a .docx or .odt`);
   }
 });
 
@@ -426,12 +523,12 @@ on('case', () => { wn.changeCase(caseUpper ? 'upper' : 'lower'); caseUpper = !ca
 
 // ── botões novos espelhando a barra do Google Docs ──
 on('print', () => wn.print());
-on('spell', () => flashStatus('Verificação ortográfica: nenhum erro encontrado'));
+on('spell', () => flashStatus('Spell check: no errors found'));
 on('checklist', () => flashStatus('Lista de tarefas: em breve'));
 on('imageBtn', () => ($('imageFile') as HTMLInputElement).click());
 on('commentBtn', () => {
-  const text = window.prompt('Texto da anotação:');
-  if (text) { const id = wn.addComment(text); flashStatus(id === null ? 'Selecione um trecho para comentar' : 'Anotação adicionada ✓'); }
+  const text = window.prompt('Comment text:');
+  if (text) { const id = wn.addComment(text); flashStatus(id === null ? 'Selecione um trecho para comentar' : 'Comment added ✓'); }
 });
 on('linkBtn', () => {
   const url = window.prompt('URL do link:', 'https://');
@@ -489,7 +586,7 @@ zoomSlider.addEventListener('input', () => {
 });
 $('zoomOut').addEventListener('click', () => { wn.setZoom(wn.getZoom() / 1.1); wn.focusEditor(); });
 $('zoomIn').addEventListener('click', () => { wn.setZoom(wn.getZoom() * 1.1); wn.focusEditor(); });
-wn.addEventListener('wn-zoom', ((e: CustomEvent) => showZoom(e.detail.zoom)) as EventListener);
+wn.addEventListener('uw-zoom', ((e: CustomEvent) => showZoom(e.detail.zoom)) as EventListener);
 ($('color') as HTMLInputElement).addEventListener('change', (e) => {
   wn.setColor((e.target as HTMLInputElement).value.slice(1).toUpperCase());
   wn.focusEditor();
@@ -501,61 +598,71 @@ wn.addEventListener('wn-zoom', ((e: CustomEvent) => showZoom(e.detail.zoom)) as 
 });
 
 $('actImage').addEventListener('click', () => { closeMenus(); ($('imageFile') as HTMLInputElement).click(); });
+$('actMention').addEventListener('click', () => {
+  closeMenus();
+  if (wn.isProtected()) {
+    flashStatus('Enable editing before inserting a mention');
+    return;
+  }
+  const label = 'Ada Lovelace';
+  wn.insertCustomInline('mention', { id: label.toLowerCase().replace(/\s+/g, '-'), label });
+  wn.focusEditor();
+});
 on('actPageBreak', () => { closeMenus(); wn.insertPageBreak(); });
 on('actFieldPage', () => { closeMenus(); wn.insertField('PAGE'); });
 on('actFieldNumPages', () => { closeMenus(); wn.insertField('NUMPAGES'); });
 on('actFieldDate', () => { closeMenus(); wn.insertField('DATE'); });
 $('actToc').addEventListener('click', () => {
   closeMenus();
-  flashStatus(wn.updateToc() ? 'Sumário atualizado ✓' : 'Documento sem campo de sumário');
+  flashStatus(wn.updateToc() ? 'Table of contents updated ✓' : 'Document has no table-of-contents field');
   wn.focusEditor();
 });
 $('actComment').addEventListener('click', () => {
   closeMenus();
-  const text = window.prompt('Texto da anotação:');
+  const text = window.prompt('Comment text:');
   if (text) {
     const id = wn.addComment(text);
-    flashStatus(id === null ? 'Selecione um trecho para comentar' : 'Anotação adicionada ✓');
+    flashStatus(id === null ? 'Selecione um trecho para comentar' : 'Comment added ✓');
   }
   wn.focusEditor();
 });
 
-// Modo de Exibição Protegido (mecânica do Word: "Habilitar Edição")
+// Modo de Exibição Protegido (mecânica do app de referência: "Enable Editing")
 let wasProtected = false;
-// true só durante o clique em "Habilitar Edição". No Word o aviso de campos
+// true só durante o clique em "Enable Editing". No app de referência o aviso de campos
 // (e a atualização) é disparado ao HABILITAR EDIÇÃO — não ao abrir. Doc já
-// confiável abre direto, sem o prompt (atualiza-se via Habilitar Edição/F9).
+// confiável abre direto, sem o prompt (atualiza-se via Enable Editing/F9).
 let enabledByUser = false;
-wn.addEventListener('wn-protected', ((e: CustomEvent) => {
+wn.addEventListener('uw-protected', ((e: CustomEvent) => {
   $('protectedBar').classList.toggle('bar-off', !e.detail.active);
-  // Modo Protegido: a barra de ferramentas fica desabilitada (como no Word)
+  // Modo Protegido: a barra de ferramentas fica desabilitada (como no app de referência)
   $('toolbarRow').classList.toggle('tb-locked', !!e.detail.active);
   if (enabledByUser && e.detail.hasFields) {
-    // só ao clicar "Habilitar Edição" num doc com campos (como no Word)
+    // só ao clicar "Enable Editing" num doc com campos (como no app de referência)
     ($('fieldsDialog') as HTMLElement & { open: boolean }).open = true;
   }
   if (!e.detail.active) {
-    // Trusted Documents (como o Word): habilitou uma vez → lembra o arquivo
+    // Trusted Documents (como o app de referência): habilitou uma vez → lembra o arquivo
     rememberTrust(currentTrustKey);
     // habilitar edição salva IMEDIATAMENTE (quando há arquivo de destino)
     if (wasProtected && fileHandle) {
-      void actionSave(false).then(() => flashStatus('Edição habilitada — salvo ✓'));
+      void actionSave(false).then(() => flashStatus('Editing enabled — saved ✓'));
     }
   }
   wasProtected = e.detail.active;
 }) as EventListener);
 
-// ───── AUTOSAVE (timing do Word: AutoRecover 10 min por padrão) ─────
+// ───── AUTOSAVE (timing do app de referência: AutoRecover 10 min por padrão) ─────
 let dirty = false;
 let lastAutosave = Date.now();
 const autosaveSel = $('autosaveSel') as HTMLSelectElement;
-autosaveSel.value = localStorage.getItem('wn-autosave-min') ?? '10';
+autosaveSel.value = localStorage.getItem('uw-autosave-min') ?? '10';
 autosaveSel.addEventListener('change', () => {
-  localStorage.setItem('wn-autosave-min', autosaveSel.value);
+  localStorage.setItem('uw-autosave-min', autosaveSel.value);
   flashStatus(autosaveSel.value === '0' ? 'Autosave desativado' : `Autosave: a cada ${autosaveSel.value} min`);
 });
 function checkAutosave(): void {
-  const min = parseFloat(localStorage.getItem('wn-autosave-min') ?? '10');
+  const min = parseFloat(localStorage.getItem('uw-autosave-min') ?? '10');
   if (min <= 0 || !dirty) return;
   if (Date.now() - lastAutosave < min * 60000) return;
   if (!fileHandle) {
@@ -569,37 +676,37 @@ function checkAutosave(): void {
     flashStatus('Autosave ✓');
   });
 }
-wn.addEventListener('wn-change', () => {
+wn.addEventListener('uw-change', () => {
   dirty = true;
   // além do timer: checa pouco depois de cada edição (timers de fundo
   // sofrem throttling — assim o autosave não atrasa com a janela oculta)
   window.setTimeout(checkAutosave, 800);
 });
 window.setInterval(checkAutosave, 15000);
-// ação bloqueada pelo Modo Protegido: chama forte atenção p/ Habilitar Edição
-wn.addEventListener('wn-blocked', (() => {
+// ação bloqueada pelo Modo Protegido: chama forte atenção p/ Enable Editing
+wn.addEventListener('uw-blocked', (() => {
   const bar = $('protectedBar');
   const btn = $('enableEditing');
   bar.scrollIntoView({ block: 'nearest' });
-  btn.classList.remove('wn-pulse');
+  btn.classList.remove('uw-pulse');
   void btn.offsetWidth; // reinicia a animação
-  btn.classList.add('wn-pulse');
-  flashStatus('🔒 Documento protegido — clique em "Habilitar Edição" para editar');
+  btn.classList.add('uw-pulse');
+  flashStatus('🔒 Protected document — click "Enable Editing" to edit');
 }) as EventListener);
 $('enableEditing').addEventListener('click', () => {
-  // sinaliza p/ o handler wn-protected que a saída do modo protegido foi pelo
-  // usuário (enableEditing despacha wn-protected de forma síncrona)
+  // sinaliza p/ o handler uw-protected que a saída do modo protegido foi pelo
+  // usuário (enableEditing despacha uw-protected de forma síncrona)
   enabledByUser = true;
   wn.enableEditing();
   enabledByUser = false;
-  flashStatus('Edição habilitada');
+  flashStatus('Editing enabled');
 });
 
 // dica de descoberta da edição de cabeçalho/rodapé (hover na margem)
-wn.addEventListener('wn-hfhover', ((e: CustomEvent) => {
+wn.addEventListener('uw-hfhover', ((e: CustomEvent) => {
   const hint = $('hfHint');
   if (e.detail.kind) {
-    hint.textContent = `Duplo-clique para editar ${e.detail.kind === 'header' ? 'cabeçalho' : 'rodapé'}`;
+    hint.textContent = `Double-click to edit ${e.detail.kind === 'header' ? 'header' : 'footer'}`;
     hint.style.left = `${e.detail.x + 14}px`;
     hint.style.top = `${e.detail.y + 14}px`;
     hint.style.display = 'block';
@@ -625,7 +732,7 @@ function closeFieldsDialog(): void {
 $('fieldsDialog').addEventListener('cancel', (e) => { e.preventDefault(); closeFieldsDialog(); });
 $('updateFields').addEventListener('click', () => {
   closeFieldsDialog();
-  flashStatus(wn.updateToc() ? 'Campos atualizados ✓' : 'Nenhum campo de sumário para atualizar');
+  flashStatus(wn.updateToc() ? 'Campos atualizados ✓' : 'No table-of-contents field to update');
   wn.focusEditor();
 });
 $('dismissFields').addEventListener('click', () => { closeFieldsDialog(); wn.focusEditor(); });
@@ -633,7 +740,7 @@ $('dismissFields').addEventListener('click', () => { closeFieldsDialog(); wn.foc
 // painel de anotações
 // Modo INLINE: cards alinhados à linha do trecho comentado, com sync ao scroll
 // do editor. Persiste a preferência em localStorage.
-let inlineComments = localStorage.getItem('wn-inline-comments') === '1';
+let inlineComments = localStorage.getItem('uw-inline-comments') === '1';
 document.body.classList.toggle('inline-comments', inlineComments);
 
 function buildCard(c: { id: number; author?: string; text: string }, active: boolean): HTMLElement {
@@ -643,11 +750,11 @@ function buildCard(c: { id: number; author?: string; text: string }, active: boo
   const del = document.createElement('button');
   del.className = 'del';
   del.textContent = '🗑';
-  del.title = 'Excluir anotação';
+  del.title = 'Delete comment';
   del.addEventListener('click', (e) => { e.stopPropagation(); wn.removeComment(c.id); });
   const who = document.createElement('div');
   who.className = 'who';
-  who.textContent = c.author ?? 'Anônimo';
+  who.textContent = c.author ?? 'Anonymous';
   const body = document.createElement('div');
   body.textContent = c.text;
   card.append(del, who, body);
@@ -724,8 +831,8 @@ function positionInlineCards(): void {
   }
 }
 
-wn.addEventListener('wn-comments-changed', () => renderComments());
-wn.addEventListener('wn-comment-click', ((e: CustomEvent) => renderComments(e.detail.ids)) as EventListener);
+wn.addEventListener('uw-comments-changed', () => renderComments());
+wn.addEventListener('uw-comment-click', ((e: CustomEvent) => renderComments(e.detail.ids)) as EventListener);
 // Sync do scroll do editor com a camada inline. O evento 'scroll' nativo
 // do host é DISPARADO DE FORMA INCONSISTENTE com mudanças programáticas
 // de scrollTop (browser coalesce); então mantemos também um rAF poll
@@ -741,7 +848,7 @@ function startInlineSync(): void { lastWnScroll = -1; requestAnimationFrame(inli
 if (inlineComments) startInlineSync();
 window.addEventListener('resize', () => { if (inlineComments) positionInlineCards(); });
 // Quando o layout do editor refresca (mudança de zoom, edição), reposiciona
-wn.addEventListener('wn-change', () => { if (inlineComments) positionInlineCards(); });
+wn.addEventListener('uw-change', () => { if (inlineComments) positionInlineCards(); });
 // Reforço para entradas de usuário (wheel/touch/teclas) — alguns navegadores
 // só emitem 'scroll' depois do gesto inteiro; o rAF poll já cobre, mas isso
 // elimina o delay de 1 frame na 1ª resposta visual.
@@ -751,7 +858,7 @@ for (const ev of ['wheel', 'touchmove', 'keyup', 'mouseup'] as const) {
 
 $('commentsInlineToggle').addEventListener('click', () => {
   inlineComments = !inlineComments;
-  localStorage.setItem('wn-inline-comments', inlineComments ? '1' : '0');
+  localStorage.setItem('uw-inline-comments', inlineComments ? '1' : '0');
   document.body.classList.toggle('inline-comments', inlineComments);
   renderComments(lastActiveIds);
   if (inlineComments) startInlineSync();
@@ -774,7 +881,7 @@ $('findNext').addEventListener('click', () => {
 });
 $('replaceAll').addEventListener('click', () => {
   const n = wn.replaceAll(($('findText') as HTMLInputElement).value, ($('replText') as HTMLInputElement).value);
-  flashStatus(`${n} substituições`);
+  flashStatus(`${n} replacements`);
 });
 
 // visões (botões do rodapé). "Foco" é PSEUDO-modo (toggle): tela cheia + esconde
@@ -840,12 +947,24 @@ const syncToolbar = () => {
   set('painter', wn.painterActive());
   if (st.run.szHalfPt) sizeSel.value = String(st.run.szHalfPt / 2);
   ($('style') as HTMLSelectElement).value = st.para.styleId ?? '';
-  if (st.run.fontAscii) ($('font') as HTMLSelectElement).value =
-    st.run.fontAscii.startsWith('Calibri') ? 'Calibri' : 'Aptos';
+  if (st.run.fontAscii) {
+    const fs = $('font') as HTMLSelectElement;
+    const raw = st.run.fontAscii;
+    // Aptos/Calibri (e variantes) colapsam; qualquer outra fonte do documento é
+    // injetada como opção para o select mostrar a fonte REAL do cursor.
+    const f = raw.startsWith('Calibri') ? 'Calibri' : raw.startsWith('Aptos') ? 'Aptos' : raw;
+    fs.querySelector('option[data-dyn]')?.remove();
+    if (f !== 'Aptos' && f !== 'Calibri') {
+      const o = document.createElement('option');
+      o.value = f; o.textContent = f; o.dataset['dyn'] = '1';
+      fs.insertBefore(o, fs.firstChild);
+    }
+    fs.value = f;
+  }
   refreshIconMenus(); // atualiza o número do gatilho de tamanho
   const s = wn.stats();
   $('status').textContent =
-    `Página ${s.page} de ${s.pages} · ${s.words} palavra${s.words === 1 ? '' : 's'} · parágrafo ${s.paragraph}`;
+    `Page ${s.page} of ${s.pages} · ${s.words} word${s.words === 1 ? '' : 's'} · paragraph ${s.paragraph}`;
 };
 wn.onSelectionChange = syncToolbar;
 
@@ -858,31 +977,31 @@ wn.addEventListener('contextmenu', (e) => {
   const ro = wn.isProtected(); // somente leitura / modo protegido
   const sync = () => { wn.focusEditor(); syncToolbar(); };
   const items: CtxItem[] = [
-    { icon: 'content_cut', label: 'Recortar', shortcut: 'Ctrl+X', disabled: !hasSel || ro, onClick: () => { void wn.cut(); } },
-    { icon: 'content_copy', label: 'Copiar', shortcut: 'Ctrl+C', disabled: !hasSel, onClick: () => { void wn.copy(); } },
-    { icon: 'content_paste', label: 'Colar', shortcut: 'Ctrl+V', disabled: ro, onClick: () => { void wn.paste().then(sync); } },
-    { icon: 'content_paste_off', label: 'Colar sem formatação', shortcut: 'Ctrl+Shift+V', disabled: ro, onClick: () => { void wn.pastePlain().then(sync); } },
+    { icon: 'content_cut', label: 'Cut', shortcut: 'Ctrl+X', disabled: !hasSel || ro, onClick: () => { void wn.cut(); } },
+    { icon: 'content_copy', label: 'Copy', shortcut: 'Ctrl+C', disabled: !hasSel, onClick: () => { void wn.copy(); } },
+    { icon: 'content_paste', label: 'Paste', shortcut: 'Ctrl+V', disabled: ro, onClick: () => { void wn.paste().then(sync); } },
+    { icon: 'content_paste_off', label: 'Paste without formatting', shortcut: 'Ctrl+Shift+V', disabled: ro, onClick: () => { void wn.pastePlain().then(sync); } },
     { sep: true },
-    { icon: 'format_bold', label: 'Negrito', shortcut: 'Ctrl+B', checked: st.run.bold, disabled: ro, onClick: () => { wn.toggleRunProp('bold'); sync(); } },
-    { icon: 'format_italic', label: 'Itálico', shortcut: 'Ctrl+I', checked: st.run.italic, disabled: ro, onClick: () => { wn.toggleRunProp('italic'); sync(); } },
-    { icon: 'format_underlined', label: 'Sublinhado', shortcut: 'Ctrl+U', checked: st.run.underline, disabled: ro, onClick: () => { wn.toggleRunProp('underline'); sync(); } },
+    { icon: 'format_bold', label: 'Bold', shortcut: 'Ctrl+B', checked: st.run.bold, disabled: ro, onClick: () => { wn.toggleRunProp('bold'); sync(); } },
+    { icon: 'format_italic', label: 'Italic', shortcut: 'Ctrl+I', checked: st.run.italic, disabled: ro, onClick: () => { wn.toggleRunProp('italic'); sync(); } },
+    { icon: 'format_underlined', label: 'Underline', shortcut: 'Ctrl+U', checked: st.run.underline, disabled: ro, onClick: () => { wn.toggleRunProp('underline'); sync(); } },
     { sep: true },
-    { icon: 'format_list_bulleted', label: 'Marcadores', checked: st.para.numbering?.kind === 'bullet', disabled: ro, onClick: () => { wn.toggleList('bullet'); sync(); } },
-    { icon: 'format_list_numbered', label: 'Numeração', checked: st.para.numbering?.kind === 'decimal', disabled: ro, onClick: () => { wn.toggleList('decimal'); sync(); } },
+    { icon: 'format_list_bulleted', label: 'Bullets', checked: st.para.numbering?.kind === 'bullet', disabled: ro, onClick: () => { wn.toggleList('bullet'); sync(); } },
+    { icon: 'format_list_numbered', label: 'Numbering', checked: st.para.numbering?.kind === 'decimal', disabled: ro, onClick: () => { wn.toggleList('decimal'); sync(); } },
     { sep: true },
-    { icon: 'add_comment', label: 'Novo comentário…', disabled: !hasSel || ro, onClick: () => {
-        const text = window.prompt('Texto da anotação:');
-        if (text) { const id = wn.addComment(text); flashStatus(id === null ? 'Selecione um trecho para comentar' : 'Anotação adicionada ✓'); }
+    { icon: 'add_comment', label: 'New comment…', disabled: !hasSel || ro, onClick: () => {
+        const text = window.prompt('Comment text:');
+        if (text) { const id = wn.addComment(text); flashStatus(id === null ? 'Selecione um trecho para comentar' : 'Comment added ✓'); }
         wn.focusEditor();
       } },
-    { icon: 'search', label: 'Localizar e substituir…', shortcut: 'Ctrl+F', onClick: () => openFind(false) },
+    { icon: 'search', label: 'Find and replace…', shortcut: 'Ctrl+F', onClick: () => openFind(false) },
     { sep: true },
-    { icon: 'select_all', label: 'Selecionar tudo', shortcut: 'Ctrl+A', onClick: () => { wn.selectAll(); sync(); } },
+    { icon: 'select_all', label: 'Select all', shortcut: 'Ctrl+A', onClick: () => { wn.selectAll(); sync(); } },
   ];
   openContextMenu(ev.clientX, ev.clientY, items);
 });
 
-// atualiza "Página X de Y" enquanto rola
+// atualiza "Page X of Y" enquanto rola
 let statusScrollTick = false;
 wn.addEventListener('scroll', () => {
   if (statusScrollTick) return;
@@ -891,13 +1010,13 @@ wn.addEventListener('scroll', () => {
     statusScrollTick = false;
     const s = wn.stats();
     $('status').textContent =
-      `Página ${s.page} de ${s.pages} · ${s.words} palavra${s.words === 1 ? '' : 's'} · parágrafo ${s.paragraph}`;
+      `Page ${s.page} of ${s.pages} · ${s.words} word${s.words === 1 ? '' : 's'} · paragraph ${s.paragraph}`;
   }, 150);
 });
 
 // ───────────────────────── boot ─────────────────────────
-applyAccent(localStorage.getItem('wn-accent-v2') || 'blue'); // gera a paleta; tema padrão: azul
-applyMode((localStorage.getItem('wn-mode') as ColorMode) || 'auto'); // modo padrão: Automático
+applyAccent(localStorage.getItem('uw-accent-v2') || 'blue'); // gera a paleta; tema padrão: azul
+applyMode((localStorage.getItem('uw-mode') as ColorMode) || 'auto'); // modo padrão: Automatic
 setupIconMenus();
 setupCollapsibleToolbar();
 // ripple Material (@universal-material/web) nos clicáveis: TODOS os botões dos
@@ -913,13 +1032,13 @@ rippleAll(document, '#toolbarRow .tb-g button, footer .views button, .dlg-btn');
   forceAutosave: () => { lastAutosave = 0; },
 };
 
-wn.addEventListener('wn-ready', async () => {
+wn.addEventListener('uw-ready', async () => {
   setTimeout(() => renderComments(), 1500);
   // abre o catálogo de recursos por padrão (arquivo-alvo da meta)
   try {
     const resp = await fetch('/samples/Catalogo-Recursos-Word.docx');
     if (resp.ok) {
-      // veio da REDE: equivale a ter Mark-of-the-Web (critério do Word)
+      // veio da REDE: equivale a ter Mark-of-the-Web (critério do app de referência)
       openBytes(new Uint8Array(await resp.arrayBuffer()), 'Catalogo-Recursos-Word.docx', null, {
         motw: true,
         trustKey: 'url:/samples/Catalogo-Recursos-Word.docx',

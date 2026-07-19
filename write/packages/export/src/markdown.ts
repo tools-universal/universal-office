@@ -1,7 +1,7 @@
-// Exporta o modelo WordNext para Markdown (GitHub Flavored): títulos, ênfase,
+// Exporta o modelo Write para Markdown (GitHub Flavored): títulos, ênfase,
 // listas aninhadas, links, imagens (data URI), tabelas GFM, notas e comentários
 // como footnotes ([^...]).
-import type { Paragraph, Run, TableBlock, TableCell, CommentInfo } from '@wordnext/docx-core';
+import type { Paragraph, Run, TableBlock, TableCell, CommentInfo } from '@universal-office/docx-core';
 import {
   type ExportDoc,
   orderedBlocks,

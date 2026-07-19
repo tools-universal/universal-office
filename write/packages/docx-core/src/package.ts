@@ -5,8 +5,8 @@ import { unzipSync, zipSync, type Zippable } from 'fflate';
  *
  * REGRA DE OURO: round-trip sem perdas. Toda parte do pacote é preservada
  * byte a byte; só substituímos o conteúdo de uma parte quando uma edição
- * a modifica de fato. A ordem das partes no ZIP é preservada — o Word não
- * exige isso, mas facilita diffs e detecta regressões nossas.
+ * a modifica de fato. A ordem das partes no ZIP é preservada — o app de
+ * referência não exige isso, mas facilita diffs e detecta regressões nossas.
  */
 export class DocxPackage {
   /** Mapa caminho-no-zip → bytes, na ordem original do arquivo. */
@@ -50,7 +50,7 @@ export class DocxPackage {
     }
     const pkg = new DocxPackage(new Map(Object.entries(unzipped)));
     if (!pkg.getPart('word/document.xml')) {
-      throw new Error('Pacote sem word/document.xml — não é um documento do Word');
+      throw new Error('Pacote sem word/document.xml — não é um documento .docx válido');
     }
     return pkg;
   }

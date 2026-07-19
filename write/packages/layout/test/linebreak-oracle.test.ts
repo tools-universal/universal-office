@@ -6,16 +6,16 @@ import { breakParagraph } from '../src/linebreak.js';
 import { singleLineHeightPt, lineHeightPt } from '../src/lineheight.js';
 
 /**
- * Valida o layout contra o ground truth do Word real:
+ * Valida o layout contra o ground truth do app de referência:
  *  - quebras de linha: oracle.json (Information(10) por caractere)
- *  - fonte: Aptos completa extraída do próprio Word (extract-fonts.ps1)
- *  - altura de linha: pitch medido no XPS exportado pelo Word
+ *  - fonte: Aptos completa extraída do próprio app de referência (extract-fonts.ps1)
+ *  - altura de linha: pitch medido no XPS exportado pelo app de referência
  */
 const labDir = join(__dirname, '../../../tools/word-lab');
 const oraclePath = join(labDir, 'results/line-oracle/oracle.json');
 const aptosPath = join(labDir, 'fonts/aptos-regular.ttf');
 
-describe('layout vs oráculo do Word', () => {
+describe('layout vs oráculo de referência', () => {
   if (!existsSync(oraclePath) || !existsSync(aptosPath)) {
     it.skip('oráculo/fonte ausentes — rode generate-line-oracle.ps1 e extract-fonts.ps1', () => {});
     return;
@@ -29,7 +29,7 @@ describe('layout vs oráculo do Word', () => {
   };
   const font = new SfntFont(new Uint8Array(readFileSync(aptosPath)));
 
-  it('o doc padrão do Word usa Aptos (não Calibri)', () => {
+  it('o doc padrão do app de referência usa Aptos (não Calibri)', () => {
     expect(oracle.font.name).toBe('Aptos');
   });
 
@@ -39,7 +39,7 @@ describe('layout vs oráculo do Word', () => {
     expect(font.metrics.descender).toBe(-577);
   });
 
-  it('quebras de linha idênticas às do Word', () => {
+  it('quebras de linha idênticas às do app de referência', () => {
     const wordBreaks: number[] = [0];
     for (let i = 1; i < oracle.charLines.length; i++) {
       if (oracle.charLines[i] !== oracle.charLines[i - 1]) wordBreaks.push(i);
