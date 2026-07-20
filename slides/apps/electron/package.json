@@ -1,0 +1,16 @@
+{
+  "name": "@universal/slides-app-electron",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shell Electron embarcando o <universal-slides>",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@universal/slides": "*"
+  },
+  "devDependencies": {
+    "electron": "^42.4.0"
+  }
+}

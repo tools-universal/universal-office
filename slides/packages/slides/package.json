@@ -1,0 +1,16 @@
+{
+  "name": "@universal/slides",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Webcomponent <universal-slides> com renderizacao de slides em canvas",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal/slides-core=../slides-core/src/index.ts",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@universal/slides-core": "*"
+  }
+}
