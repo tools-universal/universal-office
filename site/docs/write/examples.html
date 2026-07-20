@@ -6,8 +6,11 @@
   <title>Examples — Universal Write</title>
   <meta name="description" content="Complete, copy-paste examples for the <universal-write> and <universal-write-diff> web components: toolbar, file I/O, export, plugins, and comparison." />
   <link rel="icon" type="image/svg+xml" href="../../assets/icons/universal-office.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="../../assets/style.css" />
-  <script src="../../assets/theme.js"></script>
+  <script src="../../assets/theme.js?v=2"></script>
 </head>
 <body>
 
@@ -472,7 +475,7 @@ if (stats.changed + stats.inserted + stats.deleted &gt; 0) {
   </div>
 
   <script type="module">
-    import '/assets/universal-office.js?v=15';
+    import '/assets/universal-office.js?v=26';
     const { createMentionPlugin } = window.UniversalOffice;
     const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     const bytesOf = async (u) => new Uint8Array(await (await fetch(u)).arrayBuffer());

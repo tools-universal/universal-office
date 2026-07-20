@@ -6,8 +6,18 @@
   var root = document.documentElement;
 
   function apply(t) {
-    if (t === 'dark' || t === 'light') root.setAttribute('data-theme', t);
-    else root.removeAttribute('data-theme'); // 'auto' → follow the OS
+    // Set color-scheme INLINE (não só via regra de stylesheet): o web component
+    // <universal-write> seta document.documentElement.style.colorScheme inline
+    // quando carrega, e uma regra de folha de estilo perderia pra esse inline.
+    // Como este script roda no <head> (antes do componente), o inline aqui
+    // vence e o componente respeita (ele só seta se ainda não houver um).
+    if (t === 'dark' || t === 'light') {
+      root.setAttribute('data-theme', t);
+      root.style.colorScheme = t;
+    } else {
+      root.removeAttribute('data-theme'); // 'auto' → follow the OS
+      root.style.colorScheme = 'light dark';
+    }
   }
 
   var saved;
