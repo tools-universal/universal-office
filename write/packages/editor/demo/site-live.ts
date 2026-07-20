@@ -20,7 +20,12 @@ const themeStyle = document.createElement('style');
 themeStyle.id = 'u-theme';
 themeStyle.textContent = ThemeBuilder.create('#1A73E8').build();
 document.head.appendChild(themeStyle);
-document.documentElement.style.colorScheme = 'light dark';
+// Só define um color-scheme padrão se a página host ainda não gerencia o tema.
+// O seletor de tema do site (theme.js) roda antes, no <head>, e seta o
+// color-scheme inline; sobrescrevê-lo aqui quebraria a escolha claro/escuro.
+if (!document.documentElement.style.colorScheme) {
+  document.documentElement.style.colorScheme = 'light dark';
+}
 
 (globalThis as unknown as { UniversalOffice: unknown }).UniversalOffice = {
   createMentionPlugin,

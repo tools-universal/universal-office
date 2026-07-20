@@ -1,4 +1,5 @@
 export { DocxPackage } from './package.js';
+export { readEmbeddedFonts, deobfuscateFont, type EmbeddedFont } from './fonts.js';
 export { parseXml, childElements, firstChild, textContent, type XmlElement } from './xml.js';
 export {
   readDocument,
@@ -11,6 +12,7 @@ export {
   type NumberingProps,
   type SectPr,
   type InlineImage,
+  type DrawingTextbox,
   type NoteRef,
   type CustomInline,
   type BorderEdge,

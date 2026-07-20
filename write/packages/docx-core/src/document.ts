@@ -60,9 +60,18 @@ export interface InlineImage {
   heightTwips: number;
   /** wp:anchor (flutuante) em vez de wp:inline. */
   floating?: boolean;
-  /** offsets do wp:anchor relativos à coluna/parágrafo, twips. */
+  /** offsets do wp:anchor (twips) relativos ao que relH/relV indicam. */
   offsetXTwips?: number;
   offsetYTwips?: number;
+  /** wp:positionH/@relativeFrom (page|margin|column|character…). */
+  relH?: string;
+  /** wp:positionV/@relativeFrom (page|margin|paragraph|line…). */
+  relV?: string;
+  /** wp:anchor/@behindDoc — imagem ATRÁS do texto (marca d'água/capa full-bleed). */
+  behindDoc?: boolean;
+  /** XML CRU do <w:drawing> — preservado p/ reemissão fiel do shape no save
+   *  (âncora, geometria, fill). Sem ele, reconstruímos um drawing inline. */
+  rawDrawingXml?: string;
 }
 
 /** Caixa de texto de DrawingML (wps:txbx / VML v:textbox) — usada em
@@ -74,6 +83,19 @@ export interface DrawingTextbox {
   floating?: boolean;
   offsetXTwips?: number;
   offsetYTwips?: number;
+  relH?: string;
+  relV?: string;
+  /** wp:anchor/@behindDoc — caixa ATRÁS do texto. */
+  behindDoc?: boolean;
+  /** wps:bodyPr/a:spAutoFit — a caixa AJUSTA a altura ao texto (o cy declarado
+   *  é ignorado pelo Word). Sem isto, usa a altura declarada. */
+  autoFit?: boolean;
+  /** margens internas (twips) do bodyPr (lIns/tIns/rIns/bIns). Padrão do Word:
+   *  l/r = 91440 EMU (144tw), t/b = 45720 EMU (72tw). */
+  insets?: { l: number; t: number; r: number; b: number };
+  /** XML CRU do <w:drawing> que contém a caixa — no save reemitimos este XML
+   *  trocando só o <w:txbxContent> pelos parágrafos (possivelmente editados). */
+  rawDrawingXml?: string;
 }
 
 export interface NoteRef {
@@ -214,6 +236,9 @@ export interface SectPr {
   headerDistanceTwips?: number;
   /** w:pgMar/@w:footer — distância da base da página ao rodapé (twips). */
   footerDistanceTwips?: number;
+  /** w:pgNumType/@w:start — número inicial de página da seção (campo PAGE).
+   *  Ausente = 1 (padrão do Word). start=0 → 1ª página é "0". */
+  pgNumStart?: number;
 }
 
 export interface DocumentModel {
@@ -302,13 +327,17 @@ function readDrawing(drawing: XmlElement, resolveImage: ImageResolver): InlineIm
   };
   if (anchor) {
     img.floating = true;
+    if (anchor.attrs['behindDoc'] === '1' || anchor.attrs['behindDoc'] === 'true') img.behindDoc = true;
     const posH = firstChild(anchor, 'wp:positionH');
     const posV = firstChild(anchor, 'wp:positionV');
+    if (posH?.attrs['relativeFrom']) img.relH = posH.attrs['relativeFrom'];
+    if (posV?.attrs['relativeFrom']) img.relV = posV.attrs['relativeFrom'];
     const offH = posH && firstChild(posH, 'wp:posOffset');
     const offV = posV && firstChild(posV, 'wp:posOffset');
     if (offH) img.offsetXTwips = parseInt(textContentOf(offH), 10) / EMU_PER_TWIP;
     if (offV) img.offsetYTwips = parseInt(textContentOf(offV), 10) / EMU_PER_TWIP;
   }
+  if (drawing.raw) img.rawDrawingXml = drawing.raw;
   return img;
 }
 
@@ -329,13 +358,27 @@ function readTextbox(drawing: XmlElement, ctx: ReadContext): DrawingTextbox | un
   const anchor = firstChild(drawing, 'wp:anchor');
   if (anchor) {
     tb.floating = true;
+    if (anchor.attrs['behindDoc'] === '1' || anchor.attrs['behindDoc'] === 'true') tb.behindDoc = true;
     const posH = firstChild(anchor, 'wp:positionH');
     const posV = firstChild(anchor, 'wp:positionV');
+    if (posH?.attrs['relativeFrom']) tb.relH = posH.attrs['relativeFrom'];
+    if (posV?.attrs['relativeFrom']) tb.relV = posV.attrs['relativeFrom'];
     const offH = posH && firstChild(posH, 'wp:posOffset');
     const offV = posV && firstChild(posV, 'wp:posOffset');
     if (offH) tb.offsetXTwips = parseInt(textContentOf(offH), 10) / EMU_PER_TWIP;
     if (offV) tb.offsetYTwips = parseInt(textContentOf(offV), 10) / EMU_PER_TWIP;
   }
+  // bodyPr: autoFit (altura ajusta ao texto) + margens internas
+  const bodyPr = findDeep(drawing, 'wps:bodyPr') ?? findDeep(drawing, 'a:bodyPr');
+  if (bodyPr) {
+    if (findDeep(bodyPr, 'a:spAutoFit')) tb.autoFit = true;
+    const insTw = (name: string, def: number): number => {
+      const v = bodyPr.attrs[name];
+      return v !== undefined ? Math.round(parseInt(v, 10) / EMU_PER_TWIP) : def;
+    };
+    tb.insets = { l: insTw('lIns', 144), t: insTw('tIns', 72), r: insTw('rIns', 144), b: insTw('bIns', 72) };
+  }
+  if (drawing.raw) tb.rawDrawingXml = drawing.raw;
   return tb;
 }
 
@@ -690,6 +733,12 @@ export function readSectPr(sectEl: XmlElement | undefined): SectPr {
   const titlePg = sectEl && firstChild(sectEl, 'w:titlePg');
   if (titlePg && titlePg.attrs['w:val'] !== '0' && titlePg.attrs['w:val'] !== 'false') {
     sect.titlePg = true;
+  }
+  const pgNumType = sectEl && firstChild(sectEl, 'w:pgNumType');
+  const startAttr = pgNumType?.attrs['w:start'];
+  if (startAttr !== undefined) {
+    const n = parseInt(startAttr, 10);
+    if (!Number.isNaN(n)) sect.pgNumStart = n;
   }
   return sect;
 }

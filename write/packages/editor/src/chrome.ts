@@ -233,6 +233,25 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
 
   styleSel.addEventListener('change', () => { editor.applyStyle(styleSel.value || undefined); editor.focusEditor(); });
   fontSel.addEventListener('change', () => { editor.setFontFamily(fontSel.value); editor.focusEditor(); });
+
+  // seletor de fonte: começa com as famílias conhecidas (bundled + embedadas do
+  // doc); no 1º gesto pede as fontes do SO (queryLocalFonts exige interação).
+  const escOpt = (s: string): string =>
+    s.replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] ?? c));
+  const fillFonts = (families: string[]): void => {
+    const cur = fontSel.value;
+    fontSel.innerHTML = families.map((f) => `<option>${escOpt(f)}</option>`).join('');
+    fontSel.value = cur;
+  };
+  fillFonts(editor.knownFontFamilies());
+  let sysFontsRequested = false;
+  const loadSysFonts = (): void => {
+    if (sysFontsRequested) return;
+    sysFontsRequested = true;
+    void editor.listAvailableFonts().then(fillFonts);
+  };
+  fontSel.addEventListener('mousedown', loadSysFonts);
+  fontSel.addEventListener('focus', loadSysFonts);
   sizeInp.addEventListener('change', () => { const v = Number(sizeInp.value); if (v > 0) editor.setFontSize(v); editor.focusEditor(); });
   colorInp.addEventListener('change', () => { editor.setColor(colorInp.value.slice(1).toUpperCase()); editor.focusEditor(); });
   hlSel.addEventListener('change', () => { editor.setHighlight(hlSel.value || undefined); editor.focusEditor(); });
@@ -241,8 +260,18 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
   const setActive = (key: string, on: boolean): void => {
     el.querySelector(`[data-a="${key}"]`)?.toggleAttribute('selected', on);
   };
+  let lastFontCount = 0;
   return () => {
     syncStyleOptions();
+    // re-popula o seletor conforme novas famílias carregam (embedadas do doc),
+    // sem esperar o gesto; após pedir as do SO, o gesto cuida da lista completa.
+    if (!sysFontsRequested) {
+      const known = editor.knownFontFamilies();
+      if (known.length !== lastFontCount && document.activeElement !== fontSel) {
+        lastFontCount = known.length;
+        fillFonts(known);
+      }
+    }
     const st = editor.getSelectionState();
     const run = st.run as unknown as Record<string, unknown>;
     const para = st.para as unknown as Record<string, unknown>;
@@ -273,7 +302,8 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
     // the dropdown always shows the real font at the caret.
     const font = (run['fontAscii'] as string) ?? '';
     fontSel.querySelector('option[data-dyn]')?.remove();
-    if (font && font !== 'Aptos' && font !== 'Calibri') {
+    const hasOpt = !!font && [...fontSel.options].some((o) => o.value === font || o.textContent === font);
+    if (font && !hasOpt) {
       const opt = document.createElement('option');
       opt.value = font; opt.textContent = font; opt.dataset['dyn'] = '1';
       fontSel.insertBefore(opt, fontSel.firstChild);

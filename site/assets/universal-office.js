@@ -5787,6 +5787,21 @@ function buildToolbar(el, editor) {
     editor.setFontFamily(fontSel.value);
     editor.focusEditor();
   });
+  const escOpt = (s4) => s4.replace(/[<>&"]/g, (c4) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c4] ?? c4);
+  const fillFonts = (families) => {
+    const cur = fontSel.value;
+    fontSel.innerHTML = families.map((f3) => `<option>${escOpt(f3)}</option>`).join("");
+    fontSel.value = cur;
+  };
+  fillFonts(editor.knownFontFamilies());
+  let sysFontsRequested = false;
+  const loadSysFonts = () => {
+    if (sysFontsRequested) return;
+    sysFontsRequested = true;
+    void editor.listAvailableFonts().then(fillFonts);
+  };
+  fontSel.addEventListener("mousedown", loadSysFonts);
+  fontSel.addEventListener("focus", loadSysFonts);
   sizeInp.addEventListener("change", () => {
     const v2 = Number(sizeInp.value);
     if (v2 > 0) editor.setFontSize(v2);
@@ -5807,8 +5822,16 @@ function buildToolbar(el, editor) {
   const setActive = (key, on) => {
     el.querySelector(`[data-a="${key}"]`)?.toggleAttribute("selected", on);
   };
+  let lastFontCount = 0;
   return () => {
     syncStyleOptions();
+    if (!sysFontsRequested) {
+      const known = editor.knownFontFamilies();
+      if (known.length !== lastFontCount && document.activeElement !== fontSel) {
+        lastFontCount = known.length;
+        fillFonts(known);
+      }
+    }
     const st = editor.getSelectionState();
     const run = st.run;
     const para = st.para;
@@ -5835,7 +5858,8 @@ function buildToolbar(el, editor) {
     }
     const font = run["fontAscii"] ?? "";
     fontSel.querySelector("option[data-dyn]")?.remove();
-    if (font && font !== "Aptos" && font !== "Calibri") {
+    const hasOpt = !!font && [...fontSel.options].some((o7) => o7.value === font || o7.textContent === font);
+    if (font && !hasOpt) {
       const opt = document.createElement("option");
       opt.value = font;
       opt.textContent = font;
@@ -7039,6 +7063,7 @@ var DocxPackage = class _DocxPackage {
 };
 
 // ../docx-core/src/xml.ts
+var RAW_CAPTURE = /* @__PURE__ */ new Set(["w:drawing"]);
 var ENTITIES = {
   amp: "&",
   lt: "<",
@@ -7079,6 +7104,7 @@ function parseXml(xml) {
   }
   function parseElement() {
     if (xml[i7] !== "<") error("esperava <");
+    const elStart = i7;
     i7++;
     const nameStart = i7;
     while (i7 < n5 && !/[\s/>]/.test(xml[i7])) i7++;
@@ -7089,7 +7115,9 @@ function parseXml(xml) {
       if (xml[i7] === "/") {
         if (xml[i7 + 1] !== ">") error("esperava />");
         i7 += 2;
-        return { name, attrs, children: [] };
+        const el = { name, attrs, children: [] };
+        if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i7);
+        return el;
       }
       if (xml[i7] === ">") {
         i7++;
@@ -7117,7 +7145,9 @@ function parseXml(xml) {
       if (xml.startsWith("</", i7)) {
         const close = xml.indexOf(">", i7);
         i7 = close + 1;
-        return { name, attrs, children };
+        const el = { name, attrs, children };
+        if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i7);
+        return el;
       }
       if (xml.startsWith("<!--", i7)) {
         i7 = xml.indexOf("-->", i7) + 3;
@@ -7150,6 +7180,58 @@ function childElements(el, name) {
 }
 function firstChild(el, name) {
   return childElements(el, name)[0];
+}
+
+// ../docx-core/src/fonts.ts
+var EMBED_TAGS = {
+  "w:embedRegular": "regular",
+  "w:embedBold": "bold",
+  "w:embedItalic": "italic",
+  "w:embedBoldItalic": "boldItalic"
+};
+function deobfuscateFont(data, fontKey) {
+  const hex = fontKey.replace(/[{}-]/g, "");
+  if (hex.length < 32) return data;
+  const key = new Uint8Array(16);
+  for (let i7 = 0; i7 < 16; i7++) key[i7] = parseInt(hex.slice(i7 * 2, i7 * 2 + 2), 16);
+  key.reverse();
+  const out = data.slice();
+  const n5 = Math.min(32, out.length);
+  for (let i7 = 0; i7 < n5; i7++) out[i7] = out[i7] ^ key[i7 % 16];
+  return out;
+}
+function readEmbeddedFonts(pkg) {
+  const tableXml3 = pkg.getPartText("word/fontTable.xml");
+  if (!tableXml3) return [];
+  const relsXml = pkg.getPartText("word/_rels/fontTable.xml.rels");
+  const rels = /* @__PURE__ */ new Map();
+  if (relsXml) {
+    for (const rel of childElements(parseXml(relsXml), "Relationship")) {
+      const id = rel.attrs["Id"];
+      const target = rel.attrs["Target"];
+      if (id && target) rels.set(id, target);
+    }
+  }
+  const out = [];
+  const root = parseXml(tableXml3);
+  for (const font of childElements(root, "w:font")) {
+    const family = font.attrs["w:name"];
+    if (!family) continue;
+    for (const [tag, variant] of Object.entries(EMBED_TAGS)) {
+      const embed = firstChild(font, tag);
+      if (!embed) continue;
+      const rid = embed.attrs["r:id"];
+      const fontKey = embed.attrs["w:fontKey"];
+      if (!rid || !fontKey) continue;
+      const target = rels.get(rid);
+      if (!target) continue;
+      const path = target.startsWith("word/") ? target : `word/${target.replace(/^\.?\//, "")}`;
+      const raw = pkg.getPart(path);
+      if (!raw) continue;
+      out.push({ family, variant, data: deobfuscateFont(raw, fontKey) });
+    }
+  }
+  return out;
 }
 
 // ../docx-core/src/document.ts
@@ -7259,13 +7341,17 @@ function readDrawing(drawing, resolveImage) {
   };
   if (anchor) {
     img.floating = true;
+    if (anchor.attrs["behindDoc"] === "1" || anchor.attrs["behindDoc"] === "true") img.behindDoc = true;
     const posH = firstChild(anchor, "wp:positionH");
     const posV = firstChild(anchor, "wp:positionV");
+    if (posH?.attrs["relativeFrom"]) img.relH = posH.attrs["relativeFrom"];
+    if (posV?.attrs["relativeFrom"]) img.relV = posV.attrs["relativeFrom"];
     const offH = posH && firstChild(posH, "wp:posOffset");
     const offV = posV && firstChild(posV, "wp:posOffset");
     if (offH) img.offsetXTwips = parseInt(textContentOf(offH), 10) / EMU_PER_TWIP;
     if (offV) img.offsetYTwips = parseInt(textContentOf(offV), 10) / EMU_PER_TWIP;
   }
+  if (drawing.raw) img.rawDrawingXml = drawing.raw;
   return img;
 }
 function readTextbox(drawing, ctx) {
@@ -7283,13 +7369,26 @@ function readTextbox(drawing, ctx) {
   const anchor = firstChild(drawing, "wp:anchor");
   if (anchor) {
     tb.floating = true;
+    if (anchor.attrs["behindDoc"] === "1" || anchor.attrs["behindDoc"] === "true") tb.behindDoc = true;
     const posH = firstChild(anchor, "wp:positionH");
     const posV = firstChild(anchor, "wp:positionV");
+    if (posH?.attrs["relativeFrom"]) tb.relH = posH.attrs["relativeFrom"];
+    if (posV?.attrs["relativeFrom"]) tb.relV = posV.attrs["relativeFrom"];
     const offH = posH && firstChild(posH, "wp:posOffset");
     const offV = posV && firstChild(posV, "wp:posOffset");
     if (offH) tb.offsetXTwips = parseInt(textContentOf(offH), 10) / EMU_PER_TWIP;
     if (offV) tb.offsetYTwips = parseInt(textContentOf(offV), 10) / EMU_PER_TWIP;
   }
+  const bodyPr = findDeep(drawing, "wps:bodyPr") ?? findDeep(drawing, "a:bodyPr");
+  if (bodyPr) {
+    if (findDeep(bodyPr, "a:spAutoFit")) tb.autoFit = true;
+    const insTw = (name, def) => {
+      const v2 = bodyPr.attrs[name];
+      return v2 !== void 0 ? Math.round(parseInt(v2, 10) / EMU_PER_TWIP) : def;
+    };
+    tb.insets = { l: insTw("lIns", 144), t: insTw("tIns", 72), r: insTw("rIns", 144), b: insTw("bIns", 72) };
+  }
+  if (drawing.raw) tb.rawDrawingXml = drawing.raw;
   return tb;
 }
 function textContentOf(el) {
@@ -7611,6 +7710,12 @@ function readSectPr(sectEl) {
   const titlePg = sectEl && firstChild(sectEl, "w:titlePg");
   if (titlePg && titlePg.attrs["w:val"] !== "0" && titlePg.attrs["w:val"] !== "false") {
     sect.titlePg = true;
+  }
+  const pgNumType = sectEl && firstChild(sectEl, "w:pgNumType");
+  const startAttr = pgNumType?.attrs["w:start"];
+  if (startAttr !== void 0) {
+    const n5 = parseInt(startAttr, 10);
+    if (!Number.isNaN(n5)) sect.pgNumStart = n5;
   }
   return sect;
 }
@@ -8083,6 +8188,27 @@ function drawingXml(run) {
   const cy = Math.round(img.heightTwips * EMU_PER_TWIP);
   return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n5}" name="Imagem ${n5}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${n5}" name="Imagem ${n5}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`;
 }
+function patchDrawingGeometry(raw, obj) {
+  const cx = Math.round(obj.widthTwips * EMU_PER_TWIP);
+  const cy = Math.round(obj.heightTwips * EMU_PER_TWIP);
+  let out = raw.replace(/<wp:extent\b[^>]*\/>/, (m2) => m2.replace(/cx="\d+"/, `cx="${cx}"`).replace(/cy="\d+"/, `cy="${cy}"`)).replace(/<a:ext\b[^>]*\/>/g, (m2) => m2.replace(/cx="\d+"/, `cx="${cx}"`).replace(/cy="\d+"/, `cy="${cy}"`));
+  if (obj.offsetXTwips !== void 0) {
+    const ex = Math.round(obj.offsetXTwips * EMU_PER_TWIP);
+    out = out.replace(/<wp:positionH\b[^>]*>[\s\S]*?<\/wp:positionH>/, (b5) => b5.replace(/(<wp:posOffset>)-?\d+(<\/wp:posOffset>)/, `$1${ex}$2`));
+  }
+  if (obj.offsetYTwips !== void 0) {
+    const ey = Math.round(obj.offsetYTwips * EMU_PER_TWIP);
+    out = out.replace(/<wp:positionV\b[^>]*>[\s\S]*?<\/wp:positionV>/, (b5) => b5.replace(/(<wp:posOffset>)-?\d+(<\/wp:posOffset>)/, `$1${ey}$2`));
+  }
+  return out;
+}
+function drawingWithParas(rawDrawingXml, paras) {
+  const inner = paras.map(paraXml).join("");
+  return rawDrawingXml.replace(
+    /<w:txbxContent\b[^>]*>[\s\S]*?<\/w:txbxContent>/g,
+    (m2) => `${/^<w:txbxContent\b[^>]*>/.exec(m2)[0]}${inner}</w:txbxContent>`
+  );
+}
 function runXml(run) {
   if (run.custom) {
     const type = run.custom.type;
@@ -8099,9 +8225,18 @@ function runXml(run) {
     return `<w:sdt><w:sdtPr><w:alias w:val="${escAttr(run.custom.fallbackText)}"/><w:tag w:val="${escAttr(tag)}"/><w:lock w:val="sdtLocked"/></w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`;
   }
   if (run.image) {
+    if (run.image.rawDrawingXml) {
+      return `<w:r>${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
+    }
     return `<w:r>${drawingXml(run)}</w:r>`;
   }
-  if (run.textbox) return "";
+  if (run.textbox) {
+    if (run.textbox.rawDrawingXml) {
+      const geo = patchDrawingGeometry(run.textbox.rawDrawingXml, run.textbox);
+      return `<w:r>${drawingWithParas(geo, run.textbox.paras)}</w:r>`;
+    }
+    return "";
+  }
   const p3 = run.props;
   const rpr = [];
   if (p3.fontAscii) {
@@ -8224,7 +8359,8 @@ function sectPrInner(s4, refs = []) {
   const orient = s4.pageWidthTwips > s4.pageHeightTwips ? ' w:orient="landscape"' : "";
   const cols = s4.cols ? `<w:cols w:space="${s4.cols.spaceTwips}" w:num="${s4.cols.count}"${s4.cols.sep ? ' w:sep="true"' : ""} w:equalWidth="true"/>` : "";
   const titlePg = s4.titlePg ? "<w:titlePg/>" : "";
-  return `${refsXml}<w:pgSz w:w="${s4.pageWidthTwips}" w:h="${s4.pageHeightTwips}"${orient}/><w:pgMar w:top="${s4.marginTopTwips}" w:right="${s4.marginRightTwips}" w:bottom="${s4.marginBottomTwips}" w:left="${s4.marginLeftTwips}" w:header="${s4.headerDistanceTwips ?? 720}" w:footer="${s4.footerDistanceTwips ?? 720}" w:gutter="0"/>${cols}${titlePg}`;
+  const pgNumType = s4.pgNumStart !== void 0 ? `<w:pgNumType w:start="${s4.pgNumStart}"/>` : "";
+  return `${refsXml}<w:pgSz w:w="${s4.pageWidthTwips}" w:h="${s4.pageHeightTwips}"${orient}/><w:pgMar w:top="${s4.marginTopTwips}" w:right="${s4.marginRightTwips}" w:bottom="${s4.marginBottomTwips}" w:left="${s4.marginLeftTwips}" w:header="${s4.headerDistanceTwips ?? 720}" w:footer="${s4.footerDistanceTwips ?? 720}" w:gutter="0"/>${cols}${pgNumType}${titlePg}`;
 }
 function borderXml(tag, e8) {
   return `<w:${tag} w:val="${escAttr(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="0" w:color="${e8.color ? escAttr(e8.color) : "auto"}"/>`;
@@ -11121,6 +11257,7 @@ function buildXps(input) {
 
 // src/universal-write.ts
 var PX_PER_TWIP = 96 / 72 / TWIPS_PER_PT;
+var HF_DIM_ALPHA = 0.5;
 var STYLES = {
   "Ttulo1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
   "Heading1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
@@ -11146,13 +11283,26 @@ var Registry = class {
     this.sets = sets;
   }
   sets;
+  /** Registra uma variante de fonte (ex.: fontes EMBEDADAS do .docx). */
+  register(family, variant, font) {
+    (this.sets[family] ??= {})[variant] = font;
+  }
+  has(family) {
+    return this.sets[family] !== void 0 || this.sets[family.split(" ")[0]] !== void 0;
+  }
   resolve(family, variant) {
-    const requested = family ? this.sets[family.split(" ")[0]] : void 0;
+    const requested = family ? this.sets[family] ?? this.sets[family.split(" ")[0]] : void 0;
     const aptos = this.sets["Aptos"];
-    return requested?.[variant] ?? aptos[variant] ?? aptos.regular;
+    return requested?.[variant] ?? requested?.regular ?? aptos[variant] ?? aptos.regular;
   }
 };
-var UniversalWriteElement = class extends HTMLElement {
+function variantOfStyle(style) {
+  const s4 = (style ?? "").toLowerCase();
+  const bold = /bold/.test(s4) || /black|heavy|semibold|extrabold/.test(s4);
+  const italic = /italic|oblique/.test(s4);
+  return bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
+}
+var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   model = null;
   pkg = null;
   fullDoc = null;
@@ -11169,6 +11319,14 @@ var UniversalWriteElement = class extends HTMLElement {
   fonts = null;
   /** bytes crus de cada fonte (família→variante) para embutir no PDF exportado. */
   fontBytes = {};
+  /** variantes de fonte com FontFace já carregado ("Família variante"). */
+  loadedFamilies = /* @__PURE__ */ new Set();
+  /** nomes de família com QUALQUER FontFace carregado (p/ escolher a família CSS). */
+  loadedFamilyNames = /* @__PURE__ */ new Set();
+  /** cache das famílias do SO (Local Font Access API); null = ainda não consultado. */
+  sysFontsCache = null;
+  /** FontData do SO por família (todas as faces) p/ carregar bytes sob demanda. */
+  sysFontData = /* @__PURE__ */ new Map();
   container;
   input;
   topbarEl;
@@ -11389,6 +11547,7 @@ var UniversalWriteElement = class extends HTMLElement {
       const faceBytes = bytes.slice().buffer;
       const face = new FontFace(asset.family, faceBytes, { weight, style });
       document.fonts.add(await face.load());
+      this.loadedFamilyNames.add(asset.family);
       sets[asset.family] ??= {};
       const font = new SfntFont(bytes);
       if (asset.advances) font.setAdvanceTable(asset.advances);
@@ -11553,6 +11712,41 @@ var UniversalWriteElement = class extends HTMLElement {
     this.fullDoc = readFullDocument(this.pkg);
     this.loadedFormat = "docx";
     this.installFullDoc();
+    void this.registerEmbeddedFonts(this.pkg);
+  }
+  /** Carrega as fontes EMBEDADAS do .docx (word/fonts/*.odttf desofuscadas): cria
+   *  o FontFace (render) e o SfntFont (métricas/layout), e repinta ao terminar.
+   *  Sem isto o render cairia no Aptos/Calibri em vez da fonte real (ex.: Lato). */
+  async registerEmbeddedFonts(pkg) {
+    let fonts;
+    try {
+      fonts = readEmbeddedFonts(pkg);
+    } catch {
+      return;
+    }
+    if (!fonts.length || !this.fonts) return;
+    let added = false;
+    for (const f3 of fonts) {
+      if (this.loadedFamilies.has(`${f3.family} ${f3.variant}`)) continue;
+      const weight = f3.variant === "bold" || f3.variant === "boldItalic" ? "700" : "400";
+      const style = f3.variant === "italic" || f3.variant === "boldItalic" ? "italic" : "normal";
+      try {
+        const face = new FontFace(f3.family, f3.data.slice().buffer, { weight, style });
+        await face.load();
+        document.fonts.add(face);
+      } catch {
+        continue;
+      }
+      this.loadedFamilies.add(`${f3.family} ${f3.variant}`);
+      this.loadedFamilyNames.add(f3.family);
+      try {
+        this.fonts.register(f3.family, f3.variant, new SfntFont(f3.data));
+      } catch {
+      }
+      (this.fontBytes[f3.family] ??= {})[f3.variant] = f3.data;
+      added = true;
+    }
+    if (added && this.model) this.refresh();
   }
   /**
    * Carrega um .odt (OpenDocument Text). Não há pacote OOXML original — ao
@@ -11761,11 +11955,31 @@ var UniversalWriteElement = class extends HTMLElement {
   savedBody = null;
   /** Página onde o HF está sendo editado (preserva a paginação do corpo). */
   hfActivePage = 0;
+  // ─────────────── edição de caixa de texto flutuante ───────────────
+  // Foco numa caixa de texto (wps:txbx): troca this.model para os parágrafos
+  // INTERNOS da caixa, posicionados no retângulo ancorado. Pode empilhar sobre
+  // a edição de HF (a caixa mora no header/footer) ou sair direto do corpo.
+  tbEdit = null;
+  savedForTb = null;
+  tbBgSnapshots = [];
+  /** Ao capturar o snapshot de fundo da edição de caixa: run cujo textbox NÃO é
+   *  pintado (será desenhado ao vivo em foco), evitando texto "fantasma". */
+  tbSnapshotSuppress = null;
+  // ─────────── seleção/manipulação de objeto flutuante (imagem/caixa) ───────────
+  /** Run que carrega o objeto flutuante SELECIONADO (mostra handles). */
+  floatSel = null;
+  /** Estado do arrasto de mover/redimensionar em andamento. */
+  floatDrag = null;
   editingHeaderFooter() {
     return this.hfEdit?.kind ?? null;
   }
+  /** true quando o foco está DENTRO de uma caixa de texto. */
+  editingTextbox() {
+    return this.tbEdit !== null;
+  }
   enterHeaderFooter(kind, activePage = 0) {
     if (!this.model || this.hfEdit || this.locked()) return;
+    this.floatSel = null;
     this.hfActivePage = Math.max(0, Math.min(activePage, this.pageCount - 1));
     if (!this.fullDoc) {
       this.fullDoc = {
@@ -11797,7 +12011,7 @@ var UniversalWriteElement = class extends HTMLElement {
     for (const p3 of part) {
       for (const run of p3.runs) {
         if (run.field && !run.text.trim()) {
-          run.text = /NUMPAGES/i.test(run.field) ? String(this.pageCount || 1) : /PAGE/i.test(run.field) ? String(this.hfActivePage + 1) : /DATE/i.test(run.field) ? (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR") : run.field.trim();
+          run.text = /NUMPAGES/i.test(run.field) ? String(this.numPagesFor()) : /PAGE/i.test(run.field) ? String(this.pageNumberFor(this.hfActivePage)) : /DATE/i.test(run.field) ? (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR") : run.field.trim();
         }
       }
     }
@@ -11807,6 +12021,8 @@ var UniversalWriteElement = class extends HTMLElement {
       refs.push(ref);
       this.dirtyHf.add(ref.path);
     }
+    this.hfCapturing = true;
+    this.paint();
     this.hfBodySnapshots = this.canvases.map((c4) => {
       const snap = document.createElement("canvas");
       snap.width = c4.width;
@@ -11814,6 +12030,7 @@ var UniversalWriteElement = class extends HTMLElement {
       if (c4.width > 1) snap.getContext("2d").drawImage(c4, 0, 0);
       return snap;
     });
+    this.hfCapturing = false;
     this.savedBody = {
       model: this.model,
       tableAnchors: this.tableAnchors,
@@ -11837,7 +12054,9 @@ var UniversalWriteElement = class extends HTMLElement {
     this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: true, kind } }));
   }
   exitHeaderFooter() {
+    if (this.tbEdit) this.exitTextbox();
     if (!this.hfEdit || !this.savedBody) return;
+    this.floatSel = null;
     this.hfBodySnapshots = [];
     this.model = this.savedBody.model;
     this.tableAnchors = this.savedBody.tableAnchors;
@@ -11850,6 +12069,70 @@ var UniversalWriteElement = class extends HTMLElement {
     this.hfEdit = null;
     this.refresh();
     this.dispatchEvent(new CustomEvent("uw-hfmode", { detail: { active: false } }));
+  }
+  /** Entra na edição do conteúdo de uma caixa de texto flutuante. hostRun é o
+   *  run que carrega `.textbox`; rectTwips é o retângulo ancorado (coords de
+   *  página, twips); caret opcional posiciona o cursor no ponto do clique. */
+  enterTextbox(hostRun, rectTwips, pageIdx, caret) {
+    if (!this.model || !hostRun.textbox || this.tbEdit || this.locked()) return;
+    this.floatSel = null;
+    const tb = hostRun.textbox;
+    for (const p3 of tb.paras) {
+      for (const run of p3.runs) {
+        if (run.field && !run.text.trim()) {
+          run.text = /NUMPAGES/i.test(run.field) ? String(this.numPagesFor()) : /PAGE/i.test(run.field) ? String(this.pageNumberFor(pageIdx)) : /DATE/i.test(run.field) ? (/* @__PURE__ */ new Date()).toLocaleDateString("pt-BR") : run.field.trim();
+        }
+      }
+    }
+    this.tbSnapshotSuppress = hostRun;
+    this.paint();
+    this.tbSnapshotSuppress = null;
+    this.tbBgSnapshots = this.canvases.map((c4) => {
+      const snap = document.createElement("canvas");
+      snap.width = c4.width;
+      snap.height = c4.height;
+      if (c4.width > 1) snap.getContext("2d").drawImage(c4, 0, 0);
+      return snap;
+    });
+    this.savedForTb = {
+      model: this.model,
+      tableAnchors: this.tableAnchors,
+      sectionStarts: this.sectionStarts,
+      floatImages: this.floatImages,
+      selection: this.selection,
+      undoStack: this.undoStack,
+      redoStack: this.redoStack,
+      pageCount: this.pageCount,
+      pageSections: [...this.pageSections]
+    };
+    this.model = { paragraphs: tb.paras, sectPr: this.savedForTb.model.sectPr };
+    this.tableAnchors = [];
+    this.sectionStarts = [];
+    this.floatImages = [];
+    this.tbEdit = { hostRun, rectTwips, pageIdx };
+    const start = caret ?? { para: 0, offset: 0 };
+    this.selection = { anchor: start, focus: start };
+    this.undoStack = [];
+    this.redoStack = [];
+    if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
+    this.refresh();
+    this.focusEditor();
+    this.dispatchEvent(new CustomEvent("uw-tbmode", { detail: { active: true } }));
+  }
+  exitTextbox() {
+    if (!this.tbEdit || !this.savedForTb) return;
+    this.tbBgSnapshots = [];
+    this.model = this.savedForTb.model;
+    this.tableAnchors = this.savedForTb.tableAnchors;
+    this.sectionStarts = this.savedForTb.sectionStarts;
+    this.floatImages = this.savedForTb.floatImages;
+    this.selection = this.savedForTb.selection;
+    this.undoStack = this.savedForTb.undoStack;
+    this.redoStack = this.savedForTb.redoStack;
+    this.savedForTb = null;
+    this.tbEdit = null;
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-tbmode", { detail: { active: false } }));
   }
   /** Desloca âncoras de tabela/seção quando parágrafos entram/saem. */
   shiftAnchors(fromPara, delta) {
@@ -11967,7 +12250,75 @@ var UniversalWriteElement = class extends HTMLElement {
     this.formatRuns({ szHalfPt: Math.max(2, cur + delta * 2) });
   }
   setFontFamily(name) {
+    void this.ensureFontLoaded(name);
     this.formatRuns({ fontAscii: name });
+  }
+  /** Famílias de fonte JÁ carregadas (bundled + embedadas do doc), em ordem. */
+  knownFontFamilies() {
+    return [...this.loadedFamilyNames].sort((a3, b5) => a3.localeCompare(b5));
+  }
+  /** Fontes instaladas no SO via Local Font Access API (queryLocalFonts).
+   *  Requer gesto do usuário + permissão; cacheia o resultado. Vazio se a API
+   *  não existir ou for negada. Guarda os FontData p/ carregar sob demanda. */
+  async systemFontFamilies() {
+    if (this.sysFontsCache) return this.sysFontsCache;
+    const q = window.queryLocalFonts;
+    if (typeof q !== "function") {
+      this.sysFontsCache = [];
+      return [];
+    }
+    try {
+      const fonts = await q();
+      const fams = /* @__PURE__ */ new Set();
+      for (const f3 of fonts) {
+        if (!f3.family) continue;
+        fams.add(f3.family);
+        const list = this.sysFontData.get(f3.family) ?? [];
+        list.push(f3);
+        this.sysFontData.set(f3.family, list);
+      }
+      this.sysFontsCache = [...fams].sort((a3, b5) => a3.localeCompare(b5));
+      return this.sysFontsCache;
+    } catch {
+      this.sysFontsCache = [];
+      return [];
+    }
+  }
+  /** Lista para o seletor: bundled + embedadas + SO (dedup, ordenado). */
+  async listAvailableFonts() {
+    const sys = await this.systemFontFamilies();
+    const all = /* @__PURE__ */ new Set([...this.loadedFamilyNames, ...sys]);
+    return [...all].sort((a3, b5) => a3.localeCompare(b5));
+  }
+  /** Carrega sob demanda uma fonte do SO (métricas + FontFace) quando ela é
+   *  selecionada/usada, para render E layout usarem a fonte real. */
+  async ensureFontLoaded(family) {
+    if (!family || this.loadedFamilyNames.has(family) || !this.fonts) return;
+    const faces = this.sysFontData.get(family);
+    if (!faces?.length) return;
+    let added = false;
+    for (const fd2 of faces) {
+      const variant = variantOfStyle(fd2.style);
+      if (this.loadedFamilies.has(`${family} ${variant}`)) continue;
+      try {
+        const bytes = new Uint8Array(await (await fd2.blob()).arrayBuffer());
+        const weight = variant === "bold" || variant === "boldItalic" ? "700" : "400";
+        const style = variant === "italic" || variant === "boldItalic" ? "italic" : "normal";
+        const face = new FontFace(family, bytes.slice().buffer, { weight, style });
+        await face.load();
+        document.fonts.add(face);
+        this.loadedFamilies.add(`${family} ${variant}`);
+        this.loadedFamilyNames.add(family);
+        try {
+          this.fonts.register(family, variant, new SfntFont(bytes));
+        } catch {
+        }
+        (this.fontBytes[family] ??= {})[variant] = bytes;
+        added = true;
+      } catch {
+      }
+    }
+    if (added && this.model) this.refresh();
   }
   setColor(hex) {
     this.formatRuns({ color: hex });
@@ -12720,6 +13071,65 @@ var UniversalWriteElement = class extends HTMLElement {
     this.selection = { anchor: { para, offset: offset + 1 }, focus: { para, offset: offset + 1 } };
     this.refresh();
   }
+  /** Abre o seletor de arquivo para TROCAR a imagem flutuante selecionada
+   *  (ex.: o logo do rodapé), mantendo posição/tamanho. */
+  promptReplaceImage() {
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = "image/*";
+    inp.style.display = "none";
+    inp.addEventListener("change", async () => {
+      const file = inp.files?.[0];
+      inp.remove();
+      if (!file) return;
+      const buf = new Uint8Array(await file.arrayBuffer());
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      await this.replaceSelectedImage(buf, ext);
+    });
+    document.body.appendChild(inp);
+    inp.click();
+  }
+  /** Substitui os bytes da imagem selecionada, mantendo âncora/posição/tamanho.
+   *  Sobrescreve a mídia referenciada no pacote e remove a versão vetorial
+   *  (asvg:svgBlip) do XML cru, para o Word passar a exibir a nova imagem. */
+  async replaceSelectedImage(data, ext) {
+    const h3 = this.selectedFloat();
+    if (!h3 || h3.kind !== "image") return;
+    const img = h3.obj;
+    this.snapshot();
+    const copy = new Uint8Array(data);
+    const rid = /<a:blip[^>]*r:embed="([^"]+)"/.exec(img.rawDrawingXml ?? "")?.[1];
+    if (rid && this.pkg) {
+      const relsPath = this.hfEdit ? `word/_rels/${this.hfEdit.path.split("/").pop()}.rels` : "word/_rels/document.xml.rels";
+      const mediaPath = this.resolveMediaPath(rid, relsPath);
+      if (mediaPath) this.pkg.setPart(mediaPath, copy);
+    }
+    if (img.rawDrawingXml) {
+      img.rawDrawingXml = img.rawDrawingXml.replace(
+        /<a:extLst>[\s\S]*?<\/a:extLst>/g,
+        (m2) => m2.includes("svgBlip") ? "" : m2
+      );
+    }
+    img.data = copy;
+    img.ext = ext;
+    img.svg = void 0;
+    this.bitmaps.delete(img);
+    if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
+    this.refresh();
+    this.dispatchEvent(new CustomEvent("uw-change"));
+  }
+  /** Resolve rId → caminho da parte de mídia no pacote (via a parte .rels). */
+  resolveMediaPath(rid, relsPath) {
+    const rels = this.pkg?.getPartText(relsPath);
+    if (!rels) return null;
+    const m2 = new RegExp(`Id="${rid}"[^>]*?Target="([^"]+)"`).exec(rels);
+    if (!m2) return null;
+    let target = m2[1];
+    if (/^https?:/i.test(target)) return null;
+    target = target.replace(/^\.\//, "");
+    if (!target.startsWith("word/")) target = `word/${target.replace(/^\/+/, "")}`;
+    return target;
+  }
   saveDocx() {
     if (!this.model) throw new Error("no document");
     if (this.hfEdit) this.exitHeaderFooter();
@@ -13043,6 +13453,7 @@ var UniversalWriteElement = class extends HTMLElement {
   }
   popHistory(from, to) {
     if (!this.model || from.length === 0) return;
+    this.floatSel = null;
     to.push(this.stringifyState());
     const state = this.parseState(from.pop());
     this.model = state.m;
@@ -13281,6 +13692,51 @@ var UniversalWriteElement = class extends HTMLElement {
     });
     this.addEventListener("mousedown", (e8) => {
       if (this.eventInChrome(e8)) return;
+      if (e8.button === 0 && !this.protectedMode) {
+        const hn = this.handleAt(e8);
+        if (hn) {
+          this.focusEditor();
+          this.startFloatDrag(e8, "resize", hn);
+          return;
+        }
+        if (!(this.tbEdit && this.pointInTbRect(e8))) {
+          if (this.tbEdit) this.exitTextbox();
+          const tbHit = this.hitTextbox(e8);
+          if (tbHit) {
+            this.enterTextbox(tbHit.hostRun, tbHit.rect, tbHit.page);
+          } else {
+            const fh = this.hitFloat(e8);
+            if (fh && fh.kind === "image") {
+              if (this.floatSel !== fh.run) {
+                this.floatSel = fh.run;
+                this.refresh();
+              }
+              this.focusEditor();
+              this.startFloatDrag(e8, "move", "");
+              this.onSelectionChange?.();
+              this.chromeSync?.();
+              return;
+            }
+            if (this.floatSel) {
+              this.floatSel = null;
+              this.refresh();
+            }
+          }
+        }
+      }
+      if (e8.button === 0 && this.hfEdit && !this.tbEdit) {
+        const region = this.hfRegionAtClick(e8);
+        if (region && (region.kind !== this.hfEdit.kind || region.page !== this.hfActivePage)) {
+          this.switchHfFocus(region.kind, region.page);
+          const pos = this.hitTest(e8);
+          if (pos) this.selection = { anchor: pos, focus: pos };
+          this.focusEditor();
+          this.refresh();
+          this.onSelectionChange?.();
+          this.chromeSync?.();
+          return;
+        }
+      }
       const hit = this.hitTest(e8);
       if (!hit) return;
       if (e8.button !== 0) {
@@ -13381,9 +13837,56 @@ var UniversalWriteElement = class extends HTMLElement {
         this.dispatchEvent(new CustomEvent("uw-hfhover", { detail: { kind: null } }));
       }
     });
+    this.addEventListener("mousemove", (e8) => {
+      if (this.floatDrag || !this.model) return;
+      const hn = this.handleAt(e8);
+      if (hn) {
+        this.style.cursor = this.cursorForHandle(hn);
+        return;
+      }
+      const fh = this.tbEdit ? null : this.hitFloat(e8);
+      if (fh) {
+        this.style.cursor = "move";
+        return;
+      }
+      if (this.style.cursor === "move" || this.style.cursor.endsWith("-resize")) this.style.cursor = "";
+    });
     this.addEventListener("dblclick", (e8) => {
       if (this.eventInChrome(e8)) return;
-      if (this.view === "print" && !this.hfEdit && this.model) {
+      if (this.hfEdit && !this.tbEdit) {
+        const region = this.hfRegionAtClick(e8);
+        if (region && (region.kind !== this.hfEdit.kind || region.page !== this.hfActivePage)) {
+          this.switchHfFocus(region.kind, region.page);
+        }
+      }
+      if (!this.tbEdit && this.model && !this.protectedMode) {
+        const fh = this.hitFloat(e8);
+        if (fh && fh.kind === "image") {
+          this.floatSel = fh.run;
+          this.refresh();
+          this.promptReplaceImage();
+          return;
+        }
+      }
+      if (!this.tbEdit && this.model && !this.protectedMode) {
+        const tbHit = this.hitTextbox(e8);
+        if (tbHit) {
+          this.enterTextbox(tbHit.hostRun, tbHit.rect, tbHit.page);
+          const pos = this.hitTest(e8);
+          if (pos) this.selection = { anchor: pos, focus: pos };
+          this.refresh();
+          this.onSelectionChange?.();
+          this.chromeSync?.();
+          return;
+        }
+      }
+      if (this.tbEdit && !this.pointInTbRect(e8)) {
+        this.exitTextbox();
+        this.onSelectionChange?.();
+        this.chromeSync?.();
+        return;
+      }
+      if (this.view === "print" && !this.hfEdit && !this.tbEdit && this.model) {
         const zone = this.hfZoneAt(e8);
         if (zone) {
           if (this.protectedMode) {
@@ -13394,7 +13897,7 @@ var UniversalWriteElement = class extends HTMLElement {
           return;
         }
       }
-      if (this.hfEdit && !this.hfClickInActiveBand(e8)) {
+      if (this.hfEdit && !this.hfRegionAtClick(e8)) {
         this.exitHeaderFooter();
         this.onSelectionChange?.();
         this.chromeSync?.();
@@ -13514,6 +14017,43 @@ var UniversalWriteElement = class extends HTMLElement {
         this.chromeSync?.();
         return;
       }
+      if (this.floatSel && !this.tbEdit) {
+        if (k2 === "Escape") {
+          e8.preventDefault();
+          this.floatSel = null;
+          this.refresh();
+          return;
+        }
+        if (k2 === "Delete" || k2 === "Backspace") {
+          e8.preventDefault();
+          this.deleteSelectedFloat();
+          return;
+        }
+        if (k2 === "ArrowLeft" || k2 === "ArrowRight" || k2 === "ArrowUp" || k2 === "ArrowDown") {
+          e8.preventDefault();
+          const h3 = this.selectedFloat();
+          if (h3) {
+            this.snapshot();
+            const step = e8.shiftKey ? 15 : 90;
+            const obj = h3.obj;
+            const ox = obj.offsetXTwips ?? 0, oy = obj.offsetYTwips ?? 0;
+            if (k2 === "ArrowLeft") obj.offsetXTwips = ox - step;
+            else if (k2 === "ArrowRight") obj.offsetXTwips = ox + step;
+            else if (k2 === "ArrowUp") obj.offsetYTwips = oy - step;
+            else obj.offsetYTwips = oy + step;
+            this.refresh();
+            this.dispatchEvent(new CustomEvent("uw-change"));
+          }
+          return;
+        }
+      }
+      if (k2 === "Escape" && this.tbEdit) {
+        e8.preventDefault();
+        this.exitTextbox();
+        this.onSelectionChange?.();
+        this.chromeSync?.();
+        return;
+      }
       if (k2 === "Escape" && this.hfEdit) {
         e8.preventDefault();
         this.exitHeaderFooter();
@@ -13609,9 +14149,37 @@ var UniversalWriteElement = class extends HTMLElement {
     }
     return STYLES[p3.props.styleId];
   }
+  /** Escala das minúsculas em small caps (versaletes). ~0.8 do tamanho, como o
+   *  Word: a maiúscula reduzida fica um pouco menor que a maiúscula cheia. */
+  static SMALL_CAPS_SCALE = 0.8;
+  /** Quebra o texto de um run com small caps em spans por caixa: maiúsculas/
+   *  símbolos em tamanho cheio; minúsculas → MAIÚSCULAS em ~0.8 do tamanho.
+   *  Preserva o nº de caracteres (offset do caret) — se maiúscula mudar o
+   *  comprimento (ex.: ß→SS), mantém o char original. */
+  smallCapsSpans(text, family, variant, size, ls, runIndex) {
+    const isLower = (c4) => c4.toLowerCase() === c4 && c4.toUpperCase() !== c4;
+    const out = [];
+    let i7 = 0;
+    while (i7 < text.length) {
+      const lower = isLower(text[i7]);
+      let j = i7;
+      while (j < text.length && isLower(text[j]) === lower) j++;
+      const seg = text.slice(i7, j);
+      let t5 = seg;
+      let sz = size;
+      if (lower) {
+        const up = seg.toUpperCase();
+        t5 = up.length === seg.length ? up : seg;
+        sz = size * _UniversalWriteElement.SMALL_CAPS_SCALE;
+      }
+      out.push({ text: t5, family, variant, sizePt: sz, letterSpacingTwips: ls, runIndex });
+      i7 = j;
+    }
+    return out.length ? out : [{ text: "", family, variant, sizePt: size, runIndex }];
+  }
   buildSpans(p3, opts) {
     const st = this.styleOf(p3);
-    const spans = p3.runs.map((r6) => {
+    const spans = p3.runs.flatMap((r6, ri) => {
       const dd = this.docDefaults();
       const base = r6.props.szHalfPt !== void 0 ? r6.props.szHalfPt / 2 : st?.sizePt ?? (dd.run.szHalfPt !== void 0 ? dd.run.szHalfPt / 2 : 11);
       const size = r6.props.vertAlign ? base * 0.65 : base;
@@ -13620,11 +14188,11 @@ var UniversalWriteElement = class extends HTMLElement {
       const variant = bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
       const family = r6.props.fontAscii ?? st?.fontAscii ?? dd.run.fontAscii;
       if (r6.textbox) {
-        return { text: "", family, variant, sizePt: size };
+        return { text: "", family, variant, sizePt: size, runIndex: ri };
       }
       if (r6.image) {
         if (opts?.skipFloating && r6.image.floating) {
-          return { text: "", family, variant, sizePt: size };
+          return { text: "", family, variant, sizePt: size, runIndex: ri };
         }
         return {
           text: r6.text || "\uFFFC",
@@ -13632,7 +14200,8 @@ var UniversalWriteElement = class extends HTMLElement {
           variant,
           sizePt: size,
           imageWidthTwips: r6.image.widthTwips,
-          imageHeightTwips: r6.image.heightTwips
+          imageHeightTwips: r6.image.heightTwips,
+          runIndex: ri
         };
       }
       if (r6.custom) {
@@ -13663,18 +14232,18 @@ var UniversalWriteElement = class extends HTMLElement {
           variant,
           sizePt: size,
           imageWidthTwips: Math.max(1, measured?.widthTwips ?? measureText(fallbackText)),
-          imageHeightTwips: measured?.heightTwips ?? size * TWIPS_PER_PT
+          imageHeightTwips: measured?.heightTwips ?? size * TWIPS_PER_PT,
+          runIndex: ri
         };
       }
-      let text = r6.text;
-      if (r6.props.allCaps || st?.allCaps || r6.props.smallCaps || st?.smallCaps) text = text.toUpperCase();
-      return {
-        text,
-        family,
-        variant,
-        sizePt: size,
-        letterSpacingTwips: r6.props.charSpacingTwips
-      };
+      const ls = r6.props.charSpacingTwips;
+      const allCaps = r6.props.allCaps || st?.allCaps;
+      const smallCaps = r6.props.smallCaps || st?.smallCaps;
+      if (smallCaps && !allCaps) {
+        return this.smallCapsSpans(r6.text, family, variant, size, ls, ri);
+      }
+      const text = allCaps || smallCaps ? r6.text.toUpperCase() : r6.text;
+      return { text, family, variant, sizePt: size, letterSpacingTwips: ls, runIndex: ri };
     });
     if (spans.length === 0) spans.push({ text: "", variant: "regular", sizePt: st?.sizePt ?? 11 });
     return spans;
@@ -13703,12 +14272,12 @@ var UniversalWriteElement = class extends HTMLElement {
     const sp = this.sectPrForSavedPage(this.hfActivePage);
     const marginL = sp.marginLeftTwips;
     const contentW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
-    const topY = this.hfEdit.kind === "header" ? 720 : sp.pageHeightTwips - 720;
+    const topY = this.hfEdit.kind === "header" ? sp.headerDistanceTwips ?? 720 : sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720) - this.measureHfHeight(this.model.paragraphs, contentW);
     this.hfRegionTopTwips = topY;
     const font = this.fonts.resolve(void 0, "regular");
     let y3 = topY;
     this.model.paragraphs.forEach((p3, pi) => {
-      const spans = this.buildSpans(p3);
+      const spans = this.buildSpans(p3, { skipFloating: true });
       const { lines, charAdvances, tabLeaders } = breakRich(spans, this.fonts, {
         availableTwips: contentW,
         tabStops: p3.props.tabStops?.length ? p3.props.tabStops : [
@@ -13724,9 +14293,8 @@ var UniversalWriteElement = class extends HTMLElement {
       }
       const laid = [];
       lines.forEach((rich) => {
-        const sizeForHeight = Math.max(rich.maxSizePt, 1);
-        const lh = lineHeightPt(font, sizeForHeight, { line: 259, lineRule: "auto" }) * TWIPS_PER_PT;
-        const asc = font.metrics.ascender / font.metrics.unitsPerEm * deviceEmPt(sizeForHeight) * TWIPS_PER_PT;
+        const lineSize = Math.max(rich.maxSizePt, spans[0]?.sizePt ?? 11);
+        const lh = lineHeightPt(font, lineSize, { line: 240, lineRule: "auto" }) * TWIPS_PER_PT;
         let x3 = marginL;
         let justifyExtra = 0;
         const align = p3.props.alignment;
@@ -13739,13 +14307,193 @@ var UniversalWriteElement = class extends HTMLElement {
           xTwips: x3,
           yTwips: y3,
           heightTwips: lh,
-          baselineTwips: y3 + asc,
+          baselineTwips: y3 + lh * 0.8,
           justifyExtraPerSpace: justifyExtra
         });
         y3 += lh;
       });
       this.layoutCache.push({ spans, charAdvances, lines: laid, spanCharStart, tabLeaders });
     });
+    this.hfRegionHeightTwips = Math.max(y3 - topY, 240);
+  }
+  /** Layout do conteúdo INTERNO de uma caixa de texto em edição: posiciona os
+   *  parágrafos no retângulo ancorado da caixa, preservando a paginação salva.
+   *  Espelha a matemática de linha do paintHf p/ o conteúdo não "pular". */
+  layoutTextboxEdit() {
+    const tb = this.tbEdit;
+    const sb = this.savedForTb;
+    this.pageCount = sb.pageCount;
+    this.pageSections = sb.pageSections;
+    this.layoutCache = [];
+    this.tableLayouts = [];
+    this.dropCapFloats = [];
+    const originX = tb.rectTwips.x;
+    const width = Math.max(tb.rectTwips.w, 240);
+    const font = this.fonts.resolve(void 0, "regular");
+    let y3 = tb.rectTwips.y;
+    this.model.paragraphs.forEach((p3, pi) => {
+      const spans = this.buildSpans(p3, { skipFloating: true });
+      const { lines, charAdvances, tabLeaders } = breakRich(spans, this.fonts, {
+        availableTwips: width,
+        tabStops: p3.props.tabStops?.length ? p3.props.tabStops : [
+          { posTwips: width / 2, align: "center" },
+          { posTwips: width, align: "right" }
+        ]
+      });
+      const spanCharStart = [];
+      let acc = 0;
+      for (const span of spans) {
+        spanCharStart.push(acc);
+        acc += span.text.length;
+      }
+      const laid = [];
+      lines.forEach((rich) => {
+        const lineSize = Math.max(rich.maxSizePt, spans[0]?.sizePt ?? 11);
+        const lh = lineHeightPt(font, lineSize, { line: 240, lineRule: "auto" }) * TWIPS_PER_PT;
+        let x3 = originX;
+        const align = p3.props.alignment;
+        if (align === "center") x3 += (width - rich.widthTwips) / 2;
+        else if (align === "right") x3 += width - rich.widthTwips;
+        laid.push({
+          para: pi,
+          rich,
+          page: tb.pageIdx,
+          xTwips: x3,
+          yTwips: y3,
+          heightTwips: lh,
+          baselineTwips: y3 + lh * 0.8,
+          justifyExtraPerSpace: 0
+        });
+        y3 += lh;
+      });
+      this.layoutCache.push({ spans, charAdvances, lines: laid, spanCharStart, tabLeaders });
+    });
+  }
+  /** start da numeração do documento (1ª seção). Padrão 1 (Word). */
+  docPgNumStart() {
+    return this.fullDoc?.sections[0]?.sectPr.pgNumStart ?? this.sectionStarts[0]?.section.sectPr.pgNumStart ?? this.savedBody?.sectionStarts[0]?.section.sectPr.pgNumStart ?? 1;
+  }
+  /** Valor do campo NUMPAGES respeitando o start: total = número da ÚLTIMA
+   *  página = start + (páginas − 1). Para docs normais (start=1) = pageCount;
+   *  com capa start=0, a capa não conta (ex.: 2 folhas → "1"). */
+  numPagesFor() {
+    return Math.max(1, this.pageCount + this.docPgNumStart() - 1);
+  }
+  /** Número de página do campo PAGE em Word: pgNumType/@start (padrão 1) +
+   *  deslocamento da página DENTRO da sua seção. Respeita start=0 (capa = 0). */
+  pageNumberFor(pageIdx) {
+    const ps = this.pageSections;
+    const sIdx = ps[pageIdx] ?? 0;
+    let firstPage = pageIdx;
+    for (let i7 = 0; i7 <= pageIdx; i7++) {
+      if ((ps[i7] ?? 0) === sIdx) {
+        firstPage = i7;
+        break;
+      }
+    }
+    const sp = this.savedBody ? this.savedBody.sectionStarts[sIdx]?.section.sectPr ?? this.sect() : this.sectionStarts.length ? this.sectPrAt(sIdx) : this.sect();
+    const start = sp.pgNumStart ?? 1;
+    return start + (pageIdx - firstPage);
+  }
+  /** Parágrafos do header/footer que valem na página pg (first se capa+titlePg,
+   *  senão default). Vindos do fullDoc — a parte FOCADA é o mesmo array de
+   *  this.model, então reflete edições ao vivo. */
+  hfPartParas(kind, pg) {
+    const fd2 = this.fullDoc;
+    if (!fd2) return void 0;
+    const ps = this.savedBody?.pageSections ?? this.pageSections;
+    const sIdx = ps[pg] ?? 0;
+    const section = this.savedBody?.sectionStarts[sIdx]?.section ?? fd2.sections[sIdx] ?? fd2.sections[0];
+    if (!section) return void 0;
+    const sp = this.sectPrForSavedPage(pg);
+    const set = kind === "header" ? section.headers : section.footers;
+    const part = pg === 0 && sp.titlePg ? set.first : set.default;
+    return part?.length ? part : void 0;
+  }
+  /** topo (twips) da região do HF: header a headerDistance; footer ancorado pela
+   *  base (footerDistance + altura do conteúdo). */
+  hfTopY(kind, paras, sp, colW) {
+    return kind === "header" ? sp.headerDistanceTwips ?? 720 : sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720) - this.measureHfHeight(paras, colW);
+  }
+  /** Composição da edição de HF: imagem behindDoc ATRÁS, corpo esmaecido, header
+   *  E footer em foco (o ativo destacado), como o modo "Header & Footer" do Word.
+   *  Corrige (a) conteúdo sumindo sob a capa e (b) header/footer ativos juntos. */
+  paintHfEditCompose(ctxs, scales, dpr) {
+    if (!this.hfEdit || this.tbEdit) return;
+    const inkBright = this.pageDark ? "#1f1f1f" : "#1f1f1f";
+    const inkDim = this.pageDark ? "#9aa0a6" : "#666";
+    for (let pg = 0; pg < ctxs.length; pg++) {
+      const ctx = ctxs[pg];
+      if (!ctx) continue;
+      const scale = scales[pg];
+      const sp = this.sectPrForSavedPage(pg);
+      const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+      const isActivePage = pg === this.hfActivePage;
+      const headerParas = this.hfPartParas("header", pg);
+      const footerParas = this.hfPartParas("footer", pg);
+      const kinds = ["header", "footer"];
+      for (const kind of kinds) {
+        const paras = kind === "header" ? headerParas : footerParas;
+        if (!paras) continue;
+        const topY = this.hfTopY(kind, paras, sp, colW);
+        this.paintHf(ctx, scale, paras, sp.marginLeftTwips, topY, colW, pg, inkBright, sp, "behind");
+      }
+      const snap = this.hfBodySnapshots[pg];
+      if ((snap?.width ?? 0) > 1) {
+        ctx.save();
+        ctx.globalAlpha = HF_DIM_ALPHA;
+        ctx.drawImage(snap, 0, 0);
+        ctx.restore();
+      }
+      for (const kind of kinds) {
+        const paras = kind === "header" ? headerParas : footerParas;
+        if (!paras) continue;
+        const topY = this.hfTopY(kind, paras, sp, colW);
+        const isFocused = isActivePage && kind === this.hfEdit.kind;
+        if (isFocused) {
+          this.model.paragraphs.forEach((p3, pi) => {
+            const paraTop = this.layoutCache[pi]?.lines[0]?.yTwips ?? topY;
+            this.drawHfFloats(ctx, scale, p3.runs, sp.marginLeftTwips, paraTop, colW, pg, inkBright, sp, "front");
+          });
+        } else {
+          ctx.save();
+          if (!isActivePage) ctx.globalAlpha = HF_DIM_ALPHA;
+          this.paintHf(ctx, scale, paras, sp.marginLeftTwips, topY, colW, pg, isActivePage ? inkBright : inkDim, sp, "front");
+          ctx.restore();
+        }
+      }
+      if (isActivePage) this.paintHfBands(ctx, scale, sp, dpr);
+    }
+  }
+  /** Bandas realçadas de header e footer na página ativa + linhas separadoras no
+   *  limite com o corpo (base da margem sup. / topo da margem inf.), como o Word. */
+  paintHfBands(ctx, scale, sp, dpr) {
+    const activeKind = this.hfEdit.kind;
+    const drawBand = (kind) => {
+      const lineY = kind === "header" ? sp.marginTopTwips : sp.pageHeightTwips - sp.marginBottomTwips;
+      const bandTop = kind === "header" ? 0 : lineY;
+      const bandBot = kind === "header" ? lineY : sp.pageHeightTwips;
+      const active = kind === activeKind;
+      ctx.save();
+      ctx.fillStyle = active ? this.pageDark ? "rgba(80,130,200,0.16)" : "rgba(43,87,154,0.09)" : this.pageDark ? "rgba(120,120,120,0.10)" : "rgba(120,120,120,0.06)";
+      ctx.fillRect(0, bandTop * scale, sp.pageWidthTwips * scale, (bandBot - bandTop) * scale);
+      ctx.strokeStyle = active ? this.pageDark ? "#5b8def" : "#2b579a" : this.pageDark ? "#777" : "#9aa0a6";
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = Math.max(1, dpr);
+      ctx.beginPath();
+      ctx.moveTo(sp.marginLeftTwips * scale, lineY * scale);
+      ctx.lineTo((sp.pageWidthTwips - sp.marginRightTwips) * scale, lineY * scale);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = `600 ${9 * TWIPS_PER_PT * scale}px Aptos`;
+      ctx.fillStyle = active ? this.pageDark ? "#9bc0ff" : "#2b579a" : this.pageDark ? "#9aa0a6" : "#9aa0a6";
+      const label = kind === "header" ? "Header" : "Footer";
+      const ly = (kind === "header" ? lineY - 60 : lineY + 190) * scale;
+      ctx.fillText(label, sp.marginLeftTwips * scale, ly);
+      ctx.restore();
+    };
+    drawBand("header");
+    drawBand("footer");
   }
   /** sectPr da página i segundo a estrutura SALVA do corpo (modo HF edit). */
   sectPrForSavedPage(pageIdx) {
@@ -13755,6 +14503,10 @@ var UniversalWriteElement = class extends HTMLElement {
   }
   layout() {
     if (!this.model || !this.fonts) return;
+    if (this.tbEdit && this.view === "print" && this.savedForTb) {
+      this.layoutTextboxEdit();
+      return;
+    }
     if (this.hfEdit && this.view === "print" && this.savedBody) {
       this.layoutHfEdit();
       return;
@@ -13868,7 +14620,7 @@ var UniversalWriteElement = class extends HTMLElement {
       const dropCap = pendingDropCap;
       pendingDropCap = null;
       const dropIndent = dropCap ? dropCap.widthTwips + 120 : 0;
-      const spans = this.buildSpans(p3);
+      const spans = this.buildSpans(p3, { skipFloating: true });
       const lineRulePre = {
         line: p3.props.lineTwentieths ?? st?.lineTwentieths ?? 259,
         lineRule: "auto"
@@ -14043,11 +14795,98 @@ var UniversalWriteElement = class extends HTMLElement {
   }
   /** Substitui PAGE/NUMPAGES no texto de header/footer. */
   substField(text, pageIdx) {
-    return text.replace(/\bPAGE\b/g, String(pageIdx + 1)).replace(/\bNUMPAGES\b/g, String(this.pageCount));
+    return text.replace(/\bNUMPAGES\b/g, String(this.numPagesFor())).replace(/\bPAGE\b/g, String(this.pageNumberFor(pageIdx)));
   }
   /** Renderiza cabeçalho/rodapé com layout real: runs formatados, alinhamento
    *  do parágrafo, tabs centro/direita (default do app de referência) e campos por página. */
-  paintHf(ctx, scale, paras, originXTwips, topYTwips, widthTwips, pageIdx, color) {
+  /** Altura total (twips) do conteúdo fluído de um cabeçalho/rodapé — usada
+   *  para ancorar o rodapé pela BASE (o Word coloca o rodapé com a base a
+   *  footerDistance da borda inferior, não o topo). */
+  /** margens internas (twips) da caixa; padrão do Word se ausentes. */
+  tbInsets(tb) {
+    return tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
+  }
+  /** Altura EFETIVA da caixa de texto: se spAutoFit, ajusta ao conteúdo (o cy
+   *  declarado é ignorado pelo Word); senão usa a altura declarada. Assim o alvo
+   *  de seleção/edição respeita o tamanho real da caixa. */
+  effectiveTbHeight(tb) {
+    if (!tb.autoFit) return tb.heightTwips || 240;
+    const ins = this.tbInsets(tb);
+    const cw = Math.max(tb.widthTwips || 240, 240);
+    return Math.max(this.measureHfHeight(tb.paras, cw) + ins.t + ins.b, 240);
+  }
+  measureHfHeight(paras, widthTwips) {
+    if (!this.fonts) return 0;
+    const font = this.fonts.resolve(void 0, "regular");
+    const defaultTabs = [
+      { posTwips: widthTwips / 2, align: "center" },
+      { posTwips: widthTwips, align: "right" }
+    ];
+    let h3 = 0;
+    for (const p3 of paras) {
+      const spans = this.buildSpans({ runs: p3.runs, props: p3.props }, { skipFloating: true });
+      const { lines } = breakRich(spans, this.fonts, {
+        availableTwips: widthTwips,
+        tabStops: p3.props.tabStops?.length ? p3.props.tabStops : defaultTabs
+      });
+      for (const line of lines) {
+        const lineSize = Math.max(line.maxSizePt, spans[0]?.sizePt ?? 11);
+        h3 += lineHeightPt(font, lineSize, { line: 240, lineRule: "auto" }) * TWIPS_PER_PT;
+      }
+    }
+    return h3;
+  }
+  /** Posição page-absolute (twips) de um objeto flutuante âncorado, respeitando
+   *  wp:positionH/V relativeFrom. originX = margem esquerda; paraTop = topo do
+   *  parágrafo âncora (banda do HF); sp = geometria da seção. */
+  anchoredPos(a3, originXTwips, paraTopTwips, sp) {
+    const ox = a3.offsetXTwips ?? 0;
+    const oy = a3.offsetYTwips ?? 0;
+    const x3 = a3.relH === "page" ? ox : originXTwips + ox;
+    let y3;
+    if (a3.relV === "page") y3 = oy;
+    else if (a3.relV === "margin" || a3.relV === "topMargin") y3 = sp.marginTopTwips + oy;
+    else if (a3.relV === "bottomMargin") y3 = sp.pageHeightTwips - sp.marginBottomTwips + oy;
+    else y3 = paraTopTwips + oy;
+    return { x: x3, y: y3 };
+  }
+  /** Desenha os objetos FLUTUANTES (caixas de texto / imagens ancoradas) dos
+   *  runs de um parágrafo de HF, na posição ancorada. Usado tanto no render
+   *  normal (paintHf) quanto na EDIÇÃO de HF (senão os flutuantes somem). */
+  drawHfFloats(ctx, scale, runs, originXTwips, paraTopTwips, widthTwips, pageIdx, color, sp, floatMode = "all") {
+    const pageArea = sp.pageWidthTwips * sp.pageHeightTwips;
+    const isBg = (o7) => !!o7.behindDoc || pageArea > 0 && o7.widthTwips * o7.heightTwips >= 0.4 * pageArea;
+    for (const r6 of runs) {
+      const obj = r6.textbox ?? r6.image;
+      if (!obj) continue;
+      if (r6 === this.tbSnapshotSuppress) continue;
+      if (floatMode === "behind" && !isBg(obj)) continue;
+      if (floatMode === "front" && isBg(obj)) continue;
+      if (r6.textbox) {
+        const tb = r6.textbox;
+        const { x: tx, y: ty } = tb.floating ? this.anchoredPos(tb, originXTwips, paraTopTwips, sp) : { x: originXTwips, y: paraTopTwips };
+        this.paintHf(ctx, scale, tb.paras, tx, ty, tb.widthTwips || widthTwips, pageIdx, color, sp);
+        continue;
+      }
+      const bmp = this.bitmapFor(r6.image);
+      if (!bmp) continue;
+      const img = r6.image;
+      const { x: ix, y: iy } = img.floating ? this.anchoredPos(img, originXTwips, paraTopTwips, sp) : { x: originXTwips, y: paraTopTwips };
+      ctx.drawImage(bmp, ix * scale, iy * scale, img.widthTwips * scale, img.heightTwips * scale);
+    }
+  }
+  /** Família CSS a usar no canvas: a fonte EMBEDADA/instalada real (ex.: "Lato",
+   *  "Lato Black") se houver FontFace; senão cai em Calibri/Aptos (bundled). */
+  familyFor(family) {
+    if (family) {
+      if (this.loadedFamilyNames.has(family)) return family;
+      const base = family.split(" ")[0];
+      if (this.loadedFamilyNames.has(base)) return base;
+      if (base === "Calibri") return "Calibri";
+    }
+    return "Aptos";
+  }
+  paintHf(ctx, scale, paras, originXTwips, topYTwips, widthTwips, pageIdx, color, sp, floatMode = "all") {
     if (!this.fonts) return;
     const defaultTabs = [
       { posTwips: widthTwips / 2, align: "center" },
@@ -14069,29 +14908,15 @@ var UniversalWriteElement = class extends HTMLElement {
     let y3 = topYTwips;
     for (const p3 of paras) {
       const runs = p3.runs.map(
-        (r6) => r6.field ? { ...r6, text: /NUMPAGES/i.test(r6.field) ? String(this.pageCount) : /PAGE/i.test(r6.field) ? String(pageIdx + 1) : r6.text } : r6
+        (r6) => r6.field ? { ...r6, text: /NUMPAGES/i.test(r6.field) ? String(this.numPagesFor()) : /PAGE/i.test(r6.field) ? String(this.pageNumberFor(pageIdx)) : r6.text } : r6
       );
       const spans = this.buildSpans({ runs, props: p3.props }, { skipFloating: true });
+      const stColor = this.styleOf(p3)?.color;
       const { lines } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
         tabStops: p3.props.tabStops?.length ? p3.props.tabStops : defaultTabs
       });
-      for (const r6 of runs) {
-        if (r6.textbox) {
-          const tb = r6.textbox;
-          const tx = originXTwips + (tb.floating ? tb.offsetXTwips ?? 0 : 0);
-          const ty = y3 + (tb.floating ? tb.offsetYTwips ?? 0 : 0);
-          this.paintHf(ctx, scale, tb.paras, tx, ty, tb.widthTwips || widthTwips, pageIdx, color);
-          continue;
-        }
-        if (!r6.image) continue;
-        const bmp = this.bitmapFor(r6.image);
-        if (!bmp) continue;
-        const img = r6.image;
-        const ix = originXTwips + (img.floating ? img.offsetXTwips ?? 0 : 0);
-        const iy = y3 + (img.floating ? img.offsetYTwips ?? 0 : 0);
-        ctx.drawImage(bmp, ix * scale, iy * scale, img.widthTwips * scale, img.heightTwips * scale);
-      }
+      this.drawHfFloats(ctx, scale, runs, originXTwips, y3, widthTwips, pageIdx, color, sp, floatMode);
       const font = this.fonts.resolve(void 0, "regular");
       const fallback = p3.props.boxBorder && !p3.props.borders ? { style: "single", sizeEighthPt: 4, spacePt: 1 } : void 0;
       const bd = p3.props.borders ?? (fallback ? { top: fallback, bottom: fallback, left: fallback, right: fallback } : void 0);
@@ -14110,15 +14935,16 @@ var UniversalWriteElement = class extends HTMLElement {
         const baseline = y3 + lh * 0.8;
         for (const seg of line.segments) {
           const span = spans[seg.spanIndex];
-          const run = runs[seg.spanIndex];
+          const run = runs[span.runIndex ?? seg.spanIndex];
           const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
           const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
           if (!txt.trim()) continue;
-          const fam = span.family?.split(" ")[0] === "Calibri" ? "Calibri" : "Aptos";
+          const fam = this.familyFor(span.family);
           const fontPx = deviceEmPt(span.sizePt) * TWIPS_PER_PT * scale;
           const v2 = span.variant;
           ctx.font = `${v2 === "italic" || v2 === "boldItalic" ? "italic " : ""}${v2 === "bold" || v2 === "boldItalic" ? "700" : "400"} ${fontPx}px ${fam}`;
-          ctx.fillStyle = run?.props.color ? this.inkColor(run.props.color) : color;
+          const runColor = run?.props.color ?? stColor;
+          ctx.fillStyle = runColor ? this.inkColor(runColor) : color;
           ctx.fillText(txt, (x3 + seg.xTwips) * scale, baseline * scale);
         }
         if (bd) {
@@ -14203,7 +15029,7 @@ var UniversalWriteElement = class extends HTMLElement {
             const baseY = cy + lh * 0.8;
             for (const seg of line.segments) {
               const span = spans[seg.spanIndex];
-              const run = p3.runs[seg.spanIndex];
+              const run = p3.runs[span.runIndex ?? seg.spanIndex];
               const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
               const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
               if (!txt) continue;
@@ -14217,7 +15043,7 @@ var UniversalWriteElement = class extends HTMLElement {
                 bold: span.variant === "bold" || span.variant === "boldItalic",
                 italic: span.variant === "italic" || span.variant === "boldItalic",
                 color: run?.props.color ?? st?.color,
-                family: span.family?.split(" ")[0] === "Calibri" ? "Calibri" : "Aptos",
+                family: this.familyFor(span.family),
                 underline: run?.props.underline,
                 strike: run?.props.strike
               });
@@ -14263,6 +15089,16 @@ var UniversalWriteElement = class extends HTMLElement {
   dropCapFloats = [];
   /** topo (twips) da banda do HF em edição — usado p/ desenhar o rótulo/borda. */
   hfRegionTopTwips = 0;
+  /** altura (twips) do conteúdo do HF em edição — p/ dimensionar a banda. */
+  hfRegionHeightTwips = 0;
+  /** Ao capturar o snapshot de fundo (entrar em edição de HF): renderiza os HF
+   *  CHEIOS, mas suprime o HF ATIVO (que será pintado por cima, em foco). Assim
+   *  o fundo esmaecido contém corpo + o OUTRO HF (como o Word). Null fora disso. */
+  hfSnapshotActive = null;
+  /** Capturando o snapshot de CORPO da edição HF: suprime AMBOS header e footer
+   *  (eles são repintados na composição) e usa fundo TRANSPARENTE, para o corpo
+   *  compor por cima da imagem behindDoc (capa) sem veladura branca. */
+  hfCapturing = false;
   /** última zona de HF sob o mouse (p/ não repetir o evento de hover). */
   lastHoverHf = null;
   /** Em qual zona de HF (margem sup/inf) e PÁGINA o mouse caiu, se alguma. */
@@ -14290,8 +15126,38 @@ var UniversalWriteElement = class extends HTMLElement {
     if (e8.clientX < rect.left || e8.clientX > rect.right) return false;
     const scale = PX_PER_TWIP * this.zoom;
     const yT = (e8.clientY - rect.top) / scale;
-    const bandTop = this.hfRegionTopTwips - 120;
-    return yT >= bandTop && yT <= bandTop + 1100;
+    const isHeader = this.hfEdit.kind === "header";
+    const sp = this.sectPrForSavedPage(this.hfActivePage);
+    const lineY = isHeader ? sp.marginTopTwips : sp.pageHeightTwips - sp.marginBottomTwips;
+    const bandTop = isHeader ? 0 : lineY;
+    const bandBot = isHeader ? lineY : sp.pageHeightTwips;
+    return yT >= bandTop && yT <= bandBot;
+  }
+  /** Região de HF (header/footer) sob o clique, ou null (corpo). Usado no modo
+   *  HF p/ trocar o foco entre header e footer (ambos ativos, como no Word). */
+  hfRegionAtClick(e8) {
+    const scale = PX_PER_TWIP * this.zoom;
+    for (let pg = 0; pg < this.canvases.length; pg++) {
+      const cv = this.canvases[pg];
+      if (!cv) continue;
+      const rect = cv.getBoundingClientRect();
+      if (e8.clientY < rect.top || e8.clientY > rect.bottom) continue;
+      if (e8.clientX < rect.left || e8.clientX > rect.right) continue;
+      const yT = (e8.clientY - rect.top) / scale;
+      const sp = this.sectPrForSavedPage(pg);
+      if (yT <= sp.marginTopTwips) return { kind: "header", page: pg };
+      if (yT >= sp.pageHeightTwips - sp.marginBottomTwips) return { kind: "footer", page: pg };
+      return null;
+    }
+    return null;
+  }
+  /** Troca o foco de edição entre header e footer (ou de página) sem sair do
+   *  modo HF. As edições da parte anterior persistem (mesmas refs no fullDoc). */
+  switchHfFocus(kind, page) {
+    if (!this.hfEdit) return;
+    if (this.hfEdit.kind === kind && this.hfActivePage === page) return;
+    this.exitHeaderFooter();
+    this.enterHeaderFooter(kind, page);
   }
   /** Geometria das colunas numa página + quais têm conteúdo (p/ o separador). */
   colContentOnPage(pg, sp) {
@@ -14350,6 +15216,316 @@ var UniversalWriteElement = class extends HTMLElement {
       x3 += a3;
     }
     return line.rich.end;
+  }
+  /** Localiza uma caixa de texto flutuante sob o ponteiro (corpo OU HF ativo).
+   *  Retorna o run que a carrega, seu retângulo ancorado (twips) e a página. */
+  hitTextbox(e8) {
+    if (!this.model) return null;
+    const inHf = !!this.hfEdit;
+    const scale = PX_PER_TWIP * this.zoom;
+    const paras = this.model.paragraphs;
+    for (let pi = 0; pi < paras.length; pi++) {
+      for (const r6 of paras[pi].runs) {
+        if (!r6.textbox) continue;
+        const tb = r6.textbox;
+        let page, sp, originX, paraTop;
+        if (inHf) {
+          page = this.hfActivePage;
+          sp = this.sectPrForSavedPage(page);
+          originX = sp.marginLeftTwips;
+          paraTop = this.layoutCache[pi]?.lines[0]?.yTwips ?? this.hfRegionTopTwips;
+        } else {
+          const first = this.layoutCache[pi]?.lines[0];
+          if (!first) continue;
+          page = first.page;
+          sp = this.sectPrAt(this.pageSections[page] ?? 0);
+          originX = sp.marginLeftTwips;
+          paraTop = first.yTwips;
+        }
+        const { x: x3, y: y3 } = tb.floating ? this.anchoredPos(tb, originX, paraTop, sp) : { x: originX, y: paraTop };
+        const w2 = tb.widthTwips || sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+        const h3 = this.effectiveTbHeight(tb);
+        const cv = this.canvases[page];
+        if (!cv) continue;
+        const rect = cv.getBoundingClientRect();
+        if (e8.clientY < rect.top || e8.clientY > rect.bottom) continue;
+        if (e8.clientX < rect.left || e8.clientX > rect.right) continue;
+        const xT = (e8.clientX - rect.left) / scale;
+        const yT = (e8.clientY - rect.top) / scale;
+        if (xT >= x3 && xT <= x3 + w2 && yT >= y3 && yT <= y3 + h3) {
+          return { hostRun: r6, rect: { x: x3, y: y3, w: w2, h: h3 }, page };
+        }
+      }
+    }
+    return null;
+  }
+  /** true se o ponteiro está dentro da caixa em edição (com pequena tolerância). */
+  pointInTbRect(e8) {
+    if (!this.tbEdit) return false;
+    const cv = this.canvases[Math.min(this.tbEdit.pageIdx, this.canvases.length - 1)];
+    if (!cv) return false;
+    const rect = cv.getBoundingClientRect();
+    if (e8.clientY < rect.top || e8.clientY > rect.bottom) return false;
+    const scale = PX_PER_TWIP * this.zoom;
+    const xT = (e8.clientX - rect.left) / scale;
+    const yT = (e8.clientY - rect.top) / scale;
+    const r6 = this.tbEdit.rectTwips;
+    const tol = 30;
+    return xT >= r6.x - tol && xT <= r6.x + r6.w + tol && yT >= r6.y - tol && yT <= r6.y + r6.h + tol;
+  }
+  // ─────────── objetos flutuantes: enumeração / hit-test / handles ───────────
+  static FLOAT_HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
+  /** Todos os objetos flutuantes visíveis no contexto atual (corpo OU HF ativo),
+   *  com o retângulo EXATAMENTE como são pintados. Vazio durante edição de texto
+   *  de caixa (tbEdit). */
+  enumFloats() {
+    if (this.tbEdit || !this.model) return [];
+    const out = [];
+    if (this.hfEdit) {
+      const sp = this.sectPrForSavedPage(this.hfActivePage);
+      const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+      this.model.paragraphs.forEach((p3, pi) => {
+        const paraTop = this.layoutCache[pi]?.lines[0]?.yTwips ?? this.hfRegionTopTwips;
+        for (const r6 of p3.runs) {
+          const obj = r6.textbox ?? r6.image;
+          if (!obj) continue;
+          const { x: x3, y: y3 } = obj.floating ? this.anchoredPos(obj, sp.marginLeftTwips, paraTop, sp) : { x: sp.marginLeftTwips, y: paraTop };
+          out.push({
+            run: r6,
+            obj,
+            kind: r6.textbox ? "textbox" : "image",
+            page: this.hfActivePage,
+            rect: { x: x3, y: y3, w: obj.widthTwips || colW, h: r6.textbox ? this.effectiveTbHeight(r6.textbox) : obj.heightTwips || 240 }
+          });
+        }
+      });
+      return out;
+    }
+    for (const f3 of this.floatImages) {
+      const first = this.layoutCache[f3.para]?.lines[0];
+      if (!first || !f3.run.image) continue;
+      const img = f3.run.image;
+      out.push({
+        run: f3.run,
+        obj: img,
+        kind: "image",
+        page: first.page,
+        rect: {
+          x: first.xTwips + (img.offsetXTwips ?? 0),
+          y: first.yTwips + (img.offsetYTwips ?? 0),
+          w: img.widthTwips,
+          h: img.heightTwips
+        }
+      });
+    }
+    this.model.paragraphs.forEach((p3, pi) => {
+      const first = this.layoutCache[pi]?.lines[0];
+      if (!first) return;
+      const sp = this.sectPrAt(this.pageSections[first.page] ?? 0);
+      const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+      for (const r6 of p3.runs) {
+        if (!r6.textbox) continue;
+        const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp.marginLeftTwips, first.yTwips, sp) : { x: sp.marginLeftTwips, y: first.yTwips };
+        out.push({
+          run: r6,
+          obj: r6.textbox,
+          kind: "textbox",
+          page: first.page,
+          rect: { x: x3, y: y3, w: r6.textbox.widthTwips || colW, h: this.effectiveTbHeight(r6.textbox) }
+        });
+      }
+    });
+    return out;
+  }
+  /** Handle atual do objeto selecionado (retângulo vivo, recomputado). */
+  selectedFloat() {
+    if (!this.floatSel) return null;
+    return this.enumFloats().find((h3) => h3.run === this.floatSel) ?? null;
+  }
+  /** Float ATIVO para handles/resize: a caixa em EDIÇÃO (tbEdit) OU a imagem
+   *  selecionada (floatSel). Assim o redimensionamento coexiste com a edição. */
+  activeFloat() {
+    if (this.tbEdit) {
+      const tb = this.tbEdit.hostRun.textbox;
+      if (!tb) return null;
+      return {
+        run: this.tbEdit.hostRun,
+        obj: tb,
+        kind: "textbox",
+        page: this.tbEdit.pageIdx,
+        rect: { ...this.tbEdit.rectTwips }
+      };
+    }
+    return this.selectedFloat();
+  }
+  /** Objeto flutuante sob o ponteiro (o de cima = último pintado = mais à frente). */
+  hitFloat(e8) {
+    const scale = PX_PER_TWIP * this.zoom;
+    let best = null;
+    for (const h3 of this.enumFloats()) {
+      const cv = this.canvases[h3.page];
+      if (!cv) continue;
+      const rect = cv.getBoundingClientRect();
+      const pageW = rect.width / scale, pageH = rect.height / scale;
+      if (h3.rect.w * h3.rect.h >= 0.55 * pageW * pageH) continue;
+      const xT = (e8.clientX - rect.left) / scale;
+      const yT = (e8.clientY - rect.top) / scale;
+      if (xT >= h3.rect.x && xT <= h3.rect.x + h3.rect.w && yT >= h3.rect.y && yT <= h3.rect.y + h3.rect.h) {
+        best = h3;
+      }
+    }
+    return best;
+  }
+  /** Centro (client px) de cada handle do objeto selecionado. */
+  handleCenters(h3) {
+    const cv = this.canvases[h3.page];
+    if (!cv) return null;
+    const rect = cv.getBoundingClientRect();
+    const scale = PX_PER_TWIP * this.zoom;
+    const left = rect.left + h3.rect.x * scale;
+    const top = rect.top + h3.rect.y * scale;
+    const right = left + h3.rect.w * scale;
+    const bottom = top + h3.rect.h * scale;
+    const midX = (left + right) / 2;
+    const midY = (top + bottom) / 2;
+    return {
+      nw: { cx: left, cy: top },
+      n: { cx: midX, cy: top },
+      ne: { cx: right, cy: top },
+      e: { cx: right, cy: midY },
+      se: { cx: right, cy: bottom },
+      s: { cx: midX, cy: bottom },
+      sw: { cx: left, cy: bottom },
+      w: { cx: left, cy: midY }
+    };
+  }
+  /** Nome do handle sob o ponteiro (ou null). */
+  handleAt(e8) {
+    const h3 = this.activeFloat();
+    if (!h3) return null;
+    const centers = this.handleCenters(h3);
+    if (!centers) return null;
+    const R2 = 7 * (window.devicePixelRatio || 1);
+    for (const name of _UniversalWriteElement.FLOAT_HANDLES) {
+      const c4 = centers[name];
+      if (Math.abs(e8.clientX - c4.cx) <= R2 && Math.abs(e8.clientY - c4.cy) <= R2) return name;
+    }
+    return null;
+  }
+  cursorForHandle(hn) {
+    if (hn === "nw" || hn === "se") return "nwse-resize";
+    if (hn === "ne" || hn === "sw") return "nesw-resize";
+    if (hn === "n" || hn === "s") return "ns-resize";
+    return "ew-resize";
+  }
+  /** Inicia arrasto de mover (handle='') ou redimensionar. Snapshot p/ undo. */
+  startFloatDrag(e8, mode, handle) {
+    const h3 = this.activeFloat();
+    if (!h3) return;
+    e8.preventDefault();
+    const scale = PX_PER_TWIP * this.zoom;
+    this.snapshot();
+    const obj = h3.obj;
+    const editingTb = this.tbEdit && obj === this.tbEdit.hostRun.textbox ? this.tbEdit : null;
+    const startRect = editingTb ? { ...editingTb.rectTwips } : null;
+    if (mode === "resize" && editingTb) obj.autoFit = false;
+    const startW = editingTb ? editingTb.rectTwips.w : obj.widthTwips;
+    const startH = editingTb ? editingTb.rectTwips.h : obj.heightTwips;
+    const d3 = {
+      mode,
+      handle,
+      startClientX: e8.clientX,
+      startClientY: e8.clientY,
+      startW,
+      startH,
+      startOX: obj.offsetXTwips ?? 0,
+      startOY: obj.offsetYTwips ?? 0,
+      aspect: startH ? startW / startH : 1,
+      page: h3.page,
+      moved: false
+    };
+    this.floatDrag = d3;
+    const move = (ev) => {
+      if (!this.floatDrag) return;
+      const dxT = (ev.clientX - d3.startClientX) / scale;
+      const dyT = (ev.clientY - d3.startClientY) / scale;
+      if (Math.abs(ev.clientX - d3.startClientX) + Math.abs(ev.clientY - d3.startClientY) > 2) d3.moved = true;
+      if (d3.mode === "move") {
+        obj.offsetXTwips = Math.round(d3.startOX + dxT);
+        obj.offsetYTwips = Math.round(d3.startOY + dyT);
+      } else {
+        this.applyResize(obj, d3, dxT, dyT, h3.kind === "image");
+      }
+      if (editingTb && startRect) {
+        editingTb.rectTwips = {
+          x: startRect.x + ((obj.offsetXTwips ?? 0) - d3.startOX),
+          y: startRect.y + ((obj.offsetYTwips ?? 0) - d3.startOY),
+          w: obj.widthTwips,
+          h: obj.heightTwips
+        };
+      }
+      this.refresh();
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      const moved = this.floatDrag?.moved;
+      this.floatDrag = null;
+      if (!moved) this.undoStack.pop();
+      else {
+        this.dispatchEvent(new CustomEvent("uw-change"));
+      }
+      this.onSelectionChange?.();
+      this.chromeSync?.();
+      this.refresh();
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+  applyResize(obj, d3, dxT, dyT, lockAspect) {
+    const MIN = 120;
+    const hn = d3.handle;
+    let w2 = d3.startW, h3 = d3.startH, ox = d3.startOX, oy = d3.startOY;
+    if (hn.includes("e")) w2 = d3.startW + dxT;
+    if (hn.includes("w")) {
+      w2 = d3.startW - dxT;
+      ox = d3.startOX + dxT;
+    }
+    if (hn.includes("s")) h3 = d3.startH + dyT;
+    if (hn.includes("n")) {
+      h3 = d3.startH - dyT;
+      oy = d3.startOY + dyT;
+    }
+    if (lockAspect && hn.length === 2 && d3.startW > 0 && d3.startH > 0) {
+      const rw = w2 / d3.startW, rh = h3 / d3.startH;
+      const r6 = Math.abs(rw - 1) >= Math.abs(rh - 1) ? rw : rh;
+      const nw = d3.startW * r6, nh = d3.startH * r6;
+      if (hn.includes("w")) ox = d3.startOX + (d3.startW - nw);
+      if (hn.includes("n")) oy = d3.startOY + (d3.startH - nh);
+      w2 = nw;
+      h3 = nh;
+    }
+    obj.widthTwips = Math.max(MIN, Math.round(w2));
+    obj.heightTwips = Math.max(MIN, Math.round(h3));
+    obj.offsetXTwips = Math.round(ox);
+    obj.offsetYTwips = Math.round(oy);
+  }
+  deleteSelectedFloat() {
+    const run = this.floatSel;
+    if (!run || !this.model) return;
+    this.snapshot();
+    for (const p3 of this.model.paragraphs) {
+      const idx = p3.runs.indexOf(run);
+      if (idx >= 0) {
+        p3.runs.splice(idx, 1);
+        break;
+      }
+    }
+    this.floatImages = this.floatImages.filter((f3) => f3.run !== run);
+    this.floatSel = null;
+    this.refresh();
+    this.onSelectionChange?.();
+    this.chromeSync?.();
   }
   hitTest(e8) {
     if (!this.model) return null;
@@ -14528,6 +15704,74 @@ var UniversalWriteElement = class extends HTMLElement {
     const MAX_DIM = 16384, MAX_AREA = 16384 * 16384;
     return Math.min(dpr, MAX_DIM / cssW, MAX_DIM / cssH, Math.sqrt(MAX_AREA / (cssW * cssH)));
   }
+  /** Pinta a CAMADA de header/footer/notas — chamada ANTES do corpo, para que
+   *  conteúdo behindDoc (capa full-bleed, barras) fique ATRÁS do texto e os
+   *  campos do corpo por cima. O HF que não está em foco fica esmaecido. */
+  paintHfLayer(ctxs, scales, dpr) {
+    const fullDoc = this.fullDoc;
+    if (!(this.view === "print" && fullDoc && !this.hfEdit)) return;
+    for (let pg = 0; pg < ctxs.length; pg++) {
+      const ctx = ctxs[pg];
+      if (!ctx) continue;
+      const scale = scales[pg];
+      const sIdx = this.pageSections[pg] ?? this.pageSections[this.pageSections.length - 1] ?? 0;
+      const section = this.sectionStarts[sIdx]?.section ?? fullDoc.sections[0];
+      const sp = this.sectPrAt(sIdx);
+      const grey = this.pageDark ? "#9aa0a6" : "#555";
+      if (section) {
+        const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+        const header2 = pg === 0 && sp.titlePg ? section.headers.first : section.headers.default;
+        if (header2?.length && !this.hfCapturing) {
+          ctx.save();
+          ctx.globalAlpha = HF_DIM_ALPHA;
+          this.paintHf(ctx, scale, header2, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg, grey, sp);
+          ctx.restore();
+        }
+        const footer2 = pg === 0 && sp.titlePg ? section.footers.first : section.footers.default;
+        if (footer2?.length && !this.hfCapturing) {
+          const fTop = sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720) - this.measureHfHeight(footer2, colW);
+          ctx.save();
+          ctx.globalAlpha = HF_DIM_ALPHA;
+          this.paintHf(ctx, scale, footer2, sp.marginLeftTwips, fTop, colW, pg, grey, sp);
+          ctx.restore();
+        }
+      }
+      if (sp.cols?.sep && sp.cols.count > 1) {
+        const cc = this.colContentOnPage(pg, sp);
+        if (cc) {
+          ctx.strokeStyle = this.pageDark ? "#5f6368" : "#bdbdbd";
+          ctx.lineWidth = Math.max(1, dpr * 0.75);
+          for (let i7 = 0; i7 < cc.n - 1; i7++) {
+            if (!cc.hasContent[i7 + 1]) continue;
+            const xs = (cc.origin(i7 + 1) - cc.gap / 2) * scale;
+            ctx.beginPath();
+            ctx.moveTo(xs, sp.marginTopTwips * scale);
+            ctx.lineTo(xs, cc.maxBottom * scale);
+            ctx.stroke();
+          }
+        }
+      }
+      const hits = this.footnoteHits.filter((h3) => h3.page === pg);
+      if (hits.length && fullDoc.footnotes.size) {
+        let fy = sp.pageHeightTwips - sp.marginBottomTwips - hits.length * 260 - 120;
+        ctx.strokeStyle = grey;
+        ctx.lineWidth = Math.max(1, dpr);
+        ctx.beginPath();
+        ctx.moveTo(sp.marginLeftTwips * scale, fy * scale);
+        ctx.lineTo((sp.marginLeftTwips + 2880) * scale, fy * scale);
+        ctx.stroke();
+        fy += 220;
+        ctx.font = `400 ${9 * TWIPS_PER_PT * scale}px Aptos`;
+        ctx.fillStyle = this.pageDark ? "#c0c4c9" : "#333";
+        for (const h3 of hits) {
+          const paras = fullDoc.footnotes.get(h3.id);
+          const text = paras?.map((p3) => p3.runs.map((r6) => r6.text).join("")).join(" ").trim() ?? "";
+          ctx.fillText(`${h3.id}. ${text}`.slice(0, 160), sp.marginLeftTwips * scale, fy * scale);
+          fy += 240;
+        }
+      }
+    }
+  }
   /** Garante buffer+pintura das páginas visíveis (e vizinhas); libera longe. */
   ensureVisiblePainted() {
     if (this.canvases.length === 0) return;
@@ -14585,44 +15829,41 @@ var UniversalWriteElement = class extends HTMLElement {
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.clearRect(0, 0, c4.width, c4.height);
-      ctx.fillStyle = pageBg;
-      ctx.fillRect(0, 0, c4.width, c4.height);
-      if (this.hfEdit && (this.hfBodySnapshots[i7]?.width ?? 0) > 1) {
+      if (!this.hfCapturing) {
+        ctx.fillStyle = pageBg;
+        ctx.fillRect(0, 0, c4.width, c4.height);
+      }
+      if (this.tbEdit && (this.tbBgSnapshots[i7]?.width ?? 0) > 1) {
         ctx.save();
-        ctx.globalAlpha = 0.32;
-        ctx.drawImage(this.hfBodySnapshots[i7], 0, 0);
+        ctx.globalAlpha = HF_DIM_ALPHA;
+        ctx.drawImage(this.tbBgSnapshots[i7], 0, 0);
         ctx.restore();
       }
       return ctx;
     });
     const pgOf = (p3) => Math.min(p3, ctxs.length - 1);
-    if (this.hfEdit) {
-      const ap = pgOf(this.hfActivePage);
-      const ctxA = ctxs[ap];
-      if (ctxA) {
-        const scale = scales[ap];
-        const sp = this.sectPrForSavedPage(this.hfActivePage);
-        const bandTop = this.hfRegionTopTwips - 120;
-        const bandH = 1100;
-        ctxA.save();
-        ctxA.fillStyle = this.pageDark ? "rgba(80,130,200,0.16)" : "rgba(43,87,154,0.07)";
-        ctxA.fillRect(0, bandTop * scale, this.canvases[ap].width, bandH * scale);
-        ctxA.strokeStyle = this.pageDark ? "#5b8def" : "#2b579a";
-        ctxA.setLineDash([6, 4]);
-        ctxA.lineWidth = Math.max(1, dpr);
-        const gy = (this.hfEdit.kind === "header" ? bandTop + bandH : bandTop) * scale;
-        ctxA.beginPath();
-        ctxA.moveTo(sp.marginLeftTwips * scale, gy);
-        ctxA.lineTo((sp.pageWidthTwips - sp.marginRightTwips) * scale, gy);
-        ctxA.stroke();
-        ctxA.setLineDash([]);
-        ctxA.font = `600 ${9 * TWIPS_PER_PT * scale}px Aptos`;
-        ctxA.fillStyle = this.pageDark ? "#9bc0ff" : "#2b579a";
-        const label = this.hfEdit.kind === "header" ? "Header" : "Footer";
-        ctxA.fillText(label, sp.marginLeftTwips * scale, (bandTop + 200) * scale);
-        ctxA.restore();
+    if (this.tbEdit) {
+      const tp = pgOf(this.tbEdit.pageIdx);
+      const ctxT = ctxs[tp];
+      const snap = this.tbBgSnapshots[tp];
+      if (ctxT) {
+        const scale = scales[tp];
+        const r6 = this.tbEdit.rectTwips;
+        const pad = 3 * dpr;
+        const bx = r6.x * scale - pad, by = r6.y * scale - pad;
+        const bw = r6.w * scale + 2 * pad, bh = Math.max(r6.h, 1) * scale + 2 * pad;
+        ctxT.save();
+        ctxT.beginPath();
+        ctxT.rect(bx, by, bw, bh);
+        ctxT.clip();
+        ctxT.fillStyle = pageBg;
+        ctxT.fillRect(bx, by, bw, bh);
+        if ((snap?.width ?? 0) > 1) ctxT.drawImage(snap, 0, 0);
+        ctxT.restore();
       }
     }
+    if (this.hfEdit && !this.tbEdit) this.paintHfEditCompose(ctxs, scales, dpr);
+    if (!this.tbEdit && !this.hfEdit) this.paintHfLayer(ctxs, scales, dpr);
     for (const pl of this.layoutCache) {
       for (const line of pl.lines) {
         const pg = pgOf(line.page);
@@ -14704,57 +15945,58 @@ var UniversalWriteElement = class extends HTMLElement {
       const yPx = (first.yTwips + (img.offsetYTwips ?? 0)) * scale;
       if (bmp) ctx.drawImage(bmp, x3, yPx, img.widthTwips * scale, img.heightTwips * scale);
     }
-    if (this.view === "print" && this.fullDoc && !this.hfEdit) {
-      for (let pg = 0; pg < ctxs.length; pg++) {
+    if (!this.hfEdit && !this.tbEdit && this.model) {
+      const inkTb = this.pageDark ? "#e3e3e3" : "#1f1f1f";
+      this.model.paragraphs.forEach((p3, pi) => {
+        if (!p3.runs.some((r6) => r6.textbox)) return;
+        const first = this.layoutCache[pi]?.lines[0];
+        if (!first) return;
+        const fpg = pgOf(first.page);
+        const ctx = ctxs[fpg];
+        if (!ctx) return;
+        const scale = scales[fpg];
+        const sp = this.sectPrAt(this.pageSections[fpg] ?? 0);
+        const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+        for (const r6 of p3.runs) {
+          if (!r6.textbox) continue;
+          if (r6 === this.tbSnapshotSuppress) continue;
+          const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp.marginLeftTwips, first.yTwips, sp) : { x: sp.marginLeftTwips, y: first.yTwips };
+          this.paintHf(ctx, scale, r6.textbox.paras, x3, y3, r6.textbox.widthTwips || colW, fpg, inkTb, sp);
+        }
+      });
+    }
+    if (this.floatSel || this.tbEdit) {
+      const h3 = this.activeFloat();
+      if (h3) {
+        const pg = pgOf(h3.page);
         const ctx = ctxs[pg];
-        if (!ctx) continue;
-        const scale = scales[pg];
-        const sIdx = this.pageSections[pg] ?? this.pageSections[this.pageSections.length - 1] ?? 0;
-        const section = this.sectionStarts[sIdx]?.section ?? this.fullDoc.sections[0];
-        const sp = this.sectPrAt(sIdx);
-        const fontPx = 10 * TWIPS_PER_PT * scale;
-        const grey = this.pageDark ? "#9aa0a6" : "#555";
-        void fontPx;
-        if (section) {
-          const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
-          const header2 = (pg === 0 && sp.titlePg ? section.headers.first : void 0) ?? section.headers.default;
-          if (header2?.length) this.paintHf(ctx, scale, header2, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg, grey);
-          const footer2 = (pg === 0 && sp.titlePg ? section.footers.first : void 0) ?? section.footers.default;
-          if (footer2?.length) this.paintHf(ctx, scale, footer2, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg, grey);
-        }
-        if (sp.cols?.sep && sp.cols.count > 1) {
-          const cc = this.colContentOnPage(pg, sp);
-          if (cc) {
-            ctx.strokeStyle = this.pageDark ? "#5f6368" : "#bdbdbd";
-            ctx.lineWidth = Math.max(1, dpr * 0.75);
-            for (let i7 = 0; i7 < cc.n - 1; i7++) {
-              if (!cc.hasContent[i7 + 1]) continue;
-              const xs = (cc.origin(i7 + 1) - cc.gap / 2) * scale;
-              ctx.beginPath();
-              ctx.moveTo(xs, sp.marginTopTwips * scale);
-              ctx.lineTo(xs, cc.maxBottom * scale);
-              ctx.stroke();
-            }
-          }
-        }
-        const hits = this.footnoteHits.filter((h3) => h3.page === pg);
-        if (hits.length && this.fullDoc.footnotes.size) {
-          let fy = sp.pageHeightTwips - sp.marginBottomTwips - hits.length * 260 - 120;
-          ctx.strokeStyle = grey;
+        if (ctx) {
+          const scale = scales[pg];
+          const x3 = h3.rect.x * scale, y3 = h3.rect.y * scale;
+          const w2 = h3.rect.w * scale, hh = h3.rect.h * scale;
+          ctx.save();
+          ctx.strokeStyle = "#2b579a";
+          ctx.setLineDash([4, 3]);
           ctx.lineWidth = Math.max(1, dpr);
-          ctx.beginPath();
-          ctx.moveTo(sp.marginLeftTwips * scale, fy * scale);
-          ctx.lineTo((sp.marginLeftTwips + 2880) * scale, fy * scale);
-          ctx.stroke();
-          fy += 220;
-          ctx.font = `400 ${9 * TWIPS_PER_PT * scale}px Aptos`;
-          ctx.fillStyle = this.pageDark ? "#c0c4c9" : "#333";
-          for (const h3 of hits) {
-            const paras = this.fullDoc.footnotes.get(h3.id);
-            const text = paras?.map((p3) => p3.runs.map((r6) => r6.text).join("")).join(" ").trim() ?? "";
-            ctx.fillText(`${h3.id}. ${text}`.slice(0, 160), sp.marginLeftTwips * scale, fy * scale);
-            fy += 240;
+          ctx.strokeRect(x3, y3, w2, hh);
+          ctx.setLineDash([]);
+          const hs = 6 * dpr;
+          const pts = [
+            [x3, y3],
+            [x3 + w2 / 2, y3],
+            [x3 + w2, y3],
+            [x3 + w2, y3 + hh / 2],
+            [x3 + w2, y3 + hh],
+            [x3 + w2 / 2, y3 + hh],
+            [x3, y3 + hh],
+            [x3, y3 + hh / 2]
+          ];
+          ctx.fillStyle = "#ffffff";
+          for (const [px, py] of pts) {
+            ctx.fillRect(px - hs / 2, py - hs / 2, hs, hs);
+            ctx.strokeRect(px - hs / 2, py - hs / 2, hs, hs);
           }
+          ctx.restore();
         }
       }
     }
@@ -14855,10 +16097,10 @@ var UniversalWriteElement = class extends HTMLElement {
     let x3 = line.xTwips;
     for (const seg of line.rich.segments) {
       const span = pl.spans[seg.spanIndex];
-      const run = para.runs[seg.spanIndex];
+      const run = para.runs[span.runIndex ?? seg.spanIndex];
       const props = run?.props;
       if (run?.custom) {
-        const family2 = span.family?.split(" ")[0] === "Calibri" ? "Calibri" : "Aptos";
+        const family2 = this.familyFor(span.family);
         const fontPx2 = deviceEmPt(span.sizePt) * TWIPS_PER_PT * scale;
         const variant2 = span.variant;
         ctx.font = `${variant2 === "italic" || variant2 === "boldItalic" ? "italic " : ""}${variant2 === "bold" || variant2 === "boldItalic" ? "700" : "400"} ${fontPx2}px ${family2}`;
@@ -14921,7 +16163,7 @@ var UniversalWriteElement = class extends HTMLElement {
         x3 += img.widthTwips;
         continue;
       }
-      const family = span.family?.split(" ")[0] === "Calibri" ? "Calibri" : "Aptos";
+      const family = this.familyFor(span.family);
       const fontPx = deviceEmPt(span.sizePt) * TWIPS_PER_PT * scale;
       const variant = span.variant;
       ctx.font = `${variant === "italic" || variant === "boldItalic" ? "italic " : ""}${variant === "bold" || variant === "boldItalic" ? "700" : "400"} ${fontPx}px ${family}`;
@@ -15061,7 +16303,7 @@ var UniversalWriteElement = class extends HTMLElement {
       const sf = this.fonts.resolve(family, variant);
       let e8 = cache.get(sf);
       if (!e8) {
-        const fam = family?.split(" ")[0] === "Calibri" ? "Calibri" : "Aptos";
+        const fam = this.familyFor(family);
         const bytes = this.fontBytes[fam]?.[variant] ?? this.fontBytes["Aptos"]?.["regular"];
         if (!bytes) throw new Error("font has no bytes to embed in the PDF");
         e8 = doc.embedFont(`${fam}-${variant}`, bytes, {
@@ -15123,9 +16365,9 @@ var UniversalWriteElement = class extends HTMLElement {
         const sp = this.sectPrAt(sIdx);
         if (section) {
           const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
-          const header = (pg === 0 && sp.titlePg ? section.headers.first : void 0) ?? section.headers.default;
+          const header = pg === 0 && sp.titlePg ? section.headers.first : section.headers.default;
           if (header?.length) this.pdfPaintHf(page, emb, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg);
-          const footer = (pg === 0 && sp.titlePg ? section.footers.first : void 0) ?? section.footers.default;
+          const footer = pg === 0 && sp.titlePg ? section.footers.first : section.footers.default;
           if (footer?.length) this.pdfPaintHf(page, emb, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg);
         }
         if (sp.cols?.sep && sp.cols.count > 1) {
@@ -15182,7 +16424,7 @@ var UniversalWriteElement = class extends HTMLElement {
       const baselinePt = line.baselineTwips / T2;
       for (const seg of line.rich.segments) {
         const span = pl.spans[seg.spanIndex];
-        const run = runs[seg.spanIndex];
+        const run = runs[span?.runIndex ?? seg.spanIndex];
         if (!span) continue;
         const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
         const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
@@ -15282,9 +16524,9 @@ var UniversalWriteElement = class extends HTMLElement {
         const sp = this.sectPrAt(sIdx);
         if (!section) continue;
         const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
-        const header = (pg === 0 && sp.titlePg ? section.headers.first : void 0) ?? section.headers.default;
+        const header = pg === 0 && sp.titlePg ? section.headers.first : section.headers.default;
         if (header?.length) this.xpsPaintHf(page, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg);
-        const footer = (pg === 0 && sp.titlePg ? section.footers.first : void 0) ?? section.footers.default;
+        const footer = pg === 0 && sp.titlePg ? section.footers.first : section.footers.default;
         if (footer?.length) this.xpsPaintHf(page, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg);
       }
     }
@@ -15300,7 +16542,7 @@ var UniversalWriteElement = class extends HTMLElement {
     const famOf = (family) => family?.split(" ")[0] === "Calibri" ? "Calibri" : "Aptos";
     let y3 = topYTwips;
     for (const p3 of paras) {
-      const runs = p3.runs.map((r6) => r6.field ? { ...r6, text: /NUMPAGES/i.test(r6.field) ? String(this.pageCount) : /PAGE/i.test(r6.field) ? String(pageIdx + 1) : r6.text } : r6);
+      const runs = p3.runs.map((r6) => r6.field ? { ...r6, text: /NUMPAGES/i.test(r6.field) ? String(this.numPagesFor()) : /PAGE/i.test(r6.field) ? String(this.pageNumberFor(pageIdx)) : r6.text } : r6);
       const spans = this.buildSpans({ runs, props: p3.props });
       const { lines } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
@@ -15318,7 +16560,7 @@ var UniversalWriteElement = class extends HTMLElement {
         for (const seg of line.segments) {
           const span = spans[seg.spanIndex];
           if (!span) continue;
-          const run = runs[seg.spanIndex];
+          const run = runs[span.runIndex ?? seg.spanIndex];
           const renderer = run?.custom ? this.inlineRenderers.get(run.custom.type)?.renderer : void 0;
           const txt = run?.custom ? renderer?.toText?.(run.custom.data) ?? run.custom.fallbackText : span.text.slice(seg.start, seg.end);
           if (!txt.trim()) continue;
@@ -15441,7 +16683,7 @@ var UniversalWriteElement = class extends HTMLElement {
     let x3 = line.xTwips;
     for (const seg of line.rich.segments) {
       const span = pl.spans[seg.spanIndex];
-      const run = para.runs[seg.spanIndex];
+      const run = para.runs[span.runIndex ?? seg.spanIndex];
       const props = run?.props;
       if (run?.custom) {
         const globalStart2 = pl.spanCharStart[seg.spanIndex] + seg.start;
@@ -15579,7 +16821,7 @@ var UniversalWriteElement = class extends HTMLElement {
     ];
     let y3 = topYTwips;
     for (const p3 of paras) {
-      const runs = p3.runs.map((r6) => r6.field ? { ...r6, text: /NUMPAGES/i.test(r6.field) ? String(this.pageCount) : /PAGE/i.test(r6.field) ? String(pageIdx + 1) : r6.text } : r6);
+      const runs = p3.runs.map((r6) => r6.field ? { ...r6, text: /NUMPAGES/i.test(r6.field) ? String(this.numPagesFor()) : /PAGE/i.test(r6.field) ? String(this.pageNumberFor(pageIdx)) : r6.text } : r6);
       const spans = this.buildSpans({ runs, props: p3.props });
       const { lines, charAdvances } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
@@ -15613,7 +16855,7 @@ var UniversalWriteElement = class extends HTMLElement {
         const baseline = y3 + lh * 0.8;
         for (const seg of line.segments) {
           const span = spans[seg.spanIndex];
-          const run = runs[seg.spanIndex];
+          const run = runs[span.runIndex ?? seg.spanIndex];
           const font = emb(span.family, span.variant);
           const col = run?.props.color ? hexColor(run.props.color) : [0.33, 0.33, 0.33];
           const gs = spanStart[seg.spanIndex] + seg.start;
@@ -17119,7 +18361,9 @@ var themeStyle2 = document.createElement("style");
 themeStyle2.id = "u-theme";
 themeStyle2.textContent = ThemeBuilder.create("#1A73E8").build();
 document.head.appendChild(themeStyle2);
-document.documentElement.style.colorScheme = "light dark";
+if (!document.documentElement.style.colorScheme) {
+  document.documentElement.style.colorScheme = "light dark";
+}
 globalThis.UniversalOffice = {
   createMentionPlugin,
   diffDocuments,

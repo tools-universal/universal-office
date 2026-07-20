@@ -46,6 +46,42 @@ function drawingXml(run: Run): string {
   );
 }
 
+/** Atualiza a GEOMETRIA (tamanho/posição) do <w:drawing> cru a partir dos
+ *  valores atuais do objeto — reflete mover/redimensionar feitos na UI mantendo
+ *  o resto do shape intacto. Idempotente quando nada mudou. */
+function patchDrawingGeometry(
+  raw: string,
+  obj: { widthTwips: number; heightTwips: number; offsetXTwips?: number; offsetYTwips?: number },
+): string {
+  const cx = Math.round(obj.widthTwips * EMU_PER_TWIP);
+  const cy = Math.round(obj.heightTwips * EMU_PER_TWIP);
+  let out = raw
+    .replace(/<wp:extent\b[^>]*\/>/, (m) => m.replace(/cx="\d+"/, `cx="${cx}"`).replace(/cy="\d+"/, `cy="${cy}"`))
+    .replace(/<a:ext\b[^>]*\/>/g, (m) => m.replace(/cx="\d+"/, `cx="${cx}"`).replace(/cy="\d+"/, `cy="${cy}"`));
+  if (obj.offsetXTwips !== undefined) {
+    const ex = Math.round(obj.offsetXTwips * EMU_PER_TWIP);
+    out = out.replace(/<wp:positionH\b[^>]*>[\s\S]*?<\/wp:positionH>/, (b) =>
+      b.replace(/(<wp:posOffset>)-?\d+(<\/wp:posOffset>)/, `$1${ex}$2`));
+  }
+  if (obj.offsetYTwips !== undefined) {
+    const ey = Math.round(obj.offsetYTwips * EMU_PER_TWIP);
+    out = out.replace(/<wp:positionV\b[^>]*>[\s\S]*?<\/wp:positionV>/, (b) =>
+      b.replace(/(<wp:posOffset>)-?\d+(<\/wp:posOffset>)/, `$1${ey}$2`));
+  }
+  return out;
+}
+
+/** Reemite o <w:drawing> CRU trocando o conteúdo de CADA <w:txbxContent> pelos
+ *  parágrafos (possivelmente editados). Preserva shape/âncora/fill do original;
+ *  campos (PAGE/NUMPAGES) voltam como fldSimple via paraXml. */
+function drawingWithParas(rawDrawingXml: string, paras: Paragraph[]): string {
+  const inner = paras.map(paraXml).join('');
+  return rawDrawingXml.replace(
+    /<w:txbxContent\b[^>]*>[\s\S]*?<\/w:txbxContent>/g,
+    (m) => `${/^<w:txbxContent\b[^>]*>/.exec(m)![0]}${inner}</w:txbxContent>`,
+  );
+}
+
 function runXml(run: Run): string {
   if (run.custom) {
     const type = run.custom.type;
@@ -68,12 +104,24 @@ function runXml(run: Run): string {
     );
   }
   if (run.image) {
+    // imagem original: reemite o <w:drawing> CRU (preserva âncora/flutuante e
+    // reusa a mídia/rels existentes), com a geometria atual (mover/redimensionar).
+    // Só reconstrói para imagens NOVAS.
+    if (run.image.rawDrawingXml) {
+      return `<w:r>${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
+    }
     return `<w:r>${drawingXml(run)}</w:r>`;
   }
-  // caixa de texto: não reconstruímos o XML do drawing (não guardamos o cru).
-  // Emite nada — o mesmo que antes de existir o parse (headers/footers com
-  // timbrado são preservados byte-a-byte pela camada de partes).
-  if (run.textbox) return '';
+  // caixa de texto: reemite o <w:drawing> CRU com a geometria atual, trocando só
+  // o <w:txbxContent> pelos parágrafos (possivelmente editados). Sem o cru (caixa
+  // criada por nós), emite nada — evitando XML de shape inválido.
+  if (run.textbox) {
+    if (run.textbox.rawDrawingXml) {
+      const geo = patchDrawingGeometry(run.textbox.rawDrawingXml, run.textbox);
+      return `<w:r>${drawingWithParas(geo, run.textbox.paras)}</w:r>`;
+    }
+    return '';
+  }
   const p = run.props;
   const rpr: string[] = [];
   if (p.fontAscii) {
@@ -237,11 +285,12 @@ export function sectPrInner(s: SectPr, refs: HfRefXml[] = []): string {
       `${s.cols.sep ? ' w:sep="true"' : ''} w:equalWidth="true"/>`
     : '';
   const titlePg = s.titlePg ? '<w:titlePg/>' : '';
+  const pgNumType = s.pgNumStart !== undefined ? `<w:pgNumType w:start="${s.pgNumStart}"/>` : '';
   return (
     `${refsXml}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/>` +
     `<w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" ` +
     `w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" ` +
-    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${cols}${titlePg}`
+    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${cols}${pgNumType}${titlePg}`
   );
 }
 

@@ -6,8 +6,11 @@
   <title>Universal Write — live editor</title>
   <meta name="description" content="Run the <universal-write> editor live in your browser — open, edit, and save .docx with rendering faithful to the reference application." />
   <link rel="icon" type="image/svg+xml" href="assets/icons/universal-office.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="assets/style.css" />
-  <script src="assets/theme.js"></script>
+  <script src="assets/theme.js?v=2"></script>
   <style>
     html, body { height: 100%; margin: 0; }
     body { display: flex; flex-direction: column; overflow: hidden; }
@@ -52,7 +55,7 @@
   <universal-write id="ed" fonts="/assets/fonts" topbar bottombar></universal-write>
 
   <script type="module">
-    import '/assets/universal-office.js?v=25';
+    import '/assets/universal-office.js?v=53';
     const bytesOf = async (u) => new Uint8Array(await (await fetch(u)).arrayBuffer());
     const ed = document.getElementById('ed');
     ed.addEventListener('uw-ready', async () => {

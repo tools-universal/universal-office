@@ -27,6 +27,10 @@ export interface StyledSpan {
   /** Span de imagem inline: text é '￼', avança pela largura. */
   imageWidthTwips?: number;
   imageHeightTwips?: number;
+  /** Índice do RUN de origem no parágrafo. Um run pode virar VÁRIOS spans (ex.:
+   *  small caps quebra em maiúsc. cheias + minúsc.→versaletes menores), então o
+   *  render usa isto (não spanIndex) p/ achar as props do run (cor, link…). */
+  runIndex?: number;
 }
 
 export interface RichSegment {

@@ -8,7 +8,14 @@ export interface XmlElement {
   name: string;
   attrs: Record<string, string>;
   children: (XmlElement | string)[];
+  /** Fatia CRUA do fonte para este elemento (só populada em elementos que
+   *  precisamos reemitir byte-a-byte, ex.: w:drawing — formas/caixas de texto
+   *  que não reconstruímos). Ver RAW_CAPTURE. */
+  raw?: string;
 }
+
+/** Nomes de elementos cujo XML cru preservamos para reemissão fiel. */
+const RAW_CAPTURE = new Set(['w:drawing']);
 
 const ENTITIES: Record<string, string> = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
@@ -51,6 +58,7 @@ export function parseXml(xml: string): XmlElement {
 
   function parseElement(): XmlElement {
     if (xml[i] !== '<') error('esperava <');
+    const elStart = i;
     i++;
     const nameStart = i;
     while (i < n && !/[\s/>]/.test(xml[i]!)) i++;
@@ -61,7 +69,9 @@ export function parseXml(xml: string): XmlElement {
       if (xml[i] === '/') {
         if (xml[i + 1] !== '>') error('esperava />');
         i += 2;
-        return { name, attrs, children: [] };
+        const el: XmlElement = { name, attrs, children: [] };
+        if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i);
+        return el;
       }
       if (xml[i] === '>') { i++; break; }
       const aStart = i;
@@ -87,7 +97,9 @@ export function parseXml(xml: string): XmlElement {
       if (xml.startsWith('</', i)) {
         const close = xml.indexOf('>', i);
         i = close + 1;
-        return { name, attrs, children };
+        const el: XmlElement = { name, attrs, children };
+        if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i);
+        return el;
       }
       if (xml.startsWith('<!--', i)) {
         i = xml.indexOf('-->', i) + 3;
