@@ -64,7 +64,9 @@ ipcMain.handle('wn:title-theme', (e, dark) => {
   win.setBackgroundColor(dark ? '#131314' : '#FCFCFC');
 });
 
-const repoRoot = join(__dirname, '..', '..');
+// Em dev serve a raiz do repo; empacotado serve os assets copiados para
+// resources (ver "extraResources" no package.json).
+const repoRoot = app.isPackaged ? process.resourcesPath : join(__dirname, '..', '..');
 
 /**
  * Renderiza assets/icon.html (256×256, com o SVG) numa BrowserWindow offscreen
@@ -119,11 +121,15 @@ function serve() {
 }
 
 app.whenReady().then(async () => {
-  // Garante o PNG do ícone antes da janela principal — usado em taskbar/title.
-  const iconPath = await ensureIconPng().catch((err) => {
-    console.warn('[wn] não foi possível gerar icon.png:', err?.message);
-    return undefined;
-  });
+  // Em dev, renderiza o SVG → PNG para o ícone da janela. Empacotado, o ícone
+  // já vem embutido no executável/bundle pelo electron-builder (e o asar é
+  // somente-leitura, então não dá para gravar icon.png em runtime).
+  const iconPath = app.isPackaged
+    ? undefined
+    : await ensureIconPng().catch((err) => {
+        console.warn('[wn] não foi possível gerar icon.png:', err?.message);
+        return undefined;
+      });
   // macOS usa o dock; demais SOs usam icon: na janela
   if (iconPath && process.platform === 'darwin' && app.dock) {
     app.dock.setIcon(nativeImage.createFromPath(iconPath));

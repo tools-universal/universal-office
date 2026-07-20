@@ -3,14 +3,61 @@
   "version": "0.0.1",
   "private": true,
   "description": "Shell Electron embarcando o <universal-write> (fase 5 — ver ARCHITECTURE.md)",
+  "author": "tools-universal",
+  "homepage": "https://github.com/tools-universal/universal-office-desktop",
   "main": "main.cjs",
   "scripts": {
-    "start": "electron ."
-  },
-  "dependencies": {
-    "@universal-office/write": "*"
+    "start": "electron .",
+    "build:icon": "node build/gen-icon.mjs",
+    "dist": "electron-builder --publish never"
   },
   "devDependencies": {
-    "electron": "^42.4.0"
+    "electron": "^42.4.0",
+    "electron-builder": "^25.1.8",
+    "sharp": "^0.33.5"
+  },
+  "build": {
+    "appId": "com.tools-universal.universal-write",
+    "productName": "Universal Write",
+    "copyright": "Copyright © 2026 tools-universal",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs"
+    ],
+    "extraResources": [
+      {
+        "from": "../../packages/editor/demo",
+        "to": "packages/editor/demo",
+        "filter": ["index.html", "bundle.js", "fonts/**/*"]
+      },
+      {
+        "from": "../../tools/word-lab/fonts",
+        "to": "tools/word-lab/fonts",
+        "filter": ["*.ttf", "*.json"]
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "Universal-Write-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.productivity",
+      "artifactName": "Universal-Write-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Office",
+      "artifactName": "Universal-Write-${version}-${arch}.${ext}"
+    }
   }
 }

@@ -1,0 +1,96 @@
+name: Release desktop
+
+# Builda o app Electron (Universal Write) para Windows, macOS e Linux nos
+# runners nativos e publica um release (draft) no repositório de releases
+# tools-universal/universal-office-desktop.
+#
+# Como disparar: crie e dê push numa tag "v*", ex.:
+#   git tag v0.1.0 && git push origin v0.1.0
+# ou rode manualmente (Actions → Release desktop → Run workflow) informando a tag.
+#
+# Secret necessário: RELEASE_TOKEN — um PAT (fine-grained com "Contents: write"
+# no repo universal-office-desktop, ou classic com escopo "repo"). O GITHUB_TOKEN
+# padrão só publica no próprio repo, por isso o token dedicado para cross-repo.
+#
+# Assinatura: os builds saem NÃO assinados (macOS mostra aviso do Gatekeeper e
+# Windows o SmartScreen). Para assinar, adicione os certificados como secrets e
+# configure win.certificateFile / mac notarization no package.json.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (ex.: v0.1.0)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build editor demo bundle
+        run: npm --prefix packages/editor run build:demo
+
+      - name: Generate app icon (SVG → 1024px PNG)
+        run: npm --prefix apps/electron run build:icon
+
+      - name: Build installer (electron-builder)
+        run: npm --prefix apps/electron run dist
+        env:
+          # builds não assinados — não tenta descobrir/usar um certificado
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          if-no-files-found: warn
+          path: |
+            write/apps/electron/dist/*.exe
+            write/apps/electron/dist/*.dmg
+            write/apps/electron/dist/*.AppImage
+            write/apps/electron/dist/*.yml
+            write/apps/electron/dist/*.blockmap
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish (draft) to universal-office-desktop
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: tools-universal/universal-office-desktop
+          token: ${{ secrets.RELEASE_TOKEN }}
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: Universal Write ${{ github.event.inputs.tag || github.ref_name }}
+          draft: true
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+          files: artifacts/**/*

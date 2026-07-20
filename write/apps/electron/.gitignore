@@ -1,0 +1,4 @@
+node_modules/
+dist/
+# ícone rasterizado no build a partir de build/icon.svg (ver build/gen-icon.mjs)
+build/icon.png
