@@ -1,0 +1,16 @@
+{
+  "name": "@universal/sheet-app-electron",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shell Electron embarcando o <universal-sheet>",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "@universal/sheet": "*"
+  },
+  "devDependencies": {
+    "electron": "^42.4.0"
+  }
+}

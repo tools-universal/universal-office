@@ -5,7 +5,7 @@ import { unzipSync, zipSync, type Zippable } from 'fflate';
  *
  * REGRA DE OURO: round-trip sem perdas. Toda parte do pacote é preservada
  * byte a byte; só substituímos o conteúdo de uma parte quando uma edição
- * a modifica de fato. A ordem das partes no ZIP é preservada — o Excel não
+ * a modifica de fato. A ordem das partes no ZIP é preservada — o app de referência não
  * exige isso, mas facilita diffs e detecta regressões nossas.
  */
 export class XlsxPackage {
@@ -71,7 +71,7 @@ export class XlsxPackage {
     }
     const pkg = new XlsxPackage(new Map(Object.entries(unzipped)));
     if (!pkg.getPart('xl/workbook.xml')) {
-      throw new Error('Pacote sem xl/workbook.xml — não é uma pasta de trabalho do Excel');
+      throw new Error('Pacote sem xl/workbook.xml — não é uma pasta de trabalho do app de referência');
     }
     return pkg;
   }
@@ -116,9 +116,14 @@ export class XlsxPackage {
    * target "worksheets/sheet1.xml" → "xl/worksheets/sheet1.xml").
    */
   resolveRelTarget(fromPart: string, target: string): string {
-    const dir = fromPart.includes('/') ? fromPart.slice(0, fromPart.lastIndexOf('/')) : '';
-    // target pode ser absoluto ("/xl/...") ou relativo ("worksheets/..")
     if (target.startsWith('/')) return target.slice(1);
-    return dir ? `${dir}/${target}` : target;
+    let dir = fromPart.includes('/') ? fromPart.slice(0, fromPart.lastIndexOf('/')) : '';
+    let t = target;
+    // resolve "../" (ex.: worksheets/_rels/sheet1.xml.rels -> ../comments1.xml = xl/comments1.xml)
+    while (t.startsWith('../')) {
+      t = t.slice(3);
+      dir = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : '';
+    }
+    return dir ? `${dir}/${t}` : t;
   }
 }

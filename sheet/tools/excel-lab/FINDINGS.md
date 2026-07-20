@@ -137,6 +137,38 @@ Pipeline de paridade visual (oráculo: Excel real via COM):
 - **formatCode é locale-dependente** quando gerado via COM pt-BR: datas vêm com `\y`
   escapado (Excel renderiza LITERAL "yyyy"). `\x` = literal sempre (Excel tb).
 
+## Oráculo de formatação numérica/data (oracle-format.json — 74 casos, pt-BR)
+
+Capturado escrevendo formatCodes **canônicos OOXML** num `.xlsx` e lendo
+`Range.Text` no Excel real (gen-oracle-xlsx.mjs + read-oracle-xlsx.ps1). Regras
+fixadas no motor `sheet-core/src/format.ts` (format.test.ts):
+
+- **Locale pt-BR de exibição**: decimal `,`, milhar `.`. `#,##0.00` em
+  `1234567.89` → `1.234.567,89`. General `3.14159` → `3,14159`.
+- **General cabe em ~11 caracteres** (parte numérica, sinal não conta); estoura
+  p/ científico: `123456789012` → `1,23457E+11`; `999999999999` → `1E+12`;
+  `0.6666…` → `0,666666667` (11 chars); `1e-10` → `1E-10` (decimal teria 12 chars);
+  `100000000` (9 díg) fica inteiro. Mantissa científica trima zeros à direita.
+- **Seções `;`**: 1=pos(+sinal auto p/ neg), 2=neg(abs, sinal do template),
+  3=zero, 4=texto(`@`). `#,##0;(#,##0)` com −5 → `(5)`. `"pos";"neg";"zero"` com
+  0 → `zero`. Seção só-literal não injeta número.
+- **`%`** escala ×100 E é literal: `0.00%` 0.1234 → `12,34%`.
+- **Arredondamento** metade-p/-cima: `0,005` `0.00` → `0,01`; `0,004` → `0,00`.
+- **Científico**: `0.00E+00` → `1,23E+04` (expoente mín. 2 díg); engenharia
+  `##0.0E+0` alinha o expoente a múltiplo do nº de díg. inteiros → `12,3E+3`.
+- **Frações** (Stern-Brocot, den ≤ 10^(nº `?`)−1): `# ?/?` 0,5 → ` 1/2`,
+  2,25 → `2 1/4`; `# ??/??` 0,333 → `1/3` (com padding de `?`).
+- **Datas** (read-oracle confirma com tokens canônicos): `m/d/yyyy` → `6/30/2025`,
+  `dddd` → `segunda-feira`, `mmmm` → `junho`, `mmm`/`ddd` minúsculos. `[h]:mm`
+  (decorrido) 1,5 → `36:00`. `m` é minuto após `h`/antes de `s`, senão mês.
+- **`@` em célula numérica** = valor como texto (General): 42 `@` → `42`.
+- **`####`** (largura): NÚMERO/DATA que não cabe vira `#`+; TEXTO transborda p/
+  vizinhas vazias. Confirmado no smoke.xlsx (B4/B7/B8 = `########` no Excel).
+- **`date1904`** (`<workbookPr date1904>`): seriais de calendário deslocam +1462.
+- **`activeTab`** vive em `<bookViews><workbookView activeTab>` (não no root).
+- **`tint`** de cor (HSL): branco −25% → `#BFBFBF`, −15% → `#D9D9D9`, −5% →
+  `#F2F2F2` (faixas zebradas). tint<0 → L·(1+tint); tint>0 → L·(1−tint)+tint.
+
 ### Estado atual (aba Datas, showcase.xlsx)
 - Conteúdo: **idêntico célula-a-célula** ao Excel (auditado via Range.Text).
 - Dimensões: **exatas** (305×141 vs 304×140).

@@ -1,10 +1,10 @@
 # Universal Sheet — Arquitetura
 
-Planilha eletrônica **1:1 compatível com Microsoft Excel**: mesmo formato
+Planilha eletrônica **1:1 compatível com o app de referência**: mesmo formato
 (`.xlsx` / SpreadsheetML), mesma renderização em tela. Irmão do UniversalWrite
-(WordNext) dentro do monorepo OfficeNext — mesma metodologia, mesmo rigor.
+(Write) dentro do monorepo Universal Office — mesma metodologia, mesmo rigor.
 
-Princípio organizador (aprendido com o WordNext): **abstrair cedo é o que quebra
+Princípio organizador (aprendido com o Write): **abstrair cedo é o que quebra
 a compatibilidade em todo editor de Office**. Cada editor concorrente perde
 fidelidade porque inventa um modelo "bonito" que não espelha o formato real.
 Aqui o modelo interno espelha o OOXML literalmente.
@@ -13,21 +13,21 @@ Aqui o modelo interno espelha o OOXML literalmente.
 
 Um `.xlsx` é um ZIP de partes (OPC). Toda parte é preservada **byte a byte**;
 só regeneramos uma parte quando uma edição a modifica de fato. A **ordem das
-partes no ZIP é preservada** — o Excel não exige, mas diffs ficam limpos e
+partes no ZIP é preservada** — o app de referência não exige, mas diffs ficam limpos e
 regressões nossas saltam aos olhos. Partes/atributos desconhecidos fluem
 intactos (rawXml passthrough). Isso é a base estrutural de compatibilidade.
 
-## Metodologia — Excel como oráculo (3 camadas)
+## Metodologia — o app de referência como oráculo (3 camadas)
 
-A especificação não é um documento; é o comportamento observado do Excel real,
+A especificação não é um documento; é o comportamento observado do app de referência,
 capturado por automação COM (`New-Object -ComObject Excel.Application`).
 
 ### Camada A — Diferencial estrutural (mutação de XML)
-`tools/excel-lab/` dirige o Excel real via COM:
+`tools/excel-lab/` dirige o app de referência via COM:
 1. Cada **experimento** (`experiments/NNN-*.ps1`) define `$Description`,
    `$Setup` (opcional) e `$Operation` (uma operação atômica: setar valor,
    aplicar formato, inserir fórmula, mesclar células…).
-2. `run-experiment.ps1` abre o Excel, snapshot `before.xlsx`, executa a op,
+2. `run-experiment.ps1` abre o app de referência, snapshot `before.xlsx`, executa a op,
    snapshot `after.xlsx`.
 3. Ambos são descompactados, todo XML re-indentado (`XDocument`), e
    `git diff --no-index` gera `sheet.diff` + `report.md`.
@@ -35,14 +35,14 @@ capturado por automação COM (`New-Object -ComObject Excel.Application`).
    Achados vão para `FINDINGS.md`.
 
 ### Camada B — Oráculo numérico de layout
-O Excel usa um sistema de unidades próprio (largura de coluna em caracteres da
+O app de referência usa um sistema de unidades próprio (largura de coluna em caracteres da
 fonte Normal, altura de linha em pontos). Validamos nosso motor de grid contra
-os números do Excel: `Range.Width`, `Range.Height`, `ColumnWidth`,
+os números do app de referência: `Range.Width`, `Range.Height`, `ColumnWidth`,
 `RowHeight`, `UsedRange`, e quebras de página impressas
 (`HPageBreaks`/`VPageBreaks`).
 
 ### Camada C — Fidelidade de pixel (renderização)
-O Excel exporta **PDF** (`ExportAsFixedFormat`, Type=0). Rasterizamos via WinRT
+O app de referência exporta **PDF** (`ExportAsFixedFormat`, Type=0). Rasterizamos via WinRT
 `Windows.Data.Pdf` (PowerShell 5.1 — pwsh não projeta WinRT). Nosso canvas
 renderiza e compara com `pixel-compare.mjs` (cinza + blur 3×3 + tolerância).
 Métrica estrutural (blur) separa estrutura de fase de antialiasing entre
@@ -52,11 +52,15 @@ rasterizadores.
 
 | Pacote | npm | Propósito |
 |---|---|---|
-| **sheet-core** | `@universal/sheet-core` | Modelo + parse/serialize OOXML. `XlsxPackage` (container lossless), `parseXml`, leitura de workbook/worksheets/sharedStrings/styles. |
-| _sheet-layout_ (futuro) | `@universal/sheet-layout` | Motor de grid: largura de coluna (unidades de caractere), altura de linha, paginação, células mescladas, clipping/overflow. |
-| _editor_ (futuro) | `@universal/sheet` | O webcomponent `<universal-sheet>`. Renderiza o grid em canvas. Célula, fórmula, seleção, panes congeladas. |
+| **sheet-core** | `@universal/sheet-core` | Modelo + parse/serialize OOXML. `XlsxPackage` (container lossless), `parseXml`, leitura de workbook/worksheets/sharedStrings/styles/theme, `formatValue` pt-BR (oráculo 1:1). |
+| **sheet** | `@universal/sheet` | O webcomponent `<universal-sheet>`. Renderiza o grid em canvas: células, estilos, merges, panes congeladas (4 quadrantes), rich text, charts, hyperlinks, edição inline. |
+| **export** | `@universal/sheet-export` | Exportadores puros (browser+node): CSV/TSV (`;`, RFC 4180, CRLF), Markdown (GFM), HTML (estilos inline), PDF (via `@wordnext/pdf`), ODS (OpenDocument) e SpreadsheetML 2003. Valores exibidos via `formatValue` pt-BR. |
+| _sheet-layout_ (futuro) | `@universal/sheet-layout` | Motor de grid extraído (hoje o layout vive no webcomponent; funções puras em `grid-layout.ts`). |
 
-(modelo segue o WordNext: pdf, export, odf — futuros)
+> **Build cross-workspace**: `@universal/sheet-export` depende de
+> `@wordnext/pdf` via `file:../../../write/packages/pdf` (symlink npm) e dos
+> **`dist/` do write** — rode `npm run build` no `write/` antes do build do
+> sheet num checkout limpo (senão TS2307 "Cannot find module '@wordnext/pdf'").
 
 ## Stack
 
@@ -66,7 +70,7 @@ shell Electron. Sem React/Vite — editor é webcomponent renderizando em canvas
 
 ## Convenções
 
-- **Pasta**: `SheetNext/` (paralela a `WordNext/`). **Produto**: Universal Sheet.
+- **Pasta**: `sheet/` (paralela a `write/`). **Produto**: Universal Sheet.
   **Scope npm**: `@universal`. **Webcomponent**: `<universal-sheet>`.
 - Imports usam extensão `.js` mesmo em fonte `.ts` (ESM + moduleResolution bundler).
 - `index.ts` é barrel re-exportando a API pública (`export type` para interfaces).
@@ -92,5 +96,5 @@ planilha visível
 ```
 
 Por que canvas, não DOM: um navegador não vai reproduzir a renderização de
-célula do Excel (overflow/clip, autofit, alinhamento vertical, grids)
+célula do app de referência (overflow/clip, autofit, alinhamento vertical, grids)
 fielmente. Controlamos cada pixel.

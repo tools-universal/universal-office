@@ -9,7 +9,7 @@
     @font-face { font-family:'Poppins'; font-style:normal; font-weight:500; font-display:swap; src:url('fonts/poppins-500.woff2') format('woff2'); }
     @font-face { font-family:'Poppins'; font-style:normal; font-weight:600; font-display:swap; src:url('fonts/poppins-600.woff2') format('woff2'); }
     @font-face { font-family:'Poppins'; font-style:normal; font-weight:700; font-display:swap; src:url('fonts/poppins-700.woff2') format('woff2'); }
-    /* ── Fonte Normal do Excel: Aptos Narrow (extraída do Office, sem subset) ── */
+    /* ── Fonte Normal da planilha de referência: Aptos Narrow (extraída do app de referência, sem subset) ── */
     @font-face { font-family:'Aptos Narrow'; font-weight:400; font-style:normal; font-display:block; src:url('fonts/aptos-narrow-regular.ttf') format('truetype'); }
     @font-face { font-family:'Aptos Narrow'; font-weight:700; font-style:normal; font-display:block; src:url('fonts/aptos-narrow-bold.ttf') format('truetype'); }
     @font-face { font-family:'Aptos Narrow'; font-weight:400; font-style:italic; font-display:block; src:url('fonts/aptos-narrow-italic.ttf') format('truetype'); }
@@ -65,11 +65,18 @@
       font-family: "Poppins", "Segoe UI", system-ui, sans-serif; font-size: 14px;
       background: var(--bg); color: var(--text);
     }
-    /* ───── header ───── */
+    /* ───── header (mesclado com a barra de título da janela) ───── */
     header {
       display: flex; align-items: center; gap: 10px;
       background: var(--u-color-surface);
-      padding: 8px 16px; min-height: 48px;
+      -webkit-app-region: drag; /* Electron: arrasta a janela pelo header */
+      padding: 8px 16px; min-height: 48px; /* simétrico no browser */
+    }
+    /* SÓ no Electron: reserva a área dos controles da janela (overlay). A
+       classe .electron é setada em main.ts quando a ponte (window.universalSheet)
+       existe — mesmo padrão do write. */
+    html.electron header {
+      padding-right: calc(100vw - env(titlebar-area-width, calc(100vw - 16px)) + 16px);
     }
     header input, header button, header nav, header .head-right { -webkit-app-region: no-drag; }
     .logo {
@@ -303,11 +310,9 @@
             <button id="actOpen">Abrir… <span class="kbd">Ctrl+O</span></button>
             <div class="sep"></div>
             <button id="actSave">Salvar <span class="kbd">Ctrl+S</span></button>
-            <button id="actSaveAs">Salvar como…</button>
+            <button id="actSaveAs">Salvar como… <span class="kbd">Ctrl+Shift+S</span></button>
             <div class="sep"></div>
-            <button id="actExportCsv">Baixar CSV</button>
-            <div class="sep"></div>
-            <button id="actPrint">Imprimir <span class="kbd">Ctrl+P</span></button>
+            <button id="actPrint">Imprimir (PDF) <span class="kbd">Ctrl+P</span></button>
           </div>
         </div>
         <div>

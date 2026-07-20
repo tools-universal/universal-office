@@ -1,5 +1,8 @@
 import '../src/universal-sheet';
 import type { UniversalSheetElement } from '../src/universal-sheet';
+import {
+  xlsxToCsv, xlsxToTsv, xlsxToMarkdown, xlsxToHtml, xlsxToPdf, xlsxToOds, xlsxToXml2003,
+} from '@universal/sheet-export';
 import { openMenu, type MenuItem } from './menu.js';
 import { rippleAll } from './ripple.js';
 import { applyGeneratedTheme } from './theme.js';
@@ -9,6 +12,12 @@ import '@universal-material/web/button/icon-button.js';
 const us = document.getElementById('us') as UniversalSheetElement;
 const $ = (id: string) => document.getElementById(id)!;
 const titleInput = $('docTitle') as HTMLInputElement;
+
+// Electron: a ponte window.universalSheet marca o modo desktop — o CSS
+// reserva a área dos controles da janela (mesmo padrão do write)
+if ((window as { universalSheet?: unknown }).universalSheet) {
+  document.documentElement.classList.add('electron');
+}
 
 // ───────────────────────── modos de cor ─────────────────────────
 type ColorMode = 'auto' | 'light' | 'dark' | 'black';
@@ -21,6 +30,9 @@ const applyMode = (m: ColorMode): void => {
   document.documentElement.style.colorScheme = m === 'auto' ? 'light dark' : m === 'light' ? 'light' : 'dark';
   $('darkToggleIcon').textContent = MODE_ICONS[m];
   localStorage.setItem('us-mode', m);
+  // Electron: controles da janela acompanham o tema
+  const dark = m === 'dark' || m === 'black' || (m === 'auto' && prefersDark.matches);
+  (window as { universalSheet?: { setTitleTheme(d: boolean): void } }).universalSheet?.setTitleTheme(dark);
 };
 prefersDark.addEventListener('change', () => { if (colorMode === 'auto') applyMode('auto'); });
 $('darkToggle').addEventListener('mousedown', (e) => e.preventDefault());
@@ -145,21 +157,121 @@ async function actionSave(saveAs: boolean): Promise<void> {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   flashStatus('Baixado .xlsx ✓');
 }
+// ───────────── Salvar como multi-formato + Imprimir (PDF real) ─────────────
+
+/** Cache das TTFs Aptos Narrow do demo (embed no PDF). */
+let pdfFontsCache: { bytes: Uint8Array; bold?: boolean; italic?: boolean }[] | null = null;
+async function pdfFonts(): Promise<NonNullable<typeof pdfFontsCache>> {
+  if (pdfFontsCache) return pdfFontsCache;
+  const load = async (file: string): Promise<Uint8Array> =>
+    new Uint8Array(await (await fetch(`fonts/${file}`)).arrayBuffer());
+  pdfFontsCache = [
+    { bytes: await load('aptos-narrow-regular.ttf') },
+    { bytes: await load('aptos-narrow-bold.ttf'), bold: true },
+    { bytes: await load('aptos-narrow-italic.ttf'), italic: true },
+    { bytes: await load('aptos-narrow-bolditalic.ttf'), bold: true, italic: true },
+  ];
+  return pdfFontsCache;
+}
+
+/** Gera o PDF da pasta atual (todas as sheets visíveis). */
+async function currentPdf(): Promise<Uint8Array> {
+  return xlsxToPdf(us.saveXlsx(), { fonts: await pdfFonts() });
+}
+
+/** Imprimir = abrir o PDF real no viewer (que imprime), não print da view. */
+async function actionPrint(): Promise<void> {
+  closeMenus();
+  flashStatus('Gerando PDF…');
+  try {
+    const bytes = await currentPdf();
+    const url = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer], { type: 'application/pdf' }));
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (err) {
+    flashStatus(`⚠ Falha ao gerar PDF: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+interface SaveFormat {
+  label: string;
+  ext: string;
+  mime: string;
+  filterName: string;
+  make: () => Promise<Uint8Array | string>;
+}
+const SAVE_FORMATS: SaveFormat[] = [
+  { label: 'Pasta de trabalho (.xlsx)', ext: 'xlsx', filterName: 'Planilha Excel',
+    mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    make: async () => us.saveXlsx() },
+  { label: 'PDF (.pdf)', ext: 'pdf', filterName: 'PDF', mime: 'application/pdf',
+    make: () => currentPdf() },
+  { label: 'OpenDocument (.ods)', ext: 'ods', filterName: 'Planilha OpenDocument',
+    mime: 'application/vnd.oasis.opendocument.spreadsheet',
+    make: async () => xlsxToOds(us.saveXlsx()) },
+  { label: 'Planilha XML 2003 (.xml)', ext: 'xml', filterName: 'Planilha XML 2003',
+    mime: 'application/xml',
+    make: async () => xlsxToXml2003(us.saveXlsx()) },
+  { label: 'CSV (aba ativa, ;)', ext: 'csv', filterName: 'CSV', mime: 'text/csv',
+    make: async () => xlsxToCsv(us.saveXlsx()) },
+  { label: 'TSV (aba ativa)', ext: 'tsv', filterName: 'TSV', mime: 'text/tab-separated-values',
+    make: async () => xlsxToTsv(us.saveXlsx()) },
+  { label: 'Markdown (.md)', ext: 'md', filterName: 'Markdown', mime: 'text/markdown',
+    make: async () => xlsxToMarkdown(us.saveXlsx()) },
+  { label: 'HTML (.html)', ext: 'html', filterName: 'HTML', mime: 'text/html',
+    make: async () => xlsxToHtml(us.saveXlsx(), { fullDocument: true }) },
+];
+
+async function saveAsFormat(f: SaveFormat): Promise<void> {
+  flashStatus(`Gerando ${f.ext.toUpperCase()}…`);
+  try {
+    const out = await f.make();
+    const bytes = typeof out === 'string' ? new TextEncoder().encode(out) : out;
+    const name = `${titleInput.value || 'Pasta'}.${f.ext}`;
+    const bridge = (window as {
+      universalSheet?: { saveFile(b: ArrayBuffer, n: string, fn: string, e: string): Promise<string | null> };
+    }).universalSheet;
+    if (bridge?.saveFile) {
+      const path = await bridge.saveFile(
+        bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+        name, f.filterName, f.ext,
+      );
+      flashStatus(path ? `Salvo em ${path} ✓` : 'Cancelado');
+      return;
+    }
+    downloadBlob(bytes.buffer as ArrayBuffer, name, f.mime);
+    flashStatus(`Baixado .${f.ext} ✓`);
+  } catch (err) {
+    flashStatus(`⚠ Falha: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
+function openSaveAsMenu(anchor: HTMLElement): void {
+  closeMenus();
+  openMenu(SAVE_FORMATS.map((f): MenuItem => ({
+    label: f.label,
+    onClick: () => void saveAsFormat(f),
+  })), { anchor });
+}
+
 $('actNew').addEventListener('click', () => { closeMenus(); flashStatus('Novo: em breve'); });
 $('actOpen').addEventListener('click', () => void actionOpen());
 $('actSave').addEventListener('click', () => void actionSave(false));
 $('saveBtn').addEventListener('click', () => void actionSave(false));
-$('actSaveAs').addEventListener('click', () => void actionSave(true));
-$('actExportCsv').addEventListener('click', () => { closeMenus(); flashStatus('Exportar CSV: em breve'); });
-$('actPrint').addEventListener('click', () => { closeMenus(); window.print(); });
+$('actSaveAs').addEventListener('click', (e) => { e.stopPropagation(); openSaveAsMenu($('actSaveAs')); });
+$('actPrint').addEventListener('click', () => void actionPrint());
 titleInput.addEventListener('change', () => { document.title = `${titleInput.value} — Universal Sheet`; });
 
 document.addEventListener('keydown', (e) => {
   if (!(e.ctrlKey || e.metaKey)) return;
   const k = e.key.toLowerCase();
   if (k === 'o') { e.preventDefault(); void actionOpen(); }
-  if (k === 's') { e.preventDefault(); void actionSave(e.shiftKey); }
-  if (k === 'p') { e.preventDefault(); window.print(); }
+  if (k === 's') {
+    e.preventDefault();
+    if (e.shiftKey) openSaveAsMenu($('saveBtn'));
+    else void actionSave(false);
+  }
+  if (k === 'p') { e.preventDefault(); void actionPrint(); }
 });
 
 // drag & drop
@@ -210,6 +322,12 @@ us.addEventListener('us-selection', ((e: CustomEvent) => {
   fxInput.value = e.detail.formula || e.detail.display || '';
 }) as EventListener);
 cellRef.addEventListener('change', () => { try { us.goToRef(cellRef.value.trim().toUpperCase()); } catch { /* ref inválida */ } });
+// Barra de fórmulas: Enter commita o conteúdo na célula ativa (mesmo
+// comportamento do Excel). Escape descarta + recarrega o display atual.
+fxInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); us.setActiveCellText(fxInput.value); us.focus(); }
+  else if (e.key === 'Escape') { e.preventDefault(); fxInput.value = (us as unknown as { lastDisplay?: string }).lastDisplay ?? ''; us.focus(); }
+});
 
 // ───────────────────────── zoom ─────────────────────────
 const zoomSlider = $('zoom') as HTMLInputElement;
@@ -239,7 +357,7 @@ for (const id of ['undo', 'redo', 'bold', 'italic', 'underline', 'shrink', 'grow
   'actInsChart', 'actInsFunc', 'actInsLink', 'actFmtCells', 'actFmtRowH', 'actFmtColW', 'actFmtSheet']) {
   if ($(id)) soon(id);
 }
-$('print').addEventListener('click', () => window.print());
+$('print').addEventListener('click', () => void actionPrint());
 const onSel = (id: string, fn: (v: string) => void) => $(id).addEventListener('change', (e) => fn((e.target as HTMLSelectElement).value));
 onSel('font', () => flashStatus('Fonte: em breve'));
 $('colorBtn').addEventListener('click', () => ($('color') as HTMLInputElement).click());

@@ -1,12 +1,17 @@
-import { parseXml, childElements, firstChild } from './xml.js';
+import { parseXml, childElements, firstChild, type XmlElement } from './xml.js';
+import { colorContext, resolveColorEl, applyTint, type ColorContext } from './theme.js';
 import type { XlsxPackage } from './package.js';
+
+// re-export para compatibilidade (a fórmula vive em theme.ts agora)
+export { applyTint };
 
 /**
  * Leitura de xl/styles.xml. Modelamos o essencial para renderização:
  * cellXfs (registro referenciado pelo atributo `s` da célula), numFmts
- * (códigos de formato customizados), fonts (negrito/itálico/tamanho/cor/nome)
- * e fills (cor de fundo sólida). borders ficam só indexados por enquanto
- * (sem perdas: a parte inteira é preservada pelo container independente do parser).
+ * (códigos de formato customizados), fonts (negrito/itálico/tamanho/cor/nome),
+ * fills (sólido, padrões legados e gradiente 2 stops) e borders.
+ * Cores theme/indexed são resolvidas contra o ColorContext (theme1.xml +
+ * indexedColors) — fallback para as paletas padrão quando ausentes.
  */
 
 export interface Font {
@@ -19,10 +24,24 @@ export interface Font {
   name?: string;
 }
 
+/** Stop de gradiente (position 0..1 + cor resolvida). */
+export interface GradientStop {
+  position: number;
+  color: string;
+}
+
 export interface Fill {
-  /** Cor de fundo sólida #RRGGBB (fgColor de patternFill solid). */
+  /**
+   * Cor principal #RRGGBB: em `solid` é a cor de fundo (fgColor do
+   * patternFill); nos padrões legados (gray125, darkTrellis…) é a cor do
+   * PADRÃO (pixels "ligados").
+   */
   fgColor?: string;
-  pattern?: string; // none | solid | ...
+  /** Cor de fundo atrás do padrão (bgColor do patternFill não-sólido). */
+  bgColor?: string;
+  pattern?: string; // none | solid | gray125 | darkGray | ...
+  /** Gradiente linear (<gradientFill>): ângulo em graus + stops. */
+  gradient?: { degree: number; stops: GradientStop[] };
 }
 
 export interface BorderEdge {
@@ -71,9 +90,14 @@ export interface Dxf {
   italic?: boolean;
 }
 
-export function readStyles(pkg: XlsxPackage): Styles {
+/**
+ * Lê xl/styles.xml. `cx` (opcional) fornece a paleta do tema + indexadas;
+ * quando omitido é construído do próprio pacote (lê theme1.xml automaticamente).
+ */
+export function readStyles(pkg: XlsxPackage, cx?: ColorContext): Styles {
   const xml = pkg.getPartText('xl/styles.xml');
   if (xml === undefined) return { numFmts: new Map(), cellXfs: [], fonts: [], fills: [], borders: [], dxfs: [] };
+  const ctx = cx ?? colorContext(pkg);
   const root = parseXml(xml);
 
   const fonts: Font[] = [];
@@ -87,7 +111,7 @@ export function readStyles(pkg: XlsxPackage): Styles {
       if (firstChild(f, 'strike')) font.strike = true;
       const sz = firstChild(f, 'sz');
       if (sz?.attrs['val'] !== undefined) font.size = parseFloat(sz.attrs['val']);
-      font.color = readColor(f);
+      font.color = readColor(f, ctx);
       const name = firstChild(f, 'name');
       if (name?.attrs['val'] !== undefined) font.name = name.attrs['val'];
       fonts.push(font);
@@ -98,16 +122,7 @@ export function readStyles(pkg: XlsxPackage): Styles {
   const fillsEl = firstChild(root, 'fills');
   if (fillsEl) {
     for (const fl of childElements(fillsEl, 'fill')) {
-      const fill: Fill = {};
-      const pf = firstChild(fl, 'patternFill');
-      if (pf) {
-        fill.pattern = pf.attrs['patternType'];
-        if (pf.attrs['patternType'] === 'solid') {
-          const fg = firstChild(pf, 'fgColor');
-          fill.fgColor = fg ? colorFromEl(fg) : undefined;
-        }
-      }
-      fills.push(fill);
+      fills.push(readFill(fl, ctx));
     }
   }
 
@@ -122,7 +137,7 @@ export function readStyles(pkg: XlsxPackage): Styles {
           const colEl = firstChild(e, 'color');
           (border[side] as BorderEdge | undefined) = {
             style: e.attrs['style'],
-            color: colEl ? colorFromEl(colEl) : '#000000',
+            color: colEl ? resolveColorEl(colEl, ctx) : '#000000',
           };
         }
       }
@@ -139,13 +154,13 @@ export function readStyles(pkg: XlsxPackage): Styles {
       const fill = firstChild(d, 'fill');
       const pf = fill ? firstChild(fill, 'patternFill') : undefined;
       const bg = pf ? firstChild(pf, 'bgColor') : undefined;
-      if (bg && bg.attrs['rgb']) dxf.fillColor = '#' + bg.attrs['rgb'].slice(-6);
+      if (bg) dxf.fillColor = resolveColorEl(bg, ctx);
       const font = firstChild(d, 'font');
       if (font) {
         if (firstChild(font, 'b')) dxf.bold = true;
         if (firstChild(font, 'i')) dxf.italic = true;
         const colEl = firstChild(font, 'color');
-        if (colEl && colEl.attrs['rgb']) dxf.fontColor = '#' + colEl.attrs['rgb'].slice(-6);
+        if (colEl) dxf.fontColor = resolveColorEl(colEl, ctx);
       }
       dxfs.push(dxf);
     }
@@ -192,26 +207,45 @@ export function readStyles(pkg: XlsxPackage): Styles {
   return { numFmts, cellXfs, fonts, fills, borders, dxfs };
 }
 
-/** Lê uma cor (rgb/tint) do primeiro <color> dentro de um elemento. */
-function readColor(el: import('./xml.js').XmlElement): string | undefined {
-  const c = firstChild(el, 'color');
-  return c ? colorFromEl(c) : undefined;
+/**
+ * Lê um <fill> (patternFill sólido/padrão legado ou gradientFill).
+ *   - solid: fgColor → Fill.fgColor (semântica histórica preservada).
+ *   - padrão legado (gray125, darkTrellis, …): fgColor = cor do padrão,
+ *     bgColor = fundo atrás do padrão.
+ *   - gradientFill: degree + stops (position 0..1 + cor).
+ */
+function readFill(fl: XmlElement, ctx: ColorContext): Fill {
+  const fill: Fill = {};
+  const pf = firstChild(fl, 'patternFill');
+  if (pf) {
+    fill.pattern = pf.attrs['patternType'];
+    const fg = firstChild(pf, 'fgColor');
+    const bg = firstChild(pf, 'bgColor');
+    if (pf.attrs['patternType'] === 'solid') {
+      fill.fgColor = fg ? resolveColorEl(fg, ctx) : undefined;
+    } else if (pf.attrs['patternType'] !== undefined && pf.attrs['patternType'] !== 'none') {
+      if (fg) fill.fgColor = resolveColorEl(fg, ctx);
+      if (bg) fill.bgColor = resolveColorEl(bg, ctx);
+    }
+    return fill;
+  }
+  const gf = firstChild(fl, 'gradientFill');
+  if (gf) {
+    const stops: GradientStop[] = [];
+    for (const stop of childElements(gf, 'stop')) {
+      const colEl = firstChild(stop, 'color');
+      stops.push({
+        position: parseFloat(stop.attrs['position'] ?? '0'),
+        color: (colEl ? resolveColorEl(colEl, ctx) : undefined) ?? '#FFFFFF',
+      });
+    }
+    fill.gradient = { degree: parseFloat(gf.attrs['degree'] ?? '0'), stops };
+  }
+  return fill;
 }
 
-/**
- * Resolve um elemento <color> para #RRGGBB. theme/indexed resolvidos contra a
- * paleta padrão do Office (parsear theme1.xml é trabalho futuro).
- */
-const THEME_COLORS = ['#FFFFFF', '#000000', '#E7E6E6', '#44546A', '#4472C4', '#ED7D31',
-  '#A5A5A5', '#FFC000', '#5B9BD5', '#70AD47', '#0563C1', '#954F72'];
-const INDEXED_COLORS: string[] = ['#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
-INDEXED_COLORS[64] = '#000000'; INDEXED_COLORS[65] = '#FFFFFF'; INDEXED_COLORS[81] = '#FFFFFF';
-function colorFromEl(c: import('./xml.js').XmlElement): string | undefined {
-  const rgb = c.attrs['rgb'];
-  if (rgb !== undefined) return '#' + rgb.slice(-6);
-  const theme = c.attrs['theme'];
-  if (theme !== undefined) return THEME_COLORS[parseInt(theme, 10)] ?? '#000000';
-  const indexed = c.attrs['indexed'];
-  if (indexed !== undefined) return INDEXED_COLORS[parseInt(indexed, 10)] ?? '#000000';
-  return undefined;
+/** Lê uma cor (rgb/theme/indexed/tint) do primeiro <color> dentro de um elemento. */
+function readColor(el: XmlElement, ctx: ColorContext): string | undefined {
+  const c = firstChild(el, 'color');
+  return c ? resolveColorEl(c, ctx) : undefined;
 }
