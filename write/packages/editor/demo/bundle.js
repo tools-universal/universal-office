@@ -16359,6 +16359,41 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const sp = this.sectPrAt(this.pageSections[pg] ?? 0);
       pages.push(doc.addPage(sp.pageWidthTwips / T2, sp.pageHeightTwips / T2));
     }
+    if (this.view === "print" && this.fullDoc) {
+      for (let pg = 0; pg < pages.length; pg++) {
+        const page = pages[pg];
+        const sIdx = this.pageSections[pg] ?? this.pageSections[this.pageSections.length - 1] ?? 0;
+        const section = this.sectionStarts[sIdx]?.section ?? this.fullDoc.sections[0];
+        const sp = this.sectPrAt(sIdx);
+        if (section) {
+          const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+          const header = pg === 0 && sp.titlePg ? section.headers.first : section.headers.default;
+          if (header?.length) this.pdfPaintHf(doc, page, emb, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg, sp);
+          const footer = pg === 0 && sp.titlePg ? section.footers.first : section.footers.default;
+          if (footer?.length) this.pdfPaintHf(doc, page, emb, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg, sp);
+        }
+        if (sp.cols?.sep && sp.cols.count > 1) {
+          const cc = this.colContentOnPage(pg, sp);
+          if (cc) for (let i7 = 0; i7 < cc.n - 1; i7++) {
+            if (!cc.hasContent[i7 + 1]) continue;
+            const xs = (cc.origin(i7 + 1) - cc.gap / 2) / T2;
+            page.line(xs, sp.marginTopTwips / T2, xs, cc.maxBottom / T2, [0.74, 0.74, 0.74], 0.6);
+          }
+        }
+        const hits = this.footnoteHits.filter((h3) => h3.page === pg);
+        if (hits.length && this.fullDoc.footnotes.size) {
+          let fy = sp.pageHeightTwips - sp.marginBottomTwips - hits.length * 260 - 120;
+          page.line(sp.marginLeftTwips / T2, fy / T2, (sp.marginLeftTwips + 2880) / T2, fy / T2, [0.33, 0.33, 0.33], 0.75);
+          fy += 220;
+          for (const h3 of hits) {
+            const paras = this.fullDoc.footnotes.get(h3.id);
+            const text2 = paras?.map((p3) => p3.runs.map((r6) => r6.text).join("")).join(" ").trim() ?? "";
+            this.pdfGlyphsAt(page, emb, DEFAULT_FONT, "regular", 9, [0.2, 0.2, 0.2], `${h3.id}. ${text2}`.slice(0, 160), sp.marginLeftTwips, fy);
+            fy += 240;
+          }
+        }
+      }
+    }
     for (const pl of this.layoutCache) {
       for (const line of pl.lines) {
         const page = pages[line.page];
@@ -16393,40 +16428,21 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         img.heightTwips / T2
       );
     }
-    if (this.view === "print" && this.fullDoc) {
-      for (let pg = 0; pg < pages.length; pg++) {
-        const page = pages[pg];
-        const sIdx = this.pageSections[pg] ?? this.pageSections[this.pageSections.length - 1] ?? 0;
-        const section = this.sectionStarts[sIdx]?.section ?? this.fullDoc.sections[0];
-        const sp = this.sectPrAt(sIdx);
-        if (section) {
-          const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
-          const header = pg === 0 && sp.titlePg ? section.headers.first : section.headers.default;
-          if (header?.length) this.pdfPaintHf(page, emb, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg);
-          const footer = pg === 0 && sp.titlePg ? section.footers.first : section.footers.default;
-          if (footer?.length) this.pdfPaintHf(page, emb, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg);
+    if (this.model) {
+      this.model.paragraphs.forEach((p3, pi) => {
+        if (!p3.runs.some((r6) => r6.textbox)) return;
+        const first = this.layoutCache[pi]?.lines[0];
+        if (!first) return;
+        const page = pages[first.page];
+        if (!page) return;
+        const sp = this.sectPrAt(this.pageSections[first.page] ?? 0);
+        const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+        for (const r6 of p3.runs) {
+          if (!r6.textbox) continue;
+          const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp.marginLeftTwips, first.yTwips, sp) : { x: sp.marginLeftTwips, y: first.yTwips };
+          this.pdfPaintHf(doc, page, emb, r6.textbox.paras, x3, y3, r6.textbox.widthTwips || colW, first.page, sp);
         }
-        if (sp.cols?.sep && sp.cols.count > 1) {
-          const cc = this.colContentOnPage(pg, sp);
-          if (cc) for (let i7 = 0; i7 < cc.n - 1; i7++) {
-            if (!cc.hasContent[i7 + 1]) continue;
-            const xs = (cc.origin(i7 + 1) - cc.gap / 2) / T2;
-            page.line(xs, sp.marginTopTwips / T2, xs, cc.maxBottom / T2, [0.74, 0.74, 0.74], 0.6);
-          }
-        }
-        const hits = this.footnoteHits.filter((h3) => h3.page === pg);
-        if (hits.length && this.fullDoc.footnotes.size) {
-          let fy = sp.pageHeightTwips - sp.marginBottomTwips - hits.length * 260 - 120;
-          page.line(sp.marginLeftTwips / T2, fy / T2, (sp.marginLeftTwips + 2880) / T2, fy / T2, [0.33, 0.33, 0.33], 0.75);
-          fy += 220;
-          for (const h3 of hits) {
-            const paras = this.fullDoc.footnotes.get(h3.id);
-            const text2 = paras?.map((p3) => p3.runs.map((r6) => r6.text).join("")).join(" ").trim() ?? "";
-            this.pdfGlyphsAt(page, emb, DEFAULT_FONT, "regular", 9, [0.2, 0.2, 0.2], `${h3.id}. ${text2}`.slice(0, 160), sp.marginLeftTwips, fy);
-            fy += 240;
-          }
-        }
-      }
+      });
     }
     return doc.build();
   }
@@ -16848,7 +16864,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
   }
   /** Versão PDF do paintHf (cabeçalho/rodapé) com glifos posicionados. */
-  pdfPaintHf(page, emb, paras, originXTwips, topYTwips, widthTwips, pageIdx) {
+  pdfPaintHf(doc, page, emb, paras, originXTwips, topYTwips, widthTwips, pageIdx, sp) {
     if (!this.fonts) return;
     const T2 = TWIPS_PER_PT;
     const defaultTabs = [
@@ -16857,8 +16873,19 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     ];
     let y3 = topYTwips;
     for (const p3 of paras) {
+      const stColor = this.styleOf(p3)?.color;
       const runs = p3.runs.map((r6) => r6.field ? { ...r6, text: /NUMPAGES/i.test(r6.field) ? String(this.numPagesFor()) : /PAGE/i.test(r6.field) ? String(this.pageNumberFor(pageIdx)) : r6.text } : r6);
-      const spans = this.buildSpans({ runs, props: p3.props });
+      for (const r6 of runs) {
+        const obj = r6.textbox ?? r6.image;
+        if (!obj) continue;
+        const { x: fx, y: fy } = obj.floating ? this.anchoredPos(obj, originXTwips, y3, sp) : { x: originXTwips, y: y3 };
+        if (r6.textbox) {
+          this.pdfPaintHf(doc, page, emb, r6.textbox.paras, fx, fy, r6.textbox.widthTwips || widthTwips, pageIdx, sp);
+        } else if (r6.image) {
+          this.pdfImage(doc, page, r6.image, fx / T2, fy / T2, r6.image.widthTwips / T2, r6.image.heightTwips / T2);
+        }
+      }
+      const spans = this.buildSpans({ runs, props: p3.props }, { skipFloating: true });
       const { lines, charAdvances } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
         tabStops: p3.props.tabStops?.length ? p3.props.tabStops : defaultTabs
@@ -16893,7 +16920,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           const span = spans[seg.spanIndex];
           const run = runs[span.runIndex ?? seg.spanIndex];
           const font = emb(span.family, span.variant);
-          const col = run?.props.color ? hexColor(run.props.color) : [0.33, 0.33, 0.33];
+          const cHex = run?.props.color ?? stColor;
+          const col = cHex ? hexColor(cHex) : [0.33, 0.33, 0.33];
           const gs = spanStart[seg.spanIndex] + seg.start;
           let cx = lx + seg.xTwips;
           const placed = [];
@@ -16948,10 +16976,23 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         c4.width = sw;
         c4.height = sh;
         const cx = c4.getContext("2d");
-        cx.fillStyle = "#fff";
-        cx.fillRect(0, 0, sw, sh);
         cx.drawImage(bmp, 0, 0, sw, sh);
-        handle = doc.embedJpeg(dataUrlToBytes(c4.toDataURL("image/jpeg", 0.82)), sw, sh);
+        const rgba = cx.getImageData(0, 0, sw, sh).data;
+        let hasAlpha = false;
+        for (let i7 = 3; i7 < rgba.length; i7 += 4) {
+          if (rgba[i7] !== 255) {
+            hasAlpha = true;
+            break;
+          }
+        }
+        if (hasAlpha) {
+          handle = doc.embedRgba(new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.length), sw, sh);
+        } else {
+          cx.globalCompositeOperation = "destination-over";
+          cx.fillStyle = "#fff";
+          cx.fillRect(0, 0, sw, sh);
+          handle = doc.embedJpeg(dataUrlToBytes(c4.toDataURL("image/jpeg", 0.82)), sw, sh);
+        }
       }
       this.pdfImgCache.set(img, handle);
     }

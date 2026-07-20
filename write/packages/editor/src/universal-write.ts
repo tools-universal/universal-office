@@ -5568,39 +5568,8 @@ export class UniversalWriteElement extends HTMLElement {
       pages.push(doc.addPage(sp.pageWidthTwips / T, sp.pageHeightTwips / T));
     }
 
-    // corpo: linha a linha (mesma matemática do paintLine)
-    for (const pl of this.layoutCache) {
-      for (const line of pl.lines) {
-        const page = pages[line.page];
-        if (page) this.pdfPaintLine(doc, page, emb, pl, line);
-      }
-    }
-    // tabelas
-    for (const tl of this.tableLayouts) {
-      const page = pages[tl.page];
-      if (page) this.pdfPaintTable(doc, page, emb, tl);
-    }
-    // letras capitulares
-    for (const dc of this.dropCapFloats) {
-      const page = pages[dc.page];
-      if (!page) continue;
-      const variant: FontVariant = dc.bold && dc.italic ? 'boldItalic' : dc.bold ? 'bold' : dc.italic ? 'italic' : 'regular';
-      const baseline = dc.yTopTwips + dc.kPitch - dc.sizePt * 0.25 * T;
-      this.pdfGlyphsAt(page, emb, DEFAULT_FONT, variant, dc.sizePt, this.pdfColor(dc.color), dc.text, dc.xTwips, baseline);
-    }
-    // imagens flutuantes
-    for (const f of this.floatImages) {
-      const pl = this.layoutCache[f.para];
-      const first = pl?.lines[0];
-      if (!first || !f.run.image) continue;
-      const page = pages[first.page];
-      if (!page) continue;
-      const img = f.run.image;
-      this.pdfImage(doc, page, img,
-        (first.xTwips + (img.offsetXTwips ?? 0)) / T, (first.yTwips + (img.offsetYTwips ?? 0)) / T,
-        img.widthTwips / T, img.heightTwips / T);
-    }
-    // cabeçalhos, rodapés e notas (modo print)
+    // cabeçalhos/rodapés (+ timbrado/capa behindDoc) ANTES do corpo → a imagem
+    // full-bleed do header fica ATRÁS dos campos, como no canvas (paintHfLayer).
     if (this.view === 'print' && this.fullDoc) {
       for (let pg = 0; pg < pages.length; pg++) {
         const page = pages[pg]!;
@@ -5610,9 +5579,9 @@ export class UniversalWriteElement extends HTMLElement {
         if (section) {
           const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
           const header = (pg === 0 && sp.titlePg) ? section.headers.first : section.headers.default;
-          if (header?.length) this.pdfPaintHf(page, emb, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg);
+          if (header?.length) this.pdfPaintHf(doc, page, emb, header, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg, sp);
           const footer = (pg === 0 && sp.titlePg) ? section.footers.first : section.footers.default;
-          if (footer?.length) this.pdfPaintHf(page, emb, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg);
+          if (footer?.length) this.pdfPaintHf(doc, page, emb, footer, sp.marginLeftTwips, sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720), colW, pg, sp);
         }
         // separador entre colunas (w:sep) — só onde a coluna direita tem conteúdo
         if (sp.cols?.sep && sp.cols.count > 1) {
@@ -5636,6 +5605,58 @@ export class UniversalWriteElement extends HTMLElement {
           }
         }
       }
+    }
+    // corpo: linha a linha (mesma matemática do paintLine)
+    for (const pl of this.layoutCache) {
+      for (const line of pl.lines) {
+        const page = pages[line.page];
+        if (page) this.pdfPaintLine(doc, page, emb, pl, line);
+      }
+    }
+    // tabelas
+    for (const tl of this.tableLayouts) {
+      const page = pages[tl.page];
+      if (page) this.pdfPaintTable(doc, page, emb, tl);
+    }
+    // letras capitulares
+    for (const dc of this.dropCapFloats) {
+      const page = pages[dc.page];
+      if (!page) continue;
+      const variant: FontVariant = dc.bold && dc.italic ? 'boldItalic' : dc.bold ? 'bold' : dc.italic ? 'italic' : 'regular';
+      const baseline = dc.yTopTwips + dc.kPitch - dc.sizePt * 0.25 * T;
+      this.pdfGlyphsAt(page, emb, DEFAULT_FONT, variant, dc.sizePt, this.pdfColor(dc.color), dc.text, dc.xTwips, baseline);
+    }
+    // imagens flutuantes do corpo
+    for (const f of this.floatImages) {
+      const pl = this.layoutCache[f.para];
+      const first = pl?.lines[0];
+      if (!first || !f.run.image) continue;
+      const page = pages[first.page];
+      if (!page) continue;
+      const img = f.run.image;
+      this.pdfImage(doc, page, img,
+        (first.xTwips + (img.offsetXTwips ?? 0)) / T, (first.yTwips + (img.offsetYTwips ?? 0)) / T,
+        img.widthTwips / T, img.heightTwips / T);
+    }
+    // caixas de texto flutuantes do CORPO (ex.: campos da capa) — POR CIMA da
+    // imagem behindDoc, como no canvas. Sem isto a capa saía sem os campos.
+    if (this.model) {
+      this.model.paragraphs.forEach((p, pi) => {
+        if (!p.runs.some((r) => r.textbox)) return;
+        const first = this.layoutCache[pi]?.lines[0];
+        if (!first) return;
+        const page = pages[first.page];
+        if (!page) return;
+        const sp = this.sectPrAt(this.pageSections[first.page] ?? 0);
+        const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+        for (const r of p.runs) {
+          if (!r.textbox) continue;
+          const { x, y } = r.textbox.floating
+            ? this.anchoredPos(r.textbox, sp.marginLeftTwips, first.yTwips, sp)
+            : { x: sp.marginLeftTwips, y: first.yTwips };
+          this.pdfPaintHf(doc, page, emb, r.textbox.paras, x, y, r.textbox.widthTwips || colW, first.page, sp);
+        }
+      });
     }
     return doc.build();
   }
@@ -6096,8 +6117,9 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Versão PDF do paintHf (cabeçalho/rodapé) com glifos posicionados. */
   private pdfPaintHf(
-    page: PdfPage, emb: (f: string | undefined, v: FontVariant) => EmbeddedFont,
-    paras: Paragraph[], originXTwips: number, topYTwips: number, widthTwips: number, pageIdx: number,
+    doc: PdfDocument, page: PdfPage,
+    emb: (f: string | undefined, v: FontVariant) => EmbeddedFont,
+    paras: Paragraph[], originXTwips: number, topYTwips: number, widthTwips: number, pageIdx: number, sp: SectPr,
   ): void {
     if (!this.fonts) return;
     const T = TWIPS_PER_PT;
@@ -6107,12 +6129,27 @@ export class UniversalWriteElement extends HTMLElement {
     ];
     let y = topYTwips;
     for (const p of paras) {
+      const stColor = this.styleOf(p)?.color; // cor herdada do estilo (ex.: Título branco)
       const runs: Run[] = p.runs.map((r) =>
         r.field
           ? { ...r, text: /NUMPAGES/i.test(r.field) ? String(this.numPagesFor())
               : /PAGE/i.test(r.field) ? String(this.pageNumberFor(pageIdx)) : r.text }
           : r);
-      const spans = this.buildSpans({ runs, props: p.props });
+      // FLUTUANTES do HF (timbrado/logo/nº de página em caixa): imagem via pdfImage,
+      // caixa de texto recursivamente. Sem isto o PDF sai sem a capa/rodapé.
+      for (const r of runs) {
+        const obj = r.textbox ?? r.image;
+        if (!obj) continue;
+        const { x: fx, y: fy } = obj.floating
+          ? this.anchoredPos(obj, originXTwips, y, sp)
+          : { x: originXTwips, y };
+        if (r.textbox) {
+          this.pdfPaintHf(doc, page, emb, r.textbox.paras, fx, fy, r.textbox.widthTwips || widthTwips, pageIdx, sp);
+        } else if (r.image) {
+          this.pdfImage(doc, page, r.image, fx / T, fy / T, r.image.widthTwips / T, r.image.heightTwips / T);
+        }
+      }
+      const spans = this.buildSpans({ runs, props: p.props }, { skipFloating: true });
       const { lines, charAdvances } = breakRich(spans, this.fonts, {
         availableTwips: widthTwips,
         tabStops: p.props.tabStops?.length ? p.props.tabStops : defaultTabs,
@@ -6151,7 +6188,8 @@ export class UniversalWriteElement extends HTMLElement {
           const span = spans[seg.spanIndex]!;
           const run = runs[span.runIndex ?? seg.spanIndex];
           const font = emb(span.family, span.variant);
-          const col: PdfColor = run?.props.color ? hexColor(run.props.color) : [0.33, 0.33, 0.33];
+          const cHex = run?.props.color ?? stColor;
+          const col: PdfColor = cHex ? hexColor(cHex) : [0.33, 0.33, 0.33];
           const gs = spanStart[seg.spanIndex]! + seg.start;
           let cx = lx + seg.xTwips;
           const placed: PlacedGlyph[] = [];
@@ -6208,13 +6246,21 @@ export class UniversalWriteElement extends HTMLElement {
         const sw = Math.max(1, Math.min(Math.round((wPt * DPI) / 72), bmp.width));
         const sh = Math.max(1, Math.min(Math.round((hPt * DPI) / 72), bmp.height));
         const c = document.createElement('canvas');
-        c.width = sw;
-        c.height = sh;
+        c.width = sw; c.height = sh;
         const cx = c.getContext('2d')!;
-        cx.fillStyle = '#fff';
-        cx.fillRect(0, 0, sw, sh);
-        cx.drawImage(bmp, 0, 0, sw, sh);
-        handle = doc.embedJpeg(dataUrlToBytes(c.toDataURL('image/jpeg', 0.82)), sw, sh);
+        cx.drawImage(bmp, 0, 0, sw, sh); // SEM fundo branco: preserva o alpha
+        const rgba = cx.getImageData(0, 0, sw, sh).data;
+        let hasAlpha = false;
+        for (let i = 3; i < rgba.length; i += 4) { if (rgba[i] !== 255) { hasAlpha = true; break; } }
+        if (hasAlpha) {
+          // transparência (ex.: logo/placeholder): RGBA + SMask preserva o recorte
+          handle = doc.embedRgba(new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.length), sw, sh);
+        } else {
+          // opaco (foto): JPEG achata em branco e fica bem menor
+          cx.globalCompositeOperation = 'destination-over';
+          cx.fillStyle = '#fff'; cx.fillRect(0, 0, sw, sh);
+          handle = doc.embedJpeg(dataUrlToBytes(c.toDataURL('image/jpeg', 0.82)), sw, sh);
+        }
       }
       this.pdfImgCache.set(img, handle);
     }
