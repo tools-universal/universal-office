@@ -2,9 +2,22 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Bundles browser gerados pelo check:universal / browser-smoke
+tools/dist-universal/
+
+# Specs de desenvolvimento — não versionadas
+.specs/
+
+# .NET
+dotnet/**/bin/
+dotnet/**/obj/
+
 # Lab — artefatos binários intermediários (XML extraídos e diffs SÃO versionados)
 **/tools/word-lab/results/**/*.docx
 **/tools/excel-lab/results/**/*.xlsx
+**/tools/ppt-lab/results/**/*.pptx
+**/tools/ppt-lab/results/**/*.png
+**/tools/excel-lab/results/pixel/**
 
 # Office lock files
 ~$*
