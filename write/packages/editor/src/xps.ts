@@ -58,8 +58,13 @@ function rgb(c: [number, number, number]): string {
   return `#FF${f(c[0])}${f(c[1])}${f(c[2])}`;
 }
 
+/** Nome de parte OPC seguro: remove espaços (ex.: "Liberation Sans"). O lookup
+ *  de bytes continua pela família ORIGINAL; só o path/URI é sanitizado. */
+function safeFamily(family: string): string {
+  return family.replace(/\s+/g, '');
+}
 function fontPartName(family: string, v: XpsGlyphRun['variant']): string {
-  return `/Resources/Fonts/${family}-${v}.ttf`;
+  return `/Resources/Fonts/${safeFamily(family)}-${v}.ttf`;
 }
 
 function fixedDocSeq(): string {
@@ -117,7 +122,7 @@ function relsPagesDir(usedFonts: Set<string>): string {
     const [family, variant] = key.split('-');
     rels += `<Relationship Id="R${id++}" ` +
       `Type="http://schemas.microsoft.com/xps/2005/06/required-resource" ` +
-      `Target="/Resources/Fonts/${family}-${variant}.ttf"/>`;
+      `Target="/Resources/Fonts/${safeFamily(family!)}-${variant}.ttf"/>`;
   }
   return rels;
 }
@@ -170,7 +175,7 @@ export function buildXps(input: XpsBuildInput): Uint8Array {
     const [family, variant] = key.split('-') as [string, XpsGlyphRun['variant']];
     const bytes = input.fontBytes[family]?.[variant];
     if (!bytes) throw new Error(`fonte sem bytes para XPS: ${key}`);
-    z[`Resources/Fonts/${family}-${variant}.ttf`] = bytes;
+    z[`Resources/Fonts/${safeFamily(family)}-${variant}.ttf`] = bytes;
   }
   z['[Content_Types].xml'] = enc(contentTypes(input.pages.length, usedFonts));
   z['_rels/.rels'] = enc(rootRels());

@@ -76,6 +76,13 @@ const PX_PER_TWIP = 96 / 72 / TWIPS_PER_PT;
  *  header/footer ao editar o corpo; corpo + outro HF ao editar um HF). */
 const HF_DIM_ALPHA = 0.5;
 
+/** Família de fonte PADRÃO/fallback do editor. Liberation Sans é open (OFL,
+ *  métrica-compatível com Arial), então pode ser versionada e distribuída no
+ *  app/site — ao contrário de Aptos/Calibri (proprietárias da Microsoft). */
+const DEFAULT_FONT = 'Liberation Sans';
+/** Mesmo nome já entre aspas p/ uso em ctx.font (família com espaço). */
+const DEFAULT_FONT_CSS = `"${DEFAULT_FONT}"`;
+
 export type ViewMode = 'print' | 'web' | 'draft' | 'read' | 'outline';
 
 /** Formato de arquivo para load()/save(). 'auto' detecta na carga e, ao salvar,
@@ -147,12 +154,12 @@ class Registry implements FontRegistry {
     return this.sets[family] !== undefined || this.sets[family.split(' ')[0]!] !== undefined;
   }
   resolve(family: string | undefined, variant: FontVariant): SfntFont {
-    // tenta o nome COMPLETO ("Lato Black"), depois a base ("Lato"), depois Aptos.
+    // tenta o nome COMPLETO ("Lato Black"), depois a base ("Lato"), depois o padrão.
     const requested = family
       ? (this.sets[family] ?? this.sets[family.split(' ')[0]!])
       : undefined;
-    const aptos = this.sets['Aptos']!;
-    return requested?.[variant] ?? requested?.regular ?? aptos[variant] ?? aptos.regular;
+    const def = this.sets[DEFAULT_FONT] ?? this.sets['Aptos']!;
+    return requested?.[variant] ?? requested?.regular ?? def[variant] ?? def.regular;
   }
 }
 
@@ -485,9 +492,9 @@ export class UniversalWriteElement extends HTMLElement {
       sets[asset.family]![asset.variant] = font;
       (this.fontBytes[asset.family] ??= {})[asset.variant] = bytes;
     }
-    const aptos = sets['Aptos'];
-    if (!aptos?.regular || !aptos.bold || !aptos.italic || !aptos.boldItalic) {
-      throw new Error('initialize(): provide the four Aptos font variants');
+    const def = sets[DEFAULT_FONT];
+    if (!def?.regular || !def.bold || !def.italic || !def.boldItalic) {
+      throw new Error(`initialize(): provide the four ${DEFAULT_FONT} font variants`);
     }
     this.fonts = new Registry(sets);
   }
@@ -495,6 +502,13 @@ export class UniversalWriteElement extends HTMLElement {
   private async fetchDefaultFontAssets(): Promise<UniversalWriteFontAsset[]> {
     const fontsBase = this.getAttribute('fonts') ?? '';
     const files: [string, string, FontVariant][] = [
+      // PADRÃO (open, sempre versionada) — Liberation Sans
+      [DEFAULT_FONT, 'liberationsans-regular.ttf', 'regular'],
+      [DEFAULT_FONT, 'liberationsans-bold.ttf', 'bold'],
+      [DEFAULT_FONT, 'liberationsans-italic.ttf', 'italic'],
+      [DEFAULT_FONT, 'liberationsans-bolditalic.ttf', 'boldItalic'],
+      // Proprietárias — OPCIONAIS: presentes só no dev local; puladas (404) na
+      // build/CI e em produção, onde tudo cai no fallback Liberation Sans.
       ['Aptos', 'aptos-regular.ttf', 'regular'],
       ['Aptos', 'aptos-bold.ttf', 'bold'],
       ['Aptos', 'aptos-italic.ttf', 'italic'],
@@ -505,19 +519,22 @@ export class UniversalWriteElement extends HTMLElement {
       ['Calibri', 'calibriz.ttf', 'boldItalic'],
     ];
     const tableName = (family: string, variant: FontVariant): string => {
-      const prefix = family.toLowerCase();
+      const prefix = family.toLowerCase().replace(/\s+/g, '');
       const suffix = variant === 'regular' ? '' : variant === 'boldItalic' ? '-bolditalic' : `-${variant}`;
       return `${prefix}${suffix}-advances.json`;
     };
-    return Promise.all(files.map(async ([family, file, variant]) => {
-      const data = new Uint8Array(await (await fetch(`${fontsBase}/${file}`)).arrayBuffer());
+    const assets = await Promise.all(files.map(async ([family, file, variant]) => {
+      const resp = await fetch(`${fontsBase}/${file}`).catch(() => null);
+      if (!resp?.ok) return null; // fonte ausente (ex.: proprietária no CI): pula
+      const data = new Uint8Array(await resp.arrayBuffer());
       let advances: Record<string, Record<string, number>> | undefined;
       try {
-        advances = await (await fetch(`${fontsBase}/${tableName(family, variant)}`)).json() as
-          Record<string, Record<string, number>>;
+        const r = await fetch(`${fontsBase}/${tableName(family, variant)}`);
+        if (r.ok) advances = await r.json() as Record<string, Record<string, number>>;
       } catch { /* tabela opcional: SfntFont usa métricas lineares */ }
       return { family, variant, data, advances };
     }));
+    return assets.filter((a) => a !== null) as UniversalWriteFontAsset[];
   }
 
   /** Instala um plugin na instância (sem registro global e sem backend). */
@@ -1217,7 +1234,7 @@ export class UniversalWriteElement extends HTMLElement {
     // BRANCO em texto sem formatação direta (o comum).
     const para: ParaProps = { ...(p?.props ?? {}) };
     if (para.alignment === undefined) para.alignment = st?.alignment;
-    if (run.fontAscii === undefined) run.fontAscii = st?.fontAscii ?? dd.run.fontAscii ?? 'Aptos';
+    if (run.fontAscii === undefined) run.fontAscii = st?.fontAscii ?? dd.run.fontAscii ?? DEFAULT_FONT;
     if (run.szHalfPt === undefined) {
       run.szHalfPt = st?.sizePt !== undefined ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
     }
@@ -3491,7 +3508,7 @@ export class UniversalWriteElement extends HTMLElement {
       ctx.lineTo((sp.pageWidthTwips - sp.marginRightTwips) * scale, lineY * scale);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = `600 ${9 * TWIPS_PER_PT * scale}px Aptos`;
+      ctx.font = `600 ${9 * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
       ctx.fillStyle = active ? (this.pageDark ? '#9bc0ff' : '#2b579a') : (this.pageDark ? '#9aa0a6' : '#9aa0a6');
       const label = kind === 'header' ? 'Header' : 'Footer';
       const ly = (kind === 'header' ? lineY - 60 : lineY + 190) * scale;
@@ -3975,9 +3992,8 @@ export class UniversalWriteElement extends HTMLElement {
       if (this.loadedFamilyNames.has(family)) return family;
       const base = family.split(' ')[0]!;
       if (this.loadedFamilyNames.has(base)) return base;
-      if (base === 'Calibri') return 'Calibri';
     }
-    return 'Aptos';
+    return DEFAULT_FONT; // fallback (open, sempre carregada)
   }
 
   private paintHf(
@@ -4914,7 +4930,7 @@ export class UniversalWriteElement extends HTMLElement {
         ctx.lineTo((sp.marginLeftTwips + 2880) * scale, fy * scale);
         ctx.stroke();
         fy += 220;
-        ctx.font = `400 ${9 * TWIPS_PER_PT * scale}px Aptos`;
+        ctx.font = `400 ${9 * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
         ctx.fillStyle = this.pageDark ? '#c0c4c9' : '#333';
         for (const h of hits) {
           const paras = fullDoc.footnotes.get(h.id);
@@ -5084,7 +5100,7 @@ export class UniversalWriteElement extends HTMLElement {
       void gridColor;
       for (const cl of tl.cellLines) {
         const fontPx = deviceEmPt(cl.sizePt) * TWIPS_PER_PT * scale;
-        ctx.font = `${cl.italic ? 'italic ' : ''}${cl.bold ? '700' : '400'} ${fontPx}px ${cl.family ?? 'Aptos'}`;
+        ctx.font = `${cl.italic ? 'italic ' : ''}${cl.bold ? '700' : '400'} ${fontPx}px ${cl.family ?? DEFAULT_FONT}`;
         ctx.fillStyle = cl.color ? this.inkColor(cl.color) : ink;
         const bx = (tl.xTwips + cl.xTwips) * scale;
         const by = (tl.yTwips + cl.yTwips) * scale;
@@ -5106,7 +5122,7 @@ export class UniversalWriteElement extends HTMLElement {
       if (!ctx) continue;
       const scale = scales[dpg]!;
       ctx.font = `${dc.italic ? 'italic ' : ''}${dc.bold ? '700' : '400'} ` +
-        `${deviceEmPt(dc.sizePt) * TWIPS_PER_PT * scale}px Aptos`;
+        `${deviceEmPt(dc.sizePt) * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
       ctx.fillStyle = this.inkColor(dc.color);
       // baseline: base da zona de K linhas (a letra "desce" pelas linhas)
       const baseline = dc.yTopTwips + dc.kPitch - dc.sizePt * 0.25 * TWIPS_PER_PT;
@@ -5300,7 +5316,7 @@ export class UniversalWriteElement extends HTMLElement {
 
     // marcador de lista
     if (line.marker) {
-      ctx.font = `${11 * TWIPS_PER_PT * scale}px Aptos`;
+      ctx.font = `${11 * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
       ctx.fillStyle = this.pageDark ? '#e8eaed' : '#000';
       ctx.fillText(line.marker.text, line.marker.xTwips * scale, line.baselineTwips * scale);
     }
@@ -5426,7 +5442,7 @@ export class UniversalWriteElement extends HTMLElement {
         if (ch === '\t' && pl.tabLeaders?.get(gi)) {
           ctx.save();
           ctx.fillStyle = this.pageDark ? '#9aa0a6' : '#666';
-          const dotFont = `400 ${span.sizePt * TWIPS_PER_PT * scale}px Aptos`;
+          const dotFont = `400 ${span.sizePt * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
           ctx.font = dotFont;
           const step = 90; // twips por ponto
           for (let dx = 60; dx < a - 40; dx += step) {
@@ -5497,7 +5513,7 @@ export class UniversalWriteElement extends HTMLElement {
 
     // marca de parágrafo ¶
     if (this.showMarks && line.rich.end === pl.charAdvances.length) {
-      ctx.font = `${11 * TWIPS_PER_PT * scale}px Aptos`;
+      ctx.font = `${11 * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
       ctx.fillStyle = '#888';
       ctx.fillText('¶', (x + 20) * scale, line.baselineTwips * scale);
     }
@@ -5530,7 +5546,7 @@ export class UniversalWriteElement extends HTMLElement {
       let e = cache.get(sf);
       if (!e) {
         const fam = this.familyFor(family);
-        const bytes = this.fontBytes[fam]?.[variant] ?? this.fontBytes['Aptos']?.['regular'];
+        const bytes = this.fontBytes[fam]?.[variant] ?? this.fontBytes[DEFAULT_FONT]?.['regular'];
         if (!bytes) throw new Error('font has no bytes to embed in the PDF');
         e = doc.embedFont(`${fam}-${variant}`, bytes, {
           unitsPerEm: sf.metrics.unitsPerEm,
@@ -5570,7 +5586,7 @@ export class UniversalWriteElement extends HTMLElement {
       if (!page) continue;
       const variant: FontVariant = dc.bold && dc.italic ? 'boldItalic' : dc.bold ? 'bold' : dc.italic ? 'italic' : 'regular';
       const baseline = dc.yTopTwips + dc.kPitch - dc.sizePt * 0.25 * T;
-      this.pdfGlyphsAt(page, emb, 'Aptos', variant, dc.sizePt, this.pdfColor(dc.color), dc.text, dc.xTwips, baseline);
+      this.pdfGlyphsAt(page, emb, DEFAULT_FONT, variant, dc.sizePt, this.pdfColor(dc.color), dc.text, dc.xTwips, baseline);
     }
     // imagens flutuantes
     for (const f of this.floatImages) {
@@ -5615,7 +5631,7 @@ export class UniversalWriteElement extends HTMLElement {
           for (const h of hits) {
             const paras = this.fullDoc.footnotes.get(h.id);
             const text = paras?.map((p) => p.runs.map((r) => r.text).join('')).join(' ').trim() ?? '';
-            this.pdfGlyphsAt(page, emb, 'Aptos', 'regular', 9, [0.2, 0.2, 0.2], `${h.id}. ${text}`.slice(0, 160), sp.marginLeftTwips, fy);
+            this.pdfGlyphsAt(page, emb, DEFAULT_FONT, 'regular', 9, [0.2, 0.2, 0.2], `${h.id}. ${text}`.slice(0, 160), sp.marginLeftTwips, fy);
             fy += 240;
           }
         }
@@ -5642,8 +5658,7 @@ export class UniversalWriteElement extends HTMLElement {
         fills: [], lines: [], glyphs: [],
       });
     }
-    const famOf = (family: string | undefined): 'Aptos' | 'Calibri' =>
-      family?.split(' ')[0] === 'Calibri' ? 'Calibri' : 'Aptos';
+    const famOf = (family: string | undefined): string => this.familyFor(family);
     const colorOf = (hex: string | undefined): [number, number, number] => {
       if (!hex) return [0.13, 0.13, 0.13];
       const n = parseInt(hex, 16);
@@ -5783,8 +5798,7 @@ export class UniversalWriteElement extends HTMLElement {
       { posTwips: widthTwips / 2, align: 'center' as const },
       { posTwips: widthTwips, align: 'right' as const },
     ];
-    const famOf = (family: string | undefined): 'Aptos' | 'Calibri' =>
-      family?.split(' ')[0] === 'Calibri' ? 'Calibri' : 'Aptos';
+    const famOf = (family: string | undefined): string => this.familyFor(family);
     let y = topYTwips;
     for (const p of paras) {
       const runs: Run[] = p.runs.map((r) =>
@@ -5946,7 +5960,7 @@ export class UniversalWriteElement extends HTMLElement {
 
     // marcador de lista
     if (line.marker) {
-      this.pdfGlyphsAt(page, emb, 'Aptos', 'regular', 11, [0, 0, 0], line.marker.text, line.marker.xTwips, line.baselineTwips);
+      this.pdfGlyphsAt(page, emb, DEFAULT_FONT, 'regular', 11, [0, 0, 0], line.marker.text, line.marker.xTwips, line.baselineTwips);
     }
 
     // texto, caractere a caractere — posições idênticas ao canvas

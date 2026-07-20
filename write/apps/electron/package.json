@@ -33,11 +33,6 @@
         "from": "../../packages/editor/demo",
         "to": "packages/editor/demo",
         "filter": ["index.html", "bundle.js", "fonts/**/*"]
-      },
-      {
-        "from": "../../tools/word-lab/fonts",
-        "to": "tools/word-lab/fonts",
-        "filter": ["*.ttf", "*.json"]
       }
     ],
     "win": {
