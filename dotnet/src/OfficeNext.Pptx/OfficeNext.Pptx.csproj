@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Modelo + reader .pptx (paridade com @universal/slides-core, incluindo
+       cascata de estilos de texto e grupos achatados) + SetRunText. -->
+  <ItemGroup>
+    <ProjectReference Include="..\OfficeNext.Core\OfficeNext.Core.csproj" />
+  </ItemGroup>
+</Project>

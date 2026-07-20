@@ -1,0 +1,12 @@
+<Project>
+  <!-- Convenções comuns da solução OfficeNext (spec 07): net8.0 LTS, C# 12,
+       nullable habilitado, sem dependências NuGet externas nos projetos src/. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,18 @@
+Universal Sheet — Showcase de Recursos	
+	
+Aba	Recurso demonstrado
+TextoENumeros	Tipos, formatos numericos, quebra de texto
+Datas	Formatos de data e hora
+Formatacao	Negrito, italico, cor, preenchimento, alinhamento
+Bordas	Estilos de borda e grade
+Mesclar	Celulas mescladas (horizontal e vertical)
+Formulas	SUM, AVERAGE, IF, VLOOKUP, COUNTIF, refs absolutas/externas
+CondFormat	Escala de cor, data bar, regra de destaque
+Validacao	Validacao de dados (lista dropdown)
+Tabela	Tabela formatada (ListObject)
+Graficos	Graficos coluna, linha, pizza
+Comentarios	Comentarios/anotacoes
+Congelar	Congelar paineis (freeze panes)
+Ocultos	Linhas/colunas ocultas e grupos (outline)
+	
+(gerado via COM do Excel real)	
