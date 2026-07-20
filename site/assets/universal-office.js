@@ -14343,10 +14343,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.layoutCache = [];
     this.tableLayouts = [];
     this.dropCapFloats = [];
-    const originX = tb.rectTwips.x;
-    const width = Math.max(tb.rectTwips.w, 240);
+    const box = tb.hostRun.textbox;
+    const ins = box ? this.tbInsets(box) : { l: 0, t: 0, r: 0, b: 0 };
+    const originX = tb.rectTwips.x + ins.l;
+    const width = Math.max(tb.rectTwips.w - ins.l - ins.r, 240);
     const font = this.fonts.resolve(void 0, "regular");
-    let y3 = tb.rectTwips.y;
+    let y3 = tb.rectTwips.y + ins.t;
     this.model.paragraphs.forEach((p3, pi) => {
       const spans = this.buildSpans(p3, { skipFloating: true });
       const { lines, charAdvances, tabLeaders } = breakRich(spans, this.fonts, {
@@ -14822,6 +14824,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   tbInsets(tb) {
     return tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
   }
+  /** Origem/largura do TEXTO dentro da caixa: recuado pelas margens internas
+   *  (lIns/tIns/rIns) como o Word — o texto começa em (x+lIns, y+tIns) e quebra
+   *  em (w−lIns−rIns). Usado em todo lugar que pinta os parágrafos da caixa. */
+  tbInner(tb, x3, y3, w2) {
+    const ins = this.tbInsets(tb);
+    return { x: x3 + ins.l, y: y3 + ins.t, w: Math.max(w2 - ins.l - ins.r, 120) };
+  }
   /** Altura EFETIVA da caixa de texto: se spAutoFit, ajusta ao conteúdo (o cy
    *  declarado é ignorado pelo Word); senão usa a altura declarada. Assim o alvo
    *  de seleção/edição respeita o tamanho real da caixa. */
@@ -14881,7 +14890,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (r6.textbox) {
         const tb = r6.textbox;
         const { x: tx, y: ty } = tb.floating ? this.anchoredPos(tb, originXTwips, paraTopTwips, sp) : { x: originXTwips, y: paraTopTwips };
-        this.paintHf(ctx, scale, tb.paras, tx, ty, tb.widthTwips || widthTwips, pageIdx, color, sp);
+        {
+          const iw = this.tbInner(tb, tx, ty, tb.widthTwips || widthTwips);
+          this.paintHf(ctx, scale, tb.paras, iw.x, iw.y, iw.w, pageIdx, color, sp);
+        }
         continue;
       }
       const bmp = this.bitmapFor(r6.image);
@@ -15976,7 +15988,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           if (!r6.textbox) continue;
           if (r6 === this.tbSnapshotSuppress) continue;
           const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp.marginLeftTwips, first.yTwips, sp) : { x: sp.marginLeftTwips, y: first.yTwips };
-          this.paintHf(ctx, scale, r6.textbox.paras, x3, y3, r6.textbox.widthTwips || colW, fpg, inkTb, sp);
+          {
+            const iw = this.tbInner(r6.textbox, x3, y3, r6.textbox.widthTwips || colW);
+            this.paintHf(ctx, scale, r6.textbox.paras, iw.x, iw.y, iw.w, fpg, inkTb, sp);
+          }
         }
       });
     }
@@ -16419,7 +16434,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         for (const r6 of p3.runs) {
           if (!r6.textbox) continue;
           const { x: x3, y: y3 } = r6.textbox.floating ? this.anchoredPos(r6.textbox, sp.marginLeftTwips, first.yTwips, sp) : { x: sp.marginLeftTwips, y: first.yTwips };
-          this.pdfPaintHf(doc, page, emb, r6.textbox.paras, x3, y3, r6.textbox.widthTwips || colW, first.page, sp);
+          {
+            const iw = this.tbInner(r6.textbox, x3, y3, r6.textbox.widthTwips || colW);
+            this.pdfPaintHf(doc, page, emb, r6.textbox.paras, iw.x, iw.y, iw.w, first.page, sp);
+          }
         }
       });
     }
@@ -16859,7 +16877,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         if (!obj) continue;
         const { x: fx, y: fy } = obj.floating ? this.anchoredPos(obj, originXTwips, y3, sp) : { x: originXTwips, y: y3 };
         if (r6.textbox) {
-          this.pdfPaintHf(doc, page, emb, r6.textbox.paras, fx, fy, r6.textbox.widthTwips || widthTwips, pageIdx, sp);
+          {
+            const iw = this.tbInner(r6.textbox, fx, fy, r6.textbox.widthTwips || widthTwips);
+            this.pdfPaintHf(doc, page, emb, r6.textbox.paras, iw.x, iw.y, iw.w, pageIdx, sp);
+          }
         } else if (r6.image) {
           this.pdfImage(doc, page, r6.image, fx / T2, fy / T2, r6.image.widthTwips / T2, r6.image.heightTwips / T2);
         }

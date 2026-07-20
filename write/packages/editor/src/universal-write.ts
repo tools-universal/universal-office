@@ -3340,10 +3340,14 @@ export class UniversalWriteElement extends HTMLElement {
     this.layoutCache = [];
     this.tableLayouts = [];
     this.dropCapFloats = [];
-    const originX = tb.rectTwips.x;
-    const width = Math.max(tb.rectTwips.w, 240);
+    // margens internas: o texto recua (lIns/tIns) como no render, p/ a edição
+    // bater com o que se vê fora dela.
+    const box = tb.hostRun.textbox;
+    const ins = box ? this.tbInsets(box) : { l: 0, t: 0, r: 0, b: 0 };
+    const originX = tb.rectTwips.x + ins.l;
+    const width = Math.max(tb.rectTwips.w - ins.l - ins.r, 240);
     const font = this.fonts!.resolve(undefined, 'regular');
-    let y = tb.rectTwips.y;
+    let y = tb.rectTwips.y + ins.t;
     this.model!.paragraphs.forEach((p, pi) => {
       const spans = this.buildSpans(p, { skipFloating: true });
       const { lines, charAdvances, tabLeaders } = breakRich(spans, this.fonts!, {
@@ -3893,6 +3897,13 @@ export class UniversalWriteElement extends HTMLElement {
   private tbInsets(tb: DrawingTextbox): { l: number; t: number; r: number; b: number } {
     return tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
   }
+  /** Origem/largura do TEXTO dentro da caixa: recuado pelas margens internas
+   *  (lIns/tIns/rIns) como o Word — o texto começa em (x+lIns, y+tIns) e quebra
+   *  em (w−lIns−rIns). Usado em todo lugar que pinta os parágrafos da caixa. */
+  private tbInner(tb: DrawingTextbox, x: number, y: number, w: number): { x: number; y: number; w: number } {
+    const ins = this.tbInsets(tb);
+    return { x: x + ins.l, y: y + ins.t, w: Math.max(w - ins.l - ins.r, 120) };
+  }
   /** Altura EFETIVA da caixa de texto: se spAutoFit, ajusta ao conteúdo (o cy
    *  declarado é ignorado pelo Word); senão usa a altura declarada. Assim o alvo
    *  de seleção/edição respeita o tamanho real da caixa. */
@@ -3972,7 +3983,8 @@ export class UniversalWriteElement extends HTMLElement {
         const { x: tx, y: ty } = tb.floating
           ? this.anchoredPos(tb, originXTwips, paraTopTwips, sp)
           : { x: originXTwips, y: paraTopTwips };
-        this.paintHf(ctx, scale, tb.paras, tx, ty, tb.widthTwips || widthTwips, pageIdx, color, sp);
+        { const iw = this.tbInner(tb, tx, ty, tb.widthTwips || widthTwips);
+          this.paintHf(ctx, scale, tb.paras, iw.x, iw.y, iw.w, pageIdx, color, sp); }
         continue;
       }
       const bmp = this.bitmapFor(r.image!);
@@ -5166,7 +5178,8 @@ export class UniversalWriteElement extends HTMLElement {
           const { x, y } = r.textbox.floating
             ? this.anchoredPos(r.textbox, sp.marginLeftTwips, first.yTwips, sp)
             : { x: sp.marginLeftTwips, y: first.yTwips };
-          this.paintHf(ctx, scale, r.textbox.paras, x, y, r.textbox.widthTwips || colW, fpg, inkTb, sp);
+          { const iw = this.tbInner(r.textbox, x, y, r.textbox.widthTwips || colW);
+            this.paintHf(ctx, scale, r.textbox.paras, iw.x, iw.y, iw.w, fpg, inkTb, sp); }
         }
       });
     }
@@ -5654,7 +5667,8 @@ export class UniversalWriteElement extends HTMLElement {
           const { x, y } = r.textbox.floating
             ? this.anchoredPos(r.textbox, sp.marginLeftTwips, first.yTwips, sp)
             : { x: sp.marginLeftTwips, y: first.yTwips };
-          this.pdfPaintHf(doc, page, emb, r.textbox.paras, x, y, r.textbox.widthTwips || colW, first.page, sp);
+          { const iw = this.tbInner(r.textbox, x, y, r.textbox.widthTwips || colW);
+            this.pdfPaintHf(doc, page, emb, r.textbox.paras, iw.x, iw.y, iw.w, first.page, sp); }
         }
       });
     }
@@ -6144,7 +6158,8 @@ export class UniversalWriteElement extends HTMLElement {
           ? this.anchoredPos(obj, originXTwips, y, sp)
           : { x: originXTwips, y };
         if (r.textbox) {
-          this.pdfPaintHf(doc, page, emb, r.textbox.paras, fx, fy, r.textbox.widthTwips || widthTwips, pageIdx, sp);
+          { const iw = this.tbInner(r.textbox, fx, fy, r.textbox.widthTwips || widthTwips);
+            this.pdfPaintHf(doc, page, emb, r.textbox.paras, iw.x, iw.y, iw.w, pageIdx, sp); }
         } else if (r.image) {
           this.pdfImage(doc, page, r.image, fx / T, fy / T, r.image.widthTwips / T, r.image.heightTwips / T);
         }
