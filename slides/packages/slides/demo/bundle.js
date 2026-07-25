@@ -3951,7 +3951,8 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     if (hasXform || hasAlpha) ctx.restore();
     return;
   }
-  if (sh.shadow) {
+  const hasVisibleFill = sh.fill !== void 0 && sh.fill.type !== "none";
+  if (sh.shadow && hasVisibleFill) {
     const sx = sh.shadow.dist * Math.cos(sh.shadow.dirDeg * Math.PI / 180) / 9525 * fit.scale;
     const sy = sh.shadow.dist * Math.sin(sh.shadow.dirDeg * Math.PI / 180) / 9525 * fit.scale;
     ctx.save();

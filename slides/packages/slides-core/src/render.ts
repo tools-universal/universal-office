@@ -210,8 +210,10 @@ function paintShape(
     return;
   }
 
-  // sombra externa (outerShdw) — aplicada no fill path
-  if (sh.shadow) {
+  // sombra externa (outerShdw) — aplicada no fill path. Shape SEM fill não
+  // pinta proxy (a sombra vai no texto/imagem herdada — nunca um rect branco).
+  const hasVisibleFill = sh.fill !== undefined && sh.fill.type !== 'none';
+  if (sh.shadow && hasVisibleFill) {
     const sx = sh.shadow.dist * Math.cos(sh.shadow.dirDeg * Math.PI / 180) / 9525 * fit.scale;
     const sy = sh.shadow.dist * Math.sin(sh.shadow.dirDeg * Math.PI / 180) / 9525 * fit.scale;
     ctx.save();
