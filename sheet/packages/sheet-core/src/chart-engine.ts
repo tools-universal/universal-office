@@ -232,7 +232,7 @@ function walkText(el: XmlElement, out: string[]): void {
  * Desenha `chart` dentro do retângulo `(x, y, w, h)`. Branco no fundo. Título no
  * topo (se houver). Plot area = retângulo restante com margens internas.
  */
-export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt?: number, frameBorder?: string): void {
+export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt?: number, frameBorder?: string, sliceBorder = true): void {
   // fundo branco (chartSpace default). Moldura: o host decide — o Excel desenha
   // borda cinza clara em charts embutidos; o PowerPoint não (frameBorder=undef).
   ctx.fillStyle = '#ffffff';
@@ -292,10 +292,10 @@ export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: 
       paintLines(ctx, chart, px, py, pw, ph, labelPx, true);
       break;
     case 'pie':
-      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, 0);
+      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, 0, sliceBorder);
       break;
     case 'doughnut':
-      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, chart.holeSize ?? 0.75);
+      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, chart.holeSize ?? 0.75, sliceBorder);
       break;
     case 'scatter':
       paintScatter(ctx, chart, px, py, pw, ph, labelPx);
@@ -468,7 +468,7 @@ function paintLines(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   paintValueAxis(ctx, t, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
 
-function paintPieOrDoughnut(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, holeFrac: number): void {
+function paintPieOrDoughnut(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, holeFrac: number, sliceBorder = true): void {
   const s0 = chart.series[0];
   if (!s0) return;
   const total = s0.values.reduce((a, b) => a + Math.max(0, b), 0);
@@ -496,10 +496,13 @@ function paintPieOrDoughnut(ctx: CanvasRenderingContext2D, chart: ChartModel, x:
       ctx.closePath();
     }
     ctx.fill();
-    // separador branco entre fatias (o app de referência contorna em branco)
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = Math.max(2, radius / 90);
-    ctx.stroke();
+    // separador branco entre fatias: default do PowerPoint; o Excel NAO
+    // desenha (series sem <a:ln> explicito) — controlado pelo host
+    if (sliceBorder) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = Math.max(2, radius / 90);
+      ctx.stroke();
+    }
     a0 = a1;
   }
 }

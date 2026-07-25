@@ -33164,7 +33164,7 @@ function walkText(el, out) {
     walkText(c4, out);
   }
 }
-function paintChart(ctx, chart, x4, y3, w2, h3, pxPerPt, frameBorder) {
+function paintChart(ctx, chart, x4, y3, w2, h3, pxPerPt, frameBorder, sliceBorder = true) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(x4, y3, w2, h3);
   if (frameBorder) {
@@ -33210,10 +33210,10 @@ function paintChart(ctx, chart, x4, y3, w2, h3, pxPerPt, frameBorder) {
       paintLines(ctx, chart, px, py, pw, ph, labelPx, true);
       break;
     case "pie":
-      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, 0);
+      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, 0, sliceBorder);
       break;
     case "doughnut":
-      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, chart.holeSize ?? 0.75);
+      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, chart.holeSize ?? 0.75, sliceBorder);
       break;
     case "scatter":
       paintScatter(ctx, chart, px, py, pw, ph, labelPx);
@@ -33369,7 +33369,7 @@ function paintLines(ctx, chart, x4, y3, w2, h3, labelPx, area) {
   paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
   paintValueAxis(ctx, t5, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
-function paintPieOrDoughnut(ctx, chart, x4, y3, w2, h3, holeFrac) {
+function paintPieOrDoughnut(ctx, chart, x4, y3, w2, h3, holeFrac, sliceBorder = true) {
   const s0 = chart.series[0];
   if (!s0) return;
   const total = s0.values.reduce((a3, b5) => a3 + Math.max(0, b5), 0);
@@ -33394,9 +33394,11 @@ function paintPieOrDoughnut(ctx, chart, x4, y3, w2, h3, holeFrac) {
       ctx.closePath();
     }
     ctx.fill();
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = Math.max(2, radius / 90);
-    ctx.stroke();
+    if (sliceBorder) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = Math.max(2, radius / 90);
+      ctx.stroke();
+    }
     a0 = a1;
   }
 }
@@ -34026,7 +34028,22 @@ function readWorksheet(pkg, sheetPath, cx) {
       } else if (type === "dataBar") {
         const db = firstChild(ruleEl, "dataBar");
         const colorEl = db ? firstChild(db, "color") : void 0;
-        rules.push({ type, priority, barColor: (colorEl ? resolveColorEl(colorEl, ctx) : void 0) ?? "#638EC6" });
+        const rule = {
+          type,
+          priority,
+          barColor: (colorEl ? resolveColorEl(colorEl, ctx) : void 0) ?? "#638EC6"
+        };
+        const extLst = firstChild(ruleEl, "extLst");
+        if (extLst) {
+          for (const ext of childElements(extLst, "ext")) {
+            const idEl = firstChild(ext, "x14:id");
+            if (idEl) {
+              rule.x14Id = textContent(idEl).trim();
+              break;
+            }
+          }
+        }
+        rules.push(rule);
       } else if (type === "cellIs" || type === "expression") {
         const dxfId = ruleEl.attrs["dxfId"] !== void 0 ? parseInt(ruleEl.attrs["dxfId"], 10) : void 0;
         const formula = childElements(ruleEl, "formula").map((f3) => textContent(f3));
@@ -34034,6 +34051,38 @@ function readWorksheet(pkg, sheetPath, cx) {
       }
     }
     if (rules.length) condFormats.push({ sqref, rules });
+  }
+  const wsExtLst = firstChild(root, "extLst");
+  if (wsExtLst) {
+    const x14map = /* @__PURE__ */ new Map();
+    for (const ext of childElements(wsExtLst, "ext")) {
+      const cfs = firstChild(ext, "x14:conditionalFormattings");
+      if (!cfs) continue;
+      for (const cf of childElements(cfs, "x14:conditionalFormatting")) {
+        for (const ruleEl of childElements(cf, "x14:cfRule")) {
+          if (ruleEl.attrs["type"] !== "dataBar") continue;
+          const id = ruleEl.attrs["id"];
+          const db = firstChild(ruleEl, "x14:dataBar");
+          if (!id || !db) continue;
+          x14map.set(id.trim(), {
+            min: db.attrs["minLength"] !== void 0 ? parseInt(db.attrs["minLength"], 10) : 0,
+            max: db.attrs["maxLength"] !== void 0 ? parseInt(db.attrs["maxLength"], 10) : 100,
+            border: db.attrs["border"] === "1"
+          });
+        }
+      }
+    }
+    if (x14map.size > 0) {
+      for (const cf of condFormats) {
+        for (const rule of cf.rules) {
+          const x14 = rule.x14Id !== void 0 ? x14map.get(rule.x14Id) : void 0;
+          if (!x14) continue;
+          rule.barMinLen = x14.min;
+          rule.barMaxLen = x14.max;
+          rule.barBorder = x14.border;
+        }
+      }
+    }
   }
   const commentsPath = findRelByType(pkg, relsPath, "/comments");
   const comments = commentsPath ? readComments(pkg, pkg.resolveRelTarget(sheetPath, commentsPath)) : [];
@@ -36281,7 +36330,7 @@ var UniversalSheetElement = class extends HTMLElement {
         this.chartCache.set(ch.chartXml, model);
       }
       if (!model.palette && this.chartPalette.length) model.palette = this.chartPalette;
-      paintChart(ctx, model, x4, y3, w2, h3, this.zoom * 96 / 72, "#D9D9D9");
+      paintChart(ctx, model, x4, y3, w2, h3, this.zoom * 96 / 72, "#D9D9D9", false);
     }
   }
   /**
@@ -36467,7 +36516,9 @@ var UniversalSheetElement = class extends HTMLElement {
           const { min, max: max3 } = rangeMinMax(cf.sqref, vals);
           if (max3 > min) {
             const t5 = Math.max(0, Math.min(1, (value - min) / (max3 - min)));
-            const frac = 0.1 + 0.8 * t5;
+            const lo = (rule.barMinLen ?? 10) / 100;
+            const hi = (rule.barMaxLen ?? 90) / 100;
+            const frac = lo + (hi - lo) * t5;
             const color = rule.barColor ?? "#638EC6";
             const bx = left + 1;
             const by = top + 1.5 * this.zoom;
@@ -36479,9 +36530,11 @@ var UniversalSheetElement = class extends HTMLElement {
               g2.addColorStop(1, lerpColor(color, "#FFFFFF", 0.85));
               ctx.fillStyle = g2;
               ctx.fillRect(bx, by, bw2, bh2);
-              ctx.strokeStyle = color;
-              ctx.lineWidth = 1;
-              ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, Math.round(bw2) - 1, Math.round(bh2) - 1);
+              if (rule.barBorder) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, Math.round(bw2) - 1, Math.round(bh2) - 1);
+              }
             }
           }
         } else if (rule.type === "cellIs" && rule.dxfId !== void 0 && !Number.isNaN(value)) {

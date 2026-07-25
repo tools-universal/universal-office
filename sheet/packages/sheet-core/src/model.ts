@@ -157,6 +157,13 @@ export interface CondRule {
   stops?: ColorStop[];
   // dataBar
   barColor?: string;
+  /** Comprimentos min/max da barra em % (x14 quando presente; clássico 10/90). */
+  barMinLen?: number;
+  barMaxLen?: number;
+  /** Borda da barra (x14 border="1"; default sem borda). */
+  barBorder?: boolean;
+  /** Id que liga o cfRule clássico à definição x14 no extLst da worksheet. */
+  x14Id?: string;
   // cellIs
   operator?: string;
   formula?: string[];

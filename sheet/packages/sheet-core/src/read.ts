@@ -234,7 +234,19 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
       } else if (type === 'dataBar') {
         const db = firstChild(ruleEl, 'dataBar');
         const colorEl = db ? firstChild(db, 'color') : undefined;
-        rules.push({ type, priority, barColor: (colorEl ? resolveColorEl(colorEl, ctx) : undefined) ?? '#638EC6' });
+        const rule: CondRule = {
+          type, priority,
+          barColor: (colorEl ? resolveColorEl(colorEl, ctx) : undefined) ?? '#638EC6',
+        };
+        // extLst do cfRule liga à definição x14 (minLength/maxLength/border)
+        const extLst = firstChild(ruleEl, 'extLst');
+        if (extLst) {
+          for (const ext of childElements(extLst, 'ext')) {
+            const idEl = firstChild(ext, 'x14:id');
+            if (idEl) { rule.x14Id = textContent(idEl).trim(); break; }
+          }
+        }
+        rules.push(rule);
       } else if (type === 'cellIs' || type === 'expression') {
         const dxfId = ruleEl.attrs['dxfId'] !== undefined ? parseInt(ruleEl.attrs['dxfId'], 10) : undefined;
         const formula = childElements(ruleEl, 'formula').map((f) => textContent(f));
@@ -242,6 +254,41 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
       }
     }
     if (rules.length) condFormats.push({ sqref, rules });
+  }
+
+  // definições x14 de dataBar (extLst da worksheet): minLength/maxLength/border
+  // reais das barras modernas — o cfRule clássico liga por x14Id
+  const wsExtLst = firstChild(root, 'extLst');
+  if (wsExtLst) {
+    const x14map = new Map<string, { min?: number; max?: number; border?: boolean }>();
+    for (const ext of childElements(wsExtLst, 'ext')) {
+      const cfs = firstChild(ext, 'x14:conditionalFormattings');
+      if (!cfs) continue;
+      for (const cf of childElements(cfs, 'x14:conditionalFormatting')) {
+        for (const ruleEl of childElements(cf, 'x14:cfRule')) {
+          if (ruleEl.attrs['type'] !== 'dataBar') continue;
+          const id = ruleEl.attrs['id'];
+          const db = firstChild(ruleEl, 'x14:dataBar');
+          if (!id || !db) continue;
+          x14map.set(id.trim(), {
+            min: db.attrs['minLength'] !== undefined ? parseInt(db.attrs['minLength'], 10) : 0,
+            max: db.attrs['maxLength'] !== undefined ? parseInt(db.attrs['maxLength'], 10) : 100,
+            border: db.attrs['border'] === '1',
+          });
+        }
+      }
+    }
+    if (x14map.size > 0) {
+      for (const cf of condFormats) {
+        for (const rule of cf.rules) {
+          const x14 = rule.x14Id !== undefined ? x14map.get(rule.x14Id) : undefined;
+          if (!x14) continue;
+          rule.barMinLen = x14.min;
+          rule.barMaxLen = x14.max;
+          rule.barBorder = x14.border;
+        }
+      }
+    }
   }
 
   // comentários da planilha (rels de tipo .../relationships/comments)

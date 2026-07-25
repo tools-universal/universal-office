@@ -1431,7 +1431,9 @@ export class UniversalSheetElement extends HTMLElement {
       if (!model.palette && this.chartPalette.length) model.palette = this.chartPalette;
       // px por pt: 96/72 na base, escalado pelo zoom (tipografia do chart).
       // Moldura cinza clara: default do app de referência p/ charts embutidos.
-      paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72, '#D9D9D9');
+      // sliceBorder=false: o Excel NÃO separa fatias de pizza com branco
+      // (séries sem <a:ln> — verificado no chart3.xml do showcase).
+      paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72, '#D9D9D9', false);
     }
   }
 
@@ -1607,11 +1609,13 @@ export class UniversalSheetElement extends HTMLElement {
         } else if (rule.type === 'dataBar' && !Number.isNaN(value)) {
           const { min, max } = rangeMinMax(cf.sqref, vals);
           if (max > min) {
-            // barra clássica do app de referência: comprimento 10%..90% do
-            // range, ALTURA quase total da célula, DEGRADÊ horizontal
-            // (cor → quase branco) e borda 1px da própria cor
+            // comprimento: x14 (minLength/maxLength reais, ex. 0..100) quando
+            // presente; sem x14, defaults clássicos 10..90. Altura quase total,
+            // DEGRADÊ horizontal cor→branco; borda só se x14 border="1"
             const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
-            const frac = 0.1 + 0.8 * t;
+            const lo = (rule.barMinLen ?? 10) / 100;
+            const hi = (rule.barMaxLen ?? 90) / 100;
+            const frac = lo + (hi - lo) * t;
             const color = rule.barColor ?? '#638EC6';
             const bx = left + 1;
             const by = top + 1.5 * this.zoom;
@@ -1623,9 +1627,11 @@ export class UniversalSheetElement extends HTMLElement {
               g.addColorStop(1, lerpColor(color, '#FFFFFF', 0.85));
               ctx.fillStyle = g;
               ctx.fillRect(bx, by, bw2, bh2);
-              ctx.strokeStyle = color;
-              ctx.lineWidth = 1;
-              ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, Math.round(bw2) - 1, Math.round(bh2) - 1);
+              if (rule.barBorder) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, Math.round(bw2) - 1, Math.round(bh2) - 1);
+              }
             }
           }
         } else if (rule.type === 'cellIs' && rule.dxfId !== undefined && !Number.isNaN(value)) {
