@@ -167,6 +167,16 @@ function paintShape(
   if (sh.image) {
     const img = res.images?.get(sh.image.part);
     if (img) {
+      // sombra da shape aplicada à imagem (cards de foto de template)
+      if (sh.shadow) {
+        const sc = sh.shadow;
+        const n = parseInt(sc.color.replace('#', ''), 16);
+        ctx.save();
+        ctx.shadowColor = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${sc.alpha})`;
+        ctx.shadowBlur = sc.blurRad * fit.scale;
+        ctx.shadowOffsetX = sc.dist * Math.cos(sc.dirDeg * Math.PI / 180) * fit.scale;
+        ctx.shadowOffsetY = sc.dist * Math.sin(sc.dirDeg * Math.PI / 180) * fit.scale;
+      }
       // geometria do pic != rect (ex.: crop circular via prstGeom ellipse):
       // recorta a imagem pelo path da geometria, como o app de referência.
       const clipGeom = sh.geom !== undefined && sh.geom !== 'rect';
@@ -187,6 +197,7 @@ function paintShape(
         ctx.drawImage(img, x, y, w, h);
       }
       if (clipGeom) ctx.restore();
+      if (sh.shadow) ctx.restore();
     }
     // contorno (raro em pic mas válido) — segue a geometria do pic
     if (sh.lineColor) {
@@ -485,9 +496,11 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
       ctx.font = layoutFontStr(r.font, pxPerPt);
       ctx.fillStyle = r.color;
       const tx = x + r.x * scale;
-      if (r.shadow) {
+      const effShadow = r.shadow ?? sh.shadow;
+      if (effShadow) {
         // sombra do texto: EMU→px pela escala; alpha na cor da sombra
-        const sc = r.shadow;
+        // (a sombra da SHAPE se aplica ao texto no app de referência)
+        const sc = effShadow;
         const n = parseInt(sc.color.replace('#', ''), 16);
         ctx.save();
         ctx.shadowColor = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${sc.alpha})`;

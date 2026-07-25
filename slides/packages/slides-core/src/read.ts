@@ -133,6 +133,25 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     }
   }
 
+  // bodyPr herdado do placeholder (âncora vertical/insets/autofit/colunas)
+  const bodyPrMap = placeholderBodyPrMap(pkg, slidePath);
+  for (const sh of shapes) {
+    if (!sh.txBody || (sh.phType === undefined && sh.phIdx === undefined)) continue;
+    const inh = bodyPrMap.get(phKey(sh.phType, sh.phIdx)) ?? bodyPrMap.get(phKey(sh.phType)) ?? bodyPrMap.get('idx:' + (sh.phIdx ?? ''));
+    if (!inh) continue;
+    const tb = sh.txBody;
+    if (tb.anchor === undefined && inh.anchor !== undefined) tb.anchor = inh.anchor;
+    if (tb.wrap === undefined && inh.wrap !== undefined) tb.wrap = inh.wrap;
+    if (tb.insL === undefined && inh.insL !== undefined) tb.insL = inh.insL;
+    if (tb.insT === undefined && inh.insT !== undefined) tb.insT = inh.insT;
+    if (tb.insR === undefined && inh.insR !== undefined) tb.insR = inh.insR;
+    if (tb.insB === undefined && inh.insB !== undefined) tb.insB = inh.insB;
+    if (tb.numCol === undefined && inh.numCol !== undefined) tb.numCol = inh.numCol;
+    if (tb.spcCol === undefined && inh.spcCol !== undefined) tb.spcCol = inh.spcCol;
+    if (tb.fontScale === undefined && inh.fontScale !== undefined) tb.fontScale = inh.fontScale;
+    if (tb.lnSpcReduction === undefined && inh.lnSpcReduction !== undefined) tb.lnSpcReduction = inh.lnSpcReduction;
+  }
+
   // cascata de estilos de texto (spec 03 A/B): defaultTextStyle -> txStyles do
   // master -> fontRef do <p:style> -> lstStyle de placeholder (master/layout)
   // -> lstStyle do proprio txBody. Preenche defaults em Run/Paragraph.
@@ -365,6 +384,54 @@ function emptyLevels(): TextStyleLevels { return Array.from({ length: 9 }, () =>
  * `<p:defaultTextStyle>` do presentation.xml, `<p:txStyles>` do master e os
  * `<a:lstStyle>` dos placeholders do master e do layout (indexados por phKey).
  */
+/**
+ * Mapa phKey → props de bodyPr dos placeholders do layout/master (âncora,
+ * insets, autofit, wrap, colunas). O slide herda o que não define — é daqui
+ * que vem o alinhamento vertical dos títulos de template.
+ */
+function placeholderBodyPrMap(pkg: PptxPackage, slidePath: string): Map<string, Partial<TextBody>> {
+  const map = new Map<string, Partial<TextBody>>();
+  const layoutPath = findRelTarget(pkg, slidePath, 'slideLayout');
+  const masterPath = layoutPath ? findRelTarget(pkg, layoutPath, 'slideMaster') : undefined;
+  for (const part of [masterPath, layoutPath]) {
+    if (!part) continue;
+    const xml = pkg.getPartText(part);
+    if (xml === undefined) continue;
+    const tree = descend(parseXml(xml), 'p:spTree');
+    if (!tree) continue;
+    for (const sp of childElements(tree, 'p:sp')) {
+      const nv = firstChild(sp, 'p:nvSpPr');
+      const ph = nv ? firstChild(firstChild(nv, 'p:nvPr') ?? nv, 'p:ph') : undefined;
+      if (!ph) continue;
+      const txBody = firstChild(sp, 'p:txBody');
+      const bodyPr = txBody ? firstChild(txBody, 'a:bodyPr') : undefined;
+      if (!bodyPr) continue;
+      const props: Partial<TextBody> = {};
+      if (bodyPr.attrs['anchor']) props.anchor = bodyPr.attrs['anchor'];
+      if (bodyPr.attrs['wrap']) props.wrap = bodyPr.attrs['wrap'];
+      if (bodyPr.attrs['lIns'] !== undefined) props.insL = parseInt(bodyPr.attrs['lIns'], 10);
+      if (bodyPr.attrs['tIns'] !== undefined) props.insT = parseInt(bodyPr.attrs['tIns'], 10);
+      if (bodyPr.attrs['rIns'] !== undefined) props.insR = parseInt(bodyPr.attrs['rIns'], 10);
+      if (bodyPr.attrs['bIns'] !== undefined) props.insB = parseInt(bodyPr.attrs['bIns'], 10);
+      if (bodyPr.attrs['numCol'] !== undefined) props.numCol = parseInt(bodyPr.attrs['numCol'], 10);
+      if (bodyPr.attrs['spcCol'] !== undefined) props.spcCol = parseInt(bodyPr.attrs['spcCol'], 10);
+      const na = firstChild(bodyPr, 'a:normAutofit');
+      if (na) {
+        if (na.attrs['fontScale'] !== undefined) props.fontScale = parseInt(na.attrs['fontScale'], 10) / 100000;
+        if (na.attrs['lnSpcReduction'] !== undefined) props.lnSpcReduction = parseInt(na.attrs['lnSpcReduction'], 10) / 100000;
+      }
+      if (Object.keys(props).length === 0) continue;
+      const type = ph.attrs['type'] ?? 'body';
+      const idx = ph.attrs['idx'];
+      map.set(phKey(type, idx), props);
+      map.set(phKey(type), props);
+      if (idx !== undefined) map.set('idx:' + idx, props);
+    }
+  }
+  return map;
+}
+
+
 function buildTextStyleContext(pkg: PptxPackage, slidePath: string, theme: Theme): TextStyleContext {
   const ctx: TextStyleContext = {
     defaultStyle: emptyLevels(), titleStyle: emptyLevels(), bodyStyle: emptyLevels(),

@@ -1439,6 +1439,25 @@ function parsePPrLevel(pPr, theme) {
     }
     const latin = firstChild(defRPr, "a:latin");
     if (latin?.attrs["typeface"]) lvl.font = latin.attrs["typeface"];
+    const eff = firstChild(defRPr, "a:effectLst");
+    const shd = eff ? firstChild(eff, "a:outerShdw") : void 0;
+    if (shd) {
+      const colorEl = childElements(shd)[0];
+      let color = "#000000", alpha = 0.6;
+      if (colorEl) {
+        const c = colorFromDml(colorEl, theme);
+        if (c) color = c;
+        const aEl = firstChild(colorEl, "a:alpha");
+        if (aEl?.attrs["val"]) alpha = parseInt(aEl.attrs["val"], 10) / 1e5;
+      }
+      lvl.shadow = {
+        color,
+        blurRad: shd.attrs["blurRad"] ? parseInt(shd.attrs["blurRad"], 10) : 0,
+        dist: shd.attrs["dist"] ? parseInt(shd.attrs["dist"], 10) : 0,
+        dirDeg: (shd.attrs["dir"] ? parseInt(shd.attrs["dir"], 10) : 54e5) / 6e4,
+        alpha
+      };
+    }
   }
   return lvl;
 }
@@ -1455,6 +1474,7 @@ function mergeStyleLevels(...layers) {
       if (src.color !== void 0) dst.color = src.color;
       if (src.font !== void 0) dst.font = src.font;
       if (src.align !== void 0) dst.align = src.align;
+      if (src.shadow !== void 0) dst.shadow = src.shadow;
       if (src.marL !== void 0) dst.marL = src.marL;
       if (src.indent !== void 0) dst.indent = src.indent;
       if (src.buChar !== void 0 || src.buAutoNum !== void 0 || src.buNone) {
@@ -1498,6 +1518,7 @@ function applyTextStyles(tb, levels, theme) {
       if (r.bold === void 0 && lvl.bold !== void 0) r.bold = lvl.bold;
       if (r.italic === void 0 && lvl.italic !== void 0) r.italic = lvl.italic;
       if (r.color === void 0 && lvl.color !== void 0) r.color = lvl.color;
+      if (r.shadow === void 0 && lvl.shadow !== void 0) r.shadow = lvl.shadow;
       if (r.font === void 0 && lvl.font !== void 0) {
         const f = resolveFontAlias(lvl.font, theme);
         if (f !== void 0) r.font = f;
@@ -1634,6 +1655,23 @@ function readSlide(pkg, slidePath) {
       const x2 = phMap.get(phKey(sh.phType, sh.phIdx)) ?? phMap.get(phKey(sh.phType)) ?? phMap.get("idx:" + (sh.phIdx ?? ""));
       if (x2) sh.xfrm = x2;
     }
+  }
+  const bodyPrMap = placeholderBodyPrMap(pkg, slidePath);
+  for (const sh of shapes) {
+    if (!sh.txBody || sh.phType === void 0 && sh.phIdx === void 0) continue;
+    const inh = bodyPrMap.get(phKey(sh.phType, sh.phIdx)) ?? bodyPrMap.get(phKey(sh.phType)) ?? bodyPrMap.get("idx:" + (sh.phIdx ?? ""));
+    if (!inh) continue;
+    const tb = sh.txBody;
+    if (tb.anchor === void 0 && inh.anchor !== void 0) tb.anchor = inh.anchor;
+    if (tb.wrap === void 0 && inh.wrap !== void 0) tb.wrap = inh.wrap;
+    if (tb.insL === void 0 && inh.insL !== void 0) tb.insL = inh.insL;
+    if (tb.insT === void 0 && inh.insT !== void 0) tb.insT = inh.insT;
+    if (tb.insR === void 0 && inh.insR !== void 0) tb.insR = inh.insR;
+    if (tb.insB === void 0 && inh.insB !== void 0) tb.insB = inh.insB;
+    if (tb.numCol === void 0 && inh.numCol !== void 0) tb.numCol = inh.numCol;
+    if (tb.spcCol === void 0 && inh.spcCol !== void 0) tb.spcCol = inh.spcCol;
+    if (tb.fontScale === void 0 && inh.fontScale !== void 0) tb.fontScale = inh.fontScale;
+    if (tb.lnSpcReduction === void 0 && inh.lnSpcReduction !== void 0) tb.lnSpcReduction = inh.lnSpcReduction;
   }
   const styleCtx = buildTextStyleContext(pkg, slidePath, theme);
   for (const sh of shapes) {
@@ -1815,6 +1853,47 @@ function placeholderXfrmMap(pkg, slidePath, theme) {
 }
 function emptyLevels() {
   return Array.from({ length: 9 }, () => ({}));
+}
+function placeholderBodyPrMap(pkg, slidePath) {
+  const map = /* @__PURE__ */ new Map();
+  const layoutPath = findRelTarget(pkg, slidePath, "slideLayout");
+  const masterPath = layoutPath ? findRelTarget(pkg, layoutPath, "slideMaster") : void 0;
+  for (const part of [masterPath, layoutPath]) {
+    if (!part) continue;
+    const xml = pkg.getPartText(part);
+    if (xml === void 0) continue;
+    const tree = descend(parseXml(xml), "p:spTree");
+    if (!tree) continue;
+    for (const sp of childElements(tree, "p:sp")) {
+      const nv = firstChild(sp, "p:nvSpPr");
+      const ph = nv ? firstChild(firstChild(nv, "p:nvPr") ?? nv, "p:ph") : void 0;
+      if (!ph) continue;
+      const txBody = firstChild(sp, "p:txBody");
+      const bodyPr = txBody ? firstChild(txBody, "a:bodyPr") : void 0;
+      if (!bodyPr) continue;
+      const props = {};
+      if (bodyPr.attrs["anchor"]) props.anchor = bodyPr.attrs["anchor"];
+      if (bodyPr.attrs["wrap"]) props.wrap = bodyPr.attrs["wrap"];
+      if (bodyPr.attrs["lIns"] !== void 0) props.insL = parseInt(bodyPr.attrs["lIns"], 10);
+      if (bodyPr.attrs["tIns"] !== void 0) props.insT = parseInt(bodyPr.attrs["tIns"], 10);
+      if (bodyPr.attrs["rIns"] !== void 0) props.insR = parseInt(bodyPr.attrs["rIns"], 10);
+      if (bodyPr.attrs["bIns"] !== void 0) props.insB = parseInt(bodyPr.attrs["bIns"], 10);
+      if (bodyPr.attrs["numCol"] !== void 0) props.numCol = parseInt(bodyPr.attrs["numCol"], 10);
+      if (bodyPr.attrs["spcCol"] !== void 0) props.spcCol = parseInt(bodyPr.attrs["spcCol"], 10);
+      const na = firstChild(bodyPr, "a:normAutofit");
+      if (na) {
+        if (na.attrs["fontScale"] !== void 0) props.fontScale = parseInt(na.attrs["fontScale"], 10) / 1e5;
+        if (na.attrs["lnSpcReduction"] !== void 0) props.lnSpcReduction = parseInt(na.attrs["lnSpcReduction"], 10) / 1e5;
+      }
+      if (Object.keys(props).length === 0) continue;
+      const type = ph.attrs["type"] ?? "body";
+      const idx = ph.attrs["idx"];
+      map.set(phKey(type, idx), props);
+      map.set(phKey(type), props);
+      if (idx !== void 0) map.set("idx:" + idx, props);
+    }
+  }
+  return map;
 }
 function buildTextStyleContext(pkg, slidePath, theme) {
   const ctx = {
@@ -3834,6 +3913,15 @@ function paintShape(ctx, sh, fit, res, suppressText) {
   if (sh.image) {
     const img = res.images?.get(sh.image.part);
     if (img) {
+      if (sh.shadow) {
+        const sc = sh.shadow;
+        const n = parseInt(sc.color.replace("#", ""), 16);
+        ctx.save();
+        ctx.shadowColor = `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${sc.alpha})`;
+        ctx.shadowBlur = sc.blurRad * fit.scale;
+        ctx.shadowOffsetX = sc.dist * Math.cos(sc.dirDeg * Math.PI / 180) * fit.scale;
+        ctx.shadowOffsetY = sc.dist * Math.sin(sc.dirDeg * Math.PI / 180) * fit.scale;
+      }
       const clipGeom = sh.geom !== void 0 && sh.geom !== "rect";
       if (clipGeom) {
         ctx.save();
@@ -3852,6 +3940,7 @@ function paintShape(ctx, sh, fit, res, suppressText) {
         ctx.drawImage(img, x2, y, w, h);
       }
       if (clipGeom) ctx.restore();
+      if (sh.shadow) ctx.restore();
     }
     if (sh.lineColor) {
       ctx.strokeStyle = sh.lineColor;
@@ -4105,8 +4194,9 @@ function paintText(ctx, sh, tb, x2, y, w, h, scale) {
       ctx.font = layoutFontStr(r.font, pxPerPt);
       ctx.fillStyle = r.color;
       const tx = x2 + r.x * scale;
-      if (r.shadow) {
-        const sc = r.shadow;
+      const effShadow = r.shadow ?? sh.shadow;
+      if (effShadow) {
+        const sc = effShadow;
         const n = parseInt(sc.color.replace("#", ""), 16);
         ctx.save();
         ctx.shadowColor = `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${sc.alpha})`;

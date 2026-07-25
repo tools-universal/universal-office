@@ -41,6 +41,8 @@ export interface TextStyleLevel {
   marL?: number;
   /** indent (primeira linha) em EMU. */
   indent?: number;
+  /** Sombra de texto do defRPr (`<a:effectLst><a:outerShdw>`). */
+  shadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number };
 }
 
 /** 9 níveis (índice 0 = lvl1pPr). */
@@ -95,6 +97,26 @@ export function parsePPrLevel(pPr: XmlElement, theme: Theme): TextStyleLevel {
     }
     const latin = firstChild(defRPr, 'a:latin');
     if (latin?.attrs['typeface']) lvl.font = latin.attrs['typeface'];
+    // sombra de texto default do nível (títulos de template sobre foto)
+    const eff = firstChild(defRPr, 'a:effectLst');
+    const shd = eff ? firstChild(eff, 'a:outerShdw') : undefined;
+    if (shd) {
+      const colorEl = childElements(shd)[0];
+      let color = '#000000', alpha = 0.6;
+      if (colorEl) {
+        const c = colorFromDml(colorEl, theme);
+        if (c) color = c;
+        const aEl = firstChild(colorEl, 'a:alpha');
+        if (aEl?.attrs['val']) alpha = parseInt(aEl.attrs['val'], 10) / 100000;
+      }
+      lvl.shadow = {
+        color,
+        blurRad: shd.attrs['blurRad'] ? parseInt(shd.attrs['blurRad'], 10) : 0,
+        dist: shd.attrs['dist'] ? parseInt(shd.attrs['dist'], 10) : 0,
+        dirDeg: (shd.attrs['dir'] ? parseInt(shd.attrs['dir'], 10) : 5400000) / 60000,
+        alpha,
+      };
+    }
   }
   return lvl;
 }
@@ -117,6 +139,7 @@ export function mergeStyleLevels(...layers: TextStyleLevels[]): TextStyleLevels 
       if (src.color !== undefined) dst.color = src.color;
       if (src.font !== undefined) dst.font = src.font;
       if (src.align !== undefined) dst.align = src.align;
+      if (src.shadow !== undefined) dst.shadow = src.shadow;
       if (src.marL !== undefined) dst.marL = src.marL;
       if (src.indent !== undefined) dst.indent = src.indent;
       if (src.buChar !== undefined || src.buAutoNum !== undefined || src.buNone) {
@@ -163,6 +186,7 @@ export function applyTextStyles(tb: TextBody, levels: TextStyleLevels, theme: Th
       if (r.bold === undefined && lvl.bold !== undefined) r.bold = lvl.bold;
       if (r.italic === undefined && lvl.italic !== undefined) r.italic = lvl.italic;
       if (r.color === undefined && lvl.color !== undefined) r.color = lvl.color;
+      if (r.shadow === undefined && lvl.shadow !== undefined) r.shadow = lvl.shadow;
       if (r.font === undefined && lvl.font !== undefined) {
         const f = resolveFontAlias(lvl.font, theme);
         if (f !== undefined) r.font = f;
