@@ -24,7 +24,7 @@ await page.evaluate(async () => {
 const fontOk = await page.evaluate(() => { try { return document.fonts.check('11px "Aptos Narrow"'); } catch { return 'err'; } });
 console.log('font Aptos Narrow pronta:', fontOk);
 
-const count = await page.evaluate(() => document.getElementById('sheet')?.getSheetNames?.().length ?? 0);
+const count = await page.evaluate(() => document.getElementById('us')?.getSheetNames?.().length ?? 0);
 // modo captura: sem seleção (igual ao CopyPicture do Excel)
 await page.evaluate(() => { const el = document.getElementById('us'); if (el) { el.capture = true; el.paint(); } });
 const indices = wanted.length ? wanted : Array.from({ length: count }, (_, i) => i + 1);
