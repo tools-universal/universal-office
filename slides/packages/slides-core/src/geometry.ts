@@ -324,13 +324,15 @@ export function presetPath(geom: string | undefined, w: number, h: number): Pres
       if (geom?.startsWith('actionButton')) {
         const cx = w / 2, cy = h / 2, g = Math.min(w, h) * 0.3;
         const glyph = actionGlyph(geom, cx, cy, g);
+        // a dobra do Document é RECORTE: volta à cor da face (lum 0)
+        const lums = glyph.map((_, i) => (geom === 'actionButtonDocument' && i === 1 ? 0 : -0.25));
         return {
           kind: 'path',
           subs: [
             [{ c: 'M', x: 0, y: 0 }, { c: 'L', x: w, y: 0 }, { c: 'L', x: w, y: h }, { c: 'L', x: 0, y: h }, { c: 'Z' }],
             ...glyph,
           ],
-          subLum: [0, ...glyph.map(() => -0.25)],
+          subLum: [0, ...lums],
         };
       }
       return { kind: 'rect' };
@@ -352,20 +354,32 @@ function actionGlyph(geom: string, cx: number, cy: number, g: number): PathSeg[]
     case 'actionButtonBackPrevious': return [tri(-1)];
     case 'actionButtonBeginning': return [bar(cx - g), tri(-1)];
     case 'actionButtonEnd': return [tri(1), bar(cx + g)];
-    case 'actionButtonReturn': // seta em U (aprox. poligonal)
+    case 'actionButtonReturn': // seta em U com curvas (topo aponta p/ cima)
       return [[
-        { c: 'M', x: cx - g, y: cy - g * 0.2 }, { c: 'L', x: cx - g * 0.2, y: cy - g },
-        { c: 'L', x: cx + g * 0.6, y: cy - g }, { c: 'L', x: cx + g * 0.6, y: cy + g },
-        { c: 'L', x: cx - g * 0.6, y: cy + g }, { c: 'L', x: cx - g * 0.6, y: cy + g * 0.5 },
-        { c: 'L', x: cx + g * 0.1, y: cy + g * 0.5 }, { c: 'L', x: cx + g * 0.1, y: cy - g * 0.5 },
-        { c: 'L', x: cx - g * 0.2, y: cy - g * 0.5 }, { c: 'L', x: cx - g, y: cy - g * 0.2 }, { c: 'Z' },
+        { c: 'M', x: cx - g * 0.15, y: cy - g },            // ponta da seta (esq)
+        { c: 'L', x: cx + g * 0.45, y: cy - g * 0.35 },
+        { c: 'L', x: cx + g * 0.1, y: cy - g * 0.35 },
+        { c: 'C', x1: cx + g * 0.1, y1: cy + g * 0.35, x2: cx - g * 0.1, y2: cy + g * 0.55, x: cx - g * 0.35, y: cy + g * 0.55 },
+        { c: 'L', x: cx - g, y: cy + g * 0.55 },
+        { c: 'L', x: cx - g, y: cy + g },
+        { c: 'L', x: cx - g * 0.35, y: cy + g },
+        { c: 'C', x1: cx + g * 0.35, y1: cy + g, x2: cx + g * 0.55, y2: cy + g * 0.4, x: cx + g * 0.55, y: cy - g * 0.35 },
+        { c: 'L', x: cx + g * 0.75, y: cy - g * 0.35 },
+        { c: 'Z' },
       ]];
-    case 'actionButtonDocument': // folha com canto dobrado
-      return [[
-        { c: 'M', x: cx - g * 0.7, y: cy - g }, { c: 'L', x: cx + g * 0.3, y: cy - g },
-        { c: 'L', x: cx + g * 0.7, y: cy - g * 0.6 }, { c: 'L', x: cx + g * 0.7, y: cy + g },
-        { c: 'L', x: cx - g * 0.7, y: cy + g }, { c: 'Z' },
-      ]];
+    case 'actionButtonDocument': { // folha com canto dobrado VAZADO (evenodd)
+      return [
+        [
+          { c: 'M', x: cx - g * 0.7, y: cy - g }, { c: 'L', x: cx + g * 0.25, y: cy - g },
+          { c: 'L', x: cx + g * 0.7, y: cy - g * 0.55 }, { c: 'L', x: cx + g * 0.7, y: cy + g },
+          { c: 'L', x: cx - g * 0.7, y: cy + g }, { c: 'Z' },
+        ],
+        [ // dobra do canto (recorte)
+          { c: 'M', x: cx + g * 0.25, y: cy - g }, { c: 'L', x: cx + g * 0.25, y: cy - g * 0.55 },
+          { c: 'L', x: cx + g * 0.7, y: cy - g * 0.55 }, { c: 'Z' },
+        ],
+      ];
+    }
     default: return [tri(1)];
   }
 }
