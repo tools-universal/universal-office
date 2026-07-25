@@ -631,6 +631,11 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       if (ln.attrs['w']) shape.lineWidth = parseInt(ln.attrs['w'], 10);
       const dash = firstChild(ln, 'a:prstDash');
       if (dash?.attrs['val']) shape.lineDash = dash.attrs['val'];
+      // setas de linha (headEnd/tailEnd; type=none omite)
+      const head = firstChild(ln, 'a:headEnd');
+      if (head?.attrs['type'] && head.attrs['type'] !== 'none') shape.headArrow = head.attrs['type'];
+      const tail = firstChild(ln, 'a:tailEnd');
+      if (tail?.attrs['type'] && tail.attrs['type'] !== 'none') shape.tailArrow = tail.attrs['type'];
     }
     // sombra externa (effectLst > outerShdw): cards do slide 2 dependem disso
     const eff = firstChild(spPr, 'a:effectLst');
@@ -800,6 +805,20 @@ function readParagraph(p: XmlElement, theme: Theme, rels?: Map<string, string>):
     if (pPr.attrs['lvl']) para.level = parseInt(pPr.attrs['lvl'], 10);
     if (pPr.attrs['marL'] !== undefined) para.marL = parseInt(pPr.attrs['marL'], 10);
     if (pPr.attrs['indent'] !== undefined) para.indent = parseInt(pPr.attrs['indent'], 10);
+    // entrelinha e espaçamento antes/depois do parágrafo
+    const lnSpc = firstChild(pPr, 'a:lnSpc');
+    if (lnSpc) {
+      const pct = firstChild(lnSpc, 'a:spcPct');
+      const pts = firstChild(lnSpc, 'a:spcPts');
+      if (pct?.attrs['val']) para.lineSpacing = parseInt(pct.attrs['val'], 10) / 100000;
+      else if (pts?.attrs['val']) para.lineSpacingPt = parseInt(pts.attrs['val'], 10) / 100;
+    }
+    const spcBef = firstChild(pPr, 'a:spcBef');
+    const befPts = spcBef ? firstChild(spcBef, 'a:spcPts') : undefined;
+    if (befPts?.attrs['val']) para.spaceBeforePt = parseInt(befPts.attrs['val'], 10) / 100;
+    const spcAft = firstChild(pPr, 'a:spcAft');
+    const aftPts = spcAft ? firstChild(spcAft, 'a:spcPts') : undefined;
+    if (aftPts?.attrs['val']) para.spaceAfterPt = parseInt(aftPts.attrs['val'], 10) / 100;
     // bullet explicito: buChar/buAutoNum ligam; buNone desliga (bloqueia heranca)
     const buChar = firstChild(pPr, 'a:buChar');
     const buAuto = firstChild(pPr, 'a:buAutoNum');

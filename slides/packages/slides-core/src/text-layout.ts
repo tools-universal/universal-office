@@ -150,6 +150,9 @@ export function layoutTextBody(
   interface ProtoLine { runs: { text: string; run: Run }[]; marL: number; align: string; bullet?: PlacedLine['bullet'] }
   const proto: ProtoLine[] = [];
   const heights: number[] = [];
+  /** Espaço EXTRA (EMU) antes de cada linha (spcBef/spcAft dos parágrafos). */
+  const spacers: number[] = [];
+  let pendingSpacer = 0;
   // contador de numeração automática por nível (reinicia quando o nível "sobe")
   const autoNumCounters: number[] = Array.from({ length: 9 }, () => 0);
 
@@ -191,12 +194,21 @@ export function layoutTextBody(
     // agrupamento em linhas por largura
     let cur: ProtoLine = { runs: [], marL: firstX, align, bullet };
     let curW = 0;
+    let firstLineOfPara = true;
     const emptyPt = (runs[0]!.sz ?? defaultSzPt) * fontScale;
+    // entrelinha do parágrafo: spcPct multiplica o single; spcPts é absoluto
+    const paraFactor = p.lineSpacing ?? 1;
     const flush = (): void => {
       proto.push(cur);
       // altura da linha = maior sz presente (linha vazia usa o sz do parágrafo)
       const maxPt = cur.runs.reduce((a, t) => Math.max(a, (t.run.sz ?? defaultSzPt) * fontScale), cur.runs.length ? 0 : emptyPt);
-      heights.push(maxPt * EMU_PER_POINT * lineFactor);
+      heights.push(p.lineSpacingPt !== undefined
+        ? p.lineSpacingPt * EMU_PER_POINT
+        : maxPt * EMU_PER_POINT * lineFactor * paraFactor);
+      // spcBef entra antes da 1ª linha do parágrafo (+ spcAft pendente do anterior)
+      spacers.push(firstLineOfPara ? pendingSpacer + (p.spaceBeforePt ?? 0) * EMU_PER_POINT : 0);
+      if (firstLineOfPara) pendingSpacer = 0;
+      firstLineOfPara = false;
       cur = { runs: [], marL: contX, align };
       curW = 0;
     };
@@ -210,10 +222,11 @@ export function layoutTextBody(
       curW += wEmu;
     }
     flush();
+    if (p.spaceAfterPt !== undefined) pendingSpacer += p.spaceAfterPt * EMU_PER_POINT;
   }
 
-  // âncora vertical
-  const totalH = heights.reduce((a, b) => a + b, 0);
+  // âncora vertical (inclui espaçadores de parágrafo)
+  const totalH = heights.reduce((a, b) => a + b, 0) + spacers.reduce((a, b) => a + b, 0);
   const usableH = Math.max(0, boxH - insT - insB);
   const anchor = tb.anchor ?? opts.defaultAnchor ?? 't';
   let y = insT;
@@ -225,6 +238,7 @@ export function layoutTextBody(
   for (let i = 0; i < proto.length; i++) {
     const pl = proto[i]!;
     const h = heights[i]!;
+    y += spacers[i] ?? 0;
     const merged: { text: string; run: Run }[] = [];
     for (const t of pl.runs) {
       const last = merged[merged.length - 1];

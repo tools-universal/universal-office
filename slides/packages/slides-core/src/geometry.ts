@@ -155,6 +155,33 @@ export function presetPath(geom: string | undefined, w: number, h: number): Pres
     case 'line':
     case 'straightConnector1':
       return { kind: 'line', x1: 0, y1: 0, x2: w, y2: h };
+    case 'bentConnector2': // 1 dobra: H depois V
+      return { kind: 'path', subs: [[{ c: 'M', x: 0, y: 0 }, { c: 'L', x: w, y: 0 }, { c: 'L', x: w, y: h }]] };
+    case 'bentConnector3': // 2 dobras: H, V, H (dobra em w/2)
+      return {
+        kind: 'path', subs: [[
+          { c: 'M', x: 0, y: 0 }, { c: 'L', x: w / 2, y: 0 },
+          { c: 'L', x: w / 2, y: h }, { c: 'L', x: w, y: h },
+        ]],
+      };
+    case 'bentConnector4': // 3 dobras: H, V, H, V
+      return {
+        kind: 'path', subs: [[
+          { c: 'M', x: 0, y: 0 }, { c: 'L', x: w / 2, y: 0 },
+          { c: 'L', x: w / 2, y: h / 2 }, { c: 'L', x: w, y: h / 2 },
+          { c: 'L', x: w, y: h },
+        ]],
+      };
+    case 'curvedConnector2':
+    case 'curvedConnector3':
+    case 'curvedConnector4':
+    case 'curvedConnector5': // curva S (aproximação suave dos roteamentos)
+      return {
+        kind: 'path', subs: [[
+          { c: 'M', x: 0, y: 0 },
+          { c: 'C', x1: w / 2, y1: 0, x2: w / 2, y2: h, x: w, y: h },
+        ]],
+      };
 
     case 'arc': { // adj1=16200000 (270°) → adj2=0: quarto de arco (SÓ stroke)
       return {

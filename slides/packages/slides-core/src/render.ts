@@ -208,7 +208,8 @@ function paintShape(
   }
   // preenchimento (solid com alpha opcional, gradiente linear ou blipFill).
   // Geometrias "linha pura" (line/conectores/arc) não têm área p/ fill.
-  const isLineGeom = sh.geom === 'line' || sh.geom === 'straightConnector1' || sh.geom === 'arc';
+  const isLineGeom = sh.geom === 'line' || sh.geom === 'arc' ||
+    /^(straight|bent|curved)Connector\d?$/.test(sh.geom ?? '');
   if (!isLineGeom && (sh.fillImage || (sh.fill && sh.fill.type !== 'none'))) {
     ctx.save();
     if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
@@ -235,6 +236,15 @@ function paintShape(
     shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom);
     ctx.stroke();
     if (sh.lineDash) ctx.setLineDash([]);
+    // setas nos extremos (headEnd/tailEnd) das geometrias de linha
+    if (isLineGeom && (sh.headArrow || sh.tailArrow)) {
+      const ends = lineEndpoints(sh.geom, x, y, w, h);
+      if (ends) {
+        ctx.fillStyle = sh.lineColor;
+        if (sh.headArrow) paintArrowhead(ctx, sh.headArrow, ends.hx, ends.hy, ends.hAng, lw);
+        if (sh.tailArrow) paintArrowhead(ctx, sh.tailArrow, ends.tx, ends.ty, ends.tAng, lw);
+      }
+    }
   }
   // texto (suprimido quando a shape está em edição — overlay HTML cobre)
   if (sh.txBody && !suppressText) paintText(ctx, sh, sh.txBody, x, y, w, h, fit.scale);
@@ -293,6 +303,83 @@ function shapePath(
       ctx.rect(x, y, w, h);
   }
   return undefined;
+}
+
+/**
+ * Extremos + tangentes das geometrias de linha (para desenhar setas).
+ * head = ponto inicial, apontando PARA FORA (contra a direção do traço);
+ * tail = ponto final, apontando na direção do traço.
+ */
+function lineEndpoints(geom: string | undefined, x: number, y: number, w: number, h: number):
+  { hx: number; hy: number; hAng: number; tx: number; ty: number; tAng: number } | null {
+  switch (geom) {
+    case 'line':
+    case 'straightConnector1': {
+      const a = Math.atan2(h, w);
+      return { hx: x, hy: y, hAng: a + Math.PI, tx: x + w, ty: y + h, tAng: a };
+    }
+    case 'bentConnector2':
+      return { hx: x, hy: y, hAng: Math.PI, tx: x + w, ty: y + h, tAng: Math.PI / 2 };
+    case 'bentConnector3':
+      return { hx: x, hy: y, hAng: Math.PI, tx: x + w, ty: y + h, tAng: 0 };
+    case 'bentConnector4':
+      return { hx: x, hy: y, hAng: Math.PI, tx: x + w, ty: y + h, tAng: Math.PI / 2 };
+    case 'curvedConnector2':
+    case 'curvedConnector3':
+    case 'curvedConnector4':
+    case 'curvedConnector5':
+      return { hx: x, hy: y, hAng: Math.PI, tx: x + w, ty: y + h, tAng: 0 };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Seta de extremidade de linha (`headEnd`/`tailEnd`), tamanho médio do app de
+ * referência (~3× a espessura). `ang` = direção para onde a seta APONTA.
+ */
+function paintArrowhead(ctx: CanvasRenderingContext2D, type: string, px: number, py: number, ang: number, lw: number): void {
+  const L = lw * 3.5 + 2;   // comprimento
+  const W = lw * 1.6 + 1;   // meia-largura
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(ang);
+  ctx.beginPath();
+  switch (type) {
+    case 'stealth': // triângulo com entalhe traseiro
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-L, W);
+      ctx.lineTo(-L * 0.6, 0);
+      ctx.lineTo(-L, -W);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'arrow': // V aberto (stroke)
+      ctx.moveTo(-L, W);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(-L, -W);
+      ctx.stroke();
+      break;
+    case 'diamond':
+      ctx.moveTo(L * 0.5, 0);
+      ctx.lineTo(0, W);
+      ctx.lineTo(-L * 0.5, 0);
+      ctx.lineTo(0, -W);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'oval':
+      ctx.ellipse(0, 0, lw * 1.9 + 1, lw * 1.9 + 1, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    default: // triangle
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-L, W);
+      ctx.lineTo(-L, -W);
+      ctx.closePath();
+      ctx.fill();
+  }
+  ctx.restore();
 }
 
 /** Constrói subpaths de PathSeg no contexto (offset x,y + escala sx,sy). */
@@ -568,7 +655,7 @@ function dashPattern(prstDash: string, lw: number): number[] {
     case 'lgDashDot': return [8 * lw, 3 * lw, 1 * lw, 3 * lw];
     case 'lgDashDotDot': return [8 * lw, 3 * lw, 1 * lw, 3 * lw, 1 * lw, 3 * lw];
     case 'dot':
-    case 'sysDot': return [1 * lw, 2 * lw];
+    case 'sysDot': return [1 * lw, 1 * lw];
     case 'sysDash': return [3 * lw, 1 * lw];
     case 'sysDashDot': return [3 * lw, 1 * lw, 1 * lw, 1 * lw];
     case 'sysDashDotDot': return [3 * lw, 1 * lw, 1 * lw, 1 * lw, 1 * lw, 1 * lw];

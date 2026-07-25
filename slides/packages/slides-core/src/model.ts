@@ -104,6 +104,14 @@ export interface Paragraph {
   marL?: number;
   /** Indent da primeira linha em EMU (`a:pPr indent`, tipicamente negativo). */
   indent?: number;
+  /** Entrelinha `<a:lnSpc><a:spcPct val>` como fração (200000 => 2.0). */
+  lineSpacing?: number;
+  /** Entrelinha absoluta `<a:lnSpc><a:spcPts val>` em pontos. */
+  lineSpacingPt?: number;
+  /** Espaço antes do parágrafo `<a:spcBef><a:spcPts>` em pontos. */
+  spaceBeforePt?: number;
+  /** Espaço depois do parágrafo `<a:spcAft><a:spcPts>` em pontos. */
+  spaceAfterPt?: number;
 }
 
 /** Corpo de texto (<p:txBody>). */
@@ -143,6 +151,10 @@ export interface Shape {
   lineWidth?: number; // EMU
   /** `<a:ln><a:noFill/>`: SEM contorno explícito (bloqueia o fallback do lnRef). */
   lineNone?: boolean;
+  /** Seta no INÍCIO da linha (`<a:headEnd type>`: triangle|stealth|arrow|diamond|oval). */
+  headArrow?: string;
+  /** Seta no FIM da linha (`<a:tailEnd type>`). */
+  tailArrow?: string;
   txBody?: TextBody;
   /** Imagem embutida (<p:pic>) com bytes ja resolvidos via rels. */
   image?: ImageRef;

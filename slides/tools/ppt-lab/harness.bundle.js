@@ -2038,6 +2038,10 @@ function readShape(sp, theme, pkg, rels) {
       if (ln2.attrs["w"]) shape.lineWidth = parseInt(ln2.attrs["w"], 10);
       const dash = firstChild(ln2, "a:prstDash");
       if (dash?.attrs["val"]) shape.lineDash = dash.attrs["val"];
+      const head = firstChild(ln2, "a:headEnd");
+      if (head?.attrs["type"] && head.attrs["type"] !== "none") shape.headArrow = head.attrs["type"];
+      const tail = firstChild(ln2, "a:tailEnd");
+      if (tail?.attrs["type"] && tail.attrs["type"] !== "none") shape.tailArrow = tail.attrs["type"];
     }
     const eff = firstChild(spPr, "a:effectLst");
     const shd = eff ? firstChild(eff, "a:outerShdw") : void 0;
@@ -2187,6 +2191,19 @@ function readParagraph(p, theme, rels) {
     if (pPr.attrs["lvl"]) para.level = parseInt(pPr.attrs["lvl"], 10);
     if (pPr.attrs["marL"] !== void 0) para.marL = parseInt(pPr.attrs["marL"], 10);
     if (pPr.attrs["indent"] !== void 0) para.indent = parseInt(pPr.attrs["indent"], 10);
+    const lnSpc = firstChild(pPr, "a:lnSpc");
+    if (lnSpc) {
+      const pct = firstChild(lnSpc, "a:spcPct");
+      const pts = firstChild(lnSpc, "a:spcPts");
+      if (pct?.attrs["val"]) para.lineSpacing = parseInt(pct.attrs["val"], 10) / 1e5;
+      else if (pts?.attrs["val"]) para.lineSpacingPt = parseInt(pts.attrs["val"], 10) / 100;
+    }
+    const spcBef = firstChild(pPr, "a:spcBef");
+    const befPts = spcBef ? firstChild(spcBef, "a:spcPts") : void 0;
+    if (befPts?.attrs["val"]) para.spaceBeforePt = parseInt(befPts.attrs["val"], 10) / 100;
+    const spcAft = firstChild(pPr, "a:spcAft");
+    const aftPts = spcAft ? firstChild(spcAft, "a:spcPts") : void 0;
+    if (aftPts?.attrs["val"]) para.spaceAfterPt = parseInt(aftPts.attrs["val"], 10) / 100;
     const buChar = firstChild(pPr, "a:buChar");
     const buAuto = firstChild(pPr, "a:buAutoNum");
     if (buChar) {
@@ -2933,6 +2950,8 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
   const measureEmu = (text, f) => measure(text, f) * EMU_PER_POINT;
   const proto = [];
   const heights = [];
+  const spacers = [];
+  let pendingSpacer = 0;
   const autoNumCounters = Array.from({ length: 9 }, () => 0);
   for (const p of tb.paragraphs) {
     const level = Math.min(p.level ?? 0, 8);
@@ -2964,11 +2983,16 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
     const words = tokenize(runs);
     let cur = { runs: [], marL: firstX, align, bullet };
     let curW = 0;
+    let firstLineOfPara = true;
     const emptyPt = (runs[0].sz ?? defaultSzPt) * fontScale;
+    const paraFactor = p.lineSpacing ?? 1;
     const flush = () => {
       proto.push(cur);
       const maxPt = cur.runs.reduce((a, t) => Math.max(a, (t.run.sz ?? defaultSzPt) * fontScale), cur.runs.length ? 0 : emptyPt);
-      heights.push(maxPt * EMU_PER_POINT * lineFactor);
+      heights.push(p.lineSpacingPt !== void 0 ? p.lineSpacingPt * EMU_PER_POINT : maxPt * EMU_PER_POINT * lineFactor * paraFactor);
+      spacers.push(firstLineOfPara ? pendingSpacer + (p.spaceBeforePt ?? 0) * EMU_PER_POINT : 0);
+      if (firstLineOfPara) pendingSpacer = 0;
+      firstLineOfPara = false;
       cur = { runs: [], marL: contX, align };
       curW = 0;
     };
@@ -2985,8 +3009,9 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
       curW += wEmu;
     }
     flush();
+    if (p.spaceAfterPt !== void 0) pendingSpacer += p.spaceAfterPt * EMU_PER_POINT;
   }
-  const totalH = heights.reduce((a, b) => a + b, 0);
+  const totalH = heights.reduce((a, b) => a + b, 0) + spacers.reduce((a, b) => a + b, 0);
   const usableH = Math.max(0, boxH - insT - insB);
   const anchor = tb.anchor ?? opts.defaultAnchor ?? "t";
   let y = insT;
@@ -2996,6 +3021,7 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
   for (let i2 = 0; i2 < proto.length; i2++) {
     const pl = proto[i2];
     const h = heights[i2];
+    y += spacers[i2] ?? 0;
     const merged = [];
     for (const t of pl.runs) {
       const last = merged[merged.length - 1];
@@ -3183,6 +3209,40 @@ function presetPath(geom, w, h) {
     case "line":
     case "straightConnector1":
       return { kind: "line", x1: 0, y1: 0, x2: w, y2: h };
+    case "bentConnector2":
+      return { kind: "path", subs: [[{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }]] };
+    case "bentConnector3":
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: 0, y: 0 },
+          { c: "L", x: w / 2, y: 0 },
+          { c: "L", x: w / 2, y: h },
+          { c: "L", x: w, y: h }
+        ]]
+      };
+    case "bentConnector4":
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: 0, y: 0 },
+          { c: "L", x: w / 2, y: 0 },
+          { c: "L", x: w / 2, y: h / 2 },
+          { c: "L", x: w, y: h / 2 },
+          { c: "L", x: w, y: h }
+        ]]
+      };
+    case "curvedConnector2":
+    case "curvedConnector3":
+    case "curvedConnector4":
+    case "curvedConnector5":
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: 0, y: 0 },
+          { c: "C", x1: w / 2, y1: 0, x2: w / 2, y2: h, x: w, y: h }
+        ]]
+      };
     case "arc": {
       return {
         kind: "path",
@@ -3470,7 +3530,7 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     else ctx.fill();
     ctx.restore();
   }
-  const isLineGeom = sh.geom === "line" || sh.geom === "straightConnector1" || sh.geom === "arc";
+  const isLineGeom = sh.geom === "line" || sh.geom === "arc" || /^(straight|bent|curved)Connector\d?$/.test(sh.geom ?? "");
   if (!isLineGeom && (sh.fillImage || sh.fill && sh.fill.type !== "none")) {
     ctx.save();
     if (sh.fillAlpha !== void 0 && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
@@ -3500,6 +3560,14 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
     ctx.stroke();
     if (sh.lineDash) ctx.setLineDash([]);
+    if (isLineGeom && (sh.headArrow || sh.tailArrow)) {
+      const ends = lineEndpoints(sh.geom, x2, y, w, h);
+      if (ends) {
+        ctx.fillStyle = sh.lineColor;
+        if (sh.headArrow) paintArrowhead(ctx, sh.headArrow, ends.hx, ends.hy, ends.hAng, lw);
+        if (sh.tailArrow) paintArrowhead(ctx, sh.tailArrow, ends.tx, ends.ty, ends.tAng, lw);
+      }
+    }
   }
   if (sh.txBody && !suppressText) paintText(ctx, sh, sh.txBody, x2, y, w, h, fit.scale);
   if (hasXform || hasAlpha) ctx.restore();
@@ -3547,6 +3615,71 @@ function shapePath(ctx, geom, x2, y, w, h, custGeom) {
       ctx.rect(x2, y, w, h);
   }
   return void 0;
+}
+function lineEndpoints(geom, x2, y, w, h) {
+  switch (geom) {
+    case "line":
+    case "straightConnector1": {
+      const a = Math.atan2(h, w);
+      return { hx: x2, hy: y, hAng: a + Math.PI, tx: x2 + w, ty: y + h, tAng: a };
+    }
+    case "bentConnector2":
+      return { hx: x2, hy: y, hAng: Math.PI, tx: x2 + w, ty: y + h, tAng: Math.PI / 2 };
+    case "bentConnector3":
+      return { hx: x2, hy: y, hAng: Math.PI, tx: x2 + w, ty: y + h, tAng: 0 };
+    case "bentConnector4":
+      return { hx: x2, hy: y, hAng: Math.PI, tx: x2 + w, ty: y + h, tAng: Math.PI / 2 };
+    case "curvedConnector2":
+    case "curvedConnector3":
+    case "curvedConnector4":
+    case "curvedConnector5":
+      return { hx: x2, hy: y, hAng: Math.PI, tx: x2 + w, ty: y + h, tAng: 0 };
+    default:
+      return null;
+  }
+}
+function paintArrowhead(ctx, type, px, py, ang, lw) {
+  const L = lw * 3.5 + 2;
+  const W = lw * 1.6 + 1;
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(ang);
+  ctx.beginPath();
+  switch (type) {
+    case "stealth":
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-L, W);
+      ctx.lineTo(-L * 0.6, 0);
+      ctx.lineTo(-L, -W);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case "arrow":
+      ctx.moveTo(-L, W);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(-L, -W);
+      ctx.stroke();
+      break;
+    case "diamond":
+      ctx.moveTo(L * 0.5, 0);
+      ctx.lineTo(0, W);
+      ctx.lineTo(-L * 0.5, 0);
+      ctx.lineTo(0, -W);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case "oval":
+      ctx.ellipse(0, 0, lw * 1.9 + 1, lw * 1.9 + 1, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    default:
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-L, W);
+      ctx.lineTo(-L, -W);
+      ctx.closePath();
+      ctx.fill();
+  }
+  ctx.restore();
 }
 function drawSegs(ctx, subs, x2, y, sx, sy) {
   for (const sub of subs) {
@@ -3768,7 +3901,7 @@ function dashPattern(prstDash, lw) {
       return [8 * lw, 3 * lw, 1 * lw, 3 * lw, 1 * lw, 3 * lw];
     case "dot":
     case "sysDot":
-      return [1 * lw, 2 * lw];
+      return [1 * lw, 1 * lw];
     case "sysDash":
       return [3 * lw, 1 * lw];
     case "sysDashDot":
