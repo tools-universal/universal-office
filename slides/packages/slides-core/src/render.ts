@@ -167,6 +167,14 @@ function paintShape(
   if (sh.image) {
     const img = res.images?.get(sh.image.part);
     if (img) {
+      // geometria do pic != rect (ex.: crop circular via prstGeom ellipse):
+      // recorta a imagem pelo path da geometria, como o app de referência.
+      const clipGeom = sh.geom !== undefined && sh.geom !== 'rect';
+      if (clipGeom) {
+        ctx.save();
+        const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom);
+        if (rule) ctx.clip(rule); else ctx.clip();
+      }
       // srcRect (crop em 0..1 dos quatro lados) aplica-se em coordenadas da imagem natural.
       if (sh.srcRect) {
         const iw = imgW(img), ih = imgH(img);
@@ -178,12 +186,14 @@ function paintShape(
       } else {
         ctx.drawImage(img, x, y, w, h);
       }
+      if (clipGeom) ctx.restore();
     }
-    // contorno (raro em pic mas válido)
+    // contorno (raro em pic mas válido) — segue a geometria do pic
     if (sh.lineColor) {
       ctx.strokeStyle = sh.lineColor;
       ctx.lineWidth = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
-      ctx.strokeRect(x, y, w, h);
+      shapePath(ctx, sh.geom ?? 'rect', x, y, w, h, sh.custGeom);
+      ctx.stroke();
     }
     if (hasXform || hasAlpha) ctx.restore();
     return;

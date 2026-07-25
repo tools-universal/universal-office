@@ -3501,6 +3501,13 @@ function paintShape(ctx, sh, fit, res, suppressText) {
   if (sh.image) {
     const img = res.images?.get(sh.image.part);
     if (img) {
+      const clipGeom = sh.geom !== void 0 && sh.geom !== "rect";
+      if (clipGeom) {
+        ctx.save();
+        const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
+        if (rule) ctx.clip(rule);
+        else ctx.clip();
+      }
       if (sh.srcRect) {
         const iw = imgW(img), ih = imgH(img);
         const sx = sh.srcRect.l * iw;
@@ -3511,11 +3518,13 @@ function paintShape(ctx, sh, fit, res, suppressText) {
       } else {
         ctx.drawImage(img, x2, y, w, h);
       }
+      if (clipGeom) ctx.restore();
     }
     if (sh.lineColor) {
       ctx.strokeStyle = sh.lineColor;
       ctx.lineWidth = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
-      ctx.strokeRect(x2, y, w, h);
+      shapePath(ctx, sh.geom ?? "rect", x2, y, w, h, sh.custGeom);
+      ctx.stroke();
     }
     if (hasXform || hasAlpha) ctx.restore();
     return;
