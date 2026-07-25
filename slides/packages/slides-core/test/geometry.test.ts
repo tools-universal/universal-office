@@ -6,7 +6,7 @@ describe('presetPath — geometrias preset (spec 03 F)', () => {
     expect(presetPath('rect', 100, 50)).toEqual({ kind: 'rect' });
     expect(presetPath(undefined, 100, 50)).toEqual({ kind: 'rect' });
     expect(presetPath('ellipse', 100, 50)).toEqual({ kind: 'ellipse' });
-    expect(presetPath('roundRect', 100, 50)).toEqual({ kind: 'roundRect', r: 5 });
+    expect(presetPath('roundRect', 100, 50)).toEqual({ kind: 'roundRect', r: 50 * 16667 / 100000 }); // default de spec (adj 16667)
     // preset desconhecido cai em rect (fallback)
     expect(presetPath('teardrop', 100, 50)).toEqual({ kind: 'rect' });
   });

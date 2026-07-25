@@ -3429,7 +3429,7 @@ function presetPath(geom, w, h, adj) {
     case "ellipse":
       return { kind: "ellipse" };
     case "roundRect":
-      return { kind: "roundRect", r: ss * 0.1 };
+      return { kind: "roundRect", r: ss * ((adj?.[0] ?? 16667) / 1e5) };
     case "triangle":
       return { kind: "poly", points: [{ x: w / 2, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
     case "rtTriangle":
@@ -3437,17 +3437,17 @@ function presetPath(geom, w, h, adj) {
     case "diamond":
       return { kind: "poly", points: [{ x: w / 2, y: 0 }, { x: w, y: h / 2 }, { x: w / 2, y: h }, { x: 0, y: h / 2 }] };
     case "parallelogram": {
-      const d = ss * 0.25;
+      const d = ss * ((adj?.[0] ?? 25e3) / 1e5);
       return { kind: "poly", points: [{ x: d, y: 0 }, { x: w, y: 0 }, { x: w - d, y: h }, { x: 0, y: h }] };
     }
     case "trapezoid": {
-      const d = ss * 0.25;
+      const d = ss * ((adj?.[0] ?? 25e3) / 1e5);
       return { kind: "poly", points: [{ x: d, y: 0 }, { x: w - d, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
     }
     case "pentagon":
       return { kind: "poly", points: fitToBox(regularPolygon(5, w, h), w, h) };
     case "hexagon": {
-      const d = ss * 0.25;
+      const d = ss * ((adj?.[0] ?? 25e3) / 1e5);
       return {
         kind: "poly",
         points: [
@@ -3461,7 +3461,7 @@ function presetPath(geom, w, h, adj) {
       };
     }
     case "star5": {
-      const inner = 19098 / 5e4;
+      const inner = (adj?.[0] ?? 19098) / 5e4;
       const pts = [];
       for (let i2 = 0; i2 < 10; i2++) {
         const a = -Math.PI / 2 + i2 * Math.PI / 5;
@@ -3473,7 +3473,8 @@ function presetPath(geom, w, h, adj) {
     // setas em bloco (adj1=50000 → haste com metade da altura; adj2=50000 →
     // cabeça com comprimento ss/2)
     case "rightArrow": {
-      const hd = ss * 0.5, t = h * 0.25;
+      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
+      const t = h * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
       return {
         kind: "poly",
         points: [
@@ -3488,7 +3489,8 @@ function presetPath(geom, w, h, adj) {
       };
     }
     case "leftArrow": {
-      const hd = ss * 0.5, t = h * 0.25;
+      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
+      const t = h * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
       return {
         kind: "poly",
         points: [
@@ -3503,7 +3505,8 @@ function presetPath(geom, w, h, adj) {
       };
     }
     case "upArrow": {
-      const hd = ss * 0.5, t = w * 0.25;
+      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
+      const t = w * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
       return {
         kind: "poly",
         points: [
@@ -3518,7 +3521,8 @@ function presetPath(geom, w, h, adj) {
       };
     }
     case "downArrow": {
-      const hd = ss * 0.5, t = w * 0.25;
+      const hd = ss * ((adj?.[1] ?? 5e4) / 1e5);
+      const t = w * (1 - (adj?.[0] ?? 5e4) / 1e5) / 2;
       return {
         kind: "poly",
         points: [
@@ -3533,7 +3537,7 @@ function presetPath(geom, w, h, adj) {
       };
     }
     case "chevron": {
-      const d = ss * 0.5;
+      const d = ss * ((adj?.[0] ?? 5e4) / 1e5);
       return {
         kind: "poly",
         points: [
@@ -3547,7 +3551,11 @@ function presetPath(geom, w, h, adj) {
       };
     }
     case "pie":
-      return { kind: "pie", startDeg: 0, endDeg: 270 };
+      return {
+        kind: "pie",
+        startDeg: (adj?.[0] ?? 0) / 6e4,
+        endDeg: (adj?.[1] ?? 162e5) / 6e4
+      };
     case "line":
     case "straightConnector1":
       return { kind: "line", x1: 0, y1: 0, x2: w, y2: h };
@@ -3623,7 +3631,7 @@ function presetPath(geom, w, h, adj) {
       };
     }
     case "donut": {
-      const t = ss * 0.25;
+      const t = ss * ((adj?.[0] ?? 25e3) / 1e5);
       return {
         kind: "path",
         fillRule: "evenodd",

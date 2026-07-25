@@ -75,7 +75,7 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
       };
     }
     case 'ellipse': return { kind: 'ellipse' };
-    case 'roundRect': return { kind: 'roundRect', r: ss * 0.1 };
+    case 'roundRect': return { kind: 'roundRect', r: ss * ((adj?.[0] ?? 16667) / 100000) };
 
     case 'triangle': // isósceles, ápice no topo (adj 50000)
       return { kind: 'poly', points: [{ x: w / 2, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
@@ -83,18 +83,18 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
       return { kind: 'poly', points: [{ x: 0, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
     case 'diamond':
       return { kind: 'poly', points: [{ x: w / 2, y: 0 }, { x: w, y: h / 2 }, { x: w / 2, y: h }, { x: 0, y: h / 2 }] };
-    case 'parallelogram': { // adj=25000 → deslocamento = ss/4
-      const d = ss * 0.25;
+    case 'parallelogram': { // adj → deslocamento em % do ss (default 25000)
+      const d = ss * ((adj?.[0] ?? 25000) / 100000);
       return { kind: 'poly', points: [{ x: d, y: 0 }, { x: w, y: 0 }, { x: w - d, y: h }, { x: 0, y: h }] };
     }
-    case 'trapezoid': { // adj=25000 → topo mais estreito
-      const d = ss * 0.25;
+    case 'trapezoid': { // adj → recuo do topo em % do ss (default 25000)
+      const d = ss * ((adj?.[0] ?? 25000) / 100000);
       return { kind: 'poly', points: [{ x: d, y: 0 }, { x: w - d, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
     }
     case 'pentagon':
       return { kind: 'poly', points: fitToBox(regularPolygon(5, w, h), w, h) };
-    case 'hexagon': { // hexágono "horizontal" do PowerPoint (adj=25000)
-      const d = ss * 0.25;
+    case 'hexagon': { // hexágono "horizontal" (adj default 25000)
+      const d = ss * ((adj?.[0] ?? 25000) / 100000);
       return {
         kind: 'poly', points: [
           { x: d, y: 0 }, { x: w - d, y: 0 }, { x: w, y: h / 2 },
@@ -102,8 +102,8 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
         ],
       };
     }
-    case 'star5': { // adj=19098 → raio interno ≈ 0.38196 do externo
-      const inner = 19098 / 50000;
+    case 'star5': { // adj → raio interno (default 19098 ≈ 0.382 do externo)
+      const inner = (adj?.[0] ?? 19098) / 50000;
       const pts: Pt[] = [];
       for (let i = 0; i < 10; i++) {
         const a = -Math.PI / 2 + (i * Math.PI) / 5;
@@ -117,7 +117,8 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
     // setas em bloco (adj1=50000 → haste com metade da altura; adj2=50000 →
     // cabeça com comprimento ss/2)
     case 'rightArrow': {
-      const hd = ss * 0.5, t = h * 0.25;
+      const hd = ss * ((adj?.[1] ?? 50000) / 100000);
+      const t = h * (1 - (adj?.[0] ?? 50000) / 100000) / 2;
       return {
         kind: 'poly', points: [
           { x: 0, y: t }, { x: w - hd, y: t }, { x: w - hd, y: 0 }, { x: w, y: h / 2 },
@@ -126,7 +127,8 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
       };
     }
     case 'leftArrow': {
-      const hd = ss * 0.5, t = h * 0.25;
+      const hd = ss * ((adj?.[1] ?? 50000) / 100000);
+      const t = h * (1 - (adj?.[0] ?? 50000) / 100000) / 2;
       return {
         kind: 'poly', points: [
           { x: w, y: t }, { x: hd, y: t }, { x: hd, y: 0 }, { x: 0, y: h / 2 },
@@ -135,7 +137,8 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
       };
     }
     case 'upArrow': {
-      const hd = ss * 0.5, t = w * 0.25;
+      const hd = ss * ((adj?.[1] ?? 50000) / 100000);
+      const t = w * (1 - (adj?.[0] ?? 50000) / 100000) / 2;
       return {
         kind: 'poly', points: [
           { x: t, y: h }, { x: t, y: hd }, { x: 0, y: hd }, { x: w / 2, y: 0 },
@@ -144,7 +147,8 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
       };
     }
     case 'downArrow': {
-      const hd = ss * 0.5, t = w * 0.25;
+      const hd = ss * ((adj?.[1] ?? 50000) / 100000);
+      const t = w * (1 - (adj?.[0] ?? 50000) / 100000) / 2;
       return {
         kind: 'poly', points: [
           { x: t, y: 0 }, { x: t, y: h - hd }, { x: 0, y: h - hd }, { x: w / 2, y: h },
@@ -152,8 +156,8 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
         ],
       };
     }
-    case 'chevron': { // adj=50000 → recuo = ss/2
-      const d = ss * 0.5;
+    case 'chevron': { // adj → recuo em % do ss (default 50000)
+      const d = ss * ((adj?.[0] ?? 50000) / 100000);
       return {
         kind: 'poly', points: [
           { x: 0, y: 0 }, { x: w - d, y: 0 }, { x: w, y: h / 2 },
@@ -161,8 +165,12 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
         ],
       };
     }
-    case 'pie': // adj1=0, adj2=270 (graus × 60000 no XML)
-      return { kind: 'pie', startDeg: 0, endDeg: 270 };
+    case 'pie': // adj1/adj2 em 1/60000 de grau (defaults 0 → 270°)
+      return {
+        kind: 'pie',
+        startDeg: (adj?.[0] ?? 0) / 60000,
+        endDeg: (adj?.[1] ?? 16200000) / 60000,
+      };
     case 'line':
     case 'straightConnector1':
       return { kind: 'line', x1: 0, y1: 0, x2: w, y2: h };
@@ -222,8 +230,8 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
         ],
       };
     }
-    case 'donut': { // adj=25000 → espessura do anel = ss/4
-      const t = ss * 0.25;
+    case 'donut': { // adj → espessura do anel em % do ss (default 25000)
+      const t = ss * ((adj?.[0] ?? 25000) / 100000);
       return {
         kind: 'path', fillRule: 'evenodd', subs: [
           [{ c: 'E', cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: 0, a1: Math.PI * 2 }, { c: 'Z' }],
