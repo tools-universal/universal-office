@@ -1194,8 +1194,8 @@ function colorFromDml(el, theme) {
   for (const mod of childElements(el)) {
     const val = mod.attrs["val"] !== void 0 ? parseInt(mod.attrs["val"], 10) / 1e5 : void 0;
     if (val === void 0) continue;
-    if (mod.name === "a:shade") base = scaleLum(base, val);
-    else if (mod.name === "a:tint") base = mixWhite(base, val);
+    if (mod.name === "a:shade") base = mixLinear(base, 0, val);
+    else if (mod.name === "a:tint") base = mixLinear(base, 1, val);
     else if (mod.name === "a:lumMod") base = scaleLum(base, val);
     else if (mod.name === "a:lumOff") base = offsetLum(base, val);
   }
@@ -1220,13 +1220,16 @@ function scaleLum(h, f) {
   const [r, g, b] = rgb(h);
   return hex(r * f, g * f, b * f);
 }
+function mixLinear(h, target, f) {
+  const [r, g, b] = rgb(h);
+  const lin = (v) => Math.pow(v / 255, 2.2);
+  const srgb = (v) => Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255;
+  const mix = (v) => srgb(lin(v) * f + target * (1 - f));
+  return hex(mix(r), mix(g), mix(b));
+}
 function offsetLum(h, f) {
   const [r, g, b] = rgb(h);
   return hex(r + 255 * f, g + 255 * f, b + 255 * f);
-}
-function mixWhite(h, f) {
-  const [r, g, b] = rgb(h);
-  return hex(r + (255 - r) * f, g + (255 - g) * f, b + (255 - b) * f);
 }
 var PRESET = {
   black: "#000000",
@@ -1238,6 +1241,116 @@ var PRESET = {
   gray: "#808080",
   grey: "#808080"
 };
+
+// ../slides-core/src/table-style.ts
+var PART_NAMES = [
+  ["wholeTbl", "a:wholeTbl"],
+  ["band1H", "a:band1H"],
+  ["band2H", "a:band2H"],
+  ["firstRow", "a:firstRow"],
+  ["lastRow", "a:lastRow"],
+  ["firstCol", "a:firstCol"],
+  ["lastCol", "a:lastCol"]
+];
+function parsePart(el, theme) {
+  const out = {};
+  const tx = firstChild(el, "a:tcTxStyle");
+  if (tx) {
+    if (tx.attrs["b"] === "on") out.txBold = true;
+    for (const c of childElements(tx)) {
+      if (c.name === "a:fontRef") continue;
+      const col = colorFromDml(c, theme);
+      if (col) {
+        out.txColor = col;
+        break;
+      }
+    }
+  }
+  const tc = firstChild(el, "a:tcStyle");
+  if (tc) {
+    const fill = firstChild(tc, "a:fill");
+    const sf = fill ? firstChild(fill, "a:solidFill") : void 0;
+    if (sf) {
+      const col = colorFromDml(childElements(sf)[0], theme);
+      if (col) out.fill = col;
+    }
+    const bdr = firstChild(tc, "a:tcBdr");
+    if (bdr) {
+      for (const side of ["a:insideH", "a:insideV", "a:left", "a:top"]) {
+        const s = firstChild(bdr, side);
+        const ln2 = s ? firstChild(s, "a:ln") : void 0;
+        if (!ln2) continue;
+        const sf2 = firstChild(ln2, "a:solidFill");
+        const col = sf2 ? colorFromDml(childElements(sf2)[0], theme) : void 0;
+        if (col) out.borderColor = col;
+        if (ln2.attrs["w"]) out.borderWidth = parseInt(ln2.attrs["w"], 10);
+        if (out.borderColor) break;
+      }
+    }
+  }
+  return out;
+}
+function readTableStyle(pkg, styleId, theme) {
+  const xml = pkg.getPartText("ppt/tableStyles.xml");
+  if (!xml) return void 0;
+  let root;
+  try {
+    root = parseXml(xml);
+  } catch {
+    return void 0;
+  }
+  for (const st of childElements(root, "a:tblStyle")) {
+    if (st.attrs["styleId"] !== styleId) continue;
+    const def = {};
+    for (const [key, name] of PART_NAMES) {
+      const el = firstChild(st, name);
+      if (el) def[key] = parsePart(el, theme);
+    }
+    return def;
+  }
+  return void 0;
+}
+function readTblPr(tbl) {
+  const pr = firstChild(tbl, "a:tblPr");
+  const out = {
+    firstRow: pr?.attrs["firstRow"] === "1",
+    bandRow: pr?.attrs["bandRow"] === "1"
+  };
+  const idEl = pr ? firstChild(pr, "a:tableStyleId") : void 0;
+  if (idEl) out.styleId = textContent(idEl).trim();
+  return out;
+}
+function applyTableStyle(t, def, firstRowOn, bandRowOn) {
+  const whole = def.wholeTbl;
+  for (let ri = 0; ri < t.rows.length; ri++) {
+    const isHeader = firstRowOn && ri === 0;
+    const dataIdx = ri - (firstRowOn ? 1 : 0);
+    for (const cell of t.rows[ri].cells) {
+      if (cell.hMerge || cell.vMerge) continue;
+      let part;
+      if (isHeader) part = def.firstRow;
+      else if (bandRowOn && dataIdx >= 0 && dataIdx % 2 === 0) part = def.band1H;
+      else if (bandRowOn && dataIdx >= 0) part = def.band2H;
+      if (cell.fill === void 0) {
+        const f = part?.fill ?? whole?.fill;
+        if (f) cell.fill = f;
+      }
+      if (cell.txColor === void 0) {
+        const c = part?.txColor ?? whole?.txColor;
+        if (c) cell.txColor = c;
+      }
+      if (cell.txBold === void 0 && (part?.txBold ?? whole?.txBold)) cell.txBold = true;
+      if (cell.borderColor === void 0) {
+        const b = part?.borderColor ?? whole?.borderColor;
+        if (b) cell.borderColor = b;
+      }
+      if (cell.borderWidth === void 0) {
+        const w = part?.borderWidth ?? whole?.borderWidth;
+        if (w) cell.borderWidth = w;
+      }
+    }
+  }
+}
 
 // ../slides-core/src/text-style.ts
 var LEVEL_NAMES = [
@@ -1458,6 +1571,20 @@ function readSlide(pkg, slidePath) {
     const keys = sh.phType !== void 0 || sh.phIdx !== void 0 ? [phKey(sh.phType, sh.phIdx), phKey(sh.phType), "idx:" + (sh.phIdx ?? "")] : [];
     applyShapeTextCascade(sh, styleCtx, theme, keys);
   }
+  for (const sh of shapes) {
+    if (!sh.table) continue;
+    const base = mergeStyleLevels(styleCtx.defaultStyle, styleCtx.otherStyle);
+    for (const row of sh.table.rows) {
+      for (const cell of row.cells) {
+        if (!cell.txBody) continue;
+        const overlay = {};
+        if (cell.txColor !== void 0) overlay.color = cell.txColor;
+        if (cell.txBold) overlay.bold = true;
+        const levels = overlay.color !== void 0 || overlay.bold !== void 0 ? mergeStyleLevels(base, Array.from({ length: 9 }, () => ({ ...overlay }))) : base;
+        applyTextStyles(cell.txBody, levels, theme);
+      }
+    }
+  }
   const slide = { shapes };
   const bgEl = cSld ? firstChild(cSld, "p:bg") : void 0;
   if (bgEl) {
@@ -1465,6 +1592,13 @@ function readSlide(pkg, slidePath) {
     if (bgPr) {
       const c = solidFillColor(bgPr, theme);
       if (c) slide.bg = { type: "solid", color: c };
+      if (!slide.bg) {
+        const grad = firstChild(bgPr, "a:gradFill");
+        if (grad) {
+          const g = parseGradFill(grad, theme);
+          if (g) slide.bg = g;
+        }
+      }
       const blip = descend(bgPr, "a:blip");
       if (blip) {
         const img = resolveBlip(blip, pkg, slideRels);
@@ -1651,7 +1785,7 @@ function readShapes(spTree, theme, pkg, rels) {
     if (c.name === "p:sp" || c.name === "p:cxnSp") out.push(readShape(c, theme, pkg, rels));
     else if (c.name === "p:pic") out.push(readPic(c, theme, pkg, rels));
     else if (c.name === "p:graphicFrame") {
-      const gf = readGraphicFrame(c, pkg, rels);
+      const gf = readGraphicFrame(c, pkg, rels, theme);
       if (gf) out.push(gf);
     } else if (c.name === "p:grpSp") {
       out.push(...readGroup(c, theme, pkg, rels));
@@ -1712,7 +1846,7 @@ function readGroup(grp, theme, pkg, rels) {
   }
   return children;
 }
-function readGraphicFrame(gf, pkg, rels) {
+function readGraphicFrame(gf, pkg, rels, theme) {
   const nvPr = firstChild(gf, "p:nvGraphicFramePr");
   const cNvPr = nvPr ? firstChild(nvPr, "p:cNvPr") : void 0;
   const shape = {
@@ -1731,16 +1865,28 @@ function readGraphicFrame(gf, pkg, rels) {
       const target = rels.get(rid);
       if (target) {
         const xml = pkg.getPartText(target);
-        if (xml) shape.chartXml = xml;
+        if (xml) {
+          shape.chartXml = xml;
+          const pal = [];
+          for (let i2 = 1; i2 <= 6; i2++) {
+            const c = theme.colors[`accent${i2}`];
+            if (c) pal.push(c);
+          }
+          if (pal.length) shape.chartPalette = pal;
+        }
       }
     }
   }
   const tblEl = firstChild(data, "a:tbl");
-  if (tblEl) shape.table = readTable(
-    tblEl,
-    /* theme */
-    { colors: {} }
-  );
+  if (tblEl) {
+    const table = readTable(tblEl, theme);
+    const pr = readTblPr(tblEl);
+    if (pr.styleId) {
+      const style = readTableStyle(pkg, pr.styleId, theme);
+      if (style) applyTableStyle(table, style, pr.firstRow, pr.bandRow);
+    }
+    shape.table = table;
+  }
   return shape;
 }
 function readTable(tbl, theme) {
@@ -1902,7 +2048,9 @@ function parseGradFill(grad, theme) {
   stops.sort((a, b) => a.pos - b.pos);
   const lin = firstChild(grad, "a:lin");
   const angleDeg = lin?.attrs["ang"] !== void 0 ? parseInt(lin.attrs["ang"], 10) / 6e4 : 0;
-  return { type: "gradient", stops, angleDeg };
+  const out = { type: "gradient", stops, angleDeg };
+  if (lin?.attrs["scaled"] === "1") out.scaled = true;
+  return out;
 }
 function parseXfrm(el) {
   const off = firstChild(el, "a:off");
@@ -2096,11 +2244,24 @@ function parseChart(xml) {
   }
   const plot = firstChild(chart, "c:plotArea");
   if (!plot) return out;
+  const legend = firstChild(chart, "c:legend");
+  if (legend) {
+    const pos = firstChild(legend, "c:legendPos");
+    out.legendPos = pos?.attrs["val"] ?? "b";
+  }
   const perSeriesTypes = [];
   for (const block of childElements(plot)) {
     const t = chartTypeForBlock(block.name);
     if (t === "unknown") continue;
     if (out.type === "unknown") out.type = t;
+    const hole = firstChild(block, "c:holeSize");
+    if (hole?.attrs["val"]) out.holeSize = parseInt(hole.attrs["val"], 10) / 100;
+    const rs = firstChild(block, "c:radarStyle");
+    if (rs?.attrs["val"]) out.radarStyle = rs.attrs["val"];
+    const gap = firstChild(block, "c:gapWidth");
+    if (gap?.attrs["val"]) out.gapWidth = parseInt(gap.attrs["val"], 10);
+    const ov = firstChild(block, "c:overlap");
+    if (ov?.attrs["val"]) out.overlap = parseInt(ov.attrs["val"], 10);
     for (const ser of childElements(block, "c:ser")) {
       const series = parseSeries(ser);
       if (series.values.length === 0) continue;
@@ -2131,6 +2292,8 @@ function chartTypeForBlock(name) {
       return "scatter";
     case "c:radarChart":
       return "radar";
+    case "c:areaChart":
+      return "area";
     default:
       return "unknown";
   }
@@ -2162,6 +2325,11 @@ function parseSeries(ser) {
   }
   const out = { name, values };
   if (color) out.color = color;
+  const marker = firstChild(ser, "c:marker");
+  if (marker) {
+    const sym = firstChild(marker, "c:symbol");
+    out.marker = sym?.attrs["val"] !== "none";
+  }
   return out;
 }
 function collectNumPts(block, out) {
@@ -2216,50 +2384,55 @@ function walkText(el, out) {
     walkText(c, out);
   }
 }
-function paintChart(ctx, chart, x2, y, w, h) {
+function paintChart(ctx, chart, x2, y, w, h, pxPerPt) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(x2, y, w, h);
-  ctx.strokeStyle = "#e0e0e0";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x2 + 0.5, y + 0.5, w - 1, h - 1);
-  let plotY = y + 8;
-  let plotH = h - 16;
+  const ppt = pxPerPt ?? Math.max(0.8, h / 360);
+  const u = ppt / 1.333;
+  const titlePx = 15.5 * ppt;
+  const labelPx = 10 * ppt;
+  let plotY = y + 8 * u;
+  let plotH = h - 16 * u;
   if (chart.title) {
-    ctx.fillStyle = "#1E293B";
-    ctx.font = "600 14px Arial, sans-serif";
+    ctx.fillStyle = "#595959";
+    ctx.font = `${titlePx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillText(chart.title, x2 + w / 2, y + 6);
-    plotY = y + 28;
-    plotH = h - 36;
+    ctx.fillText(chart.title, x2 + w / 2, y + 8 * u);
+    plotY = y + titlePx + 16 * u;
+    plotH = h - (titlePx + 24 * u);
   }
-  const showLegend = chart.series.length > 1 || chart.type === "pie" || chart.type === "doughnut";
-  const legendH = showLegend ? 22 : 0;
-  const px = x2 + 8;
-  const py = plotY;
-  const pw = w - 16;
+  const showLegend = chart.legendPos !== void 0;
+  const legendH = showLegend ? labelPx + 12 * u : 0;
+  const legendTop = chart.legendPos === "t";
+  const px = x2 + 8 * u;
+  const py = plotY + (legendTop ? legendH : 0);
+  const pw = w - 16 * u;
   const ph = plotH - legendH;
   switch (chart.type) {
     case "bar-col":
-      paintBars(ctx, chart, px, py, pw, ph, "col");
+      paintBars(ctx, chart, px, py, pw, ph, "col", labelPx);
       break;
     case "bar-row":
-      paintBars(ctx, chart, px, py, pw, ph, "row");
+      paintBars(ctx, chart, px, py, pw, ph, "row", labelPx);
       break;
     case "line":
-      paintLines(ctx, chart, px, py, pw, ph);
+      paintLines(ctx, chart, px, py, pw, ph, labelPx, false);
+      break;
+    case "area":
+      paintLines(ctx, chart, px, py, pw, ph, labelPx, true);
       break;
     case "pie":
       paintPieOrDoughnut(ctx, chart, px, py, pw, ph, 0);
       break;
     case "doughnut":
-      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, 0.5);
+      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, chart.holeSize ?? 0.75);
       break;
     case "scatter":
-      paintScatter(ctx, chart, px, py, pw, ph);
+      paintScatter(ctx, chart, px, py, pw, ph, labelPx);
       break;
     case "radar":
-      paintRadar(ctx, chart, px, py, pw, ph);
+      paintRadar(ctx, chart, px, py, pw, ph, labelPx);
       break;
     default:
       ctx.fillStyle = "#666";
@@ -2267,10 +2440,17 @@ function paintChart(ctx, chart, x2, y, w, h) {
       ctx.textAlign = "center";
       ctx.fillText(`Gr\xE1fico (${chart.type}) \u2014 render em breve`, x2 + w / 2, y + h / 2);
   }
-  if (showLegend) paintLegend(ctx, chart, px, py + ph + 4, pw, legendH);
+  if (showLegend) {
+    const ly = legendTop ? plotY : py + ph + 6 * u;
+    paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+  }
+}
+function paletteOf(chart) {
+  return chart.palette && chart.palette.length ? chart.palette : DEFAULT_PALETTE;
 }
 function colorOf(chart, i2) {
-  return chart.series[i2]?.color ?? DEFAULT_PALETTE[i2 % DEFAULT_PALETTE.length];
+  const pal = paletteOf(chart);
+  return chart.series[i2]?.color ?? pal[i2 % pal.length];
 }
 function valueRange(chart) {
   let min = 0, max2 = 0;
@@ -2281,206 +2461,296 @@ function valueRange(chart) {
   if (max2 === min) max2 = min + 1;
   return { min, max: max2 };
 }
-function paintBars(ctx, chart, x2, y, w, h, dir) {
+function niceTicks(min, max2) {
+  const raw = (max2 - min) / 5 || 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const step = mag * (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10);
+  const lo = min < 0 ? Math.floor(min * 1.05 / step) * step : Math.floor(min / step) * step;
+  const hi = max2 > 0 ? Math.ceil(max2 * 1.05 / step) * step : Math.ceil(max2 / step) * step;
+  return { lo, hi, step };
+}
+function paintBars(ctx, chart, x2, y, w, h, dir, labelPx) {
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;
   if (!cats || chart.series.length === 0) return;
   const { min, max: max2 } = valueRange(chart);
-  const axW = 30, axH = 18;
+  const t = niceTicks(min, max2);
+  const axW = labelPx * 2.2, axH = labelPx * 1.8;
   const plotL = x2 + axW, plotT = y, plotR = x2 + w, plotB = y + h - axH;
-  paintGrid(ctx, plotL, plotT, plotR, plotB, min, max2);
+  paintGrid(ctx, plotL, plotT, plotR, plotB, t);
+  const gap = (chart.gapWidth ?? 219) / 100;
+  const ov = (chart.overlap ?? (chart.series.length > 1 ? -27 : 0)) / 100;
+  const nSer = chart.series.length;
   const groupW = (plotR - plotL) / cats;
-  const innerPad = 0.12 * groupW;
-  const barW = (groupW - innerPad * 2) / chart.series.length;
-  for (let s = 0; s < chart.series.length; s++) {
+  const barW = groupW / ((nSer - 1) * (1 - ov) + 1 + gap);
+  const span = barW * ((nSer - 1) * (1 - ov) + 1);
+  for (let s = 0; s < nSer; s++) {
     ctx.fillStyle = colorOf(chart, s);
     const vals = chart.series[s].values;
     for (let i2 = 0; i2 < cats; i2++) {
       const v = vals[i2] ?? 0;
-      const xBar = plotL + innerPad + i2 * groupW + s * barW;
-      const yTop = plotB - (v - min) / (max2 - min) * (plotB - plotT);
+      const gx = plotL + i2 * groupW + (groupW - span) / 2;
+      const xBar = gx + s * barW * (1 - ov);
+      const yTop = plotB - (v - t.lo) / (t.hi - t.lo) * (plotB - plotT);
       const bh = plotB - yTop;
-      if (dir === "col") ctx.fillRect(xBar, yTop, barW * 0.92, bh);
-      else ctx.fillRect(plotL, xBar, bh, barW * 0.92);
+      if (dir === "col") ctx.fillRect(xBar, yTop, barW, bh);
+      else ctx.fillRect(plotL, xBar, bh, barW);
     }
   }
-  paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, axH);
-  paintValueAxis(ctx, min, max2, x2, plotT, axW, plotB - plotT);
+  paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
+  paintValueAxis(ctx, t, x2 + axW - 6, plotT, plotB - plotT, labelPx);
 }
-function paintLines(ctx, chart, x2, y, w, h) {
+function paintLines(ctx, chart, x2, y, w, h, labelPx, area) {
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;
   if (!cats) return;
   const { min, max: max2 } = valueRange(chart);
-  const axW = 30, axH = 18;
+  const t = niceTicks(min, max2);
+  const axW = labelPx * 2.2, axH = labelPx * 1.8;
   const plotL = x2 + axW, plotT = y, plotR = x2 + w, plotB = y + h - axH;
-  paintGrid(ctx, plotL, plotT, plotR, plotB, min, max2);
-  const stepX = (plotR - plotL) / Math.max(1, cats - 1);
+  paintGrid(ctx, plotL, plotT, plotR, plotB, t);
+  const stepX = (plotR - plotL) / cats;
+  const xAt = (i2) => plotL + stepX * (i2 + 0.5);
+  const yAt = (v) => plotB - (v - t.lo) / (t.hi - t.lo) * (plotB - plotT);
   for (let s = 0; s < chart.series.length; s++) {
-    ctx.strokeStyle = colorOf(chart, s);
-    ctx.fillStyle = colorOf(chart, s);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
+    const col = colorOf(chart, s);
     const vals = chart.series[s].values;
+    if (area) {
+      ctx.fillStyle = col;
+      ctx.globalAlpha = ctx.globalAlpha * 1;
+      ctx.beginPath();
+      ctx.moveTo(xAt(0), yAt(vals[0] ?? 0));
+      for (let i2 = 1; i2 < cats; i2++) ctx.lineTo(xAt(i2), yAt(vals[i2] ?? 0));
+      ctx.lineTo(xAt(cats - 1), plotB);
+      ctx.lineTo(xAt(0), plotB);
+      ctx.closePath();
+      ctx.fill();
+      continue;
+    }
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    ctx.lineWidth = Math.max(2, labelPx / 6);
+    ctx.beginPath();
     for (let i2 = 0; i2 < cats; i2++) {
-      const v = vals[i2] ?? 0;
-      const xp = plotL + i2 * stepX;
-      const yp = plotB - (v - min) / (max2 - min) * (plotB - plotT);
-      if (i2 === 0) ctx.moveTo(xp, yp);
-      else ctx.lineTo(xp, yp);
+      const yp = yAt(vals[i2] ?? 0);
+      if (i2 === 0) ctx.moveTo(xAt(i2), yp);
+      else ctx.lineTo(xAt(i2), yp);
     }
     ctx.stroke();
-    for (let i2 = 0; i2 < cats; i2++) {
-      const v = vals[i2] ?? 0;
-      const xp = plotL + i2 * stepX;
-      const yp = plotB - (v - min) / (max2 - min) * (plotB - plotT);
-      ctx.beginPath();
-      ctx.arc(xp, yp, 3, 0, Math.PI * 2);
-      ctx.fill();
+    if (chart.series[s].marker) {
+      for (let i2 = 0; i2 < cats; i2++) {
+        ctx.beginPath();
+        ctx.arc(xAt(i2), yAt(vals[i2] ?? 0), labelPx / 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
-  paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, axH);
-  paintValueAxis(ctx, min, max2, x2, plotT, axW, plotB - plotT);
+  paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
+  paintValueAxis(ctx, t, x2 + axW - 6, plotT, plotB - plotT, labelPx);
 }
 function paintPieOrDoughnut(ctx, chart, x2, y, w, h, holeFrac) {
   const s0 = chart.series[0];
   if (!s0) return;
   const total = s0.values.reduce((a, b) => a + Math.max(0, b), 0);
   if (total <= 0) return;
+  const pal = paletteOf(chart);
   const cx = x2 + w / 2, cy = y + h / 2;
-  const radius = Math.min(w, h) / 2 - 6;
+  const radius = Math.min(w, h) / 2 - 4;
   let a0 = -Math.PI / 2;
   for (let i2 = 0; i2 < s0.values.length; i2++) {
     const v = Math.max(0, s0.values[i2] ?? 0);
     if (v === 0) continue;
     const a1 = a0 + v / total * Math.PI * 2;
-    ctx.fillStyle = chart.series[0]?.color ?? DEFAULT_PALETTE[i2 % DEFAULT_PALETTE.length];
+    ctx.fillStyle = pal[i2 % pal.length];
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, radius, a0, a1);
-    ctx.closePath();
+    if (holeFrac > 0) {
+      ctx.arc(cx, cy, radius, a0, a1);
+      ctx.arc(cx, cy, radius * holeFrac, a1, a0, true);
+      ctx.closePath();
+    } else {
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, a0, a1);
+      ctx.closePath();
+    }
     ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = Math.max(1.5, radius / 120);
+    ctx.stroke();
     a0 = a1;
   }
-  if (holeFrac > 0) {
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius * holeFrac, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
-function paintScatter(ctx, chart, x2, y, w, h) {
-  const cats = chart.categories.length || chart.series[0]?.values.length || 0;
+function paintScatter(ctx, chart, x2, y, w, h, labelPx) {
+  const xs = chart.categories.map((c) => parseFloat(c)).filter((v) => Number.isFinite(v));
+  const n = chart.series[0]?.values.length ?? 0;
+  if (!n) return;
+  let xMin = 0, xMax = 0;
+  for (const v of xs) {
+    if (v < xMin) xMin = v;
+    if (v > xMax) xMax = v;
+  }
+  if (xMax === xMin) xMax = xMin + 1;
   const { min, max: max2 } = valueRange(chart);
-  const axW = 30, axH = 18;
+  const tx = niceTicks(xMin, xMax);
+  const ty = niceTicks(min, max2);
+  const axW = labelPx * 2.2, axH = labelPx * 1.8;
   const plotL = x2 + axW, plotT = y, plotR = x2 + w, plotB = y + h - axH;
-  paintGrid(ctx, plotL, plotT, plotR, plotB, min, max2);
+  paintGrid(ctx, plotL, plotT, plotR, plotB, ty);
+  ctx.strokeStyle = "#D9D9D9";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let v = tx.lo; v <= tx.hi + 1e-9; v += tx.step) {
+    const xx = plotL + (v - tx.lo) / (tx.hi - tx.lo) * (plotR - plotL);
+    ctx.moveTo(Math.round(xx) + 0.5, plotT);
+    ctx.lineTo(Math.round(xx) + 0.5, plotB);
+  }
+  ctx.stroke();
   for (let s = 0; s < chart.series.length; s++) {
     ctx.fillStyle = colorOf(chart, s);
     const vals = chart.series[s].values;
-    const stepX = (plotR - plotL) / Math.max(1, cats - 1);
-    for (let i2 = 0; i2 < cats; i2++) {
-      const xp = plotL + i2 * stepX;
-      const yp = plotB - (vals[i2] ?? 0 - min) / (max2 - min) * (plotB - plotT);
+    for (let i2 = 0; i2 < n; i2++) {
+      const xv = xs[i2] ?? i2;
+      const xp = plotL + (xv - tx.lo) / (tx.hi - tx.lo) * (plotR - plotL);
+      const yp = plotB - ((vals[i2] ?? 0) - ty.lo) / (ty.hi - ty.lo) * (plotB - plotT);
       ctx.beginPath();
-      ctx.arc(xp, yp, 4, 0, Math.PI * 2);
+      ctx.arc(xp, yp, labelPx / 4, 0, Math.PI * 2);
       ctx.fill();
     }
   }
-  paintValueAxis(ctx, min, max2, x2, plotT, axW, plotB - plotT);
+  ctx.fillStyle = "#595959";
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  for (let v = tx.lo; v <= tx.hi + 1e-9; v += tx.step) {
+    const xx = plotL + (v - tx.lo) / (tx.hi - tx.lo) * (plotR - plotL);
+    ctx.fillText(formatVal(v), xx, plotB + labelPx * 0.35);
+  }
+  paintValueAxis(ctx, ty, x2 + axW - 6, plotT, plotB - plotT, labelPx);
 }
-function paintRadar(ctx, chart, x2, y, w, h) {
+function paintRadar(ctx, chart, x2, y, w, h, labelPx) {
   const n = chart.categories.length || chart.series[0]?.values.length || 0;
   if (!n) return;
-  const { max: max2 } = valueRange(chart);
+  const { min, max: max2 } = valueRange(chart);
+  const t = niceTicks(Math.min(0, min), max2);
   const cx = x2 + w / 2, cy = y + h / 2;
-  const radius = Math.min(w, h) / 2 - 16;
-  ctx.strokeStyle = "#cccccc";
+  const radius = Math.min(w, h) / 2 - labelPx * 2.4;
+  const angleAt = (i2) => -Math.PI / 2 + i2 * (Math.PI * 2 / n);
+  const rAt = (v) => (v - t.lo) / (t.hi - t.lo) * radius;
+  ctx.strokeStyle = "#D9D9D9";
   ctx.lineWidth = 1;
-  for (let r = 1; r <= 4; r++) {
+  for (let v = t.lo + t.step; v <= t.hi + 1e-9; v += t.step) {
     ctx.beginPath();
     for (let i2 = 0; i2 < n; i2++) {
-      const a = -Math.PI / 2 + i2 * (Math.PI * 2 / n);
-      const px = cx + Math.cos(a) * radius * (r / 4);
-      const py = cy + Math.sin(a) * radius * (r / 4);
+      const a = angleAt(i2);
+      const px = cx + Math.cos(a) * rAt(v);
+      const py = cy + Math.sin(a) * rAt(v);
       if (i2 === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     }
     ctx.closePath();
     ctx.stroke();
   }
+  ctx.fillStyle = "#595959";
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let v = t.lo; v <= t.hi + 1e-9; v += t.step) {
+    ctx.fillText(formatVal(v), cx - labelPx * 0.4, cy - rAt(v));
+  }
+  for (let i2 = 0; i2 < n; i2++) {
+    const a = angleAt(i2);
+    const px = cx + Math.cos(a) * (radius + labelPx * 0.9);
+    const py = cy + Math.sin(a) * (radius + labelPx * 0.9);
+    ctx.textAlign = Math.abs(Math.cos(a)) < 0.3 ? "center" : Math.cos(a) > 0 ? "left" : "right";
+    ctx.textBaseline = Math.sin(a) < -0.3 ? "bottom" : Math.sin(a) > 0.3 ? "top" : "middle";
+    ctx.fillText(chart.categories[i2] ?? String(i2 + 1), px, py);
+  }
+  const filled = chart.radarStyle === "filled";
   for (let s = 0; s < chart.series.length; s++) {
     const c = colorOf(chart, s);
     ctx.strokeStyle = c;
-    ctx.fillStyle = c.length === 7 ? c + "40" : c;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(2, labelPx / 6);
     ctx.beginPath();
     const vals = chart.series[s].values;
     for (let i2 = 0; i2 < n; i2++) {
-      const a = -Math.PI / 2 + i2 * (Math.PI * 2 / n);
-      const r = (vals[i2] ?? 0) / max2 * radius;
-      const px = cx + Math.cos(a) * r;
-      const py = cy + Math.sin(a) * r;
+      const a = angleAt(i2);
+      const px = cx + Math.cos(a) * rAt(vals[i2] ?? 0);
+      const py = cy + Math.sin(a) * rAt(vals[i2] ?? 0);
       if (i2 === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     }
     ctx.closePath();
-    ctx.fill();
+    if (filled) {
+      ctx.fillStyle = c.length === 7 ? c + "40" : c;
+      ctx.fill();
+    }
     ctx.stroke();
   }
 }
-function paintGrid(ctx, l, t, r, b, _min, _max) {
-  ctx.strokeStyle = "#e6e6e6";
+function paintGrid(ctx, l, t, r, b, ticks) {
+  ctx.strokeStyle = "#D9D9D9";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  const rows = 5;
-  for (let i2 = 0; i2 <= rows; i2++) {
-    const y = t + (b - t) * i2 / rows;
-    ctx.moveTo(l, y + 0.5);
-    ctx.lineTo(r, y + 0.5);
+  for (let v = ticks.lo; v <= ticks.hi + 1e-9; v += ticks.step) {
+    const y = b - (v - ticks.lo) / (ticks.hi - ticks.lo) * (b - t);
+    ctx.moveTo(l, Math.round(y) + 0.5);
+    ctx.lineTo(r, Math.round(y) + 0.5);
   }
   ctx.stroke();
 }
-function paintCategoryAxis(ctx, cats, l, b, w, _h) {
+function paintCategoryAxis(ctx, cats, l, b, w, labelPx) {
   if (cats.length === 0) return;
-  ctx.fillStyle = "#555";
-  ctx.font = "10px Arial";
+  ctx.fillStyle = "#595959";
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   const stepX = w / cats.length;
   for (let i2 = 0; i2 < cats.length; i2++) {
     const text = cats[i2] ?? String(i2 + 1);
-    ctx.fillText(text.length > 8 ? text.slice(0, 7) + "\u2026" : text, l + stepX * (i2 + 0.5), b + 4);
+    ctx.fillText(text, l + stepX * (i2 + 0.5), b + labelPx * 0.35);
   }
 }
-function paintValueAxis(ctx, min, max2, x2, y, _w, h) {
-  ctx.fillStyle = "#555";
-  ctx.font = "10px Arial";
+function paintValueAxis(ctx, ticks, xRight, y, h, labelPx) {
+  ctx.fillStyle = "#595959";
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  const rows = 5;
-  for (let i2 = 0; i2 <= rows; i2++) {
-    const v = max2 - (max2 - min) * (i2 / rows);
-    ctx.fillText(formatVal(v), x2 + 26, y + h * i2 / rows);
+  for (let v = ticks.lo; v <= ticks.hi + 1e-9; v += ticks.step) {
+    const yy = y + h - (v - ticks.lo) / (ticks.hi - ticks.lo) * h;
+    ctx.fillText(formatVal(v), xRight, yy);
   }
 }
 function formatVal(v) {
   if (Math.abs(v) >= 1e3) return v.toLocaleString("pt-BR", { maximumFractionDigits: 0 });
   if (Number.isInteger(v)) return String(v);
-  return v.toFixed(1);
+  return v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }
-function paintLegend(ctx, chart, x2, y, w, h) {
-  ctx.font = "11px Arial";
+function paintLegend(ctx, chart, x2, y, w, h, labelPx) {
+  const pal = paletteOf(chart);
+  const byCategory = chart.type === "pie" || chart.type === "doughnut";
+  const entries = byCategory ? chart.categories.map((c, i2) => ({ label: c, color: pal[i2 % pal.length] })) : chart.series.map((s, i2) => ({ label: s.name || `S\xE9rie ${i2 + 1}`, color: colorOf(chart, i2) }));
+  if (!entries.length) return;
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textBaseline = "middle";
-  let cx = x2 + 4;
-  for (let i2 = 0; i2 < chart.series.length; i2++) {
-    const c = colorOf(chart, i2);
-    ctx.fillStyle = c;
-    ctx.fillRect(cx, y + h / 2 - 5, 10, 10);
-    cx += 14;
-    ctx.fillStyle = "#333";
-    const name = chart.series[i2]?.name ?? `S\xE9rie ${i2 + 1}`;
-    ctx.fillText(name, cx, y + h / 2);
-    cx += ctx.measureText(name).width + 12;
-    if (cx > x2 + w - 30) break;
+  const sq = labelPx * 0.7;
+  const gapIn = sq * 0.5, gapOut = labelPx * 1.4;
+  let total = 0;
+  const widths = entries.map((e) => {
+    const tw = ctx.measureText(e.label).width;
+    total += sq + gapIn + tw + gapOut;
+    return tw;
+  });
+  total -= gapOut;
+  let cx = x2 + Math.max(0, (w - total) / 2);
+  const cy = y + h / 2;
+  for (let i2 = 0; i2 < entries.length; i2++) {
+    const e = entries[i2];
+    ctx.fillStyle = e.color;
+    ctx.fillRect(cx, cy - sq / 2, sq, sq);
+    cx += sq + gapIn;
+    ctx.fillStyle = "#595959";
+    ctx.textAlign = "left";
+    ctx.fillText(e.label, cx, cy);
+    cx += widths[i2] + gapOut;
+    if (cx > x2 + w) break;
   }
 }
 
@@ -2805,6 +3075,144 @@ function presetPath(geom, w, h) {
     case "line":
     case "straightConnector1":
       return { kind: "line", x1: 0, y1: 0, x2: w, y2: h };
+    case "octagon": {
+      const d = ss * 0.29289;
+      return {
+        kind: "poly",
+        points: [
+          { x: d, y: 0 },
+          { x: w - d, y: 0 },
+          { x: w, y: d },
+          { x: w, y: h - d },
+          { x: w - d, y: h },
+          { x: d, y: h },
+          { x: 0, y: h - d },
+          { x: 0, y: d }
+        ]
+      };
+    }
+    case "donut": {
+      const t = ss * 0.25;
+      return {
+        kind: "path",
+        fillRule: "evenodd",
+        subs: [
+          [{ c: "E", cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: 0, a1: Math.PI * 2 }, { c: "Z" }],
+          [{ c: "E", cx: w / 2, cy: h / 2, rx: w / 2 - t, ry: h / 2 - t, a0: 0, a1: Math.PI * 2 }, { c: "Z" }]
+        ]
+      };
+    }
+    case "moon": {
+      const irx = w * 0.5;
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: w, y: 0 },
+          { c: "E", cx: w, cy: h / 2, rx: w, ry: h / 2, a0: -Math.PI / 2, a1: -Math.PI * 1.5, ccw: true },
+          { c: "E", cx: w, cy: h / 2, rx: irx, ry: h * 0.4, a0: Math.PI / 2, a1: -Math.PI / 2, ccw: false },
+          { c: "Z" }
+        ]]
+      };
+    }
+    case "heart": {
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: w / 2, y: h * 0.3 },
+          { c: "C", x1: w * 0.5, y1: h * 0.12, x2: w * 0.38, y2: h * 0.01, x: w * 0.26, y: h * 0.01 },
+          { c: "C", x1: w * 0.1, y1: h * 0.01, x2: 0, y2: h * 0.14, x: 0, y: h * 0.31 },
+          { c: "C", x1: 0, y1: h * 0.51, x2: w * 0.18, y2: h * 0.66, x: w / 2, y: h },
+          { c: "C", x1: w * 0.82, y1: h * 0.66, x2: w, y2: h * 0.51, x: w, y: h * 0.31 },
+          { c: "C", x1: w, y1: h * 0.14, x2: w * 0.9, y2: h * 0.01, x: w * 0.74, y: h * 0.01 },
+          { c: "C", x1: w * 0.62, y1: h * 0.01, x2: w * 0.5, y2: h * 0.12, x: w / 2, y: h * 0.3 },
+          { c: "Z" }
+        ]]
+      };
+    }
+    case "lightningBolt": {
+      const u = (px, py) => ({ x: px / 21600 * w, y: py / 21600 * h });
+      const pts = [
+        u(8472, 0),
+        u(12860, 6080),
+        u(11050, 6797),
+        u(16577, 12007),
+        u(14767, 12877),
+        u(21600, 21600),
+        u(10800, 14915),
+        u(12482, 14072),
+        u(7602, 8382),
+        u(9722, 7292),
+        u(0, 3890)
+      ];
+      return { kind: "poly", points: pts };
+    }
+    case "sun": {
+      const cx = w / 2, cy = h / 2;
+      const rx = w * 0.28, ry = h * 0.28;
+      const brx = w * 0.32, bry = h * 0.32;
+      const subs = [
+        [{ c: "E", cx, cy, rx, ry, a0: 0, a1: Math.PI * 2 }, { c: "Z" }]
+      ];
+      for (let i2 = 0; i2 < 8; i2++) {
+        const a = i2 * Math.PI / 4;
+        const spread = 0.35;
+        subs.push([
+          { c: "M", x: cx + Math.cos(a) * (w / 2), y: cy + Math.sin(a) * (h / 2) },
+          { c: "L", x: cx + Math.cos(a + spread) * brx, y: cy + Math.sin(a + spread) * bry },
+          { c: "L", x: cx + Math.cos(a - spread) * brx, y: cy + Math.sin(a - spread) * bry },
+          { c: "Z" }
+        ]);
+      }
+      return { kind: "path", subs };
+    }
+    case "can": {
+      const ry = ss * 0.125;
+      return {
+        kind: "path",
+        subs: [
+          [
+            // corpo: laterais + fundo arqueado + topo arqueado (contorno completo)
+            { c: "M", x: 0, y: ry },
+            { c: "L", x: 0, y: h - ry },
+            { c: "E", cx: w / 2, cy: h - ry, rx: w / 2, ry, a0: Math.PI, a1: 0, ccw: true },
+            { c: "L", x: w, y: ry },
+            { c: "E", cx: w / 2, cy: ry, rx: w / 2, ry, a0: 0, a1: Math.PI, ccw: true },
+            { c: "Z" }
+          ],
+          [
+            // tampa (elipse completa — o stroke marca a boca do cilindro)
+            { c: "E", cx: w / 2, cy: ry, rx: w / 2, ry, a0: 0, a1: Math.PI * 2 },
+            { c: "Z" }
+          ]
+        ]
+      };
+    }
+    case "cube": {
+      const d = ss * 0.25;
+      return {
+        kind: "path",
+        subs: [
+          [
+            // silhueta
+            { c: "M", x: 0, y: d },
+            { c: "L", x: d, y: 0 },
+            { c: "L", x: w, y: 0 },
+            { c: "L", x: w, y: h - d },
+            { c: "L", x: w - d, y: h },
+            { c: "L", x: 0, y: h },
+            { c: "Z" }
+          ],
+          [
+            // arestas internas (stroke)
+            { c: "M", x: 0, y: d },
+            { c: "L", x: w - d, y: d },
+            { c: "L", x: w - d, y: h },
+            { c: "M", x: w - d, y: d },
+            { c: "L", x: w, y: 0 }
+          ]
+        ]
+      };
+    }
     default:
       return { kind: "rect" };
   }
@@ -2819,7 +3227,11 @@ function paintSlideTo(ctx, slide, resources, scale, opts = {}) {
   const sw = resources.slideW * scale;
   const sh = resources.slideH * scale;
   const fit = { ox, oy, scale };
-  ctx.fillStyle = slide.bg?.color ?? "#ffffff";
+  if (slide.bg?.type === "gradient" && slide.bg.stops && slide.bg.stops.length >= 2) {
+    ctx.fillStyle = makeLinearGradient(ctx, slide.bg, ox, oy, sw, sh);
+  } else {
+    ctx.fillStyle = slide.bg?.color ?? "#ffffff";
+  }
   ctx.fillRect(ox, oy, sw, sh);
   ctx.save();
   ctx.beginPath();
@@ -2875,7 +3287,8 @@ function paintShape(ctx, sh, fit, res, suppressText) {
       model = parseChart(sh.chartXml);
       res.charts?.set(sh.chartXml, model);
     }
-    paintChart(ctx, model, x2, y, w, h);
+    if (!model.palette && sh.chartPalette) model.palette = sh.chartPalette;
+    paintChart(ctx, model, x2, y, w, h, EMU_PER_POINT * fit.scale);
     if (hasXform || hasAlpha) ctx.restore();
     return;
   }
@@ -2884,7 +3297,7 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     const natH = sh.table.rows.reduce((a, r) => a + r.heightEmu, 0);
     const tw = natW > 0 ? natW * fit.scale : w;
     const th = natH > 0 ? natH * fit.scale : h;
-    paintTable(ctx, sh.table, x2, y, tw, th);
+    paintTable(ctx, sh.table, x2, y, tw, th, fit.scale);
     if (hasXform || hasAlpha) ctx.restore();
     return;
   }
@@ -2923,15 +3336,16 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     ctx.shadowOffsetX = sx;
     ctx.shadowOffsetY = sy;
     ctx.fillStyle = sh.fill?.type === "solid" && sh.fill.color ? sh.fill.color : "#ffffff";
-    shapePath(ctx, sh.geom, x2, y, w, h);
-    ctx.fill();
+    const shRule = shapePath(ctx, sh.geom, x2, y, w, h);
+    if (shRule) ctx.fill(shRule);
+    else ctx.fill();
     ctx.restore();
   }
   const isLineGeom = sh.geom === "line" || sh.geom === "straightConnector1";
   if (!isLineGeom && (sh.fillImage || sh.fill && sh.fill.type !== "none")) {
     ctx.save();
     if (sh.fillAlpha !== void 0 && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
-    shapePath(ctx, sh.geom, x2, y, w, h);
+    const rule = shapePath(ctx, sh.geom, x2, y, w, h);
     if (sh.fillImage) {
       const img = res.images?.get(sh.fillImage.part);
       if (img) {
@@ -2940,10 +3354,12 @@ function paintShape(ctx, sh, fit, res, suppressText) {
       }
     } else if (sh.fill.type === "gradient" && sh.fill.stops && sh.fill.stops.length >= 2) {
       ctx.fillStyle = makeLinearGradient(ctx, sh.fill, x2, y, w, h);
-      ctx.fill();
+      if (rule) ctx.fill(rule);
+      else ctx.fill();
     } else if (sh.fill.type === "solid" && sh.fill.color) {
       ctx.fillStyle = sh.fill.color;
-      ctx.fill();
+      if (rule) ctx.fill(rule);
+      else ctx.fill();
     }
     ctx.restore();
   }
@@ -2963,6 +3379,18 @@ function shapePath(ctx, geom, x2, y, w, h) {
   ctx.beginPath();
   const p = presetPath(geom, w, h);
   switch (p.kind) {
+    case "path": {
+      for (const sub of p.subs) {
+        for (const s of sub) {
+          if (s.c === "M") ctx.moveTo(x2 + s.x, y + s.y);
+          else if (s.c === "L") ctx.lineTo(x2 + s.x, y + s.y);
+          else if (s.c === "C") ctx.bezierCurveTo(x2 + s.x1, y + s.y1, x2 + s.x2, y + s.y2, x2 + s.x, y + s.y);
+          else if (s.c === "E") ctx.ellipse(x2 + s.cx, y + s.cy, s.rx, s.ry, 0, s.a0, s.a1, s.ccw ?? false);
+          else ctx.closePath();
+        }
+      }
+      return p.fillRule;
+    }
     case "ellipse":
       ctx.ellipse(x2 + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
       break;
@@ -2992,6 +3420,7 @@ function shapePath(ctx, geom, x2, y, w, h) {
     default:
       ctx.rect(x2, y, w, h);
   }
+  return void 0;
 }
 function roundRect(ctx, x2, y, w, h, r) {
   ctx.moveTo(x2 + r, y);
@@ -3041,7 +3470,7 @@ function paintText(ctx, sh, tb, x2, y, w, h, scale) {
 function layoutFontStr(f, pxPerPt) {
   return `${f.italic ? "italic " : ""}${f.bold ? "700 " : "400 "}${f.sizePt * pxPerPt}px '${f.family}', 'Aptos', Calibri, Arial, sans-serif`;
 }
-function paintTable(ctx, t, x2, y, w, h) {
+function paintTable(ctx, t, x2, y, w, h, scale) {
   const allZeroRows = t.rows.every((r) => !r.heightEmu);
   const rowHs = allZeroRows ? t.rows.map(() => 1) : t.rows.map((r) => Math.max(r.heightEmu, 1));
   const totalColEmu = t.colWidthsEmu.reduce((a, b) => a + b, 0) || 1;
@@ -3082,7 +3511,7 @@ function paintTable(ctx, t, x2, y, w, h) {
       const cy0 = y + rowY[ri];
       const cw = (colX[ci + span] ?? colX[colX.length - 1]) - colX[ci];
       const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]) - rowY[ri];
-      const bw = (cell.borderWidth ?? 6350) / 9525;
+      const bw = (cell.borderWidth ?? 12700) * scale;
       const bc = cell.borderColor ?? "#CBD5E1";
       ctx.strokeStyle = bc;
       ctx.lineWidth = Math.max(0.5, bw);
@@ -3101,27 +3530,29 @@ function paintTable(ctx, t, x2, y, w, h) {
       const cy0 = y + rowY[ri];
       const cw = (colX[ci + span] ?? colX[colX.length - 1]) - colX[ci];
       const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]) - rowY[ri];
-      const pad = 45720 * Math.min(sx, sy);
-      const cellAnchor = cell.anchor ?? "ctr";
+      const padX = 91440 * scale;
+      const padY = 45720 * scale;
+      const cellAnchor = cell.anchor ?? "t";
+      const pxPerPt = EMU_PER_POINT * scale;
       const lines = [];
       for (const p of cell.txBody.paragraphs) {
         for (const r of p.runs.length ? p.runs : [{ text: "" }]) {
           lines.push({
             text: r.text,
-            bold: !!r.bold,
+            bold: !!(r.bold ?? cell.txBold),
             italic: !!r.italic,
-            color: r.color ?? "#1f1f1f",
-            size: (r.sz ?? 12) * 96 / 72,
+            color: r.color ?? cell.txColor ?? "#000000",
+            size: (r.sz ?? 18) * pxPerPt,
             align: p.align ?? "l",
             font: r.font ?? "Calibri"
           });
         }
       }
-      const lineH = (lines[0]?.size ?? 12) * 1.2;
+      const lineH = (lines[0]?.size ?? 18 * pxPerPt) * 1.2;
       const totalH = lines.length * lineH;
-      let cy = cy0 + pad;
+      let cy = cy0 + padY;
       if (cellAnchor === "ctr") cy = cy0 + (ch - totalH) / 2;
-      else if (cellAnchor === "b") cy = cy0 + ch - totalH - pad;
+      else if (cellAnchor === "b") cy = cy0 + ch - totalH - padY;
       ctx.textBaseline = "top";
       for (const l of lines) {
         ctx.font = `${l.italic ? "italic " : ""}${l.bold ? "700 " : "400 "}${l.size}px '${l.font}', 'Aptos', Calibri, Arial, sans-serif`;
@@ -3129,8 +3560,8 @@ function paintTable(ctx, t, x2, y, w, h) {
         const tw = ctx.measureText(l.text).width;
         let tx;
         if (l.align === "ctr") tx = cx0 + (cw - tw) / 2;
-        else if (l.align === "r") tx = cx0 + cw - tw - pad;
-        else tx = cx0 + pad;
+        else if (l.align === "r") tx = cx0 + cw - tw - padX;
+        else tx = cx0 + padX;
         ctx.fillText(l.text, tx, cy);
         cy += lineH;
       }
@@ -3139,16 +3570,42 @@ function paintTable(ctx, t, x2, y, w, h) {
 }
 function makeLinearGradient(ctx, fill, x2, y, w, h) {
   const ang = (fill.angleDeg ?? 0) * Math.PI / 180;
+  let dx = Math.cos(ang), dy = Math.sin(ang);
+  if (fill.scaled) {
+    dx = Math.cos(ang) * h;
+    dy = Math.sin(ang) * w;
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len;
+    dy /= len;
+  }
   const cx = x2 + w / 2, cy = y + h / 2;
-  const half = (Math.abs(Math.cos(ang)) * w + Math.abs(Math.sin(ang)) * h) / 2;
-  const g = ctx.createLinearGradient(
-    cx - Math.cos(ang) * half,
-    cy - Math.sin(ang) * half,
-    cx + Math.cos(ang) * half,
-    cy + Math.sin(ang) * half
-  );
-  for (const s of fill.stops ?? []) g.addColorStop(Math.max(0, Math.min(1, s.pos)), s.color);
+  const half = (Math.abs(dx) * w + Math.abs(dy) * h) / 2;
+  const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+  const stops = (fill.stops ?? []).map((s) => ({ pos: Math.max(0, Math.min(1, s.pos)), color: s.color }));
+  for (let i2 = 0; i2 < stops.length; i2++) {
+    const s = stops[i2];
+    g.addColorStop(s.pos, s.color);
+    const nx = stops[i2 + 1];
+    if (!nx || nx.pos - s.pos < 0.05) continue;
+    for (let k = 1; k < 8; k++) {
+      const f = k / 8;
+      g.addColorStop(s.pos + (nx.pos - s.pos) * f, mixLinearRgb(s.color, nx.color, f));
+    }
+  }
   return g;
+}
+function mixLinearRgb(c1, c2, f) {
+  const p = (h) => {
+    const n = parseInt(h.replace("#", ""), 16);
+    return [n >> 16 & 255, n >> 8 & 255, n & 255];
+  };
+  const [r1, g1, b1] = p(c1);
+  const [r2, g2, b22] = p(c2);
+  const lin = (v) => Math.pow(v / 255, 2.2);
+  const srgb = (v) => Math.round(Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255);
+  const mix = (a, b) => srgb(lin(a) * (1 - f) + lin(b) * f);
+  const hx = (v) => v.toString(16).padStart(2, "0");
+  return "#" + hx(mix(r1, r2)) + hx(mix(g1, g2)) + hx(mix(b1, b22));
 }
 function dashPattern(prstDash, lw) {
   switch (prstDash) {
@@ -3879,10 +4336,33 @@ $("actPlayHere").addEventListener("click", () => {
 });
 $("play").addEventListener("click", () => play(us.getSlideIndex()));
 function play(from) {
-  const stage = $("stage");
-  us.selectSlide(from);
-  if (document.fullscreenEnabled && stage.requestFullscreen) stage.requestFullscreen().catch(() => {
-  });
+  if (!savedBytes) {
+    setStatus("\u26A0 Nada para apresentar");
+    return;
+  }
+  const pv = document.createElement("universal-presentation-viewer");
+  pv.style.cssText = "position:fixed;inset:0;z-index:100;background:#000;";
+  document.body.appendChild(pv);
+  pv.loadPptx(savedBytes);
+  pv.selectSlide(from);
+  const close = () => {
+    pv.remove();
+    document.removeEventListener("fullscreenchange", onFsChange);
+    document.removeEventListener("keydown", onKey, true);
+    us.selectSlide(pv.getSlideIndex());
+  };
+  const onFsChange = () => {
+    if (!document.fullscreenElement) close();
+  };
+  const onKey = (e) => {
+    if (e.key === "Escape" && !document.fullscreenElement) {
+      e.preventDefault();
+      close();
+    }
+  };
+  document.addEventListener("fullscreenchange", onFsChange);
+  document.addEventListener("keydown", onKey, true);
+  pv.present();
 }
 $("prev").addEventListener("click", () => us.prev());
 $("next").addEventListener("click", () => us.next());

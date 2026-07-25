@@ -1,5 +1,6 @@
 import '../src/universal-slides';
 import type { UniversalSlidesElement } from '../src/universal-slides';
+import type { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
 
 const us = document.getElementById('us') as UniversalSlidesElement;
 const $ = (id: string) => document.getElementById(id)!;
@@ -109,10 +110,28 @@ $('actPlayHere').addEventListener('click', () => { closeMenus(); play(us.getSlid
 $('play').addEventListener('click', () => play(us.getSlideIndex()));
 
 function play(from: number): void {
-  // Modo apresentar minimal: stage em fullscreen pseudo, sem chrome.
-  const stage = $('stage');
-  us.selectSlide(from);
-  if (document.fullscreenEnabled && stage.requestFullscreen) stage.requestFullscreen().catch(() => {});
+  // Modo apresentar: instância DEDICADA do <universal-presentation-viewer>
+  // (o webcomponent de visualização pura) em overlay fullscreen — o mesmo
+  // componente embarcável que terceiros usam fora do editor.
+  if (!savedBytes) { setStatus('⚠ Nada para apresentar'); return; }
+  const pv = document.createElement('universal-presentation-viewer') as UniversalPresentationViewerElement;
+  pv.style.cssText = 'position:fixed;inset:0;z-index:100;background:#000;';
+  document.body.appendChild(pv);
+  pv.loadPptx(savedBytes);
+  pv.selectSlide(from);
+  const close = (): void => {
+    pv.remove();
+    document.removeEventListener('fullscreenchange', onFsChange);
+    document.removeEventListener('keydown', onKey, true);
+    us.selectSlide(pv.getSlideIndex()); // volta para o editor no slide atual
+  };
+  const onFsChange = (): void => { if (!document.fullscreenElement) close(); };
+  const onKey = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape' && !document.fullscreenElement) { e.preventDefault(); close(); }
+  };
+  document.addEventListener('fullscreenchange', onFsChange);
+  document.addEventListener('keydown', onKey, true);
+  pv.present();
 }
 
 // ───────────── navegação prev/next + atalhos ─────────────
