@@ -216,6 +216,13 @@ export interface TableCell {
   borderColor?: string;
   /** Espessura da borda em EMU (`<a:lnL w>`). v1: max dos 4 lados. */
   borderWidth?: number;
+  /** Bordas POR LADO explícitas (vencem a uniforme): `<a:lnL/lnR/lnT/lnB>`. */
+  borders?: {
+    l?: { color: string; width: number };
+    r?: { color: string; width: number };
+    t?: { color: string; width: number };
+    b?: { color: string; width: number };
+  };
   /** Anchor vertical do txBody (t/ctr/b). */
   anchor?: string;
   /** Cor default do texto vinda do ESTILO da tabela (tcTxStyle). */

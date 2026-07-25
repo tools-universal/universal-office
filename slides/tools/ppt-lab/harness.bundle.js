@@ -2024,21 +2024,17 @@ function readTable(tbl, theme) {
         if (tcPr.attrs["anchor"]) cell.anchor = tcPr.attrs["anchor"];
         const fill = solidFillColor(tcPr, theme);
         if (fill) cell.fill = fill;
-        let bw = 0;
-        let bc;
-        for (const side of ["a:lnL", "a:lnR", "a:lnT", "a:lnB"]) {
-          const ln2 = firstChild(tcPr, side);
+        const sides = [["l", "a:lnL"], ["r", "a:lnR"], ["t", "a:lnT"], ["b", "a:lnB"]];
+        for (const [key, name] of sides) {
+          const ln2 = firstChild(tcPr, name);
           if (!ln2) continue;
-          const w = ln2.attrs["w"] ? parseInt(ln2.attrs["w"], 10) : 0;
-          if (w > bw) bw = w;
-          if (!bc) {
-            const fillEl = firstChild(ln2, "a:solidFill");
-            const srgb = fillEl ? firstChild(fillEl, "a:srgbClr") : void 0;
-            if (srgb?.attrs["val"]) bc = "#" + srgb.attrs["val"];
-          }
+          const fillEl = firstChild(ln2, "a:solidFill");
+          const color = fillEl ? colorFromDml(childElements(fillEl)[0], theme) : void 0;
+          if (!color) continue;
+          const width = ln2.attrs["w"] ? parseInt(ln2.attrs["w"], 10) : 12700;
+          cell.borders = cell.borders ?? {};
+          cell.borders[key] = { color, width };
         }
-        if (bw) cell.borderWidth = bw;
-        if (bc) cell.borderColor = bc;
       }
       cells.push(cell);
     }
@@ -3499,7 +3495,69 @@ function presetPath(geom, w, h) {
       };
     }
     default:
+      if (geom?.startsWith("actionButton")) {
+        const cx = w / 2, cy = h / 2, g = Math.min(w, h) * 0.3;
+        const glyph = actionGlyph(geom, cx, cy, g);
+        return {
+          kind: "path",
+          subs: [
+            [{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }, { c: "L", x: 0, y: h }, { c: "Z" }],
+            ...glyph
+          ],
+          subLum: [0, ...glyph.map(() => -0.25)]
+        };
+      }
       return { kind: "rect" };
+  }
+}
+function actionGlyph(geom, cx, cy, g) {
+  const tri = (dir) => [
+    { c: "M", x: cx + dir * g, y: cy },
+    { c: "L", x: cx - dir * g, y: cy - g },
+    { c: "L", x: cx - dir * g, y: cy + g },
+    { c: "Z" }
+  ];
+  const bar = (x2) => [
+    { c: "M", x: x2 - g * 0.18, y: cy - g },
+    { c: "L", x: x2 + g * 0.18, y: cy - g },
+    { c: "L", x: x2 + g * 0.18, y: cy + g },
+    { c: "L", x: x2 - g * 0.18, y: cy + g },
+    { c: "Z" }
+  ];
+  switch (geom) {
+    case "actionButtonForwardNext":
+      return [tri(1)];
+    case "actionButtonBackPrevious":
+      return [tri(-1)];
+    case "actionButtonBeginning":
+      return [bar(cx - g), tri(-1)];
+    case "actionButtonEnd":
+      return [tri(1), bar(cx + g)];
+    case "actionButtonReturn":
+      return [[
+        { c: "M", x: cx - g, y: cy - g * 0.2 },
+        { c: "L", x: cx - g * 0.2, y: cy - g },
+        { c: "L", x: cx + g * 0.6, y: cy - g },
+        { c: "L", x: cx + g * 0.6, y: cy + g },
+        { c: "L", x: cx - g * 0.6, y: cy + g },
+        { c: "L", x: cx - g * 0.6, y: cy + g * 0.5 },
+        { c: "L", x: cx + g * 0.1, y: cy + g * 0.5 },
+        { c: "L", x: cx + g * 0.1, y: cy - g * 0.5 },
+        { c: "L", x: cx - g * 0.2, y: cy - g * 0.5 },
+        { c: "L", x: cx - g, y: cy - g * 0.2 },
+        { c: "Z" }
+      ]];
+    case "actionButtonDocument":
+      return [[
+        { c: "M", x: cx - g * 0.7, y: cy - g },
+        { c: "L", x: cx + g * 0.3, y: cy - g },
+        { c: "L", x: cx + g * 0.7, y: cy - g * 0.6 },
+        { c: "L", x: cx + g * 0.7, y: cy + g },
+        { c: "L", x: cx - g * 0.7, y: cy + g },
+        { c: "Z" }
+      ]];
+    default:
+      return [tri(1)];
   }
 }
 
@@ -3915,6 +3973,23 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
       ctx.strokeStyle = bc;
       ctx.lineWidth = Math.max(0.5, bw);
       ctx.strokeRect(cx0 + 0.5, cy0 + 0.5, cw - 1, ch - 1);
+      if (cell.borders) {
+        const edges = [
+          [cell.borders.t, cx0, cy0, cx0 + cw, cy0],
+          [cell.borders.b, cx0, cy0 + ch, cx0 + cw, cy0 + ch],
+          [cell.borders.l, cx0, cy0, cx0, cy0 + ch],
+          [cell.borders.r, cx0 + cw, cy0, cx0 + cw, cy0 + ch]
+        ];
+        for (const [edge, x1, y1, x22, y2] of edges) {
+          if (!edge) continue;
+          ctx.strokeStyle = edge.color;
+          ctx.lineWidth = Math.max(1, edge.width * scale);
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x22, y2);
+          ctx.stroke();
+        }
+      }
     }
   }
   for (let ri = 0; ri < t.rows.length; ri++) {

@@ -319,6 +319,53 @@ export function presetPath(geom: string | undefined, w: number, h: number): Pres
       };
     }
     default:
+      // action buttons: face retangular + GLIFO central mais escuro (o app de
+      // referência desenha o ícone com sombra do próprio fill)
+      if (geom?.startsWith('actionButton')) {
+        const cx = w / 2, cy = h / 2, g = Math.min(w, h) * 0.3;
+        const glyph = actionGlyph(geom, cx, cy, g);
+        return {
+          kind: 'path',
+          subs: [
+            [{ c: 'M', x: 0, y: 0 }, { c: 'L', x: w, y: 0 }, { c: 'L', x: w, y: h }, { c: 'L', x: 0, y: h }, { c: 'Z' }],
+            ...glyph,
+          ],
+          subLum: [0, ...glyph.map(() => -0.25)],
+        };
+      }
       return { kind: 'rect' };
+  }
+}
+
+/** Glifos dos action buttons (setas/barras) centrados em (cx,cy), raio g. */
+function actionGlyph(geom: string, cx: number, cy: number, g: number): PathSeg[][] {
+  const tri = (dir: 1 | -1): PathSeg[] => [
+    { c: 'M', x: cx + dir * g, y: cy }, { c: 'L', x: cx - dir * g, y: cy - g },
+    { c: 'L', x: cx - dir * g, y: cy + g }, { c: 'Z' },
+  ];
+  const bar = (x: number): PathSeg[] => [
+    { c: 'M', x: x - g * 0.18, y: cy - g }, { c: 'L', x: x + g * 0.18, y: cy - g },
+    { c: 'L', x: x + g * 0.18, y: cy + g }, { c: 'L', x: x - g * 0.18, y: cy + g }, { c: 'Z' },
+  ];
+  switch (geom) {
+    case 'actionButtonForwardNext': return [tri(1)];
+    case 'actionButtonBackPrevious': return [tri(-1)];
+    case 'actionButtonBeginning': return [bar(cx - g), tri(-1)];
+    case 'actionButtonEnd': return [tri(1), bar(cx + g)];
+    case 'actionButtonReturn': // seta em U (aprox. poligonal)
+      return [[
+        { c: 'M', x: cx - g, y: cy - g * 0.2 }, { c: 'L', x: cx - g * 0.2, y: cy - g },
+        { c: 'L', x: cx + g * 0.6, y: cy - g }, { c: 'L', x: cx + g * 0.6, y: cy + g },
+        { c: 'L', x: cx - g * 0.6, y: cy + g }, { c: 'L', x: cx - g * 0.6, y: cy + g * 0.5 },
+        { c: 'L', x: cx + g * 0.1, y: cy + g * 0.5 }, { c: 'L', x: cx + g * 0.1, y: cy - g * 0.5 },
+        { c: 'L', x: cx - g * 0.2, y: cy - g * 0.5 }, { c: 'L', x: cx - g, y: cy - g * 0.2 }, { c: 'Z' },
+      ]];
+    case 'actionButtonDocument': // folha com canto dobrado
+      return [[
+        { c: 'M', x: cx - g * 0.7, y: cy - g }, { c: 'L', x: cx + g * 0.3, y: cy - g },
+        { c: 'L', x: cx + g * 0.7, y: cy - g * 0.6 }, { c: 'L', x: cx + g * 0.7, y: cy + g },
+        { c: 'L', x: cx - g * 0.7, y: cy + g }, { c: 'Z' },
+      ]];
+    default: return [tri(1)];
   }
 }

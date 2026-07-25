@@ -555,6 +555,24 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
       ctx.strokeStyle = bc;
       ctx.lineWidth = Math.max(0.5, bw);
       ctx.strokeRect(cx0 + 0.5, cy0 + 0.5, cw - 1, ch - 1);
+      // bordas POR LADO explícitas por cima da uniforme (só nos lados definidos)
+      if (cell.borders) {
+        const edges: [{ color: string; width: number } | undefined, number, number, number, number][] = [
+          [cell.borders.t, cx0, cy0, cx0 + cw, cy0],
+          [cell.borders.b, cx0, cy0 + ch, cx0 + cw, cy0 + ch],
+          [cell.borders.l, cx0, cy0, cx0, cy0 + ch],
+          [cell.borders.r, cx0 + cw, cy0, cx0 + cw, cy0 + ch],
+        ];
+        for (const [edge, x1, y1, x2, y2] of edges) {
+          if (!edge) continue;
+          ctx.strokeStyle = edge.color;
+          ctx.lineWidth = Math.max(1, edge.width * scale);
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        }
+      }
     }
   }
 

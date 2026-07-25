@@ -619,21 +619,19 @@ function readTable(tbl: XmlElement, theme: Theme): Table {
         if (tcPr.attrs['anchor']) cell.anchor = tcPr.attrs['anchor'];
         const fill = solidFillColor(tcPr, theme);
         if (fill) cell.fill = fill;
-        // bordas — pega a primeira definida; v1 usa cor/width uniforme
-        let bw = 0; let bc: string | undefined;
-        for (const side of ['a:lnL', 'a:lnR', 'a:lnT', 'a:lnB'] as const) {
-          const ln = firstChild(tcPr, side);
+        // bordas POR LADO (o app de referência trata cada lado independente)
+        const sides: [keyof NonNullable<TableCell['borders']>, string][] =
+          [['l', 'a:lnL'], ['r', 'a:lnR'], ['t', 'a:lnT'], ['b', 'a:lnB']];
+        for (const [key, name] of sides) {
+          const ln = firstChild(tcPr, name);
           if (!ln) continue;
-          const w = ln.attrs['w'] ? parseInt(ln.attrs['w'], 10) : 0;
-          if (w > bw) bw = w;
-          if (!bc) {
-            const fillEl = firstChild(ln, 'a:solidFill');
-            const srgb = fillEl ? firstChild(fillEl, 'a:srgbClr') : undefined;
-            if (srgb?.attrs['val']) bc = '#' + srgb.attrs['val'];
-          }
+          const fillEl = firstChild(ln, 'a:solidFill');
+          const color = fillEl ? colorFromDml(childElements(fillEl)[0], theme) : undefined;
+          if (!color) continue; // noFill/ausente = lado sem borda explícita
+          const width = ln.attrs['w'] ? parseInt(ln.attrs['w'], 10) : 12700;
+          cell.borders = cell.borders ?? {};
+          cell.borders[key] = { color, width };
         }
-        if (bw) cell.borderWidth = bw;
-        if (bc) cell.borderColor = bc;
       }
       cells.push(cell);
     }
