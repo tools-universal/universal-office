@@ -859,6 +859,9 @@ function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>): T
     if (bodyPr.attrs['tIns'] !== undefined) tb.insT = parseInt(bodyPr.attrs['tIns'], 10);
     if (bodyPr.attrs['rIns'] !== undefined) tb.insR = parseInt(bodyPr.attrs['rIns'], 10);
     if (bodyPr.attrs['bIns'] !== undefined) tb.insB = parseInt(bodyPr.attrs['bIns'], 10);
+    // colunas de texto: numCol + espaçamento entre colunas (EMU)
+    if (bodyPr.attrs['numCol'] !== undefined) tb.numCol = parseInt(bodyPr.attrs['numCol'], 10);
+    if (bodyPr.attrs['spcCol'] !== undefined) tb.spcCol = parseInt(bodyPr.attrs['spcCol'], 10);
     // autofit: <a:normAutofit fontScale="62500" lnSpcReduction="20000"/>
     const na = firstChild(bodyPr, 'a:normAutofit');
     if (na) {

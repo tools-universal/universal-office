@@ -142,6 +142,11 @@ export function layoutTextBody(
   const fontScale = tb.fontScale ?? 1;
   const lineFactor = LINE_FACTOR * (1 - (tb.lnSpcReduction ?? 0));
   const usableW = Math.max(0, boxW - insL - insR);
+  // colunas: quebra na LARGURA DA COLUNA e flui para a próxima quando a
+  // altura útil esgota (bodyPr numCol/spcCol)
+  const numCol = Math.max(1, tb.numCol ?? 1);
+  const spcCol = tb.spcCol ?? 0;
+  const colW = numCol > 1 ? Math.max(0, (usableW - (numCol - 1) * spcCol) / numCol) : usableW;
   const wrap = tb.wrap !== 'none';
   const fOpts = { defaultSzPt, defaultFont };
 
@@ -216,7 +221,7 @@ export function layoutTextBody(
       if (wd.text === '\n') { flush(); continue; }
       const f = fontOf(wd.run, fontScale, fOpts);
       const wEmu = measureEmu(wd.text, f);
-      const availW = Math.max(0, usableW - (cur.marL - insL));
+      const availW = Math.max(0, colW - (cur.marL - insL));
       if (wrap && cur.runs.length > 0 && curW + measureEmu(wd.text.replace(/\s+$/, ''), f) > availW) flush();
       cur.runs.push({ text: wd.text, run: wd.run });
       curW += wEmu;
@@ -230,8 +235,12 @@ export function layoutTextBody(
   const usableH = Math.max(0, boxH - insT - insB);
   const anchor = tb.anchor ?? opts.defaultAnchor ?? 't';
   let y = insT;
-  if (anchor === 'ctr') y = insT + (usableH - totalH) / 2;
-  else if (anchor === 'b') y = insT + usableH - totalH;
+  // multi-coluna flui do topo (o app de referência ancora colunas no topo)
+  if (numCol === 1) {
+    if (anchor === 'ctr') y = insT + (usableH - totalH) / 2;
+    else if (anchor === 'b') y = insT + usableH - totalH;
+  }
+  let colIdx = 0;
 
   // materializa linhas: junta tokens contíguos do MESMO run, mede e alinha
   const lines: PlacedLine[] = [];
@@ -239,6 +248,12 @@ export function layoutTextBody(
     const pl = proto[i]!;
     const h = heights[i]!;
     y += spacers[i] ?? 0;
+    // transborda para a próxima coluna quando a altura útil esgota
+    if (numCol > 1 && colIdx < numCol - 1 && y + h > insT + usableH) {
+      colIdx++;
+      y = insT;
+    }
+    const colShift = colIdx * (colW + spcCol);
     const merged: { text: string; run: Run }[] = [];
     for (const t of pl.runs) {
       const last = merged[merged.length - 1];
@@ -263,11 +278,16 @@ export function layoutTextBody(
       placed.push(pr);
       w += mw;
     }
-    // alinhamento horizontal desloca os runs (bullet fica fixo no marL+indent)
+    // alinhamento horizontal desloca os runs (bullet fica fixo no marL+indent);
+    // em multi-coluna o alinhamento é relativo à LARGURA DA COLUNA
     let dx = 0;
-    if (pl.align === 'ctr') dx = (usableW - (pl.marL - insL) - w) / 2;
-    else if (pl.align === 'r') dx = usableW - (pl.marL - insL) - w;
+    if (pl.align === 'ctr') dx = (colW - (pl.marL - insL) - w) / 2;
+    else if (pl.align === 'r') dx = colW - (pl.marL - insL) - w;
     if (dx > 0) for (const pr of placed) pr.x += dx;
+    if (colShift > 0) {
+      for (const pr of placed) pr.x += colShift;
+      if (pl.bullet) pl.bullet = { ...pl.bullet, x: pl.bullet.x + colShift };
+    }
     const line: PlacedLine = { runs: placed, baseline: y + h * BASELINE_FACTOR, height: h };
     if (pl.bullet) line.bullet = pl.bullet;
     lines.push(line);

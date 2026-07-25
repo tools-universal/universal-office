@@ -2243,6 +2243,8 @@ function readTxBody(el, theme, rels) {
     if (bodyPr.attrs["tIns"] !== void 0) tb.insT = parseInt(bodyPr.attrs["tIns"], 10);
     if (bodyPr.attrs["rIns"] !== void 0) tb.insR = parseInt(bodyPr.attrs["rIns"], 10);
     if (bodyPr.attrs["bIns"] !== void 0) tb.insB = parseInt(bodyPr.attrs["bIns"], 10);
+    if (bodyPr.attrs["numCol"] !== void 0) tb.numCol = parseInt(bodyPr.attrs["numCol"], 10);
+    if (bodyPr.attrs["spcCol"] !== void 0) tb.spcCol = parseInt(bodyPr.attrs["spcCol"], 10);
     const na = firstChild(bodyPr, "a:normAutofit");
     if (na) {
       if (na.attrs["fontScale"] !== void 0) tb.fontScale = parseInt(na.attrs["fontScale"], 10) / 1e5;
@@ -3016,6 +3018,9 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
   const fontScale = tb.fontScale ?? 1;
   const lineFactor = LINE_FACTOR * (1 - (tb.lnSpcReduction ?? 0));
   const usableW = Math.max(0, boxW - insL - insR);
+  const numCol = Math.max(1, tb.numCol ?? 1);
+  const spcCol = tb.spcCol ?? 0;
+  const colW = numCol > 1 ? Math.max(0, (usableW - (numCol - 1) * spcCol) / numCol) : usableW;
   const wrap = tb.wrap !== "none";
   const fOpts = { defaultSzPt, defaultFont };
   const measureEmu = (text, f) => measure(text, f) * EMU_PER_POINT;
@@ -3074,7 +3079,7 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
       }
       const f = fontOf(wd.run, fontScale, fOpts);
       const wEmu = measureEmu(wd.text, f);
-      const availW = Math.max(0, usableW - (cur.marL - insL));
+      const availW = Math.max(0, colW - (cur.marL - insL));
       if (wrap && cur.runs.length > 0 && curW + measureEmu(wd.text.replace(/\s+$/, ""), f) > availW) flush();
       cur.runs.push({ text: wd.text, run: wd.run });
       curW += wEmu;
@@ -3086,13 +3091,21 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
   const usableH = Math.max(0, boxH - insT - insB);
   const anchor = tb.anchor ?? opts.defaultAnchor ?? "t";
   let y = insT;
-  if (anchor === "ctr") y = insT + (usableH - totalH) / 2;
-  else if (anchor === "b") y = insT + usableH - totalH;
+  if (numCol === 1) {
+    if (anchor === "ctr") y = insT + (usableH - totalH) / 2;
+    else if (anchor === "b") y = insT + usableH - totalH;
+  }
+  let colIdx = 0;
   const lines = [];
   for (let i2 = 0; i2 < proto.length; i2++) {
     const pl = proto[i2];
     const h = heights[i2];
     y += spacers[i2] ?? 0;
+    if (numCol > 1 && colIdx < numCol - 1 && y + h > insT + usableH) {
+      colIdx++;
+      y = insT;
+    }
+    const colShift = colIdx * (colW + spcCol);
     const merged = [];
     for (const t of pl.runs) {
       const last = merged[merged.length - 1];
@@ -3121,9 +3134,13 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
       w += mw;
     }
     let dx = 0;
-    if (pl.align === "ctr") dx = (usableW - (pl.marL - insL) - w) / 2;
-    else if (pl.align === "r") dx = usableW - (pl.marL - insL) - w;
+    if (pl.align === "ctr") dx = (colW - (pl.marL - insL) - w) / 2;
+    else if (pl.align === "r") dx = colW - (pl.marL - insL) - w;
     if (dx > 0) for (const pr of placed) pr.x += dx;
+    if (colShift > 0) {
+      for (const pr of placed) pr.x += colShift;
+      if (pl.bullet) pl.bullet = { ...pl.bullet, x: pl.bullet.x + colShift };
+    }
     const line = { runs: placed, baseline: y + h * BASELINE_FACTOR, height: h };
     if (pl.bullet) line.bullet = pl.bullet;
     lines.push(line);

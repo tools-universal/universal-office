@@ -129,6 +129,9 @@ export interface TextBody {
   insT?: number;
   insR?: number;
   insB?: number;
+  /** Colunas de texto (`<a:bodyPr numCol spcCol>`); spcCol em EMU. */
+  numCol?: number;
+  spcCol?: number;
   /** `<a:lstStyle>` proprio do txBody, ja parseado por nivel (maior prioridade). */
   lstStyle?: import('./text-style.js').TextStyleLevel[];
 }
