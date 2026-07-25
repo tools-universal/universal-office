@@ -452,6 +452,16 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
  * igual a pontos (escala linear do canvas).
  */
 function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: number, y: number, w: number, h: number, scale: number): void {
+  // flipH/flipV espelham a GEOMETRIA, nunca o TEXTO (o app de referência
+  // mantém os glifos legíveis) — desfaz o espelho localmente em volta do centro
+  const unflip = sh.xfrm?.flipH || sh.xfrm?.flipV;
+  if (unflip) {
+    ctx.save();
+    const cx = x + w / 2, cy = y + h / 2;
+    ctx.translate(cx, cy);
+    ctx.scale(sh.xfrm!.flipH ? -1 : 1, sh.xfrm!.flipV ? -1 : 1);
+    ctx.translate(-cx, -cy);
+  }
   const isTitle = sh.phType === 'title' || sh.phType === 'ctrTitle';
   const measure: MeasureText = (text, f) => {
     ctx.font = layoutFontStr(f, 1);
@@ -484,6 +494,7 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
       }
     }
   }
+  if (unflip) ctx.restore();
 }
 
 /** Font string CSS para uma LayoutFont (pxPerPt converte pt → px). */
@@ -667,16 +678,24 @@ function makeLinearGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number
  * Adiciona os stops com SUBSTOPS interpolados em RGB LINEAR (gamma) — o app de
  * referência interpola em linear; o canvas interpola em sRGB (meio mais escuro).
  */
-function addLinearSpaceStops(g: CanvasGradient, rawStops: { pos: number; color: string }[]): void {
-  const stops = rawStops.map((s) => ({ pos: Math.max(0, Math.min(1, s.pos)), color: s.color }));
+function addLinearSpaceStops(g: CanvasGradient, rawStops: { pos: number; color: string; alpha?: number }[]): void {
+  const stops = rawStops.map((s) => ({
+    pos: Math.max(0, Math.min(1, s.pos)), color: s.color, alpha: s.alpha ?? 1,
+  }));
+  const rgba = (hex: string, a: number): string => {
+    if (a >= 1) return hex;
+    const n = parseInt(hex.replace('#', ''), 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(3)})`;
+  };
   for (let i = 0; i < stops.length; i++) {
     const s = stops[i]!;
-    g.addColorStop(s.pos, s.color);
+    g.addColorStop(s.pos, rgba(s.color, s.alpha));
     const nx = stops[i + 1];
     if (!nx || nx.pos - s.pos < 0.05) continue;
     for (let k = 1; k < 8; k++) {
       const f = k / 8;
-      g.addColorStop(s.pos + (nx.pos - s.pos) * f, mixLinearRgb(s.color, nx.color, f));
+      const a = s.alpha + (nx.alpha - s.alpha) * f;
+      g.addColorStop(s.pos + (nx.pos - s.pos) * f, rgba(mixLinearRgb(s.color, nx.color, f), a));
     }
   }
 }

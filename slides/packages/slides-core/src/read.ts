@@ -861,8 +861,14 @@ function parseGradFill(grad: XmlElement, theme: Theme): { type: 'gradient'; stop
   const stops: GradientStop[] = [];
   for (const gs of childElements(gsLst, 'a:gs')) {
     const pos = gs.attrs['pos'] !== undefined ? parseInt(gs.attrs['pos'], 10) / 100000 : 0;
-    const color = colorFromDml(childElements(gs)[0], theme);
-    if (color) stops.push({ pos: Math.max(0, Math.min(1, pos)), color });
+    const colorEl = childElements(gs)[0];
+    const color = colorFromDml(colorEl, theme);
+    if (!color) continue;
+    const stop: GradientStop = { pos: Math.max(0, Math.min(1, pos)), color };
+    // alfa por stop (overlays de template usam transparente→escuro)
+    const alphaEl = colorEl ? firstChild(colorEl, 'a:alpha') : undefined;
+    if (alphaEl?.attrs['val']) stop.alpha = parseInt(alphaEl.attrs['val'], 10) / 100000;
+    stops.push(stop);
   }
   if (stops.length < 2) return undefined;
   stops.sort((a, b) => a.pos - b.pos);

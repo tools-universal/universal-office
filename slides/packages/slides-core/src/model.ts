@@ -32,6 +32,8 @@ export interface Presentation {
 export interface GradientStop {
   pos: number;
   color: string;
+  /** Alfa 0..1 do stop (`<a:alpha val>` dentro da cor); ausente = opaco. */
+  alpha?: number;
 }
 
 /**
