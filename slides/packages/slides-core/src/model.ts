@@ -47,6 +47,9 @@ export interface Fill {
   /** `<a:lin scaled="1">`: o vetor do gradiente é esticado pela proporção do rect
    *  (45° vira a diagonal geométrica do retângulo, não 45° absolutos). */
   scaled?: boolean;
+  /** Gradiente RADIAL (`<a:path path="rect|circle|shape">`): pos 0 = centro
+   *  (fillToRect), pos 1 = borda. Presente => ignora angleDeg. */
+  path?: string;
 }
 
 /**
@@ -133,9 +136,13 @@ export interface Shape {
   isTextBox?: boolean;
   xfrm?: Xfrm;
   geom?: string;     // prstGeom prst (rect, ellipse, roundRect, …)
+  /** Geometria custom (`<a:custGeom>`, freeforms): paths em unidades w×h próprias. */
+  custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][] };
   fill?: Fill;
   lineColor?: string;
   lineWidth?: number; // EMU
+  /** `<a:ln><a:noFill/>`: SEM contorno explícito (bloqueia o fallback do lnRef). */
+  lineNone?: boolean;
   txBody?: TextBody;
   /** Imagem embutida (<p:pic>) com bytes ja resolvidos via rels. */
   image?: ImageRef;
@@ -268,4 +275,6 @@ export interface Theme {
   colors: Record<string, string>;
   /** Fontes do fontScheme (`+mj-lt` → major, `+mn-lt` → minor). */
   fonts?: { major?: string; minor?: string };
+  /** Larguras (EMU) do `<a:lnStyleLst>` — resolvem `<a:lnRef idx>`. */
+  lineWidths?: number[];
 }

@@ -1166,6 +1166,15 @@ function readTheme(pkg, themePath) {
   }
   for (const [alias, src] of Object.entries(STD_MAP)) if (colors[src]) colors[alias] = colors[src];
   const theme = { colors };
+  const fmtScheme = themeEls ? firstChild(themeEls, "a:fmtScheme") : void 0;
+  const lnList = fmtScheme ? firstChild(fmtScheme, "a:lnStyleLst") : void 0;
+  if (lnList) {
+    const widths = [];
+    for (const ln2 of childElements(lnList, "a:ln")) {
+      widths.push(ln2.attrs["w"] !== void 0 ? parseInt(ln2.attrs["w"], 10) : 9525);
+    }
+    if (widths.length) theme.lineWidths = widths;
+  }
   const fontScheme = themeEls ? firstChild(themeEls, "a:fontScheme") : void 0;
   if (fontScheme) {
     const majLatin = firstChild(fontScheme, "a:majorFont");
@@ -1196,8 +1205,8 @@ function colorFromDml(el, theme) {
     if (val === void 0) continue;
     if (mod.name === "a:shade") base = mixLinear(base, 0, val);
     else if (mod.name === "a:tint") base = mixLinear(base, 1, val);
-    else if (mod.name === "a:lumMod") base = scaleLum(base, val);
-    else if (mod.name === "a:lumOff") base = offsetLum(base, val);
+    else if (mod.name === "a:lumMod") base = lumHsl(base, val, 0);
+    else if (mod.name === "a:lumOff") base = lumHsl(base, 1, val);
   }
   return base;
 }
@@ -1216,9 +1225,46 @@ function hex(r, g, b) {
   const c = (x2) => Math.round(Math.min(255, Math.max(0, x2))).toString(16).padStart(2, "0");
   return "#" + c(r) + c(g) + c(b);
 }
-function scaleLum(h, f) {
-  const [r, g, b] = rgb(h);
-  return hex(r * f, g * f, b * f);
+function lumHsl(hexIn, mod, off) {
+  const [r, g, b] = rgb(hexIn);
+  const rf = r / 255, gf = g / 255, bf = b / 255;
+  const max2 = Math.max(rf, gf, bf), min = Math.min(rf, gf, bf), d = max2 - min;
+  let hh = 0, s = 0;
+  let l = (max2 + min) / 2;
+  if (d !== 0) {
+    s = l > 0.5 ? d / (2 - max2 - min) : d / (max2 + min);
+    if (max2 === rf) hh = (gf - bf) / d % 6;
+    else if (max2 === gf) hh = (bf - rf) / d + 2;
+    else hh = (rf - gf) / d + 4;
+    hh /= 6;
+    if (hh < 0) hh += 1;
+  }
+  l = Math.max(0, Math.min(1, l * mod + off));
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x2 = c * (1 - Math.abs(hh * 6 % 2 - 1));
+  const m = l - c / 2;
+  let r2 = 0, g2 = 0, b22 = 0;
+  const seg = Math.floor(hh * 6) % 6;
+  if (seg === 0) {
+    r2 = c;
+    g2 = x2;
+  } else if (seg === 1) {
+    r2 = x2;
+    g2 = c;
+  } else if (seg === 2) {
+    g2 = c;
+    b22 = x2;
+  } else if (seg === 3) {
+    g2 = x2;
+    b22 = c;
+  } else if (seg === 4) {
+    r2 = x2;
+    b22 = c;
+  } else {
+    r2 = c;
+    b22 = x2;
+  }
+  return hex((r2 + m) * 255, (g2 + m) * 255, (b22 + m) * 255);
 }
 function mixLinear(h, target, f) {
   const [r, g, b] = rgb(h);
@@ -1226,10 +1272,6 @@ function mixLinear(h, target, f) {
   const srgb = (v) => Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255;
   const mix = (v) => srgb(lin(v) * f + target * (1 - f));
   return hex(mix(r), mix(g), mix(b));
-}
-function offsetLum(h, f) {
-  const [r, g, b] = rgb(h);
-  return hex(r + 255 * f, g + 255 * f, b + 255 * f);
 }
 var PRESET = {
   black: "#000000",
@@ -1958,6 +2000,11 @@ function readShape(sp, theme, pkg, rels) {
     if (xfrm) shape.xfrm = parseXfrm(xfrm);
     const geom = firstChild(spPr, "a:prstGeom");
     if (geom?.attrs["prst"]) shape.geom = geom.attrs["prst"];
+    const cust = firstChild(spPr, "a:custGeom");
+    if (cust) {
+      const cg = parseCustGeom(cust);
+      if (cg) shape.custGeom = cg;
+    }
     if (firstChild(spPr, "a:noFill")) shape.fill = { type: "none" };
     else {
       const c = solidFillColor(spPr, theme);
@@ -1985,6 +2032,7 @@ function readShape(sp, theme, pkg, rels) {
     }
     const ln2 = firstChild(spPr, "a:ln");
     if (ln2) {
+      if (firstChild(ln2, "a:noFill")) shape.lineNone = true;
       const lc2 = solidFillColor(ln2, theme);
       if (lc2) shape.lineColor = lc2;
       if (ln2.attrs["w"]) shape.lineWidth = parseInt(ln2.attrs["w"], 10);
@@ -2020,9 +2068,17 @@ function readShape(sp, theme, pkg, rels) {
       const fc = refColor("a:fillRef");
       if (fc) shape.fill = { type: "solid", color: fc };
     }
-    if (shape.lineColor === void 0) {
+    if (shape.lineColor === void 0 && !shape.lineNone) {
       const lc2 = refColor("a:lnRef");
-      if (lc2) shape.lineColor = lc2;
+      if (lc2) {
+        shape.lineColor = lc2;
+        if (shape.lineWidth === void 0) {
+          const lnRef = firstChild(styleEl, "a:lnRef");
+          const idx = lnRef?.attrs["idx"] !== void 0 ? parseInt(lnRef.attrs["idx"], 10) : 0;
+          const w = idx >= 1 ? theme.lineWidths?.[idx - 1] : void 0;
+          if (w !== void 0) shape.lineWidth = w;
+        }
+      }
     }
     const fontRef = firstChild(styleEl, "a:fontRef");
     if (fontRef) {
@@ -2034,6 +2090,40 @@ function readShape(sp, theme, pkg, rels) {
   const txBody = firstChild(sp, "p:txBody");
   if (txBody) shape.txBody = readTxBody(txBody, theme, rels);
   return shape;
+}
+function parseCustGeom(cust) {
+  const pathLst = firstChild(cust, "a:pathLst");
+  if (!pathLst) return void 0;
+  const subs = [];
+  let pw = 0, ph = 0;
+  const pt = (el) => ({
+    x: el?.attrs["x"] !== void 0 ? parseInt(el.attrs["x"], 10) : 0,
+    y: el?.attrs["y"] !== void 0 ? parseInt(el.attrs["y"], 10) : 0
+  });
+  for (const path of childElements(pathLst, "a:path")) {
+    if (path.attrs["w"]) pw = Math.max(pw, parseInt(path.attrs["w"], 10));
+    if (path.attrs["h"]) ph = Math.max(ph, parseInt(path.attrs["h"], 10));
+    const segs = [];
+    for (const el of childElements(path)) {
+      const pts = childElements(el, "a:pt");
+      if (el.name === "a:moveTo") {
+        const p = pt(pts[0]);
+        segs.push({ c: "M", x: p.x, y: p.y });
+      } else if (el.name === "a:lnTo") {
+        const p = pt(pts[0]);
+        segs.push({ c: "L", x: p.x, y: p.y });
+      } else if (el.name === "a:cubicBezTo") {
+        const p1 = pt(pts[0]), p2 = pt(pts[1]), p3 = pt(pts[2]);
+        segs.push({ c: "C", x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, x: p3.x, y: p3.y });
+      } else if (el.name === "a:quadBezTo") {
+        const p1 = pt(pts[0]), p2 = pt(pts[1]);
+        segs.push({ c: "Q", x1: p1.x, y1: p1.y, x: p2.x, y: p2.y });
+      } else if (el.name === "a:close") segs.push({ c: "Z" });
+    }
+    if (segs.length) subs.push(segs);
+  }
+  if (!subs.length) return void 0;
+  return { w: pw || 1, h: ph || 1, subs };
 }
 function parseGradFill(grad, theme) {
   const gsLst = firstChild(grad, "a:gsLst");
@@ -2050,6 +2140,8 @@ function parseGradFill(grad, theme) {
   const angleDeg = lin?.attrs["ang"] !== void 0 ? parseInt(lin.attrs["ang"], 10) / 6e4 : 0;
   const out = { type: "gradient", stops, angleDeg };
   if (lin?.attrs["scaled"] === "1") out.scaled = true;
+  const pathEl = firstChild(grad, "a:path");
+  if (pathEl) out.path = pathEl.attrs["path"] ?? "shape";
   return out;
 }
 function parseXfrm(el) {
@@ -2384,9 +2476,14 @@ function walkText(el, out) {
     walkText(c, out);
   }
 }
-function paintChart(ctx, chart, x2, y, w, h, pxPerPt) {
+function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(x2, y, w, h);
+  if (frameBorder) {
+    ctx.strokeStyle = frameBorder;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x2 + 0.5, y + 0.5, w - 1, h - 1);
+  }
   const ppt = pxPerPt ?? Math.max(0.8, h / 360);
   const u = ppt / 1.333;
   const titlePx = 15.5 * ppt;
@@ -2398,12 +2495,12 @@ function paintChart(ctx, chart, x2, y, w, h, pxPerPt) {
     ctx.font = `${titlePx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillText(chart.title, x2 + w / 2, y + 8 * u);
-    plotY = y + titlePx + 16 * u;
-    plotH = h - (titlePx + 24 * u);
+    ctx.fillText(chart.title, x2 + w / 2, y + 16 * u);
+    plotY = y + titlePx + 36 * u;
+    plotH = h - (titlePx + 44 * u);
   }
   const showLegend = chart.legendPos !== void 0;
-  const legendH = showLegend ? labelPx + 12 * u : 0;
+  const legendH = showLegend ? labelPx + 20 * u : 0;
   const legendTop = chart.legendPos === "t";
   const px = x2 + 8 * u;
   const py = plotY + (legendTop ? legendH : 0);
@@ -2475,7 +2572,7 @@ function paintBars(ctx, chart, x2, y, w, h, dir, labelPx) {
   if (!cats || chart.series.length === 0) return;
   const { min, max: max2 } = valueRange(chart);
   const t = niceTicks(min, max2);
-  const axW = labelPx * 2.2, axH = labelPx * 1.8;
+  const axW = labelPx * 2, axH = labelPx * 2.4;
   const plotL = x2 + axW, plotT = y, plotR = x2 + w, plotB = y + h - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, t);
   const gap = (chart.gapWidth ?? 219) / 100;
@@ -2505,7 +2602,7 @@ function paintLines(ctx, chart, x2, y, w, h, labelPx, area) {
   if (!cats) return;
   const { min, max: max2 } = valueRange(chart);
   const t = niceTicks(min, max2);
-  const axW = labelPx * 2.2, axH = labelPx * 1.8;
+  const axW = labelPx * 2, axH = labelPx * 2.4;
   const plotL = x2 + axW, plotT = y, plotR = x2 + w, plotB = y + h - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, t);
   const stepX = (plotR - plotL) / cats;
@@ -2553,8 +2650,8 @@ function paintPieOrDoughnut(ctx, chart, x2, y, w, h, holeFrac) {
   const total = s0.values.reduce((a, b) => a + Math.max(0, b), 0);
   if (total <= 0) return;
   const pal = paletteOf(chart);
-  const cx = x2 + w / 2, cy = y + h / 2;
-  const radius = Math.min(w, h) / 2 - 4;
+  const cx = x2 + w / 2, cy = y + h / 2 - h * 0.012;
+  const radius = Math.min(w, h) / 2 * 0.97;
   let a0 = -Math.PI / 2;
   for (let i2 = 0; i2 < s0.values.length; i2++) {
     const v = Math.max(0, s0.values[i2] ?? 0);
@@ -2573,7 +2670,7 @@ function paintPieOrDoughnut(ctx, chart, x2, y, w, h, holeFrac) {
     }
     ctx.fill();
     ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = Math.max(1.5, radius / 120);
+    ctx.lineWidth = Math.max(2, radius / 90);
     ctx.stroke();
     a0 = a1;
   }
@@ -2591,7 +2688,7 @@ function paintScatter(ctx, chart, x2, y, w, h, labelPx) {
   const { min, max: max2 } = valueRange(chart);
   const tx = niceTicks(xMin, xMax);
   const ty = niceTicks(min, max2);
-  const axW = labelPx * 2.2, axH = labelPx * 1.8;
+  const axW = labelPx * 2, axH = labelPx * 2.4;
   const plotL = x2 + axW, plotT = y, plotR = x2 + w, plotB = y + h - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, ty);
   ctx.strokeStyle = "#D9D9D9";
@@ -2947,6 +3044,17 @@ function regularPolygon(n, w, h) {
   }
   return pts;
 }
+function fitToBox(pts, w, h) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of pts) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const sw = maxX - minX || 1, sh = maxY - minY || 1;
+  return pts.map((p) => ({ x: (p.x - minX) / sw * w, y: (p.y - minY) / sh * h }));
+}
 function presetPath(geom, w, h) {
   const ss = Math.min(w, h);
   switch (geom) {
@@ -2969,7 +3077,7 @@ function presetPath(geom, w, h) {
       return { kind: "poly", points: [{ x: d, y: 0 }, { x: w - d, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
     }
     case "pentagon":
-      return { kind: "poly", points: regularPolygon(5, w, h) };
+      return { kind: "poly", points: fitToBox(regularPolygon(5, w, h), w, h) };
     case "hexagon": {
       const d = ss * 0.25;
       return {
@@ -2992,7 +3100,7 @@ function presetPath(geom, w, h) {
         const fx = i2 % 2 === 0 ? 1 : inner;
         pts.push({ x: w / 2 + w / 2 * fx * Math.cos(a), y: h / 2 + h / 2 * fx * Math.sin(a) });
       }
-      return { kind: "poly", points: pts };
+      return { kind: "poly", points: fitToBox(pts, w, h) };
     }
     // setas em bloco (adj1=50000 → haste com metade da altura; adj2=50000 →
     // cabeça com comprimento ss/2)
@@ -3075,6 +3183,27 @@ function presetPath(geom, w, h) {
     case "line":
     case "straightConnector1":
       return { kind: "line", x1: 0, y1: 0, x2: w, y2: h };
+    case "arc": {
+      return {
+        kind: "path",
+        subs: [[
+          { c: "E", cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: -Math.PI / 2, a1: 0 }
+        ]]
+      };
+    }
+    case "blockArc": {
+      const t = ss * 0.25;
+      return {
+        kind: "path",
+        subs: [[
+          { c: "M", x: 0, y: h / 2 },
+          { c: "E", cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: Math.PI, a1: Math.PI * 2 },
+          { c: "L", x: w - t, y: h / 2 },
+          { c: "E", cx: w / 2, cy: h / 2, rx: w / 2 - t, ry: h / 2 - t, a0: 0, a1: Math.PI, ccw: true },
+          { c: "Z" }
+        ]]
+      };
+    }
     case "octagon": {
       const d = ss * 0.29289;
       return {
@@ -3336,16 +3465,16 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     ctx.shadowOffsetX = sx;
     ctx.shadowOffsetY = sy;
     ctx.fillStyle = sh.fill?.type === "solid" && sh.fill.color ? sh.fill.color : "#ffffff";
-    const shRule = shapePath(ctx, sh.geom, x2, y, w, h);
+    const shRule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
     if (shRule) ctx.fill(shRule);
     else ctx.fill();
     ctx.restore();
   }
-  const isLineGeom = sh.geom === "line" || sh.geom === "straightConnector1";
+  const isLineGeom = sh.geom === "line" || sh.geom === "straightConnector1" || sh.geom === "arc";
   if (!isLineGeom && (sh.fillImage || sh.fill && sh.fill.type !== "none")) {
     ctx.save();
     if (sh.fillAlpha !== void 0 && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
-    const rule = shapePath(ctx, sh.geom, x2, y, w, h);
+    const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
     if (sh.fillImage) {
       const img = res.images?.get(sh.fillImage.part);
       if (img) {
@@ -3368,27 +3497,24 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     const lw = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
     ctx.lineWidth = lw;
     if (sh.lineDash) ctx.setLineDash(dashPattern(sh.lineDash, lw));
-    shapePath(ctx, sh.geom, x2, y, w, h);
+    shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
     ctx.stroke();
     if (sh.lineDash) ctx.setLineDash([]);
   }
   if (sh.txBody && !suppressText) paintText(ctx, sh, sh.txBody, x2, y, w, h, fit.scale);
   if (hasXform || hasAlpha) ctx.restore();
 }
-function shapePath(ctx, geom, x2, y, w, h) {
+function shapePath(ctx, geom, x2, y, w, h, custGeom) {
   ctx.beginPath();
+  if (custGeom) {
+    const sx = w / custGeom.w, sy = h / custGeom.h;
+    drawSegs(ctx, custGeom.subs, x2, y, sx, sy);
+    return void 0;
+  }
   const p = presetPath(geom, w, h);
   switch (p.kind) {
     case "path": {
-      for (const sub of p.subs) {
-        for (const s of sub) {
-          if (s.c === "M") ctx.moveTo(x2 + s.x, y + s.y);
-          else if (s.c === "L") ctx.lineTo(x2 + s.x, y + s.y);
-          else if (s.c === "C") ctx.bezierCurveTo(x2 + s.x1, y + s.y1, x2 + s.x2, y + s.y2, x2 + s.x, y + s.y);
-          else if (s.c === "E") ctx.ellipse(x2 + s.cx, y + s.cy, s.rx, s.ry, 0, s.a0, s.a1, s.ccw ?? false);
-          else ctx.closePath();
-        }
-      }
+      drawSegs(ctx, p.subs, x2, y, 1, 1);
       return p.fillRule;
     }
     case "ellipse":
@@ -3421,6 +3547,18 @@ function shapePath(ctx, geom, x2, y, w, h) {
       ctx.rect(x2, y, w, h);
   }
   return void 0;
+}
+function drawSegs(ctx, subs, x2, y, sx, sy) {
+  for (const sub of subs) {
+    for (const s of sub) {
+      if (s.c === "M") ctx.moveTo(x2 + s.x * sx, y + s.y * sy);
+      else if (s.c === "L") ctx.lineTo(x2 + s.x * sx, y + s.y * sy);
+      else if (s.c === "C") ctx.bezierCurveTo(x2 + s.x1 * sx, y + s.y1 * sy, x2 + s.x2 * sx, y + s.y2 * sy, x2 + s.x * sx, y + s.y * sy);
+      else if (s.c === "Q") ctx.quadraticCurveTo(x2 + s.x1 * sx, y + s.y1 * sy, x2 + s.x * sx, y + s.y * sy);
+      else if (s.c === "E") ctx.ellipse(x2 + s.cx * sx, y + s.cy * sy, s.rx * sx, s.ry * sy, 0, s.a0, s.a1, s.ccw ?? false);
+      else ctx.closePath();
+    }
+  }
 }
 function roundRect(ctx, x2, y, w, h, r) {
   ctx.moveTo(x2 + r, y);
@@ -3569,6 +3707,12 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
   }
 }
 function makeLinearGradient(ctx, fill, x2, y, w, h) {
+  if (fill.path) {
+    const cx2 = x2 + w / 2, cy2 = y + h / 2;
+    const g2 = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, Math.max(w, h) / 2);
+    addLinearSpaceStops(g2, fill.stops ?? []);
+    return g2;
+  }
   const ang = (fill.angleDeg ?? 0) * Math.PI / 180;
   let dx = Math.cos(ang), dy = Math.sin(ang);
   if (fill.scaled) {
@@ -3581,7 +3725,11 @@ function makeLinearGradient(ctx, fill, x2, y, w, h) {
   const cx = x2 + w / 2, cy = y + h / 2;
   const half = (Math.abs(dx) * w + Math.abs(dy) * h) / 2;
   const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
-  const stops = (fill.stops ?? []).map((s) => ({ pos: Math.max(0, Math.min(1, s.pos)), color: s.color }));
+  addLinearSpaceStops(g, fill.stops ?? []);
+  return g;
+}
+function addLinearSpaceStops(g, rawStops) {
+  const stops = rawStops.map((s) => ({ pos: Math.max(0, Math.min(1, s.pos)), color: s.color }));
   for (let i2 = 0; i2 < stops.length; i2++) {
     const s = stops[i2];
     g.addColorStop(s.pos, s.color);
@@ -3592,7 +3740,6 @@ function makeLinearGradient(ctx, fill, x2, y, w, h) {
       g.addColorStop(s.pos + (nx.pos - s.pos) * f, mixLinearRgb(s.color, nx.color, f));
     }
   }
-  return g;
 }
 function mixLinearRgb(c1, c2, f) {
   const p = (h) => {

@@ -13,6 +13,7 @@ export type PathSeg =
   | { c: 'M'; x: number; y: number }
   | { c: 'L'; x: number; y: number }
   | { c: 'C'; x1: number; y1: number; x2: number; y2: number; x: number; y: number }
+  | { c: 'Q'; x1: number; y1: number; x: number; y: number }
   /** Arco de elipse (ctx.ellipse): ângulos em RADIANOS, a0→a1, ccw opcional. */
   | { c: 'E'; cx: number; cy: number; rx: number; ry: number; a0: number; a1: number; ccw?: boolean }
   | { c: 'Z' };
@@ -42,6 +43,20 @@ function regularPolygon(n: number, w: number, h: number): Pt[] {
 }
 
 /**
+ * Normaliza um polígono para PREENCHER exatamente o rect w×h (o app de
+ * referência escala pentagon/star5 ao bounding box, não à elipse inscrita).
+ */
+function fitToBox(pts: Pt[], w: number, h: number): Pt[] {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of pts) {
+    if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+  }
+  const sw = maxX - minX || 1, sh = maxY - minY || 1;
+  return pts.map((p) => ({ x: ((p.x - minX) / sw) * w, y: ((p.y - minY) / sh) * h }));
+}
+
+/**
  * Descritor de path para o preset `geom` num rect `w × h`.
  * Presets desconhecidos caem em `rect` (comportamento anterior preservado).
  */
@@ -66,7 +81,7 @@ export function presetPath(geom: string | undefined, w: number, h: number): Pres
       return { kind: 'poly', points: [{ x: d, y: 0 }, { x: w - d, y: 0 }, { x: w, y: h }, { x: 0, y: h }] };
     }
     case 'pentagon':
-      return { kind: 'poly', points: regularPolygon(5, w, h) };
+      return { kind: 'poly', points: fitToBox(regularPolygon(5, w, h), w, h) };
     case 'hexagon': { // hexágono "horizontal" do PowerPoint (adj=25000)
       const d = ss * 0.25;
       return {
@@ -84,7 +99,8 @@ export function presetPath(geom: string | undefined, w: number, h: number): Pres
         const fx = i % 2 === 0 ? 1 : inner;
         pts.push({ x: w / 2 + (w / 2) * fx * Math.cos(a), y: h / 2 + (h / 2) * fx * Math.sin(a) });
       }
-      return { kind: 'poly', points: pts };
+      // o app de referência ESCALA a estrela ao bounding box (fica maior/mais larga)
+      return { kind: 'poly', points: fitToBox(pts, w, h) };
     }
 
     // setas em bloco (adj1=50000 → haste com metade da altura; adj2=50000 →
@@ -140,6 +156,25 @@ export function presetPath(geom: string | undefined, w: number, h: number): Pres
     case 'straightConnector1':
       return { kind: 'line', x1: 0, y1: 0, x2: w, y2: h };
 
+    case 'arc': { // adj1=16200000 (270°) → adj2=0: quarto de arco (SÓ stroke)
+      return {
+        kind: 'path', subs: [[
+          { c: 'E', cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: -Math.PI / 2, a1: 0 },
+        ]],
+      };
+    }
+    case 'blockArc': { // adj: 180°→0° com espessura ss/4 — "arco" (meia rosca)
+      const t = ss * 0.25;
+      return {
+        kind: 'path', subs: [[
+          { c: 'M', x: 0, y: h / 2 },
+          { c: 'E', cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: Math.PI, a1: Math.PI * 2 },
+          { c: 'L', x: w - t, y: h / 2 },
+          { c: 'E', cx: w / 2, cy: h / 2, rx: w / 2 - t, ry: h / 2 - t, a0: 0, a1: Math.PI, ccw: true },
+          { c: 'Z' },
+        ]],
+      };
+    }
     case 'octagon': { // adj=29289 → corte ≈ (1-1/√2)·ss
       const d = ss * 0.29289;
       return {

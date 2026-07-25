@@ -202,17 +202,17 @@ function paintShape(
     ctx.shadowOffsetX = sx;
     ctx.shadowOffsetY = sy;
     ctx.fillStyle = sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color : '#ffffff';
-    const shRule = shapePath(ctx, sh.geom, x, y, w, h);
+    const shRule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom);
     if (shRule) ctx.fill(shRule); else ctx.fill();
     ctx.restore();
   }
   // preenchimento (solid com alpha opcional, gradiente linear ou blipFill).
-  // Geometrias "linha pura" (line/straightConnector1) não têm área p/ fill.
-  const isLineGeom = sh.geom === 'line' || sh.geom === 'straightConnector1';
+  // Geometrias "linha pura" (line/conectores/arc) não têm área p/ fill.
+  const isLineGeom = sh.geom === 'line' || sh.geom === 'straightConnector1' || sh.geom === 'arc';
   if (!isLineGeom && (sh.fillImage || (sh.fill && sh.fill.type !== 'none'))) {
     ctx.save();
     if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
-    const rule = shapePath(ctx, sh.geom, x, y, w, h);
+    const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom);
     if (sh.fillImage) {
       // blipFill de shape: imagem esticada recortada pelo path da geometria
       const img = res.images?.get(sh.fillImage.part);
@@ -232,7 +232,7 @@ function paintShape(
     const lw = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
     ctx.lineWidth = lw;
     if (sh.lineDash) ctx.setLineDash(dashPattern(sh.lineDash, lw));
-    shapePath(ctx, sh.geom, x, y, w, h);
+    shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom);
     ctx.stroke();
     if (sh.lineDash) ctx.setLineDash([]);
   }
@@ -245,20 +245,22 @@ function paintShape(
  * Monta o path da geometria preset no contexto (usa o descritor puro
  * `presetPath` — o MESMO que o export PDF reusa como paths vetoriais).
  */
-function shapePath(ctx: CanvasRenderingContext2D, geom: string | undefined, x: number, y: number, w: number, h: number): CanvasFillRule | undefined {
+function shapePath(
+  ctx: CanvasRenderingContext2D, geom: string | undefined,
+  x: number, y: number, w: number, h: number,
+  custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][] },
+): CanvasFillRule | undefined {
   ctx.beginPath();
+  // geometria CUSTOM (freeform): segs nas unidades do path, escalados ao rect
+  if (custGeom) {
+    const sx = w / custGeom.w, sy = h / custGeom.h;
+    drawSegs(ctx, custGeom.subs, x, y, sx, sy);
+    return undefined;
+  }
   const p = presetPath(geom, w, h);
   switch (p.kind) {
     case 'path': {
-      for (const sub of p.subs) {
-        for (const s of sub) {
-          if (s.c === 'M') ctx.moveTo(x + s.x, y + s.y);
-          else if (s.c === 'L') ctx.lineTo(x + s.x, y + s.y);
-          else if (s.c === 'C') ctx.bezierCurveTo(x + s.x1, y + s.y1, x + s.x2, y + s.y2, x + s.x, y + s.y);
-          else if (s.c === 'E') ctx.ellipse(x + s.cx, y + s.cy, s.rx, s.ry, 0, s.a0, s.a1, s.ccw ?? false);
-          else ctx.closePath();
-        }
-      }
+      drawSegs(ctx, p.subs, x, y, 1, 1);
       return p.fillRule;
     }
     case 'ellipse':
@@ -291,6 +293,24 @@ function shapePath(ctx: CanvasRenderingContext2D, geom: string | undefined, x: n
       ctx.rect(x, y, w, h);
   }
   return undefined;
+}
+
+/** Constrói subpaths de PathSeg no contexto (offset x,y + escala sx,sy). */
+function drawSegs(
+  ctx: CanvasRenderingContext2D,
+  subs: import('./geometry.js').PathSeg[][],
+  x: number, y: number, sx: number, sy: number,
+): void {
+  for (const sub of subs) {
+    for (const s of sub) {
+      if (s.c === 'M') ctx.moveTo(x + s.x * sx, y + s.y * sy);
+      else if (s.c === 'L') ctx.lineTo(x + s.x * sx, y + s.y * sy);
+      else if (s.c === 'C') ctx.bezierCurveTo(x + s.x1 * sx, y + s.y1 * sy, x + s.x2 * sx, y + s.y2 * sy, x + s.x * sx, y + s.y * sy);
+      else if (s.c === 'Q') ctx.quadraticCurveTo(x + s.x1 * sx, y + s.y1 * sy, x + s.x * sx, y + s.y * sy);
+      else if (s.c === 'E') ctx.ellipse(x + s.cx * sx, y + s.cy * sy, s.rx * sx, s.ry * sy, 0, s.a0, s.a1, s.ccw ?? false);
+      else ctx.closePath();
+    }
+  }
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -476,6 +496,14 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
  * centro do rect e é dimensionada pela projeção do rect na direção.
  */
 function makeLinearGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number, y: number, w: number, h: number): CanvasGradient {
+  // gradiente RADIAL (<a:path>): pos 0 = centro (fillToRect), pos 1 = borda.
+  // Aproximação circular do path rect/shape do app de referência.
+  if (fill.path) {
+    const cx = x + w / 2, cy = y + h / 2;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) / 2);
+    addLinearSpaceStops(g, fill.stops ?? []);
+    return g;
+  }
   const ang = (fill.angleDeg ?? 0) * Math.PI / 180;
   let dx = Math.cos(ang), dy = Math.sin(ang);
   // scaled: o ângulo é definido no quadrado unitário; ao esticar para o rect,
@@ -490,10 +518,16 @@ function makeLinearGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number
   const cx = x + w / 2, cy = y + h / 2;
   const half = (Math.abs(dx) * w + Math.abs(dy) * h) / 2;
   const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
-  // O app de referência interpola gradientes em RGB LINEAR (gamma); o canvas
-  // interpola em sRGB (meio mais escuro). Aproximamos inserindo substops
-  // calculados em espaço linear entre cada par de stops.
-  const stops = (fill.stops ?? []).map((s) => ({ pos: Math.max(0, Math.min(1, s.pos)), color: s.color }));
+  addLinearSpaceStops(g, fill.stops ?? []);
+  return g;
+}
+
+/**
+ * Adiciona os stops com SUBSTOPS interpolados em RGB LINEAR (gamma) — o app de
+ * referência interpola em linear; o canvas interpola em sRGB (meio mais escuro).
+ */
+function addLinearSpaceStops(g: CanvasGradient, rawStops: { pos: number; color: string }[]): void {
+  const stops = rawStops.map((s) => ({ pos: Math.max(0, Math.min(1, s.pos)), color: s.color }));
   for (let i = 0; i < stops.length; i++) {
     const s = stops[i]!;
     g.addColorStop(s.pos, s.color);
@@ -504,7 +538,6 @@ function makeLinearGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number
       g.addColorStop(s.pos + (nx.pos - s.pos) * f, mixLinearRgb(s.color, nx.color, f));
     }
   }
-  return g;
 }
 
 /** Mistura duas cores #RRGGBB em espaço RGB linear (gamma 2.2 aproximado). */

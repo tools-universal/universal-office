@@ -23,6 +23,16 @@ export function readTheme(pkg: PptxPackage, themePath: string): Theme {
   // aplica aliases (tx1=dk1, bg1=lt1, …) p/ schemeClr val que use bg/tx
   for (const [alias, src] of Object.entries(STD_MAP)) if (colors[src]) colors[alias] = colors[src]!;
   const theme: Theme = { colors };
+  // fmtScheme > lnStyleLst: larguras que o <a:lnRef idx> referencia
+  const fmtScheme = themeEls ? firstChild(themeEls, 'a:fmtScheme') : undefined;
+  const lnList = fmtScheme ? firstChild(fmtScheme, 'a:lnStyleLst') : undefined;
+  if (lnList) {
+    const widths: number[] = [];
+    for (const ln of childElements(lnList, 'a:ln')) {
+      widths.push(ln.attrs['w'] !== undefined ? parseInt(ln.attrs['w'], 10) : 9525);
+    }
+    if (widths.length) theme.lineWidths = widths;
+  }
   // fontScheme: tipografia major/minor p/ resolver "+mj-lt" / "+mn-lt"
   const fontScheme = themeEls ? firstChild(themeEls, 'a:fontScheme') : undefined;
   if (fontScheme) {
@@ -60,9 +70,10 @@ export function colorFromDml(el: XmlElement | undefined, theme: Theme): string |
     if (mod.name === 'a:shade') base = mixLinear(base, 0, val);          // -> preto
     // tint: `val` é a fração da COR que permanece (val=20% => 20% cor + 80% branco)
     else if (mod.name === 'a:tint') base = mixLinear(base, 1, val);
-
-    else if (mod.name === 'a:lumMod') base = scaleLum(base, val);
-    else if (mod.name === 'a:lumOff') base = offsetLum(base, val);
+    // lumMod/lumOff operam na LUMINÂNCIA HSL (mantêm matiz/saturação — o
+    // "claro" do tema fica azul vívido, não cinza; verificado no deck de formas)
+    else if (mod.name === 'a:lumMod') base = lumHsl(base, val, 0);
+    else if (mod.name === 'a:lumOff') base = lumHsl(base, 1, val);
   }
   return base;
 }
@@ -82,8 +93,38 @@ function hex(r: number, g: number, b: number): string {
   const c = (x: number) => Math.round(Math.min(255, Math.max(0, x))).toString(16).padStart(2, '0');
   return '#' + c(r) + c(g) + c(b);
 }
-/** Multiplica cada canal (shade<1 escurece; lumMod). */
-function scaleLum(h: string, f: number): string { const [r, g, b] = rgb(h); return hex(r * f, g * f, b * f); }
+/**
+ * Transforma a luminância HSL: L' = L·mod + off (matiz/saturação preservados).
+ * É a semântica de `a:lumMod`/`a:lumOff` do app de referência.
+ */
+function lumHsl(hexIn: string, mod: number, off: number): string {
+  const [r, g, b] = rgb(hexIn);
+  const rf = r / 255, gf = g / 255, bf = b / 255;
+  const max = Math.max(rf, gf, bf), min = Math.min(rf, gf, bf), d = max - min;
+  let hh = 0, s = 0;
+  let l = (max + min) / 2;
+  if (d !== 0) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === rf) hh = ((gf - bf) / d) % 6;
+    else if (max === gf) hh = (bf - rf) / d + 2;
+    else hh = (rf - gf) / d + 4;
+    hh /= 6; if (hh < 0) hh += 1;
+  }
+  l = Math.max(0, Math.min(1, l * mod + off));
+  // HSL -> RGB
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hh * 6) % 2) - 1));
+  const m = l - c / 2;
+  let r2 = 0, g2 = 0, b2 = 0;
+  const seg = Math.floor(hh * 6) % 6;
+  if (seg === 0) { r2 = c; g2 = x; }
+  else if (seg === 1) { r2 = x; g2 = c; }
+  else if (seg === 2) { g2 = c; b2 = x; }
+  else if (seg === 3) { g2 = x; b2 = c; }
+  else if (seg === 4) { r2 = x; b2 = c; }
+  else { r2 = c; b2 = x; }
+  return hex((r2 + m) * 255, (g2 + m) * 255, (b2 + m) * 255);
+}
 /**
  * Mistura em RGB LINEAR: canal' = srgb⁻¹(lin(canal)·f + alvo·(1-f)).
  * `target` 0 = preto (shade), 1 = branco (tint); `f` = fração da COR original.

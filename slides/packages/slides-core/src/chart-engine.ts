@@ -253,20 +253,21 @@ export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: 
   let plotY = y + 8 * u;
   let plotH = h - 16 * u;
 
-  // título (Aptos regular #595959 centrado, como o app de referência)
+  // título (Aptos regular #595959 centrado) — offsets MEDIDOS no app de
+  // referência: topo 16u, gap até o plot 20u, margem inferior 8u.
   if (chart.title) {
     ctx.fillStyle = '#595959';
     ctx.font = `${titlePx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(chart.title, x + w / 2, y + 8 * u);
-    plotY = y + titlePx + 16 * u;
-    plotH = h - (titlePx + 24 * u);
+    ctx.fillText(chart.title, x + w / 2, y + 16 * u);
+    plotY = y + titlePx + 36 * u;
+    plotH = h - (titlePx + 44 * u);
   }
 
   // legenda: presente quando o XML declara <c:legend> (default do app: bottom)
   const showLegend = chart.legendPos !== undefined;
-  const legendH = showLegend ? labelPx + 12 * u : 0;
+  const legendH = showLegend ? labelPx + 20 * u : 0;
   const legendTop = chart.legendPos === 't';
 
   const px = x + 8 * u;
@@ -350,7 +351,7 @@ function paintBars(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, 
   if (!cats || chart.series.length === 0) return;
   const { min, max } = valueRange(chart);
   const t = niceTicks(min, max);
-  const axW = labelPx * 2.2, axH = labelPx * 1.8;
+  const axW = labelPx * 2.0, axH = labelPx * 2.4;
   const plotL = x + axW, plotT = y, plotR = x + w, plotB = y + h - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, t);
   // agrupamento com gapWidth/overlap do XML (defaults do app: 219 / -27)
@@ -382,7 +383,7 @@ function paintLines(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   if (!cats) return;
   const { min, max } = valueRange(chart);
   const t = niceTicks(min, max);
-  const axW = labelPx * 2.2, axH = labelPx * 1.8;
+  const axW = labelPx * 2.0, axH = labelPx * 2.4;
   const plotL = x + axW, plotT = y, plotR = x + w, plotB = y + h - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, t);
   // categoria de linha: pontos CENTRADOS nas bandas (como o app de referência)
@@ -429,8 +430,10 @@ function paintPieOrDoughnut(ctx: CanvasRenderingContext2D, chart: ChartModel, x:
   const total = s0.values.reduce((a, b) => a + Math.max(0, b), 0);
   if (total <= 0) return;
   const pal = paletteOf(chart);
-  const cx = x + w / 2, cy = y + h / 2;
-  const radius = Math.min(w, h) / 2 - 4;
+  // centro/raio MEDIDOS no app de referência (pizza usa ~97% do plot e fica
+  // ~6px acima do centro geométrico — o rótulo de eixo não existe aqui)
+  const cx = x + w / 2, cy = y + h / 2 - h * 0.012;
+  const radius = (Math.min(w, h) / 2) * 0.97;
   let a0 = -Math.PI / 2;
   for (let i = 0; i < s0.values.length; i++) {
     const v = Math.max(0, s0.values[i] ?? 0);
@@ -451,7 +454,7 @@ function paintPieOrDoughnut(ctx: CanvasRenderingContext2D, chart: ChartModel, x:
     ctx.fill();
     // separador branco entre fatias (o app de referência contorna em branco)
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = Math.max(1.5, radius / 120);
+    ctx.lineWidth = Math.max(2, radius / 90);
     ctx.stroke();
     a0 = a1;
   }
@@ -468,7 +471,7 @@ function paintScatter(ctx: CanvasRenderingContext2D, chart: ChartModel, x: numbe
   const { min, max } = valueRange(chart);
   const tx = niceTicks(xMin, xMax);
   const ty = niceTicks(min, max);
-  const axW = labelPx * 2.2, axH = labelPx * 1.8;
+  const axW = labelPx * 2.0, axH = labelPx * 2.4;
   const plotL = x + axW, plotT = y, plotR = x + w, plotB = y + h - axH;
   // grid horizontal + VERTICAL (o app de referência desenha ambos no scatter)
   paintGrid(ctx, plotL, plotT, plotR, plotB, ty);

@@ -47,16 +47,20 @@ describe('presetPath — geometrias preset (spec 03 F)', () => {
     }
   });
 
-  it('star5: 10 vértices alternando raio externo/interno (~0.382)', () => {
+  it('star5: 10 vértices e ESCALADA ao bounding box (como o app de referência)', () => {
     const p = presetPath('star5', 100, 100);
     expect(p.kind).toBe('poly');
     if (p.kind === 'poly') {
       expect(p.points.length).toBe(10);
-      expect(p.points[0]!.x).toBeCloseTo(50, 6); // ponta de cima
+      // o app de referência preenche o rect: extremos tocam as 4 bordas
+      const xs = p.points.map((q) => q.x);
+      const ys = p.points.map((q) => q.y);
+      expect(Math.min(...xs)).toBeCloseTo(0, 6);
+      expect(Math.max(...xs)).toBeCloseTo(100, 6);
+      expect(Math.min(...ys)).toBeCloseTo(0, 6);
+      expect(Math.max(...ys)).toBeCloseTo(100, 6);
+      // ponta de cima continua no meio do topo
       expect(p.points[0]!.y).toBeCloseTo(0, 6);
-      // vértice interno: distância ao centro ≈ 0.38196 × 50
-      const d = Math.hypot(p.points[1]!.x - 50, p.points[1]!.y - 50);
-      expect(d).toBeCloseTo(50 * 19098 / 50000, 3);
     }
   });
 

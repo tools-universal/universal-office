@@ -1,4 +1,5 @@
 import { parseXml, childElements, firstChild, textContent, descend, type XmlElement } from './xml.js';
+import type { PathSeg } from './geometry.js';
 import { readTheme, colorFromDml, solidFillColor } from './theme.js';
 import { readTblPr, readTableStyle, applyTableStyle } from './table-style.js';
 import {
@@ -591,6 +592,12 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
     if (xfrm) shape.xfrm = parseXfrm(xfrm);
     const geom = firstChild(spPr, 'a:prstGeom');
     if (geom?.attrs['prst']) shape.geom = geom.attrs['prst'];
+    // geometria custom (freeform): <a:custGeom><a:pathLst><a:path w h>…
+    const cust = firstChild(spPr, 'a:custGeom');
+    if (cust) {
+      const cg = parseCustGeom(cust);
+      if (cg) shape.custGeom = cg;
+    }
     if (firstChild(spPr, 'a:noFill')) shape.fill = { type: 'none' };
     else { const c = solidFillColor(spPr, theme); if (c) shape.fill = { type: 'solid', color: c }; }
     // gradiente linear (spec 03 G): <a:gradFill><a:gsLst>… + <a:lin ang>
@@ -618,6 +625,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
     }
     const ln = firstChild(spPr, 'a:ln');
     if (ln) {
+      if (firstChild(ln, 'a:noFill')) shape.lineNone = true; // SEM contorno explícito
       const lc = solidFillColor(ln, theme);
       if (lc) shape.lineColor = lc;
       if (ln.attrs['w']) shape.lineWidth = parseInt(ln.attrs['w'], 10);
@@ -659,9 +667,18 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       const fc = refColor('a:fillRef');
       if (fc) shape.fill = { type: 'solid', color: fc };
     }
-    if (shape.lineColor === undefined) {
+    if (shape.lineColor === undefined && !shape.lineNone) {
       const lc = refColor('a:lnRef');
-      if (lc) shape.lineColor = lc;
+      if (lc) {
+        shape.lineColor = lc;
+        // largura vem do lnStyleLst do tema pelo idx do lnRef
+        if (shape.lineWidth === undefined) {
+          const lnRef = firstChild(styleEl, 'a:lnRef');
+          const idx = lnRef?.attrs['idx'] !== undefined ? parseInt(lnRef.attrs['idx'], 10) : 0;
+          const w = idx >= 1 ? theme.lineWidths?.[idx - 1] : undefined;
+          if (w !== undefined) shape.lineWidth = w;
+        }
+      }
     }
     const fontRef = firstChild(styleEl, 'a:fontRef');
     if (fontRef) {
@@ -674,6 +691,42 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
   const txBody = firstChild(sp, 'p:txBody');
   if (txBody) shape.txBody = readTxBody(txBody, theme, rels);
   return shape;
+}
+
+/**
+ * Parse de `<a:custGeom>` → paths escaláveis. Coordenadas ficam nas unidades
+ * do próprio path (`<a:path w h>`); o renderer escala para o xfrm da shape.
+ * Cobre moveTo/lnTo/cubicBezTo/quadBezTo/close (freeforms do app de referência).
+ */
+function parseCustGeom(cust: XmlElement): { w: number; h: number; subs: PathSeg[][] } | undefined {
+  const pathLst = firstChild(cust, 'a:pathLst');
+  if (!pathLst) return undefined;
+  const subs: PathSeg[][] = [];
+  let pw = 0, ph = 0;
+  const pt = (el: XmlElement | undefined): { x: number; y: number } => ({
+    x: el?.attrs['x'] !== undefined ? parseInt(el.attrs['x'], 10) : 0,
+    y: el?.attrs['y'] !== undefined ? parseInt(el.attrs['y'], 10) : 0,
+  });
+  for (const path of childElements(pathLst, 'a:path')) {
+    if (path.attrs['w']) pw = Math.max(pw, parseInt(path.attrs['w'], 10));
+    if (path.attrs['h']) ph = Math.max(ph, parseInt(path.attrs['h'], 10));
+    const segs: PathSeg[] = [];
+    for (const el of childElements(path)) {
+      const pts = childElements(el, 'a:pt');
+      if (el.name === 'a:moveTo') { const p = pt(pts[0]); segs.push({ c: 'M', x: p.x, y: p.y }); }
+      else if (el.name === 'a:lnTo') { const p = pt(pts[0]); segs.push({ c: 'L', x: p.x, y: p.y }); }
+      else if (el.name === 'a:cubicBezTo') {
+        const p1 = pt(pts[0]), p2 = pt(pts[1]), p3 = pt(pts[2]);
+        segs.push({ c: 'C', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, x: p3.x, y: p3.y });
+      } else if (el.name === 'a:quadBezTo') {
+        const p1 = pt(pts[0]), p2 = pt(pts[1]);
+        segs.push({ c: 'Q', x1: p1.x, y1: p1.y, x: p2.x, y: p2.y });
+      } else if (el.name === 'a:close') segs.push({ c: 'Z' });
+    }
+    if (segs.length) subs.push(segs);
+  }
+  if (!subs.length) return undefined;
+  return { w: pw || 1, h: ph || 1, subs };
 }
 
 /** Parse de `<a:gradFill>` -> Fill gradient (2+ stops; `<a:lin ang>` em graus). */
@@ -690,9 +743,12 @@ function parseGradFill(grad: XmlElement, theme: Theme): { type: 'gradient'; stop
   stops.sort((a, b) => a.pos - b.pos);
   const lin = firstChild(grad, 'a:lin');
   const angleDeg = lin?.attrs['ang'] !== undefined ? parseInt(lin.attrs['ang'], 10) / 60000 : 0;
-  const out: { type: 'gradient'; stops: GradientStop[]; angleDeg: number; scaled?: boolean } =
+  const out: { type: 'gradient'; stops: GradientStop[]; angleDeg: number; scaled?: boolean; path?: string } =
     { type: 'gradient', stops, angleDeg };
   if (lin?.attrs['scaled'] === '1') out.scaled = true;
+  // gradiente radial: <a:path path="rect|circle|shape"> (pos 0 = centro)
+  const pathEl = firstChild(grad, 'a:path');
+  if (pathEl) out.path = pathEl.attrs['path'] ?? 'shape';
   return out;
 }
 

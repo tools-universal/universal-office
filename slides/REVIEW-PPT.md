@@ -39,6 +39,25 @@ shapes (FromCorner/FromCenter → radial), conectores elbow/curve + setas de
 linha, sombras/freeform do slide 4, autofit/texto vertical (text slide 3),
 combo bar+line (slide 5), fontes de eixo do bar (slide 2 de charts).
 
+## Rodada 2 (mesma data) — **3.96% → 2.83%** de divergência média
+
+1. **Gradiente radial** (`<a:path path="rect|circle|shape">` + fillToRect):
+   pos 0 = centro; substops em RGB linear compartilhados com o linear.
+2. **`lumMod`/`lumOff` em luminância HSL** (não sRGB): o "claro" de tema
+   (lumMod 60% + lumOff 40%) fica VÍVIDO como no app de referência.
+3. **`<a:ln><a:noFill/>`** bloqueia o fallback do `lnRef` (elipses sem borda);
+   largura do `lnRef idx` resolvida pelo `<a:lnStyleLst>` do tema (12700/19050/25400).
+4. **custGeom (freeforms)**: parse de pathLst (moveTo/lnTo/cubicBez/quadBez/
+   close) escalado ao xfrm — o freeform do slide 4 deixou de virar retângulo.
+5. **arc/blockArc** (arc é stroke-only) + **pentagon/star5 normalizados ao
+   bounding box** (o app de referência escala o polígono, não inscreve na elipse).
+6. **Layout de chart calibrado por MEDIÇÃO** (título 16u, gap 20u, eixo 2.4·label,
+   legenda label+20u; pizza: 97% do plot, centro −1.2%h; separador 2px):
+   pizza 10.5%→1.2%, área 7.3%→4.1%. Engine re-sincronizada no sheet-core.
+
+Piores restantes: bar/line 6.2% (métrica de fonte de eixo), shapes slide1 4.9%
+(sombreado 3D de can/cube, moon/sun finos), autofit 4.8%.
+
 
 Metodologia espelhada do `sheet/REVIEW-EXCEL.md`: o app de referência (PowerPoint
 real, via COM) é o oráculo; a especificação é o XML que ele emite. Aqui
