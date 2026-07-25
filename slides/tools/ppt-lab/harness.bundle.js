@@ -1828,7 +1828,8 @@ function readShapes(spTree, theme, pkg, rels) {
     else if (c.name === "p:pic") out.push(readPic(c, theme, pkg, rels));
     else if (c.name === "p:graphicFrame") {
       const gf = readGraphicFrame(c, pkg, rels, theme);
-      if (gf) out.push(gf);
+      if (Array.isArray(gf)) out.push(...gf);
+      else if (gf) out.push(gf);
     } else if (c.name === "p:grpSp") {
       out.push(...readGroup(c, theme, pkg, rels));
     }
@@ -1919,6 +1920,27 @@ function readGraphicFrame(gf, pkg, rels, theme) {
       }
     }
   }
+  const relIds = firstChild(data, "dgm:relIds");
+  if (relIds && shape.xfrm) {
+    const dmId = relIds.attrs["r:dm"];
+    const dataPath = dmId ? rels.get(dmId) : void 0;
+    if (dataPath) {
+      let drawingPath;
+      const dataRels = readRels(pkg, relsPathFor(dataPath), dataPath);
+      for (const t of dataRels.values()) if (t.includes("drawing")) {
+        drawingPath = t;
+        break;
+      }
+      if (!drawingPath) {
+        const guess = dataPath.replace(/data(\d+)\.xml$/, "drawing$1.xml");
+        if (pkg.getPartText(guess) !== void 0) drawingPath = guess;
+      }
+      if (drawingPath) {
+        const shapes = readDiagramShapes(pkg, drawingPath, theme, shape.xfrm);
+        if (shapes.length) return shapes;
+      }
+    }
+  }
   const tblEl = firstChild(data, "a:tbl");
   if (tblEl) {
     const table = readTable(tblEl, theme);
@@ -1930,6 +1952,52 @@ function readGraphicFrame(gf, pkg, rels, theme) {
     shape.table = table;
   }
   return shape;
+}
+function renamePrefix(el, from, to) {
+  return {
+    name: el.name.startsWith(from) ? to + el.name.slice(from.length) : el.name,
+    attrs: el.attrs,
+    children: el.children.map((c) => typeof c === "string" ? c : renamePrefix(c, from, to))
+  };
+}
+function readDiagramShapes(pkg, drawingPath, theme, frame) {
+  const xml = pkg.getPartText(drawingPath);
+  if (!xml) return [];
+  let root;
+  try {
+    root = parseXml(xml);
+  } catch {
+    return [];
+  }
+  const spTree = descend(root, "dsp:spTree");
+  if (!spTree) return [];
+  const out = [];
+  for (const c of childElements(spTree, "dsp:sp")) {
+    const sp = renamePrefix(c, "dsp:", "p:");
+    const sh = readShape(sp, theme);
+    if (sh.xfrm) out.push(sh);
+  }
+  if (!out.length) return out;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const sh of out) {
+    const f = sh.xfrm;
+    if (f.x < minX) minX = f.x;
+    if (f.y < minY) minY = f.y;
+    if (f.x + f.cx > maxX) maxX = f.x + f.cx;
+    if (f.y + f.cy > maxY) maxY = f.y + f.cy;
+  }
+  const bw = maxX - minX || 1, bh = maxY - minY || 1;
+  const s = Math.min(frame.cx / bw, frame.cy / bh);
+  const ox = frame.x + (frame.cx - bw * s) / 2 - minX * s;
+  const oy = frame.y + (frame.cy - bh * s) / 2 - minY * s;
+  for (const sh of out) {
+    const f = sh.xfrm;
+    f.x = ox + f.x * s;
+    f.y = oy + f.y * s;
+    f.cx = f.cx * s;
+    f.cy = f.cy * s;
+  }
+  return out;
 }
 function readTable(tbl, theme) {
   const gridEl = firstChild(tbl, "a:tblGrid");
@@ -2022,7 +2090,10 @@ function readShape(sp, theme, pkg, rels) {
       const blip = bf ? firstChild(bf, "a:blip") : void 0;
       if (blip) {
         const img = resolveBlip(blip, pkg, rels);
-        if (img) shape.fillImage = img;
+        if (img) {
+          shape.fillImage = img;
+          if (bf && firstChild(bf, "a:tile")) shape.fillTile = true;
+        }
       }
     }
     const sf = firstChild(spPr, "a:solidFill");
@@ -3554,7 +3625,18 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
     if (sh.fillImage) {
       const img = res.images?.get(sh.fillImage.part);
-      if (img) {
+      if (img && sh.fillTile) {
+        const pat = ctx.createPattern(img, "repeat");
+        if (pat) {
+          const k = 9525 * fit.scale;
+          if (typeof pat.setTransform === "function" && typeof DOMMatrix !== "undefined") {
+            pat.setTransform(new DOMMatrix([k, 0, 0, k, x2, y]));
+          }
+          ctx.fillStyle = pat;
+          if (rule) ctx.fill(rule);
+          else ctx.fill();
+        }
+      } else if (img) {
         ctx.clip();
         ctx.drawImage(img, x2, y, w, h);
       }

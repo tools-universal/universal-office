@@ -184,6 +184,8 @@ export interface Shape {
    * dentro do path da geometria.
    */
   fillImage?: ImageRef;
+  /** `<a:blipFill><a:tile>`: ladrilha a imagem no tamanho natural (96dpi). */
+  fillTile?: boolean;
   /**
    * Cor de texto default vinda de `<p:style><a:fontRef>` (resolvida via tema).
    * Aplicada na cascata quando run/lstStyle nao especificam cor.

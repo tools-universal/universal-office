@@ -378,7 +378,8 @@ function readShapes(spTree: XmlElement, theme: Theme, pkg: PptxPackage, rels: Ma
     else if (c.name === 'p:pic') out.push(readPic(c, theme, pkg, rels));
     else if (c.name === 'p:graphicFrame') {
       const gf = readGraphicFrame(c, pkg, rels, theme);
-      if (gf) out.push(gf);
+      if (Array.isArray(gf)) out.push(...gf);
+      else if (gf) out.push(gf);
     } else if (c.name === 'p:grpSp') {
       out.push(...readGroup(c, theme, pkg, rels));
     }
@@ -472,7 +473,7 @@ function readGroup(grp: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<st
  *     </a:graphic>
  *   </p:graphicFrame>
  */
-function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, string>, theme: Theme): Shape | null {
+function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, string>, theme: Theme): Shape | Shape[] | null {
   const nvPr = firstChild(gf, 'p:nvGraphicFramePr');
   const cNvPr = nvPr ? firstChild(nvPr, 'p:cNvPr') : undefined;
   const shape: Shape = {
@@ -505,6 +506,27 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
       }
     }
   }
+  // SmartArt: o pptx moderno embute um DRAWING pré-renderizado do diagrama
+  // (ppt/diagrams/drawingN.xml, prefixo dsp:) — shapes normais que reescalamos
+  // ao xfrm do frame. r:dm resolve o data part; o drawing vem dos rels dele.
+  const relIds = firstChild(data, 'dgm:relIds');
+  if (relIds && shape.xfrm) {
+    const dmId = relIds.attrs['r:dm'];
+    const dataPath = dmId ? rels.get(dmId) : undefined;
+    if (dataPath) {
+      let drawingPath: string | undefined;
+      const dataRels = readRels(pkg, relsPathFor(dataPath), dataPath);
+      for (const t of dataRels.values()) if (t.includes('drawing')) { drawingPath = t; break; }
+      if (!drawingPath) {
+        const guess = dataPath.replace(/data(\d+)\.xml$/, 'drawing$1.xml');
+        if (pkg.getPartText(guess) !== undefined) drawingPath = guess;
+      }
+      if (drawingPath) {
+        const shapes = readDiagramShapes(pkg, drawingPath, theme, shape.xfrm);
+        if (shapes.length) return shapes;
+      }
+    }
+  }
   // tabela
   const tblEl = firstChild(data, 'a:tbl');
   if (tblEl) {
@@ -518,6 +540,57 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
     shape.table = table;
   }
   return shape;
+}
+
+/** Clona a árvore renomeando prefixo de elementos (`dsp:sp` → `p:sp` etc.). */
+function renamePrefix(el: XmlElement, from: string, to: string): XmlElement {
+  return {
+    name: el.name.startsWith(from) ? to + el.name.slice(from.length) : el.name,
+    attrs: el.attrs,
+    children: el.children.map((c) => typeof c === 'string' ? c : renamePrefix(c, from, to)),
+  };
+}
+
+/**
+ * Lê o drawing pré-renderizado de um SmartArt (`ppt/diagrams/drawingN.xml`,
+ * `<dsp:spTree>` com shapes padrão) e REESCALA o conjunto para caber no xfrm
+ * do graphicFrame (o drawing usa um canvas próprio em EMU).
+ */
+function readDiagramShapes(pkg: PptxPackage, drawingPath: string, theme: Theme, frame: Xfrm): Shape[] {
+  const xml = pkg.getPartText(drawingPath);
+  if (!xml) return [];
+  let root: XmlElement;
+  try { root = parseXml(xml); } catch { return []; }
+  const spTree = descend(root, 'dsp:spTree');
+  if (!spTree) return [];
+  const out: Shape[] = [];
+  for (const c of childElements(spTree, 'dsp:sp')) {
+    const sp = renamePrefix(c, 'dsp:', 'p:');
+    const sh = readShape(sp, theme);
+    if (sh.xfrm) out.push(sh);
+  }
+  if (!out.length) return out;
+  // bbox do conjunto → escala/translação para o retângulo do frame
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const sh of out) {
+    const f = sh.xfrm!;
+    if (f.x < minX) minX = f.x;
+    if (f.y < minY) minY = f.y;
+    if (f.x + f.cx > maxX) maxX = f.x + f.cx;
+    if (f.y + f.cy > maxY) maxY = f.y + f.cy;
+  }
+  const bw = maxX - minX || 1, bh = maxY - minY || 1;
+  const s = Math.min(frame.cx / bw, frame.cy / bh);
+  const ox = frame.x + (frame.cx - bw * s) / 2 - minX * s;
+  const oy = frame.y + (frame.cy - bh * s) / 2 - minY * s;
+  for (const sh of out) {
+    const f = sh.xfrm!;
+    f.x = ox + f.x * s;
+    f.y = oy + f.y * s;
+    f.cx = f.cx * s;
+    f.cy = f.cy * s;
+  }
+  return out;
 }
 
 /** Parse de `<a:tbl>` → modelo Table. */
@@ -614,7 +687,10 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       const blip = bf ? firstChild(bf, 'a:blip') : undefined;
       if (blip) {
         const img = resolveBlip(blip, pkg, rels);
-        if (img) shape.fillImage = img;
+        if (img) {
+          shape.fillImage = img;
+          if (bf && firstChild(bf, 'a:tile')) shape.fillTile = true;
+        }
       }
     }
     // alpha do fill: <a:solidFill><a:srgbClr><a:alpha val=60000/></a:srgbClr></a:solidFill>

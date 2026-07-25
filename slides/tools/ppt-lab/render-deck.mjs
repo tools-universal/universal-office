@@ -15,7 +15,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const slidesRoot = join(here, '..', '..');
 const decks = process.argv.slice(2).length
   ? process.argv.slice(2)
-  : ['stress-shapes', 'stress-text', 'stress-table-chart', 'stress-media'];
+  : ['stress-shapes', 'stress-text', 'stress-table-chart', 'stress-media', 'stress-advanced'];
 
 // 1) bundle do harness (viewer + glue) — sempre rebuilda (rápido)
 await build({

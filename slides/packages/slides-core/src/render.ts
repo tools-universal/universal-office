@@ -226,9 +226,20 @@ function paintShape(
     if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
     const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom);
     if (sh.fillImage) {
-      // blipFill de shape: imagem esticada recortada pelo path da geometria
+      // blipFill de shape: esticada OU em LADRILHO (a:tile, tamanho natural
+      // @96dpi convertido a EMU), sempre recortada pelo path da geometria
       const img = res.images?.get(sh.fillImage.part);
-      if (img) { ctx.clip(); ctx.drawImage(img, x, y, w, h); }
+      if (img && sh.fillTile) {
+        const pat = ctx.createPattern(img as CanvasImageSource, 'repeat');
+        if (pat) {
+          const k = 9525 * fit.scale; // px da imagem (96dpi) → px do canvas
+          if (typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') {
+            pat.setTransform(new DOMMatrix([k, 0, 0, k, x, y]));
+          }
+          ctx.fillStyle = pat;
+          if (rule) ctx.fill(rule); else ctx.fill();
+        }
+      } else if (img) { ctx.clip(); ctx.drawImage(img, x, y, w, h); }
     } else if (sh.fill!.type === 'gradient' && sh.fill!.stops && sh.fill!.stops.length >= 2) {
       ctx.fillStyle = makeLinearGradient(ctx, sh.fill!, x, y, w, h);
       if (rule) ctx.fill(rule); else ctx.fill();

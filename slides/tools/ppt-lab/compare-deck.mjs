@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const decks = process.argv.slice(2).length
   ? process.argv.slice(2)
-  : ['stress-shapes', 'stress-text', 'stress-table-chart', 'stress-media'];
+  : ['stress-shapes', 'stress-text', 'stress-table-chart', 'stress-media', 'stress-advanced'];
 
 const TOL = 40; // delta máximo de canal considerado "igual" (AA/hinting)
 
