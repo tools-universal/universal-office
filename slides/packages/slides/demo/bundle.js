@@ -1422,6 +1422,19 @@ function parsePPrLevel(pPr, theme) {
   if (pPr.attrs["algn"]) lvl.align = pPr.attrs["algn"];
   if (pPr.attrs["marL"] !== void 0) lvl.marL = parseInt(pPr.attrs["marL"], 10);
   if (pPr.attrs["indent"] !== void 0) lvl.indent = parseInt(pPr.attrs["indent"], 10);
+  const lnSpc = firstChild(pPr, "a:lnSpc");
+  if (lnSpc) {
+    const pct = firstChild(lnSpc, "a:spcPct");
+    const pts = firstChild(lnSpc, "a:spcPts");
+    if (pct?.attrs["val"]) lvl.lineSpacing = parseInt(pct.attrs["val"], 10) / 1e5;
+    else if (pts?.attrs["val"]) lvl.lineSpacingPt = parseInt(pts.attrs["val"], 10) / 100;
+  }
+  const spcBefEl = firstChild(pPr, "a:spcBef");
+  const befPts = spcBefEl ? firstChild(spcBefEl, "a:spcPts") : void 0;
+  if (befPts?.attrs["val"]) lvl.spaceBeforePt = parseInt(befPts.attrs["val"], 10) / 100;
+  const spcAftEl = firstChild(pPr, "a:spcAft");
+  const aftPts = spcAftEl ? firstChild(spcAftEl, "a:spcPts") : void 0;
+  if (aftPts?.attrs["val"]) lvl.spaceAfterPt = parseInt(aftPts.attrs["val"], 10) / 100;
   const buChar = firstChild(pPr, "a:buChar");
   if (buChar?.attrs["char"]) lvl.buChar = buChar.attrs["char"];
   const buAuto = firstChild(pPr, "a:buAutoNum");
@@ -1475,6 +1488,16 @@ function mergeStyleLevels(...layers) {
       if (src.font !== void 0) dst.font = src.font;
       if (src.align !== void 0) dst.align = src.align;
       if (src.shadow !== void 0) dst.shadow = src.shadow;
+      if (src.lineSpacing !== void 0) {
+        dst.lineSpacing = src.lineSpacing;
+        delete dst.lineSpacingPt;
+      }
+      if (src.lineSpacingPt !== void 0) {
+        dst.lineSpacingPt = src.lineSpacingPt;
+        delete dst.lineSpacing;
+      }
+      if (src.spaceBeforePt !== void 0) dst.spaceBeforePt = src.spaceBeforePt;
+      if (src.spaceAfterPt !== void 0) dst.spaceAfterPt = src.spaceAfterPt;
       if (src.marL !== void 0) dst.marL = src.marL;
       if (src.indent !== void 0) dst.indent = src.indent;
       if (src.buChar !== void 0 || src.buAutoNum !== void 0 || src.buNone) {
@@ -1499,6 +1522,12 @@ function applyTextStyles(tb, levels, theme) {
   for (const p of tb.paragraphs) {
     const lvl = levels[Math.min(p.level ?? 0, 8)] ?? {};
     if (p.align === void 0 && lvl.align !== void 0) p.align = lvl.align;
+    if (p.lineSpacing === void 0 && p.lineSpacingPt === void 0) {
+      if (lvl.lineSpacing !== void 0) p.lineSpacing = lvl.lineSpacing;
+      else if (lvl.lineSpacingPt !== void 0) p.lineSpacingPt = lvl.lineSpacingPt;
+    }
+    if (p.spaceBeforePt === void 0 && lvl.spaceBeforePt !== void 0) p.spaceBeforePt = lvl.spaceBeforePt;
+    if (p.spaceAfterPt === void 0 && lvl.spaceAfterPt !== void 0) p.spaceAfterPt = lvl.spaceAfterPt;
     if (p.marL === void 0 && lvl.marL !== void 0) p.marL = lvl.marL;
     if (p.indent === void 0 && lvl.indent !== void 0) p.indent = lvl.indent;
     if (p.bullet === void 0) {
@@ -1655,6 +1684,25 @@ function readSlide(pkg, slidePath) {
       const x2 = phMap.get(phKey(sh.phType, sh.phIdx)) ?? phMap.get(phKey(sh.phType)) ?? phMap.get("idx:" + (sh.phIdx ?? ""));
       if (x2) sh.xfrm = x2;
     }
+  }
+  const shadowMap = /* @__PURE__ */ new Map();
+  for (const part of [masterPath, layoutPath]) {
+    if (!part) continue;
+    const xml2 = pkg.getPartText(part);
+    if (xml2 === void 0) continue;
+    const tree = descend(parseXml(xml2), "p:spTree");
+    if (!tree) continue;
+    for (const psh of readShapes(tree, theme, pkg, /* @__PURE__ */ new Map())) {
+      if (psh.phType === void 0 && psh.phIdx === void 0 || !psh.shadow) continue;
+      shadowMap.set(phKey(psh.phType, psh.phIdx), psh.shadow);
+      shadowMap.set(phKey(psh.phType), psh.shadow);
+      if (psh.phIdx !== void 0) shadowMap.set("idx:" + psh.phIdx, psh.shadow);
+    }
+  }
+  for (const sh of shapes) {
+    if (sh.shadow || sh.phType === void 0 && sh.phIdx === void 0) continue;
+    const inh = shadowMap.get(phKey(sh.phType, sh.phIdx)) ?? shadowMap.get(phKey(sh.phType)) ?? shadowMap.get("idx:" + (sh.phIdx ?? ""));
+    if (inh) sh.shadow = inh;
   }
   const bodyPrMap = placeholderBodyPrMap(pkg, slidePath);
   for (const sh of shapes) {

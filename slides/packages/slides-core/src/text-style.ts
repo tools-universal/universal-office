@@ -43,6 +43,12 @@ export interface TextStyleLevel {
   indent?: number;
   /** Sombra de texto do defRPr (`<a:effectLst><a:outerShdw>`). */
   shadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number };
+  /** Entrelinha `<a:lnSpc><a:spcPct>` (fração) ou `<a:spcPts>` (pontos). */
+  lineSpacing?: number;
+  lineSpacingPt?: number;
+  /** Espaços antes/depois do parágrafo em pontos. */
+  spaceBeforePt?: number;
+  spaceAfterPt?: number;
 }
 
 /** 9 níveis (índice 0 = lvl1pPr). */
@@ -80,6 +86,20 @@ export function parsePPrLevel(pPr: XmlElement, theme: Theme): TextStyleLevel {
   if (pPr.attrs['algn']) lvl.align = pPr.attrs['algn'];
   if (pPr.attrs['marL'] !== undefined) lvl.marL = parseInt(pPr.attrs['marL'], 10);
   if (pPr.attrs['indent'] !== undefined) lvl.indent = parseInt(pPr.attrs['indent'], 10);
+  // entrelinha e espaçamento herdáveis (título compacto de template = 75%)
+  const lnSpc = firstChild(pPr, 'a:lnSpc');
+  if (lnSpc) {
+    const pct = firstChild(lnSpc, 'a:spcPct');
+    const pts = firstChild(lnSpc, 'a:spcPts');
+    if (pct?.attrs['val']) lvl.lineSpacing = parseInt(pct.attrs['val'], 10) / 100000;
+    else if (pts?.attrs['val']) lvl.lineSpacingPt = parseInt(pts.attrs['val'], 10) / 100;
+  }
+  const spcBefEl = firstChild(pPr, 'a:spcBef');
+  const befPts = spcBefEl ? firstChild(spcBefEl, 'a:spcPts') : undefined;
+  if (befPts?.attrs['val']) lvl.spaceBeforePt = parseInt(befPts.attrs['val'], 10) / 100;
+  const spcAftEl = firstChild(pPr, 'a:spcAft');
+  const aftPts = spcAftEl ? firstChild(spcAftEl, 'a:spcPts') : undefined;
+  if (aftPts?.attrs['val']) lvl.spaceAfterPt = parseInt(aftPts.attrs['val'], 10) / 100;
   const buChar = firstChild(pPr, 'a:buChar');
   if (buChar?.attrs['char']) lvl.buChar = buChar.attrs['char'];
   const buAuto = firstChild(pPr, 'a:buAutoNum');
@@ -140,6 +160,10 @@ export function mergeStyleLevels(...layers: TextStyleLevels[]): TextStyleLevels 
       if (src.font !== undefined) dst.font = src.font;
       if (src.align !== undefined) dst.align = src.align;
       if (src.shadow !== undefined) dst.shadow = src.shadow;
+      if (src.lineSpacing !== undefined) { dst.lineSpacing = src.lineSpacing; delete dst.lineSpacingPt; }
+      if (src.lineSpacingPt !== undefined) { dst.lineSpacingPt = src.lineSpacingPt; delete dst.lineSpacing; }
+      if (src.spaceBeforePt !== undefined) dst.spaceBeforePt = src.spaceBeforePt;
+      if (src.spaceAfterPt !== undefined) dst.spaceAfterPt = src.spaceAfterPt;
       if (src.marL !== undefined) dst.marL = src.marL;
       if (src.indent !== undefined) dst.indent = src.indent;
       if (src.buChar !== undefined || src.buAutoNum !== undefined || src.buNone) {
@@ -169,6 +193,12 @@ export function applyTextStyles(tb: TextBody, levels: TextStyleLevels, theme: Th
   for (const p of tb.paragraphs) {
     const lvl = levels[Math.min(p.level ?? 0, 8)] ?? {};
     if (p.align === undefined && lvl.align !== undefined) p.align = lvl.align;
+    if (p.lineSpacing === undefined && p.lineSpacingPt === undefined) {
+      if (lvl.lineSpacing !== undefined) p.lineSpacing = lvl.lineSpacing;
+      else if (lvl.lineSpacingPt !== undefined) p.lineSpacingPt = lvl.lineSpacingPt;
+    }
+    if (p.spaceBeforePt === undefined && lvl.spaceBeforePt !== undefined) p.spaceBeforePt = lvl.spaceBeforePt;
+    if (p.spaceAfterPt === undefined && lvl.spaceAfterPt !== undefined) p.spaceAfterPt = lvl.spaceAfterPt;
     if (p.marL === undefined && lvl.marL !== undefined) p.marL = lvl.marL;
     if (p.indent === undefined && lvl.indent !== undefined) p.indent = lvl.indent;
     // bullet: só herda quando o pPr não declarou nada (bullet === undefined)

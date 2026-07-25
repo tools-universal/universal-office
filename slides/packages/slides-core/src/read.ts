@@ -133,6 +133,28 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     }
   }
 
+  // spPr herdado do placeholder: SOMBRA do layout/master aplica ao slide
+  // (títulos de template carregam outerShdw no placeholder do layout)
+  const shadowMap = new Map<string, NonNullable<Shape['shadow']>>();
+  for (const part of [masterPath, layoutPath]) {
+    if (!part) continue;
+    const xml2 = pkg.getPartText(part);
+    if (xml2 === undefined) continue;
+    const tree = descend(parseXml(xml2), 'p:spTree');
+    if (!tree) continue;
+    for (const psh of readShapes(tree, theme, pkg, new Map())) {
+      if ((psh.phType === undefined && psh.phIdx === undefined) || !psh.shadow) continue;
+      shadowMap.set(phKey(psh.phType, psh.phIdx), psh.shadow);
+      shadowMap.set(phKey(psh.phType), psh.shadow);
+      if (psh.phIdx !== undefined) shadowMap.set('idx:' + psh.phIdx, psh.shadow);
+    }
+  }
+  for (const sh of shapes) {
+    if (sh.shadow || (sh.phType === undefined && sh.phIdx === undefined)) continue;
+    const inh = shadowMap.get(phKey(sh.phType, sh.phIdx)) ?? shadowMap.get(phKey(sh.phType)) ?? shadowMap.get('idx:' + (sh.phIdx ?? ''));
+    if (inh) sh.shadow = inh;
+  }
+
   // bodyPr herdado do placeholder (âncora vertical/insets/autofit/colunas)
   const bodyPrMap = placeholderBodyPrMap(pkg, slidePath);
   for (const sh of shapes) {
