@@ -182,7 +182,7 @@ function paintShape(
       const clipGeom = sh.geom !== undefined && sh.geom !== 'rect';
       if (clipGeom) {
         ctx.save();
-        const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom);
+        const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj);
         if (rule) ctx.clip(rule); else ctx.clip();
       }
       // srcRect (crop em 0..1 dos quatro lados) aplica-se em coordenadas da imagem natural.
@@ -203,7 +203,7 @@ function paintShape(
     if (sh.lineColor) {
       ctx.strokeStyle = sh.lineColor;
       ctx.lineWidth = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
-      shapePath(ctx, sh.geom ?? 'rect', x, y, w, h, sh.custGeom);
+      shapePath(ctx, sh.geom ?? 'rect', x, y, w, h, sh.custGeom, sh.adj);
       ctx.stroke();
     }
     if (hasXform || hasAlpha) ctx.restore();
@@ -226,7 +226,7 @@ function paintShape(
     ctx.shadowOffsetX = sx;
     ctx.shadowOffsetY = sy;
     ctx.fillStyle = sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color : '#ffffff';
-    const shRule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom);
+    const shRule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj);
     if (shRule) ctx.fill(shRule); else ctx.fill();
     ctx.restore();
   }
@@ -237,7 +237,7 @@ function paintShape(
   if (!isLineGeom && (sh.fillImage || (sh.fill && sh.fill.type !== 'none'))) {
     ctx.save();
     if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
-    const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom);
+    const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj);
     if (sh.fillImage) {
       // blipFill de shape: esticada OU em LADRILHO (a:tile, tamanho natural
       // @96dpi convertido a EMU), sempre recortada pelo path da geometria
@@ -259,7 +259,7 @@ function paintShape(
     } else if (sh.fill!.type === 'solid' && sh.fill!.color) {
       // sombreado por face (can/cube): cada subpath preenche com a luminância
       // deslocada; demais geometrias preenchem o path combinado de uma vez.
-      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h);
+      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h, sh.adj);
       if (desc && desc.kind === 'path' && desc.subLum) {
         for (let i = 0; i < desc.subs.length; i++) {
           const lum = desc.subLum[i];
@@ -282,7 +282,7 @@ function paintShape(
     const lw = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
     ctx.lineWidth = lw;
     if (sh.lineDash) ctx.setLineDash(dashPattern(sh.lineDash, lw));
-    shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom);
+    shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj);
     ctx.stroke();
     if (sh.lineDash) ctx.setLineDash([]);
     // setas nos extremos (headEnd/tailEnd) das geometrias de linha
@@ -308,6 +308,7 @@ function shapePath(
   ctx: CanvasRenderingContext2D, geom: string | undefined,
   x: number, y: number, w: number, h: number,
   custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][] },
+  adj?: number[],
 ): CanvasFillRule | undefined {
   ctx.beginPath();
   // geometria CUSTOM (freeform): segs nas unidades do path, escalados ao rect
@@ -316,7 +317,7 @@ function shapePath(
     drawSegs(ctx, custGeom.subs, x, y, sx, sy);
     return undefined;
   }
-  const p = presetPath(geom, w, h);
+  const p = presetPath(geom, w, h, adj);
   switch (p.kind) {
     case 'path': {
       drawSegs(ctx, p.subs, x, y, 1, 1);

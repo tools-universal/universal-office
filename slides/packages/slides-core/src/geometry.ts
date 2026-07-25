@@ -62,9 +62,18 @@ function fitToBox(pts: Pt[], w: number, h: number): Pt[] {
  * Descritor de path para o preset `geom` num rect `w × h`.
  * Presets desconhecidos caem em `rect` (comportamento anterior preservado).
  */
-export function presetPath(geom: string | undefined, w: number, h: number): PresetPath {
+export function presetPath(geom: string | undefined, w: number, h: number, adj?: number[]): PresetPath {
   const ss = Math.min(w, h); // "shortest side" das fórmulas DrawingML
   switch (geom) {
+    case 'frame': { // moldura retangular; adj1 = espessura em % do ss
+      const t = ss * ((adj?.[0] ?? 12500) / 100000);
+      return {
+        kind: 'path', fillRule: 'evenodd', subs: [
+          [{ c: 'M', x: 0, y: 0 }, { c: 'L', x: w, y: 0 }, { c: 'L', x: w, y: h }, { c: 'L', x: 0, y: h }, { c: 'Z' }],
+          [{ c: 'M', x: t, y: t }, { c: 'L', x: w - t, y: t }, { c: 'L', x: w - t, y: h - t }, { c: 'L', x: t, y: h - t }, { c: 'Z' }],
+        ],
+      };
+    }
     case 'ellipse': return { kind: 'ellipse' };
     case 'roundRect': return { kind: 'roundRect', r: ss * 0.1 };
 

@@ -2239,6 +2239,15 @@ function readShape(sp, theme, pkg, rels) {
     if (xfrm) shape.xfrm = parseXfrm(xfrm);
     const geom = firstChild(spPr, "a:prstGeom");
     if (geom?.attrs["prst"]) shape.geom = geom.attrs["prst"];
+    const avLst = geom ? firstChild(geom, "a:avLst") : void 0;
+    if (avLst) {
+      const adj = [];
+      for (const gd of childElements(avLst, "a:gd")) {
+        const m = /val (-?\d+)/.exec(gd.attrs["fmla"] ?? "");
+        if (m) adj.push(parseInt(m[1], 10));
+      }
+      if (adj.length) shape.adj = adj;
+    }
     const cust = firstChild(spPr, "a:custGeom");
     if (cust) {
       const cg = parseCustGeom(cust);
@@ -3403,9 +3412,20 @@ function fitToBox(pts, w, h) {
   const sw = maxX - minX || 1, sh = maxY - minY || 1;
   return pts.map((p) => ({ x: (p.x - minX) / sw * w, y: (p.y - minY) / sh * h }));
 }
-function presetPath(geom, w, h) {
+function presetPath(geom, w, h, adj) {
   const ss = Math.min(w, h);
   switch (geom) {
+    case "frame": {
+      const t = ss * ((adj?.[0] ?? 12500) / 1e5);
+      return {
+        kind: "path",
+        fillRule: "evenodd",
+        subs: [
+          [{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }, { c: "L", x: 0, y: h }, { c: "Z" }],
+          [{ c: "M", x: t, y: t }, { c: "L", x: w - t, y: t }, { c: "L", x: w - t, y: h - t }, { c: "L", x: t, y: h - t }, { c: "Z" }]
+        ]
+      };
+    }
     case "ellipse":
       return { kind: "ellipse" };
     case "roundRect":
@@ -3973,7 +3993,7 @@ function paintShape(ctx, sh, fit, res, suppressText) {
       const clipGeom = sh.geom !== void 0 && sh.geom !== "rect";
       if (clipGeom) {
         ctx.save();
-        const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
+        const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj);
         if (rule) ctx.clip(rule);
         else ctx.clip();
       }
@@ -3993,7 +4013,7 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     if (sh.lineColor) {
       ctx.strokeStyle = sh.lineColor;
       ctx.lineWidth = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
-      shapePath(ctx, sh.geom ?? "rect", x2, y, w, h, sh.custGeom);
+      shapePath(ctx, sh.geom ?? "rect", x2, y, w, h, sh.custGeom, sh.adj);
       ctx.stroke();
     }
     if (hasXform || hasAlpha) ctx.restore();
@@ -4013,7 +4033,7 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     ctx.shadowOffsetX = sx;
     ctx.shadowOffsetY = sy;
     ctx.fillStyle = sh.fill?.type === "solid" && sh.fill.color ? sh.fill.color : "#ffffff";
-    const shRule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
+    const shRule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj);
     if (shRule) ctx.fill(shRule);
     else ctx.fill();
     ctx.restore();
@@ -4022,7 +4042,7 @@ function paintShape(ctx, sh, fit, res, suppressText) {
   if (!isLineGeom && (sh.fillImage || sh.fill && sh.fill.type !== "none")) {
     ctx.save();
     if (sh.fillAlpha !== void 0 && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
-    const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
+    const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj);
     if (sh.fillImage) {
       const img = res.images?.get(sh.fillImage.part);
       if (img && sh.fillTile) {
@@ -4045,7 +4065,7 @@ function paintShape(ctx, sh, fit, res, suppressText) {
       if (rule) ctx.fill(rule);
       else ctx.fill();
     } else if (sh.fill.type === "solid" && sh.fill.color) {
-      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h);
+      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h, sh.adj);
       if (desc && desc.kind === "path" && desc.subLum) {
         for (let i2 = 0; i2 < desc.subs.length; i2++) {
           const lum = desc.subLum[i2];
@@ -4068,7 +4088,7 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     const lw = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
     ctx.lineWidth = lw;
     if (sh.lineDash) ctx.setLineDash(dashPattern(sh.lineDash, lw));
-    shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
+    shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj);
     ctx.stroke();
     if (sh.lineDash) ctx.setLineDash([]);
     if (isLineGeom && (sh.headArrow || sh.tailArrow)) {
@@ -4083,14 +4103,14 @@ function paintShape(ctx, sh, fit, res, suppressText) {
   if (sh.txBody && !suppressText) paintText(ctx, sh, sh.txBody, x2, y, w, h, fit.scale);
   if (hasXform || hasAlpha) ctx.restore();
 }
-function shapePath(ctx, geom, x2, y, w, h, custGeom) {
+function shapePath(ctx, geom, x2, y, w, h, custGeom, adj) {
   ctx.beginPath();
   if (custGeom) {
     const sx = w / custGeom.w, sy = h / custGeom.h;
     drawSegs(ctx, custGeom.subs, x2, y, sx, sy);
     return void 0;
   }
-  const p = presetPath(geom, w, h);
+  const p = presetPath(geom, w, h, adj);
   switch (p.kind) {
     case "path": {
       drawSegs(ctx, p.subs, x2, y, 1, 1);

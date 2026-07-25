@@ -151,6 +151,8 @@ export interface Shape {
   isTextBox?: boolean;
   xfrm?: Xfrm;
   geom?: string;     // prstGeom prst (rect, ellipse, roundRect, …)
+  /** Adjust values do prstGeom (`<a:avLst><a:gd fmla="val N">`), na ordem. */
+  adj?: number[];
   /** Geometria custom (`<a:custGeom>`, freeforms): paths em unidades w×h próprias. */
   custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][] };
   fill?: Fill;

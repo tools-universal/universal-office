@@ -805,6 +805,16 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
     if (xfrm) shape.xfrm = parseXfrm(xfrm);
     const geom = firstChild(spPr, 'a:prstGeom');
     if (geom?.attrs['prst']) shape.geom = geom.attrs['prst'];
+    // adjust values (moldura fina, cantos, ângulos de arco…)
+    const avLst = geom ? firstChild(geom, 'a:avLst') : undefined;
+    if (avLst) {
+      const adj: number[] = [];
+      for (const gd of childElements(avLst, 'a:gd')) {
+        const m = /val (-?\d+)/.exec(gd.attrs['fmla'] ?? '');
+        if (m) adj.push(parseInt(m[1]!, 10));
+      }
+      if (adj.length) shape.adj = adj;
+    }
     // geometria custom (freeform): <a:custGeom><a:pathLst><a:path w h>…
     const cust = firstChild(spPr, 'a:custGeom');
     if (cust) {
