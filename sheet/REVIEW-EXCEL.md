@@ -1,5 +1,36 @@
 # Revisão de fidelidade 1:1 — Universal Sheet × app de referência
 
+## Auditoria 2026-07-25 — tabelas 1:1, chart engine do tema, perf 1M células
+
+Ferramentas novas: `tools/excel-lab/gap-tour.mjs` (screenshots por aba do
+showcase no componente headless), `gen-giant.mjs` (xlsx de 200k e 1M células),
+`perf-giant.mjs` (load/paint/scroll + heap via CDP `Performance.getMetrics`).
+
+1. **Tabelas (ListObject) 1:1**: parse de `xl/tables/tableN.xml` via
+   `<tableParts>`; família built-in `TableStyleMediumN` replicada por accent do
+   TEMA (N=1 cinza; N=2..7 → accent1..6). Header = accent + texto branco bold
+   (apenas quando a célula usa a fonte default — formatação explícita vence);
+   bandas = accent com **tint HSL 0.8** (fórmula do app de referência, medida
+   no oráculo PDF: accent1 `#156082` → banda `#C0E6F5`; nosso `#C1E5F5`,
+   ±1/255 de arredondamento); setas de autofiltro desenhadas no header.
+2. **Chart engine sincronizada com o Slides** (upgrade de hoje): paleta =
+   accents 1..6 do `theme1.xml` do workbook (era paleta Office 2013 fixa),
+   legendas centradas, holeSize, ticks nice com headroom, radar de linhas,
+   scatter XY real, área, decimais pt-BR; moldura `#D9D9D9` (o app de
+   referência desenha borda em charts embutidos; PowerPoint não).
+3. **Confirmado no tour**: frozen panes JÁ renderizam 1:1 (viewport de 4
+   quadrantes) — a pendência antiga estava desatualizada.
+4. **Performance (planilha gigante)**: o índice célula-por-ref (`rowMap`) era
+   reconstruído A CADA paint — 1M de entradas por frame:
+   | arquivo | load | paint antes | paint depois | scroll depois | heap usado |
+   |---|---|---|---|---|---|
+   | giant-200k (2000×100) | 226ms | 17.4ms | **2.5ms** | 2.7ms | ~23MB |
+   | giant-1m (10000×100) | 787ms | 75.3ms | **2.4ms** | 2.4ms | ~98MB |
+   Cache por aba invalidado em `loadXlsx`/`selectSheet`/`setCellValue`
+   (incl. remoção de célula); `condNumMap` idem (só com regras na aba).
+   124/124 testes verdes; showcase sem regressão no gap-tour.
+
+
 Revisão conduzida com o **app de referência como oráculo** (app de referência 16.0 pt-BR, via
 automação COM). Metodologia: capturar o comportamento exato do app de referência, comparar
 contra a implementação, corrigir, e **fixar com teste de regressão** ancorado no

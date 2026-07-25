@@ -153,6 +153,10 @@ export class UniversalSheetElement extends HTMLElement {
   private ys: Float64Array = new Float64Array(0);
   /** Cache de valores numéricos por "col,row" para formatação condicional. */
   private condNumMap = new Map<string, number>();
+  /** condNumMap já construído para a aba ativa (invalidado em troca/edição). */
+  private condNumReady = false;
+  /** Cache do índice célula-por-ref por aba (invalidado em load/edição). */
+  private rowMapCache = new Map<number, Map<number, Map<number, Cell>>>();
   /** Modo captura: suprime seleção/overlays para pixel-compare com o app de referência. */
   capture = false;
 
@@ -320,6 +324,10 @@ export class UniversalSheetElement extends HTMLElement {
         tableDeco,
       });
     }
+    // caches de paint pertencem ao workbook anterior
+    this.rowMapCache.clear();
+    this.condNumReady = false;
+    this.condNumMap.clear();
     // abre na aba ativa (activeTab); o `Math.min(0, …)` anterior fixava sempre 0
     this.sheetIndex = Math.max(0, Math.min(this.workbook.activeTab ?? 0, this.views.length - 1));
     this.scrollX = 0;
@@ -384,6 +392,8 @@ export class UniversalSheetElement extends HTMLElement {
     // commita edição em curso ANTES de trocar de aba (Excel persiste)
     if (this.editing) this.commitEdit();
     this.sheetIndex = i;
+    this.condNumReady = false;
+    this.condNumMap.clear();
     this.scrollX = 0;
     this.scrollY = 0;
     this.sel = { col: 1, row: 1 };
@@ -984,11 +994,19 @@ export class UniversalSheetElement extends HTMLElement {
     // encontra/remove/cria célula
     const ci = r.cells.findIndex((c) => refToRowCol(c.ref).col === col);
     if (text === '') {
-      if (ci >= 0) { r.cells.splice(ci, 1); this.dirtySheets.add(this.sheetIndex); }
+      if (ci >= 0) {
+        r.cells.splice(ci, 1);
+        this.dirtySheets.add(this.sheetIndex);
+        this.rowMapCache.delete(this.sheetIndex);
+        this.condNumReady = false;
+      }
       this.dispatchEvent(new CustomEvent('us-edit', { detail: { ref, text: '' } }));
       return;
     }
     this.dirtySheets.add(this.sheetIndex);
+    // invalida caches de paint da aba (índice de células + cond. format)
+    this.rowMapCache.delete(this.sheetIndex);
+    this.condNumReady = false;
 
     const cell: Cell = ci >= 0 ? r.cells[ci]! : { ref };
     // limpa campos antes de re-aplicar
@@ -1106,16 +1124,22 @@ export class UniversalSheetElement extends HTMLElement {
     const fw = this.frozenW();
     const fh = this.frozenH();
 
-    // índice de células por ref para acesso rápido (compartilhado pelos quadrantes)
-    const rowMap = new Map<number, Map<number, Cell>>();
-    for (const r of v.worksheet.rows) {
-      const cm = new Map<number, Cell>();
-      for (const c of r.cells) cm.set(refToRowCol(c.ref).col, c);
-      rowMap.set(r.r, cm);
+    // índice de células por ref para acesso rápido — CACHEADO por aba
+    // (reconstruir 1M de entradas a cada frame custava ~75ms de paint na
+    // planilha gigante; invalidado em loadXlsx/selectSheet/setCellValue)
+    let rowMap = this.rowMapCache.get(this.sheetIndex);
+    if (!rowMap) {
+      rowMap = new Map<number, Map<number, Cell>>();
+      for (const r of v.worksheet.rows) {
+        const cm = new Map<number, Cell>();
+        for (const c of r.cells) cm.set(refToRowCol(c.ref).col, c);
+        rowMap.set(r.r, cm);
+      }
+      this.rowMapCache.set(this.sheetIndex, rowMap);
     }
-    // cache numérico para cond. format (rebuild por paint)
-    this.condNumMap.clear();
-    if (v.condFormats.length > 0) {
+    // cache numérico para cond. format (idem — só quando a aba tem regras)
+    if (v.condFormats.length > 0 && !this.condNumReady) {
+      this.condNumMap.clear();
       for (const r of v.worksheet.rows) {
         for (const c of r.cells) {
           if (c.type === 's') continue;
@@ -1123,6 +1147,7 @@ export class UniversalSheetElement extends HTMLElement {
           if (!Number.isNaN(n)) this.condNumMap.set(`${refToRowCol(c.ref).col},${r.r}`, n);
         }
       }
+      this.condNumReady = true;
     }
 
     ctx.save();

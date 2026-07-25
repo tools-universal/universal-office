@@ -35086,6 +35086,10 @@ var UniversalSheetElement = class extends HTMLElement {
   ys = new Float64Array(0);
   /** Cache de valores numéricos por "col,row" para formatação condicional. */
   condNumMap = /* @__PURE__ */ new Map();
+  /** condNumMap já construído para a aba ativa (invalidado em troca/edição). */
+  condNumReady = false;
+  /** Cache do índice célula-por-ref por aba (invalidado em load/edição). */
+  rowMapCache = /* @__PURE__ */ new Map();
   /** Modo captura: suprime seleção/overlays para pixel-compare com o app de referência. */
   capture = false;
   constructor() {
@@ -35233,6 +35237,9 @@ var UniversalSheetElement = class extends HTMLElement {
         tableDeco
       });
     }
+    this.rowMapCache.clear();
+    this.condNumReady = false;
+    this.condNumMap.clear();
     this.sheetIndex = Math.max(0, Math.min(this.workbook.activeTab ?? 0, this.views.length - 1));
     this.scrollX = 0;
     this.scrollY = 0;
@@ -35292,6 +35299,8 @@ var UniversalSheetElement = class extends HTMLElement {
     if (i8 < 0 || i8 >= this.views.length || i8 === this.sheetIndex) return;
     if (this.editing) this.commitEdit();
     this.sheetIndex = i8;
+    this.condNumReady = false;
+    this.condNumMap.clear();
     this.scrollX = 0;
     this.scrollY = 0;
     this.sel = { col: 1, row: 1 };
@@ -35854,11 +35863,15 @@ var UniversalSheetElement = class extends HTMLElement {
       if (ci >= 0) {
         r6.cells.splice(ci, 1);
         this.dirtySheets.add(this.sheetIndex);
+        this.rowMapCache.delete(this.sheetIndex);
+        this.condNumReady = false;
       }
       this.dispatchEvent(new CustomEvent("us-edit", { detail: { ref, text: "" } }));
       return;
     }
     this.dirtySheets.add(this.sheetIndex);
+    this.rowMapCache.delete(this.sheetIndex);
+    this.condNumReady = false;
     const cell = ci >= 0 ? r6.cells[ci] : { ref };
     cell.formula = void 0;
     cell.inlineString = void 0;
@@ -35963,14 +35976,18 @@ var UniversalSheetElement = class extends HTMLElement {
     const fr = v2.frozenRows;
     const fw = this.frozenW();
     const fh = this.frozenH();
-    const rowMap = /* @__PURE__ */ new Map();
-    for (const r6 of v2.worksheet.rows) {
-      const cm = /* @__PURE__ */ new Map();
-      for (const c4 of r6.cells) cm.set(refToRowCol(c4.ref).col, c4);
-      rowMap.set(r6.r, cm);
+    let rowMap = this.rowMapCache.get(this.sheetIndex);
+    if (!rowMap) {
+      rowMap = /* @__PURE__ */ new Map();
+      for (const r6 of v2.worksheet.rows) {
+        const cm = /* @__PURE__ */ new Map();
+        for (const c4 of r6.cells) cm.set(refToRowCol(c4.ref).col, c4);
+        rowMap.set(r6.r, cm);
+      }
+      this.rowMapCache.set(this.sheetIndex, rowMap);
     }
-    this.condNumMap.clear();
-    if (v2.condFormats.length > 0) {
+    if (v2.condFormats.length > 0 && !this.condNumReady) {
+      this.condNumMap.clear();
       for (const r6 of v2.worksheet.rows) {
         for (const c4 of r6.cells) {
           if (c4.type === "s") continue;
@@ -35978,6 +35995,7 @@ var UniversalSheetElement = class extends HTMLElement {
           if (!Number.isNaN(n5)) this.condNumMap.set(`${refToRowCol(c4.ref).col},${r6.r}`, n5);
         }
       }
+      this.condNumReady = true;
     }
     ctx.save();
     ctx.translate(HEADER_W, HEADER_H);
