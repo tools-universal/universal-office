@@ -4300,7 +4300,7 @@ function paintText(ctx, sh, tb, x2, y, w, h, scale) {
   if (unflip) ctx.restore();
 }
 function layoutFontStr(f, pxPerPt) {
-  return `${f.italic ? "italic " : ""}${f.bold ? "700 " : "400 "}${f.sizePt * pxPerPt}px '${f.family}', 'Liberation Sans', 'Aptos', Calibri, Arial, sans-serif`;
+  return `${f.italic ? "italic " : ""}${f.bold ? "700 " : "400 "}${f.sizePt * pxPerPt}px '${f.family}', 'Aptos', Calibri, 'Liberation Sans', Arial, sans-serif`;
 }
 function paintTable(ctx, t, x2, y, w, h, scale) {
   const allZeroRows = t.rows.every((r) => !r.heightEmu);
@@ -4409,7 +4409,7 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
       else if (cellAnchor === "b") cy = cy0 + ch - totalH - padY;
       ctx.textBaseline = "top";
       for (const l of lines) {
-        ctx.font = `${l.italic ? "italic " : ""}${l.bold ? "700 " : "400 "}${l.size}px '${l.font}', 'Liberation Sans', 'Aptos', Calibri, Arial, sans-serif`;
+        ctx.font = `${l.italic ? "italic " : ""}${l.bold ? "700 " : "400 "}${l.size}px '${l.font}', 'Aptos', Calibri, 'Liberation Sans', Arial, sans-serif`;
         ctx.fillStyle = l.color;
         const tw = ctx.measureText(l.text).width;
         let tx;
