@@ -35233,6 +35233,7 @@ var UniversalSheetElement = class extends HTMLElement {
     this.shared = readSharedStrings(pkg, cx);
     this.styles = readStyles(pkg, cx);
     this.chartPalette = cx.theme.colors.slice(4, 10);
+    void this.ensureSheetFonts();
     this.views = [];
     for (const ref of this.workbook.sheets) {
       if (!ref.target) continue;
@@ -35664,7 +35665,7 @@ var UniversalSheetElement = class extends HTMLElement {
         if (!txt) continue;
         const font = this.resolveStyle(c4).font;
         const size = (font?.size ?? 11) * 96 / 72;
-        ctx.font = `${font?.italic ? "italic " : ""}${font?.bold ? "700 " : "400 "}${size}px 'Aptos Narrow', ${font?.name ?? "Segoe UI"}, Arial, sans-serif`;
+        ctx.font = `${font?.italic ? "italic " : ""}${font?.bold ? "700 " : "400 "}${size}px '${font?.name ?? "Aptos Narrow"}', 'Aptos Narrow', 'Liberation Sans', 'Segoe UI', Arial, sans-serif`;
         best = Math.max(best, ctx.measureText(txt).width);
       }
     }
@@ -35753,6 +35754,48 @@ var UniversalSheetElement = class extends HTMLElement {
     if (overComment) this.showCommentTip(overComment, px, py);
     else this.hideCommentTip();
   };
+  /**
+   * Carrega SOB DEMANDA as fontes do SO usadas pelos estilos do workbook e
+   * ainda indisponíveis (queryLocalFonts — lógica compartilhada do Universal
+   * Write). Sem API/permissão, o fallback CSS (Aptos Narrow → Liberation
+   * Sans → Segoe UI) cobre.
+   */
+  async ensureSheetFonts() {
+    const wanted = /* @__PURE__ */ new Set();
+    for (const f3 of this.styles?.fonts ?? []) {
+      const name = f3?.name;
+      if (!name) continue;
+      try {
+        if (!document.fonts.check(`12px "${name}"`)) wanted.add(name);
+      } catch {
+        wanted.add(name);
+      }
+    }
+    if (!wanted.size) return;
+    const qlf = window.queryLocalFonts;
+    if (!qlf) return;
+    let faces;
+    try {
+      faces = await qlf.call(window);
+    } catch {
+      return;
+    }
+    const wantLc = new Set([...wanted].map((n5) => n5.toLowerCase()));
+    let added = false;
+    for (const fd3 of faces) {
+      if (!wantLc.has(fd3.family.toLowerCase())) continue;
+      const st = fd3.style.toLowerCase();
+      const weight = /bold|black|heavy|semibold|demi/.test(st) ? "700" : "400";
+      const style = /italic|oblique/.test(st) ? "italic" : "normal";
+      try {
+        const face = new FontFace(fd3.family, await (await fd3.blob()).arrayBuffer(), { weight, style });
+        document.fonts.add(await face.load());
+        added = true;
+      } catch {
+      }
+    }
+    if (added) this.paint();
+  }
   /** Nota flutuante do comentário: autor em negrito + texto, junto ao cursor. */
   showCommentTip(key, px, py) {
     const c4 = this.view?.commentAt.get(key);
@@ -36563,7 +36606,7 @@ var UniversalSheetElement = class extends HTMLElement {
     const size = (font?.size ?? 11) * 96 / 72 * this.zoom;
     const style = font?.italic ? "italic " : "";
     const weight = font?.bold ? "700 " : "400 ";
-    ctx.font = `${style}${weight}${size}px 'Aptos Narrow', ${font?.name ?? "Segoe UI"}, Arial, sans-serif`;
+    ctx.font = `${style}${weight}${size}px '${font?.name ?? "Aptos Narrow"}', 'Aptos Narrow', 'Liberation Sans', 'Segoe UI', Arial, sans-serif`;
     ctx.fillStyle = fr.color ?? font?.color ?? TEXT;
     const pad = 3 * this.zoom;
     const numeric = this.isNumericCell(cell);
