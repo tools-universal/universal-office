@@ -668,22 +668,24 @@ function mixLinearRgb(c1: string, c2: string, f: number): string {
 }
 
 /**
- * Tabela de prstDash → padrão LineDash do canvas. Os valores são MULTIPLICADOS
- * pela espessura da linha para escalonar com o stroke width (convenção do
- * PowerPoint: dash tem comprimento proporcional à grossura).
+ * Tabela de prstDash → padrão LineDash do canvas, em múltiplos da espessura.
+ * Valores MEDIDOS no app de referência (tools/ppt-lab/measure-dash.mjs sobre o
+ * PNG exportado; linhas de 2pt, compensação de ~1.5px de antialiasing por
+ * borda): dot 1.5/3, dash 5/3, dashDot 5/3/1.5/3, lgDash 9.5/3,
+ * lgDashDot 9.5/3/1.5/3, sysDashDotDot 3.8/0.7/1.5/0.7/1.5/0.7.
  */
 function dashPattern(prstDash: string, lw: number): number[] {
   switch (prstDash) {
-    case 'dash': return [4 * lw, 3 * lw];
-    case 'lgDash': return [8 * lw, 3 * lw];
-    case 'dashDot': return [4 * lw, 3 * lw, 1 * lw, 3 * lw];
-    case 'lgDashDot': return [8 * lw, 3 * lw, 1 * lw, 3 * lw];
-    case 'lgDashDotDot': return [8 * lw, 3 * lw, 1 * lw, 3 * lw, 1 * lw, 3 * lw];
-    case 'dot':
-    case 'sysDot': return [1 * lw, 1 * lw];
+    case 'dash': return [5 * lw, 3 * lw];
+    case 'lgDash': return [9.5 * lw, 3 * lw];
+    case 'dashDot': return [5 * lw, 3 * lw, 1.5 * lw, 3 * lw];
+    case 'lgDashDot': return [9.5 * lw, 3 * lw, 1.5 * lw, 3 * lw];
+    case 'lgDashDotDot': return [9.5 * lw, 3 * lw, 1.5 * lw, 3 * lw, 1.5 * lw, 3 * lw];
+    case 'dot': return [1.5 * lw, 3 * lw];
+    case 'sysDot': return [1.5 * lw, 1 * lw];
     case 'sysDash': return [3 * lw, 1 * lw];
-    case 'sysDashDot': return [3 * lw, 1 * lw, 1 * lw, 1 * lw];
-    case 'sysDashDotDot': return [3 * lw, 1 * lw, 1 * lw, 1 * lw, 1 * lw, 1 * lw];
+    case 'sysDashDot': return [3 * lw, 1 * lw, 1.5 * lw, 1 * lw];
+    case 'sysDashDotDot': return [3.8 * lw, 0.7 * lw, 1.5 * lw, 0.7 * lw, 1.5 * lw, 0.7 * lw];
     default: return [];
   }
 }

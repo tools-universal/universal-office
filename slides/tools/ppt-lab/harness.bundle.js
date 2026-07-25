@@ -3919,24 +3919,25 @@ function mixLinearRgb(c1, c2, f) {
 function dashPattern(prstDash, lw) {
   switch (prstDash) {
     case "dash":
-      return [4 * lw, 3 * lw];
+      return [5 * lw, 3 * lw];
     case "lgDash":
-      return [8 * lw, 3 * lw];
+      return [9.5 * lw, 3 * lw];
     case "dashDot":
-      return [4 * lw, 3 * lw, 1 * lw, 3 * lw];
+      return [5 * lw, 3 * lw, 1.5 * lw, 3 * lw];
     case "lgDashDot":
-      return [8 * lw, 3 * lw, 1 * lw, 3 * lw];
+      return [9.5 * lw, 3 * lw, 1.5 * lw, 3 * lw];
     case "lgDashDotDot":
-      return [8 * lw, 3 * lw, 1 * lw, 3 * lw, 1 * lw, 3 * lw];
+      return [9.5 * lw, 3 * lw, 1.5 * lw, 3 * lw, 1.5 * lw, 3 * lw];
     case "dot":
+      return [1.5 * lw, 3 * lw];
     case "sysDot":
-      return [1 * lw, 1 * lw];
+      return [1.5 * lw, 1 * lw];
     case "sysDash":
       return [3 * lw, 1 * lw];
     case "sysDashDot":
-      return [3 * lw, 1 * lw, 1 * lw, 1 * lw];
+      return [3 * lw, 1 * lw, 1.5 * lw, 1 * lw];
     case "sysDashDotDot":
-      return [3 * lw, 1 * lw, 1 * lw, 1 * lw, 1 * lw, 1 * lw];
+      return [3.8 * lw, 0.7 * lw, 1.5 * lw, 0.7 * lw, 1.5 * lw, 0.7 * lw];
     default:
       return [];
   }
