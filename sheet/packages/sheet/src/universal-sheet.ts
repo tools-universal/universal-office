@@ -159,6 +159,9 @@ export class UniversalSheetElement extends HTMLElement {
   private condNumReady = false;
   /** Cache do índice célula-por-ref por aba (invalidado em load/edição). */
   private rowMapCache = new Map<number, Map<number, Map<number, Cell>>>();
+  /** Tooltip de comentário (nota amarela) exibido no hover. */
+  private commentTip: HTMLDivElement | null = null;
+  private commentTipKey = '';
   /** Modo captura: suprime seleção/overlays para pixel-compare com o app de referência. */
   capture = false;
 
@@ -403,6 +406,7 @@ export class UniversalSheetElement extends HTMLElement {
     if (i < 0 || i >= this.views.length || i === this.sheetIndex) return;
     // commita edição em curso ANTES de trocar de aba (Excel persiste)
     if (this.editing) this.commitEdit();
+    this.hideCommentTip();
     this.sheetIndex = i;
     this.condNumReady = false;
     this.condNumMap.clear();
@@ -760,18 +764,55 @@ export class UniversalSheetElement extends HTMLElement {
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
     let cursor = 'cell';
+    let overComment: string | null = null;
     const rh = v ? this.resizeHitAt(px, py) : null;
     if (rh) {
       cursor = rh.kind === 'col' ? 'col-resize' : 'row-resize';
-    } else if (v && v.hyperlinkAt.size > 0 && px >= HEADER_W && py >= HEADER_H) {
+    } else if (v && px >= HEADER_W && py >= HEADER_H) {
       const hit = this.cellAt(px - HEADER_W, py - HEADER_H);
       if (hit) {
         const o = this.snapToMergeOrigin(hit.col, hit.row);
-        if (v.hyperlinkAt.has(`${o.col},${o.row}`)) cursor = 'pointer';
+        if (v.hyperlinkAt.size > 0 && v.hyperlinkAt.has(`${o.col},${o.row}`)) cursor = 'pointer';
+        if (v.commentAt.size > 0 && v.commentAt.has(`${o.col},${o.row}`)) overComment = `${o.col},${o.row}`;
       }
     }
     if (this.canvas.style.cursor !== cursor) this.canvas.style.cursor = cursor;
+    // tooltip de comentário (nota amarela do app de referência) no hover
+    if (overComment) this.showCommentTip(overComment, px, py);
+    else this.hideCommentTip();
   };
+
+  /** Nota flutuante do comentário: autor em negrito + texto, junto ao cursor. */
+  private showCommentTip(key: string, px: number, py: number): void {
+    const c = this.view?.commentAt.get(key);
+    if (!c) { this.hideCommentTip(); return; }
+    if (!this.commentTip) {
+      this.commentTip = document.createElement('div');
+      this.commentTip.style.cssText =
+        'position:absolute;z-index:30;max-width:280px;padding:6px 8px;' +
+        'background:#FFFFE1;border:1px solid #A0A0A0;box-shadow:2px 2px 5px rgba(0,0,0,.3);' +
+        "font:12px 'Segoe UI', Tahoma, sans-serif;color:#1f1f1f;pointer-events:none;white-space:pre-wrap;";
+      this.wrap.appendChild(this.commentTip);
+    }
+    if (this.commentTipKey !== key) {
+      this.commentTip.replaceChildren();
+      if (c.author) {
+        const b = document.createElement('b');
+        b.textContent = c.author + ':';
+        this.commentTip.appendChild(b);
+        this.commentTip.appendChild(document.createElement('br'));
+      }
+      this.commentTip.appendChild(document.createTextNode(c.text));
+      this.commentTipKey = key;
+    }
+    this.commentTip.style.left = `${px + 14}px`;
+    this.commentTip.style.top = `${py + 16}px`;
+    this.commentTip.style.display = 'block';
+  }
+
+  private hideCommentTip(): void {
+    if (this.commentTip) { this.commentTip.style.display = 'none'; this.commentTipKey = ''; }
+  }
 
   /**
    * Segue um hyperlink: externo → window.open; interno → navega para

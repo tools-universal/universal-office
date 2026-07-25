@@ -33283,7 +33283,7 @@ function paintBars(ctx, chart, x4, y3, w2, h3, dir, labelPx) {
     }
   }
   paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
-  paintValueAxis(ctx, t5, x4 + axW - 6, plotT, plotB - plotT, labelPx);
+  paintValueAxis(ctx, t5, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
 function paintLines(ctx, chart, x4, y3, w2, h3, labelPx, area) {
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;
@@ -33330,7 +33330,7 @@ function paintLines(ctx, chart, x4, y3, w2, h3, labelPx, area) {
     }
   }
   paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
-  paintValueAxis(ctx, t5, x4 + axW - 6, plotT, plotB - plotT, labelPx);
+  paintValueAxis(ctx, t5, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
 function paintPieOrDoughnut(ctx, chart, x4, y3, w2, h3, holeFrac) {
   const s0 = chart.series[0];
@@ -33408,7 +33408,7 @@ function paintScatter(ctx, chart, x4, y3, w2, h3, labelPx) {
     const xx = plotL + (v2 - tx.lo) / (tx.hi - tx.lo) * (plotR - plotL);
     ctx.fillText(formatVal(v2), xx, plotB + labelPx * 0.35);
   }
-  paintValueAxis(ctx, ty, x4 + axW - 6, plotT, plotB - plotT, labelPx);
+  paintValueAxis(ctx, ty, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
 function paintRadar(ctx, chart, x4, y3, w2, h3, labelPx) {
   const n5 = chart.categories.length || chart.series[0]?.values.length || 0;
@@ -33490,7 +33490,7 @@ function paintCategoryAxis(ctx, cats, l3, b5, w2, labelPx) {
   const stepX = w2 / cats.length;
   for (let i8 = 0; i8 < cats.length; i8++) {
     const text = cats[i8] ?? String(i8 + 1);
-    ctx.fillText(text, l3 + stepX * (i8 + 0.5), b5 + labelPx * 0.35);
+    ctx.fillText(text, l3 + stepX * (i8 + 0.5), b5 + labelPx * 0.8);
   }
 }
 function paintValueAxis(ctx, ticks, xRight, y3, h3, labelPx) {
@@ -35100,6 +35100,9 @@ var UniversalSheetElement = class extends HTMLElement {
   condNumReady = false;
   /** Cache do índice célula-por-ref por aba (invalidado em load/edição). */
   rowMapCache = /* @__PURE__ */ new Map();
+  /** Tooltip de comentário (nota amarela) exibido no hover. */
+  commentTip = null;
+  commentTipKey = "";
   /** Modo captura: suprime seleção/overlays para pixel-compare com o app de referência. */
   capture = false;
   constructor() {
@@ -35317,6 +35320,7 @@ var UniversalSheetElement = class extends HTMLElement {
   selectSheet(i8) {
     if (i8 < 0 || i8 >= this.views.length || i8 === this.sheetIndex) return;
     if (this.editing) this.commitEdit();
+    this.hideCommentTip();
     this.sheetIndex = i8;
     this.condNumReady = false;
     this.condNumMap.clear();
@@ -35647,18 +35651,55 @@ var UniversalSheetElement = class extends HTMLElement {
     const px = e8.clientX - rect.left;
     const py = e8.clientY - rect.top;
     let cursor = "cell";
+    let overComment = null;
     const rh = v2 ? this.resizeHitAt(px, py) : null;
     if (rh) {
       cursor = rh.kind === "col" ? "col-resize" : "row-resize";
-    } else if (v2 && v2.hyperlinkAt.size > 0 && px >= HEADER_W && py >= HEADER_H) {
+    } else if (v2 && px >= HEADER_W && py >= HEADER_H) {
       const hit = this.cellAt(px - HEADER_W, py - HEADER_H);
       if (hit) {
         const o7 = this.snapToMergeOrigin(hit.col, hit.row);
-        if (v2.hyperlinkAt.has(`${o7.col},${o7.row}`)) cursor = "pointer";
+        if (v2.hyperlinkAt.size > 0 && v2.hyperlinkAt.has(`${o7.col},${o7.row}`)) cursor = "pointer";
+        if (v2.commentAt.size > 0 && v2.commentAt.has(`${o7.col},${o7.row}`)) overComment = `${o7.col},${o7.row}`;
       }
     }
     if (this.canvas.style.cursor !== cursor) this.canvas.style.cursor = cursor;
+    if (overComment) this.showCommentTip(overComment, px, py);
+    else this.hideCommentTip();
   };
+  /** Nota flutuante do comentário: autor em negrito + texto, junto ao cursor. */
+  showCommentTip(key, px, py) {
+    const c4 = this.view?.commentAt.get(key);
+    if (!c4) {
+      this.hideCommentTip();
+      return;
+    }
+    if (!this.commentTip) {
+      this.commentTip = document.createElement("div");
+      this.commentTip.style.cssText = "position:absolute;z-index:30;max-width:280px;padding:6px 8px;background:#FFFFE1;border:1px solid #A0A0A0;box-shadow:2px 2px 5px rgba(0,0,0,.3);font:12px 'Segoe UI', Tahoma, sans-serif;color:#1f1f1f;pointer-events:none;white-space:pre-wrap;";
+      this.wrap.appendChild(this.commentTip);
+    }
+    if (this.commentTipKey !== key) {
+      this.commentTip.replaceChildren();
+      if (c4.author) {
+        const b5 = document.createElement("b");
+        b5.textContent = c4.author + ":";
+        this.commentTip.appendChild(b5);
+        this.commentTip.appendChild(document.createElement("br"));
+      }
+      this.commentTip.appendChild(document.createTextNode(c4.text));
+      this.commentTipKey = key;
+    }
+    this.commentTip.style.left = `${px + 14}px`;
+    this.commentTip.style.top = `${py + 16}px`;
+    this.commentTip.style.display = "block";
+  }
+  hideCommentTip() {
+    if (this.commentTip) {
+      this.commentTip.style.display = "none";
+      this.commentTipKey = "";
+    }
+  }
   /**
    * Segue um hyperlink: externo → window.open; interno → navega para
    * "Aba!Ref" (location), trocando de planilha quando necessário.
