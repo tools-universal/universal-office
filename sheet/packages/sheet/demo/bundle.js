@@ -33183,12 +33183,12 @@ function paintChart(ctx, chart, x4, y3, w2, h3, pxPerPt, frameBorder) {
     ctx.font = `${titlePx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillText(chart.title, x4 + w2 / 2, y3 + 8 * u3);
-    plotY = y3 + titlePx + 16 * u3;
-    plotH = h3 - (titlePx + 24 * u3);
+    ctx.fillText(chart.title, x4 + w2 / 2, y3 + 16 * u3);
+    plotY = y3 + titlePx + 36 * u3;
+    plotH = h3 - (titlePx + 44 * u3);
   }
   const showLegend = chart.legendPos !== void 0;
-  const legendH = showLegend ? labelPx + 12 * u3 : 0;
+  const legendH = showLegend ? labelPx + 20 * u3 : 0;
   const legendTop = chart.legendPos === "t";
   const px = x4 + 8 * u3;
   const py = plotY + (legendTop ? legendH : 0);
@@ -33260,7 +33260,7 @@ function paintBars(ctx, chart, x4, y3, w2, h3, dir, labelPx) {
   if (!cats || chart.series.length === 0) return;
   const { min, max: max3 } = valueRange(chart);
   const t5 = niceTicks(min, max3);
-  const axW = labelPx * 2.2, axH = labelPx * 1.8;
+  const axW = labelPx * 2, axH = labelPx * 2.4;
   const plotL = x4 + axW, plotT = y3, plotR = x4 + w2, plotB = y3 + h3 - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, t5);
   const gap = (chart.gapWidth ?? 219) / 100;
@@ -33290,7 +33290,7 @@ function paintLines(ctx, chart, x4, y3, w2, h3, labelPx, area) {
   if (!cats) return;
   const { min, max: max3 } = valueRange(chart);
   const t5 = niceTicks(min, max3);
-  const axW = labelPx * 2.2, axH = labelPx * 1.8;
+  const axW = labelPx * 2, axH = labelPx * 2.4;
   const plotL = x4 + axW, plotT = y3, plotR = x4 + w2, plotB = y3 + h3 - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, t5);
   const stepX = (plotR - plotL) / cats;
@@ -33338,8 +33338,8 @@ function paintPieOrDoughnut(ctx, chart, x4, y3, w2, h3, holeFrac) {
   const total = s0.values.reduce((a3, b5) => a3 + Math.max(0, b5), 0);
   if (total <= 0) return;
   const pal = paletteOf(chart);
-  const cx = x4 + w2 / 2, cy = y3 + h3 / 2;
-  const radius = Math.min(w2, h3) / 2 - 4;
+  const cx = x4 + w2 / 2, cy = y3 + h3 / 2 - h3 * 0.012;
+  const radius = Math.min(w2, h3) / 2 * 0.97;
   let a0 = -Math.PI / 2;
   for (let i8 = 0; i8 < s0.values.length; i8++) {
     const v2 = Math.max(0, s0.values[i8] ?? 0);
@@ -33358,7 +33358,7 @@ function paintPieOrDoughnut(ctx, chart, x4, y3, w2, h3, holeFrac) {
     }
     ctx.fill();
     ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = Math.max(1.5, radius / 120);
+    ctx.lineWidth = Math.max(2, radius / 90);
     ctx.stroke();
     a0 = a1;
   }
@@ -33376,7 +33376,7 @@ function paintScatter(ctx, chart, x4, y3, w2, h3, labelPx) {
   const { min, max: max3 } = valueRange(chart);
   const tx = niceTicks(xMin, xMax);
   const ty = niceTicks(min, max3);
-  const axW = labelPx * 2.2, axH = labelPx * 1.8;
+  const axW = labelPx * 2, axH = labelPx * 2.4;
   const plotL = x4 + axW, plotT = y3, plotR = x4 + w2, plotB = y3 + h3 - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, ty);
   ctx.strokeStyle = "#D9D9D9";
