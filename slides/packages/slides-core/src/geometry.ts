@@ -8,6 +8,15 @@
 
 export interface Pt { x: number; y: number }
 
+/** Segmento de um subpath genérico (coordenadas absolutas no rect w×h). */
+export type PathSeg =
+  | { c: 'M'; x: number; y: number }
+  | { c: 'L'; x: number; y: number }
+  | { c: 'C'; x1: number; y1: number; x2: number; y2: number; x: number; y: number }
+  /** Arco de elipse (ctx.ellipse): ângulos em RADIANOS, a0→a1, ccw opcional. */
+  | { c: 'E'; cx: number; cy: number; rx: number; ry: number; a0: number; a1: number; ccw?: boolean }
+  | { c: 'Z' };
+
 export type PresetPath =
   /** Polígono fechado. */
   | { kind: 'poly'; points: Pt[] }
@@ -18,7 +27,9 @@ export type PresetPath =
   | { kind: 'rect' }
   | { kind: 'ellipse' }
   /** Retângulo arredondado com raio em unidades do rect. */
-  | { kind: 'roundRect'; r: number };
+  | { kind: 'roundRect'; r: number }
+  /** Path genérico (beziers/arcos, múltiplos subpaths, fillRule opcional). */
+  | { kind: 'path'; fillRule?: 'evenodd'; subs: PathSeg[][] };
 
 /** Vértices de um polígono regular inscrito na elipse w×h, começando no topo. */
 function regularPolygon(n: number, w: number, h: number): Pt[] {
@@ -128,6 +139,114 @@ export function presetPath(geom: string | undefined, w: number, h: number): Pres
     case 'line':
     case 'straightConnector1':
       return { kind: 'line', x1: 0, y1: 0, x2: w, y2: h };
+
+    case 'octagon': { // adj=29289 → corte ≈ (1-1/√2)·ss
+      const d = ss * 0.29289;
+      return {
+        kind: 'poly', points: [
+          { x: d, y: 0 }, { x: w - d, y: 0 }, { x: w, y: d }, { x: w, y: h - d },
+          { x: w - d, y: h }, { x: d, y: h }, { x: 0, y: h - d }, { x: 0, y: d },
+        ],
+      };
+    }
+    case 'donut': { // adj=25000 → espessura do anel = ss/4
+      const t = ss * 0.25;
+      return {
+        kind: 'path', fillRule: 'evenodd', subs: [
+          [{ c: 'E', cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2, a0: 0, a1: Math.PI * 2 }, { c: 'Z' }],
+          [{ c: 'E', cx: w / 2, cy: h / 2, rx: w / 2 - t, ry: h / 2 - t, a0: 0, a1: Math.PI * 2 }, { c: 'Z' }],
+        ],
+      };
+    }
+    case 'moon': { // adj=87500/50000 — crescente com abertura à DIREITA
+      // arco externo: elipse do box inteiro; arco interno: elipse com rx menor
+      // ancorada na borda direita (formato "C").
+      const irx = w * 0.5;
+      return {
+        kind: 'path', subs: [[
+          { c: 'M', x: w, y: 0 },
+          { c: 'E', cx: w, cy: h / 2, rx: w, ry: h / 2, a0: -Math.PI / 2, a1: -Math.PI * 1.5, ccw: true },
+          { c: 'E', cx: w, cy: h / 2, rx: irx, ry: h * 0.4, a0: Math.PI / 2, a1: -Math.PI / 2, ccw: false },
+          { c: 'Z' },
+        ]],
+      };
+    }
+    case 'heart': {
+      return {
+        kind: 'path', subs: [[
+          { c: 'M', x: w / 2, y: h * 0.3 },
+          { c: 'C', x1: w * 0.5, y1: h * 0.12, x2: w * 0.38, y2: h * 0.01, x: w * 0.26, y: h * 0.01 },
+          { c: 'C', x1: w * 0.1, y1: h * 0.01, x2: 0, y2: h * 0.14, x: 0, y: h * 0.31 },
+          { c: 'C', x1: 0, y1: h * 0.51, x2: w * 0.18, y2: h * 0.66, x: w / 2, y: h },
+          { c: 'C', x1: w * 0.82, y1: h * 0.66, x2: w, y2: h * 0.51, x: w, y: h * 0.31 },
+          { c: 'C', x1: w, y1: h * 0.14, x2: w * 0.9, y2: h * 0.01, x: w * 0.74, y: h * 0.01 },
+          { c: 'C', x1: w * 0.62, y1: h * 0.01, x2: w * 0.5, y2: h * 0.12, x: w / 2, y: h * 0.3 },
+          { c: 'Z' },
+        ]],
+      };
+    }
+    case 'lightningBolt': { // path do preset (unidades 21600) escalado ao rect
+      const u = (px: number, py: number): Pt => ({ x: (px / 21600) * w, y: (py / 21600) * h });
+      const pts = [
+        u(8472, 0), u(12860, 6080), u(11050, 6797), u(16577, 12007), u(14767, 12877),
+        u(21600, 21600), u(10800, 14915), u(12482, 14072), u(7602, 8382), u(9722, 7292), u(0, 3890),
+      ];
+      return { kind: 'poly', points: pts };
+    }
+    case 'sun': { // adj=25000 — 8 raios triangulares + disco central
+      const cx = w / 2, cy = h / 2;
+      const rx = w * 0.28, ry = h * 0.28;   // disco
+      const brx = w * 0.32, bry = h * 0.32; // base dos raios
+      const subs: PathSeg[][] = [
+        [{ c: 'E', cx, cy, rx, ry, a0: 0, a1: Math.PI * 2 }, { c: 'Z' }],
+      ];
+      for (let i = 0; i < 8; i++) {
+        const a = (i * Math.PI) / 4;
+        const spread = 0.35;
+        subs.push([
+          { c: 'M', x: cx + Math.cos(a) * (w / 2), y: cy + Math.sin(a) * (h / 2) },
+          { c: 'L', x: cx + Math.cos(a + spread) * brx, y: cy + Math.sin(a + spread) * bry },
+          { c: 'L', x: cx + Math.cos(a - spread) * brx, y: cy + Math.sin(a - spread) * bry },
+          { c: 'Z' },
+        ]);
+      }
+      return { kind: 'path', subs };
+    }
+    case 'can': { // adj=25000 → "tampa" com meia-altura ss/8
+      const ry = ss * 0.125;
+      return {
+        kind: 'path', subs: [
+          [ // corpo: laterais + fundo arqueado + topo arqueado (contorno completo)
+            { c: 'M', x: 0, y: ry },
+            { c: 'L', x: 0, y: h - ry },
+            { c: 'E', cx: w / 2, cy: h - ry, rx: w / 2, ry, a0: Math.PI, a1: 0, ccw: true },
+            { c: 'L', x: w, y: ry },
+            { c: 'E', cx: w / 2, cy: ry, rx: w / 2, ry, a0: 0, a1: Math.PI, ccw: true },
+            { c: 'Z' },
+          ],
+          [ // tampa (elipse completa — o stroke marca a boca do cilindro)
+            { c: 'E', cx: w / 2, cy: ry, rx: w / 2, ry, a0: 0, a1: Math.PI * 2 },
+            { c: 'Z' },
+          ],
+        ],
+      };
+    }
+    case 'cube': { // adj=25000 → profundidade = ss/4 (silhueta; faces sem sombreado v1)
+      const d = ss * 0.25;
+      return {
+        kind: 'path', subs: [
+          [ // silhueta
+            { c: 'M', x: 0, y: d }, { c: 'L', x: d, y: 0 }, { c: 'L', x: w, y: 0 },
+            { c: 'L', x: w, y: h - d }, { c: 'L', x: w - d, y: h }, { c: 'L', x: 0, y: h },
+            { c: 'Z' },
+          ],
+          [ // arestas internas (stroke)
+            { c: 'M', x: 0, y: d }, { c: 'L', x: w - d, y: d }, { c: 'L', x: w - d, y: h },
+            { c: 'M', x: w - d, y: d }, { c: 'L', x: w, y: 0 },
+          ],
+        ],
+      };
+    }
     default:
       return { kind: 'rect' };
   }

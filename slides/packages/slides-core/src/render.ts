@@ -72,8 +72,12 @@ export function paintSlideTo(
   const sh = resources.slideH * scale;
   const fit: Fit = { ox, oy, scale };
 
-  // fundo do slide: cor sólida (fallback branco) + opcional imagem por cima
-  ctx.fillStyle = slide.bg?.color ?? '#ffffff';
+  // fundo do slide: cor sólida ou gradiente (fallback branco) + opcional imagem
+  if (slide.bg?.type === 'gradient' && slide.bg.stops && slide.bg.stops.length >= 2) {
+    ctx.fillStyle = makeLinearGradient(ctx, slide.bg, ox, oy, sw, sh);
+  } else {
+    ctx.fillStyle = slide.bg?.color ?? '#ffffff';
+  }
   ctx.fillRect(ox, oy, sw, sh);
   ctx.save();
   ctx.beginPath(); ctx.rect(ox, oy, sw, sh); ctx.clip();
@@ -140,7 +144,8 @@ function paintShape(
   if (sh.chartXml) {
     let model = res.charts?.get(sh.chartXml);
     if (!model) { model = parseChart(sh.chartXml); res.charts?.set(sh.chartXml, model); }
-    paintChart(ctx, model, x, y, w, h);
+    if (!model.palette && sh.chartPalette) model.palette = sh.chartPalette;
+    paintChart(ctx, model, x, y, w, h, EMU_PER_POINT * fit.scale);
     if (hasXform || hasAlpha) ctx.restore();
     return;
   }
@@ -152,7 +157,7 @@ function paintShape(
     const natH = sh.table.rows.reduce((a, r) => a + r.heightEmu, 0);
     const tw = natW > 0 ? natW * fit.scale : w;
     const th = natH > 0 ? natH * fit.scale : h;
-    paintTable(ctx, sh.table, x, y, tw, th);
+    paintTable(ctx, sh.table, x, y, tw, th, fit.scale);
     if (hasXform || hasAlpha) ctx.restore();
     return;
   }
@@ -197,8 +202,8 @@ function paintShape(
     ctx.shadowOffsetX = sx;
     ctx.shadowOffsetY = sy;
     ctx.fillStyle = sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color : '#ffffff';
-    shapePath(ctx, sh.geom, x, y, w, h);
-    ctx.fill();
+    const shRule = shapePath(ctx, sh.geom, x, y, w, h);
+    if (shRule) ctx.fill(shRule); else ctx.fill();
     ctx.restore();
   }
   // preenchimento (solid com alpha opcional, gradiente linear ou blipFill).
@@ -207,17 +212,17 @@ function paintShape(
   if (!isLineGeom && (sh.fillImage || (sh.fill && sh.fill.type !== 'none'))) {
     ctx.save();
     if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
-    shapePath(ctx, sh.geom, x, y, w, h);
+    const rule = shapePath(ctx, sh.geom, x, y, w, h);
     if (sh.fillImage) {
       // blipFill de shape: imagem esticada recortada pelo path da geometria
       const img = res.images?.get(sh.fillImage.part);
       if (img) { ctx.clip(); ctx.drawImage(img, x, y, w, h); }
     } else if (sh.fill!.type === 'gradient' && sh.fill!.stops && sh.fill!.stops.length >= 2) {
       ctx.fillStyle = makeLinearGradient(ctx, sh.fill!, x, y, w, h);
-      ctx.fill();
+      if (rule) ctx.fill(rule); else ctx.fill();
     } else if (sh.fill!.type === 'solid' && sh.fill!.color) {
       ctx.fillStyle = sh.fill!.color;
-      ctx.fill();
+      if (rule) ctx.fill(rule); else ctx.fill();
     }
     ctx.restore();
   }
@@ -240,10 +245,22 @@ function paintShape(
  * Monta o path da geometria preset no contexto (usa o descritor puro
  * `presetPath` — o MESMO que o export PDF reusa como paths vetoriais).
  */
-function shapePath(ctx: CanvasRenderingContext2D, geom: string | undefined, x: number, y: number, w: number, h: number): void {
+function shapePath(ctx: CanvasRenderingContext2D, geom: string | undefined, x: number, y: number, w: number, h: number): CanvasFillRule | undefined {
   ctx.beginPath();
   const p = presetPath(geom, w, h);
   switch (p.kind) {
+    case 'path': {
+      for (const sub of p.subs) {
+        for (const s of sub) {
+          if (s.c === 'M') ctx.moveTo(x + s.x, y + s.y);
+          else if (s.c === 'L') ctx.lineTo(x + s.x, y + s.y);
+          else if (s.c === 'C') ctx.bezierCurveTo(x + s.x1, y + s.y1, x + s.x2, y + s.y2, x + s.x, y + s.y);
+          else if (s.c === 'E') ctx.ellipse(x + s.cx, y + s.cy, s.rx, s.ry, 0, s.a0, s.a1, s.ccw ?? false);
+          else ctx.closePath();
+        }
+      }
+      return p.fillRule;
+    }
     case 'ellipse':
       ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
       break;
@@ -273,6 +290,7 @@ function shapePath(ctx: CanvasRenderingContext2D, geom: string | undefined, x: n
     default:
       ctx.rect(x, y, w, h);
   }
+  return undefined;
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -334,9 +352,10 @@ function layoutFontStr(f: LayoutFont, pxPerPt: number): string {
  * Renderiza uma tabela `<a:tbl>` no rect `(x,y,w,h)`. Escala colunas/linhas
  * proporcionalmente para preencher exatamente o rect. Suporta gridSpan/rowSpan
  * via skip de células `hMerge`/`vMerge`. Pinta cell.fill, depois bordas, depois
- * texto centralizado conforme `cell.anchor` + `pPr.algn`.
+ * texto conforme `cell.anchor` (default TOPO, como o app de referência) +
+ * `pPr.algn`. `scale` = px por EMU (dimensiona texto e insets).
  */
-function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: number, w: number, h: number): void {
+function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: number, w: number, h: number, scale: number): void {
   // Alturas: se TODAS forem 0 (XML sem atributo h em <a:tr>), distribui
   // igualmente; caso contrário, usa as proporções do XML.
   const allZeroRows = t.rows.every((r) => !r.heightEmu);
@@ -388,7 +407,7 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
       const cy0 = y + rowY[ri]!;
       const cw = (colX[ci + span] ?? colX[colX.length - 1]!) - colX[ci]!;
       const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]!) - rowY[ri]!;
-      const bw = (cell.borderWidth ?? 6350) / 9525; // EMU->px @96dpi sem zoom (já no rect)
+      const bw = (cell.borderWidth ?? 12700) * scale; // EMU -> px na escala atual
       const bc = cell.borderColor ?? '#CBD5E1';
       ctx.strokeStyle = bc;
       ctx.lineWidth = Math.max(0.5, bw);
@@ -409,29 +428,31 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
       const cy0 = y + rowY[ri]!;
       const cw = (colX[ci + span] ?? colX[colX.length - 1]!) - colX[ci]!;
       const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]!) - rowY[ri]!;
-      // padding interno default 0.05in (45720 EMU); sx/sy são px por EMU
-      const pad = 45720 * Math.min(sx, sy);
-      // anchor da célula
-      const cellAnchor = cell.anchor ?? 'ctr';
+      // insets default do app de referência: 0.1in lateral, 0.05in vertical
+      const padX = 91440 * scale;
+      const padY = 45720 * scale;
+      // anchor da célula — default do app de referência é TOPO
+      const cellAnchor = cell.anchor ?? 't';
+      const pxPerPt = EMU_PER_POINT * scale;
       // pinta linha por linha (1 parágrafo = 1 linha aqui — bullets ignorados)
       const lines: { text: string; bold: boolean; italic: boolean; color: string; size: number; align: string; font: string }[] = [];
       for (const p of cell.txBody.paragraphs) {
         for (const r of p.runs.length ? p.runs : [{ text: '' } as Run]) {
           lines.push({
             text: r.text,
-            bold: !!r.bold, italic: !!r.italic,
-            color: r.color ?? '#1f1f1f',
-            size: (r.sz ?? 12) * 96 / 72,
+            bold: !!(r.bold ?? cell.txBold), italic: !!r.italic,
+            color: r.color ?? cell.txColor ?? '#000000',
+            size: (r.sz ?? 18) * pxPerPt,
             align: p.align ?? 'l',
             font: r.font ?? 'Calibri',
           });
         }
       }
-      const lineH = (lines[0]?.size ?? 12) * 1.2;
+      const lineH = (lines[0]?.size ?? 18 * pxPerPt) * 1.2;
       const totalH = lines.length * lineH;
-      let cy = cy0 + pad;
+      let cy = cy0 + padY;
       if (cellAnchor === 'ctr') cy = cy0 + (ch - totalH) / 2;
-      else if (cellAnchor === 'b') cy = cy0 + ch - totalH - pad;
+      else if (cellAnchor === 'b') cy = cy0 + ch - totalH - padY;
       ctx.textBaseline = 'top';
       for (const l of lines) {
         ctx.font = `${l.italic ? 'italic ' : ''}${l.bold ? '700 ' : '400 '}${l.size}px '${l.font}', 'Aptos', Calibri, Arial, sans-serif`;
@@ -439,8 +460,8 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
         const tw = ctx.measureText(l.text).width;
         let tx: number;
         if (l.align === 'ctr') tx = cx0 + (cw - tw) / 2;
-        else if (l.align === 'r') tx = cx0 + cw - tw - pad;
-        else tx = cx0 + pad;
+        else if (l.align === 'r') tx = cx0 + cw - tw - padX;
+        else tx = cx0 + padX;
         ctx.fillText(l.text, tx, cy);
         cy += lineH;
       }
@@ -456,14 +477,49 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
  */
 function makeLinearGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number, y: number, w: number, h: number): CanvasGradient {
   const ang = (fill.angleDeg ?? 0) * Math.PI / 180;
+  let dx = Math.cos(ang), dy = Math.sin(ang);
+  // scaled: o ângulo é definido no quadrado unitário; ao esticar para o rect,
+  // as ISO-LINHAS transformam como vetores e a direção do gradiente (normal
+  // delas) transforma de forma COVARIANTE: (cos·h, sin·w). Verificado contra o
+  // app de referência (fundo 45° scaled fica mais íngreme em 16:9, não mais raso).
+  if (fill.scaled) {
+    dx = Math.cos(ang) * h; dy = Math.sin(ang) * w;
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len; dy /= len;
+  }
   const cx = x + w / 2, cy = y + h / 2;
-  const half = (Math.abs(Math.cos(ang)) * w + Math.abs(Math.sin(ang)) * h) / 2;
-  const g = ctx.createLinearGradient(
-    cx - Math.cos(ang) * half, cy - Math.sin(ang) * half,
-    cx + Math.cos(ang) * half, cy + Math.sin(ang) * half,
-  );
-  for (const s of fill.stops ?? []) g.addColorStop(Math.max(0, Math.min(1, s.pos)), s.color);
+  const half = (Math.abs(dx) * w + Math.abs(dy) * h) / 2;
+  const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
+  // O app de referência interpola gradientes em RGB LINEAR (gamma); o canvas
+  // interpola em sRGB (meio mais escuro). Aproximamos inserindo substops
+  // calculados em espaço linear entre cada par de stops.
+  const stops = (fill.stops ?? []).map((s) => ({ pos: Math.max(0, Math.min(1, s.pos)), color: s.color }));
+  for (let i = 0; i < stops.length; i++) {
+    const s = stops[i]!;
+    g.addColorStop(s.pos, s.color);
+    const nx = stops[i + 1];
+    if (!nx || nx.pos - s.pos < 0.05) continue;
+    for (let k = 1; k < 8; k++) {
+      const f = k / 8;
+      g.addColorStop(s.pos + (nx.pos - s.pos) * f, mixLinearRgb(s.color, nx.color, f));
+    }
+  }
   return g;
+}
+
+/** Mistura duas cores #RRGGBB em espaço RGB linear (gamma 2.2 aproximado). */
+function mixLinearRgb(c1: string, c2: string, f: number): string {
+  const p = (h: string): [number, number, number] => {
+    const n = parseInt(h.replace('#', ''), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const [r1, g1, b1] = p(c1);
+  const [r2, g2, b2] = p(c2);
+  const lin = (v: number): number => Math.pow(v / 255, 2.2);
+  const srgb = (v: number): number => Math.round(Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255);
+  const mix = (a: number, b: number): number => srgb(lin(a) * (1 - f) + lin(b) * f);
+  const hx = (v: number): string => v.toString(16).padStart(2, '0');
+  return '#' + hx(mix(r1, r2)) + hx(mix(g1, g2)) + hx(mix(b1, b2));
 }
 
 /**

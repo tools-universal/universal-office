@@ -7,10 +7,11 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal/slides-core=../slides-core/src/index.ts",
+    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal/slides-core=../slides-core/src/index.ts --alias:@universal/presentation-viewer=../viewer/src/index.ts",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@universal/presentation-viewer": "*",
     "@universal/slides-core": "*"
   }
 }

@@ -55,8 +55,12 @@ export function colorFromDml(el: XmlElement | undefined, theme: Theme): string |
   for (const mod of childElements(el)) {
     const val = mod.attrs['val'] !== undefined ? parseInt(mod.attrs['val'], 10) / 100000 : undefined;
     if (val === undefined) continue;
-    if (mod.name === 'a:shade') base = scaleLum(base, val);             // -> preto
-    else if (mod.name === 'a:tint') base = mixWhite(base, val);          // -> branco
+    // shade/tint operam em RGB LINEAR (gamma ~2.2) no app de referência —
+    // verificado no estilo de tabela (accent1 tint 40% => #CAD1D7, não #A1BFCD).
+    if (mod.name === 'a:shade') base = mixLinear(base, 0, val);          // -> preto
+    // tint: `val` é a fração da COR que permanece (val=20% => 20% cor + 80% branco)
+    else if (mod.name === 'a:tint') base = mixLinear(base, 1, val);
+
     else if (mod.name === 'a:lumMod') base = scaleLum(base, val);
     else if (mod.name === 'a:lumOff') base = offsetLum(base, val);
   }
@@ -80,6 +84,17 @@ function hex(r: number, g: number, b: number): string {
 }
 /** Multiplica cada canal (shade<1 escurece; lumMod). */
 function scaleLum(h: string, f: number): string { const [r, g, b] = rgb(h); return hex(r * f, g * f, b * f); }
+/**
+ * Mistura em RGB LINEAR: canal' = srgb⁻¹(lin(canal)·f + alvo·(1-f)).
+ * `target` 0 = preto (shade), 1 = branco (tint); `f` = fração da COR original.
+ */
+function mixLinear(h: string, target: 0 | 1, f: number): string {
+  const [r, g, b] = rgb(h);
+  const lin = (v: number): number => Math.pow(v / 255, 2.2);
+  const srgb = (v: number): number => Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255;
+  const mix = (v: number): number => srgb(lin(v) * f + target * (1 - f));
+  return hex(mix(r), mix(g), mix(b));
+}
 /** Soma luminosidade (lumOff): empurra em direcao ao branco proporcionalmente. */
 function offsetLum(h: string, f: number): string { const [r, g, b] = rgb(h); return hex(r + 255 * f, g + 255 * f, b + 255 * f); }
 /** Mistura com branco por fator (tint). */

@@ -44,6 +44,9 @@ export interface Fill {
   color?: string;
   stops?: GradientStop[];
   angleDeg?: number;
+  /** `<a:lin scaled="1">`: o vetor do gradiente é esticado pela proporção do rect
+   *  (45° vira a diagonal geométrica do retângulo, não 45° absolutos). */
+  scaled?: boolean;
 }
 
 /**
@@ -142,6 +145,8 @@ export interface Shape {
   alpha?: number;
   /** XML cru do chart (`ppt/charts/chartN.xml`) — engine parseia on-demand no paint. */
   chartXml?: string;
+  /** Paleta default do chart = accents 1..6 do TEMA (séries sem spPr). */
+  chartPalette?: string[];
   /** Tabela embutida (`<a:tbl>` dentro de `<p:graphicFrame>`). */
   table?: Table;
   /**
@@ -189,6 +194,10 @@ export interface TableCell {
   borderWidth?: number;
   /** Anchor vertical do txBody (t/ctr/b). */
   anchor?: string;
+  /** Cor default do texto vinda do ESTILO da tabela (tcTxStyle). */
+  txColor?: string;
+  /** Negrito default vindo do estilo da tabela (firstRow etc.). */
+  txBold?: boolean;
 }
 
 /** Linha de tabela (`<a:tr>`). */

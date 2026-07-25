@@ -1,0 +1,15 @@
+{
+  "name": "@universal/presentation-viewer",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Webcomponent <universal-presentation-viewer> — visualizacao pura de .pptx (sem edicao)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@universal/slides-core": "*"
+  }
+}

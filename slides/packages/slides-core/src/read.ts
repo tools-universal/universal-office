@@ -1,7 +1,9 @@
 import { parseXml, childElements, firstChild, textContent, descend, type XmlElement } from './xml.js';
 import { readTheme, colorFromDml, solidFillColor } from './theme.js';
+import { readTblPr, readTableStyle, applyTableStyle } from './table-style.js';
 import {
-  parseTxStyleLevels, applyShapeTextCascade, type TextStyleContext, type TextStyleLevels,
+  parseTxStyleLevels, applyShapeTextCascade, applyTextStyles, mergeStyleLevels,
+  type TextStyleContext, type TextStyleLevel, type TextStyleLevels,
 } from './text-style.js';
 import type { PptxPackage } from './package.js';
 import type {
@@ -109,6 +111,24 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
       : [];
     applyShapeTextCascade(sh, styleCtx, theme, keys);
   }
+  // células de tabela: defaultTextStyle + otherStyle do master + tcTxStyle do
+  // ESTILO da tabela (cor/negrito por parte, ex. header branco/bold) por cima.
+  for (const sh of shapes) {
+    if (!sh.table) continue;
+    const base = mergeStyleLevels(styleCtx.defaultStyle, styleCtx.otherStyle);
+    for (const row of sh.table.rows) {
+      for (const cell of row.cells) {
+        if (!cell.txBody) continue;
+        const overlay: TextStyleLevel = {};
+        if (cell.txColor !== undefined) overlay.color = cell.txColor;
+        if (cell.txBold) overlay.bold = true;
+        const levels = (overlay.color !== undefined || overlay.bold !== undefined)
+          ? mergeStyleLevels(base, Array.from({ length: 9 }, () => ({ ...overlay })))
+          : base;
+        applyTextStyles(cell.txBody, levels, theme);
+      }
+    }
+  }
 
   const slide: Slide = { shapes };
   // fundo do slide (se sobrescrito): cor solida OU imagem (blipFill).
@@ -118,6 +138,14 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     if (bgPr) {
       const c = solidFillColor(bgPr, theme);
       if (c) slide.bg = { type: 'solid', color: c };
+      // fundo com gradiente (<a:gradFill> direto no bgPr)
+      if (!slide.bg) {
+        const grad = firstChild(bgPr, 'a:gradFill');
+        if (grad) {
+          const g = parseGradFill(grad, theme);
+          if (g) slide.bg = g;
+        }
+      }
       const blip = descend(bgPr, 'a:blip');
       if (blip) {
         const img = resolveBlip(blip, pkg, slideRels);
@@ -348,7 +376,7 @@ function readShapes(spTree: XmlElement, theme: Theme, pkg: PptxPackage, rels: Ma
     if (c.name === 'p:sp' || c.name === 'p:cxnSp') out.push(readShape(c, theme, pkg, rels));
     else if (c.name === 'p:pic') out.push(readPic(c, theme, pkg, rels));
     else if (c.name === 'p:graphicFrame') {
-      const gf = readGraphicFrame(c, pkg, rels);
+      const gf = readGraphicFrame(c, pkg, rels, theme);
       if (gf) out.push(gf);
     } else if (c.name === 'p:grpSp') {
       out.push(...readGroup(c, theme, pkg, rels));
@@ -443,7 +471,7 @@ function readGroup(grp: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<st
  *     </a:graphic>
  *   </p:graphicFrame>
  */
-function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, string>): Shape | null {
+function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, string>, theme: Theme): Shape | null {
   const nvPr = firstChild(gf, 'p:nvGraphicFramePr');
   const cNvPr = nvPr ? firstChild(nvPr, 'p:cNvPr') : undefined;
   const shape: Shape = {
@@ -463,13 +491,31 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
       const target = rels.get(rid);
       if (target) {
         const xml = pkg.getPartText(target);
-        if (xml) shape.chartXml = xml;
+        if (xml) {
+          shape.chartXml = xml;
+          // paleta default das séries = accents do tema, em ordem
+          const pal: string[] = [];
+          for (let i = 1; i <= 6; i++) {
+            const c = theme.colors[`accent${i}`];
+            if (c) pal.push(c);
+          }
+          if (pal.length) shape.chartPalette = pal;
+        }
       }
     }
   }
   // tabela
   const tblEl = firstChild(data, 'a:tbl');
-  if (tblEl) shape.table = readTable(tblEl, /* theme */ { colors: {} });
+  if (tblEl) {
+    const table = readTable(tblEl, theme);
+    // estilo referenciado no <a:tblPr> (fills/cores/negrito default das células)
+    const pr = readTblPr(tblEl);
+    if (pr.styleId) {
+      const style = readTableStyle(pkg, pr.styleId, theme);
+      if (style) applyTableStyle(table, style, pr.firstRow, pr.bandRow);
+    }
+    shape.table = table;
+  }
   return shape;
 }
 
@@ -644,7 +690,10 @@ function parseGradFill(grad: XmlElement, theme: Theme): { type: 'gradient'; stop
   stops.sort((a, b) => a.pos - b.pos);
   const lin = firstChild(grad, 'a:lin');
   const angleDeg = lin?.attrs['ang'] !== undefined ? parseInt(lin.attrs['ang'], 10) / 60000 : 0;
-  return { type: 'gradient', stops, angleDeg };
+  const out: { type: 'gradient'; stops: GradientStop[]; angleDeg: number; scaled?: boolean } =
+    { type: 'gradient', stops, angleDeg };
+  if (lin?.attrs['scaled'] === '1') out.scaled = true;
+  return out;
 }
 
 function parseXfrm(el: XmlElement): Xfrm {

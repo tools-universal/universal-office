@@ -1,5 +1,45 @@
 # Revisão de fidelidade 1:1 — Universal Slides × app de referência
 
+## Auditoria 2026-07-25 — decks de ESTRESSE gerados por COM + loop de diff
+
+Novo ferramental (`tools/ppt-lab/`): `gen-stress.ps1` (PowerPoint COM gera 4
+decks cobrindo o máximo de recursos + exporta PNG 1280×720 por slide + extrai
+XML), `render-deck.mjs` (renderiza no `<universal-presentation-viewer>` headless
+em tamanho EXATO via `renderSlideToCanvas` — sem chrome), `compare-deck.mjs`
+(diff pixel a pixel, tolerância 40/canal, relatório `report.html` lado a lado).
+
+Decks: `samples/stress-{shapes,text,table-chart,media}.pptx` (18 slides).
+**Divergência média: 14.00% → 3.96%** na rodada. Correções guiadas pelo oráculo:
+
+1. **Gradiente 1:1**: `<a:lin scaled="1">` — a direção transforma de forma
+   COVARIANTE `(cos·h, sin·w)` (45° em 16:9 fica mais íngreme, não mais raso);
+   interpolação de stops em **RGB LINEAR** (γ≈2.2) via substops — o canvas
+   interpola em sRGB e escurecia o meio. Fundo gradiente: 69% → 1.1%.
+2. **`a:tint`/`a:shade` em espaço LINEAR** e semântica correta de tint
+   (val = fração da COR; 40% accent1 ⇒ #CAD1D7, não #A1BFCD).
+3. **Estilos de tabela** (`table-style.ts`): `ppt/tableStyles.xml` +
+   `<a:tblPr firstRow bandRow>` → fills de header/banding, texto branco/bold do
+   header, bordas lt1; células herdam `defaultTextStyle` (13.5pt Aptos — medido
+   por COM) + `otherStyle` + tcTxStyle. Âncora default de célula = TOPO.
+   Tabela: 42% → 2.2%.
+4. **Charts**: paleta = accents do TEMA (não Office 2013 hardcoded); título
+   15.5pt `#595959` centrado; legenda inferior/superior CENTRADA (categorias em
+   pie/doughnut, séries nos demais); `holeSize` (default 75%); separador branco
+   entre fatias; `gapWidth`/`overlap` do XML (defaults 219/-27); ticks "nice"
+   com headroom 1.05 (máx 5 ⇒ eixo 6); radar de LINHAS com anéis/labels
+   (radarStyle standard vs filled); scatter com X REAL de `<c:xVal>` + grid
+   vertical; decimais pt-BR ("0,5"); área. Radar+scatter: 12.6% → 2.65%.
+5. **Geometrias novas**: octagon, donut (evenodd), moon, heart (béziers),
+   lightningBolt (path 21600), sun (raios+disco), can, cube — via novo kind
+   `path` genérico em `geometry.ts`. Formas: 11.1% → 5.4%.
+6. **Fix de bug**: precedência em scatter (`vals[i] ?? 0 - min`).
+
+Pendências da rodada (por % restante): variantes de gradiente do slide 2 de
+shapes (FromCorner/FromCenter → radial), conectores elbow/curve + setas de
+linha, sombras/freeform do slide 4, autofit/texto vertical (text slide 3),
+combo bar+line (slide 5), fontes de eixo do bar (slide 2 de charts).
+
+
 Metodologia espelhada do `sheet/REVIEW-EXCEL.md`: o app de referência (PowerPoint
 real, via COM) é o oráculo; a especificação é o XML que ele emite. Aqui
 documentamos as auditorias do **showcase animado** do usuário e o que foi

@@ -3176,11 +3176,13 @@ function dashPattern(prstDash, lw) {
   }
 }
 
-// src/universal-slides.ts
-var UniversalSlidesElement = class extends HTMLElement {
+// ../viewer/src/universal-presentation-viewer.ts
+var UniversalPresentationViewerElement = class extends HTMLElement {
   host = this.attachShadow({ mode: "open" });
   canvas = document.createElement("canvas");
   badge = document.createElement("div");
+  /** Wrapper que hospeda canvas + badge (+ overlays de subclasses). */
+  wrap = document.createElement("div");
   pkg = null;
   pres = null;
   slides = [];
@@ -3195,22 +3197,13 @@ var UniversalSlidesElement = class extends HTMLElement {
   imageCache = /* @__PURE__ */ new Map();
   /** Cache de ChartModel parseado, por XML cru (passado a paintSlideTo). */
   chartCache = /* @__PURE__ */ new Map();
-  /** Editor inline da shape de texto (criado em `beginEditShape`). */
-  editor = null;
-  editingShape = null;
-  /** Wrapper que hospeda canvas + badge + editor. */
-  wrap = document.createElement("div");
   /**
    * Estado da animação em curso. Sem animação tocando, `playStartMs = null`.
-   * `now` cacheia o tempo do último frame para opacidades determinísticas.
    */
   play = { startMs: null, rafId: 0, pausedAt: 0 };
-  /** True quando o play deve respeitar `clickGated` (espera click p/ avançar). */
-  clickAdvance = true;
   /**
    * Snapshot do frame anterior pra transição entre slides. `prevImage` é o
-   * ImageBitmap do canvas no instante em que selectSlide foi chamado;
-   * `transStart` quando começou a transição; `transDurMs` total da transição.
+   * ImageData do canvas no instante em que selectSlide foi chamado.
    */
   trans = {
     prevImage: null,
@@ -3218,6 +3211,9 @@ var UniversalSlidesElement = class extends HTMLElement {
     durMs: 0,
     type: "fade"
   };
+  static get observedAttributes() {
+    return ["src"];
+  }
   constructor() {
     super();
     this.canvas.style.cssText = "display:block;width:100%;height:100%;outline:none;background:#3c3c3c;";
@@ -3228,7 +3224,6 @@ var UniversalSlidesElement = class extends HTMLElement {
     this.wrap.appendChild(this.badge);
     this.host.appendChild(this.wrap);
     this.canvas.addEventListener("keydown", this.onKeyDown);
-    this.canvas.addEventListener("dblclick", this.onDblClick);
     this.canvas.addEventListener("click", this.onClick);
     this.canvas.addEventListener("mousemove", this.onMouseMove);
   }
@@ -3241,6 +3236,28 @@ var UniversalSlidesElement = class extends HTMLElement {
     this.paint();
     document.fonts?.ready.then(() => this.paint()).catch(() => {
     });
+    const src = this.getAttribute("src");
+    if (src && !this.pkg) void this.loadSrc(src);
+  }
+  attributeChangedCallback(name, oldV, newV) {
+    if (name === "src" && newV && newV !== oldV && this.isConnected) void this.loadSrc(newV);
+  }
+  /** Carrega um .pptx por URL (mesma origem ou CORS liberado). */
+  async loadSrc(url) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return;
+      this.loadPptx(new Uint8Array(await res.arrayBuffer()));
+    } catch {
+    }
+  }
+  /** True quando uma subclasse está com edição inline aberta (viewer: nunca). */
+  isEditing() {
+    return false;
+  }
+  /** Índice de shape cujo texto NÃO deve ser pintado (edição inline). */
+  suppressTextIdx() {
+    return void 0;
   }
   /** Carrega bytes .pptx e monta os slides. */
   loadPptx(bytes) {
@@ -3274,6 +3291,15 @@ var UniversalSlidesElement = class extends HTMLElement {
     this.stopAnimation();
     this.paint();
     this.startAnimation();
+  }
+  /** Entra em modo apresentação: fullscreen do próprio componente. */
+  present(from) {
+    if (from !== void 0) this.selectSlide(from);
+    if (document.fullscreenEnabled && this.wrap.requestFullscreen) {
+      this.wrap.requestFullscreen().catch(() => {
+      });
+    }
+    this.canvas.focus();
   }
   /**
    * Inicia a decodificacao de uma ImageRef e dispara um repaint quando carrega.
@@ -3321,7 +3347,6 @@ var UniversalSlidesElement = class extends HTMLElement {
   }
   selectSlide(i2) {
     if (i2 < 0 || i2 >= this.slides.length || i2 === this.index) return;
-    if (this.editingShape) this.commitEditShape();
     this.stopAnimation();
     const target = this.slides[i2];
     if (target?.transition) {
@@ -3343,6 +3368,12 @@ var UniversalSlidesElement = class extends HTMLElement {
     this.startAnimation();
     this.dispatchEvent(new CustomEvent("us-slide", { detail: { index: i2 } }));
   }
+  next() {
+    this.selectSlide(Math.min(this.slides.length - 1, this.index + 1));
+  }
+  prev() {
+    this.selectSlide(Math.max(0, this.index - 1));
+  }
   /** RAF loop que pinta a transição até completar, depois libera o snapshot. */
   startTransitionPlayback() {
     if (this.trans.startMs == null || !this.trans.prevImage) return;
@@ -3362,8 +3393,7 @@ var UniversalSlidesElement = class extends HTMLElement {
   }
   /**
    * Auto-play da timeline do slide atual. Chama paint() via RAF até o último
-   * efeito terminar. Sem animacoes → noop. clickGated é ignorado nesta v1
-   * (todos efeitos rodam em sequência calculada).
+   * efeito terminar. Sem animacoes → noop.
    */
   startAnimation() {
     const slide = this.slides[this.index];
@@ -3401,12 +3431,6 @@ var UniversalSlidesElement = class extends HTMLElement {
     const f = (t - entry.delayMs) / entry.durMs;
     return entry.type === "fade" ? f : 1;
   }
-  next() {
-    this.selectSlide(Math.min(this.slides.length - 1, this.index + 1));
-  }
-  prev() {
-    this.selectSlide(Math.max(0, this.index - 1));
-  }
   /**
    * Pinta o slide `i` num canvas externo (uso: miniaturas da sidebar). Usa o
    * MESMO `paintSlideTo` — uma so fonte de verdade entre slide principal
@@ -3436,8 +3460,32 @@ var UniversalSlidesElement = class extends HTMLElement {
     }, scale, { ox, oy });
     return true;
   }
+  /**
+   * Pinta o slide `i` num canvas externo em TAMANHO EXATO: o canvas é
+   * redimensionado para `pxWidth × (proporção do slide)` e o slide preenche
+   * 100% da área (sem margens/chrome). Uso: export, comparação 1:1 com o
+   * app de referência, impressão.
+   */
+  renderSlideToCanvas(i2, target, pxWidth = 1280) {
+    const slide = this.slides[i2];
+    if (!slide || !this.pres) return false;
+    const ctx = target.getContext("2d");
+    if (!ctx) return false;
+    const pxHeight = Math.round(pxWidth * this.pres.slideH / this.pres.slideW);
+    if (target.width !== pxWidth) target.width = pxWidth;
+    if (target.height !== pxHeight) target.height = pxHeight;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, pxWidth, pxHeight);
+    paintSlideTo(ctx, slide, {
+      slideW: this.pres.slideW,
+      slideH: this.pres.slideH,
+      images: this.readyImages(slide),
+      charts: this.chartCache
+    }, pxWidth / this.pres.slideW);
+    return true;
+  }
   onKeyDown = (e) => {
-    if (this.editingShape) return;
+    if (this.isEditing()) return;
     if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {
       this.next();
       e.preventDefault();
@@ -3455,10 +3503,9 @@ var UniversalSlidesElement = class extends HTMLElement {
   /**
    * Detecta hyperlink na posição (canvas-relativa) e abre URL se houver.
    * v1: o link é "shape-wide" (a primeira run com hyperlink no txBody manda).
-   * Não tenta delimitar o run específico — basta clicar dentro da shape.
    */
   onClick = (e) => {
-    if (this.editingShape) return;
+    if (this.isEditing()) return;
     const hit = this.hitTestHyperlink(e);
     if (hit) {
       window.open(hit, "_blank", "noopener");
@@ -3466,7 +3513,7 @@ var UniversalSlidesElement = class extends HTMLElement {
     }
   };
   onMouseMove = (e) => {
-    if (this.editingShape) return;
+    if (this.isEditing()) return;
     this.canvas.style.cursor = this.hitTestHyperlink(e) ? "pointer" : "default";
   };
   /** Devolve a primeira URL de hyperlink sob (clientX, clientY) ou null. */
@@ -3492,6 +3539,95 @@ var UniversalSlidesElement = class extends HTMLElement {
       }
     }
     return null;
+  }
+  resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = this.canvas.clientWidth || 800, h = this.canvas.clientHeight || 600;
+    this.canvas.width = Math.round(w * dpr);
+    this.canvas.height = Math.round(h * dpr);
+  }
+  /** Geometria de encaixe do slide no canvas (origem + escala EMU→px). */
+  fit() {
+    if (!this.pres) return null;
+    const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
+    const margin = 16;
+    const aw = W - margin * 2, ah = H - margin * 2;
+    const scale = Math.min(aw / this.pres.slideW, ah / this.pres.slideH);
+    const sw = this.pres.slideW * scale, sh = this.pres.slideH * scale;
+    return { ox: (W - sw) / 2, oy: (H - sh) / 2, scale, sw, sh };
+  }
+  paint() {
+    const ctx = this.canvas.getContext("2d");
+    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
+    ctx.fillStyle = "#3c3c3c";
+    ctx.fillRect(0, 0, W, H);
+    const fit = this.fit();
+    const slide = this.slides[this.index];
+    if (!fit || !slide) {
+      ctx.fillStyle = "#bbb";
+      ctx.font = "14px Segoe UI, Arial";
+      ctx.fillText("Nenhum .pptx carregado", 20, 30);
+      this.badge.textContent = "";
+      return;
+    }
+    const paintOpts = {
+      ox: fit.ox,
+      oy: fit.oy,
+      shapeOpacity: (sh) => this.shapeOpacity(sh, slide)
+    };
+    const suppress = this.suppressTextIdx();
+    if (suppress !== void 0) paintOpts.suppressTextShapeIdx = suppress;
+    paintSlideTo(ctx, slide, {
+      slideW: this.pres.slideW,
+      slideH: this.pres.slideH,
+      images: this.readyImages(slide),
+      charts: this.chartCache
+    }, fit.scale, paintOpts);
+    ctx.strokeStyle = "rgba(0,0,0,.35)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(fit.ox + 0.5, fit.oy + 0.5, fit.sw - 1, fit.sh - 1);
+    if (this.trans.prevImage && this.trans.startMs != null) {
+      const dt = (window.performance ?? Date).now() - this.trans.startMs;
+      const f = Math.max(0, Math.min(1, dt / this.trans.durMs));
+      const overlay = document.createElement("canvas");
+      overlay.width = this.canvas.width;
+      overlay.height = this.canvas.height;
+      const octx = overlay.getContext("2d");
+      if (octx) {
+        octx.putImageData(this.trans.prevImage, 0, 0);
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1 - f;
+        ctx.drawImage(overlay, 0, 0);
+        ctx.restore();
+      }
+    }
+    this.badge.textContent = `${this.index + 1} / ${this.slides.length}`;
+  }
+};
+customElements.define("universal-presentation-viewer", UniversalPresentationViewerElement);
+
+// src/universal-slides.ts
+var UniversalSlidesElement = class extends UniversalPresentationViewerElement {
+  /** Editor inline da shape de texto (criado em `beginEditShape`). */
+  editor = null;
+  editingShape = null;
+  constructor() {
+    super();
+    this.canvas.addEventListener("dblclick", this.onDblClick);
+  }
+  isEditing() {
+    return this.editingShape !== null;
+  }
+  suppressTextIdx() {
+    return this.editingShape && this.editingShape.slide === this.index ? this.editingShape.shapeIdx : void 0;
+  }
+  selectSlide(i2) {
+    if (this.editingShape) this.commitEditShape();
+    super.selectSlide(i2);
   }
   onDblClick = (e) => {
     const slide = this.slides[this.index];
@@ -3616,73 +3752,6 @@ var UniversalSlidesElement = class extends HTMLElement {
     this.editor = null;
     this.editingShape = null;
     this.paint();
-  }
-  resize() {
-    const dpr = window.devicePixelRatio || 1;
-    const w = this.canvas.clientWidth || 800, h = this.canvas.clientHeight || 600;
-    this.canvas.width = Math.round(w * dpr);
-    this.canvas.height = Math.round(h * dpr);
-  }
-  /** Geometria de encaixe do slide no canvas (origem + escala EMU→px). */
-  fit() {
-    if (!this.pres) return null;
-    const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
-    const margin = 16;
-    const aw = W - margin * 2, ah = H - margin * 2;
-    const scale = Math.min(aw / this.pres.slideW, ah / this.pres.slideH);
-    const sw = this.pres.slideW * scale, sh = this.pres.slideH * scale;
-    return { ox: (W - sw) / 2, oy: (H - sh) / 2, scale, sw, sh };
-  }
-  paint() {
-    const ctx = this.canvas.getContext("2d");
-    if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
-    ctx.fillStyle = "#3c3c3c";
-    ctx.fillRect(0, 0, W, H);
-    const fit = this.fit();
-    const slide = this.slides[this.index];
-    if (!fit || !slide) {
-      ctx.fillStyle = "#bbb";
-      ctx.font = "14px Segoe UI, Arial";
-      ctx.fillText("Nenhum .pptx carregado", 20, 30);
-      this.badge.textContent = "";
-      return;
-    }
-    const editingIdx = this.editingShape && this.editingShape.slide === this.index ? this.editingShape.shapeIdx : void 0;
-    const paintOpts = {
-      ox: fit.ox,
-      oy: fit.oy,
-      shapeOpacity: (sh) => this.shapeOpacity(sh, slide)
-    };
-    if (editingIdx !== void 0) paintOpts.suppressTextShapeIdx = editingIdx;
-    paintSlideTo(ctx, slide, {
-      slideW: this.pres.slideW,
-      slideH: this.pres.slideH,
-      images: this.readyImages(slide),
-      charts: this.chartCache
-    }, fit.scale, paintOpts);
-    ctx.strokeStyle = "rgba(0,0,0,.35)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(fit.ox + 0.5, fit.oy + 0.5, fit.sw - 1, fit.sh - 1);
-    if (this.trans.prevImage && this.trans.startMs != null) {
-      const dt = (window.performance ?? Date).now() - this.trans.startMs;
-      const f = Math.max(0, Math.min(1, dt / this.trans.durMs));
-      const overlay = document.createElement("canvas");
-      overlay.width = this.canvas.width;
-      overlay.height = this.canvas.height;
-      const octx = overlay.getContext("2d");
-      if (octx) {
-        octx.putImageData(this.trans.prevImage, 0, 0);
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.globalAlpha = 1 - f;
-        ctx.drawImage(overlay, 0, 0);
-        ctx.restore();
-      }
-    }
-    this.badge.textContent = `${this.index + 1} / ${this.slides.length}`;
   }
 };
 customElements.define("universal-slides", UniversalSlidesElement);

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<!-- Harness de comparação 1:1: renderiza cada slide de um .pptx (query ?pptx=)
+     em canvas de TAMANHO EXATO via <universal-presentation-viewer>
+     (renderSlideToCanvas — sem margens/chrome). Usado por render-deck.mjs. -->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>ppt-lab harness</title>
+  <style>body { margin: 0; background: #fff; } canvas { display: block; }</style>
+</head>
+<body>
+  <universal-presentation-viewer id="pv" style="position:absolute;left:-10000px;width:800px;height:450px"></universal-presentation-viewer>
+  <canvas id="cv"></canvas>
+  <script type="module" src="./harness.bundle.js"></script>
+</body>
+</html>
