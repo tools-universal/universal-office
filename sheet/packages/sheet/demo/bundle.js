@@ -33188,11 +33188,13 @@ function paintChart(ctx, chart, x4, y3, w2, h3, pxPerPt, frameBorder) {
     plotH = h3 - (titlePx + 44 * u3);
   }
   const showLegend = chart.legendPos !== void 0;
-  const legendH = showLegend ? labelPx + 20 * u3 : 0;
+  const legendRight = chart.legendPos === "r";
+  const legendH = showLegend && !legendRight ? labelPx + 20 * u3 : 0;
   const legendTop = chart.legendPos === "t";
+  const legendW = legendRight ? legendRightWidth(ctx, chart, labelPx) : 0;
   const px = x4 + 8 * u3;
   const py = plotY + (legendTop ? legendH : 0);
-  const pw = w2 - 16 * u3;
+  const pw = w2 - 16 * u3 - legendW;
   const ph = plotH - legendH;
   switch (chart.type) {
     case "bar-col":
@@ -33226,8 +33228,35 @@ function paintChart(ctx, chart, x4, y3, w2, h3, pxPerPt, frameBorder) {
       ctx.fillText(`Gr\xE1fico (${chart.type}) \u2014 render em breve`, x4 + w2 / 2, y3 + h3 / 2);
   }
   if (showLegend) {
-    const ly = legendTop ? plotY : py + ph + 6 * u3;
-    paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+    if (legendRight) {
+      paintLegendRight(ctx, chart, px + pw + 4 * u3, py, legendW, ph, labelPx);
+    } else {
+      const ly = legendTop ? plotY : py + ph + 6 * u3;
+      paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+    }
+  }
+}
+function legendRightWidth(ctx, chart, labelPx) {
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  let maxW = 0;
+  for (const s4 of chart.series) maxW = Math.max(maxW, ctx.measureText(s4.name || "S\xE9rie").width);
+  return maxW + labelPx * 1.6;
+}
+function paintLegendRight(ctx, chart, x4, y3, w2, h3, labelPx) {
+  const entries = chart.series.map((s4, i8) => ({ label: s4.name || `S\xE9rie ${i8 + 1}`, color: colorOf(chart, i8) }));
+  if (!entries.length) return;
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  const lineH = labelPx * 1.7;
+  const sq = labelPx * 0.65;
+  let cy = y3 + (h3 - entries.length * lineH) / 2 + lineH / 2;
+  for (const e8 of entries) {
+    ctx.fillStyle = e8.color;
+    ctx.fillRect(x4, cy - sq / 2, sq, sq);
+    ctx.fillStyle = "#595959";
+    ctx.fillText(e8.label, x4 + sq + labelPx * 0.4, cy);
+    cy += lineH;
   }
 }
 function paletteOf(chart) {
@@ -33247,13 +33276,21 @@ function valueRange(chart) {
   return { min, max: max3 };
 }
 function niceTicks(min, max3) {
-  const raw = (max3 - min) / 5 || 1;
-  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const norm = raw / mag;
-  const step = mag * (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10);
-  const lo = min < 0 ? Math.floor(min * 1.05 / step) * step : Math.floor(min / step) * step;
-  const hi = max3 > 0 ? Math.ceil(max3 * 1.05 / step) * step : Math.ceil(max3 / step) * step;
-  return { lo, hi, step };
+  const minAdj = min < 0 ? min * 1.05 : min;
+  const maxAdj = max3 > 0 ? max3 * 1.05 : max3;
+  const span = Math.max(maxAdj - minAdj, 1e-9);
+  let mag = Math.pow(10, Math.floor(Math.log10(span / 10)));
+  for (let k2 = 0; k2 < 4; k2++) {
+    for (const f3 of [1, 2, 5]) {
+      const step2 = f3 * mag;
+      const lo = Math.floor(minAdj / step2) * step2;
+      const hi = Math.ceil(maxAdj / step2) * step2;
+      if ((hi - lo) / step2 <= 10) return { lo, hi, step: step2 };
+    }
+    mag *= 10;
+  }
+  const step = span;
+  return { lo: Math.floor(minAdj / step) * step, hi: Math.ceil(maxAdj / step) * step, step };
 }
 function paintBars(ctx, chart, x4, y3, w2, h3, dir, labelPx) {
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;
@@ -36195,6 +36232,10 @@ var UniversalSheetElement = class extends HTMLElement {
             st = { ...st, font: f3 };
           }
         }
+        if (m2) {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(left, top, drawW, drawH);
+        }
         this.paintFill(ctx, st.fill, left, top, drawW, drawH);
         this.paintCondFormat(ctx, cell, dcol, drow, left, top, drawW, drawH);
         if (!isEditingThis) {
@@ -36425,9 +36466,23 @@ var UniversalSheetElement = class extends HTMLElement {
         } else if (rule.type === "dataBar" && !Number.isNaN(value)) {
           const { min, max: max3 } = rangeMinMax(cf.sqref, vals);
           if (max3 > min) {
-            const frac = Math.max(0, Math.min(1, (value - min) / (max3 - min)));
-            ctx.fillStyle = rule.barColor ?? "#638EC6";
-            ctx.fillRect(left + 2 * this.zoom, top + h3 * 0.25, (w2 - 4 * this.zoom) * frac, h3 * 0.5);
+            const t5 = Math.max(0, Math.min(1, (value - min) / (max3 - min)));
+            const frac = 0.1 + 0.8 * t5;
+            const color = rule.barColor ?? "#638EC6";
+            const bx = left + 1;
+            const by = top + 1.5 * this.zoom;
+            const bw2 = (w2 - 3) * frac;
+            const bh2 = h3 - 3 * this.zoom;
+            if (bw2 > 1) {
+              const g2 = ctx.createLinearGradient(bx, 0, bx + bw2, 0);
+              g2.addColorStop(0, color);
+              g2.addColorStop(1, lerpColor(color, "#FFFFFF", 0.85));
+              ctx.fillStyle = g2;
+              ctx.fillRect(bx, by, bw2, bh2);
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 1;
+              ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, Math.round(bw2) - 1, Math.round(bh2) - 1);
+            }
           }
         } else if (rule.type === "cellIs" && rule.dxfId !== void 0 && !Number.isNaN(value)) {
           const thr = parseFloat(rule.formula?.[0] ?? "NaN");
@@ -36934,11 +36989,37 @@ function colorScaleColor(stops, value, sqref, vals) {
   if (stops.length < 2) return stops[0]?.color;
   const { min, max: max3 } = rangeMinMax(sqref, vals);
   if (max3 <= min) return stops[0].color;
-  const t5 = Math.max(0, Math.min(1, (value - min) / (max3 - min)));
-  const c0 = stops[0].color, c1 = stops[1].color;
-  if (stops.length === 2) return lerpColor(c0, c1, t5);
-  const mid = 0.5;
-  return t5 <= mid ? lerpColor(c0, c1, t5 / mid) : lerpColor(c1, stops[2].color, (t5 - mid) / mid);
+  const resolve = (s4) => {
+    switch (s4.type) {
+      case "min":
+        return min;
+      case "max":
+        return max3;
+      case "num":
+      case "formula":
+        return s4.value ?? min;
+      case "percent":
+        return min + (s4.value ?? 50) / 100 * (max3 - min);
+      case "percentile":
+        return min + (s4.value ?? 50) / 100 * (max3 - min);
+      // aprox.
+      default:
+        return min;
+    }
+  };
+  const pts = stops.map((s4) => ({
+    v: Math.max(min, Math.min(max3, resolve(s4))),
+    color: s4.color
+  }));
+  if (value <= pts[0].v) return pts[0].color;
+  for (let i8 = 1; i8 < pts.length; i8++) {
+    const a3 = pts[i8 - 1], b5 = pts[i8];
+    if (value <= b5.v) {
+      const span = b5.v - a3.v;
+      return span <= 0 ? b5.color : lerpColor(a3.color, b5.color, (value - a3.v) / span);
+    }
+  }
+  return pts[pts.length - 1].color;
 }
 function lerpColor(a3, b5, t5) {
   const pa = hexRGB(a3), pb = hexRGB(b5);

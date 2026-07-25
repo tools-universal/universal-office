@@ -2586,11 +2586,13 @@ function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder) {
     plotH = h - (titlePx + 44 * u);
   }
   const showLegend = chart.legendPos !== void 0;
-  const legendH = showLegend ? labelPx + 20 * u : 0;
+  const legendRight = chart.legendPos === "r";
+  const legendH = showLegend && !legendRight ? labelPx + 20 * u : 0;
   const legendTop = chart.legendPos === "t";
+  const legendW = legendRight ? legendRightWidth(ctx, chart, labelPx) : 0;
   const px = x2 + 8 * u;
   const py = plotY + (legendTop ? legendH : 0);
-  const pw = w - 16 * u;
+  const pw = w - 16 * u - legendW;
   const ph = plotH - legendH;
   switch (chart.type) {
     case "bar-col":
@@ -2624,8 +2626,35 @@ function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder) {
       ctx.fillText(`Gr\xE1fico (${chart.type}) \u2014 render em breve`, x2 + w / 2, y + h / 2);
   }
   if (showLegend) {
-    const ly = legendTop ? plotY : py + ph + 6 * u;
-    paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+    if (legendRight) {
+      paintLegendRight(ctx, chart, px + pw + 4 * u, py, legendW, ph, labelPx);
+    } else {
+      const ly = legendTop ? plotY : py + ph + 6 * u;
+      paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+    }
+  }
+}
+function legendRightWidth(ctx, chart, labelPx) {
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  let maxW = 0;
+  for (const s of chart.series) maxW = Math.max(maxW, ctx.measureText(s.name || "S\xE9rie").width);
+  return maxW + labelPx * 1.6;
+}
+function paintLegendRight(ctx, chart, x2, y, w, h, labelPx) {
+  const entries = chart.series.map((s, i2) => ({ label: s.name || `S\xE9rie ${i2 + 1}`, color: colorOf(chart, i2) }));
+  if (!entries.length) return;
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  const lineH = labelPx * 1.7;
+  const sq = labelPx * 0.65;
+  let cy = y + (h - entries.length * lineH) / 2 + lineH / 2;
+  for (const e of entries) {
+    ctx.fillStyle = e.color;
+    ctx.fillRect(x2, cy - sq / 2, sq, sq);
+    ctx.fillStyle = "#595959";
+    ctx.fillText(e.label, x2 + sq + labelPx * 0.4, cy);
+    cy += lineH;
   }
 }
 function paletteOf(chart) {
@@ -2645,13 +2674,21 @@ function valueRange(chart) {
   return { min, max: max2 };
 }
 function niceTicks(min, max2) {
-  const raw = (max2 - min) / 5 || 1;
-  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const norm = raw / mag;
-  const step = mag * (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10);
-  const lo = min < 0 ? Math.floor(min * 1.05 / step) * step : Math.floor(min / step) * step;
-  const hi = max2 > 0 ? Math.ceil(max2 * 1.05 / step) * step : Math.ceil(max2 / step) * step;
-  return { lo, hi, step };
+  const minAdj = min < 0 ? min * 1.05 : min;
+  const maxAdj = max2 > 0 ? max2 * 1.05 : max2;
+  const span = Math.max(maxAdj - minAdj, 1e-9);
+  let mag = Math.pow(10, Math.floor(Math.log10(span / 10)));
+  for (let k = 0; k < 4; k++) {
+    for (const f of [1, 2, 5]) {
+      const step2 = f * mag;
+      const lo = Math.floor(minAdj / step2) * step2;
+      const hi = Math.ceil(maxAdj / step2) * step2;
+      if ((hi - lo) / step2 <= 10) return { lo, hi, step: step2 };
+    }
+    mag *= 10;
+  }
+  const step = span;
+  return { lo: Math.floor(minAdj / step) * step, hi: Math.ceil(maxAdj / step) * step, step };
 }
 function paintBars(ctx, chart, x2, y, w, h, dir, labelPx) {
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;

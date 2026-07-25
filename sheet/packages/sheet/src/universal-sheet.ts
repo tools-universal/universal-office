@@ -1369,6 +1369,12 @@ export class UniversalSheetElement extends HTMLElement {
           }
         }
 
+        // área mesclada COBRE as linhas de grade internas (como o app de
+        // referência) — fundo branco antes do fill/texto
+        if (m) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(left, top, drawW, drawH);
+        }
         // preenchimento: sólido, padrão legado ou gradiente
         this.paintFill(ctx, st.fill, left, top, drawW, drawH);
         // formatação condicional (cor/barras/destaque)
@@ -1601,9 +1607,26 @@ export class UniversalSheetElement extends HTMLElement {
         } else if (rule.type === 'dataBar' && !Number.isNaN(value)) {
           const { min, max } = rangeMinMax(cf.sqref, vals);
           if (max > min) {
-            const frac = Math.max(0, Math.min(1, (value - min) / (max - min)));
-            ctx.fillStyle = rule.barColor ?? '#638EC6';
-            ctx.fillRect(left + 2 * this.zoom, top + h * 0.25, (w - 4 * this.zoom) * frac, h * 0.5);
+            // barra clássica do app de referência: comprimento 10%..90% do
+            // range, ALTURA quase total da célula, DEGRADÊ horizontal
+            // (cor → quase branco) e borda 1px da própria cor
+            const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+            const frac = 0.1 + 0.8 * t;
+            const color = rule.barColor ?? '#638EC6';
+            const bx = left + 1;
+            const by = top + 1.5 * this.zoom;
+            const bw2 = (w - 3) * frac;
+            const bh2 = h - 3 * this.zoom;
+            if (bw2 > 1) {
+              const g = ctx.createLinearGradient(bx, 0, bx + bw2, 0);
+              g.addColorStop(0, color);
+              g.addColorStop(1, lerpColor(color, '#FFFFFF', 0.85));
+              ctx.fillStyle = g;
+              ctx.fillRect(bx, by, bw2, bh2);
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 1;
+              ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, Math.round(bw2) - 1, Math.round(bh2) - 1);
+            }
           }
         } else if (rule.type === 'cellIs' && rule.dxfId !== undefined && !Number.isNaN(value)) {
           const thr = parseFloat(rule.formula?.[0] ?? 'NaN');
@@ -2146,15 +2169,41 @@ function rangeMinMax(sqref: string, vals: Map<string, number>): { min: number; m
 }
 
 /** Interpola cor de uma colorScale (2-3 stops) para o valor dado. */
+/**
+ * Cor da escala: cada cfvo resolve para um VALOR (min/max/num/formula/percent/
+ * percentile) e a interpolação é por segmentos ENTRE esses valores. O app de
+ * referência CLAMPA pontos intermediários ao [min,max] do range — um mid
+ * `formula 50` num range 1..10 vira 10, e o 3º segmento nunca aparece
+ * (verificado no oráculo: escala fica vermelho→amarelo, sem verde).
+ */
 function colorScaleColor(stops: ColorStop[], value: number, sqref: string, vals: Map<string, number>): string | undefined {
   if (stops.length < 2) return stops[0]?.color;
   const { min, max } = rangeMinMax(sqref, vals);
   if (max <= min) return stops[0]!.color;
-  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
-  const c0 = stops[0]!.color, c1 = stops[1]!.color;
-  if (stops.length === 2) return lerpColor(c0, c1, t);
-  const mid = 0.5;
-  return t <= mid ? lerpColor(c0, c1, t / mid) : lerpColor(c1, stops[2]!.color, (t - mid) / mid);
+  const resolve = (s: ColorStop): number => {
+    switch (s.type) {
+      case 'min': return min;
+      case 'max': return max;
+      case 'num':
+      case 'formula': return s.value ?? min;
+      case 'percent': return min + ((s.value ?? 50) / 100) * (max - min);
+      case 'percentile': return min + ((s.value ?? 50) / 100) * (max - min); // aprox.
+      default: return min;
+    }
+  };
+  const pts = stops.map((s) => ({
+    v: Math.max(min, Math.min(max, resolve(s))),
+    color: s.color,
+  }));
+  if (value <= pts[0]!.v) return pts[0]!.color;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]!, b = pts[i]!;
+    if (value <= b.v) {
+      const span = b.v - a.v;
+      return span <= 0 ? b.color : lerpColor(a.color, b.color, (value - a.v) / span);
+    }
+  }
+  return pts[pts.length - 1]!.color;
 }
 
 function lerpColor(a: string, b: string, t: number): string {

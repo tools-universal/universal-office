@@ -265,14 +265,17 @@ export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: 
     plotH = h - (titlePx + 44 * u);
   }
 
-  // legenda: presente quando o XML declara <c:legend> (default do app: bottom)
+  // legenda: presente quando o XML declara <c:legend>. Posições: b/t
+  // (horizontal, centrada) e r (VERTICAL empilhada — default do Excel).
   const showLegend = chart.legendPos !== undefined;
-  const legendH = showLegend ? labelPx + 20 * u : 0;
+  const legendRight = chart.legendPos === 'r';
+  const legendH = showLegend && !legendRight ? labelPx + 20 * u : 0;
   const legendTop = chart.legendPos === 't';
+  const legendW = legendRight ? legendRightWidth(ctx, chart, labelPx) : 0;
 
   const px = x + 8 * u;
   const py = plotY + (legendTop ? legendH : 0);
-  const pw = w - 16 * u;
+  const pw = w - 16 * u - legendW;
   const ph = plotH - legendH;
 
   switch (chart.type) {
@@ -308,8 +311,39 @@ export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: 
   }
 
   if (showLegend) {
-    const ly = legendTop ? plotY : py + ph + 6 * u;
-    paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+    if (legendRight) {
+      paintLegendRight(ctx, chart, px + pw + 4 * u, py, legendW, ph, labelPx);
+    } else {
+      const ly = legendTop ? plotY : py + ph + 6 * u;
+      paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+    }
+  }
+}
+
+/** Largura necessária da legenda vertical à direita (marcador + maior rótulo). */
+function legendRightWidth(ctx: CanvasRenderingContext2D, chart: ChartModel, labelPx: number): number {
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  let maxW = 0;
+  for (const s of chart.series) maxW = Math.max(maxW, ctx.measureText(s.name || 'Série').width);
+  return maxW + labelPx * 1.6;
+}
+
+/** Legenda VERTICAL à direita (default do Excel): entradas empilhadas, centradas. */
+function paintLegendRight(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, labelPx: number): void {
+  const entries = chart.series.map((s, i) => ({ label: s.name || `Série ${i + 1}`, color: colorOf(chart, i) }));
+  if (!entries.length) return;
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  const lineH = labelPx * 1.7;
+  const sq = labelPx * 0.65;
+  let cy = y + (h - entries.length * lineH) / 2 + lineH / 2;
+  for (const e of entries) {
+    ctx.fillStyle = e.color;
+    ctx.fillRect(x, cy - sq / 2, sq, sq);
+    ctx.fillStyle = '#595959';
+    ctx.fillText(e.label, x + sq + labelPx * 0.4, cy);
+    cy += lineH;
   }
 }
 
@@ -337,13 +371,23 @@ function valueRange(chart: ChartModel): { min: number; max: number } {
  * o máximo do eixo é o primeiro tick ≥ 1.05·max (dados até 5 ⇒ eixo até 6).
  */
 function niceTicks(min: number, max: number): { lo: number; hi: number; step: number } {
-  const raw = (max - min) / 5 || 1;
-  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const norm = raw / mag;
-  const step = mag * (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10);
-  const lo = min < 0 ? Math.floor((min * 1.05) / step) * step : Math.floor(min / step) * step;
-  const hi = max > 0 ? Math.ceil((max * 1.05) / step) * step : Math.ceil(max / step) * step;
-  return { lo, hi, step };
+  // regra do app de referência: MENOR passo {1,2,5}·10^k com ≤10 divisões
+  // (max 410 ⇒ passo 50/eixo 450; max 5 ⇒ passo 1/eixo 6 — ambos medidos)
+  const minAdj = min < 0 ? min * 1.05 : min;
+  const maxAdj = max > 0 ? max * 1.05 : max;
+  const span = Math.max(maxAdj - minAdj, 1e-9);
+  let mag = Math.pow(10, Math.floor(Math.log10(span / 10)));
+  for (let k = 0; k < 4; k++) {
+    for (const f of [1, 2, 5]) {
+      const step = f * mag;
+      const lo = Math.floor(minAdj / step) * step;
+      const hi = Math.ceil(maxAdj / step) * step;
+      if ((hi - lo) / step <= 10) return { lo, hi, step };
+    }
+    mag *= 10;
+  }
+  const step = span;
+  return { lo: Math.floor(minAdj / step) * step, hi: Math.ceil(maxAdj / step) * step, step };
 }
 
 function paintBars(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, dir: 'col' | 'row', labelPx: number): void {
