@@ -191,6 +191,26 @@ export interface DrawingChart {
   chartXml: string;
 }
 
+/**
+ * Tabela (ListObject, `xl/tables/tableN.xml`). Os ESTILOS built-in
+ * (TableStyleMedium2 etc.) não são gravados no pacote — o app de referência os
+ * conhece por nome; o renderer replica a família Medium parametrizada por accent.
+ */
+export interface TableInfo {
+  /** Range A1 da tabela inteira (inclui header/totals). */
+  ref: string;
+  /** headerRowCount != 0 (default 1). */
+  headerRow: boolean;
+  /** totalsRowCount == 1. */
+  totalsRow: boolean;
+  /** `<tableStyleInfo showRowStripes="1">`. */
+  stripes: boolean;
+  /** Nome do estilo (ex.: TableStyleMedium2). */
+  styleName?: string;
+  /** `<autoFilter>` presente (setas de filtro no header). */
+  autoFilter: boolean;
+}
+
 /** Planilha — conteúdo de xl/worksheets/sheetN.xml. */
 export interface Worksheet {
   rows: Row[];
@@ -211,6 +231,8 @@ export interface Worksheet {
   hyperlinks?: Hyperlink[];
   /** Defaults de largura/altura do grid (<sheetFormatPr>). */
   sheetFormatPr?: SheetFormatPr;
+  /** Tabelas (ListObjects) ligadas via `<tableParts>`. */
+  tables?: TableInfo[];
 }
 
 // ---- Helpers de referência A1 (matemática determinística) ----

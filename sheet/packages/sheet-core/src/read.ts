@@ -3,7 +3,7 @@ import { colorContext, resolveColorEl, type ColorContext } from './theme.js';
 import type {
   Workbook, SheetRef, Worksheet, Row, Cell, CellType, SharedString, RichRun, RunProps,
   ColDef, PaneInfo, CondFormat, CondRule, ColorStop, Comment,
-  DrawingAnchor, DrawingChart, Hyperlink, SheetFormatPr,
+  DrawingAnchor, DrawingChart, Hyperlink, SheetFormatPr, TableInfo,
 } from './model.js';
 import type { XlsxPackage } from './package.js';
 
@@ -253,6 +253,13 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
     ? readDrawingCharts(pkg, pkg.resolveRelTarget(sheetPath, drawingTarget))
     : [];
 
+  // tabelas (ListObjects): <tableParts> liga a xl/tables/tableN.xml via rels
+  const tables: TableInfo[] = [];
+  for (const target of findRelsByType(pkg, relsPath, '/table')) {
+    const t = readTablePart(pkg, pkg.resolveRelTarget(sheetPath, target));
+    if (t) tables.push(t);
+  }
+
   const ws: Worksheet = { rows };
   if (merges.length > 0) {
     ws.merges = merges;
@@ -268,7 +275,30 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (charts.length > 0) ws.charts = charts;
   if (hyperlinks.length > 0) ws.hyperlinks = hyperlinks;
   if (sheetFormatPr) ws.sheetFormatPr = sheetFormatPr;
+  if (tables.length > 0) ws.tables = tables;
   return ws;
+}
+
+/** Lê `xl/tables/tableN.xml` → TableInfo. */
+function readTablePart(pkg: XlsxPackage, tablePath: string): TableInfo | undefined {
+  const xml = pkg.getPartText(tablePath);
+  if (!xml) return undefined;
+  let root: XmlElement;
+  try { root = parseXml(xml); } catch { return undefined; }
+  const ref = root.attrs['ref'];
+  if (!ref) return undefined;
+  const headerRow = root.attrs['headerRowCount'] !== '0';
+  const totalsRow = root.attrs['totalsRowCount'] === '1';
+  const styleInfo = firstChild(root, 'tableStyleInfo');
+  const out: TableInfo = {
+    ref,
+    headerRow,
+    totalsRow,
+    stripes: styleInfo?.attrs['showRowStripes'] === '1',
+    autoFilter: firstChild(root, 'autoFilter') !== undefined,
+  };
+  if (styleInfo?.attrs['name']) out.styleName = styleInfo.attrs['name'];
+  return out;
 }
 
 /**
@@ -344,6 +374,22 @@ function findRelByType(pkg: XlsxPackage, relsPart: string, typeSuffix: string): 
     if (t.endsWith(typeSuffix)) return rel.attrs['Target'];
   }
   return undefined;
+}
+
+/** Como `findRelByType`, mas devolve TODOS os targets do tipo (ex.: /table). */
+function findRelsByType(pkg: XlsxPackage, relsPart: string, typeSuffix: string): string[] {
+  const xml = pkg.getPartText(relsPart);
+  if (xml === undefined) return [];
+  const root = parseXml(xml);
+  const out: string[] = [];
+  for (const rel of childElements(root, 'Relationship')) {
+    const t = rel.attrs['Type'] ?? '';
+    if (t.endsWith(typeSuffix)) {
+      const target = rel.attrs['Target'];
+      if (target) out.push(target);
+    }
+  }
+  return out;
 }
 
 /** Lê `xl/commentsN.xml` → Comment[] (refs + texto plano + autor resolvido). */

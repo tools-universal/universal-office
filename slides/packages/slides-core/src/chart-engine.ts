@@ -232,11 +232,16 @@ function walkText(el: XmlElement, out: string[]): void {
  * Desenha `chart` dentro do retângulo `(x, y, w, h)`. Branco no fundo. Título no
  * topo (se houver). Plot area = retângulo restante com margens internas.
  */
-export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt?: number): void {
-  // fundo branco (chartSpace default). SEM moldura — o app de referência não
-  // desenha borda no frame do gráfico.
+export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt?: number, frameBorder?: string): void {
+  // fundo branco (chartSpace default). Moldura: o host decide — o Excel desenha
+  // borda cinza clara em charts embutidos; o PowerPoint não (frameBorder=undef).
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(x, y, w, h);
+  if (frameBorder) {
+    ctx.strokeStyle = frameBorder;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  }
 
   // tipografia em PONTOS do slide (título ~15.5pt, eixos/legenda 10pt no app
   // de referência). Sem pxPerPt (chamador legado), estima pela altura do frame.

@@ -1,5 +1,5 @@
 import {
-  XlsxPackage, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext,
+  XlsxPackage, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, applyTint,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
   parseChart, paintChart, type ChartModel,
   type Workbook, type Worksheet, type Cell, type SharedString, type Styles, type Font, type Fill,
@@ -90,7 +90,37 @@ export interface SheetView {
   defaultColW: number;
   /** Altura default de linha em px (sheetFormatPr ou constante). */
   defaultRowH: number;
+  /**
+   * Decoração de TABELA (ListObject) por célula ("col,row"): fill de header/
+   * banda, cor/negrito do texto do header e seta de autofiltro. Os estilos
+   * built-in não vêm no pacote — replicamos a família Medium por accent.
+   */
+  tableDeco: Map<string, TableDeco>;
 }
+
+/** Decoração derivada do estilo da tabela para UMA célula. */
+interface TableDeco {
+  fill?: string;
+  fontColor?: string;
+  bold?: boolean;
+  /** Desenha a seta de autofiltro (célula de header). */
+  arrow?: boolean;
+}
+
+/**
+ * Accent do estilo built-in `TableStyle{Light,Medium,Dark}N`: N=1 → cinza,
+ * N=2..7 → accent1..6 (ciclo). O app de referência não grava os estilos
+ * built-in no pacote — só o nome.
+ */
+function tableStyleAccent(name: string | undefined, accents: string[]): string {
+  const fallback = accents[0] ?? '#4472C4';
+  const m = /(\d+)$/.exec(name ?? '');
+  if (!m) return fallback;
+  const n = parseInt(m[1]!, 10);
+  if (n <= 1) return '#808080';
+  return accents[(n - 2) % 6] ?? fallback;
+}
+
 
 export class UniversalSheetElement extends HTMLElement {
   private host = this.attachShadow({ mode: 'open' });
@@ -174,6 +204,8 @@ export class UniversalSheetElement extends HTMLElement {
     const cx = colorContext(pkg);
     this.shared = readSharedStrings(pkg, cx);
     this.styles = readStyles(pkg, cx);
+    // paleta default de charts = accents 1..6 do tema (índices 4..9)
+    this.chartPalette = cx.theme.colors.slice(4, 10);
 
     this.views = [];
     for (const ref of this.workbook.sheets) {
@@ -244,6 +276,34 @@ export class UniversalSheetElement extends HTMLElement {
         if (ch.anchor.to.col + 1 > extMaxCol) extMaxCol = ch.anchor.to.col + 1;
         if (ch.anchor.to.row + 1 > extMaxRow) extMaxRow = ch.anchor.to.row + 1;
       }
+      // decoração de tabelas (ListObjects): header + bandas + setas de filtro
+      const tableDeco = new Map<string, TableDeco>();
+      for (const t of ws.tables ?? []) {
+        const [tlRef, brRef] = t.ref.split(':');
+        if (!tlRef || !brRef) continue;
+        const tl = refToRowCol(tlRef);
+        const br = refToRowCol(brRef);
+        // banda = accent com tint HSL 0.8 do app de referência (L' = L·0.2 + 0.8)
+        // — medido no oráculo: accent1 #156082 → banda #C0E6F5
+        const accent = tableStyleAccent(t.styleName, this.chartPalette);
+        const stripe = applyTint(accent, 0.8);
+        for (let row = tl.row; row <= br.row; row++) {
+          const isHeader = t.headerRow && row === tl.row;
+          const dataIdx = row - tl.row - (t.headerRow ? 1 : 0);
+          for (let col = tl.col; col <= br.col; col++) {
+            const deco: TableDeco = {};
+            if (isHeader) {
+              deco.fill = accent;
+              deco.fontColor = '#FFFFFF';
+              deco.bold = true;
+              if (t.autoFilter) deco.arrow = true;
+            } else if (t.stripes && dataIdx >= 0 && dataIdx % 2 === 0) {
+              deco.fill = stripe;
+            }
+            if (deco.fill || deco.arrow) tableDeco.set(`${col},${row}`, deco);
+          }
+        }
+      }
       this.views.push({
         worksheet: ws, path: ref.target, colWidths, rowHeights, hiddenCols, hiddenRows, merges,
         pane: ws.pane, condFormats: ws.condFormats ?? [],
@@ -257,6 +317,7 @@ export class UniversalSheetElement extends HTMLElement {
         frozenRows,
         defaultColW,
         defaultRowH,
+        tableDeco,
       });
     }
     // abre na aba ativa (activeTab); o `Math.min(0, …)` anterior fixava sempre 0
@@ -1180,8 +1241,28 @@ export class UniversalSheetElement extends HTMLElement {
 
         const cells = rowMap.get(drow);
         const cell = cells?.get(dcol);
-        const st = this.resolveStyle(cell);
+        let st = this.resolveStyle(cell);
         const isEditingThis = this.editing && this.editing.col === dcol && this.editing.row === drow;
+
+        // decoração de TABELA (ListObject): fill de header/banda como default
+        // (formatação explícita da célula vence a camada do estilo da tabela)
+        const deco = v.tableDeco.size > 0 ? v.tableDeco.get(`${dcol},${drow}`) : undefined;
+        if (deco) {
+          const ownFill = !!st.fill &&
+            (st.fill.gradient !== undefined || (st.fill.pattern !== undefined && st.fill.pattern !== 'none'));
+          if (deco.fill && !ownFill) {
+            ctx.fillStyle = deco.fill;
+            ctx.fillRect(left, top, drawW, drawH);
+          }
+          // fonte: a camada da tabela vale quando a célula usa a fonte DEFAULT
+          const ownFont = (this.styles?.cellXfs[cell?.style ?? 0]?.fontId ?? 0) !== 0;
+          if (!ownFont && (deco.fontColor !== undefined || deco.bold)) {
+            const f = { ...(st.font ?? {}) };
+            if (deco.fontColor !== undefined) f.color = deco.fontColor;
+            if (deco.bold) f.bold = true;
+            st = { ...st, font: f };
+          }
+        }
 
         // preenchimento: sólido, padrão legado ou gradiente
         this.paintFill(ctx, st.fill, left, top, drawW, drawH);
@@ -1203,6 +1284,8 @@ export class UniversalSheetElement extends HTMLElement {
         if (v.commentAt.size > 0 && v.commentAt.has(`${dcol},${drow}`)) {
           this.paintCommentIndicator(ctx, left, top, drawW);
         }
+        // seta de autofiltro (header de tabela)
+        if (deco?.arrow) this.paintFilterArrow(ctx, left, top, drawW, drawH);
       }
     }
     ctx.restore();
@@ -1212,6 +1295,8 @@ export class UniversalSheetElement extends HTMLElement {
    * Cache de ChartModel parseado por XML cru. Evita re-parsear no scroll/zoom.
    */
   private chartCache = new Map<string, ChartModel>();
+  /** Accents 1..6 do tema do workbook — paleta default das séries de chart. */
+  private chartPalette: string[] = [];
 
   /**
    * Pinta todos os charts ancorados do sheet ativo. Converte cada
@@ -1232,8 +1317,37 @@ export class UniversalSheetElement extends HTMLElement {
       if (w <= 0 || h <= 0) continue;
       let model = this.chartCache.get(ch.chartXml);
       if (!model) { model = parseChart(ch.chartXml); this.chartCache.set(ch.chartXml, model); }
-      paintChart(ctx, model, x, y, w, h);
+      if (!model.palette && this.chartPalette.length) model.palette = this.chartPalette;
+      // px por pt: 96/72 na base, escalado pelo zoom (tipografia do chart).
+      // Moldura cinza clara: default do app de referência p/ charts embutidos.
+      paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72, '#D9D9D9');
     }
+  }
+
+  /**
+   * Botão de autofiltro no canto direito da célula de header: quadrado com
+   * borda cinza e triângulo ▼ — como o app de referência desenha na tabela.
+   */
+  private paintFilterArrow(ctx: CanvasRenderingContext2D, left: number, top: number, w: number, h: number): void {
+    const size = Math.min(h - 4, Math.round(13 * this.zoom));
+    if (size < 7) return;
+    const bx = left + w - size - 2;
+    const by = top + (h - size) / 2;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(bx, by, size, size);
+    ctx.strokeStyle = '#ACACAC';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, size - 1, size - 1);
+    ctx.fillStyle = '#444444';
+    const cx = bx + size / 2;
+    const cy = by + size / 2;
+    const tw = size * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - tw / 2, cy - tw * 0.28);
+    ctx.lineTo(cx + tw / 2, cy - tw * 0.28);
+    ctx.lineTo(cx, cy + tw * 0.36);
+    ctx.closePath();
+    ctx.fill();
   }
 
   /** Pequeno triangulo (lado ~5px) vermelho no canto superior direito da celula. */
