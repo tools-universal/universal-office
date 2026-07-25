@@ -37,6 +37,8 @@ export interface PlacedRun {
   color: string;
   underline: boolean;
   hyperlink?: string;
+  /** Sombra do texto (propagada do Run). */
+  shadow?: Run['shadow'];
 }
 
 /** Linha final do layout. */
@@ -275,6 +277,7 @@ export function layoutTextBody(
         color: m.run.color ?? defaultColor, underline: !!m.run.underline,
       };
       if (m.run.hyperlink !== undefined) pr.hyperlink = m.run.hyperlink;
+      if (m.run.shadow !== undefined) pr.shadow = m.run.shadow;
       placed.push(pr);
       w += mw;
     }

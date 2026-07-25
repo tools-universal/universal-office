@@ -485,7 +485,20 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
       ctx.font = layoutFontStr(r.font, pxPerPt);
       ctx.fillStyle = r.color;
       const tx = x + r.x * scale;
-      ctx.fillText(r.text, tx, by);
+      if (r.shadow) {
+        // sombra do texto: EMU→px pela escala; alpha na cor da sombra
+        const sc = r.shadow;
+        const n = parseInt(sc.color.replace('#', ''), 16);
+        ctx.save();
+        ctx.shadowColor = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${sc.alpha})`;
+        ctx.shadowBlur = sc.blurRad * scale;
+        ctx.shadowOffsetX = sc.dist * Math.cos(sc.dirDeg * Math.PI / 180) * scale;
+        ctx.shadowOffsetY = sc.dist * Math.sin(sc.dirDeg * Math.PI / 180) * scale;
+        ctx.fillText(r.text, tx, by);
+        ctx.restore();
+      } else {
+        ctx.fillText(r.text, tx, by);
+      }
       if (r.underline) {
         const sizePx = r.font.sizePt * pxPerPt;
         ctx.strokeStyle = r.color; ctx.lineWidth = Math.max(1, sizePx / 16);
@@ -526,9 +539,7 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
   const rowY: number[] = [0];
   for (const rh of rowHs) rowY.push(rowY[rowY.length - 1]! + rh * sy);
 
-  // fundo branco geral
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(x, y, w, h);
+  // sem fundo forçado: tabela sem fill é TRANSPARENTE (templates translúcidos)
 
   // primeira passada: fills das células
   for (let ri = 0; ri < t.rows.length; ri++) {
@@ -543,8 +554,11 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
       const cw = (colX[ci + span] ?? colX[colX.length - 1]!) - colX[ci]!;
       const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]!) - rowY[ri]!;
       if (cell.fill) {
+        ctx.save();
+        if (cell.fillAlpha !== undefined && cell.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * cell.fillAlpha;
         ctx.fillStyle = cell.fill;
         ctx.fillRect(cx0, cy0, cw, ch);
+        ctx.restore();
       }
     }
   }
@@ -561,14 +575,17 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
       const cy0 = y + rowY[ri]!;
       const cw = (colX[ci + span] ?? colX[colX.length - 1]!) - colX[ci]!;
       const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]!) - rowY[ri]!;
-      const bw = (cell.borderWidth ?? 12700) * scale; // EMU -> px na escala atual
-      const bc = cell.borderColor ?? '#CBD5E1';
-      ctx.strokeStyle = bc;
-      ctx.lineWidth = Math.max(0.5, bw);
-      ctx.strokeRect(cx0 + 0.5, cy0 + 0.5, cw - 1, ch - 1);
+      // grade uniforme SÓ quando o estilo/célula define cor (o app de
+      // referência não desenha grade em tabela sem estilo)
+      if (cell.borderColor) {
+        const bw = (cell.borderWidth ?? 12700) * scale;
+        ctx.strokeStyle = cell.borderColor;
+        ctx.lineWidth = Math.max(0.5, bw);
+        ctx.strokeRect(cx0 + 0.5, cy0 + 0.5, cw - 1, ch - 1);
+      }
       // bordas POR LADO explícitas por cima da uniforme (só nos lados definidos)
       if (cell.borders) {
-        const edges: [{ color: string; width: number } | undefined, number, number, number, number][] = [
+        const edges: [{ color: string; width: number; dash?: string } | undefined, number, number, number, number][] = [
           [cell.borders.t, cx0, cy0, cx0 + cw, cy0],
           [cell.borders.b, cx0, cy0 + ch, cx0 + cw, cy0 + ch],
           [cell.borders.l, cx0, cy0, cx0, cy0 + ch],
@@ -577,11 +594,14 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
         for (const [edge, x1, y1, x2, y2] of edges) {
           if (!edge) continue;
           ctx.strokeStyle = edge.color;
-          ctx.lineWidth = Math.max(1, edge.width * scale);
+          const elw = Math.max(1, edge.width * scale);
+          ctx.lineWidth = elw;
+          if (edge.dash) ctx.setLineDash(dashPattern(edge.dash, elw));
           ctx.beginPath();
           ctx.moveTo(x1, y1);
           ctx.lineTo(x2, y2);
           ctx.stroke();
+          if (edge.dash) ctx.setLineDash([]);
         }
       }
     }

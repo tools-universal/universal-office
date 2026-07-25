@@ -665,6 +665,10 @@ function readTable(tbl: XmlElement, theme: Theme): Table {
         if (tcPr.attrs['anchor']) cell.anchor = tcPr.attrs['anchor'];
         const fill = solidFillColor(tcPr, theme);
         if (fill) cell.fill = fill;
+        // alfa do fill da célula (tabelas translúcidas de template)
+        const sfEl = firstChild(tcPr, 'a:solidFill');
+        const aEl = sfEl ? descend(sfEl, 'a:alpha') : undefined;
+        if (aEl?.attrs['val']) cell.fillAlpha = parseInt(aEl.attrs['val'], 10) / 100000;
         // bordas POR LADO (o app de referência trata cada lado independente)
         const sides: [keyof NonNullable<TableCell['borders']>, string][] =
           [['l', 'a:lnL'], ['r', 'a:lnR'], ['t', 'a:lnT'], ['b', 'a:lnB']];
@@ -676,7 +680,10 @@ function readTable(tbl: XmlElement, theme: Theme): Table {
           if (!color) continue; // noFill/ausente = lado sem borda explícita
           const width = ln.attrs['w'] ? parseInt(ln.attrs['w'], 10) : 12700;
           cell.borders = cell.borders ?? {};
-          cell.borders[key] = { color, width };
+          const edge: { color: string; width: number; dash?: string } = { color, width };
+          const dashEl = firstChild(ln, 'a:prstDash');
+          if (dashEl?.attrs['val'] && dashEl.attrs['val'] !== 'solid') edge.dash = dashEl.attrs['val'];
+          cell.borders[key] = edge;
         }
       }
       cells.push(cell);
@@ -995,6 +1002,26 @@ function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>): Run {
       }
     }
   }
+  // sombra do texto (efeito comum em títulos de template sobre foto)
+  if (rPr) {
+    const eff = firstChild(rPr, 'a:effectLst');
+    const shd = eff ? firstChild(eff, 'a:outerShdw') : undefined;
+    if (shd) {
+      const blurRad = shd.attrs['blurRad'] ? parseInt(shd.attrs['blurRad'], 10) : 0;
+      const dist = shd.attrs['dist'] ? parseInt(shd.attrs['dist'], 10) : 0;
+      const dirDeg = (shd.attrs['dir'] ? parseInt(shd.attrs['dir'], 10) : 5400000) / 60000;
+      const colorEl = childElements(shd)[0];
+      let color = '#000000', alpha = 0.6;
+      if (colorEl) {
+        const c = colorFromDml(colorEl, theme);
+        if (c) color = c;
+        const aEl = firstChild(colorEl, 'a:alpha');
+        if (aEl?.attrs['val']) alpha = parseInt(aEl.attrs['val'], 10) / 100000;
+      }
+      run.shadow = { color, blurRad, dist, dirDeg, alpha };
+    }
+  }
+
   return run;
 }
 

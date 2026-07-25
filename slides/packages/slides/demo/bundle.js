@@ -2066,6 +2066,9 @@ function readTable(tbl, theme) {
         if (tcPr.attrs["anchor"]) cell.anchor = tcPr.attrs["anchor"];
         const fill = solidFillColor(tcPr, theme);
         if (fill) cell.fill = fill;
+        const sfEl = firstChild(tcPr, "a:solidFill");
+        const aEl = sfEl ? descend(sfEl, "a:alpha") : void 0;
+        if (aEl?.attrs["val"]) cell.fillAlpha = parseInt(aEl.attrs["val"], 10) / 1e5;
         const sides = [["l", "a:lnL"], ["r", "a:lnR"], ["t", "a:lnT"], ["b", "a:lnB"]];
         for (const [key, name] of sides) {
           const ln2 = firstChild(tcPr, name);
@@ -2075,7 +2078,10 @@ function readTable(tbl, theme) {
           if (!color) continue;
           const width = ln2.attrs["w"] ? parseInt(ln2.attrs["w"], 10) : 12700;
           cell.borders = cell.borders ?? {};
-          cell.borders[key] = { color, width };
+          const edge = { color, width };
+          const dashEl = firstChild(ln2, "a:prstDash");
+          if (dashEl?.attrs["val"] && dashEl.attrs["val"] !== "solid") edge.dash = dashEl.attrs["val"];
+          cell.borders[key] = edge;
         }
       }
       cells.push(cell);
@@ -2244,8 +2250,13 @@ function parseGradFill(grad, theme) {
   const stops = [];
   for (const gs of childElements(gsLst, "a:gs")) {
     const pos = gs.attrs["pos"] !== void 0 ? parseInt(gs.attrs["pos"], 10) / 1e5 : 0;
-    const color = colorFromDml(childElements(gs)[0], theme);
-    if (color) stops.push({ pos: Math.max(0, Math.min(1, pos)), color });
+    const colorEl = childElements(gs)[0];
+    const color = colorFromDml(colorEl, theme);
+    if (!color) continue;
+    const stop = { pos: Math.max(0, Math.min(1, pos)), color };
+    const alphaEl = colorEl ? firstChild(colorEl, "a:alpha") : void 0;
+    if (alphaEl?.attrs["val"]) stop.alpha = parseInt(alphaEl.attrs["val"], 10) / 1e5;
+    stops.push(stop);
   }
   if (stops.length < 2) return void 0;
   stops.sort((a, b) => a.pos - b.pos);
@@ -2357,6 +2368,24 @@ function readRun(r, theme, rels) {
         const direct = rels.get(rid);
         if (direct && /^https?:/i.test(direct)) run.hyperlink = direct;
       }
+    }
+  }
+  if (rPr) {
+    const eff = firstChild(rPr, "a:effectLst");
+    const shd = eff ? firstChild(eff, "a:outerShdw") : void 0;
+    if (shd) {
+      const blurRad = shd.attrs["blurRad"] ? parseInt(shd.attrs["blurRad"], 10) : 0;
+      const dist = shd.attrs["dist"] ? parseInt(shd.attrs["dist"], 10) : 0;
+      const dirDeg = (shd.attrs["dir"] ? parseInt(shd.attrs["dir"], 10) : 54e5) / 6e4;
+      const colorEl = childElements(shd)[0];
+      let color = "#000000", alpha = 0.6;
+      if (colorEl) {
+        const c = colorFromDml(colorEl, theme);
+        if (c) color = c;
+        const aEl = firstChild(colorEl, "a:alpha");
+        if (aEl?.attrs["val"]) alpha = parseInt(aEl.attrs["val"], 10) / 1e5;
+      }
+      run.shadow = { color, blurRad, dist, dirDeg, alpha };
     }
   }
   return run;
@@ -3207,6 +3236,7 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
         underline: !!m.run.underline
       };
       if (m.run.hyperlink !== void 0) pr.hyperlink = m.run.hyperlink;
+      if (m.run.shadow !== void 0) pr.shadow = m.run.shadow;
       placed.push(pr);
       w += mw;
     }
@@ -4045,6 +4075,14 @@ function roundRect(ctx, x2, y, w, h, r) {
   ctx.closePath();
 }
 function paintText(ctx, sh, tb, x2, y, w, h, scale) {
+  const unflip = sh.xfrm?.flipH || sh.xfrm?.flipV;
+  if (unflip) {
+    ctx.save();
+    const cx = x2 + w / 2, cy = y + h / 2;
+    ctx.translate(cx, cy);
+    ctx.scale(sh.xfrm.flipH ? -1 : 1, sh.xfrm.flipV ? -1 : 1);
+    ctx.translate(-cx, -cy);
+  }
   const isTitle = sh.phType === "title" || sh.phType === "ctrTitle";
   const measure = (text, f) => {
     ctx.font = layoutFontStr(f, 1);
@@ -4067,7 +4105,19 @@ function paintText(ctx, sh, tb, x2, y, w, h, scale) {
       ctx.font = layoutFontStr(r.font, pxPerPt);
       ctx.fillStyle = r.color;
       const tx = x2 + r.x * scale;
-      ctx.fillText(r.text, tx, by);
+      if (r.shadow) {
+        const sc = r.shadow;
+        const n = parseInt(sc.color.replace("#", ""), 16);
+        ctx.save();
+        ctx.shadowColor = `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${sc.alpha})`;
+        ctx.shadowBlur = sc.blurRad * scale;
+        ctx.shadowOffsetX = sc.dist * Math.cos(sc.dirDeg * Math.PI / 180) * scale;
+        ctx.shadowOffsetY = sc.dist * Math.sin(sc.dirDeg * Math.PI / 180) * scale;
+        ctx.fillText(r.text, tx, by);
+        ctx.restore();
+      } else {
+        ctx.fillText(r.text, tx, by);
+      }
       if (r.underline) {
         const sizePx = r.font.sizePt * pxPerPt;
         ctx.strokeStyle = r.color;
@@ -4080,6 +4130,7 @@ function paintText(ctx, sh, tb, x2, y, w, h, scale) {
       }
     }
   }
+  if (unflip) ctx.restore();
 }
 function layoutFontStr(f, pxPerPt) {
   return `${f.italic ? "italic " : ""}${f.bold ? "700 " : "400 "}${f.sizePt * pxPerPt}px '${f.family}', 'Liberation Sans', 'Aptos', Calibri, Arial, sans-serif`;
@@ -4095,8 +4146,6 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
   for (const cw of t.colWidthsEmu) colX.push(colX[colX.length - 1] + cw * sx);
   const rowY = [0];
   for (const rh of rowHs) rowY.push(rowY[rowY.length - 1] + rh * sy);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(x2, y, w, h);
   for (let ri = 0; ri < t.rows.length; ri++) {
     const row = t.rows[ri];
     for (let ci = 0; ci < row.cells.length; ci++) {
@@ -4109,8 +4158,11 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
       const cw = (colX[ci + span] ?? colX[colX.length - 1]) - colX[ci];
       const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]) - rowY[ri];
       if (cell.fill) {
+        ctx.save();
+        if (cell.fillAlpha !== void 0 && cell.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * cell.fillAlpha;
         ctx.fillStyle = cell.fill;
         ctx.fillRect(cx0, cy0, cw, ch);
+        ctx.restore();
       }
     }
   }
@@ -4125,11 +4177,12 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
       const cy0 = y + rowY[ri];
       const cw = (colX[ci + span] ?? colX[colX.length - 1]) - colX[ci];
       const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]) - rowY[ri];
-      const bw = (cell.borderWidth ?? 12700) * scale;
-      const bc = cell.borderColor ?? "#CBD5E1";
-      ctx.strokeStyle = bc;
-      ctx.lineWidth = Math.max(0.5, bw);
-      ctx.strokeRect(cx0 + 0.5, cy0 + 0.5, cw - 1, ch - 1);
+      if (cell.borderColor) {
+        const bw = (cell.borderWidth ?? 12700) * scale;
+        ctx.strokeStyle = cell.borderColor;
+        ctx.lineWidth = Math.max(0.5, bw);
+        ctx.strokeRect(cx0 + 0.5, cy0 + 0.5, cw - 1, ch - 1);
+      }
       if (cell.borders) {
         const edges = [
           [cell.borders.t, cx0, cy0, cx0 + cw, cy0],
@@ -4140,11 +4193,14 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
         for (const [edge, x1, y1, x22, y2] of edges) {
           if (!edge) continue;
           ctx.strokeStyle = edge.color;
-          ctx.lineWidth = Math.max(1, edge.width * scale);
+          const elw = Math.max(1, edge.width * scale);
+          ctx.lineWidth = elw;
+          if (edge.dash) ctx.setLineDash(dashPattern(edge.dash, elw));
           ctx.beginPath();
           ctx.moveTo(x1, y1);
           ctx.lineTo(x22, y2);
           ctx.stroke();
+          if (edge.dash) ctx.setLineDash([]);
         }
       }
     }
@@ -4222,15 +4278,25 @@ function makeLinearGradient(ctx, fill, x2, y, w, h) {
   return g;
 }
 function addLinearSpaceStops(g, rawStops) {
-  const stops = rawStops.map((s) => ({ pos: Math.max(0, Math.min(1, s.pos)), color: s.color }));
+  const stops = rawStops.map((s) => ({
+    pos: Math.max(0, Math.min(1, s.pos)),
+    color: s.color,
+    alpha: s.alpha ?? 1
+  }));
+  const rgba = (hex2, a) => {
+    if (a >= 1) return hex2;
+    const n = parseInt(hex2.replace("#", ""), 16);
+    return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a.toFixed(3)})`;
+  };
   for (let i2 = 0; i2 < stops.length; i2++) {
     const s = stops[i2];
-    g.addColorStop(s.pos, s.color);
+    g.addColorStop(s.pos, rgba(s.color, s.alpha));
     const nx = stops[i2 + 1];
     if (!nx || nx.pos - s.pos < 0.05) continue;
     for (let k = 1; k < 8; k++) {
       const f = k / 8;
-      g.addColorStop(s.pos + (nx.pos - s.pos) * f, mixLinearRgb(s.color, nx.color, f));
+      const a = s.alpha + (nx.alpha - s.alpha) * f;
+      g.addColorStop(s.pos + (nx.pos - s.pos) * f, rgba(mixLinearRgb(s.color, nx.color, f), a));
     }
   }
 }

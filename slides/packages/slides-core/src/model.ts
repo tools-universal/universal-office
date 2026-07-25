@@ -89,6 +89,8 @@ export interface Run {
   font?: string;
   /** Hyperlink alvo (resolvido via slideRels a partir de `<a:hlinkClick r:id>`). */
   hyperlink?: string;
+  /** Sombra do TEXTO (`<a:rPr><a:effectLst><a:outerShdw>`), como na shape. */
+  shadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number };
 }
 
 /** Paragrafo (<a:p>). */
@@ -218,12 +220,14 @@ export interface TableCell {
   borderColor?: string;
   /** Espessura da borda em EMU (`<a:lnL w>`). v1: max dos 4 lados. */
   borderWidth?: number;
+  /** Alfa 0..1 do fill da célula (`<a:solidFill>` com `<a:alpha>`). */
+  fillAlpha?: number;
   /** Bordas POR LADO explícitas (vencem a uniforme): `<a:lnL/lnR/lnT/lnB>`. */
   borders?: {
-    l?: { color: string; width: number };
-    r?: { color: string; width: number };
-    t?: { color: string; width: number };
-    b?: { color: string; width: number };
+    l?: { color: string; width: number; dash?: string };
+    r?: { color: string; width: number; dash?: string };
+    t?: { color: string; width: number; dash?: string };
+    b?: { color: string; width: number; dash?: string };
   };
   /** Anchor vertical do txBody (t/ctr/b). */
   anchor?: string;
