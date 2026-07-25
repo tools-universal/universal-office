@@ -34002,6 +34002,15 @@ function readWorksheet(pkg, sheetPath, cx) {
   const comments = commentsPath ? readComments(pkg, pkg.resolveRelTarget(sheetPath, commentsPath)) : [];
   const drawingTarget = findRelByType(pkg, relsPath, "/drawing");
   const charts = drawingTarget ? readDrawingCharts(pkg, pkg.resolveRelTarget(sheetPath, drawingTarget)) : [];
+  const listValidations = [];
+  const dvs = firstChild(root, "dataValidations");
+  if (dvs) {
+    for (const dv of childElements(dvs, "dataValidation")) {
+      if (dv.attrs["type"] !== "list") continue;
+      const sqref = dv.attrs["sqref"];
+      if (sqref) for (const part of sqref.split(" ")) listValidations.push(part);
+    }
+  }
   const tables = [];
   for (const target of findRelsByType(pkg, relsPath, "/table")) {
     const t5 = readTablePart(pkg, pkg.resolveRelTarget(sheetPath, target));
@@ -34024,6 +34033,7 @@ function readWorksheet(pkg, sheetPath, cx) {
   if (hyperlinks.length > 0) ws.hyperlinks = hyperlinks;
   if (sheetFormatPr) ws.sheetFormatPr = sheetFormatPr;
   if (tables.length > 0) ws.tables = tables;
+  if (listValidations.length > 0) ws.listValidations = listValidations;
   return ws;
 }
 function readTablePart(pkg, tablePath) {
@@ -35214,6 +35224,14 @@ var UniversalSheetElement = class extends HTMLElement {
           }
         }
       }
+      const listValRanges = [];
+      for (const sq of ws.listValidations ?? []) {
+        const [a3, b5] = sq.split(":");
+        if (!a3) continue;
+        const tl = refToRowCol(a3);
+        const br = b5 ? refToRowCol(b5) : tl;
+        listValRanges.push({ c1: tl.col, r1: tl.row, c2: br.col, r2: br.row });
+      }
       this.views.push({
         worksheet: ws,
         path: ref.target,
@@ -35234,7 +35252,8 @@ var UniversalSheetElement = class extends HTMLElement {
         frozenRows,
         defaultColW,
         defaultRowH,
-        tableDeco
+        tableDeco,
+        listValRanges
       });
     }
     this.rowMapCache.clear();
@@ -36010,6 +36029,31 @@ var UniversalSheetElement = class extends HTMLElement {
     this.paintCharts(ctx);
     ctx.restore();
     this.paintSelection(ctx, vw, vh);
+    if (v2.listValRanges.length > 0 && !this.editing) {
+      const { col, row } = this.sel;
+      const inVal = v2.listValRanges.some((rg) => col >= rg.c1 && col <= rg.c2 && row >= rg.r1 && row <= rg.r2);
+      if (inVal) {
+        const cw = this.colWidth(col), rh = this.rowHeight(row);
+        if (cw > 0 && rh > 0) {
+          const bx = this.colX(col) + cw;
+          const by = this.rowY(row);
+          const size = rh;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(bx, by, size, size);
+          ctx.strokeStyle = "#ACACAC";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, size - 1, size - 1);
+          ctx.fillStyle = "#444444";
+          const cx2 = bx + size / 2, cy2 = by + size / 2, tw2 = size * 0.4;
+          ctx.beginPath();
+          ctx.moveTo(cx2 - tw2 / 2, cy2 - tw2 * 0.25);
+          ctx.lineTo(cx2 + tw2 / 2, cy2 - tw2 * 0.25);
+          ctx.lineTo(cx2, cy2 + tw2 * 0.35);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
     ctx.restore();
     this.paintHeaders(ctx, W, H2);
     if (fc > 0 || fr > 0) {

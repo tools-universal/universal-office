@@ -96,6 +96,8 @@ export interface SheetView {
    * built-in não vêm no pacote — replicamos a família Medium por accent.
    */
   tableDeco: Map<string, TableDeco>;
+  /** Ranges (1-based, inclusivos) com validação de LISTA — dropdown na seleção. */
+  listValRanges: { c1: number; r1: number; c2: number; r2: number }[];
 }
 
 /** Decoração derivada do estilo da tabela para UMA célula. */
@@ -308,6 +310,15 @@ export class UniversalSheetElement extends HTMLElement {
           }
         }
       }
+      // ranges de validação de lista (dropdown ao selecionar)
+      const listValRanges: { c1: number; r1: number; c2: number; r2: number }[] = [];
+      for (const sq of ws.listValidations ?? []) {
+        const [a, b] = sq.split(':');
+        if (!a) continue;
+        const tl = refToRowCol(a);
+        const br = b ? refToRowCol(b) : tl;
+        listValRanges.push({ c1: tl.col, r1: tl.row, c2: br.col, r2: br.row });
+      }
       this.views.push({
         worksheet: ws, path: ref.target, colWidths, rowHeights, hiddenCols, hiddenRows, merges,
         pane: ws.pane, condFormats: ws.condFormats ?? [],
@@ -322,6 +333,7 @@ export class UniversalSheetElement extends HTMLElement {
         defaultColW,
         defaultRowH,
         tableDeco,
+        listValRanges,
       });
     }
     // caches de paint pertencem ao workbook anterior
@@ -1170,6 +1182,33 @@ export class UniversalSheetElement extends HTMLElement {
     ctx.restore();
 
     this.paintSelection(ctx, vw, vh);
+    // dropdown de validação de LISTA: botão à direita da célula SELECIONADA
+    // (o app de referência só mostra a seta na seleção)
+    if (v.listValRanges.length > 0 && !this.editing) {
+      const { col, row } = this.sel;
+      const inVal = v.listValRanges.some((rg) => col >= rg.c1 && col <= rg.c2 && row >= rg.r1 && row <= rg.r2);
+      if (inVal) {
+        const cw = this.colWidth(col), rh = this.rowHeight(row);
+        if (cw > 0 && rh > 0) {
+          const bx = this.colX(col) + cw;
+          const by = this.rowY(row);
+          const size = rh;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(bx, by, size, size);
+          ctx.strokeStyle = '#ACACAC';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, size - 1, size - 1);
+          ctx.fillStyle = '#444444';
+          const cx2 = bx + size / 2, cy2 = by + size / 2, tw = size * 0.4;
+          ctx.beginPath();
+          ctx.moveTo(cx2 - tw / 2, cy2 - tw * 0.25);
+          ctx.lineTo(cx2 + tw / 2, cy2 - tw * 0.25);
+          ctx.lineTo(cx2, cy2 + tw * 0.35);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
     ctx.restore();
 
     this.paintHeaders(ctx, W, H);

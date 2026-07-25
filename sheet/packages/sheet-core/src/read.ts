@@ -253,6 +253,17 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
     ? readDrawingCharts(pkg, pkg.resolveRelTarget(sheetPath, drawingTarget))
     : [];
 
+  // validações de dados tipo LISTA (dropdown na célula selecionada)
+  const listValidations: string[] = [];
+  const dvs = firstChild(root, 'dataValidations');
+  if (dvs) {
+    for (const dv of childElements(dvs, 'dataValidation')) {
+      if (dv.attrs['type'] !== 'list') continue;
+      const sqref = dv.attrs['sqref'];
+      if (sqref) for (const part of sqref.split(' ')) listValidations.push(part);
+    }
+  }
+
   // tabelas (ListObjects): <tableParts> liga a xl/tables/tableN.xml via rels
   const tables: TableInfo[] = [];
   for (const target of findRelsByType(pkg, relsPath, '/table')) {
@@ -276,6 +287,7 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (hyperlinks.length > 0) ws.hyperlinks = hyperlinks;
   if (sheetFormatPr) ws.sheetFormatPr = sheetFormatPr;
   if (tables.length > 0) ws.tables = tables;
+  if (listValidations.length > 0) ws.listValidations = listValidations;
   return ws;
 }
 

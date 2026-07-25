@@ -233,6 +233,9 @@ export interface Worksheet {
   sheetFormatPr?: SheetFormatPr;
   /** Tabelas (ListObjects) ligadas via `<tableParts>`. */
   tables?: TableInfo[];
+  /** Ranges A1 com validação tipo LISTA (`<dataValidation type="list" sqref>`) —
+   *  a célula selecionada dentro deles ganha a seta de dropdown. */
+  listValidations?: string[];
 }
 
 // ---- Helpers de referência A1 (matemática determinística) ----
