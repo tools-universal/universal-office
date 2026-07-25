@@ -1,5 +1,6 @@
 import {
   PptxPackage, readPresentation, readSlide, paintSlideTo,
+  readEmbeddedFonts, collectDeckTypefaces,
   type ChartModel, type PaintImage, type PaintSlideOptions,
   type Presentation, type Slide, type Shape, type ImageRef,
 } from '@universal/slides-core';
@@ -94,6 +95,90 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     } catch { /* src inválido: mantém estado atual */ }
   }
 
+  // ───────────────────────── FONTES (lógica do Universal Write) ─────────────────────────
+  // 1 fonte DEFAULT embarcada (Liberation Sans, via atributo `fonts` = base URL),
+  // fontes EMBUTIDAS no arquivo (p:embeddedFontLst) e fontes do SO carregadas
+  // SOB DEMANDA (queryLocalFonts) para as famílias que o deck realmente usa.
+
+  /** Famílias com FontFace carregado (embutidas/SO/default). */
+  protected loadedFamilyNames = new Set<string>();
+  private defaultFontsInstalled = false;
+
+  /** Busca os assets default (Liberation Sans) da base do atributo `fonts`. */
+  protected async installDefaultFonts(): Promise<void> {
+    if (this.defaultFontsInstalled) return;
+    this.defaultFontsInstalled = true;
+    const base = this.getAttribute('fonts');
+    if (!base) return; // sem base: o host já registrou @font-face próprios
+    const files: [string, string, string][] = [
+      ['liberationsans-regular.ttf', '400', 'normal'],
+      ['liberationsans-bold.ttf', '700', 'normal'],
+      ['liberationsans-italic.ttf', '400', 'italic'],
+      ['liberationsans-bolditalic.ttf', '700', 'italic'],
+    ];
+    for (const [file, weight, style] of files) {
+      try {
+        const res = await fetch(`${base.replace(/\/$/, '')}/${file}`);
+        if (!res.ok) continue;
+        const face = new FontFace('Liberation Sans', await res.arrayBuffer(), { weight, style });
+        document.fonts.add(await face.load());
+        this.loadedFamilyNames.add('Liberation Sans');
+      } catch { /* opcional em dev; fallback do canvas cobre */ }
+    }
+    if (this.loadedFamilyNames.has('Liberation Sans')) this.paint();
+  }
+
+  /** Registra as fontes EMBUTIDAS no pacote (FontFace) e repinta ao carregar. */
+  protected registerEmbeddedFonts(pkg: PptxPackage): void {
+    for (const f of readEmbeddedFonts(pkg)) {
+      const weight = f.variant === 'bold' || f.variant === 'boldItalic' ? '700' : '400';
+      const style = f.variant === 'italic' || f.variant === 'boldItalic' ? 'italic' : 'normal';
+      try {
+        const buf = f.data.slice().buffer;
+        const face = new FontFace(f.family, buf, { weight, style });
+        void face.load().then(() => {
+          document.fonts.add(face);
+          this.loadedFamilyNames.add(f.family);
+          this.paint();
+        }).catch(() => {});
+      } catch { /* face inválida: ignora */ }
+    }
+  }
+
+  /**
+   * Carrega SOB DEMANDA as fontes do SO usadas pelo deck e ainda não
+   * disponíveis (queryLocalFonts — Chromium/Electron). Sem permissão/API,
+   * o fallback CSS (default → Aptos → Calibri → Arial) cobre.
+   */
+  protected async ensureDeckFonts(pkg: PptxPackage): Promise<void> {
+    const wanted = collectDeckTypefaces(pkg)
+      .filter((fam) => !this.loadedFamilyNames.has(fam))
+      .filter((fam) => {
+        try { return !document.fonts.check(`12px "${fam}"`); } catch { return true; }
+      });
+    if (!wanted.length) return;
+    const qlf = (window as unknown as { queryLocalFonts?: () => Promise<{ family: string; style: string; blob(): Promise<Blob> }[]> }).queryLocalFonts;
+    if (!qlf) return;
+    let faces: { family: string; style: string; blob(): Promise<Blob> }[];
+    try { faces = await qlf.call(window); } catch { return; /* sem permissão */ }
+    const wantSet = new Set(wanted.map((f) => f.toLowerCase()));
+    let added = false;
+    for (const fd of faces) {
+      if (!wantSet.has(fd.family.toLowerCase())) continue;
+      const styleLc = fd.style.toLowerCase();
+      const weight = /bold|black|heavy|semibold|demi/.test(styleLc) ? '700' : '400';
+      const style = /italic|oblique/.test(styleLc) ? 'italic' : 'normal';
+      try {
+        const bytes = await (await fd.blob()).arrayBuffer();
+        const face = new FontFace(fd.family, bytes, { weight, style });
+        document.fonts.add(await face.load());
+        this.loadedFamilyNames.add(fd.family);
+        added = true;
+      } catch { /* face inacessível: segue */ }
+    }
+    if (added) this.paint();
+  }
+
   /** True quando uma subclasse está com edição inline aberta (viewer: nunca). */
   protected isEditing(): boolean { return false; }
   /** Índice de shape cujo texto NÃO deve ser pintado (edição inline). */
@@ -102,6 +187,10 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   /** Carrega bytes .pptx e monta os slides. */
   loadPptx(bytes: Uint8Array): void {
     this.pkg = PptxPackage.load(bytes);
+    // fontes: default embarcada + embutidas no arquivo + SO sob demanda
+    void this.installDefaultFonts();
+    this.registerEmbeddedFonts(this.pkg);
+    void this.ensureDeckFonts(this.pkg);
     this.pres = readPresentation(this.pkg);
     this.slides = [];
     for (const ref of this.pres.slides) {

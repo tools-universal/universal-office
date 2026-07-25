@@ -1600,6 +1600,34 @@ function readSlide(pkg, slidePath) {
   const cSld = firstChild(root, "p:cSld");
   const spTree = cSld ? firstChild(cSld, "p:spTree") : void 0;
   const shapes = spTree ? readShapes(spTree, theme, pkg, slideRels) : [];
+  const layoutPath = findRelTarget(pkg, slidePath, "slideLayout");
+  const masterPath = layoutPath ? findRelTarget(pkg, layoutPath, "slideMaster") : void 0;
+  const inherited = [];
+  let layoutShowMasterSp = true;
+  if (layoutPath) {
+    const lx = pkg.getPartText(layoutPath);
+    if (lx !== void 0) {
+      const lroot = parseXml(lx);
+      if (lroot.attrs["showMasterSp"] === "0") layoutShowMasterSp = false;
+      const parts = [
+        [masterPath, layoutShowMasterSp],
+        [layoutPath, true]
+      ];
+      for (const [part, enabled] of parts) {
+        if (!part || !enabled) continue;
+        const xml2 = pkg.getPartText(part);
+        if (xml2 === void 0) continue;
+        const tree = descend(parseXml(xml2), "p:spTree");
+        if (!tree) continue;
+        const partRels = readRels(pkg, relsPathFor(part), part);
+        for (const sh of readShapes(tree, theme, pkg, partRels)) {
+          if (sh.phType !== void 0 || sh.phIdx !== void 0) continue;
+          inherited.push(sh);
+        }
+      }
+    }
+  }
+  if (inherited.length) shapes.unshift(...inherited);
   const phMap = placeholderXfrmMap(pkg, slidePath, theme);
   for (const sh of shapes) {
     if (!sh.xfrm && sh.phType !== void 0) {
@@ -1628,24 +1656,38 @@ function readSlide(pkg, slidePath) {
     }
   }
   const slide = { shapes };
-  const bgEl = cSld ? firstChild(cSld, "p:bg") : void 0;
-  if (bgEl) {
+  const applyBg = (part, partRoot, rels) => {
+    const bgEl = descend(partRoot, "p:bg");
+    if (!bgEl) return false;
     const bgPr = firstChild(bgEl, "p:bgPr");
-    if (bgPr) {
-      const c = solidFillColor(bgPr, theme);
-      if (c) slide.bg = { type: "solid", color: c };
-      if (!slide.bg) {
-        const grad = firstChild(bgPr, "a:gradFill");
-        if (grad) {
-          const g = parseGradFill(grad, theme);
-          if (g) slide.bg = g;
-        }
+    if (!bgPr) return false;
+    const c = solidFillColor(bgPr, theme);
+    if (c) slide.bg = { type: "solid", color: c };
+    if (!slide.bg) {
+      const grad = firstChild(bgPr, "a:gradFill");
+      if (grad) {
+        const g = parseGradFill(grad, theme);
+        if (g) slide.bg = g;
       }
-      const blip = descend(bgPr, "a:blip");
-      if (blip) {
-        const img = resolveBlip(blip, pkg, slideRels);
-        if (img) slide.bgImage = img;
-      }
+    }
+    const blip = descend(bgPr, "a:blip");
+    if (blip) {
+      const img = resolveBlip(blip, pkg, rels);
+      if (img) slide.bgImage = img;
+    }
+    return slide.bg !== void 0 || slide.bgImage !== void 0;
+  };
+  let bgDone = cSld ? applyBg(slidePath, cSld, slideRels) : false;
+  if (!bgDone && layoutPath) {
+    const lx = pkg.getPartText(layoutPath);
+    if (lx !== void 0) {
+      bgDone = applyBg(layoutPath, parseXml(lx), readRels(pkg, relsPathFor(layoutPath), layoutPath));
+    }
+  }
+  if (!bgDone && masterPath) {
+    const mx = pkg.getPartText(masterPath);
+    if (mx !== void 0) {
+      applyBg(masterPath, parseXml(mx), readRels(pkg, relsPathFor(masterPath), masterPath));
     }
   }
   const timing = firstChild(root, "p:timing");
@@ -1828,7 +1870,8 @@ function readShapes(spTree, theme, pkg, rels) {
     else if (c.name === "p:pic") out.push(readPic(c, theme, pkg, rels));
     else if (c.name === "p:graphicFrame") {
       const gf = readGraphicFrame(c, pkg, rels, theme);
-      if (gf) out.push(gf);
+      if (Array.isArray(gf)) out.push(...gf);
+      else if (gf) out.push(gf);
     } else if (c.name === "p:grpSp") {
       out.push(...readGroup(c, theme, pkg, rels));
     }
@@ -1919,6 +1962,27 @@ function readGraphicFrame(gf, pkg, rels, theme) {
       }
     }
   }
+  const relIds = firstChild(data, "dgm:relIds");
+  if (relIds && shape.xfrm) {
+    const dmId = relIds.attrs["r:dm"];
+    const dataPath = dmId ? rels.get(dmId) : void 0;
+    if (dataPath) {
+      let drawingPath;
+      const dataRels = readRels(pkg, relsPathFor(dataPath), dataPath);
+      for (const t of dataRels.values()) if (t.includes("drawing")) {
+        drawingPath = t;
+        break;
+      }
+      if (!drawingPath) {
+        const guess = dataPath.replace(/data(\d+)\.xml$/, "drawing$1.xml");
+        if (pkg.getPartText(guess) !== void 0) drawingPath = guess;
+      }
+      if (drawingPath) {
+        const shapes = readDiagramShapes(pkg, drawingPath, theme, shape.xfrm);
+        if (shapes.length) return shapes;
+      }
+    }
+  }
   const tblEl = firstChild(data, "a:tbl");
   if (tblEl) {
     const table = readTable(tblEl, theme);
@@ -1930,6 +1994,52 @@ function readGraphicFrame(gf, pkg, rels, theme) {
     shape.table = table;
   }
   return shape;
+}
+function renamePrefix(el, from, to) {
+  return {
+    name: el.name.startsWith(from) ? to + el.name.slice(from.length) : el.name,
+    attrs: el.attrs,
+    children: el.children.map((c) => typeof c === "string" ? c : renamePrefix(c, from, to))
+  };
+}
+function readDiagramShapes(pkg, drawingPath, theme, frame) {
+  const xml = pkg.getPartText(drawingPath);
+  if (!xml) return [];
+  let root;
+  try {
+    root = parseXml(xml);
+  } catch {
+    return [];
+  }
+  const spTree = descend(root, "dsp:spTree");
+  if (!spTree) return [];
+  const out = [];
+  for (const c of childElements(spTree, "dsp:sp")) {
+    const sp = renamePrefix(c, "dsp:", "p:");
+    const sh = readShape(sp, theme);
+    if (sh.xfrm) out.push(sh);
+  }
+  if (!out.length) return out;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const sh of out) {
+    const f = sh.xfrm;
+    if (f.x < minX) minX = f.x;
+    if (f.y < minY) minY = f.y;
+    if (f.x + f.cx > maxX) maxX = f.x + f.cx;
+    if (f.y + f.cy > maxY) maxY = f.y + f.cy;
+  }
+  const bw = maxX - minX || 1, bh = maxY - minY || 1;
+  const s = Math.min(frame.cx / bw, frame.cy / bh);
+  const ox = frame.x + (frame.cx - bw * s) / 2 - minX * s;
+  const oy = frame.y + (frame.cy - bh * s) / 2 - minY * s;
+  for (const sh of out) {
+    const f = sh.xfrm;
+    f.x = ox + f.x * s;
+    f.y = oy + f.y * s;
+    f.cx = f.cx * s;
+    f.cy = f.cy * s;
+  }
+  return out;
 }
 function readTable(tbl, theme) {
   const gridEl = firstChild(tbl, "a:tblGrid");
@@ -1956,21 +2066,17 @@ function readTable(tbl, theme) {
         if (tcPr.attrs["anchor"]) cell.anchor = tcPr.attrs["anchor"];
         const fill = solidFillColor(tcPr, theme);
         if (fill) cell.fill = fill;
-        let bw = 0;
-        let bc;
-        for (const side of ["a:lnL", "a:lnR", "a:lnT", "a:lnB"]) {
-          const ln2 = firstChild(tcPr, side);
+        const sides = [["l", "a:lnL"], ["r", "a:lnR"], ["t", "a:lnT"], ["b", "a:lnB"]];
+        for (const [key, name] of sides) {
+          const ln2 = firstChild(tcPr, name);
           if (!ln2) continue;
-          const w = ln2.attrs["w"] ? parseInt(ln2.attrs["w"], 10) : 0;
-          if (w > bw) bw = w;
-          if (!bc) {
-            const fillEl = firstChild(ln2, "a:solidFill");
-            const srgb = fillEl ? firstChild(fillEl, "a:srgbClr") : void 0;
-            if (srgb?.attrs["val"]) bc = "#" + srgb.attrs["val"];
-          }
+          const fillEl = firstChild(ln2, "a:solidFill");
+          const color = fillEl ? colorFromDml(childElements(fillEl)[0], theme) : void 0;
+          if (!color) continue;
+          const width = ln2.attrs["w"] ? parseInt(ln2.attrs["w"], 10) : 12700;
+          cell.borders = cell.borders ?? {};
+          cell.borders[key] = { color, width };
         }
-        if (bw) cell.borderWidth = bw;
-        if (bc) cell.borderColor = bc;
       }
       cells.push(cell);
     }
@@ -2022,7 +2128,10 @@ function readShape(sp, theme, pkg, rels) {
       const blip = bf ? firstChild(bf, "a:blip") : void 0;
       if (blip) {
         const img = resolveBlip(blip, pkg, rels);
-        if (img) shape.fillImage = img;
+        if (img) {
+          shape.fillImage = img;
+          if (bf && firstChild(bf, "a:tile")) shape.fillTile = true;
+        }
       }
     }
     const sf = firstChild(spPr, "a:solidFill");
@@ -2172,6 +2281,8 @@ function readTxBody(el, theme, rels) {
     if (bodyPr.attrs["tIns"] !== void 0) tb.insT = parseInt(bodyPr.attrs["tIns"], 10);
     if (bodyPr.attrs["rIns"] !== void 0) tb.insR = parseInt(bodyPr.attrs["rIns"], 10);
     if (bodyPr.attrs["bIns"] !== void 0) tb.insB = parseInt(bodyPr.attrs["bIns"], 10);
+    if (bodyPr.attrs["numCol"] !== void 0) tb.numCol = parseInt(bodyPr.attrs["numCol"], 10);
+    if (bodyPr.attrs["spcCol"] !== void 0) tb.spcCol = parseInt(bodyPr.attrs["spcCol"], 10);
     const na = firstChild(bodyPr, "a:normAutofit");
     if (na) {
       if (na.attrs["fontScale"] !== void 0) tb.fontScale = parseInt(na.attrs["fontScale"], 10) / 1e5;
@@ -2493,7 +2604,7 @@ function walkText(el, out) {
     walkText(c, out);
   }
 }
-function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder) {
+function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder, sliceBorder = true) {
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(x2, y, w, h);
   if (frameBorder) {
@@ -2517,11 +2628,13 @@ function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder) {
     plotH = h - (titlePx + 44 * u);
   }
   const showLegend = chart.legendPos !== void 0;
-  const legendH = showLegend ? labelPx + 20 * u : 0;
+  const legendRight = chart.legendPos === "r";
+  const legendH = showLegend && !legendRight ? labelPx + 20 * u : 0;
   const legendTop = chart.legendPos === "t";
+  const legendW = legendRight ? legendRightWidth(ctx, chart, labelPx) : 0;
   const px = x2 + 8 * u;
   const py = plotY + (legendTop ? legendH : 0);
-  const pw = w - 16 * u;
+  const pw = w - 16 * u - legendW;
   const ph = plotH - legendH;
   switch (chart.type) {
     case "bar-col":
@@ -2537,10 +2650,10 @@ function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder) {
       paintLines(ctx, chart, px, py, pw, ph, labelPx, true);
       break;
     case "pie":
-      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, 0);
+      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, 0, sliceBorder);
       break;
     case "doughnut":
-      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, chart.holeSize ?? 0.75);
+      paintPieOrDoughnut(ctx, chart, px, py, pw, ph, chart.holeSize ?? 0.75, sliceBorder);
       break;
     case "scatter":
       paintScatter(ctx, chart, px, py, pw, ph, labelPx);
@@ -2555,8 +2668,35 @@ function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder) {
       ctx.fillText(`Gr\xE1fico (${chart.type}) \u2014 render em breve`, x2 + w / 2, y + h / 2);
   }
   if (showLegend) {
-    const ly = legendTop ? plotY : py + ph + 6 * u;
-    paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+    if (legendRight) {
+      paintLegendRight(ctx, chart, px + pw + 4 * u, py, legendW, ph, labelPx);
+    } else {
+      const ly = legendTop ? plotY : py + ph + 6 * u;
+      paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+    }
+  }
+}
+function legendRightWidth(ctx, chart, labelPx) {
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  let maxW = 0;
+  for (const s of chart.series) maxW = Math.max(maxW, ctx.measureText(s.name || "S\xE9rie").width);
+  return maxW + labelPx * 1.6;
+}
+function paintLegendRight(ctx, chart, x2, y, w, h, labelPx) {
+  const entries = chart.series.map((s, i2) => ({ label: s.name || `S\xE9rie ${i2 + 1}`, color: colorOf(chart, i2) }));
+  if (!entries.length) return;
+  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  const lineH = labelPx * 1.7;
+  const sq = labelPx * 0.65;
+  let cy = y + (h - entries.length * lineH) / 2 + lineH / 2;
+  for (const e of entries) {
+    ctx.fillStyle = e.color;
+    ctx.fillRect(x2, cy - sq / 2, sq, sq);
+    ctx.fillStyle = "#595959";
+    ctx.fillText(e.label, x2 + sq + labelPx * 0.4, cy);
+    cy += lineH;
   }
 }
 function paletteOf(chart) {
@@ -2576,13 +2716,21 @@ function valueRange(chart) {
   return { min, max: max2 };
 }
 function niceTicks(min, max2) {
-  const raw = (max2 - min) / 5 || 1;
-  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-  const norm = raw / mag;
-  const step = mag * (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10);
-  const lo = min < 0 ? Math.floor(min * 1.05 / step) * step : Math.floor(min / step) * step;
-  const hi = max2 > 0 ? Math.ceil(max2 * 1.05 / step) * step : Math.ceil(max2 / step) * step;
-  return { lo, hi, step };
+  const minAdj = min < 0 ? min * 1.05 : min;
+  const maxAdj = max2 > 0 ? max2 * 1.05 : max2;
+  const span = Math.max(maxAdj - minAdj, 1e-9);
+  let mag = Math.pow(10, Math.floor(Math.log10(span / 10)));
+  for (let k = 0; k < 4; k++) {
+    for (const f of [1, 2, 5]) {
+      const step2 = f * mag;
+      const lo = Math.floor(minAdj / step2) * step2;
+      const hi = Math.ceil(maxAdj / step2) * step2;
+      if ((hi - lo) / step2 <= 10) return { lo, hi, step: step2 };
+    }
+    mag *= 10;
+  }
+  const step = span;
+  return { lo: Math.floor(minAdj / step) * step, hi: Math.ceil(maxAdj / step) * step, step };
 }
 function paintBars(ctx, chart, x2, y, w, h, dir, labelPx) {
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;
@@ -2661,7 +2809,7 @@ function paintLines(ctx, chart, x2, y, w, h, labelPx, area) {
   paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
   paintValueAxis(ctx, t, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
-function paintPieOrDoughnut(ctx, chart, x2, y, w, h, holeFrac) {
+function paintPieOrDoughnut(ctx, chart, x2, y, w, h, holeFrac, sliceBorder = true) {
   const s0 = chart.series[0];
   if (!s0) return;
   const total = s0.values.reduce((a, b) => a + Math.max(0, b), 0);
@@ -2686,9 +2834,11 @@ function paintPieOrDoughnut(ctx, chart, x2, y, w, h, holeFrac) {
       ctx.closePath();
     }
     ctx.fill();
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = Math.max(2, radius / 90);
-    ctx.stroke();
+    if (sliceBorder) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = Math.max(2, radius / 90);
+      ctx.stroke();
+    }
     a0 = a1;
   }
 }
@@ -2945,6 +3095,9 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
   const fontScale = tb.fontScale ?? 1;
   const lineFactor = LINE_FACTOR * (1 - (tb.lnSpcReduction ?? 0));
   const usableW = Math.max(0, boxW - insL - insR);
+  const numCol = Math.max(1, tb.numCol ?? 1);
+  const spcCol = tb.spcCol ?? 0;
+  const colW = numCol > 1 ? Math.max(0, (usableW - (numCol - 1) * spcCol) / numCol) : usableW;
   const wrap = tb.wrap !== "none";
   const fOpts = { defaultSzPt, defaultFont };
   const measureEmu = (text, f) => measure(text, f) * EMU_PER_POINT;
@@ -3003,7 +3156,7 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
       }
       const f = fontOf(wd.run, fontScale, fOpts);
       const wEmu = measureEmu(wd.text, f);
-      const availW = Math.max(0, usableW - (cur.marL - insL));
+      const availW = Math.max(0, colW - (cur.marL - insL));
       if (wrap && cur.runs.length > 0 && curW + measureEmu(wd.text.replace(/\s+$/, ""), f) > availW) flush();
       cur.runs.push({ text: wd.text, run: wd.run });
       curW += wEmu;
@@ -3015,13 +3168,21 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
   const usableH = Math.max(0, boxH - insT - insB);
   const anchor = tb.anchor ?? opts.defaultAnchor ?? "t";
   let y = insT;
-  if (anchor === "ctr") y = insT + (usableH - totalH) / 2;
-  else if (anchor === "b") y = insT + usableH - totalH;
+  if (numCol === 1) {
+    if (anchor === "ctr") y = insT + (usableH - totalH) / 2;
+    else if (anchor === "b") y = insT + usableH - totalH;
+  }
+  let colIdx = 0;
   const lines = [];
   for (let i2 = 0; i2 < proto.length; i2++) {
     const pl = proto[i2];
     const h = heights[i2];
     y += spacers[i2] ?? 0;
+    if (numCol > 1 && colIdx < numCol - 1 && y + h > insT + usableH) {
+      colIdx++;
+      y = insT;
+    }
+    const colShift = colIdx * (colW + spcCol);
     const merged = [];
     for (const t of pl.runs) {
       const last = merged[merged.length - 1];
@@ -3050,9 +3211,13 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
       w += mw;
     }
     let dx = 0;
-    if (pl.align === "ctr") dx = (usableW - (pl.marL - insL) - w) / 2;
-    else if (pl.align === "r") dx = usableW - (pl.marL - insL) - w;
+    if (pl.align === "ctr") dx = (colW - (pl.marL - insL) - w) / 2;
+    else if (pl.align === "r") dx = colW - (pl.marL - insL) - w;
     if (dx > 0) for (const pr of placed) pr.x += dx;
+    if (colShift > 0) {
+      for (const pr of placed) pr.x += colShift;
+      if (pl.bullet) pl.bullet = { ...pl.bullet, x: pl.bullet.x + colShift };
+    }
     const line = { runs: placed, baseline: y + h * BASELINE_FACTOR, height: h };
     if (pl.bullet) line.bullet = pl.bullet;
     lines.push(line);
@@ -3411,8 +3576,146 @@ function presetPath(geom, w, h) {
       };
     }
     default:
+      if (geom?.startsWith("actionButton")) {
+        const cx = w / 2, cy = h / 2, g = Math.min(w, h) * 0.3;
+        const glyph = actionGlyph(geom, cx, cy, g);
+        const lums = glyph.map((_, i2) => geom === "actionButtonDocument" && i2 === 1 ? 0 : -0.25);
+        return {
+          kind: "path",
+          subs: [
+            [{ c: "M", x: 0, y: 0 }, { c: "L", x: w, y: 0 }, { c: "L", x: w, y: h }, { c: "L", x: 0, y: h }, { c: "Z" }],
+            ...glyph
+          ],
+          subLum: [0, ...lums]
+        };
+      }
       return { kind: "rect" };
   }
+}
+function actionGlyph(geom, cx, cy, g) {
+  const tri = (dir) => [
+    { c: "M", x: cx + dir * g, y: cy },
+    { c: "L", x: cx - dir * g, y: cy - g },
+    { c: "L", x: cx - dir * g, y: cy + g },
+    { c: "Z" }
+  ];
+  const bar = (x2) => [
+    { c: "M", x: x2 - g * 0.18, y: cy - g },
+    { c: "L", x: x2 + g * 0.18, y: cy - g },
+    { c: "L", x: x2 + g * 0.18, y: cy + g },
+    { c: "L", x: x2 - g * 0.18, y: cy + g },
+    { c: "Z" }
+  ];
+  switch (geom) {
+    case "actionButtonForwardNext":
+      return [tri(1)];
+    case "actionButtonBackPrevious":
+      return [tri(-1)];
+    case "actionButtonBeginning":
+      return [bar(cx - g), tri(-1)];
+    case "actionButtonEnd":
+      return [tri(1), bar(cx + g)];
+    case "actionButtonReturn":
+      return [[
+        { c: "M", x: cx - g * 0.15, y: cy - g },
+        // ponta da seta (esq)
+        { c: "L", x: cx + g * 0.45, y: cy - g * 0.35 },
+        { c: "L", x: cx + g * 0.1, y: cy - g * 0.35 },
+        { c: "C", x1: cx + g * 0.1, y1: cy + g * 0.35, x2: cx - g * 0.1, y2: cy + g * 0.55, x: cx - g * 0.35, y: cy + g * 0.55 },
+        { c: "L", x: cx - g, y: cy + g * 0.55 },
+        { c: "L", x: cx - g, y: cy + g },
+        { c: "L", x: cx - g * 0.35, y: cy + g },
+        { c: "C", x1: cx + g * 0.35, y1: cy + g, x2: cx + g * 0.55, y2: cy + g * 0.4, x: cx + g * 0.55, y: cy - g * 0.35 },
+        { c: "L", x: cx + g * 0.75, y: cy - g * 0.35 },
+        { c: "Z" }
+      ]];
+    case "actionButtonDocument": {
+      return [
+        [
+          { c: "M", x: cx - g * 0.7, y: cy - g },
+          { c: "L", x: cx + g * 0.25, y: cy - g },
+          { c: "L", x: cx + g * 0.7, y: cy - g * 0.55 },
+          { c: "L", x: cx + g * 0.7, y: cy + g },
+          { c: "L", x: cx - g * 0.7, y: cy + g },
+          { c: "Z" }
+        ],
+        [
+          // dobra do canto (recorte)
+          { c: "M", x: cx + g * 0.25, y: cy - g },
+          { c: "L", x: cx + g * 0.25, y: cy - g * 0.55 },
+          { c: "L", x: cx + g * 0.7, y: cy - g * 0.55 },
+          { c: "Z" }
+        ]
+      ];
+    }
+    default:
+      return [tri(1)];
+  }
+}
+
+// ../slides-core/src/fonts.ts
+var VARIANT_TAGS = [
+  ["p:regular", "regular"],
+  ["p:bold", "bold"],
+  ["p:italic", "italic"],
+  ["p:boldItalic", "boldItalic"]
+];
+function looksLikeSfnt(d) {
+  if (d.length < 4) return false;
+  const m = d[0] << 24 | d[1] << 16 | d[2] << 8 | d[3];
+  return m === 65536 || m === 1330926671 || m === 1953658213 || m === 1953784678;
+}
+function deobfuscateFont(data, fontKey) {
+  const hex2 = fontKey.replace(/[{}-]/g, "");
+  if (hex2.length < 32) return data;
+  const key = new Uint8Array(16);
+  for (let i2 = 0; i2 < 16; i2++) key[i2] = parseInt(hex2.slice(i2 * 2, i2 * 2 + 2), 16);
+  key.reverse();
+  const out = data.slice();
+  const n = Math.min(32, out.length);
+  for (let i2 = 0; i2 < n; i2++) out[i2] = out[i2] ^ key[i2 % 16];
+  return out;
+}
+function readEmbeddedFonts(pkg) {
+  const xml = pkg.getPartText("ppt/presentation.xml");
+  if (!xml) return [];
+  const root = parseXml(xml);
+  const lst = firstChild(root, "p:embeddedFontLst");
+  if (!lst) return [];
+  const rels = readRels(pkg, "ppt/_rels/presentation.xml.rels", "ppt/presentation.xml");
+  const out = [];
+  for (const ef of childElements(lst, "p:embeddedFont")) {
+    const fontEl = firstChild(ef, "p:font");
+    const family = fontEl?.attrs["typeface"];
+    if (!family) continue;
+    for (const [tag, variant] of VARIANT_TAGS) {
+      const v = firstChild(ef, tag);
+      const rid = v?.attrs["r:id"];
+      if (!rid) continue;
+      const target = rels.get(rid);
+      if (!target) continue;
+      const raw = pkg.getPart(target);
+      if (!raw) continue;
+      let data = raw;
+      if (!looksLikeSfnt(data)) {
+        const key = v?.attrs["fontKey"] ?? v?.attrs["p:fontKey"];
+        if (key) data = deobfuscateFont(raw, key);
+        if (!looksLikeSfnt(data)) continue;
+      }
+      out.push({ family, variant, data });
+    }
+  }
+  return out;
+}
+function collectDeckTypefaces(pkg) {
+  const out = /* @__PURE__ */ new Set();
+  for (const part of pkg.partNames()) {
+    if (!/^ppt\/(slides|slideLayouts|slideMasters)\/[^/]+\.xml$/.test(part)) continue;
+    const xml = pkg.getPartText(part);
+    if (!xml) continue;
+    for (const m of xml.matchAll(/typeface="([^"+][^"]*)"/g)) out.add(m[1]);
+  }
+  return [...out].sort();
 }
 
 // ../slides-core/src/render.ts
@@ -3501,6 +3804,13 @@ function paintShape(ctx, sh, fit, res, suppressText) {
   if (sh.image) {
     const img = res.images?.get(sh.image.part);
     if (img) {
+      const clipGeom = sh.geom !== void 0 && sh.geom !== "rect";
+      if (clipGeom) {
+        ctx.save();
+        const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
+        if (rule) ctx.clip(rule);
+        else ctx.clip();
+      }
       if (sh.srcRect) {
         const iw = imgW(img), ih = imgH(img);
         const sx = sh.srcRect.l * iw;
@@ -3511,11 +3821,13 @@ function paintShape(ctx, sh, fit, res, suppressText) {
       } else {
         ctx.drawImage(img, x2, y, w, h);
       }
+      if (clipGeom) ctx.restore();
     }
     if (sh.lineColor) {
       ctx.strokeStyle = sh.lineColor;
       ctx.lineWidth = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
-      ctx.strokeRect(x2, y, w, h);
+      shapePath(ctx, sh.geom ?? "rect", x2, y, w, h, sh.custGeom);
+      ctx.stroke();
     }
     if (hasXform || hasAlpha) ctx.restore();
     return;
@@ -3545,7 +3857,18 @@ function paintShape(ctx, sh, fit, res, suppressText) {
     const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom);
     if (sh.fillImage) {
       const img = res.images?.get(sh.fillImage.part);
-      if (img) {
+      if (img && sh.fillTile) {
+        const pat = ctx.createPattern(img, "repeat");
+        if (pat) {
+          const k = 9525 * fit.scale;
+          if (typeof pat.setTransform === "function" && typeof DOMMatrix !== "undefined") {
+            pat.setTransform(new DOMMatrix([k, 0, 0, k, x2, y]));
+          }
+          ctx.fillStyle = pat;
+          if (rule) ctx.fill(rule);
+          else ctx.fill();
+        }
+      } else if (img) {
         ctx.clip();
         ctx.drawImage(img, x2, y, w, h);
       }
@@ -3759,7 +4082,7 @@ function paintText(ctx, sh, tb, x2, y, w, h, scale) {
   }
 }
 function layoutFontStr(f, pxPerPt) {
-  return `${f.italic ? "italic " : ""}${f.bold ? "700 " : "400 "}${f.sizePt * pxPerPt}px '${f.family}', 'Aptos', Calibri, Arial, sans-serif`;
+  return `${f.italic ? "italic " : ""}${f.bold ? "700 " : "400 "}${f.sizePt * pxPerPt}px '${f.family}', 'Liberation Sans', 'Aptos', Calibri, Arial, sans-serif`;
 }
 function paintTable(ctx, t, x2, y, w, h, scale) {
   const allZeroRows = t.rows.every((r) => !r.heightEmu);
@@ -3807,6 +4130,23 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
       ctx.strokeStyle = bc;
       ctx.lineWidth = Math.max(0.5, bw);
       ctx.strokeRect(cx0 + 0.5, cy0 + 0.5, cw - 1, ch - 1);
+      if (cell.borders) {
+        const edges = [
+          [cell.borders.t, cx0, cy0, cx0 + cw, cy0],
+          [cell.borders.b, cx0, cy0 + ch, cx0 + cw, cy0 + ch],
+          [cell.borders.l, cx0, cy0, cx0, cy0 + ch],
+          [cell.borders.r, cx0 + cw, cy0, cx0 + cw, cy0 + ch]
+        ];
+        for (const [edge, x1, y1, x22, y2] of edges) {
+          if (!edge) continue;
+          ctx.strokeStyle = edge.color;
+          ctx.lineWidth = Math.max(1, edge.width * scale);
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x22, y2);
+          ctx.stroke();
+        }
+      }
     }
   }
   for (let ri = 0; ri < t.rows.length; ri++) {
@@ -3846,7 +4186,7 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
       else if (cellAnchor === "b") cy = cy0 + ch - totalH - padY;
       ctx.textBaseline = "top";
       for (const l of lines) {
-        ctx.font = `${l.italic ? "italic " : ""}${l.bold ? "700 " : "400 "}${l.size}px '${l.font}', 'Aptos', Calibri, Arial, sans-serif`;
+        ctx.font = `${l.italic ? "italic " : ""}${l.bold ? "700 " : "400 "}${l.size}px '${l.font}', 'Liberation Sans', 'Aptos', Calibri, Arial, sans-serif`;
         ctx.fillStyle = l.color;
         const tw = ctx.measureText(l.text).width;
         let tx;
@@ -3910,24 +4250,25 @@ function mixLinearRgb(c1, c2, f) {
 function dashPattern(prstDash, lw) {
   switch (prstDash) {
     case "dash":
-      return [4 * lw, 3 * lw];
+      return [5 * lw, 3 * lw];
     case "lgDash":
-      return [8 * lw, 3 * lw];
+      return [9.5 * lw, 3 * lw];
     case "dashDot":
-      return [4 * lw, 3 * lw, 1 * lw, 3 * lw];
+      return [5 * lw, 3 * lw, 1.5 * lw, 3 * lw];
     case "lgDashDot":
-      return [8 * lw, 3 * lw, 1 * lw, 3 * lw];
+      return [9.5 * lw, 3 * lw, 1.5 * lw, 3 * lw];
     case "lgDashDotDot":
-      return [8 * lw, 3 * lw, 1 * lw, 3 * lw, 1 * lw, 3 * lw];
+      return [9.5 * lw, 3 * lw, 1.5 * lw, 3 * lw, 1.5 * lw, 3 * lw];
     case "dot":
+      return [1.5 * lw, 3 * lw];
     case "sysDot":
-      return [1 * lw, 1 * lw];
+      return [1.5 * lw, 1 * lw];
     case "sysDash":
       return [3 * lw, 1 * lw];
     case "sysDashDot":
-      return [3 * lw, 1 * lw, 1 * lw, 1 * lw];
+      return [3 * lw, 1 * lw, 1.5 * lw, 1 * lw];
     case "sysDashDotDot":
-      return [3 * lw, 1 * lw, 1 * lw, 1 * lw, 1 * lw, 1 * lw];
+      return [3.8 * lw, 0.7 * lw, 1.5 * lw, 0.7 * lw, 1.5 * lw, 0.7 * lw];
     default:
       return [];
   }
@@ -4008,6 +4349,95 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     } catch {
     }
   }
+  // ───────────────────────── FONTES (lógica do Universal Write) ─────────────────────────
+  // 1 fonte DEFAULT embarcada (Liberation Sans, via atributo `fonts` = base URL),
+  // fontes EMBUTIDAS no arquivo (p:embeddedFontLst) e fontes do SO carregadas
+  // SOB DEMANDA (queryLocalFonts) para as famílias que o deck realmente usa.
+  /** Famílias com FontFace carregado (embutidas/SO/default). */
+  loadedFamilyNames = /* @__PURE__ */ new Set();
+  defaultFontsInstalled = false;
+  /** Busca os assets default (Liberation Sans) da base do atributo `fonts`. */
+  async installDefaultFonts() {
+    if (this.defaultFontsInstalled) return;
+    this.defaultFontsInstalled = true;
+    const base = this.getAttribute("fonts");
+    if (!base) return;
+    const files = [
+      ["liberationsans-regular.ttf", "400", "normal"],
+      ["liberationsans-bold.ttf", "700", "normal"],
+      ["liberationsans-italic.ttf", "400", "italic"],
+      ["liberationsans-bolditalic.ttf", "700", "italic"]
+    ];
+    for (const [file, weight, style] of files) {
+      try {
+        const res = await fetch(`${base.replace(/\/$/, "")}/${file}`);
+        if (!res.ok) continue;
+        const face = new FontFace("Liberation Sans", await res.arrayBuffer(), { weight, style });
+        document.fonts.add(await face.load());
+        this.loadedFamilyNames.add("Liberation Sans");
+      } catch {
+      }
+    }
+    if (this.loadedFamilyNames.has("Liberation Sans")) this.paint();
+  }
+  /** Registra as fontes EMBUTIDAS no pacote (FontFace) e repinta ao carregar. */
+  registerEmbeddedFonts(pkg) {
+    for (const f of readEmbeddedFonts(pkg)) {
+      const weight = f.variant === "bold" || f.variant === "boldItalic" ? "700" : "400";
+      const style = f.variant === "italic" || f.variant === "boldItalic" ? "italic" : "normal";
+      try {
+        const buf = f.data.slice().buffer;
+        const face = new FontFace(f.family, buf, { weight, style });
+        void face.load().then(() => {
+          document.fonts.add(face);
+          this.loadedFamilyNames.add(f.family);
+          this.paint();
+        }).catch(() => {
+        });
+      } catch {
+      }
+    }
+  }
+  /**
+   * Carrega SOB DEMANDA as fontes do SO usadas pelo deck e ainda não
+   * disponíveis (queryLocalFonts — Chromium/Electron). Sem permissão/API,
+   * o fallback CSS (default → Aptos → Calibri → Arial) cobre.
+   */
+  async ensureDeckFonts(pkg) {
+    const wanted = collectDeckTypefaces(pkg).filter((fam) => !this.loadedFamilyNames.has(fam)).filter((fam) => {
+      try {
+        return !document.fonts.check(`12px "${fam}"`);
+      } catch {
+        return true;
+      }
+    });
+    if (!wanted.length) return;
+    const qlf = window.queryLocalFonts;
+    if (!qlf) return;
+    let faces;
+    try {
+      faces = await qlf.call(window);
+    } catch {
+      return;
+    }
+    const wantSet = new Set(wanted.map((f) => f.toLowerCase()));
+    let added = false;
+    for (const fd2 of faces) {
+      if (!wantSet.has(fd2.family.toLowerCase())) continue;
+      const styleLc = fd2.style.toLowerCase();
+      const weight = /bold|black|heavy|semibold|demi/.test(styleLc) ? "700" : "400";
+      const style = /italic|oblique/.test(styleLc) ? "italic" : "normal";
+      try {
+        const bytes = await (await fd2.blob()).arrayBuffer();
+        const face = new FontFace(fd2.family, bytes, { weight, style });
+        document.fonts.add(await face.load());
+        this.loadedFamilyNames.add(fd2.family);
+        added = true;
+      } catch {
+      }
+    }
+    if (added) this.paint();
+  }
   /** True quando uma subclasse está com edição inline aberta (viewer: nunca). */
   isEditing() {
     return false;
@@ -4019,6 +4449,9 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   /** Carrega bytes .pptx e monta os slides. */
   loadPptx(bytes) {
     this.pkg = PptxPackage.load(bytes);
+    void this.installDefaultFonts();
+    this.registerEmbeddedFonts(this.pkg);
+    void this.ensureDeckFonts(this.pkg);
     this.pres = readPresentation(this.pkg);
     this.slides = [];
     for (const ref of this.pres.slides) {

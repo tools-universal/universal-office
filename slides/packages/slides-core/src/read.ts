@@ -92,6 +92,38 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
   const spTree = cSld ? firstChild(cSld, 'p:spTree') : undefined;
   const shapes: Shape[] = spTree ? readShapes(spTree, theme, pkg, slideRels) : [];
 
+  // DECORAÇÕES herdadas: shapes SEM placeholder do master e do layout são
+  // desenhadas por baixo das do slide (fundo de template tipo Slidesgo vive
+  // aqui). `showMasterSp="0"` no layout desliga as do master.
+  const layoutPath = findRelTarget(pkg, slidePath, 'slideLayout');
+  const masterPath = layoutPath ? findRelTarget(pkg, layoutPath, 'slideMaster') : undefined;
+  const inherited: Shape[] = [];
+  let layoutShowMasterSp = true;
+  if (layoutPath) {
+    const lx = pkg.getPartText(layoutPath);
+    if (lx !== undefined) {
+      const lroot = parseXml(lx);
+      if (lroot.attrs['showMasterSp'] === '0') layoutShowMasterSp = false;
+      const parts: [string | undefined, boolean][] = [
+        [masterPath, layoutShowMasterSp],
+        [layoutPath, true],
+      ];
+      for (const [part, enabled] of parts) {
+        if (!part || !enabled) continue;
+        const xml2 = pkg.getPartText(part);
+        if (xml2 === undefined) continue;
+        const tree = descend(parseXml(xml2), 'p:spTree');
+        if (!tree) continue;
+        const partRels = readRels(pkg, relsPathFor(part), part);
+        for (const sh of readShapes(tree, theme, pkg, partRels)) {
+          if (sh.phType !== undefined || sh.phIdx !== undefined) continue; // placeholder ≠ decoração
+          inherited.push(sh);
+        }
+      }
+    }
+  }
+  if (inherited.length) shapes.unshift(...inherited);
+
   // herda xfrm de placeholders sem geometria propria
   const phMap = placeholderXfrmMap(pkg, slidePath, theme);
   for (const sh of shapes) {
@@ -132,26 +164,40 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
   }
 
   const slide: Slide = { shapes };
-  // fundo do slide (se sobrescrito): cor solida OU imagem (blipFill).
-  const bgEl = cSld ? firstChild(cSld, 'p:bg') : undefined;
-  if (bgEl) {
+  // fundo: o do SLIDE vence; sem ele, herda do LAYOUT e por fim do MASTER
+  // (cada um resolve blips com os PRÓPRIOS rels).
+  const applyBg = (part: string, partRoot: XmlElement, rels: Map<string, string>): boolean => {
+    const bgEl = descend(partRoot, 'p:bg');
+    if (!bgEl) return false;
     const bgPr = firstChild(bgEl, 'p:bgPr');
-    if (bgPr) {
-      const c = solidFillColor(bgPr, theme);
-      if (c) slide.bg = { type: 'solid', color: c };
-      // fundo com gradiente (<a:gradFill> direto no bgPr)
-      if (!slide.bg) {
-        const grad = firstChild(bgPr, 'a:gradFill');
-        if (grad) {
-          const g = parseGradFill(grad, theme);
-          if (g) slide.bg = g;
-        }
+    if (!bgPr) return false;
+    const c = solidFillColor(bgPr, theme);
+    if (c) slide.bg = { type: 'solid', color: c };
+    if (!slide.bg) {
+      const grad = firstChild(bgPr, 'a:gradFill');
+      if (grad) {
+        const g = parseGradFill(grad, theme);
+        if (g) slide.bg = g;
       }
-      const blip = descend(bgPr, 'a:blip');
-      if (blip) {
-        const img = resolveBlip(blip, pkg, slideRels);
-        if (img) slide.bgImage = img;
-      }
+    }
+    const blip = descend(bgPr, 'a:blip');
+    if (blip) {
+      const img = resolveBlip(blip, pkg, rels);
+      if (img) slide.bgImage = img;
+    }
+    return slide.bg !== undefined || slide.bgImage !== undefined;
+  };
+  let bgDone = cSld ? applyBg(slidePath, cSld, slideRels) : false;
+  if (!bgDone && layoutPath) {
+    const lx = pkg.getPartText(layoutPath);
+    if (lx !== undefined) {
+      bgDone = applyBg(layoutPath, parseXml(lx), readRels(pkg, relsPathFor(layoutPath), layoutPath));
+    }
+  }
+  if (!bgDone && masterPath) {
+    const mx = pkg.getPartText(masterPath);
+    if (mx !== undefined) {
+      applyBg(masterPath, parseXml(mx), readRels(pkg, relsPathFor(masterPath), masterPath));
     }
   }
   // animacoes (<p:timing> cascade fade do showcase)

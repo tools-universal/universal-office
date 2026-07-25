@@ -15,6 +15,10 @@ export {
 } from './text-layout.js';
 export { presetPath, type PresetPath, type Pt } from './geometry.js';
 export {
+  readEmbeddedFonts, collectDeckTypefaces, deobfuscateFont,
+  type EmbeddedFont, type FontVariant,
+} from './fonts.js';
+export {
   paintSlideTo, DEFAULT_TITLE_PT, DEFAULT_BODY_PT,
   type PaintImage, type PaintResources, type PaintSlideOptions,
 } from './render.js';

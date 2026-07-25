@@ -488,7 +488,7 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
 
 /** Font string CSS para uma LayoutFont (pxPerPt converte pt → px). */
 function layoutFontStr(f: LayoutFont, pxPerPt: number): string {
-  return `${f.italic ? 'italic ' : ''}${f.bold ? '700 ' : '400 '}${f.sizePt * pxPerPt}px '${f.family}', 'Aptos', Calibri, Arial, sans-serif`;
+  return `${f.italic ? 'italic ' : ''}${f.bold ? '700 ' : '400 '}${f.sizePt * pxPerPt}px '${f.family}', 'Liberation Sans', 'Aptos', Calibri, Arial, sans-serif`;
 }
 
 /**
@@ -616,7 +616,7 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
       else if (cellAnchor === 'b') cy = cy0 + ch - totalH - padY;
       ctx.textBaseline = 'top';
       for (const l of lines) {
-        ctx.font = `${l.italic ? 'italic ' : ''}${l.bold ? '700 ' : '400 '}${l.size}px '${l.font}', 'Aptos', Calibri, Arial, sans-serif`;
+        ctx.font = `${l.italic ? 'italic ' : ''}${l.bold ? '700 ' : '400 '}${l.size}px '${l.font}', 'Liberation Sans', 'Aptos', Calibri, Arial, sans-serif`;
         ctx.fillStyle = l.color;
         const tw = ctx.measureText(l.text).width;
         let tx: number;
