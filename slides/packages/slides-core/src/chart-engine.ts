@@ -375,7 +375,7 @@ function paintBars(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, 
     }
   }
   paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
-  paintValueAxis(ctx, t, x + axW - 6, plotT, plotB - plotT, labelPx);
+  paintValueAxis(ctx, t, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
 
 function paintLines(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, labelPx: number, area: boolean): void {
@@ -421,7 +421,7 @@ function paintLines(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
     }
   }
   paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
-  paintValueAxis(ctx, t, x + axW - 6, plotT, plotB - plotT, labelPx);
+  paintValueAxis(ctx, t, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
 
 function paintPieOrDoughnut(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, holeFrac: number): void {
@@ -500,7 +500,7 @@ function paintScatter(ctx: CanvasRenderingContext2D, chart: ChartModel, x: numbe
     const xx = plotL + ((v - tx.lo) / (tx.hi - tx.lo)) * (plotR - plotL);
     ctx.fillText(formatVal(v), xx, plotB + labelPx * 0.35);
   }
-  paintValueAxis(ctx, ty, x + axW - 6, plotT, plotB - plotT, labelPx);
+  paintValueAxis(ctx, ty, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
 
 function paintRadar(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, labelPx: number): void {
@@ -582,7 +582,7 @@ function paintCategoryAxis(ctx: CanvasRenderingContext2D, cats: string[], l: num
   const stepX = w / cats.length;
   for (let i = 0; i < cats.length; i++) {
     const text = cats[i] ?? String(i + 1);
-    ctx.fillText(text, l + stepX * (i + 0.5), b + labelPx * 0.35);
+    ctx.fillText(text, l + stepX * (i + 0.5), b + labelPx * 0.8);
   }
 }
 

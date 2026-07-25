@@ -13,6 +13,7 @@
 import { parseChart, paintChart, type ChartModel } from './chart-engine.js';
 import { layoutTextBody, type LayoutFont, type MeasureText } from './text-layout.js';
 import { presetPath } from './geometry.js';
+import { lumHsl } from './theme.js';
 import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run } from './model.js';
 
 /** Tamanhos default (pt) quando a cascata não resolveu sz. */
@@ -222,8 +223,22 @@ function paintShape(
       ctx.fillStyle = makeLinearGradient(ctx, sh.fill!, x, y, w, h);
       if (rule) ctx.fill(rule); else ctx.fill();
     } else if (sh.fill!.type === 'solid' && sh.fill!.color) {
-      ctx.fillStyle = sh.fill!.color;
-      if (rule) ctx.fill(rule); else ctx.fill();
+      // sombreado por face (can/cube): cada subpath preenche com a luminância
+      // deslocada; demais geometrias preenchem o path combinado de uma vez.
+      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h);
+      if (desc && desc.kind === 'path' && desc.subLum) {
+        for (let i = 0; i < desc.subs.length; i++) {
+          const lum = desc.subLum[i];
+          if (lum === null || lum === undefined) continue;
+          ctx.beginPath();
+          drawSegs(ctx, [desc.subs[i]!], x, y, 1, 1);
+          ctx.fillStyle = lum === 0 ? sh.fill!.color! : lumHsl(sh.fill!.color!, 1, lum);
+          ctx.fill();
+        }
+      } else {
+        ctx.fillStyle = sh.fill!.color;
+        if (rule) ctx.fill(rule); else ctx.fill();
+      }
     }
     ctx.restore();
   }

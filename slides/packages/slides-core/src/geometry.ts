@@ -29,8 +29,10 @@ export type PresetPath =
   | { kind: 'ellipse' }
   /** Retângulo arredondado com raio em unidades do rect. */
   | { kind: 'roundRect'; r: number }
-  /** Path genérico (beziers/arcos, múltiplos subpaths, fillRule opcional). */
-  | { kind: 'path'; fillRule?: 'evenodd'; subs: PathSeg[][] };
+  /** Path genérico (beziers/arcos, múltiplos subpaths, fillRule opcional).
+   *  `subLum` (paralelo a subs): offset de luminância HSL do FILL por subpath
+   *  (sombreado 3D de can/cube; null = subpath só de stroke, não preenche). */
+  | { kind: 'path'; fillRule?: 'evenodd'; subs: PathSeg[][]; subLum?: (number | null)[] };
 
 /** Vértices de um polígono regular inscrito na elipse w×h, começando no topo. */
 function regularPolygon(n: number, w: number, h: number): Pt[] {
@@ -274,10 +276,11 @@ export function presetPath(geom: string | undefined, w: number, h: number): Pres
       }
       return { kind: 'path', subs };
     }
-    case 'can': { // adj=25000 → "tampa" com meia-altura ss/8
+    case 'can': { // adj=25000 → "tampa" com meia-altura ss/8; tampa MAIS CLARA
       const ry = ss * 0.125;
       return {
-        kind: 'path', subs: [
+        kind: 'path',
+        subs: [
           [ // corpo: laterais + fundo arqueado + topo arqueado (contorno completo)
             { c: 'M', x: 0, y: ry },
             { c: 'L', x: 0, y: h - ry },
@@ -291,22 +294,28 @@ export function presetPath(geom: string | undefined, w: number, h: number): Pres
             { c: 'Z' },
           ],
         ],
+        subLum: [0, 0.18],
       };
     }
-    case 'cube': { // adj=25000 → profundidade = ss/4 (silhueta; faces sem sombreado v1)
+    case 'cube': { // adj=25000 → profundidade ss/4; faces sombreadas como o app
       const d = ss * 0.25;
       return {
-        kind: 'path', subs: [
-          [ // silhueta
-            { c: 'M', x: 0, y: d }, { c: 'L', x: d, y: 0 }, { c: 'L', x: w, y: 0 },
-            { c: 'L', x: w, y: h - d }, { c: 'L', x: w - d, y: h }, { c: 'L', x: 0, y: h },
-            { c: 'Z' },
-          ],
-          [ // arestas internas (stroke)
+        kind: 'path',
+        subs: [
+          [ // face frontal
             { c: 'M', x: 0, y: d }, { c: 'L', x: w - d, y: d }, { c: 'L', x: w - d, y: h },
-            { c: 'M', x: w - d, y: d }, { c: 'L', x: w, y: 0 },
+            { c: 'L', x: 0, y: h }, { c: 'Z' },
+          ],
+          [ // face superior (mais clara)
+            { c: 'M', x: 0, y: d }, { c: 'L', x: d, y: 0 }, { c: 'L', x: w, y: 0 },
+            { c: 'L', x: w - d, y: d }, { c: 'Z' },
+          ],
+          [ // face lateral direita (mais escura)
+            { c: 'M', x: w - d, y: d }, { c: 'L', x: w, y: 0 }, { c: 'L', x: w, y: h - d },
+            { c: 'L', x: w - d, y: h }, { c: 'Z' },
           ],
         ],
+        subLum: [0, 0.15, -0.15],
       };
     }
     default:

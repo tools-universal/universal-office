@@ -2612,7 +2612,7 @@ function paintBars(ctx, chart, x2, y, w, h, dir, labelPx) {
     }
   }
   paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
-  paintValueAxis(ctx, t, x2 + axW - 6, plotT, plotB - plotT, labelPx);
+  paintValueAxis(ctx, t, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
 function paintLines(ctx, chart, x2, y, w, h, labelPx, area) {
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;
@@ -2659,7 +2659,7 @@ function paintLines(ctx, chart, x2, y, w, h, labelPx, area) {
     }
   }
   paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
-  paintValueAxis(ctx, t, x2 + axW - 6, plotT, plotB - plotT, labelPx);
+  paintValueAxis(ctx, t, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
 function paintPieOrDoughnut(ctx, chart, x2, y, w, h, holeFrac) {
   const s0 = chart.series[0];
@@ -2737,7 +2737,7 @@ function paintScatter(ctx, chart, x2, y, w, h, labelPx) {
     const xx = plotL + (v - tx.lo) / (tx.hi - tx.lo) * (plotR - plotL);
     ctx.fillText(formatVal(v), xx, plotB + labelPx * 0.35);
   }
-  paintValueAxis(ctx, ty, x2 + axW - 6, plotT, plotB - plotT, labelPx);
+  paintValueAxis(ctx, ty, plotL - labelPx * 0.9, plotT, plotB - plotT, labelPx);
 }
 function paintRadar(ctx, chart, x2, y, w, h, labelPx) {
   const n = chart.categories.length || chart.series[0]?.values.length || 0;
@@ -2819,7 +2819,7 @@ function paintCategoryAxis(ctx, cats, l, b, w, labelPx) {
   const stepX = w / cats.length;
   for (let i2 = 0; i2 < cats.length; i2++) {
     const text = cats[i2] ?? String(i2 + 1);
-    ctx.fillText(text, l + stepX * (i2 + 0.5), b + labelPx * 0.35);
+    ctx.fillText(text, l + stepX * (i2 + 0.5), b + labelPx * 0.8);
   }
 }
 function paintValueAxis(ctx, ticks, xRight, y, h, labelPx) {
@@ -3373,7 +3373,8 @@ function presetPath(geom, w, h) {
             { c: "E", cx: w / 2, cy: ry, rx: w / 2, ry, a0: 0, a1: Math.PI * 2 },
             { c: "Z" }
           ]
-        ]
+        ],
+        subLum: [0, 0.18]
       };
     }
     case "cube": {
@@ -3382,24 +3383,31 @@ function presetPath(geom, w, h) {
         kind: "path",
         subs: [
           [
-            // silhueta
+            // face frontal
             { c: "M", x: 0, y: d },
-            { c: "L", x: d, y: 0 },
-            { c: "L", x: w, y: 0 },
-            { c: "L", x: w, y: h - d },
+            { c: "L", x: w - d, y: d },
             { c: "L", x: w - d, y: h },
             { c: "L", x: 0, y: h },
             { c: "Z" }
           ],
           [
-            // arestas internas (stroke)
+            // face superior (mais clara)
             { c: "M", x: 0, y: d },
+            { c: "L", x: d, y: 0 },
+            { c: "L", x: w, y: 0 },
             { c: "L", x: w - d, y: d },
-            { c: "L", x: w - d, y: h },
+            { c: "Z" }
+          ],
+          [
+            // face lateral direita (mais escura)
             { c: "M", x: w - d, y: d },
-            { c: "L", x: w, y: 0 }
+            { c: "L", x: w, y: 0 },
+            { c: "L", x: w, y: h - d },
+            { c: "L", x: w - d, y: h },
+            { c: "Z" }
           ]
-        ]
+        ],
+        subLum: [0, 0.15, -0.15]
       };
     }
     default:
@@ -3546,9 +3554,21 @@ function paintShape(ctx, sh, fit, res, suppressText) {
       if (rule) ctx.fill(rule);
       else ctx.fill();
     } else if (sh.fill.type === "solid" && sh.fill.color) {
-      ctx.fillStyle = sh.fill.color;
-      if (rule) ctx.fill(rule);
-      else ctx.fill();
+      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h);
+      if (desc && desc.kind === "path" && desc.subLum) {
+        for (let i2 = 0; i2 < desc.subs.length; i2++) {
+          const lum = desc.subLum[i2];
+          if (lum === null || lum === void 0) continue;
+          ctx.beginPath();
+          drawSegs(ctx, [desc.subs[i2]], x2, y, 1, 1);
+          ctx.fillStyle = lum === 0 ? sh.fill.color : lumHsl(sh.fill.color, 1, lum);
+          ctx.fill();
+        }
+      } else {
+        ctx.fillStyle = sh.fill.color;
+        if (rule) ctx.fill(rule);
+        else ctx.fill();
+      }
     }
     ctx.restore();
   }

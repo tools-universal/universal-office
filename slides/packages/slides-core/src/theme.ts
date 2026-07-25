@@ -95,9 +95,10 @@ function hex(r: number, g: number, b: number): string {
 }
 /**
  * Transforma a luminância HSL: L' = L·mod + off (matiz/saturação preservados).
- * É a semântica de `a:lumMod`/`a:lumOff` do app de referência.
+ * É a semântica de `a:lumMod`/`a:lumOff` do app de referência. Exportada para
+ * o sombreado de faces 3D (can/cube) no renderer.
  */
-function lumHsl(hexIn: string, mod: number, off: number): string {
+export function lumHsl(hexIn: string, mod: number, off: number): string {
   const [r, g, b] = rgb(hexIn);
   const rf = r / 255, gf = g / 255, bf = b / 255;
   const max = Math.max(rf, gf, bf), min = Math.min(rf, gf, bf), d = max - min;
