@@ -1,0 +1,623 @@
+{
+    "file":  "D:\\Projects\\OfficeNext\\slides\\samples\\playback\\pb-transicoes-dinamicas.pptx",
+    "format":  "pptx",
+    "powerpoint":  "16.0 build 20430",
+    "slideWidthPt":  960,
+    "slideHeightPt":  540,
+    "fps":  30,
+    "height":  720,
+    "width":  1280,
+    "defaultSlideSec":  3,
+    "quality":  100,
+    "renderSeconds":  4.1,
+    "slides":  [
+                   {
+                       "index":  1,
+                       "hidden":  false,
+                       "title":  "Cair (duração default)",
+                       "transition":  {
+                                          "effect":  3934,
+                                          "effectName":  "ppEffectFallOverLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  2,
+                       "hidden":  false,
+                       "title":  "Cortina lateral (duração default)",
+                       "transition":  {
+                                          "effect":  3936,
+                                          "effectName":  "ppEffectDrapeLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  3,
+                       "hidden":  false,
+                       "title":  "Cortinas (duração default)",
+                       "transition":  {
+                                          "effect":  3938,
+                                          "effectName":  "ppEffectCurtains",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  4,
+                       "hidden":  false,
+                       "title":  "Vento (duração default)",
+                       "transition":  {
+                                          "effect":  3939,
+                                          "effectName":  "ppEffectWindLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  5,
+                       "hidden":  false,
+                       "title":  "Prestígio (duração default)",
+                       "transition":  {
+                                          "effect":  3941,
+                                          "effectName":  "ppEffectPrestige",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  6,
+                       "hidden":  false,
+                       "title":  "Fratura (duração default)",
+                       "transition":  {
+                                          "effect":  3942,
+                                          "effectName":  "ppEffectFracture",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  7,
+                       "hidden":  false,
+                       "title":  "Esmagar (duração default)",
+                       "transition":  {
+                                          "effect":  3943,
+                                          "effectName":  "ppEffectCrush",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  8,
+                       "hidden":  false,
+                       "title":  "Descascar (duração default)",
+                       "transition":  {
+                                          "effect":  3944,
+                                          "effectName":  "ppEffectPeelOffLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  9,
+                       "hidden":  false,
+                       "title":  "Virar página dupla (duração default)",
+                       "transition":  {
+                                          "effect":  3948,
+                                          "effectName":  "ppEffectPageCurlDoubleLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  10,
+                       "hidden":  false,
+                       "title":  "Avião (duração default)",
+                       "transition":  {
+                                          "effect":  3950,
+                                          "effectName":  "ppEffectAirplaneLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  11,
+                       "hidden":  false,
+                       "title":  "Origami (duração default)",
+                       "transition":  {
+                                          "effect":  3952,
+                                          "effectName":  "ppEffectOrigamiLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  12,
+                       "hidden":  false,
+                       "title":  "Favo de mel (duração default)",
+                       "transition":  {
+                                          "effect":  3898,
+                                          "effectName":  "ppEffectHoneycomb",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  13,
+                       "hidden":  false,
+                       "title":  "Brilho (losangos) (duração default)",
+                       "transition":  {
+                                          "effect":  3872,
+                                          "effectName":  "ppEffectGlitterDiamondLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  14,
+                       "hidden":  false,
+                       "title":  "Vórtice (duração default)",
+                       "transition":  {
+                                          "effect":  3863,
+                                          "effectName":  "ppEffectVortexLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  15,
+                       "hidden":  false,
+                       "title":  "Picotar (duração default)",
+                       "transition":  {
+                                          "effect":  3910,
+                                          "effectName":  "ppEffectShredStripsIn",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  16,
+                       "hidden":  false,
+                       "title":  "Alternar (duração default)",
+                       "transition":  {
+                                          "effect":  3901,
+                                          "effectName":  "ppEffectSwitchLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  17,
+                       "hidden":  false,
+                       "title":  "Inverter (duração default)",
+                       "transition":  {
+                                          "effect":  3905,
+                                          "effectName":  "ppEffectFlipLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  18,
+                       "hidden":  false,
+                       "title":  "Ondulação (duração default)",
+                       "transition":  {
+                                          "effect":  3867,
+                                          "effectName":  "ppEffectRippleCenter",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  19,
+                       "hidden":  false,
+                       "title":  "Galeria (duração default)",
+                       "transition":  {
+                                          "effect":  3880,
+                                          "effectName":  "ppEffectGalleryLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  20,
+                       "hidden":  false,
+                       "title":  "Cubo (duração default)",
+                       "transition":  {
+                                          "effect":  3914,
+                                          "effectName":  "ppEffectCubeLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  21,
+                       "hidden":  false,
+                       "title":  "Portas (duração default)",
+                       "transition":  {
+                                          "effect":  3884,
+                                          "effectName":  "ppEffectDoorsVertical",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  22,
+                       "hidden":  false,
+                       "title":  "Caixa (duração default)",
+                       "transition":  {
+                                          "effect":  3922,
+                                          "effectName":  "ppEffectBoxLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  23,
+                       "hidden":  false,
+                       "title":  "Girar (duração default)",
+                       "transition":  {
+                                          "effect":  3918,
+                                          "effectName":  "ppEffectRotateLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  24,
+                       "hidden":  false,
+                       "title":  "Janela (duração default)",
+                       "transition":  {
+                                          "effect":  3886,
+                                          "effectName":  "ppEffectWindowVertical",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  25,
+                       "hidden":  false,
+                       "title":  "Órbita (duração default)",
+                       "transition":  {
+                                          "effect":  3926,
+                                          "effectName":  "ppEffectOrbitLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  26,
+                       "hidden":  false,
+                       "title":  "Sobrevoar (duração default)",
+                       "transition":  {
+                                          "effect":  3890,
+                                          "effectName":  "ppEffectFlyThroughIn",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  27,
+                       "hidden":  false,
+                       "title":  "Roda-gigante (duração default)",
+                       "transition":  {
+                                          "effect":  3899,
+                                          "effectName":  "ppEffectFerrisWheelLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  28,
+                       "hidden":  false,
+                       "title":  "Esteira (duração default)",
+                       "transition":  {
+                                          "effect":  3882,
+                                          "effectName":  "ppEffectConveyorLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  29,
+                       "hidden":  false,
+                       "title":  "Panorâmica (duração default)",
+                       "transition":  {
+                                          "effect":  3930,
+                                          "effectName":  "ppEffectPanLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  30,
+                       "hidden":  false,
+                       "title":  "Distorcer (duração default)",
+                       "transition":  {
+                                          "effect":  3888,
+                                          "effectName":  "ppEffectWarpIn",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  31,
+                       "hidden":  false,
+                       "title":  "Morph — origem",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  32,
+                       "hidden":  false,
+                       "title":  "Morph — destino",
+                       "transition":  {
+                                          "effect":  3954,
+                                          "effectName":  "3954",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   }
+               ]
+}

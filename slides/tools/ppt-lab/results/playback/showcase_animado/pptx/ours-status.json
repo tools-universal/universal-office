@@ -1,0 +1,19 @@
+{
+ "deck": "showcase_animado",
+ "ext": "pptx",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 12,
+ "durationMs": 93588,
+ "pptFrames": 2830,
+ "ourFrames": 2837,
+ "frames": 2837,
+ "screenshots": 2668,
+ "elapsedSec": 129.82,
+ "errors": []
+}

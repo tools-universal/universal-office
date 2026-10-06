@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<!-- Harness da REPRODUÇÃO AUTOMÁTICA: <universal-presentation-viewer> em modo
+     play() ocupando exatamente W×H px (slide sem margem). O Playwright instala
+     relógio virtual e captura quadro a quadro (capture-ours.mjs). -->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>ppt-lab playback harness</title>
+  <!-- fontes do SO usadas pelos decks (tema + typefaces) — geradas por fonts.mjs -->
+  <link rel="stylesheet" href="./.fonts/fonts.css" />
+  <style>
+    @font-face { font-family: 'Liberation Sans'; src: url('../fonts/liberationsans-regular.ttf'); font-weight: 400; font-style: normal; }
+    @font-face { font-family: 'Liberation Sans'; src: url('../fonts/liberationsans-bold.ttf'); font-weight: 700; font-style: normal; }
+    @font-face { font-family: 'Liberation Sans'; src: url('../fonts/liberationsans-italic.ttf'); font-weight: 400; font-style: italic; }
+    @font-face { font-family: 'Liberation Sans'; src: url('../fonts/liberationsans-bolditalic.ttf'); font-weight: 700; font-style: italic; }
+    html, body { margin: 0; background: #000; overflow: hidden; }
+    #pv { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; }
+  </style>
+</head>
+<body>
+  <universal-presentation-viewer id="pv"></universal-presentation-viewer>
+  <script type="module" src="./harness.bundle.js"></script>
+</body>
+</html>

@@ -18,6 +18,14 @@ dotnet/**/obj/
 **/tools/ppt-lab/results/**/*.pptx
 **/tools/ppt-lab/results/**/*.png
 **/tools/excel-lab/results/pixel/**
+# Lab de playback (slides) — vídeos, fontes copiadas e intermediários (run-playback.mjs regera)
+**/tools/ppt-lab/results/playback/**/*.mp4
+**/tools/ppt-lab/results/playback/**/*.mkv
+**/tools/ppt-lab/results/playback/_assets/
+**/tools/ppt-lab/results/playback/_probe/
+**/tools/ppt-lab/playback/.fonts/
+**/tools/ppt-lab/playback/harness.bundle.js
+**/tools/ppt-lab/playback/.ppt-convert.bundle.mjs
 
 # Office lock files
 ~$*

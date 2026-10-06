@@ -1,0 +1,677 @@
+{
+ "durationMs": 49401,
+ "slides": [
+  {
+   "index": 0,
+   "startMs": 0,
+   "transitionMs": 495,
+   "animStartMs": 561,
+   "stepStartMs": [
+    561
+   ],
+   "endMs": 3102,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "13315"
+     },
+     "t0": 0,
+     "durMs": 1000,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 2,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "13316"
+     },
+     "t0": 0,
+     "durMs": 1000,
+     "step": 0,
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 23,
+     "presetSubtype": 16,
+     "target": {
+      "spid": "13317"
+     },
+     "t0": 500,
+     "durMs": 1000,
+     "step": 0,
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "13318"
+     },
+     "t0": 1500,
+     "durMs": 1000,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 1,
+   "startMs": 3102,
+   "transitionMs": 495,
+   "animStartMs": 3663,
+   "stepStartMs": [
+    3663
+   ],
+   "endMs": 6963,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "14339"
+     },
+     "t0": 250,
+     "durMs": 500,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "14340"
+     },
+     "t0": 1250,
+     "durMs": 500,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "14341"
+     },
+     "t0": 2750,
+     "durMs": 500,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 2,
+   "startMs": 6963,
+   "transitionMs": 495,
+   "animStartMs": 7524,
+   "stepStartMs": [
+    7524
+   ],
+   "endMs": 14058,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "15363"
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "15364"
+     },
+     "t0": 500,
+     "durMs": 1000,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "15365"
+     },
+     "t0": 1500,
+     "durMs": 2000,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "15366"
+     },
+     "t0": 3500,
+     "durMs": 3000,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 3,
+   "startMs": 14058,
+   "transitionMs": 495,
+   "animStartMs": 14619,
+   "stepStartMs": [
+    14619
+   ],
+   "endMs": 18183,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "emph",
+     "presetId": 8,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "16387"
+     },
+     "t0": 0,
+     "durMs": 2000,
+     "step": 0,
+     "fill": "hold"
+    },
+    {
+     "presetClass": "emph",
+     "presetId": 26,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "16388"
+     },
+     "t0": 2000,
+     "durMs": 1500,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 4,
+   "startMs": 18183,
+   "transitionMs": 495,
+   "animStartMs": 18744,
+   "stepStartMs": [
+    18744
+   ],
+   "endMs": 22803,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "emph",
+     "presetId": 6,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "17411"
+     },
+     "t0": 0,
+     "durMs": 2000,
+     "step": 0,
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 2,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "17412"
+     },
+     "t0": 2000,
+     "durMs": 2000,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 5,
+   "startMs": 22803,
+   "transitionMs": 495,
+   "animStartMs": 23364,
+   "stepStartMs": [
+    23364
+   ],
+   "endMs": 25410,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "18435"
+     },
+     "t0": 0,
+     "durMs": 1000,
+     "step": 0,
+     "filter": "fade",
+     "fill": "remove"
+    },
+    {
+     "presetClass": "emph",
+     "presetId": 8,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "18436"
+     },
+     "t0": 1000,
+     "durMs": 1000,
+     "step": 0,
+     "fill": "remove"
+    }
+   ]
+  },
+  {
+   "index": 6,
+   "startMs": 25410,
+   "transitionMs": 495,
+   "animStartMs": 25971,
+   "stepStartMs": [
+    25971
+   ],
+   "endMs": 28017,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "path",
+     "presetId": 63,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "19459"
+     },
+     "t0": 0,
+     "durMs": 2000,
+     "step": 0,
+     "fill": "hold",
+     "motion": true
+    },
+    {
+     "presetClass": "path",
+     "presetId": 63,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "19460"
+     },
+     "t0": 0,
+     "durMs": 2000,
+     "step": 0,
+     "fill": "hold",
+     "motion": true
+    },
+    {
+     "presetClass": "path",
+     "presetId": 63,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "19461"
+     },
+     "t0": 0,
+     "durMs": 2000,
+     "step": 0,
+     "fill": "hold",
+     "motion": true
+    }
+   ]
+  },
+  {
+   "index": 7,
+   "startMs": 28017,
+   "transitionMs": 495,
+   "animStartMs": 28578,
+   "stepStartMs": [
+    29203,
+    30328,
+    31453
+   ],
+   "endMs": 32604,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 4000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "20483"
+     },
+     "t0": 625,
+     "durMs": 500,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "20484"
+     },
+     "t0": 1750,
+     "durMs": 500,
+     "step": 1,
+     "filter": "fade",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "20485"
+     },
+     "t0": 2875,
+     "durMs": 500,
+     "step": 2,
+     "filter": "fade",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 8,
+   "startMs": 32604,
+   "transitionMs": 495,
+   "animStartMs": 33165,
+   "stepStartMs": [
+    33498.333333333336,
+    34831.66666666667
+   ],
+   "endMs": 36168,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "21507"
+     },
+     "t0": 333.33333333333576,
+     "durMs": 1000,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "21508"
+     },
+     "t0": 1666.6666666666715,
+     "durMs": 1000,
+     "step": 1,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 9,
+   "startMs": 36168,
+   "transitionMs": 495,
+   "animStartMs": 36729,
+   "stepStartMs": [
+    36729
+   ],
+   "endMs": 38775,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 0
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "22531"
+     },
+     "t0": 0,
+     "durMs": 1000,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 23,
+     "presetSubtype": 16,
+     "target": {
+      "spid": "22532"
+     },
+     "t0": 1000,
+     "durMs": 1000,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 11,
+   "startMs": 38775,
+   "transitionMs": 495,
+   "animStartMs": 39336,
+   "stepStartMs": [
+    39336
+   ],
+   "endMs": 41349,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 2000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "24581"
+     },
+     "t0": 0,
+     "durMs": 1000,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 12,
+   "startMs": 41349,
+   "transitionMs": 495,
+   "animStartMs": 41910,
+   "stepStartMs": [
+    41910
+   ],
+   "endMs": 44253,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 1,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "25603"
+     },
+     "t0": 0,
+     "durMs": 1,
+     "step": 0,
+     "fill": "hold"
+    },
+    {
+     "presetClass": "exit",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "25603"
+     },
+     "t0": 501,
+     "durMs": 500,
+     "step": 0,
+     "filter": "fade",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 23,
+     "presetSubtype": 16,
+     "target": {
+      "spid": "25603"
+     },
+     "t0": 1301,
+     "durMs": 1000,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 13,
+   "startMs": 44253,
+   "transitionMs": 990,
+   "animStartMs": 45309,
+   "stepStartMs": [],
+   "endMs": 47322,
+   "transition": {
+    "type": "push",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 1000,
+    "advClick": true,
+    "advTmMs": 2000
+   },
+   "effects": []
+  },
+  {
+   "index": 14,
+   "startMs": 47322,
+   "transitionMs": 990,
+   "animStartMs": 48378,
+   "stepStartMs": [],
+   "endMs": 49401,
+   "transition": {
+    "type": "cut",
+    "ns": "p",
+    "attrs": {
+     "thruBlk": "1"
+    },
+    "durMs": 1000,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": []
+  }
+ ]
+}

@@ -1,0 +1,19 @@
+{
+ "deck": "pb-midia",
+ "ext": "pptx",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 7,
+ "durationMs": 21087,
+ "pptFrames": 640,
+ "ourFrames": 640,
+ "frames": 640,
+ "screenshots": 483,
+ "elapsedSec": 25.162,
+ "errors": []
+}

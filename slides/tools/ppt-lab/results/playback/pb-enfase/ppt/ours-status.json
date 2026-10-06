@@ -1,0 +1,19 @@
+{
+ "deck": "pb-enfase",
+ "ext": "ppt",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 5,
+ "durationMs": 37224,
+ "pptFrames": 1129,
+ "ourFrames": 1129,
+ "frames": 1129,
+ "screenshots": 1123,
+ "elapsedSec": 71.987,
+ "errors": []
+}

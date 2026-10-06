@@ -1,0 +1,19 @@
+{
+ "deck": "pb-tempo",
+ "ext": "ppt",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 15,
+ "durationMs": 49401,
+ "pptFrames": 1498,
+ "ourFrames": 1498,
+ "frames": 1498,
+ "screenshots": 1187,
+ "elapsedSec": 77.712,
+ "errors": []
+}

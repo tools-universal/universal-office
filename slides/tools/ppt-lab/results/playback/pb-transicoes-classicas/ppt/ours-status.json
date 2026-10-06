@@ -1,0 +1,19 @@
+{
+ "deck": "pb-transicoes-classicas",
+ "ext": "ppt",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 33,
+ "durationMs": 67122,
+ "pptFrames": 2034,
+ "ourFrames": 2035,
+ "frames": 2035,
+ "screenshots": 978,
+ "elapsedSec": 111.139,
+ "errors": []
+}

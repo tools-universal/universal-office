@@ -1,0 +1,19 @@
+{
+ "deck": "pb-transicoes-dinamicas",
+ "ext": "ppt",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 32,
+ "durationMs": 66033,
+ "pptFrames": 2001,
+ "ourFrames": 2002,
+ "frames": 2002,
+ "screenshots": 977,
+ "elapsedSec": 88.324,
+ "errors": []
+}

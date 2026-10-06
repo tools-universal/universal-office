@@ -1,0 +1,19 @@
+{
+ "deck": "pb-saida",
+ "ext": "pptx",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 5,
+ "durationMs": 55539,
+ "pptFrames": 1685,
+ "ourFrames": 1684,
+ "frames": 1685,
+ "screenshots": 1678,
+ "elapsedSec": 94.366,
+ "errors": []
+}

@@ -1,0 +1,19 @@
+{
+ "deck": "pb-entrada",
+ "ext": "pptx",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 9,
+ "durationMs": 87648,
+ "pptFrames": 2657,
+ "ourFrames": 2657,
+ "frames": 2657,
+ "screenshots": 2647,
+ "elapsedSec": 141.388,
+ "errors": []
+}
