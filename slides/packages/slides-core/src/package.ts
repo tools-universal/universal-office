@@ -1,4 +1,5 @@
 import { unzipSync, zipSync, type Zippable } from 'fflate';
+import { isCfb, convertPptToPptx } from './ppt/index.js';
 
 /**
  * Container OPC de um .pptx. REGRA DE OURO (igual ao sheet/write): round-trip
@@ -10,6 +11,9 @@ export class PptxPackage {
   private constructor(parts: Map<string, Uint8Array>) { this.parts = parts; }
 
   static load(bytes: Uint8Array): PptxPackage {
+    // .ppt binário (97-2003, contêiner CFB): converte p/ OOXML em memória
+    // (slides-core/ppt) — o resto do pipeline só conhece .pptx
+    if (isCfb(bytes)) bytes = convertPptToPptx(bytes);
     let unzipped: ReturnType<typeof unzipSync>;
     try { unzipped = unzipSync(bytes); }
     catch { throw new Error('Arquivo nao e um pacote OOXML valido (ZIP corrompido ou .ppt legado)'); }

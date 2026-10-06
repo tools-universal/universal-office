@@ -34,6 +34,7 @@ export {
   readEmbeddedFonts, collectDeckTypefaces, deobfuscateFont,
   type EmbeddedFont, type FontVariant,
 } from './fonts.js';
+export { isCfb, convertPptToPptx, PptFormatError } from './ppt/index.js';
 export {
   mediaCommands, mediaStateAt, gifFrameAt,
   type MediaCommand, type MediaPlayState, type MediaClock,

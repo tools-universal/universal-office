@@ -1,6 +1,7 @@
 import '../src/universal-slides';
 import type { UniversalSlidesElement } from '../src/universal-slides';
 import type { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
+import { isCfb, convertPptToPptx } from '@universal/slides-core';
 
 const us = document.getElementById('us') as UniversalSlidesElement;
 const $ = (id: string) => document.getElementById(id)!;
@@ -41,13 +42,17 @@ function setStatus(msg: string, ms = 1800): void {
   if (ms) setTimeout(() => { if (status.textContent === msg) status.textContent = 'Pronto'; }, ms);
 }
 function setTitle(name: string): void {
-  docTitle.value = name.replace(/\.pptx$/i, '');
+  docTitle.value = name.replace(/\.pptx?$/i, '');
   document.title = `${docTitle.value} — Universal Slides`;
   savedName = name;
 }
 function openBytes(bytes: Uint8Array, name: string): void {
-  try { us.loadPptx(bytes); } catch (e) {
-    setStatus(`⚠ "${name}" não é um .pptx válido`);
+  try {
+    // .ppt (97-2003): converte uma vez p/ .pptx — salvar grava o .pptx convertido
+    if (isCfb(bytes)) { bytes = convertPptToPptx(bytes); name = name.replace(/\.ppt$/i, '.pptx'); }
+    us.loadPptx(bytes);
+  } catch (e) {
+    setStatus(`⚠ "${name}" não abriu: ${e instanceof Error ? e.message : String(e)}`);
     console.error(e); return;
   }
   savedBytes = bytes;
@@ -62,7 +67,10 @@ async function actionOpen(): Promise<void> {
       const [h] = await (window as unknown as {
         showOpenFilePicker: (o: object) => Promise<FileSystemFileHandle[]>;
       }).showOpenFilePicker({
-        types: [{ description: 'Apresentação', accept: { 'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'] } }],
+        types: [{ description: 'Apresentação', accept: {
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+          'application/vnd.ms-powerpoint': ['.ppt'],
+        } }],
       });
       const file = await h!.getFile();
       openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
