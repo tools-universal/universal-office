@@ -50,6 +50,8 @@ export interface PlacedLine {
   height: number;
   /** Marcador do parágrafo — presente apenas na PRIMEIRA linha dele. */
   bullet?: { text: string; x: number; font: LayoutFont; color: string };
+  /** Índice do parágrafo de origem (animação por parágrafo/letra). */
+  para: number;
 }
 
 export interface TextLayoutResult {
@@ -154,7 +156,7 @@ export function layoutTextBody(
 
   const measureEmu = (text: string, f: LayoutFont): number => measure(text, f) * EMU_PER_POINT;
 
-  interface ProtoLine { runs: { text: string; run: Run }[]; marL: number; align: string; bullet?: PlacedLine['bullet'] }
+  interface ProtoLine { runs: { text: string; run: Run }[]; marL: number; align: string; bullet?: PlacedLine['bullet']; para: number }
   const proto: ProtoLine[] = [];
   const heights: number[] = [];
   /** Espaço EXTRA (EMU) antes de cada linha (spcBef/spcAft dos parágrafos). */
@@ -163,7 +165,8 @@ export function layoutTextBody(
   // contador de numeração automática por nível (reinicia quando o nível "sobe")
   const autoNumCounters: number[] = Array.from({ length: 9 }, () => 0);
 
-  for (const p of tb.paragraphs) {
+  for (let pi = 0; pi < tb.paragraphs.length; pi++) {
+    const p = tb.paragraphs[pi]!;
     const level = Math.min(p.level ?? 0, 8);
     const marL = p.marL ?? 0;
     const indent = p.indent ?? 0;
@@ -199,7 +202,7 @@ export function layoutTextBody(
     const words = tokenize(runs);
 
     // agrupamento em linhas por largura
-    let cur: ProtoLine = { runs: [], marL: firstX, align, bullet };
+    let cur: ProtoLine = { runs: [], marL: firstX, align, bullet, para: pi };
     let curW = 0;
     let firstLineOfPara = true;
     const emptyPt = (runs[0]!.sz ?? defaultSzPt) * fontScale;
@@ -216,7 +219,7 @@ export function layoutTextBody(
       spacers.push(firstLineOfPara ? pendingSpacer + (p.spaceBeforePt ?? 0) * EMU_PER_POINT : 0);
       if (firstLineOfPara) pendingSpacer = 0;
       firstLineOfPara = false;
-      cur = { runs: [], marL: contX, align };
+      cur = { runs: [], marL: contX, align, para: pi };
       curW = 0;
     };
     for (const wd of words) {
@@ -291,7 +294,7 @@ export function layoutTextBody(
       for (const pr of placed) pr.x += colShift;
       if (pl.bullet) pl.bullet = { ...pl.bullet, x: pl.bullet.x + colShift };
     }
-    const line: PlacedLine = { runs: placed, baseline: y + h * BASELINE_FACTOR, height: h };
+    const line: PlacedLine = { runs: placed, baseline: y + h * BASELINE_FACTOR, height: h, para: pl.para };
     if (pl.bullet) line.bullet = pl.bullet;
     lines.push(line);
     y += h;

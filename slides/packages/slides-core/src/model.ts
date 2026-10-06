@@ -67,6 +67,17 @@ export interface ImageRef {
   mime: string;
 }
 
+/** Mídia embutida (vídeo/áudio) de um `<p:pic>`. */
+export interface MediaRef {
+  kind: 'video' | 'audio';
+  /** Parte no pacote (ex.: "ppt/media/media1.mp4"); ausente se só houver link externo. */
+  part?: string;
+  /** Alvo externo (`TargetMode="External"`), quando a mídia não está embutida. */
+  url?: string;
+  /** MIME pela extensão (video/mp4, audio/wav…). */
+  mime: string;
+}
+
 /** Geometria de uma forma (<a:xfrm>) em EMU. */
 export interface Xfrm {
   x: number;
@@ -167,6 +178,11 @@ export interface Shape {
   txBody?: TextBody;
   /** Imagem embutida (<p:pic>) com bytes ja resolvidos via rels. */
   image?: ImageRef;
+  /**
+   * Vídeo/áudio do `<p:pic>` (`p14:media r:embed` / `a:videoFile`): a imagem
+   * acima é a CAPA; a reprodução troca pelos quadros da mídia (media.ts).
+   */
+  media?: MediaRef;
   /** Crop normalizado [0..1] (`<a:srcRect l t r b>` em milesimos de %). */
   srcRect?: { l: number; t: number; r: number; b: number };
   /** Opacidade 0..1, vinda de `<a:alphaModFix amt="...">` (milesimos de %). */
@@ -202,6 +218,10 @@ export interface Shape {
   styleFontColor?: string;
   /** `<a:fontRef idx>` (major|minor) — resolve fonte via fontScheme do tema. */
   styleFontIdx?: string;
+  /** Ids (`cNvPr id`) dos `<p:grpSp>` que contêm a shape (achatada), do mais externo ao mais interno — alvos de animação de grupo. */
+  groupIds?: string[];
+  /** Decoração herdada do layout/master (ids não pertencem ao slide — animações do slide não se aplicam). */
+  inherited?: boolean;
 }
 
 /** Célula de tabela (`<a:tc>`). */
@@ -299,6 +319,11 @@ export interface Slide {
   animations?: SlideAnimEntry[];
   /** Transição quando o slide ENTRA (vinda do anterior). */
   transition?: SlideTransition;
+  /**
+   * Modelo de tempo COMPLETO (transição com advTm/p14:dur + passos/efeitos da
+   * árvore `<p:timing>`) — usado pela reprodução automática (`playback.ts`).
+   */
+  timing?: import('./timing.js').SlideTimingModel;
 }
 
 /** Mapa de cores do tema (<a:clrScheme>) + clrMap aplicado. */

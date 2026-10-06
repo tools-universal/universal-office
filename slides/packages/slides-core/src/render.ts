@@ -11,10 +11,12 @@
  * Coordenadas: geometria do slide em EMU; `scale` converte EMU → px do canvas.
  */
 import { parseChart, paintChart, type ChartModel } from './chart-engine.js';
-import { layoutTextBody, type LayoutFont, type MeasureText } from './text-layout.js';
+import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine } from './text-layout.js';
 import { presetPath } from './geometry.js';
 import { lumHsl } from './theme.js';
 import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run } from './model.js';
+import type { ShapeAnimHooks, PartState, AnimBase } from './anim-engine.js';
+import { applyReveal } from './reveal.js';
 
 /** Tamanhos default (pt) quando a cascata não resolveu sz. */
 export const DEFAULT_TITLE_PT = 40;
@@ -50,9 +52,66 @@ export interface PaintSlideOptions {
   shapeOpacity?: (shape: Shape, index: number) => number;
   /** Índice de shape cujo TEXTO não deve ser pintado (edição inline no componente). */
   suppressTextShapeIdx?: number;
+  /**
+   * Animação da forma (motor SMIL, `anim-engine.ts`): ganchos por camada —
+   * forma inteira, fundo, parágrafo, letra/palavra. null = forma estática.
+   */
+  shapeAnim?: (shape: Shape, index: number) => ShapeAnimHooks | null;
+  /**
+   * Quadro de MÍDIA da forma (vídeo tocando, quadro atual de GIF animado) —
+   * pintado no lugar da imagem do `<p:pic>`. null/undefined = imagem normal.
+   */
+  mediaFrame?: (shape: Shape, index: number) => PaintImage | null | undefined;
 }
 
 interface Fit { ox: number; oy: number; scale: number }
+
+/** Retângulo do slide no canvas (px) — converte fração do slide ↔ px. */
+interface SlidePx { ox: number; oy: number; sw: number; sh: number }
+
+/** Animação de uma forma durante a pintura (estado da camada `all` já avaliado). */
+interface ShapeAnimPaint { hooks: ShapeAnimHooks; all: PartState; base: AnimBase; m: SlidePx }
+
+/** Caixa em px → geometria-base (centro/tamanho em fração do slide). */
+function boxBase(x: number, y: number, w: number, h: number, m: SlidePx, extra?: Partial<AnimBase>): AnimBase {
+  return { x: (x + w / 2 - m.ox) / m.sw, y: (y + h / 2 - m.oy) / m.sh, w: w / m.sw, h: h / m.sh, ...extra };
+}
+
+/**
+ * Aplica o estado animado de uma parte ao contexto: opacidade, deslocamento /
+ * escala / rotação em torno do centro da caixa (escala no referencial da
+ * forma quando ela tem rotação própria) e as máscaras de revelação dos
+ * filtros. Devolve false quando a parte está invisível (nada a pintar).
+ */
+function applyPart(ctx: CanvasRenderingContext2D, st: PartState, base: AnimBase,
+  x: number, y: number, w: number, h: number, m: SlidePx, baseRotRad = 0): boolean {
+  if (!st.visible || st.opacity <= 0) return false;
+  const kx = (base.w > 0 ? st.w / base.w : 1) * st.sx;
+  const ky = (base.h > 0 ? st.h / base.h : 1) * st.sy;
+  if (!Number.isFinite(kx) || !Number.isFinite(ky) || Math.abs(kx) < 1e-4 || Math.abs(ky) < 1e-4) return false;
+  ctx.globalAlpha = ctx.globalAlpha * st.opacity;
+  const bcx = x + w / 2, bcy = y + h / 2;
+  const ncx = m.ox + (st.x + st.mx) * m.sw, ncy = m.oy + (st.y + st.my) * m.sh;
+  if (Math.abs(ncx - bcx) > 1e-3 || Math.abs(ncy - bcy) > 1e-3 || st.rot || Math.abs(kx - 1) > 1e-6 || Math.abs(ky - 1) > 1e-6) {
+    ctx.translate(ncx, ncy);
+    if (st.rot) ctx.rotate((st.rot * Math.PI) / 180);
+    if (baseRotRad && (kx !== 1 || ky !== 1)) { ctx.rotate(baseRotRad); ctx.scale(kx, ky); ctx.rotate(-baseRotRad); }
+    else ctx.scale(kx, ky);
+    ctx.translate(-bcx, -bcy);
+  }
+  for (const f of st.filters) {
+    const q = f.transition === 'out' ? 1 - f.p : f.p;
+    ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, f.filter, q, x, y, w, h);
+    if (ctx.globalAlpha <= 0) return false;
+  }
+  return true;
+}
+
+/** Cor do 1º run (ponto de partida de animações de cor do texto). */
+function firstRunColor(sh: Shape): string | undefined {
+  for (const p of sh.txBody?.paragraphs ?? []) for (const r of p.runs) if (r.color) return r.color;
+  return undefined;
+}
 
 /**
  * Pinta o slide inteiro (fundo + shapes em z-order) no contexto. O conteúdo é
@@ -87,25 +146,42 @@ export function paintSlideTo(
     // blipFill default = stretch p/ a área inteira do slide
     if (bg) ctx.drawImage(bg, ox, oy, sw, sh);
   }
+  const m: SlidePx = { ox, oy, sw, sh };
   for (let i = 0; i < slide.shapes.length; i++) {
     const shp = slide.shapes[i]!;
     const op = opts.shapeOpacity ? opts.shapeOpacity(shp, i) : 1;
     if (op <= 0) continue; // invisível: pula
+    const hooks = opts.shapeAnim && shp.xfrm ? opts.shapeAnim(shp, i) : null;
     ctx.save();
     if (op < 1) ctx.globalAlpha = ctx.globalAlpha * op;
-    paintShape(ctx, shp, fit, resources, opts.suppressTextShapeIdx === i);
+    let anim: ShapeAnimPaint | undefined;
+    if (hooks && shp.xfrm) {
+      // camada "forma inteira": transforma fundo + texto em volta do centro
+      const x = ox + shp.xfrm.x * scale, y = oy + shp.xfrm.y * scale;
+      const w = shp.xfrm.cx * scale, h = shp.xfrm.cy * scale;
+      const rotDeg = (shp.xfrm.rot ?? 0) / 60000;
+      const base = boxBase(x, y, w, h, m, { rot: rotDeg, fill: shp.fill?.color, line: shp.lineColor, text: firstRunColor(shp) });
+      const all = hooks.all(base);
+      if (!applyPart(ctx, all, base, x, y, w, h, m, (rotDeg * Math.PI) / 180)) { ctx.restore(); continue; }
+      anim = { hooks, all, base, m };
+    }
+    paintShape(ctx, shp, fit, resources, opts.suppressTextShapeIdx === i, anim, opts.mediaFrame?.(shp, i) ?? undefined);
     ctx.restore();
   }
   ctx.restore();
 }
 
-/** Largura natural de uma PaintImage (HTMLImageElement usa naturalWidth; ImageBitmap usa width). */
+/** Largura natural de uma PaintImage (HTMLImageElement usa naturalWidth; vídeo, videoWidth; ImageBitmap, width). */
 function imgW(img: PaintImage): number {
+  const vw = (img as { videoWidth?: unknown }).videoWidth;
+  if (typeof vw === 'number' && vw > 0) return vw;
   return typeof img.naturalWidth === 'number' && img.naturalWidth > 0
     ? img.naturalWidth
     : typeof img.width === 'number' ? img.width : 0;
 }
 function imgH(img: PaintImage): number {
+  const vh = (img as { videoHeight?: unknown }).videoHeight;
+  if (typeof vh === 'number' && vh > 0) return vh;
   return typeof img.naturalHeight === 'number' && img.naturalHeight > 0
     ? img.naturalHeight
     : typeof img.height === 'number' ? img.height : 0;
@@ -113,6 +189,7 @@ function imgH(img: PaintImage): number {
 
 function paintShape(
   ctx: CanvasRenderingContext2D, sh: Shape, fit: Fit, res: PaintResources, suppressText: boolean,
+  anim?: ShapeAnimPaint, frame?: PaintImage,
 ): void {
   if (!sh.xfrm) {
     // caixa de texto sem xfrm (raro) — desenha no canto sup. esq. do slide
@@ -141,14 +218,42 @@ function paintShape(
     }
   }
 
+  // camada de FUNDO animada (efeito por letra/palavra com animBg, ou <p:bg/>)
+  const bgSt = anim?.hooks.bg ? anim.hooks.bg(anim.base) : undefined;
+  const ov: BodyOverrides = {};
+  const fillOv = bgSt?.fillColor ?? anim?.all.fillColor;
+  const lineOv = bgSt?.lineColor ?? anim?.all.lineColor;
+  if (fillOv) ov.fill = fillOv;
+  if (lineOv) ov.line = lineOv;
+  if (frame) ov.frame = frame;
+  ctx.save();
+  const bodyOn = !bgSt || applyPart(ctx, bgSt, anim!.base, x, y, w, h, anim!.m);
+  const hostsText = bodyOn ? paintBody(ctx, sh, x, y, w, h, fit, res, ov) : !(sh.chartXml || sh.table || sh.image);
+  ctx.restore();
+  // texto (suprimido quando a shape está em edição — overlay HTML cobre)
+  if (hostsText && sh.txBody && !suppressText) paintText(ctx, sh, sh.txBody, x, y, w, h, fit.scale, anim);
+  if (hasXform || hasAlpha) ctx.restore();
+}
+
+/** Cores animadas do corpo da forma (animClr/set em fillcolor/stroke.color). */
+interface BodyOverrides { fill?: string; line?: string; frame?: PaintImage }
+
+/**
+ * Corpo da forma (gráfico, tabela, imagem ou preenchimento/sombra/contorno),
+ * já dentro da transformação de instância. Devolve false para corpos que não
+ * hospedam texto (gráfico/tabela/imagem).
+ */
+function paintBody(
+  ctx: CanvasRenderingContext2D, sh: Shape, x: number, y: number, w: number, h: number,
+  fit: Fit, res: PaintResources, ov: BodyOverrides,
+): boolean {
   // <p:graphicFrame> com chart: pinta a engine de chart no xfrm.
   if (sh.chartXml) {
     let model = res.charts?.get(sh.chartXml);
     if (!model) { model = parseChart(sh.chartXml); res.charts?.set(sh.chartXml, model); }
     if (!model.palette && sh.chartPalette) model.palette = sh.chartPalette;
     paintChart(ctx, model, x, y, w, h, EMU_PER_POINT * fit.scale);
-    if (hasXform || hasAlpha) ctx.restore();
-    return;
+    return false;
   }
   // <p:graphicFrame> com tabela. PowerPoint frequentemente seta xfrm.cy como
   // PLACEHOLDER pequeno (~1in) e o tamanho REAL da tabela vem da soma das row
@@ -159,13 +264,12 @@ function paintShape(
     const tw = natW > 0 ? natW * fit.scale : w;
     const th = natH > 0 ? natH * fit.scale : h;
     paintTable(ctx, sh.table, x, y, tw, th, fit.scale);
-    if (hasXform || hasAlpha) ctx.restore();
-    return;
+    return false;
   }
 
   // <p:pic>: prioridade absoluta sobre fill — a imagem ocupa o xfrm.
   if (sh.image) {
-    const img = res.images?.get(sh.image.part);
+    const img = ov.frame ?? res.images?.get(sh.image.part);
     if (img) {
       // sombra da shape aplicada à imagem (cards de foto de template)
       if (sh.shadow) {
@@ -206,8 +310,7 @@ function paintShape(
       shapePath(ctx, sh.geom ?? 'rect', x, y, w, h, sh.custGeom, sh.adj);
       ctx.stroke();
     }
-    if (hasXform || hasAlpha) ctx.restore();
-    return;
+    return false;
   }
 
   // sombra externa (outerShdw) — aplicada no fill path. Shape SEM fill não
@@ -225,7 +328,7 @@ function paintShape(
     ctx.shadowBlur = sh.shadow.blurRad / 9525 * fit.scale;
     ctx.shadowOffsetX = sx;
     ctx.shadowOffsetY = sy;
-    ctx.fillStyle = sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color : '#ffffff';
+    ctx.fillStyle = ov.fill ?? (sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color : '#ffffff');
     const shRule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj);
     if (shRule) ctx.fill(shRule); else ctx.fill();
     ctx.restore();
@@ -234,11 +337,15 @@ function paintShape(
   // Geometrias "linha pura" (line/conectores/arc) não têm área p/ fill.
   const isLineGeom = sh.geom === 'line' || sh.geom === 'arc' ||
     /^(straight|bent|curved)Connector\d?$/.test(sh.geom ?? '');
-  if (!isLineGeom && (sh.fillImage || (sh.fill && sh.fill.type !== 'none'))) {
+  if (!isLineGeom && (ov.fill || sh.fillImage || (sh.fill && sh.fill.type !== 'none'))) {
     ctx.save();
     if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
     const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj);
-    if (sh.fillImage) {
+    if (ov.fill) {
+      // cor de preenchimento animada (o app troca fill.type p/ sólido)
+      ctx.fillStyle = ov.fill;
+      if (rule) ctx.fill(rule); else ctx.fill();
+    } else if (sh.fillImage) {
       // blipFill de shape: esticada OU em LADRILHO (a:tile, tamanho natural
       // @96dpi convertido a EMU), sempre recortada pelo path da geometria
       const img = res.images?.get(sh.fillImage.part);
@@ -277,8 +384,9 @@ function paintShape(
     ctx.restore();
   }
   // contorno (com prstDash opcional)
-  if (sh.lineColor) {
-    ctx.strokeStyle = sh.lineColor;
+  const lineColor = ov.line ?? sh.lineColor;
+  if (lineColor) {
+    ctx.strokeStyle = lineColor;
     const lw = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
     ctx.lineWidth = lw;
     if (sh.lineDash) ctx.setLineDash(dashPattern(sh.lineDash, lw));
@@ -289,15 +397,13 @@ function paintShape(
     if (isLineGeom && (sh.headArrow || sh.tailArrow)) {
       const ends = lineEndpoints(sh.geom, x, y, w, h);
       if (ends) {
-        ctx.fillStyle = sh.lineColor;
+        ctx.fillStyle = lineColor;
         if (sh.headArrow) paintArrowhead(ctx, sh.headArrow, ends.hx, ends.hy, ends.hAng, lw);
         if (sh.tailArrow) paintArrowhead(ctx, sh.tailArrow, ends.tx, ends.ty, ends.tAng, lw);
       }
     }
   }
-  // texto (suprimido quando a shape está em edição — overlay HTML cobre)
-  if (sh.txBody && !suppressText) paintText(ctx, sh, sh.txBody, x, y, w, h, fit.scale);
-  if (hasXform || hasAlpha) ctx.restore();
+  return true;
 }
 
 /**
@@ -465,7 +571,8 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
  * `ctx.measureText`: fonte setada em `sizePt`px mede uma largura numericamente
  * igual a pontos (escala linear do canvas).
  */
-function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: number, y: number, w: number, h: number, scale: number): void {
+function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: number, y: number, w: number, h: number, scale: number,
+  anim?: ShapeAnimPaint): void {
   // flipH/flipV espelham a GEOMETRIA, nunca o TEXTO (o app de referência
   // mantém os glifos legíveis) — desfaz o espelho localmente em volta do centro
   const unflip = sh.xfrm?.flipH || sh.xfrm?.flipV;
@@ -476,52 +583,158 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     ctx.scale(sh.xfrm!.flipH ? -1 : 1, sh.xfrm!.flipV ? -1 : 1);
     ctx.translate(-cx, -cy);
   }
+  const all = anim?.all;
+  // ênfase "tamanho da fonte": refaz o layout com a fonte escalada
+  const fsc = all?.fontScale !== undefined && all.fontScale !== 1 ? all.fontScale : 1;
+  const body = fsc !== 1 ? { ...tb, fontScale: (tb.fontScale ?? 1) * fsc } : tb;
   const isTitle = sh.phType === 'title' || sh.phType === 'ctrTitle';
   const measure: MeasureText = (text, f) => {
     ctx.font = layoutFontStr(f, 1);
     return ctx.measureText(text).width;
   };
-  const layout = layoutTextBody(tb, w / scale, h / scale, measure, {
+  const layout = layoutTextBody(body, w / scale, h / scale, measure, {
     defaultSzPt: isTitle ? DEFAULT_TITLE_PT : DEFAULT_BODY_PT,
     defaultAnchor: isTitle ? 'ctr' : 't',
   });
 
   const pxPerPt = EMU_PER_POINT * scale; // 1pt em px na escala atual
+  // sobreposições de estilo animadas (forma inteira < parágrafo < unidade)
+  const fontOf = (f: LayoutFont, st?: PartState | null): LayoutFont => {
+    const wgt = st?.fontWeight ?? all?.fontWeight, sty = st?.fontStyle ?? all?.fontStyle, fam = st?.fontFamily ?? all?.fontFamily;
+    if (!wgt && !sty && !fam) return f;
+    return { ...f, bold: wgt ? wgt === 'bold' : f.bold, italic: sty ? sty === 'italic' : f.italic, family: fam ?? f.family };
+  };
+  const colorOf = (c: string, st?: PartState | null): string => st?.textColor ?? all?.textColor ?? c;
+  const underOf = (u: boolean, st?: PartState | null): boolean => st?.underline ?? all?.underline ?? u;
+  const drawText = (text: string, r: PlacedRun, tx: number, by: number, st?: PartState | null): void => {
+    const f = fontOf(r.font, st);
+    ctx.font = layoutFontStr(f, pxPerPt);
+    const color = colorOf(r.color, st);
+    ctx.fillStyle = color;
+    const effShadow = r.shadow ?? sh.shadow;
+    if (effShadow) {
+      // sombra do texto: EMU→px pela escala; alpha na cor da sombra
+      // (a sombra da SHAPE se aplica ao texto no app de referência)
+      const sc = effShadow;
+      const n = parseInt(sc.color.replace('#', ''), 16);
+      ctx.save();
+      ctx.shadowColor = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${sc.alpha})`;
+      ctx.shadowBlur = sc.blurRad * scale;
+      ctx.shadowOffsetX = sc.dist * Math.cos(sc.dirDeg * Math.PI / 180) * scale;
+      ctx.shadowOffsetY = sc.dist * Math.sin(sc.dirDeg * Math.PI / 180) * scale;
+      ctx.fillText(text, tx, by);
+      ctx.restore();
+    } else {
+      ctx.fillText(text, tx, by);
+    }
+    if (underOf(r.underline, st)) {
+      const sizePx = f.sizePt * pxPerPt;
+      ctx.strokeStyle = color; ctx.lineWidth = Math.max(1, sizePx / 16);
+      const uy = Math.round(by + sizePx * 0.12) + 0.5;
+      const tw = text === r.text ? r.w * scale : ctx.measureText(text).width;
+      ctx.beginPath(); ctx.moveTo(tx, uy); ctx.lineTo(tx + tw, uy); ctx.stroke();
+    }
+  };
+
+  // caixas por parágrafo (px) — geometria-base das animações por parágrafo
+  const paraHook = anim?.hooks.para;
+  const unitHook = anim?.hooks.unit;
+  const pbox = new Map<number, [number, number, number, number]>();
+  const pcolor = new Map<number, string>();
+  if (paraHook) {
+    for (const line of layout.lines) {
+      if (!pcolor.has(line.para) && line.runs[0]) pcolor.set(line.para, line.runs[0].color);
+      let x0 = Infinity, x1 = -Infinity;
+      for (const r of line.runs) { x0 = Math.min(x0, x + r.x * scale); x1 = Math.max(x1, x + (r.x + r.w) * scale); }
+      if (line.bullet) x0 = Math.min(x0, x + line.bullet.x * scale);
+      if (!Number.isFinite(x0)) continue;
+      const top = y + (line.baseline - line.height * 0.8) * scale, bot = y + (line.baseline + line.height * 0.2) * scale;
+      const b = pbox.get(line.para);
+      pbox.set(line.para, b ? [Math.min(b[0], x0), Math.min(b[1], top), Math.max(b[2], x1), Math.max(b[3], bot)] : [x0, top, x1, bot]);
+    }
+  }
+  const paraSt = new Map<number, PartState | null>();
+  const stOfPara = (pi: number): PartState | null => {
+    if (!paraHook || !anim) return null;
+    if (!paraSt.has(pi)) {
+      const b = pbox.get(pi);
+      paraSt.set(pi, b ? paraHook(pi, boxBase(b[0], b[1], b[2] - b[0], b[3] - b[1], anim.m, { text: pcolor.get(pi) })) : null);
+    }
+    return paraSt.get(pi) ?? null;
+  };
+  // unidades (letras sem espaço / palavras) — mesma contagem do modelo de tempo
+  const unitRe = unitHook?.type === 'wd' ? /\S+/g : /\S/g;
+  const perPara = new Map<number, number>();
+  let total = 0;
+  if (unitHook) for (const line of layout.lines) for (const r of line.runs) {
+    const c = (r.text.match(unitRe) ?? []).length;
+    perPara.set(line.para, (perPara.get(line.para) ?? 0) + c);
+    total += c;
+  }
+  const seenPara = new Map<number, number>();
+  let seenTotal = 0;
+  const skipUnits = (line: PlacedLine): void => {
+    if (!unitHook) return;
+    for (const r of line.runs) {
+      const c = (r.text.match(unitRe) ?? []).length;
+      seenPara.set(line.para, (seenPara.get(line.para) ?? 0) + c);
+      seenTotal += c;
+    }
+  };
+
   ctx.textBaseline = 'alphabetic';
   for (const line of layout.lines) {
     const by = y + line.baseline * scale;
+    const pst = stOfPara(line.para);
+    if (pst && !pst.visible) { skipUnits(line); continue; }
+    ctx.save();
+    if (pst && anim) {
+      const b = pbox.get(line.para)!;
+      if (!applyPart(ctx, pst, boxBase(b[0], b[1], b[2] - b[0], b[3] - b[1], anim.m), b[0], b[1], b[2] - b[0], b[3] - b[1], anim.m)) {
+        ctx.restore(); skipUnits(line); continue;
+      }
+    }
     if (line.bullet) {
-      ctx.font = layoutFontStr(line.bullet.font, pxPerPt);
-      ctx.fillStyle = line.bullet.color;
-      ctx.fillText(line.bullet.text, x + line.bullet.x * scale, by);
+      // marcador acompanha a 1ª unidade do parágrafo quando o texto entra por unidade
+      let bulletOn = true;
+      if (unitHook && anim && (seenPara.get(line.para) ?? 0) === 0) {
+        const sizePx = line.bullet.font.sizePt * pxPerPt;
+        const bst = unitHook.state({ para: line.para, k: seenTotal, count: total, kPara: 0, countPara: perPara.get(line.para) ?? 1 },
+          boxBase(x + line.bullet.x * scale, by - sizePx * 0.8, sizePx, sizePx, anim.m, { text: line.bullet.color }));
+        bulletOn = !bst || (bst.visible && bst.opacity > 0);
+      }
+      if (bulletOn) {
+        ctx.font = layoutFontStr(line.bullet.font, pxPerPt);
+        ctx.fillStyle = line.bullet.color;
+        ctx.fillText(line.bullet.text, x + line.bullet.x * scale, by);
+      }
     }
     for (const r of line.runs) {
-      ctx.font = layoutFontStr(r.font, pxPerPt);
-      ctx.fillStyle = r.color;
       const tx = x + r.x * scale;
-      const effShadow = r.shadow ?? sh.shadow;
-      if (effShadow) {
-        // sombra do texto: EMU→px pela escala; alpha na cor da sombra
-        // (a sombra da SHAPE se aplica ao texto no app de referência)
-        const sc = effShadow;
-        const n = parseInt(sc.color.replace('#', ''), 16);
-        ctx.save();
-        ctx.shadowColor = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${sc.alpha})`;
-        ctx.shadowBlur = sc.blurRad * scale;
-        ctx.shadowOffsetX = sc.dist * Math.cos(sc.dirDeg * Math.PI / 180) * scale;
-        ctx.shadowOffsetY = sc.dist * Math.sin(sc.dirDeg * Math.PI / 180) * scale;
-        ctx.fillText(r.text, tx, by);
-        ctx.restore();
-      } else {
-        ctx.fillText(r.text, tx, by);
-      }
-      if (r.underline) {
+      if (!unitHook || !anim) { drawText(r.text, r, tx, by, pst); continue; }
+      // por letra/palavra: cada unidade tem o próprio estado (escalonado no tempo)
+      ctx.font = layoutFontStr(fontOf(r.font, pst), pxPerPt);
+      unitRe.lastIndex = 0;
+      let mm: RegExpExecArray | null;
+      while ((mm = unitRe.exec(r.text))) {
+        const ux = tx + ctx.measureText(r.text.slice(0, mm.index)).width;
+        const uw = ctx.measureText(mm[0]).width;
+        const kPara = seenPara.get(line.para) ?? 0;
+        seenPara.set(line.para, kPara + 1);
+        const kAll = seenTotal++;
         const sizePx = r.font.sizePt * pxPerPt;
-        ctx.strokeStyle = r.color; ctx.lineWidth = Math.max(1, sizePx / 16);
-        const uy = Math.round(by + sizePx * 0.12) + 0.5;
-        ctx.beginPath(); ctx.moveTo(tx, uy); ctx.lineTo(tx + r.w * scale, uy); ctx.stroke();
+        const uy = by - sizePx * 0.8;
+        const ubase = boxBase(ux, uy, uw, sizePx, anim.m, { text: r.color });
+        const ust = unitHook.state({ para: line.para, k: kAll, count: total, kPara, countPara: perPara.get(line.para) ?? 1 }, ubase);
+        if (ust && !ust.visible) continue;
+        ctx.save();
+        if (ust && !applyPart(ctx, ust, ubase, ux, uy, uw, sizePx, anim.m)) { ctx.restore(); continue; }
+        drawText(mm[0], r, ux, by, ust ?? pst);
+        ctx.restore();
+        ctx.font = layoutFontStr(fontOf(r.font, pst), pxPerPt);
       }
     }
+    ctx.restore();
   }
   if (unflip) ctx.restore();
 }

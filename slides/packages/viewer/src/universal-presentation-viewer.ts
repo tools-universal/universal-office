@@ -1,9 +1,26 @@
 import {
   PptxPackage, readPresentation, readSlide, paintSlideTo,
   readEmbeddedFonts, collectDeckTypefaces,
+  buildPlaybackTimeline, playbackStateAt, shapeAnimHooks, paintTransition,
   type ChartModel, type PaintImage, type PaintSlideOptions,
   type Presentation, type Slide, type Shape, type ImageRef,
+  type PlaybackOptions, type PlaybackTimeline, type PlaybackSlide,
 } from '@universal/slides-core';
+import { MediaPlayer } from './media-player.js';
+
+/** Opções de `play()` — reprodução automática. */
+export interface PlayOptions extends PlaybackOptions {
+  /** Slide (índice no deck) onde começar. Default 0. */
+  from?: number;
+  /** Recomeça do início ao terminar (quiosque). Default false. */
+  loop?: boolean;
+  /**
+   * Mídia (vídeo/áudio/GIF): `realtime` toca de verdade (com som) e corrige
+   * deriva; `seek` não toca — `syncMedia()` busca o quadro exato antes de cada
+   * pintura (captura determinística). Default `realtime`.
+   */
+  media?: 'realtime' | 'seek';
+}
 
 /**
  * <universal-presentation-viewer> — webcomponent de VISUALIZAÇÃO pura de
@@ -18,8 +35,9 @@ import {
  *
  * API: `loadPptx(bytes)`, atributo/propriedade `src`, `selectSlide/next/prev`,
  * `getSlideCount/getSlideIndex`, `renderThumbnail(i, canvas)`,
- * `renderSlideToCanvas(i, canvas, pxWidth)`, `replayAnimation()`, `present()`.
- * Eventos: `us-loaded`, `us-slide`, `us-image`.
+ * `renderSlideToCanvas(i, canvas, pxWidth)`, `replayAnimation()`, `present()`,
+ * `play()`/`stopPlayback()` (reprodução automática com intervalos).
+ * Eventos: `us-loaded`, `us-slide`, `us-image`, `us-playback-end`.
  */
 export class UniversalPresentationViewerElement extends HTMLElement {
   protected host = this.attachShadow({ mode: 'open' });
@@ -45,7 +63,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   /**
    * Estado da animação em curso. Sem animação tocando, `playStartMs = null`.
    */
-  protected play: { startMs: number | null; rafId: number; pausedAt: number } = { startMs: null, rafId: 0, pausedAt: 0 };
+  protected animPlay: { startMs: number | null; rafId: number; pausedAt: number } = { startMs: null, rafId: 0, pausedAt: 0 };
   /**
    * Snapshot do frame anterior pra transição entre slides. `prevImage` é o
    * ImageData do canvas no instante em que selectSlide foi chamado.
@@ -53,6 +71,17 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   protected trans: { prevImage: ImageData | null; startMs: number | null; durMs: number; type: string } = {
     prevImage: null, startMs: null, durMs: 0, type: 'fade',
   };
+  /**
+   * Reprodução automática em curso (`play()`): linha do tempo PURA
+   * (slides-core/playback.ts) + relógio. `null` = navegação manual.
+   */
+  protected auto: { tl: PlaybackTimeline; t0: number; loop: boolean; rafId: number; pos: number } | null = null;
+  /** Canvases de trabalho da transição (origem/destino) na reprodução automática. */
+  private fromCanvas: HTMLCanvasElement | null = null;
+  private toCanvas: HTMLCanvasElement | null = null;
+  private fromKey = '';
+  /** Vídeo/áudio/GIF da reprodução automática. */
+  protected media = new MediaPlayer(() => this.paint());
 
   static get observedAttributes(): string[] { return ['src']; }
 
@@ -186,6 +215,8 @@ export class UniversalPresentationViewerElement extends HTMLElement {
 
   /** Carrega bytes .pptx e monta os slides. */
   loadPptx(bytes: Uint8Array): void {
+    if (this.auto) this.stopPlayback(); // a linha do tempo é do deck anterior
+    this.media.dispose();
     this.pkg = PptxPackage.load(bytes);
     // fontes: default embarcada + embutidas no arquivo + SO sob demanda
     void this.installDefaultFonts();
@@ -270,6 +301,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
 
   selectSlide(i: number): void {
     if (i < 0 || i >= this.slides.length || i === this.index) return;
+    if (this.auto) this.stopPlayback();
     this.stopAnimation();
     // Snapshot do canvas atual p/ cross-fade (se a slide alvo tiver transição)
     const target = this.slides[i];
@@ -318,23 +350,23 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   protected startAnimation(): void {
     const slide = this.slides[this.index];
     if (!slide?.animations || slide.animations.length === 0) return;
-    this.play.startMs = (window.performance ?? Date).now();
+    this.animPlay.startMs = (window.performance ?? Date).now();
     const lastEnd = Math.max(...slide.animations.map((a) => a.delayMs + a.durMs));
     const tick = (): void => {
-      if (this.play.startMs == null) return;
-      const tMs = ((window.performance ?? Date).now()) - this.play.startMs;
+      if (this.animPlay.startMs == null) return;
+      const tMs = ((window.performance ?? Date).now()) - this.animPlay.startMs;
       this.paint();
-      if (tMs < lastEnd) this.play.rafId = requestAnimationFrame(tick);
-      else this.play.startMs = null;
+      if (tMs < lastEnd) this.animPlay.rafId = requestAnimationFrame(tick);
+      else this.animPlay.startMs = null;
     };
-    this.play.rafId = requestAnimationFrame(tick);
+    this.animPlay.rafId = requestAnimationFrame(tick);
   }
 
   /** Para qualquer animação em curso (cancela o RAF). */
   protected stopAnimation(): void {
-    if (this.play.rafId) cancelAnimationFrame(this.play.rafId);
-    this.play.startMs = null;
-    this.play.rafId = 0;
+    if (this.animPlay.rafId) cancelAnimationFrame(this.animPlay.rafId);
+    this.animPlay.startMs = null;
+    this.animPlay.rafId = 0;
   }
 
   /**
@@ -344,14 +376,189 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    */
   protected shapeOpacity(shape: Shape, slide: Slide): number {
     if (!slide.animations || slide.animations.length === 0) return 1;
-    if (this.play.startMs == null) return 1; // sem playback => mostra tudo
-    const t = ((window.performance ?? Date).now()) - this.play.startMs;
+    if (this.animPlay.startMs == null) return 1; // sem playback => mostra tudo
+    const t = ((window.performance ?? Date).now()) - this.animPlay.startMs;
     const entry = slide.animations.find((a) => a.spid === shape.id);
     if (!entry) return 1;
     if (t < entry.delayMs) return 0;
     if (t >= entry.delayMs + entry.durMs) return 1;
     const f = (t - entry.delayMs) / entry.durMs;
     return entry.type === 'fade' ? f : 1;
+  }
+
+  // ───────────────────────── REPRODUÇÃO AUTOMÁTICA ─────────────────────────
+
+  /**
+   * REPRODUÇÃO AUTOMÁTICA (quiosque / "usar intervalos"): a apresentação toca
+   * sozinha — transição de entrada, animações (passos por clique disparam no
+   * tempo do export de vídeo do app de referência), avanço por `advTm` (ou
+   * `defaultSlideMs` sem intervalo), slides ocultos pulados. Pinta em modo
+   * slideshow (fundo preto, slide encaixado sem margem, sem selo). O estado
+   * de cada quadro é função PURA de `performance.now() − início`
+   * (`playbackStateAt`) — determinístico sob relógio virtual.
+   * Emite `us-slide` a cada troca e `us-playback-end` ao terminar.
+   */
+  play(opts: PlayOptions = {}): PlaybackTimeline {
+    this.stopAnimation();
+    this.stopPlayback();
+    this.trans.prevImage = null; this.trans.startMs = null;
+    const tl = buildPlaybackTimeline(this.slides.map((s) => s.timing), opts);
+    this.media.mode = opts.media ?? 'realtime';
+    // export emulado (tickMs): mídia parte 2 ticks após o comando e anda no relógio das transições
+    this.media.clock = tl.tickMs > 0 ? { latencyMs: 2 * tl.tickMs, scale: tl.mediaClock } : {};
+    for (const s of this.slides) this.media.warmGifs(s);
+    const from = opts.from ?? 0;
+    const first = tl.slides.find((s) => s.index >= from);
+    const now = (window.performance ?? Date).now();
+    this.auto = { tl, t0: now - (first?.startMs ?? 0), loop: opts.loop ?? false, rafId: 0, pos: -1 };
+    this.fromKey = '';
+    this.badge.style.display = 'none';
+    const tick = (): void => {
+      const a = this.auto;
+      if (!a) return;
+      const t = (window.performance ?? Date).now() - a.t0;
+      if (t >= a.tl.durationMs && a.loop && a.tl.durationMs > 0) a.t0 += a.tl.durationMs;
+      this.paint();
+      if (t >= a.tl.durationMs && !a.loop) {
+        a.rafId = 0;
+        this.dispatchEvent(new CustomEvent('us-playback-end'));
+        return;
+      }
+      a.rafId = requestAnimationFrame(tick);
+    };
+    this.paint();
+    this.auto.rafId = requestAnimationFrame(tick);
+    return tl;
+  }
+
+  /** Para a reprodução automática; o viewer fica no slide em cena. */
+  stopPlayback(): void {
+    if (!this.auto) return;
+    if (this.auto.rafId) cancelAnimationFrame(this.auto.rafId);
+    this.auto = null;
+    this.media.stop();
+    this.badge.style.display = '';
+    this.paint();
+  }
+
+  isPlaying(): boolean { return this.auto !== null; }
+
+  /** Linha do tempo da reprodução em curso (debug/lab de playback). */
+  getPlaybackTimeline(): PlaybackTimeline | null { return this.auto?.tl ?? null; }
+
+  /** Tempo (ms) da reprodução em curso, ou null. */
+  getPlaybackTime(): number | null {
+    return this.auto ? (window.performance ?? Date).now() - this.auto.t0 : null;
+  }
+
+  /**
+   * Modo `media: 'seek'` (captura): posiciona vídeos/GIFs do quadro atual no
+   * instante exato e espera os quadros decodificados. Devolve uma assinatura
+   * das posições (muda quando o quadro de mídia muda).
+   */
+  async syncMedia(): Promise<string> {
+    if (!this.auto) return '';
+    this.media.resetWanted();
+    this.paint(); // quadro "seco": registra as posições pedidas
+    await this.media.seekAll();
+    return this.media.signature();
+  }
+
+  /** Canvas de trabalho do tamanho do canvas principal. */
+  private workCanvas(c: HTMLCanvasElement | null): HTMLCanvasElement {
+    const cv = c ?? document.createElement('canvas');
+    if (cv.width !== this.canvas.width) cv.width = this.canvas.width;
+    if (cv.height !== this.canvas.height) cv.height = this.canvas.height;
+    return cv;
+  }
+
+  /** Pinta um slide da linha do tempo num contexto, no tempo de animação `animMs`. */
+  private paintPlaybackSlide(ctx: CanvasRenderingContext2D, ps: PlaybackSlide, animMs: number,
+    fit: { ox: number; oy: number; scale: number }): void {
+    const slide = this.slides[ps.index];
+    if (!slide || !this.pres) return;
+    const bg = new Set(slide.timing?.animBg ?? []);
+    const actx = { animBg: (spid: string) => bg.has(spid) };
+    const mediaInfo = new Map((slide.timing?.media ?? []).map((m) => [m.spid, m]));
+    const bytes = (part: string): Uint8Array | undefined => this.pkg?.getPart(part);
+    const hasMedia = slide.shapes.some((sh) => sh.media || sh.image?.mime === 'image/gif');
+    paintSlideTo(ctx, slide, {
+      slideW: this.pres.slideW, slideH: this.pres.slideH,
+      images: this.readyImages(slide), charts: this.chartCache,
+    }, fit.scale, {
+      ox: fit.ox, oy: fit.oy,
+      // motor SMIL: cada forma toca os comportamentos gravados no arquivo
+      shapeAnim: (sh) => (sh.inherited || !ps.effects.length ? null
+        : shapeAnimHooks(ps.effects, sh.groupIds ? [sh.id, ...sh.groupIds] : [sh.id], animMs, actx)),
+      // vídeo tocando / quadro do GIF no lugar da capa
+      ...(hasMedia ? {
+        mediaFrame: (sh: Shape) => {
+          if (sh.inherited) return null;
+          const mi = mediaInfo.get(sh.id);
+          return this.media.frame(sh, ps, animMs, bytes, mi?.vol ?? 1, mi?.mute ?? false);
+        },
+        // "ocultar enquanto não estiver tocando" (cMediaNode showWhenStopped="0")
+        shapeOpacity: (sh: Shape) => (sh.media && mediaInfo.get(sh.id)?.showWhenStopped === false
+          && !this.media.isPlaying(sh, ps, animMs) ? 0 : 1),
+      } : {}),
+    });
+  }
+
+  /**
+   * Quadro da reprodução automática: slide em cena no estado de animação do
+   * instante atual; durante a transição, compõe ORIGEM (slide anterior no
+   * estado final, ou preto no 1º slide) × DESTINO. v1: esmaecer cruzado;
+   * `thruBlk` passa pelo preto; corte seco é instantâneo (transitionMs = 0).
+   */
+  protected paintPlayback(ctx: CanvasRenderingContext2D): void {
+    const a = this.auto!;
+    const dpr = window.devicePixelRatio || 1;
+    const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+    if (!this.pres) return;
+    const st = playbackStateAt(a.tl, (window.performance ?? Date).now() - a.t0);
+    if (!st.slide) return;
+    if (st.pos !== a.pos) {
+      a.pos = st.pos;
+      this.index = st.slide.index;
+      this.dispatchEvent(new CustomEvent('us-slide', { detail: { index: st.slide.index } }));
+    }
+    const scale = Math.min(W / this.pres.slideW, H / this.pres.slideH);
+    const fit = { scale, ox: (W - this.pres.slideW * scale) / 2, oy: (H - this.pres.slideH * scale) / 2 };
+    const p = st.transitionProgress;
+    if (p >= 1) {
+      this.paintPlaybackSlide(ctx, st.slide, st.animMs, fit);
+      if (this.media.mode === 'realtime') this.media.syncRealtime();
+      return;
+    }
+
+    // transição em curso: ORIGEM (estado final do anterior; preto no 1º) × DESTINO
+    const to = this.toCanvas = this.workCanvas(this.toCanvas);
+    const tctx = to.getContext('2d')!;
+    tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    tctx.fillStyle = '#000'; tctx.fillRect(0, 0, W, H);
+    this.paintPlaybackSlide(tctx, st.slide, st.animMs, fit);
+    const from = this.fromCanvas = this.workCanvas(this.fromCanvas);
+    const key = `${st.from?.index ?? -1}:${from.width}x${from.height}`;
+    if (key !== this.fromKey) {
+      const fctx = from.getContext('2d')!;
+      fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      fctx.fillStyle = '#000'; fctx.fillRect(0, 0, W, H);
+      if (st.from) this.paintPlaybackSlide(fctx, st.from, Infinity, fit);
+      this.fromKey = key;
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const tr = st.slide.transition ?? { type: 'fade', ns: 'p', attrs: {}, durMs: 0, advClick: true };
+    // retângulo do slide em px de canvas (o resto é letterbox preto)
+    const rect = {
+      x: fit.ox * dpr, y: fit.oy * dpr,
+      w: this.pres.slideW * fit.scale * dpr, h: this.pres.slideH * fit.scale * dpr,
+    };
+    paintTransition(ctx, from, to, tr, p, rect, this.canvas.width, this.canvas.height);
+    ctx.restore();
+    if (this.media.mode === 'realtime') this.media.syncRealtime();
   }
 
   /**
@@ -407,6 +614,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
 
   protected onKeyDown = (e: KeyboardEvent): void => {
     if (this.isEditing()) return; // teclado pertence ao editor da subclasse
+    if (this.auto && e.key === 'Escape') { this.stopPlayback(); e.preventDefault(); return; }
     if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { this.next(); e.preventDefault(); }
     else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { this.prev(); e.preventDefault(); }
     else if (e.key === 'Home') { this.selectSlide(0); e.preventDefault(); }
@@ -477,6 +685,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   protected paint(): void {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;
+    if (this.auto) { this.paintPlayback(ctx); return; }
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const W = this.canvas.clientWidth, H = this.canvas.clientHeight;

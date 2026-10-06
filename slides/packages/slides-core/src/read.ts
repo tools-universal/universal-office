@@ -7,8 +7,9 @@ import {
   type TextStyleContext, type TextStyleLevel, type TextStyleLevels,
 } from './text-style.js';
 import type { PptxPackage } from './package.js';
+import { parseSlideTiming, type CountTextUnits } from './timing.js';
 import type {
-  Presentation, SlideRef, Slide, Shape, Xfrm, ImageRef, TextBody, Paragraph, Run, Theme,
+  Presentation, SlideRef, Slide, Shape, Xfrm, ImageRef, MediaRef, TextBody, Paragraph, Run, Theme,
   SlideAnimEntry, SlideTransition, Table, TableRow, TableCell, GradientStop,
 } from './model.js';
 
@@ -117,6 +118,7 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
         const partRels = readRels(pkg, relsPathFor(part), part);
         for (const sh of readShapes(tree, theme, pkg, partRels)) {
           if (sh.phType !== undefined || sh.phIdx !== undefined) continue; // placeholder ≠ decoração
+          sh.inherited = true;
           inherited.push(sh);
         }
       }
@@ -250,7 +252,38 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
   // transição entre slides (<p:transition>)
   const transEl = firstChild(root, 'p:transition');
   if (transEl) slide.transition = parseTransition(transEl);
+  // modelo de tempo completo (reprodução automática): transição em
+  // mc:AlternateContent + árvore <p:timing> inteira
+  slide.timing = parseSlideTiming(root, countTextUnits(shapes), (el) => colorFromDml(el, theme), hasBackground(shapes));
   return slide;
+}
+
+/**
+ * Fundo visível (preenchimento, imagem ou contorno) — nos efeitos por
+ * letra/palavra, o app anima esse fundo como 1ª unidade (independe do
+ * `<p:bldP animBg>`; medido com o oráculo).
+ */
+function hasBackground(shapes: Shape[]): (spid: string) => boolean {
+  return (spid) => {
+    const sh = shapes.find((s) => !s.inherited && s.id === spid);
+    if (!sh) return false;
+    return !!(sh.fillImage || (sh.fill && sh.fill.type !== 'none') || (sh.lineColor && !sh.lineNone));
+  };
+}
+
+/** Conta palavras/letras do alvo de uma animação de texto (`<p:iterate>`). */
+function countTextUnits(shapes: Shape[]): CountTextUnits {
+  return (target, type) => {
+    if (!target || type === 'el') return 1;
+    const sh = shapes.find((s) => !s.inherited && s.id === target.spid);
+    let paras = sh?.txBody?.paragraphs ?? [];
+    if (target.pRange) paras = paras.slice(target.pRange[0], target.pRange[1] + 1);
+    let text = paras.map((p) => p.runs.map((r) => r.text).join('')).join('\n');
+    if (target.charRange) text = text.slice(target.charRange[0], target.charRange[1]);
+    if (type === 'wd') return Math.max(1, text.split(/\s+/).filter(Boolean).length);
+    // letras: o app NÃO conta espaços/quebras como unidade (medido via COM)
+    return Math.max(1, text.replace(/\s/g, '').length);
+  };
 }
 
 /**
@@ -536,6 +569,10 @@ function readShapes(spTree: XmlElement, theme: Theme, pkg: PptxPackage, rels: Ma
  */
 function readGroup(grp: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<string, string>): Shape[] {
   const children = readShapes(grp, theme, pkg, rels);
+  // id do grupo: alvo de animações aplicadas ao grupo inteiro
+  const nvGrp = firstChild(grp, 'p:nvGrpSpPr');
+  const gid = nvGrp ? firstChild(nvGrp, 'p:cNvPr')?.attrs['id'] : undefined;
+  if (gid !== undefined) for (const sh of children) sh.groupIds = [gid, ...(sh.groupIds ?? [])];
   const grpSpPr = firstChild(grp, 'p:grpSpPr');
   const xfrmEl = grpSpPr ? firstChild(grpSpPr, 'a:xfrm') : undefined;
   if (!xfrmEl) return children;
@@ -1156,6 +1193,8 @@ function readPic(pic: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<stri
     name: cNvPr?.attrs['name'] ?? '',
   };
 
+  const media = nvPicPr ? readPicMedia(nvPicPr, pkg, rels) : undefined;
+  if (media) shape.media = media;
   if (blip) {
     const img = resolveBlip(blip, pkg, rels);
     if (img) shape.image = img;
@@ -1186,6 +1225,58 @@ function readPic(pic: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<stri
     }
   }
   return shape;
+}
+
+/**
+ * Mídia de um `<p:pic>`: `<p:nvPr>` traz `<a:videoFile r:link>` /
+ * `<a:audioFile r:link>` (+ `<a:quickTimeFile>`) e, no 2010+, a parte
+ * EMBUTIDA em `<p:extLst><p:ext><p14:media r:embed>` — que tem prioridade.
+ */
+function readPicMedia(nvPicPr: XmlElement, pkg: PptxPackage, rels: Map<string, string>): MediaRef | undefined {
+  const nvPr = firstChild(nvPicPr, 'p:nvPr');
+  if (!nvPr) return undefined;
+  let kind: MediaRef['kind'] | undefined;
+  let link: string | undefined;
+  for (const c of childElements(nvPr)) {
+    if (c.name === 'a:videoFile' || c.name === 'a:quickTimeFile') { kind = 'video'; link = c.attrs['r:link']; }
+    else if (c.name === 'a:audioFile' || c.name === 'a:wavAudioFile') { kind = 'audio'; link = c.attrs['r:link'] ?? c.attrs['r:embed']; }
+  }
+  if (!kind) return undefined;
+  const ext = firstChild(nvPr, 'p:extLst');
+  let embed: string | undefined;
+  if (ext) for (const e of childElements(ext, 'p:ext')) {
+    const m = childElements(e).find((x) => x.name.endsWith(':media'));
+    if (m?.attrs['r:embed']) embed = m.attrs['r:embed'];
+  }
+  const media: MediaRef = { kind, mime: 'application/octet-stream' };
+  for (const rid of [embed, link]) {
+    const target = rid ? rels.get(rid) : undefined;
+    if (!target) continue;
+    if (pkg.getPart(target)) { media.part = target; break; }
+    if (/^[a-z][a-z0-9+.-]*:/i.test(target) && !media.url) media.url = target; // link externo (file:, http:)
+  }
+  if (!media.part && !media.url) return undefined;
+  media.mime = mediaMime(media.part ?? media.url!, kind);
+  return media;
+}
+
+function mediaMime(path: string, kind: MediaRef['kind']): string {
+  const ext = (/\.([a-z0-9]+)(?:[?#].*)?$/i.exec(path)?.[1] ?? '').toLowerCase();
+  switch (ext) {
+    case 'mp4': case 'm4v': return 'video/mp4';
+    case 'mov': return 'video/quicktime';
+    case 'webm': return kind === 'audio' ? 'audio/webm' : 'video/webm';
+    case 'ogv': return 'video/ogg';
+    case 'wmv': return 'video/x-ms-wmv';
+    case 'avi': return 'video/x-msvideo';
+    case 'mp3': return 'audio/mpeg';
+    case 'm4a': return 'audio/mp4';
+    case 'wav': return 'audio/wav';
+    case 'wma': return 'audio/x-ms-wma';
+    case 'ogg': case 'oga': return 'audio/ogg';
+    case 'mid': case 'midi': return 'audio/midi';
+    default: return kind === 'audio' ? 'audio/*' : 'video/*';
+  }
 }
 
 /** `<a:blip r:embed="rIdN">` -> ImageRef com bytes + MIME (ou undefined se nao resolver). */
