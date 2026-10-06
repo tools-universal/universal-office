@@ -1,7 +1,7 @@
-@font-face { font-family: 'Arial'; src: url('./os/arial-normal.ttf'); font-weight: 400; font-style: normal; }
-@font-face { font-family: 'Arial'; src: url('./os/arial-negreta.ttf'); font-weight: 400; font-style: normal; }
-@font-face { font-family: 'Arial'; src: url('./os/arial-negretacursiva.ttf'); font-weight: 400; font-style: normal; }
-@font-face { font-family: 'Arial'; src: url('./os/arial-cursiva.ttf'); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Arial'; src: url('./os/arial-regular.ttf'); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Arial'; src: url('./os/arial-bold.ttf'); font-weight: 700; font-style: normal; }
+@font-face { font-family: 'Arial'; src: url('./os/arial-bolditalic.ttf'); font-weight: 700; font-style: italic; }
+@font-face { font-family: 'Arial'; src: url('./os/arial-italic.ttf'); font-weight: 400; font-style: italic; }
 @font-face { font-family: 'Calibri'; src: url('./os/calibri-regular.ttf'); font-weight: 400; font-style: normal; }
 @font-face { font-family: 'Calibri'; src: url('./os/calibri-bold.ttf'); font-weight: 700; font-style: normal; }
 @font-face { font-family: 'Calibri'; src: url('./os/calibri-italic.ttf'); font-weight: 400; font-style: italic; }
