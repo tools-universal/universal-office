@@ -1,0 +1,1246 @@
+{
+ "durationMs": 33462,
+ "slides": [
+  {
+   "index": 0,
+   "startMs": 0,
+   "transitionMs": 495,
+   "animStartMs": 561,
+   "stepStartMs": [
+    561
+   ],
+   "endMs": 2607,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -3,
+       "category": -3,
+       "step": "gridLegend"
+      }
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 0,
+       "category": -4,
+       "step": "series"
+      }
+     },
+     "t0": 501,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 1,
+       "category": -4,
+       "step": "series"
+      }
+     },
+     "t0": 1002,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 2,
+       "category": -4,
+       "step": "series"
+      }
+     },
+     "t0": 1503,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 1,
+   "startMs": 2607,
+   "transitionMs": 495,
+   "animStartMs": 3168,
+   "stepStartMs": [
+    3168
+   ],
+   "endMs": 5709,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -3,
+       "category": -3,
+       "step": "gridLegend"
+      }
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -4,
+       "category": 0,
+       "step": "category"
+      }
+     },
+     "t0": 501,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -4,
+       "category": 1,
+       "step": "category"
+      }
+     },
+     "t0": 1002,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -4,
+       "category": 2,
+       "step": "category"
+      }
+     },
+     "t0": 1503,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -4,
+       "category": 3,
+       "step": "category"
+      }
+     },
+     "t0": 2004,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 2,
+   "startMs": 5709,
+   "transitionMs": 495,
+   "animStartMs": 6270,
+   "stepStartMs": [
+    6270
+   ],
+   "endMs": 12837,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -3,
+       "category": -3,
+       "step": "gridLegend"
+      }
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 0,
+       "category": 0,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 501,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 0,
+       "category": 1,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 1002,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 0,
+       "category": 2,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 1503,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 0,
+       "category": 3,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 2004,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 1,
+       "category": 0,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 2505,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 1,
+       "category": 1,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 3006,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 1,
+       "category": 2,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 3507,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 1,
+       "category": 3,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 4008,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 2,
+       "category": 0,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 4509,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 2,
+       "category": 1,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 5010,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 2,
+       "category": 2,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 5511,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 2,
+       "category": 3,
+       "step": "ptInSeries"
+      }
+     },
+     "t0": 6012,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 3,
+   "startMs": 12837,
+   "transitionMs": 495,
+   "animStartMs": 13398,
+   "stepStartMs": [
+    13398
+   ],
+   "endMs": 19965,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -3,
+       "category": -3,
+       "step": "gridLegend"
+      }
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 0,
+       "category": 0,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 501,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 1,
+       "category": 0,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 1002,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 2,
+       "category": 0,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 1503,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 0,
+       "category": 1,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 2004,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 1,
+       "category": 1,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 2505,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 2,
+       "category": 1,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 3006,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 0,
+       "category": 2,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 3507,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 1,
+       "category": 2,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 4008,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 2,
+       "category": 2,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 4509,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 0,
+       "category": 3,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 5010,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 1,
+       "category": 3,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 5511,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 2,
+       "category": 3,
+       "step": "ptInCategory"
+      }
+     },
+     "t0": 6012,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 4,
+   "startMs": 19965,
+   "transitionMs": 495,
+   "animStartMs": 20526,
+   "stepStartMs": [
+    20526
+   ],
+   "endMs": 23067,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -3,
+       "category": -3,
+       "step": "gridLegend"
+      }
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -4,
+       "category": 0,
+       "step": "category"
+      }
+     },
+     "t0": 501,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -4,
+       "category": 1,
+       "step": "category"
+      }
+     },
+     "t0": 1002,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -4,
+       "category": 2,
+       "step": "category"
+      }
+     },
+     "t0": 1503,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -4,
+       "category": 3,
+       "step": "category"
+      }
+     },
+     "t0": 2004,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 5,
+   "startMs": 23067,
+   "transitionMs": 495,
+   "animStartMs": 23628,
+   "stepStartMs": [
+    23628
+   ],
+   "endMs": 25674,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": -3,
+       "category": -3,
+       "step": "gridLegend"
+      }
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 0,
+       "category": -4,
+       "step": "series"
+      }
+     },
+     "t0": 501,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 1,
+       "category": -4,
+       "step": "series"
+      }
+     },
+     "t0": 1002,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "chart": {
+       "series": 2,
+       "category": -4,
+       "step": "series"
+      }
+     },
+     "t0": 1503,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 6,
+   "startMs": 25674,
+   "transitionMs": 495,
+   "animStartMs": 26235,
+   "stepStartMs": [
+    26235
+   ],
+   "endMs": 28776,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{8D855748-0ACB-402D-8F3A-DBE7D0EF3A28}"
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{F38273D1-5943-4BBE-BE24-2CBF7615E0E9}"
+     },
+     "t0": 501,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{F2F3EF40-036A-45D3-A7D4-0E8FD37BD65A}"
+     },
+     "t0": 1002,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{A88E3738-8477-44ED-B9BA-574F314CA468}"
+     },
+     "t0": 1503,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{3F68C4CC-80F3-437F-8BEB-B9A4EACF7317}"
+     },
+     "t0": 2004,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 7,
+   "startMs": 28776,
+   "transitionMs": 495,
+   "animStartMs": 29337,
+   "stepStartMs": [
+    29337
+   ],
+   "endMs": 30360,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{B7499A47-A02D-431A-A117-4BF6441FC13D}"
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{CABDAB1C-2782-4271-922F-67A4FA2B2939}"
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{BB97207B-FC65-4A17-B7C5-39A5F19D6848}"
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{CDCE99DB-A77E-4FF6-A593-084684020454}"
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{8035BBEA-A7FF-4EB0-B085-2DFD49F3AED4}"
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 8,
+   "startMs": 30360,
+   "transitionMs": 495,
+   "animStartMs": 30921,
+   "stepStartMs": [
+    30921
+   ],
+   "endMs": 33462,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": [
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{5178595A-0CDA-4305-8076-DB9687F05F5D}"
+     },
+     "t0": 0,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{D8AADB86-7EB4-4D59-9E7B-1549C6B501C6}"
+     },
+     "t0": 501,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{5812DB8B-0620-4BF3-9F0A-40CA1E7B7A94}"
+     },
+     "t0": 1002,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{377ABBAD-D472-4B7D-8411-0A8E2E690904}"
+     },
+     "t0": 1503,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 22,
+     "presetSubtype": 4,
+     "target": {
+      "spid": "3",
+      "sub": "graphicEl",
+      "dgm": "{E9A2E7C9-5A86-4902-B3A5-9851952968A3}"
+     },
+     "t0": 2004,
+     "durMs": 500,
+     "step": 0,
+     "filter": "wipe(down)",
+     "fill": "hold"
+    }
+   ]
+  }
+ ]
+}

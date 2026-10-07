@@ -1,0 +1,376 @@
+{
+    "file":  "D:\\Projects\\OfficeNext\\slides\\samples\\playback\\pb-midia-2.pptx",
+    "format":  "pptx",
+    "powerpoint":  "16.0 build 20430",
+    "slideWidthPt":  960,
+    "slideHeightPt":  540,
+    "fps":  30,
+    "height":  720,
+    "width":  1280,
+    "defaultSlideSec":  3,
+    "quality":  100,
+    "renderSeconds":  3.58,
+    "slides":  [
+                   {
+                       "index":  1,
+                       "hidden":  false,
+                       "title":  "V1 vídeo cortado (1 s → 3 s)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  4
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  83,
+                                           "typeName":  "msoAnimEffectMediaPlay",
+                                           "exit":  false,
+                                           "trigger":  1,
+                                           "triggerName":  "msoAnimTriggerOnPageClick",
+                                           "duration":  2,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "bar",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "bar"
+                                       }
+                                   ],
+                       "interactiveEffects":  1,
+                       "mediaShapes":  1
+                   },
+                   {
+                       "index":  2,
+                       "hidden":  false,
+                       "title":  "V2 vídeo com fade in/out 1 s",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  5
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  83,
+                                           "typeName":  "msoAnimEffectMediaPlay",
+                                           "exit":  false,
+                                           "trigger":  1,
+                                           "triggerName":  "msoAnimTriggerOnPageClick",
+                                           "duration":  4,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "bar",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "bar"
+                                       }
+                                   ],
+                       "interactiveEffects":  1,
+                       "mediaShapes":  1
+                   },
+                   {
+                       "index":  3,
+                       "hidden":  false,
+                       "title":  "V3 vídeo em loop (slide 9 s)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  9
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  83,
+                                           "typeName":  "msoAnimEffectMediaPlay",
+                                           "exit":  false,
+                                           "trigger":  1,
+                                           "triggerName":  "msoAnimTriggerOnPageClick",
+                                           "duration":  4,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "bar",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "bar"
+                                       }
+                                   ],
+                       "interactiveEffects":  1,
+                       "mediaShapes":  1
+                   },
+                   {
+                       "index":  4,
+                       "hidden":  false,
+                       "title":  "V4 vídeo + retroceder ao terminar",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  6
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  83,
+                                           "typeName":  "msoAnimEffectMediaPlay",
+                                           "exit":  false,
+                                           "trigger":  1,
+                                           "triggerName":  "msoAnimTriggerOnPageClick",
+                                           "duration":  4,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "bar",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "bar"
+                                       }
+                                   ],
+                       "interactiveEffects":  1,
+                       "mediaShapes":  1
+                   },
+                   {
+                       "index":  5,
+                       "hidden":  false,
+                       "title":  "V5 vídeo oculto enquanto não toca (clique)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  7
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  83,
+                                           "typeName":  "msoAnimEffectMediaPlay",
+                                           "exit":  false,
+                                           "trigger":  1,
+                                           "triggerName":  "msoAnimTriggerOnPageClick",
+                                           "duration":  4,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "bar",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "bar"
+                                       }
+                                   ],
+                       "interactiveEffects":  1,
+                       "mediaShapes":  1
+                   },
+                   {
+                       "index":  6,
+                       "hidden":  false,
+                       "title":  "V6 marcador em 2 s dispara esmaecer",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  5
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  83,
+                                           "typeName":  "msoAnimEffectMediaPlay",
+                                           "exit":  false,
+                                           "trigger":  1,
+                                           "triggerName":  "msoAnimTriggerOnPageClick",
+                                           "duration":  4,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "bar",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "bar"
+                                       }
+                                   ],
+                       "interactiveEffects":  2,
+                       "mediaShapes":  1
+                   },
+                   {
+                       "index":  7,
+                       "hidden":  false,
+                       "title":  "V7 vídeo vinculado (externo)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  5
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  83,
+                                           "typeName":  "msoAnimEffectMediaPlay",
+                                           "exit":  false,
+                                           "trigger":  1,
+                                           "triggerName":  "msoAnimTriggerOnPageClick",
+                                           "duration":  4,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "bar",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "bar"
+                                       }
+                                   ],
+                       "interactiveEffects":  1,
+                       "mediaShapes":  1
+                   },
+                   {
+                       "index":  8,
+                       "hidden":  false,
+                       "title":  "V8 vídeo em tela cheia",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  5
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  83,
+                                           "typeName":  "msoAnimEffectMediaPlay",
+                                           "exit":  false,
+                                           "trigger":  1,
+                                           "triggerName":  "msoAnimTriggerOnPageClick",
+                                           "duration":  4,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "bar",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "bar"
+                                       }
+                                   ],
+                       "interactiveEffects":  1,
+                       "mediaShapes":  1
+                   },
+                   {
+                       "index":  9,
+                       "hidden":  false,
+                       "title":  "V9 áudio em 2º plano (toca entre slides)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  2
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  83,
+                                           "typeName":  "msoAnimEffectMediaPlay",
+                                           "exit":  false,
+                                           "trigger":  1,
+                                           "triggerName":  "msoAnimTriggerOnPageClick",
+                                           "duration":  0.0010000000474974513,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "tone8",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "tone8"
+                                       }
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  1
+                   },
+                   {
+                       "index":  10,
+                       "hidden":  false,
+                       "title":  "V10 slide seguinte (áudio continua)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  2
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   }
+               ]
+}

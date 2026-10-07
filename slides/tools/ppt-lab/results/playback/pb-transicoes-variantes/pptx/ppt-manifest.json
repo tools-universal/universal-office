@@ -1,0 +1,775 @@
+{
+    "file":  "D:\\Projects\\OfficeNext\\slides\\samples\\playback\\pb-transicoes-variantes.pptx",
+    "format":  "pptx",
+    "powerpoint":  "16.0 build 20430",
+    "slideWidthPt":  960,
+    "slideHeightPt":  540,
+    "fps":  30,
+    "height":  720,
+    "width":  1280,
+    "defaultSlideSec":  3,
+    "quality":  100,
+    "renderSeconds":  4.29,
+    "slides":  [
+                   {
+                       "index":  1,
+                       "hidden":  false,
+                       "title":  "Random (513, duração default)",
+                       "transition":  {
+                                          "effect":  513,
+                                          "effectName":  "ppEffectRandom",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  2,
+                       "hidden":  false,
+                       "title":  "CheckerboardDown (1026, duração default)",
+                       "transition":  {
+                                          "effect":  1026,
+                                          "effectName":  "ppEffectCheckerboardDown",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  3,
+                       "hidden":  false,
+                       "title":  "CoverLeft (1281, duração default)",
+                       "transition":  {
+                                          "effect":  1281,
+                                          "effectName":  "ppEffectCoverLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  4,
+                       "hidden":  false,
+                       "title":  "CoverUp (1282, duração default)",
+                       "transition":  {
+                                          "effect":  1282,
+                                          "effectName":  "ppEffectCoverUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  5,
+                       "hidden":  false,
+                       "title":  "CoverDown (1284, duração default)",
+                       "transition":  {
+                                          "effect":  1284,
+                                          "effectName":  "ppEffectCoverDown",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  6,
+                       "hidden":  false,
+                       "title":  "CoverLeftUp (1285, duração default)",
+                       "transition":  {
+                                          "effect":  1285,
+                                          "effectName":  "ppEffectCoverLeftUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  7,
+                       "hidden":  false,
+                       "title":  "CoverRightUp (1286, duração default)",
+                       "transition":  {
+                                          "effect":  1286,
+                                          "effectName":  "ppEffectCoverRightUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  8,
+                       "hidden":  false,
+                       "title":  "CoverRightDown (1288, duração default)",
+                       "transition":  {
+                                          "effect":  1288,
+                                          "effectName":  "ppEffectCoverRightDown",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  9,
+                       "hidden":  false,
+                       "title":  "UncoverUp (2050, duração default)",
+                       "transition":  {
+                                          "effect":  2050,
+                                          "effectName":  "ppEffectUncoverUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  10,
+                       "hidden":  false,
+                       "title":  "UncoverRight (2051, duração default)",
+                       "transition":  {
+                                          "effect":  2051,
+                                          "effectName":  "ppEffectUncoverRight",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  11,
+                       "hidden":  false,
+                       "title":  "UncoverDown (2052, duração default)",
+                       "transition":  {
+                                          "effect":  2052,
+                                          "effectName":  "ppEffectUncoverDown",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  12,
+                       "hidden":  false,
+                       "title":  "UncoverLeftUp (2053, duração default)",
+                       "transition":  {
+                                          "effect":  2053,
+                                          "effectName":  "ppEffectUncoverLeftUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  13,
+                       "hidden":  false,
+                       "title":  "UncoverRightUp (2054, duração default)",
+                       "transition":  {
+                                          "effect":  2054,
+                                          "effectName":  "ppEffectUncoverRightUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  14,
+                       "hidden":  false,
+                       "title":  "UncoverLeftDown (2055, duração default)",
+                       "transition":  {
+                                          "effect":  2055,
+                                          "effectName":  "ppEffectUncoverLeftDown",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  15,
+                       "hidden":  false,
+                       "title":  "UncoverRightDown (2056, duração default)",
+                       "transition":  {
+                                          "effect":  2056,
+                                          "effectName":  "ppEffectUncoverRightDown",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  16,
+                       "hidden":  false,
+                       "title":  "RandomBarsVertical (2306, duração default)",
+                       "transition":  {
+                                          "effect":  2306,
+                                          "effectName":  "ppEffectRandomBarsVertical",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  17,
+                       "hidden":  false,
+                       "title":  "StripsUpLeft (2561, duração default)",
+                       "transition":  {
+                                          "effect":  2565,
+                                          "effectName":  "ppEffectStripsLeftUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  18,
+                       "hidden":  false,
+                       "title":  "StripsUpRight (2562, duração default)",
+                       "transition":  {
+                                          "effect":  2566,
+                                          "effectName":  "ppEffectStripsRightUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  19,
+                       "hidden":  false,
+                       "title":  "StripsDownLeft (2563, duração default)",
+                       "transition":  {
+                                          "effect":  2567,
+                                          "effectName":  "ppEffectStripsLeftDown",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  20,
+                       "hidden":  false,
+                       "title":  "StripsLeftUp (2565, duração default)",
+                       "transition":  {
+                                          "effect":  2565,
+                                          "effectName":  "ppEffectStripsLeftUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  21,
+                       "hidden":  false,
+                       "title":  "StripsRightUp (2566, duração default)",
+                       "transition":  {
+                                          "effect":  2566,
+                                          "effectName":  "ppEffectStripsRightUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  22,
+                       "hidden":  false,
+                       "title":  "StripsLeftDown (2567, duração default)",
+                       "transition":  {
+                                          "effect":  2567,
+                                          "effectName":  "ppEffectStripsLeftDown",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  23,
+                       "hidden":  false,
+                       "title":  "StripsRightDown (2568, duração default)",
+                       "transition":  {
+                                          "effect":  2568,
+                                          "effectName":  "ppEffectStripsRightDown",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  24,
+                       "hidden":  false,
+                       "title":  "WipeLeft (2817, duração default)",
+                       "transition":  {
+                                          "effect":  2817,
+                                          "effectName":  "ppEffectWipeLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  25,
+                       "hidden":  false,
+                       "title":  "WipeUp (2818, duração default)",
+                       "transition":  {
+                                          "effect":  2818,
+                                          "effectName":  "ppEffectWipeUp",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  26,
+                       "hidden":  false,
+                       "title":  "SplitHorizontalIn (3586, duração default)",
+                       "transition":  {
+                                          "effect":  3586,
+                                          "effectName":  "ppEffectSplitHorizontalIn",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  27,
+                       "hidden":  false,
+                       "title":  "SplitVerticalOut (3587, duração default)",
+                       "transition":  {
+                                          "effect":  3587,
+                                          "effectName":  "ppEffectSplitVerticalOut",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  28,
+                       "hidden":  false,
+                       "title":  "Appear (3844, duração default)",
+                       "transition":  {
+                                          "effect":  257,
+                                          "effectName":  "ppEffectCut",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  29,
+                       "hidden":  false,
+                       "title":  "CombVertical (3848, duração default)",
+                       "transition":  {
+                                          "effect":  3848,
+                                          "effectName":  "ppEffectCombVertical",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  30,
+                       "hidden":  false,
+                       "title":  "PushDown (3852, duração default)",
+                       "transition":  {
+                                          "effect":  3852,
+                                          "effectName":  "ppEffectPushDown",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  31,
+                       "hidden":  false,
+                       "title":  "PushRight (3854, duração default)",
+                       "transition":  {
+                                          "effect":  3854,
+                                          "effectName":  "ppEffectPushRight",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  32,
+                       "hidden":  false,
+                       "title":  "Wheel2Spokes (3858, duração default)",
+                       "transition":  {
+                                          "effect":  3858,
+                                          "effectName":  "ppEffectWheel2Spokes",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  33,
+                       "hidden":  false,
+                       "title":  "Wheel3Spokes (3859, duração default)",
+                       "transition":  {
+                                          "effect":  3859,
+                                          "effectName":  "ppEffectWheel3Spokes",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  34,
+                       "hidden":  false,
+                       "title":  "Wheel8Spokes (3861, duração default)",
+                       "transition":  {
+                                          "effect":  3861,
+                                          "effectName":  "ppEffectWheel8Spokes",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  35,
+                       "hidden":  false,
+                       "title":  "RevealSmoothRight (3895, duração default)",
+                       "transition":  {
+                                          "effect":  3895,
+                                          "effectName":  "ppEffectRevealSmoothRight",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  36,
+                       "hidden":  false,
+                       "title":  "RevealBlackLeft (3896, duração default)",
+                       "transition":  {
+                                          "effect":  3896,
+                                          "effectName":  "ppEffectRevealBlackLeft",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  37,
+                       "hidden":  false,
+                       "title":  "Morph por palavra — origem",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  38,
+                       "hidden":  false,
+                       "title":  "Morph por palavra — destino",
+                       "transition":  {
+                                          "effect":  3955,
+                                          "effectName":  "3955",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  39,
+                       "hidden":  false,
+                       "title":  "Morph por caractere — origem",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  40,
+                       "hidden":  false,
+                       "title":  "Morph por caractere — destino",
+                       "transition":  {
+                                          "effect":  3956,
+                                          "effectName":  "3956",
+                                          "duration":  2,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   }
+               ]
+}

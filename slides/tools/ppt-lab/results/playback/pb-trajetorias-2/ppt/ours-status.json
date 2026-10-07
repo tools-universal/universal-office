@@ -1,0 +1,19 @@
+{
+ "deck": "pb-trajetorias-2",
+ "ext": "ppt",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 7,
+ "durationMs": 18249,
+ "pptFrames": 553,
+ "ourFrames": 554,
+ "frames": 554,
+ "screenshots": 546,
+ "elapsedSec": 25.043,
+ "errors": []
+}

@@ -1,5 +1,5 @@
 {
- "durationMs": 49401,
+ "durationMs": 49434,
  "slides": [
   {
    "index": 0,
@@ -63,7 +63,7 @@
      "target": {
       "spid": "13318"
      },
-     "t0": 1500,
+     "t0": 1501,
      "durMs": 1000,
      "step": 0,
      "filter": "wipe(down)",
@@ -109,7 +109,7 @@
      "target": {
       "spid": "14340"
      },
-     "t0": 1250,
+     "t0": 1251,
      "durMs": 500,
      "step": 0,
      "filter": "fade",
@@ -122,7 +122,7 @@
      "target": {
       "spid": "14341"
      },
-     "t0": 2750,
+     "t0": 2752,
      "durMs": 500,
      "step": 0,
      "filter": "fade",
@@ -138,7 +138,7 @@
    "stepStartMs": [
     7524
    ],
-   "endMs": 14058,
+   "endMs": 14091,
    "transition": {
     "type": "fade",
     "ns": "p",
@@ -168,7 +168,7 @@
      "target": {
       "spid": "15364"
      },
-     "t0": 500,
+     "t0": 501,
      "durMs": 1000,
      "step": 0,
      "filter": "fade",
@@ -181,7 +181,7 @@
      "target": {
       "spid": "15365"
      },
-     "t0": 1500,
+     "t0": 1502,
      "durMs": 2000,
      "step": 0,
      "filter": "fade",
@@ -194,7 +194,7 @@
      "target": {
       "spid": "15366"
      },
-     "t0": 3500,
+     "t0": 3503,
      "durMs": 3000,
      "step": 0,
      "filter": "fade",
@@ -204,13 +204,13 @@
   },
   {
    "index": 3,
-   "startMs": 14058,
+   "startMs": 14091,
    "transitionMs": 495,
-   "animStartMs": 14619,
+   "animStartMs": 14652,
    "stepStartMs": [
-    14619
+    14652
    ],
-   "endMs": 18183,
+   "endMs": 18216,
    "transition": {
     "type": "fade",
     "ns": "p",
@@ -239,7 +239,7 @@
      "target": {
       "spid": "16388"
      },
-     "t0": 2000,
+     "t0": 2001,
      "durMs": 1500,
      "step": 0,
      "filter": "fade",
@@ -249,13 +249,13 @@
   },
   {
    "index": 4,
-   "startMs": 18183,
+   "startMs": 18216,
    "transitionMs": 495,
-   "animStartMs": 18744,
+   "animStartMs": 18777,
    "stepStartMs": [
-    18744
+    18777
    ],
-   "endMs": 22803,
+   "endMs": 22836,
    "transition": {
     "type": "fade",
     "ns": "p",
@@ -284,7 +284,7 @@
      "target": {
       "spid": "17412"
      },
-     "t0": 2000,
+     "t0": 2001,
      "durMs": 2000,
      "step": 0,
      "fill": "hold"
@@ -293,13 +293,13 @@
   },
   {
    "index": 5,
-   "startMs": 22803,
+   "startMs": 22836,
    "transitionMs": 495,
-   "animStartMs": 23364,
+   "animStartMs": 23397,
    "stepStartMs": [
-    23364
+    23397
    ],
-   "endMs": 25410,
+   "endMs": 25443,
    "transition": {
     "type": "fade",
     "ns": "p",
@@ -329,7 +329,7 @@
      "target": {
       "spid": "18436"
      },
-     "t0": 1000,
+     "t0": 1001,
      "durMs": 1000,
      "step": 0,
      "fill": "remove"
@@ -338,13 +338,13 @@
   },
   {
    "index": 6,
-   "startMs": 25410,
+   "startMs": 25443,
    "transitionMs": 495,
-   "animStartMs": 25971,
+   "animStartMs": 26004,
    "stepStartMs": [
-    25971
+    26004
    ],
-   "endMs": 28017,
+   "endMs": 28050,
    "transition": {
     "type": "fade",
     "ns": "p",
@@ -397,15 +397,15 @@
   },
   {
    "index": 7,
-   "startMs": 28017,
+   "startMs": 28050,
    "transitionMs": 495,
-   "animStartMs": 28578,
+   "animStartMs": 28611,
    "stepStartMs": [
-    29203,
-    30328,
-    31453
+    29236,
+    30361,
+    31486
    ],
-   "endMs": 32604,
+   "endMs": 32637,
    "transition": {
     "type": "fade",
     "ns": "p",
@@ -458,14 +458,14 @@
   },
   {
    "index": 8,
-   "startMs": 32604,
+   "startMs": 32637,
    "transitionMs": 495,
-   "animStartMs": 33165,
+   "animStartMs": 33198,
    "stepStartMs": [
-    33498.333333333336,
-    34831.66666666667
+    33531.333333333336,
+    34864.66666666667
    ],
-   "endMs": 36168,
+   "endMs": 36201,
    "transition": {
     "type": "fade",
     "ns": "p",
@@ -504,13 +504,13 @@
   },
   {
    "index": 9,
-   "startMs": 36168,
+   "startMs": 36201,
    "transitionMs": 495,
-   "animStartMs": 36729,
+   "animStartMs": 36762,
    "stepStartMs": [
-    36729
+    36762
    ],
-   "endMs": 38775,
+   "endMs": 38808,
    "transition": {
     "type": "fade",
     "ns": "p",
@@ -540,7 +540,7 @@
      "target": {
       "spid": "22532"
      },
-     "t0": 1000,
+     "t0": 1001,
      "durMs": 1000,
      "step": 0,
      "fill": "hold"
@@ -549,13 +549,13 @@
   },
   {
    "index": 11,
-   "startMs": 38775,
+   "startMs": 38808,
    "transitionMs": 495,
-   "animStartMs": 39336,
+   "animStartMs": 39369,
    "stepStartMs": [
-    39336
+    39369
    ],
-   "endMs": 41349,
+   "endMs": 41382,
    "transition": {
     "type": "fade",
     "ns": "p",
@@ -582,13 +582,13 @@
   },
   {
    "index": 12,
-   "startMs": 41349,
+   "startMs": 41382,
    "transitionMs": 495,
-   "animStartMs": 41910,
+   "animStartMs": 41943,
    "stepStartMs": [
-    41910
+    41943
    ],
-   "endMs": 44253,
+   "endMs": 44286,
    "transition": {
     "type": "fade",
     "ns": "p",
@@ -617,7 +617,7 @@
      "target": {
       "spid": "25603"
      },
-     "t0": 501,
+     "t0": 502,
      "durMs": 500,
      "step": 0,
      "filter": "fade",
@@ -630,7 +630,7 @@
      "target": {
       "spid": "25603"
      },
-     "t0": 1301,
+     "t0": 1303,
      "durMs": 1000,
      "step": 0,
      "fill": "hold"
@@ -639,11 +639,11 @@
   },
   {
    "index": 13,
-   "startMs": 44253,
+   "startMs": 44286,
    "transitionMs": 990,
-   "animStartMs": 45309,
+   "animStartMs": 45342,
    "stepStartMs": [],
-   "endMs": 47322,
+   "endMs": 47355,
    "transition": {
     "type": "push",
     "ns": "p",
@@ -656,11 +656,11 @@
   },
   {
    "index": 14,
-   "startMs": 47322,
+   "startMs": 47355,
    "transitionMs": 990,
-   "animStartMs": 48378,
+   "animStartMs": 48411,
    "stepStartMs": [],
-   "endMs": 49401,
+   "endMs": 49434,
    "transition": {
     "type": "cut",
     "ns": "p",

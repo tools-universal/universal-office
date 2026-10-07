@@ -1,0 +1,207 @@
+{
+    "file":  "D:\\Projects\\OfficeNext\\slides\\samples\\playback\\pb-tempo-2.pptx",
+    "format":  "pptx",
+    "powerpoint":  "16.0 build 20430",
+    "slideWidthPt":  960,
+    "slideHeightPt":  540,
+    "fps":  30,
+    "height":  720,
+    "width":  1280,
+    "defaultSlideSec":  3,
+    "quality":  100,
+    "renderSeconds":  1.22,
+    "slides":  [
+                   {
+                       "index":  1,
+                       "hidden":  false,
+                       "title":  "Repetir até o FIM DO SLIDE (girar)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  4
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  61,
+                                           "typeName":  "msoAnimEffectSpin",
+                                           "exit":  false,
+                                           "trigger":  3,
+                                           "triggerName":  "msoAnimTriggerAfterPrevious",
+                                           "duration":  1,
+                                           "delay":  0,
+                                           "repeat":  -2147483648,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "Rounded Rectangle 2",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "girar até o fim"
+                                       }
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  2,
+                       "hidden":  false,
+                       "title":  "Repetir até o PRÓXIMO CLIQUE (pulso) + clique",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  5
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  76,
+                                           "typeName":  "msoAnimEffectFlicker",
+                                           "exit":  false,
+                                           "trigger":  3,
+                                           "triggerName":  "msoAnimTriggerAfterPrevious",
+                                           "duration":  0.5,
+                                           "delay":  0,
+                                           "repeat":  -2147483648,
+                                           "autoReverse":  false,
+                                           "rewind":  true,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "Rounded Rectangle 2",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "pulso até clique"
+                                       },
+                                       {
+                                           "type":  10,
+                                           "typeName":  "msoAnimEffectFade",
+                                           "exit":  false,
+                                           "trigger":  1,
+                                           "triggerName":  "msoAnimTriggerOnPageClick",
+                                           "duration":  1,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "Rounded Rectangle 3",
+                                           "shapeId":  4,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "entra no clique"
+                                       }
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  3,
+                       "hidden":  false,
+                       "title":  "Velocidade 2x / atraso maior que o intervalo",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  23,
+                                           "typeName":  "msoAnimEffectZoom",
+                                           "exit":  false,
+                                           "trigger":  3,
+                                           "triggerName":  "msoAnimTriggerAfterPrevious",
+                                           "duration":  2,
+                                           "delay":  0,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "Rounded Rectangle 2",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "zoom 2s em velocidade 2x"
+                                       },
+                                       {
+                                           "type":  10,
+                                           "typeName":  "msoAnimEffectFade",
+                                           "exit":  false,
+                                           "trigger":  3,
+                                           "triggerName":  "msoAnimTriggerAfterPrevious",
+                                           "duration":  0.5,
+                                           "delay":  3,
+                                           "repeat":  1,
+                                           "autoReverse":  false,
+                                           "rewind":  false,
+                                           "smoothStart":  false,
+                                           "smoothEnd":  false,
+                                           "shape":  "Rounded Rectangle 3",
+                                           "shapeId":  4,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "esmaecer +3s"
+                                       }
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  4,
+                       "hidden":  false,
+                       "title":  "Aumentar x2 + auto-reverter + acelerar",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+                                       {
+                                           "type":  59,
+                                           "typeName":  "msoAnimEffectGrowShrink",
+                                           "exit":  false,
+                                           "trigger":  3,
+                                           "triggerName":  "msoAnimTriggerAfterPrevious",
+                                           "duration":  1,
+                                           "delay":  0,
+                                           "repeat":  2,
+                                           "autoReverse":  true,
+                                           "rewind":  false,
+                                           "smoothStart":  true,
+                                           "smoothEnd":  false,
+                                           "shape":  "Rounded Rectangle 2",
+                                           "shapeId":  3,
+                                           "paragraph":  0,
+                                           "textUnit":  0,
+                                           "afterEffect":  0,
+                                           "displayName":  "aumentar"
+                                       }
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   }
+               ]
+}

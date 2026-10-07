@@ -38,7 +38,7 @@
      "target": {
       "spid": "4"
      },
-     "t0": 2000,
+     "t0": 2001,
      "durMs": 2000,
      "step": 0,
      "fill": "hold"
@@ -50,7 +50,7 @@
      "target": {
       "spid": "5"
      },
-     "t0": 4000,
+     "t0": 4002,
      "durMs": null,
      "step": 0,
      "filter": "image"
@@ -62,7 +62,7 @@
      "target": {
       "spid": "6"
      },
-     "t0": 4000,
+     "t0": 4003,
      "durMs": 2000,
      "step": 0,
      "fill": "hold"
@@ -74,7 +74,7 @@
      "target": {
       "spid": "7"
      },
-     "t0": 6000,
+     "t0": 6004,
      "durMs": 2000,
      "step": 0,
      "fill": "hold"
@@ -86,7 +86,7 @@
      "target": {
       "spid": "8"
      },
-     "t0": 8000,
+     "t0": 8005,
      "durMs": 2000,
      "step": 0,
      "fill": "hold"
@@ -130,7 +130,7 @@
      "target": {
       "spid": "4"
      },
-     "t0": 2000,
+     "t0": 2001,
      "durMs": null,
      "step": 0
     },
@@ -141,7 +141,7 @@
      "target": {
       "spid": "5"
      },
-     "t0": 2000,
+     "t0": 2002,
      "durMs": null,
      "step": 0
     },
@@ -152,7 +152,7 @@
      "target": {
       "spid": "6"
      },
-     "t0": 2000,
+     "t0": 2003,
      "durMs": 2000,
      "step": 0,
      "fill": "hold"
@@ -164,7 +164,7 @@
      "target": {
       "spid": "7"
      },
-     "t0": 4000,
+     "t0": 4004,
      "durMs": 2000,
      "step": 0,
      "fill": "hold"
@@ -176,7 +176,7 @@
      "target": {
       "spid": "8"
      },
-     "t0": 6000,
+     "t0": 6005,
      "durMs": null,
      "step": 0
     }
@@ -219,7 +219,7 @@
      "target": {
       "spid": "4"
      },
-     "t0": 1200,
+     "t0": 1201,
      "durMs": 1160,
      "step": 0,
      "fill": "hold"
@@ -231,7 +231,7 @@
      "target": {
       "spid": "5"
      },
-     "t0": 2360,
+     "t0": 2362,
      "durMs": 500,
      "step": 0,
      "fill": "hold"
@@ -243,7 +243,7 @@
      "target": {
       "spid": "6"
      },
-     "t0": 2860,
+     "t0": 2863,
      "durMs": 2800,
      "step": 0,
      "fill": "hold"
@@ -255,7 +255,7 @@
      "target": {
       "spid": "7"
      },
-     "t0": 5660,
+     "t0": 5664,
      "durMs": 500,
      "step": 0,
      "fill": "hold"
@@ -267,7 +267,7 @@
      "target": {
       "spid": "8"
      },
-     "t0": 6160,
+     "t0": 6165,
      "durMs": 500,
      "step": 0,
      "fill": "hold"
@@ -311,7 +311,7 @@
      "target": {
       "spid": "4"
      },
-     "t0": 500,
+     "t0": 501,
      "durMs": 500,
      "step": 0,
      "fill": "hold"
@@ -323,7 +323,7 @@
      "target": {
       "spid": "5"
      },
-     "t0": 1000,
+     "t0": 1002,
      "durMs": 500,
      "step": 0,
      "fill": "hold"
@@ -335,7 +335,7 @@
      "target": {
       "spid": "6"
      },
-     "t0": 1500,
+     "t0": 1503,
      "durMs": 500,
      "step": 0,
      "filter": "fade",
@@ -348,7 +348,7 @@
      "target": {
       "spid": "7"
      },
-     "t0": 2000,
+     "t0": 2004,
      "durMs": 500,
      "step": 0,
      "fill": "remove"
@@ -360,7 +360,7 @@
      "target": {
       "spid": "8"
      },
-     "t0": 2500,
+     "t0": 2505,
      "durMs": 1550,
      "step": 0,
      "fill": "hold"
@@ -404,7 +404,7 @@
      "target": {
       "spid": "4"
      },
-     "t0": 500,
+     "t0": 501,
      "durMs": 500,
      "step": 0
     },
@@ -415,7 +415,7 @@
      "target": {
       "spid": "5"
      },
-     "t0": 1000,
+     "t0": 1002,
      "durMs": 1000,
      "step": 0,
      "fill": "hold"
@@ -427,7 +427,7 @@
      "target": {
       "spid": "6"
      },
-     "t0": 2000,
+     "t0": 2003,
      "durMs": 3000,
      "step": 0,
      "fill": "remove"
@@ -439,7 +439,7 @@
      "target": {
       "spid": "7"
      },
-     "t0": 5000,
+     "t0": 5004,
      "durMs": 1150,
      "step": 0,
      "fill": "hold",
@@ -452,7 +452,7 @@
      "target": {
       "spid": "8"
      },
-     "t0": 6150,
+     "t0": 6155,
      "durMs": 1000,
      "step": 0,
      "fill": "hold"

@@ -1,0 +1,19 @@
+{
+ "deck": "pb-config",
+ "ext": "pptx",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 2,
+ "durationMs": 4191,
+ "pptFrames": 127,
+ "ourFrames": 128,
+ "frames": 128,
+ "screenshots": 111,
+ "elapsedSec": 11.563,
+ "errors": []
+}

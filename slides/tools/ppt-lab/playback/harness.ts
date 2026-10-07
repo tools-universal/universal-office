@@ -62,6 +62,8 @@ window.pb = {
     return n;
   },
   async fontsReady() {
+    // fontes EMBUTIDAS do deck (decodificadas depois da 1ª pintura)
+    await pv.fontsReady();
     // @font-face é preguiçoso: força o carregamento de TODAS as faces antes
     // de tocar (senão o 1º quadro com texto sai com a fonte de fallback)
     const faces: FontFace[] = [];

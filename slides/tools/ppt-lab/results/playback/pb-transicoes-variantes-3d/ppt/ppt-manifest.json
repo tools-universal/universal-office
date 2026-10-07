@@ -1,0 +1,1079 @@
+{
+    "file":  "D:\\Projects\\OfficeNext\\slides\\samples\\playback\\pb-transicoes-variantes-3d.ppt",
+    "format":  "ppt",
+    "powerpoint":  "16.0 build 20430",
+    "slideWidthPt":  960,
+    "slideHeightPt":  540,
+    "fps":  30,
+    "height":  720,
+    "width":  1280,
+    "defaultSlideSec":  3,
+    "quality":  100,
+    "renderSeconds":  4.54,
+    "slides":  [
+                   {
+                       "index":  1,
+                       "hidden":  false,
+                       "title":  "VortexUp (3864, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  2,
+                       "hidden":  false,
+                       "title":  "VortexRight (3865, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  3,
+                       "hidden":  false,
+                       "title":  "VortexDown (3866, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  4,
+                       "hidden":  false,
+                       "title":  "RippleRightUp (3868, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  5,
+                       "hidden":  false,
+                       "title":  "RippleLeftUp (3869, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  6,
+                       "hidden":  false,
+                       "title":  "RippleLeftDown (3870, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  7,
+                       "hidden":  false,
+                       "title":  "RippleRightDown (3871, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  8,
+                       "hidden":  false,
+                       "title":  "GlitterDiamondUp (3873, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  9,
+                       "hidden":  false,
+                       "title":  "GlitterDiamondRight (3874, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  10,
+                       "hidden":  false,
+                       "title":  "GlitterDiamondDown (3875, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  11,
+                       "hidden":  false,
+                       "title":  "GlitterHexagonLeft (3876, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  12,
+                       "hidden":  false,
+                       "title":  "GlitterHexagonUp (3877, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  13,
+                       "hidden":  false,
+                       "title":  "GlitterHexagonRight (3878, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  14,
+                       "hidden":  false,
+                       "title":  "GlitterHexagonDown (3879, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  15,
+                       "hidden":  false,
+                       "title":  "GalleryRight (3881, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  16,
+                       "hidden":  false,
+                       "title":  "ConveyorRight (3883, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  17,
+                       "hidden":  false,
+                       "title":  "DoorsHorizontal (3885, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  18,
+                       "hidden":  false,
+                       "title":  "WindowHorizontal (3887, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  19,
+                       "hidden":  false,
+                       "title":  "WarpOut (3889, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  20,
+                       "hidden":  false,
+                       "title":  "FlyThroughOut (3891, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  21,
+                       "hidden":  false,
+                       "title":  "FlyThroughInBounce (3892, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  22,
+                       "hidden":  false,
+                       "title":  "FlyThroughOutBounce (3893, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  23,
+                       "hidden":  false,
+                       "title":  "FerrisWheelRight (3900, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  24,
+                       "hidden":  false,
+                       "title":  "SwitchUp (3902, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  25,
+                       "hidden":  false,
+                       "title":  "SwitchRight (3903, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  26,
+                       "hidden":  false,
+                       "title":  "SwitchDown (3904, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  27,
+                       "hidden":  false,
+                       "title":  "FlipUp (3906, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  28,
+                       "hidden":  false,
+                       "title":  "FlipRight (3907, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  29,
+                       "hidden":  false,
+                       "title":  "FlipDown (3908, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  30,
+                       "hidden":  false,
+                       "title":  "ShredStripsOut (3911, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  31,
+                       "hidden":  false,
+                       "title":  "ShredRectangleIn (3912, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  32,
+                       "hidden":  false,
+                       "title":  "ShredRectangleOut (3913, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  33,
+                       "hidden":  false,
+                       "title":  "CubeUp (3915, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  34,
+                       "hidden":  false,
+                       "title":  "CubeRight (3916, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  35,
+                       "hidden":  false,
+                       "title":  "CubeDown (3917, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  36,
+                       "hidden":  false,
+                       "title":  "RotateUp (3919, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  37,
+                       "hidden":  false,
+                       "title":  "RotateRight (3920, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  38,
+                       "hidden":  false,
+                       "title":  "RotateDown (3921, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  39,
+                       "hidden":  false,
+                       "title":  "BoxUp (3923, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  40,
+                       "hidden":  false,
+                       "title":  "BoxRight (3924, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  41,
+                       "hidden":  false,
+                       "title":  "BoxDown (3925, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  42,
+                       "hidden":  false,
+                       "title":  "OrbitUp (3927, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  43,
+                       "hidden":  false,
+                       "title":  "OrbitRight (3928, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  44,
+                       "hidden":  false,
+                       "title":  "OrbitDown (3929, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  45,
+                       "hidden":  false,
+                       "title":  "PanUp (3931, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  46,
+                       "hidden":  false,
+                       "title":  "PanRight (3932, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  47,
+                       "hidden":  false,
+                       "title":  "PanDown (3933, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  48,
+                       "hidden":  false,
+                       "title":  "FallOverRight (3935, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  49,
+                       "hidden":  false,
+                       "title":  "DrapeRight (3937, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  50,
+                       "hidden":  false,
+                       "title":  "WindRight (3940, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  51,
+                       "hidden":  false,
+                       "title":  "PeelOffRight (3945, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  52,
+                       "hidden":  false,
+                       "title":  "PageCurlSingleLeft (3946, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  53,
+                       "hidden":  false,
+                       "title":  "PageCurlSingleRight (3947, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  54,
+                       "hidden":  false,
+                       "title":  "PageCurlDoubleRight (3949, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  55,
+                       "hidden":  false,
+                       "title":  "AirplaneRight (3951, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  56,
+                       "hidden":  false,
+                       "title":  "OrigamiRight (3953, duração default)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  1,
+                                          "speed":  1,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   }
+               ]
+}

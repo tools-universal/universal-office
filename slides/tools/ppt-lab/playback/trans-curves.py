@@ -12,7 +12,7 @@ only = [int(x) for x in sys.argv[2].split(',')] if len(sys.argv) > 2 else None
 base = f'D:/Projects/OfficeNext/slides/tools/ppt-lab/results/playback/{deck}/pptx/'
 tl = json.load(open(base + 'ours-timeline.json', encoding='utf8'))
 W, H = 160, 90
-step = 1000 / 30
+step = 33  # passo inteiro do export (1000/33 fps) — o mesmo da captura nossa
 
 def frames(path, yuv):
     vf = f'scale={W}:{H}:flags=area' + (':in_color_matrix=bt709:in_range=tv' if yuv else '')

@@ -1,0 +1,19 @@
+{
+ "deck": "pb-texto-2",
+ "ext": "pptx",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 8,
+ "durationMs": 36993,
+ "pptFrames": 1121,
+ "ourFrames": 1122,
+ "frames": 1122,
+ "screenshots": 995,
+ "elapsedSec": 46.674,
+ "errors": []
+}

@@ -9,11 +9,11 @@
  "stepMs": 33,
  "fontsLoaded": true,
  "slides": 12,
- "durationMs": 93588,
+ "durationMs": 93357,
  "pptFrames": 2830,
- "ourFrames": 2837,
- "frames": 2837,
- "screenshots": 2668,
- "elapsedSec": 129.82,
+ "ourFrames": 2830,
+ "frames": 2830,
+ "screenshots": 2654,
+ "elapsedSec": 94.82,
  "errors": []
 }

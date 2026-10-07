@@ -1,0 +1,323 @@
+{
+ "durationMs": 55770,
+ "slides": [
+  {
+   "index": 0,
+   "startMs": 0,
+   "transitionMs": 495,
+   "animStartMs": 561,
+   "stepStartMs": [
+    1561
+   ],
+   "endMs": 4587,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 4000
+   },
+   "effects": [
+    {
+     "presetClass": "mediacall",
+     "presetId": 1,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "3"
+     },
+     "t0": 1000,
+     "durMs": 2000,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 1,
+   "startMs": 4587,
+   "transitionMs": 495,
+   "animStartMs": 5148,
+   "stepStartMs": [
+    5648
+   ],
+   "endMs": 10164,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 5000
+   },
+   "effects": [
+    {
+     "presetClass": "mediacall",
+     "presetId": 1,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "3"
+     },
+     "t0": 500,
+     "durMs": 4000,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 2,
+   "startMs": 10164,
+   "transitionMs": 495,
+   "animStartMs": 10725,
+   "stepStartMs": [
+    13225
+   ],
+   "endMs": 19734,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 9000
+   },
+   "effects": [
+    {
+     "presetClass": "mediacall",
+     "presetId": 1,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "3"
+     },
+     "t0": 2500,
+     "durMs": 4000,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 3,
+   "startMs": 19734,
+   "transitionMs": 495,
+   "animStartMs": 20295,
+   "stepStartMs": [
+    21295
+   ],
+   "endMs": 26301,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 6000
+   },
+   "effects": [
+    {
+     "presetClass": "mediacall",
+     "presetId": 1,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "3"
+     },
+     "t0": 1000,
+     "durMs": 4000,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 4,
+   "startMs": 26301,
+   "transitionMs": 495,
+   "animStartMs": 26862,
+   "stepStartMs": [
+    28362
+   ],
+   "endMs": 33891,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 7000
+   },
+   "effects": [
+    {
+     "presetClass": "mediacall",
+     "presetId": 1,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "3"
+     },
+     "t0": 1500,
+     "durMs": 4000,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 5,
+   "startMs": 33891,
+   "transitionMs": 495,
+   "animStartMs": 34452,
+   "stepStartMs": [
+    34952
+   ],
+   "endMs": 39468,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 5000
+   },
+   "effects": [
+    {
+     "presetClass": "mediacall",
+     "presetId": 1,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "3"
+     },
+     "t0": 500,
+     "durMs": 4000,
+     "step": 0,
+     "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "4"
+     },
+     "t0": 2546,
+     "durMs": 500,
+     "step": -1,
+     "filter": "fade",
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 6,
+   "startMs": 39468,
+   "transitionMs": 495,
+   "animStartMs": 40029,
+   "stepStartMs": [
+    40529
+   ],
+   "endMs": 45045,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 5000
+   },
+   "effects": [
+    {
+     "presetClass": "mediacall",
+     "presetId": 1,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "3"
+     },
+     "t0": 500,
+     "durMs": 4000,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 7,
+   "startMs": 45045,
+   "transitionMs": 495,
+   "animStartMs": 45606,
+   "stepStartMs": [
+    46106
+   ],
+   "endMs": 50622,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 5000
+   },
+   "effects": [
+    {
+     "presetClass": "mediacall",
+     "presetId": 1,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "3"
+     },
+     "t0": 500,
+     "durMs": 4000,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 8,
+   "startMs": 50622,
+   "transitionMs": 495,
+   "animStartMs": 51183,
+   "stepStartMs": [
+    52182.5
+   ],
+   "endMs": 53196,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 2000
+   },
+   "effects": [
+    {
+     "presetClass": "mediacall",
+     "presetId": 1,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "3"
+     },
+     "t0": 999.5,
+     "durMs": 1,
+     "step": 0,
+     "fill": "hold"
+    }
+   ]
+  },
+  {
+   "index": 9,
+   "startMs": 53196,
+   "transitionMs": 495,
+   "animStartMs": 53757,
+   "stepStartMs": [],
+   "endMs": 55770,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 2000
+   },
+   "effects": []
+  }
+ ]
+}

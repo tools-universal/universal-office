@@ -4,8 +4,8 @@
   {
    "index": 0,
    "startMs": 0,
-   "transitionMs": 759,
-   "animStartMs": 825,
+   "transitionMs": 726,
+   "animStartMs": 792,
    "stepStartMs": [],
    "endMs": 3795,
    "transition": {
@@ -20,8 +20,8 @@
   {
    "index": 1,
    "startMs": 3795,
-   "transitionMs": 759,
-   "animStartMs": 4620,
+   "transitionMs": 726,
+   "animStartMs": 4587,
    "stepStartMs": [],
    "endMs": 7590,
    "transition": {
@@ -36,8 +36,8 @@
   {
    "index": 2,
    "startMs": 7590,
-   "transitionMs": 759,
-   "animStartMs": 8415,
+   "transitionMs": 726,
+   "animStartMs": 8382,
    "stepStartMs": [],
    "endMs": 11385,
    "transition": {
@@ -54,8 +54,8 @@
   {
    "index": 3,
    "startMs": 11385,
-   "transitionMs": 759,
-   "animStartMs": 12210,
+   "transitionMs": 726,
+   "animStartMs": 12177,
    "stepStartMs": [],
    "endMs": 15180,
    "transition": {
@@ -72,8 +72,8 @@
   {
    "index": 4,
    "startMs": 15180,
-   "transitionMs": 759,
-   "animStartMs": 16005,
+   "transitionMs": 726,
+   "animStartMs": 15972,
    "stepStartMs": [],
    "endMs": 18975,
    "transition": {
@@ -88,8 +88,8 @@
   {
    "index": 5,
    "startMs": 18975,
-   "transitionMs": 759,
-   "animStartMs": 19800,
+   "transitionMs": 726,
+   "animStartMs": 19767,
    "stepStartMs": [],
    "endMs": 22770,
    "transition": {
@@ -104,8 +104,8 @@
   {
    "index": 6,
    "startMs": 22770,
-   "transitionMs": 759,
-   "animStartMs": 23595,
+   "transitionMs": 726,
+   "animStartMs": 23562,
    "stepStartMs": [],
    "endMs": 26565,
    "transition": {
@@ -120,8 +120,8 @@
   {
    "index": 7,
    "startMs": 26565,
-   "transitionMs": 759,
-   "animStartMs": 27390,
+   "transitionMs": 726,
+   "animStartMs": 27357,
    "stepStartMs": [],
    "endMs": 30360,
    "transition": {
@@ -136,8 +136,8 @@
   {
    "index": 8,
    "startMs": 30360,
-   "transitionMs": 759,
-   "animStartMs": 31185,
+   "transitionMs": 726,
+   "animStartMs": 31152,
    "stepStartMs": [],
    "endMs": 34155,
    "transition": {
@@ -152,8 +152,8 @@
   {
    "index": 9,
    "startMs": 34155,
-   "transitionMs": 759,
-   "animStartMs": 34980,
+   "transitionMs": 726,
+   "animStartMs": 34947,
    "stepStartMs": [],
    "endMs": 37950,
    "transition": {
@@ -168,8 +168,8 @@
   {
    "index": 10,
    "startMs": 37950,
-   "transitionMs": 759,
-   "animStartMs": 38775,
+   "transitionMs": 726,
+   "animStartMs": 38742,
    "stepStartMs": [],
    "endMs": 41745,
    "transition": {
@@ -184,8 +184,8 @@
   {
    "index": 11,
    "startMs": 41745,
-   "transitionMs": 759,
-   "animStartMs": 42570,
+   "transitionMs": 726,
+   "animStartMs": 42537,
    "stepStartMs": [],
    "endMs": 45540,
    "transition": {

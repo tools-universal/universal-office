@@ -22,6 +22,7 @@ window.harness = {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`fetch ${url}: ${res.status}`);
     pv.loadPptx(new Uint8Array(await res.arrayBuffer()));
+    await pv.fontsReady(); // fontes embutidas (EOT/TTF) antes de pintar
     return pv.getSlideCount();
   },
   /** Pinta o slide i no canvas visível em tamanho exato. */

@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { probeColor, scaleArgs } from './frames.mjs';
+import { probe, probeColor, scaleArgs } from './frames.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -30,7 +30,11 @@ const ppt = join(dir, 'ppt.mp4'), ours = join(dir, 'ours.mkv');
 // select devolve os quadros em ordem; índices repetidos (alinhamento) viram 1 só → duplica com loop por quadro
 const parts = [];
 const inputs = [];
-ka.forEach((k, i) => { inputs.push('-i', ppt); parts.push(`[${i}:v]select='${sel([k])}',${cropF}${scaleArgs(probeColor(ppt), W, H)},format=rgb24,setpts=PTS-STARTPTS[a${i}]`); });
+// o MP4 do app tem BURACOS de carimbo (ex.: 957 ms sem quadro); `select(n)` conta
+// quadros decodificados — `fps` antes repete o anterior nos buracos, como a
+// leitura rawvideo das métricas (índice = tempo/passo)
+const pptFps = `fps=1000/${Math.round(probe(ppt).stepMs)}`;
+ka.forEach((k, i) => { inputs.push('-i', ppt); parts.push(`[${i}:v]${pptFps},select='${sel([k])}',${cropF}${scaleArgs(probeColor(ppt), W, H)},format=rgb24,setpts=PTS-STARTPTS[a${i}]`); });
 ks.forEach((k, i) => { const j = n + i; inputs.push('-i', ours); parts.push(`[${j}:v]select='${sel([k])}',${cropF}scale=${W}:${H},format=rgb24,setpts=PTS-STARTPTS[b${i}]`); });
 const top = ka.map((_, i) => `[a${i}]`).join('') + `hstack=inputs=${n}[top]`;
 const bot = ks.map((_, i) => `[b${i}]`).join('') + `hstack=inputs=${n}[bot]`;

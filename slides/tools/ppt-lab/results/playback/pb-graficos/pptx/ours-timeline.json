@@ -1,0 +1,141 @@
+{
+ "durationMs": 12672,
+ "slides": [
+  {
+   "index": 0,
+   "startMs": 0,
+   "transitionMs": 495,
+   "animStartMs": 561,
+   "stepStartMs": [],
+   "endMs": 1584,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": []
+  },
+  {
+   "index": 1,
+   "startMs": 1584,
+   "transitionMs": 495,
+   "animStartMs": 2145,
+   "stepStartMs": [],
+   "endMs": 3168,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": []
+  },
+  {
+   "index": 2,
+   "startMs": 3168,
+   "transitionMs": 495,
+   "animStartMs": 3729,
+   "stepStartMs": [],
+   "endMs": 4752,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": []
+  },
+  {
+   "index": 3,
+   "startMs": 4752,
+   "transitionMs": 495,
+   "animStartMs": 5313,
+   "stepStartMs": [],
+   "endMs": 6336,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": []
+  },
+  {
+   "index": 4,
+   "startMs": 6336,
+   "transitionMs": 495,
+   "animStartMs": 6897,
+   "stepStartMs": [],
+   "endMs": 7920,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": []
+  },
+  {
+   "index": 5,
+   "startMs": 7920,
+   "transitionMs": 495,
+   "animStartMs": 8481,
+   "stepStartMs": [],
+   "endMs": 9504,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": []
+  },
+  {
+   "index": 6,
+   "startMs": 9504,
+   "transitionMs": 495,
+   "animStartMs": 10065,
+   "stepStartMs": [],
+   "endMs": 11088,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": []
+  },
+  {
+   "index": 7,
+   "startMs": 11088,
+   "transitionMs": 495,
+   "animStartMs": 11649,
+   "stepStartMs": [],
+   "endMs": 12672,
+   "transition": {
+    "type": "fade",
+    "ns": "p",
+    "attrs": {},
+    "durMs": 500,
+    "advClick": true,
+    "advTmMs": 1000
+   },
+   "effects": []
+  }
+ ]
+}

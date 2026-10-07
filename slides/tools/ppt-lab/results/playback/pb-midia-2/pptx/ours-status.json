@@ -1,0 +1,21 @@
+{
+ "deck": "pb-midia-2",
+ "ext": "pptx",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 10,
+ "durationMs": 55770,
+ "pptFrames": 1690,
+ "ourFrames": 1691,
+ "frames": 1691,
+ "screenshots": 1105,
+ "elapsedSec": 115.522,
+ "errors": [
+  "console: Not allowed to load local resource: file:///D:/Projects/OfficeNext/slides/tools/ppt-lab/results/playback/_assets/bar.mp4"
+ ]
+}

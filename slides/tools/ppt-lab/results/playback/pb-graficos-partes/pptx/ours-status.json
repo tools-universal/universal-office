@@ -1,0 +1,19 @@
+{
+ "deck": "pb-graficos-partes",
+ "ext": "pptx",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 9,
+ "durationMs": 33462,
+ "pptFrames": 1014,
+ "ourFrames": 1015,
+ "frames": 1015,
+ "screenshots": 991,
+ "elapsedSec": 87.939,
+ "errors": []
+}

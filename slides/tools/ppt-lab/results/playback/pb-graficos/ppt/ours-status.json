@@ -1,0 +1,19 @@
+{
+ "deck": "pb-graficos",
+ "ext": "ppt",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 8,
+ "durationMs": 12672,
+ "pptFrames": 384,
+ "ourFrames": 385,
+ "frames": 385,
+ "screenshots": 128,
+ "elapsedSec": 15.158,
+ "errors": []
+}

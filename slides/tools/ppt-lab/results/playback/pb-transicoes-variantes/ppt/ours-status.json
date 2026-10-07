@@ -1,0 +1,19 @@
+{
+ "deck": "pb-transicoes-variantes",
+ "ext": "ppt",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 40,
+ "durationMs": 81180,
+ "pptFrames": 2460,
+ "ourFrames": 2461,
+ "frames": 2461,
+ "screenshots": 1180,
+ "elapsedSec": 102.503,
+ "errors": []
+}

@@ -1,0 +1,19 @@
+{
+ "deck": "pb-365",
+ "ext": "pptx",
+ "ok": true,
+ "fps": 30,
+ "width": 1280,
+ "height": 720,
+ "defaultSlideMs": 3000,
+ "stepMs": 33,
+ "fontsLoaded": true,
+ "slides": 2,
+ "durationMs": 4686,
+ "pptFrames": 142,
+ "ourFrames": 143,
+ "frames": 143,
+ "screenshots": 126,
+ "elapsedSec": 10.708,
+ "errors": []
+}

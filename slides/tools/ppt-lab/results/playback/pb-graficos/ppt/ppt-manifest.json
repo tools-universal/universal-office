@@ -1,0 +1,167 @@
+{
+    "file":  "D:\\Projects\\OfficeNext\\slides\\samples\\playback\\pb-graficos.ppt",
+    "format":  "ppt",
+    "powerpoint":  "16.0 build 20430",
+    "slideWidthPt":  960,
+    "slideHeightPt":  540,
+    "fps":  30,
+    "height":  720,
+    "width":  1280,
+    "defaultSlideSec":  3,
+    "quality":  100,
+    "renderSeconds":  1.02,
+    "slides":  [
+                   {
+                       "index":  1,
+                       "hidden":  false,
+                       "title":  "G1 colunas por SÉRIE",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  2,
+                       "hidden":  false,
+                       "title":  "G2 colunas por CATEGORIA",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  3,
+                       "hidden":  false,
+                       "title":  "G3 colunas por ELEMENTO da série",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  4,
+                       "hidden":  false,
+                       "title":  "G4 pizza por CATEGORIA",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  5,
+                       "hidden":  false,
+                       "title":  "G5 linhas por SÉRIE",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  6,
+                       "hidden":  false,
+                       "title":  "S1 SmartArt um a um (profundidade por nó)",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  7,
+                       "hidden":  false,
+                       "title":  "S2 SmartArt por nível",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   },
+                   {
+                       "index":  8,
+                       "hidden":  false,
+                       "title":  "S3 SmartArt nível a nível um a um",
+                       "transition":  {
+                                          "effect":  3849,
+                                          "effectName":  "ppEffectFadeSmoothly",
+                                          "duration":  0.5,
+                                          "speed":  3,
+                                          "advanceOnClick":  true,
+                                          "advanceOnTime":  true,
+                                          "advanceTime":  1
+                                      },
+                       "effects":  [
+
+                                   ],
+                       "interactiveEffects":  0,
+                       "mediaShapes":  0
+                   }
+               ]
+}
