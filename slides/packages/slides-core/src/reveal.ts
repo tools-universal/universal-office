@@ -26,6 +26,46 @@ export function parseFilter(filter: string): [string, string] {
   return m ? [m[1]!.toLowerCase(), (m[2] ?? '').trim()] : [filter.toLowerCase(), ''];
 }
 
+/**
+ * Borda do "revelar" (wipe) das ANIMAÇÕES, medida no app (bloco de SmartArt
+ * e série de gráfico): rampa LINEAR de 14% da extensão na direção do
+ * movimento; a frente percorre extensão + rampa (q = 0 nada, q = 1 tudo).
+ */
+export const WIPE_SOFT = 0.14;
+
+/** O filtro tem borda esfumada (máscara em camada, `applySoftReveal`)? */
+export function softRevealFilter(filter: string): boolean {
+  return parseFilter(filter)[0] === 'wipe';
+}
+
+/**
+ * Máscara esfumada do wipe sobre o que já foi pintado no contexto (uma
+ * camada): `destination-in` com a rampa; fora da caixa fica transparente,
+ * como no recorte seco de `applyReveal`.
+ */
+export function applySoftReveal(ctx: CanvasRenderingContext2D, filter: string, q: number,
+  x: number, y: number, w: number, h: number): void {
+  q = Math.max(0, Math.min(1, q));
+  const arg = parseFilter(filter)[1];
+  const vertical = arg === 'down' || arg === 'up';
+  const b = Math.max(1e-3, WIPE_SOFT * (vertical ? h : w));
+  const travel = q * ((vertical ? h : w) + b);
+  // gradiente: parada 0 = início da rampa (oculto), parada 1 = lado revelado
+  let g: CanvasGradient;
+  if (arg === 'down') { const f = y + h - travel; g = ctx.createLinearGradient(0, f, 0, f + b); } // de baixo
+  else if (arg === 'up') { const f = y + travel; g = ctx.createLinearGradient(0, f, 0, f - b); } // de cima
+  else if (arg === 'left') { const f = x + travel; g = ctx.createLinearGradient(f, 0, f - b, 0); } // da esquerda
+  else { const f = x + w - travel; g = ctx.createLinearGradient(f, 0, f + b, 0); } // da direita
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,1)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+}
+
 /** Ângulo (rad) no sentido horário a partir das 12h, 0..2π. */
 function clockAngle(dx: number, dy: number): number {
   const a = Math.atan2(dx, -dy);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { presetPath } from '../src/index.js';
+import { presetPath, type PathSeg } from '../src/index.js';
 
 describe('presetPath — geometrias preset (spec 03 F)', () => {
   it('rect/ellipse/roundRect preservam o comportamento anterior', () => {
@@ -7,8 +7,43 @@ describe('presetPath — geometrias preset (spec 03 F)', () => {
     expect(presetPath(undefined, 100, 50)).toEqual({ kind: 'rect' });
     expect(presetPath('ellipse', 100, 50)).toEqual({ kind: 'ellipse' });
     expect(presetPath('roundRect', 100, 50)).toEqual({ kind: 'roundRect', r: 50 * 16667 / 100000 }); // default de spec (adj 16667)
-    // preset desconhecido cai em rect (fallback)
-    expect(presetPath('teardrop', 100, 50)).toEqual({ kind: 'rect' });
+    // nome fora da especificação cai em rect (fallback)
+    expect(presetPath('naoExiste', 100, 50)).toEqual({ kind: 'rect' });
+  });
+
+  it('presets sem caso próprio saem das definições OFICIAIS (presetShapeDefinitions)', () => {
+    const end = (segs: PathSeg[]): { x: number; y: number } => {
+      // ponto final do último segmento com coordenadas
+      for (let i = segs.length - 1; i >= 0; i--) {
+        const s = segs[i]!;
+        if (s.c === 'E') return { x: s.cx + s.rx * Math.cos(s.a1), y: s.cy + s.ry * Math.sin(s.a1) };
+        if ('x' in s) return { x: s.x, y: s.y };
+      }
+      return { x: NaN, y: NaN };
+    };
+    // flowChartDelay: lado esquerdo reto, semielipse à direita
+    const d = presetPath('flowChartDelay', 100, 60);
+    expect(d.kind).toBe('path');
+    if (d.kind !== 'path') return;
+    const s = d.subs[0]!;
+    expect(s[0]).toEqual({ c: 'M', x: 0, y: 0 });
+    expect(s[1]).toEqual({ c: 'L', x: 50, y: 0 });
+    const arc = s[2]!;
+    expect(arc.c).toBe('E');
+    if (arc.c === 'E') {
+      [arc.cx, arc.cy, arc.rx, arc.ry].forEach((v, i) => expect(v).toBeCloseTo([50, 30, 50, 30][i]!, 9));
+      expect(end([arc]).x).toBeCloseTo(50, 9);
+      expect(end([arc]).y).toBeCloseTo(60, 9);
+    }
+    // flowChartConnector: elipse inteira (4 quartos de arco)
+    const c = presetPath('flowChartConnector', 80, 40);
+    expect(c.kind === 'path' && c.subs[0]!.filter((x) => x.c === 'E').length).toBe(4);
+    // ajuste por NOME: round2SameRect com cantos de cima de 50%
+    const r = presetPath('round2SameRect', 100, 40, [50000, 0], ['adj1', 'adj2']);
+    expect(r.kind === 'path' && r.subs[0]![0]).toEqual({ c: 'M', x: 20, y: 0 });
+    // caminho só de contorno (fill="none") não preenche
+    const sort = presetPath('flowChartSort', 40, 40);
+    expect(sort.kind === 'path' && sort.subLum?.includes(null)).toBe(true);
   });
 
   it('triângulos e diamante', () => {

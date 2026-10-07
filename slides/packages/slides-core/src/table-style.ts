@@ -124,7 +124,7 @@ export function applyTableStyle(t: Table, def: TableStyleDef, firstRowOn: boolea
       if (isHeader) part = def.firstRow;
       else if (bandRowOn && dataIdx >= 0 && dataIdx % 2 === 0) part = def.band1H;
       else if (bandRowOn && dataIdx >= 0) part = def.band2H;
-      if (cell.fill === undefined) {
+      if (cell.fill === undefined && !cell.noFill) {
         const f = part?.fill ?? whole?.fill;
         if (f) cell.fill = f;
       }

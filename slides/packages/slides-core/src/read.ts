@@ -10,7 +10,7 @@ import type { PptxPackage } from './package.js';
 import { parseSlideTiming, type CountTextUnits } from './timing.js';
 import type {
   Presentation, SlideRef, Slide, Shape, Xfrm, ImageRef, MediaRef, TextBody, Paragraph, Run, Theme,
-  SlideAnimEntry, SlideTransition, Table, TableRow, TableCell, GradientStop,
+  SlideAnimEntry, SlideTransition, Table, TableRow, TableCell, GradientStop, Fill,
 } from './model.js';
 
 /**
@@ -255,6 +255,13 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
   // modelo de tempo completo (reprodução automática): transição em
   // mc:AlternateContent + árvore <p:timing> inteira
   slide.timing = parseSlideTiming(root, countTextUnits(shapes), (el) => colorFromDml(el, theme), hasBackground(shapes));
+  // marcadores de mídia: posição no arquivo vem da forma (p14:bmkLst)
+  for (const bt of slide.timing.bookmarkTriggers ?? []) {
+    const media = shapes.find((s) => !s.inherited && s.id === bt.spid)?.media;
+    const b = media?.bookmarks?.find((x) => x.name === bt.bookmark);
+    if (b) bt.timeMs = b.timeMs;
+    if (media?.trim?.startMs) bt.trimStartMs = media.trim.startMs;
+  }
   return slide;
 }
 
@@ -550,6 +557,11 @@ function readShapes(spTree: XmlElement, theme: Theme, pkg: PptxPackage, rels: Ma
       else if (gf) out.push(gf);
     } else if (c.name === 'p:grpSp') {
       out.push(...readGroup(c, theme, pkg, rels));
+    } else if (c.name === 'mc:AlternateContent') {
+      // conteúdo alternativo (modelo 3D, tinta, zoom de slide…): o Choice exige
+      // extensões que não desenhamos — o Fallback é a imagem que o app gerou
+      const alt = firstChild(c, 'mc:Fallback') ?? firstChild(c, 'mc:Choice');
+      if (alt) out.push(...readShapes(alt, theme, pkg, rels));
     }
   }
   return out;
@@ -567,6 +579,23 @@ function readShapes(spTree: XmlElement, theme: Theme, pkg: PptxPackage, rels: Ma
  * grupo. flipH/flipV espelham a posicao dentro do rect e alternam o flip do
  * filho.
  */
+/** Preenchimento próprio de um `<p:grpSpPr>` (undefined = sem / `<a:grpFill/>` = do grupo de cima). */
+function groupFill(grpSpPr: XmlElement, theme: Theme): { fill: Fill; alpha?: number } | undefined {
+  if (firstChild(grpSpPr, 'a:noFill')) return { fill: { type: 'none' } };
+  const sf = firstChild(grpSpPr, 'a:solidFill');
+  if (sf) {
+    const c = colorFromDml(childElements(sf)[0], theme);
+    if (!c) return undefined;
+    const out: { fill: Fill; alpha?: number } = { fill: { type: 'solid', color: c } };
+    const a = descend(sf, 'a:alpha')?.attrs['val'];
+    if (a) out.alpha = parseInt(a, 10) / 100000;
+    return out;
+  }
+  const grad = firstChild(grpSpPr, 'a:gradFill');
+  const g = grad ? parseGradFill(grad, theme) : undefined;
+  return g ? { fill: g } : undefined;
+}
+
 function readGroup(grp: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<string, string>): Shape[] {
   const children = readShapes(grp, theme, pkg, rels);
   // id do grupo: alvo de animações aplicadas ao grupo inteiro
@@ -574,6 +603,17 @@ function readGroup(grp: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<st
   const gid = nvGrp ? firstChild(nvGrp, 'p:cNvPr')?.attrs['id'] : undefined;
   if (gid !== undefined) for (const sh of children) sh.groupIds = [gid, ...(sh.groupIds ?? [])];
   const grpSpPr = firstChild(grp, 'p:grpSpPr');
+  // preenchimento do GRUPO: filhos com <a:grpFill/> herdam (aninhados sem
+  // preenchimento próprio sobem até o grupo que tiver)
+  const gFill = grpSpPr ? groupFill(grpSpPr, theme) : undefined;
+  if (gFill) {
+    for (const sh of children) {
+      if (!sh.grpFill) continue;
+      sh.fill = gFill.fill;
+      if (gFill.alpha !== undefined) sh.fillAlpha = gFill.alpha;
+      delete sh.grpFill;
+    }
+  }
   const xfrmEl = grpSpPr ? firstChild(grpSpPr, 'a:xfrm') : undefined;
   if (!xfrmEl) return children;
   const num = (el: XmlElement | undefined, a: string, dflt: number): number =>
@@ -674,6 +714,9 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
             if (c) pal.push(c);
           }
           if (pal.length) shape.chartPalette = pal;
+          shape.chartTheme = theme;
+          const bg = chartAreaFill(xml, theme);
+          if (bg !== undefined) shape.chartBg = bg;
         }
       }
     }
@@ -695,7 +738,12 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
       }
       if (drawingPath) {
         const shapes = readDiagramShapes(pkg, drawingPath, theme, shape.xfrm);
-        if (shapes.length) return shapes;
+        if (shapes.length) {
+          // animações miram o FRAME (spid do SmartArt); por partes, `<a:dgm id>`
+          // nomeia a forma do desenho (dgmId)
+          for (const s of shapes) if (shape.id) s.groupIds = [...(s.groupIds ?? []), shape.id];
+          return shapes;
+        }
       }
     }
   }
@@ -712,6 +760,16 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
     shape.table = table;
   }
   return shape;
+}
+
+/** Preenchimento da área do gráfico (`<c:chartSpace><c:spPr>`): null = noFill, undefined = padrão (branco). */
+function chartAreaFill(xml: string, theme: Theme): string | null | undefined {
+  let root: XmlElement;
+  try { root = parseXml(xml); } catch { return undefined; }
+  const spPr = firstChild(root, 'c:spPr');
+  if (!spPr) return undefined;
+  if (firstChild(spPr, 'a:noFill')) return null;
+  return solidFillColor(spPr, theme);
 }
 
 /** Clona a árvore renomeando prefixo de elementos (`dsp:sp` → `p:sp` etc.). */
@@ -739,6 +797,7 @@ function readDiagramShapes(pkg: PptxPackage, drawingPath: string, theme: Theme, 
   for (const c of childElements(spTree, 'dsp:sp')) {
     const sp = renamePrefix(c, 'dsp:', 'p:');
     const sh = readShape(sp, theme);
+    if (c.attrs['modelId']) sh.dgmId = c.attrs['modelId'];
     if (sh.xfrm) out.push(sh);
   }
   if (!out.length) return out;
@@ -789,6 +848,13 @@ function readTable(tbl: XmlElement, theme: Theme): Table {
       const tcPr = firstChild(tc, 'a:tcPr');
       if (tcPr) {
         if (tcPr.attrs['anchor']) cell.anchor = tcPr.attrs['anchor'];
+        if (tcPr.attrs['vert'] && tcPr.attrs['vert'] !== 'horz') cell.vert = tcPr.attrs['vert'];
+        // <a:noFill/> DIRETO no tcPr: sem preenchimento (vence o estilo da tabela)
+        if (firstChild(tcPr, 'a:noFill')) cell.noFill = true;
+        for (const k of ['marL', 'marR', 'marT', 'marB'] as const) {
+          const v = tcPr.attrs[k];
+          if (v !== undefined && /^-?\d+$/.test(v)) cell[k] = parseInt(v, 10);
+        }
         const fill = solidFillColor(tcPr, theme);
         if (fill) cell.fill = fill;
         // alfa do fill da célula (tabelas translúcidas de template)
@@ -801,6 +867,8 @@ function readTable(tbl: XmlElement, theme: Theme): Table {
         for (const [key, name] of sides) {
           const ln = firstChild(tcPr, name);
           if (!ln) continue;
+          // lado com <a:noFill/> explícito: sem borda (vence o estilo)
+          if (firstChild(ln, 'a:noFill')) { (cell.borderNone ??= {})[key] = true; continue; }
           const fillEl = firstChild(ln, 'a:solidFill');
           const color = fillEl ? colorFromDml(childElements(fillEl)[0], theme) : undefined;
           if (!color) continue; // noFill/ausente = lado sem borda explícita
@@ -846,11 +914,12 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
     const avLst = geom ? firstChild(geom, 'a:avLst') : undefined;
     if (avLst) {
       const adj: number[] = [];
+      const names: string[] = [];
       for (const gd of childElements(avLst, 'a:gd')) {
         const m = /val (-?\d+)/.exec(gd.attrs['fmla'] ?? '');
-        if (m) adj.push(parseInt(m[1]!, 10));
+        if (m) { adj.push(parseInt(m[1]!, 10)); names.push(gd.attrs['name'] ?? ''); }
       }
-      if (adj.length) shape.adj = adj;
+      if (adj.length) { shape.adj = adj; shape.adjNames = names; }
     }
     // geometria custom (freeform): <a:custGeom><a:pathLst><a:path w h>…
     const cust = firstChild(spPr, 'a:custGeom');
@@ -859,6 +928,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       if (cg) shape.custGeom = cg;
     }
     if (firstChild(spPr, 'a:noFill')) shape.fill = { type: 'none' };
+    else if (firstChild(spPr, 'a:grpFill')) shape.grpFill = true; // herda do grupo (readGroup)
     else { const c = solidFillColor(spPr, theme); if (c) shape.fill = { type: 'solid', color: c }; }
     // gradiente linear (spec 03 G): <a:gradFill><a:gsLst>… + <a:lin ang>
     if (!shape.fill) {
@@ -931,7 +1001,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       if (!ref || ref.attrs['idx'] === '0') return undefined; // idx=0 = sem estilo
       return colorFromDml(childElements(ref)[0], theme);
     };
-    if (!shape.fill && !shape.fillImage) {
+    if (!shape.fill && !shape.fillImage && !shape.grpFill) {
       const fc = refColor('a:fillRef');
       if (fc) shape.fill = { type: 'solid', color: fc };
     }
@@ -1047,6 +1117,7 @@ function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>): T
   if (bodyPr) {
     if (bodyPr.attrs['anchor']) tb.anchor = bodyPr.attrs['anchor'];
     if (bodyPr.attrs['wrap']) tb.wrap = bodyPr.attrs['wrap'];
+    if (bodyPr.attrs['vert'] && bodyPr.attrs['vert'] !== 'horz') tb.vert = bodyPr.attrs['vert'];
     // insets em EMU (defaults do app ficam a cargo do layout/render)
     if (bodyPr.attrs['lIns'] !== undefined) tb.insL = parseInt(bodyPr.attrs['lIns'], 10);
     if (bodyPr.attrs['tIns'] !== undefined) tb.insT = parseInt(bodyPr.attrs['tIns'], 10);
@@ -1244,11 +1315,26 @@ function readPicMedia(nvPicPr: XmlElement, pkg: PptxPackage, rels: Map<string, s
   if (!kind) return undefined;
   const ext = firstChild(nvPr, 'p:extLst');
   let embed: string | undefined;
+  let p14: XmlElement | undefined;
   if (ext) for (const e of childElements(ext, 'p:ext')) {
     const m = childElements(e).find((x) => x.name.endsWith(':media'));
+    if (m) p14 = m;
     if (m?.attrs['r:embed']) embed = m.attrs['r:embed'];
   }
   const media: MediaRef = { kind, mime: 'application/octet-stream' };
+  if (p14) {
+    // corte, esmaecer e marcadores (PowerPoint 2010+)
+    const ms = (v: string | undefined): number => (v ? parseFloat(v) || 0 : 0);
+    for (const c of childElements(p14)) {
+      const tag = c.name.slice(c.name.indexOf(':') + 1);
+      if (tag === 'trim') media.trim = { startMs: ms(c.attrs['st']), endMs: ms(c.attrs['end']) };
+      else if (tag === 'fade') media.fade = { inMs: ms(c.attrs['in']), outMs: ms(c.attrs['out']) };
+      else if (tag === 'bmkLst') {
+        media.bookmarks = childElements(c).filter((b) => b.name.endsWith(':bmk'))
+          .map((b) => ({ name: b.attrs['name'] ?? '', timeMs: ms(b.attrs['time']) }));
+      }
+    }
+  }
   for (const rid of [embed, link]) {
     const target = rid ? rels.get(rid) : undefined;
     if (!target) continue;
@@ -1281,7 +1367,16 @@ function mediaMime(path: string, kind: MediaRef['kind']): string {
 
 /** `<a:blip r:embed="rIdN">` -> ImageRef com bytes + MIME (ou undefined se nao resolver). */
 function resolveBlip(blip: XmlElement, pkg: PptxPackage, rels: Map<string, string>): ImageRef | undefined {
-  const rid = blip.attrs['r:embed'] ?? blip.attrs['embed'];
+  // ícone SVG (2016+): `<a:blip r:embed=PNG><a:extLst><a:ext><asvg:svgBlip r:embed=SVG/>` —
+  // usa o PNG quando existe; o app às vezes grava SÓ o SVG (inserido por automação)
+  let rid = blip.attrs['r:embed'] ?? blip.attrs['embed'];
+  if (!rid) {
+    const ext = firstChild(blip, 'a:extLst');
+    if (ext) for (const e of childElements(ext, 'a:ext')) {
+      const svg = childElements(e).find((x) => x.name.endsWith(':svgBlip'));
+      if (svg?.attrs['r:embed']) rid = svg.attrs['r:embed'];
+    }
+  }
   if (!rid) return undefined;
   const part = rels.get(rid);
   if (!part) return undefined;

@@ -1,7 +1,10 @@
 import {
-  mediaStateAt, gifFrameAt,
-  type Slide, type Shape, type PaintImage, type PlaybackSlide, type MediaClock,
+  mediaStateAt, mediaFadeAlpha, gifFrameAt,
+  type Slide, type Shape, type PaintImage, type PlaybackSlide, type MediaClock, type SlideMediaInfo,
 } from '@universal/slides-core';
+
+/** Quadro de mídia com opacidade (esmaecer sobre a capa). */
+export type MediaFrame = PaintImage | { image: PaintImage; alpha: number };
 
 /** GIF animado decodificado: quadros + atraso de cada um (ms) + repetições. */
 interface GifAnim {
@@ -44,6 +47,8 @@ export class MediaPlayer {
   private gifShown = new Map<string, number>();
   /** Relógio da mídia (export emulado: 2 ticks de latência, 1/30 s por quadro). */
   clock: MediaClock = {};
+  /** Vídeo em TELA CHEIA tocando no quadro em curso (a pintura cobre o slide com ele). */
+  fullScreen: HTMLVideoElement | null = null;
 
   constructor(private readonly repaint: () => void) {}
 
@@ -118,17 +123,35 @@ export class MediaPlayer {
    * no último quadro) / quadro atual do GIF. null = imagem normal (capa).
    * `animMs` = tempo de animação do slide (Infinity = estado final).
    */
-  frame(sh: Shape, ps: PlaybackSlide, animMs: number, bytes: (part: string) => Uint8Array | undefined, vol = 1, muted = false): PaintImage | null {
+  frame(sh: Shape, ps: PlaybackSlide, animMs: number, bytes: (part: string) => Uint8Array | undefined, info?: SlideMediaInfo): MediaFrame | null {
     if (sh.media) {
-      const st = mediaStateAt(ps.effects, sh.id, animMs, this.clock);
+      const st = mediaStateAt(ps.effects, sh.id, animMs, this.clock, !!info?.loop);
       const el = this.element(sh, bytes);
-      if (!el) return null;
-      const dur = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : (st.durMs ?? Infinity) / 1000;
-      const end = Math.max(0, dur - 0.001);
-      const time = Math.max(0, Math.min(st.timeSec, end));
-      if (st.started) this.wanted.set(el, { time, playing: st.playing && st.timeSec < dur, volume: vol, muted });
+      if (!el || el.error) return null; // inacessível (vinculado fora do pacote…): fica a capa
+      // corte (p14:trim): toca de `st` até duração − `end` do arquivo
+      const trimSt = (sh.media.trim?.startMs ?? 0) / 1000;
+      const trimEnd = (sh.media.trim?.endMs ?? 0) / 1000;
+      const fileDur = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : undefined;
+      const lenSec = fileDur !== undefined ? Math.max(0, fileDur - trimSt - trimEnd) : (st.durMs ?? Infinity) / 1000;
+      let t = st.timeSec;
+      // "repetir até parar": o app repete ao vivo; o export de vídeo NÃO repete (medido) — toca até o fim do arquivo
+      if (info?.loop && this.mode === 'realtime' && lenSec > 0 && Number.isFinite(lenSec)) t %= lenSec;
+      const played = Math.max(0, Math.min(t, Math.max(0, lenSec - 0.001)));
+      if (st.started) {
+        this.wanted.set(el, {
+          time: trimSt + played, playing: st.playing && t < lenSec,
+          volume: info?.vol ?? 1, muted: info?.mute ?? false,
+        });
+      }
       if (sh.media.kind !== 'video' || !st.started) return null;
-      return el.readyState >= 2 ? (el as HTMLVideoElement) : null;
+      if (st.ended && info?.rewind) return null; // retroceder: volta à capa ao terminar
+      if (el.readyState < 2) return null;
+      const video = el as HTMLVideoElement;
+      if (info?.fullScreen && st.playing) this.fullScreen = video;
+      // esmaecer: o vídeo surge/some SOBRE a capa (depois do fim fica a capa)
+      const alpha = st.ended && sh.media.fade?.outMs ? 0 : mediaFadeAlpha(sh.media.fade, played * 1000, lenSec * 1000);
+      if (alpha <= 0) return null;
+      return alpha >= 1 ? video : { image: video, alpha };
     }
     const img = sh.image;
     if (img?.mime === 'image/gif') {
@@ -174,8 +197,8 @@ export class MediaPlayer {
   }
 
   /** A mídia da forma está tocando em `animMs`? */
-  isPlaying(sh: Shape, ps: PlaybackSlide, animMs: number): boolean {
-    return mediaStateAt(ps.effects, sh.id, animMs, this.clock).playing;
+  isPlaying(sh: Shape, ps: PlaybackSlide, animMs: number, loop = false): boolean {
+    return mediaStateAt(ps.effects, sh.id, animMs, this.clock, loop).playing;
   }
 
   /**
@@ -215,11 +238,17 @@ export class MediaPlayer {
 
 /** Busca exata num vídeo: espera dados + `seeked` (com teto de tempo). */
 async function seekTo(el: HTMLVideoElement, time: number, timeoutMs: number): Promise<void> {
+  // mídia que não carrega (link externo bloqueado…) não pode segurar o quadro;
+  // sob relógio virtual o setTimeout não anda — o evento 'error' é a saída
+  if (el.error || el.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) return;
   const wait = (ev: string): Promise<void> => new Promise((res) => {
     const t = setTimeout(res, timeoutMs);
-    el.addEventListener(ev, () => { clearTimeout(t); res(); }, { once: true });
+    const done = (): void => { clearTimeout(t); el.removeEventListener(ev, done); el.removeEventListener('error', done); res(); };
+    el.addEventListener(ev, done, { once: true });
+    el.addEventListener('error', done, { once: true });
   });
   if (el.readyState < 1) await wait('loadedmetadata');
+  if (el.error) return;
   const target = Math.max(0, Math.min(time, Number.isFinite(el.duration) ? Math.max(0, el.duration - 0.001) : time));
   if (Math.abs(el.currentTime - target) > 0.0005 || el.readyState < 2) {
     const done = wait('seeked');

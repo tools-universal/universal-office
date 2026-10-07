@@ -50,6 +50,10 @@ export interface ConvCtx {
   parts: Map<string, Uint8Array>;
   mediaExts: Set<string>;
   useRoundTrip: boolean;
+  /** Content-types de partes XML extras (diagramas do round-trip), por caminho. */
+  overrides: Map<string, string>;
+  /** Nº de diagramas (SmartArt) já emitidos — numeração das partes. */
+  diagrams: number;
 }
 
 /** Contexto de uma parte (slide/mestre) sendo escrita. */
@@ -71,6 +75,8 @@ export interface PartCtx {
   spids: Set<number>;
   /** Texto de cada forma por spid (faixas de caractere → parágrafos nas animações). */
   texts: Map<number, string>;
+  /** Id OOXML ORIGINAL (cNvPr do shapexml de round-trip) → spid emitido. */
+  ooxmlIds: Map<number, number>;
 }
 
 /** Esquema de cores padrão do PowerPoint 97 (quando o .ppt não traz um). */
@@ -81,5 +87,5 @@ export function newPartCtx(conv: ConvCtx, scheme: string[], styles: TextConvCtx[
   const text: TextConvCtx = { doc: conv.doc, scheme, linkRel: (target) => rels.add('hyperlink', target, true) };
   if (styles) text.styles = styles;
   if (slideNumber !== undefined) text.slideNumber = slideNumber;
-  return { conv, rels, text, scheme, outline, usedIds: new Set([1]), spids: new Set(), texts: new Map() };
+  return { conv, rels, text, scheme, outline, usedIds: new Set([1]), spids: new Set(), texts: new Map(), ooxmlIds: new Map() };
 }

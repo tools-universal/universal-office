@@ -173,9 +173,10 @@ export function layoutTextBody(
     const align = p.align ?? 'l';
     const runs = p.runs.length ? p.runs : [{ text: '' } as Run];
 
-    // bullet do parágrafo (só na primeira linha)
+    // bullet do parágrafo (só na primeira linha). Parágrafo VAZIO não mostra
+    // marcador nem consome número (como o app de referência)
     let bullet: PlacedLine['bullet'] | undefined;
-    if (p.bullet) {
+    if (p.bullet && runs.some((r) => r.text)) {
       // reinicia contadores de níveis mais profundos
       for (let l = level + 1; l < 9; l++) autoNumCounters[l] = 0;
       let btext: string | undefined;

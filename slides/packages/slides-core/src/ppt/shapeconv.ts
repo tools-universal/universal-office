@@ -12,9 +12,11 @@ import { RT, children, readRec, ByteReader, type Rec, utf16 } from './records.js
 import { readClientTextbox, readStyleTextProp9, type TextBlock } from './text.js';
 import { presetFor, isConnectorType, isWordArtType, type RawAdjust } from './preset-map.js';
 import { paragraphsXml, emu, hex3 } from './textconv.js';
-import { metroVisual, metroTextBody } from './roundtrip.js';
+import { strFromU8, strToU8 } from 'fflate';
+import { metroVisual, metroTextBody, metroShape, metroDiagram, serializeXml, zipPartText } from './roundtrip.js';
 import { DEFAULT_SCHEME, type ConvCtx, type PartCtx } from './context.js';
-import { el, escText } from './xmlw.js';
+import { el, escText, escAttr, XML_DECL, NS } from './xmlw.js';
+import { firstChild, type XmlElement } from '../xml.js';
 
 // ───────────────────────────── propriedades ─────────────────────────────
 
@@ -515,7 +517,158 @@ function shapeId(sh: OAShape, pc: PartCtx): number {
   while (pc.usedIds.has(id)) id++;
   pc.usedIds.add(id);
   if (id === sh.spid) pc.spids.add(id);
+  // id OOXML original (round-trip): as animações guardadas em XML usam esse id
+  const orig = metroCNvPrId(sh);
+  if (orig !== undefined && !pc.ooxmlIds.has(orig)) pc.ooxmlIds.set(orig, id);
   return id;
+}
+
+/**
+ * Id OOXML original da forma (round-trip): `drs/downrev.xml` (`<a:downRevStg
+ * shapeId>` — inclusive gráficos, que não trazem shapexml) ou o `<p:cNvPr id>`
+ * do shapexml.
+ */
+function metroCNvPrId(sh: OAShape): number | undefined {
+  const dr = zipPartText(sh.props.get(0x3a9)?.complex, 'downrev.xml');
+  const m = dr ? /shapeId="(\d+)"/.exec(dr) : null;
+  if (m) return parseInt(m[1]!, 10);
+  const root = metroShape(sh);
+  if (!root) return undefined;
+  const find = (x: { name: string; attrs: Record<string, string>; children: unknown[] }, depth: number): string | undefined => {
+    if (x.name === 'p:cNvPr') return x.attrs['id'];
+    if (depth > 3) return undefined;
+    for (const c of x.children) {
+      if (typeof c === 'object' && c && 'name' in c) {
+        const v = find(c as typeof x, depth + 1);
+        if (v !== undefined) return v;
+      }
+    }
+    return undefined;
+  };
+  const v = find(root as unknown as { name: string; attrs: Record<string, string>; children: unknown[] }, 0);
+  const n = v !== undefined ? parseInt(v, 10) : NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
+
+// ───────────────────────────── SmartArt (round-trip) ─────────────────────────────
+
+const DGM_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
+/** Tipo de relação → nome da parte do diagrama. */
+const DGM_KIND: Record<string, string> = {
+  [DGM_REL + 'diagramData']: 'data',
+  [DGM_REL + 'diagramLayout']: 'layout',
+  [DGM_REL + 'diagramQuickStyle']: 'quickStyle',
+  [DGM_REL + 'diagramColors']: 'colors',
+  'http://schemas.microsoft.com/office/2007/relationships/diagramDrawing': 'drawing',
+};
+const DGM_CT: Record<string, string> = {
+  data: 'application/vnd.openxmlformats-officedocument.drawingml.diagramData+xml',
+  layout: 'application/vnd.openxmlformats-officedocument.drawingml.diagramLayout+xml',
+  quickStyle: 'application/vnd.openxmlformats-officedocument.drawingml.diagramStyle+xml',
+  colors: 'application/vnd.openxmlformats-officedocument.drawingml.diagramColors+xml',
+  drawing: 'application/vnd.ms-office.drawingml.diagramDrawing+xml',
+};
+
+interface ZipRel { id: string; type: string; target: string; external: boolean; raw: string }
+
+/** Relações de uma parte do zip interno (`pasta/_rels/nome.rels`). */
+function zipRels(parts: Record<string, Uint8Array>, path: string): ZipRel[] {
+  const i = path.lastIndexOf('/');
+  const bytes = parts[`${path.slice(0, i)}/_rels/${path.slice(i + 1)}.rels`];
+  if (!bytes) return [];
+  const out: ZipRel[] = [];
+  for (const m of strFromU8(bytes).matchAll(/<Relationship [^>]*>/g)) {
+    const a = (k: string): string | undefined => new RegExp(` ${k}="([^"]*)"`).exec(m[0])?.[1];
+    const id = a('Id'), type = a('Type'), target = a('Target');
+    if (id && type && target) out.push({ id, type, target, external: a('TargetMode') === 'External', raw: m[0] });
+  }
+  return out;
+}
+
+/** `target` relativo à pasta de `from` (caminhos do zip interno). */
+function zipResolve(from: string, target: string): string {
+  const segs = from.split('/').slice(0, -1);
+  for (const s of target.split('/')) {
+    if (s === '..') segs.pop();
+    else if (s && s !== '.') segs.push(s);
+  }
+  return segs.join('/');
+}
+
+/**
+ * Copia uma parte do diagrama para o pacote (`dst`) com as relações dela
+ * (imagens de SmartArt com foto): os alvos internos vão para ppt/media e os
+ * ids de relação são mantidos (o XML da parte os referencia).
+ */
+function copyDiagramPart(pc: PartCtx, parts: Record<string, Uint8Array>, src: string, dst: string, xml: string, k: number): void {
+  const conv = pc.conv;
+  conv.parts.set(dst, strToU8(xml));
+  const rels = zipRels(parts, src);
+  if (!rels.length) return;
+  const items = rels.map((r) => {
+    if (r.external) return r.raw;
+    const from = zipResolve(src, r.target);
+    const bytes = parts[from];
+    if (!bytes) return r.raw;
+    const base = from.slice(from.lastIndexOf('/') + 1);
+    const ext = base.includes('.') ? base.slice(base.lastIndexOf('.') + 1).toLowerCase() : 'bin';
+    const media = `ppt/media/dgm${k}_${base}`;
+    conv.parts.set(media, bytes);
+    if (ext !== 'xml') conv.mediaExts.add(ext);
+    return r.raw.replace(/ Target="[^"]*"/, ` Target="../media/dgm${k}_${escAttr(base)}"`);
+  });
+  const i = dst.lastIndexOf('/');
+  conv.parts.set(`${dst.slice(0, i)}/_rels/${dst.slice(i + 1)}.rels`, strToU8(
+    `${XML_DECL}<Relationships xmlns="${NS.rel}">${items.map((r) => r.endsWith('/>') ? r : r.replace(/>$/, '/>')).join('')}</Relationships>`));
+}
+
+/**
+ * SmartArt do round-trip: o .ppt guarda o diagrama como IMAGEM (o fallback
+ * 97-2003) e, no metroBlob, o graphicFrame original com as partes do
+ * diagrama. Reconstruído como `<p:graphicFrame>` real — como o PowerPoint faz
+ * ao abrir o .ppt (inclusive a animação por partes: `<a:dgm id>` = modelId
+ * das formas do desenho). Só vale se a imagem do binário ainda casa com o
+ * quadro original + margens de efeito (forma movida num app antigo = fica a
+ * imagem, que é o que o binário mostra).
+ */
+function diagramFrameXml(sh: OAShape, pc: PartCtx, xf: Xf, cNvPr: string): string | undefined {
+  const dg = metroDiagram(sh);
+  if (!dg) return undefined;
+  const fxfrm = firstChild(dg.frame, 'p:xfrm');
+  const off = fxfrm ? firstChild(fxfrm, 'a:off') : undefined;
+  const ext = fxfrm ? firstChild(fxfrm, 'a:ext') : undefined;
+  if (!fxfrm || !off || !ext) return undefined;
+  const num = (e: XmlElement, k: string): number => parseInt(e.attrs[k] ?? '0', 10) || 0;
+  const fx = num(off, 'x'), fy = num(off, 'y'), fcx = num(ext, 'cx'), fcy = num(ext, 'cy');
+  const m = dg.effect ?? { l: 0, t: 0, r: 0, b: 0 };
+  const tol = 3200;
+  if (Math.abs(fx + m.l * fcx - xf.x) > tol || Math.abs(fy + m.t * fcy - xf.y) > tol ||
+      Math.abs(fx + fcx + m.r * fcx - (xf.x + xf.cx)) > tol || Math.abs(fy + fcy + m.b * fcy - (xf.y + xf.cy)) > tol) return undefined;
+  // partes: precisa ao menos de dados + desenho (o layout pronto que renderizamos)
+  const found = zipRels(dg.parts, 'drs/e2oDoc.xml')
+    .filter((r) => !r.external && DGM_KIND[r.type])
+    .map((r) => ({ r, kind: DGM_KIND[r.type]!, src: zipResolve('drs/e2oDoc.xml', r.target) }))
+    .filter((p) => dg.parts[p.src]);
+  if (!found.some((p) => p.kind === 'data') || !found.some((p) => p.kind === 'drawing')) return undefined;
+  const k = ++pc.conv.diagrams;
+  const newId = new Map<string, string>();
+  for (const p of found) newId.set(p.r.id, pc.rels.add(p.r.type, `../diagrams/${p.kind}${k}.xml`));
+  for (const p of found) {
+    const dst = `ppt/diagrams/${p.kind}${k}.xml`;
+    let xml = strFromU8(dg.parts[p.src]!);
+    // dados → desenho: `<dsp:dataModelExt relId>` aponta a relação da PARTE DONA (o slide)
+    if (p.kind === 'data') xml = xml.replace(/(<dsp:dataModelExt [^>]*relId=")([^"]+)"/, (_s, a: string, id: string) => `${a}${newId.get(id) ?? id}"`);
+    copyDiagramPart(pc, dg.parts, p.src, dst, xml, k);
+    pc.conv.overrides.set(dst, dg.types.get(p.src) ?? DGM_CT[p.kind]!);
+  }
+  const ids = firstChild(firstChild(firstChild(dg.frame, 'a:graphic') ?? dg.frame, 'a:graphicData') ?? dg.frame, 'dgm:relIds');
+  const rid = (a: string): string | undefined => { const v = ids?.attrs[a]; return v ? newId.get(v) : undefined; };
+  const relIds = el('dgm:relIds', { 'xmlns:dgm': 'http://schemas.openxmlformats.org/drawingml/2006/diagram',
+    'r:dm': rid('r:dm'), 'r:lo': rid('r:lo'), 'r:qs': rid('r:qs'), 'r:cs': rid('r:cs') });
+  return el('p:graphicFrame', {},
+    el('p:nvGraphicFramePr', {}, cNvPr + '<p:cNvGraphicFramePr/><p:nvPr/>') +
+    serializeXml(fxfrm) +
+    el('a:graphic', {}, el('a:graphicData', { uri: 'http://schemas.openxmlformats.org/drawingml/2006/diagram' }, relIds)));
 }
 
 /** É forma oculta (fHidden no conjunto 0x3BF)? */
@@ -570,6 +723,12 @@ export function shapeXml(sh: OAShape, pc: PartCtx, opts: ShapeOpts = {}): string
   const id = shapeId(sh, pc);
   const cNvPr = el('p:cNvPr', { id, name, descr });
   const inGroup = !!opts.inGroup;
+
+  // SmartArt de round-trip (a imagem do binário é só o fallback 97-2003)
+  if (pc.conv.useRoundTrip && sh.props.has(0x3a9)) {
+    const dgm = diagramFrameXml(sh, pc, xf, cNvPr);
+    if (dgm) return dgm;
+  }
 
   // imagem (PictureFrame ou qualquer forma com pib)
   if (pib) {

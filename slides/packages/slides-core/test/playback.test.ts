@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  parseXml, parseSlideTiming, parseSlideTransition, buildPlaybackTimeline, playbackStateAt, shapeOpacityAt,
-  mediaStateAt, gifFrameAt,
+  parseXml, parseSlideTiming, parseSlideTransition, buildPlaybackTimeline, playbackStateAt, shapeOpacityAt, AFTER_LINK_MS,
+  mediaStateAt, mediaFadeAlpha, gifFrameAt,
   type CountTextUnits, type SlideTimingModel, type PlacedEffect,
 } from '../src/index.js';
 
@@ -69,11 +69,11 @@ describe('árvore <p:timing> → passos e efeitos (parseSlideTiming)', () => {
     expect(m.steps.map((s) => s.auto)).toEqual([true, false]);
   });
 
-  it('"após o anterior" vira sub-par com delay = fim acumulado', () => {
+  it('"após o anterior" vira sub-par com delay = fim acumulado (+1 ms por elo, como o app)', () => {
     const [a, b] = m.steps[0]!.effects;
     expect([a!.presetClass, a!.presetId, a!.target?.spid, a!.startMs, a!.durMs, a!.filter]).toEqual(['entr', 10, '3', 0, 1000, 'fade']);
-    expect([b!.presetId, b!.target?.spid, b!.startMs, b!.durMs]).toEqual([1, '4', 1000, 1]);
-    expect(m.steps[0]!.durMs).toBe(1001);
+    expect([b!.presetId, b!.target?.spid, b!.startMs, b!.durMs]).toEqual([1, '4', 1000 + AFTER_LINK_MS, 1]);
+    expect(m.steps[0]!.durMs).toBe(1001 + AFTER_LINK_MS);
   });
 
   it('atraso do próprio efeito (stCondLst) soma no início', () => {
@@ -105,10 +105,10 @@ describe('árvore <p:timing> → passos e efeitos (parseSlideTiming)', () => {
   });
 
   it('"após o anterior" encadeia pelo fim REAL do sub-grupo anterior, não pelo delay gravado', () => {
-    // delay gravado 300 (cache errado): o 2º efeito começa quando o 1º (1000) termina
+    // delay gravado 300 (cache errado): o 2º efeito começa quando o 1º (1000) termina (+1 ms)
     const m2 = parseSlideTiming(parseXml(sld(timing([step(true, [sub(0, fx(5, 'entr', 10, '3', 0, set + fade(1000))), sub(300, fx(6, 'entr', 10, '4', 0, set + fade(500)))])]))), one);
-    expect(m2.steps[0]!.effects.map((e) => e.startMs)).toEqual([0, 1000]);
-    expect(m2.steps[0]!.durMs).toBe(1500);
+    expect(m2.steps[0]!.effects.map((e) => e.startMs)).toEqual([0, 1000 + AFTER_LINK_MS]);
+    expect(m2.steps[0]!.durMs).toBe(1500 + AFTER_LINK_MS);
   });
 
   it('por letra: sem informação das formas, cai no bldP animBg="1" (fundo = unidade cheia antes do texto)', () => {
@@ -195,11 +195,12 @@ describe('linha do tempo da reprodução automática (buildPlaybackTimeline)', (
     expect(tl.slides[1]!.transitionMs).toBe(30 * 33);
   });
 
-  it('export: duração PADRÃO (sem advTm) conta quadros a 30/s; intervalo gravado conta ticks', () => {
-    const tl = buildPlaybackTimeline([model(undefined, [], 'fade', 750), model(3000, [], 'fade', 750)], { tickMs: 33, transitionFps: 30, defaultSlideMs: 3000 });
+  it('export: meio quadro de transição arredonda p/ baixo (0,75 s = 22 quadros)', () => {
+    const tl = buildPlaybackTimeline([model(undefined, [], 'fade', 750), model(3000, [], 'fade', 500)], { tickMs: 33, transitionFps: 30, defaultSlideMs: 3000 });
     const s0 = tl.slides[0]!, s1 = tl.slides[1]!;
-    expect(s0.endMs - s0.startMs).toBe((23 + 2 + 90) * 33); // medido: 115 quadros (showcase)
-    expect(s1.endMs - s1.startMs).toBe((23 + 2 + 91) * 33); // advTm 3000 → ceil(3000/33)
+    expect(s0.transitionMs).toBe(22 * 33);
+    expect(s0.endMs - s0.startMs).toBe((22 + 2 + 91) * 33); // medido: 115 quadros (showcase)
+    expect(s1.transitionMs).toBe(15 * 33);
   });
 
   it('export: 1º slide com corte seco começa após 1 quadro preto', () => {
@@ -288,5 +289,56 @@ describe('mídia na reprodução (media.ts)', () => {
     expect(gifFrameAt([100, 100, 100], 350)).toBe(0); // volta ao início
     expect(gifFrameAt([100, 100, 100], 350, 0)).toBe(2); // sem repetição: congela no último
     expect(gifFrameAt([0, 0], 150)).toBe(1); // atraso 0 vale 100 ms
+  });
+});
+
+describe('repetir até o clique / marcador de mídia / mídia (corte, esmaecer, fim)', () => {
+  const cmd = (spid: string, dur: number): string =>
+    `<p:par><p:cTn id="7" presetID="1" presetClass="mediacall" presetSubtype="0" fill="hold" nodeType="withEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>` +
+    `<p:cmd type="call" cmd="playFrom(0.0)"><p:cBhvr><p:cTn id="8" dur="${dur}" fill="hold"/><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr></p:cmd></p:childTnLst></p:cTn></p:par>`;
+
+  it('"até o próximo clique" (endCondLst onNext): termina quando o passo seguinte começa', () => {
+    const pulse = fx(5, 'emph', 26, '3', 0, fade(500), 'repeatCount="indefinite"')
+      .replace('</p:stCondLst>', '</p:stCondLst><p:endCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:endCondLst>');
+    const m = parseSlideTiming(parseXml(sld(timing([step(true, [sub(0, pulse)]), step(false, [sub(0, fx(6, 'entr', 10, '4', 0, set + fade(1000)))])]))), one);
+    expect(m.steps[0]!.effects[0]!.endOnNext).toBe(true);
+    const tl = buildPlaybackTimeline([{ ...m, transition: { type: 'cut', ns: 'p', attrs: {}, durMs: 0, advClick: true, advTmMs: 5000 } }]);
+    const s = tl.slides[0]!;
+    const pe = s.effects.find((e) => e.endOnNext)!;
+    expect(pe.endAt).toBe(s.stepStartMs[1]! - s.animStartMs);
+  });
+
+  it('repeatCount gigante (FLT_MAX de binário) vira indefinido', () => {
+    const big = fx(5, 'emph', 8, '3', 0, fade(500), 'repeatCount="3.4028234663852886e+41"');
+    const m = parseSlideTiming(parseXml(sld(timing([step(true, [sub(0, big)])]))), one);
+    expect(m.steps[0]!.effects[0]!.durMs).toBe(Infinity);
+  });
+
+  it('marcador de mídia dispara a sequência na posição do marcador (relógio do export)', () => {
+    const bmkSeq = `<p:seq concurrent="1" nextAc="seek"><p:cTn id="20" restart="whenNotActive" fill="hold" evtFilter="cancelBubble" nodeType="interactiveSeq">` +
+      `<p:stCondLst><p:cond evt="onMediaBookmark" delay="0"><p:tgtEl><p14:bmkTgt spid="3" bmkName="marca"/></p:tgtEl></p:cond></p:stCondLst>` +
+      `<p:childTnLst><p:par><p:cTn id="21" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>${fx(22, 'entr', 10, '9', 0, set + fade(500)).replace('afterEffect', 'clickEffect')}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:seq>`;
+    const xml = sld(timing([step(true, [sub(0, cmd('3', 4000))])]).replace('</p:seq></p:childTnLst></p:cTn></p:par></p:tnLst>', `</p:seq>${bmkSeq}</p:childTnLst></p:cTn></p:par></p:tnLst>`));
+    const m = parseSlideTiming(parseXml(xml), one);
+    expect(m.bookmarkTriggers).toHaveLength(1);
+    expect(m.interactive).toHaveLength(0);
+    m.bookmarkTriggers![0]!.timeMs = 2000;
+    const tr = { type: 'cut', ns: 'p', attrs: {}, durMs: 0, advClick: true, advTmMs: 5000 };
+    const real = buildPlaybackTimeline([{ ...m, transition: tr }]).slides[0]!;
+    expect(real.effects.find((e) => e.step === -1)!.t0).toBe(2000);
+    // export: 2 ticks de latência + marcador no relógio da mídia (1/30 s por quadro de 33 ms)
+    const exp = buildPlaybackTimeline([{ ...m, transition: tr }], { tickMs: 33, transitionFps: 30 }).slides[0]!;
+    expect(exp.effects.find((e) => e.step === -1)!.t0).toBeCloseTo(66 + 2000 / (1000 / 30 / 33), 6);
+  });
+
+  it('mídia: fim do nó (ended) ≠ pausa; esmaecer sobre a capa', () => {
+    const play = { presetClass: 'mediacall', presetId: 1, presetSubtype: 0, startMs: 0, durMs: 2000, blockMs: 2000, t0: 0, step: 0,
+      node: { tag: 'par', st: [], children: [{ tag: 'cmd', st: [{ delayMs: 0 }], cmd: 'playFrom(0.0)', dur: 2000, target: { spid: '3' }, children: [] }] },
+      target: { spid: '3' } } as unknown as PlacedEffect;
+    expect(mediaStateAt([play], '3', 2500)).toMatchObject({ playing: false, ended: true, timeSec: 2 });
+    expect(mediaStateAt([play], '3', 2500, {}, true)).toMatchObject({ playing: true, timeSec: 2.5 }); // repetir: segue
+    expect(mediaFadeAlpha({ inMs: 1000, outMs: 1000 }, 500, 4000)).toBeCloseTo(0.5, 6);
+    expect(mediaFadeAlpha({ inMs: 1000, outMs: 1000 }, 3750, 4000)).toBeCloseTo(0.25, 6);
+    expect(mediaFadeAlpha(undefined, 0, 4000)).toBe(1);
   });
 });

@@ -63,6 +63,46 @@ function scratch(slot: number, w: number, h: number): { c: Scratch; x: CanvasRen
 }
 
 /**
+ * Máscara ANGULAR (relógio: 12h, sentido horário) por pontos (fração da volta,
+ * alfa) em ordem crescente — gradiente cônico; `ccw` espelha (anti-horário).
+ * Devolve false sem `createConicGradient` (quem chama cai na máscara dura).
+ */
+function conicMask(m: CanvasRenderingContext2D, r: TransitionRect, pts: [number, number][], ccw = false): boolean {
+  const mk = m as unknown as { createConicGradient?: (a: number, x: number, y: number) => CanvasGradient };
+  if (typeof mk.createConicGradient !== 'function') return false;
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  const g = mk.createConicGradient.call(m, -Math.PI / 2, cx, cy);
+  const list = ccw ? pts.map(([o, a]): [number, number] => [1 - o, a]).reverse() : pts;
+  let last = 0;
+  for (const [o, a] of list) {
+    last = Math.max(last, clamp01(o));
+    g.addColorStop(last, `rgba(255,255,255,${clamp01(a)})`);
+  }
+  m.fillStyle = g;
+  m.fillRect(r.x, r.y, r.w, r.h);
+  return true;
+}
+
+/** Pontos de uma roda de `n` raios no progresso `q`: borda de ataque SUAVE, raio de partida nítido. */
+function wheelPts(n: number, q: number, soft: number): [number, number][] {
+  const span = 1 / n, pts: [number, number][] = [];
+  const s = Math.min(soft, span * q * 2, span * (1 - q) * 2);
+  for (let i = 0; i < n; i++) {
+    const a0 = i * span, front = a0 + span * q;
+    pts.push([a0, 1], [front - s / 2, 1], [front + s / 2, 0], [a0 + span, 0]);
+  }
+  return pts;
+}
+
+/** Cor média de um cantinho (inferior esquerdo) da imagem — o FUNDO do slide. */
+function cornerColor(img: CanvasImageSource, r: TransitionRect): [number, number, number] {
+  const t = scratch(3, 1, 1);
+  t.x.drawImage(img, r.x + r.w * 0.005, r.y + r.h * 0.955, r.w * 0.03, r.h * 0.04, 0, 0, 1, 1);
+  const d = t.x.getImageData(0, 0, 1, 1).data;
+  return [d[0] ?? 0, d[1] ?? 0, d[2] ?? 0];
+}
+
+/**
  * Desenha o DESTINO sobre a origem através de uma máscara de alfa SUAVE
  * (`paintMask` pinta o alfa — branco opaco = destino visível).
  */
@@ -194,11 +234,13 @@ export function paintTransition(ctx: CanvasRenderingContext2D, from: CanvasImage
     }
     case 'fade': {
       if (thruBlk) {
-        ctx.globalAlpha = p < 0.5 ? 1 - 2 * p : 2 * p - 1;
+        // cada metade (sai o antigo, entra o novo) com a mesma curva cosseno
+        ctx.globalAlpha = p < 0.5 ? 1 - easeInOut(2 * p) : easeInOut(2 * p - 1);
         draw(ctx, p < 0.5 ? from : to, r);
       } else {
+        // medido (fade-curve.py, resíduo ~0): a mistura segue (1 − cos πp)/2
         draw(ctx, from, r);
-        ctx.globalAlpha = p;
+        ctx.globalAlpha = easeInOut(p);
         draw(ctx, to, r);
       }
       break;
@@ -219,9 +261,10 @@ export function paintTransition(ctx: CanvasRenderingContext2D, from: CanvasImage
       break;
     }
     case 'pull': {
-      // medido: ~quadrático e termina em 90% do tempo
-      const e = easePow(p, 1.8, 0.9);
+      // medido: reto ~quadrático e termina em 90% do tempo; DIAGONAL sai de 7% a 38% (suave)
       const [vx, vy] = dirVec(dir || 'l');
+      const t = clamp01((p - 0.07) / 0.31);
+      const e = vx !== 0 && vy !== 0 ? t * t * (3 - 2 * t) : easePow(p, 1.8, 0.9);
       draw(ctx, to, r);
       draw(ctx, from, r, vx * r.w * e, vy * r.h * e);
       break;
@@ -289,7 +332,7 @@ export function paintTransition(ctx: CanvasRenderingContext2D, from: CanvasImage
         for (let c = 0; c < cols; c++) {
           const lead = vert ? rI / (rows - 1) : c / (cols - 1);
           const f = (p - 0.5 * lead - 0.05 * hash01(c, rI)) / 0.45;
-          flipTile(ctx, from, to, r.x + (c * r.w) / cols, r.y + (rI * r.h) / rows, r.w / cols + 0.5, r.h / rows + 0.5, f, false);
+          flipTile(ctx, from, to, r.x + (c * r.w) / cols, r.y + (rI * r.h) / rows, r.w / cols + 0.5, r.h / rows + 0.5, f, vert);
         }
       }
       break;
@@ -335,9 +378,30 @@ export function paintTransition(ctx: CanvasRenderingContext2D, from: CanvasImage
       }
       break;
     }
-    case 'wedge': revealOver(ctx, from, to, r, 'wedge', p); break;
-    case 'wheel': revealOver(ctx, from, to, r, `wheel(${a['spokes'] ?? '4'})`, p); break;
+    case 'wedge': {
+      // cunha: duas frentes simétricas a partir das 12h, bordas suaves (como a roda)
+      const h = p / 2, sw = Math.min(0.06, p, 1 - p);
+      let ok = false;
+      softOver(ctx, from, to, r, canvasW, canvasH, (m) => {
+        ok = conicMask(m, r, [[0, 1], [h - sw / 2, 1], [h + sw / 2, 0], [1 - h - sw / 2, 0], [1 - h + sw / 2, 1], [1, 1]]);
+      });
+      if (!ok) revealOver(ctx, from, to, r, 'wedge', p);
+      break;
+    }
+    case 'wheel': {
+      // roda/relógio (medido): com 1–2 raios a borda de ataque é ESFUMADA; com 3+
+      // raios as cunhas têm bordas nítidas
+      const n = Math.max(1, parseInt(a['spokes'] ?? '4', 10) || 4);
+      let ok = false;
+      if (n <= 2) softOver(ctx, from, to, r, canvasW, canvasH, (m) => { ok = conicMask(m, r, wheelPts(n, p, 0.06)); });
+      if (!ok) revealOver(ctx, from, to, r, `wheel(${n})`, p);
+      break;
+    }
     case 'wheelReverse': {
+      const n = Math.max(1, parseInt(a['spokes'] ?? '1', 10) || 1);
+      let ok = false;
+      softOver(ctx, from, to, r, canvasW, canvasH, (m) => { ok = conicMask(m, r, wheelPts(n, p, 0.06), true); });
+      if (ok) break;
       // anti-horário: espelha a roda
       draw(ctx, from, r);
       ctx.save();
@@ -390,10 +454,19 @@ export function paintTransition(ctx: CanvasRenderingContext2D, from: CanvasImage
         const inn = clamp01((p - 0.6) / 0.2);
         if (inn > 0) { ctx.globalAlpha = inn; draw(ctx, to, r); }
       } else {
-        // suave: o meio da mistura cai no meio do tempo (esmaecer cruzado)
+        // suave (medido): o FUNDO funde linearmente e o CONTEÚDO passa pela cor de
+        // fundo misturada — o anterior some, o novo surge; no meio, só fundo
         draw(ctx, from, r);
         ctx.globalAlpha = p;
         draw(ctx, to, r);
+        const w = 1 - Math.abs(2 * p - 1);
+        if (w > 0) {
+          const c0 = cornerColor(from, r), c1 = cornerColor(to, r);
+          const mix = (i: number): number => Math.round(c0[i]! + (c1[i]! - c0[i]!) * p);
+          ctx.globalAlpha = w;
+          ctx.fillStyle = `rgb(${mix(0)},${mix(1)},${mix(2)})`;
+          ctx.fillRect(r.x, r.y, r.w, r.h);
+        }
       }
       break;
     }

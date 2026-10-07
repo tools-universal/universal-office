@@ -8,6 +8,8 @@
  *    ao abrir o .ppt, usa esse XML para a aparência da forma (ex.: contorno
  *    `noFill` que o binário deixa "não especificado" = visível por padrão).
  *    O TEXTO do shapexml vem mascarado ("____") — o texto vale o do binário.
+ *    SmartArt: a forma do binário é uma IMAGEM e o blob traz o graphicFrame
+ *    original (`drs/e2oDoc.xml`) com as partes do diagrama (`drs/diagrams/*`).
  *
  * Arquivos 97-2003 genuínos não têm nada disso; o conversor trata esta camada
  * como opcional (ConvertOptions.useRoundTrip).
@@ -33,6 +35,49 @@ export function roundTripThemeXml(bytes: Uint8Array | undefined): string | undef
   if (!xml || !xml.includes('<a:theme')) return undefined;
   try { parseXml(xml); } catch { return undefined; }
   return xml;
+}
+
+/** Diagrama (SmartArt) do metroBlob: `<p:E2oFrame>` (graphicFrame original) + partes do zip. */
+export interface MetroDiagram {
+  frame: XmlElement;
+  /** Partes do zip interno (caminho sem barra inicial → bytes). */
+  parts: Record<string, Uint8Array>;
+  /** Content-types das partes (`[Content_Types].xml` interno), por caminho. */
+  types: Map<string, string>;
+  /** Margens de efeito (`<a:preciseEffectOffsets>`, fração do tamanho): a imagem do binário = quadro + margens. */
+  effect?: { l: number; t: number; r: number; b: number };
+}
+
+/** SmartArt guardado no metroBlob (undefined se a forma não é um diagrama de round-trip). */
+export function metroDiagram(sh: OAShape): MetroDiagram | undefined {
+  const blob = sh.props.get(0x3a9)?.complex;
+  if (!blob || blob.length < 4 || blob[0] !== 0x50 || blob[1] !== 0x4b) return undefined;
+  let parts: Record<string, Uint8Array>;
+  try { parts = unzipSync(blob); } catch { return undefined; }
+  const e2o = parts['drs/e2oDoc.xml'];
+  if (!e2o) return undefined;
+  let frame: XmlElement;
+  try { frame = parseXml(strFromU8(e2o)); } catch { return undefined; }
+  if (!strFromU8(e2o).includes('drawingml/2006/diagram')) return undefined;
+  const types = new Map<string, string>();
+  const ct = parts['[Content_Types].xml'];
+  if (ct) {
+    for (const m of strFromU8(ct).matchAll(/<Override [^>]*>/g)) {
+      const name = /PartName="\/?([^"]+)"/.exec(m[0])?.[1], type = /ContentType="([^"]+)"/.exec(m[0])?.[1];
+      if (name && type) types.set(name, type);
+    }
+  }
+  const out: MetroDiagram = { frame, parts, types };
+  const dr = parts['drs/downrev.xml'];
+  const off = dr ? /<a:preciseEffectOffsets>(.*?)<\/a:preciseEffectOffsets>/.exec(strFromU8(dr))?.[1] : undefined;
+  if (off) {
+    const frac = (tag: string): number => {
+      const m = new RegExp(`<a:${tag} n="(-?\\d+)" d="(\\d+)"`).exec(off);
+      return m && Number(m[2]) ? Number(m[1]) / Number(m[2]) : 0;
+    };
+    out.effect = { l: frac('l'), t: frac('t'), r: frac('r'), b: frac('b') };
+  }
+  return out;
 }
 
 const metroCache = new WeakMap<OAShape, XmlElement | null>();

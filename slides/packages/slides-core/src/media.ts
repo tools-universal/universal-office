@@ -52,6 +52,8 @@ export interface MediaPlayState {
   timeSec: number;
   /** Duração da mídia segundo o arquivo (ms), quando conhecida. */
   durMs?: number;
+  /** O nó de mídia ACABOU (≠ pausado): vale "retroceder" / "ocultar quando parado". */
+  ended?: boolean;
 }
 
 /** Comandos (`<p:cmd>`) dos efeitos colocados que miram a forma `spid`, em ordem. */
@@ -75,8 +77,12 @@ export function mediaCommands(effects: readonly PlacedEffect[], spid: string): M
   return out.sort((a, b) => a.atMs - b.atMs);
 }
 
-/** Estado da mídia `spid` no tempo de animação `animMs` (Infinity = fim do slide). */
-export function mediaStateAt(effects: readonly PlacedEffect[], spid: string, animMs: number, clock: MediaClock = {}): MediaPlayState {
+/**
+ * Estado da mídia `spid` no tempo de animação `animMs` (Infinity = fim do slide).
+ * `loop` ("repetir até parar"): o nó de mídia não acaba em comando + duração —
+ * a mídia segue até o fim do arquivo (quem toca decide se volta ao início).
+ */
+export function mediaStateAt(effects: readonly PlacedEffect[], spid: string, animMs: number, clock: MediaClock = {}, loop = false): MediaPlayState {
   const k = clock.scale ?? 1, lat = clock.latencyMs ?? 0;
   let started = false, playing = false, pos = 0, since = 0;
   let durMs: number | undefined, startAt = 0;
@@ -107,13 +113,28 @@ export function mediaStateAt(effects: readonly PlacedEffect[], spid: string, ani
   }
   let timeSec = playing ? pos + (Math.max(0, animMs - since) * k) / 1000 : pos;
   // o nó de mídia acaba em comando + duração (no relógio da mídia): congela ali
-  if (playing && durMs !== undefined && (animMs - startAt) * k >= durMs) {
-    playing = false;
+  let ended = false;
+  if (playing && !loop && durMs !== undefined && (animMs - startAt) * k >= durMs) {
+    playing = false; ended = true;
     timeSec = Math.min(timeSec, pos + (durMs - lat * k) / 1000);
   }
   const st: MediaPlayState = { started, playing, timeSec };
+  if (ended) st.ended = true;
   if (durMs !== undefined) st.durMs = durMs;
   return st;
+}
+
+/**
+ * Opacidade do vídeo com esmaecer (`p14:fade`) — o vídeo surge/some SOBRE a
+ * capa: `playedMs` = quanto já tocou, `lenMs` = duração tocada (com corte).
+ * Medido: depois do esmaecer de saída fica a capa.
+ */
+export function mediaFadeAlpha(fade: { inMs: number; outMs: number } | undefined, playedMs: number, lenMs: number | undefined): number {
+  if (!fade) return 1;
+  let a = 1;
+  if (fade.inMs > 0) a = Math.min(a, Math.max(0, playedMs / fade.inMs));
+  if (fade.outMs > 0 && lenMs !== undefined && Number.isFinite(lenMs)) a = Math.min(a, Math.max(0, (lenMs - playedMs) / fade.outMs));
+  return a;
 }
 
 /**

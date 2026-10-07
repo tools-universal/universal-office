@@ -6,6 +6,8 @@
  * custom fica fora do escopo v1).
  */
 
+import { evalPreset } from './preset-engine.js';
+
 export interface Pt { x: number; y: number }
 
 /** Segmento de um subpath genérico (coordenadas absolutas no rect w×h). */
@@ -32,7 +34,7 @@ export type PresetPath =
   /** Path genérico (beziers/arcos, múltiplos subpaths, fillRule opcional).
    *  `subLum` (paralelo a subs): offset de luminância HSL do FILL por subpath
    *  (sombreado 3D de can/cube; null = subpath só de stroke, não preenche). */
-  | { kind: 'path'; fillRule?: 'evenodd'; subs: PathSeg[][]; subLum?: (number | null)[] };
+  | { kind: 'path'; fillRule?: 'evenodd'; subs: PathSeg[][]; subLum?: (number | null)[]; subStroke?: boolean[] };
 
 /** Vértices de um polígono regular inscrito na elipse w×h, começando no topo. */
 function regularPolygon(n: number, w: number, h: number): Pt[] {
@@ -62,7 +64,7 @@ function fitToBox(pts: Pt[], w: number, h: number): Pt[] {
  * Descritor de path para o preset `geom` num rect `w × h`.
  * Presets desconhecidos caem em `rect` (comportamento anterior preservado).
  */
-export function presetPath(geom: string | undefined, w: number, h: number, adj?: number[]): PresetPath {
+export function presetPath(geom: string | undefined, w: number, h: number, adj?: number[], adjNames?: string[]): PresetPath {
   const ss = Math.min(w, h); // "shortest side" das fórmulas DrawingML
   switch (geom) {
     case 'frame': { // moldura retangular; adj1 = espessura em % do ss
@@ -351,6 +353,15 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
           ],
           subLum: [0, ...lums],
         };
+      }
+      // demais presets: as fórmulas e caminhos OFICIAIS (presetShapeDefinitions)
+      if (geom && geom !== 'rect') {
+        const g = evalPreset(geom, w, h, adj, adjNames);
+        if (g && g.subs.length) {
+          const out: PresetPath = { kind: 'path', subs: g.subs, subLum: g.fill };
+          if (g.stroke.some((s) => !s)) out.subStroke = g.stroke;
+          return out;
+        }
       }
       return { kind: 'rect' };
   }

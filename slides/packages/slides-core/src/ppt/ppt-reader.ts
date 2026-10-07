@@ -64,6 +64,13 @@ export interface PptSlide {
   name?: string;
   /** RoundTripTheme12Atom (zip com o tema original, PowerPoint 2007+). */
   roundTripTheme?: Uint8Array;
+  /**
+   * RoundTripAnimationAtom12 (zip com `drs/timingInfo.xml` = o `<p:timing>`
+   * ORIGINAL): o app grava quando o binário PPT10 não representa a animação
+   * (gráfico/SmartArt por partes, texto em colunas…) — às vezes com a árvore
+   * PPT10 vazia.
+   */
+  roundTripTiming?: Uint8Array;
   /** Cabeçalho/rodapé próprio do slide (sobrepõe o do documento). */
   headersFooters?: PptHeadersFooters;
 }
@@ -464,6 +471,7 @@ function readSlideContainer(rec: Rec, kind: PptSlide['kind'], persistId: number,
         if (c.inst === 2 || c.inst === 3) s.name = utf16(c.r, c.start, c.end);
         break;
       case RT.RoundTripTheme12Atom: s.roundTripTheme = recData(c); break;
+      case RT.RoundTripAnimationAtom12Atom: s.roundTripTiming = recData(c); break;
       case RT.HeadersFooters: s.headersFooters = readHeadersFooters(c); break;
     }
   }

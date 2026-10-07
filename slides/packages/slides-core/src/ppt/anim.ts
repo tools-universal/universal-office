@@ -25,6 +25,7 @@
 import type { PptSlide } from './ppt-reader.js';
 import { type Rec, children, RT, utf16, recsIn } from './records.js';
 import { el, escAttr } from './xmlw.js';
+import { zipPartText } from './roundtrip.js';
 
 /** Valor de TimeVariant (bool/int/float/string). */
 type Variant = boolean | number | string;
@@ -62,6 +63,8 @@ export interface AnimCtx {
   scheme: string[];
   /** spids presentes no slide (alvos inexistentes descartam o comportamento). */
   hasShape: (spid: number) => boolean;
+  /** Id OOXML original (round-trip) → spid emitido. */
+  spidOf?: (ooxmlId: number) => number | undefined;
 }
 
 const FILL = ['', 'remove', 'freeze', 'hold', 'transition'];
@@ -204,11 +207,14 @@ function cTnAttrs(n: TNode, id: number): Record<string, string | number | undefi
   if (pst !== undefined) a['presetSubtype'] = pst;
   if (n.flags & 0x2) a['restart'] = RESTART[n.restart] || undefined;
   if (n.flags & 0x10) a['dur'] = n.dur === -1 ? 'indefinite' : n.dur;
-  // TimeModifierAtom: valores-padrão (1 repetição, velocidade 1) não são gravados no XML
+  // TimeModifierAtom: valores-padrão (1 repetição, velocidade 1) não são gravados no XML.
+  // "Indefinido" vem como FLT_MAX (3,4e38) no binário — medido: repetir até o
+  // fim do slide / próximo clique salvos pelo PowerPoint
+  const indefinite = (v: number): boolean => v < 0 || !Number.isFinite(v) || v >= 1e30;
   for (const m of n.modifiers) {
     switch (m.type) {
-      case 0: if (m.value !== 1) a['repeatCount'] = m.value < 0 || !Number.isFinite(m.value) ? 'indefinite' : Math.round(m.value * 1000); break;
-      case 1: a['repeatDur'] = m.value < 0 || !Number.isFinite(m.value) ? 'indefinite' : Math.round(m.value); break;
+      case 0: if (m.value !== 1) a['repeatCount'] = indefinite(m.value) ? 'indefinite' : Math.round(m.value * 1000); break;
+      case 1: a['repeatDur'] = indefinite(m.value) ? 'indefinite' : Math.round(m.value); break;
       case 2: if (m.value !== 1) a['spd'] = Math.round(m.value * 100000); break;
       case 3: if (m.value) a['accel'] = Math.round(m.value * 100000); break;
       case 4: if (m.value) a['decel'] = Math.round(m.value * 100000); break;
@@ -588,15 +594,46 @@ function pp10Records(slide: PptSlide): Rec[] {
   return blob ? recsIn(blob.r, blob.start, blob.end) : [];
 }
 
+/** Nº de efeitos (cTn com presetClass) num XML de timing. */
+const effectCount = (xml: string): number => (xml.match(/presetClass="/g) ?? []).length;
+
+/**
+ * `<p:timing>` ORIGINAL do round-trip (RoundTripAnimationAtom12 →
+ * `drs/timingInfo.xml`), com os spids OOXML trocados pelos emitidos.
+ * undefined sem round-trip ou se algum alvo não existe mais no slide.
+ */
+function roundTripTimingXml(slide: PptSlide, ctx: AnimCtx): string | undefined {
+  const xml = zipPartText(slide.roundTripTiming, 'timingInfo.xml');
+  const i = xml?.indexOf('<p:timing') ?? -1;
+  if (!xml || i < 0) return undefined;
+  let ok = true;
+  const body = xml.slice(i).replace(/\bspid="(\d+)"/g, (_m, v: string) => {
+    const id = parseInt(v, 10);
+    const mapped = ctx.spidOf?.(id) ?? (ctx.hasShape(id) ? id : undefined);
+    if (mapped === undefined) { ok = false; return `spid="${v}"`; }
+    return `spid="${mapped}"`;
+  });
+  return ok ? body : undefined;
+}
+
 /** `<p:timing>` do slide (string vazia quando não há animações). */
 export function buildTimingXml(slide: PptSlide, ctx?: AnimCtx): string {
   if (!ctx) return '';
   const recs = pp10Records(slide);
   const root = recs.find((r) => r.type === RT.ExtTimeNodeContainer);
-  if (!root) return '';
-  const w = new Writer(ctx);
-  const tree = nodeXml(readNode(root), w);
-  if (!tree || !/<p:(set|anim|animEffect|animMotion|animRot|animScale|animClr|cmd|video|audio)\b/.test(tree)) return '';
-  const bl = recs.find((r) => r.type === RT.BuildList);
-  return el('p:timing', {}, el('p:tnLst', {}, tree) + (bl ? buildListXml(bl, ctx) : ''));
+  let out = '';
+  if (root) {
+    const w = new Writer(ctx);
+    const tree = nodeXml(readNode(root), w);
+    if (tree && /<p:(set|anim|animEffect|animMotion|animRot|animScale|animClr|cmd|video|audio)\b/.test(tree)) {
+      const bl = recs.find((r) => r.type === RT.BuildList);
+      out = el('p:timing', {}, el('p:tnLst', {}, tree) + (bl ? buildListXml(bl, ctx) : ''));
+    }
+  }
+  // round-trip: o app guarda o XML original quando o binário não representa a
+  // animação (gráfico/SmartArt por partes, texto em colunas…) — vale quando
+  // traz MAIS efeitos que a conversão do PPT10
+  const rt = roundTripTimingXml(slide, ctx);
+  if (rt && effectCount(rt) > effectCount(out)) return rt;
+  return out;
 }

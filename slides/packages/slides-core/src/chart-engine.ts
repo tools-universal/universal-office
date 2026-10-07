@@ -15,6 +15,8 @@
  */
 
 import { parseXml, childElements, firstChild, textContent, type XmlElement } from './xml.js';
+import { colorFromDml } from './theme.js';
+import type { Theme } from './model.js';
 
 export type ChartType = 'bar-col' | 'bar-row' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'radar' | 'area' | 'unknown';
 
@@ -25,6 +27,25 @@ export interface ChartSeries {
   color?: string;
   /** Marcadores visíveis (line/scatter): `<c:marker><c:symbol val>` != none. */
   marker?: boolean;
+  /** Preenchimento da série resolvido com o tema (`<c:spPr>`): null = sem preenchimento. */
+  fill?: string | null;
+  /** Linha da série (`<c:spPr><a:ln>`): null = sem linha. */
+  line?: string | null;
+}
+
+/** Texto de eixo/legenda (`<c:txPr>…<a:defRPr sz>`), resolvido com o tema. */
+export interface ChartTextStyle { sizePt?: number; color?: string; font?: string }
+
+/** Eixo (`<c:valAx>`/`<c:catAx>`): escala explícita, grade, exclusão e texto. */
+export interface ChartAxis {
+  min?: number;
+  max?: number;
+  majorUnit?: number;
+  /** `<c:majorGridlines>` presente. */
+  grid: boolean;
+  /** `<c:delete val="1">`: eixo oculto (sem rótulos). */
+  deleted: boolean;
+  text?: ChartTextStyle;
 }
 
 export interface ChartModel {
@@ -47,6 +68,13 @@ export interface ChartModel {
   legendPos?: string;
   /** `<c:radarStyle val>`: standard (linhas) | filled | marker. */
   radarStyle?: string;
+  /** Fundo da área do gráfico: null = sem preenchimento; ausente = branco (setado pelo caller). */
+  bg?: string | null;
+  /** Eixos lidos do XML (ausentes = comportamento default calibrado). */
+  valAx?: ChartAxis;
+  catAx?: ChartAxis;
+  /** Texto da legenda (`<c:legend><c:txPr>`). */
+  legendText?: ChartTextStyle;
 }
 
 /** Paleta de fallback (Office padrão). Usada quando a série não traz spPr. */
@@ -56,7 +84,7 @@ const DEFAULT_PALETTE = [
 ];
 
 /** Parse de `<c:chartSpace>` → ChartModel. */
-export function parseChart(xml: string): ChartModel {
+export function parseChart(xml: string, theme?: Theme): ChartModel {
   const root = parseXml(xml);
   const chart = firstChild(root, 'c:chart');
   if (!chart) return { type: 'unknown', series: [], categories: [] };
@@ -101,7 +129,7 @@ export function parseChart(xml: string): ChartModel {
     const ov = firstChild(block, 'c:overlap');
     if (ov?.attrs['val']) out.overlap = parseInt(ov.attrs['val'], 10);
     for (const ser of childElements(block, 'c:ser')) {
-      const series = parseSeries(ser);
+      const series = parseSeries(ser, theme);
       if (series.values.length === 0) continue;
       out.series.push(series);
       perSeriesTypes.push(t);
@@ -115,7 +143,51 @@ export function parseChart(xml: string): ChartModel {
   // se há mais de um tipo de bloco → combo (anota perSeriesType)
   const uniqueTypes = new Set(perSeriesTypes);
   if (uniqueTypes.size > 1) out.perSeriesType = perSeriesTypes;
+  // eixos e texto da legenda (escala/grade/rótulos do XML, com o tema)
+  const valAx = firstChild(plot, 'c:valAx');
+  const catAx = firstChild(plot, 'c:catAx') ?? firstChild(plot, 'c:dateAx');
+  if (valAx) out.valAx = readAxis(valAx, theme);
+  if (catAx) out.catAx = readAxis(catAx, theme);
+  if (legend) {
+    const lt = readTextStyle(firstChild(legend, 'c:txPr'), theme);
+    if (lt) out.legendText = lt;
+  }
   return out;
+}
+
+/** `<c:txPr>` → tamanho (pt), cor e fonte do 1º `<a:defRPr>` (fonte de tema resolvida). */
+function readTextStyle(txPr: XmlElement | undefined, theme?: Theme): ChartTextStyle | undefined {
+  const rpr = txPr ? deepFind(txPr, 'a:defRPr') : undefined;
+  if (!rpr) return undefined;
+  const st: ChartTextStyle = {};
+  const sz = rpr.attrs['sz'];
+  if (sz && /^\d+$/.test(sz)) st.sizePt = parseInt(sz, 10) / 100;
+  const sf = firstChild(rpr, 'a:solidFill');
+  const c = sf ? colorFromDml(childElements(sf)[0], theme ?? { colors: {} }) : undefined;
+  if (c) st.color = c;
+  let face = firstChild(rpr, 'a:latin')?.attrs['typeface'];
+  if (face === '+mn-lt') face = theme?.fonts?.minor;
+  else if (face === '+mj-lt') face = theme?.fonts?.major;
+  if (face && !face.startsWith('+')) st.font = face;
+  return st;
+}
+
+function readAxis(ax: XmlElement, theme?: Theme): ChartAxis {
+  const num = (el: XmlElement | undefined, name: string): number | undefined => {
+    const v = el ? firstChild(el, name)?.attrs['val'] : undefined;
+    const n = v !== undefined ? parseFloat(v) : NaN;
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const del = firstChild(ax, 'c:delete')?.attrs['val'];
+  const a: ChartAxis = { grid: !!firstChild(ax, 'c:majorGridlines'), deleted: del === '1' || del === 'true' };
+  const sc = firstChild(ax, 'c:scaling');
+  const min = num(sc, 'c:min'), max = num(sc, 'c:max'), unit = num(ax, 'c:majorUnit');
+  if (min !== undefined) a.min = min;
+  if (max !== undefined) a.max = max;
+  if (unit !== undefined && unit > 0) a.majorUnit = unit;
+  const t = readTextStyle(firstChild(ax, 'c:txPr'), theme);
+  if (t) a.text = t;
+  return a;
 }
 
 function chartTypeForBlock(name: string): ChartType {
@@ -131,7 +203,7 @@ function chartTypeForBlock(name: string): ChartType {
   }
 }
 
-function parseSeries(ser: XmlElement): ChartSeries {
+function parseSeries(ser: XmlElement, theme?: Theme): ChartSeries {
   // nome: <c:tx><c:strRef><c:strCache><c:pt><c:v>NOME</c:v></c:pt></c:strCache></c:strRef></c:tx>
   let name = '';
   const tx = firstChild(ser, 'c:tx');
@@ -165,6 +237,25 @@ function parseSeries(ser: XmlElement): ChartSeries {
 
   const out: ChartSeries = { name, values };
   if (color) out.color = color;
+  // cores de TEMA (schemeClr…) e "sem preenchimento"/"sem linha" explícitos
+  if (spPr) {
+    const th = theme ?? { colors: {} };
+    if (firstChild(spPr, 'a:noFill')) out.fill = null;
+    else {
+      const sf = firstChild(spPr, 'a:solidFill');
+      const c = sf ? colorFromDml(childElements(sf)[0], th) : undefined;
+      if (c) { out.fill = c; out.color = c; }
+    }
+    const ln = firstChild(spPr, 'a:ln');
+    if (ln) {
+      if (firstChild(ln, 'a:noFill')) out.line = null;
+      else {
+        const lf = firstChild(ln, 'a:solidFill');
+        const c = lf ? colorFromDml(childElements(lf)[0], th) : undefined;
+        if (c) out.line = c;
+      }
+    }
+  }
   // marcadores (line/scatter): <c:marker><c:symbol val="none"/> desliga
   const marker = firstChild(ser, 'c:marker');
   if (marker) {
@@ -232,12 +323,142 @@ function walkText(el: XmlElement, out: string[]): void {
  * Desenha `chart` dentro do retângulo `(x, y, w, h)`. Branco no fundo. Título no
  * topo (se houver). Plot area = retângulo restante com margens internas.
  */
-export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt?: number, frameBorder?: string, sliceBorder = true): void {
-  // fundo branco (chartSpace default). Moldura: o host decide — o Excel desenha
-  // borda cinza clara em charts embutidos; o PowerPoint não (frameBorder=undef).
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(x, y, w, h);
-  if (frameBorder) {
+/**
+ * Seleção de PARTES (animação de gráfico por série/categoria/elemento):
+ * `bg` = fundo, título, grade, eixos e legenda; `data(s, c)` = marca da série
+ * `s`, categoria `c` (null = nenhuma).
+ */
+export interface ChartSel {
+  bg: boolean;
+  data: ((s: number, c: number) => boolean) | null;
+  /** Identidade estável da parte (cache da caixa entre quadros). */
+  key?: string;
+}
+const ALL: ChartSel = { bg: true, data: () => true };
+
+export interface ChartBox { x: number; y: number; w: number; h: number }
+const boundsCache = new WeakMap<ChartModel, Map<string, ChartBox | null>>();
+
+/**
+ * Caixa (px) do que a seleção `sel` desenha — a área de uma PARTE do gráfico
+ * animado por partes (o app revela/move cada parte na caixa das próprias
+ * marcas). Mede pintando num contexto que só registra limites. null = a
+ * seleção não desenha nada.
+ */
+export function chartPartBounds(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt: number | undefined, sel: ChartSel): ChartBox | null {
+  const ck = sel.key !== undefined ? `${sel.key}@${x.toFixed(2)},${y.toFixed(2)},${w.toFixed(2)},${h.toFixed(2)},${pxPerPt ?? ''}` : undefined;
+  let cache = boundsCache.get(chart);
+  if (ck !== undefined && cache?.has(ck)) return cache.get(ck)!;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  let path: [number, number][] = [];
+  let lw = 1;
+  const add = (px: number, py: number, pad = 0): void => {
+    x0 = Math.min(x0, px - pad); y0 = Math.min(y0, py - pad);
+    x1 = Math.max(x1, px + pad); y1 = Math.max(y1, py + pad);
+  };
+  const flush = (pad: number): void => { for (const [px, py] of path) add(px, py, pad); };
+  // arco: extremos + pontos cardeais dentro do intervalo
+  const arc = (cx: number, cy: number, r: number, a0: number, a1: number, ccw = false): void => {
+    let s = a0, e = a1;
+    if (ccw) [s, e] = [a1, a0];
+    while (e < s) e += 2 * Math.PI;
+    if (e - s >= 2 * Math.PI - 1e-9) { path.push([cx - r, cy - r], [cx + r, cy + r]); return; }
+    path.push([cx + r * Math.cos(s), cy + r * Math.sin(s)], [cx + r * Math.cos(e), cy + r * Math.sin(e)]);
+    for (let k = Math.ceil(s / (Math.PI / 2)); k * (Math.PI / 2) <= e; k++) {
+      const a = k * (Math.PI / 2);
+      path.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+  };
+  const text = (s: string, px: number, py: number): void => {
+    const tw = ctx.measureText(s).width;
+    const fs = parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1] ?? '10');
+    const al = ctx.textAlign, bl = ctx.textBaseline;
+    const left = al === 'center' ? px - tw / 2 : al === 'right' || al === 'end' ? px - tw : px;
+    const top = bl === 'top' || bl === 'hanging' ? py : bl === 'middle' ? py - fs / 2 : bl === 'bottom' || bl === 'ideographic' ? py - fs : py - fs * 0.8;
+    add(left, top); add(left + tw, top + fs);
+  };
+  const rec = new Proxy(ctx, {
+    get(t, k) {
+      switch (k) {
+        case 'fillRect': return (a: number, b: number, c: number, d: number) => { add(a, b); add(a + c, b + d); };
+        case 'strokeRect': return (a: number, b: number, c: number, d: number) => { add(a, b, lw / 2); add(a + c, b + d, lw / 2); };
+        case 'beginPath': return () => { path = []; };
+        case 'moveTo': case 'lineTo': return (a: number, b: number) => { path.push([a, b]); };
+        case 'arc': return arc;
+        case 'closePath': return () => undefined;
+        case 'fill': return () => flush(0);
+        case 'stroke': return () => flush(lw / 2);
+        case 'fillText': return text;
+        default: {
+          const v = Reflect.get(t, k) as unknown;
+          return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(t) : v;
+        }
+      }
+    },
+    set(t, k, v) {
+      if (k === 'lineWidth') lw = Number(v) || 0;
+      return Reflect.set(t, k, v);
+    },
+  });
+  ctx.save();
+  try { paintChart(rec, chart, x, y, w, h, pxPerPt, undefined, true, sel); } finally { ctx.restore(); }
+  const box = x1 > x0 && y1 > y0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
+  if (ck !== undefined) {
+    if (!cache) boundsCache.set(chart, cache = new Map());
+    cache.set(ck, box);
+  }
+  return box;
+}
+let SEL: ChartSel = ALL;
+const showBg = (): boolean => SEL.bg;
+const showData = (s: number, c: number): boolean => !!SEL.data && SEL.data(s, c);
+
+export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt?: number, frameBorder?: string, sliceBorder = true, sel?: ChartSel): void {
+  SEL = sel ?? ALL;
+  CUR = chart;
+  PPT = pxPerPt ?? Math.max(0.8, h / 360);
+  try { paintChartInner(ctx, chart, x, y, w, h, pxPerPt, frameBorder, sliceBorder); } finally { SEL = ALL; CUR = null; }
+}
+
+/** Gráfico em pintura (eixos/texto lidos do XML) e px por ponto. */
+let CUR: ChartModel | null = null;
+let PPT = 1.333;
+const DEFAULT_TEXT = '#595959';
+/** Fonte CSS de rótulo: a do XML (se houver) antes da cadeia default. */
+function labelFont(px: number, st?: ChartTextStyle): string {
+  return `${px}px ${st?.font ? `"${st.font}", ` : ''}Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+}
+/** Tamanho (px) do rótulo: o `sz` do XML, ou o default calibrado. */
+function labelSize(st: ChartTextStyle | undefined, fallbackPx: number): number {
+  return st?.sizePt ? st.sizePt * PPT : fallbackPx;
+}
+/** Passo {1,2,5}·10^k com ≤10 divisões numa faixa fixa. */
+function niceStep(span: number): number {
+  let mag = Math.pow(10, Math.floor(Math.log10(Math.max(span, 1e-9) / 10)));
+  for (let k = 0; k < 6; k++, mag *= 10) for (const f of [1, 2, 5]) if (span / (f * mag) <= 10) return f * mag;
+  return span / 10;
+}
+/** Ticks do eixo de valores: escala/unidade explícitas do XML vencem o automático. */
+function axisTicks(min: number, max: number): { lo: number; hi: number; step: number } {
+  const t = niceTicks(min, max);
+  const ax = CUR?.valAx;
+  if (!ax || (ax.min === undefined && ax.max === undefined && ax.majorUnit === undefined)) return t;
+  const lo = ax.min ?? t.lo, hi = ax.max ?? t.hi;
+  if (!(hi > lo)) return t;
+  const step = ax.majorUnit ?? (ax.min === undefined && ax.max === undefined ? t.step : niceStep(hi - lo));
+  return { lo, hi, step };
+}
+
+function paintChartInner(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt?: number, frameBorder?: string, sliceBorder = true): void {
+  // fundo: branco por padrão; `<c:spPr><a:noFill>` do chartSpace = transparente.
+  // Moldura: o host decide — o Excel desenha borda cinza clara em charts
+  // embutidos; o PowerPoint não (frameBorder=undef).
+  const bg = chart.bg === undefined ? '#ffffff' : chart.bg;
+  if (bg && showBg()) {
+    ctx.fillStyle = bg;
+    ctx.fillRect(x, y, w, h);
+  }
+  if (frameBorder && showBg()) {
     ctx.strokeStyle = frameBorder;
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
@@ -260,7 +481,7 @@ export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: 
     ctx.font = `${titlePx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(chart.title, x + w / 2, y + 16 * u);
+    if (showBg()) ctx.fillText(chart.title, x + w / 2, y + 16 * u);
     plotY = y + titlePx + 36 * u;
     plotH = h - (titlePx + 44 * u);
   }
@@ -269,9 +490,11 @@ export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: 
   // (horizontal, centrada) e r (VERTICAL empilhada — default do Excel).
   const showLegend = chart.legendPos !== undefined;
   const legendRight = chart.legendPos === 'r';
-  const legendH = showLegend && !legendRight ? labelPx + 20 * u : 0;
+  // legenda: cor/fonte do XML, tamanho calibrado (o layout do plot conta com ele)
+  const legendPx = labelPx;
+  const legendH = showLegend && !legendRight ? legendPx + 20 * u : 0;
   const legendTop = chart.legendPos === 't';
-  const legendW = legendRight ? legendRightWidth(ctx, chart, labelPx) : 0;
+  const legendW = legendRight ? legendRightWidth(ctx, chart, legendPx) : 0;
 
   const px = x + 8 * u;
   const py = plotY + (legendTop ? legendH : 0);
@@ -310,19 +533,19 @@ export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: 
       ctx.fillText(`Gráfico (${chart.type}) — render em breve`, x + w / 2, y + h / 2);
   }
 
-  if (showLegend) {
+  if (showLegend && showBg()) {
     if (legendRight) {
-      paintLegendRight(ctx, chart, px + pw + 4 * u, py, legendW, ph, labelPx);
+      paintLegendRight(ctx, chart, px + pw + 4 * u, py, legendW, ph, legendPx);
     } else {
       const ly = legendTop ? plotY : py + ph + 6 * u;
-      paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+      paintLegend(ctx, chart, px, ly, pw, legendH, legendPx);
     }
   }
 }
 
 /** Largura necessária da legenda vertical à direita (marcador + maior rótulo). */
 function legendRightWidth(ctx: CanvasRenderingContext2D, chart: ChartModel, labelPx: number): number {
-  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.font = labelFont(labelPx, chart.legendText);
   let maxW = 0;
   for (const s of chart.series) maxW = Math.max(maxW, ctx.measureText(s.name || 'Série').width);
   return maxW + labelPx * 1.6;
@@ -332,7 +555,7 @@ function legendRightWidth(ctx: CanvasRenderingContext2D, chart: ChartModel, labe
 function paintLegendRight(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, labelPx: number): void {
   const entries = chart.series.map((s, i) => ({ label: s.name || `Série ${i + 1}`, color: colorOf(chart, i) }));
   if (!entries.length) return;
-  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.font = labelFont(labelPx, chart.legendText);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   const lineH = labelPx * 1.7;
@@ -341,7 +564,7 @@ function paintLegendRight(ctx: CanvasRenderingContext2D, chart: ChartModel, x: n
   for (const e of entries) {
     ctx.fillStyle = e.color;
     ctx.fillRect(x, cy - sq / 2, sq, sq);
-    ctx.fillStyle = '#595959';
+    ctx.fillStyle = chart.legendText?.color ?? DEFAULT_TEXT;
     ctx.fillText(e.label, x + sq + labelPx * 0.4, cy);
     cy += lineH;
   }
@@ -353,7 +576,9 @@ function paletteOf(chart: ChartModel): string[] {
 
 function colorOf(chart: ChartModel, i: number): string {
   const pal = paletteOf(chart);
-  return chart.series[i]?.color ?? pal[i % pal.length]!;
+  const s = chart.series[i];
+  if (s && typeof s.fill === 'string') return s.fill;
+  return s?.color ?? pal[i % pal.length]!;
 }
 
 function valueRange(chart: ChartModel): { min: number; max: number } {
@@ -394,7 +619,7 @@ function paintBars(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, 
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;
   if (!cats || chart.series.length === 0) return;
   const { min, max } = valueRange(chart);
-  const t = niceTicks(min, max);
+  const t = axisTicks(min, max);
   const axW = labelPx * 2.0, axH = labelPx * 2.4;
   const plotL = x + axW, plotT = y, plotR = x + w, plotB = y + h - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, t);
@@ -406,9 +631,11 @@ function paintBars(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, 
   const barW = groupW / ((nSer - 1) * (1 - ov) + 1 + gap);
   const span = barW * ((nSer - 1) * (1 - ov) + 1);
   for (let s = 0; s < nSer; s++) {
+    if (chart.series[s]!.fill === null) continue; // série sem preenchimento
     ctx.fillStyle = colorOf(chart, s);
     const vals = chart.series[s]!.values;
     for (let i = 0; i < cats; i++) {
+      if (!showData(s, i)) continue;
       const v = vals[i] ?? 0;
       const gx = plotL + i * groupW + (groupW - span) / 2;
       const xBar = gx + s * barW * (1 - ov);
@@ -426,7 +653,7 @@ function paintLines(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;
   if (!cats) return;
   const { min, max } = valueRange(chart);
-  const t = niceTicks(min, max);
+  const t = axisTicks(min, max);
   const axW = labelPx * 2.0, axH = labelPx * 2.4;
   const plotL = x + axW, plotT = y, plotR = x + w, plotB = y + h - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, t);
@@ -437,6 +664,8 @@ function paintLines(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   for (let s = 0; s < chart.series.length; s++) {
     const col = colorOf(chart, s);
     const vals = chart.series[s]!.values;
+    const on = Array.from({ length: cats }, (_, i) => showData(s, i));
+    if (!on.some(Boolean)) continue;
     if (area) {
       ctx.fillStyle = col;
       ctx.globalAlpha = ctx.globalAlpha * 1; // área sólida (referência não usa alpha)
@@ -449,17 +678,22 @@ function paintLines(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
       ctx.fill();
       continue;
     }
-    ctx.strokeStyle = col;
+    const ln = chart.series[s]!.line;
+    if (ln === null) continue; // série sem linha
+    ctx.strokeStyle = typeof ln === 'string' ? ln : col;
     ctx.fillStyle = col;
     ctx.lineWidth = Math.max(2, labelPx / 6);
     ctx.beginPath();
+    // por categoria/elemento: só os segmentos que CHEGAM às categorias da parte
     for (let i = 0; i < cats; i++) {
+      if (!on[i]) continue;
       const yp = yAt(vals[i] ?? 0);
-      if (i === 0) ctx.moveTo(xAt(i), yp); else ctx.lineTo(xAt(i), yp);
+      if (i > 0) { ctx.moveTo(xAt(i - 1), yAt(vals[i - 1] ?? 0)); ctx.lineTo(xAt(i), yp); } else ctx.moveTo(xAt(i), yp);
     }
     ctx.stroke();
     if (chart.series[s]!.marker) {
       for (let i = 0; i < cats; i++) {
+        if (!on[i]) continue;
         ctx.beginPath(); ctx.arc(xAt(i), yAt(vals[i] ?? 0), labelPx / 4, 0, Math.PI * 2); ctx.fill();
       }
     }
@@ -483,6 +717,7 @@ function paintPieOrDoughnut(ctx: CanvasRenderingContext2D, chart: ChartModel, x:
     const v = Math.max(0, s0.values[i] ?? 0);
     if (v === 0) continue;
     const a1 = a0 + (v / total) * Math.PI * 2;
+    if (!showData(0, i)) { a0 = a1; continue; }
     // pizza/rosca variam a cor POR PONTO (fatia), não por série
     ctx.fillStyle = pal[i % pal.length]!;
     ctx.beginPath();
@@ -524,7 +759,7 @@ function paintScatter(ctx: CanvasRenderingContext2D, chart: ChartModel, x: numbe
   paintGrid(ctx, plotL, plotT, plotR, plotB, ty);
   ctx.strokeStyle = '#D9D9D9'; ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let v = tx.lo; v <= tx.hi + 1e-9; v += tx.step) {
+  for (let v = tx.lo; v <= tx.hi + 1e-9 && showBg(); v += tx.step) {
     const xx = plotL + ((v - tx.lo) / (tx.hi - tx.lo)) * (plotR - plotL);
     ctx.moveTo(Math.round(xx) + 0.5, plotT); ctx.lineTo(Math.round(xx) + 0.5, plotB);
   }
@@ -533,6 +768,7 @@ function paintScatter(ctx: CanvasRenderingContext2D, chart: ChartModel, x: numbe
     ctx.fillStyle = colorOf(chart, s);
     const vals = chart.series[s]!.values;
     for (let i = 0; i < n; i++) {
+      if (!showData(s, i)) continue;
       const xv = xs[i] ?? i;
       const xp = plotL + ((xv - tx.lo) / (tx.hi - tx.lo)) * (plotR - plotL);
       const yp = plotB - (((vals[i] ?? 0) - ty.lo) / (ty.hi - ty.lo)) * (plotB - plotT);
@@ -540,6 +776,7 @@ function paintScatter(ctx: CanvasRenderingContext2D, chart: ChartModel, x: numbe
     }
   }
   // eixo X numérico
+  if (!showBg()) return;
   ctx.fillStyle = '#595959';
   ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -562,7 +799,7 @@ function paintRadar(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   const rAt = (v: number): number => ((v - t.lo) / (t.hi - t.lo)) * radius;
   // anéis nos ticks (polígonos cinza-claro, como o app de referência)
   ctx.strokeStyle = '#D9D9D9'; ctx.lineWidth = 1;
-  for (let v = t.lo + t.step; v <= t.hi + 1e-9; v += t.step) {
+  for (let v = t.lo + t.step; v <= t.hi + 1e-9 && showBg(); v += t.step) {
     ctx.beginPath();
     for (let i = 0; i < n; i++) {
       const a = angleAt(i);
@@ -576,11 +813,11 @@ function paintRadar(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   ctx.fillStyle = '#595959';
   ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  for (let v = t.lo; v <= t.hi + 1e-9; v += t.step) {
+  for (let v = t.lo; v <= t.hi + 1e-9 && showBg(); v += t.step) {
     ctx.fillText(formatVal(v), cx - labelPx * 0.4, cy - rAt(v));
   }
   // labels de categoria nos vértices externos
-  for (let i = 0; i < n; i++) {
+  for (let i = 0; i < n && showBg(); i++) {
     const a = angleAt(i);
     const px = cx + Math.cos(a) * (radius + labelPx * 0.9);
     const py = cy + Math.sin(a) * (radius + labelPx * 0.9);
@@ -591,6 +828,7 @@ function paintRadar(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   // séries: LINHAS por default (radarStyle=filled preenche com alpha)
   const filled = chart.radarStyle === 'filled';
   for (let s = 0; s < chart.series.length; s++) {
+    if (!Array.from({ length: n }, (_, i) => showData(s, i)).some(Boolean)) continue;
     const c = colorOf(chart, s);
     ctx.strokeStyle = c;
     ctx.lineWidth = Math.max(2, labelPx / 6);
@@ -612,6 +850,8 @@ function paintRadar(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
 }
 
 function paintGrid(ctx: CanvasRenderingContext2D, l: number, t: number, r: number, b: number, ticks: { lo: number; hi: number; step: number }): void {
+  if (!showBg()) return;
+  if (CUR?.valAx && !CUR.valAx.grid) return; // sem <c:majorGridlines> no XML
   ctx.strokeStyle = '#D9D9D9'; ctx.lineWidth = 1;
   ctx.beginPath();
   for (let v = ticks.lo; v <= ticks.hi + 1e-9; v += ticks.step) {
@@ -622,9 +862,11 @@ function paintGrid(ctx: CanvasRenderingContext2D, l: number, t: number, r: numbe
 }
 
 function paintCategoryAxis(ctx: CanvasRenderingContext2D, cats: string[], l: number, b: number, w: number, labelPx: number): void {
-  if (cats.length === 0) return;
-  ctx.fillStyle = '#595959';
-  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  if (cats.length === 0 || !showBg()) return;
+  const ax = CUR?.catAx;
+  if (ax?.deleted) return;
+  ctx.fillStyle = ax?.text?.color ?? DEFAULT_TEXT;
+  ctx.font = labelFont(labelSize(ax?.text, labelPx), ax?.text);
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   const stepX = w / cats.length;
   for (let i = 0; i < cats.length; i++) {
@@ -634,8 +876,11 @@ function paintCategoryAxis(ctx: CanvasRenderingContext2D, cats: string[], l: num
 }
 
 function paintValueAxis(ctx: CanvasRenderingContext2D, ticks: { lo: number; hi: number; step: number }, xRight: number, y: number, h: number, labelPx: number): void {
-  ctx.fillStyle = '#595959';
-  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  if (!showBg()) return;
+  const ax = CUR?.valAx;
+  if (ax?.deleted) return;
+  ctx.fillStyle = ax?.text?.color ?? DEFAULT_TEXT;
+  ctx.font = labelFont(labelSize(ax?.text, labelPx), ax?.text);
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let v = ticks.lo; v <= ticks.hi + 1e-9; v += ticks.step) {
     const yy = y + h - ((v - ticks.lo) / (ticks.hi - ticks.lo)) * h;
@@ -661,7 +906,7 @@ function paintLegend(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number
     ? chart.categories.map((c, i) => ({ label: c, color: pal[i % pal.length]! }))
     : chart.series.map((s, i) => ({ label: s.name || `Série ${i + 1}`, color: colorOf(chart, i) }));
   if (!entries.length) return;
-  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.font = labelFont(labelPx, chart.legendText);
   ctx.textBaseline = 'middle';
   const sq = labelPx * 0.7;
   const gapIn = sq * 0.5, gapOut = labelPx * 1.4;
@@ -679,7 +924,7 @@ function paintLegend(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number
     ctx.fillStyle = e.color;
     ctx.fillRect(cx, cy - sq / 2, sq, sq);
     cx += sq + gapIn;
-    ctx.fillStyle = '#595959';
+    ctx.fillStyle = chart.legendText?.color ?? DEFAULT_TEXT;
     ctx.textAlign = 'left';
     ctx.fillText(e.label, cx, cy);
     cx += widths[i]! + gapOut;

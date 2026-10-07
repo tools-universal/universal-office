@@ -6,12 +6,14 @@
  *
  * O PowerPoint grava o fntdata como sfnt CRU (TTF/OTF) na maioria dos casos;
  * alguns produtores usam a ofuscação odttf do ECMA-376 §17.8.1 (XOR dos 32
- * primeiros bytes com o GUID revertido). Detectamos pelo magic do sfnt e, sem
- * magic válido, tentamos desofuscar com o fontKey quando presente.
+ * primeiros bytes com o GUID revertido) e o Google Slides grava EOT com
+ * compressão MicroType Express (eot.ts). Detectamos pelo magic do sfnt e,
+ * sem magic válido, tentamos o fontKey e depois o EOT.
  */
 import type { PptxPackage } from './package.js';
 import { parseXml, childElements, firstChild } from './xml.js';
 import { readRels } from './read.js';
+import { looksLikeEot, eotToSfnt } from './eot.js';
 
 export type FontVariant = 'regular' | 'bold' | 'italic' | 'boldItalic';
 
@@ -21,6 +23,30 @@ export interface EmbeddedFont {
   variant: FontVariant;
   /** Bytes sfnt prontos para FontFace. */
   data: Uint8Array;
+  /**
+   * Peso e itálico REAIS da fonte (OS/2 usWeightClass / fsSelection), que
+   * podem diferir da vaga: o Google Slides repete a regular na vaga "bold" —
+   * registrada como 400, o negrito vira sintético, como no Windows.
+   */
+  weight?: number;
+  italic?: boolean;
+}
+
+/** usWeightClass + bit de itálico da tabela OS/2 (null sem a tabela). */
+function sfntStyle(d: Uint8Array): { weight: number; italic: boolean } | null {
+  if (d.length < 12) return null;
+  const n = (d[4]! << 8) | d[5]!;
+  for (let i = 0; i < n; i++) {
+    const r = 12 + 16 * i;
+    if (r + 16 > d.length) return null;
+    if (String.fromCharCode(d[r]!, d[r + 1]!, d[r + 2]!, d[r + 3]!) !== 'OS/2') continue;
+    const o = ((d[r + 8]! << 24) | (d[r + 9]! << 16) | (d[r + 10]! << 8) | d[r + 11]!) >>> 0;
+    if (o + 64 > d.length) return null;
+    const weight = (d[o + 4]! << 8) | d[o + 5]!;
+    const fsSel = (d[o + 62]! << 8) | d[o + 63]!;
+    return { weight: weight >= 1 && weight <= 1000 ? weight : 400, italic: (fsSel & 0x1) !== 0 };
+  }
+  return null;
 }
 
 const VARIANT_TAGS: [string, FontVariant][] = [
@@ -76,9 +102,14 @@ export function readEmbeddedFonts(pkg: PptxPackage): EmbeddedFont[] {
       if (!looksLikeSfnt(data)) {
         const key = v?.attrs['fontKey'] ?? v?.attrs['p:fontKey'];
         if (key) data = deobfuscateFont(raw, key);
+        // EOT (Google Slides/Slidesgo): MicroType Express e/ou XOR → TrueType
+        if (!looksLikeSfnt(data) && looksLikeEot(raw)) data = eotToSfnt(raw) ?? data;
         if (!looksLikeSfnt(data)) continue; // formato desconhecido: pula
       }
-      out.push({ family, variant, data });
+      const font: EmbeddedFont = { family, variant, data };
+      const st = sfntStyle(data);
+      if (st) { font.weight = st.weight; font.italic = st.italic; }
+      out.push(font);
     }
   }
   return out;

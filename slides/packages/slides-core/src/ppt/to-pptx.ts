@@ -130,7 +130,7 @@ interface PartOut { path: string; xml: string; rels: PartRels }
 
 /** Converte o modelo binário em partes OPC (caminho → bytes), na ordem de escrita. */
 export function pptToPptxParts(doc: PptDocument, opts: ConvertOptions = {}): Map<string, Uint8Array> {
-  const conv: ConvCtx = { doc, media: new Map(), parts: new Map(), mediaExts: new Set(), useRoundTrip: opts.useRoundTrip !== false };
+  const conv: ConvCtx = { doc, media: new Map(), parts: new Map(), mediaExts: new Set(), useRoundTrip: opts.useRoundTrip !== false, overrides: new Map(), diagrams: 0 };
   const out = new Map<string, Uint8Array>();
   const put = (path: string, xml: string): void => { out.set(path, strToU8(xml)); };
   const fontOf = (idx: number | undefined): string | undefined => idx === undefined ? undefined : doc.fonts[idx]?.name;
@@ -220,7 +220,7 @@ export function pptToPptxParts(doc: PptDocument, opts: ConvertOptions = {}): Map
     for (const c of s.drawing.root?.children ?? []) tree += shapeXml(c, pc);
     tree = headerFooterShapes(doc, s, m, pc) + tree;
     const bg = ownBg ? backgroundXml(ownBg, pc) : '';
-    const timing = buildTimingXml(s, { textOf: (id) => pc.texts.get(id), hasShape: (id) => pc.spids.has(id), scheme });
+    const timing = buildTimingXml(s, { textOf: (id) => pc.texts.get(id), hasShape: (id) => pc.spids.has(id), spidOf: (id) => pc.ooxmlIds.get(id), scheme });
     const xml = XML_DECL + el('p:sld', { ...NS_ATTRS, show: s.transition?.hidden ? 0 : undefined, showMasterSp: s.flags & 1 ? undefined : 0 },
       el('p:cSld', {}, bg + el('p:spTree', {}, SPTREE_HEAD + tree)) +
       '<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>' +
@@ -284,6 +284,7 @@ export function pptToPptxParts(doc: PptDocument, opts: ConvertOptions = {}): Map
     ['/ppt/tableStyles.xml', 'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml'],
     ['/docProps/core.xml', 'application/vnd.openxmlformats-package.core-properties+xml'],
     ['/docProps/app.xml', 'application/vnd.openxmlformats-officedocument.extended-properties+xml'],
+    ...[...conv.overrides].map(([p, t]): [string, string] => ['/' + p, t]),
   ];
   const MIME: Record<string, string> = {
     png: 'image/png', jpeg: 'image/jpeg', jpg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp',

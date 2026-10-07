@@ -2335,6 +2335,9 @@ function readSlideContainer(rec, kind, persistId, slideId, outline) {
       case RT.RoundTripTheme12Atom:
         s.roundTripTheme = recData(c);
         break;
+      case RT.RoundTripAnimationAtom12Atom:
+        s.roundTripTiming = recData(c);
+        break;
       case RT.HeadersFooters:
         s.headersFooters = readHeadersFooters(c);
         break;
@@ -2750,6 +2753,283 @@ function levelsXml(tag, ctx, textType) {
   return el(tag, {}, kids);
 }
 
+// ../slides-core/src/xml.ts
+var ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+function decodeEntities(s) {
+  return s.replace(/&(#x?[0-9a-fA-F]+|\w+);/g, (_, e) => {
+    if (e.startsWith("#x") || e.startsWith("#X")) return String.fromCodePoint(parseInt(e.slice(2), 16));
+    if (e.startsWith("#")) return String.fromCodePoint(parseInt(e.slice(1), 10));
+    return ENTITIES[e] ?? `&${e};`;
+  });
+}
+function parseXml(xml) {
+  let i2 = 0;
+  const n = xml.length;
+  function error(msg) {
+    throw new Error(`XML invalido @${i2}: ${msg}`);
+  }
+  function skipMisc() {
+    for (; ; ) {
+      while (i2 < n && /\s/.test(xml[i2])) i2++;
+      if (xml.startsWith("<?", i2)) {
+        i2 = xml.indexOf("?>", i2);
+        if (i2 < 0) error("?> nao fechado");
+        i2 += 2;
+      } else if (xml.startsWith("<!--", i2)) {
+        i2 = xml.indexOf("-->", i2);
+        if (i2 < 0) error("--> nao fechado");
+        i2 += 3;
+      } else if (xml.startsWith("<!", i2)) {
+        i2 = xml.indexOf(">", i2);
+        if (i2 < 0) error("<! nao fechado");
+        i2 += 1;
+      } else break;
+    }
+  }
+  function parseElement() {
+    if (xml[i2] !== "<") error("esperava <");
+    i2++;
+    const nameStart = i2;
+    while (i2 < n && !/[\s/>]/.test(xml[i2])) i2++;
+    const name = xml.slice(nameStart, i2);
+    const attrs2 = {};
+    for (; ; ) {
+      while (i2 < n && /\s/.test(xml[i2])) i2++;
+      if (xml[i2] === "/") {
+        if (xml[i2 + 1] !== ">") error("esperava />");
+        i2 += 2;
+        return { name, attrs: attrs2, children: [] };
+      }
+      if (xml[i2] === ">") {
+        i2++;
+        break;
+      }
+      const aStart = i2;
+      while (i2 < n && xml[i2] !== "=" && !/\s/.test(xml[i2])) i2++;
+      const aName = xml.slice(aStart, i2);
+      while (i2 < n && /\s/.test(xml[i2])) i2++;
+      if (xml[i2] !== "=") error(`atributo ${aName} sem =`);
+      i2++;
+      while (i2 < n && /\s/.test(xml[i2])) i2++;
+      const q = xml[i2];
+      if (q !== '"' && q !== "'") error("valor de atributo sem aspas");
+      i2++;
+      const vStart = i2;
+      i2 = xml.indexOf(q, i2);
+      if (i2 < 0) error("aspas nao fechadas");
+      attrs2[aName] = decodeEntities(xml.slice(vStart, i2));
+      i2++;
+    }
+    const children2 = [];
+    for (; ; ) {
+      if (i2 >= n) error(`</${name}> ausente`);
+      if (xml.startsWith("</", i2)) {
+        i2 = xml.indexOf(">", i2) + 1;
+        return { name, attrs: attrs2, children: children2 };
+      }
+      if (xml.startsWith("<!--", i2)) {
+        i2 = xml.indexOf("-->", i2) + 3;
+        continue;
+      }
+      if (xml.startsWith("<![CDATA[", i2)) {
+        const end = xml.indexOf("]]>", i2);
+        children2.push(xml.slice(i2 + 9, end));
+        i2 = end + 3;
+        continue;
+      }
+      if (xml[i2] === "<") {
+        children2.push(parseElement());
+        continue;
+      }
+      const tStart = i2;
+      while (i2 < n && xml[i2] !== "<") i2++;
+      const text = decodeEntities(xml.slice(tStart, i2));
+      if (text.length > 0) children2.push(text);
+    }
+  }
+  skipMisc();
+  return parseElement();
+}
+function childElements(el2, name) {
+  return el2.children.filter((c) => typeof c !== "string" && (name === void 0 || c.name === name));
+}
+function firstChild(el2, name) {
+  return childElements(el2, name)[0];
+}
+function descend(el2, name) {
+  for (const c of el2.children) {
+    if (typeof c === "string") continue;
+    if (c.name === name) return c;
+    const found = descend(c, name);
+    if (found) return found;
+  }
+  return void 0;
+}
+function textContent(el2) {
+  let out = "";
+  for (const c of el2.children) out += typeof c === "string" ? c : textContent(c);
+  return out;
+}
+
+// ../slides-core/src/ppt/roundtrip.ts
+function zipPartText(bytes, suffix) {
+  if (!bytes || bytes.length < 4 || bytes[0] !== 80 || bytes[1] !== 75) return void 0;
+  try {
+    const parts = unzipSync(bytes, { filter: (f) => f.name.endsWith(suffix) });
+    const name = Object.keys(parts)[0];
+    return name ? strFromU8(parts[name]) : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function roundTripThemeXml(bytes) {
+  const xml = zipPartText(bytes, "theme1.xml");
+  if (!xml || !xml.includes("<a:theme")) return void 0;
+  try {
+    parseXml(xml);
+  } catch {
+    return void 0;
+  }
+  return xml;
+}
+function metroDiagram(sh) {
+  const blob = sh.props.get(937)?.complex;
+  if (!blob || blob.length < 4 || blob[0] !== 80 || blob[1] !== 75) return void 0;
+  let parts;
+  try {
+    parts = unzipSync(blob);
+  } catch {
+    return void 0;
+  }
+  const e2o = parts["drs/e2oDoc.xml"];
+  if (!e2o) return void 0;
+  let frame;
+  try {
+    frame = parseXml(strFromU8(e2o));
+  } catch {
+    return void 0;
+  }
+  if (!strFromU8(e2o).includes("drawingml/2006/diagram")) return void 0;
+  const types = /* @__PURE__ */ new Map();
+  const ct = parts["[Content_Types].xml"];
+  if (ct) {
+    for (const m of strFromU8(ct).matchAll(/<Override [^>]*>/g)) {
+      const name = /PartName="\/?([^"]+)"/.exec(m[0])?.[1], type = /ContentType="([^"]+)"/.exec(m[0])?.[1];
+      if (name && type) types.set(name, type);
+    }
+  }
+  const out = { frame, parts, types };
+  const dr = parts["drs/downrev.xml"];
+  const off = dr ? /<a:preciseEffectOffsets>(.*?)<\/a:preciseEffectOffsets>/.exec(strFromU8(dr))?.[1] : void 0;
+  if (off) {
+    const frac2 = (tag) => {
+      const m = new RegExp(`<a:${tag} n="(-?\\d+)" d="(\\d+)"`).exec(off);
+      return m && Number(m[2]) ? Number(m[1]) / Number(m[2]) : 0;
+    };
+    out.effect = { l: frac2("l"), t: frac2("t"), r: frac2("r"), b: frac2("b") };
+  }
+  return out;
+}
+var metroCache = /* @__PURE__ */ new WeakMap();
+function metroShape(sh) {
+  const hit = metroCache.get(sh);
+  if (hit !== void 0) return hit ?? void 0;
+  let root = null;
+  const blob = sh.props.get(937)?.complex;
+  const xml = zipPartText(blob, "shapexml.xml");
+  if (xml) {
+    try {
+      root = parseXml(xml);
+    } catch {
+      root = null;
+    }
+  }
+  metroCache.set(sh, root);
+  return root ?? void 0;
+}
+function metroSpPr(sh) {
+  const root = metroShape(sh);
+  return root ? firstChild(root, "p:spPr") : void 0;
+}
+var FILL_TAGS = ["a:noFill", "a:solidFill", "a:gradFill", "a:pattFill"];
+var LINE_FILLS = ["a:noFill", "a:solidFill", "a:gradFill", "a:pattFill"];
+function metroVisual(sh) {
+  const spPr = metroSpPr(sh);
+  if (!spPr) return void 0;
+  const v = {};
+  const geom = firstChild(spPr, "a:prstGeom") ?? firstChild(spPr, "a:custGeom");
+  if (geom) v.geometry = serializeXml(geom);
+  const fill = FILL_TAGS.map((t) => firstChild(spPr, t)).find((x2) => x2 !== void 0);
+  if (fill) v.fill = serializeXml(fill);
+  const ln2 = firstChild(spPr, "a:ln");
+  if (ln2 && childElements(ln2).some((c) => LINE_FILLS.includes(c.name))) v.line = serializeXml(ln2);
+  const eff = firstChild(spPr, "a:effectLst");
+  if (eff) v.effects = serializeXml(eff);
+  const xfrm = firstChild(spPr, "a:xfrm");
+  const off = xfrm ? firstChild(xfrm, "a:off") : void 0;
+  const ext = xfrm ? firstChild(xfrm, "a:ext") : void 0;
+  if (xfrm && off && ext) {
+    const n = (e, a) => parseInt(e.attrs[a] ?? "0", 10) || 0;
+    v.xfrm = {
+      x: n(off, "x"),
+      y: n(off, "y"),
+      cx: n(ext, "cx"),
+      cy: n(ext, "cy"),
+      rot: (parseInt(xfrm.attrs["rot"] ?? "0", 10) || 0) / 6e4,
+      flipH: xfrm.attrs["flipH"] === "1",
+      flipV: xfrm.attrs["flipV"] === "1"
+    };
+  }
+  return v;
+}
+function metroTextBody(sh, text) {
+  const root = metroShape(sh);
+  const tx = root ? firstChild(root, "p:txBody") : void 0;
+  if (!tx) return void 0;
+  const paras = childElements(tx, "a:p");
+  const bin = text.split("\r");
+  if (paras.length !== bin.length) return void 0;
+  const out = { name: tx.name, attrs: tx.attrs, children: [] };
+  let pi = 0;
+  for (const c of tx.children) {
+    if (typeof c === "string") continue;
+    if (c.name !== "a:p") {
+      out.children.push(c);
+      continue;
+    }
+    const bt = bin[pi++] ?? "";
+    let pos = 0;
+    const np = { name: c.name, attrs: c.attrs, children: [] };
+    for (const k of c.children) {
+      if (typeof k === "string") continue;
+      if (k.name === "a:r" || k.name === "a:fld") {
+        const t = firstChild(k, "a:t");
+        const len = t ? t.children.filter((x2) => typeof x2 === "string").join("").length : 0;
+        const seg = bt.slice(pos, pos + len);
+        pos += len;
+        np.children.push({ name: k.name, attrs: k.attrs, children: k.children.map((x2) => typeof x2 !== "string" && x2.name === "a:t" ? { name: "a:t", attrs: {}, children: seg ? [seg] : [] } : x2) });
+      } else if (k.name === "a:br") {
+        if (bt[pos] !== "\v") return void 0;
+        pos++;
+        np.children.push(k);
+      } else np.children.push(k);
+    }
+    if (pos !== bt.length) return void 0;
+    out.children.push(np);
+  }
+  const xml = serializeXml(out);
+  if (/\br:(id|embed|link)=/.test(xml)) return void 0;
+  return xml;
+}
+function serializeXml(el2) {
+  let out = `<${el2.name}`;
+  for (const [k, v] of Object.entries(el2.attrs)) out += ` ${k}="${escAttr(v)}"`;
+  if (!el2.children.length) return out + "/>";
+  out += ">";
+  for (const c of el2.children) out += typeof c === "string" ? escText(c) : serializeXml(c);
+  return out + `</${el2.name}>`;
+}
+
 // ../slides-core/src/ppt/anim.ts
 var FLOATS = /* @__PURE__ */ new WeakSet();
 var FloatVal = class {
@@ -2918,13 +3198,14 @@ function cTnAttrs(n, id) {
   if (pst !== void 0) a["presetSubtype"] = pst;
   if (n.flags & 2) a["restart"] = RESTART[n.restart] || void 0;
   if (n.flags & 16) a["dur"] = n.dur === -1 ? "indefinite" : n.dur;
+  const indefinite = (v) => v < 0 || !Number.isFinite(v) || v >= 1e30;
   for (const m of n.modifiers) {
     switch (m.type) {
       case 0:
-        if (m.value !== 1) a["repeatCount"] = m.value < 0 || !Number.isFinite(m.value) ? "indefinite" : Math.round(m.value * 1e3);
+        if (m.value !== 1) a["repeatCount"] = indefinite(m.value) ? "indefinite" : Math.round(m.value * 1e3);
         break;
       case 1:
-        a["repeatDur"] = m.value < 0 || !Number.isFinite(m.value) ? "indefinite" : Math.round(m.value);
+        a["repeatDur"] = indefinite(m.value) ? "indefinite" : Math.round(m.value);
         break;
       case 2:
         if (m.value !== 1) a["spd"] = Math.round(m.value * 1e5);
@@ -3269,255 +3550,39 @@ function pp10Records(slide) {
   const blob = slide.binaryTags.get("___PPT10");
   return blob ? recsIn(blob.r, blob.start, blob.end) : [];
 }
+var effectCount = (xml) => (xml.match(/presetClass="/g) ?? []).length;
+function roundTripTimingXml(slide, ctx) {
+  const xml = zipPartText(slide.roundTripTiming, "timingInfo.xml");
+  const i2 = xml?.indexOf("<p:timing") ?? -1;
+  if (!xml || i2 < 0) return void 0;
+  let ok = true;
+  const body = xml.slice(i2).replace(/\bspid="(\d+)"/g, (_m, v) => {
+    const id = parseInt(v, 10);
+    const mapped = ctx.spidOf?.(id) ?? (ctx.hasShape(id) ? id : void 0);
+    if (mapped === void 0) {
+      ok = false;
+      return `spid="${v}"`;
+    }
+    return `spid="${mapped}"`;
+  });
+  return ok ? body : void 0;
+}
 function buildTimingXml(slide, ctx) {
   if (!ctx) return "";
   const recs = pp10Records(slide);
   const root = recs.find((r) => r.type === RT.ExtTimeNodeContainer);
-  if (!root) return "";
-  const w = new Writer(ctx);
-  const tree = nodeXml(readNode(root), w);
-  if (!tree || !/<p:(set|anim|animEffect|animMotion|animRot|animScale|animClr|cmd|video|audio)\b/.test(tree)) return "";
-  const bl = recs.find((r) => r.type === RT.BuildList);
-  return el("p:timing", {}, el("p:tnLst", {}, tree) + (bl ? buildListXml(bl, ctx) : ""));
-}
-
-// ../slides-core/src/xml.ts
-var ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
-function decodeEntities(s) {
-  return s.replace(/&(#x?[0-9a-fA-F]+|\w+);/g, (_, e) => {
-    if (e.startsWith("#x") || e.startsWith("#X")) return String.fromCodePoint(parseInt(e.slice(2), 16));
-    if (e.startsWith("#")) return String.fromCodePoint(parseInt(e.slice(1), 10));
-    return ENTITIES[e] ?? `&${e};`;
-  });
-}
-function parseXml(xml) {
-  let i2 = 0;
-  const n = xml.length;
-  function error(msg) {
-    throw new Error(`XML invalido @${i2}: ${msg}`);
-  }
-  function skipMisc() {
-    for (; ; ) {
-      while (i2 < n && /\s/.test(xml[i2])) i2++;
-      if (xml.startsWith("<?", i2)) {
-        i2 = xml.indexOf("?>", i2);
-        if (i2 < 0) error("?> nao fechado");
-        i2 += 2;
-      } else if (xml.startsWith("<!--", i2)) {
-        i2 = xml.indexOf("-->", i2);
-        if (i2 < 0) error("--> nao fechado");
-        i2 += 3;
-      } else if (xml.startsWith("<!", i2)) {
-        i2 = xml.indexOf(">", i2);
-        if (i2 < 0) error("<! nao fechado");
-        i2 += 1;
-      } else break;
-    }
-  }
-  function parseElement() {
-    if (xml[i2] !== "<") error("esperava <");
-    i2++;
-    const nameStart = i2;
-    while (i2 < n && !/[\s/>]/.test(xml[i2])) i2++;
-    const name = xml.slice(nameStart, i2);
-    const attrs2 = {};
-    for (; ; ) {
-      while (i2 < n && /\s/.test(xml[i2])) i2++;
-      if (xml[i2] === "/") {
-        if (xml[i2 + 1] !== ">") error("esperava />");
-        i2 += 2;
-        return { name, attrs: attrs2, children: [] };
-      }
-      if (xml[i2] === ">") {
-        i2++;
-        break;
-      }
-      const aStart = i2;
-      while (i2 < n && xml[i2] !== "=" && !/\s/.test(xml[i2])) i2++;
-      const aName = xml.slice(aStart, i2);
-      while (i2 < n && /\s/.test(xml[i2])) i2++;
-      if (xml[i2] !== "=") error(`atributo ${aName} sem =`);
-      i2++;
-      while (i2 < n && /\s/.test(xml[i2])) i2++;
-      const q = xml[i2];
-      if (q !== '"' && q !== "'") error("valor de atributo sem aspas");
-      i2++;
-      const vStart = i2;
-      i2 = xml.indexOf(q, i2);
-      if (i2 < 0) error("aspas nao fechadas");
-      attrs2[aName] = decodeEntities(xml.slice(vStart, i2));
-      i2++;
-    }
-    const children2 = [];
-    for (; ; ) {
-      if (i2 >= n) error(`</${name}> ausente`);
-      if (xml.startsWith("</", i2)) {
-        i2 = xml.indexOf(">", i2) + 1;
-        return { name, attrs: attrs2, children: children2 };
-      }
-      if (xml.startsWith("<!--", i2)) {
-        i2 = xml.indexOf("-->", i2) + 3;
-        continue;
-      }
-      if (xml.startsWith("<![CDATA[", i2)) {
-        const end = xml.indexOf("]]>", i2);
-        children2.push(xml.slice(i2 + 9, end));
-        i2 = end + 3;
-        continue;
-      }
-      if (xml[i2] === "<") {
-        children2.push(parseElement());
-        continue;
-      }
-      const tStart = i2;
-      while (i2 < n && xml[i2] !== "<") i2++;
-      const text = decodeEntities(xml.slice(tStart, i2));
-      if (text.length > 0) children2.push(text);
-    }
-  }
-  skipMisc();
-  return parseElement();
-}
-function childElements(el2, name) {
-  return el2.children.filter((c) => typeof c !== "string" && (name === void 0 || c.name === name));
-}
-function firstChild(el2, name) {
-  return childElements(el2, name)[0];
-}
-function descend(el2, name) {
-  for (const c of el2.children) {
-    if (typeof c === "string") continue;
-    if (c.name === name) return c;
-    const found = descend(c, name);
-    if (found) return found;
-  }
-  return void 0;
-}
-function textContent(el2) {
   let out = "";
-  for (const c of el2.children) out += typeof c === "string" ? c : textContent(c);
+  if (root) {
+    const w = new Writer(ctx);
+    const tree = nodeXml(readNode(root), w);
+    if (tree && /<p:(set|anim|animEffect|animMotion|animRot|animScale|animClr|cmd|video|audio)\b/.test(tree)) {
+      const bl = recs.find((r) => r.type === RT.BuildList);
+      out = el("p:timing", {}, el("p:tnLst", {}, tree) + (bl ? buildListXml(bl, ctx) : ""));
+    }
+  }
+  const rt = roundTripTimingXml(slide, ctx);
+  if (rt && effectCount(rt) > effectCount(out)) return rt;
   return out;
-}
-
-// ../slides-core/src/ppt/roundtrip.ts
-function zipPartText(bytes, suffix) {
-  if (!bytes || bytes.length < 4 || bytes[0] !== 80 || bytes[1] !== 75) return void 0;
-  try {
-    const parts = unzipSync(bytes, { filter: (f) => f.name.endsWith(suffix) });
-    const name = Object.keys(parts)[0];
-    return name ? strFromU8(parts[name]) : void 0;
-  } catch {
-    return void 0;
-  }
-}
-function roundTripThemeXml(bytes) {
-  const xml = zipPartText(bytes, "theme1.xml");
-  if (!xml || !xml.includes("<a:theme")) return void 0;
-  try {
-    parseXml(xml);
-  } catch {
-    return void 0;
-  }
-  return xml;
-}
-var metroCache = /* @__PURE__ */ new WeakMap();
-function metroShape(sh) {
-  const hit = metroCache.get(sh);
-  if (hit !== void 0) return hit ?? void 0;
-  let root = null;
-  const blob = sh.props.get(937)?.complex;
-  const xml = zipPartText(blob, "shapexml.xml");
-  if (xml) {
-    try {
-      root = parseXml(xml);
-    } catch {
-      root = null;
-    }
-  }
-  metroCache.set(sh, root);
-  return root ?? void 0;
-}
-function metroSpPr(sh) {
-  const root = metroShape(sh);
-  return root ? firstChild(root, "p:spPr") : void 0;
-}
-var FILL_TAGS = ["a:noFill", "a:solidFill", "a:gradFill", "a:pattFill"];
-var LINE_FILLS = ["a:noFill", "a:solidFill", "a:gradFill", "a:pattFill"];
-function metroVisual(sh) {
-  const spPr = metroSpPr(sh);
-  if (!spPr) return void 0;
-  const v = {};
-  const geom = firstChild(spPr, "a:prstGeom") ?? firstChild(spPr, "a:custGeom");
-  if (geom) v.geometry = serializeXml(geom);
-  const fill = FILL_TAGS.map((t) => firstChild(spPr, t)).find((x2) => x2 !== void 0);
-  if (fill) v.fill = serializeXml(fill);
-  const ln2 = firstChild(spPr, "a:ln");
-  if (ln2 && childElements(ln2).some((c) => LINE_FILLS.includes(c.name))) v.line = serializeXml(ln2);
-  const eff = firstChild(spPr, "a:effectLst");
-  if (eff) v.effects = serializeXml(eff);
-  const xfrm = firstChild(spPr, "a:xfrm");
-  const off = xfrm ? firstChild(xfrm, "a:off") : void 0;
-  const ext = xfrm ? firstChild(xfrm, "a:ext") : void 0;
-  if (xfrm && off && ext) {
-    const n = (e, a) => parseInt(e.attrs[a] ?? "0", 10) || 0;
-    v.xfrm = {
-      x: n(off, "x"),
-      y: n(off, "y"),
-      cx: n(ext, "cx"),
-      cy: n(ext, "cy"),
-      rot: (parseInt(xfrm.attrs["rot"] ?? "0", 10) || 0) / 6e4,
-      flipH: xfrm.attrs["flipH"] === "1",
-      flipV: xfrm.attrs["flipV"] === "1"
-    };
-  }
-  return v;
-}
-function metroTextBody(sh, text) {
-  const root = metroShape(sh);
-  const tx = root ? firstChild(root, "p:txBody") : void 0;
-  if (!tx) return void 0;
-  const paras = childElements(tx, "a:p");
-  const bin = text.split("\r");
-  if (paras.length !== bin.length) return void 0;
-  const out = { name: tx.name, attrs: tx.attrs, children: [] };
-  let pi = 0;
-  for (const c of tx.children) {
-    if (typeof c === "string") continue;
-    if (c.name !== "a:p") {
-      out.children.push(c);
-      continue;
-    }
-    const bt = bin[pi++] ?? "";
-    let pos = 0;
-    const np = { name: c.name, attrs: c.attrs, children: [] };
-    for (const k of c.children) {
-      if (typeof k === "string") continue;
-      if (k.name === "a:r" || k.name === "a:fld") {
-        const t = firstChild(k, "a:t");
-        const len = t ? t.children.filter((x2) => typeof x2 === "string").join("").length : 0;
-        const seg = bt.slice(pos, pos + len);
-        pos += len;
-        np.children.push({ name: k.name, attrs: k.attrs, children: k.children.map((x2) => typeof x2 !== "string" && x2.name === "a:t" ? { name: "a:t", attrs: {}, children: seg ? [seg] : [] } : x2) });
-      } else if (k.name === "a:br") {
-        if (bt[pos] !== "\v") return void 0;
-        pos++;
-        np.children.push(k);
-      } else np.children.push(k);
-    }
-    if (pos !== bt.length) return void 0;
-    out.children.push(np);
-  }
-  const xml = serializeXml(out);
-  if (/\br:(id|embed|link)=/.test(xml)) return void 0;
-  return xml;
-}
-function serializeXml(el2) {
-  let out = `<${el2.name}`;
-  for (const [k, v] of Object.entries(el2.attrs)) out += ` ${k}="${escAttr(v)}"`;
-  if (!el2.children.length) return out + "/>";
-  out += ">";
-  for (const c of el2.children) out += typeof c === "string" ? escText(c) : serializeXml(c);
-  return out + `</${el2.name}>`;
 }
 
 // ../slides-core/src/ppt/preset-map.ts
@@ -3796,7 +3861,7 @@ function newPartCtx(conv, scheme, styles, outline, slideNumber, rels = new PartR
   const text = { doc: conv.doc, scheme, linkRel: (target) => rels.add("hyperlink", target, true) };
   if (styles) text.styles = styles;
   if (slideNumber !== void 0) text.slideNumber = slideNumber;
-  return { conv, rels, text, scheme, outline, usedIds: /* @__PURE__ */ new Set([1]), spids: /* @__PURE__ */ new Set(), texts: /* @__PURE__ */ new Map() };
+  return { conv, rels, text, scheme, outline, usedIds: /* @__PURE__ */ new Set([1]), spids: /* @__PURE__ */ new Set(), texts: /* @__PURE__ */ new Map(), ooxmlIds: /* @__PURE__ */ new Map() };
 }
 
 // ../slides-core/src/ppt/shapeconv.ts
@@ -4308,7 +4373,129 @@ function shapeId(sh, pc) {
   while (pc.usedIds.has(id)) id++;
   pc.usedIds.add(id);
   if (id === sh.spid) pc.spids.add(id);
+  const orig = metroCNvPrId(sh);
+  if (orig !== void 0 && !pc.ooxmlIds.has(orig)) pc.ooxmlIds.set(orig, id);
   return id;
+}
+function metroCNvPrId(sh) {
+  const dr = zipPartText(sh.props.get(937)?.complex, "downrev.xml");
+  const m = dr ? /shapeId="(\d+)"/.exec(dr) : null;
+  if (m) return parseInt(m[1], 10);
+  const root = metroShape(sh);
+  if (!root) return void 0;
+  const find = (x2, depth) => {
+    if (x2.name === "p:cNvPr") return x2.attrs["id"];
+    if (depth > 3) return void 0;
+    for (const c of x2.children) {
+      if (typeof c === "object" && c && "name" in c) {
+        const v2 = find(c, depth + 1);
+        if (v2 !== void 0) return v2;
+      }
+    }
+    return void 0;
+  };
+  const v = find(root, 0);
+  const n = v !== void 0 ? parseInt(v, 10) : NaN;
+  return Number.isFinite(n) ? n : void 0;
+}
+var DGM_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/";
+var DGM_KIND = {
+  [DGM_REL + "diagramData"]: "data",
+  [DGM_REL + "diagramLayout"]: "layout",
+  [DGM_REL + "diagramQuickStyle"]: "quickStyle",
+  [DGM_REL + "diagramColors"]: "colors",
+  "http://schemas.microsoft.com/office/2007/relationships/diagramDrawing": "drawing"
+};
+var DGM_CT = {
+  data: "application/vnd.openxmlformats-officedocument.drawingml.diagramData+xml",
+  layout: "application/vnd.openxmlformats-officedocument.drawingml.diagramLayout+xml",
+  quickStyle: "application/vnd.openxmlformats-officedocument.drawingml.diagramStyle+xml",
+  colors: "application/vnd.openxmlformats-officedocument.drawingml.diagramColors+xml",
+  drawing: "application/vnd.ms-office.drawingml.diagramDrawing+xml"
+};
+function zipRels(parts, path) {
+  const i2 = path.lastIndexOf("/");
+  const bytes = parts[`${path.slice(0, i2)}/_rels/${path.slice(i2 + 1)}.rels`];
+  if (!bytes) return [];
+  const out = [];
+  for (const m of strFromU8(bytes).matchAll(/<Relationship [^>]*>/g)) {
+    const a = (k) => new RegExp(` ${k}="([^"]*)"`).exec(m[0])?.[1];
+    const id = a("Id"), type = a("Type"), target = a("Target");
+    if (id && type && target) out.push({ id, type, target, external: a("TargetMode") === "External", raw: m[0] });
+  }
+  return out;
+}
+function zipResolve(from, target) {
+  const segs = from.split("/").slice(0, -1);
+  for (const s of target.split("/")) {
+    if (s === "..") segs.pop();
+    else if (s && s !== ".") segs.push(s);
+  }
+  return segs.join("/");
+}
+function copyDiagramPart(pc, parts, src, dst, xml, k) {
+  const conv = pc.conv;
+  conv.parts.set(dst, strToU8(xml));
+  const rels = zipRels(parts, src);
+  if (!rels.length) return;
+  const items = rels.map((r) => {
+    if (r.external) return r.raw;
+    const from = zipResolve(src, r.target);
+    const bytes = parts[from];
+    if (!bytes) return r.raw;
+    const base = from.slice(from.lastIndexOf("/") + 1);
+    const ext = base.includes(".") ? base.slice(base.lastIndexOf(".") + 1).toLowerCase() : "bin";
+    const media = `ppt/media/dgm${k}_${base}`;
+    conv.parts.set(media, bytes);
+    if (ext !== "xml") conv.mediaExts.add(ext);
+    return r.raw.replace(/ Target="[^"]*"/, ` Target="../media/dgm${k}_${escAttr(base)}"`);
+  });
+  const i2 = dst.lastIndexOf("/");
+  conv.parts.set(`${dst.slice(0, i2)}/_rels/${dst.slice(i2 + 1)}.rels`, strToU8(
+    `${XML_DECL}<Relationships xmlns="${NS.rel}">${items.map((r) => r.endsWith("/>") ? r : r.replace(/>$/, "/>")).join("")}</Relationships>`
+  ));
+}
+function diagramFrameXml(sh, pc, xf, cNvPr) {
+  const dg = metroDiagram(sh);
+  if (!dg) return void 0;
+  const fxfrm = firstChild(dg.frame, "p:xfrm");
+  const off = fxfrm ? firstChild(fxfrm, "a:off") : void 0;
+  const ext = fxfrm ? firstChild(fxfrm, "a:ext") : void 0;
+  if (!fxfrm || !off || !ext) return void 0;
+  const num2 = (e, k2) => parseInt(e.attrs[k2] ?? "0", 10) || 0;
+  const fx = num2(off, "x"), fy = num2(off, "y"), fcx = num2(ext, "cx"), fcy = num2(ext, "cy");
+  const m = dg.effect ?? { l: 0, t: 0, r: 0, b: 0 };
+  const tol = 3200;
+  if (Math.abs(fx + m.l * fcx - xf.x) > tol || Math.abs(fy + m.t * fcy - xf.y) > tol || Math.abs(fx + fcx + m.r * fcx - (xf.x + xf.cx)) > tol || Math.abs(fy + fcy + m.b * fcy - (xf.y + xf.cy)) > tol) return void 0;
+  const found = zipRels(dg.parts, "drs/e2oDoc.xml").filter((r) => !r.external && DGM_KIND[r.type]).map((r) => ({ r, kind: DGM_KIND[r.type], src: zipResolve("drs/e2oDoc.xml", r.target) })).filter((p) => dg.parts[p.src]);
+  if (!found.some((p) => p.kind === "data") || !found.some((p) => p.kind === "drawing")) return void 0;
+  const k = ++pc.conv.diagrams;
+  const newId = /* @__PURE__ */ new Map();
+  for (const p of found) newId.set(p.r.id, pc.rels.add(p.r.type, `../diagrams/${p.kind}${k}.xml`));
+  for (const p of found) {
+    const dst = `ppt/diagrams/${p.kind}${k}.xml`;
+    let xml = strFromU8(dg.parts[p.src]);
+    if (p.kind === "data") xml = xml.replace(/(<dsp:dataModelExt [^>]*relId=")([^"]+)"/, (_s, a, id) => `${a}${newId.get(id) ?? id}"`);
+    copyDiagramPart(pc, dg.parts, p.src, dst, xml, k);
+    pc.conv.overrides.set(dst, dg.types.get(p.src) ?? DGM_CT[p.kind]);
+  }
+  const ids = firstChild(firstChild(firstChild(dg.frame, "a:graphic") ?? dg.frame, "a:graphicData") ?? dg.frame, "dgm:relIds");
+  const rid = (a) => {
+    const v = ids?.attrs[a];
+    return v ? newId.get(v) : void 0;
+  };
+  const relIds = el("dgm:relIds", {
+    "xmlns:dgm": "http://schemas.openxmlformats.org/drawingml/2006/diagram",
+    "r:dm": rid("r:dm"),
+    "r:lo": rid("r:lo"),
+    "r:qs": rid("r:qs"),
+    "r:cs": rid("r:cs")
+  });
+  return el(
+    "p:graphicFrame",
+    {},
+    el("p:nvGraphicFramePr", {}, cNvPr + "<p:cNvGraphicFramePr/><p:nvPr/>") + serializeXml(fxfrm) + el("a:graphic", {}, el("a:graphicData", { uri: "http://schemas.openxmlformats.org/drawingml/2006/diagram" }, relIds))
+  );
 }
 var isHidden = (sh) => boolProp(sh, 959, 1, false);
 function visualParts(sh, pc, xf, kind, inGroup) {
@@ -4353,6 +4540,10 @@ function shapeXml(sh, pc, opts = {}) {
   const id = shapeId(sh, pc);
   const cNvPr = el("p:cNvPr", { id, name, descr });
   const inGroup = !!opts.inGroup;
+  if (pc.conv.useRoundTrip && sh.props.has(937)) {
+    const dgm = diagramFrameXml(sh, pc, xf, cNvPr);
+    if (dgm) return dgm;
+  }
   if (pib) {
     const rid = imageRel(pc, pib);
     if (rid) {
@@ -4662,7 +4853,7 @@ function relsPath(part) {
   return `${part.slice(0, i2)}/_rels/${part.slice(i2 + 1)}.rels`;
 }
 function pptToPptxParts(doc, opts = {}) {
-  const conv = { doc, media: /* @__PURE__ */ new Map(), parts: /* @__PURE__ */ new Map(), mediaExts: /* @__PURE__ */ new Set(), useRoundTrip: opts.useRoundTrip !== false };
+  const conv = { doc, media: /* @__PURE__ */ new Map(), parts: /* @__PURE__ */ new Map(), mediaExts: /* @__PURE__ */ new Set(), useRoundTrip: opts.useRoundTrip !== false, overrides: /* @__PURE__ */ new Map(), diagrams: 0 };
   const out = /* @__PURE__ */ new Map();
   const put = (path, xml) => {
     out.set(path, strToU8(xml));
@@ -4747,7 +4938,7 @@ function pptToPptxParts(doc, opts = {}) {
     for (const c of s.drawing.root?.children ?? []) tree += shapeXml(c, pc);
     tree = headerFooterShapes(doc, s, m, pc) + tree;
     const bg = ownBg ? backgroundXml(ownBg, pc) : "";
-    const timing = buildTimingXml(s, { textOf: (id2) => pc.texts.get(id2), hasShape: (id2) => pc.spids.has(id2), scheme });
+    const timing = buildTimingXml(s, { textOf: (id2) => pc.texts.get(id2), hasShape: (id2) => pc.spids.has(id2), spidOf: (id2) => pc.ooxmlIds.get(id2), scheme });
     const xml = XML_DECL + el(
       "p:sld",
       { ...NS_ATTRS2, show: s.transition?.hidden ? 0 : void 0, showMasterSp: s.flags & 1 ? void 0 : 0 },
@@ -4804,7 +4995,8 @@ function pptToPptxParts(doc, opts = {}) {
     ["/ppt/viewProps.xml", "application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"],
     ["/ppt/tableStyles.xml", "application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"],
     ["/docProps/core.xml", "application/vnd.openxmlformats-package.core-properties+xml"],
-    ["/docProps/app.xml", "application/vnd.openxmlformats-officedocument.extended-properties+xml"]
+    ["/docProps/app.xml", "application/vnd.openxmlformats-officedocument.extended-properties+xml"],
+    ...[...conv.overrides].map(([p, t]) => ["/" + p, t])
   ];
   const MIME = {
     png: "image/png",
@@ -5152,7 +5344,7 @@ function applyTableStyle(t, def, firstRowOn, bandRowOn) {
       if (isHeader) part = def.firstRow;
       else if (bandRowOn && dataIdx >= 0 && dataIdx % 2 === 0) part = def.band1H;
       else if (bandRowOn && dataIdx >= 0) part = def.band2H;
-      if (cell.fill === void 0) {
+      if (cell.fill === void 0 && !cell.noFill) {
         const f = part?.fill ?? whole?.fill;
         if (f) cell.fill = f;
       }
@@ -5409,6 +5601,11 @@ function parseConds(lst) {
     const d = c.attrs["delay"];
     const cond = { delayMs: d === void 0 ? 0 : d === "indefinite" ? null : parseFloat(d) || 0 };
     if (c.attrs["evt"]) cond.evt = c.attrs["evt"];
+    const tgt = firstChild(c, "p:tgtEl");
+    if (tgt) for (const t of childElements(tgt)) {
+      if (t.attrs["spid"]) cond.spid = t.attrs["spid"];
+      if (t.attrs["bmkName"] !== void 0) cond.bookmark = t.attrs["bmkName"];
+    }
     return cond;
   });
 }
@@ -5419,7 +5616,9 @@ function parseCTn(tag, cTn) {
   const dur = num(a["dur"]);
   if (dur !== void 0) node.dur = dur;
   const rc = num(a["repeatCount"]);
-  if (rc !== void 0) node.repeat = rc === Infinity ? Infinity : rc / 1e3;
+  if (rc !== void 0) node.repeat = rc === Infinity || rc >= 1e12 ? Infinity : rc / 1e3;
+  const ends = parseConds(firstChild(cTn, "p:endCondLst")).map((c) => c.evt).filter((e) => !!e);
+  if (ends.length) node.endEvts = ends;
   if (a["autoRev"] === "1" || a["autoRev"] === "true") node.autoRev = true;
   const accel = num(a["accel"]);
   if (accel) node.accel = accel / 1e5;
@@ -5465,6 +5664,13 @@ function parseTarget(tgtEl) {
   }
   for (const k of ["p:bg", "p:subSp", "p:oleChartEl", "p:inkTgt", "p:graphicEl"]) {
     if (firstChild(sp, k)) t.sub = k.slice(2);
+  }
+  const ge = firstChild(sp, "p:graphicEl");
+  if (ge) {
+    const ch = firstChild(ge, "a:chart");
+    const dg = firstChild(ge, "a:dgm");
+    if (ch) t.chart = { series: parseInt(ch.attrs["seriesIdx"] ?? "-1", 10), category: parseInt(ch.attrs["categoryIdx"] ?? "-1", 10), step: ch.attrs["bldStep"] ?? "allPts" };
+    if (dg?.attrs["id"]) t.dgm = dg.attrs["id"];
   }
   return t;
 }
@@ -5707,6 +5913,7 @@ function collectEffects(n, t0, ctx, out) {
     const ae = firstOf(n, "animEffect");
     if (ae?.filter) fx.filter = ae.filter;
     if (firstOf(n, "animMotion")) fx.motion = true;
+    if (n.endEvts?.includes("onNext")) fx.endOnNext = true;
     out.push(fx);
     return;
   }
@@ -5735,13 +5942,14 @@ function firstNodeType(n) {
   }
   return void 0;
 }
+var AFTER_LINK_MS = 1;
 function collectGroup(group, t0, ctx, out) {
   let prevEnd = t0;
   let end = t0;
   group.children.forEach((sub, i2) => {
     const b = beginOffset(sub);
     if (b === null) return;
-    const start = i2 > 0 && firstNodeType(sub) === "afterEffect" ? prevEnd : t0 + b;
+    const start = i2 > 0 && firstNodeType(sub) === "afterEffect" ? prevEnd + AFTER_LINK_MS : t0 + b;
     collectEffects(sub, start, ctx, out);
     prevEnd = start + blockDur(sub, ctx);
     end = Math.max(end, prevEnd);
@@ -5798,6 +6006,9 @@ function parseSlideTiming(sld, units, color, hasBackground2) {
       if (n.media?.vol !== void 0) m.vol = n.media.vol;
       if (n.media?.mute !== void 0) m.mute = n.media.mute;
       if (n.media?.showWhenStopped !== void 0) m.showWhenStopped = n.media.showWhenStopped;
+      if (n.fill === "remove") m.rewind = true;
+      if (n.repeat === Infinity) m.loop = true;
+      if (n.media?.fullScrn) m.fullScreen = true;
       media.push(m);
     }
     for (const c of n.children) findMedia(c);
@@ -5832,7 +6043,14 @@ function parseSlideTiming(sld, units, color, hasBackground2) {
       });
       flush();
     } else if (seq.nodeType === "interactiveSeq") {
-      for (const c of seq.children) collectGroup({ ...c, st: [] }, 0, ctx, model.interactive);
+      const bmk = seq.st.find((c) => c.evt === "onMediaBookmark" && c.spid && c.bookmark !== void 0);
+      if (bmk) {
+        const effects = [];
+        for (const c of seq.children) collectGroup({ ...c, st: [] }, 0, ctx, effects);
+        (model.bookmarkTriggers ??= []).push({ spid: bmk.spid, bookmark: bmk.bookmark, effects });
+      } else {
+        for (const c of seq.children) collectGroup({ ...c, st: [] }, 0, ctx, model.interactive);
+      }
     }
   }
   return model;
@@ -6037,6 +6255,12 @@ function readSlide(pkg, slidePath) {
   const transEl = firstChild(root, "p:transition");
   if (transEl) slide.transition = parseTransition(transEl);
   slide.timing = parseSlideTiming(root, countTextUnits(shapes), (el2) => colorFromDml(el2, theme), hasBackground(shapes));
+  for (const bt of slide.timing.bookmarkTriggers ?? []) {
+    const media = shapes.find((s) => !s.inherited && s.id === bt.spid)?.media;
+    const b = media?.bookmarks?.find((x2) => x2.name === bt.bookmark);
+    if (b) bt.timeMs = b.timeMs;
+    if (media?.trim?.startMs) bt.trimStartMs = media.trim.startMs;
+  }
   return slide;
 }
 function hasBackground(shapes) {
@@ -6274,9 +6498,27 @@ function readShapes(spTree, theme, pkg, rels) {
       else if (gf) out.push(gf);
     } else if (c.name === "p:grpSp") {
       out.push(...readGroup(c, theme, pkg, rels));
+    } else if (c.name === "mc:AlternateContent") {
+      const alt = firstChild(c, "mc:Fallback") ?? firstChild(c, "mc:Choice");
+      if (alt) out.push(...readShapes(alt, theme, pkg, rels));
     }
   }
   return out;
+}
+function groupFill(grpSpPr, theme) {
+  if (firstChild(grpSpPr, "a:noFill")) return { fill: { type: "none" } };
+  const sf = firstChild(grpSpPr, "a:solidFill");
+  if (sf) {
+    const c = colorFromDml(childElements(sf)[0], theme);
+    if (!c) return void 0;
+    const out = { fill: { type: "solid", color: c } };
+    const a = descend(sf, "a:alpha")?.attrs["val"];
+    if (a) out.alpha = parseInt(a, 10) / 1e5;
+    return out;
+  }
+  const grad = firstChild(grpSpPr, "a:gradFill");
+  const g = grad ? parseGradFill(grad, theme) : void 0;
+  return g ? { fill: g } : void 0;
 }
 function readGroup(grp, theme, pkg, rels) {
   const children2 = readShapes(grp, theme, pkg, rels);
@@ -6284,6 +6526,15 @@ function readGroup(grp, theme, pkg, rels) {
   const gid = nvGrp ? firstChild(nvGrp, "p:cNvPr")?.attrs["id"] : void 0;
   if (gid !== void 0) for (const sh of children2) sh.groupIds = [gid, ...sh.groupIds ?? []];
   const grpSpPr = firstChild(grp, "p:grpSpPr");
+  const gFill = grpSpPr ? groupFill(grpSpPr, theme) : void 0;
+  if (gFill) {
+    for (const sh of children2) {
+      if (!sh.grpFill) continue;
+      sh.fill = gFill.fill;
+      if (gFill.alpha !== void 0) sh.fillAlpha = gFill.alpha;
+      delete sh.grpFill;
+    }
+  }
   const xfrmEl = grpSpPr ? firstChild(grpSpPr, "a:xfrm") : void 0;
   if (!xfrmEl) return children2;
   const num2 = (el2, a, dflt2) => el2?.attrs[a] !== void 0 ? parseInt(el2.attrs[a], 10) : dflt2;
@@ -6361,6 +6612,9 @@ function readGraphicFrame(gf, pkg, rels, theme) {
             if (c) pal.push(c);
           }
           if (pal.length) shape.chartPalette = pal;
+          shape.chartTheme = theme;
+          const bg = chartAreaFill(xml, theme);
+          if (bg !== void 0) shape.chartBg = bg;
         }
       }
     }
@@ -6382,7 +6636,10 @@ function readGraphicFrame(gf, pkg, rels, theme) {
       }
       if (drawingPath) {
         const shapes = readDiagramShapes(pkg, drawingPath, theme, shape.xfrm);
-        if (shapes.length) return shapes;
+        if (shapes.length) {
+          for (const s of shapes) if (shape.id) s.groupIds = [...s.groupIds ?? [], shape.id];
+          return shapes;
+        }
       }
     }
   }
@@ -6397,6 +6654,18 @@ function readGraphicFrame(gf, pkg, rels, theme) {
     shape.table = table;
   }
   return shape;
+}
+function chartAreaFill(xml, theme) {
+  let root;
+  try {
+    root = parseXml(xml);
+  } catch {
+    return void 0;
+  }
+  const spPr = firstChild(root, "c:spPr");
+  if (!spPr) return void 0;
+  if (firstChild(spPr, "a:noFill")) return null;
+  return solidFillColor(spPr, theme);
 }
 function renamePrefix(el2, from, to) {
   return {
@@ -6420,6 +6689,7 @@ function readDiagramShapes(pkg, drawingPath, theme, frame) {
   for (const c of childElements(spTree, "dsp:sp")) {
     const sp = renamePrefix(c, "dsp:", "p:");
     const sh = readShape(sp, theme);
+    if (c.attrs["modelId"]) sh.dgmId = c.attrs["modelId"];
     if (sh.xfrm) out.push(sh);
   }
   if (!out.length) return out;
@@ -6467,6 +6737,12 @@ function readTable(tbl, theme) {
       const tcPr = firstChild(tc, "a:tcPr");
       if (tcPr) {
         if (tcPr.attrs["anchor"]) cell.anchor = tcPr.attrs["anchor"];
+        if (tcPr.attrs["vert"] && tcPr.attrs["vert"] !== "horz") cell.vert = tcPr.attrs["vert"];
+        if (firstChild(tcPr, "a:noFill")) cell.noFill = true;
+        for (const k of ["marL", "marR", "marT", "marB"]) {
+          const v = tcPr.attrs[k];
+          if (v !== void 0 && /^-?\d+$/.test(v)) cell[k] = parseInt(v, 10);
+        }
         const fill = solidFillColor(tcPr, theme);
         if (fill) cell.fill = fill;
         const sfEl = firstChild(tcPr, "a:solidFill");
@@ -6476,6 +6752,10 @@ function readTable(tbl, theme) {
         for (const [key, name] of sides) {
           const ln2 = firstChild(tcPr, name);
           if (!ln2) continue;
+          if (firstChild(ln2, "a:noFill")) {
+            (cell.borderNone ??= {})[key] = true;
+            continue;
+          }
           const fillEl = firstChild(ln2, "a:solidFill");
           const color = fillEl ? colorFromDml(childElements(fillEl)[0], theme) : void 0;
           if (!color) continue;
@@ -6518,11 +6798,18 @@ function readShape(sp, theme, pkg, rels) {
     const avLst = geom ? firstChild(geom, "a:avLst") : void 0;
     if (avLst) {
       const adj = [];
+      const names = [];
       for (const gd of childElements(avLst, "a:gd")) {
         const m = /val (-?\d+)/.exec(gd.attrs["fmla"] ?? "");
-        if (m) adj.push(parseInt(m[1], 10));
+        if (m) {
+          adj.push(parseInt(m[1], 10));
+          names.push(gd.attrs["name"] ?? "");
+        }
       }
-      if (adj.length) shape.adj = adj;
+      if (adj.length) {
+        shape.adj = adj;
+        shape.adjNames = names;
+      }
     }
     const cust = firstChild(spPr, "a:custGeom");
     if (cust) {
@@ -6530,6 +6817,7 @@ function readShape(sp, theme, pkg, rels) {
       if (cg) shape.custGeom = cg;
     }
     if (firstChild(spPr, "a:noFill")) shape.fill = { type: "none" };
+    else if (firstChild(spPr, "a:grpFill")) shape.grpFill = true;
     else {
       const c = solidFillColor(spPr, theme);
       if (c) shape.fill = { type: "solid", color: c };
@@ -6595,7 +6883,7 @@ function readShape(sp, theme, pkg, rels) {
       if (!ref || ref.attrs["idx"] === "0") return void 0;
       return colorFromDml(childElements(ref)[0], theme);
     };
-    if (!shape.fill && !shape.fillImage) {
+    if (!shape.fill && !shape.fillImage && !shape.grpFill) {
       const fc = refColor("a:fillRef");
       if (fc) shape.fill = { type: "solid", color: fc };
     }
@@ -6700,6 +6988,7 @@ function readTxBody(el2, theme, rels) {
   if (bodyPr) {
     if (bodyPr.attrs["anchor"]) tb.anchor = bodyPr.attrs["anchor"];
     if (bodyPr.attrs["wrap"]) tb.wrap = bodyPr.attrs["wrap"];
+    if (bodyPr.attrs["vert"] && bodyPr.attrs["vert"] !== "horz") tb.vert = bodyPr.attrs["vert"];
     if (bodyPr.attrs["lIns"] !== void 0) tb.insL = parseInt(bodyPr.attrs["lIns"], 10);
     if (bodyPr.attrs["tIns"] !== void 0) tb.insT = parseInt(bodyPr.attrs["tIns"], 10);
     if (bodyPr.attrs["rIns"] !== void 0) tb.insR = parseInt(bodyPr.attrs["rIns"], 10);
@@ -6861,11 +7150,24 @@ function readPicMedia(nvPicPr, pkg, rels) {
   if (!kind) return void 0;
   const ext = firstChild(nvPr, "p:extLst");
   let embed;
+  let p14;
   if (ext) for (const e of childElements(ext, "p:ext")) {
     const m = childElements(e).find((x2) => x2.name.endsWith(":media"));
+    if (m) p14 = m;
     if (m?.attrs["r:embed"]) embed = m.attrs["r:embed"];
   }
   const media = { kind, mime: "application/octet-stream" };
+  if (p14) {
+    const ms = (v) => v ? parseFloat(v) || 0 : 0;
+    for (const c of childElements(p14)) {
+      const tag = c.name.slice(c.name.indexOf(":") + 1);
+      if (tag === "trim") media.trim = { startMs: ms(c.attrs["st"]), endMs: ms(c.attrs["end"]) };
+      else if (tag === "fade") media.fade = { inMs: ms(c.attrs["in"]), outMs: ms(c.attrs["out"]) };
+      else if (tag === "bmkLst") {
+        media.bookmarks = childElements(c).filter((b) => b.name.endsWith(":bmk")).map((b) => ({ name: b.attrs["name"] ?? "", timeMs: ms(b.attrs["time"]) }));
+      }
+    }
+  }
   for (const rid of [embed, link]) {
     const target = rid ? rels.get(rid) : void 0;
     if (!target) continue;
@@ -6914,7 +7216,14 @@ function mediaMime(path, kind) {
   }
 }
 function resolveBlip(blip, pkg, rels) {
-  const rid = blip.attrs["r:embed"] ?? blip.attrs["embed"];
+  let rid = blip.attrs["r:embed"] ?? blip.attrs["embed"];
+  if (!rid) {
+    const ext = firstChild(blip, "a:extLst");
+    if (ext) for (const e of childElements(ext, "a:ext")) {
+      const svg = childElements(e).find((x2) => x2.name.endsWith(":svgBlip"));
+      if (svg?.attrs["r:embed"]) rid = svg.attrs["r:embed"];
+    }
+  }
   if (!rid) return void 0;
   const part = rels.get(rid);
   if (!part) return void 0;
@@ -6944,16 +7253,151 @@ function mimeFromPart(part) {
   }
 }
 
+// ../slides-core/src/media.ts
+function mediaCommands(effects, spid) {
+  const out = [];
+  const walk = (n, t) => {
+    if (n.tag === "cmd") {
+      if (n.cmd && n.target?.spid === spid) {
+        const c = { atMs: t, cmd: n.cmd };
+        if (n.dur !== void 0 && Number.isFinite(n.dur)) c.durMs = n.dur;
+        out.push(c);
+      }
+      return;
+    }
+    for (const c of n.children) {
+      const b = beginOffset(c);
+      if (b !== null) walk(c, t + b);
+    }
+  };
+  for (const e of effects) walk(e.node, e.t0);
+  return out.sort((a, b) => a.atMs - b.atMs);
+}
+function mediaStateAt(effects, spid, animMs, clock = {}, loop = false) {
+  const k = clock.scale ?? 1, lat = clock.latencyMs ?? 0;
+  let started = false, playing = false, pos = 0, since = 0;
+  let durMs, startAt = 0;
+  for (const c of mediaCommands(effects, spid)) {
+    if (c.atMs > animMs) break;
+    const m = /^playFrom\(\s*(-?[\d.]+)\s*\)$/.exec(c.cmd);
+    if (m) {
+      started = true;
+      playing = true;
+      pos = Math.max(0, parseFloat(m[1]));
+      since = c.atMs + lat;
+      startAt = c.atMs;
+      if (c.durMs !== void 0) durMs = c.durMs;
+      continue;
+    }
+    switch (c.cmd) {
+      case "pause":
+        if (playing) {
+          pos += Math.max(0, c.atMs - since) * k / 1e3;
+          playing = false;
+        }
+        break;
+      case "resume":
+        if (started && !playing) {
+          playing = true;
+          since = c.atMs + lat;
+        }
+        break;
+      case "togglePause":
+        if (playing) {
+          pos += Math.max(0, c.atMs - since) * k / 1e3;
+          playing = false;
+        } else if (started) {
+          playing = true;
+          since = c.atMs + lat;
+        }
+        break;
+      case "stop":
+        started = false;
+        playing = false;
+        pos = 0;
+        break;
+      default:
+        break;
+    }
+  }
+  let timeSec = playing ? pos + Math.max(0, animMs - since) * k / 1e3 : pos;
+  let ended = false;
+  if (playing && !loop && durMs !== void 0 && (animMs - startAt) * k >= durMs) {
+    playing = false;
+    ended = true;
+    timeSec = Math.min(timeSec, pos + (durMs - lat * k) / 1e3);
+  }
+  const st = { started, playing, timeSec };
+  if (ended) st.ended = true;
+  if (durMs !== void 0) st.durMs = durMs;
+  return st;
+}
+function mediaFadeAlpha(fade, playedMs, lenMs) {
+  if (!fade) return 1;
+  let a = 1;
+  if (fade.inMs > 0) a = Math.min(a, Math.max(0, playedMs / fade.inMs));
+  if (fade.outMs > 0 && lenMs !== void 0 && Number.isFinite(lenMs)) a = Math.min(a, Math.max(0, (lenMs - playedMs) / fade.outMs));
+  return a;
+}
+function gifFrameAt(delaysMs, elapsedMs, repeat = Infinity) {
+  const n = delaysMs.length;
+  if (n <= 1 || !(elapsedMs > 0)) return 0;
+  const d = delaysMs.map((x2) => x2 > 10 ? x2 : 100);
+  const total = d.reduce((a, b) => a + b, 0);
+  const round = Math.floor(elapsedMs / total);
+  if (round > repeat) return n - 1;
+  let t = elapsedMs - round * total;
+  for (let i2 = 0; i2 < n; i2++) {
+    if (t < d[i2]) return i2;
+    t -= d[i2];
+  }
+  return n - 1;
+}
+
 // ../slides-core/src/playback.ts
 function instantTransition(tr) {
   if (!tr || tr.type === "none") return true;
   if (tr.type === "cut") return !(tr.attrs["thruBlk"] === "1" || tr.attrs["thruBlk"] === "true");
   return false;
 }
+var STEP_PENDING = 1e12;
+function placeSlideEffects(model, stepStartMs, endMs, clock = {}) {
+  const steps = model.steps;
+  const startOf = (si) => stepStartMs[si] ?? STEP_PENDING + si * 1e7;
+  const effects = [];
+  steps.forEach((st, si) => {
+    const next = si + 1 < steps.length ? startOf(si + 1) : endMs;
+    const start = startOf(si);
+    for (const e of st.effects) {
+      const pe = { ...e, t0: start + e.startMs, step: si };
+      if (e.endOnNext) pe.endAt = next;
+      effects.push(pe);
+    }
+  });
+  const tick = clock.tickMs ?? 0;
+  const clockScale = clock.mediaClock ?? 1;
+  for (const bt of model.bookmarkTriggers ?? []) {
+    if (bt.timeMs === void 0) continue;
+    const play2 = mediaCommands(effects, bt.spid).find((c) => c.cmd.startsWith("playFrom"));
+    if (!play2) continue;
+    const from = parseFloat(/playFrom\(\s*(-?[\d.]+)/.exec(play2.cmd)?.[1] ?? "0") * 1e3;
+    const mediaMs = bt.timeMs - (bt.trimStartMs ?? 0) - from;
+    if (mediaMs < 0 || play2.durMs !== void 0 && mediaMs > play2.durMs) continue;
+    const at = play2.atMs + (tick > 0 ? 2 * tick : 0) + mediaMs / clockScale;
+    for (const e of bt.effects) effects.push({ ...e, t0: at + e.startMs, step: -1 });
+  }
+  return effects;
+}
+function clickWait(steps, D) {
+  const total = steps.reduce((s, st) => s + st.durMs, 0);
+  const clicks = steps.filter((s) => !s.auto).length;
+  return Math.max(0, D - total) / (clicks + 1);
+}
 function buildPlaybackTimeline(models, opts = {}) {
   const useTimings = opts.useTimings ?? true;
   const defaultMs = opts.defaultSlideMs ?? 5e3;
   const tick = Math.max(0, opts.tickMs ?? 0);
+  const mediaClock = opts.transitionFps && tick > 0 ? 1e3 / opts.transitionFps / tick : 1;
   const slides = [];
   let cursor = 0;
   models.forEach((m, index) => {
@@ -6961,18 +7405,15 @@ function buildPlaybackTimeline(models, opts = {}) {
     if (model.hidden) return;
     const tr = model.transition;
     let transitionMs = instantTransition(tr) ? 0 : Math.max(0, tr.durMs);
-    if (transitionMs > 0 && opts.transitionFps && tick > 0) transitionMs = Math.round(transitionMs * opts.transitionFps / 1e3) * tick;
+    if (transitionMs > 0 && opts.transitionFps && tick > 0) transitionMs = Math.ceil(transitionMs * opts.transitionFps / 1e3 - 0.5) * tick;
     if (slides.length === 0 && tick > 0 && tr?.type === "cut" && transitionMs === 0) transitionMs = tick;
     const startMs = cursor;
     const hasPhase = slides.length > 0 || tr !== void 0 && tr.type !== "none";
     const animStartMs = startMs + transitionMs + (hasPhase ? 2 * tick : 0);
-    const recorded = useTimings && tr?.advTmMs !== void 0;
-    let D = recorded ? tr.advTmMs : defaultMs;
-    if (!recorded && opts.transitionFps && tick > 0) D = Math.round(D * opts.transitionFps / 1e3) * tick;
+    const D = useTimings && tr?.advTmMs !== void 0 ? tr.advTmMs : defaultMs;
     const steps = model.steps;
     const total = steps.reduce((s, st) => s + st.durMs, 0);
-    const clicks = steps.filter((s) => !s.auto).length;
-    const wait = Math.max(0, D - total) / (clicks + 1);
+    const wait = clickWait(steps, D);
     const stepStartMs = [];
     let t = animStartMs;
     for (const st of steps) {
@@ -6983,10 +7424,7 @@ function buildPlaybackTimeline(models, opts = {}) {
     t += wait;
     if (tick > 0) t = Math.ceil(t / tick - 1e-9) * tick;
     if (steps.length && total >= D) t += tick;
-    const effects = [];
-    steps.forEach((st, si) => {
-      for (const e of st.effects) effects.push({ ...e, t0: stepStartMs[si] - animStartMs + e.startMs, step: si });
-    });
+    const effects = placeSlideEffects(model, stepStartMs.map((s) => s - animStartMs), t - animStartMs, { tickMs: tick, mediaClock });
     slides.push({
       index,
       startMs,
@@ -6999,7 +7437,6 @@ function buildPlaybackTimeline(models, opts = {}) {
     });
     cursor = t;
   });
-  const mediaClock = opts.transitionFps && tick > 0 ? 1e3 / opts.transitionFps / tick : 1;
   return { slides, durationMs: cursor, tickMs: tick, mediaClock };
 }
 function playbackStateAt(tl, t) {
@@ -7025,6 +7462,308 @@ function playbackStateAt(tl, t) {
   };
   if (st.transitionProgress < 1 && pos > 0) st.from = tl.slides[pos - 1];
   return st;
+}
+
+// ../slides-core/src/slideshow.ts
+var NO_TIMING = { steps: [], interactive: [], hidden: false };
+var MIRROR = { l: "r", r: "l", u: "d", d: "u", lu: "rd", rd: "lu", ru: "ld", ld: "ru" };
+var DIR_DEFAULT = {
+  push: "l",
+  cover: "l",
+  pull: "l",
+  wipe: "l",
+  strips: "lu",
+  reveal: "l",
+  prism: "l",
+  pan: "l",
+  conveyor: "l",
+  gallery: "l",
+  ferris: "l"
+};
+function mirrorTransition(tr) {
+  if (!tr) return tr;
+  const dir = tr.attrs["dir"] ?? DIR_DEFAULT[tr.type];
+  const m = dir !== void 0 ? MIRROR[dir] : void 0;
+  return m ? { ...tr, attrs: { ...tr.attrs, dir: m } } : tr;
+}
+var SlideShow = class {
+  /**
+   * Começa em `from` (índice no deck; um slide oculto também, se pedido
+   * explicitamente), entrando pela transição a partir do preto.
+   */
+  constructor(models, from, now, opts = {}) {
+    this.models = models;
+    this.useTimings = opts.useTimings ?? true;
+    this.loop = opts.loop ?? false;
+    if (models.length) this.enter(Math.max(0, Math.min(models.length - 1, Math.trunc(from) || 0)), now, "forward");
+  }
+  models;
+  useTimings;
+  loop;
+  /** Passagem em cena; null = tela de fim. */
+  run = null;
+  serial = 0;
+  /** Último slide antes da tela de fim (para voltar dela). */
+  lastIndex = -1;
+  /** Índice (no deck) do slide em cena; -1 na tela de fim. */
+  get index() {
+    return this.run?.index ?? -1;
+  }
+  /** Na tela de fim. */
+  get ended() {
+    return this.run === null;
+  }
+  /** Passos por clique do slide em cena. */
+  get steps() {
+    const st = this.run?.model.steps ?? [];
+    return st.length - (st[0]?.auto ? 1 : 0);
+  }
+  /** Passos por clique já dados no slide em cena. */
+  get step() {
+    const r = this.run;
+    return r ? r.fired - (r.model.steps[0]?.auto ? 1 : 0) : 0;
+  }
+  /** Avança: conclui a transição, dispara o próximo passo ou troca de slide. `mouse` = veio de clique. */
+  next(now, mouse = false) {
+    const r = this.run;
+    if (!r) return "exit";
+    if (now < r.startAt + r.transitionMs) {
+      this.finishTransition(r, now);
+      return "transition";
+    }
+    if (r.fired < r.model.steps.length) {
+      if (r.sched && r.anchor === null) r.anchor = now;
+      r.stepAt[r.fired++] = now;
+      this.place(r);
+      return "step";
+    }
+    if (mouse && r.model.transition?.advClick === false) return "none";
+    return this.advance(now);
+  }
+  /** Volta: desfaz passo(s) ou vai ao slide anterior (estado final). */
+  prev(now) {
+    const r = this.run;
+    if (!r) {
+      const last = this.lastIndex >= 0 ? this.lastIndex : this.visibleBefore(this.models.length);
+      if (last < 0) return "none";
+      this.enter(last, now, "back");
+      return "slide";
+    }
+    const auto = r.model.steps[0]?.auto ? 1 : 0;
+    if (r.fired > auto) {
+      if (r.sched) {
+        for (let k = auto; k < r.fired; k++) r.stepAt[k] = void 0;
+        r.fired = auto;
+        r.anchor = null;
+      } else {
+        r.stepAt[--r.fired] = void 0;
+      }
+      this.place(r);
+      return "step";
+    }
+    const p = this.visibleBefore(r.index);
+    if (p < 0) return "none";
+    this.enter(p, now, "back");
+    return "slide";
+  }
+  /** Pula para o slide `index` (entra pela transição, como avançando). */
+  goTo(index, now) {
+    if (index < 0 || index >= this.models.length || index === this.run?.index) return "none";
+    this.enter(index, now, "forward");
+    return "slide";
+  }
+  /** Primeiro slide visível. */
+  first(now) {
+    const i2 = this.visibleAfter(-1);
+    return i2 < 0 ? "none" : this.goTo(i2, now);
+  }
+  /** Último slide visível. */
+  last(now) {
+    const i2 = this.visibleBefore(this.models.length);
+    return i2 < 0 ? "none" : this.goTo(i2, now);
+  }
+  /**
+   * Relógio do intervalo até `now`: passos vencidos disparam no horário
+   * deles; com todos dados e o avanço vencido, troca de slide. Chamar a cada
+   * quadro.
+   */
+  update(now) {
+    const r = this.run;
+    if (!r || !r.sched || r.anchor === null || now < r.startAt + r.transitionMs) return "none";
+    let act = "none";
+    while (r.fired < r.model.steps.length && r.anchor + r.sched.steps[r.fired] <= now) {
+      r.stepAt[r.fired] = r.anchor + r.sched.steps[r.fired];
+      r.fired++;
+      act = "step";
+    }
+    if (act === "step") this.place(r);
+    if (r.fired === r.model.steps.length && r.anchor + r.sched.end <= now) return this.advance(now);
+    return act;
+  }
+  /** Próximo instante (absoluto) em que o relógio do intervalo age; Infinity = espera o apresentador. */
+  dueAt() {
+    const r = this.run;
+    if (!r || !r.sched || r.anchor === null) return Infinity;
+    return r.anchor + (r.fired < r.model.steps.length ? r.sched.steps[r.fired] : r.sched.end);
+  }
+  /** Quadro no instante `now`. */
+  frame(now) {
+    const r = this.run;
+    if (!r) return { slide: null, animMs: 0, transitionProgress: 1, from: null, ended: true };
+    const p = r.transitionMs > 0 ? Math.max(0, Math.min(1, (now - r.startAt) / r.transitionMs)) : 1;
+    return {
+      slide: r.ps,
+      animMs: now - (r.startAt + r.transitionMs),
+      transitionProgress: p,
+      from: p < 1 ? r.from : null,
+      ended: false
+    };
+  }
+  /**
+   * Próximo instante (absoluto) em que o quadro muda sozinho: `now` = está
+   * animando (transição ou efeito em curso); Infinity = parado até o
+   * apresentador. Mídia (vídeo/GIF) fica por conta de quem pinta.
+   */
+  wakeAt(now) {
+    const r = this.run;
+    if (!r) return Infinity;
+    const animStart = r.startAt + r.transitionMs;
+    if (now < animStart) return now;
+    const a = now - animStart;
+    let at = this.dueAt();
+    for (const e of r.ps.effects) {
+      if (e.t0 >= STEP_PENDING) continue;
+      if (a < e.t0) {
+        at = Math.min(at, animStart + e.t0);
+        continue;
+      }
+      if (a < Math.min(e.t0 + e.durMs, e.endAt ?? Infinity)) return now;
+    }
+    return at;
+  }
+  // ───────────────────────── interno ─────────────────────────
+  model(i2) {
+    return this.models[i2] ?? NO_TIMING;
+  }
+  visibleAfter(i2) {
+    for (let j = i2 + 1; j < this.models.length; j++) if (!this.model(j).hidden) return j;
+    return -1;
+  }
+  visibleBefore(i2) {
+    for (let j = i2 - 1; j >= 0; j--) if (!this.model(j).hidden) return j;
+    return -1;
+  }
+  /** Horários do intervalo do slide (mesma regra do export de vídeo); null sem intervalo. */
+  schedule(model) {
+    const D = model.transition?.advTmMs;
+    if (!this.useTimings || D === void 0) return null;
+    const wait = clickWait(model.steps, D);
+    const steps = [];
+    let t = 0;
+    for (const st of model.steps) {
+      if (!st.auto) t += wait;
+      steps.push(t);
+      t += st.durMs;
+    }
+    return { steps, end: t + wait };
+  }
+  /** Conclui a transição em curso agora: o relógio do slide (e do intervalo) começa aqui. */
+  finishTransition(r, now) {
+    const shift = r.startAt + r.transitionMs - now;
+    r.startAt -= shift;
+    for (let k = 0; k < r.stepAt.length; k++) if (r.stepAt[k] !== void 0) r.stepAt[k] -= shift;
+    if (r.anchor !== null) r.anchor -= shift;
+    this.place(r);
+  }
+  /** Próximo slide visível; depois do último, o 1º (`loop`) ou a tela de fim. */
+  advance(now) {
+    const cur = this.run;
+    if (!cur) return "none";
+    const nxt = this.visibleAfter(cur.index);
+    const to = nxt >= 0 ? nxt : this.loop ? this.visibleAfter(-1) : -1;
+    if (to >= 0) {
+      this.enter(to, now, "forward");
+      return "slide";
+    }
+    this.lastIndex = cur.index;
+    this.run = null;
+    return "end";
+  }
+  /**
+   * Nova passagem pelo slide `index`. `forward`: transição de entrada (a
+   * partir do slide em cena congelado, ou do preto) + passo automático + o
+   * relógio do intervalo desde o fim da transição. `back`: a transição do
+   * slide que SAI, espelhada; o destino no estado FINAL (todos os passos já
+   * concluídos antes de a transição começar) e sem relógio.
+   */
+  enter(index, now, how) {
+    const model = this.model(index);
+    const steps = model.steps;
+    const prev = this.run;
+    const r = {
+      serial: ++this.serial,
+      index,
+      model,
+      transition: model.transition,
+      startAt: now,
+      transitionMs: 0,
+      stepAt: steps.map(() => void 0),
+      fired: 0,
+      sched: this.schedule(model),
+      anchor: null,
+      from: prev ? this.freeze(prev, now) : null,
+      ps: void 0
+    };
+    if (how === "forward") {
+      r.transitionMs = instantTransition(model.transition) ? 0 : Math.max(0, model.transition.durMs);
+      const animStart = now + r.transitionMs;
+      if (r.sched) r.anchor = animStart;
+      if (steps[0]?.auto) {
+        r.stepAt[0] = animStart;
+        r.fired = 1;
+      }
+    } else {
+      const leaving = prev?.model.transition;
+      r.transition = mirrorTransition(leaving);
+      r.transitionMs = instantTransition(leaving) ? 0 : Math.max(0, leaving.durMs);
+      let t = 0;
+      const rel = steps.map((st) => {
+        const s = t;
+        t += st.durMs;
+        return s;
+      });
+      r.stepAt = rel.map((s) => now - t - 1 + s);
+      r.fired = steps.length;
+    }
+    this.run = r;
+    this.place(r);
+  }
+  /** O slide em cena congelado agora (passos já dados concluídos): origem da próxima transição. */
+  freeze(r, now) {
+    const animStart = r.startAt + r.transitionMs;
+    return { slide: r.ps, animMs: Math.max(now - animStart, finiteEnd(r.ps)), key: r.serial };
+  }
+  /** (Re)posiciona os efeitos da passagem a partir dos passos disparados. */
+  place(r) {
+    const animStart = r.startAt + r.transitionMs;
+    r.ps = {
+      index: r.index,
+      startMs: r.startAt,
+      transition: r.transition ?? null,
+      transitionMs: r.transitionMs,
+      animStartMs: animStart,
+      stepStartMs: r.stepAt.map((t) => t ?? Infinity),
+      endMs: Infinity,
+      effects: placeSlideEffects(r.model, r.stepAt.map((t) => t === void 0 ? void 0 : t - animStart), STEP_PENDING)
+    };
+  }
+};
+function finiteEnd(ps) {
+  let m = 0;
+  for (const e of ps.effects) {
+    if (e.t0 < STEP_PENDING && Number.isFinite(e.durMs)) m = Math.max(m, e.t0 + e.durMs);
+  }
+  return m;
 }
 
 // ../slides-core/src/anim-formula.ts
@@ -7648,6 +8387,23 @@ function evalNode(n, local, st, base) {
     evalNode(c, t - b, st, base);
   }
 }
+function chartSel(c) {
+  const any = (v) => v < 0;
+  const key = `${c.step}|${c.series}|${c.category}`;
+  switch (c.step) {
+    case "gridLegend":
+      return { key, bg: true, data: null };
+    case "series":
+      return { key, bg: false, data: (s) => s === c.series };
+    case "category":
+      return { key, bg: false, data: (_s, k) => k === c.category };
+    case "ptInSeries":
+    case "ptInCategory":
+      return { key, bg: false, data: (s, k) => (any(c.series) || s === c.series) && (any(c.category) || k === c.category) };
+    default:
+      return { key, bg: true, data: () => true };
+  }
+}
 function firstVisibility(n) {
   let best;
   const walk = (x2, t0) => {
@@ -7669,8 +8425,12 @@ function neutral(base, visible) {
 function evalTracks(tracks, animMs, base, initiallyVisible) {
   const st = neutral(base, initiallyVisible);
   for (const tr of tracks) {
-    const local = animMs - tr.e.t0 - tr.shift;
+    let local = animMs - tr.e.t0 - tr.shift;
     if (local < 0) continue;
+    if (tr.e.endAt !== void 0 && animMs >= tr.e.endAt + tr.shift) {
+      if (tr.e.fill === "remove") continue;
+      local = tr.e.endAt - tr.e.t0;
+    }
     evalNode(tr.e.node, local, st, base);
   }
   return st;
@@ -7684,8 +8444,9 @@ function initialVisible(tracks) {
   return true;
 }
 function shapeAnimHooks(effects, ids, animMs, ctx = {}) {
-  const mine = effects.filter((e) => e.target && ids.includes(e.target.spid)).sort((a, b) => a.t0 - b.t0);
+  const mine = effects.filter((e) => e.target && ids.includes(e.target.spid) && (!e.target.dgm || e.target.dgm === ctx.dgmId)).sort((a, b) => a.t0 - b.t0);
   if (!mine.length) return null;
+  const chart = /* @__PURE__ */ new Map();
   const all = [];
   const bg = [];
   const paras = [];
@@ -7693,7 +8454,12 @@ function shapeAnimHooks(effects, ids, animMs, ctx = {}) {
   for (const e of mine) {
     const t = e.target;
     const it = e.node.iterate;
-    if (t.sub === "bg") bg.push({ e, shift: 0 });
+    if (t.chart) {
+      const c = t.chart, key = `${c.step}|${c.series}|${c.category}`;
+      let part = chart.get(key);
+      if (!part) chart.set(key, part = { sel: chartSel(c), tracks: [] });
+      part.tracks.push({ e, shift: 0 });
+    } else if (t.sub === "bg") bg.push({ e, shift: 0 });
     else if (it && (it.type === "wd" || it.type === "lt")) {
       const bgFirst = ctx.animBg?.(t.spid) ?? false;
       units.push({ e, ...t.pRange ? { range: t.pRange } : {}, bgFirst });
@@ -7707,6 +8473,18 @@ function shapeAnimHooks(effects, ids, animMs, ctx = {}) {
   if (bg.length) {
     const vis = initialVisible(bg);
     hooks.bg = (base) => evalTracks(bg, animMs, base, vis);
+  }
+  if (chart.size) {
+    const parts = [...chart.values()];
+    const out = [];
+    if (!parts.some((p) => p.sel.bg)) out.push({ sel: { bg: true, data: null }, state: null });
+    const covered = (s, c) => parts.some((p) => !!p.sel.data && p.sel.data(s, c));
+    out.push({ sel: { bg: false, data: (s, c) => !covered(s, c) }, state: null });
+    for (const p of parts) {
+      const vis = initialVisible(p.tracks);
+      out.push({ sel: p.sel, state: (base) => evalTracks(p.tracks, animMs, base, vis) });
+    }
+    hooks.chartParts = out;
   }
   if (paras.length) {
     hooks.para = (i2, base) => {
@@ -7749,6 +8527,39 @@ function hash01(a, b) {
 function parseFilter(filter) {
   const m = /^([a-zA-Z]+)(?:\(([^)]*)\))?$/.exec(filter.trim());
   return m ? [m[1].toLowerCase(), (m[2] ?? "").trim()] : [filter.toLowerCase(), ""];
+}
+var WIPE_SOFT = 0.14;
+function softRevealFilter(filter) {
+  return parseFilter(filter)[0] === "wipe";
+}
+function applySoftReveal(ctx, filter, q, x2, y, w, h) {
+  q = Math.max(0, Math.min(1, q));
+  const arg = parseFilter(filter)[1];
+  const vertical = arg === "down" || arg === "up";
+  const b = Math.max(1e-3, WIPE_SOFT * (vertical ? h : w));
+  const travel = q * ((vertical ? h : w) + b);
+  let g;
+  if (arg === "down") {
+    const f = y + h - travel;
+    g = ctx.createLinearGradient(0, f, 0, f + b);
+  } else if (arg === "up") {
+    const f = y + travel;
+    g = ctx.createLinearGradient(0, f, 0, f - b);
+  } else if (arg === "left") {
+    const f = x2 + travel;
+    g = ctx.createLinearGradient(f, 0, f - b, 0);
+  } else {
+    const f = x2 + w - travel;
+    g = ctx.createLinearGradient(f, 0, f + b, 0);
+  }
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(1, "rgba(0,0,0,1)");
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-in";
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = g;
+  ctx.fillRect(x2, y, w, h);
+  ctx.restore();
 }
 function sector(ctx, cx, cy, r, a0, a1) {
   ctx.moveTo(cx, cy);
@@ -7970,6 +8781,36 @@ function scratch(slot, w, h) {
   x2.clearRect(0, 0, w, h);
   return { c, x: x2 };
 }
+function conicMask(m, r, pts, ccw = false) {
+  const mk = m;
+  if (typeof mk.createConicGradient !== "function") return false;
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  const g = mk.createConicGradient.call(m, -Math.PI / 2, cx, cy);
+  const list = ccw ? pts.map(([o, a]) => [1 - o, a]).reverse() : pts;
+  let last = 0;
+  for (const [o, a] of list) {
+    last = Math.max(last, clamp01(o));
+    g.addColorStop(last, `rgba(255,255,255,${clamp01(a)})`);
+  }
+  m.fillStyle = g;
+  m.fillRect(r.x, r.y, r.w, r.h);
+  return true;
+}
+function wheelPts(n, q, soft) {
+  const span = 1 / n, pts = [];
+  const s = Math.min(soft, span * q * 2, span * (1 - q) * 2);
+  for (let i2 = 0; i2 < n; i2++) {
+    const a0 = i2 * span, front = a0 + span * q;
+    pts.push([a0, 1], [front - s / 2, 1], [front + s / 2, 0], [a0 + span, 0]);
+  }
+  return pts;
+}
+function cornerColor(img, r) {
+  const t = scratch(3, 1, 1);
+  t.x.drawImage(img, r.x + r.w * 5e-3, r.y + r.h * 0.955, r.w * 0.03, r.h * 0.04, 0, 0, 1, 1);
+  const d = t.x.getImageData(0, 0, 1, 1).data;
+  return [d[0] ?? 0, d[1] ?? 0, d[2] ?? 0];
+}
 function softOver(ctx, from, to, r, cw, ch, paintMask) {
   draw(ctx, from, r);
   const t = scratch(0, cw, ch);
@@ -8083,11 +8924,11 @@ function paintTransition(ctx, from, to, tr, p, r, canvasW, canvasH) {
     }
     case "fade": {
       if (thruBlk) {
-        ctx.globalAlpha = p < 0.5 ? 1 - 2 * p : 2 * p - 1;
+        ctx.globalAlpha = p < 0.5 ? 1 - easeInOut(2 * p) : easeInOut(2 * p - 1);
         draw(ctx, p < 0.5 ? from : to, r);
       } else {
         draw(ctx, from, r);
-        ctx.globalAlpha = p;
+        ctx.globalAlpha = easeInOut(p);
         draw(ctx, to, r);
       }
       break;
@@ -8107,8 +8948,9 @@ function paintTransition(ctx, from, to, tr, p, r, canvasW, canvasH) {
       break;
     }
     case "pull": {
-      const e = easePow(p, 1.8, 0.9);
       const [vx, vy] = dirVec(dir || "l");
+      const t = clamp01((p - 0.07) / 0.31);
+      const e = vx !== 0 && vy !== 0 ? t * t * (3 - 2 * t) : easePow(p, 1.8, 0.9);
       draw(ctx, to, r);
       draw(ctx, from, r, vx * r.w * e, vy * r.h * e);
       break;
@@ -8188,7 +9030,7 @@ function paintTransition(ctx, from, to, tr, p, r, canvasW, canvasH) {
         for (let c = 0; c < cols; c++) {
           const lead = vert ? rI / (rows - 1) : c / (cols - 1);
           const f = (p - 0.5 * lead - 0.05 * hash012(c, rI)) / 0.45;
-          flipTile(ctx, from, to, r.x + c * r.w / cols, r.y + rI * r.h / rows, r.w / cols + 0.5, r.h / rows + 0.5, f, false);
+          flipTile(ctx, from, to, r.x + c * r.w / cols, r.y + rI * r.h / rows, r.w / cols + 0.5, r.h / rows + 0.5, f, vert);
         }
       }
       break;
@@ -8241,13 +9083,31 @@ function paintTransition(ctx, from, to, tr, p, r, canvasW, canvasH) {
       }
       break;
     }
-    case "wedge":
-      revealOver(ctx, from, to, r, "wedge", p);
+    case "wedge": {
+      const h = p / 2, sw = Math.min(0.06, p, 1 - p);
+      let ok = false;
+      softOver(ctx, from, to, r, canvasW, canvasH, (m) => {
+        ok = conicMask(m, r, [[0, 1], [h - sw / 2, 1], [h + sw / 2, 0], [1 - h - sw / 2, 0], [1 - h + sw / 2, 1], [1, 1]]);
+      });
+      if (!ok) revealOver(ctx, from, to, r, "wedge", p);
       break;
-    case "wheel":
-      revealOver(ctx, from, to, r, `wheel(${a["spokes"] ?? "4"})`, p);
+    }
+    case "wheel": {
+      const n = Math.max(1, parseInt(a["spokes"] ?? "4", 10) || 4);
+      let ok = false;
+      if (n <= 2) softOver(ctx, from, to, r, canvasW, canvasH, (m) => {
+        ok = conicMask(m, r, wheelPts(n, p, 0.06));
+      });
+      if (!ok) revealOver(ctx, from, to, r, `wheel(${n})`, p);
       break;
+    }
     case "wheelReverse": {
+      const n = Math.max(1, parseInt(a["spokes"] ?? "1", 10) || 1);
+      let ok = false;
+      softOver(ctx, from, to, r, canvasW, canvasH, (m) => {
+        ok = conicMask(m, r, wheelPts(n, p, 0.06), true);
+      });
+      if (ok) break;
       draw(ctx, from, r);
       ctx.save();
       ctx.translate(r.x + r.w, 0);
@@ -8314,6 +9174,14 @@ function paintTransition(ctx, from, to, tr, p, r, canvasW, canvasH) {
         draw(ctx, from, r);
         ctx.globalAlpha = p;
         draw(ctx, to, r);
+        const w = 1 - Math.abs(2 * p - 1);
+        if (w > 0) {
+          const c0 = cornerColor(from, r), c1 = cornerColor(to, r);
+          const mix = (i2) => Math.round(c0[i2] + (c1[i2] - c0[i2]) * p);
+          ctx.globalAlpha = w;
+          ctx.fillStyle = `rgb(${mix(0)},${mix(1)},${mix(2)})`;
+          ctx.fillRect(r.x, r.y, r.w, r.h);
+        }
       }
       break;
     }
@@ -8437,7 +9305,7 @@ var DEFAULT_PALETTE = [
   "#255E91",
   "#43682B"
 ];
-function parseChart(xml) {
+function parseChart(xml, theme) {
   const root = parseXml(xml);
   const chart = firstChild(root, "c:chart");
   if (!chart) return { type: "unknown", series: [], categories: [] };
@@ -8473,7 +9341,7 @@ function parseChart(xml) {
     const ov = firstChild(block, "c:overlap");
     if (ov?.attrs["val"]) out.overlap = parseInt(ov.attrs["val"], 10);
     for (const ser of childElements(block, "c:ser")) {
-      const series = parseSeries(ser);
+      const series = parseSeries(ser, theme);
       if (series.values.length === 0) continue;
       out.series.push(series);
       perSeriesTypes.push(t);
@@ -8485,7 +9353,47 @@ function parseChart(xml) {
   }
   const uniqueTypes = new Set(perSeriesTypes);
   if (uniqueTypes.size > 1) out.perSeriesType = perSeriesTypes;
+  const valAx = firstChild(plot, "c:valAx");
+  const catAx = firstChild(plot, "c:catAx") ?? firstChild(plot, "c:dateAx");
+  if (valAx) out.valAx = readAxis(valAx, theme);
+  if (catAx) out.catAx = readAxis(catAx, theme);
+  if (legend) {
+    const lt = readTextStyle(firstChild(legend, "c:txPr"), theme);
+    if (lt) out.legendText = lt;
+  }
   return out;
+}
+function readTextStyle(txPr, theme) {
+  const rpr = txPr ? deepFind(txPr, "a:defRPr") : void 0;
+  if (!rpr) return void 0;
+  const st = {};
+  const sz = rpr.attrs["sz"];
+  if (sz && /^\d+$/.test(sz)) st.sizePt = parseInt(sz, 10) / 100;
+  const sf = firstChild(rpr, "a:solidFill");
+  const c = sf ? colorFromDml(childElements(sf)[0], theme ?? { colors: {} }) : void 0;
+  if (c) st.color = c;
+  let face = firstChild(rpr, "a:latin")?.attrs["typeface"];
+  if (face === "+mn-lt") face = theme?.fonts?.minor;
+  else if (face === "+mj-lt") face = theme?.fonts?.major;
+  if (face && !face.startsWith("+")) st.font = face;
+  return st;
+}
+function readAxis(ax, theme) {
+  const num2 = (el2, name) => {
+    const v = el2 ? firstChild(el2, name)?.attrs["val"] : void 0;
+    const n = v !== void 0 ? parseFloat(v) : NaN;
+    return Number.isFinite(n) ? n : void 0;
+  };
+  const del = firstChild(ax, "c:delete")?.attrs["val"];
+  const a = { grid: !!firstChild(ax, "c:majorGridlines"), deleted: del === "1" || del === "true" };
+  const sc = firstChild(ax, "c:scaling");
+  const min = num2(sc, "c:min"), max2 = num2(sc, "c:max"), unit = num2(ax, "c:majorUnit");
+  if (min !== void 0) a.min = min;
+  if (max2 !== void 0) a.max = max2;
+  if (unit !== void 0 && unit > 0) a.majorUnit = unit;
+  const t = readTextStyle(firstChild(ax, "c:txPr"), theme);
+  if (t) a.text = t;
+  return a;
 }
 function chartTypeForBlock(name) {
   switch (name) {
@@ -8508,7 +9416,7 @@ function chartTypeForBlock(name) {
       return "unknown";
   }
 }
-function parseSeries(ser) {
+function parseSeries(ser, theme) {
   let name = "";
   const tx = firstChild(ser, "c:tx");
   if (tx) {
@@ -8535,6 +9443,27 @@ function parseSeries(ser) {
   }
   const out = { name, values };
   if (color) out.color = color;
+  if (spPr) {
+    const th = theme ?? { colors: {} };
+    if (firstChild(spPr, "a:noFill")) out.fill = null;
+    else {
+      const sf = firstChild(spPr, "a:solidFill");
+      const c = sf ? colorFromDml(childElements(sf)[0], th) : void 0;
+      if (c) {
+        out.fill = c;
+        out.color = c;
+      }
+    }
+    const ln2 = firstChild(spPr, "a:ln");
+    if (ln2) {
+      if (firstChild(ln2, "a:noFill")) out.line = null;
+      else {
+        const lf = firstChild(ln2, "a:solidFill");
+        const c = lf ? colorFromDml(childElements(lf)[0], th) : void 0;
+        if (c) out.line = c;
+      }
+    }
+  }
   const marker = firstChild(ser, "c:marker");
   if (marker) {
     const sym = firstChild(marker, "c:symbol");
@@ -8594,10 +9523,147 @@ function walkText(el2, out) {
     walkText(c, out);
   }
 }
-function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder, sliceBorder = true) {
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(x2, y, w, h);
-  if (frameBorder) {
+var ALL = { bg: true, data: () => true };
+var boundsCache = /* @__PURE__ */ new WeakMap();
+function chartPartBounds(ctx, chart, x2, y, w, h, pxPerPt, sel) {
+  const ck = sel.key !== void 0 ? `${sel.key}@${x2.toFixed(2)},${y.toFixed(2)},${w.toFixed(2)},${h.toFixed(2)},${pxPerPt ?? ""}` : void 0;
+  let cache3 = boundsCache.get(chart);
+  if (ck !== void 0 && cache3?.has(ck)) return cache3.get(ck);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  let path = [];
+  let lw = 1;
+  const add = (px, py, pad = 0) => {
+    x0 = Math.min(x0, px - pad);
+    y0 = Math.min(y0, py - pad);
+    x1 = Math.max(x1, px + pad);
+    y1 = Math.max(y1, py + pad);
+  };
+  const flush = (pad) => {
+    for (const [px, py] of path) add(px, py, pad);
+  };
+  const arc = (cx, cy, r, a0, a1, ccw = false) => {
+    let s = a0, e = a1;
+    if (ccw) [s, e] = [a1, a0];
+    while (e < s) e += 2 * Math.PI;
+    if (e - s >= 2 * Math.PI - 1e-9) {
+      path.push([cx - r, cy - r], [cx + r, cy + r]);
+      return;
+    }
+    path.push([cx + r * Math.cos(s), cy + r * Math.sin(s)], [cx + r * Math.cos(e), cy + r * Math.sin(e)]);
+    for (let k = Math.ceil(s / (Math.PI / 2)); k * (Math.PI / 2) <= e; k++) {
+      const a = k * (Math.PI / 2);
+      path.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+  };
+  const text = (s, px, py) => {
+    const tw = ctx.measureText(s).width;
+    const fs = parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1] ?? "10");
+    const al = ctx.textAlign, bl = ctx.textBaseline;
+    const left = al === "center" ? px - tw / 2 : al === "right" || al === "end" ? px - tw : px;
+    const top = bl === "top" || bl === "hanging" ? py : bl === "middle" ? py - fs / 2 : bl === "bottom" || bl === "ideographic" ? py - fs : py - fs * 0.8;
+    add(left, top);
+    add(left + tw, top + fs);
+  };
+  const rec = new Proxy(ctx, {
+    get(t, k) {
+      switch (k) {
+        case "fillRect":
+          return (a, b, c, d) => {
+            add(a, b);
+            add(a + c, b + d);
+          };
+        case "strokeRect":
+          return (a, b, c, d) => {
+            add(a, b, lw / 2);
+            add(a + c, b + d, lw / 2);
+          };
+        case "beginPath":
+          return () => {
+            path = [];
+          };
+        case "moveTo":
+        case "lineTo":
+          return (a, b) => {
+            path.push([a, b]);
+          };
+        case "arc":
+          return arc;
+        case "closePath":
+          return () => void 0;
+        case "fill":
+          return () => flush(0);
+        case "stroke":
+          return () => flush(lw / 2);
+        case "fillText":
+          return text;
+        default: {
+          const v = Reflect.get(t, k);
+          return typeof v === "function" ? v.bind(t) : v;
+        }
+      }
+    },
+    set(t, k, v) {
+      if (k === "lineWidth") lw = Number(v) || 0;
+      return Reflect.set(t, k, v);
+    }
+  });
+  ctx.save();
+  try {
+    paintChart(rec, chart, x2, y, w, h, pxPerPt, void 0, true, sel);
+  } finally {
+    ctx.restore();
+  }
+  const box = x1 > x0 && y1 > y0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
+  if (ck !== void 0) {
+    if (!cache3) boundsCache.set(chart, cache3 = /* @__PURE__ */ new Map());
+    cache3.set(ck, box);
+  }
+  return box;
+}
+var SEL = ALL;
+var showBg = () => SEL.bg;
+var showData = (s, c) => !!SEL.data && SEL.data(s, c);
+function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder, sliceBorder = true, sel) {
+  SEL = sel ?? ALL;
+  CUR = chart;
+  PPT = pxPerPt ?? Math.max(0.8, h / 360);
+  try {
+    paintChartInner(ctx, chart, x2, y, w, h, pxPerPt, frameBorder, sliceBorder);
+  } finally {
+    SEL = ALL;
+    CUR = null;
+  }
+}
+var CUR = null;
+var PPT = 1.333;
+var DEFAULT_TEXT = "#595959";
+function labelFont(px, st) {
+  return `${px}px ${st?.font ? `"${st.font}", ` : ""}Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+}
+function labelSize(st, fallbackPx) {
+  return st?.sizePt ? st.sizePt * PPT : fallbackPx;
+}
+function niceStep(span) {
+  let mag = Math.pow(10, Math.floor(Math.log10(Math.max(span, 1e-9) / 10)));
+  for (let k = 0; k < 6; k++, mag *= 10) for (const f of [1, 2, 5]) if (span / (f * mag) <= 10) return f * mag;
+  return span / 10;
+}
+function axisTicks(min, max2) {
+  const t = niceTicks(min, max2);
+  const ax = CUR?.valAx;
+  if (!ax || ax.min === void 0 && ax.max === void 0 && ax.majorUnit === void 0) return t;
+  const lo = ax.min ?? t.lo, hi = ax.max ?? t.hi;
+  if (!(hi > lo)) return t;
+  const step = ax.majorUnit ?? (ax.min === void 0 && ax.max === void 0 ? t.step : niceStep(hi - lo));
+  return { lo, hi, step };
+}
+function paintChartInner(ctx, chart, x2, y, w, h, pxPerPt, frameBorder, sliceBorder = true) {
+  const bg = chart.bg === void 0 ? "#ffffff" : chart.bg;
+  if (bg && showBg()) {
+    ctx.fillStyle = bg;
+    ctx.fillRect(x2, y, w, h);
+  }
+  if (frameBorder && showBg()) {
     ctx.strokeStyle = frameBorder;
     ctx.lineWidth = 1;
     ctx.strokeRect(x2 + 0.5, y + 0.5, w - 1, h - 1);
@@ -8613,15 +9679,16 @@ function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder, sliceBorder =
     ctx.font = `${titlePx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    ctx.fillText(chart.title, x2 + w / 2, y + 16 * u);
+    if (showBg()) ctx.fillText(chart.title, x2 + w / 2, y + 16 * u);
     plotY = y + titlePx + 36 * u;
     plotH = h - (titlePx + 44 * u);
   }
   const showLegend = chart.legendPos !== void 0;
   const legendRight = chart.legendPos === "r";
-  const legendH = showLegend && !legendRight ? labelPx + 20 * u : 0;
+  const legendPx = labelPx;
+  const legendH = showLegend && !legendRight ? legendPx + 20 * u : 0;
   const legendTop = chart.legendPos === "t";
-  const legendW = legendRight ? legendRightWidth(ctx, chart, labelPx) : 0;
+  const legendW = legendRight ? legendRightWidth(ctx, chart, legendPx) : 0;
   const px = x2 + 8 * u;
   const py = plotY + (legendTop ? legendH : 0);
   const pw = w - 16 * u - legendW;
@@ -8657,17 +9724,17 @@ function paintChart(ctx, chart, x2, y, w, h, pxPerPt, frameBorder, sliceBorder =
       ctx.textAlign = "center";
       ctx.fillText(`Gr\xE1fico (${chart.type}) \u2014 render em breve`, x2 + w / 2, y + h / 2);
   }
-  if (showLegend) {
+  if (showLegend && showBg()) {
     if (legendRight) {
-      paintLegendRight(ctx, chart, px + pw + 4 * u, py, legendW, ph, labelPx);
+      paintLegendRight(ctx, chart, px + pw + 4 * u, py, legendW, ph, legendPx);
     } else {
       const ly = legendTop ? plotY : py + ph + 6 * u;
-      paintLegend(ctx, chart, px, ly, pw, legendH, labelPx);
+      paintLegend(ctx, chart, px, ly, pw, legendH, legendPx);
     }
   }
 }
 function legendRightWidth(ctx, chart, labelPx) {
-  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.font = labelFont(labelPx, chart.legendText);
   let maxW = 0;
   for (const s of chart.series) maxW = Math.max(maxW, ctx.measureText(s.name || "S\xE9rie").width);
   return maxW + labelPx * 1.6;
@@ -8675,7 +9742,7 @@ function legendRightWidth(ctx, chart, labelPx) {
 function paintLegendRight(ctx, chart, x2, y, w, h, labelPx) {
   const entries = chart.series.map((s, i2) => ({ label: s.name || `S\xE9rie ${i2 + 1}`, color: colorOf2(chart, i2) }));
   if (!entries.length) return;
-  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.font = labelFont(labelPx, chart.legendText);
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
   const lineH = labelPx * 1.7;
@@ -8684,7 +9751,7 @@ function paintLegendRight(ctx, chart, x2, y, w, h, labelPx) {
   for (const e of entries) {
     ctx.fillStyle = e.color;
     ctx.fillRect(x2, cy - sq / 2, sq, sq);
-    ctx.fillStyle = "#595959";
+    ctx.fillStyle = chart.legendText?.color ?? DEFAULT_TEXT;
     ctx.fillText(e.label, x2 + sq + labelPx * 0.4, cy);
     cy += lineH;
   }
@@ -8694,7 +9761,9 @@ function paletteOf(chart) {
 }
 function colorOf2(chart, i2) {
   const pal = paletteOf(chart);
-  return chart.series[i2]?.color ?? pal[i2 % pal.length];
+  const s = chart.series[i2];
+  if (s && typeof s.fill === "string") return s.fill;
+  return s?.color ?? pal[i2 % pal.length];
 }
 function valueRange(chart) {
   let min = 0, max2 = 0;
@@ -8726,7 +9795,7 @@ function paintBars(ctx, chart, x2, y, w, h, dir, labelPx) {
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;
   if (!cats || chart.series.length === 0) return;
   const { min, max: max2 } = valueRange(chart);
-  const t = niceTicks(min, max2);
+  const t = axisTicks(min, max2);
   const axW = labelPx * 2, axH = labelPx * 2.4;
   const plotL = x2 + axW, plotT = y, plotR = x2 + w, plotB = y + h - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, t);
@@ -8737,9 +9806,11 @@ function paintBars(ctx, chart, x2, y, w, h, dir, labelPx) {
   const barW = groupW / ((nSer - 1) * (1 - ov) + 1 + gap);
   const span = barW * ((nSer - 1) * (1 - ov) + 1);
   for (let s = 0; s < nSer; s++) {
+    if (chart.series[s].fill === null) continue;
     ctx.fillStyle = colorOf2(chart, s);
     const vals = chart.series[s].values;
     for (let i2 = 0; i2 < cats; i2++) {
+      if (!showData(s, i2)) continue;
       const v = vals[i2] ?? 0;
       const gx = plotL + i2 * groupW + (groupW - span) / 2;
       const xBar = gx + s * barW * (1 - ov);
@@ -8756,7 +9827,7 @@ function paintLines(ctx, chart, x2, y, w, h, labelPx, area) {
   const cats = chart.categories.length || chart.series[0]?.values.length || 0;
   if (!cats) return;
   const { min, max: max2 } = valueRange(chart);
-  const t = niceTicks(min, max2);
+  const t = axisTicks(min, max2);
   const axW = labelPx * 2, axH = labelPx * 2.4;
   const plotL = x2 + axW, plotT = y, plotR = x2 + w, plotB = y + h - axH;
   paintGrid(ctx, plotL, plotT, plotR, plotB, t);
@@ -8766,6 +9837,8 @@ function paintLines(ctx, chart, x2, y, w, h, labelPx, area) {
   for (let s = 0; s < chart.series.length; s++) {
     const col = colorOf2(chart, s);
     const vals = chart.series[s].values;
+    const on = Array.from({ length: cats }, (_, i2) => showData(s, i2));
+    if (!on.some(Boolean)) continue;
     if (area) {
       ctx.fillStyle = col;
       ctx.globalAlpha = ctx.globalAlpha * 1;
@@ -8778,18 +9851,24 @@ function paintLines(ctx, chart, x2, y, w, h, labelPx, area) {
       ctx.fill();
       continue;
     }
-    ctx.strokeStyle = col;
+    const ln2 = chart.series[s].line;
+    if (ln2 === null) continue;
+    ctx.strokeStyle = typeof ln2 === "string" ? ln2 : col;
     ctx.fillStyle = col;
     ctx.lineWidth = Math.max(2, labelPx / 6);
     ctx.beginPath();
     for (let i2 = 0; i2 < cats; i2++) {
+      if (!on[i2]) continue;
       const yp = yAt(vals[i2] ?? 0);
-      if (i2 === 0) ctx.moveTo(xAt(i2), yp);
-      else ctx.lineTo(xAt(i2), yp);
+      if (i2 > 0) {
+        ctx.moveTo(xAt(i2 - 1), yAt(vals[i2 - 1] ?? 0));
+        ctx.lineTo(xAt(i2), yp);
+      } else ctx.moveTo(xAt(i2), yp);
     }
     ctx.stroke();
     if (chart.series[s].marker) {
       for (let i2 = 0; i2 < cats; i2++) {
+        if (!on[i2]) continue;
         ctx.beginPath();
         ctx.arc(xAt(i2), yAt(vals[i2] ?? 0), labelPx / 4, 0, Math.PI * 2);
         ctx.fill();
@@ -8812,6 +9891,10 @@ function paintPieOrDoughnut(ctx, chart, x2, y, w, h, holeFrac, sliceBorder = tru
     const v = Math.max(0, s0.values[i2] ?? 0);
     if (v === 0) continue;
     const a1 = a0 + v / total * Math.PI * 2;
+    if (!showData(0, i2)) {
+      a0 = a1;
+      continue;
+    }
     ctx.fillStyle = pal[i2 % pal.length];
     ctx.beginPath();
     if (holeFrac > 0) {
@@ -8851,7 +9934,7 @@ function paintScatter(ctx, chart, x2, y, w, h, labelPx) {
   ctx.strokeStyle = "#D9D9D9";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let v = tx.lo; v <= tx.hi + 1e-9; v += tx.step) {
+  for (let v = tx.lo; v <= tx.hi + 1e-9 && showBg(); v += tx.step) {
     const xx = plotL + (v - tx.lo) / (tx.hi - tx.lo) * (plotR - plotL);
     ctx.moveTo(Math.round(xx) + 0.5, plotT);
     ctx.lineTo(Math.round(xx) + 0.5, plotB);
@@ -8861,6 +9944,7 @@ function paintScatter(ctx, chart, x2, y, w, h, labelPx) {
     ctx.fillStyle = colorOf2(chart, s);
     const vals = chart.series[s].values;
     for (let i2 = 0; i2 < n; i2++) {
+      if (!showData(s, i2)) continue;
       const xv = xs[i2] ?? i2;
       const xp = plotL + (xv - tx.lo) / (tx.hi - tx.lo) * (plotR - plotL);
       const yp = plotB - ((vals[i2] ?? 0) - ty.lo) / (ty.hi - ty.lo) * (plotB - plotT);
@@ -8869,6 +9953,7 @@ function paintScatter(ctx, chart, x2, y, w, h, labelPx) {
       ctx.fill();
     }
   }
+  if (!showBg()) return;
   ctx.fillStyle = "#595959";
   ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textAlign = "center";
@@ -8890,7 +9975,7 @@ function paintRadar(ctx, chart, x2, y, w, h, labelPx) {
   const rAt = (v) => (v - t.lo) / (t.hi - t.lo) * radius;
   ctx.strokeStyle = "#D9D9D9";
   ctx.lineWidth = 1;
-  for (let v = t.lo + t.step; v <= t.hi + 1e-9; v += t.step) {
+  for (let v = t.lo + t.step; v <= t.hi + 1e-9 && showBg(); v += t.step) {
     ctx.beginPath();
     for (let i2 = 0; i2 < n; i2++) {
       const a = angleAt(i2);
@@ -8906,10 +9991,10 @@ function paintRadar(ctx, chart, x2, y, w, h, labelPx) {
   ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  for (let v = t.lo; v <= t.hi + 1e-9; v += t.step) {
+  for (let v = t.lo; v <= t.hi + 1e-9 && showBg(); v += t.step) {
     ctx.fillText(formatVal(v), cx - labelPx * 0.4, cy - rAt(v));
   }
-  for (let i2 = 0; i2 < n; i2++) {
+  for (let i2 = 0; i2 < n && showBg(); i2++) {
     const a = angleAt(i2);
     const px = cx + Math.cos(a) * (radius + labelPx * 0.9);
     const py = cy + Math.sin(a) * (radius + labelPx * 0.9);
@@ -8919,6 +10004,7 @@ function paintRadar(ctx, chart, x2, y, w, h, labelPx) {
   }
   const filled = chart.radarStyle === "filled";
   for (let s = 0; s < chart.series.length; s++) {
+    if (!Array.from({ length: n }, (_, i2) => showData(s, i2)).some(Boolean)) continue;
     const c = colorOf2(chart, s);
     ctx.strokeStyle = c;
     ctx.lineWidth = Math.max(2, labelPx / 6);
@@ -8940,6 +10026,8 @@ function paintRadar(ctx, chart, x2, y, w, h, labelPx) {
   }
 }
 function paintGrid(ctx, l, t, r, b, ticks) {
+  if (!showBg()) return;
+  if (CUR?.valAx && !CUR.valAx.grid) return;
   ctx.strokeStyle = "#D9D9D9";
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -8951,9 +10039,11 @@ function paintGrid(ctx, l, t, r, b, ticks) {
   ctx.stroke();
 }
 function paintCategoryAxis(ctx, cats, l, b, w, labelPx) {
-  if (cats.length === 0) return;
-  ctx.fillStyle = "#595959";
-  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  if (cats.length === 0 || !showBg()) return;
+  const ax = CUR?.catAx;
+  if (ax?.deleted) return;
+  ctx.fillStyle = ax?.text?.color ?? DEFAULT_TEXT;
+  ctx.font = labelFont(labelSize(ax?.text, labelPx), ax?.text);
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   const stepX = w / cats.length;
@@ -8963,8 +10053,11 @@ function paintCategoryAxis(ctx, cats, l, b, w, labelPx) {
   }
 }
 function paintValueAxis(ctx, ticks, xRight, y, h, labelPx) {
-  ctx.fillStyle = "#595959";
-  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  if (!showBg()) return;
+  const ax = CUR?.valAx;
+  if (ax?.deleted) return;
+  ctx.fillStyle = ax?.text?.color ?? DEFAULT_TEXT;
+  ctx.font = labelFont(labelSize(ax?.text, labelPx), ax?.text);
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   for (let v = ticks.lo; v <= ticks.hi + 1e-9; v += ticks.step) {
@@ -8982,7 +10075,7 @@ function paintLegend(ctx, chart, x2, y, w, h, labelPx) {
   const byCategory = chart.type === "pie" || chart.type === "doughnut";
   const entries = byCategory ? chart.categories.map((c, i2) => ({ label: c, color: pal[i2 % pal.length] })) : chart.series.map((s, i2) => ({ label: s.name || `S\xE9rie ${i2 + 1}`, color: colorOf2(chart, i2) }));
   if (!entries.length) return;
-  ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
+  ctx.font = labelFont(labelPx, chart.legendText);
   ctx.textBaseline = "middle";
   const sq = labelPx * 0.7;
   const gapIn = sq * 0.5, gapOut = labelPx * 1.4;
@@ -9000,7 +10093,7 @@ function paintLegend(ctx, chart, x2, y, w, h, labelPx) {
     ctx.fillStyle = e.color;
     ctx.fillRect(cx, cy - sq / 2, sq, sq);
     cx += sq + gapIn;
-    ctx.fillStyle = "#595959";
+    ctx.fillStyle = chart.legendText?.color ?? DEFAULT_TEXT;
     ctx.textAlign = "left";
     ctx.fillText(e.label, cx, cy);
     cx += widths[i2] + gapOut;
@@ -9104,7 +10197,7 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
     const align = p.align ?? "l";
     const runs = p.runs.length ? p.runs : [{ text: "" }];
     let bullet;
-    if (p.bullet) {
+    if (p.bullet && runs.some((r) => r.text)) {
       for (let l = level + 1; l < 9; l++) autoNumCounters[l] = 0;
       let btext;
       if (p.bulletAutoNum !== void 0) {
@@ -9218,6 +10311,375 @@ function layoutTextBody(tb, boxW, boxH, measure, opts = {}) {
   return { lines, totalH };
 }
 
+// ../slides-core/src/preset-defs.ts
+var PRESET_DEFS = {
+  accentBorderCallout1: "adj1=val 18750;adj2=val -8333;adj3=val 112500;adj4=val -38333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2",
+  accentBorderCallout2: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 112500;adj6=val -46667|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2;L x3 y3",
+  accentBorderCallout3: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 100000;adj6=val -16667;adj7=val 112963;adj8=val -8333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000;y4=*/ h adj7 100000;x4=*/ w adj8 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2;L x3 y3;L x4 y4",
+  accentCallout1: "adj1=val 18750;adj2=val -8333;adj3=val 112500;adj4=val -38333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2",
+  accentCallout2: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 112500;adj6=val -46667|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2;L x3 y3",
+  accentCallout3: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 100000;adj6=val -16667;adj7=val 112963;adj8=val -8333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000;y4=*/ h adj7 100000;x4=*/ w adj8 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 t;Z;L x1 b#,,none,~M x1 y1;L x2 y2;L x3 y3;L x4 y4",
+  actionButtonBackPrevious: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0|,,,false~M l t;L r t;L r b;L l b;Z;M g11 vc;L g12 g9;L g12 g10;Z#,,darken,false~M g11 vc;L g12 g9;L g12 g10;Z#,,none,~M g11 vc;L g12 g9;L g12 g10;Z#,,none,~M l t;L r t;L r b;L l b;Z",
+  actionButtonBeginning: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 1 8;g15=*/ g13 1 4;g16=+- g11 g14 0;g17=+- g11 g15 0|,,,false~M l t;L r t;L r b;L l b;Z;M g17 vc;L g12 g9;L g12 g10;Z;M g16 g9;L g11 g9;L g11 g10;L g16 g10;Z#,,darken,false~M g17 vc;L g12 g9;L g12 g10;Z;M g16 g9;L g11 g9;L g11 g10;L g16 g10;Z#,,none,~M g17 vc;L g12 g9;L g12 g10;Z;M g16 g9;L g16 g10;L g11 g10;L g11 g9;Z#,,none,~M l t;L r t;L r b;L l b;Z",
+  actionButtonBlank: "||,,,~M l t;L r t;L r b;L l b;Z",
+  actionButtonDocument: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;dx1=*/ ss 9 32;g11=+- hc 0 dx1;g12=+- hc dx1 0;g13=*/ ss 3 16;g14=+- g12 0 g13;g15=+- g9 g13 0|,,,false~M l t;L r t;L r b;L l b;Z;M g11 g9;L g14 g9;L g12 g15;L g12 g10;L g11 g10;Z#,,darkenLess,false~M g11 g9;L g14 g9;L g14 g15;L g12 g15;L g12 g10;L g11 g10;Z#,,darken,false~M g14 g9;L g14 g15;L g12 g15;Z#,,none,~M g11 g9;L g14 g9;L g12 g15;L g12 g10;L g11 g10;Z;M g12 g15;L g14 g15;L g14 g9#,,none,~M l t;L r t;L r b;L l b;Z",
+  actionButtonEnd: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 3 4;g15=*/ g13 7 8;g16=+- g11 g14 0;g17=+- g11 g15 0|,,,false~M l t;L r t;L r b;L l b;Z;M g16 vc;L g11 g9;L g11 g10;Z;M g17 g9;L g12 g9;L g12 g10;L g17 g10;Z#,,darken,false~M g16 vc;L g11 g9;L g11 g10;Z;M g17 g9;L g12 g9;L g12 g10;L g17 g10;Z#,,none,~M g16 vc;L g11 g10;L g11 g9;Z;M g17 g9;L g12 g9;L g12 g10;L g17 g10;Z#,,none,~M l t;L r t;L r b;L l b;Z",
+  actionButtonForwardNext: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0|,,,false~M l t;L r t;L r b;L l b;Z;M g12 vc;L g11 g9;L g11 g10;Z#,,darken,false~M g12 vc;L g11 g9;L g11 g10;Z#,,none,~M g12 vc;L g11 g10;L g11 g9;Z#,,none,~M l t;L r t;L r b;L l b;Z",
+  actionButtonHelp: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g11=+- hc 0 dx2;g13=*/ ss 3 4;g14=*/ g13 1 7;g15=*/ g13 3 14;g16=*/ g13 2 7;g19=*/ g13 3 7;g20=*/ g13 4 7;g21=*/ g13 17 28;g23=*/ g13 21 28;g24=*/ g13 11 14;g27=+- g9 g16 0;g29=+- g9 g21 0;g30=+- g9 g23 0;g31=+- g9 g24 0;g33=+- g11 g15 0;g36=+- g11 g19 0;g37=+- g11 g20 0;g41=*/ g13 1 14;g42=*/ g13 3 28|,,,false~M l t;L r t;L r b;L l b;Z;M g33 g27;A g16 g16 cd2 cd2;A g14 g15 0 cd4;A g41 g42 3cd4 -5400000;L g37 g30;L g36 g30;L g36 g29;A g14 g15 cd2 cd4;A g41 g42 cd4 -5400000;A g14 g14 0 -10800000;Z;M hc g31;A g42 g42 3cd4 21600000;Z#,,darken,false~M g33 g27;A g16 g16 cd2 cd2;A g14 g15 0 cd4;A g41 g42 3cd4 -5400000;L g37 g30;L g36 g30;L g36 g29;A g14 g15 cd2 cd4;A g41 g42 cd4 -5400000;A g14 g14 0 -10800000;Z;M hc g31;A g42 g42 3cd4 21600000;Z#,,none,~M g33 g27;A g16 g16 cd2 cd2;A g14 g15 0 cd4;A g41 g42 3cd4 -5400000;L g37 g30;L g36 g30;L g36 g29;A g14 g15 cd2 cd4;A g41 g42 cd4 -5400000;A g14 g14 0 -10800000;Z;M hc g31;A g42 g42 3cd4 21600000;Z#,,none,~M l t;L r t;L r b;L l b;Z",
+  actionButtonHome: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 1 16;g15=*/ g13 1 8;g16=*/ g13 3 16;g17=*/ g13 5 16;g18=*/ g13 7 16;g19=*/ g13 9 16;g20=*/ g13 11 16;g21=*/ g13 3 4;g22=*/ g13 13 16;g23=*/ g13 7 8;g24=+- g9 g14 0;g25=+- g9 g16 0;g26=+- g9 g17 0;g27=+- g9 g21 0;g28=+- g11 g15 0;g29=+- g11 g18 0;g30=+- g11 g19 0;g31=+- g11 g20 0;g32=+- g11 g22 0;g33=+- g11 g23 0|,,,false~M l t;L r t;L r b;L l b;Z;M hc g9;L g11 vc;L g28 vc;L g28 g10;L g33 g10;L g33 vc;L g12 vc;L g32 g26;L g32 g24;L g31 g24;L g31 g25;Z#,,darkenLess,false~M g32 g26;L g32 g24;L g31 g24;L g31 g25;Z;M g28 vc;L g28 g10;L g29 g10;L g29 g27;L g30 g27;L g30 g10;L g33 g10;L g33 vc;Z#,,darken,false~M hc g9;L g11 vc;L g12 vc;Z;M g29 g27;L g30 g27;L g30 g10;L g29 g10;Z#,,none,~M hc g9;L g31 g25;L g31 g24;L g32 g24;L g32 g26;L g12 vc;L g33 vc;L g33 g10;L g28 g10;L g28 vc;L g11 vc;Z;M g31 g25;L g32 g26;M g33 vc;L g28 vc;M g29 g10;L g29 g27;L g30 g27;L g30 g10#,,none,~M l t;L r t;L r b;L l b;Z",
+  actionButtonInformation: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g11=+- hc 0 dx2;g13=*/ ss 3 4;g14=*/ g13 1 32;g17=*/ g13 5 16;g18=*/ g13 3 8;g19=*/ g13 13 32;g20=*/ g13 19 32;g22=*/ g13 11 16;g23=*/ g13 13 16;g24=*/ g13 7 8;g25=+- g9 g14 0;g28=+- g9 g17 0;g29=+- g9 g18 0;g30=+- g9 g23 0;g31=+- g9 g24 0;g32=+- g11 g17 0;g34=+- g11 g19 0;g35=+- g11 g20 0;g37=+- g11 g22 0;g38=*/ g13 3 32|,,,false~M l t;L r t;L r b;L l b;Z;M hc g9;A dx2 dx2 3cd4 21600000;Z#,,darken,false~M hc g9;A dx2 dx2 3cd4 21600000;Z;M hc g25;A g38 g38 3cd4 21600000;M g32 g28;L g32 g29;L g34 g29;L g34 g30;L g32 g30;L g32 g31;L g37 g31;L g37 g30;L g35 g30;L g35 g28;Z#,,lighten,false~M hc g25;A g38 g38 3cd4 21600000;M g32 g28;L g35 g28;L g35 g30;L g37 g30;L g37 g31;L g32 g31;L g32 g30;L g34 g30;L g34 g29;L g32 g29;Z#,,none,~M hc g9;A dx2 dx2 3cd4 21600000;Z;M hc g25;A g38 g38 3cd4 21600000;M g32 g28;L g35 g28;L g35 g30;L g37 g30;L g37 g31;L g32 g31;L g32 g30;L g34 g30;L g34 g29;L g32 g29;Z#,,none,~M l t;L r t;L r b;L l b;Z",
+  actionButtonMovie: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 1455 21600;g15=*/ g13 1905 21600;g16=*/ g13 2325 21600;g17=*/ g13 16155 21600;g18=*/ g13 17010 21600;g19=*/ g13 19335 21600;g20=*/ g13 19725 21600;g21=*/ g13 20595 21600;g22=*/ g13 5280 21600;g23=*/ g13 5730 21600;g24=*/ g13 6630 21600;g25=*/ g13 7492 21600;g26=*/ g13 9067 21600;g27=*/ g13 9555 21600;g28=*/ g13 13342 21600;g29=*/ g13 14580 21600;g30=*/ g13 15592 21600;g31=+- g11 g14 0;g32=+- g11 g15 0;g33=+- g11 g16 0;g34=+- g11 g17 0;g35=+- g11 g18 0;g36=+- g11 g19 0;g37=+- g11 g20 0;g38=+- g11 g21 0;g39=+- g9 g22 0;g40=+- g9 g23 0;g41=+- g9 g24 0;g42=+- g9 g25 0;g43=+- g9 g26 0;g44=+- g9 g27 0;g45=+- g9 g28 0;g46=+- g9 g29 0;g47=+- g9 g30 0;g48=+- g9 g31 0|,,,false~M l t;L r t;L r b;L l b;Z;M g11 g39;L g11 g44;L g31 g44;L g32 g43;L g33 g43;L g33 g47;L g35 g47;L g35 g45;L g36 g45;L g38 g46;L g12 g46;L g12 g41;L g38 g41;L g37 g42;L g35 g42;L g35 g41;L g34 g40;L g32 g40;L g31 g39;Z#,,darken,false~M g11 g39;L g11 g44;L g31 g44;L g32 g43;L g33 g43;L g33 g47;L g35 g47;L g35 g45;L g36 g45;L g38 g46;L g12 g46;L g12 g41;L g38 g41;L g37 g42;L g35 g42;L g35 g41;L g34 g40;L g32 g40;L g31 g39;Z#,,none,~M g11 g39;L g31 g39;L g32 g40;L g34 g40;L g35 g41;L g35 g42;L g37 g42;L g38 g41;L g12 g41;L g12 g46;L g38 g46;L g36 g45;L g35 g45;L g35 g47;L g33 g47;L g33 g43;L g32 g43;L g31 g44;L g11 g44;Z#,,none,~M l t;L r t;L r b;L l b;Z",
+  actionButtonReturn: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 7 8;g15=*/ g13 3 4;g16=*/ g13 5 8;g17=*/ g13 3 8;g18=*/ g13 1 4;g19=+- g9 g15 0;g20=+- g9 g16 0;g21=+- g9 g18 0;g22=+- g11 g14 0;g23=+- g11 g15 0;g24=+- g11 g16 0;g25=+- g11 g17 0;g26=+- g11 g18 0;g27=*/ g13 1 8|,,,false~M l t;L r t;L r b;L l b;Z;M g12 g21;L g23 g9;L hc g21;L g24 g21;L g24 g20;A g27 g27 0 cd4;L g25 g19;A g27 g27 cd4 cd4;L g26 g21;L g11 g21;L g11 g20;A g17 g17 cd2 -5400000;L hc g10;A g17 g17 cd4 -5400000;L g22 g21;Z#,,darken,false~M g12 g21;L g23 g9;L hc g21;L g24 g21;L g24 g20;A g27 g27 0 cd4;L g25 g19;A g27 g27 cd4 cd4;L g26 g21;L g11 g21;L g11 g20;A g17 g17 cd2 -5400000;L hc g10;A g17 g17 cd4 -5400000;L g22 g21;Z#,,none,~M g12 g21;L g22 g21;L g22 g20;A g17 g17 0 cd4;L g25 g10;A g17 g17 cd4 cd4;L g11 g21;L g26 g21;L g26 g20;A g27 g27 cd2 -5400000;L hc g19;A g27 g27 cd4 -5400000;L g24 g21;L hc g21;L g23 g9;Z#,,none,~M l t;L r t;L r b;L l b;Z",
+  actionButtonSound: "|dx2=*/ ss 3 8;g9=+- vc 0 dx2;g10=+- vc dx2 0;g11=+- hc 0 dx2;g12=+- hc dx2 0;g13=*/ ss 3 4;g14=*/ g13 1 8;g15=*/ g13 5 16;g16=*/ g13 5 8;g17=*/ g13 11 16;g18=*/ g13 3 4;g19=*/ g13 7 8;g20=+- g9 g14 0;g21=+- g9 g15 0;g22=+- g9 g17 0;g23=+- g9 g19 0;g24=+- g11 g15 0;g25=+- g11 g16 0;g26=+- g11 g18 0|,,,false~M l t;L r t;L r b;L l b;Z;M g11 g21;L g11 g22;L g24 g22;L g25 g10;L g25 g9;L g24 g21;Z#,,darken,false~M g11 g21;L g11 g22;L g24 g22;L g25 g10;L g25 g9;L g24 g21;Z#,,none,~M g11 g21;L g24 g21;L g25 g9;L g25 g10;L g24 g22;L g11 g22;Z;M g26 g21;L g12 g20;M g26 vc;L g12 vc;M g26 g22;L g12 g23#,,none,~M l t;L r t;L r b;L l b;Z",
+  arc: "adj1=val 16200000;adj2=val 0|stAng=pin 0 adj1 21599999;enAng=pin 0 adj2 21599999;sw11=+- enAng 0 stAng;sw12=+- sw11 21600000 0;swAng=?: sw11 sw11 sw12;wt1=sin wd2 stAng;ht1=cos hd2 stAng;dx1=cat2 wd2 ht1 wt1;dy1=sat2 hd2 ht1 wt1;wt2=sin wd2 enAng;ht2=cos hd2 enAng;dx2=cat2 wd2 ht2 wt2;dy2=sat2 hd2 ht2 wt2;x1=+- hc dx1 0;y1=+- vc dy1 0;x2=+- hc dx2 0;y2=+- vc dy2 0;sw0=+- 21600000 0 stAng;da1=+- swAng 0 sw0;g1=max x1 x2;ir=?: da1 r g1;sw1=+- cd4 0 stAng;sw2=+- 27000000 0 stAng;sw3=?: sw1 sw1 sw2;da2=+- swAng 0 sw3;g5=max y1 y2;ib=?: da2 b g5;sw4=+- cd2 0 stAng;sw5=+- 32400000 0 stAng;sw6=?: sw4 sw4 sw5;da3=+- swAng 0 sw6;g9=min x1 x2;il=?: da3 l g9;sw7=+- 3cd4 0 stAng;sw8=+- 37800000 0 stAng;sw9=?: sw7 sw7 sw8;da4=+- swAng 0 sw9;g13=min y1 y2;it=?: da4 t g13;cang1=+- stAng 0 cd4;cang2=+- enAng cd4 0;cang3=+/ cang1 cang2 2|,,,false~M x1 y1;A wd2 hd2 stAng swAng;L hc vc;Z#,,none,~M x1 y1;A wd2 hd2 stAng swAng",
+  bentArrow: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 43750|a2=pin 0 adj2 50000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;a3=pin 0 adj3 50000;th=*/ ss a1 100000;aw2=*/ ss a2 100000;th2=*/ th 1 2;dh2=+- aw2 0 th2;ah=*/ ss a3 100000;bw=+- r 0 ah;bh=+- b 0 dh2;bs=min bw bh;maxAdj4=*/ 100000 bs ss;a4=pin 0 adj4 maxAdj4;bd=*/ ss a4 100000;bd3=+- bd 0 th;bd2=max bd3 0;x3=+- th bd2 0;x4=+- r 0 ah;y3=+- dh2 th 0;y4=+- y3 dh2 0;y5=+- dh2 bd 0;y6=+- y3 bd2 0|,,,~M l b;L l y5;A bd bd cd2 cd4;L x4 dh2;L x4 t;L r aw2;L x4 y4;L x4 y3;L x3 y3;A bd2 bd2 3cd4 -5400000;L th b;Z",
+  bentConnector2: "||,,none,~M l t;L r t;L r b",
+  bentConnector3: "adj1=val 50000|x1=*/ w adj1 100000|,,none,~M l t;L x1 t;L x1 b;L r b",
+  bentConnector4: "adj1=val 50000;adj2=val 50000|x1=*/ w adj1 100000;x2=+/ x1 r 2;y2=*/ h adj2 100000;y1=+/ t y2 2|,,none,~M l t;L x1 t;L x1 y2;L r y2;L r b",
+  bentConnector5: "adj1=val 50000;adj2=val 50000;adj3=val 50000|x1=*/ w adj1 100000;x3=*/ w adj3 100000;x2=+/ x1 x3 2;y2=*/ h adj2 100000;y1=+/ t y2 2;y3=+/ b y2 2|,,none,~M l t;L x1 t;L x1 y2;L x3 y2;L x3 b;L r b",
+  bentUpArrow: "adj1=val 25000;adj2=val 25000;adj3=val 25000|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;y1=*/ ss a3 100000;dx1=*/ ss a2 50000;x1=+- r 0 dx1;dx3=*/ ss a2 100000;x3=+- r 0 dx3;dx2=*/ ss a1 200000;x2=+- x3 0 dx2;x4=+- x3 dx2 0;dy2=*/ ss a1 100000;y2=+- b 0 dy2;x0=*/ x4 1 2;y3=+/ y2 b 2;y15=+/ y1 b 2|,,,~M l y2;L x2 y2;L x2 y1;L x1 y1;L x3 t;L r y1;L x4 y1;L x4 b;L l b;Z",
+  bevel: "adj=val 12500|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1|,,,false~M x1 x1;L x2 x1;L x2 y2;L x1 y2;Z#,,lightenLess,false~M l t;L r t;L x2 x1;L x1 x1;Z#,,darkenLess,false~M l b;L x1 y2;L x2 y2;L r b;Z#,,lighten,false~M l t;L x1 x1;L x1 y2;L l b;Z#,,darken,false~M r t;L r b;L x2 y2;L x2 x1;Z#,,none,~M l t;L r t;L r b;L l b;Z;M x1 x1;L x2 x1;L x2 y2;L x1 y2;Z;M l t;L x1 x1;M l b;L x1 y2;M r t;L x2 x1;M r b;L x2 y2",
+  blockArc: "adj1=val 10800000;adj2=val 0;adj3=val 25000|stAng=pin 0 adj1 21599999;istAng=pin 0 adj2 21599999;a3=pin 0 adj3 50000;sw11=+- istAng 0 stAng;sw12=+- sw11 21600000 0;swAng=?: sw11 sw11 sw12;iswAng=+- 0 0 swAng;wt1=sin wd2 stAng;ht1=cos hd2 stAng;wt3=sin wd2 istAng;ht3=cos hd2 istAng;dx1=cat2 wd2 ht1 wt1;dy1=sat2 hd2 ht1 wt1;dx3=cat2 wd2 ht3 wt3;dy3=sat2 hd2 ht3 wt3;x1=+- hc dx1 0;y1=+- vc dy1 0;x3=+- hc dx3 0;y3=+- vc dy3 0;dr=*/ ss a3 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr;wt2=sin iwd2 istAng;ht2=cos ihd2 istAng;wt4=sin iwd2 stAng;ht4=cos ihd2 stAng;dx2=cat2 iwd2 ht2 wt2;dy2=sat2 ihd2 ht2 wt2;dx4=cat2 iwd2 ht4 wt4;dy4=sat2 ihd2 ht4 wt4;x2=+- hc dx2 0;y2=+- vc dy2 0;x4=+- hc dx4 0;y4=+- vc dy4 0;sw0=+- 21600000 0 stAng;da1=+- swAng 0 sw0;g1=max x1 x2;g2=max x3 x4;g3=max g1 g2;ir=?: da1 r g3;sw1=+- cd4 0 stAng;sw2=+- 27000000 0 stAng;sw3=?: sw1 sw1 sw2;da2=+- swAng 0 sw3;g5=max y1 y2;g6=max y3 y4;g7=max g5 g6;ib=?: da2 b g7;sw4=+- cd2 0 stAng;sw5=+- 32400000 0 stAng;sw6=?: sw4 sw4 sw5;da3=+- swAng 0 sw6;g9=min x1 x2;g10=min x3 x4;g11=min g9 g10;il=?: da3 l g11;sw7=+- 3cd4 0 stAng;sw8=+- 37800000 0 stAng;sw9=?: sw7 sw7 sw8;da4=+- swAng 0 sw9;g13=min y1 y2;g14=min y3 y4;g15=min g13 g14;it=?: da4 t g15;x5=+/ x1 x4 2;y5=+/ y1 y4 2;x6=+/ x3 x2 2;y6=+/ y3 y2 2;cang1=+- stAng 0 cd4;cang2=+- istAng cd4 0;cang3=+/ cang1 cang2 2|,,,~M x1 y1;A wd2 hd2 stAng swAng;L x2 y2;A iwd2 ihd2 istAng iswAng;Z",
+  borderCallout1: "adj1=val 18750;adj2=val -8333;adj3=val 112500;adj4=val -38333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2",
+  borderCallout2: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 112500;adj6=val -46667|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2;L x3 y3",
+  borderCallout3: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 100000;adj6=val -16667;adj7=val 112963;adj8=val -8333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000;y4=*/ h adj7 100000;x4=*/ w adj8 100000|,,,~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2;L x3 y3;L x4 y4",
+  bracePair: "adj=val 8333|a=pin 0 adj 25000;x1=*/ ss a 100000;x2=*/ ss a 50000;x3=+- r 0 x2;x4=+- r 0 x1;y2=+- vc 0 x1;y3=+- vc x1 0;y4=+- b 0 x1;it=*/ x1 29289 100000;il=+- x1 it 0;ir=+- r 0 il;ib=+- b 0 it|,,,false~M x2 b;A x1 x1 cd4 cd4;L x1 y3;A x1 x1 0 -5400000;A x1 x1 cd4 -5400000;L x1 x1;A x1 x1 cd2 cd4;L x3 t;A x1 x1 3cd4 cd4;L x4 y2;A x1 x1 cd2 -5400000;A x1 x1 3cd4 -5400000;L x4 y4;A x1 x1 0 cd4;Z#,,none,~M x2 b;A x1 x1 cd4 cd4;L x1 y3;A x1 x1 0 -5400000;A x1 x1 cd4 -5400000;L x1 x1;A x1 x1 cd2 cd4;M x3 t;A x1 x1 3cd4 cd4;L x4 y2;A x1 x1 cd2 -5400000;A x1 x1 3cd4 -5400000;L x4 y4;A x1 x1 0 cd4",
+  bracketPair: "adj=val 16667|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1;il=*/ x1 29289 100000;ir=+- r 0 il;ib=+- b 0 il|,,,false~M l x1;A x1 x1 cd2 cd4;L x2 t;A x1 x1 3cd4 cd4;L r y2;A x1 x1 0 cd4;L x1 b;A x1 x1 cd4 cd4;Z#,,none,~M x1 b;A x1 x1 cd4 cd4;L l x1;A x1 x1 cd2 cd4;M x2 t;A x1 x1 3cd4 cd4;L r y2;A x1 x1 0 cd4",
+  callout1: "adj1=val 18750;adj2=val -8333;adj3=val 112500;adj4=val -38333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2",
+  callout2: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 112500;adj6=val -46667|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2;L x3 y3",
+  callout3: "adj1=val 18750;adj2=val -8333;adj3=val 18750;adj4=val -16667;adj5=val 100000;adj6=val -16667;adj7=val 112963;adj8=val -8333|y1=*/ h adj1 100000;x1=*/ w adj2 100000;y2=*/ h adj3 100000;x2=*/ w adj4 100000;y3=*/ h adj5 100000;x3=*/ w adj6 100000;y4=*/ h adj7 100000;x4=*/ w adj8 100000|,,,false~M l t;L r t;L r b;L l b;Z#,,none,~M x1 y1;L x2 y2;L x3 y3;L x4 y4",
+  can: "adj=val 25000|maxAdj=*/ 50000 h ss;a=pin 0 adj maxAdj;y1=*/ ss a 200000;y2=+- y1 y1 0;y3=+- b 0 y1|,,,false~M l y1;A wd2 y1 cd2 -10800000;L r y3;A wd2 y1 0 cd2;Z#,,lighten,false~M l y1;A wd2 y1 cd2 cd2;A wd2 y1 0 cd2;Z#,,none,~M r y1;A wd2 y1 0 cd2;A wd2 y1 cd2 cd2;L r y3;A wd2 y1 0 cd2;L l y1",
+  chartPlus: "||10,10,none,~M 5 0;L 5 10;M 0 5;L 10 5#10,10,,false~M 0 0;L 0 10;L 10 10;L 10 0;Z",
+  chartStar: "||10,10,none,~M 0 0;L 10 10;M 0 10;L 10 0;M 5 0;L 5 10#10,10,,false~M 0 0;L 0 10;L 10 10;L 10 0;Z",
+  chartX: "||10,10,none,~M 0 0;L 10 10;M 0 10;L 10 0#10,10,,false~M 0 0;L 0 10;L 10 10;L 10 0;Z",
+  chevron: "adj=val 50000|maxAdj=*/ 100000 w ss;a=pin 0 adj maxAdj;x1=*/ ss a 100000;x2=+- r 0 x1;x3=*/ x2 1 2;dx=+- x2 0 x1;il=?: dx x1 l;ir=?: dx x2 r|,,,~M l t;L x2 t;L r vc;L x2 b;L l b;L x1 vc;Z",
+  chord: "adj1=val 2700000;adj2=val 16200000|stAng=pin 0 adj1 21599999;enAng=pin 0 adj2 21599999;sw1=+- enAng 0 stAng;sw2=+- sw1 21600000 0;swAng=?: sw1 sw1 sw2;wt1=sin wd2 stAng;ht1=cos hd2 stAng;dx1=cat2 wd2 ht1 wt1;dy1=sat2 hd2 ht1 wt1;wt2=sin wd2 enAng;ht2=cos hd2 enAng;dx2=cat2 wd2 ht2 wt2;dy2=sat2 hd2 ht2 wt2;x1=+- hc dx1 0;y1=+- vc dy1 0;x2=+- hc dx2 0;y2=+- vc dy2 0;x3=+/ x1 x2 2;y3=+/ y1 y2 2;midAng0=*/ swAng 1 2;midAng=+- stAng midAng0 cd2;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M x1 y1;A wd2 hd2 stAng swAng;Z",
+  circularArrow: "adj1=val 12500;adj2=val 1142319;adj3=val 20457681;adj4=val 10800000;adj5=val 12500|a5=pin 0 adj5 25000;maxAdj1=*/ a5 2 1;a1=pin 0 adj1 maxAdj1;enAng=pin 1 adj3 21599999;stAng=pin 0 adj4 21599999;th=*/ ss a1 100000;thh=*/ ss a5 100000;th2=*/ th 1 2;rw1=+- wd2 th2 thh;rh1=+- hd2 th2 thh;rw2=+- rw1 0 th;rh2=+- rh1 0 th;rw3=+- rw2 th2 0;rh3=+- rh2 th2 0;wtH=sin rw3 enAng;htH=cos rh3 enAng;dxH=cat2 rw3 htH wtH;dyH=sat2 rh3 htH wtH;xH=+- hc dxH 0;yH=+- vc dyH 0;rI=min rw2 rh2;u1=*/ dxH dxH 1;u2=*/ dyH dyH 1;u3=*/ rI rI 1;u4=+- u1 0 u3;u5=+- u2 0 u3;u6=*/ u4 u5 u1;u7=*/ u6 1 u2;u8=+- 1 0 u7;u9=sqrt u8;u10=*/ u4 1 dxH;u11=*/ u10 1 dyH;u12=+/ 1 u9 u11;u13=at2 1 u12;u14=+- u13 21600000 0;u15=?: u13 u13 u14;u16=+- u15 0 enAng;u17=+- u16 21600000 0;u18=?: u16 u16 u17;u19=+- u18 0 cd2;u20=+- u18 0 21600000;u21=?: u19 u20 u18;maxAng=abs u21;aAng=pin 0 adj2 maxAng;ptAng=+- enAng aAng 0;wtA=sin rw3 ptAng;htA=cos rh3 ptAng;dxA=cat2 rw3 htA wtA;dyA=sat2 rh3 htA wtA;xA=+- hc dxA 0;yA=+- vc dyA 0;wtE=sin rw1 stAng;htE=cos rh1 stAng;dxE=cat2 rw1 htE wtE;dyE=sat2 rh1 htE wtE;xE=+- hc dxE 0;yE=+- vc dyE 0;dxG=cos thh ptAng;dyG=sin thh ptAng;xG=+- xH dxG 0;yG=+- yH dyG 0;dxB=cos thh ptAng;dyB=sin thh ptAng;xB=+- xH 0 dxB 0;yB=+- yH 0 dyB 0;sx1=+- xB 0 hc;sy1=+- yB 0 vc;sx2=+- xG 0 hc;sy2=+- yG 0 vc;rO=min rw1 rh1;x1O=*/ sx1 rO rw1;y1O=*/ sy1 rO rh1;x2O=*/ sx2 rO rw1;y2O=*/ sy2 rO rh1;dxO=+- x2O 0 x1O;dyO=+- y2O 0 y1O;dO=mod dxO dyO 0;q1=*/ x1O y2O 1;q2=*/ x2O y1O 1;DO=+- q1 0 q2;q3=*/ rO rO 1;q4=*/ dO dO 1;q5=*/ q3 q4 1;q6=*/ DO DO 1;q7=+- q5 0 q6;q8=max q7 0;sdelO=sqrt q8;ndyO=*/ dyO -1 1;sdyO=?: ndyO -1 1;q9=*/ sdyO dxO 1;q10=*/ q9 sdelO 1;q11=*/ DO dyO 1;dxF1=+/ q11 q10 q4;q12=+- q11 0 q10;dxF2=*/ q12 1 q4;adyO=abs dyO;q13=*/ adyO sdelO 1;q14=*/ DO dxO -1;dyF1=+/ q14 q13 q4;q15=+- q14 0 q13;dyF2=*/ q15 1 q4;q16=+- x2O 0 dxF1;q17=+- x2O 0 dxF2;q18=+- y2O 0 dyF1;q19=+- y2O 0 dyF2;q20=mod q16 q18 0;q21=mod q17 q19 0;q22=+- q21 0 q20;dxF=?: q22 dxF1 dxF2;dyF=?: q22 dyF1 dyF2;sdxF=*/ dxF rw1 rO;sdyF=*/ dyF rh1 rO;xF=+- hc sdxF 0;yF=+- vc sdyF 0;x1I=*/ sx1 rI rw2;y1I=*/ sy1 rI rh2;x2I=*/ sx2 rI rw2;y2I=*/ sy2 rI rh2;dxI=+- x2I 0 x1I;dyI=+- y2I 0 y1I;dI=mod dxI dyI 0;v1=*/ x1I y2I 1;v2=*/ x2I y1I 1;DI=+- v1 0 v2;v3=*/ rI rI 1;v4=*/ dI dI 1;v5=*/ v3 v4 1;v6=*/ DI DI 1;v7=+- v5 0 v6;v8=max v7 0;sdelI=sqrt v8;v9=*/ sdyO dxI 1;v10=*/ v9 sdelI 1;v11=*/ DI dyI 1;dxC1=+/ v11 v10 v4;v12=+- v11 0 v10;dxC2=*/ v12 1 v4;adyI=abs dyI;v13=*/ adyI sdelI 1;v14=*/ DI dxI -1;dyC1=+/ v14 v13 v4;v15=+- v14 0 v13;dyC2=*/ v15 1 v4;v16=+- x1I 0 dxC1;v17=+- x1I 0 dxC2;v18=+- y1I 0 dyC1;v19=+- y1I 0 dyC2;v20=mod v16 v18 0;v21=mod v17 v19 0;v22=+- v21 0 v20;dxC=?: v22 dxC1 dxC2;dyC=?: v22 dyC1 dyC2;sdxC=*/ dxC rw2 rI;sdyC=*/ dyC rh2 rI;xC=+- hc sdxC 0;yC=+- vc sdyC 0;ist0=at2 sdxC sdyC;ist1=+- ist0 21600000 0;istAng=?: ist0 ist0 ist1;isw1=+- stAng 0 istAng;isw2=+- isw1 0 21600000;iswAng=?: isw1 isw2 isw1;p1=+- xF 0 xC;p2=+- yF 0 yC;p3=mod p1 p2 0;p4=*/ p3 1 2;p5=+- p4 0 thh;xGp=?: p5 xF xG;yGp=?: p5 yF yG;xBp=?: p5 xC xB;yBp=?: p5 yC yB;en0=at2 sdxF sdyF;en1=+- en0 21600000 0;en2=?: en0 en0 en1;sw0=+- en2 0 stAng;sw1=+- sw0 21600000 0;swAng=?: sw0 sw0 sw1;wtI=sin rw3 stAng;htI=cos rh3 stAng;dxI=cat2 rw3 htI wtI;dyI=sat2 rh3 htI wtI;xI=+- hc dxI 0;yI=+- vc dyI 0;aI=+- stAng 0 cd4;aA=+- ptAng cd4 0;aB=+- ptAng cd2 0;idx=cos rw1 2700000;idy=sin rh1 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M xE yE;A rw1 rh1 stAng swAng;L xGp yGp;L xA yA;L xBp yBp;L xC yC;A rw2 rh2 istAng iswAng;Z",
+  cloud: "|il=*/ w 2977 21600;it=*/ h 3262 21600;ir=*/ w 17087 21600;ib=*/ h 17337 21600;g27=*/ w 67 21600;g28=*/ h 21577 21600;g29=*/ w 21582 21600;g30=*/ h 1235 21600|43200,43200,,~M 3900 14370;A 6753 9190 -11429249 7426832;A 5333 7267 -8646143 5396714;A 4365 5945 -8748475 5983381;A 4857 6595 -7859164 7034504;A 5333 7273 -4722533 6541615;A 6775 9220 -2776035 7816140;A 5785 7867 37501 6842000;A 6752 9215 1347096 6910353;A 7720 10543 3974558 4542661;A 4360 5918 -16496525 8804134;A 4345 5945 -14809710 9151131;Z#43200,43200,none,~M 4693 26177;A 4345 5945 5204520 1585770;M 6928 34899;A 4360 5918 4416628 686848;M 16478 39090;A 6752 9215 8257449 844866;M 28827 34751;A 6752 9215 387196 959901;M 34129 22954;A 5785 7867 -4217541 4255042;M 41798 15354;A 5333 7273 1819082 1665090;M 38324 5426;A 4857 6595 -824660 891534;M 29078 3952;A 4857 6595 -8950887 1091722;M 22141 4720;A 4365 5945 -9809656 1061181;M 14000 5192;A 6753 9190 -4002417 739161;M 4127 15789;A 6753 9190 9459261 711490",
+  cloudCallout: "adj1=val -20833;adj2=val 62500|dxPos=*/ w adj1 100000;dyPos=*/ h adj2 100000;xPos=+- hc dxPos 0;yPos=+- vc dyPos 0;ht=cat2 hd2 dxPos dyPos;wt=sat2 wd2 dxPos dyPos;g2=cat2 wd2 ht wt;g3=sat2 hd2 ht wt;g4=+- hc g2 0;g5=+- vc g3 0;g6=+- g4 0 xPos;g7=+- g5 0 yPos;g8=mod g6 g7 0;g9=*/ ss 6600 21600;g10=+- g8 0 g9;g11=*/ g10 1 3;g12=*/ ss 1800 21600;g13=+- g11 g12 0;g14=*/ g13 g6 g8;g15=*/ g13 g7 g8;g16=+- g14 xPos 0;g17=+- g15 yPos 0;g18=*/ ss 4800 21600;g19=*/ g11 2 1;g20=+- g18 g19 0;g21=*/ g20 g6 g8;g22=*/ g20 g7 g8;g23=+- g21 xPos 0;g24=+- g22 yPos 0;g25=*/ ss 1200 21600;g26=*/ ss 600 21600;x23=+- xPos g26 0;x24=+- g16 g25 0;x25=+- g23 g12 0;il=*/ w 2977 21600;it=*/ h 3262 21600;ir=*/ w 17087 21600;ib=*/ h 17337 21600;g27=*/ w 67 21600;g28=*/ h 21577 21600;g29=*/ w 21582 21600;g30=*/ h 1235 21600;pang=at2 dxPos dyPos|43200,43200,,~M 3900 14370;A 6753 9190 -11429249 7426832;A 5333 7267 -8646143 5396714;A 4365 5945 -8748475 5983381;A 4857 6595 -7859164 7034504;A 5333 7273 -4722533 6541615;A 6775 9220 -2776035 7816140;A 5785 7867 37501 6842000;A 6752 9215 1347096 6910353;A 7720 10543 3974558 4542661;A 4360 5918 -16496525 8804134;A 4345 5945 -14809710 9151131;Z#,,,~M x23 yPos;A g26 g26 0 21600000;Z#,,,~M x24 g17;A g25 g25 0 21600000;Z#,,,~M x25 g24;A g12 g12 0 21600000;Z#43200,43200,none,~M 4693 26177;A 4345 5945 5204520 1585770;M 6928 34899;A 4360 5918 4416628 686848;M 16478 39090;A 6752 9215 8257449 844866;M 28827 34751;A 6752 9215 387196 959901;M 34129 22954;A 5785 7867 -4217541 4255042;M 41798 15354;A 5333 7273 1819082 1665090;M 38324 5426;A 4857 6595 -824660 891534;M 29078 3952;A 4857 6595 -8950887 1091722;M 22141 4720;A 4365 5945 -9809656 1061181;M 14000 5192;A 6753 9190 -4002417 739161;M 4127 15789;A 6753 9190 9459261 711490",
+  corner: "adj1=val 50000;adj2=val 50000|maxAdj1=*/ 100000 h ss;maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 maxAdj1;a2=pin 0 adj2 maxAdj2;x1=*/ ss a2 100000;dy1=*/ ss a1 100000;y1=+- b 0 dy1;cx1=*/ x1 1 2;cy1=+/ y1 b 2;d=+- w 0 h;it=?: d y1 t;ir=?: d r x1|,,,~M l t;L x1 t;L x1 y1;L r y1;L r b;L l b;Z",
+  cornerTabs: "|md=mod w h 0;dx=*/ 1 md 20;y1=+- 0 b dx;x1=+- 0 r dx|,,,~M l t;L dx t;L l dx;Z#,,,~M l y1;L dx b;L l b;Z#,,,~M x1 t;L r t;L r dx;Z#,,,~M r y1;L r b;L x1 b;Z",
+  cube: "adj=val 25000|a=pin 0 adj 100000;y1=*/ ss a 100000;y4=+- b 0 y1;y2=*/ y4 1 2;y3=+/ y1 b 2;x4=+- r 0 y1;x2=*/ x4 1 2;x3=+/ y1 r 2|,,,false~M l y1;L x4 y1;L x4 b;L l b;Z#,,darkenLess,false~M x4 y1;L r t;L r y4;L x4 b;Z#,,lightenLess,false~M l y1;L y1 t;L r t;L x4 y1;Z#,,none,~M l y1;L y1 t;L r t;L r y4;L x4 b;L l b;Z;M l y1;L x4 y1;L r t;M x4 y1;L x4 b",
+  curvedConnector2: "||,,none,~M l t;C wd2 t r hd2 r b",
+  curvedConnector3: "adj1=val 50000|x2=*/ w adj1 100000;x1=+/ l x2 2;x3=+/ r x2 2;y3=*/ h 3 4|,,none,~M l t;C x1 t x2 hd4 x2 vc;C x2 y3 x3 b r b",
+  curvedConnector4: "adj1=val 50000;adj2=val 50000|x2=*/ w adj1 100000;x1=+/ l x2 2;x3=+/ r x2 2;x4=+/ x2 x3 2;x5=+/ x3 r 2;y4=*/ h adj2 100000;y1=+/ t y4 2;y2=+/ t y1 2;y3=+/ y1 y4 2;y5=+/ b y4 2|,,none,~M l t;C x1 t x2 y2 x2 y1;C x2 y3 x4 y4 x3 y4;C x5 y4 r y5 r b",
+  curvedConnector5: "adj1=val 50000;adj2=val 50000;adj3=val 50000|x3=*/ w adj1 100000;x6=*/ w adj3 100000;x1=+/ x3 x6 2;x2=+/ l x3 2;x4=+/ x3 x1 2;x5=+/ x6 x1 2;x7=+/ x6 r 2;y4=*/ h adj2 100000;y1=+/ t y4 2;y2=+/ t y1 2;y3=+/ y1 y4 2;y5=+/ b y4 2;y6=+/ y5 y4 2;y7=+/ y5 b 2|,,none,~M l t;C x2 t x3 y2 x3 y1;C x3 y3 x4 y4 x1 y4;C x5 y4 x6 y6 x6 y5;C x6 y7 x7 b r b",
+  curvedDownArrow: "adj1=val 25000;adj2=val 50000;adj3=val 25000|maxAdj2=*/ 50000 w ss;a2=pin 0 adj2 maxAdj2;a1=pin 0 adj1 100000;th=*/ ss a1 100000;aw=*/ ss a2 100000;q1=+/ th aw 4;wR=+- wd2 0 q1;q7=*/ wR 2 1;q8=*/ q7 q7 1;q9=*/ th th 1;q10=+- q8 0 q9;q11=sqrt q10;idy=*/ q11 h q7;maxAdj3=*/ 100000 idy ss;a3=pin 0 adj3 maxAdj3;ah=*/ ss adj3 100000;x3=+- wR th 0;q2=*/ h h 1;q3=*/ ah ah 1;q4=+- q2 0 q3;q5=sqrt q4;dx=*/ q5 wR h;x5=+- wR dx 0;x7=+- x3 dx 0;q6=+- aw 0 th;dh=*/ q6 1 2;x4=+- x5 0 dh;x8=+- x7 dh 0;aw2=*/ aw 1 2;x6=+- r 0 aw2;y1=+- b 0 ah;swAng=at2 ah dx;mswAng=+- 0 0 swAng;iy=+- b 0 idy;ix=+/ wR x3 2;q12=*/ th 1 2;dang2=at2 idy q12;stAng=+- 3cd4 swAng 0;stAng2=+- 3cd4 0 dang2;swAng2=+- dang2 0 cd4;swAng3=+- cd4 dang2 0|,,,false~M x6 b;L x4 y1;L x5 y1;A wR h stAng mswAng;L x3 t;A wR h 3cd4 swAng;L x8 y1;Z#,,darkenLess,false~M ix iy;A wR h stAng2 swAng2;L l b;A wR h cd2 swAng3;Z#,,none,~M ix iy;A wR h stAng2 swAng2;L l b;A wR h cd2 cd4;L x3 t;A wR h 3cd4 swAng;L x8 y1;L x6 b;L x4 y1;L x5 y1;A wR h stAng mswAng",
+  curvedLeftArrow: "adj1=val 25000;adj2=val 50000;adj3=val 25000|maxAdj2=*/ 50000 h ss;a2=pin 0 adj2 maxAdj2;a1=pin 0 adj1 a2;th=*/ ss a1 100000;aw=*/ ss a2 100000;q1=+/ th aw 4;hR=+- hd2 0 q1;q7=*/ hR 2 1;q8=*/ q7 q7 1;q9=*/ th th 1;q10=+- q8 0 q9;q11=sqrt q10;idx=*/ q11 w q7;maxAdj3=*/ 100000 idx ss;a3=pin 0 adj3 maxAdj3;ah=*/ ss a3 100000;y3=+- hR th 0;q2=*/ w w 1;q3=*/ ah ah 1;q4=+- q2 0 q3;q5=sqrt q4;dy=*/ q5 hR w;y5=+- hR dy 0;y7=+- y3 dy 0;q6=+- aw 0 th;dh=*/ q6 1 2;y4=+- y5 0 dh;y8=+- y7 dh 0;aw2=*/ aw 1 2;y6=+- b 0 aw2;x1=+- l ah 0;swAng=at2 ah dy;mswAng=+- 0 0 swAng;ix=+- l idx 0;iy=+/ hR y3 2;q12=*/ th 1 2;dang2=at2 idx q12;swAng2=+- dang2 0 swAng;swAng3=+- swAng dang2 0;stAng3=+- 0 0 dang2|,,,false~M l y6;L x1 y4;L x1 y5;A w hR swAng swAng2;A w hR stAng3 swAng3;L x1 y8;Z#,,darkenLess,false~M r y3;A w hR 0 -5400000;L l t;A w hR 3cd4 cd4;Z#,,none,~M r y3;A w hR 0 -5400000;L l t;A w hR 3cd4 cd4;L r y3;A w hR 0 swAng;L x1 y8;L l y6;L x1 y4;L x1 y5;A w hR swAng swAng2",
+  curvedRightArrow: "adj1=val 25000;adj2=val 50000;adj3=val 25000|maxAdj2=*/ 50000 h ss;a2=pin 0 adj2 maxAdj2;a1=pin 0 adj1 a2;th=*/ ss a1 100000;aw=*/ ss a2 100000;q1=+/ th aw 4;hR=+- hd2 0 q1;q7=*/ hR 2 1;q8=*/ q7 q7 1;q9=*/ th th 1;q10=+- q8 0 q9;q11=sqrt q10;idx=*/ q11 w q7;maxAdj3=*/ 100000 idx ss;a3=pin 0 adj3 maxAdj3;ah=*/ ss a3 100000;y3=+- hR th 0;q2=*/ w w 1;q3=*/ ah ah 1;q4=+- q2 0 q3;q5=sqrt q4;dy=*/ q5 hR w;y5=+- hR dy 0;y7=+- y3 dy 0;q6=+- aw 0 th;dh=*/ q6 1 2;y4=+- y5 0 dh;y8=+- y7 dh 0;aw2=*/ aw 1 2;y6=+- b 0 aw2;x1=+- r 0 ah;swAng=at2 ah dy;stAng=+- cd2 0 swAng;mswAng=+- 0 0 swAng;ix=+- r 0 idx;iy=+/ hR y3 2;q12=*/ th 1 2;dang2=at2 idx q12;swAng2=+- dang2 0 cd4;swAng3=+- cd4 dang2 0;stAng3=+- cd2 0 dang2|,,,false~M l hR;A w hR cd2 mswAng;L x1 y4;L r y6;L x1 y8;L x1 y7;A w hR stAng swAng;Z#,,darkenLess,false~M r th;A w hR 3cd4 swAng2;A w hR stAng3 swAng3;Z#,,none,~M l hR;A w hR cd2 mswAng;L x1 y4;L r y6;L x1 y8;L x1 y7;A w hR stAng swAng;L l hR;A w hR cd2 cd4;L r th;A w hR 3cd4 swAng2",
+  curvedUpArrow: "adj1=val 25000;adj2=val 50000;adj3=val 25000|maxAdj2=*/ 50000 w ss;a2=pin 0 adj2 maxAdj2;a1=pin 0 adj1 100000;th=*/ ss a1 100000;aw=*/ ss a2 100000;q1=+/ th aw 4;wR=+- wd2 0 q1;q7=*/ wR 2 1;q8=*/ q7 q7 1;q9=*/ th th 1;q10=+- q8 0 q9;q11=sqrt q10;idy=*/ q11 h q7;maxAdj3=*/ 100000 idy ss;a3=pin 0 adj3 maxAdj3;ah=*/ ss adj3 100000;x3=+- wR th 0;q2=*/ h h 1;q3=*/ ah ah 1;q4=+- q2 0 q3;q5=sqrt q4;dx=*/ q5 wR h;x5=+- wR dx 0;x7=+- x3 dx 0;q6=+- aw 0 th;dh=*/ q6 1 2;x4=+- x5 0 dh;x8=+- x7 dh 0;aw2=*/ aw 1 2;x6=+- r 0 aw2;y1=+- t ah 0;swAng=at2 ah dx;mswAng=+- 0 0 swAng;iy=+- t idy 0;ix=+/ wR x3 2;q12=*/ th 1 2;dang2=at2 idy q12;swAng2=+- dang2 0 swAng;mswAng2=+- 0 0 swAng2;stAng3=+- cd4 0 swAng;swAng3=+- swAng dang2 0;stAng2=+- cd4 0 dang2|,,,false~M x6 t;L x8 y1;L x7 y1;A wR h stAng3 swAng3;A wR h stAng2 swAng2;L x4 y1;Z#,,darkenLess,false~M wR b;A wR h cd4 cd4;L th t;A wR h cd2 -5400000;Z#,,none,~M ix iy;A wR h stAng2 swAng2;L x4 y1;L x6 t;L x8 y1;L x7 y1;A wR h stAng3 swAng;L wR b;A wR h cd4 cd4;L th t;A wR h cd2 -5400000",
+  decagon: "vf=val 105146|shd2=*/ hd2 vf 100000;dx1=cos wd2 2160000;dx2=cos wd2 4320000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;dy1=sin shd2 4320000;dy2=sin shd2 2160000;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc dy2 0;y4=+- vc dy1 0|,,,~M l vc;L x1 y2;L x2 y1;L x3 y1;L x4 y2;L r vc;L x4 y3;L x3 y4;L x2 y4;L x1 y3;Z",
+  diagStripe: "adj=val 50000|a=pin 0 adj 100000;x2=*/ w a 100000;x1=*/ x2 1 2;x3=+/ x2 r 2;y2=*/ h a 100000;y1=*/ y2 1 2;y3=+/ y2 b 2|,,,~M l y2;L x2 t;L r t;L l b;Z",
+  diamond: "|ir=*/ w 3 4;ib=*/ h 3 4|,,,~M l vc;L hc t;L r vc;L hc b;Z",
+  dodecagon: "|x1=*/ w 2894 21600;x2=*/ w 7906 21600;x3=*/ w 13694 21600;x4=*/ w 18706 21600;y1=*/ h 2894 21600;y2=*/ h 7906 21600;y3=*/ h 13694 21600;y4=*/ h 18706 21600|,,,~M l y2;L x1 y1;L x2 t;L x3 t;L x4 y1;L r y2;L r y3;L x4 y4;L x3 b;L x2 b;L x1 y4;L l y3;Z",
+  donut: "adj=val 25000|a=pin 0 adj 50000;dr=*/ ss a 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z;M dr vc;A iwd2 ihd2 cd2 -5400000;A iwd2 ihd2 cd4 -5400000;A iwd2 ihd2 0 -5400000;A iwd2 ihd2 3cd4 -5400000;Z",
+  doubleWave: "adj1=val 6250;adj2=val 0|a1=pin 0 adj1 12500;a2=pin -10000 adj2 10000;y1=*/ h a1 100000;dy2=*/ y1 10 3;y2=+- y1 0 dy2;y3=+- y1 dy2 0;y4=+- b 0 y1;y5=+- y4 0 dy2;y6=+- y4 dy2 0;dx1=*/ w a2 100000;of2=*/ w a2 50000;x1=abs dx1;dx2=?: of2 0 of2;x2=+- l 0 dx2;dx8=?: of2 of2 0;x8=+- r 0 dx8;dx3=+/ dx2 x8 6;x3=+- x2 dx3 0;dx4=+/ dx2 x8 3;x4=+- x2 dx4 0;x5=+/ x2 x8 2;x6=+- x5 dx3 0;x7=+/ x6 x8 2;x9=+- l dx8 0;x15=+- r dx2 0;x10=+- x9 dx3 0;x11=+- x9 dx4 0;x12=+/ x9 x15 2;x13=+- x12 dx3 0;x14=+/ x13 x15 2;x16=+- r 0 x1;xAdj=+- hc dx1 0;il=max x2 x9;ir=min x8 x15;it=*/ h a1 50000;ib=+- b 0 it|,,,~M x2 y1;C x3 y2 x4 y3 x5 y1;C x6 y2 x7 y3 x8 y1;L x15 y4;C x14 y6 x13 y5 x12 y4;C x11 y6 x10 y5 x9 y4;Z",
+  downArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 100000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dy1=*/ ss a2 100000;y1=+- b 0 dy1;dx1=*/ w a1 200000;x1=+- hc 0 dx1;x2=+- hc dx1 0;dy2=*/ x1 dy1 wd2;y2=+- y1 dy2 0|,,,~M l y1;L x1 y1;L x1 t;L x2 t;L x2 y1;L r y1;L hc b;Z",
+  downArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 64977|maxAdj2=*/ 50000 w ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 100000 h ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss h;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dx1=*/ ss a2 100000;dx2=*/ ss a1 200000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;dy3=*/ ss a3 100000;y3=+- b 0 dy3;y2=*/ h a4 100000;y1=*/ y2 1 2|,,,~M l t;L r t;L r y2;L x3 y2;L x3 y3;L x4 y3;L hc b;L x1 y3;L x2 y3;L x2 y2;L l y2;Z",
+  ellipse: "|idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z",
+  ellipseRibbon: "adj1=val 25000;adj2=val 50000;adj3=val 12500|a1=pin 0 adj1 100000;a2=pin 25000 adj2 75000;q10=+- 100000 0 a1;q11=*/ q10 1 2;q12=+- a1 0 q11;minAdj3=max 0 q12;a3=pin minAdj3 adj3 a1;dx2=*/ w a2 200000;x2=+- hc 0 dx2;x3=+- x2 wd8 0;x4=+- r 0 x3;x5=+- r 0 x2;x6=+- r 0 wd8;dy1=*/ h a3 100000;f1=*/ 4 dy1 w;q1=*/ x3 x3 w;q2=+- x3 0 q1;y1=*/ f1 q2 1;cx1=*/ x3 1 2;cy1=*/ f1 cx1 1;cx2=+- r 0 cx1;q1=*/ h a1 100000;dy3=+- q1 0 dy1;q3=*/ x2 x2 w;q4=+- x2 0 q3;q5=*/ f1 q4 1;y3=+- q5 dy3 0;q6=+- dy1 dy3 y3;q7=+- q6 dy1 0;cy3=+- q7 dy3 0;rh=+- b 0 q1;q8=*/ dy1 14 16;y2=+/ q8 rh 2;y5=+- q5 rh 0;y6=+- y3 rh 0;cx4=*/ x2 1 2;q9=*/ f1 cx4 1;cy4=+- q9 rh 0;cx5=+- r 0 cx4;cy6=+- cy3 rh 0;y7=+- y1 dy3 0;cy7=+- q1 q1 y7;y8=+- b 0 dy1|,,,false~M l t;Q cx1 cy1 x3 y1;L x2 y3;Q hc cy3 x5 y3;L x4 y1;Q cx2 cy1 r t;L x6 y2;L r rh;Q cx5 cy4 x5 y5;L x5 y6;Q hc cy6 x2 y6;L x2 y5;Q cx4 cy4 l rh;L wd8 y2;Z#,,darkenLess,false~M x3 y7;L x3 y1;L x2 y3;Q hc cy3 x5 y3;L x4 y1;L x4 y7;Q hc cy7 x3 y7;Z#,,none,~M l t;Q cx1 cy1 x3 y1;L x2 y3;Q hc cy3 x5 y3;L x4 y1;Q cx2 cy1 r t;L x6 y2;L r rh;Q cx5 cy4 x5 y5;L x5 y6;Q hc cy6 x2 y6;L x2 y5;Q cx4 cy4 l rh;L wd8 y2;Z;M x2 y5;L x2 y3;M x5 y3;L x5 y5;M x3 y1;L x3 y7;M x4 y7;L x4 y1",
+  ellipseRibbon2: "adj1=val 25000;adj2=val 50000;adj3=val 12500|a1=pin 0 adj1 100000;a2=pin 25000 adj2 75000;q10=+- 100000 0 a1;q11=*/ q10 1 2;q12=+- a1 0 q11;minAdj3=max 0 q12;a3=pin minAdj3 adj3 a1;dx2=*/ w a2 200000;x2=+- hc 0 dx2;x3=+- x2 wd8 0;x4=+- r 0 x3;x5=+- r 0 x2;x6=+- r 0 wd8;dy1=*/ h a3 100000;f1=*/ 4 dy1 w;q1=*/ x3 x3 w;q2=+- x3 0 q1;u1=*/ f1 q2 1;y1=+- b 0 u1;cx1=*/ x3 1 2;cu1=*/ f1 cx1 1;cy1=+- b 0 cu1;cx2=+- r 0 cx1;q1=*/ h a1 100000;dy3=+- q1 0 dy1;q3=*/ x2 x2 w;q4=+- x2 0 q3;q5=*/ f1 q4 1;u3=+- q5 dy3 0;y3=+- b 0 u3;q6=+- dy1 dy3 u3;q7=+- q6 dy1 0;cu3=+- q7 dy3 0;cy3=+- b 0 cu3;rh=+- b 0 q1;q8=*/ dy1 14 16;u2=+/ q8 rh 2;y2=+- b 0 u2;u5=+- q5 rh 0;y5=+- b 0 u5;u6=+- u3 rh 0;y6=+- b 0 u6;cx4=*/ x2 1 2;q9=*/ f1 cx4 1;cu4=+- q9 rh 0;cy4=+- b 0 cu4;cx5=+- r 0 cx4;cu6=+- cu3 rh 0;cy6=+- b 0 cu6;u7=+- u1 dy3 0;y7=+- b 0 u7;cu7=+- q1 q1 u7;cy7=+- b 0 cu7|,,,false~M l b;Q cx1 cy1 x3 y1;L x2 y3;Q hc cy3 x5 y3;L x4 y1;Q cx2 cy1 r b;L x6 y2;L r q1;Q cx5 cy4 x5 y5;L x5 y6;Q hc cy6 x2 y6;L x2 y5;Q cx4 cy4 l q1;L wd8 y2;Z#,,darkenLess,false~M x3 y7;L x3 y1;L x2 y3;Q hc cy3 x5 y3;L x4 y1;L x4 y7;Q hc cy7 x3 y7;Z#,,none,~M l b;L wd8 y2;L l q1;Q cx4 cy4 x2 y5;L x2 y6;Q hc cy6 x5 y6;L x5 y5;Q cx5 cy4 r q1;L x6 y2;L r b;Q cx2 cy1 x4 y1;L x5 y3;Q hc cy3 x2 y3;L x3 y1;Q cx1 cy1 l b;Z;M x2 y3;L x2 y5;M x5 y5;L x5 y3;M x3 y7;L x3 y1;M x4 y1;L x4 y7",
+  flowChartAlternateProcess: "|x2=+- r 0 ssd6;y2=+- b 0 ssd6;il=*/ ssd6 29289 100000;ir=+- r 0 il;ib=+- b 0 il|,,,~M l ssd6;A ssd6 ssd6 cd2 cd4;L x2 t;A ssd6 ssd6 3cd4 cd4;L r y2;A ssd6 ssd6 0 cd4;L ssd6 b;A ssd6 ssd6 cd4 cd4;Z",
+  flowChartCollate: "|ir=*/ w 3 4;ib=*/ h 3 4|2,2,,~M 0 0;L 2 0;L 1 1;L 2 2;L 0 2;L 1 1;Z",
+  flowChartConnector: "|idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z",
+  flowChartDecision: "|ir=*/ w 3 4;ib=*/ h 3 4|2,2,,~M 0 1;L 1 0;L 2 1;L 1 2;Z",
+  flowChartDelay: "|idx=cos wd2 2700000;idy=sin hd2 2700000;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l t;L hc t;A wd2 hd2 3cd4 cd2;L l b;Z",
+  flowChartDisplay: "|x2=*/ w 5 6|6,6,,~M 0 3;L 1 0;L 5 0;A 1 3 3cd4 cd2;L 1 6;Z",
+  flowChartDocument: "|y1=*/ h 17322 21600;y2=*/ h 20172 21600|21600,21600,,~M 0 0;L 21600 0;L 21600 17322;C 10800 17322 10800 23922 0 20172;Z",
+  flowChartExtract: "|x2=*/ w 3 4|2,2,,~M 0 2;L 1 0;L 2 2;Z",
+  flowChartInputOutput: "|x3=*/ w 2 5;x4=*/ w 3 5;x5=*/ w 4 5;x6=*/ w 9 10|5,5,,~M 0 5;L 1 0;L 5 0;L 4 5;Z",
+  flowChartInternalStorage: "||1,1,,false~M 0 0;L 1 0;L 1 1;L 0 1;Z#8,8,none,~M 1 0;L 1 8;M 0 1;L 8 1#1,1,none,~M 0 0;L 1 0;L 1 1;L 0 1;Z",
+  flowChartMagneticDisk: "|y3=*/ h 5 6|6,6,,false~M 0 1;A 3 1 cd2 cd2;L 6 5;A 3 1 0 cd2;Z#6,6,none,~M 6 1;A 3 1 0 cd2#6,6,none,~M 0 1;A 3 1 cd2 cd2;L 6 5;A 3 1 0 cd2;Z",
+  flowChartMagneticDrum: "|x2=*/ w 2 3|6,6,,false~M 1 0;L 5 0;A 1 3 3cd4 cd2;L 1 6;A 1 3 cd4 cd2;Z#6,6,none,~M 5 6;A 1 3 cd4 cd2#6,6,none,~M 1 0;L 5 0;A 1 3 3cd4 cd2;L 1 6;A 1 3 cd4 cd2;Z",
+  flowChartMagneticTape: "|idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0;ang1=at2 w h|,,,~M hc b;A wd2 hd2 cd4 cd4;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 ang1;L r ib;L r b;Z",
+  flowChartManualInput: "||5,5,,~M 0 1;L 5 0;L 5 5;L 0 5;Z",
+  flowChartManualOperation: "|x3=*/ w 4 5;x4=*/ w 9 10|5,5,,~M 0 0;L 5 0;L 4 5;L 1 5;Z",
+  flowChartMerge: "|x2=*/ w 3 4|2,2,,~M 0 0;L 2 0;L 1 2;Z",
+  flowChartMultidocument: "|y2=*/ h 3675 21600;y8=*/ h 20782 21600;x3=*/ w 9298 21600;x4=*/ w 12286 21600;x5=*/ w 18595 21600|21600,21600,,false~M 0 20782;C 9298 23542 9298 18022 18595 18022;L 18595 3675;L 0 3675;Z;M 1532 3675;L 1532 1815;L 20000 1815;L 20000 16252;C 19298 16252 18595 16352 18595 16352;L 18595 3675;Z;M 2972 1815;L 2972 0;L 21600 0;L 21600 14392;C 20800 14392 20000 14467 20000 14467;L 20000 1815;Z#21600,21600,none,~M 0 3675;L 18595 3675;L 18595 18022;C 9298 18022 9298 23542 0 20782;Z;M 1532 3675;L 1532 1815;L 20000 1815;L 20000 16252;C 19298 16252 18595 16352 18595 16352;M 2972 1815;L 2972 0;L 21600 0;L 21600 14392;C 20800 14392 20000 14467 20000 14467#21600,21600,none,false~M 0 20782;C 9298 23542 9298 18022 18595 18022;L 18595 16352;C 18595 16352 19298 16252 20000 16252;L 20000 14467;C 20000 14467 20800 14392 21600 14392;L 21600 0;L 2972 0;L 2972 1815;L 1532 1815;L 1532 3675;L 0 3675;Z",
+  flowChartOfflineStorage: "|x4=*/ w 3 4|2,2,,false~M 0 0;L 2 0;L 1 2;Z#5,5,none,~M 2 4;L 3 4#2,2,none,~M 0 0;L 2 0;L 1 2;Z",
+  flowChartOffpageConnector: "|y1=*/ h 4 5|10,10,,~M 0 0;L 10 0;L 10 8;L 5 10;L 0 8;Z",
+  flowChartOnlineStorage: "|x2=*/ w 5 6|6,6,,~M 1 0;L 6 0;A 1 3 3cd4 -10800000;L 1 6;A 1 3 cd4 cd2;Z",
+  flowChartOr: "|idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,false~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z#,,none,~M hc t;L hc b;M l vc;L r vc#,,none,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z",
+  flowChartPredefinedProcess: "|x2=*/ w 7 8|1,1,,false~M 0 0;L 1 0;L 1 1;L 0 1;Z#8,8,none,~M 1 0;L 1 8;M 7 0;L 7 8#1,1,none,~M 0 0;L 1 0;L 1 1;L 0 1;Z",
+  flowChartPreparation: "|x2=*/ w 4 5|10,10,,~M 0 5;L 2 0;L 8 0;L 10 5;L 8 10;L 2 10;Z",
+  flowChartProcess: "||1,1,,~M 0 0;L 1 0;L 1 1;L 0 1;Z",
+  flowChartPunchedCard: "||5,5,,~M 0 1;L 1 0;L 5 0;L 5 5;L 0 5;Z",
+  flowChartPunchedTape: "|y2=*/ h 9 10;ib=*/ h 4 5|20,20,,~M 0 2;A 5 2 cd2 -10800000;A 5 2 cd2 cd2;L 20 18;A 5 2 0 -10800000;A 5 2 0 cd2;Z",
+  flowChartSort: "|ir=*/ w 3 4;ib=*/ h 3 4|2,2,,false~M 0 1;L 1 0;L 2 1;L 1 2;Z#2,2,none,~M 0 1;L 2 1#2,2,none,~M 0 1;L 1 0;L 2 1;L 1 2;Z",
+  flowChartSummingJunction: "|idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,false~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z#,,none,~M il it;L ir ib;M ir it;L il ib#,,none,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z",
+  flowChartTerminator: "|il=*/ w 1018 21600;ir=*/ w 20582 21600;it=*/ h 3163 21600;ib=*/ h 18437 21600|21600,21600,,~M 3475 0;L 18125 0;A 3475 10800 3cd4 cd2;L 3475 21600;A 3475 10800 cd4 cd2;Z",
+  foldedCorner: "adj=val 16667|a=pin 0 adj 50000;dy2=*/ ss a 100000;dy1=*/ dy2 1 5;x1=+- r 0 dy2;x2=+- x1 dy1 0;y2=+- b 0 dy2;y1=+- y2 dy1 0|,,,false~M l t;L r t;L r y2;L x1 b;L l b;Z#,,darkenLess,false~M x1 b;L x2 y1;L r y2;Z#,,none,~M x1 b;L x2 y1;L r y2;L x1 b;L l b;L l t;L r t;L r y2",
+  frame: "adj1=val 12500|a1=pin 0 adj1 50000;x1=*/ ss a1 100000;x4=+- r 0 x1;y4=+- b 0 x1|,,,~M l t;L r t;L r b;L l b;Z;M x1 x1;L x1 y4;L x4 y4;L x4 x1;Z",
+  funnel: "|d=*/ ss 1 20;rw2=+- wd2 0 d;rh2=+- hd4 0 d;t1=cos wd2 480000;t2=sin hd4 480000;da=at2 t1 t2;2da=*/ da 2 1;stAng1=+- cd2 0 da;swAng1=+- cd2 2da 0;swAng3=+- cd2 0 2da;rw3=*/ wd2 1 4;rh3=*/ hd4 1 4;ct1=cos hd4 stAng1;st1=sin wd2 stAng1;m1=mod ct1 st1 0;n1=*/ wd2 hd4 m1;dx1=cos n1 stAng1;dy1=sin n1 stAng1;x1=+- hc dx1 0;y1=+- hd4 dy1 0;ct3=cos rh3 da;st3=sin rw3 da;m3=mod ct3 st3 0;n3=*/ rw3 rh3 m3;dx3=cos n3 da;dy3=sin n3 da;x3=+- hc dx3 0;vc3=+- b 0 rh3;y2=+- vc3 dy3 0;x2=+- wd2 0 rw2;cd=*/ cd2 2 1|,,,~M x1 y1;A wd2 hd4 stAng1 swAng1;L x3 y2;A rw3 rh3 da swAng3;Z;M x2 hd4;A rw2 rh2 cd2 -21600000;Z",
+  gear6: "adj1=val 15000;adj2=val 3526|a1=pin 0 adj1 20000;a2=pin 0 adj2 5358;th=*/ ss a1 100000;lFD=*/ ss a2 100000;th2=*/ th 1 2;l2=*/ lFD 1 2;l3=+- th2 l2 0;rh=+- hd2 0 th;rw=+- wd2 0 th;dr=+- rw 0 rh;maxr=?: dr rh rw;ha=at2 maxr l3;aA1=+- 19800000 0 ha;aD1=+- 19800000 ha 0;ta11=cos rw aA1;ta12=sin rh aA1;bA1=at2 ta11 ta12;cta1=cos rh bA1;sta1=sin rw bA1;ma1=mod cta1 sta1 0;na1=*/ rw rh ma1;dxa1=cos na1 bA1;dya1=sin na1 bA1;xA1=+- hc dxa1 0;yA1=+- vc dya1 0;td11=cos rw aD1;td12=sin rh aD1;bD1=at2 td11 td12;ctd1=cos rh bD1;std1=sin rw bD1;md1=mod ctd1 std1 0;nd1=*/ rw rh md1;dxd1=cos nd1 bD1;dyd1=sin nd1 bD1;xD1=+- hc dxd1 0;yD1=+- vc dyd1 0;xAD1=+- xA1 0 xD1;yAD1=+- yA1 0 yD1;lAD1=mod xAD1 yAD1 0;a1=at2 yAD1 xAD1;dxF1=sin lFD a1;dyF1=cos lFD a1;xF1=+- xD1 dxF1 0;yF1=+- yD1 dyF1 0;xE1=+- xA1 0 dxF1;yE1=+- yA1 0 dyF1;yC1t=sin th a1;xC1t=cos th a1;yC1=+- yF1 yC1t 0;xC1=+- xF1 0 xC1t;yB1=+- yE1 yC1t 0;xB1=+- xE1 0 xC1t;aD6=+- 3cd4 ha 0;td61=cos rw aD6;td62=sin rh aD6;bD6=at2 td61 td62;ctd6=cos rh bD6;std6=sin rw bD6;md6=mod ctd6 std6 0;nd6=*/ rw rh md6;dxd6=cos nd6 bD6;dyd6=sin nd6 bD6;xD6=+- hc dxd6 0;yD6=+- vc dyd6 0;xA6=+- hc 0 dxd6;xF6=+- xD6 0 lFD;xE6=+- xA6 lFD 0;yC6=+- yD6 0 th;swAng1=+- bA1 0 bD6;aA2=+- 1800000 0 ha;aD2=+- 1800000 ha 0;ta21=cos rw aA2;ta22=sin rh aA2;bA2=at2 ta21 ta22;yA2=+- h 0 yD1;td21=cos rw aD2;td22=sin rh aD2;bD2=at2 td21 td22;yD2=+- h 0 yA1;yC2=+- h 0 yB1;yB2=+- h 0 yC1;xB2=val xC1;swAng2=+- bA2 0 bD1;aD3=+- cd4 ha 0;td31=cos rw aD3;td32=sin rh aD3;bD3=at2 td31 td32;yD3=+- h 0 yD6;yB3=+- h 0 yC6;aD4=+- 9000000 ha 0;td41=cos rw aD4;td42=sin rh aD4;bD4=at2 td41 td42;xD4=+- w 0 xD1;xC4=+- w 0 xC1;xB4=+- w 0 xB1;aD5=+- 12600000 ha 0;td51=cos rw aD5;td52=sin rh aD5;bD5=at2 td51 td52;xD5=+- w 0 xA1;xC5=+- w 0 xB1;xB5=+- w 0 xC1;xCxn1=+/ xB1 xC1 2;yCxn1=+/ yB1 yC1 2;yCxn2=+- b 0 yCxn1;xCxn4=+/ r 0 xCxn1|,,,~M xA1 yA1;L xB1 yB1;L xC1 yC1;L xD1 yD1;A rw rh bD1 swAng2;L xC1 yB2;L xB1 yC2;L xA1 yD2;A rw rh bD2 swAng1;L xF6 yB3;L xE6 yB3;L xA6 yD3;A rw rh bD3 swAng1;L xB4 yC2;L xC4 yB2;L xD4 yA2;A rw rh bD4 swAng2;L xB5 yC1;L xC5 yB1;L xD5 yA1;A rw rh bD5 swAng1;L xE6 yC6;L xF6 yC6;L xD6 yD6;A rw rh bD6 swAng1;Z",
+  gear9: "adj1=val 10000;adj2=val 1763|a1=pin 0 adj1 20000;a2=pin 0 adj2 2679;th=*/ ss a1 100000;lFD=*/ ss a2 100000;th2=*/ th 1 2;l2=*/ lFD 1 2;l3=+- th2 l2 0;rh=+- hd2 0 th;rw=+- wd2 0 th;dr=+- rw 0 rh;maxr=?: dr rh rw;ha=at2 maxr l3;aA1=+- 18600000 0 ha;aD1=+- 18600000 ha 0;ta11=cos rw aA1;ta12=sin rh aA1;bA1=at2 ta11 ta12;cta1=cos rh bA1;sta1=sin rw bA1;ma1=mod cta1 sta1 0;na1=*/ rw rh ma1;dxa1=cos na1 bA1;dya1=sin na1 bA1;xA1=+- hc dxa1 0;yA1=+- vc dya1 0;td11=cos rw aD1;td12=sin rh aD1;bD1=at2 td11 td12;ctd1=cos rh bD1;std1=sin rw bD1;md1=mod ctd1 std1 0;nd1=*/ rw rh md1;dxd1=cos nd1 bD1;dyd1=sin nd1 bD1;xD1=+- hc dxd1 0;yD1=+- vc dyd1 0;xAD1=+- xA1 0 xD1;yAD1=+- yA1 0 yD1;lAD1=mod xAD1 yAD1 0;a1=at2 yAD1 xAD1;dxF1=sin lFD a1;dyF1=cos lFD a1;xF1=+- xD1 dxF1 0;yF1=+- yD1 dyF1 0;xE1=+- xA1 0 dxF1;yE1=+- yA1 0 dyF1;yC1t=sin th a1;xC1t=cos th a1;yC1=+- yF1 yC1t 0;xC1=+- xF1 0 xC1t;yB1=+- yE1 yC1t 0;xB1=+- xE1 0 xC1t;aA2=+- 21000000 0 ha;aD2=+- 21000000 ha 0;ta21=cos rw aA2;ta22=sin rh aA2;bA2=at2 ta21 ta22;cta2=cos rh bA2;sta2=sin rw bA2;ma2=mod cta2 sta2 0;na2=*/ rw rh ma2;dxa2=cos na2 bA2;dya2=sin na2 bA2;xA2=+- hc dxa2 0;yA2=+- vc dya2 0;td21=cos rw aD2;td22=sin rh aD2;bD2=at2 td21 td22;ctd2=cos rh bD2;std2=sin rw bD2;md2=mod ctd2 std2 0;nd2=*/ rw rh md2;dxd2=cos nd2 bD2;dyd2=sin nd2 bD2;xD2=+- hc dxd2 0;yD2=+- vc dyd2 0;xAD2=+- xA2 0 xD2;yAD2=+- yA2 0 yD2;lAD2=mod xAD2 yAD2 0;a2=at2 yAD2 xAD2;dxF2=sin lFD a2;dyF2=cos lFD a2;xF2=+- xD2 dxF2 0;yF2=+- yD2 dyF2 0;xE2=+- xA2 0 dxF2;yE2=+- yA2 0 dyF2;yC2t=sin th a2;xC2t=cos th a2;yC2=+- yF2 yC2t 0;xC2=+- xF2 0 xC2t;yB2=+- yE2 yC2t 0;xB2=+- xE2 0 xC2t;swAng1=+- bA2 0 bD1;aA3=+- 1800000 0 ha;aD3=+- 1800000 ha 0;ta31=cos rw aA3;ta32=sin rh aA3;bA3=at2 ta31 ta32;cta3=cos rh bA3;sta3=sin rw bA3;ma3=mod cta3 sta3 0;na3=*/ rw rh ma3;dxa3=cos na3 bA3;dya3=sin na3 bA3;xA3=+- hc dxa3 0;yA3=+- vc dya3 0;td31=cos rw aD3;td32=sin rh aD3;bD3=at2 td31 td32;ctd3=cos rh bD3;std3=sin rw bD3;md3=mod ctd3 std3 0;nd3=*/ rw rh md3;dxd3=cos nd3 bD3;dyd3=sin nd3 bD3;xD3=+- hc dxd3 0;yD3=+- vc dyd3 0;xAD3=+- xA3 0 xD3;yAD3=+- yA3 0 yD3;lAD3=mod xAD3 yAD3 0;a3=at2 yAD3 xAD3;dxF3=sin lFD a3;dyF3=cos lFD a3;xF3=+- xD3 dxF3 0;yF3=+- yD3 dyF3 0;xE3=+- xA3 0 dxF3;yE3=+- yA3 0 dyF3;yC3t=sin th a3;xC3t=cos th a3;yC3=+- yF3 yC3t 0;xC3=+- xF3 0 xC3t;yB3=+- yE3 yC3t 0;xB3=+- xE3 0 xC3t;swAng2=+- bA3 0 bD2;aA4=+- 4200000 0 ha;aD4=+- 4200000 ha 0;ta41=cos rw aA4;ta42=sin rh aA4;bA4=at2 ta41 ta42;cta4=cos rh bA4;sta4=sin rw bA4;ma4=mod cta4 sta4 0;na4=*/ rw rh ma4;dxa4=cos na4 bA4;dya4=sin na4 bA4;xA4=+- hc dxa4 0;yA4=+- vc dya4 0;td41=cos rw aD4;td42=sin rh aD4;bD4=at2 td41 td42;ctd4=cos rh bD4;std4=sin rw bD4;md4=mod ctd4 std4 0;nd4=*/ rw rh md4;dxd4=cos nd4 bD4;dyd4=sin nd4 bD4;xD4=+- hc dxd4 0;yD4=+- vc dyd4 0;xAD4=+- xA4 0 xD4;yAD4=+- yA4 0 yD4;lAD4=mod xAD4 yAD4 0;a4=at2 yAD4 xAD4;dxF4=sin lFD a4;dyF4=cos lFD a4;xF4=+- xD4 dxF4 0;yF4=+- yD4 dyF4 0;xE4=+- xA4 0 dxF4;yE4=+- yA4 0 dyF4;yC4t=sin th a4;xC4t=cos th a4;yC4=+- yF4 yC4t 0;xC4=+- xF4 0 xC4t;yB4=+- yE4 yC4t 0;xB4=+- xE4 0 xC4t;swAng3=+- bA4 0 bD3;aA5=+- 6600000 0 ha;aD5=+- 6600000 ha 0;ta51=cos rw aA5;ta52=sin rh aA5;bA5=at2 ta51 ta52;td51=cos rw aD5;td52=sin rh aD5;bD5=at2 td51 td52;xD5=+- w 0 xA4;xC5=+- w 0 xB4;xB5=+- w 0 xC4;swAng4=+- bA5 0 bD4;aD6=+- 9000000 ha 0;td61=cos rw aD6;td62=sin rh aD6;bD6=at2 td61 td62;xD6=+- w 0 xA3;xC6=+- w 0 xB3;xB6=+- w 0 xC3;aD7=+- 11400000 ha 0;td71=cos rw aD7;td72=sin rh aD7;bD7=at2 td71 td72;xD7=+- w 0 xA2;xC7=+- w 0 xB2;xB7=+- w 0 xC2;aD8=+- 13800000 ha 0;td81=cos rw aD8;td82=sin rh aD8;bD8=at2 td81 td82;xA8=+- w 0 xD1;xD8=+- w 0 xA1;xC8=+- w 0 xB1;xB8=+- w 0 xC1;aA9=+- 3cd4 0 ha;aD9=+- 3cd4 ha 0;td91=cos rw aD9;td92=sin rh aD9;bD9=at2 td91 td92;ctd9=cos rh bD9;std9=sin rw bD9;md9=mod ctd9 std9 0;nd9=*/ rw rh md9;dxd9=cos nd9 bD9;dyd9=sin nd9 bD9;xD9=+- hc dxd9 0;yD9=+- vc dyd9 0;ta91=cos rw aA9;ta92=sin rh aA9;bA9=at2 ta91 ta92;xA9=+- hc 0 dxd9;xF9=+- xD9 0 lFD;xE9=+- xA9 lFD 0;yC9=+- yD9 0 th;swAng5=+- bA9 0 bD8;xCxn1=+/ xB1 xC1 2;yCxn1=+/ yB1 yC1 2;xCxn2=+/ xB2 xC2 2;yCxn2=+/ yB2 yC2 2;xCxn3=+/ xB3 xC3 2;yCxn3=+/ yB3 yC3 2;xCxn4=+/ xB4 xC4 2;yCxn4=+/ yB4 yC4 2;xCxn5=+/ r 0 xCxn4;xCxn6=+/ r 0 xCxn3;xCxn7=+/ r 0 xCxn2;xCxn8=+/ r 0 xCxn1|,,,~M xA1 yA1;L xB1 yB1;L xC1 yC1;L xD1 yD1;A rw rh bD1 swAng1;L xB2 yB2;L xC2 yC2;L xD2 yD2;A rw rh bD2 swAng2;L xB3 yB3;L xC3 yC3;L xD3 yD3;A rw rh bD3 swAng3;L xB4 yB4;L xC4 yC4;L xD4 yD4;A rw rh bD4 swAng4;L xB5 yC4;L xC5 yB4;L xD5 yA4;A rw rh bD5 swAng3;L xB6 yC3;L xC6 yB3;L xD6 yA3;A rw rh bD6 swAng2;L xB7 yC2;L xC7 yB2;L xD7 yA2;A rw rh bD7 swAng1;L xB8 yC1;L xC8 yB1;L xD8 yA1;A rw rh bD8 swAng5;L xE9 yC9;L xF9 yC9;L xD9 yD9;A rw rh bD9 swAng5;Z",
+  halfFrame: "adj1=val 33333;adj2=val 33333|maxAdj2=*/ 100000 w ss;a2=pin 0 adj2 maxAdj2;x1=*/ ss a2 100000;g1=*/ h x1 w;g2=+- h 0 g1;maxAdj1=*/ 100000 g2 ss;a1=pin 0 adj1 maxAdj1;y1=*/ ss a1 100000;dx2=*/ y1 w h;x2=+- r 0 dx2;dy2=*/ x1 h w;y2=+- b 0 dy2;cx1=*/ x1 1 2;cy1=+/ y2 b 2;cx2=+/ x2 r 2;cy2=*/ y1 1 2|,,,~M l t;L r t;L x2 y1;L x1 y1;L x1 y2;L l b;Z",
+  heart: "|dx1=*/ w 49 48;dx2=*/ w 10 48;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=+- t 0 hd3;il=*/ w 1 6;ir=*/ w 5 6;ib=*/ h 2 3|,,,~M hc hd4;C x3 y1 x4 hd4 hc b;C x1 hd4 x2 y1 hc hd4;Z",
+  heptagon: "hf=val 102572;vf=val 105210|swd2=*/ wd2 hf 100000;shd2=*/ hd2 vf 100000;svc=*/ vc  vf 100000;dx1=*/ swd2 97493 100000;dx2=*/ swd2 78183 100000;dx3=*/ swd2 43388 100000;dy1=*/ shd2 62349 100000;dy2=*/ shd2 22252 100000;dy3=*/ shd2 90097 100000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc 0 dx3;x4=+- hc dx3 0;x5=+- hc dx2 0;x6=+- hc dx1 0;y1=+- svc 0 dy1;y2=+- svc dy2 0;y3=+- svc dy3 0;ib=+- b 0 y1|,,,~M x1 y2;L x2 y1;L hc t;L x5 y1;L x6 y2;L x4 y3;L x3 y3;Z",
+  hexagon: "adj=val 25000;vf=val 115470|maxAdj=*/ 50000 w ss;a=pin 0 adj maxAdj;shd2=*/ hd2 vf 100000;x1=*/ ss a 100000;x2=+- r 0 x1;dy1=sin shd2 3600000;y1=+- vc 0 dy1;y2=+- vc dy1 0;q1=*/ maxAdj -1 2;q2=+- a q1 0;q3=?: q2 4 2;q4=?: q2 3 2;q5=?: q2 q1 0;q6=+/ a q5 q1;q7=*/ q6 q4 -1;q8=+- q3 q7 0;il=*/ w q8 24;it=*/ h q8 24;ir=+- r 0 il;ib=+- b 0 it|,,,~M l vc;L x1 y1;L x2 y1;L r vc;L x2 y2;L x1 y2;Z",
+  homePlate: "adj=val 50000|maxAdj=*/ 100000 w ss;a=pin 0 adj maxAdj;dx1=*/ ss a 100000;x1=+- r 0 dx1;ir=+/ x1 r 2;x2=*/ x1 1 2|,,,~M l t;L x1 t;L r vc;L x1 b;L l b;Z",
+  horizontalScroll: "adj=val 12500|a=pin 0 adj 25000;ch=*/ ss a 100000;ch2=*/ ch 1 2;ch4=*/ ch 1 4;y3=+- ch ch2 0;y4=+- ch ch 0;y6=+- b 0 ch;y7=+- b 0 ch2;y5=+- y6 0 ch2;x3=+- r 0 ch;x4=+- r 0 ch2|,,,false~M r ch2;A ch2 ch2 0 cd4;L x4 ch2;A ch4 ch4 0 cd2;L x3 ch;L ch2 ch;A ch2 ch2 3cd4 -5400000;L l y7;A ch2 ch2 cd2 -10800000;L ch y6;L x4 y6;A ch2 ch2 cd4 -5400000;Z;M ch2 y4;A ch2 ch2 cd4 -5400000;A ch4 ch4 0 -10800000;Z#,,darkenLess,false~M ch2 y4;A ch2 ch2 cd4 -5400000;A ch4 ch4 0 -10800000;Z;M x4 ch;A ch2 ch2 cd4 -16200000;A ch4 ch4 cd2 -10800000;Z#,,none,~M l y3;A ch2 ch2 cd2 cd4;L x3 ch;L x3 ch2;A ch2 ch2 cd2 cd2;L r y5;A ch2 ch2 0 cd4;L ch y6;L ch y7;A ch2 ch2 0 cd2;Z;M x3 ch;L x4 ch;A ch2 ch2 cd4 -5400000;M x4 ch;L x4 ch2;A ch4 ch4 0 cd2;M ch2 y4;L ch2 y3;A ch4 ch4 cd2 cd2;A ch2 ch2 0 cd2;M ch y3;L ch y6",
+  irregularSeal1: "|x5=*/ w 4627 21600;x12=*/ w 8485 21600;x21=*/ w 16702 21600;x24=*/ w 14522 21600;y3=*/ h 6320 21600;y6=*/ h 8615 21600;y9=*/ h 13937 21600;y18=*/ h 13290 21600|21600,21600,,~M 10800 5800;L 14522 0;L 14155 5325;L 18380 4457;L 16702 7315;L 21097 8137;L 17607 10475;L 21600 13290;L 16837 12942;L 18145 18095;L 14020 14457;L 13247 19737;L 10532 14935;L 8485 21600;L 7715 15627;L 4762 17617;L 5667 13937;L 135 14587;L 3722 11775;L 0 8615;L 4627 7617;L 370 2295;L 7312 6320;L 8352 2295;Z",
+  irregularSeal2: "|x2=*/ w 9722 21600;x5=*/ w 5372 21600;x16=*/ w 11612 21600;x19=*/ w 14640 21600;y2=*/ h 1887 21600;y3=*/ h 6382 21600;y8=*/ h 12877 21600;y14=*/ h 19712 21600;y16=*/ h 18842 21600;y17=*/ h 15935 21600;y24=*/ h 6645 21600|21600,21600,,~M 11462 4342;L 14790 0;L 14525 5777;L 18007 3172;L 16380 6532;L 21600 6645;L 16985 9402;L 18270 11290;L 16380 12310;L 18877 15632;L 14640 14350;L 14942 17370;L 12180 15935;L 11612 18842;L 9872 17370;L 8700 19712;L 7527 18125;L 4917 21600;L 4805 18240;L 1285 17825;L 3330 15370;L 0 12877;L 3935 11592;L 1172 8270;L 5372 7817;L 4502 3625;L 8550 6382;L 9722 1887;Z",
+  leftArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx2=*/ ss a2 100000;x2=+- l dx2 0;dy1=*/ h a1 200000;y1=+- vc 0 dy1;y2=+- vc dy1 0;dx1=*/ y1 dx2 hd2;x1=+- x2  0 dx1|,,,~M l vc;L x2 t;L x2 y1;L r y1;L r y2;L x2 y2;L x2 b;Z",
+  leftArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 64977|maxAdj2=*/ 50000 h ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 100000 w ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss w;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dy1=*/ ss a2 100000;dy2=*/ ss a1 200000;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc dy2 0;y4=+- vc dy1 0;x1=*/ ss a3 100000;dx2=*/ w a4 100000;x2=+- r 0 dx2;x3=+/ x2 r 2|,,,~M l vc;L x1 y1;L x1 y2;L x2 y2;L x2 t;L r t;L r b;L x2 b;L x2 y3;L x1 y3;L x1 y4;Z",
+  leftBrace: "adj1=val 8333;adj2=val 50000|a2=pin 0 adj2 100000;q1=+- 100000 0 a2;q2=min q1 a2;q3=*/ q2 1 2;maxAdj1=*/ q3 h ss;a1=pin 0 adj1 maxAdj1;y1=*/ ss a1 100000;y3=*/ h a2 100000;y4=+- y3 y1 0;dx1=cos wd2 2700000;dy1=sin y1 2700000;il=+- r 0 dx1;it=+- y1 0 dy1;ib=+- b dy1 y1|,,,false~M r b;A wd2 y1 cd4 cd4;L hc y4;A wd2 y1 0 -5400000;A wd2 y1 cd4 -5400000;L hc y1;A wd2 y1 cd2 cd4;Z#,,none,~M r b;A wd2 y1 cd4 cd4;L hc y4;A wd2 y1 0 -5400000;A wd2 y1 cd4 -5400000;L hc y1;A wd2 y1 cd2 cd4",
+  leftBracket: "adj=val 8333|maxAdj=*/ 50000 h ss;a=pin 0 adj maxAdj;y1=*/ ss a 100000;y2=+- b 0 y1;dx1=cos w 2700000;dy1=sin y1 2700000;il=+- r 0 dx1;it=+- y1 0 dy1;ib=+- b dy1 y1|,,,false~M r b;A w y1 cd4 cd4;L l y1;A w y1 cd2 cd4;Z#,,none,~M r b;A w y1 cd4 cd4;L l y1;A w y1 cd2 cd4",
+  leftCircularArrow: "adj1=val 12500;adj2=val -1142319;adj3=val 1142319;adj4=val 10800000;adj5=val 12500|a5=pin 0 adj5 25000;maxAdj1=*/ a5 2 1;a1=pin 0 adj1 maxAdj1;enAng=pin 1 adj3 21599999;stAng=pin 0 adj4 21599999;th=*/ ss a1 100000;thh=*/ ss a5 100000;th2=*/ th 1 2;rw1=+- wd2 th2 thh;rh1=+- hd2 th2 thh;rw2=+- rw1 0 th;rh2=+- rh1 0 th;rw3=+- rw2 th2 0;rh3=+- rh2 th2 0;wtH=sin rw3 enAng;htH=cos rh3 enAng;dxH=cat2 rw3 htH wtH;dyH=sat2 rh3 htH wtH;xH=+- hc dxH 0;yH=+- vc dyH 0;rI=min rw2 rh2;u1=*/ dxH dxH 1;u2=*/ dyH dyH 1;u3=*/ rI rI 1;u4=+- u1 0 u3;u5=+- u2 0 u3;u6=*/ u4 u5 u1;u7=*/ u6 1 u2;u8=+- 1 0 u7;u9=sqrt u8;u10=*/ u4 1 dxH;u11=*/ u10 1 dyH;u12=+/ 1 u9 u11;u13=at2 1 u12;u14=+- u13 21600000 0;u15=?: u13 u13 u14;u16=+- u15 0 enAng;u17=+- u16 21600000 0;u18=?: u16 u16 u17;u19=+- u18 0 cd2;u20=+- u18 0 21600000;u21=?: u19 u20 u18;u22=abs u21;minAng=*/ u22 -1 1;u23=abs adj2;a2=*/ u23 -1 1;aAng=pin minAng a2 0;ptAng=+- enAng aAng 0;wtA=sin rw3 ptAng;htA=cos rh3 ptAng;dxA=cat2 rw3 htA wtA;dyA=sat2 rh3 htA wtA;xA=+- hc dxA 0;yA=+- vc dyA 0;wtE=sin rw1 stAng;htE=cos rh1 stAng;dxE=cat2 rw1 htE wtE;dyE=sat2 rh1 htE wtE;xE=+- hc dxE 0;yE=+- vc dyE 0;wtD=sin rw2 stAng;htD=cos rh2 stAng;dxD=cat2 rw2 htD wtD;dyD=sat2 rh2 htD wtD;xD=+- hc dxD 0;yD=+- vc dyD 0;dxG=cos thh ptAng;dyG=sin thh ptAng;xG=+- xH dxG 0;yG=+- yH dyG 0;dxB=cos thh ptAng;dyB=sin thh ptAng;xB=+- xH 0 dxB 0;yB=+- yH 0 dyB 0;sx1=+- xB 0 hc;sy1=+- yB 0 vc;sx2=+- xG 0 hc;sy2=+- yG 0 vc;rO=min rw1 rh1;x1O=*/ sx1 rO rw1;y1O=*/ sy1 rO rh1;x2O=*/ sx2 rO rw1;y2O=*/ sy2 rO rh1;dxO=+- x2O 0 x1O;dyO=+- y2O 0 y1O;dO=mod dxO dyO 0;q1=*/ x1O y2O 1;q2=*/ x2O y1O 1;DO=+- q1 0 q2;q3=*/ rO rO 1;q4=*/ dO dO 1;q5=*/ q3 q4 1;q6=*/ DO DO 1;q7=+- q5 0 q6;q8=max q7 0;sdelO=sqrt q8;ndyO=*/ dyO -1 1;sdyO=?: ndyO -1 1;q9=*/ sdyO dxO 1;q10=*/ q9 sdelO 1;q11=*/ DO dyO 1;dxF1=+/ q11 q10 q4;q12=+- q11 0 q10;dxF2=*/ q12 1 q4;adyO=abs dyO;q13=*/ adyO sdelO 1;q14=*/ DO dxO -1;dyF1=+/ q14 q13 q4;q15=+- q14 0 q13;dyF2=*/ q15 1 q4;q16=+- x2O 0 dxF1;q17=+- x2O 0 dxF2;q18=+- y2O 0 dyF1;q19=+- y2O 0 dyF2;q20=mod q16 q18 0;q21=mod q17 q19 0;q22=+- q21 0 q20;dxF=?: q22 dxF1 dxF2;dyF=?: q22 dyF1 dyF2;sdxF=*/ dxF rw1 rO;sdyF=*/ dyF rh1 rO;xF=+- hc sdxF 0;yF=+- vc sdyF 0;x1I=*/ sx1 rI rw2;y1I=*/ sy1 rI rh2;x2I=*/ sx2 rI rw2;y2I=*/ sy2 rI rh2;dxI=+- x2I 0 x1I;dyI=+- y2I 0 y1I;dI=mod dxI dyI 0;v1=*/ x1I y2I 1;v2=*/ x2I y1I 1;DI=+- v1 0 v2;v3=*/ rI rI 1;v4=*/ dI dI 1;v5=*/ v3 v4 1;v6=*/ DI DI 1;v7=+- v5 0 v6;v8=max v7 0;sdelI=sqrt v8;v9=*/ sdyO dxI 1;v10=*/ v9 sdelI 1;v11=*/ DI dyI 1;dxC1=+/ v11 v10 v4;v12=+- v11 0 v10;dxC2=*/ v12 1 v4;adyI=abs dyI;v13=*/ adyI sdelI 1;v14=*/ DI dxI -1;dyC1=+/ v14 v13 v4;v15=+- v14 0 v13;dyC2=*/ v15 1 v4;v16=+- x1I 0 dxC1;v17=+- x1I 0 dxC2;v18=+- y1I 0 dyC1;v19=+- y1I 0 dyC2;v20=mod v16 v18 0;v21=mod v17 v19 0;v22=+- v21 0 v20;dxC=?: v22 dxC1 dxC2;dyC=?: v22 dyC1 dyC2;sdxC=*/ dxC rw2 rI;sdyC=*/ dyC rh2 rI;xC=+- hc sdxC 0;yC=+- vc sdyC 0;ist0=at2 sdxC sdyC;ist1=+- ist0 21600000 0;istAng0=?: ist0 ist0 ist1;isw1=+- stAng 0 istAng0;isw2=+- isw1 21600000 0;iswAng0=?: isw1 isw1 isw2;istAng=+- istAng0 iswAng0 0;iswAng=+- 0 0 iswAng0;p1=+- xF 0 xC;p2=+- yF 0 yC;p3=mod p1 p2 0;p4=*/ p3 1 2;p5=+- p4 0 thh;xGp=?: p5 xF xG;yGp=?: p5 yF yG;xBp=?: p5 xC xB;yBp=?: p5 yC yB;en0=at2 sdxF sdyF;en1=+- en0 21600000 0;en2=?: en0 en0 en1;sw0=+- en2 0 stAng;sw1=+- sw0 0 21600000;swAng=?: sw0 sw1 sw0;stAng0=+- stAng swAng 0;swAng0=+- 0 0 swAng;wtI=sin rw3 stAng;htI=cos rh3 stAng;dxI=cat2 rw3 htI wtI;dyI=sat2 rh3 htI wtI;xI=+- hc dxI 0;yI=+- vc dyI 0;aI=+- stAng cd4 0;aA=+- ptAng 0 cd4;aB=+- ptAng cd2 0;idx=cos rw1 2700000;idy=sin rh1 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M xE yE;L xD yD;A rw2 rh2 istAng iswAng;L xBp yBp;L xA yA;L xGp yGp;L xF yF;A rw1 rh1 stAng0 swAng0;Z",
+  leftRightArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 50000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;x2=*/ ss a2 100000;x3=+- r 0 x2;dy=*/ h a1 200000;y1=+- vc 0 dy;y2=+- vc dy 0;dx1=*/ y1 x2 hd2;x1=+- x2 0 dx1;x4=+- x3 dx1 0|,,,~M l vc;L x2 t;L x2 y1;L x3 y1;L x3 t;L r vc;L x3 b;L x3 y2;L x2 y2;L x2 b;Z",
+  leftRightArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 48123|maxAdj2=*/ 50000 h ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 50000 w ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss wd2;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dy1=*/ ss a2 100000;dy2=*/ ss a1 200000;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc dy2 0;y4=+- vc dy1 0;x1=*/ ss a3 100000;x4=+- r 0 x1;dx2=*/ w a4 200000;x2=+- hc 0 dx2;x3=+- hc dx2 0|,,,~M l vc;L x1 y1;L x1 y2;L x2 y2;L x2 t;L x3 t;L x3 y2;L x4 y2;L x4 y1;L r vc;L x4 y4;L x4 y3;L x3 y3;L x3 b;L x2 b;L x2 y3;L x1 y3;L x1 y4;Z",
+  leftRightCircularArrow: "adj1=val 12500;adj2=val 1142319;adj3=val 20457681;adj4=val 11942319;adj5=val 12500|a5=pin 0 adj5 25000;maxAdj1=*/ a5 2 1;a1=pin 0 adj1 maxAdj1;enAng=pin 1 adj3 21599999;stAng=pin 0 adj4 21599999;th=*/ ss a1 100000;thh=*/ ss a5 100000;th2=*/ th 1 2;rw1=+- wd2 th2 thh;rh1=+- hd2 th2 thh;rw2=+- rw1 0 th;rh2=+- rh1 0 th;rw3=+- rw2 th2 0;rh3=+- rh2 th2 0;wtH=sin rw3 enAng;htH=cos rh3 enAng;dxH=cat2 rw3 htH wtH;dyH=sat2 rh3 htH wtH;xH=+- hc dxH 0;yH=+- vc dyH 0;rI=min rw2 rh2;u1=*/ dxH dxH 1;u2=*/ dyH dyH 1;u3=*/ rI rI 1;u4=+- u1 0 u3;u5=+- u2 0 u3;u6=*/ u4 u5 u1;u7=*/ u6 1 u2;u8=+- 1 0 u7;u9=sqrt u8;u10=*/ u4 1 dxH;u11=*/ u10 1 dyH;u12=+/ 1 u9 u11;u13=at2 1 u12;u14=+- u13 21600000 0;u15=?: u13 u13 u14;u16=+- u15 0 enAng;u17=+- u16 21600000 0;u18=?: u16 u16 u17;u19=+- u18 0 cd2;u20=+- u18 0 21600000;u21=?: u19 u20 u18;maxAng=abs u21;aAng=pin 0 adj2 maxAng;ptAng=+- enAng aAng 0;wtA=sin rw3 ptAng;htA=cos rh3 ptAng;dxA=cat2 rw3 htA wtA;dyA=sat2 rh3 htA wtA;xA=+- hc dxA 0;yA=+- vc dyA 0;dxG=cos thh ptAng;dyG=sin thh ptAng;xG=+- xH dxG 0;yG=+- yH dyG 0;dxB=cos thh ptAng;dyB=sin thh ptAng;xB=+- xH 0 dxB 0;yB=+- yH 0 dyB 0;sx1=+- xB 0 hc;sy1=+- yB 0 vc;sx2=+- xG 0 hc;sy2=+- yG 0 vc;rO=min rw1 rh1;x1O=*/ sx1 rO rw1;y1O=*/ sy1 rO rh1;x2O=*/ sx2 rO rw1;y2O=*/ sy2 rO rh1;dxO=+- x2O 0 x1O;dyO=+- y2O 0 y1O;dO=mod dxO dyO 0;q1=*/ x1O y2O 1;q2=*/ x2O y1O 1;DO=+- q1 0 q2;q3=*/ rO rO 1;q4=*/ dO dO 1;q5=*/ q3 q4 1;q6=*/ DO DO 1;q7=+- q5 0 q6;q8=max q7 0;sdelO=sqrt q8;ndyO=*/ dyO -1 1;sdyO=?: ndyO -1 1;q9=*/ sdyO dxO 1;q10=*/ q9 sdelO 1;q11=*/ DO dyO 1;dxF1=+/ q11 q10 q4;q12=+- q11 0 q10;dxF2=*/ q12 1 q4;adyO=abs dyO;q13=*/ adyO sdelO 1;q14=*/ DO dxO -1;dyF1=+/ q14 q13 q4;q15=+- q14 0 q13;dyF2=*/ q15 1 q4;q16=+- x2O 0 dxF1;q17=+- x2O 0 dxF2;q18=+- y2O 0 dyF1;q19=+- y2O 0 dyF2;q20=mod q16 q18 0;q21=mod q17 q19 0;q22=+- q21 0 q20;dxF=?: q22 dxF1 dxF2;dyF=?: q22 dyF1 dyF2;sdxF=*/ dxF rw1 rO;sdyF=*/ dyF rh1 rO;xF=+- hc sdxF 0;yF=+- vc sdyF 0;x1I=*/ sx1 rI rw2;y1I=*/ sy1 rI rh2;x2I=*/ sx2 rI rw2;y2I=*/ sy2 rI rh2;dxI=+- x2I 0 x1I;dyI=+- y2I 0 y1I;dI=mod dxI dyI 0;v1=*/ x1I y2I 1;v2=*/ x2I y1I 1;DI=+- v1 0 v2;v3=*/ rI rI 1;v4=*/ dI dI 1;v5=*/ v3 v4 1;v6=*/ DI DI 1;v7=+- v5 0 v6;v8=max v7 0;sdelI=sqrt v8;v9=*/ sdyO dxI 1;v10=*/ v9 sdelI 1;v11=*/ DI dyI 1;dxC1=+/ v11 v10 v4;v12=+- v11 0 v10;dxC2=*/ v12 1 v4;adyI=abs dyI;v13=*/ adyI sdelI 1;v14=*/ DI dxI -1;dyC1=+/ v14 v13 v4;v15=+- v14 0 v13;dyC2=*/ v15 1 v4;v16=+- x1I 0 dxC1;v17=+- x1I 0 dxC2;v18=+- y1I 0 dyC1;v19=+- y1I 0 dyC2;v20=mod v16 v18 0;v21=mod v17 v19 0;v22=+- v21 0 v20;dxC=?: v22 dxC1 dxC2;dyC=?: v22 dyC1 dyC2;sdxC=*/ dxC rw2 rI;sdyC=*/ dyC rh2 rI;xC=+- hc sdxC 0;yC=+- vc sdyC 0;wtI=sin rw3 stAng;htI=cos rh3 stAng;dxI=cat2 rw3 htI wtI;dyI=sat2 rh3 htI wtI;xI=+- hc dxI 0;yI=+- vc dyI 0;lptAng=+- stAng 0 aAng;wtL=sin rw3 lptAng;htL=cos rh3 lptAng;dxL=cat2 rw3 htL wtL;dyL=sat2 rh3 htL wtL;xL=+- hc dxL 0;yL=+- vc dyL 0;dxK=cos thh lptAng;dyK=sin thh lptAng;xK=+- xI dxK 0;yK=+- yI dyK 0;dxJ=cos thh lptAng;dyJ=sin thh lptAng;xJ=+- xI 0 dxJ 0;yJ=+- yI 0 dyJ 0;p1=+- xF 0 xC;p2=+- yF 0 yC;p3=mod p1 p2 0;p4=*/ p3 1 2;p5=+- p4 0 thh;xGp=?: p5 xF xG;yGp=?: p5 yF yG;xBp=?: p5 xC xB;yBp=?: p5 yC yB;en0=at2 sdxF sdyF;en1=+- en0 21600000 0;en2=?: en0 en0 en1;od0=+- en2 0 enAng;od1=+- od0 21600000 0;od2=?: od0 od0 od1;st0=+- stAng 0 od2;st1=+- st0 21600000 0;st2=?: st0 st0 st1;sw0=+- en2 0 st2;sw1=+- sw0 21600000 0;swAng=?: sw0 sw0 sw1;ist0=at2 sdxC sdyC;ist1=+- ist0 21600000 0;istAng=?: ist0 ist0 ist1;id0=+- istAng 0 enAng;id1=+- id0 0 21600000;id2=?: id0 id1 id0;ien0=+- stAng 0 id2;ien1=+- ien0 0 21600000;ien2=?: ien1 ien1 ien0;isw1=+- ien2 0 istAng;isw2=+- isw1 0 21600000;iswAng=?: isw1 isw2 isw1;wtE=sin rw1 st2;htE=cos rh1 st2;dxE=cat2 rw1 htE wtE;dyE=sat2 rh1 htE wtE;xE=+- hc dxE 0;yE=+- vc dyE 0;wtD=sin rw2 ien2;htD=cos rh2 ien2;dxD=cat2 rw2 htD wtD;dyD=sat2 rh2 htD wtD;xD=+- hc dxD 0;yD=+- vc dyD 0;xKp=?: p5 xE xK;yKp=?: p5 yE yK;xJp=?: p5 xD xJ;yJp=?: p5 yD yJ;aL=+- lptAng 0 cd4;aA=+- ptAng cd4 0;aB=+- ptAng cd2 0;aJ=+- lptAng cd2 0;idx=cos rw1 2700000;idy=sin rh1 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M xL yL;L xKp yKp;L xE yE;A rw1 rh1 st2 swAng;L xGp yGp;L xA yA;L xBp yBp;L xC yC;A rw2 rh2 istAng iswAng;L xJp yJp;Z",
+  leftRightRibbon: "adj1=val 50000;adj2=val 50000;adj3=val 16667|a3=pin 0 adj3 33333;maxAdj1=+- 100000 0 a3;a1=pin 0 adj1 maxAdj1;w1=+- wd2 0 wd32;maxAdj2=*/ 100000 w1 ss;a2=pin 0 adj2 maxAdj2;x1=*/ ss a2 100000;x4=+- r 0 x1;dy1=*/ h a1 200000;dy2=*/ h a3 -200000;ly1=+- vc dy2 dy1;ry4=+- vc dy1 dy2;ly2=+- ly1 dy1 0;ry3=+- b 0 ly2;ly4=*/ ly2 2 1;ry1=+- b 0 ly4;ly3=+- ly4 0 ly1;ry2=+- b 0 ly3;hR=*/ a3 ss 400000;x2=+- hc 0 wd32;x3=+- hc wd32 0;y1=+- ly1 hR 0;y2=+- ry2 0 hR|,,,false~M l ly2;L x1 t;L x1 ly1;L hc ly1;A wd32 hR 3cd4 cd2;A wd32 hR 3cd4 -10800000;L x4 ry2;L x4 ry1;L r ry3;L x4 b;L x4 ry4;L hc ry4;A wd32 hR cd4 cd4;L x2 ly3;L x1 ly3;L x1 ly4;Z#,,darkenLess,false~M x3 y1;A wd32 hR 0 cd4;A wd32 hR 3cd4 -10800000;L x3 ry2;Z#,,none,~M l ly2;L x1 t;L x1 ly1;L hc ly1;A wd32 hR 3cd4 cd2;A wd32 hR 3cd4 -10800000;L x4 ry2;L x4 ry1;L r ry3;L x4 b;L x4 ry4;L hc ry4;A wd32 hR cd4 cd4;L x2 ly3;L x1 ly3;L x1 ly4;Z;M x3 y1;L x3 ry2;M x2 y2;L x2 ly3",
+  leftRightUpArrow: "adj1=val 25000;adj2=val 25000;adj3=val 25000|a2=pin 0 adj2 50000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;q1=+- 100000 0 maxAdj1;maxAdj3=*/ q1 1 2;a3=pin 0 adj3 maxAdj3;x1=*/ ss a3 100000;dx2=*/ ss a2 100000;x2=+- hc 0 dx2;x5=+- hc dx2 0;dx3=*/ ss a1 200000;x3=+- hc 0 dx3;x4=+- hc dx3 0;x6=+- r 0 x1;dy2=*/ ss a2 50000;y2=+- b 0 dy2;y4=+- b 0 dx2;y3=+- y4 0 dx3;y5=+- y4 dx3 0;il=*/ dx3 x1 dx2;ir=+- r 0 il|,,,~M l y4;L x1 y2;L x1 y3;L x3 y3;L x3 x1;L x2 x1;L hc t;L x5 x1;L x4 x1;L x4 y3;L x6 y3;L x6 y2;L r y4;L x6 b;L x6 y5;L x1 y5;L x1 b;Z",
+  leftUpArrow: "adj1=val 25000;adj2=val 25000;adj3=val 25000|a2=pin 0 adj2 50000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=+- 100000 0 maxAdj1;a3=pin 0 adj3 maxAdj3;x1=*/ ss a3 100000;dx2=*/ ss a2 50000;x2=+- r 0 dx2;y2=+- b 0 dx2;dx4=*/ ss a2 100000;x4=+- r 0 dx4;y4=+- b 0 dx4;dx3=*/ ss a1 200000;x3=+- x4 0 dx3;x5=+- x4 dx3 0;y3=+- y4 0 dx3;y5=+- y4 dx3 0;il=*/ dx3 x1 dx4;cx1=+/ x1 x5 2;cy1=+/ x1 y5 2|,,,~M l y4;L x1 y2;L x1 y3;L x3 y3;L x3 x1;L x2 x1;L x4 t;L r x1;L x5 x1;L x5 y5;L x1 y5;L x1 b;Z",
+  lightningBolt: "|x1=*/ w 5022 21600;x3=*/ w 8472 21600;x4=*/ w 8757 21600;x5=*/ w 10012 21600;x8=*/ w 12860 21600;x9=*/ w 13917 21600;x11=*/ w 16577 21600;y1=*/ h 3890 21600;y2=*/ h 6080 21600;y4=*/ h 7437 21600;y6=*/ h 9705 21600;y7=*/ h 12007 21600;y10=*/ h 14277 21600;y11=*/ h 14915 21600|21600,21600,,~M 8472 0;L 12860 6080;L 11050 6797;L 16577 12007;L 14767 12877;L 21600 21600;L 10012 14915;L 12222 13987;L 5022 9705;L 7602 8382;L 0 3890;Z",
+  line: "||,,,~M l t;L r b",
+  lineInv: "||,,,~M l b;L r t",
+  mathDivide: "adj1=val 23520;adj2=val 5880;adj3=val 11760|a1=pin 1000 adj1 36745;ma1=+- 0 0 a1;ma3h=+/ 73490 ma1 4;ma3w=*/ 36745 w h;maxAdj3=min ma3h ma3w;a3=pin 1000 adj3 maxAdj3;m4a3=*/ -4 a3 1;maxAdj2=+- 73490 m4a3 a1;a2=pin 0 adj2 maxAdj2;dy1=*/ h a1 200000;yg=*/ h a2 100000;rad=*/ h a3 100000;dx1=*/ w 73490 200000;y3=+- vc 0 dy1;y4=+- vc dy1 0;a=+- yg rad 0;y2=+- y3 0 a;y1=+- y2 0 rad;y5=+- b 0 y1;x1=+- hc 0 dx1;x3=+- hc dx1 0;x2=+- hc 0 rad|,,,~M hc y1;A rad rad 3cd4 21600000;Z;M hc y5;A rad rad cd4 21600000;Z;M x1 y3;L x3 y3;L x3 y4;L x1 y4;Z",
+  mathEqual: "adj1=val 23520;adj2=val 11760|a1=pin 0 adj1 36745;2a1=*/ a1 2 1;mAdj2=+- 100000 0 2a1;a2=pin 0 adj2 mAdj2;dy1=*/ h a1 100000;dy2=*/ h a2 200000;dx1=*/ w 73490 200000;y2=+- vc 0 dy2;y3=+- vc dy2 0;y1=+- y2 0 dy1;y4=+- y3 dy1 0;x1=+- hc 0 dx1;x2=+- hc dx1 0;yC1=+/ y1 y2 2;yC2=+/ y3 y4 2|,,,~M x1 y1;L x2 y1;L x2 y2;L x1 y2;Z;M x1 y3;L x2 y3;L x2 y4;L x1 y4;Z",
+  mathMinus: "adj1=val 23520|a1=pin 0 adj1 100000;dy1=*/ h a1 200000;dx1=*/ w 73490 200000;y1=+- vc 0 dy1;y2=+- vc dy1 0;x1=+- hc 0 dx1;x2=+- hc dx1 0|,,,~M x1 y1;L x2 y1;L x2 y2;L x1 y2;Z",
+  mathMultiply: "adj1=val 23520|a1=pin 0 adj1 51965;th=*/ ss a1 100000;a=at2 w h;sa=sin 1 a;ca=cos 1 a;ta=tan 1 a;dl=mod w h 0;rw=*/ dl 51965 100000;lM=+- dl 0 rw;xM=*/ ca lM 2;yM=*/ sa lM 2;dxAM=*/ sa th 2;dyAM=*/ ca th 2;xA=+- xM 0 dxAM;yA=+- yM dyAM 0;xB=+- xM dxAM 0;yB=+- yM 0 dyAM;xBC=+- hc 0 xB;yBC=*/ xBC ta 1;yC=+- yBC yB 0;xD=+- r 0 xB;xE=+- r 0 xA;yFE=+- vc 0 yA;xFE=*/ yFE 1 ta;xF=+- xE 0 xFE;xL=+- xA xFE 0;yG=+- b 0 yA;yH=+- b 0 yB;yI=+- b 0 yC;xC2=+- r 0 xM;yC3=+- b 0 yM|,,,~M xA yA;L xB yB;L hc yC;L xD yB;L xE yA;L xF vc;L xE yG;L xD yH;L hc yI;L xB yH;L xA yG;L xL vc;Z",
+  mathNotEqual: "adj1=val 23520;adj2=val 6600000;adj3=val 11760|a1=pin 0 adj1 50000;crAng=pin 4200000 adj2 6600000;2a1=*/ a1 2 1;maxAdj3=+- 100000 0 2a1;a3=pin 0 adj3 maxAdj3;dy1=*/ h a1 100000;dy2=*/ h a3 200000;dx1=*/ w 73490 200000;x1=+- hc 0 dx1;x8=+- hc dx1 0;y2=+- vc 0 dy2;y3=+- vc dy2 0;y1=+- y2 0 dy1;y4=+- y3 dy1 0;cadj2=+- crAng 0 cd4;xadj2=tan hd2 cadj2;len=mod xadj2 hd2 0;bhw=*/ len dy1 hd2;bhw2=*/ bhw 1 2;x7=+- hc xadj2 bhw2;dx67=*/ xadj2 y1 hd2;x6=+- x7 0 dx67;dx57=*/ xadj2 y2 hd2;x5=+- x7 0 dx57;dx47=*/ xadj2 y3 hd2;x4=+- x7 0 dx47;dx37=*/ xadj2 y4 hd2;x3=+- x7 0 dx37;dx27=*/ xadj2 2 1;x2=+- x7 0 dx27;rx7=+- x7 bhw 0;rx6=+- x6 bhw 0;rx5=+- x5 bhw 0;rx4=+- x4 bhw 0;rx3=+- x3 bhw 0;rx2=+- x2 bhw 0;dx7=*/ dy1 hd2 len;rxt=+- x7 dx7 0;lxt=+- rx7 0 dx7;rx=?: cadj2 rxt rx7;lx=?: cadj2 x7 lxt;dy3=*/ dy1 xadj2 len;dy4=+- 0 0 dy3;ry=?: cadj2 dy3 t;ly=?: cadj2 t dy4;dlx=+- w 0 rx;drx=+- w 0 lx;dly=+- h 0 ry;dry=+- h 0 ly;xC1=+/ rx lx 2;xC2=+/ drx dlx 2;yC1=+/ ry ly 2;yC2=+/ y1 y2 2;yC3=+/ y3 y4 2;yC4=+/ dry dly 2|,,,~M x1 y1;L x6 y1;L lx ly;L rx ry;L rx6 y1;L x8 y1;L x8 y2;L rx5 y2;L rx4 y3;L x8 y3;L x8 y4;L rx3 y4;L drx dry;L dlx dly;L x3 y4;L x1 y4;L x1 y3;L x4 y3;L x5 y2;L x1 y2;Z",
+  mathPlus: "adj1=val 23520|a1=pin 0 adj1 73490;dx1=*/ w 73490 200000;dy1=*/ h 73490 200000;dx2=*/ ss a1 200000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=+- vc 0 dy1;y2=+- vc 0 dx2;y3=+- vc dx2 0;y4=+- vc dy1 0|,,,~M x1 y2;L x2 y2;L x2 y1;L x3 y1;L x3 y2;L x4 y2;L x4 y3;L x3 y3;L x3 y4;L x2 y4;L x2 y3;L x1 y3;Z",
+  moon: "adj=val 50000|a=pin 0 adj 87500;g0=*/ ss a 100000;g0w=*/ g0 w ss;g1=+- ss 0 g0;g2=*/ g0 g0 g1;g3=*/ ss ss g1;g4=*/ g3 2 1;g5=+- g4 0 g2;g6=+- g5 0 g0;g6w=*/ g6 w ss;g7=*/ g5 1 2;g8=+- g7 0 g0;dy1=*/ g8 hd2 ss;g10h=+- vc 0 dy1;g11h=+- vc dy1 0;g12=*/ g0 9598 32768;g12w=*/ g12 w ss;g13=+- ss 0 g12;q1=*/ ss ss 1;q2=*/ g13 g13 1;q3=+- q1 0 q2;q4=sqrt q3;dy4=*/ q4 hd2 ss;g15h=+- vc 0 dy4;g16h=+- vc dy4 0;g17w=+- g6w 0 g0w;g18w=*/ g17w 1 2;dx2p=+- g0w g18w w;dx2=*/ dx2p -1 1;dy2=*/ hd2 -1 1;stAng1=at2 dx2 dy2;enAngp1=at2 dx2 hd2;enAng1=+- enAngp1 0 21600000;swAng1=+- enAng1 0 stAng1|,,,~M r b;A w hd2 cd4 cd2;A g18w dy1 stAng1 swAng1;Z",
+  noSmoking: "adj=val 18750|a=pin 0 adj 50000;dr=*/ ss a 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr;ang=at2 w h;ct=cos ihd2 ang;st=sin iwd2 ang;m=mod ct st 0;n=*/ iwd2 ihd2 m;drd2=*/ dr 1 2;dang=at2 n drd2;dang2=*/ dang 2 1;swAng=+- -10800000 dang2 0;t3=at2 w h;stAng1=+- t3 0 dang;stAng2=+- stAng1 0 cd2;ct1=cos ihd2 stAng1;st1=sin iwd2 stAng1;m1=mod ct1 st1 0;n1=*/ iwd2 ihd2 m1;dx1=cos n1 stAng1;dy1=sin n1 stAng1;x1=+- hc dx1 0;y1=+- vc dy1 0;x2=+- hc 0 dx1;y2=+- vc 0 dy1;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l vc;A wd2 hd2 cd2 cd4;A wd2 hd2 3cd4 cd4;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z;M x1 y1;A iwd2 ihd2 stAng1 swAng;Z;M x2 y2;A iwd2 ihd2 stAng2 swAng;Z",
+  nonIsoscelesTrapezoid: "adj1=val 25000;adj2=val 25000|maxAdj=*/ 50000 w ss;a1=pin 0 adj1 maxAdj;a2=pin 0 adj2 maxAdj;x1=*/ ss a1 200000;x2=*/ ss a1 100000;dx3=*/ ss a2 100000;x3=+- r 0 dx3;x4=+/ r x3 2;il=*/ wd3 a1 maxAdj;adjm=max a1 a2;it=*/ hd3 adjm maxAdj;irt=*/ wd3 a2 maxAdj;ir=+- r 0 irt|,,,~M l b;L x2 t;L x3 t;L r b;Z",
+  notchedRightArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx2=*/ ss a2 100000;x2=+- r 0 dx2;dy1=*/ h a1 200000;y1=+- vc 0 dy1;y2=+- vc dy1 0;x1=*/ dy1 dx2 hd2;x3=+- r 0 x1|,,,~M l y1;L x2 y1;L x2 t;L r vc;L x2 b;L x2 y2;L l y2;L x1 vc;Z",
+  octagon: "adj=val 29289|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1;il=*/ x1 1 2;ir=+- r 0 il;ib=+- b 0 il|,,,~M l x1;L x1 t;L x2 t;L r x1;L r y2;L x2 b;L x1 b;L l y2;Z",
+  parallelogram: "adj=val 25000|maxAdj=*/ 100000 w ss;a=pin 0 adj maxAdj;x1=*/ ss a 200000;x2=*/ ss a 100000;x6=+- r 0 x1;x5=+- r 0 x2;x3=*/ x5 1 2;x4=+- r 0 x3;il=*/ wd2 a maxAdj;q1=*/ 5 a maxAdj;q2=+/ 1 q1 12;il=*/ q2 w 1;it=*/ q2 h 1;ir=+- r 0 il;ib=+- b 0 it;q3=*/ h hc x2;y1=pin 0 q3 h;y2=+- b 0 y1|,,,~M l b;L x2 t;L r t;L x5 b;Z",
+  pentagon: "hf=val 105146;vf=val 110557|swd2=*/ wd2 hf 100000;shd2=*/ hd2 vf 100000;svc=*/ vc  vf 100000;dx1=cos swd2 1080000;dx2=cos swd2 18360000;dy1=sin shd2 1080000;dy2=sin shd2 18360000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=+- svc 0 dy1;y2=+- svc 0 dy2;it=*/ y1 dx2 dx1|,,,~M x1 y1;L hc t;L x4 y1;L x3 y2;L x2 y2;Z",
+  pie: "adj1=val 0;adj2=val 16200000|stAng=pin 0 adj1 21599999;enAng=pin 0 adj2 21599999;sw1=+- enAng 0 stAng;sw2=+- sw1 21600000 0;swAng=?: sw1 sw1 sw2;wt1=sin wd2 stAng;ht1=cos hd2 stAng;dx1=cat2 wd2 ht1 wt1;dy1=sat2 hd2 ht1 wt1;x1=+- hc dx1 0;y1=+- vc dy1 0;wt2=sin wd2 enAng;ht2=cos hd2 enAng;dx2=cat2 wd2 ht2 wt2;dy2=sat2 hd2 ht2 wt2;x2=+- hc dx2 0;y2=+- vc dy2 0;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M x1 y1;A wd2 hd2 stAng swAng;L hc vc;Z",
+  pieWedge: "|g1=cos w 13500000;g2=sin h 13500000;x1=+- r g1 0;y1=+- b g2 0|,,,~M l b;A w h cd2 cd4;L r b;Z",
+  plaque: "adj=val 16667|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1;il=*/ x1 70711 100000;ir=+- r 0 il;ib=+- b 0 il|,,,~M l x1;A x1 x1 cd4 -5400000;L x2 t;A x1 x1 cd2 -5400000;L r y2;A x1 x1 3cd4 -5400000;L x1 b;A x1 x1 0 -5400000;Z",
+  plaqueTabs: "|md=mod w h 0;dx=*/ 1 md 20;y1=+- 0 b dx;x1=+- 0 r dx|,,,~M l t;L dx t;A dx dx 0 cd4;Z#,,,~M l y1;A dx dx 3cd4 cd4;L l b;Z#,,,~M r t;L r dx;A dx dx cd4 cd4;Z#,,,~M x1 b;A dx dx cd2 cd4;L r b;Z",
+  plus: "adj=val 25000|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1;d=+- w 0 h;il=?: d l x1;ir=?: d r x2;it=?: d x1 t;ib=?: d y2 b|,,,~M l x1;L x1 x1;L x1 t;L x2 t;L x2 x1;L r x1;L r y2;L x2 y2;L x2 b;L x1 b;L x1 y2;L l y2;Z",
+  quadArrow: "adj1=val 22500;adj2=val 22500;adj3=val 22500|a2=pin 0 adj2 50000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;q1=+- 100000 0 maxAdj1;maxAdj3=*/ q1 1 2;a3=pin 0 adj3 maxAdj3;x1=*/ ss a3 100000;dx2=*/ ss a2 100000;x2=+- hc 0 dx2;x5=+- hc dx2 0;dx3=*/ ss a1 200000;x3=+- hc 0 dx3;x4=+- hc dx3 0;x6=+- r 0 x1;y2=+- vc 0 dx2;y5=+- vc dx2 0;y3=+- vc 0 dx3;y4=+- vc dx3 0;y6=+- b 0 x1;il=*/ dx3 x1 dx2;ir=+- r 0 il|,,,~M l vc;L x1 y2;L x1 y3;L x3 y3;L x3 x1;L x2 x1;L hc t;L x5 x1;L x4 x1;L x4 y3;L x6 y3;L x6 y2;L r vc;L x6 y5;L x6 y4;L x4 y4;L x4 y6;L x5 y6;L hc b;L x2 y6;L x3 y6;L x3 y4;L x1 y4;L x1 y5;Z",
+  quadArrowCallout: "adj1=val 18515;adj2=val 18515;adj3=val 18515;adj4=val 48123|a2=pin 0 adj2 50000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=+- 50000 0 a2;a3=pin 0 adj3 maxAdj3;q2=*/ a3 2 1;maxAdj4=+- 100000 0 q2;a4=pin a1 adj4 maxAdj4;dx2=*/ ss a2 100000;dx3=*/ ss a1 200000;ah=*/ ss a3 100000;dx1=*/ w a4 200000;dy1=*/ h a4 200000;x8=+- r 0 ah;x2=+- hc 0 dx1;x7=+- hc dx1 0;x3=+- hc 0 dx2;x6=+- hc dx2 0;x4=+- hc 0 dx3;x5=+- hc dx3 0;y8=+- b 0 ah;y2=+- vc 0 dy1;y7=+- vc dy1 0;y3=+- vc 0 dx2;y6=+- vc dx2 0;y4=+- vc 0 dx3;y5=+- vc dx3 0|,,,~M l vc;L ah y3;L ah y4;L x2 y4;L x2 y2;L x4 y2;L x4 ah;L x3 ah;L hc t;L x6 ah;L x5 ah;L x5 y2;L x7 y2;L x7 y4;L x8 y4;L x8 y3;L r vc;L x8 y6;L x8 y5;L x7 y5;L x7 y7;L x5 y7;L x5 y8;L x6 y8;L hc b;L x3 y8;L x4 y8;L x4 y7;L x2 y7;L x2 y5;L ah y5;L ah y6;Z",
+  rect: "||,,,~M l t;L r t;L r b;L l b;Z",
+  ribbon: "adj1=val 16667;adj2=val 50000|a1=pin 0 adj1 33333;a2=pin 25000 adj2 75000;x10=+- r 0 wd8;dx2=*/ w a2 200000;x2=+- hc 0 dx2;x9=+- hc dx2 0;x3=+- x2 wd32 0;x8=+- x9 0 wd32;x5=+- x2 wd8 0;x6=+- x9 0 wd8;x4=+- x5 0 wd32;x7=+- x6 wd32 0;y1=*/ h a1 200000;y2=*/ h a1 100000;y4=+- b 0 y2;y3=*/ y4 1 2;hR=*/ h a1 400000;y5=+- b 0 hR;y6=+- y2 0 hR|,,,false~M l t;L x4 t;A wd32 hR 3cd4 cd2;L x3 y1;A wd32 hR 3cd4 -10800000;L x8 y2;A wd32 hR cd4 -10800000;L x7 y1;A wd32 hR cd4 cd2;L r t;L x10 y3;L r y4;L x9 y4;L x9 y5;A wd32 hR 0 cd4;L x3 b;A wd32 hR cd4 cd4;L x2 y4;L l y4;L wd8 y3;Z#,,darkenLess,false~M x5 hR;A wd32 hR 0 cd4;L x3 y1;A wd32 hR 3cd4 -10800000;L x5 y2;Z;M x6 hR;A wd32 hR cd2 -5400000;L x8 y1;A wd32 hR 3cd4 cd2;L x6 y2;Z#,,none,~M l t;L x4 t;A wd32 hR 3cd4 cd2;L x3 y1;A wd32 hR 3cd4 -10800000;L x8 y2;A wd32 hR cd4 -10800000;L x7 y1;A wd32 hR cd4 cd2;L r t;L x10 y3;L r y4;L x9 y4;L x9 y5;A wd32 hR 0 cd4;L x3 b;A wd32 hR cd4 cd4;L x2 y4;L l y4;L wd8 y3;Z;M x5 hR;L x5 y2;M x6 y2;L x6 hR;M x2 y4;L x2 y6;M x9 y6;L x9 y4",
+  ribbon2: "adj1=val 16667;adj2=val 50000|a1=pin 0 adj1 33333;a2=pin 25000 adj2 75000;x10=+- r 0 wd8;dx2=*/ w a2 200000;x2=+- hc 0 dx2;x9=+- hc dx2 0;x3=+- x2 wd32 0;x8=+- x9 0 wd32;x5=+- x2 wd8 0;x6=+- x9 0 wd8;x4=+- x5 0 wd32;x7=+- x6 wd32 0;dy1=*/ h a1 200000;y1=+- b 0 dy1;dy2=*/ h a1 100000;y2=+- b 0 dy2;y4=+- t dy2 0;y3=+/ y4 b 2;hR=*/ h a1 400000;y6=+- b 0 hR;y7=+- y1 0 hR|,,,false~M l b;L x4 b;A wd32 hR cd4 -10800000;L x3 y1;A wd32 hR cd4 cd2;L x8 y2;A wd32 hR 3cd4 cd2;L x7 y1;A wd32 hR 3cd4 -10800000;L r b;L x10 y3;L r y4;L x9 y4;L x9 hR;A wd32 hR 0 -5400000;L x3 t;A wd32 hR 3cd4 -5400000;L x2 y4;L l y4;L wd8 y3;Z#,,darkenLess,false~M x5 y6;A wd32 hR 0 -5400000;L x3 y1;A wd32 hR cd4 cd2;L x5 y2;Z;M x6 y6;A wd32 hR cd2 cd4;L x8 y1;A wd32 hR cd4 -10800000;L x6 y2;Z#,,none,~M l b;L wd8 y3;L l y4;L x2 y4;L x2 hR;A wd32 hR cd2 cd4;L x8 t;A wd32 hR 3cd4 cd4;L x9 y4;L x9 y4;L r y4;L x10 y3;L r b;L x7 b;A wd32 hR cd4 cd2;L x8 y1;A wd32 hR cd4 -10800000;L x3 y2;A wd32 hR 3cd4 -10800000;L x4 y1;A wd32 hR 3cd4 cd2;Z;M x5 y2;L x5 y6;M x6 y6;L x6 y2;M x2 y7;L x2 y4;M x9 y4;L x9 y7",
+  rightArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx1=*/ ss a2 100000;x1=+- r 0 dx1;dy1=*/ h a1 200000;y1=+- vc 0 dy1;y2=+- vc dy1 0;dx2=*/ y1 dx1 hd2;x2=+- x1 dx2 0|,,,~M l y1;L x1 y1;L x1 t;L r vc;L x1 b;L x1 y2;L l y2;Z",
+  rightArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 64977|maxAdj2=*/ 50000 h ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 100000 w ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss w;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dy1=*/ ss a2 100000;dy2=*/ ss a1 200000;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc dy2 0;y4=+- vc dy1 0;dx3=*/ ss a3 100000;x3=+- r 0 dx3;x2=*/ w a4 100000;x1=*/ x2 1 2|,,,~M l t;L x2 t;L x2 y2;L x3 y2;L x3 y1;L r vc;L x3 y4;L x3 y3;L x2 y3;L x2 b;L l b;Z",
+  rightBrace: "adj1=val 8333;adj2=val 50000|a2=pin 0 adj2 100000;q1=+- 100000 0 a2;q2=min q1 a2;q3=*/ q2 1 2;maxAdj1=*/ q3 h ss;a1=pin 0 adj1 maxAdj1;y1=*/ ss a1 100000;y3=*/ h a2 100000;y2=+- y3 0 y1;y4=+- b 0 y1;dx1=cos wd2 2700000;dy1=sin y1 2700000;ir=+- l dx1 0;it=+- y1 0 dy1;ib=+- b dy1 y1|,,,false~M l t;A wd2 y1 3cd4 cd4;L hc y2;A wd2 y1 cd2 -5400000;A wd2 y1 3cd4 -5400000;L hc y4;A wd2 y1 0 cd4;Z#,,none,~M l t;A wd2 y1 3cd4 cd4;L hc y2;A wd2 y1 cd2 -5400000;A wd2 y1 3cd4 -5400000;L hc y4;A wd2 y1 0 cd4",
+  rightBracket: "adj=val 8333|maxAdj=*/ 50000 h ss;a=pin 0 adj maxAdj;y1=*/ ss a 100000;y2=+- b 0 y1;dx1=cos w 2700000;dy1=sin y1 2700000;ir=+- l dx1 0;it=+- y1 0 dy1;ib=+- b dy1 y1|,,,false~M l t;A w y1 3cd4 cd4;L r y2;A w y1 0 cd4;Z#,,none,~M l t;A w y1 3cd4 cd4;L r y2;A w y1 0 cd4",
+  round1Rect: "adj=val 16667|a=pin 0 adj 50000;dx1=*/ ss a 100000;x1=+- r 0 dx1;idx=*/ dx1 29289 100000;ir=+- r 0 idx|,,,~M l t;L x1 t;A dx1 dx1 3cd4 cd4;L r b;L l b;Z",
+  round2DiagRect: "adj1=val 16667;adj2=val 0|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;x1=*/ ss a1 100000;y1=+- b 0 x1;a=*/ ss a2 100000;x2=+- r 0 a;y2=+- b 0 a;dx1=*/ x1 29289 100000;dx2=*/ a 29289 100000;d=+- dx1 0 dx2;dx=?: d dx1 dx2;ir=+- r 0 dx;ib=+- b 0 dx|,,,~M x1 t;L x2 t;A a a 3cd4 cd4;L r y1;A x1 x1 0 cd4;L a b;A a a cd4 cd4;L l x1;A x1 x1 cd2 cd4;Z",
+  round2SameRect: "adj1=val 16667;adj2=val 0|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;tx1=*/ ss a1 100000;tx2=+- r 0 tx1;bx1=*/ ss a2 100000;bx2=+- r 0 bx1;by1=+- b 0 bx1;d=+- tx1 0 bx1;tdx=*/ tx1 29289 100000;bdx=*/ bx1 29289 100000;il=?: d tdx bdx;ir=+- r 0 il;ib=+- b 0 bdx|,,,~M tx1 t;L tx2 t;A tx1 tx1 3cd4 cd4;L r by1;A bx1 bx1 0 cd4;L bx1 b;A bx1 bx1 cd4 cd4;L l tx1;A tx1 tx1 cd2 cd4;Z",
+  roundRect: "adj=val 16667|a=pin 0 adj 50000;x1=*/ ss a 100000;x2=+- r 0 x1;y2=+- b 0 x1;il=*/ x1 29289 100000;ir=+- r 0 il;ib=+- b 0 il|,,,~M l x1;A x1 x1 cd2 cd4;L x2 t;A x1 x1 3cd4 cd4;L r y2;A x1 x1 0 cd4;L x1 b;A x1 x1 cd4 cd4;Z",
+  rtTriangle: "|it=*/ h 7 12;ir=*/ w 7 12;ib=*/ h 11 12|,,,~M l b;L l t;L r b;Z",
+  smileyFace: "adj=val 4653|a=pin -4653 adj 4653;x1=*/ w 4969 21699;x2=*/ w 6215 21600;x3=*/ w 13135 21600;x4=*/ w 16640 21600;y1=*/ h 7570 21600;y3=*/ h 16515 21600;dy2=*/ h a 100000;y2=+- y3 0 dy2;y4=+- y3 dy2 0;dy3=*/ h a 50000;y5=+- y4 dy3 0;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0;wR=*/ w 1125 21600;hR=*/ h 1125 21600|,,,false~M l vc;A wd2 hd2 cd2 21600000;Z#,,darkenLess,~M x2 y1;A wR hR cd2 21600000;M x3 y1;A wR hR cd2 21600000#,,none,~M x1 y2;Q hc y5 x4 y2#,,none,~M l vc;A wd2 hd2 cd2 21600000;Z",
+  snip1Rect: "adj=val 16667|a=pin 0 adj 50000;dx1=*/ ss a 100000;x1=+- r 0 dx1;it=*/ dx1 1 2;ir=+/ x1 r 2|,,,~M l t;L x1 t;L r dx1;L r b;L l b;Z",
+  snip2DiagRect: "adj1=val 0;adj2=val 16667|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;lx1=*/ ss a1 100000;lx2=+- r 0 lx1;ly1=+- b 0 lx1;rx1=*/ ss a2 100000;rx2=+- r 0 rx1;ry1=+- b 0 rx1;d=+- lx1 0 rx1;dx=?: d lx1 rx1;il=*/ dx 1 2;ir=+- r 0 il;ib=+- b 0 il|,,,~M lx1 t;L rx2 t;L r rx1;L r ly1;L lx2 b;L rx1 b;L l ry1;L l lx1;Z",
+  snip2SameRect: "adj1=val 16667;adj2=val 0|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;tx1=*/ ss a1 100000;tx2=+- r 0 tx1;bx1=*/ ss a2 100000;bx2=+- r 0 bx1;by1=+- b 0 bx1;d=+- tx1 0 bx1;dx=?: d tx1 bx1;il=*/ dx 1 2;ir=+- r 0 il;it=*/ tx1 1 2;ib=+/ by1 b 2|,,,~M tx1 t;L tx2 t;L r tx1;L r by1;L bx2 b;L bx1 b;L l by1;L l tx1;Z",
+  snipRoundRect: "adj1=val 16667;adj2=val 16667|a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;x1=*/ ss a1 100000;dx2=*/ ss a2 100000;x2=+- r 0 dx2;il=*/ x1 29289 100000;ir=+/ x2 r 2|,,,~M x1 t;L x2 t;L r dx2;L r b;L l b;L l x1;A x1 x1 cd2 cd4;Z",
+  squareTabs: "|md=mod w h 0;dx=*/ 1 md 20;y1=+- 0 b dx;x1=+- 0 r dx|,,,~M l t;L dx t;L dx dx;L l dx;Z#,,,~M l y1;L dx y1;L dx b;L l b;Z#,,,~M x1 t;L r t;L r dx;L x1 dx;Z#,,,~M x1 y1;L r y1;L r b;L x1 b;Z",
+  star10: "adj=val 42533;hf=val 105146|a=pin 0 adj 50000;swd2=*/ wd2 hf 100000;dx1=*/ swd2 95106 100000;dx2=*/ swd2 58779 100000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;dy1=*/ hd2 80902 100000;dy2=*/ hd2 30902 100000;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc dy2 0;y4=+- vc dy1 0;iwd2=*/ swd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=*/ iwd2 80902 100000;sdx2=*/ iwd2 30902 100000;sdy1=*/ ihd2 95106 100000;sdy2=*/ ihd2 58779 100000;sx1=+- hc 0 iwd2;sx2=+- hc 0 sdx1;sx3=+- hc 0 sdx2;sx4=+- hc sdx2 0;sx5=+- hc sdx1 0;sx6=+- hc iwd2 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc sdy2 0;sy4=+- vc sdy1 0;yAdj=+- vc 0 ihd2|,,,~M x1 y2;L sx2 sy2;L x2 y1;L sx3 sy1;L hc t;L sx4 sy1;L x3 y1;L sx5 sy2;L x4 y2;L sx6 vc;L x4 y3;L sx5 sy3;L x3 y4;L sx4 sy4;L hc b;L sx3 sy4;L x2 y4;L sx2 sy3;L x1 y3;L sx1 vc;Z",
+  star12: "adj=val 37500|a=pin 0 adj 50000;dx1=cos wd2 1800000;dy1=sin hd2 3600000;x1=+- hc 0 dx1;x3=*/ w 3 4;x4=+- hc dx1 0;y1=+- vc 0 dy1;y3=*/ h 3 4;y4=+- vc dy1 0;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=cos iwd2 900000;sdx2=cos iwd2 2700000;sdx3=cos iwd2 4500000;sdy1=sin ihd2 4500000;sdy2=sin ihd2 2700000;sdy3=sin ihd2 900000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc 0 sdx3;sx4=+- hc sdx3 0;sx5=+- hc sdx2 0;sx6=+- hc sdx1 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc 0 sdy3;sy4=+- vc sdy3 0;sy5=+- vc sdy2 0;sy6=+- vc sdy1 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy3;L x1 hd4;L sx2 sy2;L wd4 y1;L sx3 sy1;L hc t;L sx4 sy1;L x3 y1;L sx5 sy2;L x4 hd4;L sx6 sy3;L r vc;L sx6 sy4;L x4 y3;L sx5 sy5;L x3 y4;L sx4 sy6;L hc b;L sx3 sy6;L wd4 y4;L sx2 sy5;L x1 y3;L sx1 sy4;Z",
+  star16: "adj=val 37500|a=pin 0 adj 50000;dx1=*/ wd2 92388 100000;dx2=*/ wd2 70711 100000;dx3=*/ wd2 38268 100000;dy1=*/ hd2 92388 100000;dy2=*/ hd2 70711 100000;dy3=*/ hd2 38268 100000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc 0 dx3;x4=+- hc dx3 0;x5=+- hc dx2 0;x6=+- hc dx1 0;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc 0 dy3;y4=+- vc dy3 0;y5=+- vc dy2 0;y6=+- vc dy1 0;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=*/ iwd2 98079 100000;sdx2=*/ iwd2 83147 100000;sdx3=*/ iwd2 55557 100000;sdx4=*/ iwd2 19509 100000;sdy1=*/ ihd2 98079 100000;sdy2=*/ ihd2 83147 100000;sdy3=*/ ihd2 55557 100000;sdy4=*/ ihd2 19509 100000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc 0 sdx3;sx4=+- hc 0 sdx4;sx5=+- hc sdx4 0;sx6=+- hc sdx3 0;sx7=+- hc sdx2 0;sx8=+- hc sdx1 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc 0 sdy3;sy4=+- vc 0 sdy4;sy5=+- vc sdy4 0;sy6=+- vc sdy3 0;sy7=+- vc sdy2 0;sy8=+- vc sdy1 0;idx=cos iwd2 2700000;idy=sin ihd2 2700000;il=+- hc 0 idx;it=+- vc 0 idy;ir=+- hc idx 0;ib=+- vc idy 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy4;L x1 y3;L sx2 sy3;L x2 y2;L sx3 sy2;L x3 y1;L sx4 sy1;L hc t;L sx5 sy1;L x4 y1;L sx6 sy2;L x5 y2;L sx7 sy3;L x6 y3;L sx8 sy4;L r vc;L sx8 sy5;L x6 y4;L sx7 sy6;L x5 y5;L sx6 sy7;L x4 y6;L sx5 sy8;L hc b;L sx4 sy8;L x3 y6;L sx3 sy7;L x2 y5;L sx2 sy6;L x1 y4;L sx1 sy5;Z",
+  star24: "adj=val 37500|a=pin 0 adj 50000;dx1=cos wd2 900000;dx2=cos wd2 1800000;dx3=cos wd2 2700000;dx4=val wd4;dx5=cos wd2 4500000;dy1=sin hd2 4500000;dy2=sin hd2 3600000;dy3=sin hd2 2700000;dy4=val hd4;dy5=sin hd2 900000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc 0 dx3;x4=+- hc 0 dx4;x5=+- hc 0 dx5;x6=+- hc dx5 0;x7=+- hc dx4 0;x8=+- hc dx3 0;x9=+- hc dx2 0;x10=+- hc dx1 0;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc 0 dy3;y4=+- vc 0 dy4;y5=+- vc 0 dy5;y6=+- vc dy5 0;y7=+- vc dy4 0;y8=+- vc dy3 0;y9=+- vc dy2 0;y10=+- vc dy1 0;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=*/ iwd2 99144 100000;sdx2=*/ iwd2 92388 100000;sdx3=*/ iwd2 79335 100000;sdx4=*/ iwd2 60876 100000;sdx5=*/ iwd2 38268 100000;sdx6=*/ iwd2 13053 100000;sdy1=*/ ihd2 99144 100000;sdy2=*/ ihd2 92388 100000;sdy3=*/ ihd2 79335 100000;sdy4=*/ ihd2 60876 100000;sdy5=*/ ihd2 38268 100000;sdy6=*/ ihd2 13053 100000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc 0 sdx3;sx4=+- hc 0 sdx4;sx5=+- hc 0 sdx5;sx6=+- hc 0 sdx6;sx7=+- hc sdx6 0;sx8=+- hc sdx5 0;sx9=+- hc sdx4 0;sx10=+- hc sdx3 0;sx11=+- hc sdx2 0;sx12=+- hc sdx1 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc 0 sdy3;sy4=+- vc 0 sdy4;sy5=+- vc 0 sdy5;sy6=+- vc 0 sdy6;sy7=+- vc sdy6 0;sy8=+- vc sdy5 0;sy9=+- vc sdy4 0;sy10=+- vc sdy3 0;sy11=+- vc sdy2 0;sy12=+- vc sdy1 0;idx=cos iwd2 2700000;idy=sin ihd2 2700000;il=+- hc 0 idx;it=+- vc 0 idy;ir=+- hc idx 0;ib=+- vc idy 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy6;L x1 y5;L sx2 sy5;L x2 y4;L sx3 sy4;L x3 y3;L sx4 sy3;L x4 y2;L sx5 sy2;L x5 y1;L sx6 sy1;L hc t;L sx7 sy1;L x6 y1;L sx8 sy2;L x7 y2;L sx9 sy3;L x8 y3;L sx10 sy4;L x9 y4;L sx11 sy5;L x10 y5;L sx12 sy6;L r vc;L sx12 sy7;L x10 y6;L sx11 sy8;L x9 y7;L sx10 sy9;L x8 y8;L sx9 sy10;L x7 y9;L sx8 sy11;L x6 y10;L sx7 sy12;L hc b;L sx6 sy12;L x5 y10;L sx5 sy11;L x4 y9;L sx4 sy10;L x3 y8;L sx3 sy9;L x2 y7;L sx2 sy8;L x1 y6;L sx1 sy7;Z",
+  star32: "adj=val 37500|a=pin 0 adj 50000;dx1=*/ wd2 98079 100000;dx2=*/ wd2 92388 100000;dx3=*/ wd2 83147 100000;dx4=cos wd2 2700000;dx5=*/ wd2 55557 100000;dx6=*/ wd2 38268 100000;dx7=*/ wd2 19509 100000;dy1=*/ hd2 98079 100000;dy2=*/ hd2 92388 100000;dy3=*/ hd2 83147 100000;dy4=sin hd2 2700000;dy5=*/ hd2 55557 100000;dy6=*/ hd2 38268 100000;dy7=*/ hd2 19509 100000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc 0 dx3;x4=+- hc 0 dx4;x5=+- hc 0 dx5;x6=+- hc 0 dx6;x7=+- hc 0 dx7;x8=+- hc dx7 0;x9=+- hc dx6 0;x10=+- hc dx5 0;x11=+- hc dx4 0;x12=+- hc dx3 0;x13=+- hc dx2 0;x14=+- hc dx1 0;y1=+- vc 0 dy1;y2=+- vc 0 dy2;y3=+- vc 0 dy3;y4=+- vc 0 dy4;y5=+- vc 0 dy5;y6=+- vc 0 dy6;y7=+- vc 0 dy7;y8=+- vc dy7 0;y9=+- vc dy6 0;y10=+- vc dy5 0;y11=+- vc dy4 0;y12=+- vc dy3 0;y13=+- vc dy2 0;y14=+- vc dy1 0;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=*/ iwd2 99518 100000;sdx2=*/ iwd2 95694 100000;sdx3=*/ iwd2 88192 100000;sdx4=*/ iwd2 77301 100000;sdx5=*/ iwd2 63439 100000;sdx6=*/ iwd2 47140 100000;sdx7=*/ iwd2 29028 100000;sdx8=*/ iwd2 9802 100000;sdy1=*/ ihd2 99518 100000;sdy2=*/ ihd2 95694 100000;sdy3=*/ ihd2 88192 100000;sdy4=*/ ihd2 77301 100000;sdy5=*/ ihd2 63439 100000;sdy6=*/ ihd2 47140 100000;sdy7=*/ ihd2 29028 100000;sdy8=*/ ihd2 9802 100000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc 0 sdx3;sx4=+- hc 0 sdx4;sx5=+- hc 0 sdx5;sx6=+- hc 0 sdx6;sx7=+- hc 0 sdx7;sx8=+- hc 0 sdx8;sx9=+- hc sdx8 0;sx10=+- hc sdx7 0;sx11=+- hc sdx6 0;sx12=+- hc sdx5 0;sx13=+- hc sdx4 0;sx14=+- hc sdx3 0;sx15=+- hc sdx2 0;sx16=+- hc sdx1 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc 0 sdy3;sy4=+- vc 0 sdy4;sy5=+- vc 0 sdy5;sy6=+- vc 0 sdy6;sy7=+- vc 0 sdy7;sy8=+- vc 0 sdy8;sy9=+- vc sdy8 0;sy10=+- vc sdy7 0;sy11=+- vc sdy6 0;sy12=+- vc sdy5 0;sy13=+- vc sdy4 0;sy14=+- vc sdy3 0;sy15=+- vc sdy2 0;sy16=+- vc sdy1 0;idx=cos iwd2 2700000;idy=sin ihd2 2700000;il=+- hc 0 idx;it=+- vc 0 idy;ir=+- hc idx 0;ib=+- vc idy 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy8;L x1 y7;L sx2 sy7;L x2 y6;L sx3 sy6;L x3 y5;L sx4 sy5;L x4 y4;L sx5 sy4;L x5 y3;L sx6 sy3;L x6 y2;L sx7 sy2;L x7 y1;L sx8 sy1;L hc t;L sx9 sy1;L x8 y1;L sx10 sy2;L x9 y2;L sx11 sy3;L x10 y3;L sx12 sy4;L x11 y4;L sx13 sy5;L x12 y5;L sx14 sy6;L x13 y6;L sx15 sy7;L x14 y7;L sx16 sy8;L r vc;L sx16 sy9;L x14 y8;L sx15 sy10;L x13 y9;L sx14 sy11;L x12 y10;L sx13 sy12;L x11 y11;L sx12 sy13;L x10 y12;L sx11 sy14;L x9 y13;L sx10 sy15;L x8 y14;L sx9 sy16;L hc b;L sx8 sy16;L x7 y14;L sx7 sy15;L x6 y13;L sx6 sy14;L x5 y12;L sx5 sy13;L x4 y11;L sx4 sy12;L x3 y10;L sx3 sy11;L x2 y9;L sx2 sy10;L x1 y8;L sx1 sy9;Z",
+  star4: "adj=val 12500|a=pin 0 adj 50000;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx=cos iwd2 2700000;sdy=sin ihd2 2700000;sx1=+- hc 0 sdx;sx2=+- hc sdx 0;sy1=+- vc 0 sdy;sy2=+- vc sdy 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy1;L hc t;L sx2 sy1;L r vc;L sx2 sy2;L hc b;L sx1 sy2;Z",
+  star5: "adj=val 19098;hf=val 105146;vf=val 110557|a=pin 0 adj 50000;swd2=*/ wd2 hf 100000;shd2=*/ hd2 vf 100000;svc=*/ vc  vf 100000;dx1=cos swd2 1080000;dx2=cos swd2 18360000;dy1=sin shd2 1080000;dy2=sin shd2 18360000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=+- svc 0 dy1;y2=+- svc 0 dy2;iwd2=*/ swd2 a 50000;ihd2=*/ shd2 a 50000;sdx1=cos iwd2 20520000;sdx2=cos iwd2 3240000;sdy1=sin ihd2 3240000;sdy2=sin ihd2 20520000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc sdx2 0;sx4=+- hc sdx1 0;sy1=+- svc 0 sdy1;sy2=+- svc 0 sdy2;sy3=+- svc ihd2 0;yAdj=+- svc 0 ihd2|,,,~M x1 y1;L sx2 sy1;L hc t;L sx3 sy1;L x4 y1;L sx4 sy2;L x3 y2;L hc sy3;L x2 y2;L sx1 sy2;Z",
+  star6: "adj=val 28868;hf=val 115470|a=pin 0 adj 50000;swd2=*/ wd2 hf 100000;dx1=cos swd2 1800000;x1=+- hc 0 dx1;x2=+- hc dx1 0;y2=+- vc hd4 0;iwd2=*/ swd2 a 50000;ihd2=*/ hd2 a 50000;sdx2=*/ iwd2 1 2;sx1=+- hc 0 iwd2;sx2=+- hc 0 sdx2;sx3=+- hc sdx2 0;sx4=+- hc iwd2 0;sdy1=sin ihd2 3600000;sy1=+- vc 0 sdy1;sy2=+- vc sdy1 0;yAdj=+- vc 0 ihd2|,,,~M x1 hd4;L sx2 sy1;L hc t;L sx3 sy1;L x2 hd4;L sx4 vc;L x2 y2;L sx3 sy2;L hc b;L sx2 sy2;L x1 y2;L sx1 vc;Z",
+  star7: "adj=val 34601;hf=val 102572;vf=val 105210|a=pin 0 adj 50000;swd2=*/ wd2 hf 100000;shd2=*/ hd2 vf 100000;svc=*/ vc  vf 100000;dx1=*/ swd2 97493 100000;dx2=*/ swd2 78183 100000;dx3=*/ swd2 43388 100000;dy1=*/ shd2 62349 100000;dy2=*/ shd2 22252 100000;dy3=*/ shd2 90097 100000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc 0 dx3;x4=+- hc dx3 0;x5=+- hc dx2 0;x6=+- hc dx1 0;y1=+- svc 0 dy1;y2=+- svc dy2 0;y3=+- svc dy3 0;iwd2=*/ swd2 a 50000;ihd2=*/ shd2 a 50000;sdx1=*/ iwd2 97493 100000;sdx2=*/ iwd2 78183 100000;sdx3=*/ iwd2 43388 100000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc 0 sdx3;sx4=+- hc sdx3 0;sx5=+- hc sdx2 0;sx6=+- hc sdx1 0;sdy1=*/ ihd2 90097 100000;sdy2=*/ ihd2 22252 100000;sdy3=*/ ihd2 62349 100000;sy1=+- svc 0 sdy1;sy2=+- svc 0 sdy2;sy3=+- svc sdy3 0;sy4=+- svc ihd2 0;yAdj=+- svc 0 ihd2|,,,~M x1 y2;L sx1 sy2;L x2 y1;L sx3 sy1;L hc t;L sx4 sy1;L x5 y1;L sx6 sy2;L x6 y2;L sx5 sy3;L x4 y3;L hc sy4;L x3 y3;L sx2 sy3;Z",
+  star8: "adj=val 37500|a=pin 0 adj 50000;dx1=cos wd2 2700000;x1=+- hc 0 dx1;x2=+- hc dx1 0;dy1=sin hd2 2700000;y1=+- vc 0 dy1;y2=+- vc dy1 0;iwd2=*/ wd2 a 50000;ihd2=*/ hd2 a 50000;sdx1=*/ iwd2 92388 100000;sdx2=*/ iwd2 38268 100000;sdy1=*/ ihd2 92388 100000;sdy2=*/ ihd2 38268 100000;sx1=+- hc 0 sdx1;sx2=+- hc 0 sdx2;sx3=+- hc sdx2 0;sx4=+- hc sdx1 0;sy1=+- vc 0 sdy1;sy2=+- vc 0 sdy2;sy3=+- vc sdy2 0;sy4=+- vc sdy1 0;yAdj=+- vc 0 ihd2|,,,~M l vc;L sx1 sy2;L x1 y1;L sx2 sy1;L hc t;L sx3 sy1;L x2 y1;L sx4 sy2;L r vc;L sx4 sy3;L x2 y2;L sx3 sy4;L hc b;L sx2 sy4;L x1 y2;L sx1 sy3;Z",
+  straightConnector1: "||,,none,~M l t;L r b",
+  stripedRightArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 84375 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;x4=*/ ss 5 32;dx5=*/ ss a2 100000;x5=+- r 0 dx5;dy1=*/ h a1 200000;y1=+- vc 0 dy1;y2=+- vc dy1 0;dx6=*/ dy1 dx5 hd2;x6=+- r 0 dx6|,,,~M l y1;L ssd32 y1;L ssd32 y2;L l y2;Z;M ssd16 y1;L ssd8 y1;L ssd8 y2;L ssd16 y2;Z;M x4 y1;L x5 y1;L x5 t;L r vc;L x5 b;L x5 y2;L x4 y2;Z",
+  sun: "adj=val 25000|a=pin 12500 adj 46875;g0=+- 50000 0 a;g1=*/ g0 30274 32768;g2=*/ g0 12540 32768;g3=+- g1 50000 0;g4=+- g2 50000 0;g5=+- 50000 0 g1;g6=+- 50000 0 g2;g7=*/ g0 23170 32768;g8=+- 50000 g7 0;g9=+- 50000 0 g7;g10=*/ g5 3 4;g11=*/ g6 3 4;g12=+- g10 3662 0;g13=+- g11 3662 0;g14=+- g11 12500 0;g15=+- 100000 0 g10;g16=+- 100000 0 g12;g17=+- 100000 0 g13;g18=+- 100000 0 g14;ox1=*/ w 18436 21600;oy1=*/ h 3163 21600;ox2=*/ w 3163 21600;oy2=*/ h 18436 21600;x8=*/ w g8 100000;x9=*/ w g9 100000;x10=*/ w g10 100000;x12=*/ w g12 100000;x13=*/ w g13 100000;x14=*/ w g14 100000;x15=*/ w g15 100000;x16=*/ w g16 100000;x17=*/ w g17 100000;x18=*/ w g18 100000;x19=*/ w a 100000;wR=*/ w g0 100000;hR=*/ h g0 100000;y8=*/ h g8 100000;y9=*/ h g9 100000;y10=*/ h g10 100000;y12=*/ h g12 100000;y13=*/ h g13 100000;y14=*/ h g14 100000;y15=*/ h g15 100000;y16=*/ h g16 100000;y17=*/ h g17 100000;y18=*/ h g18 100000|,,,~M r vc;L x15 y18;L x15 y14;Z;M ox1 oy1;L x16 y13;L x17 y12;Z;M hc t;L x18 y10;L x14 y10;Z;M ox2 oy1;L x13 y12;L x12 y13;Z;M l vc;L x10 y14;L x10 y18;Z;M ox2 oy2;L x12 y17;L x13 y16;Z;M hc b;L x14 y15;L x18 y15;Z;M ox1 oy2;L x17 y16;L x16 y17;Z;M x19 vc;A wR hR cd2 21600000;Z",
+  swooshArrow: "adj1=val 25000;adj2=val 16667|a1=pin 1 adj1 75000;maxAdj2=*/ 70000 w ss;a2=pin 0 adj2 maxAdj2;ad1=*/ h a1 100000;ad2=*/ ss a2 100000;xB=+- r 0 ad2;yB=+- t ssd8 0;alfa=*/ cd4 1 14;dx0=tan ssd8 alfa;xC=+- xB 0 dx0;dx1=tan ad1 alfa;yF=+- yB ad1 0;xF=+- xB dx1 0;xE=+- xF dx0 0;yE=+- yF ssd8 0;dy2=+- yE 0 t;dy22=*/ dy2 1 2;dy3=*/ h 1 20;yD=+- t dy22 dy3;dy4=*/ hd6 1 1;yP1=+- hd6 dy4 0;xP1=val wd6;dy5=*/ hd6 1 2;yP2=+- yF dy5 0;xP2=val wd4|,,,~M l b;Q xP1 yP1 xB yB;L xC t;L r yD;L xE yE;L xF yF;Q xP2 yP2 l b;Z",
+  teardrop: "adj=val 100000|a=pin 0 adj 200000;r2=sqrt 2;tw=*/ wd2 r2 1;th=*/ hd2 r2 1;sw=*/ tw a 100000;sh=*/ th a 100000;dx1=cos sw 2700000;dy1=sin sh 2700000;x1=+- hc dx1 0;y1=+- vc 0 dy1;x2=+/ hc x1 2;y2=+/ vc y1 2;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M l vc;A wd2 hd2 cd2 cd4;Q x2 t x1 y1;Q r y2 r vc;A wd2 hd2 0 cd4;A wd2 hd2 cd4 cd4;Z",
+  trapezoid: "adj=val 25000|maxAdj=*/ 50000 w ss;a=pin 0 adj maxAdj;x1=*/ ss a 200000;x2=*/ ss a 100000;x3=+- r 0 x2;x4=+- r 0 x1;il=*/ wd3 a maxAdj;it=*/ hd3 a maxAdj;ir=+- r 0 il|,,,~M l b;L x2 t;L x3 t;L r b;Z",
+  triangle: "adj=val 50000|a=pin 0 adj 100000;x1=*/ w a 200000;x2=*/ w a 100000;x3=+- x1 wd2 0|,,,~M l b;L x2 t;L r b;Z",
+  upArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 100000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dy2=*/ ss a2 100000;y2=+- t dy2 0;dx1=*/ w a1 200000;x1=+- hc 0 dx1;x2=+- hc dx1 0;dy1=*/ x1 dy2 wd2;y1=+- y2  0 dy1|,,,~M l y2;L hc t;L r y2;L x2 y2;L x2 b;L x1 b;L x1 y2;Z",
+  upArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 64977|maxAdj2=*/ 50000 w ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 100000 h ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss h;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dx1=*/ ss a2 100000;dx2=*/ ss a1 200000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=*/ ss a3 100000;dy2=*/ h a4 100000;y2=+- b 0 dy2;y3=+/ y2 b 2|,,,~M l y2;L x2 y2;L x2 y1;L x1 y1;L hc t;L x4 y1;L x3 y1;L x3 y2;L r y2;L r b;L l b;Z",
+  upDownArrow: "adj1=val 50000;adj2=val 50000|maxAdj2=*/ 50000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;y2=*/ ss a2 100000;y3=+- b 0 y2;dx1=*/ w a1 200000;x1=+- hc 0 dx1;x2=+- hc dx1 0;dy1=*/ x1 y2 wd2;y1=+- y2 0 dy1;y4=+- y3 dy1 0|,,,~M l y2;L hc t;L r y2;L x2 y2;L x2 y3;L r y3;L hc b;L l y3;L x1 y3;L x1 y2;Z",
+  upDownArrowCallout: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 48123|maxAdj2=*/ 50000 w ss;a2=pin 0 adj2 maxAdj2;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;maxAdj3=*/ 50000 h ss;a3=pin 0 adj3 maxAdj3;q2=*/ a3 ss hd2;maxAdj4=+- 100000 0 q2;a4=pin 0 adj4 maxAdj4;dx1=*/ ss a2 100000;dx2=*/ ss a1 200000;x1=+- hc 0 dx1;x2=+- hc 0 dx2;x3=+- hc dx2 0;x4=+- hc dx1 0;y1=*/ ss a3 100000;y4=+- b 0 y1;dy2=*/ h a4 200000;y2=+- vc 0 dy2;y3=+- vc dy2 0|,,,~M l y2;L x2 y2;L x2 y1;L x1 y1;L hc t;L x4 y1;L x3 y1;L x3 y2;L r y2;L r y3;L x3 y3;L x3 y4;L x4 y4;L hc b;L x1 y4;L x2 y4;L x2 y3;L l y3;Z",
+  uturnArrow: "adj1=val 25000;adj2=val 25000;adj3=val 25000;adj4=val 43750;adj5=val 75000|a2=pin 0 adj2 25000;maxAdj1=*/ a2 2 1;a1=pin 0 adj1 maxAdj1;q2=*/ a1 ss h;q3=+- 100000 0 q2;maxAdj3=*/ q3 h ss;a3=pin 0 adj3 maxAdj3;q1=+- a3 a1 0;minAdj5=*/ q1 ss h;a5=pin minAdj5 adj5 100000;th=*/ ss a1 100000;aw2=*/ ss a2 100000;th2=*/ th 1 2;dh2=+- aw2 0 th2;y5=*/ h a5 100000;ah=*/ ss a3 100000;y4=+- y5 0 ah;x9=+- r 0 dh2;bw=*/ x9 1 2;bs=min bw y4;maxAdj4=*/ bs 100000 ss;a4=pin 0 adj4 maxAdj4;bd=*/ ss a4 100000;bd3=+- bd 0 th;bd2=max bd3 0;x3=+- th bd2 0;x8=+- r 0 aw2;x6=+- x8 0 aw2;x7=+- x6 dh2 0;x4=+- x9 0 bd;x5=+- x7 0 bd2;cx=+/ th x7 2|,,,~M l b;L l bd;A bd bd cd2 cd4;L x4 t;A bd bd 3cd4 cd4;L x9 y4;L r y4;L x8 y5;L x6 y4;L x7 y4;L x7 x3;A bd2 bd2 0 -5400000;L x3 th;A bd2 bd2 3cd4 -5400000;L th b;Z",
+  verticalScroll: "adj=val 12500|a=pin 0 adj 25000;ch=*/ ss a 100000;ch2=*/ ch 1 2;ch4=*/ ch 1 4;x3=+- ch ch2 0;x4=+- ch ch 0;x6=+- r 0 ch;x7=+- r 0 ch2;x5=+- x6 0 ch2;y3=+- b 0 ch;y4=+- b 0 ch2|,,,false~M ch2 b;A ch2 ch2 cd4 -5400000;L ch2 y4;A ch4 ch4 cd4 -10800000;L ch y3;L ch ch2;A ch2 ch2 cd2 cd4;L x7 t;A ch2 ch2 3cd4 cd2;L x6 ch;L x6 y4;A ch2 ch2 0 cd4;Z;M x4 ch2;A ch2 ch2 0 cd4;A ch4 ch4 cd4 cd2;Z#,,darkenLess,false~M x4 ch2;A ch2 ch2 0 cd4;A ch4 ch4 cd4 cd2;Z;M ch y4;A ch2 ch2 0 3cd4;A ch4 ch4 3cd4 cd2;Z#,,none,~M ch y3;L ch ch2;A ch2 ch2 cd2 cd4;L x7 t;A ch2 ch2 3cd4 cd2;L x6 ch;L x6 y4;A ch2 ch2 0 cd4;L ch2 b;A ch2 ch2 cd4 cd2;Z;M x3 t;A ch2 ch2 3cd4 cd2;A ch4 ch4 cd4 cd2;L x4 ch2;M x6 ch;L x3 ch;M ch2 y3;A ch4 ch4 3cd4 cd2;L ch y4;M ch2 b;A ch2 ch2 cd4 -5400000;L ch y3",
+  wave: "adj1=val 12500;adj2=val 0|a1=pin 0 adj1 20000;a2=pin -10000 adj2 10000;y1=*/ h a1 100000;dy2=*/ y1 10 3;y2=+- y1 0 dy2;y3=+- y1 dy2 0;y4=+- b 0 y1;y5=+- y4 0 dy2;y6=+- y4 dy2 0;dx1=*/ w a2 100000;of2=*/ w a2 50000;x1=abs dx1;dx2=?: of2 0 of2;x2=+- l 0 dx2;dx5=?: of2 of2 0;x5=+- r 0 dx5;dx3=+/ dx2 x5 3;x3=+- x2 dx3 0;x4=+/ x3 x5 2;x6=+- l dx5 0;x10=+- r dx2 0;x7=+- x6 dx3 0;x8=+/ x7 x10 2;x9=+- r 0 x1;xAdj=+- hc dx1 0;xAdj2=+- hc 0 dx1;il=max x2 x6;ir=min x5 x10;it=*/ h a1 50000;ib=+- b 0 it|,,,~M x2 y1;C x3 y2 x4 y3 x5 y1;L x10 y4;C x8 y6 x7 y5 x6 y4;Z",
+  wedgeEllipseCallout: "adj1=val -20833;adj2=val 62500|dxPos=*/ w adj1 100000;dyPos=*/ h adj2 100000;xPos=+- hc dxPos 0;yPos=+- vc dyPos 0;sdx=*/ dxPos h 1;sdy=*/ dyPos w 1;pang=at2 sdx sdy;stAng=+- pang 660000 0;enAng=+- pang 0 660000;dx1=cos wd2 stAng;dy1=sin hd2 stAng;x1=+- hc dx1 0;y1=+- vc dy1 0;dx2=cos wd2 enAng;dy2=sin hd2 enAng;x2=+- hc dx2 0;y2=+- vc dy2 0;stAng1=at2 dx1 dy1;enAng1=at2 dx2 dy2;swAng1=+- enAng1 0 stAng1;swAng2=+- swAng1 21600000 0;swAng=?: swAng1 swAng1 swAng2;idx=cos wd2 2700000;idy=sin hd2 2700000;il=+- hc 0 idx;ir=+- hc idx 0;it=+- vc 0 idy;ib=+- vc idy 0|,,,~M xPos yPos;L x1 y1;A wd2 hd2 stAng1 swAng;Z",
+  wedgeRectCallout: "adj1=val -20833;adj2=val 62500|dxPos=*/ w adj1 100000;dyPos=*/ h adj2 100000;xPos=+- hc dxPos 0;yPos=+- vc dyPos 0;dx=+- xPos 0 hc;dy=+- yPos 0 vc;dq=*/ dxPos h w;ady=abs dyPos;adq=abs dq;dz=+- ady 0 adq;xg1=?: dxPos 7 2;xg2=?: dxPos 10 5;x1=*/ w xg1 12;x2=*/ w xg2 12;yg1=?: dyPos 7 2;yg2=?: dyPos 10 5;y1=*/ h yg1 12;y2=*/ h yg2 12;t1=?: dxPos l xPos;xl=?: dz l t1;t2=?: dyPos x1 xPos;xt=?: dz t2 x1;t3=?: dxPos xPos r;xr=?: dz r t3;t4=?: dyPos xPos x1;xb=?: dz t4 x1;t5=?: dxPos y1 yPos;yl=?: dz y1 t5;t6=?: dyPos t yPos;yt=?: dz t6 t;t7=?: dxPos yPos y1;yr=?: dz y1 t7;t8=?: dyPos yPos b;yb=?: dz t8 b|,,,~M l t;L x1 t;L xt yt;L x2 t;L r t;L r y1;L xr yr;L r y2;L r b;L x2 b;L xb yb;L x1 b;L l b;L l y2;L xl yl;L l y1;Z",
+  wedgeRoundRectCallout: "adj1=val -20833;adj2=val 62500;adj3=val 16667|dxPos=*/ w adj1 100000;dyPos=*/ h adj2 100000;xPos=+- hc dxPos 0;yPos=+- vc dyPos 0;dq=*/ dxPos h w;ady=abs dyPos;adq=abs dq;dz=+- ady 0 adq;xg1=?: dxPos 7 2;xg2=?: dxPos 10 5;x1=*/ w xg1 12;x2=*/ w xg2 12;yg1=?: dyPos 7 2;yg2=?: dyPos 10 5;y1=*/ h yg1 12;y2=*/ h yg2 12;t1=?: dxPos l xPos;xl=?: dz l t1;t2=?: dyPos x1 xPos;xt=?: dz t2 x1;t3=?: dxPos xPos r;xr=?: dz r t3;t4=?: dyPos xPos x1;xb=?: dz t4 x1;t5=?: dxPos y1 yPos;yl=?: dz y1 t5;t6=?: dyPos t yPos;yt=?: dz t6 t;t7=?: dxPos yPos y1;yr=?: dz y1 t7;t8=?: dyPos yPos b;yb=?: dz t8 b;u1=*/ ss adj3 100000;u2=+- r 0 u1;v2=+- b 0 u1;il=*/ u1 29289 100000;ir=+- r 0 il;ib=+- b 0 il|,,,~M l u1;A u1 u1 cd2 cd4;L x1 t;L xt yt;L x2 t;L u2 t;A u1 u1 3cd4 cd4;L r y1;L xr yr;L r y2;L r v2;A u1 u1 0 cd4;L x2 b;L xb yb;L x1 b;L u1 b;A u1 u1 cd4 cd4;L l y2;L xl yl;L l y1;Z"
+};
+
+// ../slides-core/src/preset-engine.ts
+var parsed = /* @__PURE__ */ new Map();
+function parseDef(name) {
+  if (parsed.has(name)) return parsed.get(name);
+  const raw = Object.prototype.hasOwnProperty.call(PRESET_DEFS, name) ? PRESET_DEFS[name] : void 0;
+  let def = null;
+  if (raw !== void 0) {
+    const [av = "", gd = "", ps = ""] = raw.split("|");
+    const guides = (s) => s ? s.split(";").map((e) => {
+      const i2 = e.indexOf("=");
+      return [e.slice(0, i2), e.slice(i2 + 1).split(" ")];
+    }) : [];
+    const paths = ps ? ps.split("#").map((p) => {
+      const [attrs2 = "", cmds = ""] = p.split("~");
+      const [w = "", h = "", fill = "", stroke = ""] = attrs2.split(",");
+      const d = { fill, stroke: stroke !== "false" && stroke !== "0", cmds: cmds ? cmds.split(";").map((c) => c.split(" ")) : [] };
+      if (w) d.w = Number(w);
+      if (h) d.h = Number(h);
+      return d;
+    }) : [];
+    def = { av: guides(av), gd: guides(gd), paths };
+  }
+  parsed.set(name, def);
+  return def;
+}
+var DEG = Math.PI / (180 * 6e4);
+function builtins(w, h) {
+  const ss = Math.min(w, h), ls = Math.max(w, h);
+  const v = [
+    ["l", 0],
+    ["t", 0],
+    ["r", w],
+    ["b", h],
+    ["w", w],
+    ["h", h],
+    ["hc", w / 2],
+    ["vc", h / 2],
+    ["ss", ss],
+    ["ls", ls],
+    ["cd2", 108e5],
+    ["cd4", 54e5],
+    ["cd8", 27e5],
+    ["3cd4", 162e5],
+    ["3cd8", 81e5],
+    ["5cd8", 135e5],
+    ["7cd8", 189e5]
+  ];
+  for (const d of [2, 3, 4, 5, 6, 8, 10, 12, 16, 32]) {
+    v.push([`wd${d}`, w / d], [`hd${d}`, h / d], [`ssd${d}`, ss / d]);
+  }
+  return new Map(v);
+}
+function evalFormula2(f, val) {
+  const [op, a = "0", b = "0", c = "0"] = f;
+  const x2 = () => val(a), y = () => val(b), z = () => val(c);
+  switch (op) {
+    case "val":
+      return x2();
+    case "*/":
+      return x2() * y() / (z() || 1);
+    case "+-":
+      return x2() + y() - z();
+    case "+/":
+      return (x2() + y()) / (z() || 1);
+    case "?:":
+      return x2() > 0 ? y() : z();
+    case "abs":
+      return Math.abs(x2());
+    case "at2":
+      return Math.atan2(y(), x2()) / DEG;
+    case "cat2":
+      return x2() * Math.cos(Math.atan2(z(), y()));
+    case "sat2":
+      return x2() * Math.sin(Math.atan2(z(), y()));
+    case "cos":
+      return x2() * Math.cos(y() * DEG);
+    case "sin":
+      return x2() * Math.sin(y() * DEG);
+    case "tan":
+      return x2() * Math.tan(y() * DEG);
+    case "max":
+      return Math.max(x2(), y());
+    case "min":
+      return Math.min(x2(), y());
+    case "mod":
+      return Math.sqrt(x2() * x2() + y() * y() + z() * z());
+    case "pin": {
+      const lo = x2(), v = y(), hi = z();
+      return v < lo ? lo : v > hi ? hi : v;
+    }
+    case "sqrt":
+      return Math.sqrt(Math.max(0, x2()));
+    default:
+      return 0;
+  }
+}
+var SHADE = { none: null, darken: -0.2, darkenLess: -0.1, lighten: 0.2, lightenLess: 0.1 };
+function evalPreset(name, w, h, adj, adjNames) {
+  const def = parseDef(name);
+  if (!def) return null;
+  const vars2 = builtins(w, h);
+  const val = (t) => {
+    const v = vars2.get(t);
+    if (v !== void 0) return v;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : 0;
+  };
+  def.av.forEach(([n, f], i2) => {
+    let v;
+    if (adj && adjNames) {
+      const k = adjNames.indexOf(n);
+      if (k >= 0) v = adj[k];
+    } else if (adj && i2 < adj.length) v = adj[i2];
+    vars2.set(n, v ?? evalFormula2(f, val));
+  });
+  for (const [n, f] of def.gd) vars2.set(n, evalFormula2(f, val));
+  const out = { subs: [], fill: [], stroke: [] };
+  for (const p of def.paths) {
+    const sx = p.w ? w / p.w : 1, sy = p.h ? h / p.h : 1;
+    const segs = [];
+    let cx = 0, cy = 0;
+    for (const c of p.cmds) {
+      switch (c[0]) {
+        case "M":
+          cx = val(c[1]) * sx;
+          cy = val(c[2]) * sy;
+          segs.push({ c: "M", x: cx, y: cy });
+          break;
+        case "L":
+          cx = val(c[1]) * sx;
+          cy = val(c[2]) * sy;
+          segs.push({ c: "L", x: cx, y: cy });
+          break;
+        case "Q": {
+          const x1 = val(c[1]) * sx, y1 = val(c[2]) * sy;
+          cx = val(c[3]) * sx;
+          cy = val(c[4]) * sy;
+          segs.push({ c: "Q", x1, y1, x: cx, y: cy });
+          break;
+        }
+        case "C": {
+          const x1 = val(c[1]) * sx, y1 = val(c[2]) * sy, x2 = val(c[3]) * sx, y2 = val(c[4]) * sy;
+          cx = val(c[5]) * sx;
+          cy = val(c[6]) * sy;
+          segs.push({ c: "C", x1, y1, x2, y2, x: cx, y: cy });
+          break;
+        }
+        case "A": {
+          const rx = val(c[1]) * sx, ry = val(c[2]) * sy;
+          const st = val(c[3]) * DEG, sw = val(c[4]) * DEG;
+          if (rx <= 0 || ry <= 0 || sw === 0) break;
+          const param = (a) => Math.atan2(rx * Math.sin(a), ry * Math.cos(a));
+          const p0 = param(st);
+          let p1 = param(st + sw);
+          if (Math.abs(sw) >= 2 * Math.PI - 1e-9) p1 = p0 + Math.sign(sw) * 2 * Math.PI;
+          else if (sw > 0) {
+            while (p1 <= p0) p1 += 2 * Math.PI;
+          } else {
+            while (p1 >= p0) p1 -= 2 * Math.PI;
+          }
+          const ecx = cx - rx * Math.cos(p0), ecy = cy - ry * Math.sin(p0);
+          segs.push({ c: "E", cx: ecx, cy: ecy, rx, ry, a0: p0, a1: p1, ccw: sw < 0 });
+          cx = ecx + rx * Math.cos(p1);
+          cy = ecy + ry * Math.sin(p1);
+          break;
+        }
+        case "Z":
+          segs.push({ c: "Z" });
+          break;
+      }
+    }
+    out.subs.push(segs);
+    out.fill.push(p.fill in SHADE ? SHADE[p.fill] : 0);
+    out.stroke.push(p.stroke);
+  }
+  return out;
+}
+
 // ../slides-core/src/geometry.ts
 function regularPolygon(n, w, h) {
   const pts = [];
@@ -9238,7 +10700,7 @@ function fitToBox(pts, w, h) {
   const sw = maxX - minX || 1, sh = maxY - minY || 1;
   return pts.map((p) => ({ x: (p.x - minX) / sw * w, y: (p.y - minY) / sh * h }));
 }
-function presetPath(geom, w, h, adj) {
+function presetPath(geom, w, h, adj, adjNames) {
   const ss = Math.min(w, h);
   switch (geom) {
     case "frame": {
@@ -9600,6 +11062,14 @@ function presetPath(geom, w, h, adj) {
           subLum: [0, ...lums]
         };
       }
+      if (geom && geom !== "rect") {
+        const g = evalPreset(geom, w, h, adj, adjNames);
+        if (g && g.subs.length) {
+          const out = { kind: "path", subs: g.subs, subLum: g.fill };
+          if (g.stroke.some((s) => !s)) out.subStroke = g.stroke;
+          return out;
+        }
+      }
       return { kind: "rect" };
   }
 }
@@ -9664,7 +11134,594 @@ function actionGlyph(geom, cx, cy, g) {
   }
 }
 
+// ../slides-core/src/eot.ts
+var EOT_MAGIC = 20556;
+var TTEMBED_TTCOMPRESSED = 4;
+var TTEMBED_XORENCRYPTDATA = 268435456;
+function looksLikeEot(d) {
+  if (d.length < 82) return false;
+  const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
+  const eotSize = v.getUint32(0, true), fontSize = v.getUint32(4, true);
+  return v.getUint16(34, true) === EOT_MAGIC && eotSize <= d.length && fontSize > 0 && fontSize <= eotSize;
+}
+function eotToSfnt(d) {
+  if (!looksLikeEot(d)) return null;
+  const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
+  const eotSize = v.getUint32(0, true), fontSize = v.getUint32(4, true), flags = v.getUint32(12, true);
+  let font = d.slice(eotSize - fontSize, eotSize);
+  if (flags & TTEMBED_XORENCRYPTDATA) for (let i2 = 0; i2 < font.length; i2++) font[i2] = font[i2] ^ 80;
+  if (flags & TTEMBED_TTCOMPRESSED) {
+    try {
+      font = ctfToSfnt(unpackMtx(font));
+    } catch {
+      return null;
+    }
+  }
+  return font;
+}
+function unpackMtx(d) {
+  const u24 = (o) => d[o] << 16 | d[o + 1] << 8 | d[o + 2];
+  const version = d[0];
+  const off = [10, u24(4), u24(7), d.length];
+  if (!(off[0] <= off[1] && off[1] <= off[2] && off[2] <= d.length)) throw new Error("MTX: offsets");
+  return [0, 1, 2].map((i2) => lzcompUnpack(d.subarray(off[i2], off[i2 + 1]), version));
+}
+var BitIn = class {
+  constructor(d) {
+    this.d = d;
+  }
+  d;
+  pos = 0;
+  count = 0;
+  buf = 0;
+  bit() {
+    if (this.count-- === 0) {
+      if (this.pos >= this.d.length) throw new Error("MTX: fim dos dados");
+      this.buf = this.d[this.pos++];
+      this.count = 7;
+    }
+    this.buf = this.buf << 1 & 511;
+    return this.buf >> 8;
+  }
+  value(n) {
+    let v = 0;
+    for (let i2 = 0; i2 < n; i2++) v = v * 2 + this.bit();
+    return v;
+  }
+};
+var AHuff = class {
+  constructor(bits2, range) {
+    this.bits = bits2;
+    const n = 2 * range;
+    this.up = new Int32Array(n);
+    this.left = new Int32Array(n);
+    this.right = new Int32Array(n);
+    this.code = new Int32Array(n);
+    this.weight = new Float64Array(n);
+    this.symbolIndex = new Int32Array(range);
+    for (let i2 = 2; i2 < n; i2++) {
+      this.up[i2] = i2 >> 1;
+      this.weight[i2] = 1;
+    }
+    for (let i2 = 1; i2 < range; i2++) {
+      this.left[i2] = 2 * i2;
+      this.right[i2] = 2 * i2 + 1;
+    }
+    for (let i2 = 0; i2 < range; i2++) {
+      this.code[i2] = -1;
+      this.code[range + i2] = i2;
+      this.left[range + i2] = this.right[range + i2] = -1;
+      this.symbolIndex[i2] = range + i2;
+    }
+    this.weight[0] = Number.MAX_SAFE_INTEGER;
+    this.initWeight(1);
+    if (range > 256 && range < 512) {
+      this.update(this.symbolIndex[256]);
+      this.update(this.symbolIndex[257]);
+      for (let i2 = 0; i2 < 12; i2++) this.update(this.symbolIndex[range - 3]);
+      for (let i2 = 0; i2 < 6; i2++) this.update(this.symbolIndex[range - 2]);
+    } else {
+      for (let j = 0; j < 2; j++) for (let i2 = 0; i2 < range; i2++) this.update(this.symbolIndex[i2]);
+    }
+  }
+  bits;
+  up;
+  left;
+  right;
+  code;
+  weight;
+  symbolIndex;
+  initWeight(a) {
+    if (this.code[a] < 0) this.weight[a] = this.initWeight(this.left[a]) + this.initWeight(this.right[a]);
+    return this.weight[a];
+  }
+  swap(a, b) {
+    const { up, left, right, code, weight, symbolIndex } = this;
+    const upa = up[a], upb = up[b];
+    [left[a], left[b]] = [left[b], left[a]];
+    [right[a], right[b]] = [right[b], right[a]];
+    [code[a], code[b]] = [code[b], code[a]];
+    [weight[a], weight[b]] = [weight[b], weight[a]];
+    up[a] = upa;
+    up[b] = upb;
+    for (const k of [a, b]) {
+      if (code[k] < 0) {
+        up[left[k]] = k;
+        up[right[k]] = k;
+      } else symbolIndex[code[k]] = k;
+    }
+  }
+  update(a) {
+    const w = this.weight;
+    for (; a !== 1; a = this.up[a]) {
+      const wa = w[a];
+      let b = a - 1;
+      if (w[b] === wa) {
+        do {
+          b--;
+        } while (w[b] === wa);
+        b++;
+        if (b > 1) {
+          this.swap(a, b);
+          a = b;
+        }
+      }
+      w[a] = wa + 1;
+    }
+    w[1] = w[1] + 1;
+  }
+  read() {
+    let a = 1;
+    let sym;
+    do {
+      a = this.bits.bit() ? this.right[a] : this.left[a];
+      sym = this.code[a];
+    } while (sym < 0);
+    this.update(a);
+    return sym;
+  }
+};
+var Out = class {
+  buf;
+  len = 0;
+  constructor(cap) {
+    this.buf = new Uint8Array(Math.max(16, cap));
+  }
+  grow(n) {
+    if (this.len + n <= this.buf.length) return;
+    const nb = new Uint8Array(Math.max(this.buf.length * 2, this.len + n));
+    nb.set(this.buf.subarray(0, this.len));
+    this.buf = nb;
+  }
+  u8(v) {
+    this.grow(1);
+    this.buf[this.len++] = v & 255;
+  }
+  u16(v) {
+    this.u8(v >> 8);
+    this.u8(v);
+  }
+  u32(v) {
+    this.u16(v >>> 16);
+    this.u16(v & 65535);
+  }
+  bytes(src) {
+    this.grow(src.length);
+    this.buf.set(src, this.len);
+    this.len += src.length;
+  }
+  setU16(at, v) {
+    this.buf[at] = v >> 8 & 255;
+    this.buf[at + 1] = v & 255;
+  }
+  done() {
+    return this.buf.slice(0, this.len);
+  }
+};
+var PRELOAD = (() => {
+  const p = new Uint8Array(2 * 32 * 96 + 4 * 256);
+  let i2 = 0;
+  for (let k = 0; k < 32; k++) for (let j = 0; j < 96; j++) {
+    p[i2++] = k;
+    p[i2++] = j;
+  }
+  for (let j = 0; j < 256; j++) for (let r = 0; r < 4; r++) p[i2++] = j;
+  return p;
+})();
+function lzcompUnpack(src, version) {
+  const bits2 = new BitIn(src);
+  const usingRunLength = version !== 1 && bits2.bit() === 1;
+  const distTree = new AHuff(bits2, 8);
+  const lenTree = new AHuff(bits2, 8);
+  const outLen = bits2.value(24);
+  let numDist = 1;
+  while (1 + 2 ** (3 * numDist) - 1 < outLen) numDist++;
+  const DUP2 = 256 + 8 * numDist, DUP4 = DUP2 + 1, DUP6 = DUP4 + 1;
+  const symTree = new AHuff(bits2, DUP6 + 1);
+  const PRE = PRELOAD.length;
+  const hist = new Uint8Array(PRE + outLen);
+  hist.set(PRELOAD);
+  const out = new Out(outLen);
+  let rlState = usingRunLength ? 100 : -1, rlEscape = 0, rlCount = 0;
+  const emit = (v) => {
+    if (rlState < 0) {
+      out.u8(v);
+      return;
+    }
+    if (rlState === 100) {
+      rlEscape = v;
+      rlState = 0;
+    } else if (rlState === 0) {
+      if (v === rlEscape) rlState = 1;
+      else out.u8(v);
+    } else if (rlState === 1) {
+      rlCount = v;
+      if (v === 0) {
+        out.u8(rlEscape);
+        rlState = 0;
+      } else rlState = 2;
+    } else {
+      for (let i2 = 0; i2 < rlCount; i2++) out.u8(v);
+      rlState = 0;
+    }
+  };
+  let pos = 0;
+  const put = (v) => {
+    hist[PRE + pos++] = v;
+    emit(v);
+  };
+  while (pos < outLen) {
+    const s = symTree.read();
+    if (s < 256) put(s);
+    else if (s === DUP2) put(hist[PRE + pos - 2]);
+    else if (s === DUP4) put(hist[PRE + pos - 4]);
+    else if (s === DUP6) put(hist[PRE + pos - 6]);
+    else {
+      let b = s - 256;
+      const nDist = Math.floor(b / 8) + 1;
+      b %= 8;
+      let length = 0;
+      for (; ; ) {
+        const done = (b & 4) === 0;
+        length = length * 4 + (b & 3);
+        if (done) break;
+        b = lenTree.read();
+      }
+      length += 2;
+      let distance = 0;
+      for (let i2 = 0; i2 < nDist; i2++) distance = distance * 8 + distTree.read();
+      distance += 1;
+      if (distance >= 512) length++;
+      const start = PRE + pos - distance - length + 1;
+      if (start < 0) throw new Error("MTX: dist\xE2ncia inv\xE1lida");
+      for (let j = 0; j < length && pos < outLen; j++) put(hist[start + j]);
+    }
+  }
+  return out.done();
+}
+var In = class {
+  constructor(d) {
+    this.d = d;
+  }
+  d;
+  pos = 0;
+  need(n) {
+    if (this.pos + n > this.d.length) throw new Error("CTF: fim dos dados");
+  }
+  u8() {
+    this.need(1);
+    return this.d[this.pos++];
+  }
+  u16() {
+    this.need(2);
+    const v = this.d[this.pos] << 8 | this.d[this.pos + 1];
+    this.pos += 2;
+    return v;
+  }
+  s16() {
+    const v = this.u16();
+    return v >= 32768 ? v - 65536 : v;
+  }
+  u32() {
+    return this.u16() * 65536 + this.u16();
+  }
+  bytes(n) {
+    this.need(n);
+    const b = this.d.subarray(this.pos, this.pos + n);
+    this.pos += n;
+    return b;
+  }
+  /** 255USHORT do MTX. */
+  u255() {
+    const c = this.u8();
+    if (c === 253) return this.u16();
+    if (c === 255) return 253 + this.u8();
+    if (c === 254) return 506 + this.u8();
+    return c;
+  }
+  /** 255SHORT do MTX. */
+  s255() {
+    let c = this.u8();
+    if (c === 253) return this.s16();
+    let sign = 1;
+    if (c === 250) {
+      sign = -1;
+      c = this.u8();
+    }
+    const v = c === 255 ? 250 + this.u8() : c === 254 ? 500 + this.u8() : c;
+    return sign * v;
+  }
+};
+function triplet(flag, inp) {
+  const sgn = (bit, v) => bit ? v : -v;
+  if (flag < 10) return [0, sgn(flag & 1, ((flag & 14) << 7) + inp.u8())];
+  if (flag < 20) return [sgn(flag & 1, ((flag - 10 & 14) << 7) + inp.u8()), 0];
+  if (flag < 84) {
+    const b0 = flag - 20, b1 = inp.u8();
+    return [sgn(flag & 1, 1 + (b0 & 48) + (b1 >> 4)), sgn(flag & 2, 1 + ((b0 & 12) << 2) + (b1 & 15))];
+  }
+  if (flag < 120) {
+    const b0 = flag - 84, x2 = inp.u8(), y = inp.u8();
+    return [sgn(flag & 1, 1 + (Math.floor(b0 / 12) << 8) + x2), sgn(flag & 2, 1 + (b0 % 12 >> 2 << 8) + y)];
+  }
+  if (flag < 124) {
+    const a2 = inp.u8(), b3 = inp.u8(), c2 = inp.u8();
+    return [sgn(flag & 1, (a2 << 4) + (b3 >> 4)), sgn(flag & 2, ((b3 & 15) << 8) + c2)];
+  }
+  const a = inp.u8(), b = inp.u8(), c = inp.u8(), e = inp.u8();
+  return [sgn(flag & 1, (a << 8) + b), sgn(flag & 2, (c << 8) + e)];
+}
+function decodePush(push, out, count) {
+  const data = [];
+  let groupStart = 0;
+  let groupByte = true;
+  const dump = () => {
+    const n = data.length - groupStart;
+    if (!n) return;
+    if (n < 8) out.u8((groupByte ? 176 : 184) | n - 1);
+    else {
+      out.u8(groupByte ? 64 : 65);
+      out.u8(n);
+    }
+    for (let i2 = groupStart; i2 < data.length; i2++) {
+      if (groupByte) out.u8(data[i2]);
+      else out.u16(data[i2] & 65535);
+    }
+    groupStart = data.length;
+  };
+  const putVal = (v) => {
+    const byte = v >= 0 && v < 256;
+    if (byte !== groupByte || data.length - groupStart === 255) {
+      dump();
+      groupByte = byte;
+    }
+    data.push(v);
+  };
+  let remaining = count;
+  while (remaining > 0) {
+    const code = push.d[push.pos];
+    if (code === 251 || code === 252) {
+      const need = code === 251 ? 3 : 5;
+      if (remaining < need || data.length < 2) throw new Error("CTF: hop code");
+      remaining -= need;
+      push.u8();
+      const prev = data[data.length - 2];
+      putVal(prev);
+      putVal(push.s255());
+      putVal(prev);
+      if (code === 252) {
+        putVal(push.s255());
+        putVal(prev);
+      }
+    } else {
+      putVal(push.s255());
+      remaining--;
+    }
+  }
+  dump();
+}
+function decodeGlyph(s, out) {
+  const inp = s[0];
+  let numContours = inp.s16();
+  if (numContours < 0) {
+    decodeComposite(s, out);
+    return;
+  }
+  let bbox = null;
+  if (numContours === 32767) {
+    numContours = inp.s16();
+    bbox = [inp.s16(), inp.s16(), inp.s16(), inp.s16()];
+  }
+  if (numContours === 0) return;
+  const endPts = [];
+  let total = 1;
+  for (let i2 = 0; i2 < numContours; i2++) {
+    total += inp.u255();
+    endPts.push(total - 1);
+  }
+  const n = total;
+  const flags = inp.bytes(n).slice();
+  const xs = new Int32Array(n), ys = new Int32Array(n);
+  let cx = 0, cy = 0, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i2 = 0; i2 < n; i2++) {
+    const [dx, dy] = triplet(flags[i2] & 127, inp);
+    xs[i2] = dx;
+    ys[i2] = dy;
+    cx += dx;
+    cy += dy;
+    x0 = Math.min(x0, cx);
+    x1 = Math.max(x1, cx);
+    y0 = Math.min(y0, cy);
+    y1 = Math.max(y1, cy);
+  }
+  const [bx0, by0, bx1, by1] = bbox ?? [x0, y0, x1, y1];
+  out.u16(numContours);
+  out.u16(bx0 & 65535);
+  out.u16(by0 & 65535);
+  out.u16(bx1 & 65535);
+  out.u16(by1 & 65535);
+  for (const e of endPts) out.u16(e);
+  const instrAt = out.len;
+  out.u16(0);
+  decodePush(s[1], out, inp.u255());
+  out.bytes(s[2].bytes(inp.u255()));
+  out.setU16(instrAt, out.len - instrAt - 2);
+  for (let i2 = 0; i2 < n; i2++) {
+    let f = flags[i2] & 128 ? 0 : 1;
+    for (const [v, short, same] of [[xs[i2], 2, 16], [ys[i2], 4, 32]]) {
+      if (i2 > 0 && v === 0) f |= same;
+      else if (v > -256 && v < 0) f |= short;
+      else if (v >= 0 && v < 256) f |= short | same;
+    }
+    out.u8(f);
+  }
+  for (const arr of [xs, ys]) {
+    for (let i2 = 0; i2 < n; i2++) {
+      const v = arr[i2];
+      if (i2 > 0 && v === 0) continue;
+      if (v > -256 && v < 256) out.u8(Math.abs(v));
+      else out.u16(v & 65535);
+    }
+  }
+}
+function decodeComposite(s, out) {
+  const inp = s[0];
+  out.u16(65535);
+  out.bytes(inp.bytes(8));
+  let flags;
+  do {
+    flags = inp.u16();
+    out.u16(flags);
+    out.bytes(inp.bytes(2));
+    out.bytes(inp.bytes(flags & 1 ? 4 : 2));
+    out.bytes(inp.bytes(flags & 128 ? 8 : flags & 64 ? 4 : flags & 8 ? 2 : 0));
+  } while (flags & 32);
+  if (flags & 256) {
+    const at = out.len;
+    out.u16(0);
+    decodePush(s[1], out, inp.u255());
+    out.bytes(s[2].bytes(inp.u255()));
+    out.setU16(at, out.len - at - 2);
+  }
+}
+function ctfToSfnt([ctf, push, code]) {
+  const s = [new In(ctf), new In(push), new In(code)];
+  const inp = s[0];
+  inp.u32();
+  const numTables = inp.u16();
+  inp.pos += 6;
+  const recs = [];
+  for (let i2 = 0; i2 < numTables; i2++) {
+    const tag = String.fromCharCode(...inp.bytes(4));
+    inp.u32();
+    recs.push({ tag, offset: inp.u32(), length: inp.u32() });
+  }
+  const tables = /* @__PURE__ */ new Map();
+  for (const r of recs) {
+    if (r.tag === "hdmx" || r.tag === "VDMX" || r.tag === "loca" || r.tag === "glyf") continue;
+    if (r.tag === "cvt ") {
+      inp.pos = r.offset;
+      const n = inp.u16();
+      const o = new Out(n * 2);
+      let last = 0;
+      for (let i2 = 0; i2 < n; i2++) {
+        const c = inp.u8();
+        let v;
+        if (c >= 248) v = 238 * (c - 247) + inp.u8();
+        else if (c >= 239) v = -(238 * (c - 239) + inp.u8());
+        else if (c === 238) v = inp.s16();
+        else v = c;
+        last = (last + v + 32768 & 65535) - 32768;
+        o.u16(last & 65535);
+      }
+      tables.set("cvt ", o.done());
+      continue;
+    }
+    tables.set(r.tag, ctf.slice(r.offset, r.offset + r.length));
+  }
+  const head = tables.get("head"), maxp = tables.get("maxp");
+  if (!head || head.length < 54 || !maxp || maxp.length < 6) throw new Error("CTF: head/maxp");
+  head[8] = head[9] = head[10] = head[11] = 0;
+  const glyfRec = recs.find((r) => r.tag === "glyf");
+  if (glyfRec) {
+    const numGlyphs = maxp[4] << 8 | maxp[5];
+    inp.pos = glyfRec.offset;
+    const glyf = new Out(glyfRec.length * 2);
+    const offsets = [0];
+    for (let g = 0; g < numGlyphs; g++) {
+      decodeGlyph(s, glyf);
+      if (glyf.len % 2) glyf.u8(0);
+      offsets.push(glyf.len);
+    }
+    const short = (head[50] << 8 | head[51]) === 0 && glyf.len / 2 <= 65535;
+    head[50] = 0;
+    head[51] = short ? 0 : 1;
+    const loca = new Out(offsets.length * 4);
+    for (const o of offsets) {
+      if (short) loca.u16(o / 2);
+      else loca.u32(o);
+    }
+    tables.set("glyf", glyf.done());
+    tables.set("loca", loca.done());
+  }
+  return writeSfnt(tables);
+}
+function checksum(d) {
+  let sum = 0;
+  for (let i2 = 0; i2 < d.length; i2 += 4) {
+    const w = ((d[i2] ?? 0) << 24 | (d[i2 + 1] ?? 0) << 16 | (d[i2 + 2] ?? 0) << 8 | (d[i2 + 3] ?? 0)) >>> 0;
+    sum = sum + w >>> 0;
+  }
+  return sum;
+}
+function writeSfnt(tables) {
+  const tags = [...tables.keys()].sort();
+  const n = tags.length;
+  let es = 0;
+  while (2 ** (es + 1) <= n) es++;
+  const sr = 2 ** es * 16;
+  let size = 12 + 16 * n;
+  for (const t of tags) size += tables.get(t).length + 3 & ~3;
+  const out = new Uint8Array(size);
+  const dv = new DataView(out.buffer);
+  dv.setUint32(0, 65536);
+  dv.setUint16(4, n);
+  dv.setUint16(6, sr);
+  dv.setUint16(8, es);
+  dv.setUint16(10, n * 16 - sr);
+  let off = 12 + 16 * n;
+  let headOff = -1;
+  tags.forEach((t, i2) => {
+    const d = tables.get(t);
+    const r = 12 + 16 * i2;
+    for (let k = 0; k < 4; k++) out[r + k] = t.charCodeAt(k);
+    dv.setUint32(r + 4, checksum(d));
+    dv.setUint32(r + 8, off);
+    dv.setUint32(r + 12, d.length);
+    out.set(d, off);
+    if (t === "head") headOff = off;
+    off += d.length + 3 & ~3;
+  });
+  if (headOff >= 0) dv.setUint32(headOff + 8, 2981146554 - checksum(out) >>> 0);
+  return out;
+}
+
 // ../slides-core/src/fonts.ts
+function sfntStyle(d) {
+  if (d.length < 12) return null;
+  const n = d[4] << 8 | d[5];
+  for (let i2 = 0; i2 < n; i2++) {
+    const r = 12 + 16 * i2;
+    if (r + 16 > d.length) return null;
+    if (String.fromCharCode(d[r], d[r + 1], d[r + 2], d[r + 3]) !== "OS/2") continue;
+    const o = (d[r + 8] << 24 | d[r + 9] << 16 | d[r + 10] << 8 | d[r + 11]) >>> 0;
+    if (o + 64 > d.length) return null;
+    const weight = d[o + 4] << 8 | d[o + 5];
+    const fsSel = d[o + 62] << 8 | d[o + 63];
+    return { weight: weight >= 1 && weight <= 1e3 ? weight : 400, italic: (fsSel & 1) !== 0 };
+  }
+  return null;
+}
 var VARIANT_TAGS = [
   ["p:regular", "regular"],
   ["p:bold", "bold"],
@@ -9711,9 +11768,16 @@ function readEmbeddedFonts(pkg) {
       if (!looksLikeSfnt(data)) {
         const key = v?.attrs["fontKey"] ?? v?.attrs["p:fontKey"];
         if (key) data = deobfuscateFont(raw, key);
+        if (!looksLikeSfnt(data) && looksLikeEot(raw)) data = eotToSfnt(raw) ?? data;
         if (!looksLikeSfnt(data)) continue;
       }
-      out.push({ family, variant, data });
+      const font = { family, variant, data };
+      const st = sfntStyle(data);
+      if (st) {
+        font.weight = st.weight;
+        font.italic = st.italic;
+      }
+      out.push(font);
     }
   }
   return out;
@@ -9729,104 +11793,13 @@ function collectDeckTypefaces(pkg) {
   return [...out].sort();
 }
 
-// ../slides-core/src/media.ts
-function mediaCommands(effects, spid) {
-  const out = [];
-  const walk = (n, t) => {
-    if (n.tag === "cmd") {
-      if (n.cmd && n.target?.spid === spid) {
-        const c = { atMs: t, cmd: n.cmd };
-        if (n.dur !== void 0 && Number.isFinite(n.dur)) c.durMs = n.dur;
-        out.push(c);
-      }
-      return;
-    }
-    for (const c of n.children) {
-      const b = beginOffset(c);
-      if (b !== null) walk(c, t + b);
-    }
-  };
-  for (const e of effects) walk(e.node, e.t0);
-  return out.sort((a, b) => a.atMs - b.atMs);
-}
-function mediaStateAt(effects, spid, animMs, clock = {}) {
-  const k = clock.scale ?? 1, lat = clock.latencyMs ?? 0;
-  let started = false, playing = false, pos = 0, since = 0;
-  let durMs, startAt = 0;
-  for (const c of mediaCommands(effects, spid)) {
-    if (c.atMs > animMs) break;
-    const m = /^playFrom\(\s*(-?[\d.]+)\s*\)$/.exec(c.cmd);
-    if (m) {
-      started = true;
-      playing = true;
-      pos = Math.max(0, parseFloat(m[1]));
-      since = c.atMs + lat;
-      startAt = c.atMs;
-      if (c.durMs !== void 0) durMs = c.durMs;
-      continue;
-    }
-    switch (c.cmd) {
-      case "pause":
-        if (playing) {
-          pos += Math.max(0, c.atMs - since) * k / 1e3;
-          playing = false;
-        }
-        break;
-      case "resume":
-        if (started && !playing) {
-          playing = true;
-          since = c.atMs + lat;
-        }
-        break;
-      case "togglePause":
-        if (playing) {
-          pos += Math.max(0, c.atMs - since) * k / 1e3;
-          playing = false;
-        } else if (started) {
-          playing = true;
-          since = c.atMs + lat;
-        }
-        break;
-      case "stop":
-        started = false;
-        playing = false;
-        pos = 0;
-        break;
-      default:
-        break;
-    }
-  }
-  let timeSec = playing ? pos + Math.max(0, animMs - since) * k / 1e3 : pos;
-  if (playing && durMs !== void 0 && (animMs - startAt) * k >= durMs) {
-    playing = false;
-    timeSec = Math.min(timeSec, pos + (durMs - lat * k) / 1e3);
-  }
-  const st = { started, playing, timeSec };
-  if (durMs !== void 0) st.durMs = durMs;
-  return st;
-}
-function gifFrameAt(delaysMs, elapsedMs, repeat = Infinity) {
-  const n = delaysMs.length;
-  if (n <= 1 || !(elapsedMs > 0)) return 0;
-  const d = delaysMs.map((x2) => x2 > 10 ? x2 : 100);
-  const total = d.reduce((a, b) => a + b, 0);
-  const round = Math.floor(elapsedMs / total);
-  if (round > repeat) return n - 1;
-  let t = elapsedMs - round * total;
-  for (let i2 = 0; i2 < n; i2++) {
-    if (t < d[i2]) return i2;
-    t -= d[i2];
-  }
-  return n - 1;
-}
-
 // ../slides-core/src/render.ts
 var DEFAULT_TITLE_PT = 40;
 var DEFAULT_BODY_PT = 18;
 function boxBase(x2, y, w, h, m, extra) {
   return { x: (x2 + w / 2 - m.ox) / m.sw, y: (y + h / 2 - m.oy) / m.sh, w: w / m.sw, h: h / m.sh, ...extra };
 }
-function applyPart(ctx, st, base, x2, y, w, h, m, baseRotRad = 0) {
+function applyPart(ctx, st, base, x2, y, w, h, m, baseRotRad = 0, soft) {
   if (!st.visible || st.opacity <= 0) return false;
   const kx = (base.w > 0 ? st.w / base.w : 1) * st.sx;
   const ky = (base.h > 0 ? st.h / base.h : 1) * st.sy;
@@ -9846,10 +11819,52 @@ function applyPart(ctx, st, base, x2, y, w, h, m, baseRotRad = 0) {
   }
   for (const f of st.filters) {
     const q = f.transition === "out" ? 1 - f.p : f.p;
+    if (soft && q > 0 && q < 1 && softRevealFilter(f.filter)) {
+      soft.push({ filter: f.filter, q });
+      continue;
+    }
     ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, f.filter, q, x2, y, w, h);
     if (ctx.globalAlpha <= 0) return false;
   }
   return true;
+}
+var layerPool = /* @__PURE__ */ new WeakMap();
+var layerBusy = /* @__PURE__ */ new WeakSet();
+function acquireLayer(ctx) {
+  const c = ctx.canvas;
+  if (!c || !c.width || !c.height || typeof ctx.getTransform !== "function") return null;
+  let pool = layerPool.get(c);
+  if (!pool) layerPool.set(c, pool = []);
+  let lc2 = pool.find((l) => !layerBusy.has(l) && l.canvas.width === c.width && l.canvas.height === c.height);
+  if (!lc2) {
+    let cv;
+    if (typeof OffscreenCanvas !== "undefined") cv = new OffscreenCanvas(c.width, c.height);
+    else if (typeof document !== "undefined") {
+      const e = document.createElement("canvas");
+      e.width = c.width;
+      e.height = c.height;
+      cv = e;
+    }
+    const got = cv?.getContext("2d");
+    if (!got) return null;
+    lc2 = got;
+    pool.push(lc2);
+  }
+  layerBusy.add(lc2);
+  lc2.setTransform(1, 0, 0, 1, 0, 0);
+  lc2.globalAlpha = 1;
+  lc2.globalCompositeOperation = "source-over";
+  lc2.clearRect(0, 0, c.width, c.height);
+  lc2.setTransform(ctx.getTransform());
+  return lc2;
+}
+function compositeLayer(ctx, lc2, soft, x2, y, w, h) {
+  for (const s of soft) applySoftReveal(lc2, s.filter, s.q, x2, y, w, h);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(lc2.canvas, 0, 0);
+  ctx.restore();
+  layerBusy.delete(lc2);
 }
 function firstRunColor(sh) {
   for (const p of sh.txBody?.paragraphs ?? []) for (const r of p.runs) if (r.color) return r.color;
@@ -9883,6 +11898,8 @@ function paintSlideTo(ctx, slide, resources, scale, opts = {}) {
     const hooks = opts.shapeAnim && shp.xfrm ? opts.shapeAnim(shp, i2) : null;
     ctx.save();
     if (op < 1) ctx.globalAlpha = ctx.globalAlpha * op;
+    const mf = opts.mediaFrame?.(shp, i2) ?? void 0;
+    const frame = mf && "image" in mf && "alpha" in mf ? mf : mf ? { image: mf, alpha: 1 } : void 0;
     let anim;
     if (hooks && shp.xfrm) {
       const x2 = ox + shp.xfrm.x * scale, y = oy + shp.xfrm.y * scale;
@@ -9890,13 +11907,24 @@ function paintSlideTo(ctx, slide, resources, scale, opts = {}) {
       const rotDeg = (shp.xfrm.rot ?? 0) / 6e4;
       const base = boxBase(x2, y, w, h, m, { rot: rotDeg, fill: shp.fill?.color, line: shp.lineColor, text: firstRunColor(shp) });
       const all = hooks.all(base);
-      if (!applyPart(ctx, all, base, x2, y, w, h, m, rotDeg * Math.PI / 180)) {
+      const soft = [];
+      if (!applyPart(ctx, all, base, x2, y, w, h, m, rotDeg * Math.PI / 180, soft)) {
         ctx.restore();
         continue;
       }
       anim = { hooks, all, base, m };
+      if (soft.length) {
+        const lc2 = acquireLayer(ctx);
+        if (lc2) {
+          paintShape(lc2, shp, fit, resources, opts.suppressTextShapeIdx === i2, anim, frame);
+          compositeLayer(ctx, lc2, soft, x2, y, w, h);
+          ctx.restore();
+          continue;
+        }
+        for (const s of soft) ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, s.filter, s.q, x2, y, w, h);
+      }
     }
-    paintShape(ctx, shp, fit, resources, opts.suppressTextShapeIdx === i2, anim, opts.mediaFrame?.(shp, i2) ?? void 0);
+    paintShape(ctx, shp, fit, resources, opts.suppressTextShapeIdx === i2, anim, frame);
     ctx.restore();
   }
   ctx.restore();
@@ -9941,6 +11969,10 @@ function paintShape(ctx, sh, fit, res, suppressText, anim, frame) {
   if (fillOv) ov.fill = fillOv;
   if (lineOv) ov.line = lineOv;
   if (frame) ov.frame = frame;
+  if (anim?.hooks.chartParts && sh.chartXml) {
+    ov.chartParts = anim.hooks.chartParts;
+    ov.chartBase = { base: anim.base, m: anim.m };
+  }
   ctx.save();
   const bodyOn = !bgSt || applyPart(ctx, bgSt, anim.base, x2, y, w, h, anim.m);
   const hostsText = bodyOn ? paintBody(ctx, sh, x2, y, w, h, fit, res, ov) : !(sh.chartXml || sh.table || sh.image);
@@ -9952,11 +11984,36 @@ function paintBody(ctx, sh, x2, y, w, h, fit, res, ov) {
   if (sh.chartXml) {
     let model = res.charts?.get(sh.chartXml);
     if (!model) {
-      model = parseChart(sh.chartXml);
+      model = parseChart(sh.chartXml, sh.chartTheme);
       res.charts?.set(sh.chartXml, model);
     }
     if (!model.palette && sh.chartPalette) model.palette = sh.chartPalette;
-    paintChart(ctx, model, x2, y, w, h, EMU_PER_POINT * fit.scale);
+    if (sh.chartBg !== void 0) model.bg = sh.chartBg;
+    const ppt = EMU_PER_POINT * fit.scale;
+    if (ov.chartParts && ov.chartBase) {
+      const { base, m } = ov.chartBase;
+      for (const p of ov.chartParts) {
+        ctx.save();
+        let on = true;
+        if (p.state) {
+          const box = p.sel.bg ? { x: x2, y, w, h } : chartPartBounds(ctx, model, x2, y, w, h, ppt, p.sel);
+          const pb = p.sel.bg || !box ? base : boxBase(box.x, box.y, box.w, box.h, m);
+          const st = box ? p.state(pb) : null;
+          const soft = [];
+          on = !!box && (!st || applyPart(ctx, st, pb, box.x, box.y, box.w, box.h, m, 0, soft));
+          if (on && box && soft.length) {
+            const lc2 = acquireLayer(ctx);
+            if (lc2) {
+              paintChart(lc2, model, x2, y, w, h, ppt, void 0, true, p.sel);
+              compositeLayer(ctx, lc2, soft, box.x, box.y, box.w, box.h);
+              on = false;
+            } else for (const s of soft) ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, s.filter, s.q, box.x, box.y, box.w, box.h);
+          }
+        }
+        if (on) paintChart(ctx, model, x2, y, w, h, ppt, void 0, true, p.sel);
+        ctx.restore();
+      }
+    } else paintChart(ctx, model, x2, y, w, h, ppt);
     return false;
   }
   if (sh.table) {
@@ -9968,7 +12025,8 @@ function paintBody(ctx, sh, x2, y, w, h, fit, res, ov) {
     return false;
   }
   if (sh.image) {
-    const img = ov.frame ?? res.images?.get(sh.image.part);
+    const poster = res.images?.get(sh.image.part);
+    const img = ov.frame && ov.frame.alpha >= 1 ? ov.frame.image : poster;
     if (img) {
       if (sh.shadow) {
         const sc = sh.shadow;
@@ -9982,19 +12040,28 @@ function paintBody(ctx, sh, x2, y, w, h, fit, res, ov) {
       const clipGeom = sh.geom !== void 0 && sh.geom !== "rect";
       if (clipGeom) {
         ctx.save();
-        const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj);
+        const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj, sh.adjNames, "fill");
         if (rule) ctx.clip(rule);
         else ctx.clip();
       }
-      if (sh.srcRect) {
-        const iw = imgW(img), ih = imgH(img);
-        const sx = sh.srcRect.l * iw;
-        const sy = sh.srcRect.t * ih;
-        const sw = iw - (sh.srcRect.l + sh.srcRect.r) * iw;
-        const sh2 = ih - (sh.srcRect.t + sh.srcRect.b) * ih;
-        ctx.drawImage(img, sx, sy, sw, sh2, x2, y, w, h);
-      } else {
-        ctx.drawImage(img, x2, y, w, h);
+      const drawPic = (im) => {
+        if (sh.srcRect) {
+          const iw = imgW(im), ih = imgH(im);
+          const sx = sh.srcRect.l * iw;
+          const sy = sh.srcRect.t * ih;
+          const sw = iw - (sh.srcRect.l + sh.srcRect.r) * iw;
+          const sh2 = ih - (sh.srcRect.t + sh.srcRect.b) * ih;
+          ctx.drawImage(im, sx, sy, sw, sh2, x2, y, w, h);
+        } else {
+          ctx.drawImage(im, x2, y, w, h);
+        }
+      };
+      drawPic(img);
+      if (ov.frame && ov.frame.alpha > 0 && ov.frame.alpha < 1) {
+        ctx.save();
+        ctx.globalAlpha = ctx.globalAlpha * ov.frame.alpha;
+        drawPic(ov.frame.image);
+        ctx.restore();
       }
       if (clipGeom) ctx.restore();
       if (sh.shadow) ctx.restore();
@@ -10002,7 +12069,7 @@ function paintBody(ctx, sh, x2, y, w, h, fit, res, ov) {
     if (sh.lineColor) {
       ctx.strokeStyle = sh.lineColor;
       ctx.lineWidth = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
-      shapePath(ctx, sh.geom ?? "rect", x2, y, w, h, sh.custGeom, sh.adj);
+      shapePath(ctx, sh.geom ?? "rect", x2, y, w, h, sh.custGeom, sh.adj, sh.adjNames, "stroke");
       ctx.stroke();
     }
     return false;
@@ -10021,7 +12088,7 @@ function paintBody(ctx, sh, x2, y, w, h, fit, res, ov) {
     ctx.shadowOffsetX = sx;
     ctx.shadowOffsetY = sy;
     ctx.fillStyle = ov.fill ?? (sh.fill?.type === "solid" && sh.fill.color ? sh.fill.color : "#ffffff");
-    const shRule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj);
+    const shRule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj, sh.adjNames, "fill");
     if (shRule) ctx.fill(shRule);
     else ctx.fill();
     ctx.restore();
@@ -10030,7 +12097,7 @@ function paintBody(ctx, sh, x2, y, w, h, fit, res, ov) {
   if (!isLineGeom && (ov.fill || sh.fillImage || sh.fill && sh.fill.type !== "none")) {
     ctx.save();
     if (sh.fillAlpha !== void 0 && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
-    const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj);
+    const rule = shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj, sh.adjNames, "fill");
     if (ov.fill) {
       ctx.fillStyle = ov.fill;
       if (rule) ctx.fill(rule);
@@ -10057,7 +12124,7 @@ function paintBody(ctx, sh, x2, y, w, h, fit, res, ov) {
       if (rule) ctx.fill(rule);
       else ctx.fill();
     } else if (sh.fill.type === "solid" && sh.fill.color) {
-      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h, sh.adj);
+      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h, sh.adj, sh.adjNames);
       if (desc && desc.kind === "path" && desc.subLum) {
         for (let i2 = 0; i2 < desc.subs.length; i2++) {
           const lum = desc.subLum[i2];
@@ -10081,7 +12148,7 @@ function paintBody(ctx, sh, x2, y, w, h, fit, res, ov) {
     const lw = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
     ctx.lineWidth = lw;
     if (sh.lineDash) ctx.setLineDash(dashPattern(sh.lineDash, lw));
-    shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj);
+    shapePath(ctx, sh.geom, x2, y, w, h, sh.custGeom, sh.adj, sh.adjNames, "stroke");
     ctx.stroke();
     if (sh.lineDash) ctx.setLineDash([]);
     if (isLineGeom && (sh.headArrow || sh.tailArrow)) {
@@ -10095,17 +12162,18 @@ function paintBody(ctx, sh, x2, y, w, h, fit, res, ov) {
   }
   return true;
 }
-function shapePath(ctx, geom, x2, y, w, h, custGeom, adj) {
+function shapePath(ctx, geom, x2, y, w, h, custGeom, adj, adjNames, mode) {
   ctx.beginPath();
   if (custGeom) {
     const sx = w / custGeom.w, sy = h / custGeom.h;
     drawSegs(ctx, custGeom.subs, x2, y, sx, sy);
     return void 0;
   }
-  const p = presetPath(geom, w, h, adj);
+  const p = presetPath(geom, w, h, adj, adjNames);
   switch (p.kind) {
     case "path": {
-      drawSegs(ctx, p.subs, x2, y, 1, 1);
+      const subs = mode === "fill" && p.subLum ? p.subs.filter((_, i2) => p.subLum[i2] !== null) : mode === "stroke" && p.subStroke ? p.subs.filter((_, i2) => p.subStroke[i2] !== false) : p.subs;
+      drawSegs(ctx, subs, x2, y, 1, 1);
       return p.fillRule;
     }
     case "ellipse":
@@ -10217,6 +12285,7 @@ function drawSegs(ctx, subs, x2, y, sx, sy) {
   }
 }
 function roundRect(ctx, x2, y, w, h, r) {
+  r = Math.max(0, r);
   ctx.moveTo(x2 + r, y);
   ctx.arcTo(x2 + w, y, x2 + w, y + h, r);
   ctx.arcTo(x2 + w, y + h, x2, y + h, r);
@@ -10225,6 +12294,18 @@ function roundRect(ctx, x2, y, w, h, r) {
   ctx.closePath();
 }
 function paintText(ctx, sh, tb, x2, y, w, h, scale, anim) {
+  const turn = tb.vert === "vert" || tb.vert === "eaVert" ? 1 : tb.vert === "vert270" ? -1 : 0;
+  if (turn) {
+    const { vert: _v, ...flat } = tb;
+    const cx = x2 + w / 2, cy = y + h / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(turn * Math.PI / 2);
+    ctx.translate(-cx, -cy);
+    paintText(ctx, sh, flat, cx - h / 2, cy - w / 2, h, w, scale, anim);
+    ctx.restore();
+    return;
+  }
   const unflip = sh.xfrm?.flipH || sh.xfrm?.flipV;
   if (unflip) {
     ctx.save();
@@ -10446,7 +12527,19 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
         const bw = (cell.borderWidth ?? 12700) * scale;
         ctx.strokeStyle = cell.borderColor;
         ctx.lineWidth = Math.max(0.5, bw);
-        ctx.strokeRect(cx0 + 0.5, cy0 + 0.5, cw - 1, ch - 1);
+        const skip = (k) => !!cell.borders?.[k] || !!cell.borderNone?.[k];
+        const sides = [
+          ["t", cx0, cy0 + 0.5, cx0 + cw, cy0 + 0.5],
+          ["b", cx0, cy0 + ch - 0.5, cx0 + cw, cy0 + ch - 0.5],
+          ["l", cx0 + 0.5, cy0, cx0 + 0.5, cy0 + ch],
+          ["r", cx0 + cw - 0.5, cy0, cx0 + cw - 0.5, cy0 + ch]
+        ];
+        ctx.beginPath();
+        for (const [k, x1, y1, x22, y2] of sides) if (!skip(k)) {
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x22, y2);
+        }
+        ctx.stroke();
       }
       if (cell.borders) {
         const edges = [
@@ -10482,44 +12575,31 @@ function paintTable(ctx, t, x2, y, w, h, scale) {
       const cy0 = y + rowY[ri];
       const cw = (colX[ci + span] ?? colX[colX.length - 1]) - colX[ci];
       const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]) - rowY[ri];
-      const padX = 91440 * scale;
-      const padY = 45720 * scale;
-      const cellAnchor = cell.anchor ?? "t";
-      const pxPerPt = EMU_PER_POINT * scale;
-      const lines = [];
-      for (const p of cell.txBody.paragraphs) {
-        for (const r of p.runs.length ? p.runs : [{ text: "" }]) {
-          lines.push({
-            text: r.text,
-            bold: !!(r.bold ?? cell.txBold),
-            italic: !!r.italic,
-            color: r.color ?? cell.txColor ?? "#000000",
-            size: (r.sz ?? 18) * pxPerPt,
-            align: p.align ?? "l",
-            font: r.font ?? "Calibri"
-          });
-        }
-      }
-      const lineH = (lines[0]?.size ?? 18 * pxPerPt) * 1.2;
-      const totalH = lines.length * lineH;
-      let cy = cy0 + padY;
-      if (cellAnchor === "ctr") cy = cy0 + (ch - totalH) / 2;
-      else if (cellAnchor === "b") cy = cy0 + ch - totalH - padY;
-      ctx.textBaseline = "top";
-      for (const l of lines) {
-        ctx.font = `${l.italic ? "italic " : ""}${l.bold ? "700 " : "400 "}${l.size}px '${l.font}', 'Aptos', Calibri, 'Liberation Sans', Arial, sans-serif`;
-        ctx.fillStyle = l.color;
-        const tw = ctx.measureText(l.text).width;
-        let tx;
-        if (l.align === "ctr") tx = cx0 + (cw - tw) / 2;
-        else if (l.align === "r") tx = cx0 + cw - tw - padX;
-        else tx = cx0 + padX;
-        ctx.fillText(l.text, tx, cy);
-        cy += lineH;
-      }
+      const { txColor, txBold } = cell;
+      const body = {
+        ...cell.txBody,
+        anchor: cell.anchor ?? "t",
+        ...cell.vert ? { vert: cell.vert } : {},
+        insL: cell.marL ?? 91440,
+        insR: cell.marR ?? 91440,
+        insT: cell.marT ?? 45720,
+        insB: cell.marB ?? 45720,
+        // cor/negrito default do ESTILO da tabela (tcTxStyle) onde o run não define
+        paragraphs: txColor === void 0 && txBold === void 0 ? cell.txBody.paragraphs : cell.txBody.paragraphs.map((p) => ({
+          ...p,
+          runs: p.runs.map((r) => {
+            const o = { ...r };
+            if (o.color === void 0 && txColor !== void 0) o.color = txColor;
+            if (o.bold === void 0 && txBold !== void 0) o.bold = txBold;
+            return o;
+          })
+        }))
+      };
+      paintText(ctx, TABLE_CELL, body, cx0, cy0, cw, ch, scale);
     }
   }
 }
+var TABLE_CELL = { id: "", name: "tc" };
 function makeLinearGradient(ctx, fill, x2, y, w, h) {
   if (fill.path) {
     const cx2 = x2 + w / 2, cy2 = y + h / 2;
@@ -10622,6 +12702,8 @@ var MediaPlayer = class {
   gifShown = /* @__PURE__ */ new Map();
   /** Relógio da mídia (export emulado: 2 ticks de latência, 1/30 s por quadro). */
   clock = {};
+  /** Vídeo em TELA CHEIA tocando no quadro em curso (a pintura cobre o slide com ele). */
+  fullScreen = null;
   /** Chave do elemento de uma forma com mídia. */
   key(sh) {
     return sh.media ? sh.media.part ?? sh.media.url : void 0;
@@ -10692,17 +12774,34 @@ var MediaPlayer = class {
    * no último quadro) / quadro atual do GIF. null = imagem normal (capa).
    * `animMs` = tempo de animação do slide (Infinity = estado final).
    */
-  frame(sh, ps, animMs, bytes, vol = 1, muted = false) {
+  frame(sh, ps, animMs, bytes, info) {
     if (sh.media) {
-      const st = mediaStateAt(ps.effects, sh.id, animMs, this.clock);
+      const st = mediaStateAt(ps.effects, sh.id, animMs, this.clock, !!info?.loop);
       const el2 = this.element(sh, bytes);
-      if (!el2) return null;
-      const dur = Number.isFinite(el2.duration) && el2.duration > 0 ? el2.duration : (st.durMs ?? Infinity) / 1e3;
-      const end = Math.max(0, dur - 1e-3);
-      const time = Math.max(0, Math.min(st.timeSec, end));
-      if (st.started) this.wanted.set(el2, { time, playing: st.playing && st.timeSec < dur, volume: vol, muted });
+      if (!el2 || el2.error) return null;
+      const trimSt = (sh.media.trim?.startMs ?? 0) / 1e3;
+      const trimEnd = (sh.media.trim?.endMs ?? 0) / 1e3;
+      const fileDur = Number.isFinite(el2.duration) && el2.duration > 0 ? el2.duration : void 0;
+      const lenSec = fileDur !== void 0 ? Math.max(0, fileDur - trimSt - trimEnd) : (st.durMs ?? Infinity) / 1e3;
+      let t = st.timeSec;
+      if (info?.loop && this.mode === "realtime" && lenSec > 0 && Number.isFinite(lenSec)) t %= lenSec;
+      const played = Math.max(0, Math.min(t, Math.max(0, lenSec - 1e-3)));
+      if (st.started) {
+        this.wanted.set(el2, {
+          time: trimSt + played,
+          playing: st.playing && t < lenSec,
+          volume: info?.vol ?? 1,
+          muted: info?.mute ?? false
+        });
+      }
       if (sh.media.kind !== "video" || !st.started) return null;
-      return el2.readyState >= 2 ? el2 : null;
+      if (st.ended && info?.rewind) return null;
+      if (el2.readyState < 2) return null;
+      const video = el2;
+      if (info?.fullScreen && st.playing) this.fullScreen = video;
+      const alpha = st.ended && sh.media.fade?.outMs ? 0 : mediaFadeAlpha(sh.media.fade, played * 1e3, lenSec * 1e3);
+      if (alpha <= 0) return null;
+      return alpha >= 1 ? video : { image: video, alpha };
     }
     const img = sh.image;
     if (img?.mime === "image/gif") {
@@ -10752,8 +12851,8 @@ var MediaPlayer = class {
     return parts.join("|");
   }
   /** A mídia da forma está tocando em `animMs`? */
-  isPlaying(sh, ps, animMs) {
-    return mediaStateAt(ps.effects, sh.id, animMs, this.clock).playing;
+  isPlaying(sh, ps, animMs, loop = false) {
+    return mediaStateAt(ps.effects, sh.id, animMs, this.clock, loop).playing;
   }
   /**
    * Modo busca: posiciona cada vídeo pedido no instante exato e espera o
@@ -10789,14 +12888,20 @@ var MediaPlayer = class {
   }
 };
 async function seekTo(el2, time, timeoutMs) {
+  if (el2.error || el2.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) return;
   const wait = (ev2) => new Promise((res) => {
     const t = setTimeout(res, timeoutMs);
-    el2.addEventListener(ev2, () => {
+    const done = () => {
       clearTimeout(t);
+      el2.removeEventListener(ev2, done);
+      el2.removeEventListener("error", done);
       res();
-    }, { once: true });
+    };
+    el2.addEventListener(ev2, done, { once: true });
+    el2.addEventListener("error", done, { once: true });
   });
   if (el2.readyState < 1) await wait("loadedmetadata");
+  if (el2.error) return;
   const target = Math.max(0, Math.min(time, Number.isFinite(el2.duration) ? Math.max(0, el2.duration - 1e-3) : time));
   if (Math.abs(el2.currentTime - target) > 5e-4 || el2.readyState < 2) {
     const done = wait("seeked");
@@ -10807,6 +12912,8 @@ async function seekTo(el2, time, timeoutMs) {
 }
 
 // ../viewer/src/universal-presentation-viewer.ts
+var NEXT_KEYS = /* @__PURE__ */ new Set(["ArrowRight", "ArrowDown", "PageDown", " ", "Enter", "n", "N"]);
+var PREV_KEYS = /* @__PURE__ */ new Set(["ArrowLeft", "ArrowUp", "PageUp", "Backspace", "p", "P"]);
 var UniversalPresentationViewerElement = class extends HTMLElement {
   host = this.attachShadow({ mode: "open" });
   canvas = document.createElement("canvas");
@@ -10828,24 +12935,18 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   /** Cache de ChartModel parseado, por XML cru (passado a paintSlideTo). */
   chartCache = /* @__PURE__ */ new Map();
   /**
-   * Estado da animação em curso. Sem animação tocando, `playStartMs = null`.
-   */
-  animPlay = { startMs: null, rafId: 0, pausedAt: 0 };
-  /**
-   * Snapshot do frame anterior pra transição entre slides. `prevImage` é o
-   * ImageData do canvas no instante em que selectSlide foi chamado.
-   */
-  trans = {
-    prevImage: null,
-    startMs: null,
-    durMs: 0,
-    type: "fade"
-  };
-  /**
    * Reprodução automática em curso (`play()`): linha do tempo PURA
-   * (slides-core/playback.ts) + relógio. `null` = navegação manual.
+   * (slides-core/playback.ts) + relógio. `null` = sem reprodução.
    */
   auto = null;
+  /**
+   * Apresentação em curso (`present()`): máquina de estados PURA
+   * (slides-core/slideshow.ts) + agendamento do próximo quadro. `null` = sem
+   * apresentação.
+   */
+  show = null;
+  /** Texto da tela de fim da apresentação (o do app de referência em pt-BR). */
+  endOfShowText = "Fim da apresenta\xE7\xE3o de slides. Clique para sair.";
   /** Canvases de trabalho da transição (origem/destino) na reprodução automática. */
   fromCanvas = null;
   toCanvas = null;
@@ -10923,23 +13024,38 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     }
     if (this.loadedFamilyNames.has("Liberation Sans")) this.paint();
   }
+  /** Carregamentos das fontes embutidas do deck atual (ver `fontsReady`). */
+  embeddedFontLoads = [];
+  /** Decodificação/registro das fontes embutidas (adiado para depois da 1ª pintura). */
+  embeddedFontsTask = Promise.resolve();
   /** Registra as fontes EMBUTIDAS no pacote (FontFace) e repinta ao carregar. */
   registerEmbeddedFonts(pkg) {
+    this.embeddedFontLoads = [];
     for (const f of readEmbeddedFonts(pkg)) {
-      const weight = f.variant === "bold" || f.variant === "boldItalic" ? "700" : "400";
-      const style = f.variant === "italic" || f.variant === "boldItalic" ? "italic" : "normal";
+      const weight = f.weight !== void 0 ? String(f.weight) : f.variant === "bold" || f.variant === "boldItalic" ? "700" : "400";
+      const style = f.italic ?? (f.variant === "italic" || f.variant === "boldItalic") ? "italic" : "normal";
       try {
         const buf = f.data.slice().buffer;
         const face = new FontFace(f.family, buf, { weight, style });
-        void face.load().then(() => {
+        this.embeddedFontLoads.push(face.load().then(() => {
           document.fonts.add(face);
           this.loadedFamilyNames.add(f.family);
           this.paint();
         }).catch(() => {
-        });
+        }));
       } catch {
       }
     }
+  }
+  /**
+   * Resolve quando as fontes EMBUTIDAS do deck terminaram de carregar (ou
+   * falharam) e o conjunto de fontes do documento assentou — antes disso o
+   * texto sai na fonte substituta (miniaturas, export, captura).
+   */
+  async fontsReady() {
+    await this.embeddedFontsTask;
+    await Promise.allSettled(this.embeddedFontLoads);
+    await document.fonts?.ready;
   }
   /**
    * Carrega SOB DEMANDA as fontes do SO usadas pelo deck e ainda não
@@ -10991,11 +13107,16 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   }
   /** Carrega bytes .pptx e monta os slides. */
   loadPptx(bytes) {
-    if (this.auto) this.stopPlayback();
+    this.stopPresentation();
+    this.stopPlayback();
     this.media.dispose();
     this.pkg = PptxPackage.load(bytes);
     void this.installDefaultFonts();
-    this.registerEmbeddedFonts(this.pkg);
+    const pkg = this.pkg;
+    this.embeddedFontsTask = new Promise((resolve) => setTimeout(() => {
+      if (this.pkg === pkg) this.registerEmbeddedFonts(pkg);
+      resolve();
+    }, 0));
     void this.ensureDeckFonts(this.pkg);
     this.pres = readPresentation(this.pkg);
     this.slides = [];
@@ -11018,24 +13139,142 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.index = 0;
     this.resize();
     this.paint();
-    this.startAnimation();
     this.dispatchEvent(new CustomEvent("us-loaded", { detail: { count: this.slides.length } }));
   }
-  /** Reinicia a animação do slide atual (útil para um botão "replay"). */
-  replayAnimation() {
-    this.stopAnimation();
-    this.paint();
-    this.startAnimation();
-  }
-  /** Entra em modo apresentação: fullscreen do próprio componente. */
-  present(from) {
-    if (from !== void 0) this.selectSlide(from);
-    if (document.fullscreenEnabled && this.wrap.requestFullscreen) {
-      this.wrap.requestFullscreen().catch(() => {
+  // ───────────────────────── APRESENTAÇÃO ─────────────────────────
+  /**
+   * APRESENTAÇÃO — o F5 do app de referência: tela cheia, fundo preto, mesmo
+   * motor de animação e transições da reprodução automática, mas quem avança
+   * é o apresentador (semântica medida no app: `SlideShow`, slides-core/slideshow.ts):
+   *  - clique / Espaço / → / ↓ / Enter / PageDown / N (e `next()`): dispara
+   *    o próximo passo "ao clicar"; sem passo pendente, o próximo slide;
+   *    durante uma transição, conclui a transição;
+   *  - ← / ↑ / PageUp / Backspace / P (e `prev()`): desfaz o último passo
+   *    (slide com intervalo: rebobina); no início do slide, o anterior no
+   *    estado final, pela transição do que sai no sentido contrário;
+   *  - Home/End (e `selectSlide(i)`): pula; Esc (ou sair da tela cheia): sai;
+   *  - slide com intervalo gravado (`useTimings`): passos e avanço sozinhos;
+   *  - depois do último slide, a tela de fim; o próximo comando sai.
+   * `from` = slide inicial (default: o atual). Emite `us-slide` a cada slide,
+   * `us-step` a cada passo e `us-present-end` ao sair (por qualquer motivo).
+   * Chamar a partir de um gesto do usuário (a tela cheia exige).
+   */
+  present(from, opts = {}) {
+    if (!this.slides.length) return;
+    this.stopPlayback();
+    const full = opts.fullscreen ?? true;
+    const already = this.host.fullscreenElement === this.wrap;
+    this.endShow(full && already);
+    const ss = new SlideShow(this.slides.map((s) => s.timing), from ?? this.index, this.now(), {
+      useTimings: opts.useTimings ?? true,
+      loop: opts.loop ?? false
+    });
+    this.media.mode = "realtime";
+    this.media.clock = {};
+    for (const s of this.slides) this.media.warmGifs(s);
+    this.show = { ss, rafId: 0, timer: 0, fullscreen: full };
+    this.fromKey = "";
+    this.badge.style.display = "none";
+    if (full) {
+      document.addEventListener("fullscreenchange", this.onFullscreenChange);
+      if (!already && document.fullscreenEnabled && this.wrap.requestFullscreen) this.wrap.requestFullscreen().catch(() => {
       });
     }
     this.canvas.focus();
+    this.afterShowCommand(-1, -1);
   }
+  /** Encerra a apresentação (sai da tela cheia); o viewer fica no slide em cena. */
+  stopPresentation() {
+    this.endShow(false);
+  }
+  /** Encerra a apresentação; `keepFullscreen` = outra começa em seguida (sem piscar a tela). */
+  endShow(keepFullscreen) {
+    const s = this.show;
+    if (!s) return;
+    if (s.rafId) cancelAnimationFrame(s.rafId);
+    if (s.timer) clearTimeout(s.timer);
+    this.show = null;
+    document.removeEventListener("fullscreenchange", this.onFullscreenChange);
+    if (!keepFullscreen && this.host.fullscreenElement === this.wrap) document.exitFullscreen().catch(() => {
+    });
+    this.media.stop();
+    this.badge.style.display = "";
+    this.paint();
+    this.dispatchEvent(new CustomEvent("us-present-end", { detail: { index: this.index } }));
+  }
+  isPresenting() {
+    return this.show !== null;
+  }
+  /** Saiu da tela cheia (Esc do navegador…) → a apresentação acaba junto. */
+  onFullscreenChange = () => {
+    if (this.show?.fullscreen && this.host.fullscreenElement !== this.wrap) this.stopPresentation();
+  };
+  now() {
+    return (window.performance ?? Date).now();
+  }
+  /** Aplica um comando do apresentador e emite os eventos do que mudou. */
+  showCommand(cmd) {
+    const s = this.show;
+    if (!s) return;
+    const index = s.ss.index, step = s.ss.step;
+    if (cmd(s.ss, this.now()) === "exit") {
+      this.stopPresentation();
+      return;
+    }
+    this.afterShowCommand(index, step);
+  }
+  /** Eventos `us-slide`/`us-step` (comparando com o estado de antes) e próximo quadro. */
+  afterShowCommand(index, step) {
+    const s = this.show;
+    if (!s) return;
+    const ss = s.ss;
+    const detail = { index: ss.index, step: ss.step, steps: ss.steps };
+    if (ss.index !== index) {
+      if (ss.index >= 0) {
+        this.index = ss.index;
+        this.dispatchEvent(new CustomEvent("us-slide", { detail }));
+      }
+    } else if (ss.step !== step) {
+      this.dispatchEvent(new CustomEvent("us-step", { detail }));
+    }
+    this.wakeShow();
+  }
+  /** Pinta já no próximo quadro (cancela a espera agendada). */
+  wakeShow() {
+    const s = this.show;
+    if (!s || s.rafId) return;
+    if (s.timer) {
+      clearTimeout(s.timer);
+      s.timer = 0;
+    }
+    s.rafId = requestAnimationFrame(this.showTick);
+  }
+  /**
+   * Quadro da apresentação: avanço automático vencido, pintura e o próximo
+   * agendamento — a cada quadro enquanto algo anima (transição, efeito,
+   * mídia), um timer até a próxima mudança agendada, ou nada (parado).
+   */
+  showTick = () => {
+    const s = this.show;
+    if (!s) return;
+    s.rafId = 0;
+    const now = this.now();
+    const index = s.ss.index, step = s.ss.step;
+    s.ss.update(now);
+    if (s.ss.index !== index || s.ss.step !== step) {
+      this.afterShowCommand(index, step);
+      return;
+    }
+    this.paint();
+    const slide = this.slides[s.ss.index];
+    const media = !!slide?.shapes.some((sh) => sh.media || sh.image?.mime === "image/gif");
+    const at = media ? now : s.ss.wakeAt(now);
+    if (at <= now) s.rafId = requestAnimationFrame(this.showTick);
+    else if (Number.isFinite(at)) s.timer = window.setTimeout(() => {
+      s.timer = 0;
+      this.wakeShow();
+    }, at - now);
+  };
   /**
    * Inicia a decodificacao de uma ImageRef e dispara um repaint quando carrega.
    * Reentrante: chamadas repetidas para o mesmo `part` reaproveitam o HTMLImageElement.
@@ -11080,92 +13319,30 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   getSlideIndex() {
     return this.index;
   }
+  /**
+   * Vai ao slide `i`. Na apresentação, pula para ele (entra pela transição);
+   * na reprodução automática, para a reprodução; na navegação, só troca.
+   */
   selectSlide(i2) {
-    if (i2 < 0 || i2 >= this.slides.length || i2 === this.index) return;
-    if (this.auto) this.stopPlayback();
-    this.stopAnimation();
-    const target = this.slides[i2];
-    if (target?.transition) {
-      const ctx = this.canvas.getContext("2d");
-      if (ctx) {
-        try {
-          this.trans.prevImage = ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-          this.trans.startMs = (window.performance ?? Date).now();
-          this.trans.durMs = target.transition.durMs;
-          this.trans.type = target.transition.type;
-        } catch {
-          this.trans.prevImage = null;
-        }
-      }
+    if (this.show) {
+      this.showCommand((ss, now) => ss.goTo(i2, now));
+      return;
     }
+    if (i2 < 0 || i2 >= this.slides.length || i2 === this.index) return;
+    this.stopPlayback();
     this.index = i2;
     this.paint();
-    this.startTransitionPlayback();
-    this.startAnimation();
     this.dispatchEvent(new CustomEvent("us-slide", { detail: { index: i2 } }));
   }
+  /** Próximo — na apresentação, o próximo passo "ao clicar" (ou slide). */
   next() {
-    this.selectSlide(Math.min(this.slides.length - 1, this.index + 1));
+    if (this.show) this.showCommand((ss, now) => ss.next(now));
+    else this.selectSlide(Math.min(this.slides.length - 1, this.index + 1));
   }
+  /** Anterior — na apresentação, desfaz o último passo (ou volta um slide). */
   prev() {
-    this.selectSlide(Math.max(0, this.index - 1));
-  }
-  /** RAF loop que pinta a transição até completar, depois libera o snapshot. */
-  startTransitionPlayback() {
-    if (this.trans.startMs == null || !this.trans.prevImage) return;
-    const tick = () => {
-      if (this.trans.startMs == null) return;
-      const dt = (window.performance ?? Date).now() - this.trans.startMs;
-      if (dt >= this.trans.durMs) {
-        this.trans.prevImage = null;
-        this.trans.startMs = null;
-        this.paint();
-        return;
-      }
-      this.paint();
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }
-  /**
-   * Auto-play da timeline do slide atual. Chama paint() via RAF até o último
-   * efeito terminar. Sem animacoes → noop.
-   */
-  startAnimation() {
-    const slide = this.slides[this.index];
-    if (!slide?.animations || slide.animations.length === 0) return;
-    this.animPlay.startMs = (window.performance ?? Date).now();
-    const lastEnd = Math.max(...slide.animations.map((a) => a.delayMs + a.durMs));
-    const tick = () => {
-      if (this.animPlay.startMs == null) return;
-      const tMs = (window.performance ?? Date).now() - this.animPlay.startMs;
-      this.paint();
-      if (tMs < lastEnd) this.animPlay.rafId = requestAnimationFrame(tick);
-      else this.animPlay.startMs = null;
-    };
-    this.animPlay.rafId = requestAnimationFrame(tick);
-  }
-  /** Para qualquer animação em curso (cancela o RAF). */
-  stopAnimation() {
-    if (this.animPlay.rafId) cancelAnimationFrame(this.animPlay.rafId);
-    this.animPlay.startMs = null;
-    this.animPlay.rafId = 0;
-  }
-  /**
-   * Opacidade computada de uma shape no instante t da timeline. Sem animacao
-   * para essa shape → opaca. Antes do delay → invisível. Durante o ramp →
-   * linear; após o fim → opaca.
-   */
-  shapeOpacity(shape, slide) {
-    if (!slide.animations || slide.animations.length === 0) return 1;
-    if (this.animPlay.startMs == null) return 1;
-    const t = (window.performance ?? Date).now() - this.animPlay.startMs;
-    const entry = slide.animations.find((a) => a.spid === shape.id);
-    if (!entry) return 1;
-    if (t < entry.delayMs) return 0;
-    if (t >= entry.delayMs + entry.durMs) return 1;
-    const f = (t - entry.delayMs) / entry.durMs;
-    return entry.type === "fade" ? f : 1;
+    if (this.show) this.showCommand((ss, now) => ss.prev(now));
+    else this.selectSlide(Math.max(0, this.index - 1));
   }
   // ───────────────────────── REPRODUÇÃO AUTOMÁTICA ─────────────────────────
   /**
@@ -11179,10 +13356,8 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
    * Emite `us-slide` a cada troca e `us-playback-end` ao terminar.
    */
   play(opts = {}) {
-    this.stopAnimation();
+    this.stopPresentation();
     this.stopPlayback();
-    this.trans.prevImage = null;
-    this.trans.startMs = null;
     const tl = buildPlaybackTimeline(this.slides.map((s) => s.timing), opts);
     this.media.mode = opts.media ?? "realtime";
     this.media.clock = tl.tickMs > 0 ? { latencyMs: 2 * tl.tickMs, scale: tl.mediaClock } : {};
@@ -11242,6 +13417,17 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     await this.media.seekAll();
     return this.media.signature();
   }
+  /** Vídeo em tela cheia tocando: cobre o slide inteiro (barras pretas se a proporção diferir). */
+  paintFullScreenVideo(ctx, fit) {
+    const v = this.media.fullScreen;
+    if (!v || !this.pres) return;
+    const w = this.pres.slideW * fit.scale, h = this.pres.slideH * fit.scale;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(fit.ox, fit.oy, w, h);
+    const vw = v.videoWidth || w, vh = v.videoHeight || h;
+    const k = Math.min(w / vw, h / vh);
+    ctx.drawImage(v, fit.ox + (w - vw * k) / 2, fit.oy + (h - vh * k) / 2, vw * k, vh * k);
+  }
   /** Canvas de trabalho do tamanho do canvas principal. */
   workCanvas(c) {
     const cv = c ?? document.createElement("canvas");
@@ -11249,15 +13435,18 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     if (cv.height !== this.canvas.height) cv.height = this.canvas.height;
     return cv;
   }
-  /** Pinta um slide da linha do tempo num contexto, no tempo de animação `animMs`. */
-  paintPlaybackSlide(ctx, ps, animMs, fit) {
+  /**
+   * Pinta um slide da linha do tempo num contexto, no tempo de animação
+   * `animMs`. `media = false`: vídeo/GIF ficam na capa (imagem congelada).
+   */
+  paintPlaybackSlide(ctx, ps, animMs, fit, media = true) {
     const slide = this.slides[ps.index];
     if (!slide || !this.pres) return;
     const bg = new Set(slide.timing?.animBg ?? []);
     const actx = { animBg: (spid) => bg.has(spid) };
     const mediaInfo = new Map((slide.timing?.media ?? []).map((m) => [m.spid, m]));
     const bytes = (part) => this.pkg?.getPart(part);
-    const hasMedia = slide.shapes.some((sh) => sh.media || sh.image?.mime === "image/gif");
+    const hasMedia = media && slide.shapes.some((sh) => sh.media || sh.image?.mime === "image/gif");
     paintSlideTo(ctx, slide, {
       slideW: this.pres.slideW,
       slideH: this.pres.slideH,
@@ -11267,45 +13456,81 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
       ox: fit.ox,
       oy: fit.oy,
       // motor SMIL: cada forma toca os comportamentos gravados no arquivo
-      shapeAnim: (sh) => sh.inherited || !ps.effects.length ? null : shapeAnimHooks(ps.effects, sh.groupIds ? [sh.id, ...sh.groupIds] : [sh.id], animMs, actx),
+      shapeAnim: (sh) => sh.inherited || !ps.effects.length ? null : shapeAnimHooks(
+        ps.effects,
+        sh.groupIds ? [sh.id, ...sh.groupIds] : [sh.id],
+        animMs,
+        sh.dgmId ? { ...actx, dgmId: sh.dgmId } : actx
+      ),
       // vídeo tocando / quadro do GIF no lugar da capa
       ...hasMedia ? {
-        mediaFrame: (sh) => {
-          if (sh.inherited) return null;
-          const mi = mediaInfo.get(sh.id);
-          return this.media.frame(sh, ps, animMs, bytes, mi?.vol ?? 1, mi?.mute ?? false);
-        },
+        mediaFrame: (sh) => sh.inherited ? null : this.media.frame(sh, ps, animMs, bytes, mediaInfo.get(sh.id)),
         // "ocultar enquanto não estiver tocando" (cMediaNode showWhenStopped="0")
-        shapeOpacity: (sh) => sh.media && mediaInfo.get(sh.id)?.showWhenStopped === false && !this.media.isPlaying(sh, ps, animMs) ? 0 : 1
+        shapeOpacity: (sh) => {
+          const mi = sh.media ? mediaInfo.get(sh.id) : void 0;
+          return mi?.showWhenStopped === false && !this.media.isPlaying(sh, ps, animMs, !!mi.loop) ? 0 : 1;
+        }
       } : {}
     });
   }
-  /**
-   * Quadro da reprodução automática: slide em cena no estado de animação do
-   * instante atual; durante a transição, compõe ORIGEM (slide anterior no
-   * estado final, ou preto no 1º slide) × DESTINO. v1: esmaecer cruzado;
-   * `thruBlk` passa pelo preto; corte seco é instantâneo (transitionMs = 0).
-   */
+  /** Quadro da reprodução automática: o instante atual da linha do tempo, no palco. */
   paintPlayback(ctx) {
     const a = this.auto;
+    const st = this.pres ? playbackStateAt(a.tl, this.now() - a.t0) : null;
+    if (st?.slide && st.pos !== a.pos) {
+      a.pos = st.pos;
+      this.index = st.slide.index;
+      this.dispatchEvent(new CustomEvent("us-slide", { detail: { index: st.slide.index } }));
+    }
+    this.paintStage(
+      ctx,
+      st?.slide ?? null,
+      st?.animMs ?? 0,
+      st?.transitionProgress ?? 1,
+      st?.from ? { slide: st.from, animMs: Infinity, key: `a${st.from.index}`, media: true } : null
+    );
+  }
+  /** Quadro da apresentação, no palco; na tela de fim, o aviso sobre o preto. */
+  paintShow(ctx) {
+    const f = this.show.ss.frame(this.now());
+    const o = f.from;
+    this.paintStage(
+      ctx,
+      f.slide,
+      f.animMs,
+      f.transitionProgress,
+      o ? { slide: o.slide, animMs: o.animMs, key: `p${o.key}`, media: false } : null
+    );
+    if (!f.ended) return;
+    const W = this.canvas.clientWidth;
+    ctx.save();
+    ctx.fillStyle = "#fff";
+    ctx.font = '600 12px "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(this.endOfShowText, W / 2, 5);
+    ctx.restore();
+    this.media.syncRealtime();
+  }
+  /**
+   * PALCO da apresentação e da reprodução: fundo preto, slide encaixado sem
+   * margem, no tempo de animação `animMs`. Durante a transição compõe ORIGEM
+   * (`from`; null = preto) × DESTINO — `thruBlk` passa pelo preto; corte seco
+   * é instantâneo (progresso 1). `from.key` identifica a imagem de origem
+   * (pintada uma vez por passagem).
+   */
+  paintStage(ctx, slide, animMs, progress, from) {
     const dpr = window.devicePixelRatio || 1;
     const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, W, H);
-    if (!this.pres) return;
-    const st = playbackStateAt(a.tl, (window.performance ?? Date).now() - a.t0);
-    if (!st.slide) return;
-    if (st.pos !== a.pos) {
-      a.pos = st.pos;
-      this.index = st.slide.index;
-      this.dispatchEvent(new CustomEvent("us-slide", { detail: { index: st.slide.index } }));
-    }
-    const scale = Math.min(W / this.pres.slideW, H / this.pres.slideH);
-    const fit = { scale, ox: (W - this.pres.slideW * scale) / 2, oy: (H - this.pres.slideH * scale) / 2 };
-    const p = st.transitionProgress;
-    if (p >= 1) {
-      this.paintPlaybackSlide(ctx, st.slide, st.animMs, fit);
+    const fit = this.fit();
+    if (!slide || !fit || !this.pres) return;
+    this.media.fullScreen = null;
+    if (progress >= 1) {
+      this.paintPlaybackSlide(ctx, slide, animMs, fit);
+      this.paintFullScreenVideo(ctx, fit);
       if (this.media.mode === "realtime") this.media.syncRealtime();
       return;
     }
@@ -11314,27 +13539,27 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     tctx.fillStyle = "#000";
     tctx.fillRect(0, 0, W, H);
-    this.paintPlaybackSlide(tctx, st.slide, st.animMs, fit);
-    const from = this.fromCanvas = this.workCanvas(this.fromCanvas);
-    const key = `${st.from?.index ?? -1}:${from.width}x${from.height}`;
+    this.paintPlaybackSlide(tctx, slide, animMs, fit);
+    const fromCv = this.fromCanvas = this.workCanvas(this.fromCanvas);
+    const key = `${from?.key ?? "preto"}:${fromCv.width}x${fromCv.height}`;
     if (key !== this.fromKey) {
-      const fctx = from.getContext("2d");
+      const fctx = fromCv.getContext("2d");
       fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       fctx.fillStyle = "#000";
       fctx.fillRect(0, 0, W, H);
-      if (st.from) this.paintPlaybackSlide(fctx, st.from, Infinity, fit);
+      if (from) this.paintPlaybackSlide(fctx, from.slide, from.animMs, fit, from.media);
       this.fromKey = key;
     }
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    const tr = st.slide.transition ?? { type: "fade", ns: "p", attrs: {}, durMs: 0, advClick: true };
+    const tr = slide.transition ?? { type: "fade", ns: "p", attrs: {}, durMs: 0, advClick: true };
     const rect = {
       x: fit.ox * dpr,
       y: fit.oy * dpr,
       w: this.pres.slideW * fit.scale * dpr,
       h: this.pres.slideH * fit.scale * dpr
     };
-    paintTransition(ctx, from, to, tr, p, rect, this.canvas.width, this.canvas.height);
+    paintTransition(ctx, fromCv, to, tr, progress, rect, this.canvas.width, this.canvas.height);
     ctx.restore();
     if (this.media.mode === "realtime") this.media.syncRealtime();
   }
@@ -11393,6 +13618,18 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   }
   onKeyDown = (e) => {
     if (this.isEditing()) return;
+    if (this.show) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key;
+      if (k === "Escape") this.stopPresentation();
+      else if (NEXT_KEYS.has(k)) this.next();
+      else if (PREV_KEYS.has(k)) this.prev();
+      else if (k === "Home") this.showCommand((ss, now) => ss.first(now));
+      else if (k === "End") this.showCommand((ss, now) => ss.last(now));
+      else return;
+      e.preventDefault();
+      return;
+    }
     if (this.auto && e.key === "Escape") {
       this.stopPlayback();
       e.preventDefault();
@@ -11422,7 +13659,9 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     if (hit) {
       window.open(hit, "_blank", "noopener");
       e.preventDefault();
+      return;
     }
+    if (this.show && e.button === 0) this.showCommand((ss, now) => ss.next(now, true));
   };
   onMouseMove = (e) => {
     if (this.isEditing()) return;
@@ -11430,6 +13669,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   };
   /** Devolve a primeira URL de hyperlink sob (clientX, clientY) ou null. */
   hitTestHyperlink(e) {
+    if (this.show?.ss.ended) return null;
     const slide = this.slides[this.index];
     const fit = this.fit();
     if (!slide || !fit) return null;
@@ -11458,12 +13698,16 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
   }
-  /** Geometria de encaixe do slide no canvas (origem + escala EMU→px). */
+  /**
+   * Geometria de encaixe do slide no canvas (origem + escala EMU→px). No
+   * palco (apresentação/reprodução) o slide encosta nas bordas.
+   */
   fit() {
     if (!this.pres) return null;
     const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
-    const margin = 16;
+    const margin = this.auto || this.show ? 0 : 16;
     const aw = W - margin * 2, ah = H - margin * 2;
+    if (aw <= 0 || ah <= 0) return null;
     const scale = Math.min(aw / this.pres.slideW, ah / this.pres.slideH);
     const sw = this.pres.slideW * scale, sh = this.pres.slideH * scale;
     return { ox: (W - sw) / 2, oy: (H - sh) / 2, scale, sw, sh };
@@ -11473,6 +13717,10 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     if (!ctx) return;
     if (this.auto) {
       this.paintPlayback(ctx);
+      return;
+    }
+    if (this.show) {
+      this.paintShow(ctx);
       return;
     }
     const dpr = window.devicePixelRatio || 1;
@@ -11489,11 +13737,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
       this.badge.textContent = "";
       return;
     }
-    const paintOpts = {
-      ox: fit.ox,
-      oy: fit.oy,
-      shapeOpacity: (sh) => this.shapeOpacity(sh, slide)
-    };
+    const paintOpts = { ox: fit.ox, oy: fit.oy };
     const suppress = this.suppressTextIdx();
     if (suppress !== void 0) paintOpts.suppressTextShapeIdx = suppress;
     paintSlideTo(ctx, slide, {
@@ -11505,22 +13749,6 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     ctx.strokeStyle = "rgba(0,0,0,.35)";
     ctx.lineWidth = 1;
     ctx.strokeRect(fit.ox + 0.5, fit.oy + 0.5, fit.sw - 1, fit.sh - 1);
-    if (this.trans.prevImage && this.trans.startMs != null) {
-      const dt = (window.performance ?? Date).now() - this.trans.startMs;
-      const f = Math.max(0, Math.min(1, dt / this.trans.durMs));
-      const overlay = document.createElement("canvas");
-      overlay.width = this.canvas.width;
-      overlay.height = this.canvas.height;
-      const octx = overlay.getContext("2d");
-      if (octx) {
-        octx.putImageData(this.trans.prevImage, 0, 0);
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.globalAlpha = 1 - f;
-        ctx.drawImage(overlay, 0, 0);
-        ctx.restore();
-      }
-    }
     this.badge.textContent = `${this.index + 1} / ${this.slides.length}`;
   }
 };
@@ -11810,25 +14038,11 @@ function play(from) {
   pv.style.cssText = "position:fixed;inset:0;z-index:100;background:#000;";
   document.body.appendChild(pv);
   pv.loadPptx(savedBytes);
-  pv.selectSlide(from);
-  const close = () => {
+  pv.addEventListener("us-present-end", () => {
     pv.remove();
-    document.removeEventListener("fullscreenchange", onFsChange);
-    document.removeEventListener("keydown", onKey, true);
     us.selectSlide(pv.getSlideIndex());
-  };
-  const onFsChange = () => {
-    if (!document.fullscreenElement) close();
-  };
-  const onKey = (e) => {
-    if (e.key === "Escape" && !document.fullscreenElement) {
-      e.preventDefault();
-      close();
-    }
-  };
-  document.addEventListener("fullscreenchange", onFsChange);
-  document.addEventListener("keydown", onKey, true);
-  pv.present();
+  }, { once: true });
+  pv.present(from);
 }
 $("prev").addEventListener("click", () => us.prev());
 $("next").addEventListener("click", () => us.next());

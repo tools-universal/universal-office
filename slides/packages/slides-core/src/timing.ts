@@ -53,12 +53,23 @@ export interface AnimTarget {
   charRange?: [number, number];
   /** Sub-alvo (`bg`, `subSp`, `oleChartEl`, `inkTgt`) — informativo. */
   sub?: string;
+  /** Parte de GRÁFICO (`<p:graphicEl><a:chart seriesIdx categoryIdx bldStep>`); −3 = fundo, −4 = todos. */
+  chart?: { series: number; category: number; step: string };
+  /**
+   * Parte de SmartArt (`<p:graphicEl><a:dgm id>`): `modelId` da FORMA do
+   * desenho (ponto "pres"). Medido no app: o id do nó de dados não anima nada.
+   */
+  dgm?: string;
 }
 
 /** Condição de início (`<p:cond>`): `delayMs = null` ⇒ "indefinite" (espera evento). */
 export interface TimeCond {
   delayMs: number | null;
   evt?: string;
+  /** Alvo do evento (`<p:tgtEl><p:spTgt spid>` / `<p14:bmkTgt spid bmkName>`). */
+  spid?: string;
+  /** Marcador de mídia (`onMediaBookmark`). */
+  bookmark?: string;
 }
 
 /** Nó da árvore de tempo — container (`par/seq/excl`) ou comportamento. */
@@ -128,6 +139,8 @@ export interface TimeNode {
   rAng?: number;
   origin?: string;
   pathEditMode?: string;
+  /** Eventos que ENCERRAM o nó (`<p:endCondLst>`), ex.: onNext = "até o próximo clique". */
+  endEvts?: string[];
   /** `<p:cmd type cmd>`: comando de mídia/verbo (playFrom(0.0), togglePause…). */
   cmd?: string;
   cmdType?: string;
@@ -162,6 +175,8 @@ export interface EffectTiming {
   filter?: string;
   /** O efeito usa `animMotion` (trajetória). */
   motion?: boolean;
+  /** Termina no PRÓXIMO CLIQUE (`<p:endCondLst><p:cond evt="onNext">`), ex.: repetir até o clique. */
+  endOnNext?: boolean;
   node: TimeNode;
 }
 
@@ -188,6 +203,23 @@ export interface SlideTimingModel {
   animBg?: string[];
   /** Nós de mídia (`<p:video>`/`<p:audio>`): volume, mudo, "ocultar quando parado". */
   media?: SlideMediaInfo[];
+  /**
+   * Sequências disparadas por MARCADOR de mídia (`onMediaBookmark`): tocam
+   * sozinhas quando a mídia passa pelo marcador. `timeMs` (posição do
+   * marcador no arquivo) é resolvido por quem conhece as formas (read.ts).
+   */
+  bookmarkTriggers?: BookmarkTrigger[];
+}
+
+/** Efeitos disparados quando a mídia `spid` passa pelo marcador `bookmark`. */
+export interface BookmarkTrigger {
+  spid: string;
+  bookmark: string;
+  /** Posição do marcador no arquivo de mídia (ms). */
+  timeMs?: number;
+  /** Início do corte da mídia (`p14:trim st`), ms — o marcador conta do arquivo. */
+  trimStartMs?: number;
+  effects: EffectTiming[];
 }
 
 /** Opções de reprodução de uma mídia do slide (`<p:cMediaNode>`). */
@@ -199,6 +231,12 @@ export interface SlideMediaInfo {
   mute?: boolean;
   /** false = "ocultar enquanto não estiver tocando". */
   showWhenStopped?: boolean;
+  /** "Retroceder após a reprodução" (`fill="remove"` no nó): volta à capa ao terminar. */
+  rewind?: boolean;
+  /** "Repetir até parar" (`repeatCount="indefinite"` no nó). */
+  loop?: boolean;
+  /** "Reproduzir em tela cheia" (`<p:video fullScrn="1">`). */
+  fullScreen?: boolean;
 }
 
 /** Conta unidades de texto (palavras/letras) do alvo — para `<p:iterate>`. */
@@ -267,6 +305,11 @@ function parseConds(lst: XmlElement | undefined): TimeCond[] {
     const d = c.attrs['delay'];
     const cond: TimeCond = { delayMs: d === undefined ? 0 : d === 'indefinite' ? null : (parseFloat(d) || 0) };
     if (c.attrs['evt']) cond.evt = c.attrs['evt'];
+    const tgt = firstChild(c, 'p:tgtEl');
+    if (tgt) for (const t of childElements(tgt)) {
+      if (t.attrs['spid']) cond.spid = t.attrs['spid'];
+      if (t.attrs['bmkName'] !== undefined) cond.bookmark = t.attrs['bmkName'];
+    }
     return cond;
   });
 }
@@ -278,7 +321,10 @@ function parseCTn(tag: string, cTn: XmlElement): TimeNode {
   const dur = num(a['dur']);
   if (dur !== undefined) node.dur = dur;
   const rc = num(a['repeatCount']);
-  if (rc !== undefined) node.repeat = rc === Infinity ? Infinity : rc / 1000;
+  // contagens absurdas (FLT_MAX vindo de binário) também são "indefinido"
+  if (rc !== undefined) node.repeat = rc === Infinity || rc >= 1e12 ? Infinity : rc / 1000;
+  const ends = parseConds(firstChild(cTn, 'p:endCondLst')).map((c) => c.evt).filter((e): e is string => !!e);
+  if (ends.length) node.endEvts = ends;
   if (a['autoRev'] === '1' || a['autoRev'] === 'true') node.autoRev = true;
   const accel = num(a['accel']); if (accel) node.accel = accel / 100000;
   const decel = num(a['decel']); if (decel) node.decel = decel / 100000;
@@ -321,6 +367,13 @@ function parseTarget(tgtEl: XmlElement | undefined): AnimTarget | undefined {
   }
   for (const k of ['p:bg', 'p:subSp', 'p:oleChartEl', 'p:inkTgt', 'p:graphicEl']) {
     if (firstChild(sp, k)) t.sub = k.slice(2);
+  }
+  const ge = firstChild(sp, 'p:graphicEl');
+  if (ge) {
+    const ch = firstChild(ge, 'a:chart');
+    const dg = firstChild(ge, 'a:dgm');
+    if (ch) t.chart = { series: parseInt(ch.attrs['seriesIdx'] ?? '-1', 10), category: parseInt(ch.attrs['categoryIdx'] ?? '-1', 10), step: ch.attrs['bldStep'] ?? 'allPts' };
+    if (dg?.attrs['id']) t.dgm = dg.attrs['id'];
   }
   return t;
 }
@@ -588,6 +641,7 @@ function collectEffects(n: TimeNode, t0: number, ctx: TimingEvalCtx, out: Effect
     const ae = firstOf(n, 'animEffect');
     if (ae?.filter) fx.filter = ae.filter;
     if (firstOf(n, 'animMotion')) fx.motion = true;
+    if (n.endEvts?.includes('onNext')) fx.endOnNext = true;
     out.push(fx);
     return;
   }
@@ -620,6 +674,14 @@ function firstNodeType(n: TimeNode): string | undefined {
 }
 
 /**
+ * Atraso de cada elo "após o anterior" (ms): o app dispara o seguinte no ms
+ * DEPOIS do fim do anterior. Medido pela fase do esmaecer (`slide-phase.py`):
+ * só os slides cujo fim cai logo antes de um tick (3001 ms, 6500 ms com 5–12
+ * elos) duram 1 quadro a mais no export.
+ */
+export const AFTER_LINK_MS = 1;
+
+/**
  * Efeitos de um grupo de clique: sub-grupos "após o anterior" começam quando
  * o sub-grupo anterior TERMINA (encadeamento dinâmico do app), não no `delay`
  * gravado; os demais usam o próprio `delay`. Devolve o fim do grupo.
@@ -630,7 +692,7 @@ function collectGroup(group: TimeNode, t0: number, ctx: TimingEvalCtx, out: Effe
   group.children.forEach((sub, i) => {
     const b = beginOffset(sub);
     if (b === null) return;
-    const start = i > 0 && firstNodeType(sub) === 'afterEffect' ? prevEnd : t0 + b;
+    const start = i > 0 && firstNodeType(sub) === 'afterEffect' ? prevEnd + AFTER_LINK_MS : t0 + b;
     collectEffects(sub, start, ctx, out);
     prevEnd = start + blockDur(sub, ctx);
     end = Math.max(end, prevEnd);
@@ -698,6 +760,9 @@ export function parseSlideTiming(sld: XmlElement, units: CountTextUnits, color?:
       if (n.media?.vol !== undefined) m.vol = n.media.vol;
       if (n.media?.mute !== undefined) m.mute = n.media.mute;
       if (n.media?.showWhenStopped !== undefined) m.showWhenStopped = n.media.showWhenStopped;
+      if (n.fill === 'remove') m.rewind = true;
+      if (n.repeat === Infinity) m.loop = true;
+      if (n.media?.fullScrn) m.fullScreen = true;
       media.push(m);
     }
     for (const c of n.children) findMedia(c);
@@ -731,7 +796,15 @@ export function parseSlideTiming(sld: XmlElement, units: CountTextUnits, color?:
       });
       flush();
     } else if (seq.nodeType === 'interactiveSeq') {
-      for (const c of seq.children) collectGroup({ ...c, st: [] }, 0, ctx, model.interactive);
+      const bmk = seq.st.find((c) => c.evt === 'onMediaBookmark' && c.spid && c.bookmark !== undefined);
+      if (bmk) {
+        // marcador de mídia: dispara sozinho quando a mídia passa pelo ponto
+        const effects: EffectTiming[] = [];
+        for (const c of seq.children) collectGroup({ ...c, st: [] }, 0, ctx, effects);
+        (model.bookmarkTriggers ??= []).push({ spid: bmk.spid!, bookmark: bmk.bookmark!, effects });
+      } else {
+        for (const c of seq.children) collectGroup({ ...c, st: [] }, 0, ctx, model.interactive);
+      }
     }
   }
   return model;

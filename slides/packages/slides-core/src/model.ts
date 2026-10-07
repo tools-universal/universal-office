@@ -76,6 +76,12 @@ export interface MediaRef {
   url?: string;
   /** MIME pela extensão (video/mp4, audio/wav…). */
   mime: string;
+  /** Corte (`p14:trim`): ms cortados do INÍCIO e do FIM do arquivo. */
+  trim?: { startMs: number; endMs: number };
+  /** Esmaecer (`p14:fade`): entrada/saída em ms (o vídeo surge/some sobre a capa). */
+  fade?: { inMs: number; outMs: number };
+  /** Marcadores (`p14:bmkLst`): nome → posição no arquivo (ms). */
+  bookmarks?: { name: string; timeMs: number }[];
 }
 
 /** Geometria de uma forma (<a:xfrm>) em EMU. */
@@ -144,6 +150,8 @@ export interface TextBody {
   insT?: number;
   insR?: number;
   insB?: number;
+  /** Texto vertical (`<a:bodyPr vert>` / `<a:tcPr vert>`): vert (90°), vert270, eaVert… */
+  vert?: string;
   /** Colunas de texto (`<a:bodyPr numCol spcCol>`); spcCol em EMU. */
   numCol?: number;
   spcCol?: number;
@@ -162,8 +170,12 @@ export interface Shape {
   isTextBox?: boolean;
   xfrm?: Xfrm;
   geom?: string;     // prstGeom prst (rect, ellipse, roundRect, …)
+  /** `<a:grpFill/>`: o preenchimento é o do GRUPO pai (resolvido na leitura do grupo). */
+  grpFill?: boolean;
   /** Adjust values do prstGeom (`<a:avLst><a:gd fmla="val N">`), na ordem. */
   adj?: number[];
+  /** Nomes dos adjust values (`<a:gd name>`), paralelos a `adj`. */
+  adjNames?: string[];
   /** Geometria custom (`<a:custGeom>`, freeforms): paths em unidades w×h próprias. */
   custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][] };
   fill?: Fill;
@@ -179,6 +191,11 @@ export interface Shape {
   /** Imagem embutida (<p:pic>) com bytes ja resolvidos via rels. */
   image?: ImageRef;
   /**
+   * Forma do desenho de um SmartArt: `modelId` do `dsp:sp` (o ponto "pres" do
+   * modelo de dados) — é o id que a animação por partes (`<a:dgm id>`) nomeia.
+   */
+  dgmId?: string;
+  /**
    * Vídeo/áudio do `<p:pic>` (`p14:media r:embed` / `a:videoFile`): a imagem
    * acima é a CAPA; a reprodução troca pelos quadros da mídia (media.ts).
    */
@@ -191,6 +208,14 @@ export interface Shape {
   chartXml?: string;
   /** Paleta default do chart = accents 1..6 do TEMA (séries sem spPr). */
   chartPalette?: string[];
+  /** Tema da apresentação: resolve cores (schemeClr) e fontes (+mn-lt) do gráfico. */
+  chartTheme?: Theme;
+  /**
+   * Fundo da área do gráfico (`<c:chartSpace><c:spPr>`): null = sem
+   * preenchimento (padrão dos gráficos inseridos no PowerPoint 2013+);
+   * ausente = branco.
+   */
+  chartBg?: string | null;
   /** Tabela embutida (`<a:tbl>` dentro de `<p:graphicFrame>`). */
   table?: Table;
   /**
@@ -253,6 +278,17 @@ export interface TableCell {
   };
   /** Anchor vertical do txBody (t/ctr/b). */
   anchor?: string;
+  /** Texto vertical da célula (`<a:tcPr vert>`). */
+  vert?: string;
+  /** `<a:tcPr><a:noFill/>` explícito: anula o preenchimento do estilo da tabela. */
+  noFill?: boolean;
+  /** Lados com `<a:lnX><a:noFill/>` explícito: anulam a borda do estilo. */
+  borderNone?: { l?: boolean; r?: boolean; t?: boolean; b?: boolean };
+  /** Margens internas da célula em EMU (`<a:tcPr marL marR marT marB>`); ausentes = 0,1"/0,05". */
+  marL?: number;
+  marR?: number;
+  marT?: number;
+  marB?: number;
   /** Cor default do texto vinda do ESTILO da tabela (tcTxStyle). */
   txColor?: string;
   /** Negrito default vindo do estilo da tabela (firstRow etc.). */

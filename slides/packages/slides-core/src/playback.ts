@@ -1,4 +1,5 @@
 import type { AnimStep, EffectTiming, SlideTimingModel, SlideTransitionInfo } from './timing.js';
+import { mediaCommands } from './media.js';
 
 /**
  * Linha do tempo da REPRODUÇÃO AUTOMÁTICA (apresentação com intervalos, como
@@ -47,8 +48,13 @@ export interface PlaybackOptions {
 export interface PlacedEffect extends EffectTiming {
   /** Início relativo ao INÍCIO DAS ANIMAÇÕES do slide (fim da transição), ms. */
   t0: number;
-  /** Passo (índice em `SlideTimingModel.steps`). */
+  /** Passo (índice em `SlideTimingModel.steps`); −1 = disparado por marcador de mídia. */
   step: number;
+  /**
+   * Fim forçado (mesma base de `t0`): "até o próximo clique" termina quando o
+   * passo seguinte dispara (ou no fim do slide). Ausente = fim natural.
+   */
+  endAt?: number;
 }
 
 export interface PlaybackSlide {
@@ -81,10 +87,68 @@ export interface PlaybackTimeline {
 }
 
 /** Transições sem animação de quadro (troca seca). "Cortar pelo preto" tem duração (preto). */
-function instantTransition(tr: SlideTransitionInfo | undefined): boolean {
+export function instantTransition(tr: SlideTransitionInfo | undefined): boolean {
   if (!tr || tr.type === 'none') return true;
   if (tr.type === 'cut') return !(tr.attrs['thruBlk'] === '1' || tr.attrs['thruBlk'] === 'true');
   return false;
+}
+
+/**
+ * Início de passo AINDA NÃO DISPARADO (apresentação por clique): longe o
+ * bastante para nunca chegar — o efeito fica no estado inicial (entrada
+ * oculta). Passos pendentes ficam em ordem (`+ passo · 1e7`).
+ */
+export const STEP_PENDING = 1e12;
+
+/**
+ * Efeitos de UM slide posicionados no tempo de animação (ms desde o início
+ * das animações), dados os inícios dos passos na mesma base — `undefined` =
+ * passo ainda não disparado. `endMs` (mesma base) encerra os "até o próximo
+ * clique" do último passo. Compartilhado pela reprodução automática
+ * (`buildPlaybackTimeline`) e pela apresentação por clique (`SlideShow`).
+ */
+export function placeSlideEffects(model: SlideTimingModel, stepStartMs: readonly (number | undefined)[], endMs: number,
+  clock: { tickMs?: number; mediaClock?: number } = {}): PlacedEffect[] {
+  const steps = model.steps;
+  const startOf = (si: number): number => stepStartMs[si] ?? STEP_PENDING + si * 1e7;
+  const effects: PlacedEffect[] = [];
+  steps.forEach((st, si) => {
+    // "até o próximo clique": acaba quando o passo seguinte começa (senão, no fim do slide)
+    const next = si + 1 < steps.length ? startOf(si + 1) : endMs;
+    const start = startOf(si);
+    for (const e of st.effects) {
+      const pe: PlacedEffect = { ...e, t0: start + e.startMs, step: si };
+      if (e.endOnNext) pe.endAt = next;
+      effects.push(pe);
+    }
+  });
+  // marcadores de mídia: o efeito dispara quando a mídia passa pelo ponto
+  // (comando playFrom + latência do export + posição do marcador no relógio da mídia)
+  const tick = clock.tickMs ?? 0;
+  const clockScale = clock.mediaClock ?? 1;
+  for (const bt of model.bookmarkTriggers ?? []) {
+    if (bt.timeMs === undefined) continue;
+    const play = mediaCommands(effects, bt.spid).find((c) => c.cmd.startsWith('playFrom'));
+    if (!play) continue;
+    const from = parseFloat(/playFrom\(\s*(-?[\d.]+)/.exec(play.cmd)?.[1] ?? '0') * 1000;
+    const mediaMs = bt.timeMs - (bt.trimStartMs ?? 0) - from;
+    if (mediaMs < 0 || (play.durMs !== undefined && mediaMs > play.durMs)) continue;
+    const at = play.atMs + (tick > 0 ? 2 * tick : 0) + mediaMs / clockScale;
+    for (const e of bt.effects) effects.push({ ...e, t0: at + e.startMs, step: -1 });
+  }
+  return effects;
+}
+
+/**
+ * Espera antes de cada passo "ao clicar" num slide com intervalo D: o que
+ * sobra, max(0, D − A) (A = soma das durações dos passos), em K+1 esperas
+ * iguais (K = passos por clique) — antes de cada clique e depois do último.
+ * Medido no export de vídeo e na apresentação ao vivo (f5-probe.ps1).
+ */
+export function clickWait(steps: readonly AnimStep[], D: number): number {
+  const total = steps.reduce((s, st) => s + st.durMs, 0);
+  const clicks = steps.filter((s) => !s.auto).length;
+  return Math.max(0, D - total) / (clicks + 1);
 }
 
 /** Monta a linha do tempo absoluta da apresentação (slides visíveis). */
@@ -92,6 +156,8 @@ export function buildPlaybackTimeline(models: (SlideTimingModel | undefined)[], 
   const useTimings = opts.useTimings ?? true;
   const defaultMs = opts.defaultSlideMs ?? 5000;
   const tick = Math.max(0, opts.tickMs ?? 0);
+  // relógio da mídia por ms da linha do tempo (export: 1/fps por quadro de tickMs)
+  const mediaClock = opts.transitionFps && tick > 0 ? 1000 / opts.transitionFps / tick : 1;
   const slides: PlaybackSlide[] = [];
   let cursor = 0;
   models.forEach((m, index) => {
@@ -99,7 +165,8 @@ export function buildPlaybackTimeline(models: (SlideTimingModel | undefined)[], 
     if (model.hidden) return;
     const tr = model.transition;
     let transitionMs = instantTransition(tr) ? 0 : Math.max(0, tr!.durMs);
-    if (transitionMs > 0 && opts.transitionFps && tick > 0) transitionMs = Math.round((transitionMs * opts.transitionFps) / 1000) * tick;
+    // quadros da transição: meio quadro arredonda p/ BAIXO (medido: 0,75 s = 22 quadros, não 23)
+    if (transitionMs > 0 && opts.transitionFps && tick > 0) transitionMs = Math.ceil((transitionMs * opts.transitionFps) / 1000 - 0.5) * tick;
     // export: o 1º quadro do vídeo é sempre PRETO — 1º slide com corte seco
     // entra 1 tick depois (o corte "do preto" dura 1 quadro)
     if (slides.length === 0 && tick > 0 && tr?.type === 'cut' && transitionMs === 0) transitionMs = tick;
@@ -107,15 +174,10 @@ export function buildPlaybackTimeline(models: (SlideTimingModel | undefined)[], 
     // 1º slide sem transição começa direto; senão as animações esperam 2 ticks
     const hasPhase = slides.length > 0 || (tr !== undefined && tr.type !== 'none');
     const animStartMs = startMs + transitionMs + (hasPhase ? 2 * tick : 0);
-    const recorded = useTimings && tr?.advTmMs !== undefined;
-    let D = recorded ? tr!.advTmMs! : defaultMs;
-    // export: a duração PADRÃO (slide sem intervalo gravado) conta quadros a fps/s,
-    // como a transição — 3 s = 90 quadros (medido: showcase, 1 quadro a menos por slide)
-    if (!recorded && opts.transitionFps && tick > 0) D = Math.round((D * opts.transitionFps) / 1000) * tick;
+    const D = useTimings && tr?.advTmMs !== undefined ? tr.advTmMs : defaultMs;
     const steps: AnimStep[] = model.steps;
     const total = steps.reduce((s, st) => s + st.durMs, 0);
-    const clicks = steps.filter((s) => !s.auto).length;
-    const wait = Math.max(0, D - total) / (clicks + 1);
+    const wait = clickWait(steps, D);
     const stepStartMs: number[] = [];
     let t = animStartMs;
     for (const st of steps) {
@@ -128,16 +190,12 @@ export function buildPlaybackTimeline(models: (SlideTimingModel | undefined)[], 
     // +1 tick quando as animações passam do intervalo (o slide espera a cadeia)
     if (tick > 0) t = Math.ceil(t / tick - 1e-9) * tick;
     if (steps.length && total >= D) t += tick;
-    const effects: PlacedEffect[] = [];
-    steps.forEach((st, si) => {
-      for (const e of st.effects) effects.push({ ...e, t0: stepStartMs[si]! - animStartMs + e.startMs, step: si });
-    });
+    const effects = placeSlideEffects(model, stepStartMs.map((s) => s - animStartMs), t - animStartMs, { tickMs: tick, mediaClock });
     slides.push({
       index, startMs, transition: tr ?? null, transitionMs, animStartMs, stepStartMs, endMs: t, effects,
     });
     cursor = t;
   });
-  const mediaClock = opts.transitionFps && tick > 0 ? 1000 / opts.transitionFps / tick : 1;
   return { slides, durationMs: cursor, tickMs: tick, mediaClock };
 }
 

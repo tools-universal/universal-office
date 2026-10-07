@@ -10,13 +10,13 @@
  *
  * Coordenadas: geometria do slide em EMU; `scale` converte EMU → px do canvas.
  */
-import { parseChart, paintChart, type ChartModel } from './chart-engine.js';
+import { parseChart, paintChart, chartPartBounds, type ChartModel, type ChartSel } from './chart-engine.js';
 import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine } from './text-layout.js';
 import { presetPath } from './geometry.js';
 import { lumHsl } from './theme.js';
 import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run } from './model.js';
 import type { ShapeAnimHooks, PartState, AnimBase } from './anim-engine.js';
-import { applyReveal } from './reveal.js';
+import { applyReveal, applySoftReveal, softRevealFilter } from './reveal.js';
 
 /** Tamanhos default (pt) quando a cascata não resolveu sz. */
 export const DEFAULT_TITLE_PT = 40;
@@ -61,8 +61,11 @@ export interface PaintSlideOptions {
    * Quadro de MÍDIA da forma (vídeo tocando, quadro atual de GIF animado) —
    * pintado no lugar da imagem do `<p:pic>`. null/undefined = imagem normal.
    */
-  mediaFrame?: (shape: Shape, index: number) => PaintImage | null | undefined;
+  mediaFrame?: (shape: Shape, index: number) => PaintImage | MediaFramePaint | null | undefined;
 }
+
+/** Quadro de mídia com opacidade: pintado SOBRE a capa (esmaecer de vídeo). */
+export interface MediaFramePaint { image: PaintImage; alpha: number }
 
 interface Fit { ox: number; oy: number; scale: number }
 
@@ -84,7 +87,7 @@ function boxBase(x: number, y: number, w: number, h: number, m: SlidePx, extra?:
  * filtros. Devolve false quando a parte está invisível (nada a pintar).
  */
 function applyPart(ctx: CanvasRenderingContext2D, st: PartState, base: AnimBase,
-  x: number, y: number, w: number, h: number, m: SlidePx, baseRotRad = 0): boolean {
+  x: number, y: number, w: number, h: number, m: SlidePx, baseRotRad = 0, soft?: SoftReveal[]): boolean {
   if (!st.visible || st.opacity <= 0) return false;
   const kx = (base.w > 0 ? st.w / base.w : 1) * st.sx;
   const ky = (base.h > 0 ? st.h / base.h : 1) * st.sy;
@@ -101,10 +104,58 @@ function applyPart(ctx: CanvasRenderingContext2D, st: PartState, base: AnimBase,
   }
   for (const f of st.filters) {
     const q = f.transition === 'out' ? 1 - f.p : f.p;
+    // borda esfumada: quem chama pinta numa camada e aplica a máscara
+    if (soft && q > 0 && q < 1 && softRevealFilter(f.filter)) { soft.push({ filter: f.filter, q }); continue; }
     ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, f.filter, q, x, y, w, h);
     if (ctx.globalAlpha <= 0) return false;
   }
   return true;
+}
+
+/** Revelação com borda esfumada pendente (aplicada como máscara numa camada). */
+interface SoftReveal { filter: string; q: number }
+
+type LayerCtx = CanvasRenderingContext2D & { canvas: { width: number; height: number } };
+const layerPool = new WeakMap<object, LayerCtx[]>();
+const layerBusy = new WeakSet<object>();
+
+/**
+ * Camada do tamanho do canvas de `ctx`, limpa e com a MESMA transformação
+ * (as coordenadas de pintura valem nas duas). null sem canvas/OffscreenCanvas
+ * (ex.: testes) — quem chama cai no recorte seco.
+ */
+function acquireLayer(ctx: CanvasRenderingContext2D): LayerCtx | null {
+  const c = (ctx as { canvas?: { width: number; height: number } }).canvas;
+  if (!c || !c.width || !c.height || typeof ctx.getTransform !== 'function') return null;
+  let pool = layerPool.get(c);
+  if (!pool) layerPool.set(c, pool = []);
+  let lc = pool.find((l) => !layerBusy.has(l) && l.canvas.width === c.width && l.canvas.height === c.height);
+  if (!lc) {
+    let cv: { getContext(k: '2d'): unknown } | undefined;
+    if (typeof OffscreenCanvas !== 'undefined') cv = new OffscreenCanvas(c.width, c.height);
+    else if (typeof document !== 'undefined') { const e = document.createElement('canvas'); e.width = c.width; e.height = c.height; cv = e; }
+    const got = cv?.getContext('2d') as LayerCtx | null | undefined;
+    if (!got) return null;
+    lc = got;
+    pool.push(lc);
+  }
+  layerBusy.add(lc);
+  lc.setTransform(1, 0, 0, 1, 0, 0);
+  lc.globalAlpha = 1;
+  lc.globalCompositeOperation = 'source-over';
+  lc.clearRect(0, 0, c.width, c.height);
+  lc.setTransform(ctx.getTransform());
+  return lc;
+}
+
+/** Aplica as máscaras esfumadas na camada, compõe em `ctx` (alfa e recorte de `ctx` valem) e a devolve ao pool. */
+function compositeLayer(ctx: CanvasRenderingContext2D, lc: LayerCtx, soft: SoftReveal[], x: number, y: number, w: number, h: number): void {
+  for (const s of soft) applySoftReveal(lc, s.filter, s.q, x, y, w, h);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(lc.canvas as unknown as CanvasImageSource, 0, 0);
+  ctx.restore();
+  layerBusy.delete(lc);
 }
 
 /** Cor do 1º run (ponto de partida de animações de cor do texto). */
@@ -154,6 +205,8 @@ export function paintSlideTo(
     const hooks = opts.shapeAnim && shp.xfrm ? opts.shapeAnim(shp, i) : null;
     ctx.save();
     if (op < 1) ctx.globalAlpha = ctx.globalAlpha * op;
+    const mf = opts.mediaFrame?.(shp, i) ?? undefined;
+    const frame = mf && 'image' in mf && 'alpha' in mf ? mf : mf ? { image: mf as PaintImage, alpha: 1 } : undefined;
     let anim: ShapeAnimPaint | undefined;
     if (hooks && shp.xfrm) {
       // camada "forma inteira": transforma fundo + texto em volta do centro
@@ -162,10 +215,22 @@ export function paintSlideTo(
       const rotDeg = (shp.xfrm.rot ?? 0) / 60000;
       const base = boxBase(x, y, w, h, m, { rot: rotDeg, fill: shp.fill?.color, line: shp.lineColor, text: firstRunColor(shp) });
       const all = hooks.all(base);
-      if (!applyPart(ctx, all, base, x, y, w, h, m, (rotDeg * Math.PI) / 180)) { ctx.restore(); continue; }
+      const soft: SoftReveal[] = [];
+      if (!applyPart(ctx, all, base, x, y, w, h, m, (rotDeg * Math.PI) / 180, soft)) { ctx.restore(); continue; }
       anim = { hooks, all, base, m };
+      if (soft.length) {
+        // revelar com borda esfumada: a forma vai para uma camada mascarada
+        const lc = acquireLayer(ctx);
+        if (lc) {
+          paintShape(lc, shp, fit, resources, opts.suppressTextShapeIdx === i, anim, frame);
+          compositeLayer(ctx, lc, soft, x, y, w, h);
+          ctx.restore();
+          continue;
+        }
+        for (const s of soft) ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, s.filter, s.q, x, y, w, h);
+      }
     }
-    paintShape(ctx, shp, fit, resources, opts.suppressTextShapeIdx === i, anim, opts.mediaFrame?.(shp, i) ?? undefined);
+    paintShape(ctx, shp, fit, resources, opts.suppressTextShapeIdx === i, anim, frame);
     ctx.restore();
   }
   ctx.restore();
@@ -189,7 +254,7 @@ function imgH(img: PaintImage): number {
 
 function paintShape(
   ctx: CanvasRenderingContext2D, sh: Shape, fit: Fit, res: PaintResources, suppressText: boolean,
-  anim?: ShapeAnimPaint, frame?: PaintImage,
+  anim?: ShapeAnimPaint, frame?: MediaFramePaint,
 ): void {
   if (!sh.xfrm) {
     // caixa de texto sem xfrm (raro) — desenha no canto sup. esq. do slide
@@ -226,6 +291,10 @@ function paintShape(
   if (fillOv) ov.fill = fillOv;
   if (lineOv) ov.line = lineOv;
   if (frame) ov.frame = frame;
+  if (anim?.hooks.chartParts && sh.chartXml) {
+    ov.chartParts = anim.hooks.chartParts;
+    ov.chartBase = { base: anim.base, m: anim.m };
+  }
   ctx.save();
   const bodyOn = !bgSt || applyPart(ctx, bgSt, anim!.base, x, y, w, h, anim!.m);
   const hostsText = bodyOn ? paintBody(ctx, sh, x, y, w, h, fit, res, ov) : !(sh.chartXml || sh.table || sh.image);
@@ -236,7 +305,12 @@ function paintShape(
 }
 
 /** Cores animadas do corpo da forma (animClr/set em fillcolor/stroke.color). */
-interface BodyOverrides { fill?: string; line?: string; frame?: PaintImage }
+interface BodyOverrides {
+  fill?: string; line?: string; frame?: MediaFramePaint;
+  /** Gráfico animado por partes: camadas (seleção + estado; null = estática) e a geometria-base da forma. */
+  chartParts?: { sel: ChartSel; state: ((base: AnimBase) => PartState | null) | null }[];
+  chartBase?: { base: AnimBase; m: SlidePx };
+}
 
 /**
  * Corpo da forma (gráfico, tabela, imagem ou preenchimento/sombra/contorno),
@@ -250,9 +324,38 @@ function paintBody(
   // <p:graphicFrame> com chart: pinta a engine de chart no xfrm.
   if (sh.chartXml) {
     let model = res.charts?.get(sh.chartXml);
-    if (!model) { model = parseChart(sh.chartXml); res.charts?.set(sh.chartXml, model); }
+    if (!model) { model = parseChart(sh.chartXml, sh.chartTheme); res.charts?.set(sh.chartXml, model); }
     if (!model.palette && sh.chartPalette) model.palette = sh.chartPalette;
-    paintChart(ctx, model, x, y, w, h, EMU_PER_POINT * fit.scale);
+    if (sh.chartBg !== undefined) model.bg = sh.chartBg;
+    const ppt = EMU_PER_POINT * fit.scale;
+    if (ov.chartParts && ov.chartBase) {
+      // por partes: cada camada (fundo / série / categoria / ponto) com o próprio
+      // estado, na PRÓPRIA caixa — a das marcas que desenha (medido: o "revelar"
+      // de uma série vai da base à coluna mais alta dela, não do quadro todo);
+      // o fundo (grade/legenda) usa o quadro do gráfico
+      const { base, m } = ov.chartBase;
+      for (const p of ov.chartParts) {
+        ctx.save();
+        let on = true;
+        if (p.state) {
+          const box = p.sel.bg ? { x, y, w, h } : chartPartBounds(ctx, model, x, y, w, h, ppt, p.sel);
+          const pb = p.sel.bg || !box ? base : boxBase(box.x, box.y, box.w, box.h, m);
+          const st = box ? p.state(pb) : null;
+          const soft: SoftReveal[] = [];
+          on = !!box && (!st || applyPart(ctx, st, pb, box.x, box.y, box.w, box.h, m, 0, soft));
+          if (on && box && soft.length) {
+            const lc = acquireLayer(ctx);
+            if (lc) {
+              paintChart(lc, model, x, y, w, h, ppt, undefined, true, p.sel);
+              compositeLayer(ctx, lc, soft, box.x, box.y, box.w, box.h);
+              on = false;
+            } else for (const s of soft) ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, s.filter, s.q, box.x, box.y, box.w, box.h);
+          }
+        }
+        if (on) paintChart(ctx, model, x, y, w, h, ppt, undefined, true, p.sel);
+        ctx.restore();
+      }
+    } else paintChart(ctx, model, x, y, w, h, ppt);
     return false;
   }
   // <p:graphicFrame> com tabela. PowerPoint frequentemente seta xfrm.cy como
@@ -269,7 +372,9 @@ function paintBody(
 
   // <p:pic>: prioridade absoluta sobre fill — a imagem ocupa o xfrm.
   if (sh.image) {
-    const img = ov.frame ?? res.images?.get(sh.image.part);
+    // quadro de mídia: opaco substitui a capa; com esmaecer, a capa fica por baixo
+    const poster = res.images?.get(sh.image.part);
+    const img = ov.frame && ov.frame.alpha >= 1 ? ov.frame.image : poster;
     if (img) {
       // sombra da shape aplicada à imagem (cards de foto de template)
       if (sh.shadow) {
@@ -286,19 +391,29 @@ function paintBody(
       const clipGeom = sh.geom !== undefined && sh.geom !== 'rect';
       if (clipGeom) {
         ctx.save();
-        const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj);
+        const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
         if (rule) ctx.clip(rule); else ctx.clip();
       }
       // srcRect (crop em 0..1 dos quatro lados) aplica-se em coordenadas da imagem natural.
-      if (sh.srcRect) {
-        const iw = imgW(img), ih = imgH(img);
-        const sx = sh.srcRect.l * iw;
-        const sy = sh.srcRect.t * ih;
-        const sw = iw - (sh.srcRect.l + sh.srcRect.r) * iw;
-        const sh2 = ih - (sh.srcRect.t + sh.srcRect.b) * ih;
-        ctx.drawImage(img, sx, sy, sw, sh2, x, y, w, h);
-      } else {
-        ctx.drawImage(img, x, y, w, h);
+      const drawPic = (im: PaintImage): void => {
+        if (sh.srcRect) {
+          const iw = imgW(im), ih = imgH(im);
+          const sx = sh.srcRect.l * iw;
+          const sy = sh.srcRect.t * ih;
+          const sw = iw - (sh.srcRect.l + sh.srcRect.r) * iw;
+          const sh2 = ih - (sh.srcRect.t + sh.srcRect.b) * ih;
+          ctx.drawImage(im, sx, sy, sw, sh2, x, y, w, h);
+        } else {
+          ctx.drawImage(im, x, y, w, h);
+        }
+      };
+      drawPic(img);
+      // vídeo esmaecendo: quadro com opacidade por cima da capa
+      if (ov.frame && ov.frame.alpha > 0 && ov.frame.alpha < 1) {
+        ctx.save();
+        ctx.globalAlpha = ctx.globalAlpha * ov.frame.alpha;
+        drawPic(ov.frame.image);
+        ctx.restore();
       }
       if (clipGeom) ctx.restore();
       if (sh.shadow) ctx.restore();
@@ -307,7 +422,7 @@ function paintBody(
     if (sh.lineColor) {
       ctx.strokeStyle = sh.lineColor;
       ctx.lineWidth = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
-      shapePath(ctx, sh.geom ?? 'rect', x, y, w, h, sh.custGeom, sh.adj);
+      shapePath(ctx, sh.geom ?? 'rect', x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'stroke');
       ctx.stroke();
     }
     return false;
@@ -329,7 +444,7 @@ function paintBody(
     ctx.shadowOffsetX = sx;
     ctx.shadowOffsetY = sy;
     ctx.fillStyle = ov.fill ?? (sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color : '#ffffff');
-    const shRule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj);
+    const shRule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
     if (shRule) ctx.fill(shRule); else ctx.fill();
     ctx.restore();
   }
@@ -340,7 +455,7 @@ function paintBody(
   if (!isLineGeom && (ov.fill || sh.fillImage || (sh.fill && sh.fill.type !== 'none'))) {
     ctx.save();
     if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
-    const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj);
+    const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
     if (ov.fill) {
       // cor de preenchimento animada (o app troca fill.type p/ sólido)
       ctx.fillStyle = ov.fill;
@@ -366,7 +481,7 @@ function paintBody(
     } else if (sh.fill!.type === 'solid' && sh.fill!.color) {
       // sombreado por face (can/cube): cada subpath preenche com a luminância
       // deslocada; demais geometrias preenchem o path combinado de uma vez.
-      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h, sh.adj);
+      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h, sh.adj, sh.adjNames);
       if (desc && desc.kind === 'path' && desc.subLum) {
         for (let i = 0; i < desc.subs.length; i++) {
           const lum = desc.subLum[i];
@@ -390,7 +505,7 @@ function paintBody(
     const lw = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
     ctx.lineWidth = lw;
     if (sh.lineDash) ctx.setLineDash(dashPattern(sh.lineDash, lw));
-    shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj);
+    shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'stroke');
     ctx.stroke();
     if (sh.lineDash) ctx.setLineDash([]);
     // setas nos extremos (headEnd/tailEnd) das geometrias de linha
@@ -415,6 +530,9 @@ function shapePath(
   x: number, y: number, w: number, h: number,
   custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][] },
   adj?: number[],
+  adjNames?: string[],
+  /** Só os subcaminhos que PREENCHEM (`fill`) ou que têm CONTORNO (`stroke`); ausente = todos. */
+  mode?: 'fill' | 'stroke',
 ): CanvasFillRule | undefined {
   ctx.beginPath();
   // geometria CUSTOM (freeform): segs nas unidades do path, escalados ao rect
@@ -423,10 +541,13 @@ function shapePath(
     drawSegs(ctx, custGeom.subs, x, y, sx, sy);
     return undefined;
   }
-  const p = presetPath(geom, w, h, adj);
+  const p = presetPath(geom, w, h, adj, adjNames);
   switch (p.kind) {
     case 'path': {
-      drawSegs(ctx, p.subs, x, y, 1, 1);
+      const subs = mode === 'fill' && p.subLum ? p.subs.filter((_, i) => p.subLum![i] !== null)
+        : mode === 'stroke' && p.subStroke ? p.subs.filter((_, i) => p.subStroke![i] !== false)
+          : p.subs;
+      drawSegs(ctx, subs, x, y, 1, 1);
       return p.fillRule;
     }
     case 'ellipse':
@@ -557,6 +678,7 @@ function drawSegs(
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+  r = Math.max(0, r); // arcTo lança com raio negativo (escala/ajuste negativo)
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
   ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -573,6 +695,20 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
  */
 function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: number, y: number, w: number, h: number, scale: number,
   anim?: ShapeAnimPaint): void {
+  // texto VERTICAL (vert = 90° horário; vert270 = 90° anti-horário): diagrama
+  // na caixa de lados trocados e gira em volta do centro
+  const turn = tb.vert === 'vert' || tb.vert === 'eaVert' ? 1 : tb.vert === 'vert270' ? -1 : 0;
+  if (turn) {
+    const { vert: _v, ...flat } = tb;
+    const cx = x + w / 2, cy = y + h / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((turn * Math.PI) / 2);
+    ctx.translate(-cx, -cy);
+    paintText(ctx, sh, flat, cx - h / 2, cy - w / 2, h, w, scale, anim);
+    ctx.restore();
+    return;
+  }
   // flipH/flipV espelham a GEOMETRIA, nunca o TEXTO (o app de referência
   // mantém os glifos legíveis) — desfaz o espelho localmente em volta do centro
   const unflip = sh.xfrm?.flipH || sh.xfrm?.flipV;
@@ -810,7 +946,15 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
         const bw = (cell.borderWidth ?? 12700) * scale;
         ctx.strokeStyle = cell.borderColor;
         ctx.lineWidth = Math.max(0.5, bw);
-        ctx.strokeRect(cx0 + 0.5, cy0 + 0.5, cw - 1, ch - 1);
+        // lado a lado: lados com borda própria (desenhada abaixo) ou noFill explícito ficam de fora
+        const skip = (k: 'l' | 'r' | 't' | 'b'): boolean => !!cell.borders?.[k] || !!cell.borderNone?.[k];
+        const sides: ['l' | 'r' | 't' | 'b', number, number, number, number][] = [
+          ['t', cx0, cy0 + 0.5, cx0 + cw, cy0 + 0.5], ['b', cx0, cy0 + ch - 0.5, cx0 + cw, cy0 + ch - 0.5],
+          ['l', cx0 + 0.5, cy0, cx0 + 0.5, cy0 + ch], ['r', cx0 + cw - 0.5, cy0, cx0 + cw - 0.5, cy0 + ch],
+        ];
+        ctx.beginPath();
+        for (const [k, x1, y1, x2, y2] of sides) if (!skip(k)) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
+        ctx.stroke();
       }
       // bordas POR LADO explícitas por cima da uniforme (só nos lados definidos)
       if (cell.borders) {
@@ -849,46 +993,35 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
       const cy0 = y + rowY[ri]!;
       const cw = (colX[ci + span] ?? colX[colX.length - 1]!) - colX[ci]!;
       const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]!) - rowY[ri]!;
-      // insets default do app de referência: 0.1in lateral, 0.05in vertical
-      const padX = 91440 * scale;
-      const padY = 45720 * scale;
-      // anchor da célula — default do app de referência é TOPO
-      const cellAnchor = cell.anchor ?? 't';
-      const pxPerPt = EMU_PER_POINT * scale;
-      // pinta linha por linha (1 parágrafo = 1 linha aqui — bullets ignorados)
-      const lines: { text: string; bold: boolean; italic: boolean; color: string; size: number; align: string; font: string }[] = [];
-      for (const p of cell.txBody.paragraphs) {
-        for (const r of p.runs.length ? p.runs : [{ text: '' } as Run]) {
-          lines.push({
-            text: r.text,
-            bold: !!(r.bold ?? cell.txBold), italic: !!r.italic,
-            color: r.color ?? cell.txColor ?? '#000000',
-            size: (r.sz ?? 18) * pxPerPt,
-            align: p.align ?? 'l',
-            font: r.font ?? 'Calibri',
-          });
-        }
-      }
-      const lineH = (lines[0]?.size ?? 18 * pxPerPt) * 1.2;
-      const totalH = lines.length * lineH;
-      let cy = cy0 + padY;
-      if (cellAnchor === 'ctr') cy = cy0 + (ch - totalH) / 2;
-      else if (cellAnchor === 'b') cy = cy0 + ch - totalH - padY;
-      ctx.textBaseline = 'top';
-      for (const l of lines) {
-        ctx.font = `${l.italic ? 'italic ' : ''}${l.bold ? '700 ' : '400 '}${l.size}px '${l.font}', 'Aptos', Calibri, 'Liberation Sans', Arial, sans-serif`;
-        ctx.fillStyle = l.color;
-        const tw = ctx.measureText(l.text).width;
-        let tx: number;
-        if (l.align === 'ctr') tx = cx0 + (cw - tw) / 2;
-        else if (l.align === 'r') tx = cx0 + cw - tw - padX;
-        else tx = cx0 + padX;
-        ctx.fillText(l.text, tx, cy);
-        cy += lineH;
-      }
+      // o MESMO motor de texto das formas (runs na mesma linha, quebra,
+      // sublinhado, espaçamentos); margens e âncora vêm do tcPr — default do
+      // app: 0,1" nas laterais, 0,05" em cima/embaixo, âncora no TOPO
+      const { txColor, txBold } = cell;
+      const body: TextBody = {
+        ...cell.txBody,
+        anchor: cell.anchor ?? 't',
+        ...(cell.vert ? { vert: cell.vert } : {}),
+        insL: cell.marL ?? 91440, insR: cell.marR ?? 91440,
+        insT: cell.marT ?? 45720, insB: cell.marB ?? 45720,
+        // cor/negrito default do ESTILO da tabela (tcTxStyle) onde o run não define
+        paragraphs: txColor === undefined && txBold === undefined ? cell.txBody.paragraphs
+          : cell.txBody.paragraphs.map((p) => ({
+            ...p,
+            runs: p.runs.map((r): Run => {
+              const o: Run = { ...r };
+              if (o.color === undefined && txColor !== undefined) o.color = txColor;
+              if (o.bold === undefined && txBold !== undefined) o.bold = txBold;
+              return o;
+            }),
+          })),
+      };
+      paintText(ctx, TABLE_CELL, body, cx0, cy0, cw, ch, scale);
     }
   }
 }
+
+/** Forma "neutra" para o texto de células de tabela (sem sombra, espelho nem placeholder). */
+const TABLE_CELL: Shape = { id: '', name: 'tc' };
 
 /**
  * Cria um CanvasGradient linear para um Fill gradient no rect (x,y,w,h).

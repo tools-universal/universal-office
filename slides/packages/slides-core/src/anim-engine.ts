@@ -1,4 +1,5 @@
 import { evalFormula, type FormulaVars } from './anim-formula.js';
+import type { ChartSel } from './chart-engine.js';
 import { beginOffset, type TimeNode } from './timing.js';
 import type { PlacedEffect } from './playback.js';
 
@@ -89,6 +90,11 @@ export interface ShapeAnimHooks {
     type: 'wd' | 'lt';
     state: (u: UnitRef, base: AnimBase) => PartState | null;
   };
+  /**
+   * Gráfico animado POR PARTES (`<a:chart bldStep>`): fundo e marcas de dados
+   * em camadas, cada uma com o próprio estado (null = estática).
+   */
+  chartParts?: { sel: ChartSel; state: ((base: AnimBase) => PartState | null) | null }[];
 }
 
 /** Posição de uma unidade de texto: índice global (no txBody) e dentro do parágrafo. */
@@ -491,6 +497,20 @@ function evalNode(n: TimeNode, local: number, st: PartState, base: AnimBase): vo
   }
 }
 
+/** Parte de gráfico (`<a:chart seriesIdx categoryIdx bldStep>`) → seleção de desenho. −3 = fundo, −4/−1 = todos. */
+function chartSel(c: { series: number; category: number; step: string }): ChartSel {
+  const any = (v: number): boolean => v < 0;
+  const key = `${c.step}|${c.series}|${c.category}`;
+  switch (c.step) {
+    case 'gridLegend': return { key, bg: true, data: null };
+    case 'series': return { key, bg: false, data: (s) => s === c.series };
+    case 'category': return { key, bg: false, data: (_s, k) => k === c.category };
+    case 'ptInSeries': case 'ptInCategory':
+      return { key, bg: false, data: (s, k) => (any(c.series) || s === c.series) && (any(c.category) || k === c.category) };
+    default: return { key, bg: true, data: () => true }; // allPts: o gráfico inteiro
+  }
+}
+
 // ───────────────────────── camadas / visibilidade inicial ─────────────────────────
 
 /** Primeiro `set style.visibility` do efeito: 'visible' (entrada) | 'hidden' (saída) | undefined. */
@@ -525,8 +545,14 @@ interface Track {
 function evalTracks(tracks: Track[], animMs: number, base: AnimBase, initiallyVisible: boolean): PartState {
   const st = neutral(base, initiallyVisible);
   for (const tr of tracks) {
-    const local = animMs - tr.e.t0 - tr.shift;
+    let local = animMs - tr.e.t0 - tr.shift;
     if (local < 0) continue;
+    // fim forçado ("até o próximo clique"): congela no instante do fim (fill
+    // remove = some de vez)
+    if (tr.e.endAt !== undefined && animMs >= tr.e.endAt + tr.shift) {
+      if (tr.e.fill === 'remove') continue;
+      local = tr.e.endAt - tr.e.t0;
+    }
     evalNode(tr.e.node, local, st, base);
   }
   return st;
@@ -545,6 +571,8 @@ function initialVisible(tracks: Track[]): boolean {
 export interface ShapeAnimContext {
   /** O fundo da forma é animado junto do texto em efeitos por letra/palavra (`bldP animBg`). */
   animBg?: (spid: string) => boolean;
+  /** Forma do desenho de um SmartArt (`dsp:sp modelId`): efeitos `<a:dgm id>` de outras formas não valem. */
+  dgmId?: string;
   /** Nº de parágrafos do txBody (para efeitos por unidade sem faixa). */
   paraCount?: number;
 }
@@ -555,8 +583,10 @@ export interface ShapeAnimContext {
  * Devolve null quando nenhum efeito do slide toca a forma.
  */
 export function shapeAnimHooks(effects: PlacedEffect[], ids: readonly string[], animMs: number, ctx: ShapeAnimContext = {}): ShapeAnimHooks | null {
-  const mine = effects.filter((e) => e.target && ids.includes(e.target.spid)).sort((a, b) => a.t0 - b.t0);
+  const mine = effects.filter((e) => e.target && ids.includes(e.target.spid)
+    && (!e.target.dgm || e.target.dgm === ctx.dgmId)).sort((a, b) => a.t0 - b.t0);
   if (!mine.length) return null;
+  const chart = new Map<string, { sel: ChartSel; tracks: Track[] }>();
   const all: Track[] = [];
   const bg: Track[] = [];
   const paras: { tr: Track; range: [number, number] }[] = [];
@@ -564,7 +594,12 @@ export function shapeAnimHooks(effects: PlacedEffect[], ids: readonly string[], 
   for (const e of mine) {
     const t = e.target!;
     const it = e.node.iterate;
-    if (t.sub === 'bg') bg.push({ e, shift: 0 });
+    if (t.chart) {
+      const c = t.chart, key = `${c.step}|${c.series}|${c.category}`;
+      let part = chart.get(key);
+      if (!part) chart.set(key, part = { sel: chartSel(c), tracks: [] });
+      part.tracks.push({ e, shift: 0 });
+    } else if (t.sub === 'bg') bg.push({ e, shift: 0 });
     else if (it && (it.type === 'wd' || it.type === 'lt')) {
       const bgFirst = ctx.animBg?.(t.spid) ?? false;
       units.push({ e, ...(t.pRange ? { range: t.pRange } : {}), bgFirst });
@@ -578,6 +613,19 @@ export function shapeAnimHooks(effects: PlacedEffect[], ids: readonly string[], 
   if (bg.length) {
     const vis = initialVisible(bg);
     hooks.bg = (base) => evalTracks(bg, animMs, base, vis);
+  }
+  if (chart.size) {
+    // fundo/marcas sem efeito próprio ficam estáticos (camadas extras)
+    const parts = [...chart.values()];
+    const out: NonNullable<ShapeAnimHooks['chartParts']> = [];
+    if (!parts.some((p) => p.sel.bg)) out.push({ sel: { bg: true, data: null }, state: null });
+    const covered = (s: number, c: number): boolean => parts.some((p) => !!p.sel.data && p.sel.data(s, c));
+    out.push({ sel: { bg: false, data: (s, c) => !covered(s, c) }, state: null });
+    for (const p of parts) {
+      const vis = initialVisible(p.tracks);
+      out.push({ sel: p.sel, state: (base) => evalTracks(p.tracks, animMs, base, vis) });
+    }
+    hooks.chartParts = out;
   }
   if (paras.length) {
     hooks.para = (i, base) => {

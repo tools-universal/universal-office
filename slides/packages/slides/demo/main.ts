@@ -119,27 +119,19 @@ $('play').addEventListener('click', () => play(us.getSlideIndex()));
 
 function play(from: number): void {
   // Modo apresentar: instância DEDICADA do <universal-presentation-viewer>
-  // (o webcomponent de visualização pura) em overlay fullscreen — o mesmo
-  // componente embarcável que terceiros usam fora do editor.
+  // (o webcomponent de visualização pura) em overlay — o mesmo componente
+  // embarcável que terceiros usam fora do editor. A apresentação (tela cheia,
+  // clique/teclas do apresentador, Esc) é dele; ao sair, `us-present-end`.
   if (!savedBytes) { setStatus('⚠ Nada para apresentar'); return; }
   const pv = document.createElement('universal-presentation-viewer') as UniversalPresentationViewerElement;
   pv.style.cssText = 'position:fixed;inset:0;z-index:100;background:#000;';
   document.body.appendChild(pv);
   pv.loadPptx(savedBytes);
-  pv.selectSlide(from);
-  const close = (): void => {
+  pv.addEventListener('us-present-end', () => {
     pv.remove();
-    document.removeEventListener('fullscreenchange', onFsChange);
-    document.removeEventListener('keydown', onKey, true);
     us.selectSlide(pv.getSlideIndex()); // volta para o editor no slide atual
-  };
-  const onFsChange = (): void => { if (!document.fullscreenElement) close(); };
-  const onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape' && !document.fullscreenElement) { e.preventDefault(); close(); }
-  };
-  document.addEventListener('fullscreenchange', onFsChange);
-  document.addEventListener('keydown', onKey, true);
-  pv.present();
+  }, { once: true });
+  pv.present(from);
 }
 
 // ───────────── navegação prev/next + atalhos ─────────────
