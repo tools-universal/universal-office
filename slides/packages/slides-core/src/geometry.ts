@@ -61,11 +61,35 @@ function fitToBox(pts: Pt[], w: number, h: number): Pt[] {
 }
 
 /**
+ * Presets desenhados à mão (abaixo) que têm ajustes na definição oficial:
+ * com avLst próprio vão para `evalPreset`. Conectores/linhas ficam de fora
+ * (o desenho deles é só traço, sem as camadas de preenchimento).
+ */
+const ADJUSTED_OFFICIAL = new Set([
+  'frame', 'roundRect', 'triangle', 'parallelogram', 'trapezoid', 'pentagon', 'hexagon', 'star5',
+  'rightArrow', 'leftArrow', 'upArrow', 'downArrow', 'chevron', 'pie', 'arc', 'blockArc', 'octagon',
+  'donut', 'moon', 'sun', 'can', 'cube',
+]);
+
+/**
  * Descritor de path para o preset `geom` num rect `w × h`.
  * Presets desconhecidos caem em `rect` (comportamento anterior preservado).
  */
 export function presetPath(geom: string | undefined, w: number, h: number, adj?: number[], adjNames?: string[]): PresetPath {
   const ss = Math.min(w, h); // "shortest side" das fórmulas DrawingML
+  // Com AJUSTES próprios (avLst), as fórmulas OFICIAIS: os desenhos à mão abaixo
+  // foram calibrados no oráculo para a forma DEFAULT e ignoram o nome do ajuste
+  // (avLst só com adj2 era lido como adj1), os `pin` (seta com adj2 > máximo
+  // saía da caixa; rosca com adj > 50000 dava raio negativo e derrubava a
+  // pintura) e, em vários (arco, lua, sol, cubo…), o próprio ajuste.
+  if (adj?.length && geom && ADJUSTED_OFFICIAL.has(geom)) {
+    const g = evalPreset(geom, w, h, adj, adjNames);
+    if (g && g.subs.length) {
+      const out: PresetPath = { kind: 'path', subs: g.subs, subLum: g.fill };
+      if (g.stroke.some((s) => !s)) out.subStroke = g.stroke;
+      return out;
+    }
+  }
   switch (geom) {
     case 'frame': { // moldura retangular; adj1 = espessura em % do ss
       const t = ss * ((adj?.[0] ?? 12500) / 100000);

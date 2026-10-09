@@ -19,14 +19,18 @@ function parseDef(name: string): PresetDef | null {
   let def: PresetDef | null = null;
   if (raw !== undefined) {
     const [av = '', gd = '', ps = ''] = raw.split('|');
+    // tokens por QUALQUER espaço: a definição oficial tem "*/ vc  vf 100000"
+    // (espaço duplo em pentagon/heptagon/star5/star7/leftArrow/upArrow) — com
+    // split(' ') os argumentos deslocavam e `svc` virava 0 (forma deformada)
+    const words = (s: string): string[] => s.trim().split(/\s+/).filter(Boolean);
     const guides = (s: string): [string, string[]][] => (s ? s.split(';').map((e) => {
       const i = e.indexOf('=');
-      return [e.slice(0, i), e.slice(i + 1).split(' ')] as [string, string[]];
+      return [e.slice(0, i).trim(), words(e.slice(i + 1))] as [string, string[]];
     }) : []);
     const paths = ps ? ps.split('#').map((p): PathDef => {
       const [attrs = '', cmds = ''] = p.split('~');
       const [w = '', h = '', fill = '', stroke = ''] = attrs.split(',');
-      const d: PathDef = { fill, stroke: stroke !== 'false' && stroke !== '0', cmds: cmds ? cmds.split(';').map((c) => c.split(' ')) : [] };
+      const d: PathDef = { fill, stroke: stroke !== 'false' && stroke !== '0', cmds: cmds ? cmds.split(';').map(words) : [] };
       if (w) d.w = Number(w);
       if (h) d.h = Number(h);
       return d;

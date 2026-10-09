@@ -190,6 +190,7 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     const tb = sh.txBody;
     if (tb.anchor === undefined && inh.anchor !== undefined) tb.anchor = inh.anchor;
     if (tb.wrap === undefined && inh.wrap !== undefined) tb.wrap = inh.wrap;
+    if (tb.vert === undefined && inh.vert !== undefined) tb.vert = inh.vert;
     if (tb.insL === undefined && inh.insL !== undefined) tb.insL = inh.insL;
     if (tb.insT === undefined && inh.insT !== undefined) tb.insT = inh.insT;
     if (tb.insR === undefined && inh.insR !== undefined) tb.insR = inh.insR;
@@ -495,6 +496,7 @@ function placeholderBodyPrMap(pkg: PptxPackage, slidePath: string): Map<string, 
       const props: Partial<TextBody> = {};
       if (bodyPr.attrs['anchor']) props.anchor = bodyPr.attrs['anchor'];
       if (bodyPr.attrs['wrap']) props.wrap = bodyPr.attrs['wrap'];
+      if (bodyPr.attrs['vert']) props.vert = bodyPr.attrs['vert']; // texto vertical do layout ("Título e texto verticais")
       if (bodyPr.attrs['lIns'] !== undefined) props.insL = parseInt(bodyPr.attrs['lIns'], 10);
       if (bodyPr.attrs['tIns'] !== undefined) props.insT = parseInt(bodyPr.attrs['tIns'], 10);
       if (bodyPr.attrs['rIns'] !== undefined) props.insR = parseInt(bodyPr.attrs['rIns'], 10);
@@ -1141,7 +1143,7 @@ function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>): T
   if (bodyPr) {
     if (bodyPr.attrs['anchor']) tb.anchor = bodyPr.attrs['anchor'];
     if (bodyPr.attrs['wrap']) tb.wrap = bodyPr.attrs['wrap'];
-    if (bodyPr.attrs['vert'] && bodyPr.attrs['vert'] !== 'horz') tb.vert = bodyPr.attrs['vert'];
+    if (bodyPr.attrs['vert']) tb.vert = bodyPr.attrs['vert']; // 'horz' explícito também (vence o vertical herdado)
     // insets em EMU (defaults do app ficam a cargo do layout/render)
     if (bodyPr.attrs['lIns'] !== undefined) tb.insL = parseInt(bodyPr.attrs['lIns'], 10);
     if (bodyPr.attrs['tIns'] !== undefined) tb.insT = parseInt(bodyPr.attrs['tIns'], 10);
