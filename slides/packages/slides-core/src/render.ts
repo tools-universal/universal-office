@@ -131,6 +131,12 @@ function acquireLayer(ctx: CanvasRenderingContext2D): LayerCtx | null {
   if (!pool) layerPool.set(c, pool = []);
   let lc = pool.find((l) => !layerBusy.has(l) && l.canvas.width === c.width && l.canvas.height === c.height);
   if (!lc) {
+    // camadas livres de OUTRO tamanho são de antes de um redimensionamento:
+    // saem do pool (cada uma é um canvas do tamanho da tela — 8–33 MB)
+    for (let k = pool.length - 1; k >= 0; k--) {
+      const l = pool[k]!;
+      if (!layerBusy.has(l) && (l.canvas.width !== c.width || l.canvas.height !== c.height)) pool.splice(k, 1);
+    }
     let cv: { getContext(k: '2d'): unknown } | undefined;
     if (typeof OffscreenCanvas !== 'undefined') cv = new OffscreenCanvas(c.width, c.height);
     else if (typeof document !== 'undefined') { const e = document.createElement('canvas'); e.width = c.width; e.height = c.height; cv = e; }
@@ -146,6 +152,14 @@ function acquireLayer(ctx: CanvasRenderingContext2D): LayerCtx | null {
   lc.clearRect(0, 0, c.width, c.height);
   lc.setTransform(ctx.getTransform());
   return lc;
+}
+
+/** Camada que falhou no meio da pintura (pilha save/restore desequilibrada): sai do pool. */
+function discardLayer(ctx: CanvasRenderingContext2D, lc: LayerCtx): void {
+  const c = (ctx as { canvas?: object }).canvas;
+  const pool = c ? layerPool.get(c) : undefined;
+  if (pool) { const k = pool.indexOf(lc); if (k >= 0) pool.splice(k, 1); }
+  layerBusy.delete(lc);
 }
 
 /** Aplica as máscaras esfumadas na camada, compõe em `ctx` (alfa e recorte de `ctx` valem) e a devolve ao pool. */
@@ -200,40 +214,75 @@ export function paintSlideTo(
   const m: SlidePx = { ox, oy, sw, sh };
   for (let i = 0; i < slide.shapes.length; i++) {
     const shp = slide.shapes[i]!;
-    const op = opts.shapeOpacity ? opts.shapeOpacity(shp, i) : 1;
-    if (op <= 0) continue; // invisível: pula
-    const hooks = opts.shapeAnim && shp.xfrm ? opts.shapeAnim(shp, i) : null;
-    ctx.save();
-    if (op < 1) ctx.globalAlpha = ctx.globalAlpha * op;
-    const mf = opts.mediaFrame?.(shp, i) ?? undefined;
-    const frame = mf && 'image' in mf && 'alpha' in mf ? mf : mf ? { image: mf as PaintImage, alpha: 1 } : undefined;
-    let anim: ShapeAnimPaint | undefined;
-    if (hooks && shp.xfrm) {
-      // camada "forma inteira": transforma fundo + texto em volta do centro
-      const x = ox + shp.xfrm.x * scale, y = oy + shp.xfrm.y * scale;
-      const w = shp.xfrm.cx * scale, h = shp.xfrm.cy * scale;
-      const rotDeg = (shp.xfrm.rot ?? 0) / 60000;
-      const base = boxBase(x, y, w, h, m, { rot: rotDeg, fill: shp.fill?.color, line: shp.lineColor, text: firstRunColor(shp) });
-      const all = hooks.all(base);
-      const soft: SoftReveal[] = [];
-      if (!applyPart(ctx, all, base, x, y, w, h, m, (rotDeg * Math.PI) / 180, soft)) { ctx.restore(); continue; }
-      anim = { hooks, all, base, m };
-      if (soft.length) {
-        // revelar com borda esfumada: a forma vai para uma camada mascarada
-        const lc = acquireLayer(ctx);
-        if (lc) {
-          paintShape(lc, shp, fit, resources, opts.suppressTextShapeIdx === i, anim, frame);
-          compositeLayer(ctx, lc, soft, x, y, w, h);
-          ctx.restore();
-          continue;
+    // uma forma com dados inválidos (raio negativo, NaN…) não derruba o slide:
+    // pula ELA e a pilha save/restore volta ao nível de antes (sem vazar recorte)
+    guarded(ctx, () => {
+      const op = opts.shapeOpacity ? opts.shapeOpacity(shp, i) : 1;
+      if (op <= 0) return; // invisível: pula
+      const hooks = opts.shapeAnim && shp.xfrm ? opts.shapeAnim(shp, i) : null;
+      ctx.save();
+      if (op < 1) ctx.globalAlpha = ctx.globalAlpha * op;
+      const mf = opts.mediaFrame?.(shp, i) ?? undefined;
+      const frame = mf && 'image' in mf && 'alpha' in mf ? mf : mf ? { image: mf as PaintImage, alpha: 1 } : undefined;
+      let anim: ShapeAnimPaint | undefined;
+      if (hooks && shp.xfrm) {
+        // camada "forma inteira": transforma fundo + texto em volta do centro
+        const x = ox + shp.xfrm.x * scale, y = oy + shp.xfrm.y * scale;
+        const w = shp.xfrm.cx * scale, h = shp.xfrm.cy * scale;
+        const rotDeg = (shp.xfrm.rot ?? 0) / 60000;
+        const base = boxBase(x, y, w, h, m, { rot: rotDeg, fill: shp.fill?.color, line: shp.lineColor, text: firstRunColor(shp) });
+        const all = hooks.all(base);
+        const soft: SoftReveal[] = [];
+        if (!applyPart(ctx, all, base, x, y, w, h, m, (rotDeg * Math.PI) / 180, soft)) { ctx.restore(); return; }
+        anim = { hooks, all, base, m };
+        if (soft.length) {
+          // revelar com borda esfumada: a forma vai para uma camada mascarada
+          const lc = acquireLayer(ctx);
+          if (lc) {
+            try {
+              paintShape(lc, shp, fit, resources, opts.suppressTextShapeIdx === i, anim, frame);
+              compositeLayer(ctx, lc, soft, x, y, w, h);
+            } catch (e) {
+              discardLayer(ctx, lc); // pilha da camada desequilibrada: sai do pool
+              throw e;
+            }
+            ctx.restore();
+            return;
+          }
+          for (const s of soft) ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, s.filter, s.q, x, y, w, h);
         }
-        for (const s of soft) ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, s.filter, s.q, x, y, w, h);
       }
-    }
-    paintShape(ctx, shp, fit, resources, opts.suppressTextShapeIdx === i, anim, frame);
-    ctx.restore();
+      paintShape(ctx, shp, fit, resources, opts.suppressTextShapeIdx === i, anim, frame);
+      ctx.restore();
+    });
   }
   ctx.restore();
+}
+
+/**
+ * Roda `fn` contando os save/restore do contexto; se `fn` lançar, desfaz os
+ * saves que ficaram pendentes (o canvas não expõe a profundidade da pilha) —
+ * o recorte/transformação de uma forma que falhou não vaza para as seguintes
+ * nem para o próximo quadro. Devolve false quando `fn` falhou.
+ */
+function guarded(ctx: CanvasRenderingContext2D, fn: () => void): boolean {
+  let depth = 0;
+  const own = Object.prototype.hasOwnProperty.call(ctx, 'save');
+  const save = ctx.save, restore = ctx.restore;
+  ctx.save = function (this: CanvasRenderingContext2D): void { depth++; save.call(this); };
+  ctx.restore = function (this: CanvasRenderingContext2D): void { depth--; restore.call(this); };
+  try {
+    fn();
+    return true;
+  } catch {
+    for (; depth > 0; depth--) restore.call(ctx);
+    return false;
+  } finally {
+    if (own) { ctx.save = save; ctx.restore = restore; } else {
+      delete (ctx as { save?: unknown }).save;
+      delete (ctx as { restore?: unknown }).restore;
+    }
+  }
 }
 
 /** Largura natural de uma PaintImage (HTMLImageElement usa naturalWidth; vídeo, videoWidth; ImageBitmap, width). */
@@ -551,7 +600,7 @@ function shapePath(
       return p.fillRule;
     }
     case 'ellipse':
-      ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + w / 2, y + h / 2, Math.max(0, w / 2), Math.max(0, h / 2), 0, 0, Math.PI * 2);
       break;
     case 'roundRect':
       roundRect(ctx, x, y, w, h, p.r);
@@ -572,7 +621,7 @@ function shapePath(
     case 'pie': {
       const cx = x + w / 2, cy = y + h / 2;
       ctx.moveTo(cx, cy);
-      ctx.ellipse(cx, cy, w / 2, h / 2, 0, p.startDeg * Math.PI / 180, p.endDeg * Math.PI / 180);
+      ctx.ellipse(cx, cy, Math.max(0, w / 2), Math.max(0, h / 2), 0, p.startDeg * Math.PI / 180, p.endDeg * Math.PI / 180);
       ctx.closePath();
       break;
     }
@@ -671,7 +720,7 @@ function drawSegs(
       else if (s.c === 'L') ctx.lineTo(x + s.x * sx, y + s.y * sy);
       else if (s.c === 'C') ctx.bezierCurveTo(x + s.x1 * sx, y + s.y1 * sy, x + s.x2 * sx, y + s.y2 * sy, x + s.x * sx, y + s.y * sy);
       else if (s.c === 'Q') ctx.quadraticCurveTo(x + s.x1 * sx, y + s.y1 * sy, x + s.x * sx, y + s.y * sy);
-      else if (s.c === 'E') ctx.ellipse(x + s.cx * sx, y + s.cy * sy, s.rx * sx, s.ry * sy, 0, s.a0, s.a1, s.ccw ?? false);
+      else if (s.c === 'E') ctx.ellipse(x + s.cx * sx, y + s.cy * sy, Math.max(0, s.rx * sx), Math.max(0, s.ry * sy), 0, s.a0, s.a1, s.ccw ?? false);
       else ctx.closePath();
     }
   }

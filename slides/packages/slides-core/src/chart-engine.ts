@@ -41,6 +41,8 @@ export interface ChartAxis {
   min?: number;
   max?: number;
   majorUnit?: number;
+  /** `<c:scaling><c:logBase val>`: escala LOGARÍTMICA nessa base (2..1000). */
+  logBase?: number;
   /** `<c:majorGridlines>` presente. */
   grid: boolean;
   /** `<c:delete val="1">`: eixo oculto (sem rótulos). */
@@ -185,6 +187,8 @@ function readAxis(ax: XmlElement, theme?: Theme): ChartAxis {
   if (min !== undefined) a.min = min;
   if (max !== undefined) a.max = max;
   if (unit !== undefined && unit > 0) a.majorUnit = unit;
+  const lb = num(sc, 'c:logBase');
+  if (lb !== undefined && lb >= 2 && lb <= 1000) a.logBase = lb;
   const t = readTextStyle(firstChild(ax, 'c:txPr'), theme);
   if (t) a.text = t;
   return a;
@@ -265,13 +269,29 @@ function parseSeries(ser: XmlElement, theme?: Theme): ChartSeries {
   return out;
 }
 
+/** Teto de pontos por série/categorias (o Excel atual vai a ~1M; um gráfico de slide, centenas). */
+const MAX_POINTS = 100_000;
+
+/**
+ * Índice válido de um `<c:pt idx>`: dentro do `<c:ptCount>` declarado (ou do
+ * teto). `idx="100000000"` preenchia um array denso de 10⁸ e pintava 10⁸ barras.
+ */
+function ptLimit(cache: XmlElement): number {
+  const n = parseInt(firstChild(cache, 'c:ptCount')?.attrs['val'] ?? '', 10);
+  // ptCount ausente/errado (0 com pontos) não pode apagar dados reais: vale o maior
+  const pts = childElements(cache, 'c:pt').length;
+  return Math.min(MAX_POINTS, Math.max(pts, Number.isFinite(n) && n >= 0 ? n : 0));
+}
+
 function collectNumPts(block: XmlElement, out: number[]): void {
   const cache = deepFind(block, 'c:numCache');
   if (!cache) return;
   // pts vêm com `idx` — preencher por índice
+  const limit = ptLimit(cache);
   const indexed: number[] = [];
   for (const pt of childElements(cache, 'c:pt')) {
     const idx = parseInt(pt.attrs['idx'] ?? '0', 10);
+    if (!(idx >= 0 && idx < limit)) continue;
     const v = firstChild(pt, 'c:v');
     indexed[idx] = v ? parseFloat(textContent(v)) : NaN;
   }
@@ -284,9 +304,11 @@ function readCategories(ser: XmlElement): string[] {
   const out: string[] = [];
   const strCache = deepFind(cat, 'c:strCache');
   if (strCache) {
+    const limit = ptLimit(strCache);
     const indexed: string[] = [];
     for (const pt of childElements(strCache, 'c:pt')) {
       const idx = parseInt(pt.attrs['idx'] ?? '0', 10);
+      if (!(idx >= 0 && idx < limit)) continue;
       const v = firstChild(pt, 'c:v');
       indexed[idx] = v ? textContent(v) : '';
     }
@@ -438,14 +460,60 @@ function niceStep(span: number): number {
   for (let k = 0; k < 6; k++, mag *= 10) for (const f of [1, 2, 5]) if (span / (f * mag) <= 10) return f * mag;
   return span / 10;
 }
+/** Escala de um eixo de valores: faixa + passo (linear) ou base (logarítmica). */
+interface Ticks { lo: number; hi: number; step: number; log?: number }
+
+/** Teto de marcas por eixo: `majorUnit` minúsculo (1e-6 em dados na casa dos milhares) eram bilhões de iterações. */
+const MAX_TICKS = 1000;
+
+/** Valores das marcas do eixo (no máximo MAX_TICKS). */
+function tickValues(t: Ticks): number[] {
+  const out: number[] = [];
+  if (t.log) {
+    for (let v = t.lo; v <= t.hi * (1 + 1e-9) && out.length < MAX_TICKS; v *= t.log) out.push(v);
+    return out;
+  }
+  if (!(t.step > 0) || !Number.isFinite(t.lo) || !Number.isFinite(t.hi)) return out;
+  // por índice (não `v += step`): sem acúmulo de erro nem laço sem fim
+  const n = Math.min(MAX_TICKS, Math.floor((t.hi - t.lo) / t.step + 1e-9));
+  for (let i = 0; i <= n; i++) out.push(t.lo + i * t.step);
+  return out;
+}
+
+/** Posição 0..1 do valor no eixo (log: valores ≤ 0 ficam na base). */
+function axisFrac(t: Ticks, v: number): number {
+  if (t.log) {
+    if (!(v > 0)) return 0;
+    return (Math.log(v) - Math.log(t.lo)) / (Math.log(t.hi) - Math.log(t.lo));
+  }
+  return (v - t.lo) / (t.hi - t.lo);
+}
+
+/** Linha de base das barras/áreas: o ZERO (preso à faixa); no eixo log, a base. */
+function axisBase(t: Ticks): number {
+  return t.log ? t.lo : Math.max(t.lo, Math.min(t.hi, 0));
+}
+
 /** Ticks do eixo de valores: escala/unidade explícitas do XML vencem o automático. */
-function axisTicks(min: number, max: number): { lo: number; hi: number; step: number } {
+function axisTicks(min: number, max: number): Ticks {
   const t = niceTicks(min, max);
   const ax = CUR?.valAx;
+  if (ax?.logBase) {
+    // logarítmico: potências da base que cobrem os dados POSITIVOS (o app ignora ≤ 0)
+    const b = ax.logBase;
+    let pmin = Infinity, pmax = 0;
+    for (const s of CUR?.series ?? []) for (const v of s.values) { if (v > 0) { pmin = Math.min(pmin, v); pmax = Math.max(pmax, v); } }
+    if (!Number.isFinite(pmin)) { pmin = 1; pmax = b; }
+    const lo = ax.min !== undefined && ax.min > 0 ? ax.min : b ** Math.floor(Math.log(pmin) / Math.log(b) + 1e-9);
+    let hi = ax.max !== undefined && ax.max > lo ? ax.max : b ** Math.ceil(Math.log(pmax) / Math.log(b) - 1e-9);
+    if (!(hi > lo)) hi = lo * b;
+    return { lo, hi, step: 0, log: b };
+  }
   if (!ax || (ax.min === undefined && ax.max === undefined && ax.majorUnit === undefined)) return t;
   const lo = ax.min ?? t.lo, hi = ax.max ?? t.hi;
   if (!(hi > lo)) return t;
-  const step = ax.majorUnit ?? (ax.min === undefined && ax.max === undefined ? t.step : niceStep(hi - lo));
+  let step = ax.majorUnit ?? (ax.min === undefined && ax.max === undefined ? t.step : niceStep(hi - lo));
+  if ((hi - lo) / step > MAX_TICKS) step = niceStep(hi - lo); // unidade absurda: escala automática
   return { lo, hi, step };
 }
 
@@ -543,17 +611,25 @@ function paintChartInner(ctx: CanvasRenderingContext2D, chart: ChartModel, x: nu
   }
 }
 
+/** Entradas da legenda: pizza/rosca listam CATEGORIAS (cor por fatia); os demais tipos, séries. */
+function legendEntries(chart: ChartModel): { label: string; color: string }[] {
+  const pal = paletteOf(chart);
+  return chart.type === 'pie' || chart.type === 'doughnut'
+    ? chart.categories.map((c, i) => ({ label: c, color: pal[i % pal.length]! }))
+    : chart.series.map((s, i) => ({ label: s.name || `Série ${i + 1}`, color: colorOf(chart, i) }));
+}
+
 /** Largura necessária da legenda vertical à direita (marcador + maior rótulo). */
 function legendRightWidth(ctx: CanvasRenderingContext2D, chart: ChartModel, labelPx: number): number {
   ctx.font = labelFont(labelPx, chart.legendText);
   let maxW = 0;
-  for (const s of chart.series) maxW = Math.max(maxW, ctx.measureText(s.name || 'Série').width);
+  for (const e of legendEntries(chart)) maxW = Math.max(maxW, ctx.measureText(e.label).width);
   return maxW + labelPx * 1.6;
 }
 
 /** Legenda VERTICAL à direita (default do Excel): entradas empilhadas, centradas. */
 function paintLegendRight(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, labelPx: number): void {
-  const entries = chart.series.map((s, i) => ({ label: s.name || `Série ${i + 1}`, color: colorOf(chart, i) }));
+  const entries = legendEntries(chart);
   if (!entries.length) return;
   ctx.font = labelFont(labelPx, chart.legendText);
   ctx.textBaseline = 'middle';
@@ -630,6 +706,9 @@ function paintBars(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, 
   const groupW = (plotR - plotL) / cats;
   const barW = groupW / ((nSer - 1) * (1 - ov) + 1 + gap);
   const span = barW * ((nSer - 1) * (1 - ov) + 1);
+  // barras partem do ZERO (negativos descem dele), não do fundo do eixo
+  const yOf = (v: number): number => plotB - Math.max(0, Math.min(1, axisFrac(t, v))) * (plotB - plotT);
+  const y0 = yOf(axisBase(t));
   for (let s = 0; s < nSer; s++) {
     if (chart.series[s]!.fill === null) continue; // série sem preenchimento
     ctx.fillStyle = colorOf(chart, s);
@@ -639,10 +718,9 @@ function paintBars(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, 
       const v = vals[i] ?? 0;
       const gx = plotL + i * groupW + (groupW - span) / 2;
       const xBar = gx + s * barW * (1 - ov);
-      const yTop = plotB - ((v - t.lo) / (t.hi - t.lo)) * (plotB - plotT);
-      const bh = plotB - yTop;
-      if (dir === 'col') ctx.fillRect(xBar, yTop, barW, bh);
-      else ctx.fillRect(plotL, xBar, bh, barW); // row (placeholder)
+      const yv = yOf(v);
+      if (dir === 'col') ctx.fillRect(xBar, Math.min(yv, y0), barW, Math.abs(y0 - yv));
+      else ctx.fillRect(plotL, xBar, Math.abs(y0 - yv), barW); // row (placeholder)
     }
   }
   paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
@@ -660,7 +738,8 @@ function paintLines(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   // categoria de linha: pontos CENTRADOS nas bandas (como o app de referência)
   const stepX = (plotR - plotL) / cats;
   const xAt = (i: number): number => plotL + stepX * (i + 0.5);
-  const yAt = (v: number): number => plotB - ((v - t.lo) / (t.hi - t.lo)) * (plotB - plotT);
+  const yAt = (v: number): number => plotB - axisFrac(t, v) * (plotB - plotT);
+  const yBase = yAt(axisBase(t)); // área fecha no zero (com negativos, não no fundo do eixo)
   for (let s = 0; s < chart.series.length; s++) {
     const col = colorOf(chart, s);
     const vals = chart.series[s]!.values;
@@ -672,8 +751,8 @@ function paintLines(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
       ctx.beginPath();
       ctx.moveTo(xAt(0), yAt(vals[0] ?? 0));
       for (let i = 1; i < cats; i++) ctx.lineTo(xAt(i), yAt(vals[i] ?? 0));
-      ctx.lineTo(xAt(cats - 1), plotB);
-      ctx.lineTo(xAt(0), plotB);
+      ctx.lineTo(xAt(cats - 1), yBase);
+      ctx.lineTo(xAt(0), yBase);
       ctx.closePath();
       ctx.fill();
       continue;
@@ -711,7 +790,9 @@ function paintPieOrDoughnut(ctx: CanvasRenderingContext2D, chart: ChartModel, x:
   // centro/raio MEDIDOS no app de referência (pizza usa ~97% do plot e fica
   // ~6px acima do centro geométrico — o rótulo de eixo não existe aqui)
   const cx = x + w / 2, cy = y + h / 2 - h * 0.012;
+  // gráfico pequeno com título/legenda deixa o plot NEGATIVO: arc() com raio < 0 lança
   const radius = (Math.min(w, h) / 2) * 0.97;
+  if (!(radius > 0)) return;
   let a0 = -Math.PI / 2;
   for (let i = 0; i < s0.values.length; i++) {
     const v = Math.max(0, s0.values[i] ?? 0);
@@ -759,7 +840,7 @@ function paintScatter(ctx: CanvasRenderingContext2D, chart: ChartModel, x: numbe
   paintGrid(ctx, plotL, plotT, plotR, plotB, ty);
   ctx.strokeStyle = '#D9D9D9'; ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let v = tx.lo; v <= tx.hi + 1e-9 && showBg(); v += tx.step) {
+  for (const v of showBg() ? tickValues(tx) : []) {
     const xx = plotL + ((v - tx.lo) / (tx.hi - tx.lo)) * (plotR - plotL);
     ctx.moveTo(Math.round(xx) + 0.5, plotT); ctx.lineTo(Math.round(xx) + 0.5, plotB);
   }
@@ -780,7 +861,7 @@ function paintScatter(ctx: CanvasRenderingContext2D, chart: ChartModel, x: numbe
   ctx.fillStyle = '#595959';
   ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  for (let v = tx.lo; v <= tx.hi + 1e-9; v += tx.step) {
+  for (const v of tickValues(tx)) {
     const xx = plotL + ((v - tx.lo) / (tx.hi - tx.lo)) * (plotR - plotL);
     ctx.fillText(formatVal(v), xx, plotB + labelPx * 0.35);
   }
@@ -799,7 +880,7 @@ function paintRadar(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   const rAt = (v: number): number => ((v - t.lo) / (t.hi - t.lo)) * radius;
   // anéis nos ticks (polígonos cinza-claro, como o app de referência)
   ctx.strokeStyle = '#D9D9D9'; ctx.lineWidth = 1;
-  for (let v = t.lo + t.step; v <= t.hi + 1e-9 && showBg(); v += t.step) {
+  for (const v of showBg() ? tickValues(t).slice(1) : []) {
     ctx.beginPath();
     for (let i = 0; i < n; i++) {
       const a = angleAt(i);
@@ -813,7 +894,7 @@ function paintRadar(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   ctx.fillStyle = '#595959';
   ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  for (let v = t.lo; v <= t.hi + 1e-9 && showBg(); v += t.step) {
+  for (const v of showBg() ? tickValues(t) : []) {
     ctx.fillText(formatVal(v), cx - labelPx * 0.4, cy - rAt(v));
   }
   // labels de categoria nos vértices externos
@@ -849,13 +930,13 @@ function paintRadar(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number,
   }
 }
 
-function paintGrid(ctx: CanvasRenderingContext2D, l: number, t: number, r: number, b: number, ticks: { lo: number; hi: number; step: number }): void {
+function paintGrid(ctx: CanvasRenderingContext2D, l: number, t: number, r: number, b: number, ticks: Ticks): void {
   if (!showBg()) return;
   if (CUR?.valAx && !CUR.valAx.grid) return; // sem <c:majorGridlines> no XML
   ctx.strokeStyle = '#D9D9D9'; ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let v = ticks.lo; v <= ticks.hi + 1e-9; v += ticks.step) {
-    const y = b - ((v - ticks.lo) / (ticks.hi - ticks.lo)) * (b - t);
+  for (const v of tickValues(ticks)) {
+    const y = b - axisFrac(ticks, v) * (b - t);
     ctx.moveTo(l, Math.round(y) + 0.5); ctx.lineTo(r, Math.round(y) + 0.5);
   }
   ctx.stroke();
@@ -875,15 +956,15 @@ function paintCategoryAxis(ctx: CanvasRenderingContext2D, cats: string[], l: num
   }
 }
 
-function paintValueAxis(ctx: CanvasRenderingContext2D, ticks: { lo: number; hi: number; step: number }, xRight: number, y: number, h: number, labelPx: number): void {
+function paintValueAxis(ctx: CanvasRenderingContext2D, ticks: Ticks, xRight: number, y: number, h: number, labelPx: number): void {
   if (!showBg()) return;
   const ax = CUR?.valAx;
   if (ax?.deleted) return;
   ctx.fillStyle = ax?.text?.color ?? DEFAULT_TEXT;
   ctx.font = labelFont(labelSize(ax?.text, labelPx), ax?.text);
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  for (let v = ticks.lo; v <= ticks.hi + 1e-9; v += ticks.step) {
-    const yy = y + h - ((v - ticks.lo) / (ticks.hi - ticks.lo)) * h;
+  for (const v of tickValues(ticks)) {
+    const yy = y + h - axisFrac(ticks, v) * h;
     ctx.fillText(formatVal(v), xRight, yy);
   }
 }
@@ -900,11 +981,7 @@ function formatVal(v: number): string {
  * CATEGORIAS (cores por fatia); demais tipos listam séries.
  */
 function paintLegend(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, labelPx: number): void {
-  const pal = paletteOf(chart);
-  const byCategory = chart.type === 'pie' || chart.type === 'doughnut';
-  const entries: { label: string; color: string }[] = byCategory
-    ? chart.categories.map((c, i) => ({ label: c, color: pal[i % pal.length]! }))
-    : chart.series.map((s, i) => ({ label: s.name || `Série ${i + 1}`, color: colorOf(chart, i) }));
+  const entries = legendEntries(chart);
   if (!entries.length) return;
   ctx.font = labelFont(labelPx, chart.legendText);
   ctx.textBaseline = 'middle';
