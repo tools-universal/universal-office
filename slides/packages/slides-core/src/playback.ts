@@ -1,4 +1,4 @@
-import type { AnimStep, EffectTiming, SlideTimingModel, SlideTransitionInfo } from './timing.js';
+import { STEP_PENDING, type AnimStep, type EffectTiming, type SlideTimingModel, type SlideTransitionInfo } from './timing.js';
 import { mediaCommands } from './media.js';
 
 /**
@@ -48,7 +48,7 @@ export interface PlaybackOptions {
 export interface PlacedEffect extends EffectTiming {
   /** Início relativo ao INÍCIO DAS ANIMAÇÕES do slide (fim da transição), ms. */
   t0: number;
-  /** Passo (índice em `SlideTimingModel.steps`); −1 = disparado por marcador de mídia. */
+  /** Passo (índice em `SlideTimingModel.steps`); −1 = disparado por marcador de mídia; −2 = gatilho interativo (pendente). */
   step: number;
   /**
    * Fim forçado (mesma base de `t0`): "até o próximo clique" termina quando o
@@ -93,12 +93,15 @@ export function instantTransition(tr: SlideTransitionInfo | undefined): boolean 
   return false;
 }
 
+export { STEP_PENDING };
+
 /**
- * Início de passo AINDA NÃO DISPARADO (apresentação por clique): longe o
- * bastante para nunca chegar — o efeito fica no estado inicial (entrada
- * oculta). Passos pendentes ficam em ordem (`+ passo · 1e7`).
+ * Gatilhos INTERATIVOS (clique numa forma): nunca disparam sozinhos (export /
+ * quiosque — medido) e a apresentação ainda não os dispara. Ficam pendentes
+ * DEPOIS de todos os passos — o estado inicial vale: a forma que só entra
+ * pelo gatilho começa oculta, como no app.
  */
-export const STEP_PENDING = 1e12;
+const INTERACTIVE_PENDING = 2 * STEP_PENDING;
 
 /**
  * Efeitos de UM slide posicionados no tempo de animação (ms desde o início
@@ -136,6 +139,7 @@ export function placeSlideEffects(model: SlideTimingModel, stepStartMs: readonly
     const at = play.atMs + (tick > 0 ? 2 * tick : 0) + mediaMs / clockScale;
     for (const e of bt.effects) effects.push({ ...e, t0: at + e.startMs, step: -1 });
   }
+  for (const e of model.interactive) effects.push({ ...e, t0: INTERACTIVE_PENDING + e.startMs, step: -2 });
   return effects;
 }
 

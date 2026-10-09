@@ -27,7 +27,10 @@ import { clickWait, instantTransition, placeSlideEffects, STEP_PENDING, type Pla
  *    até o próximo clique, que o recomeça do zero; sem passo a desfazer → o
  *    slide visível anterior, no estado FINAL, pela transição do slide que
  *    SAI tocada no sentido contrário — e ali ele não avança mais sozinho;
- *  - sequências interativas (gatilho = clique numa forma): ainda não.
+ *  - clique com um passo ainda animando: o mainSeq é `nextAc="seek"` — o
+ *    passo em curso SALTA para o fim e o próximo começa (não se sobrepõem);
+ *  - sequências interativas (gatilho = clique numa forma): ainda não
+ *    disparam, mas o estado inicial vale (a forma do gatilho começa oculta).
  */
 
 export interface SlideShowOptions {
@@ -35,6 +38,12 @@ export interface SlideShowOptions {
   useTimings?: boolean;
   /** Depois do último slide volta ao primeiro (em vez da tela de fim). Default false. */
   loop?: boolean;
+  /**
+   * Animações (`<p:showPr showAnimation="0">` = "apresentar sem animação"):
+   * false → cada slide entra já no estado FINAL (as transições continuam).
+   * Default true.
+   */
+  animations?: boolean;
 }
 
 /**
@@ -118,6 +127,7 @@ export function mirrorTransition(tr: SlideTransitionInfo | undefined): SlideTran
 export class SlideShow {
   private readonly useTimings: boolean;
   private readonly loop: boolean;
+  private readonly animations: boolean;
   /** Passagem em cena; null = tela de fim. */
   private run: Run | null = null;
   private serial = 0;
@@ -132,7 +142,17 @@ export class SlideShow {
     opts: SlideShowOptions = {}) {
     this.useTimings = opts.useTimings ?? true;
     this.loop = opts.loop ?? false;
+    this.animations = opts.animations ?? true;
     if (models.length) this.enter(Math.max(0, Math.min(models.length - 1, Math.trunc(from) || 0)), now, 'forward');
+  }
+
+  /**
+   * Slide de início do F5 "do começo": o 1º VISÍVEL (o app pula os ocultos);
+   * 0 se todos estão ocultos.
+   */
+  static firstVisible(models: readonly (SlideTimingModel | undefined)[]): number {
+    const i = models.findIndex((m) => !m?.hidden);
+    return i < 0 ? 0 : i;
   }
 
   /** Índice (no deck) do slide em cena; -1 na tela de fim. */
@@ -161,6 +181,7 @@ export class SlideShow {
     if (r.fired < r.model.steps.length) {
       // rebobinado: o clique recomeça o relógio do intervalo do zero
       if (r.sched && r.anchor === null) r.anchor = now;
+      this.seekRunning(r, now);
       r.stepAt[r.fired++] = now;
       this.place(r);
       return 'step';
@@ -172,6 +193,11 @@ export class SlideShow {
   /** Volta: desfaz passo(s) ou vai ao slide anterior (estado final). */
   prev(now: number): SlideShowAction {
     const r = this.run;
+    // comando durante a transição (de ida ou de volta) só a conclui
+    if (r && now < r.startAt + r.transitionMs) {
+      this.finishTransition(r, now);
+      return 'transition';
+    }
     if (!r) {
       const last = this.lastIndex >= 0 ? this.lastIndex : this.visibleBefore(this.models.length);
       if (last < 0) return 'none';
@@ -302,6 +328,19 @@ export class SlideShow {
     return { steps, end: t + wait };
   }
 
+  /**
+   * O mainSeq é `nextAc="seek"`: quando o próximo passo dispara, o que ainda
+   * anima nos passos já dados SALTA para o fim (efeitos e encadeamentos
+   * "após o anterior" do passo concluem juntos) — não tocam sobrepostos.
+   */
+  private seekRunning(r: Run, now: number): void {
+    for (let k = 0; k < r.fired; k++) {
+      const at = r.stepAt[k];
+      const dur = r.model.steps[k]?.durMs ?? 0;
+      if (at !== undefined && at + dur > now) r.stepAt[k] = now - dur;
+    }
+  }
+
   /** Conclui a transição em curso agora: o relógio do slide (e do intervalo) começa aqui. */
   private finishTransition(r: Run, now: number): void {
     const shift = r.startAt + r.transitionMs - now;
@@ -345,8 +384,16 @@ export class SlideShow {
     if (how === 'forward') {
       r.transitionMs = instantTransition(model.transition) ? 0 : Math.max(0, model.transition!.durMs);
       const animStart = now + r.transitionMs;
+      if (!this.animations) {
+        // sem animação: o slide já entra no estado final; com intervalo, avança em advTm
+        let t = 0;
+        const rel = steps.map((st) => { const s = t; t += st.durMs; return s; });
+        r.stepAt = rel.map((s) => animStart - t - 1 + s);
+        r.fired = steps.length;
+        const D = model.transition?.advTmMs;
+        r.sched = this.useTimings && D !== undefined ? { steps: steps.map(() => 0), end: D } : null;
+      } else if (steps[0]?.auto) { r.stepAt[0] = animStart; r.fired = 1; }
       if (r.sched) r.anchor = animStart;
-      if (steps[0]?.auto) { r.stepAt[0] = animStart; r.fired = 1; }
     } else {
       const leaving = prev?.model.transition;
       r.transition = mirrorTransition(leaving);

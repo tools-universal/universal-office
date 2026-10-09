@@ -4,7 +4,7 @@ import {
   buildPlaybackTimeline, playbackStateAt, shapeAnimHooks, paintTransition, SlideShow,
   type ChartModel, type PaintImage, type PaintSlideOptions,
   type Presentation, type Slide, type Shape, type ImageRef,
-  type PlaybackOptions, type PlaybackTimeline, type PlaybackSlide, type SlideShowAction,
+  type PlaybackOptions, type PlaybackTimeline, type PlaybackSlide, type SlideShowAction, type SlideTimingModel,
 } from '@universal/slides-core';
 import { MediaPlayer } from './media-player.js';
 
@@ -22,7 +22,10 @@ export interface PlayOptions extends PlaybackOptions {
   media?: 'realtime' | 'seek';
 }
 
-/** Opções de `present()` — apresentação por clique. */
+/**
+ * Opções de `present()` — apresentação por clique. Sem a opção, vale o
+ * "Configurar apresentação" do arquivo (`<p:showPr>`) e, sem ele, o default.
+ */
 export interface PresentOptions {
   /**
    * Usa os intervalos gravados (`advTm`): nesses slides os passos "ao clicar"
@@ -33,7 +36,13 @@ export interface PresentOptions {
   loop?: boolean;
   /** Pede tela cheia ao começar; sair dela encerra a apresentação. Default true. */
   fullscreen?: boolean;
+  /** false = apresentar sem animação (slides no estado final). Default true. */
+  animations?: boolean;
+  /** Quiosque: clique/teclas não avançam (só intervalos e hiperlinks); Esc sai; repete. Default false. */
+  kiosk?: boolean;
 }
+
+const NO_TIMING: SlideTimingModel = { steps: [], interactive: [], hidden: false };
 
 /** Teclas do apresentador (as do app de referência). */
 const NEXT_KEYS = new Set(['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter', 'n', 'N']);
@@ -96,7 +105,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    * (slides-core/slideshow.ts) + agendamento do próximo quadro. `null` = sem
    * apresentação.
    */
-  protected show: { ss: SlideShow; rafId: number; timer: number; fullscreen: boolean } | null = null;
+  protected show: { ss: SlideShow; rafId: number; timer: number; fullscreen: boolean; kiosk: boolean } | null = null;
   /** Texto da tela de fim da apresentação (o do app de referência em pt-BR). */
   protected endOfShowText = 'Fim da apresentação de slides. Clique para sair.';
   /** Canvases de trabalho da transição (origem/destino) na reprodução automática. */
@@ -311,23 +320,34 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    *  - Home/End (e `selectSlide(i)`): pula; Esc (ou sair da tela cheia): sai;
    *  - slide com intervalo gravado (`useTimings`): passos e avanço sozinhos;
    *  - depois do último slide, a tela de fim; o próximo comando sai.
-   * `from` = slide inicial (default: o atual). Emite `us-slide` a cada slide,
-   * `us-step` a cada passo e `us-present-end` ao sair (por qualquer motivo).
-   * Chamar a partir de um gesto do usuário (a tela cheia exige).
+   * `from` = slide inicial: índice (um oculto também, se pedido), `'start'` =
+   * o F5 "do começo" (1º slide VISÍVEL da faixa) ou ausente = o atual. Emite
+   * `us-slide` a cada slide, `us-step` a cada passo e `us-present-end` ao
+   * sair (por qualquer motivo). Chamar a partir de um gesto do usuário (a
+   * tela cheia exige).
    */
-  present(from?: number, opts: PresentOptions = {}): void {
+  present(from?: number | 'start', opts: PresentOptions = {}): void {
     if (!this.slides.length) return;
     this.stopPlayback();
     const full = opts.fullscreen ?? true;
     const already = this.host.fullscreenElement === this.wrap;
     this.endShow(full && already); // recomeço já em tela cheia: continua nela
-    const ss = new SlideShow(this.slides.map((s) => s.timing), from ?? this.index, this.now(), {
-      useTimings: opts.useTimings ?? true, loop: opts.loop ?? false,
+    // "Configurar apresentação" do arquivo: faixa de slides (fora dela = oculto), repetir, intervalos…
+    const cfg = this.pres?.show ?? {};
+    const range = cfg.range;
+    const models = this.slides.map((s, i) => (range && (i < range[0] || i > range[1])
+      ? { ...(s.timing ?? NO_TIMING), hidden: true } : s.timing));
+    const kiosk = opts.kiosk ?? cfg.kiosk ?? false;
+    const start = from === 'start' ? SlideShow.firstVisible(models) : from ?? this.index;
+    const ss = new SlideShow(models, start, this.now(), {
+      useTimings: opts.useTimings ?? cfg.useTimings ?? true,
+      loop: opts.loop ?? ((cfg.loop || kiosk) || false),
+      animations: opts.animations ?? cfg.showAnimation ?? true,
     });
     this.media.mode = 'realtime';
     this.media.clock = {};
     for (const s of this.slides) this.media.warmGifs(s);
-    this.show = { ss, rafId: 0, timer: 0, fullscreen: full };
+    this.show = { ss, rafId: 0, timer: 0, fullscreen: full, kiosk };
     this.fromKey = '';
     this.badge.style.display = 'none';
     if (full) {
@@ -759,6 +779,8 @@ export class UniversalPresentationViewerElement extends HTMLElement {
       if (e.ctrlKey || e.metaKey || e.altKey) return; // atalhos do navegador/host
       const k = e.key;
       if (k === 'Escape') this.stopPresentation();
+      else if (k === 'F5') { /* já apresentando: não recarrega a página */ }
+      else if (this.show.kiosk) return; // quiosque: só intervalos/hiperlinks avançam
       else if (NEXT_KEYS.has(k)) this.next();
       else if (PREV_KEYS.has(k)) this.prev();
       else if (k === 'Home') this.showCommand((ss, now) => ss.first(now));
@@ -786,8 +808,8 @@ export class UniversalPresentationViewerElement extends HTMLElement {
       e.preventDefault();
       return;
     }
-    // apresentação: o clique avança (passo ou slide)
-    if (this.show && e.button === 0) this.showCommand((ss, now) => ss.next(now, true));
+    // apresentação: o clique avança (passo ou slide) — no quiosque, não
+    if (this.show && !this.show.kiosk && e.button === 0) this.showCommand((ss, now) => ss.next(now, true));
   };
 
   protected onMouseMove = (e: MouseEvent): void => {

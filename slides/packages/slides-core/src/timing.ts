@@ -343,7 +343,7 @@ function parseCTn(tag: string, cTn: XmlElement): TimeNode {
   const it = firstChild(cTn, 'p:iterate');
   if (it) {
     const type = (it.attrs['type'] ?? 'el') as 'el' | 'wd' | 'lt';
-    const iter: TimeNode['iterate'] = { type, backwards: it.attrs['backwards'] === '1' };
+    const iter: TimeNode['iterate'] = { type, backwards: it.attrs['backwards'] === '1' || it.attrs['backwards'] === 'true' };
     const pct = firstChild(it, 'p:tmPct');
     const abs = firstChild(it, 'p:tmAbs');
     if (pct?.attrs['val'] !== undefined) iter.pct = parseFloat(pct.attrs['val']) / 100000;
@@ -355,6 +355,9 @@ function parseCTn(tag: string, cTn: XmlElement): TimeNode {
 
 function parseTarget(tgtEl: XmlElement | undefined): AnimTarget | undefined {
   if (!tgtEl) return undefined;
+  // tinta: <p:inkTgt spid> é IRMÃO de <p:spTgt> no <p:tgtEl> (schema), não filho
+  const ink = firstChild(tgtEl, 'p:inkTgt');
+  if (ink?.attrs['spid']) return { spid: ink.attrs['spid'], sub: 'inkTgt' };
   const sp = firstChild(tgtEl, 'p:spTgt');
   if (!sp?.attrs['spid']) return undefined;
   const t: AnimTarget = { spid: sp.attrs['spid'] };
@@ -365,7 +368,7 @@ function parseTarget(tgtEl: XmlElement | undefined): AnimTarget | undefined {
     if (pRg) t.pRange = [parseInt(pRg.attrs['st'] ?? '0', 10), parseInt(pRg.attrs['end'] ?? '0', 10)];
     if (cRg) t.charRange = [parseInt(cRg.attrs['st'] ?? '0', 10), parseInt(cRg.attrs['end'] ?? '0', 10)];
   }
-  for (const k of ['p:bg', 'p:subSp', 'p:oleChartEl', 'p:inkTgt', 'p:graphicEl']) {
+  for (const k of ['p:bg', 'p:subSp', 'p:oleChartEl', 'p:graphicEl']) {
     if (firstChild(sp, k)) t.sub = k.slice(2);
   }
   const ge = firstChild(sp, 'p:graphicEl');
@@ -537,6 +540,14 @@ export function beginOffset(n: TimeNode): number | null {
   return null;
 }
 
+/**
+ * Início de passo AINDA NÃO DISPARADO (apresentação por clique, gatilhos
+ * interativos): longe o bastante para nunca chegar — o efeito fica no estado
+ * inicial (entrada oculta) e não toca nem no "fim do slide" (animMs = ∞).
+ * Passos pendentes ficam em ordem (`+ passo · 1e7`).
+ */
+export const STEP_PENDING = 1e12;
+
 /** Alvo é a forma inteira (sem `<p:txEl>`/`<p:bg>`/sub-alvo)? */
 function wholeShape(t: AnimTarget): boolean {
   return !t.pRange && !t.charRange && !t.sub;
@@ -605,7 +616,12 @@ export function blockDur(n: TimeNode, ctx: TimingEvalCtx): number {
   return base;
 }
 
-/** Duração ATIVA: simples × (2 com autoRev) × repetições. */
+/**
+ * Duração ATIVA: simples × (2 com autoRev) × repetições. `spd` NÃO entra:
+ * medido no oráculo (pb-tempo-2, "Velocidade 2x") o app acelera o visual (o
+ * motor divide o tempo local), mas a sequência e o slide seguem a duração
+ * gravada — dividir aqui encurtava o slide em ~1 s.
+ */
 export function activeDur(n: TimeNode, ctx: TimingEvalCtx): number {
   let d = simpleDur(n, ctx) * (n.autoRev ? 2 : 1);
   if (n.repeat !== undefined) d = n.repeat === Infinity ? Infinity : d * n.repeat;
@@ -723,7 +739,8 @@ function stepFrom(nodes: { node: TimeNode; offset: number }[], auto: boolean, ct
  * efeitos por letra/palavra) — sem ele, cai no `<p:bldP animBg>` do arquivo.
  */
 export function parseSlideTiming(sld: XmlElement, units: CountTextUnits, color?: ResolveColor, hasBackground?: HasBackground): SlideTimingModel {
-  const model: SlideTimingModel = { steps: [], interactive: [], hidden: sld.attrs['show'] === '0' };
+  const show = sld.attrs['show'];
+  const model: SlideTimingModel = { steps: [], interactive: [], hidden: show === '0' || show === 'false' };
   const tr = parseSlideTransition(sld);
   if (tr) model.transition = tr;
   const timing = unwrapAlternate(sld, 'p:timing');
@@ -798,9 +815,11 @@ export function parseSlideTiming(sld: XmlElement, units: CountTextUnits, color?:
     } else if (seq.nodeType === 'interactiveSeq') {
       const bmk = seq.st.find((c) => c.evt === 'onMediaBookmark' && c.spid && c.bookmark !== undefined);
       if (bmk) {
-        // marcador de mídia: dispara sozinho quando a mídia passa pelo ponto
+        // marcador de mídia: dispara sozinho quando a mídia passa pelo ponto —
+        // uma sequência interativa avança UM grupo de clique por evento: só o
+        // 1º toca na passagem; os demais ficam pendentes (o estado inicial vale)
         const effects: EffectTiming[] = [];
-        for (const c of seq.children) collectGroup({ ...c, st: [] }, 0, ctx, effects);
+        seq.children.forEach((c, i) => collectGroup({ ...c, st: [] }, 0, ctx, i === 0 ? effects : model.interactive));
         (model.bookmarkTriggers ??= []).push({ spid: bmk.spid!, bookmark: bmk.bookmark!, effects });
       } else {
         for (const c of seq.children) collectGroup({ ...c, st: [] }, 0, ctx, model.interactive);

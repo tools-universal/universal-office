@@ -1,6 +1,6 @@
 import { evalFormula, type FormulaVars } from './anim-formula.js';
 import type { ChartSel } from './chart-engine.js';
-import { beginOffset, type TimeNode } from './timing.js';
+import { beginOffset, STEP_PENDING, type TimeNode } from './timing.js';
 import type { PlacedEffect } from './playback.js';
 
 /**
@@ -563,6 +563,7 @@ interface Track {
 function evalTracks(tracks: Track[], animMs: number, base: AnimBase, initiallyVisible: boolean): PartState {
   const st = neutral(base, initiallyVisible);
   for (const tr of tracks) {
+    if (tr.e.t0 >= STEP_PENDING) continue; // pendente (clique/gatilho): só o estado inicial
     let local = animMs - tr.e.t0 - tr.shift;
     if (local < 0) continue;
     // fim forçado ("até o próximo clique"): congela no instante do fim (fill

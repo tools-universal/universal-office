@@ -10,7 +10,7 @@ import type { PptxPackage } from './package.js';
 import { parseSlideTiming, type CountTextUnits } from './timing.js';
 import type {
   Presentation, SlideRef, Slide, Shape, Xfrm, ImageRef, MediaRef, TextBody, Paragraph, Run, Theme,
-  SlideAnimEntry, SlideTransition, Table, TableRow, TableCell, GradientStop, Fill,
+  SlideAnimEntry, SlideTransition, Table, TableRow, TableCell, GradientStop, Fill, ShowSettings,
 } from './model.js';
 
 /**
@@ -56,7 +56,31 @@ export function readPresentation(pkg: PptxPackage): Presentation {
   }
   const pres: Presentation = { slideW, slideH, slides };
   if (sz?.attrs['type']) pres.sizeType = sz.attrs['type'];
+  const show = readShowSettings(pkg);
+  if (show) pres.show = show;
   return pres;
+}
+
+/** `<p:showPr>` do presProps (configurar apresentação). Parte ausente/ilegível = undefined. */
+function readShowSettings(pkg: PptxPackage): ShowSettings | undefined {
+  const part = findRelTarget(pkg, 'ppt/presentation.xml', 'presProps') ?? 'ppt/presProps.xml';
+  const xml = pkg.getPartText(part);
+  if (xml === undefined) return undefined;
+  let sp: XmlElement | undefined;
+  try { sp = firstChild(parseXml(xml), 'p:showPr'); } catch { return undefined; }
+  if (!sp) return undefined;
+  const bool = (v: string | undefined): boolean | undefined => (v === undefined ? undefined : v === '1' || v === 'true');
+  const out: ShowSettings = {};
+  const loop = bool(sp.attrs['loop']); if (loop !== undefined) out.loop = loop;
+  const ut = bool(sp.attrs['useTimings']); if (ut !== undefined) out.useTimings = ut;
+  const sa = bool(sp.attrs['showAnimation']); if (sa !== undefined) out.showAnimation = sa;
+  if (firstChild(sp, 'p:kiosk')) out.kiosk = true;
+  const rg = firstChild(sp, 'p:sldRg');
+  if (rg) {
+    const st = parseInt(rg.attrs['st'] ?? '', 10), end = parseInt(rg.attrs['end'] ?? '', 10);
+    if (Number.isFinite(st) && Number.isFinite(end) && st >= 1 && end >= st) out.range = [st - 1, end - 1];
+  }
+  return out;
 }
 
 /** Resolve o tema referenciado por uma parte (slide/layout/master via rels). */

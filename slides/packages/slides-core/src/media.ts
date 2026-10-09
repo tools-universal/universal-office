@@ -1,4 +1,4 @@
-import { beginOffset, type TimeNode } from './timing.js';
+import { beginOffset, STEP_PENDING, type TimeNode } from './timing.js';
 import type { PlacedEffect } from './playback.js';
 
 /**
@@ -73,7 +73,8 @@ export function mediaCommands(effects: readonly PlacedEffect[], spid: string): M
       if (b !== null) walk(c, t + b);
     }
   };
-  for (const e of effects) walk(e.node, e.t0);
+  // pendentes (passo não dado, gatilho interativo) não tocam — nem no fim do slide (∞)
+  for (const e of effects) if (e.t0 < STEP_PENDING) walk(e.node, e.t0);
   return out.sort((a, b) => a.atMs - b.atMs);
 }
 

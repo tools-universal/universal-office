@@ -166,6 +166,56 @@ describe('apresentação por clique (F5)', () => {
   });
 });
 
+describe('F5: comandos durante animação/transição, ocultos e "sem animação"', () => {
+  it('"do começo" pula os ocultos (firstVisible); pedido explícito de oculto continua valendo', () => {
+    const models = [slide({ hidden: true }), slide({ hidden: true }), slide(), slide()];
+    expect(SlideShow.firstVisible(models)).toBe(2);
+    expect(new SlideShow(models, SlideShow.firstVisible(models), 0).index).toBe(2);
+    expect(new SlideShow(models, 0, 0).index).toBe(0); // Shift+F5 num oculto mostra ele
+    expect(SlideShow.firstVisible([slide({ hidden: true })])).toBe(0);
+  });
+
+  it('clique com o passo ainda animando: o passo em curso SALTA para o fim (nextAc="seek")', () => {
+    const ss = new SlideShow([slide({ steps: clicks(2, 2000) })], 0, 0);
+    ss.next(0);
+    expect(ss.next(500)).toBe('step');
+    const f = ss.frame(600);
+    const [a, b] = f.slide!.effects;
+    // o 1º passo já terminou quando o 2º começa: não tocam sobrepostos
+    expect(a!.t0 + a!.durMs).toBeLessThanOrEqual(500);
+    expect(b!.t0).toBe(500);
+  });
+
+  it('passo já concluído não muda de lugar ao clicar', () => {
+    const ss = new SlideShow([slide({ steps: clicks(2, 300) })], 0, 0);
+    ss.next(0);
+    ss.next(1000);
+    expect(ss.frame(1000).slide!.effects[0]!.t0).toBe(0);
+  });
+
+  it('voltar DURANTE a transição só a conclui (ida e volta)', () => {
+    const models = [slide(), slide({ transition: tr({ durMs: 3000 }), steps: clicks(1) })];
+    const ss = new SlideShow(models, 0, 0);
+    expect(ss.next(10)).toBe('slide'); // entra no 1 com esmaecer de 3 s
+    expect(ss.prev(500)).toBe('transition');
+    expect([ss.index, ss.frame(500).transitionProgress]).toEqual([1, 1]);
+    expect(ss.prev(600)).toBe('slide'); // agora sim volta ao 0 (transição de volta de 3 s)
+    expect(ss.index).toBe(0);
+    expect(ss.prev(800)).toBe('transition'); // no meio da volta: conclui, não desfaz nada
+    expect(ss.index).toBe(0);
+  });
+
+  it('sem animação: o slide entra no estado final e, com intervalo, avança em advTm', () => {
+    const ss = new SlideShow([slide({ transition: cut(1000), steps: clicks(2, 500) }), slide()], 0, 0, { animations: false });
+    expect(ss.step).toBe(2);
+    expect(ss.frame(0).slide!.effects.every((e) => e.t0 + e.durMs < 0)).toBe(true);
+    expect(ss.update(999)).toBe('none');
+    expect(ss.update(1000)).toBe('slide');
+    const manual = new SlideShow([slide({ steps: clicks(2, 500) }), slide()], 0, 0, { animations: false });
+    expect(manual.next(10)).toBe('slide'); // nenhum passo pendente: o clique troca de slide
+  });
+});
+
 describe('transição espelhada (voltar)', () => {
   it('direções trocam de lado; o padrão sem dir também; sem direção fica igual', () => {
     expect(mirrorTransition(tr({ type: 'push' }))!.attrs['dir']).toBe('r');

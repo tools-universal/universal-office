@@ -51,7 +51,7 @@ export {
 } from './render.js';
 export {
   EMU_PER_INCH, EMU_PER_POINT, EMU_PER_PX,
-  type Presentation, type SlideRef, type Slide, type Shape, type Xfrm,
+  type Presentation, type ShowSettings, type SlideRef, type Slide, type Shape, type Xfrm,
   type Fill, type GradientStop, type ImageRef, type MediaRef, type TextBody, type Paragraph, type Run, type Theme,
   type SlideAnimEntry, type SlideTransition,
   type Table, type TableRow, type TableCell,

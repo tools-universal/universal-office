@@ -26,6 +26,22 @@ export interface Presentation {
   slideH: number;
   sizeType?: string;
   slides: SlideRef[];
+  /** Configuração da apresentação (`ppt/presProps.xml` → `<p:showPr>`), quando o arquivo traz. */
+  show?: ShowSettings;
+}
+
+/** "Configurar apresentação de slides" (`<p:showPr>`). Ausente = default do app. */
+export interface ShowSettings {
+  /** `loop="1"`: repetir até Esc. */
+  loop?: boolean;
+  /** `useTimings="0"`: avançar manualmente (ignora os intervalos). */
+  useTimings?: boolean;
+  /** `showAnimation="0"`: apresentar sem animação. */
+  showAnimation?: boolean;
+  /** `<p:kiosk>`: quiosque — repete e só avança sozinho/por hiperlink (clique não avança). */
+  kiosk?: boolean;
+  /** `<p:sldRg st end>`: faixa de slides, índices 0-based inclusivos. */
+  range?: [number, number];
 }
 
 /** Parada de gradiente (`<a:gs pos>`), pos normalizado 0..1. */
