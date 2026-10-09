@@ -26,6 +26,7 @@ dotnet/**/obj/
 **/tools/ppt-lab/playback/.fonts/
 **/tools/ppt-lab/playback/harness.bundle.js
 **/tools/ppt-lab/playback/.ppt-convert.bundle.mjs
+**/tools/ppt-lab/.regress/
 # Página de teste do viewer — lista de amostras gerada pelo build (decks locais)
 slides/packages/viewer/demo/samples.json
 
