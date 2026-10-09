@@ -19,14 +19,36 @@ import { parseXml, firstChild, childElements, type XmlElement } from '../xml.js'
 import type { OAShape } from './officeart.js';
 import { escText, escAttr } from './xmlw.js';
 
-/** Primeira parte do zip cujo nome termina com `suffix` (texto) — ou undefined. */
+/**
+ * Teto por parte dos zips de round-trip (XML de tema/forma/diagrama: KB, no
+ * máximo poucos MB). O fflate pré-aloca o tamanho DECLARADO no zip (até 4 GiB)
+ * — partes acima do teto ou com razão de compressão absurda são ignoradas.
+ */
+const MAX_RT_PART = 32 * 1024 * 1024;
+const okPart = (f: { size: number; originalSize: number }): boolean =>
+  f.originalSize <= MAX_RT_PART && f.originalSize <= Math.max(1 << 20, f.size * 1100);
+
+/** Descompacta um zip de round-trip (partes que passam no teto e no `filter`). */
+export function unzipRoundTrip(bytes: Uint8Array, filter?: (name: string) => boolean): Record<string, Uint8Array> {
+  return unzipSync(bytes, { filter: (f) => okPart(f) && (!filter || filter(f.name)) });
+}
+
+const partTextCache = new WeakMap<Uint8Array, Map<string, string | undefined>>();
+
+/** Primeira parte do zip cujo nome termina com `suffix` (texto) — ou undefined. Cacheado por blob. */
 export function zipPartText(bytes: Uint8Array | undefined, suffix: string): string | undefined {
   if (!bytes || bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b) return undefined;
+  let cache = partTextCache.get(bytes);
+  if (!cache) partTextCache.set(bytes, cache = new Map());
+  if (cache.has(suffix)) return cache.get(suffix);
+  let text: string | undefined;
   try {
-    const parts = unzipSync(bytes, { filter: (f) => f.name.endsWith(suffix) });
+    const parts = unzipRoundTrip(bytes, (n) => n.endsWith(suffix));
     const name = Object.keys(parts)[0];
-    return name ? strFromU8(parts[name]!) : undefined;
-  } catch { return undefined; }
+    text = name ? strFromU8(parts[name]!) : undefined;
+  } catch { text = undefined; }
+  cache.set(suffix, text);
+  return text;
 }
 
 /** XML do tema original (RoundTripTheme12Atom) — undefined se ausente/inválido. */
@@ -53,7 +75,7 @@ export function metroDiagram(sh: OAShape): MetroDiagram | undefined {
   const blob = sh.props.get(0x3a9)?.complex;
   if (!blob || blob.length < 4 || blob[0] !== 0x50 || blob[1] !== 0x4b) return undefined;
   let parts: Record<string, Uint8Array>;
-  try { parts = unzipSync(blob); } catch { return undefined; }
+  try { parts = unzipRoundTrip(blob); } catch { return undefined; }
   const e2o = parts['drs/e2oDoc.xml'];
   if (!e2o) return undefined;
   let frame: XmlElement;
@@ -188,10 +210,14 @@ export function metroTextBody(sh: OAShape, text: string): string | undefined {
   return xml;
 }
 
-/** Serializa um XmlElement de volta para texto (atributos e texto escapados). */
+/** Nome XML aceitável (o parser tolera `"`/`<` em nomes; a saída não pode). */
+const XML_NAME = /^[A-Za-z_][\w.:-]*$/;
+
+/** Serializa um XmlElement de volta para texto (atributos e texto escapados; nomes inválidos ficam de fora). */
 export function serializeXml(el: XmlElement): string {
+  if (!XML_NAME.test(el.name)) return '';
   let out = `<${el.name}`;
-  for (const [k, v] of Object.entries(el.attrs)) out += ` ${k}="${escAttr(v)}"`;
+  for (const [k, v] of Object.entries(el.attrs)) if (XML_NAME.test(k)) out += ` ${k}="${escAttr(v)}"`;
   if (!el.children.length) return out + '/>';
   out += '>';
   for (const c of el.children) out += typeof c === 'string' ? escText(c) : serializeXml(c);

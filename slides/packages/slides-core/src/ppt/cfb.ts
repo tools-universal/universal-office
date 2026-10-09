@@ -67,10 +67,9 @@ export class CfbFile {
     if (v.getUint16(0x1c, true) !== 0xfffe) throw new Error('Compound File com byte order inválido');
     this.sectorShift = v.getUint16(0x1e, true);
     this.miniSectorShift = v.getUint16(0x20, true);
-    if ((major === 3 && this.sectorShift !== 9) || (major === 4 && this.sectorShift !== 12)) {
-      // tolera combinações fora do padrão, mas exige tamanhos sãos
-      if (this.sectorShift < 7 || this.sectorShift > 16) throw new Error(`Compound File com setor inválido (2^${this.sectorShift})`);
-    }
+    // tolera combinações fora do padrão (v3 = 2^9, v4 = 2^12), mas exige tamanhos
+    // sãos para QUALQUER versão — um shift 28/30 alocava centenas de MB por setor
+    if (this.sectorShift < 7 || this.sectorShift > 16) throw new Error(`Compound File com setor inválido (2^${this.sectorShift})`);
     if (this.miniSectorShift < 2 || this.miniSectorShift > this.sectorShift) throw new Error('Compound File com mini setor inválido');
     const numFatSectors = v.getUint32(0x2c, true);
     const firstDirSector = v.getUint32(0x30, true);
@@ -80,29 +79,32 @@ export class CfbFile {
     const firstDifatSector = v.getUint32(0x44, true);
     const numDifatSectors = v.getUint32(0x48, true);
     const sectorSize = 1 << this.sectorShift;
+    // setores que CABEM no arquivo: nada aponta (útil) além disso — limita a FAT
+    // e as cadeias ao tamanho real (antes: um arquivo de 2 KB "declarava" 512 MiB)
+    const fileSectors = Math.max(0, Math.ceil(bytes.length / sectorSize) - 1);
+    const inFile = (s: number): boolean => s < fileSectors;
 
     // DIFAT: 109 entradas no cabeçalho + setores DIFAT encadeados (o último
     // u32 de cada setor DIFAT aponta para o próximo).
+    // (a FAT é POSICIONAL: a k-ésima entrada da DIFAT cobre os setores
+    // k·perSector… — nada sai da lista; o tamanho é limitado mais abaixo)
     const fatSectors: number[] = [];
-    for (let i = 0; i < 109; i++) {
-      const s = v.getUint32(0x4c + i * 4, true);
-      if (s <= MAXREGSECT) fatSectors.push(s);
-    }
+    const addFat = (s: number): void => { if (s <= MAXREGSECT) fatSectors.push(s); };
+    for (let i = 0; i < 109; i++) addFat(v.getUint32(0x4c + i * 4, true));
     let difat = firstDifatSector;
     const perDifat = sectorSize / 4 - 1;
     const seenDifat = new Set<number>();
-    for (let n = 0; n < numDifatSectors && difat <= MAXREGSECT; n++) {
+    // FAT útil: uma entrada por setor do ARQUIVO (entradas além descrevem setores inexistentes)
+    const perSector = sectorSize / 4;
+    const maxFatSectors = Math.ceil((fileSectors + 1) / perSector);
+    for (let n = 0; n < numDifatSectors && difat <= MAXREGSECT && inFile(difat) && fatSectors.length < maxFatSectors; n++) {
       if (seenDifat.has(difat)) throw new Error('Compound File com ciclo na DIFAT');
       seenDifat.add(difat);
       const off = this.sectorOffset(difat);
-      for (let i = 0; i < perDifat; i++) {
-        const s = this.u32At(off + i * 4);
-        if (s <= MAXREGSECT) fatSectors.push(s);
-      }
+      for (let i = 0; i < perDifat; i++) addFat(this.u32At(off + i * 4));
       difat = this.u32At(off + perDifat * 4);
     }
-    const fatCount = Math.min(fatSectors.length, numFatSectors || fatSectors.length);
-    const perSector = sectorSize / 4;
+    const fatCount = Math.min(fatSectors.length, numFatSectors || fatSectors.length, maxFatSectors);
     this.fat = new Uint32Array(fatCount * perSector);
     for (let i = 0; i < fatCount; i++) {
       const off = this.sectorOffset(fatSectors[i]!);
@@ -145,7 +147,10 @@ export class CfbFile {
     // percorre a árvore (irmãos left/right em ordem; filhos de storages)
     this.entries = [{ name: root.name, path: '', type: 'root', size: root.size, start: root.start }];
     const visited = new Set<number>([0]);
-    const walk = (id: number, prefix: string): void => {
+    // profundidade de storages aninhados limitada (arquivos reais têm poucos
+    // níveis; milhares de níveis = recursão + caminhos O(n²) em memória)
+    const MAX_DEPTH = 32;
+    const walk = (id: number, prefix: string, depth = 0): void => {
       // pilha explícita: árvores degeneradas podem ser profundas
       const stack: number[] = [];
       let cur = id;
@@ -164,7 +169,7 @@ export class CfbFile {
           const entry: CfbEntry = { name: e.name, path, type: e.type === 1 ? 'storage' : 'stream', size: e.size, start: e.start };
           this.entries.push(entry);
           this.byPath.set(path.toLowerCase(), entry);
-          if (e.type === 1 && e.child !== NOSTREAM) walk(e.child, path);
+          if (e.type === 1 && e.child !== NOSTREAM && depth < MAX_DEPTH) walk(e.child, path, depth + 1);
         }
         cur = e.right;
       }
@@ -184,7 +189,8 @@ export class CfbFile {
   /** Há um stream/storage com esse caminho? */
   has(path: string): boolean { return this.byPath.has(path.toLowerCase()); }
 
-  private sectorOffset(sector: number): number { return (sector + 1) << this.sectorShift; }
+  /** Offset do setor (multiplicação: `<<` estoura 32 bits em setores ≥ 2^22 e fica negativo). */
+  private sectorOffset(sector: number): number { return (sector + 1) * (1 << this.sectorShift); }
 
   private u32At(off: number): number {
     return off + 4 <= this.bytes.length ? this.view.getUint32(off, true) : FREESECT;
@@ -202,7 +208,10 @@ export class CfbFile {
       if (size >= 0 && sectors.length * sectorSize >= size) break;
       s = s < this.fat.length ? this.fat[s]! : ENDOFCHAIN;
     }
-    const total = size >= 0 ? size : sectors.length * sectorSize;
+    // nunca mais que a cadeia real nem que o próprio arquivo (o tamanho declarado
+    // no diretório é do arquivo — 0xFFFFFFFF alocava 4 GiB a partir de 2 KB)
+    const chainBytes = sectors.length * sectorSize;
+    const total = Math.min(size >= 0 ? size : chainBytes, chainBytes, this.bytes.length);
     const out = new Uint8Array(total);
     let pos = 0;
     for (const sec of sectors) {
@@ -221,7 +230,9 @@ export class CfbFile {
     if (!this.miniStream) this.miniStream = this.readChain(this.rootStart, this.rootSize);
     const mini = this.miniStream;
     const ms = 1 << this.miniSectorShift;
-    const out = new Uint8Array(size);
+    // stream pequeno vive DENTRO do mini stream: não pode ser maior que ele
+    const out = new Uint8Array(Math.min(size, mini.length));
+    size = out.length;
     let pos = 0;
     let s = start;
     let guard = 0;

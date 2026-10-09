@@ -107,8 +107,11 @@ export interface PptDocument {
   docPF: TextPF;
   /** TextMasterStyleAtom do Environment (tipo "outro"). */
   docOtherStyle?: MasterStyleLevel[];
-  /** Imagens do BStore (índice pib − 1). */
-  blips: (Blip | undefined)[];
+  /**
+   * Imagem do BStore pelo `pib` (1-based), decodificada SOB DEMANDA (só as
+   * usadas por formas), uma vez por origem e com teto total de memória.
+   */
+  blip(pib: number): Blip | undefined;
   masters: PptSlide[];
   slides: PptSlide[];
   /** Páginas de notas (uma por slide que tem notas) e o mestre das notas. */
@@ -135,6 +138,9 @@ export interface PptDocument {
 export class PptFormatError extends Error {
   constructor(msg: string) { super(msg); this.name = 'PptFormatError'; }
 }
+
+/** Teto TOTAL de bytes descomprimidos de imagens (metarquivos zlib) por documento. */
+const BLIP_BUDGET = 256 * 1024 * 1024;
 
 const HEADER_TOKEN_PLAIN = 0xe391c05f;
 const HEADER_TOKEN_ENCRYPTED = 0xf3d1c4df;
@@ -186,7 +192,7 @@ export function readPptDocument(bytes: Uint8Array): PptDocument {
 
   const out: PptDocument = {
     slideW: 5760, slideH: 4320, notesW: 4320, notesH: 5760, slideSizeType: 0, firstSlideNumber: 1,
-    fonts: [], docCF: {}, docPF: {}, blips: [], masters: [], slides: [], notes: [], binaryTags: new Map(),
+    fonts: [], docCF: {}, docPF: {}, blip: () => undefined, masters: [], slides: [], notes: [], binaryTags: new Map(),
     hyperlinks: new Map(), omitTitlePlace: false, outlinePf9: new Map(),
   };
   let notesMasterPersist = 0;
@@ -196,6 +202,7 @@ export function readPptDocument(bytes: Uint8Array): PptDocument {
   const masterRefs: { persistId: number; slideId: number }[] = [];
   const slideRefs: { persistId: number; slideId: number; texts: TextBlock[] }[] = [];
   const notesRefs: { persistId: number; slideId: number; texts: TextBlock[] }[] = [];
+  const seenPersist = new Set<string>();
 
   for (const c of children(docRec)) {
     switch (c.type) {
@@ -217,15 +224,29 @@ export function readPptDocument(bytes: Uint8Array): PptDocument {
         const dgg = child(c, OA.DggContainer);
         const bstore = dgg ? child(dgg, OA.BStoreContainer) : undefined;
         if (bstore) {
-          out.blips = readBStore(bstore).map((e) => {
+          const entries = readBStore(bstore);
+          // origem (registro embutido ou offset no "Pictures") → imagem: várias
+          // entradas FBSE apontando o mesmo foDelay decodificam UMA vez
+          const bySource = new Map<string, Blip | undefined>();
+          const budget = { left: BLIP_BUDGET };
+          out.blip = (pib: number): Blip | undefined => {
+            const e = entries[pib - 1];
             if (!e) return undefined;
-            try {
-              if (e.embedded) return decodeBlip(e.embedded);
+            let rec: Rec | undefined;
+            let key: string;
+            if (e.embedded) { rec = e.embedded; key = `e${rec.hdr}`; }
+            else {
               if (!pics || e.foDelay === 0xffffffff || e.foDelay >= pics.length) return undefined;
-              const blipRec = readRec(pics, e.foDelay);
-              return blipRec ? decodeBlip(blipRec) : undefined;
-            } catch { return undefined; }
-          });
+              key = `p${e.foDelay}`;
+              if (bySource.has(key)) return bySource.get(key);
+              rec = readRec(pics, e.foDelay);
+            }
+            if (bySource.has(key)) return bySource.get(key);
+            let b: Blip | undefined;
+            try { b = rec ? decodeBlip(rec, budget) : undefined; } catch { b = undefined; }
+            bySource.set(key, b);
+            return b;
+          };
         }
         break;
       }
@@ -238,9 +259,11 @@ export function readPptDocument(bytes: Uint8Array): PptDocument {
           if (k.type === RT.SlidePersistAtom) {
             flush();
             cur = { persistId: k.r.u32(k.start), slideId: k.r.u32(k.start + 12), texts: [] };
-            if (c.inst === 1) masterRefs.push(cur);
-            else if (c.inst === 0) slideRefs.push(cur);
-            else if (c.inst === 2) notesRefs.push(cur);
+            // o mesmo persistId duas vezes = o mesmo slide: converte UMA vez (N
+            // átomos de 28 bytes repetindo um slide grande multiplicavam a saída)
+            const list = c.inst === 1 ? masterRefs : c.inst === 0 ? slideRefs : c.inst === 2 ? notesRefs : undefined;
+            const key = `${c.inst}:${cur.persistId}`;
+            if (list && !seenPersist.has(key)) { seenPersist.add(key); list.push(cur); }
           } else pending.push(k);
         }
         flush();
@@ -326,16 +349,30 @@ function isUserEdit(doc: ByteReader, off: number): boolean {
 }
 
 function lastTopLevelUserEdit(doc: ByteReader): number | undefined {
+  // varre os cabeçalhos sem materializar um Rec por registro (stream grande e
+  // zerado = milhões de registros vazios de 8 bytes)
   let last: number | undefined;
-  for (const r of recsIn(doc, 0, doc.length)) if (r.type === RT.UserEditAtom) last = r.hdr;
+  let off = 0;
+  while (off + 8 <= doc.length) {
+    if (doc.u16(off + 2) === RT.UserEditAtom) last = off;
+    const next = off + 8 + doc.u32(off + 4);
+    if (next > doc.length) break; // registro transborda: corrompido
+    off = next;
+  }
   return last;
 }
 
 /** persistId → offset, com edições mais novas sobrepondo as antigas. */
 function buildPersistDirectory(doc: ByteReader, edits: Rec[]): Map<number, number> {
   const map = new Map<number, number>();
+  // edições diferentes apontando o MESMO diretório: lê uma vez (N edições × M
+  // entradas virava N·M inserções — horas num arquivo de poucos MB)
+  const seen = new Set<number>();
   for (const ue of [...edits].reverse()) {
-    const pd = readRec(doc, doc.u32(ue.start + 12));
+    const pdOff = doc.u32(ue.start + 12);
+    if (seen.has(pdOff)) continue;
+    seen.add(pdOff);
+    const pd = readRec(doc, pdOff);
     if (!pd || pd.type !== RT.PersistDirectoryAtom) continue;
     let o = pd.start;
     while (o + 4 <= pd.end) {

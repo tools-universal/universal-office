@@ -26,6 +26,7 @@ import type { PptSlide } from './ppt-reader.js';
 import { type Rec, children, RT, utf16, recsIn } from './records.js';
 import { el, escAttr } from './xmlw.js';
 import { zipPartText } from './roundtrip.js';
+import { parseXml } from '../xml.js';
 
 /** Valor de TimeVariant (bool/int/float/string). */
 type Variant = boolean | number | string;
@@ -100,16 +101,26 @@ function targetXml(cve: Rec | undefined, w: Writer): string | null {
   return '';
 }
 
+let lastStarts: { text: string; starts: number[] } | undefined;
+function paraStarts(text: string): number[] {
+  if (lastStarts?.text !== text) {
+    const starts = [0];
+    for (let i = 0; i < text.length; i++) if (text[i] === '\r') starts.push(i + 1);
+    lastStarts = { text, starts };
+  }
+  return lastStarts.starts;
+}
+
 /** Faixa de caracteres [st, end) → `<p:txEl>` com pRg (parágrafos) ou charRg. */
 function textRangeXml(text: string | undefined, st: number, end: number): string {
   if (text === undefined) return el('p:txEl', {}, el('p:charRg', { st, end }));
-  // início de cada parágrafo (o '\r' pertence ao parágrafo anterior)
-  const starts = [0];
-  for (let i = 0; i < text.length; i++) if (text[i] === '\r') starts.push(i + 1);
+  // início de cada parágrafo (o '\r' pertence ao parágrafo anterior) — memorizado
+  // por texto e com busca binária: muitos alvos num texto grande eram O(alvos × texto)
+  const starts = paraStarts(text);
   const paraAt = (pos: number): number => {
-    let p = 0;
-    while (p + 1 < starts.length && starts[p + 1]! <= pos) p++;
-    return p;
+    let lo = 0, hi = starts.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (starts[mid]! <= pos) lo = mid; else hi = mid - 1; }
+    return lo;
   };
   const first = paraAt(st);
   const last = paraAt(Math.max(st, end - 1));
@@ -605,9 +616,15 @@ const effectCount = (xml: string): number => (xml.match(/presetClass="/g) ?? [])
 function roundTripTimingXml(slide: PptSlide, ctx: AnimCtx): string | undefined {
   const xml = zipPartText(slide.roundTripTiming, 'timingInfo.xml');
   const i = xml?.indexOf('<p:timing') ?? -1;
-  if (!xml || i < 0) return undefined;
+  const close = '</p:timing>';
+  const j = xml?.lastIndexOf(close) ?? -1;
+  if (!xml || i < 0 || j < i) return undefined;
+  // só o elemento <p:timing>…</p:timing>, e só se for XML bem formado — o resto
+  // do arquivo (ou lixo) entraria cru no slide e o quebraria
+  const raw = xml.slice(i, j + close.length);
+  try { parseXml(raw); } catch { return undefined; }
   let ok = true;
-  const body = xml.slice(i).replace(/\bspid="(\d+)"/g, (_m, v: string) => {
+  const body = raw.replace(/\bspid="(\d+)"/g, (_m, v: string) => {
     const id = parseInt(v, 10);
     const mapped = ctx.spidOf?.(id) ?? (ctx.hasShape(id) ? id : undefined);
     if (mapped === undefined) { ok = false; return `spid="${v}"`; }

@@ -216,8 +216,15 @@ export function rPrXml(tag: string, cf: TextCF, ctx: TextConvCtx, link?: RunLink
 }
 
 /** Hiperlink (ou salto) da faixa → `RunLink`; texto com link usa a cor de hiperlink do esquema. */
-function runLinkFor(block: TextBlock, pos: number, ctx: TextConvCtx): RunLink | undefined {
-  const l = block.links?.find((x) => pos >= x.start && pos < x.end);
+function runLinkFor(lk: LinkIndex, pos: number, ctx: TextConvCtx): RunLink | undefined {
+  // links ordenados por início: candidatos = os últimos com start ≤ pos (as
+  // faixas de hiperlink não se sobrepõem; olha poucos para não varrer tudo)
+  let l: LinkIndex['links'][number] | undefined;
+  const hi = upperBound(lk.starts, pos);
+  for (let i = hi - 1; i >= Math.max(0, hi - 8); i--) {
+    const c = lk.links[i]!;
+    if (pos < c.end) { l = c; break; }
+  }
   if (!l) return undefined;
   if (l.action === 4) {
     const target = ctx.doc.hyperlinks.get(l.hyperlinkId)?.target;
@@ -255,27 +262,47 @@ function fieldId(): string {
   return `{B6F15528-21DE-4FAA-801E-634DDDAF${fieldSeq.toString(16).padStart(4, '0').toUpperCase()}}`;
 }
 
-/** Corrida que cobre a posição `pos` (contagens acumuladas). */
-function runAt<T extends { count: number }>(runs: T[], pos: number): T | undefined {
+/**
+ * Índice das corridas de um bloco (fins acumulados + busca binária): cada
+ * consulta é O(log n). Antes, cada parágrafo/segmento varria TODAS as corridas
+ * — O(n²) num bloco de corridas de 1 caractere (1 MB ≈ 10¹⁰ passos).
+ */
+interface RunIndex<T> { runs: T[]; ends: number[] }
+
+function runIndex<T extends { count: number }>(runs: T[]): RunIndex<T> {
+  const ends: number[] = [];
   let acc = 0;
-  for (const r of runs) {
-    acc += r.count;
-    if (pos < acc) return r;
-  }
-  return runs[runs.length - 1];
+  for (const r of runs) { acc += r.count; ends.push(acc); }
+  return { runs, ends };
+}
+
+/** 1º índice i com `v < a[i]` (a não-decrescente); a.length se nenhum. */
+function upperBound(a: readonly number[], v: number): number {
+  let lo = 0, hi = a.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (v < a[mid]!) hi = mid; else lo = mid + 1; }
+  return lo;
+}
+
+/** Corrida que cobre a posição `pos` (a última, se `pos` passa do fim). */
+function runAt<T>(ix: RunIndex<T>, pos: number): T | undefined {
+  if (!ix.runs.length) return undefined;
+  return ix.runs[Math.min(upperBound(ix.ends, pos), ix.runs.length - 1)];
+}
+
+/** Hiperlinks de um bloco ordenados por início + fronteiras (para busca binária). */
+interface LinkIndex { links: NonNullable<TextBlock['links']>; starts: number[]; bounds: number[] }
+
+function linkIndex(block: TextBlock): LinkIndex {
+  const links = [...(block.links ?? [])].sort((a, b) => a.start - b.start);
+  const bounds = [...new Set(links.flatMap((l) => [l.start, l.end]))].sort((a, b) => a - b);
+  return { links, starts: links.map((l) => l.start), bounds };
 }
 
 /** Fronteiras das corridas de caractere (e dos hiperlinks) dentro de [start, end). */
-function cfBoundaries(block: TextBlock, start: number, end: number): number[] {
+function cfBoundaries(cf: RunIndex<unknown>, lk: LinkIndex, start: number, end: number): number[] {
   const set = new Set<number>([start, end]);
-  let acc = 0;
-  for (const r of block.cfRuns) {
-    acc += r.count;
-    if (acc > start && acc < end) set.add(acc);
-  }
-  for (const l of block.links ?? []) {
-    if (l.start > start && l.start < end) set.add(l.start);
-    if (l.end > start && l.end < end) set.add(l.end);
+  for (const a of [cf.ends, lk.bounds]) {
+    for (let i = upperBound(a, start); i < a.length && a[i]! < end; i++) set.add(a[i]!);
   }
   return [...set].sort((a, b) => a - b);
 }
@@ -297,9 +324,10 @@ export function paragraphsXml(block: TextBlock, ctx: TextConvCtx): string {
     const c = metaCharContent(m.type, ctx);
     if (c) fields.set(m.pos, c);
   }
+  const pfIx = runIndex(block.pfRuns), cfIx = runIndex(block.cfRuns), lk = linkIndex(block);
   let out = '';
   for (const para of paras) {
-    const pfRun = runAt(block.pfRuns, para.start);
+    const pfRun = runAt(pfIx, para.start);
     const level = Math.min(pfRun?.indentLevel ?? 0, 4);
     const base = resolveLevel(ctx, block.textType, level);
     const pf: TextPF = { ...base.pf };
@@ -315,7 +343,7 @@ export function paragraphsXml(block: TextBlock, ctx: TextConvCtx): string {
     }
     if (pfRun) Object.assign(pf, pfRun.pf);
     // PP9: o pp9rt da 1ª corrida do parágrafo indexa o StyleTextProp9Atom
-    const firstCf = runAt(block.cfRuns, para.start);
+    const firstCf = runAt(cfIx, para.start);
     if (block.pf9?.length && pf.hasBullet) {
       const p9 = block.pf9[firstCf?.cf.pp9rt ?? 0];
       if (p9?.hasAutoNum) {
@@ -325,13 +353,13 @@ export function paragraphsXml(block: TextBlock, ctx: TextConvCtx): string {
       }
     }
     let body = pPrXml('a:pPr', pf, base.cf, ctx, { lvl: level });
-    const cfAt = (pos: number): TextCF => ({ ...base.cf, ...(runAt(block.cfRuns, pos)?.cf ?? {}) });
+    const cfAt = (pos: number): TextCF => ({ ...base.cf, ...(runAt(cfIx, pos)?.cf ?? {}) });
     if (para.end > para.start) {
-      const bounds = cfBoundaries(block, para.start, para.end);
+      const bounds = cfBoundaries(cfIx, lk, para.start, para.end);
       for (let k = 0; k + 1 < bounds.length; k++) {
         const a = bounds[k]!, b = bounds[k + 1]!;
         const cf = cfAt(a);
-        const link = runLinkFor(block, a, ctx);
+        const link = runLinkFor(lk, a, ctx);
         // no binário, texto com hiperlink é pintado na cor "acento e hiperlink" do esquema
         if (link && !link.action && ctx.scheme[6]) cf.color = { r: 0, g: 0, b: 0, index: 6 };
         const rPr = rPrXml('a:rPr', cf, ctx, link);

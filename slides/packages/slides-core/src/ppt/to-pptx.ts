@@ -26,7 +26,7 @@ import { roundTripThemeXml } from './roundtrip.js';
 import { shapeXml, backgroundXml, backgroundColor, placeholderType } from './shapeconv.js';
 import { transitionXml } from './transition.js';
 import { notesFor, notesSlideXml, notesMasterXml } from './notes.js';
-import { PartRels, DEFAULT_SCHEME, newPartCtx, type ConvCtx, type ConvertOptions, type PartCtx } from './context.js';
+import { PartRels, DEFAULT_SCHEME, TEXT_BUDGET, newPartCtx, type ConvCtx, type ConvertOptions, type PartCtx } from './context.js';
 import { el, XML_DECL, NS } from './xmlw.js';
 
 export type { ConvertOptions } from './context.js';
@@ -130,7 +130,10 @@ interface PartOut { path: string; xml: string; rels: PartRels }
 
 /** Converte o modelo binário em partes OPC (caminho → bytes), na ordem de escrita. */
 export function pptToPptxParts(doc: PptDocument, opts: ConvertOptions = {}): Map<string, Uint8Array> {
-  const conv: ConvCtx = { doc, media: new Map(), parts: new Map(), mediaExts: new Set(), useRoundTrip: opts.useRoundTrip !== false, overrides: new Map(), diagrams: 0 };
+  const conv: ConvCtx = {
+    doc, media: new Map(), parts: new Map(), mediaExts: new Set(), useRoundTrip: opts.useRoundTrip !== false,
+    overrides: new Map(), diagrams: 0, textBudget: TEXT_BUDGET,
+  };
   const out = new Map<string, Uint8Array>();
   const put = (path: string, xml: string): void => { out.set(path, strToU8(xml)); };
   const fontOf = (idx: number | undefined): string | undefined => idx === undefined ? undefined : doc.fonts[idx]?.name;

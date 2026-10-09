@@ -54,7 +54,16 @@ export interface ConvCtx {
   overrides: Map<string, string>;
   /** Nº de diagramas (SmartArt) já emitidos — numeração das partes. */
   diagrams: number;
+  /**
+   * Orçamento de caracteres de TEXTO convertido (todas as formas, inclusive
+   * repetidas): um bloco grande referenciado por milhares de formas
+   * (OutlineTextRefAtom) multiplicava a saída sem limite.
+   */
+  textBudget: number;
 }
+
+/** Teto de texto convertido por documento (caracteres) — muito acima de qualquer deck real. */
+export const TEXT_BUDGET = 64 * 1024 * 1024;
 
 /** Contexto de uma parte (slide/mestre) sendo escrita. */
 export interface PartCtx {

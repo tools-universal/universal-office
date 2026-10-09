@@ -16,11 +16,13 @@ import { strFromU8, strToU8 } from 'fflate';
 import { metroVisual, metroTextBody, metroShape, metroDiagram, serializeXml, zipPartText } from './roundtrip.js';
 import { DEFAULT_SCHEME, type ConvCtx, type PartCtx } from './context.js';
 import { el, escText, escAttr, XML_DECL, NS } from './xmlw.js';
-import { firstChild, type XmlElement } from '../xml.js';
+import { firstChild, parseXml, type XmlElement } from '../xml.js';
 
 // ───────────────────────────── propriedades ─────────────────────────────
 
 const prop = (sh: OAShape, id: number): number | undefined => sh.props.get(id)?.value;
+/** Propriedade COM SINAL (int32: margens de texto podem ser negativas — lidas sem sinal viravam ~4,29e9). */
+const sprop = (sh: OAShape, id: number): number | undefined => { const v = prop(sh, id); return v === undefined ? undefined : v | 0; };
 const propS = (sh: OAShape, id: number): number | undefined => {
   const v = sh.props.get(id)?.value;
   return v === undefined ? undefined : v | 0;
@@ -131,7 +133,7 @@ function srgb(val: string, alpha?: number): string {
 function mediaFor(conv: ConvCtx, pib: number): string | undefined {
   const hit = conv.media.get(pib);
   if (hit) return hit;
-  const blip = conv.doc.blips[pib - 1];
+  const blip = conv.doc.blip(pib);
   if (!blip) return undefined;
   const path = `ppt/media/image${conv.media.size + 1}.${blip.ext}`;
   conv.media.set(pib, path);
@@ -419,10 +421,10 @@ function bodyPrXml(sh: OAShape): string {
   return el('a:bodyPr', {
     vert,
     wrap: (prop(sh, 0x85) ?? 0) === 2 ? 'none' : 'square',
-    lIns: prop(sh, 0x81) ?? 91440,
-    tIns: prop(sh, 0x82) ?? 45720,
-    rIns: prop(sh, 0x83) ?? 91440,
-    bIns: prop(sh, 0x84) ?? 45720,
+    lIns: sprop(sh, 0x81) ?? 91440,
+    tIns: sprop(sh, 0x82) ?? 45720,
+    rIns: sprop(sh, 0x83) ?? 91440,
+    bIns: sprop(sh, 0x84) ?? 45720,
     anchor,
     anchorCtr: anchorCtr || undefined,
     rtlCol: 0,
@@ -578,9 +580,14 @@ function zipRels(parts: Record<string, Uint8Array>, path: string): ZipRel[] {
   if (!bytes) return [];
   const out: ZipRel[] = [];
   for (const m of strFromU8(bytes).matchAll(/<Relationship [^>]*>/g)) {
-    const a = (k: string): string | undefined => new RegExp(` ${k}="([^"]*)"`).exec(m[0])?.[1];
+    // a tag é copiada CRUA para o pacote: só passa se for um elemento bem formado
+    const raw = m[0];
+    const closed = raw.endsWith('/>') ? raw : raw.replace(/>$/, '/>');
+    if (raw.indexOf('<', 1) >= 0) continue;
+    try { parseXml(closed); } catch { continue; }
+    const a = (k: string): string | undefined => new RegExp(` ${k}="([^"]*)"`).exec(raw)?.[1];
     const id = a('Id'), type = a('Type'), target = a('Target');
-    if (id && type && target) out.push({ id, type, target, external: a('TargetMode') === 'External', raw: m[0] });
+    if (id && type && target) out.push({ id, type, target, external: a('TargetMode') === 'External', raw });
   }
   return out;
 }
@@ -766,6 +773,8 @@ export function shapeXml(sh: OAShape, pc: PartCtx, opts: ShapeOpts = {}): string
   }
   let txBody = '';
   if (block) {
+    pc.conv.textBudget -= block.text.length;
+    if (pc.conv.textBudget < 0) throw new Error('texto convertido excede o limite (blocos repetidos demais)');
     // round-trip: formatação do shapexml + caracteres do binário (só fora de
     // placeholders — esses herdam do layout original, que não reproduzimos)
     const metroTx = pc.conv.useRoundTrip && !ph ? metroTextBody(sh, block.text) : undefined;

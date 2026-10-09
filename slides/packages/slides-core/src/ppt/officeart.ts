@@ -3,7 +3,7 @@
  * (SpgrContainer/SpContainer), propriedades (FOPT), âncoras, e o armazém de
  * imagens (BStore → BSE → blip no stream "Pictures").
  */
-import { unzlibSync, inflateSync } from 'fflate';
+import { Unzlib, Inflate } from 'fflate';
 import { ByteReader, type Rec, children, OA, readRec } from './records.js';
 
 /** Propriedade de forma (OfficeArtFOPTE): id de 14 bits + valor de 32 bits. */
@@ -215,8 +215,35 @@ function blipUidCount(type: number, inst: number): number {
   }
 }
 
-/** Converte um registro de BLIP nos bytes do arquivo de imagem. */
-export function decodeBlip(rec: Rec): Blip | undefined {
+/** Teto por imagem descomprimida (um metarquivo real tem poucos MB). */
+const MAX_BLIP = 64 * 1024 * 1024;
+
+/**
+ * Descomprime (zlib ou deflate cru) até `max` bytes. Sem teto o fflate cresce
+ * a saída à vontade (~1000:1 — uma "bomba" de 1 MB vira 1 GB). Passou do teto
+ * ou do orçamento do documento → erro (a imagem é descartada).
+ */
+function inflateCapped(raw: Uint8Array, zlib: boolean, max: number, budget?: { left: number }): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const limit = Math.min(max, budget ? budget.left : max);
+  const s = zlib ? new Unzlib() : new Inflate();
+  s.ondata = (chunk) => {
+    total += chunk.length;
+    if (total > limit) throw new Error('imagem descomprimida grande demais');
+    chunks.push(chunk);
+  };
+  s.push(raw, true);
+  if (budget) budget.left -= total;
+  if (chunks.length === 1) return chunks[0]!;
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const c of chunks) { out.set(c, o); o += c.length; }
+  return out;
+}
+
+/** Converte um registro de BLIP nos bytes do arquivo de imagem (`budget`: teto compartilhado do documento). */
+export function decodeBlip(rec: Rec, budget?: { left: number }): Blip | undefined {
   const r = rec.r;
   const uids = blipUidCount(rec.type, rec.inst) * 16;
   const data = (off: number): Uint8Array => r.sub(rec.start + off, rec.end);
@@ -236,11 +263,12 @@ export function decodeBlip(rec: Rec): Blip | undefined {
       const raw = r.sub(h + 34, rec.end);
       let bytes: Uint8Array = raw;
       if (compression === 0) {
-        try { bytes = unzlibSync(raw); } catch {
-          try { bytes = inflateSync(raw); } catch { return undefined; }
+        try { bytes = inflateCapped(raw, true, MAX_BLIP, budget); } catch {
+          try { bytes = inflateCapped(raw, false, MAX_BLIP, budget); } catch { return undefined; }
         }
       }
-      if (cbSize > 0 && cbSize < bytes.length) bytes = bytes.subarray(0, cbSize);
+      // cópia própria do tamanho certo: um subarray manteria o buffer inteiro vivo
+      if (cbSize > 0 && cbSize < bytes.length) bytes = bytes.slice(0, cbSize);
       if (rec.type === OA.BlipEMF) return { ext: 'emf', mime: 'image/x-emf', bytes };
       if (rec.type === OA.BlipWMF) {
         const b = { l: r.i32(h + 4), t: r.i32(h + 8), r: r.i32(h + 12), b: r.i32(h + 16) };

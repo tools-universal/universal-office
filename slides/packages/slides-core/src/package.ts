@@ -15,7 +15,9 @@ export class PptxPackage {
     // (slides-core/ppt) — o resto do pipeline só conhece .pptx
     if (isCfb(bytes)) bytes = convertPptToPptx(bytes);
     let unzipped: ReturnType<typeof unzipSync>;
-    try { unzipped = unzipSync(bytes); }
+    // o fflate pré-aloca o tamanho DECLARADO de cada entrada: tamanho
+    // impossível para o deflate (> ~1032:1) é zip forjado — a entrada fica de fora
+    try { unzipped = unzipSync(bytes, { filter: (f) => f.originalSize <= Math.max(1 << 20, f.size * 1100) }); }
     catch { throw new Error('Arquivo nao e um pacote OOXML valido (ZIP corrompido ou .ppt legado)'); }
     const pkg = new PptxPackage(new Map(Object.entries(unzipped)));
     if (!pkg.getPart('ppt/presentation.xml')) {
