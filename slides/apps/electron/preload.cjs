@@ -8,4 +8,7 @@ contextBridge.exposeInMainWorld('universalSlides', {
   savePptx: (bytes, suggestedName) => ipcRenderer.invoke('us:save-pptx', bytes, suggestedName),
   /** Sincroniza cor dos controles de janela com o tema. */
   setTitleTheme: (dark) => ipcRenderer.invoke('us:title-theme', !!dark),
+  /** Resolve fontes do SO por família (Windows\Fonts + usuário + CloudFonts).
+   *  Retorna [{ family, weight, style, bytes: ArrayBuffer }]. */
+  resolveFonts: (families) => ipcRenderer.invoke('us:resolve-fonts', families),
 });
