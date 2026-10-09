@@ -166,14 +166,25 @@ class AHuff {
   }
 }
 
-/** Saída crescente (bytes). */
+/**
+ * Teto de qualquer saída intermediária/final (fonte real: poucos MB; CJK
+ * grande ~20 MB). Dados forjados pediam até 16 MB por bloco a partir de
+ * poucos bytes (cópias longas do LZ, RLE ×255) e a reconstrução do `glyf`
+ * pré-alocava 2 × um u32 do arquivo (até 8,6 GB).
+ */
+const MAX_FONT_BYTES = 32 * 1024 * 1024;
+
+/** Saída crescente (bytes), com teto. */
 class Out {
   buf: Uint8Array;
   len = 0;
-  constructor(cap: number) { this.buf = new Uint8Array(Math.max(16, cap)); }
+  constructor(cap: number, private readonly max = MAX_FONT_BYTES) {
+    this.buf = new Uint8Array(Math.max(16, Math.min(cap, max)));
+  }
   private grow(n: number): void {
     if (this.len + n <= this.buf.length) return;
-    const nb = new Uint8Array(Math.max(this.buf.length * 2, this.len + n));
+    if (this.len + n > this.max) throw new Error('fonte: saída grande demais');
+    const nb = new Uint8Array(Math.min(this.max, Math.max(this.buf.length * 2, this.len + n)));
     nb.set(this.buf.subarray(0, this.len));
     this.buf = nb;
   }
@@ -201,6 +212,9 @@ function lzcompUnpack(src: Uint8Array, version: number): Uint8Array {
   const distTree = new AHuff(bits, 8);
   const lenTree = new AHuff(bits, 8);
   const outLen = bits.value(24);
+  // o tamanho declarado é do arquivo: além de uma razão plausível (o MTX comprime
+  // ~2–4×) é forjado — evita alocar/gerar 16 MB a partir de poucos bytes
+  if (outLen > Math.max(64 * 1024, src.length * 64)) throw new Error('MTX: tamanho declarado implausível');
   // faixas de distância: 3 bits por símbolo, o bastante p/ cobrir o tamanho
   let numDist = 1;
   while (1 + 2 ** (3 * numDist) - 1 < outLen) numDist++;
@@ -468,7 +482,8 @@ function ctfToSfnt([ctf, push, code]: [Uint8Array, Uint8Array, Uint8Array]): Uin
   if (glyfRec) {
     const numGlyphs = (maxp[4]! << 8) | maxp[5]!;
     inp.pos = glyfRec.offset;
-    const glyf = new Out(glyfRec.length * 2);
+    // capacidade inicial pelo que EXISTE no bloco (o `length` da tabela é do arquivo)
+    const glyf = new Out(Math.min(glyfRec.length, ctf.length) * 2);
     const offsets: number[] = [0];
     for (let g = 0; g < numGlyphs; g++) {
       decodeGlyph(s, glyf);
