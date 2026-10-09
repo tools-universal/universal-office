@@ -30,6 +30,18 @@
      "durMs": 4000,
      "step": 0,
      "fill": "hold"
+    },
+    {
+     "presetClass": "mediacall",
+     "presetId": 2,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "3"
+     },
+     "t0": 2000000000000,
+     "durMs": 1,
+     "step": -2,
+     "fill": "hold"
     }
    ]
   },

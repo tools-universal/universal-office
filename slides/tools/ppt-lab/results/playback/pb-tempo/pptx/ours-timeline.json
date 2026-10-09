@@ -577,6 +577,19 @@
      "step": 0,
      "filter": "fade",
      "fill": "hold"
+    },
+    {
+     "presetClass": "entr",
+     "presetId": 10,
+     "presetSubtype": 0,
+     "target": {
+      "spid": "4"
+     },
+     "t0": 2000000000000,
+     "durMs": 500,
+     "step": -2,
+     "filter": "fade",
+     "fill": "hold"
     }
    ]
   },
