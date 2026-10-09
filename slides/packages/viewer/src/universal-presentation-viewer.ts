@@ -99,7 +99,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    * Reprodução automática em curso (`play()`): linha do tempo PURA
    * (slides-core/playback.ts) + relógio. `null` = sem reprodução.
    */
-  protected auto: { tl: PlaybackTimeline; t0: number; loop: boolean; rafId: number; pos: number } | null = null;
+  protected auto: { tl: PlaybackTimeline; t0: number; loop: boolean; rafId: number; pos: number; ended: boolean } | null = null;
   /**
    * Apresentação em curso (`present()`): máquina de estados PURA
    * (slides-core/slideshow.ts) + agendamento do próximo quadro. `null` = sem
@@ -136,25 +136,76 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.canvas.addEventListener('mousemove', this.onMouseMove);
   }
 
+  private resizeObs: ResizeObserver | null = null;
+  /** Mudança de devicePixelRatio (janela levada a outro monitor): o tamanho CSS não muda, o backing store sim. */
+  private dprWatch: { mq: MediaQueryList; onChange: () => void } | null = null;
+  /** Geração do carregamento: resposta de `src` antiga não sobrescreve um deck mais novo. */
+  private loadSeq = 0;
+  /** `src` já carregado/pedido (o upgrade do elemento dispara attributeChanged E connected). */
+  private srcUrl: string | null = null;
+
   connectedCallback(): void {
-    new ResizeObserver(() => { this.resize(); this.paint(); }).observe(this.canvas);
+    this.resizeObs ??= new ResizeObserver(() => { this.resize(); this.paint(); });
+    this.resizeObs.observe(this.canvas);
+    this.watchDpr();
+    this.restoreParkedFonts();
     this.resize(); this.paint();
     (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready.then(() => this.paint()).catch(() => {});
     const src = this.getAttribute('src');
-    if (src && !this.pkg) void this.loadSrc(src);
+    if (src && src !== this.srcUrl) void this.loadSrc(src);
+  }
+
+  /**
+   * Saiu do documento: nada pode continuar rodando — laços de quadro,
+   * timers, áudio/vídeo, URLs de mídia, observadores e as fontes embutidas
+   * que ESTE viewer registrou (o editor cria um viewer por apresentação).
+   */
+  disconnectedCallback(): void {
+    this.resizeObs?.disconnect();
+    this.unwatchDpr();
+    this.stopPresentation();
+    this.stopPlayback();
+    this.media.dispose();
+    this.parkFonts();
   }
 
   attributeChangedCallback(name: string, oldV: string | null, newV: string | null): void {
-    if (name === 'src' && newV && newV !== oldV && this.isConnected) void this.loadSrc(newV);
+    if (name === 'src' && newV && newV !== oldV && this.isConnected && newV !== this.srcUrl) void this.loadSrc(newV);
   }
 
-  /** Carrega um .pptx por URL (mesma origem ou CORS liberado). */
+  /**
+   * Carrega um .pptx por URL (mesma origem ou CORS liberado). Só a carga MAIS
+   * RECENTE vale (`src` trocado de novo ou `loadPptx` direto no meio do
+   * download descarta a resposta antiga). Falha → evento `us-error`.
+   */
   protected async loadSrc(url: string): Promise<void> {
+    const seq = ++this.loadSeq;
+    this.srcUrl = url;
     try {
       const res = await fetch(url);
-      if (!res.ok) return;
-      this.loadPptx(new Uint8Array(await res.arrayBuffer()));
-    } catch { /* src inválido: mantém estado atual */ }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      if (seq !== this.loadSeq) return;
+      this.loadPptx(bytes);
+    } catch (error) {
+      if (seq !== this.loadSeq) return;
+      this.dispatchEvent(new CustomEvent('us-error', { detail: { src: url, error } }));
+    }
+  }
+
+  private watchDpr(): void {
+    this.unwatchDpr();
+    const mq = window.matchMedia?.(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    if (!mq) return;
+    const onChange = (): void => { this.resize(); this.paint(); this.watchDpr(); };
+    mq.addEventListener('change', onChange);
+    this.dprWatch = { mq, onChange };
+  }
+
+  private unwatchDpr(): void {
+    if (!this.dprWatch) return;
+    this.dprWatch.mq.removeEventListener('change', this.dprWatch.onChange);
+    this.dprWatch = null;
   }
 
   // ───────────────────────── FONTES (lógica do Universal Write) ─────────────────────────
@@ -195,6 +246,15 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   /** Decodificação/registro das fontes embutidas (adiado para depois da 1ª pintura). */
   protected embeddedFontsTask: Promise<void> = Promise.resolve();
 
+  /**
+   * Faces EMBUTIDAS que este viewer pôs no `document.fonts` (do deck atual).
+   * Saem ao trocar de deck (o subset "só caracteres usados" do deck A não
+   * pode servir ao deck B) e ao desconectar (voltam se reconectar).
+   */
+  private ownFaces = new Set<FontFace>();
+  private embeddedFamilies = new Set<string>();
+  private parkedFaces: FontFace[] = [];
+
   /** Registra as fontes EMBUTIDAS no pacote (FontFace) e repinta ao carregar. */
   protected registerEmbeddedFonts(pkg: PptxPackage): void {
     this.embeddedFontLoads = [];
@@ -207,13 +267,43 @@ export class UniversalPresentationViewerElement extends HTMLElement {
         const buf = f.data.slice().buffer;
         const face = new FontFace(f.family, buf, { weight, style });
         this.embeddedFontLoads.push(face.load().then(() => {
+          if (this.pkg !== pkg) return; // outro deck já entrou: esta face é velha
           document.fonts.add(face);
+          this.ownFaces.add(face);
+          this.embeddedFamilies.add(f.family);
           this.loadedFamilyNames.add(f.family);
           this.paint();
         }).catch(() => {}));
       } catch { /* face inválida: ignora */ }
     }
   }
+
+  /** Tira do documento as faces embutidas deste viewer (troca de deck). */
+  private releaseFonts(): void {
+    for (const f of this.ownFaces) document.fonts.delete(f);
+    this.ownFaces.clear();
+    for (const fam of this.embeddedFamilies) this.loadedFamilyNames.delete(fam);
+    this.embeddedFamilies.clear();
+    this.parkedFaces = [];
+  }
+
+  /** Desconectado: as faces saem do documento, guardadas para uma reconexão. */
+  private parkFonts(): void {
+    for (const f of this.ownFaces) document.fonts.delete(f);
+    this.parkedFaces = [...this.ownFaces];
+  }
+
+  private restoreParkedFonts(): void {
+    for (const f of this.parkedFaces) document.fonts.add(f);
+    this.parkedFaces = [];
+  }
+
+  /**
+   * Fontes do SO por família fornecidas pelo HOST (ex.: o Electron lê
+   * Windows\Fonts + o cache CloudFonts do Office, invisível ao
+   * `queryLocalFonts`). Ausente: `queryLocalFonts` (Chromium, com permissão).
+   */
+  static systemFontResolver: ((families: string[]) => Promise<{ family: string; weight: string; style: string; bytes: ArrayBuffer }[]>) | null = null;
 
   /**
    * Resolve quando as fontes EMBUTIDAS do deck terminaram de carregar (ou
@@ -238,6 +328,21 @@ export class UniversalPresentationViewerElement extends HTMLElement {
         try { return !document.fonts.check(`12px "${fam}"`); } catch { return true; }
       });
     if (!wanted.length) return;
+    const resolver = UniversalPresentationViewerElement.systemFontResolver;
+    if (resolver) {
+      let added = false;
+      try {
+        for (const f of await resolver(wanted)) {
+          try {
+            document.fonts.add(await new FontFace(f.family, f.bytes, { weight: f.weight, style: f.style }).load());
+            this.loadedFamilyNames.add(f.family);
+            added = true;
+          } catch { /* face inválida: segue */ }
+        }
+      } catch { /* host sem as fontes: fallback CSS */ }
+      if (added && this.pkg === pkg) this.paint();
+      return;
+    }
     const qlf = (window as unknown as { queryLocalFonts?: () => Promise<{ family: string; style: string; blob(): Promise<Blob> }[]> }).queryLocalFonts;
     if (!qlf) return;
     let faces: { family: string; style: string; blob(): Promise<Blob> }[];
@@ -265,30 +370,41 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   /** Índice de shape cujo texto NÃO deve ser pintado (edição inline). */
   protected suppressTextIdx(): number | undefined { return undefined; }
 
-  /** Carrega bytes .pptx e monta os slides. */
+  /**
+   * Carrega bytes .pptx (ou .ppt) e monta os slides. Arquivo inválido LANÇA e
+   * o deck atual fica intacto (tudo é lido antes de trocar o estado).
+   */
   loadPptx(bytes: Uint8Array): void {
-    // apresentação/reprodução são do deck anterior
+    const pkg = PptxPackage.load(bytes);
+    const pres = readPresentation(pkg);
+    const slides: Slide[] = [];
+    for (const ref of pres.slides) {
+      if (!ref.target) continue;
+      try { slides.push(readSlide(pkg, ref.target)); }
+      catch { slides.push({ shapes: [] }); }
+    }
+    // daqui em diante o deck novo é válido: troca o estado
+    this.loadSeq++; // um `src` ainda baixando não sobrescreve este deck
+    this.srcUrl = this.getAttribute('src');
+    // apresentação/reprodução/mídia/fontes embutidas são do deck anterior
     this.stopPresentation();
     this.stopPlayback();
     this.media.dispose();
-    this.pkg = PptxPackage.load(bytes);
+    this.releaseFonts();
+    this.chartCache.clear();
+    this.pkg = pkg;
+    this.pres = pres;
+    this.slides = slides;
     // fontes: default embarcada + embutidas no arquivo + SO sob demanda
     void this.installDefaultFonts();
     // fontes embutidas DEPOIS da 1ª pintura: decodificar EOT/MTX custa ~0,2 s
     // num deck grande, e as fontes carregam de forma assíncrona de todo jeito
-    const pkg = this.pkg;
     this.embeddedFontsTask = new Promise<void>((resolve) => setTimeout(() => {
-      if (this.pkg === pkg) this.registerEmbeddedFonts(pkg);
-      resolve();
+      try { if (this.pkg === pkg) this.registerEmbeddedFonts(pkg); }
+      catch { /* fontes embutidas ilegíveis: o deck segue com as substitutas */ }
+      finally { resolve(); }
     }, 0));
-    void this.ensureDeckFonts(this.pkg);
-    this.pres = readPresentation(this.pkg);
-    this.slides = [];
-    for (const ref of this.pres.slides) {
-      if (!ref.target) continue;
-      try { this.slides.push(readSlide(this.pkg, ref.target)); }
-      catch { this.slides.push({ shapes: [] }); }
-    }
+    void this.ensureDeckFonts(pkg);
     this.imageCache.clear();
     // pre-aquece o cache: todas as imagens deste deck (bg + pic) decodificam em
     // paralelo. Quando cada uma fica pronta, dispara repaint UMA vez.
@@ -487,8 +603,10 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    */
   selectSlide(i: number): void {
     if (this.show) { this.showCommand((ss, now) => ss.goTo(i, now)); return; }
+    // reprodução (em curso ou terminada no palco) para ANTES — inclusive no
+    // mesmo slide / no último (antes ficava presa no palco preto)
+    if (this.auto) this.stopPlayback();
     if (i < 0 || i >= this.slides.length || i === this.index) return;
-    this.stopPlayback();
     this.index = i;
     this.paint();
     this.dispatchEvent(new CustomEvent('us-slide', { detail: { index: i } }));
@@ -529,23 +647,29 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     const from = opts.from ?? 0;
     const first = tl.slides.find((s) => s.index >= from);
     const now = (window.performance ?? Date).now();
-    this.auto = { tl, t0: now - (first?.startMs ?? 0), loop: opts.loop ?? false, rafId: 0, pos: -1 };
+    this.auto = { tl, t0: now - (first?.startMs ?? 0), loop: opts.loop ?? false, rafId: 0, pos: -1, ended: false };
     this.fromKey = '';
     this.badge.style.display = 'none';
+    // acabou: fica no ÚLTIMO quadro (o palco), mas não está mais "reproduzindo" —
+    // qualquer navegação ou Esc volta ao modo normal
+    const finish = (a: NonNullable<typeof this.auto>): void => {
+      a.rafId = 0;
+      a.ended = true;
+      this.media.stop();
+      this.dispatchEvent(new CustomEvent('us-playback-end'));
+    };
     const tick = (): void => {
       const a = this.auto;
       if (!a) return;
       const t = (window.performance ?? Date).now() - a.t0;
       if (t >= a.tl.durationMs && a.loop && a.tl.durationMs > 0) a.t0 += a.tl.durationMs;
       this.paint();
-      if (t >= a.tl.durationMs && !a.loop) {
-        a.rafId = 0;
-        this.dispatchEvent(new CustomEvent('us-playback-end'));
-        return;
-      }
+      if (t >= a.tl.durationMs && (!a.loop || a.tl.durationMs <= 0)) { finish(a); return; }
       a.rafId = requestAnimationFrame(tick);
     };
     this.paint();
+    // nada a tocar (todos ocultos): termina já — com `loop`, o laço girava para sempre
+    if (tl.durationMs <= 0) { const a = this.auto; queueMicrotask(() => { if (this.auto === a) finish(a); }); return tl; }
     this.auto.rafId = requestAnimationFrame(tick);
     return tl;
   }
@@ -560,7 +684,8 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.paint();
   }
 
-  isPlaying(): boolean { return this.auto !== null; }
+  /** Reproduzindo agora (depois do fim, o último quadro fica no palco mas isto é false). */
+  isPlaying(): boolean { return this.auto !== null && !this.auto.ended; }
 
   /** Linha do tempo da reprodução em curso (debug/lab de playback). */
   getPlaybackTimeline(): PlaybackTimeline | null { return this.auto?.tl ?? null; }
@@ -644,7 +769,9 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     if (st?.slide && st.pos !== a.pos) {
       a.pos = st.pos;
       this.index = st.slide.index;
-      this.dispatchEvent(new CustomEvent('us-slide', { detail: { index: st.slide.index } }));
+      // fora da pintura: um ouvinte que pare a reprodução não tem o quadro repintado por cima
+      const detail = { index: st.slide.index };
+      queueMicrotask(() => this.dispatchEvent(new CustomEvent('us-slide', { detail })));
     }
     // origem da transição: o anterior no estado final (preto no 1º)
     this.paintStage(ctx, st?.slide ?? null, st?.animMs ?? 0, st?.transitionProgress ?? 1,

@@ -1,7 +1,12 @@
 import '../src/universal-slides';
 import type { UniversalSlidesElement } from '../src/universal-slides';
-import type { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
+import { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
 import { isCfb, convertPptToPptx } from '@universal/slides-core';
+
+// Electron: fontes do SO por família vêm do processo principal (Windows\Fonts +
+// usuário + cache CloudFonts do Office, que o queryLocalFonts não enxerga)
+const bridge = (window as unknown as { universalSlides?: { resolveFonts?: NonNullable<typeof UniversalPresentationViewerElement.systemFontResolver> } }).universalSlides;
+if (bridge?.resolveFonts) UniversalPresentationViewerElement.systemFontResolver = bridge.resolveFonts;
 
 const us = document.getElementById('us') as UniversalSlidesElement;
 const $ = (id: string) => document.getElementById(id)!;
@@ -113,11 +118,11 @@ $('primaryOpen').addEventListener('click', () => void actionOpen());
 // ───────────── inserir / apresentar — placeholders ─────────────
 for (const id of ['actInsSlide', 'actInsImage', 'actInsShape', 'actInsText'])
   $(id).addEventListener('click', () => { closeMenus(); setStatus('Edição de slide: em breve'); });
-$('actPlayBegin').addEventListener('click', () => { closeMenus(); play(0); });
+$('actPlayBegin').addEventListener('click', () => { closeMenus(); play('start'); });
 $('actPlayHere').addEventListener('click', () => { closeMenus(); play(us.getSlideIndex()); });
 $('play').addEventListener('click', () => play(us.getSlideIndex()));
 
-function play(from: number): void {
+function play(from: number | 'start'): void {
   // Modo apresentar: instância DEDICADA do <universal-presentation-viewer>
   // (o webcomponent de visualização pura) em overlay — o mesmo componente
   // embarcável que terceiros usam fora do editor. A apresentação (tela cheia,
@@ -153,7 +158,7 @@ document.addEventListener('keydown', (e) => {
     else if (k === 'p') { e.preventDefault(); window.print(); }
     return;
   }
-  if (e.key === 'F5') { e.preventDefault(); play(e.shiftKey ? us.getSlideIndex() : 0); }
+  if (e.key === 'F5') { e.preventDefault(); play(e.shiftKey ? us.getSlideIndex() : 'start'); }
 });
 
 // ───────────── drag & drop ─────────────
@@ -165,8 +170,12 @@ document.addEventListener('drop', async (e) => {
   e.preventDefault(); dragDepth = 0; $('dropOverlay').classList.remove('show');
   const file = e.dataTransfer?.files?.[0];
   if (!file) return;
-  if (/\.pptx$/i.test(file.name)) openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
-  else setStatus(`⚠ "${file.name}" não parece ser .pptx`);
+  if (!/\.pptx?$/i.test(file.name)) { setStatus(`⚠ "${file.name}" não parece ser .pptx/.ppt`); return; }
+  try {
+    openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
+  } catch (err) {
+    setStatus(`⚠ "${file.name}" não pôde ser lido: ${err instanceof Error ? err.message : String(err)}`);
+  }
 });
 
 // ───────────── miniaturas (sidebar) ─────────────

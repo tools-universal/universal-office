@@ -724,12 +724,67 @@ var zls = function(d, dict) {
 function deflateSync(data, opts) {
   return dopt(data, opts || {}, 0, 0);
 }
+var Inflate = /* @__PURE__ */ (function() {
+  function Inflate2(opts, cb) {
+    if (typeof opts == "function")
+      cb = opts, opts = {};
+    this.ondata = cb;
+    var dict = opts && opts.dictionary && opts.dictionary.subarray(-32768);
+    this.s = { i: 0, b: dict ? dict.length : 0 };
+    this.o = new u8(32768);
+    this.p = new u8(0);
+    if (dict)
+      this.o.set(dict);
+  }
+  Inflate2.prototype.e = function(c) {
+    if (!this.ondata)
+      err(5);
+    if (this.d)
+      err(4);
+    if (!this.p.length)
+      this.p = c;
+    else if (c.length) {
+      var n = new u8(this.p.length + c.length);
+      n.set(this.p), n.set(c, this.p.length), this.p = n;
+    }
+  };
+  Inflate2.prototype.c = function(final) {
+    this.s.i = +(this.d = final || false);
+    var bts = this.s.b;
+    var dt = inflt(this.p, this.s, this.o);
+    this.ondata(slc(dt, bts, this.s.b), this.d);
+    this.o = slc(dt, this.s.b - 32768), this.s.b = this.o.length;
+    this.p = slc(this.p, this.s.p / 8 | 0), this.s.p &= 7;
+  };
+  Inflate2.prototype.push = function(chunk, final) {
+    this.e(chunk), this.c(final);
+  };
+  return Inflate2;
+})();
 function inflateSync(data, opts) {
   return inflt(data, { i: 2 }, opts && opts.out, opts && opts.dictionary);
 }
-function unzlibSync(data, opts) {
-  return inflt(data.subarray(zls(data, opts && opts.dictionary), -4), { i: 2 }, opts && opts.out, opts && opts.dictionary);
-}
+var Unzlib = /* @__PURE__ */ (function() {
+  function Unzlib2(opts, cb) {
+    Inflate.call(this, opts, cb);
+    this.v = opts && opts.dictionary ? 2 : 1;
+  }
+  Unzlib2.prototype.push = function(chunk, final) {
+    Inflate.prototype.e.call(this, chunk);
+    if (this.v) {
+      if (this.p.length < 6 && !final)
+        return;
+      this.p = this.p.subarray(zls(this.p, this.v - 1)), this.v = 0;
+    }
+    if (final) {
+      if (this.p.length < 4)
+        err(6, "invalid zlib data");
+      this.p = this.p.subarray(0, -4);
+    }
+    Inflate.prototype.c.call(this, final);
+  };
+  return Unzlib2;
+})();
 var fltn = function(d, p, t, o) {
   for (var k in d) {
     var val = d[k], n = p + k, op = o;
@@ -1019,9 +1074,7 @@ var CfbFile = class {
     if (v.getUint16(28, true) !== 65534) throw new Error("Compound File com byte order inv\xE1lido");
     this.sectorShift = v.getUint16(30, true);
     this.miniSectorShift = v.getUint16(32, true);
-    if (major === 3 && this.sectorShift !== 9 || major === 4 && this.sectorShift !== 12) {
-      if (this.sectorShift < 7 || this.sectorShift > 16) throw new Error(`Compound File com setor inv\xE1lido (2^${this.sectorShift})`);
-    }
+    if (this.sectorShift < 7 || this.sectorShift > 16) throw new Error(`Compound File com setor inv\xE1lido (2^${this.sectorShift})`);
     if (this.miniSectorShift < 2 || this.miniSectorShift > this.sectorShift) throw new Error("Compound File com mini setor inv\xE1lido");
     const numFatSectors = v.getUint32(44, true);
     const firstDirSector = v.getUint32(48, true);
@@ -1031,26 +1084,26 @@ var CfbFile = class {
     const firstDifatSector = v.getUint32(68, true);
     const numDifatSectors = v.getUint32(72, true);
     const sectorSize = 1 << this.sectorShift;
+    const fileSectors = Math.max(0, Math.ceil(bytes.length / sectorSize) - 1);
+    const inFile = (s) => s < fileSectors;
     const fatSectors = [];
-    for (let i2 = 0; i2 < 109; i2++) {
-      const s = v.getUint32(76 + i2 * 4, true);
+    const addFat = (s) => {
       if (s <= MAXREGSECT) fatSectors.push(s);
-    }
+    };
+    for (let i2 = 0; i2 < 109; i2++) addFat(v.getUint32(76 + i2 * 4, true));
     let difat = firstDifatSector;
     const perDifat = sectorSize / 4 - 1;
     const seenDifat = /* @__PURE__ */ new Set();
-    for (let n = 0; n < numDifatSectors && difat <= MAXREGSECT; n++) {
+    const perSector = sectorSize / 4;
+    const maxFatSectors = Math.ceil((fileSectors + 1) / perSector);
+    for (let n = 0; n < numDifatSectors && difat <= MAXREGSECT && inFile(difat) && fatSectors.length < maxFatSectors; n++) {
       if (seenDifat.has(difat)) throw new Error("Compound File com ciclo na DIFAT");
       seenDifat.add(difat);
       const off = this.sectorOffset(difat);
-      for (let i2 = 0; i2 < perDifat; i2++) {
-        const s = this.u32At(off + i2 * 4);
-        if (s <= MAXREGSECT) fatSectors.push(s);
-      }
+      for (let i2 = 0; i2 < perDifat; i2++) addFat(this.u32At(off + i2 * 4));
       difat = this.u32At(off + perDifat * 4);
     }
-    const fatCount = Math.min(fatSectors.length, numFatSectors || fatSectors.length);
-    const perSector = sectorSize / 4;
+    const fatCount = Math.min(fatSectors.length, numFatSectors || fatSectors.length, maxFatSectors);
     this.fat = new Uint32Array(fatCount * perSector);
     for (let i2 = 0; i2 < fatCount; i2++) {
       const off = this.sectorOffset(fatSectors[i2]);
@@ -1087,7 +1140,8 @@ var CfbFile = class {
     this.rootSize = root.size;
     this.entries = [{ name: root.name, path: "", type: "root", size: root.size, start: root.start }];
     const visited = /* @__PURE__ */ new Set([0]);
-    const walk = (id, prefix) => {
+    const MAX_DEPTH = 32;
+    const walk = (id, prefix, depth = 0) => {
       const stack = [];
       let cur = id;
       while (stack.length || cur !== NOSTREAM && cur < raw.length) {
@@ -1108,7 +1162,7 @@ var CfbFile = class {
           const entry = { name: e.name, path, type: e.type === 1 ? "storage" : "stream", size: e.size, start: e.start };
           this.entries.push(entry);
           this.byPath.set(path.toLowerCase(), entry);
-          if (e.type === 1 && e.child !== NOSTREAM) walk(e.child, path);
+          if (e.type === 1 && e.child !== NOSTREAM && depth < MAX_DEPTH) walk(e.child, path, depth + 1);
         }
         cur = e.right;
       }
@@ -1127,8 +1181,9 @@ var CfbFile = class {
   has(path) {
     return this.byPath.has(path.toLowerCase());
   }
+  /** Offset do setor (multiplicação: `<<` estoura 32 bits em setores ≥ 2^22 e fica negativo). */
   sectorOffset(sector2) {
-    return sector2 + 1 << this.sectorShift;
+    return (sector2 + 1) * (1 << this.sectorShift);
   }
   u32At(off) {
     return off + 4 <= this.bytes.length ? this.view.getUint32(off, true) : FREESECT;
@@ -1145,7 +1200,8 @@ var CfbFile = class {
       if (size >= 0 && sectors.length * sectorSize >= size) break;
       s = s < this.fat.length ? this.fat[s] : ENDOFCHAIN;
     }
-    const total = size >= 0 ? size : sectors.length * sectorSize;
+    const chainBytes = sectors.length * sectorSize;
+    const total = Math.min(size >= 0 ? size : chainBytes, chainBytes, this.bytes.length);
     const out = new Uint8Array(total);
     let pos = 0;
     for (const sec of sectors) {
@@ -1163,7 +1219,8 @@ var CfbFile = class {
     if (!this.miniStream) this.miniStream = this.readChain(this.rootStart, this.rootSize);
     const mini = this.miniStream;
     const ms = 1 << this.miniSectorShift;
-    const out = new Uint8Array(size);
+    const out = new Uint8Array(Math.min(size, mini.length));
+    size = out.length;
     let pos = 0;
     let s = start;
     let guard = 0;
@@ -1557,7 +1614,29 @@ function blipUidCount(type, inst) {
       return 1;
   }
 }
-function decodeBlip(rec) {
+var MAX_BLIP = 64 * 1024 * 1024;
+function inflateCapped(raw, zlib, max2, budget) {
+  const chunks = [];
+  let total = 0;
+  const limit = Math.min(max2, budget ? budget.left : max2);
+  const s = zlib ? new Unzlib() : new Inflate();
+  s.ondata = (chunk) => {
+    total += chunk.length;
+    if (total > limit) throw new Error("imagem descomprimida grande demais");
+    chunks.push(chunk);
+  };
+  s.push(raw, true);
+  if (budget) budget.left -= total;
+  if (chunks.length === 1) return chunks[0];
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const c of chunks) {
+    out.set(c, o);
+    o += c.length;
+  }
+  return out;
+}
+function decodeBlip(rec, budget) {
   const r = rec.r;
   const uids = blipUidCount(rec.type, rec.inst) * 16;
   const data = (off) => r.sub(rec.start + off, rec.end);
@@ -1581,16 +1660,16 @@ function decodeBlip(rec) {
       let bytes = raw;
       if (compression === 0) {
         try {
-          bytes = unzlibSync(raw);
+          bytes = inflateCapped(raw, true, MAX_BLIP, budget);
         } catch {
           try {
-            bytes = inflateSync(raw);
+            bytes = inflateCapped(raw, false, MAX_BLIP, budget);
           } catch {
             return void 0;
           }
         }
       }
-      if (cbSize > 0 && cbSize < bytes.length) bytes = bytes.subarray(0, cbSize);
+      if (cbSize > 0 && cbSize < bytes.length) bytes = bytes.slice(0, cbSize);
       if (rec.type === OA.BlipEMF) return { ext: "emf", mime: "image/x-emf", bytes };
       if (rec.type === OA.BlipWMF) {
         const b = { l: r.i32(h + 4), t: r.i32(h + 8), r: r.i32(h + 12), b: r.i32(h + 16) };
@@ -1981,6 +2060,7 @@ var PptFormatError = class extends Error {
     this.name = "PptFormatError";
   }
 };
+var BLIP_BUDGET = 256 * 1024 * 1024;
 var HEADER_TOKEN_PLAIN = 3817979999;
 var HEADER_TOKEN_ENCRYPTED = 4090610911;
 function readPptDocument(bytes) {
@@ -2035,7 +2115,7 @@ function readPptDocument(bytes) {
     fonts: [],
     docCF: {},
     docPF: {},
-    blips: [],
+    blip: () => void 0,
     masters: [],
     slides: [],
     notes: [],
@@ -2050,6 +2130,7 @@ function readPptDocument(bytes) {
   const masterRefs = [];
   const slideRefs = [];
   const notesRefs = [];
+  const seenPersist = /* @__PURE__ */ new Set();
   for (const c of children(docRec)) {
     switch (c.type) {
       case RT.DocumentAtom: {
@@ -2074,17 +2155,33 @@ function readPptDocument(bytes) {
         const dgg = child(c, OA.DggContainer);
         const bstore = dgg ? child(dgg, OA.BStoreContainer) : void 0;
         if (bstore) {
-          out.blips = readBStore(bstore).map((e) => {
+          const entries = readBStore(bstore);
+          const bySource = /* @__PURE__ */ new Map();
+          const budget = { left: BLIP_BUDGET };
+          out.blip = (pib) => {
+            const e = entries[pib - 1];
             if (!e) return void 0;
-            try {
-              if (e.embedded) return decodeBlip(e.embedded);
+            let rec;
+            let key;
+            if (e.embedded) {
+              rec = e.embedded;
+              key = `e${rec.hdr}`;
+            } else {
               if (!pics || e.foDelay === 4294967295 || e.foDelay >= pics.length) return void 0;
-              const blipRec = readRec(pics, e.foDelay);
-              return blipRec ? decodeBlip(blipRec) : void 0;
-            } catch {
-              return void 0;
+              key = `p${e.foDelay}`;
+              if (bySource.has(key)) return bySource.get(key);
+              rec = readRec(pics, e.foDelay);
             }
-          });
+            if (bySource.has(key)) return bySource.get(key);
+            let b;
+            try {
+              b = rec ? decodeBlip(rec, budget) : void 0;
+            } catch {
+              b = void 0;
+            }
+            bySource.set(key, b);
+            return b;
+          };
         }
         break;
       }
@@ -2099,9 +2196,12 @@ function readPptDocument(bytes) {
           if (k.type === RT.SlidePersistAtom) {
             flush();
             cur = { persistId: k.r.u32(k.start), slideId: k.r.u32(k.start + 12), texts: [] };
-            if (c.inst === 1) masterRefs.push(cur);
-            else if (c.inst === 0) slideRefs.push(cur);
-            else if (c.inst === 2) notesRefs.push(cur);
+            const list = c.inst === 1 ? masterRefs : c.inst === 0 ? slideRefs : c.inst === 2 ? notesRefs : void 0;
+            const key = `${c.inst}:${cur.persistId}`;
+            if (list && !seenPersist.has(key)) {
+              seenPersist.add(key);
+              list.push(cur);
+            }
           } else pending.push(k);
         }
         flush();
@@ -2184,13 +2284,23 @@ function isUserEdit(doc, off) {
 }
 function lastTopLevelUserEdit(doc) {
   let last;
-  for (const r of recsIn(doc, 0, doc.length)) if (r.type === RT.UserEditAtom) last = r.hdr;
+  let off = 0;
+  while (off + 8 <= doc.length) {
+    if (doc.u16(off + 2) === RT.UserEditAtom) last = off;
+    const next = off + 8 + doc.u32(off + 4);
+    if (next > doc.length) break;
+    off = next;
+  }
   return last;
 }
 function buildPersistDirectory(doc, edits) {
   const map = /* @__PURE__ */ new Map();
+  const seen = /* @__PURE__ */ new Set();
   for (const ue of [...edits].reverse()) {
-    const pd = readRec(doc, doc.u32(ue.start + 12));
+    const pdOff = doc.u32(ue.start + 12);
+    if (seen.has(pdOff)) continue;
+    seen.add(pdOff);
+    const pd = readRec(doc, pdOff);
     if (!pd || pd.type !== RT.PersistDirectoryAtom) continue;
     let o = pd.start;
     while (o + 4 <= pd.end) {
@@ -2610,8 +2720,16 @@ function rPrXml(tag, cf, ctx, link) {
   if (link) kids += el("a:hlinkClick", { "r:id": link.rid, action: link.action });
   return el(tag, a, kids);
 }
-function runLinkFor(block, pos, ctx) {
-  const l = block.links?.find((x2) => pos >= x2.start && pos < x2.end);
+function runLinkFor(lk, pos, ctx) {
+  let l;
+  const hi = upperBound(lk.starts, pos);
+  for (let i2 = hi - 1; i2 >= Math.max(0, hi - 8); i2--) {
+    const c = lk.links[i2];
+    if (pos < c.end) {
+      l = c;
+      break;
+    }
+  }
   if (!l) return void 0;
   if (l.action === 4) {
     const target = ctx.doc.hyperlinks.get(l.hyperlinkId)?.target;
@@ -2645,24 +2763,37 @@ function fieldId() {
   fieldSeq = (fieldSeq + 1) % 65535;
   return `{B6F15528-21DE-4FAA-801E-634DDDAF${fieldSeq.toString(16).padStart(4, "0").toUpperCase()}}`;
 }
-function runAt(runs, pos) {
+function runIndex(runs) {
+  const ends = [];
   let acc = 0;
   for (const r of runs) {
     acc += r.count;
-    if (pos < acc) return r;
+    ends.push(acc);
   }
-  return runs[runs.length - 1];
+  return { runs, ends };
 }
-function cfBoundaries(block, start, end) {
-  const set = /* @__PURE__ */ new Set([start, end]);
-  let acc = 0;
-  for (const r of block.cfRuns) {
-    acc += r.count;
-    if (acc > start && acc < end) set.add(acc);
+function upperBound(a, v) {
+  let lo = 0, hi = a.length;
+  while (lo < hi) {
+    const mid = lo + hi >> 1;
+    if (v < a[mid]) hi = mid;
+    else lo = mid + 1;
   }
-  for (const l of block.links ?? []) {
-    if (l.start > start && l.start < end) set.add(l.start);
-    if (l.end > start && l.end < end) set.add(l.end);
+  return lo;
+}
+function runAt(ix, pos) {
+  if (!ix.runs.length) return void 0;
+  return ix.runs[Math.min(upperBound(ix.ends, pos), ix.runs.length - 1)];
+}
+function linkIndex(block) {
+  const links = [...block.links ?? []].sort((a, b) => a.start - b.start);
+  const bounds = [...new Set(links.flatMap((l) => [l.start, l.end]))].sort((a, b) => a - b);
+  return { links, starts: links.map((l) => l.start), bounds };
+}
+function cfBoundaries(cf, lk, start, end) {
+  const set = /* @__PURE__ */ new Set([start, end]);
+  for (const a of [cf.ends, lk.bounds]) {
+    for (let i2 = upperBound(a, start); i2 < a.length && a[i2] < end; i2++) set.add(a[i2]);
   }
   return [...set].sort((a, b) => a - b);
 }
@@ -2682,9 +2813,10 @@ function paragraphsXml(block, ctx) {
     const c = metaCharContent(m.type, ctx);
     if (c) fields.set(m.pos, c);
   }
+  const pfIx = runIndex(block.pfRuns), cfIx = runIndex(block.cfRuns), lk = linkIndex(block);
   let out = "";
   for (const para of paras) {
-    const pfRun = runAt(block.pfRuns, para.start);
+    const pfRun = runAt(pfIx, para.start);
     const level = Math.min(pfRun?.indentLevel ?? 0, 4);
     const base = resolveLevel(ctx, block.textType, level);
     const pf = { ...base.pf };
@@ -2698,7 +2830,7 @@ function paragraphsXml(block, ctx) {
       if (ruler.tabStops?.length) pf.tabStops = ruler.tabStops;
     }
     if (pfRun) Object.assign(pf, pfRun.pf);
-    const firstCf = runAt(block.cfRuns, para.start);
+    const firstCf = runAt(cfIx, para.start);
     if (block.pf9?.length && pf.hasBullet) {
       const p9 = block.pf9[firstCf?.cf.pp9rt ?? 0];
       if (p9?.hasAutoNum) {
@@ -2708,13 +2840,13 @@ function paragraphsXml(block, ctx) {
       }
     }
     let body = pPrXml("a:pPr", pf, base.cf, ctx, { lvl: level });
-    const cfAt = (pos) => ({ ...base.cf, ...runAt(block.cfRuns, pos)?.cf ?? {} });
+    const cfAt = (pos) => ({ ...base.cf, ...runAt(cfIx, pos)?.cf ?? {} });
     if (para.end > para.start) {
-      const bounds = cfBoundaries(block, para.start, para.end);
+      const bounds = cfBoundaries(cfIx, lk, para.start, para.end);
       for (let k = 0; k + 1 < bounds.length; k++) {
         const a = bounds[k], b = bounds[k + 1];
         const cf = cfAt(a);
-        const link = runLinkFor(block, a, ctx);
+        const link = runLinkFor(lk, a, ctx);
         if (link && !link.action && ctx.scheme[6]) cf.color = { r: 0, g: 0, b: 0, index: 6 };
         const rPr = rPrXml("a:rPr", cf, ctx, link);
         let seg = "";
@@ -2755,10 +2887,13 @@ function levelsXml(tag, ctx, textType) {
 
 // ../slides-core/src/xml.ts
 var ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+function codePoint(cp) {
+  return Number.isInteger(cp) && cp >= 0 && cp <= 1114111 ? String.fromCodePoint(cp) : "\uFFFD";
+}
 function decodeEntities(s) {
   return s.replace(/&(#x?[0-9a-fA-F]+|\w+);/g, (_, e) => {
-    if (e.startsWith("#x") || e.startsWith("#X")) return String.fromCodePoint(parseInt(e.slice(2), 16));
-    if (e.startsWith("#")) return String.fromCodePoint(parseInt(e.slice(1), 10));
+    if (e.startsWith("#x") || e.startsWith("#X")) return codePoint(parseInt(e.slice(2), 16));
+    if (e.startsWith("#")) return codePoint(parseInt(e.slice(1), 10));
     return ENTITIES[e] ?? `&${e};`;
   });
 }
@@ -2821,20 +2956,29 @@ function parseXml(xml) {
       i2++;
     }
     const children2 = [];
+    const upTo = (token, what) => {
+      const end = xml.indexOf(token, i2);
+      if (end < 0) error(`${what} nao fechado`);
+      return end;
+    };
     for (; ; ) {
       if (i2 >= n) error(`</${name}> ausente`);
       if (xml.startsWith("</", i2)) {
-        i2 = xml.indexOf(">", i2) + 1;
+        i2 = upTo(">", `</${name}`) + 1;
         return { name, attrs: attrs2, children: children2 };
       }
       if (xml.startsWith("<!--", i2)) {
-        i2 = xml.indexOf("-->", i2) + 3;
+        i2 = upTo("-->", "<!--") + 3;
         continue;
       }
       if (xml.startsWith("<![CDATA[", i2)) {
-        const end = xml.indexOf("]]>", i2);
+        const end = upTo("]]>", "<![CDATA[");
         children2.push(xml.slice(i2 + 9, end));
         i2 = end + 3;
+        continue;
+      }
+      if (xml.startsWith("<?", i2)) {
+        i2 = upTo("?>", "<?") + 2;
         continue;
       }
       if (xml[i2] === "<") {
@@ -2872,15 +3016,27 @@ function textContent(el2) {
 }
 
 // ../slides-core/src/ppt/roundtrip.ts
+var MAX_RT_PART = 32 * 1024 * 1024;
+var okPart = (f) => f.originalSize <= MAX_RT_PART && f.originalSize <= Math.max(1 << 20, f.size * 1100);
+function unzipRoundTrip(bytes, filter) {
+  return unzipSync(bytes, { filter: (f) => okPart(f) && (!filter || filter(f.name)) });
+}
+var partTextCache = /* @__PURE__ */ new WeakMap();
 function zipPartText(bytes, suffix) {
   if (!bytes || bytes.length < 4 || bytes[0] !== 80 || bytes[1] !== 75) return void 0;
+  let cache3 = partTextCache.get(bytes);
+  if (!cache3) partTextCache.set(bytes, cache3 = /* @__PURE__ */ new Map());
+  if (cache3.has(suffix)) return cache3.get(suffix);
+  let text;
   try {
-    const parts = unzipSync(bytes, { filter: (f) => f.name.endsWith(suffix) });
+    const parts = unzipRoundTrip(bytes, (n) => n.endsWith(suffix));
     const name = Object.keys(parts)[0];
-    return name ? strFromU8(parts[name]) : void 0;
+    text = name ? strFromU8(parts[name]) : void 0;
   } catch {
-    return void 0;
+    text = void 0;
   }
+  cache3.set(suffix, text);
+  return text;
 }
 function roundTripThemeXml(bytes) {
   const xml = zipPartText(bytes, "theme1.xml");
@@ -2897,7 +3053,7 @@ function metroDiagram(sh) {
   if (!blob || blob.length < 4 || blob[0] !== 80 || blob[1] !== 75) return void 0;
   let parts;
   try {
-    parts = unzipSync(blob);
+    parts = unzipRoundTrip(blob);
   } catch {
     return void 0;
   }
@@ -3021,9 +3177,11 @@ function metroTextBody(sh, text) {
   if (/\br:(id|embed|link)=/.test(xml)) return void 0;
   return xml;
 }
+var XML_NAME = /^[A-Za-z_][\w.:-]*$/;
 function serializeXml(el2) {
+  if (!XML_NAME.test(el2.name)) return "";
   let out = `<${el2.name}`;
-  for (const [k, v] of Object.entries(el2.attrs)) out += ` ${k}="${escAttr(v)}"`;
+  for (const [k, v] of Object.entries(el2.attrs)) if (XML_NAME.test(k)) out += ` ${k}="${escAttr(v)}"`;
   if (!el2.children.length) return out + "/>";
   out += ">";
   for (const c of el2.children) out += typeof c === "string" ? escText(c) : serializeXml(c);
@@ -3094,14 +3252,26 @@ function targetXml(cve, w) {
   }
   return "";
 }
+var lastStarts;
+function paraStarts(text) {
+  if (lastStarts?.text !== text) {
+    const starts = [0];
+    for (let i2 = 0; i2 < text.length; i2++) if (text[i2] === "\r") starts.push(i2 + 1);
+    lastStarts = { text, starts };
+  }
+  return lastStarts.starts;
+}
 function textRangeXml(text, st, end) {
   if (text === void 0) return el("p:txEl", {}, el("p:charRg", { st, end }));
-  const starts = [0];
-  for (let i2 = 0; i2 < text.length; i2++) if (text[i2] === "\r") starts.push(i2 + 1);
+  const starts = paraStarts(text);
   const paraAt = (pos) => {
-    let p = 0;
-    while (p + 1 < starts.length && starts[p + 1] <= pos) p++;
-    return p;
+    let lo = 0, hi = starts.length - 1;
+    while (lo < hi) {
+      const mid = lo + hi + 1 >> 1;
+      if (starts[mid] <= pos) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo;
   };
   const first = paraAt(st);
   const last = paraAt(Math.max(st, end - 1));
@@ -3554,9 +3724,17 @@ var effectCount = (xml) => (xml.match(/presetClass="/g) ?? []).length;
 function roundTripTimingXml(slide, ctx) {
   const xml = zipPartText(slide.roundTripTiming, "timingInfo.xml");
   const i2 = xml?.indexOf("<p:timing") ?? -1;
-  if (!xml || i2 < 0) return void 0;
+  const close = "</p:timing>";
+  const j = xml?.lastIndexOf(close) ?? -1;
+  if (!xml || i2 < 0 || j < i2) return void 0;
+  const raw = xml.slice(i2, j + close.length);
+  try {
+    parseXml(raw);
+  } catch {
+    return void 0;
+  }
   let ok = true;
-  const body = xml.slice(i2).replace(/\bspid="(\d+)"/g, (_m, v) => {
+  const body = raw.replace(/\bspid="(\d+)"/g, (_m, v) => {
     const id = parseInt(v, 10);
     const mapped = ctx.spidOf?.(id) ?? (ctx.hasShape(id) ? id : void 0);
     if (mapped === void 0) {
@@ -3856,6 +4034,7 @@ var PartRels = class {
     );
   }
 };
+var TEXT_BUDGET = 64 * 1024 * 1024;
 var DEFAULT_SCHEME = ["FFFFFF", "000000", "808080", "000000", "00CC99", "3333CC", "CCCCFF", "B2B2B2"];
 function newPartCtx(conv, scheme, styles, outline, slideNumber, rels = new PartRels()) {
   const text = { doc: conv.doc, scheme, linkRel: (target) => rels.add("hyperlink", target, true) };
@@ -3866,6 +4045,10 @@ function newPartCtx(conv, scheme, styles, outline, slideNumber, rels = new PartR
 
 // ../slides-core/src/ppt/shapeconv.ts
 var prop = (sh, id) => sh.props.get(id)?.value;
+var sprop = (sh, id) => {
+  const v = prop(sh, id);
+  return v === void 0 ? void 0 : v | 0;
+};
 var propS = (sh, id) => {
   const v = sh.props.get(id)?.value;
   return v === void 0 ? void 0 : v | 0;
@@ -3997,7 +4180,7 @@ function srgb(val, alpha) {
 function mediaFor(conv, pib) {
   const hit = conv.media.get(pib);
   if (hit) return hit;
-  const blip = conv.doc.blips[pib - 1];
+  const blip = conv.doc.blip(pib);
   if (!blip) return void 0;
   const path = `ppt/media/image${conv.media.size + 1}.${blip.ext}`;
   conv.media.set(pib, path);
@@ -4274,10 +4457,10 @@ function bodyPrXml(sh) {
   return el("a:bodyPr", {
     vert,
     wrap: (prop(sh, 133) ?? 0) === 2 ? "none" : "square",
-    lIns: prop(sh, 129) ?? 91440,
-    tIns: prop(sh, 130) ?? 45720,
-    rIns: prop(sh, 131) ?? 91440,
-    bIns: prop(sh, 132) ?? 45720,
+    lIns: sprop(sh, 129) ?? 91440,
+    tIns: sprop(sh, 130) ?? 45720,
+    rIns: sprop(sh, 131) ?? 91440,
+    bIns: sprop(sh, 132) ?? 45720,
     anchor,
     anchorCtr: anchorCtr || void 0,
     rtlCol: 0
@@ -4419,9 +4602,17 @@ function zipRels(parts, path) {
   if (!bytes) return [];
   const out = [];
   for (const m of strFromU8(bytes).matchAll(/<Relationship [^>]*>/g)) {
-    const a = (k) => new RegExp(` ${k}="([^"]*)"`).exec(m[0])?.[1];
+    const raw = m[0];
+    const closed = raw.endsWith("/>") ? raw : raw.replace(/>$/, "/>");
+    if (raw.indexOf("<", 1) >= 0) continue;
+    try {
+      parseXml(closed);
+    } catch {
+      continue;
+    }
+    const a = (k) => new RegExp(` ${k}="([^"]*)"`).exec(raw)?.[1];
     const id = a("Id"), type = a("Type"), target = a("Target");
-    if (id && type && target) out.push({ id, type, target, external: a("TargetMode") === "External", raw: m[0] });
+    if (id && type && target) out.push({ id, type, target, external: a("TargetMode") === "External", raw });
   }
   return out;
 }
@@ -4578,6 +4769,8 @@ function shapeXml(sh, pc, opts = {}) {
   }
   let txBody = "";
   if (block) {
+    pc.conv.textBudget -= block.text.length;
+    if (pc.conv.textBudget < 0) throw new Error("texto convertido excede o limite (blocos repetidos demais)");
     const metroTx = pc.conv.useRoundTrip && !ph ? metroTextBody(sh, block.text) : void 0;
     txBody = metroTx ?? el("p:txBody", {}, bodyPrXml(sh) + "<a:lstStyle/>" + paragraphsXml(block, pc.text));
   }
@@ -4853,7 +5046,16 @@ function relsPath(part) {
   return `${part.slice(0, i2)}/_rels/${part.slice(i2 + 1)}.rels`;
 }
 function pptToPptxParts(doc, opts = {}) {
-  const conv = { doc, media: /* @__PURE__ */ new Map(), parts: /* @__PURE__ */ new Map(), mediaExts: /* @__PURE__ */ new Set(), useRoundTrip: opts.useRoundTrip !== false, overrides: /* @__PURE__ */ new Map(), diagrams: 0 };
+  const conv = {
+    doc,
+    media: /* @__PURE__ */ new Map(),
+    parts: /* @__PURE__ */ new Map(),
+    mediaExts: /* @__PURE__ */ new Set(),
+    useRoundTrip: opts.useRoundTrip !== false,
+    overrides: /* @__PURE__ */ new Map(),
+    diagrams: 0,
+    textBudget: TEXT_BUDGET
+  };
   const out = /* @__PURE__ */ new Map();
   const put = (path, xml) => {
     out.set(path, strToU8(xml));
@@ -5073,7 +5275,7 @@ var PptxPackage = class _PptxPackage {
     if (isCfb(bytes)) bytes = convertPptToPptx(bytes);
     let unzipped;
     try {
-      unzipped = unzipSync(bytes);
+      unzipped = unzipSync(bytes, { filter: (f) => f.originalSize <= Math.max(1 << 20, f.size * 1100) });
     } catch {
       throw new Error("Arquivo nao e um pacote OOXML valido (ZIP corrompido ou .ppt legado)");
     }
@@ -5641,7 +5843,7 @@ function parseCTn(tag, cTn) {
   const it = firstChild(cTn, "p:iterate");
   if (it) {
     const type = it.attrs["type"] ?? "el";
-    const iter = { type, backwards: it.attrs["backwards"] === "1" };
+    const iter = { type, backwards: it.attrs["backwards"] === "1" || it.attrs["backwards"] === "true" };
     const pct2 = firstChild(it, "p:tmPct");
     const abs = firstChild(it, "p:tmAbs");
     if (pct2?.attrs["val"] !== void 0) iter.pct = parseFloat(pct2.attrs["val"]) / 1e5;
@@ -5652,6 +5854,8 @@ function parseCTn(tag, cTn) {
 }
 function parseTarget(tgtEl) {
   if (!tgtEl) return void 0;
+  const ink = firstChild(tgtEl, "p:inkTgt");
+  if (ink?.attrs["spid"]) return { spid: ink.attrs["spid"], sub: "inkTgt" };
   const sp = firstChild(tgtEl, "p:spTgt");
   if (!sp?.attrs["spid"]) return void 0;
   const t = { spid: sp.attrs["spid"] };
@@ -5662,7 +5866,7 @@ function parseTarget(tgtEl) {
     if (pRg) t.pRange = [parseInt(pRg.attrs["st"] ?? "0", 10), parseInt(pRg.attrs["end"] ?? "0", 10)];
     if (cRg) t.charRange = [parseInt(cRg.attrs["st"] ?? "0", 10), parseInt(cRg.attrs["end"] ?? "0", 10)];
   }
-  for (const k of ["p:bg", "p:subSp", "p:oleChartEl", "p:inkTgt", "p:graphicEl"]) {
+  for (const k of ["p:bg", "p:subSp", "p:oleChartEl", "p:graphicEl"]) {
     if (firstChild(sp, k)) t.sub = k.slice(2);
   }
   const ge = firstChild(sp, "p:graphicEl");
@@ -5825,6 +6029,7 @@ function beginOffset(n) {
   }
   return null;
 }
+var STEP_PENDING = 1e12;
 function wholeShape(t) {
   return !t.pRange && !t.charRange && !t.sub;
 }
@@ -5972,7 +6177,8 @@ function stepFrom(nodes, auto, ctx) {
   return { auto, durMs: dur, hasIndefinite, effects };
 }
 function parseSlideTiming(sld, units, color, hasBackground2) {
-  const model = { steps: [], interactive: [], hidden: sld.attrs["show"] === "0" };
+  const show = sld.attrs["show"];
+  const model = { steps: [], interactive: [], hidden: show === "0" || show === "false" };
   const tr = parseSlideTransition(sld);
   if (tr) model.transition = tr;
   const timing = unwrapAlternate(sld, "p:timing");
@@ -6046,7 +6252,7 @@ function parseSlideTiming(sld, units, color, hasBackground2) {
       const bmk = seq.st.find((c) => c.evt === "onMediaBookmark" && c.spid && c.bookmark !== void 0);
       if (bmk) {
         const effects = [];
-        for (const c of seq.children) collectGroup({ ...c, st: [] }, 0, ctx, effects);
+        seq.children.forEach((c, i2) => collectGroup({ ...c, st: [] }, 0, ctx, i2 === 0 ? effects : model.interactive));
         (model.bookmarkTriggers ??= []).push({ spid: bmk.spid, bookmark: bmk.bookmark, effects });
       } else {
         for (const c of seq.children) collectGroup({ ...c, st: [] }, 0, ctx, model.interactive);
@@ -6092,7 +6298,36 @@ function readPresentation(pkg) {
   }
   const pres = { slideW, slideH, slides };
   if (sz?.attrs["type"]) pres.sizeType = sz.attrs["type"];
+  const show = readShowSettings(pkg);
+  if (show) pres.show = show;
   return pres;
+}
+function readShowSettings(pkg) {
+  const part = findRelTarget(pkg, "ppt/presentation.xml", "presProps") ?? "ppt/presProps.xml";
+  const xml = pkg.getPartText(part);
+  if (xml === void 0) return void 0;
+  let sp;
+  try {
+    sp = firstChild(parseXml(xml), "p:showPr");
+  } catch {
+    return void 0;
+  }
+  if (!sp) return void 0;
+  const bool = (v) => v === void 0 ? void 0 : v === "1" || v === "true";
+  const out = {};
+  const loop = bool(sp.attrs["loop"]);
+  if (loop !== void 0) out.loop = loop;
+  const ut = bool(sp.attrs["useTimings"]);
+  if (ut !== void 0) out.useTimings = ut;
+  const sa = bool(sp.attrs["showAnimation"]);
+  if (sa !== void 0) out.showAnimation = sa;
+  if (firstChild(sp, "p:kiosk")) out.kiosk = true;
+  const rg = firstChild(sp, "p:sldRg");
+  if (rg) {
+    const st = parseInt(rg.attrs["st"] ?? "", 10), end = parseInt(rg.attrs["end"] ?? "", 10);
+    if (Number.isFinite(st) && Number.isFinite(end) && st >= 1 && end >= st) out.range = [st - 1, end - 1];
+  }
+  return out;
 }
 function themeFor(pkg, part) {
   const masterPath = findRelTarget(pkg, part, "slideMaster") ?? findRelTarget(pkg, findRelTarget(pkg, part, "slideLayout") ?? "", "slideMaster");
@@ -6183,6 +6418,7 @@ function readSlide(pkg, slidePath) {
     const tb = sh.txBody;
     if (tb.anchor === void 0 && inh.anchor !== void 0) tb.anchor = inh.anchor;
     if (tb.wrap === void 0 && inh.wrap !== void 0) tb.wrap = inh.wrap;
+    if (tb.vert === void 0 && inh.vert !== void 0) tb.vert = inh.vert;
     if (tb.insL === void 0 && inh.insL !== void 0) tb.insL = inh.insL;
     if (tb.insT === void 0 && inh.insT !== void 0) tb.insT = inh.insT;
     if (tb.insR === void 0 && inh.insR !== void 0) tb.insR = inh.insR;
@@ -6419,6 +6655,7 @@ function placeholderBodyPrMap(pkg, slidePath) {
       const props = {};
       if (bodyPr.attrs["anchor"]) props.anchor = bodyPr.attrs["anchor"];
       if (bodyPr.attrs["wrap"]) props.wrap = bodyPr.attrs["wrap"];
+      if (bodyPr.attrs["vert"]) props.vert = bodyPr.attrs["vert"];
       if (bodyPr.attrs["lIns"] !== void 0) props.insL = parseInt(bodyPr.attrs["lIns"], 10);
       if (bodyPr.attrs["tIns"] !== void 0) props.insT = parseInt(bodyPr.attrs["tIns"], 10);
       if (bodyPr.attrs["rIns"] !== void 0) props.insR = parseInt(bodyPr.attrs["rIns"], 10);
@@ -6988,7 +7225,7 @@ function readTxBody(el2, theme, rels) {
   if (bodyPr) {
     if (bodyPr.attrs["anchor"]) tb.anchor = bodyPr.attrs["anchor"];
     if (bodyPr.attrs["wrap"]) tb.wrap = bodyPr.attrs["wrap"];
-    if (bodyPr.attrs["vert"] && bodyPr.attrs["vert"] !== "horz") tb.vert = bodyPr.attrs["vert"];
+    if (bodyPr.attrs["vert"]) tb.vert = bodyPr.attrs["vert"];
     if (bodyPr.attrs["lIns"] !== void 0) tb.insL = parseInt(bodyPr.attrs["lIns"], 10);
     if (bodyPr.attrs["tIns"] !== void 0) tb.insT = parseInt(bodyPr.attrs["tIns"], 10);
     if (bodyPr.attrs["rIns"] !== void 0) tb.insR = parseInt(bodyPr.attrs["rIns"], 10);
@@ -7270,13 +7507,13 @@ function mediaCommands(effects, spid) {
       if (b !== null) walk(c, t + b);
     }
   };
-  for (const e of effects) walk(e.node, e.t0);
+  for (const e of effects) if (e.t0 < STEP_PENDING) walk(e.node, e.t0);
   return out.sort((a, b) => a.atMs - b.atMs);
 }
 function mediaStateAt(effects, spid, animMs, clock2 = {}, loop = false) {
   const k = clock2.scale ?? 1, lat = clock2.latencyMs ?? 0;
   let started = false, playing2 = false, pos = 0, since = 0;
-  let durMs, startAt = 0;
+  let durMs, pos0 = 0;
   for (const c of mediaCommands(effects, spid)) {
     if (c.atMs > animMs) break;
     const m = /^playFrom\(\s*(-?[\d.]+)\s*\)$/.exec(c.cmd);
@@ -7285,7 +7522,7 @@ function mediaStateAt(effects, spid, animMs, clock2 = {}, loop = false) {
       playing2 = true;
       pos = Math.max(0, parseFloat(m[1]));
       since = c.atMs + lat;
-      startAt = c.atMs;
+      pos0 = pos;
       if (c.durMs !== void 0) durMs = c.durMs;
       continue;
     }
@@ -7322,10 +7559,10 @@ function mediaStateAt(effects, spid, animMs, clock2 = {}, loop = false) {
   }
   let timeSec = playing2 ? pos + Math.max(0, animMs - since) * k / 1e3 : pos;
   let ended = false;
-  if (playing2 && !loop && durMs !== void 0 && (animMs - startAt) * k >= durMs) {
+  if (started && !loop && durMs !== void 0 && (timeSec - pos0) * 1e3 + lat * k >= durMs) {
     playing2 = false;
     ended = true;
-    timeSec = Math.min(timeSec, pos + (durMs - lat * k) / 1e3);
+    timeSec = Math.min(timeSec, pos0 + (durMs - lat * k) / 1e3);
   }
   const st = { started, playing: playing2, timeSec };
   if (ended) st.ended = true;
@@ -7360,7 +7597,7 @@ function instantTransition(tr) {
   if (tr.type === "cut") return !(tr.attrs["thruBlk"] === "1" || tr.attrs["thruBlk"] === "true");
   return false;
 }
-var STEP_PENDING = 1e12;
+var INTERACTIVE_PENDING = 2 * STEP_PENDING;
 function placeSlideEffects(model, stepStartMs, endMs, clock2 = {}) {
   const steps = model.steps;
   const startOf = (si) => stepStartMs[si] ?? STEP_PENDING + si * 1e7;
@@ -7386,6 +7623,7 @@ function placeSlideEffects(model, stepStartMs, endMs, clock2 = {}) {
     const at = play.atMs + (tick > 0 ? 2 * tick : 0) + mediaMs / clockScale;
     for (const e of bt.effects) effects.push({ ...e, t0: at + e.startMs, step: -1 });
   }
+  for (const e of model.interactive) effects.push({ ...e, t0: INTERACTIVE_PENDING + e.startMs, step: -2 });
   return effects;
 }
 function clickWait(steps, D) {
@@ -7495,16 +7733,26 @@ var SlideShow = class {
     this.models = models;
     this.useTimings = opts.useTimings ?? true;
     this.loop = opts.loop ?? false;
+    this.animations = opts.animations ?? true;
     if (models.length) this.enter(Math.max(0, Math.min(models.length - 1, Math.trunc(from) || 0)), now, "forward");
   }
   models;
   useTimings;
   loop;
+  animations;
   /** Passagem em cena; null = tela de fim. */
   run = null;
   serial = 0;
   /** Último slide antes da tela de fim (para voltar dela). */
   lastIndex = -1;
+  /**
+   * Slide de início do F5 "do começo": o 1º VISÍVEL (o app pula os ocultos);
+   * 0 se todos estão ocultos.
+   */
+  static firstVisible(models) {
+    const i2 = models.findIndex((m) => !m?.hidden);
+    return i2 < 0 ? 0 : i2;
+  }
   /** Índice (no deck) do slide em cena; -1 na tela de fim. */
   get index() {
     return this.run?.index ?? -1;
@@ -7533,6 +7781,7 @@ var SlideShow = class {
     }
     if (r.fired < r.model.steps.length) {
       if (r.sched && r.anchor === null) r.anchor = now;
+      this.seekRunning(r, now);
       r.stepAt[r.fired++] = now;
       this.place(r);
       return "step";
@@ -7543,6 +7792,10 @@ var SlideShow = class {
   /** Volta: desfaz passo(s) ou vai ao slide anterior (estado final). */
   prev(now) {
     const r = this.run;
+    if (r && now < r.startAt + r.transitionMs) {
+      this.finishTransition(r, now);
+      return "transition";
+    }
     if (!r) {
       const last = this.lastIndex >= 0 ? this.lastIndex : this.visibleBefore(this.models.length);
       if (last < 0) return "none";
@@ -7667,6 +7920,18 @@ var SlideShow = class {
     }
     return { steps, end: t + wait };
   }
+  /**
+   * O mainSeq é `nextAc="seek"`: quando o próximo passo dispara, o que ainda
+   * anima nos passos já dados SALTA para o fim (efeitos e encadeamentos
+   * "após o anterior" do passo concluem juntos) — não tocam sobrepostos.
+   */
+  seekRunning(r, now) {
+    for (let k = 0; k < r.fired; k++) {
+      const at = r.stepAt[k];
+      const dur = r.model.steps[k]?.durMs ?? 0;
+      if (at !== void 0 && at + dur > now) r.stepAt[k] = now - dur;
+    }
+  }
   /** Conclui a transição em curso agora: o relógio do slide (e do intervalo) começa aqui. */
   finishTransition(r, now) {
     const shift = r.startAt + r.transitionMs - now;
@@ -7717,11 +7982,22 @@ var SlideShow = class {
     if (how === "forward") {
       r.transitionMs = instantTransition(model.transition) ? 0 : Math.max(0, model.transition.durMs);
       const animStart = now + r.transitionMs;
-      if (r.sched) r.anchor = animStart;
-      if (steps[0]?.auto) {
+      if (!this.animations) {
+        let t = 0;
+        const rel = steps.map((st) => {
+          const s = t;
+          t += st.durMs;
+          return s;
+        });
+        r.stepAt = rel.map((s) => animStart - t - 1 + s);
+        r.fired = steps.length;
+        const D = model.transition?.advTmMs;
+        r.sched = this.useTimings && D !== void 0 ? { steps: steps.map(() => 0), end: D } : null;
+      } else if (steps[0]?.auto) {
         r.stepAt[0] = animStart;
         r.fired = 1;
       }
+      if (r.sched) r.anchor = animStart;
     } else {
       const leaving = prev?.model.transition;
       r.transition = mirrorTransition(leaving);
@@ -7848,7 +8124,12 @@ function parse(src) {
       if (next() !== ")") throw new Error(") esperado");
       return e;
     }
-    if (/^[0-9.]/.test(tok)) return { k: "n", v: parseFloat(tok) };
+    if (/^[0-9.]/.test(tok)) {
+      const v = Number(tok);
+      if (!Number.isFinite(v)) throw new Error(`n\xFAmero inv\xE1lido ${tok}`);
+      return { k: "n", v };
+    }
+    if (!/^[#$A-Za-z_]/.test(tok)) throw new Error(`operando esperado, veio ${tok}`);
     if (peek() === "(") {
       next();
       const args = [];
@@ -7879,7 +8160,7 @@ function ev(n, vars2) {
       const key = n.name.toLowerCase();
       if (key === "pi") return Math.PI;
       if (key === "e") return Math.E;
-      return vars2[n.name] ?? vars2[key] ?? 0;
+      return vars2[n.name] ?? vars2[key] ?? NaN;
     }
     case "u":
       return -ev(n.a, vars2);
@@ -7915,6 +8196,16 @@ function ev(n, vars2) {
           return Math.acos(a0);
         case "atan":
           return Math.atan(a0);
+        case "sinh":
+          return Math.sinh(a0);
+        case "cosh":
+          return Math.cosh(a0);
+        case "tanh":
+          return Math.tanh(a0);
+        case "deg":
+          return a0 * 180 / Math.PI;
+        case "rad":
+          return a0 * Math.PI / 180;
         case "sqrt":
           return Math.sqrt(Math.max(0, a0));
         case "abs":
@@ -7935,7 +8226,7 @@ function ev(n, vars2) {
         case "rand":
           return a0 / 2;
       }
-      return 0;
+      return NaN;
     }
   }
 }
@@ -8063,7 +8354,7 @@ var pathCache = /* @__PURE__ */ new Map();
 function motionPath(src) {
   let mp = pathCache.get(src);
   if (mp) return mp;
-  const tok = src.match(/[MLCZEmlcze]|-?\d*\.?\d+(?:e-?\d+)?/g) ?? [];
+  const tok = src.match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?|[MLCZEmlcze]/g) ?? [];
   const pts = [];
   let i2 = 0, cmd = "M", rel = false;
   let cur = [0, 0], start = [0, 0];
@@ -8073,7 +8364,7 @@ function motionPath(src) {
     return rel ? [o[0] + x2, o[1] + y] : [x2, y];
   };
   while (i2 < tok.length) {
-    if (/[A-Za-z]/.test(tok[i2])) {
+    if (/^[A-Za-z]$/.test(tok[i2])) {
       const c = tok[i2++];
       cmd = c.toUpperCase();
       rel = c !== cmd;
@@ -8081,6 +8372,7 @@ function motionPath(src) {
     if (cmd === "Z") {
       pts.push([...start]);
       cur = [...start];
+      cmd = "";
       continue;
     }
     if (cmd === "E") break;
@@ -8267,18 +8559,23 @@ function applyBehavior(n, p, st, base) {
             }
           }
           const ka = tav[i2], kb = tav[Math.min(i2 + 1, tav.length - 1)];
+          let kd = 0;
+          for (let k = 1; k < tav.length; k++) if (tav[k].tm <= p) kd = k;
+          const kq = tav[kd];
+          const discrete = n.calcmode === "discrete" || n.valueType === "str";
           if (ka.color || kb.color) {
             const ca = ka.color ?? colorOf(a, st, base) ?? "#000000";
             const cb = kb.color ?? ca;
             const f = kb.tm > ka.tm ? (p - ka.tm) / (kb.tm - ka.tm) : 0;
-            v = n.calcmode === "discrete" ? ca : mixColor(ca, cb, Math.max(0, Math.min(1, f)), n);
+            v = discrete ? kq.color ?? colorOf(a, st, base) ?? "#000000" : mixColor(ca, cb, Math.max(0, Math.min(1, f)), n);
           } else {
             const na = numVal(ka.val, vr), nb = numVal(kb.val, vr);
-            if (!Number.isFinite(na)) {
-              v = ka.val;
+            if (discrete || !Number.isFinite(na)) {
+              const xq = numVal(kq.val, vr);
+              v = !Number.isFinite(xq) ? kq.val : kq.fmla ? evalFormula(kq.fmla, { ...vr, $: xq }) : xq;
             } else {
               const f = kb.tm > ka.tm ? Math.max(0, Math.min(1, (p - ka.tm) / (kb.tm - ka.tm))) : 0;
-              let x2 = n.calcmode === "discrete" || !Number.isFinite(nb) ? na : na + (nb - na) * f;
+              let x2 = !Number.isFinite(nb) ? na : na + (nb - na) * f;
               if (ka.fmla) x2 = evalFormula(ka.fmla, { ...vr, $: x2 });
               v = x2;
             }
@@ -8378,6 +8675,7 @@ function evalNode(n, local, st, base) {
       if (t < c0) break;
       evalNode(c, t - c0, st, base);
       c0 += activeDurOf(c);
+      if (!Number.isFinite(c0)) break;
     }
     return;
   }
@@ -8425,6 +8723,7 @@ function neutral(base, visible) {
 function evalTracks(tracks, animMs, base, initiallyVisible) {
   const st = neutral(base, initiallyVisible);
   for (const tr of tracks) {
+    if (tr.e.t0 >= STEP_PENDING) continue;
     let local = animMs - tr.e.t0 - tr.shift;
     if (local < 0) continue;
     if (tr.e.endAt !== void 0 && animMs >= tr.e.endAt + tr.shift) {
@@ -8461,7 +8760,7 @@ function shapeAnimHooks(effects, ids, animMs, ctx = {}) {
       part.tracks.push({ e, shift: 0 });
     } else if (t.sub === "bg") bg.push({ e, shift: 0 });
     else if (it && (it.type === "wd" || it.type === "lt")) {
-      const bgFirst = ctx.animBg?.(t.spid) ?? false;
+      const bgFirst = !t.pRange && !t.charRange && !t.sub && (ctx.animBg?.(t.spid) ?? false);
       units.push({ e, ...t.pRange ? { range: t.pRange } : {}, bgFirst });
       if (bgFirst) bg.push({ e, shift: 0 });
     } else if (t.pRange) paras.push({ tr: { e, shift: 0 }, range: t.pRange });
@@ -8494,12 +8793,15 @@ function shapeAnimHooks(effects, ids, animMs, ctx = {}) {
     };
   }
   if (units.length) {
-    const type = units[0].e.node.iterate.type;
+    const hasLt = units.some((u) => u.e.node.iterate.type === "lt");
+    const type = hasLt ? "lt" : "wd";
     hooks.unit = {
       type,
-      state: (ref, base) => {
+      ...hasLt && units.some((u) => u.e.node.iterate.type === "wd") ? { words: true } : {},
+      state: (unitRef, base, word) => {
         const tr = [];
         for (const u of units) {
+          const ref = u.e.node.iterate.type === type ? unitRef : word ?? unitRef;
           if (u.range && (ref.para < u.range[0] || ref.para > u.range[1])) continue;
           const it = u.e.node.iterate;
           const simple = simpleDurOf(u.e.node);
@@ -9391,6 +9693,8 @@ function readAxis(ax, theme) {
   if (min !== void 0) a.min = min;
   if (max2 !== void 0) a.max = max2;
   if (unit !== void 0 && unit > 0) a.majorUnit = unit;
+  const lb = num2(sc, "c:logBase");
+  if (lb !== void 0 && lb >= 2 && lb <= 1e3) a.logBase = lb;
   const t = readTextStyle(firstChild(ax, "c:txPr"), theme);
   if (t) a.text = t;
   return a;
@@ -9471,12 +9775,20 @@ function parseSeries(ser, theme) {
   }
   return out;
 }
+var MAX_POINTS = 1e5;
+function ptLimit(cache3) {
+  const n = parseInt(firstChild(cache3, "c:ptCount")?.attrs["val"] ?? "", 10);
+  const pts = childElements(cache3, "c:pt").length;
+  return Math.min(MAX_POINTS, Math.max(pts, Number.isFinite(n) && n >= 0 ? n : 0));
+}
 function collectNumPts(block, out) {
   const cache3 = deepFind(block, "c:numCache");
   if (!cache3) return;
+  const limit = ptLimit(cache3);
   const indexed = [];
   for (const pt of childElements(cache3, "c:pt")) {
     const idx = parseInt(pt.attrs["idx"] ?? "0", 10);
+    if (!(idx >= 0 && idx < limit)) continue;
     const v = firstChild(pt, "c:v");
     indexed[idx] = v ? parseFloat(textContent(v)) : NaN;
   }
@@ -9488,9 +9800,11 @@ function readCategories(ser) {
   const out = [];
   const strCache = deepFind(cat, "c:strCache");
   if (strCache) {
+    const limit = ptLimit(strCache);
     const indexed = [];
     for (const pt of childElements(strCache, "c:pt")) {
       const idx = parseInt(pt.attrs["idx"] ?? "0", 10);
+      if (!(idx >= 0 && idx < limit)) continue;
       const v = firstChild(pt, "c:v");
       indexed[idx] = v ? textContent(v) : "";
     }
@@ -9648,13 +9962,54 @@ function niceStep(span) {
   for (let k = 0; k < 6; k++, mag *= 10) for (const f of [1, 2, 5]) if (span / (f * mag) <= 10) return f * mag;
   return span / 10;
 }
+var MAX_TICKS = 1e3;
+function tickValues(t) {
+  const out = [];
+  if (t.log) {
+    for (let v = t.lo; v <= t.hi * (1 + 1e-9) && out.length < MAX_TICKS; v *= t.log) out.push(v);
+    return out;
+  }
+  if (!(t.step > 0) || !Number.isFinite(t.lo) || !Number.isFinite(t.hi)) return out;
+  const n = Math.min(MAX_TICKS, Math.floor((t.hi - t.lo) / t.step + 1e-9));
+  for (let i2 = 0; i2 <= n; i2++) out.push(t.lo + i2 * t.step);
+  return out;
+}
+function axisFrac(t, v) {
+  if (t.log) {
+    if (!(v > 0)) return 0;
+    return (Math.log(v) - Math.log(t.lo)) / (Math.log(t.hi) - Math.log(t.lo));
+  }
+  return (v - t.lo) / (t.hi - t.lo);
+}
+function axisBase(t) {
+  return t.log ? t.lo : Math.max(t.lo, Math.min(t.hi, 0));
+}
 function axisTicks(min, max2) {
   const t = niceTicks(min, max2);
   const ax = CUR?.valAx;
+  if (ax?.logBase) {
+    const b = ax.logBase;
+    let pmin = Infinity, pmax = 0;
+    for (const s of CUR?.series ?? []) for (const v of s.values) {
+      if (v > 0) {
+        pmin = Math.min(pmin, v);
+        pmax = Math.max(pmax, v);
+      }
+    }
+    if (!Number.isFinite(pmin)) {
+      pmin = 1;
+      pmax = b;
+    }
+    const lo2 = ax.min !== void 0 && ax.min > 0 ? ax.min : b ** Math.floor(Math.log(pmin) / Math.log(b) + 1e-9);
+    let hi2 = ax.max !== void 0 && ax.max > lo2 ? ax.max : b ** Math.ceil(Math.log(pmax) / Math.log(b) - 1e-9);
+    if (!(hi2 > lo2)) hi2 = lo2 * b;
+    return { lo: lo2, hi: hi2, step: 0, log: b };
+  }
   if (!ax || ax.min === void 0 && ax.max === void 0 && ax.majorUnit === void 0) return t;
   const lo = ax.min ?? t.lo, hi = ax.max ?? t.hi;
   if (!(hi > lo)) return t;
-  const step = ax.majorUnit ?? (ax.min === void 0 && ax.max === void 0 ? t.step : niceStep(hi - lo));
+  let step = ax.majorUnit ?? (ax.min === void 0 && ax.max === void 0 ? t.step : niceStep(hi - lo));
+  if ((hi - lo) / step > MAX_TICKS) step = niceStep(hi - lo);
   return { lo, hi, step };
 }
 function paintChartInner(ctx, chart, x2, y, w, h, pxPerPt, frameBorder, sliceBorder = true) {
@@ -9733,14 +10088,18 @@ function paintChartInner(ctx, chart, x2, y, w, h, pxPerPt, frameBorder, sliceBor
     }
   }
 }
+function legendEntries(chart) {
+  const pal = paletteOf(chart);
+  return chart.type === "pie" || chart.type === "doughnut" ? chart.categories.map((c, i2) => ({ label: c, color: pal[i2 % pal.length] })) : chart.series.map((s, i2) => ({ label: s.name || `S\xE9rie ${i2 + 1}`, color: colorOf2(chart, i2) }));
+}
 function legendRightWidth(ctx, chart, labelPx) {
   ctx.font = labelFont(labelPx, chart.legendText);
   let maxW = 0;
-  for (const s of chart.series) maxW = Math.max(maxW, ctx.measureText(s.name || "S\xE9rie").width);
+  for (const e of legendEntries(chart)) maxW = Math.max(maxW, ctx.measureText(e.label).width);
   return maxW + labelPx * 1.6;
 }
 function paintLegendRight(ctx, chart, x2, y, w, h, labelPx) {
-  const entries = chart.series.map((s, i2) => ({ label: s.name || `S\xE9rie ${i2 + 1}`, color: colorOf2(chart, i2) }));
+  const entries = legendEntries(chart);
   if (!entries.length) return;
   ctx.font = labelFont(labelPx, chart.legendText);
   ctx.textBaseline = "middle";
@@ -9805,6 +10164,8 @@ function paintBars(ctx, chart, x2, y, w, h, dir, labelPx) {
   const groupW = (plotR - plotL) / cats;
   const barW = groupW / ((nSer - 1) * (1 - ov) + 1 + gap);
   const span = barW * ((nSer - 1) * (1 - ov) + 1);
+  const yOf = (v) => plotB - Math.max(0, Math.min(1, axisFrac(t, v))) * (plotB - plotT);
+  const y0 = yOf(axisBase(t));
   for (let s = 0; s < nSer; s++) {
     if (chart.series[s].fill === null) continue;
     ctx.fillStyle = colorOf2(chart, s);
@@ -9814,10 +10175,9 @@ function paintBars(ctx, chart, x2, y, w, h, dir, labelPx) {
       const v = vals[i2] ?? 0;
       const gx = plotL + i2 * groupW + (groupW - span) / 2;
       const xBar = gx + s * barW * (1 - ov);
-      const yTop = plotB - (v - t.lo) / (t.hi - t.lo) * (plotB - plotT);
-      const bh = plotB - yTop;
-      if (dir === "col") ctx.fillRect(xBar, yTop, barW, bh);
-      else ctx.fillRect(plotL, xBar, bh, barW);
+      const yv = yOf(v);
+      if (dir === "col") ctx.fillRect(xBar, Math.min(yv, y0), barW, Math.abs(y0 - yv));
+      else ctx.fillRect(plotL, xBar, Math.abs(y0 - yv), barW);
     }
   }
   paintCategoryAxis(ctx, chart.categories, plotL, plotB, plotR - plotL, labelPx);
@@ -9833,7 +10193,8 @@ function paintLines(ctx, chart, x2, y, w, h, labelPx, area) {
   paintGrid(ctx, plotL, plotT, plotR, plotB, t);
   const stepX = (plotR - plotL) / cats;
   const xAt = (i2) => plotL + stepX * (i2 + 0.5);
-  const yAt = (v) => plotB - (v - t.lo) / (t.hi - t.lo) * (plotB - plotT);
+  const yAt = (v) => plotB - axisFrac(t, v) * (plotB - plotT);
+  const yBase = yAt(axisBase(t));
   for (let s = 0; s < chart.series.length; s++) {
     const col = colorOf2(chart, s);
     const vals = chart.series[s].values;
@@ -9845,8 +10206,8 @@ function paintLines(ctx, chart, x2, y, w, h, labelPx, area) {
       ctx.beginPath();
       ctx.moveTo(xAt(0), yAt(vals[0] ?? 0));
       for (let i2 = 1; i2 < cats; i2++) ctx.lineTo(xAt(i2), yAt(vals[i2] ?? 0));
-      ctx.lineTo(xAt(cats - 1), plotB);
-      ctx.lineTo(xAt(0), plotB);
+      ctx.lineTo(xAt(cats - 1), yBase);
+      ctx.lineTo(xAt(0), yBase);
       ctx.closePath();
       ctx.fill();
       continue;
@@ -9886,6 +10247,7 @@ function paintPieOrDoughnut(ctx, chart, x2, y, w, h, holeFrac, sliceBorder = tru
   const pal = paletteOf(chart);
   const cx = x2 + w / 2, cy = y + h / 2 - h * 0.012;
   const radius = Math.min(w, h) / 2 * 0.97;
+  if (!(radius > 0)) return;
   let a0 = -Math.PI / 2;
   for (let i2 = 0; i2 < s0.values.length; i2++) {
     const v = Math.max(0, s0.values[i2] ?? 0);
@@ -9934,7 +10296,7 @@ function paintScatter(ctx, chart, x2, y, w, h, labelPx) {
   ctx.strokeStyle = "#D9D9D9";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let v = tx.lo; v <= tx.hi + 1e-9 && showBg(); v += tx.step) {
+  for (const v of showBg() ? tickValues(tx) : []) {
     const xx = plotL + (v - tx.lo) / (tx.hi - tx.lo) * (plotR - plotL);
     ctx.moveTo(Math.round(xx) + 0.5, plotT);
     ctx.lineTo(Math.round(xx) + 0.5, plotB);
@@ -9958,7 +10320,7 @@ function paintScatter(ctx, chart, x2, y, w, h, labelPx) {
   ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  for (let v = tx.lo; v <= tx.hi + 1e-9; v += tx.step) {
+  for (const v of tickValues(tx)) {
     const xx = plotL + (v - tx.lo) / (tx.hi - tx.lo) * (plotR - plotL);
     ctx.fillText(formatVal(v), xx, plotB + labelPx * 0.35);
   }
@@ -9975,7 +10337,7 @@ function paintRadar(ctx, chart, x2, y, w, h, labelPx) {
   const rAt = (v) => (v - t.lo) / (t.hi - t.lo) * radius;
   ctx.strokeStyle = "#D9D9D9";
   ctx.lineWidth = 1;
-  for (let v = t.lo + t.step; v <= t.hi + 1e-9 && showBg(); v += t.step) {
+  for (const v of showBg() ? tickValues(t).slice(1) : []) {
     ctx.beginPath();
     for (let i2 = 0; i2 < n; i2++) {
       const a = angleAt(i2);
@@ -9991,7 +10353,7 @@ function paintRadar(ctx, chart, x2, y, w, h, labelPx) {
   ctx.font = `${labelPx}px Aptos, 'Segoe UI', Calibri, Arial, sans-serif`;
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  for (let v = t.lo; v <= t.hi + 1e-9 && showBg(); v += t.step) {
+  for (const v of showBg() ? tickValues(t) : []) {
     ctx.fillText(formatVal(v), cx - labelPx * 0.4, cy - rAt(v));
   }
   for (let i2 = 0; i2 < n && showBg(); i2++) {
@@ -10031,8 +10393,8 @@ function paintGrid(ctx, l, t, r, b, ticks) {
   ctx.strokeStyle = "#D9D9D9";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let v = ticks.lo; v <= ticks.hi + 1e-9; v += ticks.step) {
-    const y = b - (v - ticks.lo) / (ticks.hi - ticks.lo) * (b - t);
+  for (const v of tickValues(ticks)) {
+    const y = b - axisFrac(ticks, v) * (b - t);
     ctx.moveTo(l, Math.round(y) + 0.5);
     ctx.lineTo(r, Math.round(y) + 0.5);
   }
@@ -10060,8 +10422,8 @@ function paintValueAxis(ctx, ticks, xRight, y, h, labelPx) {
   ctx.font = labelFont(labelSize(ax?.text, labelPx), ax?.text);
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  for (let v = ticks.lo; v <= ticks.hi + 1e-9; v += ticks.step) {
-    const yy = y + h - (v - ticks.lo) / (ticks.hi - ticks.lo) * h;
+  for (const v of tickValues(ticks)) {
+    const yy = y + h - axisFrac(ticks, v) * h;
     ctx.fillText(formatVal(v), xRight, yy);
   }
 }
@@ -10071,9 +10433,7 @@ function formatVal(v) {
   return v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
 }
 function paintLegend(ctx, chart, x2, y, w, h, labelPx) {
-  const pal = paletteOf(chart);
-  const byCategory = chart.type === "pie" || chart.type === "doughnut";
-  const entries = byCategory ? chart.categories.map((c, i2) => ({ label: c, color: pal[i2 % pal.length] })) : chart.series.map((s, i2) => ({ label: s.name || `S\xE9rie ${i2 + 1}`, color: colorOf2(chart, i2) }));
+  const entries = legendEntries(chart);
   if (!entries.length) return;
   ctx.font = labelFont(labelPx, chart.legendText);
   ctx.textBaseline = "middle";
@@ -10510,14 +10870,15 @@ function parseDef(name) {
   let def = null;
   if (raw !== void 0) {
     const [av = "", gd = "", ps = ""] = raw.split("|");
+    const words = (s) => s.trim().split(/\s+/).filter(Boolean);
     const guides = (s) => s ? s.split(";").map((e) => {
       const i2 = e.indexOf("=");
-      return [e.slice(0, i2), e.slice(i2 + 1).split(" ")];
+      return [e.slice(0, i2).trim(), words(e.slice(i2 + 1))];
     }) : [];
     const paths = ps ? ps.split("#").map((p) => {
       const [attrs2 = "", cmds = ""] = p.split("~");
       const [w = "", h = "", fill = "", stroke = ""] = attrs2.split(",");
-      const d = { fill, stroke: stroke !== "false" && stroke !== "0", cmds: cmds ? cmds.split(";").map((c) => c.split(" ")) : [] };
+      const d = { fill, stroke: stroke !== "false" && stroke !== "0", cmds: cmds ? cmds.split(";").map(words) : [] };
       if (w) d.w = Number(w);
       if (h) d.h = Number(h);
       return d;
@@ -10700,8 +11061,40 @@ function fitToBox(pts, w, h) {
   const sw = maxX - minX || 1, sh = maxY - minY || 1;
   return pts.map((p) => ({ x: (p.x - minX) / sw * w, y: (p.y - minY) / sh * h }));
 }
+var ADJUSTED_OFFICIAL = /* @__PURE__ */ new Set([
+  "frame",
+  "roundRect",
+  "triangle",
+  "parallelogram",
+  "trapezoid",
+  "pentagon",
+  "hexagon",
+  "star5",
+  "rightArrow",
+  "leftArrow",
+  "upArrow",
+  "downArrow",
+  "chevron",
+  "pie",
+  "arc",
+  "blockArc",
+  "octagon",
+  "donut",
+  "moon",
+  "sun",
+  "can",
+  "cube"
+]);
 function presetPath(geom, w, h, adj, adjNames) {
   const ss = Math.min(w, h);
+  if (adj?.length && geom && ADJUSTED_OFFICIAL.has(geom)) {
+    const g = evalPreset(geom, w, h, adj, adjNames);
+    if (g && g.subs.length) {
+      const out = { kind: "path", subs: g.subs, subLum: g.fill };
+      if (g.stroke.some((s) => !s)) out.subStroke = g.stroke;
+      return out;
+    }
+  }
   switch (geom) {
     case "frame": {
       const t = ss * ((adj?.[0] ?? 12500) / 1e5);
@@ -11281,15 +11674,19 @@ var AHuff = class {
     return sym;
   }
 };
+var MAX_FONT_BYTES = 32 * 1024 * 1024;
 var Out = class {
+  constructor(cap, max2 = MAX_FONT_BYTES) {
+    this.max = max2;
+    this.buf = new Uint8Array(Math.max(16, Math.min(cap, max2)));
+  }
+  max;
   buf;
   len = 0;
-  constructor(cap) {
-    this.buf = new Uint8Array(Math.max(16, cap));
-  }
   grow(n) {
     if (this.len + n <= this.buf.length) return;
-    const nb = new Uint8Array(Math.max(this.buf.length * 2, this.len + n));
+    if (this.len + n > this.max) throw new Error("fonte: sa\xEDda grande demais");
+    const nb = new Uint8Array(Math.min(this.max, Math.max(this.buf.length * 2, this.len + n)));
     nb.set(this.buf.subarray(0, this.len));
     this.buf = nb;
   }
@@ -11334,6 +11731,7 @@ function lzcompUnpack(src, version) {
   const distTree = new AHuff(bits2, 8);
   const lenTree = new AHuff(bits2, 8);
   const outLen = bits2.value(24);
+  if (outLen > Math.max(64 * 1024, src.length * 64)) throw new Error("MTX: tamanho declarado implaus\xEDvel");
   let numDist = 1;
   while (1 + 2 ** (3 * numDist) - 1 < outLen) numDist++;
   const DUP2 = 256 + 8 * numDist, DUP4 = DUP2 + 1, DUP6 = DUP4 + 1;
@@ -11646,7 +12044,7 @@ function ctfToSfnt([ctf, push, code]) {
   if (glyfRec) {
     const numGlyphs = maxp[4] << 8 | maxp[5];
     inp.pos = glyfRec.offset;
-    const glyf = new Out(glyfRec.length * 2);
+    const glyf = new Out(Math.min(glyfRec.length, ctf.length) * 2);
     const offsets = [0];
     for (let g = 0; g < numGlyphs; g++) {
       decodeGlyph(s, glyf);
@@ -11837,6 +12235,10 @@ function acquireLayer(ctx) {
   if (!pool) layerPool.set(c, pool = []);
   let lc2 = pool.find((l) => !layerBusy.has(l) && l.canvas.width === c.width && l.canvas.height === c.height);
   if (!lc2) {
+    for (let k = pool.length - 1; k >= 0; k--) {
+      const l = pool[k];
+      if (!layerBusy.has(l) && (l.canvas.width !== c.width || l.canvas.height !== c.height)) pool.splice(k, 1);
+    }
     let cv;
     if (typeof OffscreenCanvas !== "undefined") cv = new OffscreenCanvas(c.width, c.height);
     else if (typeof document !== "undefined") {
@@ -11857,6 +12259,15 @@ function acquireLayer(ctx) {
   lc2.clearRect(0, 0, c.width, c.height);
   lc2.setTransform(ctx.getTransform());
   return lc2;
+}
+function discardLayer(ctx, lc2) {
+  const c = ctx.canvas;
+  const pool = c ? layerPool.get(c) : void 0;
+  if (pool) {
+    const k = pool.indexOf(lc2);
+    if (k >= 0) pool.splice(k, 1);
+  }
+  layerBusy.delete(lc2);
 }
 function compositeLayer(ctx, lc2, soft, x2, y, w, h) {
   for (const s of soft) applySoftReveal(lc2, s.filter, s.q, x2, y, w, h);
@@ -11893,41 +12304,76 @@ function paintSlideTo(ctx, slide, resources, scale, opts = {}) {
   const m = { ox, oy, sw, sh };
   for (let i2 = 0; i2 < slide.shapes.length; i2++) {
     const shp = slide.shapes[i2];
-    const op = opts.shapeOpacity ? opts.shapeOpacity(shp, i2) : 1;
-    if (op <= 0) continue;
-    const hooks = opts.shapeAnim && shp.xfrm ? opts.shapeAnim(shp, i2) : null;
-    ctx.save();
-    if (op < 1) ctx.globalAlpha = ctx.globalAlpha * op;
-    const mf = opts.mediaFrame?.(shp, i2) ?? void 0;
-    const frame = mf && "image" in mf && "alpha" in mf ? mf : mf ? { image: mf, alpha: 1 } : void 0;
-    let anim;
-    if (hooks && shp.xfrm) {
-      const x2 = ox + shp.xfrm.x * scale, y = oy + shp.xfrm.y * scale;
-      const w = shp.xfrm.cx * scale, h = shp.xfrm.cy * scale;
-      const rotDeg = (shp.xfrm.rot ?? 0) / 6e4;
-      const base = boxBase(x2, y, w, h, m, { rot: rotDeg, fill: shp.fill?.color, line: shp.lineColor, text: firstRunColor(shp) });
-      const all = hooks.all(base);
-      const soft = [];
-      if (!applyPart(ctx, all, base, x2, y, w, h, m, rotDeg * Math.PI / 180, soft)) {
-        ctx.restore();
-        continue;
-      }
-      anim = { hooks, all, base, m };
-      if (soft.length) {
-        const lc2 = acquireLayer(ctx);
-        if (lc2) {
-          paintShape(lc2, shp, fit, resources, opts.suppressTextShapeIdx === i2, anim, frame);
-          compositeLayer(ctx, lc2, soft, x2, y, w, h);
+    guarded(ctx, () => {
+      const op = opts.shapeOpacity ? opts.shapeOpacity(shp, i2) : 1;
+      if (op <= 0) return;
+      const hooks = opts.shapeAnim && shp.xfrm ? opts.shapeAnim(shp, i2) : null;
+      ctx.save();
+      if (op < 1) ctx.globalAlpha = ctx.globalAlpha * op;
+      const mf = opts.mediaFrame?.(shp, i2) ?? void 0;
+      const frame = mf && "image" in mf && "alpha" in mf ? mf : mf ? { image: mf, alpha: 1 } : void 0;
+      let anim;
+      if (hooks && shp.xfrm) {
+        const x2 = ox + shp.xfrm.x * scale, y = oy + shp.xfrm.y * scale;
+        const w = shp.xfrm.cx * scale, h = shp.xfrm.cy * scale;
+        const rotDeg = (shp.xfrm.rot ?? 0) / 6e4;
+        const base = boxBase(x2, y, w, h, m, { rot: rotDeg, fill: shp.fill?.color, line: shp.lineColor, text: firstRunColor(shp) });
+        const all = hooks.all(base);
+        const soft = [];
+        if (!applyPart(ctx, all, base, x2, y, w, h, m, rotDeg * Math.PI / 180, soft)) {
           ctx.restore();
-          continue;
+          return;
         }
-        for (const s of soft) ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, s.filter, s.q, x2, y, w, h);
+        anim = { hooks, all, base, m };
+        if (soft.length) {
+          const lc2 = acquireLayer(ctx);
+          if (lc2) {
+            try {
+              paintShape(lc2, shp, fit, resources, opts.suppressTextShapeIdx === i2, anim, frame);
+              compositeLayer(ctx, lc2, soft, x2, y, w, h);
+            } catch (e) {
+              discardLayer(ctx, lc2);
+              throw e;
+            }
+            ctx.restore();
+            return;
+          }
+          for (const s of soft) ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, s.filter, s.q, x2, y, w, h);
+        }
       }
-    }
-    paintShape(ctx, shp, fit, resources, opts.suppressTextShapeIdx === i2, anim, frame);
-    ctx.restore();
+      paintShape(ctx, shp, fit, resources, opts.suppressTextShapeIdx === i2, anim, frame);
+      ctx.restore();
+    });
   }
   ctx.restore();
+}
+function guarded(ctx, fn) {
+  let depth = 0;
+  const own = Object.prototype.hasOwnProperty.call(ctx, "save");
+  const save = ctx.save, restore = ctx.restore;
+  ctx.save = function() {
+    depth++;
+    save.call(this);
+  };
+  ctx.restore = function() {
+    depth--;
+    restore.call(this);
+  };
+  try {
+    fn();
+    return true;
+  } catch {
+    for (; depth > 0; depth--) restore.call(ctx);
+    return false;
+  } finally {
+    if (own) {
+      ctx.save = save;
+      ctx.restore = restore;
+    } else {
+      delete ctx.save;
+      delete ctx.restore;
+    }
+  }
 }
 function imgW(img) {
   const vw = img.videoWidth;
@@ -12177,7 +12623,7 @@ function shapePath(ctx, geom, x2, y, w, h, custGeom, adj, adjNames, mode) {
       return p.fillRule;
     }
     case "ellipse":
-      ctx.ellipse(x2 + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(x2 + w / 2, y + h / 2, Math.max(0, w / 2), Math.max(0, h / 2), 0, 0, Math.PI * 2);
       break;
     case "roundRect":
       roundRect(ctx, x2, y, w, h, p.r);
@@ -12198,7 +12644,7 @@ function shapePath(ctx, geom, x2, y, w, h, custGeom, adj, adjNames, mode) {
     case "pie": {
       const cx = x2 + w / 2, cy = y + h / 2;
       ctx.moveTo(cx, cy);
-      ctx.ellipse(cx, cy, w / 2, h / 2, 0, p.startDeg * Math.PI / 180, p.endDeg * Math.PI / 180);
+      ctx.ellipse(cx, cy, Math.max(0, w / 2), Math.max(0, h / 2), 0, p.startDeg * Math.PI / 180, p.endDeg * Math.PI / 180);
       ctx.closePath();
       break;
     }
@@ -12279,7 +12725,7 @@ function drawSegs(ctx, subs, x2, y, sx, sy) {
       else if (s.c === "L") ctx.lineTo(x2 + s.x * sx, y + s.y * sy);
       else if (s.c === "C") ctx.bezierCurveTo(x2 + s.x1 * sx, y + s.y1 * sy, x2 + s.x2 * sx, y + s.y2 * sy, x2 + s.x * sx, y + s.y * sy);
       else if (s.c === "Q") ctx.quadraticCurveTo(x2 + s.x1 * sx, y + s.y1 * sy, x2 + s.x * sx, y + s.y * sy);
-      else if (s.c === "E") ctx.ellipse(x2 + s.cx * sx, y + s.cy * sy, s.rx * sx, s.ry * sy, 0, s.a0, s.a1, s.ccw ?? false);
+      else if (s.c === "E") ctx.ellipse(x2 + s.cx * sx, y + s.cy * sy, Math.max(0, s.rx * sx), Math.max(0, s.ry * sy), 0, s.a0, s.a1, s.ccw ?? false);
       else ctx.closePath();
     }
   }
@@ -12393,48 +12839,28 @@ function paintText(ctx, sh, tb, x2, y, w, h, scale, anim) {
     }
     return paraSt.get(pi) ?? null;
   };
-  const unitRe = unitHook?.type === "wd" ? /\S+/g : /\S/g;
-  const perPara = /* @__PURE__ */ new Map();
-  let total = 0;
-  if (unitHook) for (const line of layout.lines) for (const r of line.runs) {
-    const c = (r.text.match(unitRe) ?? []).length;
-    perPara.set(line.para, (perPara.get(line.para) ?? 0) + c);
-    total += c;
-  }
-  const seenPara = /* @__PURE__ */ new Map();
-  let seenTotal = 0;
-  const skipUnits = (line) => {
-    if (!unitHook) return;
-    for (const r of line.runs) {
-      const c = (r.text.match(unitRe) ?? []).length;
-      seenPara.set(line.para, (seenPara.get(line.para) ?? 0) + c);
-      seenTotal += c;
-    }
-  };
+  const plan = unitHook ? planUnits(tb, layout, unitHook.type, !!unitHook.words) : null;
   ctx.textBaseline = "alphabetic";
   for (const line of layout.lines) {
     const by = y + line.baseline * scale;
     const pst = stOfPara(line.para);
-    if (pst && !pst.visible) {
-      skipUnits(line);
-      continue;
-    }
+    if (pst && !pst.visible) continue;
     ctx.save();
     if (pst && anim) {
       const b = pbox.get(line.para);
       if (!applyPart(ctx, pst, boxBase(b[0], b[1], b[2] - b[0], b[3] - b[1], anim.m), b[0], b[1], b[2] - b[0], b[3] - b[1], anim.m)) {
         ctx.restore();
-        skipUnits(line);
         continue;
       }
     }
     if (line.bullet) {
       let bulletOn = true;
-      if (unitHook && anim && (seenPara.get(line.para) ?? 0) === 0) {
+      if (unitHook && plan && anim) {
         const sizePx = line.bullet.font.sizePt * pxPerPt;
         const bst = unitHook.state(
-          { para: line.para, k: seenTotal, count: total, kPara: 0, countPara: perPara.get(line.para) ?? 1 },
-          boxBase(x2 + line.bullet.x * scale, by - sizePx * 0.8, sizePx, sizePx, anim.m, { text: line.bullet.color })
+          plan.firstRef(line.para),
+          boxBase(x2 + line.bullet.x * scale, by - sizePx * 0.8, sizePx, sizePx, anim.m, { text: line.bullet.color }),
+          plan.firstWordRef(line.para)
         );
         bulletOn = !bst || bst.visible && bst.opacity > 0;
       }
@@ -12444,39 +12870,157 @@ function paintText(ctx, sh, tb, x2, y, w, h, scale, anim) {
         ctx.fillText(line.bullet.text, x2 + line.bullet.x * scale, by);
       }
     }
+    if (!unitHook || !plan || !anim) {
+      for (const r of line.runs) drawText(r.text, r, x2 + r.x * scale, by, pst);
+      ctx.restore();
+      continue;
+    }
+    const pieces = [];
     for (const r of line.runs) {
+      const ps = plan.pieces.get(r);
+      if (!ps?.length) continue;
+      ctx.font = layoutFontStr(fontOf2(r.font, pst), pxPerPt);
       const tx = x2 + r.x * scale;
-      if (!unitHook || !anim) {
-        drawText(r.text, r, tx, by, pst);
+      for (const p of ps) {
+        pieces.push({ p, r, ux: tx + ctx.measureText(r.text.slice(0, p.start)).width, uw: ctx.measureText(p.text).width, sizePx: r.font.sizePt * pxPerPt });
+      }
+    }
+    const boxes = /* @__PURE__ */ new Map();
+    for (const q of pieces) {
+      const b = boxes.get(q.p.ref.k);
+      if (b) {
+        b.x0 = Math.min(b.x0, q.ux);
+        b.x1 = Math.max(b.x1, q.ux + q.uw);
+        b.size = Math.max(b.size, q.sizePx);
+      } else boxes.set(q.p.ref.k, { x0: q.ux, x1: q.ux + q.uw, size: q.sizePx, color: q.r.color });
+    }
+    const states = /* @__PURE__ */ new Map();
+    for (const q of pieces) {
+      const b = boxes.get(q.p.ref.k);
+      const uy = by - b.size * 0.8;
+      const ubase = boxBase(b.x0, uy, b.x1 - b.x0, b.size, anim.m, { text: b.color });
+      if (!states.has(q.p.ref.k)) states.set(q.p.ref.k, unitHook.state(q.p.ref, ubase, q.p.word));
+      const ust = states.get(q.p.ref.k);
+      if (ust && !ust.visible) continue;
+      ctx.save();
+      if (ust && !applyPart(ctx, ust, ubase, b.x0, uy, b.x1 - b.x0, b.size, anim.m)) {
+        ctx.restore();
         continue;
       }
-      ctx.font = layoutFontStr(fontOf2(r.font, pst), pxPerPt);
-      unitRe.lastIndex = 0;
-      let mm;
-      while (mm = unitRe.exec(r.text)) {
-        const ux = tx + ctx.measureText(r.text.slice(0, mm.index)).width;
-        const uw = ctx.measureText(mm[0]).width;
-        const kPara = seenPara.get(line.para) ?? 0;
-        seenPara.set(line.para, kPara + 1);
-        const kAll = seenTotal++;
-        const sizePx = r.font.sizePt * pxPerPt;
-        const uy = by - sizePx * 0.8;
-        const ubase = boxBase(ux, uy, uw, sizePx, anim.m, { text: r.color });
-        const ust = unitHook.state({ para: line.para, k: kAll, count: total, kPara, countPara: perPara.get(line.para) ?? 1 }, ubase);
-        if (ust && !ust.visible) continue;
-        ctx.save();
-        if (ust && !applyPart(ctx, ust, ubase, ux, uy, uw, sizePx, anim.m)) {
-          ctx.restore();
-          continue;
-        }
-        drawText(mm[0], r, ux, by, ust ?? pst);
-        ctx.restore();
-        ctx.font = layoutFontStr(fontOf2(r.font, pst), pxPerPt);
-      }
+      ctx.font = layoutFontStr(fontOf2(q.r.font, pst), pxPerPt);
+      drawText(q.p.text, q.r, q.ux, by, ust ?? pst);
+      ctx.restore();
     }
     ctx.restore();
   }
   if (unflip) ctx.restore();
+}
+function planUnits(tb, layout, type, withWords) {
+  const byPara = /* @__PURE__ */ new Map();
+  for (const line of layout.lines) {
+    let list = byPara.get(line.para);
+    if (!list) byPara.set(line.para, list = []);
+    list.push(...line.runs);
+  }
+  const runOff = /* @__PURE__ */ new Map();
+  const wordAt = /* @__PURE__ */ new Map();
+  const wordCount = /* @__PURE__ */ new Map();
+  for (const [pi, runs] of byPara) {
+    const orig = (tb.paragraphs[pi]?.runs ?? []).map((r) => r.text).join("");
+    let text = orig, cursor = 0, ok = true;
+    const offs = [];
+    for (const r of runs) {
+      const idx = orig.indexOf(r.text, cursor);
+      if (idx < 0 || /\S/.test(orig.slice(cursor, idx))) {
+        ok = false;
+        break;
+      }
+      offs.push(idx);
+      cursor = idx + r.text.length;
+    }
+    if (!ok) {
+      text = "";
+      offs.length = 0;
+      let prevLine;
+      for (const line of layout.lines) {
+        if (line.para !== pi) continue;
+        if (prevLine) text += "\n";
+        prevLine = line;
+        for (const r of line.runs) {
+          offs.push(text.length);
+          text += r.text;
+        }
+      }
+    }
+    runs.forEach((r, i2) => runOff.set(r, offs[i2] ?? 0));
+    const at = new Int32Array(text.length).fill(-1);
+    let k2 = 0;
+    for (const m of text.matchAll(/\S+/g)) {
+      at.fill(k2, m.index, m.index + m[0].length);
+      k2++;
+    }
+    wordAt.set(pi, at);
+    wordCount.set(pi, k2);
+  }
+  const paras = [...byPara.keys()].sort((a, b) => a - b);
+  const wordBase = /* @__PURE__ */ new Map();
+  let wTotal = 0;
+  for (const pi of paras) {
+    wordBase.set(pi, wTotal);
+    wTotal += wordCount.get(pi) ?? 0;
+  }
+  const wordRef = (pi, kp) => ({ para: pi, k: (wordBase.get(pi) ?? 0) + kp, count: wTotal, kPara: kp, countPara: wordCount.get(pi) ?? 1 });
+  const pieces = /* @__PURE__ */ new Map();
+  if (type === "wd") {
+    for (const pi of paras) {
+      const at = wordAt.get(pi);
+      for (const r of byPara.get(pi)) {
+        const off = runOff.get(r) ?? 0;
+        const list = [];
+        for (const m of r.text.matchAll(/\S+/g)) {
+          const kp = Math.max(0, at[off + m.index] ?? 0);
+          list.push({ text: m[0], start: m.index, ref: wordRef(pi, kp) });
+        }
+        pieces.set(r, list);
+      }
+    }
+    return {
+      pieces,
+      firstRef: (pi) => wordRef(pi, 0),
+      firstWordRef: () => void 0
+    };
+  }
+  const perPara = /* @__PURE__ */ new Map();
+  const first = /* @__PURE__ */ new Map();
+  let total = 0;
+  for (const pi of paras) {
+    first.set(pi, total);
+    for (const r of byPara.get(pi)) {
+      const n = (r.text.match(/\S/g) ?? []).length;
+      total += n;
+      perPara.set(pi, (perPara.get(pi) ?? 0) + n);
+    }
+  }
+  let k = 0;
+  for (const pi of paras) {
+    const at = wordAt.get(pi);
+    let kp = 0;
+    for (const r of byPara.get(pi)) {
+      const off = runOff.get(r) ?? 0;
+      const list = [];
+      for (const m of r.text.matchAll(/\S/g)) {
+        const piece = { text: m[0], start: m.index, ref: { para: pi, k: k++, count: total, kPara: kp++, countPara: perPara.get(pi) ?? 1 } };
+        if (withWords) piece.word = wordRef(pi, Math.max(0, at[off + m.index] ?? 0));
+        list.push(piece);
+      }
+      pieces.set(r, list);
+    }
+  }
+  return {
+    pieces,
+    firstRef: (pi) => ({ para: pi, k: first.get(pi) ?? 0, count: total, kPara: 0, countPara: perPara.get(pi) ?? 1 }),
+    firstWordRef: (pi) => withWords ? wordRef(pi, 0) : void 0
+  };
 }
 function layoutFontStr(f, pxPerPt) {
   return `${f.italic ? "italic " : ""}${f.bold ? "700 " : "400 "}${f.sizePt * pxPerPt}px '${f.family}', 'Aptos', Calibri, 'Liberation Sans', Arial, sans-serif`;
@@ -12731,12 +13275,19 @@ var MediaPlayer = class {
     this.els.set(k, el2);
     return el2;
   }
+  /** Geração do deck: decodificação que termina depois de `dispose()` é de outro deck. */
+  gen = 0;
   /** Decodifica (uma vez) os GIFs animados do slide; repinta quando prontos. */
   warmGifs(slide) {
+    const gen = this.gen;
     for (const sh of slide.shapes) {
       const img = sh.image;
       if (!img || img.mime !== "image/gif" || this.gifs.has(img.part) || this.gifJobs.has(img.part)) continue;
       this.gifJobs.set(img.part, this.decodeGif(img.part, img.bytes).then((g) => {
+        if (gen !== this.gen) {
+          g?.frames.forEach((f) => f.close());
+          return;
+        }
         this.gifs.set(img.part, g);
         this.gifJobs.delete(img.part);
         if (g) this.repaint();
@@ -12815,6 +13366,27 @@ var MediaPlayer = class {
     }
     return null;
   }
+  /** `play()` em andamento (a promessa ainda não resolveu): não buscar de novo a cada quadro. */
+  starting = /* @__PURE__ */ new WeakSet();
+  /** Autoplay recusado (sem gesto do usuário): tentou mudo; se nem assim, fica parado. */
+  forcedMute = /* @__PURE__ */ new WeakSet();
+  blocked = /* @__PURE__ */ new WeakSet();
+  start(el2, time) {
+    el2.currentTime = time;
+    this.starting.add(el2);
+    el2.play().then(() => this.starting.delete(el2), (err2) => {
+      this.starting.delete(el2);
+      if (err2?.name === "NotAllowedError" && !this.forcedMute.has(el2)) {
+        this.forcedMute.add(el2);
+        el2.muted = true;
+        this.starting.add(el2);
+        el2.play().then(() => this.starting.delete(el2), () => {
+          this.starting.delete(el2);
+          this.blocked.add(el2);
+        });
+      } else this.blocked.add(el2);
+    });
+  }
   /** Modo tempo real: toca/pausa/corrige os elementos conforme o último quadro. */
   syncRealtime() {
     for (const [, el2] of this.els) {
@@ -12824,13 +13396,15 @@ var MediaPlayer = class {
         continue;
       }
       el2.volume = Math.max(0, Math.min(1, w.volume));
-      el2.muted = w.muted;
+      el2.muted = w.muted || this.forcedMute.has(el2);
       if (w.playing) {
-        if (el2.paused) {
-          el2.currentTime = w.time;
-          void el2.play().catch(() => {
-          });
-        } else if (Math.abs(el2.currentTime - w.time) > 0.3) el2.currentTime = w.time;
+        if (this.starting.has(el2)) continue;
+        if (this.blocked.has(el2)) {
+          if (Math.abs(el2.currentTime - w.time) > 0.3) el2.currentTime = w.time;
+          continue;
+        }
+        if (el2.paused) this.start(el2, w.time);
+        else if (Math.abs(el2.currentTime - w.time) > 0.3) el2.currentTime = w.time;
       } else {
         if (!el2.paused) el2.pause();
         if (Math.abs(el2.currentTime - w.time) > 0.05) el2.currentTime = w.time;
@@ -12874,6 +13448,7 @@ var MediaPlayer = class {
   }
   /** Libera elementos/URLs/quadros (troca de deck). */
   dispose() {
+    this.gen++;
     this.stop();
     for (const [, el2] of this.els) {
       el2.removeAttribute("src");
@@ -12912,9 +13487,10 @@ async function seekTo(el2, time, timeoutMs) {
 }
 
 // src/universal-presentation-viewer.ts
+var NO_TIMING2 = { steps: [], interactive: [], hidden: false };
 var NEXT_KEYS = /* @__PURE__ */ new Set(["ArrowRight", "ArrowDown", "PageDown", " ", "Enter", "n", "N"]);
 var PREV_KEYS = /* @__PURE__ */ new Set(["ArrowLeft", "ArrowUp", "PageUp", "Backspace", "p", "P"]);
-var UniversalPresentationViewerElement = class extends HTMLElement {
+var UniversalPresentationViewerElement = class _UniversalPresentationViewerElement extends HTMLElement {
   host = this.attachShadow({ mode: "open" });
   canvas = document.createElement("canvas");
   badge = document.createElement("div");
@@ -12969,29 +13545,79 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.canvas.addEventListener("click", this.onClick);
     this.canvas.addEventListener("mousemove", this.onMouseMove);
   }
+  resizeObs = null;
+  /** Mudança de devicePixelRatio (janela levada a outro monitor): o tamanho CSS não muda, o backing store sim. */
+  dprWatch = null;
+  /** Geração do carregamento: resposta de `src` antiga não sobrescreve um deck mais novo. */
+  loadSeq = 0;
+  /** `src` já carregado/pedido (o upgrade do elemento dispara attributeChanged E connected). */
+  srcUrl = null;
   connectedCallback() {
-    new ResizeObserver(() => {
+    this.resizeObs ??= new ResizeObserver(() => {
       this.resize();
       this.paint();
-    }).observe(this.canvas);
+    });
+    this.resizeObs.observe(this.canvas);
+    this.watchDpr();
+    this.restoreParkedFonts();
     this.resize();
     this.paint();
     document.fonts?.ready.then(() => this.paint()).catch(() => {
     });
     const src = this.getAttribute("src");
-    if (src && !this.pkg) void this.loadSrc(src);
+    if (src && src !== this.srcUrl) void this.loadSrc(src);
+  }
+  /**
+   * Saiu do documento: nada pode continuar rodando — laços de quadro,
+   * timers, áudio/vídeo, URLs de mídia, observadores e as fontes embutidas
+   * que ESTE viewer registrou (o editor cria um viewer por apresentação).
+   */
+  disconnectedCallback() {
+    this.resizeObs?.disconnect();
+    this.unwatchDpr();
+    this.stopPresentation();
+    this.stopPlayback();
+    this.media.dispose();
+    this.parkFonts();
   }
   attributeChangedCallback(name, oldV, newV) {
-    if (name === "src" && newV && newV !== oldV && this.isConnected) void this.loadSrc(newV);
+    if (name === "src" && newV && newV !== oldV && this.isConnected && newV !== this.srcUrl) void this.loadSrc(newV);
   }
-  /** Carrega um .pptx por URL (mesma origem ou CORS liberado). */
+  /**
+   * Carrega um .pptx por URL (mesma origem ou CORS liberado). Só a carga MAIS
+   * RECENTE vale (`src` trocado de novo ou `loadPptx` direto no meio do
+   * download descarta a resposta antiga). Falha → evento `us-error`.
+   */
   async loadSrc(url) {
+    const seq = ++this.loadSeq;
+    this.srcUrl = url;
     try {
       const res = await fetch(url);
-      if (!res.ok) return;
-      this.loadPptx(new Uint8Array(await res.arrayBuffer()));
-    } catch {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      if (seq !== this.loadSeq) return;
+      this.loadPptx(bytes);
+    } catch (error) {
+      if (seq !== this.loadSeq) return;
+      this.dispatchEvent(new CustomEvent("us-error", { detail: { src: url, error } }));
     }
+  }
+  watchDpr() {
+    this.unwatchDpr();
+    const mq = window.matchMedia?.(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    if (!mq) return;
+    const onChange = () => {
+      this.resize();
+      this.paint();
+      this.watchDpr();
+    };
+    mq.addEventListener("change", onChange);
+    this.dprWatch = { mq, onChange };
+  }
+  unwatchDpr() {
+    if (!this.dprWatch) return;
+    this.dprWatch.mq.removeEventListener("change", this.dprWatch.onChange);
+    this.dprWatch = null;
   }
   // ───────────────────────── FONTES (lógica do Universal Write) ─────────────────────────
   // 1 fonte DEFAULT embarcada (Liberation Sans, via atributo `fonts` = base URL),
@@ -13028,6 +13654,14 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   embeddedFontLoads = [];
   /** Decodificação/registro das fontes embutidas (adiado para depois da 1ª pintura). */
   embeddedFontsTask = Promise.resolve();
+  /**
+   * Faces EMBUTIDAS que este viewer pôs no `document.fonts` (do deck atual).
+   * Saem ao trocar de deck (o subset "só caracteres usados" do deck A não
+   * pode servir ao deck B) e ao desconectar (voltam se reconectar).
+   */
+  ownFaces = /* @__PURE__ */ new Set();
+  embeddedFamilies = /* @__PURE__ */ new Set();
+  parkedFaces = [];
   /** Registra as fontes EMBUTIDAS no pacote (FontFace) e repinta ao carregar. */
   registerEmbeddedFonts(pkg) {
     this.embeddedFontLoads = [];
@@ -13038,7 +13672,10 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
         const buf = f.data.slice().buffer;
         const face = new FontFace(f.family, buf, { weight, style });
         this.embeddedFontLoads.push(face.load().then(() => {
+          if (this.pkg !== pkg) return;
           document.fonts.add(face);
+          this.ownFaces.add(face);
+          this.embeddedFamilies.add(f.family);
           this.loadedFamilyNames.add(f.family);
           this.paint();
         }).catch(() => {
@@ -13047,6 +13684,29 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
       }
     }
   }
+  /** Tira do documento as faces embutidas deste viewer (troca de deck). */
+  releaseFonts() {
+    for (const f of this.ownFaces) document.fonts.delete(f);
+    this.ownFaces.clear();
+    for (const fam of this.embeddedFamilies) this.loadedFamilyNames.delete(fam);
+    this.embeddedFamilies.clear();
+    this.parkedFaces = [];
+  }
+  /** Desconectado: as faces saem do documento, guardadas para uma reconexão. */
+  parkFonts() {
+    for (const f of this.ownFaces) document.fonts.delete(f);
+    this.parkedFaces = [...this.ownFaces];
+  }
+  restoreParkedFonts() {
+    for (const f of this.parkedFaces) document.fonts.add(f);
+    this.parkedFaces = [];
+  }
+  /**
+   * Fontes do SO por família fornecidas pelo HOST (ex.: o Electron lê
+   * Windows\Fonts + o cache CloudFonts do Office, invisível ao
+   * `queryLocalFonts`). Ausente: `queryLocalFonts` (Chromium, com permissão).
+   */
+  static systemFontResolver = null;
   /**
    * Resolve quando as fontes EMBUTIDAS do deck terminaram de carregar (ou
    * falharam) e o conjunto de fontes do documento assentou — antes disso o
@@ -13071,6 +13731,23 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
       }
     });
     if (!wanted.length) return;
+    const resolver = _UniversalPresentationViewerElement.systemFontResolver;
+    if (resolver) {
+      let added2 = false;
+      try {
+        for (const f of await resolver(wanted)) {
+          try {
+            document.fonts.add(await new FontFace(f.family, f.bytes, { weight: f.weight, style: f.style }).load());
+            this.loadedFamilyNames.add(f.family);
+            added2 = true;
+          } catch {
+          }
+        }
+      } catch {
+      }
+      if (added2 && this.pkg === pkg) this.paint();
+      return;
+    }
     const qlf = window.queryLocalFonts;
     if (!qlf) return;
     let faces;
@@ -13105,29 +13782,42 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   suppressTextIdx() {
     return void 0;
   }
-  /** Carrega bytes .pptx e monta os slides. */
+  /**
+   * Carrega bytes .pptx (ou .ppt) e monta os slides. Arquivo inválido LANÇA e
+   * o deck atual fica intacto (tudo é lido antes de trocar o estado).
+   */
   loadPptx(bytes) {
+    const pkg = PptxPackage.load(bytes);
+    const pres = readPresentation(pkg);
+    const slides = [];
+    for (const ref of pres.slides) {
+      if (!ref.target) continue;
+      try {
+        slides.push(readSlide(pkg, ref.target));
+      } catch {
+        slides.push({ shapes: [] });
+      }
+    }
+    this.loadSeq++;
+    this.srcUrl = this.getAttribute("src");
     this.stopPresentation();
     this.stopPlayback();
     this.media.dispose();
-    this.pkg = PptxPackage.load(bytes);
+    this.releaseFonts();
+    this.chartCache.clear();
+    this.pkg = pkg;
+    this.pres = pres;
+    this.slides = slides;
     void this.installDefaultFonts();
-    const pkg = this.pkg;
     this.embeddedFontsTask = new Promise((resolve) => setTimeout(() => {
-      if (this.pkg === pkg) this.registerEmbeddedFonts(pkg);
-      resolve();
-    }, 0));
-    void this.ensureDeckFonts(this.pkg);
-    this.pres = readPresentation(this.pkg);
-    this.slides = [];
-    for (const ref of this.pres.slides) {
-      if (!ref.target) continue;
       try {
-        this.slides.push(readSlide(this.pkg, ref.target));
+        if (this.pkg === pkg) this.registerEmbeddedFonts(pkg);
       } catch {
-        this.slides.push({ shapes: [] });
+      } finally {
+        resolve();
       }
-    }
+    }, 0));
+    void this.ensureDeckFonts(pkg);
     this.imageCache.clear();
     for (const s of this.slides) {
       if (s.bgImage) this.warmImage(s.bgImage);
@@ -13155,9 +13845,11 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
    *  - Home/End (e `selectSlide(i)`): pula; Esc (ou sair da tela cheia): sai;
    *  - slide com intervalo gravado (`useTimings`): passos e avanço sozinhos;
    *  - depois do último slide, a tela de fim; o próximo comando sai.
-   * `from` = slide inicial (default: o atual). Emite `us-slide` a cada slide,
-   * `us-step` a cada passo e `us-present-end` ao sair (por qualquer motivo).
-   * Chamar a partir de um gesto do usuário (a tela cheia exige).
+   * `from` = slide inicial: índice (um oculto também, se pedido), `'start'` =
+   * o F5 "do começo" (1º slide VISÍVEL da faixa) ou ausente = o atual. Emite
+   * `us-slide` a cada slide, `us-step` a cada passo e `us-present-end` ao
+   * sair (por qualquer motivo). Chamar a partir de um gesto do usuário (a
+   * tela cheia exige).
    */
   present(from, opts = {}) {
     if (!this.slides.length) return;
@@ -13165,14 +13857,20 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     const full = opts.fullscreen ?? true;
     const already = this.host.fullscreenElement === this.wrap;
     this.endShow(full && already);
-    const ss = new SlideShow(this.slides.map((s) => s.timing), from ?? this.index, this.now(), {
-      useTimings: opts.useTimings ?? true,
-      loop: opts.loop ?? false
+    const cfg = this.pres?.show ?? {};
+    const range = cfg.range;
+    const models = this.slides.map((s, i2) => range && (i2 < range[0] || i2 > range[1]) ? { ...s.timing ?? NO_TIMING2, hidden: true } : s.timing);
+    const kiosk = opts.kiosk ?? cfg.kiosk ?? false;
+    const start = from === "start" ? SlideShow.firstVisible(models) : from ?? this.index;
+    const ss = new SlideShow(models, start, this.now(), {
+      useTimings: opts.useTimings ?? cfg.useTimings ?? true,
+      loop: opts.loop ?? (cfg.loop || kiosk || false),
+      animations: opts.animations ?? cfg.showAnimation ?? true
     });
     this.media.mode = "realtime";
     this.media.clock = {};
     for (const s of this.slides) this.media.warmGifs(s);
-    this.show = { ss, rafId: 0, timer: 0, fullscreen: full };
+    this.show = { ss, rafId: 0, timer: 0, fullscreen: full, kiosk };
     this.fromKey = "";
     this.badge.style.display = "none";
     if (full) {
@@ -13328,8 +14026,8 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
       this.showCommand((ss, now) => ss.goTo(i2, now));
       return;
     }
+    if (this.auto) this.stopPlayback();
     if (i2 < 0 || i2 >= this.slides.length || i2 === this.index) return;
-    this.stopPlayback();
     this.index = i2;
     this.paint();
     this.dispatchEvent(new CustomEvent("us-slide", { detail: { index: i2 } }));
@@ -13365,23 +14063,35 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     const from = opts.from ?? 0;
     const first = tl.slides.find((s) => s.index >= from);
     const now = (window.performance ?? Date).now();
-    this.auto = { tl, t0: now - (first?.startMs ?? 0), loop: opts.loop ?? false, rafId: 0, pos: -1 };
+    this.auto = { tl, t0: now - (first?.startMs ?? 0), loop: opts.loop ?? false, rafId: 0, pos: -1, ended: false };
     this.fromKey = "";
     this.badge.style.display = "none";
+    const finish = (a) => {
+      a.rafId = 0;
+      a.ended = true;
+      this.media.stop();
+      this.dispatchEvent(new CustomEvent("us-playback-end"));
+    };
     const tick = () => {
       const a = this.auto;
       if (!a) return;
       const t = (window.performance ?? Date).now() - a.t0;
       if (t >= a.tl.durationMs && a.loop && a.tl.durationMs > 0) a.t0 += a.tl.durationMs;
       this.paint();
-      if (t >= a.tl.durationMs && !a.loop) {
-        a.rafId = 0;
-        this.dispatchEvent(new CustomEvent("us-playback-end"));
+      if (t >= a.tl.durationMs && (!a.loop || a.tl.durationMs <= 0)) {
+        finish(a);
         return;
       }
       a.rafId = requestAnimationFrame(tick);
     };
     this.paint();
+    if (tl.durationMs <= 0) {
+      const a = this.auto;
+      queueMicrotask(() => {
+        if (this.auto === a) finish(a);
+      });
+      return tl;
+    }
     this.auto.rafId = requestAnimationFrame(tick);
     return tl;
   }
@@ -13394,8 +14104,9 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.badge.style.display = "";
     this.paint();
   }
+  /** Reproduzindo agora (depois do fim, o último quadro fica no palco mas isto é false). */
   isPlaying() {
-    return this.auto !== null;
+    return this.auto !== null && !this.auto.ended;
   }
   /** Linha do tempo da reprodução em curso (debug/lab de playback). */
   getPlaybackTimeline() {
@@ -13480,7 +14191,8 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     if (st?.slide && st.pos !== a.pos) {
       a.pos = st.pos;
       this.index = st.slide.index;
-      this.dispatchEvent(new CustomEvent("us-slide", { detail: { index: st.slide.index } }));
+      const detail = { index: st.slide.index };
+      queueMicrotask(() => this.dispatchEvent(new CustomEvent("us-slide", { detail })));
     }
     this.paintStage(
       ctx,
@@ -13622,6 +14334,8 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key;
       if (k === "Escape") this.stopPresentation();
+      else if (k === "F5") {
+      } else if (this.show.kiosk) return;
       else if (NEXT_KEYS.has(k)) this.next();
       else if (PREV_KEYS.has(k)) this.prev();
       else if (k === "Home") this.showCommand((ss, now) => ss.first(now));
@@ -13661,7 +14375,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
       e.preventDefault();
       return;
     }
-    if (this.show && e.button === 0) this.showCommand((ss, now) => ss.next(now, true));
+    if (this.show && !this.show.kiosk && e.button === 0) this.showCommand((ss, now) => ss.next(now, true));
   };
   onMouseMove = (e) => {
     if (this.isEditing()) return;
@@ -13764,6 +14478,7 @@ var statusEl = $("status");
 var playBtn = $("play");
 var fileName = "";
 var playing = false;
+var openSeq = 0;
 function setStatus(msg, error = false) {
   statusEl.textContent = msg;
   statusEl.className = error ? "error" : "";
@@ -13779,7 +14494,7 @@ function openBytes(bytes, name) {
     return;
   }
   fileName = name;
-  playing = false;
+  if (playing) endPlay("");
   document.title = `${name} \u2014 Viewer`;
   $("fileName").textContent = name;
   $("empty").style.display = "none";
@@ -13791,8 +14506,16 @@ function openBytes(bytes, name) {
   void pv.fontsReady().then(paintThumbs);
 }
 async function openFile(file) {
+  const seq = ++openSeq;
   setStatus(`Abrindo "${file.name}"\u2026`);
-  openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
+  let bytes;
+  try {
+    bytes = new Uint8Array(await file.arrayBuffer());
+  } catch (e) {
+    if (seq === openSeq) setStatus(`"${file.name}" n\xE3o p\xF4de ser lido: ${e instanceof Error ? e.message : String(e)}`, true);
+    return;
+  }
+  if (seq === openSeq) openBytes(bytes, file.name);
 }
 $("open").addEventListener("click", () => fileInput.click());
 fileInput.addEventListener("change", () => {
@@ -13831,13 +14554,15 @@ samples.addEventListener("change", async () => {
   const name = samples.selectedOptions[0]?.text ?? url;
   samples.value = "";
   if (!url) return;
+  const seq = ++openSeq;
   setStatus(`Baixando "${name}"\u2026`);
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    openBytes(new Uint8Array(await res.arrayBuffer()), name.split("/").pop());
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (seq === openSeq) openBytes(bytes, name.split("/").pop());
   } catch (e) {
-    setStatus(`"${name}" n\xE3o baixou: ${e instanceof Error ? e.message : String(e)}`, true);
+    if (seq === openSeq) setStatus(`"${name}" n\xE3o baixou: ${e instanceof Error ? e.message : String(e)}`, true);
   }
 });
 var thumbCanvases = [];
@@ -13944,7 +14669,7 @@ function endPlay(msg) {
   window.clearInterval(clock);
   playing = false;
   playBtn.textContent = "\u25B6 Reproduzir";
-  setStatus(msg);
+  if (msg) setStatus(msg);
   updateNav();
 }
 playBtn.addEventListener("click", togglePlay);
@@ -13955,10 +14680,14 @@ pv.addEventListener("us-slide", () => {
 document.addEventListener("keydown", (e) => {
   const t = e.target;
   if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement) return;
-  if (pv.isPresenting()) return;
   const k = e.key.toLowerCase();
+  if (pv.isPresenting()) {
+    if (k === "f5") e.preventDefault();
+    return;
+  }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (k === "f5") {
-    present(e.shiftKey ? pv.getSlideIndex() : 0);
+    present(e.shiftKey ? pv.getSlideIndex() : "start");
     e.preventDefault();
     return;
   }

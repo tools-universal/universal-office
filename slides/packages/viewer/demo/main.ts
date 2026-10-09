@@ -14,6 +14,8 @@ const playBtn = $<HTMLButtonElement>('play');
 
 let fileName = '';
 let playing = false;
+/** Abertura mais recente: uma amostra lenta não sobrescreve um arquivo aberto depois. */
+let openSeq = 0;
 
 function setStatus(msg: string, error = false): void {
   statusEl.textContent = msg;
@@ -33,7 +35,7 @@ function openBytes(bytes: Uint8Array, name: string): void {
     return;
   }
   fileName = name;
-  playing = false;
+  if (playing) endPlay(''); // a reprodução era do deck anterior (o viewer já parou)
   document.title = `${name} — Viewer`;
   $('fileName').textContent = name;
   $('empty').style.display = 'none';
@@ -47,8 +49,16 @@ function openBytes(bytes: Uint8Array, name: string): void {
 }
 
 async function openFile(file: File): Promise<void> {
+  const seq = ++openSeq;
   setStatus(`Abrindo "${file.name}"…`);
-  openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await file.arrayBuffer());
+  } catch (e) { // pasta solta, arquivo sumiu/sem permissão…
+    if (seq === openSeq) setStatus(`"${file.name}" não pôde ser lido: ${e instanceof Error ? e.message : String(e)}`, true);
+    return;
+  }
+  if (seq === openSeq) openBytes(bytes, file.name);
 }
 
 $('open').addEventListener('click', () => fileInput.click());
@@ -80,13 +90,15 @@ samples.addEventListener('change', async () => {
   const name = samples.selectedOptions[0]?.text ?? url;
   samples.value = '';
   if (!url) return;
+  const seq = ++openSeq;
   setStatus(`Baixando "${name}"…`);
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    openBytes(new Uint8Array(await res.arrayBuffer()), name.split('/').pop()!);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (seq === openSeq) openBytes(bytes, name.split('/').pop()!);
   } catch (e) {
-    setStatus(`"${name}" não baixou: ${e instanceof Error ? e.message : String(e)}`, true);
+    if (seq === openSeq) setStatus(`"${name}" não baixou: ${e instanceof Error ? e.message : String(e)}`, true);
   }
 });
 
@@ -146,7 +158,7 @@ $('next').addEventListener('click', () => { pv.next(); updateNav(); });
 
 // ───────────── apresentação (F5) ─────────────
 
-function present(from: number): void {
+function present(from: number | 'start'): void {
   if (!pv.getSlideCount()) return;
   if (playing) { pv.stopPlayback(); endPlay('Reprodução parada'); }
   pv.present(from, {
@@ -195,7 +207,7 @@ function endPlay(msg: string): void {
   window.clearInterval(clock);
   playing = false;
   playBtn.textContent = '▶ Reproduzir';
-  setStatus(msg);
+  if (msg) setStatus(msg);
   updateNav();
 }
 
@@ -209,10 +221,12 @@ pv.addEventListener('us-slide', () => { if (playing && !pv.isPlaying()) endPlay(
 document.addEventListener('keydown', (e) => {
   const t = e.target as HTMLElement;
   if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement) return;
-  // apresentando: as teclas são do apresentador (o viewer já tratou)
-  if (pv.isPresenting()) return;
   const k = e.key.toLowerCase();
-  if (k === 'f5') { present(e.shiftKey ? pv.getSlideIndex() : 0); e.preventDefault(); return; }
+  // apresentando: as teclas são do apresentador (o viewer já tratou); F5 não recarrega a página
+  if (pv.isPresenting()) { if (k === 'f5') e.preventDefault(); return; }
+  // Ctrl/Alt/Meta + tecla é atalho do navegador (Ctrl+F buscar, Ctrl+P imprimir…)
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (k === 'f5') { present(e.shiftKey ? pv.getSlideIndex() : 'start'); e.preventDefault(); return; }
   if (k === 'f') { present(pv.getSlideIndex()); e.preventDefault(); return; }
   if (k === 'p') { togglePlay(); e.preventDefault(); return; }
   if (k === 'escape' && playing) { pv.stopPlayback(); endPlay('Reprodução parada'); return; }

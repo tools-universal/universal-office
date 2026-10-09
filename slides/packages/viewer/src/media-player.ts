@@ -81,12 +81,19 @@ export class MediaPlayer {
     return el;
   }
 
+  /** Geração do deck: decodificação que termina depois de `dispose()` é de outro deck. */
+  private gen = 0;
+
   /** Decodifica (uma vez) os GIFs animados do slide; repinta quando prontos. */
   warmGifs(slide: Slide): void {
+    const gen = this.gen;
     for (const sh of slide.shapes) {
       const img = sh.image;
       if (!img || img.mime !== 'image/gif' || this.gifs.has(img.part) || this.gifJobs.has(img.part)) continue;
       this.gifJobs.set(img.part, this.decodeGif(img.part, img.bytes).then((g) => {
+        // deck trocado no meio: não entra no cache (o mesmo nome de parte do deck
+        // novo pintaria os quadros do antigo) e os quadros são liberados
+        if (gen !== this.gen) { g?.frames.forEach((f) => f.close()); return; }
         this.gifs.set(img.part, g);
         this.gifJobs.delete(img.part);
         if (g) this.repaint();
@@ -167,15 +174,42 @@ export class MediaPlayer {
     return null;
   }
 
+  /** `play()` em andamento (a promessa ainda não resolveu): não buscar de novo a cada quadro. */
+  private starting = new WeakSet<HTMLMediaElement>();
+  /** Autoplay recusado (sem gesto do usuário): tentou mudo; se nem assim, fica parado. */
+  private forcedMute = new WeakSet<HTMLMediaElement>();
+  private blocked = new WeakSet<HTMLMediaElement>();
+
+  private start(el: HTMLMediaElement, time: number): void {
+    el.currentTime = time;
+    this.starting.add(el);
+    el.play().then(() => this.starting.delete(el), (err: unknown) => {
+      this.starting.delete(el);
+      // política de autoplay: o navegador aceita mídia MUDA — tenta assim uma vez
+      if ((err as { name?: string })?.name === 'NotAllowedError' && !this.forcedMute.has(el)) {
+        this.forcedMute.add(el);
+        el.muted = true;
+        this.starting.add(el);
+        el.play().then(() => this.starting.delete(el), () => { this.starting.delete(el); this.blocked.add(el); });
+      } else this.blocked.add(el);
+    });
+  }
+
   /** Modo tempo real: toca/pausa/corrige os elementos conforme o último quadro. */
   syncRealtime(): void {
     for (const [, el] of this.els) {
       const w = this.wanted.get(el);
       if (!w) { if (!el.paused) el.pause(); continue; }
       el.volume = Math.max(0, Math.min(1, w.volume));
-      el.muted = w.muted;
+      el.muted = w.muted || this.forcedMute.has(el);
       if (w.playing) {
-        if (el.paused) { el.currentTime = w.time; void el.play().catch(() => {}); }
+        if (this.starting.has(el)) continue; // aguardando o play(): sem busca a cada quadro
+        if (this.blocked.has(el)) {
+          // recusado de vez: fica parado mostrando o quadro do instante (sem buscar a cada quadro)
+          if (Math.abs(el.currentTime - w.time) > 0.3) el.currentTime = w.time;
+          continue;
+        }
+        if (el.paused) this.start(el, w.time);
         else if (Math.abs(el.currentTime - w.time) > 0.3) el.currentTime = w.time;
       } else {
         if (!el.paused) el.pause();
@@ -225,6 +259,7 @@ export class MediaPlayer {
 
   /** Libera elementos/URLs/quadros (troca de deck). */
   dispose(): void {
+    this.gen++;
     this.stop();
     for (const [, el] of this.els) { el.removeAttribute('src'); el.load(); }
     this.els.clear();
