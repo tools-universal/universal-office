@@ -13,10 +13,15 @@ export interface XmlElement {
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
 
+/** Ponto de código de uma referência numérica; fora do Unicode (ou NaN) vira U+FFFD em vez de lançar. */
+function codePoint(cp: number): string {
+  return Number.isInteger(cp) && cp >= 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : '�';
+}
+
 function decodeEntities(s: string): string {
   return s.replace(/&(#x?[0-9a-fA-F]+|\w+);/g, (_, e: string) => {
-    if (e.startsWith('#x') || e.startsWith('#X')) return String.fromCodePoint(parseInt(e.slice(2), 16));
-    if (e.startsWith('#')) return String.fromCodePoint(parseInt(e.slice(1), 10));
+    if (e.startsWith('#x') || e.startsWith('#X')) return codePoint(parseInt(e.slice(2), 16));
+    if (e.startsWith('#')) return codePoint(parseInt(e.slice(1), 10));
     return ENTITIES[e] ?? `&${e};`;
   });
 }
@@ -64,11 +69,19 @@ export function parseXml(xml: string): XmlElement {
       i++;
     }
     const children: (XmlElement | string)[] = [];
+    // fechamentos ausentes são ERRO: indexOf → -1 voltaria o cursor para o
+    // início do texto (laço infinito / recursão sem fim com arquivo malformado)
+    const upTo = (token: string, what: string): number => {
+      const end = xml.indexOf(token, i);
+      if (end < 0) error(`${what} nao fechado`);
+      return end;
+    };
     for (;;) {
       if (i >= n) error(`</${name}> ausente`);
-      if (xml.startsWith('</', i)) { i = xml.indexOf('>', i) + 1; return { name, attrs, children }; }
-      if (xml.startsWith('<!--', i)) { i = xml.indexOf('-->', i) + 3; continue; }
-      if (xml.startsWith('<![CDATA[', i)) { const end = xml.indexOf(']]>', i); children.push(xml.slice(i + 9, end)); i = end + 3; continue; }
+      if (xml.startsWith('</', i)) { i = upTo('>', `</${name}`) + 1; return { name, attrs, children }; }
+      if (xml.startsWith('<!--', i)) { i = upTo('-->', '<!--') + 3; continue; }
+      if (xml.startsWith('<![CDATA[', i)) { const end = upTo(']]>', '<![CDATA['); children.push(xml.slice(i + 9, end)); i = end + 3; continue; }
+      if (xml.startsWith('<?', i)) { i = upTo('?>', '<?') + 2; continue; } // PI no conteúdo: ignora
       if (xml[i] === '<') { children.push(parseElement()); continue; }
       const tStart = i;
       while (i < n && xml[i] !== '<') i++;
