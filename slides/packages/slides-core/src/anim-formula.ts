@@ -10,8 +10,9 @@
  *   atom   := número | variável | função '(' args ')' | '(' expr ')'
  * Variáveis: `#ppt_x #ppt_y #ppt_w #ppt_h` (centro e tamanho da forma em
  * fração do slide), `#ppt_r` (rotação), `$` (valor interpolado do tav),
- * `pi`, `e`. Funções: sin cos tan asin acos atan sqrt abs ln exp max min
- * floor ceil rand.
+ * `pi`, `e`. Funções: sin cos tan asin acos atan sinh cosh tanh deg rad sqrt
+ * abs ln exp max min floor ceil rand. Variável/função desconhecida ou
+ * operando faltando ⇒ NaN (o valor não é fórmula — ex.: "hidden").
  *
  * As árvores são memoizadas por texto (cada preset repete as mesmas fórmulas).
  */
@@ -82,7 +83,13 @@ function parse(src: string): Node | null {
     const tok = next();
     if (tok === undefined) throw new Error('fim inesperado');
     if (tok === '(') { const e = expr(); if (next() !== ')') throw new Error(') esperado'); return e; }
-    if (/^[0-9.]/.test(tok)) return { k: 'n', v: parseFloat(tok) };
+    if (/^[0-9.]/.test(tok)) {
+      const v = Number(tok);
+      if (!Number.isFinite(v)) throw new Error(`número inválido ${tok}`);
+      return { k: 'n', v };
+    }
+    // operador/pontuação no lugar de um operando ("2*)", "#ppt_x + *") é erro, não variável
+    if (!/^[#$A-Za-z_]/.test(tok)) throw new Error(`operando esperado, veio ${tok}`);
     if (peek() === '(') {
       next();
       const args: Node[] = [];
@@ -110,7 +117,9 @@ function ev(n: Node, vars: FormulaVars): number {
       const key = n.name.toLowerCase();
       if (key === 'pi') return Math.PI;
       if (key === 'e') return Math.E;
-      return vars[n.name] ?? vars[key] ?? 0;
+      // variável desconhecida = NÃO é fórmula (ex.: "hidden", "bold" de um
+      // anim de texto) — NaN, para quem chama tratar como valor textual
+      return vars[n.name] ?? vars[key] ?? NaN;
     }
     case 'u': return -ev(n.a, vars);
     case 'b': {
@@ -134,6 +143,11 @@ function ev(n: Node, vars: FormulaVars): number {
         case 'asin': return Math.asin(a0);
         case 'acos': return Math.acos(a0);
         case 'atan': return Math.atan(a0);
+        case 'sinh': return Math.sinh(a0);
+        case 'cosh': return Math.cosh(a0);
+        case 'tanh': return Math.tanh(a0);
+        case 'deg': return (a0 * 180) / Math.PI;
+        case 'rad': return (a0 * Math.PI) / 180;
         case 'sqrt': return Math.sqrt(Math.max(0, a0));
         case 'abs': return Math.abs(a0);
         case 'ln': return a0 > 0 ? Math.log(a0) : 0;
@@ -145,7 +159,7 @@ function ev(n: Node, vars: FormulaVars): number {
         // rand(x): o app usa aleatório; determinístico aqui (meio do intervalo)
         case 'rand': return a0 / 2;
       }
-      return 0;
+      return NaN; // função desconhecida: fórmula inválida
     }
   }
 }

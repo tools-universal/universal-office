@@ -85,10 +85,15 @@ export interface ShapeAnimHooks {
   bg?: (base: AnimBase) => PartState;
   /** Texto do parágrafo `i` (relativo à caixa do parágrafo) — por cima de `all`. */
   para?: (i: number, base: AnimBase) => PartState | null;
-  /** Unidades de texto (letra/palavra). */
+  /**
+   * Unidades de texto (letra/palavra). `type` = granularidade de desenho
+   * ('lt' se algum efeito é por letra). `words`: há também efeito por PALAVRA
+   * — quem pinta passa a palavra de cada letra (o tempo dele vem da palavra).
+   */
   unit?: {
     type: 'wd' | 'lt';
-    state: (u: UnitRef, base: AnimBase) => PartState | null;
+    words?: boolean;
+    state: (u: UnitRef, base: AnimBase, word?: UnitRef) => PartState | null;
   };
   /**
    * Gráfico animado POR PARTES (`<a:chart bldStep>`): fundo e marcas de dados
@@ -235,7 +240,9 @@ const pathCache = new Map<string, MotionPath>();
 function motionPath(src: string): MotionPath {
   let mp = pathCache.get(src);
   if (mp) return mp;
-  const tok = src.match(/[MLCZEmlcze]|-?\d*\.?\d+(?:e-?\d+)?/g) ?? [];
+  // números com expoente em MAIÚSCULA ("-4.58333E-6", comum nos paths do app)
+  // não podem virar o comando E (fim) no meio do número
+  const tok = src.match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?|[MLCZEmlcze]/g) ?? [];
   const pts: [number, number][] = [];
   let i = 0, cmd = 'M', rel = false;
   let cur: [number, number] = [0, 0], start: [number, number] = [0, 0];
@@ -245,8 +252,9 @@ function motionPath(src: string): MotionPath {
     return rel ? [o[0] + x, o[1] + y] : [x, y];
   };
   while (i < tok.length) {
-    if (/[A-Za-z]/.test(tok[i]!)) { const c = tok[i++]!; cmd = c.toUpperCase(); rel = c !== cmd; }
-    if (cmd === 'Z') { pts.push([...start]); cur = [...start]; continue; }
+    if (/^[A-Za-z]$/.test(tok[i]!)) { const c = tok[i++]!; cmd = c.toUpperCase(); rel = c !== cmd; }
+    // Z não tem operandos: número solto depois dele é descartado (antes: laço infinito)
+    if (cmd === 'Z') { pts.push([...start]); cur = [...start]; cmd = ''; continue; }
     if (cmd === 'E') break;
     if (cmd === 'M') { cur = pt(cur); start = [...cur]; pts.push([...cur]); cmd = 'L'; continue; }
     if (cmd === 'L') { cur = pt(cur); pts.push([...cur]); continue; }
@@ -377,18 +385,26 @@ function applyBehavior(n: TimeNode, p: number, st: PartState, base: AnimBase): v
           let i = Math.max(0, tav.length - 2);
           for (let k = 0; k < tav.length - 1; k++) { if (p < tav[k + 1]!.tm) { i = k; break; } }
           const ka = tav[i]!, kb = tav[Math.min(i + 1, tav.length - 1)]!;
+          // DISCRETO (e texto): vale o ÚLTIMO quadro com tm ≤ p — no fim, o último
+          // quadro (não o início do último segmento, que só serve à interpolação)
+          let kd = 0;
+          for (let k = 1; k < tav.length; k++) if (tav[k]!.tm <= p) kd = k;
+          const kq = tav[kd]!;
+          const discrete = n.calcmode === 'discrete' || n.valueType === 'str';
           if (ka.color || kb.color) {
             const ca = ka.color ?? colorOf(a, st, base) ?? '#000000';
             const cb = kb.color ?? ca;
             const f = kb.tm > ka.tm ? (p - ka.tm) / (kb.tm - ka.tm) : 0;
-            v = n.calcmode === 'discrete' ? ca : mixColor(ca, cb, Math.max(0, Math.min(1, f)), n);
+            v = discrete ? kq.color ?? colorOf(a, st, base) ?? '#000000' : mixColor(ca, cb, Math.max(0, Math.min(1, f)), n);
           } else {
             const na = numVal(ka.val, vr), nb = numVal(kb.val, vr);
-            if (!Number.isFinite(na)) {
-              v = ka.val; // texto (bold/normal/visible…) é sempre discreto
+            if (discrete || !Number.isFinite(na)) {
+              // discreto / texto (bold/normal/visible…): o quadro ativo, sem interpolar
+              const xq = numVal(kq.val, vr);
+              v = !Number.isFinite(xq) ? kq.val : kq.fmla ? evalFormula(kq.fmla, { ...vr, $: xq }) : xq;
             } else {
               const f = kb.tm > ka.tm ? Math.max(0, Math.min(1, (p - ka.tm) / (kb.tm - ka.tm))) : 0;
-              let x = n.calcmode === 'discrete' || !Number.isFinite(nb) ? na : na + (nb - na) * f;
+              let x = !Number.isFinite(nb) ? na : na + (nb - na) * f;
               if (ka.fmla) x = evalFormula(ka.fmla, { ...vr, $: x });
               v = x;
             }
@@ -487,6 +503,8 @@ function evalNode(n: TimeNode, local: number, st: PartState, base: AnimBase): vo
       if (t < c0) break;
       evalNode(c, t - c0, st, base);
       c0 += activeDurOf(c);
+      // filho indefinido: os seguintes nunca começam (Infinity − Infinity = NaN)
+      if (!Number.isFinite(c0)) break;
     }
     return;
   }
@@ -601,7 +619,9 @@ export function shapeAnimHooks(effects: PlacedEffect[], ids: readonly string[], 
       part.tracks.push({ e, shift: 0 });
     } else if (t.sub === 'bg') bg.push({ e, shift: 0 });
     else if (it && (it.type === 'wd' || it.type === 'lt')) {
-      const bgFirst = ctx.animBg?.(t.spid) ?? false;
+      // unidade de fundo só com a FORMA INTEIRA como alvo (como no modelo de
+      // tempo): faixa de parágrafos/caracteres não leva o fundo
+      const bgFirst = !t.pRange && !t.charRange && !t.sub && (ctx.animBg?.(t.spid) ?? false);
       units.push({ e, ...(t.pRange ? { range: t.pRange } : {}), bgFirst });
       if (bgFirst) bg.push({ e, shift: 0 });
     } else if (t.pRange) paras.push({ tr: { e, shift: 0 }, range: t.pRange });
@@ -635,12 +655,17 @@ export function shapeAnimHooks(effects: PlacedEffect[], ids: readonly string[], 
     };
   }
   if (units.length) {
-    const type = units[0]!.e.node.iterate!.type as 'wd' | 'lt';
+    // por letra E por palavra na mesma forma (entrada por letra, saída por
+    // palavra…): desenha por letra; o efeito por palavra escalona pela palavra
+    const hasLt = units.some((u) => u.e.node.iterate!.type === 'lt');
+    const type: 'wd' | 'lt' = hasLt ? 'lt' : 'wd';
     hooks.unit = {
       type,
-      state: (ref, base) => {
+      ...(hasLt && units.some((u) => u.e.node.iterate!.type === 'wd') ? { words: true } : {}),
+      state: (unitRef, base, word) => {
         const tr: Track[] = [];
         for (const u of units) {
+          const ref = u.e.node.iterate!.type === type ? unitRef : (word ?? unitRef);
           if (u.range && (ref.para < u.range[0] || ref.para > u.range[1])) continue;
           const it = u.e.node.iterate!;
           const simple = simpleDurOf(u.e.node);

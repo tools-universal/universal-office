@@ -15,7 +15,7 @@ import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type
 import { presetPath } from './geometry.js';
 import { lumHsl } from './theme.js';
 import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run } from './model.js';
-import type { ShapeAnimHooks, PartState, AnimBase } from './anim-engine.js';
+import type { ShapeAnimHooks, PartState, AnimBase, UnitRef } from './anim-engine.js';
 import { applyReveal, applySoftReveal, softRevealFilter } from './reveal.js';
 
 /** Tamanhos default (pt) quando a cascata não resolveu sz. */
@@ -798,45 +798,29 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     }
     return paraSt.get(pi) ?? null;
   };
-  // unidades (letras sem espaço / palavras) — mesma contagem do modelo de tempo
-  const unitRe = unitHook?.type === 'wd' ? /\S+/g : /\S/g;
-  const perPara = new Map<number, number>();
-  let total = 0;
-  if (unitHook) for (const line of layout.lines) for (const r of line.runs) {
-    const c = (r.text.match(unitRe) ?? []).length;
-    perPara.set(line.para, (perPara.get(line.para) ?? 0) + c);
-    total += c;
-  }
-  const seenPara = new Map<number, number>();
-  let seenTotal = 0;
-  const skipUnits = (line: PlacedLine): void => {
-    if (!unitHook) return;
-    for (const r of line.runs) {
-      const c = (r.text.match(unitRe) ?? []).length;
-      seenPara.set(line.para, (seenPara.get(line.para) ?? 0) + c);
-      seenTotal += c;
-    }
-  };
+  // unidades (letras sem espaço / palavras) — MESMA contagem do modelo de tempo
+  const plan = unitHook ? planUnits(tb, layout, unitHook.type, !!unitHook.words) : null;
 
   ctx.textBaseline = 'alphabetic';
   for (const line of layout.lines) {
     const by = y + line.baseline * scale;
     const pst = stOfPara(line.para);
-    if (pst && !pst.visible) { skipUnits(line); continue; }
+    if (pst && !pst.visible) continue;
     ctx.save();
     if (pst && anim) {
       const b = pbox.get(line.para)!;
       if (!applyPart(ctx, pst, boxBase(b[0], b[1], b[2] - b[0], b[3] - b[1], anim.m), b[0], b[1], b[2] - b[0], b[3] - b[1], anim.m)) {
-        ctx.restore(); skipUnits(line); continue;
+        ctx.restore(); continue;
       }
     }
     if (line.bullet) {
       // marcador acompanha a 1ª unidade do parágrafo quando o texto entra por unidade
       let bulletOn = true;
-      if (unitHook && anim && (seenPara.get(line.para) ?? 0) === 0) {
+      if (unitHook && plan && anim) {
         const sizePx = line.bullet.font.sizePt * pxPerPt;
-        const bst = unitHook.state({ para: line.para, k: seenTotal, count: total, kPara: 0, countPara: perPara.get(line.para) ?? 1 },
-          boxBase(x + line.bullet.x * scale, by - sizePx * 0.8, sizePx, sizePx, anim.m, { text: line.bullet.color }));
+        const bst = unitHook.state(plan.firstRef(line.para),
+          boxBase(x + line.bullet.x * scale, by - sizePx * 0.8, sizePx, sizePx, anim.m, { text: line.bullet.color }),
+          plan.firstWordRef(line.para));
         bulletOn = !bst || (bst.visible && bst.opacity > 0);
       }
       if (bulletOn) {
@@ -845,34 +829,172 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
         ctx.fillText(line.bullet.text, x + line.bullet.x * scale, by);
       }
     }
+    if (!unitHook || !plan || !anim) {
+      for (const r of line.runs) drawText(r.text, r, x + r.x * scale, by, pst);
+      ctx.restore();
+      continue;
+    }
+    // por letra/palavra: cada unidade tem o próprio estado (escalonado no tempo).
+    // Geometria de cada pedaço; os pedaços de uma palavra que cruza runs
+    // compartilham a caixa (união) e o estado
+    const pieces: { p: UnitPiece; r: PlacedRun; ux: number; uw: number; sizePx: number }[] = [];
     for (const r of line.runs) {
-      const tx = x + r.x * scale;
-      if (!unitHook || !anim) { drawText(r.text, r, tx, by, pst); continue; }
-      // por letra/palavra: cada unidade tem o próprio estado (escalonado no tempo)
+      const ps = plan.pieces.get(r);
+      if (!ps?.length) continue;
       ctx.font = layoutFontStr(fontOf(r.font, pst), pxPerPt);
-      unitRe.lastIndex = 0;
-      let mm: RegExpExecArray | null;
-      while ((mm = unitRe.exec(r.text))) {
-        const ux = tx + ctx.measureText(r.text.slice(0, mm.index)).width;
-        const uw = ctx.measureText(mm[0]).width;
-        const kPara = seenPara.get(line.para) ?? 0;
-        seenPara.set(line.para, kPara + 1);
-        const kAll = seenTotal++;
-        const sizePx = r.font.sizePt * pxPerPt;
-        const uy = by - sizePx * 0.8;
-        const ubase = boxBase(ux, uy, uw, sizePx, anim.m, { text: r.color });
-        const ust = unitHook.state({ para: line.para, k: kAll, count: total, kPara, countPara: perPara.get(line.para) ?? 1 }, ubase);
-        if (ust && !ust.visible) continue;
-        ctx.save();
-        if (ust && !applyPart(ctx, ust, ubase, ux, uy, uw, sizePx, anim.m)) { ctx.restore(); continue; }
-        drawText(mm[0], r, ux, by, ust ?? pst);
-        ctx.restore();
-        ctx.font = layoutFontStr(fontOf(r.font, pst), pxPerPt);
+      const tx = x + r.x * scale;
+      for (const p of ps) {
+        pieces.push({ p, r, ux: tx + ctx.measureText(r.text.slice(0, p.start)).width, uw: ctx.measureText(p.text).width, sizePx: r.font.sizePt * pxPerPt });
       }
+    }
+    const boxes = new Map<number, { x0: number; x1: number; size: number; color: string }>();
+    for (const q of pieces) {
+      const b = boxes.get(q.p.ref.k);
+      if (b) { b.x0 = Math.min(b.x0, q.ux); b.x1 = Math.max(b.x1, q.ux + q.uw); b.size = Math.max(b.size, q.sizePx); }
+      else boxes.set(q.p.ref.k, { x0: q.ux, x1: q.ux + q.uw, size: q.sizePx, color: q.r.color });
+    }
+    const states = new Map<number, PartState | null>();
+    for (const q of pieces) {
+      const b = boxes.get(q.p.ref.k)!;
+      const uy = by - b.size * 0.8;
+      const ubase = boxBase(b.x0, uy, b.x1 - b.x0, b.size, anim.m, { text: b.color });
+      if (!states.has(q.p.ref.k)) states.set(q.p.ref.k, unitHook.state(q.p.ref, ubase, q.p.word));
+      const ust = states.get(q.p.ref.k)!;
+      if (ust && !ust.visible) continue;
+      ctx.save();
+      if (ust && !applyPart(ctx, ust, ubase, b.x0, uy, b.x1 - b.x0, b.size, anim.m)) { ctx.restore(); continue; }
+      ctx.font = layoutFontStr(fontOf(q.r.font, pst), pxPerPt);
+      drawText(q.p.text, q.r, q.ux, by, ust ?? pst);
+      ctx.restore();
     }
     ctx.restore();
   }
   if (unflip) ctx.restore();
+}
+
+/** Pedaço de uma unidade de texto animada dentro de um run posicionado. */
+interface UnitPiece {
+  text: string;
+  /** Início do pedaço no texto do run. */
+  start: number;
+  /** Unidade (letra ou palavra) a que o pedaço pertence. */
+  ref: UnitRef;
+  /** Palavra da letra (efeito por palavra desenhado por letra). */
+  word?: UnitRef;
+}
+
+interface UnitPlan {
+  pieces: Map<PlacedRun, UnitPiece[]>;
+  /** 1ª unidade (e palavra) do parágrafo — o marcador acompanha. */
+  firstRef(para: number): UnitRef;
+  firstWordRef(para: number): UnitRef | undefined;
+}
+
+/**
+ * Unidades de texto (`<p:iterate>`) com a MESMA contagem do modelo de tempo
+ * (read.ts countTextUnits): letras = caracteres não-espaço; palavras = /\S+/
+ * no texto do PARÁGRAFO inteiro — uma palavra que cruza runs ("H"+"₂"+"O",
+ * negrito parcial) é UMA unidade. Os runs posicionados são localizados no
+ * texto original do parágrafo (o layout descarta as quebras `\n`); se não
+ * casarem, as linhas contam como separadas.
+ */
+function planUnits(tb: TextBody, layout: { lines: PlacedLine[] }, type: 'wd' | 'lt', withWords: boolean): UnitPlan {
+  const byPara = new Map<number, PlacedRun[]>();
+  for (const line of layout.lines) {
+    let list = byPara.get(line.para);
+    if (!list) byPara.set(line.para, list = []);
+    list.push(...line.runs);
+  }
+  // palavras por parágrafo: deslocamento de cada run no texto + índice da palavra por caractere
+  const runOff = new Map<PlacedRun, number>();
+  const wordAt = new Map<number, Int32Array>();
+  const wordCount = new Map<number, number>();
+  for (const [pi, runs] of byPara) {
+    const orig = (tb.paragraphs[pi]?.runs ?? []).map((r) => r.text).join('');
+    let text = orig, cursor = 0, ok = true;
+    const offs: number[] = [];
+    for (const r of runs) {
+      const idx = orig.indexOf(r.text, cursor);
+      if (idx < 0 || /\S/.test(orig.slice(cursor, idx))) { ok = false; break; }
+      offs.push(idx);
+      cursor = idx + r.text.length;
+    }
+    if (!ok) { // fallback: texto dos runs posicionados, linhas separadas
+      text = ''; offs.length = 0;
+      let prevLine: PlacedLine | undefined;
+      for (const line of layout.lines) {
+        if (line.para !== pi) continue;
+        if (prevLine) text += '\n';
+        prevLine = line;
+        for (const r of line.runs) { offs.push(text.length); text += r.text; }
+      }
+    }
+    runs.forEach((r, i) => runOff.set(r, offs[i] ?? 0));
+    const at = new Int32Array(text.length).fill(-1);
+    let k = 0;
+    for (const m of text.matchAll(/\S+/g)) { at.fill(k, m.index!, m.index! + m[0].length); k++; }
+    wordAt.set(pi, at);
+    wordCount.set(pi, k);
+  }
+  const paras = [...byPara.keys()].sort((a, b) => a - b);
+  const wordBase = new Map<number, number>();
+  let wTotal = 0;
+  for (const pi of paras) { wordBase.set(pi, wTotal); wTotal += wordCount.get(pi) ?? 0; }
+  const wordRef = (pi: number, kp: number): UnitRef =>
+    ({ para: pi, k: (wordBase.get(pi) ?? 0) + kp, count: wTotal, kPara: kp, countPara: wordCount.get(pi) ?? 1 });
+
+  const pieces = new Map<PlacedRun, UnitPiece[]>();
+  if (type === 'wd') {
+    for (const pi of paras) {
+      const at = wordAt.get(pi)!;
+      for (const r of byPara.get(pi)!) {
+        const off = runOff.get(r) ?? 0;
+        const list: UnitPiece[] = [];
+        for (const m of r.text.matchAll(/\S+/g)) {
+          const kp = Math.max(0, at[off + m.index!] ?? 0);
+          list.push({ text: m[0], start: m.index!, ref: wordRef(pi, kp) });
+        }
+        pieces.set(r, list);
+      }
+    }
+    return {
+      pieces,
+      firstRef: (pi) => wordRef(pi, 0),
+      firstWordRef: () => undefined,
+    };
+  }
+  // letras: contagem por caractere não-espaço (índice global e no parágrafo)
+  const perPara = new Map<number, number>();
+  const first = new Map<number, number>();
+  let total = 0;
+  for (const pi of paras) {
+    first.set(pi, total);
+    for (const r of byPara.get(pi)!) {
+      const n = (r.text.match(/\S/g) ?? []).length;
+      total += n;
+      perPara.set(pi, (perPara.get(pi) ?? 0) + n);
+    }
+  }
+  let k = 0;
+  for (const pi of paras) {
+    const at = wordAt.get(pi)!;
+    let kp = 0;
+    for (const r of byPara.get(pi)!) {
+      const off = runOff.get(r) ?? 0;
+      const list: UnitPiece[] = [];
+      for (const m of r.text.matchAll(/\S/g)) {
+        const piece: UnitPiece = { text: m[0], start: m.index!, ref: { para: pi, k: k++, count: total, kPara: kp++, countPara: perPara.get(pi) ?? 1 } };
+        if (withWords) piece.word = wordRef(pi, Math.max(0, at[off + m.index!] ?? 0));
+        list.push(piece);
+      }
+      pieces.set(r, list);
+    }
+  }
+  return {
+    pieces,
+    firstRef: (pi) => ({ para: pi, k: first.get(pi) ?? 0, count: total, kPara: 0, countPara: perPara.get(pi) ?? 1 }),
+    firstWordRef: (pi) => (withWords ? wordRef(pi, 0) : undefined),
+  };
 }
 
 /** Font string CSS para uma LayoutFont (pxPerPt converte pt → px). */

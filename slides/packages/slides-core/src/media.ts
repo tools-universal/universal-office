@@ -85,12 +85,12 @@ export function mediaCommands(effects: readonly PlacedEffect[], spid: string): M
 export function mediaStateAt(effects: readonly PlacedEffect[], spid: string, animMs: number, clock: MediaClock = {}, loop = false): MediaPlayState {
   const k = clock.scale ?? 1, lat = clock.latencyMs ?? 0;
   let started = false, playing = false, pos = 0, since = 0;
-  let durMs: number | undefined, startAt = 0;
+  let durMs: number | undefined, pos0 = 0;
   for (const c of mediaCommands(effects, spid)) {
     if (c.atMs > animMs) break;
     const m = /^playFrom\(\s*(-?[\d.]+)\s*\)$/.exec(c.cmd);
     if (m) {
-      started = true; playing = true; pos = Math.max(0, parseFloat(m[1]!)); since = c.atMs + lat; startAt = c.atMs;
+      started = true; playing = true; pos = Math.max(0, parseFloat(m[1]!)); since = c.atMs + lat; pos0 = pos;
       if (c.durMs !== undefined) durMs = c.durMs;
       continue;
     }
@@ -112,11 +112,13 @@ export function mediaStateAt(effects: readonly PlacedEffect[], spid: string, ani
     }
   }
   let timeSec = playing ? pos + (Math.max(0, animMs - since) * k) / 1000 : pos;
-  // o nó de mídia acaba em comando + duração (no relógio da mídia): congela ali
+  // o nó de mídia acaba em comando + duração (no relógio da mídia): congela ali.
+  // Conta o que TOCOU desde o playFrom (+ a latência de partida) — o tempo em
+  // pausa não consome a duração
   let ended = false;
-  if (playing && !loop && durMs !== undefined && (animMs - startAt) * k >= durMs) {
+  if (started && !loop && durMs !== undefined && (timeSec - pos0) * 1000 + lat * k >= durMs) {
     playing = false; ended = true;
-    timeSec = Math.min(timeSec, pos + (durMs - lat * k) / 1000);
+    timeSec = Math.min(timeSec, pos0 + (durMs - lat * k) / 1000);
   }
   const st: MediaPlayState = { started, playing, timeSec };
   if (ended) st.ended = true;
