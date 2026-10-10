@@ -38,11 +38,6 @@
         ]
       },
       {
-        "from": "../../../shared/fonts/files",
-        "to": "packages/editor/demo/fonts",
-        "filter": ["*.ttf", "LICENSE-*"]
-      },
-      {
         "from": "../../../shared/fonts/node/system-fonts.cjs",
         "to": "system-fonts.cjs"
       }
@@ -59,12 +54,18 @@
     "mac": {
       "target": ["dmg"],
       "category": "public.app-category.productivity",
-      "artifactName": "Universal-Write-${version}-${arch}.${ext}"
+      "artifactName": "Universal-Write-${version}-${arch}.${ext}",
+      "extraResources": [
+        { "from": "../../../shared/fonts/files", "to": "packages/editor/demo/fonts", "filter": ["*.ttf", "LICENSE-*"] }
+      ]
     },
     "linux": {
       "target": ["AppImage"],
       "category": "Office",
-      "artifactName": "Universal-Write-${version}-${arch}.${ext}"
+      "artifactName": "Universal-Write-${version}-${arch}.${ext}",
+      "extraResources": [
+        { "from": "../../../shared/fonts/files", "to": "packages/editor/demo/fonts", "filter": ["*.ttf", "LICENSE-*"] }
+      ]
     }
   }
 }

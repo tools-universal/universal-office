@@ -32182,6 +32182,8 @@ var FontResolver = class _FontResolver {
   /** Famílias (minúsculas) cujos FontFaces fomos NÓS que registramos. */
   own = /* @__PURE__ */ new Set();
   bundledLoads = /* @__PURE__ */ new Map();
+  /** Variante de embarcada sendo baixada (arquivo|variante). */
+  faceLoads = /* @__PURE__ */ new Map();
   localFonts = null;
   /** Substituta/padrão COM arquivo das famílias só-pelo-nome (getWithFile). */
   fileFallbacks = /* @__PURE__ */ new Map();
@@ -32224,7 +32226,7 @@ var FontResolver = class _FontResolver {
    * o Excel cai na Aptos Narrow). O primeiro que resolver para uma fonte de
    * verdade vence; nenhum: o padrão (Liberation Sans).
    */
-  cssStack(family, fallbacks = []) {
+  cssStack(family, fallbacks = [], variant = "regular") {
     const tail = `${css(DEFAULT_FAMILY)}, sans-serif`;
     if (!family) return tail;
     const r6 = this.get(family);
@@ -32232,16 +32234,27 @@ var FontResolver = class _FontResolver {
       void this.resolve([family, ...fallbacks]);
       return [family, ...fallbacks].map(css).join(", ") + `, ${tail}`;
     }
-    if (r6.source !== "default") return r6.cssFamily === DEFAULT_FAMILY ? tail : `${css(r6.cssFamily)}, ${tail}`;
+    const use = (x4) => {
+      this.wantVariant(x4, variant);
+      return x4.cssFamily === DEFAULT_FAMILY ? tail : `${css(x4.cssFamily)}, ${tail}`;
+    };
+    if (r6.source !== "default") return use(r6);
     for (const fb of fallbacks) {
       const f3 = this.get(fb);
       if (!f3) {
         void this.resolve([fb]);
         return `${css(fb)}, ${tail}`;
       }
-      if (f3.source !== "default") return f3.cssFamily === DEFAULT_FAMILY ? tail : `${css(f3.cssFamily)}, ${tail}`;
+      if (f3.source !== "default") return use(f3);
     }
-    return tail;
+    return use(r6);
+  }
+  /** Quem desenha usa uma variante que a embarcada ainda não baixou (só a
+   *  regular vem de início): baixa essa face, uma vez — o onChange repinta. */
+  wantVariant(r6, v2) {
+    if (v2 === "regular" || r6.faces[v2]) return;
+    if (r6.source !== "bundled" && r6.source !== "substitute" && r6.source !== "default") return;
+    void this.loadFace(r6, v2);
   }
   /** Resolve as famílias (idempotente; pedidos em andamento são reaproveitados). */
   async resolve(families) {
@@ -32265,9 +32278,24 @@ var FontResolver = class _FontResolver {
     }
     return Promise.all([...wanted].map(([k2]) => this.resolved.get(k2) ?? this.pending.get(k2)));
   }
-  /** Bytes de uma família ABERTA embarcada (ex.: o padrão), carregando se preciso. */
-  async bundledFaces(family = DEFAULT_FAMILY) {
-    return this.loadBundled(family);
+  /** Bytes de uma família ABERTA embarcada (ex.: o padrão) — das variantes pedidas. */
+  async bundledFaces(family = DEFAULT_FAMILY, variants = ["regular"]) {
+    const faces = await this.loadBundled(family);
+    const b5 = BUNDLED[family.toLowerCase()];
+    if (b5) await Promise.all(variants.map((v2) => this.loadBundledFace(b5, faces, v2)));
+    return faces;
+  }
+  /**
+   * Bytes de UMA variante da família resolvida, baixando se preciso — as
+   * embarcadas (bundled/substituta/padrão) chegam só com a regular; as outras
+   * vêm quando alguém mede/embute aquela variante. undefined: não há o arquivo.
+   */
+  async loadFace(r6, v2) {
+    if (r6.faces[v2]) return r6.faces[v2];
+    if (r6.source !== "bundled" && r6.source !== "substitute" && r6.source !== "default") return void 0;
+    const b5 = BUNDLED[r6.cssFamily.toLowerCase()];
+    if (!b5) return void 0;
+    return this.loadBundledFace(b5, await this.loadBundled(b5.family), v2);
   }
   /**
    * Resolução que EXIGE o arquivo da fonte (síncrono) — para quem mede e embute
@@ -32475,7 +32503,13 @@ var FontResolver = class _FontResolver {
     }
     return result("default", DEFAULT_FAMILY, await this.loadBundled(DEFAULT_FAMILY));
   }
-  /** Carrega (uma vez) as 4 faces de uma família embarcada da `baseUrl`. */
+  /**
+   * Família embarcada da `baseUrl`, uma vez: baixa SÓ a regular. As outras
+   * variantes vêm quando alguém as usa — quem desenha avisa pelo cssStack
+   * (variante), quem mede/embute pede loadFace — e chegam UMA vez, para todos.
+   * O objeto `Faces` é compartilhado: variantes que chegarem depois aparecem
+   * em toda resolução que usa o arquivo.
+   */
   loadBundled(family) {
     const b5 = BUNDLED[family.toLowerCase()];
     if (!b5 || !this.baseUrl) return Promise.resolve({});
@@ -32484,15 +32518,37 @@ var FontResolver = class _FontResolver {
       const base = this.baseUrl;
       p4 = (async () => {
         const faces = {};
-        await Promise.all(VARIANTS.map(async (v2) => {
-          const bytes = await this.env.fetchBytes(`${base}/${bundledFileName(b5.file, v2)}`);
-          if (bytes && await this.env.addFace(b5.family, v2, bytes)) faces[v2] = bytes;
-        }));
-        if (Object.keys(faces).length) this.own.add(b5.family.toLowerCase());
-        else this.bundledLoads.delete(b5.file);
+        const bytes = await this.env.fetchBytes(`${base}/${bundledFileName(b5.file, "regular")}`);
+        if (!bytes || !await this.env.addFace(b5.family, "regular", bytes)) {
+          this.bundledLoads.delete(b5.file);
+          return faces;
+        }
+        faces.regular = bytes;
+        this.own.add(b5.family.toLowerCase());
         return faces;
       })();
       this.bundledLoads.set(b5.file, p4);
+    }
+    return p4;
+  }
+  /** Baixa (uma vez) os bytes de uma variante de família embarcada e avisa. */
+  loadBundledFace(b5, faces, v2) {
+    if (faces[v2]) return Promise.resolve(faces[v2]);
+    if (!this.baseUrl || !faces.regular) return Promise.resolve(void 0);
+    const key = `${b5.file}|${v2}`;
+    let p4 = this.faceLoads.get(key);
+    if (!p4) {
+      const url = `${this.baseUrl}/${bundledFileName(b5.file, v2)}`;
+      p4 = (async () => {
+        const bytes = await this.env.fetchBytes(url);
+        if (!bytes) return void 0;
+        faces[v2] = bytes;
+        await this.env.addFace(b5.family, v2, bytes);
+        const fams = [...this.resolved.values(), ...this.fileFallbacks.values()].filter((r6) => r6.faces === faces).map((r6) => r6.family);
+        this.emit([...new Set(fams)]);
+        return bytes;
+      })();
+      this.faceLoads.set(key, p4);
     }
     return p4;
   }
@@ -36446,7 +36502,7 @@ var UniversalSheetElement = class extends HTMLElement {
         if (!txt) continue;
         const font = this.resolveStyle(c4).font;
         const size = (font?.size ?? 11) * 96 / 72;
-        ctx.font = `${font?.italic ? "italic " : ""}${font?.bold ? "700 " : "400 "}${size}px ${this.fontResolver.cssStack(font?.name ?? "Aptos Narrow", SHEET_FALLBACKS)}`;
+        ctx.font = `${font?.italic ? "italic " : ""}${font?.bold ? "700 " : "400 "}${size}px ${this.fontResolver.cssStack(font?.name ?? "Aptos Narrow", SHEET_FALLBACKS, variantOf(!!font?.bold, !!font?.italic))}`;
         best = Math.max(best, ctx.measureText(txt).width);
       }
     }
@@ -37359,7 +37415,7 @@ var UniversalSheetElement = class extends HTMLElement {
     const size = (font?.size ?? 11) * 96 / 72 * this.zoom;
     const style = font?.italic ? "italic " : "";
     const weight = font?.bold ? "700 " : "400 ";
-    ctx.font = `${style}${weight}${size}px ${this.fontResolver.cssStack(font?.name ?? "Aptos Narrow", SHEET_FALLBACKS)}`;
+    ctx.font = `${style}${weight}${size}px ${this.fontResolver.cssStack(font?.name ?? "Aptos Narrow", SHEET_FALLBACKS, variantOf(!!font?.bold, !!font?.italic))}`;
     ctx.fillStyle = fr.color ?? font?.color ?? TEXT;
     const pad = 3 * this.zoom;
     const numeric = this.isNumericCell(cell);
@@ -37454,7 +37510,7 @@ var UniversalSheetElement = class extends HTMLElement {
     const strike = p4?.strike ?? base?.strike ?? false;
     const sizePt = p4?.size ?? base?.size ?? 11;
     const sizePx = sizePt * 96 / 72 * this.zoom;
-    const family = this.fontResolver.cssStack(p4?.font ?? "Aptos Narrow", SHEET_FALLBACKS);
+    const family = this.fontResolver.cssStack(p4?.font ?? "Aptos Narrow", SHEET_FALLBACKS, variantOf(bold, italic));
     return {
       css: `${italic ? "italic " : ""}${bold ? "700 " : "400 "}${sizePx}px ${family}`,
       sizePx,

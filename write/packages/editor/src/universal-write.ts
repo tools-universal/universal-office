@@ -155,6 +155,8 @@ class Registry implements FontRegistry {
   constructor(
     private sets: Record<string, Partial<Record<FontVariant, LayoutFont>>>,
     private onMiss?: (family: string) => void,
+    /** a família está registrada mas sem a variante (ainda não baixada) */
+    private onMissVariant?: (family: string, variant: FontVariant) => void,
   ) {}
   /** Registra uma variante de fonte (ex.: fontes EMBEDADAS do .docx). */
   register(family: string, variant: FontVariant, font: LayoutFont): void {
@@ -178,6 +180,7 @@ class Registry implements FontRegistry {
     const requested = family
       ? (this.sets[family] ?? this.sets[family.split(' ')[0]!])
       : undefined;
+    if (family && requested && !requested[variant]) this.onMissVariant?.(family, variant);
     const def = this.sets[DEFAULT_FONT] ?? this.sets['Aptos']!;
     return requested?.[variant] ?? requested?.regular ?? def[variant] ?? def.regular!;
   }
@@ -515,7 +518,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (!def?.regular || !def.bold || !def.italic || !def.boldItalic) {
       throw new Error(`initialize(): provide the four ${DEFAULT_FONT} font variants`);
     }
-    this.fonts = new Registry(sets, (family) => this.applyResolvedFont(family));
+    this.fonts = new Registry(sets, (family) => this.applyResolvedFont(family), (family, v) => this.requestFace(family, v));
   }
 
   private async fetchDefaultFontAssets(): Promise<UniversalWriteFontAsset[]> {
@@ -1420,6 +1423,20 @@ export class UniversalWriteElement extends HTMLElement {
     return registered;
   }
 
+  /** O layout pediu uma variante que ainda não chegou (as substitutas e
+   *  embarcadas baixam só a regular de início): pede os bytes dela; ao chegar,
+   *  o onChange reaplica a família e refaz o layout. */
+  private requestFace(family: string, v: FontVariant): void {
+    if (this.loadedFamilyNames.has(family)) return;
+    const r = this.fontResolver.getWithFile(family);
+    if (!r || r.faces[v]) return;
+    const key = `${family.toLowerCase()}|${v}`;
+    if (this.faceRequests.has(key)) return;
+    this.faceRequests.add(key);
+    void this.fontResolver.loadFace(r, v);
+  }
+  private faceRequests = new Set<string>();
+
   private layoutFontFor(r: ResolvedFont, v: FontVariant): LayoutFont | null {
     const bytes = r.faces[v];
     if (bytes) {
@@ -1450,6 +1467,11 @@ export class UniversalWriteElement extends HTMLElement {
     const families = [...new Set(this.fontUsage().map((u) => u.family))].filter((f) => !this.loadedFamilyNames.has(f));
     if (!families.length) return;
     await this.fontResolver.resolveWithFile(families);
+    // variantes que o documento usa e ainda não baixaram (negrito, itálico…)
+    await Promise.all(this.fontUsage().flatMap((u) => {
+      const r = this.loadedFamilyNames.has(u.family) ? undefined : this.fontResolver.getWithFile(u.family);
+      return r ? [...u.variants].filter((v) => !r.faces[v]).map((v) => this.fontResolver.loadFace(r, v)) : [];
+    }));
     let changed = false;
     for (const f of families) {
       if (this.appliedFonts.has(f)) continue;
@@ -1469,7 +1491,7 @@ export class UniversalWriteElement extends HTMLElement {
       if (!sub || this.fonts.get(sub)) continue;
       const fonts = Object.values(this.fonts.get(family) ?? {});
       if (fonts.every((f) => f && this.fontFiles.has(f))) continue;
-      const faces = await this.fontResolver.bundledFaces(sub);
+      const faces = await this.fontResolver.bundledFaces(sub, ['regular', 'bold', 'italic', 'boldItalic']);
       for (const [v, bytes] of Object.entries(faces) as [FontVariant, Uint8Array][]) {
         try {
           const sf = new SfntFont(bytes);

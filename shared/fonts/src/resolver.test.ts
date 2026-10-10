@@ -158,7 +158,7 @@ describe('FontResolver — modo que exige o arquivo (Write)', () => {
     expect(r.getWithFile('Calibri')).toBeUndefined(); // ainda não carregou a substituta
     const [cal, geo, carl] = await r.resolveWithFile(['Calibri', 'Georgia', 'Carlito']);
     expect(cal).toMatchObject({ source: 'substitute', cssFamily: 'Carlito' });
-    expect(Object.keys(cal!.faces)).toHaveLength(4);
+    expect(Object.keys(cal!.faces)).toEqual(['regular']); // as outras variantes só sob demanda
     expect(geo).toMatchObject({ source: 'default', cssFamily: 'Liberation Sans' });
     expect(carl).toMatchObject({ source: 'bundled', cssFamily: 'Carlito' });
     expect(r.getWithFile('Calibri')!.cssFamily).toBe('Carlito');
@@ -176,6 +176,29 @@ describe('FontResolver — modo que exige o arquivo (Write)', () => {
     const list = await r.listFamilies({ withFile: true });
     expect(list).not.toContain('Georgia');
     for (const f of ['Carlito', 'Liberation Sans', 'Calibri']) expect(list).toContain(f);
+  });
+});
+
+describe('FontResolver — baixa só as faces usadas', () => {
+  it('embarcada: só a regular baixa; outra variante vem UMA vez (cssStack ou loadFace) e avisa', async () => {
+    const { env } = fakeEnv({ files: ALL_BUNDLED });
+    const fetched: string[] = [];
+    const fetch0 = env.fetchBytes;
+    const file = (u: string) => u.slice(u.lastIndexOf('/') + 1);
+    env.fetchBytes = async (u) => { fetched.push(file(u)); return fetch0(u); };
+    const r = new FontResolver(env);
+    r.configure({ baseUrl: '/f' });
+    const [cal] = await r.resolve(['Calibri']);
+    expect(fetched).toEqual(['carlito-regular.ttf']);
+    // quem DESENHA negrito avisa pelo cssStack; quem MEDE pede loadFace — uma descida só
+    const changed = new Promise<string[]>((ok) => r.onChange(ok));
+    expect(r.cssStack('Calibri', [], 'bold')).toBe('"Carlito", "Liberation Sans", sans-serif');
+    expect(await r.loadFace(cal!, 'bold')).toBeInstanceOf(Uint8Array);
+    expect(await changed).toEqual(['Calibri']);
+    expect(Object.keys(r.get('Calibri')!.faces).sort()).toEqual(['bold', 'regular']);
+    r.cssStack('Calibri', [], 'bold');
+    await r.loadFace(cal!, 'bold');
+    expect(fetched).toEqual(['carlito-regular.ttf', 'carlito-bold.ttf']);
   });
 });
 

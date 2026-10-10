@@ -118,7 +118,8 @@ export async function planFontEmbedding(
     const wanted = app === 'slides' ? VARIANTS : VARIANTS.filter((v) => use.variants.has(v));
     let found = 0, blocked = 0;
     for (const v of wanted) {
-      const bytes = opts.documentFace?.(use.family, v) ?? (ownFile ? r!.faces[v] : undefined);
+      // embarcada/substituta chega só com a regular: as outras variantes baixam aqui
+      const bytes = opts.documentFace?.(use.family, v) ?? (ownFile ? r!.faces[v] ?? (await resolver.loadFace(r!, v)) : undefined);
       if (!bytes) continue;
       found++;
       if (!isEmbeddable(bytes)) { blocked++; continue; }

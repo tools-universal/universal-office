@@ -1,4 +1,4 @@
-import { FontResolver } from '@universal-office/fonts';
+import { FontResolver, variantOf } from '@universal-office/fonts';
 import {
   XlsxPackage, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, applyTint,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
@@ -695,7 +695,7 @@ export class UniversalSheetElement extends HTMLElement {
         if (!txt) continue;
         const font = this.resolveStyle(c).font;
         const size = (font?.size ?? 11) * 96 / 72; // px sem zoom
-        ctx.font = `${font?.italic ? 'italic ' : ''}${font?.bold ? '700 ' : '400 '}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', SHEET_FALLBACKS)}`;
+        ctx.font = `${font?.italic ? 'italic ' : ''}${font?.bold ? '700 ' : '400 '}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', SHEET_FALLBACKS, variantOf(!!font?.bold, !!font?.italic))}`;
         best = Math.max(best, ctx.measureText(txt).width);
       }
     }
@@ -1692,7 +1692,7 @@ export class UniversalSheetElement extends HTMLElement {
     const size = (font?.size ?? 11) * 96 / 72 * this.zoom;
     const style = font?.italic ? 'italic ' : '';
     const weight = font?.bold ? '700 ' : '400 ';
-    ctx.font = `${style}${weight}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', SHEET_FALLBACKS)}`;
+    ctx.font = `${style}${weight}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', SHEET_FALLBACKS, variantOf(!!font?.bold, !!font?.italic))}`;
     // cor do numFmt (ex.: [Red] em negativos) tem prioridade sobre a cor da fonte
     ctx.fillStyle = fr.color ?? font?.color ?? TEXT;
 
@@ -1782,7 +1782,7 @@ export class UniversalSheetElement extends HTMLElement {
     const sizePt = p?.size ?? base?.size ?? 11;
     const sizePx = sizePt * 96 / 72 * this.zoom;
     // rFont explícito do run tem prioridade; senão a convenção da célula
-    const family = this.fontResolver.cssStack(p?.font ?? 'Aptos Narrow', SHEET_FALLBACKS);
+    const family = this.fontResolver.cssStack(p?.font ?? 'Aptos Narrow', SHEET_FALLBACKS, variantOf(bold, italic));
     return {
       css: `${italic ? 'italic ' : ''}${bold ? '700 ' : '400 '}${sizePx}px ${family}`,
       sizePx,

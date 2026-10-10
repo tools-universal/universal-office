@@ -1,4 +1,4 @@
-import { FontResolver } from '@universal-office/fonts';
+import { FontResolver, variantOf } from '@universal-office/fonts';
 import {
   PptxPackage, readPresentation, readSlide, paintSlideTo,
   readEmbeddedFonts, collectDeckTypefaces,
@@ -307,10 +307,10 @@ export class UniversalPresentationViewerElement extends HTMLElement {
 
   /** Pilha CSS de uma família do texto: a EMBUTIDA no deck, se houver;
    *  senão a que o resolvedor escolheu (vai em `PaintSlideOptions.fontStack`). */
-  protected readonly fontStackFor = (family: string): string =>
+  protected readonly fontStackFor = (family: string, bold = false, italic = false): string =>
     this.embeddedFamilies.has(family)
       ? `"${family.replace(/["\\]/g, '\\$&')}", "Liberation Sans", sans-serif`
-      : this.fontResolver.cssStack(family, MISSING_FONT_FALLBACKS);
+      : this.fontResolver.cssStack(family, MISSING_FONT_FALLBACKS, variantOf(bold, italic));
 
   /**
    * Resolve quando as fontes EMBUTIDAS do deck terminaram de carregar (ou

@@ -64,16 +64,17 @@ export interface PaintSlideOptions {
   mediaFrame?: (shape: Shape, index: number) => PaintImage | MediaFramePaint | null | undefined;
   /**
    * Família pedida pelo texto → pilha CSS de `ctx.font` (o componente injeta o
-   * resolvedor de fontes dos apps). Default: a família + fallbacks fixos.
+   * resolvedor de fontes dos apps; negrito/itálico avisam a variante que vai
+   * ser desenhada). Default: a família + fallbacks fixos.
    */
-  fontStack?: (family: string) => string;
+  fontStack?: (family: string, bold?: boolean, italic?: boolean) => string;
 }
 
 /** Pilha CSS padrão (sem resolvedor: Node, testes, hosts sem componente). */
 const DEFAULT_FONT_STACK = (family: string): string =>
   `'${family}', 'Aptos', Calibri, 'Liberation Sans', Arial, sans-serif`;
 /** Pilha em vigor DURANTE um paintSlideTo (a pintura é síncrona). */
-let fontStack: (family: string) => string = DEFAULT_FONT_STACK;
+let fontStack: (family: string, bold?: boolean, italic?: boolean) => string = DEFAULT_FONT_STACK;
 
 /** Quadro de mídia com opacidade: pintado SOBRE a capa (esmaecer de vídeo). */
 export interface MediaFramePaint { image: PaintImage; alpha: number }
@@ -1075,7 +1076,7 @@ function planUnits(tb: TextBody, layout: { lines: PlacedLine[] }, type: 'wd' | '
 
 /** Font string CSS para uma LayoutFont (pxPerPt converte pt → px). */
 function layoutFontStr(f: LayoutFont, pxPerPt: number): string {
-  return `${f.italic ? 'italic ' : ''}${f.bold ? '700 ' : '400 '}${f.sizePt * pxPerPt}px ${fontStack(f.family)}`;
+  return `${f.italic ? 'italic ' : ''}${f.bold ? '700 ' : '400 '}${f.sizePt * pxPerPt}px ${fontStack(f.family, f.bold, f.italic)}`;
 }
 
 /**

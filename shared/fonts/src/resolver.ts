@@ -49,6 +49,8 @@ export class FontResolver {
   /** Famílias (minúsculas) cujos FontFaces fomos NÓS que registramos. */
   private own = new Set<string>();
   private bundledLoads = new Map<string, Promise<Faces>>();
+  /** Variante de embarcada sendo baixada (arquivo|variante). */
+  private faceLoads = new Map<string, Promise<Uint8Array | undefined>>();
   private localFonts: LocalFontData[] | null = null;
   /** Substituta/padrão COM arquivo das famílias só-pelo-nome (getWithFile). */
   private fileFallbacks = new Map<string, ResolvedFont>();
@@ -99,7 +101,7 @@ export class FontResolver {
    * o Excel cai na Aptos Narrow). O primeiro que resolver para uma fonte de
    * verdade vence; nenhum: o padrão (Liberation Sans).
    */
-  cssStack(family?: string | null, fallbacks: readonly string[] = []): string {
+  cssStack(family?: string | null, fallbacks: readonly string[] = [], variant: FontVariant = 'regular'): string {
     const tail = `${css(DEFAULT_FAMILY)}, sans-serif`;
     if (!family) return tail;
     const r = this.get(family);
@@ -107,16 +109,28 @@ export class FontResolver {
       void this.resolve([family, ...fallbacks]);
       return [family, ...fallbacks].map(css).join(', ') + `, ${tail}`;
     }
-    if (r.source !== 'default') return r.cssFamily === DEFAULT_FAMILY ? tail : `${css(r.cssFamily)}, ${tail}`;
+    const use = (x: ResolvedFont): string => {
+      this.wantVariant(x, variant);
+      return x.cssFamily === DEFAULT_FAMILY ? tail : `${css(x.cssFamily)}, ${tail}`;
+    };
+    if (r.source !== 'default') return use(r);
     for (const fb of fallbacks) {
       const f = this.get(fb);
       if (!f) {
         void this.resolve([fb]);
         return `${css(fb)}, ${tail}`;
       }
-      if (f.source !== 'default') return f.cssFamily === DEFAULT_FAMILY ? tail : `${css(f.cssFamily)}, ${tail}`;
+      if (f.source !== 'default') return use(f);
     }
-    return tail;
+    return use(r);
+  }
+
+  /** Quem desenha usa uma variante que a embarcada ainda não baixou (só a
+   *  regular vem de início): baixa essa face, uma vez — o onChange repinta. */
+  private wantVariant(r: ResolvedFont, v: FontVariant): void {
+    if (v === 'regular' || r.faces[v]) return;
+    if (r.source !== 'bundled' && r.source !== 'substitute' && r.source !== 'default') return;
+    void this.loadFace(r, v);
   }
 
   /** Resolve as famílias (idempotente; pedidos em andamento são reaproveitados). */
@@ -141,9 +155,25 @@ export class FontResolver {
     return Promise.all([...wanted].map(([k]) => this.resolved.get(k) ?? this.pending.get(k)!));
   }
 
-  /** Bytes de uma família ABERTA embarcada (ex.: o padrão), carregando se preciso. */
-  async bundledFaces(family: string = DEFAULT_FAMILY): Promise<Faces> {
-    return this.loadBundled(family);
+  /** Bytes de uma família ABERTA embarcada (ex.: o padrão) — das variantes pedidas. */
+  async bundledFaces(family: string = DEFAULT_FAMILY, variants: readonly FontVariant[] = ['regular']): Promise<Faces> {
+    const faces = await this.loadBundled(family);
+    const b = BUNDLED[family.toLowerCase()];
+    if (b) await Promise.all(variants.map((v) => this.loadBundledFace(b, faces, v)));
+    return faces;
+  }
+
+  /**
+   * Bytes de UMA variante da família resolvida, baixando se preciso — as
+   * embarcadas (bundled/substituta/padrão) chegam só com a regular; as outras
+   * vêm quando alguém mede/embute aquela variante. undefined: não há o arquivo.
+   */
+  async loadFace(r: ResolvedFont, v: FontVariant): Promise<Uint8Array | undefined> {
+    if (r.faces[v]) return r.faces[v];
+    if (r.source !== 'bundled' && r.source !== 'substitute' && r.source !== 'default') return undefined;
+    const b = BUNDLED[r.cssFamily.toLowerCase()];
+    if (!b) return undefined;
+    return this.loadBundledFace(b, await this.loadBundled(b.family), v);
   }
 
   /**
@@ -366,7 +396,13 @@ export class FontResolver {
     return result('default', DEFAULT_FAMILY, await this.loadBundled(DEFAULT_FAMILY));
   }
 
-  /** Carrega (uma vez) as 4 faces de uma família embarcada da `baseUrl`. */
+  /**
+   * Família embarcada da `baseUrl`, uma vez: baixa SÓ a regular. As outras
+   * variantes vêm quando alguém as usa — quem desenha avisa pelo cssStack
+   * (variante), quem mede/embute pede loadFace — e chegam UMA vez, para todos.
+   * O objeto `Faces` é compartilhado: variantes que chegarem depois aparecem
+   * em toda resolução que usa o arquivo.
+   */
   private loadBundled(family: string): Promise<Faces> {
     const b = BUNDLED[family.toLowerCase()];
     if (!b || !this.baseUrl) return Promise.resolve({});
@@ -375,15 +411,38 @@ export class FontResolver {
       const base = this.baseUrl;
       p = (async () => {
         const faces: Faces = {};
-        await Promise.all(VARIANTS.map(async (v) => {
-          const bytes = await this.env.fetchBytes(`${base}/${bundledFileName(b.file, v)}`);
-          if (bytes && (await this.env.addFace(b.family, v, bytes))) faces[v] = bytes;
-        }));
-        if (Object.keys(faces).length) this.own.add(b.family.toLowerCase());
-        else this.bundledLoads.delete(b.file); // base errada/ausente: tenta de novo depois
+        const bytes = await this.env.fetchBytes(`${base}/${bundledFileName(b.file, 'regular')}`);
+        if (!bytes || !(await this.env.addFace(b.family, 'regular', bytes))) {
+          this.bundledLoads.delete(b.file); // base errada/ausente: tenta de novo depois
+          return faces;
+        }
+        faces.regular = bytes;
+        this.own.add(b.family.toLowerCase());
         return faces;
       })();
       this.bundledLoads.set(b.file, p);
+    }
+    return p;
+  }
+
+  /** Baixa (uma vez) os bytes de uma variante de família embarcada e avisa. */
+  private loadBundledFace(b: { family: string; file: string }, faces: Faces, v: FontVariant): Promise<Uint8Array | undefined> {
+    if (faces[v]) return Promise.resolve(faces[v]);
+    if (!this.baseUrl || !faces.regular) return Promise.resolve(undefined);
+    const key = `${b.file}|${v}`;
+    let p = this.faceLoads.get(key);
+    if (!p) {
+      const url = `${this.baseUrl}/${bundledFileName(b.file, v)}`;
+      p = (async () => {
+        const bytes = await this.env.fetchBytes(url);
+        if (!bytes) return undefined;
+        faces[v] = bytes;
+        await this.env.addFace(b.family, v, bytes);
+        const fams = [...this.resolved.values(), ...this.fileFallbacks.values()].filter((r) => r.faces === faces).map((r) => r.family);
+        this.emit([...new Set(fams)]);
+        return bytes;
+      })();
+      this.faceLoads.set(key, p);
     }
     return p;
   }
