@@ -532,6 +532,7 @@ function standaloneFace(bytes, wantPostscript) {
 }
 
 // ../../../shared/fonts/src/resolver.ts
+var needsFile = (r) => r.source === "installed" || r.source === "page";
 var css = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
 var FontResolver = class _FontResolver {
   constructor(env) {
@@ -552,6 +553,9 @@ var FontResolver = class _FontResolver {
   own = /* @__PURE__ */ new Set();
   bundledLoads = /* @__PURE__ */ new Map();
   localFonts = null;
+  /** Substituta/padrão COM arquivo das famílias só-pelo-nome (getWithFile). */
+  fileFallbacks = /* @__PURE__ */ new Map();
+  pendingFile = /* @__PURE__ */ new Map();
   hostList = null;
   /** Configura base das embarcadas e/ou host. Trocar o host refaz as resoluções. */
   configure(opts) {
@@ -636,11 +640,30 @@ var FontResolver = class _FontResolver {
     return this.loadBundled(family);
   }
   /**
+   * Resolução que EXIGE o arquivo da fonte (síncrono) — para quem mede e embute
+   * o texto com as métricas do arquivo (o Write). Família que o navegador só
+   * expõe PELO NOME (`installed`/`page`, sem bytes) vira a substituta
+   * métrico-compatível ou o padrão — como um editor que não acha a fonte, e
+   * igual na tela e no PDF. undefined: ainda não resolvida (ver resolveWithFile).
+   */
+  getWithFile(family) {
+    const r = this.get(family);
+    if (!r || !needsFile(r)) return r;
+    return this.fileFallbacks.get(family.toLowerCase());
+  }
+  /** resolve() exigindo o arquivo (ver getWithFile); avisa por onChange. */
+  async resolveWithFile(families) {
+    const rs = await this.resolve(families);
+    return Promise.all(rs.map((r) => needsFile(r) ? this.fileFallback(r) : r));
+  }
+  /**
    * Famílias para um seletor de fonte. Com host: as dele. Senão, as que a
    * Local Font Access já entregou (se permitida) ou as SONDADAS pelo nome
    * (lista PROBE_FAMILIES) + as embarcadas e as que têm substituta.
+   * `withFile`: só as que dá para usar COM o arquivo (sem as sondadas pelo
+   * nome nem as `@font-face` da página) — o seletor do Write.
    */
-  async listFamilies() {
+  async listFamilies(opts = {}) {
     const names = /* @__PURE__ */ new Map();
     const add = (n) => {
       if (n && !names.has(n.toLowerCase())) names.set(n.toLowerCase(), n);
@@ -650,8 +673,8 @@ var FontResolver = class _FontResolver {
       const r = PROBE_FAMILIES.find((p) => p.toLowerCase() === k);
       if (r) add(r);
     }
-    for (const r of this.resolved.values()) if (r.source !== "default") add(r.family);
-    for (const n of this.env.pageFamilies(this.own).values()) add(n);
+    for (const r of this.resolved.values()) if (r.source !== "default" && !(opts.withFile && needsFile(r))) add(r.family);
+    if (!opts.withFile) for (const n of this.env.pageFamilies(this.own).values()) add(n);
     if (this.host) {
       try {
         for (const n of await (this.hostList ??= this.host.list())) add(n);
@@ -659,7 +682,7 @@ var FontResolver = class _FontResolver {
       }
     } else if (await this.localAccessFonts()) {
       for (const f of this.localFonts) add(f.family);
-    } else {
+    } else if (!opts.withFile) {
       for (const p of PROBE_FAMILIES) if (this.env.isInstalled(p)) add(p);
     }
     return [...names.values()].sort((a, b) => a.localeCompare(b));
@@ -690,8 +713,29 @@ var FontResolver = class _FontResolver {
       }
     }
   }
+  /** Substituta (ou padrão) COM arquivo para uma família só-pelo-nome; uma vez. */
+  fileFallback(r) {
+    const key = r.family.toLowerCase();
+    const done = this.fileFallbacks.get(key);
+    if (done) return Promise.resolve(done);
+    let p = this.pendingFile.get(key);
+    if (!p) {
+      p = (async () => {
+        const sub = METRIC_SUBSTITUTES[key];
+        const subFaces = sub ? await this.loadBundled(sub) : {};
+        const out = Object.keys(subFaces).length ? { family: r.family, cssFamily: sub, source: "substitute", faces: subFaces, embeddable: true } : { family: r.family, cssFamily: DEFAULT_FAMILY, source: "default", faces: await this.loadBundled(DEFAULT_FAMILY), embeddable: true };
+        this.fileFallbacks.set(key, out);
+        this.pendingFile.delete(key);
+        this.emit([r.family]);
+        return out;
+      })();
+      this.pendingFile.set(key, p);
+    }
+    return p;
+  }
   /** Esquece resoluções (para refazer com uma fonte melhor) e avisa. */
   invalidate(which) {
+    this.fileFallbacks.clear();
     const again = [];
     for (const [k, r] of this.resolved) if (which(r)) {
       this.resolved.delete(k);

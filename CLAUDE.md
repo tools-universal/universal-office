@@ -40,7 +40,9 @@ Write, Sheet e Slides resolvem fontes da MESMA forma, em `shared/fonts`
 (`@universal-office/fonts`) — não reimplementar nos apps. Lá ficam o
 resolvedor dos web components (`FontResolver`: host → Local Font Access →
 embarcada → `@font-face` da página → instalada pelo nome → substituta
-métrico-compatível → Liberation Sans), o módulo de fontes do SO dos shells
+métrico-compatível → Liberation Sans; o Write usa `getWithFile`: mede e
+embute só com o ARQUIVO da fonte, então "instalada pelo nome" vira a
+substituta, igual na tela e no PDF), o módulo de fontes do SO dos shells
 Electron (`node/system-fonts.cjs`) e as substitutas ABERTAS (`files/`:
 Carlito, Caladea, Liberation Serif/Mono — `npm run fonts:sync` copia para os
 demos/site). Fontes embutidas no documento continuam com cada componente.

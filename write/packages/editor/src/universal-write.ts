@@ -39,7 +39,6 @@ import {
 } from '@universal-office/fonts';
 import {
   SfntFont,
-  CanvasMetricsFont,
   type LayoutFont,
   breakRich,
   lineHeightPt,
@@ -1358,10 +1357,10 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Lista para o seletor: carregadas (bundled + embedadas) + as do resolvedor
-   *  (host; Local Font Access se permitida; senão as instaladas sondadas pelo
-   *  nome, as abertas embarcadas e as que têm substituta). */
+   *  que o Write consegue usar COM o arquivo (host; Local Font Access se
+   *  permitida; as abertas embarcadas e as que têm substituta). */
   async listAvailableFonts(): Promise<string[]> {
-    const all = new Set<string>([...this.loadedFamilyNames, ...await this.fontResolver.listFamilies()]);
+    const all = new Set<string>([...this.loadedFamilyNames, ...await this.fontResolver.listFamilies({ withFile: true })]);
     return [...all].sort((a, b) => a.localeCompare(b));
   }
 
@@ -1375,7 +1374,7 @@ export class UniversalWriteElement extends HTMLElement {
   /** Resolve uma família (resolvedor único) — ao chegar, refaz layout e pintura. */
   async ensureFontLoaded(family: string): Promise<void> {
     if (!family || this.loadedFamilyNames.has(family)) return;
-    await this.fontResolver.resolve([family]);
+    await this.fontResolver.resolveWithFile([family]);
   }
 
   /** O resolvedor (re)resolveu famílias: atualiza as que este documento usa. */
@@ -1395,16 +1394,18 @@ export class UniversalWriteElement extends HTMLElement {
 
   /**
    * Registra no Registry as métricas da família vinda do resolvedor (síncrono,
-   * se já resolvida; senão pede e o aviso de onChange refaz o layout): com
-   * bytes, SfntFont (exato, embutível); só pelo nome, CanvasMetricsFont. Fonte
-   * embutida/bundled do próprio editor nunca é sobreposta.
+   * se já resolvida; senão pede e o aviso de onChange refaz o layout). O Write
+   * mede e embute com o ARQUIVO da fonte: família que o navegador só expõe pelo
+   * nome vem como a substituta métrico-compatível ou o padrão (getWithFile) —
+   * igual na tela e no PDF. Fonte embutida/bundled do próprio editor nunca é
+   * sobreposta.
    */
   private applyResolvedFont(family: string): boolean {
     if (!this.fonts || this.loadedFamilyNames.has(family) || this.appliedFonts.has(family)) return false;
     this.askedFonts.add(family);
-    const r = this.fontResolver.get(family);
+    const r = this.fontResolver.getWithFile(family);
     if (!r) {
-      void this.fontResolver.resolve([family]);
+      void this.fontResolver.resolveWithFile([family]);
       return false;
     }
     this.appliedFonts.add(family);
@@ -1427,19 +1428,14 @@ export class UniversalWriteElement extends HTMLElement {
         if (r.embeddable) this.fontFiles.set(sf, { name: r.cssFamily, bytes });
         (this.fontBytes[r.cssFamily] ??= {})[v] = bytes;
         return sf;
-      } catch { /* arquivo ilegível p/ o parser: mede pelo canvas */ }
+      } catch { /* arquivo ilegível p/ o parser: fica no padrão */ }
     }
-    if (Object.keys(r.faces).length && v !== 'regular') return null; // sem a variante: Registry usa a regular
-    const ctx = this.measureCtx ??= document.createElement('canvas').getContext('2d');
-    if (!ctx) return null;
-    const style = v === 'italic' || v === 'boldItalic' ? 'italic ' : '';
-    const weight = v === 'bold' || v === 'boldItalic' ? '700' : '400';
-    return new CanvasMetricsFont(ctx, `${style}${weight} {size}px "${r.cssFamily.replace(/"/g, '\\"')}"`);
+    return null; // sem a variante: o Registry usa a regular da família (ou o padrão)
   }
-  private measureCtx: CanvasRenderingContext2D | null = null;
 
   /** Família COM ARQUIVO para o XPS (que embute os bytes): a do canvas; sem
-   *  bytes (instalada só pelo nome), a substituta já carregada ou o padrão. */
+   *  bytes embutíveis (licença que não permite), a substituta já carregada ou
+   *  o padrão. */
   private fileFamilyFor(family: string | undefined): string {
     const fam = this.familyFor(family);
     if (this.fontBytes[fam]) return fam;
@@ -1447,8 +1443,25 @@ export class UniversalWriteElement extends HTMLElement {
     return sub && this.fontBytes[sub] ? sub : DEFAULT_FONT;
   }
 
-  /** Antes do PDF: famílias medidas sem arquivo (instaladas só pelo nome)
-   *  ganham a substituta métrico-compatível embarcada, para o PDF embuti-la. */
+  /** Antes de exportar: espera as fontes que o documento usa terminarem de
+   *  resolver (a substituta pode estar chegando pela rede) e refaz o layout se
+   *  alguma mudou — senão o PDF sairia com a fonte provisória. */
+  private async settleDocumentFonts(): Promise<void> {
+    const families = [...new Set(this.fontUsage().map((u) => u.family))].filter((f) => !this.loadedFamilyNames.has(f));
+    if (!families.length) return;
+    await this.fontResolver.resolveWithFile(families);
+    let changed = false;
+    for (const f of families) {
+      if (this.appliedFonts.has(f)) continue;
+      this.applyResolvedFont(f);
+      changed = true;
+    }
+    // (re)layout pendente na fila também precisa valer ANTES de exportar
+    if ((changed || this.refreshQueued) && this.model) this.refresh();
+  }
+
+  /** Antes do PDF: famílias cujo arquivo a licença não deixa embutir ganham a
+   *  substituta métrico-compatível embarcada, para o PDF embuti-la. */
   private async preparePdfFonts(): Promise<void> {
     if (!this.fonts) return;
     for (const family of this.fonts.families()) {
@@ -4162,7 +4175,7 @@ export class UniversalWriteElement extends HTMLElement {
       if (this.loadedFamilyNames.has(family)) return family;
       // resolvedor único (ex.: "Aptos Display" mesmo com "Aptos" carregada)
       this.applyResolvedFont(family);
-      const r = this.appliedFonts.has(family) ? this.fontResolver.get(family) : undefined;
+      const r = this.appliedFonts.has(family) ? this.fontResolver.getWithFile(family) : undefined;
       if (r && r.source !== 'default') return r.cssFamily;
       const base = family.split(' ')[0]!;
       if (this.loadedFamilyNames.has(base)) return base;
@@ -5715,14 +5728,14 @@ export class UniversalWriteElement extends HTMLElement {
     const T = TWIPS_PER_PT;
     const doc = new PdfDocument({ compress: true });
     this.pdfImgCache = new WeakMap();
+    await this.settleDocumentFonts();
     await this.preparePdfFonts();
     const cache = new Map<LayoutFont, EmbeddedFont>();
     const emb = (family: string | undefined, variant: FontVariant): EmbeddedFont => {
       let sf = this.fonts!.resolve(family, variant);
       let file = this.fontFiles.get(sf);
       if (!file) {
-        // sem arquivo (instalada só pelo NOME, ou licença que não permite
-        // embutir): a substituta métrico-compatível, senão o padrão — sempre
+        // sem arquivo embutível (licença que não permite embutir): a substituta métrico-compatível, senão o padrão — sempre
         // com as MÉTRICAS do arquivo embutido (glifos e advances coerentes)
         const sub = family ? METRIC_SUBSTITUTES[family.toLowerCase()] : undefined;
         sf = this.fonts!.resolve(sub && this.fonts!.get(sub) ? sub : DEFAULT_FONT, variant);

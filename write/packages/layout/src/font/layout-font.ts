@@ -1,9 +1,8 @@
 import type { FontMetrics } from './sfnt.js';
 
 /**
- * O que o layout (e o PDF) precisa de uma fonte. Implementações: SfntFont (lê
- * o arquivo — métricas exatas, embutível no PDF) e CanvasMetricsFont (fonte
- * instalada que o navegador só expõe PELO NOME: mede pelo canvas).
+ * O que o layout (e o PDF) precisa de uma fonte — implementado pelo SfntFont,
+ * que lê o ARQUIVO da fonte (o Write sempre mede e embute com o arquivo).
  */
 export interface LayoutFont {
   readonly metrics: FontMetrics;

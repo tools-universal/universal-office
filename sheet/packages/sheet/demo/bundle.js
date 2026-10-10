@@ -32162,6 +32162,7 @@ function standaloneFace(bytes, wantPostscript) {
 }
 
 // ../../../shared/fonts/src/resolver.ts
+var needsFile = (r6) => r6.source === "installed" || r6.source === "page";
 var css = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
 var FontResolver = class _FontResolver {
   constructor(env) {
@@ -32182,6 +32183,9 @@ var FontResolver = class _FontResolver {
   own = /* @__PURE__ */ new Set();
   bundledLoads = /* @__PURE__ */ new Map();
   localFonts = null;
+  /** Substituta/padrão COM arquivo das famílias só-pelo-nome (getWithFile). */
+  fileFallbacks = /* @__PURE__ */ new Map();
+  pendingFile = /* @__PURE__ */ new Map();
   hostList = null;
   /** Configura base das embarcadas e/ou host. Trocar o host refaz as resoluções. */
   configure(opts) {
@@ -32266,11 +32270,30 @@ var FontResolver = class _FontResolver {
     return this.loadBundled(family);
   }
   /**
+   * Resolução que EXIGE o arquivo da fonte (síncrono) — para quem mede e embute
+   * o texto com as métricas do arquivo (o Write). Família que o navegador só
+   * expõe PELO NOME (`installed`/`page`, sem bytes) vira a substituta
+   * métrico-compatível ou o padrão — como um editor que não acha a fonte, e
+   * igual na tela e no PDF. undefined: ainda não resolvida (ver resolveWithFile).
+   */
+  getWithFile(family) {
+    const r6 = this.get(family);
+    if (!r6 || !needsFile(r6)) return r6;
+    return this.fileFallbacks.get(family.toLowerCase());
+  }
+  /** resolve() exigindo o arquivo (ver getWithFile); avisa por onChange. */
+  async resolveWithFile(families) {
+    const rs = await this.resolve(families);
+    return Promise.all(rs.map((r6) => needsFile(r6) ? this.fileFallback(r6) : r6));
+  }
+  /**
    * Famílias para um seletor de fonte. Com host: as dele. Senão, as que a
    * Local Font Access já entregou (se permitida) ou as SONDADAS pelo nome
    * (lista PROBE_FAMILIES) + as embarcadas e as que têm substituta.
+   * `withFile`: só as que dá para usar COM o arquivo (sem as sondadas pelo
+   * nome nem as `@font-face` da página) — o seletor do Write.
    */
-  async listFamilies() {
+  async listFamilies(opts = {}) {
     const names = /* @__PURE__ */ new Map();
     const add = (n5) => {
       if (n5 && !names.has(n5.toLowerCase())) names.set(n5.toLowerCase(), n5);
@@ -32280,8 +32303,8 @@ var FontResolver = class _FontResolver {
       const r6 = PROBE_FAMILIES.find((p4) => p4.toLowerCase() === k2);
       if (r6) add(r6);
     }
-    for (const r6 of this.resolved.values()) if (r6.source !== "default") add(r6.family);
-    for (const n5 of this.env.pageFamilies(this.own).values()) add(n5);
+    for (const r6 of this.resolved.values()) if (r6.source !== "default" && !(opts.withFile && needsFile(r6))) add(r6.family);
+    if (!opts.withFile) for (const n5 of this.env.pageFamilies(this.own).values()) add(n5);
     if (this.host) {
       try {
         for (const n5 of await (this.hostList ??= this.host.list())) add(n5);
@@ -32289,7 +32312,7 @@ var FontResolver = class _FontResolver {
       }
     } else if (await this.localAccessFonts()) {
       for (const f3 of this.localFonts) add(f3.family);
-    } else {
+    } else if (!opts.withFile) {
       for (const p4 of PROBE_FAMILIES) if (this.env.isInstalled(p4)) add(p4);
     }
     return [...names.values()].sort((a3, b5) => a3.localeCompare(b5));
@@ -32320,8 +32343,29 @@ var FontResolver = class _FontResolver {
       }
     }
   }
+  /** Substituta (ou padrão) COM arquivo para uma família só-pelo-nome; uma vez. */
+  fileFallback(r6) {
+    const key = r6.family.toLowerCase();
+    const done = this.fileFallbacks.get(key);
+    if (done) return Promise.resolve(done);
+    let p4 = this.pendingFile.get(key);
+    if (!p4) {
+      p4 = (async () => {
+        const sub = METRIC_SUBSTITUTES[key];
+        const subFaces = sub ? await this.loadBundled(sub) : {};
+        const out = Object.keys(subFaces).length ? { family: r6.family, cssFamily: sub, source: "substitute", faces: subFaces, embeddable: true } : { family: r6.family, cssFamily: DEFAULT_FAMILY, source: "default", faces: await this.loadBundled(DEFAULT_FAMILY), embeddable: true };
+        this.fileFallbacks.set(key, out);
+        this.pendingFile.delete(key);
+        this.emit([r6.family]);
+        return out;
+      })();
+      this.pendingFile.set(key, p4);
+    }
+    return p4;
+  }
   /** Esquece resoluções (para refazer com uma fonte melhor) e avisa. */
   invalidate(which) {
+    this.fileFallbacks.clear();
     const again = [];
     for (const [k2, r6] of this.resolved) if (which(r6)) {
       this.resolved.delete(k2);

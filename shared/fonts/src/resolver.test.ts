@@ -148,6 +148,37 @@ describe('FontResolver — famílias legadas do Windows', () => {
   });
 });
 
+describe('FontResolver — modo que exige o arquivo (Write)', () => {
+  it('instalada só pelo nome → substituta com arquivo (Calibri → Carlito) ou padrão (Georgia → Liberation Sans)', async () => {
+    const r = new FontResolver(fakeEnv({ installed: ['Calibri', 'Georgia'], files: ALL_BUNDLED }).env);
+    r.configure({ baseUrl: '/f' });
+    await r.resolve(['Calibri', 'Georgia', 'Carlito']);
+    // o modo normal (Sheet/Slides) continua usando a instalada pelo nome
+    expect(r.get('Calibri')).toMatchObject({ source: 'installed', cssFamily: 'Calibri' });
+    expect(r.getWithFile('Calibri')).toBeUndefined(); // ainda não carregou a substituta
+    const [cal, geo, carl] = await r.resolveWithFile(['Calibri', 'Georgia', 'Carlito']);
+    expect(cal).toMatchObject({ source: 'substitute', cssFamily: 'Carlito' });
+    expect(Object.keys(cal!.faces)).toHaveLength(4);
+    expect(geo).toMatchObject({ source: 'default', cssFamily: 'Liberation Sans' });
+    expect(carl).toMatchObject({ source: 'bundled', cssFamily: 'Carlito' });
+    expect(r.getWithFile('Calibri')!.cssFamily).toBe('Carlito');
+    expect(r.get('Calibri')!.source).toBe('installed');
+  });
+
+  it('com o arquivo de verdade (Local Font Access) não troca nada', async () => {
+    const r = new FontResolver(fakeEnv({ installed: ['Calibri'], qlf: { granted: true, fonts: [face('Calibri')] } }).env);
+    const [cal] = await r.resolveWithFile(['Calibri']);
+    expect(cal).toMatchObject({ source: 'local-access', cssFamily: 'Calibri' });
+  });
+
+  it('seletor withFile: sem as instaladas só pelo nome', async () => {
+    const r = new FontResolver(fakeEnv({ installed: ['Georgia', 'Verdana'] }).env);
+    const list = await r.listFamilies({ withFile: true });
+    expect(list).not.toContain('Georgia');
+    for (const f of ['Carlito', 'Liberation Sans', 'Calibri']) expect(list).toContain(f);
+  });
+});
+
 describe('FontResolver — lista para o seletor', () => {
   it('sem host nem permissão: sondadas pelo nome + embarcadas + as com substituta', async () => {
     const r = new FontResolver(fakeEnv({ installed: ['Georgia', 'Verdana'] }).env);

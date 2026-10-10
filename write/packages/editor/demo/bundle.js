@@ -9090,6 +9090,7 @@ function standaloneFace(bytes, wantPostscript) {
 }
 
 // ../../../shared/fonts/src/resolver.ts
+var needsFile = (r6) => r6.source === "installed" || r6.source === "page";
 var css = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
 var FontResolver = class _FontResolver {
   constructor(env) {
@@ -9110,6 +9111,9 @@ var FontResolver = class _FontResolver {
   own = /* @__PURE__ */ new Set();
   bundledLoads = /* @__PURE__ */ new Map();
   localFonts = null;
+  /** Substituta/padrão COM arquivo das famílias só-pelo-nome (getWithFile). */
+  fileFallbacks = /* @__PURE__ */ new Map();
+  pendingFile = /* @__PURE__ */ new Map();
   hostList = null;
   /** Configura base das embarcadas e/ou host. Trocar o host refaz as resoluções. */
   configure(opts) {
@@ -9194,11 +9198,30 @@ var FontResolver = class _FontResolver {
     return this.loadBundled(family);
   }
   /**
+   * Resolução que EXIGE o arquivo da fonte (síncrono) — para quem mede e embute
+   * o texto com as métricas do arquivo (o Write). Família que o navegador só
+   * expõe PELO NOME (`installed`/`page`, sem bytes) vira a substituta
+   * métrico-compatível ou o padrão — como um editor que não acha a fonte, e
+   * igual na tela e no PDF. undefined: ainda não resolvida (ver resolveWithFile).
+   */
+  getWithFile(family) {
+    const r6 = this.get(family);
+    if (!r6 || !needsFile(r6)) return r6;
+    return this.fileFallbacks.get(family.toLowerCase());
+  }
+  /** resolve() exigindo o arquivo (ver getWithFile); avisa por onChange. */
+  async resolveWithFile(families) {
+    const rs = await this.resolve(families);
+    return Promise.all(rs.map((r6) => needsFile(r6) ? this.fileFallback(r6) : r6));
+  }
+  /**
    * Famílias para um seletor de fonte. Com host: as dele. Senão, as que a
    * Local Font Access já entregou (se permitida) ou as SONDADAS pelo nome
    * (lista PROBE_FAMILIES) + as embarcadas e as que têm substituta.
+   * `withFile`: só as que dá para usar COM o arquivo (sem as sondadas pelo
+   * nome nem as `@font-face` da página) — o seletor do Write.
    */
-  async listFamilies() {
+  async listFamilies(opts = {}) {
     const names = /* @__PURE__ */ new Map();
     const add = (n5) => {
       if (n5 && !names.has(n5.toLowerCase())) names.set(n5.toLowerCase(), n5);
@@ -9208,8 +9231,8 @@ var FontResolver = class _FontResolver {
       const r6 = PROBE_FAMILIES.find((p3) => p3.toLowerCase() === k2);
       if (r6) add(r6);
     }
-    for (const r6 of this.resolved.values()) if (r6.source !== "default") add(r6.family);
-    for (const n5 of this.env.pageFamilies(this.own).values()) add(n5);
+    for (const r6 of this.resolved.values()) if (r6.source !== "default" && !(opts.withFile && needsFile(r6))) add(r6.family);
+    if (!opts.withFile) for (const n5 of this.env.pageFamilies(this.own).values()) add(n5);
     if (this.host) {
       try {
         for (const n5 of await (this.hostList ??= this.host.list())) add(n5);
@@ -9217,7 +9240,7 @@ var FontResolver = class _FontResolver {
       }
     } else if (await this.localAccessFonts()) {
       for (const f3 of this.localFonts) add(f3.family);
-    } else {
+    } else if (!opts.withFile) {
       for (const p3 of PROBE_FAMILIES) if (this.env.isInstalled(p3)) add(p3);
     }
     return [...names.values()].sort((a3, b5) => a3.localeCompare(b5));
@@ -9248,8 +9271,29 @@ var FontResolver = class _FontResolver {
       }
     }
   }
+  /** Substituta (ou padrão) COM arquivo para uma família só-pelo-nome; uma vez. */
+  fileFallback(r6) {
+    const key = r6.family.toLowerCase();
+    const done = this.fileFallbacks.get(key);
+    if (done) return Promise.resolve(done);
+    let p3 = this.pendingFile.get(key);
+    if (!p3) {
+      p3 = (async () => {
+        const sub = METRIC_SUBSTITUTES[key];
+        const subFaces = sub ? await this.loadBundled(sub) : {};
+        const out = Object.keys(subFaces).length ? { family: r6.family, cssFamily: sub, source: "substitute", faces: subFaces, embeddable: true } : { family: r6.family, cssFamily: DEFAULT_FAMILY, source: "default", faces: await this.loadBundled(DEFAULT_FAMILY), embeddable: true };
+        this.fileFallbacks.set(key, out);
+        this.pendingFile.delete(key);
+        this.emit([r6.family]);
+        return out;
+      })();
+      this.pendingFile.set(key, p3);
+    }
+    return p3;
+  }
   /** Esquece resoluções (para refazer com uma fonte melhor) e avisa. */
   invalidate(which) {
+    this.fileFallbacks.clear();
     const again = [];
     for (const [k2, r6] of this.resolved) if (which(r6)) {
       this.resolved.delete(k2);
@@ -10174,63 +10218,6 @@ var SfntFont = class {
     const units = this.advanceWidth(this.glyphId(codePoint));
     const deviceEmPt2 = Math.round(sizePt * 600 / 72) * 72 / 600;
     return units * deviceEmPt2 * 20 / this.metrics.unitsPerEm;
-  }
-};
-
-// ../layout/src/font/canvas-metrics.ts
-var UPEM = 2048;
-var CanvasMetricsFont = class {
-  constructor(ctx, cssFont) {
-    this.ctx = ctx;
-    this.cssFont = cssFont;
-    ctx.font = `${cssFont.replace("{size}", String(UPEM))}`;
-    const m2 = ctx.measureText("Hxgjpq");
-    const asc = Math.round(m2.fontBoundingBoxAscent ?? UPEM * 0.9);
-    const desc = Math.round(m2.fontBoundingBoxDescent ?? UPEM * 0.25);
-    this.metrics = {
-      unitsPerEm: UPEM,
-      ascender: asc,
-      descender: -desc,
-      lineGap: 0,
-      usWinAscent: asc,
-      usWinDescent: desc,
-      sTypoAscender: asc,
-      sTypoDescender: -desc,
-      sTypoLineGap: 0
-    };
-  }
-  ctx;
-  cssFont;
-  metrics;
-  advances = /* @__PURE__ */ new Map();
-  kerns = /* @__PURE__ */ new Map();
-  width(text2) {
-    this.ctx.font = this.cssFont.replace("{size}", String(UPEM));
-    return this.ctx.measureText(text2).width;
-  }
-  advanceWidth(codePoint) {
-    let w2 = this.advances.get(codePoint);
-    if (w2 === void 0) this.advances.set(codePoint, w2 = this.width(String.fromCodePoint(codePoint)));
-    return w2;
-  }
-  glyphId(codePoint) {
-    return codePoint;
-  }
-  advanceTwips(codePoint, sizePt) {
-    const deviceEmPt2 = Math.round(sizePt * 600 / 72) * 72 / 600;
-    return this.advanceWidth(codePoint) * deviceEmPt2 * 20 / UPEM;
-  }
-  kernTwips(prevCodePoint, codePoint, sizePt) {
-    const key = prevCodePoint * 1114112 + codePoint;
-    let units = this.kerns.get(key);
-    if (units === void 0) {
-      const pair = this.width(String.fromCodePoint(prevCodePoint, codePoint));
-      units = Math.round(pair - this.advanceWidth(prevCodePoint) - this.advanceWidth(codePoint));
-      this.kerns.set(key, units);
-    }
-    if (!units) return 0;
-    const deviceEmPt2 = Math.round(sizePt * 600 / 72) * 72 / 600;
-    return units * deviceEmPt2 * 20 / UPEM;
   }
 };
 
@@ -13634,10 +13621,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return this.fontResolver.hasHost;
   }
   /** Lista para o seletor: carregadas (bundled + embedadas) + as do resolvedor
-   *  (host; Local Font Access se permitida; senão as instaladas sondadas pelo
-   *  nome, as abertas embarcadas e as que têm substituta). */
+   *  que o Write consegue usar COM o arquivo (host; Local Font Access se
+   *  permitida; as abertas embarcadas e as que têm substituta). */
   async listAvailableFonts() {
-    const all = /* @__PURE__ */ new Set([...this.loadedFamilyNames, ...await this.fontResolver.listFamilies()]);
+    const all = /* @__PURE__ */ new Set([...this.loadedFamilyNames, ...await this.fontResolver.listFamilies({ withFile: true })]);
     return [...all].sort((a3, b5) => a3.localeCompare(b5));
   }
   /** Pede a Local Font Access (Chromium) — CHAMAR NUM GESTO (ex.: abrir o
@@ -13649,7 +13636,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Resolve uma família (resolvedor único) — ao chegar, refaz layout e pintura. */
   async ensureFontLoaded(family) {
     if (!family || this.loadedFamilyNames.has(family)) return;
-    await this.fontResolver.resolve([family]);
+    await this.fontResolver.resolveWithFile([family]);
   }
   /** O resolvedor (re)resolveu famílias: atualiza as que este documento usa. */
   onFontsResolved(families) {
@@ -13666,16 +13653,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /**
    * Registra no Registry as métricas da família vinda do resolvedor (síncrono,
-   * se já resolvida; senão pede e o aviso de onChange refaz o layout): com
-   * bytes, SfntFont (exato, embutível); só pelo nome, CanvasMetricsFont. Fonte
-   * embutida/bundled do próprio editor nunca é sobreposta.
+   * se já resolvida; senão pede e o aviso de onChange refaz o layout). O Write
+   * mede e embute com o ARQUIVO da fonte: família que o navegador só expõe pelo
+   * nome vem como a substituta métrico-compatível ou o padrão (getWithFile) —
+   * igual na tela e no PDF. Fonte embutida/bundled do próprio editor nunca é
+   * sobreposta.
    */
   applyResolvedFont(family) {
     if (!this.fonts || this.loadedFamilyNames.has(family) || this.appliedFonts.has(family)) return false;
     this.askedFonts.add(family);
-    const r6 = this.fontResolver.get(family);
+    const r6 = this.fontResolver.getWithFile(family);
     if (!r6) {
-      void this.fontResolver.resolve([family]);
+      void this.fontResolver.resolveWithFile([family]);
       return false;
     }
     this.appliedFonts.add(family);
@@ -13700,24 +13689,34 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       } catch {
       }
     }
-    if (Object.keys(r6.faces).length && v2 !== "regular") return null;
-    const ctx = this.measureCtx ??= document.createElement("canvas").getContext("2d");
-    if (!ctx) return null;
-    const style = v2 === "italic" || v2 === "boldItalic" ? "italic " : "";
-    const weight = v2 === "bold" || v2 === "boldItalic" ? "700" : "400";
-    return new CanvasMetricsFont(ctx, `${style}${weight} {size}px "${r6.cssFamily.replace(/"/g, '\\"')}"`);
+    return null;
   }
-  measureCtx = null;
   /** Família COM ARQUIVO para o XPS (que embute os bytes): a do canvas; sem
-   *  bytes (instalada só pelo nome), a substituta já carregada ou o padrão. */
+   *  bytes embutíveis (licença que não permite), a substituta já carregada ou
+   *  o padrão. */
   fileFamilyFor(family) {
     const fam = this.familyFor(family);
     if (this.fontBytes[fam]) return fam;
     const sub = family ? METRIC_SUBSTITUTES[family.toLowerCase()] : void 0;
     return sub && this.fontBytes[sub] ? sub : DEFAULT_FONT;
   }
-  /** Antes do PDF: famílias medidas sem arquivo (instaladas só pelo nome)
-   *  ganham a substituta métrico-compatível embarcada, para o PDF embuti-la. */
+  /** Antes de exportar: espera as fontes que o documento usa terminarem de
+   *  resolver (a substituta pode estar chegando pela rede) e refaz o layout se
+   *  alguma mudou — senão o PDF sairia com a fonte provisória. */
+  async settleDocumentFonts() {
+    const families = [...new Set(this.fontUsage().map((u3) => u3.family))].filter((f3) => !this.loadedFamilyNames.has(f3));
+    if (!families.length) return;
+    await this.fontResolver.resolveWithFile(families);
+    let changed = false;
+    for (const f3 of families) {
+      if (this.appliedFonts.has(f3)) continue;
+      this.applyResolvedFont(f3);
+      changed = true;
+    }
+    if ((changed || this.refreshQueued) && this.model) this.refresh();
+  }
+  /** Antes do PDF: famílias cujo arquivo a licença não deixa embutir ganham a
+   *  substituta métrico-compatível embarcada, para o PDF embuti-la. */
   async preparePdfFonts() {
     if (!this.fonts) return;
     for (const family of this.fonts.families()) {
@@ -16319,7 +16318,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (family) {
       if (this.loadedFamilyNames.has(family)) return family;
       this.applyResolvedFont(family);
-      const r6 = this.appliedFonts.has(family) ? this.fontResolver.get(family) : void 0;
+      const r6 = this.appliedFonts.has(family) ? this.fontResolver.getWithFile(family) : void 0;
       if (r6 && r6.source !== "default") return r6.cssFamily;
       const base = family.split(" ")[0];
       if (this.loadedFamilyNames.has(base)) return base;
@@ -17741,6 +17740,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const T2 = TWIPS_PER_PT;
     const doc = new PdfDocument({ compress: true });
     this.pdfImgCache = /* @__PURE__ */ new WeakMap();
+    await this.settleDocumentFonts();
     await this.preparePdfFonts();
     const cache = /* @__PURE__ */ new Map();
     const emb = (family, variant) => {
