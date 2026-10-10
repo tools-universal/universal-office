@@ -1,6 +1,8 @@
 import '../src/universal-write.js';
 import type { UniversalWriteElement, ViewMode } from '../src/universal-write.js';
-import { FontResolver, type HostFontProvider } from '@universal-office/fonts';
+import {
+  FontResolver, openFontEmbeddingDialog, describeFontEmbedding, type HostFontProvider,
+} from '@universal-office/fonts';
 import '@universal-office/compare';
 import type { UniversalWriteDiffElement } from '@universal-office/compare';
 import { createMentionPlugin } from '../src/mention-plugin.js';
@@ -266,8 +268,9 @@ async function actionOpen(): Promise<void> {
   (e.target as HTMLInputElement).value = '';
 });
 
-function bytesForFormat(fmt: DocFormat): Uint8Array {
-  return fmt === 'odt' ? wn.exportOdt() : wn.saveDocx();
+async function bytesForFormat(fmt: DocFormat): Promise<Uint8Array> {
+  // .docx aplica a opção "fontes no arquivo"
+  return fmt === 'odt' ? wn.exportOdt() : wn.saveDocxWithFonts();
 }
 function pickerTypes(): { description: string; accept: Record<string, string[]> }[] {
   return [
@@ -303,7 +306,7 @@ async function actionSave(saveAs: boolean): Promise<boolean> {
         setCurrentFormat(fmt);
       }
       const seq = changeSeq;
-      const bytes = bytesForFormat(fmt);
+      const bytes = await bytesForFormat(fmt);
       const w = await fileHandle.createWritable();
       await w.write(new Blob([bytes.buffer as ArrayBuffer]));
       await w.close();
@@ -316,18 +319,35 @@ async function actionSave(saveAs: boolean): Promise<boolean> {
       } catch { /* sem meta */ }
       setDirty(changeSeq !== seq); // editou durante a gravação: segue pendente
       lastAutosave = Date.now();
-      flashStatus(`Salvo ✓ (${fmt})`);
+      flashStatus(`Salvo ✓ (${fmt})${takeFontNote()}`);
       return true;
     } catch { return false; }
   }
   // Fallback (sem File System Access API): download direto no formato vigente
-  const bytes = bytesForFormat(fmt);
+  const bytes = await bytesForFormat(fmt);
   const mime = fmt === 'odt' ? 'application/vnd.oasis.opendocument.text'
     : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
   downloadBlob(bytes.buffer as ArrayBuffer, suggestedName, mime);
   setDirty(false); // baixou a cópia: é o "salvar" possível sem a API
+  const note = takeFontNote();
+  if (note) flashStatus(note.slice(3));
   return true;
 }
+
+// ───── fontes no arquivo (opção única dos apps — shared/fonts) ─────
+// o salvar .docx avisa o que foi incorporado e o que ficou de fora
+let fontNote = '';
+wn.addEventListener('uw-font-embedding', ((e: CustomEvent) => { fontNote = describeFontEmbedding(e.detail); }) as EventListener);
+function takeFontNote(): string {
+  const n = fontNote ? ` · ${fontNote}` : '';
+  fontNote = '';
+  return n;
+}
+$('actFontEmbedding').addEventListener('click', () => {
+  closeMenus();
+  void openFontEmbeddingDialog({ app: 'write', settings: wn.getFontEmbedding() })
+    .then((s) => { if (s) wn.setFontEmbedding(s); });
+});
 
 function flashStatus(msg: string): void {
   const st = $('status');

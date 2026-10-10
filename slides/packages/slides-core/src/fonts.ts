@@ -4,11 +4,12 @@
  * `<p:embeddedFont><p:font typeface/><p:regular|bold|italic|boldItalic r:id/>`
  * e os bytes vivem em `ppt/fonts/fontN.fntdata`.
  *
- * O PowerPoint grava o fntdata como sfnt CRU (TTF/OTF) na maioria dos casos;
- * alguns produtores usam a ofuscação odttf do ECMA-376 §17.8.1 (XOR dos 32
- * primeiros bytes com o GUID revertido) e o Google Slides grava EOT com
- * compressão MicroType Express (eot.ts). Detectamos pelo magic do sfnt e,
- * sem magic válido, tentamos o fontKey e depois o EOT.
+ * O PowerPoint grava o fntdata como EOT v2.2 com subconjunto + MicroType
+ * Express (flags 0x5 — medido num .pptx salvo por ele); o Google Slides, EOT
+ * com MTX (0x4); nós (shared/fonts) gravamos EOT sem compressão; há produtores
+ * com sfnt cru ou com a ofuscação odttf do ECMA-376 §17.8.1 (XOR dos 32
+ * primeiros bytes com o GUID revertido). Detectamos pelo magic do sfnt e, sem
+ * magic válido, tentamos o fontKey e depois o EOT (eot.ts).
  */
 import type { PptxPackage } from './package.js';
 import { parseXml, childElements, firstChild } from './xml.js';

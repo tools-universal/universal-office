@@ -33,7 +33,10 @@ import {
   type HfPartInfo,
   type Block,
 } from '@universal-office/docx-core';
-import { FontResolver, METRIC_SUBSTITUTES, type ResolvedFont } from '@universal-office/fonts';
+import {
+  FontResolver, METRIC_SUBSTITUTES, DEFAULT_EMBEDDING, planFontEmbedding, readDocxEmbedding, writeDocxEmbedding,
+  type ResolvedFont, type FontEmbeddingSettings, type FontUsage, type EmbeddingPlan,
+} from '@universal-office/fonts';
 import {
   SfntFont,
   CanvasMetricsFont,
@@ -252,6 +255,9 @@ export class UniversalWriteElement extends HTMLElement {
   /** Resolvedor de fontes ÚNICO dos apps (shared/fonts): host, Local Font
    *  Access, instaladas pelo nome, substitutas abertas, padrão. */
   private readonly fontResolver = FontResolver.shared();
+  /** Opção "incorporar fontes no arquivo" DESTE documento (lida do settings do
+   *  .docx ao abrir; padrões do Word num documento novo). */
+  private fontEmbedding: FontEmbeddingSettings = { ...DEFAULT_EMBEDDING.write };
   private unsubscribeFonts: (() => void) | null = null;
   /** Famílias (como o documento as nomeia) pedidas ao resolvedor… */
   private askedFonts = new Set<string>();
@@ -685,6 +691,7 @@ export class UniversalWriteElement extends HTMLElement {
   loadDocx(bytes: Uint8Array, opts: { protected?: boolean } = {}): void {
     this.protectedMode = opts.protected ?? true;
     this.pkg = DocxPackage.load(bytes);
+    this.fontEmbedding = { ...DEFAULT_EMBEDDING.write, ...readDocxEmbedding(this.pkg).settings };
     this.fullDoc = readFullDocument(this.pkg);
     this.loadedFormat = 'docx';
     this.installFullDoc();
@@ -728,6 +735,7 @@ export class UniversalWriteElement extends HTMLElement {
   loadOdt(bytes: Uint8Array, opts: { protected?: boolean } = {}): void {
     this.protectedMode = opts.protected ?? false; // .odt não tem MOTW: confiança padrão
     this.pkg = null;
+    this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readOdt(bytes);
     this.loadedFormat = 'odt';
     this.installFullDoc();
@@ -751,8 +759,69 @@ export class UniversalWriteElement extends HTMLElement {
       case 'markdown': return this.exportMarkdown(opts.title, { images: embed ? 'data' : 'omit' });
       case 'xps': return this.exportXps();
       case 'docx':
-      default: return this.saveDocx();
+      default: return this.saveDocxWithFonts();
     }
+  }
+
+  // ───────────────────────── fontes no arquivo ─────────────────────────
+
+  /** Opção "incorporar fontes no arquivo" deste documento. */
+  getFontEmbedding(): FontEmbeddingSettings {
+    return { ...this.fontEmbedding };
+  }
+
+  /** Muda a opção (vale no próximo salvar .docx; marca o documento como alterado). */
+  setFontEmbedding(settings: Partial<FontEmbeddingSettings>): void {
+    this.fontEmbedding = { ...this.fontEmbedding, ...settings };
+    this.dispatchEvent(new CustomEvent('uw-change'));
+  }
+
+  /**
+   * Salva o .docx aplicando a opção de fontes (resolvedor único + gravação em
+   * shared/fonts): ligada, acrescenta as famílias usadas que ainda não estão
+   * no arquivo; desligada, tira as incorporadas — como o Word. O que ficou de
+   * fora (fonte comum, licença, sem o arquivo) vai no evento
+   * `uw-font-embedding` (detail: EmbeddingPlan resumido).
+   */
+  async saveDocxWithFonts(): Promise<Uint8Array> {
+    const pkg = DocxPackage.load(this.saveDocx());
+    const settings = this.fontEmbedding;
+    let plan: EmbeddingPlan = { faces: [], skipped: [] };
+    if (settings.embed) {
+      plan = await planFontEmbedding(this.fontResolver, this.fontUsage(), settings, 'write', {
+        documentFace: (family, v) => this.fontBytes[family]?.[v],
+        alreadyEmbedded: readDocxEmbedding(pkg).embedded,
+      });
+    }
+    writeDocxEmbedding(pkg, plan, settings);
+    this.dispatchEvent(new CustomEvent('uw-font-embedding', {
+      detail: {
+        embedded: [...new Set(plan.faces.map((f) => f.family))],
+        skipped: plan.skipped.filter((s) => s.reason !== 'already-embedded'),
+      },
+    }));
+    return pkg.save();
+  }
+
+  /** Famílias/variantes/texto que o documento usa — a MESMA resolução do layout
+   *  (buildSpans): corpo, tabelas, cabeçalhos/rodapés e caixas de texto. */
+  private fontUsage(): FontUsage[] {
+    const out: FontUsage[] = [];
+    const paras = (ps: readonly Paragraph[] | undefined): void => {
+      for (const p of ps ?? []) {
+        for (const s of this.buildSpans(p)) if (s.family && s.text) out.push({ family: s.family, variants: [s.variant], text: s.text });
+        for (const r of p.runs) if (r.textbox) paras(r.textbox.paras);
+      }
+    };
+    const table = (t: TableBlock): void => {
+      for (const row of t.rows) for (const c of row.cells) { paras(c.paragraphs); c.tables.forEach(table); }
+    };
+    paras(this.model?.paragraphs);
+    for (const a of this.tableAnchors) table(a.table);
+    for (const sec of this.fullDoc?.sections ?? []) {
+      for (const set of [sec.headers, sec.footers]) { paras(set.default); paras(set.first); paras(set.even); }
+    }
+    return out;
   }
 
   /** Comum entre loadDocx e loadOdt — popula model/sections/floatImages a
@@ -840,6 +909,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.protectedMode = false; // documento novo nasce editável
     this.loadedFormat = 'docx';
     this.pkg = null;
+    this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = null;
     this.tableAnchors = [];
     this.sectionStarts = [];

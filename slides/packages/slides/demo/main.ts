@@ -1,7 +1,7 @@
 import '../src/universal-slides';
 import type { UniversalSlidesElement } from '../src/universal-slides';
 import type { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
-import { FontResolver, type HostFontProvider } from '@universal-office/fonts';
+import { FontResolver, openFontEmbeddingDialog, describeFontEmbedding, type HostFontProvider } from '@universal-office/fonts';
 import { isCfb, convertPptToPptx } from '@universal/slides-core';
 
 // Electron: fontes do SO por família vêm do processo principal (Windows\Fonts +
@@ -97,16 +97,37 @@ async function actionOpen(): Promise<void> {
   (e.target as HTMLInputElement).value = '';
 });
 
-function actionSave(saveAs = false): void {
+async function actionSave(saveAs = false): Promise<void> {
   closeMenus();
   if (!savedBytes) { setStatus('⚠ Nada para salvar'); return; }
-  // Round-trip lossless: por enquanto re-salva o pacote original byte a byte
-  // (edicao destrutiva ainda nao implementada). Assim que houver edicao no
-  // modelo, este caminho passa pelo `pkg.save()` do componente.
+  // Round-trip lossless: re-salva o pacote original byte a byte (edicao
+  // destrutiva ainda nao implementada) — exceto quando a opcao "fontes no
+  // arquivo" esta ligada ou foi mexida: ai o componente aplica a opcao sobre
+  // uma copia do pacote (us.savePptx).
   const suggested = saveAs ? `${docTitle.value}.pptx` : savedName;
-  downloadBlob(savedBytes, suggested, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
-  setStatus(`"${suggested}" baixado ✓`);
+  let bytes: Uint8Array = savedBytes;
+  let note = '';
+  if (fontOptionTouched || us.getFontEmbedding().embed) {
+    const onReport = ((e: CustomEvent) => { note = describeFontEmbedding(e.detail); }) as EventListener;
+    us.addEventListener('us-font-embedding', onReport, { once: true });
+    try { bytes = await us.savePptx(); }
+    catch (e) { setStatus(`⚠ Não salvou: ${e instanceof Error ? e.message : String(e)}`); return; }
+    finally { us.removeEventListener('us-font-embedding', onReport); }
+  }
+  downloadBlob(bytes as BlobPart, suggested, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+  setStatus(`"${suggested}" baixado ✓${note ? ` · ${note}` : ''}`, note ? 6000 : 1800);
 }
+
+// ───── fontes no arquivo (opção única dos apps — shared/fonts) ─────
+let fontOptionTouched = false;
+$('actFontEmbedding').addEventListener('click', () => {
+  closeMenus();
+  void openFontEmbeddingDialog({ app: 'slides', settings: us.getFontEmbedding() }).then((s) => {
+    if (!s) return;
+    us.setFontEmbedding(s);
+    fontOptionTouched = true;
+  });
+});
 function downloadBlob(data: BlobPart, filename: string, type: string): void {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([data], { type }));
@@ -117,8 +138,8 @@ function downloadBlob(data: BlobPart, filename: string, type: string): void {
 
 $('actNew').addEventListener('click', () => { closeMenus(); setStatus('Novo: em breve'); });
 $('actOpen').addEventListener('click', () => void actionOpen());
-$('actSave').addEventListener('click', () => actionSave(false));
-$('actSaveAs').addEventListener('click', () => actionSave(true));
+$('actSave').addEventListener('click', () => void actionSave(false));
+$('actSaveAs').addEventListener('click', () => void actionSave(true));
 $('actPrint').addEventListener('click', () => { closeMenus(); window.print(); });
 $('primaryOpen').addEventListener('click', () => void actionOpen());
 
@@ -161,7 +182,7 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey) {
     const k = e.key.toLowerCase();
     if (k === 'o') { e.preventDefault(); void actionOpen(); }
-    else if (k === 's') { e.preventDefault(); actionSave(e.shiftKey); }
+    else if (k === 's') { e.preventDefault(); void actionSave(e.shiftKey); }
     else if (k === 'p') { e.preventDefault(); window.print(); }
     return;
   }

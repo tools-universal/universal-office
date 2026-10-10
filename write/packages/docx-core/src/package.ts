@@ -82,6 +82,10 @@ export class DocxPackage {
     this.parts.set(path, new TextEncoder().encode(text));
   }
 
+  removePart(path: string): void {
+    this.parts.delete(path);
+  }
+
   /** Conteúdo principal (word/document.xml). */
   documentXml(): string {
     const xml = this.getPartText('word/document.xml');

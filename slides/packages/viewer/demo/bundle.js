@@ -6038,6 +6038,12 @@ var PptxPackage = class _PptxPackage {
   setPartText(path, text) {
     this.parts.set(path, new TextEncoder().encode(text));
   }
+  setPart(path, data) {
+    this.parts.set(path, data);
+  }
+  removePart(path) {
+    this.parts.delete(path);
+  }
   presentationXml() {
     const xml = this.getPartText("ppt/presentation.xml");
     if (xml === void 0) throw new Error("Pacote sem ppt/presentation.xml");

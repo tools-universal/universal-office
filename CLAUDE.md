@@ -44,6 +44,9 @@ métrico-compatível → Liberation Sans), o módulo de fontes do SO dos shells
 Electron (`node/system-fonts.cjs`) e as substitutas ABERTAS (`files/`:
 Carlito, Caladea, Liberation Serif/Mono — `npm run fonts:sync` copia para os
 demos/site). Fontes embutidas no documento continuam com cada componente.
+A opção "fontes no arquivo" também é única (`embedding.ts` decide o que
+entra, `ooxml.ts` grava .docx/.pptx, `dialog.ts` é o diálogo dos dois apps);
+o Sheet não tem — o .xlsx não guarda fontes (o Excel não oferece).
 Fatos medidos que guiam o desenho: `document.fonts.check` devolve `true` para
 qualquer família (não serve para saber se a fonte existe); nenhum navegador
 enxerga o cache de fontes do Office (Aptos); só o Chromium enumera/dá bytes

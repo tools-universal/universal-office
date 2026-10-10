@@ -386,6 +386,97 @@ function isEmbeddable(bytes) {
     return true;
   }
 }
+function hasTrueTypeOutlines(bytes) {
+  try {
+    const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return !!tableOf(v, 0, "glyf") && !!tableOf(v, 0, "loca");
+  } catch {
+    return false;
+  }
+}
+function glyphIdsFor(bytes, codePoints) {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const out = /* @__PURE__ */ new Set();
+  const cmap = tableOf(v, 0, "cmap");
+  if (!cmap) return out;
+  const n = v.getUint16(cmap.off + 2);
+  let best = -1, score = -1;
+  for (let i2 = 0; i2 < n; i2++) {
+    const p = cmap.off + 4 + i2 * 8;
+    const pl = v.getUint16(p), enc = v.getUint16(p + 2);
+    const s = pl === 3 && enc === 10 ? 3 : pl === 3 && enc === 1 ? 2 : pl === 0 ? 1 : 0;
+    if (s > score) {
+      score = s;
+      best = cmap.off + v.getUint32(p + 4);
+    }
+  }
+  if (best < 0) return out;
+  const format = v.getUint16(best);
+  const lookup = (cp) => {
+    if (format === 4) {
+      if (cp > 65535) return 0;
+      const segX2 = v.getUint16(best + 6);
+      const ends = best + 14, starts = ends + segX2 + 2, deltas = starts + segX2, ranges = deltas + segX2;
+      for (let s = 0; s < segX2; s += 2) {
+        if (cp > v.getUint16(ends + s)) continue;
+        const start = v.getUint16(starts + s);
+        if (cp < start) return 0;
+        const delta = v.getInt16(deltas + s), ro = v.getUint16(ranges + s);
+        if (!ro) return cp + delta & 65535;
+        const g = v.getUint16(ranges + s + ro + (cp - start) * 2);
+        return g ? g + delta & 65535 : 0;
+      }
+      return 0;
+    }
+    if (format === 12) {
+      const groups = v.getUint32(best + 12);
+      for (let i2 = 0; i2 < groups; i2++) {
+        const p = best + 16 + i2 * 12;
+        const a = v.getUint32(p), b = v.getUint32(p + 4);
+        if (cp >= a && cp <= b) return v.getUint32(p + 8) + (cp - a);
+      }
+    }
+    return 0;
+  };
+  for (const cp of codePoints) {
+    const g = lookup(cp);
+    if (g) out.add(g);
+  }
+  return out;
+}
+function faceInfo(bytes) {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const os2 = tableOf(v, 0, "OS/2"), head = tableOf(v, 0, "head");
+  const u32 = (t, o) => t && t.len >= o + 4 ? v.getUint32(t.off + o) : 0;
+  const panose = os2 && os2.len >= 42 ? [...bytes.subarray(os2.off + 32, os2.off + 42)].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase() : "00000000000000000000";
+  return {
+    panose,
+    weight: os2 ? v.getUint16(os2.off + 4) || 400 : 400,
+    italic: os2 ? (v.getUint16(os2.off + 62) & 1) === 1 : false,
+    fsType: os2 ? v.getUint16(os2.off + 8) : 0,
+    unicodeRange: [u32(os2, 42), u32(os2, 46), u32(os2, 50), u32(os2, 54)],
+    codePageRange: os2 && v.getUint16(os2.off) >= 1 ? [u32(os2, 78), u32(os2, 82)] : [0, 0],
+    checkSumAdjustment: u32(head, 8),
+    names: { family: nameString(v, 1), style: nameString(v, 2), version: nameString(v, 5), full: nameString(v, 4) }
+  };
+}
+function nameString(v, id) {
+  const name = tableOf(v, 0, "name");
+  if (!name) return "";
+  const count = v.getUint16(name.off + 2);
+  const strOff = name.off + v.getUint16(name.off + 4);
+  let any = "";
+  for (let i2 = 0; i2 < count; i2++) {
+    const r = name.off + 6 + i2 * 12;
+    if (v.getUint16(r) !== 3 || v.getUint16(r + 6) !== id) continue;
+    const len = v.getUint16(r + 8), o = strOff + v.getUint16(r + 10);
+    let s = "";
+    for (let k = 0; k + 1 < len; k += 2) s += String.fromCharCode(v.getUint16(o + k));
+    if (v.getUint16(r + 4) === 1033) return s;
+    any ||= s;
+  }
+  return any;
+}
 function postscriptName(v, base) {
   const name = tableOf(v, base, "name");
   if (!name) return null;
@@ -732,6 +823,481 @@ var FontResolver = class _FontResolver {
     return p;
   }
 };
+
+// ../../../shared/fonts/src/subset.ts
+var KEEP = /* @__PURE__ */ new Set(["head", "hhea", "maxp", "hmtx", "cmap", "loca", "glyf", "OS/2", "post", "cvt ", "fpgm", "prep", "gasp", "name"]);
+var KEEP_FOR_DOCUMENT = /* @__PURE__ */ new Set([...KEEP, "GPOS", "GSUB", "GDEF", "kern", "vhea", "vmtx"]);
+function subsetTrueType(bytes, usedGids, opts = {}) {
+  try {
+    return doSubset(bytes, usedGids, opts.keepLayout ? KEEP_FOR_DOCUMENT : KEEP);
+  } catch {
+    return bytes;
+  }
+}
+function doSubset(bytes, usedGids, KEEP2) {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const sfntVersion = v.getUint32(0);
+  const numTables = v.getUint16(4);
+  const dir = /* @__PURE__ */ new Map();
+  for (let i2 = 0; i2 < numTables; i2++) {
+    const p = 12 + i2 * 16;
+    const tag2 = String.fromCharCode(bytes[p], bytes[p + 1], bytes[p + 2], bytes[p + 3]);
+    dir.set(tag2, { tag: tag2, offset: v.getUint32(p + 8), length: v.getUint32(p + 12) });
+  }
+  const head = dir.get("head"), maxp = dir.get("maxp"), loca = dir.get("loca"), glyf = dir.get("glyf");
+  if (!head || !maxp || !loca || !glyf) return bytes;
+  const numGlyphs = v.getUint16(maxp.offset + 4);
+  const longLoca = v.getUint16(head.offset + 50) === 1;
+  const readLoca = (i2) => longLoca ? v.getUint32(loca.offset + i2 * 4) : v.getUint16(loca.offset + i2 * 2) * 2;
+  const glyphOff = [];
+  for (let i2 = 0; i2 <= numGlyphs; i2++) glyphOff.push(readLoca(i2));
+  const keep = /* @__PURE__ */ new Set([0]);
+  for (const g of usedGids) if (g >= 0 && g < numGlyphs) keep.add(g);
+  const work = [...keep];
+  while (work.length) {
+    const g = work.pop();
+    const s = glyf.offset + glyphOff[g], e = glyf.offset + glyphOff[g + 1];
+    if (e <= s) continue;
+    if (v.getInt16(s) >= 0) continue;
+    let p = s + 10;
+    for (; ; ) {
+      const flags = v.getUint16(p);
+      const comp = v.getUint16(p + 2);
+      p += 4;
+      if (!keep.has(comp)) {
+        keep.add(comp);
+        work.push(comp);
+      }
+      p += flags & 1 ? 4 : 2;
+      if (flags & 8) p += 2;
+      else if (flags & 64) p += 4;
+      else if (flags & 128) p += 8;
+      if (!(flags & 32)) break;
+    }
+  }
+  const glyfParts = [];
+  const newLoca = new Uint8Array((numGlyphs + 1) * 4);
+  const locaView = new DataView(newLoca.buffer);
+  let acc = 0;
+  for (let g = 0; g < numGlyphs; g++) {
+    locaView.setUint32(g * 4, acc);
+    if (keep.has(g)) {
+      const s = glyf.offset + glyphOff[g], e = glyf.offset + glyphOff[g + 1];
+      let len = e - s;
+      if (len > 0) {
+        const padded = len + 1 & ~1;
+        const part = new Uint8Array(padded);
+        part.set(bytes.subarray(s, e));
+        glyfParts.push(part);
+        acc += padded;
+      }
+    }
+  }
+  locaView.setUint32(numGlyphs * 4, acc);
+  const newGlyf = concat(glyfParts);
+  const newHead = new Uint8Array(head.length);
+  newHead.set(bytes.subarray(head.offset, head.offset + head.length));
+  const headView = new DataView(newHead.buffer, newHead.byteOffset, newHead.byteLength);
+  headView.setUint16(50, 1);
+  headView.setUint32(8, 0);
+  const out = [];
+  for (const [tag2, t] of dir) {
+    if (!KEEP2.has(tag2)) continue;
+    if (tag2 === "glyf") out.push({ tag: tag2, data: newGlyf });
+    else if (tag2 === "loca") out.push({ tag: tag2, data: newLoca });
+    else if (tag2 === "head") out.push({ tag: tag2, data: newHead });
+    else out.push({ tag: tag2, data: bytes.slice(t.offset, t.offset + t.length) });
+  }
+  return buildSfnt(sfntVersion, out);
+}
+function concat(parts) {
+  let n = 0;
+  for (const p of parts) n += p.length;
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
+}
+function checksum(buf, off, len) {
+  const dv = new DataView(buf.buffer, buf.byteOffset);
+  let sum = 0;
+  const end = off + (len + 3 & ~3);
+  for (let i2 = off; i2 < end; i2 += 4) sum = sum + dv.getUint32(i2) >>> 0;
+  return sum >>> 0;
+}
+function buildSfnt(sfntVersion, tables) {
+  tables.sort((a, b) => a.tag < b.tag ? -1 : 1);
+  const num2 = tables.length;
+  const headerSize = 12 + num2 * 16;
+  let offset = headerSize;
+  const layout = tables.map((t) => {
+    const o = offset;
+    offset += t.data.length + 3 & ~3;
+    return { ...t, offset: o };
+  });
+  const out = new Uint8Array(offset);
+  const dv = new DataView(out.buffer);
+  dv.setUint32(0, sfntVersion);
+  dv.setUint16(4, num2);
+  const maxPow = Math.floor(Math.log2(num2));
+  const searchRange = 2 ** maxPow * 16;
+  dv.setUint16(6, searchRange);
+  dv.setUint16(8, maxPow);
+  dv.setUint16(10, num2 * 16 - searchRange);
+  let p = 12;
+  for (const t of layout) {
+    out.set(t.data, t.offset);
+    for (let i2 = 0; i2 < 4; i2++) out[p + i2] = t.tag.charCodeAt(i2) || 32;
+    dv.setUint32(p + 4, checksum(out, t.offset, t.data.length));
+    dv.setUint32(p + 8, t.offset);
+    dv.setUint32(p + 12, t.data.length);
+    p += 16;
+  }
+  const headEntry = layout.find((t) => t.tag === "head");
+  if (headEntry) {
+    const fileCs = checksum(out, 0, out.length);
+    dv.setUint32(headEntry.offset + 8, 2981146554 - fileCs >>> 0);
+  }
+  return out;
+}
+
+// ../../../shared/fonts/src/eot.ts
+var TTEMBED_SUBSET = 1;
+function utf16le(s) {
+  const out = new Uint8Array(s.length * 2);
+  for (let i2 = 0; i2 < s.length; i2++) {
+    out[i2 * 2] = s.charCodeAt(i2) & 255;
+    out[i2 * 2 + 1] = s.charCodeAt(i2) >> 8;
+  }
+  return out;
+}
+function sfntToEot(font, opts = {}) {
+  const info = faceInfo(font);
+  const fixed2 = new Uint8Array(82);
+  const f = new DataView(fixed2.buffer);
+  f.setUint32(8, 131074, true);
+  f.setUint32(12, opts.subsetted ? TTEMBED_SUBSET : 0, true);
+  for (let i2 = 0; i2 < 10; i2++) fixed2[16 + i2] = parseInt(info.panose.slice(i2 * 2, i2 * 2 + 2), 16);
+  fixed2[26] = 1;
+  fixed2[27] = info.italic ? 1 : 0;
+  f.setUint32(28, info.weight, true);
+  f.setUint16(32, info.fsType, true);
+  f.setUint16(34, 20556, true);
+  info.unicodeRange.forEach((r, i2) => f.setUint32(36 + i2 * 4, r, true));
+  info.codePageRange.forEach((r, i2) => f.setUint32(52 + i2 * 4, r, true));
+  f.setUint32(60, info.checkSumAdjustment, true);
+  const u162 = (n) => {
+    const a = new Uint8Array(2);
+    new DataView(a.buffer).setUint16(0, n, true);
+    return a;
+  };
+  const u32 = (n) => {
+    const a = new Uint8Array(4);
+    new DataView(a.buffer).setUint32(0, n, true);
+    return a;
+  };
+  const parts = [fixed2];
+  const { family, style, version, full } = info.names;
+  [family, style, version, full].forEach((s, i2) => {
+    const b = utf16le(s);
+    if (i2) parts.push(u162(0));
+    parts.push(u162(b.length), b);
+  });
+  parts.push(u162(0), u162(0));
+  parts.push(u32(0), u32(0), u162(0), u162(0), u32(0), u32(0));
+  parts.push(font);
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  const v = new DataView(out.buffer);
+  v.setUint32(0, total, true);
+  v.setUint32(4, font.length, true);
+  return out;
+}
+
+// ../../../shared/fonts/src/embedding.ts
+var DEFAULT_EMBEDDING = {
+  write: { embed: false, subset: false, skipCommonFonts: true },
+  slides: { embed: false, subset: true, skipCommonFonts: true }
+};
+var COMMON_FONTS = {
+  write: ["Arial", "Times New Roman", "Courier New"],
+  slides: ["Arial", "Times New Roman", "Courier New", "Calibri", "Aptos"]
+};
+async function planFontEmbedding(resolver, usage, settings, app, opts = {}) {
+  const plan = { faces: [], skipped: [] };
+  if (!settings.embed) return plan;
+  const byFamily = /* @__PURE__ */ new Map();
+  for (const u of usage) {
+    if (!u.family) continue;
+    const key = u.family.toLowerCase();
+    const e = byFamily.get(key) ?? { family: u.family, variants: /* @__PURE__ */ new Set(), chars: /* @__PURE__ */ new Set() };
+    for (const v of u.variants) e.variants.add(v);
+    for (const ch of u.text) e.chars.add(ch.codePointAt(0));
+    byFamily.set(key, e);
+  }
+  const common = new Set(COMMON_FONTS[app].map((f) => f.toLowerCase()));
+  const skipCommon = app === "slides" || settings.skipCommonFonts;
+  const resolved = new Map((await resolver.resolve([...byFamily.values()].map((e) => e.family))).map((r) => [r.family.toLowerCase(), r]));
+  for (const [key, use] of byFamily) {
+    if (opts.alreadyEmbedded?.has(key)) {
+      plan.skipped.push({ family: use.family, reason: "already-embedded" });
+      continue;
+    }
+    if (skipCommon && common.has(key)) {
+      plan.skipped.push({ family: use.family, reason: "common" });
+      continue;
+    }
+    const r = resolved.get(key);
+    const ownFile = r && (r.source === "host" || r.source === "local-access" || r.source === "bundled");
+    const wanted = app === "slides" ? VARIANTS : VARIANTS.filter((v) => use.variants.has(v));
+    let found = 0, blocked = 0;
+    for (const v of wanted) {
+      const bytes = opts.documentFace?.(use.family, v) ?? (ownFile ? r.faces[v] : void 0);
+      if (!bytes) continue;
+      found++;
+      if (!isEmbeddable(bytes)) {
+        blocked++;
+        continue;
+      }
+      const subset = settings.subset && hasTrueTypeOutlines(bytes);
+      const data = subset ? subsetTrueType(bytes, glyphIdsFor(bytes, use.chars), { keepLayout: true }) : bytes;
+      plan.faces.push({ family: use.family, variant: v, bytes: data, subsetted: subset, info: faceInfo(bytes) });
+    }
+    if (!found) plan.skipped.push({ family: use.family, reason: "unavailable" });
+    else if (found === blocked) plan.skipped.push({ family: use.family, reason: "license" });
+  }
+  return plan;
+}
+
+// ../../../shared/fonts/src/ooxml.ts
+var REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+var REL_FONT = `${REL}/font`;
+var CT_FNTDATA = "application/x-fontdata";
+var VARIANT_ORDER = ["regular", "bold", "italic", "boldItalic"];
+var P_EMBED = {
+  regular: "p:regular",
+  bold: "p:bold",
+  italic: "p:italic",
+  boldItalic: "p:boldItalic"
+};
+var escAttr = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var unescAttr = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+var escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function relsPathOf(part) {
+  const i2 = part.lastIndexOf("/");
+  return `${part.slice(0, i2 + 1)}_rels/${part.slice(i2 + 1)}.rels`;
+}
+function resolveTarget(fromPart, target) {
+  if (target.startsWith("/")) return target.slice(1);
+  const parts = fromPart.split("/").slice(0, -1);
+  for (const seg of target.split("/")) {
+    if (seg === "..") parts.pop();
+    else if (seg !== ".") parts.push(seg);
+  }
+  return parts.join("/");
+}
+function readRels(pkg, part) {
+  const xml = pkg.getPartText(relsPathOf(part));
+  if (!xml) return [];
+  const out = [];
+  for (const m of xml.matchAll(/<Relationship\b[^>]*\/?>/g)) {
+    const a = (n) => new RegExp(`\\b${n}="([^"]*)"`).exec(m[0])?.[1] ?? "";
+    out.push({ id: a("Id"), type: a("Type"), target: unescAttr(a("Target")), external: a("TargetMode") === "External", xml: m[0] });
+  }
+  return out;
+}
+function addRel(pkg, part, type, target) {
+  const path = relsPathOf(part);
+  let xml = pkg.getPartText(path) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  const used = new Set(readRels(pkg, part).map((r) => r.id));
+  let n = used.size + 1;
+  while (used.has(`rId${n}`)) n++;
+  const id = `rId${n}`;
+  xml = xml.replace(/<Relationships\b([^>]*?)\s*\/>/, "<Relationships$1></Relationships>");
+  xml = xml.replace(/<\/Relationships>\s*$/, `<Relationship Id="${id}" Type="${type}" Target="${escAttr(target)}"/></Relationships>`);
+  pkg.setPartText(path, xml);
+  return id;
+}
+function removeRelsOfType(pkg, part, type) {
+  const path = relsPathOf(part);
+  const xml = pkg.getPartText(path);
+  const ids = /* @__PURE__ */ new Set();
+  if (!xml) return ids;
+  let out = xml;
+  for (const r of readRels(pkg, part)) {
+    if (r.type !== type) continue;
+    ids.add(r.id);
+    out = out.replace(r.xml, "");
+    if (!r.external) pkg.removePart(resolveTarget(part, r.target));
+  }
+  if (ids.size) pkg.setPartText(path, out);
+  return ids;
+}
+function ensureDefaultContentType(pkg, ext, ct) {
+  const xml = pkg.getPartText("[Content_Types].xml");
+  if (!xml || new RegExp(`<Default\\b[^>]*Extension="${escRe(ext)}"`, "i").test(xml)) return;
+  pkg.setPartText("[Content_Types].xml", xml.replace(/(<Types\b[^>]*>)/, `$1<Default Extension="${ext}" ContentType="${ct}"/>`));
+}
+function uniquePartName(pkg, dir, ext) {
+  const names = new Set(pkg.partNames().map((n2) => n2.toLowerCase()));
+  let n = 1;
+  while (names.has(`${dir}font${n}.${ext}`.toLowerCase())) n++;
+  return `${dir}font${n}.${ext}`;
+}
+function elementEnd(xml, start, qname) {
+  const gt = xml.indexOf(">", start);
+  if (gt < 0) return -1;
+  if (xml[gt - 1] === "/") return gt + 1;
+  const close = xml.indexOf(`</${qname}>`, gt);
+  return close < 0 ? -1 : close + qname.length + 3;
+}
+function findElement(xml, qname) {
+  const m = new RegExp(`<${escRe(qname)}(?=[\\s/>])`).exec(xml);
+  if (!m) return null;
+  const end = elementEnd(xml, m.index, qname);
+  return end < 0 ? null : { start: m.index, end };
+}
+function groupByFamily(faces) {
+  const m = /* @__PURE__ */ new Map();
+  for (const f of faces) m.set(f.family, [...m.get(f.family) ?? [], f]);
+  for (const list of m.values()) list.sort((a, b) => VARIANT_ORDER.indexOf(a.variant) - VARIANT_ORDER.indexOf(b.variant));
+  return m;
+}
+var PPTX_MAIN = "ppt/presentation.xml";
+var PRES_AFTER = ["p:custShowLst", "p:photoAlbum", "p:custDataLst", "p:kinsoku", "p:defaultTextStyle", "p:modifyVerifier", "p:extLst"];
+function readPptxEmbedding(pkg) {
+  const xml = pkg.getPartText(PPTX_MAIN) ?? "";
+  const root = /<p:presentation\b[^>]*>/.exec(xml)?.[0] ?? "";
+  const flag = (n) => /^(1|true|on)$/i.test(new RegExp(`\\b${n}="([^"]*)"`).exec(root)?.[1] ?? "");
+  const embedded = /* @__PURE__ */ new Set();
+  for (const m of xml.matchAll(/<p:embeddedFont>\s*<p:font\b[^>]*typeface="([^"]*)"/g)) embedded.add(unescAttr(m[1]).toLowerCase());
+  if (!flag("embedTrueTypeFonts")) return { settings: { embed: false }, embedded };
+  return { settings: { embed: true, subset: flag("saveSubsetFonts") }, embedded };
+}
+function writePptxEmbedding(pkg, plan, settings) {
+  let xml = pkg.getPartText(PPTX_MAIN);
+  if (!xml) return;
+  xml = xml.replace(/<p:presentation\b[^>]*>/, (tag2) => {
+    let t = tag2.replace(/\s(?:embedTrueTypeFonts|saveSubsetFonts)="[^"]*"/g, "");
+    if (settings.embed) {
+      const attrs2 = ' embedTrueTypeFonts="1"' + (settings.subset ? ' saveSubsetFonts="1"' : "");
+      t = t.replace(/\s*(\/?>)$/, `${attrs2}$1`);
+    }
+    return t;
+  });
+  if (!settings.embed) {
+    removeRelsOfType(pkg, PPTX_MAIN, REL_FONT);
+    const el2 = findElement(xml, "p:embeddedFontLst");
+    if (el2) xml = xml.slice(0, el2.start) + xml.slice(el2.end);
+    pkg.setPartText(PPTX_MAIN, xml);
+    return;
+  }
+  if (plan.faces.length) {
+    ensureDefaultContentType(pkg, "fntdata", CT_FNTDATA);
+    let entries = "";
+    for (const [family, faces] of groupByFamily(plan.faces)) {
+      let refs = "";
+      for (const f of faces) {
+        const part = uniquePartName(pkg, "ppt/fonts/", "fntdata");
+        pkg.setPart(part, sfntToEot(f.bytes, { subsetted: f.subsetted }));
+        const id = addRel(pkg, PPTX_MAIN, REL_FONT, part.slice("ppt/".length));
+        refs += `<${P_EMBED[f.variant]} r:id="${id}"/>`;
+      }
+      entries += `<p:embeddedFont><p:font typeface="${escAttr(family)}" panose="${faces[0].info.panose}" charset="0"/>${refs}</p:embeddedFont>`;
+    }
+    const list = findElement(xml, "p:embeddedFontLst");
+    if (list) {
+      const el2 = xml.slice(list.start, list.end);
+      const merged = el2.endsWith("/>") ? `<p:embeddedFontLst>${entries}</p:embeddedFontLst>` : el2.replace(/<\/p:embeddedFontLst>$/, `${entries}</p:embeddedFontLst>`);
+      xml = xml.slice(0, list.start) + merged + xml.slice(list.end);
+    } else {
+      const block = `<p:embeddedFontLst>${entries}</p:embeddedFontLst>`;
+      let at = -1;
+      for (const n of PRES_AFTER) {
+        const el2 = findElement(xml, n);
+        if (el2 && (at < 0 || el2.start < at)) at = el2.start;
+      }
+      if (at < 0) at = xml.lastIndexOf("</p:presentation>");
+      xml = xml.slice(0, at) + block + xml.slice(at);
+    }
+  }
+  pkg.setPartText(PPTX_MAIN, xml);
+}
+
+// ../../../shared/fonts/src/dialog.ts
+var join = (xs) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} e ${xs[xs.length - 1]}`;
+function openFontEmbeddingDialog(opts) {
+  const { app, settings } = opts;
+  const dlg = document.createElement("dialog");
+  dlg.className = "uo-font-embedding";
+  dlg.style.cssText = "max-width:460px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:12px;padding:20px 22px;font:inherit;color:inherit;background:Canvas;";
+  const common = join(COMMON_FONTS[app]);
+  dlg.innerHTML = `
+    <form method="dialog" style="display:flex;flex-direction:column;gap:12px;margin:0">
+      <strong style="font-size:1.1em">Fontes no arquivo</strong>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>Incorporar fontes no arquivo</span></label>
+      <div data-sub style="display:flex;flex-direction:column;gap:10px;margin-left:26px">
+        <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="subset">
+          <span>Incorporar s\xF3 os caracteres usados <small style="opacity:.7">(arquivo menor; editar com outros caracteres em outra m\xE1quina usa outra fonte)</small></span></label>
+        ${app === "write" ? `<label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="skipCommon">
+               <span>N\xE3o incorporar fontes comuns do sistema <small style="opacity:.7">(${common})</small></span></label>` : `<small style="opacity:.7">${common} nunca s\xE3o incorporadas, como no PowerPoint.</small>`}
+      </div>
+      <small style="opacity:.7">S\xF3 entram fontes cujo arquivo est\xE1 dispon\xEDvel e cuja licen\xE7a permite incorporar; as que ficarem de fora s\xE3o avisadas ao salvar.</small>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+        <button value="cancel" type="submit">Cancelar</button>
+        <button value="ok" type="submit">OK</button>
+      </div>
+    </form>`;
+  const box = (n) => dlg.querySelector(`input[name="${n}"]`);
+  const embed = box("embed"), subset = box("subset"), skipCommon = box("skipCommon");
+  embed.checked = settings.embed;
+  subset.checked = settings.subset;
+  if (skipCommon) skipCommon.checked = settings.skipCommonFonts;
+  const sync = () => {
+    for (const el2 of dlg.querySelectorAll("[data-sub] input")) el2.disabled = !embed.checked;
+    dlg.querySelector("[data-sub]").style.opacity = embed.checked ? "1" : ".5";
+  };
+  embed.addEventListener("change", sync);
+  sync();
+  (opts.parent ?? document.body).append(dlg);
+  return new Promise((resolve) => {
+    dlg.addEventListener("close", () => {
+      const ok = dlg.returnValue === "ok";
+      dlg.remove();
+      resolve(ok ? {
+        embed: embed.checked,
+        subset: subset.checked,
+        skipCommonFonts: skipCommon ? skipCommon.checked : settings.skipCommonFonts
+      } : null);
+    }, { once: true });
+    dlg.showModal();
+  });
+}
+var REASONS = {
+  common: "fonte comum do sistema",
+  license: "a licen\xE7a n\xE3o permite",
+  unavailable: "arquivo da fonte indispon\xEDvel"
+};
+function describeFontEmbedding(detail) {
+  const parts = [];
+  if (detail.embedded.length) parts.push(`Fontes incorporadas: ${join(detail.embedded)}`);
+  const by = /* @__PURE__ */ new Map();
+  for (const s of detail.skipped) {
+    if (s.reason === "already-embedded") continue;
+    const r = REASONS[s.reason];
+    by.set(r, [...by.get(r) ?? [], s.family]);
+  }
+  if (by.size) parts.push(`n\xE3o incorporadas: ${[...by].map(([r, fs]) => `${join(fs)} (${r})`).join("; ")}`);
+  return parts.join(" \xB7 ");
+}
 
 // ../../node_modules/fflate/esm/browser.js
 var u8 = Uint8Array;
@@ -3204,14 +3770,14 @@ function stripInvalid(s) {
 function escText(s) {
   return stripInvalid(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-function escAttr(s) {
+function escAttr2(s) {
   return escText(s).replace(/"/g, "&quot;");
 }
 function attrs(obj) {
   let out = "";
   for (const [k, v] of Object.entries(obj)) {
     if (v === void 0 || v === null || v === false) continue;
-    out += ` ${k}="${escAttr(v === true ? "1" : String(v))}"`;
+    out += ` ${k}="${escAttr2(v === true ? "1" : String(v))}"`;
   }
   return out;
 }
@@ -3916,7 +4482,7 @@ var XML_NAME = /^[A-Za-z_][\w.:-]*$/;
 function serializeXml(el2) {
   if (!XML_NAME.test(el2.name)) return "";
   let out = `<${el2.name}`;
-  for (const [k, v] of Object.entries(el2.attrs)) if (XML_NAME.test(k)) out += ` ${k}="${escAttr(v)}"`;
+  for (const [k, v] of Object.entries(el2.attrs)) if (XML_NAME.test(k)) out += ` ${k}="${escAttr2(v)}"`;
   if (!el2.children.length) return out + "/>";
   out += ">";
   for (const c of el2.children) out += typeof c === "string" ? escText(c) : serializeXml(c);
@@ -4218,7 +4784,7 @@ function cBhvrXml(n, bc, w, props) {
   const rctx = props.get(2);
   if (typeof rctx === "string" && rctx) a["rctx"] = rctx;
   if (props.get(6) === 1) a["override"] = "childStyle";
-  const body = el("p:cTn", cTnAttrs(n, id), condListXml(n.conds.get(1) ?? [], "p:stCondLst", w) + condListXml(n.conds.get(2) ?? [], "p:endCondLst", w)) + tgt + (names.length ? el("p:attrNameLst", {}, names.map((s) => `<p:attrName>${escAttr(s)}</p:attrName>`).join("")) : "");
+  const body = el("p:cTn", cTnAttrs(n, id), condListXml(n.conds.get(1) ?? [], "p:stCondLst", w) + condListXml(n.conds.get(2) ?? [], "p:endCondLst", w)) + tgt + (names.length ? el("p:attrNameLst", {}, names.map((s) => `<p:attrName>${escAttr2(s)}</p:attrName>`).join("")) : "");
   return el("p:cBhvr", a, body);
 }
 function behaviorProps(bc) {
@@ -5013,11 +5579,11 @@ function lineXml(sh, pc, dfltOn) {
   const dash = prop(sh, 462) ?? 0;
   const cap = prop(sh, 471);
   const cmpd = prop(sh, 461);
-  const join = prop(sh, 470);
+  const join2 = prop(sh, 470);
   let kids = el("a:solidFill", {}, srgb(color, alpha));
   kids += el("a:prstDash", { val: DASH[dash] ?? "solid" });
-  if (join === 0) kids += "<a:bevel/>";
-  else if (join === 1) kids += '<a:miter lim="800000"/>';
+  if (join2 === 0) kids += "<a:bevel/>";
+  else if (join2 === 1) kids += '<a:miter lim="800000"/>';
   else kids += "<a:round/>";
   kids += arrowEnd("a:headEnd", sh, 464, 466, 467);
   kids += arrowEnd("a:tailEnd", sh, 465, 468, 469);
@@ -5374,7 +5940,7 @@ function copyDiagramPart(pc, parts, src, dst, xml, k) {
     const media = `ppt/media/dgm${k}_${base}`;
     conv.parts.set(media, bytes);
     if (ext !== "xml") conv.mediaExts.add(ext);
-    return r.raw.replace(/ Target="[^"]*"/, ` Target="../media/dgm${k}_${escAttr(base)}"`);
+    return r.raw.replace(/ Target="[^"]*"/, ` Target="../media/dgm${k}_${escAttr2(base)}"`);
   });
   const i2 = dst.lastIndexOf("/");
   conv.parts.set(`${dst.slice(0, i2)}/_rels/${dst.slice(i2 + 1)}.rels`, strToU8(
@@ -6037,6 +6603,12 @@ var PptxPackage = class _PptxPackage {
   }
   setPartText(path, text) {
     this.parts.set(path, new TextEncoder().encode(text));
+  }
+  setPart(path, data) {
+    this.parts.set(path, data);
+  }
+  removePart(path) {
+    this.parts.delete(path);
   }
   presentationXml() {
     const xml = this.getPartText("ppt/presentation.xml");
@@ -6998,7 +7570,7 @@ function parseSlideTiming(sld, units, color, hasBackground2) {
 }
 
 // ../slides-core/src/read.ts
-function readRels(pkg, relsPart, ownerPart) {
+function readRels2(pkg, relsPart, ownerPart) {
   const map = /* @__PURE__ */ new Map();
   const xml = pkg.getPartText(relsPart);
   if (xml === void 0) return map;
@@ -7021,7 +7593,7 @@ function relsPathFor(part) {
 }
 function readPresentation(pkg) {
   const root = parseXml(pkg.presentationXml());
-  const rels = readRels(pkg, "ppt/_rels/presentation.xml.rels", "ppt/presentation.xml");
+  const rels = readRels2(pkg, "ppt/_rels/presentation.xml.rels", "ppt/presentation.xml");
   const sz = firstChild(root, "p:sldSz");
   const slideW = sz?.attrs["cx"] !== void 0 ? parseInt(sz.attrs["cx"], 10) : 9144e3;
   const slideH = sz?.attrs["cy"] !== void 0 ? parseInt(sz.attrs["cy"], 10) : 5143500;
@@ -7086,7 +7658,7 @@ function readSlide(pkg, slidePath) {
   if (xml === void 0) throw new Error(`Pacote sem ${slidePath}`);
   const root = parseXml(xml);
   const theme = themeFor(pkg, slidePath);
-  const slideRels = readRels(pkg, relsPathFor(slidePath), slidePath);
+  const slideRels = readRels2(pkg, relsPathFor(slidePath), slidePath);
   const cSld = firstChild(root, "p:cSld");
   const spTree = cSld ? firstChild(cSld, "p:spTree") : void 0;
   const shapes = spTree ? readShapes(spTree, theme, pkg, slideRels) : [];
@@ -7109,7 +7681,7 @@ function readSlide(pkg, slidePath) {
         if (xml2 === void 0) continue;
         const tree = descend(parseXml(xml2), "p:spTree");
         if (!tree) continue;
-        const partRels = readRels(pkg, relsPathFor(part), part);
+        const partRels = readRels2(pkg, relsPathFor(part), part);
         for (const sh of readShapes(tree, theme, pkg, partRels)) {
           if (sh.phType !== void 0 || sh.phIdx !== void 0) continue;
           sh.inherited = true;
@@ -7209,13 +7781,13 @@ function readSlide(pkg, slidePath) {
   if (!bgDone && layoutPath) {
     const lx = pkg.getPartText(layoutPath);
     if (lx !== void 0) {
-      bgDone = applyBg(layoutPath, parseXml(lx), readRels(pkg, relsPathFor(layoutPath), layoutPath));
+      bgDone = applyBg(layoutPath, parseXml(lx), readRels2(pkg, relsPathFor(layoutPath), layoutPath));
     }
   }
   if (!bgDone && masterPath) {
     const mx = pkg.getPartText(masterPath);
     if (mx !== void 0) {
-      applyBg(masterPath, parseXml(mx), readRels(pkg, relsPathFor(masterPath), masterPath));
+      applyBg(masterPath, parseXml(mx), readRels2(pkg, relsPathFor(masterPath), masterPath));
     }
   }
   const timing = firstChild(root, "p:timing");
@@ -7597,7 +8169,7 @@ function readGraphicFrame(gf, pkg, rels, theme) {
     const dataPath = dmId ? rels.get(dmId) : void 0;
     if (dataPath) {
       let drawingPath;
-      const dataRels = readRels(pkg, relsPathFor(dataPath), dataPath);
+      const dataRels = readRels2(pkg, relsPathFor(dataPath), dataPath);
       for (const t of dataRels.values()) if (t.includes("drawing")) {
         drawingPath = t;
         break;
@@ -12799,7 +13371,7 @@ function ctfToSfnt([ctf, push, code]) {
   }
   return writeSfnt(tables);
 }
-function checksum(d) {
+function checksum2(d) {
   let sum = 0;
   for (let i2 = 0; i2 < d.length; i2 += 4) {
     const w = ((d[i2] ?? 0) << 24 | (d[i2 + 1] ?? 0) << 16 | (d[i2 + 2] ?? 0) << 8 | (d[i2 + 3] ?? 0)) >>> 0;
@@ -12828,14 +13400,14 @@ function writeSfnt(tables) {
     const d = tables.get(t);
     const r = 12 + 16 * i2;
     for (let k = 0; k < 4; k++) out[r + k] = t.charCodeAt(k);
-    dv.setUint32(r + 4, checksum(d));
+    dv.setUint32(r + 4, checksum2(d));
     dv.setUint32(r + 8, off);
     dv.setUint32(r + 12, d.length);
     out.set(d, off);
     if (t === "head") headOff = off;
     off += d.length + 3 & ~3;
   });
-  if (headOff >= 0) dv.setUint32(headOff + 8, 2981146554 - checksum(out) >>> 0);
+  if (headOff >= 0) dv.setUint32(headOff + 8, 2981146554 - checksum2(out) >>> 0);
   return out;
 }
 
@@ -12883,7 +13455,7 @@ function readEmbeddedFonts(pkg) {
   const root = parseXml(xml);
   const lst = firstChild(root, "p:embeddedFontLst");
   if (!lst) return [];
-  const rels = readRels(pkg, "ppt/_rels/presentation.xml.rels", "ppt/presentation.xml");
+  const rels = readRels2(pkg, "ppt/_rels/presentation.xml.rels", "ppt/presentation.xml");
   const out = [];
   for (const ef of childElements(lst, "p:embeddedFont")) {
     const fontEl = firstChild(ef, "p:font");
@@ -15163,13 +15735,57 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
 customElements.define("universal-presentation-viewer", UniversalPresentationViewerElement);
 
 // src/universal-slides.ts
+var XML_ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+var unescXml = (s) => s.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (_, e) => e[0] === "#" ? String.fromCodePoint(e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)) : XML_ENTITIES[e.toLowerCase()]);
 var UniversalSlidesElement = class extends UniversalPresentationViewerElement {
   /** Editor inline da shape de texto (criado em `beginEditShape`). */
   editor = null;
   editingShape = null;
+  /** Opção "incorporar fontes no arquivo" desta apresentação (lida do
+   *  presentation.xml ao abrir; padrões do PowerPoint num deck sem a opção). */
+  fontEmbedding = { ...DEFAULT_EMBEDDING.slides };
   constructor() {
     super();
     this.canvas.addEventListener("dblclick", this.onDblClick);
+  }
+  loadPptx(bytes) {
+    super.loadPptx(bytes);
+    if (this.pkg) this.fontEmbedding = { ...DEFAULT_EMBEDDING.slides, ...readPptxEmbedding(this.pkg).settings };
+  }
+  // ───────────────────────── fontes no arquivo ─────────────────────────
+  /** Opção "incorporar fontes no arquivo" desta apresentação. */
+  getFontEmbedding() {
+    return { ...this.fontEmbedding };
+  }
+  /** Muda a opção (vale no próximo `savePptx`). */
+  setFontEmbedding(settings) {
+    this.fontEmbedding = { ...this.fontEmbedding, ...settings };
+  }
+  /**
+   * Bytes do .pptx com a opção de fontes aplicada (resolvedor único + gravação
+   * em shared/fonts), sobre uma CÓPIA do pacote — o resto segue byte a byte.
+   * Ligada: acrescenta as famílias usadas que ainda não estão no arquivo (as 4
+   * variantes, como o PowerPoint); desligada: tira as incorporadas. O que
+   * ficou de fora vai no evento `us-font-embedding`.
+   */
+  async savePptx() {
+    if (!this.pkg) throw new Error("nenhuma apresenta\xE7\xE3o carregada");
+    const pkg = PptxPackage.load(this.pkg.save());
+    const settings = this.fontEmbedding;
+    let plan = { faces: [], skipped: [] };
+    if (settings.embed) {
+      plan = await planFontEmbedding(this.fontResolver, deckFontUsage(pkg), settings, "slides", {
+        alreadyEmbedded: readPptxEmbedding(pkg).embedded
+      });
+    }
+    writePptxEmbedding(pkg, plan, settings);
+    this.dispatchEvent(new CustomEvent("us-font-embedding", {
+      detail: {
+        embedded: [...new Set(plan.faces.map((f) => f.family))],
+        skipped: plan.skipped.filter((s) => s.reason !== "already-embedded")
+      }
+    }));
+    return pkg.save();
   }
   isEditing() {
     return this.editingShape !== null;
@@ -15306,6 +15922,20 @@ var UniversalSlidesElement = class extends UniversalPresentationViewerElement {
     this.paint();
   }
 };
+function deckFontUsage(pkg) {
+  const families = new Set(collectDeckTypefaces(pkg));
+  let text = "";
+  for (const part of pkg.partNames()) {
+    const xml = /^ppt\/(slides|slideLayouts|slideMasters|theme)\/[^/]+\.xml$/.test(part) ? pkg.getPartText(part) : void 0;
+    if (!xml) continue;
+    if (part.startsWith("ppt/theme/")) {
+      for (const m of xml.matchAll(/<a:(?:major|minor)Font>\s*<a:latin\b[^>]*typeface="([^"]+)"/g)) families.add(unescXml(m[1]));
+      continue;
+    }
+    for (const m of xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)) text += unescXml(m[1]);
+  }
+  return [...families].filter((f) => f && !f.startsWith("+")).map((family) => ({ family, variants: ["regular"], text }));
+}
 customElements.define("universal-slides", UniversalSlidesElement);
 
 // demo/main.ts
@@ -15399,16 +16029,41 @@ $("pptxFile").addEventListener("change", async (e) => {
   if (file) openBytes(new Uint8Array(await file.arrayBuffer()), file.name);
   e.target.value = "";
 });
-function actionSave(saveAs = false) {
+async function actionSave(saveAs = false) {
   closeMenus();
   if (!savedBytes) {
     setStatus("\u26A0 Nada para salvar");
     return;
   }
   const suggested = saveAs ? `${docTitle.value}.pptx` : savedName;
-  downloadBlob(savedBytes, suggested, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
-  setStatus(`"${suggested}" baixado \u2713`);
+  let bytes = savedBytes;
+  let note = "";
+  if (fontOptionTouched || us.getFontEmbedding().embed) {
+    const onReport = ((e) => {
+      note = describeFontEmbedding(e.detail);
+    });
+    us.addEventListener("us-font-embedding", onReport, { once: true });
+    try {
+      bytes = await us.savePptx();
+    } catch (e) {
+      setStatus(`\u26A0 N\xE3o salvou: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    } finally {
+      us.removeEventListener("us-font-embedding", onReport);
+    }
+  }
+  downloadBlob(bytes, suggested, "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+  setStatus(`"${suggested}" baixado \u2713${note ? ` \xB7 ${note}` : ""}`, note ? 6e3 : 1800);
 }
+var fontOptionTouched = false;
+$("actFontEmbedding").addEventListener("click", () => {
+  closeMenus();
+  void openFontEmbeddingDialog({ app: "slides", settings: us.getFontEmbedding() }).then((s) => {
+    if (!s) return;
+    us.setFontEmbedding(s);
+    fontOptionTouched = true;
+  });
+});
 function downloadBlob(data, filename, type) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([data], { type }));
@@ -15421,8 +16076,8 @@ $("actNew").addEventListener("click", () => {
   setStatus("Novo: em breve");
 });
 $("actOpen").addEventListener("click", () => void actionOpen());
-$("actSave").addEventListener("click", () => actionSave(false));
-$("actSaveAs").addEventListener("click", () => actionSave(true));
+$("actSave").addEventListener("click", () => void actionSave(false));
+$("actSaveAs").addEventListener("click", () => void actionSave(true));
 $("actPrint").addEventListener("click", () => {
   closeMenus();
   window.print();
@@ -15476,7 +16131,7 @@ document.addEventListener("keydown", (e) => {
       void actionOpen();
     } else if (k === "s") {
       e.preventDefault();
-      actionSave(e.shiftKey);
+      void actionSave(e.shiftKey);
     } else if (k === "p") {
       e.preventDefault();
       window.print();

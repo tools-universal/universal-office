@@ -39,6 +39,8 @@ export class PptxPackage {
     return d === undefined ? undefined : new TextDecoder().decode(d);
   }
   setPartText(path: string, text: string): void { this.parts.set(path, new TextEncoder().encode(text)); }
+  setPart(path: string, data: Uint8Array): void { this.parts.set(path, data); }
+  removePart(path: string): void { this.parts.delete(path); }
 
   presentationXml(): string {
     const xml = this.getPartText('ppt/presentation.xml');

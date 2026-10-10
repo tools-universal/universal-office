@@ -1,5 +1,14 @@
 import { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
-import type { Paragraph, Run } from '@universal/slides-core';
+import { PptxPackage, collectDeckTypefaces, type Paragraph, type Run } from '@universal/slides-core';
+import {
+  DEFAULT_EMBEDDING, planFontEmbedding, readPptxEmbedding, writePptxEmbedding,
+  type EmbeddingPlan, type FontEmbeddingSettings, type FontUsage,
+} from '@universal-office/fonts';
+
+const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+const unescXml = (s: string): string =>
+  s.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (_, e: string) =>
+    e[0] === '#' ? String.fromCodePoint(e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)) : XML_ENTITIES[e.toLowerCase()]!);
 
 /**
  * <universal-slides> — webcomponent EDITOR de apresentações. Herda toda a
@@ -15,11 +24,59 @@ export class UniversalSlidesElement extends UniversalPresentationViewerElement {
   private editor: HTMLDivElement | null = null;
   private editingShape: { slide: number; shapeIdx: number } | null = null;
 
+  /** Opção "incorporar fontes no arquivo" desta apresentação (lida do
+   *  presentation.xml ao abrir; padrões do PowerPoint num deck sem a opção). */
+  private fontEmbedding: FontEmbeddingSettings = { ...DEFAULT_EMBEDDING.slides };
+
   constructor() {
     super();
     // Double-click sobre uma shape de texto entra em modo edição. Single click
     // só dá foco (NUNCA avança o slide — o usuário tem teclado/chrome p/ isso).
     this.canvas.addEventListener('dblclick', this.onDblClick);
+  }
+
+  override loadPptx(bytes: Uint8Array): void {
+    super.loadPptx(bytes);
+    if (this.pkg) this.fontEmbedding = { ...DEFAULT_EMBEDDING.slides, ...readPptxEmbedding(this.pkg).settings };
+  }
+
+  // ───────────────────────── fontes no arquivo ─────────────────────────
+
+  /** Opção "incorporar fontes no arquivo" desta apresentação. */
+  getFontEmbedding(): FontEmbeddingSettings {
+    return { ...this.fontEmbedding };
+  }
+
+  /** Muda a opção (vale no próximo `savePptx`). */
+  setFontEmbedding(settings: Partial<FontEmbeddingSettings>): void {
+    this.fontEmbedding = { ...this.fontEmbedding, ...settings };
+  }
+
+  /**
+   * Bytes do .pptx com a opção de fontes aplicada (resolvedor único + gravação
+   * em shared/fonts), sobre uma CÓPIA do pacote — o resto segue byte a byte.
+   * Ligada: acrescenta as famílias usadas que ainda não estão no arquivo (as 4
+   * variantes, como o PowerPoint); desligada: tira as incorporadas. O que
+   * ficou de fora vai no evento `us-font-embedding`.
+   */
+  async savePptx(): Promise<Uint8Array> {
+    if (!this.pkg) throw new Error('nenhuma apresentação carregada');
+    const pkg = PptxPackage.load(this.pkg.save());
+    const settings = this.fontEmbedding;
+    let plan: EmbeddingPlan = { faces: [], skipped: [] };
+    if (settings.embed) {
+      plan = await planFontEmbedding(this.fontResolver, deckFontUsage(pkg), settings, 'slides', {
+        alreadyEmbedded: readPptxEmbedding(pkg).embedded,
+      });
+    }
+    writePptxEmbedding(pkg, plan, settings);
+    this.dispatchEvent(new CustomEvent('us-font-embedding', {
+      detail: {
+        embedded: [...new Set(plan.faces.map((f) => f.family))],
+        skipped: plan.skipped.filter((s) => s.reason !== 'already-embedded'),
+      },
+    }));
+    return pkg.save();
   }
 
   protected override isEditing(): boolean { return this.editingShape !== null; }
@@ -174,6 +231,27 @@ export class UniversalSlidesElement extends UniversalPresentationViewerElement {
     this.editingShape = null;
     this.paint();
   }
+}
+
+/**
+ * Fontes que o deck usa: as nomeadas nos slides/layouts/masters e as do tema
+ * (texto `+mn-lt`/`+mj-lt` usa a fonte do tema). O PowerPoint recorta cada
+ * família com o texto do deck — aqui, o texto de todos os slides/layouts/
+ * masters vale para todas (um pouco maior, nunca falta caractere).
+ */
+function deckFontUsage(pkg: PptxPackage): FontUsage[] {
+  const families = new Set(collectDeckTypefaces(pkg));
+  let text = '';
+  for (const part of pkg.partNames()) {
+    const xml = /^ppt\/(slides|slideLayouts|slideMasters|theme)\/[^/]+\.xml$/.test(part) ? pkg.getPartText(part) : undefined;
+    if (!xml) continue;
+    if (part.startsWith('ppt/theme/')) {
+      for (const m of xml.matchAll(/<a:(?:major|minor)Font>\s*<a:latin\b[^>]*typeface="([^"]+)"/g)) families.add(unescXml(m[1]!));
+      continue;
+    }
+    for (const m of xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)) text += unescXml(m[1]!);
+  }
+  return [...families].filter((f) => f && !f.startsWith('+')).map((family) => ({ family, variants: ['regular'], text }));
 }
 
 customElements.define('universal-slides', UniversalSlidesElement);
