@@ -1,4 +1,4 @@
-import type { SfntFont } from './font/sfnt.js';
+import type { LayoutFont } from './font/layout-font.js';
 import { breakParagraph, type LineBox } from './linebreak.js';
 import { lineHeightPt, type LineSpacing } from './lineheight.js';
 import { TWIPS_PER_PT } from './units.js';
@@ -25,7 +25,7 @@ export const DEFAULT_SECTION: SectionGeometry = {
 
 export interface ParagraphInput {
   text: string;
-  font: SfntFont;
+  font: LayoutFont;
   sizePt: number;
   spacing: LineSpacing;
   /** w:spacing w:after em twips (Normal atual: 160tw = 8pt). */
@@ -41,7 +41,7 @@ export interface PositionedLine {
   heightTwips: number;
   text: string;
   sizePt: number;
-  font: SfntFont;
+  font: LayoutFont;
 }
 
 export interface Page {

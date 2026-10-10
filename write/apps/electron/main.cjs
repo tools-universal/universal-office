@@ -23,7 +23,7 @@ function hasMarkOfTheWeb(filePath) {
 // vem em resources (ver "extraResources" no package.json).
 const { warmFontIndex, listFontFamilies, resolveFonts } = require(app.isPackaged
   ? join(process.resourcesPath, 'system-fonts.cjs')
-  : '../../../tools/electron/system-fonts.cjs');
+  : '../../../shared/fonts/node/system-fonts.cjs');
 ipcMain.handle('wn:resolve-fonts', (_e, families) => resolveFonts(families));
 ipcMain.handle('wn:list-fonts', () => listFontFamilies());
 

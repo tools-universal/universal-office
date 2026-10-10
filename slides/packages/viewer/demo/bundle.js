@@ -1,3 +1,738 @@
+// ../../../shared/fonts/src/catalog.ts
+var DEFAULT_FAMILY = "Liberation Sans";
+var BUNDLED = {
+  "liberation sans": { family: "Liberation Sans", file: "liberationsans" },
+  "liberation serif": { family: "Liberation Serif", file: "liberationserif" },
+  "liberation mono": { family: "Liberation Mono", file: "liberationmono" },
+  carlito: { family: "Carlito", file: "carlito" },
+  caladea: { family: "Caladea", file: "caladea" }
+};
+function bundledFileName(file, v) {
+  return `${file}-${v.toLowerCase()}.ttf`;
+}
+var METRIC_SUBSTITUTES = {
+  calibri: "Carlito",
+  cambria: "Caladea",
+  arial: "Liberation Sans",
+  "arial mt": "Liberation Sans",
+  helvetica: "Liberation Sans",
+  arimo: "Liberation Sans",
+  "times new roman": "Liberation Serif",
+  times: "Liberation Serif",
+  tinos: "Liberation Serif",
+  "courier new": "Liberation Mono",
+  courier: "Liberation Mono",
+  cousine: "Liberation Mono"
+};
+var PROBE_FAMILIES = [
+  // Windows
+  "Arial",
+  "Arial Black",
+  "Bahnschrift",
+  "Calibri",
+  "Calibri Light",
+  "Cambria",
+  "Cambria Math",
+  "Candara",
+  "Comic Sans MS",
+  "Consolas",
+  "Constantia",
+  "Corbel",
+  "Courier New",
+  "Ebrima",
+  "Franklin Gothic Medium",
+  "Gabriola",
+  "Gadugi",
+  "Georgia",
+  "Impact",
+  "Ink Free",
+  "Javanese Text",
+  "Leelawadee UI",
+  "Lucida Console",
+  "Lucida Sans Unicode",
+  "Malgun Gothic",
+  "Microsoft Himalaya",
+  "Microsoft JhengHei",
+  "Microsoft New Tai Lue",
+  "Microsoft PhagsPa",
+  "Microsoft Sans Serif",
+  "Microsoft Tai Le",
+  "Microsoft YaHei",
+  "Microsoft Yi Baiti",
+  "MingLiU-ExtB",
+  "Mongolian Baiti",
+  "MS Gothic",
+  "MV Boli",
+  "Myanmar Text",
+  "Nirmala UI",
+  "Palatino Linotype",
+  "Segoe Print",
+  "Segoe Script",
+  "Segoe UI",
+  "Segoe UI Black",
+  "Segoe UI Emoji",
+  "Segoe UI Historic",
+  "Segoe UI Light",
+  "Segoe UI Semibold",
+  "Segoe UI Semilight",
+  "Segoe UI Symbol",
+  "SimSun",
+  "Sitka Text",
+  "Sylfaen",
+  "Symbol",
+  "Tahoma",
+  "Times New Roman",
+  "Trebuchet MS",
+  "Verdana",
+  "Webdings",
+  "Wingdings",
+  "Yu Gothic",
+  // instaladas pelo Office (pasta de fontes do Windows)
+  "Agency FB",
+  "Algerian",
+  "Arial Narrow",
+  "Arial Rounded MT Bold",
+  "Baskerville Old Face",
+  "Bauhaus 93",
+  "Bell MT",
+  "Berlin Sans FB",
+  "Bernard MT Condensed",
+  "Book Antiqua",
+  "Bookman Old Style",
+  "Bradley Hand ITC",
+  "Britannic Bold",
+  "Broadway",
+  "Brush Script MT",
+  "Californian FB",
+  "Calisto MT",
+  "Castellar",
+  "Centaur",
+  "Century",
+  "Century Gothic",
+  "Century Schoolbook",
+  "Chiller",
+  "Colonna MT",
+  "Cooper Black",
+  "Copperplate Gothic Bold",
+  "Curlz MT",
+  "Edwardian Script ITC",
+  "Elephant",
+  "Engravers MT",
+  "Eras Medium ITC",
+  "Felix Titling",
+  "Footlight MT Light",
+  "Forte",
+  "Franklin Gothic Book",
+  "Freestyle Script",
+  "French Script MT",
+  "Garamond",
+  "Gigi",
+  "Gill Sans MT",
+  "Gloucester MT Extra Condensed",
+  "Goudy Old Style",
+  "Haettenschweiler",
+  "Harlow Solid Italic",
+  "Harrington",
+  "High Tower Text",
+  "Imprint MT Shadow",
+  "Informal Roman",
+  "Jokerman",
+  "Juice ITC",
+  "Kristen ITC",
+  "Kunstler Script",
+  "Lucida Bright",
+  "Lucida Calligraphy",
+  "Lucida Fax",
+  "Lucida Handwriting",
+  "Lucida Sans",
+  "Lucida Sans Typewriter",
+  "Magneto",
+  "Maiandra GD",
+  "Matura MT Script Capitals",
+  "Mistral",
+  "Modern No. 20",
+  "Monotype Corsiva",
+  "Niagara Engraved",
+  "Old English Text MT",
+  "Onyx",
+  "Palace Script MT",
+  "Papyrus",
+  "Parchment",
+  "Perpetua",
+  "Playbill",
+  "Poor Richard",
+  "Pristina",
+  "Rage Italic",
+  "Ravie",
+  "Rockwell",
+  "Script MT Bold",
+  "Showcard Gothic",
+  "Snap ITC",
+  "Stencil",
+  "Tempus Sans ITC",
+  "Tw Cen MT",
+  "Viner Hand ITC",
+  "Vivaldi",
+  "Vladimir Script",
+  "Wide Latin",
+  // macOS
+  "American Typewriter",
+  "Andale Mono",
+  "Apple Chancery",
+  "Avenir",
+  "Avenir Next",
+  "Baskerville",
+  "Big Caslon",
+  "Chalkboard",
+  "Charter",
+  "Cochin",
+  "Copperplate",
+  "Didot",
+  "Futura",
+  "Geneva",
+  "Gill Sans",
+  "Helvetica",
+  "Helvetica Neue",
+  "Hoefler Text",
+  "Lucida Grande",
+  "Marker Felt",
+  "Menlo",
+  "Monaco",
+  "Optima",
+  "Palatino",
+  "Rockwell",
+  "SF Pro",
+  "Skia",
+  "Snell Roundhand",
+  "Times",
+  "Trattatello",
+  "Zapfino",
+  // Linux / abertas comuns
+  "Cantarell",
+  "DejaVu Sans",
+  "DejaVu Sans Mono",
+  "DejaVu Serif",
+  "Droid Sans",
+  "Fira Sans",
+  "Fira Mono",
+  "Inter",
+  "Lato",
+  "Montserrat",
+  "Noto Sans",
+  "Noto Serif",
+  "Noto Sans Mono",
+  "Open Sans",
+  "Oswald",
+  "Poppins",
+  "PT Sans",
+  "PT Serif",
+  "Raleway",
+  "Roboto",
+  "Roboto Mono",
+  "Source Sans Pro",
+  "Source Serif Pro",
+  "Ubuntu",
+  "Ubuntu Mono"
+];
+
+// ../../../shared/fonts/src/types.ts
+var VARIANTS = ["regular", "bold", "italic", "boldItalic"];
+function variantOf(bold, italic) {
+  return bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
+}
+function isBoldVariant(v) {
+  return v === "bold" || v === "boldItalic";
+}
+function isItalicVariant(v) {
+  return v === "italic" || v === "boldItalic";
+}
+function faceDescriptors(v) {
+  return { weight: isBoldVariant(v) ? "700" : "400", style: isItalicVariant(v) ? "italic" : "normal" };
+}
+function variantOfStyle(style) {
+  const s = (style ?? "Regular").toLowerCase().replace(/\s+/g, " ").trim();
+  switch (s) {
+    case "regular":
+    case "normal":
+    case "roman":
+    case "":
+      return "regular";
+    case "bold":
+      return "bold";
+    case "italic":
+    case "oblique":
+      return "italic";
+    case "bold italic":
+    case "bold oblique":
+      return "boldItalic";
+    default:
+      return null;
+  }
+}
+
+// ../../../shared/fonts/src/environment.ts
+var PROBE_TEXT = "mmmmmmmmmmlli1WQ@#\u03A9\u03B2";
+var GENERICS = ["monospace", "serif", "sans-serif"];
+var cssName = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
+var unquote = (s) => s.trim().replace(/^(["'])(.*)\1$/, "$2");
+function browserEnvironment() {
+  let ctx = null;
+  const context = () => {
+    if (ctx) return ctx;
+    ctx = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(8, 8).getContext("2d") : document.createElement("canvas").getContext("2d");
+    return ctx;
+  };
+  const width = (font) => {
+    const c = context();
+    if (!c) return 0;
+    c.font = font;
+    return c.measureText(PROBE_TEXT).width;
+  };
+  const baseWidths = /* @__PURE__ */ new Map();
+  const generic = (g) => {
+    let w = baseWidths.get(g);
+    if (w === void 0) baseWidths.set(g, w = width(`72px ${g}`));
+    return w;
+  };
+  const qlf = typeof window !== "undefined" ? window.queryLocalFonts : void 0;
+  return {
+    // Mede o texto com a família + uma genérica; se a largura mudar em
+    // alguma das três genéricas, o navegador achou a família.
+    isInstalled(family) {
+      return GENERICS.some((g) => width(`72px ${cssName(family)}, ${g}`) !== generic(g));
+    },
+    async loadLocal(family, v) {
+      const names = v === "regular" ? [family, `${family} Regular`] : v === "bold" ? [`${family} Bold`] : v === "italic" ? [`${family} Italic`] : [`${family} Bold Italic`];
+      for (const n of names) {
+        try {
+          const face = new FontFace(family, `local(${cssName(n)})`, faceDescriptors(v));
+          await face.load();
+          document.fonts.add(face);
+          return true;
+        } catch {
+        }
+      }
+      return false;
+    },
+    async addFace(family, v, bytes) {
+      try {
+        const face = new FontFace(family, bytes.slice().buffer, faceDescriptors(v));
+        await face.load();
+        document.fonts.add(face);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    pageFamilies(exclude) {
+      const out = /* @__PURE__ */ new Map();
+      if (typeof document === "undefined" || !document.fonts) return out;
+      for (const f of document.fonts) {
+        const name = unquote(f.family);
+        const key = name.toLowerCase();
+        if (!exclude.has(key)) out.set(key, name);
+      }
+      return out;
+    },
+    async loadPageFamily(family) {
+      const n = cssName(family);
+      await Promise.allSettled([
+        document.fonts.load(`16px ${n}`),
+        document.fonts.load(`bold 16px ${n}`),
+        document.fonts.load(`italic 16px ${n}`),
+        document.fonts.load(`italic bold 16px ${n}`)
+      ]);
+    },
+    async fetchBytes(url) {
+      try {
+        const res = await fetch(url);
+        return res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
+      } catch {
+        return null;
+      }
+    },
+    localAccess: typeof qlf === "function" ? {
+      async granted() {
+        try {
+          const st = await navigator.permissions.query({ name: "local-fonts" });
+          return st.state === "granted";
+        } catch {
+          return false;
+        }
+      },
+      query: () => qlf.call(window)
+    } : null
+  };
+}
+
+// ../../../shared/fonts/src/sfnt.ts
+var tag = (v, p) => String.fromCharCode(v.getUint8(p), v.getUint8(p + 1), v.getUint8(p + 2), v.getUint8(p + 3));
+function tableOf(v, base, want) {
+  const num2 = v.getUint16(base + 4);
+  for (let i2 = 0; i2 < num2; i2++) {
+    const p = base + 12 + i2 * 16;
+    if (tag(v, p) === want) return { off: v.getUint32(p + 8), len: v.getUint32(p + 12) };
+  }
+  return null;
+}
+function isEmbeddable(bytes) {
+  try {
+    const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const os2 = tableOf(v, 0, "OS/2");
+    if (!os2 || os2.len < 10) return true;
+    const fsType = v.getUint16(os2.off + 8);
+    return !(fsType & 2 && !(fsType & 12)) && !(fsType & 512);
+  } catch {
+    return true;
+  }
+}
+function postscriptName(v, base) {
+  const name = tableOf(v, base, "name");
+  if (!name) return null;
+  const count = v.getUint16(name.off + 2);
+  const strOff = name.off + v.getUint16(name.off + 4);
+  for (let i2 = 0; i2 < count; i2++) {
+    const r = name.off + 6 + i2 * 12;
+    if (v.getUint16(r + 6) !== 6) continue;
+    const platform = v.getUint16(r), len = v.getUint16(r + 8), o = strOff + v.getUint16(r + 10);
+    let s = "";
+    if (platform === 3 || platform === 0) for (let k = 0; k + 1 < len; k += 2) s += String.fromCharCode(v.getUint16(o + k));
+    else for (let k = 0; k < len; k++) s += String.fromCharCode(v.getUint8(o + k));
+    if (s) return s;
+  }
+  return null;
+}
+function standaloneFace(bytes, wantPostscript) {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.length < 12 || tag(v, 0) !== "ttcf") return bytes;
+  const numFonts = v.getUint32(8);
+  let base = v.getUint32(12);
+  if (wantPostscript) {
+    for (let i2 = 0; i2 < numFonts; i2++) {
+      const b = v.getUint32(12 + i2 * 4);
+      if (postscriptName(v, b) === wantPostscript) {
+        base = b;
+        break;
+      }
+    }
+  }
+  const num2 = v.getUint16(base + 4);
+  const recs = [];
+  for (let i2 = 0; i2 < num2; i2++) {
+    const o = base + 12 + i2 * 16;
+    const off = v.getUint32(o + 8), len = v.getUint32(o + 12);
+    if (off + len > bytes.length) throw new RangeError("tabela fora do arquivo");
+    recs.push({ o, off, len });
+  }
+  const headerLen = 12 + num2 * 16;
+  const out = new Uint8Array(recs.reduce((n, r) => n + (r.len + 3 & ~3), headerLen));
+  const ov = new DataView(out.buffer);
+  out.set(bytes.subarray(base, base + 12), 0);
+  let pos = headerLen;
+  recs.forEach((r, i2) => {
+    const d = 12 + i2 * 16;
+    out.set(bytes.subarray(r.o, r.o + 8), d);
+    ov.setUint32(d + 8, pos);
+    ov.setUint32(d + 12, r.len);
+    out.set(bytes.subarray(r.off, r.off + r.len), pos);
+    pos += r.len + 3 & ~3;
+  });
+  return out;
+}
+
+// ../../../shared/fonts/src/resolver.ts
+var css = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
+var FontResolver = class _FontResolver {
+  constructor(env) {
+    this.env = env;
+  }
+  env;
+  static sharedInstance = null;
+  /** O resolvedor da página (as fontes de `document.fonts` são globais). */
+  static shared() {
+    return _FontResolver.sharedInstance ??= new _FontResolver(browserEnvironment());
+  }
+  baseUrl = null;
+  host = null;
+  resolved = /* @__PURE__ */ new Map();
+  pending = /* @__PURE__ */ new Map();
+  listeners = /* @__PURE__ */ new Set();
+  /** Famílias (minúsculas) cujos FontFaces fomos NÓS que registramos. */
+  own = /* @__PURE__ */ new Set();
+  bundledLoads = /* @__PURE__ */ new Map();
+  localFonts = null;
+  hostList = null;
+  /** Configura base das embarcadas e/ou host. Trocar o host refaz as resoluções. */
+  configure(opts) {
+    if (opts.baseUrl !== void 0) this.baseUrl = opts.baseUrl ? opts.baseUrl.replace(/\/$/, "") : null;
+    if (opts.host !== void 0 && opts.host !== this.host) {
+      this.host = opts.host;
+      this.hostList = null;
+      this.invalidate(() => true);
+    }
+  }
+  /** Base sugerida por um componente (atributo `fonts`): só vale se ninguém configurou. */
+  suggestBaseUrl(url) {
+    if (url && this.baseUrl === null) this.baseUrl = url.replace(/\/$/, "");
+  }
+  get hasHost() {
+    return !!this.host;
+  }
+  /** Resolução já pronta (síncrono); undefined se ainda não resolvida. */
+  get(family) {
+    return this.resolved.get(family.toLowerCase());
+  }
+  /** Avisa quando famílias (re)resolvem — repintar/medir de novo. */
+  onChange(cb) {
+    this.listeners.add(cb);
+    return () => this.listeners.delete(cb);
+  }
+  /**
+   * Pilha CSS para desenhar a família (síncrono). Ainda não resolvida: dispara
+   * a resolução em segundo plano e devolve o nome pedido + os substitutos + o
+   * padrão (o navegador já usa a instalada, se houver); ao resolver,
+   * `onChange` avisa.
+   *
+   * `fallbacks`: o SUBSTITUTO DO APP para família que não existe em lugar
+   * nenhum (resolvida como `default`) — cada app imita o seu programa de
+   * referência (o PowerPoint desenha família ausente com métricas da Calibri;
+   * o Excel cai na Aptos Narrow). O primeiro que resolver para uma fonte de
+   * verdade vence; nenhum: o padrão (Liberation Sans).
+   */
+  cssStack(family, fallbacks = []) {
+    const tail = `${css(DEFAULT_FAMILY)}, sans-serif`;
+    if (!family) return tail;
+    const r = this.get(family);
+    if (!r) {
+      void this.resolve([family, ...fallbacks]);
+      return [family, ...fallbacks].map(css).join(", ") + `, ${tail}`;
+    }
+    if (r.source !== "default") return r.cssFamily === DEFAULT_FAMILY ? tail : `${css(r.cssFamily)}, ${tail}`;
+    for (const fb of fallbacks) {
+      const f = this.get(fb);
+      if (!f) {
+        void this.resolve([fb]);
+        return `${css(fb)}, ${tail}`;
+      }
+      if (f.source !== "default") return f.cssFamily === DEFAULT_FAMILY ? tail : `${css(f.cssFamily)}, ${tail}`;
+    }
+    return tail;
+  }
+  /** Resolve as famílias (idempotente; pedidos em andamento são reaproveitados). */
+  async resolve(families) {
+    const wanted = /* @__PURE__ */ new Map();
+    for (const f of families) if (f && !wanted.has(f.toLowerCase())) wanted.set(f.toLowerCase(), f);
+    const missing = [...wanted].filter(([k]) => !this.resolved.has(k) && !this.pending.has(k)).map(([, f]) => f);
+    if (missing.length) {
+      const batch = this.resolveBatch(missing).then((rs) => {
+        for (const r of rs) this.resolved.set(r.family.toLowerCase(), r);
+        return rs;
+      });
+      missing.forEach((f, i2) => {
+        const key = f.toLowerCase();
+        const p = batch.then((rs) => rs[i2]);
+        this.pending.set(key, p);
+        void p.finally(() => this.pending.delete(key)).catch(() => {
+        });
+      });
+      void batch.then((rs) => this.emit(rs.map((r) => r.family)), () => {
+      });
+    }
+    return Promise.all([...wanted].map(([k]) => this.resolved.get(k) ?? this.pending.get(k)));
+  }
+  /** Bytes de uma família ABERTA embarcada (ex.: o padrão), carregando se preciso. */
+  async bundledFaces(family = DEFAULT_FAMILY) {
+    return this.loadBundled(family);
+  }
+  /**
+   * Famílias para um seletor de fonte. Com host: as dele. Senão, as que a
+   * Local Font Access já entregou (se permitida) ou as SONDADAS pelo nome
+   * (lista PROBE_FAMILIES) + as embarcadas e as que têm substituta.
+   */
+  async listFamilies() {
+    const names = /* @__PURE__ */ new Map();
+    const add = (n) => {
+      if (n && !names.has(n.toLowerCase())) names.set(n.toLowerCase(), n);
+    };
+    for (const b of Object.values(BUNDLED)) add(b.family);
+    for (const k of Object.keys(METRIC_SUBSTITUTES)) {
+      const r = PROBE_FAMILIES.find((p) => p.toLowerCase() === k);
+      if (r) add(r);
+    }
+    for (const r of this.resolved.values()) if (r.source !== "default") add(r.family);
+    for (const n of this.env.pageFamilies(this.own).values()) add(n);
+    if (this.host) {
+      try {
+        for (const n of await (this.hostList ??= this.host.list())) add(n);
+      } catch {
+      }
+    } else if (await this.localAccessFonts()) {
+      for (const f of this.localFonts) add(f.family);
+    } else {
+      for (const p of PROBE_FAMILIES) if (this.env.isInstalled(p)) add(p);
+    }
+    return [...names.values()].sort((a, b) => a.localeCompare(b));
+  }
+  /**
+   * Pede a Local Font Access (Chromium): CHAMAR NUM GESTO DO USUÁRIO (abrir o
+   * seletor de fonte, exportar). Concedida, refaz as famílias que ficaram sem
+   * bytes (instaladas/substitutas/padrão) para usar a fonte real.
+   */
+  async requestLocalAccess() {
+    if (this.host || !this.env.localAccess) return false;
+    if (this.localFonts) return true;
+    try {
+      this.localFonts = await this.env.localAccess.query();
+    } catch {
+      return false;
+    }
+    this.invalidate((r) => r.source === "installed" || r.source === "substitute" || r.source === "default");
+    return true;
+  }
+  // ───────────────────────── internos ─────────────────────────
+  emit(families) {
+    if (!families.length) return;
+    for (const cb of this.listeners) {
+      try {
+        cb(families);
+      } catch {
+      }
+    }
+  }
+  /** Esquece resoluções (para refazer com uma fonte melhor) e avisa. */
+  invalidate(which) {
+    const again = [];
+    for (const [k, r] of this.resolved) if (which(r)) {
+      this.resolved.delete(k);
+      again.push(r.family);
+    }
+    if (again.length) void this.resolve(again);
+  }
+  async localAccessFonts() {
+    if (this.localFonts) return true;
+    const la = this.env.localAccess;
+    if (!la || !await la.granted()) return false;
+    try {
+      this.localFonts = await la.query();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async resolveBatch(families) {
+    let hostFaces = [];
+    if (this.host) {
+      try {
+        hostFaces = await this.host.resolve(families);
+      } catch {
+        hostFaces = [];
+      }
+    }
+    const byFamily = /* @__PURE__ */ new Map();
+    for (const f of hostFaces) {
+      const k = f.family.toLowerCase();
+      byFamily.set(k, [...byFamily.get(k) ?? [], f]);
+    }
+    const hasLocal = !this.host && await this.localAccessFonts();
+    const out = [];
+    for (const family of families) {
+      out.push(await this.resolveOne(family, byFamily.get(family.toLowerCase()) ?? [], hasLocal));
+    }
+    return out;
+  }
+  async resolveOne(family, hostFaces, hasLocal) {
+    const key = family.toLowerCase();
+    const result = (source, cssFamily, faces = {}, embeddable = true) => ({ family, cssFamily, source, faces, embeddable });
+    if (hostFaces.length) {
+      const faces = {};
+      let embeddable = true;
+      for (const f of hostFaces) {
+        const v = variantOf(f.bold ?? Number(f.weight) >= 600, f.style === "italic");
+        if (faces[v]) continue;
+        const bytes = new Uint8Array(f.bytes);
+        if (await this.env.addFace(family, v, bytes)) {
+          faces[v] = bytes;
+          if (f.embeddable === false) embeddable = false;
+        }
+      }
+      if (Object.keys(faces).length) {
+        this.own.add(key);
+        return result("host", family, faces, embeddable);
+      }
+    }
+    if (hasLocal && this.localFonts) {
+      const faces = {};
+      let embeddable = true;
+      const byFull = /* @__PURE__ */ new Map([
+        [key, "regular"],
+        [`${key} regular`, "regular"],
+        [`${key} bold`, "bold"],
+        [`${key} italic`, "italic"],
+        [`${key} bold italic`, "boldItalic"]
+      ]);
+      for (const fd2 of this.localFonts) {
+        const v = fd2.family.toLowerCase() === key ? variantOfStyle(fd2.style) : byFull.get((fd2.fullName ?? "").toLowerCase());
+        if (!v) continue;
+        if (faces[v]) continue;
+        try {
+          const bytes = standaloneFace(new Uint8Array(await (await fd2.blob()).arrayBuffer()), fd2.postscriptName);
+          if (await this.env.addFace(family, v, bytes)) {
+            faces[v] = bytes;
+            if (!isEmbeddable(bytes)) embeddable = false;
+          }
+        } catch {
+        }
+      }
+      if (Object.keys(faces).length) {
+        this.own.add(key);
+        return result("local-access", family, faces, embeddable);
+      }
+    }
+    if (BUNDLED[key]) {
+      const faces = await this.loadBundled(family);
+      if (Object.keys(faces).length) return result("bundled", BUNDLED[key].family, faces);
+    }
+    const page = this.env.pageFamilies(this.own).get(key);
+    if (page) {
+      await this.env.loadPageFamily(page);
+      return result("page", page);
+    }
+    if (this.env.isInstalled(family)) return result("installed", family);
+    if (await this.env.loadLocal(family, "regular")) {
+      this.own.add(key);
+      await Promise.all(VARIANTS.slice(1).map((v) => this.env.loadLocal(family, v)));
+      return result("installed", family);
+    }
+    const sub = METRIC_SUBSTITUTES[key];
+    if (sub) {
+      const faces = await this.loadBundled(sub);
+      if (Object.keys(faces).length) return result("substitute", sub, faces);
+    }
+    return result("default", DEFAULT_FAMILY, await this.loadBundled(DEFAULT_FAMILY));
+  }
+  /** Carrega (uma vez) as 4 faces de uma família embarcada da `baseUrl`. */
+  loadBundled(family) {
+    const b = BUNDLED[family.toLowerCase()];
+    if (!b || !this.baseUrl) return Promise.resolve({});
+    let p = this.bundledLoads.get(b.file);
+    if (!p) {
+      const base = this.baseUrl;
+      p = (async () => {
+        const faces = {};
+        await Promise.all(VARIANTS.map(async (v) => {
+          const bytes = await this.env.fetchBytes(`${base}/${bundledFileName(b.file, v)}`);
+          if (bytes && await this.env.addFace(b.family, v, bytes)) faces[v] = bytes;
+        }));
+        if (Object.keys(faces).length) this.own.add(b.family.toLowerCase());
+        else this.bundledLoads.delete(b.file);
+        return faces;
+      })();
+      this.bundledLoads.set(b.file, p);
+    }
+    return p;
+  }
+};
+
 // ../../node_modules/fflate/esm/browser.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -2596,10 +3331,10 @@ var AUTONUM = [
   "thaiAlphaPeriod",
   "thaiAlphaParenR"
 ];
-function spacingXml(tag, v) {
+function spacingXml(tag2, v) {
   if (v === void 0) return "";
-  if (v >= 0) return el(tag, {}, el("a:spcPct", { val: Math.round(v * 1e3) }));
-  return el(tag, {}, el("a:spcPts", { val: Math.round(-v / 8 * 100) }));
+  if (v >= 0) return el(tag2, {}, el("a:spcPct", { val: Math.round(v * 1e3) }));
+  return el(tag2, {}, el("a:spcPts", { val: Math.round(-v / 8 * 100) }));
 }
 function fontName(ctx, idx) {
   if (idx === void 0 || idx === 65535) return void 0;
@@ -2609,7 +3344,7 @@ function bulletCharStr(code) {
   const c = code >= 61440 && code <= 61695 ? code - 61440 : code;
   return String.fromCharCode(c || 8226);
 }
-function pPrXml(tag, pf, cf, ctx, extra = {}) {
+function pPrXml(tag2, pf, cf, ctx, extra = {}) {
   const left = extra.marginOverride?.left ?? pf.leftMargin ?? 0;
   const ind = extra.marginOverride?.indent ?? pf.indent ?? 0;
   const a = {
@@ -2645,8 +3380,8 @@ function pPrXml(tag, pf, cf, ctx, extra = {}) {
   if (pf.tabStops?.length) {
     kids += el("a:tabLst", {}, pf.tabStops.map((t) => el("a:tab", { pos: emu(t.pos), algn: ["l", "ctr", "r", "dec"][t.type] ?? "l" })).join(""));
   }
-  if (tag !== "a:pPr") kids += rPrXml("a:defRPr", cf, ctx);
-  return el(tag, a, kids);
+  if (tag2 !== "a:pPr") kids += rPrXml("a:defRPr", cf, ctx);
+  return el(tag2, a, kids);
 }
 var LCID = {
   1046: "pt-BR",
@@ -2695,7 +3430,7 @@ var LCID = {
   1057: "id-ID",
   1081: "hi-IN"
 };
-function rPrXml(tag, cf, ctx, link) {
+function rPrXml(tag2, cf, ctx, link) {
   const a = {
     lang: ctx.doc.docLcid !== void 0 ? LCID[ctx.doc.docLcid] : void 0,
     sz: cf.size !== void 0 && cf.size > 0 ? Math.round(cf.size * 100) : void 0,
@@ -2704,7 +3439,7 @@ function rPrXml(tag, cf, ctx, link) {
     u: cf.underline ? "sng" : void 0,
     baseline: cf.position ? Math.round(cf.position * 1e3) : void 0
   };
-  if (tag === "a:defRPr") delete a["lang"];
+  if (tag2 === "a:defRPr") delete a["lang"];
   let kids = "";
   const color = colorIndexHex(cf.color, ctx.scheme) ?? ctx.scheme[1];
   if (color) kids += el("a:solidFill", {}, el("a:srgbClr", { val: color }));
@@ -2718,7 +3453,7 @@ function rPrXml(tag, cf, ctx, link) {
   const sym = fontName(ctx, cf.symbolFont);
   if (sym) kids += el("a:sym", { typeface: sym });
   if (link) kids += el("a:hlinkClick", { "r:id": link.rid, action: link.action });
-  return el(tag, a, kids);
+  return el(tag2, a, kids);
 }
 function runLinkFor(lk, pos, ctx) {
   let l;
@@ -2876,13 +3611,13 @@ function paragraphsXml(block, ctx) {
   }
   return out;
 }
-function levelsXml(tag, ctx, textType) {
+function levelsXml(tag2, ctx, textType) {
   let kids = "";
   for (let i2 = 0; i2 < 9; i2++) {
     const st = resolveLevel(ctx, textType, Math.min(i2, 4));
     kids += pPrXml(`a:lvl${i2 + 1}pPr`, st.pf, st.cf, ctx);
   }
-  return el(tag, {}, kids);
+  return el(tag2, {}, kids);
 }
 
 // ../slides-core/src/xml.ts
@@ -3078,8 +3813,8 @@ function metroDiagram(sh) {
   const dr = parts["drs/downrev.xml"];
   const off = dr ? /<a:preciseEffectOffsets>(.*?)<\/a:preciseEffectOffsets>/.exec(strFromU8(dr))?.[1] : void 0;
   if (off) {
-    const frac2 = (tag) => {
-      const m = new RegExp(`<a:${tag} n="(-?\\d+)" d="(\\d+)"`).exec(off);
+    const frac2 = (tag2) => {
+      const m = new RegExp(`<a:${tag2} n="(-?\\d+)" d="(\\d+)"`).exec(off);
       return m && Number(m[2]) ? Number(m[1]) / Number(m[2]) : 0;
     };
     out.effect = { l: frac2("l"), t: frac2("t"), r: frac2("r"), b: frac2("b") };
@@ -3281,7 +4016,7 @@ function textRangeXml(text, st, end) {
   }
   return el("p:txEl", {}, el("p:charRg", { st, end }));
 }
-function condXml(c, w, tag = "p:cond") {
+function condXml(c, w, tag2 = "p:cond") {
   const atom = children(c).find((k) => k.type === RT.TimeCondition);
   if (!atom) return null;
   const r = atom.r, o = atom.start;
@@ -3293,11 +4028,11 @@ function condXml(c, w, tag = "p:cond") {
     inner = t;
   } else if (trigObj === 2) inner = el("p:tn", { val: id });
   else if (trigObj === 3) inner = el("p:rtn", { val: ["first", "last", "all"][id] ?? "all" });
-  return el(tag, { evt: TRIGGER_EVT[evt] || void 0, delay: delay === -1 ? "indefinite" : delay }, inner);
+  return el(tag2, { evt: TRIGGER_EVT[evt] || void 0, delay: delay === -1 ? "indefinite" : delay }, inner);
 }
-function condListXml(conds, tag, w) {
+function condListXml(conds, tag2, w) {
   const items = conds.map((c) => condXml(c, w)).filter((x2) => !!x2);
-  return items.length ? el(tag, {}, items.join("")) : "";
+  return items.length ? el(tag2, {}, items.join("")) : "";
 }
 var MAX_NODE_DEPTH = 64;
 function readNode(rec, depth = 0) {
@@ -3498,18 +4233,18 @@ function behaviorProps(bc) {
   }
   return m;
 }
-function variantVal(tag, v) {
+function variantVal(tag2, v) {
   if (v === void 0) return "";
-  if (v instanceof FloatVal) return el(tag, {}, el("p:fltVal", { val: fmtNum(v.v) }));
-  if (typeof v === "boolean") return el(tag, {}, el("p:boolVal", { val: v ? 1 : 0 }));
-  if (typeof v === "number") return el(tag, {}, Number.isInteger(v) ? el("p:intVal", { val: v }) : el("p:fltVal", { val: fmtNum(v) }));
+  if (v instanceof FloatVal) return el(tag2, {}, el("p:fltVal", { val: fmtNum(v.v) }));
+  if (typeof v === "boolean") return el(tag2, {}, el("p:boolVal", { val: v ? 1 : 0 }));
+  if (typeof v === "number") return el(tag2, {}, Number.isInteger(v) ? el("p:intVal", { val: v }) : el("p:fltVal", { val: fmtNum(v) }));
   const m = /^#([0-9a-fA-F]{6})(?:\s*\[(\d+)\])?$/.exec(v.trim());
   if (m) {
     const idx = m[2] !== void 0 ? parseInt(m[2], 10) : void 0;
     const clr = idx !== void 0 && SCHEME_NAMES[idx] ? el("a:schemeClr", { val: SCHEME_NAMES[idx] }) : el("a:srgbClr", { val: m[1].toUpperCase() });
-    return el(tag, {}, el("p:clrVal", {}, clr));
+    return el(tag2, {}, el("p:clrVal", {}, clr));
   }
-  return el(tag, {}, el("p:strVal", { val: v }));
+  return el(tag2, {}, el("p:strVal", { val: v }));
 }
 var pct = (v) => Math.round(v * 1e3);
 var frac = (v) => Math.round(v * 1e5);
@@ -4260,11 +4995,11 @@ function fillXml(sh, pc, isBackground = false) {
 var DASH = ["solid", "sysDash", "sysDot", "sysDashDot", "sysDashDotDot", "dot", "dash", "lgDash", "dashDot", "lgDashDot", "lgDashDotDot"];
 var ARROW = ["none", "triangle", "stealth", "diamond", "oval", "arrow"];
 var ARROW_SZ = ["sm", "med", "lg"];
-function arrowEnd(tag, sh, typeId, wId, lenId) {
+function arrowEnd(tag2, sh, typeId, wId, lenId) {
   const t = prop(sh, typeId) ?? 0;
   if (!t) return "";
   const w = prop(sh, wId), len = prop(sh, lenId);
-  return el(tag, {
+  return el(tag2, {
     type: ARROW[t] ?? "triangle",
     w: w !== void 0 && w !== 1 ? ARROW_SZ[w] : void 0,
     len: len !== void 0 && len !== 1 ? ARROW_SZ[len] : void 0
@@ -4341,10 +5076,10 @@ function anchorXf(sh) {
     flipV: (sh.flags & FSP.flipV) !== 0
   };
 }
-function xfrmXml(xf, tag = "a:xfrm", inner = "") {
+function xfrmXml(xf, tag2 = "a:xfrm", inner = "") {
   const rot = Math.round(xf.rot * 6e4) % 216e5;
   return el(
-    tag,
+    tag2,
     { rot: rot || void 0, flipH: xf.flipH || void 0, flipV: xf.flipV || void 0 },
     el("a:off", { x: xf.x, y: xf.y }) + el("a:ext", { cx: xf.cx, cy: xf.cy }) + inner
   );
@@ -4978,7 +5713,7 @@ var NS_ATTRS2 = { "xmlns:a": NS.a, "xmlns:r": NS.r, "xmlns:p": NS.p };
 var SLD_SZ_TYPE = { 0: "screen4x3", 1: "letter", 2: "A4", 3: "35mm", 4: "overhead", 5: "banner" };
 function themeXml(name, scheme, major, minor) {
   const c = (i2) => scheme[i2] ?? DEFAULT_SCHEME[i2];
-  const clr = (tag, v) => el(`a:${tag}`, {}, el("a:srgbClr", { val: v }));
+  const clr = (tag2, v) => el(`a:${tag2}`, {}, el("a:srgbClr", { val: v }));
   const fonts = (f) => el("a:latin", { typeface: f }) + '<a:ea typeface=""/><a:cs typeface=""/>';
   const phSolid = '<a:solidFill><a:schemeClr val="phClr"/></a:solidFill>';
   return XML_DECL + el(
@@ -5000,12 +5735,12 @@ function themeXml(name, scheme, major, minor) {
   );
 }
 function themeMatchesScheme(xml, scheme) {
-  const pick = (tag) => {
-    const m = new RegExp(`<a:${tag}>\\s*<a:(?:srgbClr val|sysClr[^>]*lastClr)="([0-9A-Fa-f]{6})"`).exec(xml);
+  const pick = (tag2) => {
+    const m = new RegExp(`<a:${tag2}>\\s*<a:(?:srgbClr val|sysClr[^>]*lastClr)="([0-9A-Fa-f]{6})"`).exec(xml);
     return m?.[1]?.toUpperCase();
   };
   const want = [["dk1", 1], ["lt1", 0], ["dk2", 3], ["lt2", 2], ["accent1", 4], ["accent2", 5]];
-  return want.every(([tag, i2]) => pick(tag) === scheme[i2]?.toUpperCase());
+  return want.every(([tag2, i2]) => pick(tag2) === scheme[i2]?.toUpperCase());
 }
 function masterById(doc, id) {
   return doc.masters.find((m) => m.slideId === id);
@@ -5811,9 +6546,9 @@ function parseConds(lst) {
     return cond;
   });
 }
-function parseCTn(tag, cTn) {
+function parseCTn(tag2, cTn) {
   const a = cTn.attrs;
-  const node = { tag, st: parseConds(firstChild(cTn, "p:stCondLst")), children: [] };
+  const node = { tag: tag2, st: parseConds(firstChild(cTn, "p:stCondLst")), children: [] };
   if (a["id"]) node.id = a["id"];
   const dur = num(a["dur"]);
   if (dur !== void 0) node.dur = dur;
@@ -5904,11 +6639,11 @@ function readVal(el2, color) {
   return {};
 }
 function parseTimeNode(el2, color) {
-  const tag = el2.name.slice(el2.name.indexOf(":") + 1);
-  if (tag === "par" || tag === "seq" || tag === "excl") {
+  const tag2 = el2.name.slice(el2.name.indexOf(":") + 1);
+  if (tag2 === "par" || tag2 === "seq" || tag2 === "excl") {
     const cTn = firstChild(el2, "p:cTn");
     if (!cTn) return null;
-    const node = parseCTn(tag, cTn);
+    const node = parseCTn(tag2, cTn);
     const lst = firstChild(cTn, "p:childTnLst");
     if (lst) for (const c of childElements(lst)) {
       const n = parseTimeNode(c, color);
@@ -5916,27 +6651,27 @@ function parseTimeNode(el2, color) {
     }
     return node;
   }
-  if (BEHAVIORS.has(tag)) {
+  if (BEHAVIORS.has(tag2)) {
     const cBhvr = firstChild(el2, "p:cBhvr");
     const cTn = cBhvr ? firstChild(cBhvr, "p:cTn") : void 0;
     if (!cBhvr || !cTn) return null;
-    const node = parseCTn(tag, cTn);
+    const node = parseCTn(tag2, cTn);
     const t = parseTarget(firstChild(cBhvr, "p:tgtEl"));
     if (t) node.target = t;
     const names = firstChild(cBhvr, "p:attrNameLst");
     if (names) node.attrNames = childElements(names, "p:attrName").map((n) => n.children.filter((c) => typeof c === "string").join(""));
     if (cBhvr.attrs["additive"]) node.additive = cBhvr.attrs["additive"];
     const a = el2.attrs;
-    if (tag === "animEffect") {
+    if (tag2 === "animEffect") {
       if (a["filter"]) node.filter = a["filter"];
       if (a["transition"]) node.transition = a["transition"];
       if (a["prLst"]) node.prLst = a["prLst"];
-    } else if (tag === "set") {
+    } else if (tag2 === "set") {
       const v = readVal(firstChild(el2, "p:to"), color);
       if (typeof v.val === "string") node.setTo = v.val;
       else if (typeof v.val === "number") node.setTo = String(v.val);
       if (v.color) node.toColor = v.color;
-    } else if (tag === "anim") {
+    } else if (tag2 === "anim") {
       if (a["calcmode"]) node.calcmode = a["calcmode"];
       if (a["valueType"]) node.valueType = a["valueType"];
       if (a["from"] !== void 0) node.from = a["from"];
@@ -5957,19 +6692,19 @@ function parseTimeNode(el2, color) {
           if (!Number.isFinite(k.tm)) k.tm = n > 1 ? i2 / (n - 1) : 0;
         });
       }
-    } else if (tag === "animScale") {
+    } else if (tag2 === "animScale") {
       const by = readXY(firstChild(el2, "p:by"), 1e5);
       const from = readXY(firstChild(el2, "p:from"), 1e5);
       const to = readXY(firstChild(el2, "p:to"), 1e5);
       if (by) node.byXY = by;
       if (from) node.fromXY = from;
       if (to) node.toXY = to;
-    } else if (tag === "animRot") {
+    } else if (tag2 === "animRot") {
       const by = num(a["by"]), from = num(a["from"]), to = num(a["to"]);
       if (by !== void 0) node.rotBy = by / 6e4;
       if (from !== void 0) node.rotFrom = from / 6e4;
       if (to !== void 0) node.rotTo = to / 6e4;
-    } else if (tag === "animMotion") {
+    } else if (tag2 === "animMotion") {
       if (a["path"]) node.path = a["path"];
       if (a["origin"]) node.origin = a["origin"];
       if (a["pathEditMode"]) node.pathEditMode = a["pathEditMode"];
@@ -5981,10 +6716,10 @@ function parseTimeNode(el2, color) {
       if (by) node.byXY = by;
       if (from) node.fromXY = from;
       if (to) node.toXY = to;
-    } else if (tag === "cmd") {
+    } else if (tag2 === "cmd") {
       if (a["cmd"] !== void 0) node.cmd = a["cmd"];
       if (a["type"]) node.cmdType = a["type"];
-    } else if (tag === "animClr") {
+    } else if (tag2 === "animClr") {
       if (a["clrSpc"]) node.clrSpc = a["clrSpc"];
       if (a["dir"]) node.clrDir = a["dir"];
       const toEl = colorChild(firstChild(el2, "p:to"));
@@ -6003,11 +6738,11 @@ function parseTimeNode(el2, color) {
     }
     return node;
   }
-  if (tag === "audio" || tag === "video") {
+  if (tag2 === "audio" || tag2 === "video") {
     const media = firstChild(el2, "p:cMediaNode");
     const cTn = media ? firstChild(media, "p:cTn") : void 0;
     if (!media || !cTn) return null;
-    const node = parseCTn(tag, cTn);
+    const node = parseCTn(tag2, cTn);
     const t = parseTarget(firstChild(media, "p:tgtEl"));
     if (t) node.target = t;
     const m = media.attrs, info = {};
@@ -6015,7 +6750,7 @@ function parseTimeNode(el2, color) {
     if (m["mute"] !== void 0) info.mute = m["mute"] === "1" || m["mute"] === "true";
     if (m["showWhenStopped"] !== void 0) info.showWhenStopped = !(m["showWhenStopped"] === "0" || m["showWhenStopped"] === "false");
     if (m["numSld"] !== void 0) info.numSld = parseInt(m["numSld"], 10);
-    if (tag === "video" && el2.attrs["fullScrn"] !== void 0) info.fullScrn = el2.attrs["fullScrn"] === "1" || el2.attrs["fullScrn"] === "true";
+    if (tag2 === "video" && el2.attrs["fullScrn"] !== void 0) info.fullScrn = el2.attrs["fullScrn"] === "1" || el2.attrs["fullScrn"] === "true";
     node.media = info;
     return node;
   }
@@ -6091,10 +6826,10 @@ function activeDur(n, ctx) {
   if (n.repeat !== void 0) d = n.repeat === Infinity ? Infinity : d * n.repeat;
   return d;
 }
-function firstOf(n, tag) {
-  if (n.tag === tag) return n;
+function firstOf(n, tag2) {
+  if (n.tag === tag2) return n;
   for (const c of n.children) {
-    const f = firstOf(c, tag);
+    const f = firstOf(c, tag2);
     if (f) return f;
   }
   return void 0;
@@ -7397,10 +8132,10 @@ function readPicMedia(nvPicPr, pkg, rels) {
   if (p14) {
     const ms = (v) => v ? parseFloat(v) || 0 : 0;
     for (const c of childElements(p14)) {
-      const tag = c.name.slice(c.name.indexOf(":") + 1);
-      if (tag === "trim") media.trim = { startMs: ms(c.attrs["st"]), endMs: ms(c.attrs["end"]) };
-      else if (tag === "fade") media.fade = { inMs: ms(c.attrs["in"]), outMs: ms(c.attrs["out"]) };
-      else if (tag === "bmkLst") {
+      const tag2 = c.name.slice(c.name.indexOf(":") + 1);
+      if (tag2 === "trim") media.trim = { startMs: ms(c.attrs["st"]), endMs: ms(c.attrs["end"]) };
+      else if (tag2 === "fade") media.fade = { inMs: ms(c.attrs["in"]), outMs: ms(c.attrs["out"]) };
+      else if (tag2 === "bmkLst") {
         media.bookmarks = childElements(c).filter((b) => b.name.endsWith(":bmk")).map((b) => ({ name: b.attrs["name"] ?? "", timeMs: ms(b.attrs["time"]) }));
       }
     }
@@ -12010,9 +12745,9 @@ function ctfToSfnt([ctf, push, code]) {
   inp.pos += 6;
   const recs = [];
   for (let i2 = 0; i2 < numTables; i2++) {
-    const tag = String.fromCharCode(...inp.bytes(4));
+    const tag2 = String.fromCharCode(...inp.bytes(4));
     inp.u32();
-    recs.push({ tag, offset: inp.u32(), length: inp.u32() });
+    recs.push({ tag: tag2, offset: inp.u32(), length: inp.u32() });
   }
   const tables = /* @__PURE__ */ new Map();
   for (const r of recs) {
@@ -12154,8 +12889,8 @@ function readEmbeddedFonts(pkg) {
     const fontEl = firstChild(ef, "p:font");
     const family = fontEl?.attrs["typeface"];
     if (!family) continue;
-    for (const [tag, variant] of VARIANT_TAGS) {
-      const v = firstChild(ef, tag);
+    for (const [tag2, variant] of VARIANT_TAGS) {
+      const v = firstChild(ef, tag2);
       const rid = v?.attrs["r:id"];
       if (!rid) continue;
       const target = rels.get(rid);
@@ -12194,6 +12929,8 @@ function collectDeckTypefaces(pkg) {
 // ../slides-core/src/render.ts
 var DEFAULT_TITLE_PT = 40;
 var DEFAULT_BODY_PT = 18;
+var DEFAULT_FONT_STACK = (family) => `'${family}', 'Aptos', Calibri, 'Liberation Sans', Arial, sans-serif`;
+var fontStack = DEFAULT_FONT_STACK;
 function boxBase(x2, y, w, h, m, extra) {
   return { x: (x2 + w / 2 - m.ox) / m.sw, y: (y + h / 2 - m.oy) / m.sh, w: w / m.sw, h: h / m.sh, ...extra };
 }
@@ -12282,6 +13019,15 @@ function firstRunColor(sh) {
   return void 0;
 }
 function paintSlideTo(ctx, slide, resources, scale, opts = {}) {
+  const prev = fontStack;
+  fontStack = opts.fontStack ?? DEFAULT_FONT_STACK;
+  try {
+    paintSlide(ctx, slide, resources, scale, opts);
+  } finally {
+    fontStack = prev;
+  }
+}
+function paintSlide(ctx, slide, resources, scale, opts) {
   const ox = opts.ox ?? 0;
   const oy = opts.oy ?? 0;
   const sw = resources.slideW * scale;
@@ -13023,7 +13769,7 @@ function planUnits(tb, layout, type, withWords) {
   };
 }
 function layoutFontStr(f, pxPerPt) {
-  return `${f.italic ? "italic " : ""}${f.bold ? "700 " : "400 "}${f.sizePt * pxPerPt}px '${f.family}', 'Aptos', Calibri, 'Liberation Sans', Arial, sans-serif`;
+  return `${f.italic ? "italic " : ""}${f.bold ? "700 " : "400 "}${f.sizePt * pxPerPt}px ${fontStack(f.family)}`;
 }
 function paintTable(ctx, t, x2, y, w, h, scale) {
   const allZeroRows = t.rows.every((r) => !r.heightEmu);
@@ -13488,9 +14234,10 @@ async function seekTo(el2, time, timeoutMs) {
 
 // src/universal-presentation-viewer.ts
 var NO_TIMING2 = { steps: [], interactive: [], hidden: false };
+var MISSING_FONT_FALLBACKS = ["Aptos", "Calibri"];
 var NEXT_KEYS = /* @__PURE__ */ new Set(["ArrowRight", "ArrowDown", "PageDown", " ", "Enter", "n", "N"]);
 var PREV_KEYS = /* @__PURE__ */ new Set(["ArrowLeft", "ArrowUp", "PageUp", "Backspace", "p", "P"]);
-var UniversalPresentationViewerElement = class _UniversalPresentationViewerElement extends HTMLElement {
+var UniversalPresentationViewerElement = class extends HTMLElement {
   host = this.attachShadow({ mode: "open" });
   canvas = document.createElement("canvas");
   badge = document.createElement("div");
@@ -13560,6 +14307,7 @@ var UniversalPresentationViewerElement = class _UniversalPresentationViewerEleme
     this.resizeObs.observe(this.canvas);
     this.watchDpr();
     this.restoreParkedFonts();
+    this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.paint());
     this.resize();
     this.paint();
     document.fonts?.ready.then(() => this.paint()).catch(() => {
@@ -13579,6 +14327,8 @@ var UniversalPresentationViewerElement = class _UniversalPresentationViewerEleme
     this.stopPlayback();
     this.media.dispose();
     this.parkFonts();
+    this.unsubscribeFonts?.();
+    this.unsubscribeFonts = null;
   }
   attributeChangedCallback(name, oldV, newV) {
     if (name === "src" && newV && newV !== oldV && this.isConnected && newV !== this.srcUrl) void this.loadSrc(newV);
@@ -13619,36 +14369,24 @@ var UniversalPresentationViewerElement = class _UniversalPresentationViewerEleme
     this.dprWatch.mq.removeEventListener("change", this.dprWatch.onChange);
     this.dprWatch = null;
   }
-  // ───────────────────────── FONTES (lógica do Universal Write) ─────────────────────────
-  // 1 fonte DEFAULT embarcada (Liberation Sans, via atributo `fonts` = base URL),
-  // fontes EMBUTIDAS no arquivo (p:embeddedFontLst) e fontes do SO carregadas
-  // SOB DEMANDA (queryLocalFonts) para as famílias que o deck realmente usa.
+  // ───────────────────────── FONTES ─────────────────────────
+  // Fontes EMBUTIDAS no arquivo (p:embeddedFontLst) são deste viewer (ciclo de
+  // vida do deck); todo o resto — padrão (Liberation Sans, base do atributo
+  // `fonts`), fontes do SO/host, instaladas, substitutas abertas — vem do
+  // resolvedor ÚNICO dos apps (shared/fonts), o mesmo do Write e do Sheet.
   /** Famílias com FontFace carregado (embutidas/SO/default). */
   loadedFamilyNames = /* @__PURE__ */ new Set();
   defaultFontsInstalled = false;
-  /** Busca os assets default (Liberation Sans) da base do atributo `fonts`. */
+  /** Fonte padrão (Liberation Sans) pela base do atributo `fonts` — via o
+   *  resolvedor único (sem base configurada: o host já registrou @font-face). */
   async installDefaultFonts() {
     if (this.defaultFontsInstalled) return;
     this.defaultFontsInstalled = true;
-    const base = this.getAttribute("fonts");
-    if (!base) return;
-    const files = [
-      ["liberationsans-regular.ttf", "400", "normal"],
-      ["liberationsans-bold.ttf", "700", "normal"],
-      ["liberationsans-italic.ttf", "400", "italic"],
-      ["liberationsans-bolditalic.ttf", "700", "italic"]
-    ];
-    for (const [file, weight, style] of files) {
-      try {
-        const res = await fetch(`${base.replace(/\/$/, "")}/${file}`);
-        if (!res.ok) continue;
-        const face = new FontFace("Liberation Sans", await res.arrayBuffer(), { weight, style });
-        document.fonts.add(await face.load());
-        this.loadedFamilyNames.add("Liberation Sans");
-      } catch {
-      }
-    }
-    if (this.loadedFamilyNames.has("Liberation Sans")) this.paint();
+    this.fontResolver.suggestBaseUrl(this.getAttribute("fonts"));
+    const faces = await this.fontResolver.bundledFaces();
+    if (!Object.keys(faces).length) return;
+    this.loadedFamilyNames.add("Liberation Sans");
+    this.paint();
   }
   /** Carregamentos das fontes embutidas do deck atual (ver `fontsReady`). */
   embeddedFontLoads = [];
@@ -13701,12 +14439,13 @@ var UniversalPresentationViewerElement = class _UniversalPresentationViewerEleme
     for (const f of this.parkedFaces) document.fonts.add(f);
     this.parkedFaces = [];
   }
-  /**
-   * Fontes do SO por família fornecidas pelo HOST (ex.: o Electron lê
-   * Windows\Fonts + o cache CloudFonts do Office, invisível ao
-   * `queryLocalFonts`). Ausente: `queryLocalFonts` (Chromium, com permissão).
-   */
-  static systemFontResolver = null;
+  /** Resolvedor de fontes ÚNICO dos apps (shared/fonts): host, Local Font
+   *  Access, instaladas pelo nome, substitutas abertas, padrão. */
+  fontResolver = FontResolver.shared();
+  unsubscribeFonts = null;
+  /** Pilha CSS de uma família do texto: a EMBUTIDA no deck, se houver;
+   *  senão a que o resolvedor escolheu (vai em `PaintSlideOptions.fontStack`). */
+  fontStackFor = (family) => this.embeddedFamilies.has(family) ? `"${family.replace(/["\\]/g, "\\$&")}", "Liberation Sans", sans-serif` : this.fontResolver.cssStack(family, MISSING_FONT_FALLBACKS);
   /**
    * Resolve quando as fontes EMBUTIDAS do deck terminaram de carregar (ou
    * falharam) e o conjunto de fontes do documento assentou — antes disso o
@@ -13718,61 +14457,15 @@ var UniversalPresentationViewerElement = class _UniversalPresentationViewerEleme
     await document.fonts?.ready;
   }
   /**
-   * Carrega SOB DEMANDA as fontes do SO usadas pelo deck e ainda não
-   * disponíveis (queryLocalFonts — Chromium/Electron). Sem permissão/API,
-   * o fallback CSS (default → Aptos → Calibri → Arial) cobre.
+   * Resolve as fontes usadas pelo deck (resolvedor único: do host, instaladas,
+   * substitutas abertas…); as embutidas no arquivo têm precedência (ver
+   * fontStackFor). O aviso de onChange repinta quando chegarem.
    */
   async ensureDeckFonts(pkg) {
-    const wanted = collectDeckTypefaces(pkg).filter((fam) => !this.loadedFamilyNames.has(fam)).filter((fam) => {
-      try {
-        return !document.fonts.check(`12px "${fam}"`);
-      } catch {
-        return true;
-      }
-    });
+    const wanted = collectDeckTypefaces(pkg).filter((fam) => !this.embeddedFamilies.has(fam));
     if (!wanted.length) return;
-    const resolver = _UniversalPresentationViewerElement.systemFontResolver;
-    if (resolver) {
-      let added2 = false;
-      try {
-        for (const f of await resolver(wanted)) {
-          try {
-            document.fonts.add(await new FontFace(f.family, f.bytes, { weight: f.weight, style: f.style }).load());
-            this.loadedFamilyNames.add(f.family);
-            added2 = true;
-          } catch {
-          }
-        }
-      } catch {
-      }
-      if (added2 && this.pkg === pkg) this.paint();
-      return;
-    }
-    const qlf = window.queryLocalFonts;
-    if (!qlf) return;
-    let faces;
-    try {
-      faces = await qlf.call(window);
-    } catch {
-      return;
-    }
-    const wantSet = new Set(wanted.map((f) => f.toLowerCase()));
-    let added = false;
-    for (const fd2 of faces) {
-      if (!wantSet.has(fd2.family.toLowerCase())) continue;
-      const styleLc = fd2.style.toLowerCase();
-      const weight = /bold|black|heavy|semibold|demi/.test(styleLc) ? "700" : "400";
-      const style = /italic|oblique/.test(styleLc) ? "italic" : "normal";
-      try {
-        const bytes = await (await fd2.blob()).arrayBuffer();
-        const face = new FontFace(fd2.family, bytes, { weight, style });
-        document.fonts.add(await face.load());
-        this.loadedFamilyNames.add(fd2.family);
-        added = true;
-      } catch {
-      }
-    }
-    if (added) this.paint();
+    await this.fontResolver.resolve(wanted);
+    if (this.pkg === pkg) this.paint();
   }
   /** True quando uma subclasse está com edição inline aberta (viewer: nunca). */
   isEditing() {
@@ -14166,6 +14859,7 @@ var UniversalPresentationViewerElement = class _UniversalPresentationViewerEleme
     }, fit.scale, {
       ox: fit.ox,
       oy: fit.oy,
+      fontStack: this.fontStackFor,
       // motor SMIL: cada forma toca os comportamentos gravados no arquivo
       shapeAnim: (sh) => sh.inherited || !ps.effects.length ? null : shapeAnimHooks(
         ps.effects,
@@ -14301,7 +14995,7 @@ var UniversalPresentationViewerElement = class _UniversalPresentationViewerEleme
       slideH: this.pres.slideH,
       images: this.readyImages(slide),
       charts: this.chartCache
-    }, scale, { ox, oy });
+    }, scale, { ox, oy, fontStack: this.fontStackFor });
     return true;
   }
   /**
@@ -14325,7 +15019,7 @@ var UniversalPresentationViewerElement = class _UniversalPresentationViewerEleme
       slideH: this.pres.slideH,
       images: this.readyImages(slide),
       charts: this.chartCache
-    }, pxWidth / this.pres.slideW);
+    }, pxWidth / this.pres.slideW, { fontStack: this.fontStackFor });
     return true;
   }
   onKeyDown = (e) => {
@@ -14451,7 +15145,7 @@ var UniversalPresentationViewerElement = class _UniversalPresentationViewerEleme
       this.badge.textContent = "";
       return;
     }
-    const paintOpts = { ox: fit.ox, oy: fit.oy };
+    const paintOpts = { ox: fit.ox, oy: fit.oy, fontStack: this.fontStackFor };
     const suppress = this.suppressTextIdx();
     if (suppress !== void 0) paintOpts.suppressTextShapeIdx = suppress;
     paintSlideTo(ctx, slide, {

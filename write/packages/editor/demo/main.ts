@@ -1,4 +1,6 @@
-import { UniversalWriteElement, type ViewMode, type SystemFontProvider } from '../src/universal-write.js';
+import '../src/universal-write.js';
+import type { UniversalWriteElement, ViewMode } from '../src/universal-write.js';
+import { FontResolver, type HostFontProvider } from '@universal-office/fonts';
 import '@universal-office/compare';
 import type { UniversalWriteDiffElement } from '@universal-office/compare';
 import { createMentionPlugin } from '../src/mention-plugin.js';
@@ -13,13 +15,17 @@ import '@universal-material/web/button/icon-button.js';
 import '@universal-material/web/dialog/dialog.js';
 
 // Electron: fontes do SO pela ponte do main process (Windows\Fonts + fontes do
-// usuário + cache CloudFonts do Office, que o queryLocalFonts não enxerga)
+// usuário + cache CloudFonts do Office, que o queryLocalFonts não enxerga) —
+// configurado no resolvedor ÚNICO dos apps (shared/fonts)
 const fontBridge = (window as unknown as {
-  wordnext?: { listFonts?: SystemFontProvider['list']; resolveFonts?: SystemFontProvider['resolve'] };
+  wordnext?: { listFonts?: HostFontProvider['list']; resolveFonts?: HostFontProvider['resolve'] };
 }).wordnext;
-if (fontBridge?.listFonts && fontBridge.resolveFonts) {
-  UniversalWriteElement.systemFonts = { list: fontBridge.listFonts, resolve: fontBridge.resolveFonts };
-}
+FontResolver.shared().configure({
+  baseUrl: './fonts',
+  host: fontBridge?.listFonts && fontBridge.resolveFonts
+    ? { list: fontBridge.listFonts, resolve: fontBridge.resolveFonts }
+    : null,
+});
 
 const wn = document.getElementById('wn') as UniversalWriteElement;
 wn.use(createMentionPlugin());
@@ -607,9 +613,10 @@ const onSel = (id: string, fn: (v: string) => void) =>
   $(id).addEventListener('change', (e) => { fn((e.target as HTMLSelectElement).value); wn.focusEditor(); });
 onSel('style', (v) => wn.applyStyle(v || undefined));
 onSel('font', (v) => wn.setFontFamily(v));
-// Electron: o seletor de fonte lista as fontes instaladas no SO (+ as já
-// carregadas). No navegador fica com as opções fixas do HTML.
-if (UniversalWriteElement.systemFonts) {
+// Seletor de fonte: o que o resolvedor enxerga — no Electron, todas as do SO;
+// no navegador, as instaladas descobertas pelo nome + as abertas embarcadas.
+// No Chromium, o 1º gesto no seletor pede a Local Font Access (lista completa).
+const fillFontSelect = (): void => {
   void wn.listAvailableFonts().then((families) => {
     const fs = $('font') as HTMLSelectElement;
     const fixed = [...fs.options].filter((o) => !o.dataset['dyn']).map((o) => o.value);
@@ -617,7 +624,14 @@ if (UniversalWriteElement.systemFonts) {
     fs.replaceChildren(...all.map((f) => new Option(f, f)));
     syncToolbar(); // re-seleciona a fonte do cursor
   });
-}
+};
+fillFontSelect();
+let fontAccessAsked = false;
+$('font').addEventListener('mousedown', () => {
+  if (fontAccessAsked || FontResolver.shared().hasHost) return;
+  fontAccessAsked = true;
+  void wn.requestSystemFonts().then((ok) => { if (ok) fillFontSelect(); });
+});
 onSel('highlight', (v) => wn.setHighlight(v || undefined));
 onSel('spacing', (v) => wn.setLineSpacing(parseInt(v, 10)));
 onSel('spaceAfter', (v) => wn.setSpaceAfter(v === '' ? undefined : parseInt(v, 10)));

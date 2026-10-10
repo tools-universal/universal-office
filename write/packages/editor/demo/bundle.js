@@ -5804,14 +5804,20 @@ function buildToolbar(el, editor) {
     fontSel.value = cur;
   };
   fillFonts(editor.knownFontFamilies());
-  let sysFontsRequested = false;
-  const loadSysFonts = () => {
-    if (sysFontsRequested) return;
-    sysFontsRequested = true;
+  const listFonts = () => {
     void editor.listAvailableFonts().then(fillFonts);
   };
-  fontSel.addEventListener("mousedown", loadSysFonts);
-  fontSel.addEventListener("focus", loadSysFonts);
+  listFonts();
+  let accessAsked = false;
+  const askFontAccess = () => {
+    if (accessAsked || editor.hasHostSystemFonts()) return;
+    accessAsked = true;
+    void editor.requestSystemFonts().then((ok) => {
+      if (ok) listFonts();
+    });
+  };
+  fontSel.addEventListener("mousedown", askFontAccess);
+  fontSel.addEventListener("focus", askFontAccess);
   sizeInp.addEventListener("change", () => {
     const v2 = Number(sizeInp.value);
     if (v2 > 0) editor.setFontSize(v2);
@@ -5835,12 +5841,10 @@ function buildToolbar(el, editor) {
   let lastFontCount = 0;
   return () => {
     syncStyleOptions();
-    if (!sysFontsRequested && editor.hasHostSystemFonts()) loadSysFonts();
     const known = editor.knownFontFamilies();
     if (known.length !== lastFontCount && document.activeElement !== fontSel) {
       lastFontCount = known.length;
-      if (sysFontsRequested) void editor.listAvailableFonts().then(fillFonts);
-      else fillFonts(known);
+      listFonts();
     }
     const st = editor.getSelectionState();
     const run = st.run;
@@ -7227,8 +7231,8 @@ function readEmbeddedFonts(pkg) {
   for (const font of childElements(root, "w:font")) {
     const family = font.attrs["w:name"];
     if (!family) continue;
-    for (const [tag, variant] of Object.entries(EMBED_TAGS)) {
-      const embed = firstChild(font, tag);
+    for (const [tag2, variant] of Object.entries(EMBED_TAGS)) {
+      const embed = firstChild(font, tag2);
       if (!embed) continue;
       const rid = embed.attrs["r:id"];
       const fontKey = embed.attrs["w:fontKey"];
@@ -7440,8 +7444,8 @@ function readRunsInto(runs, container, ctx, inherit) {
     } else if (child.name === "w:sdt") {
       const content = findDeep(child, "w:sdtContent");
       const sdtPr = firstChild(child, "w:sdtPr");
-      const tag = sdtPr ? firstChild(sdtPr, "w:tag")?.attrs["w:val"] : void 0;
-      const custom = parseCustomInlineTag(tag);
+      const tag2 = sdtPr ? firstChild(sdtPr, "w:tag")?.attrs["w:val"] : void 0;
+      const custom = parseCustomInlineTag(tag2);
       if (content && custom) {
         const nested = [];
         readRunsInto(nested, content, ctx, inherit);
@@ -7460,9 +7464,9 @@ function readRunsInto(runs, container, ctx, inherit) {
   }
 }
 var CUSTOM_INLINE_TAG_PREFIX = "wordnext:inline:";
-function parseCustomInlineTag(tag) {
-  if (!tag?.startsWith(CUSTOM_INLINE_TAG_PREFIX)) return void 0;
-  const payload = tag.slice(CUSTOM_INLINE_TAG_PREFIX.length);
+function parseCustomInlineTag(tag2) {
+  if (!tag2?.startsWith(CUSTOM_INLINE_TAG_PREFIX)) return void 0;
+  const payload = tag2.slice(CUSTOM_INLINE_TAG_PREFIX.length);
   const split = payload.indexOf(":");
   if (split <= 0) return void 0;
   const type = payload.slice(0, split);
@@ -8227,12 +8231,12 @@ function runXml(run) {
     }
     const json = JSON.stringify(run.custom.data);
     if (json === void 0) throw new Error(`dados do inline "${type}" n\xE3o s\xE3o serializ\xE1veis em JSON`);
-    const tag = `wordnext:inline:${type}:${encodeURIComponent(json)}`;
+    const tag2 = `wordnext:inline:${type}:${encodeURIComponent(json)}`;
     const fallbackRun = {
       text: run.custom.fallbackText,
       props: run.props
     };
-    return `<w:sdt><w:sdtPr><w:alias w:val="${escAttr(run.custom.fallbackText)}"/><w:tag w:val="${escAttr(tag)}"/><w:lock w:val="sdtLocked"/></w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`;
+    return `<w:sdt><w:sdtPr><w:alias w:val="${escAttr(run.custom.fallbackText)}"/><w:tag w:val="${escAttr(tag2)}"/><w:lock w:val="sdtLocked"/></w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`;
   }
   if (run.image) {
     if (run.image.rawDrawingXml) {
@@ -8372,8 +8376,8 @@ function sectPrInner(s4, refs = []) {
   const pgNumType = s4.pgNumStart !== void 0 ? `<w:pgNumType w:start="${s4.pgNumStart}"/>` : "";
   return `${refsXml}<w:pgSz w:w="${s4.pageWidthTwips}" w:h="${s4.pageHeightTwips}"${orient}/><w:pgMar w:top="${s4.marginTopTwips}" w:right="${s4.marginRightTwips}" w:bottom="${s4.marginBottomTwips}" w:left="${s4.marginLeftTwips}" w:header="${s4.headerDistanceTwips ?? 720}" w:footer="${s4.footerDistanceTwips ?? 720}" w:gutter="0"/>${cols}${pgNumType}${titlePg}`;
 }
-function borderXml(tag, e8) {
-  return `<w:${tag} w:val="${escAttr(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="0" w:color="${e8.color ? escAttr(e8.color) : "auto"}"/>`;
+function borderXml(tag2, e8) {
+  return `<w:${tag2} w:val="${escAttr(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="0" w:color="${e8.color ? escAttr(e8.color) : "auto"}"/>`;
 }
 function borderSetXml(wrap, b5, sides) {
   let inner = "";
@@ -8423,8 +8427,8 @@ function numberingXml() {
 }
 var W_NS_HF = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 function serializeHfPart(kind, paragraphs) {
-  const tag = kind === "header" ? "w:hdr" : "w:ftr";
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><${tag} ${W_NS_HF}>` + paragraphs.map(paraXml).join("") + `</${tag}>`;
+  const tag2 = kind === "header" ? "w:hdr" : "w:ftr";
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><${tag2} ${W_NS_HF}>` + paragraphs.map(paraXml).join("") + `</${tag2}>`;
 }
 function writeDocument(pkg, model, hfParts = [], opts = {}) {
   mediaOut = [];
@@ -8549,6 +8553,741 @@ function writeDocument(pkg, model, hfParts = [], opts = {}) {
   }
 }
 
+// ../../../shared/fonts/src/catalog.ts
+var DEFAULT_FAMILY = "Liberation Sans";
+var BUNDLED = {
+  "liberation sans": { family: "Liberation Sans", file: "liberationsans" },
+  "liberation serif": { family: "Liberation Serif", file: "liberationserif" },
+  "liberation mono": { family: "Liberation Mono", file: "liberationmono" },
+  carlito: { family: "Carlito", file: "carlito" },
+  caladea: { family: "Caladea", file: "caladea" }
+};
+function bundledFileName(file, v2) {
+  return `${file}-${v2.toLowerCase()}.ttf`;
+}
+var METRIC_SUBSTITUTES = {
+  calibri: "Carlito",
+  cambria: "Caladea",
+  arial: "Liberation Sans",
+  "arial mt": "Liberation Sans",
+  helvetica: "Liberation Sans",
+  arimo: "Liberation Sans",
+  "times new roman": "Liberation Serif",
+  times: "Liberation Serif",
+  tinos: "Liberation Serif",
+  "courier new": "Liberation Mono",
+  courier: "Liberation Mono",
+  cousine: "Liberation Mono"
+};
+var PROBE_FAMILIES = [
+  // Windows
+  "Arial",
+  "Arial Black",
+  "Bahnschrift",
+  "Calibri",
+  "Calibri Light",
+  "Cambria",
+  "Cambria Math",
+  "Candara",
+  "Comic Sans MS",
+  "Consolas",
+  "Constantia",
+  "Corbel",
+  "Courier New",
+  "Ebrima",
+  "Franklin Gothic Medium",
+  "Gabriola",
+  "Gadugi",
+  "Georgia",
+  "Impact",
+  "Ink Free",
+  "Javanese Text",
+  "Leelawadee UI",
+  "Lucida Console",
+  "Lucida Sans Unicode",
+  "Malgun Gothic",
+  "Microsoft Himalaya",
+  "Microsoft JhengHei",
+  "Microsoft New Tai Lue",
+  "Microsoft PhagsPa",
+  "Microsoft Sans Serif",
+  "Microsoft Tai Le",
+  "Microsoft YaHei",
+  "Microsoft Yi Baiti",
+  "MingLiU-ExtB",
+  "Mongolian Baiti",
+  "MS Gothic",
+  "MV Boli",
+  "Myanmar Text",
+  "Nirmala UI",
+  "Palatino Linotype",
+  "Segoe Print",
+  "Segoe Script",
+  "Segoe UI",
+  "Segoe UI Black",
+  "Segoe UI Emoji",
+  "Segoe UI Historic",
+  "Segoe UI Light",
+  "Segoe UI Semibold",
+  "Segoe UI Semilight",
+  "Segoe UI Symbol",
+  "SimSun",
+  "Sitka Text",
+  "Sylfaen",
+  "Symbol",
+  "Tahoma",
+  "Times New Roman",
+  "Trebuchet MS",
+  "Verdana",
+  "Webdings",
+  "Wingdings",
+  "Yu Gothic",
+  // instaladas pelo Office (pasta de fontes do Windows)
+  "Agency FB",
+  "Algerian",
+  "Arial Narrow",
+  "Arial Rounded MT Bold",
+  "Baskerville Old Face",
+  "Bauhaus 93",
+  "Bell MT",
+  "Berlin Sans FB",
+  "Bernard MT Condensed",
+  "Book Antiqua",
+  "Bookman Old Style",
+  "Bradley Hand ITC",
+  "Britannic Bold",
+  "Broadway",
+  "Brush Script MT",
+  "Californian FB",
+  "Calisto MT",
+  "Castellar",
+  "Centaur",
+  "Century",
+  "Century Gothic",
+  "Century Schoolbook",
+  "Chiller",
+  "Colonna MT",
+  "Cooper Black",
+  "Copperplate Gothic Bold",
+  "Curlz MT",
+  "Edwardian Script ITC",
+  "Elephant",
+  "Engravers MT",
+  "Eras Medium ITC",
+  "Felix Titling",
+  "Footlight MT Light",
+  "Forte",
+  "Franklin Gothic Book",
+  "Freestyle Script",
+  "French Script MT",
+  "Garamond",
+  "Gigi",
+  "Gill Sans MT",
+  "Gloucester MT Extra Condensed",
+  "Goudy Old Style",
+  "Haettenschweiler",
+  "Harlow Solid Italic",
+  "Harrington",
+  "High Tower Text",
+  "Imprint MT Shadow",
+  "Informal Roman",
+  "Jokerman",
+  "Juice ITC",
+  "Kristen ITC",
+  "Kunstler Script",
+  "Lucida Bright",
+  "Lucida Calligraphy",
+  "Lucida Fax",
+  "Lucida Handwriting",
+  "Lucida Sans",
+  "Lucida Sans Typewriter",
+  "Magneto",
+  "Maiandra GD",
+  "Matura MT Script Capitals",
+  "Mistral",
+  "Modern No. 20",
+  "Monotype Corsiva",
+  "Niagara Engraved",
+  "Old English Text MT",
+  "Onyx",
+  "Palace Script MT",
+  "Papyrus",
+  "Parchment",
+  "Perpetua",
+  "Playbill",
+  "Poor Richard",
+  "Pristina",
+  "Rage Italic",
+  "Ravie",
+  "Rockwell",
+  "Script MT Bold",
+  "Showcard Gothic",
+  "Snap ITC",
+  "Stencil",
+  "Tempus Sans ITC",
+  "Tw Cen MT",
+  "Viner Hand ITC",
+  "Vivaldi",
+  "Vladimir Script",
+  "Wide Latin",
+  // macOS
+  "American Typewriter",
+  "Andale Mono",
+  "Apple Chancery",
+  "Avenir",
+  "Avenir Next",
+  "Baskerville",
+  "Big Caslon",
+  "Chalkboard",
+  "Charter",
+  "Cochin",
+  "Copperplate",
+  "Didot",
+  "Futura",
+  "Geneva",
+  "Gill Sans",
+  "Helvetica",
+  "Helvetica Neue",
+  "Hoefler Text",
+  "Lucida Grande",
+  "Marker Felt",
+  "Menlo",
+  "Monaco",
+  "Optima",
+  "Palatino",
+  "Rockwell",
+  "SF Pro",
+  "Skia",
+  "Snell Roundhand",
+  "Times",
+  "Trattatello",
+  "Zapfino",
+  // Linux / abertas comuns
+  "Cantarell",
+  "DejaVu Sans",
+  "DejaVu Sans Mono",
+  "DejaVu Serif",
+  "Droid Sans",
+  "Fira Sans",
+  "Fira Mono",
+  "Inter",
+  "Lato",
+  "Montserrat",
+  "Noto Sans",
+  "Noto Serif",
+  "Noto Sans Mono",
+  "Open Sans",
+  "Oswald",
+  "Poppins",
+  "PT Sans",
+  "PT Serif",
+  "Raleway",
+  "Roboto",
+  "Roboto Mono",
+  "Source Sans Pro",
+  "Source Serif Pro",
+  "Ubuntu",
+  "Ubuntu Mono"
+];
+
+// ../../../shared/fonts/src/types.ts
+var VARIANTS = ["regular", "bold", "italic", "boldItalic"];
+function variantOf(bold, italic) {
+  return bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
+}
+function isBoldVariant(v2) {
+  return v2 === "bold" || v2 === "boldItalic";
+}
+function isItalicVariant(v2) {
+  return v2 === "italic" || v2 === "boldItalic";
+}
+function faceDescriptors(v2) {
+  return { weight: isBoldVariant(v2) ? "700" : "400", style: isItalicVariant(v2) ? "italic" : "normal" };
+}
+function variantOfStyle(style) {
+  const s4 = (style ?? "Regular").toLowerCase().replace(/\s+/g, " ").trim();
+  switch (s4) {
+    case "regular":
+    case "normal":
+    case "roman":
+    case "":
+      return "regular";
+    case "bold":
+      return "bold";
+    case "italic":
+    case "oblique":
+      return "italic";
+    case "bold italic":
+    case "bold oblique":
+      return "boldItalic";
+    default:
+      return null;
+  }
+}
+
+// ../../../shared/fonts/src/environment.ts
+var PROBE_TEXT = "mmmmmmmmmmlli1WQ@#\u03A9\u03B2";
+var GENERICS = ["monospace", "serif", "sans-serif"];
+var cssName = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
+var unquote = (s4) => s4.trim().replace(/^(["'])(.*)\1$/, "$2");
+function browserEnvironment() {
+  let ctx = null;
+  const context = () => {
+    if (ctx) return ctx;
+    ctx = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(8, 8).getContext("2d") : document.createElement("canvas").getContext("2d");
+    return ctx;
+  };
+  const width = (font) => {
+    const c4 = context();
+    if (!c4) return 0;
+    c4.font = font;
+    return c4.measureText(PROBE_TEXT).width;
+  };
+  const baseWidths = /* @__PURE__ */ new Map();
+  const generic = (g2) => {
+    let w2 = baseWidths.get(g2);
+    if (w2 === void 0) baseWidths.set(g2, w2 = width(`72px ${g2}`));
+    return w2;
+  };
+  const qlf = typeof window !== "undefined" ? window.queryLocalFonts : void 0;
+  return {
+    // Mede o texto com a família + uma genérica; se a largura mudar em
+    // alguma das três genéricas, o navegador achou a família.
+    isInstalled(family) {
+      return GENERICS.some((g2) => width(`72px ${cssName(family)}, ${g2}`) !== generic(g2));
+    },
+    async loadLocal(family, v2) {
+      const names = v2 === "regular" ? [family, `${family} Regular`] : v2 === "bold" ? [`${family} Bold`] : v2 === "italic" ? [`${family} Italic`] : [`${family} Bold Italic`];
+      for (const n5 of names) {
+        try {
+          const face = new FontFace(family, `local(${cssName(n5)})`, faceDescriptors(v2));
+          await face.load();
+          document.fonts.add(face);
+          return true;
+        } catch {
+        }
+      }
+      return false;
+    },
+    async addFace(family, v2, bytes) {
+      try {
+        const face = new FontFace(family, bytes.slice().buffer, faceDescriptors(v2));
+        await face.load();
+        document.fonts.add(face);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    pageFamilies(exclude) {
+      const out = /* @__PURE__ */ new Map();
+      if (typeof document === "undefined" || !document.fonts) return out;
+      for (const f3 of document.fonts) {
+        const name = unquote(f3.family);
+        const key = name.toLowerCase();
+        if (!exclude.has(key)) out.set(key, name);
+      }
+      return out;
+    },
+    async loadPageFamily(family) {
+      const n5 = cssName(family);
+      await Promise.allSettled([
+        document.fonts.load(`16px ${n5}`),
+        document.fonts.load(`bold 16px ${n5}`),
+        document.fonts.load(`italic 16px ${n5}`),
+        document.fonts.load(`italic bold 16px ${n5}`)
+      ]);
+    },
+    async fetchBytes(url) {
+      try {
+        const res = await fetch(url);
+        return res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
+      } catch {
+        return null;
+      }
+    },
+    localAccess: typeof qlf === "function" ? {
+      async granted() {
+        try {
+          const st = await navigator.permissions.query({ name: "local-fonts" });
+          return st.state === "granted";
+        } catch {
+          return false;
+        }
+      },
+      query: () => qlf.call(window)
+    } : null
+  };
+}
+
+// ../../../shared/fonts/src/sfnt.ts
+var tag = (v2, p3) => String.fromCharCode(v2.getUint8(p3), v2.getUint8(p3 + 1), v2.getUint8(p3 + 2), v2.getUint8(p3 + 3));
+function tableOf(v2, base, want) {
+  const num = v2.getUint16(base + 4);
+  for (let i7 = 0; i7 < num; i7++) {
+    const p3 = base + 12 + i7 * 16;
+    if (tag(v2, p3) === want) return { off: v2.getUint32(p3 + 8), len: v2.getUint32(p3 + 12) };
+  }
+  return null;
+}
+function isEmbeddable(bytes) {
+  try {
+    const v2 = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const os2 = tableOf(v2, 0, "OS/2");
+    if (!os2 || os2.len < 10) return true;
+    const fsType = v2.getUint16(os2.off + 8);
+    return !(fsType & 2 && !(fsType & 12)) && !(fsType & 512);
+  } catch {
+    return true;
+  }
+}
+function postscriptName(v2, base) {
+  const name = tableOf(v2, base, "name");
+  if (!name) return null;
+  const count = v2.getUint16(name.off + 2);
+  const strOff = name.off + v2.getUint16(name.off + 4);
+  for (let i7 = 0; i7 < count; i7++) {
+    const r6 = name.off + 6 + i7 * 12;
+    if (v2.getUint16(r6 + 6) !== 6) continue;
+    const platform = v2.getUint16(r6), len = v2.getUint16(r6 + 8), o8 = strOff + v2.getUint16(r6 + 10);
+    let s4 = "";
+    if (platform === 3 || platform === 0) for (let k2 = 0; k2 + 1 < len; k2 += 2) s4 += String.fromCharCode(v2.getUint16(o8 + k2));
+    else for (let k2 = 0; k2 < len; k2++) s4 += String.fromCharCode(v2.getUint8(o8 + k2));
+    if (s4) return s4;
+  }
+  return null;
+}
+function standaloneFace(bytes, wantPostscript) {
+  const v2 = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.length < 12 || tag(v2, 0) !== "ttcf") return bytes;
+  const numFonts = v2.getUint32(8);
+  let base = v2.getUint32(12);
+  if (wantPostscript) {
+    for (let i7 = 0; i7 < numFonts; i7++) {
+      const b5 = v2.getUint32(12 + i7 * 4);
+      if (postscriptName(v2, b5) === wantPostscript) {
+        base = b5;
+        break;
+      }
+    }
+  }
+  const num = v2.getUint16(base + 4);
+  const recs = [];
+  for (let i7 = 0; i7 < num; i7++) {
+    const o8 = base + 12 + i7 * 16;
+    const off = v2.getUint32(o8 + 8), len = v2.getUint32(o8 + 12);
+    if (off + len > bytes.length) throw new RangeError("tabela fora do arquivo");
+    recs.push({ o: o8, off, len });
+  }
+  const headerLen = 12 + num * 16;
+  const out = new Uint8Array(recs.reduce((n5, r6) => n5 + (r6.len + 3 & ~3), headerLen));
+  const ov = new DataView(out.buffer);
+  out.set(bytes.subarray(base, base + 12), 0);
+  let pos = headerLen;
+  recs.forEach((r6, i7) => {
+    const d3 = 12 + i7 * 16;
+    out.set(bytes.subarray(r6.o, r6.o + 8), d3);
+    ov.setUint32(d3 + 8, pos);
+    ov.setUint32(d3 + 12, r6.len);
+    out.set(bytes.subarray(r6.off, r6.off + r6.len), pos);
+    pos += r6.len + 3 & ~3;
+  });
+  return out;
+}
+
+// ../../../shared/fonts/src/resolver.ts
+var css = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
+var FontResolver = class _FontResolver {
+  constructor(env) {
+    this.env = env;
+  }
+  env;
+  static sharedInstance = null;
+  /** O resolvedor da página (as fontes de `document.fonts` são globais). */
+  static shared() {
+    return _FontResolver.sharedInstance ??= new _FontResolver(browserEnvironment());
+  }
+  baseUrl = null;
+  host = null;
+  resolved = /* @__PURE__ */ new Map();
+  pending = /* @__PURE__ */ new Map();
+  listeners = /* @__PURE__ */ new Set();
+  /** Famílias (minúsculas) cujos FontFaces fomos NÓS que registramos. */
+  own = /* @__PURE__ */ new Set();
+  bundledLoads = /* @__PURE__ */ new Map();
+  localFonts = null;
+  hostList = null;
+  /** Configura base das embarcadas e/ou host. Trocar o host refaz as resoluções. */
+  configure(opts) {
+    if (opts.baseUrl !== void 0) this.baseUrl = opts.baseUrl ? opts.baseUrl.replace(/\/$/, "") : null;
+    if (opts.host !== void 0 && opts.host !== this.host) {
+      this.host = opts.host;
+      this.hostList = null;
+      this.invalidate(() => true);
+    }
+  }
+  /** Base sugerida por um componente (atributo `fonts`): só vale se ninguém configurou. */
+  suggestBaseUrl(url) {
+    if (url && this.baseUrl === null) this.baseUrl = url.replace(/\/$/, "");
+  }
+  get hasHost() {
+    return !!this.host;
+  }
+  /** Resolução já pronta (síncrono); undefined se ainda não resolvida. */
+  get(family) {
+    return this.resolved.get(family.toLowerCase());
+  }
+  /** Avisa quando famílias (re)resolvem — repintar/medir de novo. */
+  onChange(cb) {
+    this.listeners.add(cb);
+    return () => this.listeners.delete(cb);
+  }
+  /**
+   * Pilha CSS para desenhar a família (síncrono). Ainda não resolvida: dispara
+   * a resolução em segundo plano e devolve o nome pedido + os substitutos + o
+   * padrão (o navegador já usa a instalada, se houver); ao resolver,
+   * `onChange` avisa.
+   *
+   * `fallbacks`: o SUBSTITUTO DO APP para família que não existe em lugar
+   * nenhum (resolvida como `default`) — cada app imita o seu programa de
+   * referência (o PowerPoint desenha família ausente com métricas da Calibri;
+   * o Excel cai na Aptos Narrow). O primeiro que resolver para uma fonte de
+   * verdade vence; nenhum: o padrão (Liberation Sans).
+   */
+  cssStack(family, fallbacks = []) {
+    const tail = `${css(DEFAULT_FAMILY)}, sans-serif`;
+    if (!family) return tail;
+    const r6 = this.get(family);
+    if (!r6) {
+      void this.resolve([family, ...fallbacks]);
+      return [family, ...fallbacks].map(css).join(", ") + `, ${tail}`;
+    }
+    if (r6.source !== "default") return r6.cssFamily === DEFAULT_FAMILY ? tail : `${css(r6.cssFamily)}, ${tail}`;
+    for (const fb of fallbacks) {
+      const f3 = this.get(fb);
+      if (!f3) {
+        void this.resolve([fb]);
+        return `${css(fb)}, ${tail}`;
+      }
+      if (f3.source !== "default") return f3.cssFamily === DEFAULT_FAMILY ? tail : `${css(f3.cssFamily)}, ${tail}`;
+    }
+    return tail;
+  }
+  /** Resolve as famílias (idempotente; pedidos em andamento são reaproveitados). */
+  async resolve(families) {
+    const wanted = /* @__PURE__ */ new Map();
+    for (const f3 of families) if (f3 && !wanted.has(f3.toLowerCase())) wanted.set(f3.toLowerCase(), f3);
+    const missing = [...wanted].filter(([k2]) => !this.resolved.has(k2) && !this.pending.has(k2)).map(([, f3]) => f3);
+    if (missing.length) {
+      const batch = this.resolveBatch(missing).then((rs) => {
+        for (const r6 of rs) this.resolved.set(r6.family.toLowerCase(), r6);
+        return rs;
+      });
+      missing.forEach((f3, i7) => {
+        const key = f3.toLowerCase();
+        const p3 = batch.then((rs) => rs[i7]);
+        this.pending.set(key, p3);
+        void p3.finally(() => this.pending.delete(key)).catch(() => {
+        });
+      });
+      void batch.then((rs) => this.emit(rs.map((r6) => r6.family)), () => {
+      });
+    }
+    return Promise.all([...wanted].map(([k2]) => this.resolved.get(k2) ?? this.pending.get(k2)));
+  }
+  /** Bytes de uma família ABERTA embarcada (ex.: o padrão), carregando se preciso. */
+  async bundledFaces(family = DEFAULT_FAMILY) {
+    return this.loadBundled(family);
+  }
+  /**
+   * Famílias para um seletor de fonte. Com host: as dele. Senão, as que a
+   * Local Font Access já entregou (se permitida) ou as SONDADAS pelo nome
+   * (lista PROBE_FAMILIES) + as embarcadas e as que têm substituta.
+   */
+  async listFamilies() {
+    const names = /* @__PURE__ */ new Map();
+    const add = (n5) => {
+      if (n5 && !names.has(n5.toLowerCase())) names.set(n5.toLowerCase(), n5);
+    };
+    for (const b5 of Object.values(BUNDLED)) add(b5.family);
+    for (const k2 of Object.keys(METRIC_SUBSTITUTES)) {
+      const r6 = PROBE_FAMILIES.find((p3) => p3.toLowerCase() === k2);
+      if (r6) add(r6);
+    }
+    for (const r6 of this.resolved.values()) if (r6.source !== "default") add(r6.family);
+    for (const n5 of this.env.pageFamilies(this.own).values()) add(n5);
+    if (this.host) {
+      try {
+        for (const n5 of await (this.hostList ??= this.host.list())) add(n5);
+      } catch {
+      }
+    } else if (await this.localAccessFonts()) {
+      for (const f3 of this.localFonts) add(f3.family);
+    } else {
+      for (const p3 of PROBE_FAMILIES) if (this.env.isInstalled(p3)) add(p3);
+    }
+    return [...names.values()].sort((a3, b5) => a3.localeCompare(b5));
+  }
+  /**
+   * Pede a Local Font Access (Chromium): CHAMAR NUM GESTO DO USUÁRIO (abrir o
+   * seletor de fonte, exportar). Concedida, refaz as famílias que ficaram sem
+   * bytes (instaladas/substitutas/padrão) para usar a fonte real.
+   */
+  async requestLocalAccess() {
+    if (this.host || !this.env.localAccess) return false;
+    if (this.localFonts) return true;
+    try {
+      this.localFonts = await this.env.localAccess.query();
+    } catch {
+      return false;
+    }
+    this.invalidate((r6) => r6.source === "installed" || r6.source === "substitute" || r6.source === "default");
+    return true;
+  }
+  // ───────────────────────── internos ─────────────────────────
+  emit(families) {
+    if (!families.length) return;
+    for (const cb of this.listeners) {
+      try {
+        cb(families);
+      } catch {
+      }
+    }
+  }
+  /** Esquece resoluções (para refazer com uma fonte melhor) e avisa. */
+  invalidate(which) {
+    const again = [];
+    for (const [k2, r6] of this.resolved) if (which(r6)) {
+      this.resolved.delete(k2);
+      again.push(r6.family);
+    }
+    if (again.length) void this.resolve(again);
+  }
+  async localAccessFonts() {
+    if (this.localFonts) return true;
+    const la = this.env.localAccess;
+    if (!la || !await la.granted()) return false;
+    try {
+      this.localFonts = await la.query();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async resolveBatch(families) {
+    let hostFaces = [];
+    if (this.host) {
+      try {
+        hostFaces = await this.host.resolve(families);
+      } catch {
+        hostFaces = [];
+      }
+    }
+    const byFamily = /* @__PURE__ */ new Map();
+    for (const f3 of hostFaces) {
+      const k2 = f3.family.toLowerCase();
+      byFamily.set(k2, [...byFamily.get(k2) ?? [], f3]);
+    }
+    const hasLocal = !this.host && await this.localAccessFonts();
+    const out = [];
+    for (const family of families) {
+      out.push(await this.resolveOne(family, byFamily.get(family.toLowerCase()) ?? [], hasLocal));
+    }
+    return out;
+  }
+  async resolveOne(family, hostFaces, hasLocal) {
+    const key = family.toLowerCase();
+    const result = (source, cssFamily, faces = {}, embeddable = true) => ({ family, cssFamily, source, faces, embeddable });
+    if (hostFaces.length) {
+      const faces = {};
+      let embeddable = true;
+      for (const f3 of hostFaces) {
+        const v2 = variantOf(f3.bold ?? Number(f3.weight) >= 600, f3.style === "italic");
+        if (faces[v2]) continue;
+        const bytes = new Uint8Array(f3.bytes);
+        if (await this.env.addFace(family, v2, bytes)) {
+          faces[v2] = bytes;
+          if (f3.embeddable === false) embeddable = false;
+        }
+      }
+      if (Object.keys(faces).length) {
+        this.own.add(key);
+        return result("host", family, faces, embeddable);
+      }
+    }
+    if (hasLocal && this.localFonts) {
+      const faces = {};
+      let embeddable = true;
+      const byFull = /* @__PURE__ */ new Map([
+        [key, "regular"],
+        [`${key} regular`, "regular"],
+        [`${key} bold`, "bold"],
+        [`${key} italic`, "italic"],
+        [`${key} bold italic`, "boldItalic"]
+      ]);
+      for (const fd2 of this.localFonts) {
+        const v2 = fd2.family.toLowerCase() === key ? variantOfStyle(fd2.style) : byFull.get((fd2.fullName ?? "").toLowerCase());
+        if (!v2) continue;
+        if (faces[v2]) continue;
+        try {
+          const bytes = standaloneFace(new Uint8Array(await (await fd2.blob()).arrayBuffer()), fd2.postscriptName);
+          if (await this.env.addFace(family, v2, bytes)) {
+            faces[v2] = bytes;
+            if (!isEmbeddable(bytes)) embeddable = false;
+          }
+        } catch {
+        }
+      }
+      if (Object.keys(faces).length) {
+        this.own.add(key);
+        return result("local-access", family, faces, embeddable);
+      }
+    }
+    if (BUNDLED[key]) {
+      const faces = await this.loadBundled(family);
+      if (Object.keys(faces).length) return result("bundled", BUNDLED[key].family, faces);
+    }
+    const page = this.env.pageFamilies(this.own).get(key);
+    if (page) {
+      await this.env.loadPageFamily(page);
+      return result("page", page);
+    }
+    if (this.env.isInstalled(family)) return result("installed", family);
+    if (await this.env.loadLocal(family, "regular")) {
+      this.own.add(key);
+      await Promise.all(VARIANTS.slice(1).map((v2) => this.env.loadLocal(family, v2)));
+      return result("installed", family);
+    }
+    const sub = METRIC_SUBSTITUTES[key];
+    if (sub) {
+      const faces = await this.loadBundled(sub);
+      if (Object.keys(faces).length) return result("substitute", sub, faces);
+    }
+    return result("default", DEFAULT_FAMILY, await this.loadBundled(DEFAULT_FAMILY));
+  }
+  /** Carrega (uma vez) as 4 faces de uma família embarcada da `baseUrl`. */
+  loadBundled(family) {
+    const b5 = BUNDLED[family.toLowerCase()];
+    if (!b5 || !this.baseUrl) return Promise.resolve({});
+    let p3 = this.bundledLoads.get(b5.file);
+    if (!p3) {
+      const base = this.baseUrl;
+      p3 = (async () => {
+        const faces = {};
+        await Promise.all(VARIANTS.map(async (v2) => {
+          const bytes = await this.env.fetchBytes(`${base}/${bundledFileName(b5.file, v2)}`);
+          if (bytes && await this.env.addFace(b5.family, v2, bytes)) faces[v2] = bytes;
+        }));
+        if (Object.keys(faces).length) this.own.add(b5.family.toLowerCase());
+        else this.bundledLoads.delete(b5.file);
+        return faces;
+      })();
+      this.bundledLoads.set(b5.file, p3);
+    }
+    return p3;
+  }
+};
+
 // ../layout/src/font/gpos.ts
 function parseGposKern(view, gposOffset) {
   const kern = /* @__PURE__ */ new Map();
@@ -8561,13 +9300,13 @@ function parseGposKern(view, gposOffset) {
   const featureCount = u162(featureListOff);
   for (let i7 = 0; i7 < featureCount; i7++) {
     const rec = featureListOff + 2 + i7 * 6;
-    const tag = String.fromCharCode(
+    const tag2 = String.fromCharCode(
       view.getUint8(rec),
       view.getUint8(rec + 1),
       view.getUint8(rec + 2),
       view.getUint8(rec + 3)
     );
-    if (tag === "kern") kernFeatures.add(i7);
+    if (tag2 === "kern") kernFeatures.add(i7);
   }
   if (kernFeatures.size === 0) return kern;
   void scriptListOff;
@@ -8709,8 +9448,8 @@ var SfntFont = class {
     const numTables = v2.getUint16(4);
     for (let i7 = 0; i7 < numTables; i7++) {
       const p3 = 12 + i7 * 16;
-      const tag = String.fromCharCode(v2.getUint8(p3), v2.getUint8(p3 + 1), v2.getUint8(p3 + 2), v2.getUint8(p3 + 3));
-      this.tables.set(tag, { offset: v2.getUint32(p3 + 8), length: v2.getUint32(p3 + 12) });
+      const tag2 = String.fromCharCode(v2.getUint8(p3), v2.getUint8(p3 + 1), v2.getUint8(p3 + 2), v2.getUint8(p3 + 3));
+      this.tables.set(tag2, { offset: v2.getUint32(p3 + 8), length: v2.getUint32(p3 + 12) });
     }
     const head = this.req("head");
     const hhea = this.req("hhea");
@@ -8751,9 +9490,9 @@ var SfntFont = class {
     const deviceEmPt2 = Math.round(sizePt * 600 / 72) * 72 / 600;
     return units * deviceEmPt2 * 20 / this.metrics.unitsPerEm;
   }
-  req(tag) {
-    const t5 = this.tables.get(tag);
-    if (!t5) throw new Error(`Tabela ${tag} ausente`);
+  req(tag2) {
+    const t5 = this.tables.get(tag2);
+    if (!t5) throw new Error(`Tabela ${tag2} ausente`);
     return t5;
   }
   parseCmap() {
@@ -8850,6 +9589,63 @@ var SfntFont = class {
     const units = this.advanceWidth(this.glyphId(codePoint));
     const deviceEmPt2 = Math.round(sizePt * 600 / 72) * 72 / 600;
     return units * deviceEmPt2 * 20 / this.metrics.unitsPerEm;
+  }
+};
+
+// ../layout/src/font/canvas-metrics.ts
+var UPEM = 2048;
+var CanvasMetricsFont = class {
+  constructor(ctx, cssFont) {
+    this.ctx = ctx;
+    this.cssFont = cssFont;
+    ctx.font = `${cssFont.replace("{size}", String(UPEM))}`;
+    const m2 = ctx.measureText("Hxgjpq");
+    const asc = Math.round(m2.fontBoundingBoxAscent ?? UPEM * 0.9);
+    const desc = Math.round(m2.fontBoundingBoxDescent ?? UPEM * 0.25);
+    this.metrics = {
+      unitsPerEm: UPEM,
+      ascender: asc,
+      descender: -desc,
+      lineGap: 0,
+      usWinAscent: asc,
+      usWinDescent: desc,
+      sTypoAscender: asc,
+      sTypoDescender: -desc,
+      sTypoLineGap: 0
+    };
+  }
+  ctx;
+  cssFont;
+  metrics;
+  advances = /* @__PURE__ */ new Map();
+  kerns = /* @__PURE__ */ new Map();
+  width(text2) {
+    this.ctx.font = this.cssFont.replace("{size}", String(UPEM));
+    return this.ctx.measureText(text2).width;
+  }
+  advanceWidth(codePoint) {
+    let w2 = this.advances.get(codePoint);
+    if (w2 === void 0) this.advances.set(codePoint, w2 = this.width(String.fromCodePoint(codePoint)));
+    return w2;
+  }
+  glyphId(codePoint) {
+    return codePoint;
+  }
+  advanceTwips(codePoint, sizePt) {
+    const deviceEmPt2 = Math.round(sizePt * 600 / 72) * 72 / 600;
+    return this.advanceWidth(codePoint) * deviceEmPt2 * 20 / UPEM;
+  }
+  kernTwips(prevCodePoint, codePoint, sizePt) {
+    const key = prevCodePoint * 1114112 + codePoint;
+    let units = this.kerns.get(key);
+    if (units === void 0) {
+      const pair = this.width(String.fromCodePoint(prevCodePoint, codePoint));
+      units = Math.round(pair - this.advanceWidth(prevCodePoint) - this.advanceWidth(codePoint));
+      this.kerns.set(key, units);
+    }
+    if (!units) return 0;
+    const deviceEmPt2 = Math.round(sizePt * 600 / 72) * 72 / 600;
+    return units * deviceEmPt2 * 20 / UPEM;
   }
 };
 
@@ -9190,8 +9986,8 @@ function doSubset(bytes, usedGids) {
   const dir = /* @__PURE__ */ new Map();
   for (let i7 = 0; i7 < numTables; i7++) {
     const p3 = 12 + i7 * 16;
-    const tag = String.fromCharCode(bytes[p3], bytes[p3 + 1], bytes[p3 + 2], bytes[p3 + 3]);
-    dir.set(tag, { tag, offset: v2.getUint32(p3 + 8), length: v2.getUint32(p3 + 12) });
+    const tag2 = String.fromCharCode(bytes[p3], bytes[p3 + 1], bytes[p3 + 2], bytes[p3 + 3]);
+    dir.set(tag2, { tag: tag2, offset: v2.getUint32(p3 + 8), length: v2.getUint32(p3 + 12) });
   }
   const head = dir.get("head"), maxp = dir.get("maxp"), loca = dir.get("loca"), glyf = dir.get("glyf");
   if (!head || !maxp || !loca || !glyf) return bytes;
@@ -9250,12 +10046,12 @@ function doSubset(bytes, usedGids) {
   headView.setUint16(50, 1);
   headView.setUint32(8, 0);
   const out = [];
-  for (const [tag, t5] of dir) {
-    if (!KEEP.has(tag)) continue;
-    if (tag === "glyf") out.push({ tag, data: newGlyf });
-    else if (tag === "loca") out.push({ tag, data: newLoca });
-    else if (tag === "head") out.push({ tag, data: newHead });
-    else out.push({ tag, data: bytes.slice(t5.offset, t5.offset + t5.length) });
+  for (const [tag2, t5] of dir) {
+    if (!KEEP.has(tag2)) continue;
+    if (tag2 === "glyf") out.push({ tag: tag2, data: newGlyf });
+    else if (tag2 === "loca") out.push({ tag: tag2, data: newLoca });
+    else if (tag2 === "head") out.push({ tag: tag2, data: newHead });
+    else out.push({ tag: tag2, data: bytes.slice(t5.offset, t5.offset + t5.length) });
   }
   return buildSfnt(sfntVersion, out);
 }
@@ -9746,8 +10542,8 @@ function tableHtml(t5, ctx) {
 function listHtml(items) {
   let i7 = 0;
   function build(level) {
-    const tag = items[i7].kind === "decimal" ? "ol" : "ul";
-    let html2 = `<${tag}>`;
+    const tag2 = items[i7].kind === "decimal" ? "ol" : "ul";
+    let html2 = `<${tag2}>`;
     while (i7 < items.length && items[i7].ilvl >= level) {
       if (items[i7].ilvl > level) break;
       let li = `<li>${items[i7].inner}`;
@@ -9755,7 +10551,7 @@ function listHtml(items) {
       if (i7 < items.length && items[i7].ilvl > level) li += build(items[i7].ilvl);
       html2 += li + "</li>";
     }
-    return html2 + `</${tag}>`;
+    return html2 + `</${tag2}>`;
   }
   return items.length ? build(items[0].ilvl) : "";
 }
@@ -11271,7 +12067,7 @@ function buildXps(input) {
   }
   for (const key of usedFonts) {
     const [family, variant] = key.split("-");
-    const bytes = input.fontBytes[family]?.[variant];
+    const bytes = input.fontBytes[family]?.[variant] ?? input.fontBytes[family]?.regular;
     if (!bytes) throw new Error(`fonte sem bytes para XPS: ${key}`);
     z2[`Resources/Fonts/${safeFamily(family)}-${variant}.ttf`] = bytes;
   }
@@ -11306,10 +12102,14 @@ var HIGHLIGHTS3 = {
   lightGray: "#c0c0c0"
 };
 var Registry = class {
-  constructor(sets) {
+  /** `onMiss(família)`: chamada quando a família não está registrada — o
+   *  editor consulta o resolvedor de fontes e registra se já houver resposta. */
+  constructor(sets, onMiss) {
     this.sets = sets;
+    this.onMiss = onMiss;
   }
   sets;
+  onMiss;
   /** Registra uma variante de fonte (ex.: fontes EMBEDADAS do .docx). */
   register(family, variant, font) {
     (this.sets[family] ??= {})[variant] = font;
@@ -11317,23 +12117,23 @@ var Registry = class {
   has(family) {
     return this.sets[family] !== void 0 || this.sets[family.split(" ")[0]] !== void 0;
   }
+  families() {
+    return Object.keys(this.sets);
+  }
+  delete(family) {
+    delete this.sets[family];
+  }
+  get(family) {
+    return this.sets[family];
+  }
   resolve(family, variant) {
+    if (family && !this.sets[family]) this.onMiss?.(family);
     const requested = family ? this.sets[family] ?? this.sets[family.split(" ")[0]] : void 0;
     const def = this.sets[DEFAULT_FONT] ?? this.sets["Aptos"];
     return requested?.[variant] ?? requested?.regular ?? def[variant] ?? def.regular;
   }
 };
-function variantOfStyle(style) {
-  const s4 = (style ?? "").toLowerCase();
-  const bold = /bold/.test(s4) || /black|heavy|semibold|extrabold/.test(s4);
-  const italic = /italic|oblique/.test(s4);
-  return bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
-}
 var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
-  /** Fontes do SO fornecidas pelo HOST (ver SystemFontProvider). Com ele, o
-   *  seletor lista as fontes instaladas sem gesto/permissão e o documento
-   *  carrega sozinho as famílias que usa. Ausente: `queryLocalFonts`. */
-  static systemFonts = null;
   model = null;
   pkg = null;
   fullDoc = null;
@@ -11354,15 +12154,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   loadedFamilies = /* @__PURE__ */ new Set();
   /** nomes de família com QUALQUER FontFace carregado (p/ escolher a família CSS). */
   loadedFamilyNames = /* @__PURE__ */ new Set();
-  /** cache das famílias do SO (Local Font Access API); null = ainda não consultado. */
-  sysFontsCache = null;
-  /** FontData do SO por família (todas as faces) p/ carregar bytes sob demanda. */
-  sysFontData = /* @__PURE__ */ new Map();
-  /** Famílias (lc) já pedidas ao host — achadas ou não, não se pede de novo. */
-  hostFontsAsked = /* @__PURE__ */ new Set();
-  /** Famílias usadas pelo documento sem FontFace, à espera do próximo lote. */
-  hostFontQueue = /* @__PURE__ */ new Set();
-  hostFontTimer = null;
+  /** Resolvedor de fontes ÚNICO dos apps (shared/fonts): host, Local Font
+   *  Access, instaladas pelo nome, substitutas abertas, padrão. */
+  fontResolver = FontResolver.shared();
+  unsubscribeFonts = null;
+  /** Famílias (como o documento as nomeia) pedidas ao resolvedor… */
+  askedFonts = /* @__PURE__ */ new Set();
+  /** …e as que já têm a resposta aplicada ao Registry. */
+  appliedFonts = /* @__PURE__ */ new Set();
+  /** Arquivo de cada fonte de métrica que tem bytes (nome p/ o PDF + bytes):
+   *  o PDF embute EXATAMENTE o arquivo cujas métricas posicionaram o texto. */
+  fontFiles = /* @__PURE__ */ new WeakMap();
+  refreshQueued = false;
   container;
   input;
   topbarEl;
@@ -11524,10 +12327,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   // ───────────────────────── carga ─────────────────────────
   async connectedCallback() {
     window.addEventListener("resize", this.handleWindowResize);
+    this.fontResolver.suggestBaseUrl(this.getAttribute("fonts"));
+    this.unsubscribeFonts ??= this.fontResolver.onChange((families) => this.onFontsResolved(families));
     if (this.initialized) this.startCaret();
     if (!this.hasAttribute("manual-init")) await this.initialize();
   }
   disconnectedCallback() {
+    this.unsubscribeFonts?.();
+    this.unsubscribeFonts = null;
     window.removeEventListener("resize", this.handleWindowResize);
     window.clearInterval(this.caretTimer);
     this.caretTimer = 0;
@@ -11588,13 +12395,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const font = new SfntFont(bytes);
       if (asset.advances) font.setAdvanceTable(asset.advances);
       sets[asset.family][asset.variant] = font;
+      this.fontFiles.set(font, { name: asset.family, bytes });
       (this.fontBytes[asset.family] ??= {})[asset.variant] = bytes;
     }
     const def = sets[DEFAULT_FONT];
     if (!def?.regular || !def.bold || !def.italic || !def.boldItalic) {
       throw new Error(`initialize(): provide the four ${DEFAULT_FONT} font variants`);
     }
-    this.fonts = new Registry(sets);
+    this.fonts = new Registry(sets, (family) => this.applyResolvedFont(family));
   }
   async fetchDefaultFontAssets() {
     const fontsBase = this.getAttribute("fonts") ?? "";
@@ -11787,7 +12595,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.loadedFamilies.add(`${f3.family} ${f3.variant}`);
       this.loadedFamilyNames.add(f3.family);
       try {
-        this.fonts.register(f3.family, f3.variant, new SfntFont(f3.data));
+        const sf = new SfntFont(f3.data);
+        this.fonts.register(f3.family, f3.variant, sf);
+        this.fontFiles.set(sf, { name: f3.family, bytes: f3.data });
       } catch {
       }
       (this.fontBytes[f3.family] ??= {})[f3.variant] = f3.data;
@@ -12306,140 +13116,119 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** True quando a lista de fontes do SO vem do host (sem gesto/permissão). */
   hasHostSystemFonts() {
-    return !!_UniversalWriteElement.systemFonts;
+    return this.fontResolver.hasHost;
   }
-  /** Fontes instaladas no SO: do HOST (systemFonts) se houver; senão via Local
-   *  Font Access API (queryLocalFonts), que requer gesto do usuário +
-   *  permissão. Cacheia o resultado. Vazio se nada disso existir ou for negado.
-   *  Guarda os FontData p/ carregar sob demanda. */
-  async systemFontFamilies() {
-    if (this.sysFontsCache) return this.sysFontsCache;
-    const host = _UniversalWriteElement.systemFonts;
-    if (host) {
-      try {
-        this.sysFontsCache = [...await host.list()];
-      } catch {
-        this.sysFontsCache = [];
-      }
-      return this.sysFontsCache;
-    }
-    const q = window.queryLocalFonts;
-    if (typeof q !== "function") {
-      this.sysFontsCache = [];
-      return [];
-    }
-    try {
-      const fonts = await q();
-      const fams = /* @__PURE__ */ new Set();
-      for (const f3 of fonts) {
-        if (!f3.family) continue;
-        fams.add(f3.family);
-        const list = this.sysFontData.get(f3.family) ?? [];
-        list.push(f3);
-        this.sysFontData.set(f3.family, list);
-      }
-      this.sysFontsCache = [...fams].sort((a3, b5) => a3.localeCompare(b5));
-      return this.sysFontsCache;
-    } catch {
-      this.sysFontsCache = [];
-      return [];
-    }
-  }
-  /** Lista para o seletor: bundled + embedadas + SO (dedup, ordenado). */
+  /** Lista para o seletor: carregadas (bundled + embedadas) + as do resolvedor
+   *  (host; Local Font Access se permitida; senão as instaladas sondadas pelo
+   *  nome, as abertas embarcadas e as que têm substituta). */
   async listAvailableFonts() {
-    const sys = await this.systemFontFamilies();
-    const all = /* @__PURE__ */ new Set([...this.loadedFamilyNames, ...sys]);
+    const all = /* @__PURE__ */ new Set([...this.loadedFamilyNames, ...await this.fontResolver.listFamilies()]);
     return [...all].sort((a3, b5) => a3.localeCompare(b5));
   }
-  /** Carrega sob demanda uma fonte do SO (métricas + FontFace) quando ela é
-   *  selecionada/usada, para render E layout usarem a fonte real. */
-  async ensureFontLoaded(family) {
-    if (!family || this.loadedFamilyNames.has(family) || !this.fonts) return;
-    const faces = this.sysFontData.get(family);
-    if (!faces?.length) {
-      if (await this.loadHostFonts([family]) && this.model) this.refresh();
-      return;
-    }
-    let added = false;
-    for (const fd2 of faces) {
-      const variant = variantOfStyle(fd2.style);
-      if (this.loadedFamilies.has(`${family} ${variant}`)) continue;
-      try {
-        const bytes = new Uint8Array(await (await fd2.blob()).arrayBuffer());
-        const weight = variant === "bold" || variant === "boldItalic" ? "700" : "400";
-        const style = variant === "italic" || variant === "boldItalic" ? "italic" : "normal";
-        const face = new FontFace(family, bytes.slice().buffer, { weight, style });
-        await face.load();
-        document.fonts.add(face);
-        this.loadedFamilies.add(`${family} ${variant}`);
-        this.loadedFamilyNames.add(family);
-        try {
-          this.fonts.register(family, variant, new SfntFont(bytes));
-        } catch {
-        }
-        (this.fontBytes[family] ??= {})[variant] = bytes;
-        added = true;
-      } catch {
-      }
-    }
-    if (added && this.model) this.refresh();
+  /** Pede a Local Font Access (Chromium) — CHAMAR NUM GESTO (ex.: abrir o
+   *  seletor de fonte). Concedida, a lista ganha todas as fontes instaladas e
+   *  as que estavam só pelo nome/substitutas passam a usar o arquivo real. */
+  requestSystemFonts() {
+    return this.fontResolver.requestLocalAccess();
   }
-  /** Pede ao HOST as faces das famílias (uma vez por família) e registra
-   *  FontFace (render) + SfntFont (layout) + bytes (PDF/XPS). Só entra a face
-   *  cujas métricas o SfntFont lê e cuja licença permite embutir — senão o
-   *  canvas, o layout e o PDF divergiriam; a família fica no fallback.
-   *  Retorna true se alguma face foi adicionada. */
-  async loadHostFonts(families) {
-    const host = _UniversalWriteElement.systemFonts;
-    if (!host || !this.fonts) return false;
-    const todo = families.filter((f3) => f3 && !this.loadedFamilyNames.has(f3) && !this.hostFontsAsked.has(f3.toLowerCase()));
-    if (!todo.length) return false;
-    for (const f3 of todo) this.hostFontsAsked.add(f3.toLowerCase());
-    let faces;
-    try {
-      faces = await host.resolve(todo);
-    } catch {
+  /** Resolve uma família (resolvedor único) — ao chegar, refaz layout e pintura. */
+  async ensureFontLoaded(family) {
+    if (!family || this.loadedFamilyNames.has(family)) return;
+    await this.fontResolver.resolve([family]);
+  }
+  /** O resolvedor (re)resolveu famílias: atualiza as que este documento usa. */
+  onFontsResolved(families) {
+    const keys = new Set(families.map((f3) => f3.toLowerCase()));
+    let changed = false;
+    for (const u3 of this.askedFonts) {
+      if (!keys.has(u3.toLowerCase())) continue;
+      this.appliedFonts.delete(u3);
+      this.fonts?.delete(u3);
+      this.applyResolvedFont(u3);
+      changed = true;
+    }
+    if (changed) this.queueRefresh();
+  }
+  /**
+   * Registra no Registry as métricas da família vinda do resolvedor (síncrono,
+   * se já resolvida; senão pede e o aviso de onChange refaz o layout): com
+   * bytes, SfntFont (exato, embutível); só pelo nome, CanvasMetricsFont. Fonte
+   * embutida/bundled do próprio editor nunca é sobreposta.
+   */
+  applyResolvedFont(family) {
+    if (!this.fonts || this.loadedFamilyNames.has(family) || this.appliedFonts.has(family)) return false;
+    this.askedFonts.add(family);
+    const r6 = this.fontResolver.get(family);
+    if (!r6) {
+      void this.fontResolver.resolve([family]);
       return false;
     }
-    let added = false;
-    for (const f3 of faces) {
-      if (f3.embeddable === false) continue;
-      const italic = f3.style === "italic";
-      const bold = f3.bold ?? Number(f3.weight) >= 600;
-      const variant = bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
-      if (this.loadedFamilies.has(`${f3.family} ${variant}`)) continue;
+    this.appliedFonts.add(family);
+    if (r6.source === "default") return false;
+    let registered = false;
+    for (const v2 of ["regular", "bold", "italic", "boldItalic"]) {
+      const font = this.layoutFontFor(r6, v2);
+      if (!font) continue;
+      this.fonts.register(family, v2, font);
+      registered = true;
+    }
+    return registered;
+  }
+  layoutFontFor(r6, v2) {
+    const bytes = r6.faces[v2];
+    if (bytes) {
       try {
-        const bytes = new Uint8Array(f3.bytes);
-        const metrics = new SfntFont(bytes);
-        const face = new FontFace(f3.family, bytes.slice().buffer, {
-          weight: bold ? "700" : "400",
-          style: italic ? "italic" : "normal"
-        });
-        await face.load();
-        document.fonts.add(face);
-        this.loadedFamilies.add(`${f3.family} ${variant}`);
-        this.loadedFamilyNames.add(f3.family);
-        this.fonts.register(f3.family, variant, metrics);
-        (this.fontBytes[f3.family] ??= {})[variant] = bytes;
-        added = true;
+        const sf = new SfntFont(bytes);
+        if (r6.embeddable) this.fontFiles.set(sf, { name: r6.cssFamily, bytes });
+        (this.fontBytes[r6.cssFamily] ??= {})[v2] = bytes;
+        return sf;
       } catch {
       }
     }
-    return added;
+    if (Object.keys(r6.faces).length && v2 !== "regular") return null;
+    const ctx = this.measureCtx ??= document.createElement("canvas").getContext("2d");
+    if (!ctx) return null;
+    const style = v2 === "italic" || v2 === "boldItalic" ? "italic " : "";
+    const weight = v2 === "bold" || v2 === "boldItalic" ? "700" : "400";
+    return new CanvasMetricsFont(ctx, `${style}${weight} {size}px "${r6.cssFamily.replace(/"/g, '\\"')}"`);
   }
-  /** Família usada pelo documento sem FontFace: entra no próximo lote pedido
-   *  ao host; ao chegar, refaz layout + pintura com a fonte real. */
-  queueHostFont(family) {
-    if (!_UniversalWriteElement.systemFonts || this.hostFontsAsked.has(family.toLowerCase())) return;
-    this.hostFontQueue.add(family);
-    this.hostFontTimer ??= setTimeout(() => {
-      this.hostFontTimer = null;
-      const fams = [...this.hostFontQueue];
-      this.hostFontQueue.clear();
-      void this.loadHostFonts(fams).then((added) => {
-        if (added && this.model) this.refresh();
-      });
-    }, 0);
+  measureCtx = null;
+  /** Família COM ARQUIVO para o XPS (que embute os bytes): a do canvas; sem
+   *  bytes (instalada só pelo nome), a substituta já carregada ou o padrão. */
+  fileFamilyFor(family) {
+    const fam = this.familyFor(family);
+    if (this.fontBytes[fam]) return fam;
+    const sub = family ? METRIC_SUBSTITUTES[family.toLowerCase()] : void 0;
+    return sub && this.fontBytes[sub] ? sub : DEFAULT_FONT;
+  }
+  /** Antes do PDF: famílias medidas sem arquivo (instaladas só pelo nome)
+   *  ganham a substituta métrico-compatível embarcada, para o PDF embuti-la. */
+  async preparePdfFonts() {
+    if (!this.fonts) return;
+    for (const family of this.fonts.families()) {
+      const sub = METRIC_SUBSTITUTES[family.toLowerCase()];
+      if (!sub || this.fonts.get(sub)) continue;
+      const fonts = Object.values(this.fonts.get(family) ?? {});
+      if (fonts.every((f3) => f3 && this.fontFiles.has(f3))) continue;
+      const faces = await this.fontResolver.bundledFaces(sub);
+      for (const [v2, bytes] of Object.entries(faces)) {
+        try {
+          const sf = new SfntFont(bytes);
+          this.fonts.register(sub, v2, sf);
+          this.fontFiles.set(sf, { name: sub, bytes });
+          (this.fontBytes[sub] ??= {})[v2] = bytes;
+        } catch {
+        }
+      }
+    }
+  }
+  queueRefresh() {
+    if (this.refreshQueued) return;
+    this.refreshQueued = true;
+    queueMicrotask(() => {
+      this.refreshQueued = false;
+      if (this.model) this.refresh();
+    });
   }
   setColor(hex) {
     this.formatRuns({ color: hex });
@@ -15008,13 +15797,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       ctx.drawImage(bmp, ix * scale, iy * scale, img.widthTwips * scale, img.heightTwips * scale);
     }
   }
-  /** Família CSS a usar no canvas: a fonte EMBEDADA/instalada real (ex.: "Lato",
-   *  "Lato Black") se houver FontFace; senão cai no padrão (bundled) e, havendo
-   *  host com fontes do SO, pede a família para a próxima pintura. */
+  /** Família CSS a usar no canvas: a fonte EMBEDADA real (ex.: "Lato", "Lato
+   *  Black"); senão a que o resolvedor de fontes escolheu (do SO, instalada,
+   *  substituta); senão a base embutida; senão o padrão (Liberation Sans). */
   familyFor(family) {
     if (family) {
       if (this.loadedFamilyNames.has(family)) return family;
-      this.queueHostFont(family);
+      this.applyResolvedFont(family);
+      const r6 = this.appliedFonts.has(family) ? this.fontResolver.get(family) : void 0;
+      if (r6 && r6.source !== "default") return r6.cssFamily;
       const base = family.split(" ")[0];
       if (this.loadedFamilyNames.has(base)) return base;
     }
@@ -16435,15 +17226,21 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const T2 = TWIPS_PER_PT;
     const doc = new PdfDocument({ compress: true });
     this.pdfImgCache = /* @__PURE__ */ new WeakMap();
+    await this.preparePdfFonts();
     const cache = /* @__PURE__ */ new Map();
     const emb = (family, variant) => {
-      const sf = this.fonts.resolve(family, variant);
+      let sf = this.fonts.resolve(family, variant);
+      let file = this.fontFiles.get(sf);
+      if (!file) {
+        const sub = family ? METRIC_SUBSTITUTES[family.toLowerCase()] : void 0;
+        sf = this.fonts.resolve(sub && this.fonts.get(sub) ? sub : DEFAULT_FONT, variant);
+        file = this.fontFiles.get(sf);
+      }
       let e8 = cache.get(sf);
       if (!e8) {
-        const fam = this.familyFor(family);
-        const bytes = this.fontBytes[fam]?.[variant] ?? this.fontBytes[DEFAULT_FONT]?.["regular"];
-        if (!bytes) throw new Error("font has no bytes to embed in the PDF");
-        e8 = doc.embedFont(`${fam}-${variant}`, bytes, {
+        if (!file) throw new Error("font has no bytes to embed in the PDF");
+        const { name, bytes } = file;
+        e8 = doc.embedFont(`${name}-${variant}`, bytes, {
           unitsPerEm: sf.metrics.unitsPerEm,
           ascender: sf.metrics.ascender,
           descender: sf.metrics.descender,
@@ -16570,7 +17367,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         glyphs: []
       });
     }
-    const famOf = (family) => this.familyFor(family);
+    const famOf = (family) => this.fileFamilyFor(family);
     const colorOf = (hex) => {
       if (!hex) return [0.13, 0.13, 0.13];
       const n5 = parseInt(hex, 16);
@@ -16695,7 +17492,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       { posTwips: widthTwips / 2, align: "center" },
       { posTwips: widthTwips, align: "right" }
     ];
-    const famOf = (family) => this.familyFor(family);
+    const famOf = (family) => this.fileFamilyFor(family);
     let y3 = topYTwips;
     for (const p3 of paras) {
       const runs = p3.runs.map((r6) => r6.field ? { ...r6, text: /NUMPAGES/i.test(r6.field) ? String(this.numPagesFor()) : /PAGE/i.test(r6.field) ? String(this.pageNumberFor(pageIdx)) : r6.text } : r6);
@@ -17340,7 +18137,7 @@ function bytesEqual(a3, b5) {
 var SEP2 = "";
 var sanitize = (s4) => s4.includes(SEP2) ? s4.split(SEP2).join("") : s4;
 var imageContentMarker = (data) => `${SEP2}img:${data.byteLength}:${fnv1a(data)}${SEP2}`;
-var frame = (tag, s4) => `${SEP2}${tag}${s4.length}${SEP2}${s4}`;
+var frame = (tag2, s4) => `${SEP2}${tag2}${s4.length}${SEP2}${s4}`;
 function runPropsSig(p3) {
   return [
     p3.bold ? "b" : "",
@@ -19453,13 +20250,13 @@ var ACCENT_SEEDS = {
 var styleEl = null;
 function applyGeneratedTheme(accent) {
   const seed = ACCENT_SEEDS[accent] ?? ACCENT_SEEDS.blue;
-  const css = ThemeBuilder.create(seed).build();
+  const css2 = ThemeBuilder.create(seed).build();
   if (!styleEl) {
     styleEl = document.createElement("style");
     styleEl.id = "u-theme";
     document.head.appendChild(styleEl);
   }
-  styleEl.textContent = css;
+  styleEl.textContent = css2;
 }
 
 // demo/main.ts
@@ -20896,11 +21693,11 @@ function createDOMPurify() {
     trustedTypesPolicy = defaultTrustedTypesPolicy;
     emptyHTML = "";
   };
-  DOMPurify.isValidAttribute = function(tag, attr, value) {
+  DOMPurify.isValidAttribute = function(tag2, attr, value) {
     if (!CONFIG) {
       _parseConfig({});
     }
-    const lcTag = transformCaseFunc(tag);
+    const lcTag = transformCaseFunc(tag2);
     const lcName = transformCaseFunc(attr);
     return _isValidAttribute(lcTag, lcName, value);
   };
@@ -21411,9 +22208,10 @@ Dialog = __decorate([
 
 // demo/main.ts
 var fontBridge = window.wordnext;
-if (fontBridge?.listFonts && fontBridge.resolveFonts) {
-  UniversalWriteElement.systemFonts = { list: fontBridge.listFonts, resolve: fontBridge.resolveFonts };
-}
+FontResolver.shared().configure({
+  baseUrl: "./fonts",
+  host: fontBridge?.listFonts && fontBridge.resolveFonts ? { list: fontBridge.listFonts, resolve: fontBridge.resolveFonts } : null
+});
 var wn = document.getElementById("wn");
 wn.use(createMentionPlugin());
 var $2 = (id) => document.getElementById(id);
@@ -21998,7 +22796,7 @@ var onSel = (id, fn) => $2(id).addEventListener("change", (e8) => {
 });
 onSel("style", (v2) => wn.applyStyle(v2 || void 0));
 onSel("font", (v2) => wn.setFontFamily(v2));
-if (UniversalWriteElement.systemFonts) {
+var fillFontSelect = () => {
   void wn.listAvailableFonts().then((families) => {
     const fs = $2("font");
     const fixed = [...fs.options].filter((o8) => !o8.dataset["dyn"]).map((o8) => o8.value);
@@ -22006,7 +22804,16 @@ if (UniversalWriteElement.systemFonts) {
     fs.replaceChildren(...all.map((f3) => new Option(f3, f3)));
     syncToolbar();
   });
-}
+};
+fillFontSelect();
+var fontAccessAsked = false;
+$2("font").addEventListener("mousedown", () => {
+  if (fontAccessAsked || FontResolver.shared().hasHost) return;
+  fontAccessAsked = true;
+  void wn.requestSystemFonts().then((ok) => {
+    if (ok) fillFontSelect();
+  });
+});
 onSel("highlight", (v2) => wn.setHighlight(v2 || void 0));
 onSel("spacing", (v2) => wn.setLineSpacing(parseInt(v2, 10)));
 onSel("spaceAfter", (v2) => wn.setSpaceAfter(v2 === "" ? void 0 : parseInt(v2, 10)));

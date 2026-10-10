@@ -1,3 +1,4 @@
+import { FontResolver } from '@universal-office/fonts';
 import {
   XlsxPackage, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, applyTint,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
@@ -124,6 +125,13 @@ function tableStyleAccent(name: string | undefined, accents: string[]): string {
 }
 
 
+/**
+ * Substituto do Excel para família que não existe (nem no SO, nem embarcada):
+ * a fonte padrão do Excel atual (Normal = Aptos Narrow) — a mesma ordem da
+ * pilha fixa de antes do resolvedor único.
+ */
+const SHEET_FALLBACKS = ['Aptos Narrow'];
+
 export class UniversalSheetElement extends HTMLElement {
   private host = this.attachShadow({ mode: 'open' });
   private canvas = document.createElement('canvas');
@@ -192,6 +200,7 @@ export class UniversalSheetElement extends HTMLElement {
   }
 
   connectedCallback(): void {
+    this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.paint());
     new ResizeObserver(() => { this.resize(); this.paint(); }).observe(this.canvas);
     this.resize();
     this.paint();
@@ -686,7 +695,7 @@ export class UniversalSheetElement extends HTMLElement {
         if (!txt) continue;
         const font = this.resolveStyle(c).font;
         const size = (font?.size ?? 11) * 96 / 72; // px sem zoom
-        ctx.font = `${font?.italic ? 'italic ' : ''}${font?.bold ? '700 ' : '400 '}${size}px '${font?.name ?? 'Aptos Narrow'}', 'Aptos Narrow', 'Liberation Sans', 'Segoe UI', Arial, sans-serif`;
+        ctx.font = `${font?.italic ? 'italic ' : ''}${font?.bold ? '700 ' : '400 '}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', SHEET_FALLBACKS)}`;
         best = Math.max(best, ctx.measureText(txt).width);
       }
     }
@@ -784,59 +793,21 @@ export class UniversalSheetElement extends HTMLElement {
     else this.hideCommentTip();
   };
 
-  /**
-   * Fontes do SO por família fornecidas pelo HOST (ex.: o Electron lê
-   * Windows\Fonts + o cache CloudFonts do Office, invisível ao
-   * `queryLocalFonts`). Ausente: `queryLocalFonts` (Chromium, com permissão).
-   */
-  static systemFontResolver: ((families: string[]) => Promise<{ family: string; weight: string; style: string; bytes: ArrayBuffer }[]>) | null = null;
+  /** Resolvedor de fontes ÚNICO dos apps (shared/fonts): host, Local Font
+   *  Access, instaladas pelo nome, substitutas abertas, padrão. */
+  private readonly fontResolver = FontResolver.shared();
+  private unsubscribeFonts: (() => void) | null = null;
 
-  /**
-   * Carrega SOB DEMANDA as fontes do SO usadas pelos estilos do workbook e
-   * ainda indisponíveis (host via systemFontResolver; senão queryLocalFonts —
-   * lógica compartilhada do Universal Write). Sem nenhum dos dois, o fallback
-   * CSS (Aptos Narrow → Liberation Sans → Segoe UI) cobre.
-   */
+  disconnectedCallback(): void {
+    this.unsubscribeFonts?.();
+    this.unsubscribeFonts = null;
+  }
+
+  /** Resolve já as fontes usadas pelos estilos do workbook (o aviso de
+   *  onChange repinta quando chegarem). */
   private async ensureSheetFonts(): Promise<void> {
-    const wanted = new Set<string>();
-    for (const f of this.styles?.fonts ?? []) {
-      const name = f?.name;
-      if (!name) continue;
-      try { if (!document.fonts.check(`12px "${name}"`)) wanted.add(name); } catch { wanted.add(name); }
-    }
-    if (!wanted.size) return;
-    const resolver = UniversalSheetElement.systemFontResolver;
-    if (resolver) {
-      let added = false;
-      try {
-        for (const f of await resolver([...wanted])) {
-          try {
-            document.fonts.add(await new FontFace(f.family, f.bytes, { weight: f.weight, style: f.style }).load());
-            added = true;
-          } catch { /* face inválida: segue */ }
-        }
-      } catch { /* host sem as fontes: fallback CSS */ }
-      if (added) this.paint();
-      return;
-    }
-    const qlf = (window as unknown as { queryLocalFonts?: () => Promise<{ family: string; style: string; blob(): Promise<Blob> }[]> }).queryLocalFonts;
-    if (!qlf) return;
-    let faces: { family: string; style: string; blob(): Promise<Blob> }[];
-    try { faces = await qlf.call(window); } catch { return; }
-    const wantLc = new Set([...wanted].map((n) => n.toLowerCase()));
-    let added = false;
-    for (const fd of faces) {
-      if (!wantLc.has(fd.family.toLowerCase())) continue;
-      const st = fd.style.toLowerCase();
-      const weight = /bold|black|heavy|semibold|demi/.test(st) ? '700' : '400';
-      const style = /italic|oblique/.test(st) ? 'italic' : 'normal';
-      try {
-        const face = new FontFace(fd.family, await (await fd.blob()).arrayBuffer(), { weight, style });
-        document.fonts.add(await face.load());
-        added = true;
-      } catch { /* segue */ }
-    }
-    if (added) this.paint();
+    const names = (this.styles?.fonts ?? []).map((f) => f?.name).filter((n): n is string => !!n);
+    await this.fontResolver.resolve(['Aptos Narrow', ...names]);
   }
 
   /** Nota flutuante do comentário: autor em negrito + texto, junto ao cursor. */
@@ -1721,7 +1692,7 @@ export class UniversalSheetElement extends HTMLElement {
     const size = (font?.size ?? 11) * 96 / 72 * this.zoom;
     const style = font?.italic ? 'italic ' : '';
     const weight = font?.bold ? '700 ' : '400 ';
-    ctx.font = `${style}${weight}${size}px '${font?.name ?? 'Aptos Narrow'}', 'Aptos Narrow', 'Liberation Sans', 'Segoe UI', Arial, sans-serif`;
+    ctx.font = `${style}${weight}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', SHEET_FALLBACKS)}`;
     // cor do numFmt (ex.: [Red] em negativos) tem prioridade sobre a cor da fonte
     ctx.fillStyle = fr.color ?? font?.color ?? TEXT;
 
@@ -1811,11 +1782,9 @@ export class UniversalSheetElement extends HTMLElement {
     const sizePt = p?.size ?? base?.size ?? 11;
     const sizePx = sizePt * 96 / 72 * this.zoom;
     // rFont explícito do run tem prioridade; senão a convenção da célula
-    const family = p?.font !== undefined
-      ? `'${p.font}', 'Aptos Narrow', Segoe UI`
-      : `'Aptos Narrow', ${base?.name ?? 'Segoe UI'}`;
+    const family = this.fontResolver.cssStack(p?.font ?? 'Aptos Narrow', SHEET_FALLBACKS);
     return {
-      css: `${italic ? 'italic ' : ''}${bold ? '700 ' : '400 '}${sizePx}px ${family}, Arial, sans-serif`,
+      css: `${italic ? 'italic ' : ''}${bold ? '700 ' : '400 '}${sizePx}px ${family}`,
       sizePx,
       color: p?.color ?? base?.color ?? TEXT,
       underline,

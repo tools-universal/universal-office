@@ -16,7 +16,10 @@ await build({
   bundle: true,
   format: 'esm',
   outfile: join(here, 'bundle.js'),
-  alias: { '@universal/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts') },
+  alias: {
+    '@universal/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
+    '@universal-office/fonts': join(slidesRoot, '..', 'shared', 'fonts', 'src', 'index.ts'),
+  },
   logLevel: 'warning',
 });
 

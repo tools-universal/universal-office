@@ -1,4 +1,4 @@
-import type { SfntFont } from './font/sfnt.js';
+import type { LayoutFont } from './font/layout-font.js';
 
 /**
  * Modelo vertical do app de referência (derivado empiricamente — ver word-lab/FINDINGS.md):
@@ -23,13 +23,13 @@ export interface LineSpacing {
   lineRule: 'auto' | 'exact' | 'atLeast';
 }
 
-export function singleLineHeightPt(font: SfntFont, sizePt: number): number {
+export function singleLineHeightPt(font: LayoutFont, sizePt: number): number {
   const m = font.metrics;
   const units = m.ascender + Math.abs(m.descender) + m.lineGap;
   return (units / m.unitsPerEm) * deviceEmPt(sizePt);
 }
 
-export function lineHeightPt(font: SfntFont, sizePt: number, spacing: LineSpacing): number {
+export function lineHeightPt(font: LayoutFont, sizePt: number, spacing: LineSpacing): number {
   const single = singleLineHeightPt(font, sizePt);
   switch (spacing.lineRule) {
     case 'auto':

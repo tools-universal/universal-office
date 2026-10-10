@@ -33,3 +33,19 @@ contêiner para extrair a fonte, bundle com a fonte em base64.
   terceiros com fontes comerciais embutidas ficam fora do repositório.
 - Encontrou uma fonte proprietária já versionada? Não basta apagar na ponta:
   ela fica no histórico — avise para reescrever o histórico.
+
+## Resolução de fontes: um lugar só
+
+Write, Sheet e Slides resolvem fontes da MESMA forma, em `shared/fonts`
+(`@universal-office/fonts`) — não reimplementar nos apps. Lá ficam o
+resolvedor dos web components (`FontResolver`: host → Local Font Access →
+embarcada → `@font-face` da página → instalada pelo nome → substituta
+métrico-compatível → Liberation Sans), o módulo de fontes do SO dos shells
+Electron (`node/system-fonts.cjs`) e as substitutas ABERTAS (`files/`:
+Carlito, Caladea, Liberation Serif/Mono — `npm run fonts:sync` copia para os
+demos/site). Fontes embutidas no documento continuam com cada componente.
+Fatos medidos que guiam o desenho: `document.fonts.check` devolve `true` para
+qualquer família (não serve para saber se a fonte existe); nenhum navegador
+enxerga o cache de fontes do Office (Aptos); só o Chromium enumera/dá bytes
+(`queryLocalFonts`, com permissão); Firefox privado/ETP estrito só vê as
+fontes base do sistema.

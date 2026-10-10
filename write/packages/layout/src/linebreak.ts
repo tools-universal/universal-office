@@ -1,4 +1,4 @@
-import type { SfntFont } from './font/sfnt.js';
+import type { LayoutFont } from './font/layout-font.js';
 
 /**
  * Quebra de linha estilo app de referência (greedy, primeira-que-couber):
@@ -19,7 +19,7 @@ export interface LineBox {
 }
 
 export interface BreakOptions {
-  font: SfntFont;
+  font: LayoutFont;
   sizePt: number;
   /** Largura útil da página (entre margens), em twips. */
   availableTwips: number;

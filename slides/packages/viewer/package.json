@@ -11,6 +11,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@universal/slides-core": "*"
+    "@universal/slides-core": "*",
+    "@universal-office/fonts": "file:../../../shared/fonts"
   }
 }

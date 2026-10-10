@@ -113,3 +113,30 @@ if (missing.length) {
   for (const m of missing) console.log(`    ${m}`);
 }
 if (!ROOTS.length) console.log(`  nenhuma pasta de fontes do sistema encontrada (procurei: Windows\\Fonts, CloudFonts, ~/Library/Fonts…)`);
+
+// Substitutas ABERTAS métrico-compatíveis (Carlito ↔ Calibri, Caladea ↔
+// Cambria, Liberation Serif/Mono ↔ Times New Roman/Courier New): versionadas
+// UMA vez em shared/fonts/files e copiadas para as bases de fontes dos demos e
+// do site (cópias no .gitignore). O resolvedor de fontes busca lá; sem elas,
+// cai na Liberation Sans.
+const OPEN_SRC = join(root, 'shared/fonts/files');
+const OPEN_DESTS = [
+  'write/packages/editor/demo/fonts',
+  'sheet/packages/sheet/demo/fonts',
+  'slides/packages/slides/demo/fonts',
+  'site/assets/fonts',
+];
+let openCopied = 0;
+if (existsSync(OPEN_SRC)) {
+  const files = readdirSync(OPEN_SRC).filter((f) => /\.ttf$|^LICENSE-/.test(f));
+  for (const dir of OPEN_DESTS) {
+    mkdirSync(join(root, dir), { recursive: true });
+    for (const f of files) {
+      const src = join(OPEN_SRC, f), dest = join(root, dir, f);
+      if (!force && existsSync(dest) && statSync(dest).size === statSync(src).size) continue;
+      copyFileSync(src, dest);
+      openCopied++;
+    }
+  }
+}
+console.log(`fonts:sync — substitutas abertas: ${openCopied} copiada(s) para ${OPEN_DESTS.length} base(s)`);

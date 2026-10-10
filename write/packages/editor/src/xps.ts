@@ -173,7 +173,9 @@ export function buildXps(input: XpsBuildInput): Uint8Array {
   // fontes
   for (const key of usedFonts) {
     const [family, variant] = key.split('-') as [string, XpsGlyphRun['variant']];
-    const bytes = input.fontBytes[family]?.[variant];
+    // família sem a variante (ex.: "Segoe UI Light" não tem negrito; fonte
+    // embutida só com a regular): a regular da família, como no PDF
+    const bytes = input.fontBytes[family]?.[variant] ?? input.fontBytes[family]?.regular;
     if (!bytes) throw new Error(`fonte sem bytes para XPS: ${key}`);
     z[`Resources/Fonts/${safeFamily(family)}-${variant}.ttf`] = bytes;
   }

@@ -1,3 +1,4 @@
+import { FontResolver } from '@universal-office/fonts';
 import {
   PptxPackage, readPresentation, readSlide, paintSlideTo,
   readEmbeddedFonts, collectDeckTypefaces,
@@ -43,6 +44,15 @@ export interface PresentOptions {
 }
 
 const NO_TIMING: SlideTimingModel = { steps: [], interactive: [], hidden: false };
+
+/**
+ * Substituto do PowerPoint para família que não existe em lugar nenhum (nem
+ * embutida, nem no SO): medido no oráculo (interest-calculator: "Bellota Text"
+ * e "Archivo" ausentes saem com as métricas da Calibri; Liberation Sans/Arial
+ * quebra as linhas em outro lugar). Aptos antes: a família da Aptos Display,
+ * padrão do Office atual. Sem Calibri na máquina, a Carlito (métrico-compatível).
+ */
+const MISSING_FONT_FALLBACKS = ['Aptos', 'Calibri'];
 
 /** Teclas do apresentador (as do app de referência). */
 const NEXT_KEYS = new Set(['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter', 'n', 'N']);
@@ -149,6 +159,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.resizeObs.observe(this.canvas);
     this.watchDpr();
     this.restoreParkedFonts();
+    this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.paint());
     this.resize(); this.paint();
     (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready.then(() => this.paint()).catch(() => {});
     const src = this.getAttribute('src');
@@ -167,6 +178,8 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.stopPlayback();
     this.media.dispose();
     this.parkFonts();
+    this.unsubscribeFonts?.();
+    this.unsubscribeFonts = null;
   }
 
   attributeChangedCallback(name: string, oldV: string | null, newV: string | null): void {
@@ -208,37 +221,26 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.dprWatch = null;
   }
 
-  // ───────────────────────── FONTES (lógica do Universal Write) ─────────────────────────
-  // 1 fonte DEFAULT embarcada (Liberation Sans, via atributo `fonts` = base URL),
-  // fontes EMBUTIDAS no arquivo (p:embeddedFontLst) e fontes do SO carregadas
-  // SOB DEMANDA (queryLocalFonts) para as famílias que o deck realmente usa.
+  // ───────────────────────── FONTES ─────────────────────────
+  // Fontes EMBUTIDAS no arquivo (p:embeddedFontLst) são deste viewer (ciclo de
+  // vida do deck); todo o resto — padrão (Liberation Sans, base do atributo
+  // `fonts`), fontes do SO/host, instaladas, substitutas abertas — vem do
+  // resolvedor ÚNICO dos apps (shared/fonts), o mesmo do Write e do Sheet.
 
   /** Famílias com FontFace carregado (embutidas/SO/default). */
   protected loadedFamilyNames = new Set<string>();
   private defaultFontsInstalled = false;
 
-  /** Busca os assets default (Liberation Sans) da base do atributo `fonts`. */
+  /** Fonte padrão (Liberation Sans) pela base do atributo `fonts` — via o
+   *  resolvedor único (sem base configurada: o host já registrou @font-face). */
   protected async installDefaultFonts(): Promise<void> {
     if (this.defaultFontsInstalled) return;
     this.defaultFontsInstalled = true;
-    const base = this.getAttribute('fonts');
-    if (!base) return; // sem base: o host já registrou @font-face próprios
-    const files: [string, string, string][] = [
-      ['liberationsans-regular.ttf', '400', 'normal'],
-      ['liberationsans-bold.ttf', '700', 'normal'],
-      ['liberationsans-italic.ttf', '400', 'italic'],
-      ['liberationsans-bolditalic.ttf', '700', 'italic'],
-    ];
-    for (const [file, weight, style] of files) {
-      try {
-        const res = await fetch(`${base.replace(/\/$/, '')}/${file}`);
-        if (!res.ok) continue;
-        const face = new FontFace('Liberation Sans', await res.arrayBuffer(), { weight, style });
-        document.fonts.add(await face.load());
-        this.loadedFamilyNames.add('Liberation Sans');
-      } catch { /* opcional em dev; fallback do canvas cobre */ }
-    }
-    if (this.loadedFamilyNames.has('Liberation Sans')) this.paint();
+    this.fontResolver.suggestBaseUrl(this.getAttribute('fonts'));
+    const faces = await this.fontResolver.bundledFaces();
+    if (!Object.keys(faces).length) return;
+    this.loadedFamilyNames.add('Liberation Sans');
+    this.paint();
   }
 
   /** Carregamentos das fontes embutidas do deck atual (ver `fontsReady`). */
@@ -298,12 +300,17 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.parkedFaces = [];
   }
 
-  /**
-   * Fontes do SO por família fornecidas pelo HOST (ex.: o Electron lê
-   * Windows\Fonts + o cache CloudFonts do Office, invisível ao
-   * `queryLocalFonts`). Ausente: `queryLocalFonts` (Chromium, com permissão).
-   */
-  static systemFontResolver: ((families: string[]) => Promise<{ family: string; weight: string; style: string; bytes: ArrayBuffer }[]>) | null = null;
+  /** Resolvedor de fontes ÚNICO dos apps (shared/fonts): host, Local Font
+   *  Access, instaladas pelo nome, substitutas abertas, padrão. */
+  protected readonly fontResolver = FontResolver.shared();
+  private unsubscribeFonts: (() => void) | null = null;
+
+  /** Pilha CSS de uma família do texto: a EMBUTIDA no deck, se houver;
+   *  senão a que o resolvedor escolheu (vai em `PaintSlideOptions.fontStack`). */
+  protected readonly fontStackFor = (family: string): string =>
+    this.embeddedFamilies.has(family)
+      ? `"${family.replace(/["\\]/g, '\\$&')}", "Liberation Sans", sans-serif`
+      : this.fontResolver.cssStack(family, MISSING_FONT_FALLBACKS);
 
   /**
    * Resolve quando as fontes EMBUTIDAS do deck terminaram de carregar (ou
@@ -317,52 +324,15 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   }
 
   /**
-   * Carrega SOB DEMANDA as fontes do SO usadas pelo deck e ainda não
-   * disponíveis (queryLocalFonts — Chromium/Electron). Sem permissão/API,
-   * o fallback CSS (default → Aptos → Calibri → Arial) cobre.
+   * Resolve as fontes usadas pelo deck (resolvedor único: do host, instaladas,
+   * substitutas abertas…); as embutidas no arquivo têm precedência (ver
+   * fontStackFor). O aviso de onChange repinta quando chegarem.
    */
   protected async ensureDeckFonts(pkg: PptxPackage): Promise<void> {
-    const wanted = collectDeckTypefaces(pkg)
-      .filter((fam) => !this.loadedFamilyNames.has(fam))
-      .filter((fam) => {
-        try { return !document.fonts.check(`12px "${fam}"`); } catch { return true; }
-      });
+    const wanted = collectDeckTypefaces(pkg).filter((fam) => !this.embeddedFamilies.has(fam));
     if (!wanted.length) return;
-    const resolver = UniversalPresentationViewerElement.systemFontResolver;
-    if (resolver) {
-      let added = false;
-      try {
-        for (const f of await resolver(wanted)) {
-          try {
-            document.fonts.add(await new FontFace(f.family, f.bytes, { weight: f.weight, style: f.style }).load());
-            this.loadedFamilyNames.add(f.family);
-            added = true;
-          } catch { /* face inválida: segue */ }
-        }
-      } catch { /* host sem as fontes: fallback CSS */ }
-      if (added && this.pkg === pkg) this.paint();
-      return;
-    }
-    const qlf = (window as unknown as { queryLocalFonts?: () => Promise<{ family: string; style: string; blob(): Promise<Blob> }[]> }).queryLocalFonts;
-    if (!qlf) return;
-    let faces: { family: string; style: string; blob(): Promise<Blob> }[];
-    try { faces = await qlf.call(window); } catch { return; /* sem permissão */ }
-    const wantSet = new Set(wanted.map((f) => f.toLowerCase()));
-    let added = false;
-    for (const fd of faces) {
-      if (!wantSet.has(fd.family.toLowerCase())) continue;
-      const styleLc = fd.style.toLowerCase();
-      const weight = /bold|black|heavy|semibold|demi/.test(styleLc) ? '700' : '400';
-      const style = /italic|oblique/.test(styleLc) ? 'italic' : 'normal';
-      try {
-        const bytes = await (await fd.blob()).arrayBuffer();
-        const face = new FontFace(fd.family, bytes, { weight, style });
-        document.fonts.add(await face.load());
-        this.loadedFamilyNames.add(fd.family);
-        added = true;
-      } catch { /* face inacessível: segue */ }
-    }
-    if (added) this.paint();
+    await this.fontResolver.resolve(wanted);
+    if (this.pkg === pkg) this.paint();
   }
 
   /** True quando uma subclasse está com edição inline aberta (viewer: nunca). */
@@ -745,7 +715,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
       slideW: this.pres.slideW, slideH: this.pres.slideH,
       images: this.readyImages(slide), charts: this.chartCache,
     }, fit.scale, {
-      ox: fit.ox, oy: fit.oy,
+      ox: fit.ox, oy: fit.oy, fontStack: this.fontStackFor,
       // motor SMIL: cada forma toca os comportamentos gravados no arquivo
       shapeAnim: (sh) => (sh.inherited || !ps.effects.length ? null
         : shapeAnimHooks(ps.effects, sh.groupIds ? [sh.id, ...sh.groupIds] : [sh.id], animMs,
@@ -873,7 +843,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     paintSlideTo(ctx, slide, {
       slideW: this.pres.slideW, slideH: this.pres.slideH,
       images: this.readyImages(slide), charts: this.chartCache,
-    }, scale, { ox, oy });
+    }, scale, { ox, oy, fontStack: this.fontStackFor });
     return true;
   }
 
@@ -896,7 +866,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     paintSlideTo(ctx, slide, {
       slideW: this.pres.slideW, slideH: this.pres.slideH,
       images: this.readyImages(slide), charts: this.chartCache,
-    }, pxWidth / this.pres.slideW);
+    }, pxWidth / this.pres.slideW, { fontStack: this.fontStackFor });
     return true;
   }
 
@@ -1013,7 +983,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     }
 
     // conteúdo do slide (fundo + shapes) — função pura compartilhada
-    const paintOpts: PaintSlideOptions = { ox: fit.ox, oy: fit.oy };
+    const paintOpts: PaintSlideOptions = { ox: fit.ox, oy: fit.oy, fontStack: this.fontStackFor };
     const suppress = this.suppressTextIdx();
     if (suppress !== undefined) paintOpts.suppressTextShapeIdx = suppress;
     paintSlideTo(ctx, slide, {

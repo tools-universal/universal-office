@@ -1,4 +1,4 @@
-import type { SfntFont } from './font/sfnt.js';
+import type { LayoutFont } from './font/layout-font.js';
 
 /**
  * Quebra de linha com runs heterogêneos, tabs e recuos especiais.
@@ -14,7 +14,7 @@ import type { SfntFont } from './font/sfnt.js';
 export type FontVariant = 'regular' | 'bold' | 'italic' | 'boldItalic';
 
 export interface FontRegistry {
-  resolve(family: string | undefined, variant: FontVariant): SfntFont;
+  resolve(family: string | undefined, variant: FontVariant): LayoutFont;
 }
 
 export interface StyledSpan {

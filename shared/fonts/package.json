@@ -1,0 +1,19 @@
+{
+  "name": "@universal-office/fonts",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Resolução de fontes ÚNICA dos web components (Write, Sheet, Slides) + módulo de fontes do SO dos shells Electron + fontes abertas substitutas",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "node", "files"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

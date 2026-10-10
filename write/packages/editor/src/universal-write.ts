@@ -33,8 +33,11 @@ import {
   type HfPartInfo,
   type Block,
 } from '@universal-office/docx-core';
+import { FontResolver, METRIC_SUBSTITUTES, type ResolvedFont } from '@universal-office/fonts';
 import {
   SfntFont,
+  CanvasMetricsFont,
+  type LayoutFont,
   breakRich,
   lineHeightPt,
   deviceEmPt,
@@ -145,21 +148,36 @@ interface ParaLayout {
 }
 
 class Registry implements FontRegistry {
-  constructor(private sets: Record<string, Record<FontVariant, SfntFont>>) {}
+  /** `onMiss(família)`: chamada quando a família não está registrada — o
+   *  editor consulta o resolvedor de fontes e registra se já houver resposta. */
+  constructor(
+    private sets: Record<string, Partial<Record<FontVariant, LayoutFont>>>,
+    private onMiss?: (family: string) => void,
+  ) {}
   /** Registra uma variante de fonte (ex.: fontes EMBEDADAS do .docx). */
-  register(family: string, variant: FontVariant, font: SfntFont): void {
-    (this.sets[family] ??= {} as Record<FontVariant, SfntFont>)[variant] = font;
+  register(family: string, variant: FontVariant, font: LayoutFont): void {
+    (this.sets[family] ??= {})[variant] = font;
   }
   has(family: string): boolean {
     return this.sets[family] !== undefined || this.sets[family.split(' ')[0]!] !== undefined;
   }
-  resolve(family: string | undefined, variant: FontVariant): SfntFont {
+  families(): string[] {
+    return Object.keys(this.sets);
+  }
+  delete(family: string): void {
+    delete this.sets[family];
+  }
+  get(family: string): Partial<Record<FontVariant, LayoutFont>> | undefined {
+    return this.sets[family];
+  }
+  resolve(family: string | undefined, variant: FontVariant): LayoutFont {
     // tenta o nome COMPLETO ("Lato Black"), depois a base ("Lato"), depois o padrão.
+    if (family && !this.sets[family]) this.onMiss?.(family);
     const requested = family
       ? (this.sets[family] ?? this.sets[family.split(' ')[0]!])
       : undefined;
     const def = this.sets[DEFAULT_FONT] ?? this.sets['Aptos']!;
-    return requested?.[variant] ?? requested?.regular ?? def[variant] ?? def.regular;
+    return requested?.[variant] ?? requested?.regular ?? def[variant] ?? def.regular!;
   }
 }
 
@@ -211,51 +229,7 @@ interface FootnoteHit {
   id: number;
 }
 
-/** Uma face de fonte da Local Font Access API (window.queryLocalFonts). */
-interface LocalFontData {
-  family: string;
-  fullName?: string;
-  postscriptName?: string;
-  style?: string;
-  blob(): Promise<Blob>;
-}
-
-/** Uma face de fonte do SO entregue pelo HOST (ex.: shell Electron). */
-export interface SystemFontFace {
-  family: string;
-  weight: string;
-  style: string;
-  /** Negrito "RIBBI" dentro da família (ausente: deduz do peso). */
-  bold?: boolean;
-  /** A licença (fsType) permite embutir em documento/PDF (ausente: permite). */
-  embeddable?: boolean;
-  bytes: ArrayBuffer;
-}
-
-/** Fontes do SO fornecidas pelo HOST — ex.: o Electron lê Windows\Fonts + o
- *  cache CloudFonts do Office (onde moram as Aptos), invisível ao
- *  `queryLocalFonts`. */
-export interface SystemFontProvider {
-  /** Nomes das famílias instaladas, em ordem alfabética. */
-  list(): Promise<string[]>;
-  /** Faces das famílias pedidas (todas as variantes encontradas). */
-  resolve(families: string[]): Promise<SystemFontFace[]>;
-}
-
-/** Mapeia o "style" da FontData (ex.: "Bold Italic") para a variante interna. */
-function variantOfStyle(style: string | undefined): FontVariant {
-  const s = (style ?? '').toLowerCase();
-  const bold = /bold/.test(s) || /black|heavy|semibold|extrabold/.test(s);
-  const italic = /italic|oblique/.test(s);
-  return bold && italic ? 'boldItalic' : bold ? 'bold' : italic ? 'italic' : 'regular';
-}
-
 export class UniversalWriteElement extends HTMLElement {
-  /** Fontes do SO fornecidas pelo HOST (ver SystemFontProvider). Com ele, o
-   *  seletor lista as fontes instaladas sem gesto/permissão e o documento
-   *  carrega sozinho as famílias que usa. Ausente: `queryLocalFonts`. */
-  static systemFonts: SystemFontProvider | null = null;
-
   private model: DocumentModel | null = null;
   private pkg: DocxPackage | null = null;
   private fullDoc: FullDocument | null = null;
@@ -275,15 +249,18 @@ export class UniversalWriteElement extends HTMLElement {
   private loadedFamilies = new Set<string>();
   /** nomes de família com QUALQUER FontFace carregado (p/ escolher a família CSS). */
   private loadedFamilyNames = new Set<string>();
-  /** cache das famílias do SO (Local Font Access API); null = ainda não consultado. */
-  private sysFontsCache: string[] | null = null;
-  /** FontData do SO por família (todas as faces) p/ carregar bytes sob demanda. */
-  private sysFontData = new Map<string, LocalFontData[]>();
-  /** Famílias (lc) já pedidas ao host — achadas ou não, não se pede de novo. */
-  private hostFontsAsked = new Set<string>();
-  /** Famílias usadas pelo documento sem FontFace, à espera do próximo lote. */
-  private hostFontQueue = new Set<string>();
-  private hostFontTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Resolvedor de fontes ÚNICO dos apps (shared/fonts): host, Local Font
+   *  Access, instaladas pelo nome, substitutas abertas, padrão. */
+  private readonly fontResolver = FontResolver.shared();
+  private unsubscribeFonts: (() => void) | null = null;
+  /** Famílias (como o documento as nomeia) pedidas ao resolvedor… */
+  private askedFonts = new Set<string>();
+  /** …e as que já têm a resposta aplicada ao Registry. */
+  private appliedFonts = new Set<string>();
+  /** Arquivo de cada fonte de métrica que tem bytes (nome p/ o PDF + bytes):
+   *  o PDF embute EXATAMENTE o arquivo cujas métricas posicionaram o texto. */
+  private fontFiles = new WeakMap<LayoutFont, { name: string; bytes: Uint8Array }>();
+  private refreshQueued = false;
   private container: HTMLDivElement;
   private input: HTMLTextAreaElement;
   private topbarEl!: HTMLDivElement;
@@ -449,11 +426,15 @@ export class UniversalWriteElement extends HTMLElement {
 
   async connectedCallback(): Promise<void> {
     window.addEventListener('resize', this.handleWindowResize);
+    this.fontResolver.suggestBaseUrl(this.getAttribute('fonts'));
+    this.unsubscribeFonts ??= this.fontResolver.onChange((families) => this.onFontsResolved(families));
     if (this.initialized) this.startCaret();
     if (!this.hasAttribute('manual-init')) await this.initialize();
   }
 
   disconnectedCallback(): void {
+    this.unsubscribeFonts?.();
+    this.unsubscribeFonts = null;
     window.removeEventListener('resize', this.handleWindowResize);
     window.clearInterval(this.caretTimer);
     this.caretTimer = 0;
@@ -522,13 +503,14 @@ export class UniversalWriteElement extends HTMLElement {
       const font = new SfntFont(bytes);
       if (asset.advances) font.setAdvanceTable(asset.advances);
       sets[asset.family]![asset.variant] = font;
+      this.fontFiles.set(font, { name: asset.family, bytes });
       (this.fontBytes[asset.family] ??= {})[asset.variant] = bytes;
     }
     const def = sets[DEFAULT_FONT];
     if (!def?.regular || !def.bold || !def.italic || !def.boldItalic) {
       throw new Error(`initialize(): provide the four ${DEFAULT_FONT} font variants`);
     }
-    this.fonts = new Registry(sets);
+    this.fonts = new Registry(sets, (family) => this.applyResolvedFont(family));
   }
 
   private async fetchDefaultFontAssets(): Promise<UniversalWriteFontAsset[]> {
@@ -728,7 +710,11 @@ export class UniversalWriteElement extends HTMLElement {
       } catch { continue; } // fonte inválida: ignora (mantém fallback)
       this.loadedFamilies.add(`${f.family} ${f.variant}`);
       this.loadedFamilyNames.add(f.family);
-      try { this.fonts.register(f.family, f.variant, new SfntFont(f.data)); } catch { /* métrica opcional */ }
+      try {
+        const sf = new SfntFont(f.data);
+        this.fonts.register(f.family, f.variant, sf);
+        this.fontFiles.set(sf, { name: f.family, bytes: f.data });
+      } catch { /* métrica opcional */ }
       (this.fontBytes[f.family] ??= {})[f.variant] = f.data;
       added = true;
     }
@@ -1287,7 +1273,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.formatRuns({ szHalfPt: Math.max(2, cur + delta * 2) });
   }
   setFontFamily(name: string): void {
-    void this.ensureFontLoaded(name); // carrega métricas/FontFace da fonte do SO
+    void this.ensureFontLoaded(name); // resolve a fonte (métricas + FontFace) se ainda não houver
     this.formatRuns({ fontAscii: name });
   }
 
@@ -1298,124 +1284,127 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** True quando a lista de fontes do SO vem do host (sem gesto/permissão). */
   hasHostSystemFonts(): boolean {
-    return !!UniversalWriteElement.systemFonts;
+    return this.fontResolver.hasHost;
   }
 
-  /** Fontes instaladas no SO: do HOST (systemFonts) se houver; senão via Local
-   *  Font Access API (queryLocalFonts), que requer gesto do usuário +
-   *  permissão. Cacheia o resultado. Vazio se nada disso existir ou for negado.
-   *  Guarda os FontData p/ carregar sob demanda. */
-  async systemFontFamilies(): Promise<string[]> {
-    if (this.sysFontsCache) return this.sysFontsCache;
-    const host = UniversalWriteElement.systemFonts;
-    if (host) {
-      try { this.sysFontsCache = [...await host.list()]; } catch { this.sysFontsCache = []; }
-      return this.sysFontsCache;
-    }
-    const q = (window as unknown as { queryLocalFonts?: () => Promise<LocalFontData[]> }).queryLocalFonts;
-    if (typeof q !== 'function') { this.sysFontsCache = []; return []; }
-    try {
-      const fonts = await q();
-      const fams = new Set<string>();
-      for (const f of fonts) {
-        if (!f.family) continue;
-        fams.add(f.family);
-        const list = this.sysFontData.get(f.family) ?? [];
-        list.push(f);
-        this.sysFontData.set(f.family, list);
-      }
-      this.sysFontsCache = [...fams].sort((a, b) => a.localeCompare(b));
-      return this.sysFontsCache;
-    } catch { this.sysFontsCache = []; return []; }
-  }
-
-  /** Lista para o seletor: bundled + embedadas + SO (dedup, ordenado). */
+  /** Lista para o seletor: carregadas (bundled + embedadas) + as do resolvedor
+   *  (host; Local Font Access se permitida; senão as instaladas sondadas pelo
+   *  nome, as abertas embarcadas e as que têm substituta). */
   async listAvailableFonts(): Promise<string[]> {
-    const sys = await this.systemFontFamilies();
-    const all = new Set<string>([...this.loadedFamilyNames, ...sys]);
+    const all = new Set<string>([...this.loadedFamilyNames, ...await this.fontResolver.listFamilies()]);
     return [...all].sort((a, b) => a.localeCompare(b));
   }
 
-  /** Carrega sob demanda uma fonte do SO (métricas + FontFace) quando ela é
-   *  selecionada/usada, para render E layout usarem a fonte real. */
+  /** Pede a Local Font Access (Chromium) — CHAMAR NUM GESTO (ex.: abrir o
+   *  seletor de fonte). Concedida, a lista ganha todas as fontes instaladas e
+   *  as que estavam só pelo nome/substitutas passam a usar o arquivo real. */
+  requestSystemFonts(): Promise<boolean> {
+    return this.fontResolver.requestLocalAccess();
+  }
+
+  /** Resolve uma família (resolvedor único) — ao chegar, refaz layout e pintura. */
   async ensureFontLoaded(family: string): Promise<void> {
-    if (!family || this.loadedFamilyNames.has(family) || !this.fonts) return;
-    const faces = this.sysFontData.get(family);
-    if (!faces?.length) {
-      if (await this.loadHostFonts([family]) && this.model) this.refresh();
-      return;
-    }
-    let added = false;
-    for (const fd of faces) {
-      const variant = variantOfStyle(fd.style);
-      if (this.loadedFamilies.has(`${family} ${variant}`)) continue;
-      try {
-        const bytes = new Uint8Array(await (await fd.blob()).arrayBuffer());
-        const weight = variant === 'bold' || variant === 'boldItalic' ? '700' : '400';
-        const style = variant === 'italic' || variant === 'boldItalic' ? 'italic' : 'normal';
-        const face = new FontFace(family, bytes.slice().buffer, { weight, style });
-        await face.load();
-        document.fonts.add(face);
-        this.loadedFamilies.add(`${family} ${variant}`);
-        this.loadedFamilyNames.add(family);
-        try { this.fonts.register(family, variant, new SfntFont(bytes)); } catch { /* métrica opcional */ }
-        (this.fontBytes[family] ??= {})[variant] = bytes;
-        added = true;
-      } catch { /* face inacessível: ignora */ }
-    }
-    if (added && this.model) this.refresh();
+    if (!family || this.loadedFamilyNames.has(family)) return;
+    await this.fontResolver.resolve([family]);
   }
 
-  /** Pede ao HOST as faces das famílias (uma vez por família) e registra
-   *  FontFace (render) + SfntFont (layout) + bytes (PDF/XPS). Só entra a face
-   *  cujas métricas o SfntFont lê e cuja licença permite embutir — senão o
-   *  canvas, o layout e o PDF divergiriam; a família fica no fallback.
-   *  Retorna true se alguma face foi adicionada. */
-  private async loadHostFonts(families: string[]): Promise<boolean> {
-    const host = UniversalWriteElement.systemFonts;
-    if (!host || !this.fonts) return false;
-    const todo = families.filter((f) =>
-      f && !this.loadedFamilyNames.has(f) && !this.hostFontsAsked.has(f.toLowerCase()));
-    if (!todo.length) return false;
-    for (const f of todo) this.hostFontsAsked.add(f.toLowerCase());
-    let faces: SystemFontFace[];
-    try { faces = await host.resolve(todo); } catch { return false; }
-    let added = false;
-    for (const f of faces) {
-      if (f.embeddable === false) continue;
-      const italic = f.style === 'italic';
-      const bold = f.bold ?? Number(f.weight) >= 600;
-      const variant: FontVariant = bold && italic ? 'boldItalic' : bold ? 'bold' : italic ? 'italic' : 'regular';
-      if (this.loadedFamilies.has(`${f.family} ${variant}`)) continue;
-      try {
-        const bytes = new Uint8Array(f.bytes);
-        const metrics = new SfntFont(bytes);
-        const face = new FontFace(f.family, bytes.slice().buffer, {
-          weight: bold ? '700' : '400', style: italic ? 'italic' : 'normal',
-        });
-        await face.load();
-        document.fonts.add(face);
-        this.loadedFamilies.add(`${f.family} ${variant}`);
-        this.loadedFamilyNames.add(f.family);
-        this.fonts.register(f.family, variant, metrics);
-        (this.fontBytes[f.family] ??= {})[variant] = bytes;
-        added = true;
-      } catch { /* face ilegível: fica no fallback */ }
+  /** O resolvedor (re)resolveu famílias: atualiza as que este documento usa. */
+  private onFontsResolved(families: string[]): void {
+    const keys = new Set(families.map((f) => f.toLowerCase()));
+    let changed = false;
+    for (const u of this.askedFonts) {
+      if (!keys.has(u.toLowerCase())) continue;
+      // (re)aplica do zero: a resposta nova pode ter outras variantes/fonte
+      this.appliedFonts.delete(u);
+      this.fonts?.delete(u);
+      this.applyResolvedFont(u);
+      changed = true;
     }
-    return added;
+    if (changed) this.queueRefresh();
   }
 
-  /** Família usada pelo documento sem FontFace: entra no próximo lote pedido
-   *  ao host; ao chegar, refaz layout + pintura com a fonte real. */
-  private queueHostFont(family: string): void {
-    if (!UniversalWriteElement.systemFonts || this.hostFontsAsked.has(family.toLowerCase())) return;
-    this.hostFontQueue.add(family);
-    this.hostFontTimer ??= setTimeout(() => {
-      this.hostFontTimer = null;
-      const fams = [...this.hostFontQueue];
-      this.hostFontQueue.clear();
-      void this.loadHostFonts(fams).then((added) => { if (added && this.model) this.refresh(); });
-    }, 0);
+  /**
+   * Registra no Registry as métricas da família vinda do resolvedor (síncrono,
+   * se já resolvida; senão pede e o aviso de onChange refaz o layout): com
+   * bytes, SfntFont (exato, embutível); só pelo nome, CanvasMetricsFont. Fonte
+   * embutida/bundled do próprio editor nunca é sobreposta.
+   */
+  private applyResolvedFont(family: string): boolean {
+    if (!this.fonts || this.loadedFamilyNames.has(family) || this.appliedFonts.has(family)) return false;
+    this.askedFonts.add(family);
+    const r = this.fontResolver.get(family);
+    if (!r) {
+      void this.fontResolver.resolve([family]);
+      return false;
+    }
+    this.appliedFonts.add(family);
+    if (r.source === 'default') return false; // o Registry já cai no padrão
+    let registered = false;
+    for (const v of ['regular', 'bold', 'italic', 'boldItalic'] as const) {
+      const font = this.layoutFontFor(r, v);
+      if (!font) continue;
+      this.fonts.register(family, v, font);
+      registered = true;
+    }
+    return registered;
+  }
+
+  private layoutFontFor(r: ResolvedFont, v: FontVariant): LayoutFont | null {
+    const bytes = r.faces[v];
+    if (bytes) {
+      try {
+        const sf = new SfntFont(bytes);
+        if (r.embeddable) this.fontFiles.set(sf, { name: r.cssFamily, bytes });
+        (this.fontBytes[r.cssFamily] ??= {})[v] = bytes;
+        return sf;
+      } catch { /* arquivo ilegível p/ o parser: mede pelo canvas */ }
+    }
+    if (Object.keys(r.faces).length && v !== 'regular') return null; // sem a variante: Registry usa a regular
+    const ctx = this.measureCtx ??= document.createElement('canvas').getContext('2d');
+    if (!ctx) return null;
+    const style = v === 'italic' || v === 'boldItalic' ? 'italic ' : '';
+    const weight = v === 'bold' || v === 'boldItalic' ? '700' : '400';
+    return new CanvasMetricsFont(ctx, `${style}${weight} {size}px "${r.cssFamily.replace(/"/g, '\\"')}"`);
+  }
+  private measureCtx: CanvasRenderingContext2D | null = null;
+
+  /** Família COM ARQUIVO para o XPS (que embute os bytes): a do canvas; sem
+   *  bytes (instalada só pelo nome), a substituta já carregada ou o padrão. */
+  private fileFamilyFor(family: string | undefined): string {
+    const fam = this.familyFor(family);
+    if (this.fontBytes[fam]) return fam;
+    const sub = family ? METRIC_SUBSTITUTES[family.toLowerCase()] : undefined;
+    return sub && this.fontBytes[sub] ? sub : DEFAULT_FONT;
+  }
+
+  /** Antes do PDF: famílias medidas sem arquivo (instaladas só pelo nome)
+   *  ganham a substituta métrico-compatível embarcada, para o PDF embuti-la. */
+  private async preparePdfFonts(): Promise<void> {
+    if (!this.fonts) return;
+    for (const family of this.fonts.families()) {
+      const sub = METRIC_SUBSTITUTES[family.toLowerCase()];
+      if (!sub || this.fonts.get(sub)) continue;
+      const fonts = Object.values(this.fonts.get(family) ?? {});
+      if (fonts.every((f) => f && this.fontFiles.has(f))) continue;
+      const faces = await this.fontResolver.bundledFaces(sub);
+      for (const [v, bytes] of Object.entries(faces) as [FontVariant, Uint8Array][]) {
+        try {
+          const sf = new SfntFont(bytes);
+          this.fonts.register(sub, v, sf);
+          this.fontFiles.set(sf, { name: sub, bytes });
+          (this.fontBytes[sub] ??= {})[v] = bytes;
+        } catch { /* fica no padrão */ }
+      }
+    }
+  }
+
+  private queueRefresh(): void {
+    if (this.refreshQueued) return;
+    this.refreshQueued = true;
+    queueMicrotask(() => {
+      this.refreshQueued = false;
+      if (this.model) this.refresh();
+    });
   }
   setColor(hex: string | undefined): void { this.formatRuns({ color: hex }); }
   setHighlight(name: string | undefined): void { this.formatRuns({ highlight: name }); }
@@ -4095,13 +4084,16 @@ export class UniversalWriteElement extends HTMLElement {
     }
   }
 
-  /** Família CSS a usar no canvas: a fonte EMBEDADA/instalada real (ex.: "Lato",
-   *  "Lato Black") se houver FontFace; senão cai no padrão (bundled) e, havendo
-   *  host com fontes do SO, pede a família para a próxima pintura. */
+  /** Família CSS a usar no canvas: a fonte EMBEDADA real (ex.: "Lato", "Lato
+   *  Black"); senão a que o resolvedor de fontes escolheu (do SO, instalada,
+   *  substituta); senão a base embutida; senão o padrão (Liberation Sans). */
   private familyFor(family: string | undefined): string {
     if (family) {
       if (this.loadedFamilyNames.has(family)) return family;
-      this.queueHostFont(family); // ex.: "Aptos Display" mesmo com "Aptos" carregada
+      // resolvedor único (ex.: "Aptos Display" mesmo com "Aptos" carregada)
+      this.applyResolvedFont(family);
+      const r = this.appliedFonts.has(family) ? this.fontResolver.get(family) : undefined;
+      if (r && r.source !== 'default') return r.cssFamily;
       const base = family.split(' ')[0]!;
       if (this.loadedFamilyNames.has(base)) return base;
     }
@@ -5653,15 +5645,24 @@ export class UniversalWriteElement extends HTMLElement {
     const T = TWIPS_PER_PT;
     const doc = new PdfDocument({ compress: true });
     this.pdfImgCache = new WeakMap();
-    const cache = new Map<SfntFont, EmbeddedFont>();
+    await this.preparePdfFonts();
+    const cache = new Map<LayoutFont, EmbeddedFont>();
     const emb = (family: string | undefined, variant: FontVariant): EmbeddedFont => {
-      const sf = this.fonts!.resolve(family, variant);
+      let sf = this.fonts!.resolve(family, variant);
+      let file = this.fontFiles.get(sf);
+      if (!file) {
+        // sem arquivo (instalada só pelo NOME, ou licença que não permite
+        // embutir): a substituta métrico-compatível, senão o padrão — sempre
+        // com as MÉTRICAS do arquivo embutido (glifos e advances coerentes)
+        const sub = family ? METRIC_SUBSTITUTES[family.toLowerCase()] : undefined;
+        sf = this.fonts!.resolve(sub && this.fonts!.get(sub) ? sub : DEFAULT_FONT, variant);
+        file = this.fontFiles.get(sf);
+      }
       let e = cache.get(sf);
       if (!e) {
-        const fam = this.familyFor(family);
-        const bytes = this.fontBytes[fam]?.[variant] ?? this.fontBytes[DEFAULT_FONT]?.['regular'];
-        if (!bytes) throw new Error('font has no bytes to embed in the PDF');
-        e = doc.embedFont(`${fam}-${variant}`, bytes, {
+        if (!file) throw new Error('font has no bytes to embed in the PDF');
+        const { name, bytes } = file;
+        e = doc.embedFont(`${name}-${variant}`, bytes, {
           unitsPerEm: sf.metrics.unitsPerEm,
           ascender: sf.metrics.ascender,
           descender: sf.metrics.descender,
@@ -5793,7 +5794,7 @@ export class UniversalWriteElement extends HTMLElement {
         fills: [], lines: [], glyphs: [],
       });
     }
-    const famOf = (family: string | undefined): string => this.familyFor(family);
+    const famOf = (family: string | undefined): string => this.fileFamilyFor(family);
     const colorOf = (hex: string | undefined): [number, number, number] => {
       if (!hex) return [0.13, 0.13, 0.13];
       const n = parseInt(hex, 16);
@@ -5933,7 +5934,7 @@ export class UniversalWriteElement extends HTMLElement {
       { posTwips: widthTwips / 2, align: 'center' as const },
       { posTwips: widthTwips, align: 'right' as const },
     ];
-    const famOf = (family: string | undefined): string => this.familyFor(family);
+    const famOf = (family: string | undefined): string => this.fileFamilyFor(family);
     let y = topYTwips;
     for (const p of paras) {
       const runs: Run[] = p.runs.map((r) =>

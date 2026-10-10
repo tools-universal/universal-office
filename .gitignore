@@ -54,3 +54,18 @@ Thumbs.db
 slides/packages/slides/demo/fonts/os/*
 !slides/packages/slides/demo/fonts/os/amatic-sc-*.ttf
 sheet/tools/excel-lab/fonts/
+# Substitutas ABERTAS (Carlito, Caladea, Liberation Serif/Mono): a fonte única é
+# shared/fonts/files; `npm run fonts:sync` copia para as bases dos demos e do site
+**/demo/fonts/carlito-*.ttf
+**/demo/fonts/caladea-*.ttf
+**/demo/fonts/liberationserif-*.ttf
+**/demo/fonts/liberationmono-*.ttf
+**/demo/fonts/LICENSE-carlito.txt
+**/demo/fonts/LICENSE-caladea.txt
+**/demo/fonts/LICENSE-liberation.txt
+site/assets/fonts/carlito-*.ttf
+site/assets/fonts/caladea-*.ttf
+site/assets/fonts/liberationserif-*.ttf
+site/assets/fonts/liberationmono-*.ttf
+site/assets/fonts/LICENSE-carlito.txt
+site/assets/fonts/LICENSE-caladea.txt

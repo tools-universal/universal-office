@@ -1,4 +1,6 @@
 export { SfntFont, type FontMetrics } from './font/sfnt.js';
+export type { LayoutFont } from './font/layout-font.js';
+export { CanvasMetricsFont, type MeasureContext } from './font/canvas-metrics.js';
 export { breakParagraph, type LineBox, type BreakOptions } from './linebreak.js';
 export { deviceEmPt, singleLineHeightPt, lineHeightPt, type LineSpacing } from './lineheight.js';
 export {

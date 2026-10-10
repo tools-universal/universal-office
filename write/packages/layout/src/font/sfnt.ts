@@ -25,8 +25,9 @@ export interface FontMetrics {
 }
 
 import { parseGposKern, type KernMap } from './gpos.js';
+import type { LayoutFont } from './layout-font.js';
 
-export class SfntFont {
+export class SfntFont implements LayoutFont {
   private view: DataView;
   private tables = new Map<string, { offset: number; length: number }>();
   readonly metrics: FontMetrics;

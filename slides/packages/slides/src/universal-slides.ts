@@ -100,7 +100,7 @@ export class UniversalSlidesElement extends UniversalPresentationViewerElement {
     div.style.cssText =
       `position:absolute;left:${left}px;top:${top}px;width:${w}px;min-height:${h}px;` +
       `padding:4px;border:2px dashed #ff7043;outline:none;background:rgba(255,255,255,.92);` +
-      `color:${color};font:${px}px '${font}', 'Aptos', Calibri, Arial, sans-serif;` +
+      `color:${color};font:${px}px ${this.fontStackFor(font)};` +
       `text-align:${align === 'ctr' ? 'center' : align === 'r' ? 'right' : 'left'};` +
       `white-space:pre-wrap;z-index:5;`;
     this.wrap.appendChild(div);

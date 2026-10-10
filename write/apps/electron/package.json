@@ -32,10 +32,18 @@
       {
         "from": "../../packages/editor/demo",
         "to": "packages/editor/demo",
-        "filter": ["index.html", "bundle.js", "fonts/**/*"]
+        "filter": [
+          "index.html", "bundle.js",
+          "fonts/liberationsans-*.ttf", "fonts/poppins-*.woff2", "fonts/material-symbols-*.woff2", "fonts/LICENSE-*"
+        ]
       },
       {
-        "from": "../../../tools/electron/system-fonts.cjs",
+        "from": "../../../shared/fonts/files",
+        "to": "packages/editor/demo/fonts",
+        "filter": ["*.ttf", "LICENSE-*"]
+      },
+      {
+        "from": "../../../shared/fonts/node/system-fonts.cjs",
         "to": "system-fonts.cjs"
       }
     ],

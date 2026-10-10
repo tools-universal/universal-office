@@ -234,9 +234,10 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
   styleSel.addEventListener('change', () => { editor.applyStyle(styleSel.value || undefined); editor.focusEditor(); });
   fontSel.addEventListener('change', () => { editor.setFontFamily(fontSel.value); editor.focusEditor(); });
 
-  // seletor de fonte: começa com as famílias conhecidas (bundled + embedadas do
-  // doc) e soma as do SO — já de início se o host as fornece (Electron), senão
-  // no 1º gesto (queryLocalFonts exige interação).
+  // seletor de fonte: o que o resolvedor de fontes enxerga (Electron: todas as
+  // do SO; navegador: as instaladas descobertas pelo nome + abertas embarcadas)
+  // + as carregadas do documento. No Chromium, o 1º gesto no seletor pede a
+  // Local Font Access (queryLocalFonts exige interação) e a lista completa.
   const escOpt = (s: string): string =>
     s.replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] ?? c));
   const fillFonts = (families: string[]): void => {
@@ -247,14 +248,16 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
     fontSel.value = cur;
   };
   fillFonts(editor.knownFontFamilies());
-  let sysFontsRequested = false;
-  const loadSysFonts = (): void => {
-    if (sysFontsRequested) return;
-    sysFontsRequested = true;
-    void editor.listAvailableFonts().then(fillFonts);
+  const listFonts = (): void => { void editor.listAvailableFonts().then(fillFonts); };
+  listFonts();
+  let accessAsked = false;
+  const askFontAccess = (): void => {
+    if (accessAsked || editor.hasHostSystemFonts()) return;
+    accessAsked = true;
+    void editor.requestSystemFonts().then((ok) => { if (ok) listFonts(); });
   };
-  fontSel.addEventListener('mousedown', loadSysFonts);
-  fontSel.addEventListener('focus', loadSysFonts);
+  fontSel.addEventListener('mousedown', askFontAccess);
+  fontSel.addEventListener('focus', askFontAccess);
   sizeInp.addEventListener('change', () => { const v = Number(sizeInp.value); if (v > 0) editor.setFontSize(v); editor.focusEditor(); });
   colorInp.addEventListener('change', () => { editor.setColor(colorInp.value.slice(1).toUpperCase()); editor.focusEditor(); });
   hlSel.addEventListener('change', () => { editor.setHighlight(hlSel.value || undefined); editor.focusEditor(); });
@@ -266,15 +269,13 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
   let lastFontCount = 0;
   return () => {
     syncStyleOptions();
-    // re-popula o seletor conforme novas famílias carregam (embedadas do doc),
-    // sem esperar o gesto; já com as do SO pedidas, junta as duas (cacheadas).
-    // (o host pode ser ligado depois de o elemento montar a barra: checa aqui)
-    if (!sysFontsRequested && editor.hasHostSystemFonts()) loadSysFonts();
+    // re-popula o seletor conforme novas famílias carregam (embedadas do doc);
+    // a lista do resolvedor é cacheada (o host pode ser ligado depois de o
+    // elemento montar a barra — a próxima sincronização já o enxerga)
     const known = editor.knownFontFamilies();
     if (known.length !== lastFontCount && document.activeElement !== fontSel) {
       lastFontCount = known.length;
-      if (sysFontsRequested) void editor.listAvailableFonts().then(fillFonts);
-      else fillFonts(known);
+      listFonts();
     }
     const st = editor.getSelectionState();
     const run = st.run as unknown as Record<string, unknown>;

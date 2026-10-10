@@ -1,12 +1,19 @@
 import '../src/universal-slides';
 import type { UniversalSlidesElement } from '../src/universal-slides';
-import { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
+import type { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
+import { FontResolver, type HostFontProvider } from '@universal-office/fonts';
 import { isCfb, convertPptToPptx } from '@universal/slides-core';
 
 // Electron: fontes do SO por família vêm do processo principal (Windows\Fonts +
-// usuário + cache CloudFonts do Office, que o queryLocalFonts não enxerga)
-const bridge = (window as unknown as { universalSlides?: { resolveFonts?: NonNullable<typeof UniversalPresentationViewerElement.systemFontResolver> } }).universalSlides;
-if (bridge?.resolveFonts) UniversalPresentationViewerElement.systemFontResolver = bridge.resolveFonts;
+// usuário + cache CloudFonts do Office, que o queryLocalFonts não enxerga) —
+// configurado no resolvedor ÚNICO dos apps (shared/fonts)
+const bridge = (window as unknown as {
+  universalSlides?: { listFonts?: HostFontProvider['list']; resolveFonts?: HostFontProvider['resolve'] };
+}).universalSlides;
+FontResolver.shared().configure({
+  baseUrl: './fonts',
+  host: bridge?.listFonts && bridge.resolveFonts ? { list: bridge.listFonts, resolve: bridge.resolveFonts } : null,
+});
 
 const us = document.getElementById('us') as UniversalSlidesElement;
 const $ = (id: string) => document.getElementById(id)!;

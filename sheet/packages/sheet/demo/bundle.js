@@ -2089,8 +2089,8 @@ var init_pdf = __esm({
           }
         };
         module.exports = TO_STRING_TAG_SUPPORT ? classofRaw : function(it) {
-          var O, tag, result;
-          return it === void 0 ? "Undefined" : it === null ? "Null" : typeof (tag = tryGet(O = $Object(it), TO_STRING_TAG)) == "string" ? tag : CORRECT_ARGUMENTS ? classofRaw(O) : (result = classofRaw(O)) === "Object" && isCallable(O.callee) ? "Arguments" : result;
+          var O, tag2, result;
+          return it === void 0 ? "Undefined" : it === null ? "Null" : typeof (tag2 = tryGet(O = $Object(it), TO_STRING_TAG)) == "string" ? tag2 : CORRECT_ARGUMENTS ? classofRaw(O) : (result = classofRaw(O)) === "Object" && isCallable(O.callee) ? "Arguments" : result;
         };
       },
       /***/
@@ -12958,13 +12958,13 @@ var init_pdf = __esm({
         if (!this.cssFontInfo) {
           nativeFontFace = new FontFace(this.loadedName, this.data, {});
         } else {
-          const css = {
+          const css2 = {
             weight: this.cssFontInfo.fontWeight
           };
           if (this.cssFontInfo.italicAngle) {
-            css.style = `oblique ${this.cssFontInfo.italicAngle}deg`;
+            css2.style = `oblique ${this.cssFontInfo.italicAngle}deg`;
           }
-          nativeFontFace = new FontFace(this.cssFontInfo.fontFamily, this.data, css);
+          nativeFontFace = new FontFace(this.cssFontInfo.fontFamily, this.data, css2);
         }
         this._inspectFont?.(this);
         return nativeFontFace;
@@ -12978,11 +12978,11 @@ var init_pdf = __esm({
         if (!this.cssFontInfo) {
           rule = `@font-face {font-family:"${this.loadedName}";src:${url}}`;
         } else {
-          let css = `font-weight: ${this.cssFontInfo.fontWeight};`;
+          let css2 = `font-weight: ${this.cssFontInfo.fontWeight};`;
           if (this.cssFontInfo.italicAngle) {
-            css += `font-style: oblique ${this.cssFontInfo.italicAngle}deg;`;
+            css2 += `font-style: oblique ${this.cssFontInfo.italicAngle}deg;`;
           }
-          rule = `@font-face {font-family:"${this.cssFontInfo.fontFamily}";${css}src:${url}}`;
+          rule = `@font-face {font-family:"${this.cssFontInfo.fontFamily}";${css2}src:${url}}`;
         }
         this._inspectFont?.(this, url);
         return rule;
@@ -17350,19 +17350,19 @@ fn fs_main(in : VertexOutput) -> @location(0) vec4<f32> {
         this.compose();
         this.#endKnockoutElement(started);
       }
-      markPoint(opIdx, tag) {
+      markPoint(opIdx, tag2) {
       }
-      markPointProps(opIdx, tag, properties) {
+      markPointProps(opIdx, tag2, properties) {
       }
-      beginMarkedContent(opIdx, tag) {
+      beginMarkedContent(opIdx, tag2) {
         this.dependencyTracker?.beginMarkedContent(opIdx);
         this.markedContentStack.push({
           visible: true
         });
       }
-      beginMarkedContentProps(opIdx, tag, properties) {
+      beginMarkedContentProps(opIdx, tag2, properties) {
         this.dependencyTracker?.beginMarkedContent(opIdx);
-        if (tag === "OC") {
+        if (tag2 === "OC") {
           this.markedContentStack.push({
             visible: this.optionalContentConfig.isVisible(properties)
           });
@@ -31719,6 +31719,741 @@ fn fs_main(in : VertexOutput) -> @location(0) vec4<f32> {
   }
 });
 
+// ../../../shared/fonts/src/catalog.ts
+var DEFAULT_FAMILY = "Liberation Sans";
+var BUNDLED = {
+  "liberation sans": { family: "Liberation Sans", file: "liberationsans" },
+  "liberation serif": { family: "Liberation Serif", file: "liberationserif" },
+  "liberation mono": { family: "Liberation Mono", file: "liberationmono" },
+  carlito: { family: "Carlito", file: "carlito" },
+  caladea: { family: "Caladea", file: "caladea" }
+};
+function bundledFileName(file, v2) {
+  return `${file}-${v2.toLowerCase()}.ttf`;
+}
+var METRIC_SUBSTITUTES = {
+  calibri: "Carlito",
+  cambria: "Caladea",
+  arial: "Liberation Sans",
+  "arial mt": "Liberation Sans",
+  helvetica: "Liberation Sans",
+  arimo: "Liberation Sans",
+  "times new roman": "Liberation Serif",
+  times: "Liberation Serif",
+  tinos: "Liberation Serif",
+  "courier new": "Liberation Mono",
+  courier: "Liberation Mono",
+  cousine: "Liberation Mono"
+};
+var PROBE_FAMILIES = [
+  // Windows
+  "Arial",
+  "Arial Black",
+  "Bahnschrift",
+  "Calibri",
+  "Calibri Light",
+  "Cambria",
+  "Cambria Math",
+  "Candara",
+  "Comic Sans MS",
+  "Consolas",
+  "Constantia",
+  "Corbel",
+  "Courier New",
+  "Ebrima",
+  "Franklin Gothic Medium",
+  "Gabriola",
+  "Gadugi",
+  "Georgia",
+  "Impact",
+  "Ink Free",
+  "Javanese Text",
+  "Leelawadee UI",
+  "Lucida Console",
+  "Lucida Sans Unicode",
+  "Malgun Gothic",
+  "Microsoft Himalaya",
+  "Microsoft JhengHei",
+  "Microsoft New Tai Lue",
+  "Microsoft PhagsPa",
+  "Microsoft Sans Serif",
+  "Microsoft Tai Le",
+  "Microsoft YaHei",
+  "Microsoft Yi Baiti",
+  "MingLiU-ExtB",
+  "Mongolian Baiti",
+  "MS Gothic",
+  "MV Boli",
+  "Myanmar Text",
+  "Nirmala UI",
+  "Palatino Linotype",
+  "Segoe Print",
+  "Segoe Script",
+  "Segoe UI",
+  "Segoe UI Black",
+  "Segoe UI Emoji",
+  "Segoe UI Historic",
+  "Segoe UI Light",
+  "Segoe UI Semibold",
+  "Segoe UI Semilight",
+  "Segoe UI Symbol",
+  "SimSun",
+  "Sitka Text",
+  "Sylfaen",
+  "Symbol",
+  "Tahoma",
+  "Times New Roman",
+  "Trebuchet MS",
+  "Verdana",
+  "Webdings",
+  "Wingdings",
+  "Yu Gothic",
+  // instaladas pelo Office (pasta de fontes do Windows)
+  "Agency FB",
+  "Algerian",
+  "Arial Narrow",
+  "Arial Rounded MT Bold",
+  "Baskerville Old Face",
+  "Bauhaus 93",
+  "Bell MT",
+  "Berlin Sans FB",
+  "Bernard MT Condensed",
+  "Book Antiqua",
+  "Bookman Old Style",
+  "Bradley Hand ITC",
+  "Britannic Bold",
+  "Broadway",
+  "Brush Script MT",
+  "Californian FB",
+  "Calisto MT",
+  "Castellar",
+  "Centaur",
+  "Century",
+  "Century Gothic",
+  "Century Schoolbook",
+  "Chiller",
+  "Colonna MT",
+  "Cooper Black",
+  "Copperplate Gothic Bold",
+  "Curlz MT",
+  "Edwardian Script ITC",
+  "Elephant",
+  "Engravers MT",
+  "Eras Medium ITC",
+  "Felix Titling",
+  "Footlight MT Light",
+  "Forte",
+  "Franklin Gothic Book",
+  "Freestyle Script",
+  "French Script MT",
+  "Garamond",
+  "Gigi",
+  "Gill Sans MT",
+  "Gloucester MT Extra Condensed",
+  "Goudy Old Style",
+  "Haettenschweiler",
+  "Harlow Solid Italic",
+  "Harrington",
+  "High Tower Text",
+  "Imprint MT Shadow",
+  "Informal Roman",
+  "Jokerman",
+  "Juice ITC",
+  "Kristen ITC",
+  "Kunstler Script",
+  "Lucida Bright",
+  "Lucida Calligraphy",
+  "Lucida Fax",
+  "Lucida Handwriting",
+  "Lucida Sans",
+  "Lucida Sans Typewriter",
+  "Magneto",
+  "Maiandra GD",
+  "Matura MT Script Capitals",
+  "Mistral",
+  "Modern No. 20",
+  "Monotype Corsiva",
+  "Niagara Engraved",
+  "Old English Text MT",
+  "Onyx",
+  "Palace Script MT",
+  "Papyrus",
+  "Parchment",
+  "Perpetua",
+  "Playbill",
+  "Poor Richard",
+  "Pristina",
+  "Rage Italic",
+  "Ravie",
+  "Rockwell",
+  "Script MT Bold",
+  "Showcard Gothic",
+  "Snap ITC",
+  "Stencil",
+  "Tempus Sans ITC",
+  "Tw Cen MT",
+  "Viner Hand ITC",
+  "Vivaldi",
+  "Vladimir Script",
+  "Wide Latin",
+  // macOS
+  "American Typewriter",
+  "Andale Mono",
+  "Apple Chancery",
+  "Avenir",
+  "Avenir Next",
+  "Baskerville",
+  "Big Caslon",
+  "Chalkboard",
+  "Charter",
+  "Cochin",
+  "Copperplate",
+  "Didot",
+  "Futura",
+  "Geneva",
+  "Gill Sans",
+  "Helvetica",
+  "Helvetica Neue",
+  "Hoefler Text",
+  "Lucida Grande",
+  "Marker Felt",
+  "Menlo",
+  "Monaco",
+  "Optima",
+  "Palatino",
+  "Rockwell",
+  "SF Pro",
+  "Skia",
+  "Snell Roundhand",
+  "Times",
+  "Trattatello",
+  "Zapfino",
+  // Linux / abertas comuns
+  "Cantarell",
+  "DejaVu Sans",
+  "DejaVu Sans Mono",
+  "DejaVu Serif",
+  "Droid Sans",
+  "Fira Sans",
+  "Fira Mono",
+  "Inter",
+  "Lato",
+  "Montserrat",
+  "Noto Sans",
+  "Noto Serif",
+  "Noto Sans Mono",
+  "Open Sans",
+  "Oswald",
+  "Poppins",
+  "PT Sans",
+  "PT Serif",
+  "Raleway",
+  "Roboto",
+  "Roboto Mono",
+  "Source Sans Pro",
+  "Source Serif Pro",
+  "Ubuntu",
+  "Ubuntu Mono"
+];
+
+// ../../../shared/fonts/src/types.ts
+var VARIANTS = ["regular", "bold", "italic", "boldItalic"];
+function variantOf(bold, italic) {
+  return bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
+}
+function isBoldVariant(v2) {
+  return v2 === "bold" || v2 === "boldItalic";
+}
+function isItalicVariant(v2) {
+  return v2 === "italic" || v2 === "boldItalic";
+}
+function faceDescriptors(v2) {
+  return { weight: isBoldVariant(v2) ? "700" : "400", style: isItalicVariant(v2) ? "italic" : "normal" };
+}
+function variantOfStyle(style) {
+  const s4 = (style ?? "Regular").toLowerCase().replace(/\s+/g, " ").trim();
+  switch (s4) {
+    case "regular":
+    case "normal":
+    case "roman":
+    case "":
+      return "regular";
+    case "bold":
+      return "bold";
+    case "italic":
+    case "oblique":
+      return "italic";
+    case "bold italic":
+    case "bold oblique":
+      return "boldItalic";
+    default:
+      return null;
+  }
+}
+
+// ../../../shared/fonts/src/environment.ts
+var PROBE_TEXT = "mmmmmmmmmmlli1WQ@#\u03A9\u03B2";
+var GENERICS = ["monospace", "serif", "sans-serif"];
+var cssName = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
+var unquote = (s4) => s4.trim().replace(/^(["'])(.*)\1$/, "$2");
+function browserEnvironment() {
+  let ctx = null;
+  const context = () => {
+    if (ctx) return ctx;
+    ctx = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(8, 8).getContext("2d") : document.createElement("canvas").getContext("2d");
+    return ctx;
+  };
+  const width = (font) => {
+    const c4 = context();
+    if (!c4) return 0;
+    c4.font = font;
+    return c4.measureText(PROBE_TEXT).width;
+  };
+  const baseWidths = /* @__PURE__ */ new Map();
+  const generic = (g2) => {
+    let w2 = baseWidths.get(g2);
+    if (w2 === void 0) baseWidths.set(g2, w2 = width(`72px ${g2}`));
+    return w2;
+  };
+  const qlf = typeof window !== "undefined" ? window.queryLocalFonts : void 0;
+  return {
+    // Mede o texto com a família + uma genérica; se a largura mudar em
+    // alguma das três genéricas, o navegador achou a família.
+    isInstalled(family) {
+      return GENERICS.some((g2) => width(`72px ${cssName(family)}, ${g2}`) !== generic(g2));
+    },
+    async loadLocal(family, v2) {
+      const names = v2 === "regular" ? [family, `${family} Regular`] : v2 === "bold" ? [`${family} Bold`] : v2 === "italic" ? [`${family} Italic`] : [`${family} Bold Italic`];
+      for (const n5 of names) {
+        try {
+          const face = new FontFace(family, `local(${cssName(n5)})`, faceDescriptors(v2));
+          await face.load();
+          document.fonts.add(face);
+          return true;
+        } catch {
+        }
+      }
+      return false;
+    },
+    async addFace(family, v2, bytes) {
+      try {
+        const face = new FontFace(family, bytes.slice().buffer, faceDescriptors(v2));
+        await face.load();
+        document.fonts.add(face);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    pageFamilies(exclude) {
+      const out = /* @__PURE__ */ new Map();
+      if (typeof document === "undefined" || !document.fonts) return out;
+      for (const f3 of document.fonts) {
+        const name = unquote(f3.family);
+        const key = name.toLowerCase();
+        if (!exclude.has(key)) out.set(key, name);
+      }
+      return out;
+    },
+    async loadPageFamily(family) {
+      const n5 = cssName(family);
+      await Promise.allSettled([
+        document.fonts.load(`16px ${n5}`),
+        document.fonts.load(`bold 16px ${n5}`),
+        document.fonts.load(`italic 16px ${n5}`),
+        document.fonts.load(`italic bold 16px ${n5}`)
+      ]);
+    },
+    async fetchBytes(url) {
+      try {
+        const res = await fetch(url);
+        return res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
+      } catch {
+        return null;
+      }
+    },
+    localAccess: typeof qlf === "function" ? {
+      async granted() {
+        try {
+          const st = await navigator.permissions.query({ name: "local-fonts" });
+          return st.state === "granted";
+        } catch {
+          return false;
+        }
+      },
+      query: () => qlf.call(window)
+    } : null
+  };
+}
+
+// ../../../shared/fonts/src/sfnt.ts
+var tag = (v2, p4) => String.fromCharCode(v2.getUint8(p4), v2.getUint8(p4 + 1), v2.getUint8(p4 + 2), v2.getUint8(p4 + 3));
+function tableOf(v2, base, want) {
+  const num = v2.getUint16(base + 4);
+  for (let i8 = 0; i8 < num; i8++) {
+    const p4 = base + 12 + i8 * 16;
+    if (tag(v2, p4) === want) return { off: v2.getUint32(p4 + 8), len: v2.getUint32(p4 + 12) };
+  }
+  return null;
+}
+function isEmbeddable(bytes) {
+  try {
+    const v2 = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const os2 = tableOf(v2, 0, "OS/2");
+    if (!os2 || os2.len < 10) return true;
+    const fsType = v2.getUint16(os2.off + 8);
+    return !(fsType & 2 && !(fsType & 12)) && !(fsType & 512);
+  } catch {
+    return true;
+  }
+}
+function postscriptName(v2, base) {
+  const name = tableOf(v2, base, "name");
+  if (!name) return null;
+  const count = v2.getUint16(name.off + 2);
+  const strOff = name.off + v2.getUint16(name.off + 4);
+  for (let i8 = 0; i8 < count; i8++) {
+    const r6 = name.off + 6 + i8 * 12;
+    if (v2.getUint16(r6 + 6) !== 6) continue;
+    const platform = v2.getUint16(r6), len = v2.getUint16(r6 + 8), o7 = strOff + v2.getUint16(r6 + 10);
+    let s4 = "";
+    if (platform === 3 || platform === 0) for (let k2 = 0; k2 + 1 < len; k2 += 2) s4 += String.fromCharCode(v2.getUint16(o7 + k2));
+    else for (let k2 = 0; k2 < len; k2++) s4 += String.fromCharCode(v2.getUint8(o7 + k2));
+    if (s4) return s4;
+  }
+  return null;
+}
+function standaloneFace(bytes, wantPostscript) {
+  const v2 = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.length < 12 || tag(v2, 0) !== "ttcf") return bytes;
+  const numFonts = v2.getUint32(8);
+  let base = v2.getUint32(12);
+  if (wantPostscript) {
+    for (let i8 = 0; i8 < numFonts; i8++) {
+      const b5 = v2.getUint32(12 + i8 * 4);
+      if (postscriptName(v2, b5) === wantPostscript) {
+        base = b5;
+        break;
+      }
+    }
+  }
+  const num = v2.getUint16(base + 4);
+  const recs = [];
+  for (let i8 = 0; i8 < num; i8++) {
+    const o7 = base + 12 + i8 * 16;
+    const off = v2.getUint32(o7 + 8), len = v2.getUint32(o7 + 12);
+    if (off + len > bytes.length) throw new RangeError("tabela fora do arquivo");
+    recs.push({ o: o7, off, len });
+  }
+  const headerLen = 12 + num * 16;
+  const out = new Uint8Array(recs.reduce((n5, r6) => n5 + (r6.len + 3 & ~3), headerLen));
+  const ov = new DataView(out.buffer);
+  out.set(bytes.subarray(base, base + 12), 0);
+  let pos = headerLen;
+  recs.forEach((r6, i8) => {
+    const d3 = 12 + i8 * 16;
+    out.set(bytes.subarray(r6.o, r6.o + 8), d3);
+    ov.setUint32(d3 + 8, pos);
+    ov.setUint32(d3 + 12, r6.len);
+    out.set(bytes.subarray(r6.off, r6.off + r6.len), pos);
+    pos += r6.len + 3 & ~3;
+  });
+  return out;
+}
+
+// ../../../shared/fonts/src/resolver.ts
+var css = (family) => `"${family.replace(/["\\]/g, "\\$&")}"`;
+var FontResolver = class _FontResolver {
+  constructor(env) {
+    this.env = env;
+  }
+  env;
+  static sharedInstance = null;
+  /** O resolvedor da página (as fontes de `document.fonts` são globais). */
+  static shared() {
+    return _FontResolver.sharedInstance ??= new _FontResolver(browserEnvironment());
+  }
+  baseUrl = null;
+  host = null;
+  resolved = /* @__PURE__ */ new Map();
+  pending = /* @__PURE__ */ new Map();
+  listeners = /* @__PURE__ */ new Set();
+  /** Famílias (minúsculas) cujos FontFaces fomos NÓS que registramos. */
+  own = /* @__PURE__ */ new Set();
+  bundledLoads = /* @__PURE__ */ new Map();
+  localFonts = null;
+  hostList = null;
+  /** Configura base das embarcadas e/ou host. Trocar o host refaz as resoluções. */
+  configure(opts) {
+    if (opts.baseUrl !== void 0) this.baseUrl = opts.baseUrl ? opts.baseUrl.replace(/\/$/, "") : null;
+    if (opts.host !== void 0 && opts.host !== this.host) {
+      this.host = opts.host;
+      this.hostList = null;
+      this.invalidate(() => true);
+    }
+  }
+  /** Base sugerida por um componente (atributo `fonts`): só vale se ninguém configurou. */
+  suggestBaseUrl(url) {
+    if (url && this.baseUrl === null) this.baseUrl = url.replace(/\/$/, "");
+  }
+  get hasHost() {
+    return !!this.host;
+  }
+  /** Resolução já pronta (síncrono); undefined se ainda não resolvida. */
+  get(family) {
+    return this.resolved.get(family.toLowerCase());
+  }
+  /** Avisa quando famílias (re)resolvem — repintar/medir de novo. */
+  onChange(cb) {
+    this.listeners.add(cb);
+    return () => this.listeners.delete(cb);
+  }
+  /**
+   * Pilha CSS para desenhar a família (síncrono). Ainda não resolvida: dispara
+   * a resolução em segundo plano e devolve o nome pedido + os substitutos + o
+   * padrão (o navegador já usa a instalada, se houver); ao resolver,
+   * `onChange` avisa.
+   *
+   * `fallbacks`: o SUBSTITUTO DO APP para família que não existe em lugar
+   * nenhum (resolvida como `default`) — cada app imita o seu programa de
+   * referência (o PowerPoint desenha família ausente com métricas da Calibri;
+   * o Excel cai na Aptos Narrow). O primeiro que resolver para uma fonte de
+   * verdade vence; nenhum: o padrão (Liberation Sans).
+   */
+  cssStack(family, fallbacks = []) {
+    const tail = `${css(DEFAULT_FAMILY)}, sans-serif`;
+    if (!family) return tail;
+    const r6 = this.get(family);
+    if (!r6) {
+      void this.resolve([family, ...fallbacks]);
+      return [family, ...fallbacks].map(css).join(", ") + `, ${tail}`;
+    }
+    if (r6.source !== "default") return r6.cssFamily === DEFAULT_FAMILY ? tail : `${css(r6.cssFamily)}, ${tail}`;
+    for (const fb of fallbacks) {
+      const f3 = this.get(fb);
+      if (!f3) {
+        void this.resolve([fb]);
+        return `${css(fb)}, ${tail}`;
+      }
+      if (f3.source !== "default") return f3.cssFamily === DEFAULT_FAMILY ? tail : `${css(f3.cssFamily)}, ${tail}`;
+    }
+    return tail;
+  }
+  /** Resolve as famílias (idempotente; pedidos em andamento são reaproveitados). */
+  async resolve(families) {
+    const wanted = /* @__PURE__ */ new Map();
+    for (const f3 of families) if (f3 && !wanted.has(f3.toLowerCase())) wanted.set(f3.toLowerCase(), f3);
+    const missing = [...wanted].filter(([k2]) => !this.resolved.has(k2) && !this.pending.has(k2)).map(([, f3]) => f3);
+    if (missing.length) {
+      const batch = this.resolveBatch(missing).then((rs) => {
+        for (const r6 of rs) this.resolved.set(r6.family.toLowerCase(), r6);
+        return rs;
+      });
+      missing.forEach((f3, i8) => {
+        const key = f3.toLowerCase();
+        const p4 = batch.then((rs) => rs[i8]);
+        this.pending.set(key, p4);
+        void p4.finally(() => this.pending.delete(key)).catch(() => {
+        });
+      });
+      void batch.then((rs) => this.emit(rs.map((r6) => r6.family)), () => {
+      });
+    }
+    return Promise.all([...wanted].map(([k2]) => this.resolved.get(k2) ?? this.pending.get(k2)));
+  }
+  /** Bytes de uma família ABERTA embarcada (ex.: o padrão), carregando se preciso. */
+  async bundledFaces(family = DEFAULT_FAMILY) {
+    return this.loadBundled(family);
+  }
+  /**
+   * Famílias para um seletor de fonte. Com host: as dele. Senão, as que a
+   * Local Font Access já entregou (se permitida) ou as SONDADAS pelo nome
+   * (lista PROBE_FAMILIES) + as embarcadas e as que têm substituta.
+   */
+  async listFamilies() {
+    const names = /* @__PURE__ */ new Map();
+    const add = (n5) => {
+      if (n5 && !names.has(n5.toLowerCase())) names.set(n5.toLowerCase(), n5);
+    };
+    for (const b5 of Object.values(BUNDLED)) add(b5.family);
+    for (const k2 of Object.keys(METRIC_SUBSTITUTES)) {
+      const r6 = PROBE_FAMILIES.find((p4) => p4.toLowerCase() === k2);
+      if (r6) add(r6);
+    }
+    for (const r6 of this.resolved.values()) if (r6.source !== "default") add(r6.family);
+    for (const n5 of this.env.pageFamilies(this.own).values()) add(n5);
+    if (this.host) {
+      try {
+        for (const n5 of await (this.hostList ??= this.host.list())) add(n5);
+      } catch {
+      }
+    } else if (await this.localAccessFonts()) {
+      for (const f3 of this.localFonts) add(f3.family);
+    } else {
+      for (const p4 of PROBE_FAMILIES) if (this.env.isInstalled(p4)) add(p4);
+    }
+    return [...names.values()].sort((a3, b5) => a3.localeCompare(b5));
+  }
+  /**
+   * Pede a Local Font Access (Chromium): CHAMAR NUM GESTO DO USUÁRIO (abrir o
+   * seletor de fonte, exportar). Concedida, refaz as famílias que ficaram sem
+   * bytes (instaladas/substitutas/padrão) para usar a fonte real.
+   */
+  async requestLocalAccess() {
+    if (this.host || !this.env.localAccess) return false;
+    if (this.localFonts) return true;
+    try {
+      this.localFonts = await this.env.localAccess.query();
+    } catch {
+      return false;
+    }
+    this.invalidate((r6) => r6.source === "installed" || r6.source === "substitute" || r6.source === "default");
+    return true;
+  }
+  // ───────────────────────── internos ─────────────────────────
+  emit(families) {
+    if (!families.length) return;
+    for (const cb of this.listeners) {
+      try {
+        cb(families);
+      } catch {
+      }
+    }
+  }
+  /** Esquece resoluções (para refazer com uma fonte melhor) e avisa. */
+  invalidate(which) {
+    const again = [];
+    for (const [k2, r6] of this.resolved) if (which(r6)) {
+      this.resolved.delete(k2);
+      again.push(r6.family);
+    }
+    if (again.length) void this.resolve(again);
+  }
+  async localAccessFonts() {
+    if (this.localFonts) return true;
+    const la = this.env.localAccess;
+    if (!la || !await la.granted()) return false;
+    try {
+      this.localFonts = await la.query();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  async resolveBatch(families) {
+    let hostFaces = [];
+    if (this.host) {
+      try {
+        hostFaces = await this.host.resolve(families);
+      } catch {
+        hostFaces = [];
+      }
+    }
+    const byFamily = /* @__PURE__ */ new Map();
+    for (const f3 of hostFaces) {
+      const k2 = f3.family.toLowerCase();
+      byFamily.set(k2, [...byFamily.get(k2) ?? [], f3]);
+    }
+    const hasLocal = !this.host && await this.localAccessFonts();
+    const out = [];
+    for (const family of families) {
+      out.push(await this.resolveOne(family, byFamily.get(family.toLowerCase()) ?? [], hasLocal));
+    }
+    return out;
+  }
+  async resolveOne(family, hostFaces, hasLocal) {
+    const key = family.toLowerCase();
+    const result = (source, cssFamily, faces = {}, embeddable = true) => ({ family, cssFamily, source, faces, embeddable });
+    if (hostFaces.length) {
+      const faces = {};
+      let embeddable = true;
+      for (const f3 of hostFaces) {
+        const v2 = variantOf(f3.bold ?? Number(f3.weight) >= 600, f3.style === "italic");
+        if (faces[v2]) continue;
+        const bytes = new Uint8Array(f3.bytes);
+        if (await this.env.addFace(family, v2, bytes)) {
+          faces[v2] = bytes;
+          if (f3.embeddable === false) embeddable = false;
+        }
+      }
+      if (Object.keys(faces).length) {
+        this.own.add(key);
+        return result("host", family, faces, embeddable);
+      }
+    }
+    if (hasLocal && this.localFonts) {
+      const faces = {};
+      let embeddable = true;
+      const byFull = /* @__PURE__ */ new Map([
+        [key, "regular"],
+        [`${key} regular`, "regular"],
+        [`${key} bold`, "bold"],
+        [`${key} italic`, "italic"],
+        [`${key} bold italic`, "boldItalic"]
+      ]);
+      for (const fd3 of this.localFonts) {
+        const v2 = fd3.family.toLowerCase() === key ? variantOfStyle(fd3.style) : byFull.get((fd3.fullName ?? "").toLowerCase());
+        if (!v2) continue;
+        if (faces[v2]) continue;
+        try {
+          const bytes = standaloneFace(new Uint8Array(await (await fd3.blob()).arrayBuffer()), fd3.postscriptName);
+          if (await this.env.addFace(family, v2, bytes)) {
+            faces[v2] = bytes;
+            if (!isEmbeddable(bytes)) embeddable = false;
+          }
+        } catch {
+        }
+      }
+      if (Object.keys(faces).length) {
+        this.own.add(key);
+        return result("local-access", family, faces, embeddable);
+      }
+    }
+    if (BUNDLED[key]) {
+      const faces = await this.loadBundled(family);
+      if (Object.keys(faces).length) return result("bundled", BUNDLED[key].family, faces);
+    }
+    const page = this.env.pageFamilies(this.own).get(key);
+    if (page) {
+      await this.env.loadPageFamily(page);
+      return result("page", page);
+    }
+    if (this.env.isInstalled(family)) return result("installed", family);
+    if (await this.env.loadLocal(family, "regular")) {
+      this.own.add(key);
+      await Promise.all(VARIANTS.slice(1).map((v2) => this.env.loadLocal(family, v2)));
+      return result("installed", family);
+    }
+    const sub = METRIC_SUBSTITUTES[key];
+    if (sub) {
+      const faces = await this.loadBundled(sub);
+      if (Object.keys(faces).length) return result("substitute", sub, faces);
+    }
+    return result("default", DEFAULT_FAMILY, await this.loadBundled(DEFAULT_FAMILY));
+  }
+  /** Carrega (uma vez) as 4 faces de uma família embarcada da `baseUrl`. */
+  loadBundled(family) {
+    const b5 = BUNDLED[family.toLowerCase()];
+    if (!b5 || !this.baseUrl) return Promise.resolve({});
+    let p4 = this.bundledLoads.get(b5.file);
+    if (!p4) {
+      const base = this.baseUrl;
+      p4 = (async () => {
+        const faces = {};
+        await Promise.all(VARIANTS.map(async (v2) => {
+          const bytes = await this.env.fetchBytes(`${base}/${bundledFileName(b5.file, v2)}`);
+          if (bytes && await this.env.addFace(b5.family, v2, bytes)) faces[v2] = bytes;
+        }));
+        if (Object.keys(faces).length) this.own.add(b5.family.toLowerCase());
+        else this.bundledLoads.delete(b5.file);
+        return faces;
+      })();
+      this.bundledLoads.set(b5.file, p4);
+    }
+    return p4;
+  }
+};
+
 // ../../node_modules/fflate/esm/browser.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -35154,7 +35889,8 @@ function tableStyleAccent(name, accents) {
   if (n5 <= 1) return "#808080";
   return accents[(n5 - 2) % 6] ?? fallback;
 }
-var UniversalSheetElement = class _UniversalSheetElement extends HTMLElement {
+var SHEET_FALLBACKS = ["Aptos Narrow"];
+var UniversalSheetElement = class extends HTMLElement {
   host = this.attachShadow({ mode: "open" });
   canvas = document.createElement("canvas");
   status = document.createElement("div");
@@ -35212,6 +35948,7 @@ var UniversalSheetElement = class _UniversalSheetElement extends HTMLElement {
     this.canvas.addEventListener("mousemove", this.onMouseMove);
   }
   connectedCallback() {
+    this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.paint());
     new ResizeObserver(() => {
       this.resize();
       this.paint();
@@ -35665,7 +36402,7 @@ var UniversalSheetElement = class _UniversalSheetElement extends HTMLElement {
         if (!txt) continue;
         const font = this.resolveStyle(c4).font;
         const size = (font?.size ?? 11) * 96 / 72;
-        ctx.font = `${font?.italic ? "italic " : ""}${font?.bold ? "700 " : "400 "}${size}px '${font?.name ?? "Aptos Narrow"}', 'Aptos Narrow', 'Liberation Sans', 'Segoe UI', Arial, sans-serif`;
+        ctx.font = `${font?.italic ? "italic " : ""}${font?.bold ? "700 " : "400 "}${size}px ${this.fontResolver.cssStack(font?.name ?? "Aptos Narrow", SHEET_FALLBACKS)}`;
         best = Math.max(best, ctx.measureText(txt).width);
       }
     }
@@ -35754,69 +36491,19 @@ var UniversalSheetElement = class _UniversalSheetElement extends HTMLElement {
     if (overComment) this.showCommentTip(overComment, px, py);
     else this.hideCommentTip();
   };
-  /**
-   * Fontes do SO por família fornecidas pelo HOST (ex.: o Electron lê
-   * Windows\Fonts + o cache CloudFonts do Office, invisível ao
-   * `queryLocalFonts`). Ausente: `queryLocalFonts` (Chromium, com permissão).
-   */
-  static systemFontResolver = null;
-  /**
-   * Carrega SOB DEMANDA as fontes do SO usadas pelos estilos do workbook e
-   * ainda indisponíveis (host via systemFontResolver; senão queryLocalFonts —
-   * lógica compartilhada do Universal Write). Sem nenhum dos dois, o fallback
-   * CSS (Aptos Narrow → Liberation Sans → Segoe UI) cobre.
-   */
+  /** Resolvedor de fontes ÚNICO dos apps (shared/fonts): host, Local Font
+   *  Access, instaladas pelo nome, substitutas abertas, padrão. */
+  fontResolver = FontResolver.shared();
+  unsubscribeFonts = null;
+  disconnectedCallback() {
+    this.unsubscribeFonts?.();
+    this.unsubscribeFonts = null;
+  }
+  /** Resolve já as fontes usadas pelos estilos do workbook (o aviso de
+   *  onChange repinta quando chegarem). */
   async ensureSheetFonts() {
-    const wanted = /* @__PURE__ */ new Set();
-    for (const f3 of this.styles?.fonts ?? []) {
-      const name = f3?.name;
-      if (!name) continue;
-      try {
-        if (!document.fonts.check(`12px "${name}"`)) wanted.add(name);
-      } catch {
-        wanted.add(name);
-      }
-    }
-    if (!wanted.size) return;
-    const resolver = _UniversalSheetElement.systemFontResolver;
-    if (resolver) {
-      let added2 = false;
-      try {
-        for (const f3 of await resolver([...wanted])) {
-          try {
-            document.fonts.add(await new FontFace(f3.family, f3.bytes, { weight: f3.weight, style: f3.style }).load());
-            added2 = true;
-          } catch {
-          }
-        }
-      } catch {
-      }
-      if (added2) this.paint();
-      return;
-    }
-    const qlf = window.queryLocalFonts;
-    if (!qlf) return;
-    let faces;
-    try {
-      faces = await qlf.call(window);
-    } catch {
-      return;
-    }
-    const wantLc = new Set([...wanted].map((n5) => n5.toLowerCase()));
-    let added = false;
-    for (const fd3 of faces) {
-      if (!wantLc.has(fd3.family.toLowerCase())) continue;
-      const st = fd3.style.toLowerCase();
-      const weight = /bold|black|heavy|semibold|demi/.test(st) ? "700" : "400";
-      const style = /italic|oblique/.test(st) ? "italic" : "normal";
-      try {
-        const face = new FontFace(fd3.family, await (await fd3.blob()).arrayBuffer(), { weight, style });
-        document.fonts.add(await face.load());
-        added = true;
-      } catch {
-      }
-    }
-    if (added) this.paint();
+    const names = (this.styles?.fonts ?? []).map((f3) => f3?.name).filter((n5) => !!n5);
+    await this.fontResolver.resolve(["Aptos Narrow", ...names]);
   }
   /** Nota flutuante do comentário: autor em negrito + texto, junto ao cursor. */
   showCommentTip(key, px, py) {
@@ -36628,7 +37315,7 @@ var UniversalSheetElement = class _UniversalSheetElement extends HTMLElement {
     const size = (font?.size ?? 11) * 96 / 72 * this.zoom;
     const style = font?.italic ? "italic " : "";
     const weight = font?.bold ? "700 " : "400 ";
-    ctx.font = `${style}${weight}${size}px '${font?.name ?? "Aptos Narrow"}', 'Aptos Narrow', 'Liberation Sans', 'Segoe UI', Arial, sans-serif`;
+    ctx.font = `${style}${weight}${size}px ${this.fontResolver.cssStack(font?.name ?? "Aptos Narrow", SHEET_FALLBACKS)}`;
     ctx.fillStyle = fr.color ?? font?.color ?? TEXT;
     const pad = 3 * this.zoom;
     const numeric = this.isNumericCell(cell);
@@ -36723,9 +37410,9 @@ var UniversalSheetElement = class _UniversalSheetElement extends HTMLElement {
     const strike = p4?.strike ?? base?.strike ?? false;
     const sizePt = p4?.size ?? base?.size ?? 11;
     const sizePx = sizePt * 96 / 72 * this.zoom;
-    const family = p4?.font !== void 0 ? `'${p4.font}', 'Aptos Narrow', Segoe UI` : `'Aptos Narrow', ${base?.name ?? "Segoe UI"}`;
+    const family = this.fontResolver.cssStack(p4?.font ?? "Aptos Narrow", SHEET_FALLBACKS);
     return {
-      css: `${italic ? "italic " : ""}${bold ? "700 " : "400 "}${sizePx}px ${family}, Arial, sans-serif`,
+      css: `${italic ? "italic " : ""}${bold ? "700 " : "400 "}${sizePx}px ${family}`,
       sizePx,
       color: p4?.color ?? base?.color ?? TEXT,
       underline,
@@ -38744,8 +39431,8 @@ function readRunsInto(runs, container, ctx, inherit) {
     } else if (child.name === "w:sdt") {
       const content = findDeep(child, "w:sdtContent");
       const sdtPr = firstChild2(child, "w:sdtPr");
-      const tag = sdtPr ? firstChild2(sdtPr, "w:tag")?.attrs["w:val"] : void 0;
-      const custom = parseCustomInlineTag(tag);
+      const tag2 = sdtPr ? firstChild2(sdtPr, "w:tag")?.attrs["w:val"] : void 0;
+      const custom = parseCustomInlineTag(tag2);
       if (content && custom) {
         const nested = [];
         readRunsInto(nested, content, ctx, inherit);
@@ -38764,10 +39451,10 @@ function readRunsInto(runs, container, ctx, inherit) {
   }
 }
 var CUSTOM_INLINE_TAG_PREFIX = "wordnext:inline:";
-function parseCustomInlineTag(tag) {
-  if (!tag?.startsWith(CUSTOM_INLINE_TAG_PREFIX))
+function parseCustomInlineTag(tag2) {
+  if (!tag2?.startsWith(CUSTOM_INLINE_TAG_PREFIX))
     return void 0;
-  const payload = tag.slice(CUSTOM_INLINE_TAG_PREFIX.length);
+  const payload = tag2.slice(CUSTOM_INLINE_TAG_PREFIX.length);
   const split = payload.indexOf(":");
   if (split <= 0)
     return void 0;
@@ -39731,8 +40418,8 @@ function tableHtml(t5, ctx) {
 function listHtml(items) {
   let i8 = 0;
   function build2(level) {
-    const tag = items[i8].kind === "decimal" ? "ol" : "ul";
-    let html = `<${tag}>`;
+    const tag2 = items[i8].kind === "decimal" ? "ol" : "ul";
+    let html = `<${tag2}>`;
     while (i8 < items.length && items[i8].ilvl >= level) {
       if (items[i8].ilvl > level)
         break;
@@ -39742,7 +40429,7 @@ function listHtml(items) {
         li += build2(items[i8].ilvl);
       html += li + "</li>";
     }
-    return html + `</${tag}>`;
+    return html + `</${tag2}>`;
   }
   return items.length ? build2(items[0].ilvl) : "";
 }
@@ -40011,8 +40698,8 @@ function doSubset(bytes, usedGids) {
   const dir = /* @__PURE__ */ new Map();
   for (let i8 = 0; i8 < numTables; i8++) {
     const p4 = 12 + i8 * 16;
-    const tag = String.fromCharCode(bytes[p4], bytes[p4 + 1], bytes[p4 + 2], bytes[p4 + 3]);
-    dir.set(tag, { tag, offset: v2.getUint32(p4 + 8), length: v2.getUint32(p4 + 12) });
+    const tag2 = String.fromCharCode(bytes[p4], bytes[p4 + 1], bytes[p4 + 2], bytes[p4 + 3]);
+    dir.set(tag2, { tag: tag2, offset: v2.getUint32(p4 + 8), length: v2.getUint32(p4 + 12) });
   }
   const head = dir.get("head"), maxp = dir.get("maxp"), loca = dir.get("loca"), glyf = dir.get("glyf");
   if (!head || !maxp || !loca || !glyf)
@@ -40081,17 +40768,17 @@ function doSubset(bytes, usedGids) {
   headView.setUint16(50, 1);
   headView.setUint32(8, 0);
   const out = [];
-  for (const [tag, t5] of dir) {
-    if (!KEEP.has(tag))
+  for (const [tag2, t5] of dir) {
+    if (!KEEP.has(tag2))
       continue;
-    if (tag === "glyf")
-      out.push({ tag, data: newGlyf });
-    else if (tag === "loca")
-      out.push({ tag, data: newLoca });
-    else if (tag === "head")
-      out.push({ tag, data: newHead });
+    if (tag2 === "glyf")
+      out.push({ tag: tag2, data: newGlyf });
+    else if (tag2 === "loca")
+      out.push({ tag: tag2, data: newLoca });
+    else if (tag2 === "head")
+      out.push({ tag: tag2, data: newHead });
     else
-      out.push({ tag, data: bytes.slice(t5.offset, t5.offset + t5.length) });
+      out.push({ tag: tag2, data: bytes.slice(t5.offset, t5.offset + t5.length) });
   }
   return buildSfnt(sfntVersion, out);
 }
@@ -40390,13 +41077,13 @@ var TtfProgram = class {
     const numTables = v2.getUint16(4);
     for (let i8 = 0; i8 < numTables; i8++) {
       const p4 = 12 + i8 * 16;
-      const tag = String.fromCharCode(v2.getUint8(p4), v2.getUint8(p4 + 1), v2.getUint8(p4 + 2), v2.getUint8(p4 + 3));
-      tables.set(tag, v2.getUint32(p4 + 8));
+      const tag2 = String.fromCharCode(v2.getUint8(p4), v2.getUint8(p4 + 1), v2.getUint8(p4 + 2), v2.getUint8(p4 + 3));
+      tables.set(tag2, v2.getUint32(p4 + 8));
     }
-    const req = (tag) => {
-      const off = tables.get(tag);
+    const req = (tag2) => {
+      const off = tables.get(tag2);
       if (off === void 0)
-        throw new Error(`Fonte TTF sem a tabela ${tag}`);
+        throw new Error(`Fonte TTF sem a tabela ${tag2}`);
       return off;
     };
     const head = req("head");
@@ -42552,9 +43239,9 @@ function sheetToHtml(model, grid, heading) {
         if (rowspan > 1)
           attrs.push(`rowspan="${rowspan}"`);
       }
-      const css = cellCss(gc, model.styles);
-      if (css)
-        attrs.push(`style="${css}"`);
+      const css2 = cellCss(gc, model.styles);
+      if (css2)
+        attrs.push(`style="${css2}"`);
       tds3.push(`<td${attrs.length ? " " + attrs.join(" ") : ""}>${htmlText(gc?.text ?? "")}</td>`);
     }
     out.push(`<tr style="height:${heights[r6 - 1]}pt">${tds3.join("")}</tr>`);
@@ -44678,20 +45365,20 @@ function transformCss(sh) {
   return `transform:${parts.join(" ")}`;
 }
 function runHtml2(r6, defaultSzPt) {
-  const css = [];
-  css.push(`font-size:${r6.sz ?? defaultSzPt}pt`);
+  const css2 = [];
+  css2.push(`font-size:${r6.sz ?? defaultSzPt}pt`);
   if (r6.bold)
-    css.push("font-weight:700");
+    css2.push("font-weight:700");
   if (r6.italic)
-    css.push("font-style:italic");
+    css2.push("font-style:italic");
   if (r6.underline)
-    css.push("text-decoration:underline");
+    css2.push("text-decoration:underline");
   if (r6.color)
-    css.push(`color:${r6.color}`);
+    css2.push(`color:${r6.color}`);
   if (r6.font)
-    css.push(`font-family:'${r6.font}'`);
+    css2.push(`font-family:'${r6.font}'`);
   const inner = escapeHtml3(r6.text).replace(/\n/g, "<br>");
-  const span = `<span style="${css.join(";")}">${inner}</span>`;
+  const span = `<span style="${css2.join(";")}">${inner}</span>`;
   return r6.hyperlink ? `<a href="${escapeHtml3(r6.hyperlink)}">${span}</a>` : span;
 }
 function bodyHtml2(tb, isTitle) {
@@ -44701,9 +45388,9 @@ function bodyHtml2(tb, isTitle) {
   for (const p4 of tb.paragraphs) {
     const level = Math.min(p4.level ?? 0, 8);
     const align = p4.align === "ctr" ? "center" : p4.align === "r" ? "right" : p4.align === "just" ? "justify" : "left";
-    const css = [`margin:0`, `text-align:${align}`];
+    const css2 = [`margin:0`, `text-align:${align}`];
     if (level > 0)
-      css.push(`padding-left:${level * 24}px`);
+      css2.push(`padding-left:${level * 24}px`);
     let bullet = "";
     if (p4.bullet) {
       for (let l3 = level + 1; l3 < 9; l3++)
@@ -44717,7 +45404,7 @@ function bodyHtml2(tb, isTitle) {
     }
     const runs = p4.runs.map((r6) => runHtml2(r6, defaultSzPt)).join("");
     const bulletSpan = bullet ? `<span style="font-size:${p4.runs[0]?.sz ?? defaultSzPt}pt${p4.runs[0]?.color ? `;color:${p4.runs[0].color}` : ""}">${escapeHtml3(bullet)}</span>` : "";
-    out.push(`<p style="${css.join(";")}">${bulletSpan}${runs || "&nbsp;"}</p>`);
+    out.push(`<p style="${css2.join(";")}">${bulletSpan}${runs || "&nbsp;"}</p>`);
   }
   return out.join("");
 }
@@ -44735,15 +45422,15 @@ function tableHtml2(t5, posCss) {
         attrs.push(`colspan="${cell.gridSpan}"`);
       if (cell.rowSpan && cell.rowSpan > 1)
         attrs.push(`rowspan="${cell.rowSpan}"`);
-      const css = ["padding:2px 6px", `border:1px solid ${cell.borderColor ?? "#CBD5E1"}`];
+      const css2 = ["padding:2px 6px", `border:1px solid ${cell.borderColor ?? "#CBD5E1"}`];
       if (cell.fill)
-        css.push(`background-color:${cell.fill}`);
+        css2.push(`background-color:${cell.fill}`);
       if (cell.anchor === "ctr")
-        css.push("vertical-align:middle");
+        css2.push("vertical-align:middle");
       else if (cell.anchor === "b")
-        css.push("vertical-align:bottom");
+        css2.push("vertical-align:bottom");
       const body = cell.txBody ? bodyHtml2(cell.txBody, false) : "";
-      cells.push(`<td ${attrs.join(" ")} style="${css.join(";")}">${body}</td>`);
+      cells.push(`<td ${attrs.join(" ")} style="${css2.join(";")}">${body}</td>`);
     }
     rows.push(`<tr>${cells.join("")}</tr>`);
   }
@@ -44763,44 +45450,44 @@ function shapeHtml(sh, pres, opts) {
   if (sh.image) {
     if (opts.images === "omit")
       return void 0;
-    const css2 = [pos, "object-fit:fill"];
+    const css3 = [pos, "object-fit:fill"];
     if (xform)
-      css2.push(xform);
+      css3.push(xform);
     if (sh.alpha !== void 0 && sh.alpha < 1)
-      css2.push(`opacity:${sh.alpha}`);
-    return `<img src="${dataUri2(sh.image)}" alt="${escapeHtml3(sh.name)}" style="${css2.join(";")}">`;
+      css3.push(`opacity:${sh.alpha}`);
+    return `<img src="${dataUri2(sh.image)}" alt="${escapeHtml3(sh.name)}" style="${css3.join(";")}">`;
   }
-  const css = [pos];
+  const css2 = [pos];
   if (xform)
-    css.push(xform);
+    css2.push(xform);
   const bg = fillCss(sh.fill, sh.fillAlpha);
   if (bg)
-    css.push(bg);
+    css2.push(bg);
   if (sh.fillImage && opts.images !== "omit") {
-    css.push(`background-image:url(${dataUri2(sh.fillImage)})`, "background-size:100% 100%");
+    css2.push(`background-image:url(${dataUri2(sh.fillImage)})`, "background-size:100% 100%");
   }
   if (sh.lineColor) {
     const wpx = Math.max(1, Math.round((sh.lineWidth ?? 9525) / EMU_PER_PX));
     const style = sh.lineDash ? sh.lineDash.includes("ot") ? "dotted" : "dashed" : "solid";
-    css.push(`border:${wpx}px ${style} ${sh.lineColor}`);
+    css2.push(`border:${wpx}px ${style} ${sh.lineColor}`);
   }
   const radius = radiusCss(sh.geom);
   if (radius)
-    css.push(radius);
+    css2.push(radius);
   let inner = "";
   if (sh.txBody) {
     const anchor = sh.txBody.anchor ?? (sh.phType === "title" || sh.phType === "ctrTitle" ? "ctr" : "t");
     const justify = anchor === "ctr" ? "center" : anchor === "b" ? "flex-end" : "flex-start";
-    css.push("display:flex", "flex-direction:column", `justify-content:${justify}`, "overflow:hidden", "padding:4.8px 9.6px");
+    css2.push("display:flex", "flex-direction:column", `justify-content:${justify}`, "overflow:hidden", "padding:4.8px 9.6px");
     inner = bodyHtml2(sh.txBody, sh.phType === "title" || sh.phType === "ctrTitle");
   }
   if (!inner && !bg && !sh.lineColor && !sh.fillImage)
     return void 0;
-  return `<div style="${css.join(";")}">${inner}</div>`;
+  return `<div style="${css2.join(";")}">${inner}</div>`;
 }
 function slideHtml(slide, pres, opts) {
   const wPx = Math.round(pres.slideW / EMU_PER_PX);
-  const css = [
+  const css2 = [
     "position:relative",
     `width:${wPx}px`,
     `aspect-ratio:${pres.slideW}/${pres.slideH}`,
@@ -44809,10 +45496,10 @@ function slideHtml(slide, pres, opts) {
     "font-family:'Aptos',Calibri,Arial,sans-serif"
   ];
   if (slide.bgImage && opts.images !== "omit") {
-    css.push(`background-image:url(${dataUri2(slide.bgImage)})`, "background-size:100% 100%");
+    css2.push(`background-image:url(${dataUri2(slide.bgImage)})`, "background-size:100% 100%");
   }
   const shapes = slide.shapes.map((sh) => shapeHtml(sh, pres, opts)).filter((s4) => s4 !== void 0);
-  return `<section class="slide" style="${css.join(";")}">
+  return `<section class="slide" style="${css2.join(";")}">
 ${shapes.join("\n")}
 </section>`;
 }
@@ -44940,13 +45627,13 @@ var TtfProgram2 = class {
     const numTables = v2.getUint16(4);
     for (let i8 = 0; i8 < numTables; i8++) {
       const p4 = 12 + i8 * 16;
-      const tag = String.fromCharCode(v2.getUint8(p4), v2.getUint8(p4 + 1), v2.getUint8(p4 + 2), v2.getUint8(p4 + 3));
-      tables.set(tag, v2.getUint32(p4 + 8));
+      const tag2 = String.fromCharCode(v2.getUint8(p4), v2.getUint8(p4 + 1), v2.getUint8(p4 + 2), v2.getUint8(p4 + 3));
+      tables.set(tag2, v2.getUint32(p4 + 8));
     }
-    const req = (tag) => {
-      const off = tables.get(tag);
+    const req = (tag2) => {
+      const off = tables.get(tag2);
       if (off === void 0)
-        throw new Error(`Fonte TTF sem a tabela ${tag}`);
+        throw new Error(`Fonte TTF sem a tabela ${tag2}`);
       return off;
     };
     const head = req("head");
@@ -50171,13 +50858,13 @@ var ACCENT_SEEDS = {
 var styleEl = null;
 function applyGeneratedTheme(accent) {
   const seed = ACCENT_SEEDS[accent] ?? ACCENT_SEEDS.blue;
-  const css = ThemeBuilder.create(seed).build();
+  const css2 = ThemeBuilder.create(seed).build();
   if (!styleEl) {
     styleEl = document.createElement("style");
     styleEl.id = "u-theme";
     document.head.appendChild(styleEl);
   }
-  styleEl.textContent = css;
+  styleEl.textContent = css2;
 }
 
 // ../../node_modules/lit-html/directive.js
@@ -51206,7 +51893,10 @@ IconButton = __decorate([
 
 // demo/main.ts
 var fontBridge = window.universalSheet;
-if (fontBridge?.resolveFonts) UniversalSheetElement.systemFontResolver = fontBridge.resolveFonts;
+FontResolver.shared().configure({
+  baseUrl: "./fonts",
+  host: fontBridge?.listFonts && fontBridge.resolveFonts ? { list: fontBridge.listFonts, resolve: fontBridge.resolveFonts } : null
+});
 var us = document.getElementById("us");
 var $2 = (id) => document.getElementById(id);
 var titleInput = $2("docTitle");

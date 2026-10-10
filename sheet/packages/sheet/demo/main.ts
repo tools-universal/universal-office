@@ -1,4 +1,6 @@
-import { UniversalSheetElement } from '../src/universal-sheet';
+import '../src/universal-sheet';
+import type { UniversalSheetElement } from '../src/universal-sheet';
+import { FontResolver, type HostFontProvider } from '@universal-office/fonts';
 import {
   xlsxToCsv, xlsxToTsv, xlsxToMarkdown, xlsxToHtml, xlsxToPdf, xlsxToOds, xlsxToXml2003,
 } from '@universal/sheet-export';
@@ -10,10 +12,16 @@ import '@universal-material/web/button/icon-button.js';
 
 // Electron: fontes do SO pela ponte do main process (Windows\Fonts + fontes do
 // usuário + cache CloudFonts do Office, que o queryLocalFonts não enxerga)
+// — configurado no resolvedor ÚNICO dos apps (shared/fonts)
 const fontBridge = (window as unknown as {
-  universalSheet?: { resolveFonts?: NonNullable<typeof UniversalSheetElement.systemFontResolver> };
+  universalSheet?: { listFonts?: HostFontProvider['list']; resolveFonts?: HostFontProvider['resolve'] };
 }).universalSheet;
-if (fontBridge?.resolveFonts) UniversalSheetElement.systemFontResolver = fontBridge.resolveFonts;
+FontResolver.shared().configure({
+  baseUrl: './fonts',
+  host: fontBridge?.listFonts && fontBridge.resolveFonts
+    ? { list: fontBridge.listFonts, resolve: fontBridge.resolveFonts }
+    : null,
+});
 
 const us = document.getElementById('us') as UniversalSheetElement;
 const $ = (id: string) => document.getElementById(id)!;

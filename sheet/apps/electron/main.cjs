@@ -5,7 +5,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const http = require('node:http');
 const { createReadStream, statSync, readFileSync, writeFileSync } = require('node:fs');
 const { join, normalize, extname, basename } = require('node:path');
-const { warmFontIndex, listFontFamilies, resolveFonts } = require('../../../tools/electron/system-fonts.cjs');
+const { warmFontIndex, listFontFamilies, resolveFonts } = require('../../../shared/fonts/node/system-fonts.cjs');
 
 const repoRoot = join(__dirname, '..', '..');
 
@@ -45,7 +45,7 @@ function serve() {
 
 // Fontes do SO por família: Windows\Fonts + fontes do usuário + cache
 // CloudFonts do Office (invisível ao queryLocalFonts) — ver
-// tools/electron/system-fonts.cjs.
+// shared/fonts/node/system-fonts.cjs.
 ipcMain.handle('us:resolve-fonts', (_e, families) => resolveFonts(families));
 ipcMain.handle('us:list-fonts', () => listFontFamilies());
 

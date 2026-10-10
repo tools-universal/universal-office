@@ -8,7 +8,8 @@
     "paths": {
       "@universal-office/docx-core": ["../docx-core/src/index.ts"],
       "@universal-office/layout": ["../layout/src/index.ts"],
-      "@universal-office/pdf": ["../pdf/src/index.ts"]
+      "@universal-office/pdf": ["../pdf/src/index.ts"],
+      "@universal-office/fonts": ["../../../shared/fonts/src/index.ts"]
     }
   },
   "include": ["src", "demo"]
