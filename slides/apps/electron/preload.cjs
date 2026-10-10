@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('universalSlides', {
   /** Resolve fontes do SO por família (Windows\Fonts + usuário + CloudFonts).
    *  Retorna [{ family, weight, style, bytes: ArrayBuffer }]. */
   resolveFonts: (families) => ipcRenderer.invoke('us:resolve-fonts', families),
+  /** Nomes das famílias de fonte instaladas no SO, em ordem alfabética. */
+  listFonts: () => ipcRenderer.invoke('us:list-fonts'),
 });

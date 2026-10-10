@@ -1,5 +1,4 @@
-import '../src/universal-sheet';
-import type { UniversalSheetElement } from '../src/universal-sheet';
+import { UniversalSheetElement } from '../src/universal-sheet';
 import {
   xlsxToCsv, xlsxToTsv, xlsxToMarkdown, xlsxToHtml, xlsxToPdf, xlsxToOds, xlsxToXml2003,
 } from '@universal/sheet-export';
@@ -8,6 +7,13 @@ import { rippleAll } from './ripple.js';
 import { applyGeneratedTheme } from './theme.js';
 import '@universal-material/web/button/button.js';
 import '@universal-material/web/button/icon-button.js';
+
+// Electron: fontes do SO pela ponte do main process (Windows\Fonts + fontes do
+// usuário + cache CloudFonts do Office, que o queryLocalFonts não enxerga)
+const fontBridge = (window as unknown as {
+  universalSheet?: { resolveFonts?: NonNullable<typeof UniversalSheetElement.systemFontResolver> };
+}).universalSheet;
+if (fontBridge?.resolveFonts) UniversalSheetElement.systemFontResolver = fontBridge.resolveFonts;
 
 const us = document.getElementById('us') as UniversalSheetElement;
 const $ = (id: string) => document.getElementById(id)!;

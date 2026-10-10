@@ -35154,7 +35154,7 @@ function tableStyleAccent(name, accents) {
   if (n5 <= 1) return "#808080";
   return accents[(n5 - 2) % 6] ?? fallback;
 }
-var UniversalSheetElement = class extends HTMLElement {
+var UniversalSheetElement = class _UniversalSheetElement extends HTMLElement {
   host = this.attachShadow({ mode: "open" });
   canvas = document.createElement("canvas");
   status = document.createElement("div");
@@ -35755,10 +35755,16 @@ var UniversalSheetElement = class extends HTMLElement {
     else this.hideCommentTip();
   };
   /**
+   * Fontes do SO por família fornecidas pelo HOST (ex.: o Electron lê
+   * Windows\Fonts + o cache CloudFonts do Office, invisível ao
+   * `queryLocalFonts`). Ausente: `queryLocalFonts` (Chromium, com permissão).
+   */
+  static systemFontResolver = null;
+  /**
    * Carrega SOB DEMANDA as fontes do SO usadas pelos estilos do workbook e
-   * ainda indisponíveis (queryLocalFonts — lógica compartilhada do Universal
-   * Write). Sem API/permissão, o fallback CSS (Aptos Narrow → Liberation
-   * Sans → Segoe UI) cobre.
+   * ainda indisponíveis (host via systemFontResolver; senão queryLocalFonts —
+   * lógica compartilhada do Universal Write). Sem nenhum dos dois, o fallback
+   * CSS (Aptos Narrow → Liberation Sans → Segoe UI) cobre.
    */
   async ensureSheetFonts() {
     const wanted = /* @__PURE__ */ new Set();
@@ -35772,6 +35778,22 @@ var UniversalSheetElement = class extends HTMLElement {
       }
     }
     if (!wanted.size) return;
+    const resolver = _UniversalSheetElement.systemFontResolver;
+    if (resolver) {
+      let added2 = false;
+      try {
+        for (const f3 of await resolver([...wanted])) {
+          try {
+            document.fonts.add(await new FontFace(f3.family, f3.bytes, { weight: f3.weight, style: f3.style }).load());
+            added2 = true;
+          } catch {
+          }
+        }
+      } catch {
+      }
+      if (added2) this.paint();
+      return;
+    }
     const qlf = window.queryLocalFonts;
     if (!qlf) return;
     let faces;
@@ -51183,6 +51205,8 @@ IconButton = __decorate([
 ], IconButton);
 
 // demo/main.ts
+var fontBridge = window.universalSheet;
+if (fontBridge?.resolveFonts) UniversalSheetElement.systemFontResolver = fontBridge.resolveFonts;
 var us = document.getElementById("us");
 var $2 = (id) => document.getElementById(id);
 var titleInput = $2("docTitle");

@@ -18,6 +18,15 @@ function hasMarkOfTheWeb(filePath) {
   }
 }
 
+// Fontes do SO por família: Windows\Fonts + fontes do usuário + cache
+// CloudFonts do Office (invisível ao queryLocalFonts). Empacotado, o módulo
+// vem em resources (ver "extraResources" no package.json).
+const { warmFontIndex, listFontFamilies, resolveFonts } = require(app.isPackaged
+  ? join(process.resourcesPath, 'system-fonts.cjs')
+  : '../../../tools/electron/system-fonts.cjs');
+ipcMain.handle('wn:resolve-fonts', (_e, families) => resolveFonts(families));
+ipcMain.handle('wn:list-fonts', () => listFontFamilies());
+
 ipcMain.handle('wn:open-docx', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Abrir documento',
@@ -50,6 +59,55 @@ ipcMain.handle('wn:open-docx-compare', async (e, title) => {
     bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
   };
 });
+
+// ── Confirmação ao fechar com alterações não salvas (como o Word) ──
+// O renderer informa o estado (wn:set-dirty). No 'close' da janela, se houver
+// alterações: Salvar / Não salvar / Cancelar. "Salvar" pede ao renderer
+// (wn:save-before-close), que salva e fecha via wn:close-window se gravou;
+// cancelou o diálogo de salvar → a janela fica aberta.
+const closeState = new WeakMap(); // BrowserWindow → { dirty, name, allowClose, asking }
+const closeStateOf = (win) => {
+  let st = closeState.get(win);
+  if (!st) closeState.set(win, (st = { dirty: false, name: '', allowClose: false, asking: false }));
+  return st;
+};
+ipcMain.on('wn:set-dirty', (e, dirty, name) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (!win) return;
+  const st = closeStateOf(win);
+  st.dirty = !!dirty;
+  st.name = String(name || '');
+});
+ipcMain.on('wn:close-window', (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (!win) return;
+  closeStateOf(win).allowClose = true;
+  win.close();
+});
+function confirmCloseWhenDirty(win) {
+  win.on('close', (e) => {
+    const st = closeStateOf(win);
+    // renderer travado/morto não tem como salvar: não prende a janela
+    if (!st.dirty || st.allowClose || win.webContents.isCrashed()) return;
+    e.preventDefault();
+    if (st.asking) return; // diálogo já aberto (clique duplo no X)
+    st.asking = true;
+    dialog.showMessageBox(win, {
+      type: 'warning',
+      title: 'Universal Write',
+      message: `Deseja salvar as alterações em "${st.name || 'Documento'}"?`,
+      detail: 'Se você não salvar, as alterações serão perdidas.',
+      buttons: ['Salvar', 'Não salvar', 'Cancelar'],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+    }).then(({ response }) => {
+      st.asking = false;
+      if (response === 1) { st.allowClose = true; win.close(); }
+      else if (response === 0) win.webContents.send('wn:save-before-close');
+    }, () => { st.asking = false; });
+  });
+}
 
 // Mantém os controles de janela do SO (titleBarOverlay) em sintonia com o tema
 // do app, para a barra de título "mesclar" também no modo escuro.
@@ -156,7 +214,9 @@ app.whenReady().then(async () => {
     },
   });
   win.removeMenu();
+  confirmCloseWhenDirty(win);
   await win.loadURL(`http://127.0.0.1:${port}/packages/editor/demo/index.html`);
+  warmFontIndex(); // índice das fontes do SO pronto antes do 1º documento pedir
 });
 
 app.on('window-all-closed', () => app.quit());

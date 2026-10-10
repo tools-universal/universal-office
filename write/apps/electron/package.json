@@ -33,6 +33,10 @@
         "from": "../../packages/editor/demo",
         "to": "packages/editor/demo",
         "filter": ["index.html", "bundle.js", "fonts/**/*"]
+      },
+      {
+        "from": "../../../tools/electron/system-fonts.cjs",
+        "to": "system-fonts.cjs"
       }
     ],
     "win": {

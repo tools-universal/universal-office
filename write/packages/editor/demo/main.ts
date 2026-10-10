@@ -1,5 +1,4 @@
-import '../src/universal-write.js';
-import type { UniversalWriteElement, ViewMode } from '../src/universal-write.js';
+import { UniversalWriteElement, type ViewMode, type SystemFontProvider } from '../src/universal-write.js';
 import '@universal-office/compare';
 import type { UniversalWriteDiffElement } from '@universal-office/compare';
 import { createMentionPlugin } from '../src/mention-plugin.js';
@@ -12,6 +11,15 @@ import { isOdt } from '@universal-office/odf';
 import '@universal-material/web/button/button.js';
 import '@universal-material/web/button/icon-button.js';
 import '@universal-material/web/dialog/dialog.js';
+
+// Electron: fontes do SO pela ponte do main process (Windows\Fonts + fontes do
+// usuário + cache CloudFonts do Office, que o queryLocalFonts não enxerga)
+const fontBridge = (window as unknown as {
+  wordnext?: { listFonts?: SystemFontProvider['list']; resolveFonts?: SystemFontProvider['resolve'] };
+}).wordnext;
+if (fontBridge?.listFonts && fontBridge.resolveFonts) {
+  UniversalWriteElement.systemFonts = { list: fontBridge.listFonts, resolve: fontBridge.resolveFonts };
+}
 
 const wn = document.getElementById('wn') as UniversalWriteElement;
 wn.use(createMentionPlugin());
@@ -98,10 +106,40 @@ interface ElectronBridge {
   openDocx(): Promise<{ name: string; bytes: ArrayBuffer; motw: boolean } | null>;
   /** Diálogo com título custom p/ escolher o outro lado da comparação. */
   openDocxForCompare?(title: string): Promise<{ name: string; bytes: ArrayBuffer } | null>;
+  /** Informa ao main se há alterações não salvas (confirmação ao fechar). */
+  setDirty?(dirty: boolean, name: string): void;
+  /** "Salvar" na confirmação ao fechar: salvar e, dando certo, closeWindow(). */
+  onSaveBeforeClose?(cb: () => void): void;
+  /** Fecha a janela sem nova confirmação. */
+  closeWindow?(): void;
 }
 const bridge = (window as unknown as { wordnext?: ElectronBridge }).wordnext;
 // marca o app como Electron → CSS reserva a área dos controles da janela só aqui
 document.documentElement.classList.toggle('electron', !!bridge);
+
+// ───── alterações não salvas ─────
+// `dirty` alimenta o autosave e a confirmação ao fechar (Electron: diálogo
+// nativo Salvar / Não salvar / Cancelar no main; navegador: beforeunload).
+// `changeSeq` conta as edições: o que foi digitado DURANTE um salvamento
+// assíncrono continua pendente.
+let dirty = false;
+let changeSeq = 0;
+function syncDirty(): void {
+  bridge?.setDirty?.(dirty, titleInput.value || 'Untitled document');
+}
+function setDirty(v: boolean): void {
+  if (v === dirty) return;
+  dirty = v;
+  syncDirty();
+}
+if (!bridge) {
+  window.addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
+}
+// "Salvar" na confirmação do main: salva (pode abrir o Salvar como) e só fecha
+// se gravou de fato; cancelou o diálogo de salvar → a janela continua aberta.
+bridge?.onSaveBeforeClose?.(() => {
+  void actionSave(false).then((ok) => { if (ok && !dirty) bridge.closeWindow?.(); });
+});
 
 const trusted = new Set<string>(JSON.parse(localStorage.getItem('uw-trusted') ?? '[]'));
 let currentTrustKey: string | null = null;
@@ -115,7 +153,9 @@ const rememberTrust = (key: string | null) => {
 function setTitle(name: string): void {
   titleInput.value = name.replace(/\.(docx|odt)$/i, '');
   document.title = `${titleInput.value} — Write`;
+  syncDirty(); // o nome aparece na confirmação ao fechar
 }
+titleInput.addEventListener('change', syncDirty);
 
 // formato do arquivo aberto/salvo — Save usa esse formato; Save As pode trocar
 type DocFormat = 'docx' | 'odt';
@@ -173,6 +213,7 @@ function openBytes(
   setCurrentFormat(isOdtFile ? 'odt' : 'docx');
   currentTrustKey = key;
   fileHandle = handle;
+  setDirty(false);
   setTitle(name);
   rememberRecent(name, handle);
   wn.focusEditor();
@@ -235,7 +276,8 @@ function detectFormatFromName(name: string): DocFormat {
   return /\.odt$/i.test(name) ? 'odt' : 'docx';
 }
 
-async function actionSave(saveAs: boolean): Promise<void> {
+/** Salva; true = gravado (cancelou/falhou: false, segue pendente). */
+async function actionSave(saveAs: boolean): Promise<boolean> {
   closeMenus();
   // Save: usa o formato do documento aberto. Save As: a escolha do file picker
   // pode alterar (extensão escolhida → formato).
@@ -254,6 +296,7 @@ async function actionSave(saveAs: boolean): Promise<void> {
         fmt = detectFormatFromName(fileHandle.name);
         setCurrentFormat(fmt);
       }
+      const seq = changeSeq;
       const bytes = bytesForFormat(fmt);
       const w = await fileHandle.createWritable();
       await w.write(new Blob([bytes.buffer as ArrayBuffer]));
@@ -265,17 +308,19 @@ async function actionSave(saveAs: boolean): Promise<void> {
         currentTrustKey = trustKeyOf(f);
         rememberTrust(currentTrustKey);
       } catch { /* sem meta */ }
-      dirty = false;
+      setDirty(changeSeq !== seq); // editou durante a gravação: segue pendente
       lastAutosave = Date.now();
       flashStatus(`Salvo ✓ (${fmt})`);
-      return;
-    } catch { return; }
+      return true;
+    } catch { return false; }
   }
   // Fallback (sem File System Access API): download direto no formato vigente
   const bytes = bytesForFormat(fmt);
   const mime = fmt === 'odt' ? 'application/vnd.oasis.opendocument.text'
     : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
   downloadBlob(bytes.buffer as ArrayBuffer, suggestedName, mime);
+  setDirty(false); // baixou a cópia: é o "salvar" possível sem a API
+  return true;
 }
 
 function flashStatus(msg: string): void {
@@ -285,7 +330,7 @@ function flashStatus(msg: string): void {
   setTimeout(() => { st.textContent = prev; }, 1800);
 }
 
-$('actNew').addEventListener('click', () => { closeMenus(); fileHandle = null; wn.newDocument(); setTitle('Untitled document'); setCurrentFormat('docx'); wn.focusEditor(); });
+$('actNew').addEventListener('click', () => { closeMenus(); fileHandle = null; wn.newDocument(); setDirty(false); setTitle('Untitled document'); setCurrentFormat('docx'); wn.focusEditor(); });
 $('actOpen').addEventListener('click', () => void actionOpen());
 $('actSave').addEventListener('click', () => void actionSave(false));
 $('saveBtn').addEventListener('click', () => void actionSave(false));
@@ -562,6 +607,17 @@ const onSel = (id: string, fn: (v: string) => void) =>
   $(id).addEventListener('change', (e) => { fn((e.target as HTMLSelectElement).value); wn.focusEditor(); });
 onSel('style', (v) => wn.applyStyle(v || undefined));
 onSel('font', (v) => wn.setFontFamily(v));
+// Electron: o seletor de fonte lista as fontes instaladas no SO (+ as já
+// carregadas). No navegador fica com as opções fixas do HTML.
+if (UniversalWriteElement.systemFonts) {
+  void wn.listAvailableFonts().then((families) => {
+    const fs = $('font') as HTMLSelectElement;
+    const fixed = [...fs.options].filter((o) => !o.dataset['dyn']).map((o) => o.value);
+    const all = [...new Set([...fixed, ...families])].sort((a, b) => a.localeCompare(b));
+    fs.replaceChildren(...all.map((f) => new Option(f, f)));
+    syncToolbar(); // re-seleciona a fonte do cursor
+  });
+}
 onSel('highlight', (v) => wn.setHighlight(v || undefined));
 onSel('spacing', (v) => wn.setLineSpacing(parseInt(v, 10)));
 onSel('spaceAfter', (v) => wn.setSpaceAfter(v === '' ? undefined : parseInt(v, 10)));
@@ -646,14 +702,13 @@ wn.addEventListener('uw-protected', ((e: CustomEvent) => {
     rememberTrust(currentTrustKey);
     // habilitar edição salva IMEDIATAMENTE (quando há arquivo de destino)
     if (wasProtected && fileHandle) {
-      void actionSave(false).then(() => flashStatus('Editing enabled — saved ✓'));
+      void actionSave(false).then((ok) => { if (ok) flashStatus('Editing enabled — saved ✓'); });
     }
   }
   wasProtected = e.detail.active;
 }) as EventListener);
 
 // ───── AUTOSAVE (timing do app de referência: AutoRecover 10 min por padrão) ─────
-let dirty = false;
 let lastAutosave = Date.now();
 const autosaveSel = $('autosaveSel') as HTMLSelectElement;
 autosaveSel.value = localStorage.getItem('uw-autosave-min') ?? '10';
@@ -670,14 +725,16 @@ function checkAutosave(): void {
     lastAutosave = Date.now();
     return;
   }
-  void actionSave(false).then(() => {
-    dirty = false;
+  // falhou (arquivo sumiu, sem permissão…): continua pendente — não marca como
+  // salvo, senão o fechamento da janela não pediria confirmação
+  void actionSave(false).then((ok) => {
     lastAutosave = Date.now();
-    flashStatus('Autosave ✓');
+    if (ok) flashStatus('Autosave ✓');
   });
 }
 wn.addEventListener('uw-change', () => {
-  dirty = true;
+  changeSeq++;
+  setDirty(true);
   // além do timer: checa pouco depois de cada edição (timers de fundo
   // sofrem throttling — assim o autosave não atrasa com a janela oculta)
   window.setTimeout(checkAutosave, 800);
@@ -950,11 +1007,13 @@ const syncToolbar = () => {
   if (st.run.fontAscii) {
     const fs = $('font') as HTMLSelectElement;
     const raw = st.run.fontAscii;
-    // Aptos/Calibri (e variantes) colapsam; qualquer outra fonte do documento é
-    // injetada como opção para o select mostrar a fonte REAL do cursor.
-    const f = raw.startsWith('Calibri') ? 'Calibri' : raw.startsWith('Aptos') ? 'Aptos' : raw;
+    // Fonte da lista (no Electron, todas as do SO) aparece como é; fora dela,
+    // Aptos/Calibri (e variantes) colapsam e qualquer outra fonte do documento
+    // é injetada como opção para o select mostrar a fonte REAL do cursor.
     fs.querySelector('option[data-dyn]')?.remove();
-    if (f !== 'Aptos' && f !== 'Calibri') {
+    const has = (name: string) => [...fs.options].some((o) => o.value === name);
+    const f = has(raw) ? raw : raw.startsWith('Calibri') ? 'Calibri' : raw.startsWith('Aptos') ? 'Aptos' : raw;
+    if (!has(f)) {
       const o = document.createElement('option');
       o.value = f; o.textContent = f; o.dataset['dyn'] = '1';
       fs.insertBefore(o, fs.firstChild);

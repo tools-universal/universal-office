@@ -235,12 +235,15 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
   fontSel.addEventListener('change', () => { editor.setFontFamily(fontSel.value); editor.focusEditor(); });
 
   // seletor de fonte: começa com as famílias conhecidas (bundled + embedadas do
-  // doc); no 1º gesto pede as fontes do SO (queryLocalFonts exige interação).
+  // doc) e soma as do SO — já de início se o host as fornece (Electron), senão
+  // no 1º gesto (queryLocalFonts exige interação).
   const escOpt = (s: string): string =>
     s.replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] ?? c));
   const fillFonts = (families: string[]): void => {
     const cur = fontSel.value;
-    fontSel.innerHTML = families.map((f) => `<option>${escOpt(f)}</option>`).join('');
+    // a fonte no cursor fora da lista segue como opção dinâmica (ver sync)
+    const dyn = cur && !families.includes(cur) ? `<option data-dyn="1">${escOpt(cur)}</option>` : '';
+    fontSel.innerHTML = dyn + families.map((f) => `<option>${escOpt(f)}</option>`).join('');
     fontSel.value = cur;
   };
   fillFonts(editor.knownFontFamilies());
@@ -264,13 +267,14 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
   return () => {
     syncStyleOptions();
     // re-popula o seletor conforme novas famílias carregam (embedadas do doc),
-    // sem esperar o gesto; após pedir as do SO, o gesto cuida da lista completa.
-    if (!sysFontsRequested) {
-      const known = editor.knownFontFamilies();
-      if (known.length !== lastFontCount && document.activeElement !== fontSel) {
-        lastFontCount = known.length;
-        fillFonts(known);
-      }
+    // sem esperar o gesto; já com as do SO pedidas, junta as duas (cacheadas).
+    // (o host pode ser ligado depois de o elemento montar a barra: checa aqui)
+    if (!sysFontsRequested && editor.hasHostSystemFonts()) loadSysFonts();
+    const known = editor.knownFontFamilies();
+    if (known.length !== lastFontCount && document.activeElement !== fontSel) {
+      lastFontCount = known.length;
+      if (sysFontsRequested) void editor.listAvailableFonts().then(fillFonts);
+      else fillFonts(known);
     }
     const st = editor.getSelectionState();
     const run = st.run as unknown as Record<string, unknown>;

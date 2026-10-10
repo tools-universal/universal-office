@@ -785,10 +785,17 @@ export class UniversalSheetElement extends HTMLElement {
   };
 
   /**
+   * Fontes do SO por família fornecidas pelo HOST (ex.: o Electron lê
+   * Windows\Fonts + o cache CloudFonts do Office, invisível ao
+   * `queryLocalFonts`). Ausente: `queryLocalFonts` (Chromium, com permissão).
+   */
+  static systemFontResolver: ((families: string[]) => Promise<{ family: string; weight: string; style: string; bytes: ArrayBuffer }[]>) | null = null;
+
+  /**
    * Carrega SOB DEMANDA as fontes do SO usadas pelos estilos do workbook e
-   * ainda indisponíveis (queryLocalFonts — lógica compartilhada do Universal
-   * Write). Sem API/permissão, o fallback CSS (Aptos Narrow → Liberation
-   * Sans → Segoe UI) cobre.
+   * ainda indisponíveis (host via systemFontResolver; senão queryLocalFonts —
+   * lógica compartilhada do Universal Write). Sem nenhum dos dois, o fallback
+   * CSS (Aptos Narrow → Liberation Sans → Segoe UI) cobre.
    */
   private async ensureSheetFonts(): Promise<void> {
     const wanted = new Set<string>();
@@ -798,6 +805,20 @@ export class UniversalSheetElement extends HTMLElement {
       try { if (!document.fonts.check(`12px "${name}"`)) wanted.add(name); } catch { wanted.add(name); }
     }
     if (!wanted.size) return;
+    const resolver = UniversalSheetElement.systemFontResolver;
+    if (resolver) {
+      let added = false;
+      try {
+        for (const f of await resolver([...wanted])) {
+          try {
+            document.fonts.add(await new FontFace(f.family, f.bytes, { weight: f.weight, style: f.style }).load());
+            added = true;
+          } catch { /* face inválida: segue */ }
+        }
+      } catch { /* host sem as fontes: fallback CSS */ }
+      if (added) this.paint();
+      return;
+    }
     const qlf = (window as unknown as { queryLocalFonts?: () => Promise<{ family: string; style: string; blob(): Promise<Blob> }[]> }).queryLocalFonts;
     if (!qlf) return;
     let faces: { family: string; style: string; blob(): Promise<Blob> }[];

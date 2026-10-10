@@ -220,6 +220,28 @@ interface LocalFontData {
   blob(): Promise<Blob>;
 }
 
+/** Uma face de fonte do SO entregue pelo HOST (ex.: shell Electron). */
+export interface SystemFontFace {
+  family: string;
+  weight: string;
+  style: string;
+  /** Negrito "RIBBI" dentro da família (ausente: deduz do peso). */
+  bold?: boolean;
+  /** A licença (fsType) permite embutir em documento/PDF (ausente: permite). */
+  embeddable?: boolean;
+  bytes: ArrayBuffer;
+}
+
+/** Fontes do SO fornecidas pelo HOST — ex.: o Electron lê Windows\Fonts + o
+ *  cache CloudFonts do Office (onde moram as Aptos), invisível ao
+ *  `queryLocalFonts`. */
+export interface SystemFontProvider {
+  /** Nomes das famílias instaladas, em ordem alfabética. */
+  list(): Promise<string[]>;
+  /** Faces das famílias pedidas (todas as variantes encontradas). */
+  resolve(families: string[]): Promise<SystemFontFace[]>;
+}
+
 /** Mapeia o "style" da FontData (ex.: "Bold Italic") para a variante interna. */
 function variantOfStyle(style: string | undefined): FontVariant {
   const s = (style ?? '').toLowerCase();
@@ -229,6 +251,11 @@ function variantOfStyle(style: string | undefined): FontVariant {
 }
 
 export class UniversalWriteElement extends HTMLElement {
+  /** Fontes do SO fornecidas pelo HOST (ver SystemFontProvider). Com ele, o
+   *  seletor lista as fontes instaladas sem gesto/permissão e o documento
+   *  carrega sozinho as famílias que usa. Ausente: `queryLocalFonts`. */
+  static systemFonts: SystemFontProvider | null = null;
+
   private model: DocumentModel | null = null;
   private pkg: DocxPackage | null = null;
   private fullDoc: FullDocument | null = null;
@@ -252,6 +279,11 @@ export class UniversalWriteElement extends HTMLElement {
   private sysFontsCache: string[] | null = null;
   /** FontData do SO por família (todas as faces) p/ carregar bytes sob demanda. */
   private sysFontData = new Map<string, LocalFontData[]>();
+  /** Famílias (lc) já pedidas ao host — achadas ou não, não se pede de novo. */
+  private hostFontsAsked = new Set<string>();
+  /** Famílias usadas pelo documento sem FontFace, à espera do próximo lote. */
+  private hostFontQueue = new Set<string>();
+  private hostFontTimer: ReturnType<typeof setTimeout> | null = null;
   private container: HTMLDivElement;
   private input: HTMLTextAreaElement;
   private topbarEl!: HTMLDivElement;
@@ -1264,11 +1296,22 @@ export class UniversalWriteElement extends HTMLElement {
     return [...this.loadedFamilyNames].sort((a, b) => a.localeCompare(b));
   }
 
-  /** Fontes instaladas no SO via Local Font Access API (queryLocalFonts).
-   *  Requer gesto do usuário + permissão; cacheia o resultado. Vazio se a API
-   *  não existir ou for negada. Guarda os FontData p/ carregar sob demanda. */
+  /** True quando a lista de fontes do SO vem do host (sem gesto/permissão). */
+  hasHostSystemFonts(): boolean {
+    return !!UniversalWriteElement.systemFonts;
+  }
+
+  /** Fontes instaladas no SO: do HOST (systemFonts) se houver; senão via Local
+   *  Font Access API (queryLocalFonts), que requer gesto do usuário +
+   *  permissão. Cacheia o resultado. Vazio se nada disso existir ou for negado.
+   *  Guarda os FontData p/ carregar sob demanda. */
   async systemFontFamilies(): Promise<string[]> {
     if (this.sysFontsCache) return this.sysFontsCache;
+    const host = UniversalWriteElement.systemFonts;
+    if (host) {
+      try { this.sysFontsCache = [...await host.list()]; } catch { this.sysFontsCache = []; }
+      return this.sysFontsCache;
+    }
     const q = (window as unknown as { queryLocalFonts?: () => Promise<LocalFontData[]> }).queryLocalFonts;
     if (typeof q !== 'function') { this.sysFontsCache = []; return []; }
     try {
@@ -1298,7 +1341,10 @@ export class UniversalWriteElement extends HTMLElement {
   async ensureFontLoaded(family: string): Promise<void> {
     if (!family || this.loadedFamilyNames.has(family) || !this.fonts) return;
     const faces = this.sysFontData.get(family);
-    if (!faces?.length) return;
+    if (!faces?.length) {
+      if (await this.loadHostFonts([family]) && this.model) this.refresh();
+      return;
+    }
     let added = false;
     for (const fd of faces) {
       const variant = variantOfStyle(fd.style);
@@ -1318,6 +1364,58 @@ export class UniversalWriteElement extends HTMLElement {
       } catch { /* face inacessível: ignora */ }
     }
     if (added && this.model) this.refresh();
+  }
+
+  /** Pede ao HOST as faces das famílias (uma vez por família) e registra
+   *  FontFace (render) + SfntFont (layout) + bytes (PDF/XPS). Só entra a face
+   *  cujas métricas o SfntFont lê e cuja licença permite embutir — senão o
+   *  canvas, o layout e o PDF divergiriam; a família fica no fallback.
+   *  Retorna true se alguma face foi adicionada. */
+  private async loadHostFonts(families: string[]): Promise<boolean> {
+    const host = UniversalWriteElement.systemFonts;
+    if (!host || !this.fonts) return false;
+    const todo = families.filter((f) =>
+      f && !this.loadedFamilyNames.has(f) && !this.hostFontsAsked.has(f.toLowerCase()));
+    if (!todo.length) return false;
+    for (const f of todo) this.hostFontsAsked.add(f.toLowerCase());
+    let faces: SystemFontFace[];
+    try { faces = await host.resolve(todo); } catch { return false; }
+    let added = false;
+    for (const f of faces) {
+      if (f.embeddable === false) continue;
+      const italic = f.style === 'italic';
+      const bold = f.bold ?? Number(f.weight) >= 600;
+      const variant: FontVariant = bold && italic ? 'boldItalic' : bold ? 'bold' : italic ? 'italic' : 'regular';
+      if (this.loadedFamilies.has(`${f.family} ${variant}`)) continue;
+      try {
+        const bytes = new Uint8Array(f.bytes);
+        const metrics = new SfntFont(bytes);
+        const face = new FontFace(f.family, bytes.slice().buffer, {
+          weight: bold ? '700' : '400', style: italic ? 'italic' : 'normal',
+        });
+        await face.load();
+        document.fonts.add(face);
+        this.loadedFamilies.add(`${f.family} ${variant}`);
+        this.loadedFamilyNames.add(f.family);
+        this.fonts.register(f.family, variant, metrics);
+        (this.fontBytes[f.family] ??= {})[variant] = bytes;
+        added = true;
+      } catch { /* face ilegível: fica no fallback */ }
+    }
+    return added;
+  }
+
+  /** Família usada pelo documento sem FontFace: entra no próximo lote pedido
+   *  ao host; ao chegar, refaz layout + pintura com a fonte real. */
+  private queueHostFont(family: string): void {
+    if (!UniversalWriteElement.systemFonts || this.hostFontsAsked.has(family.toLowerCase())) return;
+    this.hostFontQueue.add(family);
+    this.hostFontTimer ??= setTimeout(() => {
+      this.hostFontTimer = null;
+      const fams = [...this.hostFontQueue];
+      this.hostFontQueue.clear();
+      void this.loadHostFonts(fams).then((added) => { if (added && this.model) this.refresh(); });
+    }, 0);
   }
   setColor(hex: string | undefined): void { this.formatRuns({ color: hex }); }
   setHighlight(name: string | undefined): void { this.formatRuns({ highlight: name }); }
@@ -3998,10 +4096,12 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Família CSS a usar no canvas: a fonte EMBEDADA/instalada real (ex.: "Lato",
-   *  "Lato Black") se houver FontFace; senão cai em Calibri/Aptos (bundled). */
+   *  "Lato Black") se houver FontFace; senão cai no padrão (bundled) e, havendo
+   *  host com fontes do SO, pede a família para a próxima pintura. */
   private familyFor(family: string | undefined): string {
     if (family) {
       if (this.loadedFamilyNames.has(family)) return family;
+      this.queueHostFont(family); // ex.: "Aptos Display" mesmo com "Aptos" carregada
       const base = family.split(' ')[0]!;
       if (this.loadedFamilyNames.has(base)) return base;
     }

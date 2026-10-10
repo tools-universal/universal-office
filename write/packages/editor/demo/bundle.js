@@ -5799,7 +5799,8 @@ function buildToolbar(el, editor) {
   const escOpt = (s4) => s4.replace(/[<>&"]/g, (c4) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" })[c4] ?? c4);
   const fillFonts = (families) => {
     const cur = fontSel.value;
-    fontSel.innerHTML = families.map((f3) => `<option>${escOpt(f3)}</option>`).join("");
+    const dyn = cur && !families.includes(cur) ? `<option data-dyn="1">${escOpt(cur)}</option>` : "";
+    fontSel.innerHTML = dyn + families.map((f3) => `<option>${escOpt(f3)}</option>`).join("");
     fontSel.value = cur;
   };
   fillFonts(editor.knownFontFamilies());
@@ -5834,12 +5835,12 @@ function buildToolbar(el, editor) {
   let lastFontCount = 0;
   return () => {
     syncStyleOptions();
-    if (!sysFontsRequested) {
-      const known = editor.knownFontFamilies();
-      if (known.length !== lastFontCount && document.activeElement !== fontSel) {
-        lastFontCount = known.length;
-        fillFonts(known);
-      }
+    if (!sysFontsRequested && editor.hasHostSystemFonts()) loadSysFonts();
+    const known = editor.knownFontFamilies();
+    if (known.length !== lastFontCount && document.activeElement !== fontSel) {
+      lastFontCount = known.length;
+      if (sysFontsRequested) void editor.listAvailableFonts().then(fillFonts);
+      else fillFonts(known);
     }
     const st = editor.getSelectionState();
     const run = st.run;
@@ -11329,6 +11330,10 @@ function variantOfStyle(style) {
   return bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
 }
 var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
+  /** Fontes do SO fornecidas pelo HOST (ver SystemFontProvider). Com ele, o
+   *  seletor lista as fontes instaladas sem gesto/permissão e o documento
+   *  carrega sozinho as famílias que usa. Ausente: `queryLocalFonts`. */
+  static systemFonts = null;
   model = null;
   pkg = null;
   fullDoc = null;
@@ -11353,6 +11358,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   sysFontsCache = null;
   /** FontData do SO por família (todas as faces) p/ carregar bytes sob demanda. */
   sysFontData = /* @__PURE__ */ new Map();
+  /** Famílias (lc) já pedidas ao host — achadas ou não, não se pede de novo. */
+  hostFontsAsked = /* @__PURE__ */ new Set();
+  /** Famílias usadas pelo documento sem FontFace, à espera do próximo lote. */
+  hostFontQueue = /* @__PURE__ */ new Set();
+  hostFontTimer = null;
   container;
   input;
   topbarEl;
@@ -12294,11 +12304,25 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   knownFontFamilies() {
     return [...this.loadedFamilyNames].sort((a3, b5) => a3.localeCompare(b5));
   }
-  /** Fontes instaladas no SO via Local Font Access API (queryLocalFonts).
-   *  Requer gesto do usuário + permissão; cacheia o resultado. Vazio se a API
-   *  não existir ou for negada. Guarda os FontData p/ carregar sob demanda. */
+  /** True quando a lista de fontes do SO vem do host (sem gesto/permissão). */
+  hasHostSystemFonts() {
+    return !!_UniversalWriteElement.systemFonts;
+  }
+  /** Fontes instaladas no SO: do HOST (systemFonts) se houver; senão via Local
+   *  Font Access API (queryLocalFonts), que requer gesto do usuário +
+   *  permissão. Cacheia o resultado. Vazio se nada disso existir ou for negado.
+   *  Guarda os FontData p/ carregar sob demanda. */
   async systemFontFamilies() {
     if (this.sysFontsCache) return this.sysFontsCache;
+    const host = _UniversalWriteElement.systemFonts;
+    if (host) {
+      try {
+        this.sysFontsCache = [...await host.list()];
+      } catch {
+        this.sysFontsCache = [];
+      }
+      return this.sysFontsCache;
+    }
     const q = window.queryLocalFonts;
     if (typeof q !== "function") {
       this.sysFontsCache = [];
@@ -12332,7 +12356,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   async ensureFontLoaded(family) {
     if (!family || this.loadedFamilyNames.has(family) || !this.fonts) return;
     const faces = this.sysFontData.get(family);
-    if (!faces?.length) return;
+    if (!faces?.length) {
+      if (await this.loadHostFonts([family]) && this.model) this.refresh();
+      return;
+    }
     let added = false;
     for (const fd2 of faces) {
       const variant = variantOfStyle(fd2.style);
@@ -12356,6 +12383,63 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     }
     if (added && this.model) this.refresh();
+  }
+  /** Pede ao HOST as faces das famílias (uma vez por família) e registra
+   *  FontFace (render) + SfntFont (layout) + bytes (PDF/XPS). Só entra a face
+   *  cujas métricas o SfntFont lê e cuja licença permite embutir — senão o
+   *  canvas, o layout e o PDF divergiriam; a família fica no fallback.
+   *  Retorna true se alguma face foi adicionada. */
+  async loadHostFonts(families) {
+    const host = _UniversalWriteElement.systemFonts;
+    if (!host || !this.fonts) return false;
+    const todo = families.filter((f3) => f3 && !this.loadedFamilyNames.has(f3) && !this.hostFontsAsked.has(f3.toLowerCase()));
+    if (!todo.length) return false;
+    for (const f3 of todo) this.hostFontsAsked.add(f3.toLowerCase());
+    let faces;
+    try {
+      faces = await host.resolve(todo);
+    } catch {
+      return false;
+    }
+    let added = false;
+    for (const f3 of faces) {
+      if (f3.embeddable === false) continue;
+      const italic = f3.style === "italic";
+      const bold = f3.bold ?? Number(f3.weight) >= 600;
+      const variant = bold && italic ? "boldItalic" : bold ? "bold" : italic ? "italic" : "regular";
+      if (this.loadedFamilies.has(`${f3.family} ${variant}`)) continue;
+      try {
+        const bytes = new Uint8Array(f3.bytes);
+        const metrics = new SfntFont(bytes);
+        const face = new FontFace(f3.family, bytes.slice().buffer, {
+          weight: bold ? "700" : "400",
+          style: italic ? "italic" : "normal"
+        });
+        await face.load();
+        document.fonts.add(face);
+        this.loadedFamilies.add(`${f3.family} ${variant}`);
+        this.loadedFamilyNames.add(f3.family);
+        this.fonts.register(f3.family, variant, metrics);
+        (this.fontBytes[f3.family] ??= {})[variant] = bytes;
+        added = true;
+      } catch {
+      }
+    }
+    return added;
+  }
+  /** Família usada pelo documento sem FontFace: entra no próximo lote pedido
+   *  ao host; ao chegar, refaz layout + pintura com a fonte real. */
+  queueHostFont(family) {
+    if (!_UniversalWriteElement.systemFonts || this.hostFontsAsked.has(family.toLowerCase())) return;
+    this.hostFontQueue.add(family);
+    this.hostFontTimer ??= setTimeout(() => {
+      this.hostFontTimer = null;
+      const fams = [...this.hostFontQueue];
+      this.hostFontQueue.clear();
+      void this.loadHostFonts(fams).then((added) => {
+        if (added && this.model) this.refresh();
+      });
+    }, 0);
   }
   setColor(hex) {
     this.formatRuns({ color: hex });
@@ -14925,10 +15009,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     }
   }
   /** Família CSS a usar no canvas: a fonte EMBEDADA/instalada real (ex.: "Lato",
-   *  "Lato Black") se houver FontFace; senão cai em Calibri/Aptos (bundled). */
+   *  "Lato Black") se houver FontFace; senão cai no padrão (bundled) e, havendo
+   *  host com fontes do SO, pede a família para a próxima pintura. */
   familyFor(family) {
     if (family) {
       if (this.loadedFamilyNames.has(family)) return family;
+      this.queueHostFont(family);
       const base = family.split(" ")[0];
       if (this.loadedFamilyNames.has(base)) return base;
     }
@@ -21324,6 +21410,10 @@ Dialog = __decorate([
 ], Dialog);
 
 // demo/main.ts
+var fontBridge = window.wordnext;
+if (fontBridge?.listFonts && fontBridge.resolveFonts) {
+  UniversalWriteElement.systemFonts = { list: fontBridge.listFonts, resolve: fontBridge.resolveFonts };
+}
 var wn = document.getElementById("wn");
 wn.use(createMentionPlugin());
 var $2 = (id) => document.getElementById(id);
@@ -21401,6 +21491,26 @@ var fileHandle = null;
 var recents = [];
 var bridge = window.wordnext;
 document.documentElement.classList.toggle("electron", !!bridge);
+var dirty = false;
+var changeSeq = 0;
+function syncDirty() {
+  bridge?.setDirty?.(dirty, titleInput.value || "Untitled document");
+}
+function setDirty(v2) {
+  if (v2 === dirty) return;
+  dirty = v2;
+  syncDirty();
+}
+if (!bridge) {
+  window.addEventListener("beforeunload", (e8) => {
+    if (dirty) e8.preventDefault();
+  });
+}
+bridge?.onSaveBeforeClose?.(() => {
+  void actionSave(false).then((ok) => {
+    if (ok && !dirty) bridge.closeWindow?.();
+  });
+});
 var trusted = new Set(JSON.parse(localStorage.getItem("uw-trusted") ?? "[]"));
 var currentTrustKey = null;
 var trustKeyOf = (f3) => `${f3.name}|${f3.size}|${f3.lastModified}`;
@@ -21412,7 +21522,9 @@ var rememberTrust = (key) => {
 function setTitle(name) {
   titleInput.value = name.replace(/\.(docx|odt)$/i, "");
   document.title = `${titleInput.value} \u2014 Write`;
+  syncDirty();
 }
+titleInput.addEventListener("change", syncDirty);
 var currentFormat = "docx";
 function setCurrentFormat(fmt2) {
   currentFormat = fmt2;
@@ -21460,6 +21572,7 @@ function openBytes(bytes, name, handle, security) {
   setCurrentFormat(isOdtFile ? "odt" : "docx");
   currentTrustKey = key;
   fileHandle = handle;
+  setDirty(false);
   setTitle(name);
   rememberRecent(name, handle);
   wn.focusEditor();
@@ -21531,6 +21644,7 @@ async function actionSave(saveAs) {
         fmt2 = detectFormatFromName(fileHandle.name);
         setCurrentFormat(fmt2);
       }
+      const seq = changeSeq;
       const bytes2 = bytesForFormat(fmt2);
       const w2 = await fileHandle.createWritable();
       await w2.write(new Blob([bytes2.buffer]));
@@ -21542,17 +21656,19 @@ async function actionSave(saveAs) {
         rememberTrust(currentTrustKey);
       } catch {
       }
-      dirty = false;
+      setDirty(changeSeq !== seq);
       lastAutosave = Date.now();
       flashStatus(`Salvo \u2713 (${fmt2})`);
-      return;
+      return true;
     } catch {
-      return;
+      return false;
     }
   }
   const bytes = bytesForFormat(fmt2);
   const mime = fmt2 === "odt" ? "application/vnd.oasis.opendocument.text" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   downloadBlob(bytes.buffer, suggestedName, mime);
+  setDirty(false);
+  return true;
 }
 function flashStatus(msg) {
   const st = $2("status");
@@ -21566,6 +21682,7 @@ $2("actNew").addEventListener("click", () => {
   closeMenus();
   fileHandle = null;
   wn.newDocument();
+  setDirty(false);
   setTitle("Untitled document");
   setCurrentFormat("docx");
   wn.focusEditor();
@@ -21881,6 +21998,15 @@ var onSel = (id, fn) => $2(id).addEventListener("change", (e8) => {
 });
 onSel("style", (v2) => wn.applyStyle(v2 || void 0));
 onSel("font", (v2) => wn.setFontFamily(v2));
+if (UniversalWriteElement.systemFonts) {
+  void wn.listAvailableFonts().then((families) => {
+    const fs = $2("font");
+    const fixed = [...fs.options].filter((o8) => !o8.dataset["dyn"]).map((o8) => o8.value);
+    const all = [.../* @__PURE__ */ new Set([...fixed, ...families])].sort((a3, b5) => a3.localeCompare(b5));
+    fs.replaceChildren(...all.map((f3) => new Option(f3, f3)));
+    syncToolbar();
+  });
+}
 onSel("highlight", (v2) => wn.setHighlight(v2 || void 0));
 onSel("spacing", (v2) => wn.setLineSpacing(parseInt(v2, 10)));
 onSel("spaceAfter", (v2) => wn.setSpaceAfter(v2 === "" ? void 0 : parseInt(v2, 10)));
@@ -21975,12 +22101,13 @@ wn.addEventListener("uw-protected", ((e8) => {
   if (!e8.detail.active) {
     rememberTrust(currentTrustKey);
     if (wasProtected && fileHandle) {
-      void actionSave(false).then(() => flashStatus("Editing enabled \u2014 saved \u2713"));
+      void actionSave(false).then((ok) => {
+        if (ok) flashStatus("Editing enabled \u2014 saved \u2713");
+      });
     }
   }
   wasProtected = e8.detail.active;
 }));
-var dirty = false;
 var lastAutosave = Date.now();
 var autosaveSel = $2("autosaveSel");
 autosaveSel.value = localStorage.getItem("uw-autosave-min") ?? "10";
@@ -21997,14 +22124,14 @@ function checkAutosave() {
     lastAutosave = Date.now();
     return;
   }
-  void actionSave(false).then(() => {
-    dirty = false;
+  void actionSave(false).then((ok) => {
     lastAutosave = Date.now();
-    flashStatus("Autosave \u2713");
+    if (ok) flashStatus("Autosave \u2713");
   });
 }
 wn.addEventListener("uw-change", () => {
-  dirty = true;
+  changeSeq++;
+  setDirty(true);
   window.setTimeout(checkAutosave, 800);
 });
 window.setInterval(checkAutosave, 15e3);
@@ -22266,9 +22393,10 @@ var syncToolbar = () => {
   if (st.run.fontAscii) {
     const fs = $2("font");
     const raw = st.run.fontAscii;
-    const f3 = raw.startsWith("Calibri") ? "Calibri" : raw.startsWith("Aptos") ? "Aptos" : raw;
     fs.querySelector("option[data-dyn]")?.remove();
-    if (f3 !== "Aptos" && f3 !== "Calibri") {
+    const has = (name) => [...fs.options].some((o8) => o8.value === name);
+    const f3 = has(raw) ? raw : raw.startsWith("Calibri") ? "Calibri" : raw.startsWith("Aptos") ? "Aptos" : raw;
+    if (!has(f3)) {
       const o8 = document.createElement("option");
       o8.value = f3;
       o8.textContent = f3;
