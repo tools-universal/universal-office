@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { xlsxToPdf, type PdfFontSource } from '../src/index.js';
 import { makeXlsx, sheetXml, inlineStr, STYLES_XML } from './helpers.js';
@@ -7,13 +7,17 @@ import { makeXlsx, sheetXml, inlineStr, STYLES_XML } from './helpers.js';
 const showcase = (): Uint8Array => readFileSync(join(__dirname, '../../../samples/showcase.xlsx'));
 const gaps = (): Uint8Array => readFileSync(join(__dirname, '../../../samples/gaps-smoke.xlsx'));
 
+// Aptos Narrow é PROPRIETÁRIA e não fica no repositório (npm run fonts:sync a
+// copia da máquina); num clone limpo os testes usam a Liberation Sans (aberta,
+// versionada) — o gerador só precisa de um TrueType
 const fontsDir = join(__dirname, '../../sheet/demo/fonts');
+const face = existsSync(join(fontsDir, 'aptos-narrow-regular.ttf')) ? 'aptos-narrow' : 'liberationsans';
 function fonts(): PdfFontSource[] {
   return [
-    { bytes: readFileSync(join(fontsDir, 'aptos-narrow-regular.ttf')), name: 'AptosNarrow' },
-    { bytes: readFileSync(join(fontsDir, 'aptos-narrow-bold.ttf')), bold: true, name: 'AptosNarrowBold' },
-    { bytes: readFileSync(join(fontsDir, 'aptos-narrow-italic.ttf')), italic: true, name: 'AptosNarrowItalic' },
-    { bytes: readFileSync(join(fontsDir, 'aptos-narrow-bolditalic.ttf')), bold: true, italic: true, name: 'AptosNarrowBoldItalic' },
+    { bytes: readFileSync(join(fontsDir, `${face}-regular.ttf`)), name: 'AptosNarrow' },
+    { bytes: readFileSync(join(fontsDir, `${face}-bold.ttf`)), bold: true, name: 'AptosNarrowBold' },
+    { bytes: readFileSync(join(fontsDir, `${face}-italic.ttf`)), italic: true, name: 'AptosNarrowItalic' },
+    { bytes: readFileSync(join(fontsDir, `${face}-bolditalic.ttf`)), bold: true, italic: true, name: 'AptosNarrowBoldItalic' },
   ];
 }
 
@@ -76,7 +80,7 @@ describe('xlsxToPdf', () => {
     // → todos os glifos viravam tofu). Fixa o formato do head no subset.
     const { subsetTrueType } = await import('@wordnext/pdf');
     const { TtfProgram } = await import('../src/sfnt.js');
-    const bytes = readFileSync(join(fontsDir, 'aptos-narrow-regular.ttf')); // Buffer!
+    const bytes = readFileSync(join(fontsDir, `${face}-regular.ttf`)); // Buffer!
     const p = new TtfProgram(bytes);
     const gids = [...'Teste'].map((c) => p.glyphId(c.codePointAt(0)!));
     const sub = subsetTrueType(bytes, gids);

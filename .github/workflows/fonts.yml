@@ -1,0 +1,13 @@
+# Nenhuma fonte proprietária (Microsoft/Monotype…) no repositório — rede de
+# segurança para quem não instalou o hook de pre-commit. Ver CLAUDE.md.
+name: fontes
+on: [push, pull_request]
+jobs:
+  licencas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node tools/fonts/check-fonts.mjs

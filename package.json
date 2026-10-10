@@ -4,7 +4,11 @@
   "version": "0.0.1",
   "description": "Suíte Universal Office — editor de texto (Write), planilha eletrônica (Sheet) e apresentação (Slides) com compatibilidade de formato (.docx/.xlsx/.pptx) e renderização fiel.",
   "scripts": {
-    "install:all": "npm run install:converter && npm install --prefix write && npm install --prefix sheet && npm install --prefix slides",
+    "prepare": "git config core.hooksPath .githooks",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "fonts:sync": "node tools/fonts/sync-local-fonts.mjs",
+    "fonts:check": "node tools/fonts/check-fonts.mjs",
+    "install:all": "npm run hooks:install && npm run fonts:sync && npm run install:converter && npm install --prefix write && npm install --prefix sheet && npm install --prefix slides",
     "install:converter": "npm install --no-save --package-lock=false --prefix vendor/office-converter && npm run build --prefix vendor/office-converter",
     "build": "npm run build:converter && npm run build:write && npm run build:sheet && npm run build:slides",
     "build:converter": "npm run build --prefix vendor/office-converter",

@@ -1,0 +1,11 @@
+# Exceções do verificador de fontes (tools/fonts/check-fonts.mjs). Uma por linha:
+#   <sha256>  <arquivo> — <licença> (<origem>)
+# Só entram aqui:
+#  - fontes ABERTAS cuja licença o verificador não consegue ler (sem campo de
+#    licença na tabela name, ou formato EOT/.fntdata);
+#  - documentos do Office com fonte embutida cuja licença PERMITE incorporar
+#    (fsType 0/8) — e que não sirvam de contêiner para extrair a fonte.
+# Arquivo de fonte proprietária SOLTO nunca entra aqui (ver CLAUDE.md).
+9adee5176f0f73de940ece5945702372a4556bfb7c62afc2feda4929edad1779  material-symbols-rounded.woff2 — Apache License 2.0 (google/material-design-icons; a fonte não declara licença)
+0c034065a1ea858125a1d60de732ed583ebd0ed415e23eae4c5380ff53f758bb  slides-core/test/fixtures/Chivo-regular.fntdata — SIL OFL 1.1 (Chivo, Omnibus-Type; EOT+MTX ilegível pelo verificador)
+269329fc7ae54b3f289b3ac52efde387edc2e566ef9a48d637e841022c7e0eab  site/assets/samples/demo.docx — documento com Ubuntu/Ubuntu Mono (Ubuntu Font Licence) e Tahoma embutidas (Microsoft; fsType 8 = a licença permite incorporar em documento)

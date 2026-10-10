@@ -1,0 +1,5 @@
+#!/bin/sh
+# Bloqueia fontes PROPRIETÁRIAS (Microsoft/Monotype…) e documentos com fonte
+# embutida não autorizada no commit — pelo conteúdo. Ver CLAUDE.md.
+# Ativado por `npm run hooks:install` (git config core.hooksPath .githooks).
+exec node "$(git rev-parse --show-toplevel)/tools/fonts/check-fonts.mjs" --staged

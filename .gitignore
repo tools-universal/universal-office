@@ -40,3 +40,17 @@ slides/packages/viewer/demo/samples.json
 # OS
 .DS_Store
 Thumbs.db
+# Fontes PROPRIETÁRIAS (Microsoft/Monotype: Aptos, Calibri, Arial, Segoe…) NUNCA
+# entram no repositório — a licença ("Microsoft supplied font") só permite usá-las
+# no produto em que vieram. Ficam só na máquina: `npm run fonts:sync` as copia das
+# fontes instaladas. O hook de pre-commit e o CI (tools/fonts/check-fonts.mjs)
+# bloqueiam pelo CONTEÚDO, não só pelo nome. Ver CLAUDE.md.
+**/aptos*.ttf
+**/aptos*.otf
+**/calibri*.ttf
+**/arial*.ttf
+**/segoe*.ttf
+**/*.odttf
+slides/packages/slides/demo/fonts/os/*
+!slides/packages/slides/demo/fonts/os/amatic-sc-*.ttf
+sheet/tools/excel-lab/fonts/
