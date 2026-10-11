@@ -270,7 +270,16 @@ public static class Para
             if (sw.Ch is not null) return AdvanceTwips(ctx, face, sw.Ch.Value, sizePt) * (cp == 0x202f ? 0.5 : 1);
             return sw.Em * sizePt * 20;
         }
-        double units = f.AdvanceWidth(gid);
+        // espaços "en", "em" e de quatro por em (U+2002, U+2003, U+2005 — os que quebram): o Word
+        // mede pelo TRAVESSÃO da própria fonte — en dash, em dash, em dash/4 —, não pelo glifo do
+        // espaço (oráculo enspace: Arial "en" = 0,556 em, Calibri "em" = 0,905 em)
+        double frac = 1;
+        if (gid != 0 && (cp == 0x2002 || cp == 0x2003 || cp == 0x2005))
+        {
+            int dg = f.GlyphId(cp == 0x2002 ? 0x2013 : 0x2014);
+            if (dg != 0) { gid = dg; frac = cp == 0x2005 ? 1.0 / 4 : 1; }
+        }
+        double units = f.AdvanceWidth(gid) * frac;
         double em = ctx.Opts.AdvanceEm == "device" ? Fonts.DeviceEmPt(sizePt) : sizePt;
         double tw = (units * em * 20) / f.Metrics.UnitsPerEm;
         return ctx.Opts.AdvanceRound switch
@@ -474,8 +483,10 @@ public static class Para
         return 0.299 * r + 0.587 * g + 0.114 * b < 80;
     }
 
-    private static bool SpaceLike(int cp) => cp is 0x20 or 0x2000 or 0x2001 or 0x2002 or 0x2003 or 0x2004 or 0x2005 or 0x2006
-        or 0x2007 or 0x2008 or 0x2009 or 0x200a or 0x200b or 0x205f or 0x3000;
+    /// <summary>Espaços que são oportunidade de quebra no Word: o comum, "en", "em", o de quatro por em,
+    /// o de largura zero e o ideográfico — os demais (quads, três e seis por em, figura,
+    /// pontuação, fino, finíssimo, matemático) colam como caracteres (oráculo enspace)</summary>
+    private static bool SpaceLike(int cp) => cp is 0x20 or 0x2002 or 0x2003 or 0x2005 or 0x200b or 0x3000;
 
     /// <summary>/\p{L}|\p{N}/u</summary>
     private static bool IsLetterOrNumber(string s)
@@ -637,7 +648,12 @@ public static class Para
                     string? lig = rpr.Ligatures;
                     bool kernOff = !string.IsNullOrEmpty(lig) && lig != "none" && face.Font is OfficeNext.Layout.SfntFont { KernInLatin: false };
                     if (next is not null && (kind is GlyphKind.Char or GlyphKind.Space) && rpr.Kern is { } kern && kern != 0 && !double.IsNaN(kern) && style.SizePt * 2 >= kern && !kernOff)
-                        adv += KernTwips(ctx, face, shownCp, Js.CodePointAt0(next), size);
+                    {
+                        // versalete: o par é o dos glifos DESENHADOS — a minúscula seguinte também vira
+                        // maiúscula (oráculo sckern2)
+                        string nextShown = rpr.SmallCaps == true && rpr.Caps != true && Js.ToLower(next) == next && Js.ToUpper(next) != next && Js.ToUpper(next).Length == 1 ? Js.ToUpper(next) : next;
+                        adv += KernTwips(ctx, face, shownCp, Js.CodePointAt0(nextShown), size);
+                    }
                     if (rpr.Spacing is { } sp && sp != 0 && !double.IsNaN(sp)) adv += sp;
                     // seletor de variação (U+FE00–FE0F, ex.: emoji "⚠️"): largura zero (oráculo hidetext/emoji)
                     if (cp >= 0xfe00 && cp <= 0xfe0f) adv = 0;

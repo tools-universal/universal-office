@@ -72,6 +72,13 @@ public sealed class RowLayout
     /// <summary>divide a linha para caber em `avail` (twips): [parte que cabe, resto]
     /// — nulo se nenhuma linha de texto cabe (a linha inteira desce).</summary>
     public Func<double, (RowLayout First, RowLayout Remainder)?>? Split;
+    /// <summary>linha inteira que abre a página (a anterior ficou na outra): a faixa de cima é só
+    /// a borda de cima DELA — <c>TopCut</c> a menos — e as bordas de cima trocam (oráculo contband)</summary>
+    public double? TopCut;
+    public List<PageItem>? TopBorders;
+    public List<PageItem>? OwnTopBorders;
+    /// <summary>convertida por AtPageTop: quanto subiu</summary>
+    public double? Cut;
 
     public RowLayout ShallowClone() => (RowLayout)MemberwiseClone();
 }
@@ -123,7 +130,8 @@ public static class TableEngine
         {
             double bottom = l.Y + l.Height;
             double after = lastOf.TryGetValue(l.Ref, out var ll) && ReferenceEquals(ll, l) ? paras![l.Ref].After : 0;
-            if (bottom + after <= availContent + 0.5 && bottom > cut) cut = bottom;
+            // (sem folga: o Word compara exato — oráculo bodyfit, bf-cf-*)
+            if (bottom + after <= availContent + 0.05 && bottom > cut) cut = bottom;
         }
         if (cut > 0) cut = NestedRowCut(c, cut);
         if (cut > 0 && paras is not null) cut = WidowCut(c, paras, cut);
@@ -1101,6 +1109,10 @@ public static class TableEngine
                         MergeAt = mergeAt.Count > 0 ? mergeAt : null, KeepNext = rowKeepNext, Natural = bTop + Math.Min(ch, contentHC) + bBottom,
                     };
                 }
+                // bordas de cima pintadas (divisa com a linha anterior) e as próprias da linha
+                var topBrd = new List<PageItem>();
+                var ownBrd = new List<PageItem>();
+                double ownBand = 0;
                 foreach (var ci in cellInfos)
                 {
                     var s = ci.Slot;
@@ -1120,7 +1132,15 @@ public static class TableEngine
                     var tcb = ci.TcPr.TcBorders;
                     // topo: na faixa de cima (continuação de linha partida: a borda de cima da célula)
                     var top = drawTop ? (s.Merged ? null : TopWinner(s)) : (Edge(s, "top") ?? Edge(s, "bottom"));
+                    int nbBrd = brd.Count;
                     if (top is not null) Paint.PaintBorder(ctx, brd, top, x + ci.X0, Paint.BorderWidth(top) / 2, x + ci.X1, Paint.BorderWidth(top) / 2);
+                    if (drawTop && riC > 0)
+                    {
+                        topBrd.AddRange(brd.Skip(nbBrd));
+                        var own = Edge(s, "top");
+                        ownBand = Math.Max(ownBand, Paint.BorderWidth(own));
+                        if (own is not null && !s.Merged) Paint.PaintBorder(ctx, ownBrd, own, x + ci.X0, Paint.BorderWidth(own) / 2, x + ci.X1, Paint.BorderWidth(own) / 2);
+                    }
                     var bottom = Edge(s, "bottom");
                     bool lastOfMerge = !(riC + 1 < slots.Count && slots[riC + 1].Any(o => o.Col == s.Col && o.Merged));
                     if (bBottom > 0)
@@ -1142,10 +1162,12 @@ public static class TableEngine
                     if (tcb?.Tl2br is not null) Paint.PaintBorder(ctx, brd, tcb.Tl2br, x + ci.X0, bTop, x + ci.X1, rh - bBottom);
                     if (tcb?.Tr2bl is not null) Paint.PaintBorder(ctx, brd, tcb.Tr2bl, x + ci.X1, bTop, x + ci.X0, rh - bBottom);
                 }
+                bool hasTopCut = drawTop && riC > 0 && bTop - ownBand > 0.5;
                 return new RowLayout
                 {
                     Height = rh, Items = its, Lines = lns, BorderItems = brd, BreakBorderItems = brk, CantSplit = trp.CantSplit == true, Header = trp.TblHeader == true,
                     MergeAt = mergeAt.Count > 0 ? mergeAt : null, KeepNext = rowKeepNext, Natural = bTop + Math.Min(ch, contentHC) + bBottom,
+                    TopCut = hasTopCut ? bTop - ownBand : null, TopBorders = hasTopCut ? topBrd : null, OwnTopBorders = hasTopCut ? ownBrd : null,
                 };
             }
             var full = new Dictionary<CellSlot, CellContent?>(ReferenceEqualityComparer.Instance);
@@ -1342,12 +1364,13 @@ public static class TableEngine
             var mt = m.EndRow >= 0 && m.EndRow < rows.Count ? rows[m.EndRow].MergeText?.FirstOrDefault(xm => xm.Col == m.Col) : null;
             if (mt is null || !fits(rows.Skip(ri).Take(Math.Max(0, m.EndRow + 1 - ri)).Aggregate(0.0, (a, r) => a + r.Height))) continue;
             if (ReferenceEquals(items, row.Items)) { items = new List<PageItem>(items); lines = new List<LaidOutLine>(lines); }
-            items.InsertRange(m.At, mt.Items.Select(it => ShiftItem(it, mt.Dy)));
+            double dy = mt.Dy - (row.Cut ?? 0);
+            items.InsertRange(m.At, mt.Items.Select(it => ShiftItem(it, dy)));
             foreach (var l in mt.Lines)
             {
                 var nl = l.ShallowClone();
-                nl.Y = l.Y + mt.Dy;
-                nl.Baseline = l.Baseline + mt.Dy;
+                nl.Y = l.Y + dy;
+                nl.Baseline = l.Baseline + dy;
                 lines.Add(nl);
             }
             foreach (var o in mt.Items) moved.Add(o);
@@ -1357,6 +1380,46 @@ public static class TableEngine
         var r2 = row.ShallowClone();
         r2.Items = items;
         r2.Lines = lines;
+        return r2;
+    }
+
+    /// <summary>
+    /// Linha inteira no topo da página com a anterior na outra (oráculo contband): o Word
+    /// tira a divisa com a anterior — a faixa de cima fica só com a borda de cima da linha.
+    /// Sobe o conteúdo <c>TopCut</c>, encurta fundos e bordas laterais e troca as bordas de cima.
+    /// (Os itens de mescla vertical ficam como estão: a mescla começou na outra página.)
+    /// </summary>
+    public static RowLayout AtPageTop(RowLayout row)
+    {
+        double d = row.TopCut ?? 0;
+        if (d <= 0) return row;
+        double h = row.Height;
+        var top = new HashSet<PageItem>(row.TopBorders ?? new List<PageItem>(), ReferenceEqualityComparer.Instance);
+        var keep = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        foreach (var m in row.MergeText ?? new List<MergeTextInfo>()) { foreach (var o in m.Items) keep.Add(o); foreach (var o in m.Lines) keep.Add(o); }
+        PageItem CutItem(PageItem it)
+        {
+            if (keep.Contains(it)) return it;
+            if (it is RectItem r && r.Y == 0) { var c = (RectItem)r.ShallowClone(); c.H = r.H - d; return c; }
+            if (it is LineItem ln && ln.Y1 == 0 && ln.Y2 == h) { var c = (LineItem)ln.ShallowClone(); c.Y2 = h - d; return c; }
+            return ShiftItem(it, -d);
+        }
+        var r2 = row.ShallowClone();
+        r2.Split = null; r2.TopCut = null; r2.TopBorders = null; r2.OwnTopBorders = null;
+        r2.Height = h - d;
+        r2.Cut = d;
+        r2.Items = row.Items.Select(CutItem).ToList();
+        r2.Lines = row.Lines.Select(l =>
+        {
+            if (keep.Contains(l)) return l;
+            var nl = l.ShallowClone();
+            nl.Y = l.Y - d;
+            nl.Baseline = l.Baseline - d;
+            return nl;
+        }).ToList();
+        r2.BorderItems = row.BorderItems.Where(it => !top.Contains(it)).Select(CutItem).Concat(row.OwnTopBorders ?? new List<PageItem>()).ToList();
+        if (row.BreakBorderItems is not null) r2.BreakBorderItems = row.BreakBorderItems.Select(it => ShiftItem(it, -d)).ToList();
+        if (row.Natural is not null) r2.Natural = row.Natural - d;
         return r2;
     }
 

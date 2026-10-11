@@ -258,7 +258,15 @@ export function advanceTwips(ctx: DocContext, face: FontFace, cp: number, sizePt
     if (typeof sw === 'string') return advanceTwips(ctx, face, sw.codePointAt(0)!, sizePt) * (cp === 0x202f ? 0.5 : 1);
     return sw * sizePt * 20;
   }
-  const units = f.advanceWidth(gid);
+  // espaços "en", "em" e de quatro por em (U+2002, U+2003, U+2005 — os que quebram): o Word
+  // mede pelo TRAVESSÃO da própria fonte — en dash, em dash, em dash/4 —, não pelo glifo do
+  // espaço (oráculo enspace: Arial "en" = 0,556 em, Calibri "em" = 0,905 em)
+  let frac = 1;
+  if (gid !== 0 && (cp === 0x2002 || cp === 0x2003 || cp === 0x2005)) {
+    const dg = f.glyphId(cp === 0x2002 ? 0x2013 : 0x2014);
+    if (dg) { gid = dg; frac = cp === 0x2005 ? 1 / 4 : 1; }
+  }
+  const units = f.advanceWidth(gid) * frac;
   const em = ctx.opts.advanceEm === 'device' ? deviceEmPt(sizePt) : sizePt;
   const tw = (units * em * 20) / f.metrics.unitsPerEm;
   switch (ctx.opts.advanceRound) {
@@ -379,7 +387,10 @@ const hangPunct = (rpr: RPr, alt: boolean): string => {
   return HANG_BASE + HANG_CLOSE + HANG_QUOTES + (/^zh-(tw|hk|mo)/i.test(ea) ? '' : '%');
 };
 
-const SPACE_LIKE = new Set([0x20, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a, 0x200b, 0x205f, 0x3000]);
+/** Espaços que são oportunidade de quebra no Word: o comum, "en", "em", o de quatro por em,
+ *  o de largura zero e o ideográfico — os demais (quads, três e seis por em, figura,
+ *  pontuação, fino, finíssimo, matemático) colam como caracteres (oráculo enspace) */
+const SPACE_LIKE = new Set([0x20, 0x2002, 0x2003, 0x2005, 0x200b, 0x3000]);
 
 export interface PrepareInput {
   para: Paragraph;
@@ -511,7 +522,10 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
         const lig = (rpr as { ligatures?: string }).ligatures;
         const kernOff = !!lig && lig !== 'none' && (face.font as { kernInLatin?: boolean }).kernInLatin === false;
         if (next && (kind === 'char' || kind === 'space') && rpr.kern && style.sizePt * 2 >= rpr.kern && !kernOff) {
-          adv += kernTwips(ctx, face, shownCp, next.codePointAt(0)!, size);
+          // versalete: o par é o dos glifos DESENHADOS — a minúscula seguinte também vira
+          // maiúscula (oráculo sckern2)
+          const nextShown = rpr.smallCaps && !rpr.caps && next.toLowerCase() === next && next.toUpperCase() !== next && next.toUpperCase().length === 1 ? next.toUpperCase() : next;
+          adv += kernTwips(ctx, face, shownCp, nextShown.codePointAt(0)!, size);
         }
         if (rpr.spacing) adv += rpr.spacing;
         // seletor de variação (U+FE00–FE0F, ex.: emoji "⚠️"): largura zero (oráculo hidetext/emoji)

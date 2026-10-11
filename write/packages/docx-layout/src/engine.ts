@@ -8,7 +8,7 @@ import { prepareParagraph, resolvePPr, isDark, paraVisibility, type PreparedPara
 import { LineBreaker, type Line } from './lines.js';
 import { paintLine, paintParaBox, borderWidth, pageBorderItems } from './paint.js';
 import { dateFieldValue } from './datefmt.js';
-import { layoutTable, shiftItem, isHiddenRow, mergeTextFirst, dropMoved, splitContent, type TableLayout, type CellContent, type ParaSplitInfo } from './table.js';
+import { layoutTable, shiftItem, isHiddenRow, mergeTextFirst, dropMoved, splitContent, atPageTop, type TableLayout, type CellContent, type ParaSplitInfo } from './table.js';
 import type { LayoutPage, LayoutResult, PageItem, LaidOutLine, PlacedObject } from './tree.js';
 import { resolveColor, resolveDrawingColor } from './resolve.js';
 import { formatNumber } from './numbering.js';
@@ -231,6 +231,13 @@ class Engine {
   inHf = false;
   /** linhas de tabelas flutuantes que continuam na próxima página */
   private floatCarry: { t: TableLayout; rows: TableLayout['rows']; fp: NonNullable<TableBlock['tblPr']>['tblpPr'] & object; refX: number }[] = [];
+  /** tabela flutuante que parte: partes de linhas emitidas e mesclas verticais que
+   *  atravessam a página (o texto flui pelas partes — oráculo ftvmsplit) */
+  private floatFlow = new WeakMap<TableLayout, {
+    idx: Map<object, number>; moved: Set<object>; seen: Set<object>;
+    emits: { ri: number; ps: PageState; y: number; h: number; out: PageItem[]; at: number; yOrigin: number; refX: number; cut?: number }[];
+    merges: { start: number; end: number; col: number; content: CellContent; off: number; vAlign?: string }[];
+  }>();
   /** medição do rodapé: ignora flutuantes de posição absoluta */
   onlyTextFloats = false;
   /** flutuantes já posicionados antes do fluxo (posição vertical absoluta no HF) */
@@ -271,6 +278,8 @@ class Engine {
   lateTablesFound = new Map<number, LateTable>();
   /** tabelas flutuantes do corpo já colocadas (blocos) */
   private placedTables = new Set<number>();
+  /** tabelas tardias (início da página) que partiram: a âncora vai para a continuação */
+  private lateSplit = new Set<number>();
 
   /** SEQ id [\* formato] [\r n] [\c] [\h] — contadores na ordem do documento. */
   private seqValue(instr: string): string | undefined {
@@ -555,6 +564,7 @@ class Engine {
       const items: PageItem[] = [];
       this.placeFloatingTable(t, b.tblPr.tblpPr, this.cur, lt.flowY, fr.x, fr.w, items, 0, true, true);
       this.cur.front.push({ z: -1, seq: this.zSeq++, items });
+      if (this.floatCarry.some((c) => c.t === t)) this.lateSplit.add(bi);
     }
   }
 
@@ -1168,6 +1178,8 @@ class Engine {
   /** o bloco anterior é uma tabela flutuante ancorada no texto (o parágrafo âncora
    *  empurrado para baixo dela tem o "antes" de novo — oráculo ftable2) */
   private floatTableGap = false;
+  /** âncora levada para a página da continuação da tabela flutuante: abaixo dela, o "antes" inteiro */
+  private carryAnchorGap = false;
 
   /**
    * Parágrafo de marca oculta + o seguinte: um parágrafo só, com as propriedades
@@ -1311,8 +1323,9 @@ class Engine {
     const paraRef: number | undefined = yPre + Math.min(prevAfter, gapIn);
     const selfGap = gapIn - Math.min(prevAfter, gapIn);
     // âncora de tabela flutuante: se ela a empurra para baixo, o espaço antes vale de novo lá (oráculo ftable2)
-    const ftGap = this.floatTableGap && !this.atTop ? gap : 0;
+    const ftGap = this.floatTableGap && !this.atTop ? gap : this.carryAnchorGap ? before : 0;
     this.floatTableGap = false;
+    this.carryAnchorGap = false;
     this.firstInDoc = false;
     void ps0;
 
@@ -1359,7 +1372,8 @@ class Engine {
       const lift = over.every((e) => this.cur.bodyBottom - e.obj.h >= paraBottom - 0.5);
       for (const e of early) this.unplaceFloat(e);
       if (lift) {
-        early = this.placeFloatsEarly(p, this.cur, this.colFrame().x, this.colFrame().w, this.y, this.cur.bodyBottom);
+        // (os outros objetos seguem medidos do topo antes do "antes" — oráculo liftref)
+        early = this.placeFloatsEarly(p, this.cur, this.colFrame().x, this.colFrame().w, this.y, this.cur.bodyBottom, paraRef);
       } else {
         this.breakColumn();
         this.y += this.borderTopExtent(p, this.prev);
@@ -1417,6 +1431,52 @@ class Engine {
           line = br.next(seg.f);
         }
       }
+      // texto mais BAIXO que a marca: o salto para baixo do flutuante foi pela altura da
+      // marca; se a linha real cabe acima dele, ela fica lá (oráculo liftref, lr-mark11)
+      if (this.cur.floats.length && this.y > y0 + 0.5) {
+        const textH2 = Math.min(line.height, line.baseline + line.desc);
+        if (textH2 < markLineH(p) - 1) {
+          const fr = this.colFrame();
+          const f0 = this.wrapFrame({ left: p.indLeft, right: fr.w - p.indRight }, fr.x, y0, textH2);
+          if (f0.skipTo === undefined && !narrower(f0, frame)) {
+            const yb = this.y;
+            this.y = y0;
+            br.reset(mark);
+            const seg0 = this.pickSeg(br, f0);
+            const line0 = br.next(seg0.f);
+            if (Math.min(line0.height, line0.baseline + line0.desc) <= textH2 + 0.5) { frame = f0; seg = seg0; line = line0; } else {
+              this.y = yb;
+              br.reset(mark);
+              seg = this.pickSeg(br, frame);
+              line = br.next(seg.f);
+            }
+          }
+        }
+      }
+      // palavra que não cabe no vão ao lado de um flutuante: o Word não a parte por
+      // caractere — a linha desce para baixo dele (oráculo gapind, gi-*-r0)
+      if (this.cur.floats.length && !line.last && line.end > line.start && line.end < p.glyphs.length) {
+        const fr = this.colFrame();
+        const narrowed = frame.left > p.indLeft + 0.5 || frame.right < fr.w - p.indRight - 0.5;
+        const g0 = p.glyphs[line.end - 1]!, g1 = p.glyphs[line.end]!;
+        const word = (g: typeof g0) => g.kind === 'char' && !/\s/.test(g.ch);
+        if (narrowed && word(g0) && !g0.breakAfter && word(g1)) {
+          const lineH = Math.max(markLineH(p), line.height);
+          let below = Infinity;
+          for (const f of this.cur.floats) {
+            if (f.wrap !== 'square' && f.wrap !== 'tight' && f.wrap !== 'through') continue;
+            if (this.y + lineH <= f.y - f.distT + 0.5 || this.y >= f.y + f.h + f.distB - 0.5) continue;
+            below = Math.min(below, f.y + f.h + f.distB);
+          }
+          if (below < Infinity && below > this.y) {
+            this.y = below;
+            frame = frameHere();
+            br.reset(mark);
+            seg = this.pickSeg(br, frame);
+            line = br.next(seg.f);
+          }
+        }
+      }
       // modos < 15: a última linha do parágrafo só fica acima/ao lado de um flutuante se
       // a linha INTEIRA mais o "depois" ficarem fora dele; senão desce (oráculo ftafter)
       if (this.cur.floats.length && line.last && this.ctx.fmt.settings.compatibilityMode < 15) {
@@ -1446,7 +1506,8 @@ class Engine {
         this.breakColumn();
         fragTop = this.y;
         pageChanged = true;
-      } else if (this.y + (noteNeed.extra > 0 ? this.noteLineFit(p, line) : fitH) > this.cur.bodyBottom - noteNeed.extra + 0.5 && !this.atTop && !hangs) {
+      // (sem folga: 0,21 tw além da margem e 0,12 tw além do topo do rodapé já descem — oráculo bodyfit)
+      } else if (this.y + (noteNeed.extra > 0 ? this.noteLineFit(p, line) : fitH) > this.cur.bodyBottom - noteNeed.extra + 0.05 && !this.atTop && !hangs) {
         // não cabe: viúvas/órfãs
         const placedHere = frag.length;
         const moved: Line[] = [];
@@ -1611,7 +1672,14 @@ class Engine {
       if (block.type !== 'table') return undefined;
       const ri = /^r(\d+)$/.exec(seg[i] ?? ''), ci = /^c(\d+)$/.exec(seg[i + 1] ?? ''), bi = /^b(\d+)$/.exec(seg[i + 2] ?? '');
       if (!ri || !ci || !bi) return undefined;
-      const cell = block.rows[+ri[1]!]?.cells[+ci[1]!];
+      // "cN" é a coluna da GRADE (table.ts: gridBefore + gridSpans), não o índice da célula
+      // — nota em célula depois de uma mesclada na horizontal (oráculo cellnote, corpus t34)
+      const row = block.rows[+ri[1]!];
+      let col = row?.trPr?.gridBefore ?? 0, cell: (typeof block.rows)[number]['cells'][number] | undefined;
+      for (const c of row?.cells ?? []) {
+        if (col === +ci[1]!) { cell = c; break; }
+        col += Math.max(1, c.tcPr?.gridSpan ?? c.gridSpan ?? 1);
+      }
       if (!cell) return undefined;
       const blocks: Block[] = cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: 'paragraph', paragraph }));
       block = blocks[+bi[1]!];
@@ -1719,7 +1787,10 @@ class Engine {
         const startNeed = (r: TableLayout['rows'][number], cap: number) =>
           r.cantSplit || (r.natural ?? r.height) < r.height ? r.height : Math.min(r.height, cap);
         const r1 = t.rows[1];
-        const lead = r0.keepNext && r1 ? r0.height + startNeed(r1, 400) : startNeed(r0, r0.natural ?? r0.height);
+        // (cadeia de linhas com keepNext: até a 1ª que não tem — oráculo keepchain)
+        let chain = 0, k = 0;
+        while (t.rows[k]?.keepNext && t.rows[k + 1]) { chain += t.rows[k]!.height; k++; }
+        const lead = k > 0 ? chain + startNeed(t.rows[k]!, 400) : r1 && r0.keepNext ? r0.height + startNeed(r1, 400) : startNeed(r0, r0.natural ?? r0.height);
         const dropped = !!from && this.dropsAfterBeforeTable({ after, afterAuto: from.afterAuto, contextual: from.contextual, ...(from.styleId ? { styleId: from.styleId } : {}) }, nb);
         return (dropped ? 0 : after) + lead;
       }
@@ -1784,6 +1855,8 @@ class Engine {
         // da âncora, na próxima passada (oráculo ftpage)
         const lt = this.lateTables.get(blockIdx);
         if (lt && !textAnchor && this.pages.length - 1 > lt.page && !this.lateTablesFound.size) this.lateTablesFound.set(blockIdx, { page: this.pages.length - 1, flowY: this.y });
+        // ela partiu e a continuação ainda não saiu: a âncora vai junto (oráculo ftvmsplit)
+        if (this.lateSplit.delete(blockIdx) && this.floatCarry.length && this.col === this.cur.geom.cols.length - 1) { this.breakColumn(); this.carryAnchorGap = true; }
         return;
       }
       if (blockIdx >= 0) this.placedTables.add(blockIdx);
@@ -1840,7 +1913,8 @@ class Engine {
       }
       // a tabela continua na página seguinte: o parágrafo âncora vai junto e contorna a
       // continuação lá (largura total: fica depois do fim dela) — oráculo ftsplit
-      if (textAnchor && this.floatCarry.length > nCarry && this.col === this.cur.geom.cols.length - 1) this.breakColumn();
+      // (posição relativa à página/margem também; lá, abaixo dela, com o "antes" inteiro — oráculo ftvmsplit)
+      if (this.floatCarry.length > nCarry && this.col === this.cur.geom.cols.length - 1) { this.breakColumn(); this.carryAnchorGap = true; }
       return;
     }
     this.floatTableGap = false;
@@ -1858,7 +1932,7 @@ class Engine {
     for (const r of t.rows) { if (r.header) headerRows.push(r); else break; }
     const mergeMoved = new Set<object>();
     /** partes de linhas emitidas e mesclas verticais que atravessam a página */
-    const rowEmits: { ri: number; ps: PageState; y: number; h: number; at: number }[] = [];
+    const rowEmits: { ri: number; ps: PageState; y: number; h: number; at: number; cut?: number }[] = [];
     const flowMerges: { start: number; end: number; col: number; content: CellContent; off: number; vAlign?: string }[] = [];
     t.rows.forEach((row0, ri) => {
       let row = row0;
@@ -1874,7 +1948,11 @@ class Engine {
       // logo depois desta, esta desce junto (oráculo keeptbl)
       if (row.keepNext && !this.atTop && ri + 1 < t.rows.length) {
         const avail = this.cur.bodyBottom - this.y;
-        if (row.height <= avail + 0.5 && !this.rowCanStart(t.rows[ri + 1]!, avail - row.height)) {
+        // cadeia de linhas com keepNext: todas ficam com a primeira que não tem
+        // (oráculo keepchain)
+        let chainH = row.height, k = ri + 1;
+        while (k + 1 < t.rows.length && t.rows[k]!.keepNext && chainH + t.rows[k]!.height <= avail + 0.5) { chainH += t.rows[k]!.height; k++; }
+        if (chainH <= avail + 0.5 && !this.rowCanStart(t.rows[k]!, avail - chainH)) {
           if (this.lastRowEmit?.row.breakBorderItems) for (const it of this.lastRowEmit.row.breakBorderItems) this.cur.body.push(shiftItem(it, this.lastRowEmit.y));
           this.breakColumn();
           if (ri >= headerRows.length) for (const h of headerRows) this.emitRow(h);
@@ -1886,14 +1964,20 @@ class Engine {
         // baixo dele (oráculo tblfloat); o resto da linha parte no pé como sempre (corpus t191)
         this.y = this.belowFloats(t.x, t.width, this.y, row.lines.length ? Math.min(row.height, ...row.lines.map((l) => l.y + l.height)) : row.height);
         // notas de rodapé referenciadas nas células desta linha ocupam o pé da página
-        const avail = this.cur.bodyBottom - this.y - this.rowNoteExtra(row);
+        // flutuante com quebra que ocupa o pé da página (do rodapé, p.ex.) e cruza a
+        // tabela: a linha parte no topo dele, como no pé (oráculo tblfoot)
+        const avail = Math.min(this.cur.bodyBottom - this.rowNoteExtra(row), this.floatFloor(t.x, t.width, this.y)) - this.y;
         // fora a última da tabela, a borda que fecharia a página logo abaixo dela
         // também tem de caber (oráculo rowfitbdr)
         const bw = ri < t.rows.length - 1 ? row.breakW ?? 0 : 0;
-        if (row.height + bw <= avail + 0.5) break;
+        // linha que abre a página (a anterior ficou na outra): a faixa de cima é só a
+        // borda de cima dela (oráculo contband)
+        if (this.atTop && row.topCut && row.height - row.topCut + bw <= avail + 0.5) row = atPageTop(row);
+        // (sem folga, como as linhas do corpo — oráculo bodyfit, bf-cf-*)
+        if (row.height + bw <= avail + 0.05) break;
         // não cabe: o Word divide a linha (salvo cantSplit) no fim da última linha de
         // texto que cabe — mas se o CONTEÚDO cabe e só a altura mínima não, a linha desce inteira
-        const onlyMin = (row.natural ?? row.height) + bw <= avail + 0.5;
+        const onlyMin = (row.natural ?? row.height) + bw <= avail + 0.05;
         const parts = onlyMin ? null : row.split?.(avail) ?? null;
         if (parts && parts[0].height > 0) {
           rowEmits.push({ ri, ps: this.cur, y: this.y, h: parts[0].height, at: this.cur.body.length });
@@ -1908,7 +1992,7 @@ class Engine {
       }
       // texto de mescla vertical na 1ª linha dela, na ordem das colunas — se a mescla
       // inteira cabe aqui, sem flutuantes no caminho (oráculo vmorder)
-      if (row === row0) row = dropMoved(mergeTextFirst(t.rows, ri, row0, mergeMoved, (h) => this.y + h <= this.cur.bodyBottom + 0.5 && this.belowFloats(t.x, t.width, this.y, h) === this.y), mergeMoved);
+      if (row === row0 || row.cut !== undefined) row = dropMoved(mergeTextFirst(t.rows, ri, row, mergeMoved, (h) => this.y + h <= this.cur.bodyBottom + 0.5 && this.belowFloats(t.x, t.width, this.y, h) === this.y), mergeMoved);
       // mescla vertical que começou em OUTRA página: o texto dela flui pelas partes
       // (topo da mescla em cada página), como célula que parte (oráculo vmsplit)
       let grow = 0;
@@ -1920,21 +2004,24 @@ class Engine {
         flowMerges.push({ start: mt.start!, end: ri, col: mt.col, content: mt.content, off, ...(mt.vAlign ? { vAlign: mt.vAlign } : {}) });
         // a parte desta página cresce o que faltar ao resto do texto: o corte nas páginas
         // anteriores perde o espaço abaixo da última linha que coube (vms-top)
-        let rest: CellContent | null = mt.content, segPs: PageState | null = null, segTop = 0, segBot = 0;
+        // (parte que começa com linha no topo da página: o texto sobe junto — contband)
+        let rest: CellContent | null = mt.content, segPs: PageState | null = null, segTop = 0, segBot = 0, segCut = 0;
         for (const e of rowEmits) {
           if (e.ri < mt.start! || e.ps === this.cur || !rest) continue;
           if (e.ps !== segPs) {
-            if (segPs) rest = splitContent(rest, segBot - segTop - off)?.[1] ?? rest;
-            segPs = e.ps; segTop = e.y;
+            if (segPs) rest = splitContent(rest, segBot - segTop - (off - segCut))?.[1] ?? rest;
+            segPs = e.ps; segTop = e.y; segCut = e.cut ?? 0;
           }
           segBot = e.y + e.h;
         }
-        if (segPs && rest) rest = splitContent(rest, segBot - segTop - off)?.[1] ?? rest;
-        const here = rowEmits.find((e) => e.ri >= mt.start! && e.ps === this.cur)?.y ?? this.y;
-        if (rest) grow = Math.max(grow, off + rest.height + (mt.band ?? 0) - (this.y - here + row.height));
+        if (segPs && rest) rest = splitContent(rest, segBot - segTop - (off - segCut))?.[1] ?? rest;
+        const hereE = rowEmits.find((e) => e.ri >= mt.start! && e.ps === this.cur);
+        const here = hereE?.y ?? this.y;
+        const hereCut = hereE ? hereE.cut ?? 0 : row.cut ?? 0;
+        if (rest) grow = Math.max(grow, off - hereCut + rest.height + (mt.band ?? 0) - (this.y - here + row.height));
       }
       if (row0.mergeText && mergeMoved.size) row = dropMoved(row, mergeMoved);
-      rowEmits.push({ ri, ps: this.cur, y: this.y, h: row.height + Math.max(0, grow), at: this.cur.body.length });
+      rowEmits.push({ ri, ps: this.cur, y: this.y, h: row.height + Math.max(0, grow), at: this.cur.body.length, cut: row.cut ?? 0 });
       this.emitRow(row);
       if (grow > 0.5) this.y += grow;
     });
@@ -1943,12 +2030,12 @@ class Engine {
     const ins: { ps: PageState; at: number; items: PageItem[] }[] = [];
     for (const m of flowMerges) {
       // partes da mescla por página (topo da 1ª parte, fundo da última)
-      const segs: { ps: PageState; top: number; bottom: number; at: number }[] = [];
+      const segs: { ps: PageState; top: number; bottom: number; at: number; cut: number }[] = [];
       for (const e of rowEmits) {
         if (e.ri < m.start || e.ri > m.end) continue;
         const last = segs[segs.length - 1];
         if (last && last.ps === e.ps) last.bottom = e.y + e.h;
-        else segs.push({ ps: e.ps, top: e.y, bottom: e.y + e.h, at: e.at });
+        else segs.push({ ps: e.ps, top: e.y, bottom: e.y + e.h, at: e.at, cut: e.cut ?? 0 });
       }
       // posição da coluna da mescla entre as células da 1ª linha (1ª parte)
       const colAt = t.rows[m.start]?.mergeAt?.find((a) => a.col === m.col)?.at ?? 0;
@@ -1957,12 +2044,12 @@ class Engine {
         if (!c) return;
         let part: CellContent = c, rest: CellContent | null = null;
         if (k < segs.length - 1) {
-          const sp = splitContent(c, sg.bottom - sg.top - m.off);
+          const sp = splitContent(c, sg.bottom - sg.top - (m.off - sg.cut));
           if (sp) [part, rest] = sp; else { part = { items: [], lines: [], height: 0 }; rest = c; }
         }
         // alinhamento vertical da célula vale dentro de CADA parte (vms-center)
-        const free = Math.max(0, sg.bottom - sg.top - m.off - part.height);
-        const dy = sg.top + m.off + (m.vAlign === 'center' ? free / 2 : m.vAlign === 'bottom' ? free : 0);
+        const free = Math.max(0, sg.bottom - sg.top - (m.off - sg.cut) - part.height);
+        const dy = sg.top + m.off - sg.cut + (m.vAlign === 'center' ? free / 2 : m.vAlign === 'bottom' ? free : 0);
         ins.push({ ps: sg.ps, at: sg.at + (k === 0 ? colAt : 0), items: part.items.map((it) => shiftItem(it, dy)) });
         for (const l of part.lines) sg.ps.page.lines.push({ ...l, y: l.y + dy, baseline: l.baseline + dy });
         c = rest;
@@ -1971,6 +2058,19 @@ class Engine {
     for (const n of ins.sort((a, b) => b.at - a.at)) n.ps.body.splice(n.at, 0, ...n.items);
     // o parágrafo seguinte vê a marca de fim de linha como anterior (contextual)
     this.prev = this.rowEndPrev();
+  }
+
+  /** Topo do flutuante com quebra abaixo de `y` que cruza [x, x+w] e vai até o pé do corpo
+   *  (o conteúdo da tabela não passa dele nesta página); sem nenhum, o pé do corpo. */
+  private floatFloor(x: number, w: number, y: number): number {
+    const fls = this.cur.tblFloats ? [...this.cur.floats, ...this.cur.tblFloats] : this.cur.floats;
+    let floor = this.cur.bodyBottom;
+    for (const f of fls) {
+      const top = f.y - f.distT;
+      if (f.wrap === 'none' || top <= y + 0.5 || f.y + f.h + f.distB < this.cur.bodyBottom - 0.5) continue;
+      if (x + w > f.x - f.distL && x < f.x + f.w + f.distR) floor = Math.min(floor, top);
+    }
+    return floor;
   }
 
   /** Topo livre para uma faixa [x, x+w] × [y, y+h] que não contorna flutuantes (linha de tabela). */
@@ -2071,23 +2171,72 @@ class Engine {
     let y = top;
     let n = 0;
     rows = [...rows];
+    let fl = split ? this.floatFlow.get(t) : undefined;
+    if (split && !fl && t.rows.some((r) => r.mergeText?.length)) {
+      fl = { idx: new Map(t.rows.map((r, k) => [r, k])), moved: new Set(), seen: new Set(), emits: [], merges: [] };
+      this.floatFlow.set(t, fl);
+    }
     for (let i = 0; i < rows.length; i++) {
       let row = rows[i]!;
-      if (split && !this.noBreakWrapped() && y + row.height > ps.bodyBottom + 0.5) {
+      const ri = fl?.idx.get(row);
+      // continuação na página nova: a 1ª linha (inteira) só com a borda de cima dela (oráculo contband)
+      if (split && n === 0 && i === 0 && row !== t.rows[0] && row.topCut && y + row.height - row.topCut <= ps.bodyBottom + 0.5) {
+        row = atPageTop(row);
+        rows[i] = row;
+      }
+      // fora a última, a borda que fecharia a página logo abaixo dela também tem de
+      // caber, como no fluxo; sem folga (oráculos rowfitbdr, ftrowbdr, bodyfit)
+      const bw = i < rows.length - 1 ? row.breakW ?? 0 : 0;
+      let cutHere = false;
+      if (split && !this.noBreakWrapped() && y + row.height + bw > ps.bodyBottom + 0.05) {
         // não cabe: divide a linha (salvo cantSplit / só a altura mínima) como no fluxo
         const avail = ps.bodyBottom - y;
-        const onlyMin = (row.natural ?? row.height) <= avail + 0.5;
+        const onlyMin = (row.natural ?? row.height) + bw <= avail + 0.05;
         const parts = onlyMin || row.cantSplit ? null : row.split?.(avail) ?? null;
         if (parts && parts[0].height > 0) {
           rows.splice(i, 1, parts[0], parts[1]);
+          cutHere = true;
+          if (fl && ri !== undefined) { fl.idx.set(parts[0], ri); fl.idx.set(parts[1], ri); }
           row = parts[0];
         } else if (n > 0) break;
+      }
+      // mescla vertical que começou em OUTRA página: o texto sai da última linha e flui
+      // pelas partes; a parte desta página cresce o que faltar (como no fluxo — vmsplit)
+      let grow = 0;
+      if (fl && ri !== undefined) {
+        for (const mt of t.rows[ri]!.mergeText ?? []) {
+          if (fl.seen.has(mt)) continue;
+          const s = fl.emits.find((e) => e.ri === mt.start);
+          if (!s || s.ps === ps || !mt.content) continue;
+          fl.seen.add(mt);
+          for (const o of [...mt.items, ...mt.lines]) fl.moved.add(o);
+          const off = (mt.band ?? 0) + (mt.marT ?? 0);
+          fl.merges.push({ start: mt.start!, end: ri, col: mt.col, content: mt.content, off, ...(mt.vAlign ? { vAlign: mt.vAlign } : {}) });
+          let rest: CellContent | null = mt.content, segPs: PageState | null = null, segTop = 0, segBot = 0, segCut = 0;
+          for (const e of fl.emits) {
+            if (e.ri < mt.start! || e.ps === ps || !rest) continue;
+            if (e.ps !== segPs) {
+              if (segPs) rest = splitContent(rest, segBot - segTop - (off - segCut))?.[1] ?? rest;
+              segPs = e.ps; segTop = e.y; segCut = e.cut ?? 0;
+            }
+            segBot = e.y + e.h;
+          }
+          if (segPs && rest) rest = splitContent(rest, segBot - segTop - (off - segCut))?.[1] ?? rest;
+          const hereE = fl.emits.find((e) => e.ri >= mt.start! && e.ps === ps);
+          const here = hereE?.y ?? y;
+          const hereCut = hereE ? hereE.cut ?? 0 : row.cut ?? 0;
+          if (rest) grow = Math.max(grow, off - hereCut + rest.height + (mt.band ?? 0) - (y - here + row.height));
+        }
+        if (fl.moved.size) row = dropMoved(row, fl.moved);
+        fl.emits.push({ ri, ps, y, h: row.height + Math.max(0, grow), out, at: out.length, yOrigin, refX, cut: row.cut ?? 0 });
       }
       for (const it of row.items) out.push(shiftItem(it, y - yOrigin, refX));
       for (const it of row.borderItems) out.push(shiftItem(it, y - yOrigin, refX));
       for (const l of row.lines) ps.page.lines.push({ ...l, x: l.x + refX, y: l.y + y, baseline: l.baseline + y, ...(l.chars ? { chars: l.chars.map((c) => ({ ...c, x: c.x + refX })) } : {}) });
-      y += row.height;
+      y += row.height + (grow > 0.5 ? grow : 0);
       n++;
+      // linha partida: o resto vai inteiro para a página seguinte (oráculo ftwidow)
+      if (cutHere) break;
     }
     if (wrap) {
       ps.floats.push({
@@ -2097,6 +2246,38 @@ class Engine {
       });
     }
     if (n < rows.length) this.floatCarry.push({ t, rows: rows.slice(n), fp, refX });
+    else if (fl) { this.floatFlow.delete(t); this.flowFloatMerges(t, fl); }
+  }
+
+  /** Texto das mesclas verticais de uma tabela flutuante que partiu: cada parte no topo
+   *  da mescla na sua página (1ª parte na posição da coluna entre as células) */
+  private flowFloatMerges(t: TableLayout, fl: NonNullable<ReturnType<Engine['floatFlow']['get']>>): void {
+    const ins: { out: PageItem[]; at: number; items: PageItem[] }[] = [];
+    for (const m of fl.merges) {
+      const segs: { ps: PageState; top: number; bottom: number; out: PageItem[]; at: number; yOrigin: number; refX: number; cut: number }[] = [];
+      for (const e of fl.emits) {
+        if (e.ri < m.start || e.ri > m.end) continue;
+        const last = segs[segs.length - 1];
+        if (last && last.ps === e.ps) last.bottom = e.y + e.h;
+        else segs.push({ ps: e.ps, top: e.y, bottom: e.y + e.h, out: e.out, at: e.at, yOrigin: e.yOrigin, refX: e.refX, cut: e.cut ?? 0 });
+      }
+      const colAt = t.rows[m.start]?.mergeAt?.find((a) => a.col === m.col)?.at ?? 0;
+      let c: CellContent | null = m.content;
+      segs.forEach((sg, k) => {
+        if (!c) return;
+        let part: CellContent = c, rest: CellContent | null = null;
+        if (k < segs.length - 1) {
+          const sp = splitContent(c, sg.bottom - sg.top - (m.off - sg.cut));
+          if (sp) [part, rest] = sp; else { part = { items: [], lines: [], height: 0 }; rest = c; }
+        }
+        const free = Math.max(0, sg.bottom - sg.top - (m.off - sg.cut) - part.height);
+        const dy = sg.top + m.off - sg.cut + (m.vAlign === 'center' ? free / 2 : m.vAlign === 'bottom' ? free : 0);
+        ins.push({ out: sg.out, at: sg.at + (k === 0 ? colAt : 0), items: part.items.map((it) => shiftItem(it, dy - sg.yOrigin, sg.refX)) });
+        for (const l of part.lines) sg.ps.page.lines.push({ ...l, x: l.x + sg.refX, y: l.y + dy, baseline: l.baseline + dy, ...(l.chars ? { chars: l.chars.map((ch) => ({ ...ch, x: ch.x + sg.refX })) } : {}) });
+        c = rest;
+      });
+    }
+    for (const n of ins.sort((a, b) => b.at - a.at)) n.out.splice(n.at, 0, ...n.items);
   }
 
   /** w:doNotBreakWrappedTables: tabelas flutuantes não partem (o modo 15 ignora — oráculo ftnobreak) */
@@ -2181,7 +2362,9 @@ class Engine {
       // flutuante (oráculo ftnegind)
       const col = this.colFrame();
       const cR = Math.abs(frameX - col.x) < 0.5 ? col.w : Infinity, cL = cR === Infinity ? -Infinity : 0;
-      free = free.filter(([a, b]) => Math.min(b, cR) - Math.max(a, cL) >= MIN_GAP);
+      // (o vão conta até a margem da coluna: o recuo do parágrafo não o estreita — oráculo gapind)
+      const ext = (a: number, b: number): [number, number] => cR === Infinity ? [a, b] : [a <= left + 0.5 ? Math.min(a, cL) : a, b >= right - 0.5 ? Math.max(b, cR) : b];
+      free = free.filter(([a, b]) => { const [ea, eb] = ext(a, b); return Math.min(eb, cR) - Math.max(ea, cL) >= MIN_GAP; });
       let best: [number, number] | undefined;
       for (const iv of free) if (!best || iv[1] - iv[0] > best[1] - best[0]) best = iv;
       // sem espaço útil ao lado: a linha desce até o fim do 1º objeto que a bloqueia

@@ -61,6 +61,13 @@ export interface RowLayout {
   /** divide a linha para caber em `avail` (twips): [parte que cabe, resto]
    *  — null se nenhuma linha de texto cabe (a linha inteira desce). */
   split?: (avail: number) => [RowLayout, RowLayout] | null;
+  /** linha inteira que abre a página (a anterior ficou na outra): a faixa de cima é só
+   *  a borda de cima DELA — `topCut` a menos — e as bordas de cima trocam (oráculo contband) */
+  topCut?: number;
+  topBorders?: PageItem[];
+  ownTopBorders?: PageItem[];
+  /** convertida por atPageTop: quanto subiu */
+  cut?: number;
 }
 
 /** Parte um conteúdo de célula num corte vertical (fim da última linha que cabe). */
@@ -73,7 +80,8 @@ export function splitContent(c: CellContent, availContent: number): [CellContent
   for (const l of c.lines) {
     const bottom = l.y + l.height;
     const after = lastOf.get(l.ref) === l ? paras!.get(l.ref)!.after : 0;
-    if (bottom + after <= availContent + 0.5 && bottom > cut) cut = bottom;
+    // (sem folga: o Word compara exato — oráculo bodyfit, bf-cf-*)
+    if (bottom + after <= availContent + 0.05 && bottom > cut) cut = bottom;
   }
   if (cut > 0 && paras) cut = widowCut(c, paras, cut);
   if (cut > 0) cut = nestedRowCut(c, cut);
@@ -884,6 +892,9 @@ export function layoutTable(
           ...(rowKeepNext ? { keepNext: true } : {}), natural: bTop + Math.min(ch, contentH) + bBottom,
         };
       }
+      /** bordas de cima pintadas (divisa com a linha anterior) e as próprias da linha */
+      const topBrd: PageItem[] = [], ownBrd: PageItem[] = [];
+      let ownBand = 0;
       for (const ci of cellInfos) {
         const s = ci.slot;
         const fill = cellFill(ctx, ci.tcPr, tblPr, theme);
@@ -899,7 +910,14 @@ export function layoutTable(
         const tcb = ci.tcPr.tcBorders;
         // topo: na faixa de cima (continuação de linha partida: a borda de cima da célula)
         const top = drawTop ? (s.merged ? undefined : topWinner(s)) : (edge(s, 'top') ?? edge(s, 'bottom'));
+        const nb = brd.length;
         if (top) paintBorder(ctx, brd, top, x + ci.x0, borderWidth(top) / 2, x + ci.x1, borderWidth(top) / 2);
+        if (drawTop && ri > 0) {
+          topBrd.push(...brd.slice(nb));
+          const own = edge(s, 'top');
+          ownBand = Math.max(ownBand, borderWidth(own));
+          if (own && !s.merged) paintBorder(ctx, ownBrd, own, x + ci.x0, borderWidth(own) / 2, x + ci.x1, borderWidth(own) / 2);
+        }
         const bottom = edge(s, 'bottom');
         const lastOfMerge = !slots[ri + 1]?.some((o) => o.col === s.col && o.merged);
         if (bBottom > 0) {
@@ -921,6 +939,7 @@ export function layoutTable(
         height: rh, items: its, lines: lns, borderItems: brd, breakBorderItems: brk, cantSplit: !!trp.cantSplit, header: !!trp.tblHeader,
         ...(mergeAt.length ? { mergeAt } : {}),
         ...(rowKeepNext ? { keepNext: true } : {}), natural: bTop + Math.min(ch, contentH) + bBottom,
+        ...(drawTop && ri > 0 && bTop - ownBand > 0.5 ? { topCut: bTop - ownBand, topBorders: topBrd, ownTopBorders: ownBrd } : {}),
       };
     };
     const full = new Map<CellSlot, CellContent | undefined>(cellInfos.map((ci) => [ci.slot, ci.content]));
@@ -1071,11 +1090,39 @@ export function mergeTextFirst(rows: RowLayout[], ri: number, row: RowLayout, mo
     const mt = rows[m.endRow]?.mergeText?.find((x) => x.col === m.col);
     if (!mt || !fits(rows.slice(ri, m.endRow + 1).reduce((a, r) => a + r.height, 0))) continue;
     if (items === row.items) { items = [...items]; lines = [...lines]; }
-    items.splice(m.at, 0, ...mt.items.map((it) => shiftItem(it, mt.dy)));
-    lines.push(...mt.lines.map((l) => ({ ...l, y: l.y + mt.dy, baseline: l.baseline + mt.dy })));
+    const dy = mt.dy - (row.cut ?? 0);
+    items.splice(m.at, 0, ...mt.items.map((it) => shiftItem(it, dy)));
+    lines.push(...mt.lines.map((l) => ({ ...l, y: l.y + dy, baseline: l.baseline + dy })));
     for (const o of [...mt.items, ...mt.lines]) moved.add(o);
   }
   return items === row.items ? row : { ...row, items, lines };
+}
+
+/**
+ * Linha inteira no topo da página com a anterior na outra (oráculo contband): o Word
+ * tira a divisa com a anterior — a faixa de cima fica só com a borda de cima da linha.
+ * Sobe o conteúdo `topCut`, encurta fundos e bordas laterais e troca as bordas de cima.
+ * (Os itens de mescla vertical ficam como estão: a mescla começou na outra página.)
+ */
+export function atPageTop(row: RowLayout): RowLayout {
+  const d = row.topCut ?? 0;
+  if (d <= 0) return row;
+  const h = row.height;
+  const top = new Set<PageItem>(row.topBorders ?? []);
+  const keep = new Set<object>((row.mergeText ?? []).flatMap((m) => [...m.items, ...m.lines]));
+  const cut = (it: PageItem): PageItem => keep.has(it) ? it
+    : it.t === 'rect' && it.y === 0 ? { ...it, h: it.h - d }
+      : it.t === 'line' && it.y1 === 0 && it.y2 === h ? { ...it, y2: h - d }
+        : shiftItem(it, -d);
+  const { split: _s, topCut: _t, topBorders: _b, ownTopBorders: _o, ...rest } = row;
+  return {
+    ...rest, height: h - d, cut: d,
+    items: row.items.map(cut),
+    lines: row.lines.map((l) => keep.has(l) ? l : { ...l, y: l.y - d, baseline: l.baseline - d }),
+    borderItems: [...row.borderItems.filter((it) => !top.has(it)).map(cut), ...(row.ownTopBorders ?? [])],
+    ...(row.breakBorderItems ? { breakBorderItems: row.breakBorderItems.map((it) => shiftItem(it, -d)) } : {}),
+    ...(row.natural !== undefined ? { natural: row.natural - d } : {}),
+  };
 }
 
 /** a linha sem os itens de mescla que já foram gravados na linha inicial */

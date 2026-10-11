@@ -270,6 +270,8 @@ internal sealed class Engine
     public readonly Dictionary<int, LateTable> LateTablesFound = new();
     /// <summary>tabelas flutuantes do corpo já colocadas (blocos)</summary>
     private readonly HashSet<int> _placedTables = new();
+    /// <summary>tabelas tardias (início da página) que partiram: a âncora vai para a continuação</summary>
+    private readonly HashSet<int> _lateSplit = new();
 
     public Engine(DocContext ctx, FullDocument full, double totalPagesGuess, Dictionary<string, string>? marksGuess = null, Dictionary<int, List<Run>>? lateFloats = null,
         Dictionary<int, LateTable>? lateTables = null,
@@ -303,6 +305,8 @@ internal sealed class Engine
 
 
     private static readonly Regex WsRe = new(@"\s+", RegexOptions.CultureInvariant);
+    /// <summary>\s do JS (espaços e quebras Unicode)</summary>
+    private static readonly Regex JsWsRe = new("[\t\n\u000b\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]", RegexOptions.CultureInvariant);
     private static readonly Regex SeqR = new(@"\\r\s*([0-9]+)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex SeqC = new(@"\\c(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex SeqH = new(@"\\h(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
@@ -685,6 +689,7 @@ internal sealed class Engine
             var items = new List<PageItem>();
             PlaceFloatingTable(t, ltp, _cur, lt.FlowY, fr.X, fr.W, items, 0, true, true);
             _cur.Front.Add(new ZObj { Z = -1, Seq = _zSeq++, Items = items });
+            if (_floatCarry.Any(c => ReferenceEquals(c.T, t))) _lateSplit.Add(bi);
         }
     }
 
@@ -1525,6 +1530,8 @@ internal sealed class Engine
     /// <summary>o bloco anterior é uma tabela flutuante ancorada no texto (o parágrafo âncora
     /// empurrado para baixo dela tem o "antes" de novo — oráculo ftable2)</summary>
     private bool _floatTableGap;
+    /// <summary>âncora levada para a página da continuação da tabela flutuante: abaixo dela, o "antes" inteiro</summary>
+    private bool _carryAnchorGap;
 
     private void PlaceParagraph(Paragraph para0, string reference, int blockIdx, SectGeom g)
     {
@@ -1672,8 +1679,9 @@ internal sealed class Engine
         double? paraRef = yPre + Math.Min(prevAfter, gapIn);
         double selfGap = gapIn - Math.Min(prevAfter, gapIn);
         // âncora de tabela flutuante: se ela a empurra para baixo, o espaço antes vale de novo lá (oráculo ftable2)
-        double ftGap = _floatTableGap && !_atTop ? gap : 0;
+        double ftGap = _floatTableGap && !_atTop ? gap : _carryAnchorGap ? before : 0;
         _floatTableGap = false;
+        _carryAnchorGap = false;
         _firstInDoc = false;
 
         var br = new LineBreaker(_ctx, p, GridFor(p));
@@ -1723,7 +1731,8 @@ internal sealed class Engine
             foreach (var e in early) UnplaceFloat(e);
             if (lift)
             {
-                early = PlaceFloatsEarly(p, _cur, ColFrame().X, ColFrame().W, _y, _cur.BodyBottom);
+                // (os outros objetos seguem medidos do topo antes do "antes" — oráculo liftref)
+                early = PlaceFloatsEarly(p, _cur, ColFrame().X, ColFrame().W, _y, _cur.BodyBottom, paraRef);
             }
             else
             {
@@ -1791,6 +1800,62 @@ internal sealed class Engine
                     line = br.Next(seg.F);
                 }
             }
+            // texto mais BAIXO que a marca: o salto para baixo do flutuante foi pela altura da
+            // marca; se a linha real cabe acima dele, ela fica lá (oráculo liftref, lr-mark11)
+            if (_cur.Floats.Count > 0 && _y > y0 + 0.5)
+            {
+                double textH2 = Math.Min(line.Height, line.Baseline + line.Desc);
+                if (textH2 < MarkLineH(p) - 1)
+                {
+                    var fr0 = ColFrame();
+                    var f0 = WrapFrame(new LineFrame(p.IndLeft, fr0.W - p.IndRight), fr0.X, y0, textH2);
+                    if (f0.SkipTo is null && !Narrower(f0, frame))
+                    {
+                        double yb = _y;
+                        _y = y0;
+                        br.Reset(mark);
+                        var seg0 = PickSeg(br, f0);
+                        var line0 = br.Next(seg0.F);
+                        if (Math.Min(line0.Height, line0.Baseline + line0.Desc) <= textH2 + 0.5) { frame = f0; seg = seg0; line = line0; }
+                        else
+                        {
+                            _y = yb;
+                            br.Reset(mark);
+                            seg = PickSeg(br, frame);
+                            line = br.Next(seg.F);
+                        }
+                    }
+                }
+            }
+            // palavra que não cabe no vão ao lado de um flutuante: o Word não a parte por
+            // caractere — a linha desce para baixo dele (oráculo gapind, gi-*-r0)
+            if (_cur.Floats.Count > 0 && !line.Last && line.End > line.Start && line.End < p.Glyphs.Count)
+            {
+                var frw = ColFrame();
+                bool narrowed = frame.Left > p.IndLeft + 0.5 || frame.Right < frw.W - p.IndRight - 0.5;
+                var gw0 = p.Glyphs[line.End - 1];
+                var gw1 = p.Glyphs[line.End];
+                static bool IsWord(Glyph g) => g.Kind == GlyphKind.Char && !JsWsRe.IsMatch(g.Ch);
+                if (narrowed && IsWord(gw0) && !gw0.BreakAfter && IsWord(gw1))
+                {
+                    double lineHw = Math.Max(MarkLineH(p), line.Height);
+                    double below = double.PositiveInfinity;
+                    foreach (var f in _cur.Floats)
+                    {
+                        if (f.Wrap != "square" && f.Wrap != "tight" && f.Wrap != "through") continue;
+                        if (_y + lineHw <= f.Y - f.DistT + 0.5 || _y >= f.Y + f.H + f.DistB - 0.5) continue;
+                        below = Math.Min(below, f.Y + f.H + f.DistB);
+                    }
+                    if (below < double.PositiveInfinity && below > _y)
+                    {
+                        _y = below;
+                        frame = FrameHere();
+                        br.Reset(mark);
+                        seg = PickSeg(br, frame);
+                        line = br.Next(seg.F);
+                    }
+                }
+            }
             // modos < 15: a última linha do parágrafo só fica acima/ao lado de um flutuante se
             // a linha INTEIRA mais o "depois" ficarem fora dele; senão desce (oráculo ftafter)
             if (_cur.Floats.Count > 0 && line.Last && _ctx.Fmt.Settings.CompatibilityMode < 15)
@@ -1824,7 +1889,8 @@ internal sealed class Engine
                 fragTop = _y;
                 pageChanged = true;
             }
-            else if (_y + (noteNeed.Extra > 0 ? NoteLineFit(p, line) : fitH) > _cur.BodyBottom - noteNeed.Extra + 0.5 && !_atTop && !hangs)
+            // (sem folga: 0,21 tw além da margem e 0,12 tw além do topo do rodapé já descem — oráculo bodyfit)
+            else if (_y + (noteNeed.Extra > 0 ? NoteLineFit(p, line) : fitH) > _cur.BodyBottom - noteNeed.Extra + 0.05 && !_atTop && !hangs)
             {
                 // não cabe: viúvas/órfãs
                 int placedHere = frag.Count;
@@ -2036,7 +2102,16 @@ internal sealed class Engine
             var bi = RefB.Match(i + 2 < seg.Length ? seg[i + 2] : "");
             if (!ri.Success || !ci.Success || !bi.Success) return null;
             int rIdx = (int)Js.ParseInt(ri.Groups[1].Value), cIdx = (int)Js.ParseInt(ci.Groups[1].Value), bIdx = (int)Js.ParseInt(bi.Groups[1].Value);
-            var cell = rIdx < tb.Rows.Count && cIdx < tb.Rows[rIdx].Cells.Count ? tb.Rows[rIdx].Cells[cIdx] : null;
+            // "cN" é a coluna da GRADE (table: gridBefore + gridSpans), não o índice da célula
+            // — nota em célula depois de uma mesclada na horizontal (oráculo cellnote, corpus t34)
+            var nrow = rIdx < tb.Rows.Count ? tb.Rows[rIdx] : null;
+            double gcol = nrow?.TrPr?.GridBefore ?? 0;
+            TableCell? cell = null;
+            foreach (var c in nrow?.Cells ?? new List<TableCell>())
+            {
+                if (gcol == cIdx) { cell = c; break; }
+                gcol += Math.Max(1, c.TcPr?.GridSpan ?? c.GridSpan);
+            }
             if (cell is null) return null;
             var blocks = CellBlocks(cell);
             block = bIdx < blocks.Count ? blocks[bIdx] : null;
@@ -2154,7 +2229,11 @@ internal sealed class Engine
                 static double StartNeed(RowLayout r, double cap) =>
                     r.CantSplit || (r.Natural ?? r.Height) < r.Height ? r.Height : Math.Min(r.Height, cap);
                 var r1 = t.Rows.Count > 1 ? t.Rows[1] : null;
-                double lead = r0.KeepNext && r1 is not null ? r0.Height + StartNeed(r1, 400) : StartNeed(r0, r0.Natural ?? r0.Height);
+                // (cadeia de linhas com keepNext: até a 1ª que não tem — oráculo keepchain)
+                double chain = 0;
+                int kc = 0;
+                while (kc < t.Rows.Count && t.Rows[kc].KeepNext && kc + 1 < t.Rows.Count) { chain += t.Rows[kc].Height; kc++; }
+                double lead = kc > 0 ? chain + StartNeed(t.Rows[kc], 400) : r1 is not null && r0.KeepNext ? r0.Height + StartNeed(r1, 400) : StartNeed(r0, r0.Natural ?? r0.Height);
                 bool dropped = from is not null && DropsAfterBeforeTable(new PrevPara { After = after, AfterAuto = from.AfterAuto, Contextual = from.Contextual, StyleId = from.StyleId }, tbl);
                 return (dropped ? 0 : after) + lead;
             }
@@ -2230,6 +2309,8 @@ internal sealed class Engine
                 // da âncora, na próxima passada (oráculo ftpage)
                 if (_lateTables.TryGetValue(blockIdx, out var lt) && !textAnchor && _pages.Count - 1 > lt.Page && LateTablesFound.Count == 0)
                     LateTablesFound[blockIdx] = new LateTable(_pages.Count - 1, _y);
+                // ela partiu e a continuação ainda não saiu: a âncora vai junto (oráculo ftvmsplit)
+                if (_lateSplit.Remove(blockIdx) && _floatCarry.Count > 0 && _col == _cur.Geom.Cols.Count - 1) { BreakColumn(); _carryAnchorGap = true; }
                 return;
             }
             if (blockIdx >= 0) _placedTables.Add(blockIdx);
@@ -2294,7 +2375,8 @@ internal sealed class Engine
             }
             // a tabela continua na página seguinte: o parágrafo âncora vai junto e contorna a
             // continuação lá (largura total: fica depois do fim dela) — oráculo ftsplit
-            if (textAnchor && _floatCarry.Count > nCarry && _col == _cur.Geom.Cols.Count - 1) BreakColumn();
+            // (posição relativa à página/margem também; lá, abaixo dela, com o "antes" inteiro — oráculo ftvmsplit)
+            if (_floatCarry.Count > nCarry && _col == _cur.Geom.Cols.Count - 1) { BreakColumn(); _carryAnchorGap = true; }
             return;
         }
         _floatTableGap = false;
@@ -2333,7 +2415,12 @@ internal sealed class Engine
             if (row.KeepNext && !_atTop && ri + 1 < t.Rows.Count)
             {
                 double availK = _cur.BodyBottom - _y;
-                if (row.Height <= availK + 0.5 && !RowCanStart(t.Rows[ri + 1], availK - row.Height))
+                // cadeia de linhas com keepNext: todas ficam com a primeira que não tem
+                // (oráculo keepchain)
+                double chainH = row.Height;
+                int kk = ri + 1;
+                while (kk + 1 < t.Rows.Count && t.Rows[kk].KeepNext && chainH + t.Rows[kk].Height <= availK + 0.5) { chainH += t.Rows[kk].Height; kk++; }
+                if (chainH <= availK + 0.5 && !RowCanStart(t.Rows[kk], availK - chainH))
                 {
                     if (_lastRowEmit is { } lk && lk.Row.BreakBorderItems is not null)
                         foreach (var it in lk.Row.BreakBorderItems) _cur.Body.Add(TableEngine.ShiftItem(it, lk.Y));
@@ -2348,14 +2435,20 @@ internal sealed class Engine
                 // baixo dele (oráculo tblfloat); o resto da linha parte no pé como sempre (corpus t191)
                 _y = BelowFloats(t.X, t.Width, _y, row.Lines.Count > 0 ? Math.Min(row.Height, row.Lines.Min(l => l.Y + l.Height)) : row.Height);
                 // notas de rodapé referenciadas nas células desta linha ocupam o pé da página
-                double avail = _cur.BodyBottom - _y - RowNoteExtra(row);
+                // flutuante com quebra que ocupa o pé da página (do rodapé, p.ex.) e cruza a
+                // tabela: a linha parte no topo dele, como no pé (oráculo tblfoot)
+                double avail = Math.Min(_cur.BodyBottom - RowNoteExtra(row), FloatFloor(t.X, t.Width, _y)) - _y;
                 // fora a última da tabela, a borda que fecharia a página logo abaixo dela
                 // também tem de caber (oráculo rowfitbdr)
                 double bw = ri < t.Rows.Count - 1 ? row.BreakW ?? 0 : 0;
-                if (row.Height + bw <= avail + 0.5) break;
+                // linha que abre a página (a anterior ficou na outra): a faixa de cima é só a
+                // borda de cima dela (oráculo contband)
+                if (_atTop && row.TopCut is { } tc && tc != 0 && !double.IsNaN(tc) && row.Height - tc + bw <= avail + 0.5) row = TableEngine.AtPageTop(row);
+                // (sem folga, como as linhas do corpo — oráculo bodyfit, bf-cf-*)
+                if (row.Height + bw <= avail + 0.05) break;
                 // não cabe: o Word divide a linha (salvo cantSplit) no fim da última linha de
                 // texto que cabe — mas se o CONTEÚDO cabe e só a altura mínima não, a linha desce inteira
-                bool onlyMin = (row.Natural ?? row.Height) + bw <= avail + 0.5;
+                bool onlyMin = (row.Natural ?? row.Height) + bw <= avail + 0.05;
                 var parts = onlyMin ? null : row.Split?.Invoke(avail);
                 if (parts is { } pp && pp.First.Height > 0)
                 {
@@ -2373,8 +2466,8 @@ internal sealed class Engine
             }
             // texto de mescla vertical na 1ª linha dela, na ordem das colunas — se a mescla
             // inteira cabe aqui, sem flutuantes no caminho (oráculo vmorder)
-            if (ReferenceEquals(row, row0))
-                row = TableEngine.DropMoved(TableEngine.MergeTextFirst(t.Rows, ri, row0, mergeMovedT,
+            if (ReferenceEquals(row, row0) || row.Cut is not null)
+                row = TableEngine.DropMoved(TableEngine.MergeTextFirst(t.Rows, ri, row, mergeMovedT,
                     hh => _y + hh <= _cur.BodyBottom + 0.5 && BelowFloats(t.X, t.Width, _y, hh) == _y), mergeMovedT);
             // mescla vertical que começou em OUTRA página: o texto dela flui pelas partes
             // (topo da mescla em cada página), como célula que parte (oráculo vmsplit)
@@ -2389,25 +2482,28 @@ internal sealed class Engine
                 flowMerges.Add(new FlowMerge(mt.Start!.Value, ri, mt.Col, mt.Content, off, mt.VAlign));
                 // a parte desta página cresce o que faltar ao resto do texto: o corte nas páginas
                 // anteriores perde o espaço abaixo da última linha que coube (vms-top)
+                // (parte que começa com linha no topo da página: o texto sobe junto — contband)
                 CellContent? rest = mt.Content;
                 PageState? segPs = null;
-                double segTop = 0, segBot = 0;
+                double segTop = 0, segBot = 0, segCut = 0;
                 foreach (var e in rowEmits)
                 {
                     if (e.Ri < mt.Start!.Value || ReferenceEquals(e.Ps, _cur) || rest is null) continue;
                     if (!ReferenceEquals(e.Ps, segPs))
                     {
-                        if (segPs is not null) rest = TableEngine.SplitContent(rest, segBot - segTop - off)?.B ?? rest;
-                        segPs = e.Ps; segTop = e.Y;
+                        if (segPs is not null) rest = TableEngine.SplitContent(rest, segBot - segTop - (off - segCut))?.B ?? rest;
+                        segPs = e.Ps; segTop = e.Y; segCut = e.Cut;
                     }
                     segBot = e.Y + e.H;
                 }
-                if (segPs is not null && rest is not null) rest = TableEngine.SplitContent(rest, segBot - segTop - off)?.B ?? rest;
-                double here = rowEmits.FirstOrDefault(e => e.Ri >= mt.Start!.Value && ReferenceEquals(e.Ps, _cur))?.Y ?? _y;
-                if (rest is not null) grow = Math.Max(grow, off + rest.Height + (mt.Band ?? 0) - (_y - here + row.Height));
+                if (segPs is not null && rest is not null) rest = TableEngine.SplitContent(rest, segBot - segTop - (off - segCut))?.B ?? rest;
+                var hereE = rowEmits.FirstOrDefault(e => e.Ri >= mt.Start!.Value && ReferenceEquals(e.Ps, _cur));
+                double here = hereE?.Y ?? _y;
+                double hereCut = hereE is not null ? hereE.Cut : row.Cut ?? 0;
+                if (rest is not null) grow = Math.Max(grow, off - hereCut + rest.Height + (mt.Band ?? 0) - (_y - here + row.Height));
             }
             if (row0.MergeText is not null && mergeMovedT.Count > 0) row = TableEngine.DropMoved(row, mergeMovedT);
-            rowEmits.Add(new RowEmit(ri, _cur, _y, row.Height + Math.Max(0, grow), _cur.Body.Count));
+            rowEmits.Add(new RowEmit(ri, _cur, _y, row.Height + Math.Max(0, grow), _cur.Body.Count, row.Cut ?? 0));
             EmitRow(row);
             if (grow > 0.5) _y += grow;
         }
@@ -2423,7 +2519,7 @@ internal sealed class Engine
                 if (e.Ri < m.Start || e.Ri > m.End) continue;
                 var lastS = segs.Count > 0 ? segs[^1] : null;
                 if (lastS is not null && ReferenceEquals(lastS.Ps, e.Ps)) lastS.Bottom = e.Y + e.H;
-                else segs.Add(new MergeSeg { Ps = e.Ps, Top = e.Y, Bottom = e.Y + e.H, At = e.At });
+                else segs.Add(new MergeSeg { Ps = e.Ps, Top = e.Y, Bottom = e.Y + e.H, At = e.At, Cut = e.Cut });
             }
             // posição da coluna da mescla entre as células da 1ª linha (1ª parte)
             int colAt = (m.Start >= 0 && m.Start < t.Rows.Count ? t.Rows[m.Start].MergeAt?.FirstOrDefault(a => a.Col == m.Col)?.At : null) ?? 0;
@@ -2436,13 +2532,13 @@ internal sealed class Engine
                 CellContent? rest = null;
                 if (k < segs.Count - 1)
                 {
-                    var sp = TableEngine.SplitContent(c, sg.Bottom - sg.Top - m.Off);
+                    var sp = TableEngine.SplitContent(c, sg.Bottom - sg.Top - (m.Off - sg.Cut));
                     if (sp is { } spv) { part = spv.A; rest = spv.B; }
                     else { part = new CellContent { Items = new List<PageItem>(), Lines = new List<LaidOutLine>(), Height = 0 }; rest = c; }
                 }
                 // alinhamento vertical da célula vale dentro de CADA parte (vms-center)
-                double free = Math.Max(0, sg.Bottom - sg.Top - m.Off - part.Height);
-                double dy = sg.Top + m.Off + (m.VAlign == "center" ? free / 2 : m.VAlign == "bottom" ? free : 0);
+                double free = Math.Max(0, sg.Bottom - sg.Top - (m.Off - sg.Cut) - part.Height);
+                double dy = sg.Top + m.Off - sg.Cut + (m.VAlign == "center" ? free / 2 : m.VAlign == "bottom" ? free : 0);
                 ins.Add((sg.Ps, sg.At + (k == 0 ? colAt : 0), part.Items.Select(it => TableEngine.ShiftItem(it, dy)).ToList()));
                 foreach (var l in part.Lines)
                 {
@@ -2460,7 +2556,7 @@ internal sealed class Engine
     }
 
     /// <summary>parte de linha de tabela emitida (página, y, altura, posição no corpo) — oráculo vmsplit</summary>
-    private sealed record RowEmit(int Ri, PageState Ps, double Y, double H, int At);
+    private sealed record RowEmit(int Ri, PageState Ps, double Y, double H, int At, double Cut = 0);
     /// <summary>mescla vertical que atravessa a página: linhas, coluna, conteúdo, deslocamento do topo, alinhamento</summary>
     private sealed record FlowMerge(int Start, int End, int Col, CellContent Content, double Off, string? VAlign);
     private sealed class MergeSeg
@@ -2469,6 +2565,7 @@ internal sealed class Engine
         public double Top;
         public double Bottom;
         public int At;
+        public double Cut;
     }
 
     private static readonly Regex HfRefRe = new(@"^(hdr|ftr):[A-Za-z0-9_]+\z", RegexOptions.CultureInvariant);
@@ -2511,6 +2608,21 @@ internal sealed class Engine
 
     /// <summary>Âncoras verticais que não dependem do fluxo do texto.</summary>
     private static readonly HashSet<string> AbsoluteV = new(StringComparer.Ordinal) { "page", "margin", "topMargin", "bottomMargin", "insideMargin", "outsideMargin" };
+
+    /// <summary>Topo do flutuante com quebra abaixo de <paramref name="y"/> que cruza [x, x+w] e vai até o pé do corpo
+    /// (o conteúdo da tabela não passa dele nesta página); sem nenhum, o pé do corpo.</summary>
+    private double FloatFloor(double x, double w, double y)
+    {
+        var fls = _cur.TblFloats is not null ? _cur.Floats.Concat(_cur.TblFloats).ToList() : _cur.Floats;
+        double floor = _cur.BodyBottom;
+        foreach (var f in fls)
+        {
+            double top = f.Y - f.DistT;
+            if (f.Wrap == "none" || top <= y + 0.5 || f.Y + f.H + f.DistB < _cur.BodyBottom - 0.5) continue;
+            if (x + w > f.X - f.DistL && x < f.X + f.W + f.DistR) floor = Math.Min(floor, top);
+        }
+        return floor;
+    }
 
     /// <summary>Topo livre para uma faixa [x, x+w] × [y, y+h] que não contorna flutuantes (linha de tabela).</summary>
     private double BelowFloats(double x, double w, double y, double h)
@@ -2615,22 +2727,81 @@ internal sealed class Engine
         double y = top;
         int n = 0;
         var rows = rowsIn.ToList();
+        FloatFlowState? fl = null;
+        if (split) _floatFlow.TryGetValue(t, out fl);
+        if (split && fl is null && t.Rows.Any(r => r.MergeText is { Count: > 0 }))
+        {
+            fl = new FloatFlowState();
+            for (int k = 0; k < t.Rows.Count; k++) fl.Idx.TryAdd(t.Rows[k], k);
+            _floatFlow[t] = fl;
+        }
         for (int i = 0; i < rows.Count; i++)
         {
             var row = rows[i];
-            if (split && !NoBreakWrapped() && y + row.Height > ps.BodyBottom + 0.5)
+            int? ri = fl is not null && fl.Idx.TryGetValue(row, out var rix) ? rix : null;
+            // continuação na página nova: a 1ª linha (inteira) só com a borda de cima dela (oráculo contband)
+            if (split && n == 0 && i == 0 && !(t.Rows.Count > 0 && ReferenceEquals(row, t.Rows[0])) && row.TopCut is { } tc && tc != 0 && !double.IsNaN(tc)
+                && y + row.Height - tc <= ps.BodyBottom + 0.5)
+            {
+                row = TableEngine.AtPageTop(row);
+                rows[i] = row;
+            }
+            // fora a última, a borda que fecharia a página logo abaixo dela também tem de
+            // caber, como no fluxo; sem folga (oráculos rowfitbdr, ftrowbdr, bodyfit)
+            double bw = i < rows.Count - 1 ? row.BreakW ?? 0 : 0;
+            bool cutHere = false;
+            if (split && !NoBreakWrapped() && y + row.Height + bw > ps.BodyBottom + 0.05)
             {
                 // não cabe: divide a linha (salvo cantSplit / só a altura mínima) como no fluxo
                 double avail = ps.BodyBottom - y;
-                bool onlyMin = (row.Natural ?? row.Height) <= avail + 0.5;
+                bool onlyMin = (row.Natural ?? row.Height) + bw <= avail + 0.05;
                 var parts = onlyMin || row.CantSplit ? null : row.Split?.Invoke(avail);
                 if (parts is { } pp && pp.First.Height > 0)
                 {
                     rows.RemoveAt(i);
                     rows.InsertRange(i, new[] { pp.First, pp.Remainder });
+                    cutHere = true;
+                    if (fl is not null && ri is { } rv) { fl.Idx[pp.First] = rv; fl.Idx[pp.Remainder] = rv; }
                     row = pp.First;
                 }
                 else if (n > 0) break;
+            }
+            // mescla vertical que começou em OUTRA página: o texto sai da última linha e flui
+            // pelas partes; a parte desta página cresce o que faltar (como no fluxo — vmsplit)
+            double grow = 0;
+            if (fl is not null && ri is { } riv)
+            {
+                foreach (var mt in t.Rows[riv].MergeText ?? new List<MergeTextInfo>())
+                {
+                    if (fl.Seen.Contains(mt)) continue;
+                    var se = fl.Emits.FirstOrDefault(e => e.Ri == mt.Start);
+                    if (se is null || ReferenceEquals(se.Ps, ps) || mt.Content is null) continue;
+                    fl.Seen.Add(mt);
+                    foreach (var o in mt.Items) fl.Moved.Add(o);
+                    foreach (var o in mt.Lines) fl.Moved.Add(o);
+                    double off = (mt.Band ?? 0) + (mt.MarT ?? 0);
+                    fl.Merges.Add(new FlowMerge(mt.Start!.Value, riv, mt.Col, mt.Content, off, mt.VAlign));
+                    CellContent? rest = mt.Content;
+                    PageState? segPs = null;
+                    double segTop = 0, segBot = 0, segCut = 0;
+                    foreach (var e in fl.Emits)
+                    {
+                        if (e.Ri < mt.Start!.Value || ReferenceEquals(e.Ps, ps) || rest is null) continue;
+                        if (!ReferenceEquals(e.Ps, segPs))
+                        {
+                            if (segPs is not null) rest = TableEngine.SplitContent(rest, segBot - segTop - (off - segCut))?.B ?? rest;
+                            segPs = e.Ps; segTop = e.Y; segCut = e.Cut;
+                        }
+                        segBot = e.Y + e.H;
+                    }
+                    if (segPs is not null && rest is not null) rest = TableEngine.SplitContent(rest, segBot - segTop - (off - segCut))?.B ?? rest;
+                    var hereE = fl.Emits.FirstOrDefault(e => e.Ri >= mt.Start!.Value && ReferenceEquals(e.Ps, ps));
+                    double here = hereE?.Y ?? y;
+                    double hereCut = hereE is not null ? hereE.Cut : row.Cut ?? 0;
+                    if (rest is not null) grow = Math.Max(grow, off - hereCut + rest.Height + (mt.Band ?? 0) - (y - here + row.Height));
+                }
+                if (fl.Moved.Count > 0) row = TableEngine.DropMoved(row, fl.Moved);
+                fl.Emits.Add(new FloatEmit(riv, ps, y, row.Height + Math.Max(0, grow), outp, outp.Count, yOrigin, refX, row.Cut ?? 0));
             }
             foreach (var it in row.Items) outp.Add(TableEngine.ShiftItem(it, y - yOrigin, refX));
             foreach (var it in row.BorderItems) outp.Add(TableEngine.ShiftItem(it, y - yOrigin, refX));
@@ -2641,8 +2812,10 @@ internal sealed class Engine
                 if (l.Chars is not null) nl.Chars = l.Chars.Select(c => c with { X = c.X + refX }).ToList();
                 ps.Page.Lines.Add(nl);
             }
-            y += row.Height;
+            y += row.Height + (grow > 0.5 ? grow : 0);
             n++;
+            // linha partida: o resto vai inteiro para a página seguinte (oráculo ftwidow)
+            if (cutHere) break;
         }
         if (wrap)
         {
@@ -2654,6 +2827,76 @@ internal sealed class Engine
             });
         }
         if (n < rows.Count) _floatCarry.Add(new FloatCarryItem(t, rows.Skip(n).ToList(), fp, refX));
+        else if (fl is not null) { _floatFlow.Remove(t); FlowFloatMerges(t, fl); }
+    }
+
+    /// <summary>tabela flutuante que parte: partes de linhas emitidas e mesclas verticais que
+    /// atravessam a página (o texto flui pelas partes — oráculo ftvmsplit)</summary>
+    private readonly Dictionary<TableLayout, FloatFlowState> _floatFlow = new(ReferenceEqualityComparer.Instance);
+
+    private sealed class FloatFlowState
+    {
+        public Dictionary<RowLayout, int> Idx = new(ReferenceEqualityComparer.Instance);
+        public HashSet<object> Moved = new(ReferenceEqualityComparer.Instance);
+        public HashSet<object> Seen = new(ReferenceEqualityComparer.Instance);
+        public List<FloatEmit> Emits = new();
+        public List<FlowMerge> Merges = new();
+    }
+
+    private sealed record FloatEmit(int Ri, PageState Ps, double Y, double H, List<PageItem> Out, int At, double YOrigin, double RefX, double Cut);
+
+    private sealed class FloatSeg
+    {
+        public PageState Ps = null!;
+        public double Top, Bottom;
+        public List<PageItem> Out = null!;
+        public int At;
+        public double YOrigin, RefX, Cut;
+    }
+
+    /// <summary>Texto das mesclas verticais de uma tabela flutuante que partiu: cada parte no topo
+    /// da mescla na sua página (1ª parte na posição da coluna entre as células)</summary>
+    private void FlowFloatMerges(TableLayout t, FloatFlowState fl)
+    {
+        var ins = new List<(List<PageItem> Out, int At, List<PageItem> Items)>();
+        foreach (var m in fl.Merges)
+        {
+            var segs = new List<FloatSeg>();
+            foreach (var e in fl.Emits)
+            {
+                if (e.Ri < m.Start || e.Ri > m.End) continue;
+                var lastS = segs.Count > 0 ? segs[^1] : null;
+                if (lastS is not null && ReferenceEquals(lastS.Ps, e.Ps)) lastS.Bottom = e.Y + e.H;
+                else segs.Add(new FloatSeg { Ps = e.Ps, Top = e.Y, Bottom = e.Y + e.H, Out = e.Out, At = e.At, YOrigin = e.YOrigin, RefX = e.RefX, Cut = e.Cut });
+            }
+            int colAt = (m.Start >= 0 && m.Start < t.Rows.Count ? t.Rows[m.Start].MergeAt?.FirstOrDefault(a => a.Col == m.Col)?.At : null) ?? 0;
+            CellContent? c = m.Content;
+            for (int k = 0; k < segs.Count; k++)
+            {
+                var sg = segs[k];
+                if (c is null) continue;
+                CellContent part = c;
+                CellContent? rest = null;
+                if (k < segs.Count - 1)
+                {
+                    var sp = TableEngine.SplitContent(c, sg.Bottom - sg.Top - (m.Off - sg.Cut));
+                    if (sp is { } spv) { part = spv.A; rest = spv.B; }
+                    else { part = new CellContent { Items = new List<PageItem>(), Lines = new List<LaidOutLine>(), Height = 0 }; rest = c; }
+                }
+                double free = Math.Max(0, sg.Bottom - sg.Top - (m.Off - sg.Cut) - part.Height);
+                double dy = sg.Top + m.Off - sg.Cut + (m.VAlign == "center" ? free / 2 : m.VAlign == "bottom" ? free : 0);
+                ins.Add((sg.Out, sg.At + (k == 0 ? colAt : 0), part.Items.Select(it => TableEngine.ShiftItem(it, dy - sg.YOrigin, sg.RefX)).ToList()));
+                foreach (var l in part.Lines)
+                {
+                    var nl = l.ShallowClone();
+                    nl.X = l.X + sg.RefX; nl.Y = l.Y + dy; nl.Baseline = l.Baseline + dy;
+                    if (l.Chars is not null) nl.Chars = l.Chars.Select(ch => ch with { X = ch.X + sg.RefX }).ToList();
+                    sg.Ps.Page.Lines.Add(nl);
+                }
+                c = rest;
+            }
+        }
+        foreach (var n in ins.OrderByDescending(a => a.At).ToList()) n.Out.InsertRange(n.At, n.Items);
     }
 
     /// <summary>w:doNotBreakWrappedTables: tabelas flutuantes não partem (o modo 15 ignora — oráculo ftnobreak)</summary>
@@ -2751,7 +2994,9 @@ internal sealed class Engine
             // flutuante (oráculo ftnegind)
             var col = ColFrame();
             double cR = Math.Abs(frameX - col.X) < 0.5 ? col.W : double.PositiveInfinity, cL = double.IsPositiveInfinity(cR) ? double.NegativeInfinity : 0;
-            free = free.Where(iv => Math.Min(iv.B, cR) - Math.Max(iv.A, cL) >= MinGap).ToList();
+            // (o vão conta até a margem da coluna: o recuo do parágrafo não o estreita — oráculo gapind)
+            (double, double) Ext(double a, double b) => double.IsPositiveInfinity(cR) ? (a, b) : (a <= left + 0.5 ? Math.Min(a, cL) : a, b >= right - 0.5 ? Math.Max(b, cR) : b);
+            free = free.Where(iv => { var (ea, eb) = Ext(iv.A, iv.B); return Math.Min(eb, cR) - Math.Max(ea, cL) >= MinGap; }).ToList();
             (double A, double B)? best = null;
             foreach (var iv in free) if (best is null || iv.B - iv.A > best.Value.B - best.Value.A) best = iv;
             // sem espaço útil ao lado: a linha desce até o fim do 1º objeto que a bloqueia
