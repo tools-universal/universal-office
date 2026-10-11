@@ -47,6 +47,10 @@ public sealed class FaceMetrics
     /// <summary>sublinhado (post table) — frações do em; positivo = abaixo da baseline</summary>
     public double UnderlinePos;
     public double UnderlineThick;
+    /// <summary>ascendente SEM o espaço entre linhas (Ascent = este + gap)</summary>
+    public double BareAscent;
+    /// <summary>OS/2 ySuperscriptYOffset (fração do em), se a fonte o tem</summary>
+    public double? SupOffset;
 }
 
 /// <summary>Face embutida no documento (word/fonts, já desofuscada).</summary>
@@ -65,6 +69,8 @@ public sealed class FontTableInfo
     public string? Panose1;
     public string? Pitch;
     public string? Charset;
+    /// <summary>w:sig (usb0..3, csb0..1, hex)</summary>
+    public Dictionary<string, string>? Sig;
 }
 
 public static class Fonts
@@ -90,6 +96,15 @@ public static class Fonts
         {
             asc = fm.Ascender; desc = -fm.Descender; gap = fm.LineGap;
         }
+        // fonte do Leste Asiático (página de código JIS/GB/Wansung/Big5/Johab no OS/2):
+        // o Word dá à linha ≈1,3 × (ascendente + descendente) — 15% em cima e 15%
+        // embaixo, em unidades inteiras da fonte (MS Gothic: 220+38 / 36+38) — sem o
+        // lineGap (oráculo vmea)
+        if (((fm.CodePageRange1 >> 17) & 0x1f) != 0)
+        {
+            double extra = Js.Round(0.15 * (asc + desc));
+            asc += extra; desc += extra; gap = 0;
+        }
         double lineHeight = (asc + desc + gap) / u;
         m = new FaceMetrics
         {
@@ -98,12 +113,69 @@ public static class Fonts
             LineHeight = lineHeight,
             UnderlinePos = Truthy(fm.UnderlinePosition) ? -fm.UnderlinePosition / u : 0.1,
             UnderlineThick = fm.UnderlineThickness > 0 ? fm.UnderlineThickness / u : 0.05,
+            BareAscent = asc / u,
+            SupOffset = fm.YSuperscriptYOffset is { } so && so > 0 ? so / u : null,
         };
         MetricsCache.AddOrUpdate(font, m);
         return m;
     }
 
     private static bool Truthy(double v) => v != 0 && !double.IsNaN(v);
+
+    /// <summary>
+    /// Sobrescrito e subscrito MEDIDOS no Word (oráculo supraise): elevação e queda em meios
+    /// pontos (um dígito base 36 por corpo, de 6 a 24pt de meio em meio ponto). Só a fonte do
+    /// PRÓPRIO run e o corpo contam — não a fonte do texto ao redor nem a posição na página — e
+    /// nenhum arredondamento das métricas (ascendente, OS/2, TEXTMETRIC do GDI) reproduz os
+    /// valores: fora da tabela, a fórmula abaixo (e 8% do corpo no subscrito). Calibri Light
+    /// mede igual à Calibri.
+    /// </summary>
+    private static readonly Dictionary<string, (string Raise, string Drop)> VertTableData = new(StringComparer.Ordinal)
+    {
+        ["arial"] = ("5555666767878999aabbbcccdcdeeefffgggh", "1111221112221222222322233322333344434"),
+        ["calibri"] = ("5544555677888999aabbabbbcccdddeeefffg", "1221122212222322233333334434444544455"),
+        ["courier new"] = ("35445556567667778899999aababbccccdddd", "1221122222222322333233344434445444555"),
+        ["segoe ui"] = ("4556666778989aaabbccbddceeefffggghhhi", "1121112221222232223333333344334445444"),
+        ["times new roman"] = ("4555666777899999aabbbcccddeffefffgggh", "1112211222222222322233323233333333344"),
+        ["tahoma"] = ("4555666777888999aabbbcccdddeeefffgggh", "0111122211222212222223222333323333444"),
+        ["verdana"] = ("4555666777888999aabbbcccdddeeefffgggh", "0111112211222232222233222333223333444"),
+        ["cambria"] = ("333444455556666777788889999aaaabbbbcc", "1111111112221222222222333323333333344"),
+        ["georgia"] = ("334444555666677778888999aaaabbbbccccd", "1111111122221222222222333322333333333"),
+        ["century gothic"] = ("3344445555666677788889999aaaabbbbcccc", "1111111111122212222222222233333333333"),
+    };
+    private static readonly Dictionary<string, string> VertAlias = new(StringComparer.Ordinal) { ["calibri light"] = "calibri" };
+
+    private static double? VertTable(string family, double bse, int k)
+    {
+        string f = Js.ToLower(family);
+        string key = VertAlias.TryGetValue(f, out var al) ? al : f;
+        string? t = VertTableData.TryGetValue(key, out var tt) ? (k == 0 ? tt.Raise : tt.Drop) : null;
+        double i = (bse - 6) * 2;
+        if (t is null || double.IsNaN(i) || double.IsInfinity(i) || Math.Floor(i) != i || i < 0 || i >= t.Length) return null;
+        char ch = t[(int)i];
+        int v = ch >= '0' && ch <= '9' ? ch - '0' : ch - 'a' + 10;
+        return v / 2.0;
+    }
+
+    /// <summary>Elevação do sobrescrito (pt) da fonte do run: tabela medida, senão a fórmula.</summary>
+    public static double SuperscriptRaiseFor(string family, FaceMetrics m, double bse, double sup) =>
+        VertTable(family, bse, 0) ?? SuperscriptRaisePt(m, bse, sup);
+
+    /// <summary>Queda do subscrito (pt) da fonte do run: tabela medida, senão 8% do corpo.</summary>
+    public static double SubscriptDropPt(string family, double bse) => VertTable(family, bse, 1) ?? bse * 0.08;
+
+    /// <summary>
+    /// Elevação do sobrescrito (pt), medida no Word em 10 fontes de 6 a 24pt (oráculo
+    /// supraise): o topo da ascendente do sobrescrito encosta no da linha base —
+    /// asc(linha)·corpo − asc·corpo_sobrescrito — limitado pelo ySuperscriptYOffset
+    /// da fonte; os dois em meios pontos.
+    /// </summary>
+    public static double SuperscriptRaisePt(FaceMetrics m, double bse, double sup)
+    {
+        static double Half(double v) => Math.Floor(v * 2 + 0.5) / 2;
+        double align = Half(m.Ascent * bse - m.BareAscent * sup);
+        return m.SupOffset is { } so ? Math.Min(Half(so * bse), align) : align;
+    }
 
     /// <summary>em arredondado ao pixel de 600 dpi (o Word mede LARGURAS nesse em).</summary>
     public static double DeviceEmPt(double sizePt) => (Js.Round((sizePt * 600) / 72) * 72) / 600;
@@ -257,10 +329,33 @@ public sealed class FaceResolver
 
     private static readonly char[] AltSep = { ',', ';' };
 
+    /// <summary>Fonte que o Word põe no lugar de uma família ausente com conjunto de caracteres
+    /// do Leste Asiático no fontTable: [sem serifa, serifada] (oráculo altname).</summary>
+    private static readonly Dictionary<string, (string Sans, string Serif)> CjkDefault = new(StringComparer.Ordinal)
+    {
+        ["80"] = ("Yu Gothic", "Yu Gothic"),
+        ["81"] = ("Dotum", "Batang"),
+        ["86"] = ("Microsoft YaHei", "SimSun"),
+        ["88"] = ("Microsoft JhengHei", "PMingLiU"),
+    };
+
     private FontFace Lookup(string fam, bool bold, bool italic)
     {
         var tries = new List<(string Family, bool Bold, bool Italic)> { (fam, bold, italic) };
-        if (Fonts.Aliases.TryGetValue(fam.ToLowerInvariant(), out var alias)) tries.Add((alias, bold, italic));
+        bool hasAlias = Fonts.Aliases.TryGetValue(fam.ToLowerInvariant(), out var alias);
+        _fontTable.TryGetValue(fam, out var info0);
+        // conjunto de caracteres do Leste Asiático no fontTable: a fonte padrão da escrita
+        // (sem serifa × serifada) — antes do mapeamento próprio do Word; o altName só vale
+        // para família que o Word não conhece (oráculo altname, sessão nova do Word)
+        string? cjk = info0?.Charset is { } cs0 && CjkDefault.TryGetValue(cs0.ToUpperInvariant(), out var cjkPair)
+            ? (info0.Family == "roman" ? cjkPair.Serif : cjkPair.Sans) : null;
+        if (!string.IsNullOrEmpty(cjk))
+        {
+            if (!hasAlias && !string.IsNullOrEmpty(info0?.AltName))
+                foreach (var alt in info0!.AltName!.Split(AltSep)) tries.Add((alt.Trim(), bold, italic));
+            tries.Add((cjk, bold, italic));
+        }
+        if (hasAlias) tries.Add((alias!, bold, italic));
         var ps = Fonts.ParsePostScriptName(fam);
         if (ps is { } p)
         {
@@ -268,14 +363,23 @@ public sealed class FaceResolver
             tries.Add((a2, bold || p.Bold, italic || p.Italic));
         }
         _fontTable.TryGetValue(fam, out var fi);
-        var info = fi is null ? null : new FontTableInfo { AltName = fi.AltName, Family = fi.Family, Panose1 = fi.Panose1, Pitch = fi.Pitch, Charset = fi.Charset };
+        var info = fi is null ? null : new FontTableInfo { AltName = fi.AltName, Family = fi.Family, Panose1 = fi.Panose1, Pitch = fi.Pitch, Charset = fi.Charset, Sig = fi.Sig };
         if (!string.IsNullOrEmpty(info?.AltName))
             foreach (var alt in info!.AltName!.Split(AltSep)) tries.Add((alt.Trim(), bold, italic));
         bool symbolic = info?.Charset == "02" || info?.Family == "decorative";
         // família ausente sem altName (oráculo fontsub, independe do padrão do
         // documento e do tema): serifada (roman) ou fora do fontTable → Cambria;
         // swiss/auto/modern → Calibri
-        if (!symbolic) tries.Add((info is null || info.Family == "roman" ? "Cambria" : "Calibri", bold, italic));
+        if (!symbolic)
+        {
+            // assinatura (w:sig) com o bloco árabe: o mapeador de fontes escolhe uma fonte
+            // com árabe — Arial (sem serifa/auto) ou Sakkal Majalla (serifada) (oráculo fontsubmark)
+            double u0 = info?.Sig is not null && info.Sig.TryGetValue("usb0", out var usb0) && Js.Truthy(usb0)
+                ? OfficeNext.Core.JsNumber.ParseInt(usb0, 16) : double.NaN;
+            bool arabic = !double.IsNaN(u0) && ((long)u0 & (1 << 13)) != 0;
+            if (arabic) tries.Add((info!.Family == "roman" ? "Sakkal Majalla" : "Arial", bold, italic));
+            else tries.Add((info is null || info.Family == "roman" ? "Cambria" : "Calibri", bold, italic));
+        }
         _ = _docDefault;
         tries.Add((Fonts.GenericFor(info), bold, italic));
         foreach (var fb in _fallbacks) tries.Add((fb, bold, italic));

@@ -1,0 +1,67 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 78.36,
+"x0": 85.1,
+"x1": 164.16,
+"size": 8.04,
+"text": "AVAGAEOAVISOTAVA."
+},
+{
+"y": 88.46,
+"x0": 85.1,
+"x1": 170.46,
+"size": 9.0,
+"text": "AVAGAEOAVISOTAVA."
+},
+{
+"y": 101.66,
+"x0": 85.1,
+"x1": 200.94,
+"size": 12.0,
+"text": "AVAGAEOAVISOTAVA."
+},
+{
+"y": 117.26,
+"x0": 85.1,
+"x1": 219.21,
+"size": 14.04,
+"text": "AVAGAEOAVISOTAVA."
+},
+{
+"y": 135.26,
+"x0": 85.1,
+"x1": 243.46,
+"size": 15.96,
+"text": "AVAGAEOAVISOTAVA."
+},
+{
+"y": 157.46,
+"x0": 85.1,
+"x1": 280.0,
+"size": 20.04,
+"text": "AVAGAEOAVISOTAVA."
+},
+{
+"y": 187.94,
+"x0": 85.1,
+"x1": 359.41,
+"size": 27.96,
+"text": "AVAGAEOAVISOTAVA."
+},
+{
+"y": 203.3,
+"x0": 85.1,
+"x1": 121.51,
+"size": 9.96,
+"text": "FimHxg"
+}
+],
+"objs": []
+}
+]
+}

@@ -1,0 +1,67 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.24,
+"x0": 85.1,
+"x1": 147.13,
+"size": 11.04,
+"text": "10.TituloHxg"
+},
+{
+"y": 94.7,
+"x0": 85.1,
+"x1": 509.57,
+"size": 11.04,
+"text": "10.1.AAnáliseserviçoáreaexecuçãoprocessoparaqualidadeaprovaçãogestãocontrole"
+},
+{
+"y": 108.14,
+"x0": 85.1,
+"x1": 509.65,
+"size": 11.04,
+"text": "responsávelconformecomregistroúltimotécnicaseráclienteumaquerelatórioprazo"
+},
+{
+"y": 121.58,
+"x0": 85.1,
+"x1": 340.02,
+"size": 11.04,
+"text": "atendimentoinformaçãoasemàperíododadoscontrato."
+},
+{
+"y": 135.02,
+"x0": 85.1,
+"x1": 509.65,
+"size": 11.04,
+"text": "10.2.ARegistroúltimotécnicaseráclienteumaquerelatórioprazoatendimentoinformaçãoas"
+},
+{
+"y": 148.46,
+"x0": 85.1,
+"x1": 509.82,
+"size": 11.04,
+"text": "emàperíododadoscontratoprocedimentoosdeéempresasegurançaoperaçãonãodocumento"
+},
+{
+"y": 161.9,
+"x0": 85.1,
+"x1": 181.43,
+"size": 11.04,
+"text": "oanáliseserviçoárea."
+},
+{
+"y": 175.34,
+"x0": 85.1,
+"x1": 120.13,
+"size": 11.04,
+"text": "FimHxg"
+}
+],
+"objs": []
+}
+]
+}

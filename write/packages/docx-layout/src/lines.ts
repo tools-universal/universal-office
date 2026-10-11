@@ -1,8 +1,14 @@
 import type { TabSpec } from '@universal-office/docx-core';
 import type { Glyph, PreparedPara } from './para.js';
 import type { DocContext } from './context.js';
-import { advanceTwips } from './para.js';
+import { advanceTwips, shadowExtent } from './para.js';
 import { faceMetrics } from './fonts.js';
+
+/** Espaço de largura fixa (en, em, fino, ideográfico…): fora da justificação (oráculo formjust). */
+const FIXED_SPACE = (cp: number): boolean => (cp >= 0x2000 && cp <= 0x200a) || cp === 0x3000;
+
+/** Folga do teste "cabe na linha" (twips): só o ruído de ponto flutuante. */
+const FIT_EPS = 0.001;
 
 /**
  * Quebra de linha do Word (greedy): quebra no início da palavra que não coube;
@@ -42,6 +48,8 @@ export interface Line {
   baseline: number;
   /** termina com quebra manual de página/coluna */
   breakAfter?: 'page' | 'column';
+  /** termina com quebra de linha w:clear: a seguinte desce para baixo dos flutuantes */
+  clear?: boolean;
   /** última linha do parágrafo */
   last: boolean;
 }
@@ -124,6 +132,21 @@ export class LineBreaker {
   }
 
   /** Estado antes de uma linha (para refazê-la noutro quadro). */
+  /** largura da próxima palavra (até o 1º ponto de quebra): o vão ao lado de um
+   *  objeto só recebe texto se ela cabe nele (oráculo wrapsides) */
+  peekWordWidth(): number {
+    const gs = this.p.glyphs;
+    let w = 0;
+    for (let e = this.pos; e < gs.length; e++) {
+      const q = gs[e]!;
+      if (q.kind === 'space' || q.kind === 'tab' || q.kind === 'lb' || q.kind === 'pb' || q.kind === 'cb') break;
+      if (q.kind === 'obj' && q.adv === 0) continue;
+      w += q.kind === 'shy' ? 0 : q.adv;
+      if (q.breakAfter) break;
+    }
+    return w + (this.lineIdx === 0 ? Math.max(0, this.p.firstLine) : 0);
+  }
+
   mark(): { pos: number; lineIdx: number; trailingBreak: boolean } {
     return { pos: this.pos, lineIdx: this.lineIdx, trailingBreak: this.trailingBreak };
   }
@@ -160,7 +183,15 @@ export class LineBreaker {
       x = Math.max(mx, xStart);
       if (mk.suff === 'tab') {
         // tab após o número: próxima parada (o recuo esquerdo conta como parada)
-        const ns = nextTab(x, p.tabs, defaultTab, frame.left > x + 0.5 ? frame.left : undefined, right);
+        // o número pode terminar EM CIMA da parada (fim ≤ parada) — oráculo numrpr (nrs-*)
+        const xe = x - 0.5 - 1e-3;
+        let ns = nextTab(xe, p.tabs, defaultTab, frame.left > xe + 0.5 ? frame.left : undefined, right);
+        // doNotUseIndentAsNumberingTabStop (modos ≤ 14): o recuo deslocado não tem
+        // prioridade — vale a parada mais próxima, padrão ou o recuo (oráculo numtabind)
+        if (this.ctx.fmt.settings.compat['doNotUseIndentAsNumberingTabStop'] && this.ctx.fmt.settings.compatibilityMode < 15) {
+          const plain = nextTab(xe, p.tabs, defaultTab, undefined, right);
+          ns = frame.left > xe + 0.5 && frame.left < plain.pos ? { pos: frame.left } : plain;
+        }
         x = ns.pos;
       } else if (mk.suff === 'space') {
         x += advanceTwips(this.ctx, mk.glyphs[0]?.face ?? p.markFace, 0x20, mk.glyphs[0]?.sizePt ?? p.markStyle.sizePt);
@@ -170,13 +201,22 @@ export class LineBreaker {
     let i = start;
     let lastBreak = -1;          // índice após o qual é possível quebrar
     // justificado: o Word 2013+ comprime os espaços para caber a palavra — medido
-    // no oráculo (justify2..5): cabe se o excesso ≤ mín(25% da soma dos espaços
-    // da linha, 35% da largura da palavra + espaço anterior). Nos modos de
-    // compatibilidade ≤ 14 não há compressão: a palavra tem de caber (justify6)
+    // (regra em jsweep, abaixo). Nos modos de compatibilidade ≤ 14 não há
+    // compressão: a palavra tem de caber (justify6)
     const justify = (p.jc === 'both' || p.jc === 'distribute') && this.ctx.fmt.settings.compatibilityMode >= 15;
     const shrink = this.ctx.opts.justifyShrink;
     let spacesW = 0;             // soma dos espaços da linha (após o último tab)
+    let nSpaces = 0;
+    // espaços ANTES da 1ª palavra do segmento (início da linha / depois de tab) não
+    // comprimem nem expandem (oráculo jlead)
+    let segWord = false;
     let lastGapW = 0;            // largura dos espaços imediatamente antes da palavra
+    let lastGapSp = 0;           // … só os que comprimem/expandem (contados em spacesW)
+    // unidade que desce inteira se não couber (palavra + palavras coladas por NBSP):
+    // x do início, espaços da linha antes dela e o vão que a precede
+    let unitX = xStart, unitSpacesW = 0, unitGapW = 0, unitGapSp = 0;
+    // layout asiático dos modos ≤ 14: quanto os espaços da linha podem comprimir (oráculo fecompress)
+    let feShrinkW = 0;
     let wordOk = false;          // a palavra corrente já foi aceita inteira
     let prevWasGap = true;
     let widthAtBreak = 0;        // largura do conteúdo até o ponto de quebra (sem gaps finais)
@@ -184,6 +224,7 @@ export class LineBreaker {
     // tab alinhado pendente (right/center/decimal): ajusta seu avanço conforme o segmento cresce
     let pendTab: { idx: number; pos: number; tab: TabSpec; segStart: number; startX: number; decimalSeen: boolean; decimalX: number } | null = null;
     let breakAfter: Line['breakAfter'];
+    let clearAfter = false;
     let pastMargin = false;
     let forced = false;
 
@@ -215,6 +256,14 @@ export class LineBreaker {
         forced = true;
         if (g.kind === 'pb') breakAfter = 'page';
         else if (g.kind === 'cb') breakAfter = 'column';
+        else if (g.clear) clearAfter = true;
+        break;
+      }
+      // linha horizontal VML (o:hr): sozinha na linha — quebra antes e depois (oráculo vmlhr)
+      if (g.hr !== undefined) {
+        if (placed.some((q) => q.g.kind !== 'obj' || q.g.adv > 0 || q.g.hr !== undefined)) break;
+        placed.push({ g, x, w: 0 });
+        i++;
         break;
       }
       if (g.kind === 'tab') {
@@ -226,6 +275,14 @@ export class LineBreaker {
           pos = g.ptab.alignment === 'center' ? frame.left + width / 2 : g.ptab.alignment === 'right' ? right : frame.left;
           tab = { val: g.ptab.alignment === 'center' ? 'center' : g.ptab.alignment === 'right' ? 'right' : 'left', pos, ...(g.ptab.leader && g.ptab.leader !== 'none' ? { leader: g.ptab.leader as TabSpec['leader'] } : {}) };
         } else ({ pos, tab } = nextTab(x, p.tabs, defaultTab, hangingStop, right));
+        // Word 2013+ (oráculo tocdots-beyond-c15): parada custom direita/centro/decimal
+        // além de máx(margem, fim da linha) alinha o texto pela DIREITA no fim da
+        // linha (margem − recuo direito); no modo ≤ 14 a posição vale
+        if (!g.ptab && tab && (tab.val === 'right' || tab.val === 'center' || tab.val === 'decimal')
+          && this.ctx.fmt.settings.compatibilityMode >= 15 && pos > Math.max(right, right + p.indRight) + 0.5) {
+          pos = right;
+          tab = { ...tab, val: 'right' };
+        }
         // sem parada até a margem direita: a linha quebra ANTES do tab, que
         // recomeça na linha seguinte (na 1ª parada dela) — oráculo tabs
         // (modo ≤ 14 com paradas custom: o tab segue além da margem pela grade padrão)
@@ -246,7 +303,11 @@ export class LineBreaker {
         lastBreak = i;
         widthAtBreak = contentEnd - xStart;
         spacesW = 0;
+        nSpaces = 0;
+        feShrinkW = 0;
+        segWord = false;
         lastGapW = 0;
+        lastGapSp = 0;
         prevWasGap = true;
         continue;
       }
@@ -264,15 +325,49 @@ export class LineBreaker {
           if (q.breakAfter) { e++; break; }
         }
         const over = x + wordW - right;
-        wordOk = over <= 0.5;
+        // a palavra depois de um espaço que não quebra (colado a NBSP) continua a
+        // unidade anterior: se descer, desce a unidade inteira (oráculo nbspglue)
+        if (i === start || !(gs[i - 1]!.kind === 'space' && !gs[i - 1]!.breakAfter)) {
+          // depois de quebra SEM espaço (hífen, travessão, objeto): a saída alternativa é
+          // quebrar ali mesmo — nenhum vão sai da linha (oráculo hyphcomp)
+          const gap = i > start && gs[i - 1]!.kind === 'space';
+          unitX = x; unitSpacesW = spacesW; unitGapW = gap ? lastGapW : 0; unitGapSp = gap ? lastGapSp : 0;
+        }
+        // cabe sse W ≤ A, com a largura linear exata (oráculo fitwidth: limiar de 1 twip)
+        wordOk = over <= FIT_EPS;
+        // layout asiático: a pontuação final pendura além da margem — nos modos ≤ 14
+        // sempre (oráculo fecompress), no 15 só no justificado (oráculo hang15)
+        const hangW = e > i && gs[e - 1]!.hang && (justify || this.ctx.fmt.settings.compatibilityMode < 15) ? gs[e - 1]!.adv : 0;
+        if (!wordOk && (hangW > 0 || feShrinkW > 0) && i > start) {
+          // modos ≤ 14: os espaços ainda comprimem até o mínimo de cada um
+          wordOk = over - hangW <= feShrinkW + FIT_EPS;
+        }
         if (!wordOk && justify && lastBreak >= start && i > start) {
-          const allowed = Math.min(shrink.ratio * spacesW, shrink.wordRatio * (wordW + lastGapW));
-          wordOk = over <= allowed + 0.5;
+          // o Word compara as duas saídas: comprimir os n espaços para a palavra
+          // caber × levá-la para a linha seguinte e expandir os que sobram.
+          // Comprime se cada espaço perde ≤ 25% E ≤ metade do que ganharia
+          // (oráculo jsweep; folgas = quantização sub-twip medida no Word). As frações
+          // são relativas à LARGURA dos espaços (espaços de tamanhos diferentes na
+          // linha, vão duplo: cada um comprime/expande na proporção — oráculo jmixsp)
+          const slack = x + wordW - unitX + unitGapW - over;
+          const rest = unitSpacesW - unitGapSp;
+          const ov = over - hangW; // a pontuação pendurada não precisa caber (oráculo hang15)
+          wordOk = nSpaces > 0 && ov <= shrink.ratio * spacesW + 0.0175
+            && (nSpaces <= 1 || rest <= 0 || ov / spacesW <= (shrink.expandRatio * slack) / rest + 0.0075 * nSpaces / spacesW);
+        }
+        if (this.ctx.opts.onWordFit && over > -2000) {
+          this.ctx.opts.onWordFit({ over, spacesW, nSpaces, wordW, lastGapW, justify, accepted: wordOk, lineStart: start, wordStart: i, wordEnd: e,
+            sizePt: g.sizePt ?? 0, family: g.face?.family ?? '', compat: this.ctx.fmt.settings.compatibilityMode,
+            lineText: gs.slice(start, i).map((q) => q.ch ?? (q.kind === 'space' || q.kind === 'tab' ? ' ' : '')).join(''),
+            wordText: gs.slice(i, e).map((q) => q.ch ?? '').join('') });
         }
       }
       // estouro: quebra no último ponto possível
       const projected = isGap ? x : x + g.adv;
-      if (!isGap && g.kind !== 'shy' && !wordOk && !pastMargin && projected > right + 0.5 && i > start) {
+      // âncoras de flutuantes (objeto sem largura na linha) não contam como conteúdo: o
+      // que vem depois delas e não cabe fica na linha assim mesmo (oráculo floatwide)
+      if (!isGap && g.kind !== 'shy' && !wordOk && !pastMargin && projected > right + FIT_EPS && i > start
+        && placed.some((q) => q.g.kind !== 'obj' || q.g.adv > 0)) {
         if (lastBreak >= start) {
           // volta ao ponto de quebra
           const keep = lastBreak + 1;
@@ -303,10 +398,11 @@ export class LineBreaker {
       }
       placed.push({ g, x, w: g.adv });
       if (isGap) {
-        if (!prevWasGap) lastGapW = 0;
+        if (!prevWasGap) { lastGapW = 0; lastGapSp = 0; }
         lastGapW += g.adv;
-        spacesW += g.adv;
-      }
+        // espaços de largura fixa (en/em/fino… U+2000–U+200A) não comprimem nem expandem
+        if (segWord && !FIXED_SPACE(g.cp)) { spacesW += g.adv; nSpaces++; lastGapSp += g.adv; feShrinkW += g.feShrink ?? 0; }
+      } else segWord = true;
       prevWasGap = isGap || !!g.breakAfter;
       if (pendTab?.tab.val === 'decimal' && !pendTab.decimalSeen && (g.ch === ',' || g.ch === '.')) {
         pendTab.decimalSeen = true;
@@ -329,12 +425,19 @@ export class LineBreaker {
     }
     this.pos = Math.min(gs.length, i);
     if (this.pos === start && start < gs.length) this.pos = start + 1; // garante progresso
-    this.trailingBreak = forced && this.pos >= gs.length && placed[placed.length - 1]?.g.kind === 'lb';
+    // quebra de linha ou de COLUNA no fim do parágrafo: a marca vai para uma linha própria
+    // (na coluna/página seguinte — oráculo colbreak); a de página não (pbfit)
+    // (de página também, com splitPgBreakAndParaMark nos modos ≤ 14 — oráculo pbmark)
+    const lk = placed[placed.length - 1]?.g.kind;
+    const splitPg = this.ctx.fmt.settings.compatibilityMode < 15 && !!this.ctx.fmt.settings.compat['splitPgBreakAndParaMark'];
+    this.trailingBreak = forced && this.pos >= gs.length && (lk === 'lb' || lk === 'cb' || (lk === 'pb' && splitPg));
     const last = this.pos >= gs.length && !this.trailingBreak;
     this.lineIdx++;
 
     // métricas verticais
     let asc = 0, desc = 0, tAsc = 0, tDesc = 0;
+    /** fonte dos runs de objetos em linha (altura de texto de linha só com objetos) */
+    let oAsc = 0, oDesc = 0;
     const content = placed.filter((pg) => pg.g.kind !== 'obj' || pg.g.adv > 0);
     for (const pg of content) {
       if (pg.g.kind === 'pb' || pg.g.kind === 'cb') continue;
@@ -343,41 +446,82 @@ export class LineBreaker {
       if (pg.g.ch === ' ' || pg.g.kind === 'tab') continue;
       asc = Math.max(asc, pg.g.asc);
       desc = Math.max(desc, pg.g.desc);
-      if (pg.g.kind !== 'obj' && pg.g.kind !== 'box') { tAsc = Math.max(tAsc, pg.g.asc); tDesc = Math.max(tDesc, pg.g.desc); }
-
+      // (a caixa de seleção conta como texto — oráculo cbline)
+      if (pg.g.kind !== 'obj') { tAsc = Math.max(tAsc, pg.g.nAsc ?? pg.g.asc); tDesc = Math.max(tDesc, pg.g.nDesc ?? pg.g.desc); }
+      else if (pg.g.kind === 'obj') {
+        const om = faceMetrics(pg.g.face.font);
+        oAsc = Math.max(oAsc, om.ascent * pg.g.sizePt * 20);
+        oDesc = Math.max(oDesc, om.descent * pg.g.sizePt * 20);
+        // objeto SUBLINHADO: o Word desenha o sublinhado sob ele e a descendente da
+        // fonte do run entra na linha (oráculo imgul)
+        if (pg.g.style.underline && pg.g.style.underline.val !== 'none') desc = Math.max(desc, om.descent * pg.g.sizePt * 20);
+      }
+    }
+    const emptyLine = asc === 0 && desc === 0;
+    if (emptyLine) {
+      // linha vazia: altura pela marca de parágrafo (deslocada por w:position — oráculo position)
+      const mm = faceMetrics(p.markFace.font);
+      // marca em sobrescrito/subscrito: a linha tem a altura do corpo NORMAL, como o
+      // texto (oráculo supmark)
+      const va = p.markStyle.rpr.vertAlign;
+      const sz = (va === 'superscript' || va === 'subscript' ? (p.markStyle.rpr.sz ?? 20) / 2 : p.markStyle.sizePt) * 20;
+      const sh = va ? 0 : p.markStyle.shift;
+      // (a sombra w14:shadow da marca também conta — oráculo shadowh)
+      const [ea, ed] = shadowExtent(p.markStyle);
+      asc = Math.max(0, mm.ascent * sz + ea + sh);
+      desc = Math.max(0, mm.descent * sz + ed - sh);
     }
     if (tAsc + tDesc === 0) {
-      // só objetos: a altura de texto (p/ entrelinha múltipla) vem da marca de parágrafo
+      // só objetos: a altura de texto (p/ entrelinha múltipla) vem da fonte do RUN do
+      // objeto (oráculo imgline); linha vazia: a caixa da marca JÁ deslocada
+      // (pos-empty15); senão a marca de parágrafo
       const mm = faceMetrics(p.markFace.font);
-      tAsc = mm.ascent * p.markStyle.sizePt * 20;
-      tDesc = mm.descent * p.markStyle.sizePt * 20;
-    }
-    if (asc === 0 && desc === 0) {
-      // linha vazia: altura pela marca de parágrafo
-      const mm = faceMetrics(p.markFace.font);
-      const sz = p.markStyle.sizePt * 20;
-      asc = mm.ascent * sz;
-      desc = mm.descent * sz;
+      tAsc = oAsc || (emptyLine ? asc : mm.ascent * p.markStyle.sizePt * 20);
+      tDesc = oAsc ? oDesc : emptyLine ? desc : mm.descent * p.markStyle.sizePt * 20;
     }
     // marcador de numeração: só a ASCENDENTE entra na linha (a descendente e a
     // entrelinha múltipla seguem o texto) — oráculo markers
     if (markerPlaced) for (const pg of markerPlaced) asc = Math.max(asc, pg.g.asc);
     const box = lineBox(asc, desc, p, tAsc + tDesc > 0 ? tAsc + tDesc : undefined, this.grid);
+    // linha do traço horizontal: a da marca ou o traço + 6 pt, a maior (oráculo vmlhr)
+    const hrH = placed.reduce((m, pg) => Math.max(m, pg.g.hr ?? -1), -1);
+    if (hrH >= 0 && hrH + 120 > box.height) { box.baseline += hrH + 120 - box.height; box.height = hrH + 120; }
 
     // alinhamento/justificação
     const avail = right - xStart;
     let dx = 0;
     const jc = p.jc;
-    if (jc === 'center') dx = (avail - width) / 2;
-    else if (jc === 'right') dx = avail - width;
-    else if ((jc === 'both' || jc === 'distribute') && (!last || jc === 'distribute') && breakAfter === undefined) {
+    // layout asiático dos modos ≤ 14 (oráculo fecompress): a pontuação pendurada fica
+    // além da margem e não conta no alinhamento; sem justificar, os espaços comprimem
+    // o que passar da margem
+    let lastC: PlacedGlyph | undefined;
+    for (const pg of placed) if (pg.g.kind !== 'space' && pg.g.kind !== 'lb' && pg.g.kind !== 'pb' && pg.g.kind !== 'cb') lastC = pg;
+    const alignW = lastC?.g.hang && width > avail + FIT_EPS ? width - lastC.w : width;
+    const justified = (jc === 'both' || jc === 'distribute') && (!last || jc === 'distribute') && breakAfter === undefined;
+    if (!justified && alignW > avail + FIT_EPS) {
+      const sh = placed.filter((pg) => pg.g.feShrink && pg.x < (lastC?.x ?? 0));
+      const total = sh.reduce((a, pg) => a + pg.g.feShrink!, 0);
+      if (total > 0) {
+        const f = Math.min(1, (alignW - avail) / total);
+        let acc = 0;
+        for (const pg of placed) {
+          pg.x -= acc;
+          if (pg.g.feShrink && sh.includes(pg)) { pg.w -= pg.g.feShrink * f; acc += pg.g.feShrink * f; }
+        }
+      }
+    }
+    if (jc === 'center') dx = (avail - alignW) / 2;
+    else if (jc === 'right') dx = avail - alignW;
+    else if (justified) {
       // espaços internos (não finais, depois do último tab)
       let lastTab = -1;
       placed.forEach((pg, k) => { if (pg.g.kind === 'tab') lastTab = k; });
       let lastContent = -1;
       placed.forEach((pg, k) => { if (pg.g.kind !== 'space' && pg.g.kind !== 'lb') lastContent = k; });
-      const spaces = placed.filter((pg, k) => k > lastTab && k < lastContent && pg.g.kind === 'space');
-      const extra = avail - width;
+      let firstContent = placed.length;
+      for (let k = lastTab + 1; k < placed.length; k++) if (placed[k]!.g.kind !== 'space') { firstContent = k; break; }
+      const spaces = placed.filter((pg, k) => k > firstContent && k < lastContent && pg.g.kind === 'space' && !FIXED_SPACE(pg.g.cp));
+      const extra = avail - alignW;
       if (spaces.length && (extra > 0 || extra < 0)) {
         const each = extra / spaces.length;
         let acc = 0;
@@ -398,6 +542,7 @@ export class LineBreaker {
       width, xStart: xStart + Math.max(0, dx),
       asc, desc, height: box.height, baseline: box.baseline,
       ...(breakAfter ? { breakAfter } : {}),
+      ...(clearAfter ? { clear: true } : {}),
       last,
     };
   }

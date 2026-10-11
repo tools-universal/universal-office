@@ -339,6 +339,20 @@ internal static class WriterUtil
         return OoxmlProps.Hex((int)(((x & 0xff) << 16) | (x & 0xff00) | ((x >> 16) & 0xff)));
     }
 
+    /// <summary>
+    /// Fundo da página: forma de fundo do desenho principal com preenchimento sólido
+    /// (fillType 0x180 = 0, fFilled em 0x1BF) → w:background com a cor (0x181).
+    /// </summary>
+    public static string BackgroundXml(OAShape? shape)
+    {
+        if (shape is null) return "";
+        if ((shape.Pv(0x180) ?? 0) != 0 || OaFlag(shape.Pv(0x1bf), 4) == false) return "";
+        long? c = shape.Pv(0x181);
+        if (c is null || (unchecked((uint)c.Value) >> 24) != 0) return "";
+        string color = OaColor(c, 0xffffff);
+        return color == "FFFFFF" ? "" : Xml.El("w:background", new Attrs { { "w:color", color } });
+    }
+
     /// <summary>Linha horizontal em linha (o:hr) — o Word grava VML.</summary>
     public static string HrVml(PicInfo pic)
     {
@@ -382,8 +396,13 @@ internal static class WriterUtil
         return c.T != 0 || c.B != 0 || c.L != 0 || c.R != 0 ? c : null;
     }
 
-    public static string PicGraphic(int id, string name, string rid, double cx, double cy, Crop? crop)
+    public static string PicGraphic(int id, string name, string rid, double cx, double cy, Crop? crop, PicFx? fx = null)
     {
+        // ajustes de cor da imagem (marca-d'água "desbotada" etc.) dentro do a:blip
+        string blipKids = fx is null ? "" : (fx.Gray ? "<a:grayscl/>" : "") + (fx.BiLevel ? "<a:biLevel thresh=\"50000\"/>" : "")
+            + ((fx.Bright is { } b0 && b0 != 0) || (fx.Contrast is { } c0 && c0 != 0)
+                ? Xml.El("a:lum", new Attrs { { "bright", fx.Bright is { } b && b != 0 ? b : null }, { "contrast", fx.Contrast is { } c && c != 0 ? c : null } })
+                : "");
         string src = "";
         if (crop is not null)
         {
@@ -396,7 +415,7 @@ internal static class WriterUtil
         }
         return "<a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/picture\">" +
             $"<pic:pic><pic:nvPicPr>{Xml.El("pic:cNvPr", new Attrs { { "id", 0 }, { "name", name } })}<pic:cNvPicPr/></pic:nvPicPr>" +
-            $"<pic:blipFill>{Xml.El("a:blip", new Attrs { { "r:embed", rid } })}{src}<a:stretch><a:fillRect/></a:stretch></pic:blipFill>" +
+            $"<pic:blipFill>{Xml.El("a:blip", new Attrs { { "r:embed", rid } }, blipKids)}{src}<a:stretch><a:fillRect/></a:stretch></pic:blipFill>" +
             $"<pic:spPr><a:xfrm><a:off x=\"0\" y=\"0\"/><a:ext cx=\"{JsNumber.ToString(cx)}\" cy=\"{JsNumber.ToString(cy)}\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>" +
             "</a:graphicData></a:graphic>";
     }

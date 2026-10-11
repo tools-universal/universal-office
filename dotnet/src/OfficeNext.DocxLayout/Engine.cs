@@ -14,27 +14,102 @@ namespace OfficeNext.DocxLayout;
 /// </summary>
 public static class LayoutEngine
 {
-    public static LayoutResult LayoutDocument(FullDocument full, IFontProvider provider, LayoutOptions? opts = null)
+    public static LayoutResult LayoutDocument(FullDocument full0, IFontProvider provider, LayoutOptions? opts = null)
     {
-        var fmt = full.Formatting ?? DocContext.EmptyFormatting();
+        var fmt = full0.Formatting ?? DocContext.EmptyFormatting();
+        // molduras (w:framePr) saem do fluxo: viram caixas ancoradas no parágrafo seguinte
+        var lifted = Frames.LiftFrames(full0.Blocks, new HashSet<int>(full0.Sections.Select(s => s.BlockEnd)));
+        FullDocument full = full0;
+        if (!ReferenceEquals(lifted, full0.Blocks)) { full = full0.ShallowClone(); full.Blocks = lifted; }
         // NUMPAGES e PAGEREF dependem do próprio layout: a 1ª passada estima, as
         // seguintes usam o total de páginas e as páginas dos indicadores da anterior
         double total = 1;
         var marks = new Dictionary<string, string>(StringComparer.Ordinal);
         LayoutResult? result = null;
-        for (int pass = 0; pass < 4; pass++)
+        // flutuantes de posição vertical absoluta que cobrem texto JÁ diagramado da
+        // página (ancorados depois dele): a passada seguinte os coloca no início da
+        // página e o texto de antes os contorna (oráculo latefloat)
+        var late = new Dictionary<int, List<Run>>();
+        // tabelas flutuantes (âncora no texto) que cobrem linhas JÁ diagramadas antes
+        // delas: na passada seguinte entram no início da página, na posição achada, e o
+        // texto de antes as contorna (oráculo ftable2, ft2-form*)
+        var lateTables = new Dictionary<int, LateTable>();
+        Engine? last = null;
+        for (int pass = 0; pass < 5; pass++)
         {
             var ctx = new DocContext(fmt, provider, opts);
-            var eng = new Engine(ctx, full, total, marks);
+            var eng = new Engine(ctx, full, total, marks, late, lateTables);
             result = eng.Run();
+            last = eng;
             var newMarks = eng.UsedPageRef ? eng.BookmarkPages() : marks;
+            var newLate = eng.LateFound.Count > 0 ? MergeLate(late, eng.LateFound) : late;
+            var newLateTables = lateTables;
+            if (eng.LateTablesFound.Count > 0)
+            {
+                newLateTables = new Dictionary<int, LateTable>(lateTables);
+                foreach (var (k, v) in eng.LateTablesFound) newLateTables[k] = v;
+            }
             bool stable = (!eng.UsedNumPages || result.Pages.Count == total)
-                && (!eng.UsedPageRef || SameMap(newMarks, marks));
+                && (!eng.UsedPageRef || SameMap(newMarks, marks)) && ReferenceEquals(newLate, late) && ReferenceEquals(newLateTables, lateTables);
             if (stable) break;
             total = result.Pages.Count;
             marks = newMarks;
+            lateTables = newLateTables;
+            late = newLate;
+        }
+        // seções de várias colunas encerradas por quebra CONTÍNUA: o Word equilibra as
+        // colunas da última página da seção — a menor altura de coluna com que o conteúdo,
+        // enchido em sequência, ainda cabe nas colunas da página (oráculo colbal)
+        var balance = new Dictionary<int, BalanceSpec>();
+        Engine RunWith(Dictionary<int, BalanceSpec> bal)
+        {
+            var eng = new Engine(new DocContext(fmt, provider, opts), full, total, marks, late, lateTables, bal);
+            result = eng.Run();
+            return eng;
+        }
+        var done = new HashSet<int>();
+        for (int guard = 0; guard < 20 && last is not null; guard++)
+        {
+            var next = last.BalanceFound.Where(kv => !done.Contains(kv.Key) && kv.Value.N > 1).Select(kv => (KeyValuePair<int, BalanceInfo>?)kv).FirstOrDefault();
+            if (next is null) break;
+            int s = next.Value.Key;
+            var info = next.Value.Value;
+            done.Add(s);
+            double lo = Math.Max(0, Math.Floor(info.Sum / info.N) - 1), hi = Math.Ceiling(info.Bottom - info.ColTop);
+            if (hi <= lo + 1) continue;
+            bool Fits(double h)
+            {
+                var bal = new Dictionary<int, BalanceSpec>(balance) { [s] = new BalanceSpec(info.Page, h) };
+                return RunWith(bal).BalanceFound.TryGetValue(s, out var bi) && bi.Page == info.Page;
+            }
+            if (!Fits(hi)) continue;
+            while (hi - lo > 1)
+            {
+                double mid = Math.Floor((lo + hi) / 2);
+                if (Fits(mid)) hi = mid; else lo = mid;
+            }
+            balance[s] = new BalanceSpec(info.Page, hi);
+            last = RunWith(balance);
         }
         return result!;
+    }
+
+    /// <summary>Junta os flutuantes tardios achados numa passada (o mesmo objeto não entra duas vezes).</summary>
+    private static Dictionary<int, List<Run>> MergeLate(Dictionary<int, List<Run>> a, Dictionary<int, List<Run>> b)
+    {
+        var seen = new HashSet<Run>(a.Values.SelectMany(v => v), ReferenceEqualityComparer.Instance);
+        Dictionary<int, List<Run>>? outp = null;
+        foreach (var (pg, runs) in b)
+        {
+            foreach (var r in runs)
+            {
+                if (!seen.Add(r)) continue;
+                outp ??= a.ToDictionary(kv => kv.Key, kv => new List<Run>(kv.Value));
+                if (!outp.TryGetValue(pg, out var list)) outp[pg] = list = new List<Run>();
+                list.Add(r);
+            }
+        }
+        return outp ?? a;
     }
 
     private static bool SameMap(Dictionary<string, string> a, Dictionary<string, string> b)
@@ -44,6 +119,15 @@ public static class LayoutEngine
         return true;
     }
 }
+
+/// <summary>Tabela flutuante tardia: página (índice) e y do fluxo de referência da âncora.</summary>
+internal sealed record LateTable(int Page, double FlowY);
+
+/// <summary>Coluna equilibrada: página (índice) da última página da seção e altura das colunas.</summary>
+internal sealed record BalanceSpec(int Page, double H);
+
+/// <summary>Conteúdo da seção na sua última página (passada sem equilíbrio): soma das alturas usadas.</summary>
+internal sealed record BalanceInfo(int Page, double ColTop, double Bottom, double Sum, int N);
 
 internal sealed class SectGeom
 {
@@ -69,6 +153,8 @@ internal sealed class FloatBox
 {
     public double X, Y, W, H;
     public string Wrap = "none";
+    /// <summary>wrapText: lado(s) por onde o texto passa (bothSides | left | right | largest)</summary>
+    public string? Side;
     public double DistL, DistR, DistT, DistB;
 }
 
@@ -94,6 +180,8 @@ internal sealed class PageState
     public List<ZObj> HfBehind = new();
     public List<ZObj> HfFront = new();
     public List<FloatBox> Floats = new();
+    /// <summary>flutuantes do cabeçalho/rodapé nos modos ≤ 14: não afastam texto, só tabelas (oráculo tblfloat)</summary>
+    public List<FloatBox>? TblFloats;
     /// <summary>índice da página dentro da seção (0 = primeira)</summary>
     public int SectPage;
     /// <summary>notas de rodapé desta página (ids, na ordem) e o conteúdo já diagramado</summary>
@@ -124,6 +212,10 @@ internal sealed class PrevPara
     public bool Contextual;
     public PBdr? PBdr;
     public string? PBdrKey;
+    /// <summary>lista (abstractNum) do parágrafo numerado/com marcador</summary>
+    public string? List;
+
+    public PrevPara ShallowClone() => (PrevPara)MemberwiseClone();
 }
 
 internal sealed class Engine
@@ -135,6 +227,11 @@ internal sealed class Engine
     /// <summary>topo da área de colunas corrente (muda numa seção contínua)</summary>
     private double _colTop;
     private bool _atTop = true;
+    /// <summary>topo de página que MANTÉM o espaço antes do próximo parágrafo (1º da seção
+    /// nova, parágrafo que começa com quebra de página, quebra antes no modo ≤ 14):
+    /// o "depois" do último parágrafo da página anterior, que o Word desconta —
+    /// espaço = colapso(depois, antes) − depois (oráculo tocref-sectgap). null = suprime</summary>
+    private double? _topGapPrevAfter;
     private PrevPara? _prev;
     private bool _firstInDoc = true;
     public bool UsedNumPages;
@@ -164,12 +261,44 @@ internal sealed class Engine
     /// <summary>página exibida de cada indicador (passada anterior) — PAGEREF</summary>
     private readonly Dictionary<string, string> _marksGuess;
 
-    public Engine(DocContext ctx, FullDocument full, double totalPagesGuess, Dictionary<string, string>? marksGuess = null)
+    /// <summary>flutuantes tardios (passada anterior): índice da página → objetos</summary>
+    private readonly Dictionary<int, List<Run>> _lateFloats;
+    /// <summary>flutuantes tardios achados nesta passada</summary>
+    public readonly Dictionary<int, List<Run>> LateFound = new();
+    /// <summary>tabelas flutuantes tardias (passada anterior): bloco → página e y de referência</summary>
+    private readonly Dictionary<int, LateTable> _lateTables;
+    public readonly Dictionary<int, LateTable> LateTablesFound = new();
+    /// <summary>tabelas flutuantes do corpo já colocadas (blocos)</summary>
+    private readonly HashSet<int> _placedTables = new();
+
+    public Engine(DocContext ctx, FullDocument full, double totalPagesGuess, Dictionary<string, string>? marksGuess = null, Dictionary<int, List<Run>>? lateFloats = null,
+        Dictionary<int, LateTable>? lateTables = null,
+        /* colunas equilibradas: seção → página e altura (busca em LayoutDocument) */
+        Dictionary<int, BalanceSpec>? balance = null)
     {
         _ctx = ctx;
         _full = full;
         _totalPagesGuess = totalPagesGuess;
         _marksGuess = marksGuess ?? new Dictionary<string, string>(StringComparer.Ordinal);
+        _lateFloats = lateFloats ?? new Dictionary<int, List<Run>>();
+        _lateTables = lateTables ?? new Dictionary<int, LateTable>();
+        _balance = balance ?? new Dictionary<int, BalanceSpec>();
+    }
+
+    private readonly Dictionary<int, BalanceSpec> _balance;
+    /// <summary>seções de várias colunas seguidas de seção contínua: o que ocupam na última página</summary>
+    public Dictionary<int, BalanceInfo> BalanceFound = new();
+    /// <summary>alturas usadas pelas colunas já encerradas na porção da seção nesta página</summary>
+    private List<double> _colUsed = new();
+    /// <summary>fundo do corpo antes do limite de coluna equilibrada (restaurado na seção seguinte)</summary>
+    private double? _balanceSaved;
+
+    /// <summary>Limita a altura das colunas na última página de uma seção equilibrada.</summary>
+    private void ApplyBalance()
+    {
+        if (!_balance.TryGetValue(_cur.Geom.Index, out var spec) || spec.Page != _pages.Count - 1) return;
+        _balanceSaved = _cur.BodyBottom;
+        _cur.BodyBottom = Math.Min(_cur.BodyBottom, _colTop + spec.H);
     }
 
 
@@ -178,9 +307,13 @@ internal sealed class Engine
     private static readonly Regex SeqC = new(@"\\c(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex SeqH = new(@"\\h(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex SeqFmt = new(@"\\\*\s*([A-Za-z0-9_]+)", RegexOptions.CultureInvariant);
-    private static readonly Regex RefSwitch = new(@"\\[nrwp](?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex RefSwitchP = new(@"\\p(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex RefSwitchNum = new(@"\\[nrw](?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
     private static readonly Regex RefWs = new("[\t\n\f\u000B]", RegexOptions.CultureInvariant);
     private static readonly Regex BRef = new(@"^b([0-9]+)", RegexOptions.CultureInvariant);
+    private static readonly Regex BOnlyRe = new(@"^b[0-9]+\z", RegexOptions.CultureInvariant);
+    /// <summary>linhas que não são do corpo (cabeçalho, rodapé, caixa de texto)</summary>
+    private static readonly Regex LateSkipRe = new(@"^(hdr|ftr|txbx)", RegexOptions.CultureInvariant);
 
     private static string[] SplitWs(string s) => WsRe.Split(s.Trim());
 
@@ -215,7 +348,15 @@ internal sealed class Engine
     {
         var tok = SplitWs(instr);
         string? bm = tok.Length > 1 ? tok[1] : null;
-        if (string.IsNullOrEmpty(bm) || RefSwitch.IsMatch(instr)) return null; // número de parágrafo / posição: mantém o cache
+        if (string.IsNullOrEmpty(bm) || RefSwitchP.IsMatch(instr)) return null; // posição (acima/abaixo): mantém o cache
+        if (RefSwitchNum.IsMatch(instr))
+        {
+            // número do parágrafo: o Word recalcula na exportação; sem os pontos finais,
+            // e "0" se o parágrafo do indicador não é numerado (oráculo numbering3, ref-num)
+            if (!_full.Bookmarks.TryGetValue(bm, out var bi) || bi < 0 || bi >= _full.Blocks.Count || _full.Blocks[bi] is not ParagraphBlock) return null;
+            string? t = ListNumberOf(bi);
+            return Js.Truthy(t) ? t!.TrimEnd('.') : "0";
+        }
         if (!_full.Bookmarks.TryGetValue(bm, out var b)) return null;
         var blk = b >= 0 && b < _full.Blocks.Count ? _full.Blocks[b] : null;
         if (blk is not ParagraphBlock pb) return null;
@@ -224,11 +365,50 @@ internal sealed class Engine
         return text.Length > 0 ? text : null;
     }
 
+    /// <summary>texto do número de lista de cada parágrafo do corpo (bloco → texto), na ordem do documento</summary>
+    private Dictionary<int, string>? _listTexts;
+
+    private string? ListNumberOf(int block)
+    {
+        if (_listTexts is null)
+        {
+            var outp = new Dictionary<int, string>();
+            var saved = _ctx.Numbering;
+            var st = new NumberingState(_ctx.Fmt.Numbering, _ctx.Fmt.Styles.Styles, _ctx.Opts.Lang);
+            _ctx.Numbering = st;
+            string Num(Paragraph para)
+            {
+                var n = Para.ResolvePPr(_ctx, para, new ParaEnv()).Ppr.NumPr;
+                return (n?.NumId is { } nid && nid != 0 && !double.IsNaN(nid) ? st.Next(nid, n.Ilvl ?? 0)?.Text : null) ?? "";
+            }
+            void Visit(Block b)
+            {
+                if (b is ParagraphBlock pb) { Num(pb.Paragraph); return; }
+                foreach (var row in ((TableBlock)b).Rows)
+                    foreach (var cell in row.Cells)
+                        foreach (var c in CellBlocks(cell)) Visit(c);
+            }
+            try
+            {
+                for (int i = 0; i < _full.Blocks.Count; i++)
+                {
+                    if (_full.Blocks[i] is ParagraphBlock pb) outp[i] = Num(pb.Paragraph);
+                    else Visit(_full.Blocks[i]);
+                }
+            }
+            finally { _ctx.Numbering = saved; }
+            _listTexts = outp;
+        }
+        return _listTexts.TryGetValue(block, out var t) ? t : null;
+    }
+
     /// <summary>Página exibida (já formatada) do parágrafo de cada indicador.</summary>
     public Dictionary<string, string> BookmarkPages()
     {
         var outp = new Dictionary<string, string>(StringComparer.Ordinal);
         var firstPage = new Dictionary<double, LayoutPage>();
+        // linhas de cada parágrafo do corpo: fim (offset) e página, na ordem
+        var paraLines = new Dictionary<double, List<(double End, LayoutPage Page)>>();
         foreach (var ps in _pages)
         {
             foreach (var l in ps.Page.Lines)
@@ -238,6 +418,11 @@ internal sealed class Engine
                 {
                     double k = Js.ParseInt(m.Groups[1].Value);
                     if (!firstPage.ContainsKey(k)) firstPage[k] = ps.Page;
+                    if (l.Ref == "b" + m.Groups[1].Value)
+                    {
+                        if (!paraLines.TryGetValue(k, out var arr)) paraLines[k] = arr = new();
+                        arr.Add((l.End, ps.Page));
+                    }
                 }
             }
         }
@@ -246,6 +431,13 @@ internal sealed class Engine
             int block = _full.Bookmarks[name];
             // indicador em bloco sem linha (vazio): a próxima linha diagramada
             LayoutPage? pg = null;
+            // dentro do parágrafo: a linha que contém a posição do indicador (depois de
+            // uma quebra de página no meio do parágrafo, a página seguinte — oráculo tocref-pbstart)
+            if (_full.BookmarkOffsets is not null && _full.BookmarkOffsets.TryGetValue(name, out int off)
+                && paraLines.TryGetValue(block, out var lines))
+            {
+                foreach (var (end, page) in lines) if (end > off) { pg = page; break; }
+            }
             for (double b = block; b < block + 50 && pg is null; b++) firstPage.TryGetValue(b, out pg);
             if (pg is null) continue;
             var ps = _pages.First(x => ReferenceEquals(x.Page, pg));
@@ -268,38 +460,106 @@ internal sealed class Engine
                 BlockStart = 0, BlockEnd = full.Blocks.Count - 1,
             }, 0));
         }
+        // PDF do Word aberto e exportado direto: os parágrafos formatados na abertura
+        // guardam o número; depois deles, as listas com startOverride recomeçam
+        // (oráculo numbering3, pg2-*). Na abertura a 1ª página vai até o bloco que
+        // transborda para a 2ª — e sem descontar o cabeçalho que empurra o corpo:
+        // cabe mais essa altura (pg2-header).
+        int numReopen = 0; // 0: 1ª página; 1: na 2ª, até o limite da abertura; 2: esquecer; 3: feito
+        double openLimit = 0;
+        void ToPage2()
+        {
+            var p1 = _pages[0];
+            var p2 = _pages[1];
+            openLimit = p2.BodyTop + Math.Max(0, p1.BodyTop - p1.Geom.MarT);
+            numReopen = 1;
+        }
+        void PastOpen()
+        {
+            if (numReopen == 1 && (!ReferenceEquals(_cur, _pages[1]) || _y >= openLimit)) numReopen = 2;
+        }
         foreach (var g in _geoms)
         {
-            if (g.Index == 0 || g.Type != "continuous") NewPage(g, g.Type);
+            if (g.Index == 0 || g.Type != "continuous")
+            {
+                double lastAfter = _prev is not null ? _prev.After : 0;
+                NewPage(g, g.Type);
+                // seção nova (próxima página/par/ímpar): o 1º parágrafo mantém o espaço
+                // antes, descontado o "depois" do último da seção anterior (tocref-sectgap)
+                if (g.Index > 0) _topGapPrevAfter = lastAfter;
+            }
             else ContinuousSection(g);
             for (int b = g.Blocks.Start; b <= g.Blocks.End && b < full.Blocks.Count; b++)
             {
                 var block = full.Blocks[b];
+                // quebra de seção: a 2ª página começa neste bloco
+                if (numReopen == 0 && _pages.Count >= 2) { ToPage2(); PastOpen(); }
+                if (numReopen == 2) { _ctx.Numbering.ForgetFirstUse(); numReopen = 3; }
                 if (block is ParagraphBlock pb) PlaceParagraph(pb.Paragraph, $"b{b}", b, g);
                 else PlaceTable((TableBlock)block, $"b{b}", b);
+                if (numReopen == 0 && _pages.Count >= 2) ToPage2();
+                PastOpen();
             }
         }
         // tabela flutuante dividida no fim do documento: as linhas restantes ganham páginas
         for (int k = 0; k < 100 && _floatCarry.Count > 0 && _cur is not null; k++) NewPage(_cur.Geom);
         if (_cur is not null) PaintNotes(_cur);
         // finaliza páginas (cabeçalhos/rodapés já entram na criação)
+        // fundo da página (w:background): o Word o grava no PDF (corpus); branco = nada
+        var bgSpec = full.Background;
+        string? bg = bgSpec is not null ? Resolve.ResolveColor(bgSpec.Color, bgSpec.ThemeColor, bgSpec.ThemeTint, bgSpec.ThemeShade, _ctx.Fmt.Theme) : null;
         var pages = _pages.Select(ps =>
         {
             // camadas do Word: TODO o cabeçalho/rodapé (atrás, texto, frente) fica
             // abaixo do documento; no corpo, atrás do texto < texto < na frente
-            var hfLayer = new List<PageItem>();
-            hfLayer.AddRange(ZItems(ps.HfBehind));
-            hfLayer.AddRange(ps.Hf);
-            hfLayer.AddRange(ZItems(ps.HfFront));
+            // (descarte fora da página por camada: HfItems conta o que sobrou do HF)
+            var hf = new List<PageItem>();
+            hf.AddRange(ZItems(ps.HfBehind));
+            hf.AddRange(ps.Hf);
+            hf.AddRange(ZItems(ps.HfFront));
+            var hfLayer = CullOffPage(hf, ps.Page.WidthTw, ps.Page.HeightTw);
+            // bordas de página: atrás do texto (zOrder back) ou na frente (padrão)
+            var pb = ps.Geom.Index < full.Sections.Count ? full.Sections[ps.Geom.Index].Sect?.PgBorders : null;
+            var pbItems = pb is not null ? PageBorders(ps, pb) : new List<PageItem>();
+            bool pbBack = pb?.ZOrder == "back";
+            var body = new List<PageItem>();
+            body.AddRange(ZItems(ps.Behind));
+            body.AddRange(ps.Body);
+            body.AddRange(ZItems(ps.Front));
             var items = new List<PageItem>(hfLayer);
-            items.AddRange(ZItems(ps.Behind));
-            items.AddRange(ps.Body);
-            items.AddRange(ZItems(ps.Front));
+            if (pbBack) items.AddRange(pbItems);
+            items.AddRange(CullOffPage(body, ps.Page.WidthTw, ps.Page.HeightTw));
+            if (!pbBack) items.AddRange(pbItems);
             ps.Page.Items = items;
             ps.Page.HfItems = hfLayer.Count;
+            if (bg is not null && bg.ToUpperInvariant() != "FFFFFF" && bg != "auto") ps.Page.Background = bg;
             return ps.Page;
         }).ToList();
         return new LayoutResult { Pages = pages, Warnings = _ctx.Warnings.ToList() };
+    }
+
+    /// <summary>Bordas de página da seção nesta página (w:display, contorno do cabeçalho/rodapé).</summary>
+    private List<PageItem> PageBorders(PageState ps, PgBordersSpec pb)
+    {
+        bool first = ps.SectPage == 0;
+        if ((pb.Display == "firstPage" && !first) || (pb.Display == "notFirstPage" && first)) return new List<PageItem>();
+        // cabeçalho/rodapé presentes = algo desenhado acima/abaixo do corpo
+        static double? TopOf(PageItem it) => it switch
+        {
+            GlyphRunItem g => g.Y,
+            RectItem r => r.Y,
+            ImageItem im => im.Y,
+            ShapeItem s => s.Y,
+            LineItem l => l.Y1,
+            _ => null,
+        };
+        var hf = new List<PageItem>(ps.Hf);
+        hf.AddRange(ZItems(ps.HfBehind));
+        hf.AddRange(ZItems(ps.HfFront));
+        var set = _ctx.Fmt.Settings;
+        return Paint.PageBorderItems(_ctx, pb, ps.Geom,
+            !set.BordersDoNotSurroundHeader && hf.Any(it => (TopOf(it) ?? double.PositiveInfinity) < ps.BodyTop),
+            !set.BordersDoNotSurroundFooter && hf.Any(it => (TopOf(it) ?? double.NegativeInfinity) > ps.BodyBottom));
     }
 
     private static IEnumerable<PageItem> ZItems(List<ZObj> objs) =>
@@ -398,9 +658,34 @@ internal sealed class Engine
         _col = 0;
         _colTop = _cur.BodyTop;
         _y = _cur.BodyTop;
+        _colUsed = new List<double>();
+        _balanceSaved = null;
+        ApplyBalance();
         _atTop = true;
+        _topGapPrevAfter = null;
         _prev = null;
         if (_floatCarry.Count > 0) PlaceFloatCarry();
+        // flutuantes tardios desta página: entram antes do texto
+        if (_lateFloats.TryGetValue(_pages.Count - 1, out var late))
+        {
+            var fr = ColFrame();
+            foreach (var run in late)
+            {
+                PlaceFloat(run, _cur, fr.X, fr.W, _cur.BodyTop, _cur.Body, 0);
+                _prePlaced.Add(run);
+            }
+        }
+        foreach (var (bi, lt) in _lateTables)
+        {
+            var b = bi >= 0 && bi < _full.Blocks.Count ? _full.Blocks[bi] : null;
+            if (lt.Page != _pages.Count - 1 || _placedTables.Contains(bi) || b is not TableBlock tbk || tbk.TblPr?.TblpPr is not { } ltp) continue;
+            _placedTables.Add(bi);
+            var fr = ColFrame();
+            var t = TableEngine.LayoutTable(_ctx, tbk, 0, fr.W, (cell, cx, cw, cenv, cref) => LayoutCell(cell, cx, cw, cenv, cref, _cur), $"b{bi}");
+            var items = new List<PageItem>();
+            PlaceFloatingTable(t, ltp, _cur, lt.FlowY, fr.X, fr.W, items, 0, true, true);
+            _cur.Front.Add(new ZObj { Z = -1, Seq = _zSeq++, Items = items });
+        }
     }
 
     private void MakePage(SectGeom g, int sectPage, double number)
@@ -414,18 +699,39 @@ internal sealed class Engine
         if (_cur is not null) PaintNotes(_cur);
         _pages.Add(ps);
         _cur = ps;
+        _colMaxY = 0;
         LayoutHeaderFooter(ps);
         ps.BodyBottomBase = ps.BodyBottom;
     }
 
     private void ContinuousSection(SectGeom g)
     {
-        // mesma página; nova geometria de colunas a partir do y atual
+        // a seção que termina (várias colunas): o que ocupou nesta página (equilíbrio)
+        var ending = _cur.Geom;
+        if (ending.Cols.Count > 1)
+        {
+            var used = new List<double>(_colUsed) { _y - _colTop };
+            BalanceFound[ending.Index] = new BalanceInfo(_pages.Count - 1, _colTop, _balanceSaved ?? _cur.BodyBottom, used.Aggregate(0.0, (a, b) => a + Math.Max(0, b)), ending.Cols.Count);
+        }
+        if (_balanceSaved is { } bs) { _cur.BodyBottom = bs; _balanceSaved = null; }
+        _colUsed = new List<double>();
+        // mesma página; nova geometria de colunas a partir do fim da coluna mais
+        // ALTA da seção anterior (corpus t89)
+        _y = Math.Max(_y, _colMaxY);
+        _colMaxY = 0;
         _cur.Geom = g;
         _col = 0;
         _colTop = _y;
-        _prev = null;
+        ApplyBalance();
+        // o espaço "depois" do último parágrafo da seção anterior colapsa com o
+        // "antes" do 1º desta, como entre parágrafos (oráculo colbreak, cb-textsect-*)
     }
+
+    /// <summary>fundo da coluna mais alta já deixada nesta página (seção de várias colunas)</summary>
+    private double _colMaxY;
+    /// <summary>"depois" do parágrafo vazio de quebra contínua que não ocupa altura: o seguinte
+    /// desconta (oráculo colbreak)</summary>
+    private double? _sectGapAfter;
 
     private (double X, double W) ColFrame()
     {
@@ -440,6 +746,8 @@ internal sealed class Engine
         var g = _cur.Geom;
         if (_col < g.Cols.Count - 1)
         {
+            _colUsed.Add(_y - _colTop);
+            _colMaxY = Math.Max(_colMaxY, _y);
             _col++;
             _y = _colTop;
             _atTop = true;
@@ -465,6 +773,16 @@ internal sealed class Engine
         if (name == "NUMPAGES") { UsedNumPages = true; return Js.Str(_totalPagesGuess); }
         if (name == "SECTIONPAGES") { UsedNumPages = true; return Js.Str(_totalPagesGuess); }
         if (name == "SECTION") return Js.Str(ps.Geom.Index + 1);
+        // DATE/TIME: o Word recalcula ao exportar — o instante da exportação
+        if (name is "DATE" or "TIME") return DateFmt.DateFieldValue(instr ?? name, _ctx.Opts.Now, _ctx.Opts.Lang);
+        // datas das propriedades do documento (o Word as relê ao exportar; hora local)
+        if (name is "SAVEDATE" or "CREATEDATE" or "PRINTDATE")
+        {
+            var cp = _full.CoreProps;
+            string? iso = name == "SAVEDATE" ? cp?.Modified : name == "CREATEDATE" ? cp?.Created : cp?.LastPrinted;
+            var d = DateFmt.ParseIsoLocal(iso);
+            return d is { } dd ? DateFmt.DateFieldValue(instr ?? name, dd, _ctx.Opts.Lang) : null;
+        }
         return null;
     };
 
@@ -476,9 +794,9 @@ internal sealed class Engine
         bool even = settings.EvenAndOddHeaders && ps.Page.Number % 2 == 0;
         string kind = first ? "first" : even ? "even" : "default";
         List<Block>? Pick(HfBlocks set) => first ? set.First : even ? set.Even : set.Default;
-        var env = new ParaEnv { Field = FieldValue(ps), Numbering = false };
+        var env = new ParaEnv { Field = FieldValue(ps) };
         double width = g.PageW - g.MarL - g.MarR;
-        // numeração em cabeçalho/rodapé não avança a lista do corpo
+        // numeração em cabeçalho/rodapé: própria, não avança a lista do corpo (oráculo numbering3, hdr-list)
         var savedNum = _ctx.Numbering;
         _ctx.Numbering = new NumberingState(_ctx.Fmt.Numbering, _ctx.Fmt.Styles.Styles, _ctx.Opts.Lang);
         _inHf = true;
@@ -487,6 +805,10 @@ internal sealed class Engine
             var hdr = Pick(g.Headers);
             if (hdr is { Count: > 0 })
             {
+                // a "margem" dos objetos do cabeçalho posicionados em relação a ela é o topo
+                // REAL do corpo (empurrado pelo cabeçalho): mede antes (corpus t43)
+                var hprobe = _ctx.Pure(() => LayoutStatic(hdr, g.MarL, width, env, $"hdr:{kind}", ScratchPage(ps), g.Hdr));
+                ps.BodyTop = Math.Max(g.MarT, g.Hdr + hprobe.Height);
                 var r = LayoutStatic(hdr, g.MarL, width, env, $"hdr:{kind}", ps, g.Hdr);
                 foreach (var it in r.Items) ps.Hf.Add(TableEngine.ShiftItem(it, g.Hdr));
                 foreach (var l in r.Lines) ps.Page.Lines.Add(ShiftLine(l, g.Hdr));
@@ -536,12 +858,16 @@ internal sealed class Engine
     /// Diagrama blocos sem paginação (y relativo a 0). Floats ancorados são
     /// posicionados na página `ps` (se houver) com `yOrigin` = y absoluto do topo.
     /// </summary>
-    public CellContent LayoutStatic(List<Block> blocks, double x, double width, ParaEnv env, string reference, PageState? ps = null, double yOrigin = 0, CellNeighbors? nb = null)
+    public CellContent LayoutStatic(List<Block> blocks0, double x, double width, ParaEnv env, string reference, PageState? ps = null, double yOrigin = 0, CellNeighbors? nb = null)
     {
+        // moldura dentro de célula de tabela: o Word a ignora (parágrafo normal — corpus t43)
+        var blocks = _inCell ? blocks0 : Frames.LiftFrames(blocks0);
         var items = new List<PageItem>();
         var lines = new List<LaidOutLine>();
         double y = 0;
         PrevPara? prev = null;
+        // lista do parágrafo anterior (espaçamento automático entre itens)
+        string? prevList = null;
         bool keepNext = false;
         int n = blocks.Count;
         var envNoBreaks = env.Clone();
@@ -550,6 +876,14 @@ internal sealed class Engine
         // cabeçalho/rodapé (também nas medições sem página): o "depois" automático do
         // último parágrafo conta na altura — só na célula ele some (oráculo autosp)
         bool hfFlow = HfRefRe.IsMatch(reference);
+        // tabelas flutuantes aninhadas (célula): o texto seguinte da célula as contorna
+        // e a célula cresce até o fim delas (oráculo cellftbl) — coordenadas locais
+        var cellFloats = new List<FloatBox>();
+        var cellPs = new PageState { Floats = cellFloats };
+        double floatBottom = 0;
+        // desenhadas depois do texto da célula (ordem do PDF do Word)
+        var floatItems = new List<PageItem>();
+        var floatLines = new List<LaidOutLine>();
         if (isHf)
         {
             // cabeçalho/rodapé: flutuantes com posição vertical absoluta (página/margem)
@@ -557,7 +891,9 @@ internal sealed class Engine
             foreach (var b0 in blocks)
             {
                 if (b0 is not ParagraphBlock pb0) continue;
-                foreach (var run in pb0.Paragraph.Runs)
+                var carry0 = Frames.CarryOf(pb0.Paragraph);
+                var runs0 = Frames.IsSkipped(pb0.Paragraph) ? (carry0 is not null ? new List<Run> { carry0 } : new List<Run>()) : pb0.Paragraph.Runs;
+                foreach (var run in runs0)
                 {
                     var anc = run.Image?.Anchor ?? run.Shape?.Anchor ?? run.Group?.Anchor ?? run.Textbox?.Anchor;
                     if (!IsFloating(run) || anc is null || !AbsoluteV.Contains(anc.PosV.RelativeFrom ?? "") || _onlyTextFloats) continue;
@@ -566,73 +902,150 @@ internal sealed class Engine
                 }
             }
         }
-        // runs de parágrafos de marca oculta que se juntam ao seguinte
-        List<Run>? join = null;
+        // parágrafo de marca oculta que se junta ao seguinte
+        HiddenJoin? join = null;
+        // runs de parágrafos de marca excluída (revisão) que vão para o seguinte
+        List<Run>? delRuns = null;
+        var paras = new Dictionary<string, ParaSplitInfo>(StringComparer.Ordinal);
+        ParaSplitInfo? lastPara = null;
         for (int bi = 0; bi < n; bi++)
         {
             var b = blocks[bi];
             if (b is ParagraphBlock pblk)
             {
-                var para = join is not null ? JoinRuns(join, pblk.Paragraph) : pblk.Paragraph;
+                if (Frames.IsSkipped(pblk.Paragraph))
+                {
+                    var carry = Frames.CarryOf(pblk.Paragraph);
+                    if (carry is not null && ps is not null && !_prePlaced.Contains(carry)) PlaceFloat(carry, ps, x + _staticDx, width, yOrigin + y + (prev is not null ? prev.After : 0), items, yOrigin);
+                    // âncora = tabela: o texto da moldura entra na 1ª linha dela, na ordem das colunas
+                    if (_hfFrameAfter.Count > 0 && bi + 1 < n && blocks[bi + 1] is TableBlock) { _hfFrameTbl.AddRange(_hfFrameAfter); _hfFrameAfter.Clear(); }
+                    if (_hfFrameAfter.Count > 0) { items.AddRange(_hfFrameAfter); _hfFrameAfter.Clear(); }
+                    continue;
+                }
+                // marca excluída (revisão): o texto vai para o parágrafo seguinte, com as
+                // propriedades dele (oráculo delmark); todo o texto excluído: some (numbering3, del-mark)
+                if (pblk.Paragraph.Ppr?.MarkDeleted == true && join is null && bi < n - 1 && blocks[bi + 1] is ParagraphBlock)
+                {
+                    delRuns = (delRuns ?? new List<Run>()).Concat(pblk.Paragraph.Runs).ToList();
+                    continue;
+                }
+                if (pblk.Paragraph.Ppr?.MarkDeleted == true && pblk.Paragraph.Runs.Count == 0 && join is null && delRuns is null) continue;
+                var merged = delRuns is not null ? new Paragraph { Runs = delRuns.Concat(pblk.Paragraph.Runs).ToList(), Props = pblk.Paragraph.Props, Ppr = pblk.Paragraph.Ppr } : pblk.Paragraph;
+                delRuns = null;
+                var para = join is not null ? JoinHidden(join, merged, env) : merged;
+                ParaEnv penv = envNoBreaks;
+                if (join is not null) { penv = envNoBreaks.Clone(); penv.Numbering = false; }
+                var p = Para.PrepareParagraph(_ctx, para, penv);
+                if (join is not null) p.Marker = join.Marker;
                 join = null;
-                var p = Para.PrepareParagraph(_ctx, para, envNoBreaks);
                 // marca oculta (fora o último bloco): sem conteúdo visível não ocupa nada;
                 // com conteúdo, junta-se ao parágrafo seguinte (oráculo hidden)
                 if (p.MarkStyle.Hidden && bi < n - 1)
                 {
                     if (p.Glyphs.Count == 0) continue;
-                    if (blocks[bi + 1] is ParagraphBlock) { join = para.Runs; continue; }
+                    if (blocks[bi + 1] is ParagraphBlock) { join = new HiddenJoin(para, p.Marker); continue; }
                 }
                 if (p.KeepNext) keepNext = true;
                 bool firstInCell = bi == 0;
                 bool lastInCell = bi == n - 1;
                 double before = p.BeforeAuto ? (firstInCell ? 0 : 280) : p.SpaceBefore;
                 double prevAfter = prev is not null ? prev.After : 0;
+                // "depois" suprimido pelo contextual do anterior: o "antes" só vale o excedente (oráculo ctxmark)
+                double? ctxAfter = null;
                 if (prev is not null && prev.StyleId == p.StyleId)
                 {
-                    if (prev.Contextual) prevAfter = 0;
+                    if (prev.Contextual) { ctxAfter = prevAfter; prevAfter = 0; }
                     if (p.Contextual) before = 0;
                 }
+                // espaçamento automático entre itens da mesma lista: zero (oráculo autosplist)
+                string? list = ListOf(p);
+                if (list is not null && prevList == list) { if (p.BeforeAuto) before = 0; if (prev?.AfterAuto == true) prevAfter = 0; }
+                prevList = list;
                 // 1º parágrafo da célula: o vizinho anterior é o parágrafo antes da tabela, o
                 // último da célula anterior ou a marca de fim de linha (oráculo autosp2)
                 if (bi == 0 && nb?.Prev is not null && p.Contextual && nb.Prev.StyleId == p.StyleId) before = 0;
-                y += Collapse(prevAfter, before);
+                // o "depois" efetivo do anterior (contextual zera)
+                if (lastPara is not null) lastPara.After = prevAfter;
+                double gapS = ctxAfter is { } cxa ? Math.Max(0, Collapse(cxa, before) - cxa) : Collapse(prevAfter, before);
+                // topo do parágrafo para objetos relativos a ele (oráculo anchorbefore)
+                double paraRefS = y + Math.Min(prevAfter, gapS);
+                y += gapS;
                 double top = y;
                 var br = new LineBreaker(_ctx, p);
                 var frame0 = new LineFrame(p.IndLeft, width - p.IndRight);
                 // cabeçalho/rodapé: os flutuantes do parágrafo são posicionados ANTES das
                 // linhas e o texto (inclusive o do próprio parágrafo) os contorna — oráculo hffloat
                 bool hfWrap = ps is not null && HfRefRe.IsMatch(reference);
-                if (hfWrap) PlaceFloats(p, ps!, x, width, yOrigin + top, items, yOrigin);
+                if (hfWrap) PlaceFloats(p, ps!, x, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
                 double boxTop = y;
                 int boxAt = items.Count;
                 y += BorderTopExtent(p, prev);
+                int l0 = lines.Count;
                 do
                 {
                     var frame = frame0;
-                    if (hfWrap)
+                    // contorno: flutuantes da página (cabeçalho/rodapé) ou da própria célula
+                    PageState? wPs = hfWrap ? ps! : cellFloats.Count > 0 ? cellPs : null;
+                    double wY0 = hfWrap ? yOrigin : 0;
+                    if (wPs is not null)
                     {
-                        double lh = MarkLineH(p);
-                        frame = WrapFrame(frame0, x, yOrigin + y, lh, ps);
-                        for (int k = 0; k < 8 && frame.SkipTo is { } st && st - yOrigin > y; k++)
+                        double lhm = MarkLineH(p);
+                        frame = WrapFrame(frame0, x, wY0 + y, lhm, wPs);
+                        for (int k = 0; k < 8 && frame.SkipTo is { } st && st - wY0 > y; k++)
                         {
-                            y = frame.SkipTo!.Value - yOrigin;
-                            frame = WrapFrame(frame0, x, yOrigin + y, lh, ps);
+                            y = frame.SkipTo!.Value - wY0;
+                            frame = WrapFrame(frame0, x, wY0 + y, lhm, wPs);
                         }
                     }
-                    var line = br.Next(frame);
-                    Paint.PaintLine(_ctx, items, line, x, y);
-                    lines.Add(LineRecord($"{reference}/b{bi}", p, line, x, y));
-                    y += line.Height;
+                    var mark = br.Mark();
+                    var seg = PickSeg(br, frame);
+                    var line = br.Next(seg.F);
+                    // linha mais alta que a estimativa (imagem em linha): o contorno vale pela
+                    // altura real — desce ou estreita (oráculo tallwrap)
+                    double textH = Math.Min(line.Height, line.Baseline + line.Desc);
+                    if (wPs is not null && wPs.Floats.Count > 0 && textH > MarkLineH(p) + 1)
+                    {
+                        var f2 = WrapFrame(frame0, x, wY0 + y, textH, wPs);
+                        if (f2.SkipTo is { } sk && sk - wY0 > y)
+                        {
+                            y = sk - wY0;
+                            frame = WrapFrame(frame0, x, wY0 + y, MarkLineH(p), wPs);
+                            br.Reset(mark); seg = PickSeg(br, frame); line = br.Next(seg.F);
+                        }
+                        else if (Narrower(f2, frame))
+                        {
+                            frame = f2;
+                            br.Reset(mark); seg = PickSeg(br, frame); line = br.Next(seg.F);
+                        }
+                    }
+                    double lh = 0;
+                    void Put(Line l)
+                    {
+                        Paint.PaintLine(_ctx, items, l, x, y);
+                        lines.Add(LineRecord($"{reference}/b{bi}", p, l, x, y));
+                        lh = Math.Max(lh, l.Height);
+                    }
+                    Put(line);
+                    MoreSegs(br, frame, seg.K, line, Put);
+                    y += lh;
                 } while (!br.Done());
+                if (_hfFrameAfter.Count > 0) { items.AddRange(_hfFrameAfter); _hfFrameAfter.Clear(); }
                 bool groupedNext = GroupsWithNext(p, bi + 1 < n ? blocks[bi + 1] : null, env);
                 y += BorderBottomExtent(p, groupedNext);
                 PaintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext);
                 // floats ancorados no parágrafo (fora do cabeçalho/rodapé: depois das linhas)
-                if (ps is not null && !hfWrap) PlaceFloats(p, ps, x, width, yOrigin + top, items, yOrigin);
+                if (ps is not null && !hfWrap) PlaceFloats(p, ps, x + _staticDx, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
                 double after = p.AfterAuto ? (lastInCell && !hfFlow ? 0 : 280) : p.SpaceAfter;
                 // último da célula: o vizinho seguinte é o 1º da próxima célula ou a marca de fim de linha
                 if (lastInCell && nb?.Next is not null && p.Contextual && nb.Next.StyleId == p.StyleId) after = 0;
+                // linha de tabela partida entre páginas: viúvas/órfãs (só modo 15) e o espaço
+                // depois (efetivo) que tem de caber com a última linha (oráculo rowwidow)
+                lastPara = new ParaSplitInfo
+                {
+                    Lines = lines.Count - l0, After = after,
+                    Widow = _ctx.Fmt.Settings.CompatibilityMode >= 15 && (p.WidowControl || p.Ppr.WidowControl is null),
+                };
+                paras[$"{reference}/b{bi}"] = lastPara;
                 prev = new PrevPara
                 {
                     After = after, AfterAuto = p.AfterAuto, StyleId = p.StyleId, Contextual = p.Contextual,
@@ -643,23 +1056,83 @@ internal sealed class Engine
             {
                 // tabela só com linhas ocultas: some (oráculo hidden)
             }
-            else if (b is TableBlock ftb && ftb.TblPr?.TblpPr is { } ffp && ffp.TblpYSpec != "inline" && ps is not null && HfRefRe.IsMatch(reference))
+            else if (b is TableBlock ctb && ctb.TblPr?.TblpPr is { } cfp && cfp.TblpYSpec != "inline" && !hfFlow && _inCell)
             {
-                // tabela flutuante no cabeçalho/rodapé: posição absoluta na página
-                var t = TableEngine.LayoutTable(_ctx, ftb, 0, width, (cell, cx, cw, cenv, cref) => LayoutCell(cell, cx, cw, cenv, cref, ps), $"{reference}/b{bi}");
-                PlaceFloatingTable(t, ffp, ps, yOrigin + y, x, width, items, yOrigin, false);
+                // tabela flutuante aninhada numa célula (oráculo cellftbl): fora do fluxo, a
+                // partir do topo do parágrafo âncora (o seguinte); "margem"/texto = área de
+                // texto da célula, "página" = a célula (borda); o texto seguinte a contorna
+                // o "depois" do parágrafo anterior segue a regra de antes de tabela (contextual
+                // com o 1º parágrafo da tabela: some — corpus t43)
+                if (prev is not null && DropsAfterBeforeTable(prev, ctb))
+                {
+                    prev = prev.ShallowClone();
+                    prev.After = 0;
+                    if (lastPara is not null) lastPara.After = 0;
+                }
+                var t0 = _ctx.Pure(() => TableEngine.LayoutTable(_ctx, ctb, 0, width, (cell, cx, cw, cenv, cref) => LayoutCell(cell, cx, cw, cenv, cref, ps), $"{reference}/b{bi}"));
+                double H = t0.Rows.Aggregate(0.0, (a, r) => a + r.Height);
+                double top = y + (prev is not null ? prev.After : 0) + (Js.Truthy(cfp.TblpYSpec) ? 0 : cfp.TblpY ?? 0);
+                double aL = cfp.HorzAnchor == "page" ? x - 103 : x, aR = cfp.HorzAnchor == "page" ? x + width + 103 : x + width;
+                string? xs = cfp.TblpXSpec;
+                double refX = xs == "center" ? aL + (aR - aL - t0.Width) / 2 : xs is "right" or "outside" ? aR - t0.Width : aL + (Js.Truthy(xs) ? 0 : cfp.TblpX ?? 0);
+                var t = TableEngine.LayoutTable(_ctx, ctb, refX - t0.X, width, (cell, cx, cw, cenv, cref) => LayoutCell(cell, cx, cw, cenv, cref, ps), $"{reference}/b{bi}");
+                double ry = top;
+                foreach (var row in t.Rows)
+                {
+                    foreach (var it in row.Items) floatItems.Add(TableEngine.ShiftItem(it, ry));
+                    foreach (var it in row.BorderItems) floatItems.Add(TableEngine.ShiftItem(it, ry));
+                    foreach (var l in row.Lines)
+                    {
+                        var nl = l.ShallowClone();
+                        nl.Y = l.Y + ry;
+                        nl.Baseline = l.Baseline + ry;
+                        floatLines.Add(nl);
+                    }
+                    ry += row.Height;
+                }
+                cellFloats.Add(new FloatBox
+                {
+                    X = t.X, Y = top, W = t.Width, H = H, Wrap = "square", Side = "bothSides",
+                    DistL = cfp.LeftFromText ?? 0, DistR = cfp.RightFromText ?? 0, DistT = cfp.TopFromText ?? 0, DistB = cfp.BottomFromText ?? 0,
+                });
+                floatBottom = Math.Max(floatBottom, top + H);
+            }
+            else if (b is TableBlock ftb && ftb.TblPr?.TblpPr is { } ffp && ffp.TblpYSpec != "inline" && hfFlow)
+            {
+                // tabela flutuante no cabeçalho/rodapé: posição absoluta na página, fora da
+                // altura do cabeçalho/rodapé (também na medição sem página); no modo 15 o texto
+                // seguinte (do cabeçalho e do corpo) a contorna (oráculo hftable)
+                if (ps is not null)
+                {
+                    var t = TableEngine.LayoutTable(_ctx, ftb, 0, width, (cell, cx, cw, cenv, cref) => LayoutCell(cell, cx, cw, cenv, cref, ps), $"{reference}/b{bi}");
+                    // pintada depois do texto do cabeçalho/rodapé (ordem do Word)
+                    var fItems = new List<PageItem>();
+                    PlaceFloatingTable(t, ffp, ps, yOrigin + y, x, width, fItems, 0, _ctx.Fmt.Settings.CompatibilityMode >= 15);
+                    ps.HfFront.Add(new ZObj { Z = -1, Seq = _zSeq++, Items = fItems });
+                }
             }
             else
             {
                 var tb = (TableBlock)b;
                 y += prev is not null && !DropsAfterBeforeTable(prev, tb) ? prev.After : 0;
+                if (lastPara is not null && prev is not null && DropsAfterBeforeTable(prev, tb)) lastPara.After = 0;
+                lastPara = null;
                 AssignCellNeighbors(tb, prev is not null ? new CtxNeighbor { StyleId = prev.StyleId } : bi == 0 ? nb?.Prev : null);
+                // os parágrafos da tabela aninhada também seguem viúvas/órfãs e o espaço depois
+                // quando a célula de fora parte entre páginas (oráculo nestwidow)
                 var t = TableEngine.LayoutTable(_ctx, tb, x, width,
-                    (cell, cx, cw, cenv, cref) => LayoutCell(cell, cx, cw, cenv, cref, ps), $"{reference}/b{bi}");
+                    (cell, cx, cw, cenv, cref) =>
+                    {
+                        var cc = LayoutCell(cell, cx, cw, cenv, cref, ps);
+                        if (cc.Paras is not null) foreach (var kv in cc.Paras) paras[kv.Key] = kv.Value;
+                        return cc;
+                    }, $"{reference}/b{bi}");
+                int tblAt = items.Count;
                 if (isHf && t.Rows.Count > 0)
                 {
-                    // tabela não contorna: se a 1ª linha cruza um flutuante com quebra, desce para baixo dele
-                    double h0 = t.Rows[0].Height;
+                    // tabela não contorna: se ela (inteira — não só a 1ª linha: oráculo latefloat)
+                    // cruza um flutuante com quebra, desce para baixo dele
+                    double h0 = t.Rows.Sum(r => r.Height);
                     for (int k = 0; k < 8; k++)
                     {
                         double yy = yOrigin + y;
@@ -670,8 +1143,11 @@ internal sealed class Engine
                         y = hit.Y + hit.H + hit.DistB - yOrigin;
                     }
                 }
-                foreach (var row in t.Rows)
+                var mergeMoved = new HashSet<object>(ReferenceEqualityComparer.Instance);
+                for (int mri = 0; mri < t.Rows.Count; mri++)
                 {
+                    // texto de mescla vertical na 1ª linha dela, na ordem das colunas (oráculo vmorder)
+                    var row = TableEngine.DropMoved(TableEngine.MergeTextFirst(t.Rows, mri, t.Rows[mri], mergeMoved, _ => true), mergeMoved);
                     foreach (var it in row.Items) items.Add(TableEngine.ShiftItem(it, y));
                     foreach (var it in row.BorderItems) items.Add(TableEngine.ShiftItem(it, y));
                     foreach (var l in row.Lines)
@@ -683,15 +1159,62 @@ internal sealed class Engine
                     }
                     y += row.Height;
                 }
+                // moldura ancorada nesta tabela (cabeçalho/rodapé): o texto dela vai antes da 1ª
+                // célula que começa depois dela — ordem do PDF do Word (oráculo hfframetbl)
+                if (_hfFrameTbl.Count > 0)
+                {
+                    double fx = _hfFrameTbl.Aggregate(double.PositiveInfinity, (mn, it) => Math.Min(mn, it is GlyphRunItem gr && gr.Glyphs.Count > 0 ? gr.Glyphs[0].X : double.PositiveInfinity));
+                    int at = items.Count;
+                    for (int k = tblAt; k < items.Count; k++)
+                    {
+                        if (items[k] is GlyphRunItem gk && gk.Glyphs.Count > 0 && gk.Glyphs[0].X >= fx - 10) { at = k; break; }
+                    }
+                    items.InsertRange(at, _hfFrameTbl);
+                    _hfFrameTbl.Clear();
+                }
                 prev = RowEndPrev();
+                prevList = null;
             }
         }
         // espaço depois do último parágrafo conta na altura (célula/HF)
         if (prev is not null) y += prev.After;
-        return new CellContent { Items = items, Lines = lines, Height = y, KeepNext = keepNext };
+        items.AddRange(floatItems);
+        lines.AddRange(floatLines);
+        return new CellContent { Items = items, Lines = lines, Height = Math.Max(y, floatBottom), KeepNext = keepNext, Paras = paras.Count > 0 ? paras : null };
     }
 
+    /// <summary>molduras do cabeçalho/rodapé à direita do início da linha: entram depois das linhas do âncora</summary>
+    private readonly List<PageItem> _hfFrameAfter = new();
+    /// <summary>molduras do cabeçalho/rodapé ancoradas na tabela seguinte (entram na 1ª linha dela)</summary>
+    private readonly List<PageItem> _hfFrameTbl = new();
+    /// <summary>conteúdo de caixa de texto: x da caixa na página (flutuantes dentro dela)</summary>
+    private double _staticDx;
+
+    /// <summary>Lista (abstractNum) do parágrafo numerado/com marcador.</summary>
+    private string? ListOf(PreparedPara p)
+    {
+        var id = p.Ppr.NumPr?.NumId;
+        return id is { } v && v != 0 && !double.IsNaN(v) ? _ctx.Numbering.ListKey(v) : null;
+    }
+
+    /// <summary>diagramando o conteúdo de uma célula (flutuantes ficam relativos à célula)</summary>
+    private bool _inCell;
+
     private CellContent LayoutCell(TableCell cell, double x, double width, CellEnv env, string reference, PageState? ps = null)
+    {
+        bool prevInCell = _inCell;
+        _inCell = true;
+        try
+        {
+            return LayoutCellIn(cell, x, width, env, reference, ps);
+        }
+        finally
+        {
+            _inCell = prevInCell;
+        }
+    }
+
+    private CellContent LayoutCellIn(TableCell cell, double x, double width, CellEnv env, string reference, PageState? ps = null)
     {
         var blocks = cell.Blocks ?? cell.Paragraphs.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
         var penv = new ParaEnv { TablePPr = env.TablePPr, TableRPr = env.TableRPr, DarkBackground = env.DarkBackground };
@@ -701,14 +1224,43 @@ internal sealed class Engine
         // hideMark: a marca da célula vazia não conta na altura da linha (vale a
         // altura mínima da linha) — oráculo hidden
         if (cell.TcPr?.HideMark == true && blocks.All(b => b is ParagraphBlock pb && !Para.ParaVisibility(_ctx, pb.Paragraph, penv).Visible))
-            return new CellContent { Items = c.Items, Lines = c.Lines, Height = 0, KeepNext = c.KeepNext };
+            return new CellContent { Items = c.Items, Lines = c.Lines, Height = 0, KeepNext = c.KeepNext, Paras = c.Paras };
+        // ... e com conteúdo: o último parágrafo VAZIO (o da marca) não conta na altura
+        // nem no alinhamento vertical (oráculo hidemark)
+        if (cell.TcPr?.HideMark == true && blocks.Count > 1 && blocks[^1] is ParagraphBlock lastB && !Para.ParaVisibility(_ctx, lastB.Paragraph, penv).Visible)
+        {
+            var rest = blocks.Take(blocks.Count - 1).ToList();
+            double h = _ctx.Pure(() => LayoutStatic(rest, x, width, penv, reference, ps, 0, nb)).Height;
+            return new CellContent { Items = c.Items, Lines = c.Lines, Height = h, KeepNext = c.KeepNext, Paras = c.Paras };
+        }
+        // parágrafo final vazio logo depois de uma tabela aninhada (a marca de fim de
+        // célula): sem altura, com ou sem hideMark (oráculo tblw)
+        if (blocks.Count > 1 && blocks[^1] is ParagraphBlock lastP && blocks[^2] is TableBlock && !Para.ParaVisibility(_ctx, lastP.Paragraph, penv).Visible)
+        {
+            var rest = blocks.Take(blocks.Count - 1).ToList();
+            double h = _ctx.Pure(() => LayoutStatic(rest, x, width, penv, reference, ps, 0, nb)).Height;
+            return new CellContent { Items = c.Items, Lines = c.Lines, Height = h, KeepNext = c.KeepNext, Paras = c.Paras };
+        }
         // o "depois" do último parágrafo da célula também ocupa (Word)
         return c;
     }
 
-    /// <summary>Parágrafo com runs de parágrafos de marca oculta à frente (as propriedades são deste).</summary>
-    private static Paragraph JoinRuns(List<Run> join, Paragraph para) =>
-        new() { Runs = join.Concat(para.Runs).ToList(), Props = para.Props, Ppr = para.Ppr };
+    /// <summary>parágrafo de marca oculta (com texto visível) à espera do seguinte</summary>
+    private sealed record HiddenJoin(Paragraph Para, ParaMarker? Marker);
+
+    /// <summary>
+    /// Parágrafo de marca oculta + o seguinte: um parágrafo só, com as propriedades
+    /// (recuos, alinhamento…) do 1º e a marca do seguinte; o número que aparece é o
+    /// do 1º, mas o do seguinte também é consumido (oráculo numbering3, hidmark-*).
+    /// </summary>
+    private Paragraph JoinHidden(HiddenJoin join, Paragraph next, ParaEnv env)
+    {
+        var n = Para.ResolvePPr(_ctx, next, env).Ppr.NumPr;
+        if (n?.NumId is { } nid && nid != 0 && !double.IsNaN(nid) && env.Numbering != false) _ctx.Numbering.Next(nid, n.Ilvl ?? 0);
+        var ppr = join.Para.Ppr?.Clone() ?? new PPr();
+        ppr.RPr = next.Ppr?.RPr;
+        return new Paragraph { Runs = join.Para.Runs.Concat(next.Runs).ToList(), Props = join.Para.Props, Ppr = ppr };
+    }
 
     // ───────────────────────── espaçamento contextual em volta de tabelas ─────────────────────────
     // (oráculos autosp/autosp2) Para o contextualSpacing, os parágrafos seguem a ordem do
@@ -790,14 +1342,15 @@ internal sealed class Engine
         }
         var top = b?.Top;
         if (top is null || top.Val is "none" or "nil") return 0;
-        return (top.Space ?? 0) * 20 + Paint.BorderWidth(top);
+        // com sombra a espessura conta duas vezes (oráculo pbdrshadow)
+        return (top.Space ?? 0) * 20 + Paint.BorderWidth(top) * (top.Shadow == true ? 2 : 1);
     }
 
     private static double BorderBottomExtent(PreparedPara p, bool groupedNext = false)
     {
         var bottom = p.Ppr.PBdr?.Bottom;
         if (groupedNext || bottom is null || bottom.Val is "none" or "nil") return 0;
-        return (bottom.Space ?? 0) * 20 + Paint.BorderWidth(bottom);
+        return (bottom.Space ?? 0) * 20 + Paint.BorderWidth(bottom) * (bottom.Shadow == true ? 2 : 1);
     }
 
     /// <summary>O bloco seguinte continua o grupo de bordas deste parágrafo?</summary>
@@ -815,6 +1368,75 @@ internal sealed class Engine
         sb.Append(ppr.PBdr.ToJson()).Append(',');
         if (ppr.Ind is null) sb.Append("null"); else ppr.Ind.AppendJson(sb);
         return sb.Append(']').ToString();
+    }
+
+    /// <summary>{ ...it, asPath: true }</summary>
+    private static GlyphRunItem AsPathCopy(GlyphRunItem g)
+    {
+        var n = (GlyphRunItem)g.ShallowClone();
+        n.AsPath = true;
+        return n;
+    }
+
+    /// <summary>
+    /// O Word não grava no PDF o texto que fica INTEIRO fora da página: some a
+    /// LINHA cuja caixa (topo/base da linha; da borda esquerda do quadro até o
+    /// último glifo) não cruza a página — a linha que só encosta na borda sai
+    /// inteira, com todos os runs, inclusive os de fora (oráculo hidetext: off-*,
+    /// ftr-far, straddle-*, cull-bottom, right-start-out). Considera as rotações (xform).
+    /// </summary>
+    private static List<PageItem> CullOffPage(List<PageItem> items, double pageW, double pageH)
+    {
+        var stack = new List<double[]?>();
+        double[]? m = null;
+        // cada run diz se cruza a página; a linha fica se ALGUM dos seus runs cruza
+        var outside = new HashSet<PageItem>();
+        var lineIn = new HashSet<int>();
+        foreach (var it in items)
+        {
+            if (it is XformItem xf)
+            {
+                if (xf.Op == "push" && xf.M is { } n)
+                {
+                    stack.Add(m);
+                    m = m is not null
+                        ? new[] { m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1], m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3],
+                            m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5] }
+                        : n;
+                }
+                else if (xf.Op == "pop")
+                {
+                    if (stack.Count > 0) { m = stack[^1]; stack.RemoveAt(stack.Count - 1); }
+                    else m = null;
+                }
+                continue;
+            }
+            if (it is not GlyphRunItem g || g.Glyphs.Count == 0) continue;
+            double em = g.SizePt * 20;
+            double asc = g.LineBox?.Asc ?? em, desc = g.LineBox?.Desc ?? em * 0.3, lead = g.LineBox?.Lead ?? 0;
+            double x0 = double.PositiveInfinity, x1 = double.NegativeInfinity;
+            foreach (var p in g.Glyphs) { x0 = Math.Min(x0, p.X); x1 = Math.Max(x1, p.X + em); }
+            // borda esquerda do quadro (o texto pode transbordar para qualquer lado)
+            double frameL = g.Glyphs[0].X - lead;
+            x0 = Math.Min(x0, frameL); x1 = Math.Max(x1, frameL);
+            double y0 = g.Y - asc, y1 = g.Y + desc;
+            double bx0 = x0, bx1 = x1, by0 = y0, by1 = y1;
+            if (m is not null)
+            {
+                bx0 = double.PositiveInfinity; bx1 = double.NegativeInfinity;
+                by0 = double.PositiveInfinity; by1 = double.NegativeInfinity;
+                foreach (var (px, py) in new[] { (x0, y0), (x1, y0), (x0, y1), (x1, y1) })
+                {
+                    double tx = m[0] * px + m[2] * py + m[4], ty = m[1] * px + m[3] * py + m[5];
+                    bx0 = Math.Min(bx0, tx); bx1 = Math.Max(bx1, tx);
+                    by0 = Math.Min(by0, ty); by1 = Math.Max(by1, ty);
+                }
+            }
+            if (bx1 <= 0 || bx0 >= pageW || by1 <= 0 || by0 >= pageH) outside.Add(it);
+            else if (g.LineBox is not null) lineIn.Add(g.LineBox.Line);
+        }
+        if (outside.Count == 0) return items;
+        return items.Where(it => !outside.Contains(it) || (it is GlyphRunItem g && g.LineBox is not null && lineIn.Contains(g.LineBox.Line))).ToList();
     }
 
     /// <summary>Rotação (graus, horário na tela) em torno de (cx, cy) — matriz de XformItem.</summary>
@@ -891,50 +1513,167 @@ internal sealed class Engine
         public double Top;
         public double X;
         public double W;
+        /// <summary>topo do parágrafo para objetos relativos a ele (oráculo anchorbefore)</summary>
+        public double? Ref;
     }
 
-    /// <summary>runs de parágrafos de marca oculta que se juntam ao parágrafo seguinte</summary>
-    private List<Run>? _pendingJoin;
+    /// <summary>parágrafo de marca oculta que se junta ao parágrafo seguinte</summary>
+    private HiddenJoin? _pendingJoin;
+    /// <summary>runs de parágrafos de marca excluída (revisão) que vão para o início do seguinte</summary>
+    private List<Run>? _pendingDel;
+
+    /// <summary>o bloco anterior é uma tabela flutuante ancorada no texto (o parágrafo âncora
+    /// empurrado para baixo dela tem o "antes" de novo — oráculo ftable2)</summary>
+    private bool _floatTableGap;
 
     private void PlaceParagraph(Paragraph para0, string reference, int blockIdx, SectGeom g)
     {
-        var para = _pendingJoin is not null ? JoinRuns(_pendingJoin, para0) : para0;
+        // moldura: fora do fluxo (a caixa vai com o parágrafo âncora; sem âncora, fica aqui)
+        if (Frames.IsSkipped(para0))
+        {
+            var carry = Frames.CarryOf(para0);
+            if (carry is not null) { var cfr = ColFrame(); PlaceFloat(carry, _cur, cfr.X, cfr.W, _y, _cur.Body, 0); }
+            return;
+        }
+        // marca excluída (revisão): o texto passa para o parágrafo seguinte, que fica com
+        // as propriedades DELE (a marca que sobra) — estilo, recuos, numeração; o número
+        // do excluído não conta (oráculo delmark). Todo o texto excluído: some (numbering3,
+        // del-mark). O último da seção (quebra) fica como está.
+        if (para0.Ppr?.MarkDeleted == true && _pendingJoin is null && blockIdx < g.Blocks.End && blockIdx + 1 < _full.Blocks.Count && _full.Blocks[blockIdx + 1] is ParagraphBlock)
+        {
+            _pendingDel = (_pendingDel ?? new List<Run>()).Concat(para0.Runs).ToList();
+            return;
+        }
+        if (para0.Ppr?.MarkDeleted == true && para0.Runs.Count == 0 && _pendingJoin is null && _pendingDel is null) return;
+        var join = _pendingJoin;
         _pendingJoin = null;
-        var p = Para.PrepareParagraph(_ctx, para, new ParaEnv { Field = FieldValue(_cur) });
+        var env = new ParaEnv { Field = FieldValue(_cur) };
+        var merged = _pendingDel is not null ? new Paragraph { Runs = _pendingDel.Concat(para0.Runs).ToList(), Props = para0.Props, Ppr = para0.Ppr } : para0;
+        _pendingDel = null;
+        var para = join is not null ? JoinHidden(join, merged, env) : merged;
+        ParaEnv penv = env;
+        if (join is not null) { penv = env.Clone(); penv.Numbering = false; }
+        var p = Para.PrepareParagraph(_ctx, para, penv);
+        if (join is not null) p.Marker = join.Marker;
         // texto oculto (oráculo hidden): parágrafo de marca oculta sem conteúdo visível
         // não ocupa nada (nem linha nem espaçamento); com conteúdo visível, junta-se ao
-        // seguinte, que dá as propriedades. O último da seção (quebra) fica como está.
+        // seguinte, com as propriedades do 1º (JoinHidden). O último da seção (quebra) fica como está.
         if (p.MarkStyle.Hidden && blockIdx < g.Blocks.End)
         {
             if (p.Glyphs.Count == 0) return;
-            if (blockIdx + 1 < _full.Blocks.Count && _full.Blocks[blockIdx + 1] is ParagraphBlock) { _pendingJoin = para.Runs; return; }
+            if (blockIdx + 1 < _full.Blocks.Count && _full.Blocks[blockIdx + 1] is ParagraphBlock) { _pendingJoin = new HiddenJoin(para, p.Marker); return; }
         }
-        // quebra de página antes
-        if (p.PageBreakBefore && !_atTop) NewPage(_cur.Geom);
+        // parágrafo VAZIO que só carrega a quebra para uma seção CONTÍNUA: não ocupa
+        // altura nem tem espaçamento próprio, mas separa os vizinhos — o "depois" do
+        // anterior e o "antes" do seguinte se SOMAM (oráculo colbreak, cb-emptysect-*).
+        // Logo depois de tabela ele ocupa a linha no modo 15 (cb-emptysect-aftertbl); nos
+        // modos 11/14 também some (…-c11/-c14)
+        var nextGeom = g.Index + 1 < _geoms.Count ? _geoms[g.Index + 1] : null;
+        if (blockIdx == g.Blocks.End && p.Glyphs.Count == 0 && nextGeom?.Type == "continuous"
+            && ((blockIdx - 1 >= 0 && blockIdx - 1 < _full.Blocks.Count && _full.Blocks[blockIdx - 1] is ParagraphBlock) || _ctx.Fmt.Settings.CompatibilityMode < 15))
+        {
+            // o próprio espaçamento dele se desconta dos vizinhos: colapso(depois anterior,
+            // antes dele) − antes dele; e no seguinte colapso(depois dele, antes) − depois
+            // dele (cb-emptysect-spacing, cb-par-sp-empty-text, cb-seq-*)
+            double sb = p.BeforeAuto ? 280 : p.SpaceBefore, sa = p.AfterAuto ? 280 : p.SpaceAfter;
+            if (_prev is not null && !_atTop) _y += Math.Max(0, Collapse(_prev.After, sb) - sb);
+            _prev = new PrevPara { After = 0, AfterAuto = false, Contextual = false };
+            // seção seguinte em várias colunas: o 1º parágrafo da coluna leva o "antes"
+            // inteiro (corpus t70)
+            _sectGapAfter = nextGeom.Cols.Count > 1 ? null : sa;
+            return;
+        }
+        // a marca FINAL do documento oculta e sem conteúdo visível também não ocupa
+        // nada — não cria página nova (oráculo hidden, hid-form-end)
+        if (p.MarkStyle.Hidden && p.Glyphs.Count == 0 && blockIdx == _full.Blocks.Count - 1 && !_atTop) return;
+        // parágrafo que COMEÇA com quebra de página (oráculo tocref-pbstart, modos 11/14/15):
+        // o Word leva o parágrafo inteiro — número da lista, indicadores (PAGEREF) e o
+        // espaço antes (como depois de quebra de seção) — para a página seguinte; a
+        // quebra não deixa linha na de cima
+        if (p.Glyphs.Count > 1 && p.Glyphs[0].Kind == GlyphKind.Pb)
+        {
+            double lastAfter = _prev is not null ? _prev.After : 0;
+            p.Glyphs = p.Glyphs.GetRange(1, p.Glyphs.Count - 1);
+            NewPage(_cur.Geom);
+            _topGapPrevAfter = lastAfter;
+        }
+        // quebra de página antes (espaço antes no topo: suprimido no modo 15, mantido no ≤ 14 — tocref-spbefore)
+        if (p.PageBreakBefore && !_atTop)
+        {
+            double lastAfter = _prev is not null ? _prev.After : 0;
+            NewPage(_cur.Geom);
+            if (_ctx.Fmt.Settings.CompatibilityMode < 15) _topGapPrevAfter = lastAfter;
+        }
         // keepNext / keepLines: decide antes de colocar a 1ª linha
         var frameBase = ColFrame();
         double Avail() => _cur.BodyBottom - _y;
         double before = p.BeforeAuto ? (_firstInDoc ? 0 : 280) : p.SpaceBefore;
         double prevAfter = _prev is not null ? _prev.After : 0;
+        // "depois" do anterior que o contextual DELE suprimiu: o "antes" deste só vale o que
+        // passa dele — colapso(depois, antes) − depois (oráculo ctxmark)
+        double? ctxAfter = null;
         if (_prev is not null && _prev.StyleId == p.StyleId)
         {
-            if (_prev.Contextual) prevAfter = 0;
+            if (_prev.Contextual) { ctxAfter = prevAfter; prevAfter = 0; }
             if (p.Contextual) before = 0;
         }
-        // topo de página (exceto o 1º parágrafo do documento): espaço antes suprimido
+        // espaçamento automático ("HTML") entre itens da mesma lista (mesmo abstractNum,
+        // numerada ou com marcador): zero; na borda da lista vale (oráculo autosplist)
+        string? list = ListOf(p);
+        if (list is not null && _prev?.List == list) { if (p.BeforeAuto) before = 0; if (_prev.AfterAuto) prevAfter = 0; }
+        // topo de página: espaço antes suprimido, exceto no 1º parágrafo do documento
+        // e depois de quebra de seção / quebra no início do parágrafo, em que vale
+        // colapso(depois anterior, antes) − depois anterior (oráculo tocref-sectgap)
         double gap = Collapse(prevAfter, before);
-        if (_atTop && !_firstInDoc) gap = 0;
+        if (ctxAfter is { } cxa) gap = Math.Max(0, Collapse(cxa, before) - cxa);
+        if (_sectGapAfter is { } sga) { gap = Math.Max(0, Collapse(sga, before) - sga); _sectGapAfter = null; }
+        double? keepAfter = _topGapPrevAfter;
+        _topGapPrevAfter = null;
+        if (_atTop && !_firstInDoc) gap = keepAfter is { } ka ? Math.Max(0, Collapse(ka, before) - ka) : 0;
+        // keepNext sem keepLines (modo 15): a partir desta linha o parágrafo desce com o seguinte
+        int tailAt = -1;
         if (p.KeepLines || p.KeepNext)
         {
-            double need = gap + ParagraphHeight(p, frameBase.W) + (p.KeepNext ? NextBlockLead(blockIdx, g, frameBase.W) : 0);
+            var ls = ParagraphLines(p, frameBase.W);
+            var lastL = ls[^1];
+            double fullPH = ls.Aggregate(BorderTopExtent(p, null) + BorderBottomExtent(p), (a, l) => a + l.Height);
+            // a linha que fecha o bloco só precisa caber até o texto: a entrelinha extra
+            // (múltipla > 1) abaixo dele pode passar da margem, como na colocação (oráculo keepfit)
+            double closedH = fullPH - lastL.Height + ClosingFit(p, lastL);
+            double need = gap + (p.KeepNext ? fullPH + NextBlockLead(blockIdx, g, frameBase.W) : closedH);
             double fullH = _cur.BodyBottom - _colTop;
             if (need > Avail() && need <= fullH && !_atTop)
             {
-                BreakColumn();
-                gap = 0;
+                // keepNext SEM keepLines (oráculo keepsplit): o parágrafo que não cabe inteiro
+                // parte normalmente (a última linha já vai com o seguinte); se ele cabe e só o
+                // início do seguinte não, no modo 15 descem só as últimas linhas (2 com
+                // viúvas/órfãs, 1 sem; todas se sobrar uma só) — nos modos antigos, ele inteiro
+                if (!p.KeepLines && gap + closedH > Avail())
+                {
+                    // parte normalmente
+                }
+                else if (!p.KeepLines && _ctx.Fmt.Settings.CompatibilityMode >= 15 && ls.Count > 1)
+                {
+                    bool widowOn = p.WidowControl || p.Ppr.WidowControl is null;
+                    int m = widowOn ? (ls.Count - 2 >= 2 ? 2 : ls.Count) : 1;
+                    if (m >= ls.Count) { BreakColumn(); gap = 0; } else tailAt = ls.Count - m;
+                }
+                else
+                {
+                    BreakColumn();
+                    gap = 0;
+                }
             }
         }
-        if (!_atTop || _firstInDoc) _y += gap;
+        double yPre = _y;
+        double gapIn = !_atTop || _firstInDoc || keepAfter is not null ? gap : 0;
+        _y += gapIn;
+        // topo do parágrafo para objetos relativos a ele: o fim do "depois" do anterior
+        double? paraRef = yPre + Math.Min(prevAfter, gapIn);
+        double selfGap = gapIn - Math.Min(prevAfter, gapIn);
+        // âncora de tabela flutuante: se ela a empurra para baixo, o espaço antes vale de novo lá (oráculo ftable2)
+        double ftGap = _floatTableGap && !_atTop ? gap : 0;
+        _floatTableGap = false;
         _firstInDoc = false;
 
         var br = new LineBreaker(_ctx, p, GridFor(p));
@@ -965,10 +1704,13 @@ internal sealed class Engine
         }
         _y += BorderTopExtent(p, _prev);
         bool first = true;
+        // linhas (visuais) já colocadas e a página onde o parágrafo começou (keepNext: tailAt)
+        int lineNo = 0;
+        var tailPs = _cur;
         // onde ficou a 1ª linha: os objetos ancorados no parágrafo vão para ESSA
         // página (não a da última linha — parágrafo com quebra de página no fim)
-        var anchorAt = new AnchorAt { Ps = _cur, Top = _y, X = ColFrame().X, W = ColFrame().W };
-        var early = PlaceFloatsEarly(p, _cur, ColFrame().X, ColFrame().W, _y);
+        var anchorAt = new AnchorAt { Ps = _cur, Top = _y, X = ColFrame().X, W = ColFrame().W, Ref = paraRef };
+        var early = PlaceFloatsEarly(p, _cur, ColFrame().X, ColFrame().W, _y, null, paraRef);
         // objeto com quebra, posicionado em relação ao parágrafo, passaria da margem
         // inferior: o Word o SOBE até a margem se assim ele não cruza as linhas do
         // próprio parágrafo; senão o parágrafo desce com ele para a próxima
@@ -996,7 +1738,7 @@ internal sealed class Engine
         var earlyRuns = new HashSet<Run>(early.Select(e => e.Obj.Run), ReferenceEqualityComparer.Instance);
         // parágrafo VAZIO que carrega a quebra de seção: não desce para a página
         // seguinte, fica pendurado abaixo da margem (oráculo sectfit)
-        bool hangs = blockIdx == g.Blocks.End && g.Index < _full.Sections.Count - 1 && p.Glyphs.Count == 0;
+        bool hangs = blockIdx == g.Blocks.End && g.Index < _full.Sections.Count - 1 && p.Glyphs.All(gl => gl.Kind == GlyphKind.Obj && gl.Adv == 0); // (só âncoras de flutuantes: vazio — corpus t20)
         // quadro da linha em _y, contornando os flutuantes da página corrente
         LineFrame FrameHere()
         {
@@ -1013,9 +1755,58 @@ internal sealed class Engine
         }
         do
         {
+            double y0 = _y;
             var frame = FrameHere();
+            // empurrado para baixo de flutuante: o "antes" vale de novo lá — o da âncora de
+            // tabela flutuante inteiro; senão a parte do vão que fica DENTRO do parágrafo (a
+            // que excede o "depois" do anterior: a caixa do parágrafo desce com ela — oráculos
+            // ftable2 img-tb-*, ftaftdist fad-html-*)
+            double pushGap = ftGap > 0 ? ftGap : selfGap;
+            if (first && pushGap > 0 && _y > y0) { _y += pushGap; frame = FrameHere(); }
             var mark = br.Mark();
-            var line = br.Next(frame);
+            var seg = PickSeg(br, frame);
+            var line = br.Next(seg.F);
+            // texto da linha mais alto que a estimativa (fonte da marca) cruza um flutuante que a
+            // altura estimada não cruzava: desce para baixo dele (oráculo ftable2, ft2-formx-noempty-before;
+            // a entrelinha extra abaixo do texto não conta)
+            double textH = Math.Min(line.Height, line.Baseline + line.Desc);
+            if (_cur.Floats.Count > 0 && textH > MarkLineH(p) + 1)
+            {
+                var tfr = ColFrame();
+                var f2 = WrapFrame(new LineFrame(p.IndLeft, tfr.W - p.IndRight), tfr.X, _y, textH);
+                if (f2.SkipTo is { } sk2 && sk2 > _y)
+                {
+                    _y = sk2 + (first ? selfGap : 0);
+                    frame = FrameHere();
+                    br.Reset(mark);
+                    seg = PickSeg(br, frame);
+                    line = br.Next(seg.F);
+                }
+                else if (Narrower(f2, frame))
+                {
+                    // cruza um flutuante que deixa espaço ao lado: a linha estreita (oráculo tallwrap)
+                    frame = f2;
+                    br.Reset(mark);
+                    seg = PickSeg(br, frame);
+                    line = br.Next(seg.F);
+                }
+            }
+            // modos < 15: a última linha do parágrafo só fica acima/ao lado de um flutuante se
+            // a linha INTEIRA mais o "depois" ficarem fora dele; senão desce (oráculo ftafter)
+            if (_cur.Floats.Count > 0 && line.Last && _ctx.Fmt.Settings.CompatibilityMode < 15)
+            {
+                double aft = p.AfterAuto ? 280 : p.SpaceAfter;
+                var afr = ColFrame();
+                LineFrame? f3 = aft > 0 ? WrapFrame(new LineFrame(p.IndLeft, afr.W - p.IndRight), afr.X, _y, line.Height + aft) : null;
+                if (f3?.SkipTo is { } sk3 && sk3 > _y)
+                {
+                    _y = sk3 + (first ? selfGap : 0);
+                    frame = FrameHere();
+                    br.Reset(mark);
+                    seg = PickSeg(br, frame);
+                    line = br.Next(seg.F);
+                }
+            }
             var noteNeed = NoteNeed(p, line);
             bool pageChanged = false;
             // a entrelinha extra (múltipla > 1, posta abaixo do texto) pode passar da
@@ -1024,7 +1815,16 @@ internal sealed class Engine
             // ocupa altura no teste — a quebra fica nesta página (oráculo pbfit)
             bool breakOnly = line.BreakAfter == "page" && !line.Last && line.Placed.All(pg => pg.G.Kind == GlyphKind.Pb);
             double fitH = breakOnly ? 0 : p.LineRule is "exact" or "atLeast" ? line.Height : Math.Min(line.Height, line.Baseline + line.Desc);
-            if (_y + fitH > _cur.BodyBottom - noteNeed.Extra + 0.5 && !_atTop && !hangs)
+            if (lineNo == tailAt && ReferenceEquals(_cur, tailPs) && frag.Count > 0 && !_atTop)
+            {
+                // keepNext: as últimas linhas descem com o início do seguinte (oráculo keepsplit)
+                FlushFrag(false);
+                fragHasFirst = false;
+                BreakColumn();
+                fragTop = _y;
+                pageChanged = true;
+            }
+            else if (_y + (noteNeed.Extra > 0 ? NoteLineFit(p, line) : fitH) > _cur.BodyBottom - noteNeed.Extra + 0.5 && !_atTop && !hangs)
             {
                 // não cabe: viúvas/órfãs
                 int placedHere = frag.Count;
@@ -1072,18 +1872,42 @@ internal sealed class Engine
             {
                 // a linha foi quebrada no quadro da página anterior (contorno de objetos): refaz no da nova
                 var nf = FrameHere();
-                if (nf.Left != frame.Left || nf.Right != frame.Right)
+                if (nf.Left != frame.Left || nf.Right != frame.Right || nf.Segs is not null || frame.Segs is not null)
                 {
                     br.Reset(mark);
-                    line = br.Next(nf);
+                    frame = nf;
+                    seg = PickSeg(br, nf);
+                    line = br.Next(seg.F);
                     noteNeed = NoteNeed(p, line);
                 }
             }
             if (noteNeed.Ids.Count > 0) ReserveNotes(noteNeed.Ids);
             frag.Add(new Frag { Line = line, Y = _y, FrameX = ColFrame().X });
-            _y += line.Height;
+            // os outros vãos da mesma linha (objeto no meio: texto dos dois lados)
+            double lineH = line.Height;
+            line = MoreSegs(br, frame, seg.K, line, l =>
+            {
+                var nn = NoteNeed(p, l);
+                if (nn.Ids.Count > 0) ReserveNotes(nn.Ids);
+                frag.Add(new Frag { Line = l, Y = _y, FrameX = ColFrame().X });
+                lineH = Math.Max(lineH, l.Height);
+            });
+            _y += lineH;
             _atTop = false;
             first = false;
+            lineNo++;
+            // quebra de linha w:clear: a linha seguinte começa abaixo dos flutuantes com
+            // contorno que alcançam esta altura (oráculo brclear)
+            if (line.Clear)
+            {
+                for (int k = 0; k < 8; k++)
+                {
+                    double yy = _y;
+                    var below = _cur.Floats.Where(f => f.Wrap != "none" && f.Y - f.DistT < yy && f.Y + f.H + f.DistB > yy).ToList();
+                    if (below.Count == 0) break;
+                    _y = below.Max(f => f.Y + f.H + f.DistB);
+                }
+            }
             if (line.BreakAfter == "page")
             {
                 FlushFrag(false);
@@ -1104,15 +1928,18 @@ internal sealed class Engine
         _y += BorderBottomExtent(p, groupedNext);
         // objetos flutuantes ancorados neste parágrafo
         foreach (var r in earlyRuns) _prePlaced.Add(r);
-        PlaceFloats(p, anchorAt.Ps, anchorAt.X, anchorAt.W, anchorAt.Top, anchorAt.Ps.Body, 0);
+        PlaceFloats(p, anchorAt.Ps, anchorAt.X, anchorAt.W, anchorAt.Top, anchorAt.Ps.Body, 0, anchorAt.Ref);
         foreach (var r in earlyRuns) _prePlaced.Remove(r);
         // parágrafo só com quebra de página: o próximo começa no topo
         var lastGlyph = p.Glyphs.Count > 0 ? p.Glyphs[^1] : null;
-        if (lastGlyph?.Kind == GlyphKind.Pb) _atTop = true;
+        // (com splitPgBreakAndParaMark a marca já ocupou a 1ª linha da página — oráculo pbmark)
+        bool splitPg = _ctx.Fmt.Settings.CompatibilityMode < 15 && _ctx.Fmt.Settings.Compat.TryGetValue("splitPgBreakAndParaMark", out var spb) && spb;
+        if (lastGlyph?.Kind == GlyphKind.Pb && !splitPg) _atTop = true;
         _prev = new PrevPara
         {
             After = p.AfterAuto ? 280 : p.SpaceAfter,
             AfterAuto = p.AfterAuto,
+            List = list,
             StyleId = p.StyleId,
             Contextual = p.Contextual,
             PBdr = p.Ppr.PBdr,
@@ -1158,12 +1985,80 @@ internal sealed class Engine
         return c;
     }
 
+    /// <summary>Notas de rodapé NOVAS referenciadas pelas linhas de texto de uma linha de tabela
+    /// (cada linha diz o parágrafo de origem no ref: b3/r2/c0/b1…).</summary>
+    private List<double> RowNoteIds(RowLayout row)
+    {
+        var ids = new List<double>();
+        foreach (var l in row.Lines)
+        {
+            var para = ParaByRef(l.Ref);
+            if (para is null) continue;
+            double off = 0;
+            foreach (var r in para.Runs)
+            {
+                double len = r.Text.Length;
+                double? id = r.NoteRef?.Kind == "footnote" ? r.NoteRef.Id : null;
+                if (id is { } v && off + Math.Max(len, 1) > l.Start && off < Math.Max(l.End, l.Start + 1)
+                    && !ids.Contains(v) && !_cur.Notes.Any(n => n.Id.Equals(v))) ids.Add(v);
+                off += len;
+            }
+        }
+        return ids;
+    }
+
+    private double RowNoteExtra(RowLayout row)
+    {
+        var ids = RowNoteIds(row);
+        if (ids.Count == 0) return 0;
+        double extra = _cur.Notes.Count > 0 ? 0 : SeparatorHeight();
+        foreach (var id in ids) extra += NoteContent(id).Height;
+        return extra;
+    }
+
+    private static readonly Regex RefB = new(@"^b([0-9]+)\z", RegexOptions.CultureInvariant);
+    private static readonly Regex RefR = new(@"^r([0-9]+)\z", RegexOptions.CultureInvariant);
+    private static readonly Regex RefC = new(@"^c([0-9]+)\z", RegexOptions.CultureInvariant);
+
+    /// <summary>Parágrafo do corpo pelo caminho do ref ("b3/r2/c0/b1").</summary>
+    private Paragraph? ParaByRef(string reference)
+    {
+        var seg = reference.Split('/');
+        var m = RefB.Match(seg[0]);
+        if (!m.Success) return null;
+        int b0 = (int)Js.ParseInt(m.Groups[1].Value);
+        Block? block = b0 >= 0 && b0 < _full.Blocks.Count ? _full.Blocks[b0] : null;
+        for (int i = 1; i + 2 < seg.Length + 1 && block is not null; i += 3)
+        {
+            if (block is not TableBlock tb) return null;
+            var ri = RefR.Match(i < seg.Length ? seg[i] : "");
+            var ci = RefC.Match(i + 1 < seg.Length ? seg[i + 1] : "");
+            var bi = RefB.Match(i + 2 < seg.Length ? seg[i + 2] : "");
+            if (!ri.Success || !ci.Success || !bi.Success) return null;
+            int rIdx = (int)Js.ParseInt(ri.Groups[1].Value), cIdx = (int)Js.ParseInt(ci.Groups[1].Value), bIdx = (int)Js.ParseInt(bi.Groups[1].Value);
+            var cell = rIdx < tb.Rows.Count && cIdx < tb.Rows[rIdx].Cells.Count ? tb.Rows[rIdx].Cells[cIdx] : null;
+            if (cell is null) return null;
+            var blocks = CellBlocks(cell);
+            block = bIdx < blocks.Count ? blocks[bIdx] : null;
+        }
+        return block is ParagraphBlock pb ? pb.Paragraph : null;
+    }
+
     /// <summary>Altura do separador (1 linha do estilo Normal).</summary>
     private double SeparatorHeight()
     {
-        var p = Para.PrepareParagraph(_ctx, new Paragraph { Runs = new List<Run>(), Props = new ParaProps() }, new ParaEnv());
+        // linha SIMPLES da fonte do Normal, sem espaçamento (o pPr do separador e a
+        // entrelinha do Normal não contam — oráculo fnsep)
+        var ppr = new PPr { Spacing = new SpacingSpec { Before = 0, After = 0, Line = 240, LineRule = "auto" } };
+        var p = Para.PrepareParagraph(_ctx, new Paragraph { Runs = new List<Run>(), Props = DocumentReader.ParaPropsFromPPr(ppr), Ppr = ppr }, new ParaEnv());
         return new LineBreaker(_ctx, p).Next(new LineFrame(0, 10000)).Height;
     }
+
+    /// <summary>Altura com que a linha que traz uma nota NOVA precisa caber acima das notas: a
+    /// linha inteira (com a entrelinha extra) e, na última do parágrafo, o "depois"
+    /// dele (oráculo fnsep, varreduras fsep-top* / fsep-a0-*)</summary>
+    private static double NoteLineFit(PreparedPara p, Line line) =>
+        line.Height + (line.Last ? (p.AfterAuto ? 280 : p.SpaceAfter) : 0);
 
     /// <summary>Notas NOVAS referenciadas na linha e o espaço extra que exigem.</summary>
     private (List<double> Ids, double Extra) NoteNeed(PreparedPara p, Line line)
@@ -1212,6 +2107,20 @@ internal sealed class Engine
         }
     }
 
+    /// <summary>Linhas de um parágrafo (sem quebra de página), p/ keepLines/keepNext.</summary>
+    private List<Line> ParagraphLines(PreparedPara p, double width)
+    {
+        var br = new LineBreaker(_ctx, p, GridFor(p));
+        var ls = new List<Line>();
+        do ls.Add(br.Next(new LineFrame(p.IndLeft, width - p.IndRight))); while (!br.Done());
+        return ls;
+    }
+
+    /// <summary>Altura com que a linha que fecha um bloco precisa caber: a entrelinha extra
+    /// (múltipla &gt; 1) fica abaixo do texto e pode passar da margem (oráculos pagefit, keepfit).</summary>
+    private static double ClosingFit(PreparedPara p, Line l) =>
+        p.LineRule == "exact" || p.LineRule == "atLeast" ? l.Height : Math.Min(l.Height, l.Baseline + l.Desc);
+
     /// <summary>Altura total de um parágrafo (sem quebra de página), p/ keepLines/keepNext.</summary>
     private double ParagraphHeight(PreparedPara p, double width)
     {
@@ -1230,6 +2139,11 @@ internal sealed class Engine
         var saved = _ctx.SaveFlow();
         try
         {
+            // o "depois" do próprio parágrafo (keepNext) conta até o início do seguinte;
+            // contextual com o seguinte no mesmo estilo zera (oráculo keepgap)
+            var curB = blockIdx >= 0 && blockIdx < _full.Blocks.Count ? _full.Blocks[blockIdx] : null;
+            var from = curB is ParagraphBlock cpb ? Para.PrepareParagraph(_ctx, cpb.Paragraph, new ParaEnv()) : null;
+            double after = from is not null ? (from.AfterAuto ? 280 : from.SpaceAfter) : 0;
             if (nb is TableBlock tbl)
             {
                 // título antes de tabela: fica com a 1ª linha (e a seguinte, se a 1ª
@@ -1240,13 +2154,37 @@ internal sealed class Engine
                 static double StartNeed(RowLayout r, double cap) =>
                     r.CantSplit || (r.Natural ?? r.Height) < r.Height ? r.Height : Math.Min(r.Height, cap);
                 var r1 = t.Rows.Count > 1 ? t.Rows[1] : null;
-                return r0.KeepNext && r1 is not null ? r0.Height + StartNeed(r1, 400) : StartNeed(r0, r0.Natural ?? r0.Height);
+                double lead = r0.KeepNext && r1 is not null ? r0.Height + StartNeed(r1, 400) : StartNeed(r0, r0.Natural ?? r0.Height);
+                bool dropped = from is not null && DropsAfterBeforeTable(new PrevPara { After = after, AfterAuto = from.AfterAuto, Contextual = from.Contextual, StyleId = from.StyleId }, tbl);
+                return (dropped ? 0 : after) + lead;
             }
             var q = Para.PrepareParagraph(_ctx, ((ParagraphBlock)nb).Paragraph, new ParaEnv());
-            double gap = Collapse(0, q.SpaceBefore);
+            double before = q.SpaceBefore;
+            double? ctxAfter = null;
+            if (from is not null && from.StyleId == q.StyleId)
+            {
+                if (from.Contextual) { ctxAfter = after; after = 0; }
+                if (q.Contextual) before = 0;
+            }
+            double gap = ctxAfter is { } cxa ? Math.Max(0, Collapse(cxa, before) - cxa) : Collapse(after, before);
             if (q.KeepNext) return gap + ParagraphHeight(q, width) + NextBlockLead(blockIdx + 1, g, width);
+            // o seguinte só começa nesta página com as linhas que ele não pode deixar
+            // sozinhas: inteiro com keepLines; com viúvas/órfãs, 2 linhas (todas se
+            // tiver até 3) — oráculo keepwidow
+            // (a última linha exigida fecha o bloco: só o texto dela precisa caber — oráculo keepfit)
+            if (q.KeepLines)
+            {
+                var ls = ParagraphLines(q, width);
+                var lastL = ls[^1];
+                return gap + ls.Aggregate(BorderTopExtent(q, null), (a, l) => a + l.Height) - lastL.Height + ClosingFit(q, lastL);
+            }
             var br = new LineBreaker(_ctx, q, GridFor(q));
-            return gap + br.Next(new LineFrame(q.IndLeft, width - q.IndRight)).Height;
+            var qs = new List<Line>();
+            do qs.Add(br.Next(new LineFrame(q.IndLeft, width - q.IndRight))); while (!br.Done() && qs.Count < 4);
+            bool widow = q.WidowControl || q.Ppr.WidowControl is null;
+            int n = !widow ? 1 : br.Done() && qs.Count <= 3 ? qs.Count : 2;
+            var take = qs.Take(n).ToList();
+            return gap + take.Aggregate(0.0, (a, l) => a + l.Height) - take[n - 1].Height + ClosingFit(q, take[n - 1]);
         }
         finally
         {
@@ -1260,16 +2198,47 @@ internal sealed class Engine
     {
         // tabela só com linhas ocultas: some, sem mexer no espaçamento (oráculo hidden)
         if (table.Rows.All(r => TableEngine.IsHiddenRow(_ctx, r))) return;
+        _sectGapAfter = null;
         var fr = ColFrame();
         var fp = table.TblPr?.TblpPr;
         if (fp is not null && fp.TblpYSpec != "inline")
         {
+            bool textAnchor = fp.VertAnchor != "page" && fp.VertAnchor != "margin";
+            if (textAnchor)
+            {
+                // âncora no texto: a posição conta do fim do "depois" do parágrafo anterior;
+                // o parágrafo âncora tem o "antes" inteiro, abaixo da tabela se ela o empurra (oráculo ftable2)
+                if (_prev is not null && !_atTop && _prev.After > 0 && !_prev.Contextual)
+                {
+                    _y += _prev.After;
+                    var pv = _prev.ShallowClone();
+                    pv.After = 0;
+                    _prev = pv;
+                }
+                _floatTableGap = true;
+            }
+            // já posta no início da página (tabela tardia, passada anterior): não repete
+            // tabela de posição na página que a passada anterior mandou para uma página
+            // ADIANTE (a âncora não coube na página dela com o texto contornando): a âncora
+            // começa naquela página, onde a tabela já entrou (oráculo ftpage, fpg-overflow)
+            var ltp = blockIdx >= 0 && !textAnchor && _lateTables.TryGetValue(blockIdx, out var ltp0) ? ltp0 : null;
+            for (int k = 0; ltp is not null && k < 20 && _pages.Count - 1 < ltp.Page; k++) BreakColumn();
+            if (blockIdx >= 0 && _placedTables.Contains(blockIdx))
+            {
+                // posição na página e a âncora desceu para outra página (o texto antes dela
+                // contornou a tabela e passou): a tabela vai junto, para o início da página
+                // da âncora, na próxima passada (oráculo ftpage)
+                if (_lateTables.TryGetValue(blockIdx, out var lt) && !textAnchor && _pages.Count - 1 > lt.Page && LateTablesFound.Count == 0)
+                    LateTablesFound[blockIdx] = new LateTable(_pages.Count - 1, _y);
+                return;
+            }
+            if (blockIdx >= 0) _placedTables.Add(blockIdx);
             // tabela flutuante (w:tblpPr): fora do fluxo, o texto seguinte a contorna
             var ft = TableEngine.LayoutTable(_ctx, table, 0, fr.W, (cell, cx, cw, cenv, cref) => LayoutCell(cell, cx, cw, cenv, cref, _cur), reference);
             // pintada depois do texto do corpo (como o Word: ordem do conteúdo da página)
             var fitems = new List<PageItem>();
             double flowY = _y;
-            if (fp.VertAnchor != "page" && fp.VertAnchor != "margin")
+            if (textAnchor)
             {
                 // âncora no texto: o parágrafo seguinte desce para baixo de flutuantes que
                 // não o deixam ao lado (tabelas flutuantes de largura total) e a tabela vai
@@ -1284,7 +2253,18 @@ internal sealed class Engine
                 // nem a 1ª linha de texto cabe: a tabela (e a âncora) vão para a próxima página; senão
                 // as linhas que não cabem continuam no topo da próxima (como o Word)
                 var r0 = ft.Rows.Count > 0 ? ft.Rows[0] : null;
-                if (!_atTop && r0 is not null && top + r0.Height > _cur.BodyBottom + 0.5)
+                // "não dividir tabelas com quebra automática de texto" (w:compat, modos < 15): a
+                // tabela fica inteira — passando da margem — se a altura dela couber a partir do
+                // topo da âncora; senão desce inteira com a âncora (oráculo ftnobreak)
+                if (NoBreakWrapped())
+                {
+                    if (!_atTop && flowY + ft.Rows.Aggregate(0.0, (a, r) => a + r.Height) > _cur.BodyBottom + 0.5)
+                    {
+                        BreakColumn();
+                        flowY = _y;
+                    }
+                }
+                else if (!_atTop && r0 is not null && top + r0.Height > _cur.BodyBottom + 0.5)
                 {
                     double avail = _cur.BodyBottom - top;
                     bool onlyMin = (r0.Natural ?? r0.Height) <= avail + 0.5;
@@ -1296,10 +2276,28 @@ internal sealed class Engine
                     }
                 }
             }
+            int nFloats = _cur.Floats.Count;
+            int nCarry = _floatCarry.Count;
             PlaceFloatingTable(ft, fp, _cur, flowY, fr.X, fr.W, fitems, 0, true, true);
             _cur.Front.Add(new ZObj { Z = -1, Seq = _zSeq++, Items = fitems });
+            // cobre linhas de parágrafos JÁ diagramadas antes dela (deslocamento negativo): na
+            // passada seguinte entra no início da página e essas linhas a contornam (oráculo ftable2, ft2-form*)
+            var box = _cur.Floats.Count > nFloats ? _cur.Floats[^1] : null;
+            // (posição relativa à página/margem também: o texto antes da âncora a contorna — oráculo ftpage)
+            if (blockIdx >= 0 && box is not null)
+            {
+                var gg = _cur.Geom;
+                bool hit = _cur.Page.Lines.Any(l => BOnlyRe.IsMatch(l.Ref) && l.Y + l.Height > box.Y - box.DistT + 1 && l.Y < box.Y + box.H + box.DistB - 1
+                    && box.X + box.W + box.DistR > gg.MarL && box.X - box.DistL < gg.PageW - gg.MarR);
+                // uma por passada: a posição das seguintes depende do texto que esta empurrar
+                if (hit && LateTablesFound.Count == 0) LateTablesFound[blockIdx] = new LateTable(_pages.IndexOf(_cur), flowY);
+            }
+            // a tabela continua na página seguinte: o parágrafo âncora vai junto e contorna a
+            // continuação lá (largura total: fica depois do fim dela) — oráculo ftsplit
+            if (textAnchor && _floatCarry.Count > nCarry && _col == _cur.Geom.Cols.Count - 1) BreakColumn();
             return;
         }
+        _floatTableGap = false;
         if (_prev is not null)
         {
             _y += _atTop || DropsAfterBeforeTable(_prev, table) ? 0 : _prev.After;
@@ -1307,14 +2305,29 @@ internal sealed class Engine
         AssignCellNeighbors(table, _prev is not null ? new CtxNeighbor { StyleId = _prev.StyleId } : null);
         _prev = null;
         _firstInDoc = false;
+        _topGapPrevAfter = null;
         var t = TableEngine.LayoutTable(_ctx, table, fr.X, fr.W, (cell, cx, cw, cenv, cref) => LayoutCell(cell, cx, cw, cenv, cref, _cur), reference);
         if (blockIdx >= 0) PinFloatsOverTable(t, blockIdx);
         _lastRowEmit = null;
         var headerRows = new List<RowLayout>();
         foreach (var r in t.Rows) { if (r.Header) headerRows.Add(r); else break; }
+        var mergeMovedT = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        // partes de linhas emitidas e mesclas verticais que atravessam a página
+        var rowEmits = new List<RowEmit>();
+        var flowMerges = new List<FlowMerge>();
         for (int ri = 0; ri < t.Rows.Count; ri++)
         {
-            var row = t.Rows[ri];
+            var row0 = t.Rows[ri];
+            var row = row0;
+            // modo 15: as linhas de cabeçalho (repetidas) não ficam sozinhas no pé — se a
+            // 1ª linha de dados não puder começar logo depois delas, descem juntas
+            // (oráculo hdrrow; nos modos 11/14 ficam e se repetem)
+            if (ri == 0 && headerRows.Count > 0 && headerRows.Count < t.Rows.Count && !_atTop && _ctx.Fmt.Settings.CompatibilityMode >= 15)
+            {
+                double availH = _cur.BodyBottom - _y;
+                double hh = headerRows.Aggregate(0.0, (a, r) => a + r.Height);
+                if (hh <= availH + 0.5 && !RowCanStart(t.Rows[headerRows.Count], availH - hh)) BreakColumn();
+            }
             // manter com a próxima: se a próxima linha não puder começar nesta página
             // logo depois desta, esta desce junto (oráculo keeptbl)
             if (row.KeepNext && !_atTop && ri + 1 < t.Rows.Count)
@@ -1330,14 +2343,23 @@ internal sealed class Engine
             }
             for (int guard = 0; guard < 500; guard++)
             {
-                double avail = _cur.BodyBottom - _y;
-                if (row.Height <= avail + 0.5) break;
+                // a tabela não contorna: a linha cuja 1ª linha de texto cruzaria um flutuante com
+                // quebra (inclusive atrás do texto; do cabeçalho também nos modos ≤ 14) desce para
+                // baixo dele (oráculo tblfloat); o resto da linha parte no pé como sempre (corpus t191)
+                _y = BelowFloats(t.X, t.Width, _y, row.Lines.Count > 0 ? Math.Min(row.Height, row.Lines.Min(l => l.Y + l.Height)) : row.Height);
+                // notas de rodapé referenciadas nas células desta linha ocupam o pé da página
+                double avail = _cur.BodyBottom - _y - RowNoteExtra(row);
+                // fora a última da tabela, a borda que fecharia a página logo abaixo dela
+                // também tem de caber (oráculo rowfitbdr)
+                double bw = ri < t.Rows.Count - 1 ? row.BreakW ?? 0 : 0;
+                if (row.Height + bw <= avail + 0.5) break;
                 // não cabe: o Word divide a linha (salvo cantSplit) no fim da última linha de
                 // texto que cabe — mas se o CONTEÚDO cabe e só a altura mínima não, a linha desce inteira
-                bool onlyMin = (row.Natural ?? row.Height) <= avail + 0.5;
+                bool onlyMin = (row.Natural ?? row.Height) + bw <= avail + 0.5;
                 var parts = onlyMin ? null : row.Split?.Invoke(avail);
                 if (parts is { } pp && pp.First.Height > 0)
                 {
+                    rowEmits.Add(new RowEmit(ri, _cur, _y, pp.First.Height, _cur.Body.Count));
                     EmitRow(pp.First);
                     row = pp.Remainder;
                 }
@@ -1349,10 +2371,104 @@ internal sealed class Engine
                 // repete as linhas de cabeçalho da tabela
                 if (ri >= headerRows.Count) foreach (var h in headerRows) EmitRow(h);
             }
+            // texto de mescla vertical na 1ª linha dela, na ordem das colunas — se a mescla
+            // inteira cabe aqui, sem flutuantes no caminho (oráculo vmorder)
+            if (ReferenceEquals(row, row0))
+                row = TableEngine.DropMoved(TableEngine.MergeTextFirst(t.Rows, ri, row0, mergeMovedT,
+                    hh => _y + hh <= _cur.BodyBottom + 0.5 && BelowFloats(t.X, t.Width, _y, hh) == _y), mergeMovedT);
+            // mescla vertical que começou em OUTRA página: o texto dela flui pelas partes
+            // (topo da mescla em cada página), como célula que parte (oráculo vmsplit)
+            double grow = 0;
+            foreach (var mt in row0.MergeText ?? new List<MergeTextInfo>())
+            {
+                var se = rowEmits.FirstOrDefault(e => e.Ri == mt.Start);
+                if (se is null || ReferenceEquals(se.Ps, _cur) || mt.Content is null) continue;
+                foreach (var o in mt.Items) mergeMovedT.Add(o);
+                foreach (var o in mt.Lines) mergeMovedT.Add(o);
+                double off = (mt.Band ?? 0) + (mt.MarT ?? 0);
+                flowMerges.Add(new FlowMerge(mt.Start!.Value, ri, mt.Col, mt.Content, off, mt.VAlign));
+                // a parte desta página cresce o que faltar ao resto do texto: o corte nas páginas
+                // anteriores perde o espaço abaixo da última linha que coube (vms-top)
+                CellContent? rest = mt.Content;
+                PageState? segPs = null;
+                double segTop = 0, segBot = 0;
+                foreach (var e in rowEmits)
+                {
+                    if (e.Ri < mt.Start!.Value || ReferenceEquals(e.Ps, _cur) || rest is null) continue;
+                    if (!ReferenceEquals(e.Ps, segPs))
+                    {
+                        if (segPs is not null) rest = TableEngine.SplitContent(rest, segBot - segTop - off)?.B ?? rest;
+                        segPs = e.Ps; segTop = e.Y;
+                    }
+                    segBot = e.Y + e.H;
+                }
+                if (segPs is not null && rest is not null) rest = TableEngine.SplitContent(rest, segBot - segTop - off)?.B ?? rest;
+                double here = rowEmits.FirstOrDefault(e => e.Ri >= mt.Start!.Value && ReferenceEquals(e.Ps, _cur))?.Y ?? _y;
+                if (rest is not null) grow = Math.Max(grow, off + rest.Height + (mt.Band ?? 0) - (_y - here + row.Height));
+            }
+            if (row0.MergeText is not null && mergeMovedT.Count > 0) row = TableEngine.DropMoved(row, mergeMovedT);
+            rowEmits.Add(new RowEmit(ri, _cur, _y, row.Height + Math.Max(0, grow), _cur.Body.Count));
             EmitRow(row);
+            if (grow > 0.5) _y += grow;
         }
+        // inserções no corpo de cada página (ordem do PDF do Word: texto da mescla na
+        // 1ª linha da parte, na ordem das colunas) — aplicadas do fim para o começo
+        var ins = new List<(PageState Ps, int At, List<PageItem> Items)>();
+        foreach (var m in flowMerges)
+        {
+            // partes da mescla por página (topo da 1ª parte, fundo da última)
+            var segs = new List<MergeSeg>();
+            foreach (var e in rowEmits)
+            {
+                if (e.Ri < m.Start || e.Ri > m.End) continue;
+                var lastS = segs.Count > 0 ? segs[^1] : null;
+                if (lastS is not null && ReferenceEquals(lastS.Ps, e.Ps)) lastS.Bottom = e.Y + e.H;
+                else segs.Add(new MergeSeg { Ps = e.Ps, Top = e.Y, Bottom = e.Y + e.H, At = e.At });
+            }
+            // posição da coluna da mescla entre as células da 1ª linha (1ª parte)
+            int colAt = (m.Start >= 0 && m.Start < t.Rows.Count ? t.Rows[m.Start].MergeAt?.FirstOrDefault(a => a.Col == m.Col)?.At : null) ?? 0;
+            CellContent? c = m.Content;
+            for (int k = 0; k < segs.Count; k++)
+            {
+                var sg = segs[k];
+                if (c is null) continue;
+                CellContent part = c;
+                CellContent? rest = null;
+                if (k < segs.Count - 1)
+                {
+                    var sp = TableEngine.SplitContent(c, sg.Bottom - sg.Top - m.Off);
+                    if (sp is { } spv) { part = spv.A; rest = spv.B; }
+                    else { part = new CellContent { Items = new List<PageItem>(), Lines = new List<LaidOutLine>(), Height = 0 }; rest = c; }
+                }
+                // alinhamento vertical da célula vale dentro de CADA parte (vms-center)
+                double free = Math.Max(0, sg.Bottom - sg.Top - m.Off - part.Height);
+                double dy = sg.Top + m.Off + (m.VAlign == "center" ? free / 2 : m.VAlign == "bottom" ? free : 0);
+                ins.Add((sg.Ps, sg.At + (k == 0 ? colAt : 0), part.Items.Select(it => TableEngine.ShiftItem(it, dy)).ToList()));
+                foreach (var l in part.Lines)
+                {
+                    var nl = l.ShallowClone();
+                    nl.Y = l.Y + dy;
+                    nl.Baseline = l.Baseline + dy;
+                    sg.Ps.Page.Lines.Add(nl);
+                }
+                c = rest;
+            }
+        }
+        foreach (var n in ins.OrderByDescending(a => a.At).ToList()) n.Ps.Body.InsertRange(n.At, n.Items);
         // o parágrafo seguinte vê a marca de fim de linha como anterior (contextual)
         _prev = RowEndPrev();
+    }
+
+    /// <summary>parte de linha de tabela emitida (página, y, altura, posição no corpo) — oráculo vmsplit</summary>
+    private sealed record RowEmit(int Ri, PageState Ps, double Y, double H, int At);
+    /// <summary>mescla vertical que atravessa a página: linhas, coluna, conteúdo, deslocamento do topo, alinhamento</summary>
+    private sealed record FlowMerge(int Start, int End, int Col, CellContent Content, double Off, string? VAlign);
+    private sealed class MergeSeg
+    {
+        public PageState Ps = null!;
+        public double Top;
+        public double Bottom;
+        public int At;
     }
 
     private static readonly Regex HfRefRe = new(@"^(hdr|ftr):[A-Za-z0-9_]+\z", RegexOptions.CultureInvariant);
@@ -1369,7 +2485,12 @@ internal sealed class Engine
         Behind = new List<ZObj>(), Hf = new List<PageItem>(), Body = new List<PageItem>(), Front = new List<ZObj>(),
         HfBehind = new List<ZObj>(), HfFront = new List<ZObj>(), Floats = new List<FloatBox>(ps.Floats),
         SectPage = ps.SectPage, Notes = new List<(double Id, CellContent Content)>(), NoteArea = ps.NoteArea, BodyBottomBase = ps.BodyBottomBase,
+        TblFloats = ps.TblFloats is not null ? new List<FloatBox>(ps.TblFloats) : null,
     };
+
+    /// <summary>O quadro <paramref name="a"/> aperta a linha mais que <paramref name="b"/> (lados ou vãos ao redor de flutuantes)?</summary>
+    private static bool Narrower(LineFrame a, LineFrame b) =>
+        a.Left > b.Left + 0.5 || a.Right < b.Right - 0.5 || (a.Segs?.Count ?? 0) != (b.Segs?.Count ?? 0);
 
     /// <summary>Altura natural de uma linha com a fonte da marca de parágrafo (twips) —
     /// estimativa para o contorno de objetos antes de quebrar a linha.</summary>
@@ -1390,6 +2511,20 @@ internal sealed class Engine
 
     /// <summary>Âncoras verticais que não dependem do fluxo do texto.</summary>
     private static readonly HashSet<string> AbsoluteV = new(StringComparer.Ordinal) { "page", "margin", "topMargin", "bottomMargin", "insideMargin", "outsideMargin" };
+
+    /// <summary>Topo livre para uma faixa [x, x+w] × [y, y+h] que não contorna flutuantes (linha de tabela).</summary>
+    private double BelowFloats(double x, double w, double y, double h)
+    {
+        var fls = _cur.TblFloats is not null ? _cur.Floats.Concat(_cur.TblFloats).ToList() : _cur.Floats;
+        for (int k = 0; k < 8; k++)
+        {
+            var hit = fls.FirstOrDefault(f => f.Wrap != "none" && y + h > f.Y - f.DistT + 0.5 && y < f.Y + f.H + f.DistB - 0.5
+                && x + w > f.X - f.DistL && x < f.X + f.W + f.DistR);
+            if (hit is null) break;
+            y = hit.Y + hit.H + hit.DistB;
+        }
+        return y;
+    }
 
     /// <summary>Topo mínimo de um flutuante com quebra relativo ao texto: corpo (modo 15) ou página (≤ 14).</summary>
     private double FloatMinY(PageState ps) => _ctx.Fmt.Settings.CompatibilityMode >= 15 ? ps.BodyTop : 0;
@@ -1432,11 +2567,15 @@ internal sealed class Engine
             double y = Math.Max(FloatMinY(_cur), anchorTop0 + (anc.PosV.Offset ?? 0));
             var hRef = HorizRef(anc.PosH.RelativeFrom ?? "column", g, fr.X, fr.W);
             double x = AlignPos(anc.PosH.Align, anc.PosH.Offset, hRef.X, hRef.W, w, anc.PosH.Pct, g.PageW);
-            bool overV = y - (anc.DistT ?? 0) < top + H && y + h + (anc.DistB ?? 0) > top;
-            bool overH = x - (anc.DistL ?? 0) < t.X + t.Width && x + w + (anc.DistR ?? 0) > t.X;
+            // justo/através: vale a caixa do polígono de contorno (oráculo wrappoly)
+            var wb = anc.Wrap is "tight" or "through" ? anc.WrapBox : null;
+            double by0 = wb is not null ? y + h * wb.T : y, by1 = wb is not null ? y + h * wb.B : y + h;
+            double bx0 = wb is not null ? x + w * wb.L : x, bx1 = wb is not null ? x + w * wb.R : x + w;
+            bool overV = by0 - (anc.DistT ?? 0) < top + H && by1 + (anc.DistB ?? 0) > top;
+            bool overH = bx0 - (anc.DistL ?? 0) < t.X + t.Width && bx1 + (anc.DistR ?? 0) > t.X;
             if (!overV || !overH) continue;
             _pinnedFloats[run] = (_cur, y);
-            newTop = Math.Max(newTop, y + h + (anc.DistB ?? 0));
+            newTop = Math.Max(newTop, by1 + (anc.DistB ?? 0));
         }
         if (newTop > top) _y = newTop;
     }
@@ -1460,6 +2599,9 @@ internal sealed class Engine
         var (aT, aB) = fp.VertAnchor == "page" ? (0.0, g.PageH) : fp.VertAnchor == "margin" ? (g.MarT, g.PageH - g.MarB) : (flowY, flowY);
         string? ys = fp.TblpYSpec;
         double top = ys == "center" ? aT + (aB - aT - H) / 2 : ys == "bottom" ? aB - H : aT + (Js.Truthy(ys) ? 0 : fp.TblpY ?? 0);
+        // no cabeçalho/rodapé a tabela não sai pelo pé da página: sobe até caber, sem
+        // afastar o texto de lá (corpus t43; oráculo hfclamp)
+        if (_inHf && top + H > g.PageH) { top = Math.Max(0, g.PageH - H); wrap = false; }
         EmitFloatRows(t, t.Rows, fp, ps, refX, top, outp, yOrigin, wrap, split);
     }
 
@@ -1476,7 +2618,7 @@ internal sealed class Engine
         for (int i = 0; i < rows.Count; i++)
         {
             var row = rows[i];
-            if (split && y + row.Height > ps.BodyBottom + 0.5)
+            if (split && !NoBreakWrapped() && y + row.Height > ps.BodyBottom + 0.5)
             {
                 // não cabe: divide a linha (salvo cantSplit / só a altura mínima) como no fluxo
                 double avail = ps.BodyBottom - y;
@@ -1514,6 +2656,10 @@ internal sealed class Engine
         if (n < rows.Count) _floatCarry.Add(new FloatCarryItem(t, rows.Skip(n).ToList(), fp, refX));
     }
 
+    /// <summary>w:doNotBreakWrappedTables: tabelas flutuantes não partem (o modo 15 ignora — oráculo ftnobreak)</summary>
+    private bool NoBreakWrapped() =>
+        _ctx.Fmt.Settings.CompatibilityMode < 15 && _ctx.Fmt.Settings.Compat.TryGetValue("doNotBreakWrappedTables", out var on) && on;
+
     /// <summary>Continuação de tabelas flutuantes divididas: topo do corpo da página nova.</summary>
     private void PlaceFloatCarry()
     {
@@ -1538,6 +2684,9 @@ internal sealed class Engine
 
     private void EmitRow(RowLayout row)
     {
+        // notas de rodapé de referências em células (oráculo notes)
+        var ids = RowNoteIds(row);
+        if (ids.Count > 0) ReserveNotes(ids);
         _lastRowEmit = (row, _y);
         foreach (var it in row.Items) _cur.Body.Add(TableEngine.ShiftItem(it, _y));
         foreach (var it in row.BorderItems) _cur.Body.Add(TableEngine.ShiftItem(it, _y));
@@ -1569,20 +2718,27 @@ internal sealed class Engine
         {
             if (f.Wrap != "square" && f.Wrap != "tight" && f.Wrap != "through" && f.Wrap != "topAndBottom") continue;
             double top = f.Y - f.DistT, bottom = f.Y + f.H + f.DistB;
-            // (1 twip de folga: o Word compara em twips — 0,02pt de sobreposição
-            // não desvia; 0,15pt desvia)
-            if (y + lineH <= top + 1 || y >= bottom - 1) continue;
+            // (o Word compara em twips inteiros — 0,02pt de sobreposição não desvia;
+            // 1 twip (moldura com y=1, oráculo frames) e 0,15pt desviam)
+            if (y + lineH <= top + 0.5 || y >= bottom - 0.5) continue;
             double fl = f.X - f.DistL - frameX, frr = f.X + f.W + f.DistR - frameX;
             if (frr <= left || fl >= right) continue;
             if (f.Wrap == "topAndBottom") { skipTo = Math.Max(skipTo ?? 0, bottom); continue; }
             hit = true;
             minBottom = Math.Min(minBottom, bottom);
+            // wrapText: o texto passa só de um lado — o outro também fica bloqueado
+            // (largest: o vão maior; oráculo wrapsides)
+            double bl = fl, bh = frr;
+            string side = f.Side ?? "bothSides";
+            if (side == "left") bh = double.PositiveInfinity;
+            else if (side == "right") bl = double.NegativeInfinity;
+            else if (side == "largest") { if (fl - left >= right - frr) bh = double.PositiveInfinity; else bl = double.NegativeInfinity; }
             var next = new List<(double A, double B)>();
             foreach (var (a, b) in free)
             {
-                if (frr <= a || fl >= b) { next.Add((a, b)); continue; }
-                if (fl > a) next.Add((a, fl));
-                if (frr < b) next.Add((frr, b));
+                if (bh <= a || bl >= b) { next.Add((a, b)); continue; }
+                if (bl > a) next.Add((a, bl));
+                if (bh < b) next.Add((bh, b));
             }
             free = next;
         }
@@ -1590,20 +2746,61 @@ internal sealed class Engine
         {
             // o intervalo mais largo (empate: o da esquerda) — vários flutuantes na mesma
             // linha: a linha vai para o vão livre, não para baixo deles (oráculo hfmix)
+            // vão com menos de 18pt não recebe texto (oráculo wrapsides, ws-a-*)
+            // o vão conta só DENTRO da coluna: recuo negativo não abre espaço ao lado do
+            // flutuante (oráculo ftnegind)
+            var col = ColFrame();
+            double cR = Math.Abs(frameX - col.X) < 0.5 ? col.W : double.PositiveInfinity, cL = double.IsPositiveInfinity(cR) ? double.NegativeInfinity : 0;
+            free = free.Where(iv => Math.Min(iv.B, cR) - Math.Max(iv.A, cL) >= MinGap).ToList();
             (double A, double B)? best = null;
             foreach (var iv in free) if (best is null || iv.B - iv.A > best.Value.B - best.Value.A) best = iv;
             // sem espaço útil ao lado: a linha desce até o fim do 1º objeto que a bloqueia
-            if (best is null || best.Value.B - best.Value.A < 300) skipTo = Math.Max(skipTo ?? 0, minBottom);
-            else if (skipTo is null) return new LineFrame(best.Value.A, best.Value.B);
+            if (best is null) skipTo = Math.Max(skipTo ?? 0, minBottom);
+            // objeto no meio: o texto ocupa os vãos da esquerda para a direita (wrapsides)
+            else if (skipTo is null) return new LineFrame(best.Value.A, best.Value.B) { Segs = free.Count > 1 ? free : null };
         }
         if (skipTo is not null) { var r = frame; r.SkipTo = skipTo; return r; }
         return new LineFrame(left, right);
     }
 
+    /// <summary>vão mínimo ao lado de um objeto para receber texto: 18pt (twips; oráculo wrapsides)</summary>
+    private const double MinGap = 359.5;
+
+    /// <summary>
+    /// Vão onde começa a linha: com o objeto no meio dela, o 1º vão (da esquerda)
+    /// em que a próxima palavra cabe — vão estreito demais fica vazio (oráculo
+    /// wrapsides). Nenhum cabe: o mais largo, sozinho (k = fim).
+    /// </summary>
+    private static (int K, LineFrame F) PickSeg(LineBreaker br, LineFrame frame)
+    {
+        if (frame.Segs is null) return (-1, frame);
+        double need = br.PeekWordWidth();
+        for (int k = 0; k < frame.Segs.Count; k++)
+        {
+            var (a, b) = frame.Segs[k];
+            if (b - a + 0.01 >= need) return (k, new LineFrame(a, b));
+        }
+        return (frame.Segs.Count, new LineFrame(frame.Left, frame.Right));
+    }
+
+    /// <summary>linhas dos vãos seguintes da mesma linha (depois do vão `k`)</summary>
+    private static Line MoreSegs(LineBreaker br, LineFrame frame, int k, Line last, Action<Line> put)
+    {
+        if (frame.Segs is null) return last;
+        for (int j = k + 1; j < frame.Segs.Count && !br.Done() && last.BreakAfter is null && !last.Clear; j++)
+        {
+            var (a, b) = frame.Segs[j];
+            if (b - a + 0.01 < br.PeekWordWidth()) continue;
+            last = br.Next(new LineFrame(a, b));
+            put(last);
+        }
+        return last;
+    }
+
     private static bool IsFloating(Run run) =>
         run.Image?.Floating == true || run.Shape?.Floating == true || run.Group?.Floating == true || run.Textbox?.Floating == true;
 
-    private void PlaceFloats(PreparedPara p, PageState ps, double colX, double colW, double paraTop, List<PageItem> flowItems, double yOrigin)
+    private void PlaceFloats(PreparedPara p, PageState ps, double colX, double colW, double paraTop, List<PageItem> flowItems, double yOrigin, double? paraRef = null)
     {
         foreach (var g in p.Glyphs)
         {
@@ -1611,7 +2808,7 @@ internal sealed class Engine
             if (run is null) continue;
             if (!IsFloating(run) || _prePlaced.Contains(run)) continue;
             if (_onlyTextFloats && !FollowsText(FloatAnchor(run))) continue;
-            PlaceFloat(run, ps, colX, colW, paraTop, flowItems, yOrigin);
+            PlaceFloat(run, ps, colX, colW, paraTop, flowItems, yOrigin, null, paraRef);
         }
     }
 
@@ -1627,6 +2824,8 @@ internal sealed class Engine
         public FloatBox? Box;
         /// <summary>estado de listas/SEQ/notas antes da colocação (caixa de texto): volta no unplace</summary>
         public FlowState? Flow;
+        /// <summary>moldura: itens postos no FLUXO (camada do texto)</summary>
+        public (List<PageItem> Arr, List<PageItem> Items)? InFlow;
     }
 
     /// <summary>Quebras de texto que afastam as linhas do objeto.</summary>
@@ -1636,6 +2835,7 @@ internal sealed class Engine
     private void UnplaceFloat(FloatReceipt r)
     {
         r.Target.Remove(r.ZObj);
+        if (r.InFlow is { } inf) foreach (var it in inf.Items) inf.Arr.Remove(it);
         r.Ps.Page.Objects?.Remove(r.Obj);
         if (r.Box is not null) r.Ps.Floats.Remove(r.Box);
         // o conteúdo de caixa de texto já diagramado não conta: será refeito na nova posição
@@ -1647,7 +2847,7 @@ internal sealed class Engine
     /// próprio texto do parágrafo os contorne (como no cabeçalho). Só os
     /// de quebra que afeta o texto; os demais seguem depois das linhas.
     /// </summary>
-    private List<FloatReceipt> PlaceFloatsEarly(PreparedPara p, PageState ps, double colX, double colW, double paraTop, double? clampBottom = null)
+    private List<FloatReceipt> PlaceFloatsEarly(PreparedPara p, PageState ps, double colX, double colW, double paraTop, double? clampBottom = null, double? paraRef = null)
     {
         var outp = new List<FloatReceipt>();
         FlowState? flow = null;
@@ -1656,10 +2856,11 @@ internal sealed class Engine
             var run = g.Obj;
             if (run is null) continue;
             var anc = run.Image?.Anchor ?? run.Shape?.Anchor ?? run.Group?.Anchor ?? run.Textbox?.Anchor;
-            if (!IsFloating(run) || anc is null || !Wrapping.Contains(anc.Wrap ?? "")) continue;
+            // (já posto no início da página como flutuante tardio: não duplica)
+            if (!IsFloating(run) || anc is null || !Wrapping.Contains(anc.Wrap ?? "") || _prePlaced.Contains(run)) continue;
             // estado antes de TODAS as colocações (desfazer em qualquer ordem volta a ele)
             flow ??= _ctx.SaveFlow();
-            var rc = PlaceFloat(run, ps, colX, colW, paraTop, ps.Body, 0, clampBottom is not null && FollowsText(anc) ? clampBottom : null);
+            var rc = PlaceFloat(run, ps, colX, colW, paraTop, ps.Body, 0, clampBottom is not null && FollowsText(anc) ? clampBottom : null, paraRef);
             rc.Flow = flow;
             outp.Add(rc);
         }
@@ -1672,7 +2873,10 @@ internal sealed class Engine
     /// <summary>O objeto acompanha o texto (posição vertical relativa ao parágrafo/linha).</summary>
     private static bool FollowsText(DrawingAnchor? a) => a is not null && a.SimplePos is null && !AbsoluteV.Contains(a.PosV.RelativeFrom ?? "paragraph");
 
-    private FloatReceipt PlaceFloat(Run run, PageState ps, double colX, double colW, double paraTop, List<PageItem> flowItems, double yOrigin, double? clampBottom = null)
+    private FloatReceipt PlaceFloat(Run run, PageState ps, double colX, double colW, double paraTop, List<PageItem> flowItems, double yOrigin, double? clampBottom = null,
+        /* topo do PARÁGRAFO como referência vertical (antes do "antes" que exceda o
+           "depois" do anterior — oráculo anchorbefore); a linha usa paraTop */
+        double? paraRef = null)
     {
         var g = ps.Geom;
         var anchor = run.Image?.Anchor ?? run.Shape?.Anchor ?? run.Group?.Anchor ?? run.Textbox?.Anchor;
@@ -1681,13 +2885,28 @@ internal sealed class Engine
         bool behind = anchor?.BehindDoc == true || run.Image?.BehindDoc == true || run.Textbox?.BehindDoc == true;
         // conteúdo da caixa de texto (altura automática)
         CellContent? tbContent = null;
+        // diagramação final do conteúdo da caixa já no lugar: flutuantes DENTRO dela
+        // ficam relativos à caixa (antes iam para a origem da página)
+        Func<double, double, CellContent>? tbFinal = null;
         if (run.Textbox is not null)
         {
             var tb = run.Textbox;
             var ins = tb.Insets ?? DefaultInsets;
             var blocks = tb.Blocks ?? tb.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
-            var env = new ParaEnv { Field = FieldValue(ps), DarkBackground = IsDark(tb.Shape?.Fill) };
+            var env = new ParaEnv { Field = FieldValue(ps), DarkBackground = IsDark(Resolve.ResolveDrawingColor(tb.Shape?.Fill, _ctx.Fmt.Theme)) };
             double inner = w - ins.L - ins.R;
+            var fi = Frames.InfoOf(tb);
+            if (fi?.AutoWidth == true)
+            {
+                // moldura sem largura: a da linha mais longa, quebrando na largura da coluna
+                var fprobe = _ctx.Pure(() => LayoutStatic(blocks, 0, colW, env, "txbx"));
+                // (linha + recuo do lado em que está encostada; centralizada: só a linha)
+                w = inner = Math.Max(1, fprobe.Lines.Aggregate(0.0, (m, l) =>
+                {
+                    double side = Math.Min(l.X, colW - l.X - l.Width);
+                    return Math.Max(m, l.Width + (side < 2880 ? side : 0));
+                }));
+            }
             if (tb.NoWrap)
             {
                 // texto sem quebra: mede a linha mais longa (sem posicionar nada na página);
@@ -1701,9 +2920,18 @@ internal sealed class Engine
                 });
                 if (tb.AutoFit) { w = natural + ins.L + ins.R; inner = natural; } else inner = Math.Max(inner, natural);
             }
-            tbContent = LayoutStatic(blocks, 0, Math.Max(1, inner), env, "txbx", ps);
+            double iw = Math.Max(1, inner);
+            tbContent = _ctx.Pure(() => LayoutStatic(blocks, 0, iw, env, "txbx"));
+            tbFinal = (bx, by) =>
+            {
+                double prevDx = _staticDx;
+                _staticDx = bx + ins.L;
+                try { return LayoutStatic(blocks, 0, iw, env, "txbx", ps, by + ins.T); }
+                finally { _staticDx = prevDx; }
+            };
             // ajuste automático: a altura é a do texto (o cy gravado pode estar desatualizado)
             if (tb.AutoFit) h = tbContent.Height + ins.T + ins.B;
+            if (fi is not null) h = fi.HRule == "exact" ? fi.H : fi.HRule == "atLeast" ? Math.Max(fi.H, tbContent.Height) : tbContent.Height;
         }
         double x, y;
         if (anchor?.SimplePos is not null) { x = anchor.SimplePos.X; y = anchor.SimplePos.Y; }
@@ -1714,7 +2942,8 @@ internal sealed class Engine
             if (_pinnedFloats.TryGetValue(run, out var pin) && ReferenceEquals(pin.Ps, ps)) y = pin.Y;
             else
             {
-                var vRef = VertRef(anchor?.PosV.RelativeFrom ?? "paragraph", g, ps, paraTop);
+                string vFrom0 = anchor?.PosV.RelativeFrom ?? "paragraph";
+                var vRef = VertRef(vFrom0, g, ps, vFrom0 == "paragraph" && paraRef is not null ? paraRef.Value : paraTop);
                 y = AlignPos(anchor?.PosV.Align, anchor?.PosV.Offset, vRef.Y, vRef.H, h, anchor?.PosV.Pct, g.PageH);
                 if (clampBottom is { } cb && y + h > cb) y = cb - h;
                 // com quebra e relativo ao texto: não sobe além do topo do corpo; nos modos
@@ -1724,22 +2953,77 @@ internal sealed class Engine
         }
         // itens desenhados em coordenadas absolutas da página; o fluxo do chamador
         // pode deslocar y (yOrigin) — compensamos para o desenho ficar absoluto
+        // ancorado em CÉLULA de tabela: referências relativas à célula (área de texto da
+        // célula na horizontal; parágrafo, ou topo da célula, na vertical) e itens no fluxo
+        // da célula, que se desloca com a linha — oráculo cellfloat (lab de desenho)
+        if (_inCell && anchor?.SimplePos is null)
+        {
+            string vFrom = anchor?.PosV.RelativeFrom ?? "paragraph";
+            x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, colX, colW, w, null, g.PageW);
+            y = AlignPos(anchor?.PosV.Align, anchor?.PosV.Offset, vFrom == "paragraph" ? paraRef ?? paraTop : vFrom == "line" ? paraTop : yOrigin, 0, h, null, g.PageH);
+            if (tbFinal is not null) { double fx0 = x, fy0 = y; tbContent = _ctx.Pure(() => tbFinal(fx0, fy0)); }
+            var cellItems = PaintObject(run, x, y, w, h, tbContent, ps);
+            if (behind) flowItems.InsertRange(0, cellItems); else flowItems.AddRange(cellItems);
+            return new FloatReceipt
+            {
+                Ps = ps, Target = new List<ZObj>(), ZObj = new ZObj { Z = 0, Seq = _zSeq++, Items = cellItems },
+                Obj = new PlacedObject { Run = run, X = x, Y = y, W = w, H = h, Layer = behind ? "behind" : "front", Hf = _inHf },
+            };
+        }
         var target = _inHf ? (behind ? ps.HfBehind : ps.HfFront) : (behind ? ps.Behind : ps.Front);
+        if (tbFinal is not null) tbContent = tbFinal(x, y);
         var items = PaintObject(run, x, y, w, h, tbContent, ps);
         var obj = new PlacedObject { Run = run, X = x, Y = y, W = w, H = h, Layer = behind ? "behind" : "front", Hf = _inHf };
         (ps.Page.Objects ??= new List<PlacedObject>()).Add(obj);
-        var zobj = new ZObj { Z = anchor?.RelativeHeight ?? 0, Seq = _zSeq++, Items = items };
-        target.Add(zobj);
+        // moldura no cabeçalho/rodapé: vai no fluxo — no PDF do Word o texto dela vem
+        // na ordem da linha: antes do parágrafo âncora se está no começo dela
+        // (fr-hdr-left), depois se está mais à direita (fr-hdr-pgnum); no corpo, depois
+        // de todo o texto da página (camada da frente)
+        bool frameFlow = _inHf && run.Textbox is not null && Frames.InfoOf(run.Textbox) is not null;
+        (List<PageItem> Arr, List<PageItem> Items)? inFlow = null;
+        if (frameFlow)
+        {
+            var rel = yOrigin != 0 && !double.IsNaN(yOrigin) ? items.Select(it => TableEngine.ShiftItem(it, -yOrigin)).ToList() : items;
+            if (x > colX + 20) _hfFrameAfter.AddRange(rel); else flowItems.AddRange(rel);
+            inFlow = (flowItems, rel);
+        }
+        var zobj = new ZObj { Z = anchor?.RelativeHeight ?? 0, Seq = _zSeq++, Items = frameFlow ? new List<PageItem>() : items };
+        if (!frameFlow) target.Add(zobj);
         FloatBox? box = null;
         // modo de compatibilidade ≤ 14: flutuantes do cabeçalho/rodapé não afastam texto
         // nenhum (nem o do próprio cabeçalho, nem o do corpo) — oráculo hffloat (hff14-*)
         bool hfLegacy = _inHf && _ctx.Fmt.Settings.CompatibilityMode < 15;
-        if (anchor is not null && Wrapping.Contains(anchor.Wrap) && !hfLegacy)
+        if (anchor is not null && Wrapping.Contains(anchor.Wrap))
         {
-            box = new FloatBox { X = x, Y = y, W = w, H = h, Wrap = anchor.Wrap, DistL = anchor.DistL ?? 0, DistR = anchor.DistR ?? 0, DistT = anchor.DistT ?? 0, DistB = anchor.DistB ?? 0 };
-            ps.Floats.Add(box);
+            // justo/através: a caixa do polígono de contorno (oráculo wrappoly)
+            var wb = anchor.Wrap is "tight" or "through" ? anchor.WrapBox : null;
+            double bbx = wb is not null ? x + w * wb.L : x, bby = wb is not null ? y + h * wb.T : y;
+            double bbw = wb is not null ? w * (wb.R - wb.L) : w, bbh = wb is not null ? h * (wb.B - wb.T) : h;
+            var fb = new FloatBox { X = bbx, Y = bby, W = bbw, H = bbh, Wrap = anchor.Wrap, Side = anchor.WrapText ?? "bothSides", DistL = anchor.DistL ?? 0, DistR = anchor.DistR ?? 0, DistT = anchor.DistT ?? 0, DistB = anchor.DistB ?? 0 };
+            // (mas as tabelas do corpo descem para baixo deles — oráculo tblfloat)
+            if (hfLegacy) (ps.TblFloats ??= new List<FloatBox>()).Add(fb);
+            else box = fb;
         }
-        return new FloatReceipt { Ps = ps, Target = target, ZObj = zobj, Obj = obj, Box = box };
+        if (box is not null)
+        {
+            ps.Floats.Add(box);
+            // posição absoluta cobrindo linhas do corpo já colocadas nesta página: na
+            // próxima passada ele entra no início da página (oráculo latefloat)
+            if (!_inHf && !FollowsText(anchor) && !_prePlaced.Contains(run))
+            {
+                int pi = _pages.IndexOf(ps);
+                var bx = box;
+                bool hit = pi >= 0 && ps.Page.Lines.Any(l => !LateSkipRe.IsMatch(l.Ref)
+                    && l.Y + l.Height > bx.Y - bx.DistT && l.Y < bx.Y + bx.H + bx.DistB
+                    && bx.X + bx.W + bx.DistR > ps.Geom.MarL && bx.X - bx.DistL < ps.Geom.PageW - ps.Geom.MarR);
+                if (hit)
+                {
+                    if (!LateFound.TryGetValue(pi, out var list)) LateFound[pi] = list = new List<Run>();
+                    list.Add(run);
+                }
+            }
+        }
+        return new FloatReceipt { Ps = ps, Target = target, ZObj = zobj, Obj = obj, Box = box, InFlow = inFlow };
     }
 
     /// <summary>Desenha imagem/forma/caixa/grupo no retângulo dado.</summary>
@@ -1765,7 +3049,8 @@ internal sealed class Engine
             var stroke = s.Line is not null
                 ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = s.Line.WidthPt, Dash = Js.Truthy(s.Line.Dash) ? s.Line.Dash : null }
                 : null;
-            outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Line = run.Shape.Line });
+            var (sGrad, sShadow) = Geometry.ShapeExtras(s, theme);
+            outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Line = run.Shape.Line, Grad = sGrad, Shadow = sShadow });
         }
         else if (run.Textbox is not null)
         {
@@ -1775,7 +3060,8 @@ internal sealed class Engine
             {
                 string? fill = Resolve.ResolveDrawingColor(s.Fill, theme);
                 var stroke = s.Line is not null ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = s.Line.WidthPt } : null;
-                outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke });
+                var (tGrad, tShadow) = Geometry.ShapeExtras(s, theme);
+                outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Grad = tGrad, Shadow = tShadow });
             }
             if (tbContent is not null)
             {
@@ -1791,7 +3077,8 @@ internal sealed class Engine
                     double iw = Math.Max(1, w - ins.L - ins.R), ih = Math.Max(1, h - ins.T - ins.B);
                     double sx = iw / Math.Max(1, x1 - x0), sy = ih / Math.Max(1, tbContent.Height);
                     outp.Add(XformItem.Push(new[] { sx, 0, 0, sy, x + ins.L - x0 * sx, y + ins.T }));
-                    foreach (var it in tbContent.Items) outp.Add(it);
+                    // o Word grava o texto do WordArt como CURVAS no PDF (não é texto extraível)
+                    foreach (var it in tbContent.Items) outp.Add(it is GlyphRunItem g ? AsPathCopy(g) : it);
                     outp.Add(XformItem.Pop());
                 }
                 else
@@ -1801,7 +3088,14 @@ internal sealed class Engine
                     if (tb.VAnchor == "ctr" && free > 0) dy += free / 2;
                     else if (tb.VAnchor == "b" && free > 0) dy += free;
                     outp.Add(ClipItem.Push(x, y, w, h));
-                    foreach (var it in tbContent.Items) outp.Add(TableEngine.ShiftItem(it, dy, x + ins.L));
+                    // caixa girada fora de múltiplos de 90°: o Word rasteriza o conteúdo
+                    // (imagem no PDF, sem texto) — curvas aqui (oráculo hidetext/rot-tb, rot-1)
+                    bool raster = rot % 90 != 0;
+                    foreach (var it in tbContent.Items)
+                    {
+                        var s2 = TableEngine.ShiftItem(it, dy, x + ins.L);
+                        outp.Add(raster && s2 is GlyphRunItem g2 ? AsPathCopy(g2) : s2);
+                    }
                     outp.Add(ClipItem.Pop());
                 }
                 if (rotOn) outp.Add(XformItem.Pop());
@@ -1810,19 +3104,18 @@ internal sealed class Engine
         else if (run.Group is not null)
         {
             var gr = run.Group;
-            double sx = gr.WidthTwips != 0 && !double.IsNaN(gr.WidthTwips) ? w / gr.WidthTwips : 1;
-            double sy = gr.HeightTwips != 0 && !double.IsNaN(gr.HeightTwips) ? h / gr.HeightTwips : 1;
             foreach (var item in gr.Items)
             {
-                var r = item.Run;
+                // rotação/espelho do grupo aplicados ao filho (oráculo de formas)
+                var (r, ix, iy, iw, ih) = Geometry.GroupChild(gr, item, x, y, w, h);
                 CellContent? tc = null;
                 if (r.Textbox is not null)
                 {
                     var ins = r.Textbox.Insets ?? DefaultInsets;
                     var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
-                    tc = LayoutStatic(blocks, 0, Math.Max(1, item.W * sx - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(r.Textbox.Shape?.Fill) }, "grp", ps);
+                    tc = LayoutStatic(blocks, 0, Math.Max(1, iw - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "grp", ps);
                 }
-                outp.AddRange(PaintObject(r, x + item.X * sx, y + item.Y * sy, item.W * sx, item.H * sy, tc, ps));
+                outp.AddRange(PaintObject(r, ix, iy, iw, ih, tc, ps));
             }
         }
         return outp;
@@ -1853,7 +3146,7 @@ internal sealed class Engine
     private static (double Y, double H) VertRef(string from, SectGeom g, PageState ps, double paraTop) => from switch
     {
         "page" => (0, g.PageH),
-        "margin" => (g.MarT, g.PageH - g.MarT - g.MarB),
+        "margin" => (Math.Max(g.MarT, ps?.BodyTop ?? g.MarT), g.PageH - Math.Max(g.MarT, ps?.BodyTop ?? g.MarT) - g.MarB),
         "topMargin" or "insideMargin" => (0, g.MarT),
         "bottomMargin" or "outsideMargin" => (g.PageH - g.MarB, g.MarB),
         _ => (paraTop, 0), // paragraph | line

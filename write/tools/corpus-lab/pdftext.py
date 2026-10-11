@@ -9,6 +9,7 @@ nunca emite espaço), então a comparação é por texto SEM brancos.
 import ctypes
 import json
 import sys
+import unicodedata
 
 import numpy as np
 import pypdfium2 as pdfium
@@ -54,6 +55,7 @@ def page_lines(page):
         h = page.get_height()
         lines = []
         cur = None
+        px = None  # origem do caractere anterior: ligadura (ffi…) = vários caracteres, um glifo
         ox, oy = ctypes.c_double(), ctypes.c_double()
         l, b, r, t = ctypes.c_double(), ctypes.c_double(), ctypes.c_double(), ctypes.c_double()
         for i in range(n):
@@ -71,7 +73,13 @@ def page_lines(page):
             x, y = ox.value, h - oy.value
             right = max(r.value, x)
             tol = max(1.0, 0.3 * (size or 10))
-            if cur is not None and abs(y - cur['y']) <= tol and x >= cur['x1'] - tol * 2:
+            # marca combinante (acento decomposto): o Word grava base+marca como UM glifo
+            # (mesma origem) — fica na linha da base, não abre outra
+            mark = len(ch) == 1 and unicodedata.combining(ch) != 0
+            # ligadura (ffi, fi…): o pdfium devolve cada caractere do glifo com a MESMA origem
+            lig = px is not None and abs(x - px) < 0.01
+            px = x
+            if cur is not None and abs(y - cur['y']) <= tol and (mark or lig or x >= cur['x1'] - tol * 2):
                 cur['text'] += ch
                 cur['x1'] = max(cur['x1'], right)
                 cur['size'] = max(cur['size'], size)
@@ -79,6 +87,7 @@ def page_lines(page):
                 cur = {'y': y, 'x0': x, 'x1': right, 'size': size, 'text': ch}
                 lines.append(cur)
         for ln in lines:
+            ln['text'] = unicodedata.normalize('NFC', ln['text'])
             ln['y'] = round(ln['y'], 2)
             ln['x0'] = round(ln['x0'], 2)
             ln['x1'] = round(ln['x1'], 2)

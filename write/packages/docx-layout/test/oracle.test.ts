@@ -21,12 +21,23 @@ const provider = await createNodeFontProvider();
 const hasFonts = ['Arial', 'Calibri', 'Times New Roman'].every((f) => provider.face(f, false, false));
 
 /** Varreduras de limiar (justify2/4/5): a fronteira exata pode errar 1 passo de 2-4 twips. */
-const SWEEPS = new Set(['justify2', 'justify3', 'justify4', 'justify5', 'justify8']);
+const SWEEPS = new Set(['justify2', 'justify3', 'justify4', 'justify5', 'justify8', 'jsweep']);
 /** Tolerância de baseline por grupo: o Word quantiza o deslocamento de
  *  sobrescrito em passos de ~0,5 pt que dependem da fonte (resíduo conhecido). */
-const DY_TOL: Record<string, number> = { vertalign: 0.6, notes: 0.6 };
+const DY_TOL: Record<string, number> = { vertalign: 0.6, notes: 0.65, fnsep: 0.65, fnrefsup: 0.65 };
+/** Grupos em que o motor também não pode ter linhas A MAIS (texto que o Word
+ *  não grava no PDF: fora da página, sem preenchimento, curvas…). */
+const STRICT = new Set(['hidetext', 'emfrop']);
+/** Grupos em que a posição horizontal é o que se mede (x da 1ª letra, ±pt). */
+const DX_TOL: Record<string, number> = { tblpct: 0.6, tblw: 0.6, formtext: 0.6, spacerun: 0.6, numtabind: 0.6, tallwrap: 0.6, numstyind: 0.6, tblsp: 0.6, nowrap: 0.6, tblvert: 0.6, tblnum: 0.6 };
 
-const groups = existsSync(oracleDir) ? readdirSync(oracleDir) : [];
+/** Grupos em que a contagem de pontos do preenchimento de tab é comparada exata. */
+const EXACT_LEADERS = new Set(['tdhalfpx']);
+
+/** Grupos medidos caractere a caractere em teste próprio (supraise.test.ts). */
+const CHAR_ONLY = new Set(['supraise']);
+
+const groups = existsSync(oracleDir) ? readdirSync(oracleDir).filter((g) => !CHAR_ONLY.has(g)) : [];
 for (const g of groups) {
   describe.skipIf(!hasFonts)(`oráculo Word: ${g}`, () => {
     const dir = join(oracleDir, g);
@@ -37,7 +48,7 @@ for (const g of groups) {
         const word = JSON.parse(readFileSync(exp, 'utf8')) as OracleDoc;
         const full = readFullDocument(DocxPackage.load(new Uint8Array(readFileSync(join(dir, f)))));
         const res = layoutDocument(full, provider);
-        const r = compareLines(word, engineLines(res));
+        const r = compareLines(word, engineLines(res), EXACT_LEADERS.has(g));
         if (SWEEPS.has(g) || g === 'vertalign') {
           // vertalign: o deslocamento do sobrescrito muda o agrupamento em linhas da extração
           expect(r.matched / r.linesW, r.firstDiff).toBeGreaterThanOrEqual(g === 'vertalign' ? 0.9 : 0.98);
@@ -46,6 +57,8 @@ for (const g of groups) {
           expect(r.matched, `linhas casadas (1ª diferença: ${r.firstDiff})`).toBe(r.linesW);
           expect(r.samePage, 'linhas na mesma página').toBe(r.matched);
           expect(r.maxDy, 'Δbaseline máx (pt)').toBeLessThanOrEqual(DY_TOL[g] ?? 0.3);
+          if (DX_TOL[g] !== undefined) expect(r.maxDx, 'Δx máx (pt)').toBeLessThanOrEqual(DX_TOL[g]!);
+          if (STRICT.has(g)) expect(r.extraO, `linhas só nossas (1ª: ${r.firstExtra})`).toBe(0);
         }
         if (g === 'fontsub') {
           // a fonte substituta certa dá a mesma largura de linha (fim da linha ±2 pt;

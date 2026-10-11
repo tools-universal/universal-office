@@ -333,6 +333,9 @@ export interface Settings {
   displayBackgroundShape: boolean;
   /** w:updateFields */
   updateFields: boolean;
+  /** bordas de página (offsetFrom text) NÃO contornam o cabeçalho/rodapé */
+  bordersDoNotSurroundHeader?: boolean;
+  bordersDoNotSurroundFooter?: boolean;
 }
 
 const ROOT_COMPAT_FLAGS = new Set([
@@ -364,6 +367,8 @@ export function readSettings(xml: string | undefined): Settings {
   s.doNotHyphenateCaps = on('w:doNotHyphenateCaps');
   s.displayBackgroundShape = on('w:displayBackgroundShape');
   s.updateFields = on('w:updateFields');
+  if (on('w:bordersDoNotSurroundHeader')) s.bordersDoNotSurroundHeader = true;
+  if (on('w:bordersDoNotSurroundFooter')) s.bordersDoNotSurroundFooter = true;
   const hz = measureTwips(firstChild(root, 'w:hyphenationZone')?.attrs['w:val']);
   if (hz !== undefined) s.hyphenationZone = hz;
   const chl = firstChild(root, 'w:consecutiveHyphenLimit')?.attrs['w:val'];

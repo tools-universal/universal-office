@@ -1,0 +1,82 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 135.25,
+"size": 11.04,
+"text": "AntesHxg"
+},
+{
+"y": 93.86,
+"x0": 217.13,
+"x1": 507.13,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 106.46,
+"x0": 217.13,
+"x1": 507.13,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 119.18,
+"x0": 217.13,
+"x1": 507.13,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 131.78,
+"x0": 217.13,
+"x1": 507.13,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 503.51,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 503.51,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 169.7,
+"x0": 85.1,
+"x1": 448.64,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 182.42,
+"x0": 85.1,
+"x1": 125.4,
+"size": 11.04,
+"text": "FimHxg"
+}
+],
+"objs": [
+{
+"t": "image",
+"x0": 97.05,
+"y0": 84.5,
+"x1": 217.05,
+"y1": 122.5
+}
+]
+}
+]
+}

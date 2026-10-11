@@ -1,0 +1,49 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"shape","x":7000,"y":16111,"w":600,"h":232,"geom":"rect","rot":0,"flipH":false,"flipV":false,"fillAlpha":null,"lineAlpha":null,"fill":"808080","stroke":null,"line":null},
+        {"t":"shape","x":7800,"y":16111,"w":600,"h":232,"geom":"rect","rot":0,"flipH":false,"flipV":false,"fillAlpha":null,"lineAlpha":null,"fill":"808080","stroke":null,"line":null},
+        {"t":"shape","x":8600,"y":16111,"w":600,"h":232,"geom":"rect","rot":0,"flipH":false,"flipV":false,"fillAlpha":null,"lineAlpha":null,"fill":"808080","stroke":null,"line":null},
+        {"t":"shape","x":7000,"y":16450,"w":100,"h":108,"geom":"rect","rot":0,"flipH":false,"flipV":false,"fillAlpha":null,"lineAlpha":null,"fill":"808080","stroke":null,"line":null},
+        {"t":"shape","x":7800,"y":16450,"w":100,"h":108,"geom":"rect","rot":0,"flipH":false,"flipV":false,"fillAlpha":null,"lineAlpha":null,"fill":"808080","stroke":null,"line":null},
+        {"t":"shape","x":8600,"y":16450,"w":100,"h":108,"geom":"rect","rot":0,"flipH":false,"flipV":false,"fillAlpha":null,"lineAlpha":null,"fill":"808080","stroke":null,"line":null},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":12839.2,"scaleX":1,"text":"topoHxg","g":[[116,1701],[111,1762.12],[112,1884.48],[111,2006.83],[72,2190.31],[120,2349.18],[103,2459.18]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":8,"x":1701,"y":500,"height":15424,"baseline":12839.2,"width":880.54},
+        {"ref":"b1","start":0,"end":6,"x":1701,"y":15924,"height":126.49,"baseline":16027.18,"width":0}
+      ]
+    },
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 2,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":4.5,"color":"000000","y":584.42,"scaleX":1,"text":"pequeno","g":[[112,1701],[101,1751.05],[113,1801.11],[117,1851.16],[101,1901.21],[110,1951.27],[111,2001.32]]}
+      ],
+      "lines": [
+        {"ref":"b2","start":0,"end":7,"x":1701,"y":500,"height":103.49,"baseline":584.42,"width":350.38},
+        {"ref":"b3","start":0,"end":0,"x":1701,"y":603.49,"height":103.49,"baseline":687.91,"width":0}
+      ]
+    },
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 1,
+      "number": 3,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":706.36,"scaleX":1,"text":"SecaodoisHxg","g":[[83,1701],[101,1847.74],[99,1970.09],[97,2080.09],[111,2202.45],[100,2385.92],[111,2508.28],[105,2630.63],[115,2679.51],[72,2850.63],[120,3009.51],[103,3119.51]]}
+      ],
+      "lines": [
+        {"ref":"b4","start":0,"end":14,"x":1701,"y":500,"height":252.98,"baseline":706.36,"width":1540.86}
+      ]
+    }
+  ],
+  "warnings": []
+}

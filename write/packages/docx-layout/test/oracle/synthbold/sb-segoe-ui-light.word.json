@@ -1,0 +1,606 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.6,
+"x0": 85.1,
+"x1": 469.94,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 94.94,
+"x0": 85.1,
+"x1": 119.07,
+"size": 9.96,
+"text": "aaaaaaa"
+},
+{
+"y": 108.26,
+"x0": 85.1,
+"x1": 469.94,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 121.58,
+"x0": 85.1,
+"x1": 119.07,
+"size": 9.96,
+"text": "aaaaaaa"
+},
+{
+"y": 134.9,
+"x0": 85.1,
+"x1": 474.97,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 148.1,
+"x0": 85.1,
+"x1": 114.04,
+"size": 9.96,
+"text": "aaaaaa"
+},
+{
+"y": 161.42,
+"x0": 85.1,
+"x1": 474.97,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 174.74,
+"x0": 85.1,
+"x1": 114.04,
+"size": 9.96,
+"text": "aaaaaa"
+},
+{
+"y": 188.06,
+"x0": 85.1,
+"x1": 474.97,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 201.38,
+"x0": 85.1,
+"x1": 114.04,
+"size": 9.96,
+"text": "aaaaaa"
+},
+{
+"y": 214.7,
+"x0": 85.1,
+"x1": 474.97,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 227.9,
+"x0": 85.1,
+"x1": 114.04,
+"size": 9.96,
+"text": "aaaaaa"
+},
+{
+"y": 241.22,
+"x0": 85.1,
+"x1": 474.97,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 254.54,
+"x0": 85.1,
+"x1": 114.04,
+"size": 9.96,
+"text": "aaaaaa"
+},
+{
+"y": 267.89,
+"x0": 85.1,
+"x1": 475.57,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsynthet"
+},
+{
+"y": 281.21,
+"x0": 85.1,
+"x1": 113.71,
+"size": 9.96,
+"text": "icwidth"
+},
+{
+"y": 294.53,
+"x0": 85.1,
+"x1": 475.57,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsynthet"
+},
+{
+"y": 307.85,
+"x0": 85.1,
+"x1": 113.71,
+"size": 9.96,
+"text": "icwidth"
+},
+{
+"y": 321.05,
+"x0": 85.1,
+"x1": 475.57,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsynthet"
+},
+{
+"y": 334.37,
+"x0": 85.1,
+"x1": 113.71,
+"size": 9.96,
+"text": "icwidth"
+},
+{
+"y": 347.69,
+"x0": 85.1,
+"x1": 477.19,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsyntheti"
+},
+{
+"y": 361.01,
+"x0": 85.1,
+"x1": 111.67,
+"size": 9.96,
+"text": "cwidth"
+},
+{
+"y": 374.33,
+"x0": 85.1,
+"x1": 477.19,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsyntheti"
+},
+{
+"y": 387.65,
+"x0": 85.1,
+"x1": 111.67,
+"size": 9.96,
+"text": "cwidth"
+},
+{
+"y": 400.85,
+"x0": 85.1,
+"x1": 477.19,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsyntheti"
+},
+{
+"y": 414.17,
+"x0": 85.1,
+"x1": 111.67,
+"size": 9.96,
+"text": "cwidth"
+},
+{
+"y": 427.49,
+"x0": 85.1,
+"x1": 477.19,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsyntheti"
+},
+{
+"y": 440.83,
+"x0": 85.1,
+"x1": 111.67,
+"size": 9.96,
+"text": "cwidth"
+},
+{
+"y": 455.23,
+"x0": 85.1,
+"x1": 470.55,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 469.87,
+"x0": 85.1,
+"x1": 122.4,
+"size": 11.04,
+"text": "aaaaaaa"
+},
+{
+"y": 484.51,
+"x0": 85.1,
+"x1": 475.95,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 499.15,
+"x0": 85.1,
+"x1": 117.0,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 513.79,
+"x0": 85.1,
+"x1": 475.95,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 528.31,
+"x0": 85.1,
+"x1": 117.0,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 542.95,
+"x0": 85.1,
+"x1": 475.95,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 557.59,
+"x0": 85.1,
+"x1": 117.0,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 572.23,
+"x0": 85.1,
+"x1": 475.95,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 586.87,
+"x0": 85.1,
+"x1": 117.0,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 601.51,
+"x0": 85.1,
+"x1": 475.95,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 616.15,
+"x0": 85.1,
+"x1": 117.0,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 630.82,
+"x0": 85.1,
+"x1": 475.95,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 645.46,
+"x0": 85.1,
+"x1": 117.0,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 660.1,
+"x0": 85.1,
+"x1": 473.03,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebo"
+},
+{
+"y": 674.74,
+"x0": 85.1,
+"x1": 117.1,
+"size": 11.04,
+"text": "ldsynth"
+},
+{
+"y": 689.38,
+"x0": 85.1,
+"x1": 473.03,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebo"
+},
+{
+"y": 704.02,
+"x0": 85.1,
+"x1": 117.1,
+"size": 11.04,
+"text": "ldsynth"
+},
+{
+"y": 718.54,
+"x0": 85.1,
+"x1": 473.03,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebo"
+},
+{
+"y": 733.18,
+"x0": 85.1,
+"x1": 117.1,
+"size": 11.04,
+"text": "ldsynth"
+},
+{
+"y": 747.82,
+"x0": 85.1,
+"x1": 474.82,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebol"
+},
+{
+"y": 762.46,
+"x0": 85.1,
+"x1": 114.92,
+"size": 11.04,
+"text": "dsynth"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 82.68,
+"x0": 85.1,
+"x1": 474.82,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebol"
+},
+{
+"y": 97.34,
+"x0": 85.1,
+"x1": 114.92,
+"size": 11.04,
+"text": "dsynth"
+},
+{
+"y": 111.98,
+"x0": 85.1,
+"x1": 474.82,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebol"
+},
+{
+"y": 126.62,
+"x0": 85.1,
+"x1": 114.92,
+"size": 11.04,
+"text": "dsynth"
+},
+{
+"y": 141.26,
+"x0": 85.1,
+"x1": 474.82,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebol"
+},
+{
+"y": 155.9,
+"x0": 85.1,
+"x1": 114.92,
+"size": 11.04,
+"text": "dsynth"
+},
+{
+"y": 171.62,
+"x0": 85.1,
+"x1": 469.64,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 187.58,
+"x0": 85.1,
+"x1": 125.8,
+"size": 12.0,
+"text": "aaaaaaa"
+},
+{
+"y": 203.54,
+"x0": 85.1,
+"x1": 475.63,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 219.5,
+"x0": 85.1,
+"x1": 119.92,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 235.46,
+"x0": 85.1,
+"x1": 475.63,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 251.42,
+"x0": 85.1,
+"x1": 119.92,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 267.41,
+"x0": 85.1,
+"x1": 475.63,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 283.37,
+"x0": 85.1,
+"x1": 119.92,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 299.33,
+"x0": 85.1,
+"x1": 475.63,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 315.29,
+"x0": 85.1,
+"x1": 119.92,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 331.25,
+"x0": 85.1,
+"x1": 475.63,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 347.21,
+"x0": 85.1,
+"x1": 119.92,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 363.17,
+"x0": 85.1,
+"x1": 475.63,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 379.13,
+"x0": 85.1,
+"x1": 119.92,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 395.09,
+"x0": 85.1,
+"x1": 474.79,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfo"
+},
+{
+"y": 411.05,
+"x0": 85.1,
+"x1": 120.18,
+"size": 12.0,
+"text": "rthebol"
+},
+{
+"y": 427.01,
+"x0": 85.1,
+"x1": 474.79,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfo"
+},
+{
+"y": 442.99,
+"x0": 85.1,
+"x1": 120.18,
+"size": 12.0,
+"text": "rthebol"
+},
+{
+"y": 458.95,
+"x0": 85.1,
+"x1": 474.79,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfo"
+},
+{
+"y": 474.91,
+"x0": 85.1,
+"x1": 120.18,
+"size": 12.0,
+"text": "rthebol"
+},
+{
+"y": 490.87,
+"x0": 85.1,
+"x1": 479.11,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfor"
+},
+{
+"y": 506.83,
+"x0": 85.1,
+"x1": 116.22,
+"size": 12.0,
+"text": "thebol"
+},
+{
+"y": 522.79,
+"x0": 85.1,
+"x1": 479.11,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfor"
+},
+{
+"y": 538.75,
+"x0": 85.1,
+"x1": 116.22,
+"size": 12.0,
+"text": "thebol"
+},
+{
+"y": 554.71,
+"x0": 85.1,
+"x1": 479.11,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfor"
+},
+{
+"y": 570.67,
+"x0": 85.1,
+"x1": 116.22,
+"size": 12.0,
+"text": "thebol"
+},
+{
+"y": 586.63,
+"x0": 85.1,
+"x1": 479.11,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfor"
+},
+{
+"y": 602.59,
+"x0": 85.1,
+"x1": 116.22,
+"size": 12.0,
+"text": "thebol"
+}
+],
+"objs": []
+}
+]
+}

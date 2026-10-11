@@ -1,0 +1,124 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 135.25,
+"size": 11.04,
+"text": "AntesHxg"
+},
+{
+"y": 93.86,
+"x0": 217.13,
+"x1": 479.18,
+"size": 11.04,
+"text": "Execuçãoprocessoparaqualidadeaprovaçãogestão"
+},
+{
+"y": 106.46,
+"x0": 217.13,
+"x1": 501.0,
+"size": 11.04,
+"text": "controleresponsávelconformecomregistroúltimotécnica"
+},
+{
+"y": 119.18,
+"x0": 217.13,
+"x1": 455.78,
+"size": 11.04,
+"text": "seráclienteumaquerelatórioprazoatendimento"
+},
+{
+"y": 131.78,
+"x0": 217.13,
+"x1": 499.25,
+"size": 11.04,
+"text": "informaçãoasemàperíododadoscontratoprocedimento"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 509.17,
+"size": 11.04,
+"text": "osdeéempresasegurançaoperaçãonãodocumentooanáliseserviçoáreaexecução"
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 472.83,
+"size": 11.04,
+"text": "processoparaqualidadeaprovaçãogestãocontroleresponsávelconformecom"
+},
+{
+"y": 169.7,
+"x0": 85.1,
+"x1": 505.93,
+"size": 11.04,
+"text": "registroúltimotécnicaseráclienteumaquerelatórioprazoatendimentoinformaçãoas"
+},
+{
+"y": 182.42,
+"x0": 85.1,
+"x1": 505.01,
+"size": 11.04,
+"text": "emàperíododadoscontratoprocedimentoosdeéempresasegurançaoperaçãonão"
+},
+{
+"y": 195.02,
+"x0": 85.1,
+"x1": 477.43,
+"size": 11.04,
+"text": "documentooanáliseserviçoáreaexecuçãoprocessoparaqualidadeaprovação"
+},
+{
+"y": 207.62,
+"x0": 85.1,
+"x1": 488.72,
+"size": 11.04,
+"text": "gestãocontroleresponsávelconformecomregistroúltimotécnicaseráclienteuma"
+},
+{
+"y": 220.34,
+"x0": 85.1,
+"x1": 455.81,
+"size": 11.04,
+"text": "querelatórioprazoatendimentoinformaçãoasemàperíododadoscontrato"
+},
+{
+"y": 232.94,
+"x0": 85.1,
+"x1": 503.5,
+"size": 11.04,
+"text": "procedimentoosdeéempresasegurançaoperaçãonãodocumentooanáliseserviço"
+},
+{
+"y": 245.66,
+"x0": 85.1,
+"x1": 109.3,
+"size": 11.04,
+"text": "área."
+},
+{
+"y": 258.26,
+"x0": 85.1,
+"x1": 125.4,
+"size": 11.04,
+"text": "FimHxg"
+}
+],
+"objs": [
+{
+"t": "image",
+"x0": 97.05,
+"y0": 84.5,
+"x1": 217.05,
+"y1": 122.5
+}
+]
+}
+]
+}

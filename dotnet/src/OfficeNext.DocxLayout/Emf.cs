@@ -284,6 +284,22 @@ public static class Emf
             return new InlineImage { Data = bmp, Ext = "bmp", WidthTwips = 0, HeightTwips = 0 };
         }
 
+        // EMF+ "só EMF+" (sem registros GDI equivalentes): o Word desenha pelo GDI+ —
+        // tocamos o subconjunto de imagens (objeto Image + DrawImage/DrawImagePoints)
+        var plus = EmfPlusOnly(bytes) ? new EmfPlusPlayer(bytes, (img, x0, y0, x1, y1, crop) =>
+        {
+            double px0 = destX + (x0 - fx0) * sx, py0 = destY + (y0 - fy0) * sy;
+            double px1 = destX + (x1 - fx0) * sx, py1 = destY + (y1 - fy0) * sy;
+            outp.Add(new ImageItem
+            {
+                X = Math.Min(px0, px1), Y = Math.Min(py0, py1), W = Math.Abs(px1 - px0), H = Math.Abs(py1 - py0), Image = img,
+                Crop = crop, FlipH = px1 < px0, FlipV = py1 < py0,
+            });
+        }) : null;
+
+        // o Word rasteriza a figura que copia bits com operação raster dependente do destino
+        // (ícone com máscara: SRCAND + SRCINVERT): o texto dela vira curva no PDF (oráculo emfrop)
+        bool rasterText = plus is null && EmfRastersDest(bytes);
         long pos = 0;
         int guard = 0;
         while (pos + 8 <= bytes.Length && guard++ < 200000)
@@ -291,6 +307,13 @@ public static class Emf
             uint type = U32(pos), size = U32(pos + 4);
             if (size < 8 || pos + size > bytes.Length) break;
             long r = pos + 8;
+            if (plus is not null)
+            {
+                if (type == 70 && size >= 16 && U32(r + 4) == EmfPlusSig) plus.Play(r + 8, Math.Min(pos + size, r + 4 + U32(r)));
+                if (type == 14) break;
+                pos += size;
+                continue;
+            }
             switch (type)
             {
                 case 14: pos = bytes.Length; continue; // EOF
@@ -439,10 +462,14 @@ public static class Emf
                     {
                         double refX = I32(r + 28), refY = I32(r + 32);
                         uint nChars = U32(r + 36), offStr = U32(r + 40), offDx = U32(r + 64);
+                        // ETO_GLYPH_INDEX: a "cadeia" são índices de glifo, não caracteres — o Word
+                        // desenha os glifos sem texto extraível (curvas aqui)
+                        bool byGid = (U32(r + 44) & 0x10) != 0;
                         var tsb = new StringBuilder();
                         for (long k = 0; k < nChars; k++) tsb.Append((char)U16(pos + offStr + k * 2));
                         string text = tsb.ToString();
-                        if (text.Trim().Length == 0) break;
+                        if (!byGid && text.Trim().Length == 0) break;
+                        if (byGid && nChars == 0) break;
                         var f = dc.Font;
                         var face = ctx.Faces.Get(f.Face.Length > 0 ? f.Face : "Arial", f.Weight >= 600, f.Italic);
                         var fm = face.Font.Metrics;
@@ -463,14 +490,16 @@ public static class Emf
                         double baseY = va == 24 ? py : va == 8 ? py - descTw : py + ascTw;
                         // avanços: vetor Dx do registro (lógico) ou métricas da fonte
                         var dxs = new List<double>();
+                        int GidOf(int k) => byGid ? text[k] : face.Font.GlyphId(text[k]);
                         for (int k = 0; k < nChars; k++)
-                            dxs.Add(offDx != 0 ? LenTw(I32(pos + offDx + k * 4L)) : (face.Font.AdvanceWidth(face.Font.GlyphId(text[k])) * emTw) / fm.UnitsPerEm);
+                            dxs.Add(offDx != 0 ? LenTw(I32(pos + offDx + k * 4L)) : (face.Font.AdvanceWidth(GidOf(k)) * emTw) / fm.UnitsPerEm);
                         double total = dxs.Aggregate(0.0, (a, b) => a + b);
                         long ha = (long)dc.TextAlign & 6;
                         double x = ha == 2 ? px - total : ha == 6 ? px - total / 2 : px;
                         var glyphs = new List<GlyphPos>();
                         for (int k = 0; k < nChars; k++) { glyphs.Add(new GlyphPos(text[k], x)); x += dxs[k]; }
-                        outp.Add(new GlyphRunItem { Face = face, SizePt = sizePt, Color = dc.TextColor, Y = baseY, Glyphs = glyphs, Text = text });
+                        // (por índice: o gid de cada glifo é o próprio código — GlyphRunItem.ByGid)
+                        outp.Add(new GlyphRunItem { Face = face, SizePt = sizePt, Color = dc.TextColor, Y = baseY, Glyphs = glyphs, Text = text, ByGid = byGid, AsPath = byGid || rasterText });
                         break;
                     }
                 case 76:
@@ -511,5 +540,278 @@ public static class Emf
             pos += size;
         }
         return outp;
+    }
+
+    // ───────────────────────── EMF+ (subconjunto de imagens) ─────────────────────────
+
+    private const uint EmfPlusSig = 0x2b464d45; // "EMF+"
+
+    private static uint LeU32(byte[] b, long o) => BinaryPrimitives.ReadUInt32LittleEndian(b.AsSpan(checked((int)o), 4));
+    private static int LeI32(byte[] b, long o) => BinaryPrimitives.ReadInt32LittleEndian(b.AsSpan(checked((int)o), 4));
+    private static int LeU16(byte[] b, long o) => BinaryPrimitives.ReadUInt16LittleEndian(b.AsSpan(checked((int)o), 2));
+    private static int LeI16(byte[] b, long o) => BinaryPrimitives.ReadInt16LittleEndian(b.AsSpan(checked((int)o), 2));
+    private static double LeF32(byte[] b, long o) => BinaryPrimitives.ReadSingleLittleEndian(b.AsSpan(checked((int)o), 4));
+
+    /// <summary>Uint8Array.subarray(start, end) (índices negativos contam do fim; limitados ao tamanho).</summary>
+    private static byte[] Subarray(byte[] b, long start, long end)
+    {
+        long n = b.Length;
+        long s = start < 0 ? Math.Max(n + start, 0) : Math.Min(start, n);
+        long e = end < 0 ? Math.Max(n + end, 0) : Math.Min(end, n);
+        if (e <= s) return Array.Empty<byte>();
+        var outp = new byte[e - s];
+        Array.Copy(b, s, outp, 0, e - s);
+        return outp;
+    }
+
+    /// <summary>
+    /// A figura copia bits (BITBLT/STRETCHBLT com bitmap, STRETCHDIBITS) misturando a ORIGEM com
+    /// o DESTINO — a tabela-verdade ROP3 muda quando só S muda e quando só D muda (SRCAND,
+    /// SRCPAINT, SRCINVERT…; SRCCOPY, NOTSRCCOPY, PATCOPY, WHITENESS não, nem o D puro, 0xAA,
+    /// que não altera nada). O PDF não tem esse modo de mistura.
+    /// </summary>
+    private static bool EmfRastersDest(byte[] b)
+    {
+        long pos = 0;
+        for (int guard = 0; pos + 8 <= b.Length && guard < 200000; guard++)
+        {
+            uint type = LeU32(b, pos), size = LeU32(b, pos + 4);
+            if (size < 8 || pos + size > b.Length || type == 14) break;
+            int at = type == 76 || type == 77 ? 40 : type == 81 ? 68 : -1;
+            bool withBits = type == 81 || (pos + 92 <= b.Length && LeU32(b, pos + 88) > 0);
+            if (at >= 0 && withBits && pos + at + 4 <= b.Length)
+            {
+                uint rop3 = (LeU32(b, pos + at) >> 16) & 0xff;
+                bool usesD = ((rop3 & 0xaa) >> 1) != (rop3 & 0x55), usesS = ((rop3 & 0xcc) >> 2) != (rop3 & 0x33);
+                if (usesD && usesS) return true;
+            }
+            pos += size;
+        }
+        return false;
+    }
+
+    /// <summary>Há registros EMF+ e o cabeçalho EMF+ NÃO é "dual" (sem registros GDI equivalentes).</summary>
+    private static bool EmfPlusOnly(byte[] b)
+    {
+        long pos = 0;
+        for (int guard = 0; pos + 16 <= b.Length && guard < 64; guard++)
+        {
+            uint type = LeU32(b, pos), size = LeU32(b, pos + 4);
+            if (size < 8) return false;
+            if (type == 70 && LeU32(b, pos + 12) == EmfPlusSig && pos + 28 <= b.Length)
+            {
+                // 1º registro EMF+ = cabeçalho (0x4001); bit 0 das flags = dual
+                return LeU16(b, pos + 16) == 0x4001 && (LeU16(b, pos + 18) & 1) == 0;
+            }
+            if (type != 1) return false; // o cabeçalho EMF+ vem logo após o do EMF
+            pos += size;
+        }
+        return false;
+    }
+
+    /// <summary>Pixels de um EmfPlusBitmap → InlineImage (BMP de cima para baixo; PNG/JPEG direto).</summary>
+    private static InlineImage? EmfPlusBitmap(byte[] b, long o, long end)
+    {
+        if (o + 20 > end) return null;
+        int w = LeI32(b, o), h = LeI32(b, o + 4), stride = LeI32(b, o + 8);
+        uint fmt = LeU32(b, o + 12), kind = LeU32(b, o + 16);
+        var data = Subarray(b, o + 20, end);
+        if (kind == 1)
+        {
+            // comprimido: o próprio arquivo (PNG, JPEG, GIF, BMP, TIFF)
+            int b0 = data.Length > 0 ? data[0] : -1;
+            string ext = b0 == 0x89 ? "png" : b0 == 0xff ? "jpeg" : b0 == 0x47 ? "gif" : b0 == 0x42 ? "bmp" : "tiff";
+            return new InlineImage { Data = data, Ext = ext, WidthTwips = 0, HeightTwips = 0 };
+        }
+        uint bpp = (fmt >> 8) & 0xff;
+        if (w <= 0 || h <= 0 || (bpp != 32 && bpp != 24) || (fmt & 0x10000) != 0 || (long)stride * h > data.Length) return null;
+        bool alpha = (fmt & 0x40000) != 0, premul = (fmt & 0x80000) != 0;
+        // BMP V3 (56 bytes, BITFIELDS) com altura negativa = linhas de cima para baixo
+        int hdr = bpp == 32 ? 56 : 40;
+        long rowOut = (long)Math.Ceiling((w * (double)bpp) / 32) * 4;
+        var bmp = new byte[checked((int)(14 + hdr + rowOut * h))];
+        bmp[0] = 0x42; bmp[1] = 0x4d;
+        BinaryPrimitives.WriteUInt32LittleEndian(bmp.AsSpan(2), (uint)bmp.Length);
+        BinaryPrimitives.WriteUInt32LittleEndian(bmp.AsSpan(10), (uint)(14 + hdr));
+        BinaryPrimitives.WriteUInt32LittleEndian(bmp.AsSpan(14), (uint)hdr);
+        BinaryPrimitives.WriteInt32LittleEndian(bmp.AsSpan(18), w);
+        BinaryPrimitives.WriteInt32LittleEndian(bmp.AsSpan(22), -h);
+        BinaryPrimitives.WriteUInt16LittleEndian(bmp.AsSpan(26), 1);
+        BinaryPrimitives.WriteUInt16LittleEndian(bmp.AsSpan(28), (ushort)bpp);
+        if (bpp == 32)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(bmp.AsSpan(30), 3);
+            BinaryPrimitives.WriteUInt32LittleEndian(bmp.AsSpan(54), 0x00ff0000);
+            BinaryPrimitives.WriteUInt32LittleEndian(bmp.AsSpan(58), 0x0000ff00);
+            BinaryPrimitives.WriteUInt32LittleEndian(bmp.AsSpan(62), 0x000000ff);
+            BinaryPrimitives.WriteUInt32LittleEndian(bmp.AsSpan(66), alpha ? 0xff000000 : 0);
+        }
+        for (long y = 0; y < h; y++)
+        {
+            long src = y * stride, dst = 14 + hdr + y * rowOut;
+            var row = Subarray(data, src, src + Math.Min(stride, rowOut));
+            Array.Copy(row, 0, bmp, dst, row.Length);
+            if (premul)
+            {
+                for (long k = dst; k < dst + w * 4L && k + 3 < bmp.Length; k += 4)
+                {
+                    int a = bmp[k + 3];
+                    if (a > 0 && a < 255)
+                        for (int c = 0; c < 3; c++) bmp[k + c] = (byte)Math.Min(255, Js.Round((bmp[k + c] * 255.0) / a));
+                }
+            }
+        }
+        return new InlineImage { Data = bmp, Ext = "bmp", WidthTwips = 0, HeightTwips = 0 };
+    }
+
+    /// <summary>
+    /// Toca registros EMF+ ([MS-EMFPLUS]) de imagem: objetos Image (bitmap cru ou
+    /// comprimido, inclusive em registros "continuados"), DrawImage e
+    /// DrawImagePoints, com as transformações de mundo/página e Save/Restore.
+    /// Coordenadas de dispositivo = pixels do dispositivo de referência do EMF.
+    /// </summary>
+    private sealed class EmfPlusPlayer
+    {
+        private Xform _world = Ident;
+        private double _pageScale = 1;
+        private int _unit = 2;
+        private double _dpi = 96;
+        private readonly Dictionary<uint, (Xform World, double PageScale, int Unit)> _saved = new();
+        private readonly Dictionary<int, (InlineImage? Img, int W, int H)> _images = new();
+        private (int Id, uint Total, List<byte[]> Parts, long Got)? _pending;
+        private readonly byte[] _b;
+        private readonly Action<InlineImage, double, double, double, double, ImageCrop?> _emit;
+
+        public EmfPlusPlayer(byte[] b, Action<InlineImage, double, double, double, double, ImageCrop?> emit)
+        {
+            _b = b;
+            _emit = emit;
+        }
+
+        /// <summary>unidade de página → pixels</summary>
+        private double UnitPx() => _unit switch
+        {
+            3 => _dpi / 72,
+            4 => _dpi,
+            5 => _dpi / 300,
+            6 => _dpi / 25.4,
+            _ => 1, // mundo, display, pixel
+        };
+
+        private (double X, double Y) Dev(double x, double y)
+        {
+            var m = _world;
+            double k = _pageScale * UnitPx();
+            return ((x * m.A + y * m.C + m.E) * k, (x * m.B + y * m.D + m.F) * k);
+        }
+
+        /// <summary>EmfPlusImage (só bitmap)</summary>
+        private void Image(int id, byte[] b, long o, long end)
+        {
+            if (o + 16 > end || LeU32(b, o + 4) != 1) { _images[id] = (null, 0, 0); return; }
+            _images[id] = (EmfPlusBitmap(b, o + 8, end), LeI32(b, o + 8), LeI32(b, o + 12));
+        }
+
+        private void Draw(int id, int srcUnit, double[] src, (double X, double Y) p0, (double X, double Y) p1, (double X, double Y) p2)
+        {
+            if (!_images.TryGetValue(id, out var im) || im.Img is null) return;
+            var (d0x, d0y) = Dev(p0.X, p0.Y);
+            double d1x = Dev(p1.X, p1.Y).X, d2y = Dev(p2.X, p2.Y).Y;
+            ImageCrop? crop = null;
+            if (srcUnit == 2 && im.W > 0 && im.H > 0)
+            {
+                var c = new ImageCrop { L = src[0] / im.W, T = src[1] / im.H, R = 1 - (src[0] + src[2]) / im.W, B = 1 - (src[1] + src[3]) / im.H };
+                if (Math.Abs(c.L) > 1e-3 || Math.Abs(c.T) > 1e-3 || Math.Abs(c.R) > 1e-3 || Math.Abs(c.B) > 1e-3) crop = c;
+            }
+            _emit(im.Img, d0x, d0y, d1x, d2y, crop);
+        }
+
+        public void Play(long start, long end)
+        {
+            var b = _b;
+            long q = start;
+            while (q + 12 <= end)
+            {
+                int type = LeU16(b, q), flags = LeU16(b, q + 2);
+                uint size = LeU32(b, q + 4), dsz = LeU32(b, q + 8);
+                if (size < 12 || q + size > end) break;
+                long d = q + 12, dEnd = Math.Min(q + size, d + dsz);
+                double F(long o) => LeF32(b, o);
+                switch (type)
+                {
+                    case 0x4001: { uint dpi = LeU32(b, d + 8); _dpi = dpi != 0 ? dpi : 96; break; } // cabeçalho
+                    case 0x4008: // Object (só Image)
+                        {
+                            int id = flags & 0xff;
+                            if (((flags >> 8) & 0x7f) != 5) break;
+                            if ((flags & 0x8000) != 0)
+                            {
+                                // continuado: TotalObjectSize + pedaços em registros seguidos
+                                uint total = LeU32(b, d);
+                                if (_pending is null || _pending.Value.Id != id) _pending = (id, total, new List<byte[]>(), 0);
+                                var part = Subarray(b, d + 4, dEnd);
+                                var pd = _pending.Value;
+                                pd.Parts.Add(part);
+                                pd.Got += part.Length;
+                                _pending = pd;
+                                if (pd.Got >= pd.Total)
+                                {
+                                    var all = new byte[pd.Got];
+                                    long o = 0;
+                                    foreach (var p in pd.Parts) { Array.Copy(p, 0, all, o, p.Length); o += p.Length; }
+                                    _pending = null;
+                                    Image(id, all, 0, all.Length);
+                                }
+                            }
+                            else Image(id, b, d, dEnd);
+                            break;
+                        }
+                    case 0x401a: // DrawImage
+                        {
+                            int id = flags & 0xff, srcUnit = LeI32(b, d + 4);
+                            double[] src = { F(d + 8), F(d + 12), F(d + 16), F(d + 20) };
+                            double[] r = (flags & 0x4000) != 0
+                                ? new double[] { LeI16(b, d + 24), LeI16(b, d + 26), LeI16(b, d + 28), LeI16(b, d + 30) }
+                                : new[] { F(d + 24), F(d + 28), F(d + 32), F(d + 36) };
+                            Draw(id, srcUnit, src, (r[0], r[1]), (r[0] + r[2], r[1]), (r[0], r[1] + r[3]));
+                            break;
+                        }
+                    case 0x401b: // DrawImagePoints (sup. esq., sup. dir., inf. esq.)
+                        {
+                            int id = flags & 0xff, srcUnit = LeI32(b, d + 4);
+                            double[] src = { F(d + 8), F(d + 12), F(d + 16), F(d + 20) };
+                            if ((flags & 0x0800) != 0) break; // pontos relativos
+                            (double, double) Pt(int k) => (flags & 0x4000) != 0
+                                ? (LeI16(b, d + 28 + k * 4), LeI16(b, d + 30 + k * 4)) : (F(d + 28 + k * 8), F(d + 32 + k * 8));
+                            Draw(id, srcUnit, src, Pt(0), Pt(1), Pt(2));
+                            break;
+                        }
+                    case 0x402a: _world = new Xform(F(d), F(d + 4), F(d + 8), F(d + 12), F(d + 16), F(d + 20)); break;
+                    case 0x402b: _world = Ident; break;
+                    case 0x402c:
+                    case 0x402d:
+                    case 0x402e:
+                    case 0x402f:
+                        {
+                            Xform m;
+                            if (type == 0x402c) m = new Xform(F(d), F(d + 4), F(d + 8), F(d + 12), F(d + 16), F(d + 20));
+                            else if (type == 0x402d) m = new Xform(1, 0, 0, 1, F(d), F(d + 4));
+                            else if (type == 0x402e) m = new Xform(F(d), 0, 0, F(d + 4), 0, 0);
+                            else { double a = (F(d) * Math.PI) / 180; m = new Xform(Math.Cos(a), Math.Sin(a), -Math.Sin(a), Math.Cos(a), 0, 0); }
+                            // flag A (0x2000): depois da atual; senão antes
+                            _world = (flags & 0x2000) != 0 ? Mul(_world, m) : Mul(m, _world);
+                            break;
+                        }
+                    case 0x4030: { _unit = flags & 0xff; double ps = F(d); _pageScale = ps != 0 && !double.IsNaN(ps) ? ps : 1; break; }
+                    case 0x4025: _saved[LeU32(b, d)] = (_world, _pageScale, _unit); break;
+                    case 0x4026:
+                        {
+                            if (_saved.TryGetValue(LeU32(b, d), out var s)) { _world = s.World; _pageScale = s.PageScale; _unit = s.Unit; }
+                            break;
+                        }
+                }
+                q += size;
+            }
+        }
     }
 }

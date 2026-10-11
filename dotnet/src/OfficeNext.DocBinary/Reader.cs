@@ -446,6 +446,14 @@ internal sealed class DocReader
         return a.TryGetValue(spid, out var s) ? s : b.TryGetValue(spid, out var s2) ? s2 : null;
     }
 
+    /// <summary>Forma de fundo do documento principal (FSP.fBackground): o fundo da página.</summary>
+    public OAShape? BackgroundShape()
+    {
+        LoadDrawings();
+        foreach (var s in _shapesMain!.Values) if ((s.Flags & FSP.Background) != 0) return s;
+        return null;
+    }
+
     /// <summary>Entrada do BStore (pib 1-based).</summary>
     public BseEntry? Bse(long pib)
     {

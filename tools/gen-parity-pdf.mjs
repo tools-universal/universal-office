@@ -55,7 +55,8 @@ export function pdfMeta(bytes) {
   const countM = /\/Type \/Pages \/Count (\d+)/.exec(latin1);
   const pages = countM ? parseInt(countM[1], 10) : mediaBoxes.length;
 
-  // conta operadores Tj nos content streams (descomprimindo FlateDecode)
+  // conta operadores de texto Tj e TJ (corridas do docx-layout) nos content streams
+  // (descomprimindo FlateDecode)
   let tjCount = 0;
   const streamRe = /<<([^>]*)>>\nstream\n/g;
   while ((m = streamRe.exec(latin1)) !== null) {
@@ -70,7 +71,7 @@ export function pdfMeta(bytes) {
     }
     if (dict.includes('/Image') || dict.includes('/Length1')) continue; // imagem/fonte
     const text = Buffer.from(data).toString('latin1');
-    tjCount += (text.match(/> Tj\n/g) ?? []).length;
+    tjCount += (text.match(/(?:> Tj|\] TJ)\n/g) ?? []).length;
   }
   return { pages, mediaBoxes, tjCount };
 }

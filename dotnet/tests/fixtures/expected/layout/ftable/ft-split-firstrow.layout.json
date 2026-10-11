@@ -60,10 +60,10 @@
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":14695.26,"scaleX":1,"text":"alta2Hxg","g":[[97,1814],[108,1936.35],[116,1985.23],[97,2046.35],[50,2229.83],[72,2413.31],[120,2572.18],[103,2682.18]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":14948.24,"scaleX":1,"text":"alta3Hxg","g":[[97,1814],[108,1936.35],[116,1985.23],[97,2046.35],[51,2229.83],[72,2413.31],[120,2572.18],[103,2682.18]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":15201.22,"scaleX":1,"text":"alta4Hxg","g":[[97,1814],[108,1936.35],[116,1985.23],[97,2046.35],[52,2229.83],[72,2413.31],[120,2572.18],[103,2682.18]]},
-        {"t":"line","x1":1706,"y1":14230.93,"x2":10210,"y2":14230.93,"color":"000000","width":0.5,"dash":null},
-        {"t":"line","x1":1706,"y1":14225.93,"x2":1706,"y2":15247.84,"color":"000000","width":0.5,"dash":null},
-        {"t":"line","x1":10210,"y1":14225.93,"x2":10210,"y2":15247.84,"color":"000000","width":0.5,"dash":null},
-        {"t":"line","x1":1706,"y1":15252.84,"x2":10210,"y2":15252.84,"color":"000000","width":0.5,"dash":null}
+        {"t":"rect","x":1706,"y":14226.13,"w":8504,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":1701.2,"y":14225.93,"w":9.6,"h":1021.91,"fill":"000000","alpha":null},
+        {"t":"rect","x":10205.2,"y":14225.93,"w":9.6,"h":1021.91,"fill":"000000","alpha":null},
+        {"t":"rect","x":1706,"y":15248.04,"w":8504,"h":9.6,"fill":"000000","alpha":null}
       ],
       "lines": [
         {"ref":"b0","start":0,"end":11,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":1198.4},
@@ -133,14 +133,14 @@
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1886.34,"scaleX":1,"text":"alta6Hxg","g":[[97,1814],[108,1936.35],[116,1985.23],[97,2046.35],[54,2229.83],[72,2413.31],[120,2572.18],[103,2682.18]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2139.31,"scaleX":1,"text":"alta7Hxg","g":[[97,1814],[108,1936.35],[116,1985.23],[97,2046.35],[55,2229.83],[72,2413.31],[120,2572.18],[103,2682.18]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2392.29,"scaleX":1,"text":"alta8Hxg","g":[[97,1814],[108,1936.35],[116,1985.23],[97,2046.35],[56,2229.83],[72,2413.31],[120,2572.18],[103,2682.18]]},
-        {"t":"line","x1":1706,"y1":1422,"x2":10210,"y2":1422,"color":"000000","width":0.5,"dash":null},
-        {"t":"line","x1":1706,"y1":1417,"x2":1706,"y2":2438.91,"color":"000000","width":0.5,"dash":null},
-        {"t":"line","x1":10210,"y1":1417,"x2":10210,"y2":2438.91,"color":"000000","width":0.5,"dash":null},
+        {"t":"rect","x":1706,"y":1417.2,"w":8504,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":1701.2,"y":1417,"w":9.6,"h":1021.91,"fill":"000000","alpha":null},
+        {"t":"rect","x":10205.2,"y":1417,"w":9.6,"h":1021.91,"fill":"000000","alpha":null},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2655.27,"scaleX":1,"text":"fimHxg","g":[[102,1814],[105,1875.12],[109,1924],[72,2168.38],[120,2327.26],[103,2437.26]]},
-        {"t":"line","x1":1706,"y1":2443.91,"x2":10210,"y2":2443.91,"color":"000000","width":0.5,"dash":null},
-        {"t":"line","x1":1706,"y1":2706.89,"x2":10210,"y2":2706.89,"color":"000000","width":0.5,"dash":null},
-        {"t":"line","x1":1706,"y1":2438.91,"x2":1706,"y2":2711.89,"color":"000000","width":0.5,"dash":null},
-        {"t":"line","x1":10210,"y1":2438.91,"x2":10210,"y2":2711.89,"color":"000000","width":0.5,"dash":null}
+        {"t":"rect","x":1706,"y":2439.11,"w":8504,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":1706,"y":2702.09,"w":8504,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":1701.2,"y":2438.91,"w":9.6,"h":272.98,"fill":"000000","alpha":null},
+        {"t":"rect","x":10205.2,"y":2438.91,"w":9.6,"h":272.98,"fill":"000000","alpha":null}
       ],
       "lines": [
         {"ref":"b50/r0/c0/b4","start":0,"end":10,"x":1814,"y":1427,"height":252.98,"baseline":1633.36,"width":990.54},

@@ -1,0 +1,37 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1626.47,"scaleX":1,"text":"TAVAATENTA","g":[[84,1701],[65,1788.01],[86,1889.44],[65,1989.19],[65,2131.31],[84,2232.74],[69,2319.75],[78,2407.73],[84,2522.6],[65,2609.61]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1626.47,"scaleX":1,"text":":","g":[[58,2711.04]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1626.47,"scaleX":1,"text":"AVAGA","g":[[65,2809.53],[86,2951.64],[65,3051.4],[71,3152.83],[65,3265.77]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1626.47,"scaleX":1,"text":",","g":[[44,3367.19]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1626.47,"scaleX":1,"text":"OATRASO","g":[[79,3461.7],[65,3620.17],[84,3721.6],[82,3808.61],[65,3904.41],[83,4005.83],[79,4087.31]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1626.47,"scaleX":1,"text":",","g":[[44,4205.08]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1626.47,"scaleX":1,"text":"AAVARIAEOAVISO","g":[[65,4299.59],[65,4441.71],[86,4543.14],[65,4642.89],[82,4744.32],[73,4840.12],[65,4884.07],[69,5026.19],[79,5154.86],[65,5313.32],[86,5414.75],[73,5514.51],[83,5558.45],[79,5639.93]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1626.47,"scaleX":1,"text":".","g":[[46,5757.7]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1895.03,"scaleX":1,"text":"TAVAATENTA","g":[[84,1701],[65,1800.01],[86,1913.44],[65,2025.19],[65,2191.31],[84,2304.74],[69,2403.75],[78,2503.73],[84,2630.6],[65,2729.61]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1895.03,"scaleX":1,"text":":","g":[[58,2843.04]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1895.03,"scaleX":1,"text":"AVAGA","g":[[65,2965.53],[86,3131.64],[65,3243.4],[71,3356.83],[65,3481.77]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1895.03,"scaleX":1,"text":",","g":[[44,3595.19]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1895.03,"scaleX":1,"text":"OATRASO","g":[[79,3713.7],[65,3896.17],[84,4009.6],[82,4108.61],[65,4216.41],[83,4329.83],[79,4423.31]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1895.03,"scaleX":1,"text":",","g":[[44,4553.08]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1895.03,"scaleX":1,"text":"AAVARIAEOAVISO","g":[[65,4671.59],[65,4837.71],[86,4951.14],[65,5062.89],[82,5176.32],[73,5284.12],[65,5340.07],[69,5506.19],[79,5658.86],[65,5841.32],[86,5954.75],[73,6066.51],[83,6122.45],[79,6215.93]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1895.03,"scaleX":1,"text":".","g":[[46,6345.7]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2163.58,"scaleX":1,"text":"TAVAATENTA:AVAGA,OATRASO,AAVARIAEOAVISO.","g":[[84,1701],[65,1807.35],[86,1931.31],[65,2053.24],[65,2226.94],[84,2350.9],[69,2457.25],[78,2564.78],[84,2705.18],[65,2811.53],[58,2935.49],[65,3043.02],[86,3216.72],[65,3338.65],[71,3462.61],[65,3600.65],[44,3724.61],[79,3828.17],[65,4021.85],[84,4145.81],[82,4252.16],[65,4369.25],[83,4493.22],[79,4592.8],[44,4736.74],[65,4840.3],[65,5014],[86,5137.96],[65,5259.89],[82,5383.85],[73,5500.94],[65,5554.65],[69,5728.35],[79,5885.62],[65,6079.3],[86,6203.27],[73,6325.19],[83,6378.9],[79,6478.48],[46,6622.43]]},
+        {"t":"glyphs","family":"Calibri Light","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2432.14,"scaleX":1,"text":"FimHxg","g":[[70,1701],[105,1802.19],[109,1850.75],[72,2074.51],[120,2210.72],[103,2302.78]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":50,"x":1701,"y":1417,"height":268.55,"baseline":1626.47,"width":4110.52},
+        {"ref":"b1","start":0,"end":50,"x":1701,"y":1685.55,"height":268.55,"baseline":1895.03,"width":4710.52},
+        {"ref":"b2","start":0,"end":50,"x":1701,"y":1954.11,"height":268.55,"baseline":2163.58,"width":4975.24},
+        {"ref":"b3","start":0,"end":7,"x":1701,"y":2222.66,"height":268.55,"baseline":2432.14,"width":704.9}
+      ]
+    }
+  ],
+  "warnings": []
+}

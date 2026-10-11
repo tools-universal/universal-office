@@ -1,0 +1,39 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 141.99,
+"size": 11.04,
+"text": "AncoraHxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 167.03,
+"size": 11.04,
+"text": "CorpoantesHxg"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 172.56,
+"size": 11.04,
+"text": "CorpodepoisHxg"
+},
+{
+"y": 110.3,
+"x0": 480.1,
+"x1": 694.83,
+"size": 11.04,
+"text": "AlfaBetaGamaDeltaEpsilonZetaEtaTeta"
+}
+],
+"objs": []
+}
+]
+}

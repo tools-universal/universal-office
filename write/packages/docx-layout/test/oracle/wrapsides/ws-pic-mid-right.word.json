@@ -1,0 +1,131 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 135.25,
+"size": 11.04,
+"text": "AntesHxg"
+},
+{
+"y": 93.86,
+"x0": 345.07,
+"x1": 462.69,
+"size": 11.04,
+"text": "Umaquerelatórioprazo"
+},
+{
+"y": 106.46,
+"x0": 345.07,
+"x1": 504.87,
+"size": 11.04,
+"text": "atendimentoinformaçãoasemà"
+},
+{
+"y": 119.18,
+"x0": 345.07,
+"x1": 457.91,
+"size": 11.04,
+"text": "períododadoscontrato"
+},
+{
+"y": 131.78,
+"x0": 345.07,
+"x1": 496.36,
+"size": 11.04,
+"text": "procedimentoosdeéempresa"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 496.74,
+"size": 11.04,
+"text": "segurançaoperaçãonãodocumentooanáliseserviçoáreaexecuçãoprocessopara"
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 472.4,
+"size": 11.04,
+"text": "qualidadeaprovaçãogestãocontroleresponsávelconformecomregistroúltimo"
+},
+{
+"y": 169.7,
+"x0": 85.1,
+"x1": 501.67,
+"size": 11.04,
+"text": "técnicaseráclienteumaquerelatórioprazoatendimentoinformaçãoasemàperíodo"
+},
+{
+"y": 182.42,
+"x0": 85.1,
+"x1": 503.65,
+"size": 11.04,
+"text": "dadoscontratoprocedimentoosdeéempresasegurançaoperaçãonãodocumentoo"
+},
+{
+"y": 195.02,
+"x0": 85.1,
+"x1": 488.85,
+"size": 11.04,
+"text": "análiseserviçoáreaexecuçãoprocessoparaqualidadeaprovaçãogestãocontrole"
+},
+{
+"y": 207.62,
+"x0": 85.1,
+"x1": 505.11,
+"size": 11.04,
+"text": "responsávelconformecomregistroúltimotécnicaseráclienteumaquerelatórioprazo"
+},
+{
+"y": 220.34,
+"x0": 85.1,
+"x1": 469.84,
+"size": 11.04,
+"text": "atendimentoinformaçãoasemàperíododadoscontratoprocedimentoosdeé"
+},
+{
+"y": 232.94,
+"x0": 85.1,
+"x1": 469.83,
+"size": 11.04,
+"text": "empresasegurançaoperaçãonãodocumentooanáliseserviçoáreaexecução"
+},
+{
+"y": 245.66,
+"x0": 85.1,
+"x1": 472.88,
+"size": 11.04,
+"text": "processoparaqualidadeaprovaçãogestãocontroleresponsávelconformecom"
+},
+{
+"y": 258.26,
+"x0": 85.1,
+"x1": 253.43,
+"size": 11.04,
+"text": "registroúltimotécnicaserácliente."
+},
+{
+"y": 271.01,
+"x0": 85.1,
+"x1": 125.4,
+"size": 11.04,
+"text": "FimHxg"
+}
+],
+"objs": [
+{
+"t": "image",
+"x0": 225.05,
+"y0": 84.5,
+"x1": 345.05,
+"y1": 122.5
+}
+]
+}
+]
+}

@@ -21,6 +21,31 @@ export interface PicInfo {
   crop?: { l: number; t: number; r: number; b: number };
   /** Linha horizontal (forma "HR" sem imagem): alinhamento, % da largura, cor. */
   hr?: { align: string; pct?: number; fill?: number; noshade: boolean };
+  /** Ajustes de cor da imagem (pictureContrast/Brightness, cinza, preto e branco). */
+  fx?: PicFx;
+}
+
+/** Ajustes de cor no modelo do DrawingML (a:lum em milésimos de %, a:grayscl, a:biLevel). */
+export interface PicFx { bright?: number; contrast?: number; gray?: boolean; biLevel?: boolean }
+
+/**
+ * pictureContrast (0x108, 16.16 = gain do VML) e pictureBrightness (0x109,
+ * /65536 = blacklevel do VML) → a:lum (bright = 2·blacklevel; contrast = 1 − 1/gain
+ * ou gain − 1); Blip Boolean (0x13F): fPictureBiLevel (bit 1), fPictureGray (bit 2).
+ */
+export function picFxOf(shape: OAShape | undefined): PicFx | undefined {
+  if (!shape) return undefined;
+  const fx: PicFx = {};
+  const ct = shape.props.get(0x108)?.value, br = shape.props.get(0x109)?.value;
+  const gain = ct !== undefined ? (ct >>> 0) / 65536 : 1;
+  const bl = br !== undefined ? (br | 0) / 65536 : 0;
+  if (Math.abs(gain - 1) > 1e-6) fx.contrast = Math.round((gain >= 1 ? 1 - 1 / gain : gain - 1) * 100000);
+  if (bl) fx.bright = Math.round(2 * bl * 100000);
+  const bb = shape.props.get(0x13f)?.value;
+  const flag = (bit: number): boolean => bb !== undefined && ((bb >>> (bit + 16)) & 1) === 1 && ((bb >>> bit) & 1) === 1;
+  if (flag(2)) fx.gray = true;
+  if (flag(1)) fx.biLevel = true;
+  return Object.keys(fx).length ? fx : undefined;
 }
 
 const EMU_PER_TWIP = 635;
@@ -69,6 +94,8 @@ export function readInlinePicture(r: DocReader, fc: number): PicInfo | undefined
   }
   const pib = shape?.props.get(0x104)?.value ?? 1;
   info.blip = bses[pib - 1] ?? bses[0];
+  const fx = picFxOf(shape);
+  if (fx) info.fx = fx;
   if (shape) {
     const f = (id: number): number => ((shape!.props.get(id)?.value ?? 0) | 0) / 65536;
     const c = { t: f(0x100), b: f(0x101), l: f(0x102), r: f(0x103) };

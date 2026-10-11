@@ -1,0 +1,37 @@
+{
+  "pages": [
+    {
+      "w": 11900,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1630.43,"scaleX":1,"text":"AntesHxg","g":[[65,1440],[110,1555.72],[116,1660.8],[101,1727.79],[115,1827.3],[72,1950.74],[120,2075.35],[103,2161.97]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1884.57,"scaleX":1,"text":"CelulaHxg","g":[[67,1548],[101,1654.64],[108,1754.15],[117,1800.05],[108,1905.13],[97,1951.03],[72,2092.04],[120,2216.65],[103,2303.27]]},
+        {"t":"rect","x":1440,"y":1684.34,"w":5000,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":1440,"y":1938.48,"w":5000,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":2622.85,"scaleX":1,"text":"TextodepoisHxg","g":[[84,1440],[101,1537.46],[120,1636.97],[116,1723.59],[111,1790.59],[100,1941.27],[101,2046.35],[112,2145.86],[111,2250.94],[105,2356.41],[115,2402.3],[72,2525.74],[120,2650.35],[103,2736.97]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":9,"x":1440,"y":1440,"height":244.14,"baseline":1630.43,"width":816.11},
+        {"ref":"b1/r0/c0/b0","start":0,"end":10,"x":1548,"y":1694.14,"height":244.14,"baseline":1884.57,"width":849.41},
+        {"ref":"b2","start":0,"end":0,"x":1440,"y":2068.28,"height":244.14,"baseline":2258.71,"width":0},
+        {"ref":"b3","start":0,"end":16,"x":1440,"y":2432.42,"height":244.14,"baseline":2622.85,"width":1391.11},
+        {"ref":"b4","start":0,"end":0,"x":1440,"y":2796.56,"height":244.14,"baseline":2986.99,"width":0}
+      ]
+    },
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 2,
+      "number": 2,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1607.43,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1824.05],[112,1923.56],[111,2028.64],[105,2134.11],[115,2180],[72,2303.44],[120,2428.05],[103,2514.67]]}
+      ],
+      "lines": [
+        {"ref":"b5","start":0,"end":10,"x":1701,"y":1417,"height":244.14,"baseline":1607.43,"width":907.81}
+      ]
+    }
+  ],
+  "warnings": []
+}

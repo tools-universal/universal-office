@@ -115,11 +115,17 @@ export interface FullDocument {
   styles: StylesMap;
   /** Bookmarks: nome → índice do bloco onde começa. */
   bookmarks: Map<string, number>;
+  /** Posição de cada bookmark no texto do parágrafo onde começa (run.text concatenado). */
+  bookmarkOffsets?: Map<string, number>;
   /** Estilos/numeração/tema/configurações/fontes CRUS — motor de layout. */
   formatting?: DocFormatting;
   /** Notas como blocos (tabelas preservadas). */
   footnoteBlocks?: Map<number, Block[]>;
   endnoteBlocks?: Map<number, Block[]>;
+  /** docProps/core.xml (W3CDTF) — campos CREATEDATE/SAVEDATE/PRINTDATE. */
+  coreProps?: { created?: string; modified?: string; lastPrinted?: string };
+  /** w:background (cor da página): hex e/ou cor do tema com tom/sombra. */
+  background?: { color?: string; themeColor?: string; themeTint?: string; themeShade?: string };
 }
 
 /** w:sectPr além da geometria básica do SectPr. */
@@ -346,8 +352,9 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
   const blocks: Block[] = [];
   const sections: Section[] = [];
   const bookmarks = new Map<string, number>();
-  ctx.onBookmark = (name) => {
-    if (!bookmarks.has(name)) bookmarks.set(name, blocks.length);
+  const bookmarkOffsets = new Map<string, number>();
+  ctx.onBookmark = (name, offset) => {
+    if (!bookmarks.has(name)) { bookmarks.set(name, blocks.length); bookmarkOffsets.set(name, offset); }
   };
   let sectionStart = 0;
 
@@ -422,10 +429,34 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
     comments: readComments(pkg),
     styles: readStyles(pkg),
     bookmarks,
+    bookmarkOffsets,
     formatting: readDocFormatting(pkg),
     footnoteBlocks,
     endnoteBlocks,
+    ...readCoreProps(pkg),
+    ...readBackground(root),
   };
+}
+
+/** Cor de fundo da página (w:document/w:background). */
+function readBackground(root: ReturnType<typeof parseXml>): { background?: FullDocument['background'] } {
+  const bg = firstChild(root, 'w:background');
+  if (!bg) return {};
+  const out: NonNullable<FullDocument['background']> = {};
+  for (const k of ['color', 'themeColor', 'themeTint', 'themeShade'] as const) {
+    const v = bg.attrs[`w:${k}`];
+    if (v) out[k] = v;
+  }
+  return Object.keys(out).length ? { background: out } : {};
+}
+
+/** Datas do docProps/core.xml (criação, última gravação, última impressão). */
+function readCoreProps(pkg: DocxPackage): { coreProps?: FullDocument['coreProps'] } {
+  const xml = pkg.getPartText('docProps/core.xml');
+  if (!xml) return {};
+  const get = (tag: string) => { const m = new RegExp('<' + tag + '[^>]*>([^<]*)<').exec(xml); return m ? m[1]!.trim() : undefined; };
+  const created = get('dcterms:created'), modified = get('dcterms:modified'), lastPrinted = get('cp:lastPrinted');
+  return { coreProps: { ...(created ? { created } : {}), ...(modified ? { modified } : {}), ...(lastPrinted ? { lastPrinted } : {}) } };
 }
 
 /** w:sectPr → SectionProps (o que o SectPr básico não cobre). */

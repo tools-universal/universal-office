@@ -16,8 +16,9 @@ export interface GlyphRunItem {
   color: string;
   /** baseline (twips, do topo da página). */
   y: number;
-  /** glifos: code point + x absoluto (twips). */
-  glyphs: { cp: number; x: number }[];
+  /** glifos: code point + x absoluto (twips); gid = índice de glifo direto
+   *  (EMF ETO_GLYPH_INDEX — sem caractere: só desenhável como curva) */
+  glyphs: { cp: number; x: number; gid?: number }[];
   /** escala horizontal (w:w) — 1 = normal. */
   scaleX?: number;
   /** texto original (busca, ToUnicode, depuração). */
@@ -27,6 +28,17 @@ export interface GlyphRunItem {
   synthItalic?: boolean;
   /** opacidade (0..1) — texto semitransparente (w14:textFill) */
   alpha?: number;
+  /** desenhar como CURVAS no PDF (WordArt: o Word converte em contornos;
+   *  texto semitransparente e caixa girada fora de 90°: o Word não grava texto) */
+  asPath?: boolean;
+  /** caixa da LINHA em torno do run (twips, relativos — sobrevivem a shiftItem):
+   *  asc/desc acima/abaixo de y; lead = do 1º glifo até a borda esquerda do
+   *  quadro; line = identidade da linha (os runs da mesma linha saem juntos).
+   *  O Word não grava a linha que fica inteira fora da página (cullOffPage). */
+  lineBox?: { asc: number; desc: number; lead: number; line: number };
+  /** glifos COLORIDOS (COLR, ex.: Segoe UI Emoji): curvas por camada, nas
+   *  cores da paleta — o Word também não grava texto extraível para eles */
+  colr?: boolean;
 }
 
 export interface RectItem {
@@ -66,6 +78,20 @@ export interface ShapeItem {
   stroke?: { color: string; widthPt: number; dash?: string };
   /** linha (geom line): pontos relativos ao canto */
   line?: { x1: number; y1: number; x2: number; y2: number };
+  /** degradê com as cores das paradas já resolvidas (RRGGBB) */
+  grad?: GradFill;
+  /** sombra externa resolvida (deslocamento em twips) */
+  shadow?: { dx: number; dy: number; color: string; alpha?: number; blur?: number };
+}
+
+/** Degradê (a:gradFill): paradas (pos 0..1), a:lin (ângulo, scaled), rotWithShape, a:path. */
+export interface GradFill {
+  stops: { pos: number; color: string }[];
+  angleDeg: number;
+  scaled?: boolean;
+  rotWithShape?: boolean;
+  path?: string;
+  fillTo?: { l: number; t: number; r: number; b: number };
 }
 
 /** Comando de caminho em twips (origem no topo da página). */
@@ -131,6 +157,8 @@ export interface LayoutPage {
   lines: LaidOutLine[];
   /** quantos itens do início de `items` são do cabeçalho/rodapé (camadas do HF) */
   hfItems?: number;
+  /** cor de fundo da página (w:background, RRGGBB) — o Word a grava no PDF */
+  background?: string;
   /** objetos flutuantes posicionados (seleção/arrasto no editor) */
   objects?: PlacedObject[];
 }

@@ -1,0 +1,28 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Segoe UI Emoji","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1654.4,"scaleX":1,"text":"⚠","g":[[9888,1701]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1654.4,"scaleX":1,"text":"AvisoemojiHxg","g":[[65,2064.19],[118,2210.93],[105,2320.93],[115,2369.81],[111,2479.81],[101,2663.29],[109,2785.64],[111,2968.9],[106,3091.25],[105,3140.13],[72,3250.13],[120,3409.01],[103,3519.01]]},
+        {"t":"glyphs","family":"Segoe UI Emoji","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1947.02,"scaleX":1,"text":"😀","g":[[128512,1701]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1947.02,"scaleX":1,"text":"SorrisoHxg","g":[[83,2064.19],[111,2210.93],[114,2333.29],[114,2406.55],[105,2479.81],[115,2528.69],[111,2638.69],[72,2822.16],[120,2981.04],[103,3091.04]]},
+        {"t":"glyphs","family":"Segoe UI Symbol","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2239.64,"scaleX":1,"text":"⚠","g":[[9888,1701]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2239.64,"scaleX":1,"text":"SimboloHxg","g":[[83,1951.62],[105,2098.35],[109,2147.23],[98,2330.49],[111,2452.85],[108,2575.2],[111,2624.08],[72,2807.55],[120,2966.43],[103,3076.43]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2532.25,"scaleX":1,"text":"Letras","g":[[76,1701],[101,1823.35],[116,1945.71],[114,2006.83],[97,2080.09],[115,2202.45]]},
+        {"t":"glyphs","family":"Segoe UI Emoji","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2532.25,"scaleX":1,"text":"ABC","g":[[65,2373.57],[66,2515.47],[67,2641.59]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2532.25,"scaleX":1,"text":"nafonteemojiHxg","g":[[110,2838.92],[97,2961.27],[102,3144.75],[111,3205.87],[110,3328.23],[116,3450.58],[101,3511.7],[101,3695.18],[109,3817.53],[111,4000.79],[106,4123.15],[105,4172.03],[72,4282.03],[120,4440.9],[103,4550.9]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":18,"x":1701,"y":1417,"height":292.62,"baseline":1654.4,"width":1940.36},
+        {"ref":"b1","start":0,"end":14,"x":1701,"y":1709.62,"height":292.62,"baseline":1947.02,"width":1512.39},
+        {"ref":"b2","start":0,"end":13,"x":1701,"y":2002.23,"height":292.62,"baseline":2239.64,"width":1497.78},
+        {"ref":"b3","start":0,"end":29,"x":1701,"y":2294.85,"height":292.62,"baseline":2532.25,"width":2972.26}
+      ]
+    }
+  ],
+  "warnings": []
+}

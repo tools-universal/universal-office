@@ -1,0 +1,39 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 697.37,
+"size": 11.04,
+"text": "Iniciopalavrapalavrapalavrapalavrapalavrapalavrapalavrapalavrapalavrapalavrapalavrapalavrapalavrapalavrapalavra"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 317.36,
+"size": 11.04,
+"text": "palavrapalavrapalavrapalavrapalavrafimHxg"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 167.03,
+"size": 11.04,
+"text": "CorpoantesHxg"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 172.56,
+"size": 11.04,
+"text": "CorpodepoisHxg"
+}
+],
+"objs": []
+}
+]
+}

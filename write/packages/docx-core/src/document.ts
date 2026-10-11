@@ -79,12 +79,70 @@ export interface InlineImage {
   rawDrawingXml?: string;
   /** wp:anchor completo (wrap, alinhamentos, distâncias) — motor de layout. */
   anchor?: DrawingAnchor;
+  /** wp:inline effectExtent (twips): margem de efeitos que ocupa espaço na linha */
+  inlineEffect?: { l: number; t: number; r: number; b: number };
   /** a:srcRect — recorte em frações (0..1) de cada lado. */
   crop?: { l: number; t: number; r: number; b: number };
   /** rotação/espelhamento/contorno da imagem (pic:spPr). */
   style?: ShapeStyle;
   /** Veio de VML (w:pict/w:object) — sem rawDrawingXml para o save. */
   vml?: boolean;
+  /** Ajustes de cor (VML gain/blacklevel/grayscale/bilevel, DrawingML
+   *  a:lum/a:grayscl/a:biLevel) — o Word os aplica aos pixels ao exportar. */
+  effects?: ImageEffects;
+}
+
+/**
+ * Ajustes de cor de imagem, no modelo único do Word (medido no PDF exportado):
+ * cinza (Rec. 709) primeiro; depois, por canal (0..1),
+ * x' = (x − ½)·gain + ½ + bright/2·(1 + gain). VML: gain = gain,
+ * bright = 2·blacklevel (arredonda); DrawingML a:lum: gain = 1/(1−c) (c > 0)
+ * ou 1 + c, bright = bright (trunca).
+ */
+export interface ImageEffects {
+  gray?: boolean;
+  gain?: number;
+  bright?: number;
+  /** DrawingML: trunca em vez de arredondar */
+  floor?: boolean;
+  /** preto e branco: luminância ≥ limiar (0..1) → branco */
+  biLevel?: number;
+}
+
+/** Valor VML de imagedata: "19661f" (16.16) ou número. */
+function vmlFixed(v: string | undefined): number | undefined {
+  if (!v) return undefined;
+  const n = v.endsWith('f') ? parseInt(v, 10) / 65536 : parseFloat(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** Efeitos de cor de um v:imagedata. */
+function vmlImageEffects(el: XmlElement): ImageEffects | undefined {
+  const a = el.attrs;
+  const fx: ImageEffects = {};
+  const gain = vmlFixed(a['gain']), bl = vmlFixed(a['blacklevel']);
+  if (gain !== undefined && gain !== 1) fx.gain = gain;
+  if (bl) fx.bright = 2 * bl;
+  if (a['grayscale'] === 't' || a['grayscale'] === 'true') fx.gray = true;
+  if (a['bilevel'] === 't' || a['bilevel'] === 'true') fx.biLevel = 0.5;
+  return Object.keys(fx).length ? fx : undefined;
+}
+
+/** Efeitos de cor de um a:blip (a:lum, a:grayscl, a:biLevel). */
+function blipImageEffects(blip: XmlElement): ImageEffects | undefined {
+  const fx: ImageEffects = {};
+  const lum = firstChild(blip, 'a:lum');
+  if (lum) {
+    const b = (parseInt(lum.attrs['bright'] ?? '0', 10) || 0) / 100000;
+    const c = Math.max(-1, Math.min(0.999, (parseInt(lum.attrs['contrast'] ?? '0', 10) || 0) / 100000));
+    if (c) fx.gain = c > 0 ? 1 / (1 - c) : 1 + c;
+    if (b) fx.bright = b;
+    if (b || c) fx.floor = true;
+  }
+  if (firstChild(blip, 'a:grayscl')) fx.gray = true;
+  const bi = firstChild(blip, 'a:biLevel');
+  if (bi) fx.biLevel = (parseInt(bi.attrs['thresh'] ?? '50000', 10) || 0) / 100000;
+  return Object.keys(fx).length ? fx : undefined;
 }
 
 /** Forma sem texto (retângulo, linha, elipse…) — DrawingML wps:wsp ou VML. */
@@ -94,8 +152,12 @@ export interface DrawingShape {
   heightTwips: number;
   floating?: boolean;
   anchor?: DrawingAnchor;
+  /** wp:inline effectExtent (twips) */
+  inlineEffect?: { l: number; t: number; r: number; b: number };
   /** Para linhas VML (v:line from/to): pontos relativos ao canto (twips). */
   line?: { x1: number; y1: number; x2: number; y2: number };
+  /** linha horizontal VML (v:rect o:hr="t", "Inserir linha horizontal") */
+  hr?: boolean;
 }
 
 /** Caixa de texto de DrawingML (wps:txbx / VML v:textbox) — usada em
@@ -184,14 +246,19 @@ export interface Run {
   /** Run dentro do RESULTADO de um campo TOC (o Word não aplica o estilo
    *  Hyperlink nas entradas do sumário). */
   inToc?: boolean;
-  /** Campo de formulário legado (w:ffData): caixa de seleção / texto / lista. */
-  formField?: { type: 'checkBox' | 'textInput' | 'dropDown'; checked?: boolean; sizeHalfPt?: number; sizeAuto?: boolean };
+  /** Campo de formulário legado (w:ffData): caixa de seleção / texto / lista.
+   *  Lista (FORMDROPDOWN): entradas e o índice exibido. */
+  formField?: { type: 'checkBox' | 'textInput' | 'dropDown'; checked?: boolean; sizeHalfPt?: number; sizeAuto?: boolean; entries?: string[]; selected?: number };
 }
 
 /** Grupo de objetos: cada item com retângulo relativo ao canto do grupo. */
 export interface DrawingGroup {
   widthTwips: number;
   heightTwips: number;
+  /** rotação (graus, horário) e espelhos do grupo — valem para todos os filhos */
+  rot?: number;
+  flipH?: boolean;
+  flipV?: boolean;
   floating?: boolean;
   anchor?: DrawingAnchor;
   items: { x: number; y: number; w: number; h: number; run: Run }[];
@@ -430,8 +497,9 @@ export interface ReadContext {
   resolveLink: LinkResolver;
   /** Comentários abertos (commentRangeStart sem End) — atravessa parágrafos. */
   activeComments?: Set<number>;
-  /** Bookmarks vistos (nome → preenchido pelo chamador com o índice). */
-  onBookmark?: (name: string) => void;
+  /** Bookmarks vistos (nome → preenchido pelo chamador com o índice); `offset` =
+   *  posição no texto do parágrafo (run.text concatenado) — PAGEREF depois de quebra. */
+  onBookmark?: (name: string, offset: number) => void;
   /** Pilha de campos complexos abertos (atravessa runs e parágrafos). */
   fieldStack?: FieldFrame[];
   /** Lê os blocos (parágrafos + tabelas) de um container (w:txbxContent) —
@@ -455,6 +523,8 @@ function readPic(pic: XmlElement, ctx: ReadContext, wTw: number, hTw: number): I
     ...(svgMedia ? { svg: svgMedia.data } : {}),
     widthTwips: wTw, heightTwips: hTw,
   };
+  const fx = blip && blipImageEffects(blip);
+  if (fx) img.effects = fx;
   const src = findDeep(pic, 'a:srcRect');
   if (src && (src.attrs['l'] || src.attrs['t'] || src.attrs['r'] || src.attrs['b'])) {
     const f = (k: string) => (parseInt(src.attrs[k] ?? '0', 10) || 0) / 100000;
@@ -557,7 +627,13 @@ function readGraphicObject(
       const run = readGraphicObject(child, ctx, w, h);
       if (run) items.push({ x, y, w, h, run: { ...run, props: { ...DEFAULT_RUN_PROPS } } });
     }
-    return items.length ? { text: OBJ, group: { widthTwips: wTw, heightTwips: hTw, items } } : undefined;
+    if (!items.length) return undefined;
+    const group: DrawingGroup = { widthTwips: wTw, heightTwips: hTw, items };
+    const rot = parseInt(xfrm?.attrs['rot'] ?? '0', 10);
+    if (rot) group.rot = rot / 60000;
+    if (xfrm?.attrs['flipH'] === '1') group.flipH = true;
+    if (xfrm?.attrs['flipV'] === '1') group.flipV = true;
+    return { text: OBJ, group };
   }
   return undefined;
 }
@@ -572,11 +648,21 @@ function readDrawingRun(drawing: XmlElement, ctx: ReadContext): Omit<Run, 'props
   const hTw = parseInt(extent?.attrs['cy'] ?? '0', 10) / EMU_PER_TWIP;
   const gd = findDeep(container, 'a:graphicData');
   const obj = gd && childElements(gd).find((c) => ['pic:pic', 'wps:wsp', 'wpg:wgp', 'wpc:wpc'].includes(c.name));
-  if (!obj) return undefined;
-  const run = readGraphicObject(obj, ctx, wTw, hTw);
+  // SmartArt (a:graphicData .../diagram) ainda sem desenho: uma caixa vazia do tamanho
+  // da extensão — em linha, ela ocupa a linha como uma imagem (oráculo dgmspace)
+  const dgm = !obj && /\/drawingml\/2006\/diagram$/.test(gd?.attrs['uri'] ?? '');
+  if (!obj && !dgm) return undefined;
+  const run = obj ? readGraphicObject(obj, ctx, wTw, hTw) : { text: OBJ, shape: { style: { geom: 'rect' }, widthTwips: wTw, heightTwips: hTw } };
   if (!run) return undefined;
   const anchor = readWpAnchor(anchorEl);
   const target = run.image ?? run.textbox ?? run.shape ?? run.group;
+  // em linha: a margem de efeitos (sombra, brilho) ocupa espaço na linha (oráculo effext)
+  const ee = !anchorEl ? firstChild(container, 'wp:effectExtent') : undefined;
+  if (ee && (run.image || run.shape)) {
+    const e = (k: string) => (parseInt(ee.attrs[k] ?? '0', 10) || 0) / EMU_PER_TWIP;
+    const v = { l: e('l'), t: e('t'), r: e('r'), b: e('b') };
+    if (v.l || v.t || v.r || v.b) (run.image ?? run.shape)!.inlineEffect = v;
+  }
   if (target && anchor) {
     target.floating = true;
     target.anchor = anchor;
@@ -662,6 +748,8 @@ function readVmlRuns(container: XmlElement, ctx: ReadContext, inline: boolean): 
       };
       const c = { l: crop('cropleft'), t: crop('croptop'), r: crop('cropright'), b: crop('cropbottom') };
       if (c.l || c.t || c.r || c.b) image.crop = c;
+      const fx = vmlImageEffects(imagedata!);
+      if (fx) image.effects = fx;
       run = { text: OBJ, image };
     } else {
       const txb = firstChild(el, 'v:textbox');
@@ -691,6 +779,7 @@ function readVmlRuns(container: XmlElement, ctx: ReadContext, inline: boolean): 
         const style = vmlShapeStyle(el, geom);
         if (geom === 'line') delete style.fill;
         const shape: DrawingShape = { style, widthTwips: w, heightTwips: h };
+        if (el.attrs['o:hr'] === 't') shape.hr = true;
         if (tag === 'line') {
           const pt = (s: string | undefined) => (s ?? '0,0').split(',').map((v) => vmlLenTwips(v.trim()) ?? 0);
           const [x1 = 0, y1 = 0] = pt(el.attrs['from']);
@@ -812,7 +901,7 @@ function readRunsInto(
         break;
       case 'w:bookmarkStart': {
         const name = child.attrs['w:name'];
-        if (name) ctx.onBookmark?.(name);
+        if (name) ctx.onBookmark?.(name, runs.reduce((n, r) => n + r.text.length, 0));
         break;
       }
       case 'w:r':
@@ -960,7 +1049,17 @@ function readSingleRun(
               ...(size ? { sizeHalfPt: parseInt(size, 10) } : {}),
               ...(firstChild(cb, 'w:sizeAuto') || !size ? { sizeAuto: true } : {}),
             };
-          } else if (firstChild(ff, 'w:ddList')) frame.ff = { type: 'dropDown' };
+          } else if (firstChild(ff, 'w:ddList')) {
+            // o Word exibe a entrada w:result; sem ela (ou fora da lista), w:default;
+            // senão a 1ª — nunca o resultado em cache (oráculo hidetext/ff-dropdown)
+            const dl = firstChild(ff, 'w:ddList')!;
+            const entries = childElements(dl, 'w:listEntry').map((e) => e.attrs['w:val'] ?? '');
+            const idx = (name: string): number | undefined => {
+              const k = parseInt(firstChild(dl, name)?.attrs['w:val'] ?? '', 10);
+              return Number.isInteger(k) && k >= 0 && k < entries.length ? k : undefined;
+            };
+            frame.ff = { type: 'dropDown', entries, selected: idx('w:result') ?? idx('w:default') ?? 0 };
+          }
           else if (firstChild(ff, 'w:textInput')) frame.ff = { type: 'textInput' };
         }
         stack.push(frame);
@@ -979,7 +1078,12 @@ function readSingleRun(
     }
     switch (child.name) {
       case 'w:t':
-        text += child.children.filter((c): c is string => typeof c === 'string').join('');
+        // U+00AD LITERAL no texto não é hífen opcional para o Word: aparece
+        // sempre (hífen da própria fonte) e não quebra a linha — igual ao
+        // w:noBreakHyphen (oráculo hidetext/shy-literal). Opcional é só w:softHyphen.
+        // quebra de linha LITERAL (CR, LF, CRLF) no texto é um espaço para o Word
+        // (e ele a grava assim) — só w:br/w:cr quebram a linha (oráculo ctlspace)
+        text += child.children.filter((c): c is string => typeof c === 'string').join('').replace(/\u00AD/g, '\u2011').replace(/\r\n|[\r\n]/g, ' ');
         break;
       case 'w:tab':
         text += '\t';
@@ -998,7 +1102,9 @@ function readSingleRun(
       case 'w:cr': {
         // \f = quebra de página; \u000B = quebra de coluna; \n = quebra de linha
         const t = child.attrs['w:type'];
-        text += t === 'page' ? '\f' : t === 'column' ? '\u000B' : '\n';
+        // quebra de linha com w:clear (desce para baixo dos flutuantes): U+2028
+        const clr = child.attrs['w:clear'];
+        text += t === 'page' ? '\f' : t === 'column' ? '\u000B' : clr && clr !== 'none' ? '\u2028' : '\n';
         break;
       }
       case 'w:noBreakHyphen':

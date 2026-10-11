@@ -13,4 +13,11 @@ export interface LayoutFont {
   glyphId(codePoint: number): number;
   /** Advance width do glifo em unidades da fonte. */
   advanceWidth(glyphId: number): number;
+  /** Contorno do glifo (unidades da fonte, y para cima) — texto como curvas. */
+  glyphOutline?(glyphId: number): import('./sfnt.js').GlyphOutlineCmd[] | null;
+  /** Fonte com glifos coloridos (COLR)? — consulta barata antes de colorLayers. */
+  hasColorGlyphs?(): boolean;
+  /** Camadas de um glifo colorido (COLR v0 + CPAL, paleta 0), na ordem de
+   *  pintura; null se o glifo não é colorido. */
+  colorLayers?(glyphId: number): import('./sfnt.js').ColorLayer[] | null;
 }

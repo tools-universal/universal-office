@@ -1,0 +1,165 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 80.16,
+"x0": 85.1,
+"x1": 128.22,
+"size": 9.96,
+"text": "InicioHxg"
+},
+{
+"y": 100.46,
+"x0": 85.1,
+"x1": 192.62,
+"size": 9.96,
+"text": "☐CaixaMSGothicHxg"
+},
+{
+"y": 121.46,
+"x0": 85.1,
+"x1": 183.44,
+"size": 9.96,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 141.62,
+"x0": 85.1,
+"x1": 137.11,
+"size": 9.96,
+"text": "NormalHxg"
+},
+{
+"y": 161.9,
+"x0": 85.1,
+"x1": 195.98,
+"size": 9.96,
+"text": "☐CaixaMSMinchoHxg"
+},
+{
+"y": 182.9,
+"x0": 85.1,
+"x1": 183.44,
+"size": 9.96,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 203.06,
+"x0": 85.1,
+"x1": 137.11,
+"size": 9.96,
+"text": "NormalHxg"
+},
+{
+"y": 224.06,
+"x0": 85.1,
+"x1": 179.56,
+"size": 9.96,
+"text": "☐CaixaSimSunHxg"
+},
+{
+"y": 244.58,
+"x0": 85.1,
+"x1": 183.44,
+"size": 9.96,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 264.89,
+"x0": 85.1,
+"x1": 137.11,
+"size": 9.96,
+"text": "NormalHxg"
+},
+{
+"y": 285.89,
+"x0": 85.1,
+"x1": 188.44,
+"size": 9.96,
+"text": "☐CaixaYuGothicHxg"
+},
+{
+"y": 308.09,
+"x0": 85.1,
+"x1": 182.36,
+"size": 9.96,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 330.41,
+"x0": 85.1,
+"x1": 137.11,
+"size": 9.96,
+"text": "NormalHxg"
+},
+{
+"y": 351.41,
+"x0": 85.1,
+"x1": 209.17,
+"size": 9.96,
+"text": "☐CaixaMalgunGothicHxg"
+},
+{
+"y": 374.69,
+"x0": 85.1,
+"x1": 180.92,
+"size": 9.96,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 396.53,
+"x0": 85.1,
+"x1": 137.11,
+"size": 9.96,
+"text": "NormalHxg"
+},
+{
+"y": 417.41,
+"x0": 85.1,
+"x1": 215.26,
+"size": 9.96,
+"text": "☐CaixaMicrosoftYaHeiHxg"
+},
+{
+"y": 440.59,
+"x0": 85.1,
+"x1": 182.84,
+"size": 9.96,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 462.55,
+"x0": 85.1,
+"x1": 137.11,
+"size": 9.96,
+"text": "NormalHxg"
+},
+{
+"y": 482.71,
+"x0": 85.1,
+"x1": 205.47,
+"size": 9.96,
+"text": "☐CaixaMSUIGothicHxg"
+},
+{
+"y": 503.71,
+"x0": 85.1,
+"x1": 179.12,
+"size": 9.96,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 523.99,
+"x0": 85.1,
+"x1": 137.11,
+"size": 9.96,
+"text": "NormalHxg"
+}
+],
+"objs": []
+}
+]
+}

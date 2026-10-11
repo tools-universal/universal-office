@@ -36,6 +36,8 @@ public sealed class RunStyle
     public string? Link;
     /// <summary>opacidade do texto (w14:textFill)</summary>
     public double? Alpha;
+    /// <summary>contorno visível (w14:textOutline com preenchimento)</summary>
+    public bool Outline;
 }
 
 public enum GlyphKind { Char, Space, Nbsp, Tab, Lb, Pb, Cb, Obj, Shy, Box }
@@ -58,6 +60,10 @@ public sealed class Glyph
     /// <summary>ascendente/descendente na linha (twips)</summary>
     public double Asc;
     public double Desc;
+    /// <summary>texto deslocado (w:position): ascendente/descendente SEM o deslocamento —
+    /// a entrelinha múltipla vale sobre elas (oráculo position)</summary>
+    public double? NAsc;
+    public double? NDesc;
     /// <summary>offset no texto do parágrafo (run.text concatenado)</summary>
     public double Offset;
     public int RunIdx;
@@ -73,6 +79,15 @@ public sealed class Glyph
     public BoxInfo? Box;
     /// <summary>referência de nota de rodapé (id da nota)</summary>
     public double? NoteId;
+    /// <summary>quebra de linha com w:clear: a linha seguinte desce para baixo dos flutuantes</summary>
+    public bool Clear;
+    /// <summary>linha horizontal VML (o:hr): altura do traço (twips) — fica sozinha na linha</summary>
+    public double? Hr;
+    /// <summary>espaço que comprime (modos ≤ 14 com layout asiático e characterSpacingControl ≠
+    /// doNotCompress): twips que pode perder</summary>
+    public double? FeShrink;
+    /// <summary>pontuação que pode pendurar além da margem no fim da linha</summary>
+    public bool Hang;
 }
 
 public sealed class ParaMarker
@@ -148,13 +163,11 @@ public static class Para
         var theme = ctx.Fmt.Theme;
         double sz = (rpr.Sz ?? 20) / 2;
         string? va = rpr.VertAlign;
-        // sobrescrito/subscrito: ~2/3 do tamanho, deslocado
-        double sizePt = va is "superscript" or "subscript" ? Js.Round(sz * 2 * 0.65) / 2 : sz;
+        // sobrescrito/subscrito: ySuperscriptYSize (1331/2048 nas fontes comuns, não 0,65) do
+        // corpo, em meios pontos — 15pt → 9,5pt (oráculo supraise, corpo do PDF do Word)
+        double sizePt = va is "superscript" or "subscript" ? Js.Round((sz * 2 * 1331) / 2048) / 2 : sz;
+        // o deslocamento do sobrescrito/subscrito vem da fonte do run (calculado abaixo, com a face)
         double shift = (rpr.Position ?? 0) * 10; // half-points → twips
-        // medido no Word (oráculo vertalign): sobe (corpo − corpo do sobrescrito);
-        // o subscrito desce ~8% do corpo
-        if (va == "superscript") shift += (sz - sizePt) * 20;
-        else if (va == "subscript") shift -= sz * 20 * 0.08;
         // w14:textFill (Word 2010+) manda sobre w:color e traz a opacidade
         var tf = rpr.TextFill;
         string? color = (tf is not null ? (tf.Color ?? (Js.Truthy(tf.ThemeColor) ? Resolve.ResolveColor(null, tf.ThemeColor, null, null, theme) : null)) : null)
@@ -163,7 +176,7 @@ public static class Para
             ? new UnderlineStyle { Val = rpr.U.Val, Color = Js.Truthy(rpr.U.Color) && rpr.U.Color != "auto" ? rpr.U.Color : null }
             : null;
         string? shd = Js.Truthy(rpr.Shd?.Fill) && rpr.Shd!.Fill != "auto" ? rpr.Shd.Fill : null;
-        return new RunStyle
+        var style = new RunStyle
         {
             Rpr = rpr,
             SizePt = sizePt,
@@ -179,8 +192,16 @@ public static class Para
             Shift = shift,
             Hidden = rpr.Vanish == true || rpr.SpecVanish == true,
             Alpha = tf?.Alpha is { } ta && ta < 1 ? ta : null,
+            Outline = rpr.TextOutline == true,
             Link = Js.Truthy(link) ? link : null,
         };
+        if (va is "superscript" or "subscript")
+        {
+            // medido no Word (oráculo supraise): elevação/queda pela fonte do PRÓPRIO run
+            var face = FaceFor(ctx, rpr, 0x41, style);
+            style.Shift += va == "superscript" ? Fonts.SuperscriptRaiseFor(face.Family, Fonts.FaceMetrics(face.Font), sz, sizePt) * 20 : -Fonts.SubscriptDropPt(face.Family, sz) * 20;
+        }
+        return style;
     }
 
     /// <summary>Face do caractere (slot por faixa Unicode) com fallback de glifo ausente.</summary>
@@ -217,15 +238,20 @@ public static class Para
         return face;
     }
 
-    private static (double Asc, double Desc) VMetrics(FaceMetrics m, RunStyle style)
+    private static (double Asc, double Desc, double? NAsc, double? NDesc) VMetrics(FaceMetrics m, RunStyle style)
     {
         string? va = style.Rpr.VertAlign;
         if (va is "superscript" or "subscript")
         {
             double b = (style.Rpr.Sz ?? 20) / 2;
-            return (m.Ascent * b * 20, m.Descent * b * 20);
+            return (m.Ascent * b * 20, m.Descent * b * 20, null, null);
         }
-        return (m.Ascent * style.SizePt * 20 + Math.Max(0, style.Shift), m.Descent * style.SizePt * 20 + Math.Max(0, -style.Shift));
+        // w:position desloca a caixa do glifo: elevado, a descendente encolhe (até 0);
+        // rebaixado, a ascendente (oráculo position)
+        var (sa, sd) = ShadowExtent(style);
+        double a = m.Ascent * style.SizePt * 20 + sa, d = m.Descent * style.SizePt * 20 + sd;
+        if (style.Shift == 0 || double.IsNaN(style.Shift)) return (a, d, null, null);
+        return (Math.Max(0, a + style.Shift), Math.Max(0, d - style.Shift), a, d);
     }
 
     private static bool IsHyperlinkStyle(DocContext ctx, string id)
@@ -266,8 +292,100 @@ public static class Para
         return (k * sizePt) / Fonts.DeviceEmPt(sizePt);
     }
 
-    private static readonly string[] DynFields = { "PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "PAGEREF", "SEQ", "REF" };
+    /// <summary>
+    /// Quanto a sombra do texto (w14:shadow) estende a caixa do glifo acima e abaixo
+    /// (twips), medido no Word (oráculo shadowh): k·máx(0, desfoque ∓ dy), dy = dist·sen(dir)
+    /// (para baixo positivo), k = (corpo/72)^0,7 — independe da fonte; vale também na
+    /// marca de parágrafo e escala com a entrelinha múltipla; a exata não muda.
+    /// </summary>
+    public static (double Asc, double Desc) ShadowExtent(RunStyle style)
+    {
+        var sh = style.Rpr.TextShadow;
+        if (sh is null || (!(sh.Blur != 0 && !double.IsNaN(sh.Blur)) && !(sh.Dist != 0 && !double.IsNaN(sh.Dist)))) return (0, 0);
+        double k = Math.Pow(style.SizePt / 72, 0.7);
+        double dy = sh.Dist * Math.Sin((sh.Dir * Math.PI) / 180);
+        return (k * Math.Max(0, sh.Blur - dy) * 20, k * Math.Max(0, sh.Blur + dy) * 20);
+    }
+
+    /// <summary>Depois de hífen/travessão NÃO há quebra se vem espaço (quebra no espaço), NBSP
+    /// (cola), tab ou quebra de linha; com qualquer outro caractere há (oráculo dashsym).
+    /// Porta da classe /^[\s NBSP NNBSP U+2000-U+200B U+3000 BOM SHY]$/u do JS.</summary>
+    private static bool NoBreakAfterDash(string ch)
+    {
+        if (ch.Length != 1) return false;
+        char c = ch[0];
+        // \s do JS: \t \n \v \f \r, espaço, U+00A0, U+1680, U+2000–U+200A, U+2028, U+2029, U+202F, U+205F, U+3000, U+FEFF
+        return c is '\t' or '\n' or '\v' or '\f' or '\r' or ' ' or '\u00a0' or '\u1680' or '\u2028' or '\u2029' or '\u202f' or '\u205f'
+            or '\u3000' or '\ufeff' or '\u00ad' || (c >= '\u2000' && c <= '\u200b');
+    }
+
+    /// <summary>Kinsoku: caracteres que não podem terminar a linha (listas padrão do Word para
+    /// japonês/chinês/coreano, união).</summary>
+    private const string NoLineEnd = "$([{\u00a3\u00a5\u2018\u201c\u3008\u300a\u300c\u300e\u3010\u3014\u3016\u301d\ufe59\ufe5b\ufe5d\uff04\uff08\uff3b\uff5b\uff62\uffe1\uffe5\uffe6";
+
+    /// <summary>Fonte do Leste Asiático (CJK): pelo conjunto de caracteres do fontTable, pelo nome
+    /// conhecido ou instalada com glifos CJK.</summary>
+    private static readonly Regex CjkFontName = new("^(ms (p|ui )?(gothic|mincho)|yu (gothic|mincho)|meiryo|hg.*(gothic|mincho)|(p)?mingliu|n?simsun|simhei|kaiti|fangsong|microsoft (yahei|jhenghei)|dengxian|(batang|gulim|dotum|gungsuh)(che)?|malgun gothic|nanum)|[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uff00-\uffef]",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    public static bool IsCjkFont(DocContext ctx, string? name)
+    {
+        if (string.IsNullOrEmpty(name)) return false;
+        // o fontTable do documento manda: conjunto de caracteres japonês/coreano/chinês
+        string? cs = ctx.Fmt.FontTable.TryGetValue(name, out var fi) ? fi.Charset?.ToUpperInvariant() : null;
+        if (!string.IsNullOrEmpty(cs)) return cs is "80" or "81" or "82" or "86" or "88";
+        if (CjkFontName.IsMatch(name)) return true;
+        var f = ctx.Faces.Get(name, false, false);
+        return f.Family.ToLowerInvariant() == name.ToLowerInvariant() && (f.Font.GlyphId(0x4e00) != 0 || f.Font.GlyphId(0xac00) != 0);
+    }
+
+    private static readonly Regex CjkLangRe = new(@"^(ja|zh|ko)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    /// <summary>A fonte PADRÃO do documento para texto asiático (docDefaults, eastAsia) é do
+    /// Leste Asiático? Nos modos ≤ 14 é ela — e não a fonte eastAsia do run — que liga
+    /// o layout asiático (kinsoku, pontuação pendurada, compressão: oráculos kinsoku, fecompress)</summary>
+    private static bool DocEastAsiaCjk(DocContext ctx)
+    {
+        var rf = ctx.Resolver.DocDefaults.RPr?.RFonts;
+        string? name = Resolve.FontOfSlot(rf, "eastAsia", ctx.Fmt.Theme);
+        if (!string.IsNullOrEmpty(name)) return IsCjkFont(ctx, name);
+        // fonte do tema sem "ea": o Word usa a da escrita do idioma do tema (themeFontLang)
+        return Js.Truthy(rf?.EastAsiaTheme) && CjkLangRe.IsMatch(ctx.Fmt.Settings.ThemeFontLang?.EastAsia ?? "");
+    }
+
+    private static bool IsCjkLang(RPr rpr) => CjkLangRe.IsMatch(rpr.Lang?.EastAsia ?? "");
+
+    /// <summary>As regras de quebra do Leste Asiático valem para o texto deste run? Idioma
+    /// eastAsia ja/zh/ko; nos modos ≤ 14, também a fonte asiática padrão do documento
+    /// (oráculo kinsoku)</summary>
+    private static bool EastAsianBreakRules(DocContext ctx, RPr rpr)
+    {
+        if (!IsCjkLang(rpr)) return false;
+        return ctx.Fmt.Settings.CompatibilityMode >= 15 || DocEastAsiaCjk(ctx);
+    }
+
+    /// <summary>Pontuação que pode pendurar além da margem direita (w:overflowPunct, layout asiático),
+    /// conforme o idioma eastAsia do texto — japonês só vírgula, ponto e aspas de fecho;
+    /// chinês/coreano também ) ; : ! ? ] } (e % fora do chinês tradicional) — oráculo hang15.
+    /// Com o conjunto alternativo de regras (useAltKinsokuLineBreakRules, só nos modos ≤ 14)
+    /// as aspas e o % não penduram e o coreano fica como o japonês (oráculo hangalt)</summary>
+    private const string HangBase = ",.\u3001\u3002\uff0c\uff0e";
+    private const string HangClose = ");:!?]}\uff1a\uff1b\uff1f\uff01\uff09\uff3d\uff5d";
+    private const string HangQuotes = "\u201d\u2019";
+    private static readonly Regex JaLangRe = new("^ja", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex KoLangRe = new("^ko", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex ZhTradRe = new("^zh-(tw|hk|mo)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static string HangPunct(RPr rpr, bool alt)
+    {
+        string ea = rpr.Lang?.EastAsia ?? "";
+        if (JaLangRe.IsMatch(ea)) return alt ? HangBase : HangBase + HangQuotes;
+        if (alt) return KoLangRe.IsMatch(ea) ? HangBase : HangBase + HangClose;
+        return HangBase + HangClose + HangQuotes + (ZhTradRe.IsMatch(ea) ? "" : "%");
+    }
+
+    private static readonly string[] DynFields = { "PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "PAGEREF", "SEQ", "REF", "DATE", "TIME", "SAVEDATE", "CREATEDATE", "PRINTDATE" };
     private static readonly Regex WsRe = new(@"\s+", RegexOptions.CultureInvariant);
+    private static readonly Regex FormTextRe = new(@"^\s*FORMTEXT(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     /// <summary>Texto exibido de um campo (resultado em cache ou valor dinâmico).</summary>
     private static List<Run>? FieldRuns(Run run, ParaEnv env)
@@ -308,6 +426,22 @@ public static class Para
         {
             var run = para.Runs[idx];
             if (run.FormField?.Type == "checkBox") outp.Add((run, idx, offset));
+            else if (run.FormField?.Type == "dropDown" && run.FormField.Entries is { } entries)
+            {
+                // FORMDROPDOWN: o Word mostra a entrada escolhida com a formatação do
+                // fldChar begin — o resultado em cache é ignorado (oráculo hidetext/ff-dropdown)
+                int sel = run.FormField.Selected ?? 0;
+                string text = sel >= 0 && sel < entries.Count ? entries[sel] : "";
+                if (text.Length > 0)
+                {
+                    var c = run.ShallowClone();
+                    c.Text = text;
+                    c.Field = null;
+                    c.FieldResult = null;
+                    c.FormField = null;
+                    outp.Add((c, idx, offset));
+                }
+            }
             else if (run.Field is not null)
             {
                 var fr = FieldRuns(run, env);
@@ -360,12 +494,14 @@ public static class Para
         string? styleId = ctx.Resolver.ParaStyleId(direct.PStyle);
         var st = ctx.Resolver.ParaStyle(styleId);
         var ppr = Resolve.MergePPr(dd.PPr, env.TablePPr);
-        ppr = Resolve.MergePPr(ppr, st.PPr);
-        // numeração (do direto ou do estilo): o pPr do nível entra entre estilo e direto
+        // numeração: o pPr do nível entra no nível de quem a define — direta: entre o
+        // estilo e o direto; do estilo: logo ANTES do estilo que traz o numId (o recuo
+        // dele e dos derivados manda; o dos pais, não — oráculo numstyind)
         var numPr = (st.PPr.NumPr ?? new NumPr()).With(direct.NumPr);
-        if (numPr.NumId is { } nid && nid != 0 && !double.IsNaN(nid))
+        bool hasNum = numPr.NumId is { } nid && nid != 0 && !double.IsNaN(nid);
+        var lvl = hasNum ? ctx.Numbering.Level(numPr.NumId!.Value, numPr.Ilvl ?? 0) : null;
+        void AddLvl()
         {
-            var lvl = ctx.Numbering.Level(nid, numPr.Ilvl ?? 0);
             if (lvl?.PPr is not null)
             {
                 var lp = lvl.PPr.Clone();
@@ -373,6 +509,23 @@ public static class Para
                 ppr = Resolve.MergePPr(ppr, lp);
             }
             if (lvl?.PPr?.Tabs is not null) ppr = Resolve.MergePPr(ppr, new PPr { Tabs = lvl.PPr.Tabs });
+        }
+        if (hasNum && direct.NumPr?.NumId is null)
+        {
+            var chain = ctx.Resolver.ParaChain(styleId);
+            int at = -1;
+            for (int i = 0; i < chain.Count; i++) if (chain[i].PPr?.NumPr?.NumId is not null) at = i;
+            for (int i = 0; i < chain.Count; i++)
+            {
+                if (i == at) AddLvl();
+                ppr = Resolve.MergePPr(ppr, chain[i].PPr);
+            }
+            if (at < 0) AddLvl();
+        }
+        else
+        {
+            ppr = Resolve.MergePPr(ppr, st.PPr);
+            if (hasNum) AddLvl();
         }
         ppr = Resolve.MergePPr(ppr, direct);
         ppr.NumPr = numPr;
@@ -414,7 +567,7 @@ public static class Para
         var markFace = FaceFor(ctx, markRpr, 0x20, markStyle);
 
         var glyphs = new List<Glyph>();
-        void PushChars(string text, Run run, RPr rpr, RunStyle style, double offset0, int runIdx)
+        void PushChars(string text, Run run, RPr rpr, RunStyle style, double offset0, int runIdx, bool formText = false)
         {
             string t = text;
             if (rpr.Caps == true) t = Js.ToUpper(t);
@@ -424,9 +577,19 @@ public static class Para
             {
                 string ch = chars[i];
                 int cp = Js.CodePointAt0(ch);
+                // invisíveis de largura zero (BOM/ZWNBSP, ZWJ/ZWNJ): o Word não
+                // os desenha nem busca fonte para eles — não mexem na altura da linha; o
+                // ZWNBSP ainda cola no anterior: o espaço logo antes deixa de quebrar (invischars)
+                if (cp == 0xfeff || cp == 0x200c || cp == 0x200d)
+                {
+                    var prevG = glyphs.Count > 0 ? glyphs[^1] : null;
+                    if (cp == 0xfeff && prevG?.Kind == GlyphKind.Space) { prevG.Kind = GlyphKind.Nbsp; prevG.BreakAfter = false; }
+                    off += ch.Length;
+                    continue;
+                }
                 GlyphKind kind = GlyphKind.Char;
                 if (ch == "\t") kind = GlyphKind.Tab;
-                else if (ch == "\n" || ch == "\r") kind = GlyphKind.Lb;
+                else if (ch == "\n" || ch == "\r" || ch == "\u2028") kind = GlyphKind.Lb;
                 else if (ch == "\f" || ch == "\u000B")
                 {
                     // quebra de página/coluna em célula, cabeçalho ou caixa de texto: o Word ignora
@@ -435,41 +598,64 @@ public static class Para
                 }
                 else if (cp == 0xa0 || cp == 0x202f) kind = GlyphKind.Nbsp;
                 else if (cp == 0xad) kind = GlyphKind.Shy;
-                else if (SpaceLike(cp)) kind = GlyphKind.Space;
+                // no resultado de campo FORMTEXT os espaços especiais ("en" do campo vazio)
+                // são caracteres comuns: nem quebram nem penduram (oráculo formtext, ft-margem)
+                else if (SpaceLike(cp) && !(cp != 0x20 && formText)) kind = GlyphKind.Space;
                 // versalete: minúsculas viram maiúsculas menores
                 double size = style.SizePt;
                 string shownCh = ch;
                 int shownCp = cp;
+                // hífen incondicional (w:noBreakHyphen / U+00AD literal): o Word desenha o
+                // HÍFEN da própria fonte (U+002D, mesmo avanço), sem quebra depois (oráculo
+                // hidetext/nbh-*) — as fontes comuns nem têm U+2011
+                if (cp == 0x2011) shownCp = 0x2d;
                 if (rpr.SmallCaps == true && rpr.Caps != true && Js.ToLower(ch) == ch && Js.ToUpper(ch) != ch)
                 {
                     shownCh = Js.ToUpper(ch);
                     shownCp = Js.CodePointAt0(shownCh);
                     size = Js.Round(style.SizePt * 2 * 0.8) / 2;
                 }
-                var face = FaceFor(ctx, rpr, shownCp, style, run.SymFont);
+                else if (rpr.SmallCaps == true && rpr.Caps != true && cp == 0x20)
+                {
+                    // versalete: o ESPAÇO também sai no tamanho reduzido; a pontuação não (oráculo scapskern)
+                    size = Js.Round(style.SizePt * 2 * 0.8) / 2;
+                }
+                // quebras (inclusive a U+2028 do w:clear) medem com a fonte do run, sem substituta
+                var face = FaceFor(ctx, rpr, kind == GlyphKind.Lb ? 0x20 : shownCp, style, run.SymFont);
                 var m = Fonts.FaceMetrics(face.Font);
                 double adv = 0;
                 if (kind is GlyphKind.Char or GlyphKind.Space or GlyphKind.Nbsp)
                 {
                     adv = AdvanceTwips(ctx, face, shownCp, size);
+                    // negrito sintético (sem face negrita): +1/2048 em por glifo (oráculo synthbold)
+                    if (face.SynthBold) adv += (size * 20) / 2048;
                     if (rpr.W is { } w && w != 0 && !double.IsNaN(w) && w != 100) adv *= w / 100;
                     string? next = i + 1 < chars.Count ? chars[i + 1] : null;
-                    // o espaço também kerneia (Arial: " T", " Y", " A" — oráculo kern)
-                    if (next is not null && (kind is GlyphKind.Char or GlyphKind.Space) && rpr.Kern is { } kern && kern != 0 && !double.IsNaN(kern) && style.SizePt * 2 >= kern)
+                    // o espaço também kerneia (Arial: " T", " Y", " A" — oráculo kern). Com ligaduras
+                    // OpenType (w14:ligatures ≠ none) o Word só usa o 'kern' do script latino do GPOS:
+                    // fonte que o registra só em outros scripts (Tahoma, Open Sans) não kerneia (oráculo kernlig)
+                    string? lig = rpr.Ligatures;
+                    bool kernOff = !string.IsNullOrEmpty(lig) && lig != "none" && face.Font is OfficeNext.Layout.SfntFont { KernInLatin: false };
+                    if (next is not null && (kind is GlyphKind.Char or GlyphKind.Space) && rpr.Kern is { } kern && kern != 0 && !double.IsNaN(kern) && style.SizePt * 2 >= kern && !kernOff)
                         adv += KernTwips(ctx, face, shownCp, Js.CodePointAt0(next), size);
                     if (rpr.Spacing is { } sp && sp != 0 && !double.IsNaN(sp)) adv += sp;
+                    // seletor de variação (U+FE00–FE0F, ex.: emoji "⚠️"): largura zero (oráculo hidetext/emoji)
+                    if (cp >= 0xfe00 && cp <= 0xfe0f) adv = 0;
                 }
+                // hífen/travessão: quebra depois se o caractere seguinte não é espaço — letra,
+                // dígito, pontuação ou símbolo ("abc-_def", "abc–(def": oráculo dashsym)
                 bool breakAfter = kind is GlyphKind.Space or GlyphKind.Tab or GlyphKind.Shy
-                    || ((cp == 0x2d || cp == 0x2013 || cp == 0x2014) && i + 1 < chars.Count && IsLetterOrNumber(chars[i + 1]))
+                    || ((cp == 0x2d || cp == 0x2013 || cp == 0x2014) && i + 1 < chars.Count && !NoBreakAfterDash(chars[i + 1]))
                     || Cjk(cp);
                 // sobrescrito/subscrito não mudam a altura da linha (medido no Word):
                 // a linha mede como se o texto estivesse no corpo original; w:position mede
-                var (asc, desc) = VMetrics(m, style);
+                var (asc, desc, nAsc, nDesc) = VMetrics(m, style);
                 glyphs.Add(new Glyph
                 {
                     Kind = kind, Ch = shownCh, Cp = shownCp, Face = face, Style = style, Adv = adv,
-                    Asc = asc, Desc = desc,
+                    Asc = asc, Desc = desc, NAsc = nAsc, NDesc = nDesc,
                     Offset = off, RunIdx = runIdx, BreakAfter = breakAfter, SizePt = size,
+                    Clear = cp == 0x2028,
                 });
                 off += ch.Length;
             }
@@ -478,6 +664,9 @@ public static class Para
         foreach (var (run, idx, offset) in DisplayRuns(para, env))
         {
             var direct = DocContext.DirectRPr(run);
+            // referência de nota: o leitor põe sobrescrito nas props (editor); no layout vale a
+            // formatação do documento — estilo do caractere ou rPr direto (oráculo fnrefsup)
+            if (run.NoteRef is not null && run.Rpr?.VertAlign is null) direct.VertAlign = null;
             // entradas de sumário (TOC): o Word não aplica o estilo Hyperlink
             if (run.InToc && Js.Truthy(direct.RStyle) && IsHyperlinkStyle(ctx, direct.RStyle!)) direct.RStyle = null;
             var rpr = RunRPr(direct);
@@ -493,12 +682,20 @@ public static class Para
                     glyphs.Add(new Glyph { Kind = GlyphKind.Obj, Ch = "", Cp = 0xfffc, Face = face, Style = style, Adv = 0, Asc = 0, Desc = 0, Offset = offset, RunIdx = idx, BreakAfter = false, Obj = run, SizePt = style.SizePt });
                     continue;
                 }
-                double w = run.Image?.WidthTwips ?? run.Shape?.WidthTwips ?? run.Group?.WidthTwips ?? run.Textbox?.WidthTwips ?? 0;
-                double h = run.Image?.HeightTwips ?? run.Shape?.HeightTwips ?? run.Group?.HeightTwips ?? run.Textbox?.HeightTwips ?? 0;
+                // margem de efeitos em linha: soma ao avanço (l/r) e à altura (t/b) — oráculo effext
+                var ie = run.Image?.InlineEffect ?? run.Shape?.InlineEffect;
+                double w = (run.Image?.WidthTwips ?? run.Shape?.WidthTwips ?? run.Group?.WidthTwips ?? run.Textbox?.WidthTwips ?? 0) + (ie is not null ? ie.L + ie.R : 0);
+                double h = (run.Image?.HeightTwips ?? run.Shape?.HeightTwips ?? run.Group?.HeightTwips ?? run.Textbox?.HeightTwips ?? 0) + (ie is not null ? ie.T + ie.B : 0);
+                // linha horizontal VML (o:hr): sem largura no fluxo, sozinha na linha (oráculo vmlhr)
+                if (run.Shape?.Hr == true)
+                {
+                    glyphs.Add(new Glyph { Kind = GlyphKind.Obj, Ch = "￼", Cp = 0xfffc, Face = face, Style = style, Adv = 0, Asc = 0, Desc = 0, Offset = offset, RunIdx = idx, BreakAfter = true, Obj = run, SizePt = style.SizePt, Hr = h });
+                    continue;
+                }
                 glyphs.Add(new Glyph
                 {
                     Kind = GlyphKind.Obj, Ch = "￼", Cp = 0xfffc, Face = face, Style = style, Adv = w,
-                    Asc = h + Math.Max(0, style.Shift), Desc = Math.Max(0, -style.Shift), // a imagem fica na baseline: sem descendente (medido)
+                    Asc = Math.Max(0, h + style.Shift), Desc = Math.Max(0, -style.Shift), // a imagem fica na baseline: sem descendente (medido)
                     Offset = offset, RunIdx = idx, BreakAfter = true, Obj = run, SizePt = style.SizePt,
                 });
                 continue;
@@ -542,7 +739,75 @@ public static class Para
                 if (run.NoteRef.Kind == "footnote") for (int k = before; k < glyphs.Count; k++) glyphs[k].NoteId = run.NoteRef.Id;
                 continue;
             }
-            PushChars(run.Text, run, rpr, style, offset, idx);
+            PushChars(run.Text, run, rpr, style, offset, idx, idx >= 0 && idx < para.Runs.Count && FormTextRe.IsMatch(para.Runs[idx].Field ?? ""));
+        }
+        // objeto inline (imagem, forma…) colado ao texto: pode quebrar ANTES dele (o
+        // objeto desce sozinho), salvo depois de NBSP (oráculo imgbreak)
+        for (int k = 1; k < glyphs.Count; k++)
+        {
+            if (glyphs[k].Kind != GlyphKind.Obj || !(glyphs[k].Adv > 0)) continue;
+            int j = k - 1;
+            while (j > 0 && glyphs[j].Kind == GlyphKind.Obj && glyphs[j].Adv == 0) j--; // âncoras de flutuantes não contam
+            var pv = glyphs[j];
+            if (!pv.BreakAfter && pv.Kind != GlyphKind.Nbsp && !(pv.Kind == GlyphKind.Obj && pv.Adv == 0)) pv.BreakAfter = true;
+        }
+        // hífen/travessão no FIM de um run: a quebra depois dele depende do caractere
+        // seguinte no parágrafo, ainda que em outro run (oráculo breakopp)
+        for (int k = 0; k + 1 < glyphs.Count; k++)
+        {
+            var g = glyphs[k]; var nx = glyphs[k + 1];
+            if (!g.BreakAfter && g.Kind == GlyphKind.Char && (g.Cp == 0x2d || g.Cp == 0x2013 || g.Cp == 0x2014) && g.Ch != "\u2011"
+                && g.RunIdx != nx.RunIdx && nx.Kind == GlyphKind.Char && !NoBreakAfterDash(nx.Ch)) g.BreakAfter = true;
+        }
+        // espaços comuns encostados num NBSP (antes ou depois — a sequência inteira de
+        // espaços): não quebram, a palavra de cada lado fica junta (oráculo nbspglue)
+        for (int k = 0; k < glyphs.Count; k++)
+        {
+            if (glyphs[k].Kind != GlyphKind.Space) continue;
+            int e = k;
+            while (e + 1 < glyphs.Count && glyphs[e + 1].Kind == GlyphKind.Space) e++;
+            if ((k > 0 && glyphs[k - 1].Kind == GlyphKind.Nbsp) || (e + 1 < glyphs.Count && glyphs[e + 1].Kind == GlyphKind.Nbsp))
+                for (int j = k; j <= e; j++) glyphs[j].BreakAfter = false;
+            k = e;
+        }
+        // kinsoku (regras de quebra do Leste Asiático): a linha não termina em "$", "(",
+        // "“", "£"… — o espaço depois deles não quebra ("R$ 100" desce junto). Vale
+        // com idioma eastAsia ja/zh/ko no run; no modo ≤ 14, só se a fonte asiática
+        // padrão do documento também for do Leste Asiático; w:kinsoku desligado no
+        // parágrafo tira (doNotUseEastAsianBreakRules não — oráculo kinsoku)
+        if (ppr.Kinsoku != false)
+        {
+            for (int k = 1; k < glyphs.Count; k++)
+            {
+                if (glyphs[k].Kind != GlyphKind.Space || glyphs[k - 1].Kind != GlyphKind.Char) continue;
+                var pv = glyphs[k - 1];
+                if (!NoLineEnd.Contains(pv.Ch, StringComparison.Ordinal) || !EastAsianBreakRules(ctx, pv.Style.Rpr)) continue;
+                for (int j = k; j < glyphs.Count && glyphs[j].Kind == GlyphKind.Space; j++) glyphs[j].BreakAfter = false;
+            }
+        }
+        // layout asiático dos modos ≤ 14 (fonte asiática padrão do documento CJK — oráculo
+        // fecompress): com characterSpacingControl ≠ doNotCompress, o espaço comprime até
+        // METADE da largura média (OS/2 xAvgCharWidth) da sua fonte — com
+        // balanceSingleByteDoubleByteWidth, até ¼ de em —, para a palavra caber, também no
+        // alinhado à esquerda; com idioma eastAsia ja/zh/ko, a pontuação final (",", ".",
+        // ")"…) pode pendurar além da margem (w:overflowPunct) — no modo 15, só no
+        // justificado, somando-se aos 25% de compressão (oráculo hang15)
+        var settings = ctx.Fmt.Settings;
+        if (DocEastAsiaCjk(ctx))
+        {
+            bool compress = settings.CompatibilityMode < 15 && Js.Truthy(settings.CharacterSpacingControl) && settings.CharacterSpacingControl != "doNotCompress";
+            bool balance = settings.Compat.TryGetValue("balanceSingleByteDoubleByteWidth", out var bal) && bal;
+            bool altKinsoku = settings.CompatibilityMode < 15 && settings.Compat.TryGetValue("useAltKinsokuLineBreakRules", out var altK) && altK;
+            foreach (var g in glyphs)
+            {
+                if (compress && g.Kind == GlyphKind.Space && g.Cp == 0x20)
+                {
+                    double? xAvg = g.Face.Font.Metrics.XAvgCharWidth;
+                    double? minSp = balance ? g.SizePt * 20 / 4 : xAvg is { } xa && xa != 0 && !double.IsNaN(xa) ? (xa * g.SizePt * 20) / g.Face.Font.Metrics.UnitsPerEm / 2 : null;
+                    if (minSp is { } ms) g.FeShrink = Math.Max(0, g.Adv - ms);
+                }
+                else if (g.Kind == GlyphKind.Char && ppr.OverflowPunct != false && IsCjkLang(g.Style.Rpr) && g.Ch.Length > 0 && HangPunct(g.Style.Rpr, altKinsoku).Contains(g.Ch, StringComparison.Ordinal)) g.Hang = true;
+            }
         }
 
         // marcador de numeração
@@ -578,6 +843,9 @@ public static class Para
                     var face = FaceFor(ctx, mrpr, cp, ms);
                     var m = Fonts.FaceMetrics(face.Font);
                     double adv = AdvanceTwips(ctx, face, cp, ms.SizePt);
+                    // escala (w:w) e espaçamento (w:spacing) do rPr do nível também valem no número (oráculo numrpr)
+                    if (mrpr.W is { } mw && mw != 0 && !double.IsNaN(mw) && mw != 100) adv *= mw / 100;
+                    if (mrpr.Spacing is { } msp && msp != 0 && !double.IsNaN(msp)) adv += msp;
                     mg.Add(new Glyph { Kind = GlyphKind.Char, Ch = ch, Cp = cp, Face = face, Style = ms, Adv = adv, Asc = m.Ascent * ms.SizePt * 20, Desc = m.Descent * ms.SizePt * 20, Offset = -1, RunIdx = -1, BreakAfter = false, SizePt = ms.SizePt });
                     w += adv;
                 }

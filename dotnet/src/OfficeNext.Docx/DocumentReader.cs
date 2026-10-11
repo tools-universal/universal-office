@@ -29,7 +29,9 @@ public sealed class ReadContext
     /// <summary>Comentários abertos (commentRangeStart sem End) — atravessa parágrafos.
     /// Lista com semântica de Set do JS (ordem de inserção, sem duplicatas).</summary>
     public List<int>? ActiveComments;
-    public Action<string>? OnBookmark;
+    /// <summary>Bookmark visto: nome e posição no texto do parágrafo (Run.Text
+    /// concatenado) — PAGEREF depois de quebra de página no meio do parágrafo.</summary>
+    public Action<string, int>? OnBookmark;
     /// <summary>Pilha de campos complexos abertos (atravessa runs e parágrafos).</summary>
     public List<FieldFrame>? FieldStack;
     /// <summary>Lê os blocos (parágrafos + tabelas) de um container (w:txbxContent) —
@@ -157,6 +159,48 @@ public static class DocumentReader
 
     private static string TextContentOf(XmlElement el) => TextContent(el);
 
+    /// <summary>Valor VML de imagedata: "19661f" (16.16) ou número.</summary>
+    private static double? VmlFixed(string? v)
+    {
+        if (!Js.Truthy(v)) return null;
+        double n = v!.EndsWith('f') ? Js.ParseInt(v) / 65536 : Js.ParseFloat(v);
+        return double.IsFinite(n) ? n : null;
+    }
+
+    /// <summary>parseInt(v, 10) || 0</summary>
+    private static double IntOrZero(string? v) { double n = Js.ParseInt(v ?? ""); return double.IsNaN(n) ? 0 : n; }
+
+    /// <summary>Efeitos de cor de um v:imagedata.</summary>
+    private static ImageEffects? VmlImageEffects(XmlElement el)
+    {
+        var fx = new ImageEffects();
+        double? gain = VmlFixed(el.Attr("gain")), bl = VmlFixed(el.Attr("blacklevel"));
+        if (gain is { } g && g != 1) fx.Gain = g;
+        if (bl is { } b && b != 0) fx.Bright = 2 * b;
+        if (el.Attr("grayscale") is "t" or "true") fx.Gray = true;
+        if (el.Attr("bilevel") is "t" or "true") fx.BiLevel = 0.5;
+        return fx.Any ? fx : null;
+    }
+
+    /// <summary>Efeitos de cor de um a:blip (a:lum, a:grayscl, a:biLevel).</summary>
+    private static ImageEffects? BlipImageEffects(XmlElement blip)
+    {
+        var fx = new ImageEffects();
+        var lum = FirstChild(blip, "a:lum");
+        if (lum is not null)
+        {
+            double b = IntOrZero(lum.Attr("bright") ?? "0") / 100000;
+            double c = Math.Max(-1, Math.Min(0.999, IntOrZero(lum.Attr("contrast") ?? "0") / 100000));
+            if (c != 0) fx.Gain = c > 0 ? 1 / (1 - c) : 1 + c;
+            if (b != 0) fx.Bright = b;
+            if (b != 0 || c != 0) fx.Floor = true;
+        }
+        if (FirstChild(blip, "a:grayscl") is not null) fx.Gray = true;
+        var bi = FirstChild(blip, "a:biLevel");
+        if (bi is not null) fx.BiLevel = IntOrZero(bi.Attr("thresh") ?? "50000") / 100000;
+        return fx.Any ? fx : null;
+    }
+
     /// <summary>Lê a imagem de um pic:pic (blip + recorte + estilo).</summary>
     private static InlineImage? ReadPic(XmlElement pic, ReadContext ctx, double wTw, double hTw)
     {
@@ -175,6 +219,8 @@ public static class DocumentReader
             WidthTwips = wTw,
             HeightTwips = hTw,
         };
+        var fx = blip is not null ? BlipImageEffects(blip) : null;
+        if (fx is not null) img.Effects = fx;
         var src = FindDeep(pic, "a:srcRect");
         if (src is not null && (Js.Truthy(src.Attr("l")) || Js.Truthy(src.Attr("t")) || Js.Truthy(src.Attr("r")) || Js.Truthy(src.Attr("b"))))
         {
@@ -304,9 +350,13 @@ public static class DocumentReader
                     items.Add(new GroupItem { X = x, Y = y, W = w, H = h, Run = run });
                 }
             }
-            return items.Count > 0
-                ? new Run { Text = Obj, Group = new DrawingGroup { WidthTwips = wTw, HeightTwips = hTw, Items = items } }
-                : null;
+            if (items.Count == 0) return null;
+            var group = new DrawingGroup { WidthTwips = wTw, HeightTwips = hTw, Items = items };
+            double grot = Js.ParseInt(xfrm?.Attr("rot") ?? "0");
+            if (grot != 0 && !double.IsNaN(grot)) group.Rot = grot / 60000;
+            if (xfrm?.Attr("flipH") == "1") group.FlipH = true;
+            if (xfrm?.Attr("flipV") == "1") group.FlipV = true;
+            return new Run { Text = Obj, Group = group };
         }
         return null;
     }
@@ -324,10 +374,25 @@ public static class DocumentReader
         double hTw = Js.ParseInt(extent?.Attr("cy") ?? "0") / DocxModel.EmuPerTwip;
         var gd = FindDeep(container, "a:graphicData");
         var obj = gd is not null ? ChildElements(gd).FirstOrDefault(c => DrawingObjects.Contains(c.Name)) : null;
-        if (obj is null) return null;
-        var run = ReadGraphicObject(obj, ctx, wTw, hTw);
+        // SmartArt (a:graphicData .../diagram) ainda sem desenho: uma caixa vazia do tamanho
+        // da extensão — em linha, ela ocupa a linha como uma imagem (oráculo dgmspace)
+        bool dgm = obj is null && (gd?.Attr("uri") ?? "").EndsWith("/drawingml/2006/diagram", StringComparison.Ordinal);
+        if (obj is null && !dgm) return null;
+        var run = obj is not null ? ReadGraphicObject(obj, ctx, wTw, hTw)
+            : new Run { Text = Obj, Shape = new DrawingShape { Style = new ShapeStyle { Geom = "rect" }, WidthTwips = wTw, HeightTwips = hTw } };
         if (run is null) return null;
         var anchor = DrawingReader.ReadWpAnchor(anchorEl);
+        // em linha: a margem de efeitos (sombra, brilho) ocupa espaço na linha (oráculo effext)
+        var ee = anchorEl is null ? FirstChild(container, "wp:effectExtent") : null;
+        if (ee is not null && (run.Image is not null || run.Shape is not null))
+        {
+            double E(string k) { double n = Js.ParseInt(ee.Attr(k) ?? "0"); return (double.IsNaN(n) ? 0 : n) / DocxModel.EmuPerTwip; }
+            var v = new RectTw { L = E("l"), T = E("t"), R = E("r"), B = E("b") };
+            if (v.L != 0 || v.T != 0 || v.R != 0 || v.B != 0)
+            {
+                if (run.Image is not null) run.Image.InlineEffect = v; else run.Shape!.InlineEffect = v;
+            }
+        }
         if (anchor is not null && (run.Image is not null || run.Textbox is not null || run.Shape is not null || run.Group is not null))
         {
             if (run.Image is not null) { run.Image.Floating = true; run.Image.Anchor = anchor; }
@@ -449,6 +514,8 @@ public static class DocumentReader
                 }
                 var c = new ImageCrop { L = Crop("cropleft"), T = Crop("croptop"), R = Crop("cropright"), B = Crop("cropbottom") };
                 if (Truthy(c.L) || Truthy(c.T) || Truthy(c.R) || Truthy(c.B)) image.Crop = c;
+                var fx = VmlImageEffects(imagedata!);
+                if (fx is not null) image.Effects = fx;
                 run = new Run { Text = Obj, Image = image };
             }
             else
@@ -483,6 +550,7 @@ public static class DocumentReader
                     var style = DrawingReader.VmlShapeStyle(el, geom);
                     if (geom == "line") style.Fill = null;
                     var shape = new DrawingShape { Style = style, WidthTwips = w, HeightTwips = h };
+                    if (el.Attr("o:hr") == "t") shape.Hr = true;
                     if (tag == "line")
                     {
                         double[] Pt(string? s) => (s ?? "0,0").Split(',').Select(v => DrawingReader.VmlLenTwips(v.Trim()) ?? 0).ToArray();
@@ -642,7 +710,12 @@ public static class DocumentReader
                 case "w:bookmarkStart":
                     {
                         string? name = child.Attr("w:name");
-                        if (Js.Truthy(name)) ctx.OnBookmark?.Invoke(name!);
+                        if (Js.Truthy(name))
+                        {
+                            int offset = 0;
+                            foreach (var r in runs) offset += r.Text.Length;
+                            ctx.OnBookmark?.Invoke(name!, offset);
+                        }
                         break;
                     }
                 case "w:r":
@@ -720,6 +793,7 @@ public static class DocumentReader
     }
 
     private const string CustomInlineTagPrefix = "wordnext:inline:";
+    private static readonly Regex LiteralBreakRe = new("\r\n|[\r\n]", RegexOptions.CultureInvariant);
     private static readonly Regex CustomTypeRe = new(@"^[a-zA-Z0-9._-]+\z", RegexOptions.CultureInvariant);
 
     private static (string Type, string Json)? ParseCustomInlineTag(string? tag)
@@ -821,7 +895,18 @@ public static class DocumentReader
                                 SizeAuto = FirstChild(cb, "w:sizeAuto") is not null || !Js.Truthy(size),
                             };
                         }
-                        else if (FirstChild(ff, "w:ddList") is not null) frame.Ff = new FormFieldInfo { Type = "dropDown" };
+                        else if (FirstChild(ff, "w:ddList") is { } dl)
+                        {
+                            // o Word exibe a entrada w:result; sem ela (ou fora da lista), w:default;
+                            // senão a 1ª — nunca o resultado em cache (oráculo hidetext/ff-dropdown)
+                            var entries = ChildElements(dl, "w:listEntry").Select(e => e.Attr("w:val") ?? "").ToList();
+                            int? Idx(string name)
+                            {
+                                double k = Js.ParseInt(FirstChild(dl, name)?.Attr("w:val") ?? "");
+                                return !double.IsNaN(k) && k >= 0 && k < entries.Count ? (int)k : null;
+                            }
+                            frame.Ff = new FormFieldInfo { Type = "dropDown", Entries = entries, Selected = Idx("w:result") ?? Idx("w:default") ?? 0 };
+                        }
                         else if (FirstChild(ff, "w:textInput") is not null) frame.Ff = new FormFieldInfo { Type = "textInput" };
                     }
                     stack.Add(frame);
@@ -845,7 +930,16 @@ public static class DocumentReader
             switch (child.Name)
             {
                 case "w:t":
-                    foreach (var c in child.Children) if (c is string s) text.Append(s);
+                    // U+00AD LITERAL no texto não é hífen opcional para o Word: aparece
+                    // sempre (hífen da própria fonte) e não quebra a linha — igual ao
+                    // w:noBreakHyphen (oráculo hidetext/shy-literal). Opcional é só w:softHyphen.
+                    // quebra de linha LITERAL (CR, LF, CRLF) no texto é um espaço para o Word
+                    // (e ele a grava assim) — só w:br/w:cr quebram a linha (oráculo ctlspace)
+                    {
+                        var tsb = new StringBuilder();
+                        foreach (var c in child.Children) if (c is string s) tsb.Append(s);
+                        text.Append(LiteralBreakRe.Replace(tsb.ToString().Replace('\u00AD', '\u2011'), " "));
+                    }
                     break;
                 case "w:tab":
                     text.Append('\t');
@@ -867,7 +961,9 @@ public static class DocumentReader
                     {
                         // \f = quebra de página; \u000B = quebra de coluna; \n = quebra de linha
                         string? t = child.Attr("w:type");
-                        text.Append(t == "page" ? '\f' : t == "column" ? '\u000B' : '\n');
+                        // quebra de linha com w:clear (desce para baixo dos flutuantes): U+2028
+                        string? clr = child.Attr("w:clear");
+                        text.Append(t == "page" ? '\f' : t == "column" ? '\u000B' : Js.Truthy(clr) && clr != "none" ? '\u2028' : '\n');
                         break;
                     }
                 case "w:noBreakHyphen":

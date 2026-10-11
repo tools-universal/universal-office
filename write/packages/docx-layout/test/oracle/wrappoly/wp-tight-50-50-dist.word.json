@@ -1,0 +1,89 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 135.25,
+"size": 11.04,
+"text": "AntesHxg"
+},
+{
+"y": 93.86,
+"x0": 178.1,
+"x1": 504.88,
+"size": 11.04,
+"text": "Análiseserviçoáreaexecuçãoprocessoparaqualidadeaprovação"
+},
+{
+"y": 106.46,
+"x0": 178.1,
+"x1": 497.99,
+"size": 11.04,
+"text": "gestãocontroleresponsávelconformecomregistroúltimotécnica"
+},
+{
+"y": 119.18,
+"x0": 178.1,
+"x1": 506.83,
+"size": 11.04,
+"text": "seráclienteumaquerelatórioprazoatendimentoinformaçãoasem"
+},
+{
+"y": 131.78,
+"x0": 85.1,
+"x1": 486.47,
+"size": 11.04,
+"text": "àperíododadoscontratoprocedimentoosdeéempresasegurançaoperaçãonão"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 477.43,
+"size": 11.04,
+"text": "documentooanáliseserviçoáreaexecuçãoprocessoparaqualidadeaprovação"
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 488.72,
+"size": 11.04,
+"text": "gestãocontroleresponsávelconformecomregistroúltimotécnicaseráclienteuma"
+},
+{
+"y": 169.7,
+"x0": 85.1,
+"x1": 455.88,
+"size": 11.04,
+"text": "querelatórioprazoatendimentoinformaçãoasemàperíododadoscontrato"
+},
+{
+"y": 182.42,
+"x0": 85.1,
+"x1": 430.2,
+"size": 11.04,
+"text": "procedimentoosdeéempresasegurançaoperaçãonãodocumentoo."
+},
+{
+"y": 195.02,
+"x0": 85.1,
+"x1": 141.25,
+"size": 11.04,
+"text": "DepoisHxg"
+}
+],
+"objs": [
+{
+"t": "image",
+"x0": 85.05,
+"y0": 83.5,
+"x1": 235.05,
+"y1": 143.5
+}
+]
+}
+]
+}

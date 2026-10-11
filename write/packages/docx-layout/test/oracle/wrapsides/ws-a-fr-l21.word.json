@@ -1,0 +1,81 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 135.25,
+"size": 11.04,
+"text": "AntesHxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 506.87,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 506.87,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 506.87,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 131.78,
+"x0": 85.1,
+"x1": 506.87,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 503.51,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 503.51,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 169.7,
+"x0": 85.1,
+"x1": 412.04,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 182.42,
+"x0": 85.1,
+"x1": 125.4,
+"size": 11.04,
+"text": "FimHxg"
+},
+{
+"y": 93.98,
+"x0": 105.98,
+"x1": 167.78,
+"size": 11.04,
+"text": "MolduraHxg"
+}
+],
+"objs": []
+}
+]
+}

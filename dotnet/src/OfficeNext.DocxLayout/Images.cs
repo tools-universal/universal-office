@@ -972,4 +972,53 @@ public static class Images
         int p = (int)o;
         return le ? b[p] | (b[p + 1] << 8) : (b[p] << 8) | b[p + 1];
     }
+
+    // ───────────────────────── ajustes de cor (Word) ─────────────────────────
+
+    /// <summary>Brilho/contraste como reta por canal (0..1): x' = x·slope + off.</summary>
+    public static (double Slope, double Off)? EffectLine(OfficeNext.Docx.ImageEffects fx)
+    {
+        if (fx.Gain is null && !(fx.Bright is { } b0 && b0 != 0 && !double.IsNaN(b0))) return null;
+        double s = fx.Gain ?? 1, b = fx.Bright ?? 0;
+        return (s, 0.5 - 0.5 * s + (b / 2) * (1 + s));
+    }
+
+    /// <summary>
+    /// Aplica os ajustes aos pixels (RGBA, no lugar), na ordem do Word: cinza
+    /// (Rec. 709), brilho/contraste, preto e branco (oráculo imgfx: o PDF do
+    /// Word traz a imagem já ajustada).
+    /// </summary>
+    public static void ApplyImageEffects(byte[] rgba, OfficeNext.Docx.ImageEffects fx)
+    {
+        var ln = EffectLine(fx);
+        var map = new byte[256];
+        for (int v = 0; v < 256; v++)
+        {
+            double y = ln is { } l ? (v / 255.0 * l.Slope + l.Off) * 255 : v;
+            double q = fx.Floor ? Math.Floor(y + 1e-9) : OfficeNext.Core.JsNumber.Round(y);
+            map[v] = (byte)Math.Max(0, Math.Min(255, q));
+        }
+        double thr = fx.BiLevel is { } bl ? bl * 255 : -1;
+        for (int i = 0; i + 3 < rgba.Length; i += 4)
+        {
+            int r = rgba[i], g = rgba[i + 1], b = rgba[i + 2];
+            if (fx.Gray) r = g = b = (int)OfficeNext.Core.JsNumber.Round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+            r = map[r]; g = map[g]; b = map[b];
+            if (thr >= 0) r = g = b = 0.2126 * r + 0.7152 * g + 0.0722 * b >= thr ? 255 : 0;
+            rgba[i] = (byte)r; rgba[i + 1] = (byte)g; rgba[i + 2] = (byte)b;
+        }
+    }
+
+    /// <summary>
+    /// /Decode do PDF que faz o brilho/contraste num JPEG sem decodificá-lo
+    /// (componentes RGB ou cinza); null se o ajuste exige os pixels (cinza,
+    /// preto e branco, CMYK).
+    /// </summary>
+    public static double[]? EffectDecode(OfficeNext.Docx.ImageEffects fx, int components)
+    {
+        if (fx.Gray || fx.BiLevel is not null || components == 4) return null;
+        if (EffectLine(fx) is not { } ln) return null;
+        double[] d = { ln.Off, ln.Off + ln.Slope };
+        return components == 1 ? d : new[] { d[0], d[1], d[0], d[1], d[0], d[1] };
+    }
 }

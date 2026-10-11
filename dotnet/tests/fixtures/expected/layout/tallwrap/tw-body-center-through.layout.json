@@ -1,0 +1,23 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"image","x":8301,"y":1943.98,"w":2600,"h":400,"ext":"png","bytes":82,"crop":null,"rot":0,"flipH":false,"flipV":false},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1585.84,"scaleX":1,"text":"AntesHxg","g":[[65,1701],[110,1821.06],[116,1921.17],[101,1971.18],[115,2071.28],[72,2211.29],[120,2341.28],[103,2431.28]]},
+        {"t":"image","x":3335.79,"y":1623.98,"w":3200,"h":800,"ext":"png","bytes":82,"crop":null,"rot":0,"flipH":false,"flipV":false},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":2423.98,"scaleX":1,"text":"TextodepoisHxg","g":[[84,6585.79],[101,6695.75],[120,6795.85],[116,6885.85],[111,6935.86],[100,7085.98],[101,7186.09],[112,7286.2],[111,7386.3],[105,7486.41],[115,7526.4],[72,7666.41],[120,7796.4],[103,7886.4]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":2630.96,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1830.99],[112,1931.1],[111,2031.21],[105,2131.31],[115,2171.3],[72,2311.31],[120,2441.3],[103,2531.3]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":9,"x":1701,"y":1417,"height":206.98,"baseline":1585.84,"width":830.39},
+        {"ref":"b1","start":0,"end":49,"x":1835.49,"y":1623.98,"height":838.14,"baseline":2423.98,"width":6151.02},
+        {"ref":"b2","start":0,"end":10,"x":1701,"y":2462.13,"height":206.98,"baseline":2630.96,"width":930.41}
+      ]
+    }
+  ],
+  "warnings": []
+}

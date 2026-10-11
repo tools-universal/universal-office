@@ -30,3 +30,17 @@ export const cases = [];
   const notes = note(1, 'Nota longa '.repeat(30));
   cases.push({ name: 'fn-late', docx: buildDocx({ body, styles, defaults: docDefaults({ font: 'Arial', size: 11 }), extraParts: { 'word/footnotes.xml': strToU8(footnotesXml(notes)) } }) });
 }
+{
+  // referência DENTRO de célula de tabela: a nota vai para o pé da página da linha
+  const bd = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map((s) => `<w:${s} w:val="single" w:sz="4" w:space="0" w:color="auto"/>`).join('') + '</w:tblBorders>';
+  const cell = (c) => `<w:tc><w:tcPr><w:tcW w:w="4000" w:type="dxa"/></w:tcPr>${c}</w:tc>`;
+  const tbl = (rows) => `<w:tbl><w:tblPr><w:tblW w:w="8000" w:type="dxa"/>${bd}</w:tblPr><w:tblGrid><w:gridCol w:w="4000"/><w:gridCol w:w="4000"/></w:tblGrid>${rows.map((r2) => `<w:tr>${r2}</w:tr>`).join('')}</w:tbl>`;
+  const rows = Array.from({ length: 6 }, (_, k) => cell(p(r(`Celula ${k + 1} A`) + (k === 2 ? ref(1) : '') + r(' Hxg'))) + cell(p(r(`Celula ${k + 1} B`) + (k === 4 ? ref(2) : '') + r(' Hxg'))));
+  const body = p(r('Antes Hxg')) + tbl(rows) + Array.from({ length: 4 }, (_, k) => p(r(`depois ${k + 1} Hxg`))).join('');
+  const notes = note(1, 'Nota da celula tres.') + note(2, 'Nota da celula cinco, um pouco mais longa para ocupar duas linhas no pe da pagina quando a largura acabar.');
+  cases.push({ name: 'fn-cell', docx: buildDocx({ body, styles, defaults: docDefaults({ font: 'Arial', size: 11 }), extraParts: { 'word/footnotes.xml': strToU8(footnotesXml(notes)) } }) });
+  // tabela longa perto do fim da página: a linha com a referência desce se a nota não couber
+  const rows2 = Array.from({ length: 30 }, (_, k) => cell(p(r(`Linha ${k + 1} Hxg`) + (k === 26 ? ref(1) : ''))) + cell(p(r(`Valor ${k + 1}`))));
+  const body2 = Array.from({ length: 20 }, (_, k) => p(r(`enchimento ${k + 1} Hxg`))).join('') + tbl(rows2) + p(r('Fim Hxg'));
+  cases.push({ name: 'fn-cell-late', docx: buildDocx({ body: body2, styles, defaults: docDefaults({ font: 'Arial', size: 11 }), extraParts: { 'word/footnotes.xml': strToU8(footnotesXml(note(1, 'Nota longa '.repeat(30)))) } }) });
+}

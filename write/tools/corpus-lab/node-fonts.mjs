@@ -107,7 +107,13 @@ function ttcFace(buf, index) {
   return out;
 }
 
-export async function createNodeFontProvider() {
+/**
+ * @param {{ missing?: string[] }} [opts] famílias a tratar como NÃO instaladas — o
+ *   laboratório do corpus imita a máquina que gerou os PDFs de referência (lá o cache
+ *   CloudFonts não tinha a Meiryo UI: o Word usou a substituta)
+ */
+export async function createNodeFontProvider(opts = {}) {
+  const missing = new Set((opts.missing ?? []).map((f) => f.toLowerCase()));
   ({ SfntFont } = await import(new URL('../../packages/layout/dist/index.js', import.meta.url).href));
   const index = new Map(); // family(lc) → faces (nome RIBBI)
   const typoIndex = new Map(); // nome tipográfico (ID 16)
@@ -156,7 +162,7 @@ export async function createNodeFontProvider() {
     face(family, bold, italic) {
       const key = `${family.toLowerCase()}|${bold}|${italic}`;
       if (faces.has(key)) return faces.get(key);
-      const list = index.get(family.toLowerCase()) ?? typoIndex.get(family.toLowerCase());
+      const list = missing.has(family.toLowerCase()) ? undefined : index.get(family.toLowerCase()) ?? typoIndex.get(family.toLowerCase());
       let out = null;
       if (list?.length) {
         const score = (f) => (f.bold === bold ? 0 : 4) + (f.italic === italic ? 0 : 2) + Math.abs((f.weight ?? 400) - (bold ? 700 : 400)) / 1000;

@@ -1,0 +1,46 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 82.2,
+"x0": 85.1,
+"x1": 136.86,
+"size": 12.0,
+"text": "AntesHxg"
+},
+{
+"y": 102.14,
+"x0": 108.02,
+"x1": 486.33,
+"size": 18.0,
+"text": "PROCEDIMENTOOPERACIONALPADRAOCOM"
+},
+{
+"y": 123.14,
+"x0": 96.5,
+"x1": 498.07,
+"size": 18.0,
+"text": "TEXTOLONGOPARAQUEBRAREMDUASLINHAS"
+},
+{
+"y": 144.26,
+"x0": 249.41,
+"x1": 344.92,
+"size": 18.0,
+"text": "NOMINIMO"
+},
+{
+"y": 159.62,
+"x0": 85.1,
+"x1": 142.98,
+"size": 12.0,
+"text": "DepoisHxg"
+}
+],
+"objs": []
+}
+]
+}

@@ -1,0 +1,39 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.24,
+"x0": 85.1,
+"x1": 289.74,
+"size": 11.04,
+"text": "TAVAATENTA:AVAGA,OATRASO,AAVARIAEOAVISO."
+},
+{
+"y": 94.7,
+"x0": 85.1,
+"x1": 319.16,
+"size": 11.04,
+"text": "TAVAATENTA:AVAGA,OATRASO,AAVARIAEOAVISO."
+},
+{
+"y": 108.14,
+"x0": 85.1,
+"x1": 332.91,
+"size": 11.04,
+"text": "TAVAATENTA:AVAGA,OATRASO,AAVARIAEOAVISO."
+},
+{
+"y": 121.58,
+"x0": 85.1,
+"x1": 120.13,
+"size": 11.04,
+"text": "FimHxg"
+}
+],
+"objs": []
+}
+]
+}

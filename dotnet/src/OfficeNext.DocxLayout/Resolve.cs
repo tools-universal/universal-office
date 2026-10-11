@@ -361,6 +361,9 @@ public sealed class ResolvedTableStyle
     public PPr PPr = new();
     public RPr RPr = new();
     public Dictionary<string, TblStylePart> Cond = new(StringComparer.Ordinal);
+    /// <summary>há estilo de tabela (próprio ou o padrão do documento): sem margens de célula
+    /// nele, elas são 0 — o Word não usa os 108 twips embutidos (oráculo tblstyletr)</summary>
+    public bool HasStyle;
 }
 
 public sealed class StyleResolver
@@ -402,6 +405,9 @@ public sealed class StyleResolver
         }
         return outp;
     }
+
+    /// <summary>Cadeia basedOn de um estilo de parágrafo (raiz primeiro).</summary>
+    public List<StyleDef> ParaChain(string? id) => Chain(ParaStyleId(id) ?? "", "paragraph");
 
     /// <summary>Estilo de parágrafo efetivo (ausente/inexistente → estilo padrão).</summary>
     public string? ParaStyleId(string? id)
@@ -448,6 +454,7 @@ public sealed class StyleResolver
         if (!_tableCache.TryGetValue(key, out var r))
         {
             r = new ResolvedTableStyle();
+            if (Chain(key, "table").Count > 0) r.HasStyle = true;
             foreach (var s in Chain(key, "table"))
             {
                 r.TblPr = Resolve.MergeTblPr(r.TblPr, s.TblPr);

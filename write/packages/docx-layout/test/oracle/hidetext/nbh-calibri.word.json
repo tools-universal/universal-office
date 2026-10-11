@@ -1,0 +1,32 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.24,
+"x0": 85.1,
+"x1": 225.66,
+"size": 11.04,
+"text": "Numero0001-06elementoHxg"
+},
+{
+"y": 94.7,
+"x0": 85.1,
+"x1": 216.41,
+"size": 11.04,
+"text": "Numero0001-06comumHxg"
+},
+{
+"y": 108.14,
+"x0": 85.1,
+"x1": 502.64,
+"size": 11.04,
+"text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxabcdefgh-ijklmnopfim"
+}
+],
+"objs": []
+}
+]
+}

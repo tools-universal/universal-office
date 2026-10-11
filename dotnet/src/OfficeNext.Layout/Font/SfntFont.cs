@@ -28,6 +28,9 @@ public sealed class SfntFont : ILayoutFont
     // concorrente: a mesma face é compartilhada entre layouts (SystemFontProvider.Shared)
     private readonly System.Collections.Concurrent.ConcurrentDictionary<long, double> _advanceCache = new();
     private readonly Dictionary<int, int> _kernMap;
+    /// <summary>'kern' registrada no script latino (ou DFLT) do GPOS — com ligaduras OpenType o
+    /// Word só kerneia nesse caso; sem GPOS (só a tabela 'kern' legada): true</summary>
+    public bool KernInLatin { get; private set; } = true;
     /// <summary>PairPos formato 2: ajuste contra a classe 0 do 2º glifo, por 1º glifo</summary>
     private readonly Dictionary<int, Gpos.Class0Entry> _kernClass0 = new();
 
@@ -69,6 +72,9 @@ public sealed class SfntFont : ILayoutFont
             UsWinAscent = v.GetUint16(os2.Offset + 74),
             UsWinDescent = v.GetUint16(os2.Offset + 76),
             FsSelection = v.GetUint16(os2.Offset + 62),
+            CodePageRange1 = os2.Length >= 86 && v.GetUint16(os2.Offset) >= 1 ? ((long)v.GetUint16(os2.Offset + 78) << 16) | v.GetUint16(os2.Offset + 80) : 0,
+            YSuperscriptYOffset = os2.Length >= 26 ? v.GetInt16(os2.Offset + 24) : null,
+            XAvgCharWidth = os2.Length >= 4 ? v.GetInt16(os2.Offset + 2) : null,
             UnderlinePosition = 0,
             UnderlineThickness = 0,
         };
@@ -81,7 +87,11 @@ public sealed class SfntFont : ILayoutFont
         ParseCmap();
         if (_tables.TryGetValue("GPOS", out var gpos))
         {
-            try { _kernMap = Gpos.ParseGposKern(v, gpos.Offset, _kernClass0); }
+            try
+            {
+                _kernMap = Gpos.ParseGposKern(v, gpos.Offset, _kernClass0);
+                KernInLatin = Gpos.GposKernInLatin(v, gpos.Offset);
+            }
             catch (Exception) { _kernMap = new Dictionary<int, int>(); _kernClass0.Clear(); }
         }
         else _kernMap = new Dictionary<int, int>();
@@ -301,4 +311,229 @@ public sealed class SfntFont : ILayoutFont
         double deviceEmPt = JsCompat.MathRound(sizePt * 600 / 72) * 72 / 600;
         return units * deviceEmPt * 20 / Metrics.UnitsPerEm;
     }
+
+    // ───────────── contornos (texto como curvas no PDF) ─────────────
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, GlyphOutlineCmd[]?> _outlineCache = new();
+
+    /// <summary>
+    /// Contorno do glifo (TrueType glyf, glifos simples e compostos) em unidades
+    /// da fonte, y para CIMA: M/L/Q/Z. null se a fonte não tem glyf (CFF) ou o
+    /// glifo não existe. Usado para desenhar texto como curvas (WordArt, texto
+    /// semitransparente, emoji colorido — como o Word faz no PDF).
+    /// </summary>
+    public IReadOnlyList<GlyphOutlineCmd>? GlyphOutline(int glyphId)
+    {
+        if (_outlineCache.TryGetValue(glyphId, out var cached)) return cached;
+        GlyphOutlineCmd[]? outp;
+        try
+        {
+            var pts = GlyphContours(glyphId, 0);
+            outp = pts is not null ? ContoursToPath(pts) : null;
+        }
+        catch (Exception)
+        {
+            outp = null;
+        }
+        _outlineCache[glyphId] = outp;
+        return outp;
+    }
+
+    private readonly record struct OutlinePt(double X, double Y, bool On);
+
+    /// <summary>Contornos (pontos com on/off curve) de um glifo, compostos resolvidos.</summary>
+    private List<List<OutlinePt>>? GlyphContours(int gid, int depth)
+    {
+        if (!_tables.TryGetValue("glyf", out var glyf) || !_tables.TryGetValue("loca", out var loca)
+            || !_tables.TryGetValue("head", out var head) || !_tables.TryGetValue("maxp", out var maxp) || depth > 8) return null;
+        var v = _view;
+        int numGlyphs = v.GetUint16(maxp.Offset + 4);
+        if (gid < 0 || gid >= numGlyphs) return null;
+        bool longLoca = v.GetInt16(head.Offset + 50) == 1;
+        long At(long i) => longLoca ? v.GetUint32(loca.Offset + i * 4) : v.GetUint16(loca.Offset + i * 2) * 2L;
+        long start = At(gid), end = At(gid + 1);
+        if (end <= start) return new List<List<OutlinePt>>(); // glifo vazio (espaço)
+        long p0 = glyf.Offset + start;
+        int nContours = v.GetInt16(p0);
+        if (nContours >= 0)
+        {
+            long p = p0 + 10;
+            var ends = new List<int>();
+            for (int i = 0; i < nContours; i++) { ends.Add(v.GetUint16(p)); p += 2; }
+            int nPts = nContours > 0 ? ends[nContours - 1] + 1 : 0;
+            p += 2 + v.GetUint16(p); // instruções
+            var flags = new List<int>();
+            while (flags.Count < nPts)
+            {
+                int f = v.GetUint8(p++);
+                flags.Add(f);
+                if ((f & 8) != 0) { int rep = v.GetUint8(p++); while (rep-- > 0 && flags.Count < nPts) flags.Add(f); }
+            }
+            var xs = new List<double>(nPts);
+            var ys = new List<double>(nPts);
+            double x = 0;
+            foreach (int f in flags)
+            {
+                if ((f & 2) != 0) { int d = v.GetUint8(p++); x += (f & 16) != 0 ? d : -d; }
+                else if ((f & 16) == 0) { x += v.GetInt16(p); p += 2; }
+                xs.Add(x);
+            }
+            double y = 0;
+            foreach (int f in flags)
+            {
+                if ((f & 4) != 0) { int d = v.GetUint8(p++); y += (f & 32) != 0 ? d : -d; }
+                else if ((f & 32) == 0) { y += v.GetInt16(p); p += 2; }
+                ys.Add(y);
+            }
+            var contours = new List<List<OutlinePt>>();
+            int s = 0;
+            foreach (int e in ends)
+            {
+                var c = new List<OutlinePt>();
+                for (int i = s; i <= e; i++) c.Add(new OutlinePt(xs[i], ys[i], (flags[i] & 1) == 1));
+                contours.Add(c);
+                s = e + 1;
+            }
+            return contours;
+        }
+        // composto
+        var all = new List<List<OutlinePt>>();
+        double F2(long o) => v.GetInt16(o) / 16384.0;
+        long q0 = p0 + 10;
+        for (int guard = 0; guard < 64; guard++)
+        {
+            int cflags = v.GetUint16(q0), comp = v.GetUint16(q0 + 2);
+            q0 += 4;
+            double dx, dy;
+            if ((cflags & 1) != 0) { dx = v.GetInt16(q0); dy = v.GetInt16(q0 + 2); q0 += 4; }
+            else { dx = (sbyte)v.GetUint8(q0); dy = (sbyte)v.GetUint8(q0 + 1); q0 += 2; }
+            if ((cflags & 2) == 0) { dx = 0; dy = 0; } // casamento de pontos (raro): ignora
+            double a = 1, b = 0, c = 0, d = 1;
+            if ((cflags & 8) != 0) { a = d = F2(q0); q0 += 2; }
+            else if ((cflags & 0x40) != 0) { a = F2(q0); d = F2(q0 + 2); q0 += 4; }
+            else if ((cflags & 0x80) != 0) { a = F2(q0); b = F2(q0 + 2); c = F2(q0 + 4); d = F2(q0 + 6); q0 += 8; }
+            var sub = GlyphContours(comp, depth + 1);
+            if (sub is not null)
+            {
+                foreach (var ct in sub)
+                {
+                    var m = new List<OutlinePt>(ct.Count);
+                    foreach (var q in ct) m.Add(new OutlinePt(a * q.X + c * q.Y + dx, b * q.X + d * q.Y + dy, q.On));
+                    all.Add(m);
+                }
+            }
+            if ((cflags & 0x20) == 0) break;
+        }
+        return all;
+    }
+
+    /// <summary>Pontos TrueType (on/off curve) → M/L/Q/Z (pontos "on" implícitos no meio de dois "off").</summary>
+    private static GlyphOutlineCmd[] ContoursToPath(List<List<OutlinePt>> contours)
+    {
+        var outp = new List<GlyphOutlineCmd>();
+        foreach (var c in contours)
+        {
+            int n = c.Count;
+            if (n < 2) continue;
+            // começa num ponto "on" (ou no meio de dois "off")
+            int startIdx = c.FindIndex(q => q.On);
+            double sx, sy;
+            if (startIdx < 0) { sx = (c[0].X + c[1].X) / 2; sy = (c[0].Y + c[1].Y) / 2; startIdx = 0; }
+            else { sx = c[startIdx].X; sy = c[startIdx].Y; }
+            outp.Add(GlyphOutlineCmd.M(sx, sy));
+            OutlinePt? ctrl = null;
+            for (int k = 1; k <= n; k++)
+            {
+                var q = c[(startIdx + k) % n];
+                if (q.On)
+                {
+                    if (ctrl is { } ct) { outp.Add(GlyphOutlineCmd.Q(ct.X, ct.Y, q.X, q.Y)); ctrl = null; }
+                    else outp.Add(GlyphOutlineCmd.L(q.X, q.Y));
+                }
+                else if (ctrl is { } ct)
+                {
+                    outp.Add(GlyphOutlineCmd.Q(ct.X, ct.Y, (ct.X + q.X) / 2, (ct.Y + q.Y) / 2));
+                    ctrl = q;
+                }
+                else ctrl = q;
+            }
+            if (ctrl is { } ce) outp.Add(GlyphOutlineCmd.Q(ce.X, ce.Y, sx, sy));
+            outp.Add(GlyphOutlineCmd.Z);
+        }
+        return outp.ToArray();
+    }
+
+    // ───────────── glifos coloridos (COLR/CPAL) ─────────────
+
+    /// <summary>COLR v0 (registros base/camadas — o v1 os mantém) + CPAL; preparado sob demanda</summary>
+    private sealed record ColrInfo(long Base, int NBase, long Layers, int NLayers, long Colors, int FirstColor, int NColors);
+    private ColrInfo? _colr;
+    private volatile bool _colrDone;
+
+    private ColrInfo? ColrTables()
+    {
+        if (_colrDone) return _colr;
+        ColrInfo? info = null;
+        if (_tables.TryGetValue("COLR", out var t) && _tables.TryGetValue("CPAL", out var cp) && t.Length >= 14 && cp.Length >= 14)
+        {
+            var v = _view;
+            try
+            {
+                int nBase = v.GetUint16(t.Offset + 2);
+                long bo = v.GetUint32(t.Offset + 4), lo = v.GetUint32(t.Offset + 8);
+                int nLayers = v.GetUint16(t.Offset + 12);
+                if (nBase != 0 && bo != 0 && lo != 0)
+                    info = new ColrInfo(t.Offset + bo, nBase, t.Offset + lo, nLayers,
+                        cp.Offset + v.GetUint32(cp.Offset + 8), v.GetUint16(cp.Offset + 12), v.GetUint16(cp.Offset + 2));
+            }
+            catch (Exception) { info = null; }
+        }
+        _colr = info;
+        _colrDone = true;
+        return info;
+    }
+
+    public bool HasColorGlyphs() => ColrTables() is not null;
+
+    public IReadOnlyList<ColorLayer>? ColorLayers(int glyphId)
+    {
+        var c = ColrTables();
+        if (c is null) return null;
+        var v = _view;
+        int lo = 0, hi = c.NBase - 1;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) >> 1;
+            long p = c.Base + (long)mid * 6;
+            int g = v.GetUint16(p);
+            if (g < glyphId) { lo = mid + 1; continue; }
+            if (g > glyphId) { hi = mid - 1; continue; }
+            int first = v.GetUint16(p + 2), n = v.GetUint16(p + 4);
+            var outp = new List<ColorLayer>();
+            for (int k = 0; k < n && first + k < c.NLayers; k++)
+            {
+                long q = c.Layers + (long)(first + k) * 4;
+                int pal = v.GetUint16(q + 2);
+                if (pal == 0xffff || pal >= c.NColors) { outp.Add(new ColorLayer(v.GetUint16(q), null, 1)); continue; }
+                long r = c.Colors + (long)(c.FirstColor + pal) * 4; // BGRA
+                string color = v.GetUint8(r + 2).ToString("X2") + v.GetUint8(r + 1).ToString("X2") + v.GetUint8(r).ToString("X2");
+                outp.Add(new ColorLayer(v.GetUint16(q), color, v.GetUint8(r + 3) / 255.0));
+            }
+            return outp.Count > 0 ? outp : null;
+        }
+        return null;
+    }
 }
+
+/// <summary>Comando de contorno de glifo (unidades da fonte, y para cima): M | L | Q | Z
+/// (Q: controle em Cx/Cy, ponto final em X/Y).</summary>
+public readonly record struct GlyphOutlineCmd(char Op, double X, double Y, double Cx, double Cy)
+{
+    public static GlyphOutlineCmd M(double x, double y) => new('M', x, y, 0, 0);
+    public static GlyphOutlineCmd L(double x, double y) => new('L', x, y, 0, 0);
+    public static GlyphOutlineCmd Q(double cx, double cy, double x, double y) => new('Q', x, y, cx, cy);
+    public static readonly GlyphOutlineCmd Z = new('Z', 0, 0, 0, 0);
+}
+
+/// <summary>Camada de glifo colorido: glifo, cor RRGGBB (null = cor do texto) e opacidade.</summary>
+public readonly record struct ColorLayer(int GlyphId, string? Color, double Alpha);

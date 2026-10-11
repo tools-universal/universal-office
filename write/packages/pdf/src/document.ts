@@ -38,6 +38,12 @@ export interface PdfImage {
   readonly objNum: number;
 }
 
+/** Degradê embutido (recurso /Shading) pronto para pintar dentro de um recorte. */
+export interface PdfShading {
+  readonly resourceName: string;
+  readonly objNum: number;
+}
+
 /** Maior módulo escrito num número do PDF (evita a notação exponencial de String()). */
 const MAX_REAL = 1e9;
 
@@ -109,7 +115,7 @@ export class PdfPage {
    */
   glyphs(
     font: EmbeddedFont, sizePt: number, color: PdfColor, glyphs: PlacedGlyph[],
-    opts: { scaleX?: number; synthBold?: boolean; synthItalic?: boolean } = {},
+    opts: { scaleX?: number; synthBold?: boolean; synthItalic?: boolean; runs?: boolean } = {},
   ): void {
     if (!glyphs.length) return;
     const c = this.content;
@@ -119,7 +125,33 @@ export class PdfPage {
     if (opts.synthBold) c.str(`${col} RG ${fmt(sizePt / 35)} w 2 Tr\n`);
     const a = fmt(opts.scaleX ?? 1);
     const skew = opts.synthItalic ? '0.21' : '0';
-    for (const g of glyphs) {
+    if (opts.runs) {
+      // corridas como no PDF do Word: UMA matriz (Tm) no 1º glifo de cada trecho de mesma
+      // baseline e x crescente, e um TJ com ajustes INTEIROS (milésimos do corpo) que levam
+      // cada glifo à posição do layout. Cada ajuste parte da posição real da caneta
+      // (larguras do /W + ajustes já gravados): o arredondamento não se acumula
+      const sx = opts.scaleX ?? 1;
+      let i = 0;
+      while (i < glyphs.length) {
+        const g0 = glyphs[i]!;
+        let j = i + 1;
+        while (j < glyphs.length && glyphs[j]!.baselineFromTopPt === g0.baselineFromTopPt && glyphs[j]!.xPt >= glyphs[j - 1]!.xPt) j++;
+        let s = `${a} 0 ${skew} 1 ${fmt(g0.xPt)} ${fmt(this.fromTop(g0.baselineFromTopPt))} Tm [`;
+        /** caneta: deslocamento (pt, espaço de texto) desde o 1º glifo da corrida */
+        let pen = 0;
+        for (let k = i; k < j; k++) {
+          const g = glyphs[k]!;
+          if (k > i) {
+            const n = Math.round(((pen - (g.xPt - g0.xPt) / sx) * 1000) / sizePt);
+            if (n !== 0) { s += `${n}`; pen -= (n * sizePt) / 1000; }
+          }
+          s += `<${g.gid.toString(16).padStart(4, '0')}>`;
+          pen += (font.widthThousandths(g.gid) * sizePt) / 1000;
+        }
+        c.str(`${s}] TJ\n`);
+        i = j;
+      }
+    } else for (const g of glyphs) {
       const y = this.fromTop(g.baselineFromTopPt);
       c.str(`${a} 0 ${skew} 1 ${fmt(g.xPt)} ${fmt(y)} Tm <${g.gid.toString(16).padStart(4, '0')}> Tj\n`);
     }
@@ -131,6 +163,8 @@ export class PdfPage {
   path(
     cmds: readonly PathCmd[], fill?: PdfColor,
     stroke?: { color: PdfColor; widthPt: number; dash?: readonly number[] },
+    /** preenchimento par-ímpar (furos de a:custGeom) */
+    evenOdd = false,
   ): void {
     if (!cmds.length || (!fill && !stroke)) return;
     let s = '';
@@ -146,7 +180,21 @@ export class PdfPage {
         s += `${fmt(cmd.x1)} ${fmt(this.fromTop(cmd.y1))} ${fmt(cmd.x2)} ${fmt(this.fromTop(cmd.y2))} ${fmt(cmd.x)} ${fmt(this.fromTop(cmd.y))} c\n`;
       } else s += 'h\n';
     }
-    s += fill && stroke ? 'B\n' : fill ? 'f\n' : 'S\n';
+    s += fill && stroke ? (evenOdd ? 'B*\n' : 'B\n') : fill ? (evenOdd ? 'f*\n' : 'f\n') : 'S\n';
+    this.content.str(s);
+  }
+
+  /** Preenche o caminho com um degradê (recorta pelo caminho e pinta com `sh`). */
+  fillShaded(cmds: readonly PathCmd[], sh: PdfShading, evenOdd = false): void {
+    if (!cmds.length) return;
+    let s = 'q\n';
+    for (const cmd of cmds) {
+      if (cmd.op === 'M') s += `${fmt(cmd.x)} ${fmt(this.fromTop(cmd.y))} m\n`;
+      else if (cmd.op === 'L') s += `${fmt(cmd.x)} ${fmt(this.fromTop(cmd.y))} l\n`;
+      else if (cmd.op === 'C') s += `${fmt(cmd.x1)} ${fmt(this.fromTop(cmd.y1))} ${fmt(cmd.x2)} ${fmt(this.fromTop(cmd.y2))} ${fmt(cmd.x)} ${fmt(this.fromTop(cmd.y))} c\n`;
+      else s += 'h\n';
+    }
+    s += `${evenOdd ? 'W*' : 'W'} n\n/${sh.resourceName} sh\nQ\n`;
     this.content.str(s);
   }
 
@@ -195,6 +243,7 @@ export class PdfDocument {
   private fonts: EmbeddedFont[] = [];
   private images: { handle: PdfImage; objNum: number }[] = [];
   private pages: PdfPage[] = [];
+  private shadings: PdfShading[] = [];
   /** ExtGState de opacidade: chave "ca|CA" → nome do recurso */
   private alphaStates = new Map<string, string>();
 
@@ -210,9 +259,11 @@ export class PdfDocument {
   }
 
   /** Embute um JPEG (baseline) diretamente via DCTDecode. */
-  embedJpeg(bytes: Uint8Array, widthPx: number, heightPx: number, components = 3, adobeInverted = false): PdfImage {
+  embedJpeg(bytes: Uint8Array, widthPx: number, heightPx: number, components = 3, adobeInverted = false, decodeArr?: readonly number[]): PdfImage {
     const cs = components === 1 ? '/DeviceGray' : components === 4 ? '/DeviceCMYK' : '/DeviceRGB';
-    const decode = components === 4 && adobeInverted ? ' /Decode [1 0 1 0 1 0 1 0]' : '';
+    // decodeArr: reta por componente (brilho/contraste sem decodificar o JPEG)
+    const decode = components === 4 && adobeInverted ? ' /Decode [1 0 1 0 1 0 1 0]'
+      : decodeArr?.length ? ` /Decode [${decodeArr.map(fmt).join(' ')}]` : '';
     const objNum = this.writer.addStream(
       `/Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} ` +
         `/ColorSpace ${cs} /BitsPerComponent 8 /Filter /DCTDecode${decode}`,
@@ -260,6 +311,31 @@ export class PdfDocument {
     return handle;
   }
 
+  /**
+   * Degradê axial (ShadingType 2, do ponto 0 ao 1) ou radial (ShadingType 3,
+   * círculos concêntricos de centro (x0,y0), raio 0 → r) com cores amostradas
+   * (função tipo 0: n amostras RGB de 8 bits, como o Word grava). Coordenadas em
+   * pt com y a partir do TOPO; estende as cores das pontas.
+   */
+  addShading(
+    geom: { kind: 'axial'; x0: number; y0: number; x1: number; y1: number } | { kind: 'radial'; x0: number; y0: number; r: number },
+    samples: Uint8Array, pageHeightPt: number,
+  ): PdfShading {
+    const n = Math.max(2, Math.floor(samples.length / 3));
+    const fn = this.writer.addStream(
+      `/FunctionType 0 /Domain [0 1] /Range [0 1 0 1 0 1] /Size [${n}] /BitsPerSample 8 /Order 1 /Encode [0 ${n - 1}]`,
+      samples.subarray(0, n * 3),
+    );
+    const H = pageHeightPt;
+    const coords = geom.kind === 'axial'
+      ? `/ShadingType 2 /Coords [${fmt(geom.x0)} ${fmt(H - geom.y0)} ${fmt(geom.x1)} ${fmt(H - geom.y1)}]`
+      : `/ShadingType 3 /Coords [${fmt(geom.x0)} ${fmt(H - geom.y0)} 0 ${fmt(geom.x0)} ${fmt(H - geom.y0)} ${fmt(geom.r)}]`;
+    const objNum = this.writer.addDict(`<< /ColorSpace /DeviceRGB ${coords} /Extend [true true] /Function ${fn} 0 R >>`);
+    const handle: PdfShading = { resourceName: `Sh${this.shadings.length}`, objNum };
+    this.shadings.push(handle);
+    return handle;
+  }
+
   addPage(widthPt: number, heightPt: number): PdfPage {
     const p = new PdfPage(widthPt, heightPt, (ca, CA) => {
       const key = `${fmt(ca)}|${fmt(CA)}`;
@@ -288,7 +364,10 @@ export class PdfDocument {
         return `/${n} << /Type /ExtGState /ca ${ca} /CA ${CA} >>`;
       }).join(' ')} >>`
       : '';
-    const resources = gsDict ? `<< ${fontDict} ${xobjDict} ${gsDict} >>` : `<< ${fontDict} ${xobjDict} >>`;
+    const shDict = this.shadings.length
+      ? `/Shading << ${this.shadings.map((h) => `/${h.resourceName} ${h.objNum} 0 R`).join(' ')} >>`
+      : '';
+    const resources = gsDict || shDict ? `<< ${fontDict} ${xobjDict} ${gsDict} ${shDict} >>` : `<< ${fontDict} ${xobjDict} >>`;
 
     const catalog = w.alloc();
     const pagesNode = w.alloc();

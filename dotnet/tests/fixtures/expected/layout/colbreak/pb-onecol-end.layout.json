@@ -1,0 +1,31 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1607.43,"scaleX":1,"text":"PrimeiraHxg","g":[[80,1701],[114,1804.32],[105,1874.05],[109,1919.95],[101,2079.71],[105,2179.22],[114,2225.12],[97,2294.85],[72,2435.86],[120,2560.47],[103,2647.09]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":13,"x":1701,"y":1417,"height":244.14,"baseline":1607.43,"width":1040.23}
+      ]
+    },
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 2,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1607.43,"scaleX":1,"text":"SegundapaginaHxg","g":[[83,1701],[101,1792.89],[103,1892.41],[117,1986.55],[110,2091.63],[100,2196.7],[97,2301.78],[112,2442.8],[97,2547.88],[103,2643.68],[105,2737.82],[110,2783.71],[97,2888.79],[72,3029.81],[120,3154.42],[103,3241.04]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1851.57,"scaleX":1,"text":"MaisHxg","g":[[77,1701],[97,1872],[105,1967.8],[115,2013.7],[72,2137.13],[120,2261.74],[103,2348.36]]}
+      ],
+      "lines": [
+        {"ref":"b1","start":0,"end":18,"x":1701,"y":1417,"height":244.14,"baseline":1607.43,"width":1634.18},
+        {"ref":"b2","start":0,"end":8,"x":1701,"y":1661.14,"height":244.14,"baseline":1851.57,"width":741.5}
+      ]
+    }
+  ],
+  "warnings": []
+}

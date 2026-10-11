@@ -38,6 +38,9 @@ export interface DrawingAnchor {
   allowOverlap?: boolean;
   /** wp:effectExtent (twips) — sombra/brilho fora do extent. */
   effectExtent?: { l: number; t: number; r: number; b: number };
+  /** contorno justo/através: caixa do wp:wrapPolygon em frações (0..1) do extent —
+   *  o texto contorna ela, não a figura inteira (oráculo wrappoly) */
+  wrapBox?: { x0: number; y0: number; x1: number; y1: number };
 }
 
 /** Aparência de uma forma (preenchimento/contorno). */
@@ -53,8 +56,20 @@ export interface ShapeStyle {
   rot?: number;
   flipH?: boolean;
   flipV?: boolean;
-  /** gradiente simplificado (1ª e última paradas) quando há a:gradFill. */
-  gradient?: { from: string; to: string; angleDeg: number };
+  /** gradiente (a:gradFill): 1ª e última paradas + todas as paradas (pos 0..1),
+   *  a:lin (ângulo, scaled), rotWithShape e a:path (circle/rect/shape + fillToRect) */
+  gradient?: {
+    from: string; to: string; angleDeg: number;
+    stops?: { pos: number; color: string }[];
+    scaled?: boolean; rotWithShape?: boolean;
+    path?: string; fillTo?: { l: number; t: number; r: number; b: number };
+  };
+  /** a:custGeom: caminhos já numéricos */
+  cust?: CustPath[];
+  /** ajustes da geometria predefinida (a:avLst: nome → valor de "val N") */
+  adj?: Record<string, number>;
+  /** sombra externa (a:outerShdw): deslocamento (twips), cor, opacidade, desfoque (twips) */
+  shadow?: { dx: number; dy: number; color: string; alpha?: number; blur?: number };
 }
 
 export const EMU_PER_TWIP_D = 635;
@@ -98,12 +113,22 @@ export function readWpAnchor(anchor: XmlElement | undefined): DrawingAnchor | un
   const a = anchor.attrs;
   let wrap: WrapType = 'none';
   let wrapText: DrawingAnchor['wrapText'];
+  let wrapBox: DrawingAnchor['wrapBox'];
+  const polyBox = (w: XmlElement): DrawingAnchor['wrapBox'] => {
+    const poly = firstChild(w, 'wp:wrapPolygon');
+    if (!poly) return undefined;
+    const pts = childElements(poly).filter((e) => e.name === 'wp:start' || e.name === 'wp:lineTo')
+      .map((e) => [parseInt(e.attrs['x'] ?? '0', 10) || 0, parseInt(e.attrs['y'] ?? '0', 10) || 0] as const);
+    if (pts.length < 3) return undefined;
+    const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+    return { x0: Math.min(...xs) / 21600, y0: Math.min(...ys) / 21600, x1: Math.max(...xs) / 21600, y1: Math.max(...ys) / 21600 };
+  };
   for (const c of childElements(anchor)) {
     switch (c.name) {
       case 'wp:wrapNone': wrap = 'none'; break;
       case 'wp:wrapSquare': wrap = 'square'; wrapText = c.attrs['wrapText'] as DrawingAnchor['wrapText']; break;
-      case 'wp:wrapTight': wrap = 'tight'; wrapText = c.attrs['wrapText'] as DrawingAnchor['wrapText']; break;
-      case 'wp:wrapThrough': wrap = 'through'; wrapText = c.attrs['wrapText'] as DrawingAnchor['wrapText']; break;
+      case 'wp:wrapTight': wrap = 'tight'; wrapText = c.attrs['wrapText'] as DrawingAnchor['wrapText']; wrapBox = polyBox(c); break;
+      case 'wp:wrapThrough': wrap = 'through'; wrapText = c.attrs['wrapText'] as DrawingAnchor['wrapText']; wrapBox = polyBox(c); break;
       case 'wp:wrapTopAndBottom': wrap = 'topAndBottom'; break;
     }
   }
@@ -113,6 +138,7 @@ export function readWpAnchor(anchor: XmlElement | undefined): DrawingAnchor | un
     posV: readPos(firstChild(anchor, 'wp:positionV'), 'paragraph'),
   };
   if (wrapText) out.wrapText = wrapText;
+  if (wrapBox) out.wrapBox = wrapBox;
   if (a['behindDoc'] === '1' || a['behindDoc'] === 'true') out.behindDoc = true;
   for (const k of ['distT', 'distB', 'distL', 'distR'] as const) {
     const v = emuTw(a[k]);
@@ -156,7 +182,8 @@ function srgbOf(el: XmlElement | undefined, theme?: Record<string, string>): { h
   }
   if (!hex) return undefined;
   const alphaEl = firstChild(c, 'a:alpha');
-  const out: { hex: string; alpha?: number } = { hex: hex.toUpperCase() };
+  // referência de tema (@tx1, @accent1…) fica como está — o motor resolve pelo nome
+  const out: { hex: string; alpha?: number } = { hex: hex.startsWith('@') ? hex : hex.toUpperCase() };
   if (alphaEl) out.alpha = (parseInt(alphaEl.attrs['val'] ?? '100000', 10) || 0) / 100000;
   // lumMod/lumOff/tint/shade ficam com o motor (precisa do tema); registramos cru
   const mods = childElements(c).filter((m) => m.name !== 'a:alpha').map((m) => `${m.name.slice(2)}=${m.attrs['val']}`);
@@ -168,9 +195,21 @@ function srgbOf(el: XmlElement | undefined, theme?: Record<string, string>): { h
 export function readSpPr(spPr: XmlElement | undefined, styleEl?: XmlElement): ShapeStyle {
   const st: ShapeStyle = { geom: 'rect' };
   if (!spPr) return st;
-  const prst = firstChild(spPr, 'a:prstGeom')?.attrs['prst'];
+  const prstEl = firstChild(spPr, 'a:prstGeom');
+  const prst = prstEl?.attrs['prst'];
   if (prst) st.geom = prst;
-  else if (firstChild(spPr, 'a:custGeom')) st.geom = 'custom';
+  const av = prstEl && firstChild(prstEl, 'a:avLst');
+  for (const gd of av ? childElements(av, 'a:gd') : []) {
+    const m = /^val\s+(-?\d+)/.exec(gd.attrs['fmla'] ?? '');
+    if (m && gd.attrs['name']) (st.adj ??= {})[gd.attrs['name']] = parseInt(m[1]!, 10);
+  }
+  const cg = !prst ? firstChild(spPr, 'a:custGeom') : undefined;
+  if (cg) {
+    st.geom = 'custom';
+    const ext = firstChild(firstChild(spPr, 'a:xfrm') ?? spPr, 'a:ext');
+    const paths = readCustGeom(cg, parseInt(ext?.attrs['cx'] ?? '0', 10) || 0, parseInt(ext?.attrs['cy'] ?? '0', 10) || 0);
+    if (paths.length) st.cust = paths;
+  }
   const xfrm = firstChild(spPr, 'a:xfrm');
   if (xfrm) {
     const rot = parseInt(xfrm.attrs['rot'] ?? '0', 10);
@@ -187,9 +226,22 @@ export function readSpPr(spPr: XmlElement | undefined, styleEl?: XmlElement): Sh
     const stops = gs ? childElements(gs, 'a:gs') : [];
     const from = srgbOf(stops[0]);
     const to = srgbOf(stops[stops.length - 1]);
-    const lin = findDeep(firstChild(spPr, 'a:gradFill')!, 'a:lin');
+    const gf = firstChild(spPr, 'a:gradFill')!;
+    const lin = findDeep(gf, 'a:lin');
     if (from && to) {
       st.gradient = { from: from.hex, to: to.hex, angleDeg: (parseInt(lin?.attrs['ang'] ?? '0', 10) || 0) / 60000 };
+      const g = st.gradient;
+      g.stops = stops.map((s) => ({ pos: (parseInt(s.attrs['pos'] ?? '0', 10) || 0) / 100000, color: srgbOf(s)?.hex ?? '000000' }))
+        .sort((a, b) => a.pos - b.pos);
+      if (lin && lin.attrs['scaled'] !== undefined) g.scaled = lin.attrs['scaled'] === '1' || lin.attrs['scaled'] === 'true';
+      if (gf.attrs['rotWithShape'] !== undefined) g.rotWithShape = gf.attrs['rotWithShape'] === '1' || gf.attrs['rotWithShape'] === 'true';
+      const path = firstChild(gf, 'a:path');
+      if (path) {
+        g.path = path.attrs['path'] ?? 'circle';
+        const ft = firstChild(path, 'a:fillToRect');
+        const f = (k: string) => (parseInt(ft?.attrs[k] ?? '0', 10) || 0) / 100000;
+        if (ft) g.fillTo = { l: f('l'), t: f('t'), r: f('r'), b: f('b') };
+      }
       st.fill = from.hex;
     }
   } else if (styleEl) {
@@ -198,6 +250,19 @@ export function readSpPr(spPr: XmlElement | undefined, styleEl?: XmlElement): Sh
     if (fillRef && fillRef.attrs['idx'] !== '0') {
       const c = srgbOf(fillRef);
       if (c) st.fill = c.hex;
+    }
+  }
+  const eff = firstChild(spPr, 'a:effectLst');
+  const shd = eff && firstChild(eff, 'a:outerShdw');
+  if (shd) {
+    const c = srgbOf(shd);
+    const dist = (parseInt(shd.attrs['dist'] ?? '0', 10) || 0) / EMU_PER_TWIP_D;
+    const dir = ((parseInt(shd.attrs['dir'] ?? '0', 10) || 0) / 60000) * (Math.PI / 180);
+    if (c) {
+      st.shadow = { dx: dist * Math.cos(dir), dy: dist * Math.sin(dir), color: c.hex };
+      if (c.alpha !== undefined) st.shadow.alpha = c.alpha;
+      const blur = (parseInt(shd.attrs['blurRad'] ?? '0', 10) || 0) / EMU_PER_TWIP_D;
+      if (blur) st.shadow.blur = blur;
     }
   }
   const ln = firstChild(spPr, 'a:ln');
@@ -328,6 +393,95 @@ export function vmlShapeStyle(el: XmlElement, geom: string): ShapeStyle {
   if (flip.includes('x')) st.flipH = true;
   if (flip.includes('y')) st.flipV = true;
   return st;
+}
+
+// ───────────────────────── a:custGeom ─────────────────────────
+
+/** Comando de um caminho de a:custGeom já em números (unidades do caminho; ângulos em graus). */
+export type CustCmd =
+  | { op: 'M' | 'L'; x: number; y: number }
+  | { op: 'C' | 'Q'; pts: [number, number][] }
+  | { op: 'A'; wR: number; hR: number; st: number; sw: number }
+  | { op: 'Z' };
+
+/** Caminho de a:custGeom: espaço próprio (w × h; sem w/h = o da forma em EMU), preenche/contorna. */
+export interface CustPath { w: number; h: number; fill: boolean; stroke: boolean; cmds: CustCmd[] }
+
+/**
+ * a:custGeom → caminhos numéricos. As guias (a:avLst/a:gdLst) são avaliadas com
+ * as fórmulas do DrawingML sobre as dimensões da forma em EMU (cx × cy).
+ */
+export function readCustGeom(cg: XmlElement, cx: number, cy: number): CustPath[] {
+  const w = cx || 1, h = cy || 1, ss = Math.min(w, h), ls = Math.max(w, h);
+  const v: Record<string, number> = {
+    w, h, l: 0, t: 0, r: w, b: h, hc: w / 2, vc: h / 2, ss, ls,
+    cd2: 10800000, cd4: 5400000, cd8: 2700000, '3cd4': 16200000, '3cd8': 8100000, '5cd8': 13500000, '7cd8': 18900000,
+  };
+  for (const k of [2, 3, 4, 5, 6, 8, 10, 12, 16, 32]) { v[`wd${k}`] = w / k; v[`hd${k}`] = h / k; v[`ssd${k}`] = ss / k; }
+  const num = (s: string | undefined): number => {
+    if (s === undefined) return 0;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : own(v, s) ?? 0;
+  };
+  const rad = (a: number) => (a / 60000) * (Math.PI / 180);
+  const evalGd = (f: string): number => {
+    const [op, ...a] = f.trim().split(/\s+/);
+    const [x = 0, y = 0, z = 0] = a.map(num);
+    switch (op) {
+      case '*/': return z ? (x * y) / z : 0;
+      case '+-': return x + y - z;
+      case '+/': return z ? (x + y) / z : 0;
+      case '?:': return x > 0 ? y : z;
+      case 'abs': return Math.abs(x);
+      case 'at2': return (Math.atan2(y, x) * 180 / Math.PI) * 60000;
+      case 'cat2': return x * Math.cos(Math.atan2(z, y));
+      case 'sat2': return x * Math.sin(Math.atan2(z, y));
+      case 'cos': return x * Math.cos(rad(y));
+      case 'sin': return x * Math.sin(rad(y));
+      case 'tan': return x * Math.tan(rad(y));
+      case 'max': return Math.max(x, y);
+      case 'min': return Math.min(x, y);
+      case 'mod': return Math.sqrt(x * x + y * y + z * z);
+      case 'pin': return y < x ? x : y > z ? z : y;
+      case 'sqrt': return Math.sqrt(Math.max(0, x));
+      case 'val': return x;
+      default: return 0;
+    }
+  };
+  for (const lst of ['a:avLst', 'a:gdLst']) {
+    const el = firstChild(cg, lst);
+    for (const gd of el ? childElements(el, 'a:gd') : []) {
+      const name = gd.attrs['name'];
+      if (name) v[name] = evalGd(gd.attrs['fmla'] ?? 'val 0');
+    }
+  }
+  const out: CustPath[] = [];
+  const pl = firstChild(cg, 'a:pathLst');
+  for (const p of pl ? childElements(pl, 'a:path') : []) {
+    const path: CustPath = {
+      w: num(p.attrs['w']) || w, h: num(p.attrs['h']) || h,
+      fill: p.attrs['fill'] !== 'none', stroke: p.attrs['stroke'] !== '0' && p.attrs['stroke'] !== 'false',
+      cmds: [],
+    };
+    const pts = (el: XmlElement): [number, number][] => childElements(el, 'a:pt').map((q) => [num(q.attrs['x']), num(q.attrs['y'])]);
+    for (const c of childElements(p)) {
+      switch (c.name) {
+        case 'a:moveTo': case 'a:lnTo': {
+          const q = pts(c)[0];
+          if (q) path.cmds.push({ op: c.name === 'a:moveTo' ? 'M' : 'L', x: q[0], y: q[1] });
+          break;
+        }
+        case 'a:cubicBezTo': path.cmds.push({ op: 'C', pts: pts(c) }); break;
+        case 'a:quadBezTo': path.cmds.push({ op: 'Q', pts: pts(c) }); break;
+        case 'a:arcTo':
+          path.cmds.push({ op: 'A', wR: num(c.attrs['wR']), hR: num(c.attrs['hR']), st: num(c.attrs['stAng']) / 60000, sw: num(c.attrs['swAng']) / 60000 });
+          break;
+        case 'a:close': path.cmds.push({ op: 'Z' }); break;
+      }
+    }
+    if (path.cmds.length) out.push(path);
+  }
+  return out;
 }
 
 export { findDeep as findDeepDrawing, textOf as textOfDrawing };

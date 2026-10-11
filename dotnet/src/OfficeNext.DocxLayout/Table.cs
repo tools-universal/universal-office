@@ -19,6 +19,16 @@ public sealed class CellContent
     public double Height;
     /// <summary>algum parágrafo do conteúdo tem "manter com o próximo"</summary>
     public bool KeepNext;
+    /// <summary>parágrafos do conteúdo (ref da linha → total de linhas, viúvas/órfãs, espaço
+    /// depois) — onde a linha de tabela pode ser partida entre páginas</summary>
+    public Dictionary<string, ParaSplitInfo>? Paras;
+}
+
+public sealed class ParaSplitInfo
+{
+    public int Lines;
+    public bool Widow;
+    public double After;
 }
 
 /// <summary>Ambiente de uma célula: pPr/rPr do estilo de tabela e fundo escuro.</summary>
@@ -50,9 +60,42 @@ public sealed class RowLayout
     public List<PageItem> BorderItems = new();
     /// <summary>borda inferior desenhada só se a página quebrar logo após esta linha</summary>
     public List<PageItem>? BreakBorderItems;
+    /// <summary>mescla vertical que COMEÇA nesta linha: posição (em Items) do texto dela na
+    /// ordem das colunas e a linha em que ela termina (oráculo vmorder)</summary>
+    public List<MergeAtInfo>? MergeAt;
+    /// <summary>texto de mescla vertical pintado nesta (última) linha da mescla e o deslocamento
+    /// para as coordenadas da linha inicial</summary>
+    public List<MergeTextInfo>? MergeText;
+    /// <summary>espessura dessa borda: com a página quebrando depois desta linha, ela também
+    /// tem de caber (oráculo rowfitbdr)</summary>
+    public double? BreakW;
     /// <summary>divide a linha para caber em `avail` (twips): [parte que cabe, resto]
     /// — nulo se nenhuma linha de texto cabe (a linha inteira desce).</summary>
     public Func<double, (RowLayout First, RowLayout Remainder)?>? Split;
+
+    public RowLayout ShallowClone() => (RowLayout)MemberwiseClone();
+}
+
+public sealed class MergeAtInfo
+{
+    public int Col;
+    public int At;
+    public int EndRow;
+}
+
+public sealed class MergeTextInfo
+{
+    public int Col;
+    public List<PageItem> Items = new();
+    public List<LaidOutLine> Lines = new();
+    public double Dy;
+    /// <summary>linha inicial da mescla, o conteúdo dela, a margem de cima, a faixa de borda
+    /// de cima da linha inicial e o alinhamento vertical (fluxo entre páginas — oráculo vmsplit)</summary>
+    public int? Start;
+    public CellContent? Content;
+    public double? MarT;
+    public double? Band;
+    public string? VAlign;
 }
 
 public sealed class TableLayout
@@ -71,15 +114,36 @@ public static class TableEngine
     /// <summary>Parte um conteúdo de célula num corte vertical (fim da última linha que cabe).</summary>
     public static (CellContent A, CellContent B)? SplitContent(CellContent c, double availContent)
     {
+        var paras = c.Paras;
+        // última linha de cada parágrafo: cabe só junto com o espaço depois dele (oráculo rowwidow, *-after*)
+        var lastOf = new Dictionary<string, LaidOutLine>(StringComparer.Ordinal);
+        if (paras is not null) foreach (var l in c.Lines) if (paras.ContainsKey(l.Ref)) lastOf[l.Ref] = l;
         double cut = 0;
         foreach (var l in c.Lines)
         {
             double bottom = l.Y + l.Height;
-            if (bottom <= availContent + 0.5 && bottom > cut) cut = bottom;
+            double after = lastOf.TryGetValue(l.Ref, out var ll) && ReferenceEquals(ll, l) ? paras![l.Ref].After : 0;
+            if (bottom + after <= availContent + 0.5 && bottom > cut) cut = bottom;
         }
+        if (cut > 0) cut = NestedRowCut(c, cut);
+        if (cut > 0 && paras is not null) cut = WidowCut(c, paras, cut);
         if (cut <= 0) return null;
-        var a = new CellContent { Height = cut };
-        var b = new CellContent { Height = Math.Max(0, c.Height - cut) };
+        // corte no fim de um parágrafo: o "depois" dele fica em cima; a continuação começa
+        // só com o resto do espaço até o seguinte (oráculo rowwidow, gapcut)
+        double cutB = cut;
+        if (paras is not null)
+        {
+            LaidOutLine? last = null;
+            double next = double.PositiveInfinity;
+            foreach (var l in c.Lines)
+            {
+                if (l.Y + l.Height <= cut + 0.5) { if (last is null || l.Y + l.Height > last.Y + last.Height) last = l; }
+                else next = Math.Min(next, l.Y);
+            }
+            if (last is not null && lastOf.TryGetValue(last.Ref, out var lo) && ReferenceEquals(lo, last)) cutB = Math.Min(cut + paras[last.Ref].After, next);
+        }
+        var a = new CellContent { Height = cut, Paras = paras };
+        var b = new CellContent { Height = Math.Max(0, c.Height - cutB), Paras = paras };
         static double KeyY(PageItem it) => it switch
         {
             LineItem li => Math.Min(li.Y1, li.Y2),
@@ -96,7 +160,7 @@ public static class TableEngine
         {
             double y = KeyY(it);
             if (y < cut) a.Items.Add(it);
-            else b.Items.Add(ShiftItem(it, -cut));
+            else b.Items.Add(ShiftItem(it, -cutB));
         }
         foreach (var l in c.Lines)
         {
@@ -104,12 +168,83 @@ public static class TableEngine
             else
             {
                 var nl = l.ShallowClone();
-                nl.Y = l.Y - cut;
-                nl.Baseline = l.Baseline - cut;
+                nl.Y = l.Y - cutB;
+                nl.Baseline = l.Baseline - cutB;
                 b.Lines.Add(nl);
             }
         }
         return (a, b);
+    }
+
+    /// <summary>
+    /// Linha de tabela ANINHADA cruzada pelo corte: se alguma célula dela (com texto)
+    /// não fica com nenhuma linha em cima, ela desce inteira, como no corpo (oráculo
+    /// nestwidow). Os refs das linhas aninhadas são "&lt;célula&gt;/bN/rM/cK/…".
+    /// </summary>
+    private static double NestedRowCut(CellContent c, double cut)
+    {
+        if (c.Lines.Count == 0) return cut;
+        int baseN = c.Lines.Min(l => l.Ref.Split('/').Length) - 1;
+        var rows = new Dictionary<string, List<LaidOutLine>>();
+        var order = new List<string>();
+        foreach (var l in c.Lines)
+        {
+            var s = l.Ref.Split('/');
+            if (s.Length < baseN + 4) continue;
+            string k = string.Join("/", s.Take(baseN + 2));
+            if (!rows.TryGetValue(k, out var ls)) { ls = new List<LaidOutLine>(); rows[k] = ls; order.Add(k); }
+            ls.Add(l);
+        }
+        foreach (var k in order)
+        {
+            var ls = rows[k];
+            var above = ls.Where(l => l.Y < cut).ToList();
+            if (above.Count == 0 || above.Count == ls.Count) continue;
+            var cells = new HashSet<string>(ls.Select(l => string.Join("/", l.Ref.Split('/').Take(baseN + 3))));
+            if (!cells.Any(ck => !above.Any(l => l.Ref.StartsWith(ck + "/", StringComparison.Ordinal)))) continue;
+            double top = ls.Min(l => l.Y);
+            double prev = 0;
+            foreach (var l in c.Lines) if (l.Y + l.Height <= top + 0.5) prev = Math.Max(prev, l.Y + l.Height);
+            cut = Math.Min(cut, Math.Min(prev, top));
+        }
+        return cut;
+    }
+
+    /// <summary>
+    /// Viúvas/órfãs no parágrafo da célula partido pelo corte, como no corpo — só
+    /// no modo 15 (oráculo rowwidow): a 1ª linha não fica sozinha no pé; a última
+    /// não vai sozinha (e se sobrar só a 1ª, o parágrafo inteiro desce).
+    /// </summary>
+    private static double WidowCut(CellContent c, Dictionary<string, ParaSplitInfo> paras, double cut)
+    {
+        // todo parágrafo partido pelo corte (numa tabela aninhada pode haver vários lado a lado)
+        var byRef = new Dictionary<string, List<LaidOutLine>>();
+        var order = new List<string>();
+        foreach (var l in c.Lines)
+        {
+            if (!byRef.TryGetValue(l.Ref, out var ls)) { ls = new List<LaidOutLine>(); byRef[l.Ref] = ls; order.Add(l.Ref); }
+            ls.Add(l);
+        }
+        double outCut = cut;
+        foreach (var rf in order)
+        {
+            var mine = byRef[rf];
+            if (!paras.TryGetValue(rf, out var info) || !info.Widow) continue;
+            int n1 = mine.Count(l => l.Y + l.Height <= cut + 0.5);
+            if (n1 == 0 || n1 == mine.Count) continue;
+            // a 1ª linha do parágrafo está nesta parte (não é continuação de outra página)
+            bool hasFirst = mine.Count == info.Lines;
+            int keep = n1;
+            if (keep == 1 && hasFirst) keep = 0;
+            else if (mine.Count - n1 == 1 && n1 >= 2) { keep--; if (keep == 1 && hasFirst) keep = 0; }
+            if (keep == n1) continue;
+            if (keep > 0) { outCut = Math.Min(outCut, mine[keep - 1].Y + mine[keep - 1].Height); continue; }
+            // o parágrafo inteiro desce: corta no fim do conteúdo antes dele
+            double prev = 0;
+            foreach (var l in c.Lines) if (l.Y + l.Height <= mine[0].Y + 0.5) prev = Math.Max(prev, l.Y + l.Height);
+            outCut = Math.Min(outCut, Math.Min(prev, mine[0].Y));
+        }
+        return outCut;
     }
 
     private static double? WidthTw(WidthSpec? w, double b)
@@ -118,6 +253,336 @@ public static class TableEngine
         if (w.Type == "dxa") return w.W;
         if (w.Type == "pct") return (b * w.W) / 5000;
         return null;
+    }
+
+    /// <summary>ref de tabela aninhada (dentro de uma célula)</summary>
+    private static readonly Regex NestedRef = new(@"/r\d+/c\d+", RegexOptions.Compiled);
+
+    /// <summary>Célula para a geometria: coluna inicial, colunas cobertas, largura preferida e conteúdo (sob demanda).</summary>
+    private sealed class GeoCell
+    {
+        public int Col;
+        public int Span;
+        public WidthSpec? TcW;
+        /// <summary>larguras mínima (maior palavra) e máxima (sem quebrar) do conteúdo + margens</summary>
+        public Func<(double Min, double Max)> Measure = null!;
+        /// <summary>noWrap com tcW dxa: a mínima é pelo menos o tcW (piso)</summary>
+        public bool Floor;
+        /// <summary>margens laterais (e espaçamento/bordas) incluídas nas larguras</summary>
+        public double? Pad;
+    }
+
+    /// <summary>
+    /// Largura de cada coluna por fronteiras (oráculo tblw d5/d6): a fronteira k é a
+    /// maior entre (fronteira anterior + coluna) e (início + largura) das células que
+    /// terminam em k — o excesso de uma célula mesclada vai para a ÚLTIMA coluna dela.
+    /// Células mescladas com `spread` (larguras de conteúdo) entram depois e repartem o
+    /// que faltar proporcionalmente às colunas que cobrem.
+    /// </summary>
+    private static List<double> BoundaryWidths(List<List<GeoCell>> cells, int nCols, Func<GeoCell, double> v, Func<GeoCell, bool>? spread = null)
+    {
+        var byEnd = Enumerable.Range(0, nCols + 1).Select(_ => new List<(int Start, double V)>()).ToList();
+        var late = new List<GeoCell>();
+        foreach (var row in cells)
+        {
+            foreach (var c in row)
+            {
+                int s = Math.Min(c.Col, nCols), e = Math.Min(nCols, c.Col + c.Span);
+                if (e <= s) continue;
+                if (e - s > 1 && spread is not null && spread(c)) late.Add(c);
+                else byEnd[e].Add((s, v(c)));
+            }
+        }
+        var b = new List<double> { 0 };
+        for (int k = 1; k <= nCols; k++)
+        {
+            double m = b[k - 1];
+            foreach (var c in byEnd[k]) m = Math.Max(m, b[c.Start] + c.V);
+            b.Add(m);
+        }
+        var w = Enumerable.Range(0, nCols).Select(k => b[k + 1] - b[k]).ToList();
+        foreach (var c in late.OrderBy(c => c.Span))
+        {
+            int s = Math.Min(c.Col, nCols), e = Math.Min(nCols, c.Col + c.Span);
+            double have = 0;
+            for (int k = s; k < e; k++) have += w[k];
+            double need = v(c) - have;
+            if (need <= 0) continue;
+            for (int k = s; k < e; k++) w[k] += have > 0 ? (need * w[k]) / have : need / (e - s);
+        }
+        return w;
+    }
+
+    private static string PrefOf(WidthSpec? w) => w is not null && w.W > 0 && (w.Type == "dxa" || w.Type == "pct") ? w.Type : "auto";
+
+    /// <summary>
+    /// Célula cujo conteúdo não cabe nas colunas em pct que cobre: elas crescem até o mínimo
+    /// e as demais colunas em pct (acima do mínimo próprio) perdem por igual (tblw f1/f3/f8).
+    /// </summary>
+    private static void FitPctMins(List<double> p, List<GeoCell> cells, Func<GeoCell, double> minOf, List<double> colMin, Func<int, bool> pct)
+    {
+        for (int it = 0; it < 2 * p.Count + 2; it++)
+        {
+            GeoCell? worst = null;
+            double need = 1e-6;
+            foreach (var c in cells)
+            {
+                if (!pct(c.Col)) continue;
+                double have0 = 0;
+                for (int k = c.Col; k < Math.Min(p.Count, c.Col + c.Span); k++) have0 += p[k];
+                double d = minOf(c) - have0;
+                if (d > need) { need = d; worst = c; }
+            }
+            if (worst is null) break;
+            int s = worst.Col, e = Math.Min(p.Count, worst.Col + worst.Span);
+            var others = Enumerable.Range(0, p.Count).Where(k => (k < s || k >= e) && pct(k) && p[k] > colMin[k] + 1e-6).ToList();
+            if (others.Count == 0) break;
+            double have = 0;
+            for (int k = s; k < e; k++) have += p[k];
+            for (int k = s; k < e; k++) p[k] += have > 0 ? (need * p[k]) / have : need / (e - s);
+            foreach (int k in others) p[k] -= need / others.Count;
+        }
+    }
+
+    /// <summary>
+    /// Larguras das colunas (oráculos tblpct/tblw). `geoBase` = 100% de uma tabela em pct;
+    /// `avail` = largura máxima de uma tabela automática (base − recuo: f7).
+    ///  - Layout fixo: tcW (pct da largura da tabela); célula sem tcW usa a grade gravada
+    ///    (d2/d3); com tblW, as colunas escalam proporcionalmente até ele (b7/b8).
+    ///  - Autoajuste (a grade gravada é ignorada — b2/b10): largura da tabela = tblW, ou, se
+    ///    automática, a soma do que as colunas querem limitada a `avail` (c5), ou a menor em
+    ///    que as colunas em pct cabem na sua fração (tblpct auto, d11).
+    ///    Colunas em pct: fração da largura, da esquerda para a direita, a última fica com o
+    ///    que sobra (f2); se o conteúdo não cabe, a coluna vai ao mínimo e as outras em pct
+    ///    perdem por igual (f1/f3/f8).
+    ///    As demais repartem o resto por "palpites" (como no CSS): todas no mínimo (G1); tcW
+    ///    dxa na largura pedida (G3, nunca abaixo do mínimo — c2); sem tcW, no máximo do
+    ///    conteúdo (G4). Entre dois palpites, interpola: faltando largura, encolhem primeiro
+    ///    as automáticas (f4/f5/f9), depois as dxa, proporcionais a (largura − mínimo)
+    ///    (tblpct, b3, b13, d7, d8). Sobrando, crescem as automáticas, proporcionais ao
+    ///    conteúdo (d1/d4/d10); sem elas, as demais, proporcionais à largura (b4). Abaixo da
+    ///    soma dos mínimos: com tblW a tabela cresce (f6); automática, espreme (d9).
+    /// </summary>
+    private static List<double> ColumnWidths(List<List<GeoCell>> cells, int nCols, List<double> docGrid, WidthSpec? tblW, bool fixedLayout, double geoBase, double avail) =>
+        // o Word guarda cada coluna em twips inteiros (arredonda): é essa a largura que decide a quebra (tblround)
+        ColumnWidthsExact(cells, nCols, docGrid, tblW, fixedLayout, geoBase, avail).Select(JsRound).ToList();
+
+    /// <summary>Math.round do JS (meio para cima).</summary>
+    private static double JsRound(double x) => Math.Floor(x + 0.5);
+
+    private static List<double> ColumnWidthsExact(List<List<GeoCell>> cells, int nCols, List<double> docGrid, WidthSpec? tblW, bool fixedLayout, double geoBase, double avail)
+    {
+        string tw = PrefOf(tblW);
+        double? T0 = tw == "dxa" ? tblW!.W : tw == "pct" ? (geoBase * tblW!.W) / 5000 : null;
+        var all = cells.SelectMany(r => r).ToList();
+        if (fixedLayout)
+        {
+            double GridSum(GeoCell c) => docGrid.Skip(c.Col).Take(c.Span).Aggregate(0.0, (a, b) => a + b);
+            double tRef = T0 ?? geoBase;
+            var wf = BoundaryWidths(cells, nCols, c =>
+            {
+                string k = PrefOf(c.TcW);
+                return k == "dxa" ? c.TcW!.W : k == "pct" ? (tRef * c.TcW!.W) / 5000 : GridSum(c);
+            });
+            double sum = wf.Aggregate(0.0, (a, b) => a + b);
+            return T0 is { } t0f && sum > 0 ? wf.Select(v => (v * t0f) / sum).ToList() : wf;
+        }
+        var m = new Dictionary<GeoCell, (double Min, double Max)>(ReferenceEqualityComparer.Instance);
+        foreach (var c in all) m[c] = c.Measure();
+        var g1 = BoundaryWidths(cells, nCols, c => m[c].Min, _ => true);
+        double MinOf(GeoCell c) => m[c].Min;
+        if (all.Count > 0 && all.All(c => PrefOf(c.TcW) == "pct"))
+        {
+            // só pct (como o Word grava o .doc convertido): frações por fronteira, mescladas inclusive
+            double Tp = T0 ?? Math.Min(all.Max(c => (m[c].Max * 5000) / c.TcW!.W), avail);
+            var pp = BoundaryWidths(cells, nCols, c => (Tp * c.TcW!.W) / 5000);
+            // passou de 100%: a última fica com o que sobra (f2)
+            double roomP = Tp;
+            for (int j = 0; j < nCols; j++) { pp[j] = Math.Max(0, Math.Min(pp[j], roomP)); roomP -= pp[j]; }
+            FitPctMins(pp, all, MinOf, g1, _ => true);
+            double sp = pp.Aggregate(0.0, (a, b) => a + b);
+            return sp > 0 && Tp > sp + 0.5 ? pp.Select(v => (v * Tp) / sp).ToList() : pp;
+        }
+        // coluna em pct: célula sem mescla em pct e nenhuma em dxa; a fração é a maior
+        var frac = Enumerable.Range(0, nCols).Select(j =>
+        {
+            var own = all.Where(c => c.Span == 1 && c.Col == j).ToList();
+            if (!own.Any(c => PrefOf(c.TcW) == "pct") || own.Any(c => PrefOf(c.TcW) == "dxa")) return 0.0;
+            return own.Where(c => PrefOf(c.TcW) == "pct").Max(c => c.TcW!.W / 5000);
+        }).ToList();
+        var isPct = frac.Select(f => f > 0).ToList();
+        // tipo de cada célula para os palpites: pct só a de coluna pct; pct mesclada vale como dxa
+        (string K, double W) Kind(GeoCell c, double T)
+        {
+            string k = PrefOf(c.TcW);
+            if (k == "pct") return c.Span == 1 && c.Col < nCols && isPct[c.Col] ? ("pct", 0) : ("dxa", (T * c.TcW!.W) / 5000);
+            return (k, k == "dxa" ? c.TcW!.W : 0);
+        }
+        double SumOf(List<double> v, Func<int, bool> pick)
+        {
+            double a = 0;
+            for (int j = 0; j < v.Count; j++) if (pick(j)) a += v[j];
+            return a;
+        }
+        var gMax = BoundaryWidths(cells, nCols, c => m[c].Max, _ => true);
+        // larguras pedidas (dxa) por fronteira; as de conteúdo das mescladas, repartidas
+        List<double> G3of(double T) => BoundaryWidths(cells, nCols, c => { var q = Kind(c, T); return q.K == "dxa" ? Math.Max(q.W, m[c].Min) : m[c].Min; }, c => Kind(c, T).K != "dxa");
+        List<double> G4of(double T) => BoundaryWidths(cells, nCols, c => { var q = Kind(c, T); var mm = m[c]; return q.K == "dxa" ? Math.Max(q.W, mm.Min) : q.K == "auto" ? mm.Max : mm.Min; }, c => Kind(c, T).K != "dxa");
+        double Tt;
+        if (T0 is { } t0v) Tt = t0v;
+        else
+        {
+            var g4a = G4of(0);
+            double rest = SumOf(g4a, j => !isPct[j]);
+            double fr = Math.Min(1, frac.Sum());
+            double t = rest;
+            if (fr > 0)
+            {
+                // a menor largura em que cada coluna pct cabe na sua fração, e as demais no resto
+                for (int j = 0; j < nCols; j++) if (isPct[j]) t = Math.Max(t, gMax[j] / frac[j]);
+                if (fr < 1) t = Math.Max(t, rest / (1 - fr));
+            }
+            Tt = Math.Min(t, avail);
+        }
+        bool isExplicit = T0 is not null;
+        // colunas em pct
+        var p = Enumerable.Repeat(0.0, nCols).ToList();
+        if (isPct.Any(x => x))
+        {
+            double room = Tt - SumOf(g1, j => !isPct[j]);
+            for (int j = 0; j < nCols; j++) if (isPct[j]) { p[j] = Math.Max(0, Math.Min(frac[j] * Tt, room)); room -= p[j]; }
+            FitPctMins(p, all.Where(c => c.Span == 1).ToList(), MinOf, g1, k => isPct[k]);
+        }
+        bool Np(int j) => !isPct[j];
+        if (!isPct.Any(x => !x))
+        {
+            double sp = SumOf(p, _ => true);
+            return sp > 0 && Tt > sp + 0.5 ? p.Select(v => (v * Tt) / sp).ToList() : p;
+        }
+        double R = Tt - SumOf(p, _ => true);
+        var g3 = G3of(Tt);
+        var g4 = G4of(Tt);
+        double S1 = SumOf(g1, Np), S3 = SumOf(g3, Np), S4 = SumOf(g4, Np);
+        List<double> Lerp(List<double> a, List<double> b, double t) => a.Select((x, j) => isPct[j] ? p[j] : x + (b[j] - x) * t).ToList();
+        if (R >= S4 - 0.5)
+        {
+            // sobra: cresce a automática (proporcional ao conteúdo); sem ela, as dxa — coluna sem
+            // célula nenhuma (gridBefore/gridAfter sem largura) fica com zero (tblw h3)
+            bool Covered(int j) => all.Any(c => c.Col <= j && c.Col + c.Span > j);
+            var grow = Enumerable.Range(0, nCols).Select(j => Np(j) && Covered(j) && !all.Any(c => c.Col <= j && c.Col + c.Span > j && Kind(c, Tt).K != "auto")).ToList();
+            if (!grow.Any(g => g)) grow = isPct.Select((x, j) => !x && Covered(j)).ToList();
+            double wsum = SumOf(g4, j => grow[j]);
+            int n = grow.Count(g => g);
+            return g4.Select((x, j) => isPct[j] ? p[j] : grow[j] ? x + ((R - S4) * (wsum > 0 ? x / wsum : 1.0 / n)) : x).ToList();
+        }
+        if (R >= S3) return Lerp(g3, g4, (R - S3) / (S4 - S3));
+        if (R >= S1) return Lerp(g1, g3, S3 > S1 ? (R - S1) / (S3 - S1) : 0);
+        // pisos de noWrap (tcW dxa) que não cabem: a tabela passa do tblW até a largura
+        // disponível (se o tblW já passa dela, fica na soma dos pisos); acima disso os pisos
+        // encolhem em proporção à área de texto, largura − margens (oráculo nowrap, nw-piso)
+        if (all.Any(c => c.Floor) && !isPct.Any(v => v) && !(isExplicit && Tt > avail) && S1 > avail + 0.5)
+        {
+            var pad = Enumerable.Range(0, nCols).Select(j => all.Where(c => c.Span == 1 && c.Col == j).Aggregate(0.0, (mx, c) => Math.Max(mx, c.Pad ?? 0))).ToList();
+            var inner = g1.Select((xv, j) => Math.Max(0, xv - pad[j])).ToList();
+            double si = inner.Aggregate(0.0, (a, b) => a + b), cut = S1 - avail;
+            return g1.Select((xv, j) => xv - (si > 0 ? (cut * inner[j]) / si : cut / nCols)).ToList();
+        }
+        // nem os mínimos cabem: com tblW a tabela cresce; automática, espreme (d9) — se a
+        // grade gravada já tem essa largura, ela é o aperto que o próprio Word calculou
+        if (isExplicit) return g3.Select((x, j) => isPct[j] ? p[j] : x).ToList();
+        double sg = docGrid.Sum();
+        if (!isPct.Any(x => x) && Math.Abs(sg - Tt) <= Math.Max(20, 0.005 * Tt)) return docGrid.Select(x => (x * Tt) / sg).ToList();
+        return g1.Select((x, j) => isPct[j] ? p[j] : S1 > 0 ? (x * R) / S1 : x).ToList();
+    }
+
+    /// <summary>
+    /// Larguras do conteúdo de uma célula para o autoajuste: mínima = maior trecho sem
+    /// oportunidade de quebra; máxima = maior linha sem quebrar (tabs nas paradas).
+    /// Recuos do parágrafo e margens da célula somados. Tabela aninhada: a largura dela.
+    /// </summary>
+    private static (double Min, double Max) MeasureCell(DocContext ctx, TableCell cell, Resolved r, double mar)
+    {
+        var blocks = cell.Blocks ?? cell.Paragraphs.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
+        var env = new ParaEnv { TablePPr = r.PPr, TableRPr = r.RPr };
+        double min = 0, max = 0;
+        ctx.Pure(() =>
+        {
+            foreach (var b in blocks)
+            {
+                if (b is TableBlock tb)
+                {
+                    string k = PrefOf(tb.TblPr?.TblW);
+                    double w = k == "dxa" ? tb.TblPr!.TblW!.W : k == "pct" ? 0 : tb.GridColsTwips.Aggregate(0.0, (a, g) => a + g);
+                    // a mínima de uma tabela aninhada é a do CONTEÚDO dela (palavra mais longa
+                    // de cada coluna), não a grade — a grade só pesa na máxima (oráculo tblover, tov-in-*)
+                    double nMin = 0;
+                    foreach (var row in tb.Rows)
+                    {
+                        double sum = 0;
+                        foreach (var nc in row.Cells) sum += MeasureCell(ctx, nc, new Resolved { PPr = new PPr(), RPr = new RPr() }, 216).Min;
+                        nMin = Math.Max(nMin, sum);
+                    }
+                    min = Math.Max(min, k == "dxa" ? w : nMin);
+                    max = Math.Max(max, w);
+                    continue;
+                }
+                if (b is not ParagraphBlock pb) continue;
+                var pw = ParaContentWidths(Para.PrepareParagraph(ctx, pb.Paragraph, env), ctx.Fmt.Settings.DefaultTabStop);
+                min = Math.Max(min, pw.Min);
+                max = Math.Max(max, pw.Max);
+            }
+            return 0;
+        });
+        // o Word arredonda a largura do conteúdo para cima, em twips inteiros; vazio (ou só
+        // espaços) mede 6 twips em qualquer tamanho de fonte (tblw e1 + sondas de largura)
+        return (Math.Max(6, Math.Ceiling(min - 1e-6)) + mar, Math.Max(6, Math.Ceiling(max - 1e-6)) + mar);
+    }
+
+    private static (double Min, double Max) ParaContentWidths(PreparedPara p, double defaultTab)
+    {
+        var tabs = p.Tabs.Where(t => t.Val != "bar").Select(t => t.Pos).OrderBy(v => v).ToList();
+        double dts = defaultTab > 0 ? defaultTab : 720;
+        double NextTab(double x)
+        {
+            double? t = null;
+            foreach (var pos in tabs) if (pos > x + 0.5) { t = pos; break; }
+            if (p.FirstLine < 0 && p.IndLeft > x + 0.5 && (t is null || p.IndLeft < t)) return p.IndLeft;
+            if (t is { } tv) return tv;
+            return (Math.Floor(Math.Max(x, tabs.Count > 0 ? tabs[^1] : x) / dts + 1e-6) + 1) * dts;
+        }
+        double x = p.IndLeft + p.FirstLine;
+        if (p.Marker is not null)
+        {
+            x += p.Marker.Width;
+            if (p.Marker.Suff == "tab") x = NextTab(x);
+            else if (p.Marker.Suff == "space") x += p.MarkStyle.SizePt * 5;
+        }
+        double end = x, max = 0, min = 0, seg = 0;
+        bool first = true;
+        // a 1ª palavra começa no recuo da 1ª linha (com deslocamento, antes do recuo esquerdo)
+        // — com número de lista, depois dele e da sua tabulação: não há quebra entre o número
+        // e a 1ª palavra (oráculo tblnum)
+        double x0 = x;
+        void Flush()
+        {
+            if (seg > 0) min = Math.Max(min, seg + Math.Max(0, first ? x0 : p.IndLeft) + p.IndRight);
+            if (seg > 0) first = false;
+            seg = 0;
+        }
+        foreach (var g in p.Glyphs)
+        {
+            if (g.Kind is GlyphKind.Pb or GlyphKind.Cb) continue;
+            if (g.Kind == GlyphKind.Lb) { Flush(); max = Math.Max(max, end + p.IndRight); x = p.IndLeft; end = x; continue; }
+            if (g.Kind == GlyphKind.Tab) { Flush(); x = NextTab(x); continue; }
+            x += g.Adv;
+            if (g.Kind == GlyphKind.Space) { Flush(); continue; }
+            end = x;
+            seg += g.Adv;
+            if (g.BreakAfter) Flush();
+        }
+        Flush();
+        max = Math.Max(max, end + p.IndRight);
+        return (min, max);
     }
 
     private sealed class CellSlot
@@ -192,46 +657,29 @@ public static class TableEngine
         var tblPr = Resolve.MergeTblPr(style.TblPr, direct);
         var look = new TblLook { FirstRow = true, LastRow = false, FirstColumn = true, LastColumn = false, NoHBand = false, NoVBand = true }
             .With(direct.TblLook ?? style.TblPr.TblLook ?? new TblLook());
+        // margem lateral de célula sem definição: 108 twips só sem estilo de tabela algum
+        double defMar = style.HasStyle ? 0 : 108;
         int nRows = table.Rows.Count;
 
-        // ── grade ──
-        var grid = table.GridColsTwips.Select(g => (double)g).ToList();
-        double? tblWidth = WidthTw(tblPr.TblW, frameWidth);
-        if (grid.Count == 0 || grid.All(g => g <= 0))
+        // ── nº de colunas da grade (a grade gravada só vale como largura no layout fixo
+        //    para células sem tcW — oráculo tblw d2/d3; no autoajuste o Word a recalcula) ──
+        double usedColsD = Math.Max(1, table.Rows.Count == 0 ? double.NegativeInfinity : table.Rows.Max(r =>
+            r.Cells.Aggregate(0.0, (s, c) => s + Math.Max(1, c.TcPr?.GridSpan ?? c.GridSpan)) + (r.TrPr?.GridBefore ?? 0) + (r.TrPr?.GridAfter ?? 0)));
+        int usedCols = ToIntSafe(usedColsD);
+        var docGrid = table.GridColsTwips.Select(g => (double)g).ToList();
+        if (docGrid.Count == 0 || docGrid.All(g => g <= 0))
         {
-            double cols = Math.Max(1, table.Rows.Count == 0 ? double.NegativeInfinity : table.Rows.Max(r =>
-                r.Cells.Aggregate(0.0, (s, c) => s + Math.Max(1, c.TcPr?.GridSpan ?? c.GridSpan)) + (r.TrPr?.GridBefore ?? 0) + (r.TrPr?.GridAfter ?? 0)));
-            double total = tblWidth ?? frameWidth;
-            int n = ToIntSafe(cols);
-            grid = Enumerable.Range(0, Math.Max(0, n)).Select(_ => total / cols).ToList();
+            double? tw0 = WidthTw(tblPr.TblW, frameWidth);
+            double total = tw0 is { } t0 && t0 != 0 && !double.IsNaN(t0) ? t0 : frameWidth;
+            docGrid = Enumerable.Range(0, Math.Max(0, usedCols)).Select(_ => total / usedColsD).ToList();
         }
-        // tabela em pct/auto mais larga que o quadro: Word encolhe proporcionalmente (autofit)
-        double width = grid.Aggregate(0.0, (a, b) => a + b);
-        if (tblWidth is { } tw0 && tw0 != 0 && !double.IsNaN(tw0) && tblPr.TblW?.Type == "pct" && Math.Abs(tw0 - width) > 20)
+        else if (docGrid.Count < usedCols)
         {
-            double w0 = width;
-            grid = grid.Select(g => (g * tw0) / w0).ToList();
-            width = tw0;
+            // linhas com mais colunas que a grade: completa com a largura média
+            double avg = docGrid.Sum() / docGrid.Count;
+            while (docGrid.Count < usedCols) docGrid.Add(avg);
         }
-        var colX = new List<double> { 0 };
-        foreach (var g in grid) colX.Add(colX[^1] + g);
-        double ColAt(int i) => i >= 0 && i < colX.Count ? colX[i] : double.NaN; // colX[i] fora = undefined → NaN
-
-        // ── posição ──
-        double firstCellMarL;
-        {
-            var c = table.Rows.Count > 0 && table.Rows[0].Cells.Count > 0 ? table.Rows[0].Cells[0] : null;
-            var m = c?.TcPr?.TcMar?.Left ?? tblPr.TblCellMar?.Left;
-            firstCellMarL = WidthTw(m, width) ?? 108;
-        }
-        // tabela flutuante: posicionada pelo chamador (âncoras do tblpPr) — sem recuo/alinhamento
-        bool floating = tblPr.TblpPr is not null && tblPr.TblpPr.TblpYSpec != "inline";
-        double x = frameX + (floating ? 0 : WidthTw(tblPr.TblInd, frameWidth) ?? 0);
-        // compat < 15: o recuo é até o TEXTO da 1ª célula (a borda sai para a esquerda)
-        if (ctx.Fmt.Settings.CompatibilityMode < 15) x -= firstCellMarL;
-        string? jc = floating ? null : tblPr.Jc;
-        if (jc == "center") x = frameX + (frameWidth - width) / 2;
-        else if (jc is "right" or "end") x = frameX + frameWidth - width;
+        int nCols = docGrid.Count;
 
         // ── células (vMerge) ──
         var slots = new List<List<CellSlot>>();
@@ -264,7 +712,6 @@ public static class TableEngine
         // ── formatação condicional ──
         double rowBand = Math.Max(1, tblPr.TblStyleRowBandSize ?? 1);
         double colBand = Math.Max(1, tblPr.TblStyleColBandSize ?? 1);
-        int nCols = grid.Count;
         List<string> CondFor(int ri, CellSlot s)
         {
             var outp = new List<string> { "wholeTable" };
@@ -344,19 +791,121 @@ public static class TableEngine
         {
             double m = 0;
             if (k == nRows) { if (nRows - 1 >= 0) foreach (var s in slots[nRows - 1]) m = Math.Max(m, Paint.BorderWidth(Edge(s, "bottom"))); }
-            else foreach (var s in slots[k]) if (!s.Merged) m = Math.Max(m, Paint.BorderWidth(TopWinner(s)));
+            else foreach (var s in slots[k])
+            {
+                if (!s.Merged) m = Math.Max(m, Paint.BorderWidth(TopWinner(s)));
+                // dentro de mescla vertical a borda inferior PRÓPRIA da célula de cima também
+                // ocupa a divisa (não é desenhada ali) — oráculo vmdouble
+                else foreach (var u in Covering(k - 1, s.Col, s.Col + s.Span)) m = Math.Max(m, Paint.BorderWidth(Edge(u, "bottom")));
+            }
             band.Add(m);
         }
-        // compat ≥ 15: a borda esquerda começa na margem (+recuo) — a grade fica meia borda adiante
-        if (ctx.Fmt.Settings.CompatibilityMode >= 15 && string.IsNullOrEmpty(jc) && slots.Count > 0 && slots[0].Count > 0)
-            x += Paint.BorderWidth(Edge(slots[0][0], "left")) / 2;
+
+        // ── geometria: largura da tabela, das colunas e posição (oráculos tblpct/tblw) ──
+        // Modo < 15 (tabela do topo; a aninhada segue o modo 15 — tblw d13): o TEXTO da 1ª/última
+        // célula fica no quadro e a tabela sai pelas margens da célula (ou meia borda, se maior):
+        // 100% = quadro + margens. Modo 15: as bordas EXTERNAS ficam no quadro — a grade
+        // (centro das bordas) vai de meia borda a meia borda: 100% = quadro − bordas/2.
+        bool legacy = ctx.Fmt.Settings.CompatibilityMode < 15 && !NestedRef.IsMatch(reference);
+        var row0 = slots.Count > 0 ? slots[0] : new List<CellSlot>();
+        CellSlot? sFirst = row0.Count > 0 ? row0[0] : null, sLast = row0.Count > 0 ? row0[^1] : null;
+        double MarOf(CellSlot s, string side)
+        {
+            var ex = s.Row < table.Rows.Count ? table.Rows[s.Row].TblPrEx : null;
+            var rtm = resolved.TryGetValue(s, out var rr) ? rr.TcPr.TcMar : null;
+            var m = (side == "left" ? rtm?.Left : rtm?.Right) ?? (side == "left" ? ex?.TblCellMar?.Left : ex?.TblCellMar?.Right) ?? (side == "left" ? tblPr.TblCellMar?.Left : tblPr.TblCellMar?.Right);
+            return WidthTw(m, frameWidth) ?? defMar;
+        }
+        double bL = sFirst is not null ? Paint.BorderWidth(Edge(sFirst, "left")) : 0;
+        double bR = sLast is not null ? Paint.BorderWidth(Edge(sLast, "right")) : 0;
+        double effL = sFirst is not null ? Math.Max(MarOf(sFirst, "left"), bL / 2) : 108;
+        double effR = sLast is not null ? Math.Max(MarOf(sLast, "right"), bR / 2) : 108;
+        // largura de 100% (pct) e máximo do autoajuste
+        double geoBase = legacy ? frameWidth + effL + effR : frameWidth - (bL + bR) / 2;
+        // espaçamento entre células (bordas separadas): no autoajuste cada célula ocupa também
+        // 2× o espaçamento (a 1ª e a última coluna, mais um: a borda da tabela) — somado à
+        // largura pedida e ao conteúdo; as bordas laterais da célula, inteiras, só ao conteúdo
+        // (oráculo tblsp)
+        double SpacingOf(int ri) => WidthTw((ri < table.Rows.Count ? table.Rows[ri].TrPr?.TblCellSpacing : null) ?? tblPr.TblCellSpacing, frameWidth) ?? 0;
+        var rawMeasure = new Dictionary<CellSlot, (double Min, double Max)>(ReferenceEqualityComparer.Instance);
+        (double Min, double Max) RawOf(CellSlot s)
+        {
+            if (!rawMeasure.TryGetValue(s, out var mm)) rawMeasure[s] = mm = MeasureCell(ctx, s.Cell, resolved[s], MarOf(s, "left") + MarOf(s, "right"));
+            return mm;
+        }
+        var geoCells = new List<List<GeoCell>>();
+        for (int ri = 0; ri < slots.Count; ri++)
+        {
+            var rs = slots[ri];
+            var outc = new List<GeoCell>();
+            double sp = SpacingOf(ri);
+            foreach (var s in rs)
+            {
+                var sc = s;
+                var tcW0 = resolved[s].TcPr.TcW;
+                double exSp = sp > 0 ? 2 * sp + (s.Col == 0 ? sp : 0) + (s.Col + s.Span >= nCols ? sp : 0) : 0;
+                double ex = sp > 0 ? exSp + Paint.BorderWidth(Edge(s, "left")) + Paint.BorderWidth(Edge(s, "right")) : 0;
+                var tcW = tcW0 is not null && exSp != 0 && PrefOf(tcW0) == "dxa" ? new WidthSpec { W = tcW0.W + exSp, Type = tcW0.Type } : tcW0;
+                // w:noWrap (oráculo nowrap): sem largura pedida em twips (automática ou pct), a célula
+                // não quebra — a mínima é a largura sem quebrar (se nem assim a linha cabe na largura
+                // disponível, fica a mínima comum); com tcW dxa, a célula não encolhe abaixo do tcW
+                // (o texto ainda quebra nele)
+                bool nw = resolved[s].TcPr.NoWrap == true;
+                bool noWrap = nw && PrefOf(tcW0) != "dxa";
+                double floorW = nw && PrefOf(tcW0) == "dxa" ? tcW0!.W : 0;
+                string? tdir = resolved[s].TcPr.TextDirection;
+                bool vertical = tdir is "btLr" or "tbRl" or "tbRlV";
+                var rsC = rs;
+                (double Min, double Max) Measure()
+                {
+                    if (vertical)
+                    {
+                        // texto vertical: a largura é a "altura" do conteúdo sem quebrar (oráculo tblvert)
+                        var rr = resolved[sc];
+                        var c = ctx.Pure(() => layoutCell(sc.Cell, 0, 31680, new CellEnv { TablePPr = rr.PPr, TableRPr = rr.RPr }, $"{reference}/r{sc.Row}/c{sc.Col}"));
+                        // cada linha ocupa 37/36 da sua altura, em twips inteiros; espaçamentos como estão
+                        double linesH = c.Lines.Aggregate(0.0, (a, l) => a + l.Height);
+                        double vh = c.Lines.Aggregate(0.0, (a, l) => a + Js.Round((l.Height * 37) / 36)) + Math.Max(0, c.Height - linesH);
+                        double wv = vh + 6 + MarOf(sc, "left") + MarOf(sc, "right");
+                        return (wv + ex, wv + ex);
+                    }
+                    var mm = RawOf(sc);
+                    bool Fits() => mm.Max + rsC.Aggregate(0.0, (a, o) => a + (ReferenceEquals(o, sc) ? 0 : RawOf(o).Min)) <= geoBase;
+                    double mn = noWrap && Fits() ? mm.Max : Math.Max(mm.Min, floorW);
+                    return (mn + ex, Math.Max(mm.Max, mn) + ex);
+                }
+                outc.Add(new GeoCell { Col = s.Col, Span = s.Span, TcW = tcW, Measure = Measure, Floor = floorW != 0, Pad = MarOf(s, "left") + MarOf(s, "right") + ex });
+            }
+            var tr = ri < table.Rows.Count ? table.Rows[ri].TrPr : null;
+            // gridBefore/gridAfter com wBefore/wAfter: células "vazias" de largura dada
+            if (tr?.GridBefore is { } gb && gb != 0 && tr.WBefore is { Type: "dxa" } wb && wb.W > 0)
+                outc.Insert(0, new GeoCell { Col = 0, Span = ToIntSafe(gb), TcW = wb, Measure = () => (0, 0) });
+            int end = rs.Count > 0 ? rs[^1].Col + rs[^1].Span : 0;
+            if (tr?.GridAfter is { } ga && ga != 0 && tr.WAfter is { Type: "dxa" } wa && wa.W > 0)
+                outc.Add(new GeoCell { Col = end, Span = ToIntSafe(ga), TcW = wa, Measure = () => (0, 0) });
+            geoCells.Add(outc);
+        }
+        // tabela flutuante: posicionada pelo chamador (âncoras do tblpPr) — sem recuo/alinhamento
+        bool floating = tblPr.TblpPr is not null && tblPr.TblpPr.TblpYSpec != "inline";
+        string? jc = floating ? null : tblPr.Jc;
+        double indent = floating || jc is "center" or "right" or "end" ? 0 : WidthTw(tblPr.TblInd, frameWidth) ?? 0;
+        // a tabela automática vai do recuo até a margem direita (tblw f7)
+        var grid = ColumnWidths(geoCells, nCols, docGrid, tblPr.TblW, tblPr.TblLayout == "fixed", geoBase, geoBase - indent);
+        double width = grid.Aggregate(0.0, (a, b) => a + b);
+        var colX = new List<double> { 0 };
+        foreach (var g in grid) colX.Add(colX[^1] + g);
+        double ColAt(int i) => i >= 0 && i < colX.Count ? colX[i] : double.NaN; // colX[i] fora = undefined → NaN
+        double x = frameX + indent + (legacy ? -effL : bL / 2);
+        // centralizada: no meio do quadro; à direita: o espelho da esquerda (tblw a5/a9)
+        if (jc == "center") x = frameX + (frameWidth - width) / 2;
+        else if (jc is "right" or "end") x = frameX + frameWidth - width + (legacy ? effR : -bR / 2);
 
         // ── bordas SEPARADAS (oráculos cellsp/cellsp2) ──
         // tblCellSpacing presente (mesmo 0), na tabela ou em alguma linha: cada célula desenha
         // as PRÓPRIAS bordas dentro da sua caixa e a borda externa da tabela contorna tudo.
         // Entre células, entre linhas e entre a borda externa e as células: 2× o espaçamento.
         // Caixa da célula: [B_i + s, B_(i+1) − s], com B_0 = grade_0 + s, B_n = grade_n − s e
-        // as divisas internas proporcionais à grade (exato com 2 colunas; aproximado com mais).
+        // as divisas internas na própria grade (oráculo tblsp).
         // O texto começa na borda da célula + margem (com s = 0 o Word põe meia borda antes).
         bool separated = tblPr.TblCellSpacing is not null || table.Rows.Any(r => r.TrPr?.TblCellSpacing is not null);
         double SpRow(int ri) => WidthTw((ri < table.Rows.Count ? table.Rows[ri].TrPr?.TblCellSpacing : null) ?? tblPr.TblCellSpacing, width) ?? 0;
@@ -383,7 +932,8 @@ public static class TableEngine
         double BandTopOf(int ri) => separated ? sepTop[ri] : band[ri];
         double BandBottomOf(int ri) => separated ? sepBottom[ri] : ri == nRows - 1 ? band[nRows] : 0;
         double g0 = ColAt(0), gn = ColAt(nCols);
-        double SepB(int i) => g0 + spTbl + (ColAt(i) - g0) * ((gn - g0 - 2 * spTbl) / (gn - g0 is var dd && dd != 0 && !double.IsNaN(dd) ? dd : 1));
+        // divisas: as internas na própria grade; as externas um espaçamento para dentro (oráculo tblsp)
+        double SepB(int i) => i <= 0 ? g0 + spTbl : i >= nCols ? gn - spTbl : ColAt(i);
 
         var rows = new List<RowLayout>();
         var pendingMerges = new List<PendingMerge>();
@@ -406,6 +956,11 @@ public static class TableEngine
         {
             var row = table.Rows[ri];
             var ex = row.TblPrEx;
+            // propriedades da linha com as do estilo da tabela (trPr do estilo e da 1ª linha
+            // condicional: cantSplit, tblHeader — oráculo tblstyletr)
+            var trp = (style.TrPr ?? new TrPr())
+                .With(look.FirstRow == true && ri == 0 && style.Cond.TryGetValue("firstRow", out var frPart) ? frPart.TrPr : null)
+                .With(row.TrPr);
             double contentH = 0;
             var cellInfos = new List<CellInfo>();
             foreach (var s in slots[ri])
@@ -416,8 +971,9 @@ public static class TableEngine
                 double bx1 = separated ? SepB(Math.Min(s.Col + s.Span, nCols)) - spTbl : ColAt(Math.Min(s.Col + s.Span, nCols));
                 double x0r = bx0, x1r = bx1;
                 var mar = (tblPr.TblCellMar ?? new CellMargins()).With(ex?.TblCellMar).With(rs.TcPr.TcMar);
-                double marL = WidthTw(mar.Left, width) ?? 108;
-                double marR = WidthTw(mar.Right, width) ?? 108;
+                // bordas colapsadas: o texto fica pelo menos meia borda depois da linha da grade (tblw a11)
+                double marL = Math.Max(WidthTw(mar.Left, width) ?? defMar, separated ? 0 : Paint.BorderWidth(Edge(s, "left")) / 2);
+                double marR = Math.Max(WidthTw(mar.Right, width) ?? defMar, separated ? 0 : Paint.BorderWidth(Edge(s, "right")) / 2);
                 double marT = WidthTw(mar.Top, width) ?? 0;
                 double marB = WidthTw(mar.Bottom, width) ?? 0;
                 // texto: borda da célula + margem; com espaçamento 0 o Word conta só meia borda
@@ -473,14 +1029,28 @@ public static class TableEngine
                 if (th.HRule == "exact") h = th.Val;
                 else h = Math.Max(h, th.Val + maxMar);
             }
-            double bandTop = BandTopOf(ri);
+            // divisa cuja borda é só a de BAIXO da célula de cima (as de baixo sem borda
+            // de cima própria): ela fica dentro da margem superior da célula de baixo — o
+            // texto começa em máx(borda, margem). Com borda de cima própria (ou na 1ª
+            // linha) a faixa soma — oráculos marborder, tcell
+            double minMarT = double.PositiveInfinity, ownTop = 0;
+            foreach (var ci in cellInfos)
+            {
+                if (ci.Slot.Merged) continue;
+                minMarT = Math.Min(minMarT, ci.MarT);
+                ownTop = Math.Max(ownTop, Paint.BorderWidth(Edge(ci.Slot, "top")));
+            }
+            bool absorb = !separated && ri > 0 && ownTop == 0 && double.IsFinite(minMarT);
+            double bandTop = absorb ? Math.Max(0, BandTopOf(ri) - minMarT) : BandTopOf(ri);
             // altura exata inclui a faixa de borda de cima (oráculo tables/tb-cellmar)
             if (th?.HRule == "exact") h = Math.Max(0, th.Val - bandTop) + maxMarB;
             if (h <= 0) h = 0;
             double bandBottom = BandBottomOf(ri);
             // mesclas verticais que TERMINAM nesta linha: a última linha cresce se faltar altura
+            // — menos com altura exata: a célula mesclada é recortada (oráculo vmexact)
             foreach (var m in pendingMerges)
             {
+                if (th?.HRule == "exact") break;
                 if (m.StartRow + m.Slot.RowSpan - 1 != ri || m.Content is null) continue;
                 double spanned = rowHeights.Skip(m.StartRow).Aggregate(0.0, (a, b) => a + b) - BandTopOf(m.StartRow) + bandTop + h;
                 double need = m.Content.Height + (WidthTw(m.TcPr.TcMar?.Top, width) ?? 0) + (WidthTw(m.TcPr.TcMar?.Bottom, width) ?? 0);
@@ -495,6 +1065,7 @@ public static class TableEngine
                 var brd = new List<PageItem>();
                 var brk = new List<PageItem>();
                 double rh = bTop + ch + bBottom;
+                var mergeAt = new List<MergeAtInfo>();
                 if (separated)
                 {
                     // cada célula: fundo e as próprias bordas dentro da caixa; depois a borda externa
@@ -506,6 +1077,7 @@ public static class TableEngine
                         string? fill = CellFill(ctx, ci.TcPr, tblPr, theme);
                         contents.TryGetValue(s, out var content);
                         if (fill is not null) its.Add(new RectItem { X = x + ci.Bx0, Y = cy0, W = ci.Bx1 - ci.Bx0, H = cy1 - cy0, Fill = fill });
+                        if (s.RowSpan > 1) mergeAt.Add(new MergeAtInfo { Col = s.Col, At = its.Count, EndRow = riC + s.RowSpan - 1 });
                         if (s.RowSpan == 1)
                         {
                             if (content is not null && ci.Vertical is not null) PaintVertical(its, content, ci.Vertical, ci.TcPr.VAlign, x + ci.X0 + ci.MarL, x + ci.X1 - ci.MarR, bTop + ci.MarT, bTop + ch - ci.MarB);
@@ -525,8 +1097,8 @@ public static class TableEngine
                     if (riC == nRows - 1 && bBottom > 0) Paint.PaintBorder(ctx, brd, oB, xl - Paint.BorderWidth(oL) / 2, rh - Paint.BorderWidth(oB) / 2, xr + Paint.BorderWidth(oR) / 2, rh - Paint.BorderWidth(oB) / 2);
                     return new RowLayout
                     {
-                        Height = rh, Items = its, Lines = lns, BorderItems = brd, BreakBorderItems = brk, CantSplit = row.TrPr?.CantSplit == true, Header = row.TrPr?.TblHeader == true,
-                        KeepNext = rowKeepNext, Natural = bTop + Math.Min(ch, contentHC) + bBottom,
+                        Height = rh, Items = its, Lines = lns, BorderItems = brd, BreakBorderItems = brk, CantSplit = trp.CantSplit == true, Header = trp.TblHeader == true,
+                        MergeAt = mergeAt.Count > 0 ? mergeAt : null, KeepNext = rowKeepNext, Natural = bTop + Math.Min(ch, contentHC) + bBottom,
                     };
                 }
                 foreach (var ci in cellInfos)
@@ -534,6 +1106,7 @@ public static class TableEngine
                     var s = ci.Slot;
                     string? fill = CellFill(ctx, ci.TcPr, tblPr, theme);
                     contents.TryGetValue(s, out var content);
+                    if (!s.Merged && s.RowSpan > 1) mergeAt.Add(new MergeAtInfo { Col = s.Col, At = its.Count, EndRow = riC + s.RowSpan - 1 });
                     if (!s.Merged && s.RowSpan == 1)
                     {
                         if (fill is not null) its.Add(new RectItem { X = x + ci.X0, Y = 0, W = ci.X1 - ci.X0, H = rh, Fill = fill });
@@ -571,22 +1144,42 @@ public static class TableEngine
                 }
                 return new RowLayout
                 {
-                    Height = rh, Items = its, Lines = lns, BorderItems = brd, BreakBorderItems = brk, CantSplit = row.TrPr?.CantSplit == true, Header = row.TrPr?.TblHeader == true,
-                    KeepNext = rowKeepNext, Natural = bTop + Math.Min(ch, contentHC) + bBottom,
+                    Height = rh, Items = its, Lines = lns, BorderItems = brd, BreakBorderItems = brk, CantSplit = trp.CantSplit == true, Header = trp.TblHeader == true,
+                    MergeAt = mergeAt.Count > 0 ? mergeAt : null, KeepNext = rowKeepNext, Natural = bTop + Math.Min(ch, contentHC) + bBottom,
                 };
             }
             var full = new Dictionary<CellSlot, CellContent?>(ReferenceEqualityComparer.Instance);
             foreach (var ci in cellInfos) full[ci.Slot] = ci.Content;
-            bool canSplit = row.TrPr?.CantSplit != true && row.TrPr?.TrHeight?.HRule != "exact";
+            bool canSplit = trp.CantSplit != true && row.TrPr?.TrHeight?.HRule != "exact";
+            // linha partida: a borda que fecha a parte de cima (a mais grossa da divisa) fica
+            // abaixo do texto e também tem de caber na página (oráculo rowsplit)
+            double brkW = 0;
+            if (!separated)
+            {
+                foreach (var ci in cellInfos)
+                {
+                    var s = ci.Slot;
+                    if (riC + 1 < slots.Count && slots[riC + 1].Any(o => o.Col == s.Col && o.Merged)) continue;
+                    var w = Edge(s, "bottom");
+                    foreach (var d in Covering(riC + 1, s.Col, s.Col + s.Span)) w = Heavier(w, Edge(d, "top"));
+                    brkW = Math.Max(brkW, Paint.BorderWidth(w));
+                }
+            }
+            // altura mínima (trHeight "atLeast") que não cabe no espaço livre: a linha não
+            // parte, desce inteira — mesmo com conteúdo maior que ela (oráculo rowmin, modos 14/15)
+            double minRow = th is not null && th.HRule != "exact" ? bandTop + th.Val + maxMar + bandBottom : 0;
+            double contMin = th is not null && th.HRule != "exact" ? th.Val + maxMar : 0;
             double bandTopC = bandTop, bandBottomC = bandBottom;
             // linha (ou resto de linha) com divisão sob demanda entre páginas
             Func<double, Dictionary<CellSlot, CellContent?>, bool, bool, RowLayout> build = null!;
             build = (ch, contents, vTop, drawTop) =>
             {
                 var r = PaintRow(ch, contents, vTop, drawTop, bandTopC, bandBottomC);
+                if (brkW > 0 && riC < nRows - 1) r.BreakW = brkW;
                 if (!canSplit) return r;
                 r.Split = avail =>
                 {
+                    if (drawTop && minRow > avail + 0.5) return null;
                     var a = new Dictionary<CellSlot, CellContent?>(ReferenceEqualityComparer.Instance);
                     var rest = new Dictionary<CellSlot, CellContent?>(ReferenceEqualityComparer.Instance);
                     double h1 = 0, h2 = 0;
@@ -596,9 +1189,12 @@ public static class TableEngine
                     {
                         contents.TryGetValue(ci.Slot, out var c);
                         if (c is null || ci.Slot.Merged || ci.Slot.RowSpan != 1) { a[ci.Slot] = c; continue; }
-                        var sp = SplitContent(c, availContent - ci.MarT - ci.MarB);
+                        var sp = SplitContent(c, availContent - ci.MarT - ci.MarB - brkW);
                         if (sp is null)
                         {
+                            // célula com texto que não põe nem a 1ª linha (ou só a órfã) nesta
+                            // página: a linha da tabela desce inteira (oráculo rowwidow)
+                            if (c.Lines.Count > 0) return null;
                             rest[ci.Slot] = c;
                             h2 = Math.Max(h2, c.Height + ci.MarT + ci.MarB);
                             continue;
@@ -614,7 +1210,8 @@ public static class TableEngine
                     // a parte de cima fecha com a borda inferior da célula (no pé da página)
                     firstPart.BorderItems.AddRange(firstPart.BreakBorderItems ?? new List<PageItem>());
                     firstPart.BreakBorderItems = new List<PageItem>();
-                    return (firstPart, build(Math.Max(h2, 1), rest, true, false));
+                    // o resto na página seguinte também tem a altura mínima (oráculo rowmin, rm3-cont-*)
+                    return (firstPart, build(Math.Max(Math.Max(h2, 1), contMin), rest, true, false));
                 };
                 return r;
             };
@@ -631,7 +1228,11 @@ public static class TableEngine
             var first = rows[m.StartRow];
             var target = endRow >= 0 && endRow < rows.Count ? rows[endRow] : first;
             string? fill = CellFill(ctx, m.TcPr, tblPr, theme);
-            if (fill is not null) first.Items.Insert(0, new RectItem { X = x + m.X0, Y = 0, W = m.X1 - m.X0, H = h, Fill = fill });
+            if (fill is not null)
+            {
+                first.Items.Insert(0, new RectItem { X = x + m.X0, Y = 0, W = m.X1 - m.X0, H = h, Fill = fill });
+                foreach (var a in first.MergeAt ?? new List<MergeAtInfo>()) a.At++;
+            }
             double marT = WidthTw(m.TcPr.TcMar?.Top, width) ?? 0;
             double marB = WidthTw(m.TcPr.TcMar?.Bottom, width) ?? 0;
             // topo da célula mesclada no sistema de coordenadas da linha-alvo
@@ -642,7 +1243,18 @@ public static class TableEngine
                 var c = LayoutVertical(m.Slot, h - marT - marB, m.Env, $"{reference}/r{m.StartRow}/c{m.Slot.Col}");
                 PaintVertical(target.Items, c, m.Vertical, m.TcPr.VAlign, x + m.X0 + m.MarL, x + m.X1 - m.MarR, top + marT, top + h - marB);
             }
-            else if (m.Content is not null) PlaceContent(target.Items, target.Lines, m.Content, m.TcPr.VAlign, h, marT, marB, top);
+            else if (m.Content is not null)
+            {
+                int i0 = target.Items.Count, l0 = target.Lines.Count;
+                PlaceContent(target.Items, target.Lines, m.Content, m.TcPr.VAlign, h, marT, marB, top);
+                if (!ReferenceEquals(target, first))
+                    (target.MergeText ??= new List<MergeTextInfo>()).Add(new MergeTextInfo
+                    {
+                        Col = m.Slot.Col, Items = target.Items.GetRange(i0, target.Items.Count - i0), Lines = target.Lines.GetRange(l0, target.Lines.Count - l0),
+                        Dy = rowHeights.Skip(m.StartRow).Take(Math.Max(0, endRow - m.StartRow)).Aggregate(0.0, (a, b) => a + b),
+                        Start = m.StartRow, Content = m.Content, MarT = marT, Band = BandTopOf(m.StartRow), VAlign = Js.Truthy(m.TcPr.VAlign) ? m.TcPr.VAlign : null,
+                    });
+            }
         }
 
         double borderLeft = slots.Count > 0 && slots[0].Count > 0 ? Paint.BorderWidth(Edge(slots[0][0], "left")) : 0;
@@ -712,6 +1324,50 @@ public static class TableEngine
             nl.Baseline = l.Baseline + dy;
             lines.Add(nl);
         }
+    }
+
+    /// <summary>
+    /// O Word grava o texto da célula mesclada na vertical na 1ª linha da mescla, na ordem
+    /// das colunas (oráculo vmorder). Aqui ele vai para a linha <paramref name="ri"/> quando
+    /// <paramref name="fits"/> garante que a mescla inteira fica na mesma página;
+    /// <paramref name="moved"/> recebe os itens tirados da última.
+    /// </summary>
+    public static RowLayout MergeTextFirst(List<RowLayout> rows, int ri, RowLayout row, HashSet<object> moved, Func<double, bool> fits)
+    {
+        if (row.MergeAt is null || row.MergeAt.Count == 0) return row;
+        var items = row.Items;
+        var lines = row.Lines;
+        foreach (var m in row.MergeAt.OrderByDescending(a => a.At).ThenByDescending(a => a.Col).ToList())
+        {
+            var mt = m.EndRow >= 0 && m.EndRow < rows.Count ? rows[m.EndRow].MergeText?.FirstOrDefault(xm => xm.Col == m.Col) : null;
+            if (mt is null || !fits(rows.Skip(ri).Take(Math.Max(0, m.EndRow + 1 - ri)).Aggregate(0.0, (a, r) => a + r.Height))) continue;
+            if (ReferenceEquals(items, row.Items)) { items = new List<PageItem>(items); lines = new List<LaidOutLine>(lines); }
+            items.InsertRange(m.At, mt.Items.Select(it => ShiftItem(it, mt.Dy)));
+            foreach (var l in mt.Lines)
+            {
+                var nl = l.ShallowClone();
+                nl.Y = l.Y + mt.Dy;
+                nl.Baseline = l.Baseline + mt.Dy;
+                lines.Add(nl);
+            }
+            foreach (var o in mt.Items) moved.Add(o);
+            foreach (var o in mt.Lines) moved.Add(o);
+        }
+        if (ReferenceEquals(items, row.Items)) return row;
+        var r2 = row.ShallowClone();
+        r2.Items = items;
+        r2.Lines = lines;
+        return r2;
+    }
+
+    /// <summary>a linha sem os itens de mescla que já foram gravados na linha inicial</summary>
+    public static RowLayout DropMoved(RowLayout row, HashSet<object> moved)
+    {
+        if (moved.Count == 0 || row.MergeText is null) return row;
+        var r2 = row.ShallowClone();
+        r2.Items = row.Items.Where(it => !moved.Contains(it)).ToList();
+        r2.Lines = row.Lines.Where(l => !moved.Contains(l)).ToList();
+        return r2;
     }
 
     public static PageItem ShiftItem(PageItem it, double dy, double dx = 0)

@@ -5919,7 +5919,8 @@ export class UniversalWriteElement extends HTMLElement {
     ctx.imageSmoothingQuality = 'high';
     // instantâneo do corpo (edição legada de HF): fundo transparente e sem o HF
     if (!this.hfCapturing) {
-      ctx.fillStyle = this.pageDark ? '#1e1e1e' : '#ffffff';
+      // fundo da página do documento (w:background) — vale também no modo escuro
+      ctx.fillStyle = page.background ? `#${page.background}` : this.pageDark ? '#1e1e1e' : '#ffffff';
       ctx.fillRect(0, 0, w, h);
     }
     ctx.setTransform(scale, 0, 0, scale, 0, 0);

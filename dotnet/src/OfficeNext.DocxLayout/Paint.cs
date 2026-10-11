@@ -7,9 +7,13 @@ namespace OfficeNext.DocxLayout;
 /// realces) — porta de docx-layout/src/paint.ts.</summary>
 public static class Paint
 {
+    /// <summary>Identidade das linhas pintadas (GlyphRunItem.LineBox.Line).</summary>
+    private static int _lineSeq;
+
     public static void PaintLine(DocContext ctx, List<PageItem> outp, Line line, double frameX, double top)
     {
         double baseY = top + line.Baseline;
+        int lineId = Interlocked.Increment(ref _lineSeq);
         var all = new List<PlacedGlyph>();
         if (line.Marker is not null) all.AddRange(line.Marker);
         all.AddRange(line.Placed);
@@ -44,8 +48,19 @@ public static class Paint
                 if (g.Kind == GlyphKind.Box && g.Box is not null) PaintCheckBox(outp, g, frameX + pg.X, baseY);
                 continue;
             }
+            // seletor de variação (U+FE0E/FE0F, emoji): sem glifo
+            if (g.Cp >= 0xfe00 && g.Cp <= 0xfe0f) continue;
+            // espaços tipográficos tratados como caractere (resultado de FORMTEXT): em branco —
+            // sem o .notdef da fonte que não os tem (corpus t43)
+            if ((g.Cp >= 0x2000 && g.Cp <= 0x200a) || g.Cp == 0x3000) continue;
             var st = g.Style;
-            string key = $"{g.Face.Key}|{(g.Face.SynthBold ? 1 : 0)}{(g.Face.SynthItalic ? 1 : 0)}|{Js.Str(g.SizePt)}|{st.Color}|{Js.Str(st.Shift)}|{Js.Str(st.Rpr.W ?? 100)}|{Js.Str(st.Alpha ?? 1)}";
+            // texto SEM preenchimento (w14:noFill / alpha 100%) e sem contorno: o Word
+            // não desenha nem grava no PDF (oráculo hidetext/tf-nofill, tf-alpha100)
+            if (st.Alpha == 0 && !st.Outline) { Flush(); continue; }
+            // emoji colorido (COLR): o Word desenha as camadas coloridas, sem texto
+            // extraível (oráculo hidetext/emoji)
+            bool colr = g.Face.Font.HasColorGlyphs() && g.Face.Font.ColorLayers(g.Face.Font.GlyphId(g.Cp)) is not null;
+            string key = $"{g.Face.Key}|{(g.Face.SynthBold ? 1 : 0)}{(g.Face.SynthItalic ? 1 : 0)}|{Js.Str(g.SizePt)}|{st.Color}|{Js.Str(st.Shift)}|{Js.Str(st.Rpr.W ?? 100)}|{Js.Str(st.Alpha ?? 1)}|{(colr ? "c" : "")}";
             if (key != runKey)
             {
                 Flush();
@@ -57,6 +72,11 @@ public static class Paint
                     SynthBold = g.Face.SynthBold,
                     SynthItalic = g.Face.SynthItalic,
                     Alpha = st.Alpha,
+                    // semitransparente: o Word desenha CURVAS, não texto (oráculo hidetext/tf-alpha50);
+                    // emoji colorido: curvas por camada
+                    AsPath = st.Alpha is { } a && a > 0 && a < 1 || colr,
+                    LineBox = new LineBoxInfo(line.Baseline - st.Shift, line.Height - line.Baseline + st.Shift, pg.X, lineId),
+                    Colr = colr,
                 };
                 text = new StringBuilder();
             }
@@ -69,22 +89,43 @@ public static class Paint
         PaintDecorations(outp, all, frameX, baseY, line);
     }
 
+    /// <summary>
+    /// Preenchimento de tab como o Word desenha (oráculo tocdots), em pixels de 600 dpi:
+    ///  - glifo/fonte/tamanho/cor/deslocamento: os do run do TAB; 'heavy' também sai com '_';
+    ///  - passo = avanço do glifo no em do dispositivo (round(tamanho × 600/72) px),
+    ///    arredondado ao pixel (+ w:spacing do run do tab; × escala w:w);
+    ///  - grade ABSOLUTA: glifos em múltiplos do passo a partir da borda esquerda da
+    ///    PÁGINA (independe de margem e recuo — tocdots-margin);
+    ///  - só glifos inteiros, sem respiro: 1º em k·passo ≥ fim do texto; o último
+    ///    termina ≤ início do texto seguinte, igualdade inclusive (tocdots-tabpos).
+    ///    Bordas do tab em px como o Word posiciona: px(quadro) + px(deslocamento).
+    /// </summary>
     private static void PaintLeader(DocContext ctx, List<PageItem> outp, PlacedGlyph pg, double frameX, double baseY)
     {
         if (pg.W <= 0) return;
         var g = pg.G;
-        string ch = pg.Leader == "hyphen" ? "-" : pg.Leader == "underscore" ? "_" : pg.Leader == "middleDot" ? "·" : ".";
+        string ch = pg.Leader == "hyphen" ? "-" : pg.Leader == "underscore" || pg.Leader == "heavy" ? "_" : pg.Leader == "middleDot" ? "·" : ".";
         int cp = ch[0];
         var face = g.Face;
         var f = face.Font;
-        double adv = (f.AdvanceWidth(f.GlyphId(cp)) * g.SizePt * 20) / f.Metrics.UnitsPerEm;
-        if (adv <= 0) return;
-        var run = new GlyphRunItem { Face = face, SizePt = g.SizePt, Color = g.Style.Color, Y = baseY };
+        var rpr = g.Style.Rpr;
+        double emPx = Js.Round((g.SizePt * 600) / 72);
+        double step = Js.Round((f.AdvanceWidth(f.GlyphId(cp)) * emPx) / f.Metrics.UnitsPerEm);
+        if (rpr.Spacing is { } sp && sp != 0 && !double.IsNaN(sp)) step += Js.Round(sp / 2.4);
+        double scale = rpr.W is { } w && w != 0 && !double.IsNaN(w) && w != 100 ? w / 100 : 1;
+        step = Js.Round(step * scale);
+        if (!(step > 0)) return;
+        // px do quadro: meio pixel arredonda para o PAR (472,5 → 472; 467,5 → 468 — oráculo tdhalfpx)
+        double fv = frameX / 2.4, ff = Math.Floor(fv);
+        double fx = Math.Abs(fv - ff - 0.5) < 1e-6 ? ff + (ff % 2) : Js.Round(fv);
+        double x0 = fx + Js.Round(pg.X / 2.4), x1 = fx + Js.Round((pg.X + pg.W) / 2.4);
+        var run = new GlyphRunItem
+        {
+            Face = face, SizePt = g.SizePt, Color = g.Style.Color, Y = baseY - g.Style.Shift,
+            ScaleX = scale != 1 ? scale : null,
+        };
         var sb = new StringBuilder();
-        // Word alinha os pontos numa grade absoluta e deixa um respiro antes do texto
-        double x0 = frameX + pg.X, x1 = frameX + pg.X + pg.W - adv * 0.5;
-        double x = Math.Ceiling(x0 / adv) * adv;
-        while (x + adv <= x1) { run.Glyphs.Add(new GlyphPos(cp, x)); sb.Append(ch); x += adv; }
+        for (double k = Math.Ceiling(x0 / step); (k + 1) * step <= x1; k++) { run.Glyphs.Add(new GlyphPos(cp, k * step * 2.4)); sb.Append(ch); }
         run.Text = sb.ToString();
         if (run.Glyphs.Count > 0) outp.Add(run);
     }
@@ -116,10 +157,13 @@ public static class Paint
         FlipV = im.Style?.FlipV == true,
     };
 
-    private static void PaintInlineObject(DocContext ctx, List<PageItem> outp, Glyph g, double x, double baseY)
+    private static void PaintInlineObject(DocContext ctx, List<PageItem> outp, Glyph g, double x0, double baseY0)
     {
         var obj = g.Obj!;
         double shift = g.Style.Shift;
+        // margem de efeitos em linha: a figura fica dentro dela (oráculo effext)
+        var ie = obj.Image?.InlineEffect ?? obj.Shape?.InlineEffect;
+        double x = x0 + (ie?.L ?? 0), baseY = baseY0 - (ie?.B ?? 0);
         if (obj.Image is not null && Emf.IsEmf(obj.Image.Data))
         {
             var im = obj.Image;
@@ -214,31 +258,38 @@ public static class Paint
         return pt * 20;
     }
 
-    /// <summary>Desenha uma borda horizontal/vertical como linha(s).</summary>
+    /// <summary>
+    /// Espessura (twips) com que o Word GRAVA uma borda no PDF (oráculo bdrw): w:sz
+    /// (1/8 pt) truncado para 1/600" — 2→0,24 pt, 4→0,48, 6→0,72, 12→1,44, 24→3,00,
+    /// 36→4,44. O layout usa a espessura nominal (BorderWidth); só o desenho quantiza.
+    /// </summary>
+    public static double BorderPaintWidth(BorderSpec b) => Math.Max(1, Math.Floor((Math.Max(2, b.Sz ?? 4) * 25) / 24 + 1e-9)) * 2.4;
+
+    /// <summary>
+    /// Desenha uma borda horizontal/vertical centrada no segmento dado. As sólidas
+    /// (single, thick, double…) saem como RETÂNGULOS preenchidos da espessura
+    /// quantizada, como no PDF do Word — traço fino antisserrilhado cai entre dois
+    /// pixels e some; o retângulo fino o leitor de PDF alinha ao pixel. Pontilhadas/
+    /// tracejadas seguem como traço (o Word também as grava assim).
+    /// </summary>
     public static void PaintBorder(DocContext ctx, List<PageItem> outp, BorderSpec? b, double x1, double y1, double x2, double y2)
     {
         if (b is null || b.Val is "none" or "nil") return;
         string color = Resolve.ResolveColor(b.Color, b.ThemeColor, b.ThemeTint, b.ThemeShade, ctx.Fmt.Theme) ?? "000000";
-        double pt = Math.Max(0.25, (b.Sz ?? 4) / 8);
+        double w = BorderPaintWidth(b);
         string? dash = b.Val == "dotted" ? "dotted" : b.Val is "dashed" or "dashSmallGap" ? "dashed"
             : b.Val == "dotDash" ? "dashDot" : b.Val == "dotDotDash" ? "dashDotDot" : null;
-        if (b.Val == "double")
+        if (dash is not null) { outp.Add(new LineItem { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Color = color, WidthPt = w / 20, Dash = dash }); return; }
+        // diagonal (tl2br/tr2bl da célula): traço
+        if (x1 != x2 && y1 != y2) { outp.Add(new LineItem { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Color = color, WidthPt = w / 20 }); return; }
+        bool horizontal = Math.Abs(y2 - y1) < Math.Abs(x2 - x1);
+        // faixas [de, até] relativas ao centro: double = traço, vão, traço de w cada
+        var bands = b.Val == "double" ? new[] { (-1.5 * w, -0.5 * w), (0.5 * w, 1.5 * w) } : new[] { (-0.5 * w, 0.5 * w) };
+        foreach (var (a, z) in bands)
         {
-            bool horizontal = Math.Abs(y2 - y1) < Math.Abs(x2 - x1);
-            double off = pt * 20; // 1 traço + 1 vão
-            if (horizontal)
-            {
-                outp.Add(new LineItem { X1 = x1, Y1 = y1 - off, X2 = x2, Y2 = y2 - off, Color = color, WidthPt = pt });
-                outp.Add(new LineItem { X1 = x1, Y1 = y1 + off, X2 = x2, Y2 = y2 + off, Color = color, WidthPt = pt });
-            }
-            else
-            {
-                outp.Add(new LineItem { X1 = x1 - off, Y1 = y1, X2 = x2 - off, Y2 = y2, Color = color, WidthPt = pt });
-                outp.Add(new LineItem { X1 = x1 + off, Y1 = y1, X2 = x2 + off, Y2 = y2, Color = color, WidthPt = pt });
-            }
-            return;
+            if (horizontal) outp.Add(new RectItem { X = Math.Min(x1, x2), Y = y1 + a, W = Math.Abs(x2 - x1), H = z - a, Fill = color });
+            else outp.Add(new RectItem { X = x1 + a, Y = Math.Min(y1, y2), W = z - a, H = Math.Abs(y2 - y1), Fill = color });
         }
-        outp.Add(new LineItem { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Color = color, WidthPt = pt, Dash = dash });
     }
 
     /// <summary>Caixa de bordas/sombreamento de um bloco de parágrafos com bordas iguais.</summary>
@@ -251,21 +302,72 @@ public static class Paint
         var shd = p.Ppr.Shd;
         string? fill = Js.Truthy(shd?.Fill) && shd!.Fill != "auto" ? shd.Fill
             : Js.Truthy(shd?.ThemeFill) ? Resolve.ResolveColor(null, shd!.ThemeFill, shd.ThemeFillTint, shd.ThemeFillShade, ctx.Fmt.Theme) : null;
+        const double EXT = 29;
         var bl = pBdr?.Left;
         var br = pBdr?.Right;
         double padL = bl is not null && bl.Val != "none" && bl.Val != "nil" ? (bl.Space ?? 0) * 20 : 0;
         double padR = br is not null && br.Val != "none" && br.Val != "nil" ? (br.Space ?? 0) * 20 : 0;
-        if (fill is not null) outp.Add(new RectItem { X = left - padL, Y = top, W = right - left + padL + padR, H = bottom - top, Fill = fill });
+        double inL = left - EXT - padL, inR = right + EXT + padR;
+        // sombra (w:shadow): a faixa de cima/baixo reservada é o dobro da espessura; a
+        // borda de cima fica na metade de BAIXO da faixa e a sombra é uma cópia das bordas
+        // direita e de baixo deslocada da espessura para a direita e para baixo (PDF do Word)
+        double shT = drawTop && pBdr?.Top?.Shadow == true ? BorderWidth(pBdr.Top) : 0;
+        double shB = drawBottom && pBdr?.Bottom?.Shadow == true ? BorderWidth(pBdr.Bottom) : 0;
+        double shR = br?.Shadow == true ? BorderWidth(br) : 0;
+        double fTop = shT != 0 ? top + shT + BorderWidth(pBdr!.Top) : top, fBot = shB != 0 ? bottom - shB - BorderWidth(pBdr!.Bottom) : bottom;
+        if (fill is not null) outp.Add(new RectItem { X = inL, Y = fTop, W = inR - inL, H = fBot - fTop, Fill = fill });
         if (pBdr is null) return;
-        if (drawTop) PaintBorder(ctx, outp, pBdr.Top, left - padL - BorderWidth(bl) / 2, top, right + padR + BorderWidth(br) / 2, top);
+        double outL = inL - BorderWidth(bl), outR = inR + BorderWidth(br);
+        if (drawTop) { double y = top + shT + BorderWidth(pBdr.Top) / 2; PaintBorder(ctx, outp, pBdr.Top, outL, y, outR, y); }
         var btw = pBdr.Between;
         if (between && btw is not null && btw.Val != "none" && btw.Val != "nil")
         {
             double yb = top + (btw.Space ?? 0) * 20 + BorderWidth(btw) / 2;
-            PaintBorder(ctx, outp, btw, left - padL - BorderWidth(bl) / 2, yb, right + padR + BorderWidth(br) / 2, yb);
+            PaintBorder(ctx, outp, btw, outL, yb, outR, yb);
         }
-        if (drawBottom) PaintBorder(ctx, outp, pBdr.Bottom, left - padL - BorderWidth(bl) / 2, bottom, right + padR + BorderWidth(br) / 2, bottom);
-        PaintBorder(ctx, outp, bl, left - padL - BorderWidth(bl) / 2, top, left - padL - BorderWidth(bl) / 2, bottom);
-        PaintBorder(ctx, outp, br, right + padR + BorderWidth(br) / 2, top, right + padR + BorderWidth(br) / 2, bottom);
+        if (drawBottom)
+        {
+            double y = bottom - shB - BorderWidth(pBdr.Bottom) / 2;
+            PaintBorder(ctx, outp, pBdr.Bottom, outL, y, outR, y);
+            if (shB != 0) PaintBorder(ctx, outp, pBdr.Bottom, outL + shB, bottom - shB / 2, outR + shB, bottom - shB / 2);
+        }
+        PaintBorder(ctx, outp, bl, inL - BorderWidth(bl) / 2, top + shT, inL - BorderWidth(bl) / 2, bottom - shB);
+        PaintBorder(ctx, outp, br, inR + BorderWidth(br) / 2, top + shT, inR + BorderWidth(br) / 2, bottom - shB);
+        if (shR != 0) PaintBorder(ctx, outp, br, inR + BorderWidth(br) + shR / 2, top + shT + shR, inR + BorderWidth(br) + shR / 2, bottom);
+    }
+
+    /// <summary>
+    /// Bordas de página (w:pgBorders) como o Word as grava no PDF (oráculo pgbdr):
+    ///  - offsetFrom="page": a borda começa a `space` pt da BORDA da página e cresce
+    ///    para dentro;
+    ///  - offsetFrom="text" (padrão): a face interna fica a `space` pt da área de
+    ///    texto e a espessura cresce para fora; com cabeçalho/rodapé na página, o
+    ///    topo/pé contornam o cabeçalho/rodapé (distâncias w:header/w:footer), salvo
+    ///    bordersDoNotSurroundHeader/Footer;
+    ///  - single: sz/8 pt; double: 3 faixas (traço, vão, traço) de sz/8 pt;
+    ///  - os lados horizontais vão de ponta a ponta da caixa (os cantos ficam cheios).
+    /// </summary>
+    internal static List<PageItem> PageBorderItems(DocContext ctx, PgBordersSpec pb, SectGeom g, bool surroundHeader, bool surroundFooter)
+    {
+        static bool On(BorderSpec? b) => b is not null && b.Val != "none" && b.Val != "nil";
+        static double Lw(BorderSpec? b) => On(b) ? Math.Max(0.25, (b!.Sz ?? 4) / 8) * 20 : 0;
+        static double Thick(BorderSpec? b) => On(b) && b!.Val == "double" ? 3 * Lw(b) : Lw(b);
+        static double Sp(BorderSpec? b) => (b?.Space ?? 0) * 20;
+        bool page = pb.OffsetFrom == "page";
+        // faces externas da caixa
+        double top = page ? Sp(pb.Top) : (surroundHeader ? g.Hdr : g.MarT) - Sp(pb.Top) - Thick(pb.Top);
+        double bottom = page ? g.PageH - Sp(pb.Bottom) : g.PageH - (surroundFooter ? g.Ftr : g.MarB) + Sp(pb.Bottom) + Thick(pb.Bottom);
+        double left = page ? Sp(pb.Left) : g.MarL - Sp(pb.Left) - Thick(pb.Left);
+        double right = page ? g.PageW - Sp(pb.Right) : g.PageW - g.MarR + Sp(pb.Right) + Thick(pb.Right);
+        var outp = new List<PageItem>();
+        string Color(BorderSpec b) => Resolve.ResolveColor(b.Color, b.ThemeColor, b.ThemeTint, b.ThemeShade, ctx.Fmt.Theme) ?? "000000";
+        // faixas (desde a face externa, para dentro) de uma borda
+        static (double A, double Z)[] Bands(BorderSpec b) => b.Val == "double"
+            ? new[] { (0.0, Lw(b)), (2 * Lw(b), 3 * Lw(b)) } : new[] { (0.0, Lw(b)) };
+        if (On(pb.Top)) foreach (var (a, z) in Bands(pb.Top!)) outp.Add(new RectItem { X = left, Y = top + a, W = right - left, H = z - a, Fill = Color(pb.Top!) });
+        if (On(pb.Bottom)) foreach (var (a, z) in Bands(pb.Bottom!)) outp.Add(new RectItem { X = left, Y = bottom - z, W = right - left, H = z - a, Fill = Color(pb.Bottom!) });
+        if (On(pb.Left)) foreach (var (a, z) in Bands(pb.Left!)) outp.Add(new RectItem { X = left + a, Y = top, W = z - a, H = bottom - top, Fill = Color(pb.Left!) });
+        if (On(pb.Right)) foreach (var (a, z) in Bands(pb.Right!)) outp.Add(new RectItem { X = right - z, Y = top, W = z - a, H = bottom - top, Fill = Color(pb.Right!) });
+        return outp;
     }
 }

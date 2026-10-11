@@ -1,0 +1,24 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"Ancora","g":[[65,1701],[110,1847.74],[99,1970.09],[111,2080.09],[114,2202.45],[97,2275.71]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1876.34,"scaleX":1,"text":"CorpoantesHxg","g":[[67,1701],[111,1859.88],[114,1982.23],[112,2055.49],[111,2177.85],[97,2361.32],[110,2483.68],[116,2606.03],[101,2667.15],[115,2789.51],[72,2960.63],[120,3119.51],[103,3229.51]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2129.31,"scaleX":1,"text":"CorpodepoisHxg","g":[[67,1701],[111,1859.88],[114,1982.23],[112,2055.49],[111,2177.85],[100,2361.32],[101,2483.68],[112,2606.03],[111,2728.38],[105,2850.74],[115,2899.61],[72,3070.74],[120,3229.61],[103,3339.61]]},
+        {"t":"clip","op":"push","x":7701,"y":1417,"w":2400,"h":400},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"CaixaVEHxg","g":[[67,7701],[97,7859.88],[105,7982.23],[120,8031.11],[97,8141.11],[86,8324.58],[69,8471.32],[72,8679.18],[120,8838.06],[103,8948.06]]},
+        {"t":"clip","op":"pop"}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":8,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":758.18},
+        {"ref":"b1","start":0,"end":15,"x":1701,"y":1669.98,"height":252.98,"baseline":1876.34,"width":1650.86},
+        {"ref":"b2","start":0,"end":16,"x":1701,"y":1922.96,"height":252.98,"baseline":2129.31,"width":1760.97}
+      ]
+    }
+  ],
+  "warnings": []
+}

@@ -1,0 +1,438 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 168.2,
+"size": 11.04,
+"text": "R$12.345,67fim"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 168.2,
+"size": 11.04,
+"text": "R$12.345,67fim"
+},
+{
+"y": 131.78,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 168.2,
+"size": 11.04,
+"text": "R$12.345,67fim"
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 169.7,
+"x0": 85.1,
+"x1": 168.2,
+"size": 11.04,
+"text": "R$12.345,67fim"
+},
+{
+"y": 182.42,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 195.02,
+"x0": 85.1,
+"x1": 168.2,
+"size": 11.04,
+"text": "R$12.345,67fim"
+},
+{
+"y": 207.62,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 220.34,
+"x0": 85.1,
+"x1": 144.94,
+"size": 11.04,
+"text": "US$100fim"
+},
+{
+"y": 232.94,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 245.66,
+"x0": 85.1,
+"x1": 144.94,
+"size": 11.04,
+"text": "US$100fim"
+},
+{
+"y": 258.26,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 271.01,
+"x0": 85.1,
+"x1": 144.94,
+"size": 11.04,
+"text": "US$100fim"
+},
+{
+"y": 283.61,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 296.21,
+"x0": 85.1,
+"x1": 144.94,
+"size": 11.04,
+"text": "US$100fim"
+},
+{
+"y": 308.93,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 321.53,
+"x0": 85.1,
+"x1": 144.94,
+"size": 11.04,
+"text": "US$100fim"
+},
+{
+"y": 334.25,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 346.85,
+"x0": 85.1,
+"x1": 117.46,
+"size": 11.04,
+"text": "$5fim"
+},
+{
+"y": 359.45,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 372.17,
+"x0": 85.1,
+"x1": 117.46,
+"size": 11.04,
+"text": "$5fim"
+},
+{
+"y": 384.77,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 397.49,
+"x0": 85.1,
+"x1": 117.46,
+"size": 11.04,
+"text": "$5fim"
+},
+{
+"y": 410.09,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 422.69,
+"x0": 85.1,
+"x1": 117.46,
+"size": 11.04,
+"text": "$5fim"
+},
+{
+"y": 435.41,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 448.03,
+"x0": 85.1,
+"x1": 117.46,
+"size": 11.04,
+"text": "$5fim"
+},
+{
+"y": 460.75,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 473.35,
+"x0": 85.1,
+"x1": 123.58,
+"size": 11.04,
+"text": "£20fim"
+},
+{
+"y": 485.95,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 498.67,
+"x0": 85.1,
+"x1": 123.58,
+"size": 11.04,
+"text": "£20fim"
+},
+{
+"y": 511.27,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 523.99,
+"x0": 85.1,
+"x1": 123.58,
+"size": 11.04,
+"text": "£20fim"
+},
+{
+"y": 536.59,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 549.31,
+"x0": 85.1,
+"x1": 123.58,
+"size": 11.04,
+"text": "£20fim"
+},
+{
+"y": 561.91,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 574.51,
+"x0": 85.1,
+"x1": 123.58,
+"size": 11.04,
+"text": "£20fim"
+},
+{
+"y": 587.23,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 599.83,
+"x0": 85.1,
+"x1": 144.94,
+"size": 11.04,
+"text": "abc(deffim"
+},
+{
+"y": 612.55,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 625.18,
+"x0": 85.1,
+"x1": 144.94,
+"size": 11.04,
+"text": "abc(deffim"
+},
+{
+"y": 637.78,
+"x0": 85.1,
+"x1": 408.83,
+"size": 11.04,
+"text": "abababababababababababababababababababababc"
+},
+{
+"y": 650.5,
+"x0": 85.1,
+"x1": 124.16,
+"size": 11.04,
+"text": "(deffim"
+},
+{
+"y": 663.1,
+"x0": 85.1,
+"x1": 408.83,
+"size": 11.04,
+"text": "abababababababababababababababababababababc"
+},
+{
+"y": 675.82,
+"x0": 85.1,
+"x1": 124.16,
+"size": 11.04,
+"text": "(deffim"
+},
+{
+"y": 688.42,
+"x0": 85.1,
+"x1": 408.83,
+"size": 11.04,
+"text": "abababababababababababababababababababababc"
+},
+{
+"y": 701.02,
+"x0": 85.1,
+"x1": 124.16,
+"size": 11.04,
+"text": "(deffim"
+},
+{
+"y": 713.74,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 726.34,
+"x0": 85.1,
+"x1": 165.18,
+"size": 11.04,
+"text": "texto\"citadofim"
+},
+{
+"y": 739.06,
+"x0": 85.1,
+"x1": 387.63,
+"size": 11.04,
+"text": "abababababababababababababababababababab"
+},
+{
+"y": 751.66,
+"x0": 85.1,
+"x1": 165.18,
+"size": 11.04,
+"text": "texto\"citadofim"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 414.63,
+"size": 11.04,
+"text": "ababababababababababababababababababababtexto"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 138.2,
+"size": 11.04,
+"text": "\"citadofim"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 414.63,
+"size": 11.04,
+"text": "ababababababababababababababababababababtexto"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 138.2,
+"size": 11.04,
+"text": "\"citadofim"
+},
+{
+"y": 131.78,
+"x0": 85.1,
+"x1": 414.63,
+"size": 11.04,
+"text": "ababababababababababababababababababababtexto"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 138.2,
+"size": 11.04,
+"text": "\"citadofim"
+}
+],
+"objs": []
+}
+]
+}

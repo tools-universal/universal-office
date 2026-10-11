@@ -1,0 +1,60 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 237.27,
+"size": 11.04,
+"text": "Lista1:PrimeiraopcaofimHxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 236.67,
+"size": 11.04,
+"text": "Lista2:TerceiraopcaofimHxg"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 240.39,
+"size": 11.04,
+"text": "Lista3:SegundaopcaofimHxg"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 237.27,
+"size": 11.04,
+"text": "Lista4:PrimeiraopcaofimHxg"
+},
+{
+"y": 131.78,
+"x0": 85.1,
+"x1": 236.67,
+"size": 11.04,
+"text": "Lista5:TerceiraopcaofimHxg"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 193.92,
+"size": 11.04,
+"text": "Lista6:fimHxg"
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 237.27,
+"size": 11.04,
+"text": "Lista7:PrimeiraopcaofimHxg"
+}
+],
+"objs": []
+}
+]
+}

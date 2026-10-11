@@ -28,9 +28,47 @@ public sealed class XmlElement
 /// <summary>
 /// Parser XML mínimo para OOXML — porta 1:1 do xml.ts (sem dependências).
 /// Mesmo comportamento de entidades, CDATA, comentários e prólogos.
+/// Como o xml.ts do write-core: quando o arquivo liga um namespace conhecido a
+/// OUTRO prefixo (ex.: xmlns:ve="…/markup-compatibility/2006" de geradores
+/// antigos do Open XML SDK), o nome é reescrito para o prefixo canônico
+/// (ve:Choice → mc:Choice). O Word resolve pelo namespace, não pelo prefixo
+/// (oráculo hidetext). Pacotes com os prefixos padrão não mudam.
 /// </summary>
 public static class MiniXml
 {
+    /// <summary>Namespace → prefixo canônico (o que o resto do leitor espera).</summary>
+    private static readonly Dictionary<string, string> CanonicalPrefix = new(StringComparer.Ordinal)
+    {
+        ["http://schemas.openxmlformats.org/wordprocessingml/2006/main"] = "w",
+        ["http://schemas.openxmlformats.org/officeDocument/2006/relationships"] = "r",
+        ["http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"] = "wp",
+        ["http://schemas.openxmlformats.org/drawingml/2006/main"] = "a",
+        ["http://schemas.openxmlformats.org/drawingml/2006/picture"] = "pic",
+        ["http://schemas.openxmlformats.org/officeDocument/2006/math"] = "m",
+        ["http://schemas.openxmlformats.org/markup-compatibility/2006"] = "mc",
+        ["http://schemas.microsoft.com/office/word/2010/wordprocessingShape"] = "wps",
+        ["http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"] = "wpg",
+        ["http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"] = "wpc",
+        ["http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"] = "wp14",
+        ["http://schemas.microsoft.com/office/word/2010/wordml"] = "w14",
+        ["http://schemas.microsoft.com/office/word/2012/wordml"] = "w15",
+        ["urn:schemas-microsoft-com:vml"] = "v",
+        ["urn:schemas-microsoft-com:office:office"] = "o",
+        ["urn:schemas-microsoft-com:office:word"] = "w10",
+    };
+
+    /// <summary>Sem renomeações (nunca alterado: cada escopo copia antes de mudar).</summary>
+    private static readonly Dictionary<string, string> NoRenames = new(StringComparer.Ordinal);
+
+    /// <summary>Nome com o prefixo trocado pelo canônico (renomeações em vigor).</summary>
+    private static string Renamed(string name, Dictionary<string, string> ren)
+    {
+        if (ren.Count == 0) return name;
+        int c = name.IndexOf(':');
+        if (c <= 0) return name;
+        return ren.TryGetValue(name[..c], out var to) ? to + name[c..] : name;
+    }
+
     private static bool IsSpace(char c) =>
         c is ' ' or '\t' or '\n' or '\r' or '\v' or '\f'
         || char.GetUnicodeCategory(c) == UnicodeCategory.SpaceSeparator;
@@ -117,7 +155,7 @@ public static class MiniXml
             }
         }
 
-        XmlElement ParseElement()
+        XmlElement ParseElement(Dictionary<string, string> parentRen)
         {
             if (i >= n || xml[i] != '<') Error("esperava <");
             i++;
@@ -125,6 +163,32 @@ public static class MiniXml
             while (i < n && !(IsSpace(xml[i]) || xml[i] == '/' || xml[i] == '>')) i++;
             string name = xml[nameStart..i];
             var el = new XmlElement(name);
+            var ren = parentRen;
+            bool declares = false;
+            // declarações xmlns:* deste elemento: prefixos fora do padrão viram o canônico
+            void Scope()
+            {
+                Dictionary<string, string>? own = null;
+                if (declares)
+                {
+                    foreach (var (k, uri) in el.Attrs)
+                    {
+                        if (!k.StartsWith("xmlns:", StringComparison.Ordinal)) continue;
+                        string pfx = k[6..];
+                        string? canon = CanonicalPrefix.TryGetValue(uri, out var cv) ? cv : null;
+                        if ((canon is null || canon == pfx) && !ren.ContainsKey(pfx)) continue;
+                        own ??= new Dictionary<string, string>(ren, StringComparer.Ordinal);
+                        if (canon is null || canon == pfx) own.Remove(pfx);
+                        else own[pfx] = canon;
+                    }
+                }
+                if (own is not null) ren = own;
+                if (ren.Count == 0) return;
+                el.Name = Renamed(el.Name, ren);
+                var attrs = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var (k, v) in el.Attrs) attrs[k.StartsWith("xmlns:", StringComparison.Ordinal) ? k : Renamed(k, ren)] = v;
+                el.Attrs = attrs;
+            }
             for (; ; )
             {
                 while (i < n && IsSpace(xml[i])) i++;
@@ -132,9 +196,10 @@ public static class MiniXml
                 {
                     if (i + 1 >= n || xml[i + 1] != '>') Error("esperava />");
                     i += 2;
+                    Scope();
                     return el;
                 }
-                if (i < n && xml[i] == '>') { i++; break; }
+                if (i < n && xml[i] == '>') { i++; Scope(); break; }
                 int aStart = i;
                 while (i < n && xml[i] != '=' && !IsSpace(xml[i])) i++;
                 string aName = xml[aStart..i];
@@ -149,6 +214,7 @@ public static class MiniXml
                 i = xml.IndexOf(q, i);
                 if (i < 0) Error("aspas não fechadas");
                 el.Attrs[aName] = DecodeEntities(xml[vStart..i]);
+                if (aName.StartsWith("xmlns:", StringComparison.Ordinal)) declares = true;
                 i++;
             }
             // conteúdo
@@ -173,7 +239,7 @@ public static class MiniXml
                     i = end + 3;
                     continue;
                 }
-                if (xml[i] == '<') { el.Children.Add(ParseElement()); continue; }
+                if (xml[i] == '<') { el.Children.Add(ParseElement(ren)); continue; }
                 int tStart = i;
                 while (i < n && xml[i] != '<') i++;
                 string text = DecodeEntities(xml[tStart..i]);
@@ -182,7 +248,7 @@ public static class MiniXml
         }
 
         SkipMisc();
-        return ParseElement();
+        return ParseElement(NoRenames);
     }
 
     private static bool StartsWith(string s, string token, int at) =>

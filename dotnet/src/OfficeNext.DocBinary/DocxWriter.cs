@@ -138,7 +138,7 @@ internal sealed class DocxWriter
 
         // corpo
         string body = RenderMain(docRels);
-        SetFile("word/document.xml", $"{Xml.XML_DECL}<w:document{Xml.CONTENT_NS}><w:body>{body}</w:body></w:document>");
+        SetFile("word/document.xml", $"{Xml.XML_DECL}<w:document{Xml.CONTENT_NS}>{BackgroundXml(R.BackgroundShape())}<w:body>{body}</w:body></w:document>");
         _overrides.Add(("/word/document.xml", "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"));
 
         if (footnotes.Count > 0)
@@ -960,7 +960,7 @@ internal sealed class DocxWriter
                 Xml.El("wp:effectExtent", new Attrs { { "l", 0 }, { "t", 0 }, { "r", 0 }, { "b", 0 } }) +
                 Xml.El("wp:docPr", new Attrs { { "id", id }, { "name", name } }) +
                 "<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect=\"1\"/></wp:cNvGraphicFramePr>" +
-                PicGraphic(id, name, rid, cx, cy, pic.Crop)) +
+                PicGraphic(id, name, rid, cx, cy, pic.Crop, pic.Fx)) +
             "</w:drawing>";
     }
 
@@ -1048,7 +1048,7 @@ internal sealed class DocxWriter
         if (blip is not null && story is null)
         {
             string rid = ctx.Rels.Add("image", MediaTarget(blip));
-            return PicGraphic(id, name, rid, cx, cy, CropOf(shape));
+            return PicGraphic(id, name, rid, cx, cy, CropOf(shape), Pictures.PicFxOf(shape));
         }
         return "<a:graphic><a:graphicData uri=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\">" +
             WspXml(shape, ctx, new Box(0, 0, cx, cy), story, false) + "</a:graphicData></a:graphic>";

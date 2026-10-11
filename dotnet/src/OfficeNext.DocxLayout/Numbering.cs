@@ -112,9 +112,19 @@ public sealed class NumberMarker
 
 public sealed class NumberingState
 {
-    /// <summary>contadores por lista: índices 0..8 (escritas fora disso nunca são lidas).</summary>
-    private Dictionary<string, double?[]> _counters = new(StringComparer.Ordinal);
+    /// <summary>
+    /// Contador de um nível. Real = algum parágrafo DESTE nível já foi numerado;
+    /// senão o valor só existe porque um nível mais fundo o exigiu (pai "virtual"):
+    /// conta para o próximo parágrafo do nível, mas aparece como o início do nível.
+    /// </summary>
+    private struct LevelCount { public double V; public bool Real; }
+
+    /// <summary>contadores por abstractNum (compartilhados por todos os w:num dele): índices 0..8.</summary>
+    private Dictionary<string, LevelCount?[]> _counters = new(StringComparer.Ordinal);
+    /// <summary>w:num já usados (o startOverride só reinicia no 1º uso).</summary>
     private HashSet<double> _seenNums = new();
+    /// <summary>"numId:ilvl" com startOverride adiado (nível pai ainda sem uso no 1º uso do w:num).</summary>
+    private HashSet<string> _deferred = new(StringComparer.Ordinal);
     private readonly Numbering _numbering;
     private readonly JsRecord<StyleDef> _styles;
     private readonly string _lang;
@@ -131,13 +141,29 @@ public sealed class NumberingState
     {
         var c = new NumberingState(_numbering, _styles, _lang)
         {
-            _counters = _counters.ToDictionary(kv => kv.Key, kv => (double?[])kv.Value.Clone(), StringComparer.Ordinal),
+            _counters = _counters.ToDictionary(kv => kv.Key, kv => (LevelCount?[])kv.Value.Clone(), StringComparer.Ordinal),
             _seenNums = new HashSet<double>(_seenNums),
+            _deferred = new HashSet<string>(_deferred, StringComparer.Ordinal),
         };
         return c;
     }
 
+    /// <summary>
+    /// Esquece quais w:num já foram usados: o próximo parágrafo de um w:num com
+    /// startOverride reinicia de novo. Artefato do PDF do Word aberto e exportado
+    /// direto (sem repaginar): os parágrafos formatados na abertura guardam o
+    /// número; o seguinte de uma lista com override recomeça. Chamado pelo motor.
+    /// </summary>
+    public void ForgetFirstUse() => _seenNums.Clear();
+
     /// <summary>abstractNum efetivo (segue numStyleLink → estilo de numeração → numId).</summary>
+    /// <summary>Lista (abstractNum efetivo) de um w:num — espaçamento automático entre itens.</summary>
+    public string? ListKey(double numId)
+    {
+        double? a = numId != 0 && !double.IsNaN(numId) ? AbstractFor(numId) : null;
+        return a is { } v ? $"a{Js.Str(v)}" : null;
+    }
+
     private double? AbstractFor(double numId, int depth = 0)
     {
         if (!_numbering.Nums.TryGetValue(numId, out var inst)) return null;
@@ -169,7 +195,15 @@ public sealed class NumberingState
 
     private static readonly Regex PctRe = new(@"%([1-9])", RegexOptions.CultureInvariant);
 
-    /// <summary>Avança o contador e devolve o marcador do parágrafo (nulo = sem numeração).</summary>
+    /// <summary>
+    /// Avança o contador e devolve o marcador do parágrafo (nulo = sem numeração).
+    /// Regras medidas no Word (oráculo numbering2) — espelho de numbering.ts:
+    /// contador do abstractNum compartilhado pelos w:num; startOverride só no 1º
+    /// uso do w:num (níveis do parágrafo para baixo reiniciam; pai com override
+    /// ainda sem uso fica com o valor do override e reinicia no 1º parágrafo deste
+    /// w:num naquele nível; pai já usado ignora); início do nível do w:num = seu
+    /// startOverride; pai nunca usado aparece com o início do nível e passa a contar.
+    /// </summary>
     public NumberMarker? Next(double numId, double ilvl)
     {
         if (numId == 0 || double.IsNaN(numId)) return null;
@@ -179,24 +213,30 @@ public sealed class NumberingState
         ilvl = Math.Max(0, Math.Min(8, ilvl));
         var lvl = Level(numId, ilvl);
         if (lvl is null) return null;
-        bool hasOverride = inst.Overrides.Values.Any(o => o.StartOverride is not null);
-        string key = hasOverride ? $"n{Js.Str(numId)}" : $"a{Js.Str(a.Value)}";
-        if (!_counters.TryGetValue(key, out var c)) { c = new double?[9]; _counters[key] = c; }
-        if (hasOverride && !_seenNums.Contains(numId))
+        string key = $"a{Js.Str(a.Value)}";
+        if (!_counters.TryGetValue(key, out var c)) { c = new LevelCount?[9]; _counters[key] = c; }
+        double? OvStart(double l) => inst.Overrides.TryGetValue(l, out var ov) ? ov.StartOverride : null;
+        // início do nível (definição do nível — o que aparece no pai virtual)
+        double LvlStart(double l) => Level(numId, l)?.Start ?? 0;
+        // início do nível NESTE w:num (o startOverride, se houver)
+        double StartOf(double l) => OvStart(l) ?? LvlStart(l);
+        if (!_seenNums.Contains(numId))
         {
             _seenNums.Add(numId);
-            foreach (var (lv, o) in inst.Overrides)
+            for (int l = 0; l < 9; l++)
             {
-                if (o.StartOverride is not null && lv >= 0 && lv < 9 && lv == Math.Floor(lv)) c[(int)lv] = o.StartOverride - 1;
+                var s = OvStart(l);
+                if (s is null) continue;
+                if (l >= ilvl) c[l] = null;
+                else if (c[l] is not { Real: true }) { c[l] = new LevelCount { V = s.Value, Real = false }; _deferred.Add($"{Js.Str(numId)}:{Js.Str(l)}"); }
             }
         }
-        double StartOf(double l)
-        {
-            if (inst.Overrides.TryGetValue(l, out var ov) && ov.StartOverride is not null) return ov.StartOverride.Value;
-            return Level(numId, l)?.Start ?? 0;
-        }
         int il = (int)ilvl;
-        c[il] = c[il] is null ? StartOf(ilvl) : c[il] + 1;
+        var cur = c[il];
+        if (_deferred.Remove($"{Js.Str(numId)}:{Js.Str(ilvl)}") || cur is null) c[il] = new LevelCount { V = StartOf(ilvl), Real = true };
+        else c[il] = new LevelCount { V = cur.Value.V + 1, Real = true };
+        // pais nunca usados passam a contar (com o início do nível)
+        for (int l = 0; l < ilvl; l++) if (c[l] is null) c[l] = new LevelCount { V = StartOf(l), Real = false };
         // níveis mais fundos reiniciam (salvo lvlRestart)
         for (int d = il + 1; d < 9; d++)
         {
@@ -212,7 +252,8 @@ public sealed class NumberingState
             text = PctRe.Replace(lvlText, m =>
             {
                 int l = m.Groups[1].Value[0] - '1';
-                double v = c[l] ?? StartOf(l);
+                var n = c[l];
+                double v = n is { Real: true } ? n.Value.V : LvlStart(l);
                 string fmt = lvl.IsLgl == true && l != il ? "decimal" : (Level(numId, l)?.NumFmt ?? "decimal");
                 return NumberFormat.FormatNumber(v, fmt == "bullet" ? "decimal" : fmt, _lang);
             });

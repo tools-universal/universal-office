@@ -9,6 +9,7 @@ export {
   hexColor,
   type PdfColor,
   type PdfImage,
+  type PdfShading,
   type PlacedGlyph,
   type PathCmd,
 } from './document.js';

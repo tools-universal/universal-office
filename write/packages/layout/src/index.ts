@@ -1,4 +1,4 @@
-export { SfntFont, type FontMetrics } from './font/sfnt.js';
+export { SfntFont, type FontMetrics, type GlyphOutlineCmd, type ColorLayer } from './font/sfnt.js';
 export type { LayoutFont } from './font/layout-font.js';
 export { breakParagraph, type LineBox, type BreakOptions } from './linebreak.js';
 export { deviceEmPt, singleLineHeightPt, lineHeightPt, type LineSpacing } from './lineheight.js';

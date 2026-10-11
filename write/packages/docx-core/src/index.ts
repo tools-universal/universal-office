@@ -20,12 +20,13 @@ export {
   EMU_PER_TWIP,
   type DrawingShape,
   type DrawingGroup,
+  type ImageEffects,
   runPropsFromRPr,
   paraPropsFromPPr,
 } from './document.js';
 export * from './ooxml/props.js';
 export * from './ooxml/parts.js';
-export type { DrawingAnchor, AnchorPos, ShapeStyle, WrapType } from './drawing.js';
+export type { DrawingAnchor, AnchorPos, ShapeStyle, WrapType, CustPath, CustCmd } from './drawing.js';
 export {
   readFullDocument,
   type FullDocument,

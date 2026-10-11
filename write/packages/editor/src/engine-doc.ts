@@ -384,7 +384,7 @@ type Item = import('@universal-office/docx-layout').PageItem;
 export function shiftPageItem(it: Item, dx: number, dy: number): Item {
   if (!dx && !dy) return it;
   switch (it.t) {
-    case 'glyphs': return { ...it, y: it.y + dy, glyphs: dx ? it.glyphs.map((g) => ({ cp: g.cp, x: g.x + dx })) : it.glyphs };
+    case 'glyphs': return { ...it, y: it.y + dy, glyphs: dx ? it.glyphs.map((g) => ({ ...g, x: g.x + dx })) : it.glyphs };
     case 'rect': case 'image': case 'shape': return { ...it, x: it.x + dx, y: it.y + dy };
     case 'line': return { ...it, x1: it.x1 + dx, x2: it.x2 + dx, y1: it.y1 + dy, y2: it.y2 + dy };
     case 'clip': return it.y === undefined ? it : { ...it, x: (it.x ?? 0) + dx, y: it.y + dy };

@@ -18,7 +18,7 @@ import { CONTENT_NS, NS, XML_DECL, attrs, el, escText } from './xmlw.js';
 import { buildNumbering } from './numbering.js';
 import { buildSettings } from './settings.js';
 import { buildStyles, styleIdMap } from './styles-xml.js';
-import { readInlinePicture, shapeBlip, type PicInfo } from './pictures.js';
+import { picFxOf, readInlinePicture, shapeBlip, type PicFx, type PicInfo } from './pictures.js';
 import { ffDataXml } from './formfields.js';
 import { presetFor, isConnectorType, isWordArtType, type RawAdjust } from './preset-map.js';
 import { FSP, type Blip, type OAShape } from './officeart.js';
@@ -173,7 +173,7 @@ export class DocxWriter {
 
     // corpo
     const body = this.renderMain(docRels);
-    this.files.set('word/document.xml', `${XML_DECL}<w:document${CONTENT_NS}><w:body>${body}</w:body></w:document>`);
+    this.files.set('word/document.xml', `${XML_DECL}<w:document${CONTENT_NS}>${backgroundXml(r.backgroundShape())}<w:body>${body}</w:body></w:document>`);
     this.overrides.push(['/word/document.xml', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml']);
 
     if (footnotes.length) {
@@ -921,7 +921,7 @@ export class DocxWriter {
     const story = stories.get(shape.spid) ?? stories.get(f.spid);
     if (blip && !story) {
       const rid = ctx.rels.add('image', this.mediaTarget(blip));
-      return picGraphic(id, name, rid, cx, cy, { cx, cy, blip, crop: cropOf(shape) });
+      return picGraphic(id, name, rid, cx, cy, { cx, cy, blip, crop: cropOf(shape), fx: picFxOf(shape) });
     }
     return '<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">' +
       this.wspXml(shape, ctx, { x: 0, y: 0, cx, cy }, story, false) + '</a:graphicData></a:graphic>';
@@ -1380,6 +1380,20 @@ function oaColor(v: number | undefined, def: number): string {
   return hex(((v & 0xff) << 16) | (v & 0xff00) | ((v >> 16) & 0xff));
 }
 
+/**
+ * Fundo da página: forma de fundo do desenho principal com preenchimento sólido
+ * (fillType 0x180 = 0, fFilled em 0x1BF) → w:background com a cor (0x181).
+ */
+function backgroundXml(shape: OAShape | undefined): string {
+  if (!shape) return '';
+  const pv = (k: number): number | undefined => shape.props.get(k)?.value;
+  if ((pv(0x180) ?? 0) !== 0 || oaFlag(pv(0x1bf), 4) === false) return '';
+  const c = pv(0x181);
+  if (c === undefined || (c >>> 24) !== 0) return '';
+  const color = oaColor(c, 0xffffff);
+  return color === 'FFFFFF' ? '' : el('w:background', { 'w:color': color });
+}
+
 /** Linha horizontal em linha (o:hr) — o DrawingML não tem equivalente; o Word grava VML. */
 function hrVml(pic: PicInfo): string {
   const hr = pic.hr!;
@@ -1417,7 +1431,11 @@ function cropOf(shape: OAShape): PicInfo['crop'] {
   return c.t || c.b || c.l || c.r ? c : undefined;
 }
 
-function picGraphic(id: number, name: string, rid: string, cx: number, cy: number, pic: Pick<PicInfo, 'crop'> & { cx?: number; cy?: number; blip?: Blip }): string {
+function picGraphic(id: number, name: string, rid: string, cx: number, cy: number, pic: Pick<PicInfo, 'crop'> & { cx?: number; cy?: number; blip?: Blip; fx?: PicFx | undefined }): string {
+  // ajustes de cor da imagem (marca-d'água "desbotada" etc.) dentro do a:blip
+  const fx = pic.fx;
+  const blipKids = !fx ? '' : (fx.gray ? '<a:grayscl/>' : '') + (fx.biLevel ? '<a:biLevel thresh="50000"/>' : '')
+    + (fx.bright || fx.contrast ? el('a:lum', { bright: fx.bright || undefined, contrast: fx.contrast || undefined }) : '');
   let src = '';
   if (pic.crop) {
     const k = (v: number): number => Math.round(v * 100000);
@@ -1425,7 +1443,7 @@ function picGraphic(id: number, name: string, rid: string, cx: number, cy: numbe
   }
   return '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
     `<pic:pic><pic:nvPicPr>${el('pic:cNvPr', { id: 0, name })}<pic:cNvPicPr/></pic:nvPicPr>` +
-    `<pic:blipFill>${el('a:blip', { 'r:embed': rid })}${src}<a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
+    `<pic:blipFill>${el('a:blip', { 'r:embed': rid }, blipKids || undefined)}${src}<a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
     `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>` +
     '</a:graphicData></a:graphic>' + (id < 0 ? '' : '');
 }

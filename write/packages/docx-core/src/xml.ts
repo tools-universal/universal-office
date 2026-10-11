@@ -1,7 +1,10 @@
 /**
  * Parser XML mínimo para OOXML (sem dependências, roda em browser e Node).
- * Não resolve namespaces — nomes prefixados ("w:p") são usados literalmente,
- * o que é estável dentro de um docx (prefixos fixos no root).
+ * Nomes prefixados ("w:p") são usados literalmente — o que é estável dentro de
+ * um docx do Word — EXCETO quando o arquivo liga um namespace conhecido a OUTRO
+ * prefixo (ex.: xmlns:ve="…/markup-compatibility/2006" de geradores antigos do
+ * Open XML SDK): aí o nome é reescrito para o prefixo canônico (ve:Choice →
+ * mc:Choice). O Word resolve pelo namespace, não pelo prefixo (oráculo hidetext).
  */
 
 export interface XmlElement {
@@ -20,6 +23,38 @@ const RAW_CAPTURE = new Set(['w:drawing']);
 const ENTITIES: Record<string, string> = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
 };
+
+/** Namespace → prefixo canônico (o que o resto do leitor espera). */
+const CANONICAL_PREFIX: Record<string, string> = {
+  'http://schemas.openxmlformats.org/wordprocessingml/2006/main': 'w',
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships': 'r',
+  'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing': 'wp',
+  'http://schemas.openxmlformats.org/drawingml/2006/main': 'a',
+  'http://schemas.openxmlformats.org/drawingml/2006/picture': 'pic',
+  'http://schemas.openxmlformats.org/officeDocument/2006/math': 'm',
+  'http://schemas.openxmlformats.org/markup-compatibility/2006': 'mc',
+  'http://schemas.microsoft.com/office/word/2010/wordprocessingShape': 'wps',
+  'http://schemas.microsoft.com/office/word/2010/wordprocessingGroup': 'wpg',
+  'http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas': 'wpc',
+  'http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing': 'wp14',
+  'http://schemas.microsoft.com/office/word/2010/wordml': 'w14',
+  'http://schemas.microsoft.com/office/word/2012/wordml': 'w15',
+  'urn:schemas-microsoft-com:vml': 'v',
+  'urn:schemas-microsoft-com:office:office': 'o',
+  'urn:schemas-microsoft-com:office:word': 'w10',
+};
+
+/** Renomeações de prefixo em vigor (prefixo do arquivo → canônico). */
+type Renames = ReadonlyMap<string, string>;
+const NO_RENAMES: Renames = new Map();
+
+function renamed(name: string, ren: Renames): string {
+  if (ren.size === 0) return name;
+  const c = name.indexOf(':');
+  if (c <= 0) return name;
+  const to = ren.get(name.slice(0, c));
+  return to === undefined ? name : `${to}${name.slice(c)}`;
+}
 
 function decodeEntities(s: string): string {
   return s.replace(/&(#x?[0-9a-fA-F]+|\w+);/g, (_, e: string) => {
@@ -56,24 +91,47 @@ export function parseXml(xml: string): XmlElement {
     }
   }
 
-  function parseElement(): XmlElement {
+  function parseElement(parentRen: Renames): XmlElement {
     if (xml[i] !== '<') error('esperava <');
     const elStart = i;
     i++;
     const nameStart = i;
     while (i < n && !/[\s/>]/.test(xml[i]!)) i++;
-    const name = xml.slice(nameStart, i);
-    const attrs: Record<string, string> = {};
+    let name = xml.slice(nameStart, i);
+    let attrs: Record<string, string> = {};
+    let ren = parentRen;
+    let declares = false;
+    /** declarações xmlns:* deste elemento: prefixos fora do padrão viram o canônico */
+    const scope = (): void => {
+      let own: Map<string, string> | null = null;
+      for (const k in declares ? attrs : {}) {
+        if (!k.startsWith('xmlns:')) continue;
+        const pfx = k.slice(6);
+        const uri = attrs[k]!;
+        const canon = Object.hasOwn(CANONICAL_PREFIX, uri) ? CANONICAL_PREFIX[uri] : undefined;
+        if ((canon === undefined || canon === pfx) && !ren.has(pfx)) continue;
+        own ??= new Map(ren);
+        if (canon === undefined || canon === pfx) own.delete(pfx);
+        else own.set(pfx, canon);
+      }
+      if (own) ren = own;
+      if (ren.size === 0) return;
+      name = renamed(name, ren);
+      const out: Record<string, string> = {};
+      for (const k in attrs) out[k.startsWith('xmlns:') ? k : renamed(k, ren)] = attrs[k]!;
+      attrs = out;
+    };
     for (;;) {
       while (i < n && /\s/.test(xml[i]!)) i++;
       if (xml[i] === '/') {
         if (xml[i + 1] !== '>') error('esperava />');
         i += 2;
+        scope();
         const el: XmlElement = { name, attrs, children: [] };
         if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i);
         return el;
       }
-      if (xml[i] === '>') { i++; break; }
+      if (xml[i] === '>') { i++; scope(); break; }
       const aStart = i;
       while (i < n && xml[i] !== '=' && !/\s/.test(xml[i]!)) i++;
       const aName = xml.slice(aStart, i);
@@ -88,6 +146,7 @@ export function parseXml(xml: string): XmlElement {
       i = xml.indexOf(q, i);
       if (i < 0) error('aspas não fechadas');
       attrs[aName] = decodeEntities(xml.slice(vStart, i));
+      if (aName.startsWith('xmlns:')) declares = true;
       i++;
     }
     // conteúdo
@@ -112,7 +171,7 @@ export function parseXml(xml: string): XmlElement {
         continue;
       }
       if (xml[i] === '<') {
-        children.push(parseElement());
+        children.push(parseElement(ren));
         continue;
       }
       const tStart = i;
@@ -123,7 +182,7 @@ export function parseXml(xml: string): XmlElement {
   }
 
   skipMisc();
-  const root = parseElement();
+  const root = parseElement(NO_RENAMES);
   return root;
 }
 

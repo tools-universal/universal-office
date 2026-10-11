@@ -9,7 +9,7 @@ import { DocFormatError, FC, readFib, type Fib } from './fib.js';
 import { readChpxRuns, readPapxRuns, readPlc, runAt, type FcRun } from './fkp.js';
 import { readFonts, type DocFont } from './fonts.js';
 import { readLists, type Lists } from './lists.js';
-import { applyMasters, indexDrawing, readBStore, type BseEntry, type OAShape } from './officeart.js';
+import { FSP, applyMasters, indexDrawing, readBStore, type BseEntry, type OAShape } from './officeart.js';
 import { applySep, defaultSep, type Sep } from './props.js';
 import { prls } from './sprm.js';
 import { readStsh, StyleResolver, type StyleSheet } from './stsh.js';
@@ -427,6 +427,13 @@ export class DocReader {
   shape(spid: number, hdr: boolean): OAShape | undefined {
     this.loadDrawings();
     return (hdr ? this.shapesHdr : this.shapesMain)!.get(spid) ?? (hdr ? this.shapesMain : this.shapesHdr)!.get(spid);
+  }
+
+  /** Forma de fundo do documento principal (FSP.fBackground): o fundo da página. */
+  backgroundShape(): OAShape | undefined {
+    this.loadDrawings();
+    for (const s of this.shapesMain!.values()) if (s.flags & FSP.background) return s;
+    return undefined;
   }
 
   /** Entrada do BStore (pib 1-based). */

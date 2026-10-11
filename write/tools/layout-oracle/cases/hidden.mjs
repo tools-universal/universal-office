@@ -34,3 +34,27 @@ for (const [name, mid] of [
 }
 // linha SEM trPr/hidden, mas com todo o conteúdo (e marcas) oculto: some?
 cases.push({ name: 'hid-row-content-nohidden', docx: buildDocx({ body: A + tbl([row(p(r('L1 Hxg'))), row(hp(hr('L2 oculta'))), row(p(r('L3 Hxg')))]) + D, defaults: docDefaults({ font: 'Arial', size: 11 }) }) });
+// fim do documento: tabela e depois DOIS parágrafos vazios de marca oculta (o
+// último é a marca final do documento) — sobra página em branco?
+{
+  const t = tbl([row(p(r('L1 Hxg'))), row(p(r('L2 Hxg')))]);
+  // a tabela termina a 0–3 linhas do fim da página
+  for (const n of [49, 50, 51, 52]) {
+    const fill = Array.from({ length: n }, (_, k) => p(r(`Linha ${k + 1} Hxg`))).join('');
+    for (const [name, tail] of [['two', hp('') + hp('')], ['one', hp('')], ['bold', p('', `<w:rPr><w:b/>${V}<w:sz w:val="28"/></w:rPr>`) + hp('')]]) {
+      cases.push({ name: `hid-end-${name}-${n}`, docx: buildDocx({ body: fill + t + tail, defaults: docDefaults({ font: 'Arial', size: 11 }) }) });
+    }
+  }
+}
+// fim do documento como num modelo de formulário: parágrafo vazio VISÍVEL com
+// espaço depois, parágrafo de marca e texto ocultos, tabela de linhas ocultas e dois
+// parágrafos de marca oculta (o último é o fim do documento) — 1 ou 2 páginas?
+{
+  const t = tbl([row(p(r('L1 Hxg'))), row(p(r('L2 Hxg')))]);
+  const th = tbl([row(hp(hr('Oculta 1')), '<w:hidden/>'), row(hp(hr('Oculta 2')), '<w:hidden/>')]);
+  for (const n of [51, 52, 53, 54]) {
+    const fill = Array.from({ length: n }, (_, k) => p(r(`Linha ${k + 1} Hxg`))).join('');
+    const tail = p('', '<w:spacing w:after="160"/>') + hp(hr('Titulo oculto')) + th + hp('') + hp('');
+    cases.push({ name: `hid-form-end-${n}`, docx: buildDocx({ body: fill + t + tail, defaults: docDefaults({ font: 'Arial', size: 11 }) }) });
+  }
+}

@@ -28,23 +28,41 @@ export function engineLines(res: LayoutResult): OracleDoc {
   return {
     pages: res.pages.map((p) => {
       const lines: OracleLine[] = [];
+      const lastCp: number[] = [];
       let cur: OracleLine | null = null;
       for (const it of p.items) {
-        if (it.t !== 'glyphs') continue;
+        // curvas (WordArt, texto semitransparente, emoji colorido, caixa girada):
+        // não é texto no PDF — nem no do Word
+        if (it.t !== 'glyphs' || it.asPath) continue;
         const y = it.y / 20;
         for (const g of it.glyphs) {
           const ch = normChar(g.cp);
           if (!ch || /\s/.test(ch)) continue;
           const x = g.x / 20;
-          const tol = Math.max(1, 0.3 * it.sizePt);
+          // corpo como no PDF (múltiplo de 0,12 pt: 10 → 9,96), que decide a tolerância da extração
+          const size = Math.round(it.sizePt / 0.12) * 0.12;
+          const tol = Math.max(1, 0.3 * size);
           if (cur && Math.abs(y - cur.y) <= tol && x >= cur.x1 - tol * 2) {
             cur.text += ch;
             cur.x1 = Math.max(cur.x1, x + 1);
-            cur.size = Math.max(cur.size, it.sizePt);
+            cur.size = Math.max(cur.size, size);
           } else {
-            cur = { y, x0: x, x1: x + 1, size: it.sizePt, text: ch };
+            cur = { y, x0: x, x1: x + 1, size, text: ch };
             lines.push(cur);
           }
+          lastCp[lines.length - 1] = g.cp;
+        }
+      }
+      // como o pdfium ao extrair: hífen no fim da linha depois de LETRA some se a
+      // linha seguinte começa com letra ou dígito decimal ("guarda-|chuva" →
+      // "guarda", "com-|840" → "com"); depois de dígito fica ("12.345-|678"), e
+      // antes de pontuação/símbolo/"²" também ("abc-|_def", oráculo dashsym); só o
+      // hífen-menos (U+002D) — travessões ficam
+      for (let k = 0; k + 1 < lines.length; k++) {
+        const t = lines[k]!.text;
+        if (t.length > 1 && t.endsWith('-') && lastCp[k] === 0x2d && /\p{L}/u.test(t[t.length - 2]!)
+          && /^[\p{L}\p{Nd}]/u.test(lines[k + 1]!.text)) {
+          lines[k]!.text = t.slice(0, -1);
         }
       }
       return { w: p.widthTw / 20, h: p.heightTw / 20, lines };
@@ -62,12 +80,16 @@ export interface CompareResult {
   maxDx: number;
   meanDy: number;
   firstDiff?: string;
+  /** linhas NOSSAS sem par no Word (texto que o Word não grava) */
+  extraO: number;
+  firstExtra?: string;
 }
 
 /** Casa as linhas por texto (LCS) e mede Δbaseline/Δx nos pares da mesma página. */
-export function compareLines(word: OracleDoc, ours: OracleDoc): CompareResult {
-  // preenchimento de tab (pontos/hífens/sublinhados): a contagem exata varia — compara colapsado
-  const collapse = (t: string) => t.replace(/([._\-·])\1{2,}/g, '$1$1$1');
+export function compareLines(word: OracleDoc, ours: OracleDoc, exactLeaders = false): CompareResult {
+  // preenchimento de tab (pontos/hífens/sublinhados): a contagem exata varia — compara
+  // colapsado (exceto nos grupos que medem a grade dos pontos: tdhalfpx)
+  const collapse = (t: string) => (exactLeaders ? t : t.replace(/([._\-·])\1{2,}/g, '$1$1$1'));
   const norm = (d: OracleDoc) => d.pages.flatMap((p, pi) => p.lines.map((l) => ({ pi, l: { ...l, text: collapse(l.text) } })));
   const wl = norm(word);
   const ol = norm(ours);
@@ -97,6 +119,8 @@ export function compareLines(word: OracleDoc, ours: OracleDoc): CompareResult {
     sumDy += dy;
   }
   const matchedW = new Set(pairs.map((p) => p[0]));
+  const matchedO = new Set(pairs.map((p) => p[1]));
+  const extra = ol.filter((_, k) => !matchedO.has(k));
   let firstDiff: string | undefined;
   for (let k = 0; k < n; k++) {
     if (!matchedW.has(k)) { firstDiff = `p${wl[k]!.pi + 1} y=${wl[k]!.l.y.toFixed(1)} "${wl[k]!.l.text.slice(0, 40)}"`; break; }
@@ -105,5 +129,7 @@ export function compareLines(word: OracleDoc, ours: OracleDoc): CompareResult {
     pagesW: word.pages.length, pagesO: ours.pages.length, linesW: n,
     matched: pairs.length, samePage, maxDy, maxDx, meanDy: samePage ? sumDy / samePage : 0,
     ...(firstDiff ? { firstDiff } : {}),
+    extraO: extra.length,
+    ...(extra.length ? { firstExtra: `p${extra[0]!.pi + 1} y=${extra[0]!.l.y.toFixed(1)} "${extra[0]!.l.text.slice(0, 40)}"` } : {}),
   };
 }

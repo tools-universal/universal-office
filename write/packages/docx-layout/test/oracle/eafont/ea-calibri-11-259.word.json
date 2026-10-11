@@ -1,0 +1,165 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.24,
+"x0": 85.1,
+"x1": 128.25,
+"size": 11.04,
+"text": "InicioHxg"
+},
+{
+"y": 104.54,
+"x0": 85.1,
+"x1": 190.16,
+"size": 11.04,
+"text": "☐CaixaMSGothicHxg"
+},
+{
+"y": 127.94,
+"x0": 85.1,
+"x1": 184.04,
+"size": 11.04,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 150.62,
+"x0": 85.1,
+"x1": 137.48,
+"size": 11.04,
+"text": "NormalHxg"
+},
+{
+"y": 173.78,
+"x0": 85.1,
+"x1": 194.72,
+"size": 11.04,
+"text": "☐CaixaMSMinchoHxg"
+},
+{
+"y": 197.18,
+"x0": 85.1,
+"x1": 184.04,
+"size": 11.04,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 219.86,
+"x0": 85.1,
+"x1": 137.48,
+"size": 11.04,
+"text": "NormalHxg"
+},
+{
+"y": 243.86,
+"x0": 85.1,
+"x1": 175.28,
+"size": 11.04,
+"text": "☐CaixaSimSunHxg"
+},
+{
+"y": 267.05,
+"x0": 85.1,
+"x1": 184.04,
+"size": 11.04,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 289.73,
+"x0": 85.1,
+"x1": 137.48,
+"size": 11.04,
+"text": "NormalHxg"
+},
+{
+"y": 313.73,
+"x0": 85.1,
+"x1": 185.35,
+"size": 11.04,
+"text": "☐CaixaYuGothicHxg"
+},
+{
+"y": 338.81,
+"x0": 85.1,
+"x1": 183.08,
+"size": 11.04,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 364.13,
+"x0": 85.1,
+"x1": 137.48,
+"size": 11.04,
+"text": "NormalHxg"
+},
+{
+"y": 388.01,
+"x0": 85.1,
+"x1": 208.06,
+"size": 11.04,
+"text": "☐CaixaMalgunGothicHxg"
+},
+{
+"y": 414.41,
+"x0": 85.1,
+"x1": 181.52,
+"size": 11.04,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 439.13,
+"x0": 85.1,
+"x1": 137.48,
+"size": 11.04,
+"text": "NormalHxg"
+},
+{
+"y": 463.03,
+"x0": 85.1,
+"x1": 213.52,
+"size": 11.04,
+"text": "☐CaixaMicrosoftYaHeiHxg"
+},
+{
+"y": 488.95,
+"x0": 85.1,
+"x1": 183.56,
+"size": 11.04,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 513.91,
+"x0": 85.1,
+"x1": 137.48,
+"size": 11.04,
+"text": "NormalHxg"
+},
+{
+"y": 537.19,
+"x0": 85.1,
+"x1": 202.51,
+"size": 11.04,
+"text": "☐CaixaMSUIGothicHxg"
+},
+{
+"y": 560.59,
+"x0": 85.1,
+"x1": 179.48,
+"size": 11.04,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 583.27,
+"x0": 85.1,
+"x1": 137.48,
+"size": 11.04,
+"text": "NormalHxg"
+}
+],
+"objs": []
+}
+]
+}

@@ -108,6 +108,9 @@ def compare_text(w, o):
     res = {'pages_w': len(w['pages']), 'pages_o': len(o['pages']), 'lines_w': len(wl), 'lines_o': len(ol)}
     if not wl:
         res.update(line_match=1.0 if not ol else 0.0, same_page=1.0, coverage=1.0)
+        # documento sem texto (só imagens/formas): quebras iguais se o nosso também não tem
+        res['breaks_ok'] = bool(len(w['pages']) == len(o['pages']) and not ol)
+        res['breaks_diff'] = len(ol)
         return res
     sm = difflib.SequenceMatcher(None, wt, ot, autojunk=False)
     pairs = []
@@ -126,6 +129,20 @@ def compare_text(w, o):
         res['dy_p90'] = round(float(np.percentile(dy, 90)), 2)
         res['dx_med'] = round(float(np.median(dx)), 2)
         res['dx_p90'] = round(float(np.percentile(dx, 90)), 2)
+    # quebras de linha IGUAIS, de forma estrita: mesmo nº de páginas e, em cada
+    # página, exatamente o mesmo conjunto (com repetição) de linhas do Word — a
+    # ordem de leitura de linhas na mesma altura não conta
+    by_w, by_o = {}, {}
+    for pi, ln in wl:
+        by_w.setdefault(pi, Counter())[ln['text']] += 1
+    for pi, ln in ol:
+        by_o.setdefault(pi, Counter())[ln['text']] += 1
+    diff_lines = 0
+    for pi in set(by_w) | set(by_o):
+        a, b = by_w.get(pi, Counter()), by_o.get(pi, Counter())
+        diff_lines += sum(((a - b) + (b - a)).values())
+    res['breaks_ok'] = bool(len(w['pages']) == len(o['pages']) and diff_lines == 0)
+    res['breaks_diff'] = diff_lines
     cw, co = Counter(''.join(wt)), Counter(''.join(ot))
     tot = sum(cw.values())
     res['coverage'] = round(sum(min(v, co[k]) for k, v in cw.items()) / tot, 4) if tot else 1.0
@@ -272,7 +289,7 @@ def main():
     results.sort(key=lambda r: r['id'])
     with open(base + '.json', 'w', encoding='utf8') as f:
         json.dump(results, f, ensure_ascii=False, indent=0)
-    cols = ['id', 'status', 'pages_w', 'pages_o', 'line_match', 'same_page', 'dy_med', 'dy_p90', 'dx_med', 'dx_p90', 'coverage', 'extra', 'pix_f1', 'rel']
+    cols = ['id', 'status', 'pages_w', 'pages_o', 'breaks_ok', 'breaks_diff', 'line_match', 'same_page', 'dy_med', 'dy_p90', 'dx_med', 'dx_p90', 'coverage', 'extra', 'pix_f1', 'rel']
     with open(base + '.csv', 'w', encoding='utf8', newline='') as f:
         wr = csv.writer(f)
         wr.writerow(cols)
@@ -297,6 +314,10 @@ def summarize(results):
     for k in ('line_match', 'same_page', 'coverage', 'pix_f1', 'dy_med', 'dx_med'):
         print(f'  {k:11s} {m(k)}')
     print(f"  line_match ≥0.99: {sum(1 for r in ok if r['line_match'] >= 0.99)}  ≥0.9: {sum(1 for r in ok if r['line_match'] >= 0.9)}")
+    n = len(ok)
+    brk = sum(1 for r in ok if r.get('breaks_ok'))
+    px = sum(1 for r in ok if (r.get('pix_f1') or 0) >= 0.95)
+    print(f'  METAS: páginas iguais {pages_eq}/{n} ({100*pages_eq/n:.1f}%) | quebras idênticas {brk}/{n} ({100*brk/n:.1f}%) | pix>=0,95 {px}/{n} ({100*px/n:.1f}%)')
 
 
 if __name__ == '__main__':

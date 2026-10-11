@@ -105,6 +105,14 @@ public sealed class LangSpec
     };
 }
 
+/// <summary>w14:shadow: desfoque e deslocamento (pt), direção (graus).</summary>
+public sealed class TextShadowSpec
+{
+    public double Blur;
+    public double Dist;
+    public double Dir;
+}
+
 public sealed class RPr
 {
     public string? RStyle;
@@ -152,6 +160,14 @@ public sealed class RPr
     /// <summary>w14:textFill (Word 2010+): cor sólida e OPACIDADE (0..1) do texto —
     /// w14:alpha é transparência (100000 = invisível)</summary>
     public TextFillSpec? TextFill;
+    /// <summary>w14:textOutline com preenchimento (contorno visível do texto)</summary>
+    public bool? TextOutline;
+    /// <summary>w14:shadow (sombra do texto, Word 2010+): desfoque e deslocamento em pt, direção em
+    /// graus (0 = direita, 90 = para baixo) — a sombra aumenta a altura da linha</summary>
+    public TextShadowSpec? TextShadow;
+    /// <summary>w14:ligatures (Word 2010+): ligaduras OpenType — standard, contextual, historical,
+    /// discretional, combinações ou all; none = desligadas</summary>
+    public string? Ligatures;
 
     public RPr Clone() => (RPr)MemberwiseClone();
 
@@ -185,6 +201,9 @@ public sealed class RPr
         if (over.Em is not null) o.Em = over.Em;
         if (over.Lang is not null) o.Lang = over.Lang;
         if (over.TextFill is not null) o.TextFill = over.TextFill;
+        if (over.TextOutline is not null) o.TextOutline = over.TextOutline;
+        if (over.TextShadow is not null) o.TextShadow = over.TextShadow;
+        if (over.Ligatures is not null) o.Ligatures = over.Ligatures;
         return o;
     }
 
@@ -467,6 +486,9 @@ public sealed class PPr
     public double? OutlineLvl;
     /// <summary>rPr da MARCA de parágrafo (¶) — define a altura de parágrafo vazio.</summary>
     public RPr? RPr;
+    /// <summary>marca de parágrafo excluída em revisão (w:rPr/w:del ou w:moveFrom): na
+    /// visão final o parágrafo se junta ao seguinte.</summary>
+    public bool? MarkDeleted;
 
     public PPr Clone() => (PPr)MemberwiseClone();
 
@@ -504,6 +526,7 @@ public sealed class PPr
         if (over.TextAlignment is not null) o.TextAlignment = over.TextAlignment;
         if (over.OutlineLvl is not null) o.OutlineLvl = over.OutlineLvl;
         if (over.RPr is not null) o.RPr = over.RPr;
+        if (over.MarkDeleted is not null) o.MarkDeleted = over.MarkDeleted;
         return o;
     }
 }
@@ -1008,6 +1031,19 @@ public static class OoxmlProps
                         else if (FirstChild(el, "w14:noFill") is not null) p.TextFill = new TextFillSpec { Alpha = 0 };
                         break;
                     }
+                case "w14:ligatures":
+                    p.Ligatures = el.Attr("w14:val") ?? "standard";
+                    break;
+                case "w14:shadow":
+                    {
+                        double Emu(string k) { double n = Js.ParseInt(el.Attr(k) ?? "0"); return (double.IsNaN(n) ? 0 : n) / 12700; }
+                        double dir = Js.ParseInt(el.Attr("w14:dir") ?? "0");
+                        p.TextShadow = new TextShadowSpec { Blur = Emu("w14:blurRad"), Dist = Emu("w14:dist"), Dir = (double.IsNaN(dir) ? 0 : dir) / 60000 };
+                        break;
+                    }
+                case "w14:textOutline":
+                    p.TextOutline = FirstChild(el, "w14:noFill") is null && (FirstChild(el, "w14:solidFill") ?? FirstChild(el, "w14:gradFill")) is not null;
+                    break;
                 case "w:spacing": { if (MeasureTwips(val) is { } n) p.Spacing = n; break; }
                 case "w:w": { if (Int(val is null ? null : ReplaceFirst(val, "%", "")) is { } n) p.W = n; break; }
                 case "w:kern": { if (Int(val) is { } n) p.Kern = n; break; }
@@ -1181,7 +1217,10 @@ public static class OoxmlProps
                         p.FramePr = f;
                         break;
                     }
-                case "w:rPr": p.RPr = ReadRPr(el); break;
+                case "w:rPr":
+                    p.RPr = ReadRPr(el);
+                    if (ChildElements(el).Any(c => c.Name is "w:del" or "w:moveFrom")) p.MarkDeleted = true;
+                    break;
             }
         }
         return p;

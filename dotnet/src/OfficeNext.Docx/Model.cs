@@ -71,6 +71,34 @@ public sealed class InlineImage
     public ShapeStyle? Style;
     /// <summary>Veio de VML (w:pict/w:object).</summary>
     public bool Vml;
+    /// <summary>wp:inline effectExtent (twips): margem de efeitos que ocupa espaço na linha</summary>
+    public RectTw? InlineEffect;
+    /// <summary>Ajustes de cor (VML gain/blacklevel/grayscale/bilevel, DrawingML
+    /// a:lum/a:grayscl/a:biLevel) — o Word os aplica aos pixels ao exportar.</summary>
+    public ImageEffects? Effects;
+
+    /// <summary>Cópia rasa ({ ...x }).</summary>
+    public InlineImage ShallowClone() => (InlineImage)MemberwiseClone();
+}
+
+/// <summary>
+/// Ajustes de cor de imagem, no modelo único do Word (medido no PDF exportado):
+/// cinza (Rec. 709) primeiro; depois, por canal (0..1),
+/// x' = (x − ½)·gain + ½ + bright/2·(1 + gain). VML: gain = gain,
+/// bright = 2·blacklevel (arredonda); DrawingML a:lum: gain = 1/(1−c) (c &gt; 0)
+/// ou 1 + c, bright = bright (trunca).
+/// </summary>
+public sealed class ImageEffects
+{
+    public bool Gray;
+    public double? Gain;
+    public double? Bright;
+    /// <summary>DrawingML: trunca em vez de arredondar</summary>
+    public bool Floor;
+    /// <summary>preto e branco: luminância ≥ limiar (0..1) → branco</summary>
+    public double? BiLevel;
+
+    public bool Any => Gray || Gain is not null || Bright is not null || Floor || BiLevel is not null;
 }
 
 /// <summary>Recorte em frações (0..1) de cada lado.</summary>
@@ -92,6 +120,13 @@ public sealed class DrawingShape
     public DrawingAnchor? Anchor;
     /// <summary>Para linhas VML (v:line from/to): pontos relativos ao canto (twips).</summary>
     public ShapeLinePoints? Line;
+    /// <summary>wp:inline effectExtent (twips)</summary>
+    public RectTw? InlineEffect;
+    /// <summary>linha horizontal VML (v:rect o:hr="t", "Inserir linha horizontal")</summary>
+    public bool Hr;
+
+    /// <summary>Cópia rasa ({ ...x }).</summary>
+    public DrawingShape ShallowClone() => (DrawingShape)MemberwiseClone();
 }
 
 public sealed class ShapeLinePoints
@@ -143,6 +178,9 @@ public sealed class DrawingTextbox
     /// <summary>Blocos em ordem (parágrafos + tabelas) do txbxContent.</summary>
     public List<Block>? Blocks;
     public bool Vml;
+
+    /// <summary>Cópia rasa ({ ...x }).</summary>
+    public DrawingTextbox ShallowClone() => (DrawingTextbox)MemberwiseClone();
 }
 
 /// <summary>Item de um grupo de desenho: retângulo relativo ao canto do grupo.</summary>
@@ -163,6 +201,13 @@ public sealed class DrawingGroup
     public bool Floating;
     public DrawingAnchor? Anchor;
     public List<GroupItem> Items = new();
+    /// <summary>rotação (graus, horário) e espelhos do grupo — valem para todos os filhos</summary>
+    public double? Rot;
+    public bool FlipH;
+    public bool FlipV;
+
+    /// <summary>Cópia rasa ({ ...x }).</summary>
+    public DrawingGroup ShallowClone() => (DrawingGroup)MemberwiseClone();
 }
 
 /// <summary>Conteúdo inline definido por plugin (w:sdt com tag wordnext:inline:).</summary>
@@ -182,7 +227,8 @@ public sealed class PtabInfo
     public string? Leader;
 }
 
-/// <summary>Campo de formulário legado (w:ffData).</summary>
+/// <summary>Campo de formulário legado (w:ffData): caixa de seleção / texto / lista.
+/// Lista (FORMDROPDOWN): entradas e o índice exibido.</summary>
 public sealed class FormFieldInfo
 {
     /// <summary>checkBox | textInput | dropDown</summary>
@@ -190,6 +236,8 @@ public sealed class FormFieldInfo
     public bool? Checked;
     public double? SizeHalfPt;
     public bool SizeAuto;
+    public List<string>? Entries;
+    public int? Selected;
 }
 
 public sealed class NoteRef
@@ -549,11 +597,37 @@ public sealed class FullDocument
     public Dictionary<string, int> Bookmarks = new(StringComparer.Ordinal);
     /// <summary>Ordem de inserção dos bookmarks (o Map do JS itera nessa ordem).</summary>
     public List<string> BookmarkOrder = new();
+    /// <summary>Posição de cada bookmark no texto do parágrafo onde começa (Run.Text concatenado).</summary>
+    public Dictionary<string, int>? BookmarkOffsets;
     /// <summary>Estilos/numeração/tema/configurações/fontes CRUS — motor de layout.</summary>
     public DocFormatting? Formatting;
     /// <summary>Notas como blocos (tabelas preservadas).</summary>
     public Dictionary<int, List<Block>>? FootnoteBlocks;
     public Dictionary<int, List<Block>>? EndnoteBlocks;
+    /// <summary>docProps/core.xml (W3CDTF) — campos CREATEDATE/SAVEDATE/PRINTDATE.</summary>
+    public CoreProps? CoreProps;
+    /// <summary>w:background (cor da página): hex e/ou cor do tema com tom/sombra.</summary>
+    public PageBackground? Background;
+
+    /// <summary>Cópia rasa ({ ...full }).</summary>
+    public FullDocument ShallowClone() => (FullDocument)MemberwiseClone();
+}
+
+/// <summary>Datas do docProps/core.xml (texto W3CDTF, como no arquivo).</summary>
+public sealed class CoreProps
+{
+    public string? Created;
+    public string? Modified;
+    public string? LastPrinted;
+}
+
+/// <summary>w:document/w:background: cor hex e/ou cor do tema com tom/sombra.</summary>
+public sealed class PageBackground
+{
+    public string? Color;
+    public string? ThemeColor;
+    public string? ThemeTint;
+    public string? ThemeShade;
 }
 
 public static class DocxModel

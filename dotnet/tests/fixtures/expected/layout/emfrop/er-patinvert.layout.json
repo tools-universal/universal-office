@@ -1,0 +1,22 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"AntesHxg","g":[[65,1701],[110,1847.74],[116,1970.09],[101,2031.21],[115,2153.57],[72,2324.69],[120,2483.57],[103,2593.57]]},
+        {"t":"clip","op":"push","x":1701,"y":1669.98,"w":2000,"h":700},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":4.5,"color":"000000","y":2351.45,"scaleX":1,"text":"Rotulo exemplo.txt","g":[[82,1751],[111,1801],[116,1851],[117,1901],[108,1951],[111,2001],[32,2051],[101,2101],[120,2151],[101,2201],[109,2251],[112,2301],[108,2351],[111,2401],[46,2451],[116,2501],[120,2551],[116,2601]]},
+        {"t":"rect","x":2451,"y":1719.98,"w":400,"h":400,"fill":"FFFFFF","alpha":null},
+        {"t":"clip","op":"pop"}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":9,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":1014.92},
+        {"ref":"b1","start":0,"end":1,"x":1701,"y":1669.98,"height":700,"baseline":2369.98,"width":2000}
+      ]
+    }
+  ],
+  "warnings": []
+}

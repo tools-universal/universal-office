@@ -22,6 +22,13 @@ public sealed class FontMetrics
     public double STypoLineGap;
     /// <summary>OS/2 fsSelection (bit 7 = USE_TYPO_METRICS).</summary>
     public int FsSelection;
+    /// <summary>OS/2 ulCodePageRange1 (bits 17–21 = páginas de código do Leste Asiático).</summary>
+    public long CodePageRange1;
+    /// <summary>OS/2 ySuperscriptYOffset (deslocamento do sobrescrito, unidades da fonte); nulo sem o campo.</summary>
+    public double? YSuperscriptYOffset;
+    /// <summary>OS/2 xAvgCharWidth (largura média dos caracteres, unidades da fonte) — a
+    /// compressão de espaços do layout asiático dos modos ≤ 14 (docx-layout).</summary>
+    public double? XAvgCharWidth;
     /// <summary>post: posição (negativa = abaixo da baseline) e espessura do sublinhado.</summary>
     public double UnderlinePosition;
     public double UnderlineThickness;
@@ -38,4 +45,12 @@ public interface ILayoutFont
     int GlyphId(int codePoint);
     /// <summary>Advance width do glifo em unidades da fonte.</summary>
     double AdvanceWidth(int glyphId);
+    /// <summary>Contorno do glifo (unidades da fonte, y para cima) — texto como curvas;
+    /// nulo se a fonte não dá contornos (opcional no JS: glyphOutline?).</summary>
+    IReadOnlyList<GlyphOutlineCmd>? GlyphOutline(int glyphId) => null;
+    /// <summary>Fonte com glifos coloridos (COLR)? — consulta barata antes de ColorLayers.</summary>
+    bool HasColorGlyphs() => false;
+    /// <summary>Camadas de um glifo colorido (COLR v0 + CPAL, paleta 0), na ordem de
+    /// pintura; nulo se o glifo não é colorido.</summary>
+    IReadOnlyList<ColorLayer>? ColorLayers(int glyphId) => null;
 }

@@ -137,6 +137,9 @@ export interface ResolvedTableStyle {
   pPr: PPr;
   rPr: RPr;
   cond: Partial<Record<TblStyleType, TblStylePart>>;
+  /** há estilo de tabela (próprio ou o padrão do documento): sem margens de célula
+   *  nele, elas são 0 — o Word não usa os 108 twips embutidos (oráculo tblstyletr) */
+  hasStyle?: boolean;
 }
 
 /** Ordem de aplicação das formatações condicionais (a última vence). */
@@ -170,6 +173,11 @@ export class StyleResolver {
       cur = cur.basedOn ? own(this.styles, cur.basedOn) : undefined;
     }
     return out;
+  }
+
+  /** Cadeia basedOn de um estilo de parágrafo (raiz primeiro). */
+  paraChain(id: string | undefined): StyleDef[] {
+    return this.chain(this.paraStyleId(id) ?? '', 'paragraph');
   }
 
   /** Estilo de parágrafo efetivo (ausente/inexistente → estilo padrão). */
@@ -212,6 +220,7 @@ export class StyleResolver {
     let r = this.tableCache.get(key);
     if (!r) {
       r = { tblPr: {}, trPr: {}, tcPr: {}, pPr: {}, rPr: {}, cond: {} };
+      if (this.chain(key, 'table').length) r.hasStyle = true;
       for (const s of this.chain(key, 'table')) {
         r.tblPr = mergeTblPr(r.tblPr, s.tblPr);
         r.trPr = mergeTrPr(r.trPr, s.trPr);

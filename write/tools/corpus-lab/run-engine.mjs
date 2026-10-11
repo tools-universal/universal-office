@@ -20,11 +20,14 @@ const argv = process.argv.slice(2);
 const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : d; };
 const flag = (n) => argv.includes(`--${n}`);
 const TAG = opt('tag', 'eng');
-const provider = await createNodeFontProvider();
+// fontes que a máquina dos PDFs de referência NÃO tinha (o PDF do Word mostra a
+// substituta onde o documento pede a família): o laboratório faz igual
+const REFERENCE_MISSING = ['Meiryo UI', 'Meiryo'];
+const provider = await createNodeFontProvider({ missing: REFERENCE_MISSING });
 const advanceEm = opt('em', 'nominal');
 const advanceRound = opt('round', undefined);
 
-export function convert(bytes) {
+export function convert(bytes, now) {
   // .doc (Word 97-2003): converte para .docx e segue o caminho normal
   if (core.isWordBinary(bytes)) bytes = core.convertDocToDocx(bytes);
   // .odt com extensão trocada (o Word abre): mesmo caminho do editor
@@ -35,7 +38,7 @@ export function convert(bytes) {
   let embedded = [];
   try { embedded = pkg ? core.readEmbeddedFonts(pkg) : []; } catch { /* sem fontes embutidas legíveis */ }
   const prov = eng.withEmbeddedFonts(provider, embedded, (b) => new layout.SfntFont(b));
-  const res = eng.layoutDocument(full, prov, { advanceEm, ...(advanceRound ? { advanceRound } : {}) });
+  const res = eng.layoutDocument(full, prov, { advanceEm, ...(advanceRound ? { advanceRound } : {}), ...(now ? { now } : {}) });
   return { res, pdf: eng.renderPdf(res) };
 }
 
@@ -45,6 +48,16 @@ if (opt('file')) {
   writeFileSync(opt('out', 'out.pdf'), pdf);
   console.log(`${res.pages.length} páginas em ${Date.now() - t0} ms; avisos: ${res.warnings.join('; ') || '-'}`);
   process.exit(0);
+}
+
+/** Instante em que o Word gerou o PDF de referência (CreationDate, hora local):
+ *  é o "agora" dos campos DATE/TIME que o Word recalculou ao exportar. */
+function wordPdfDate(pdfPath) {
+  try {
+    const head = readFileSync(pdfPath).toString('latin1');
+    const m = /\/CreationDate\s*\(D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(head);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : undefined;
+  } catch { return undefined; }
 }
 
 const docs = selectDocs(loadManifest(), argv);
@@ -59,7 +72,7 @@ for (const d of docs) {
     const ts = Date.now();
     try {
       const viaWord = opt('doc-via') === 'word' && d.container === 'cfb' ? join(LAB_DIR, 'doc-lab', 'word', `${d.id}.docx`) : null;
-      const { res, pdf } = convert(new Uint8Array(readFileSync(viaWord && existsSync(viaWord) ? viaWord : d.path)));
+      const { res, pdf } = convert(new Uint8Array(readFileSync(viaWord && existsSync(viaWord) ? viaWord : d.path)), wordPdfDate(d.pdf));
       writeFileSync(join(dir, 'js.pdf'), pdf);
       info.status = 'ok';
       info.pages = res.pages.length;

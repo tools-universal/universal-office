@@ -2,7 +2,7 @@
 // Word real (COM invisível) o PDF de cada um e extrai as linhas (baseline, x,
 // texto) para <caso>.word.json — o ESPERADO dos testes do docx-layout.
 //
-//   node tools/layout-oracle/run.mjs <grupo> [--force] [--only nome,nome]
+//   node tools/layout-oracle/run.mjs <grupo> [--force] [--only nome,nome] [--fresh]
 //
 // Saídas versionadas (sem fontes!): packages/docx-layout/test/oracle/<grupo>/
 //   <caso>.docx        — entrada sintética
@@ -44,9 +44,21 @@ for (const c of cases) {
   }
 }
 console.log(`${n} caso(s) para o Word`);
-if (n > 0) {
+// --fresh: uma sessão do Word POR caso — a substituição de fontes ausentes fica
+// memorizada na sessão (um documento com altName muda a dos seguintes)
+const fresh = argv.includes('--fresh');
+if (n > 0 && !fresh) {
   execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(here, 'word-export.ps1'),
     '-InDir', docxTmp, '-OutDir', pdfDir], { stdio: 'inherit', windowsHide: true });
+} else if (n > 0) {
+  for (const f of readdirSync(docxTmp).filter((x) => x.endsWith('.docx'))) {
+    const one = join(here, '.out', group, 'one');
+    mkdirSync(one, { recursive: true });
+    for (const g of readdirSync(one)) (await import('node:fs')).unlinkSync(join(one, g));
+    writeFileSync(join(one, f), readFileSync(join(docxTmp, f)));
+    execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(here, 'word-export.ps1'),
+      '-InDir', one, '-OutDir', pdfDir], { stdio: 'inherit', windowsHide: true });
+  }
 }
 // extração (python/pdfium) de todos os PDFs presentes do grupo
 const py = join(writeRoot, 'tools', 'corpus-lab', 'oracle_extract.py');

@@ -1,0 +1,60 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 89.66,
+"x0": 85.1,
+"x1": 471.77,
+"size": 20.04,
+"text": "TAVAATENTA:AVAGA,OATRASO,AAVARIAEO"
+},
+{
+"y": 112.7,
+"x0": 85.1,
+"x1": 137.77,
+"size": 20.04,
+"text": "AVISO."
+},
+{
+"y": 135.62,
+"x0": 85.1,
+"x1": 496.91,
+"size": 20.04,
+"text": "TAVAATENTA:AVAGA,OATRASO,AAVARIAEO"
+},
+{
+"y": 158.66,
+"x0": 85.1,
+"x1": 140.77,
+"size": 20.04,
+"text": "AVISO."
+},
+{
+"y": 181.7,
+"x0": 85.1,
+"x1": 446.39,
+"size": 20.04,
+"text": "TAVAATENTA:AVAGA,OATRASO,A"
+},
+{
+"y": 204.62,
+"x0": 85.1,
+"x1": 268.91,
+"size": 20.04,
+"text": "AVARIAEOAVISO."
+},
+{
+"y": 227.66,
+"x0": 85.1,
+"x1": 158.27,
+"size": 20.04,
+"text": "FimHxg"
+}
+],
+"objs": []
+}
+]
+}

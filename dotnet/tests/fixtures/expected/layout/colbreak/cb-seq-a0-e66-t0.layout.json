@@ -1,0 +1,35 @@
+{
+  "pages": [
+    {
+      "w": 11900,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1630.43,"scaleX":1,"text":"AntesHxg","g":[[65,1440],[110,1555.72],[116,1660.8],[101,1727.79],[115,1827.3],[72,1950.74],[120,2075.35],[103,2161.97]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1874.57,"scaleX":1,"text":"ParagrafoHxg","g":[[80,1440],[97,1543.32],[114,1639.12],[97,1708.85],[103,1804.65],[114,1898.79],[97,1968.52],[102,2064.32],[111,2125.35],[72,2276.04],[120,2400.64],[103,2487.27]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":2602.85,"scaleX":1,"text":"TextodepoisHxg","g":[[84,1440],[101,1537.46],[120,1636.97],[116,1723.59],[111,1790.59],[100,1941.27],[101,2046.35],[112,2145.86],[111,2250.94],[105,2356.41],[115,2402.3],[72,2525.74],[120,2650.35],[103,2736.97]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":9,"x":1440,"y":1440,"height":244.14,"baseline":1630.43,"width":816.11},
+        {"ref":"b1","start":0,"end":13,"x":1440,"y":1684.14,"height":244.14,"baseline":1874.57,"width":1141.41},
+        {"ref":"b3","start":0,"end":0,"x":1440,"y":2048.28,"height":244.14,"baseline":2238.71,"width":0},
+        {"ref":"b4","start":0,"end":16,"x":1440,"y":2412.42,"height":244.14,"baseline":2602.85,"width":1391.11},
+        {"ref":"b5","start":0,"end":0,"x":1440,"y":2656.56,"height":244.14,"baseline":2846.99,"width":0}
+      ]
+    },
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 2,
+      "number": 2,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1607.43,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1824.05],[112,1923.56],[111,2028.64],[105,2134.11],[115,2180],[72,2303.44],[120,2428.05],[103,2514.67]]}
+      ],
+      "lines": [
+        {"ref":"b6","start":0,"end":10,"x":1701,"y":1417,"height":244.14,"baseline":1607.43,"width":907.81}
+      ]
+    }
+  ],
+  "warnings": []
+}

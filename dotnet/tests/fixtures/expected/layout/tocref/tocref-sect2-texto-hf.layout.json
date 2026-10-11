@@ -1,0 +1,43 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1618.74,"scaleX":1,"text":"InicioHxg","g":[[73,1701],[110,1786.72],[105,1916.7],[99,1981.16],[105,2081.06],[111,2145.51],[72,2317.17],[120,2496.46],[103,2607.53]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":10,"x":1701,"y":1417,"height":269.76,"baseline":1618.74,"width":1018.57},
+        {"ref":"b1","start":0,"end":0,"x":1701,"y":1846.76,"height":287.47,"baseline":2048.5,"width":0},
+        {"ref":"b2","start":0,"end":0,"x":1701,"y":2254.23,"height":287.47,"baseline":2455.96,"width":0},
+        {"ref":"b3","start":0,"end":0,"x":1701,"y":2661.69,"height":287.47,"baseline":2863.43,"width":0}
+      ]
+    },
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 1,
+      "number": 2,
+      "items": [
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":909.74,"scaleX":1,"text":"CabecalhoHxg","g":[[67,1701],[97,1842.26],[98,1953.12],[101,2076.33],[99,2182.68],[97,2282.58],[108,2393.44],[104,2456.39],[111,2584.44],[72,2756.1],[120,2935.38],[103,3046.46]]},
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1339.5,"scaleX":1,"text":"Linha2Hxg","g":[[76,1701],[105,1833.77],[110,1898.23],[104,2028.21],[97,2156.25],[50,2320.18],[72,2496.14],[120,2675.42],[103,2786.5]]},
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1769.26,"scaleX":1,"text":"Linha3Hxg","g":[[76,1701],[105,1833.77],[110,1898.23],[104,2028.21],[97,2156.25],[51,2320.18],[72,2494.63],[120,2673.92],[103,2784.99]]},
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":15901.98,"scaleX":1,"text":"RodapeHxg","g":[[82,1701],[111,1855.37],[100,1973.96],[97,2100.29],[112,2211.15],[101,2336.83],[72,2496.24],[120,2675.53],[103,2786.61]]},
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2606.48,"scaleX":1,"text":"TextocomumHxg","g":[[84,1701],[101,1837.1],[120,1943.45],[116,2054.53],[111,2130.47],[99,2302.13],[111,2402.04],[109,2520.63],[117,2714.42],[109,2840.96],[72,3087.82],[120,3267.1],[103,3378.18]]},
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":3036.24,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1865.79],[112,1972.13],[111,2097.82],[105,2216.41],[115,2280.86],[72,2429],[120,2608.29],[103,2719.36]]}
+      ],
+      "lines": [
+        {"ref":"hdr:default/b0","start":0,"end":13,"x":1701,"y":708,"height":269.76,"baseline":909.74,"width":1457.5},
+        {"ref":"hdr:default/b1","start":0,"end":11,"x":1701,"y":1137.76,"height":269.76,"baseline":1339.5,"width":1197.54},
+        {"ref":"hdr:default/b2","start":0,"end":11,"x":1701,"y":1567.52,"height":269.76,"baseline":1769.26,"width":1196.04},
+        {"ref":"ftr:default/b0","start":0,"end":10,"x":1701,"y":15700.24,"height":269.76,"baseline":15901.98,"width":1197.65},
+        {"ref":"b4","start":0,"end":0,"x":1701,"y":1997.28,"height":287.47,"baseline":2199.02,"width":0},
+        {"ref":"b5","start":0,"end":15,"x":1701,"y":2404.75,"height":269.76,"baseline":2606.48,"width":1789.22},
+        {"ref":"b6","start":0,"end":10,"x":1701,"y":2834.51,"height":269.76,"baseline":3036.24,"width":1130.4}
+      ]
+    }
+  ],
+  "warnings": []
+}

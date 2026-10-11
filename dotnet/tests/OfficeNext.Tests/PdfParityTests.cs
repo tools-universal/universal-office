@@ -68,7 +68,8 @@ public class PdfParityTests
     private static readonly Regex CountRe = new(@"/Type /Pages /Count (\d+)", RegexOptions.CultureInvariant);
     private static readonly Regex StreamRe = new(@"<<([^>]*)>>\nstream\n", RegexOptions.CultureInvariant);
     private static readonly Regex LenRe = new(@"/Length (\d+)", RegexOptions.CultureInvariant);
-    private static readonly Regex TjRe = new(@"> Tj\n", RegexOptions.CultureInvariant);
+    // operadores de texto: Tj (um glifo) e TJ (corrida de glifos — docx-layout, como o Word)
+    private static readonly Regex TjRe = new(@"(?:> Tj|\] TJ)\n", RegexOptions.CultureInvariant);
 
     private static (int Pages, List<double[]> MediaBoxes, int TjCount) ActualMeta(byte[] pdf)
     {

@@ -1,4 +1,5 @@
 import { unzlibSync } from 'fflate';
+import type { ImageEffects } from '@universal-office/docx-core';
 
 /**
  * Decodificação de imagens SEM DOM (Node, worker, .NET port): PNG (todas as
@@ -507,4 +508,49 @@ export function decodeTiff(b: Uint8Array): Rgba | null {
     }
   }
   return { width, height, data: out };
+}
+
+// ───────────────────────── ajustes de cor (Word) ─────────────────────────
+
+
+/** Brilho/contraste como reta por canal (0..1): x' = x·slope + off. */
+export function effectLine(fx: ImageEffects): { slope: number; off: number } | null {
+  if (fx.gain === undefined && !fx.bright) return null;
+  const s = fx.gain ?? 1, b = fx.bright ?? 0;
+  return { slope: s, off: 0.5 - 0.5 * s + (b / 2) * (1 + s) };
+}
+
+/**
+ * Aplica os ajustes aos pixels (RGBA, no lugar), na ordem do Word: cinza
+ * (Rec. 709), brilho/contraste, preto e branco (oráculo imgfx: o PDF do
+ * Word traz a imagem já ajustada).
+ */
+export function applyImageEffects(rgba: Uint8Array, fx: ImageEffects): void {
+  const ln = effectLine(fx);
+  const map = new Uint8Array(256);
+  for (let v = 0; v < 256; v++) {
+    const y = ln ? (v / 255 * ln.slope + ln.off) * 255 : v;
+    map[v] = Math.max(0, Math.min(255, fx.floor ? Math.floor(y + 1e-9) : Math.round(y)));
+  }
+  const thr = fx.biLevel !== undefined ? fx.biLevel * 255 : -1;
+  for (let i = 0; i < rgba.length; i += 4) {
+    let r = rgba[i]!, g = rgba[i + 1]!, b = rgba[i + 2]!;
+    if (fx.gray) r = g = b = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    r = map[r]!; g = map[g]!; b = map[b]!;
+    if (thr >= 0) r = g = b = 0.2126 * r + 0.7152 * g + 0.0722 * b >= thr ? 255 : 0;
+    rgba[i] = r; rgba[i + 1] = g; rgba[i + 2] = b;
+  }
+}
+
+/**
+ * /Decode do PDF que faz o brilho/contraste num JPEG sem decodificá-lo
+ * (componentes RGB ou cinza); null se o ajuste exige os pixels (cinza,
+ * preto e branco, CMYK).
+ */
+export function effectDecode(fx: ImageEffects, components: number): number[] | null {
+  if (fx.gray || fx.biLevel !== undefined || components === 4) return null;
+  const ln = effectLine(fx);
+  if (!ln) return null;
+  const d = [ln.off, ln.off + ln.slope];
+  return components === 1 ? d : [...d, ...d, ...d];
 }

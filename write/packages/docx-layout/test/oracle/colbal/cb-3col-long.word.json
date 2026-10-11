@@ -1,0 +1,319 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 79.2,
+"x0": 85.1,
+"x1": 126.08,
+"size": 9.0,
+"text": "AntesHxg"
+},
+{
+"y": 89.66,
+"x0": 85.1,
+"x1": 199.82,
+"size": 9.0,
+"text": "Qualidadeaprovaçãogestão"
+},
+{
+"y": 99.98,
+"x0": 85.1,
+"x1": 167.49,
+"size": 9.0,
+"text": "controleresponsável"
+},
+{
+"y": 110.3,
+"x0": 85.1,
+"x1": 200.8,
+"size": 9.0,
+"text": "conformecomregistroúltimo"
+},
+{
+"y": 120.62,
+"x0": 85.1,
+"x1": 199.31,
+"size": 9.0,
+"text": "técnicaseráclienteumaque"
+},
+{
+"y": 131.06,
+"x0": 85.1,
+"x1": 194.27,
+"size": 9.0,
+"text": "relatórioprazoatendimento"
+},
+{
+"y": 141.38,
+"x0": 85.1,
+"x1": 196.82,
+"size": 9.0,
+"text": "informaçãoasemàperíodo"
+},
+{
+"y": 151.7,
+"x0": 85.1,
+"x1": 201.36,
+"size": 9.0,
+"text": "dadoscontratoprocedimento"
+},
+{
+"y": 162.02,
+"x0": 85.1,
+"x1": 196.31,
+"size": 9.0,
+"text": "osdeéempresasegurança"
+},
+{
+"y": 172.46,
+"x0": 85.1,
+"x1": 194.29,
+"size": 9.0,
+"text": "operaçãonãodocumentoo"
+},
+{
+"y": 182.78,
+"x0": 85.1,
+"x1": 164.83,
+"size": 9.0,
+"text": "análiseserviçoárea"
+},
+{
+"y": 193.1,
+"x0": 85.1,
+"x1": 182.74,
+"size": 9.0,
+"text": "execuçãoprocessopara"
+},
+{
+"y": 203.42,
+"x0": 85.1,
+"x1": 197.78,
+"size": 9.0,
+"text": "qualidadeaprovaçãogestão"
+},
+{
+"y": 213.86,
+"x0": 85.1,
+"x1": 167.49,
+"size": 9.0,
+"text": "controleresponsável"
+},
+{
+"y": 224.18,
+"x0": 85.1,
+"x1": 200.8,
+"size": 9.0,
+"text": "conformecomregistroúltimo"
+},
+{
+"y": 89.66,
+"x0": 238.61,
+"x1": 352.82,
+"size": 9.0,
+"text": "técnicaseráclienteumaque"
+},
+{
+"y": 99.98,
+"x0": 238.61,
+"x1": 347.78,
+"size": 9.0,
+"text": "relatórioprazoatendimento"
+},
+{
+"y": 110.3,
+"x0": 238.61,
+"x1": 350.33,
+"size": 9.0,
+"text": "informaçãoasemàperíodo"
+},
+{
+"y": 120.62,
+"x0": 238.61,
+"x1": 354.86,
+"size": 9.0,
+"text": "dadoscontratoprocedimento"
+},
+{
+"y": 131.06,
+"x0": 238.61,
+"x1": 349.81,
+"size": 9.0,
+"text": "osdeéempresasegurança"
+},
+{
+"y": 141.38,
+"x0": 238.61,
+"x1": 347.87,
+"size": 9.0,
+"text": "operaçãonãodocumentoo"
+},
+{
+"y": 151.7,
+"x0": 238.61,
+"x1": 318.25,
+"size": 9.0,
+"text": "análiseserviçoárea"
+},
+{
+"y": 162.02,
+"x0": 238.61,
+"x1": 336.25,
+"size": 9.0,
+"text": "execuçãoprocessopara"
+},
+{
+"y": 172.46,
+"x0": 238.61,
+"x1": 351.29,
+"size": 9.0,
+"text": "qualidadeaprovaçãogestão"
+},
+{
+"y": 182.78,
+"x0": 238.61,
+"x1": 321.0,
+"size": 9.0,
+"text": "controleresponsável"
+},
+{
+"y": 193.1,
+"x0": 238.61,
+"x1": 354.3,
+"size": 9.0,
+"text": "conformecomregistroúltimo"
+},
+{
+"y": 203.42,
+"x0": 238.61,
+"x1": 352.82,
+"size": 9.0,
+"text": "técnicaseráclienteumaque"
+},
+{
+"y": 213.86,
+"x0": 238.61,
+"x1": 347.78,
+"size": 9.0,
+"text": "relatórioprazoatendimento"
+},
+{
+"y": 224.18,
+"x0": 238.61,
+"x1": 350.33,
+"size": 9.0,
+"text": "informaçãoasemàperíodo"
+},
+{
+"y": 89.66,
+"x0": 392.11,
+"x1": 508.36,
+"size": 9.0,
+"text": "dadoscontratoprocedimento"
+},
+{
+"y": 99.98,
+"x0": 392.11,
+"x1": 503.31,
+"size": 9.0,
+"text": "osdeéempresasegurança"
+},
+{
+"y": 110.3,
+"x0": 392.11,
+"x1": 501.3,
+"size": 9.0,
+"text": "operaçãonãodocumentoo"
+},
+{
+"y": 120.62,
+"x0": 392.11,
+"x1": 471.75,
+"size": 9.0,
+"text": "análiseserviçoárea"
+},
+{
+"y": 131.06,
+"x0": 392.11,
+"x1": 489.75,
+"size": 9.0,
+"text": "execuçãoprocessopara"
+},
+{
+"y": 141.38,
+"x0": 392.11,
+"x1": 504.79,
+"size": 9.0,
+"text": "qualidadeaprovaçãogestão"
+},
+{
+"y": 151.7,
+"x0": 392.11,
+"x1": 474.5,
+"size": 9.0,
+"text": "controleresponsável"
+},
+{
+"y": 162.02,
+"x0": 392.11,
+"x1": 507.8,
+"size": 9.0,
+"text": "conformecomregistroúltimo"
+},
+{
+"y": 172.46,
+"x0": 392.11,
+"x1": 506.32,
+"size": 9.0,
+"text": "técnicaseráclienteumaque"
+},
+{
+"y": 182.78,
+"x0": 392.11,
+"x1": 501.28,
+"size": 9.0,
+"text": "relatórioprazoatendimento"
+},
+{
+"y": 193.1,
+"x0": 392.11,
+"x1": 503.83,
+"size": 9.0,
+"text": "informaçãoasemàperíodo"
+},
+{
+"y": 203.42,
+"x0": 392.11,
+"x1": 508.45,
+"size": 9.0,
+"text": "dadoscontratoprocedimento"
+},
+{
+"y": 213.86,
+"x0": 392.11,
+"x1": 505.44,
+"size": 9.0,
+"text": "osdeéempresasegurança."
+},
+{
+"y": 234.5,
+"x0": 85.1,
+"x1": 131.11,
+"size": 9.0,
+"text": "DepoisHxg"
+},
+{
+"y": 244.82,
+"x0": 85.1,
+"x1": 118.04,
+"size": 9.0,
+"text": "FimHxg"
+}
+],
+"objs": []
+}
+]
+}

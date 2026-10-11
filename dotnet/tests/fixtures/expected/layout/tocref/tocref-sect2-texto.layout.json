@@ -1,0 +1,35 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1618.74,"scaleX":1,"text":"InicioHxg","g":[[73,1701],[110,1786.72],[105,1916.7],[99,1981.16],[105,2081.06],[111,2145.51],[72,2317.17],[120,2496.46],[103,2607.53]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":10,"x":1701,"y":1417,"height":269.76,"baseline":1618.74,"width":1018.57},
+        {"ref":"b1","start":0,"end":0,"x":1701,"y":1846.76,"height":287.47,"baseline":2048.5,"width":0},
+        {"ref":"b2","start":0,"end":0,"x":1701,"y":2254.23,"height":287.47,"baseline":2455.96,"width":0},
+        {"ref":"b3","start":0,"end":0,"x":1701,"y":2661.69,"height":287.47,"baseline":2863.43,"width":0}
+      ]
+    },
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 1,
+      "number": 2,
+      "items": [
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2026.2,"scaleX":1,"text":"TextocomumHxg","g":[[84,1701],[101,1837.1],[120,1943.45],[116,2054.53],[111,2130.47],[99,2302.13],[111,2402.04],[109,2520.63],[117,2714.42],[109,2840.96],[72,3087.82],[120,3267.1],[103,3378.18]]},
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2455.96,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1865.79],[112,1972.13],[111,2097.82],[105,2216.41],[115,2280.86],[72,2429],[120,2608.29],[103,2719.36]]}
+      ],
+      "lines": [
+        {"ref":"b4","start":0,"end":0,"x":1701,"y":1417,"height":287.47,"baseline":1618.74,"width":0},
+        {"ref":"b5","start":0,"end":15,"x":1701,"y":1824.47,"height":269.76,"baseline":2026.2,"width":1789.22},
+        {"ref":"b6","start":0,"end":10,"x":1701,"y":2254.23,"height":269.76,"baseline":2455.96,"width":1130.4}
+      ]
+    }
+  ],
+  "warnings": []
+}

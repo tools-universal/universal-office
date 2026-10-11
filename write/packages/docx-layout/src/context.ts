@@ -11,13 +11,38 @@ export interface LayoutOptions {
   advanceEm?: 'device' | 'nominal';
   /** arredondamento da largura de cada caractere (experimento de calibração). */
   advanceRound?: 'none' | 'twip' | 'twipFloor' | 'twipCeil' | 'dev600' | 'half';
-  /** compressão de espaços na justificação (medida no Word): o excesso pode ir
-   *  até mín(ratio × soma dos espaços, wordRatio × (palavra + espaço anterior)). */
-  justifyShrink?: { ratio: number; wordRatio: number };
+  /** compressão de espaços na justificação (medida no Word, oráculo jsweep): o
+   *  excesso cabe se for ≤ ratio × soma dos espaços E a compressão por espaço for
+   *  ≤ expandRatio × a expansão por espaço que a linha teria sem a palavra. */
+  justifyShrink?: { ratio: number; expandRatio: number };
   /** idioma para números/datas (padrão pt-BR). */
   lang?: string;
   /** valor do campo DATE/TIME (padrão: data de hoje). */
   now?: Date;
+  /** diagnóstico (laboratório): cada decisão "a palavra cabe na linha?" */
+  onWordFit?: (info: WordFitInfo) => void;
+}
+
+/** Dados de uma decisão de quebra (twips): para medir a regra do Word no corpus. */
+export interface WordFitInfo {
+  /** quanto a palavra passa da margem (≤ 0 cabe sem comprimir) */
+  over: number;
+  spacesW: number;
+  nSpaces: number;
+  wordW: number;
+  lastGapW: number;
+  justify: boolean;
+  accepted: boolean;
+  /** índices em para.glyphs: início da linha e da palavra */
+  lineStart: number;
+  wordStart: number;
+  wordEnd: number;
+  sizePt: number;
+  family: string;
+  compat: number;
+  /** texto da linha até a palavra e da palavra (sem marcador) */
+  lineText: string;
+  wordText: string;
 }
 
 /** Estado que avança com o conteúdo: listas, campos SEQ e números de nota. */
@@ -34,13 +59,13 @@ export class DocContext {
   readonly faces: FaceResolver;
   numbering: NumberingState;
   readonly warnings = new Set<string>();
-  readonly opts: Required<LayoutOptions>;
+  readonly opts: Required<Omit<LayoutOptions, 'onWordFit'>> & Pick<LayoutOptions, 'onWordFit'>;
 
   constructor(readonly fmt: DocFormatting, provider: FontProvider, opts: LayoutOptions = {}) {
     this.resolver = new StyleResolver(fmt);
     const ddFonts = fmt.styles.docDefaults.rPr?.rFonts;
     this.faces = new FaceResolver(provider, fmt.fontTable, undefined, fontOfSlot(ddFonts, 'ascii', fmt.theme) ?? fmt.theme.minor.latin);
-    this.opts = { advanceEm: opts.advanceEm ?? 'nominal', advanceRound: opts.advanceRound ?? 'none', justifyShrink: opts.justifyShrink ?? { ratio: 0.25, wordRatio: 0.35 }, lang: opts.lang ?? 'pt-BR', now: opts.now ?? new Date() };
+    this.opts = { advanceEm: opts.advanceEm ?? 'nominal', advanceRound: opts.advanceRound ?? 'none', justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? 'pt-BR', now: opts.now ?? new Date(), ...(opts.onWordFit ? { onWordFit: opts.onWordFit } : {}) };
     this.numbering = new NumberingState(fmt.numbering, fmt.styles.styles, this.opts.lang);
   }
 

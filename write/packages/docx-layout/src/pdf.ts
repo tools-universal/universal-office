@@ -1,8 +1,9 @@
-import { PdfDocument, hexColor, type EmbeddedFont, type PdfImage, type PdfPage, type PathCmd } from '@universal-office/pdf';
+import { PdfDocument, hexColor, type EmbeddedFont, type PdfImage, type PdfPage, type PathCmd, type PdfShading } from '@universal-office/pdf';
 import type { InlineImage } from '@universal-office/docx-core';
-import type { LayoutResult, PageItem } from './tree.js';
+import type { LayoutResult, PageItem, PathCmdTw } from './tree.js';
+import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, type GradGeom } from './geometry.js';
 import type { FontFace } from './fonts.js';
-import { decodeRaster, jpegInfo } from './images.js';
+import { applyImageEffects, decodeRaster, effectDecode, jpegInfo } from './images.js';
 
 /**
  * Pinta a árvore de layout num PDF (o mesmo desenho do canvas): glifos
@@ -55,14 +56,21 @@ export function renderPdf(result: LayoutResult, opts: PdfRenderOptions = {}): Ui
     // decodificador que falha (arquivo corrompido, variante não suportada): a imagem
     // fica de fora e o PDF segue — não aborta a exportação inteira
     try {
+      const fx = img.effects;
       const jp = jpegInfo(data);
-      if (jp) h = doc.embedJpeg(data, jp.width, jp.height, jp.components, jp.adobe);
+      // JPEG com ajuste de cor: brilho/contraste via /Decode; os demais exigem os pixels
+      const dec = jp && fx ? effectDecode(fx, jp.components) : null;
+      if (jp && (!fx || dec)) h = doc.embedJpeg(data, jp.width, jp.height, jp.components, jp.adobe, dec ?? undefined);
       else {
-        const r = decodeRaster(data);
-        if (r) h = doc.embedRgba(r.data, r.width, r.height);
-        else {
+        const r = jp ? null : decodeRaster(data);
+        if (r) {
+          if (fx) applyImageEffects(r.data, fx);
+          h = doc.embedRgba(r.data, r.width, r.height);
+        } else {
           const ext = opts.decodeImage?.(img);
+          if (ext && fx) applyImageEffects(ext.rgba, fx);
           if (ext) h = doc.embedRgba(ext.rgba, ext.width, ext.height);
+          else if (jp) h = doc.embedJpeg(data, jp.width, jp.height, jp.components, jp.adobe);
         }
       }
     } catch {
@@ -74,27 +82,105 @@ export function renderPdf(result: LayoutResult, opts: PdfRenderOptions = {}): Ui
 
   for (const lp of result.pages) {
     const page = doc.addPage(lp.widthTw / T, lp.heightTw / T);
-    for (const it of lp.items) paintItem(page, it, fontFor, imageFor);
+    if (lp.background) page.fillRect(0, 0, lp.widthTw / T, lp.heightTw / T, hexColor(lp.background));
+    for (const it of lp.items) paintItem(page, it, fontFor, imageFor, (g, smp) => doc.addShading(g, smp, page.heightPt));
   }
   return doc.build();
+}
+
+/** Contorno de um glifo (camada COLR) → comandos do PDF; false sem contorno. */
+function outlineInto(cmds: PathCmd[], font: FontFace['font'], gid: number, ox: number, base: number, sx: number, s: number, skew: number): boolean {
+  const ol = font.glyphOutline?.(gid);
+  if (!ol) return false;
+  const X = (x: number, y: number) => ox + x * sx + skew * y * s;
+  const Y = (y: number) => base - y * s;
+  let px = 0, py = 0;
+  for (const c of ol) {
+    if (c.op === 'Z') { cmds.push({ op: 'Z' }); continue; }
+    if (c.op === 'Q') {
+      const c1x = px + (2 / 3) * (c.cx - px), c1y = py + (2 / 3) * (c.cy - py);
+      const c2x = c.x + (2 / 3) * (c.cx - c.x), c2y = c.y + (2 / 3) * (c.cy - c.y);
+      cmds.push({ op: 'C', x1: X(c1x, c1y), y1: Y(c1y), x2: X(c2x, c2y), y2: Y(c2y), x: X(c.x, c.y), y: Y(c.y) });
+    } else cmds.push({ op: c.op, x: X(c.x, c.y), y: Y(c.y) });
+    px = c.x; py = c.y;
+  }
+  return true;
+}
+
+/**
+ * Texto como CURVAS (WordArt): cada glifo vira o seu contorno TrueType,
+ * preenchido. false se a fonte não dá contornos (CFF) — aí vai como texto.
+ */
+function glyphsAsPath(page: PdfPage, it: Extract<PageItem, { t: 'glyphs' }>): boolean {
+  const font = it.face.font;
+  if (!font.glyphOutline) return false;
+  const upm = font.metrics.unitsPerEm;
+  const s = it.sizePt / upm, sx = s * (it.scaleX ?? 1);
+  const skew = it.synthItalic ? 0.2 : 0;
+  const base = it.y / T;
+  const cmds: PathCmd[] = [];
+  for (const g of it.glyphs) {
+    const gid = g.gid ?? font.glyphId(g.cp);
+    // glifo colorido (COLR): cada camada com a sua cor, na ordem da tabela
+    const layers = it.colr ? font.colorLayers?.(gid) : null;
+    if (layers) {
+      for (const L of layers) {
+        const lc: PathCmd[] = [];
+        if (!outlineInto(lc, font, L.glyphId, g.x / T, base, sx, s, skew)) continue;
+        if (!lc.length) continue;
+        const a = L.alpha * (it.alpha ?? 1);
+        page.withAlpha(a < 1 ? a : undefined, undefined, () => page.path(lc, hexColor(L.color ?? it.color)));
+      }
+      continue;
+    }
+    const ol = font.glyphOutline(gid);
+    if (!ol) return false;
+    const ox = g.x / T;
+    const X = (x: number, y: number) => ox + x * sx + skew * y * s;
+    const Y = (y: number) => base - y * s;
+    let px = 0, py = 0;
+    for (const c of ol) {
+      if (c.op === 'Z') { cmds.push({ op: 'Z' }); continue; }
+      if (c.op === 'Q') {
+        // quadrática → cúbica (pontos de controle a 2/3)
+        const c1x = px + (2 / 3) * (c.cx - px), c1y = py + (2 / 3) * (c.cy - py);
+        const c2x = c.x + (2 / 3) * (c.cx - c.x), c2y = c.y + (2 / 3) * (c.cy - c.y);
+        cmds.push({ op: 'C', x1: X(c1x, c1y), y1: Y(c1y), x2: X(c2x, c2y), y2: Y(c2y), x: X(c.x, c.y), y: Y(c.y) });
+      } else cmds.push({ op: c.op, x: X(c.x, c.y), y: Y(c.y) });
+      px = c.x; py = c.y;
+    }
+  }
+  if (!cmds.length) return true;
+  const color = hexColor(it.color);
+  const stroke = it.synthBold ? { color, widthPt: it.sizePt * 0.03 } : undefined;
+  page.withAlpha(it.alpha, it.alpha, () => page.path(cmds, color, stroke));
+  return true;
 }
 
 function paintItem(
   page: PdfPage, it: PageItem,
   fontFor: (f: FontFace) => EmbeddedFont | null, imageFor: (i: InlineImage) => PdfImage | null,
+  shade: (g: GradGeom, samples: Uint8Array) => PdfShading,
 ): void {
   switch (it.t) {
     case 'glyphs': {
+      if (it.asPath && glyphsAsPath(page, it)) return;
       const ef = fontFor(it.face);
       if (!ef) return;
-      const placed = it.glyphs.map((g) => {
+      // glifo por índice (EMF) sem contorno disponível: não há caractere para gravar
+      const placed = it.glyphs.filter((g) => g.gid === undefined).map((g) => {
         const { gid } = ef.encode(g.cp);
         return { gid, codePoint: g.cp, xPt: g.x / T, baselineFromTopPt: it.y / T };
       });
-      page.withAlpha(it.alpha, it.alpha, () => page.glyphs(ef, it.sizePt, hexColor(it.color), placed, {
+      // corpo gravado no PDF como o Word: múltiplo de 1/600" (0,12 pt) — 10 → 9,96, 11 → 11,04
+      // (PDFs do oráculo); as posições dos glifos não mudam (cada um tem a sua matriz)
+      const pdfSize = Math.round(it.sizePt / 0.12) * 0.12;
+      page.withAlpha(it.alpha, it.alpha, () => page.glyphs(ef, pdfSize, hexColor(it.color), placed, {
         ...(it.scaleX ? { scaleX: it.scaleX } : {}),
         ...(it.synthBold ? { synthBold: true } : {}),
         ...(it.synthItalic ? { synthItalic: true } : {}),
+        // texto em corridas (Tm + TJ) como no PDF do Word: a extração não embaralha linhas sobrepostas
+        runs: true,
       }));
       return;
     }
@@ -124,16 +210,52 @@ function paintItem(
       return;
     }
     case 'shape': {
+      const st = it.style;
       const fill = it.fill && /^[0-9A-Fa-f]{6}$/.test(it.fill) ? hexColor(it.fill) : undefined;
       const stroke = it.stroke && /^[0-9A-Fa-f]{6}$/.test(it.stroke.color)
         ? { color: hexColor(it.stroke.color), widthPt: Math.max(0.25, it.stroke.widthPt), ...(it.stroke.dash ? { dash: [it.stroke.widthPt * 3, it.stroke.widthPt * 2] } : {}) }
         : undefined;
-      if (!fill && !stroke) return;
+      if (!fill && !stroke && !it.grad) return;
       const x = it.x / T, y = it.y / T, w = it.w / T, h = it.h / T;
-      let cmds = shapePath(it.style.geom, x, y, w, h, it.line, !!it.style.flipH, !!it.style.flipV);
-      if (it.style.rot) cmds = rotatePath(cmds, x + w / 2, y + h / 2, it.style.rot);
+      const isLine = st.geom === 'line' || st.geom.startsWith('straightConnector');
+      const xf = { flipH: !!st.flipH, flipV: !!st.flipV, rot: st.rot ?? 0 };
+      // linha: pontos do VML ou diagonal do quadro; a:custGeom: caminhos do arquivo
+      // (cada um preenchido à parte, par-ímpar); demais: geometria predefinida
+      // (ajustes, espelho e rotação) — oráculos de formas e cust
+      type Part = { cmds: PathCmd[]; fill: boolean; stroke: boolean; evenOdd: boolean };
+      let parts: Part[];
+      if (isLine) {
+        let cmds = linePath(x, y, w, h, it.line, !!st.flipH, !!st.flipV);
+        if (st.rot) cmds = rotatePath(cmds, x + w / 2, y + h / 2, st.rot);
+        parts = [{ cmds, fill: false, stroke: true, evenOdd: false }];
+      } else if (st.geom === 'custom' && st.cust) {
+        parts = custPaths(st.cust, x, y, w, h, xf).map((p) => ({ cmds: p.cmds as PathCmd[], fill: p.fill, stroke: p.stroke, evenOdd: true }));
+      } else {
+        parts = [{ cmds: presetPath(st.geom, x, y, w, h, { ...(st.adj ? { adj: st.adj } : {}), ...xf }) as PathCmd[], fill: !OPEN_PRESETS.has(st.geom), stroke: true, evenOdd: false }];
+      }
+      // sombra externa: cópia deslocada na cor da sombra (sem desfoque); o contorno
+      // também projeta sombra (oráculo shd-tri)
+      if (it.shadow) {
+        const dx = it.shadow.dx / T, dy = it.shadow.dy / T;
+        const col = hexColor(it.shadow.color);
+        for (const p of parts) {
+          if (!p.fill && !stroke) continue;
+          const sc = p.cmds.map((c) => c.op === 'Z' ? c : c.op === 'C'
+            ? { ...c, x1: c.x1 + dx, y1: c.y1 + dy, x2: c.x2 + dx, y2: c.y2 + dy, x: c.x + dx, y: c.y + dy }
+            : { ...c, x: c.x + dx, y: c.y + dy });
+          page.withAlpha(it.shadow.alpha, it.shadow.alpha, () => page.path(sc, p.fill && (fill || it.grad) ? col : undefined, p.stroke && stroke ? { ...stroke, color: col } : undefined, p.evenOdd));
+        }
+      }
+      if (it.grad) {
+        const pb = pathBounds(parts.flatMap((p) => p.cmds) as PathCmdTw[]);
+        const g = gradientGeometry(it.grad, { x, y, w, h, rot: st.rot ?? 0 }, pb);
+        const sh = shade(g, gradientSamples(it.grad.stops, it.grad.path ? 256 : 512));
+        for (const p of parts) if (p.fill) page.withAlpha(st.fillAlpha, undefined, () => page.fillShaded(p.cmds, sh, p.evenOdd));
+        if (stroke) for (const p of parts) if (p.stroke) page.withAlpha(undefined, st.line?.alpha, () => page.path(p.cmds, undefined, stroke));
+        return;
+      }
       // transparência do preenchimento/contorno (a:alpha, v:fill opacity)
-      page.withAlpha(it.style.fillAlpha, it.style.line?.alpha, () => page.path(cmds, it.style.geom === 'line' ? undefined : fill, stroke));
+      for (const p of parts) page.withAlpha(st.fillAlpha, st.line?.alpha, () => page.path(p.cmds, p.fill ? fill : undefined, p.stroke ? stroke : undefined, p.evenOdd));
       return;
     }
     case 'path': {
@@ -160,8 +282,6 @@ function paintItem(
   }
 }
 
-const K = 0.5523;
-
 /** Gira o caminho (graus, horário na tela) em torno de (cx, cy). */
 function rotatePath(cmds: PathCmd[], cx: number, cy: number, deg: number): PathCmd[] {
   const r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
@@ -176,37 +296,10 @@ function rotatePath(cmds: PathCmd[], cx: number, cy: number, deg: number): PathC
   });
 }
 
-function shapePath(geom: string, x: number, y: number, w: number, h: number, line?: { x1: number; y1: number; x2: number; y2: number }, flipH = false, flipV = false): PathCmd[] {
-  if (geom === 'line' || geom.startsWith('straightConnector')) {
-    if (line) return [{ op: 'M', x: x + line.x1 / T, y: y + line.y1 / T }, { op: 'L', x: x + line.x2 / T, y: y + line.y2 / T }];
-    const [x1, x2] = flipH ? [x + w, x] : [x, x + w];
-    const [y1, y2] = flipV ? [y + h, y] : [y, y + h];
-    return [{ op: 'M', x: x1, y: y1 }, { op: 'L', x: x2, y: y2 }];
-  }
-  if (geom === 'ellipse') {
-    const cx = x + w / 2, cy = y + h / 2, rx = w / 2, ry = h / 2;
-    return [
-      { op: 'M', x: cx + rx, y: cy },
-      { op: 'C', x1: cx + rx, y1: cy + ry * K, x2: cx + rx * K, y2: cy + ry, x: cx, y: cy + ry },
-      { op: 'C', x1: cx - rx * K, y1: cy + ry, x2: cx - rx, y2: cy + ry * K, x: cx - rx, y: cy },
-      { op: 'C', x1: cx - rx, y1: cy - ry * K, x2: cx - rx * K, y2: cy - ry, x: cx, y: cy - ry },
-      { op: 'C', x1: cx + rx * K, y1: cy - ry, x2: cx + rx, y2: cy - ry * K, x: cx + rx, y: cy },
-      { op: 'Z' },
-    ];
-  }
-  if (geom === 'roundRect') {
-    const r = Math.min(w, h) * 0.1667;
-    return [
-      { op: 'M', x: x + r, y }, { op: 'L', x: x + w - r, y },
-      { op: 'C', x1: x + w - r + r * K, y1: y, x2: x + w, y2: y + r - r * K, x: x + w, y: y + r },
-      { op: 'L', x: x + w, y: y + h - r },
-      { op: 'C', x1: x + w, y1: y + h - r + r * K, x2: x + w - r + r * K, y2: y + h, x: x + w - r, y: y + h },
-      { op: 'L', x: x + r, y: y + h },
-      { op: 'C', x1: x + r - r * K, y1: y + h, x2: x, y2: y + h - r + r * K, x, y: y + h - r },
-      { op: 'L', x, y: y + r },
-      { op: 'C', x1: x, y1: y + r - r * K, x2: x + r - r * K, y2: y, x: x + r, y },
-      { op: 'Z' },
-    ];
-  }
-  return [{ op: 'M', x, y }, { op: 'L', x: x + w, y }, { op: 'L', x: x + w, y: y + h }, { op: 'L', x, y: y + h }, { op: 'Z' }];
+/** Linha (geom line/straightConnector): pontos do VML ou diagonal do quadro com espelho. */
+function linePath(x: number, y: number, w: number, h: number, line?: { x1: number; y1: number; x2: number; y2: number }, flipH = false, flipV = false): PathCmd[] {
+  if (line) return [{ op: 'M', x: x + line.x1 / T, y: y + line.y1 / T }, { op: 'L', x: x + line.x2 / T, y: y + line.y2 / T }];
+  const [x1, x2] = flipH ? [x + w, x] : [x, x + w];
+  const [y1, y2] = flipV ? [y + h, y] : [y, y + h];
+  return [{ op: 'M', x: x1, y: y1 }, { op: 'L', x: x2, y: y2 }];
 }

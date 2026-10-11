@@ -1,0 +1,200 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 78.36,
+"x0": 85.1,
+"x1": 260.84,
+"size": 8.04,
+"text": "Loremipsumdolorsitametconsecteturadipiscingelit"
+},
+{
+"y": 88.22,
+"x0": 85.1,
+"x1": 296.84,
+"size": 8.04,
+"text": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+},
+{
+"y": 97.94,
+"x0": 85.1,
+"x1": 261.82,
+"size": 8.04,
+"text": "Açãotrêsvírgulas,pontos;números0123456789%($)"
+},
+{
+"y": 108.74,
+"x0": 85.1,
+"x1": 282.75,
+"size": 9.0,
+"text": "Loremipsumdolorsitametconsecteturadipiscingelit"
+},
+{
+"y": 119.78,
+"x0": 85.1,
+"x1": 323.19,
+"size": 9.0,
+"text": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+},
+{
+"y": 130.7,
+"x0": 85.1,
+"x1": 283.85,
+"size": 9.0,
+"text": "Açãotrêsvírgulas,pontos;números0123456789%($)"
+},
+{
+"y": 142.22,
+"x0": 85.1,
+"x1": 293.87,
+"size": 9.48,
+"text": "Loremipsumdolorsitametconsecteturadipiscingelit"
+},
+{
+"y": 153.74,
+"x0": 85.1,
+"x1": 336.3,
+"size": 9.48,
+"text": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+},
+{
+"y": 165.38,
+"x0": 85.1,
+"x1": 294.66,
+"size": 9.48,
+"text": "Açãotrêsvírgulas,pontos;números0123456789%($)"
+},
+{
+"y": 177.5,
+"x0": 85.1,
+"x1": 304.78,
+"size": 9.96,
+"text": "Loremipsumdolorsitametconsecteturadipiscingelit"
+},
+{
+"y": 189.74,
+"x0": 85.1,
+"x1": 349.39,
+"size": 9.96,
+"text": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+},
+{
+"y": 201.86,
+"x0": 85.1,
+"x1": 305.71,
+"size": 9.96,
+"text": "Açãotrêsvírgulas,pontos;números0123456789%($)"
+},
+{
+"y": 214.58,
+"x0": 85.1,
+"x1": 316.0,
+"size": 10.56,
+"text": "Loremipsumdolorsitametconsecteturadipiscingelit"
+},
+{
+"y": 227.42,
+"x0": 85.1,
+"x1": 363.05,
+"size": 10.56,
+"text": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+},
+{
+"y": 240.26,
+"x0": 85.1,
+"x1": 316.94,
+"size": 10.56,
+"text": "Açãotrêsvírgulas,pontos;números0123456789%($)"
+},
+{
+"y": 253.46,
+"x0": 85.1,
+"x1": 326.92,
+"size": 11.04,
+"text": "Loremipsumdolorsitametconsecteturadipiscingelit"
+},
+{
+"y": 266.93,
+"x0": 85.1,
+"x1": 376.18,
+"size": 11.04,
+"text": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+},
+{
+"y": 280.25,
+"x0": 85.1,
+"x1": 327.97,
+"size": 11.04,
+"text": "Açãotrêsvírgulas,pontos;números0123456789%($)"
+},
+{
+"y": 294.17,
+"x0": 85.1,
+"x1": 337.81,
+"size": 11.52,
+"text": "Loremipsumdolorsitametconsecteturadipiscingelit"
+},
+{
+"y": 308.21,
+"x0": 85.1,
+"x1": 389.37,
+"size": 11.52,
+"text": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+},
+{
+"y": 322.25,
+"x0": 85.1,
+"x1": 338.82,
+"size": 11.52,
+"text": "Açãotrêsvírgulas,pontos;números0123456789%($)"
+},
+{
+"y": 336.77,
+"x0": 85.1,
+"x1": 348.82,
+"size": 12.0,
+"text": "Loremipsumdolorsitametconsecteturadipiscingelit"
+},
+{
+"y": 351.41,
+"x0": 85.1,
+"x1": 402.53,
+"size": 12.0,
+"text": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+},
+{
+"y": 366.17,
+"x0": 85.1,
+"x1": 349.97,
+"size": 12.0,
+"text": "Açãotrêsvírgulas,pontos;números0123456789%($)"
+},
+{
+"y": 382.73,
+"x0": 85.1,
+"x1": 392.89,
+"size": 14.04,
+"text": "Loremipsumdolorsitametconsecteturadipiscingelit"
+},
+{
+"y": 399.77,
+"x0": 85.1,
+"x1": 455.45,
+"size": 14.04,
+"text": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+},
+{
+"y": 416.81,
+"x0": 85.1,
+"x1": 394.15,
+"size": 14.04,
+"text": "Açãotrêsvírgulas,pontos;números0123456789%($)"
+}
+],
+"objs": []
+}
+]
+}

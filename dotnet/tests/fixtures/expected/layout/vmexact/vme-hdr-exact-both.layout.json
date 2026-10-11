@@ -1,0 +1,51 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":500.36,"scaleX":1,"text":"linha1Hxg","g":[[108,4314],[105,4362.88],[110,4411.75],[104,4534.11],[97,4656.46],[49,4839.94],[72,5023.41],[120,5182.29],[103,5292.29]]},
+        {"t":"rect","x":1706,"y":284.2,"w":2500,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":1701.2,"y":284,"w":9.6,"h":400,"fill":"000000","alpha":null},
+        {"t":"rect","x":4201.2,"y":284,"w":9.6,"h":400,"fill":"000000","alpha":null},
+        {"t":"rect","x":4206,"y":284.2,"w":3500,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":4201.2,"y":284,"w":9.6,"h":400,"fill":"000000","alpha":null},
+        {"t":"rect","x":7701.2,"y":284,"w":9.6,"h":400,"fill":"000000","alpha":null},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":900.36,"scaleX":1,"text":"linha2Hxg","g":[[108,4314],[105,4362.88],[110,4411.75],[104,4534.11],[97,4656.46],[50,4839.94],[72,5023.41],[120,5182.29],[103,5292.29]]},
+        {"t":"rect","x":1701.2,"y":684,"w":9.6,"h":400,"fill":"000000","alpha":null},
+        {"t":"rect","x":4201.2,"y":684,"w":9.6,"h":400,"fill":"000000","alpha":null},
+        {"t":"rect","x":4206,"y":684.2,"w":3500,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":4201.2,"y":684,"w":9.6,"h":400,"fill":"000000","alpha":null},
+        {"t":"rect","x":7701.2,"y":684,"w":9.6,"h":400,"fill":"000000","alpha":null},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1300.36,"scaleX":1,"text":"baixoHxg","g":[[98,1814],[97,1936.35],[105,2058.71],[120,2107.58],[111,2217.58],[72,2401.06],[120,2559.94],[103,2669.94]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1300.36,"scaleX":1,"text":"depoisHxg","g":[[100,4314],[101,4436.35],[112,4558.71],[111,4681.06],[105,4803.41],[115,4852.29],[72,5023.41],[120,5182.29],[103,5292.29]]},
+        {"t":"rect","x":1706,"y":1084.2,"w":2500,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":1706,"y":1347.18,"w":2500,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":1701.2,"y":1084,"w":9.6,"h":272.98,"fill":"000000","alpha":null},
+        {"t":"rect","x":4201.2,"y":1084,"w":9.6,"h":272.98,"fill":"000000","alpha":null},
+        {"t":"rect","x":4206,"y":1084.2,"w":3500,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":4206,"y":1347.18,"w":3500,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":4201.2,"y":1084,"w":9.6,"h":272.98,"fill":"000000","alpha":null},
+        {"t":"rect","x":7701.2,"y":1084,"w":9.6,"h":272.98,"fill":"000000","alpha":null},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1816.31,"scaleX":1,"text":"corpoHxg","g":[[99,1701],[111,1811],[114,1933.35],[112,2006.62],[111,2128.97],[72,2312.45],[120,2471.32],[103,2581.32]]}
+      ],
+      "lines": [
+        {"ref":"hdr:default/b0/r0/c1/b0","start":0,"end":11,"x":4314,"y":294,"height":252.98,"baseline":500.36,"width":1100.64},
+        {"ref":"hdr:default/b0/r0/c0/b0","start":0,"end":0,"x":1814,"y":294,"height":252.98,"baseline":500.36,"width":0},
+        {"ref":"hdr:default/b0/r0/c0/b1","start":0,"end":0,"x":1814,"y":546.98,"height":252.98,"baseline":753.34,"width":0},
+        {"ref":"hdr:default/b0/r0/c0/b2","start":0,"end":0,"x":1814,"y":799.96,"height":252.98,"baseline":1006.31,"width":0},
+        {"ref":"hdr:default/b0/r0/c0/b3","start":0,"end":0,"x":1814,"y":1052.94,"height":252.98,"baseline":1259.29,"width":0},
+        {"ref":"hdr:default/b0/r0/c0/b4","start":0,"end":0,"x":1814,"y":1305.91,"height":252.98,"baseline":1512.27,"width":0},
+        {"ref":"hdr:default/b0/r0/c0/b5","start":0,"end":0,"x":1814,"y":1558.89,"height":252.98,"baseline":1765.25,"width":0},
+        {"ref":"hdr:default/b0/r1/c1/b0","start":0,"end":11,"x":4314,"y":694,"height":252.98,"baseline":900.36,"width":1100.64},
+        {"ref":"hdr:default/b0/r2/c0/b0","start":0,"end":9,"x":1814,"y":1094,"height":252.98,"baseline":1300.36,"width":978.29},
+        {"ref":"hdr:default/b0/r2/c1/b0","start":0,"end":10,"x":4314,"y":1094,"height":252.98,"baseline":1300.36,"width":1100.64},
+        {"ref":"hdr:default/b1","start":0,"end":0,"x":1701,"y":1356.98,"height":252.98,"baseline":1563.34,"width":0},
+        {"ref":"b0","start":0,"end":9,"x":1701,"y":1609.96,"height":252.98,"baseline":1816.31,"width":1002.68}
+      ]
+    }
+  ],
+  "warnings": []
+}

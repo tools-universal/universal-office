@@ -1,0 +1,35 @@
+{
+  "pages": [
+    {
+      "w": 11900,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1870.43,"scaleX":1,"text":"LocaledataHxg","g":[[76,1440],[111,1524.08],[99,1629.55],[97,1714.12],[108,1809.92],[101,1901.04],[100,2045.76],[97,2150.84],[116,2246.64],[97,2313.63],[72,2454.65],[120,2579.26],[103,2665.88]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":2838.71,"scaleX":1,"text":"AssinaturaumHxg","g":[[65,1440],[115,1555.72],[115,1633.95],[105,1712.17],[110,1758.07],[97,1863.14],[116,1958.95],[117,2025.94],[114,2131.02],[97,2200.74],[117,2341.76],[109,2446.84],[72,2651.82],[120,2776.43],[103,2863.05]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":3322.85,"scaleX":1,"text":"EmpresaHxg","g":[[69,1440],[109,1537.66],[112,1697.42],[114,1802.5],[101,1872.23],[115,1971.74],[97,2049.96],[72,2190.98],[120,2315.59],[103,2402.21]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":16,"x":1440,"y":1680,"height":244.14,"baseline":1870.43,"width":1320.02},
+        {"ref":"b1","start":0,"end":0,"x":1440,"y":2164.14,"height":244.14,"baseline":2354.57,"width":0},
+        {"ref":"b3","start":0,"end":17,"x":1440,"y":2648.28,"height":244.14,"baseline":2838.71,"width":1517.19},
+        {"ref":"b4","start":0,"end":11,"x":1440,"y":3132.42,"height":244.14,"baseline":3322.85,"width":1056.35},
+        {"ref":"b5","start":0,"end":0,"x":1440,"y":3616.56,"height":244.14,"baseline":3806.99,"width":0}
+      ]
+    },
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 2,
+      "number": 2,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1607.43,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1824.05],[112,1923.56],[111,2028.64],[105,2134.11],[115,2180],[72,2303.44],[120,2428.05],[103,2514.67]]}
+      ],
+      "lines": [
+        {"ref":"b6","start":0,"end":10,"x":1701,"y":1417,"height":244.14,"baseline":1607.43,"width":907.81}
+      ]
+    }
+  ],
+  "warnings": []
+}

@@ -1,0 +1,228 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 132.75,
+"size": 11.04,
+"text": "InicioHxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 202.42,
+"size": 11.04,
+"text": "Fimsecaodepois6Hxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 99.14,
+"x0": 85.1,
+"x1": 183.59,
+"size": 11.04,
+"text": "Secaoantes18Hxg"
+},
+{
+"y": 111.86,
+"x0": 85.1,
+"x1": 208.42,
+"size": 11.04,
+"text": "Fimsecaodepois18Hxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 87.14,
+"x0": 85.1,
+"x1": 177.5,
+"size": 11.04,
+"text": "Secaoantes6Hxg"
+},
+{
+"y": 99.86,
+"x0": 85.1,
+"x1": 208.42,
+"size": 11.04,
+"text": "Fimsecaodepois12Hxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 93.14,
+"x0": 85.1,
+"x1": 183.59,
+"size": 11.04,
+"text": "Secaoantes12Hxg"
+},
+{
+"y": 105.86,
+"x0": 85.1,
+"x1": 202.42,
+"size": 11.04,
+"text": "Fimsecaodepois0Hxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 93.14,
+"x0": 85.1,
+"x1": 183.59,
+"size": 11.04,
+"text": "Secaoantes12Hxg"
+},
+{
+"y": 105.86,
+"x0": 85.1,
+"x1": 202.42,
+"size": 11.04,
+"text": "Fimsecaodepois9Hxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 96.14,
+"x0": 85.1,
+"x1": 183.59,
+"size": 11.04,
+"text": "Secaoantes15Hxg"
+},
+{
+"y": 108.86,
+"x0": 85.1,
+"x1": 232.45,
+"size": 11.04,
+"text": "Antesdaquebradepois6Hxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 99.14,
+"x0": 85.1,
+"x1": 232.45,
+"size": 11.04,
+"text": "Quebranoinicioantes18Hxg"
+},
+{
+"y": 111.86,
+"x0": 85.1,
+"x1": 238.55,
+"size": 11.04,
+"text": "Antesdaquebradepois18Hxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 87.14,
+"x0": 85.1,
+"x1": 226.2,
+"size": 11.04,
+"text": "Quebranoinicioantes6Hxg"
+},
+{
+"y": 99.86,
+"x0": 85.1,
+"x1": 238.55,
+"size": 11.04,
+"text": "Antesdaquebradepois12Hxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 93.14,
+"x0": 85.1,
+"x1": 232.45,
+"size": 11.04,
+"text": "Quebranoinicioantes12Hxg"
+},
+{
+"y": 105.86,
+"x0": 85.1,
+"x1": 232.45,
+"size": 11.04,
+"text": "Antesdaquebradepois0Hxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 93.14,
+"x0": 85.1,
+"x1": 232.45,
+"size": 11.04,
+"text": "Quebranoinicioantes12Hxg"
+},
+{
+"y": 105.86,
+"x0": 85.1,
+"x1": 232.45,
+"size": 11.04,
+"text": "Antesdaquebradepois9Hxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 96.14,
+"x0": 85.1,
+"x1": 232.45,
+"size": 11.04,
+"text": "Quebranoinicioantes15Hxg"
+}
+],
+"objs": []
+}
+]
+}

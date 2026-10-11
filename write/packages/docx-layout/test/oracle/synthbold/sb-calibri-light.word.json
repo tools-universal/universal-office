@@ -1,0 +1,606 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 80.4,
+"x0": 85.1,
+"x1": 470.61,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 92.66,
+"x0": 85.1,
+"x1": 117.31,
+"size": 9.96,
+"text": "aaaaaaa"
+},
+{
+"y": 104.9,
+"x0": 85.1,
+"x1": 470.61,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 117.02,
+"x0": 85.1,
+"x1": 117.31,
+"size": 9.96,
+"text": "aaaaaaa"
+},
+{
+"y": 129.26,
+"x0": 85.1,
+"x1": 475.27,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 141.5,
+"x0": 85.1,
+"x1": 112.62,
+"size": 9.96,
+"text": "aaaaaa"
+},
+{
+"y": 153.62,
+"x0": 85.1,
+"x1": 475.27,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 165.86,
+"x0": 85.1,
+"x1": 112.62,
+"size": 9.96,
+"text": "aaaaaa"
+},
+{
+"y": 178.1,
+"x0": 85.1,
+"x1": 475.27,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 190.34,
+"x0": 85.1,
+"x1": 112.62,
+"size": 9.96,
+"text": "aaaaaa"
+},
+{
+"y": 202.46,
+"x0": 85.1,
+"x1": 475.27,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 214.7,
+"x0": 85.1,
+"x1": 112.62,
+"size": 9.96,
+"text": "aaaaaa"
+},
+{
+"y": 226.94,
+"x0": 85.1,
+"x1": 475.27,
+"size": 9.96,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 239.18,
+"x0": 85.1,
+"x1": 112.62,
+"size": 9.96,
+"text": "aaaaaa"
+},
+{
+"y": 251.3,
+"x0": 85.1,
+"x1": 475.38,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsyntheti"
+},
+{
+"y": 263.57,
+"x0": 85.1,
+"x1": 115.24,
+"size": 9.96,
+"text": "cwidtht"
+},
+{
+"y": 275.81,
+"x0": 85.1,
+"x1": 475.38,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsyntheti"
+},
+{
+"y": 287.93,
+"x0": 85.1,
+"x1": 115.24,
+"size": 9.96,
+"text": "cwidtht"
+},
+{
+"y": 300.17,
+"x0": 85.1,
+"x1": 475.38,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsyntheti"
+},
+{
+"y": 312.41,
+"x0": 85.1,
+"x1": 115.24,
+"size": 9.96,
+"text": "cwidtht"
+},
+{
+"y": 324.65,
+"x0": 85.1,
+"x1": 479.95,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsynthetic"
+},
+{
+"y": 336.77,
+"x0": 85.1,
+"x1": 110.95,
+"size": 9.96,
+"text": "widtht"
+},
+{
+"y": 349.01,
+"x0": 85.1,
+"x1": 479.95,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsynthetic"
+},
+{
+"y": 361.25,
+"x0": 85.1,
+"x1": 110.95,
+"size": 9.96,
+"text": "widtht"
+},
+{
+"y": 373.49,
+"x0": 85.1,
+"x1": 479.95,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsynthetic"
+},
+{
+"y": 385.61,
+"x0": 85.1,
+"x1": 110.95,
+"size": 9.96,
+"text": "widtht"
+},
+{
+"y": 397.85,
+"x0": 85.1,
+"x1": 479.95,
+"size": 9.96,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfortheboldsynthetic"
+},
+{
+"y": 410.09,
+"x0": 85.1,
+"x1": 110.95,
+"size": 9.96,
+"text": "widtht"
+},
+{
+"y": 423.17,
+"x0": 85.1,
+"x1": 472.71,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 436.61,
+"x0": 85.1,
+"x1": 120.47,
+"size": 11.04,
+"text": "aaaaaaa"
+},
+{
+"y": 449.95,
+"x0": 85.1,
+"x1": 472.71,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 463.39,
+"x0": 85.1,
+"x1": 120.47,
+"size": 11.04,
+"text": "aaaaaaa"
+},
+{
+"y": 476.83,
+"x0": 85.1,
+"x1": 477.86,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 490.27,
+"x0": 85.1,
+"x1": 115.31,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 503.71,
+"x0": 85.1,
+"x1": 477.86,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 517.15,
+"x0": 85.1,
+"x1": 115.31,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 530.59,
+"x0": 85.1,
+"x1": 477.86,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 544.03,
+"x0": 85.1,
+"x1": 115.31,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 557.47,
+"x0": 85.1,
+"x1": 477.86,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 570.79,
+"x0": 85.1,
+"x1": 115.31,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 584.23,
+"x0": 85.1,
+"x1": 477.86,
+"size": 11.04,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 597.67,
+"x0": 85.1,
+"x1": 115.31,
+"size": 11.04,
+"text": "aaaaaa"
+},
+{
+"y": 611.11,
+"x0": 85.1,
+"x1": 473.09,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebol"
+},
+{
+"y": 624.58,
+"x0": 85.1,
+"x1": 119.86,
+"size": 11.04,
+"text": "dsynthe"
+},
+{
+"y": 638.02,
+"x0": 85.1,
+"x1": 473.09,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebol"
+},
+{
+"y": 651.46,
+"x0": 85.1,
+"x1": 119.86,
+"size": 11.04,
+"text": "dsynthe"
+},
+{
+"y": 664.9,
+"x0": 85.1,
+"x1": 473.09,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebol"
+},
+{
+"y": 678.34,
+"x0": 85.1,
+"x1": 119.86,
+"size": 11.04,
+"text": "dsynthe"
+},
+{
+"y": 691.78,
+"x0": 85.1,
+"x1": 478.82,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebold"
+},
+{
+"y": 705.1,
+"x0": 85.1,
+"x1": 114.18,
+"size": 11.04,
+"text": "synthe"
+},
+{
+"y": 718.54,
+"x0": 85.1,
+"x1": 478.82,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebold"
+},
+{
+"y": 731.98,
+"x0": 85.1,
+"x1": 114.18,
+"size": 11.04,
+"text": "synthe"
+},
+{
+"y": 745.42,
+"x0": 85.1,
+"x1": 478.82,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebold"
+},
+{
+"y": 758.86,
+"x0": 85.1,
+"x1": 114.18,
+"size": 11.04,
+"text": "synthe"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.24,
+"x0": 85.1,
+"x1": 478.82,
+"size": 11.04,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesforthebold"
+},
+{
+"y": 94.7,
+"x0": 85.1,
+"x1": 114.18,
+"size": 11.04,
+"text": "synthe"
+},
+{
+"y": 109.1,
+"x0": 85.1,
+"x1": 468.76,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 123.74,
+"x0": 85.1,
+"x1": 123.77,
+"size": 12.0,
+"text": "aaaaaaa"
+},
+{
+"y": 138.38,
+"x0": 85.1,
+"x1": 468.76,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 153.02,
+"x0": 85.1,
+"x1": 123.77,
+"size": 12.0,
+"text": "aaaaaaa"
+},
+{
+"y": 167.66,
+"x0": 85.1,
+"x1": 474.28,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 182.42,
+"x0": 85.1,
+"x1": 118.12,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 197.06,
+"x0": 85.1,
+"x1": 474.41,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 211.7,
+"x0": 85.1,
+"x1": 118.12,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 226.34,
+"x0": 85.1,
+"x1": 474.41,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 240.98,
+"x0": 85.1,
+"x1": 118.12,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 255.62,
+"x0": 85.1,
+"x1": 474.41,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 270.29,
+"x0": 85.1,
+"x1": 118.12,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 284.93,
+"x0": 85.1,
+"x1": 474.41,
+"size": 12.0,
+"text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+},
+{
+"y": 299.57,
+"x0": 85.1,
+"x1": 118.12,
+"size": 12.0,
+"text": "aaaaaa"
+},
+{
+"y": 314.21,
+"x0": 85.1,
+"x1": 473.33,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfo"
+},
+{
+"y": 328.85,
+"x0": 85.1,
+"x1": 119.53,
+"size": 12.0,
+"text": "rthebol"
+},
+{
+"y": 343.49,
+"x0": 85.1,
+"x1": 473.33,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfo"
+},
+{
+"y": 358.13,
+"x0": 85.1,
+"x1": 119.53,
+"size": 12.0,
+"text": "rthebol"
+},
+{
+"y": 372.77,
+"x0": 85.1,
+"x1": 473.33,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfo"
+},
+{
+"y": 387.53,
+"x0": 85.1,
+"x1": 119.53,
+"size": 12.0,
+"text": "rthebol"
+},
+{
+"y": 402.17,
+"x0": 85.1,
+"x1": 477.83,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfor"
+},
+{
+"y": 416.81,
+"x0": 85.1,
+"x1": 115.46,
+"size": 12.0,
+"text": "thebol"
+},
+{
+"y": 431.45,
+"x0": 85.1,
+"x1": 477.83,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfor"
+},
+{
+"y": 446.11,
+"x0": 85.1,
+"x1": 115.46,
+"size": 12.0,
+"text": "thebol"
+},
+{
+"y": 460.75,
+"x0": 85.1,
+"x1": 477.83,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfor"
+},
+{
+"y": 475.39,
+"x0": 85.1,
+"x1": 115.46,
+"size": 12.0,
+"text": "thebol"
+},
+{
+"y": 490.03,
+"x0": 85.1,
+"x1": 477.83,
+"size": 12.0,
+"text": "MixedtextwithoutspacesfortheboldsyntheticwidthtestMixedtextwithoutspacesfor"
+},
+{
+"y": 504.67,
+"x0": 85.1,
+"x1": 115.46,
+"size": 12.0,
+"text": "thebol"
+}
+],
+"objs": []
+}
+]
+}

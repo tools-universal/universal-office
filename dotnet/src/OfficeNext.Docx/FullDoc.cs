@@ -253,10 +253,12 @@ public static class FullDocReader
         var sections = new List<Section>();
         var bookmarks = new Dictionary<string, int>(StringComparer.Ordinal);
         var bookmarkOrder = new List<string>();
-        ctx.OnBookmark = name =>
+        var bookmarkOffsets = new Dictionary<string, int>(StringComparer.Ordinal);
+        ctx.OnBookmark = (name, offset) =>
         {
             if (bookmarks.ContainsKey(name)) return;
             bookmarks[name] = blocksAll.Count;
+            bookmarkOffsets[name] = offset;
             bookmarkOrder.Add(name);
         };
         int sectionStart = 0;
@@ -347,9 +349,41 @@ public static class FullDocReader
             Styles = DocxStylesReader.ReadStyles(pkg),
             Bookmarks = bookmarks,
             BookmarkOrder = bookmarkOrder,
+            BookmarkOffsets = bookmarkOffsets,
             Formatting = OoxmlParts.ReadDocFormatting(pkg),
             FootnoteBlocks = footnoteBlocks,
             EndnoteBlocks = endnoteBlocks,
+            CoreProps = ReadCoreProps(pkg),
+            Background = ReadBackground(root),
+        };
+    }
+
+    /// <summary>Cor de fundo da página (w:document/w:background).</summary>
+    private static PageBackground? ReadBackground(XmlElement root)
+    {
+        var bg = FirstChild(root, "w:background");
+        if (bg is null) return null;
+        string? V(string k) { string? v = bg.Attr("w:" + k); return Js.Truthy(v) ? v : null; }
+        var outp = new PageBackground { Color = V("color"), ThemeColor = V("themeColor"), ThemeTint = V("themeTint"), ThemeShade = V("themeShade") };
+        return outp.Color is null && outp.ThemeColor is null && outp.ThemeTint is null && outp.ThemeShade is null ? null : outp;
+    }
+
+    /// <summary>Datas do docProps/core.xml (criação, última gravação, última impressão).</summary>
+    private static CoreProps? ReadCoreProps(DocxPackage pkg)
+    {
+        string? xml = pkg.GetPartText("docProps/core.xml");
+        if (!Js.Truthy(xml)) return null;
+        string? Get(string tag)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(xml!, "<" + System.Text.RegularExpressions.Regex.Escape(tag) + "[^>]*>([^<]*)<", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+            return m.Success ? m.Groups[1].Value.Trim() : null;
+        }
+        string? created = Get("dcterms:created"), modified = Get("dcterms:modified"), lastPrinted = Get("cp:lastPrinted");
+        return new CoreProps
+        {
+            Created = Js.Truthy(created) ? created : null,
+            Modified = Js.Truthy(modified) ? modified : null,
+            LastPrinted = Js.Truthy(lastPrinted) ? lastPrinted : null,
         };
     }
 

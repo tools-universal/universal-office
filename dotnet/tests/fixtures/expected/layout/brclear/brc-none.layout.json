@@ -1,0 +1,24 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"AntesHxg","g":[[65,1701],[110,1847.74],[116,1970.09],[101,2031.21],[115,2153.57],[72,2324.69],[120,2483.57],[103,2593.57]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1876.34,"scaleX":1,"text":"TextoaoladoHxg","g":[[84,4881],[101,5015.38],[120,5137.74],[116,5247.74],[111,5308.86],[97,5492.34],[111,5614.69],[108,5798.17],[97,5847.04],[100,5969.4],[111,6091.75],[72,6275.23],[120,6434.11],[103,6544.11]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2129.31,"scaleX":1,"text":"DepoisdaquebraHxg","g":[[68,4881],[101,5039.88],[112,5162.23],[111,5284.58],[105,5406.94],[115,5455.81],[100,5626.94],[97,5749.29],[113,5932.77],[117,6055.12],[101,6177.47],[98,6299.83],[114,6422.18],[97,6495.44],[72,6678.92],[120,6837.8],[103,6947.8]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2382.29,"scaleX":1,"text":"SeguinteHxg","g":[[83,4881],[101,5027.74],[103,5150.09],[117,5272.45],[105,5394.8],[110,5443.68],[116,5566.03],[101,5627.15],[72,5810.63],[120,5969.51],[103,6079.51]]},
+        {"t":"image","x":1701,"y":1669.98,"w":3000,"h":2000,"ext":"png","bytes":82,"crop":null,"rot":0,"flipH":false,"flipV":false}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":9,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":1014.92},
+        {"ref":"b1","start":0,"end":19,"x":4881,"y":1669.98,"height":252.98,"baseline":1876.34,"width":1785.46},
+        {"ref":"b1","start":19,"end":39,"x":4881,"y":1922.96,"height":252.98,"baseline":2129.31,"width":2189.15},
+        {"ref":"b2","start":0,"end":12,"x":4881,"y":2175.94,"height":252.98,"baseline":2382.29,"width":1320.86}
+      ]
+    }
+  ],
+  "warnings": []
+}

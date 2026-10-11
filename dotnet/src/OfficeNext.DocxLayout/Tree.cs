@@ -31,6 +31,10 @@ public sealed class GlyphRunItem : PageItem
     public double Y;
     /// <summary>glifos: code point + x absoluto (twips).</summary>
     public List<GlyphPos> Glyphs = new();
+    /// <summary>os Cp dos glifos são ÍNDICES de glifo diretos (EMF ETO_GLYPH_INDEX — sem
+    /// caractere: só desenhável como curva). No TS é o `gid` de cada glifo (= cp);
+    /// aqui vale para o run inteiro, para sobreviver às cópias de GlyphPos.</summary>
+    public bool ByGid;
     /// <summary>escala horizontal (w:w) — 1 = normal; nulo = ausente.</summary>
     public double? ScaleX;
     /// <summary>texto original (busca, ToUnicode, depuração).</summary>
@@ -40,7 +44,21 @@ public sealed class GlyphRunItem : PageItem
     public bool SynthItalic;
     /// <summary>opacidade (0..1) — texto semitransparente (w14:textFill)</summary>
     public double? Alpha;
+    /// <summary>desenhar como CURVAS no PDF (WordArt: o Word converte em contornos;
+    /// texto semitransparente e caixa girada fora de 90°: o Word não grava texto)</summary>
+    public bool AsPath;
+    /// <summary>caixa da LINHA em torno do run (twips, relativos — sobrevivem a ShiftItem):
+    /// Asc/Desc acima/abaixo de Y; Lead = do 1º glifo até a borda esquerda do
+    /// quadro; Line = identidade da linha (os runs da mesma linha saem juntos).
+    /// O Word não grava a linha que fica inteira fora da página (CullOffPage).</summary>
+    public LineBoxInfo? LineBox;
+    /// <summary>glifos COLORIDOS (COLR, ex.: Segoe UI Emoji): curvas por camada, nas
+    /// cores da paleta — o Word também não grava texto extraível para eles</summary>
+    public bool Colr;
 }
+
+/// <summary>Caixa da linha de um run de glifos (GlyphRunItem.LineBox).</summary>
+public sealed record LineBoxInfo(double Asc, double Desc, double Lead, int Line);
 
 public sealed class RectItem : PageItem
 {
@@ -90,6 +108,21 @@ public sealed class ShapeItem : PageItem
     public StrokeSpec? Stroke;
     /// <summary>linha (geom line): pontos relativos ao canto</summary>
     public ShapeLinePoints? Line;
+    /// <summary>degradê com as cores das paradas já resolvidas (RRGGBB)</summary>
+    public GradFill? Grad;
+    /// <summary>sombra externa resolvida (deslocamento em twips)</summary>
+    public ShapeShadow? Shadow;
+}
+
+/// <summary>Degradê (a:gradFill): paradas (pos 0..1), a:lin (ângulo, scaled), rotWithShape, a:path.</summary>
+public sealed class GradFill
+{
+    public List<GradStop> Stops = new();
+    public double AngleDeg;
+    public bool? Scaled;
+    public bool? RotWithShape;
+    public string? Path;
+    public RectTw? FillTo;
 }
 
 /// <summary>Comando de caminho em twips (origem no topo da página). Op: M | L | C | Z.</summary>
@@ -176,6 +209,8 @@ public sealed class LayoutPage
     public List<LaidOutLine> Lines = new();
     /// <summary>quantos itens do início de `Items` são do cabeçalho/rodapé (camadas do HF)</summary>
     public int? HfItems;
+    /// <summary>cor de fundo da página (w:background, RRGGBB) — o Word a grava no PDF</summary>
+    public string? Background;
     /// <summary>objetos flutuantes posicionados (seleção/arrasto no editor)</summary>
     public List<PlacedObject>? Objects;
 }

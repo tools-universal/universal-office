@@ -1,0 +1,60 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 214.66,
+"size": 11.04,
+"text": "Codigo0001-06literalHxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 229.96,
+"size": 11.04,
+"text": "Codigo000106elementoHxg"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 222.46,
+"size": 11.04,
+"text": "Palavra-compridaliteralHxg"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 450.13,
+"size": 11.04,
+"text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+},
+{
+"y": 131.78,
+"x0": 85.1,
+"x1": 191.46,
+"size": 11.04,
+"text": "abcdefgh-ijklmnopfim"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 497.85,
+"size": 11.04,
+"text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxabcdefgh"
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 142.51,
+"size": 11.04,
+"text": "ijklmnopfim"
+}
+],
+"objs": []
+}
+]
+}

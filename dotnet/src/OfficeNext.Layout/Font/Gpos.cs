@@ -32,6 +32,35 @@ internal static class Gpos
     /// </summary>
     public sealed record Class0Entry(int Adv, Dictionary<int, int> Cd2);
 
+    /// <summary>
+    /// A feature 'kern' está no script latino do GPOS (latn; sem ele, DFLT)? Com ligaduras
+    /// OpenType ligadas (w14:ligatures), o Word molda o texto pelo script latino e só
+    /// kerneia se a 'kern' estiver registrada nele — Tahoma e Open Sans, que a registram
+    /// só em outros scripts, ficam sem kerning (oráculo kernlig do docx-layout).
+    /// </summary>
+    public static bool GposKernInLatin(JsDataView view, long gposOffset)
+    {
+        int U16(long o) => view.GetUint16(o);
+        string TagAt(long o) => new([(char)view.GetUint8(o), (char)view.GetUint8(o + 1), (char)view.GetUint8(o + 2), (char)view.GetUint8(o + 3)]);
+        long scriptListOff = gposOffset + U16(gposOffset + 4);
+        long featureListOff = gposOffset + U16(gposOffset + 6);
+        long latn = -1, dflt = -1;
+        for (int i = 0, n = U16(scriptListOff); i < n; i++)
+        {
+            long rec = scriptListOff + 2 + (long)i * 6;
+            string tag = TagAt(rec);
+            if (tag == "latn") latn = scriptListOff + U16(rec + 4);
+            else if (tag == "DFLT") dflt = scriptListOff + U16(rec + 4);
+        }
+        long script = latn >= 0 ? latn : dflt;
+        if (script < 0 || U16(script) == 0) return false;
+        long ls = script + U16(script); // DefaultLangSys
+        bool IsKern(int fi) => fi != 0xffff && TagAt(featureListOff + 2 + (long)fi * 6) == "kern";
+        if (IsKern(U16(ls + 2))) return true; // requiredFeatureIndex
+        for (int k = 0, n = U16(ls + 4); k < n; k++) if (IsKern(U16(ls + 6 + (long)k * 2))) return true;
+        return false;
+    }
+
     public static Dictionary<int, int> ParseGposKern(JsDataView view, long gposOffset, Dictionary<int, Class0Entry>? class0 = null)
     {
         var kern = new Dictionary<int, int>();

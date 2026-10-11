@@ -19,6 +19,33 @@ export type KernClass0 = Map<number, { adv: number; cd2: Map<number, number> }>;
 /** Chave de um par de glifos de 16 bits (sem operações de bits: não troca de sinal). */
 export const kernKey = (g1: number, g2: number): number => g1 * 65536 + g2;
 
+/**
+ * A feature 'kern' está no script latino do GPOS (latn; sem ele, DFLT)? Com ligaduras
+ * OpenType ligadas (w14:ligatures), o Word molda o texto pelo script latino e só
+ * kerneia se a 'kern' estiver registrada nele — Tahoma e Open Sans, que a registram
+ * só em outros scripts, ficam sem kerning (oráculo kernlig do docx-layout).
+ */
+export function gposKernInLatin(view: DataView, gposOffset: number): boolean {
+  const u16 = (o: number) => view.getUint16(o);
+  const tagAt = (o: number) => String.fromCharCode(view.getUint8(o), view.getUint8(o + 1), view.getUint8(o + 2), view.getUint8(o + 3));
+  const scriptListOff = gposOffset + u16(gposOffset + 4);
+  const featureListOff = gposOffset + u16(gposOffset + 6);
+  let latn = -1, dflt = -1;
+  for (let i = 0, n = u16(scriptListOff); i < n; i++) {
+    const rec = scriptListOff + 2 + i * 6;
+    const tag = tagAt(rec);
+    if (tag === 'latn') latn = scriptListOff + u16(rec + 4);
+    else if (tag === 'DFLT') dflt = scriptListOff + u16(rec + 4);
+  }
+  const script = latn >= 0 ? latn : dflt;
+  if (script < 0 || !u16(script)) return false;
+  const ls = script + u16(script); // DefaultLangSys
+  const isKern = (fi: number) => fi !== 0xffff && tagAt(featureListOff + 2 + fi * 6) === 'kern';
+  if (isKern(u16(ls + 2))) return true; // requiredFeatureIndex
+  for (let k = 0, n = u16(ls + 4); k < n; k++) if (isKern(u16(ls + 6 + k * 2))) return true;
+  return false;
+}
+
 export function parseGposKern(view: DataView, gposOffset: number, class0?: KernClass0): KernMap {
   const kern: KernMap = new Map();
   const u16 = (o: number) => view.getUint16(o);

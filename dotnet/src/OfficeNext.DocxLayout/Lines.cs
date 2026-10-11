@@ -42,6 +42,8 @@ public sealed class Line
     public double Baseline;
     /// <summary>termina com quebra manual de página/coluna: page | column</summary>
     public string? BreakAfter;
+    /// <summary>termina com quebra de linha w:clear: a seguinte desce para baixo dos flutuantes</summary>
+    public bool Clear;
     /// <summary>última linha do parágrafo</summary>
     public bool Last;
 }
@@ -53,8 +55,10 @@ public struct LineFrame
     public double Right;
     /// <summary>sem espaço útil ao lado de um objeto: a linha passa para baixo dele (y)</summary>
     public double? SkipTo;
+    /// <summary>objeto no meio da linha: os vãos todos, da esquerda para a direita (WrapFrame)</summary>
+    public List<(double A, double B)>? Segs;
 
-    public LineFrame(double left, double right) { Left = left; Right = right; SkipTo = null; }
+    public LineFrame(double left, double right) { Left = left; Right = right; SkipTo = null; Segs = null; }
 }
 
 public static class Lines
@@ -139,6 +143,10 @@ public static class Lines
 
 public sealed class LineBreaker
 {
+    /// <summary>folga do teste "cabe na linha" (twips): só o ruído de ponto flutuante</summary>
+    private const double FitEps = 0.001;
+    /// <summary>Espaço de largura fixa (en, em, fino, ideográfico…): fora da justificação (oráculo formjust).</summary>
+    private static bool FixedSpace(int cp) => (cp >= 0x2000 && cp <= 0x200a) || cp == 0x3000;
     public int Pos;
     public int LineIdx;
     /// <summary>quebra de linha (w:br) no FIM do parágrafo: a marca de parágrafo vai
@@ -158,6 +166,9 @@ public sealed class LineBreaker
 
     public bool Done() => Pos >= P.Glyphs.Count && LineIdx > 0 && !_trailingBreak;
 
+    /// <summary>settings.compat[name] do JS (flag de compatibilidade ligada)</summary>
+    private bool CompatOn(string name) => _ctx.Fmt.Settings.Compat.TryGetValue(name, out var on) && on;
+
     /// <summary>Estado antes de uma linha (para refazê-la noutro quadro).</summary>
     public (int Pos, int LineIdx, bool TrailingBreak) Mark() => (Pos, LineIdx, _trailingBreak);
 
@@ -166,6 +177,23 @@ public sealed class LineBreaker
         Pos = m.Pos;
         LineIdx = m.LineIdx;
         _trailingBreak = m.TrailingBreak;
+    }
+
+    /// <summary>largura da próxima palavra (até o 1º ponto de quebra): o vão ao lado de um
+    /// objeto só recebe texto se ela cabe nele (oráculo wrapsides)</summary>
+    public double PeekWordWidth()
+    {
+        var gs = P.Glyphs;
+        double w = 0;
+        for (int e = Pos; e < gs.Count; e++)
+        {
+            var q = gs[e];
+            if (q.Kind is GlyphKind.Space or GlyphKind.Tab or GlyphKind.Lb or GlyphKind.Pb or GlyphKind.Cb) break;
+            if (q.Kind == GlyphKind.Obj && q.Adv == 0) continue;
+            w += q.Kind == GlyphKind.Shy ? 0 : q.Adv;
+            if (q.BreakAfter) break;
+        }
+        return w + (LineIdx == 0 ? Math.Max(0, P.FirstLine) : 0);
     }
 
     /// <summary>gs.slice(i + 1).some(q => q.kind in char/obj/nbsp/box)</summary>
@@ -216,7 +244,16 @@ public sealed class LineBreaker
             if (mk.Suff == "tab")
             {
                 // tab após o número: próxima parada (o recuo esquerdo conta como parada)
-                var ns = Lines.NextTab(x, p.Tabs, defaultTab, frame.Left > x + 0.5 ? frame.Left : null, right);
+                // o número pode terminar EM CIMA da parada (fim ≤ parada) — oráculo numrpr (nrs-*)
+                double xe = x - 0.5 - 1e-3;
+                var ns = Lines.NextTab(xe, p.Tabs, defaultTab, frame.Left > xe + 0.5 ? frame.Left : null, right);
+                // doNotUseIndentAsNumberingTabStop (modos ≤ 14): o recuo deslocado não tem
+                // prioridade — vale a parada mais próxima, padrão ou o recuo (oráculo numtabind)
+                if (CompatOn("doNotUseIndentAsNumberingTabStop") && _ctx.Fmt.Settings.CompatibilityMode < 15)
+                {
+                    var plain = Lines.NextTab(xe, p.Tabs, defaultTab, null, right);
+                    ns = frame.Left > xe + 0.5 && frame.Left < plain.Pos ? (frame.Left, null) : plain;
+                }
                 x = ns.Pos;
             }
             else if (mk.Suff == "space")
@@ -234,7 +271,17 @@ public sealed class LineBreaker
         bool justify = (p.Jc == "both" || p.Jc == "distribute") && _ctx.Fmt.Settings.CompatibilityMode >= 15;
         var shrink = _ctx.Opts.JustifyShrink;
         double spacesW = 0;          // soma dos espaços da linha (após o último tab)
+        int nSpaces = 0;             // quantos são
+        // espaços ANTES da 1ª palavra do segmento (início da linha / depois de tab) não
+        // comprimem nem expandem (oráculo jlead)
+        bool segWord = false;
         double lastGapW = 0;         // largura dos espaços imediatamente antes da palavra
+        double lastGapSp = 0;        // … só os que comprimem/expandem (contados em spacesW)
+        // unidade que desce inteira se não couber (palavra + palavras coladas por NBSP):
+        // x do início, espaços da linha antes dela e o vão que a precede
+        double unitX = xStart, unitSpacesW = 0, unitGapW = 0, unitGapSp = 0;
+        // layout asiático dos modos ≤ 14: quanto os espaços da linha podem comprimir (oráculo fecompress)
+        double feShrinkW = 0;
         bool wordOk = false;         // a palavra corrente já foi aceita inteira
         bool prevWasGap = true;
         double widthAtBreak = 0;     // largura do conteúdo até o ponto de quebra (sem gaps finais)
@@ -242,6 +289,7 @@ public sealed class LineBreaker
         // tab alinhado pendente (right/center/decimal): ajusta seu avanço conforme o segmento cresce
         PendTab? pendTab = null;
         string? breakAfter = null;
+        bool clearAfter = false;
         bool pastMargin = false;
         bool forced = false;
 
@@ -277,6 +325,15 @@ public sealed class LineBreaker
                 forced = true;
                 if (g.Kind == GlyphKind.Pb) breakAfter = "page";
                 else if (g.Kind == GlyphKind.Cb) breakAfter = "column";
+                else if (g.Clear) clearAfter = true;
+                break;
+            }
+            // linha horizontal VML (o:hr): sozinha na linha — quebra antes e depois (oráculo vmlhr)
+            if (g.Hr is not null)
+            {
+                if (placed.Any(q => q.G.Kind != GlyphKind.Obj || q.G.Adv > 0 || q.G.Hr is not null)) break;
+                placed.Add(new PlacedGlyph { G = g, X = x, W = 0 });
+                i++;
                 break;
             }
             if (g.Kind == GlyphKind.Tab)
@@ -296,6 +353,15 @@ public sealed class LineBreaker
                     };
                 }
                 else (pos, tab) = Lines.NextTab(x, p.Tabs, defaultTab, hangingStop, right);
+                // Word 2013+ (oráculo tocdots-beyond-c15): parada custom direita/centro/decimal
+                // além de máx(margem, fim da linha) alinha o texto pela DIREITA no fim da
+                // linha (margem − recuo direito); no modo ≤ 14 a posição vale
+                if (g.Ptab is null && tab is not null && (tab.Val == "right" || tab.Val == "center" || tab.Val == "decimal")
+                    && _ctx.Fmt.Settings.CompatibilityMode >= 15 && pos > Math.Max(right, right + p.IndRight) + 0.5)
+                {
+                    pos = right;
+                    tab = new TabSpec { Val = "right", Pos = tab.Pos, Leader = tab.Leader };
+                }
                 // sem parada até a margem direita: a linha quebra ANTES do tab, que
                 // recomeça na linha seguinte (na 1ª parada dela) — oráculo tabs
                 // (modo ≤ 14 com paradas custom: o tab segue além da margem pela grade padrão)
@@ -319,7 +385,11 @@ public sealed class LineBreaker
                 lastBreak = i;
                 widthAtBreak = contentEnd - xStart;
                 spacesW = 0;
+                nSpaces = 0;
+                feShrinkW = 0;
+                segWord = false;
                 lastGapW = 0;
+                lastGapSp = 0;
                 prevWasGap = true;
                 continue;
             }
@@ -340,16 +410,57 @@ public sealed class LineBreaker
                     if (q.BreakAfter) { e++; break; }
                 }
                 double over = x + wordW - right;
-                wordOk = over <= 0.5;
+                // a palavra depois de um espaço que não quebra (colado a NBSP) continua a
+                // unidade anterior: se descer, desce a unidade inteira (oráculo nbspglue)
+                if (i == start || !(gs[i - 1].Kind == GlyphKind.Space && !gs[i - 1].BreakAfter))
+                {
+                    // depois de quebra SEM espaço (hífen, travessão, objeto): a saída alternativa é
+                    // quebrar ali mesmo — nenhum vão sai da linha (oráculo hyphcomp)
+                    bool gapBefore = i > start && gs[i - 1].Kind == GlyphKind.Space;
+                    unitX = x; unitSpacesW = spacesW; unitGapW = gapBefore ? lastGapW : 0; unitGapSp = gapBefore ? lastGapSp : 0;
+                }
+                // cabe sse W ≤ A, com a largura linear exata (oráculo fitwidth: limiar de 1 twip)
+                wordOk = over <= FitEps;
+                // layout asiático: a pontuação final pendura além da margem — nos modos ≤ 14
+                // sempre (oráculo fecompress), no 15 só no justificado (oráculo hang15)
+                double hangW = e > i && gs[e - 1].Hang && (justify || _ctx.Fmt.Settings.CompatibilityMode < 15) ? gs[e - 1].Adv : 0;
+                if (!wordOk && (hangW > 0 || feShrinkW > 0) && i > start)
+                {
+                    // modos ≤ 14: os espaços ainda comprimem até o mínimo de cada um
+                    wordOk = over - hangW <= feShrinkW + FitEps;
+                }
                 if (!wordOk && justify && lastBreak >= start && i > start)
                 {
-                    double allowed = Math.Min(shrink.Ratio * spacesW, shrink.WordRatio * (wordW + lastGapW));
-                    wordOk = over <= allowed + 0.5;
+                    // o Word compara as duas saídas: comprimir os n espaços para a palavra
+                    // caber × levá-la para a linha seguinte e expandir os que sobram.
+                    // Comprime se cada espaço perde ≤ 25% E ≤ metade do que ganharia
+                    // (oráculo jsweep; folgas = quantização sub-twip medida no Word). As frações
+                    // são relativas à LARGURA dos espaços (espaços de tamanhos diferentes na
+                    // linha, vão duplo: cada um comprime/expande na proporção — oráculo jmixsp)
+                    double slack = x + wordW - unitX + unitGapW - over;
+                    double rest = unitSpacesW - unitGapSp;
+                    double ov = over - hangW; // a pontuação pendurada não precisa caber (oráculo hang15)
+                    wordOk = nSpaces > 0 && ov <= shrink.Ratio * spacesW + 0.0175
+                        && (nSpaces <= 1 || rest <= 0 || ov / spacesW <= shrink.ExpandRatio * slack / rest + 0.0075 * nSpaces / spacesW);
+                }
+                if (_ctx.Opts.OnWordFit is { } onWordFit && over > -2000)
+                {
+                    onWordFit(new WordFitInfo
+                    {
+                        Over = over, SpacesW = spacesW, NSpaces = nSpaces, WordW = wordW, LastGapW = lastGapW, Justify = justify, Accepted = wordOk,
+                        LineStart = start, WordStart = i, WordEnd = e,
+                        SizePt = g.SizePt, Family = g.Face?.Family ?? "", Compat = _ctx.Fmt.Settings.CompatibilityMode,
+                        LineText = string.Concat(gs.Skip(start).Take(i - start).Select(q => q.Ch)),
+                        WordText = string.Concat(gs.Skip(i).Take(e - i).Select(q => q.Ch)),
+                    });
                 }
             }
             // estouro: quebra no último ponto possível
             double projected = isGap ? x : x + g.Adv;
-            if (!isGap && g.Kind != GlyphKind.Shy && !wordOk && !pastMargin && projected > right + 0.5 && i > start)
+            // âncoras de flutuantes (objeto sem largura na linha) não contam como conteúdo: o
+            // que vem depois delas e não cabe fica na linha assim mesmo (oráculo floatwide)
+            if (!isGap && g.Kind != GlyphKind.Shy && !wordOk && !pastMargin && projected > right + FitEps && i > start
+                && placed.Any(q => q.G.Kind != GlyphKind.Obj || q.G.Adv > 0))
             {
                 if (lastBreak >= start)
                 {
@@ -387,10 +498,12 @@ public sealed class LineBreaker
             placed.Add(new PlacedGlyph { G = g, X = x, W = g.Adv });
             if (isGap)
             {
-                if (!prevWasGap) lastGapW = 0;
+                if (!prevWasGap) { lastGapW = 0; lastGapSp = 0; }
                 lastGapW += g.Adv;
-                spacesW += g.Adv;
+                // espaços de largura fixa (en/em/fino… U+2000–U+200A) não comprimem nem expandem
+                if (segWord && !FixedSpace(g.Cp)) { spacesW += g.Adv; nSpaces++; lastGapSp += g.Adv; feShrinkW += g.FeShrink ?? 0; }
             }
+            else segWord = true;
             prevWasGap = isGap || g.BreakAfter;
             if (pendTab is not null && pendTab.Tab.Val == "decimal" && !pendTab.DecimalSeen && (g.Ch == "," || g.Ch == "."))
             {
@@ -418,12 +531,19 @@ public sealed class LineBreaker
         }
         Pos = Math.Min(gs.Count, i);
         if (Pos == start && start < gs.Count) Pos = start + 1; // garante progresso
-        _trailingBreak = forced && Pos >= gs.Count && placed.Count > 0 && placed[^1].G.Kind == GlyphKind.Lb;
+        // quebra de linha ou de COLUNA no fim do parágrafo: a marca vai para uma linha própria
+        // (na coluna/página seguinte — oráculo colbreak); a de página não (pbfit)
+        // (de página também, com splitPgBreakAndParaMark nos modos ≤ 14 — oráculo pbmark)
+        GlyphKind? lk = placed.Count > 0 ? placed[^1].G.Kind : null;
+        bool splitPg = _ctx.Fmt.Settings.CompatibilityMode < 15 && CompatOn("splitPgBreakAndParaMark");
+        _trailingBreak = forced && Pos >= gs.Count && (lk is GlyphKind.Lb or GlyphKind.Cb || (lk == GlyphKind.Pb && splitPg));
         bool lastLine = Pos >= gs.Count && !_trailingBreak;
         LineIdx++;
 
         // métricas verticais
         double asc = 0, desc = 0, tAsc = 0, tDesc = 0;
+        // fonte dos runs de objetos em linha (altura de texto de linha só com objetos)
+        double oAsc = 0, oDesc = 0;
         foreach (var pg in placed)
         {
             if (pg.G.Kind == GlyphKind.Obj && !(pg.G.Adv > 0)) continue;
@@ -433,45 +553,94 @@ public sealed class LineBreaker
             if (pg.G.Ch == " " || pg.G.Kind == GlyphKind.Tab) continue;
             asc = Lines.JsMax2(asc, pg.G.Asc);
             desc = Lines.JsMax2(desc, pg.G.Desc);
-            if (pg.G.Kind != GlyphKind.Obj && pg.G.Kind != GlyphKind.Box) { tAsc = Lines.JsMax2(tAsc, pg.G.Asc); tDesc = Lines.JsMax2(tDesc, pg.G.Desc); }
+            // (a caixa de seleção conta como texto — oráculo cbline)
+            if (pg.G.Kind != GlyphKind.Obj) { tAsc = Lines.JsMax2(tAsc, pg.G.NAsc ?? pg.G.Asc); tDesc = Lines.JsMax2(tDesc, pg.G.NDesc ?? pg.G.Desc); }
+            else
+            {
+                var om = Fonts.FaceMetrics(pg.G.Face.Font);
+                oAsc = Lines.JsMax2(oAsc, om.Ascent * pg.G.SizePt * 20);
+                oDesc = Lines.JsMax2(oDesc, om.Descent * pg.G.SizePt * 20);
+                // objeto SUBLINHADO: o Word desenha o sublinhado sob ele e a descendente da
+                // fonte do run entra na linha (oráculo imgul)
+                if (pg.G.Style.Underline is { } ul && ul.Val != "none") desc = Lines.JsMax2(desc, om.Descent * pg.G.SizePt * 20);
+            }
+        }
+        bool emptyLine = asc == 0 && desc == 0;
+        if (emptyLine)
+        {
+            // linha vazia: altura pela marca de parágrafo (deslocada por w:position — oráculo position)
+            var mm = Fonts.FaceMetrics(p.MarkFace.Font);
+            // marca em sobrescrito/subscrito: a linha tem a altura do corpo NORMAL, como o
+            // texto (oráculo supmark)
+            string? va = p.MarkStyle.Rpr.VertAlign;
+            double sz = (va is "superscript" or "subscript" ? (p.MarkStyle.Rpr.Sz ?? 20) / 2 : p.MarkStyle.SizePt) * 20;
+            double sh = Js.Truthy(va) ? 0 : p.MarkStyle.Shift;
+            // (a sombra w14:shadow da marca também conta — oráculo shadowh)
+            var (ea, ed) = Para.ShadowExtent(p.MarkStyle);
+            asc = Math.Max(0, mm.Ascent * sz + ea + sh);
+            desc = Math.Max(0, mm.Descent * sz + ed - sh);
         }
         if (tAsc + tDesc == 0)
         {
-            // só objetos: a altura de texto (p/ entrelinha múltipla) vem da marca de parágrafo
+            // só objetos: a altura de texto (p/ entrelinha múltipla) vem da fonte do RUN do
+            // objeto (oráculo imgline); linha vazia: a caixa da marca JÁ deslocada
+            // (pos-empty15); senão a marca de parágrafo
             var mm = Fonts.FaceMetrics(p.MarkFace.Font);
-            tAsc = mm.Ascent * p.MarkStyle.SizePt * 20;
-            tDesc = mm.Descent * p.MarkStyle.SizePt * 20;
-        }
-        if (asc == 0 && desc == 0)
-        {
-            // linha vazia: altura pela marca de parágrafo
-            var mm = Fonts.FaceMetrics(p.MarkFace.Font);
-            double sz = p.MarkStyle.SizePt * 20;
-            asc = mm.Ascent * sz;
-            desc = mm.Descent * sz;
+            bool hasO = oAsc != 0 && !double.IsNaN(oAsc);
+            tAsc = hasO ? oAsc : emptyLine ? asc : mm.Ascent * p.MarkStyle.SizePt * 20;
+            tDesc = hasO ? oDesc : emptyLine ? desc : mm.Descent * p.MarkStyle.SizePt * 20;
         }
         // marcador de numeração: só a ASCENDENTE entra na linha (a descendente e a
         // entrelinha múltipla seguem o texto) — oráculo markers
         if (markerPlaced is not null) foreach (var pg in markerPlaced) asc = Lines.JsMax2(asc, pg.G.Asc);
         var box = Lines.LineBox(asc, desc, p, tAsc + tDesc > 0 ? tAsc + tDesc : null, _grid);
+        // linha do traço horizontal: a da marca ou o traço + 6 pt, a maior (oráculo vmlhr)
+        double hrH = placed.Aggregate(-1.0, (m, pg) => Math.Max(m, pg.G.Hr ?? -1));
+        if (hrH >= 0 && hrH + 120 > box.Height) { box.Baseline += hrH + 120 - box.Height; box.Height = hrH + 120; }
 
         // alinhamento/justificação
         double availW = right - xStart;
         double dx = 0;
         string jc = p.Jc;
-        if (jc == "center") dx = (availW - lineWidth) / 2;
-        else if (jc == "right") dx = availW - lineWidth;
-        else if ((jc == "both" || jc == "distribute") && (!lastLine || jc == "distribute") && breakAfter is null)
+        // layout asiático dos modos ≤ 14 (oráculo fecompress): a pontuação pendurada fica
+        // além da margem e não conta no alinhamento; sem justificar, os espaços comprimem
+        // o que passar da margem
+        PlacedGlyph? lastC = null;
+        foreach (var pg in placed) if (pg.G.Kind is not (GlyphKind.Space or GlyphKind.Lb or GlyphKind.Pb or GlyphKind.Cb)) lastC = pg;
+        double alignW = lastC is not null && lastC.G.Hang && lineWidth > availW + FitEps ? lineWidth - lastC.W : lineWidth;
+        bool justified = (jc == "both" || jc == "distribute") && (!lastLine || jc == "distribute") && breakAfter is null;
+        if (!justified && alignW > availW + FitEps)
+        {
+            double lastCx = lastC?.X ?? 0;
+            var sh = placed.Where(pg => pg.G.FeShrink is { } fs && fs != 0 && !double.IsNaN(fs) && pg.X < lastCx).ToList();
+            double total = sh.Aggregate(0.0, (a, pg) => a + pg.G.FeShrink!.Value);
+            if (total > 0)
+            {
+                double f = Math.Min(1, (alignW - availW) / total);
+                double acc = 0;
+                var shSet = new HashSet<PlacedGlyph>(sh, ReferenceEqualityComparer.Instance);
+                foreach (var pg in placed)
+                {
+                    pg.X -= acc;
+                    if (pg.G.FeShrink is { } fs2 && fs2 != 0 && shSet.Contains(pg)) { pg.W -= fs2 * f; acc += fs2 * f; }
+                }
+            }
+        }
+        if (jc == "center") dx = (availW - alignW) / 2;
+        else if (jc == "right") dx = availW - alignW;
+        else if (justified)
         {
             // espaços internos (não finais, depois do último tab)
             int lastTab = -1;
             for (int k = 0; k < placed.Count; k++) if (placed[k].G.Kind == GlyphKind.Tab) lastTab = k;
             int lastContent = -1;
             for (int k = 0; k < placed.Count; k++) if (placed[k].G.Kind != GlyphKind.Space && placed[k].G.Kind != GlyphKind.Lb) lastContent = k;
+            int firstContent = placed.Count;
+            for (int k = lastTab + 1; k < placed.Count; k++) if (placed[k].G.Kind != GlyphKind.Space) { firstContent = k; break; }
             var spaces = new HashSet<PlacedGlyph>(ReferenceEqualityComparer.Instance);
             for (int k = 0; k < placed.Count; k++)
-                if (k > lastTab && k < lastContent && placed[k].G.Kind == GlyphKind.Space) spaces.Add(placed[k]);
-            double extra = availW - lineWidth;
+                if (k > firstContent && k < lastContent && placed[k].G.Kind == GlyphKind.Space && !FixedSpace(placed[k].G.Cp)) spaces.Add(placed[k]);
+            double extra = availW - alignW;
             if (spaces.Count > 0 && (extra > 0 || extra < 0))
             {
                 double each = extra / spaces.Count;
@@ -496,6 +665,7 @@ public sealed class LineBreaker
             Width = lineWidth, XStart = xStart + Math.Max(0, dx),
             Asc = asc, Desc = desc, Height = box.Height, Baseline = box.Baseline,
             BreakAfter = breakAfter,
+            Clear = clearAfter,
             Last = lastLine,
         };
     }

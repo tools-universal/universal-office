@@ -1,0 +1,165 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 82.2,
+"x0": 85.1,
+"x1": 132.02,
+"size": 12.0,
+"text": "InicioHxg"
+},
+{
+"y": 105.62,
+"x0": 85.1,
+"x1": 199.54,
+"size": 12.0,
+"text": "☐CaixaMSGothicHxg"
+},
+{
+"y": 129.26,
+"x0": 85.1,
+"x1": 193.0,
+"size": 12.0,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 152.06,
+"x0": 85.1,
+"x1": 142.21,
+"size": 12.0,
+"text": "NormalHxg"
+},
+{
+"y": 175.46,
+"x0": 85.1,
+"x1": 204.59,
+"size": 12.0,
+"text": "☐CaixaMSMinchoHxg"
+},
+{
+"y": 198.98,
+"x0": 85.1,
+"x1": 193.0,
+"size": 12.0,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 221.78,
+"x0": 85.1,
+"x1": 142.21,
+"size": 12.0,
+"text": "NormalHxg"
+},
+{
+"y": 246.02,
+"x0": 85.1,
+"x1": 183.36,
+"size": 12.0,
+"text": "☐CaixaSimSunHxg"
+},
+{
+"y": 269.33,
+"x0": 85.1,
+"x1": 193.0,
+"size": 12.0,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 292.25,
+"x0": 85.1,
+"x1": 142.21,
+"size": 12.0,
+"text": "NormalHxg"
+},
+{
+"y": 316.49,
+"x0": 85.1,
+"x1": 194.27,
+"size": 12.0,
+"text": "☐CaixaYuGothicHxg"
+},
+{
+"y": 341.81,
+"x0": 85.1,
+"x1": 191.8,
+"size": 12.0,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 367.13,
+"x0": 85.1,
+"x1": 142.21,
+"size": 12.0,
+"text": "NormalHxg"
+},
+{
+"y": 391.37,
+"x0": 85.1,
+"x1": 219.1,
+"size": 12.0,
+"text": "☐CaixaMalgunGothicHxg"
+},
+{
+"y": 418.01,
+"x0": 85.1,
+"x1": 190.12,
+"size": 12.0,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 442.75,
+"x0": 85.1,
+"x1": 142.21,
+"size": 12.0,
+"text": "NormalHxg"
+},
+{
+"y": 466.87,
+"x0": 85.1,
+"x1": 225.1,
+"size": 12.0,
+"text": "☐CaixaMicrosoftYaHeiHxg"
+},
+{
+"y": 493.27,
+"x0": 85.1,
+"x1": 192.4,
+"size": 12.0,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 518.11,
+"x0": 85.1,
+"x1": 142.21,
+"size": 12.0,
+"text": "NormalHxg"
+},
+{
+"y": 541.51,
+"x0": 85.1,
+"x1": 212.98,
+"size": 12.0,
+"text": "☐CaixaMSUIGothicHxg"
+},
+{
+"y": 565.03,
+"x0": 85.1,
+"x1": 187.96,
+"size": 12.0,
+"text": "TextoHxgLatinoHxg"
+},
+{
+"y": 587.95,
+"x0": 85.1,
+"x1": 142.21,
+"size": 12.0,
+"text": "NormalHxg"
+}
+],
+"objs": []
+}
+]
+}

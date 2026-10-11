@@ -24,12 +24,44 @@ internal sealed class PicInfo
     public Crop? Crop;
     /// <summary>Linha horizontal (forma "HR" sem imagem).</summary>
     public HrInfo? Hr;
+    /// <summary>Ajustes de cor da imagem (pictureContrast/Brightness, cinza, preto e branco).</summary>
+    public PicFx? Fx;
+}
+
+/// <summary>Ajustes de cor no modelo do DrawingML (a:lum em milésimos de %, a:grayscl, a:biLevel).</summary>
+internal sealed class PicFx
+{
+    public double? Bright;
+    public double? Contrast;
+    public bool Gray;
+    public bool BiLevel;
 }
 
 /// <summary>Imagens do .doc — porta de pictures.ts (PICF + BLIP; formas com pib → BStore).</summary>
 internal static class Pictures
 {
     private const int EMU_PER_TWIP = 635;
+
+    /// <summary>
+    /// pictureContrast (0x108, 16.16 = gain do VML) e pictureBrightness (0x109,
+    /// /65536 = blacklevel do VML) → a:lum (bright = 2·blacklevel; contrast = 1 − 1/gain
+    /// ou gain − 1); Blip Boolean (0x13F): fPictureBiLevel (bit 1), fPictureGray (bit 2).
+    /// </summary>
+    public static PicFx? PicFxOf(OAShape? shape)
+    {
+        if (shape is null) return null;
+        var fx = new PicFx();
+        long? ct = shape.Pv(0x108), br = shape.Pv(0x109);
+        double gain = ct is { } c ? unchecked((uint)c) / 65536.0 : 1;
+        double bl = br is { } b ? unchecked((int)b) / 65536.0 : 0;
+        if (Math.Abs(gain - 1) > 1e-6) fx.Contrast = OfficeNext.Core.JsNumber.Round((gain >= 1 ? 1 - 1 / gain : gain - 1) * 100000);
+        if (bl != 0) fx.Bright = OfficeNext.Core.JsNumber.Round(2 * bl * 100000);
+        long? bb = shape.Pv(0x13f);
+        bool Flag(int bit) => bb is { } v && ((unchecked((uint)v) >> (bit + 16)) & 1) == 1 && ((unchecked((uint)v) >> bit) & 1) == 1;
+        if (Flag(2)) fx.Gray = true;
+        if (Flag(1)) fx.BiLevel = true;
+        return fx.Bright is not null || fx.Contrast is not null || fx.Gray || fx.BiLevel ? fx : null;
+    }
 
     public static PicInfo? ReadInlinePicture(DocReader r, long fc)
     {
@@ -83,6 +115,8 @@ internal static class Pictures
         }
         long pib = shape?.Pv(0x104) ?? 1;
         info.Blip = pib - 1 >= 0 && pib - 1 < bses.Count ? bses[(int)(pib - 1)] : (bses.Count > 0 ? bses[0] : null);
+        var fx = PicFxOf(shape);
+        if (fx is not null) info.Fx = fx;
         if (shape is not null)
         {
             double F(int id) => (int)(uint)(shape.Pv(id) ?? 0) / 65536.0;

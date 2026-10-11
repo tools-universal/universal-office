@@ -32,6 +32,13 @@ public readonly struct PlacedGlyph
 /// <summary>Imagem embutida (XObject) pronta para desenhar.</summary>
 public sealed record PdfImage(string ResourceName, int ObjNum);
 
+/// <summary>Degradê embutido (recurso /Shading) pronto para pintar dentro de um recorte.</summary>
+public sealed record PdfShading(string ResourceName, int ObjNum);
+
+/// <summary>Geometria de um degradê (pt, y a partir do TOPO): axial (do ponto 0 ao 1)
+/// ou radial (centro (X0, Y0), raio 0 → R).</summary>
+public sealed record PdfShadingGeom(bool Radial, double X0, double Y0, double X1, double Y1, double R);
+
 /// <summary>Formatação numérica dos operadores PDF (até 3 casas, sem zeros supérfluos).</summary>
 public static class PdfNum
 {
@@ -156,7 +163,7 @@ public sealed class PdfPage
     /// </summary>
     public void Glyphs(
         EmbeddedFont font, double sizePt, PdfColor color, IReadOnlyList<PlacedGlyph> glyphs,
-        double? scaleX = null, bool synthBold = false, bool synthItalic = false)
+        double? scaleX = null, bool synthBold = false, bool synthItalic = false, bool runs = false)
     {
         if (glyphs.Count == 0) return;
         var c = Content;
@@ -168,7 +175,38 @@ public sealed class PdfPage
              .Num(sizePt / 35).Str(" w 2 Tr\n");
         string a = PdfNum.Fmt(scaleX ?? 1);
         string skew = synthItalic ? "0.21" : "0";
-        foreach (var g in glyphs)
+        if (runs)
+        {
+            // corridas como no PDF do Word: UMA matriz (Tm) no 1º glifo de cada trecho de mesma
+            // baseline e x crescente, e um TJ com ajustes INTEIROS (milésimos do corpo) que levam
+            // cada glifo à posição do layout. Cada ajuste parte da posição real da caneta
+            // (larguras do /W + ajustes já gravados): o arredondamento não se acumula
+            double sx = scaleX ?? 1;
+            int i = 0;
+            while (i < glyphs.Count)
+            {
+                var g0 = glyphs[i];
+                int j = i + 1;
+                while (j < glyphs.Count && glyphs[j].BaselineFromTopPt == g0.BaselineFromTopPt && glyphs[j].XPt >= glyphs[j - 1].XPt) j++;
+                c.Str(a).Str(" 0 ").Str(skew).Str(" 1 ").Num(g0.XPt).Byte((byte)' ').Num(FromTop(g0.BaselineFromTopPt)).Str(" Tm [");
+                // caneta: deslocamento (pt, espaço de texto) desde o 1º glifo da corrida
+                double pen = 0;
+                for (int k = i; k < j; k++)
+                {
+                    var g = glyphs[k];
+                    if (k > i)
+                    {
+                        double n = OfficeNext.Core.JsNumber.Round(((pen - (g.XPt - g0.XPt) / sx) * 1000) / sizePt);
+                        if (n != 0) { c.Str(((long)n).ToString(CultureInfo.InvariantCulture)); pen -= (n * sizePt) / 1000; }
+                    }
+                    c.GlyphHex(g.Gid);
+                    pen += (font.WidthThousandths(g.Gid) * sizePt) / 1000;
+                }
+                c.Str("] TJ\n");
+                i = j;
+            }
+        }
+        else foreach (var g in glyphs)
         {
             double y = FromTop(g.BaselineFromTopPt);
             c.Str(a).Str(" 0 ").Str(skew).Str(" 1 ").Num(g.XPt).Byte((byte)' ').Num(y).Str(" Tm ")
@@ -178,8 +216,8 @@ public sealed class PdfPage
         c.Str("ET\n");
     }
 
-    /// <summary>Caminho preenchido e/ou contornado.</summary>
-    public void Path(IReadOnlyList<PathCmd> cmds, PdfColor? fill = null, PathStroke? stroke = null)
+    /// <summary>Caminho preenchido e/ou contornado (evenOdd: preenchimento par-ímpar — furos de a:custGeom).</summary>
+    public void Path(IReadOnlyList<PathCmd> cmds, PdfColor? fill = null, PathStroke? stroke = null, bool evenOdd = false)
     {
         if (cmds.Count == 0 || (fill is null && stroke is null)) return;
         var c = Content;
@@ -211,7 +249,36 @@ public sealed class PdfPage
                     break;
             }
         }
-        c.Str(fill is not null && stroke is not null ? "B\n" : fill is not null ? "f\n" : "S\n");
+        c.Str(fill is not null && stroke is not null ? (evenOdd ? "B*\n" : "B\n") : fill is not null ? (evenOdd ? "f*\n" : "f\n") : "S\n");
+    }
+
+    /// <summary>Preenche o caminho com um degradê (recorta pelo caminho e pinta com `sh`).</summary>
+    public void FillShaded(IReadOnlyList<PathCmd> cmds, PdfShading sh, bool evenOdd = false)
+    {
+        if (cmds.Count == 0) return;
+        var c = Content;
+        c.Str("q\n");
+        foreach (var cmd in cmds)
+        {
+            switch (cmd.Op)
+            {
+                case PathOp.M:
+                    c.Num(cmd.X).Byte((byte)' ').Num(FromTop(cmd.Y)).Str(" m\n");
+                    break;
+                case PathOp.L:
+                    c.Num(cmd.X).Byte((byte)' ').Num(FromTop(cmd.Y)).Str(" l\n");
+                    break;
+                case PathOp.C:
+                    c.Num(cmd.X1).Byte((byte)' ').Num(FromTop(cmd.Y1)).Byte((byte)' ')
+                     .Num(cmd.X2).Byte((byte)' ').Num(FromTop(cmd.Y2)).Byte((byte)' ')
+                     .Num(cmd.X).Byte((byte)' ').Num(FromTop(cmd.Y)).Str(" c\n");
+                    break;
+                default:
+                    c.Str("h\n");
+                    break;
+            }
+        }
+        c.Str(evenOdd ? "W*" : "W").Str(" n\n/").Str(sh.ResourceName).Str(" sh\nQ\n");
     }
 
     /// <summary>"[d0 d1 …] 0 d\n" (ou "[] 0 d\n" sem tracejado).</summary>
@@ -284,6 +351,7 @@ public sealed class PdfDocument
     private readonly List<EmbeddedFont> _fonts = new();
     private readonly List<PdfImage> _images = new();
     private readonly List<PdfPage> _pages = new();
+    private readonly List<PdfShading> _shadings = new();
     /// <summary>ExtGState de opacidade, em ordem de criação: chave "ca|CA" → nome do recurso</summary>
     private readonly List<(string Key, string Name)> _alphaStates = new();
     private readonly Dictionary<string, string> _alphaByKey = new();
@@ -322,10 +390,12 @@ public sealed class PdfDocument
     /// 4 = DeviceCMYK (com /Decode invertido quando o APP14 da Adobe marca CMYK
     /// invertido), senão DeviceRGB.
     /// </summary>
-    public PdfImage EmbedJpeg(byte[] bytes, int widthPx, int heightPx, int components = 3, bool adobeInverted = false)
+    public PdfImage EmbedJpeg(byte[] bytes, int widthPx, int heightPx, int components = 3, bool adobeInverted = false, IReadOnlyList<double>? decodeArr = null)
     {
         string cs = components == 1 ? "/DeviceGray" : components == 4 ? "/DeviceCMYK" : "/DeviceRGB";
-        string decode = components == 4 && adobeInverted ? " /Decode [1 0 1 0 1 0 1 0]" : "";
+        // decodeArr: reta por componente (brilho/contraste sem decodificar o JPEG)
+        string decode = components == 4 && adobeInverted ? " /Decode [1 0 1 0 1 0 1 0]"
+            : decodeArr is { Count: > 0 } ? $" /Decode [{string.Join(" ", decodeArr.Select(PdfNum.Fmt))}]" : "";
         int objNum = _writer.AddStream(
             $"/Type /XObject /Subtype /Image /Width {widthPx} /Height {heightPx} " +
             $"/ColorSpace {cs} /BitsPerComponent 8 /Filter /DCTDecode{decode}",
@@ -397,6 +467,31 @@ public sealed class PdfDocument
         return handle;
     }
 
+    /// <summary>
+    /// Degradê axial (ShadingType 2, do ponto 0 ao 1) ou radial (ShadingType 3,
+    /// círculos concêntricos de centro (x0,y0), raio 0 → r) com cores amostradas
+    /// (função tipo 0: n amostras RGB de 8 bits, como o Word grava). Coordenadas em
+    /// pt com y a partir do TOPO; estende as cores das pontas.
+    /// </summary>
+    public PdfShading AddShading(PdfShadingGeom geom, byte[] samples, double pageHeightPt)
+    {
+        int n = Math.Max(2, samples.Length / 3);
+        var data = new byte[n * 3];
+        Array.Copy(samples, data, Math.Min(samples.Length, n * 3));
+        int fn = _writer.AddStream(
+            $"/FunctionType 0 /Domain [0 1] /Range [0 1 0 1 0 1] /Size [{n}] /BitsPerSample 8 /Order 1 /Encode [0 {n - 1}]",
+            data);
+        double H = pageHeightPt;
+        static string F(double v) => PdfNum.Fmt(v);
+        string coords = !geom.Radial
+            ? $"/ShadingType 2 /Coords [{F(geom.X0)} {F(H - geom.Y0)} {F(geom.X1)} {F(H - geom.Y1)}]"
+            : $"/ShadingType 3 /Coords [{F(geom.X0)} {F(H - geom.Y0)} 0 {F(geom.X0)} {F(H - geom.Y0)} {F(geom.R)}]";
+        int objNum = _writer.AddDict($"<< /ColorSpace /DeviceRGB {coords} /Extend [true true] /Function {fn} 0 R >>");
+        var handle = new PdfShading($"Sh{_shadings.Count}", objNum);
+        _shadings.Add(handle);
+        return handle;
+    }
+
     public PdfPage AddPage(double widthPt, double heightPt)
     {
         var p = new PdfPage(widthPt, heightPt, AlphaState);
@@ -449,7 +544,10 @@ public sealed class PdfDocument
                 return $"/{s.Name} << /Type /ExtGState /ca {s.Key[..bar]} /CA {s.Key[(bar + 1)..]} >>";
             }))} >>"
             : "";
-        string resources = gsDict.Length > 0 ? $"<< {fontDict} {xobjDict} {gsDict} >>" : $"<< {fontDict} {xobjDict} >>";
+        string shDict = _shadings.Count > 0
+            ? $"/Shading << {string.Join(" ", _shadings.Select(h => $"/{h.ResourceName} {h.ObjNum} 0 R"))} >>"
+            : "";
+        string resources = gsDict.Length > 0 || shDict.Length > 0 ? $"<< {fontDict} {xobjDict} {gsDict} {shDict} >>" : $"<< {fontDict} {xobjDict} >>";
 
         int catalog = w.Alloc();
         int pagesNode = w.Alloc();

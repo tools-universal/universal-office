@@ -1,0 +1,40 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.96,
+"x0": 85.1,
+"x1": 136.5,
+"size": 12.0,
+"text": "AntesHxg"
+},
+{
+"y": 95.66,
+"x0": 85.1,
+"x1": 489.39,
+"size": 9.96,
+"text": "TEXTODEEXEMPLOCOMSOMBRAPARAQUEBRAREMVARIASLINHASNOMINIMODUASOUTRES"
+},
+{
+"y": 111.02,
+"x0": 85.1,
+"x1": 142.48,
+"size": 12.0,
+"text": "DepoisHxg"
+}
+],
+"objs": [
+{
+"t": "image",
+"x0": 77.4,
+"y0": 81.48,
+"x1": 503.76,
+"y1": 106.08
+}
+]
+}
+]
+}

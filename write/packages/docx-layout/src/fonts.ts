@@ -40,6 +40,10 @@ export interface FaceMetrics {
   /** sublinhado (post table) — frações do em; positivo = abaixo da baseline */
   underlinePos: number;
   underlineThick: number;
+  /** ascendente SEM o espaço entre linhas (ascent = este + gap) */
+  bareAscent: number;
+  /** OS/2 ySuperscriptYOffset (fração do em), se a fonte o tem */
+  supOffset?: number;
 }
 
 const metricsCache = new WeakMap<LayoutFont, FaceMetrics>();
@@ -58,6 +62,14 @@ export function faceMetrics(font: LayoutFont): FaceMetrics {
     } else {
       asc = fm.ascender; desc = -fm.descender; gap = fm.lineGap;
     }
+    // fonte do Leste Asiático (página de código JIS/GB/Wansung/Big5/Johab no OS/2):
+    // o Word dá à linha ≈1,3 × (ascendente + descendente) — 15% em cima e 15%
+    // embaixo, em unidades inteiras da fonte (MS Gothic: 220+38 / 36+38) — sem o
+    // lineGap (oráculo vmea)
+    if (((fm.codePageRange1 ?? 0) >>> 17) & 0x1f) {
+      const extra = Math.round(0.15 * (asc + desc));
+      asc += extra; desc += extra; gap = 0;
+    }
     const lineHeight = (asc + desc + gap) / u;
     m = {
       ascent: (gap + asc) / u,
@@ -65,10 +77,65 @@ export function faceMetrics(font: LayoutFont): FaceMetrics {
       lineHeight,
       underlinePos: fm.underlinePosition ? -fm.underlinePosition / u : 0.1,
       underlineThick: fm.underlineThickness > 0 ? fm.underlineThickness / u : 0.05,
+      bareAscent: asc / u,
+      ...(fm.ySuperscriptYOffset && fm.ySuperscriptYOffset > 0 ? { supOffset: fm.ySuperscriptYOffset / u } : {}),
     };
     metricsCache.set(font, m);
   }
   return m;
+}
+
+/**
+ * Elevação do sobrescrito (pt), medida no Word em 10 fontes de 6 a 24pt (oráculo
+ * supraise): o topo da ascendente do sobrescrito encosta no da linha base —
+ * asc(linha)·corpo − asc·corpo_sobrescrito — limitado pelo ySuperscriptYOffset
+ * da fonte; os dois em meios pontos.
+ */
+/**
+ * Sobrescrito e subscrito MEDIDOS no Word (oráculo supraise): elevação e queda em meios
+ * pontos (um dígito base 36 por corpo, de 6 a 24pt de meio em meio ponto). Só a fonte do
+ * PRÓPRIO run e o corpo contam — não a fonte do texto ao redor nem a posição na página — e
+ * nenhum arredondamento das métricas (ascendente, OS/2, TEXTMETRIC do GDI) reproduz os
+ * valores: fora da tabela, a fórmula abaixo (e 8% do corpo no subscrito). Calibri Light
+ * mede igual à Calibri.
+ */
+const VERT_TABLE: Record<string, [string, string]> = {
+  'arial': ['5555666767878999aabbbcccdcdeeefffgggh', '1111221112221222222322233322333344434'],
+  'calibri': ['5544555677888999aabbabbbcccdddeeefffg', '1221122212222322233333334434444544455'],
+  'courier new': ['35445556567667778899999aababbccccdddd', '1221122222222322333233344434445444555'],
+  'segoe ui': ['4556666778989aaabbccbddceeefffggghhhi', '1121112221222232223333333344334445444'],
+  'times new roman': ['4555666777899999aabbbcccddeffefffgggh', '1112211222222222322233323233333333344'],
+  'tahoma': ['4555666777888999aabbbcccdddeeefffgggh', '0111122211222212222223222333323333444'],
+  'verdana': ['4555666777888999aabbbcccdddeeefffgggh', '0111112211222232222233222333223333444'],
+  'cambria': ['333444455556666777788889999aaaabbbbcc', '1111111112221222222222333323333333344'],
+  'georgia': ['334444555666677778888999aaaabbbbccccd', '1111111122221222222222333322333333333'],
+  'century gothic': ['3344445555666677788889999aaaabbbbcccc', '1111111111122212222222222233333333333'],
+};
+const VERT_ALIAS: Record<string, string> = { 'calibri light': 'calibri' };
+
+function vertTable(family: string, base: number, k: 0 | 1): number | undefined {
+  const f = family.toLowerCase();
+  const key = Object.hasOwn(VERT_ALIAS, f) ? VERT_ALIAS[f]! : f;
+  const t = Object.hasOwn(VERT_TABLE, key) ? VERT_TABLE[key]![k] : undefined;
+  const i = (base - 6) * 2;
+  if (!t || !Number.isInteger(i) || i < 0 || i >= t.length) return undefined;
+  return parseInt(t[i]!, 36) / 2;
+}
+
+/** Elevação do sobrescrito (pt) da fonte do run: tabela medida, senão a fórmula. */
+export function superscriptRaiseFor(family: string, m: FaceMetrics, base: number, sup: number): number {
+  return vertTable(family, base, 0) ?? superscriptRaisePt(m, base, sup);
+}
+
+/** Queda do subscrito (pt) da fonte do run: tabela medida, senão 8% do corpo. */
+export function subscriptDropPt(family: string, base: number): number {
+  return vertTable(family, base, 1) ?? base * 0.08;
+}
+
+export function superscriptRaisePt(m: FaceMetrics, base: number, sup: number): number {
+  const half = (v: number) => Math.floor(v * 2 + 0.5) / 2;
+  const align = half(m.ascent * base - m.bareAscent * sup);
+  return m.supOffset !== undefined ? Math.min(half(m.supOffset * base), align) : align;
 }
 
 /** em arredondado ao pixel de 600 dpi (o Word mede LARGURAS nesse em). */
@@ -110,6 +177,8 @@ export interface FontTableInfo {
   panose1?: string;
   pitch?: string;
   charset?: string;
+  /** w:sig (usb0..3, csb0..1, hex) */
+  sig?: Record<string, string>;
 }
 
 /** Família padrão do Word para uma família de fonte genérica do fontTable. */
@@ -132,6 +201,15 @@ function genericFor(info: FontTableInfo | undefined): string {
     }
   }
 }
+
+/** Fonte que o Word põe no lugar de uma família ausente com conjunto de caracteres
+ *  do Leste Asiático no fontTable: [sem serifa, serifada] (oráculo altname). */
+const CJK_DEFAULT: Record<string, [string, string]> = {
+  '80': ['Yu Gothic', 'Yu Gothic'],
+  '81': ['Dotum', 'Batang'],
+  '86': ['Microsoft YaHei', 'SimSun'],
+  '88': ['Microsoft JhengHei', 'PMingLiU'],
+};
 
 /** Resolve a face com a cadeia de substituição do Word; nunca devolve null
  *  se o provedor tiver ALGUMA das fontes padrão. */
@@ -160,6 +238,15 @@ export class FaceResolver {
   private lookup(fam: string, bold: boolean, italic: boolean): FontFace {
     const tries: { family: string; bold: boolean; italic: boolean }[] = [{ family: fam, bold, italic }];
     const alias = own(ALIASES, fam.toLowerCase());
+    const info0 = own(this.fontTable, fam);
+    // conjunto de caracteres do Leste Asiático no fontTable: a fonte padrão da escrita
+    // (sem serifa × serifada) — antes do mapeamento próprio do Word; o altName só vale
+    // para família que o Word não conhece (oráculo altname, sessão nova do Word)
+    const cjk = CJK_DEFAULT[info0?.charset?.toUpperCase() ?? '']?.[info0?.family === 'roman' ? 1 : 0];
+    if (cjk) {
+      if (!alias && info0?.altName) for (const alt of info0.altName.split(/[,;]/)) tries.push({ family: alt.trim(), bold, italic });
+      tries.push({ family: cjk, bold, italic });
+    }
     if (alias) tries.push({ family: alias, bold, italic });
     const ps = parsePostScriptName(fam);
     if (ps) {
@@ -172,7 +259,13 @@ export class FaceResolver {
     // família ausente sem altName (oráculo fontsub, independe do padrão do
     // documento e do tema): serifada (roman) ou fora do fontTable → Cambria;
     // swiss/auto/modern → Calibri
-    if (!symbolic) tries.push({ family: !info || info.family === 'roman' ? 'Cambria' : 'Calibri', bold, italic });
+    if (!symbolic) {
+      // assinatura (w:sig) com o bloco árabe: o mapeador de fontes escolhe uma fonte
+      // com árabe — Arial (sem serifa/auto) ou Sakkal Majalla (serifada) (oráculo fontsubmark)
+      const arabic = info?.sig?.usb0 ? (parseInt(info.sig.usb0, 16) & (1 << 13)) !== 0 : false;
+      if (arabic) tries.push({ family: info?.family === 'roman' ? 'Sakkal Majalla' : 'Arial', bold, italic });
+      else tries.push({ family: !info || info.family === 'roman' ? 'Cambria' : 'Calibri', bold, italic });
+    }
     void this.docDefault;
     tries.push({ family: genericFor(info), bold, italic });
     for (const fb of this.fallbacks) tries.push({ family: fb, bold, italic });

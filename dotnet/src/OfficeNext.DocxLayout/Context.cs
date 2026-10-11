@@ -2,11 +2,13 @@ using OfficeNext.Docx;
 
 namespace OfficeNext.DocxLayout;
 
-/// <summary>Compressão de espaços na justificação (medida no Word).</summary>
+/// <summary>Compressão de espaços na justificação (medida no Word, oráculo jsweep):
+/// o excesso cabe se for ≤ Ratio × soma dos espaços E a compressão por espaço for
+/// ≤ ExpandRatio × a expansão por espaço que a linha teria sem a palavra.</summary>
 public sealed class JustifyShrink
 {
     public double Ratio = 0.25;
-    public double WordRatio = 0.35;
+    public double ExpandRatio = 0.5;
 }
 
 /// <summary>Opções do motor (porta de LayoutOptions em docx-layout/src/context.ts).</summary>
@@ -23,6 +25,31 @@ public sealed class LayoutOptions
     public string? Lang;
     /// <summary>valor do campo DATE/TIME (padrão: agora).</summary>
     public DateTime? Now;
+    /// <summary>diagnóstico (laboratório): cada decisão "a palavra cabe na linha?"</summary>
+    public Action<WordFitInfo>? OnWordFit;
+}
+
+/// <summary>Dados de uma decisão de quebra (twips): para medir a regra do Word no corpus.</summary>
+public sealed class WordFitInfo
+{
+    /// <summary>quanto a palavra passa da margem (≤ 0 cabe sem comprimir)</summary>
+    public double Over;
+    public double SpacesW;
+    public int NSpaces;
+    public double WordW;
+    public double LastGapW;
+    public bool Justify;
+    public bool Accepted;
+    /// <summary>índices em para.Glyphs: início da linha e da palavra</summary>
+    public int LineStart;
+    public int WordStart;
+    public int WordEnd;
+    public double SizePt;
+    public string Family = "";
+    public double Compat;
+    /// <summary>texto da linha até a palavra e da palavra (sem marcador)</summary>
+    public string LineText = "";
+    public string WordText = "";
 }
 
 /// <summary>Opções efetivas (Required&lt;LayoutOptions&gt;).</summary>
@@ -33,6 +60,7 @@ public sealed class ResolvedLayoutOptions
     public JustifyShrink JustifyShrink = new();
     public string Lang = "pt-BR";
     public DateTime Now = DateTime.Now;
+    public Action<WordFitInfo>? OnWordFit;
 }
 
 /// <summary>Estado compartilhado de um layout de documento.</summary>
@@ -69,6 +97,7 @@ public sealed class DocContext
             JustifyShrink = opts.JustifyShrink ?? new JustifyShrink(),
             Lang = opts.Lang ?? "pt-BR",
             Now = opts.Now ?? DateTime.Now,
+            OnWordFit = opts.OnWordFit,
         };
         Numbering = new NumberingState(fmt.Numbering, fmt.Styles.Styles, Opts.Lang);
     }

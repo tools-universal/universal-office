@@ -56,6 +56,9 @@ public sealed class DrawingAnchor
     public bool? AllowOverlap;
     /// <summary>wp:effectExtent (twips) — sombra/brilho fora do extent.</summary>
     public RectTw? EffectExtent;
+    /// <summary>contorno justo/através: caixa do wp:wrapPolygon em frações (0..1) do extent —
+    /// o texto contorna ela, não a figura inteira (oráculo wrappoly). L=x0, T=y0, R=x1, B=y1.</summary>
+    public RectTw? WrapBox;
 }
 
 public sealed class ShapeLine
@@ -71,6 +74,52 @@ public sealed class ShapeGradient
     public string From = "";
     public string To = "";
     public double AngleDeg;
+    /// <summary>todas as paradas (pos 0..1), em ordem</summary>
+    public List<GradStop>? Stops;
+    /// <summary>a:lin scaled</summary>
+    public bool? Scaled;
+    public bool? RotWithShape;
+    /// <summary>a:path (circle/rect/shape)</summary>
+    public string? Path;
+    /// <summary>a:fillToRect (frações)</summary>
+    public RectTw? FillTo;
+}
+
+/// <summary>Parada de degradê: posição (0..1) e cor (RRGGBB, "@tema" ou com "|mods").</summary>
+public sealed class GradStop
+{
+    public double Pos;
+    public string Color = "000000";
+}
+
+/// <summary>Sombra externa (a:outerShdw): deslocamento (twips), cor, opacidade, desfoque (twips).</summary>
+public sealed class ShapeShadow
+{
+    public double Dx;
+    public double Dy;
+    public string Color = "000000";
+    public double? Alpha;
+    public double? Blur;
+}
+
+/// <summary>Comando de um caminho de a:custGeom já em números (unidades do caminho; ângulos em graus).
+/// Op: M | L (X, Y) · C | Q (Pts) · A (WR, HR, St, Sw) · Z.</summary>
+public sealed class CustCmd
+{
+    public char Op;
+    public double X, Y;
+    public List<(double X, double Y)>? Pts;
+    public double WR, HR, St, Sw;
+}
+
+/// <summary>Caminho de a:custGeom: espaço próprio (W × H; sem w/h = o da forma em EMU), preenche/contorna.</summary>
+public sealed class CustPath
+{
+    public double W;
+    public double H;
+    public bool Fill;
+    public bool Stroke;
+    public List<CustCmd> Cmds = new();
 }
 
 /// <summary>Aparência de uma forma (preenchimento/contorno).</summary>
@@ -87,8 +136,18 @@ public sealed class ShapeStyle
     public double? Rot;
     public bool? FlipH;
     public bool? FlipV;
-    /// <summary>gradiente simplificado (1ª e última paradas) quando há a:gradFill.</summary>
+    /// <summary>gradiente (a:gradFill): 1ª e última paradas + todas as paradas (pos 0..1),
+    /// a:lin (ângulo, scaled), rotWithShape e a:path (circle/rect/shape + fillToRect)</summary>
     public ShapeGradient? Gradient;
+    /// <summary>a:custGeom: caminhos já numéricos</summary>
+    public List<CustPath>? Cust;
+    /// <summary>ajustes da geometria predefinida (a:avLst: nome → valor de "val N"), na ordem do arquivo</summary>
+    public Dictionary<string, double>? Adj;
+    /// <summary>sombra externa (a:outerShdw)</summary>
+    public ShapeShadow? Shadow;
+
+    /// <summary>Cópia rasa ({ ...x }).</summary>
+    public ShapeStyle ShallowClone() => (ShapeStyle)MemberwiseClone();
 }
 
 public static class DrawingReader
@@ -134,14 +193,24 @@ public static class DrawingReader
         if (anchor is null) return null;
         string wrap = "none";
         string? wrapText = null;
+        RectTw? wrapBox = null;
+        static RectTw? PolyBox(XmlElement w)
+        {
+            var poly = FirstChild(w, "wp:wrapPolygon");
+            if (poly is null) return null;
+            static double N(string? v) { double n = Js.ParseInt(v ?? "0"); return double.IsNaN(n) ? 0 : n; }
+            var pts = ChildElements(poly).Where(e => e.Name is "wp:start" or "wp:lineTo").Select(e => (X: N(e.Attr("x")), Y: N(e.Attr("y")))).ToList();
+            if (pts.Count < 3) return null;
+            return new RectTw { L = pts.Min(q => q.X) / 21600, T = pts.Min(q => q.Y) / 21600, R = pts.Max(q => q.X) / 21600, B = pts.Max(q => q.Y) / 21600 };
+        }
         foreach (var c in ChildElements(anchor))
         {
             switch (c.Name)
             {
                 case "wp:wrapNone": wrap = "none"; break;
                 case "wp:wrapSquare": wrap = "square"; wrapText = c.Attr("wrapText"); break;
-                case "wp:wrapTight": wrap = "tight"; wrapText = c.Attr("wrapText"); break;
-                case "wp:wrapThrough": wrap = "through"; wrapText = c.Attr("wrapText"); break;
+                case "wp:wrapTight": wrap = "tight"; wrapText = c.Attr("wrapText"); wrapBox = PolyBox(c); break;
+                case "wp:wrapThrough": wrap = "through"; wrapText = c.Attr("wrapText"); wrapBox = PolyBox(c); break;
                 case "wp:wrapTopAndBottom": wrap = "topAndBottom"; break;
             }
         }
@@ -174,6 +243,7 @@ public static class DrawingReader
                 R = EmuTw(ee.Attr("r")) ?? 0, B = EmuTw(ee.Attr("b")) ?? 0,
             };
         }
+        if (wrapBox is not null) outp.WrapBox = wrapBox;
         return outp;
     }
 
@@ -203,7 +273,8 @@ public static class DrawingReader
             hex = NamedPrst.TryGetValue(c.Attr("val") ?? "", out var nh) ? nh : "000000";
         if (!Js.Truthy(hex)) return null;
         var alphaEl = FirstChild(c, "a:alpha");
-        string outHex = Js.ToUpper(hex!);
+        // referência de tema (@tx1, @accent1…) fica como está — o motor resolve pelo nome
+        string outHex = hex!.StartsWith('@') ? hex : Js.ToUpper(hex);
         double? alpha = null;
         if (alphaEl is not null) alpha = Js.IntOr0(alphaEl.Attr("val") ?? "100000") / 100000;
         // lumMod/lumOff/tint/shade ficam com o motor (precisa do tema); registramos cru
@@ -218,9 +289,27 @@ public static class DrawingReader
     {
         var st = new ShapeStyle { Geom = "rect" };
         if (spPr is null) return st;
-        string? prst = FirstChild(spPr, "a:prstGeom")?.Attr("prst");
+        var prstEl = FirstChild(spPr, "a:prstGeom");
+        string? prst = prstEl?.Attr("prst");
         if (Js.Truthy(prst)) st.Geom = prst!;
-        else if (FirstChild(spPr, "a:custGeom") is not null) st.Geom = "custom";
+        var av = prstEl is not null ? FirstChild(prstEl, "a:avLst") : null;
+        if (av is not null)
+        {
+            foreach (var gd in ChildElements(av, "a:gd"))
+            {
+                var m = AdjValRe.Match(gd.Attr("fmla") ?? "");
+                string? gname = gd.Attr("name");
+                if (m.Success && Js.Truthy(gname)) (st.Adj ??= new Dictionary<string, double>(StringComparer.Ordinal))[gname!] = Js.ParseInt(m.Groups[1].Value);
+            }
+        }
+        var cg = !Js.Truthy(prst) ? FirstChild(spPr, "a:custGeom") : null;
+        if (cg is not null)
+        {
+            st.Geom = "custom";
+            var cext = FirstChild(FirstChild(spPr, "a:xfrm") ?? spPr, "a:ext");
+            var paths = ReadCustGeom(cg, Js.IntOr0(cext?.Attr("cx") ?? "0"), Js.IntOr0(cext?.Attr("cy") ?? "0"));
+            if (paths.Count > 0) st.Cust = paths;
+        }
         var xfrm = FirstChild(spPr, "a:xfrm");
         if (xfrm is not null)
         {
@@ -245,6 +334,20 @@ public static class DrawingReader
             if (from is not null && to is not null)
             {
                 st.Gradient = new ShapeGradient { From = from.Value.Hex, To = to.Value.Hex, AngleDeg = Js.IntOr0(lin?.Attr("ang") ?? "0") / 60000 };
+                var g = st.Gradient;
+                // (ordenação estável por posição, como o sort do JS)
+                g.Stops = stops.Select(s => new GradStop { Pos = Js.IntOr0(s.Attr("pos") ?? "0") / 100000, Color = SrgbOf(s)?.Hex ?? "000000" })
+                    .OrderBy(s => s.Pos).ToList();
+                if (lin?.Attr("scaled") is { } sc) g.Scaled = sc is "1" or "true";
+                if (grad.Attr("rotWithShape") is { } rws) g.RotWithShape = rws is "1" or "true";
+                var path = FirstChild(grad, "a:path");
+                if (path is not null)
+                {
+                    g.Path = path.Attr("path") ?? "circle";
+                    var ft = FirstChild(path, "a:fillToRect");
+                    double F(string k) => Js.IntOr0(ft?.Attr(k) ?? "0") / 100000;
+                    if (ft is not null) g.FillTo = new RectTw { L = F("l"), T = F("t"), R = F("r"), B = F("b") };
+                }
                 st.Fill = from.Value.Hex;
             }
         }
@@ -256,6 +359,21 @@ public static class DrawingReader
             {
                 var c = SrgbOf(fillRef);
                 if (c is not null) st.Fill = c.Value.Hex;
+            }
+        }
+        var eff = FirstChild(spPr, "a:effectLst");
+        var shd = eff is not null ? FirstChild(eff, "a:outerShdw") : null;
+        if (shd is not null)
+        {
+            var c = SrgbOf(shd);
+            double dist = Js.IntOr0(shd.Attr("dist") ?? "0") / EmuPerTwipD;
+            double dir = (Js.IntOr0(shd.Attr("dir") ?? "0") / 60000) * (Math.PI / 180);
+            if (c is { } cc)
+            {
+                st.Shadow = new ShapeShadow { Dx = dist * Math.Cos(dir), Dy = dist * Math.Sin(dir), Color = cc.Hex };
+                if (cc.Alpha is not null) st.Shadow.Alpha = cc.Alpha;
+                double blur = Js.IntOr0(shd.Attr("blurRad") ?? "0") / EmuPerTwipD;
+                if (blur != 0) st.Shadow.Blur = blur;
             }
         }
         var ln = FirstChild(spPr, "a:ln");
@@ -278,6 +396,129 @@ public static class DrawingReader
             if (c is not null) st.Line = new ShapeLine { Color = c.Value.Hex, WidthPt = Js.Truthy(ln?.Attr("w")) ? Js.ParseInt(ln!.Attr("w")) / 12700 : 0.75 };
         }
         return st;
+    }
+
+    private static readonly Regex AdjValRe = new(@"^val\s+(-?[0-9]+)", RegexOptions.CultureInvariant);
+
+    // ───────────────────────── a:custGeom ─────────────────────────
+
+    private static readonly Regex GdWs = new(@"\s+", RegexOptions.CultureInvariant);
+
+    private static readonly Regex JsDecRe = new(@"^[+-]?(Infinity|([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?)\z", RegexOptions.CultureInvariant);
+
+    /// <summary>Number(s) do JS para texto: brancos nas pontas, vazio = 0, 0x/0o/0b, Infinity; senão NaN.</summary>
+    private static double JsNumberOf(string s)
+    {
+        string t = s.Trim();
+        if (t.Length == 0) return 0;
+        if (t.Length > 2 && t[0] == '0' && (t[1] is 'x' or 'X' or 'o' or 'O' or 'b' or 'B'))
+        {
+            int radix = t[1] is 'x' or 'X' ? 16 : t[1] is 'o' or 'O' ? 8 : 2;
+            double acc = 0;
+            foreach (char ch in t[2..])
+            {
+                int d = ch >= '0' && ch <= '9' ? ch - '0' : ch >= 'a' && ch <= 'z' ? ch - 'a' + 10 : ch >= 'A' && ch <= 'Z' ? ch - 'A' + 10 : 99;
+                if (d >= radix) return double.NaN;
+                acc = acc * radix + d;
+            }
+            return acc;
+        }
+        if (!JsDecRe.IsMatch(t)) return double.NaN;
+        if (t.EndsWith("Infinity", StringComparison.Ordinal)) return t[0] == '-' ? double.NegativeInfinity : double.PositiveInfinity;
+        return double.Parse(t, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// a:custGeom → caminhos numéricos. As guias (a:avLst/a:gdLst) são avaliadas com
+    /// as fórmulas do DrawingML sobre as dimensões da forma em EMU (cx × cy).
+    /// </summary>
+    public static List<CustPath> ReadCustGeom(XmlElement cg, double cx, double cy)
+    {
+        double w = cx != 0 && !double.IsNaN(cx) ? cx : 1, h = cy != 0 && !double.IsNaN(cy) ? cy : 1, ss = Math.Min(w, h), ls = Math.Max(w, h);
+        var v = new Dictionary<string, double>(StringComparer.Ordinal)
+        {
+            ["w"] = w, ["h"] = h, ["l"] = 0, ["t"] = 0, ["r"] = w, ["b"] = h, ["hc"] = w / 2, ["vc"] = h / 2, ["ss"] = ss, ["ls"] = ls,
+            ["cd2"] = 10800000, ["cd4"] = 5400000, ["cd8"] = 2700000, ["3cd4"] = 16200000, ["3cd8"] = 8100000, ["5cd8"] = 13500000, ["7cd8"] = 18900000,
+        };
+        foreach (int k in new[] { 2, 3, 4, 5, 6, 8, 10, 12, 16, 32 }) { v[$"wd{k}"] = w / k; v[$"hd{k}"] = h / k; v[$"ssd{k}"] = ss / k; }
+        double Num(string? s)
+        {
+            if (s is null) return 0;
+            double n = JsNumberOf(s);
+            return double.IsFinite(n) ? n : v.TryGetValue(s, out var g) ? g : 0;
+        }
+        static double Rad(double a) => (a / 60000) * (Math.PI / 180);
+        double EvalGd(string f)
+        {
+            var parts = GdWs.Split(f.Trim());
+            string op = parts[0];
+            double x = parts.Length > 1 ? Num(parts[1]) : 0, y = parts.Length > 2 ? Num(parts[2]) : 0, z = parts.Length > 3 ? Num(parts[3]) : 0;
+            switch (op)
+            {
+                case "*/": return z != 0 && !double.IsNaN(z) ? (x * y) / z : 0;
+                case "+-": return x + y - z;
+                case "+/": return z != 0 && !double.IsNaN(z) ? (x + y) / z : 0;
+                case "?:": return x > 0 ? y : z;
+                case "abs": return Math.Abs(x);
+                case "at2": return (Math.Atan2(y, x) * 180 / Math.PI) * 60000;
+                case "cat2": return x * Math.Cos(Math.Atan2(z, y));
+                case "sat2": return x * Math.Sin(Math.Atan2(z, y));
+                case "cos": return x * Math.Cos(Rad(y));
+                case "sin": return x * Math.Sin(Rad(y));
+                case "tan": return x * Math.Tan(Rad(y));
+                case "max": return double.IsNaN(x) || double.IsNaN(y) ? double.NaN : Math.Max(x, y);
+                case "min": return double.IsNaN(x) || double.IsNaN(y) ? double.NaN : Math.Min(x, y);
+                case "mod": return Math.Sqrt(x * x + y * y + z * z);
+                case "pin": return y < x ? x : y > z ? z : y;
+                case "sqrt": return Math.Sqrt(Math.Max(0, x));
+                case "val": return x;
+                default: return 0;
+            }
+        }
+        foreach (var lst in new[] { "a:avLst", "a:gdLst" })
+        {
+            var el = FirstChild(cg, lst);
+            if (el is null) continue;
+            foreach (var gd in ChildElements(el, "a:gd"))
+            {
+                string? name = gd.Attr("name");
+                if (Js.Truthy(name)) v[name!] = EvalGd(gd.Attr("fmla") ?? "val 0");
+            }
+        }
+        var outp = new List<CustPath>();
+        var pl = FirstChild(cg, "a:pathLst");
+        if (pl is null) return outp;
+        foreach (var p in ChildElements(pl, "a:path"))
+        {
+            double pw = Num(p.Attr("w")), ph = Num(p.Attr("h"));
+            var path = new CustPath
+            {
+                W = pw != 0 && !double.IsNaN(pw) ? pw : w, H = ph != 0 && !double.IsNaN(ph) ? ph : h,
+                Fill = p.Attr("fill") != "none", Stroke = p.Attr("stroke") is not ("0" or "false"),
+            };
+            List<(double X, double Y)> Pts(XmlElement el) => ChildElements(el, "a:pt").Select(q => (Num(q.Attr("x")), Num(q.Attr("y")))).ToList();
+            foreach (var c in ChildElements(p))
+            {
+                switch (c.Name)
+                {
+                    case "a:moveTo":
+                    case "a:lnTo":
+                        {
+                            var q = Pts(c);
+                            if (q.Count > 0) path.Cmds.Add(new CustCmd { Op = c.Name == "a:moveTo" ? 'M' : 'L', X = q[0].X, Y = q[0].Y });
+                            break;
+                        }
+                    case "a:cubicBezTo": path.Cmds.Add(new CustCmd { Op = 'C', Pts = Pts(c) }); break;
+                    case "a:quadBezTo": path.Cmds.Add(new CustCmd { Op = 'Q', Pts = Pts(c) }); break;
+                    case "a:arcTo":
+                        path.Cmds.Add(new CustCmd { Op = 'A', WR = Num(c.Attr("wR")), HR = Num(c.Attr("hR")), St = Num(c.Attr("stAng")) / 60000, Sw = Num(c.Attr("swAng")) / 60000 });
+                        break;
+                    case "a:close": path.Cmds.Add(new CustCmd { Op = 'Z' }); break;
+                }
+            }
+            if (path.Cmds.Count > 0) outp.Add(path);
+        }
+        return outp;
     }
 
     // ───────────────────────── VML ─────────────────────────

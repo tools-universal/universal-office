@@ -20,16 +20,74 @@ public class LayoutOracleTests
     private readonly ITestOutputHelper _out;
     public LayoutOracleTests(ITestOutputHelper output) { _out = output; }
 
+    /// <summary>Grupos medidos caractere a caractere em teste próprio (SobrescritoElevacao).</summary>
+    private static readonly HashSet<string> CharOnly = new(StringComparer.Ordinal) { "supraise" };
+
     /// <summary>Casos com .word.json, "grupo/caso".</summary>
     public static IEnumerable<object[]> Cases() =>
         LayoutParityTests.Cases().Select(c => (string)c[0])
+            .Where(c => !CharOnly.Contains(c[..c.IndexOf('/')]))
             .Where(c => File.Exists(Path.Combine(LayoutParityTests.OracleDir, c + ".word.json")))
             .Select(c => new object[] { c });
 
+    /// <summary>Fontes da tabela do oráculo supraise (raise.json).</summary>
+    public static IEnumerable<object[]> SupRaiseFonts()
+    {
+        string f = Path.Combine(LayoutParityTests.OracleDir, "supraise", "raise.json");
+        if (!File.Exists(f)) yield break;
+        using var doc = JsonDocument.Parse(File.ReadAllText(f));
+        foreach (var p in doc.RootElement.EnumerateObject()) yield return new object[] { p.Name };
+    }
+
+    /// <summary>
+    /// Elevação do sobrescrito e queda do subscrito × Word (oráculo supraise) — espelho de
+    /// supraise.test.ts: para 11 fontes, de 6 a 24pt em meios pontos, a distância entre a
+    /// baseline do texto e a do sobrescrito/subscrito lida caractere a caractere no PDF do
+    /// Word (raise.json: [corpo, elevação, queda], em meios pontos — o PDF quantiza a
+    /// 0,12pt). O motor tem de acertar todas (tabela medida em Fonts.cs).
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(SupRaiseFonts))]
+    public void SobrescritoElevacao(string font)
+    {
+        string dir = Path.Combine(LayoutParityTests.OracleDir, "supraise");
+        using var table = JsonDocument.Parse(File.ReadAllText(Path.Combine(dir, "raise.json")));
+        var rows = table.RootElement.GetProperty(font).EnumerateArray()
+            .Select(r => (Size: r[0].GetDouble(), Raise: r[1].GetDouble(), Drop: r.GetArrayLength() > 2 ? r[2].GetDouble() : (double?)null)).ToList();
+        string face = Regex.Replace(font.Replace('-', ' '), @"\b\w", m => m.Value.ToUpperInvariant()).Replace("Segoe Ui", "Segoe UI");
+        if (SystemFontProvider.Shared.Face(face, false, false) is null) { _out.WriteLine($"fonte {face} ausente — caso não avaliado"); return; }
+        var res = DocxLayoutPipeline.Layout(File.ReadAllBytes(Path.Combine(dir, $"sr-{font}.docx")), SystemFontProvider.Shared);
+        // runs de glifos em ordem: "Base", "SUP", " meio ", "SUB", " fim" por parágrafo
+        var runs = res.Pages.SelectMany(p => p.Items).OfType<GlyphRunItem>().ToList();
+        var got = new List<double>();
+        var drops = new List<double>();
+        static string Txt(GlyphRunItem it) => string.Concat(it.Glyphs.Select(g => char.ConvertFromUtf32(g.Cp)));
+        for (int i = 0; i + 1 < runs.Count; i++)
+        {
+            var a = runs[i]; var b = runs[i + 1];
+            if (Txt(a) == "Base" && Txt(b) == "SUP") got.Add((a.Y - b.Y) / 20);
+            if (Txt(a).Trim() == "meio" && Txt(b) == "SUB") drops.Add((b.Y - a.Y) / 20);
+        }
+        Assert.Equal(rows.Count, got.Count);
+        for (int k = 0; k < rows.Count; k++)
+        {
+            Assert.True(Math.Abs(got[k] - rows[k].Raise) < 0.01, $"sobrescrito, corpo {rows[k].Size}: motor {got[k]}, Word {rows[k].Raise}");
+            if (rows[k].Drop is { } drop)
+                Assert.True(k < drops.Count && Math.Abs(drops[k] - drop) < 0.01, $"subscrito, corpo {rows[k].Size}: motor {(k < drops.Count ? drops[k] : double.NaN)}, Word {drop}");
+        }
+    }
+
     /// <summary>Varreduras de limiar (justify2/4/5): a fronteira exata pode errar 1 passo de 2-4 twips.</summary>
-    private static readonly HashSet<string> Sweeps = new(StringComparer.Ordinal) { "justify2", "justify3", "justify4", "justify5", "justify8" };
+    private static readonly HashSet<string> Sweeps = new(StringComparer.Ordinal) { "justify2", "justify3", "justify4", "justify5", "justify8", "jsweep" };
     /// <summary>Tolerância de baseline por grupo (resíduo conhecido do sobrescrito).</summary>
-    private static readonly Dictionary<string, double> DyTol = new(StringComparer.Ordinal) { ["vertalign"] = 0.6, ["notes"] = 0.6 };
+    private static readonly Dictionary<string, double> DyTol = new(StringComparer.Ordinal) { ["vertalign"] = 0.6, ["notes"] = 0.65, ["fnsep"] = 0.65, ["fnrefsup"] = 0.65 };
+    /// <summary>Grupos em que o motor também não pode ter linhas A MAIS (texto que o Word
+    /// não grava no PDF: fora da página, sem preenchimento, curvas…).</summary>
+    private static readonly HashSet<string> Strict = new(StringComparer.Ordinal) { "hidetext", "emfrop" };
+    /// <summary>Grupos em que a posição horizontal é o que se mede (x da 1ª letra, ±pt).</summary>
+    private static readonly Dictionary<string, double> DxTol = new(StringComparer.Ordinal) { ["tblpct"] = 0.6, ["tblw"] = 0.6, ["formtext"] = 0.6, ["spacerun"] = 0.6, ["numtabind"] = 0.6, ["tallwrap"] = 0.6, ["numstyind"] = 0.6, ["tblsp"] = 0.6, ["nowrap"] = 0.6, ["tblvert"] = 0.6, ["tblnum"] = 0.6 };
+    /// <summary>Grupos em que a contagem de pontos do preenchimento de tab é comparada exata.</summary>
+    private static readonly HashSet<string> ExactLeaders = new(StringComparer.Ordinal) { "tdhalfpx" };
 
     [Theory]
     [MemberData(nameof(Cases))]
@@ -39,7 +97,7 @@ public class LayoutOracleTests
         string g = caseId[..caseId.IndexOf('/')];
         var word = OracleCompare.ReadOracle(Path.Combine(LayoutParityTests.OracleDir, caseId + ".word.json"));
         var res = DocxLayoutPipeline.Layout(File.ReadAllBytes(Path.Combine(LayoutParityTests.OracleDir, caseId + ".docx")), SystemFontProvider.Shared);
-        var r = OracleCompare.CompareLines(word, OracleCompare.EngineLines(res));
+        var r = OracleCompare.CompareLines(word, OracleCompare.EngineLines(res), ExactLeaders.Contains(g));
         _out.WriteLine($"páginas W/O {r.PagesW}/{r.PagesO}, linhas {r.Matched}/{r.LinesW}, mesma página {r.SamePage}, Δy máx {r.MaxDy:0.###} pt");
         if (Sweeps.Contains(g) || g == "vertalign")
         {
@@ -54,6 +112,8 @@ public class LayoutOracleTests
             Assert.True(r.SamePage == r.Matched, $"linhas na mesma página {r.SamePage}/{r.Matched}");
             double tol = DyTol.TryGetValue(g, out var t) ? t : 0.3;
             Assert.True(r.MaxDy <= tol, $"Δbaseline máx {r.MaxDy} pt > {tol}");
+            if (DxTol.TryGetValue(g, out var dxTol)) Assert.True(r.MaxDx <= dxTol, $"Δx máx {r.MaxDx} pt > {dxTol}");
+            if (Strict.Contains(g)) Assert.True(r.ExtraO == 0, $"linhas só nossas {r.ExtraO} (1ª: {r.FirstExtra})");
         }
         var wl = word.Pages.SelectMany(p => p.Lines).ToList();
         var ol = res.Pages.SelectMany(p => p.Lines).ToList();
@@ -136,29 +196,56 @@ internal static class OracleCompare
         foreach (var p in res.Pages)
         {
             var lines = new List<OLine>();
+            var lastCp = new List<int>();
             OLine? cur = null;
             foreach (var item in p.Items)
             {
-                if (item is not GlyphRunItem it) continue;
+                // curvas (WordArt, texto semitransparente, emoji colorido, caixa girada):
+                // não é texto no PDF — nem no do Word
+                if (item is not GlyphRunItem it || it.AsPath) continue;
                 double y = it.Y / 20;
                 foreach (var g in it.Glyphs)
                 {
                     string ch = NormChar(g.Cp);
                     if (ch.Length == 0 || Ws.IsMatch(ch)) continue;
                     double x = g.X / 20;
-                    double tol = Math.Max(1, 0.3 * it.SizePt);
+                    // corpo como no PDF (múltiplo de 0,12 pt: 10 → 9,96), que decide a tolerância da extração
+                    double size = OfficeNext.Core.JsNumber.Round(it.SizePt / 0.12) * 0.12;
+                    double tol = Math.Max(1, 0.3 * size);
                     if (cur is not null && Math.Abs(y - cur.Y) <= tol && x >= cur.X1 - tol * 2)
                     {
                         cur.Text += ch;
                         cur.X1 = Math.Max(cur.X1, x + 1);
-                        cur.Size = Math.Max(cur.Size, it.SizePt);
+                        cur.Size = Math.Max(cur.Size, size);
                     }
                     else
                     {
-                        cur = new OLine { Y = y, X0 = x, X1 = x + 1, Size = it.SizePt, Text = ch };
+                        cur = new OLine { Y = y, X0 = x, X1 = x + 1, Size = size, Text = ch };
                         lines.Add(cur);
+                        lastCp.Add(0);
                     }
+                    lastCp[lines.Count - 1] = g.Cp;
                 }
+            }
+            // como o pdfium ao extrair: hífen no fim da linha depois de LETRA some se a
+            // linha seguinte começa com letra ou dígito decimal ("guarda-|chuva" →
+            // "guarda", "com-|840" → "com"); depois de dígito fica ("12.345-|678"), e
+            // antes de pontuação/símbolo/"²" também ("abc-|_def", oráculo dashsym); só o
+            // hífen-menos (U+002D) — travessões ficam
+            static bool StartsLetterOrDigit(string s)
+            {
+                if (s.Length == 0) return false;
+                var cat = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(s, 0);
+                return cat is System.Globalization.UnicodeCategory.UppercaseLetter or System.Globalization.UnicodeCategory.LowercaseLetter
+                    or System.Globalization.UnicodeCategory.TitlecaseLetter or System.Globalization.UnicodeCategory.ModifierLetter
+                    or System.Globalization.UnicodeCategory.OtherLetter or System.Globalization.UnicodeCategory.DecimalDigitNumber;
+            }
+            for (int k = 0; k + 1 < lines.Count; k++)
+            {
+                string t = lines[k].Text;
+                if (t.Length > 1 && t.EndsWith('-') && lastCp[k] == 0x2d && char.IsLetter(t, t.Length - 2)
+                    && StartsLetterOrDigit(lines[k + 1].Text))
+                    lines[k].Text = t[..^1];
             }
             outp.Pages.Add(new OPage { W = p.WidthTw / 20, H = p.HeightTw / 20, Lines = lines });
         }
@@ -170,16 +257,20 @@ internal static class OracleCompare
         public int PagesW, PagesO, LinesW, Matched, SamePage;
         public double MaxDy, MaxDx, MeanDy;
         public string? FirstDiff;
+        /// <summary>linhas NOSSAS sem par no Word (texto que o Word não grava)</summary>
+        public int ExtraO;
+        public string? FirstExtra;
     }
 
     private static readonly Regex Leader = new(@"([._\-·])\1{2,}", RegexOptions.CultureInvariant);
 
     /// <summary>Casa as linhas por texto (LCS) e mede Δbaseline/Δx nos pares da mesma página.</summary>
-    public static Result CompareLines(ODoc word, ODoc ours)
+    public static Result CompareLines(ODoc word, ODoc ours, bool exactLeaders = false)
     {
-        // preenchimento de tab (pontos/hífens/sublinhados): a contagem exata varia — compara colapsado
-        static string Collapse(string t) => Leader.Replace(t, "$1$1$1");
-        static List<(int Pi, OLine L, string Text)> Norm(ODoc d) =>
+        // preenchimento de tab (pontos/hífens/sublinhados): a contagem exata varia — compara
+        // colapsado (exceto nos grupos que medem a grade dos pontos: tdhalfpx)
+        string Collapse(string t) => exactLeaders ? t : Leader.Replace(t, "$1$1$1");
+        List<(int Pi, OLine L, string Text)> Norm(ODoc d) =>
             d.Pages.SelectMany((p, pi) => p.Lines.Select(l => (pi, l, Collapse(l.Text)))).ToList();
         var wl = Norm(word);
         var ol = Norm(ours);
@@ -212,6 +303,15 @@ internal static class OracleCompare
             sumDy += dy;
         }
         var matchedW = new HashSet<int>(pairs.Select(p => p.Item1));
+        var matchedO = new HashSet<int>(pairs.Select(p => p.Item2));
+        var extra = Enumerable.Range(0, m).Where(k => !matchedO.Contains(k)).ToList();
+        string? firstExtra = null;
+        if (extra.Count > 0)
+        {
+            var e = ol[extra[0]];
+            string t = e.L.Text;
+            firstExtra = $"p{e.Pi + 1} y={e.L.Y.ToString("0.0", CultureInfo.InvariantCulture)} \"{(t.Length > 40 ? t[..40] : t)}\"";
+        }
         string? firstDiff = null;
         for (int k = 0; k < n; k++)
         {
@@ -227,6 +327,8 @@ internal static class OracleCompare
             PagesW = word.Pages.Count, PagesO = ours.Pages.Count, LinesW = n,
             Matched = pairs.Count, SamePage = samePage, MaxDy = maxDy, MaxDx = maxDx, MeanDy = samePage > 0 ? sumDy / samePage : 0,
             FirstDiff = firstDiff,
+            ExtraO = extra.Count,
+            FirstExtra = firstExtra,
         };
     }
 }

@@ -1,0 +1,35 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1618.74,"scaleX":1,"text":"InicioHxg","g":[[73,1701],[110,1786.72],[105,1916.7],[99,1981.16],[105,2081.06],[111,2145.51],[72,2317.17],[120,2496.46],[103,2607.53]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":10,"x":1701,"y":1417,"height":269.76,"baseline":1618.74,"width":1018.57},
+        {"ref":"b1","start":0,"end":0,"x":1701,"y":1846.76,"height":287.47,"baseline":2048.5,"width":0},
+        {"ref":"b2","start":0,"end":0,"x":1701,"y":2254.23,"height":287.47,"baseline":2455.96,"width":0},
+        {"ref":"b3","start":0,"end":0,"x":1701,"y":2661.69,"height":287.47,"baseline":2863.43,"width":0}
+      ]
+    },
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 1,
+      "number": 2,
+      "items": [
+        {"t":"glyphs","family":"Georgia","bold":true,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2266.2,"scaleX":1,"text":"AnexodetesteHxg","g":[[65,4878.41],[110,5045.23],[101,5197.02],[120,5322.81],[111,5452.15],[100,5647.87],[101,5793.75],[116,5975.4],[101,6062.84],[115,6188.63],[116,6301.42],[101,6388.86],[72,6570.51],[120,6771.39],[103,6900.73]]},
+        {"t":"glyphs","family":"Georgia","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2633.67,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1865.79],[112,1972.13],[111,2097.82],[105,2216.41],[115,2280.86],[72,2429],[120,2608.29],[103,2719.36]]}
+      ],
+      "lines": [
+        {"ref":"b4","start":0,"end":0,"x":1701,"y":1417,"height":287.47,"baseline":1618.74,"width":0},
+        {"ref":"b5","start":0,"end":18,"x":4878.41,"y":2064.47,"height":287.47,"baseline":2266.2,"width":2149.19},
+        {"ref":"b6","start":0,"end":10,"x":1701,"y":2431.93,"height":269.76,"baseline":2633.67,"width":1130.4}
+      ]
+    }
+  ],
+  "warnings": []
+}

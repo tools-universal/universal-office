@@ -1,0 +1,22 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"AntesHxg","g":[[65,1701],[110,1847.74],[116,1970.09],[101,2031.21],[115,2153.57],[72,2324.69],[120,2483.57],[103,2593.57]]},
+        {"t":"glyphs","family":"Microsoft JhengHei","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":13,"color":"000000","y":2001.58,"scaleX":1,"text":"TextocomafonteHxg","g":[[84,1701],[101,1847],[120,1993.5],[116,2120.71],[111,2215.03],[99,2444.06],[111,2573.42],[109,2737.45],[97,3043.28],[102,3250.59],[111,3337.17],[110,3501.2],[116,3659.38],[101,3753.71],[72,3965.21],[120,4163.51],[103,4290.72]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2930.31,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1859.88],[112,1982.23],[111,2104.58],[105,2226.94],[115,2275.81],[72,2446.94],[120,2605.81],[103,2715.81]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":9,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":1014.92},
+        {"ref":"b1","start":0,"end":21,"x":1701,"y":1669.98,"height":674.5,"baseline":2001.58,"width":2754.5},
+        {"ref":"b2","start":0,"end":1,"x":1701,"y":2344.48,"height":379.47,"baseline":2550.84,"width":0},
+        {"ref":"b3","start":0,"end":10,"x":1701,"y":2723.95,"height":252.98,"baseline":2930.31,"width":1137.17}
+      ]
+    }
+  ],
+  "warnings": []
+}

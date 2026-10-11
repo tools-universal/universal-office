@@ -1,0 +1,67 @@
+{
+"pages": [
+{
+"w": 594.96,
+"h": 841.92,
+"lines": [
+{
+"y": 81.6,
+"x0": 72.02,
+"x1": 150.27,
+"size": 9.96,
+"text": "AntesdasecaoHxg"
+},
+{
+"y": 93.74,
+"x0": 72.02,
+"x1": 147.9,
+"size": 9.96,
+"text": "ProximasecaoHxg"
+},
+{
+"y": 106.82,
+"x0": 72.02,
+"x1": 522.05,
+"size": 11.04,
+"text": "Análiseserviçoáreaexecuçãoprocessoparaqualidadeaprovaçãogestãocontroleresponsável"
+},
+{
+"y": 122.66,
+"x0": 72.02,
+"x1": 522.36,
+"size": 11.04,
+"text": "conformecomregistroúltimotécnicaseráclienteumaquerelatórioprazoatendimentoinformação"
+},
+{
+"y": 138.38,
+"x0": 72.02,
+"x1": 522.54,
+"size": 11.04,
+"text": "asemàperíododadoscontratoprocedimentoosdeéempresasegurançaoperaçãonãodocumento"
+},
+{
+"y": 154.22,
+"x0": 72.02,
+"x1": 447.35,
+"size": 11.04,
+"text": "oanáliseserviçoáreaexecuçãoprocessoparaqualidadeaprovaçãogestãocontrole."
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 80.4,
+"x0": 85.1,
+"x1": 130.13,
+"size": 9.96,
+"text": "DepoisHxg"
+}
+],
+"objs": []
+}
+]
+}

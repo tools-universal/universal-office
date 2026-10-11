@@ -1,0 +1,67 @@
+{
+"pages": [
+{
+"w": 594.96,
+"h": 841.92,
+"lines": [
+{
+"y": 81.6,
+"x0": 72.02,
+"x1": 131.21,
+"size": 9.96,
+"text": "ComtextoHxg"
+},
+{
+"y": 105.98,
+"x0": 87.98,
+"x1": 522.76,
+"size": 11.04,
+"text": "IV.Análiseserviçoáreaexecuçãoprocessoparaqualidadeaprovaçãogestãocontrole"
+},
+{
+"y": 122.54,
+"x0": 123.02,
+"x1": 522.82,
+"size": 11.04,
+"text": "responsávelconformecomregistroúltimotécnicaseráclienteumaquerelatórioprazo"
+},
+{
+"y": 138.38,
+"x0": 123.02,
+"x1": 522.4,
+"size": 11.04,
+"text": "atendimentoinformaçãoasemàperíododadoscontratoprocedimentoosdeéempresa"
+},
+{
+"y": 154.1,
+"x0": 123.02,
+"x1": 522.34,
+"size": 11.04,
+"text": "segurançaoperaçãonãodocumentooanáliseserviçoáreaexecuçãoprocessopara"
+},
+{
+"y": 169.94,
+"x0": 123.02,
+"x1": 290.66,
+"size": 11.04,
+"text": "qualidadeaprovaçãogestãocontrole."
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 80.4,
+"x0": 85.1,
+"x1": 130.13,
+"size": 9.96,
+"text": "DepoisHxg"
+}
+],
+"objs": []
+}
+]
+}

@@ -111,6 +111,14 @@ export interface RPr {
   /** w14:textFill (Word 2010+): cor sólida e OPACIDADE (0..1) do texto —
    *  w14:alpha é transparência (100000 = invisível) */
   textFill?: { color?: string; themeColor?: string; alpha?: number };
+  /** w14:textOutline com preenchimento (contorno visível do texto) */
+  textOutline?: boolean;
+  /** w14:shadow (sombra do texto, Word 2010+): desfoque e deslocamento em pt, direção em
+   *  graus (0 = direita, 90 = para baixo) — a sombra aumenta a altura da linha */
+  textShadow?: { blur: number; dist: number; dir: number };
+  /** w14:ligatures (Word 2010+): ligaduras OpenType — standard, contextual, historical,
+   *  discretional, combinações ou all; none = desligadas */
+  ligatures?: string;
 }
 
 export type TabAlign = 'left' | 'center' | 'right' | 'decimal' | 'bar' | 'clear' | 'num';
@@ -203,6 +211,9 @@ export interface PPr {
   outlineLvl?: number;
   /** rPr da MARCA de parágrafo (¶) — define a altura de parágrafo vazio. */
   rPr?: RPr;
+  /** marca de parágrafo excluída em revisão (w:rPr/w:del ou w:moveFrom): na
+   *  visão final o parágrafo se junta ao seguinte. */
+  markDeleted?: boolean;
 }
 
 export interface WidthSpec {
@@ -429,6 +440,17 @@ export function readRPr(rPr: XmlElement | undefined): RPr | undefined {
         } else if (firstChild(el, 'w14:noFill')) p.textFill = { alpha: 0 };
         break;
       }
+      case 'w14:ligatures':
+        p.ligatures = el.attrs['w14:val'] ?? 'standard';
+        break;
+      case 'w14:shadow': {
+        const emu = (k: string) => (parseInt(el.attrs[k] ?? '0', 10) || 0) / 12700;
+        p.textShadow = { blur: emu('w14:blurRad'), dist: emu('w14:dist'), dir: (parseInt(el.attrs['w14:dir'] ?? '0', 10) || 0) / 60000 };
+        break;
+      }
+      case 'w14:textOutline':
+        p.textOutline = !firstChild(el, 'w14:noFill') && !!(firstChild(el, 'w14:solidFill') ?? firstChild(el, 'w14:gradFill'));
+        break;
       case 'w:spacing': { const n = measureTwips(val); if (n !== undefined) p.spacing = n; break; }
       case 'w:w': { const n = int(val?.replace('%', '')); if (n !== undefined) p.w = n; break; }
       case 'w:kern': { const n = int(val); if (n !== undefined) p.kern = n; break; }
@@ -587,7 +609,10 @@ export function readPPr(pPr: XmlElement | undefined): PPr | undefined {
         p.framePr = f;
         break;
       }
-      case 'w:rPr': p.rPr = readRPr(el); break;
+      case 'w:rPr':
+        p.rPr = readRPr(el);
+        if (childElements(el).some((c) => c.name === 'w:del' || c.name === 'w:moveFrom')) p.markDeleted = true;
+        break;
     }
   }
   return p;

@@ -218,6 +218,9 @@ public sealed class Settings
     public LangSpec? ThemeFontLang;
     public bool DisplayBackgroundShape;
     public bool UpdateFields;
+    /// <summary>bordas de página (offsetFrom text) NÃO contornam o cabeçalho/rodapé</summary>
+    public bool BordersDoNotSurroundHeader;
+    public bool BordersDoNotSurroundFooter;
 }
 
 // ───────────────────────── tabela de fontes ─────────────────────────
@@ -483,6 +486,8 @@ public static class OoxmlParts
         s.DoNotHyphenateCaps = On("w:doNotHyphenateCaps");
         s.DisplayBackgroundShape = On("w:displayBackgroundShape");
         s.UpdateFields = On("w:updateFields");
+        if (On("w:bordersDoNotSurroundHeader")) s.BordersDoNotSurroundHeader = true;
+        if (On("w:bordersDoNotSurroundFooter")) s.BordersDoNotSurroundFooter = true;
         var hz = OoxmlProps.MeasureTwips(FirstChild(root, "w:hyphenationZone")?.Attr("w:val"));
         if (hz is not null) s.HyphenationZone = hz;
         string? chl = FirstChild(root, "w:consecutiveHyphenLimit")?.Attr("w:val");

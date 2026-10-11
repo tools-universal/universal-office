@@ -72,9 +72,20 @@ export interface NumberMarker {
   listKey: string;
 }
 
+/**
+ * Contador de um nível. `real` = algum parágrafo DESTE nível já foi numerado;
+ * senão o valor só existe porque um nível mais fundo o exigiu (pai "virtual"):
+ * conta para o próximo parágrafo do nível, mas aparece como o início do nível.
+ */
+interface LevelCount { v: number; real: boolean }
+
 export class NumberingState {
-  private counters = new Map<string, (number | undefined)[]>();
+  /** contadores por abstractNum (compartilhados por todos os w:num dele) */
+  private counters = new Map<string, (LevelCount | undefined)[]>();
+  /** w:num já usados (o startOverride só reinicia no 1º uso) */
   private seenNums = new Set<number>();
+  /** "numId:ilvl" com startOverride adiado (nível pai ainda sem uso no 1º uso do w:num) */
+  private deferred = new Set<string>();
 
   constructor(
     private numbering: Numbering,
@@ -85,9 +96,28 @@ export class NumberingState {
   /** Cópia independente dos contadores (medições sem efeito colateral). */
   clone(): NumberingState {
     const c = new NumberingState(this.numbering, this.styles, this.lang);
-    for (const [k, v] of this.counters) c.counters.set(k, [...v]);
+    for (const [k, v] of this.counters) c.counters.set(k, v.map((x) => (x ? { ...x } : x)));
     for (const n of this.seenNums) c.seenNums.add(n);
+    for (const d of this.deferred) c.deferred.add(d);
     return c;
+  }
+
+  /**
+   * Esquece quais w:num já foram usados: o próximo parágrafo de um w:num com
+   * startOverride reinicia de novo. Artefato do PDF do Word aberto e exportado
+   * direto (sem repaginar): os parágrafos formatados na abertura (1ª página e
+   * o bloco que transborda para a 2ª) guardam o número; o seguinte de uma lista
+   * com override recomeça. Chamado pelo motor após esse bloco (oráculo
+   * numbering3, pg2-*).
+   */
+  forgetFirstUse(): void {
+    this.seenNums.clear();
+  }
+
+  /** Lista (abstractNum efetivo) de um w:num — espaçamento automático entre itens. */
+  listKey(numId: number): string | undefined {
+    const a = numId ? this.abstractFor(numId) : null;
+    return a ? `a${a.absId}` : undefined;
   }
 
   /** abstractNum efetivo (segue numStyleLink → estilo de numeração → numId). */
@@ -118,7 +148,19 @@ export class NumberingState {
     return abs?.levels[ilvl] ?? null;
   }
 
-  /** Avança o contador e devolve o marcador do parágrafo (null = sem numeração). */
+  /**
+   * Avança o contador e devolve o marcador do parágrafo (null = sem numeração).
+   * Regras medidas no Word (oráculo numbering2):
+   *  - o contador é do abstractNum, compartilhado por todos os w:num dele;
+   *  - startOverride só age no 1º uso do w:num: os níveis com override do
+   *    nível do parágrafo para baixo reiniciam (valem o override); um nível
+   *    pai com override ainda sem uso fica com o valor do override (o próximo
+   *    parágrafo de OUTRO w:num nele soma 1) e reinicia no 1º parágrafo deste
+   *    w:num naquele nível; pai já usado ignora o override;
+   *  - o início do nível de um w:num é o seu startOverride (vale nos reinícios);
+   *  - nível pai nunca usado (parágrafo pulou níveis) aparece com o início do
+   *    nível e passa a contar: o próximo parágrafo nele vem com início + 1.
+   */
   next(numId: number, ilvl: number): NumberMarker | null {
     if (!numId) return null;
     const inst = this.numbering.nums[numId];
@@ -128,22 +170,28 @@ export class NumberingState {
     ilvl = Math.max(0, Math.min(8, ilvl));
     const lvl = this.level(numId, ilvl);
     if (!lvl) return null;
-    const hasOverride = Object.values(inst.overrides).some((o) => o.startOverride !== undefined);
-    const key = hasOverride ? `n${numId}` : `a${a.absId}`;
+    const key = `a${a.absId}`;
     let c = this.counters.get(key);
     if (!c) { c = []; this.counters.set(key, c); }
-    if (hasOverride && !this.seenNums.has(numId)) {
+    const ovStart = (l: number): number | undefined => inst.overrides[l]?.startOverride;
+    /** início do nível (definição do nível — o que aparece no pai virtual) */
+    const lvlStart = (l: number): number => this.level(numId, l)?.start ?? 0;
+    /** início do nível NESTE w:num (o startOverride, se houver) */
+    const startOf = (l: number): number => ovStart(l) ?? lvlStart(l);
+    if (!this.seenNums.has(numId)) {
       this.seenNums.add(numId);
-      for (const [lv, o] of Object.entries(inst.overrides)) {
-        if (o.startOverride !== undefined) c[Number(lv)] = o.startOverride - 1;
+      for (let l = 0; l < 9; l++) {
+        const s = ovStart(l);
+        if (s === undefined) continue;
+        if (l >= ilvl) c[l] = undefined;
+        else if (!c[l]?.real) { c[l] = { v: s, real: false }; this.deferred.add(`${numId}:${l}`); }
       }
     }
-    const startOf = (l: number): number => {
-      const ov = inst.overrides[l];
-      if (ov?.startOverride !== undefined) return ov.startOverride;
-      return this.level(numId, l)?.start ?? 0;
-    };
-    c[ilvl] = c[ilvl] === undefined ? startOf(ilvl) : c[ilvl]! + 1;
+    const cur = c[ilvl];
+    if (this.deferred.delete(`${numId}:${ilvl}`) || !cur) c[ilvl] = { v: startOf(ilvl), real: true };
+    else c[ilvl] = { v: cur.v + 1, real: true };
+    // pais nunca usados passam a contar (com o início do nível)
+    for (let l = 0; l < ilvl; l++) if (!c[l]) c[l] = { v: startOf(l), real: false };
     // níveis mais fundos reiniciam (salvo lvlRestart)
     for (let d = ilvl + 1; d < 9; d++) {
       const r = this.level(numId, d)?.lvlRestart;
@@ -156,7 +204,8 @@ export class NumberingState {
     else {
       text = lvlText.replace(/%([1-9])/g, (_, k: string) => {
         const l = parseInt(k, 10) - 1;
-        const v = c![l] ?? startOf(l);
+        const n = c![l];
+        const v = n?.real ? n.v : lvlStart(l);
         const fmt = lvl.isLgl && l !== ilvl ? 'decimal' : (this.level(numId, l)?.numFmt ?? 'decimal');
         return formatNumber(v, fmt === 'bullet' ? 'decimal' : fmt, this.lang);
       });

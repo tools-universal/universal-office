@@ -85,16 +85,25 @@ public static class PdfRenderer
             // fica de fora e o PDF segue — não aborta a exportação inteira
             try
             {
+                var fx = img.Effects;
                 var jp = Images.JpegInfo(data);
-                if (jp is not null) h = doc.EmbedJpeg(data, jp.Width, jp.Height, jp.Components ?? 3, jp.Adobe);
+                // JPEG com ajuste de cor: brilho/contraste via /Decode; os demais exigem os pixels
+                var dec = jp is not null && fx is not null ? Images.EffectDecode(fx, jp.Components ?? 3) : null;
+                if (jp is not null && (fx is null || dec is not null)) h = doc.EmbedJpeg(data, jp.Width, jp.Height, jp.Components ?? 3, jp.Adobe, dec);
                 else
                 {
-                    var r = Images.DecodeRaster(data);
-                    if (r is not null) h = doc.EmbedRgba(r.Data, r.Width, r.Height);
+                    var r = jp is not null ? null : Images.DecodeRaster(data);
+                    if (r is not null)
+                    {
+                        if (fx is not null) Images.ApplyImageEffects(r.Data, fx);
+                        h = doc.EmbedRgba(r.Data, r.Width, r.Height);
+                    }
                     else
                     {
                         var ext = opts.DecodeImage?.Invoke(img);
+                        if (ext is not null && fx is not null) Images.ApplyImageEffects(ext.Data, fx);
                         if (ext is not null) h = doc.EmbedRgba(ext.Data, ext.Width, ext.Height);
+                        else if (jp is not null) h = doc.EmbedJpeg(data, jp.Width, jp.Height, jp.Components ?? 3, jp.Adobe);
                     }
                 }
             }
@@ -109,7 +118,9 @@ public static class PdfRenderer
         foreach (var lp in result.Pages)
         {
             var page = doc.AddPage(lp.WidthTw / T, lp.HeightTw / T);
-            foreach (var it in lp.Items) PaintItem(page, it, FontFor, ImageFor);
+            if (Js.Truthy(lp.Background)) page.FillRect(0, 0, lp.WidthTw / T, lp.HeightTw / T, HexColor(lp.Background!));
+            foreach (var it in lp.Items) PaintItem(page, it, FontFor, ImageFor,
+                (g, smp) => doc.AddShading(new PdfShadingGeom(g.Radial, g.X0, g.Y0, g.X1, g.Y1, g.R), smp, page.HeightPt));
         }
         return doc.Build();
     }
@@ -124,22 +135,94 @@ public static class PdfRenderer
             Js.Truthy(s.Dash) ? new[] { s.WidthPt * 3, s.WidthPt * 2 } : null);
     }
 
-    private static void PaintItem(PdfPage page, PageItem item, Func<FontFace, EmbeddedFont?> fontFor, Func<InlineImage, PdfImage?> imageFor)
+    /// <summary>Contorno de um glifo (camada COLR) → comandos do PDF; false sem contorno.</summary>
+    private static bool OutlineInto(List<PathCmd> cmds, OfficeNext.Layout.ILayoutFont font, int gid, double ox, double bas, double sx, double s, double skew)
+    {
+        var ol = font.GlyphOutline(gid);
+        if (ol is null) return false;
+        double X(double x, double y) => ox + x * sx + skew * y * s;
+        double Y(double y) => bas - y * s;
+        double px = 0, py = 0;
+        foreach (var c in ol)
+        {
+            if (c.Op == 'Z') { cmds.Add(PathCmd.Z); continue; }
+            if (c.Op == 'Q')
+            {
+                // quadrática → cúbica (pontos de controle a 2/3)
+                double c1x = px + (2.0 / 3) * (c.Cx - px), c1y = py + (2.0 / 3) * (c.Cy - py);
+                double c2x = c.X + (2.0 / 3) * (c.Cx - c.X), c2y = c.Y + (2.0 / 3) * (c.Cy - c.Y);
+                cmds.Add(PathCmd.C(X(c1x, c1y), Y(c1y), X(c2x, c2y), Y(c2y), X(c.X, c.Y), Y(c.Y)));
+            }
+            else cmds.Add(c.Op == 'M' ? PathCmd.M(X(c.X, c.Y), Y(c.Y)) : PathCmd.L(X(c.X, c.Y), Y(c.Y)));
+            px = c.X; py = c.Y;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Texto como CURVAS (WordArt, texto semitransparente, caixa girada, emoji
+    /// colorido): cada glifo vira o seu contorno TrueType, preenchido. false se a
+    /// fonte não dá contornos (CFF) — aí vai como texto.
+    /// </summary>
+    private static bool GlyphsAsPath(PdfPage page, GlyphRunItem it)
+    {
+        var font = it.Face.Font;
+        double upm = font.Metrics.UnitsPerEm;
+        double s = it.SizePt / upm, sx = s * (it.ScaleX ?? 1);
+        double skew = it.SynthItalic ? 0.2 : 0;
+        double bas = it.Y / T;
+        var cmds = new List<PathCmd>();
+        foreach (var g in it.Glyphs)
+        {
+            int gid = it.ByGid ? g.Cp : font.GlyphId(g.Cp);
+            // glifo colorido (COLR): cada camada com a sua cor, na ordem da tabela
+            var layers = it.Colr ? font.ColorLayers(gid) : null;
+            if (layers is not null)
+            {
+                foreach (var L in layers)
+                {
+                    var lc = new List<PathCmd>();
+                    if (!OutlineInto(lc, font, L.GlyphId, g.X / T, bas, sx, s, skew)) continue;
+                    if (lc.Count == 0) continue;
+                    double a = L.Alpha * (it.Alpha ?? 1);
+                    var col = HexColor(L.Color ?? it.Color);
+                    page.WithAlpha(a < 1 ? a : null, null, () => page.Path(lc, col, null));
+                }
+                continue;
+            }
+            if (!OutlineInto(cmds, font, gid, g.X / T, bas, sx, s, skew)) return false;
+        }
+        if (cmds.Count == 0) return true;
+        var color = HexColor(it.Color);
+        PathStroke? stroke = it.SynthBold ? new PathStroke(color, it.SizePt * 0.03) : null;
+        page.WithAlpha(it.Alpha, it.Alpha, () => page.Path(cmds, color, stroke));
+        return true;
+    }
+
+    private static void PaintItem(PdfPage page, PageItem item, Func<FontFace, EmbeddedFont?> fontFor, Func<InlineImage, PdfImage?> imageFor,
+        Func<GradGeom, byte[], PdfShading> shade)
     {
         switch (item)
         {
             case GlyphRunItem it:
                 {
+                    if (it.AsPath && GlyphsAsPath(page, it)) return;
                     var ef = fontFor(it.Face);
                     if (ef is null) return;
-                    var placed = it.Glyphs.Select(g =>
+                    // glifo por índice (EMF) sem contorno disponível: não há caractere para gravar
+                    var placed = it.Glyphs.Where(_ => !it.ByGid).Select(g =>
                     {
                         var (gid, _) = ef.Encode(g.Cp);
                         return new OfficeNext.Pdf.PlacedGlyph { Gid = gid, CodePoint = g.Cp, XPt = g.X / T, BaselineFromTopPt = it.Y / T };
                     }).ToList();
-                    page.WithAlpha(it.Alpha, it.Alpha, () => page.Glyphs(ef, it.SizePt, HexColor(it.Color), placed,
+                    // corpo gravado no PDF como o Word: múltiplo de 1/600" (0,12 pt) — 10 → 9,96, 11 → 11,04
+                    // (PDFs do oráculo); as posições dos glifos não mudam (cada um tem a sua matriz)
+                    double pdfSize = Js.Round(it.SizePt / 0.12) * 0.12;
+                    page.WithAlpha(it.Alpha, it.Alpha, () => page.Glyphs(ef, pdfSize, HexColor(it.Color), placed,
                         scaleX: it.ScaleX is { } sx && sx != 0 && !double.IsNaN(sx) ? sx : null,
-                        synthBold: it.SynthBold, synthItalic: it.SynthItalic));
+                        synthBold: it.SynthBold, synthItalic: it.SynthItalic,
+                        // texto em corridas (Tm + TJ) como no PDF do Word: a extração não embaralha linhas sobrepostas
+                        runs: true));
                     return;
                 }
             case RectItem it:
@@ -175,14 +258,60 @@ public static class PdfRenderer
                 }
             case ShapeItem it:
                 {
+                    var st = it.Style;
                     PdfColor? fill = it.Fill is not null && Hex6.IsMatch(it.Fill) ? HexColor(it.Fill) : null;
                     var stroke = StrokeOf(it.Stroke, validate: true);
-                    if (fill is null && stroke is null) return;
+                    if (fill is null && stroke is null && it.Grad is null) return;
                     double x = it.X / T, y = it.Y / T, w = it.W / T, h = it.H / T;
-                    var cmds = ShapePath(it.Style.Geom, x, y, w, h, it.Line, it.Style.FlipH == true, it.Style.FlipV == true);
-                    if (it.Style.Rot is { } rot && rot != 0 && !double.IsNaN(rot)) cmds = RotatePath(cmds, x + w / 2, y + h / 2, rot);
+                    bool isLine = st.Geom == "line" || st.Geom.StartsWith("straightConnector", StringComparison.Ordinal);
+                    bool fH = st.FlipH == true, fV = st.FlipV == true;
+                    double rot = st.Rot is { } r0 && !double.IsNaN(r0) ? r0 : 0;
+                    // linha: pontos do VML ou diagonal do quadro; a:custGeom: caminhos do arquivo
+                    // (cada um preenchido à parte, par-ímpar); demais: geometria predefinida
+                    // (ajustes, espelho e rotação) — oráculos de formas e cust
+                    var parts = new List<(List<PathCmd> Cmds, bool Fill, bool Stroke, bool EvenOdd)>();
+                    if (isLine)
+                    {
+                        var cmds = LinePath(x, y, w, h, it.Line, fH, fV);
+                        if (rot != 0) cmds = RotatePath(cmds, x + w / 2, y + h / 2, rot);
+                        parts.Add((cmds, false, true, false));
+                    }
+                    else if (st.Geom == "custom" && st.Cust is not null)
+                    {
+                        foreach (var p in Geometry.CustPaths(st.Cust, x, y, w, h, fH, fV, rot)) parts.Add((ToPdf(p.Cmds), p.Fill, p.Stroke, true));
+                    }
+                    else
+                    {
+                        parts.Add((ToPdf(Geometry.PresetPath(st.Geom, x, y, w, h, st.Adj, fH, fV, rot)), !Geometry.OpenPresets.Contains(st.Geom), true, false));
+                    }
+                    // sombra externa: cópia deslocada na cor da sombra (sem desfoque); o contorno
+                    // também projeta sombra (oráculo shd-tri)
+                    if (it.Shadow is { } shw)
+                    {
+                        double dx = shw.Dx / T, dy = shw.Dy / T;
+                        var col = HexColor(shw.Color);
+                        foreach (var p in parts)
+                        {
+                            if (!p.Fill && stroke is null) continue;
+                            var sc = p.Cmds.Select(c => c.Op == PathOp.Z ? c : c.Op == PathOp.C
+                                ? PathCmd.C(c.X1 + dx, c.Y1 + dy, c.X2 + dx, c.Y2 + dy, c.X + dx, c.Y + dy)
+                                : c with { X = c.X + dx, Y = c.Y + dy }).ToList();
+                            PdfColor? sf = p.Fill && (fill is not null || it.Grad is not null) ? col : null;
+                            PathStroke? ss = p.Stroke && stroke is { } sk ? sk with { Color = col } : null;
+                            page.WithAlpha(shw.Alpha, shw.Alpha, () => page.Path(sc, sf, ss, p.EvenOdd));
+                        }
+                    }
+                    if (it.Grad is { } grad)
+                    {
+                        var pb = Geometry.PathBounds(parts.SelectMany(p => FromPdf(p.Cmds)));
+                        var g = Geometry.GradientGeometry(grad, (x, y, w, h, rot), pb);
+                        var sh = shade(g, Geometry.GradientSamples(grad.Stops, Js.Truthy(grad.Path) ? 256 : 512));
+                        foreach (var p in parts) if (p.Fill) page.WithAlpha(st.FillAlpha, null, () => page.FillShaded(p.Cmds, sh, p.EvenOdd));
+                        if (stroke is not null) foreach (var p in parts) if (p.Stroke) page.WithAlpha(null, st.Line?.Alpha, () => page.Path(p.Cmds, null, stroke));
+                        return;
+                    }
                     // transparência do preenchimento/contorno (a:alpha, v:fill opacity)
-                    page.WithAlpha(it.Style.FillAlpha, it.Style.Line?.Alpha, () => page.Path(cmds, it.Style.Geom == "line" ? null : fill, stroke));
+                    foreach (var p in parts) page.WithAlpha(st.FillAlpha, st.Line?.Alpha, () => page.Path(p.Cmds, p.Fill ? fill : null, p.Stroke ? stroke : null, p.EvenOdd));
                     return;
                 }
             case PathItem it:
@@ -213,8 +342,6 @@ public static class PdfRenderer
 
     private static bool Truthy(double v) => v != 0 && !double.IsNaN(v);
 
-    private const double K = 0.5523;
-
     /// <summary>Gira o caminho (graus, horário na tela) em torno de (cx, cy).</summary>
     private static List<PathCmd> RotatePath(List<PathCmd> cmds, double cx, double cy, double deg)
     {
@@ -238,44 +365,21 @@ public static class PdfRenderer
         }).ToList();
     }
 
-    private static List<PathCmd> ShapePath(string geom, double x, double y, double w, double h, ShapeLinePoints? line = null, bool flipH = false, bool flipV = false)
+    /// <summary>Linha (geom line/straightConnector): pontos do VML ou diagonal do quadro com espelho.</summary>
+    private static List<PathCmd> LinePath(double x, double y, double w, double h, ShapeLinePoints? line = null, bool flipH = false, bool flipV = false)
     {
-        if (geom == "line" || geom.StartsWith("straightConnector", StringComparison.Ordinal))
-        {
-            if (line is not null) return new List<PathCmd> { PathCmd.M(x + line.X1 / T, y + line.Y1 / T), PathCmd.L(x + line.X2 / T, y + line.Y2 / T) };
-            var (x1, x2) = flipH ? (x + w, x) : (x, x + w);
-            var (y1, y2) = flipV ? (y + h, y) : (y, y + h);
-            return new List<PathCmd> { PathCmd.M(x1, y1), PathCmd.L(x2, y2) };
-        }
-        if (geom == "ellipse")
-        {
-            double cx = x + w / 2, cy = y + h / 2, rx = w / 2, ry = h / 2;
-            return new List<PathCmd>
-            {
-                PathCmd.M(cx + rx, cy),
-                PathCmd.C(cx + rx, cy + ry * K, cx + rx * K, cy + ry, cx, cy + ry),
-                PathCmd.C(cx - rx * K, cy + ry, cx - rx, cy + ry * K, cx - rx, cy),
-                PathCmd.C(cx - rx, cy - ry * K, cx - rx * K, cy - ry, cx, cy - ry),
-                PathCmd.C(cx + rx * K, cy - ry, cx + rx, cy - ry * K, cx + rx, cy),
-                PathCmd.Z,
-            };
-        }
-        if (geom == "roundRect")
-        {
-            double r = Math.Min(w, h) * 0.1667;
-            return new List<PathCmd>
-            {
-                PathCmd.M(x + r, y), PathCmd.L(x + w - r, y),
-                PathCmd.C(x + w - r + r * K, y, x + w, y + r - r * K, x + w, y + r),
-                PathCmd.L(x + w, y + h - r),
-                PathCmd.C(x + w, y + h - r + r * K, x + w - r + r * K, y + h, x + w - r, y + h),
-                PathCmd.L(x + r, y + h),
-                PathCmd.C(x + r - r * K, y + h, x, y + h - r + r * K, x, y + h - r),
-                PathCmd.L(x, y + r),
-                PathCmd.C(x, y + r - r * K, x + r - r * K, y, x + r, y),
-                PathCmd.Z,
-            };
-        }
-        return new List<PathCmd> { PathCmd.M(x, y), PathCmd.L(x + w, y), PathCmd.L(x + w, y + h), PathCmd.L(x, y + h), PathCmd.Z };
+        if (line is not null) return new List<PathCmd> { PathCmd.M(x + line.X1 / T, y + line.Y1 / T), PathCmd.L(x + line.X2 / T, y + line.Y2 / T) };
+        var (x1, x2) = flipH ? (x + w, x) : (x, x + w);
+        var (y1, y2) = flipV ? (y + h, y) : (y, y + h);
+        return new List<PathCmd> { PathCmd.M(x1, y1), PathCmd.L(x2, y2) };
     }
+
+    /// <summary>Caminho da geometria (twips ou pt — mesma unidade) → comandos do PDF.</summary>
+    private static List<PathCmd> ToPdf(IEnumerable<PathCmdTw> cmds) => cmds.Select(c => c.Op == 'Z' ? PathCmd.Z : c.Op == 'C'
+        ? PathCmd.C(c.X1, c.Y1, c.X2, c.Y2, c.X, c.Y)
+        : c.Op == 'M' ? PathCmd.M(c.X, c.Y) : PathCmd.L(c.X, c.Y)).ToList();
+
+    private static IEnumerable<PathCmdTw> FromPdf(IEnumerable<PathCmd> cmds) => cmds.Select(c => c.Op == PathOp.Z ? PathCmdTw.Z() : c.Op == PathOp.C
+        ? PathCmdTw.C(c.X1, c.Y1, c.X2, c.Y2, c.X, c.Y)
+        : c.Op == PathOp.M ? PathCmdTw.M(c.X, c.Y) : PathCmdTw.L(c.X, c.Y));
 }
