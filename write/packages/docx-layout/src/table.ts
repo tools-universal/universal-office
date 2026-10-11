@@ -232,6 +232,8 @@ export interface TableLayout {
   rows: RowLayout[];
   /** espessura da borda esquerda da 1ª célula (twips) */
   borderLeft?: number;
+  /** modo < 15: do texto da última célula à borda direita (margem da célula ou meia borda) */
+  effR?: number;
   /** propriedades de fluxo */
   tblpPr?: TblPr['tblpPr'];
 }
@@ -1102,7 +1104,7 @@ export function layoutTable(
   }
 
   const borderLeft = slots[0]?.[0] ? borderWidth(edge(slots[0][0], 'left')) : 0;
-  return { x, width, rows, borderLeft, ...(tblPr.tblpPr ? { tblpPr: tblPr.tblpPr } : {}) };
+  return { x, width, rows, borderLeft, ...(legacy ? { effR } : {}), ...(tblPr.tblpPr ? { tblpPr: tblPr.tblpPr } : {}) };
 }
 
 function cellFill(ctx: DocContext, tcPr: TcPr, tblPr: TblPr, theme: DocContext['fmt']['theme']): string | undefined {

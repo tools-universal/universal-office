@@ -1623,6 +1623,10 @@ internal sealed class Engine
             NewPage(_cur.Geom);
             _topGapPrevAfter = lastAfter;
         }
+        // parágrafo numerado só com a quebra de página: o Word não desenha o número (nem
+        // nesta página nem na seguinte, onde a marca não ocupa linha) — oráculo numpgbr
+        if (p.Marker is not null && p.Glyphs.Count == 1 && p.Glyphs[0].Kind == GlyphKind.Pb
+            && !(_ctx.Fmt.Settings.CompatibilityMode < 15 && _ctx.Fmt.Settings.Compat.TryGetValue("splitPgBreakAndParaMark", out var spbm) && spbm)) p.Marker = null;
         // quebra de página antes (espaço antes no topo: suprimido no modo 15, mantido no ≤ 14 — tocref-spbefore)
         if (p.PageBreakBefore && !_atTop)
         {
@@ -1876,6 +1880,27 @@ internal sealed class Engine
                     }
                 }
             }
+            // tab que abre a linha no vão com a parada além dele: a linha desce para baixo do
+            // flutuante (oráculo tabgap)
+            if (line.GapTab == "start" && _cur.Floats.Count > 0)
+            {
+                double lineHt = Math.Max(MarkLineH(p), line.Height);
+                double belowT = double.PositiveInfinity;
+                foreach (var f in _cur.Floats)
+                {
+                    if (f.Wrap != "square" && f.Wrap != "tight" && f.Wrap != "through") continue;
+                    if (_y + lineHt <= f.Y - f.DistT + 0.5 || _y >= f.Y + f.H + f.DistB - 0.5) continue;
+                    belowT = Math.Min(belowT, f.Y + f.H + f.DistB);
+                }
+                if (belowT < double.PositiveInfinity && belowT > _y)
+                {
+                    _y = belowT;
+                    frame = FrameHere();
+                    br.Reset(mark);
+                    seg = PickSeg(br, frame);
+                    line = br.Next(seg.F);
+                }
+            }
             // modos < 15: a última linha do parágrafo só fica acima/ao lado de um flutuante se
             // a linha INTEIRA mais o "depois" ficarem fora dele; senão desce (oráculo ftafter)
             if (_cur.Floats.Count > 0 && line.Last && _ctx.Fmt.Settings.CompatibilityMode < 15)
@@ -1956,7 +1981,11 @@ internal sealed class Engine
                     earlyAtPs = _cur;
                     earlyAtX = ColFrame().X;
                 }
-                anchorAt = new AnchorAt { Ps = _cur, Top = _y, X = ColFrame().X, W = ColFrame().W };
+                // 1ª linha empurrada para baixo de um flutuante (tabela ou figura) na MESMA página: os
+                // objetos ancorados no parágrafo seguem medidos de onde ele começava (oráculo
+                // ftanchor); empurrada para além do pé da página, valem dali (corpus t20)
+                if (!ReferenceEquals(anchorAt.Ps, _cur) || _y <= anchorAt.Top + 0.5 || _y > _cur.BodyBottom)
+                    anchorAt = new AnchorAt { Ps = _cur, Top = _y, X = ColFrame().X, W = ColFrame().W };
             }
             if (pageChanged)
             {
@@ -2762,7 +2791,8 @@ internal sealed class Engine
         bool legacy = _ctx.Fmt.Settings.CompatibilityMode < 15;
         double H = t.Rows.Aggregate(0.0, (a, r) => a + r.Height);
         // caixa de referência (o que se alinha): modo 15 = borda externa; antigos = texto
-        double refW = legacy ? Math.Max(0, t.Width - 216) : t.Width;
+        // (sem as margens da 1ª e da última célula: t.X = −a da esquerda; oráculo ftcellmar)
+        double refW = legacy ? Math.Max(0, t.Width + t.X - (t.EffR ?? 108)) : t.Width;
         var (aL, aR) = fp.HorzAnchor == "page" ? (0.0, g.PageW) : fp.HorzAnchor == "margin" ? (g.MarL, g.PageW - g.MarR) : (colX, colX + colW);
         string? xs = fp.TblpXSpec;
         double refX = xs == "center" ? aL + (aR - aL - refW) / 2 : xs is "right" or "outside" ? aR - refW : aL + (Js.Truthy(xs) ? 0 : fp.TblpX ?? 0);
@@ -2793,6 +2823,7 @@ internal sealed class Engine
             for (int k = 0; k < t.Rows.Count; k++) fl.Idx.TryAdd(t.Rows[k], k);
             _floatFlow[t] = fl;
         }
+        var vmMoved = fl?.Moved ?? new HashSet<object>(ReferenceEqualityComparer.Instance);
         for (int i = 0; i < rows.Count; i++)
         {
             var row = rows[i];
@@ -2824,6 +2855,12 @@ internal sealed class Engine
                 }
                 else if (n > 0) break;
             }
+            // texto da mescla vertical na 1ª linha dela, na ordem das colunas, se a mescla inteira
+            // fica nesta página (como no fluxo — oráculo vmorder; corpus t43, t70)
+            int rk = t.Rows.IndexOf(row);
+            double yv = y;
+            if (rk >= 0) row = TableEngine.DropMoved(TableEngine.MergeTextFirst(t.Rows, rk, row, vmMoved, hv => !split || yv + hv <= ps.BodyBottom + 0.5), vmMoved);
+            else if (vmMoved.Count > 0) row = TableEngine.DropMoved(row, vmMoved);
             // mescla vertical que começou em OUTRA página: o texto sai da última linha e flui
             // pelas partes; a parte desta página cresce o que faltar (como no fluxo — vmsplit)
             double grow = 0;
@@ -2880,7 +2917,7 @@ internal sealed class Engine
             ps.Floats.Add(new FloatBox
             {
                 // caixa = bordas externas (modo antigo: a grade fica na margem da célula antes do texto)
-                X = refX + (legacy ? -108 - (t.BorderLeft ?? 0) / 2 : 0), Y = top, W = t.Width + (legacy ? (t.BorderLeft ?? 0) : 0), H = y - top, Wrap = "square",
+                X = refX + (legacy ? t.X - (t.BorderLeft ?? 0) / 2 : 0), Y = top, W = t.Width + (legacy ? (t.BorderLeft ?? 0) : 0), H = y - top, Wrap = "square",
                 DistL = fp.LeftFromText ?? 0, DistR = fp.RightFromText ?? 0, DistT = fp.TopFromText ?? 0, DistB = fp.BottomFromText ?? 0,
             });
         }
@@ -3061,7 +3098,7 @@ internal sealed class Engine
             // sem espaço útil ao lado: a linha desce até o fim do 1º objeto que a bloqueia
             if (best is null) skipTo = Math.Max(skipTo ?? 0, minBottom);
             // objeto no meio: o texto ocupa os vãos da esquerda para a direita (wrapsides)
-            else if (skipTo is null) return new LineFrame(best.Value.A, best.Value.B) { Segs = free.Count > 1 ? free : null };
+            else if (skipTo is null) return new LineFrame(best.Value.A, best.Value.B) { Gap = true, Segs = free.Count > 1 ? free : null };
         }
         if (skipTo is not null) { var r = frame; r.SkipTo = skipTo; return r; }
         return new LineFrame(left, right);
@@ -3082,20 +3119,21 @@ internal sealed class Engine
         for (int k = 0; k < frame.Segs.Count; k++)
         {
             var (a, b) = frame.Segs[k];
-            if (b - a + 0.01 >= need) return (k, new LineFrame(a, b));
+            if (b - a + 0.01 >= need) return (k, new LineFrame(a, b) { Gap = true });
         }
-        return (frame.Segs.Count, new LineFrame(frame.Left, frame.Right));
+        return (frame.Segs.Count, new LineFrame(frame.Left, frame.Right) { Gap = true });
     }
 
     /// <summary>linhas dos vãos seguintes da mesma linha (depois do vão `k`)</summary>
     private static Line MoreSegs(LineBreaker br, LineFrame frame, int k, Line last, Action<Line> put)
     {
         if (frame.Segs is null) return last;
-        for (int j = k + 1; j < frame.Segs.Count && !br.Done() && last.BreakAfter is null && !last.Clear; j++)
+        // (linha que acabou num tab além do vão: o resto não vai para o vão seguinte — tabgap)
+        for (int j = k + 1; j < frame.Segs.Count && !br.Done() && last.BreakAfter is null && !last.Clear && last.GapTab != "break"; j++)
         {
             var (a, b) = frame.Segs[j];
             if (b - a + 0.01 < br.PeekWordWidth()) continue;
-            last = br.Next(new LineFrame(a, b));
+            last = br.Next(new LineFrame(a, b) { Gap = true });
             put(last);
         }
         return last;
@@ -3500,7 +3538,8 @@ internal sealed class Engine
         var li = tb.LineInset;
         double lw = li is not null
             ? li.W ?? (li.Ref is { } r && r != 0
-                ? (theme?.LineWidthsPt is { } lws && r - 1 >= 0 && r - 1 < lws.Count ? lws[r - 1] : 0.75)
+                // sem tema no arquivo vale o do Word: linhas de 1; 1,5; 2 pt (oráculo tbinset)
+                ? (theme?.LineWidthsPt is { } lws && r - 1 >= 0 && r - 1 < lws.Count ? lws[r - 1] : r >= 1 && r <= 3 ? new[] { 1, 1.5, 2 }[r - 1] : 0.75)
                 : 0)
             : tb.Shape?.Line?.WidthPt ?? 0;
         double half = lw * 10;

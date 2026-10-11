@@ -46,6 +46,9 @@ public sealed class Line
     public bool Clear;
     /// <summary>última linha do parágrafo</summary>
     public bool Last;
+    /// <summary>tab com parada além do vão do flutuante: "break" a linha acabou antes dele;
+    /// "start" ele abre a linha (o motor a leva para baixo do flutuante) — oráculo tabgap</summary>
+    public string? GapTab;
 }
 
 public struct LineFrame
@@ -57,12 +60,26 @@ public struct LineFrame
     public double? SkipTo;
     /// <summary>objeto no meio da linha: os vãos todos, da esquerda para a direita (WrapFrame)</summary>
     public List<(double A, double B)>? Segs;
+    /// <summary>vão ao lado de um flutuante (o quadro foi estreitado por ele)</summary>
+    public bool Gap;
 
-    public LineFrame(double left, double right) { Left = left; Right = right; SkipTo = null; Segs = null; }
+    public LineFrame(double left, double right) { Left = left; Right = right; SkipTo = null; Segs = null; Gap = false; }
 }
 
 public static class Lines
 {
+    /// <summary>Há outro tab depois do glifo <paramref name="i"/>, antes da próxima quebra de linha/página?</summary>
+    internal static bool MoreTabs(List<Glyph> gs, int i)
+    {
+        for (int k = i + 1; k < gs.Count; k++)
+        {
+            var q = gs[k];
+            if (q.Kind == GlyphKind.Tab) return true;
+            if (q.Kind is GlyphKind.Lb or GlyphKind.Pb or GlyphKind.Cb) return false;
+        }
+        return false;
+    }
+
     internal static (double Pos, TabSpec? Tab) NextTab(double x, List<TabSpec> tabs, double defaultTab, double? hangingStop, double rightLimit)
     {
         (double Pos, TabSpec? Tab)? best = null;
@@ -291,6 +308,7 @@ public sealed class LineBreaker
         PendTab? pendTab = null;
         string? breakAfter = null;
         bool clearAfter = false;
+        string? gapTab = null;
         bool pastMargin = false;
         bool forced = false;
 
@@ -354,6 +372,14 @@ public sealed class LineBreaker
                     };
                 }
                 else (pos, tab) = Lines.NextTab(x, p.Tabs, defaultTab, hangingStop, right);
+                // vão ao lado de um flutuante: parada além dele com OUTRO tab adiante na linha acaba a
+                // linha antes do tab e o resto vai para baixo do flutuante; tab único fica no fim do
+                // vão (oráculo tabgap)
+                if (frame.Gap && g.Ptab is null && pos > right + 0.5 && Lines.MoreTabs(gs, i))
+                {
+                    if (i > start) { gapTab = "break"; break; }
+                    gapTab = "start";
+                }
                 // Word 2013+ (oráculo tocdots-beyond-c15): parada custom direita/centro/decimal
                 // além de máx(margem, fim da linha) alinha o texto pela DIREITA no fim da
                 // linha (margem − recuo direito); no modo ≤ 14 a posição vale
@@ -685,6 +711,7 @@ public sealed class LineBreaker
             BreakAfter = breakAfter,
             Clear = clearAfter,
             Last = lastLine,
+            GapTab = gapTab,
         };
     }
 }

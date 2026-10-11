@@ -37,6 +37,8 @@ public sealed class ReadContext
     /// <summary>Lê os blocos (parágrafos + tabelas) de um container (w:txbxContent) —
     /// injetado pelo leitor do documento completo (fulldoc).</summary>
     public Func<XmlElement, ReadContext, List<Block>>? ReadBlocks;
+    /// <summary>XML de uma parte ligada pelo r:id (alvo relativo a word/) — desenho do SmartArt</summary>
+    public Func<string, XmlElement?>? ResolvePart;
 
     public void AddActiveComment(int id)
     {
@@ -306,7 +308,10 @@ public static class DocumentReader
                 BodyPrOf(tb, FirstChild(obj, "wps:bodyPr"));
                 if (Js.Truthy(style.Fill) || style.Line is not null || style.Gradient is not null) tb.Shape = style;
                 tb.LineInset = style.LineInset ?? new LineInset();
-                if (style.Rot is { } srot && srot != 0 && !double.IsNaN(srot)) tb.Rot = srot;
+                // espelho vertical gira o texto 180° (o horizontal não o afeta): rot 180 + flipV fica
+                // em pé — medido no Word (corpus t43)
+                bool hasRot = style.Rot is { } srot && srot != 0 && !double.IsNaN(srot);
+                if (hasRot || style.FlipV == true) tb.Rot = ((style.Rot ?? 0) + (style.FlipV == true ? 180 : 0)) % 360;
                 return new Run { Text = Obj, Textbox = tb };
             }
             // imagem como preenchimento da forma (a:blipFill)
@@ -365,6 +370,192 @@ public static class DocumentReader
     private static readonly string[] DrawingObjects = { "pic:pic", "wps:wsp", "wpg:wgp", "wpc:wpc" };
 
     /// <summary>w:drawing → run (imagem, caixa de texto, forma ou grupo).</summary>
+    /// <summary>Cor DrawingML (srgbClr/sysClr/schemeClr) → cor de run; tint/shade do esquema
+    /// viram themeTint/themeShade.</summary>
+    private static ColorSpec? DmlRunColor(XmlElement? el)
+    {
+        var c = el is not null ? (FirstChild(el, "a:srgbClr") ?? FirstChild(el, "a:sysClr") ?? FirstChild(el, "a:schemeClr") ?? FirstChild(el, "a:prstClr")) : null;
+        if (c is null) return null;
+        if (c.Name == "a:srgbClr") return new ColorSpec { Val = Js.ToUpper(c.Attr("val") ?? "000000") };
+        if (c.Name == "a:sysClr") return new ColorSpec { Val = Js.ToUpper(c.Attr("lastClr") ?? (c.Attr("val") == "window" ? "FFFFFF" : "000000")) };
+        if (c.Name == "a:prstClr") return new ColorSpec { Val = c.Attr("val") == "white" ? "FFFFFF" : "000000" };
+        var spec = new ColorSpec { ThemeColor = c.Attr("val") ?? "tx1" };
+        string? Frac(string k)
+        {
+            var m = FirstChild(c, k);
+            if (m is null) return null;
+            double n = Js.ParseInt(m.Attr("val") ?? "100000");
+            long v = (long)JsNumber.Round(((double.IsNaN(n) ? 0 : n) / 100000) * 255);
+            return Js.ToUpper(v.ToString("x").PadLeft(2, '0'));
+        }
+        string? t = Frac("a:tint"), sh = Frac("a:shade");
+        if (Js.Truthy(t)) spec.ThemeTint = t;
+        if (Js.Truthy(sh)) spec.ThemeShade = sh;
+        return spec;
+    }
+
+    private static readonly Regex OneOrTrueRe = new("^(1|true)$", RegexOptions.CultureInvariant);
+
+    /// <summary>Texto DrawingML (a:txBody do SmartArt) → parágrafos com a formatação toda explícita:
+    /// o texto da forma não herda o estilo Normal do documento (oráculo dgmdraw). Cor sem
+    /// a:solidFill: a do txFillClrLst do esquema de cores; senão a do fontRef.</summary>
+    private static List<Paragraph> DmlParagraphs(XmlElement body, XmlElement? styleEl, ColorSpec? txFill)
+    {
+        var fontRef = styleEl is not null ? FirstChild(styleEl, "a:fontRef") : null;
+        var refColor = txFill ?? DmlRunColor(fontRef);
+        string refKind = fontRef?.Attr("idx") == "major" ? "major" : "minor";
+        RPr RprOf(XmlElement? rPr)
+        {
+            double szv = Js.ParseInt(rPr?.Attr("sz") ?? "1800");
+            double sz = JsNumber.Round((double.IsNaN(szv) || szv == 0 ? 1800 : szv) / 50);
+            string? Face(string tag) { var f = rPr is not null ? FirstChild(rPr, tag)?.Attr("typeface") : null; return Js.Truthy(f) ? f : null; }
+            string Kind(string? f) => Js.Truthy(f) ? (f!.StartsWith("+mj", StringComparison.Ordinal) ? "major" : "minor") : refKind;
+            string? lt = Face("a:latin"), ea = Face("a:ea"), cs = Face("a:cs");
+            var rFonts = new RFonts();
+            if (lt is not null && !lt.StartsWith('+')) { rFonts.Ascii = lt; rFonts.HAnsi = lt; }
+            else { rFonts.AsciiTheme = $"{Kind(lt)}HAnsi"; rFonts.HAnsiTheme = $"{Kind(lt)}HAnsi"; }
+            if (ea is not null && !ea.StartsWith('+')) rFonts.EastAsia = ea; else rFonts.EastAsiaTheme = $"{Kind(ea)}EastAsia";
+            if (cs is not null && !cs.StartsWith('+')) rFonts.Cs = cs; else rFonts.CsTheme = $"{Kind(cs)}Bidi";
+            bool On(string k) => rPr?.Attr(k) == "1" || rPr?.Attr(k) == "true";
+            string? u = rPr?.Attr("u");
+            var r = new RPr
+            {
+                RFonts = rFonts, Sz = sz, SzCs = sz, B = On("b"), BCs = On("b"), I = On("i"), ICs = On("i"),
+                Color = DmlRunColor(rPr is not null ? FirstChild(rPr, "a:solidFill") : null) ?? refColor ?? new ColorSpec { ThemeColor = "tx1" },
+            };
+            if (Js.Truthy(u) && u != "none") r.U = new UnderlineSpec { Val = u == "dbl" ? "double" : "single" };
+            return r;
+        }
+        double Num(XmlElement? el) { double n = Js.ParseInt(el?.Attr("val") ?? "0"); return double.IsNaN(n) ? 0 : n; }
+        // spcFirstLastPara ausente/0: sem espaço antes do 1º nem depois do último parágrafo
+        bool edges = OneOrTrueRe.IsMatch(FirstChild(body, "a:bodyPr")?.Attr("spcFirstLastPara") ?? "");
+        var aps = ChildElements(body, "a:p").ToList();
+        var outp = new List<Paragraph>();
+        for (int k = 0; k < aps.Count; k++)
+        {
+            var ap = aps[k];
+            var pPr = FirstChild(ap, "a:pPr");
+            var runs = new List<Run>();
+            foreach (var c in ChildElements(ap))
+            {
+                if (c.Name != "a:r" && c.Name != "a:br" && c.Name != "a:fld") continue;
+                var t = FirstChild(c, "a:t");
+                string text = c.Name == "a:br" ? "\n" : t is not null ? TextContentOf(t) : "";
+                if (text.Length == 0) continue;
+                var rpr = RprOf(FirstChild(c, "a:rPr"));
+                runs.Add(new Run { Text = text, Props = RunPropsFromRPr(rpr), Rpr = rpr });
+            }
+            var firstR = FirstChild(ap, "a:r");
+            var mark = RprOf(FirstChild(ap, "a:endParaRPr") ?? (firstR is not null ? FirstChild(firstR, "a:rPr") : null));
+            double szPt = runs.Aggregate(mark.Sz ?? 36, (mx, r) => Math.Max(mx, r.Rpr?.Sz ?? 0)) / 2;
+            // espaço antes/depois: spcPts (centésimos de pt) ou spcPct (fração da linha, 1,2 × corpo)
+            double Gap(string tag)
+            {
+                var e = pPr is not null ? FirstChild(pPr, tag) : null;
+                var pts = e is not null ? FirstChild(e, "a:spcPts") : null;
+                var pct = e is not null ? FirstChild(e, "a:spcPct") : null;
+                return pts is not null ? JsNumber.Round(Num(pts) / 5) : pct is not null ? JsNumber.Round((Num(pct) / 100000) * 1.2 * szPt * 20) : 0;
+            }
+            var ln = pPr is not null ? FirstChild(pPr, "a:lnSpc") : null;
+            var lnPct = ln is not null ? FirstChild(ln, "a:spcPct") : null;
+            var lnPts = ln is not null ? FirstChild(ln, "a:spcPts") : null;
+            string? algn = pPr?.Attr("algn");
+            double Emu(string key) { double n = Js.ParseInt(pPr?.Attr(key) ?? "0"); return JsNumber.Round((double.IsNaN(n) ? 0 : n) / DocxModel.EmuPerTwip); }
+            double indent = Emu("indent");
+            var spacing = new SpacingSpec
+            {
+                Before = k == 0 && !edges ? 0 : Gap("a:spcBef"),
+                After = k == aps.Count - 1 && !edges ? 0 : Gap("a:spcAft"),
+            };
+            if (lnPts is not null) { spacing.Line = JsNumber.Round(Num(lnPts) / 5); spacing.LineRule = "exact"; }
+            else { spacing.Line = lnPct is not null ? JsNumber.Round((240 * Num(lnPct)) / 100000) : 240; spacing.LineRule = "auto"; }
+            var ind = new IndSpec { Left = Emu("marL"), Right = 0 };
+            if (indent < 0) ind.Hanging = -indent; else ind.FirstLine = indent;
+            var ppr = new PPr
+            {
+                Jc = algn == "ctr" ? "center" : algn == "r" ? "right" : algn == "just" ? "both" : algn == "dist" ? "distribute" : "left",
+                Spacing = spacing,
+                Ind = ind,
+                ContextualSpacing = false,
+                RPr = mark,
+            };
+            outp.Add(new Paragraph { Runs = runs, Props = ParaPropsFromPPr(ppr), Ppr = ppr });
+        }
+        return outp;
+    }
+
+    /// <summary>SmartArt: o Word grava junto o desenho pronto (word/diagrams/drawingN.xml, apontado
+    /// pelo dsp:dataModelExt da parte de dados). Vira um grupo: cada dsp:sp é uma forma e
+    /// o texto vai numa caixa no retângulo dsp:txXfrm (oráculo dgmdraw).</summary>
+    private static Run? ReadDiagram(XmlElement gd, ReadContext ctx, double wTw, double hTw)
+    {
+        var relIds = FirstChild(gd, "dgm:relIds");
+        var data = relIds is not null ? ctx.ResolvePart?.Invoke(relIds.Attr("r:dm") ?? "") : null;
+        var ext = data is not null ? FindDeep(data, "dsp:dataModelExt") : null;
+        var drawing = ext is not null ? ctx.ResolvePart?.Invoke(ext.Attr("relId") ?? "") : null;
+        var tree = drawing is not null ? FindDeep(drawing, "dsp:spTree") : null;
+        if (tree is null) return null;
+        // cor do texto: o desenho não a grava quando vem do esquema de cores (r:cs) — rótulo de
+        // estilo do ponto de apresentação (dsp:sp@modelId) → txFillClrLst
+        var colors = relIds is not null ? ctx.ResolvePart?.Invoke(relIds.Attr("r:cs") ?? "") : null;
+        var lbls = new Dictionary<string, XmlElement>(StringComparer.Ordinal);
+        if (colors is not null) foreach (var l in ChildElements(colors, "dgm:styleLbl")) lbls[l.Attr("name") ?? ""] = l;
+        var txFill = new Dictionary<string, ColorSpec?>(StringComparer.Ordinal);
+        var ptLst = data is not null ? FindDeep(data, "dgm:ptLst") : null;
+        if (ptLst is not null)
+        {
+            foreach (var pt in ChildElements(ptLst, "dgm:pt"))
+            {
+                var pr = FirstChild(pt, "dgm:prSet");
+                XmlElement? lst = pr is not null && lbls.TryGetValue(pr.Attr("presStyleLbl") ?? "", out var lv) ? lv : null;
+                var fills = lst is not null ? FirstChild(lst, "dgm:txFillClrLst") : null;
+                var cs = fills is not null ? ChildElements(fills).ToList() : new List<XmlElement>();
+                if (cs.Count == 0 || !Js.Truthy(pt.Attr("modelId"))) continue;
+                double iv = Js.ParseInt(pr!.Attr("presStyleIdx") ?? "0");
+                int i = double.IsNaN(iv) ? 0 : (int)iv;
+                var c = fills!.Attr("meth") == "cycle" ? cs[((i % cs.Count) + cs.Count) % cs.Count] : cs[Math.Max(0, Math.Min(i, cs.Count - 1))];
+                var wrapper = new XmlElement("x");
+                wrapper.Children.Add(c);
+                txFill[pt.Attr("modelId")!] = DmlRunColor(wrapper);
+            }
+        }
+        double N(XmlElement? el, string k) { double n = Js.ParseInt(el?.Attr(k) ?? "0"); return (double.IsNaN(n) ? 0 : n) / DocxModel.EmuPerTwip; }
+        (double X, double Y, double W, double H) Rect(XmlElement xf)
+        {
+            var off = FirstChild(xf, "a:off");
+            var e = FirstChild(xf, "a:ext");
+            return (N(off, "x"), N(off, "y"), N(e, "cx"), N(e, "cy"));
+        }
+        var items = new List<GroupItem>();
+        void Walk(XmlElement parent)
+        {
+            foreach (var sp in ChildElements(parent))
+            {
+                if (sp.Name == "dsp:grpSp") { Walk(sp); continue; }
+                var spPr = sp.Name == "dsp:sp" ? FirstChild(sp, "dsp:spPr") : null;
+                var xf = spPr is not null ? FirstChild(spPr, "a:xfrm") : null;
+                if (xf is null) continue;
+                var box = Rect(xf);
+                var styleEl = FirstChild(sp, "dsp:style");
+                var style = DrawingReader.ReadSpPr(spPr, styleEl);
+                if (Js.Truthy(style.Fill) || style.Line is not null || style.Gradient is not null)
+                    items.Add(new GroupItem { X = box.X, Y = box.Y, W = box.W, H = box.H, Run = new Run { Text = Obj, Shape = new DrawingShape { Style = style, WidthTwips = box.W, HeightTwips = box.H } } });
+                var body = FirstChild(sp, "dsp:txBody");
+                var paras = body is not null ? DmlParagraphs(body, styleEl, txFill.TryGetValue(sp.Attr("modelId") ?? "", out var tf) ? tf : null) : new List<Paragraph>();
+                if (body is null || !paras.Any(p => p.Runs.Count > 0)) continue;
+                var txf = FirstChild(sp, "dsp:txXfrm");
+                var tbox = txf is not null ? Rect(txf) : box;
+                var tb = new DrawingTextbox { Paras = paras, Blocks = paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList(), WidthTwips = tbox.W, HeightTwips = tbox.H };
+                BodyPrOf(tb, FirstChild(body, "a:bodyPr"));
+                double rot = Js.ParseInt((txf ?? xf).Attr("rot") ?? "0");
+                if (rot != 0 && !double.IsNaN(rot)) tb.Rot = rot / 60000;
+                items.Add(new GroupItem { X = tbox.X, Y = tbox.Y, W = tbox.W, H = tbox.H, Run = new Run { Text = Obj, Textbox = tb } });
+            }
+        }
+        Walk(tree);
+        return items.Count > 0 ? new Run { Text = Obj, Group = new DrawingGroup { WidthTwips = wTw, HeightTwips = hTw, Items = items } } : null;
+    }
+
     private static Run? ReadDrawingRun(XmlElement drawing, ReadContext ctx)
     {
         var anchorEl = FirstChild(drawing, "wp:anchor");
@@ -379,8 +570,9 @@ public static class DocumentReader
         // da extensão — em linha, ela ocupa a linha como uma imagem (oráculo dgmspace)
         bool dgm = obj is null && (gd?.Attr("uri") ?? "").EndsWith("/drawingml/2006/diagram", StringComparison.Ordinal);
         if (obj is null && !dgm) return null;
+        // SmartArt com o desenho gravado pelo Word: grupo de formas e caixas (oráculo dgmdraw)
         var run = obj is not null ? ReadGraphicObject(obj, ctx, wTw, hTw)
-            : new Run { Text = Obj, Shape = new DrawingShape { Style = new ShapeStyle { Geom = "rect" }, WidthTwips = wTw, HeightTwips = hTw } };
+            : (gd is not null ? ReadDiagram(gd, ctx, wTw, hTw) : null) ?? new Run { Text = Obj, Shape = new DrawingShape { Style = new ShapeStyle { Geom = "rect" }, WidthTwips = wTw, HeightTwips = hTw } };
         if (run is null) return null;
         var anchor = DrawingReader.ReadWpAnchor(anchorEl);
         // em linha: a margem de efeitos (sombra, brilho) ocupa espaço na linha (oráculo effext)
@@ -393,6 +585,15 @@ public static class DocumentReader
             {
                 if (run.Image is not null) run.Image.InlineEffect = v; else run.Shape!.InlineEffect = v;
             }
+        }
+        // grupo em linha (wpg e SmartArt): a margem de efeitos também entra na caixa do grupo,
+        // como em imagem/forma (oráculo effext; corpus t43)
+        if (ee is not null && run.Group is not null)
+        {
+            double E2(string k) { double n = Js.ParseInt(ee.Attr(k) ?? "0"); return (double.IsNaN(n) ? 0 : n) / DocxModel.EmuPerTwip; }
+            foreach (var it in run.Group.Items) { it.X += E2("l"); it.Y += E2("t"); }
+            run.Group.WidthTwips += E2("l") + E2("r");
+            run.Group.HeightTwips += E2("t") + E2("b");
         }
         if (anchor is not null && (run.Image is not null || run.Textbox is not null || run.Shape is not null || run.Group is not null))
         {
@@ -1134,6 +1335,12 @@ public static class DocumentReader
             },
             ResolveLink = rid =>
                 relMap.TryGetValue(rid, out var rel) && rel.External ? rel.Target : null,
+            ResolvePart = rid =>
+            {
+                if (!relMap.TryGetValue(rid, out var rel) || rel.External) return null;
+                string? xml = pkg.GetPartText(rel.Target.StartsWith('/') ? rel.Target[1..] : "word/" + rel.Target);
+                return Js.Truthy(xml) ? Parse(xml!) : null;
+            },
         };
     }
 

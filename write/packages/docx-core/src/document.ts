@@ -504,6 +504,8 @@ export interface ReadContext {
   onBookmark?: (name: string, offset: number) => void;
   /** Pilha de campos complexos abertos (atravessa runs e parágrafos). */
   fieldStack?: FieldFrame[];
+  /** XML de uma parte ligada pelo r:id (alvo relativo a word/) — desenho do SmartArt */
+  resolvePart?: (rid: string) => XmlElement | undefined;
   /** Lê os blocos (parágrafos + tabelas) de um container (w:txbxContent) —
    *  injetado pelo leitor do documento completo (fulldoc). */
   readBlocks?: (container: XmlElement, ctx: ReadContext) => import('./fulldoc.js').Block[];
@@ -594,7 +596,9 @@ function readGraphicObject(
       bodyPrOf(tb, firstChild(obj, 'wps:bodyPr'));
       if (style.fill || style.line || style.gradient) tb.shape = style;
       tb.lineInset = style.lineInset ?? {};
-      if (style.rot) tb.rot = style.rot;
+      // espelho vertical gira o texto 180° (o horizontal não o afeta): rot 180 + flipV fica
+      // em pé — medido no Word (corpus t43)
+      if (style.rot || style.flipV) tb.rot = ((style.rot ?? 0) + (style.flipV ? 180 : 0)) % 360;
       return { text: OBJ, textbox: tb };
     }
     // imagem como preenchimento da forma (a:blipFill)
@@ -641,6 +645,156 @@ function readGraphicObject(
   return undefined;
 }
 
+/** Cor DrawingML (srgbClr/sysClr/schemeClr) → cor de run; tint/shade do esquema
+ *  viram themeTint/themeShade. */
+function dmlRunColor(el: XmlElement | undefined): RPr['color'] {
+  const c = el && (firstChild(el, 'a:srgbClr') ?? firstChild(el, 'a:sysClr') ?? firstChild(el, 'a:schemeClr') ?? firstChild(el, 'a:prstClr'));
+  if (!c) return undefined;
+  if (c.name === 'a:srgbClr') return { val: (c.attrs['val'] ?? '000000').toUpperCase() };
+  if (c.name === 'a:sysClr') return { val: (c.attrs['lastClr'] ?? (c.attrs['val'] === 'window' ? 'FFFFFF' : '000000')).toUpperCase() };
+  if (c.name === 'a:prstClr') return { val: c.attrs['val'] === 'white' ? 'FFFFFF' : '000000' };
+  const spec: NonNullable<RPr['color']> = { themeColor: c.attrs['val'] ?? 'tx1' };
+  const frac = (k: string) => {
+    const m = firstChild(c, k);
+    return m ? Math.round(((parseInt(m.attrs['val'] ?? '100000', 10) || 0) / 100000) * 255).toString(16).padStart(2, '0').toUpperCase() : undefined;
+  };
+  const t = frac('a:tint'), sh = frac('a:shade');
+  if (t) spec.themeTint = t;
+  if (sh) spec.themeShade = sh;
+  return spec;
+}
+
+/** Texto DrawingML (a:txBody do SmartArt) → parágrafos com a formatação toda explícita:
+ *  o texto da forma não herda o estilo Normal do documento (oráculo dgmdraw). Cor sem
+ *  a:solidFill: a do txFillClrLst do esquema de cores; senão a do fontRef. */
+function dmlParagraphs(body: XmlElement, styleEl: XmlElement | undefined, txFill?: RPr['color']): Paragraph[] {
+  const fontRef = styleEl && firstChild(styleEl, 'a:fontRef');
+  const refColor = txFill ?? dmlRunColor(fontRef);
+  const refKind = fontRef?.attrs['idx'] === 'major' ? 'major' : 'minor';
+  const rprOf = (rPr: XmlElement | undefined): RPr => {
+    const sz = Math.round((parseInt(rPr?.attrs['sz'] ?? '1800', 10) || 1800) / 50);
+    const face = (tag: string) => (rPr && firstChild(rPr, tag)?.attrs['typeface']) || undefined;
+    const kind = (f: string | undefined) => (f ? (f.startsWith('+mj') ? 'major' : 'minor') : refKind);
+    const lt = face('a:latin'), ea = face('a:ea'), cs = face('a:cs');
+    const rFonts: NonNullable<RPr['rFonts']> = {};
+    if (lt && !lt.startsWith('+')) { rFonts.ascii = lt; rFonts.hAnsi = lt; }
+    else { rFonts.asciiTheme = `${kind(lt)}HAnsi`; rFonts.hAnsiTheme = `${kind(lt)}HAnsi`; }
+    if (ea && !ea.startsWith('+')) rFonts.eastAsia = ea; else rFonts.eastAsiaTheme = `${kind(ea)}EastAsia`;
+    if (cs && !cs.startsWith('+')) rFonts.cs = cs; else rFonts.cstheme = `${kind(cs)}Bidi`;
+    const on = (k: string) => rPr?.attrs[k] === '1' || rPr?.attrs[k] === 'true';
+    const u = rPr?.attrs['u'];
+    return {
+      rFonts, sz, szCs: sz, b: on('b'), bCs: on('b'), i: on('i'), iCs: on('i'),
+      color: dmlRunColor(rPr && firstChild(rPr, 'a:solidFill')) ?? refColor ?? { themeColor: 'tx1' },
+      ...(u && u !== 'none' ? { u: { val: u === 'dbl' ? 'double' : 'single' } } : {}),
+    };
+  };
+  const num = (el: XmlElement | undefined) => parseInt(el?.attrs['val'] ?? '0', 10) || 0;
+  // spcFirstLastPara ausente/0: sem espaço antes do 1º nem depois do último parágrafo
+  const edges = /^(1|true)$/.test(firstChild(body, 'a:bodyPr')?.attrs['spcFirstLastPara'] ?? '');
+  const aps = childElements(body, 'a:p');
+  const out: Paragraph[] = [];
+  for (const [k, ap] of aps.entries()) {
+    const pPr = firstChild(ap, 'a:pPr');
+    const runs: Run[] = [];
+    for (const c of childElements(ap)) {
+      if (c.name !== 'a:r' && c.name !== 'a:br' && c.name !== 'a:fld') continue;
+      const t = firstChild(c, 'a:t');
+      const text = c.name === 'a:br' ? '\n' : t ? textContentOf(t) : '';
+      if (!text) continue;
+      const rpr = rprOf(firstChild(c, 'a:rPr'));
+      runs.push({ text, props: runPropsFromRPr(rpr), rpr });
+    }
+    const firstR = firstChild(ap, 'a:r');
+    const mark = rprOf(firstChild(ap, 'a:endParaRPr') ?? (firstR && firstChild(firstR, 'a:rPr')));
+    const szPt = Math.max(mark.sz ?? 36, ...runs.map((r) => r.rpr?.sz ?? 0)) / 2;
+    // espaço antes/depois: spcPts (centésimos de pt) ou spcPct (fração da linha, 1,2 × corpo)
+    const gap = (tag: string) => {
+      const e = pPr && firstChild(pPr, tag);
+      const pts = e && firstChild(e, 'a:spcPts'), pct = e && firstChild(e, 'a:spcPct');
+      return pts ? Math.round(num(pts) / 5) : pct ? Math.round((num(pct) / 100000) * 1.2 * szPt * 20) : 0;
+    };
+    const ln = pPr && firstChild(pPr, 'a:lnSpc');
+    const lnPct = ln && firstChild(ln, 'a:spcPct'), lnPts = ln && firstChild(ln, 'a:spcPts');
+    const algn = pPr?.attrs['algn'];
+    const emu = (k: string) => Math.round((parseInt(pPr?.attrs[k] ?? '0', 10) || 0) / EMU_PER_TWIP);
+    const indent = emu('indent');
+    const ppr: PPr = {
+      jc: algn === 'ctr' ? 'center' : algn === 'r' ? 'right' : algn === 'just' ? 'both' : algn === 'dist' ? 'distribute' : 'left',
+      spacing: {
+        before: k === 0 && !edges ? 0 : gap('a:spcBef'), after: k === aps.length - 1 && !edges ? 0 : gap('a:spcAft'),
+        ...(lnPts ? { line: Math.round(num(lnPts) / 5), lineRule: 'exact' as const } : { line: lnPct ? Math.round((240 * num(lnPct)) / 100000) : 240, lineRule: 'auto' as const }),
+      },
+      ind: { left: emu('marL'), right: 0, ...(indent < 0 ? { hanging: -indent } : { firstLine: indent }) },
+      contextualSpacing: false,
+      rPr: mark,
+    };
+    out.push({ runs, props: paraPropsFromPPr(ppr), ppr });
+  }
+  return out;
+}
+
+/** SmartArt: o Word grava junto o desenho pronto (word/diagrams/drawingN.xml, apontado
+ *  pelo dsp:dataModelExt da parte de dados). Vira um grupo: cada dsp:sp é uma forma e
+ *  o texto vai numa caixa no retângulo dsp:txXfrm (oráculo dgmdraw). */
+function readDiagram(gd: XmlElement, ctx: ReadContext, wTw: number, hTw: number): Omit<Run, 'props'> | undefined {
+  const relIds = firstChild(gd, 'dgm:relIds');
+  const data = relIds && ctx.resolvePart?.(relIds.attrs['r:dm'] ?? '');
+  const ext = data && findDeep(data, 'dsp:dataModelExt');
+  const drawing = ext && ctx.resolvePart?.(ext.attrs['relId'] ?? '');
+  const tree = drawing && findDeep(drawing, 'dsp:spTree');
+  if (!tree) return undefined;
+  // cor do texto: o desenho não a grava quando vem do esquema de cores (r:cs) — rótulo de
+  // estilo do ponto de apresentação (dsp:sp@modelId) → txFillClrLst
+  const colors = relIds && ctx.resolvePart?.(relIds.attrs['r:cs'] ?? '');
+  const lbls = new Map<string, XmlElement>();
+  for (const l of colors ? childElements(colors, 'dgm:styleLbl') : []) lbls.set(l.attrs['name'] ?? '', l);
+  const txFill = new Map<string, RPr['color']>();
+  const ptLst = data && findDeep(data, 'dgm:ptLst');
+  for (const pt of ptLst ? childElements(ptLst, 'dgm:pt') : []) {
+    const pr = firstChild(pt, 'dgm:prSet');
+    const lst = pr && lbls.get(pr.attrs['presStyleLbl'] ?? '');
+    const fills = lst && firstChild(lst, 'dgm:txFillClrLst');
+    const cs = fills ? childElements(fills) : [];
+    if (!cs.length || !pt.attrs['modelId']) continue;
+    const i = parseInt(pr!.attrs['presStyleIdx'] ?? '0', 10) || 0;
+    const c = fills!.attrs['meth'] === 'cycle' ? cs[i % cs.length]! : cs[Math.min(i, cs.length - 1)]!;
+    txFill.set(pt.attrs['modelId'], dmlRunColor({ name: 'x', attrs: {}, children: [c] }));
+  }
+  const n = (el: XmlElement | undefined, k: string) => (parseInt(el?.attrs[k] ?? '0', 10) || 0) / EMU_PER_TWIP;
+  const rect = (xf: XmlElement) => {
+    const off = firstChild(xf, 'a:off'), e = firstChild(xf, 'a:ext');
+    return { x: n(off, 'x'), y: n(off, 'y'), w: n(e, 'cx'), h: n(e, 'cy') };
+  };
+  const items: DrawingGroup['items'] = [];
+  const walk = (parent: XmlElement): void => {
+    for (const sp of childElements(parent)) {
+      if (sp.name === 'dsp:grpSp') { walk(sp); continue; }
+      const spPr = sp.name === 'dsp:sp' ? firstChild(sp, 'dsp:spPr') : undefined;
+      const xf = spPr && firstChild(spPr, 'a:xfrm');
+      if (!xf) continue;
+      const box = rect(xf);
+      const styleEl = firstChild(sp, 'dsp:style');
+      const style = readSpPr(spPr, styleEl);
+      if (style.fill || style.line || style.gradient) {
+        items.push({ ...box, run: { text: OBJ, shape: { style, widthTwips: box.w, heightTwips: box.h }, props: { ...DEFAULT_RUN_PROPS } } });
+      }
+      const body = firstChild(sp, 'dsp:txBody');
+      const paras = body ? dmlParagraphs(body, styleEl, txFill.get(sp.attrs['modelId'] ?? '')) : [];
+      if (!body || !paras.some((p) => p.runs.length)) continue;
+      const txf = firstChild(sp, 'dsp:txXfrm');
+      const tbox = txf ? rect(txf) : box;
+      const tb: DrawingTextbox = { paras, blocks: paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph })), widthTwips: tbox.w, heightTwips: tbox.h };
+      bodyPrOf(tb, firstChild(body, 'a:bodyPr'));
+      const rot = parseInt((txf ?? xf).attrs['rot'] ?? '0', 10);
+      if (rot) tb.rot = rot / 60000;
+      items.push({ ...tbox, run: { text: OBJ, textbox: tb, props: { ...DEFAULT_RUN_PROPS } } });
+    }
+  };
+  walk(tree);
+  return items.length ? { text: OBJ, group: { widthTwips: wTw, heightTwips: hTw, items } } : undefined;
+}
+
 /** w:drawing → run (imagem, caixa de texto, forma ou grupo). */
 function readDrawingRun(drawing: XmlElement, ctx: ReadContext): Omit<Run, 'props'> | undefined {
   const anchorEl = firstChild(drawing, 'wp:anchor');
@@ -655,7 +809,9 @@ function readDrawingRun(drawing: XmlElement, ctx: ReadContext): Omit<Run, 'props
   // da extensão — em linha, ela ocupa a linha como uma imagem (oráculo dgmspace)
   const dgm = !obj && /\/drawingml\/2006\/diagram$/.test(gd?.attrs['uri'] ?? '');
   if (!obj && !dgm) return undefined;
-  const run = obj ? readGraphicObject(obj, ctx, wTw, hTw) : { text: OBJ, shape: { style: { geom: 'rect' }, widthTwips: wTw, heightTwips: hTw } };
+  // SmartArt com o desenho gravado pelo Word: grupo de formas e caixas (oráculo dgmdraw)
+  const run = obj ? readGraphicObject(obj, ctx, wTw, hTw)
+    : (gd && readDiagram(gd, ctx, wTw, hTw)) ?? { text: OBJ, shape: { style: { geom: 'rect' }, widthTwips: wTw, heightTwips: hTw } };
   if (!run) return undefined;
   const anchor = readWpAnchor(anchorEl);
   const target = run.image ?? run.textbox ?? run.shape ?? run.group;
@@ -665,6 +821,14 @@ function readDrawingRun(drawing: XmlElement, ctx: ReadContext): Omit<Run, 'props
     const e = (k: string) => (parseInt(ee.attrs[k] ?? '0', 10) || 0) / EMU_PER_TWIP;
     const v = { l: e('l'), t: e('t'), r: e('r'), b: e('b') };
     if (v.l || v.t || v.r || v.b) (run.image ?? run.shape)!.inlineEffect = v;
+  }
+  // grupo em linha (wpg e SmartArt): a margem de efeitos também entra na caixa do grupo,
+  // como em imagem/forma (oráculo effext; corpus t43)
+  if (ee && run.group) {
+    const e = (k: string) => (parseInt(ee.attrs[k] ?? '0', 10) || 0) / EMU_PER_TWIP;
+    for (const it of run.group.items) { it.x += e('l'); it.y += e('t'); }
+    run.group.widthTwips += e('l') + e('r');
+    run.group.heightTwips += e('t') + e('b');
   }
   if (target && anchor) {
     target.floating = true;
@@ -1259,6 +1423,12 @@ export function buildReadContext(pkg: DocxPackage, relsPath: string): ReadContex
     resolveLink: (rid) => {
       const rel = relMap.get(rid);
       return rel?.external ? rel.target : undefined;
+    },
+    resolvePart: (rid) => {
+      const rel = relMap.get(rid);
+      if (!rel || rel.external) return undefined;
+      const xml = pkg.getPartText(rel.target.startsWith('/') ? rel.target.slice(1) : `word/${rel.target}`);
+      return xml ? parseXml(xml) : undefined;
     },
   };
 }

@@ -52,12 +52,17 @@ export interface Line {
   clear?: boolean;
   /** última linha do parágrafo */
   last: boolean;
+  /** tab com parada além do vão do flutuante: 'break' a linha acabou antes dele;
+   *  'start' ele abre a linha (o motor a leva para baixo do flutuante) — oráculo tabgap */
+  gapTab?: 'break' | 'start';
 }
 
 export interface LineFrame {
   /** borda esquerda/direita do espaço disponível para ESTA linha, relativas ao quadro (já com recuos) */
   left: number;
   right: number;
+  /** vão ao lado de um flutuante (o quadro foi estreitado por ele) */
+  gap?: boolean;
 }
 
 function nextTab(
@@ -79,6 +84,16 @@ function nextTab(
   if (pos <= x + 0.5) pos += dts;
   void rightLimit;
   return { pos };
+}
+
+/** Há outro tab depois do glifo `i`, antes da próxima quebra de linha/página? */
+function moreTabs(gs: Glyph[], i: number): boolean {
+  for (let k = i + 1; k < gs.length; k++) {
+    const q = gs[k]!;
+    if (q.kind === 'tab') return true;
+    if (q.kind === 'lb' || q.kind === 'pb' || q.kind === 'cb') return false;
+  }
+  return false;
 }
 
 /** Altura/baseline da linha pela regra de entrelinha (medido no Word — ver FINDINGS). */
@@ -226,6 +241,7 @@ export class LineBreaker {
     let pendTab: { idx: number; pos: number; tab: TabSpec; segStart: number; startX: number; decimalSeen: boolean; decimalX: number } | null = null;
     let breakAfter: Line['breakAfter'];
     let clearAfter = false;
+    let gapTab: 'break' | 'start' | undefined;
     let pastMargin = false;
     let forced = false;
 
@@ -276,6 +292,13 @@ export class LineBreaker {
           pos = g.ptab.alignment === 'center' ? frame.left + width / 2 : g.ptab.alignment === 'right' ? right : frame.left;
           tab = { val: g.ptab.alignment === 'center' ? 'center' : g.ptab.alignment === 'right' ? 'right' : 'left', pos, ...(g.ptab.leader && g.ptab.leader !== 'none' ? { leader: g.ptab.leader as TabSpec['leader'] } : {}) };
         } else ({ pos, tab } = nextTab(x, p.tabs, defaultTab, hangingStop, right));
+        // vão ao lado de um flutuante: parada além dele com OUTRO tab adiante na linha acaba a
+        // linha antes do tab e o resto vai para baixo do flutuante; tab único fica no fim do
+        // vão (oráculo tabgap)
+        if (frame.gap && !g.ptab && pos > right + 0.5 && moreTabs(gs, i)) {
+          if (i > start) { gapTab = 'break'; break; }
+          gapTab = 'start';
+        }
         // Word 2013+ (oráculo tocdots-beyond-c15): parada custom direita/centro/decimal
         // além de máx(margem, fim da linha) alinha o texto pela DIREITA no fim da
         // linha (margem − recuo direito); no modo ≤ 14 a posição vale
@@ -561,6 +584,7 @@ export class LineBreaker {
       asc, desc, height: box.height, baseline: box.baseline,
       ...(breakAfter ? { breakAfter } : {}),
       ...(clearAfter ? { clear: true } : {}),
+      ...(gapTab ? { gapTab } : {}),
       last,
     };
   }

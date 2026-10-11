@@ -123,6 +123,8 @@ public sealed class TableLayout
     public List<RowLayout> Rows = new();
     /// <summary>espessura da borda esquerda da 1ª célula (twips)</summary>
     public double? BorderLeft;
+    /// <summary>modo &lt; 15: do texto da última célula à borda direita (margem da célula ou meia borda)</summary>
+    public double? EffR;
     /// <summary>propriedades de fluxo</summary>
     public TblpPr? TblpPr;
 }
@@ -1371,7 +1373,7 @@ public static class TableEngine
         }
 
         double borderLeft = slots.Count > 0 && slots[0].Count > 0 ? Paint.BorderWidth(Edge(slots[0][0], "left")) : 0;
-        return new TableLayout { X = x, Width = width, Rows = rows, BorderLeft = borderLeft, TblpPr = tblPr.TblpPr };
+        return new TableLayout { X = x, Width = width, Rows = rows, BorderLeft = borderLeft, EffR = legacy ? effR : null, TblpPr = tblPr.TblpPr };
     }
 
     private static readonly Regex PctRe = new(@"^pct(\d+)\z", RegexOptions.CultureInvariant);

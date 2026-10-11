@@ -61,7 +61,7 @@ interface FloatBox {
 
 /** espaço da linha contornando flutuantes: o vão mais largo, os vãos todos
  *  (objeto no meio) ou até onde descer (sem espaço útil) */
-interface WrapFrame { left: number; right: number; skipTo?: number; segs?: [number, number][] }
+interface WrapFrame { left: number; right: number; skipTo?: number; segs?: [number, number][]; gap?: boolean }
 
 interface PageState {
   page: LayoutPage;
@@ -1272,6 +1272,10 @@ class Engine {
       this.newPage(this.cur.geom);
       this.topGapPrevAfter = lastAfter;
     }
+    // parágrafo numerado só com a quebra de página: o Word não desenha o número (nem
+    // nesta página nem na seguinte, onde a marca não ocupa linha) — oráculo numpgbr
+    if (p.marker && p.glyphs.length === 1 && p.glyphs[0]!.kind === 'pb'
+      && !(this.ctx.fmt.settings.compatibilityMode < 15 && this.ctx.fmt.settings.compat['splitPgBreakAndParaMark'])) p.marker = undefined;
     // quebra de página antes (espaço antes no topo: suprimido no modo 15, mantido no ≤ 14 — tocref-spbefore)
     if (p.pageBreakBefore && !this.atTop) {
       const lastAfter = this.prev ? this.prev.after : 0;
@@ -1493,6 +1497,24 @@ class Engine {
           }
         }
       }
+      // tab que abre a linha no vão com a parada além dele: a linha desce para baixo do
+      // flutuante (oráculo tabgap)
+      if (line.gapTab === 'start' && this.cur.floats.length) {
+        const lineH = Math.max(markLineH(p), line.height);
+        let below = Infinity;
+        for (const f of this.cur.floats) {
+          if (f.wrap !== 'square' && f.wrap !== 'tight' && f.wrap !== 'through') continue;
+          if (this.y + lineH <= f.y - f.distT + 0.5 || this.y >= f.y + f.h + f.distB - 0.5) continue;
+          below = Math.min(below, f.y + f.h + f.distB);
+        }
+        if (below < Infinity && below > this.y) {
+          this.y = below;
+          frame = frameHere();
+          br.reset(mark);
+          seg = this.pickSeg(br, frame);
+          line = br.next(seg.f);
+        }
+      }
       // modos < 15: a última linha do parágrafo só fica acima/ao lado de um flutuante se
       // a linha INTEIRA mais o "depois" ficarem fora dele; senão desce (oráculo ftafter)
       if (this.cur.floats.length && line.last && this.ctx.fmt.settings.compatibilityMode < 15) {
@@ -1561,7 +1583,10 @@ class Engine {
           early = this.placeFloatsEarly(p, this.cur, this.colFrame().x, this.colFrame().w, this.y);
           earlyAt = { ps: this.cur, x: this.colFrame().x };
         }
-        anchorAt = { ps: this.cur, top: this.y, x: this.colFrame().x, w: this.colFrame().w, ref: undefined };
+        // 1ª linha empurrada para baixo de um flutuante (tabela ou figura) na MESMA página: os
+        // objetos ancorados no parágrafo seguem medidos de onde ele começava (oráculo
+        // ftanchor); empurrada para além do pé da página, valem dali (corpus t20)
+        if (anchorAt.ps !== this.cur || this.y <= anchorAt.top + 0.5 || this.y > this.cur.bodyBottom) anchorAt = { ps: this.cur, top: this.y, x: this.colFrame().x, w: this.colFrame().w, ref: undefined };
       }
       if (pageChanged) {
         // a linha foi quebrada no quadro da página anterior (contorno de objetos): refaz no da nova
@@ -2199,8 +2224,9 @@ class Engine {
     const g = ps.geom;
     const legacy = this.ctx.fmt.settings.compatibilityMode < 15;
     const H = t.rows.reduce((a, r) => a + r.height, 0);
-    // caixa de referência (o que se alinha): modo 15 = borda externa; antigos = texto
-    const refW = legacy ? Math.max(0, t.width - 216) : t.width;
+    // caixa de referência (o que se alinha): modo 15 = borda externa; antigos = texto —
+    // sem as margens da 1ª e da última célula (t.x = −a da esquerda; oráculo ftcellmar)
+    const refW = legacy ? Math.max(0, t.width + t.x - (t.effR ?? 108)) : t.width;
     const [aL, aR] = fp.horzAnchor === 'page' ? [0, g.pageW] : fp.horzAnchor === 'margin' ? [g.marL, g.pageW - g.marR] : [colX, colX + colW];
     const xs = fp.tblpXSpec;
     const refX = xs === 'center' ? aL + (aR - aL - refW) / 2 : xs === 'right' || xs === 'outside' ? aR - refW : aL + (xs ? 0 : fp.tblpX ?? 0);
@@ -2225,6 +2251,7 @@ class Engine {
       fl = { idx: new Map(t.rows.map((r, k) => [r, k])), moved: new Set(), seen: new Set(), emits: [], merges: [] };
       this.floatFlow.set(t, fl);
     }
+    const vmMoved: Set<object> = fl?.moved ?? new Set();
     for (let i = 0; i < rows.length; i++) {
       let row = rows[i]!;
       const ri = fl?.idx.get(row);
@@ -2249,6 +2276,11 @@ class Engine {
           row = parts[0];
         } else if (n > 0) break;
       }
+      // texto da mescla vertical na 1ª linha dela, na ordem das colunas, se a mescla inteira
+      // fica nesta página (como no fluxo — oráculo vmorder; corpus t43, t70)
+      const rk = t.rows.indexOf(row);
+      if (rk >= 0) row = dropMoved(mergeTextFirst(t.rows, rk, row, vmMoved, (h) => !split || y + h <= ps.bodyBottom + 0.5), vmMoved);
+      else if (vmMoved.size) row = dropMoved(row, vmMoved);
       // mescla vertical que começou em OUTRA página: o texto sai da última linha e flui
       // pelas partes; a parte desta página cresce o que faltar (como no fluxo — vmsplit)
       let grow = 0;
@@ -2290,7 +2322,7 @@ class Engine {
     if (wrap) {
       ps.floats.push({
         // caixa = bordas externas (modo antigo: a grade fica na margem da célula antes do texto)
-        x: refX + (legacy ? -108 - (t.borderLeft ?? 0) / 2 : 0), y: top, w: t.width + (legacy ? (t.borderLeft ?? 0) : 0), h: y - top, wrap: 'square',
+        x: refX + (legacy ? t.x - (t.borderLeft ?? 0) / 2 : 0), y: top, w: t.width + (legacy ? (t.borderLeft ?? 0) : 0), h: y - top, wrap: 'square',
         distL: fp.leftFromText ?? 0, distR: fp.rightFromText ?? 0, distT: fp.topFromText ?? 0, distB: fp.bottomFromText ?? 0,
       });
     }
@@ -2420,7 +2452,7 @@ class Engine {
       // sem espaço útil ao lado: a linha desce até o fim do 1º objeto que a bloqueia
       if (!best) skipTo = Math.max(skipTo ?? 0, minBottom);
       // objeto no meio: o texto ocupa os vãos da esquerda para a direita (wrapsides)
-      else if (skipTo === undefined) return { left: best[0], right: best[1], ...(free.length > 1 ? { segs: free } : {}) };
+      else if (skipTo === undefined) return { left: best[0], right: best[1], gap: true, ...(free.length > 1 ? { segs: free } : {}) };
     }
     if (skipTo !== undefined) return { ...frame, skipTo };
     return { left, right };
@@ -2431,23 +2463,24 @@ class Engine {
    * em que a próxima palavra cabe — vão estreito demais fica vazio (oráculo
    * wrapsides). Nenhum cabe: o mais largo, sozinho (k = fim).
    */
-  private pickSeg(br: LineBreaker, frame: WrapFrame): { k: number; f: { left: number; right: number } } {
+  private pickSeg(br: LineBreaker, frame: WrapFrame): { k: number; f: { left: number; right: number; gap?: boolean } } {
     if (!frame.segs) return { k: -1, f: frame };
     const need = br.peekWordWidth();
     for (let k = 0; k < frame.segs.length; k++) {
       const [a, b] = frame.segs[k]!;
-      if (b - a + 0.01 >= need) return { k, f: { left: a, right: b } };
+      if (b - a + 0.01 >= need) return { k, f: { left: a, right: b, gap: true } };
     }
-    return { k: frame.segs.length, f: { left: frame.left, right: frame.right } };
+    return { k: frame.segs.length, f: { left: frame.left, right: frame.right, gap: true } };
   }
 
   /** linhas dos vãos seguintes da mesma linha (depois do vão `k`) */
   private moreSegs(br: LineBreaker, frame: WrapFrame, k: number, last: Line, put: (l: Line) => void): Line {
     if (!frame.segs) return last;
-    for (let j = k + 1; j < frame.segs.length && !br.done() && !last.breakAfter && !last.clear; j++) {
+    // (linha que acabou num tab além do vão: o resto não vai para o vão seguinte — tabgap)
+    for (let j = k + 1; j < frame.segs.length && !br.done() && !last.breakAfter && !last.clear && last.gapTab !== 'break'; j++) {
       const [a, b] = frame.segs[j]!;
       if (b - a + 0.01 < br.peekWordWidth()) continue;
-      last = br.next({ left: a, right: b });
+      last = br.next({ left: a, right: b, gap: true });
       put(last);
     }
     return last;
@@ -2768,7 +2801,8 @@ function vertRef(from: string, g: SectGeom, ps: PageState, paraTop: number): { y
 function tbInsets(tb: { insets?: { l: number; t: number; r: number; b: number }; shape?: { line?: { widthPt: number } }; lineInset?: { w?: number; ref?: number } }, theme?: { lineWidthsPt?: number[] }): { l: number; t: number; r: number; b: number } {
   const ins = tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
   const li = tb.lineInset;
-  const lw = li ? li.w ?? (li.ref ? theme?.lineWidthsPt?.[li.ref - 1] ?? 0.75 : 0) : tb.shape?.line?.widthPt ?? 0;
+  // sem tema no arquivo vale o do Word: linhas de 1; 1,5; 2 pt (oráculo tbinset)
+  const lw = li ? li.w ?? (li.ref ? theme?.lineWidthsPt?.[li.ref - 1] ?? [1, 1.5, 2][li.ref - 1] ?? 0.75 : 0) : tb.shape?.line?.widthPt ?? 0;
   const half = lw * 10;
   return half ? { l: ins.l + half, t: ins.t + half, r: ins.r + half, b: ins.b + half } : ins;
 }

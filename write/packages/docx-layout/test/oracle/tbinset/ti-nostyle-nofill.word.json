@@ -1,0 +1,46 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 141.99,
+"size": 11.04,
+"text": "AncoraHxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 141.25,
+"size": 11.04,
+"text": "DepoisHxg"
+},
+{
+"y": 108.98,
+"x0": 92.3,
+"x1": 229.27,
+"size": 8.04,
+"text": "Textoinventadodacaixaparaquebrar"
+},
+{
+"y": 118.22,
+"x0": 92.3,
+"x1": 222.29,
+"size": 8.04,
+"text": "emtreslinhascompalavrascurtase"
+},
+{
+"y": 127.46,
+"x0": 92.3,
+"x1": 148.95,
+"size": 8.04,
+"text": "longasdeprova"
+}
+],
+"objs": []
+}
+]
+}
