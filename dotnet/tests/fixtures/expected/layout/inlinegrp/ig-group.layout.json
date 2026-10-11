@@ -1,0 +1,27 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"AntesHxg","g":[[65,1701],[110,1847.74],[116,1970.09],[101,2031.21],[115,2153.57],[72,2324.69],[120,2483.57],[103,2593.57]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":3876.34,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1859.88],[112,1982.23],[111,2104.58],[105,2226.94],[115,2275.81],[72,2446.94],[120,2605.81],[103,2715.81]]},
+        {"t":"shape","x":1701,"y":1669.98,"w":4000,"h":2000,"geom":"rect","rot":0,"flipH":false,"flipV":false,"fillAlpha":null,"lineAlpha":null,"fill":"EEEEEE","stroke":null,"line":null},
+        {"t":"clip","op":"push","x":2101,"y":2069.98,"w":3200,"h":600},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2276.34,"scaleX":1,"text":"CaixaumHxg","g":[[67,3010.22],[97,3169.1],[105,3291.45],[120,3340.33],[97,3450.33],[117,3633.81],[109,3756.16],[72,4000.55],[120,4159.42],[103,4269.42]]},
+        {"t":"clip","op":"pop"},
+        {"t":"clip","op":"push","x":2101,"y":2869.98,"w":3200,"h":600},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":3076.34,"scaleX":1,"text":"CaixadoisHxg","g":[[67,2961.24],[97,3120.12],[105,3242.47],[120,3291.35],[97,3401.35],[100,3584.82],[111,3707.18],[105,3829.53],[115,3878.41],[72,4049.53],[120,4208.41],[103,4318.41]]},
+        {"t":"clip","op":"pop"}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":9,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":1014.92},
+        {"ref":"b1","start":0,"end":1,"x":1701,"y":1669.98,"height":2000,"baseline":3669.98,"width":4000},
+        {"ref":"b2","start":0,"end":10,"x":1701,"y":3669.98,"height":252.98,"baseline":3876.34,"width":1137.17}
+      ]
+    }
+  ],
+  "warnings": []
+}

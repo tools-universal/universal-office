@@ -24,7 +24,12 @@ export interface CellContent {
   /** parágrafos do conteúdo (ref da linha → total de linhas, viúvas/órfãs, espaço
    *  depois) — onde a linha de tabela pode ser partida entre páginas */
   paras?: Map<string, ParaSplitInfo>;
+  /** linhas de tabela ANINHADA no conteúdo: topo, a linha e os itens/linhas dela (os
+   *  mesmos objetos de items/lines) — partem como linha de tabela (oráculo nestsplit) */
+  nest?: NestRow[];
 }
+
+export interface NestRow { top: number; row: RowLayout; items: PageItem[]; lines: LaidOutLine[] }
 
 export interface ParaSplitInfo { lines: number; widow: boolean; after: number }
 
@@ -72,6 +77,15 @@ export interface RowLayout {
 
 /** Parte um conteúdo de célula num corte vertical (fim da última linha que cabe). */
 export function splitContent(c: CellContent, availContent: number): [CellContent, CellContent] | null {
+  // linha de tabela aninhada cruzada pelo pé: parte como linha de tabela — cada célula no
+  // seu corte, viúvas/órfãs por célula, a continuação no topo com a borda de cima (oráculo
+  // nestsplit; corpus t191); se ela não pode partir, desce inteira
+  const nr = c.nest?.find((n) => n.top < availContent - 0.5 && n.top + n.row.height > availContent + 0.05);
+  if (nr) {
+    const parts = nr.row.split?.(availContent - nr.top) ?? null;
+    if (parts && parts[0].height > 0) return splitAtNest(c, nr, parts);
+    if (nr.top > 0.5) return splitContent(c, nr.top);
+  }
   const paras = c.paras;
   // última linha de cada parágrafo: cabe só junto com o espaço depois dele (oráculo rowwidow, *-after*)
   const lastOf = new Map<string, LaidOutLine>();
@@ -109,6 +123,47 @@ export function splitContent(c: CellContent, availContent: number): [CellContent
     if (l.y < cut) a.lines.push(l);
     else b.lines.push({ ...l, y: l.y - cutB, baseline: l.baseline - cutB });
   }
+  return [a, b];
+}
+
+/** Topo de um item para decidir de que lado do corte ele fica. */
+function itemTop(it: PageItem): number {
+  return it.t === 'glyphs' ? it.y : it.t === 'line' ? Math.min(it.y1, it.y2) : it.t === 'clip' ? (it.y ?? 0) : it.t === 'xform' ? (it.m?.[5] ?? 0) : it.t === 'path' ? Math.min(...it.cmds.map((c) => (c.op === 'Z' ? Infinity : c.y))) : it.y;
+}
+
+/** Conteúdo partido numa linha aninhada: em cima, o que vem antes dela e a 1ª parte; em
+ *  baixo, a continuação dela no topo e o que vem depois. */
+function splitAtNest(c: CellContent, nr: NestRow, [p0, p1]: [RowLayout, RowLayout]): [CellContent, CellContent] {
+  const own = new Set<object>([...nr.items, ...nr.lines]);
+  const end = nr.top + nr.row.height;
+  const dy = p1.height - end;
+  const w = c.paras ? { paras: c.paras } : {};
+  const aItems: PageItem[] = [], aLines: LaidOutLine[] = [], bItems: PageItem[] = [], bLines: LaidOutLine[] = [];
+  const moved = new Map<object, object>();
+  for (const it of c.items) {
+    if (own.has(it)) continue;
+    if (itemTop(it) < nr.top + 0.5) aItems.push(it);
+    else { const s = shiftItem(it, dy); moved.set(it, s); bItems.push(s); }
+  }
+  for (const l of c.lines) {
+    if (own.has(l)) continue;
+    if (l.y < nr.top + 0.5) aLines.push(l);
+    else { const s = { ...l, y: l.y + dy, baseline: l.baseline + dy }; moved.set(l, s); bLines.push(s); }
+  }
+  const p0Items = [...p0.items, ...p0.borderItems].map((it) => shiftItem(it, nr.top));
+  aItems.push(...p0Items);
+  aLines.push(...p0.lines.map((l) => ({ ...l, y: l.y + nr.top, baseline: l.baseline + nr.top })));
+  const p1Items = [...p1.items, ...p1.borderItems];
+  const p1Lines = p1.lines.map((l) => ({ ...l }));
+  bItems.unshift(...p1Items);
+  bLines.unshift(...p1Lines);
+  const before = (c.nest ?? []).filter((n) => n.top + n.row.height <= nr.top + 0.5);
+  const after = (c.nest ?? []).filter((n) => n.top >= end - 0.5).map((n) => ({
+    top: n.top + dy, row: n.row,
+    items: n.items.map((it) => (moved.get(it) ?? it) as PageItem), lines: n.lines.map((l) => (moved.get(l) ?? l) as LaidOutLine),
+  }));
+  const a: CellContent = { items: aItems, lines: aLines, height: nr.top + p0.height, ...w, ...(before.length ? { nest: before } : {}) };
+  const b: CellContent = { items: bItems, lines: bLines, height: Math.max(0, c.height - end) + p1.height, ...w, nest: [{ top: 0, row: p1, items: p1Items, lines: p1Lines }, ...after] };
   return [a, b];
 }
 
@@ -809,6 +864,15 @@ export function layoutTable(
       }
       cellInfos.push(info);
     }
+    // margens de cima/baixo: a MAIOR da linha vale para todas as células dela — mesmo com
+    // tcMar 0 explícito ou a da tabela (oráculo rowmar)
+    const rowMarT = Math.max(0, ...cellInfos.map((ci) => ci.marT)), rowMarB = Math.max(0, ...cellInfos.map((ci) => ci.marB));
+    for (const ci of cellInfos) {
+      if (ci.marT === rowMarT && ci.marB === rowMarB) continue;
+      ci.marT = rowMarT;
+      ci.marB = rowMarB;
+      if (ci.content && !ci.slot.merged && ci.slot.rowSpan === 1 && !ci.vertical) contentH = Math.max(contentH, ci.content.height + rowMarT + rowMarB);
+    }
     const th = row.trPr?.trHeight;
     // altura mínima × margens da célula (oráculo tcell): a mínima vale para o TEXTO
     // e as margens de cima/baixo somam por fora — max(trHeight, texto) + mT + mB; na
@@ -994,12 +1058,13 @@ export function layoutTable(
           h2 = Math.max(h2, sp[1].height + ci.marT + ci.marB);
         }
         if (!any) return null;
-        const first = paintRow(h1, a, true, drawTop, bandTop, 0);
+        // o alinhamento vertical da célula vale dentro de CADA parte (oráculo splitvalign)
+        const first = paintRow(h1, a, false, drawTop, bandTop, 0);
         // a parte de cima fecha com a borda inferior da célula (no pé da página)
         first.borderItems.push(...(first.breakBorderItems ?? []));
         first.breakBorderItems = [];
         // o resto na página seguinte também tem a altura mínima (oráculo rowmin, rm3-cont-*)
-        return [first, build(Math.max(h2, 1, th && th.hRule !== 'exact' ? th.val + maxMar : 0), rest, true, false)];
+        return [first, build(Math.max(h2, 1, th && th.hRule !== 'exact' ? th.val + maxMar : 0), rest, false, false)];
       };
       return r;
     };

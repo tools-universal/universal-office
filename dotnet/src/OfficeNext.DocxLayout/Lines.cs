@@ -555,10 +555,14 @@ public sealed class LineBreaker
         double asc = 0, desc = 0, tAsc = 0, tDesc = 0;
         // fonte dos runs de objetos em linha (altura de texto de linha só com objetos)
         double oAsc = 0, oDesc = 0;
+        // quebra de linha (w:br) numa linha com objeto em linha: como a marca de parágrafo,
+        // não dá altura — a linha da imagem fica com a altura dela (oráculo imgbr)
+        bool withObj = placed.Any(pg => pg.G.Kind == GlyphKind.Obj && pg.G.Adv > 0);
         foreach (var pg in placed)
         {
             if (pg.G.Kind == GlyphKind.Obj && !(pg.G.Adv > 0)) continue;
             if (pg.G.Kind is GlyphKind.Pb or GlyphKind.Cb) continue;
+            if (pg.G.Kind == GlyphKind.Lb && withObj) continue;
             // espaço comum (U+0020) e tab não dão altura à linha — no fim, no meio ou
             // sozinhos (aí vale a marca de parágrafo); o NBSP dá — oráculos trailsp/hfimg
             if (pg.G.Ch == " " || pg.G.Kind == GlyphKind.Tab) continue;
@@ -576,6 +580,9 @@ public sealed class LineBreaker
                 if (pg.G.Style.Underline is { } ul && ul.Val != "none") desc = Lines.JsMax2(desc, om.Descent * pg.G.SizePt * 20);
             }
         }
+        // linha só com objetos em linha: no mínimo a altura da fonte do RUN do objeto (o objeto
+        // baixo fica no pé dela) — oráculo imgsmall; o objeto alto define a linha (imgbr)
+        if (tAsc + tDesc == 0 && oAsc > 0) asc = Lines.JsMax2(asc, oAsc + oDesc - desc);
         bool emptyLine = asc == 0 && desc == 0;
         if (emptyLine)
         {

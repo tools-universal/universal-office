@@ -8,7 +8,7 @@ import { prepareParagraph, resolvePPr, isDark, paraVisibility, type PreparedPara
 import { LineBreaker, type Line } from './lines.js';
 import { paintLine, paintParaBox, borderWidth, pageBorderItems } from './paint.js';
 import { dateFieldValue } from './datefmt.js';
-import { layoutTable, shiftItem, isHiddenRow, mergeTextFirst, dropMoved, splitContent, atPageTop, type TableLayout, type CellContent, type ParaSplitInfo } from './table.js';
+import { layoutTable, shiftItem, isHiddenRow, mergeTextFirst, dropMoved, splitContent, atPageTop, type TableLayout, type CellContent, type ParaSplitInfo, type NestRow } from './table.js';
 import type { LayoutPage, LayoutResult, PageItem, LaidOutLine, PlacedObject } from './tree.js';
 import { resolveColor, resolveDrawingColor } from './resolve.js';
 import { formatNumber } from './numbering.js';
@@ -581,6 +581,16 @@ class Engine {
     this.colMaxY = 0;
     this.layoutHeaderFooter(ps);
     ps.bodyBottomBase = ps.bodyBottom;
+    // continuação de nota partida na página anterior: primeiro no pé desta (oráculo fncont)
+    if (this.noteCarry.length) {
+      for (const n of this.noteCarry) {
+        if (!ps.notes.length) ps.noteArea += this.separatorHeight();
+        ps.notes.push(n);
+        ps.noteArea += n.content.height;
+      }
+      this.noteCarry = [];
+      ps.bodyBottom = ps.bodyBottomBase - ps.noteArea;
+    }
   }
 
   private continuousSection(g: SectGeom): void {
@@ -756,6 +766,8 @@ class Engine {
     /** runs de parágrafos de marca excluída (revisão) que vão para o seguinte */
     let delRuns: Run[] | null = null;
     const paras = new Map<string, ParaSplitInfo>();
+    /** linhas de tabelas aninhadas (partem como linha na quebra da célula de fora) */
+    const nest: NestRow[] = [];
     let lastPara: ParaSplitInfo | null = null;
     blocks.forEach((b, bi) => {
       if (b.type === 'paragraph') {
@@ -854,6 +866,7 @@ class Engine {
           let lh = 0;
           const put = (l: Line) => {
             paintLine(this.ctx, items, l, x, y);
+            this.paintInlineDrawings(items, l, x, y, ps);
             lines.push(lineRecord(`${ref}/b${bi}`, p, l, x, y));
             lh = Math.max(lh, l.height);
           };
@@ -949,9 +962,11 @@ class Engine {
         for (const [ri, row0] of t.rows.entries()) {
           // texto de mescla vertical na 1ª linha dela, na ordem das colunas (oráculo vmorder)
           const row = dropMoved(mergeTextFirst(t.rows, ri, row0, mergeMoved, () => true), mergeMoved);
-          for (const it of row.items) items.push(shiftItem(it, y));
-          for (const it of row.borderItems) items.push(shiftItem(it, y));
-          for (const l of row.lines) lines.push({ ...l, y: l.y + y, baseline: l.baseline + y });
+          const ni: PageItem[] = [], nl: LaidOutLine[] = [];
+          for (const it of row.items) { const s = shiftItem(it, y); items.push(s); ni.push(s); }
+          for (const it of row.borderItems) { const s = shiftItem(it, y); items.push(s); ni.push(s); }
+          for (const l of row.lines) { const s = { ...l, y: l.y + y, baseline: l.baseline + y }; lines.push(s); nl.push(s); }
+          nest.push({ top: y, row, items: ni, lines: nl });
           y += row.height;
         }
         // moldura ancorada nesta tabela (cabeçalho/rodapé): o texto dela vai antes da 1ª
@@ -974,7 +989,7 @@ class Engine {
     if (prev) y += (prev as PrevPara).after;
     items.push(...floatItems);
     lines.push(...floatLines);
-    return { items, lines, height: Math.max(y, floatBottom), ...(keepNext ? { keepNext: true } : {}), ...(paras.size ? { paras } : {}) };
+    return { items, lines, height: Math.max(y, floatBottom), ...(keepNext ? { keepNext: true } : {}), ...(paras.size ? { paras } : {}), ...(nest.length ? { nest } : {}) };
   }
 
   /** diagramando o conteúdo de uma célula (flutuantes ficam relativos à célula) */
@@ -1345,6 +1360,7 @@ class Engine {
       for (const f of frag) {
         if (this.cur.geom.lnNum && !p.ppr.suppressLineNumbers) this.paintLineNumber(f.frameX, f.y + f.line.baseline);
         paintLine(this.ctx, this.cur.body, f.line, f.frameX, f.y);
+        this.paintInlineDrawings(this.cur.body, f.line, f.frameX, f.y, this.cur);
         this.cur.page.lines.push(lineRecord(ref, p, f.line, f.frameX, f.y));
       }
       const last = frag[frag.length - 1]!;
@@ -1499,6 +1515,10 @@ class Engine {
       // ocupa altura no teste — a quebra fica nesta página (oráculo pbfit)
       const breakOnly = line.breakAfter === 'page' && !line.last && line.placed.every((pg) => pg.g.kind === 'pb');
       const fitH = breakOnly ? 0 : p.lineRule === 'exact' || p.lineRule === 'atLeast' ? line.height : Math.min(line.height, line.baseline + line.desc);
+      // nota nova que não cabe inteira: o começo dela fica com a linha (oráculo fncont)
+      let noteCut: NoteCut | null = null;
+      if (noteNeed.extra > 0 && !this.atTop && !hangs && this.y + this.noteLineFit(p, line) > this.cur.bodyBottom - noteNeed.extra + 0.05
+        && this.y + this.noteLineFit(p, line) <= this.cur.bodyBottom + 0.05) noteCut = this.notePartial(noteNeed.ids, this.y + this.noteLineFit(p, line));
       if (lineNo === tailAt && this.cur === tailPs && frag.length && !this.atTop) {
         // keepNext: as últimas linhas descem com o início do seguinte (oráculo keepsplit)
         flushFrag(false);
@@ -1507,7 +1527,7 @@ class Engine {
         fragTop = this.y;
         pageChanged = true;
       // (sem folga: 0,21 tw além da margem e 0,12 tw além do topo do rodapé já descem — oráculo bodyfit)
-      } else if (this.y + (noteNeed.extra > 0 ? this.noteLineFit(p, line) : fitH) > this.cur.bodyBottom - noteNeed.extra + 0.05 && !this.atTop && !hangs) {
+      } else if (!noteCut && this.y + (noteNeed.extra > 0 ? this.noteLineFit(p, line) : fitH) > this.cur.bodyBottom - noteNeed.extra + 0.05 && !this.atTop && !hangs) {
         // não cabe: viúvas/órfãs
         const placedHere = frag.length;
         const moved: Line[] = [];
@@ -1554,7 +1574,7 @@ class Engine {
           noteNeed = this.noteNeed(p, line);
         }
       }
-      if (noteNeed.ids.length) this.reserveNotes(noteNeed.ids);
+      if (noteNeed.ids.length) this.reserveNotes(noteNeed.ids, pageChanged ? null : noteCut);
       frag.push({ line, y: this.y, frameX: this.colFrame().x });
       // os outros vãos da mesma linha (objeto no meio: texto dos dois lados)
       let lineH = line.height;
@@ -1716,16 +1736,40 @@ class Engine {
     return { ids, extra };
   }
 
-  private reserveNotes(ids: number[]): void {
+  private reserveNotes(ids: number[], cut?: NoteCut | null): void {
     const ps = this.cur;
     for (const id of ids) {
       if (ps.notes.some((n) => n.id === id)) continue;
       if (!ps.notes.length) ps.noteArea += this.separatorHeight();
-      const content = this.noteContent(id);
+      const content = cut && cut.id === id ? cut.first : this.noteContent(id);
       ps.notes.push({ id, content });
       ps.noteArea += content.height;
+      if (cut && cut.id === id) this.noteCarry.push({ id, content: cut.rest });
     }
     ps.bodyBottom = ps.bodyBottomBase - ps.noteArea;
+  }
+
+  /** notas que continuam na página seguinte (o resto de uma nota partida) */
+  private noteCarry: { id: number; content: CellContent }[] = [];
+  /** nota partida da linha de tabela que vai ser emitida */
+  private rowNoteCut: NoteCut | null = null;
+
+  /**
+   * Nota NOVA que não cabe inteira com a linha da referência (que termina em `bottom`):
+   * o começo dela fica nesta página — o que couber, com viúvas/órfãs da própria nota — e o
+   * resto continua no pé da seguinte, antes das notas de lá (oráculo fncont). Só a última
+   * das notas da linha parte; sem ao menos o começo permitido, null (a linha desce).
+   */
+  private notePartial(ids: number[], bottom: number): NoteCut | null {
+    if (!ids.length) return null;
+    const ps = this.cur;
+    let h = ps.notes.length ? 0 : this.separatorHeight();
+    for (const id of ids.slice(0, -1)) h += this.noteContent(id).height;
+    const id = ids[ids.length - 1]!;
+    const avail = ps.bodyBottom - bottom - h;
+    if (avail <= 0) return null;
+    const sp = splitContent(this.noteContent(id), avail);
+    return sp && sp[0].lines.length && sp[1].lines.length ? { id, first: sp[0], rest: sp[1] } : null;
   }
 
   /** Separador + notas, alinhados ao fundo do corpo (medido no Word). */
@@ -1975,6 +2019,11 @@ class Engine {
         if (this.atTop && row.topCut && row.height - row.topCut + bw <= avail + 0.5) row = atPageTop(row);
         // (sem folga, como as linhas do corpo — oráculo bodyfit, bf-cf-*)
         if (row.height + bw <= avail + 0.05) break;
+        // só a nota não cabe inteira: o começo dela fica com a linha (oráculo fncont)
+        if (!this.atTop && this.y + row.height + bw <= Math.min(this.cur.bodyBottom, this.floatFloor(t.x, t.width, this.y)) + 0.05) {
+          const cut = this.notePartial(this.rowNoteIds(row), this.y + row.height + bw);
+          if (cut) { this.rowNoteCut = cut; break; }
+        }
         // não cabe: o Word divide a linha (salvo cantSplit) no fim da última linha de
         // texto que cabe — mas se o CONTEÚDO cabe e só a altura mínima não, a linha desce inteira
         const onlyMin = (row.natural ?? row.height) + bw <= avail + 0.05;
@@ -2307,7 +2356,8 @@ class Engine {
   private emitRow(row: TableLayout['rows'][number]): void {
     // notas de rodapé de referências em células (oráculo notes)
     const ids = this.rowNoteIds(row);
-    if (ids.length) this.reserveNotes(ids);
+    if (ids.length) this.reserveNotes(ids, this.rowNoteCut);
+    this.rowNoteCut = null;
     this.lastRowEmit = { row, y: this.y };
     for (const it of row.items) this.cur.body.push(shiftItem(it, this.y));
     for (const it of row.borderItems) this.cur.body.push(shiftItem(it, this.y));
@@ -2579,6 +2629,27 @@ class Engine {
   }
 
   /** Desenha imagem/forma/caixa/grupo no retângulo dado. */
+  /** Grupo de desenho e caixa de texto EM LINHA (wp:inline): desenhados como os
+   *  flutuantes, na caixa do glifo — o paintLine só desenha imagem e forma (corpus t15) */
+  private paintInlineDrawings(out: PageItem[], line: Line, frameX: number, top: number, ps?: PageState): void {
+    for (const pg of line.placed) {
+      const r = pg.g.obj;
+      if (pg.g.kind !== 'obj' || !r || pg.g.adv <= 0 || (!r.group && !r.textbox) || r.image || r.shape) continue;
+      const w = r.group?.widthTwips ?? r.textbox?.widthTwips ?? 0, h = r.group?.heightTwips ?? r.textbox?.heightTwips ?? 0;
+      const x = frameX + pg.x, y = top + line.baseline - pg.g.style.shift - h;
+      let tc: CellContent | null = null;
+      if (r.textbox) {
+        const ins = r.textbox.insets ?? { l: 144, t: 72, r: 144, b: 72 };
+        const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
+        tc = this.layoutStatic(blocks, 0, Math.max(1, w - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, 'itb', ps);
+      }
+      const drawn = this.paintObject(r, x, y, w, h, tc, ps ?? this.cur);
+      // no corpo, como os flutuantes: depois do texto da página (ordem do PDF do Word — oráculo inlinegrp)
+      if (out === this.cur.body) this.cur.front.push({ z: 0, seq: this.zSeq++, items: drawn });
+      else out.push(...drawn);
+    }
+  }
+
   private paintObject(run: Run, x: number, y: number, w: number, h: number, tbContent: CellContent | null, ps: PageState = this.cur): PageItem[] {
     const out: PageItem[] = [];
     const theme = this.ctx.fmt.theme;
@@ -2824,6 +2895,9 @@ function markLineH(p: PreparedPara): number {
   const mm = faceMetrics(p.markFace.font);
   return Math.round((mm.ascent + mm.descent) * p.markStyle.sizePt * 20);
 }
+
+/** Nota partida entre páginas: o começo (nesta) e o resto (na seguinte). */
+type NoteCut = { id: number; first: CellContent; rest: CellContent };
 
 /** Cópia descartável do estado da página (medições que posicionam flutuantes). */
 function scratchPage(ps: PageState): PageState {

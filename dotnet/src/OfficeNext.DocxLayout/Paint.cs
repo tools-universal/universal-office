@@ -252,10 +252,11 @@ public static class Paint
     public static double BorderWidth(BorderSpec? b)
     {
         if (b is null || b.Val is "none" or "nil") return 0;
-        double pt = Math.Max(0.25, (b.Sz ?? 4) / 8);
-        if (b.Val == "double") return pt * 3 * 20;
-        if (b.Val is "thinThickSmallGap" or "thickThinSmallGap") return pt * 20 + 40;
-        return pt * 20;
+        // a espessura vai para twips INTEIROS, truncada: w:sz 1 → 2 tw, 3 → 7 tw (oráculo bdrthin)
+        double tw = Math.Floor(Math.Max(1, b.Sz ?? 4) * 2.5 + 1e-9);
+        if (b.Val == "double") return tw * 3;
+        if (b.Val is "thinThickSmallGap" or "thickThinSmallGap") return tw + 40;
+        return tw;
     }
 
     /// <summary>

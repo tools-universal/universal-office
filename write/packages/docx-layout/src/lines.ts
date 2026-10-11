@@ -450,8 +450,12 @@ export class LineBreaker {
     /** fonte dos runs de objetos em linha (altura de texto de linha só com objetos) */
     let oAsc = 0, oDesc = 0;
     const content = placed.filter((pg) => pg.g.kind !== 'obj' || pg.g.adv > 0);
+    // quebra de linha (w:br) numa linha com objeto em linha: como a marca de parágrafo,
+    // não dá altura — a linha da imagem fica com a altura dela (oráculo imgbr)
+    const withObj = content.some((pg) => pg.g.kind === 'obj');
     for (const pg of content) {
       if (pg.g.kind === 'pb' || pg.g.kind === 'cb') continue;
+      if (pg.g.kind === 'lb' && withObj) continue;
       // espaço comum (U+0020) e tab não dão altura à linha — no fim, no meio ou
       // sozinhos (aí vale a marca de parágrafo); o NBSP dá — oráculos trailsp/hfimg
       if (pg.g.ch === ' ' || pg.g.kind === 'tab') continue;
@@ -468,6 +472,9 @@ export class LineBreaker {
         if (pg.g.style.underline && pg.g.style.underline.val !== 'none') desc = Math.max(desc, om.descent * pg.g.sizePt * 20);
       }
     }
+    // linha só com objetos em linha: no mínimo a altura da fonte do RUN do objeto (o objeto
+    // baixo fica no pé dela) — oráculo imgsmall; o objeto alto define a linha (imgbr)
+    if (tAsc + tDesc === 0 && oAsc > 0) asc = Math.max(asc, oAsc + oDesc - desc);
     const emptyLine = asc === 0 && desc === 0;
     if (emptyLine) {
       // linha vazia: altura pela marca de parágrafo (deslocada por w:position — oráculo position)

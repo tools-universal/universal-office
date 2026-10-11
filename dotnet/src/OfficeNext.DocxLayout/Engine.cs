@@ -707,6 +707,18 @@ internal sealed class Engine
         _colMaxY = 0;
         LayoutHeaderFooter(ps);
         ps.BodyBottomBase = ps.BodyBottom;
+        // continuação de nota partida na página anterior: primeiro no pé desta (oráculo fncont)
+        if (_noteCarry.Count > 0)
+        {
+            foreach (var nc in _noteCarry)
+            {
+                if (ps.Notes.Count == 0) ps.NoteArea += SeparatorHeight();
+                ps.Notes.Add(nc);
+                ps.NoteArea += nc.Content.Height;
+            }
+            _noteCarry = new List<(double Id, CellContent Content)>();
+            ps.BodyBottom = ps.BodyBottomBase - ps.NoteArea;
+        }
     }
 
     private void ContinuousSection(SectGeom g)
@@ -912,6 +924,8 @@ internal sealed class Engine
         // runs de parágrafos de marca excluída (revisão) que vão para o seguinte
         List<Run>? delRuns = null;
         var paras = new Dictionary<string, ParaSplitInfo>(StringComparer.Ordinal);
+        // linhas de tabelas aninhadas (partem como linha na quebra da célula de fora)
+        var nest = new List<NestRow>();
         ParaSplitInfo? lastPara = null;
         for (int bi = 0; bi < n; bi++)
         {
@@ -1027,6 +1041,7 @@ internal sealed class Engine
                     void Put(Line l)
                     {
                         Paint.PaintLine(_ctx, items, l, x, y);
+                        PaintInlineDrawings(items, l, x, y, ps);
                         lines.Add(LineRecord($"{reference}/b{bi}", p, l, x, y));
                         lh = Math.Max(lh, l.Height);
                     }
@@ -1153,15 +1168,19 @@ internal sealed class Engine
                 {
                     // texto de mescla vertical na 1ª linha dela, na ordem das colunas (oráculo vmorder)
                     var row = TableEngine.DropMoved(TableEngine.MergeTextFirst(t.Rows, mri, t.Rows[mri], mergeMoved, _ => true), mergeMoved);
-                    foreach (var it in row.Items) items.Add(TableEngine.ShiftItem(it, y));
-                    foreach (var it in row.BorderItems) items.Add(TableEngine.ShiftItem(it, y));
+                    var ni = new List<PageItem>();
+                    var nls = new List<LaidOutLine>();
+                    foreach (var it in row.Items) { var s = TableEngine.ShiftItem(it, y); items.Add(s); ni.Add(s); }
+                    foreach (var it in row.BorderItems) { var s = TableEngine.ShiftItem(it, y); items.Add(s); ni.Add(s); }
                     foreach (var l in row.Lines)
                     {
                         var nl = l.ShallowClone();
                         nl.Y = l.Y + y;
                         nl.Baseline = l.Baseline + y;
                         lines.Add(nl);
+                        nls.Add(nl);
                     }
+                    nest.Add(new NestRow { Top = y, Row = row, Items = ni, Lines = nls });
                     y += row.Height;
                 }
                 // moldura ancorada nesta tabela (cabeçalho/rodapé): o texto dela vai antes da 1ª
@@ -1185,7 +1204,7 @@ internal sealed class Engine
         if (prev is not null) y += prev.After;
         items.AddRange(floatItems);
         lines.AddRange(floatLines);
-        return new CellContent { Items = items, Lines = lines, Height = Math.Max(y, floatBottom), KeepNext = keepNext, Paras = paras.Count > 0 ? paras : null };
+        return new CellContent { Items = items, Lines = lines, Height = Math.Max(y, floatBottom), KeepNext = keepNext, Paras = paras.Count > 0 ? paras : null, Nest = nest.Count > 0 ? nest : null };
     }
 
     /// <summary>molduras do cabeçalho/rodapé à direita do início da linha: entram depois das linhas do âncora</summary>
@@ -1702,6 +1721,7 @@ internal sealed class Engine
             {
                 if (_cur.Geom.LnNum is not null && p.Ppr.SuppressLineNumbers != true) PaintLineNumber(f.FrameX, f.Y + f.Line.Baseline);
                 Paint.PaintLine(_ctx, _cur.Body, f.Line, f.FrameX, f.Y);
+                PaintInlineDrawings(_cur.Body, f.Line, f.FrameX, f.Y, _cur);
                 _cur.Page.Lines.Add(LineRecord(reference, p, f.Line, f.FrameX, f.Y));
             }
             var last = frag[^1];
@@ -1880,6 +1900,10 @@ internal sealed class Engine
             // ocupa altura no teste — a quebra fica nesta página (oráculo pbfit)
             bool breakOnly = line.BreakAfter == "page" && !line.Last && line.Placed.All(pg => pg.G.Kind == GlyphKind.Pb);
             double fitH = breakOnly ? 0 : p.LineRule is "exact" or "atLeast" ? line.Height : Math.Min(line.Height, line.Baseline + line.Desc);
+            // nota nova que não cabe inteira: o começo dela fica com a linha (oráculo fncont)
+            NoteCut? noteCut = null;
+            if (noteNeed.Extra > 0 && !_atTop && !hangs && _y + NoteLineFit(p, line) > _cur.BodyBottom - noteNeed.Extra + 0.05
+                && _y + NoteLineFit(p, line) <= _cur.BodyBottom + 0.05) noteCut = NotePartial(noteNeed.Ids, _y + NoteLineFit(p, line));
             if (lineNo == tailAt && ReferenceEquals(_cur, tailPs) && frag.Count > 0 && !_atTop)
             {
                 // keepNext: as últimas linhas descem com o início do seguinte (oráculo keepsplit)
@@ -1890,7 +1914,7 @@ internal sealed class Engine
                 pageChanged = true;
             }
             // (sem folga: 0,21 tw além da margem e 0,12 tw além do topo do rodapé já descem — oráculo bodyfit)
-            else if (_y + (noteNeed.Extra > 0 ? NoteLineFit(p, line) : fitH) > _cur.BodyBottom - noteNeed.Extra + 0.05 && !_atTop && !hangs)
+            else if (noteCut is null && _y + (noteNeed.Extra > 0 ? NoteLineFit(p, line) : fitH) > _cur.BodyBottom - noteNeed.Extra + 0.05 && !_atTop && !hangs)
             {
                 // não cabe: viúvas/órfãs
                 int placedHere = frag.Count;
@@ -1947,7 +1971,7 @@ internal sealed class Engine
                     noteNeed = NoteNeed(p, line);
                 }
             }
-            if (noteNeed.Ids.Count > 0) ReserveNotes(noteNeed.Ids);
+            if (noteNeed.Ids.Count > 0) ReserveNotes(noteNeed.Ids, pageChanged ? null : noteCut);
             frag.Add(new Frag { Line = line, Y = _y, FrameX = ColFrame().X });
             // os outros vãos da mesma linha (objeto no meio: texto dos dois lados)
             double lineH = line.Height;
@@ -2150,18 +2174,46 @@ internal sealed class Engine
         return (ids, extra);
     }
 
-    private void ReserveNotes(List<double> ids)
+    private void ReserveNotes(List<double> ids, NoteCut? cut = null)
     {
         var ps = _cur;
         foreach (var id in ids)
         {
             if (ps.Notes.Any(n => n.Id.Equals(id))) continue;
             if (ps.Notes.Count == 0) ps.NoteArea += SeparatorHeight();
-            var content = NoteContent(id);
+            var content = cut is not null && cut.Id.Equals(id) ? cut.First : NoteContent(id);
             ps.Notes.Add((id, content));
             ps.NoteArea += content.Height;
+            if (cut is not null && cut.Id.Equals(id)) _noteCarry.Add((id, cut.Rest));
         }
         ps.BodyBottom = ps.BodyBottomBase - ps.NoteArea;
+    }
+
+    /// <summary>notas que continuam na página seguinte (o resto de uma nota partida)</summary>
+    private List<(double Id, CellContent Content)> _noteCarry = new();
+    /// <summary>nota partida da linha de tabela que vai ser emitida</summary>
+    private NoteCut? _rowNoteCut;
+
+    /// <summary>Nota partida entre páginas: o começo (nesta) e o resto (na seguinte).</summary>
+    private sealed record NoteCut(double Id, CellContent First, CellContent Rest);
+
+    /// <summary>
+    /// Nota NOVA que não cabe inteira com a linha da referência (que termina em <paramref name="bottom"/>):
+    /// o começo dela fica nesta página — o que couber, com viúvas/órfãs da própria nota — e o
+    /// resto continua no pé da seguinte, antes das notas de lá (oráculo fncont). Só a última
+    /// das notas da linha parte; sem ao menos o começo permitido, nulo (a linha desce).
+    /// </summary>
+    private NoteCut? NotePartial(List<double> ids, double bottom)
+    {
+        if (ids.Count == 0) return null;
+        var ps = _cur;
+        double h = ps.Notes.Count > 0 ? 0 : SeparatorHeight();
+        foreach (var nid in ids.Take(ids.Count - 1)) h += NoteContent(nid).Height;
+        double id = ids[^1];
+        double avail = ps.BodyBottom - bottom - h;
+        if (avail <= 0) return null;
+        var sp = TableEngine.SplitContent(NoteContent(id), avail);
+        return sp is { } spv && spv.A.Lines.Count > 0 && spv.B.Lines.Count > 0 ? new NoteCut(id, spv.A, spv.B) : null;
     }
 
     /// <summary>Separador + notas, alinhados ao fundo do corpo (medido no Word).</summary>
@@ -2446,6 +2498,12 @@ internal sealed class Engine
                 if (_atTop && row.TopCut is { } tc && tc != 0 && !double.IsNaN(tc) && row.Height - tc + bw <= avail + 0.5) row = TableEngine.AtPageTop(row);
                 // (sem folga, como as linhas do corpo — oráculo bodyfit, bf-cf-*)
                 if (row.Height + bw <= avail + 0.05) break;
+                // só a nota não cabe inteira: o começo dela fica com a linha (oráculo fncont)
+                if (!_atTop && _y + row.Height + bw <= Math.Min(_cur.BodyBottom, FloatFloor(t.X, t.Width, _y)) + 0.05)
+                {
+                    var ncut = NotePartial(RowNoteIds(row), _y + row.Height + bw);
+                    if (ncut is not null) { _rowNoteCut = ncut; break; }
+                }
                 // não cabe: o Word divide a linha (salvo cantSplit) no fim da última linha de
                 // texto que cabe — mas se o CONTEÚDO cabe e só a altura mínima não, a linha desce inteira
                 bool onlyMin = (row.Natural ?? row.Height) + bw <= avail + 0.05;
@@ -2929,7 +2987,8 @@ internal sealed class Engine
     {
         // notas de rodapé de referências em células (oráculo notes)
         var ids = RowNoteIds(row);
-        if (ids.Count > 0) ReserveNotes(ids);
+        if (ids.Count > 0) ReserveNotes(ids, _rowNoteCut);
+        _rowNoteCut = null;
         _lastRowEmit = (row, _y);
         foreach (var it in row.Items) _cur.Body.Add(TableEngine.ShiftItem(it, _y));
         foreach (var it in row.BorderItems) _cur.Body.Add(TableEngine.ShiftItem(it, _y));
@@ -3272,6 +3331,30 @@ internal sealed class Engine
     }
 
     /// <summary>Desenha imagem/forma/caixa/grupo no retângulo dado.</summary>
+    /// <summary>Grupo de desenho e caixa de texto EM LINHA (wp:inline): desenhados como os
+    /// flutuantes, na caixa do glifo — o PaintLine só desenha imagem e forma (corpus t15)</summary>
+    private void PaintInlineDrawings(List<PageItem> outp, Line line, double frameX, double top, PageState? ps)
+    {
+        foreach (var pg in line.Placed)
+        {
+            var r = pg.G.Obj;
+            if (pg.G.Kind != GlyphKind.Obj || r is null || !(pg.G.Adv > 0) || (r.Group is null && r.Textbox is null) || r.Image is not null || r.Shape is not null) continue;
+            double w = r.Group?.WidthTwips ?? r.Textbox?.WidthTwips ?? 0, h = r.Group?.HeightTwips ?? r.Textbox?.HeightTwips ?? 0;
+            double x = frameX + pg.X, y = top + line.Baseline - pg.G.Style.Shift - h;
+            CellContent? tc = null;
+            if (r.Textbox is not null)
+            {
+                var ins = r.Textbox.Insets ?? DefaultInsets;
+                var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
+                tc = LayoutStatic(blocks, 0, Math.Max(1, w - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "itb", ps);
+            }
+            var drawn = PaintObject(r, x, y, w, h, tc, ps ?? _cur);
+            // no corpo, como os flutuantes: depois do texto da página (ordem do PDF do Word — oráculo inlinegrp)
+            if (ReferenceEquals(outp, _cur.Body)) _cur.Front.Add(new ZObj { Z = 0, Seq = _zSeq++, Items = drawn });
+            else outp.AddRange(drawn);
+        }
+    }
+
     private List<PageItem> PaintObject(Run run, double x, double y, double w, double h, CellContent? tbContent, PageState? ps = null)
     {
         ps ??= _cur;

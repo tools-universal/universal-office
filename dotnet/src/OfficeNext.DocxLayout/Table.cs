@@ -22,6 +22,17 @@ public sealed class CellContent
     /// <summary>parágrafos do conteúdo (ref da linha → total de linhas, viúvas/órfãs, espaço
     /// depois) — onde a linha de tabela pode ser partida entre páginas</summary>
     public Dictionary<string, ParaSplitInfo>? Paras;
+    /// <summary>linhas de tabela ANINHADA no conteúdo: topo, a linha e os itens/linhas dela (os
+    /// mesmos objetos de Items/Lines) — partem como linha de tabela (oráculo nestsplit)</summary>
+    public List<NestRow>? Nest;
+}
+
+public sealed class NestRow
+{
+    public double Top;
+    public RowLayout Row = null!;
+    public List<PageItem> Items = new();
+    public List<LaidOutLine> Lines = new();
 }
 
 public sealed class ParaSplitInfo
@@ -121,6 +132,16 @@ public static class TableEngine
     /// <summary>Parte um conteúdo de célula num corte vertical (fim da última linha que cabe).</summary>
     public static (CellContent A, CellContent B)? SplitContent(CellContent c, double availContent)
     {
+        // linha de tabela aninhada cruzada pelo pé: parte como linha de tabela — cada célula no
+        // seu corte, viúvas/órfãs por célula, a continuação no topo com a borda de cima (oráculo
+        // nestsplit; corpus t191); se ela não pode partir, desce inteira
+        var nr = c.Nest?.FirstOrDefault(n => n.Top < availContent - 0.5 && n.Top + n.Row.Height > availContent + 0.05);
+        if (nr is not null)
+        {
+            var parts = nr.Row.Split?.Invoke(availContent - nr.Top);
+            if (parts is { } pp && pp.First.Height > 0) return SplitAtNest(c, nr, pp.First, pp.Remainder);
+            if (nr.Top > 0.5) return SplitContent(c, nr.Top);
+        }
         var paras = c.Paras;
         // última linha de cada parágrafo: cabe só junto com o espaço depois dele (oráculo rowwidow, *-after*)
         var lastOf = new Dictionary<string, LaidOutLine>(StringComparer.Ordinal);
@@ -133,8 +154,8 @@ public static class TableEngine
             // (sem folga: o Word compara exato — oráculo bodyfit, bf-cf-*)
             if (bottom + after <= availContent + 0.05 && bottom > cut) cut = bottom;
         }
-        if (cut > 0) cut = NestedRowCut(c, cut);
         if (cut > 0 && paras is not null) cut = WidowCut(c, paras, cut);
+        if (cut > 0) cut = NestedRowCut(c, cut);
         if (cut <= 0) return null;
         // corte no fim de um parágrafo: o "depois" dele fica em cima; a continuação começa
         // só com o resto do espaço até o seguinte (oráculo rowwidow, gapcut)
@@ -152,21 +173,9 @@ public static class TableEngine
         }
         var a = new CellContent { Height = cut, Paras = paras };
         var b = new CellContent { Height = Math.Max(0, c.Height - cutB), Paras = paras };
-        static double KeyY(PageItem it) => it switch
-        {
-            LineItem li => Math.Min(li.Y1, li.Y2),
-            ClipItem ci => ci.Y ?? 0,
-            XformItem xf => xf.M is not null ? xf.M[5] : 0,
-            PathItem pi => pi.Cmds.Count == 0 ? double.PositiveInfinity : pi.Cmds.Select(cm => cm.Op == 'Z' ? double.PositiveInfinity : cm.Y).Aggregate(double.PositiveInfinity, (m, v) => double.IsNaN(m) || double.IsNaN(v) ? double.NaN : Math.Min(m, v)),
-            GlyphRunItem g => g.Y,
-            RectItem r => r.Y,
-            ImageItem im => im.Y,
-            ShapeItem sh => sh.Y,
-            _ => 0,
-        };
         foreach (var it in c.Items)
         {
-            double y = KeyY(it);
+            double y = ItemTop(it);
             if (y < cut) a.Items.Add(it);
             else b.Items.Add(ShiftItem(it, -cutB));
         }
@@ -253,6 +262,69 @@ public static class TableEngine
             outCut = Math.Min(outCut, Math.Min(prev, mine[0].Y));
         }
         return outCut;
+    }
+
+    /// <summary>Topo de um item para decidir de que lado do corte ele fica.</summary>
+    private static double ItemTop(PageItem it) => it switch
+    {
+        LineItem li => Math.Min(li.Y1, li.Y2),
+        ClipItem ci => ci.Y ?? 0,
+        XformItem xf => xf.M is not null ? xf.M[5] : 0,
+        PathItem pi => pi.Cmds.Count == 0 ? double.PositiveInfinity : pi.Cmds.Select(cm => cm.Op == 'Z' ? double.PositiveInfinity : cm.Y).Aggregate(double.PositiveInfinity, (m, v) => double.IsNaN(m) || double.IsNaN(v) ? double.NaN : Math.Min(m, v)),
+        GlyphRunItem g => g.Y,
+        RectItem r => r.Y,
+        ImageItem im => im.Y,
+        ShapeItem sh => sh.Y,
+        _ => 0,
+    };
+
+    /// <summary>Conteúdo partido numa linha aninhada: em cima, o que vem antes dela e a 1ª parte; em
+    /// baixo, a continuação dela no topo e o que vem depois.</summary>
+    private static (CellContent A, CellContent B) SplitAtNest(CellContent c, NestRow nr, RowLayout p0, RowLayout p1)
+    {
+        var own = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        foreach (var o in nr.Items) own.Add(o);
+        foreach (var o in nr.Lines) own.Add(o);
+        double end = nr.Top + nr.Row.Height;
+        double dy = p1.Height - end;
+        var aItems = new List<PageItem>(); var aLines = new List<LaidOutLine>();
+        var bItems = new List<PageItem>(); var bLines = new List<LaidOutLine>();
+        var moved = new Dictionary<object, object>(ReferenceEqualityComparer.Instance);
+        foreach (var it in c.Items)
+        {
+            if (own.Contains(it)) continue;
+            if (ItemTop(it) < nr.Top + 0.5) aItems.Add(it);
+            else { var s = ShiftItem(it, dy); moved[it] = s; bItems.Add(s); }
+        }
+        foreach (var l in c.Lines)
+        {
+            if (own.Contains(l)) continue;
+            if (l.Y < nr.Top + 0.5) aLines.Add(l);
+            else
+            {
+                var s = l.ShallowClone();
+                s.Y = l.Y + dy; s.Baseline = l.Baseline + dy;
+                moved[l] = s; bLines.Add(s);
+            }
+        }
+        aItems.AddRange(p0.Items.Concat(p0.BorderItems).Select(it => ShiftItem(it, nr.Top)));
+        aLines.AddRange(p0.Lines.Select(l => { var s = l.ShallowClone(); s.Y = l.Y + nr.Top; s.Baseline = l.Baseline + nr.Top; return s; }));
+        var p1Items = p1.Items.Concat(p1.BorderItems).ToList();
+        var p1Lines = p1.Lines.Select(l => l.ShallowClone()).ToList();
+        bItems.InsertRange(0, p1Items);
+        bLines.InsertRange(0, p1Lines);
+        var before = (c.Nest ?? new List<NestRow>()).Where(n => n.Top + n.Row.Height <= nr.Top + 0.5).ToList();
+        var after = (c.Nest ?? new List<NestRow>()).Where(n => n.Top >= end - 0.5).Select(n => new NestRow
+        {
+            Top = n.Top + dy, Row = n.Row,
+            Items = n.Items.Select(it => moved.TryGetValue(it, out var mv) ? (PageItem)mv : it).ToList(),
+            Lines = n.Lines.Select(l => moved.TryGetValue(l, out var mv) ? (LaidOutLine)mv : l).ToList(),
+        }).ToList();
+        var a = new CellContent { Items = aItems, Lines = aLines, Height = nr.Top + p0.Height, Paras = c.Paras, Nest = before.Count > 0 ? before : null };
+        var bNest = new List<NestRow> { new NestRow { Top = 0, Row = p1, Items = p1Items, Lines = p1Lines } };
+        bNest.AddRange(after);
+        var b = new CellContent { Items = bItems, Lines = bLines, Height = Math.Max(0, c.Height - end) + p1.Height, Paras = c.Paras, Nest = bNest };
+        return (a, b);
     }
 
     private static double? WidthTw(WidthSpec? w, double b)
@@ -1016,6 +1088,16 @@ public static class TableEngine
                 }
                 cellInfos.Add(info);
             }
+            // margens de cima/baixo: a MAIOR da linha vale para todas as células dela — mesmo com
+            // tcMar 0 explícito ou a da tabela (oráculo rowmar)
+            double rowMarT = cellInfos.Aggregate(0.0, (mx, ci) => Math.Max(mx, ci.MarT)), rowMarB = cellInfos.Aggregate(0.0, (mx, ci) => Math.Max(mx, ci.MarB));
+            foreach (var ci in cellInfos)
+            {
+                if (ci.MarT == rowMarT && ci.MarB == rowMarB) continue;
+                ci.MarT = rowMarT;
+                ci.MarB = rowMarB;
+                if (ci.Content is not null && !ci.Slot.Merged && ci.Slot.RowSpan == 1 && ci.Vertical is null) contentH = Math.Max(contentH, ci.Content.Height + rowMarT + rowMarB);
+            }
             var th = row.TrPr?.TrHeight;
             // altura mínima × margens da célula (oráculo tcell): a mínima vale para o TEXTO
             // e as margens de cima/baixo somam por fora — max(trHeight, texto) + mT + mB; na
@@ -1233,12 +1315,13 @@ public static class TableEngine
                         h2 = Math.Max(h2, sp.Value.B.Height + ci.MarT + ci.MarB);
                     }
                     if (!any) return null;
-                    var firstPart = PaintRow(h1, a, true, drawTop, bandTopC, 0);
+                    // o alinhamento vertical da célula vale dentro de CADA parte (oráculo splitvalign)
+                    var firstPart = PaintRow(h1, a, false, drawTop, bandTopC, 0);
                     // a parte de cima fecha com a borda inferior da célula (no pé da página)
                     firstPart.BorderItems.AddRange(firstPart.BreakBorderItems ?? new List<PageItem>());
                     firstPart.BreakBorderItems = new List<PageItem>();
                     // o resto na página seguinte também tem a altura mínima (oráculo rowmin, rm3-cont-*)
-                    return (firstPart, build(Math.Max(Math.Max(h2, 1), contMin), rest, true, false));
+                    return (firstPart, build(Math.Max(Math.Max(h2, 1), contMin), rest, false, false));
                 };
                 return r;
             };

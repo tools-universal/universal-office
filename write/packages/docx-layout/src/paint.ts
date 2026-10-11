@@ -206,10 +206,11 @@ const BORDER_SINGLE_LIKE = new Set(['single', 'thick', 'dotted', 'dashed', 'dotD
 /** Espessura desenhada (twips) de uma borda OOXML (w:sz em 1/8 pt). */
 export function borderWidth(b: BorderSpec | undefined): number {
   if (!b || b.val === 'none' || b.val === 'nil') return 0;
-  const pt = Math.max(0.25, (b.sz ?? 4) / 8);
-  if (b.val === 'double') return pt * 3 * 20;
-  if (b.val === 'thinThickSmallGap' || b.val === 'thickThinSmallGap') return pt * 20 + 40;
-  return pt * 20;
+  // a espessura vai para twips INTEIROS, truncada: w:sz 1 → 2 tw, 3 → 7 tw (oráculo bdrthin)
+  const tw = Math.floor(Math.max(1, b.sz ?? 4) * 2.5 + 1e-9);
+  if (b.val === 'double') return tw * 3;
+  if (b.val === 'thinThickSmallGap' || b.val === 'thickThinSmallGap') return tw + 40;
+  return tw;
 }
 
 /**
