@@ -149,11 +149,14 @@ function runXml(run: Run): string {
 
   const parts: string[] = [];
   if (rpr.length) parts.push(`<w:rPr>${rpr.join('')}</w:rPr>`);
-  const segments = run.text.split(/(\t|\n|\f)/);
+  const segments = run.text.split(/(\t|\n|\f|\u000B|\u2011|\u00AD)/);
   for (const seg of segments) {
     if (seg === '\t') parts.push('<w:tab/>');
     else if (seg === '\n') parts.push('<w:br/>');
     else if (seg === '\f') parts.push('<w:br w:type="page"/>');
+    else if (seg === '\u000B') parts.push('<w:br w:type="column"/>');
+    else if (seg === '\u2011') parts.push('<w:noBreakHyphen/>');
+    else if (seg === '\u00AD') parts.push('<w:softHyphen/>');
     else if (seg.length > 0) {
       const space = seg !== seg.trim() ? ' xml:space="preserve"' : '';
       parts.push(`<w:t${space}>${esc(seg)}</w:t>`);

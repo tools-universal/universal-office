@@ -1,12 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Exportadores com paridade byte-idêntica ao JS:
        docx→md/html, xlsx→csv/tsv/md/html/ods/xml2003, pptx→md/html.
-       Fase 2: exports PDF (xlsx/pptx/docx) sobre OfficeNext.Pdf. -->
+       Fase 2: exports PDF (xlsx/pptx/docx) sobre OfficeNext.Pdf; docx via
+       o motor de layout OfficeNext.DocxLayout (.doc via OfficeNext.DocBinary). -->
   <ItemGroup>
     <ProjectReference Include="..\OfficeNext.Core\OfficeNext.Core.csproj" />
     <ProjectReference Include="..\OfficeNext.Docx\OfficeNext.Docx.csproj" />
     <ProjectReference Include="..\OfficeNext.Xlsx\OfficeNext.Xlsx.csproj" />
     <ProjectReference Include="..\OfficeNext.Pptx\OfficeNext.Pptx.csproj" />
     <ProjectReference Include="..\OfficeNext.Pdf\OfficeNext.Pdf.csproj" />
+    <ProjectReference Include="..\OfficeNext.Layout\OfficeNext.Layout.csproj" />
+    <ProjectReference Include="..\OfficeNext.DocxLayout\OfficeNext.DocxLayout.csproj" />
+    <ProjectReference Include="..\OfficeNext.DocBinary\OfficeNext.DocBinary.csproj" />
   </ItemGroup>
 </Project>

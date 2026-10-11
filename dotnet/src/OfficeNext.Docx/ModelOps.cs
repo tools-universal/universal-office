@@ -81,8 +81,43 @@ public static class ModelOps
         return true;
     }
 
-    /// <summary>Runs especiais (imagem/campo/nota) nunca se fundem.</summary>
-    private static bool IsSpecial(Run r) => r.Image is not null || r.Field is not null || r.NoteRef is not null;
+    /// <summary>
+    /// Formatação tipada original (rPr) igual? Runs com rPr diferente não se fundem
+    /// (estilo de caractere, efeitos que as props de edição não representam).
+    /// O JS compara por JSON.stringify (ordem de chaves = ordem dos elementos no
+    /// XML); aqui a comparação é estrutural (mesmo conteúdo em qualquer ordem).
+    /// </summary>
+    private static bool SameRPr(Run a, Run b) => ReferenceEquals(a.Rpr, b.Rpr) || DeepEquals(a.Rpr, b.Rpr);
+
+    private static bool DeepEquals(object? a, object? b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a is null || b is null || a.GetType() != b.GetType()) return false;
+        var t = a.GetType();
+        if (t.IsPrimitive || a is string || a is decimal) return a.Equals(b);
+        if (a is System.Collections.IList la && b is System.Collections.IList lb)
+        {
+            if (la.Count != lb.Count) return false;
+            for (int i = 0; i < la.Count; i++) if (!DeepEquals(la[i], lb[i])) return false;
+            return true;
+        }
+        foreach (var f in t.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic))
+            if (!DeepEquals(f.GetValue(a), f.GetValue(b))) return false;
+        return true;
+    }
+
+    /// <summary>Extras de TEXTO que acompanham cada pedaço de um run dividido.</summary>
+    private static Run TextExtras(Run run) => new()
+    {
+        Field = string.IsNullOrEmpty(run.Field) ? null : run.Field,
+        Rpr = run.Rpr,
+        SymFont = string.IsNullOrEmpty(run.SymFont) ? null : run.SymFont,
+        InToc = run.InToc,
+    };
+
+    /// <summary>Runs especiais (imagem/campo/nota/plugin/caixa/forma/grupo/ptab) nunca se fundem e preservam extras.</summary>
+    private static bool IsSpecial(Run r) => r.Image is not null || Js.Truthy(r.Field) || r.NoteRef is not null || r.Custom is not null
+        || r.Textbox is not null || r.Shape is not null || r.Group is not null || r.Ptab is not null;
 
     public static void NormalizeParagraph(Paragraph p)
     {
@@ -91,14 +126,15 @@ public static class ModelOps
         {
             if (run.Text.Length == 0 && !IsSpecial(run)) continue;
             var last = outp.Count > 0 ? outp[^1] : null;
-            if (last is not null && !IsSpecial(last) && !IsSpecial(run) && SameProps(last.Props, run.Props))
+            if (last is not null && !IsSpecial(last) && !IsSpecial(run) && SameProps(last.Props, run.Props) && SameRPr(last, run)
+                && last.FieldResult is null && run.FieldResult is null && last.Field == run.Field)
                 last.Text += run.Text;
             else
-                outp.Add(new Run
-                {
-                    Text = run.Text, Props = run.Props.Clone(),
-                    Image = run.Image, NoteRef = run.NoteRef, Field = run.Field,
-                });
+            {
+                var c = run.ShallowClone();
+                c.Props = run.Props.Clone();
+                outp.Add(c);
+            }
         }
         p.Runs = outp;
     }
@@ -113,8 +149,12 @@ public static class ModelOps
             if (offset == acc) return i;
             if (offset < acc + run.Text.Length)
             {
-                var head = new Run { Text = run.Text[..(offset - acc)], Props = run.Props.Clone(), Field = run.Field };
-                var tail = new Run { Text = run.Text[(offset - acc)..], Props = run.Props.Clone(), Field = run.Field };
+                var head = TextExtras(run);
+                head.Text = run.Text[..(offset - acc)];
+                head.Props = run.Props.Clone();
+                var tail = TextExtras(run);
+                tail.Text = run.Text[(offset - acc)..];
+                tail.Props = run.Props.Clone();
                 p.Runs.RemoveAt(i);
                 p.Runs.Insert(i, head);
                 p.Runs.Insert(i + 1, tail);
@@ -140,12 +180,30 @@ public static class ModelOps
         return p.Runs[^1].Props.Clone();
     }
 
+    /// <summary>rPr do run onde o texto entra (o anterior, como PropsAt).</summary>
+    private static RPr? RprAt(DocumentModel model, DocPosition pos)
+    {
+        if (pos.Para >= model.Paragraphs.Count) return null;
+        var p = model.Paragraphs[pos.Para];
+        if (p.Runs.Count == 0) return null;
+        int acc = 0;
+        foreach (var run in p.Runs)
+        {
+            if (pos.Offset <= acc + run.Text.Length && !IsSpecial(run)) return run.Rpr;
+            acc += run.Text.Length;
+        }
+        for (int i = p.Runs.Count - 1; i >= 0; i--) if (!IsSpecial(p.Runs[i])) return p.Runs[i].Rpr;
+        return null;
+    }
+
     public static DocPosition InsertText(DocumentModel model, DocPosition pos, string text, RunProps? props = null)
     {
         var p = model.Paragraphs[pos.Para];
         var effective = props ?? PropsAt(model, pos);
+        // o texto novo herda a formatação tipada (rPr) do run vizinho, como herda as props
+        var rpr = RprAt(model, pos);
         int idx = SplitAt(p, pos.Offset);
-        p.Runs.Insert(idx, new Run { Text = text, Props = effective.Clone() });
+        p.Runs.Insert(idx, new Run { Text = text, Props = effective.Clone(), Rpr = rpr });
         NormalizeParagraph(p);
         return new DocPosition(pos.Para, pos.Offset + text.Length);
     }
@@ -199,15 +257,12 @@ public static class ModelOps
             string text = keepHead + keepTail;
             if (text.Length > 0)
             {
+                // inteiro: o run segue como era (todos os extras); parcial: extras de texto
                 bool intact = text.Length == run.Text.Length;
-                outp.Add(new Run
-                {
-                    Text = text,
-                    Props = run.Props,
-                    Field = run.Field,
-                    Image = intact ? run.Image : null,
-                    NoteRef = intact ? run.NoteRef : null,
-                });
+                Run r;
+                if (intact) { r = run.ShallowClone(); r.Text = text; }
+                else { r = TextExtras(run); r.Text = text; r.Props = run.Props; }
+                outp.Add(r);
             }
         }
         p.Runs = outp;

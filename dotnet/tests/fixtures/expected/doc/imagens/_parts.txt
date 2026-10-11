@@ -1,0 +1,10 @@
+[Content_Types].xml
+word/media/image1.png
+word/media/image2.png
+word/document.xml
+word/styles.xml
+word/fontTable.xml
+word/settings.xml
+word/_rels/document.xml.rels
+docProps/app.xml
+_rels/.rels

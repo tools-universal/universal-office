@@ -1,0 +1,20 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":1362.52,"scaleX":1,"text":"Corpo1Hxg","g":[[67,1701],[111,1828.97],[114,1955.53],[112,2039.2],[111,2165.3],[49,2346.12],[72,2522.02],[120,2671.55],[103,2775.49]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":1655.48,"scaleX":1,"text":"Corpo2Hxg","g":[[67,1701],[111,1828.97],[114,1955.53],[112,2039.2],[111,2165.3],[50,2346.12],[72,2522.02],[120,2671.55],[103,2775.49]]}
+      ],
+      "lines": [
+        {"ref":"ftr:default/b0","start":0,"end":0,"x":1701,"y":15557.03,"height":292.97,"baseline":15785.55,"width":0},
+        {"ref":"b0","start":0,"end":11,"x":1701,"y":1134,"height":292.97,"baseline":1362.52,"width":1187.46},
+        {"ref":"b1","start":0,"end":11,"x":1701,"y":1426.97,"height":292.97,"baseline":1655.48,"width":1187.46}
+      ]
+    }
+  ],
+  "warnings": []
+}

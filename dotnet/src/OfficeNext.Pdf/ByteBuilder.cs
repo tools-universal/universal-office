@@ -79,9 +79,12 @@ public sealed class ByteBuilder
     /// </summary>
     public ByteBuilder Num(double n)
     {
-        double scaled = Math.Floor(n * 1000 + 0.5); // Math.round do JS
+        if (double.IsNaN(n)) return Byte((byte)'0');
+        n = Math.Max(-PdfNum.MaxReal, Math.Min(PdfNum.MaxReal, n));
+        double scaled = PdfNum.JsRound(n * 1000);
         if (scaled == 0) return Byte((byte)'0');
-        if (scaled > 9.2e18 || scaled < -9.2e18) return Str(PdfNum.Fmt(n)); // fora do long: caminho lento
+        // |n| ≥ 1e11 (k/1000 deixa de ser o "shortest" do JS) ou NaN/±∞: caminho lento
+        if (!(scaled < 1e14 && scaled > -1e14)) return Str(PdfNum.Fmt(n));
         long s = (long)scaled;
         if (s < 0) { Byte((byte)'-'); s = -s; }
         Int(s / 1000);

@@ -1,5 +1,10 @@
 import { DocxPackage } from './package.js';
 import { parseXml, childElements, firstChild, type XmlElement } from './xml.js';
+import { readRPr, readPPr, type RPr, type PPr } from './ooxml/props.js';
+import {
+  readWpAnchor, readSpPr, parseVmlStyle, vmlAnchor, vmlLenTwips, vmlShapeStyle,
+  type DrawingAnchor, type ShapeStyle,
+} from './drawing.js';
 
 /**
  * Modelo de documento — espelha o OOXML. v2: conjunto de formatação amplo
@@ -72,6 +77,25 @@ export interface InlineImage {
   /** XML CRU do <w:drawing> — preservado p/ reemissão fiel do shape no save
    *  (âncora, geometria, fill). Sem ele, reconstruímos um drawing inline. */
   rawDrawingXml?: string;
+  /** wp:anchor completo (wrap, alinhamentos, distâncias) — motor de layout. */
+  anchor?: DrawingAnchor;
+  /** a:srcRect — recorte em frações (0..1) de cada lado. */
+  crop?: { l: number; t: number; r: number; b: number };
+  /** rotação/espelhamento/contorno da imagem (pic:spPr). */
+  style?: ShapeStyle;
+  /** Veio de VML (w:pict/w:object) — sem rawDrawingXml para o save. */
+  vml?: boolean;
+}
+
+/** Forma sem texto (retângulo, linha, elipse…) — DrawingML wps:wsp ou VML. */
+export interface DrawingShape {
+  style: ShapeStyle;
+  widthTwips: number;
+  heightTwips: number;
+  floating?: boolean;
+  anchor?: DrawingAnchor;
+  /** Para linhas VML (v:line from/to): pontos relativos ao canto (twips). */
+  line?: { x1: number; y1: number; x2: number; y2: number };
 }
 
 /** Caixa de texto de DrawingML (wps:txbx / VML v:textbox) — usada em
@@ -90,12 +114,29 @@ export interface DrawingTextbox {
   /** wps:bodyPr/a:spAutoFit — a caixa AJUSTA a altura ao texto (o cy declarado
    *  é ignorado pelo Word). Sem isto, usa a altura declarada. */
   autoFit?: boolean;
+  /** wps:bodyPr wrap="none" / VML mso-wrap-style:none — o texto NÃO quebra
+   *  na largura da caixa (com autoFit, a caixa toma a largura do texto) */
+  noWrap?: boolean;
   /** margens internas (twips) do bodyPr (lIns/tIns/rIns/bIns). Padrão do Word:
    *  l/r = 91440 EMU (144tw), t/b = 45720 EMU (72tw). */
   insets?: { l: number; t: number; r: number; b: number };
   /** XML CRU do <w:drawing> que contém a caixa — no save reemitimos este XML
    *  trocando só o <w:txbxContent> pelos parágrafos (possivelmente editados). */
   rawDrawingXml?: string;
+  /** wp:anchor completo — motor de layout. */
+  anchor?: DrawingAnchor;
+  /** preenchimento/contorno da própria caixa. */
+  shape?: ShapeStyle;
+  /** wps:bodyPr anchor (t | ctr | b) — alinhamento vertical do texto. */
+  vAnchor?: 't' | 'ctr' | 'b';
+  /** rotação da caixa (graus, horário) — xfrm rot / VML rotation */
+  rot?: number;
+  /** WordArt (bodyPr fromWordArt / VML v:textpath): o texto é esticado para
+   *  preencher a forma conforme a deformação (prstTxWarp, ex.: textPlain) */
+  wordArt?: string;
+  /** Blocos em ordem (parágrafos + tabelas) do txbxContent. */
+  blocks?: import('./fulldoc.js').Block[];
+  vml?: boolean;
 }
 
 export interface NoteRef {
@@ -127,6 +168,33 @@ export interface Run {
   field?: string;
   /** Nó inline atômico registrado por plugin. */
   custom?: CustomInline;
+  /** Formatação DIRETA completa do w:rPr (tri-estado) — motor de layout. */
+  rpr?: RPr;
+  /** Campo complexo: os runs FORMATADOS do resultado em cache (o run em si
+   *  guarda o texto achatado, usado pela edição/salvamento). */
+  fieldResult?: Run[];
+  /** Forma sem texto ancorada/inline. */
+  shape?: DrawingShape;
+  /** w:ptab — tab de posição absoluta (texto é '	'). */
+  ptab?: { alignment: string; relativeTo: string; leader?: string };
+  /** w:sym — fonte do símbolo (o texto já vem mapeado p/ a área F0xx). */
+  symFont?: string;
+  /** Grupo de desenho (wpg:wgp / v:group / tela wpc). */
+  group?: DrawingGroup;
+  /** Run dentro do RESULTADO de um campo TOC (o Word não aplica o estilo
+   *  Hyperlink nas entradas do sumário). */
+  inToc?: boolean;
+  /** Campo de formulário legado (w:ffData): caixa de seleção / texto / lista. */
+  formField?: { type: 'checkBox' | 'textInput' | 'dropDown'; checked?: boolean; sizeHalfPt?: number; sizeAuto?: boolean };
+}
+
+/** Grupo de objetos: cada item com retângulo relativo ao canto do grupo. */
+export interface DrawingGroup {
+  widthTwips: number;
+  heightTwips: number;
+  floating?: boolean;
+  anchor?: DrawingAnchor;
+  items: { x: number; y: number; w: number; h: number; run: Run }[];
 }
 
 export const EMU_PER_TWIP = 635;
@@ -212,6 +280,8 @@ export function readBorderEdge(el: XmlElement | undefined): BorderEdge | undefin
 export interface Paragraph {
   runs: Run[];
   props: ParaProps;
+  /** Formatação DIRETA completa do w:pPr (tri-estado) — motor de layout. */
+  ppr?: PPr;
 }
 
 export interface SectPr {
@@ -246,42 +316,87 @@ export interface DocumentModel {
   sectPr: SectPr;
 }
 
-const onOff = (el: XmlElement | undefined): boolean => {
-  if (!el) return false;
-  const v = el.attrs['w:val'];
-  return v !== '0' && v !== 'false' && v !== 'none';
-};
-
-function readRunProps(rPr: XmlElement | undefined): RunProps {
+/** Props de EDIÇÃO (achatadas) derivadas da formatação direta tipada. É a
+ *  definição única do que o modelo de edição enxerga de um w:rPr — o motor de
+ *  layout usa a mesma função para detectar o que a edição mudou. */
+export function runPropsFromRPr(rpr: RPr | undefined): RunProps {
   const p: RunProps = { ...DEFAULT_RUN_PROPS };
-  if (!rPr) return p;
-  for (const el of childElements(rPr)) {
-    const val = el.attrs['w:val'];
-    switch (el.name) {
-      case 'w:b': p.bold = onOff(el); break;
-      case 'w:i': p.italic = onOff(el); break;
-      case 'w:u':
-        p.underline = val !== undefined && val !== 'none';
-        if (val === 'double' || val === 'dotted' || val === 'dash' || val === 'wave' || val === 'thick') {
-          p.underlineStyle = val;
-        }
-        if (el.attrs['w:color'] && el.attrs['w:color'] !== 'auto') p.underlineColor = el.attrs['w:color'];
-        break;
-      case 'w:strike': p.strike = onOff(el); break;
-      case 'w:dstrike': p.doubleStrike = onOff(el); break;
-      case 'w:caps': p.allCaps = onOff(el); break;
-      case 'w:smallCaps': p.smallCaps = onOff(el); break;
-      case 'w:vertAlign':
-        if (val === 'superscript' || val === 'subscript') p.vertAlign = val;
-        break;
-      case 'w:sz': if (val) p.szHalfPt = parseInt(val, 10); break;
-      case 'w:color': if (val && val !== 'auto') p.color = val; break;
-      case 'w:highlight': if (val && val !== 'none') p.highlight = val; break;
-      case 'w:rFonts': p.fontAscii = el.attrs['w:ascii']; break;
-      case 'w:spacing': if (val) p.charSpacingTwips = parseInt(val, 10); break;
-    }
+  if (!rpr) return p;
+  if (rpr.b !== undefined) p.bold = rpr.b;
+  if (rpr.i !== undefined) p.italic = rpr.i;
+  if (rpr.u) {
+    const val = rpr.u.val;
+    p.underline = val !== 'none' && val !== '';
+    if (val === 'double' || val === 'dotted' || val === 'dash' || val === 'wave' || val === 'thick') p.underlineStyle = val;
+    if (rpr.u.color && rpr.u.color !== 'auto') p.underlineColor = rpr.u.color;
   }
+  if (rpr.strike !== undefined) p.strike = rpr.strike;
+  if (rpr.dstrike !== undefined) p.doubleStrike = rpr.dstrike;
+  if (rpr.caps !== undefined) p.allCaps = rpr.caps;
+  if (rpr.smallCaps !== undefined) p.smallCaps = rpr.smallCaps;
+  if (rpr.vertAlign === 'superscript' || rpr.vertAlign === 'subscript') p.vertAlign = rpr.vertAlign;
+  if (rpr.sz !== undefined) p.szHalfPt = rpr.sz;
+  if (rpr.color?.val && rpr.color.val !== 'auto') p.color = rpr.color.val;
+  if (rpr.highlight && rpr.highlight !== 'none') p.highlight = rpr.highlight;
+  if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
+  if (rpr.spacing !== undefined && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
   return p;
+}
+
+/** Props de parágrafo de EDIÇÃO derivadas do w:pPr tipado (ver runPropsFromRPr). */
+export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
+  const props: ParaProps = {};
+  if (!ppr) return props;
+  const jc = ppr.jc;
+  if (jc === 'center' || jc === 'right' || jc === 'both' || jc === 'left') props.alignment = jc;
+  else if (jc === 'start') props.alignment = 'left';
+  else if (jc === 'end') props.alignment = 'right';
+  else if (jc === 'distribute') props.alignment = 'both';
+  if (ppr.pStyle !== undefined) props.styleId = ppr.pStyle;
+  if (ppr.numPr) {
+    const numId = ppr.numPr.numId ?? 0;
+    props.numbering = { kind: numId === 1002 ? 'decimal' : 'bullet', ilvl: ppr.numPr.ilvl ?? 0 };
+  }
+  if (ppr.ind) {
+    if (ppr.ind.left !== undefined) props.indentLeftTwips = ppr.ind.left;
+    if (ppr.ind.right !== undefined) props.indentRightTwips = ppr.ind.right;
+    if (ppr.ind.firstLine !== undefined) props.indentFirstLineTwips = ppr.ind.firstLine;
+    if (ppr.ind.hanging !== undefined) props.indentFirstLineTwips = -ppr.ind.hanging;
+  }
+  if (ppr.spacing) {
+    if (ppr.spacing.line !== undefined && ppr.spacing.lineRule === 'auto') props.lineTwentieths = ppr.spacing.line;
+    if (ppr.spacing.after !== undefined) props.spaceAfterTwips = ppr.spacing.after;
+    if (ppr.spacing.before !== undefined) props.spaceBeforeTwips = ppr.spacing.before;
+  }
+  if (ppr.shd?.fill && ppr.shd.fill !== 'auto') props.shadingHex = ppr.shd.fill;
+  if (ppr.tabs) {
+    const stops = ppr.tabs
+      .filter((t) => t.pos > 0 && t.val !== 'clear' && t.val !== 'bar')
+      .map((t) => ({
+        posTwips: t.pos,
+        align: (t.val === 'right' ? 'right' : 'left') as 'left' | 'right',
+        leader: t.leader === 'dot' ? ('dot' as const) : undefined,
+      }));
+    if (stops.length) props.tabStops = stops;
+  }
+  if (ppr.pBdr) {
+    props.boxBorder = true;
+    const borders: ParagraphBorders = {};
+    for (const side of ['top', 'left', 'bottom', 'right'] as const) {
+      const b = ppr.pBdr[side];
+      if (!b || b.val === 'none' || b.val === 'nil') continue;
+      borders[side] = {
+        style: b.val,
+        sizeEighthPt: b.sz ?? 4,
+        color: b.color && b.color !== 'auto' ? b.color : undefined,
+        spacePt: b.space ?? 0,
+      };
+    }
+    if (Object.keys(borders).length > 0) props.borders = borders;
+  }
+  if (ppr.pageBreakBefore) props.pageBreakBefore = true;
+  if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== 'none') props.dropCap = true;
+  return props;
 }
 
 function findDeep(el: XmlElement, name: string): XmlElement | undefined {
@@ -296,6 +411,20 @@ function findDeep(el: XmlElement, name: string): XmlElement | undefined {
 export type ImageResolver = (rid: string) => { data: Uint8Array; ext: string } | undefined;
 export type LinkResolver = (rid: string) => string | undefined;
 
+/** Campo complexo aberto (fldChar begin…end), possivelmente aninhado. */
+interface FieldFrame {
+  instr: string;
+  /** w:ffData do fldChar begin (campos de formulário). */
+  ff?: Run['formField'];
+  phase: 'instr' | 'result';
+  /** runs do resultado (enquanto o campo não atravessou parágrafo). */
+  runs: Run[];
+  /** o resultado atravessou um fim de parágrafo: o resto sai como runs normais. */
+  crossed: boolean;
+  props: RunProps;
+  rpr?: RPr;
+}
+
 export interface ReadContext {
   resolveImage: ImageResolver;
   resolveLink: LinkResolver;
@@ -303,83 +432,329 @@ export interface ReadContext {
   activeComments?: Set<number>;
   /** Bookmarks vistos (nome → preenchido pelo chamador com o índice). */
   onBookmark?: (name: string) => void;
-  /** Estado de campo complexo (fldChar begin…end) atravessando runs. */
-  fieldState?: { instr: string; phase: 'instr' | 'result'; result: string } | null;
+  /** Pilha de campos complexos abertos (atravessa runs e parágrafos). */
+  fieldStack?: FieldFrame[];
+  /** Lê os blocos (parágrafos + tabelas) de um container (w:txbxContent) —
+   *  injetado pelo leitor do documento completo (fulldoc). */
+  readBlocks?: (container: XmlElement, ctx: ReadContext) => import('./fulldoc.js').Block[];
 }
 
-function readDrawing(drawing: XmlElement, resolveImage: ImageResolver): InlineImage | undefined {
-  const anchor = firstChild(drawing, 'wp:anchor');
-  const extent = findDeep(drawing, 'wp:extent');
-  const blip = findDeep(drawing, 'a:blip');
-  const rid = blip?.attrs['r:embed'];
-  if (!extent || !rid) return undefined;
-  const media = resolveImage(rid);
-  if (!media) return undefined;
-  // versão vetorial (asvg:svgBlip no extLst do a:blip) — preferida pelo Word
-  const svgRid = findDeep(blip, 'asvg:svgBlip')?.attrs['r:embed'];
-  const svgMedia = svgRid ? resolveImage(svgRid) : undefined;
+const OBJ = '\uFFFC';
+
+/** Lê a imagem de um pic:pic (blip + recorte + estilo). */
+function readPic(pic: XmlElement, ctx: ReadContext, wTw: number, hTw: number): InlineImage | undefined {
+  const blip = findDeep(pic, 'a:blip');
+  const rid = blip?.attrs['r:embed'] ?? blip?.attrs['r:link'];
+  if (!rid) return undefined;
+  // mídia ausente/externa: o Word ainda reserva o quadro (mostra o ícone de imagem quebrada)
+  const media = ctx.resolveImage(rid) ?? { data: new Uint8Array(0), ext: 'png' };
+  const svgRid = blip && findDeep(blip, 'asvg:svgBlip')?.attrs['r:embed'];
+  const svgMedia = svgRid ? ctx.resolveImage(svgRid) : undefined;
   const img: InlineImage = {
-    data: media.data,
-    ext: media.ext,
+    data: media.data, ext: media.ext,
     ...(svgMedia ? { svg: svgMedia.data } : {}),
-    widthTwips: parseInt(extent.attrs['cx'] ?? '0', 10) / EMU_PER_TWIP,
-    heightTwips: parseInt(extent.attrs['cy'] ?? '0', 10) / EMU_PER_TWIP,
+    widthTwips: wTw, heightTwips: hTw,
   };
-  if (anchor) {
-    img.floating = true;
-    if (anchor.attrs['behindDoc'] === '1' || anchor.attrs['behindDoc'] === 'true') img.behindDoc = true;
-    const posH = firstChild(anchor, 'wp:positionH');
-    const posV = firstChild(anchor, 'wp:positionV');
-    if (posH?.attrs['relativeFrom']) img.relH = posH.attrs['relativeFrom'];
-    if (posV?.attrs['relativeFrom']) img.relV = posV.attrs['relativeFrom'];
-    const offH = posH && firstChild(posH, 'wp:posOffset');
-    const offV = posV && firstChild(posV, 'wp:posOffset');
-    if (offH) img.offsetXTwips = parseInt(textContentOf(offH), 10) / EMU_PER_TWIP;
-    if (offV) img.offsetYTwips = parseInt(textContentOf(offV), 10) / EMU_PER_TWIP;
+  const src = findDeep(pic, 'a:srcRect');
+  if (src && (src.attrs['l'] || src.attrs['t'] || src.attrs['r'] || src.attrs['b'])) {
+    const f = (k: string) => (parseInt(src.attrs[k] ?? '0', 10) || 0) / 100000;
+    img.crop = { l: f('l'), t: f('t'), r: f('r'), b: f('b') };
   }
-  if (drawing.raw) img.rawDrawingXml = drawing.raw;
+  const spPr = firstChild(pic, 'pic:spPr');
+  if (spPr) {
+    const st = readSpPr(spPr);
+    if (st.rot || st.flipH || st.flipV || st.line) img.style = st;
+  }
   return img;
 }
 
-/** Caixa de texto de um <w:drawing> (wps:txbx no mc:Choice, ou v:textbox no
- *  fallback VML). Lê o PRIMEIRO w:txbxContent (o moderno) e seus parágrafos. */
-function readTextbox(drawing: XmlElement, ctx: ReadContext): DrawingTextbox | undefined {
-  const txbx = findDeep(drawing, 'w:txbxContent');
-  if (!txbx) return undefined;
-  const paras: Paragraph[] = [];
-  for (const p of childElements(txbx, 'w:p')) paras.push(readParagraph(p, ctx));
-  if (!paras.length) return undefined;
-  const extent = findDeep(drawing, 'wp:extent');
-  const tb: DrawingTextbox = {
-    paras,
-    widthTwips: extent ? parseInt(extent.attrs['cx'] ?? '0', 10) / EMU_PER_TWIP : 0,
-    heightTwips: extent ? parseInt(extent.attrs['cy'] ?? '0', 10) / EMU_PER_TWIP : 0,
+function bodyPrOf(tb: DrawingTextbox, bodyPr: XmlElement | undefined): void {
+  if (!bodyPr) return;
+  if (findDeep(bodyPr, 'a:spAutoFit')) tb.autoFit = true;
+  if (bodyPr.attrs['wrap'] === 'none') tb.noWrap = true;
+  const insTw = (name: string, def: number): number => {
+    const v = bodyPr.attrs[name];
+    return v !== undefined ? Math.round(parseInt(v, 10) / EMU_PER_TWIP) : def;
   };
-  const anchor = firstChild(drawing, 'wp:anchor');
-  if (anchor) {
-    tb.floating = true;
-    if (anchor.attrs['behindDoc'] === '1' || anchor.attrs['behindDoc'] === 'true') tb.behindDoc = true;
-    const posH = firstChild(anchor, 'wp:positionH');
-    const posV = firstChild(anchor, 'wp:positionV');
-    if (posH?.attrs['relativeFrom']) tb.relH = posH.attrs['relativeFrom'];
-    if (posV?.attrs['relativeFrom']) tb.relV = posV.attrs['relativeFrom'];
-    const offH = posH && firstChild(posH, 'wp:posOffset');
-    const offV = posV && firstChild(posV, 'wp:posOffset');
-    if (offH) tb.offsetXTwips = parseInt(textContentOf(offH), 10) / EMU_PER_TWIP;
-    if (offV) tb.offsetYTwips = parseInt(textContentOf(offV), 10) / EMU_PER_TWIP;
+  tb.insets = { l: insTw('lIns', 144), t: insTw('tIns', 72), r: insTw('rIns', 144), b: insTw('bIns', 72) };
+  const anc = bodyPr.attrs['anchor'];
+  if (anc === 't' || anc === 'ctr' || anc === 'b') tb.vAnchor = anc;
+  if (bodyPr.attrs['fromWordArt'] === '1' || bodyPr.attrs['fromWordArt'] === 'true') {
+    tb.wordArt = firstChild(bodyPr, 'a:prstTxWarp')?.attrs['prst'] ?? 'textPlain';
   }
-  // bodyPr: autoFit (altura ajusta ao texto) + margens internas
-  const bodyPr = findDeep(drawing, 'wps:bodyPr') ?? findDeep(drawing, 'a:bodyPr');
-  if (bodyPr) {
-    if (findDeep(bodyPr, 'a:spAutoFit')) tb.autoFit = true;
-    const insTw = (name: string, def: number): number => {
-      const v = bodyPr.attrs[name];
-      return v !== undefined ? Math.round(parseInt(v, 10) / EMU_PER_TWIP) : def;
+}
+
+function textboxBlocks(txbx: XmlElement, ctx: ReadContext, tb: DrawingTextbox): void {
+  if (ctx.readBlocks) {
+    const blocks = ctx.readBlocks(txbx, ctx);
+    tb.blocks = blocks;
+    // parágrafos do modelo de edição: os do nível de cima + os das células
+    const paras: Paragraph[] = [];
+    const walk = (bs: import('./fulldoc.js').Block[]) => {
+      for (const b of bs) {
+        if (b.type === 'paragraph') paras.push(b.paragraph);
+        else for (const r of b.rows) for (const c of r.cells) walk(c.blocks ?? c.paragraphs.map((p) => ({ type: 'paragraph' as const, paragraph: p })));
+      }
     };
-    tb.insets = { l: insTw('lIns', 144), t: insTw('tIns', 72), r: insTw('rIns', 144), b: insTw('bIns', 72) };
+    walk(blocks);
+    tb.paras = paras.length ? paras : [{ runs: [], props: {} }];
+  } else {
+    tb.paras = childElements(txbx, 'w:p').map((p) => readParagraph(p, ctx));
   }
-  if (drawing.raw) tb.rawDrawingXml = drawing.raw;
-  return tb;
+}
+
+/** Um objeto de desenho (wps:wsp, pic:pic, grupo) → Run (sem props). */
+function readGraphicObject(
+  obj: XmlElement, ctx: ReadContext, wTw: number, hTw: number,
+): Omit<Run, 'props'> | undefined {
+  if (obj.name === 'pic:pic') {
+    const image = readPic(obj, ctx, wTw, hTw);
+    return image ? { text: OBJ, image } : undefined;
+  }
+  if (obj.name === 'wps:wsp') {
+    const spPr = firstChild(obj, 'wps:spPr');
+    const style = readSpPr(spPr, firstChild(obj, 'wps:style'));
+    const txbx = firstChild(obj, 'wps:txbx');
+    const content = txbx && firstChild(txbx, 'w:txbxContent');
+    if (content) {
+      const tb: DrawingTextbox = { paras: [], widthTwips: wTw, heightTwips: hTw };
+      textboxBlocks(content, ctx, tb);
+      bodyPrOf(tb, firstChild(obj, 'wps:bodyPr'));
+      if (style.fill || style.line || style.gradient) tb.shape = style;
+      if (style.rot) tb.rot = style.rot;
+      return { text: OBJ, textbox: tb };
+    }
+    // imagem como preenchimento da forma (a:blipFill)
+    const blipFill = spPr && firstChild(spPr, 'a:blipFill');
+    if (blipFill) {
+      const image = readPic({ name: 'pic:pic', attrs: {}, children: [blipFill] }, ctx, wTw, hTw);
+      if (image) return { text: OBJ, image };
+    }
+    return { text: OBJ, shape: { style, widthTwips: wTw, heightTwips: hTw } };
+  }
+  if (obj.name === 'wpg:wgp' || obj.name === 'wpg:grpSp' || obj.name === 'wpc:wpc') {
+    const grpSpPr = firstChild(obj, 'wpg:grpSpPr');
+    const xfrm = grpSpPr && firstChild(grpSpPr, 'a:xfrm');
+    const n = (el: XmlElement | undefined, k: string) => parseInt(el?.attrs[k] ?? '0', 10) || 0;
+    const chOff = xfrm && firstChild(xfrm, 'a:chOff');
+    const chExt = xfrm && firstChild(xfrm, 'a:chExt');
+    const ext = xfrm && firstChild(xfrm, 'a:ext');
+    const cw = n(chExt, 'cx') || n(ext, 'cx');
+    const ch = n(chExt, 'cy') || n(ext, 'cy');
+    const sx = cw ? (wTw * EMU_PER_TWIP) / cw : 1;
+    const sy = ch ? (hTw * EMU_PER_TWIP) / ch : 1;
+    const items: DrawingGroup['items'] = [];
+    for (const child of childElements(obj)) {
+      if (!['wps:wsp', 'pic:pic', 'wpg:grpSp'].includes(child.name)) continue;
+      const cpr = firstChild(child, 'wps:spPr') ?? firstChild(child, 'pic:spPr') ?? firstChild(child, 'wpg:grpSpPr');
+      const cx = cpr && firstChild(cpr, 'a:xfrm');
+      const off = cx && firstChild(cx, 'a:off');
+      const cext = cx && firstChild(cx, 'a:ext');
+      const x = ((n(off, 'x') - n(chOff, 'x')) * sx) / EMU_PER_TWIP;
+      const y = ((n(off, 'y') - n(chOff, 'y')) * sy) / EMU_PER_TWIP;
+      const w = (n(cext, 'cx') * sx) / EMU_PER_TWIP;
+      const h = (n(cext, 'cy') * sy) / EMU_PER_TWIP;
+      const run = readGraphicObject(child, ctx, w, h);
+      if (run) items.push({ x, y, w, h, run: { ...run, props: { ...DEFAULT_RUN_PROPS } } });
+    }
+    return items.length ? { text: OBJ, group: { widthTwips: wTw, heightTwips: hTw, items } } : undefined;
+  }
+  return undefined;
+}
+
+/** w:drawing → run (imagem, caixa de texto, forma ou grupo). */
+function readDrawingRun(drawing: XmlElement, ctx: ReadContext): Omit<Run, 'props'> | undefined {
+  const anchorEl = firstChild(drawing, 'wp:anchor');
+  const container = anchorEl ?? firstChild(drawing, 'wp:inline');
+  if (!container) return undefined;
+  const extent = firstChild(container, 'wp:extent');
+  const wTw = parseInt(extent?.attrs['cx'] ?? '0', 10) / EMU_PER_TWIP;
+  const hTw = parseInt(extent?.attrs['cy'] ?? '0', 10) / EMU_PER_TWIP;
+  const gd = findDeep(container, 'a:graphicData');
+  const obj = gd && childElements(gd).find((c) => ['pic:pic', 'wps:wsp', 'wpg:wgp', 'wpc:wpc'].includes(c.name));
+  if (!obj) return undefined;
+  const run = readGraphicObject(obj, ctx, wTw, hTw);
+  if (!run) return undefined;
+  const anchor = readWpAnchor(anchorEl);
+  const target = run.image ?? run.textbox ?? run.shape ?? run.group;
+  if (target && anchor) {
+    target.floating = true;
+    target.anchor = anchor;
+    if (anchor.behindDoc && (run.image || run.textbox)) (run.image ?? run.textbox)!.behindDoc = true;
+  }
+  // campos legados usados pelo editor (relH/relV/offsets + XML cru p/ o save)
+  for (const t of [run.image, run.textbox]) {
+    if (!t) continue;
+    if (anchor) {
+      t.relH = anchor.posH.relativeFrom;
+      t.relV = anchor.posV.relativeFrom;
+      if (anchor.posH.offset !== undefined) t.offsetXTwips = anchor.posH.offset;
+      if (anchor.posV.offset !== undefined) t.offsetYTwips = anchor.posV.offset;
+    }
+    if (drawing.raw) t.rawDrawingXml = drawing.raw;
+  }
+  return run;
+}
+
+/** VML (w:pict / w:object) → runs. */
+function readVmlRuns(container: XmlElement, ctx: ReadContext, inline: boolean): Omit<Run, 'props'>[] {
+  const out: Omit<Run, 'props'>[] = [];
+  const shapeOf = (el: XmlElement, inGroup?: { sx: number; sy: number }): Omit<Run, 'props'> | undefined => {
+    const st = parseVmlStyle(el.attrs['style']);
+    if (st['visibility'] === 'hidden' || st['display'] === 'none') return undefined;
+    let w = vmlLenTwips(st['width']) ?? 0;
+    let h = vmlLenTwips(st['height']) ?? 0;
+    let anchor = inGroup ? undefined : vmlAnchor(st, findDeep(el, 'w10:wrap'));
+    if (inGroup) {
+      w = (parseFloat(st['width'] ?? '0') || 0) * inGroup.sx;
+      h = (parseFloat(st['height'] ?? '0') || 0) * inGroup.sy;
+    }
+    const textpath = findDeep(el, 'v:textpath');
+    if (textpath) {
+      // WordArt VML (marca d'água "PowerPlusWaterMark"): texto esticado na forma
+      const text = textpath.attrs['string'] ?? '';
+      if (!text.trim()) return undefined;
+      const tps = parseVmlStyle(textpath.attrs['style']);
+      const famRaw = (tps['font-family'] ?? '').replace(/^["']|["']$/g, '').trim();
+      const sh = vmlShapeStyle(el, 'rect');
+      // opacidade do preenchimento: misturada ao branco (a cor do texto não tem alfa)
+      let color = sh.fill ?? '000000';
+      const a = sh.fillAlpha;
+      if (a !== undefined && a < 1) {
+        const mix = (i: number) => Math.round(parseInt(color.slice(i, i + 2), 16) * a + 255 * (1 - a));
+        color = [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, '0')).join('').toUpperCase();
+      }
+      const rpr: RPr = {
+        ...(famRaw ? { rFonts: { ascii: famRaw, hAnsi: famRaw, cs: famRaw } } : {}),
+        color: { val: color }, sz: 72,
+        ...(/bold|[6-9]00/.test(tps['font-weight'] ?? '') ? { b: true } : {}),
+        ...(/italic/.test(tps['font-style'] ?? '') ? { i: true } : {}),
+      };
+      // props de edição derivadas do MESMO pPr (senão o espaçamento parece editado e some)
+      const wppr: PPr = { jc: 'center', spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' } };
+      const para: Paragraph = { runs: [{ text, props: runPropsFromRPr(rpr), rpr }], props: paraPropsFromPPr(wppr), ppr: wppr };
+      const tb: DrawingTextbox = { paras: [para], blocks: [{ type: 'paragraph', paragraph: para }], widthTwips: w, heightTwips: h, vml: true, insets: { l: 0, t: 0, r: 0, b: 0 }, vAnchor: 'ctr', wordArt: 'textPlain' };
+      const rot = parseFloat(st['rotation'] ?? '0');
+      if (rot) tb.rot = rot;
+      const run: Omit<Run, 'props'> = { text: OBJ, textbox: tb };
+      if (anchor) {
+        tb.floating = true;
+        tb.anchor = anchor;
+        if (anchor.behindDoc) tb.behindDoc = true;
+        tb.relH = anchor.posH.relativeFrom;
+        tb.relV = anchor.posV.relativeFrom;
+        if (anchor.posH.offset !== undefined) tb.offsetXTwips = anchor.posH.offset;
+        if (anchor.posV.offset !== undefined) tb.offsetYTwips = anchor.posV.offset;
+      }
+      return run;
+    }
+    const imagedata = firstChild(el, 'v:imagedata');
+    const rid = imagedata?.attrs['r:id'] ?? imagedata?.attrs['r:pict'];
+    let run: Omit<Run, 'props'> | undefined;
+    if (rid) {
+      const media = ctx.resolveImage(rid);
+      if (!media) return undefined;
+      const image: InlineImage = { data: media.data, ext: media.ext, widthTwips: w, heightTwips: h, vml: true };
+      const crop = (k: string) => {
+        const v = imagedata!.attrs[k];
+        if (!v) return 0;
+        return v.endsWith('f') ? parseInt(v, 10) / 65536 : parseFloat(v);
+      };
+      const c = { l: crop('cropleft'), t: crop('croptop'), r: crop('cropright'), b: crop('cropbottom') };
+      if (c.l || c.t || c.r || c.b) image.crop = c;
+      run = { text: OBJ, image };
+    } else {
+      const txb = firstChild(el, 'v:textbox');
+      const content = txb && firstChild(txb, 'w:txbxContent');
+      if (content) {
+        const tb: DrawingTextbox = { paras: [], widthTwips: w, heightTwips: h, vml: true };
+        textboxBlocks(content, ctx, tb);
+        const inset = (txb!.attrs['inset'] ?? '').split(',');
+        const ins = (i: number, def: number) => (inset[i] && inset[i]!.trim() ? vmlLenTwips(inset[i]!.trim()) ?? def : def);
+        tb.insets = { l: ins(0, 144), t: ins(1, 72), r: ins(2, 144), b: ins(3, 72) };
+        const tbStyle = parseVmlStyle(txb!.attrs['style']);
+        if (tbStyle['mso-fit-shape-to-text'] === 't') tb.autoFit = true;
+        if (parseVmlStyle(el.attrs['style'])['mso-wrap-style'] === 'none') tb.noWrap = true;
+        const sh = vmlShapeStyle(el, 'rect');
+        if (sh.fill || sh.line) tb.shape = sh;
+        run = { text: OBJ, textbox: tb };
+      } else {
+        const tag = el.name.replace(/^v:/, '');
+        const type = el.attrs['type'] ?? '';
+        const declared = el.attrs['fillcolor'] || el.attrs['strokecolor'] || el.attrs['filled'] || el.attrs['stroked']
+          || firstChild(el, 'v:fill') || firstChild(el, 'v:stroke');
+        if (tag === 'shape' && (type.includes('_x0000_t75') || !declared)) {
+          return undefined; // moldura de imagem sem imagem / forma sem aparência declarada
+        }
+        const geom = tag === 'oval' ? 'ellipse' : tag === 'roundrect' ? 'roundRect'
+          : tag === 'line' || type.includes('_x0000_t32') ? 'line' : 'rect';
+        const style = vmlShapeStyle(el, geom);
+        if (geom === 'line') delete style.fill;
+        const shape: DrawingShape = { style, widthTwips: w, heightTwips: h };
+        if (tag === 'line') {
+          const pt = (s: string | undefined) => (s ?? '0,0').split(',').map((v) => vmlLenTwips(v.trim()) ?? 0);
+          const [x1 = 0, y1 = 0] = pt(el.attrs['from']);
+          const [x2 = 0, y2 = 0] = pt(el.attrs['to']);
+          shape.line = { x1, y1, x2, y2 };
+          shape.widthTwips = Math.abs(x2 - x1);
+          shape.heightTwips = Math.abs(y2 - y1);
+          if (!anchor && !inGroup) anchor = vmlAnchor({ ...st, position: 'absolute' });
+        }
+        run = { text: OBJ, shape };
+      }
+    }
+    const target = run.image ?? run.textbox ?? run.shape;
+    if (target && anchor) {
+      target.floating = true;
+      target.anchor = anchor;
+      if (run.image || run.textbox) {
+        const t = (run.image ?? run.textbox)!;
+        if (anchor.behindDoc) t.behindDoc = true;
+        t.relH = anchor.posH.relativeFrom;
+        t.relV = anchor.posV.relativeFrom;
+        if (anchor.posH.offset !== undefined) t.offsetXTwips = anchor.posH.offset;
+        if (anchor.posV.offset !== undefined) t.offsetYTwips = anchor.posV.offset;
+      }
+    }
+    return run;
+  };
+  for (const el of childElements(container)) {
+    if (el.name === 'v:shapetype' || el.name.startsWith('o:') || el.name.startsWith('w10:')) continue;
+    if (el.name === 'v:group') {
+      const st = parseVmlStyle(el.attrs['style']);
+      const w = vmlLenTwips(st['width']) ?? 0;
+      const h = vmlLenTwips(st['height']) ?? 0;
+      const cs = (el.attrs['coordsize'] ?? '1000,1000').split(',').map((v) => parseFloat(v) || 1000);
+      const co = (el.attrs['coordorigin'] ?? '0,0').split(',').map((v) => parseFloat(v) || 0);
+      const sx = w / (cs[0] || 1), sy = h / (cs[1] || 1);
+      const items: DrawingGroup['items'] = [];
+      for (const c of childElements(el)) {
+        if (!c.name.startsWith('v:') || c.name === 'v:shapetype') continue;
+        const cst = parseVmlStyle(c.attrs['style']);
+        const r = shapeOf(c, { sx, sy });
+        if (!r) continue;
+        const x = ((parseFloat(cst['left'] ?? '0') || 0) - (co[0] ?? 0)) * sx;
+        const y = ((parseFloat(cst['top'] ?? '0') || 0) - (co[1] ?? 0)) * sy;
+        const tgt = r.image ?? r.textbox ?? r.shape;
+        items.push({ x, y, w: tgt?.widthTwips ?? 0, h: tgt?.heightTwips ?? 0, run: { ...r, props: { ...DEFAULT_RUN_PROPS } } });
+      }
+      if (!items.length) continue;
+      const group: DrawingGroup = { widthTwips: w, heightTwips: h, items };
+      const anchor = vmlAnchor(st, findDeep(el, 'w10:wrap'));
+      if (anchor) { group.floating = true; group.anchor = anchor; }
+      out.push({ text: OBJ, group });
+      continue;
+    }
+    if (el.name.startsWith('v:')) {
+      const r = shapeOf(el);
+      if (r) {
+        // w:object: a imagem do OLE é inline
+        if (inline && r.image) { delete r.image.floating; delete r.image.anchor; }
+        out.push(r);
+      }
+    }
+  }
+  return out;
 }
 
 function textContentOf(el: XmlElement): string {
@@ -388,7 +763,39 @@ function textContentOf(el: XmlElement): string {
   return out;
 }
 
-/** Lê os runs de um container (w:r diretos, w:hyperlink, m:oMath, w:fldSimple). */
+/** Destino dos runs: resultado do campo aberto (se houver) ou o parágrafo. */
+function runTarget(ctx: ReadContext, runs: Run[]): Run[] | null {
+  const top = ctx.fieldStack?.[ctx.fieldStack.length - 1];
+  if (!top) return runs;
+  if (top.phase === 'instr') return null; // conteúdo da instrução: descartado
+  return top.crossed ? runs : top.runs;
+}
+
+const isObjectRun = (r: Run): boolean => !!(r.image || r.textbox || r.shape || r.group);
+
+/** Fecha o campo do topo da pilha, emitindo o run achatado (texto + runs formatados). */
+function closeField(ctx: ReadContext, runs: Run[]): void {
+  const f = ctx.fieldStack!.pop()!;
+  if (f.crossed) return;
+  const textRuns = f.runs.filter((r) => !isObjectRun(r));
+  const text = textRuns.map((r) => r.text).join('');
+  const first = textRuns[0] ?? f.runs[0];
+  const parent = ctx.fieldStack![ctx.fieldStack!.length - 1];
+  if (parent && parent.phase === 'instr') { parent.instr += text; return; }
+  const run: Run = {
+    text,
+    props: { ...(first?.props ?? f.props) },
+    field: ` ${f.instr.trim()} `,
+  };
+  // campo de formulário: a formatação é a do run do fldChar begin
+  const rpr = f.ff ? f.rpr : (first?.rpr ?? f.rpr);
+  if (rpr) run.rpr = rpr;
+  if (f.ff) run.formField = f.ff;
+  if (f.runs.length) run.fieldResult = f.runs;
+  runTarget(ctx, runs)?.push(run);
+}
+
+/** Lê os runs de um container (w:r diretos, w:hyperlink, m:oMath, w:fldSimple…). */
 function readRunsInto(
   runs: Run[],
   container: XmlElement,
@@ -396,55 +803,78 @@ function readRunsInto(
   inherit?: { link?: string; field?: string },
 ): void {
   for (const child of childElements(container)) {
-    if (child.name === 'w:commentRangeStart') {
-      ctx.activeComments?.add(parseInt(child.attrs['w:id'] ?? '-1', 10));
-    } else if (child.name === 'w:commentRangeEnd') {
-      ctx.activeComments?.delete(parseInt(child.attrs['w:id'] ?? '-1', 10));
-    } else if (child.name === 'w:bookmarkStart') {
-      const name = child.attrs['w:name'];
-      if (name) ctx.onBookmark?.(name);
-    } else if (child.name === 'w:r') {
-      readSingleRun(runs, child, ctx, inherit);
-    } else if (child.name === 'w:hyperlink') {
-      const rid = child.attrs['r:id'];
-      const anchor = child.attrs['w:anchor'];
-      const link = (rid && ctx.resolveLink(rid)) || (anchor ? `#${anchor}` : undefined);
-      readRunsInto(runs, child, ctx, { ...inherit, link });
-    } else if (child.name === 'w:fldSimple') {
-      const instr = child.attrs['w:instr'] ?? '';
-      const before = runs.length;
-      readRunsInto(runs, child, ctx, { ...inherit, field: instr });
-      // auto-fechado (sem resultado em cache): sintetiza o run de campo
-      if (runs.length === before) {
-        runs.push({ text: '', props: { ...DEFAULT_RUN_PROPS }, field: instr });
+    switch (child.name) {
+      case 'w:commentRangeStart':
+        ctx.activeComments?.add(parseInt(child.attrs['w:id'] ?? '-1', 10));
+        break;
+      case 'w:commentRangeEnd':
+        ctx.activeComments?.delete(parseInt(child.attrs['w:id'] ?? '-1', 10));
+        break;
+      case 'w:bookmarkStart': {
+        const name = child.attrs['w:name'];
+        if (name) ctx.onBookmark?.(name);
+        break;
       }
-    } else if (child.name === 'm:oMath' || child.name === 'm:oMathPara') {
-      const text = collectMathText(child);
-      if (text) {
-        runs.push({
-          text,
-          props: { ...DEFAULT_RUN_PROPS, italic: true, isMath: true },
-        });
+      case 'w:r':
+        readSingleRun(runs, child, ctx, inherit);
+        break;
+      case 'w:hyperlink': {
+        const rid = child.attrs['r:id'];
+        const anchor = child.attrs['w:anchor'];
+        const link = (rid && ctx.resolveLink(rid)) || (anchor ? `#${anchor}` : undefined);
+        readRunsInto(runs, child, ctx, { ...inherit, link });
+        break;
       }
-    } else if (child.name === 'w:sdt') {
-      const content = findDeep(child, 'w:sdtContent');
-      const sdtPr = firstChild(child, 'w:sdtPr');
-      const tag = sdtPr ? firstChild(sdtPr, 'w:tag')?.attrs['w:val'] : undefined;
-      const custom = parseCustomInlineTag(tag);
-      if (content && custom) {
-        const nested: Run[] = [];
-        readRunsInto(nested, content, ctx, inherit);
-        const fallbackText = nested.map((run) => run.text).join('');
-        runs.push({
-          text: '\uFFFC',
-          props: { ...(nested[0]?.props ?? DEFAULT_RUN_PROPS) },
-          custom: { ...custom, fallbackText },
-        });
-      } else if (content) {
-        readRunsInto(runs, content, ctx, inherit);
+      case 'w:fldSimple': {
+        const instr = child.attrs['w:instr'] ?? '';
+        const inner: Run[] = [];
+        readRunsInto(inner, child, ctx, inherit);
+        const textRuns = inner.filter((r) => !isObjectRun(r));
+        const first = textRuns[0];
+        const run: Run = {
+          text: textRuns.map((r) => r.text).join(''),
+          props: { ...(first?.props ?? DEFAULT_RUN_PROPS) },
+          field: instr,
+        };
+        if (first?.rpr) run.rpr = first.rpr;
+        if (inner.length) run.fieldResult = inner;
+        runTarget(ctx, runs)?.push(run);
+        break;
       }
-    } else if (child.name === 'w:smartTag' || child.name === 'w:ins') {
-      readRunsInto(runs, child, ctx, inherit);
+      case 'm:oMath':
+      case 'm:oMathPara': {
+        const text = collectMathText(child);
+        if (text) runTarget(ctx, runs)?.push({ text, props: { ...DEFAULT_RUN_PROPS, italic: true, isMath: true } });
+        break;
+      }
+      case 'w:sdt': {
+        const content = findDeep(child, 'w:sdtContent');
+        const sdtPr = firstChild(child, 'w:sdtPr');
+        const tag = sdtPr ? firstChild(sdtPr, 'w:tag')?.attrs['w:val'] : undefined;
+        const custom = parseCustomInlineTag(tag);
+        if (content && custom) {
+          const nested: Run[] = [];
+          readRunsInto(nested, content, ctx, inherit);
+          const fallbackText = nested.map((run) => run.text).join('');
+          runTarget(ctx, runs)?.push({
+            text: '\uFFFC',
+            props: { ...(nested[0]?.props ?? DEFAULT_RUN_PROPS) },
+            custom: { ...custom, fallbackText },
+          });
+        } else if (content) {
+          readRunsInto(runs, content, ctx, inherit);
+        }
+        break;
+      }
+      case 'w:smartTag':
+      case 'w:ins':
+      case 'w:moveTo':
+      case 'w:customXml':
+      case 'w:dir':
+      case 'w:bdo':
+        readRunsInto(runs, child, ctx, inherit);
+        break;
+      // w:del / w:moveFrom: texto excluído (visão "final") — fora do fluxo
     }
   }
 }
@@ -481,167 +911,201 @@ function readSingleRun(
   ctx: ReadContext,
   inherit?: { link?: string; field?: string },
 ): void {
-  const rProps = readRunProps(firstChild(rEl, 'w:rPr'));
+  const rpr = readRPr(firstChild(rEl, 'w:rPr'));
+  const rProps = runPropsFromRPr(rpr);
   if (inherit?.link) {
     rProps.link = inherit.link;
     rProps.underline = true;
     rProps.color ??= '0563C1';
   }
-  const flush = (text: string, extra?: Partial<Run>) => {
-    if (text.length === 0 && !extra) return;
+  ctx.fieldStack ??= [];
+  const stack = ctx.fieldStack;
+  const make = (text: string, extra?: Partial<Run>): Run => {
     const props = { ...rProps };
     if (ctx.activeComments?.size) props.commentIds = [...ctx.activeComments];
-    runs.push({ text, props, ...(inherit?.field ? { field: inherit.field } : {}), ...extra });
+    const run: Run = { text, props, ...(inherit?.field ? { field: inherit.field } : {}), ...extra };
+    if (rpr) run.rpr = rpr;
+    if (stack.some((f) => f.phase === 'result' && /^\s*TOC\b/i.test(f.instr))) run.inToc = true;
+    return run;
   };
   let text = '';
+  const flush = () => {
+    if (text.length === 0) return;
+    runTarget(ctx, runs)?.push(make(text));
+    text = '';
+  };
+  const pushRun = (extra: Partial<Run> & { text: string }) => {
+    flush();
+    runTarget(ctx, runs)?.push(make(extra.text, extra));
+  };
   for (const child of childElements(rEl)) {
+    if (child.name === 'w:rPr') continue;
     // campos complexos: fldChar begin/separate/end + instrText (PAGE, NUMPAGES…)
     if (child.name === 'w:fldChar') {
+      flush();
       const type = child.attrs['w:fldCharType'];
       if (type === 'begin') {
-        if (text) { flush(text); text = ''; }
-        ctx.fieldState = { instr: '', phase: 'instr', result: '' };
-      } else if (type === 'separate') {
-        if (ctx.fieldState) ctx.fieldState.phase = 'result';
-      } else if (type === 'end') {
-        const fs = ctx.fieldState;
-        ctx.fieldState = null;
-        if (fs) {
-          const instr = ` ${fs.instr.trim()} `;
-          const props = { ...rProps };
-          if (ctx.activeComments?.size) props.commentIds = [...ctx.activeComments];
-          runs.push({ text: fs.result, props, field: instr });
+        const frame: FieldFrame = { instr: '', phase: 'instr', runs: [], crossed: false, props: { ...rProps } };
+        if (rpr) frame.rpr = rpr;
+        const ff = firstChild(child, 'w:ffData');
+        if (ff) {
+          const cb = firstChild(ff, 'w:checkBox');
+          if (cb) {
+            const def = firstChild(cb, 'w:default')?.attrs['w:val'];
+            const chk = firstChild(cb, 'w:checked');
+            const size = firstChild(cb, 'w:size')?.attrs['w:val'];
+            frame.ff = {
+              type: 'checkBox',
+              checked: chk ? chk.attrs['w:val'] !== '0' && chk.attrs['w:val'] !== 'false' : def === '1' || def === 'true',
+              ...(size ? { sizeHalfPt: parseInt(size, 10) } : {}),
+              ...(firstChild(cb, 'w:sizeAuto') || !size ? { sizeAuto: true } : {}),
+            };
+          } else if (firstChild(ff, 'w:ddList')) frame.ff = { type: 'dropDown' };
+          else if (firstChild(ff, 'w:textInput')) frame.ff = { type: 'textInput' };
         }
+        stack.push(frame);
+      } else if (type === 'separate') {
+        const top = stack[stack.length - 1];
+        if (top) top.phase = 'result';
+      } else if (type === 'end') {
+        if (stack.length) closeField(ctx, runs);
       }
       continue;
     }
     if (child.name === 'w:instrText') {
-      if (ctx.fieldState) ctx.fieldState.instr += textContentOf(child);
+      const top = stack[stack.length - 1];
+      if (top && top.phase === 'instr') top.instr += textContentOf(child);
       continue;
     }
-    if (ctx.fieldState) {
-      // dentro de um campo: o texto vai para o resultado em cache (não emite run)
-      if (child.name === 'w:t' && ctx.fieldState.phase === 'result') {
-        ctx.fieldState.result += child.children.filter((c): c is string => typeof c === 'string').join('');
+    switch (child.name) {
+      case 'w:t':
+        text += child.children.filter((c): c is string => typeof c === 'string').join('');
+        break;
+      case 'w:tab':
+        text += '\t';
+        break;
+      case 'w:ptab':
+        pushRun({
+          text: '\t',
+          ptab: {
+            alignment: child.attrs['w:alignment'] ?? 'left',
+            relativeTo: child.attrs['w:relativeTo'] ?? 'margin',
+            ...(child.attrs['w:leader'] ? { leader: child.attrs['w:leader'] } : {}),
+          },
+        });
+        break;
+      case 'w:br':
+      case 'w:cr': {
+        // \f = quebra de página; \u000B = quebra de coluna; \n = quebra de linha
+        const t = child.attrs['w:type'];
+        text += t === 'page' ? '\f' : t === 'column' ? '\u000B' : '\n';
+        break;
       }
-      continue;
-    }
-    if (child.name === 'w:t') {
-      text += child.children.filter((c): c is string => typeof c === 'string').join('');
-    } else if (child.name === 'w:tab') text += '\t';
-    else if (child.name === 'w:br' || child.name === 'w:cr') {
-      // \f = quebra de página (w:br type="page"); \n = quebra de linha manual
-      text += child.attrs['w:type'] === 'page' ? '\f' : '\n';
-    }
-    else if (child.name === 'w:sym') {
-      if (text) { flush(text); text = ''; }
-      const hex = child.attrs['w:char'] ?? 'F0B7';
-      let code = parseInt(hex, 16);
-      // só códigos legados de 1 byte mapeiam para a área privada F0xx;
-      // valores Unicode reais (ex.: 2612 ☒) ficam como estão
-      if (code <= 0xff) code |= 0xf000;
-      runs.push({
-        text: String.fromCharCode(code),
-        props: { ...rProps, fontAscii: child.attrs['w:font'] ?? rProps.fontAscii },
-      });
-    } else if (child.name === 'w:footnoteReference' || child.name === 'w:endnoteReference') {
-      if (text) { flush(text); text = ''; }
-      const id = parseInt(child.attrs['w:id'] ?? '0', 10);
-      runs.push({
-        text: '',
-        props: { ...rProps, vertAlign: 'superscript' },
-        noteRef: { kind: child.name === 'w:footnoteReference' ? 'footnote' : 'endnote', id },
-      });
-    } else if (child.name === 'w:drawing') {
-      if (text) { flush(text); text = ''; }
-      const image = readDrawing(child, ctx.resolveImage);
-      if (image) runs.push({ text: '￼', props: { ...rProps }, image });
-      else {
-        const textbox = readTextbox(child, ctx);
-        if (textbox) runs.push({ text: '￼', props: { ...rProps }, textbox });
+      case 'w:noBreakHyphen':
+        text += '\u2011';
+        break;
+      case 'w:softHyphen':
+        text += '\u00AD';
+        break;
+      case 'w:sym': {
+        const hex = child.attrs['w:char'] ?? 'F0B7';
+        let code = parseInt(hex, 16);
+        // só códigos legados de 1 byte mapeiam para a área privada F0xx;
+        // valores Unicode reais (ex.: 2612 ☒) ficam como estão
+        if (code <= 0xff) code |= 0xf000;
+        const font = child.attrs['w:font'];
+        flush();
+        const run = make(String.fromCharCode(code));
+        run.props.fontAscii = font ?? rProps.fontAscii;
+        if (font) run.symFont = font;
+        runTarget(ctx, runs)?.push(run);
+        break;
       }
-    } else if (child.name === 'mc:AlternateContent') {
-      // formas/caixas de texto de DrawingML: o w:drawing moderno fica em
-      // mc:Choice (Requires="wps"); o mc:Fallback é VML. Descemos no drawing.
-      const choice = firstChild(child, 'mc:Choice') ?? child;
-      const drawing = findDeep(choice, 'w:drawing');
-      if (drawing) {
-        if (text) { flush(text); text = ''; }
-        const image = readDrawing(drawing, ctx.resolveImage);
-        if (image) runs.push({ text: '￼', props: { ...rProps }, image });
+      case 'w:footnoteReference':
+      case 'w:endnoteReference': {
+        const id = parseInt(child.attrs['w:id'] ?? '0', 10);
+        flush();
+        const run = make('', { noteRef: { kind: child.name === 'w:footnoteReference' ? 'footnote' : 'endnote', id } });
+        run.props.vertAlign = 'superscript';
+        runTarget(ctx, runs)?.push(run);
+        break;
+      }
+      case 'w:footnoteRef':
+      case 'w:endnoteRef':
+        // número da própria nota (dentro de footnotes.xml): o motor numera
+        pushRun({ text: '', field: child.name === 'w:footnoteRef' ? ' FOOTNOTEREF_MARK ' : ' ENDNOTEREF_MARK ' });
+        break;
+      case 'w:pgNum':
+        pushRun({ text: '', field: ' PAGE ' });
+        break;
+      case 'w:drawing': {
+        const r = readDrawingRun(child, ctx);
+        if (r) pushRun(r);
+        break;
+      }
+      case 'w:pict':
+        for (const r of readVmlRuns(child, ctx, false)) pushRun(r);
+        break;
+      case 'w:object':
+        for (const r of readVmlRuns(child, ctx, true)) pushRun(r);
+        break;
+      case 'mc:AlternateContent': {
+        // formas/caixas de texto de DrawingML: o w:drawing moderno fica em
+        // mc:Choice (Requires="wps"); o mc:Fallback é VML.
+        const choice = firstChild(child, 'mc:Choice');
+        const drawing = choice && findDeep(choice, 'w:drawing');
+        const r = drawing && readDrawingRun(drawing, ctx);
+        if (r) pushRun(r);
         else {
-          const textbox = readTextbox(drawing, ctx);
-          if (textbox) runs.push({ text: '￼', props: { ...rProps }, textbox });
+          const fb = firstChild(child, 'mc:Fallback');
+          const pict = fb && (findDeep(fb, 'w:pict') ?? findDeep(fb, 'w:object'));
+          if (pict) for (const v of readVmlRuns(pict, ctx, pict.name === 'w:object')) pushRun(v);
         }
+        break;
+      }
+      case 'w:ruby': {
+        const base = firstChild(child, 'w:rubyBase');
+        if (base) { flush(); readRunsInto(runs, base, ctx, inherit); }
+        break;
       }
     }
   }
-  if (text.length > 0) flush(text);
+  flush();
 }
 
 export function readParagraph(pEl: XmlElement, ctx: ReadContext): Paragraph {
-  const props: ParaProps = {};
-  const pPr = firstChild(pEl, 'w:pPr');
-  if (pPr) {
-    const jc = firstChild(pPr, 'w:jc')?.attrs['w:val'];
-    if (jc === 'center' || jc === 'right' || jc === 'both' || jc === 'left') props.alignment = jc;
-    props.styleId = firstChild(pPr, 'w:pStyle')?.attrs['w:val'];
-    const numPr = firstChild(pPr, 'w:numPr');
-    if (numPr) {
-      const numId = parseInt(firstChild(numPr, 'w:numId')?.attrs['w:val'] ?? '0', 10);
-      props.numbering = {
-        kind: numId === 1002 ? 'decimal' : 'bullet',
-        ilvl: parseInt(firstChild(numPr, 'w:ilvl')?.attrs['w:val'] ?? '0', 10),
-      };
-    }
-    const ind = firstChild(pPr, 'w:ind');
-    if (ind) {
-      if (ind.attrs['w:left']) props.indentLeftTwips = parseInt(ind.attrs['w:left'], 10);
-      if (ind.attrs['w:right']) props.indentRightTwips = parseInt(ind.attrs['w:right'], 10);
-      if (ind.attrs['w:firstLine']) props.indentFirstLineTwips = parseInt(ind.attrs['w:firstLine'], 10);
-      if (ind.attrs['w:hanging']) props.indentFirstLineTwips = -parseInt(ind.attrs['w:hanging'], 10);
-    }
-    const spacing = firstChild(pPr, 'w:spacing');
-    if (spacing) {
-      if (spacing.attrs['w:line'] && spacing.attrs['w:lineRule'] === 'auto') {
-        props.lineTwentieths = parseInt(spacing.attrs['w:line'], 10);
-      }
-      if (spacing.attrs['w:after']) props.spaceAfterTwips = parseInt(spacing.attrs['w:after'], 10);
-      if (spacing.attrs['w:before']) props.spaceBeforeTwips = parseInt(spacing.attrs['w:before'], 10);
-    }
-    const shd = firstChild(pPr, 'w:shd')?.attrs['w:fill'];
-    if (shd && shd !== 'auto') props.shadingHex = shd;
-    const tabs = firstChild(pPr, 'w:tabs');
-    if (tabs) {
-      const stops = childElements(tabs, 'w:tab')
-        .map((t) => ({
-          posTwips: parseInt(t.attrs['w:pos'] ?? '0', 10),
-          align: (t.attrs['w:val'] === 'right' ? 'right' : 'left') as 'left' | 'right',
-          leader: t.attrs['w:leader'] === 'dot' ? ('dot' as const) : undefined,
-        }))
-        .filter((t) => t.posTwips > 0);
-      if (stops.length) props.tabStops = stops;
-    }
-    const pBdr = firstChild(pPr, 'w:pBdr');
-    if (pBdr) {
-      props.boxBorder = true;
-      const borders: ParagraphBorders = {};
-      for (const side of ['top', 'left', 'bottom', 'right'] as const) {
-        const edge = readBorderEdge(firstChild(pBdr, `w:${side}`));
-        if (edge) borders[side] = edge;
-      }
-      if (Object.keys(borders).length > 0) props.borders = borders;
-    }
-    if (firstChild(pPr, 'w:pageBreakBefore')) props.pageBreakBefore = true;
-    const framePr = firstChild(pPr, 'w:framePr');
-    if (framePr?.attrs['w:dropCap'] && framePr.attrs['w:dropCap'] !== 'none') props.dropCap = true;
-  }
+  const ppr = readPPr(firstChild(pEl, 'w:pPr'));
+  const props = paraPropsFromPPr(ppr);
   const runs: Run[] = [];
   readRunsInto(runs, pEl, ctx);
+  // campo cujo resultado atravessa o fim do parágrafo (ex.: TOC): o pedaço
+  // deste parágrafo vira o run do campo; o resto segue como runs normais
+  const stack = ctx.fieldStack ?? [];
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const f = stack[i]!;
+    if (f.phase !== 'result' || f.crossed) continue;
+    if (i === stack.length - 1 && f.runs.length) {
+      const textRuns = f.runs.filter((r) => !isObjectRun(r));
+      const first = textRuns[0] ?? f.runs[0];
+      const run: Run = {
+        text: textRuns.map((r) => r.text).join(''),
+        props: { ...(first?.props ?? f.props) },
+        field: ` ${f.instr.trim()} `,
+        fieldResult: f.runs,
+      };
+      const rpr = first?.rpr ?? f.rpr;
+      if (rpr) run.rpr = rpr;
+      runs.push(run);
+    }
+    f.crossed = true;
+    f.runs = [];
+  }
   // campo TOC (mesmo "sujo"/sem cache): marca o parágrafo p/ geração
   const instr = collectInstrText(pEl);
   if (/\bTOC\b/.test(instr)) props.tocInstr = instr.trim();
-  return { runs, props };
+  const para: Paragraph = { runs, props };
+  if (ppr) para.ppr = ppr;
+  return para;
 }
 
 function collectInstrText(el: XmlElement): string {
@@ -673,7 +1137,7 @@ export function buildReadContext(pkg: DocxPackage, relsPath: string): ReadContex
   }
   return {
     activeComments: new Set<number>(),
-    fieldState: null,
+    fieldStack: [],
     resolveImage: (rid) => {
       const rel = relMap.get(rid);
       if (!rel || rel.external) return undefined;

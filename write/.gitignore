@@ -9,3 +9,9 @@ tools/word-lab/
 # Artefatos binários intermediários do lab (os XML extraídos e diffs SÃO versionados)
 tools/word-lab/results/**/*.docx
 ~$*
+
+# PDFs do Word do oráculo de layout embutem subconjuntos de fontes proprietárias
+tools/layout-oracle/.out/
+
+# cache do Python dos labs
+__pycache__/

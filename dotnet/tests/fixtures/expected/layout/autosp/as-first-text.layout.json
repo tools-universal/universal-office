@@ -1,0 +1,21 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":1645.52,"scaleX":1,"text":"PrimeiraHxg","g":[[80,1701],[114,1824.98],[105,1908.66],[109,1963.73],[101,2155.45],[105,2274.87],[114,2329.95],[97,2413.62],[72,2582.84],[120,2732.37],[103,2836.31]]},
+        {"t":"glyphs","family":"Calibri","bold":true,"italic":false,"synthBold":false,"synthItalic":false,"size":16,"color":"000000","y":2014.66,"scaleX":1,"text":"TituloHxg","g":[[84,1701],[105,1859.44],[116,1938.03],[117,2048.97],[108,2220.69],[111,2299.28],[72,2543.66],[120,2745.53],[103,2892.56]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":2329.11,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1848.66],[112,1968.07],[111,2094.16],[105,2220.73],[115,2275.8],[72,2423.93],[120,2573.46],[103,2677.41]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":12,"x":1701,"y":1417,"height":292.97,"baseline":1645.52,"width":1248.28},
+        {"ref":"b1","start":0,"end":10,"x":1701,"y":1709.97,"height":390.63,"baseline":2014.66,"width":1343.28},
+        {"ref":"b2","start":0,"end":10,"x":1701,"y":2100.59,"height":292.97,"baseline":2329.11,"width":1089.38}
+      ]
+    }
+  ],
+  "warnings": []
+}

@@ -1,0 +1,23 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":15212.58,"scaleX":1,"text":"Rod1Hxg","g":[[82,1701],[111,1831.31],[100,1957.88],[49,2138.23],[72,2314.13],[120,2463.66],[103,2567.6]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":15785.55,"scaleX":1,"text":"Rod2Hxg","g":[[82,1701],[111,1831.31],[100,1957.88],[50,2138.23],[72,2314.13],[120,2463.66],[103,2567.6]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":1362.52,"scaleX":1,"text":"Corpo1Hxg","g":[[67,1701],[111,1828.97],[114,1955.53],[112,2039.2],[111,2165.3],[49,2346.12],[72,2522.02],[120,2671.55],[103,2775.49]]},
+        {"t":"glyphs","family":"Calibri","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":1935.48,"scaleX":1,"text":"Corpo2Hxg","g":[[67,1701],[111,1828.97],[114,1955.53],[112,2039.2],[111,2165.3],[50,2346.12],[72,2522.02],[120,2671.55],[103,2775.49]]}
+      ],
+      "lines": [
+        {"ref":"ftr:default/b0","start":0,"end":9,"x":1701,"y":14984.06,"height":292.97,"baseline":15212.58,"width":979.57},
+        {"ref":"ftr:default/b1","start":0,"end":9,"x":1701,"y":15557.03,"height":292.97,"baseline":15785.55,"width":979.57},
+        {"ref":"b0","start":0,"end":11,"x":1701,"y":1134,"height":292.97,"baseline":1362.52,"width":1187.46},
+        {"ref":"b1","start":0,"end":11,"x":1701,"y":1706.97,"height":292.97,"baseline":1935.48,"width":1187.46}
+      ]
+    }
+  ],
+  "warnings": []
+}

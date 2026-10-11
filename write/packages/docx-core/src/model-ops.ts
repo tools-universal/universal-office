@@ -40,6 +40,18 @@ export function normalizeRange(r: DocRange): DocRange {
   return comparePos(r.start, r.end) <= 0 ? r : { start: r.end, end: r.start };
 }
 
+/** Formatação tipada original (rPr) igual? Runs com rPr diferente não se fundem
+ *  (estilo de caractere, efeitos que as props de edição não representam). */
+const sameRPr = (a: Run, b: Run): boolean => a.rpr === b.rpr || JSON.stringify(a.rpr ?? null) === JSON.stringify(b.rpr ?? null);
+
+/** Extras de TEXTO que acompanham cada pedaço de um run dividido. */
+const textExtras = (run: Run): Partial<Run> => ({
+  ...(run.field ? { field: run.field } : {}),
+  ...(run.rpr ? { rpr: run.rpr } : {}),
+  ...(run.symFont ? { symFont: run.symFont } : {}),
+  ...(run.inToc ? { inToc: run.inToc } : {}),
+});
+
 const sameProps = (a: RunProps, b: RunProps): boolean =>
   a.bold === b.bold && a.italic === b.italic && a.underline === b.underline &&
   a.underlineStyle === b.underlineStyle && a.underlineColor === b.underlineColor &&
@@ -57,14 +69,15 @@ const sameComments = (a?: number[], b?: number[]): boolean => {
 
 /** Funde runs adjacentes idênticos e remove vazios.
  *  Runs especiais (imagem/campo/nota) nunca se fundem e preservam extras. */
-const isSpecial = (r: Run): boolean => !!(r.image || r.field || r.noteRef || r.custom);
+const isSpecial = (r: Run): boolean => !!(r.image || r.field || r.noteRef || r.custom || r.textbox || r.shape || r.group || r.ptab);
 
 export function normalizeParagraph(p: Paragraph): void {
   const out: Run[] = [];
   for (const run of p.runs) {
     if (run.text.length === 0 && !isSpecial(run)) continue;
     const last = out[out.length - 1];
-    if (last && !isSpecial(last) && !isSpecial(run) && sameProps(last.props, run.props)) {
+    if (last && !isSpecial(last) && !isSpecial(run) && sameProps(last.props, run.props) && sameRPr(last, run)
+      && !last.fieldResult && !run.fieldResult && last.field === run.field) {
       last.text += run.text;
     } else {
       out.push({ ...run, props: { ...run.props } });
@@ -80,7 +93,7 @@ function splitAt(p: Paragraph, offset: number): number {
     const run = p.runs[i]!;
     if (offset === acc) return i;
     if (offset < acc + run.text.length) {
-      const extras = run.field ? { field: run.field } : {};
+      const extras = textExtras(run);
       const head: Run = { ...extras, text: run.text.slice(0, offset - acc), props: { ...run.props } };
       const tail: Run = { ...extras, text: run.text.slice(offset - acc), props: { ...run.props } };
       p.runs.splice(i, 1, head, tail);
@@ -103,6 +116,19 @@ export function propsAt(model: DocumentModel, pos: DocPosition): RunProps {
   return { ...p.runs[p.runs.length - 1]!.props };
 }
 
+/** rPr do run onde o texto entra (o anterior, como propsAt). */
+function rprAt(model: DocumentModel, pos: DocPosition): Run['rpr'] {
+  const p = model.paragraphs[pos.para];
+  if (!p || p.runs.length === 0) return undefined;
+  let acc = 0;
+  for (const run of p.runs) {
+    if (pos.offset <= acc + run.text.length && !isSpecial(run)) return run.rpr;
+    acc += run.text.length;
+  }
+  for (let i = p.runs.length - 1; i >= 0; i--) if (!isSpecial(p.runs[i]!)) return p.runs[i]!.rpr;
+  return undefined;
+}
+
 export function insertText(
   model: DocumentModel,
   pos: DocPosition,
@@ -111,8 +137,10 @@ export function insertText(
 ): DocPosition {
   const p = model.paragraphs[pos.para]!;
   const effective = props ?? propsAt(model, pos);
+  // o texto novo herda a formatação tipada (rPr) do run vizinho, como herda as props
+  const rpr = rprAt(model, pos);
   const idx = splitAt(p, pos.offset);
-  p.runs.splice(idx, 0, { text, props: { ...effective } });
+  p.runs.splice(idx, 0, { text, props: { ...effective }, ...(rpr ? { rpr } : {}) });
   normalizeParagraph(p);
   return { para: pos.para, offset: pos.offset + text.length };
 }
@@ -174,14 +202,8 @@ function rebuildDelete(p: Paragraph, from: number, to: number): void {
     if (text.length > 0) {
       // preserva extras se o run sobreviveu inteiro; campo sobrevive parcial
       const intact = text.length === run.text.length;
-      out.push({
-        text,
-        props: run.props,
-        ...(run.field ? { field: run.field } : {}),
-        ...(intact && run.image ? { image: run.image } : {}),
-        ...(intact && run.noteRef ? { noteRef: run.noteRef } : {}),
-        ...(intact && run.custom ? { custom: run.custom } : {}),
-      });
+      // inteiro: o run segue como era (todos os extras); parcial: extras de texto
+      out.push(intact ? { ...run, text } : { ...textExtras(run), text, props: run.props });
     }
   }
   p.runs = out;

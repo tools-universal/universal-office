@@ -1,0 +1,89 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 144.36,
+"size": 11.04,
+"text": "Antes1Hxg"
+},
+{
+"y": 93.86,
+"x0": 194.09,
+"x1": 465.27,
+"size": 11.04,
+"text": "Textolongodomesmoparágrafoquecontornaoobjeto"
+},
+{
+"y": 106.46,
+"x0": 194.09,
+"x1": 495.68,
+"size": 11.04,
+"text": "ancoradonelemesmo,compalavrassuficientesparaquebrar"
+},
+{
+"y": 119.18,
+"x0": 194.09,
+"x1": 500.67,
+"size": 11.04,
+"text": "emváriaslinhasepassardaalturadaimagem.Textolongodo"
+},
+{
+"y": 131.78,
+"x0": 194.09,
+"x1": 503.6,
+"size": 11.04,
+"text": "mesmoparágrafoquecontornaoobjetoancoradonelemesmo,"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 504.71,
+"size": 11.04,
+"text": "compalavrassuficientesparaquebraremváriaslinhasepassardaalturadaimagem."
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 494.61,
+"size": 11.04,
+"text": "Textolongodomesmoparágrafoquecontornaoobjetoancoradonelemesmo,com"
+},
+{
+"y": 169.7,
+"x0": 85.1,
+"x1": 480.76,
+"size": 11.04,
+"text": "palavrassuficientesparaquebraremváriaslinhasepassardaalturadaimagem."
+},
+{
+"y": 182.42,
+"x0": 85.1,
+"x1": 144.36,
+"size": 11.04,
+"text": "Antes2Hxg"
+},
+{
+"y": 195.02,
+"x0": 85.1,
+"x1": 144.36,
+"size": 11.04,
+"text": "Antes3Hxg"
+}
+],
+"objs": [
+{
+"t": "image",
+"x0": 85.05,
+"y0": 83.5,
+"x1": 185.05,
+"y1": 123.5
+}
+]
+}
+]
+}

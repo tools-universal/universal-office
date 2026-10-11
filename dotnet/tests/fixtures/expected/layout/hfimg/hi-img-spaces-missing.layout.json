@@ -1,0 +1,29 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"image","x":1701,"y":708,"w":1920,"h":600,"ext":"png","bytes":82,"crop":null,"rot":0,"flipH":false,"flipV":false},
+        {"t":"glyphs","family":"Cambria","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":1536.05,"scaleX":1,"text":"Corpo1Hxg","g":[[67,1701],[111,1836],[114,1963.38],[112,2062.64],[111,2196.12],[49,2376.35],[72,2562.09],[120,2726.86],[103,2842.88]]},
+        {"t":"glyphs","family":"Cambria","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":1817.41,"scaleX":1,"text":"Corpo2Hxg","g":[[67,1701],[111,1836],[114,1963.38],[112,2062.64],[111,2196.12],[50,2376.35],[72,2562.09],[120,2726.86],[103,2842.88]]},
+        {"t":"glyphs","family":"Cambria","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":2098.78,"scaleX":1,"text":"Corpo3Hxg","g":[[67,1701],[111,1836],[114,1963.38],[112,2062.64],[111,2196.12],[51,2376.35],[72,2562.09],[120,2726.86],[103,2842.88]]},
+        {"t":"glyphs","family":"Cambria","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":2380.15,"scaleX":1,"text":"Corpo4Hxg","g":[[67,1701],[111,1836],[114,1963.38],[112,2062.64],[111,2196.12],[52,2376.35],[72,2562.09],[120,2726.86],[103,2842.88]]},
+        {"t":"glyphs","family":"Cambria","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":2661.52,"scaleX":1,"text":"Corpo5Hxg","g":[[67,1701],[111,1836],[114,1963.38],[112,2062.64],[111,2196.12],[53,2376.35],[72,2562.09],[120,2726.86],[103,2842.88]]},
+        {"t":"glyphs","family":"Cambria","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":12,"color":"000000","y":2942.88,"scaleX":1,"text":"Corpo6Hxg","g":[[67,1701],[111,1836],[114,1963.38],[112,2062.64],[111,2196.12],[54,2376.35],[72,2562.09],[120,2726.86],[103,2842.88]]}
+      ],
+      "lines": [
+        {"ref":"hdr:default/b0","start":0,"end":19,"x":1701,"y":708,"height":600,"baseline":1308,"width":1920},
+        {"ref":"b0","start":0,"end":11,"x":1701,"y":1308,"height":281.37,"baseline":1536.05,"width":1260.47},
+        {"ref":"b1","start":0,"end":11,"x":1701,"y":1589.37,"height":281.37,"baseline":1817.41,"width":1260.47},
+        {"ref":"b2","start":0,"end":11,"x":1701,"y":1870.73,"height":281.37,"baseline":2098.78,"width":1260.47},
+        {"ref":"b3","start":0,"end":11,"x":1701,"y":2152.1,"height":281.37,"baseline":2380.15,"width":1260.47},
+        {"ref":"b4","start":0,"end":11,"x":1701,"y":2433.47,"height":281.37,"baseline":2661.52,"width":1260.47},
+        {"ref":"b5","start":0,"end":11,"x":1701,"y":2714.84,"height":281.37,"baseline":2942.88,"width":1260.47}
+      ]
+    }
+  ],
+  "warnings": []
+}

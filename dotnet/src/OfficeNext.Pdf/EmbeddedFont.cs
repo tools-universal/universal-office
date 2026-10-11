@@ -35,7 +35,9 @@ public sealed class EmbeddedFont
     /// <summary>Mapeia um code point para (gid, advance em unidades de fonte) e registra uso.</summary>
     public (int Gid, int AdvanceWidth) Encode(int codePoint)
     {
-        int gid = _program.GlyphId(codePoint);
+        // Identity-H tem 2 bytes por glifo: id fora de 0..0xFFFF (fonte/cmap inválido) vira .notdef
+        int g0 = _program.GlyphId(codePoint);
+        int gid = g0 >= 0 && g0 <= 0xffff ? g0 : 0;
         _used.TryAdd(gid, codePoint);
         return (gid, _program.AdvanceWidth(gid));
     }

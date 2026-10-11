@@ -1,0 +1,81 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 159.72,
+"size": 11.04,
+"text": "PaginaumHxg"
+},
+{
+"y": 101.78,
+"x0": 85.1,
+"x1": 259.89,
+"size": 11.04,
+"text": "TerminacomquebradepaginaHxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 200.03,
+"size": 11.04,
+"text": "ParagrafoseguinteHxg"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 282.59,
+"size": 11.04,
+"text": "DepoisdeparagrafosocomquebraHxg"
+},
+{
+"y": 101.78,
+"x0": 85.1,
+"x1": 112.31,
+"size": 11.04,
+"text": "Texto"
+}
+],
+"objs": []
+},
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 192.15,
+"size": 11.04,
+"text": "continuanaoutraHxg"
+},
+{
+"y": 101.78,
+"x0": 85.1,
+"x1": 125.4,
+"size": 11.04,
+"text": "FimHxg"
+}
+],
+"objs": []
+}
+]
+}

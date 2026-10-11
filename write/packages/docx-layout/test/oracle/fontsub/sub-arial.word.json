@@ -1,0 +1,67 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 86.06,
+"x0": 85.1,
+"x1": 307.81,
+"size": 15.96,
+"text": "ZzSansPanoseWMwmiIl10OHxg"
+},
+{
+"y": 105.62,
+"x0": 85.1,
+"x1": 290.16,
+"size": 15.96,
+"text": "ZzSansZeroWMwmiIl10OHxg"
+},
+{
+"y": 125.18,
+"x0": 85.1,
+"x1": 321.09,
+"size": 15.96,
+"text": "ZzSerifPanoseWMwmiIl10OHxg"
+},
+{
+"y": 143.9,
+"x0": 85.1,
+"x1": 258.97,
+"size": 15.96,
+"text": "ZzAutoWMwmiIl10OHxg"
+},
+{
+"y": 163.46,
+"x0": 85.1,
+"x1": 279.98,
+"size": 15.96,
+"text": "ZzModernWMwmiIl10OHxg"
+},
+{
+"y": 183.02,
+"x0": 85.1,
+"x1": 296.16,
+"size": 15.96,
+"text": "ZzGeometricWMwmiIl10OHxg"
+},
+{
+"y": 203.42,
+"x0": 85.1,
+"x1": 284.86,
+"size": 15.96,
+"text": "ZzAltWMwmiIl10OHxg"
+},
+{
+"y": 222.02,
+"x0": 85.1,
+"x1": 328.99,
+"size": 15.96,
+"text": "ZzNaoNaTabelaWMwmiIl10OHxg"
+}
+],
+"objs": []
+}
+]
+}

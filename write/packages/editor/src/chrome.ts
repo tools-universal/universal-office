@@ -108,7 +108,7 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
     ${iconBtn('toc', 'toc', 'Update table of contents')}
     ${SEP}
     ${textBtn('marks', '&para;', 'Formatting marks')}
-    <input type="file" data-a="file-docx" accept=".docx,.odt" hidden />
+    <input type="file" data-a="file-docx" accept=".docx,.doc,.odt" hidden />
     <input type="file" data-a="file-img" accept="image/*" hidden />
   </div>
   <div class="uw-bar">

@@ -7,9 +7,19 @@
  * Retorna um mapa de ajuste de xAdvance (unidades da fonte) por par de gids.
  */
 
-export type KernMap = Map<number, number>; // (g1<<16|g2) -> xAdvance units
+export type KernMap = Map<number, number>; // kernKey(g1, g2) -> xAdvance units
 
-export function parseGposKern(view: DataView, gposOffset: number): KernMap {
+/**
+ * PairPos formato 2: ajuste de um 1º glifo contra a classe 0 do ClassDef2 (todos
+ * os glifos NÃO listados nele). O par entra só se o 2º glifo não estiver no
+ * ClassDef2 da mesma subtabela (os listados já estão no mapa de pares).
+ */
+export type KernClass0 = Map<number, { adv: number; cd2: Map<number, number> }>;
+
+/** Chave de um par de glifos de 16 bits (sem operações de bits: não troca de sinal). */
+export const kernKey = (g1: number, g2: number): number => g1 * 65536 + g2;
+
+export function parseGposKern(view: DataView, gposOffset: number, class0?: KernClass0): KernMap {
   const kern: KernMap = new Map();
   const u16 = (o: number) => view.getUint16(o);
   const i16 = (o: number) => view.getInt16(o);
@@ -126,7 +136,7 @@ export function parseGposKern(view: DataView, gposOffset: number): KernMap {
           const g2 = u16(rec);
           const adv = readXAdvance(rec + 2, vf1);
           if (adv !== 0) {
-            const key = (coverage[i]! << 16) | g2;
+            const key = kernKey(coverage[i]!, g2);
             if (!kern.has(key)) kern.set(key, adv);
           }
         }
@@ -149,12 +159,19 @@ export function parseGposKern(view: DataView, gposOffset: number): KernMap {
       // classe de cada glifo coberto (classe 0 = default)
       const class1 = new Map<number, number>();
       for (const g of coverage) class1.set(g, cd1.get(g) ?? 0);
+      // 2º glifo de classe 0 (fora do ClassDef2): ajuste próprio da classe do 1º
+      if (class0) {
+        for (const [g1, c1] of class1) {
+          const adv = classAdv[c1]?.[0] ?? 0;
+          if (adv !== 0 && !class0.has(g1)) class0.set(g1, { adv, cd2 });
+        }
+      }
       // segunda classe: todos os glifos com classe ≠ 0 + os de classe 0 ficam de fora
       for (const [g1, c1] of class1) {
         for (const [g2, c2] of cd2) {
           const adv = classAdv[c1]?.[c2] ?? 0;
           if (adv !== 0) {
-            const key = (g1 << 16) | g2;
+            const key = kernKey(g1, g2);
             if (!kern.has(key)) kern.set(key, adv);
           }
         }

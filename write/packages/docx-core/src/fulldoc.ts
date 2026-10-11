@@ -11,6 +11,8 @@ import {
   type BorderEdge,
 } from './document.js';
 import { readStyles, type StylesMap } from './styles.js';
+import { readTblPr, readTrPr, readTcPr, readBorder, type TblPr, type TrPr, type TcPr, type BorderSpec } from './ooxml/props.js';
+import { readDocFormatting, type DocFormatting } from './ooxml/parts.js';
 
 /**
  * Modelo completo do documento: blocos (parágrafos E tabelas), seções
@@ -37,10 +39,18 @@ export interface TableCell {
   gridSpan: number;
   /** w:tcBorders — sobrepõe as bordas da tabela nesta célula. */
   borders?: TableBorders;
+  /** w:tcPr completo (tri-estado) — motor de layout. */
+  tcPr?: TcPr;
+  /** Conteúdo da célula NA ORDEM (parágrafos e tabelas aninhadas intercalados). */
+  blocks?: Block[];
 }
 
 export interface TableRow {
   cells: TableCell[];
+  /** w:trPr completo — motor de layout. */
+  trPr?: TrPr;
+  /** w:tblPrEx — exceções de propriedades da tabela nesta linha. */
+  tblPrEx?: TblPr;
 }
 
 export interface TableBlock {
@@ -49,6 +59,8 @@ export interface TableBlock {
   gridColsTwips: number[];
   /** w:tblBorders (incl. insideH/insideV). */
   borders?: TableBorders;
+  /** w:tblPr completo (tri-estado) — motor de layout. */
+  tblPr?: TblPr;
 }
 
 export interface ParagraphBlock {
@@ -73,6 +85,11 @@ export interface HfRef {
 
 export interface Section {
   sectPr: SectPr;
+  /** w:sectPr completo (tipo de quebra, grade, bordas de página…) — motor de layout. */
+  sect?: SectionProps;
+  /** Cabeçalhos/rodapés como BLOCOS (tabelas preservadas) — motor de layout. */
+  headerBlocks?: { default?: Block[]; first?: Block[]; even?: Block[] };
+  footerBlocks?: { default?: Block[]; first?: Block[]; even?: Block[] };
   /** Intervalo [blockStart, blockEnd] de blocos cobertos pela seção. */
   blockStart: number;
   blockEnd: number;
@@ -98,6 +115,41 @@ export interface FullDocument {
   styles: StylesMap;
   /** Bookmarks: nome → índice do bloco onde começa. */
   bookmarks: Map<string, number>;
+  /** Estilos/numeração/tema/configurações/fontes CRUS — motor de layout. */
+  formatting?: DocFormatting;
+  /** Notas como blocos (tabelas preservadas). */
+  footnoteBlocks?: Map<number, Block[]>;
+  endnoteBlocks?: Map<number, Block[]>;
+}
+
+/** w:sectPr além da geometria básica do SectPr. */
+export interface SectionProps {
+  /** nextPage | continuous | evenPage | oddPage | nextColumn */
+  type: string;
+  /** w:pgSz w:orient */
+  orient?: 'portrait' | 'landscape';
+  /** w:pgMar w:gutter */
+  gutter?: number;
+  /** colunas de largura desigual (w:col). */
+  colDefs?: { w: number; space: number }[];
+  equalWidth?: boolean;
+  /** w:vAlign — alinhamento vertical do texto na página. */
+  vAlign?: string;
+  /** w:docGrid */
+  docGrid?: { type?: string; linePitch?: number; charSpace?: number };
+  /** w:pgBorders */
+  pgBorders?: {
+    offsetFrom?: string; display?: string; zOrder?: string;
+    top?: BorderSpec; left?: BorderSpec; bottom?: BorderSpec; right?: BorderSpec;
+  };
+  /** w:pgNumType w:fmt */
+  pgNumFmt?: string;
+  /** w:lnNumType */
+  lnNumType?: { countBy?: number; start?: number; restart?: string; distance?: number };
+  bidi?: boolean;
+  rtlGutter?: boolean;
+  formProt?: boolean;
+  noEndnote?: boolean;
 }
 
 function readBorderSet(el: XmlElement | undefined, inside: boolean): TableBorders | undefined {
@@ -114,63 +166,106 @@ function readBorderSet(el: XmlElement | undefined, inside: boolean): TableBorder
   return any ? out : undefined;
 }
 
+/** Linhas/células podem vir dentro de w:sdt ou w:customXml (controles de conteúdo). */
+function unwrap(el: XmlElement, name: string): XmlElement[] {
+  const out: XmlElement[] = [];
+  for (const c of childElements(el)) {
+    if (c.name === name) out.push(c);
+    else if (c.name === 'w:sdt') {
+      const content = firstChild(c, 'w:sdtContent');
+      if (content) out.push(...unwrap(content, name));
+    } else if (c.name === 'w:customXml') out.push(...unwrap(c, name));
+  }
+  return out;
+}
+
+/** Blocos (w:p / w:tbl) de um container, na ordem, atravessando sdt/customXml. */
+export function readBlocksOf(container: XmlElement, ctx: ReadContext): Block[] {
+  const out: Block[] = [];
+  for (const c of childElements(container)) {
+    if (c.name === 'w:p') out.push({ type: 'paragraph', paragraph: readParagraph(c, ctx) });
+    else if (c.name === 'w:tbl') out.push(readTable(c, ctx));
+    else if (c.name === 'w:sdt') {
+      const content = firstChild(c, 'w:sdtContent');
+      if (content) out.push(...readBlocksOf(content, ctx));
+    } else if (c.name === 'w:customXml') out.push(...readBlocksOf(c, ctx));
+  }
+  return out;
+}
+
 function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
   const grid = firstChild(tblEl, 'w:tblGrid');
   const gridColsTwips = grid
-    ? childElements(grid, 'w:gridCol').map((c) => parseInt(c.attrs['w:w'] ?? '0', 10))
+    ? childElements(grid, 'w:gridCol').map((c) => parseInt(c.attrs['w:w'] ?? '0', 10) || 0)
     : [];
-  const tblPr = firstChild(tblEl, 'w:tblPr');
-  const tblBorders = readBorderSet(tblPr && firstChild(tblPr, 'w:tblBorders'), true);
+  const tblPrEl = firstChild(tblEl, 'w:tblPr');
+  const tblBorders = readBorderSet(tblPrEl && firstChild(tblPrEl, 'w:tblBorders'), true);
   const rows: TableRow[] = [];
-  for (const trEl of childElements(tblEl, 'w:tr')) {
+  for (const trEl of unwrap(tblEl, 'w:tr')) {
     const cells: TableCell[] = [];
-    for (const tcEl of childElements(trEl, 'w:tc')) {
-      const tcPr = firstChild(tcEl, 'w:tcPr');
-      const shd = tcPr && firstChild(tcPr, 'w:shd')?.attrs['w:fill'];
-      const tcW = tcPr && firstChild(tcPr, 'w:tcW');
-      const cellBorders = readBorderSet(tcPr && firstChild(tcPr, 'w:tcBorders'), true);
-      const gridSpan = tcPr
-        ? parseInt(firstChild(tcPr, 'w:gridSpan')?.attrs['w:val'] ?? '1', 10)
-        : 1;
-      const paragraphs = childElements(tcEl, 'w:p').map((p) => readParagraph(p, ctx));
-      const tables = childElements(tcEl, 'w:tbl').map((t) => readTable(t, ctx));
-      if (paragraphs.length === 0 && tables.length === 0) paragraphs.push({ runs: [], props: {} });
-      cells.push({
+    for (const tcEl of unwrap(trEl, 'w:tc')) {
+      const tcPrEl = firstChild(tcEl, 'w:tcPr');
+      const tcPr = readTcPr(tcPrEl);
+      const shd = tcPrEl && firstChild(tcPrEl, 'w:shd')?.attrs['w:fill'];
+      const tcW = tcPrEl && firstChild(tcPrEl, 'w:tcW');
+      const cellBorders = readBorderSet(tcPrEl && firstChild(tcPrEl, 'w:tcBorders'), true);
+      const blocks = readBlocksOf(tcEl, ctx);
+      if (!blocks.some((bl) => bl.type === 'paragraph')) blocks.push({ type: 'paragraph', paragraph: { runs: [], props: {} } });
+      const paragraphs = blocks.filter((bl): bl is ParagraphBlock => bl.type === 'paragraph').map((bl) => bl.paragraph);
+      const tables = blocks.filter((bl): bl is TableBlock => bl.type === 'table');
+      const cell: TableCell = {
         paragraphs,
         tables,
-        gridSpan,
+        gridSpan: tcPr?.gridSpan ?? 1,
         widthTwips: tcW && tcW.attrs['w:type'] === 'dxa'
           ? parseInt(tcW.attrs['w:w'] ?? '0', 10) : undefined,
         shadingHex: shd && shd !== 'auto' ? shd : undefined,
         borders: cellBorders,
-      });
+        blocks,
+      };
+      if (tcPr) cell.tcPr = tcPr;
+      cells.push(cell);
     }
-    if (cells.length > 0) rows.push({ cells });
+    if (cells.length > 0) {
+      const row: TableRow = { cells };
+      const trPr = readTrPr(firstChild(trEl, 'w:trPr'));
+      if (trPr) row.trPr = trPr;
+      const ex = readTblPr(firstChild(trEl, 'w:tblPrEx'));
+      if (ex) row.tblPrEx = ex;
+      rows.push(row);
+    }
   }
-  return { type: 'table', rows, gridColsTwips, borders: tblBorders };
+  const table: TableBlock = { type: 'table', rows, gridColsTwips, borders: tblBorders };
+  const tblPr = readTblPr(tblPrEl);
+  if (tblPr) table.tblPr = tblPr;
+  return table;
 }
 
-function readHeaderFooterPart(pkg: DocxPackage, path: string): Paragraph[] | undefined {
+function readHeaderFooterPart(pkg: DocxPackage, path: string): { paras: Paragraph[]; blocks: Block[] } | undefined {
   const xml = pkg.getPartText(path);
   if (!xml) return undefined;
   const root = parseXml(xml);
   const partName = path.split('/').pop()!;
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
+  ctx.readBlocks = readBlocksOf;
+  const blocks = readBlocksOf(root, ctx);
+  // modelo de edição (achatado): parágrafos do topo + os das células
   const paras: Paragraph[] = [];
-  for (const child of childElements(root)) {
-    if (child.name === 'w:p') paras.push(readParagraph(child, ctx));
-    else if (child.name === 'w:tbl') {
-      const t = readTable(child, ctx);
-      for (const r of t.rows) for (const c of r.cells) paras.push(...c.paragraphs);
+  const walk = (bs: Block[]) => {
+    for (const bl of bs) {
+      if (bl.type === 'paragraph') paras.push(bl.paragraph);
+      else for (const r of bl.rows) for (const c of r.cells) walk(c.blocks ?? []);
     }
-  }
-  return paras;
+  };
+  walk(blocks);
+  return { paras, blocks };
 }
 
 function readNotesPart(
   pkg: DocxPackage,
   path: string,
   elementName: string,
+  blocksOut?: Map<number, Block[]>,
 ): Map<number, Paragraph[]> {
   const out = new Map<number, Paragraph[]>();
   const xml = pkg.getPartText(path);
@@ -178,11 +273,14 @@ function readNotesPart(
   const root = parseXml(xml);
   const partName = path.split('/').pop()!;
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
+  ctx.readBlocks = readBlocksOf;
   for (const note of childElements(root, elementName)) {
     const id = parseInt(note.attrs['w:id'] ?? '0', 10);
     const type = note.attrs['w:type'];
-    if (type === 'separator' || type === 'continuationSeparator') continue;
-    out.set(id, childElements(note, 'w:p').map((p) => readParagraph(p, ctx)));
+    if (type === 'separator' || type === 'continuationSeparator' || type === 'continuationNotice') continue;
+    const blocks = readBlocksOf(note, ctx);
+    out.set(id, blocks.filter((bl): bl is ParagraphBlock => bl.type === 'paragraph').map((bl) => bl.paragraph));
+    blocksOut?.set(id, blocks);
   }
   return out;
 }
@@ -206,6 +304,7 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
   const body = firstChild(root, 'w:body');
   if (!body) throw new Error('w:document sem w:body');
   const ctx = buildReadContext(pkg, 'word/_rels/document.xml.rels');
+  ctx.readBlocks = readBlocksOf;
 
   // rels do documento p/ resolver headers/footers por r:id
   const relsXml = pkg.getPartText('word/_rels/document.xml.rels');
@@ -218,25 +317,30 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
     }
   }
 
+  const hfCache = new Map<string, { paras: Paragraph[]; blocks: Block[] } | undefined>();
+  type HfBlocks = { default?: Block[]; first?: Block[]; even?: Block[] };
   const readHfSet = (
     sectEl: XmlElement,
     kind: 'headerReference' | 'footerReference',
-  ): { set: HeaderFooterSet; refs: HfRef[] } => {
+  ): { set: HeaderFooterSet; refs: HfRef[]; blocks: HfBlocks } => {
     const set: HeaderFooterSet = {};
     const refs: HfRef[] = [];
+    const blocks: HfBlocks = {};
     for (const ref of childElements(sectEl, `w:${kind}`)) {
       const rid = ref.attrs['r:id'];
       const type = (ref.attrs['w:type'] ?? 'default') as keyof HeaderFooterSet;
       const target = rid && relTargets.get(rid);
       if (target && rid) {
-        const paras = readHeaderFooterPart(pkg, target);
-        if (paras) {
-          set[type] = paras;
+        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target));
+        const part = hfCache.get(target);
+        if (part) {
+          set[type] = part.paras;
+          blocks[type] = part.blocks;
           refs.push({ type, rid, path: target });
         }
       }
     }
-    return { set, refs };
+    return { set, refs, blocks };
   };
 
   const blocks: Block[] = [];
@@ -252,14 +356,33 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
     const f = readHfSet(sectEl, 'footerReference');
     sections.push({
       sectPr: readSectPr(sectEl),
+      sect: readSectionProps(sectEl),
       blockStart: sectionStart,
       blockEnd: endBlock,
       headers: h.set,
       footers: f.set,
       headerRefs: h.refs,
       footerRefs: f.refs,
+      headerBlocks: h.blocks,
+      footerBlocks: f.blocks,
     });
     sectionStart = endBlock + 1;
+  };
+
+  const readBlocksWithSections = (container: XmlElement): { block: Block; sectEl?: XmlElement }[] => {
+    const out: { block: Block; sectEl?: XmlElement }[] = [];
+    for (const c of childElements(container)) {
+      if (c.name === 'w:p') {
+        const pPr = firstChild(c, 'w:pPr');
+        const sectEl = pPr && firstChild(pPr, 'w:sectPr');
+        out.push({ block: { type: 'paragraph', paragraph: readParagraph(c, ctx) }, ...(sectEl ? { sectEl } : {}) });
+      } else if (c.name === 'w:tbl') out.push({ block: readTable(c, ctx) });
+      else if (c.name === 'w:sdt') {
+        const content = firstChild(c, 'w:sdtContent');
+        if (content) out.push(...readBlocksWithSections(content));
+      } else if (c.name === 'w:customXml') out.push(...readBlocksWithSections(c));
+    }
+    return out;
   };
 
   for (const child of childElements(body)) {
@@ -273,13 +396,13 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
       blocks.push(readTable(child, ctx));
     } else if (child.name === 'w:sectPr') {
       closeSection(child, blocks.length - 1);
-    } else if (child.name === 'w:sdt') {
-      // sumário etc.: conteúdo de sdt no nível do body
-      const content = firstChild(child, 'w:sdtContent');
+    } else if (child.name === 'w:sdt' || child.name === 'w:customXml') {
+      // sumário etc.: conteúdo de sdt no nível do body (pode conter sectPr em pPr)
+      const content = child.name === 'w:sdt' ? firstChild(child, 'w:sdtContent') : child;
       if (content) {
-        for (const inner of childElements(content)) {
-          if (inner.name === 'w:p') blocks.push({ type: 'paragraph', paragraph: readParagraph(inner, ctx) });
-          else if (inner.name === 'w:tbl') blocks.push(readTable(inner, ctx));
+        for (const inner of readBlocksWithSections(content)) {
+          blocks.push(inner.block);
+          if (inner.sectEl) closeSection(inner.sectEl, blocks.length - 1);
         }
       }
     }
@@ -289,13 +412,71 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
   }
   if (blocks.length === 0) blocks.push({ type: 'paragraph', paragraph: { runs: [], props: {} } });
 
+  const footnoteBlocks = new Map<number, Block[]>();
+  const endnoteBlocks = new Map<number, Block[]>();
   return {
     blocks,
     sections,
-    footnotes: readNotesPart(pkg, 'word/footnotes.xml', 'w:footnote'),
-    endnotes: readNotesPart(pkg, 'word/endnotes.xml', 'w:endnote'),
+    footnotes: readNotesPart(pkg, 'word/footnotes.xml', 'w:footnote', footnoteBlocks),
+    endnotes: readNotesPart(pkg, 'word/endnotes.xml', 'w:endnote', endnoteBlocks),
     comments: readComments(pkg),
     styles: readStyles(pkg),
     bookmarks,
+    formatting: readDocFormatting(pkg),
+    footnoteBlocks,
+    endnoteBlocks,
   };
+}
+
+/** w:sectPr → SectionProps (o que o SectPr básico não cobre). */
+export function readSectionProps(sectEl: XmlElement): SectionProps {
+  const v = (n: string, a = 'w:val') => firstChild(sectEl, n)?.attrs[a];
+  const out: SectionProps = { type: v('w:type') ?? 'nextPage' };
+  const pgSz = firstChild(sectEl, 'w:pgSz');
+  const orient = pgSz?.attrs['w:orient'];
+  if (orient === 'landscape' || orient === 'portrait') out.orient = orient;
+  const gutter = firstChild(sectEl, 'w:pgMar')?.attrs['w:gutter'];
+  if (gutter) out.gutter = parseInt(gutter, 10) || 0;
+  const cols = firstChild(sectEl, 'w:cols');
+  if (cols) {
+    const eq = cols.attrs['w:equalWidth'];
+    if (eq !== undefined) out.equalWidth = !(eq === '0' || eq === 'false');
+    const defs = childElements(cols, 'w:col').map((c) => ({ w: parseInt(c.attrs['w:w'] ?? '0', 10) || 0, space: parseInt(c.attrs['w:space'] ?? '0', 10) || 0 }));
+    if (defs.length) out.colDefs = defs;
+  }
+  const va = v('w:vAlign');
+  if (va) out.vAlign = va;
+  const dg = firstChild(sectEl, 'w:docGrid');
+  if (dg) {
+    out.docGrid = {};
+    if (dg.attrs['w:type']) out.docGrid.type = dg.attrs['w:type'];
+    if (dg.attrs['w:linePitch']) out.docGrid.linePitch = parseInt(dg.attrs['w:linePitch'], 10);
+    if (dg.attrs['w:charSpace']) out.docGrid.charSpace = parseInt(dg.attrs['w:charSpace'], 10);
+  }
+  const pb = firstChild(sectEl, 'w:pgBorders');
+  if (pb) {
+    out.pgBorders = {};
+    if (pb.attrs['w:offsetFrom']) out.pgBorders.offsetFrom = pb.attrs['w:offsetFrom'];
+    if (pb.attrs['w:display']) out.pgBorders.display = pb.attrs['w:display'];
+    if (pb.attrs['w:zOrder']) out.pgBorders.zOrder = pb.attrs['w:zOrder'];
+    for (const side of ['top', 'left', 'bottom', 'right'] as const) {
+      const bd = readBorder(firstChild(pb, `w:${side}`));
+      if (bd) out.pgBorders[side] = bd;
+    }
+  }
+  const fmt = firstChild(sectEl, 'w:pgNumType')?.attrs['w:fmt'];
+  if (fmt) out.pgNumFmt = fmt;
+  const ln = firstChild(sectEl, 'w:lnNumType');
+  if (ln) {
+    out.lnNumType = {};
+    if (ln.attrs['w:countBy']) out.lnNumType.countBy = parseInt(ln.attrs['w:countBy'], 10);
+    if (ln.attrs['w:start']) out.lnNumType.start = parseInt(ln.attrs['w:start'], 10);
+    if (ln.attrs['w:restart']) out.lnNumType.restart = ln.attrs['w:restart'];
+    if (ln.attrs['w:distance']) out.lnNumType.distance = parseInt(ln.attrs['w:distance'], 10);
+  }
+  if (firstChild(sectEl, 'w:bidi')) out.bidi = true;
+  if (firstChild(sectEl, 'w:rtlGutter')) out.rtlGutter = true;
+  if (firstChild(sectEl, 'w:formProt')) out.formProt = true;
+  if (firstChild(sectEl, 'w:noEndnote')) out.noEndnote = true;
+  return out;
 }

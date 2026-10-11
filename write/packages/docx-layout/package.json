@@ -1,0 +1,19 @@
+{
+  "name": "@universal-office/docx-layout",
+  "version": "0.0.1",
+  "type": "module",
+  "sideEffects": false,
+  "description": "Motor de layout do Write (sem DOM): cascata OOXML completa, paginação, tabelas, cabeçalhos/rodapés e objetos — mesma saída para canvas, PDF e o port .NET",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@universal-office/docx-core": "*",
+    "@universal-office/layout": "*",
+    "@universal-office/pdf": "*",
+    "fflate": "^0.8.2"
+  }
+}

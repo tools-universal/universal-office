@@ -1,0 +1,93 @@
+// Corpus de documentos REAIS (fora do repositório) × PDFs exportados pelo Word.
+//
+// Layout esperado em CORPUS_ROOT (padrão E:\UniversalWriteTest):
+//   Extraction/<tenant>/word/docx/<nome>.docx|.doc   — documentos
+//   WordPdf/<tenant>/<nome>.pdf                      — o MESMO documento salvo
+//                                                      como PDF pelo Word
+// Os documentos são de terceiros: NADA deles (nem texto extraído, nem imagens
+// das páginas) entra no git. Toda saída vai para LAB_DIR (padrão
+// CORPUS_ROOT/_lab). Regressões viram fixtures SINTÉTICAS que reproduzem o
+// padrão encontrado.
+import { readdirSync, statSync, existsSync, readFileSync, writeFileSync, mkdirSync, openSync, readSync, closeSync } from 'node:fs';
+import { join, extname, basename } from 'node:path';
+import { createHash } from 'node:crypto';
+
+export const CORPUS_ROOT = process.env.CORPUS_ROOT ?? 'E:/UniversalWriteTest';
+export const LAB_DIR = process.env.LAB_DIR ?? join(CORPUS_ROOT, '_lab');
+
+function walk(dir, out = []) {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name);
+    if (e.isDirectory()) walk(p, out);
+    else out.push(p);
+  }
+  return out;
+}
+
+function magic(path) {
+  const fd = openSync(path, 'r');
+  try {
+    const b = Buffer.alloc(8);
+    readSync(fd, b, 0, 8, 0);
+    if (b[0] === 0x50 && b[1] === 0x4b) return 'zip';
+    if (b.readUInt32BE(0) === 0xd0cf11e0) return 'cfb';
+    return 'unknown';
+  } finally { closeSync(fd); }
+}
+
+/** Monta (e grava em LAB_DIR/manifest.json) a lista de documentos do corpus. */
+export function buildManifest() {
+  const extraction = join(CORPUS_ROOT, 'Extraction');
+  const wordPdf = join(CORPUS_ROOT, 'WordPdf');
+  const docs = [];
+  for (const tenant of readdirSync(extraction).sort()) {
+    const tdir = join(extraction, tenant);
+    if (!statSync(tdir).isDirectory()) continue;
+    for (const file of walk(tdir).sort()) {
+      const ext = extname(file).toLowerCase();
+      if (ext !== '.docx' && ext !== '.doc') continue;
+      const stem = basename(file, extname(file));
+      const pdf = join(wordPdf, tenant, `${stem}.pdf`);
+      const rel = file.slice(extraction.length + 1).replace(/\\/g, '/');
+      const id = `t${tenant}-${createHash('sha1').update(rel).digest('hex').slice(0, 8)}`;
+      docs.push({
+        id, tenant, rel, path: file, ext,
+        container: magic(file), // 'zip' = docx (mesmo com extensão .doc), 'cfb' = Word 97-2003
+        bytes: statSync(file).size,
+        pdf: existsSync(pdf) ? pdf : null,
+      });
+    }
+  }
+  mkdirSync(LAB_DIR, { recursive: true });
+  writeFileSync(join(LAB_DIR, 'manifest.json'), JSON.stringify(docs, null, 1));
+  return docs;
+}
+
+export function loadManifest() {
+  const p = join(LAB_DIR, 'manifest.json');
+  return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : buildManifest();
+}
+
+/** Filtros comuns de linha de comando: --only id1,id2  --container zip|cfb  --tenant 12  --limit N  --from N */
+export function selectDocs(docs, argv) {
+  const get = (name) => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] : undefined; };
+  let out = docs;
+  const only = get('only');
+  if (only) { const s = new Set(only.split(',')); out = out.filter((d) => s.has(d.id)); }
+  const listFile = get('list');
+  if (listFile) { const s = new Set(readFileSync(listFile, 'utf8').split(/\r?\n/).filter(Boolean)); out = out.filter((d) => s.has(d.id)); }
+  const container = get('container');
+  if (container) out = out.filter((d) => d.container === container);
+  const tenant = get('tenant');
+  if (tenant) out = out.filter((d) => d.tenant === tenant);
+  const from = Number(get('from') ?? 0);
+  const limit = Number(get('limit') ?? Infinity);
+  return out.slice(from, from + limit);
+}
+
+if (process.argv[1] && process.argv[1].endsWith('corpus.mjs')) {
+  const docs = buildManifest();
+  const by = (k) => docs.reduce((m, d) => (m[d[k]] = (m[d[k]] ?? 0) + 1, m), {});
+  console.log(`${docs.length} documentos — container:`, by('container'), '— sem PDF:', docs.filter((d) => !d.pdf).length);
+  console.log(`manifesto: ${join(LAB_DIR, 'manifest.json')}`);
+}

@@ -1,0 +1,82 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 144.36,
+"size": 11.04,
+"text": "Antes1Hxg"
+},
+{
+"y": 143.78,
+"x0": 85.1,
+"x1": 494.61,
+"size": 11.04,
+"text": "Textolongodomesmoparágrafoquecontornaoobjetoancoradonelemesmo,com"
+},
+{
+"y": 156.5,
+"x0": 85.1,
+"x1": 480.76,
+"size": 11.04,
+"text": "palavrassuficientesparaquebraremváriaslinhasepassardaalturadaimagem."
+},
+{
+"y": 169.1,
+"x0": 85.1,
+"x1": 494.61,
+"size": 11.04,
+"text": "Textolongodomesmoparágrafoquecontornaoobjetoancoradonelemesmo,com"
+},
+{
+"y": 181.82,
+"x0": 85.1,
+"x1": 480.78,
+"size": 11.04,
+"text": "palavrassuficientesparaquebraremváriaslinhasepassardaalturadaimagem."
+},
+{
+"y": 194.42,
+"x0": 85.1,
+"x1": 494.61,
+"size": 11.04,
+"text": "Textolongodomesmoparágrafoquecontornaoobjetoancoradonelemesmo,com"
+},
+{
+"y": 207.14,
+"x0": 85.1,
+"x1": 480.76,
+"size": 11.04,
+"text": "palavrassuficientesparaquebraremváriaslinhasepassardaalturadaimagem."
+},
+{
+"y": 219.74,
+"x0": 85.1,
+"x1": 144.36,
+"size": 11.04,
+"text": "Antes2Hxg"
+},
+{
+"y": 232.34,
+"x0": 85.1,
+"x1": 144.36,
+"size": 11.04,
+"text": "Antes3Hxg"
+}
+],
+"objs": [
+{
+"t": "image",
+"x0": 197.65,
+"y0": 83.5,
+"x1": 397.65,
+"y1": 133.5
+}
+]
+}
+]
+}

@@ -4,12 +4,14 @@
 // grava em dotnet/tests/fixtures/expected/<nome>.pdf.meta.json:
 //   { pages, mediaBoxes: [[w,h]...], tjCount, bytes }
 // extraídos por regex do PDF JS (page dicts ficam sem compressão; os content
-// streams são descomprimidos p/ contar Tj). Os PDFs em si também são gravados
-// ao lado (<nome>.js.pdf) para inspeção manual.
+// streams são descomprimidos p/ contar Tj). Os PDFs em si vão para
+// fixtures/.out/<nome>.js.pdf (IGNORADO pelo git), só para inspeção manual:
+// eles embutem subconjuntos das fontes usadas (Aptos — proprietária), e PDF com
+// fonte proprietária não entra no repositório (CLAUDE.md; tools/fonts/check-fonts.mjs).
 // Regenerável: `node tools/gen-parity-pdf.mjs` (dist dos projetos já buildado).
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { docxToPdfRef } from './docx-pdf-ref.mjs';
 
 const { unzlibSync } = await import(
@@ -19,6 +21,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const fixtures = join(root, 'dotnet', 'tests', 'fixtures');
 const expectedDir = join(fixtures, 'expected');
 const inputDir = join(fixtures, 'input');
+const inspectDir = join(fixtures, '.out');
 
 const sheetExport = await import(
   new URL('../sheet/packages/export/dist/index.js', import.meta.url).href);
@@ -90,7 +93,8 @@ if (isMain) {
     const pdf = run(bytes);
     const meta = { ...pdfMeta(pdf), bytes: pdf.length };
     writeFileSync(join(expectedDir, `${name}.pdf.meta.json`), JSON.stringify(meta, null, 2) + '\n');
-    writeFileSync(join(expectedDir, `${name}.js.pdf`), pdf);
+    mkdirSync(inspectDir, { recursive: true });
+    writeFileSync(join(inspectDir, `${name}.js.pdf`), pdf);
     console.log(`expected/${name}.pdf.meta.json → pages=${meta.pages} tj=${meta.tjCount} (${pdf.length} bytes)`);
   }
   console.log('OK — fixtures de paridade PDF geradas.');

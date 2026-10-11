@@ -35,69 +35,129 @@ public static class FullDocReader
         return any ? outp : null;
     }
 
+    /// <summary>Linhas/células podem vir dentro de w:sdt ou w:customXml (controles de conteúdo).</summary>
+    private static List<XmlElement> Unwrap(XmlElement el, string name)
+    {
+        var outp = new List<XmlElement>();
+        foreach (var c in ChildElements(el))
+        {
+            if (c.Name == name) outp.Add(c);
+            else if (c.Name == "w:sdt")
+            {
+                var content = FirstChild(c, "w:sdtContent");
+                if (content is not null) outp.AddRange(Unwrap(content, name));
+            }
+            else if (c.Name == "w:customXml") outp.AddRange(Unwrap(c, name));
+        }
+        return outp;
+    }
+
+    /// <summary>Blocos (w:p / w:tbl) de um container, na ordem, atravessando sdt/customXml.</summary>
+    public static List<Block> ReadBlocksOf(XmlElement container, ReadContext ctx)
+    {
+        var outp = new List<Block>();
+        foreach (var c in ChildElements(container))
+        {
+            if (c.Name == "w:p") outp.Add(new ParagraphBlock { Paragraph = DocumentReader.ReadParagraph(c, ctx) });
+            else if (c.Name == "w:tbl") outp.Add(ReadTable(c, ctx));
+            else if (c.Name == "w:sdt")
+            {
+                var content = FirstChild(c, "w:sdtContent");
+                if (content is not null) outp.AddRange(ReadBlocksOf(content, ctx));
+            }
+            else if (c.Name == "w:customXml") outp.AddRange(ReadBlocksOf(c, ctx));
+        }
+        return outp;
+    }
+
     private static TableBlock ReadTable(XmlElement tblEl, ReadContext ctx)
     {
         var grid = FirstChild(tblEl, "w:tblGrid");
         var gridColsTwips = grid is not null
             ? ChildElements(grid, "w:gridCol").Select(c => JsNumber.ParseIntOr(c.Attr("w:w") ?? "0", 0)).ToList()
             : new List<int>();
-        var tblPr = FirstChild(tblEl, "w:tblPr");
-        var tblBorders = ReadBorderSet(tblPr is not null ? FirstChild(tblPr, "w:tblBorders") : null, true);
+        var tblPrEl = FirstChild(tblEl, "w:tblPr");
+        var tblBorders = ReadBorderSet(tblPrEl is not null ? FirstChild(tblPrEl, "w:tblBorders") : null, true);
         var rows = new List<TableRow>();
-        foreach (var trEl in ChildElements(tblEl, "w:tr"))
+        foreach (var trEl in Unwrap(tblEl, "w:tr"))
         {
             var cells = new List<TableCell>();
-            foreach (var tcEl in ChildElements(trEl, "w:tc"))
+            foreach (var tcEl in Unwrap(trEl, "w:tc"))
             {
-                var tcPr = FirstChild(tcEl, "w:tcPr");
-                string? shd = tcPr is not null ? FirstChild(tcPr, "w:shd")?.Attr("w:fill") : null;
-                var tcW = tcPr is not null ? FirstChild(tcPr, "w:tcW") : null;
-                var cellBorders = ReadBorderSet(tcPr is not null ? FirstChild(tcPr, "w:tcBorders") : null, true);
-                int gridSpan = tcPr is not null
-                    ? JsNumber.ParseIntOr(FirstChild(tcPr, "w:gridSpan")?.Attr("w:val") ?? "1", 1)
-                    : 1;
-                var paragraphs = ChildElements(tcEl, "w:p").Select(p => DocumentReader.ReadParagraph(p, ctx)).ToList();
-                var tables = ChildElements(tcEl, "w:tbl").Select(t => ReadTable(t, ctx)).ToList();
-                if (paragraphs.Count == 0 && tables.Count == 0) paragraphs.Add(new Paragraph());
-                cells.Add(new TableCell
+                var tcPrEl = FirstChild(tcEl, "w:tcPr");
+                var tcPr = OoxmlProps.ReadTcPr(tcPrEl);
+                string? shd = tcPrEl is not null ? FirstChild(tcPrEl, "w:shd")?.Attr("w:fill") : null;
+                var tcW = tcPrEl is not null ? FirstChild(tcPrEl, "w:tcW") : null;
+                var cellBorders = ReadBorderSet(tcPrEl is not null ? FirstChild(tcPrEl, "w:tcBorders") : null, true);
+                var blocks = ReadBlocksOf(tcEl, ctx);
+                if (!blocks.Any(bl => bl is ParagraphBlock)) blocks.Add(new ParagraphBlock { Paragraph = new Paragraph() });
+                var paragraphs = blocks.OfType<ParagraphBlock>().Select(bl => bl.Paragraph).ToList();
+                var tables = blocks.OfType<TableBlock>().ToList();
+                double gs = tcPr?.GridSpan ?? 1;
+                var cell = new TableCell
                 {
                     Paragraphs = paragraphs,
                     Tables = tables,
-                    GridSpan = gridSpan,
+                    GridSpan = double.IsFinite(gs) ? (int)gs : 1,
                     WidthTwips = tcW is not null && tcW.Attr("w:type") == "dxa"
                         ? JsNumber.ParseIntOr(tcW.Attr("w:w") ?? "0", 0) : null,
-                    ShadingHex = !string.IsNullOrEmpty(shd) && shd != "auto" ? shd : null,
+                    ShadingHex = Js.Truthy(shd) && shd != "auto" ? shd : null,
                     Borders = cellBorders,
-                });
+                    Blocks = blocks,
+                };
+                if (tcPr is not null) cell.TcPr = tcPr;
+                cells.Add(cell);
             }
-            if (cells.Count > 0) rows.Add(new TableRow { Cells = cells });
+            if (cells.Count > 0)
+            {
+                var row = new TableRow { Cells = cells };
+                var trPr = OoxmlProps.ReadTrPr(FirstChild(trEl, "w:trPr"));
+                if (trPr is not null) row.TrPr = trPr;
+                var ex = OoxmlProps.ReadTblPr(FirstChild(trEl, "w:tblPrEx"));
+                if (ex is not null) row.TblPrEx = ex;
+                rows.Add(row);
+            }
         }
-        return new TableBlock { Rows = rows, GridColsTwips = gridColsTwips, Borders = tblBorders };
+        var table = new TableBlock { Rows = rows, GridColsTwips = gridColsTwips, Borders = tblBorders };
+        var tblPr = OoxmlProps.ReadTblPr(tblPrEl);
+        if (tblPr is not null) table.TblPr = tblPr;
+        return table;
     }
 
-    private static List<Paragraph>? ReadHeaderFooterPart(DocxPackage pkg, string path)
+    private sealed class HfPart
+    {
+        public List<Paragraph> Paras = new();
+        public List<Block> Blocks = new();
+    }
+
+    private static HfPart? ReadHeaderFooterPart(DocxPackage pkg, string path)
     {
         string? xml = pkg.GetPartText(path);
         if (string.IsNullOrEmpty(xml)) return null;
         var root = Parse(xml!);
         string partName = path[(path.LastIndexOf('/') + 1)..];
         var ctx = DocumentReader.BuildReadContext(pkg, $"word/_rels/{partName}.rels");
+        ctx.ReadBlocks = ReadBlocksOf;
+        var blocks = ReadBlocksOf(root, ctx);
+        // modelo de edição (achatado): parágrafos do topo + os das células
         var paras = new List<Paragraph>();
-        foreach (var child in ChildElements(root))
+        void Walk(List<Block> bs)
         {
-            if (child.Name == "w:p") paras.Add(DocumentReader.ReadParagraph(child, ctx));
-            else if (child.Name == "w:tbl")
+            foreach (var bl in bs)
             {
-                var t = ReadTable(child, ctx);
-                foreach (var r in t.Rows)
-                    foreach (var c in r.Cells)
-                        paras.AddRange(c.Paragraphs);
+                if (bl is ParagraphBlock pb) paras.Add(pb.Paragraph);
+                else if (bl is TableBlock tb)
+                    foreach (var r in tb.Rows)
+                        foreach (var c in r.Cells)
+                            Walk(c.Blocks ?? new List<Block>());
             }
         }
-        return paras;
+        Walk(blocks);
+        return new HfPart { Paras = paras, Blocks = blocks };
     }
 
-    private static Dictionary<int, List<Paragraph>> ReadNotesPart(DocxPackage pkg, string path, string elementName)
+    private static Dictionary<int, List<Paragraph>> ReadNotesPart(
+        DocxPackage pkg, string path, string elementName, Dictionary<int, List<Block>>? blocksOut)
     {
         var outp = new Dictionary<int, List<Paragraph>>();
         string? xml = pkg.GetPartText(path);
@@ -105,12 +165,15 @@ public static class FullDocReader
         var root = Parse(xml!);
         string partName = path[(path.LastIndexOf('/') + 1)..];
         var ctx = DocumentReader.BuildReadContext(pkg, $"word/_rels/{partName}.rels");
+        ctx.ReadBlocks = ReadBlocksOf;
         foreach (var note in ChildElements(root, elementName))
         {
             int id = JsNumber.ParseIntOr(note.Attr("w:id") ?? "0", 0);
             string? type = note.Attr("w:type");
-            if (type is "separator" or "continuationSeparator") continue;
-            outp[id] = ChildElements(note, "w:p").Select(p => DocumentReader.ReadParagraph(p, ctx)).ToList();
+            if (type is "separator" or "continuationSeparator" or "continuationNotice") continue;
+            var blocks = ReadBlocksOf(note, ctx);
+            outp[id] = blocks.OfType<ParagraphBlock>().Select(bl => bl.Paragraph).ToList();
+            if (blocksOut is not null) blocksOut[id] = blocks;
         }
         return outp;
     }
@@ -136,6 +199,7 @@ public static class FullDocReader
         var body = FirstChild(root, "w:body")
             ?? throw new InvalidDataException("w:document sem w:body");
         var ctx = DocumentReader.BuildReadContext(pkg, "word/_rels/document.xml.rels");
+        ctx.ReadBlocks = ReadBlocksOf;
 
         // rels do documento p/ resolver headers/footers por r:id
         string? relsXml = pkg.GetPartText("word/_rels/document.xml.rels");
@@ -146,7 +210,7 @@ public static class FullDocReader
             {
                 string? id = rel.Attr("Id");
                 string? target = rel.Attr("Target");
-                if (!string.IsNullOrEmpty(id) && !string.IsNullOrEmpty(target))
+                if (Js.Truthy(id) && Js.Truthy(target))
                 {
                     string t = target!.StartsWith("./", StringComparison.Ordinal) ? target[2..] : target!;
                     relTargets[id!] = "word/" + t;
@@ -154,39 +218,46 @@ public static class FullDocReader
             }
         }
 
-        (HeaderFooterSet Set, List<HfRef> Refs) ReadHfSet(XmlElement sectEl, string kind)
+        var hfCache = new Dictionary<string, HfPart?>(StringComparer.Ordinal);
+        (HeaderFooterSet Set, List<HfRef> Refs, HfBlocks Blocks) ReadHfSet(XmlElement sectEl, string kind)
         {
             var set = new HeaderFooterSet();
             var refs = new List<HfRef>();
+            var blocks = new HfBlocks();
             foreach (var refEl in ChildElements(sectEl, "w:" + kind))
             {
                 string? rid = refEl.Attr("r:id");
                 string type = refEl.Attr("w:type") ?? "default";
-                string? target = rid is not null && relTargets.TryGetValue(rid, out var t) ? t : null;
-                if (target is not null && rid is not null)
+                string? target = Js.Truthy(rid) && relTargets.TryGetValue(rid!, out var t) ? t : null;
+                if (target is not null && Js.Truthy(rid))
                 {
-                    var paras = ReadHeaderFooterPart(pkg, target);
-                    if (paras is not null)
+                    if (!hfCache.ContainsKey(target)) hfCache[target] = ReadHeaderFooterPart(pkg, target);
+                    var part = hfCache[target];
+                    if (part is not null)
                     {
+                        // tipo desconhecido: o JS grava numa chave que ninguém lê
                         switch (type)
                         {
-                            case "first": set.First = paras; break;
-                            case "even": set.Even = paras; break;
-                            default: set.Default = paras; break;
+                            case "default": set.Default = part.Paras; blocks.Default = part.Blocks; break;
+                            case "first": set.First = part.Paras; blocks.First = part.Blocks; break;
+                            case "even": set.Even = part.Paras; blocks.Even = part.Blocks; break;
                         }
-                        refs.Add(new HfRef { Type = type, Rid = rid, Path = target });
+                        refs.Add(new HfRef { Type = type, Rid = rid!, Path = target });
                     }
                 }
             }
-            return (set, refs);
+            return (set, refs, blocks);
         }
 
-        var blocks = new List<Block>();
+        var blocksAll = new List<Block>();
         var sections = new List<Section>();
         var bookmarks = new Dictionary<string, int>(StringComparer.Ordinal);
+        var bookmarkOrder = new List<string>();
         ctx.OnBookmark = name =>
         {
-            if (!bookmarks.ContainsKey(name)) bookmarks[name] = blocks.Count;
+            if (bookmarks.ContainsKey(name)) return;
+            bookmarks[name] = blocksAll.Count;
+            bookmarkOrder.Add(name);
         };
         int sectionStart = 0;
 
@@ -197,14 +268,39 @@ public static class FullDocReader
             sections.Add(new Section
             {
                 SectPr = DocumentReader.ReadSectPr(sectEl),
+                Sect = ReadSectionProps(sectEl),
                 BlockStart = sectionStart,
                 BlockEnd = endBlock,
                 Headers = h.Set,
                 Footers = f.Set,
                 HeaderRefs = h.Refs,
                 FooterRefs = f.Refs,
+                HeaderBlocks = h.Blocks,
+                FooterBlocks = f.Blocks,
             });
             sectionStart = endBlock + 1;
+        }
+
+        List<(Block Block, XmlElement? SectEl)> ReadBlocksWithSections(XmlElement container)
+        {
+            var outp = new List<(Block, XmlElement?)>();
+            foreach (var c in ChildElements(container))
+            {
+                if (c.Name == "w:p")
+                {
+                    var pPr = FirstChild(c, "w:pPr");
+                    var sectEl = pPr is not null ? FirstChild(pPr, "w:sectPr") : null;
+                    outp.Add((new ParagraphBlock { Paragraph = DocumentReader.ReadParagraph(c, ctx) }, sectEl));
+                }
+                else if (c.Name == "w:tbl") outp.Add((ReadTable(c, ctx), null));
+                else if (c.Name == "w:sdt")
+                {
+                    var content = FirstChild(c, "w:sdtContent");
+                    if (content is not null) outp.AddRange(ReadBlocksWithSections(content));
+                }
+                else if (c.Name == "w:customXml") outp.AddRange(ReadBlocksWithSections(c));
+            }
+            return outp;
         }
 
         foreach (var child in ChildElements(body))
@@ -212,43 +308,108 @@ public static class FullDocReader
             if (child.Name == "w:p")
             {
                 var para = DocumentReader.ReadParagraph(child, ctx);
-                blocks.Add(new ParagraphBlock { Paragraph = para });
+                blocksAll.Add(new ParagraphBlock { Paragraph = para });
                 var pPr = FirstChild(child, "w:pPr");
                 var sectEl = pPr is not null ? FirstChild(pPr, "w:sectPr") : null;
-                if (sectEl is not null) CloseSection(sectEl, blocks.Count - 1);
+                if (sectEl is not null) CloseSection(sectEl, blocksAll.Count - 1);
             }
             else if (child.Name == "w:tbl")
-                blocks.Add(ReadTable(child, ctx));
+                blocksAll.Add(ReadTable(child, ctx));
             else if (child.Name == "w:sectPr")
-                CloseSection(child, blocks.Count - 1);
-            else if (child.Name == "w:sdt")
+                CloseSection(child, blocksAll.Count - 1);
+            else if (child.Name is "w:sdt" or "w:customXml")
             {
-                var content = FirstChild(child, "w:sdtContent");
+                // sumário etc.: conteúdo de sdt no nível do body (pode conter sectPr em pPr)
+                var content = child.Name == "w:sdt" ? FirstChild(child, "w:sdtContent") : child;
                 if (content is not null)
                 {
-                    foreach (var inner in ChildElements(content))
+                    foreach (var inner in ReadBlocksWithSections(content))
                     {
-                        if (inner.Name == "w:p")
-                            blocks.Add(new ParagraphBlock { Paragraph = DocumentReader.ReadParagraph(inner, ctx) });
-                        else if (inner.Name == "w:tbl")
-                            blocks.Add(ReadTable(inner, ctx));
+                        blocksAll.Add(inner.Block);
+                        if (inner.SectEl is not null) CloseSection(inner.SectEl, blocksAll.Count - 1);
                     }
                 }
             }
         }
         if (sections.Count == 0)
-            CloseSection(FirstChild(body, "w:sectPr") ?? new XmlElement("w:sectPr"), blocks.Count - 1);
-        if (blocks.Count == 0) blocks.Add(new ParagraphBlock { Paragraph = new Paragraph() });
+            CloseSection(FirstChild(body, "w:sectPr") ?? new XmlElement("w:sectPr"), blocksAll.Count - 1);
+        if (blocksAll.Count == 0) blocksAll.Add(new ParagraphBlock { Paragraph = new Paragraph() });
 
+        var footnoteBlocks = new Dictionary<int, List<Block>>();
+        var endnoteBlocks = new Dictionary<int, List<Block>>();
         return new FullDocument
         {
-            Blocks = blocks,
+            Blocks = blocksAll,
             Sections = sections,
-            Footnotes = ReadNotesPart(pkg, "word/footnotes.xml", "w:footnote"),
-            Endnotes = ReadNotesPart(pkg, "word/endnotes.xml", "w:endnote"),
+            Footnotes = ReadNotesPart(pkg, "word/footnotes.xml", "w:footnote", footnoteBlocks),
+            Endnotes = ReadNotesPart(pkg, "word/endnotes.xml", "w:endnote", endnoteBlocks),
             Comments = ReadComments(pkg),
             Styles = DocxStylesReader.ReadStyles(pkg),
             Bookmarks = bookmarks,
+            BookmarkOrder = bookmarkOrder,
+            Formatting = OoxmlParts.ReadDocFormatting(pkg),
+            FootnoteBlocks = footnoteBlocks,
+            EndnoteBlocks = endnoteBlocks,
         };
+    }
+
+    /// <summary>w:sectPr → SectionProps (o que o SectPr básico não cobre).</summary>
+    public static SectionProps ReadSectionProps(XmlElement sectEl)
+    {
+        string? V(string n, string a = "w:val") => FirstChild(sectEl, n)?.Attr(a);
+        var outp = new SectionProps { Type = V("w:type") ?? "nextPage" };
+        var pgSz = FirstChild(sectEl, "w:pgSz");
+        string? orient = pgSz?.Attr("w:orient");
+        if (orient is "landscape" or "portrait") outp.Orient = orient;
+        string? gutter = FirstChild(sectEl, "w:pgMar")?.Attr("w:gutter");
+        if (Js.Truthy(gutter)) outp.Gutter = Js.IntOr0(gutter);
+        var cols = FirstChild(sectEl, "w:cols");
+        if (cols is not null)
+        {
+            string? eq = cols.Attr("w:equalWidth");
+            if (eq is not null) outp.EqualWidth = !(eq == "0" || eq == "false");
+            var defs = ChildElements(cols, "w:col")
+                .Select(c => new ColDef { W = Js.IntOr0(c.Attr("w:w") ?? "0"), Space = Js.IntOr0(c.Attr("w:space") ?? "0") })
+                .ToList();
+            if (defs.Count > 0) outp.ColDefs = defs;
+        }
+        string? va = V("w:vAlign");
+        if (Js.Truthy(va)) outp.VAlign = va;
+        var dg = FirstChild(sectEl, "w:docGrid");
+        if (dg is not null)
+        {
+            outp.DocGrid = new DocGridSpec();
+            if (Js.Truthy(dg.Attr("w:type"))) outp.DocGrid.Type = dg.Attr("w:type");
+            if (Js.Truthy(dg.Attr("w:linePitch"))) outp.DocGrid.LinePitch = Js.ParseInt(dg.Attr("w:linePitch"));
+            if (Js.Truthy(dg.Attr("w:charSpace"))) outp.DocGrid.CharSpace = Js.ParseInt(dg.Attr("w:charSpace"));
+        }
+        var pb = FirstChild(sectEl, "w:pgBorders");
+        if (pb is not null)
+        {
+            outp.PgBorders = new PgBordersSpec();
+            if (Js.Truthy(pb.Attr("w:offsetFrom"))) outp.PgBorders.OffsetFrom = pb.Attr("w:offsetFrom");
+            if (Js.Truthy(pb.Attr("w:display"))) outp.PgBorders.Display = pb.Attr("w:display");
+            if (Js.Truthy(pb.Attr("w:zOrder"))) outp.PgBorders.ZOrder = pb.Attr("w:zOrder");
+            outp.PgBorders.Top = OoxmlProps.ReadBorder(FirstChild(pb, "w:top"));
+            outp.PgBorders.Left = OoxmlProps.ReadBorder(FirstChild(pb, "w:left"));
+            outp.PgBorders.Bottom = OoxmlProps.ReadBorder(FirstChild(pb, "w:bottom"));
+            outp.PgBorders.Right = OoxmlProps.ReadBorder(FirstChild(pb, "w:right"));
+        }
+        string? fmt = FirstChild(sectEl, "w:pgNumType")?.Attr("w:fmt");
+        if (Js.Truthy(fmt)) outp.PgNumFmt = fmt;
+        var ln = FirstChild(sectEl, "w:lnNumType");
+        if (ln is not null)
+        {
+            outp.LnNumType = new LnNumTypeSpec();
+            if (Js.Truthy(ln.Attr("w:countBy"))) outp.LnNumType.CountBy = Js.ParseInt(ln.Attr("w:countBy"));
+            if (Js.Truthy(ln.Attr("w:start"))) outp.LnNumType.Start = Js.ParseInt(ln.Attr("w:start"));
+            if (Js.Truthy(ln.Attr("w:restart"))) outp.LnNumType.Restart = ln.Attr("w:restart");
+            if (Js.Truthy(ln.Attr("w:distance"))) outp.LnNumType.Distance = Js.ParseInt(ln.Attr("w:distance"));
+        }
+        if (FirstChild(sectEl, "w:bidi") is not null) outp.Bidi = true;
+        if (FirstChild(sectEl, "w:rtlGutter") is not null) outp.RtlGutter = true;
+        if (FirstChild(sectEl, "w:formProt") is not null) outp.FormProt = true;
+        if (FirstChild(sectEl, "w:noEndnote") is not null) outp.NoEndnote = true;
+        return outp;
     }
 }

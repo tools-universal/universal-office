@@ -25,7 +25,7 @@ function decodeEntities(s: string): string {
   return s.replace(/&(#x?[0-9a-fA-F]+|\w+);/g, (_, e: string) => {
     if (e.startsWith('#x') || e.startsWith('#X')) return String.fromCodePoint(parseInt(e.slice(2), 16));
     if (e.startsWith('#')) return String.fromCodePoint(parseInt(e.slice(1), 10));
-    return ENTITIES[e] ?? `&${e};`;
+    return (Object.hasOwn(ENTITIES, e) ? ENTITIES[e] : undefined) ?? `&${e};`;
   });
 }
 

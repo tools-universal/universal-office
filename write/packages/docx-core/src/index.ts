@@ -18,7 +18,14 @@ export {
   type BorderEdge,
   type ParagraphBorders,
   EMU_PER_TWIP,
+  type DrawingShape,
+  type DrawingGroup,
+  runPropsFromRPr,
+  paraPropsFromPPr,
 } from './document.js';
+export * from './ooxml/props.js';
+export * from './ooxml/parts.js';
+export type { DrawingAnchor, AnchorPos, ShapeStyle, WrapType } from './drawing.js';
 export {
   readFullDocument,
   type FullDocument,
@@ -32,6 +39,9 @@ export {
   type CommentInfo,
   type HfRef,
   type TableBorders,
+  type SectionProps,
+  readBlocksOf,
+  readSectionProps,
 } from './fulldoc.js';
 export {
   insertText,
@@ -62,3 +72,4 @@ export {
   type CommentOut,
 } from './serialize.js';
 export { readStyles, type StylesMap, type ResolvedStyle } from './styles.js';
+export { isWordBinary, convertDocToDocx, DocFormatError } from './doc/index.js';

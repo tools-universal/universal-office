@@ -1,0 +1,59 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 134.08,
+"size": 11.04,
+"text": "antesHxg"
+},
+{
+"y": 116.78,
+"x0": 85.1,
+"x1": 207.85,
+"size": 11.04,
+"text": "depoisdovazio20ptHxg"
+},
+{
+"y": 136.34,
+"x0": 85.1,
+"x1": 201.85,
+"size": 11.04,
+"text": "depoisdovazio6ptHxg"
+},
+{
+"y": 161.3,
+"x0": 85.1,
+"x1": 283.22,
+"size": 24.0,
+"text": "normalGRANDEnormalHxg"
+},
+{
+"y": 176.66,
+"x0": 85.1,
+"x1": 174.96,
+"size": 11.04,
+"text": "linhaseguinteHxg"
+},
+{
+"y": 190.82,
+"x0": 85.1,
+"x1": 208.99,
+"size": 11.04,
+"text": "mistaCalibriTimesSegoe"
+},
+{
+"y": 203.9,
+"x0": 85.1,
+"x1": 184.22,
+"size": 11.04,
+"text": "linhaseguinte2Hxg"
+}
+]
+}
+]
+}

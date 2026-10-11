@@ -254,6 +254,41 @@ public static class JsNumber
         return (int)signed;
     }
 
+    /// <summary>
+    /// parseInt(s, radix) do JS com resultado double: NaN quando não há dígitos
+    /// (o leitor OOXML do JS distingue NaN de valores; sem clamp a int).
+    /// Radix 16 aceita o prefixo "0x" como o JS.
+    /// </summary>
+    public static double ParseInt(string? s, int radix = 10)
+    {
+        if (s is null) return double.NaN;
+        int i = 0;
+        while (i < s.Length && IsJsSpace(s[i])) i++;
+        double sign = 1;
+        if (i < s.Length && (s[i] == '+' || s[i] == '-')) { if (s[i] == '-') sign = -1; i++; }
+        if (radix == 16 && i + 1 < s.Length && s[i] == '0' && (s[i + 1] == 'x' || s[i + 1] == 'X')) i += 2;
+        int start = i;
+        while (i < s.Length && DigitValue(s[i]) is int d && d < radix) i++;
+        if (i == start) return double.NaN;
+        double v;
+        if (radix == 10)
+            v = double.Parse(s.AsSpan(start, i - start), NumberStyles.None, CultureInfo.InvariantCulture);
+        else
+        {
+            v = 0;
+            for (int k = start; k < i; k++) v = v * radix + DigitValue(s[k])!.Value;
+        }
+        return sign * v;
+    }
+
+    private static int? DigitValue(char c)
+    {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'z') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'Z') return c - 'A' + 10;
+        return null;
+    }
+
     /// <summary>String(int) — atalho para inteiros.</summary>
     public static string IntToString(int v) => v.ToString(CultureInfo.InvariantCulture);
 

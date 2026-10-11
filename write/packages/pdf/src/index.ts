@@ -10,4 +10,5 @@ export {
   type PdfColor,
   type PdfImage,
   type PlacedGlyph,
+  type PathCmd,
 } from './document.js';

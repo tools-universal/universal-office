@@ -2,3 +2,7 @@ bin/
 obj/
 *.user
 TestResults/
+
+# PDFs de inspeção (embutem subconjuntos de fontes proprietárias — CLAUDE.md)
+tests/fixtures/.out/
+tests/fixtures/expected/*.pdf

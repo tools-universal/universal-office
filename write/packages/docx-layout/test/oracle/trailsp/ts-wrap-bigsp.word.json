@@ -1,0 +1,46 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 146.91,
+"size": 11.04,
+"text": "Marca1Hxg"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 472.78,
+"size": 11.04,
+"text": "palavrapalavrapalavrapalavrapalavrapalavrapalavrapalavrapalavrapalavra"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 309.42,
+"size": 11.04,
+"text": "palavrafimsegundalinhaHxg"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 146.91,
+"size": 11.04,
+"text": "Marca2Hxg"
+},
+{
+"y": 131.78,
+"x0": 85.1,
+"x1": 146.91,
+"size": 11.04,
+"text": "Marca3Hxg"
+}
+],
+"objs": []
+}
+]
+}

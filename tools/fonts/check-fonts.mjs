@@ -15,10 +15,10 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { classifyFont, embeddedFontParts, FONT_EXT, OOXML_EXT } from './font-license.mjs';
+import { classifyFont, embeddedFontParts, pdfFontPrograms, FONT_EXT, OOXML_EXT, PDF_EXT } from './font-license.mjs';
 
-/** Arquivos que interessam: fontes e documentos do Office (podem embutir fontes). */
-const relevant = (p) => FONT_EXT.test(p) || OOXML_EXT.test(p);
+/** Arquivos que interessam: fontes, documentos do Office e PDFs (podem embutir fontes). */
+const relevant = (p) => FONT_EXT.test(p) || OOXML_EXT.test(p) || PDF_EXT.test(p);
 
 const here = dirname(fileURLToPath(import.meta.url));
 const mode = process.argv.includes('--staged') ? 'staged' : process.argv.includes('--history') ? 'history' : 'tracked';
@@ -68,6 +68,16 @@ for (const t of targets()) {
     try { parts = embeddedFontParts(bytes); } catch { /* zip ilegível: não é OOXML válido */ }
     if (!parts.length) continue;
     bad.push({ path: t.path, sha, verdict: 'unknown', family: 'documento', reason: `fonte(s) embutida(s): ${parts.slice(0, 6).join(', ')}` });
+    continue;
+  }
+  if (PDF_EXT.test(t.path)) {
+    // PDF: cada fonte embutida (subconjunto) é julgada pela licença que declara
+    const progs = pdfFontPrograms(bytes);
+    if (!progs.length) { ok++; continue; }
+    const verdicts = progs.map((p) => classifyFont(p));
+    const worst = verdicts.find((c) => c.verdict === 'proprietary') ?? verdicts.find((c) => c.verdict !== 'open');
+    if (!worst) { ok++; continue; }
+    bad.push({ path: t.path, sha, verdict: worst.verdict, family: `PDF com fonte embutida ${worst.family ?? ''}`.trim(), reason: worst.reason });
     continue;
   }
   const c = classifyFont(bytes);

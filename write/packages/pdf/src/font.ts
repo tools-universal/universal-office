@@ -46,7 +46,9 @@ export class EmbeddedFont {
 
   /** Mapeia um code point para (gid, advance em unidades de fonte) e registra uso. */
   encode(codePoint: number): { gid: number; advanceWidth: number } {
-    const gid = this.program.glyphId(codePoint);
+    // Identity-H tem 2 bytes por glifo: id fora de 0..0xFFFF (fonte/cmap inválido) vira .notdef
+    const g0 = this.program.glyphId(codePoint);
+    const gid = g0 >= 0 && g0 <= 0xffff ? g0 : 0;
     if (!this.used.has(gid)) this.used.set(gid, codePoint);
     return { gid, advanceWidth: this.program.advanceWidth(gid) };
   }

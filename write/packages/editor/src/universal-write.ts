@@ -2,12 +2,12 @@ import {
   DocxPackage,
   readDocument,
   writeDocument,
-  insertText,
-  insertRun,
-  deleteRange,
-  splitParagraph,
-  mergeWithPrevious,
-  applyRunProps,
+  insertText as coreInsertText,
+  insertRun as coreInsertRun,
+  deleteRange as coreDeleteRange,
+  splitParagraph as coreSplitParagraph,
+  mergeWithPrevious as coreMergeWithPrevious,
+  applyRunProps as coreApplyRunProps,
   applyParaProps,
   propsAt,
   paraLength,
@@ -24,6 +24,8 @@ import {
   type SectPr,
   readFullDocument,
   readEmbeddedFonts,
+  isWordBinary,
+  convertDocToDocx,
   type FullDocument,
   type TableBlock,
   type Section,
@@ -59,8 +61,20 @@ import {
   type PlacedGlyph,
 } from '@universal-office/pdf';
 import { toHtml, toMarkdown, type ExportDoc } from '@universal-office/export';
+import {
+  layoutDocument, renderPdf, withEmbeddedFonts,
+  type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,
+  type LayoutResult, type LayoutPage, type LaidOutLine,
+} from '@universal-office/docx-layout';
 import { readOdt, writeOdt } from '@universal-office/odf';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
+import { paintItems, type EnginePaintEnv } from './engine-paint.js';
+import { guardRuns } from './edit-guard.js';
+import {
+  buildEngineDoc, locateRef, resolveCell, cellBlocks, sameHops, caretXIn, offsetAtX, reconcileBlocks,
+  shiftPageItem, findItems, hfBlocksFor, paragraphAtPath,
+  type EngineDoc, type LineLoc, type CellHop, type HfKind,
+} from './engine-doc.js';
 import type {
   UniversalWriteDocumentSource,
   UniversalWriteFontAsset,
@@ -139,6 +153,138 @@ interface LaidLine {
   baselineTwips: number;
   marker?: { text: string; xTwips: number; sizePt: number };
   justifyExtraPerSpace: number;
+  /** linha do MOTOR (visão de impressão): cursor/clique pelos caracteres dela */
+  eng?: LaidOutLine;
+}
+
+/** Linha do motor com a página e a localização no estado de edição. */
+interface EngLine {
+  line: LaidOutLine;
+  page: number;
+  loc: LineLoc;
+  /** parágrafo do editor dono da linha (corpo, célula ou cabeçalho/rodapé) */
+  para: Paragraph | null;
+}
+
+/** Resultado do motor pintado no canvas (visão de impressão). */
+interface EngineView {
+  result: LayoutResult;
+  doc: EngineDoc;
+  lines: EngLine[];
+  /** por página: nº de itens iniciais que são do cabeçalho/rodapé (esmaecidos) */
+  hfItems: number[];
+  /** muda a cada layout (invalida o cache de pintura das páginas) */
+  version: number;
+  /** por página: muda quando o layout incremental refaz só aquela página */
+  pageVersion: number[];
+}
+
+/** Edição de célula de tabela (visão de impressão, motor): o modelo passa a
+ *  ser os parágrafos da célula; o corpo fica guardado. */
+interface CellEdit {
+  anchor: number;
+  hops: CellHop[];
+  cell: import('@universal-office/docx-core').TableCell;
+  /** corpo guardado (as âncoras de tabela/seção continuam as do corpo) */
+  saved: {
+    model: DocumentModel;
+    selection: { anchor: DocPosition; focus: DocPosition };
+    undoStack: string[];
+    redoStack: string[];
+  };
+}
+
+/** Referência ao w:rPr original guardada nas props do run (ver syncRunRPr):
+ *  símbolo — copiado pelo spread das props, invisível ao JSON e ao toolbar. */
+const RPR_REF = Symbol('uw-rpr');
+
+// Operações de edição do docx-core protegidas (guardRuns): preservam o w:rPr
+// e os extras dos runs e não fundem runs de formatação original diferente —
+// o motor de layout lê essa formatação (ver edit-guard.ts).
+const insertText = (m: DocumentModel, pos: DocPosition, text: string, props?: RunProps): DocPosition =>
+  guardRuns(m, pos.para, pos.para, () => coreInsertText(m, pos, text, props));
+const insertRun = (m: DocumentModel, pos: DocPosition, run: Run): DocPosition =>
+  guardRuns(m, pos.para, pos.para, () => coreInsertRun(m, pos, run));
+const deleteRange = (m: DocumentModel, range: DocRange): DocPosition => {
+  const r = normalizeRange(range);
+  return guardRuns(m, r.start.para, r.end.para, () => coreDeleteRange(m, range));
+};
+const splitParagraph = (m: DocumentModel, pos: DocPosition): DocPosition =>
+  guardRuns(m, pos.para, pos.para, () => coreSplitParagraph(m, pos));
+const mergeWithPrevious = (m: DocumentModel, para: number): DocPosition =>
+  guardRuns(m, para - 1, para, () => coreMergeWithPrevious(m, para));
+const applyRunProps = (m: DocumentModel, range: DocRange, patch: Partial<RunProps>): void => {
+  const r = normalizeRange(range);
+  guardRuns(m, r.start.para, r.end.para, () => coreApplyRunProps(m, range, patch));
+};
+
+/** Família CSS entre aspas. */
+const cssFamily = (family: string): string => `"${family.replace(/["\\]/g, '\\$&')}"`;
+
+/**
+ * Inline de plugin (run.custom: 1 caractere U+FFFC no modelo) — o motor
+ * desenha o texto de reserva com offsets a partir do do run, que colidem com
+ * os do run seguinte. Os caracteres do texto de reserva viram UM caractere
+ * atômico (cursor antes/depois, clique, caixa do desenho do plugin).
+ */
+function collapseCustomChars(line: LaidOutLine, para: Paragraph): void {
+  const cs = line.chars;
+  if (!cs?.length) return;
+  let acc = 0;
+  for (const r of para.runs) {
+    const a = acc;
+    acc += r.text.length;
+    if (!r.custom) continue;
+    const n = Math.max(1, Array.from(r.custom.fallbackText || ' ').length);
+    const i = cs.findIndex((c) => c.o === a);
+    if (i < 0) continue;
+    let j = i;
+    while (j + 1 < cs.length && j - i + 1 < n && cs[j + 1]!.o === cs[j]!.o + 1) j++;
+    const last = cs[j]!;
+    cs.splice(i, j - i + 1, { o: a, x: cs[i]!.x, w: last.x + last.w - cs[i]!.x });
+  }
+}
+
+/** Tabela conferida para o layout incremental (edição dentro de célula). */
+interface FastTableBefore {
+  page: number;
+  dx: number;
+  dy: number;
+  start: number;
+  count: number;
+  lineAt: number;
+  lineCount: number;
+  /** base dos itens da tabela no layout isolado (a altura não pode mudar) */
+  bottom: number;
+  /** "b<k>" — raiz das referências das linhas da tabela no documento */
+  root: string;
+}
+
+/** Base (y máximo) do que a página desenha — mede a altura de um bloco isolado. */
+function itemsBottom(page: LayoutPage): number {
+  let b = 0;
+  for (const it of page.items) {
+    if (it.t === 'rect' || it.t === 'image' || it.t === 'shape') b = Math.max(b, it.y + it.h);
+    else if (it.t === 'line') b = Math.max(b, it.y1, it.y2);
+    else if (it.t === 'glyphs') b = Math.max(b, it.y);
+  }
+  for (const l of page.lines) b = Math.max(b, l.y + l.height);
+  return b;
+}
+
+/** Parágrafo conferido para o layout incremental (ver noteParaEdit). */
+interface FastBefore {
+  page: number;
+  ref: string;
+  /** deslocamento do layout isolado até a posição real */
+  dx: number;
+  dy: number;
+  /** itens do parágrafo em page.items [start, start+count) */
+  start: number;
+  count: number;
+  /** 1ª linha do parágrafo em page.lines */
+  lineAt: number;
+  heights: number[];
 }
 
 interface ParaLayout {
@@ -158,9 +304,12 @@ class Registry implements FontRegistry {
     /** a família está registrada mas sem a variante (ainda não baixada) */
     private onMissVariant?: (family: string, variant: FontVariant) => void,
   ) {}
+  /** muda a cada registro/remoção (o provedor do motor refaz o cache de faces) */
+  version = 0;
   /** Registra uma variante de fonte (ex.: fontes EMBEDADAS do .docx). */
   register(family: string, variant: FontVariant, font: LayoutFont): void {
     (this.sets[family] ??= {})[variant] = font;
+    this.version++;
   }
   has(family: string): boolean {
     return this.sets[family] !== undefined || this.sets[family.split(' ')[0]!] !== undefined;
@@ -170,6 +319,7 @@ class Registry implements FontRegistry {
   }
   delete(family: string): void {
     delete this.sets[family];
+    this.version++;
   }
   get(family: string): Partial<Record<FontVariant, LayoutFont>> | undefined {
     return this.sets[family];
@@ -288,6 +438,35 @@ export class UniversalWriteElement extends HTMLElement {
   private pageCount = 1;
   private canvases: HTMLCanvasElement[] = [];
   private caretVisible = true;
+  /** Render "como impresso" (print() e o corpus-lab): sem caret, sem esmaecer
+   *  cabeçalho/rodapé e sem sombreamento de campo/comentário — adornos de TELA
+   *  que o Word também não imprime. */
+  private printRender = false;
+  /** Layout do MOTOR (docx-layout, o mesmo do PDF) na visão de impressão;
+   *  null = layout legado (outras visões, layout="legacy" ou falha do motor). */
+  private eng: EngineView | null = null;
+  private engVersion = 0;
+  /** o motor lançou exceção neste documento: legado até a próxima carga */
+  private engineFailed = false;
+  /** pintura das páginas do motor em cache (o caret pisca sem repintar glifos) */
+  private engPageCache = new Map<number, { key: string; canvas: HTMLCanvasElement }>();
+  /** imagens decodificadas desde a última pintura (invalida o cache) */
+  private imagesVersion = 0;
+  /** faces do motor → família/variante CSS carregada na página */
+  private engFaceCss = new WeakMap<EngineFontFace, { family: string; weight: 400 | 700; italic: boolean }>();
+  /** cache de faces do provedor ao vivo (refeito quando o Registry muda) */
+  private engFaceCache = new Map<string, EngineFontFace | null>();
+  private engFaceCacheVersion = -1;
+  /** famílias que o motor pediu e ainda não foram resolvidas (carga em 2º plano) */
+  private engMissing = new Map<string, Set<FontVariant>>();
+  private engFontsAttempted = new Set<string>();
+  private engFontLoad: Promise<void> | null = null;
+  /** indicadores → índice do parágrafo (deslocado nas edições, como as âncoras) */
+  private bookmarkParas = new Map<string, number>();
+  /** edição de célula de tabela (motor) */
+  private cellEdit: CellEdit | null = null;
+  /** tempos do último layout do motor (ms) — diagnóstico/medição */
+  engineStats: { buildMs: number; layoutMs: number; pages: number; paintMs: number; mode: string } = { buildMs: 0, layoutMs: 0, pages: 0, paintMs: 0, mode: '' };
   private caretTimer = 0;
   private readResizeQueued = false;
   private readonly handleWindowResize = (): void => {
@@ -297,7 +476,7 @@ export class UniversalWriteElement extends HTMLElement {
       this.readResizeQueued = false;
       if (!this.isConnected) return;
       this.fitReadZoom();
-      this.refresh();
+      this.refreshView(); // o layout do motor não depende do zoom
     });
   };
   private undoStack: string[] = [];
@@ -386,11 +565,16 @@ export class UniversalWriteElement extends HTMLElement {
   // ─────────────────────── chrome (barras) ───────────────────────
 
   static get observedAttributes(): string[] {
-    return ['topbar', 'bottombar'];
+    return ['topbar', 'bottombar', 'layout'];
   }
 
   attributeChangedCallback(name: string): void {
     if ((name === 'topbar' || name === 'bottombar') && this.initialized) void this.updateChrome();
+    // layout="legacy": volta ao layout antigo do canvas (o motor é o padrão)
+    if (name === 'layout' && this.model) {
+      if (this.legacyRequested() && this.cellEdit) this.exitCell();
+      this.refresh();
+    }
   }
 
   /** Barra de ferramentas superior (única). */
@@ -650,7 +834,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.dispatchEvent(new CustomEvent('uw-protected', {
       detail: { active: false, hasFields: this.hasExternalFields() },
     }));
-    this.refresh();
+    this.refreshView();
     this.focusEditor();
   }
 
@@ -692,7 +876,10 @@ export class UniversalWriteElement extends HTMLElement {
 
   loadDocx(bytes: Uint8Array, opts: { protected?: boolean } = {}): void {
     this.protectedMode = opts.protected ?? true;
+    // .doc (Word 97-2003): convertido para .docx na carga — salva como .docx
+    if (isWordBinary(bytes)) bytes = convertDocToDocx(bytes);
     this.pkg = DocxPackage.load(bytes);
+    this.loadedBytes = bytes;
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write, ...readDocxEmbedding(this.pkg).settings };
     this.fullDoc = readFullDocument(this.pkg);
     this.loadedFormat = 'docx';
@@ -739,6 +926,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.pkg = null;
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readOdt(bytes);
+    this.loadedBytes = null;
     this.loadedFormat = 'odt';
     this.installFullDoc();
   }
@@ -830,15 +1018,30 @@ export class UniversalWriteElement extends HTMLElement {
    *  partir de this.fullDoc e dispara uw-protected. */
   private installFullDoc(): void {
     if (!this.fullDoc) throw new Error('installFullDoc without fullDoc');
+    this.resetEngineState();
     // achatamento p/ edição: parágrafos top-level na ordem dos blocos;
     // tabelas viram âncoras "antes do parágrafo N"
     const paragraphs: Paragraph[] = [];
     this.tableAnchors = [];
+    const paraOfBlock: number[] = [];
     for (const block of this.fullDoc.blocks) {
+      paraOfBlock.push(paragraphs.length);
       if (block.type === 'paragraph') paragraphs.push(block.paragraph);
       else this.tableAnchors.push({ beforePara: paragraphs.length, table: block });
     }
     if (paragraphs.length === 0) paragraphs.push({ runs: [], props: {} });
+    // indicadores (REF/PAGEREF/links internos): bloco → parágrafo, deslocado
+    // nas edições como as âncoras de tabela
+    for (const [name, b] of this.fullDoc.bookmarks ?? []) {
+      this.bookmarkParas.set(name, Math.min(paraOfBlock[b] ?? paragraphs.length - 1, paragraphs.length - 1));
+    }
+    // a edição (dividir/apagar runs) perde o w:rPr original: as props levam
+    // uma referência a ele (ver syncRunRPr)
+    this.syncRunRPr(paragraphs);
+    for (const a of this.tableAnchors) this.syncTableRPr(a.table);
+    for (const s of this.fullDoc.sections) {
+      for (const set of [s.headers, s.footers]) for (const ps of [set.default, set.first, set.even]) if (ps) this.syncRunRPr(ps);
+    }
 
     // seções → startPara (bloco inicial mapeado p/ índice de parágrafo)
     this.sectionStarts = this.fullDoc.sections.map((section) => {
@@ -901,6 +1104,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
     this.undoStack = [];
     this.redoStack = [];
+    this.editsSinceLoad = 0;
     this.refresh();
     this.dispatchEvent(new CustomEvent('uw-protected', {
       detail: { active: this.protectedMode, hasFields: this.hasExternalFields() },
@@ -908,7 +1112,10 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   newDocument(): void {
+    this.resetEngineState();
     this.protectedMode = false; // documento novo nasce editável
+    this.loadedBytes = null;
+    this.editsSinceLoad = 0;
     this.loadedFormat = 'docx';
     this.pkg = null;
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
@@ -933,7 +1140,7 @@ export class UniversalWriteElement extends HTMLElement {
   setDarkPage(dark: boolean): void {
     this.pageDark = dark;
     this.classList.toggle('page-dark', dark); // fundo do desk (web/draft) segue a página
-    this.refresh();
+    this.refreshView();
     // refresh só repinta páginas RECÉM-alocadas. Trocar de tema afeta TODAS
     // as canvases já pintadas (texto, sombreado, bordas), então força repaint.
     this.paint();
@@ -1051,6 +1258,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   enterHeaderFooter(kind: 'header' | 'footer', activePage = 0): void {
     if (!this.model || this.hfEdit || this.locked()) return;
+    if (this.cellEdit) { this.exitCell(); this.refreshSelection(); }
     this.floatSel = null;
     this.hfActivePage = Math.max(0, Math.min(activePage, this.pageCount - 1));
     // garante fullDoc mínimo em documentos novos
@@ -1067,13 +1275,17 @@ export class UniversalWriteElement extends HTMLElement {
     // seção da PÁGINA ATIVA (não sempre a 1ª) — espelha o paint
     const sIdx = this.pageSections[this.hfActivePage] ?? 0;
     const fd = this.fullDoc;
-    const sec = this.sectionStarts[sIdx]?.section ?? fd.sections[0]!;
-    const set = kind === 'header' ? sec.headers : sec.footers;
-    const refs = kind === 'header' ? sec.headerRefs : sec.footerRefs;
+    let sec = this.sectionStarts[sIdx]?.section ?? fd.sections[0]!;
     // PARTE exibida nesta página (espelha o paint): a 1ª página usa a 'first'
     // (se existir); as demais usam a 'default'. Editar a parte correta evita que
     // a edição do cabeçalho da capa altere o cabeçalho do resto do documento.
-    const partType: 'first' | 'default' = this.hfActivePage === 0 && set.first ? 'first' : 'default';
+    let partType: HfKind = this.hfActivePage === 0 && (kind === 'header' ? sec.headers : sec.footers).first ? 'first' : 'default';
+    // motor: a variante que a página usou (primeira/par/padrão) e a seção que
+    // a DEFINE (herdada das anteriores, como o Word: editar vale para todas)
+    const engPart = this.eng ? this.hfPartOfPage(kind, this.hfActivePage) : null;
+    if (engPart) ({ section: sec, type: partType } = engPart);
+    const set = kind === 'header' ? sec.headers : sec.footers;
+    const refs = kind === 'header' ? sec.headerRefs : sec.footerRefs;
     if (!set[partType]) set[partType] = [{ runs: [], props: {} }];
     const part = set[partType]!;
     // materializa o texto dos campos (PAGE/NUMPAGES/DATE) sem cache p/ que
@@ -1094,18 +1306,22 @@ export class UniversalWriteElement extends HTMLElement {
       refs.push(ref);
       this.dirtyHf.add(ref.path); // parte nova: sempre gravar
     }
-    // Fundo esmaecido = SÓ o CORPO (ambos HF suprimidos; header e footer são
-    // repintados na composição da edição). Fundo TRANSPARENTE p/ compor sobre a
-    // imagem behindDoc (capa) sem véu branco. Ver paintHfEditCompose.
-    this.hfCapturing = true;
-    this.paint();
-    this.hfBodySnapshots = this.canvases.map((c) => {
-      const snap = document.createElement('canvas');
-      snap.width = c.width; snap.height = c.height;
-      if (c.width > 1) snap.getContext('2d')!.drawImage(c, 0, 0);
-      return snap;
-    });
-    this.hfCapturing = false;
+    // Layout legado: fundo esmaecido = SÓ o CORPO (ambos HF suprimidos; header
+    // e footer são repintados na composição da edição). Fundo TRANSPARENTE p/
+    // compor sobre a imagem behindDoc (capa) sem véu branco. Ver
+    // paintHfEditCompose. Com o motor não há instantâneo: ele diagrama o
+    // documento inteiro com o cabeçalho/rodapé editado e pinta o corpo esmaecido.
+    if (!engPart) {
+      this.hfCapturing = true;
+      this.paint();
+      this.hfBodySnapshots = this.canvases.map((c) => {
+        const snap = document.createElement('canvas');
+        snap.width = c.width; snap.height = c.height;
+        if (c.width > 1) snap.getContext('2d')!.drawImage(c, 0, 0);
+        return snap;
+      });
+      this.hfCapturing = false;
+    }
     this.savedBody = {
       model: this.model,
       tableAnchors: this.tableAnchors,
@@ -1160,6 +1376,7 @@ export class UniversalWriteElement extends HTMLElement {
     caret?: DocPosition,
   ): void {
     if (!this.model || !hostRun.textbox || this.tbEdit || this.locked()) return;
+    if (this.cellEdit) { this.exitCell(); this.refreshSelection(); }
     this.floatSel = null;
     const tb = hostRun.textbox;
     // materializa campos (PAGE/NUMPAGES/DATE) p/ ficarem visíveis e editáveis;
@@ -1217,6 +1434,9 @@ export class UniversalWriteElement extends HTMLElement {
 
   exitTextbox(): void {
     if (!this.tbEdit || !this.savedForTb) return;
+    // a caixa pode ter ganho/perdido parágrafos: os blocos (que o motor lê) acompanham
+    const tbx = this.tbEdit.hostRun.textbox;
+    if (tbx?.blocks) tbx.blocks = reconcileBlocks(tbx.blocks, tbx.paras, true);
     this.tbBgSnapshots = [];
     this.model = this.savedForTb.model;
     this.tableAnchors = this.savedForTb.tableAnchors;
@@ -1233,15 +1453,21 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Desloca âncoras de tabela/seção quando parágrafos entram/saem. */
   private shiftAnchors(fromPara: number, delta: number): void {
+    // na célula de tabela os parágrafos são os DELA: âncoras do corpo ficam
+    if (this.cellEdit) return;
     for (const a of this.tableAnchors) if (a.beforePara > fromPara) a.beforePara += delta;
     for (const s of this.sectionStarts) if (s.startPara > fromPara) s.startPara += delta;
     for (const f of this.floatImages) if (f.para > fromPara) f.para += delta;
+    if (!this.hfEdit && !this.tbEdit) {
+      for (const [k, v] of this.bookmarkParas) if (v > fromPara) this.bookmarkParas.set(k, Math.max(0, v + delta));
+    }
   }
 
   // ───────────────────────── API pública ─────────────────────────
 
   setView(v: ViewMode): void {
     const prev = this.view;
+    if (this.cellEdit && v !== 'print') this.exitCell();
     const z0 = this.zoom;
     if (v === 'read' && prev !== 'read') this.zoomBeforeRead = this.zoom;
     this.view = v;
@@ -1306,12 +1532,13 @@ export class UniversalWriteElement extends HTMLElement {
     const anchor = anchorY ?? this.clientHeight / 2;
     const docY = this.scrollTop + anchor; // ponto do documento sob a âncora
     this.zoom = clamped;
-    this.refresh();
+    // o layout do motor não depende do zoom: só canvases/pintura
+    this.refreshView();
     this.scrollTop = (docY * clamped) / old - anchor;
     this.dispatchEvent(new CustomEvent('uw-zoom', { detail: { zoom: clamped } }));
   }
   getZoom(): number { return this.zoom; }
-  toggleMarks(): boolean { this.showMarks = !this.showMarks; this.refresh(); return this.showMarks; }
+  toggleMarks(): boolean { this.showMarks = !this.showMarks; this.refreshView(); return this.showMarks; }
 
   getSelectionState(): { run: RunProps; para: ParaProps; view: ViewMode; marks: boolean } {
     const run: RunProps = { ...(this.pendingProps ?? this.currentProps()) };
@@ -1480,6 +1707,18 @@ export class UniversalWriteElement extends HTMLElement {
     }
     // (re)layout pendente na fila também precisa valer ANTES de exportar
     if ((changed || this.refreshQueued) && this.model) this.refresh();
+    await this.settleEngineFonts();
+  }
+
+  /** Espera as fontes que o MOTOR pediu (tema, substitutas do Word, símbolos)
+   *  chegarem e o layout ser refeito com elas. */
+  private async settleEngineFonts(): Promise<void> {
+    for (let i = 0; i < 6 && this.eng; i++) {
+      if (!this.engFontLoad) this.scheduleEngineFonts();
+      if (!this.engFontLoad) break;
+      await this.engFontLoad;
+      if (this.refreshQueued && this.model) { this.refreshQueued = false; this.refresh(); }
+    }
   }
 
   /** Antes do PDF: famílias cujo arquivo a licença não deixa embutir ganham a
@@ -1518,6 +1757,22 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.hasSelection()) {
       applyRunProps(this.model!, this.range(), { ...DEFAULT_RUN_PROPS, szHalfPt: undefined, color: undefined, highlight: undefined, fontAscii: undefined, vertAlign: undefined });
       applyParaProps(this.model!, this.range(), { styleId: undefined, alignment: undefined });
+      // o motor lê o w:rPr original: limpar também tira estilo de caractere,
+      // fontes/cores de tema etc. (como o Limpar Formatação do Word)
+      const { start, end } = normalizeRange(this.range());
+      for (let pi = start.para; pi <= end.para; pi++) {
+        let acc = 0;
+        for (const r of this.model!.paragraphs[pi]!.runs) {
+          const a = acc;
+          acc += r.text.length;
+          const from = pi === start.para ? start.offset : 0;
+          const to = pi === end.para ? end.offset : Infinity;
+          if (a < from || acc > to) continue;
+          delete r.rpr;
+          r.props = { ...r.props };
+          delete (r.props as RunProps & { [RPR_REF]?: unknown })[RPR_REF];
+        }
+      }
     }
     this.refresh();
   }
@@ -1663,7 +1918,7 @@ export class UniversalWriteElement extends HTMLElement {
           anchor: { para: pi, offset: idx },
           focus: { para: pi, offset: idx + needle.length },
         };
-        this.refresh();
+        this.refreshSelection();
         this.scrollCaretIntoView();
         return true;
       }
@@ -2001,9 +2256,12 @@ export class UniversalWriteElement extends HTMLElement {
   /** Navega para um destino interno: "#para:N" ou "#bookmark". */
   navigateTo(link: string): boolean {
     if (!link.startsWith('#')) return false;
+    // destino é um parágrafo do corpo: sai da célula em edição
+    if (this.cellEdit) { this.exitCell(); this.refreshSelection(); }
     let paraIdx = -1;
     const pm = link.match(/^#para:(\d+)$/);
     if (pm) paraIdx = parseInt(pm[1]!, 10);
+    else if (this.bookmarkParas.has(link.slice(1))) paraIdx = this.bookmarkParas.get(link.slice(1))!;
     else {
       const blockIdx = this.fullDoc?.bookmarks.get(link.slice(1));
       if (blockIdx !== undefined && this.fullDoc) {
@@ -2051,6 +2309,17 @@ export class UniversalWriteElement extends HTMLElement {
         heightPx: line.heightTwips * scale,
         page: line.page,
       };
+    }
+    // motor: linhas das células (e do corpo, se o modelo é o de uma célula)
+    if (this.eng) {
+      for (const el of this.eng.lines) {
+        const para = el.para;
+        if (!para?.runs.some((r) => r.props.commentIds?.includes(id))) continue;
+        const canvas = this.canvases[el.page];
+        if (!canvas) return null;
+        return { topPx: canvas.offsetTop + el.line.y * scale, heightPx: el.line.height * scale, page: el.page };
+      }
+      return null;
     }
     // 2) procura em tabelas (cells.paragraphs e tables aninhadas)
     for (const tl of this.tableLayouts) {
@@ -2134,7 +2403,7 @@ export class UniversalWriteElement extends HTMLElement {
             anchor: { para: pi, offset: acc },
             focus: { para: pi, offset: acc + run.text.length },
           };
-          this.refresh();
+          this.refreshSelection();
           this.navigateTo(`#para:${pi}`);
           return;
         }
@@ -2150,7 +2419,7 @@ export class UniversalWriteElement extends HTMLElement {
       anchor: { para: 0, offset: 0 },
       focus: { para: lastP, offset: paraLength(this.model.paragraphs[lastP]!) },
     };
-    this.refresh();
+    this.refreshSelection();
   }
 
   // imagens
@@ -2167,7 +2436,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (img.svg) { this.rasterizeSvg(img); return null; }
     const copy = new Uint8Array(img.data);
     void createImageBitmap(new Blob([copy.buffer], { type: `image/${img.ext === 'jpg' ? 'jpeg' : img.ext}` }))
-      .then((bmp) => { this.bitmaps.set(img, bmp); this.paint(); })
+      .then((bmp) => { this.bitmaps.set(img, bmp); this.imagesVersion++; this.paint(); })
       .catch(() => this.bitmaps.set(img, undefined as never));
     return null;
   }
@@ -2190,7 +2459,7 @@ export class UniversalWriteElement extends HTMLElement {
         octx.imageSmoothingQuality = 'high';
         octx.drawImage(el, 0, 0, wPx, hPx);
         void createImageBitmap(oc)
-          .then((bmp) => { this.bitmaps.set(img as object, bmp); this.paint(); })
+          .then((bmp) => { this.bitmaps.set(img as object, bmp); this.imagesVersion++; this.paint(); })
           .catch(() => this.bitmaps.set(img as object, undefined as never));
       } catch { this.bitmaps.set(img as object, undefined as never); }
       URL.revokeObjectURL(url);
@@ -2564,17 +2833,42 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Imprime: abre janela com as páginas como imagens (visão de impressão). */
-  print(): void {
-    const wasView = this.view;
-    if (wasView !== 'print') this.setView('print');
-    const imgs = this.canvases.map((c) => `<img src="${c.toDataURL('image/png')}" style="width:100%;page-break-after:always"/>`);
-    if (wasView !== 'print') this.setView(wasView);
+  async print(): Promise<void> {
+    // a janela abre ANTES de qualquer await (bloqueador de pop-up exige o gesto)
     const win = window.open('', '_blank');
     if (!win) return;
+    const wasView = this.view;
+    if (wasView !== 'print') this.setView('print');
+    await this.ensureImagesDecoded();
+    // toda página é pintada aqui: com a virtualização, as fora da tela não têm buffer
+    const imgs = this.canvases.map((_, i) => `<img src="${this.pageImageForPrint(i)}" style="width:100%;page-break-after:always"/>`);
+    if (wasView !== 'print') this.setView(wasView);
     win.document.write(`<!doctype html><title>Write — imprimir</title><body style="margin:0">${imgs.join('')}</body>`);
     win.document.close();
     win.focus();
     setTimeout(() => win.print(), 200);
+  }
+
+  /** PNG (dataURL) da página `i` "como impressa" (sem adornos de tela) a
+   *  96 dpi × devicePixelRatio. Aloca o buffer só durante a captura. */
+  private pageImageForPrint(i: number): string {
+    const c = this.canvases[i];
+    if (!c) return '';
+    const had = this.allocatedPages.has(i);
+    const bs = this.bufferScaleFor(c);
+    c.width = Math.round(parseFloat(c.style.width) * bs);
+    c.height = Math.round(parseFloat(c.style.height) * bs);
+    this.allocatedPages.add(i);
+    const prev = this.printRender;
+    this.printRender = true;
+    try {
+      this.paint(new Set([i]));
+      return c.toDataURL('image/png');
+    } finally {
+      this.printRender = prev;
+      if (had) this.paint(new Set([i]));
+      else { c.width = 1; c.height = 1; this.allocatedPages.delete(i); }
+    }
   }
 
   // ───────────────────────── edição ─────────────────────────
@@ -2593,6 +2887,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (!this.model || this.locked()) return;
     if (this.hasSelection()) {
       this.snapshot();
+      if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
       applyRunProps(this.model, this.range(), patch);
       this.refresh();
     } else {
@@ -2618,6 +2913,12 @@ export class UniversalWriteElement extends HTMLElement {
       s: this.selection,
       // sectPrs das seções (margens/orientação) — fora do model, mas undoáveis
       sect: this.sectionStarts.map((ss) => ({ ...ss.section.sectPr })),
+      // âncoras de tabela/seção e indicadores (deslocados por Enter/Backspace)
+      anc: this.cellEdit || this.hfEdit || this.tbEdit ? undefined : {
+        t: this.tableAnchors.map((a) => a.beforePara),
+        s: this.sectionStarts.map((x) => x.startPara),
+        b: [...this.bookmarkParas],
+      },
     }, (key, value) => {
       if (value instanceof Uint8Array) {
         let idx = this.imgPoolIdx.get(value);
@@ -2635,6 +2936,7 @@ export class UniversalWriteElement extends HTMLElement {
     m: DocumentModel;
     s: { anchor: DocPosition; focus: DocPosition };
     sect?: DocumentModel['sectPr'][];
+    anc?: { t: number[]; s: number[]; b: [string, number][] };
   } {
     return JSON.parse(json, (key, value) =>
       value && typeof value === 'object' && '__imgPool' in value
@@ -2645,9 +2947,14 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Mudanças de campo (Atualizar Campos) não contam como edição p/ autosave. */
   private quietChange = false;
+  /** Edições desde a carga: sem nenhuma, o PDF sai dos bytes ORIGINAIS (o
+   *  .docx regravado pelo modelo de edição ainda não preserva tudo). */
+  private editsSinceLoad = 0;
+  private loadedBytes: Uint8Array | null = null;
 
   private snapshot(): void {
     if (!this.model) return;
+    this.editsSinceLoad++;
     if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
     this.undoStack.push(this.stringifyState());
     if (this.undoStack.length > 200) this.undoStack.shift();
@@ -2661,8 +2968,21 @@ export class UniversalWriteElement extends HTMLElement {
     this.floatSel = null; // o modelo é recriado → referência de run fica obsoleta
     to.push(this.stringifyState());
     const state = this.parseState(from.pop()!);
-    this.model = state.m;
+    if (this.cellEdit || this.hfEdit || this.tbEdit) {
+      // célula/cabeçalho/caixa: o array de parágrafos É o do documento (célula,
+      // parte do HF, caixa de texto) — restaura no lugar para não desligá-lo
+      const linked = this.model.paragraphs;
+      linked.splice(0, linked.length, ...state.m.paragraphs);
+      this.model = { ...state.m, paragraphs: linked };
+    } else this.model = state.m;
     this.selection = state.s;
+    // âncoras de tabela/seção/indicador acompanham o desfazer (Enter desfeito
+    // não pode deixar a tabela um parágrafo abaixo)
+    if (state.anc && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
+      state.anc.t.forEach((v, i) => { const a = this.tableAnchors[i]; if (a) a.beforePara = v; });
+      state.anc.s.forEach((v, i) => { const s = this.sectionStarts[i]; if (s) s.startPara = v; });
+      this.bookmarkParas = new Map(state.anc.b);
+    }
     if (state.sect) {
       state.sect.forEach((sp, i) => {
         const target = this.sectionStarts[i]?.section.sectPr;
@@ -2689,6 +3009,7 @@ export class UniversalWriteElement extends HTMLElement {
     });
     if (!this.dispatchEvent(before)) return;
     this.snapshot();
+    if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
@@ -2720,6 +3041,7 @@ export class UniversalWriteElement extends HTMLElement {
   private pressBackspace(): void {
     if (!this.model || this.locked()) return;
     this.snapshot();
+    if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset > 0)) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
@@ -2743,6 +3065,7 @@ export class UniversalWriteElement extends HTMLElement {
   private pressDelete(): void {
     if (!this.model || this.locked()) return;
     this.snapshot();
+    if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset < paraLength(this.model.paragraphs[this.selection.focus.para]!))) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
@@ -2780,7 +3103,7 @@ export class UniversalWriteElement extends HTMLElement {
     }
     const focus = { para, offset };
     this.selection = extend ? { anchor: this.selection.anchor, focus } : { anchor: focus, focus };
-    this.refresh();
+    this.refreshSelection();
     this.scrollCaretIntoView();
   }
 
@@ -2794,6 +3117,7 @@ export class UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: before, focus: after };
     }
     this.snapshot();
+    if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
     const pos = deleteRange(this.model, this.range());
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -2811,7 +3135,7 @@ export class UniversalWriteElement extends HTMLElement {
       else if (para < this.model.paragraphs.length - 1) { para++; offset = 0; }
     } else if (dir === 'home' || dir === 'end') {
       const line = this.lineOf({ para, offset });
-      if (line) offset = dir === 'home' ? line.rich.start : line.rich.end;
+      if (line) offset = dir === 'home' ? line.rich.start : this.lineEndOffset(line);
     } else {
       const line = this.lineOf({ para, offset });
       if (line) {
@@ -2828,7 +3152,7 @@ export class UniversalWriteElement extends HTMLElement {
     const focus = { para, offset };
     this.selection = extend ? { anchor: this.selection.anchor, focus } : { anchor: focus, focus };
     this.pendingProps = null;
-    this.refresh();
+    this.refreshSelection();
     this.scrollCaretIntoView();
   }
 
@@ -2900,21 +3224,25 @@ export class UniversalWriteElement extends HTMLElement {
           if (this.tbEdit) this.exitTextbox(); // saiu da caixa atual
           // 3) clique numa caixa de texto → ENTRA na edição direto (1 clique). Não
           //    retorna: cai no hitTest p/ caret no ponto + seleção por arrasto.
-          const tbHit = this.hitTextbox(e);
+          let tbHit = this.hitTextbox(e);
+          const fh0 = tbHit && this.eng ? this.hitFloat(e, 'image') : null;
+          // imagem menor por cima de uma caixa de texto grande (logo dentro da
+          // faixa do cabeçalho): o clique é da imagem
+          if (tbHit && fh0?.kind === 'image' && fh0.rect.w * fh0.rect.h < tbHit.rect.w * tbHit.rect.h) tbHit = null;
           if (tbHit) {
             this.enterTextbox(tbHit.hostRun, tbHit.rect, tbHit.page);
           } else {
             // 4) clique numa IMAGEM → seleciona p/ mover/redimensionar.
-            const fh = this.hitFloat(e);
+            const fh = fh0 ?? this.hitFloat(e);
             if (fh && fh.kind === 'image') {
-              if (this.floatSel !== fh.run) { this.floatSel = fh.run; this.refresh(); }
+              if (this.floatSel !== fh.run) { this.floatSel = fh.run; this.refreshSelection(); }
               this.focusEditor();
               this.startFloatDrag(e, 'move', '');
               this.onSelectionChange?.(); this.chromeSync?.();
               return;
             }
             // 5) clique fora → desseleciona imagem.
-            if (this.floatSel) { this.floatSel = null; this.refresh(); }
+            if (this.floatSel) { this.floatSel = null; this.refreshSelection(); }
           }
         }
       }
@@ -2927,11 +3255,15 @@ export class UniversalWriteElement extends HTMLElement {
           const pos = this.hitTest(e);
           if (pos) this.selection = { anchor: pos, focus: pos };
           this.focusEditor();
+          e.preventDefault(); // senão o mousedown tira o foco da textarea
+          // (a digitação seguinte se perdia)
           this.refresh();
           this.onSelectionChange?.(); this.chromeSync?.();
           return;
         }
       }
+      // motor: clicar numa célula de tabela entra na edição dela; no corpo, sai
+      if (e.button === 0 && !e.shiftKey) this.routeEngineClick(e);
       const hit = this.hitTest(e);
       if (!hit) return;
       // botão direito: posiciona o caret só se clicar FORA da seleção (como o
@@ -2940,7 +3272,7 @@ export class UniversalWriteElement extends HTMLElement {
         if (!this.posInSelection(hit)) {
           this.selection = { anchor: hit, focus: hit };
           this.pendingProps = null;
-          this.refresh();
+          this.refreshSelection();
         }
         this.focusEditor();
         this.onSelectionChange?.(); this.chromeSync?.();
@@ -2984,10 +3316,10 @@ export class UniversalWriteElement extends HTMLElement {
         ? { anchor: this.selection.anchor, focus: hit }
         : { anchor: hit, focus: hit };
       this.pendingProps = null;
-      this.refresh();
+      this.refreshSelection();
       const move = (ev: MouseEvent) => {
         const h = this.hitTest(ev);
-        if (h) { this.selection.focus = h; this.refresh(); }
+        if (h) { this.selection.focus = h; this.refreshSelection(); }
       };
       const up = () => {
         window.removeEventListener('mousemove', move);
@@ -3004,7 +3336,7 @@ export class UniversalWriteElement extends HTMLElement {
           anchor: { para: hit.para, offset: 0 },
           focus: { para: hit.para, offset: len },
         };
-        this.refresh();
+        this.refreshSelection();
       }
     });
 
@@ -3105,6 +3437,9 @@ export class UniversalWriteElement extends HTMLElement {
             return;
           }
           this.enterHeaderFooter(zone.kind, zone.page);
+          // caret no ponto do duplo clique (como o Word), não no início da parte
+          const pos = this.hfEdit ? this.hitTest(e) : null;
+          if (pos) { this.selection = { anchor: pos, focus: pos }; this.refreshSelection(); }
           return;
         }
       }
@@ -3122,7 +3457,7 @@ export class UniversalWriteElement extends HTMLElement {
       while (a > 0 && !/[\s]/.test(text[a - 1]!)) a--;
       while (b < text.length && !/[\s]/.test(text[b]!)) b++;
       this.selection = { anchor: { para: hit.para, offset: a }, focus: { para: hit.para, offset: b } };
-      this.refresh();
+      this.refreshSelection();
     });
 
     // IME: durante a composição não insere; no fim, insere o resultado.
@@ -3192,13 +3527,19 @@ export class UniversalWriteElement extends HTMLElement {
         this.selection = e.shiftKey
           ? { anchor: this.selection.anchor, focus }
           : { anchor: focus, focus };
-        this.refresh();
+        this.refreshSelection();
         this.scrollCaretIntoView();
         this.onSelectionChange?.(); this.chromeSync?.();
         return;
       }
       if (k === 'Tab') {
         e.preventDefault();
+        // célula de tabela: Tab/Shift+Tab vai para a próxima/anterior célula
+        if (this.cellEdit && !ctrl) {
+          this.moveCell(e.shiftKey ? -1 : 1);
+          this.onSelectionChange?.(); this.chromeSync?.();
+          return;
+        }
         const para = this.model?.paragraphs[this.selection.focus.para];
         // Tab no início de item de lista muda o nível (comportamento do app de referência)
         if (para?.props.numbering && this.selection.focus.offset === 0) {
@@ -3213,7 +3554,7 @@ export class UniversalWriteElement extends HTMLElement {
       }
       // objeto flutuante selecionado: Esc desseleciona, Del remove, setas nudge
       if (this.floatSel && !this.tbEdit) {
-        if (k === 'Escape') { e.preventDefault(); this.floatSel = null; this.refresh(); return; }
+        if (k === 'Escape') { e.preventDefault(); this.floatSel = null; this.refreshSelection(); return; }
         if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); this.deleteSelectedFloat(); return; }
         if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' || k === 'ArrowDown') {
           e.preventDefault();
@@ -3227,6 +3568,7 @@ export class UniversalWriteElement extends HTMLElement {
             else if (k === 'ArrowRight') obj.offsetXTwips = ox + step;
             else if (k === 'ArrowUp') obj.offsetYTwips = oy - step;
             else obj.offsetYTwips = oy + step;
+            if (this.eng) this.moveAnchorTo(obj, h.rect.x + (obj.offsetXTwips ?? 0) - ox, h.rect.y + (obj.offsetYTwips ?? 0) - oy);
             this.refresh();
             this.dispatchEvent(new CustomEvent('uw-change'));
           }
@@ -3243,6 +3585,12 @@ export class UniversalWriteElement extends HTMLElement {
         e.preventDefault();
         this.exitHeaderFooter();
         this.onSelectionChange?.(); this.chromeSync?.();
+        return;
+      }
+      if (k === 'Escape' && this.cellEdit) {
+        e.preventDefault();
+        this.exitCell();
+        this.refreshSelection();
         return;
       }
       const nav: Record<string, () => void> = {
@@ -3683,11 +4031,14 @@ export class UniversalWriteElement extends HTMLElement {
   /** Bandas realçadas de header e footer na página ativa + linhas separadoras no
    *  limite com o corpo (base da margem sup. / topo da margem inf.), como o Word. */
   private paintHfBands(
-    ctx: CanvasRenderingContext2D, scale: number, sp: SectPr, dpr: number,
+    ctx: CanvasRenderingContext2D, scale: number, sp: SectPr, dpr: number, pg?: number,
   ): void {
     const activeKind = this.hfEdit!.kind;
     const drawBand = (kind: 'header' | 'footer') => {
-      const lineY = kind === 'header' ? sp.marginTopTwips : sp.pageHeightTwips - sp.marginBottomTwips;
+      // motor: o limite é onde o conteúdo do cabeçalho/rodapé termina (ou a margem)
+      const band = this.eng && pg !== undefined ? this.hfBand(pg, kind) : null;
+      const lineY = band ? (kind === 'header' ? band.bottom : band.top)
+        : kind === 'header' ? sp.marginTopTwips : sp.pageHeightTwips - sp.marginBottomTwips;
       const bandTop = kind === 'header' ? 0 : lineY;
       const bandBot = kind === 'header' ? lineY : sp.pageHeightTwips;
       const active = kind === activeKind;
@@ -3724,6 +4075,21 @@ export class UniversalWriteElement extends HTMLElement {
 
   private layout(): void {
     if (!this.model || !this.fonts) return;
+    // visão de impressão: o motor de layout do Word (o mesmo do PDF) —
+    // incremental quando a edição ficou num parágrafo/tabela, senão completo
+    if (this.engineActive()) {
+      if (this.fastHint && this.tryFastLayout()) return;
+      if (this.fastTable && this.tryFastTable()) return;
+      this.fastHint = null;
+      this.fastTable = null;
+      window.clearTimeout(this.idleRelayout);
+      this.idleRelayout = 0;
+      if (this.layoutEngine()) return;
+    }
+    this.fastHint = null;
+    this.eng = null;
+    this.engPageCache.clear();
+    this.syncRunRPr(this.model.paragraphs);
     // edição de caixa de texto: precede o HF (a caixa pode morar no HF)
     if (this.tbEdit && this.view === 'print' && this.savedForTb) {
       this.layoutTextboxEdit();
@@ -4460,6 +4826,12 @@ export class UniversalWriteElement extends HTMLElement {
       if (e.clientX < rect.left || e.clientX > rect.right) continue;
       const scale = PX_PER_TWIP * this.zoom;
       const yT = (e.clientY - rect.top) / scale;
+      if (this.eng) {
+        // motor: a faixa real (o cabeçalho alto empurra o corpo para baixo)
+        if (yT < this.hfBand(pg, 'header').bottom) return { kind: 'header', page: pg };
+        if (yT > this.hfBand(pg, 'footer').top) return { kind: 'footer', page: pg };
+        return null;
+      }
       const sp = this.sectionStarts.length
         ? this.sectPrAt(this.pageSections[pg] ?? 0)
         : this.sect();
@@ -4482,6 +4854,10 @@ export class UniversalWriteElement extends HTMLElement {
     // mesma geometria da banda pintada (ver paint): header = margem superior;
     // footer = margem inferior; limite no corpo.
     const isHeader = this.hfEdit.kind === 'header';
+    if (this.eng) {
+      const band = this.hfBand(this.hfActivePage, this.hfEdit.kind);
+      return yT >= band.top && yT <= band.bottom;
+    }
     const sp = this.sectPrForSavedPage(this.hfActivePage);
     const lineY = isHeader ? sp.marginTopTwips : sp.pageHeightTwips - sp.marginBottomTwips;
     const bandTop = isHeader ? 0 : lineY;
@@ -4499,6 +4875,11 @@ export class UniversalWriteElement extends HTMLElement {
       if (e.clientY < rect.top || e.clientY > rect.bottom) continue;
       if (e.clientX < rect.left || e.clientX > rect.right) continue;
       const yT = (e.clientY - rect.top) / scale;
+      if (this.eng) {
+        if (yT <= this.hfBand(pg, 'header').bottom) return { kind: 'header', page: pg };
+        if (yT >= this.hfBand(pg, 'footer').top) return { kind: 'footer', page: pg };
+        return null;
+      }
       const sp = this.sectPrForSavedPage(pg);
       if (yT <= sp.marginTopTwips) return { kind: 'header', page: pg };
       if (yT >= sp.pageHeightTwips - sp.marginBottomTwips) return { kind: 'footer', page: pg };
@@ -4555,6 +4936,7 @@ export class UniversalWriteElement extends HTMLElement {
     return pl.lines[pl.lines.length - 1] ?? null;
   }
   private caretX(pos: DocPosition, line: LaidLine): number {
+    if (line.eng) return caretXIn(line.eng, pos.offset);
     const pl = this.layoutCache[pos.para]!;
     let x = line.xTwips;
     const text = pl.spans.map((s) => s.text).join('');
@@ -4565,6 +4947,7 @@ export class UniversalWriteElement extends HTMLElement {
     return x;
   }
   private hitLineX(line: LaidLine, xTwips: number): number {
+    if (line.eng) return Math.max(line.rich.start, Math.min(line.rich.end, offsetAtX(line.eng, xTwips, line.rich.end)));
     const pl = this.layoutCache[line.para]!;
     let x = line.xTwips;
     const text = pl.spans.map((s) => s.text).join('');
@@ -4591,6 +4974,9 @@ export class UniversalWriteElement extends HTMLElement {
         if (!r.textbox) continue;
         const tb = r.textbox;
         let page: number, sp: SectPr, originX: number, paraTop: number;
+        // motor: o retângulo exatamente como foi posicionado (page.objects)
+        const er = this.eng ? this.engObjectOf(r, inHf ? this.hfActivePage : undefined) : null;
+        if (this.eng && !er) continue;
         if (inHf) {
           page = this.hfActivePage;
           sp = this.sectPrForSavedPage(page);
@@ -4604,11 +4990,12 @@ export class UniversalWriteElement extends HTMLElement {
           originX = sp.marginLeftTwips;
           paraTop = first.yTwips;
         }
-        const { x, y } = tb.floating
+        let { x, y } = tb.floating
           ? this.anchoredPos(tb, originX, paraTop, sp)
           : { x: originX, y: paraTop };
-        const w = tb.widthTwips || (sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips);
-        const h = this.effectiveTbHeight(tb);
+        let w = tb.widthTwips || (sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips);
+        let h = this.effectiveTbHeight(tb);
+        if (er) ({ page, x, y, w, h } = er);
         const cv = this.canvases[page];
         if (!cv) continue;
         const rect = cv.getBoundingClientRect();
@@ -4647,6 +5034,20 @@ export class UniversalWriteElement extends HTMLElement {
   private enumFloats(): FloatHandle[] {
     if (this.tbEdit || !this.model) return [];
     const out: FloatHandle[] = [];
+    // motor: retângulos dos objetos como ele os posicionou (page.objects) — no
+    // cabeçalho/rodapé em edição, os da página ativa
+    if (this.eng) {
+      const onPage = this.hfEdit ? this.hfActivePage : undefined;
+      for (const p of this.model.paragraphs) {
+        for (const r of p.runs) {
+          const obj = r.image?.floating ? r.image : r.textbox;
+          if (!obj) continue;
+          const er = this.engObjectOf(r, onPage);
+          if (er) out.push({ run: r, obj, kind: r.textbox ? 'textbox' : 'image', page: er.page, rect: { x: er.x, y: er.y, w: er.w, h: er.h } });
+        }
+      }
+      return out;
+    }
     if (this.hfEdit) {
       const sp = this.sectPrForSavedPage(this.hfActivePage);
       const colW = sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
@@ -4719,10 +5120,11 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Objeto flutuante sob o ponteiro (o de cima = último pintado = mais à frente). */
-  private hitFloat(e: MouseEvent): FloatHandle | null {
+  private hitFloat(e: MouseEvent, kind?: FloatHandle['kind']): FloatHandle | null {
     const scale = PX_PER_TWIP * this.zoom;
     let best: FloatHandle | null = null;
     for (const h of this.enumFloats()) {
+      if (kind && h.kind !== kind) continue;
       const cv = this.canvases[h.page];
       if (!cv) continue;
       const rect = cv.getBoundingClientRect();
@@ -4803,6 +5205,8 @@ export class UniversalWriteElement extends HTMLElement {
       page: h.page, moved: false,
     };
     this.floatDrag = d;
+    // motor: posição exibida no início do arrasto (a âncora vira relativa à página)
+    const engStart = this.eng && !editingTb ? { x: h.rect.x, y: h.rect.y } : null;
     const move = (ev: MouseEvent) => {
       if (!this.floatDrag) return;
       const dxT = (ev.clientX - d.startClientX) / scale;
@@ -4814,6 +5218,7 @@ export class UniversalWriteElement extends HTMLElement {
       } else {
         this.applyResize(obj, d, dxT, dyT, h.kind === 'image');
       }
+      if (engStart) this.moveAnchorTo(obj, engStart.x + (obj.offsetXTwips ?? 0) - d.startOX, engStart.y + (obj.offsetYTwips ?? 0) - d.startOY);
       // caixa em edição: espelha a nova geometria no retângulo de edição p/ o
       // layout/handles seguirem o arrasto.
       if (editingTb && startRect) {
@@ -4823,11 +5228,15 @@ export class UniversalWriteElement extends HTMLElement {
           w: obj.widthTwips, h: obj.heightTwips,
         };
       }
-      this.refresh();
+      // um relayout por quadro (o do motor é o documento inteiro)
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; if (this.floatDrag) this.refresh(); });
     };
+    let frame = 0;
     const up = () => {
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
+      cancelAnimationFrame(frame);
+      frame = 0;
       const moved = this.floatDrag?.moved;
       this.floatDrag = null;
       if (!moved) this.undoStack.pop(); // clique sem arrasto: descarta snapshot
@@ -4900,11 +5309,26 @@ export class UniversalWriteElement extends HTMLElement {
       const xT = (e.clientX - rect.left) / scale;
       const yT = (e.clientY - rect.top) / scale;
       let best: LaidLine | null = null;
-      for (const line of this.allLines()) {
-        if (line.page !== pg) continue;
-        if (yT >= line.yTwips && yT <= line.yTwips + line.heightTwips) { best = line; break; }
-        if (!best || Math.abs(line.yTwips + line.heightTwips / 2 - yT) <
-            Math.abs(best.yTwips + best.heightTwips / 2 - yT)) best = line;
+      if (this.eng) {
+        // motor: linhas lado a lado (células de tabela, colunas) — a faixa
+        // vertical manda, depois a distância horizontal
+        let bestD = Infinity;
+        for (const line of this.allLines()) {
+          if (line.page !== pg) continue;
+          const l = line.eng;
+          const x0 = l?.x ?? line.xTwips, x1 = x0 + (l?.width ?? 0);
+          const dy = yT < line.yTwips ? line.yTwips - yT : yT > line.yTwips + line.heightTwips ? yT - line.yTwips - line.heightTwips : 0;
+          const dx = xT < x0 ? x0 - xT : xT > x1 ? xT - x1 : 0;
+          const d = dy * 4 + dx;
+          if (d < bestD) { bestD = d; best = line; }
+        }
+      } else {
+        for (const line of this.allLines()) {
+          if (line.page !== pg) continue;
+          if (yT >= line.yTwips && yT <= line.yTwips + line.heightTwips) { best = line; break; }
+          if (!best || Math.abs(line.yTwips + line.heightTwips / 2 - yT) <
+              Math.abs(best.yTwips + best.heightTwips / 2 - yT)) best = line;
+        }
       }
       if (!best) return { para: 0, offset: 0 };
       return { para: best.para, offset: this.hitLineX(best, xT) };
@@ -4968,6 +5392,958 @@ export class UniversalWriteElement extends HTMLElement {
     }, 80);
   }
 
+  // ───────────────── motor de layout no canvas (visão de impressão) ─────────────────
+  // O canvas pinta a MESMA árvore de layout do PDF (@universal-office/docx-layout,
+  // validada contra os PDFs do Word). O motor recebe o estado VIVO (parágrafos
+  // do modelo + tabelas ancoradas + seções), sem serializar; o cursor, a
+  // seleção e o clique saem dos caracteres de cada linha (LaidOutLine.chars).
+  // Visões web/rascunho/estrutura, a edição de cabeçalho/rodapé e de caixa de
+  // texto continuam no layout legado (compõem sobre o instantâneo do corpo
+  // pintado pelo motor). layout="legacy" desliga o motor; se ele lançar
+  // exceção, o editor volta ao legado sozinho (console.warn).
+
+  /** layout="legacy": o layout antigo do canvas (o motor é o padrão). */
+  private legacyRequested(): boolean {
+    return (this.getAttribute('layout') ?? '').toLowerCase() === 'legacy';
+  }
+
+  /** O motor diagrama e pinta o canvas agora? */
+  private engineActive(): boolean {
+    return !this.legacyRequested() && !this.engineFailed && this.forceLegacy === 0 && !!this.model && !!this.fonts
+      && (this.view === 'print' || this.view === 'read') && !this.tbEdit;
+  }
+
+  /** Exportações que leem o layout legado (XPS, PDF de reserva) o refazem
+   *  durante a chamada e devolvem o motor depois. */
+  private forceLegacy = 0;
+  private withLegacyLayout<T>(fn: () => T): T {
+    if (!this.eng) return fn();
+    if (this.cellEdit) this.exitCell();
+    this.forceLegacy++;
+    try {
+      this.layout();
+      return fn();
+    } finally {
+      this.forceLegacy--;
+      this.refresh();
+    }
+  }
+
+  private resetEngineState(): void {
+    this.eng = null;
+    this.engineFailed = false;
+    this.engPageCache.clear();
+    this.bookmarkParas = new Map();
+    this.cellEdit = null;
+    this.engMissing.clear();
+    this.engFontsAttempted.clear();
+  }
+
+  /** Estado do CORPO — na edição de célula o modelo é o da célula. */
+  private bodyModel(): DocumentModel {
+    return this.bodyState().model;
+  }
+
+  /** Corpo do documento em qualquer modo de edição (célula, cabeçalho/rodapé,
+   *  caixa de texto guardam o corpo enquanto o modelo é o deles). */
+  private bodyState(): {
+    model: DocumentModel;
+    tableAnchors: { beforePara: number; table: TableBlock }[];
+    sectionStarts: { startPara: number; section: Section }[];
+  } {
+    if (this.savedBody) return this.savedBody;                  // HF (e caixa dentro do HF)
+    if (this.savedForTb) return this.savedForTb;                // caixa de texto do corpo
+    if (this.cellEdit) return { model: this.cellEdit.saved.model, tableAnchors: this.tableAnchors, sectionStarts: this.sectionStarts };
+    return { model: this.model!, tableAnchors: this.tableAnchors, sectionStarts: this.sectionStarts };
+  }
+
+  /** Documento do motor a partir do estado VIVO (sem serializar). */
+  private liveEngineDoc(): EngineDoc {
+    const b = this.bodyState();
+    if (this.cellEdit?.cell.blocks) this.cellEdit.cell.blocks = reconcileBlocks(this.cellEdit.cell.blocks, this.cellEdit.cell.paragraphs, false);
+    const tb = this.tbEdit?.hostRun.textbox;
+    if (tb?.blocks) tb.blocks = reconcileBlocks(tb.blocks, tb.paras, true);
+    return buildEngineDoc({
+      fullDoc: this.fullDoc, paragraphs: b.model.paragraphs, tableAnchors: b.tableAnchors,
+      sectionStarts: b.sectionStarts, sectPr: b.model.sectPr, bookmarkParas: this.bookmarkParas,
+    });
+  }
+
+  /** Guarda nas props de cada run uma referência ao w:rPr ORIGINAL e, nos runs
+   *  que a edição recriou sem ele (docx-core divide/refaz runs sem o rPr), o
+   *  devolve — o motor lê a formatação do rPr (estilo de caractere, fontes de
+   *  tema…) com as props como edições por cima (directRPr). Texto digitado
+   *  herda as props do vizinho e, com elas, o rPr dele. */
+  private syncRunRPr(paras: readonly Paragraph[]): void {
+    for (const p of paras) {
+      for (const r of p.runs) {
+        const props = r.props as RunProps & { [RPR_REF]?: Run['rpr'] };
+        if (r.rpr) { if (props[RPR_REF] !== r.rpr) props[RPR_REF] = r.rpr; } else if (props[RPR_REF]) r.rpr = props[RPR_REF];
+        if (r.textbox) this.syncRunRPr(r.textbox.paras);
+      }
+    }
+  }
+  private syncTableRPr(t: TableBlock): void {
+    for (const row of t.rows) for (const c of row.cells) { this.syncRunRPr(c.paragraphs); c.tables.forEach((n) => this.syncTableRPr(n)); }
+  }
+
+  /** Provedor do motor para o canvas: as MESMAS faces do PDF (arquivo da fonte;
+   *  sem licença de incorporação, a substituta métrico-compatível), com cache
+   *  enquanto o Registry não muda. */
+  private liveFontProvider(): EngineFontProvider {
+    const v = this.fonts!.version;
+    if (v !== this.engFaceCacheVersion) {
+      this.engFaceCache = new Map();
+      this.engFaceCacheVersion = v;
+    }
+    return this.engineFontProvider(this.engMissing, this.engFaceCache);
+  }
+
+  /** Resolve em 2º plano as famílias/variantes que o motor pediu e não tinha;
+   *  chegando algo, refaz o layout. Cada família|variante é tentada uma vez
+   *  (o onChange do resolvedor cobre as que mudarem depois). */
+  private scheduleEngineFonts(): void {
+    if (this.engFontLoad || !this.engMissing.size) return;
+    const want = new Map<string, Set<FontVariant>>();
+    for (const [f, vs] of this.engMissing) {
+      for (const v of vs) {
+        const k = `${f.toLowerCase()}|${v}`;
+        if (this.engFontsAttempted.has(k)) continue;
+        this.engFontsAttempted.add(k);
+        let s = want.get(f);
+        if (!s) want.set(f, (s = new Set()));
+        s.add(v);
+      }
+    }
+    this.engMissing.clear();
+    if (!want.size) return;
+    this.engFontLoad = (async () => {
+      let changed = false;
+      try {
+        changed = await this.loadEngineFonts(want);
+        // famílias sem arquivo embutível: a substituta métrica (como no PDF)
+        const before = this.fonts?.version;
+        await this.preparePdfFonts();
+        if (this.fonts?.version !== before) changed = true;
+      } catch { /* resolvedor indisponível: fica a substituição do motor */ }
+      this.engFontLoad = null;
+      if (changed && this.model) this.queueRefresh();
+    })();
+  }
+
+  /** Faz o layout pelo motor; false se ele falhar (o chamador cai no legado). */
+  private layoutEngine(): boolean {
+    try {
+      const t0 = performance.now();
+      this.syncRunRPr(this.model!.paragraphs);
+      // a célula/HF editada pode ter ganho ou perdido parágrafos: os blocos
+      // (que o motor lê) acompanham a lista de parágrafos da edição
+      const doc = this.liveEngineDoc();
+      const t1 = performance.now();
+      const result = layoutDocument(doc.full, this.liveFontProvider());
+      const t2 = performance.now();
+      this.installEngineResult(doc, result);
+      this.engineStats = { ...this.engineStats, buildMs: t1 - t0, layoutMs: t2 - t1, pages: result.pages.length, mode: 'full' };
+      this.scheduleEngineFonts();
+      return true;
+    } catch (e) {
+      console.warn('[universal-write] motor de layout falhou no canvas; usando o layout legado', e);
+      this.engineFailed = true;
+      this.eng = null;
+      if (this.cellEdit) this.exitCell();
+      return false;
+    }
+  }
+
+  // ── layout incremental: edição confinada a UM parágrafo do corpo ──
+  // O parágrafo é diagramado sozinho (documento sintético com a mesma
+  // formatação/geometria). Antes da edição confere-se que esse layout isolado
+  // reproduz EXATAMENTE as linhas e os itens do parágrafo na página (senão o
+  // contexto importa: numeração, flutuantes, borda agrupada, campos…). Depois
+  // da edição, se o nº de linhas e as alturas não mudaram, o resto do
+  // documento não muda: só os itens do parágrafo são trocados na página.
+  // Senão (ou na dúvida) o layout completo.
+
+  /** dica da edição em curso (definida ANTES de mexer no modelo) */
+  private fastHint: { para: number; before: FastBefore | null } | null = null;
+  /** relayout completo adiado depois de edições incrementais */
+  private idleRelayout = 0;
+
+  /** Marca que a próxima mudança do modelo fica no parágrafo `pi`. */
+  private noteParaEdit(pi: number): void {
+    this.fastHint = null;
+    this.fastTable = null;
+    // cabeçalho/rodapé: repete em várias páginas — layout completo
+    if (!this.eng || !this.model || this.forceLegacy || this.hfEdit) return;
+    try {
+      // na célula a unidade é a tabela inteira (do corpo) que a contém
+      if (this.cellEdit) this.fastTable = { anchor: this.cellEdit.anchor, before: this.fastBeforeTable(this.cellEdit.anchor) };
+      else this.fastHint = { para: pi, before: this.fastBefore(pi) };
+    } catch { this.fastHint = null; this.fastTable = null; }
+  }
+
+  /** dica da edição dentro de uma célula (ver fastBeforeTable) */
+  private fastTable: { anchor: number; before: FastTableBefore | null } | null = null;
+
+  /** Tabela do corpo conferida (antes da edição na célula): o layout isolado
+   *  reproduz as linhas e os itens dela, e ela cabe inteira numa página. */
+  private fastBeforeTable(anchor: number): FastTableBefore | null {
+    const eng = this.eng!;
+    const t = this.tableAnchors[anchor]?.table;
+    if (!t) return null;
+    const els = eng.lines.filter((el) => el.loc.kind === 'cell' && el.loc.anchor === anchor);
+    if (!els.length) return null;
+    const pg = els[0]!.page;
+    if (els.some((el) => el.page !== pg)) return null;
+    const page = eng.result.pages[pg]!;
+    const synth = this.synthLayout(t, this.pageSections[pg] ?? 0);
+    if (!synth || synth.pages.length !== 1) return null;
+    const sp = synth.pages[0]!;
+    if (sp.lines.length !== els.length) return null;
+    const dx = els[0]!.line.x - sp.lines[0]!.x, dy = els[0]!.line.y - sp.lines[0]!.y;
+    const eq = (a: number, b: number) => Math.abs(a - b) < 0.01;
+    const tail = (ref: string) => ref.slice(ref.indexOf('/'));
+    for (let i = 0; i < els.length; i++) {
+      const a = els[i]!.line, b = sp.lines[i]!;
+      if (tail(a.ref) !== tail(b.ref) || a.start !== b.start || a.end !== b.end || !eq(a.height, b.height) || !eq(a.x, b.x + dx) || !eq(a.y, b.y + dy)) return null;
+      const ca = a.chars ?? [], cb = b.chars ?? [];
+      if (ca.length !== cb.length || ca.some((c, k) => c.o !== cb[k]!.o || !eq(c.x, cb[k]!.x + dx) || !eq(c.w, cb[k]!.w))) return null;
+    }
+    const want = sp.items.map((it) => shiftPageItem(it, dx, dy));
+    const start = findItems(page.items, want, eng.hfItems[pg] ?? 0);
+    const lineAt = page.lines.indexOf(els[0]!.line);
+    if (start < 0 || lineAt < 0 || els.some((el, i) => page.lines[lineAt + i] !== el.line)) return null;
+    return { page: pg, dx, dy, start, count: want.length, lineAt, lineCount: els.length, bottom: itemsBottom(sp), root: els[0]!.line.ref.split('/')[0]! };
+  }
+
+  /** Edição numa célula: troca só os itens/linhas da tabela se a altura dela
+   *  (e portanto o resto do documento) não mudou. */
+  private tryFastTable(): boolean {
+    const h = this.fastTable;
+    this.fastTable = null;
+    const eng = this.eng;
+    const b = h?.before;
+    const ce = this.cellEdit;
+    if (!h || !b || !eng || !ce || ce.anchor !== h.anchor || !this.model) return false;
+    const t0 = performance.now();
+    const t = this.tableAnchors[h.anchor]?.table;
+    if (!t) return false;
+    this.syncRunRPr(this.model.paragraphs);
+    if (ce.cell.blocks) ce.cell.blocks = reconcileBlocks(ce.cell.blocks, ce.cell.paragraphs, false);
+    const synth = this.synthLayout(t, this.pageSections[b.page] ?? 0);
+    if (!synth || synth.pages.length !== 1) return false;
+    const sp = synth.pages[0]!;
+    if (Math.abs(itemsBottom(sp) - b.bottom) > 0.01) return false;
+    const page = eng.result.pages[b.page]!;
+    const items = sp.items.map((it) => shiftPageItem(it, b.dx, b.dy));
+    page.items.splice(b.start, b.count, ...items);
+    const lines: LaidOutLine[] = sp.lines.map((l) => ({
+      ...l, ref: b.root + l.ref.slice(l.ref.indexOf('/')), x: l.x + b.dx, y: l.y + b.dy, baseline: l.baseline + b.dy,
+      ...(l.chars ? { chars: l.chars.map((c) => ({ o: c.o, x: c.x + b.dx, w: c.w })) } : {}),
+    }));
+    page.lines.splice(b.lineAt, b.lineCount, ...lines);
+    const k = eng.lines.findIndex((el) => el.page === b.page && el.loc.kind === 'cell' && el.loc.anchor === h.anchor);
+    if (k < 0) return false;
+    const sec = eng.result.pages[b.page]!.section;
+    eng.lines.splice(k, b.lineCount, ...lines.map((line) => {
+      const loc = locateRef(line.ref, eng.doc.origins);
+      return { line, page: b.page, loc, para: this.lineParagraph(loc, eng.doc, sec) };
+    }));
+    eng.pageVersion[b.page] = (eng.pageVersion[b.page] ?? 0) + 1;
+    this.rebuildEditLines();
+    this.engineStats = { ...this.engineStats, buildMs: 0, layoutMs: performance.now() - t0, mode: 'fast' };
+    window.clearTimeout(this.idleRelayout);
+    this.idleRelayout = window.setTimeout(() => {
+      this.idleRelayout = 0;
+      if (this.eng && this.model && !this.fastHint && !this.fastTable) this.refresh();
+    }, 1500);
+    return true;
+  }
+
+  /** Parágrafo (ou tabela) sozinho num documento sintético (página alta, sem HF). */
+  private synthLayout(block: Paragraph | TableBlock, sectIdx: number): LayoutResult | null {
+    const sec = this.sectionStarts[sectIdx]?.section;
+    const sp = sec?.sectPr ?? this.bodyModel().sectPr;
+    if ((sp.cols?.count ?? 1) > 1 || sec?.sect?.lnNumType) return null;
+    const base = this.fullDoc ?? ({ footnotes: new Map(), endnotes: new Map(), comments: [], styles: new Map() } as unknown as FullDocument);
+    const full: FullDocument = {
+      ...base,
+      blocks: ['runs' in block ? { type: 'paragraph', paragraph: block } : block],
+      sections: [{
+        sectPr: { ...sp, pageHeightTwips: 2_000_000, titlePg: false },
+        ...(sec?.sect ? { sect: { ...sec.sect, vAlign: undefined } } : {}),
+        blockStart: 0, blockEnd: 0,
+        headers: {}, footers: {}, headerRefs: [], footerRefs: [], headerBlocks: {}, footerBlocks: {},
+      }],
+      bookmarks: new Map(),
+    };
+    return layoutDocument(full, this.liveFontProvider());
+  }
+
+  /** Confere (antes da edição) que o parágrafo isolado reproduz o layout real. */
+  private fastBefore(pi: number): FastBefore | null {
+    const eng = this.eng!;
+    const ls = this.layoutCache[pi]?.lines ?? [];
+    const first = ls[0]?.eng;
+    if (!first || ls.some((l) => l.page !== ls[0]!.page || !l.eng)) return null;
+    const pg = ls[0]!.page;
+    const page = eng.result.pages[pg]!;
+    const para = this.model!.paragraphs[pi]!;
+    const synth = this.synthLayout(para, this.pageSections[pg] ?? 0);
+    if (!synth || synth.pages.length !== 1) return null;
+    const sp = synth.pages[0]!;
+    if (sp.lines.length !== ls.length) return null;
+    const dx = first.x - sp.lines[0]!.x, dy = first.y - sp.lines[0]!.y;
+    const eq = (a: number, b: number) => Math.abs(a - b) < 0.01;
+    for (let i = 0; i < ls.length; i++) {
+      const a = ls[i]!.eng!, b = sp.lines[i]!;
+      if (a.start !== b.start || a.end !== b.end || !eq(a.height, b.height) || !eq(a.x, b.x + dx) || !eq(a.y, b.y + dy)) return null;
+      const ca = a.chars ?? [], cb = b.chars ?? [];
+      if (ca.length !== cb.length || ca.some((c, k) => c.o !== cb[k]!.o || !eq(c.x, cb[k]!.x + dx) || !eq(c.w, cb[k]!.w))) return null;
+    }
+    const want = sp.items.map((it) => shiftPageItem(it, dx, dy));
+    const start = want.length ? findItems(page.items, want, eng.hfItems[pg] ?? 0) : this.emptyParaSlot(pi, pg);
+    if (start < 0) return null;
+    // linhas do parágrafo em page.lines (contíguas)
+    const lineAt = page.lines.indexOf(first);
+    if (lineAt < 0) return null;
+    return { page: pg, ref: first.ref, dx, dy, start, count: want.length, lineAt, heights: sp.lines.map((l) => l.height) };
+  }
+
+  /** Parágrafo sem itens (vazio): os itens novos entram logo depois dos da
+   *  última linha do parágrafo anterior na mesma página (glifos + sublinhados);
+   *  -1 se não dá para saber (tabela entre eles, outra página, linha vazia). */
+  private emptyParaSlot(pi: number, pg: number): number {
+    if (pi === 0 || this.tableAnchors.some((a) => a.beforePara === pi)) return -1;
+    const prev = this.layoutCache[pi - 1]?.lines;
+    const last = prev?.[prev.length - 1]?.eng;
+    if (!last || prev![prev!.length - 1]!.page !== pg) return -1;
+    const items = this.eng!.result.pages[pg]!.items;
+    let k = -1;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i]!;
+      if (it.t === 'glyphs' && Math.abs(it.y - last.baseline) < 1 && it.glyphs.length && it.glyphs[0]!.x >= last.x - 1 && it.glyphs[0]!.x <= last.x + last.width + 1) { k = i; break; }
+    }
+    if (k < 0) return -1;
+    // decorações da linha (sublinhado/tachado) vêm depois dos glifos
+    while (k + 1 < items.length) {
+      const n = items[k + 1]!;
+      if (n.t === 'line' && Math.abs(n.y1 - n.y2) < 0.01 && Math.abs(n.y1 - last.baseline) < 400 && n.x1 >= last.x - 1 && n.x2 <= last.x + last.width + 1) k++;
+      else break;
+    }
+    return k + 1;
+  }
+
+  /** Aplica a edição incremental; false = precisa do layout completo. */
+  private tryFastLayout(): boolean {
+    const h = this.fastHint;
+    this.fastHint = null;
+    const eng = this.eng;
+    const b = h?.before;
+    if (!h || !b || !eng || this.cellEdit || !this.model) return false;
+    const t0 = performance.now();
+    const para = this.model.paragraphs[h.para];
+    if (!para) return false;
+    this.syncRunRPr([para]);
+    const synth = this.synthLayout(para, this.pageSections[b.page] ?? 0);
+    if (!synth || synth.pages.length !== 1) return false;
+    const sp = synth.pages[0]!;
+    // mesmas linhas com as mesmas alturas: o resto do documento não muda
+    if (sp.lines.length !== b.heights.length || sp.lines.some((l, i) => Math.abs(l.height - b.heights[i]!) > 0.01)) return false;
+    const page = eng.result.pages[b.page]!;
+    const items = sp.items.map((it) => shiftPageItem(it, b.dx, b.dy));
+    page.items.splice(b.start, b.count, ...items);
+    const lines: LaidOutLine[] = sp.lines.map((l) => ({
+      ...l, ref: b.ref, x: l.x + b.dx, y: l.y + b.dy, baseline: l.baseline + b.dy,
+      ...(l.chars ? { chars: l.chars.map((c) => ({ o: c.o, x: c.x + b.dx, w: c.w })) } : {}),
+    }));
+    if (para.runs.some((r) => r.custom)) for (const l of lines) collapseCustomChars(l, para);
+    page.lines.splice(b.lineAt, lines.length, ...lines);
+    // índices de linhas do editor
+    const loc: LineLoc = { kind: 'body', para: h.para };
+    let k = eng.lines.findIndex((el) => el.page === b.page && el.line.ref === b.ref);
+    if (k >= 0) eng.lines.splice(k, lines.length, ...lines.map((line) => ({ line, page: b.page, loc, para })));
+    const len = paraLength(para);
+    this.layoutCache[h.para] = {
+      spans: [], charAdvances: [], spanCharStart: [],
+      lines: lines.map((l, i) => ({
+        para: h.para,
+        rich: { start: i === 0 ? 0 : Math.min(len, l.start), end: i === lines.length - 1 ? len : Math.min(len, l.end), widthTwips: l.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
+        page: b.page, xTwips: l.x, yTwips: l.y, heightTwips: l.height, baselineTwips: l.baseline, justifyExtraPerSpace: 0, eng: l,
+      })),
+    };
+    eng.pageVersion[b.page] = (eng.pageVersion[b.page] ?? 0) + 1;
+    this.engineStats = { ...this.engineStats, buildMs: 0, layoutMs: performance.now() - t0, mode: 'fast' };
+    // por garantia (REF a indicadores do parágrafo etc.), um layout completo ocioso
+    window.clearTimeout(this.idleRelayout);
+    this.idleRelayout = window.setTimeout(() => {
+      this.idleRelayout = 0;
+      if (this.eng && this.model && !this.fastHint) this.refresh();
+    }, 1500);
+    return true;
+  }
+
+
+  /** Linhas dos parágrafos do modelo em EDIÇÃO (corpo, ou a célula ativa) a
+   *  partir das linhas do motor — layoutCache (cursor, seleção, setas). */
+  private rebuildEditLines(): void {
+    if (!this.eng || !this.model) return;
+    const paras = this.model!.paragraphs;
+    this.layoutCache = paras.map(() => ({ spans: [], charAdvances: [], lines: [], spanCharStart: [] }));
+    const ce = this.cellEdit;
+    const blocksOfCell = ce ? cellBlocks(ce.cell) : [];
+    // cabeçalho/rodapé em edição: as linhas dele na página ativa (a parte se
+    // repete nas outras); sem nenhuma lá, a 1ª página que mostra a parte
+    const hfWhich = this.hfEdit ? (this.hfEdit.kind === 'header' ? 'hdr' : 'ftr') : null;
+    let hfPage = this.hfActivePage;
+    if (hfWhich) {
+      const shows = (pg: number) => this.eng!.lines.some((el) => el.page === pg && el.loc.kind === 'hf' && el.loc.which === hfWhich && !!el.para && paras.includes(el.para));
+      if (!shows(hfPage)) {
+        const other = this.eng.lines.find((el) => el.loc.kind === 'hf' && el.loc.which === hfWhich && !!el.para && paras.includes(el.para));
+        if (other) this.hfActivePage = hfPage = other.page;
+      }
+    }
+    for (const el of this.eng!.lines) {
+      let pi = -1;
+      if (hfWhich) {
+        if (el.page === hfPage && el.loc.kind === 'hf' && el.loc.which === hfWhich && el.para) pi = paras.indexOf(el.para);
+      } else if (!ce) { if (el.loc.kind === 'body') pi = el.loc.para; }
+      else if (el.loc.kind === 'cell' && el.loc.anchor === ce.anchor && sameHops(el.loc.hops, ce.hops)) {
+        const blk = blocksOfCell[el.loc.block];
+        if (blk?.type === 'paragraph') pi = paras.indexOf(blk.paragraph);
+      }
+      const pl = pi >= 0 ? this.layoutCache[pi] : undefined;
+      if (!pl) continue;
+      const l = el.line;
+      // linha repetida (cabeçalho de tabela em cada página): fica a 1ª
+      if (pl.lines.some((x) => x.rich.start === l.start && x.rich.end === l.end)) continue;
+      const len = paraLength(paras[pi]!);
+      const clamp = (o: number) => Math.max(0, Math.min(len, o));
+      pl.lines.push({
+        para: pi,
+        rich: { start: clamp(l.start), end: clamp(l.end), widthTwips: l.width, segments: [], maxSizePt: 0, maxAscTwips: 0 },
+        page: el.page, xTwips: l.x, yTwips: l.y, heightTwips: l.height, baselineTwips: l.baseline,
+        justifyExtraPerSpace: 0, eng: l,
+      });
+    }
+    // o parágrafo inteiro é coberto pelas suas linhas (texto oculto no começo/fim)
+    paras.forEach((p, pi) => {
+      const ls = this.layoutCache[pi]!.lines;
+      if (!ls.length) return;
+      ls[0]!.rich.start = 0;
+      ls[ls.length - 1]!.rich.end = paraLength(p);
+    });
+  }
+
+  /** Instala o resultado: páginas, linhas do modelo em edição, camadas de HF. */
+  private installEngineResult(doc: EngineDoc, result: LayoutResult): void {
+    const pages = result.pages;
+    this.pageCount = Math.max(1, pages.length);
+    this.pageSections = pages.map((p) => doc.sectionMap[p.section] ?? 0);
+    this.tableLayouts = [];
+    this.dropCapFloats = [];
+    this.footnoteHits = [];
+    this.tileHeights = [];
+    const lines: EngLine[] = [];
+    pages.forEach((p, pg) => {
+      for (const l of p.lines) {
+        const loc = locateRef(l.ref, doc.origins);
+        const para = this.lineParagraph(loc, doc, p.section);
+        if (para?.runs.some((r) => r.custom)) collapseCustomChars(l, para);
+        lines.push({ line: l, page: pg, loc, para });
+      }
+    });
+    // camadas de cabeçalho/rodapé (esmaecidas) e objetos flutuantes: do motor
+    const hfItems = pages.map((p) => Math.min(p.hfItems ?? 0, p.items.length));
+    this.eng = { result, doc, lines, hfItems, version: ++this.engVersion, pageVersion: pages.map(() => 0) };
+    this.rebuildEditLines();
+  }
+
+  /** Parágrafo do editor de uma linha do motor (corpo, célula ou cabeçalho/rodapé). */
+  private lineParagraph(loc: LineLoc, doc: EngineDoc, section: number): Paragraph | null {
+    if (loc.kind === 'body') return this.bodyState().model.paragraphs[loc.para] ?? null;
+    if (loc.kind === 'cell') {
+      const t = this.bodyState().tableAnchors[loc.anchor]?.table;
+      const cell = t ? resolveCell(t, loc.hops) : null;
+      const blk = cell ? cellBlocks(cell)[loc.block] : undefined;
+      return blk?.type === 'paragraph' ? blk.paragraph : null;
+    }
+    if (loc.kind === 'hf') {
+      const src = hfBlocksFor(doc.full, section, loc.which, loc.part);
+      return src ? paragraphAtPath(src.blocks, loc.path) : null;
+    }
+    return null;
+  }
+
+  /** Objeto flutuante como o motor o posicionou (na página dada, ou o 1º). */
+  private engObjectOf(run: Run, page?: number): { page: number; x: number; y: number; w: number; h: number } | null {
+    const pages = this.eng?.result.pages ?? [];
+    const scan = (pg: number) => pages[pg]?.objects?.find((o) => o.run === run);
+    if (page !== undefined) {
+      const o = scan(page);
+      return o ? { page, x: o.x, y: o.y, w: o.w, h: o.h } : null;
+    }
+    for (let pg = 0; pg < pages.length; pg++) {
+      const o = scan(pg);
+      if (o) return { page: pg, x: o.x, y: o.y, w: o.w, h: o.h };
+    }
+    return null;
+  }
+
+  /** Família/variante CSS de cada face (fonte carregada na página). */
+  private enginePaintEnv(): EnginePaintEnv {
+    return {
+      fontOf: (face) => this.engFaceCss.get(face) ?? {
+        family: `${cssFamily(face.family)}, ${DEFAULT_FONT_CSS}`,
+        weight: face.bold && !face.synthBold ? 700 : 400,
+        italic: face.italic && !face.synthItalic,
+      },
+      image: (img) => this.bitmapFor(img),
+      color: (hex) => this.inkColor(hex),
+    };
+  }
+
+  /** Página do motor (fundo + itens) num canvas em cache: o caret pisca e a
+   *  seleção muda sem repintar os glifos. */
+  private engineBase(pg: number, page: LayoutPage, w: number, h: number, scale: number): HTMLCanvasElement {
+    const sup = this.tbSnapshotSuppress;
+    const hfMode = !!this.hfEdit;
+    const key = `${this.eng!.version}.${this.eng!.pageVersion[pg] ?? 0}|${w}x${h}|${scale.toFixed(6)}|${this.printRender ? 1 : 0}|${this.pageDark ? 1 : 0}|`
+      + `${this.hfCapturing ? 1 : 0}|${sup ? 1 : 0}|${hfMode ? 1 : 0}|${this.imagesVersion}`;
+    const hit = this.engPageCache.get(pg);
+    if (hit && hit.key === key) return hit.canvas;
+    const off = hit?.canvas ?? document.createElement('canvas');
+    off.width = w; off.height = h;
+    const ctx = off.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    // instantâneo do corpo (edição legada de HF): fundo transparente e sem o HF
+    if (!this.hfCapturing) {
+      ctx.fillStyle = this.pageDark ? '#1e1e1e' : '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+    }
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    const env = this.enginePaintEnv();
+    const n = page.items.length;
+    const hf = Math.min(this.eng!.hfItems[pg] ?? 0, n);
+    // o Word esmaece o que não está em foco: o cabeçalho/rodapé ao editar o
+    // corpo; o corpo ao editar o cabeçalho/rodapé (nada esmaece na impressão)
+    const dim = this.printRender ? 1 : HF_DIM_ALPHA;
+    const layers: [number, number, number][] = [
+      ...(this.hfCapturing ? [] : [[0, hf, hfMode ? 1 : dim] as [number, number, number]]),
+      [hf, n, hfMode ? dim : 1],
+    ];
+    // caixa de texto entrando em edição: o texto dela sai do instantâneo
+    const skip = sup ? this.textboxItemRange(pg, page, sup) : null;
+    for (const [from, to, alpha] of layers) {
+      if (from >= to) continue;
+      if (skip && skip[0] < to && skip[1] > from) {
+        paintItems(ctx, page.items, env, { from, to: Math.max(from, skip[0]), alpha });
+        paintItems(ctx, page.items, env, { from: Math.min(to, skip[1]), to, alpha });
+      } else paintItems(ctx, page.items, env, { from, to, alpha });
+    }
+    this.engPageCache.set(pg, { key, canvas: off });
+    return off;
+  }
+
+  /** Itens do CONTEÚDO de uma caixa de texto: o recorte (push…pop) no
+   *  retângulo em que o motor a posicionou — [início, fim) ou null. */
+  private textboxItemRange(pg: number, page: LayoutPage, run: Run): [number, number] | null {
+    const o = page.objects?.find((x) => x.run === run);
+    if (!o) return null;
+    const items = page.items;
+    const near = (a: number | undefined, b: number) => a !== undefined && Math.abs(a - b) < 0.5;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]!;
+      if (it.t !== 'clip' || it.op !== 'push' || !near(it.x, o.x) || !near(it.y, o.y) || !near(it.w, o.w) || !near(it.h, o.h)) continue;
+      let depth = 0;
+      for (let j = i; j < items.length; j++) {
+        const x = items[j]!;
+        if (x.t === 'clip' || (x as { t: string }).t === 'xform') {
+          depth += (x as { op: string }).op === 'push' ? 1 : -1;
+          if (depth === 0) return [i, j + 1];
+        }
+      }
+      return null;
+    }
+    void pg;
+    return null;
+  }
+
+  /** Pinta as páginas do motor + adornos de tela (seleção, campos, comentários,
+   *  alças de objeto, caret). */
+  private paintEngine(active: Set<number>): void {
+    const eng = this.eng!;
+    const t0 = performance.now();
+    const dpr = window.devicePixelRatio || 1;
+    const sel = normalizeRange(this.range());
+    const hasSel = this.hasSelection();
+    const scales: number[] = [];
+    const ctxs: (CanvasRenderingContext2D | null)[] = this.canvases.map((c, i) => {
+      const page = eng.result.pages[i];
+      if (!active.has(i) || c.width <= 1 || !page) { scales.push(0); return null; }
+      const bs = c.width / (parseFloat(c.style.width) || c.width);
+      const scale = PX_PER_TWIP * this.zoom * bs;
+      scales.push(scale);
+      const ctx = c.getContext('2d')!;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.drawImage(this.engineBase(i, page, c.width, c.height, scale), 0, 0);
+      if (this.inlineRenderers.size && !this.hfCapturing) this.paintEngineInlines(ctx, i, scale);
+      if (!this.printRender && !this.hfCapturing) {
+        ctx.save();
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+        this.paintEngineMarks(ctx, i);
+        if (hasSel) this.paintEngineSelection(ctx, i, sel);
+        ctx.restore();
+      }
+      return ctx;
+    });
+    // cache só das páginas com buffer
+    for (const k of [...this.engPageCache.keys()]) if (!this.allocatedPages.has(k) && !active.has(k)) this.engPageCache.delete(k);
+    // edição de cabeçalho/rodapé: faixas e separadores na página ativa (Word)
+    const hp = this.hfActivePage;
+    if (this.hfEdit && !this.printRender && ctxs[hp]) {
+      const sp = this.sectionOfPage(hp)?.sectPr ?? this.bodyState().model.sectPr;
+      this.paintHfBands(ctxs[hp]!, scales[hp]!, sp, dpr, hp);
+    }
+    this.paintFloatAndCaret(ctxs, scales, dpr, hasSel);
+    this.engineStats.paintMs = performance.now() - t0;
+  }
+
+
+
+  /** Sombreamento de campo e realce de comentário (adornos de tela do Word);
+   *  com "mostrar marcas", · nos espaços, → nos tabs e ¶ no fim do parágrafo. */
+  private paintEngineMarks(ctx: CanvasRenderingContext2D, pg: number): void {
+    const eng = this.eng!;
+    if (this.showMarks && this.model) {
+      ctx.fillStyle = this.pageDark ? '#9aa0a6' : '#888';
+      ctx.textAlign = 'center';
+      this.layoutCache.forEach((pl, pi) => {
+        const text = paraText(this.model!.paragraphs[pi]!);
+        pl.lines.forEach((line, li) => {
+          if (line.page !== pg || !line.eng) return;
+          const fs = Math.max(160, line.heightTwips * 0.6);
+          ctx.font = `400 ${fs}px ${DEFAULT_FONT_CSS}`;
+          for (const c of line.eng.chars ?? []) {
+            const ch = text[c.o];
+            if (ch === ' ' || ch === '\u00A0') ctx.fillText(ch === ' ' ? '·' : '°', c.x + c.w / 2, line.baselineTwips);
+            else if (ch === '\t') ctx.fillText('→', c.x + c.w / 2, line.baselineTwips);
+          }
+          if (li === pl.lines.length - 1) {
+            ctx.textAlign = 'left';
+            const x = this.caretX({ para: pi, offset: paraLength(this.model!.paragraphs[pi]!) }, line);
+            ctx.fillText('¶', x + 20, line.baselineTwips);
+            ctx.textAlign = 'center';
+          }
+        });
+      });
+      ctx.textAlign = 'left';
+    }
+    for (const el of eng.lines) {
+      if (el.page !== pg || el.loc.kind === 'other') continue;
+      const para = el.para;
+      if (!para) continue;
+      let acc = 0;
+      for (const run of para.runs) {
+        const a = acc;
+        acc += run.text.length;
+        const field = !!run.field || !!run.fieldResult;
+        const comment = !!run.props.commentIds?.length;
+        if (!field && !comment) continue;
+        // extensão dos caracteres do run na linha (no resultado de um campo os
+        // offsets dos glifos recomeçam no início do campo — não são monótonos)
+        let x1 = Infinity, x2 = -Infinity;
+        for (const c of el.line.chars ?? []) {
+          if (c.o < a || c.o >= acc) continue;
+          x1 = Math.min(x1, c.x);
+          x2 = Math.max(x2, c.x + c.w);
+        }
+        if (!(x2 > x1)) continue;
+        ctx.fillStyle = comment ? 'rgba(255, 187, 0, 0.28)' : this.pageDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)';
+        ctx.fillRect(x1, el.line.y, x2 - x1, el.line.height);
+      }
+    }
+  }
+
+  /** Inlines de plugin com desenho próprio: na caixa do texto de reserva que o
+   *  motor diagramou (o motor não conhece a medida do plugin). */
+  private paintEngineInlines(ctx: CanvasRenderingContext2D, pg: number, scale: number): void {
+    const page = this.eng!.result.pages[pg]!;
+    for (const el of this.eng!.lines) {
+      if (el.page !== pg || el.loc.kind === 'other') continue;
+      const para = el.para;
+      if (!para?.runs.some((r) => r.custom)) continue;
+      let acc = 0;
+      for (const run of para.runs) {
+        const a = acc;
+        acc += run.text.length;
+        if (!run.custom) continue;
+        const renderer = this.inlineRenderers.get(run.custom.type)?.renderer;
+        const c = el.line.chars?.find((k) => k.o === a);
+        if (!renderer?.draw || !c) continue;
+        // face/tamanho/cor do texto de reserva desenhado pelo motor
+        const gr = page.items.find((it) => it.t === 'glyphs' && Math.abs(it.y - el.line.baseline) < 400 && it.glyphs.some((g) => Math.abs(g.x - c.x) < 0.5));
+        const run0 = gr?.t === 'glyphs' ? gr : null;
+        const sizePt = run0?.sizePt ?? (run.props.szHalfPt ?? 22) / 2;
+        const css = run0 ? this.enginePaintEnv().fontOf(run0.face) : { family: DEFAULT_FONT_CSS, weight: 400 as const, italic: false };
+        const font = run0?.face.font ?? this.fonts!.resolve(undefined, 'regular');
+        const measureText = (text: string): number => {
+          let w = 0;
+          for (const ch of text) w += (font.advanceWidth(font.glyphId(ch.codePointAt(0)!)) * sizePt * 20) / (font.metrics.unitsPerEm || 1000);
+          return w;
+        };
+        const fallbackText = renderer.toText?.(run.custom.data) ?? run.custom.fallbackText;
+        const ink = this.inkColor(run0?.color ?? run.props.color);
+        ctx.save();
+        ctx.fillStyle = this.pageDark ? '#1e1e1e' : '#ffffff';
+        ctx.fillRect(c.x * scale, el.line.y * scale, c.w * scale, el.line.height * scale);
+        ctx.font = `${css.italic ? 'italic ' : ''}${css.weight} ${sizePt * TWIPS_PER_PT * scale}px ${css.family}`;
+        ctx.fillStyle = ink;
+        renderer.draw({
+          data: run.custom.data, fallbackText, props: run.props, sizePt, measureText, ctx,
+          xTwips: c.x, yTwips: el.line.y, baselineTwips: el.line.baseline, widthTwips: c.w, heightTwips: el.line.height,
+          scale, dark: this.pageDark, color: ink,
+        });
+        ctx.restore();
+      }
+    }
+  }
+
+  /** Fundo da seleção nas linhas do modelo em edição. */
+  private paintEngineSelection(ctx: CanvasRenderingContext2D, pg: number, sel: DocRange): void {
+    ctx.fillStyle = 'rgba(58,114,196,0.35)';
+    for (let pi = sel.start.para; pi <= sel.end.para; pi++) {
+      for (const line of this.layoutCache[pi]?.lines ?? []) {
+        if (line.page !== pg) continue;
+        const from = Math.max(line.rich.start, pi === sel.start.para ? sel.start.offset : 0);
+        const to = Math.min(line.rich.end, pi === sel.end.para ? sel.end.offset : line.rich.end);
+        // linha inteira selecionada além do fim: um respiro como a marca ¶ do Word
+        const past = pi < sel.end.para && line === this.layoutCache[pi]!.lines[this.layoutCache[pi]!.lines.length - 1];
+        if (to <= from && !past) continue;
+        const x1 = this.caretX({ para: pi, offset: from }, line);
+        const x2 = this.caretX({ para: pi, offset: to }, line) + (past ? 80 : 0);
+        ctx.fillRect(x1, line.yTwips, Math.max(0, x2 - x1), line.heightTwips);
+      }
+    }
+  }
+
+  /** Fim da linha para End: numa linha quebrada, antes do espaço final (o
+   *  offset do fim é o início da próxima linha). */
+  private lineEndOffset(line: LaidLine): number {
+    const pl = this.layoutCache[line.para];
+    const last = !pl || pl.lines[pl.lines.length - 1] === line;
+    if (last || !line.eng || !this.model) return line.rich.end;
+    const text = paraText(this.model.paragraphs[line.para]!);
+    let e = line.rich.end;
+    while (e > line.rich.start && /\s/.test(text[e - 1] ?? '')) e--;
+    return e;
+  }
+
+  // ───────────── cabeçalho/rodapé no motor ─────────────
+
+  /** Seção (do editor) da página. */
+  private sectionOfPage(pg: number): Section | undefined {
+    const b = this.bodyState();
+    const i = this.pageSections[pg] ?? 0;
+    return b.sectionStarts[i]?.section ?? this.fullDoc?.sections[i] ?? this.fullDoc?.sections[0];
+  }
+
+  /**
+   * Parte de cabeçalho/rodapé que a página `pg` mostra no layout do motor: a
+   * variante (primeira/par/padrão — a das linhas da página, senão a regra do
+   * Word) e a seção que a define (herança das anteriores). Sem parte definida,
+   * a seção da própria página (o editor cria a parte nela).
+   */
+  private hfPartOfPage(kind: 'header' | 'footer', pg: number): { section: Section; type: HfKind } | null {
+    const eng = this.eng;
+    const page = eng?.result.pages[pg];
+    if (!eng || !page) return null;
+    const which = kind === 'header' ? 'hdr' : 'ftr';
+    let type: HfKind | undefined;
+    for (const el of eng.lines) if (el.page === pg && el.loc.kind === 'hf' && el.loc.which === which) { type = el.loc.part; break; }
+    if (!type) {
+      let sectPage = 0;
+      for (let i = pg - 1; i >= 0 && eng.result.pages[i]!.section === page.section; i--) sectPage++;
+      const sp = this.sectionOfPage(pg)?.sectPr;
+      const evenOdd = !!this.fullDoc?.formatting?.settings.evenAndOddHeaders;
+      type = sectPage === 0 && sp?.titlePg ? 'first' : evenOdd && page.number % 2 === 0 ? 'even' : 'default';
+    }
+    const src = hfBlocksFor(eng.doc.full, page.section, which, type);
+    const b = this.bodyState();
+    const definer = src ? eng.doc.sectionMap[src.definer] : undefined;
+    const section = (definer !== undefined ? b.sectionStarts[definer]?.section ?? this.fullDoc?.sections[definer] : undefined) ?? this.sectionOfPage(pg);
+    return section ? { section, type } : null;
+  }
+
+  /** Faixa vertical (twips) do cabeçalho/rodapé na página: a margem ou o que
+   *  o conteúdo do motor ocupa, o que for maior. */
+  private hfBand(pg: number, kind: 'header' | 'footer'): { top: number; bottom: number } {
+    const page = this.eng?.result.pages[pg];
+    const sp = this.sectionOfPage(pg)?.sectPr ?? this.bodyState().model.sectPr;
+    const pageH = page?.heightTw ?? sp.pageHeightTwips;
+    const which = kind === 'header' ? 'hdr' : 'ftr';
+    let top = kind === 'header' ? 0 : pageH - sp.marginBottomTwips;
+    let bottom = kind === 'header' ? sp.marginTopTwips : pageH;
+    for (const el of this.eng?.lines ?? []) {
+      if (el.page !== pg || el.loc.kind !== 'hf' || el.loc.which !== which) continue;
+      if (kind === 'header') bottom = Math.max(bottom, el.line.y + el.line.height);
+      else top = Math.min(top, el.line.y);
+    }
+    return { top, bottom };
+  }
+
+  // ───────────── edição de célula de tabela (motor) ─────────────
+
+  /** Linha do motor sob o ponteiro numa página (qualquer contexto). */
+  private engLineAt(e: MouseEvent): EngLine | null {
+    const eng = this.eng;
+    if (!eng) return null;
+    const scale = PX_PER_TWIP * this.zoom;
+    for (let pg = 0; pg < this.canvases.length; pg++) {
+      const rect = this.canvases[pg]!.getBoundingClientRect();
+      if (e.clientY < rect.top || e.clientY > rect.bottom || e.clientX < rect.left || e.clientX > rect.right) continue;
+      const xT = (e.clientX - rect.left) / scale;
+      const yT = (e.clientY - rect.top) / scale;
+      let best: EngLine | null = null;
+      let bestD = Infinity;
+      for (const el of eng.lines) {
+        if (el.page !== pg || el.loc.kind === 'other') continue;
+        const l = el.line;
+        const dy = yT < l.y ? l.y - yT : yT > l.y + l.height ? yT - (l.y + l.height) : 0;
+        const dx = xT < l.x ? l.x - xT : xT > l.x + l.width ? xT - (l.x + l.width) : 0;
+        // dentro da faixa vertical vence; entre células, a mais próxima na horizontal
+        const d = dy * 4 + dx;
+        if (d < bestD) { bestD = d; best = el; }
+      }
+      return best;
+    }
+    return null;
+  }
+
+  /** Clique na visão do motor: entra/sai da edição de célula conforme a linha
+   *  clicada (o hitTest depois acha o offset nas linhas do modelo em edição). */
+  private routeEngineClick(e: MouseEvent): void {
+    if (!this.eng || this.hfEdit || this.tbEdit || this.locked()) return;
+    const el = this.engLineAt(e);
+    if (!el) return;
+    if (el.loc.kind === 'cell') {
+      const ce = this.cellEdit;
+      if (ce && ce.anchor === el.loc.anchor && sameHops(ce.hops, el.loc.hops)) return;
+      this.enterCell(el.loc.anchor, el.loc.hops);
+    } else if (el.loc.kind === 'body' && this.cellEdit) {
+      this.exitCell();
+      this.refreshSelection();
+    }
+  }
+
+  /** Entra na edição da célula (o modelo passa a ser os parágrafos dela). */
+  private enterCell(anchor: number, hops: CellHop[], caret?: DocPosition): boolean {
+    const t = this.tableAnchors[anchor]?.table;
+    const cell = t ? resolveCell(t, hops) : null;
+    if (!cell || !this.model) return false;
+    if (this.cellEdit) this.exitCell();
+    if (!cell.paragraphs.length) {
+      const p: Paragraph = { runs: [], props: {} };
+      cell.paragraphs.push(p);
+      if (cell.blocks) cell.blocks.push({ type: 'paragraph', paragraph: p });
+    }
+    this.floatSel = null;
+    this.cellEdit = {
+      anchor, hops: hops.map((h) => ({ ...h })), cell,
+      saved: { model: this.model, selection: this.selection, undoStack: this.undoStack, redoStack: this.redoStack },
+    };
+    this.model = { paragraphs: cell.paragraphs, sectPr: this.model.sectPr };
+    const start = caret ?? { para: 0, offset: 0 };
+    this.selection = { anchor: start, focus: start };
+    this.pendingProps = null;
+    this.undoStack = [];
+    this.redoStack = [];
+    // o layout não muda: só as linhas do modelo em edição (as da célula)
+    if (this.eng) { this.rebuildEditLines(); this.refreshSelection(); } else this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-cellmode', { detail: { active: true } }));
+    return true;
+  }
+
+  /** Sai da edição de célula (sem refazer o layout — o chamador refaz). */
+  private exitCell(): void {
+    const ce = this.cellEdit;
+    if (!ce) return;
+    if (ce.cell.blocks) ce.cell.blocks = reconcileBlocks(ce.cell.blocks, ce.cell.paragraphs, false);
+    this.cellEdit = null;
+    this.model = ce.saved.model;
+    this.selection = ce.saved.selection;
+    this.undoStack = ce.saved.undoStack;
+    this.redoStack = ce.saved.redoStack;
+    this.pendingProps = null;
+    this.rebuildEditLines();
+    this.dispatchEvent(new CustomEvent('uw-cellmode', { detail: { active: false } }));
+  }
+
+  /** Editando uma célula de tabela? */
+  editingTableCell(): boolean { return this.cellEdit !== null; }
+
+  /** Tab/Shift+Tab: próxima/anterior célula da mesma tabela (como o Word). */
+  private moveCell(dir: 1 | -1): boolean {
+    const ce = this.cellEdit;
+    if (!ce || !this.eng) return false;
+    // células da mesma tabela na ordem das linhas do motor (linha, coluna)
+    const prefix = ce.hops.slice(0, -1);
+    const seen: CellHop[] = [];
+    for (const el of this.eng.lines) {
+      if (el.loc.kind !== 'cell' || el.loc.anchor !== ce.anchor || el.loc.hops.length !== ce.hops.length) continue;
+      if (!sameHops(el.loc.hops.slice(0, -1), prefix)) continue;
+      const h = el.loc.hops[el.loc.hops.length - 1]!;
+      if (!seen.some((s) => s.r === h.r && s.c === h.c)) seen.push(h);
+    }
+    seen.sort((a, b) => a.r - b.r || a.c - b.c);
+    const me = ce.hops[ce.hops.length - 1]!;
+    const idx = seen.findIndex((s) => s.r === me.r && s.c === me.c);
+    const next = seen[idx + dir];
+    if (idx < 0 || !next) return false;
+    const hops = [...prefix.map((h) => ({ ...h })), { r: next.r, c: next.c }];
+    if (!this.enterCell(ce.anchor, hops)) return false;
+    // seleciona o conteúdo da célula (Word seleciona ao entrar por Tab)
+    const ps = this.model!.paragraphs;
+    this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: ps.length - 1, offset: paraLength(ps[ps.length - 1]!) } };
+    this.refreshSelection();
+    return true;
+  }
+
+  /** Mudou só a apresentação (zoom, tema, marcas, proteção): com o motor o
+   *  layout continua válido — refaz canvases e pintura, sem diagramar. */
+  private refreshView(): void {
+    if (!this.eng || !this.engineActive()) { this.refresh(); return; }
+    this.rebuildCanvases();
+    if (this.view === 'read') this.applyReadSpread();
+    else for (const c of this.canvases) if (c.style.display === 'none') c.style.display = '';
+    this.engPageCache.clear();
+    this.ensureVisiblePainted();
+    this.positionProxy();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Só a seleção/caret mudou: repinta sem refazer o layout (o do motor custa). */
+  private refreshSelection(): void {
+    if (!this.eng) { this.refresh(); return; }
+    this.paint();
+    this.positionProxy();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+
+
+  /** Arrastar/redimensionar objeto no layout do motor: a âncora passa a ser
+   *  relativa à PÁGINA com a posição exibida (o motor lê wp:positionH/V). */
+  private moveAnchorTo(obj: InlineImage | DrawingTextbox, x: number, y: number): void {
+    const a = obj.anchor;
+    if (!a) return;
+    if (a.simplePos) { a.simplePos = { x: Math.round(x), y: Math.round(y) }; return; }
+    a.posH = { relativeFrom: 'page', offset: Math.round(x) };
+    a.posV = { relativeFrom: 'page', offset: Math.round(y) };
+  }
+
   // ───────────────────────── pintura ─────────────────────────
 
   refresh(): void {
@@ -5015,8 +6391,12 @@ export class UniversalWriteElement extends HTMLElement {
     // dimensões CSS desejadas por página (ou tile, no modo contínuo)
     const cssOf = (i: number) => {
       let w = widthT, h = heightT;
+      const ep = this.eng?.result.pages[i];
       if (!isPaged) {
         h = this.tileHeights[i] ?? heightT;
+      } else if (ep) {
+        // motor: o tamanho de cada página vem do layout (seção da página)
+        w = ep.widthTw; h = ep.heightTw;
       } else if (isPaged && this.hfEdit && this.savedBody) {
         // edição de HF: usa a geometria SALVA do corpo (preserva paisagem etc.)
         const sp = this.sectPrForSavedPage(i);
@@ -5037,9 +6417,10 @@ export class UniversalWriteElement extends HTMLElement {
       return c.style.width === wPx && c.style.height === hPx;
     });
     if (sameCount && sameSizes) {
-      // só limpa os buffers p/ repintura sob demanda (mantém identidade do DOM)
+      // só limpa os buffers p/ repintura sob demanda (mantém identidade do DOM);
+      // as não alocadas já estão em 1×1 (documento de 1000 páginas: não mexe nelas)
+      for (const i of this.allocatedPages) { const c = this.canvases[i]; if (c) { c.width = 1; c.height = 1; } }
       this.allocatedPages.clear();
-      for (const c of this.canvases) { c.width = 1; c.height = 1; }
       void dpr;
       return;
     }
@@ -5047,6 +6428,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.container.replaceChildren();
     this.canvases = [];
     this.allocatedPages.clear();
+    this.engPageCache.clear();
     for (let i = 0; i < count; i++) {
       const { wPx, hPx } = cssOf(i);
       const c = document.createElement('canvas');
@@ -5102,14 +6484,14 @@ export class UniversalWriteElement extends HTMLElement {
         // ao capturar o snapshot do corpo (edição HF), suprime AMBOS os HF.
         const header2 = (pg === 0 && sp.titlePg) ? section.headers.first : section.headers.default;
         if (header2?.length && !this.hfCapturing) {
-          ctx.save(); ctx.globalAlpha = HF_DIM_ALPHA;
+          ctx.save(); ctx.globalAlpha = this.printRender ? 1 : HF_DIM_ALPHA;
           this.paintHf(ctx, scale, header2, sp.marginLeftTwips, sp.headerDistanceTwips ?? 720, colW, pg, grey, sp);
           ctx.restore();
         }
         const footer2 = (pg === 0 && sp.titlePg) ? section.footers.first : section.footers.default;
         if (footer2?.length && !this.hfCapturing) {
           const fTop = sp.pageHeightTwips - (sp.footerDistanceTwips ?? 720) - this.measureHfHeight(footer2, colW);
-          ctx.save(); ctx.globalAlpha = HF_DIM_ALPHA;
+          ctx.save(); ctx.globalAlpha = this.printRender ? 1 : HF_DIM_ALPHA;
           this.paintHf(ctx, scale, footer2, sp.marginLeftTwips, fTop, colW, pg, grey, sp);
           ctx.restore();
         }
@@ -5196,6 +6578,7 @@ export class UniversalWriteElement extends HTMLElement {
     const dpr = window.devicePixelRatio || 1;
     const active = filter ?? this.allocatedPages;
     if (active.size === 0) return;
+    if (this.eng) { this.paintEngine(active); return; }
     const sel = normalizeRange(this.range());
     const hasSel = this.hasSelection();
 
@@ -5384,6 +6767,14 @@ export class UniversalWriteElement extends HTMLElement {
     // (a camada de header/footer/notas é pintada por paintHfLayer ANTES do
     //  corpo — ver a chamada acima; behindDoc precisa ficar atrás do texto.)
 
+    this.paintFloatAndCaret(ctxs, scales, dpr, hasSel);
+  }
+
+  /** Alças do objeto flutuante selecionado + caret (os dois layouts). */
+  private paintFloatAndCaret(
+    ctxs: (CanvasRenderingContext2D | null)[], scales: number[], dpr: number, hasSel: boolean,
+  ): void {
+    const pgOf = (p: number) => Math.min(p, ctxs.length - 1);
     // seleção de objeto flutuante: contorno + 8 alças. Aparece p/ a imagem
     // selecionada E p/ a caixa em EDIÇÃO (redimensionamento coexiste com edição).
     if (this.floatSel || this.tbEdit) {
@@ -5417,7 +6808,7 @@ export class UniversalWriteElement extends HTMLElement {
     }
 
     // caret
-    if (this.caretVisible && this.view !== 'read' && !hasSel) {
+    if (this.caretVisible && !this.printRender && this.view !== 'read' && !hasSel) {
       const line = this.lineOf(this.selection.focus);
       if (line) {
         const cpg = pgOf(line.page);
@@ -5635,14 +7026,14 @@ export class UniversalWriteElement extends HTMLElement {
           ctx.restore();
         }
         // sombreado cinza de CAMPO (como o app de referência mostra campos)
-        if (run?.field) {
+        if (run?.field && !this.printRender) {
           ctx.save();
           ctx.fillStyle = this.pageDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)';
           ctx.fillRect(x * scale, line.yTwips * scale, a * scale, line.heightTwips * scale);
           ctx.restore();
         }
         // anotação (comentário): destaque âmbar translúcido, como no app de referência
-        if (props?.commentIds?.length) {
+        if (props?.commentIds?.length && !this.printRender) {
           ctx.save();
           ctx.fillStyle = 'rgba(255, 187, 0, 0.28)';
           ctx.fillRect(x * scale, line.yTwips * scale, a * scale, line.heightTwips * scale);
@@ -5737,12 +7128,140 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /**
-   * Gera um PDF do documento reaproveitando o MESMO layout do canvas
-   * (layoutCache, tabelas, imagens). Cada glifo é posicionado exatamente onde o
-   * editor o desenha — inclusive o snap de 1/600" e a baseline do app de referência — de modo
-   * que o PDF reproduz a página glifo a glifo.
+   * Gera o PDF pelo motor de layout do Word (@universal-office/docx-layout —
+   * o mesmo validado contra os PDFs do Word no corpus e no oráculo): o
+   * documento ATUAL (com as edições) é serializado, diagramado e pintado.
+   * Fontes: as que o editor já resolveu (arquivo da fonte; sem licença de
+   * incorporação, a substituta métrico-compatível), embutidas no documento e as
+   * que o motor pedir na 1ª passada (tema, padrão, substitutas do Word).
+   * Se o motor falhar, cai no PDF do layout do canvas (exportPdfCanvas).
    */
   async exportPdf(): Promise<Uint8Array> {
+    if (!this.model || !this.fonts) throw new Error('document not loaded');
+    try {
+      return await this.exportPdfEngine();
+    } catch (e) {
+      console.warn('[universal-write] motor de layout falhou no PDF; usando o layout do canvas', e);
+      return this.exportPdfCanvas();
+    }
+  }
+
+  private async exportPdfEngine(): Promise<Uint8Array> {
+    await this.settleDocumentFonts();
+    await this.preparePdfFonts();
+    // sem edições: os bytes/documento ORIGINAIS (o .docx regravado pelo modelo
+    // de edição ainda perde propriedades que o motor usa)
+    // com edições: o estado VIVO (o mesmo que o canvas pinta) — o .docx
+    // regravado pelo modelo de edição ainda perde propriedades que o motor usa
+    const pristine = this.editsSinceLoad === 0 && !!this.loadedBytes;
+    const pkg = pristine ? DocxPackage.load(this.loadedBytes!) : this.pkg;
+    if (!pristine) this.syncRunRPr(this.model!.paragraphs);
+    const full = pristine ? readFullDocument(pkg!) : this.liveEngineDoc().full;
+    let embedded: ReturnType<typeof readEmbeddedFonts> = [];
+    try { embedded = pkg ? readEmbeddedFonts(pkg) : []; } catch { /* fontes embutidas ilegíveis */ }
+    const layout = (): ReturnType<typeof layoutDocument> => {
+      const prov = withEmbeddedFonts(this.engineFontProvider(missing), embedded, (b) => new SfntFont(b));
+      return layoutDocument(full, prov);
+    };
+    // 1ª passada registra as famílias/variantes que o motor pediu e o editor
+    // ainda não tinha; resolve-as (rede/SO) e diagrama de novo
+    const missing = new Map<string, Set<FontVariant>>();
+    let res = layout();
+    if (missing.size && await this.loadEngineFonts(missing)) {
+      missing.clear();
+      res = layout();
+    }
+    return renderPdf(res);
+  }
+
+  /** Provedor de faces do motor sobre o Registry do editor (só faces com ARQUIVO).
+   *  Cada face guarda a família CSS (FontFace carregada) que o canvas usa. */
+  private engineFontProvider(
+    missing: Map<string, Set<FontVariant>>, cache = new Map<string, EngineFontFace | null>(),
+  ): EngineFontProvider {
+    const note = (family: string, v: FontVariant) => {
+      let s = missing.get(family);
+      if (!s) missing.set(family, (s = new Set()));
+      s.add(v);
+    };
+    return {
+      face: (family, bold, italic) => {
+        const key = `${family}|${bold ? 1 : 0}${italic ? 1 : 0}`;
+        if (cache.has(key)) return cache.get(key)!;
+        const want: FontVariant = bold && italic ? 'boldItalic' : bold ? 'bold' : italic ? 'italic' : 'regular';
+        let out: EngineFontFace | null = null;
+        const set = this.fonts!.get(family);
+        if (!set) note(family, want);
+        else {
+          if (!set[want]) note(family, want);
+          for (const v of [want, bold ? 'bold' : 'regular', italic ? 'italic' : 'regular', 'regular'] as FontVariant[]) {
+            let font = set[v];
+            if (!font) continue;
+            let file = this.fontFiles.get(font);
+            let fam = family;
+            if (!file) {
+              // licença não deixa embutir: a substituta métrico-compatível (mede e pinta igual)
+              const sub = METRIC_SUBSTITUTES[family.toLowerCase()];
+              const ss = sub ? this.fonts!.get(sub) : undefined;
+              const f2 = ss?.[v] ?? ss?.regular;
+              const file2 = f2 ? this.fontFiles.get(f2) : undefined;
+              if (!f2 || !file2) { if (sub) note(family, v); continue; }
+              font = f2; file = file2; fam = sub!;
+            }
+            const vb = v === 'bold' || v === 'boldItalic', vi = v === 'italic' || v === 'boldItalic';
+            out = {
+              key: `${fam}|${v}`, family: fam, font, bytes: file.bytes, bold, italic,
+              ...(bold && !vb ? { synthBold: true } : {}),
+              ...(italic && !vi ? { synthItalic: true } : {}),
+            };
+            const css = file.name === DEFAULT_FONT ? DEFAULT_FONT_CSS : `${cssFamily(file.name)}, ${DEFAULT_FONT_CSS}`;
+            this.engFaceCss.set(out, { family: css, weight: vb ? 700 : 400, italic: vi });
+            break;
+          }
+        }
+        cache.set(key, out);
+        return out;
+      },
+    };
+  }
+
+  /** Resolve (com arquivo) as famílias/variantes que o motor pediu; true se algo mudou. */
+  private async loadEngineFonts(missing: Map<string, Set<FontVariant>>): Promise<boolean> {
+    const families = [...missing.keys()].filter((f) => !this.loadedFamilyNames.has(f));
+    if (!families.length) return false;
+    await this.fontResolver.resolveWithFile(families);
+    await Promise.all(families.flatMap((f) => {
+      const r = this.fontResolver.getWithFile(f);
+      return r ? [...missing.get(f)!].filter((v) => !r.faces[v]).map((v) => this.fontResolver.loadFace(r, v)) : [];
+    }));
+    let changed = false;
+    for (const f of families) {
+      this.appliedFonts.delete(f); // reaplica com as variantes que acabaram de chegar
+      if (this.applyResolvedFont(f)) changed = true;
+    }
+    if (changed) await this.preparePdfFonts();
+    return changed;
+  }
+
+  /**
+   * PDF a partir do layout do CANVAS (layoutCache, tabelas, imagens) — o
+   * caminho antigo, mantido como reserva do motor. Cada glifo é posicionado
+   * onde o editor o desenha.
+   */
+  private async exportPdfCanvas(): Promise<Uint8Array> {
+    if (!this.eng) return this.exportPdfCanvasLegacy();
+    if (this.cellEdit) this.exitCell();
+    this.forceLegacy++;
+    try {
+      this.layout();
+      return await this.exportPdfCanvasLegacy();
+    } finally {
+      this.forceLegacy--;
+      this.refresh();
+    }
+  }
+
+  private async exportPdfCanvasLegacy(): Promise<Uint8Array> {
     if (!this.model || !this.fonts) throw new Error('document not loaded');
     // imagens em páginas nunca pintadas (virtualização) não estão decodificadas;
     // decodifica todas antes para não exportar placeholders.
@@ -5887,6 +7406,11 @@ export class UniversalWriteElement extends HTMLElement {
    * ficam para uma versão futura — o foco aqui é texto + paginação corretos.
    */
   exportXps(): Uint8Array {
+    // o XPS sai do layout legado do canvas (glifos/spans dele)
+    return this.withLegacyLayout(() => this.exportXpsLegacy());
+  }
+
+  private exportXpsLegacy(): Uint8Array {
     if (!this.model || !this.fonts) throw new Error('document not loaded');
     const T = TWIPS_PER_PT;
     const pages: XpsPage[] = [];
@@ -6120,6 +7644,7 @@ export class UniversalWriteElement extends HTMLElement {
         const copy = new Uint8Array(img.data);
         const bmp = await createImageBitmap(new Blob([copy.buffer], { type: `image/${img.ext === 'jpg' ? 'jpeg' : img.ext}` }));
         this.bitmaps.set(img, bmp);
+        this.imagesVersion++;
       } catch { /* imagem inválida: vira placeholder no PDF */ }
     }));
   }

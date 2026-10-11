@@ -40,6 +40,12 @@ const html = await editor.save('html');   // string
 Optional built-in chrome: add the boolean `topbar` / `bottombar` attributes for
 a Word-style toolbar and status bar.
 
+The print (and read) view lays out and paints pages with the Word-fidelity
+layout engine (`@universal-office/docx-layout`, the same layout as the PDF
+export). Set `layout="legacy"` to use the previous canvas layout instead; the
+editor also falls back to it automatically (with a console warning) if the
+engine fails on a document.
+
 Full documentation and live examples: see the Universal Office docs site.
 
 ## License

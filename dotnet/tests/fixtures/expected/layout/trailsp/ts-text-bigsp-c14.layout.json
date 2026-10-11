@@ -1,0 +1,23 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"Marca1Hxg","g":[[77,1701],[97,1884.26],[114,2006.62],[99,2079.88],[97,2189.88],[49,2373.35],[72,2556.83],[120,2715.71],[103,2825.71]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1876.34,"scaleX":1,"text":"TextoHxg","g":[[84,1701],[101,1835.38],[120,1957.74],[116,2067.74],[111,2128.86],[72,2312.34],[120,2471.21],[103,2581.21]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2129.31,"scaleX":1,"text":"Marca2Hxg","g":[[77,1701],[97,1884.26],[114,2006.62],[99,2079.88],[97,2189.88],[50,2373.35],[72,2556.83],[120,2715.71],[103,2825.71]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2382.29,"scaleX":1,"text":"Marca3Hxg","g":[[77,1701],[97,1884.26],[114,2006.62],[99,2079.88],[97,2189.88],[51,2373.35],[72,2556.83],[120,2715.71],[103,2825.71]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":11,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":1247.06},
+        {"ref":"b1","start":0,"end":15,"x":1701,"y":1669.98,"height":252.98,"baseline":1876.34,"width":1002.57},
+        {"ref":"b2","start":0,"end":11,"x":1701,"y":1922.96,"height":252.98,"baseline":2129.31,"width":1247.06},
+        {"ref":"b3","start":0,"end":11,"x":1701,"y":2175.94,"height":252.98,"baseline":2382.29,"width":1247.06}
+      ]
+    }
+  ],
+  "warnings": []
+}

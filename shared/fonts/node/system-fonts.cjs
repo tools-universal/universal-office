@@ -7,7 +7,8 @@
 // INGLÊS (a 1ª entrada do Windows costuma ser catalã: "Negreta", "Cursiva") —
 // o nome de família "RIBBI" (ID 1), o mesmo que o Word/PowerPoint mostram
 // ("Segoe UI Semibold", "Arial Black"). Peso/itálico pela OS/2
-// (usWeightClass / fsSelection). `.ttc`: face 0 (a que o FontFace carrega).
+// (usWeightClass / fsSelection). `.ttc`: TODAS as faces da coleção (Cambria +
+// Cambria Math, MS Gothic + MS PGothic + MS UI Gothic), extraídas como sfnt avulso.
 //
 // Os arquivos são LIDOS da máquina do usuário em tempo de execução — nunca
 // copiados para o app/instalador (ver CLAUDE.md, "Fontes proprietárias").
@@ -37,15 +38,35 @@ async function readRange(fh, pos, len) {
   return buf.subarray(0, bytesRead);
 }
 
-/** { family, weight, italic, bold } da face 0, ou null se não for sfnt legível. */
-async function fontInfo(path) {
+/** Faces do arquivo: [{ family, weight, italic, bold, embeddable, index }] (coleção .ttc: todas). */
+async function fontInfos(path) {
   let fh;
   try {
     fh = await open(path, 'r');
-    let base = 0;
     const head = await readRange(fh, 0, 16);
-    if (head.length < 12) return null;
-    if (head.toString('latin1', 0, 4) === 'ttcf') base = head.readUInt32BE(12);
+    if (head.length < 12) return [];
+    if (head.toString('latin1', 0, 4) !== 'ttcf') {
+      const i = await faceInfo(fh, 0);
+      return i ? [{ ...i, index: 0 }] : [];
+    }
+    const n = Math.min(head.readUInt32BE(8), 64);
+    const offs = await readRange(fh, 12, n * 4);
+    const out = [];
+    for (let k = 0; k * 4 + 4 <= offs.length; k++) {
+      const i = await faceInfo(fh, offs.readUInt32BE(k * 4));
+      if (i) out.push({ ...i, index: k });
+    }
+    return out;
+  } catch {
+    return [];
+  } finally {
+    await fh?.close().catch(() => {});
+  }
+}
+
+/** { family, weight, italic, bold, embeddable } da face no offset `base`, ou null. */
+async function faceInfo(fh, base) {
+  try {
     const off = await readRange(fh, base, 12);
     if (off.length < 12) return null;
     const num = off.readUInt16BE(4);
@@ -101,8 +122,6 @@ async function fontInfo(path) {
     return { family, weight: Math.max(1, Math.min(1000, weight)), italic, bold, embeddable };
   } catch {
     return null;
-  } finally {
-    await fh?.close().catch(() => {});
   }
 }
 
@@ -113,7 +132,7 @@ async function infosOf(paths, limit = 32) {
   const worker = async () => {
     while (next < paths.length) {
       const i = next++;
-      out[i] = await fontInfo(paths[i]);
+      out[i] = await fontInfos(paths[i]);
     }
   };
   await Promise.all(Array.from({ length: Math.min(limit, paths.length) }, worker));
@@ -138,16 +157,16 @@ async function buildFontIndex() {
       }
       const infos = await infosOf(files);
       for (let i = 0; i < files.length; i++) {
-        const info = infos[i];
-        if (!info) continue;
-        const key = info.family.toLowerCase();
-        const dedupe = `${key}|${info.weight}|${info.italic}`;
-        if (seen.has(dedupe)) continue;
-        seen.add(dedupe);
-        const entry = idx.get(key) ?? { name: info.family, faces: [] };
-        const { weight, italic, bold, embeddable } = info;
-        entry.faces.push({ path: files[i], weight, italic, bold, embeddable });
-        idx.set(key, entry);
+        for (const info of infos[i] ?? []) {
+          const key = info.family.toLowerCase();
+          const dedupe = `${key}|${info.weight}|${info.italic}`;
+          if (seen.has(dedupe)) continue;
+          seen.add(dedupe);
+          const entry = idx.get(key) ?? { name: info.family, faces: [] };
+          const { weight, italic, bold, embeddable, index: face } = info;
+          entry.faces.push({ path: files[i], face, weight, italic, bold, embeddable });
+          idx.set(key, entry);
+        }
       }
     }
   }
@@ -169,14 +188,14 @@ async function listFontFamilies() {
 }
 
 /**
- * Face 0 de uma coleção `.ttc` como sfnt AVULSO (offset table + diretório +
+ * Face `index` de uma coleção `.ttc` como sfnt AVULSO (offset table + diretório +
  * tabelas copiadas, alinhadas a 4). O FontFace aceitaria o `.ttc` inteiro, mas
  * o parser de métricas e o embutidor de PDF do Write só leem TTF/OTF.
  * O checksum de cada tabela segue válido (bytes intactos); o
  * head.checkSumAdjustment do arquivo não é conferido pelos navegadores.
  */
-function ttcFace0(buf) {
-  const base = buf.readUInt32BE(12);
+function ttcFace(buf, index = 0) {
+  const base = buf.readUInt32BE(12 + 4 * index);
   const num = buf.readUInt16BE(base + 4);
   const recs = [];
   for (let i = 0; i < num; i++) {
@@ -205,7 +224,7 @@ function ttcFace0(buf) {
  * `family` ecoa o nome PEDIDO (o renderer registra o FontFace com ele);
  * `weight` é o usWeightClass da OS/2; `bold` é o negrito RIBBI da família;
  * `embeddable` = a licença (fsType) permite embutir em documento/PDF.
- * `bytes` é sempre um sfnt avulso (a face 0, se o arquivo for `.ttc`).
+ * `bytes` é sempre um sfnt avulso (a face da coleção, se o arquivo for `.ttc`).
  */
 async function resolveFonts(families) {
   const idx = await index();
@@ -214,7 +233,7 @@ async function resolveFonts(families) {
     for (const f of idx.get(String(fam).toLowerCase())?.faces ?? []) {
       try {
         let bytes = await readFile(f.path);
-        if (bytes.toString('latin1', 0, 4) === 'ttcf') bytes = ttcFace0(bytes);
+        if (bytes.toString('latin1', 0, 4) === 'ttcf') bytes = ttcFace(bytes, f.face ?? 0);
         out.push({
           family: String(fam), weight: String(f.weight), style: f.italic ? 'italic' : 'normal',
           bold: f.bold, embeddable: f.embeddable,

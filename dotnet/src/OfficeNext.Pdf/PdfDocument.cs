@@ -35,13 +35,51 @@ public sealed record PdfImage(string ResourceName, int ObjNum);
 /// <summary>Formatação numérica dos operadores PDF (até 3 casas, sem zeros supérfluos).</summary>
 public static class PdfNum
 {
+    /// <summary>Maior módulo escrito num número do PDF (evita a notação exponencial).</summary>
+    public const double MaxReal = 1e9;
+
     public static string Fmt(double n)
     {
-        double r = Math.Floor(n * 1000 + 0.5) / 1000; // Math.round do JS
+        // nunca NaN/Infinity/expoente (inválidos no PDF): NaN vira 0 e o módulo é limitado
+        if (double.IsNaN(n)) return "0";
+        n = Math.Max(-MaxReal, Math.Min(MaxReal, n));
+        double r = JsRound(n * 1000) / 1000;
         if (r == 0) return "0"; // inclusive -0
+        // "0.###" só reproduz o String() do JS enquanto cabe nos 15 dígitos do .NET;
+        // fora disso (e NaN/±∞, 1e+21…) usa o Number::toString completo
+        if (!(Math.Abs(r) < 1e11)) return OfficeNext.Core.JsNumber.ToString(r);
         return r.ToString("0.###", CultureInfo.InvariantCulture);
     }
+
+    /// <summary>
+    /// Math.round do JS (empate vai para +∞). Igual a floor(x + 0.5), exceto onde a
+    /// soma arredonda (0.49999999999999994 → 0, inteiros ≥ 2^52) — mesmo algoritmo do V8.
+    /// </summary>
+    public static double JsRound(double x)
+    {
+        double c = Math.Ceiling(x);
+        return c - 0.5 > x ? c - 1 : c;
+    }
 }
+
+/// <summary>Operação de um comando de caminho.</summary>
+public enum PathOp : byte { M, L, C, Z }
+
+/// <summary>
+/// Comando de caminho (coordenadas em pt, y a partir do TOPO) — porta do tipo
+/// PathCmd do JS. M/L usam (X, Y); C usa (X1, Y1, X2, Y2, X, Y); Z fecha o subcaminho.
+/// </summary>
+public readonly record struct PathCmd(PathOp Op, double X, double Y, double X1, double Y1, double X2, double Y2)
+{
+    public static PathCmd M(double x, double y) => new(PathOp.M, x, y, 0, 0, 0, 0);
+    public static PathCmd L(double x, double y) => new(PathOp.L, x, y, 0, 0, 0, 0);
+    public static PathCmd C(double x1, double y1, double x2, double y2, double x, double y) =>
+        new(PathOp.C, x, y, x1, y1, x2, y2);
+    public static PathCmd Z => new(PathOp.Z, 0, 0, 0, 0, 0, 0);
+}
+
+/// <summary>Traço de um caminho: cor, espessura (pt) e tracejado opcional.</summary>
+public readonly record struct PathStroke(PdfColor Color, double WidthPt, IReadOnlyList<double>? Dash = null);
 
 /// <summary>
 /// Página PDF — porta de @wordnext/pdf document.ts. As coordenadas de entrada
@@ -53,11 +91,31 @@ public sealed class PdfPage
     public ByteBuilder Content { get; } = new(4096);
     public double WidthPt { get; }
     public double HeightPt { get; }
+    /// <summary>nome do ExtGState com a opacidade (preenchimento, traço); null = página avulsa</summary>
+    private readonly Func<double, double, string>? _gsFor;
 
-    public PdfPage(double widthPt, double heightPt)
+    /// <summary>Página avulsa (sem documento): WithAlpha desenha direto, sem ExtGState.</summary>
+    public PdfPage(double widthPt, double heightPt) : this(widthPt, heightPt, null) { }
+
+    internal PdfPage(double widthPt, double heightPt, Func<double, double, string>? gsFor)
     {
         WidthPt = widthPt;
         HeightPt = heightPt;
+        _gsFor = gsFor;
+    }
+
+    /// <summary>
+    /// Desenha com opacidade (0..1) de preenchimento/traço: envolve o desenho em
+    /// q /GSn gs … Q. Página avulsa (sem documento) ou opaco: desenha direto.
+    /// </summary>
+    public void WithAlpha(double? fillAlpha, double? strokeAlpha, Action draw)
+    {
+        double fa = fillAlpha ?? 1, sa = strokeAlpha ?? 1;
+        if (_gsFor is null || (fa >= 1 && sa >= 1)) { draw(); return; }
+        // Math.Max do .NET propaga NaN como o Math.max do JS
+        Content.Str("q\n/").Str(_gsFor(Math.Max(0, fa), Math.Max(0, sa))).Str(" gs\n");
+        draw();
+        Content.Str("Q\n");
     }
 
     private double FromTop(double yTop) => HeightPt - yTop;
@@ -78,6 +136,87 @@ public sealed class PdfPage
         var c = Content;
         c.Num(color.R).Byte((byte)' ').Num(color.G).Byte((byte)' ').Num(color.B).Str(" RG\n")
          .Num(widthPt).Str(" w\n");
+        DashOp(c, dash);
+        c.Num(x0).Byte((byte)' ').Num(FromTop(y0Top)).Str(" m ")
+         .Num(x1).Byte((byte)' ').Num(FromTop(y1Top)).Str(" l S\n");
+    }
+
+    /// <summary>
+    /// Desenha glifos já posicionados, todos na mesma fonte/tamanho/cor. Cada glifo
+    /// recebe sua própria matriz de texto (posição absoluta), reproduzindo
+    /// exatamente as posições calculadas pelo layout.
+    /// </summary>
+    public void Glyphs(EmbeddedFont font, double sizePt, PdfColor color, IReadOnlyList<PlacedGlyph> glyphs)
+        => Glyphs(font, sizePt, color, glyphs, scaleX: null);
+
+    /// <summary>
+    /// Idem, com as opções do JS: <paramref name="scaleX"/> (escala horizontal na
+    /// matriz de texto; null = 1), negrito sintético (preenche + contorna, modo 2,
+    /// traço = corpo/35) e itálico sintético (inclinação 0.21).
+    /// </summary>
+    public void Glyphs(
+        EmbeddedFont font, double sizePt, PdfColor color, IReadOnlyList<PlacedGlyph> glyphs,
+        double? scaleX = null, bool synthBold = false, bool synthItalic = false)
+    {
+        if (glyphs.Count == 0) return;
+        var c = Content;
+        c.Str("BT\n/").Str(font.ResourceName).Byte((byte)' ').Num(sizePt).Str(" Tf\n")
+         .Num(color.R).Byte((byte)' ').Num(color.G).Byte((byte)' ').Num(color.B).Str(" rg\n");
+        // negrito sintético: preenche + contorna (modo 2) com traço proporcional ao corpo
+        if (synthBold)
+            c.Num(color.R).Byte((byte)' ').Num(color.G).Byte((byte)' ').Num(color.B).Str(" RG ")
+             .Num(sizePt / 35).Str(" w 2 Tr\n");
+        string a = PdfNum.Fmt(scaleX ?? 1);
+        string skew = synthItalic ? "0.21" : "0";
+        foreach (var g in glyphs)
+        {
+            double y = FromTop(g.BaselineFromTopPt);
+            c.Str(a).Str(" 0 ").Str(skew).Str(" 1 ").Num(g.XPt).Byte((byte)' ').Num(y).Str(" Tm ")
+             .GlyphHex(g.Gid).Str(" Tj\n");
+        }
+        if (synthBold) c.Str("0 Tr\n");
+        c.Str("ET\n");
+    }
+
+    /// <summary>Caminho preenchido e/ou contornado.</summary>
+    public void Path(IReadOnlyList<PathCmd> cmds, PdfColor? fill = null, PathStroke? stroke = null)
+    {
+        if (cmds.Count == 0 || (fill is null && stroke is null)) return;
+        var c = Content;
+        if (fill is { } f)
+            c.Num(f.R).Byte((byte)' ').Num(f.G).Byte((byte)' ').Num(f.B).Str(" rg\n");
+        if (stroke is { } s)
+        {
+            c.Num(s.Color.R).Byte((byte)' ').Num(s.Color.G).Byte((byte)' ').Num(s.Color.B).Str(" RG ")
+             .Num(s.WidthPt).Str(" w ");
+            DashOp(c, s.Dash);
+        }
+        foreach (var cmd in cmds)
+        {
+            switch (cmd.Op)
+            {
+                case PathOp.M:
+                    c.Num(cmd.X).Byte((byte)' ').Num(FromTop(cmd.Y)).Str(" m\n");
+                    break;
+                case PathOp.L:
+                    c.Num(cmd.X).Byte((byte)' ').Num(FromTop(cmd.Y)).Str(" l\n");
+                    break;
+                case PathOp.C:
+                    c.Num(cmd.X1).Byte((byte)' ').Num(FromTop(cmd.Y1)).Byte((byte)' ')
+                     .Num(cmd.X2).Byte((byte)' ').Num(FromTop(cmd.Y2)).Byte((byte)' ')
+                     .Num(cmd.X).Byte((byte)' ').Num(FromTop(cmd.Y)).Str(" c\n");
+                    break;
+                default:
+                    c.Str("h\n");
+                    break;
+            }
+        }
+        c.Str(fill is not null && stroke is not null ? "B\n" : fill is not null ? "f\n" : "S\n");
+    }
+
+    /// <summary>"[d0 d1 …] 0 d\n" (ou "[] 0 d\n" sem tracejado).</summary>
+    private static void DashOp(ByteBuilder c, IReadOnlyList<double>? dash)
+    {
         if (dash is { Count: > 0 })
         {
             c.Byte((byte)'[');
@@ -89,27 +228,44 @@ public sealed class PdfPage
             c.Str("] 0 d\n");
         }
         else c.Str("[] 0 d\n");
-        c.Num(x0).Byte((byte)' ').Num(FromTop(y0Top)).Str(" m ")
-         .Num(x1).Byte((byte)' ').Num(FromTop(y1Top)).Str(" l S\n");
+    }
+
+    /// <summary>Empilha um recorte retangular (até PopClip).</summary>
+    public void PushClipRect(double xPt, double yTopPt, double wPt, double hPt)
+    {
+        Content.Str("q\n").Num(xPt).Byte((byte)' ').Num(FromTop(yTopPt + hPt)).Byte((byte)' ')
+            .Num(wPt).Byte((byte)' ').Num(hPt).Str(" re W n\n");
+    }
+
+    public void PopClip() => Content.Str("Q\n");
+
+    /// <summary>Empilha uma transformação afim (matriz cm, em pt) até PopClip.</summary>
+    public void PushTransform(double a, double b, double c, double d, double e, double f)
+    {
+        Content.Str("q\n").Num(a).Byte((byte)' ').Num(b).Byte((byte)' ').Num(c).Byte((byte)' ')
+            .Num(d).Byte((byte)' ').Num(e).Byte((byte)' ').Num(f).Str(" cm\n");
     }
 
     /// <summary>
-    /// Desenha glifos já posicionados, todos na mesma fonte/tamanho/cor. Cada glifo
-    /// recebe sua própria matriz de texto (posição absoluta), reproduzindo
-    /// exatamente as posições calculadas pelo layout.
+    /// Imagem com rotação (graus, horário, em torno do centro) e espelhamento.
+    /// Math.Cos/Sin do .NET (CRT) e do V8 (fdlibm) podem diferir em 1 ulp; depois
+    /// do Fmt (3 casas) isso só mudaria um dígito exatamente na fronteira de arredondamento.
     /// </summary>
-    public void Glyphs(EmbeddedFont font, double sizePt, PdfColor color, IReadOnlyList<PlacedGlyph> glyphs)
+    public void DrawImageTransformed(
+        PdfImage img, double xPt, double yTopPt, double wPt, double hPt,
+        double rotDeg = 0, bool flipH = false, bool flipV = false)
     {
-        if (glyphs.Count == 0) return;
-        var c = Content;
-        c.Str("BT\n/").Str(font.ResourceName).Byte((byte)' ').Num(sizePt).Str(" Tf\n")
-         .Num(color.R).Byte((byte)' ').Num(color.G).Byte((byte)' ').Num(color.B).Str(" rg\n");
-        foreach (var g in glyphs)
-        {
-            double y = FromTop(g.BaselineFromTopPt);
-            c.Str("1 0 0 1 ").Num(g.XPt).Byte((byte)' ').Num(y).Str(" Tm ").GlyphHex(g.Gid).Str(" Tj\n");
-        }
-        c.Str("ET\n");
+        double cx = xPt + wPt / 2;
+        double cy = FromTop(yTopPt + hPt / 2);
+        double r = (-rotDeg * Math.PI) / 180;
+        double cos = Math.Cos(r), sin = Math.Sin(r);
+        double sx = flipH ? -wPt : wPt, sy = flipV ? -hPt : hPt;
+        // M = T(centro) · R · S · T(-½,-½)
+        double a = cos * sx, b = sin * sx, c = -sin * sy, d = cos * sy;
+        double e = cx - (a + c) / 2, f = cy - (b + d) / 2;
+        Content.Str("q\n").Num(a).Byte((byte)' ').Num(b).Byte((byte)' ').Num(c).Byte((byte)' ')
+            .Num(d).Byte((byte)' ').Num(e).Byte((byte)' ').Num(f).Str(" cm\n/")
+            .Str(img.ResourceName).Str(" Do\nQ\n");
     }
 
     /// <summary>Desenha uma imagem já embutida. (x,y) = canto superior esquerdo.</summary>
@@ -128,10 +284,29 @@ public sealed class PdfDocument
     private readonly List<EmbeddedFont> _fonts = new();
     private readonly List<PdfImage> _images = new();
     private readonly List<PdfPage> _pages = new();
+    /// <summary>ExtGState de opacidade, em ordem de criação: chave "ca|CA" → nome do recurso</summary>
+    private readonly List<(string Key, string Name)> _alphaStates = new();
+    private readonly Dictionary<string, string> _alphaByKey = new();
 
     public PdfDocument(bool compress = true)
     {
         _writer = new PdfWriter(compress);
+    }
+
+    /// <summary>Nome do ExtGState (GS0, GS1…) para a opacidade (preenchimento, traço).</summary>
+    private string AlphaState(double ca, double CA)
+    {
+        string key = $"{PdfNum.Fmt(ca)}|{PdfNum.Fmt(CA)}";
+        lock (_alphaByKey) // páginas podem ser desenhadas em paralelo
+        {
+            if (!_alphaByKey.TryGetValue(key, out string? name))
+            {
+                name = $"GS{_alphaStates.Count}";
+                _alphaByKey[key] = name;
+                _alphaStates.Add((key, name));
+            }
+            return name;
+        }
     }
 
     /// <summary>Embute uma fonte TrueType (bytes crus + consultas de métrica).</summary>
@@ -142,12 +317,18 @@ public sealed class PdfDocument
         return f;
     }
 
-    /// <summary>Embute um JPEG (baseline) diretamente via DCTDecode.</summary>
-    public PdfImage EmbedJpeg(byte[] bytes, int widthPx, int heightPx)
+    /// <summary>
+    /// Embute um JPEG (baseline) diretamente via DCTDecode. 1 componente = DeviceGray,
+    /// 4 = DeviceCMYK (com /Decode invertido quando o APP14 da Adobe marca CMYK
+    /// invertido), senão DeviceRGB.
+    /// </summary>
+    public PdfImage EmbedJpeg(byte[] bytes, int widthPx, int heightPx, int components = 3, bool adobeInverted = false)
     {
+        string cs = components == 1 ? "/DeviceGray" : components == 4 ? "/DeviceCMYK" : "/DeviceRGB";
+        string decode = components == 4 && adobeInverted ? " /Decode [1 0 1 0 1 0 1 0]" : "";
         int objNum = _writer.AddStream(
             $"/Type /XObject /Subtype /Image /Width {widthPx} /Height {heightPx} " +
-            "/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode",
+            $"/ColorSpace {cs} /BitsPerComponent 8 /Filter /DCTDecode{decode}",
             bytes,
             allowCompress: false); // já comprimido
         var handle = new PdfImage($"Im{_images.Count}", objNum);
@@ -218,12 +399,12 @@ public sealed class PdfDocument
 
     public PdfPage AddPage(double widthPt, double heightPt)
     {
-        var p = new PdfPage(widthPt, heightPt);
+        var p = new PdfPage(widthPt, heightPt, AlphaState);
         _pages.Add(p);
         return p;
     }
 
-    /// <summary>Anexa uma página desenhada fora do documento (render paralelo).</summary>
+    /// <summary>Anexa uma página desenhada fora do documento (render paralelo; sem ExtGState).</summary>
     public void AddPage(PdfPage page) => _pages.Add(page);
 
     /// <summary>Serializa o PDF completo.</summary>
@@ -261,7 +442,14 @@ public sealed class PdfDocument
         string xobjDict = _images.Count > 0
             ? $"/XObject << {string.Join(" ", _images.Select(i => $"/{i.ResourceName} {i.ObjNum} 0 R"))} >>"
             : "";
-        string resources = $"<< {fontDict} {xobjDict} >>";
+        string gsDict = _alphaStates.Count > 0
+            ? $"/ExtGState << {string.Join(" ", _alphaStates.Select(s =>
+            {
+                int bar = s.Key.IndexOf('|');
+                return $"/{s.Name} << /Type /ExtGState /ca {s.Key[..bar]} /CA {s.Key[(bar + 1)..]} >>";
+            }))} >>"
+            : "";
+        string resources = gsDict.Length > 0 ? $"<< {fontDict} {xobjDict} {gsDict} >>" : $"<< {fontDict} {xobjDict} >>";
 
         int catalog = w.Alloc();
         int pagesNode = w.Alloc();

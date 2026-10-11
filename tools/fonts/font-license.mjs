@@ -15,6 +15,44 @@ export const FONT_EXT = /\.(ttf|otf|ttc|otc|woff2?|eot|fntdata|odttf|pfb|pfa|dfo
 /** Documentos do Office (ZIP) que podem carregar fontes EMBUTIDAS. */
 export const OOXML_EXT = /\.(docx|docm|dotx|dotm|pptx|pptm|potx|potm|ppsx|xlsx|xlsm|xltx|xltm)$/i;
 
+/** PDFs: carregam os programas das fontes usadas (subconjuntos) — também é
+ *  redistribuir a fonte (ex.: PDF de referência gerado com Aptos). */
+export const PDF_EXT = /\.pdf$/i;
+
+/**
+ * Programas de fonte EMBUTIDOS num PDF (/FontFile, /FontFile2, /FontFile3),
+ * descomprimidos. Segue as referências "/FontFileN obj 0 R" até o stream do
+ * objeto (streams não ficam em object streams, então a busca direta basta).
+ */
+export function pdfFontPrograms(buf) {
+  const b = Buffer.from(buf.buffer, buf.byteOffset ?? 0, buf.byteLength ?? buf.length);
+  const s = b.toString('latin1');
+  const out = [];
+  const seen = new Set();
+  for (const m of s.matchAll(/\/FontFile[23]?\s+(\d+)\s+(\d+)\s+R/g)) {
+    const key = `${m[1]} ${m[2]}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const head = new RegExp(`(?:^|[\\r\\n\\s])${m[1]}\\s+${m[2]}\\s+obj\\b`, 'g');
+    let objAt = -1;
+    for (const h of s.matchAll(head)) objAt = h.index; // a última definição vale (atualização incremental)
+    if (objAt < 0) continue;
+    const st = s.indexOf('stream', objAt);
+    if (st < 0) continue;
+    const dict = s.slice(objAt, st);
+    let start = st + 6;
+    if (s[start] === '\r') start++;
+    if (s[start] === '\n') start++;
+    const lenM = /\/Length\s+(\d+)(\s+\d+\s+R)?/.exec(dict);
+    let end = lenM && !lenM[2] ? start + Number(lenM[1]) : s.indexOf('endstream', start);
+    if (end < start) continue;
+    let data = b.subarray(start, end);
+    if (/FlateDecode/.test(dict)) { try { data = inflateSync(data); } catch { /* stream corrompido: classifica como está */ } }
+    out.push(new Uint8Array(data));
+  }
+  return out;
+}
+
 /** Partes de fonte embutida dentro de um ZIP OOXML (só os nomes, pelo diretório central). */
 export function embeddedFontParts(buf) {
   const b = new Uint8Array(buf);

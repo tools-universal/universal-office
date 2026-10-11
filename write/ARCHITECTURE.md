@@ -27,15 +27,30 @@ packages/
   docx-core/   Modelo do documento + parse/serialize OOXML.
                REGRA DE OURO: round-trip sem perdas. Partes/atributos que não
                entendemos ainda são preservados byte a byte (rawXml passthrough).
-  layout/      Motor de layout: quebra de linha, justificação, paginação,
-               tabelas, floats. Replica o comportamento do app de referência (incl.
-               compatSettings como compatibilityMode=15). Saída: árvore de
-               posições absolutas (páginas → linhas → runs de glifos).
-  editor/      Webcomponent <universal-write>. Renderiza a árvore de layout em
+               Também lê .doc binário (`docx-core/src/doc`: convertDocToDocx) —
+               o .doc vira um .docx em memória e segue o mesmo caminho.
+  docx-layout/ MOTOR DE LAYOUT (sem DOM): cascata OOXML completa, quebra de
+               linha, paginação (viúvas/órfãs, manter com o próximo), tabelas
+               (bandas de borda, células verticais, linhas divididas), seções
+               e colunas, cabeçalhos/rodapés, notas, campos (PAGE/NUMPAGES/
+               PAGEREF/SEQ/REF), objetos flutuantes com contorno, tabelas
+               flutuantes e EMF. Saída: árvore de páginas → itens de pintura
+               (glifos, retângulos, imagens, transformações) + linhas com
+               offsets por caractere (cursor/seleção) + objetos posicionados.
+               A MESMA árvore alimenta o canvas do editor, o exportPdf e o port
+               .NET (`dotnet/src/OfficeNext.DocxLayout`, paridade testada).
+               Cada regra do Word é MEDIDA no oráculo sintético
+               (`tools/layout-oracle`) e vira caso em `test/oracle/<grupo>`.
+               Ver packages/docx-layout/README.md.
+  layout/      Base tipográfica: parse de TTF/OTF/TTC (cmap, hmtx, kern, GPOS),
+               métricas e o layout ANTIGO do canvas (layout="legacy").
+  editor/      Webcomponent <universal-write>. Pinta a árvore do docx-layout em
                canvas (caret, seleção e IME próprios — contenteditable NÃO
-               consegue reproduzir o layout do app de referência). Edição = operações
-               sobre o modelo do docx-core, espelhando as mutações de XML
-               observadas no word-lab.
+               consegue reproduzir o layout do app de referência); edição de
+               cabeçalho/rodapé e arrasto de objetos usam as linhas/objetos do
+               motor. Edição = operações sobre o modelo do docx-core, espelhando
+               as mutações de XML observadas no word-lab. O exportPdf usa o
+               mesmo motor (fallback: PDF pelo canvas).
   compare/     Diff de documentos + webcomponent <universal-write-diff>. Motor Myers/
                histogram PORTADO do OpenCompare (tokens opacos; correções
                sincronizam nos dois sentidos). Tokeniza blocos do docx-core:
@@ -53,6 +68,13 @@ apps/
 tools/
   word-lab/    Oráculo: experimentos COM + diffs + export PDF para
                comparação visual.
+  layout-oracle/ Oráculo de LAYOUT: casos .docx sintéticos → Word (COM
+               invisível) → PDF → linhas medidas (<caso>.word.json, versionado;
+               os PDFs do Word ficam fora do git — embutem fontes da Microsoft).
+  corpus-lab/  Validação contra documentos reais (fora do repositório):
+               run-engine.mjs (motor → PDF), compare.py (linhas/páginas/pixels
+               contra o PDF do Word), sbs.py (lado a lado). Nada do corpus
+               entra no git.
 ```
 
 ## Decisões fundamentais
@@ -75,8 +97,9 @@ tools/
 
 1. **Infra do oráculo** (word-lab) + docx-core — implementada; preservação
    incremental de OOXML desconhecido após edição ainda é gap crítico.
-2. **Layout base** — texto, fontes, quebra, paginação e tabelas implementados e
-   validados em corpus parcial por PDF/XPS/pixel diff.
+2. **Layout base** — motor `docx-layout` (canvas + PDF + .NET) validado regra a
+   regra no oráculo e contra ~1000 documentos reais com os PDFs do Word
+   (resultados em `COMPATIBILITY.md`).
 3. **Editor** — caret, seleção, IME, clipboard, undo/redo e Web Component em uso.
 4. **Formatação/documento** — estilos, listas, tabelas, HF e seções parciais.
 5. **Objetos/formatos** — imagens, campos, notas, ODT/PDF/XPS/HTML/Markdown parciais.

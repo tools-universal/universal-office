@@ -30,7 +30,7 @@ ipcMain.handle('wn:list-fonts', () => listFontFamilies());
 ipcMain.handle('wn:open-docx', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Abrir documento',
-    filters: [{ name: 'Documento do Word', extensions: ['docx'] }],
+    filters: [{ name: 'Documentos', extensions: ['docx', 'doc', 'odt'] }],
     properties: ['openFile'],
   });
   if (result.canceled || result.filePaths.length === 0) return null;

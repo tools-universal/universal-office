@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Porta do @universal-office/layout (parte de fontes): parser SFNT mínimo
+       (head/hhea/hmtx/cmap/OS2/post), kerning GPOS/kern legado e o índice das
+       fontes INSTALADAS no Windows (lidas da máquina, nunca versionadas). -->
+</Project>

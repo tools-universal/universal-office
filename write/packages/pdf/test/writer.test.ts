@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { unzlibSync } from 'fflate';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { PdfDocument, hexColor } from '../src/index.js';
 
 const latin1 = (b: Uint8Array): string => {
@@ -79,5 +81,25 @@ describe('estrutura do PDF', () => {
     // não deve lançar: zlib bem-formado (header + adler32)
     const inflated = latin1(unzlibSync(pdf.slice(start, start + len)));
     expect(inflated).toContain('re f');
+  });
+});
+
+describe('números do conteúdo e ids de glifo', () => {
+  it('fmt nunca escreve NaN, Infinity nem notação exponencial', () => {
+    const doc = new PdfDocument({ compress: false });
+    const page = doc.addPage(595.32, 841.92);
+    page.fillRect(NaN, Infinity, 1e21, -Infinity, hexColor('000000'));
+    page.line(1e-7, -1e30, 5e25, NaN, hexColor('000000'), Infinity);
+    const s = latin1(doc.build());
+    expect(s).not.toMatch(/NaN|Infinity|\de[+-]\d/);
+    expect(s).toContain('1000000000');
+  });
+
+  it('glyph id fora de 16 bits vira .notdef (Identity-H tem 2 bytes)', () => {
+    const doc = new PdfDocument({ compress: false });
+    const bytes = new Uint8Array(readFileSync(join(__dirname, '..', '..', '..', '..', 'shared', 'fonts', 'files', 'carlito-regular.ttf')));
+    const font = doc.embedFont('Carlito', bytes, { unitsPerEm: 2048, glyphId: (cp) => (cp === 0x41 ? 0x10000 : 3), advanceWidth: () => 1000 });
+    expect(font.encode(0x41).gid).toBe(0);
+    expect(font.encode(0x42).gid).toBe(3);
   });
 });
