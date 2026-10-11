@@ -3,7 +3,7 @@ import type {
 } from '@universal-office/docx-core';
 import { DocContext, directPPr, directRPr } from './context.js';
 import { cascadeRPr, mergePPr, mergeRPr, fontOfSlot, resolveColor, highlightHex, resolveDrawingColor, own } from './resolve.js';
-import { faceMetrics, deviceEmPt, superscriptRaiseFor, subscriptDropPt, type FontFace } from './fonts.js';
+import { faceMetrics, deviceEmPt, superscriptRaiseFor, subscriptDropPt, isSymbolFont, type FontFace } from './fonts.js';
 import type { NumberMarker } from './numbering.js';
 
 /**
@@ -188,6 +188,9 @@ export function resolveRunStyle(ctx: DocContext, rpr: RPr, env: ParaEnv, link?: 
   return style;
 }
 
+/** Código da área privada desenhado como .notdef (fonte comum, sem mapeamento de símbolo). */
+const notdefPua = (face: FontFace, cp: number): boolean => cp >= 0xf000 && cp <= 0xf0ff && face.font.glyphId(cp) === 0 && !isSymbolFont(face.font);
+
 /** Face do caractere (slot por faixa Unicode) com fallback de glifo ausente. */
 function faceFor(ctx: DocContext, rpr: RPr, cp: number, style: RunStyle, symFont?: string): FontFace {
   const theme = ctx.fmt.theme;
@@ -209,7 +212,13 @@ function faceFor(ctx: DocContext, rpr: RPr, cp: number, style: RunStyle, symFont
   // linha segue a fonte do run — ex.: U+2002)
   if (cp <= 32 || SPACE_WIDTHS[cp] !== undefined || face.font.glyphId(cp) !== 0) return face;
   // símbolo legado (F0xx) numa fonte que mapeia em 0x00xx (Symbol/Wingdings antigos)
-  if (cp >= 0xf000 && cp <= 0xf0ff && face.font.glyphId(cp - 0xf000) !== 0) return face;
+  // código da área privada (w:sym, marcador) que a fonte não tem: fonte de SÍMBOLO que o
+  // mapeia em 0x00xx fica com ele; fonte comum (Arial, Times…) não — o Word desenha o glifo
+  // ausente (.notdef) da Calibri, qualquer que seja a fonte do run ou do tema (oráculo symnotdef)
+  if (cp >= 0xf000 && cp <= 0xf0ff) {
+    if (isSymbolFont(face.font) && face.font.glyphId(cp - 0xf000) !== 0) return face;
+    return ctx.faces.get('Calibri', false, false);
+  }
   for (const fb of FALLBACK_FAMILIES) {
     const f = ctx.faces.get(fb, bold, italic);
     if (f.font.glyphId(cp) !== 0) return f;
@@ -259,7 +268,13 @@ const SPACE_WIDTHS: Record<number, number | string> = {
 export function advanceTwips(ctx: DocContext, face: FontFace, cp: number, sizePt: number): number {
   const f = face.font;
   let gid = f.glyphId(cp);
-  if (gid === 0 && cp >= 0xf000 && cp <= 0xf0ff) gid = f.glyphId(cp - 0xf000);
+  // área privada: fonte de símbolo mapeia em 0x00xx; nas demais fica o .notdef, e o Word
+  // ainda avança um espaço da fonte depois dele (oráculo symnotdef)
+  let extra = 0;
+  if (gid === 0 && cp >= 0xf000 && cp <= 0xf0ff) {
+    if (isSymbolFont(f)) gid = f.glyphId(cp - 0xf000);
+    else extra = f.advanceWidth(f.glyphId(0x20));
+  }
   if (gid === 0 && SPACE_WIDTHS[cp] !== undefined) {
     const sw = SPACE_WIDTHS[cp]!;
     if (typeof sw === 'string') return advanceTwips(ctx, face, sw.codePointAt(0)!, sizePt) * (cp === 0x202f ? 0.5 : 1);
@@ -273,7 +288,7 @@ export function advanceTwips(ctx: DocContext, face: FontFace, cp: number, sizePt
     const dg = f.glyphId(cp === 0x2002 ? 0x2013 : 0x2014);
     if (dg) { gid = dg; frac = cp === 0x2005 ? 1 / 4 : 1; }
   }
-  const units = f.advanceWidth(gid) * frac;
+  const units = f.advanceWidth(gid) * frac + extra;
   const em = ctx.opts.advanceEm === 'device' ? deviceEmPt(sizePt) : sizePt;
   const tw = (units * em * 20) / f.metrics.unitsPerEm;
   switch (ctx.opts.advanceRound) {
@@ -626,7 +641,8 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       }
       // quebras (inclusive a U+2028 do w:clear) medem com a fonte do run, sem substituta
       const face = faceFor(ctx, rpr, kind === 'lb' ? 0x20 : shownCp, style, run.symFont);
-      const m = faceMetrics(face.font);
+      // .notdef da Calibri no lugar do código privado: a altura da linha segue a fonte do run
+      const m = faceMetrics(notdefPua(face, shownCp) ? faceFor(ctx, rpr, 0x41, style).font : face.font);
       let adv = 0;
       let kernAdj: number | undefined;
       if (kind === 'char' || kind === 'space' || kind === 'nbsp') {
@@ -855,7 +871,7 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       for (const ch of Array.from(nm.text)) {
         const cp = ch.codePointAt(0)!;
         const face = faceFor(ctx, mrpr, cp, ms);
-        const m = faceMetrics(face.font);
+        const m = faceMetrics(notdefPua(face, cp) ? faceFor(ctx, mrpr, 0x41, ms).font : face.font);
         let adv = advanceTwips(ctx, face, cp, ms.sizePt);
         // escala (w:w) e espaçamento (w:spacing) do rPr do nível também valem no número (oráculo numrpr)
         if (mrpr.w && mrpr.w !== 100) adv *= mrpr.w / 100;

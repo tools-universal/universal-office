@@ -163,6 +163,9 @@ public static class Para
     private static bool Cjk(int cp) => (cp >= 0x2e80 && cp <= 0x9fff) || (cp >= 0xac00 && cp <= 0xd7af) || (cp >= 0xf900 && cp <= 0xfaff) || (cp >= 0xff00 && cp <= 0xffef) || (cp >= 0x3000 && cp <= 0x303f);
     private static bool Cs(int cp) => (cp >= 0x0590 && cp <= 0x08ff) || (cp >= 0xfb1d && cp <= 0xfdff) || (cp >= 0xfe70 && cp <= 0xfeff);
 
+    /// <summary>Código da área privada desenhado como .notdef (fonte comum, sem mapeamento de símbolo).</summary>
+    private static bool NotdefPua(FontFace face, int cp) => cp >= 0xf000 && cp <= 0xf0ff && face.Font.GlyphId(cp) == 0 && !Fonts.IsSymbolFont(face.Font);
+
     private static readonly string[] FallbackFamilies = { "Segoe UI Symbol", "Segoe UI Emoji", "Arial Unicode MS", "MS Gothic", "Cambria Math", "Segoe UI", "Arial" };
 
     public static RunStyle ResolveRunStyle(DocContext ctx, RPr rpr, ParaEnv env, string? link = null)
@@ -236,7 +239,14 @@ public static class Para
         // linha segue a fonte do run — ex.: U+2002)
         if (cp <= 32 || SpaceWidths.ContainsKey(cp) || face.Font.GlyphId(cp) != 0) return face;
         // símbolo legado (F0xx) numa fonte que mapeia em 0x00xx (Symbol/Wingdings antigos)
-        if (cp >= 0xf000 && cp <= 0xf0ff && face.Font.GlyphId(cp - 0xf000) != 0) return face;
+        // código da área privada (w:sym, marcador) que a fonte não tem: fonte de SÍMBOLO que o
+        // mapeia em 0x00xx fica com ele; fonte comum (Arial, Times…) não — o Word desenha o glifo
+        // ausente (.notdef) da Calibri, qualquer que seja a fonte do run ou do tema (oráculo symnotdef)
+        if (cp >= 0xf000 && cp <= 0xf0ff)
+        {
+            if (Fonts.IsSymbolFont(face.Font) && face.Font.GlyphId(cp - 0xf000) != 0) return face;
+            return ctx.Faces.Get("Calibri", false, false);
+        }
         foreach (var fb in FallbackFamilies)
         {
             var f = ctx.Faces.Get(fb, bold, italic);
@@ -271,7 +281,14 @@ public static class Para
     {
         var f = face.Font;
         int gid = f.GlyphId(cp);
-        if (gid == 0 && cp >= 0xf000 && cp <= 0xf0ff) gid = f.GlyphId(cp - 0xf000);
+        // área privada: fonte de símbolo mapeia em 0x00xx; nas demais fica o .notdef, e o Word
+        // ainda avança um espaço da fonte depois dele (oráculo symnotdef)
+        double extra = 0;
+        if (gid == 0 && cp >= 0xf000 && cp <= 0xf0ff)
+        {
+            if (Fonts.IsSymbolFont(f)) gid = f.GlyphId(cp - 0xf000);
+            else extra = f.AdvanceWidth(f.GlyphId(0x20));
+        }
         if (gid == 0 && SpaceWidths.TryGetValue(cp, out var sw))
         {
             if (sw.Ch is not null) return AdvanceTwips(ctx, face, sw.Ch.Value, sizePt) * (cp == 0x202f ? 0.5 : 1);
@@ -286,7 +303,7 @@ public static class Para
             int dg = f.GlyphId(cp == 0x2002 ? 0x2013 : 0x2014);
             if (dg != 0) { gid = dg; frac = cp == 0x2005 ? 1.0 / 4 : 1; }
         }
-        double units = f.AdvanceWidth(gid) * frac;
+        double units = f.AdvanceWidth(gid) * frac + extra;
         double em = ctx.Opts.AdvanceEm == "device" ? Fonts.DeviceEmPt(sizePt) : sizePt;
         double tw = (units * em * 20) / f.Metrics.UnitsPerEm;
         return ctx.Opts.AdvanceRound switch
@@ -769,7 +786,8 @@ public static class Para
                 }
                 // quebras (inclusive a U+2028 do w:clear) medem com a fonte do run, sem substituta
                 var face = FaceFor(ctx, rpr, kind == GlyphKind.Lb ? 0x20 : shownCp, style, run.SymFont);
-                var m = Fonts.FaceMetrics(face.Font);
+                // .notdef da Calibri no lugar do código privado: a altura da linha segue a fonte do run
+                var m = Fonts.FaceMetrics(NotdefPua(face, shownCp) ? FaceFor(ctx, rpr, 0x41, style).Font : face.Font);
                 double adv = 0;
                 double? kernAdj = null;
                 if (kind is GlyphKind.Char or GlyphKind.Space or GlyphKind.Nbsp)
@@ -1043,7 +1061,7 @@ public static class Para
                 {
                     int cp = Js.CodePointAt0(ch);
                     var face = FaceFor(ctx, mrpr, cp, ms);
-                    var m = Fonts.FaceMetrics(face.Font);
+                    var m = Fonts.FaceMetrics(NotdefPua(face, cp) ? FaceFor(ctx, mrpr, 0x41, ms).Font : face.Font);
                     double adv = AdvanceTwips(ctx, face, cp, ms.SizePt);
                     // escala (w:w) e espaçamento (w:spacing) do rPr do nível também valem no número (oráculo numrpr)
                     if (mrpr.W is { } mw && mw != 0 && !double.IsNaN(mw) && mw != 100) adv *= mw / 100;

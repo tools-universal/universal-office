@@ -1329,9 +1329,11 @@ internal sealed class DocxWriter
             x += Xml.El("w:jc", new Attrs { { "w:val", tap.Jc!.Value < jcs.Length ? jcs[tap.Jc.Value] : "left" } });
         }
         if ((tap.Spacing ?? 0) != 0) x += Xml.El("w:tblCellSpacing", new Attrs { { "w:w", tap.Spacing }, { "w:type", "dxa" } });
-        // sprmTWidthIndent é o w:tblInd que o Word grava; sem ele, calcula pela 1ª célula
+        // sprmTWidthIndent é o w:tblInd que o Word grava; sem ele, calcula pela 1ª célula. Na
+        // tabela centralizada ele não posiciona, mas nos modos ≤ 14 ainda muda a largura máxima
+        // do autoajuste (oráculo tblindctr do docx-layout) — vai também
         int? ind = tap.WidthIndent is not null && tap.WidthIndent.Fts == 3 ? tap.WidthIndent.W : TableIndent(tap);
-        if (ind is not null && ind != 0 && (tap.Jc ?? 0) == 0) x += Xml.El("w:tblInd", new Attrs { { "w:w", ind }, { "w:type", "dxa" } });
+        if (ind is not null && ind != 0 && ((tap.Jc ?? 0) == 0 || tap.Jc == 1)) x += Xml.El("w:tblInd", new Attrs { { "w:w", ind }, { "w:type", "dxa" } });
         if (tap.BordersSet && !AllNone(tap.Borders)) x += $"<w:tblBorders>{BordersXml(tap.Borders, true)}</w:tblBorders>";
         if (tap.ShdTable is not null) x += OoxmlProps.ShdXml(tap.ShdTable);
         if (tap.Autofit != true) x += "<w:tblLayout w:type=\"fixed\"/>";

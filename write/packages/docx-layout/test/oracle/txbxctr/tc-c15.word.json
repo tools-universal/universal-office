@@ -1,0 +1,236 @@
+{
+"pages": [
+{
+"w": 594.96,
+"h": 842.04,
+"lines": [
+{
+"y": 31.44,
+"x0": 56.66,
+"x1": 99.2,
+"size": 12.0,
+"text": "Ancora0"
+},
+{
+"y": 46.08,
+"x0": 56.66,
+"x1": 98.96,
+"size": 12.0,
+"text": "Ancora1"
+},
+{
+"y": 60.72,
+"x0": 56.66,
+"x1": 98.9,
+"size": 12.0,
+"text": "Ancora2"
+},
+{
+"y": 75.36,
+"x0": 56.66,
+"x1": 98.83,
+"size": 12.0,
+"text": "Ancora3"
+},
+{
+"y": 90.02,
+"x0": 56.66,
+"x1": 99.28,
+"size": 12.0,
+"text": "Ancora4"
+},
+{
+"y": 104.66,
+"x0": 56.66,
+"x1": 98.88,
+"size": 12.0,
+"text": "Ancora5"
+},
+{
+"y": 119.3,
+"x0": 56.66,
+"x1": 99.13,
+"size": 12.0,
+"text": "Ancora6"
+},
+{
+"y": 75.36,
+"x0": 28.68,
+"x1": 508.32,
+"size": 12.0,
+"text": "Caixa0comtextoquecorreateofimdalinhaequebramaisadiantequandoalarguraacabadevez"
+},
+{
+"y": 145.34,
+"x0": 27.6,
+"x1": 507.24,
+"size": 12.0,
+"text": "Caixa1comtextoquecorreateofimdalinhaequebramaisadiantequandoalarguraacabadevez"
+},
+{
+"y": 215.42,
+"x0": 153.98,
+"x1": 419.94,
+"size": 12.0,
+"text": "Caixa2comtextoquecorreateofimdalinhaequebra"
+},
+{
+"y": 230.06,
+"x0": 153.98,
+"x1": 364.15,
+"size": 12.0,
+"text": "maisadiantequandoalarguraacabadevez"
+},
+{
+"y": 285.41,
+"x0": 160.1,
+"x1": 426.06,
+"size": 12.0,
+"text": "Caixa3comtextoquecorreateofimdalinhaequebra"
+},
+{
+"y": 300.05,
+"x0": 160.1,
+"x1": 370.27,
+"size": 12.0,
+"text": "maisadiantequandoalarguraacabadevez"
+},
+{
+"y": 355.37,
+"x0": 74.3,
+"x1": 340.26,
+"size": 12.0,
+"text": "Caixa4comtextoquecorreateofimdalinhaequebra"
+},
+{
+"y": 370.01,
+"x0": 74.3,
+"x1": 284.47,
+"size": 12.0,
+"text": "maisadiantequandoalarguraacabadevez"
+},
+{
+"y": 425.47,
+"x0": 243.65,
+"x1": 509.61,
+"size": 12.0,
+"text": "Caixa5comtextoquecorreateofimdalinhaequebra"
+},
+{
+"y": 440.11,
+"x0": 243.65,
+"x1": 453.82,
+"size": 12.0,
+"text": "maisadiantequandoalarguraacabadevez"
+},
+{
+"y": 767.16,
+"x0": 154.7,
+"x1": 420.66,
+"size": 12.0,
+"text": "Caixa6comtextoquecorreateofimdalinhaequebra"
+},
+{
+"y": 781.8,
+"x0": 154.7,
+"x1": 364.87,
+"size": 12.0,
+"text": "maisadiantequandoalarguraacabadevez"
+}
+],
+"objs": [
+{
+"t": "path",
+"x0": 21.12,
+"y0": 60.0,
+"x1": 573.88,
+"y1": 110.0
+},
+{
+"t": "path",
+"x0": 20.38,
+"y0": 59.25,
+"x1": 574.62,
+"y1": 110.75
+},
+{
+"t": "path",
+"x0": 20.0,
+"y0": 130.0,
+"x1": 572.75,
+"y1": 180.0
+},
+{
+"t": "path",
+"x0": 19.25,
+"y0": 129.25,
+"x1": 573.5,
+"y1": 180.75
+},
+{
+"t": "path",
+"x0": 146.38,
+"y0": 200.0,
+"x1": 446.38,
+"y1": 250.0
+},
+{
+"t": "path",
+"x0": 145.63,
+"y0": 199.25,
+"x1": 447.13,
+"y1": 250.75
+},
+{
+"t": "path",
+"x0": 152.5,
+"y0": 270.0,
+"x1": 452.5,
+"y1": 320.0
+},
+{
+"t": "path",
+"x0": 151.75,
+"y0": 269.25,
+"x1": 453.25,
+"y1": 320.75
+},
+{
+"t": "path",
+"x0": 66.7,
+"y0": 340.0,
+"x1": 366.7,
+"y1": 390.0
+},
+{
+"t": "path",
+"x0": 65.95,
+"y0": 339.25,
+"x1": 367.45,
+"y1": 390.75
+},
+{
+"t": "path",
+"x0": 236.05,
+"y0": 410.0,
+"x1": 536.05,
+"y1": 460.0
+},
+{
+"t": "path",
+"x0": 235.3,
+"y0": 409.25,
+"x1": 536.8,
+"y1": 460.75
+},
+{
+"t": "path",
+"x0": 147.5,
+"y0": 752.0,
+"x1": 447.5,
+"y1": 802.0
+}
+]
+}
+]
+}

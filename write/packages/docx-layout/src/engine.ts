@@ -2175,7 +2175,7 @@ class Engine {
       const h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
       const y = Math.max(this.floatMinY(this.cur), anchorTop0 + (anc.posV.offset ?? 0));
       const hRef = horizRef(anc.posH.relativeFrom ?? 'column', g, fr.x, fr.w);
-      const x = alignPos(anc.posH.align, anc.posH.offset, hRef.x, hRef.w, w, anc.posH.pct, g.pageW);
+      const x = alignPos(anc.posH.align, anc.posH.offset, hRef.x, hRef.w, w, anc.posH.pct, g.pageW, anc.effectExtent?.l, anc.effectExtent?.r);
       // justo/através: vale a caixa do polígono de contorno (oráculo wrappoly)
       const wb = anc.wrap === 'tight' || anc.wrap === 'through' ? anc.wrapBox : undefined;
       const by0 = wb ? y + h * wb.y0 : y, by1 = wb ? y + h * wb.y1 : y + h;
@@ -2480,7 +2480,7 @@ class Engine {
     let tbFinal: ((bx: number, by: number) => CellContent) | null = null;
     if (run.textbox) {
       const tb = run.textbox;
-      const ins = tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
+      const ins = tbInsets(tb);
       const blocks: Block[] = tb.blocks ?? tb.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
       const env: ParaEnv = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)) };
       let inner = w - ins.l - ins.r;
@@ -2520,13 +2520,13 @@ class Engine {
     if (anchor?.simplePos) { x = anchor.simplePos.x; y = anchor.simplePos.y; }
     else {
       const hRef = horizRef(anchor?.posH.relativeFrom ?? 'column', g, colX, colW);
-      x = alignPos(anchor?.posH.align, anchor?.posH.offset, hRef.x, hRef.w, w, anchor?.posH.pct, g.pageW);
+      x = alignPos(anchor?.posH.align, anchor?.posH.offset, hRef.x, hRef.w, w, anchor?.posH.pct, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
       const pin = this.pinnedFloats.get(run);
       if (pin && pin.ps === ps) y = pin.y;
       else {
         const vFrom0 = anchor?.posV.relativeFrom ?? 'paragraph';
         const vRef = vertRef(vFrom0, g, ps, vFrom0 === 'paragraph' && paraRef !== undefined ? paraRef : paraTop);
-        y = alignPos(anchor?.posV.align, anchor?.posV.offset, vRef.y, vRef.h, h, anchor?.posV.pct, g.pageH);
+        y = alignPos(anchor?.posV.align, anchor?.posV.offset, vRef.y, vRef.h, h, anchor?.posV.pct, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
         if (clampBottom !== undefined && y + h > clampBottom) y = clampBottom - h;
         // com quebra e relativo ao texto: não sobe além do topo do corpo; nos modos
         // antigos (≤ 14), só além do topo da PÁGINA (oráculos toptbl/toptbl2)
@@ -2540,8 +2540,8 @@ class Engine {
     // da célula, que se desloca com a linha — oráculo cellfloat (lab de desenho)
     if (this.inCell && !anchor?.simplePos) {
       const vFrom = anchor?.posV.relativeFrom ?? 'paragraph';
-      x = alignPos(anchor?.posH.align, anchor?.posH.offset, colX, colW, w, undefined, g.pageW);
-      y = alignPos(anchor?.posV.align, anchor?.posV.offset, vFrom === 'paragraph' ? paraRef ?? paraTop : vFrom === 'line' ? paraTop : yOrigin, 0, h, undefined, g.pageH);
+      x = alignPos(anchor?.posH.align, anchor?.posH.offset, colX, colW, w, undefined, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
+      y = alignPos(anchor?.posV.align, anchor?.posV.offset, vFrom === 'paragraph' ? paraRef ?? paraTop : vFrom === 'line' ? paraTop : yOrigin, 0, h, undefined, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
       if (tbFinal) tbContent = this.ctx.pure(() => tbFinal!(x, y));
       const cellItems = this.paintObject(run, x, y, w, h, tbContent, ps);
       if (behind) flowItems.unshift(...cellItems); else flowItems.push(...cellItems);
@@ -2639,7 +2639,7 @@ class Engine {
       const x = frameX + pg.x, y = top + line.baseline - pg.g.style.shift - h;
       let tc: CellContent | null = null;
       if (r.textbox) {
-        const ins = r.textbox.insets ?? { l: 144, t: 72, r: 144, b: 72 };
+        const ins = tbInsets(r.textbox);
         const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
         tc = this.layoutStatic(blocks, 0, Math.max(1, w - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, 'itb', ps);
       }
@@ -2678,7 +2678,7 @@ class Engine {
         out.push({ t: 'shape', x, y, w, h, style: s, ...(fill ? { fill } : {}), ...(stroke ? { stroke } : {}), ...shapeExtras(s, theme) });
       }
       if (tbContent) {
-        const ins = tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
+        const ins = tbInsets(tb);
         // caixa girada: o conteúdo gira em torno do centro (a forma já gira no pintor)
         const rot = tb.rot ?? s?.rot ?? 0;
         if (rot) out.push({ t: 'xform', op: 'push', m: rotation(x + w / 2, y + h / 2, rot) });
@@ -2715,7 +2715,7 @@ class Engine {
         const { run: r, x: ix, y: iy, w: iw, h: ih } = groupChild(gr, item, x, y, w, h);
         let tc: CellContent | null = null;
         if (r.textbox) {
-          const ins = r.textbox.insets ?? { l: 144, t: 72, r: 144, b: 72 };
+          const ins = tbInsets(r.textbox);
           const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
           tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, 'grp', ps);
         }
@@ -2758,7 +2758,19 @@ function vertRef(from: string, g: SectGeom, ps: PageState, paraTop: number): { y
   void ps;
 }
 
-function alignPos(align: string | undefined, offset: number | undefined, base: number, span: number, size: number, pct: number | undefined, pageSpan: number): number {
+/** Recuos internos da caixa de texto (twips); com contorno, o Word ainda afasta o texto meia
+ *  espessura da linha de cada lado (oráculo txbxctr). */
+function tbInsets(tb: { insets?: { l: number; t: number; r: number; b: number }; shape?: { line?: { widthPt: number } } }): { l: number; t: number; r: number; b: number } {
+  const ins = tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
+  const half = (tb.shape?.line?.widthPt ?? 0) * 10;
+  return half ? { l: ins.l + half, t: ins.t + half, r: ins.r + half, b: ins.b + half } : ins;
+}
+
+/** Posição do objeto pelo alinhamento ou deslocamento. Alinhado, o Word alinha a caixa JUNTO
+ *  com a margem de efeitos (wp:effectExtent: e0 antes, e1 depois — sombra, brilho) e o objeto
+ *  fica e0 para dentro dela (oráculo txbxctr); o deslocamento vale para o próprio objeto. */
+function alignPos(align: string | undefined, offset: number | undefined, base: number, span: number, size: number, pct: number | undefined, pageSpan: number, e0 = 0, e1 = 0): number {
+  if (align && (e0 || e1)) return alignPos(align, offset, base, span, size + e0 + e1, pct, pageSpan) + e0;
   if (align) {
     switch (align) {
       case 'center': return base + (span - size) / 2;

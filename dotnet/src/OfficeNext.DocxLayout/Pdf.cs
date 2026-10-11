@@ -34,7 +34,7 @@ public static class PdfRenderer
         public int GlyphId(int cp)
         {
             int g = _sf.GlyphId(cp);
-            return g == 0 && cp >= 0xf000 && cp <= 0xf0ff ? _sf.GlyphId(cp - 0xf000) : g;
+            return g == 0 && cp >= 0xf000 && cp <= 0xf0ff && Fonts.IsSymbolFont(_sf) ? _sf.GlyphId(cp - 0xf000) : g;
         }
         public int AdvanceWidth(int glyphId) => (int)_sf.AdvanceWidth(glyphId);
         public (int XMin, int YMin, int XMax, int YMax)? FontBBox => null;
@@ -61,9 +61,13 @@ public static class PdfRenderer
         var fonts = new Dictionary<string, EmbeddedFont?>(StringComparer.Ordinal);
         var images = new ConditionalWeakTable<InlineImage, PdfImageBox>();
 
-        EmbeddedFont? FontFor(FontFace face)
+        // pua: cópia da fonte para os códigos da área privada (F0xx) que ela não tem no cmap
+        // (w:sym com fonte comum) — o ToUnicode grava o código privado, como o Word, sem colidir
+        // com o caractere comum que use o mesmo glifo
+        EmbeddedFont? FontFor(FontFace face, bool pua = false)
         {
-            if (!fonts.TryGetValue(face.Key, out var f))
+            string key = pua ? $"{face.Key}#pua" : face.Key;
+            if (!fonts.TryGetValue(key, out var f))
             {
                 if (face.Bytes is null) f = null;
                 else
@@ -71,7 +75,7 @@ public static class PdfRenderer
                     string name = Ws.Replace(face.Family, "") + (face.Bold ? "-Bold" : "") + (face.Italic ? "-Italic" : "");
                     f = doc.EmbedFont(name, face.Bytes, new FaceProgram(face.Font));
                 }
-                fonts[face.Key] = f;
+                fonts[key] = f;
             }
             return f;
         }
@@ -199,7 +203,7 @@ public static class PdfRenderer
         return true;
     }
 
-    private static void PaintItem(PdfPage page, PageItem item, Func<FontFace, EmbeddedFont?> fontFor, Func<InlineImage, PdfImage?> imageFor,
+    private static void PaintItem(PdfPage page, PageItem item, Func<FontFace, bool, EmbeddedFont?> fontFor, Func<InlineImage, PdfImage?> imageFor,
         Func<GradGeom, byte[], PdfShading> shade)
     {
         switch (item)
@@ -207,22 +211,36 @@ public static class PdfRenderer
             case GlyphRunItem it:
                 {
                     if (it.AsPath && GlyphsAsPath(page, it)) return;
-                    var ef = fontFor(it.Face);
+                    var ef = fontFor(it.Face, false);
                     if (ef is null) return;
-                    // glifo por índice (EMF) sem contorno disponível: não há caractere para gravar
-                    var placed = it.Glyphs.Where(_ => !it.ByGid).Select(g =>
-                    {
-                        var (gid, _) = ef.Encode(g.Cp);
-                        return new OfficeNext.Pdf.PlacedGlyph { Gid = gid, CodePoint = g.Cp, XPt = g.X / T, BaselineFromTopPt = it.Y / T };
-                    }).ToList();
                     // corpo gravado no PDF como o Word: múltiplo de 1/600" (0,12 pt) — 10 → 9,96, 11 → 11,04
                     // (PDFs do oráculo); as posições dos glifos não mudam (cada um tem a sua matriz)
                     double pdfSize = Js.Round(it.SizePt / 0.12) * 0.12;
-                    page.WithAlpha(it.Alpha, it.Alpha, () => page.Glyphs(ef, pdfSize, HexColor(it.Color), placed,
-                        scaleX: it.ScaleX is { } sx && sx != 0 && !double.IsNaN(sx) ? sx : null,
-                        synthBold: it.SynthBold, synthItalic: it.SynthItalic,
-                        // texto em corridas (Tm + TJ) como no PDF do Word: a extração não embaralha linhas sobrepostas
-                        runs: true));
+                    // código da área privada que a fonte não tem no cmap (w:sym com fonte comum, ex.: Arial
+                    // F0A0 → .notdef da Calibri): vai na cópia "pua" da fonte, com o próprio código no
+                    // ToUnicode (como o Word)
+                    var sf = it.Face.Font;
+                    bool IsPua(int cp) => cp >= 0xf000 && cp <= 0xf0ff && sf.GlyphId(cp) == 0;
+                    // glifo por índice (EMF) sem contorno disponível: não há caractere para gravar
+                    var all = it.ByGid ? new List<GlyphPos>() : it.Glyphs.ToList();
+                    for (int i = 0; i < all.Count;)
+                    {
+                        bool pua = IsPua(all[i].Cp);
+                        int j = i + 1;
+                        while (j < all.Count && IsPua(all[j].Cp) == pua) j++;
+                        var f = pua ? fontFor(it.Face, true) ?? ef : ef;
+                        var placed = all.GetRange(i, j - i).Select(g =>
+                        {
+                            var (gid, _) = f.Encode(g.Cp);
+                            return new OfficeNext.Pdf.PlacedGlyph { Gid = gid, CodePoint = g.Cp, XPt = g.X / T, BaselineFromTopPt = it.Y / T };
+                        }).ToList();
+                        page.WithAlpha(it.Alpha, it.Alpha, () => page.Glyphs(f, pdfSize, HexColor(it.Color), placed,
+                            scaleX: it.ScaleX is { } sx && sx != 0 && !double.IsNaN(sx) ? sx : null,
+                            synthBold: it.SynthBold, synthItalic: it.SynthItalic,
+                            // texto em corridas (Tm + TJ) como no PDF do Word: a extração não embaralha linhas sobrepostas
+                            runs: true));
+                        i = j;
+                    }
                     return;
                 }
             case RectItem it:

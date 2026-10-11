@@ -2736,7 +2736,7 @@ internal sealed class Engine
             double h = run.Image?.HeightTwips ?? run.Shape?.HeightTwips ?? run.Group?.HeightTwips ?? run.Textbox?.HeightTwips ?? 0;
             double y = Math.Max(FloatMinY(_cur), anchorTop0 + (anc.PosV.Offset ?? 0));
             var hRef = HorizRef(anc.PosH.RelativeFrom ?? "column", g, fr.X, fr.W);
-            double x = AlignPos(anc.PosH.Align, anc.PosH.Offset, hRef.X, hRef.W, w, anc.PosH.Pct, g.PageW);
+            double x = AlignPos(anc.PosH.Align, anc.PosH.Offset, hRef.X, hRef.W, w, anc.PosH.Pct, g.PageW, anc.EffectExtent?.L ?? 0, anc.EffectExtent?.R ?? 0);
             // justo/através: vale a caixa do polígono de contorno (oráculo wrappoly)
             var wb = anc.Wrap is "tight" or "through" ? anc.WrapBox : null;
             double by0 = wb is not null ? y + h * wb.T : y, by1 = wb is not null ? y + h * wb.B : y + h;
@@ -3195,7 +3195,7 @@ internal sealed class Engine
         if (run.Textbox is not null)
         {
             var tb = run.Textbox;
-            var ins = tb.Insets ?? DefaultInsets;
+            var ins = TbInsets(tb);
             var blocks = tb.Blocks ?? tb.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
             var env = new ParaEnv { Field = FieldValue(ps), DarkBackground = IsDark(Resolve.ResolveDrawingColor(tb.Shape?.Fill, _ctx.Fmt.Theme)) };
             double inner = w - ins.L - ins.R;
@@ -3242,13 +3242,13 @@ internal sealed class Engine
         else
         {
             var hRef = HorizRef(anchor?.PosH.RelativeFrom ?? "column", g, colX, colW);
-            x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, hRef.X, hRef.W, w, anchor?.PosH.Pct, g.PageW);
+            x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, hRef.X, hRef.W, w, anchor?.PosH.Pct, g.PageW, anchor?.EffectExtent?.L ?? 0, anchor?.EffectExtent?.R ?? 0);
             if (_pinnedFloats.TryGetValue(run, out var pin) && ReferenceEquals(pin.Ps, ps)) y = pin.Y;
             else
             {
                 string vFrom0 = anchor?.PosV.RelativeFrom ?? "paragraph";
                 var vRef = VertRef(vFrom0, g, ps, vFrom0 == "paragraph" && paraRef is not null ? paraRef.Value : paraTop);
-                y = AlignPos(anchor?.PosV.Align, anchor?.PosV.Offset, vRef.Y, vRef.H, h, anchor?.PosV.Pct, g.PageH);
+                y = AlignPos(anchor?.PosV.Align, anchor?.PosV.Offset, vRef.Y, vRef.H, h, anchor?.PosV.Pct, g.PageH, anchor?.EffectExtent?.T ?? 0, anchor?.EffectExtent?.B ?? 0);
                 if (clampBottom is { } cb && y + h > cb) y = cb - h;
                 // com quebra e relativo ao texto: não sobe além do topo do corpo; nos modos
                 // antigos (≤ 14), só além do topo da PÁGINA (oráculos toptbl/toptbl2)
@@ -3263,8 +3263,8 @@ internal sealed class Engine
         if (_inCell && anchor?.SimplePos is null)
         {
             string vFrom = anchor?.PosV.RelativeFrom ?? "paragraph";
-            x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, colX, colW, w, null, g.PageW);
-            y = AlignPos(anchor?.PosV.Align, anchor?.PosV.Offset, vFrom == "paragraph" ? paraRef ?? paraTop : vFrom == "line" ? paraTop : yOrigin, 0, h, null, g.PageH);
+            x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, colX, colW, w, null, g.PageW, anchor?.EffectExtent?.L ?? 0, anchor?.EffectExtent?.R ?? 0);
+            y = AlignPos(anchor?.PosV.Align, anchor?.PosV.Offset, vFrom == "paragraph" ? paraRef ?? paraTop : vFrom == "line" ? paraTop : yOrigin, 0, h, null, g.PageH, anchor?.EffectExtent?.T ?? 0, anchor?.EffectExtent?.B ?? 0);
             if (tbFinal is not null) { double fx0 = x, fy0 = y; tbContent = _ctx.Pure(() => tbFinal(fx0, fy0)); }
             var cellItems = PaintObject(run, x, y, w, h, tbContent, ps);
             if (behind) flowItems.InsertRange(0, cellItems); else flowItems.AddRange(cellItems);
@@ -3344,7 +3344,7 @@ internal sealed class Engine
             CellContent? tc = null;
             if (r.Textbox is not null)
             {
-                var ins = r.Textbox.Insets ?? DefaultInsets;
+                var ins = TbInsets(r.Textbox);
                 var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
                 tc = LayoutStatic(blocks, 0, Math.Max(1, w - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "itb", ps);
             }
@@ -3393,7 +3393,7 @@ internal sealed class Engine
             }
             if (tbContent is not null)
             {
-                var ins = tb.Insets ?? DefaultInsets;
+                var ins = TbInsets(tb);
                 // caixa girada: o conteúdo gira em torno do centro (a forma já gira no pintor)
                 double rot = tb.Rot ?? s?.Rot ?? 0;
                 bool rotOn = rot != 0 && !double.IsNaN(rot);
@@ -3439,7 +3439,7 @@ internal sealed class Engine
                 CellContent? tc = null;
                 if (r.Textbox is not null)
                 {
-                    var ins = r.Textbox.Insets ?? DefaultInsets;
+                    var ins = TbInsets(r.Textbox);
                     var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
                     tc = LayoutStatic(blocks, 0, Math.Max(1, iw - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "grp", ps);
                 }
@@ -3480,8 +3480,21 @@ internal sealed class Engine
         _ => (paraTop, 0), // paragraph | line
     };
 
-    private static double AlignPos(string? align, double? offset, double b, double span, double size, double? pct, double pageSpan)
+    /// <summary>Recuos internos da caixa de texto (twips); com contorno, o Word ainda afasta o texto meia
+    /// espessura da linha de cada lado (oráculo txbxctr).</summary>
+    private static TextboxInsets TbInsets(DrawingTextbox tb)
     {
+        var ins = tb.Insets ?? DefaultInsets;
+        double half = (tb.Shape?.Line?.WidthPt ?? 0) * 10;
+        return half != 0 && !double.IsNaN(half) ? new TextboxInsets { L = ins.L + half, T = ins.T + half, R = ins.R + half, B = ins.B + half } : ins;
+    }
+
+    /// <summary>Posição do objeto pelo alinhamento ou deslocamento. Alinhado, o Word alinha a caixa JUNTO
+    /// com a margem de efeitos (wp:effectExtent: e0 antes, e1 depois — sombra, brilho) e o objeto
+    /// fica e0 para dentro dela (oráculo txbxctr); o deslocamento vale para o próprio objeto.</summary>
+    private static double AlignPos(string? align, double? offset, double b, double span, double size, double? pct, double pageSpan, double e0 = 0, double e1 = 0)
+    {
+        if (!string.IsNullOrEmpty(align) && ((e0 != 0 && !double.IsNaN(e0)) || (e1 != 0 && !double.IsNaN(e1)))) return AlignPos(align, offset, b, span, size + e0 + e1, pct, pageSpan) + e0;
         if (!string.IsNullOrEmpty(align))
         {
             return align switch

@@ -2,7 +2,7 @@ import { PdfDocument, hexColor, type EmbeddedFont, type PdfImage, type PdfPage, 
 import type { InlineImage } from '@universal-office/docx-core';
 import type { LayoutResult, PageItem, PathCmdTw } from './tree.js';
 import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, type GradGeom } from './geometry.js';
-import type { FontFace } from './fonts.js';
+import { isSymbolFont, type FontFace } from './fonts.js';
 import { applyImageEffects, decodeRaster, effectDecode, jpegInfo } from './images.js';
 
 /**
@@ -25,8 +25,12 @@ export function renderPdf(result: LayoutResult, opts: PdfRenderOptions = {}): Ui
   const fonts = new Map<string, EmbeddedFont | null>();
   const images = new WeakMap<InlineImage, PdfImage | null>();
 
-  const fontFor = (face: FontFace): EmbeddedFont | null => {
-    let f = fonts.get(face.key);
+  // pua: cópia da fonte para os códigos da área privada (F0xx) que ela não tem no cmap
+  // (w:sym com fonte comum) — o ToUnicode grava o código privado, como o Word, sem colidir
+  // com o caractere comum que use o mesmo glifo
+  const fontFor = (face: FontFace, pua = false): EmbeddedFont | null => {
+    const key = pua ? `${face.key}#pua` : face.key;
+    let f = fonts.get(key);
     if (f === undefined) {
       if (!face.bytes) f = null;
       else {
@@ -38,12 +42,12 @@ export function renderPdf(result: LayoutResult, opts: PdfRenderOptions = {}): Ui
           descender: m.descender,
           glyphId: (cp) => {
             const g = sf.glyphId(cp);
-            return g === 0 && cp >= 0xf000 && cp <= 0xf0ff ? sf.glyphId(cp - 0xf000) : g;
+            return g === 0 && cp >= 0xf000 && cp <= 0xf0ff && isSymbolFont(sf) ? sf.glyphId(cp - 0xf000) : g;
           },
           advanceWidth: (g) => sf.advanceWidth(g),
         });
       }
-      fonts.set(face.key, f);
+      fonts.set(key, f);
     }
     return f;
   };
@@ -159,7 +163,7 @@ function glyphsAsPath(page: PdfPage, it: Extract<PageItem, { t: 'glyphs' }>): bo
 
 function paintItem(
   page: PdfPage, it: PageItem,
-  fontFor: (f: FontFace) => EmbeddedFont | null, imageFor: (i: InlineImage) => PdfImage | null,
+  fontFor: (f: FontFace, pua?: boolean) => EmbeddedFont | null, imageFor: (i: InlineImage) => PdfImage | null,
   shade: (g: GradGeom, samples: Uint8Array) => PdfShading,
 ): void {
   switch (it.t) {
@@ -167,21 +171,34 @@ function paintItem(
       if (it.asPath && glyphsAsPath(page, it)) return;
       const ef = fontFor(it.face);
       if (!ef) return;
-      // glifo por índice (EMF) sem contorno disponível: não há caractere para gravar
-      const placed = it.glyphs.filter((g) => g.gid === undefined).map((g) => {
-        const { gid } = ef.encode(g.cp);
-        return { gid, codePoint: g.cp, xPt: g.x / T, baselineFromTopPt: it.y / T };
-      });
       // corpo gravado no PDF como o Word: múltiplo de 1/600" (0,12 pt) — 10 → 9,96, 11 → 11,04
       // (PDFs do oráculo); as posições dos glifos não mudam (cada um tem a sua matriz)
       const pdfSize = Math.round(it.sizePt / 0.12) * 0.12;
-      page.withAlpha(it.alpha, it.alpha, () => page.glyphs(ef, pdfSize, hexColor(it.color), placed, {
-        ...(it.scaleX ? { scaleX: it.scaleX } : {}),
-        ...(it.synthBold ? { synthBold: true } : {}),
-        ...(it.synthItalic ? { synthItalic: true } : {}),
-        // texto em corridas (Tm + TJ) como no PDF do Word: a extração não embaralha linhas sobrepostas
-        runs: true,
-      }));
+      // código da área privada que a fonte não tem no cmap (w:sym com fonte comum, ex.: Arial
+      // F0A0 → .notdef da Calibri): vai na cópia "pua" da fonte, com o próprio código no
+      // ToUnicode (como o Word)
+      const sf = it.face.font;
+      const isPua = (cp: number): boolean => cp >= 0xf000 && cp <= 0xf0ff && sf.glyphId(cp) === 0;
+      // glifo por índice (EMF) sem contorno disponível: não há caractere para gravar
+      const all = it.glyphs.filter((g) => g.gid === undefined);
+      for (let i = 0; i < all.length;) {
+        const pua = isPua(all[i]!.cp);
+        let j = i + 1;
+        while (j < all.length && isPua(all[j]!.cp) === pua) j++;
+        const f = pua ? fontFor(it.face, true) ?? ef : ef;
+        const placed = all.slice(i, j).map((g) => {
+          const { gid } = f.encode(g.cp);
+          return { gid, codePoint: g.cp, xPt: g.x / T, baselineFromTopPt: it.y / T };
+        });
+        page.withAlpha(it.alpha, it.alpha, () => page.glyphs(f, pdfSize, hexColor(it.color), placed, {
+          ...(it.scaleX ? { scaleX: it.scaleX } : {}),
+          ...(it.synthBold ? { synthBold: true } : {}),
+          ...(it.synthItalic ? { synthItalic: true } : {}),
+          // texto em corridas (Tm + TJ) como no PDF do Word: a extração não embaralha linhas sobrepostas
+          runs: true,
+        }));
+        i = j;
+      }
       return;
     }
     case 'rect':

@@ -975,7 +975,10 @@ public static class TableEngine
         string? jc = floating ? null : tblPr.Jc;
         double indent = floating || jc is "center" or "right" or "end" ? 0 : WidthTw(tblPr.TblInd, frameWidth) ?? 0;
         // a tabela automática vai do recuo até a margem direita (tblw f7)
-        var grid = ColumnWidths(geoCells, nCols, docGrid, tblPr.TblW, tblPr.TblLayout == "fixed", geoBase, geoBase - indent);
+        // (centralizada, nos modos ≤ 14 o tblInd não posiciona mas ainda entra na largura máxima —
+        // negativo alarga, positivo estreita — oráculo tblindctr)
+        double maxInd = legacy && jc == "center" && !floating ? WidthTw(tblPr.TblInd, frameWidth) ?? 0 : indent;
+        var grid = ColumnWidths(geoCells, nCols, docGrid, tblPr.TblW, tblPr.TblLayout == "fixed", geoBase, geoBase - maxInd);
         double width = grid.Aggregate(0.0, (a, b) => a + b);
         var colX = new List<double> { 0 };
         foreach (var g in grid) colX.Add(colX[^1] + g);

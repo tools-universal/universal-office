@@ -765,8 +765,11 @@ export function layoutTable(
   const floating = !!tblPr.tblpPr && tblPr.tblpPr.tblpYSpec !== 'inline';
   const jc = floating ? undefined : tblPr.jc;
   const indent = floating || jc === 'center' || jc === 'right' || jc === 'end' ? 0 : widthTw(tblPr.tblInd, frameWidth) ?? 0;
-  // a tabela automática vai do recuo até a margem direita (tblw f7)
-  const grid = columnWidths(geoCells, nCols, docGrid, tblPr.tblW, tblPr.tblLayout === 'fixed', base, base - indent);
+  // a tabela automática vai do recuo até a margem direita (tblw f7); centralizada, nos
+  // modos ≤ 14 o tblInd não posiciona mas ainda entra na largura máxima — negativo alarga,
+  // positivo estreita (oráculo tblindctr)
+  const maxInd = legacy && jc === 'center' && !floating ? widthTw(tblPr.tblInd, frameWidth) ?? 0 : indent;
+  const grid = columnWidths(geoCells, nCols, docGrid, tblPr.tblW, tblPr.tblLayout === 'fixed', base, base - maxInd);
   const width = grid.reduce((a, b) => a + b, 0);
   const colX = [0];
   for (const g of grid) colX.push(colX[colX.length - 1]! + g);

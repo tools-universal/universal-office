@@ -1,0 +1,166 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 272.27,
+"size": 11.04,
+"text": "Entrada•nastabelasdecadalagodo"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 173.51,
+"size": 11.04,
+"text": "valesegueabaixo"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 295.51,
+"size": 11.04,
+"text": "Entrada•nastabelasdecadalagodovale"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 150.24,
+"size": 11.04,
+"text": "segueabaixo"
+},
+{
+"y": 131.78,
+"x0": 85.1,
+"x1": 272.49,
+"size": 11.04,
+"text": "Entrada•nastabelasdecadalagodo"
+},
+{
+"y": 144.5,
+"x0": 85.1,
+"x1": 173.51,
+"size": 11.04,
+"text": "valesegueabaixo"
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 295.72,
+"size": 11.04,
+"text": "Entrada•nastabelasdecadalagodovale"
+},
+{
+"y": 169.82,
+"x0": 85.1,
+"x1": 150.24,
+"size": 11.04,
+"text": "segueabaixo"
+},
+{
+"y": 188.18,
+"x0": 85.1,
+"x1": 353.25,
+"size": 15.96,
+"text": "Entrada•nastabelasdecadalagodo"
+},
+{
+"y": 207.5,
+"x0": 85.1,
+"x1": 210.73,
+"size": 15.96,
+"text": "valesegueabaixo"
+},
+{
+"y": 226.94,
+"x0": 85.1,
+"x1": 386.65,
+"size": 15.96,
+"text": "Entrada•nastabelasdecadalagodovale"
+},
+{
+"y": 246.26,
+"x0": 85.1,
+"x1": 177.18,
+"size": 15.96,
+"text": "segueabaixo"
+},
+{
+"y": 259.82,
+"x0": 85.1,
+"x1": 246.19,
+"size": 11.04,
+"text": "Entrada•nastabelasdecadalagodo"
+},
+{
+"y": 272.45,
+"x0": 85.1,
+"x1": 163.02,
+"size": 11.04,
+"text": "valesegueabaixo"
+},
+{
+"y": 285.05,
+"x0": 85.1,
+"x1": 267.35,
+"size": 11.04,
+"text": "Entrada•nastabelasdecadalagodovale"
+},
+{
+"y": 297.77,
+"x0": 85.1,
+"x1": 141.94,
+"size": 11.04,
+"text": "segueabaixo"
+}
+],
+"objs": [
+{
+"t": "image",
+"x0": 123.74,
+"y0": 71.16,
+"x1": 140.06,
+"y1": 83.52
+},
+{
+"t": "image",
+"x0": 123.74,
+"y0": 96.5,
+"x1": 140.06,
+"y1": 108.86
+},
+{
+"t": "image",
+"x0": 123.62,
+"y0": 121.94,
+"x1": 140.9,
+"y1": 134.18
+},
+{
+"t": "image",
+"x0": 123.62,
+"y0": 147.26,
+"x1": 140.9,
+"y1": 159.5
+},
+{
+"t": "image",
+"x0": 139.82,
+"y0": 173.9,
+"x1": 163.82,
+"y1": 191.78
+},
+{
+"t": "image",
+"x0": 139.82,
+"y0": 212.66,
+"x1": 163.82,
+"y1": 230.54
+}
+]
+}
+]
+}

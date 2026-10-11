@@ -178,6 +178,10 @@ public static class Fonts
     }
 
     /// <summary>em arredondado ao pixel de 600 dpi (o Word mede LARGURAS nesse em).</summary>
+    /// <summary>Fonte de SÍMBOLO: conjunto de caracteres Symbol (OS/2, bit 31 da página de código) ou cmap
+    /// da área privada (F020…) — Symbol, Wingdings, Webdings, MT Extra…</summary>
+    public static bool IsSymbolFont(ILayoutFont font) => ((font.Metrics.CodePageRange1 >> 31) & 1) == 1 || font.GlyphId(0xf020) != 0;
+
     public static double DeviceEmPt(double sizePt) => (Js.Round((sizePt * 600) / 72) * 72) / 600;
 
     // ───────────────────────── substituição de fontes ─────────────────────────

@@ -1139,9 +1139,11 @@ export class DocxWriter {
     x += widthXml('w:tblW', tap.tableWidth) || el('w:tblW', { 'w:w': 0, 'w:type': 'auto' });
     if (tap.jc) x += el('w:jc', { 'w:val': ['left', 'center', 'right'][tap.jc] ?? 'left' });
     if (tap.spacing) x += el('w:tblCellSpacing', { 'w:w': tap.spacing, 'w:type': 'dxa' });
-    // sprmTWidthIndent é o w:tblInd que o Word grava; sem ele, calcula pela 1ª célula
+    // sprmTWidthIndent é o w:tblInd que o Word grava; sem ele, calcula pela 1ª célula. Na
+    // tabela centralizada ele não posiciona, mas nos modos ≤ 14 ainda muda a largura máxima
+    // do autoajuste (oráculo tblindctr do docx-layout) — vai também
     const ind = tap.widthIndent && tap.widthIndent.fts === 3 ? tap.widthIndent.w : tableIndent(tap);
-    if (ind !== undefined && ind !== 0 && !tap.jc) x += el('w:tblInd', { 'w:w': ind, 'w:type': 'dxa' });
+    if (ind !== undefined && ind !== 0 && (!tap.jc || tap.jc === 1)) x += el('w:tblInd', { 'w:w': ind, 'w:type': 'dxa' });
     if (tap.bordersSet && !allNone(tap.borders)) x += `<w:tblBorders>${bordersXml(tap.borders, true)}</w:tblBorders>`;
     if (tap.shdTable) x += shdXml(tap.shdTable);
     if (tap.autofit === false || tap.autofit === undefined) x += '<w:tblLayout w:type="fixed"/>';
