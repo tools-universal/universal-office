@@ -3195,7 +3195,7 @@ internal sealed class Engine
         if (run.Textbox is not null)
         {
             var tb = run.Textbox;
-            var ins = TbInsets(tb);
+            var ins = TbInsets(tb, _ctx.Fmt.Theme);
             var blocks = tb.Blocks ?? tb.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
             var env = new ParaEnv { Field = FieldValue(ps), DarkBackground = IsDark(Resolve.ResolveDrawingColor(tb.Shape?.Fill, _ctx.Fmt.Theme)) };
             double inner = w - ins.L - ins.R;
@@ -3344,7 +3344,7 @@ internal sealed class Engine
             CellContent? tc = null;
             if (r.Textbox is not null)
             {
-                var ins = TbInsets(r.Textbox);
+                var ins = TbInsets(r.Textbox, _ctx.Fmt.Theme);
                 var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
                 tc = LayoutStatic(blocks, 0, Math.Max(1, w - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "itb", ps);
             }
@@ -3374,8 +3374,10 @@ internal sealed class Engine
         {
             var s = run.Shape.Style;
             string? fill = Resolve.ResolveDrawingColor(s.Fill, theme);
+            // linha do estilo (lnRef sem a:ln@w): a espessura é a da linha do tema (oráculo txbxln)
+            double? lw = s.Line?.Ref is { } sref && sref != 0 ? ThemeLineWidth(sref) ?? s.Line.WidthPt : s.Line?.WidthPt;
             var stroke = s.Line is not null
-                ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = s.Line.WidthPt, Dash = Js.Truthy(s.Line.Dash) ? s.Line.Dash : null }
+                ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = lw!.Value, Dash = Js.Truthy(s.Line.Dash) ? s.Line.Dash : null }
                 : null;
             var (sGrad, sShadow) = Geometry.ShapeExtras(s, theme);
             outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Line = run.Shape.Line, Grad = sGrad, Shadow = sShadow });
@@ -3387,13 +3389,15 @@ internal sealed class Engine
             if (s is not null && (Js.Truthy(s.Fill) || s.Line is not null))
             {
                 string? fill = Resolve.ResolveDrawingColor(s.Fill, theme);
-                var stroke = s.Line is not null ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = s.Line.WidthPt } : null;
+                // linha do estilo (lnRef sem a:ln@w): a espessura é a da linha do tema (oráculo txbxln)
+                double? lw = s.Line?.Ref is { } tref && tref != 0 ? ThemeLineWidth(tref) ?? s.Line.WidthPt : s.Line?.WidthPt;
+                var stroke = s.Line is not null ? new StrokeSpec { Color = Resolve.ResolveDrawingColor(s.Line.Color, theme) ?? "000000", WidthPt = lw!.Value } : null;
                 var (tGrad, tShadow) = Geometry.ShapeExtras(s, theme);
                 outp.Add(new ShapeItem { X = x, Y = y, W = w, H = h, Style = s, Fill = fill, Stroke = stroke, Grad = tGrad, Shadow = tShadow });
             }
             if (tbContent is not null)
             {
-                var ins = TbInsets(tb);
+                var ins = TbInsets(tb, _ctx.Fmt.Theme);
                 // caixa girada: o conteúdo gira em torno do centro (a forma já gira no pintor)
                 double rot = tb.Rot ?? s?.Rot ?? 0;
                 bool rotOn = rot != 0 && !double.IsNaN(rot);
@@ -3439,7 +3443,7 @@ internal sealed class Engine
                 CellContent? tc = null;
                 if (r.Textbox is not null)
                 {
-                    var ins = TbInsets(r.Textbox);
+                    var ins = TbInsets(r.Textbox, _ctx.Fmt.Theme);
                     var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
                     tc = LayoutStatic(blocks, 0, Math.Max(1, iw - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "grp", ps);
                 }
@@ -3480,12 +3484,26 @@ internal sealed class Engine
         _ => (paraTop, 0), // paragraph | line
     };
 
-    /// <summary>Recuos internos da caixa de texto (twips); com contorno, o Word ainda afasta o texto meia
-    /// espessura da linha de cada lado (oráculo txbxctr).</summary>
-    private static TextboxInsets TbInsets(DrawingTextbox tb)
+    /// <summary>Espessura (pt) da linha <paramref name="idx"/> (1..3) do a:lnStyleLst do tema; nulo fora da lista.</summary>
+    private double? ThemeLineWidth(int idx)
+    {
+        var l = _ctx.Fmt.Theme.LineWidthsPt;
+        return l is not null && idx - 1 >= 0 && idx - 1 < l.Count ? l[idx - 1] : null;
+    }
+
+    /// <summary>Recuos internos da caixa de texto (twips); o Word ainda afasta o texto meia espessura do
+    /// contorno de cada lado (oráculo txbxctr) — na caixa wps, mesmo com a linha sem
+    /// preenchimento: a espessura do a:ln@w ou a da linha do tema do lnRef (oráculo txbxln)</summary>
+    private static TextboxInsets TbInsets(DrawingTextbox tb, Theme? theme)
     {
         var ins = tb.Insets ?? DefaultInsets;
-        double half = (tb.Shape?.Line?.WidthPt ?? 0) * 10;
+        var li = tb.LineInset;
+        double lw = li is not null
+            ? li.W ?? (li.Ref is { } r && r != 0
+                ? (theme?.LineWidthsPt is { } lws && r - 1 >= 0 && r - 1 < lws.Count ? lws[r - 1] : 0.75)
+                : 0)
+            : tb.Shape?.Line?.WidthPt ?? 0;
+        double half = lw * 10;
         return half != 0 && !double.IsNaN(half) ? new TextboxInsets { L = ins.L + half, T = ins.T + half, R = ins.R + half, B = ins.B + half } : ins;
     }
 

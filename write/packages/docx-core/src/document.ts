@@ -189,6 +189,8 @@ export interface DrawingTextbox {
   anchor?: DrawingAnchor;
   /** preenchimento/contorno da própria caixa. */
   shape?: ShapeStyle;
+  /** espessura do contorno para o recuo do texto (wps), mesmo sem linha visível */
+  lineInset?: { w?: number; ref?: number };
   /** wps:bodyPr anchor (t | ctr | b) — alinhamento vertical do texto. */
   vAnchor?: 't' | 'ctr' | 'b';
   /** rotação da caixa (graus, horário) — xfrm rot / VML rotation */
@@ -591,6 +593,7 @@ function readGraphicObject(
       textboxBlocks(content, ctx, tb);
       bodyPrOf(tb, firstChild(obj, 'wps:bodyPr'));
       if (style.fill || style.line || style.gradient) tb.shape = style;
+      tb.lineInset = style.lineInset ?? {};
       if (style.rot) tb.rot = style.rot;
       return { text: OBJ, textbox: tb };
     }

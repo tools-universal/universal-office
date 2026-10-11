@@ -2480,7 +2480,7 @@ class Engine {
     let tbFinal: ((bx: number, by: number) => CellContent) | null = null;
     if (run.textbox) {
       const tb = run.textbox;
-      const ins = tbInsets(tb);
+      const ins = tbInsets(tb, this.ctx.fmt.theme);
       const blocks: Block[] = tb.blocks ?? tb.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
       const env: ParaEnv = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)) };
       let inner = w - ins.l - ins.r;
@@ -2639,7 +2639,7 @@ class Engine {
       const x = frameX + pg.x, y = top + line.baseline - pg.g.style.shift - h;
       let tc: CellContent | null = null;
       if (r.textbox) {
-        const ins = tbInsets(r.textbox);
+        const ins = tbInsets(r.textbox, this.ctx.fmt.theme);
         const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
         tc = this.layoutStatic(blocks, 0, Math.max(1, w - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, 'itb', ps);
       }
@@ -2667,18 +2667,22 @@ class Engine {
     } else if (run.shape) {
       const s = run.shape.style;
       const fill = resolveDrawingColor(s.fill, theme);
-      const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? '000000', widthPt: s.line.widthPt, ...(s.line.dash ? { dash: s.line.dash } : {}) } : undefined;
+      // linha do estilo (lnRef sem a:ln@w): a espessura é a da linha do tema (oráculo txbxln)
+      const lw = s.line?.ref ? this.ctx.fmt.theme.lineWidthsPt?.[s.line.ref - 1] ?? s.line.widthPt : s.line?.widthPt;
+      const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? '000000', widthPt: lw!, ...(s.line.dash ? { dash: s.line.dash } : {}) } : undefined;
       out.push({ t: 'shape', x, y, w, h, style: s, ...(fill ? { fill } : {}), ...(stroke ? { stroke } : {}), ...(run.shape.line ? { line: run.shape.line } : {}), ...shapeExtras(s, theme) });
     } else if (run.textbox) {
       const tb = run.textbox;
       const s = tb.shape;
       if (s && (s.fill || s.line)) {
         const fill = resolveDrawingColor(s.fill, theme);
-        const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? '000000', widthPt: s.line.widthPt } : undefined;
+        // linha do estilo (lnRef sem a:ln@w): a espessura é a da linha do tema (oráculo txbxln)
+        const lw = s.line?.ref ? this.ctx.fmt.theme.lineWidthsPt?.[s.line.ref - 1] ?? s.line.widthPt : s.line?.widthPt;
+        const stroke = s.line ? { color: resolveDrawingColor(s.line.color, theme) ?? '000000', widthPt: lw! } : undefined;
         out.push({ t: 'shape', x, y, w, h, style: s, ...(fill ? { fill } : {}), ...(stroke ? { stroke } : {}), ...shapeExtras(s, theme) });
       }
       if (tbContent) {
-        const ins = tbInsets(tb);
+        const ins = tbInsets(tb, this.ctx.fmt.theme);
         // caixa girada: o conteúdo gira em torno do centro (a forma já gira no pintor)
         const rot = tb.rot ?? s?.rot ?? 0;
         if (rot) out.push({ t: 'xform', op: 'push', m: rotation(x + w / 2, y + h / 2, rot) });
@@ -2715,7 +2719,7 @@ class Engine {
         const { run: r, x: ix, y: iy, w: iw, h: ih } = groupChild(gr, item, x, y, w, h);
         let tc: CellContent | null = null;
         if (r.textbox) {
-          const ins = tbInsets(r.textbox);
+          const ins = tbInsets(r.textbox, this.ctx.fmt.theme);
           const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
           tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, 'grp', ps);
         }
@@ -2758,11 +2762,14 @@ function vertRef(from: string, g: SectGeom, ps: PageState, paraTop: number): { y
   void ps;
 }
 
-/** Recuos internos da caixa de texto (twips); com contorno, o Word ainda afasta o texto meia
- *  espessura da linha de cada lado (oráculo txbxctr). */
-function tbInsets(tb: { insets?: { l: number; t: number; r: number; b: number }; shape?: { line?: { widthPt: number } } }): { l: number; t: number; r: number; b: number } {
+/** Recuos internos da caixa de texto (twips); o Word ainda afasta o texto meia espessura do
+ *  contorno de cada lado (oráculo txbxctr) — na caixa wps, mesmo com a linha sem
+ *  preenchimento: a espessura do a:ln@w ou a da linha do tema do lnRef (oráculo txbxln) */
+function tbInsets(tb: { insets?: { l: number; t: number; r: number; b: number }; shape?: { line?: { widthPt: number } }; lineInset?: { w?: number; ref?: number } }, theme?: { lineWidthsPt?: number[] }): { l: number; t: number; r: number; b: number } {
   const ins = tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
-  const half = (tb.shape?.line?.widthPt ?? 0) * 10;
+  const li = tb.lineInset;
+  const lw = li ? li.w ?? (li.ref ? theme?.lineWidthsPt?.[li.ref - 1] ?? 0.75 : 0) : tb.shape?.line?.widthPt ?? 0;
+  const half = lw * 10;
   return half ? { l: ins.l + half, t: ins.t + half, r: ins.r + half, b: ins.b + half } : ins;
 }
 

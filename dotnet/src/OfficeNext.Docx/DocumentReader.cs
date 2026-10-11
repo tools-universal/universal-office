@@ -305,6 +305,7 @@ public static class DocumentReader
                 TextboxBlocks(content, ctx, tb);
                 BodyPrOf(tb, FirstChild(obj, "wps:bodyPr"));
                 if (Js.Truthy(style.Fill) || style.Line is not null || style.Gradient is not null) tb.Shape = style;
+                tb.LineInset = style.LineInset ?? new LineInset();
                 if (style.Rot is { } srot && srot != 0 && !double.IsNaN(srot)) tb.Rot = srot;
                 return new Run { Text = Obj, Textbox = tb };
             }

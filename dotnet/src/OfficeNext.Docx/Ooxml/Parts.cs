@@ -196,6 +196,8 @@ public sealed class Theme
     public ThemeFontSet Minor = new();
     /// <summary>dk1, lt1, dk2, lt2, accent1..6, hlink, folHlink → RRGGBB</summary>
     public Dictionary<string, string> Colors = new(StringComparer.Ordinal);
+    /// <summary>espessuras (pt) das linhas do a:lnStyleLst — lnRef idx 1..3</summary>
+    public List<double>? LineWidthsPt;
 }
 
 // ───────────────────────── configurações ─────────────────────────
@@ -448,6 +450,8 @@ public static class OoxmlParts
                 if (Js.Truthy(f.Attr("script")) && Js.Truthy(f.Attr("typeface"))) set.Scripts[f.Attr("script")!] = f.Attr("typeface")!;
             }
         }
+        var lnList = Find(root, "a:lnStyleLst");
+        if (lnList is not null) theme.LineWidthsPt = ChildElements(lnList, "a:ln").Select(l => Js.IntOr0(l.Attr("w") ?? "0") / 12700.0).ToList();
         var clr = Find(root, "a:clrScheme");
         if (clr is not null)
         {

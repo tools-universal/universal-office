@@ -51,7 +51,10 @@ export interface ShapeStyle {
   fill?: string;
   fillAlpha?: number;
   /** contorno; undefined = sem linha. */
-  line?: { color: string; widthPt: number; dash?: string; alpha?: number };
+  line?: { color: string; widthPt: number; dash?: string; alpha?: number; ref?: number };
+  /** espessura do contorno PARA O RECUO do texto da caixa, mesmo sem preenchimento da linha:
+   *  w = a:ln@w (pt); ref = índice do lnRef (largura do tema) — oráculo txbxln */
+  lineInset?: { w?: number; ref?: number };
   /** graus, horário. */
   rot?: number;
   flipH?: boolean;
@@ -267,6 +270,11 @@ export function readSpPr(spPr: XmlElement | undefined, styleEl?: XmlElement): Sh
   }
   const ln = firstChild(spPr, 'a:ln');
   const lnRef = styleEl && firstChild(styleEl, 'a:lnRef');
+  // o Word afasta o texto da caixa meia espessura do contorno, mesmo com a linha sem
+  // preenchimento: a do a:ln@w ou, sem ela, a da linha do tema do lnRef (oráculo txbxln)
+  const refIdx = lnRef ? parseInt(lnRef.attrs['idx'] ?? '0', 10) || 0 : 0;
+  if (ln?.attrs['w']) st.lineInset = { w: parseInt(ln.attrs['w'], 10) / 12700 };
+  else if (refIdx > 0) st.lineInset = { ref: refIdx };
   if (ln && firstChild(ln, 'a:noFill')) { /* sem linha */ }
   else if (ln && firstChild(ln, 'a:solidFill')) {
     const c = srgbOf(firstChild(ln, 'a:solidFill'));
@@ -278,7 +286,7 @@ export function readSpPr(spPr: XmlElement | undefined, styleEl?: XmlElement): Sh
     }
   } else if (lnRef && lnRef.attrs['idx'] !== '0') {
     const c = srgbOf(lnRef);
-    if (c) st.line = { color: c.hex, widthPt: ln?.attrs['w'] ? parseInt(ln.attrs['w'], 10) / 12700 : 0.75 };
+    if (c) st.line = { color: c.hex, widthPt: ln?.attrs['w'] ? parseInt(ln.attrs['w'], 10) / 12700 : 0.75, ...(ln?.attrs['w'] ? {} : { ref: refIdx }) };
   }
   return st;
 }

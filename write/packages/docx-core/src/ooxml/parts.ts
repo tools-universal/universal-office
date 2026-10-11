@@ -269,6 +269,8 @@ export interface Theme {
   minor: ThemeFontSet;
   /** dk1, lt1, dk2, lt2, accent1..6, hlink, folHlink → RRGGBB */
   colors: Record<string, string>;
+  /** espessuras (pt) das linhas do a:lnStyleLst — lnRef idx 1..3 */
+  lineWidthsPt?: number[];
 }
 
 export function readTheme(xml: string | undefined): Theme {
@@ -298,6 +300,8 @@ export function readTheme(xml: string | undefined): Theme {
       if (f.attrs['script'] && f.attrs['typeface']) set.scripts[f.attrs['script']] = f.attrs['typeface'];
     }
   }
+  const lnList = find(root, 'a:lnStyleLst');
+  if (lnList) theme.lineWidthsPt = childElements(lnList, 'a:ln').map((l) => (parseInt(l.attrs['w'] ?? '0', 10) || 0) / 12700);
   const clr = find(root, 'a:clrScheme');
   if (clr) {
     for (const c of childElements(clr)) {

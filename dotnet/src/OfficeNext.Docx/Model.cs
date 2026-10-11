@@ -168,6 +168,8 @@ public sealed class DrawingTextbox
     public DrawingAnchor? Anchor;
     /// <summary>preenchimento/contorno da própria caixa.</summary>
     public ShapeStyle? Shape;
+    /// <summary>espessura do contorno para o recuo do texto (wps), mesmo sem linha visível</summary>
+    public LineInset? LineInset;
     /// <summary>t | ctr | b — alinhamento vertical do texto.</summary>
     public string? VAnchor;
     /// <summary>rotação da caixa (graus, horário) — xfrm rot / VML rotation</summary>

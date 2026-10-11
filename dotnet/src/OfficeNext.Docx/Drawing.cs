@@ -67,6 +67,16 @@ public sealed class ShapeLine
     public double WidthPt;
     public string? Dash;
     public double? Alpha;
+    /// <summary>linha do estilo (lnRef sem a:ln@w): índice da linha do tema</summary>
+    public int? Ref;
+}
+
+/// <summary>espessura do contorno PARA O RECUO do texto da caixa, mesmo sem preenchimento da linha:
+/// W = a:ln@w (pt); Ref = índice do lnRef (largura do tema) — oráculo txbxln</summary>
+public sealed class LineInset
+{
+    public double? W;
+    public int? Ref;
 }
 
 public sealed class ShapeGradient
@@ -145,6 +155,8 @@ public sealed class ShapeStyle
     public Dictionary<string, double>? Adj;
     /// <summary>sombra externa (a:outerShdw)</summary>
     public ShapeShadow? Shadow;
+    /// <summary>espessura do contorno para o recuo do texto da caixa (oráculo txbxln)</summary>
+    public LineInset? LineInset;
 
     /// <summary>Cópia rasa ({ ...x }).</summary>
     public ShapeStyle ShallowClone() => (ShapeStyle)MemberwiseClone();
@@ -378,6 +390,11 @@ public static class DrawingReader
         }
         var ln = FirstChild(spPr, "a:ln");
         var lnRef = styleEl is not null ? FirstChild(styleEl, "a:lnRef") : null;
+        // o Word afasta o texto da caixa meia espessura do contorno, mesmo com a linha sem
+        // preenchimento: a do a:ln@w ou, sem ela, a da linha do tema do lnRef (oráculo txbxln)
+        int refIdx = lnRef is not null ? (int)Js.IntOr0(lnRef.Attr("idx") ?? "0") : 0;
+        if (Js.Truthy(ln?.Attr("w"))) st.LineInset = new LineInset { W = Js.ParseInt(ln!.Attr("w")) / 12700 };
+        else if (refIdx > 0) st.LineInset = new LineInset { Ref = refIdx };
         if (ln is not null && FirstChild(ln, "a:noFill") is not null) { /* sem linha */ }
         else if (ln is not null && FirstChild(ln, "a:solidFill") is not null)
         {
@@ -393,7 +410,7 @@ public static class DrawingReader
         else if (lnRef is not null && lnRef.Attr("idx") != "0")
         {
             var c = SrgbOf(lnRef);
-            if (c is not null) st.Line = new ShapeLine { Color = c.Value.Hex, WidthPt = Js.Truthy(ln?.Attr("w")) ? Js.ParseInt(ln!.Attr("w")) / 12700 : 0.75 };
+            if (c is not null) st.Line = new ShapeLine { Color = c.Value.Hex, WidthPt = Js.Truthy(ln?.Attr("w")) ? Js.ParseInt(ln!.Attr("w")) / 12700 : 0.75, Ref = Js.Truthy(ln?.Attr("w")) ? null : refIdx };
         }
         return st;
     }
