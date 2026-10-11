@@ -255,9 +255,10 @@ function fitPctMins(p: number[], cells: GeoCell[], minOf: (c: GeoCell) => number
     if (!worst) break;
     const s = worst.col, e = Math.min(p.length, worst.col + worst.span);
     const others = p.map((_, k) => k).filter((k) => (k < s || k >= e) && pct(k) && p[k]! > colMin[k]! + 1e-6);
-    if (!others.length) break;
     const have = p.slice(s, e).reduce((a, x) => a + x, 0);
     for (let k = s; k < e; k++) p[k] = p[k]! + (have > 0 ? (need * p[k]!) / have : need / (e - s));
+    // nenhuma outra coluna em pct para ceder: a tabela passa da largura pedida (oráculo tblpctmin)
+    if (!others.length) continue;
     for (const k of others) p[k] = p[k]! - need / others.length;
   }
 }
@@ -313,6 +314,10 @@ function columnWidthsExact(cells: GeoCell[][], nCols: number, docGrid: number[],
     for (let j = 0; j < nCols; j++) { p[j] = Math.max(0, Math.min(p[j]!, room)); room -= p[j]!; }
     fitPctMins(p, all, minOf, g1, () => true);
     const sp = p.reduce((a, b) => a + b, 0);
+    // a palavra mais longa alarga a tabela além do pedido: até a área de texto se o pedido
+    // é ≤ 100%; acima de 100%, sem limite (oráculo tblpctmin)
+    const cap = T0 !== undefined && T0 > base + 0.5 ? Infinity : Math.max(T, base);
+    if (sp > cap + 0.5) return p.map((x) => (x * cap) / sp);
     return sp > 0 && T > sp + 0.5 ? p.map((x) => (x * T) / sp) : p;
   }
   // coluna em pct: célula sem mescla em pct e nenhuma em dxa; a fração é a maior

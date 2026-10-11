@@ -218,6 +218,7 @@ export class LineBreaker {
     // layout asiático dos modos ≤ 14: quanto os espaços da linha podem comprimir (oráculo fecompress)
     let feShrinkW = 0;
     let wordOk = false;          // a palavra corrente já foi aceita inteira
+    let squeezed = false;        // uma palavra da linha só coube comprimindo/pendurando
     let prevWasGap = true;
     let widthAtBreak = 0;        // largura do conteúdo até o ponto de quebra (sem gaps finais)
     let contentEnd = xStart;     // x do fim do último glifo não-branco
@@ -300,7 +301,9 @@ export class LineBreaker {
           pg.w = Math.max(0, pos - x);
           x = Math.max(x, pos);
         }
-        lastBreak = i;
+        // a quebra fica ANTES do tab: se o texto depois dele não couber, o tab desce junto
+        // e recomeça a linha seguinte — o pontilhado vai do início dela (oráculo tabnextline)
+        lastBreak = i > start ? i - 1 : i;
         widthAtBreak = contentEnd - xStart;
         spacesW = 0;
         nSpaces = 0;
@@ -355,6 +358,10 @@ export class LineBreaker {
           wordOk = nSpaces > 0 && ov <= shrink.ratio * spacesW + 0.0175
             && (nSpaces <= 1 || rest <= 0 || ov / spacesW <= (shrink.expandRatio * slack) / rest + 0.0075 * nSpaces / spacesW);
         }
+        // palavra que só coube comprimindo os espaços (ou pendurando a pontuação): a linha
+        // acaba nela — a seguinte desce, mesmo que coubesse comprimindo mais (oráculo fejust)
+        if (squeezed && i > start) wordOk = false;
+        else if (wordOk && over > FIT_EPS) squeezed = true;
         if (this.ctx.opts.onWordFit && over > -2000) {
           this.ctx.opts.onWordFit({ over, spacesW, nSpaces, wordW, lastGapW, justify, accepted: wordOk, lineStart: start, wordStart: i, wordEnd: e,
             sizePt: g.sizePt ?? 0, family: g.face?.family ?? '', compat: this.ctx.fmt.settings.compatibilityMode,
@@ -366,6 +373,10 @@ export class LineBreaker {
       const projected = isGap ? x : x + g.adv;
       // âncoras de flutuantes (objeto sem largura na linha) não contam como conteúdo: o
       // que vem depois delas e não cabe fica na linha assim mesmo (oráculo floatwide)
+      // modo ≤ 14: o texto de um tab DIREITO que não cabe fica na linha, além da margem, e
+      // a linha não quebra mais (oráculo tabnextline)
+      if (!isGap && g.kind !== 'shy' && !wordOk && !pastMargin && projected > right + FIT_EPS && i > start
+        && pendTab?.tab.val === 'right' && this.ctx.fmt.settings.compatibilityMode < 15) pastMargin = true;
       if (!isGap && g.kind !== 'shy' && !wordOk && !pastMargin && projected > right + FIT_EPS && i > start
         && placed.some((q) => q.g.kind !== 'obj' || q.g.adv > 0)) {
         if (lastBreak >= start) {
@@ -401,7 +412,7 @@ export class LineBreaker {
         if (!prevWasGap) { lastGapW = 0; lastGapSp = 0; }
         lastGapW += g.adv;
         // espaços de largura fixa (en/em/fino… U+2000–U+200A) não comprimem nem expandem
-        if (segWord && !FIXED_SPACE(g.cp)) { spacesW += g.adv; nSpaces++; lastGapSp += g.adv; feShrinkW += g.feShrink ?? 0; }
+        if (segWord && !FIXED_SPACE(g.cp) && !g.fixed) { spacesW += g.adv; nSpaces++; lastGapSp += g.adv; feShrinkW += g.feShrink ?? 0; }
       } else segWord = true;
       prevWasGap = isGap || !!g.breakAfter;
       if (pendTab?.tab.val === 'decimal' && !pendTab.decimalSeen && (g.ch === ',' || g.ch === '.')) {
@@ -520,7 +531,7 @@ export class LineBreaker {
       placed.forEach((pg, k) => { if (pg.g.kind !== 'space' && pg.g.kind !== 'lb') lastContent = k; });
       let firstContent = placed.length;
       for (let k = lastTab + 1; k < placed.length; k++) if (placed[k]!.g.kind !== 'space') { firstContent = k; break; }
-      const spaces = placed.filter((pg, k) => k > firstContent && k < lastContent && pg.g.kind === 'space' && !FIXED_SPACE(pg.g.cp));
+      const spaces = placed.filter((pg, k) => k > firstContent && k < lastContent && pg.g.kind === 'space' && !FIXED_SPACE(pg.g.cp) && !pg.g.fixed);
       const extra = avail - alignW;
       if (spaces.length && (extra > 0 || extra < 0)) {
         const each = extra / spaces.length;

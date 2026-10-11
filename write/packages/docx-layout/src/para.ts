@@ -74,6 +74,13 @@ export interface Glyph {
   /** espaço que comprime (modos ≤ 14 com layout asiático e characterSpacingControl ≠
    *  doNotCompress): twips que pode perder */
   feShrink?: number;
+  /** espaço de largura fixa: não comprime nem expande no justificado */
+  fixed?: boolean;
+  /** kerning somado ao avanço (par com o caractere seguinte do run); undefined = sem kerning */
+  kernAdj?: number;
+  /** glifo da ligadura que este caractere abre/fecha (kerning com os vizinhos) */
+  ligStart?: number;
+  ligEnd?: number;
   /** pontuação que pode pendurar além da margem no fim da linha */
   hang?: boolean;
 }
@@ -279,6 +286,112 @@ export function advanceTwips(ctx: DocContext, face: FontFace, cp: number, sizePt
   }
 }
 
+/** Kerning de um par de GLIFOS (com glifo de ligadura), na mesma escala de kernTwips. */
+function kernGlyphs(ctx: DocContext, face: FontFace, g1: number, g2: number, sizePt: number): number {
+  const kg = (face.font as { kernGlyphsTwips?: (a: number, b: number, s: number) => number }).kernGlyphsTwips;
+  const k = kg ? kg.call(face.font, g1, g2, sizePt) : 0;
+  if (!k) return 0;
+  if (ctx.opts.advanceEm === 'device') return k;
+  return (k * sizePt) / deviceEmPt(sizePt);
+}
+
+/** Avanço de um GLIFO (de ligadura) em twips, na mesma escala de advanceTwips. */
+function glyphAdvTwips(ctx: DocContext, face: FontFace, gid: number, sizePt: number): number {
+  const f = face.font;
+  const em = ctx.opts.advanceEm === 'device' ? deviceEmPt(sizePt) : sizePt;
+  const tw = (f.advanceWidth(gid) * em * 20) / f.metrics.unitsPerEm;
+  switch (ctx.opts.advanceRound) {
+    case 'twip': return Math.round(tw);
+    case 'twipFloor': return Math.floor(tw);
+    case 'twipCeil': return Math.ceil(tw);
+    case 'dev600': return Math.round(tw / 2.4) * 2.4;
+    case 'half': return Math.round(tw * 2) / 2;
+    default: return tw;
+  }
+}
+
+/** Features GSUB de ligadura ligadas por w14:ligatures (none, standard, contextual,
+ *  historical, discretional, combinações e all). */
+function ligFeatures(v: string | undefined): string[] {
+  if (!v || v === 'none') return [];
+  if (v === 'all') return ['liga', 'clig', 'hlig', 'dlig'];
+  const out: string[] = [];
+  if (/standard/i.test(v)) out.push('liga');
+  if (/contextual/i.test(v)) out.push('clig');
+  if (/historical/i.test(v)) out.push('hlig');
+  if (/discretional/i.test(v)) out.push('dlig');
+  return out;
+}
+
+/**
+ * Ligaduras OpenType (w14:ligatures): o Word mede o glifo da ligadura (GSUB do script
+ * latino), não a soma das letras — Calibri "tt" −73/2048 em, "ti" −15, "fi" −11; dentro
+ * dela não há kerning e o par com o vizinho é o do glifo da ligadura (oráculo ligwidth).
+ * Trechos de letras com a mesma face e corpo, também entre runs (com cor diferente,
+ * inclusive). A diferença de largura vai para o último caractere da ligadura
+ * (cada letra continua desenhada com o seu glifo).
+ */
+function applyLigatures(ctx: DocContext, glyphs: Glyph[]): void {
+  // runs que ligam entre si: mesma face e corpo (testados abaixo), idioma, escala,
+  // posição e ligaduras — cor, sublinhado, estilo não importam (como no kerning)
+  const keyOf = (g: Glyph): string => {
+    const r = g.style.rpr as RPr & { ligatures?: string };
+    return `${r.lang?.val ?? ''}|${r.w ?? 100}|${g.style.shift}|${r.ligatures ?? ''}|${r.spacing ?? 0}`;
+  };
+  for (let k = 0; k < glyphs.length;) {
+    const g0 = glyphs[k]!;
+    const rpr = g0.style.rpr;
+    const feats = g0.kind === 'char' && !rpr.spacing ? ligFeatures((rpr as { ligatures?: string }).ligatures) : [];
+    const ligate = (g0.face.font as { ligate?: (g: number[], f: readonly string[]) => { gid: number; len: number }[] | null }).ligate;
+    if (!feats.length || !ligate) { k++; continue; }
+    const key = keyOf(g0);
+    let e = k + 1;
+    while (e < glyphs.length) {
+      const q = glyphs[e]!;
+      if (q.kind !== 'char' || q.face !== g0.face || q.sizePt !== g0.sizePt || (q.runIdx !== g0.runIdx && keyOf(q) !== key)) break;
+      e++;
+    }
+    if (e - k >= 2) {
+      const f = g0.face.font;
+      const groups = ligate.call(f, glyphs.slice(k, e).map((q) => f.glyphId(q.cp)), feats);
+      let pos = k;
+      for (const grp of groups ?? []) {
+        if (grp.len > 1) {
+          const first = glyphs[pos]!, last = glyphs[pos + grp.len - 1]!;
+          let sum = 0;
+          for (let j = pos; j < pos + grp.len; j++) sum += glyphAdvTwips(ctx, first.face, f.glyphId(glyphs[j]!.cp), first.sizePt);
+          const w = rpr.w && rpr.w !== 100 ? rpr.w / 100 : 1;
+          let delta = (glyphAdvTwips(ctx, first.face, grp.gid, first.sizePt) - sum) * w;
+          if (first.face.synthBold) delta -= ((grp.len - 1) * first.sizePt * 20) / 2048;
+          // sem kerning dentro da ligadura
+          for (let j = pos; j < pos + grp.len - 1; j++) {
+            const q = glyphs[j]!;
+            if (q.kernAdj) { q.adv -= q.kernAdj; q.kernAdj = 0; }
+          }
+          // o par com o vizinho é o do glifo da ligadura
+          const nx = glyphs[pos + grp.len];
+          if (last.kernAdj !== undefined && nx && nx.runIdx === last.runIdx) {
+            const nk = kernGlyphs(ctx, first.face, grp.gid, nx.ligStart ?? f.glyphId(nx.cp), first.sizePt);
+            last.adv += nk - last.kernAdj;
+            last.kernAdj = nk;
+          }
+          const pv = glyphs[pos - 1];
+          if (pv && pv.kernAdj !== undefined && pv.runIdx === first.runIdx && pv.face === first.face) {
+            const nk = kernGlyphs(ctx, first.face, pv.ligEnd ?? f.glyphId(pv.cp), grp.gid, first.sizePt);
+            pv.adv += nk - pv.kernAdj;
+            pv.kernAdj = nk;
+          }
+          last.adv += delta;
+          first.ligStart = grp.gid;
+          last.ligEnd = grp.gid;
+        }
+        pos += grp.len;
+      }
+    }
+    k = e;
+  }
+}
+
 function kernTwips(ctx: DocContext, face: FontFace, cp: number, next: number, sizePt: number): number {
   const k = face.font.kernTwips(cp, next, sizePt);
   if (!k) return 0;
@@ -453,6 +566,7 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
   const env: ParaEnv = paraFill && isDark(paraFill) && !env0.darkBackground ? { ...env0, darkBackground: true } : env0;
   const dd = ctx.resolver.docDefaults;
   const settings = ctx.fmt.settings;
+  const yenBackslash = !!settings.compat['doNotLeaveBackslashAlone'] && docEastAsiaCjk(ctx);
   // rPr de um run: docDefaults → tabela → estilo de parágrafo → estilo de caractere → direto
   const runRPr = (rpr: RPr): RPr => cascadeRPr(dd.rPr, [env.tableRPr, styleRPr, ctx.resolver.charStyle(rpr.rStyle)], rpr);
   const markRpr = runRPr(ppr.rPr ?? {});
@@ -498,6 +612,10 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       // HÍFEN da própria fonte (U+002D, mesmo avanço), sem quebra depois (oráculo
       // hidetext/nbh-*) — as fontes comuns nem têm U+2011
       if (cp === 0x2011) shownCp = 0x2d;
+      // doNotLeaveBackslashAlone: no texto de idioma eastAsia japonês (com a fonte
+      // asiática padrão do documento do Leste Asiático), a barra invertida sai como o
+      // iene "¥" (U+00A5) da própria fonte do run (oráculo fejust)
+      if (cp === 0x5c && yenBackslash && /^ja/i.test(rpr.lang?.eastAsia ?? '')) { shownCh = '¥'; shownCp = 0xa5; }
       if (rpr.smallCaps && !rpr.caps && ch.toLowerCase() === ch && ch.toUpperCase() !== ch) {
         shownCh = ch.toUpperCase();
         shownCp = shownCh.codePointAt(0)!;
@@ -510,6 +628,7 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       const face = faceFor(ctx, rpr, kind === 'lb' ? 0x20 : shownCp, style, run.symFont);
       const m = faceMetrics(face.font);
       let adv = 0;
+      let kernAdj: number | undefined;
       if (kind === 'char' || kind === 'space' || kind === 'nbsp') {
         adv = advanceTwips(ctx, face, shownCp, size);
         // negrito sintético (sem face negrita): +1/2048 em por glifo (oráculo synthbold)
@@ -525,7 +644,8 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
           // versalete: o par é o dos glifos DESENHADOS — a minúscula seguinte também vira
           // maiúscula (oráculo sckern2)
           const nextShown = rpr.smallCaps && !rpr.caps && next.toLowerCase() === next && next.toUpperCase() !== next && next.toUpperCase().length === 1 ? next.toUpperCase() : next;
-          adv += kernTwips(ctx, face, shownCp, nextShown.codePointAt(0)!, size);
+          kernAdj = kernTwips(ctx, face, shownCp, nextShown.codePointAt(0)!, size);
+          adv += kernAdj;
         }
         if (rpr.spacing) adv += rpr.spacing;
         // seletor de variação (U+FE00–FE0F, ex.: emoji "⚠️"): largura zero (oráculo hidetext/emoji)
@@ -543,6 +663,7 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
         ...vMetrics(m, style),
         offset: off, runIdx, breakAfter, sizePt: size,
         ...(cp === 0x2028 ? { clear: true } : {}),
+        ...(kernAdj !== undefined ? { kernAdj } : {}),
       });
       off += ch.length;
     }
@@ -634,6 +755,22 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
     if (!g.breakAfter && g.kind === 'char' && (g.cp === 0x2d || g.cp === 0x2013 || g.cp === 0x2014) && g.ch !== '\u2011'
       && g.runIdx !== nx.runIdx && nx.kind === 'char' && !NO_BREAK_AFTER_DASH.test(nx.ch)) g.breakAfter = true;
   }
+  applyLigatures(ctx, glyphs);
+  // kerning na fronteira de dois runs: o par kerneia se a face, o corpo, o idioma e o
+  // kerning dos dois batem — cor, sublinhado, estilo de caractere não importam (oráculo kernrun)
+  for (let k = 0; k + 1 < glyphs.length; k++) {
+    const g = glyphs[k]!, nx = glyphs[k + 1]!;
+    if (g.runIdx === nx.runIdx || (g.kind !== 'char' && g.kind !== 'space') || (nx.kind !== 'char' && nx.kind !== 'space')) continue;
+    const a = g.style.rpr, b = nx.style.rpr;
+    if (g.face !== nx.face || g.sizePt !== nx.sizePt || g.style.sizePt !== nx.style.sizePt || g.style.shift !== nx.style.shift) continue;
+    if (!a.kern || !b.kern || g.style.sizePt * 2 < a.kern || nx.style.sizePt * 2 < b.kern) continue;
+    if ((a.lang?.val ?? '') !== (b.lang?.val ?? '') || (a.w ?? 100) !== (b.w ?? 100)) continue;
+    const lig = (a as { ligatures?: string }).ligatures;
+    if (lig && lig !== 'none' && (g.face.font as { kernInLatin?: boolean }).kernInLatin === false) continue;
+    g.adv += g.ligEnd !== undefined || nx.ligStart !== undefined
+      ? kernGlyphs(ctx, g.face, g.ligEnd ?? g.face.font.glyphId(g.cp), nx.ligStart ?? g.face.font.glyphId(nx.cp), g.sizePt)
+      : kernTwips(ctx, g.face, g.cp, nx.cp, g.sizePt);
+  }
   // espaços comuns encostados num NBSP (antes ou depois — a sequência inteira de
   // espaços): não quebram, a palavra de cada lado fica junta (oráculo nbspglue)
   for (let k = 0; k < glyphs.length; k++) {
@@ -667,8 +804,30 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
     const compress = settings.compatibilityMode < 15 && !!settings.characterSpacingControl && settings.characterSpacingControl !== 'doNotCompress';
     const balance = !!settings.compat['balanceSingleByteDoubleByteWidth'];
     const altKinsoku = settings.compatibilityMode < 15 && !!settings.compat['useAltKinsokuLineBreakRules'];
+    // com balanceSingleByteDoubleByteWidth, espaços comuns SEGUIDOS (dois ou mais)
+    // medem meio em cada — dois valem um caractere de largura dupla — e não comprimem
+    // nem expandem no justificado; o espaço isolado fica com a largura da fonte. Nos
+    // modos 14 e 15, qualquer que seja a fonte asiática (oráculo fejust)
+    if (balance) for (let k = 0; k < glyphs.length; k++) {
+      if (glyphs[k]!.kind !== 'space' || glyphs[k]!.cp !== 0x20) continue;
+      let e = k;
+      while (e + 1 < glyphs.length && glyphs[e + 1]!.kind === 'space' && glyphs[e + 1]!.cp === 0x20) e++;
+      if (e > k) for (let j = k; j <= e; j++) {
+        const g = glyphs[j]!;
+        g.adv = g.sizePt * 10 + (g.style.rpr.spacing ?? 0);
+        g.fixed = true;
+      }
+      k = e;
+    }
+    // modos ≤ 14 com compressão: o hífen e o travessão não são oportunidade de quebra; o
+    // meia-risca é no modo 14, não nos ≤ 12 (oráculo fejust)
+    if (compress) {
+      for (const g of glyphs) {
+        if (g.kind === 'char' && (g.cp === 0x2d || g.cp === 0x2014 || (g.cp === 0x2013 && settings.compatibilityMode < 14))) g.breakAfter = false;
+      }
+    }
     for (const g of glyphs) {
-      if (compress && g.kind === 'space' && g.cp === 0x20) {
+      if (compress && g.kind === 'space' && g.cp === 0x20 && !g.fixed) {
         const xAvg = (g.face.font.metrics as { xAvgCharWidth?: number }).xAvgCharWidth;
         const minSp = balance ? g.sizePt * 20 / 4 : xAvg ? (xAvg * g.sizePt * 20) / g.face.font.metrics.unitsPerEm / 2 : undefined;
         if (minSp !== undefined) g.feShrink = Math.max(0, g.adv - minSp);

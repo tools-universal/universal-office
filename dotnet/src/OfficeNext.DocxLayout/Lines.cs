@@ -283,6 +283,7 @@ public sealed class LineBreaker
         // layout asiático dos modos ≤ 14: quanto os espaços da linha podem comprimir (oráculo fecompress)
         double feShrinkW = 0;
         bool wordOk = false;         // a palavra corrente já foi aceita inteira
+        bool squeezed = false;       // uma palavra da linha só coube comprimindo/pendurando
         bool prevWasGap = true;
         double widthAtBreak = 0;     // largura do conteúdo até o ponto de quebra (sem gaps finais)
         double contentEnd = xStart;  // x do fim do último glifo não-branco
@@ -382,7 +383,9 @@ public sealed class LineBreaker
                     pg.W = Math.Max(0, pos - x);
                     x = Math.Max(x, pos);
                 }
-                lastBreak = i;
+                // a quebra fica ANTES do tab: se o texto depois dele não couber, o tab desce junto
+                // e recomeça a linha seguinte — o pontilhado vai do início dela (oráculo tabnextline)
+                lastBreak = i > start ? i - 1 : i;
                 widthAtBreak = contentEnd - xStart;
                 spacesW = 0;
                 nSpaces = 0;
@@ -443,6 +446,10 @@ public sealed class LineBreaker
                     wordOk = nSpaces > 0 && ov <= shrink.Ratio * spacesW + 0.0175
                         && (nSpaces <= 1 || rest <= 0 || ov / spacesW <= shrink.ExpandRatio * slack / rest + 0.0075 * nSpaces / spacesW);
                 }
+                // palavra que só coube comprimindo os espaços (ou pendurando a pontuação): a linha
+                // acaba nela — a seguinte desce, mesmo que coubesse comprimindo mais (oráculo fejust)
+                if (squeezed && i > start) wordOk = false;
+                else if (wordOk && over > FitEps) squeezed = true;
                 if (_ctx.Opts.OnWordFit is { } onWordFit && over > -2000)
                 {
                     onWordFit(new WordFitInfo
@@ -459,6 +466,10 @@ public sealed class LineBreaker
             double projected = isGap ? x : x + g.Adv;
             // âncoras de flutuantes (objeto sem largura na linha) não contam como conteúdo: o
             // que vem depois delas e não cabe fica na linha assim mesmo (oráculo floatwide)
+            // modo ≤ 14: o texto de um tab DIREITO que não cabe fica na linha, além da margem, e
+            // a linha não quebra mais (oráculo tabnextline)
+            if (!isGap && g.Kind != GlyphKind.Shy && !wordOk && !pastMargin && projected > right + FitEps && i > start
+                && pendTab?.Tab.Val == "right" && _ctx.Fmt.Settings.CompatibilityMode < 15) pastMargin = true;
             if (!isGap && g.Kind != GlyphKind.Shy && !wordOk && !pastMargin && projected > right + FitEps && i > start
                 && placed.Any(q => q.G.Kind != GlyphKind.Obj || q.G.Adv > 0))
             {
@@ -501,7 +512,7 @@ public sealed class LineBreaker
                 if (!prevWasGap) { lastGapW = 0; lastGapSp = 0; }
                 lastGapW += g.Adv;
                 // espaços de largura fixa (en/em/fino… U+2000–U+200A) não comprimem nem expandem
-                if (segWord && !FixedSpace(g.Cp)) { spacesW += g.Adv; nSpaces++; lastGapSp += g.Adv; feShrinkW += g.FeShrink ?? 0; }
+                if (segWord && !FixedSpace(g.Cp) && !g.Fixed) { spacesW += g.Adv; nSpaces++; lastGapSp += g.Adv; feShrinkW += g.FeShrink ?? 0; }
             }
             else segWord = true;
             prevWasGap = isGap || g.BreakAfter;
@@ -639,7 +650,7 @@ public sealed class LineBreaker
             for (int k = lastTab + 1; k < placed.Count; k++) if (placed[k].G.Kind != GlyphKind.Space) { firstContent = k; break; }
             var spaces = new HashSet<PlacedGlyph>(ReferenceEqualityComparer.Instance);
             for (int k = 0; k < placed.Count; k++)
-                if (k > firstContent && k < lastContent && placed[k].G.Kind == GlyphKind.Space && !FixedSpace(placed[k].G.Cp)) spaces.Add(placed[k]);
+                if (k > firstContent && k < lastContent && placed[k].G.Kind == GlyphKind.Space && !FixedSpace(placed[k].G.Cp) && !placed[k].G.Fixed) spaces.Add(placed[k]);
             double extra = availW - alignW;
             if (spaces.Count > 0 && (extra > 0 || extra < 0))
             {

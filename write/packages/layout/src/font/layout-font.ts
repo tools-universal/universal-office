@@ -10,6 +10,11 @@ export interface LayoutFont {
   advanceTwips(codePoint: number, sizePt: number): number;
   /** Ajuste de kerning do par (prev → cur) em TWIPS. */
   kernTwips(prevCodePoint: number, codePoint: number, sizePt: number): number;
+  /** Kerning do par de glifos (g1 → g2) em TWIPS (pares com glifo de ligadura). */
+  kernGlyphsTwips?(g1: number, g2: number, sizePt: number): number;
+  /** Ligaduras OpenType (GSUB) das features pedidas: grupos {glifo, nº de glifos de
+   *  entrada}; null se a fonte não tem nenhuma. */
+  ligate?(gids: number[], features: readonly string[]): { gid: number; len: number }[] | null;
   glyphId(codePoint: number): number;
   /** Advance width do glifo em unidades da fonte. */
   advanceWidth(glyphId: number): number;

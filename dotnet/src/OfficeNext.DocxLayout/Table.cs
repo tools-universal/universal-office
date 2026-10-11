@@ -344,10 +344,11 @@ public static class TableEngine
             if (worst is null) break;
             int s = worst.Col, e = Math.Min(p.Count, worst.Col + worst.Span);
             var others = Enumerable.Range(0, p.Count).Where(k => (k < s || k >= e) && pct(k) && p[k] > colMin[k] + 1e-6).ToList();
-            if (others.Count == 0) break;
             double have = 0;
             for (int k = s; k < e; k++) have += p[k];
             for (int k = s; k < e; k++) p[k] += have > 0 ? (need * p[k]) / have : need / (e - s);
+            // nenhuma outra coluna em pct para ceder: a tabela passa da largura pedida (oráculo tblpctmin)
+            if (others.Count == 0) continue;
             foreach (int k in others) p[k] -= need / others.Count;
         }
     }
@@ -409,6 +410,10 @@ public static class TableEngine
             for (int j = 0; j < nCols; j++) { pp[j] = Math.Max(0, Math.Min(pp[j], roomP)); roomP -= pp[j]; }
             FitPctMins(pp, all, MinOf, g1, _ => true);
             double sp = pp.Aggregate(0.0, (a, b) => a + b);
+            // a palavra mais longa alarga a tabela além do pedido: até a área de texto se o pedido
+            // é ≤ 100%; acima de 100%, sem limite (oráculo tblpctmin)
+            double cap = T0 is { } t0c && t0c > geoBase + 0.5 ? double.PositiveInfinity : Math.Max(Tp, geoBase);
+            if (sp > cap + 0.5) return pp.Select(v => (v * cap) / sp).ToList();
             return sp > 0 && Tp > sp + 0.5 ? pp.Select(v => (v * Tp) / sp).ToList() : pp;
         }
         // coluna em pct: célula sem mescla em pct e nenhuma em dxa; a fração é a maior

@@ -42,6 +42,12 @@ public interface ILayoutFont
     double AdvanceTwips(int codePoint, double sizePt);
     /// <summary>Ajuste de kerning do par (prev → cur) em TWIPS.</summary>
     double KernTwips(int prevCodePoint, int codePoint, double sizePt);
+    /// <summary>Kerning do par de glifos (g1 → g2) em TWIPS (pares com glifo de ligadura);
+    /// opcional no JS (kernGlyphsTwips?) — sem ele, 0.</summary>
+    double KernGlyphsTwips(long g1, long g2, double sizePt) => 0;
+    /// <summary>Ligaduras OpenType (GSUB) das features pedidas: grupos {glifo, nº de glifos de
+    /// entrada}; nulo se a fonte não tem nenhuma (opcional no JS: ligate?).</summary>
+    IReadOnlyList<(int Gid, int Len)>? Ligate(IReadOnlyList<int> gids, IReadOnlyList<string> features) => null;
     int GlyphId(int codePoint);
     /// <summary>Advance width do glifo em unidades da fonte.</summary>
     double AdvanceWidth(int glyphId);

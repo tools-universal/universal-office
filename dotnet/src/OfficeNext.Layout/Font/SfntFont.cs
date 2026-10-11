@@ -138,10 +138,12 @@ public sealed class SfntFont : ILayoutFont
 
     /// <summary>Ajuste de kerning (par prev→cur) em TWIPS no em de dispositivo.
     /// O app de referência (DirectWrite) aplica a feature kern por padrão.</summary>
-    public double KernTwips(int prevCodePoint, int codePoint, double sizePt)
+    public double KernTwips(int prevCodePoint, int codePoint, double sizePt) =>
+        KernGlyphsTwips(GlyphIdJs(prevCodePoint), GlyphIdJs(codePoint), sizePt);
+
+    /// <summary>Kerning do par de GLIFOS (g1→g2) em twips — para pares com glifo de ligadura.</summary>
+    public double KernGlyphsTwips(long g1, long g2, double sizePt)
     {
-        long g1 = GlyphIdJs(prevCodePoint);
-        long g2 = GlyphIdJs(codePoint);
         // as tabelas só têm ids de 16 bits: fora disso a chave colidiria com outro par
         if (g1 > 0xffff || g2 > 0xffff) return 0;
         int key = unchecked(((int)g1 << 16) | (int)g2);
@@ -152,6 +154,27 @@ public sealed class SfntFont : ILayoutFont
         if (units == 0) return 0;
         double deviceEmPt = JsCompat.MathRound(sizePt * 600 / 72) * 72 / 600;
         return units * deviceEmPt * 20 / Metrics.UnitsPerEm;
+    }
+
+    private Gsub.GsubLigatures? _gsub;
+    private bool _gsubRead;
+
+    /// <summary>
+    /// Ligaduras OpenType (GSUB, script latino) das features pedidas ('liga', 'clig',
+    /// 'dlig', 'hlig') sobre uma sequência de glifos: grupos {glifo, quantos glifos de
+    /// entrada cobre}; nulo se a fonte não tem nenhuma dessas ligaduras.
+    /// </summary>
+    public IReadOnlyList<(int Gid, int Len)>? Ligate(IReadOnlyList<int> gids, IReadOnlyList<string> features)
+    {
+        if (!_gsubRead)
+        {
+            _gsubRead = true;
+            try { _gsub = _tables.TryGetValue("GSUB", out var t) ? Gsub.ParseGsubLigatures(_view, t.Offset) : null; }
+            catch (Exception) { _gsub = null; }
+        }
+        var g = _gsub;
+        if (g is null || g.Lookups.Count == 0 || !features.Any(f => g.Features.TryGetValue(f, out var l) && l.Any(li => g.Lookups.ContainsKey(li)))) return null;
+        return Gsub.ApplyLigatures(g, gids, features);
     }
 
     private (long Offset, long Length) Req(string tag)

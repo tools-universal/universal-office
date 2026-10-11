@@ -86,6 +86,13 @@ public sealed class Glyph
     /// <summary>espaço que comprime (modos ≤ 14 com layout asiático e characterSpacingControl ≠
     /// doNotCompress): twips que pode perder</summary>
     public double? FeShrink;
+    /// <summary>espaço de largura fixa: não comprime nem expande no justificado</summary>
+    public bool Fixed;
+    /// <summary>kerning somado ao avanço (par com o caractere seguinte do run); nulo = sem kerning</summary>
+    public double? KernAdj;
+    /// <summary>glifo da ligadura que este caractere abre/fecha (kerning com os vizinhos)</summary>
+    public int? LigStart;
+    public int? LigEnd;
     /// <summary>pontuação que pode pendurar além da margem no fim da linha</summary>
     public bool Hang;
 }
@@ -291,6 +298,130 @@ public static class Para
             "half" => Js.Round(tw * 2) / 2,
             _ => tw,
         };
+    }
+
+    /// <summary>Kerning de um par de GLIFOS (com glifo de ligadura), na mesma escala de KernTwips.</summary>
+    private static double KernGlyphs(DocContext ctx, FontFace face, long g1, long g2, double sizePt)
+    {
+        double k = face.Font.KernGlyphsTwips(g1, g2, sizePt);
+        if (k == 0 || double.IsNaN(k)) return 0;
+        if (ctx.Opts.AdvanceEm == "device") return k;
+        return (k * sizePt) / Fonts.DeviceEmPt(sizePt);
+    }
+
+    /// <summary>Avanço de um GLIFO (de ligadura) em twips, na mesma escala de AdvanceTwips.</summary>
+    private static double GlyphAdvTwips(DocContext ctx, FontFace face, int gid, double sizePt)
+    {
+        var f = face.Font;
+        double em = ctx.Opts.AdvanceEm == "device" ? Fonts.DeviceEmPt(sizePt) : sizePt;
+        double tw = (f.AdvanceWidth(gid) * em * 20) / f.Metrics.UnitsPerEm;
+        return ctx.Opts.AdvanceRound switch
+        {
+            "twip" => Js.Round(tw),
+            "twipFloor" => Math.Floor(tw),
+            "twipCeil" => Math.Ceiling(tw),
+            "dev600" => Js.Round(tw / 2.4) * 2.4,
+            "half" => Js.Round(tw * 2) / 2,
+            _ => tw,
+        };
+    }
+
+    private static readonly Regex LigStandardRe = new("standard", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex LigContextualRe = new("contextual", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex LigHistoricalRe = new("historical", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    private static readonly Regex LigDiscretionalRe = new("discretional", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    /// <summary>Features GSUB de ligadura ligadas por w14:ligatures (none, standard, contextual,
+    /// historical, discretional, combinações e all).</summary>
+    private static List<string> LigFeatures(string? v)
+    {
+        if (string.IsNullOrEmpty(v) || v == "none") return new List<string>();
+        if (v == "all") return new List<string> { "liga", "clig", "hlig", "dlig" };
+        var outp = new List<string>();
+        if (LigStandardRe.IsMatch(v)) outp.Add("liga");
+        if (LigContextualRe.IsMatch(v)) outp.Add("clig");
+        if (LigHistoricalRe.IsMatch(v)) outp.Add("hlig");
+        if (LigDiscretionalRe.IsMatch(v)) outp.Add("dlig");
+        return outp;
+    }
+
+    /// <summary>
+    /// Ligaduras OpenType (w14:ligatures): o Word mede o glifo da ligadura (GSUB do script
+    /// latino), não a soma das letras — Calibri "tt" −73/2048 em, "ti" −15, "fi" −11; dentro
+    /// dela não há kerning e o par com o vizinho é o do glifo da ligadura (oráculo ligwidth).
+    /// Trechos de letras com a mesma face e corpo, também entre runs (com cor diferente,
+    /// inclusive). A diferença de largura vai para o último caractere da ligadura
+    /// (cada letra continua desenhada com o seu glifo).
+    /// </summary>
+    private static void ApplyLigatures(DocContext ctx, List<Glyph> glyphs)
+    {
+        // runs que ligam entre si: mesma face e corpo (testados abaixo), idioma, escala,
+        // posição e ligaduras — cor, sublinhado, estilo não importam (como no kerning)
+        static (string, double, double, string, double) KeyOf(Glyph g)
+        {
+            var r = g.Style.Rpr;
+            return (r.Lang?.Val ?? "", r.W ?? 100, g.Style.Shift, r.Ligatures ?? "", r.Spacing ?? 0);
+        }
+        for (int k = 0; k < glyphs.Count;)
+        {
+            var g0 = glyphs[k];
+            var rpr = g0.Style.Rpr;
+            var feats = g0.Kind == GlyphKind.Char && !(rpr.Spacing is { } sp0 && sp0 != 0 && !double.IsNaN(sp0)) ? LigFeatures(rpr.Ligatures) : new List<string>();
+            if (feats.Count == 0) { k++; continue; }
+            var key = KeyOf(g0);
+            int e = k + 1;
+            while (e < glyphs.Count)
+            {
+                var q = glyphs[e];
+                if (q.Kind != GlyphKind.Char || !ReferenceEquals(q.Face, g0.Face) || q.SizePt != g0.SizePt || (q.RunIdx != g0.RunIdx && !KeyOf(q).Equals(key))) break;
+                e++;
+            }
+            if (e - k >= 2)
+            {
+                var f = g0.Face.Font;
+                var groups = f.Ligate(glyphs.GetRange(k, e - k).Select(q => f.GlyphId(q.Cp)).ToList(), feats);
+                int pos = k;
+                foreach (var grp in groups ?? new List<(int Gid, int Len)>())
+                {
+                    if (grp.Len > 1)
+                    {
+                        var first = glyphs[pos];
+                        var last = glyphs[pos + grp.Len - 1];
+                        double sum = 0;
+                        for (int j = pos; j < pos + grp.Len; j++) sum += GlyphAdvTwips(ctx, first.Face, f.GlyphId(glyphs[j].Cp), first.SizePt);
+                        double w = rpr.W is { } rw && rw != 0 && !double.IsNaN(rw) && rw != 100 ? rw / 100 : 1;
+                        double delta = (GlyphAdvTwips(ctx, first.Face, grp.Gid, first.SizePt) - sum) * w;
+                        if (first.Face.SynthBold) delta -= ((grp.Len - 1) * first.SizePt * 20) / 2048;
+                        // sem kerning dentro da ligadura
+                        for (int j = pos; j < pos + grp.Len - 1; j++)
+                        {
+                            var q = glyphs[j];
+                            if (q.KernAdj is { } ka && ka != 0 && !double.IsNaN(ka)) { q.Adv -= ka; q.KernAdj = 0; }
+                        }
+                        // o par com o vizinho é o do glifo da ligadura
+                        var nx = pos + grp.Len < glyphs.Count ? glyphs[pos + grp.Len] : null;
+                        if (last.KernAdj is { } lka && nx is not null && nx.RunIdx == last.RunIdx)
+                        {
+                            double nk = KernGlyphs(ctx, first.Face, grp.Gid, nx.LigStart ?? f.GlyphId(nx.Cp), first.SizePt);
+                            last.Adv += nk - lka;
+                            last.KernAdj = nk;
+                        }
+                        var pv = pos - 1 >= 0 ? glyphs[pos - 1] : null;
+                        if (pv is not null && pv.KernAdj is { } pka && pv.RunIdx == first.RunIdx && ReferenceEquals(pv.Face, first.Face))
+                        {
+                            double nk = KernGlyphs(ctx, first.Face, pv.LigEnd ?? f.GlyphId(pv.Cp), grp.Gid, first.SizePt);
+                            pv.Adv += nk - pka;
+                            pv.KernAdj = nk;
+                        }
+                        last.Adv += delta;
+                        first.LigStart = grp.Gid;
+                        last.LigEnd = grp.Gid;
+                    }
+                    pos += grp.Len;
+                }
+            }
+            k = e;
+        }
     }
 
     private static double KernTwips(DocContext ctx, FontFace face, int cp, int next, double sizePt)
@@ -573,6 +704,7 @@ public static class Para
         var dd = ctx.Resolver.DocDefaults;
         // rPr de um run: docDefaults → tabela → estilo de parágrafo → estilo de caractere → direto
         RPr RunRPr(RPr rpr) => Resolve.CascadeRPr(dd.RPr, new[] { env.TableRPr, styleRPr, ctx.Resolver.CharStyle(rpr.RStyle) }, rpr);
+        bool yenBackslash = ctx.Fmt.Settings.Compat.TryGetValue("doNotLeaveBackslashAlone", out var nlb) && nlb && DocEastAsiaCjk(ctx);
         var markRpr = RunRPr(ppr.RPr ?? new RPr());
         var markStyle = ResolveRunStyle(ctx, markRpr, env);
         var markFace = FaceFor(ctx, markRpr, 0x20, markStyle);
@@ -620,6 +752,10 @@ public static class Para
                 // HÍFEN da própria fonte (U+002D, mesmo avanço), sem quebra depois (oráculo
                 // hidetext/nbh-*) — as fontes comuns nem têm U+2011
                 if (cp == 0x2011) shownCp = 0x2d;
+                // doNotLeaveBackslashAlone: no texto de idioma eastAsia japonês (com a fonte
+                // asiática padrão do documento do Leste Asiático), a barra invertida sai como o
+                // iene "¥" (U+00A5) da própria fonte do run (oráculo fejust)
+                if (cp == 0x5c && yenBackslash && JaLangRe.IsMatch(rpr.Lang?.EastAsia ?? "")) { shownCh = "\u00a5"; shownCp = 0xa5; }
                 if (rpr.SmallCaps == true && rpr.Caps != true && Js.ToLower(ch) == ch && Js.ToUpper(ch) != ch)
                 {
                     shownCh = Js.ToUpper(ch);
@@ -635,6 +771,7 @@ public static class Para
                 var face = FaceFor(ctx, rpr, kind == GlyphKind.Lb ? 0x20 : shownCp, style, run.SymFont);
                 var m = Fonts.FaceMetrics(face.Font);
                 double adv = 0;
+                double? kernAdj = null;
                 if (kind is GlyphKind.Char or GlyphKind.Space or GlyphKind.Nbsp)
                 {
                     adv = AdvanceTwips(ctx, face, shownCp, size);
@@ -652,7 +789,8 @@ public static class Para
                         // versalete: o par é o dos glifos DESENHADOS — a minúscula seguinte também vira
                         // maiúscula (oráculo sckern2)
                         string nextShown = rpr.SmallCaps == true && rpr.Caps != true && Js.ToLower(next) == next && Js.ToUpper(next) != next && Js.ToUpper(next).Length == 1 ? Js.ToUpper(next) : next;
-                        adv += KernTwips(ctx, face, shownCp, Js.CodePointAt0(nextShown), size);
+                        kernAdj = KernTwips(ctx, face, shownCp, Js.CodePointAt0(nextShown), size);
+                        adv += kernAdj.Value;
                     }
                     if (rpr.Spacing is { } sp && sp != 0 && !double.IsNaN(sp)) adv += sp;
                     // seletor de variação (U+FE00–FE0F, ex.: emoji "⚠️"): largura zero (oráculo hidetext/emoji)
@@ -672,6 +810,7 @@ public static class Para
                     Asc = asc, Desc = desc, NAsc = nAsc, NDesc = nDesc,
                     Offset = off, RunIdx = runIdx, BreakAfter = breakAfter, SizePt = size,
                     Clear = cp == 0x2028,
+                    KernAdj = kernAdj,
                 });
                 off += ch.Length;
             }
@@ -775,6 +914,23 @@ public static class Para
             if (!g.BreakAfter && g.Kind == GlyphKind.Char && (g.Cp == 0x2d || g.Cp == 0x2013 || g.Cp == 0x2014) && g.Ch != "\u2011"
                 && g.RunIdx != nx.RunIdx && nx.Kind == GlyphKind.Char && !NoBreakAfterDash(nx.Ch)) g.BreakAfter = true;
         }
+        ApplyLigatures(ctx, glyphs);
+        // kerning na fronteira de dois runs: o par kerneia se a face, o corpo, o idioma e o
+        // kerning dos dois batem — cor, sublinhado, estilo de caractere não importam (oráculo kernrun)
+        for (int k = 0; k + 1 < glyphs.Count; k++)
+        {
+            var g = glyphs[k]; var nx = glyphs[k + 1];
+            if (g.RunIdx == nx.RunIdx || (g.Kind != GlyphKind.Char && g.Kind != GlyphKind.Space) || (nx.Kind != GlyphKind.Char && nx.Kind != GlyphKind.Space)) continue;
+            var a = g.Style.Rpr; var b = nx.Style.Rpr;
+            if (!ReferenceEquals(g.Face, nx.Face) || g.SizePt != nx.SizePt || g.Style.SizePt != nx.Style.SizePt || g.Style.Shift != nx.Style.Shift) continue;
+            if (!(a.Kern is { } ak && ak != 0 && !double.IsNaN(ak)) || !(b.Kern is { } bk && bk != 0 && !double.IsNaN(bk)) || g.Style.SizePt * 2 < ak || nx.Style.SizePt * 2 < bk) continue;
+            if ((a.Lang?.Val ?? "") != (b.Lang?.Val ?? "") || (a.W ?? 100) != (b.W ?? 100)) continue;
+            string? lig = a.Ligatures;
+            if (!string.IsNullOrEmpty(lig) && lig != "none" && g.Face.Font is OfficeNext.Layout.SfntFont { KernInLatin: false }) continue;
+            g.Adv += g.LigEnd is not null || nx.LigStart is not null
+                ? KernGlyphs(ctx, g.Face, g.LigEnd ?? g.Face.Font.GlyphId(g.Cp), nx.LigStart ?? g.Face.Font.GlyphId(nx.Cp), g.SizePt)
+                : KernTwips(ctx, g.Face, g.Cp, nx.Cp, g.SizePt);
+        }
         // espaços comuns encostados num NBSP (antes ou depois — a sequência inteira de
         // espaços): não quebram, a palavra de cada lado fica junta (oráculo nbspglue)
         for (int k = 0; k < glyphs.Count; k++)
@@ -814,9 +970,39 @@ public static class Para
             bool compress = settings.CompatibilityMode < 15 && Js.Truthy(settings.CharacterSpacingControl) && settings.CharacterSpacingControl != "doNotCompress";
             bool balance = settings.Compat.TryGetValue("balanceSingleByteDoubleByteWidth", out var bal) && bal;
             bool altKinsoku = settings.CompatibilityMode < 15 && settings.Compat.TryGetValue("useAltKinsokuLineBreakRules", out var altK) && altK;
+            // com balanceSingleByteDoubleByteWidth, espaços comuns SEGUIDOS (dois ou mais)
+            // medem meio em cada — dois valem um caractere de largura dupla — e não comprimem
+            // nem expandem no justificado; o espaço isolado fica com a largura da fonte. Nos
+            // modos 14 e 15, qualquer que seja a fonte asiática (oráculo fejust)
+            if (balance)
+            {
+                for (int k = 0; k < glyphs.Count; k++)
+                {
+                    if (glyphs[k].Kind != GlyphKind.Space || glyphs[k].Cp != 0x20) continue;
+                    int e = k;
+                    while (e + 1 < glyphs.Count && glyphs[e + 1].Kind == GlyphKind.Space && glyphs[e + 1].Cp == 0x20) e++;
+                    if (e > k)
+                    {
+                        for (int j = k; j <= e; j++)
+                        {
+                            var g = glyphs[j];
+                            g.Adv = g.SizePt * 10 + (g.Style.Rpr.Spacing ?? 0);
+                            g.Fixed = true;
+                        }
+                    }
+                    k = e;
+                }
+            }
+            // modos ≤ 14 com compressão: o hífen e o travessão não são oportunidade de quebra; o
+            // meia-risca é no modo 14, não nos ≤ 12 (oráculo fejust)
+            if (compress)
+            {
+                foreach (var g in glyphs)
+                    if (g.Kind == GlyphKind.Char && (g.Cp == 0x2d || g.Cp == 0x2014 || (g.Cp == 0x2013 && settings.CompatibilityMode < 14))) g.BreakAfter = false;
+            }
             foreach (var g in glyphs)
             {
-                if (compress && g.Kind == GlyphKind.Space && g.Cp == 0x20)
+                if (compress && g.Kind == GlyphKind.Space && g.Cp == 0x20 && !g.Fixed)
                 {
                     double? xAvg = g.Face.Font.Metrics.XAvgCharWidth;
                     double? minSp = balance ? g.SizePt * 20 / 4 : xAvg is { } xa && xa != 0 && !double.IsNaN(xa) ? (xa * g.SizePt * 20) / g.Face.Font.Metrics.UnitsPerEm / 2 : null;

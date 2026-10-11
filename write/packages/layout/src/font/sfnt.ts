@@ -40,6 +40,7 @@ export interface FontMetrics {
 export interface ColorLayer { glyphId: number; color: string | null; alpha: number }
 
 import { parseGposKern, gposKernInLatin, kernKey, type KernMap, type KernClass0 } from './gpos.js';
+import { parseGsubLigatures, applyLigatures, type GsubLigatures } from './gsub.js';
 import type { LayoutFont } from './layout-font.js';
 
 export class SfntFont implements LayoutFont {
@@ -144,8 +145,11 @@ export class SfntFont implements LayoutFont {
   /** Ajuste de kerning (par prev→cur) em TWIPS no em de dispositivo.
    *  O app de referência (DirectWrite) aplica a feature kern por padrão. */
   kernTwips(prevCodePoint: number, codePoint: number, sizePt: number): number {
-    const g1 = this.glyphId(prevCodePoint);
-    const g2 = this.glyphId(codePoint);
+    return this.kernGlyphsTwips(this.glyphId(prevCodePoint), this.glyphId(codePoint), sizePt);
+  }
+
+  /** Kerning do par de GLIFOS (g1→g2) em twips — para pares com glifo de ligadura. */
+  kernGlyphsTwips(g1: number, g2: number, sizePt: number): number {
     // as tabelas só têm ids de 16 bits: fora disso a chave colidiria com outro par
     if (g1 > 0xffff || g2 > 0xffff) return 0;
     let units = this.kernMap.get(kernKey(g1, g2));
@@ -156,6 +160,23 @@ export class SfntFont implements LayoutFont {
     if (!units) return 0;
     const deviceEmPt = (Math.round((sizePt * 600) / 72) * 72) / 600;
     return (units * deviceEmPt * 20) / this.metrics.unitsPerEm;
+  }
+
+  private gsub: GsubLigatures | null | undefined;
+
+  /**
+   * Ligaduras OpenType (GSUB, script latino) das features pedidas ('liga', 'clig',
+   * 'dlig', 'hlig') sobre uma sequência de glifos: grupos {glifo, quantos glifos de
+   * entrada cobre}; null se a fonte não tem nenhuma dessas ligaduras.
+   */
+  ligate(gids: number[], features: readonly string[]): { gid: number; len: number }[] | null {
+    if (this.gsub === undefined) {
+      const t = this.tables.get('GSUB');
+      try { this.gsub = t ? parseGsubLigatures(this.view, t.offset) : null; } catch { this.gsub = null; }
+    }
+    const g = this.gsub;
+    if (!g || !g.lookups.size || !features.some((f) => (g.features.get(f) ?? []).some((li) => g.lookups.has(li)))) return null;
+    return applyLigatures(g, gids, features);
   }
 
   private req(tag: string) {
