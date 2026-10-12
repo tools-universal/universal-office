@@ -455,8 +455,10 @@ public sealed class LineBreaker
                 double hangW = e > i && gs[e - 1].Hang && (justify || _ctx.Fmt.Settings.CompatibilityMode < 15) ? gs[e - 1].Adv : 0;
                 if (!wordOk && (hangW > 0 || feShrinkW > 0) && i > start)
                 {
-                    // modos ≤ 14: os espaços ainda comprimem até o mínimo de cada um
-                    wordOk = over - hangW <= feShrinkW + FitEps;
+                    // modos ≤ 14: os espaços ainda comprimem até o mínimo de cada um — mas a última
+                    // palavra do parágrafo que pendura a pontuação não soma a compressão (oráculo fehangcomp)
+                    bool paraEnd = gs.Skip(e).All(q => q.Kind == GlyphKind.Pb || q.Kind == GlyphKind.Cb || (q.Kind == GlyphKind.Obj && q.Adv == 0));
+                    wordOk = over - hangW <= (hangW > 0 && paraEnd ? 0 : feShrinkW) + FitEps;
                 }
                 if (!wordOk && justify && lastBreak >= start && i > start)
                 {

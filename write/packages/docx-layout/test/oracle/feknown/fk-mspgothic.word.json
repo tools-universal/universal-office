@@ -1,0 +1,39 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 509.71,
+"size": 11.04,
+"text": "Textoideexemplocomvariaspalavrascurtasparaocuparmaisdeumalinhainteira"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 355.42,
+"size": 11.04,
+"text": "doparagrafodetesteemedirorecuodoespacoinicial."
+},
+{
+"y": 106.46,
+"x0": 91.34,
+"x1": 499.24,
+"size": 11.04,
+"text": "Textodeexemplocomvariaspalavrascurtasparaocuparmaisdeumalinhainteira"
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 355.42,
+"size": 11.04,
+"text": "doparagrafodetesteemedirorecuodoespacoinicial."
+}
+],
+"objs": []
+}
+]
+}

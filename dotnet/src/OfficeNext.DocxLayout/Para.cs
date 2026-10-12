@@ -489,6 +489,9 @@ public static class Para
     private static readonly Regex CjkFontName = new("^(ms (p|ui )?(gothic|mincho)|yu (gothic|mincho)|meiryo|hg.*(gothic|mincho)|(p)?mingliu|n?simsun|simhei|kaiti|fangsong|microsoft (yahei|jhenghei)|dengxian|(batang|gulim|dotum|gungsuh)(che)?|malgun gothic|nanum)|[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af\uff00-\uffef]",
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
+    private static readonly Regex NoFeLayoutFont = new(@"^(ms (p|ui )(gothic|mincho)|meiryo|malgun gothic)\b",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
     public static bool IsCjkFont(DocContext ctx, string? name)
     {
         if (string.IsNullOrEmpty(name)) return false;
@@ -509,6 +512,10 @@ public static class Para
     {
         var rf = ctx.Resolver.DocDefaults.RPr?.RFonts;
         string? name = Resolve.FontOfSlot(rf, "eastAsia", ctx.Fmt.Theme);
+        // sem o conjunto de caracteres no fontTable, as variantes proporcionais/de interface e
+        // as novas padrão (MS PGothic, MS PMincho, MS UI Gothic, Meiryo, Malgun Gothic) não ligam
+        // o layout asiático — MS Gothic/Mincho, Yu Gothic e SimSun sim (oráculo feknown)
+        if (!string.IsNullOrEmpty(name) && !(ctx.Fmt.FontTable.TryGetValue(name, out var fi) && !string.IsNullOrEmpty(fi.Charset)) && NoFeLayoutFont.IsMatch(name)) return false;
         if (!string.IsNullOrEmpty(name)) return IsCjkFont(ctx, name);
         // fonte do tema sem "ea": o Word usa a da escrita do idioma do tema (themeFontLang)
         return Js.Truthy(rf?.EastAsiaTheme) && CjkLangRe.IsMatch(ctx.Fmt.Settings.ThemeFontLang?.EastAsia ?? "");
@@ -1059,7 +1066,9 @@ public static class Para
                     if (glyphs[k].Kind != GlyphKind.Space || glyphs[k].Cp != 0x20) continue;
                     int e = k;
                     while (e + 1 < glyphs.Count && glyphs[e + 1].Kind == GlyphKind.Space && glyphs[e + 1].Cp == 0x20) e++;
-                    if (e > k)
+                    // no início do parágrafo, até o espaço isolado mede meio em (oráculo felead)
+                    bool lead = glyphs.Take(k).All(q => q.Kind == GlyphKind.Obj && q.Adv == 0);
+                    if (e > k || lead)
                     {
                         for (int j = k; j <= e; j++)
                         {

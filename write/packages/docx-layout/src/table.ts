@@ -324,6 +324,37 @@ function fitPctMins(p: number[], cells: GeoCell[], minOf: (c: GeoCell) => number
 }
 
 /**
+ * Layout fixo: nenhuma célula fica mais estreita que as margens + 20 twips (a grade
+ * gravada pelo Google Docs traz colunas de ~58 twips) — a que falta cresce e o
+ * acréscimo sai das colunas das outras células, na proporção da largura (oráculo
+ * tblmincol).
+ */
+function fixedMins(cells: GeoCell[][], w: number[]): number[] {
+  const out = [...w];
+  const locked = new Set<number>();
+  for (let it = 0; it < 4; it++) {
+    let changed = false;
+    for (const c of cells.flat()) {
+      // (vão de gridBefore/gridAfter: não é célula)
+      if (c.pad === undefined) continue;
+      const cols = Array.from({ length: Math.max(0, Math.min(out.length, c.col + c.span) - c.col) }, (_, k) => c.col + k);
+      if (!cols.length) continue;
+      const have = cols.reduce((a, k) => a + out[k]!, 0);
+      const need = c.pad + 20 - have;
+      if (need <= 0.5) continue;
+      const donors = out.map((_, k) => k).filter((k) => !cols.includes(k) && !locked.has(k));
+      const pool = donors.reduce((a, k) => a + out[k]!, 0);
+      if (pool <= need) continue;
+      for (const k of cols) { out[k] = out[k]! + (have > 0 ? (need * out[k]!) / have : need / cols.length); locked.add(k); }
+      for (const k of donors) out[k] = out[k]! - (need * out[k]!) / pool;
+      changed = true;
+    }
+    if (!changed) break;
+  }
+  return out;
+}
+
+/**
  * Larguras das colunas (oráculos tblpct/tblw). `base` = 100% de uma tabela em pct;
  * `avail` = largura máxima de uma tabela automática (base − recuo: f7).
  *  - Layout fixo: tcW (pct da largura da tabela); célula sem tcW usa a grade gravada
@@ -359,7 +390,7 @@ function columnWidthsExact(cells: GeoCell[][], nCols: number, docGrid: number[],
       return k === 'dxa' ? c.tcW!.w : k === 'pct' ? (tRef * c.tcW!.w) / 5000 : gridSum(c);
     });
     const sum = w.reduce((a, b) => a + b, 0);
-    return T0 !== undefined && sum > 0 ? w.map((x) => (x * T0) / sum) : w;
+    return fixedMins(cells, T0 !== undefined && sum > 0 ? w.map((x) => (x * T0) / sum) : w);
   }
   const m = new Map<GeoCell, { min: number; max: number }>();
   for (const c of all) m.set(c, c.measure());

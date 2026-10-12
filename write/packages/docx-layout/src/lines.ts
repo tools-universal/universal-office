@@ -365,8 +365,10 @@ export class LineBreaker {
         // sempre (oráculo fecompress), no 15 só no justificado (oráculo hang15)
         const hangW = e > i && gs[e - 1]!.hang && (justify || this.ctx.fmt.settings.compatibilityMode < 15) ? gs[e - 1]!.adv : 0;
         if (!wordOk && (hangW > 0 || feShrinkW > 0) && i > start) {
-          // modos ≤ 14: os espaços ainda comprimem até o mínimo de cada um
-          wordOk = over - hangW <= feShrinkW + FIT_EPS;
+          // modos ≤ 14: os espaços ainda comprimem até o mínimo de cada um — mas a última
+          // palavra do parágrafo que pendura a pontuação não soma a compressão (oráculo fehangcomp)
+          const paraEnd = gs.slice(e).every((q) => q.kind === 'pb' || q.kind === 'cb' || (q.kind === 'obj' && q.adv === 0));
+          wordOk = over - hangW <= (hangW > 0 && paraEnd ? 0 : feShrinkW) + FIT_EPS;
         }
         if (!wordOk && justify && lastBreak >= start && i > start) {
           // o Word compara as duas saídas: comprimir os n espaços para a palavra

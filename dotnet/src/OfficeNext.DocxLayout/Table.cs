@@ -433,6 +433,40 @@ public static class TableEngine
     }
 
     /// <summary>
+    /// Layout fixo: nenhuma célula fica mais estreita que as margens + 20 twips (a grade
+    /// gravada pelo Google Docs traz colunas de ~58 twips) — a que falta cresce e o
+    /// acréscimo sai das colunas das outras células, na proporção da largura (oráculo
+    /// tblmincol).
+    /// </summary>
+    private static List<double> FixedMins(List<List<GeoCell>> cells, List<double> w)
+    {
+        var o = new List<double>(w);
+        var locked = new HashSet<int>();
+        for (int it = 0; it < 4; it++)
+        {
+            bool changed = false;
+            foreach (var c in cells.SelectMany(r => r))
+            {
+                // (vão de gridBefore/gridAfter: não é célula)
+                if (c.Pad is not { } pad) continue;
+                var cols = Enumerable.Range(c.Col, Math.Max(0, Math.Min(o.Count, c.Col + c.Span) - c.Col)).ToList();
+                if (cols.Count == 0) continue;
+                double have = cols.Aggregate(0.0, (a, k) => a + o[k]);
+                double need = pad + 20 - have;
+                if (need <= 0.5) continue;
+                var donors = Enumerable.Range(0, o.Count).Where(k => !cols.Contains(k) && !locked.Contains(k)).ToList();
+                double pool = donors.Aggregate(0.0, (a, k) => a + o[k]);
+                if (pool <= need) continue;
+                foreach (int k in cols) { o[k] = o[k] + (have > 0 ? (need * o[k]) / have : need / cols.Count); locked.Add(k); }
+                foreach (int k in donors) o[k] = o[k] - (need * o[k]) / pool;
+                changed = true;
+            }
+            if (!changed) break;
+        }
+        return o;
+    }
+
+    /// <summary>
     /// Larguras das colunas (oráculos tblpct/tblw). `geoBase` = 100% de uma tabela em pct;
     /// `avail` = largura máxima de uma tabela automática (base − recuo: f7).
     ///  - Layout fixo: tcW (pct da largura da tabela); célula sem tcW usa a grade gravada
@@ -473,7 +507,7 @@ public static class TableEngine
                 return k == "dxa" ? c.TcW!.W : k == "pct" ? (tRef * c.TcW!.W) / 5000 : GridSum(c);
             });
             double sum = wf.Aggregate(0.0, (a, b) => a + b);
-            return T0 is { } t0f && sum > 0 ? wf.Select(v => (v * t0f) / sum).ToList() : wf;
+            return FixedMins(cells, T0 is { } t0f && sum > 0 ? wf.Select(v => (v * t0f) / sum).ToList() : wf);
         }
         var m = new Dictionary<GeoCell, (double Min, double Max)>(ReferenceEqualityComparer.Instance);
         foreach (var c in all) m[c] = c.Measure();

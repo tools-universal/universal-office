@@ -490,6 +490,10 @@ export function isCjkFont(ctx: DocContext, name: string | undefined): boolean {
 function docEastAsiaCjk(ctx: DocContext): boolean {
   const rf = ctx.resolver.docDefaults.rPr?.rFonts;
   const name = fontOfSlot(rf, 'eastAsia', ctx.fmt.theme);
+  // sem o conjunto de caracteres no fontTable, as variantes proporcionais/de interface e
+  // as novas padrão (MS PGothic, MS PMincho, MS UI Gothic, Meiryo, Malgun Gothic) não ligam
+  // o layout asiático — MS Gothic/Mincho, Yu Gothic e SimSun sim (oráculo feknown)
+  if (name && !own(ctx.fmt.fontTable, name)?.charset && /^(ms (p|ui )(gothic|mincho)|meiryo|malgun gothic)\b/i.test(name)) return false;
   if (name) return isCjkFont(ctx, name);
   // fonte do tema sem "ea": o Word usa a da escrita do idioma do tema (themeFontLang)
   return !!rf?.eastAsiaTheme && /^(ja|zh|ko)\b/i.test(ctx.fmt.settings.themeFontLang?.eastAsia ?? '');
@@ -883,7 +887,9 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       if (glyphs[k]!.kind !== 'space' || glyphs[k]!.cp !== 0x20) continue;
       let e = k;
       while (e + 1 < glyphs.length && glyphs[e + 1]!.kind === 'space' && glyphs[e + 1]!.cp === 0x20) e++;
-      if (e > k) for (let j = k; j <= e; j++) {
+      // no início do parágrafo, até o espaço isolado mede meio em (oráculo felead)
+      const lead = glyphs.slice(0, k).every((q) => q.kind === 'obj' && q.adv === 0);
+      if (e > k || lead) for (let j = k; j <= e; j++) {
         const g = glyphs[j]!;
         g.adv = g.sizePt * 10 + (g.style.rpr.spacing ?? 0);
         g.fixed = true;
