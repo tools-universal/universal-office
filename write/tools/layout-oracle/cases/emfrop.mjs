@@ -79,7 +79,7 @@ function bitBlt(x, y, w, h, rop) {
   dv.setFloat32(44, 1, true); dv.setFloat32(56, 1, true);
   return rec(76, b);
 }
-function emf(rops) {
+export function emf(rops) {
   const body = [font(1, 18, 'Arial'), u32rec(37, 1), u32rec(24, 0), u32rec(18, 1), text(10, 120, 'Rotulo exemplo.txt', 10)];
   for (const [rop, rgb] of rops) body.push(rgb ? stretchBlt(150, 10, 80, 80, rop, rgb) : bitBlt(150, 10, 80, 80, rop));
   body.push(u32rec(14, 0, 16, 20));
@@ -89,7 +89,7 @@ function emf(rops) {
   for (const x of all) { out.set(x, pos); pos += x.length; }
   return out;
 }
-const pic = (k) => `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1270000" cy="444500"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${k}" name="Figura ${k}"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${k}" name="Figura ${k}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1270000" cy="444500"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+export const pic = (k) => `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1270000" cy="444500"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${k}" name="Figura ${k}"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="${k}" name="Figura ${k}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg1"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1270000" cy="444500"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
 const doc = (rops) => {
   const d = buildDocx({ body: p(r('Antes Hxg')) + p(pic(1)), defaults: docDefaults({ font: 'Arial', size: 11 }), media: { 'image1.emf': emf(rops) } });
   // o construtor só declara png/jpeg: acrescenta o tipo do .emf

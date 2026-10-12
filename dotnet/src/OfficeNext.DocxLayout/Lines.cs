@@ -413,6 +413,15 @@ public sealed class LineBreaker
                     pos = right;
                     tab = new TabSpec { Val = "right", Pos = tab.Pos, Leader = tab.Leader };
                 }
+                // Word 2013+: parada custom à ESQUERDA além da margem direita — a linha quebra antes
+                // do tab mesmo sem nada depois dele (uma linha a mais no fim do parágrafo) e, abrindo
+                // a linha, o tab só vai até a margem (oráculo tabbeyond)
+                if (g.Ptab is null && tab is not null && tab.Val != "right" && tab.Val != "center" && tab.Val != "decimal"
+                    && _ctx.Fmt.Settings.CompatibilityMode >= 15 && pos > right + 0.5)
+                {
+                    if (i > start) break;
+                    pos = Math.Max(x, right);
+                }
                 // sem parada até a margem direita: a linha quebra ANTES do tab, que
                 // recomeça na linha seguinte (na 1ª parada dela) — oráculo tabs
                 // (modo ≤ 14 com paradas custom: o tab segue além da margem pela grade padrão)

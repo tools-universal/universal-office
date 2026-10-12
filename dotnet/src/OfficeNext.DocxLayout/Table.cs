@@ -28,6 +28,9 @@ public sealed class CellContent
     /// <summary>altura que se alinha na vertical (centro/base) quando passa de Height: inclui os
     /// objetos ancorados na célula sem quebra (oráculo cellwrap)</summary>
     public double? AlignH;
+    /// <summary>tem forma ancorada: com w:doNotVertAlignCellWithSp (modos ≤ 14) não alinha na
+    /// vertical (oráculo vcfloat)</summary>
+    public bool Shape;
 }
 
 public sealed class NestRow
@@ -814,6 +817,9 @@ public static class TableEngine
             .With(direct.TblLook ?? style.TblPr.TblLook ?? new TblLook());
         // margem lateral de célula sem definição: 108 twips só sem estilo de tabela algum
         double defMar = style.HasStyle ? 0 : 108;
+        // w:doNotVertAlignCellWithSp (modos ≤ 14): célula com forma ancorada fica no topo (oráculo vcfloat)
+        bool noVaSp = ctx.Fmt.Settings.CompatibilityMode < 15 && ctx.Fmt.Settings.Compat.TryGetValue("doNotVertAlignCellWithSp", out var nvs) && nvs;
+        string? VaOf(CellContent? c, string? v) => noVaSp && c is { Shape: true } ? null : v;
         int nRows = table.Rows.Count;
 
         // ── nº de colunas da grade (a grade gravada só vale como largura no layout fixo
@@ -1266,8 +1272,8 @@ public static class TableEngine
                         if (s.RowSpan > 1) mergeAt.Add(new MergeAtInfo { Col = s.Col, At = its.Count, EndRow = riC + s.RowSpan - 1 });
                         if (s.RowSpan == 1)
                         {
-                            if (content is not null && ci.Vertical is not null) PaintVertical(its, content, ci.Vertical, ci.TcPr.VAlign, x + ci.X0 + ci.MarL, x + ci.X1 - ci.MarR, bTop + ci.MarT, bTop + ch - ci.MarB);
-                            else if (content is not null) PlaceContent(its, lns, content, vTop ? "top" : ci.TcPr.VAlign, ch, ci.MarT, ci.MarB, bTop);
+                            if (content is not null && ci.Vertical is not null) PaintVertical(its, content, ci.Vertical, VaOf(content, ci.TcPr.VAlign), x + ci.X0 + ci.MarL, x + ci.X1 - ci.MarR, bTop + ci.MarT, bTop + ch - ci.MarB);
+                            else if (content is not null) PlaceContent(its, lns, content, vTop ? "top" : VaOf(content, ci.TcPr.VAlign), ch, ci.MarT, ci.MarB, bTop);
                         }
                         BorderSpec? bT = Edge(s, "top"), bB = Edge(s, "bottom"), bL = Edge(s, "left"), bR = Edge(s, "right");
                         if (drawTop && bT is not null) Paint.PaintBorder(ctx, brd, bT, x + ci.Bx0, cy0 + Paint.BorderWidth(bT) / 2, x + ci.Bx1, cy0 + Paint.BorderWidth(bT) / 2);
@@ -1300,8 +1306,8 @@ public static class TableEngine
                     if (!s.Merged && s.RowSpan == 1)
                     {
                         if (fill is not null) its.Add(new RectItem { X = x + ci.X0, Y = 0, W = ci.X1 - ci.X0, H = rh, Fill = fill });
-                        if (content is not null && ci.Vertical is not null) PaintVertical(its, content, ci.Vertical, ci.TcPr.VAlign, x + ci.X0 + ci.MarL, x + ci.X1 - ci.MarR, bTop + ci.MarT, bTop + ch - ci.MarB);
-                        else if (content is not null) PlaceContent(its, lns, content, vTop ? "top" : ci.TcPr.VAlign, ch, ci.MarT, ci.MarB, bTop);
+                        if (content is not null && ci.Vertical is not null) PaintVertical(its, content, ci.Vertical, VaOf(content, ci.TcPr.VAlign), x + ci.X0 + ci.MarL, x + ci.X1 - ci.MarR, bTop + ci.MarT, bTop + ch - ci.MarB);
+                        else if (content is not null) PlaceContent(its, lns, content, vTop ? "top" : VaOf(content, ci.TcPr.VAlign), ch, ci.MarT, ci.MarB, bTop);
                     }
                     else if (s.Merged && fill is not null)
                     {
@@ -1442,18 +1448,18 @@ public static class TableEngine
             if (m.Vertical is not null)
             {
                 var c = LayoutVertical(m.Slot, h - marT - marB, m.Env, $"{reference}/r{m.StartRow}/c{m.Slot.Col}");
-                PaintVertical(target.Items, c, m.Vertical, m.TcPr.VAlign, x + m.X0 + m.MarL, x + m.X1 - m.MarR, top + marT, top + h - marB);
+                PaintVertical(target.Items, c, m.Vertical, VaOf(c, m.TcPr.VAlign), x + m.X0 + m.MarL, x + m.X1 - m.MarR, top + marT, top + h - marB);
             }
             else if (m.Content is not null)
             {
                 int i0 = target.Items.Count, l0 = target.Lines.Count;
-                PlaceContent(target.Items, target.Lines, m.Content, m.TcPr.VAlign, h, marT, marB, top);
+                PlaceContent(target.Items, target.Lines, m.Content, VaOf(m.Content, m.TcPr.VAlign), h, marT, marB, top);
                 if (!ReferenceEquals(target, first))
                     (target.MergeText ??= new List<MergeTextInfo>()).Add(new MergeTextInfo
                     {
                         Col = m.Slot.Col, Items = target.Items.GetRange(i0, target.Items.Count - i0), Lines = target.Lines.GetRange(l0, target.Lines.Count - l0),
                         Dy = rowHeights.Skip(m.StartRow).Take(Math.Max(0, endRow - m.StartRow)).Aggregate(0.0, (a, b) => a + b),
-                        Start = m.StartRow, Content = m.Content, MarT = marT, Band = BandTopOf(m.StartRow), VAlign = Js.Truthy(m.TcPr.VAlign) ? m.TcPr.VAlign : null,
+                        Start = m.StartRow, Content = m.Content, MarT = marT, Band = BandTopOf(m.StartRow), VAlign = Js.Truthy(VaOf(m.Content, m.TcPr.VAlign)) ? VaOf(m.Content, m.TcPr.VAlign) : null,
                     });
             }
         }

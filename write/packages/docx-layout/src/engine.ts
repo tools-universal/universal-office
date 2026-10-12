@@ -766,6 +766,8 @@ class Engine {
     let floatBottom = 0;
     /** fim dos objetos ancorados na célula (com ou sem quebra): conta no alinhamento vertical */
     let alignBottom = 0;
+    /** a célula tem forma ancorada (w:doNotVertAlignCellWithSp: não alinha na vertical) */
+    let cellShape = false;
     /** desenhadas depois do texto da célula (ordem do PDF do Word) */
     const floatItems: PageItem[] = [];
     const floatLines: LaidOutLine[] = [];
@@ -855,6 +857,7 @@ class Engine {
         // célula: os flutuantes do parágrafo vêm ANTES das linhas e o texto da célula
         // contorna os que têm quebra (oráculo cellwrap); desenhados depois do texto
         const cellAnch: PageItem[] | null = this.inCell && ps && !hfWrap && /\/r\d+\/c\d+$/.test(ref) ? [] : null;
+        if (this.inCell && !cellShape) cellShape = p.glyphs.some((g) => !!(g.obj?.image?.floating || g.obj?.shape?.floating || g.obj?.group?.floating || g.obj?.textbox?.floating));
         if (cellAnch) {
           for (const g of p.glyphs) {
             const run = g.obj;
@@ -1035,7 +1038,7 @@ class Engine {
     if (prev) y += (prev as PrevPara).after;
     items.push(...floatItems);
     lines.push(...floatLines);
-    return { items, lines, height: Math.max(y, floatBottom), ...(alignBottom > Math.max(y, floatBottom) ? { alignH: alignBottom } : {}), ...(keepNext ? { keepNext: true } : {}), ...(paras.size ? { paras } : {}), ...(nest.length ? { nest } : {}) };
+    return { items, lines, height: Math.max(y, floatBottom), ...(alignBottom > Math.max(y, floatBottom) ? { alignH: alignBottom } : {}), ...(cellShape ? { shape: true } : {}), ...(keepNext ? { keepNext: true } : {}), ...(paras.size ? { paras } : {}), ...(nest.length ? { nest } : {}) };
   }
 
   /** diagramando o conteúdo de uma célula (flutuantes ficam relativos à célula) */
@@ -2801,7 +2804,18 @@ class Engine {
           // caixa de um GRUPO: o texto com escala horizontal (w:w) sai como curvas, o
           // resto como texto (oráculo txbxscale)
           const raster = rot % 90 !== 0;
+          // figura (imagem, EMF/WMF com o recorte dela) INTEIRA fora da caixa: o Word não a
+          // desenha — nem o texto do EMF; o texto que transborda sai (oráculo tbover)
+          const outside = (r: { x: number; y: number; w: number; h: number }): boolean => r.y >= y + h || r.y + r.h <= y || r.x >= x + w || r.x + r.w <= x;
+          let skip = 0;
           for (const it of tbContent.items) {
+            if (skip) {
+              if (it.t === 'clip') skip += it.op === 'push' ? 1 : -1;
+              continue;
+            }
+            if (it.t === 'clip' && it.op === 'push' && it.y !== undefined && it.w !== undefined && it.h !== undefined
+              && outside({ x: (it.x ?? 0) + x + ins.l, y: it.y + dy, w: it.w, h: it.h })) { skip = 1; continue; }
+            if (it.t === 'image' && outside({ x: it.x + x + ins.l, y: it.y + dy, w: it.w, h: it.h })) continue;
             const s2 = shiftItem(it, dy, x + ins.l);
             const curves = raster || (inGroup && s2.t === 'glyphs' && s2.scaleX !== undefined && s2.scaleX !== 1);
             out.push(curves && s2.t === 'glyphs' ? { ...s2, asPath: true } : s2);

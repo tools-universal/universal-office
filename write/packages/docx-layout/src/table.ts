@@ -30,6 +30,9 @@ export interface CellContent {
   /** altura que se alinha na vertical (centro/base) quando passa de `height`: inclui os
    *  objetos ancorados na célula sem quebra (oráculo cellwrap) */
   alignH?: number;
+  /** tem forma ancorada: com w:doNotVertAlignCellWithSp (modos ≤ 14) não alinha na
+   *  vertical (oráculo vcfloat) */
+  shape?: boolean;
 }
 
 export interface NestRow { top: number; row: RowLayout; items: PageItem[]; lines: LaidOutLine[] }
@@ -625,6 +628,9 @@ export function layoutTable(
   const look = { ...DEFAULT_LOOK, ...(direct.tblLook ?? style.tblPr.tblLook ?? {}) };
   /** margem lateral de célula sem definição: 108 twips só sem estilo de tabela algum */
   const defMar = style.hasStyle ? 0 : 108;
+  /** w:doNotVertAlignCellWithSp (modos ≤ 14): célula com forma ancorada fica no topo (oráculo vcfloat) */
+  const noVaSp = ctx.fmt.settings.compatibilityMode < 15 && !!ctx.fmt.settings.compat['doNotVertAlignCellWithSp'];
+  const vaOf = (c: CellContent | undefined, v: string | undefined): string | undefined => (noVaSp && c?.shape ? undefined : v);
   const nRows = table.rows.length;
 
   // ── nº de colunas da grade (a grade gravada só vale como largura no layout fixo
@@ -1018,8 +1024,8 @@ export function layoutTable(
           if (fill) its.push({ t: 'rect', x: x + ci.bx0, y: cy0, w: ci.bx1 - ci.bx0, h: cy1 - cy0, fill });
           if (s.rowSpan > 1) mergeAt.push({ col: s.col, at: its.length, endRow: ri + s.rowSpan - 1 });
           if (s.rowSpan === 1) {
-            if (content && ci.vertical) paintVertical(its, content, ci.vertical, ci.tcPr.vAlign, x + ci.x0 + ci.marL, x + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
-            else if (content) placeContent(its, lns, content, vTop ? 'top' : ci.tcPr.vAlign, ch, ci.marT, ci.marB, bTop);
+            if (content && ci.vertical) paintVertical(its, content, ci.vertical, vaOf(content, ci.tcPr.vAlign), x + ci.x0 + ci.marL, x + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
+            else if (content) placeContent(its, lns, content, vTop ? 'top' : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
           }
           const bT = edge(s, 'top'), bB = edge(s, 'bottom'), bL = edge(s, 'left'), bR = edge(s, 'right');
           if (drawTop && bT) paintBorder(ctx, brd, bT, x + ci.bx0, cy0 + borderWidth(bT) / 2, x + ci.bx1, cy0 + borderWidth(bT) / 2);
@@ -1049,8 +1055,8 @@ export function layoutTable(
         if (!s.merged && s.rowSpan > 1) mergeAt.push({ col: s.col, at: its.length, endRow: ri + s.rowSpan - 1 });
         if (!s.merged && s.rowSpan === 1) {
           if (fill) its.push({ t: 'rect', x: x + ci.x0, y: 0, w: ci.x1 - ci.x0, h: rh, fill });
-          if (content && ci.vertical) paintVertical(its, content, ci.vertical, ci.tcPr.vAlign, x + ci.x0 + ci.marL, x + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
-          else if (content) placeContent(its, lns, content, vTop ? 'top' : ci.tcPr.vAlign, ch, ci.marT, ci.marB, bTop);
+          if (content && ci.vertical) paintVertical(its, content, ci.vertical, vaOf(content, ci.tcPr.vAlign), x + ci.x0 + ci.marL, x + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
+          else if (content) placeContent(its, lns, content, vTop ? 'top' : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
         } else if (s.merged && fill) {
           its.push({ t: 'rect', x: x + ci.x0, y: 0, w: ci.x1 - ci.x0, h: rh, fill });
         }
@@ -1168,11 +1174,11 @@ export function layoutTable(
     const top = bandTopOf(m.startRow) - rowHeights.slice(m.startRow, Math.min(endRow, rows.length - 1)).reduce((a, b) => a + b, 0);
     if (m.vertical) {
       const c = layoutVertical(m.slot, h - marT - marB, m.env, `${ref}/r${m.startRow}/c${m.slot.col}`);
-      paintVertical(target.items, c, m.vertical, m.tcPr.vAlign, x + m.x0 + m.marL, x + m.x1 - m.marR, top + marT, top + h - marB);
+      paintVertical(target.items, c, m.vertical, vaOf(c, m.tcPr.vAlign), x + m.x0 + m.marL, x + m.x1 - m.marR, top + marT, top + h - marB);
     } else if (m.content) {
       const i0 = target.items.length, l0 = target.lines.length;
-      placeContent(target.items, target.lines, m.content, m.tcPr.vAlign, h, marT, marB, top);
-      if (target !== first) (target.mergeText ??= []).push({ col: m.slot.col, items: target.items.slice(i0), lines: target.lines.slice(l0), dy: rowHeights.slice(m.startRow, endRow).reduce((a, b) => a + b, 0), start: m.startRow, content: m.content, marT, band: bandTopOf(m.startRow), ...(m.tcPr.vAlign ? { vAlign: m.tcPr.vAlign } : {}) });
+      placeContent(target.items, target.lines, m.content, vaOf(m.content, m.tcPr.vAlign), h, marT, marB, top);
+      if (target !== first) (target.mergeText ??= []).push({ col: m.slot.col, items: target.items.slice(i0), lines: target.lines.slice(l0), dy: rowHeights.slice(m.startRow, endRow).reduce((a, b) => a + b, 0), start: m.startRow, content: m.content, marT, band: bandTopOf(m.startRow), ...(vaOf(m.content, m.tcPr.vAlign) ? { vAlign: vaOf(m.content, m.tcPr.vAlign) } : {}) });
     }
   }
 

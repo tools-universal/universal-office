@@ -930,6 +930,8 @@ internal sealed class Engine
         double floatBottom = 0;
         // fim dos objetos ancorados na célula (com ou sem quebra): conta no alinhamento vertical
         double alignBottom = 0;
+        // a célula tem forma ancorada (w:doNotVertAlignCellWithSp: não alinha na vertical)
+        bool cellShape = false;
         // desenhadas depois do texto da célula (ordem do PDF do Word)
         var floatItems = new List<PageItem>();
         var floatLines = new List<LaidOutLine>();
@@ -1031,6 +1033,7 @@ internal sealed class Engine
                 // célula: os flutuantes do parágrafo vêm ANTES das linhas e o texto da célula
                 // contorna os que têm quebra (oráculo cellwrap); desenhados depois do texto
                 List<PageItem>? cellAnch = _inCell && ps is not null && !hfWrap && CellRefRe.IsMatch(reference) ? new List<PageItem>() : null;
+                if (_inCell && !cellShape) cellShape = p.Glyphs.Any(g => g.Obj is { } o && ((o.Image?.Floating ?? false) || (o.Shape?.Floating ?? false) || (o.Group?.Floating ?? false) || (o.Textbox?.Floating ?? false)));
                 if (cellAnch is not null)
                 {
                     foreach (var g in p.Glyphs)
@@ -1262,7 +1265,7 @@ internal sealed class Engine
         if (prev is not null) y += prev.After;
         items.AddRange(floatItems);
         lines.AddRange(floatLines);
-        return new CellContent { Items = items, Lines = lines, Height = Math.Max(y, floatBottom), AlignH = alignBottom > Math.Max(y, floatBottom) ? alignBottom : null, KeepNext = keepNext, Paras = paras.Count > 0 ? paras : null, Nest = nest.Count > 0 ? nest : null };
+        return new CellContent { Items = items, Lines = lines, Height = Math.Max(y, floatBottom), AlignH = alignBottom > Math.Max(y, floatBottom) ? alignBottom : null, Shape = cellShape, KeepNext = keepNext, Paras = paras.Count > 0 ? paras : null, Nest = nest.Count > 0 ? nest : null };
     }
 
     /// <summary>molduras do cabeçalho/rodapé à direita do início da linha: entram depois das linhas do âncora</summary>
@@ -3549,8 +3552,20 @@ internal sealed class Engine
                     // caixa de um GRUPO: o texto com escala horizontal (w:w) sai como curvas, o
                     // resto como texto (oráculo txbxscale)
                     bool raster = rot % 90 != 0;
+                    // figura (imagem, EMF/WMF com o recorte dela) INTEIRA fora da caixa: o Word não a
+                    // desenha — nem o texto do EMF; o texto que transborda sai (oráculo tbover)
+                    bool Outside(double rx, double ry, double rw, double rh) => ry >= y + h || ry + rh <= y || rx >= x + w || rx + rw <= x;
+                    int skip = 0;
                     foreach (var it in tbContent.Items)
                     {
+                        if (skip > 0)
+                        {
+                            if (it is ClipItem ck) skip += ck.Op == "push" ? 1 : -1;
+                            continue;
+                        }
+                        if (it is ClipItem cp && cp.Op == "push" && cp.Y is { } cy && cp.W is { } cw && cp.H is { } chh
+                            && Outside((cp.X ?? 0) + x + ins.L, cy + dy, cw, chh)) { skip = 1; continue; }
+                        if (it is ImageItem im && Outside(im.X + x + ins.L, im.Y + dy, im.W, im.H)) continue;
                         var s2 = TableEngine.ShiftItem(it, dy, x + ins.L);
                         bool curves = raster || (inGroup && s2 is GlyphRunItem gs2 && gs2.ScaleX is { } scx && scx != 1);
                         outp.Add(curves && s2 is GlyphRunItem g2 ? AsPathCopy(g2) : s2);
