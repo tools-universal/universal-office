@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Porta do @universal-office/layout (parte de fontes): parser SFNT mínimo
        (head/hhea/hmtx/cmap/OS2/post), kerning GPOS/kern legado e o índice das
-       fontes INSTALADAS no Windows (lidas da máquina, nunca versionadas). -->
+       fontes INSTALADAS no Windows (lidas da máquina, nunca versionadas).
+       Hifenização: padrões de hyph-utf8 (licenças em Hyphen/patterns/THIRD-PARTY-NOTICES.md)
+       embutidos como recurso. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Hyphen\patterns\*.json" LogicalName="hyphen.%(Filename).json" />
+  </ItemGroup>
 </Project>

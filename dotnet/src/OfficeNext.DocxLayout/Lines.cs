@@ -169,6 +169,8 @@ public sealed class LineBreaker
     /// <summary>quebra de linha (w:br) no FIM do parágrafo: a marca de parágrafo vai
     /// para uma linha vazia própria (Word)</summary>
     private bool _trailingBreak;
+    /// <summary>linhas seguidas terminadas em hífen (w:consecutiveHyphenLimit)</summary>
+    private int _hyphenRun;
     private readonly DocContext _ctx;
     public readonly PreparedPara P;
     /// <summary>passo da grade de linhas da seção (twips) — só no corpo, se o parágrafo encaixa</summary>
@@ -187,13 +189,14 @@ public sealed class LineBreaker
     private bool CompatOn(string name) => _ctx.Fmt.Settings.Compat.TryGetValue(name, out var on) && on;
 
     /// <summary>Estado antes de uma linha (para refazê-la noutro quadro).</summary>
-    public (int Pos, int LineIdx, bool TrailingBreak) Mark() => (Pos, LineIdx, _trailingBreak);
+    public (int Pos, int LineIdx, bool TrailingBreak, int HyphenRun) Mark() => (Pos, LineIdx, _trailingBreak, _hyphenRun);
 
-    public void Reset((int Pos, int LineIdx, bool TrailingBreak) m)
+    public void Reset((int Pos, int LineIdx, bool TrailingBreak, int HyphenRun) m)
     {
         Pos = m.Pos;
         LineIdx = m.LineIdx;
         _trailingBreak = m.TrailingBreak;
+        _hyphenRun = m.HyphenRun;
     }
 
     /// <summary>largura da próxima palavra (até o 1º ponto de quebra): o vão ao lado de um
@@ -311,6 +314,11 @@ public sealed class LineBreaker
         string? gapTab = null;
         bool pastMargin = false;
         bool forced = false;
+        // hifenização da palavra que não coube: a linha acaba depois do glifo hyphAt, com o
+        // hífen (largura hyphW) — automática ou no hífen opcional (ver Hyphenate.cs)
+        int hyphAt = -1;
+        double hyphW = 0;
+        bool endedHyphen = false;
 
         void ClosePending()
         {
@@ -336,6 +344,22 @@ public sealed class LineBreaker
         for (; i < gs.Count; i++)
         {
             var g = gs[i];
+            if (hyphAt >= 0 && i > hyphAt)
+            {
+                var kg = gs[hyphAt];
+                if (kg.Kind == GlyphKind.Shy) placed[^1].W = hyphW;
+                else
+                {
+                    var hg = kg.Clone();
+                    hg.Kind = GlyphKind.Shy; hg.Ch = ""; hg.Cp = 0xad; hg.Adv = 0; hg.Hyph = false; hg.AutoHyphen = true; hg.Offset = kg.Offset + kg.Ch.Length;
+                    placed.Add(new PlacedGlyph { G = hg, X = x, W = hyphW });
+                }
+                contentEnd = x + hyphW;
+                // só o hífen automático conta para w:consecutiveHyphenLimit (oráculo hyphshy)
+                endedHyphen = kg.Kind != GlyphKind.Shy;
+                pendTab = null;
+                break;
+            }
             if (g.Kind is GlyphKind.Lb or GlyphKind.Pb or GlyphKind.Cb)
             {
                 ClosePending();
@@ -434,7 +458,9 @@ public sealed class LineBreaker
                     var q = gs[e];
                     if (q.Kind is GlyphKind.Space or GlyphKind.Tab or GlyphKind.Lb or GlyphKind.Pb or GlyphKind.Cb) break;
                     if (q.Kind == GlyphKind.Obj && q.Adv == 0) continue;
-                    wordW += q.Kind == GlyphKind.Shy ? 0 : q.Adv;
+                    // hífen opcional: ponto de hifenização DENTRO da palavra (oráculo hyphshy)
+                    if (q.Kind == GlyphKind.Shy) continue;
+                    wordW += q.Adv;
                     if (q.BreakAfter && q.Kind != GlyphKind.Char) break;
                     if (q.BreakAfter) { e++; break; }
                 }
@@ -478,6 +504,17 @@ public sealed class LineBreaker
                 // acaba nela — a seguinte desce, mesmo que coubesse comprimindo mais (oráculo fejust)
                 if (squeezed && i > start) wordOk = false;
                 else if (wordOk && over > FitEps) squeezed = true;
+                // não coube inteira: hifenizar (pontos automáticos e hífens opcionais), se o Word
+                // hifenizaria — senão ela desce (ou, abrindo a linha, quebra por caractere)
+                else if (!wordOk && pendTab is null && !pastMargin)
+                {
+                    var ch = Hyphenate.ChooseHyphenation(_ctx, gs, new HyphenUnit
+                    {
+                        I = i, E = e, X = x, Right = right, LineStart = lastBreak < start, ContentEnd = xStart + widthAtBreak,
+                        Justify = p.Jc == "both" || p.Jc == "distribute", SpacesW = spacesW, RestW = unitSpacesW - unitGapSp, NSpaces = nSpaces, HyphenRun = _hyphenRun,
+                    });
+                    if (ch is { } hc) { hyphAt = hc.K; hyphW = hc.W; wordOk = true; }
+                }
                 if (_ctx.Opts.OnWordFit is { } onWordFit && over > -2000)
                 {
                     onWordFit(new WordFitInfo
@@ -507,31 +544,17 @@ public sealed class LineBreaker
                     int keep = lastBreak + 1;
                     while (placed.Count > 0 && !ReferenceEquals(placed[^1].G, gs[lastBreak])) placed.RemoveAt(placed.Count - 1);
                     i = keep;
-                    // hífen opcional no ponto de quebra vira hífen visível
-                    var brk = gs[lastBreak];
-                    if (brk.Kind == GlyphKind.Shy)
-                    {
-                        var last = placed[^1];
-                        last.W = Para.AdvanceTwips(_ctx, brk.Face, 0x2d, brk.SizePt);
-                        contentEnd = last.X + last.W;
-                        widthAtBreak = contentEnd - xStart;
-                    }
-                    else
-                    {
-                        contentEnd = xStart + widthAtBreak;
-                    }
+                    contentEnd = xStart + widthAtBreak;
                     pendTab = null;
                     break;
                 }
                 // palavra maior que a linha: quebra por caractere (o glifo atual desce)
                 break;
             }
+            // hífen opcional: só vira quebra (com hífen) pela hifenização acima
             if (g.Kind == GlyphKind.Shy)
             {
                 placed.Add(new PlacedGlyph { G = g, X = x, W = 0 });
-                prevWasGap = true;
-                lastBreak = i;
-                widthAtBreak = contentEnd - xStart;
                 continue;
             }
             placed.Add(new PlacedGlyph { G = g, X = x, W = g.Adv });
@@ -570,6 +593,7 @@ public sealed class LineBreaker
         }
         Pos = Math.Min(gs.Count, i);
         if (Pos == start && start < gs.Count) Pos = start + 1; // garante progresso
+        _hyphenRun = endedHyphen ? _hyphenRun + 1 : 0;
         // quebra de linha ou de COLUNA no fim do parágrafo: a marca vai para uma linha própria
         // (na coluna/página seguinte — oráculo colbreak); a de página não (pbfit)
         // (de página também, com splitPgBreakAndParaMark nos modos ≤ 14 — oráculo pbmark)

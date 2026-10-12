@@ -27,6 +27,11 @@ public sealed class LayoutOptions
     public DateTime? Now;
     /// <summary>diagnóstico (laboratório): cada decisão "a palavra cabe na linha?"</summary>
     public Action<WordFitInfo>? OnWordFit;
+    /// <summary>hifenização automática (w:autoHyphenation) — padrão: ligada</summary>
+    public bool? Hyphenation;
+    /// <summary>só hifeniza estes idiomas (etiquetas BCP 47 ou prefixos: "pt-BR", "en"…): o Word
+    /// só hifeniza os idiomas com revisores instalados — padrão: todos com padrões</summary>
+    public List<string>? HyphenationLanguages;
 }
 
 /// <summary>Dados de uma decisão de quebra (twips): para medir a regra do Word no corpus.</summary>
@@ -61,6 +66,8 @@ public sealed class ResolvedLayoutOptions
     public string Lang = "pt-BR";
     public DateTime Now = DateTime.Now;
     public Action<WordFitInfo>? OnWordFit;
+    public bool Hyphenation = true;
+    public List<string>? HyphenationLanguages;
 }
 
 /// <summary>Estado compartilhado de um layout de documento.</summary>
@@ -98,6 +105,8 @@ public sealed class DocContext
             Lang = opts.Lang ?? "pt-BR",
             Now = opts.Now ?? DateTime.Now,
             OnWordFit = opts.OnWordFit,
+            Hyphenation = opts.Hyphenation ?? true,
+            HyphenationLanguages = opts.HyphenationLanguages,
         };
         Numbering = new NumberingState(fmt.Numbering, fmt.Styles.Styles, Opts.Lang);
     }

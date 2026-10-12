@@ -97,6 +97,12 @@ public sealed class Glyph
     public bool Hang;
     /// <summary>fração de equação (m:f) diagramada — o glifo é a caixa inteira (Math.cs)</summary>
     public MathBox? MathBox;
+    /// <summary>hifenização automática: pode quebrar com hífen DEPOIS deste glifo (Hyphenate.cs)</summary>
+    public bool Hyph;
+    /// <summary>hífen que a hifenização automática acrescentou no fim da linha (não é do texto)</summary>
+    public bool AutoHyphen;
+
+    public Glyph Clone() => (Glyph)MemberwiseClone();
 }
 
 public sealed class ParaMarker
@@ -1098,6 +1104,9 @@ public static class Para
                 else if (g.Kind == GlyphKind.Char && ppr.OverflowPunct != false && IsCjkLang(g.Style.Rpr) && g.Ch.Length > 0 && HangPunct(g.Style.Rpr, altKinsoku).Contains(g.Ch, StringComparison.Ordinal)) g.Hang = true;
             }
         }
+
+        // hifenização automática (w:autoHyphenation): pontos de quebra nas palavras
+        Hyphenate.MarkHyphenation(ctx, ppr, glyphs, mathRuns);
 
         // marcador de numeração
         ParaMarker? marker = null;

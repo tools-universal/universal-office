@@ -1924,7 +1924,8 @@ internal sealed class Engine
                 var gw0 = p.Glyphs[line.End - 1];
                 var gw1 = p.Glyphs[line.End];
                 static bool IsWord(Glyph g) => g.Kind == GlyphKind.Char && !JsWsRe.IsMatch(g.Ch);
-                if (narrowed && IsWord(gw0) && !gw0.BreakAfter && IsWord(gw1))
+                // (linha que acabou num ponto de hifenização não foi partida por caractere)
+                if (narrowed && IsWord(gw0) && !gw0.BreakAfter && IsWord(gw1) && !(line.Placed.Count > 0 && line.Placed[^1].G.AutoHyphen))
                 {
                     double lineHw = Math.Max(MarkLineH(p), line.Height);
                     double below = double.PositiveInfinity;
@@ -3692,7 +3693,7 @@ internal sealed class Engine
         // posição de cada caractere (offset no parágrafo → x absoluto e largura): o
         // editor mapeia cursor/seleção/clique por aqui
         var chars = line.Placed
-            .Where(pg => pg.G.Kind != GlyphKind.Pb && pg.G.Kind != GlyphKind.Cb)
+            .Where(pg => pg.G.Kind != GlyphKind.Pb && pg.G.Kind != GlyphKind.Cb && !pg.G.AutoHyphen)
             .Select(pg => new LineChar(pg.G.Offset, frameX + pg.X, pg.W)).ToList();
         return new LaidOutLine
         {
