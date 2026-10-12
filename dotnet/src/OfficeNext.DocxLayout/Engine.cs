@@ -156,6 +156,8 @@ internal sealed class FloatBox
     /// <summary>wrapText: lado(s) por onde o texto passa (bothSides | left | right | largest)</summary>
     public string? Side;
     public double DistL, DistR, DistT, DistB;
+    /// <summary>do cabeçalho/rodapé nos modos ≤ 14: só o texto do CORPO o contorna (oráculo hff14wrap)</summary>
+    public bool BodyOnly;
 }
 
 /// <summary>Objeto flutuante com sua ordem z (wp:anchor relativeHeight / VML z-index).</summary>
@@ -180,8 +182,6 @@ internal sealed class PageState
     public List<ZObj> HfBehind = new();
     public List<ZObj> HfFront = new();
     public List<FloatBox> Floats = new();
-    /// <summary>flutuantes do cabeçalho/rodapé nos modos ≤ 14: não afastam texto, só tabelas (oráculo tblfloat)</summary>
-    public List<FloatBox>? TblFloats;
     /// <summary>índice da página dentro da seção (0 = primeira)</summary>
     public int SectPage;
     /// <summary>notas de rodapé desta página (ids, na ordem) e o conteúdo já diagramado</summary>
@@ -1217,7 +1217,7 @@ internal sealed class Engine
                     for (int k = 0; k < 8; k++)
                     {
                         double yy = yOrigin + y;
-                        var hit = ps!.Floats.FirstOrDefault(fl => (fl.Wrap == "topAndBottom" || fl.Wrap == "square" || fl.Wrap == "tight" || fl.Wrap == "through")
+                        var hit = ps!.Floats.FirstOrDefault(fl => !fl.BodyOnly && (fl.Wrap == "topAndBottom" || fl.Wrap == "square" || fl.Wrap == "tight" || fl.Wrap == "through")
                             && yy + h0 > fl.Y - fl.DistT && yy < fl.Y + fl.H + fl.DistB
                             && t.X + t.Width > fl.X - fl.DistL && t.X < fl.X + fl.W + fl.DistR);
                         if (hit is null) break;
@@ -1765,6 +1765,14 @@ internal sealed class Engine
         double yPre = _y;
         double gapIn = !_atTop || _firstInDoc || keepAfter is not null ? gap : 0;
         _y += gapIn;
+        // topo da página sob flutuante do cabeçalho/rodapé dos modos ≤ 14: o parágrafo desce
+        // para baixo dele a partir do SEU topo (antes do "antes") e o "antes" vale lá (oráculo hff14wrap)
+        if (_atTop && gapIn > 0 && _cur.Floats.Any(f => f.BodyOnly))
+        {
+            var fr = ColFrame();
+            var f0 = WrapFrame(new LineFrame(p.IndLeft, fr.W - p.IndRight), fr.X, yPre, gapIn + MarkLineH(p));
+            if (f0.SkipTo is { } st0 && st0 > yPre) _y = Math.Max(_y, st0 + gapIn);
+        }
         // topo do parágrafo para objetos relativos a ele: o fim do "depois" do anterior
         double? paraRef = yPre + Math.Min(prevAfter, gapIn);
         double selfGap = gapIn - Math.Min(prevAfter, gapIn);
@@ -2058,7 +2066,11 @@ internal sealed class Engine
             if (pageChanged)
             {
                 // a linha foi quebrada no quadro da página anterior (contorno de objetos): refaz no da nova
+                double yTop = _y;
                 var nf = FrameHere();
+                // 1ª linha empurrada para baixo de um flutuante no topo da página nova: o "antes"
+                // vale lá, como na mesma página (oráculo hff14wrap)
+                if (first && fragHasFirst && frag.Count == 0 && pushGap > 0 && _y > yTop + 0.01) { _y += pushGap; nf = FrameHere(); }
                 if (nf.Left != frame.Left || nf.Right != frame.Right || nf.Segs is not null || frame.Segs is not null)
                 {
                     br.Reset(mark);
@@ -2737,7 +2749,6 @@ internal sealed class Engine
         Behind = new List<ZObj>(), Hf = new List<PageItem>(), Body = new List<PageItem>(), Front = new List<ZObj>(),
         HfBehind = new List<ZObj>(), HfFront = new List<ZObj>(), Floats = new List<FloatBox>(ps.Floats),
         SectPage = ps.SectPage, Notes = new List<(double Id, CellContent Content)>(), NoteArea = ps.NoteArea, BodyBottomBase = ps.BodyBottomBase,
-        TblFloats = ps.TblFloats is not null ? new List<FloatBox>(ps.TblFloats) : null,
     };
 
     /// <summary>O quadro <paramref name="a"/> aperta a linha mais que <paramref name="b"/> (lados ou vãos ao redor de flutuantes)?</summary>
@@ -2768,7 +2779,7 @@ internal sealed class Engine
     /// (o conteúdo da tabela não passa dele nesta página); sem nenhum, o pé do corpo.</summary>
     private double FloatFloor(double x, double w, double y)
     {
-        var fls = _cur.TblFloats is not null ? _cur.Floats.Concat(_cur.TblFloats).ToList() : _cur.Floats;
+        var fls = _cur.Floats;
         double floor = _cur.BodyBottom;
         foreach (var f in fls)
         {
@@ -2782,7 +2793,7 @@ internal sealed class Engine
     /// <summary>Topo livre para uma faixa [x, x+w] × [y, y+h] que não contorna flutuantes (linha de tabela).</summary>
     private double BelowFloats(double x, double w, double y, double h)
     {
-        var fls = _cur.TblFloats is not null ? _cur.Floats.Concat(_cur.TblFloats).ToList() : _cur.Floats;
+        var fls = _cur.Floats;
         for (int k = 0; k < 8; k++)
         {
             var hit = fls.FirstOrDefault(f => f.Wrap != "none" && y + h > f.Y - f.DistT + 0.5 && y < f.Y + f.H + f.DistB - 0.5
@@ -3124,6 +3135,7 @@ internal sealed class Engine
         foreach (var f in floats)
         {
             if (f.Wrap != "square" && f.Wrap != "tight" && f.Wrap != "through" && f.Wrap != "topAndBottom") continue;
+            if (f.BodyOnly && _inHf) continue;
             double top = f.Y - f.DistT, bottom = f.Y + f.H + f.DistB;
             // (o Word compara em twips inteiros — 0,02pt de sobreposição não desvia;
             // 1 twip (moldura com y=1, oráculo frames) e 0,15pt desviam)
@@ -3359,6 +3371,9 @@ internal sealed class Engine
                 // com quebra e relativo ao texto: não sobe além do topo do corpo; nos modos
                 // antigos (≤ 14), só além do topo da PÁGINA (oráculos toptbl/toptbl2)
                 if (!_inHf && anchor is not null && Wrapping.Contains(anchor.Wrap) && FollowsText(anchor)) y = Math.Max(y, FloatMinY(ps));
+                // no cabeçalho/rodapé dos modos ≤ 14: não sai pela borda de cima nem pela esquerda da
+                // PÁGINA (oráculo hff14wrap)
+                else if (_inHf && _ctx.Fmt.Settings.CompatibilityMode < 15 && anchor is not null && Wrapping.Contains(anchor.Wrap) && FollowsText(anchor)) { y = Math.Max(y, 0); x = Math.Max(x, 0); }
             }
         }
         // itens desenhados em coordenadas absolutas da página; o fluxo do chamador
@@ -3375,6 +3390,9 @@ internal sealed class Engine
             var (hx, hw) = hFrom is "rightMargin" or "outsideMargin" ? (colX + colW, cm.R) : hFrom is "leftMargin" or "insideMargin" ? (colX - cm.L, cm.L) : (colX, colW);
             x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, hx, hw, w, null, g.PageW, anchor?.EffectExtent?.L ?? 0, anchor?.EffectExtent?.R ?? 0);
             y = AlignPos(anchor?.PosV.Align, anchor?.PosV.Offset, vFrom == "paragraph" ? paraRef ?? paraTop : vFrom == "line" ? paraTop : yOrigin, 0, h, null, g.PageH, anchor?.EffectExtent?.T ?? 0, anchor?.EffectExtent?.B ?? 0);
+            // com quebra e relativo ao texto: não sobe acima do topo da área de texto da célula
+            // (deslocamento negativo além dele vira 0 — oráculo cellpic)
+            if (anchor is not null && Wrapping.Contains(anchor.Wrap) && (vFrom == "paragraph" || vFrom == "line")) y = Math.Max(y, yOrigin);
             if (tbFinal is not null) { double fx0 = x, fy0 = y; tbContent = _ctx.Pure(() => tbFinal(fx0, fy0)); }
             var cellItems = PaintObject(run, x, y, w, h, tbContent, ps);
             if (behind) flowItems.InsertRange(0, cellItems); else flowItems.AddRange(cellItems);
@@ -3415,8 +3433,9 @@ internal sealed class Engine
         var zobj = new ZObj { Z = anchor?.RelativeHeight ?? 0, Seq = _zSeq++, Items = frameFlow ? new List<PageItem>() : items };
         if (!frameFlow) target.Add(zobj);
         FloatBox? box = null;
-        // modo de compatibilidade ≤ 14: flutuantes do cabeçalho/rodapé não afastam texto
-        // nenhum (nem o do próprio cabeçalho, nem o do corpo) — oráculo hffloat (hff14-*)
+        // modo de compatibilidade ≤ 14: flutuantes do cabeçalho/rodapé não afastam o texto do
+        // próprio cabeçalho/rodapé (oráculo hffloat, hff14-*), mas o do corpo sim — a 1ª linha
+        // da página desce para baixo deles (oráculo hff14wrap)
         bool hfLegacy = _inHf && _ctx.Fmt.Settings.CompatibilityMode < 15;
         if (anchor is not null && Wrapping.Contains(anchor.Wrap))
         {
@@ -3425,9 +3444,9 @@ internal sealed class Engine
             double bbx = wb is not null ? x + w * wb.L : x, bby = wb is not null ? y + h * wb.T : y;
             double bbw = wb is not null ? w * (wb.R - wb.L) : w, bbh = wb is not null ? h * (wb.B - wb.T) : h;
             var fb = new FloatBox { X = bbx, Y = bby, W = bbw, H = bbh, Wrap = anchor.Wrap, Side = anchor.WrapText ?? "bothSides", DistL = anchor.DistL ?? 0, DistR = anchor.DistR ?? 0, DistT = anchor.DistT ?? 0, DistB = anchor.DistB ?? 0 };
-            // (mas as tabelas do corpo descem para baixo deles — oráculo tblfloat)
-            if (hfLegacy) (ps.TblFloats ??= new List<FloatBox>()).Add(fb);
-            else box = fb;
+            // (as tabelas do corpo também descem para baixo deles — oráculo tblfloat)
+            if (hfLegacy) fb.BodyOnly = true;
+            box = fb;
         }
         if (box is not null)
         {

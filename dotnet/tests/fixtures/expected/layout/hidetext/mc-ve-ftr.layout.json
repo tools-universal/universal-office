@@ -14,7 +14,7 @@
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1876.34,"scaleX":1,"text":"CorpodepoisHxg","g":[[67,1701],[111,1859.88],[114,1982.23],[112,2055.49],[111,2177.85],[100,2361.32],[101,2483.68],[112,2606.03],[111,2728.38],[105,2850.74],[115,2899.61],[72,3070.74],[120,3229.61],[103,3339.61]]}
       ],
       "lines": [
-        {"ref":"ftr:default/b0","start":0,"end":8,"x":1701,"y":15877.02,"height":252.98,"baseline":16083.38,"width":831.77},
+        {"ref":"ftr:default/b0","start":0,"end":8,"x":1701,"y":15877.02,"height":252.98,"baseline":16083.38,"width":770.64},
         {"ref":"b0","start":0,"end":15,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":1650.86},
         {"ref":"b1","start":0,"end":16,"x":1701,"y":1669.98,"height":252.98,"baseline":1876.34,"width":1760.97}
       ]

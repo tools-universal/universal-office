@@ -34,7 +34,7 @@ const DY_TOL: Record<string, number> = { vertalign: 0.6, notes: 0.65, fnsep: 0.6
  *  não grava no PDF: fora da página, sem preenchimento, curvas…). */
 const STRICT = new Set(['hidetext', 'emfrop', 'txbxscale']);
 /** Grupos em que a posição horizontal é o que se mede (x da 1ª letra, ±pt). */
-const DX_TOL: Record<string, number> = { tblpct: 0.6, tblw: 0.6, formtext: 0.6, spacerun: 0.6, numtabind: 0.6, tallwrap: 0.6, numstyind: 0.6, tblsp: 0.6, nowrap: 0.6, tblvert: 0.6, tblnum: 0.6, fejust: 0.6, tblpctmin: 0.6, tblindctr: 0.6, txbxctr: 0.6, txbxln: 0.6, tbinset: 0.3, ftcellmar: 0.3, omath: 0.6, tblbdmin: 0.6, sckmix: 0.6, rowjc: 0.6, wmftext: 0.6, cellwrap: 0.3, txrect: 0.3, tblmincol: 0.6, felead: 0.6, feknown: 0.6, fehangcomp: 0.6 };
+const DX_TOL: Record<string, number> = { tblpct: 0.6, tblw: 0.6, formtext: 0.6, spacerun: 0.6, numtabind: 0.6, tallwrap: 0.6, numstyind: 0.6, tblsp: 0.6, nowrap: 0.6, tblvert: 0.6, tblnum: 0.6, fejust: 0.6, tblpctmin: 0.6, tblindctr: 0.6, txbxctr: 0.6, txbxln: 0.6, tbinset: 0.3, ftcellmar: 0.3, omath: 0.6, tblbdmin: 0.6, sckmix: 0.6, rowjc: 0.6, wmftext: 0.6, cellwrap: 0.3, txrect: 0.3, tblmincol: 0.6, felead: 0.6, feknown: 0.6, fehangcomp: 0.6, glyphfb: 0.6, anctrail: 0.3 };
 
 /** Grupos em que a contagem de pontos do preenchimento de tab é comparada exata. */
 const EXACT_LEADERS = new Set(['tdhalfpx', 'tdend']);

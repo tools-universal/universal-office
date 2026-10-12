@@ -157,6 +157,24 @@ const CS = (cp: number) => (cp >= 0x0590 && cp <= 0x08ff) || (cp >= 0xfb1d && cp
 /** Fonte das equações (m:mathFont padrão do Word). */
 const MATH_FONT = 'Cambria Math';
 const FALLBACK_FAMILIES = ['Segoe UI Symbol', 'Segoe UI Emoji', 'Arial Unicode MS', 'MS Gothic', 'Cambria Math', 'Segoe UI', 'Arial'];
+/** Fonte "da classe" da fonte do run pelo PANOSE: monoespaçada (proporção 9) → Courier
+ *  New; sem serifa (serifa 11–15) → Arial; o resto (serifada, PANOSE zerado) → Times
+ *  New Roman — o Word cai nela antes da cadeia de símbolos (oráculo glyphfb). */
+function classFallback(font: { metrics: { panose?: number[] } }): string {
+  const pn = font.metrics.panose;
+  if (pn && pn[0] === 2 && pn[3] === 9) return 'Courier New';
+  if (pn && pn[0] === 2 && pn[1]! >= 11 && pn[1]! <= 15) return 'Arial';
+  return 'Times New Roman';
+}
+/** Ordem de fallback do Word para o caractere que a fonte do run não tem, por bloco
+ *  Unicode (oráculo glyphfb): setas e formas geométricas → fonte da classe, Cambria Math;
+ *  operadores matemáticos → Cambria Math; o resto (símbolos diversos, dingbats…) →
+ *  Segoe UI Symbol primeiro. */
+function fallbackOrder(cp: number, font: { metrics: { panose?: number[] } }): readonly string[] {
+  if ((cp >= 0x2190 && cp <= 0x21ff) || (cp >= 0x25a0 && cp <= 0x25ff)) return [classFallback(font), 'Cambria Math', ...FALLBACK_FAMILIES];
+  if ((cp >= 0x2200 && cp <= 0x22ff) || (cp >= 0x2980 && cp <= 0x29ff)) return ['Cambria Math', ...FALLBACK_FAMILIES];
+  return FALLBACK_FAMILIES;
+}
 
 export function resolveRunStyle(ctx: DocContext, rpr: RPr, env: ParaEnv, link?: string): RunStyle {
   const theme = ctx.fmt.theme;
@@ -229,7 +247,7 @@ function faceFor(ctx: DocContext, rpr: RPr, cp: number, style: RunStyle, symFont
     if (isSymbolFont(face.font) && face.font.glyphId(cp - 0xf000) !== 0) return face;
     return ctx.faces.get('Calibri', false, false);
   }
-  for (const fb of FALLBACK_FAMILIES) {
+  for (const fb of fallbackOrder(cp, face.font)) {
     const f = ctx.faces.get(fb, bold, italic);
     if (f.font.glyphId(cp) !== 0) return f;
   }

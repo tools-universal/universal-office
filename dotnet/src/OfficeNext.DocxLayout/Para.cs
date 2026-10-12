@@ -178,6 +178,28 @@ public static class Para
     private const string MathFont = "Cambria Math";
     private static readonly string[] FallbackFamilies = { "Segoe UI Symbol", "Segoe UI Emoji", "Arial Unicode MS", "MS Gothic", "Cambria Math", "Segoe UI", "Arial" };
 
+    /// <summary>Fonte "da classe" da fonte do run pelo PANOSE: monoespaçada (proporção 9) → Courier
+    /// New; sem serifa (serifa 11–15) → Arial; o resto (serifada, PANOSE zerado) → Times
+    /// New Roman — o Word cai nela antes da cadeia de símbolos (oráculo glyphfb).</summary>
+    private static string ClassFallback(OfficeNext.Layout.ILayoutFont font)
+    {
+        var pn = font.Metrics.Panose;
+        if (pn is not null && pn[0] == 2 && pn[3] == 9) return "Courier New";
+        if (pn is not null && pn[0] == 2 && pn[1] >= 11 && pn[1] <= 15) return "Arial";
+        return "Times New Roman";
+    }
+
+    /// <summary>Ordem de fallback do Word para o caractere que a fonte do run não tem, por bloco
+    /// Unicode (oráculo glyphfb): setas e formas geométricas → fonte da classe, Cambria Math;
+    /// operadores matemáticos → Cambria Math; o resto (símbolos diversos, dingbats…) →
+    /// Segoe UI Symbol primeiro.</summary>
+    private static IReadOnlyList<string> FallbackOrder(int cp, OfficeNext.Layout.ILayoutFont font)
+    {
+        if ((cp >= 0x2190 && cp <= 0x21ff) || (cp >= 0x25a0 && cp <= 0x25ff)) return new[] { ClassFallback(font), "Cambria Math" }.Concat(FallbackFamilies).ToList();
+        if ((cp >= 0x2200 && cp <= 0x22ff) || (cp >= 0x2980 && cp <= 0x29ff)) return new[] { "Cambria Math" }.Concat(FallbackFamilies).ToList();
+        return FallbackFamilies;
+    }
+
     public static RunStyle ResolveRunStyle(DocContext ctx, RPr rpr, ParaEnv env, string? link = null)
     {
         var theme = ctx.Fmt.Theme;
@@ -257,7 +279,7 @@ public static class Para
             if (Fonts.IsSymbolFont(face.Font) && face.Font.GlyphId(cp - 0xf000) != 0) return face;
             return ctx.Faces.Get("Calibri", false, false);
         }
-        foreach (var fb in FallbackFamilies)
+        foreach (var fb in FallbackOrder(cp, face.Font))
         {
             var f = ctx.Faces.Get(fb, bold, italic);
             if (f.Font.GlyphId(cp) != 0) return f;

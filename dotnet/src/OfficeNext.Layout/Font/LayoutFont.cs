@@ -29,6 +29,9 @@ public sealed class FontMetrics
     /// <summary>OS/2 xAvgCharWidth (largura média dos caracteres, unidades da fonte) — a
     /// compressão de espaços do layout asiático dos modos ≤ 14 (docx-layout).</summary>
     public double? XAvgCharWidth;
+    /// <summary>OS/2 PANOSE (10 bytes): família, serifa, peso, proporção… — a classe da fonte
+    /// (sem serifa / serifada / monoespaçada) escolhe a fonte de fallback do Word.</summary>
+    public int[]? Panose;
     /// <summary>post: posição (negativa = abaixo da baseline) e espessura do sublinhado.</summary>
     public double UnderlinePosition;
     public double UnderlineThickness;

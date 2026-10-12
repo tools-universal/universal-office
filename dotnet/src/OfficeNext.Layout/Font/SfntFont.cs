@@ -75,6 +75,7 @@ public sealed class SfntFont : ILayoutFont
             CodePageRange1 = os2.Length >= 86 && v.GetUint16(os2.Offset) >= 1 ? ((long)v.GetUint16(os2.Offset + 78) << 16) | v.GetUint16(os2.Offset + 80) : 0,
             YSuperscriptYOffset = os2.Length >= 26 ? v.GetInt16(os2.Offset + 24) : null,
             XAvgCharWidth = os2.Length >= 4 ? v.GetInt16(os2.Offset + 2) : null,
+            Panose = os2.Length >= 42 ? Enumerable.Range(0, 10).Select(i => (int)v.GetUint8(os2.Offset + 32 + i)).ToArray() : null,
             UnderlinePosition = 0,
             UnderlineThickness = 0,
         };

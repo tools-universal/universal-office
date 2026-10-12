@@ -782,6 +782,8 @@ public static class TableEngine
         public int StartRow;
         public string? Vertical;
         public double MarL, MarR;
+        /// <summary>margens de cima/baixo efetivas (as da linha onde a mescla começa — oráculo cellpic)</summary>
+        public double MarT, MarB;
         public CellEnv Env = null!;
     }
 
@@ -1173,14 +1175,14 @@ public static class TableEngine
                     if (vertical is not null)
                     {
                         // texto vertical: diagramado depois que a altura das outras células é conhecida
-                        if (s.RowSpan != 1) pendingMerges.Add(new PendingMerge { Slot = s, Content = null, TcPr = rs.TcPr, X0 = x0, X1 = x1, StartRow = ri, Vertical = vertical, MarL = marL, MarR = marR, Env = env });
+                        if (s.RowSpan != 1) pendingMerges.Add(new PendingMerge { Slot = s, Content = null, TcPr = rs.TcPr, X0 = x0, X1 = x1, StartRow = ri, Vertical = vertical, MarL = marL, MarR = marR, MarT = marT, MarB = marB, Env = env });
                     }
                     else
                     {
                         var content = layoutCell(s.Cell, x + x0 + marL, Math.Max(1, x1 - x0 - marL - marR), new CellEnv { TablePPr = env.TablePPr, TableRPr = env.TableRPr, DarkBackground = env.DarkBackground, CellMar = (marL, marR) }, $"{reference}/r{ri}/c{s.Col}");
                         info.Content = content;
                         if (s.RowSpan == 1) contentH = Math.Max(contentH, content.Height + marT + marB);
-                        else pendingMerges.Add(new PendingMerge { Slot = s, Content = content, TcPr = rs.TcPr, X0 = x0, X1 = x1, StartRow = ri, MarL = marL, MarR = marR, Env = env });
+                        else pendingMerges.Add(new PendingMerge { Slot = s, Content = content, TcPr = rs.TcPr, X0 = x0, X1 = x1, StartRow = ri, MarL = marL, MarR = marR, MarT = marT, MarB = marB, Env = env });
                     }
                 }
                 cellInfos.Add(info);
@@ -1195,6 +1197,9 @@ public static class TableEngine
                 ci.MarB = rowMarB;
                 if (ci.Content is not null && !ci.Slot.Merged && ci.Slot.RowSpan == 1 && ci.Vertical is null) contentH = Math.Max(contentH, ci.Content.Height + rowMarT + rowMarB);
             }
+            // mesclas que começam nesta linha: as margens de cima/baixo efetivas (da tabela ou
+            // da célula, a maior da linha) — antes só as da célula (tcMar) contavam (oráculo cellpic)
+            foreach (var m in pendingMerges) if (m.StartRow == ri) { m.MarT = rowMarT; m.MarB = rowMarB; }
             var th = row.TrPr?.TrHeight;
             // altura mínima × margens da célula (oráculo tcell): a mínima vale para o TEXTO
             // e as margens de cima/baixo somam por fora — max(trHeight, texto) + mT + mB; na
@@ -1245,7 +1250,7 @@ public static class TableEngine
                 if (th?.HRule == "exact") break;
                 if (m.StartRow + m.Slot.RowSpan - 1 != ri || m.Content is null) continue;
                 double spanned = rowHeights.Skip(m.StartRow).Aggregate(0.0, (a, b) => a + b) - BandTopOf(m.StartRow) + bandTop + h;
-                double need = m.Content.Height + (WidthTw(m.TcPr.TcMar?.Top, width) ?? 0) + (WidthTw(m.TcPr.TcMar?.Bottom, width) ?? 0);
+                double need = m.Content.Height + m.MarT + m.MarB;
                 if (need > spanned) h += need - spanned;
             }
             rowHeights.Add(bandTop + h + bandBottom);
@@ -1440,8 +1445,7 @@ public static class TableEngine
                 first.Items.Insert(0, new RectItem { X = x + m.X0, Y = 0, W = m.X1 - m.X0, H = h, Fill = fill });
                 foreach (var a in first.MergeAt ?? new List<MergeAtInfo>()) a.At++;
             }
-            double marT = WidthTw(m.TcPr.TcMar?.Top, width) ?? 0;
-            double marB = WidthTw(m.TcPr.TcMar?.Bottom, width) ?? 0;
+            double marT = m.MarT, marB = m.MarB;
             // topo da célula mesclada no sistema de coordenadas da linha-alvo
             int sliceEnd = Math.Min(endRow, rows.Count - 1);
             double top = BandTopOf(m.StartRow) - rowHeights.Skip(m.StartRow).Take(Math.Max(0, sliceEnd - m.StartRow)).Aggregate(0.0, (a, b) => a + b);

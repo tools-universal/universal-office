@@ -31,6 +31,9 @@ export interface FontMetrics {
   /** OS/2 xAvgCharWidth (largura média dos caracteres, unidades da fonte) — a
    *  compressão de espaços do layout asiático dos modos ≤ 14 (docx-layout). */
   xAvgCharWidth?: number;
+  /** OS/2 PANOSE (10 bytes): família, serifa, peso, proporção… — a classe da fonte
+   *  (sem serifa / serifada / monoespaçada) escolhe a fonte de fallback do Word. */
+  panose?: number[];
   /** post: posição (negativa = abaixo da baseline) e espessura do sublinhado. */
   underlinePosition: number;
   underlineThickness: number;
@@ -89,6 +92,7 @@ export class SfntFont implements LayoutFont {
       ...(os2.length >= 86 && v.getUint16(os2.offset) >= 1 ? { codePageRange1: v.getUint32(os2.offset + 78) } : {}),
       ...(os2.length >= 26 ? { ySuperscriptYOffset: v.getInt16(os2.offset + 24) } : {}),
       ...(os2.length >= 4 ? { xAvgCharWidth: v.getInt16(os2.offset + 2) } : {}),
+      ...(os2.length >= 42 ? { panose: Array.from({ length: 10 }, (_, i) => v.getUint8(os2.offset + 32 + i)) } : {}),
       underlinePosition: 0,
       underlineThickness: 0,
     };

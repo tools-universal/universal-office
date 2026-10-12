@@ -217,13 +217,6 @@ public sealed class LineBreaker
         return w + (LineIdx == 0 ? Math.Max(0, P.FirstLine) : 0);
     }
 
-    /// <summary>gs.slice(i + 1).some(q => q.kind in char/obj/nbsp/box)</summary>
-    private static bool HasContentAfter(List<Glyph> gs, int i)
-    {
-        for (int k = i + 1; k < gs.Count; k++)
-            if (gs[k].Kind is GlyphKind.Char or GlyphKind.Obj or GlyphKind.Nbsp or GlyphKind.Box) return true;
-        return false;
-    }
 
     private sealed class PendTab
     {
@@ -382,7 +375,15 @@ public sealed class LineBreaker
                 placed.Add(new PlacedGlyph { G = g, X = x, W = 0 });
                 i++;
                 forced = true;
-                if (g.Kind == GlyphKind.Pb) breakAfter = "page";
+                if (g.Kind == GlyphKind.Pb)
+                {
+                    breakAfter = "page";
+                    // depois da quebra de página, só âncoras de flutuantes até o fim do parágrafo: ficam
+                    // nesta linha e a marca não abre linha na página seguinte (oráculo pbanc)
+                    int j = i;
+                    while (j < gs.Count && gs[j].Kind == GlyphKind.Obj && gs[j].Adv == 0 && gs[j].Hr is null) j++;
+                    if (j > i && j >= gs.Count) for (; i < j; i++) placed.Add(new PlacedGlyph { G = gs[i], X = x, W = 0 });
+                }
                 else if (g.Kind == GlyphKind.Cb) breakAfter = "column";
                 else if (g.Clear) clearAfter = true;
                 break;
@@ -442,9 +443,10 @@ public sealed class LineBreaker
                 // recomeça na linha seguinte (na 1ª parada dela) — oráculo tabs
                 // (modo ≤ 14 com paradas custom: o tab segue além da margem pela grade padrão)
                 bool legacyNoWrap = _ctx.Fmt.Settings.CompatibilityMode < 15 && p.Tabs.Any(t => t.Val != "bar" && t.Val != "clear");
-                // (tab sem conteúdo depois, no fim do parágrafo: pendura como espaço)
+                // tab PADRÃO cuja parada passa da margem direita (fora do início da linha): quebra antes
+                // dele, venha ou não conteúdo depois — também no fim do parágrafo (oráculo tabwrap)
                 // (parada CUSTOM além da margem vale — sumários com tab direito na margem)
-                if (g.Ptab is null && tab is null && !legacyNoWrap && pos > right + 0.5 && i > start && HasContentAfter(gs, i)) break;
+                if (g.Ptab is null && tab is null && !legacyNoWrap && pos > right + 0.5 && i > start) break;
                 // modo antigo: depois de um tab além da margem o resto da linha não quebra (oráculo tabs c14)
                 if (legacyNoWrap && pos > right + 0.5) pastMargin = true;
                 var pg = new PlacedGlyph { G = g, X = x, W = 0, Leader = Js.Truthy(tab?.Leader) && tab!.Leader != "none" ? tab.Leader : null };
@@ -606,11 +608,13 @@ public sealed class LineBreaker
             }
         }
         ClosePending();
-        // espaços/tabs finais penduram: largura = até o último não-branco
+        // espaços/tabs finais penduram: largura = até o último não-branco (a âncora de objeto
+        // flutuante depois dos espaços não os segura — oráculo anctrail)
         double lineWidth = 0;
         for (int k = 0; k < placed.Count; k++)
         {
             var pg = placed[k];
+            if (pg.G.Kind == GlyphKind.Obj && pg.G.Adv == 0) continue;
             if (pg.G.Kind != GlyphKind.Space && pg.G.Kind != GlyphKind.Lb && pg.G.Kind != GlyphKind.Pb && pg.G.Kind != GlyphKind.Cb)
             {
                 lineWidth = Lines.JsMax2(lineWidth, pg.X + pg.W - xStart);
@@ -622,7 +626,10 @@ public sealed class LineBreaker
         // quebra de linha ou de COLUNA no fim do parágrafo: a marca vai para uma linha própria
         // (na coluna/página seguinte — oráculo colbreak); a de página não (pbfit)
         // (de página também, com splitPgBreakAndParaMark nos modos ≤ 14 — oráculo pbmark)
-        GlyphKind? lk = placed.Count > 0 ? placed[^1].G.Kind : null;
+        // (âncoras depois da quebra no fim do parágrafo não contam — oráculo pbanc)
+        int lkI = placed.Count - 1;
+        while (lkI > 0 && placed[lkI].G.Kind == GlyphKind.Obj && placed[lkI].G.Adv == 0 && placed[lkI].G.Hr is null) lkI--;
+        GlyphKind? lk = lkI >= 0 && placed[lkI].G.Kind == GlyphKind.Pb ? GlyphKind.Pb : placed.Count > 0 ? placed[^1].G.Kind : null;
         bool splitPg = _ctx.Fmt.Settings.CompatibilityMode < 15 && CompatOn("splitPgBreakAndParaMark");
         _trailingBreak = forced && Pos >= gs.Count && (lk is GlyphKind.Lb or GlyphKind.Cb || (lk == GlyphKind.Pb && splitPg));
         bool lastLine = Pos >= gs.Count && !_trailingBreak;
@@ -660,6 +667,19 @@ public sealed class LineBreaker
         // linha só com objetos em linha: no mínimo a altura da fonte do RUN do objeto (o objeto
         // baixo fica no pé dela) — oráculo imgsmall; o objeto alto define a linha (imgbr)
         if (tAsc + tDesc == 0 && oAsc > 0) asc = Lines.JsMax2(asc, oAsc + oDesc - desc);
+        // traço horizontal (o:hr), sozinho na linha: a altura é a da fonte do RUN do traço (a
+        // marca de parágrafo não conta) e o traço é um objeto de altura h + 5 pt no pé dela —
+        // a entrelinha múltipla soma (fator − 1) × a altura dessa fonte (oráculo hrfont)
+        foreach (var pg in placed)
+        {
+            if (pg.G.Hr is not { } hr) continue;
+            var om = Fonts.FaceMetrics(pg.G.Face.Font);
+            double fa = om.Ascent * pg.G.SizePt * 20, fd = om.Descent * pg.G.SizePt * 20;
+            tAsc = Lines.JsMax2(tAsc, fa);
+            tDesc = Lines.JsMax2(tDesc, fd);
+            desc = Lines.JsMax2(desc, fd);
+            asc = Lines.JsMax2(Lines.JsMax2(asc, fa), hr + 100 - desc);
+        }
         bool emptyLine = asc == 0 && desc == 0;
         if (emptyLine)
         {
@@ -689,9 +709,6 @@ public sealed class LineBreaker
         // entrelinha múltipla seguem o texto) — oráculo markers
         if (markerPlaced is not null) foreach (var pg in markerPlaced) asc = Lines.JsMax2(asc, pg.G.Asc);
         var box = Lines.LineBox(asc, desc, p, tAsc + tDesc > 0 ? tAsc + tDesc : null, _grid);
-        // linha do traço horizontal: a da marca ou o traço + 6 pt, a maior (oráculo vmlhr)
-        double hrH = placed.Aggregate(-1.0, (m, pg) => Math.Max(m, pg.G.Hr ?? -1));
-        if (hrH >= 0 && hrH + 120 > box.Height) { box.Baseline += hrH + 120 - box.Height; box.Height = hrH + 120; }
 
         // alinhamento/justificação
         double availW = right - xStart;

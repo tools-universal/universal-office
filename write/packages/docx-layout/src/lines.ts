@@ -302,8 +302,14 @@ export class LineBreaker {
         placed.push({ g, x, w: 0 });
         i++;
         forced = true;
-        if (g.kind === 'pb') breakAfter = 'page';
-        else if (g.kind === 'cb') breakAfter = 'column';
+        if (g.kind === 'pb') {
+          breakAfter = 'page';
+          // depois da quebra de página, só âncoras de flutuantes até o fim do parágrafo: ficam
+          // nesta linha e a marca não abre linha na página seguinte (oráculo pbanc)
+          let j = i;
+          while (j < gs.length && gs[j]!.kind === 'obj' && gs[j]!.adv === 0 && gs[j]!.hr === undefined) j++;
+          if (j > i && j >= gs.length) for (; i < j; i++) placed.push({ g: gs[i]!, x, w: 0 });
+        } else if (g.kind === 'cb') breakAfter = 'column';
         else if (g.clear) clearAfter = true;
         break;
       }
@@ -350,9 +356,10 @@ export class LineBreaker {
         // recomeça na linha seguinte (na 1ª parada dela) — oráculo tabs
         // (modo ≤ 14 com paradas custom: o tab segue além da margem pela grade padrão)
         const legacyNoWrap = this.ctx.fmt.settings.compatibilityMode < 15 && p.tabs.some((t) => t.val !== 'bar' && t.val !== 'clear');
-        // (tab sem conteúdo depois, no fim do parágrafo: pendura como espaço)
+        // tab PADRÃO cuja parada passa da margem direita (fora do início da linha): quebra antes
+        // dele, venha ou não conteúdo depois — também no fim do parágrafo (oráculo tabwrap)
         // (parada CUSTOM além da margem vale — sumários com tab direito na margem)
-        if (!g.ptab && !tab && !legacyNoWrap && pos > right + 0.5 && i > start && gs.slice(i + 1).some((q) => q.kind === 'char' || q.kind === 'obj' || q.kind === 'nbsp' || q.kind === 'box')) break;
+        if (!g.ptab && !tab && !legacyNoWrap && pos > right + 0.5 && i > start) break;
         // modo antigo: depois de um tab além da margem o resto da linha não quebra (oráculo tabs c14)
         if (legacyNoWrap && pos > right + 0.5) pastMargin = true;
         const pg: PlacedGlyph = { g, x, w: 0, ...(tab?.leader && tab.leader !== 'none' ? { leader: tab.leader } : {}) };
@@ -491,9 +498,11 @@ export class LineBreaker {
       }
     }
     closePending();
-    // espaços/tabs finais penduram: largura = até o último não-branco
+    // espaços/tabs finais penduram: largura = até o último não-branco (a âncora de objeto
+    // flutuante depois dos espaços não os segura — oráculo anctrail)
     let width = 0;
     for (const pg of placed) {
+      if (pg.g.kind === 'obj' && pg.g.adv === 0) continue;
       if (pg.g.kind !== 'space' && pg.g.kind !== 'lb' && pg.g.kind !== 'pb' && pg.g.kind !== 'cb') {
         width = Math.max(width, pg.x + pg.w - xStart);
       }
@@ -504,7 +513,10 @@ export class LineBreaker {
     // quebra de linha ou de COLUNA no fim do parágrafo: a marca vai para uma linha própria
     // (na coluna/página seguinte — oráculo colbreak); a de página não (pbfit)
     // (de página também, com splitPgBreakAndParaMark nos modos ≤ 14 — oráculo pbmark)
-    const lk = placed[placed.length - 1]?.g.kind;
+    // (âncoras depois da quebra no fim do parágrafo não contam — oráculo pbanc)
+    let lkI = placed.length - 1;
+    while (lkI > 0 && placed[lkI]!.g.kind === 'obj' && placed[lkI]!.g.adv === 0 && placed[lkI]!.g.hr === undefined) lkI--;
+    const lk = placed[lkI]?.g.kind === 'pb' ? 'pb' : placed[placed.length - 1]?.g.kind;
     const splitPg = this.ctx.fmt.settings.compatibilityMode < 15 && !!this.ctx.fmt.settings.compat['splitPgBreakAndParaMark'];
     this.trailingBreak = forced && this.pos >= gs.length && (lk === 'lb' || lk === 'cb' || (lk === 'pb' && splitPg));
     const last = this.pos >= gs.length && !this.trailingBreak;
@@ -540,6 +552,18 @@ export class LineBreaker {
     // linha só com objetos em linha: no mínimo a altura da fonte do RUN do objeto (o objeto
     // baixo fica no pé dela) — oráculo imgsmall; o objeto alto define a linha (imgbr)
     if (tAsc + tDesc === 0 && oAsc > 0) asc = Math.max(asc, oAsc + oDesc - desc);
+    // traço horizontal (o:hr), sozinho na linha: a altura é a da fonte do RUN do traço (a
+    // marca de parágrafo não conta) e o traço é um objeto de altura h + 5 pt no pé dela —
+    // a entrelinha múltipla soma (fator − 1) × a altura dessa fonte (oráculo hrfont)
+    for (const pg of placed) {
+      if (pg.g.hr === undefined) continue;
+      const om = faceMetrics(pg.g.face.font);
+      const fa = om.ascent * pg.g.sizePt * 20, fd = om.descent * pg.g.sizePt * 20;
+      tAsc = Math.max(tAsc, fa);
+      tDesc = Math.max(tDesc, fd);
+      desc = Math.max(desc, fd);
+      asc = Math.max(asc, fa, pg.g.hr + 100 - desc);
+    }
     const emptyLine = asc === 0 && desc === 0;
     if (emptyLine) {
       // linha vazia: altura pela marca de parágrafo (deslocada por w:position — oráculo position)
@@ -566,9 +590,6 @@ export class LineBreaker {
     // entrelinha múltipla seguem o texto) — oráculo markers
     if (markerPlaced) for (const pg of markerPlaced) asc = Math.max(asc, pg.g.asc);
     const box = lineBox(asc, desc, p, tAsc + tDesc > 0 ? tAsc + tDesc : undefined, this.grid);
-    // linha do traço horizontal: a da marca ou o traço + 6 pt, a maior (oráculo vmlhr)
-    const hrH = placed.reduce((m, pg) => Math.max(m, pg.g.hr ?? -1), -1);
-    if (hrH >= 0 && hrH + 120 > box.height) { box.baseline += hrH + 120 - box.height; box.height = hrH + 120; }
 
     // alinhamento/justificação
     const avail = right - xStart;

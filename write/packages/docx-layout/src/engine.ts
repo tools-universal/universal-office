@@ -58,6 +58,8 @@ interface FloatBox {
   /** wrapText: lado(s) por onde o texto passa (bothSides | left | right | largest) */
   side?: string;
   distL: number; distR: number; distT: number; distB: number;
+  /** do cabeçalho/rodapé nos modos ≤ 14: só o texto do CORPO o contorna (oráculo hff14wrap) */
+  bodyOnly?: boolean;
 }
 
 /** espaço da linha contornando flutuantes: o vão mais largo, os vãos todos
@@ -77,8 +79,6 @@ interface PageState {
   hfBehind: ZObj[];
   hfFront: ZObj[];
   floats: FloatBox[];
-  /** flutuantes do cabeçalho/rodapé nos modos ≤ 14: não afastam texto, só tabelas (oráculo tblfloat) */
-  tblFloats?: FloatBox[];
   /** índice da página dentro da seção (0 = primeira) */
   sectPage: number;
   /** notas de rodapé desta página (ids, na ordem) e o conteúdo já diagramado */
@@ -1000,7 +1000,7 @@ class Engine {
           const h0 = t.rows.reduce((a, r) => a + r.height, 0);
           for (let k = 0; k < 8; k++) {
             const yy = yOrigin + y;
-            const hit = ps!.floats.find((fl) => (fl.wrap === 'topAndBottom' || fl.wrap === 'square' || fl.wrap === 'tight' || fl.wrap === 'through')
+            const hit = ps!.floats.find((fl) => !fl.bodyOnly && (fl.wrap === 'topAndBottom' || fl.wrap === 'square' || fl.wrap === 'tight' || fl.wrap === 'through')
               && yy + h0 > fl.y - fl.distT && yy < fl.y + fl.h + fl.distB
               && t.x + t.width > fl.x - fl.distL && t.x < fl.x + fl.w + fl.distR);
             if (!hit) break;
@@ -1391,6 +1391,13 @@ class Engine {
     const yPre = this.y;
     const gapIn = !this.atTop || this.firstInDoc || keepAfter !== null ? gap : 0;
     this.y += gapIn;
+    // topo da página sob flutuante do cabeçalho/rodapé dos modos ≤ 14: o parágrafo desce
+    // para baixo dele a partir do SEU topo (antes do "antes") e o "antes" vale lá (oráculo hff14wrap)
+    if (this.atTop && gapIn > 0 && this.cur.floats.some((f) => f.bodyOnly)) {
+      const fr = this.colFrame();
+      const f0 = this.wrapFrame({ left: p.indLeft, right: fr.w - p.indRight }, fr.x, yPre, gapIn + markLineH(p));
+      if (f0.skipTo !== undefined && f0.skipTo > yPre) this.y = Math.max(this.y, f0.skipTo + gapIn);
+    }
     /** topo do parágrafo para objetos relativos a ele: o fim do "depois" do anterior */
     const paraRef: number | undefined = yPre + Math.min(prevAfter, gapIn);
     const selfGap = gapIn - Math.min(prevAfter, gapIn);
@@ -1644,7 +1651,11 @@ class Engine {
       }
       if (pageChanged) {
         // a linha foi quebrada no quadro da página anterior (contorno de objetos): refaz no da nova
-        const nf = frameHere();
+        const yTop = this.y;
+        let nf = frameHere();
+        // 1ª linha empurrada para baixo de um flutuante no topo da página nova: o "antes"
+        // vale lá, como na mesma página (oráculo hff14wrap)
+        if (first && fragHasFirst && !frag.length && pushGap > 0 && this.y > yTop + 0.01) { this.y += pushGap; nf = frameHere(); }
         if (nf.left !== frame.left || nf.right !== frame.right || nf.segs || frame.segs) {
           br.reset(mark);
           frame = nf;
@@ -2191,7 +2202,7 @@ class Engine {
   /** Topo do flutuante com quebra abaixo de `y` que cruza [x, x+w] e vai até o pé do corpo
    *  (o conteúdo da tabela não passa dele nesta página); sem nenhum, o pé do corpo. */
   private floatFloor(x: number, w: number, y: number): number {
-    const fls = this.cur.tblFloats ? [...this.cur.floats, ...this.cur.tblFloats] : this.cur.floats;
+    const fls = this.cur.floats;
     let floor = this.cur.bodyBottom;
     for (const f of fls) {
       const top = f.y - f.distT;
@@ -2203,7 +2214,7 @@ class Engine {
 
   /** Topo livre para uma faixa [x, x+w] × [y, y+h] que não contorna flutuantes (linha de tabela). */
   private belowFloats(x: number, w: number, y: number, h: number): number {
-    const fls = this.cur.tblFloats ? [...this.cur.floats, ...this.cur.tblFloats] : this.cur.floats;
+    const fls = this.cur.floats;
     for (let k = 0; k < 8; k++) {
       const hit = fls.find((f) => f.wrap !== 'none' && y + h > f.y - f.distT + 0.5 && y < f.y + f.h + f.distB - 0.5
         && x + w > f.x - f.distL && x < f.x + f.w + f.distR);
@@ -2466,6 +2477,7 @@ class Engine {
     let minBottom = Infinity;
     for (const f of floats) {
       if (f.wrap !== 'square' && f.wrap !== 'tight' && f.wrap !== 'through' && f.wrap !== 'topAndBottom') continue;
+      if (f.bodyOnly && this.inHf) continue;
       const top = f.y - f.distT, bottom = f.y + f.h + f.distB;
       // (o Word compara em twips inteiros — 0,02pt de sobreposição não desvia;
       // 1 twip (moldura com y=1, oráculo frames) e 0,15pt desviam)
@@ -2618,6 +2630,9 @@ class Engine {
         // com quebra e relativo ao texto: não sobe além do topo do corpo; nos modos
         // antigos (≤ 14), só além do topo da PÁGINA (oráculos toptbl/toptbl2)
         if (!this.inHf && anchor && WRAPPING.has(anchor.wrap) && followsText(anchor)) y = Math.max(y, this.floatMinY(ps));
+        // no cabeçalho/rodapé dos modos ≤ 14: não sai pela borda de cima nem pela esquerda da
+        // PÁGINA (oráculo hff14wrap)
+        else if (this.inHf && this.ctx.fmt.settings.compatibilityMode < 15 && anchor && WRAPPING.has(anchor.wrap) && followsText(anchor)) { y = Math.max(y, 0); x = Math.max(x, 0); }
       }
     }
     // itens desenhados em coordenadas absolutas da página; o fluxo do chamador
@@ -2633,6 +2648,9 @@ class Engine {
       const [hx, hw] = hFrom === 'rightMargin' || hFrom === 'outsideMargin' ? [colX + colW, cm.r] : hFrom === 'leftMargin' || hFrom === 'insideMargin' ? [colX - cm.l, cm.l] : [colX, colW];
       x = alignPos(anchor?.posH.align, anchor?.posH.offset, hx, hw, w, undefined, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
       y = alignPos(anchor?.posV.align, anchor?.posV.offset, vFrom === 'paragraph' ? paraRef ?? paraTop : vFrom === 'line' ? paraTop : yOrigin, 0, h, undefined, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
+      // com quebra e relativo ao texto: não sobe acima do topo da área de texto da célula
+      // (deslocamento negativo além dele vira 0 — oráculo cellpic)
+      if (anchor && WRAPPING.has(anchor.wrap) && (vFrom === 'paragraph' || vFrom === 'line')) y = Math.max(y, yOrigin);
       if (tbFinal) tbContent = this.ctx.pure(() => tbFinal!(x, y));
       const cellItems = this.paintObject(run, x, y, w, h, tbContent, ps);
       if (behind) flowItems.unshift(...cellItems); else flowItems.push(...cellItems);
@@ -2662,8 +2680,9 @@ class Engine {
     const zobj: ZObj = { z: anchor?.relativeHeight ?? 0, seq: this.zSeq++, items: frameFlow ? [] : items };
     if (!frameFlow) target.push(zobj);
     let box: FloatBox | undefined;
-    // modo de compatibilidade ≤ 14: flutuantes do cabeçalho/rodapé não afastam texto
-    // nenhum (nem o do próprio cabeçalho, nem o do corpo) — oráculo hffloat (hff14-*)
+    // modo de compatibilidade ≤ 14: flutuantes do cabeçalho/rodapé não afastam o texto do
+    // próprio cabeçalho/rodapé (oráculo hffloat, hff14-*), mas o do corpo sim — a 1ª linha
+    // da página desce para baixo deles (oráculo hff14wrap)
     const hfLegacy = this.inHf && this.ctx.fmt.settings.compatibilityMode < 15;
     if (anchor && WRAPPING.has(anchor.wrap)) {
       // justo/através: a caixa do polígono de contorno (oráculo wrappoly)
@@ -2671,9 +2690,9 @@ class Engine {
       const bx = wb ? x + w * wb.x0 : x, by = wb ? y + h * wb.y0 : y;
       const bw = wb ? w * (wb.x1 - wb.x0) : w, bh = wb ? h * (wb.y1 - wb.y0) : h;
       const fb: FloatBox = { x: bx, y: by, w: bw, h: bh, wrap: anchor.wrap, side: anchor.wrapText ?? 'bothSides', distL: anchor.distL ?? 0, distR: anchor.distR ?? 0, distT: anchor.distT ?? 0, distB: anchor.distB ?? 0 };
-      // (mas as tabelas do corpo descem para baixo deles — oráculo tblfloat)
-      if (hfLegacy) (ps.tblFloats ??= []).push(fb);
-      else box = fb;
+      // (as tabelas do corpo também descem para baixo deles — oráculo tblfloat)
+      if (hfLegacy) fb.bodyOnly = true;
+      box = fb;
     }
     if (box) {
       ps.floats.push(box);
@@ -3062,6 +3081,5 @@ function scratchPage(ps: PageState): PageState {
   return {
     ...ps, page: { ...ps.page, items: [], lines: [], objects: [] },
     behind: [], hf: [], body: [], front: [], hfBehind: [], hfFront: [], floats: [...ps.floats], notes: [],
-    ...(ps.tblFloats ? { tblFloats: [...ps.tblFloats] } : {}),
   };
 }

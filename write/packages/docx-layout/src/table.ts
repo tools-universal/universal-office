@@ -889,7 +889,7 @@ export function layoutTable(
   const sepB = (i: number) => (i <= 0 ? g0 + spTbl : i >= nCols ? gn - spTbl : colX[i]!);
 
   const rows: RowLayout[] = [];
-  const pendingMerges: { slot: CellSlot; content: CellContent | null; tcPr: TcPr; x0: number; x1: number; startRow: number; vertical?: string; marL: number; marR: number; env: { tablePPr?: PPr; tableRPr?: RPr } }[] = [];
+  const pendingMerges: { slot: CellSlot; content: CellContent | null; tcPr: TcPr; x0: number; x1: number; startRow: number; vertical?: string; marL: number; marR: number; marT: number; marB: number; env: { tablePPr?: PPr; tableRPr?: RPr } }[] = [];
   /** maior largura de linha do conteúdo (comprimento do texto vertical) */
   const maxLineW = (c: CellContent) => c.lines.reduce((m, l) => Math.max(m, l.x + l.width), 0);
   /**
@@ -938,12 +938,12 @@ export function layoutTable(
       if (!s.merged) {
         if (vertical) {
           // texto vertical: diagramado depois que a altura das outras células é conhecida
-          if (s.rowSpan !== 1) pendingMerges.push({ slot: s, content: null, tcPr, x0, x1, startRow: ri, vertical, marL, marR, env });
+          if (s.rowSpan !== 1) pendingMerges.push({ slot: s, content: null, tcPr, x0, x1, startRow: ri, vertical, marL, marR, marT, marB, env });
         } else {
           const content = layoutCell(s.cell, x + x0 + marL, Math.max(1, x1 - x0 - marL - marR), { ...env, cellMar: { l: marL, r: marR } }, `${ref}/r${ri}/c${s.col}`);
           info.content = content;
           if (s.rowSpan === 1) contentH = Math.max(contentH, content.height + marT + marB);
-          else pendingMerges.push({ slot: s, content, tcPr, x0, x1, startRow: ri, marL, marR, env });
+          else pendingMerges.push({ slot: s, content, tcPr, x0, x1, startRow: ri, marL, marR, marT, marB, env });
         }
       }
       cellInfos.push(info);
@@ -957,6 +957,9 @@ export function layoutTable(
       ci.marB = rowMarB;
       if (ci.content && !ci.slot.merged && ci.slot.rowSpan === 1 && !ci.vertical) contentH = Math.max(contentH, ci.content.height + rowMarT + rowMarB);
     }
+    // mesclas que começam nesta linha: as margens de cima/baixo efetivas (da tabela ou
+    // da célula, a maior da linha) — antes só as da célula (tcMar) contavam (oráculo cellpic)
+    for (const m of pendingMerges) if (m.startRow === ri) { m.marT = rowMarT; m.marB = rowMarB; }
     const th = row.trPr?.trHeight;
     // altura mínima × margens da célula (oráculo tcell): a mínima vale para o TEXTO
     // e as margens de cima/baixo somam por fora — max(trHeight, texto) + mT + mB; na
@@ -1002,7 +1005,7 @@ export function layoutTable(
       if (th?.hRule === 'exact') break;
       if (m.startRow + m.slot.rowSpan - 1 !== ri || !m.content) continue;
       const spanned = rowHeights.slice(m.startRow).reduce((a, b) => a + b, 0) - bandTopOf(m.startRow) + bandTop + h;
-      const need = m.content.height + (widthTw(m.tcPr.tcMar?.top, width) ?? 0) + (widthTw(m.tcPr.tcMar?.bottom, width) ?? 0);
+      const need = m.content.height + m.marT + m.marB;
       if (need > spanned) h += need - spanned;
     }
     rowHeights.push(bandTop + h + bandBottom);
@@ -1168,8 +1171,7 @@ export function layoutTable(
       first.items.unshift({ t: 'rect', x: x + m.x0, y: 0, w: m.x1 - m.x0, h, fill });
       for (const a of first.mergeAt ?? []) a.at++;
     }
-    const marT = widthTw(m.tcPr.tcMar?.top, width) ?? 0;
-    const marB = widthTw(m.tcPr.tcMar?.bottom, width) ?? 0;
+    const { marT, marB } = m;
     // topo da célula mesclada no sistema de coordenadas da linha-alvo
     const top = bandTopOf(m.startRow) - rowHeights.slice(m.startRow, Math.min(endRow, rows.length - 1)).reduce((a, b) => a + b, 0);
     if (m.vertical) {
