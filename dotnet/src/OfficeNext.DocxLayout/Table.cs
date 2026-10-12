@@ -46,6 +46,8 @@ public sealed class ParaSplitInfo
     public int Lines;
     public bool Widow;
     public double After;
+    /// <summary>faixa da borda de baixo (pBdr) depois da última linha</summary>
+    public double? Band;
 }
 
 /// <summary>Ambiente de uma célula: pPr/rPr do estilo de tabela e fundo escuro.</summary>
@@ -55,7 +57,8 @@ public sealed class CellEnv
     public RPr? TableRPr;
     public bool DarkBackground;
     /// <summary>margens laterais da célula (âncoras relativas à célula — oráculo cellwrap)</summary>
-    public (double L, double R)? CellMar;
+    /// <summary>(T: do topo da LINHA da tabela ao do conteúdo — faixa de borda + margem de cima; oráculo cellout)</summary>
+    public (double L, double R, double? T)? CellMar;
 }
 
 /// <summary>(célula, x, largura, ambiente, ref) → conteúdo.</summary>
@@ -98,8 +101,18 @@ public sealed class RowLayout
     public List<PageItem>? OwnTopBorders;
     /// <summary>convertida por AtPageTop: quanto subiu</summary>
     public double? Cut;
+    /// <summary>fundo de mescla vertical que começa nesta linha (retângulo com a altura somada) e a
+    /// linha em que ela termina: no fluxo, o motor pinta uma faixa por página (oráculo vmshd)</summary>
+    public List<MergeFill>? MergeFills;
 
     public RowLayout ShallowClone() => (RowLayout)MemberwiseClone();
+}
+
+/// <summary>fundo de mescla vertical (RowLayout.MergeFills)</summary>
+public sealed class MergeFill
+{
+    public RectItem Item = null!;
+    public int End;
 }
 
 public sealed class MergeAtInfo
@@ -159,8 +172,10 @@ public static class TableEngine
         double cut = 0;
         foreach (var l in c.Lines)
         {
-            double bottom = l.Y + l.Height;
-            double after = lastOf.TryGetValue(l.Ref, out var ll) && ReferenceEquals(ll, l) ? paras![l.Ref].After : 0;
+            bool isLast = lastOf.TryGetValue(l.Ref, out var ll) && ReferenceEquals(ll, l);
+            // (a borda de baixo do parágrafo fica com ele, em cima do corte — corpus t191)
+            double bottom = l.Y + l.Height + (isLast ? paras![l.Ref].Band ?? 0 : 0);
+            double after = isLast ? paras![l.Ref].After : 0;
             // (sem folga: o Word compara exato — oráculo bodyfit, bf-cf-*)
             if (bottom + after <= availContent + 0.05 && bottom > cut) cut = bottom;
         }
@@ -1179,7 +1194,7 @@ public static class TableEngine
                     }
                     else
                     {
-                        var content = layoutCell(s.Cell, x + x0 + marL, Math.Max(1, x1 - x0 - marL - marR), new CellEnv { TablePPr = env.TablePPr, TableRPr = env.TableRPr, DarkBackground = env.DarkBackground, CellMar = (marL, marR) }, $"{reference}/r{ri}/c{s.Col}");
+                        var content = layoutCell(s.Cell, x + x0 + marL, Math.Max(1, x1 - x0 - marL - marR), new CellEnv { TablePPr = env.TablePPr, TableRPr = env.TableRPr, DarkBackground = env.DarkBackground, CellMar = (marL, marR, BandTopOf(ri) + marT) }, $"{reference}/r{ri}/c{s.Col}");
                         info.Content = content;
                         if (s.RowSpan == 1) contentH = Math.Max(contentH, content.Height + marT + marB);
                         else pendingMerges.Add(new PendingMerge { Slot = s, Content = content, TcPr = rs.TcPr, X0 = x0, X1 = x1, StartRow = ri, MarL = marL, MarR = marR, MarT = marT, MarB = marB, Env = env });
@@ -1314,10 +1329,7 @@ public static class TableEngine
                         if (content is not null && ci.Vertical is not null) PaintVertical(its, content, ci.Vertical, VaOf(content, ci.TcPr.VAlign), x + ci.X0 + ci.MarL, x + ci.X1 - ci.MarR, bTop + ci.MarT, bTop + ch - ci.MarB);
                         else if (content is not null) PlaceContent(its, lns, content, vTop ? "top" : VaOf(content, ci.TcPr.VAlign), ch, ci.MarT, ci.MarB, bTop);
                     }
-                    else if (s.Merged && fill is not null)
-                    {
-                        its.Add(new RectItem { X = x + ci.X0, Y = 0, W = ci.X1 - ci.X0, H = rh, Fill = fill });
-                    }
+                    // continuação de mescla: vale o fundo da célula inicial; o dela o Word ignora (oráculo vmshd)
                     var tcb = ci.TcPr.TcBorders;
                     // topo: na faixa de cima (continuação de linha partida: a borda de cima da célula)
                     var top = drawTop ? (s.Merged ? null : TopWinner(s)) : (Edge(s, "top") ?? Edge(s, "bottom"));
@@ -1442,8 +1454,10 @@ public static class TableEngine
             string? fill = CellFill(ctx, m.TcPr, tblPr, theme);
             if (fill is not null)
             {
-                first.Items.Insert(0, new RectItem { X = x + m.X0, Y = 0, W = m.X1 - m.X0, H = h, Fill = fill });
+                var fillItem = new RectItem { X = x + m.X0, Y = 0, W = m.X1 - m.X0, H = h, Fill = fill };
+                first.Items.Insert(0, fillItem);
                 foreach (var a in first.MergeAt ?? new List<MergeAtInfo>()) a.At++;
+                if (!first.Header) (first.MergeFills ??= new List<MergeFill>()).Add(new MergeFill { Item = fillItem, End = endRow });
             }
             double marT = m.MarT, marB = m.MarB;
             // topo da célula mesclada no sistema de coordenadas da linha-alvo
@@ -1598,6 +1612,12 @@ public static class TableEngine
         r2.Height = h - d;
         r2.Cut = d;
         r2.Items = row.Items.Select(CutItem).ToList();
+        if (row.MergeFills is not null)
+            r2.MergeFills = row.MergeFills.Select(f =>
+            {
+                int idx = row.Items.FindIndex(it => ReferenceEquals(it, f.Item));
+                return new MergeFill { Item = idx >= 0 ? (RectItem)r2.Items[idx] : f.Item, End = f.End };
+            }).ToList();
         r2.Lines = row.Lines.Select(l =>
         {
             if (keep.Contains(l)) return l;

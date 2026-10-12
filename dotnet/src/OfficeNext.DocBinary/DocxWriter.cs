@@ -1106,7 +1106,7 @@ internal sealed class DocxWriter
         long lineWidth = Pv(0x1cb) ?? 9525;
         string av = string.Concat(geo.Av.Select(g => Xml.El("a:gd", new Attrs { { "name", g.Name }, { "fmla", $"val {JsNumber.ToString(g.Val)}" } })));
         string spPr = XfrmXml("a:xfrm", box, shape, null, geo.FlipV) + $"<a:prstGeom prst=\"{geo.Prst}\">{(av.Length > 0 ? $"<a:avLst>{av}</a:avLst>" : "<a:avLst/>")}</a:prstGeom>";
-        if (!isLine) spPr += filled ? $"<a:solidFill><a:srgbClr val=\"{OaColor(Pv(0x181), 0xffffff)}\"/></a:solidFill>" : "<a:noFill/>";
+        if (!isLine) spPr += filled ? OaFillXml(shape) : "<a:noFill/>";
         if (lined)
         {
             long di = Pv(0x1ce) ?? 0;

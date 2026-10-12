@@ -511,7 +511,13 @@ public static class Emf
                         var (x0, y0) = ToPage(xd, yd);
                         var (x1, y1) = ToPage(xd + cx, yd + cy);
                         if (img is not null) outp.Add(new ImageItem { X = Math.Min(x0, x1), Y = Math.Min(y0, y1), W = Math.Abs(x1 - x0), H = Math.Abs(y1 - y0), Image = img });
-                        else if (dc.Brush.Style != 1) outp.Add(new RectItem { X = Math.Min(x0, x1), Y = Math.Min(y0, y1), W = Math.Abs(x1 - x0), H = Math.Abs(y1 - y0), Fill = dc.Brush.Color });
+                        else
+                        {
+                            // sem bitmap de origem o Word só pinta PATCOPY, BLACKNESS e WHITENESS — os três com o
+                            // pincel atual; D puro, PATINVERT, DSTINVERT e NOTPATCOPY não mudam nada (oráculo emfpat)
+                            uint rop3 = (U32(r + 32) >> 16) & 0xff;
+                            if ((rop3 == 0xf0 || rop3 == 0x00 || rop3 == 0xff) && dc.Brush.Style != 1) outp.Add(new RectItem { X = Math.Min(x0, x1), Y = Math.Min(y0, y1), W = Math.Abs(x1 - x0), H = Math.Abs(y1 - y0), Fill = dc.Brush.Color });
+                        }
                         break;
                     }
                 case 114: // ALPHABLEND

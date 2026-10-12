@@ -692,6 +692,25 @@ describe('formas OfficeArt (regressões)', () => {
   });
 });
 
+describe('degradês OfficeArt (fixture degrades)', () => {
+  // as formas foram desenhadas com estes degradês (DrawingML e uma em VML); o Word gravou o
+  // .doc (fillType 7, ângulo 0x18B, foco 0x18C, cores 0x181/0x183 e a lista 0x197)
+  it('ângulo, foco espelhado e lista de cores voltam ao degradê de origem', () => {
+    const as = all(parseXml(partsOf(convert('degrades'))['word/document.xml']!), 'wp:anchor');
+    const grads = as.map((a) => {
+      const g = first(a, 'a:gradFill')!;
+      return [all(g, 'a:gs').map((s) => `${attr(first(s, 'a:srgbClr'), 'val')}@${s.attrs.pos}`).join(' '), attr(first(g, 'a:lin'), 'ang')];
+    });
+    const WG = 'FFFFFF@0 999999@100000';
+    expect(grads).toEqual([
+      [WG, '5400000'], [WG, '0'], [WG, '2700000'],
+      [WG, '16200000'], ['999999@0 FFFFFF@50000 999999@100000', '5400000'], ['C04040@0 FFFFFF@40000 2E5C8A@100000', '5400000'],
+      // VML: ângulo −45 (vale 135 → a:lin 315°), foco 0 e "fill lighten(153)" de 3A7A5C
+      ['89AF9D@0 3A7A5C@100000', '18900000'],
+    ]);
+  });
+});
+
 describe('configurações (DOP → settings.xml)', () => {
   it('defaultTabStop e w:compat do modo de compatibilidade 11', () => {
     const { parts } = doc('caracteres');

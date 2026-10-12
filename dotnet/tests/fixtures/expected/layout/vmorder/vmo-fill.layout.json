@@ -19,7 +19,6 @@
         {"t":"rect","x":6706,"y":1670.18,"w":2500,"h":9.6,"fill":"000000","alpha":null},
         {"t":"rect","x":6701.2,"y":1669.98,"w":9.6,"h":262.98,"fill":"000000","alpha":null},
         {"t":"rect","x":9201.2,"y":1669.98,"w":9.6,"h":262.98,"fill":"000000","alpha":null},
-        {"t":"rect","x":1706,"y":1932.96,"w":2500,"h":272.98,"fill":"D9D9D9","alpha":null},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2149.31,"scaleX":1,"text":"doisbHxg","g":[[100,4314],[111,4436.35],[105,4558.71],[115,4607.58],[98,4778.71],[72,4962.18],[120,5121.06],[103,5231.06]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2149.31,"scaleX":1,"text":"doiscHxg","g":[[100,6814],[111,6936.35],[105,7058.71],[115,7107.58],[99,7278.71],[72,7449.83],[120,7608.71],[103,7718.71]]},
         {"t":"rect","x":1706,"y":2196.14,"w":2500,"h":9.6,"fill":"000000","alpha":null},

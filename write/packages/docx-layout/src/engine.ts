@@ -924,7 +924,8 @@ class Engine {
         } while (!br.done());
         if (this.hfFrameAfter.length) { items.push(...this.hfFrameAfter); this.hfFrameAfter = []; }
         const groupedNext = this.groupsWithNext(p, blocks[bi + 1], env);
-        y += this.borderBottomExtent(p, groupedNext);
+        const bandB = this.borderBottomExtent(p, groupedNext);
+        y += bandB;
         this.paintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext);
         // floats ancorados no parágrafo (fora do cabeçalho/rodapé: depois das linhas)
         if (ps && !hfWrap && !cellAnch) this.placeFloats(p, ps, x + this.staticDx, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
@@ -935,7 +936,7 @@ class Engine {
         // linha de tabela partida entre páginas: viúvas/órfãs (só modo 15) e o espaço
         // depois (efetivo) que tem de caber com a última linha (oráculo rowwidow)
         lastPara = {
-          lines: lines.length - l0, after,
+          lines: lines.length - l0, after, ...(bandB ? { band: bandB } : {}),
           widow: this.ctx.fmt.settings.compatibilityMode >= 15 && (p.widowControl || p.ppr.widowControl === undefined),
         };
         paras.set(`${ref}/b${bi}`, lastPara);
@@ -1050,7 +1051,7 @@ class Engine {
   /** conteúdo de caixa de texto: x da caixa na página (flutuantes dentro dela) */
   private staticDx = 0;
   /** margens laterais da célula em diagramação (âncoras relativas à célula — oráculo cellwrap) */
-  private cellMar: { l: number; r: number } | null = null;
+  private cellMar: { l: number; r: number; t?: number } | null = null;
   /** fundo da coluna mais alta já deixada nesta página (seção de várias colunas) */
   private colMaxY = 0;
   /** "depois" do parágrafo vazio de quebra contínua que não ocupa altura: o seguinte
@@ -1060,7 +1061,7 @@ class Engine {
   private layoutCell(cell: TableCell, x: number, width: number, env: { tablePPr?: import('@universal-office/docx-core').PPr; tableRPr?: import('@universal-office/docx-core').RPr; darkBackground?: boolean }, ref: string, ps?: PageState): CellContent {
     const prevInCell = this.inCell, prevMar = this.cellMar;
     this.inCell = true;
-    this.cellMar = (env as { cellMar?: { l: number; r: number } }).cellMar ?? null;
+    this.cellMar = (env as { cellMar?: { l: number; r: number; t?: number } }).cellMar ?? null;
     try {
       return this.layoutCellIn(cell, x, width, env, ref, ps);
     } finally {
@@ -1843,6 +1844,8 @@ class Engine {
   private noteCarry: { id: number; content: CellContent }[] = [];
   /** nota partida da linha de tabela que vai ser emitida */
   private rowNoteCut: NoteCut | null = null;
+  /** tabela do fluxo: os fundos de mescla vertical saem por página no fim (oráculo vmshd) */
+  private flowFills = false;
 
   /**
    * Nota NOVA que não cabe inteira com a linha da referência (que termina em `bottom`):
@@ -2068,6 +2071,7 @@ class Engine {
     /** partes de linhas emitidas e mesclas verticais que atravessam a página */
     const rowEmits: { ri: number; ps: PageState; y: number; h: number; at: number; cut?: number }[] = [];
     const flowMerges: { start: number; end: number; col: number; content: CellContent; off: number; vAlign?: string }[] = [];
+    this.flowFills = true;
     t.rows.forEach((row0, ri) => {
       let row = row0;
       // modo 15: as linhas de cabeçalho (repetidas) não ficam sozinhas no pé — se a
@@ -2164,6 +2168,7 @@ class Engine {
       this.emitRow(row);
       if (grow > 0.5) this.y += grow;
     });
+    this.flowFills = false;
     /** inserções no corpo de cada página (ordem do PDF do Word: texto da mescla na
      *  1ª linha da parte, na ordem das colunas) — aplicadas do fim para o começo */
     const ins: { ps: PageState; at: number; items: PageItem[] }[] = [];
@@ -2177,7 +2182,8 @@ class Engine {
         else segs.push({ ps: e.ps, top: e.y, bottom: e.y + e.h, at: e.at, cut: e.cut ?? 0 });
       }
       // posição da coluna da mescla entre as células da 1ª linha (1ª parte)
-      const colAt = t.rows[m.start]?.mergeAt?.find((a) => a.col === m.col)?.at ?? 0;
+      // (os fundos de mescla da linha não foram gravados com ela: entram no fim, antes)
+      const colAt = (t.rows[m.start]?.mergeAt?.find((a) => a.col === m.col)?.at ?? 0) - (t.rows[m.start]?.mergeFills?.length ?? 0);
       let c: CellContent | null = m.content;
       segs.forEach((sg, k) => {
         if (!c) return;
@@ -2194,6 +2200,25 @@ class Engine {
         c = rest;
       });
     }
+    // fundo das mesclas verticais: uma faixa por página, do topo ao pé da parte (o Word pinta
+    // também a continuação na página seguinte); a última termina onde terminaria o retângulo
+    // inteiro. Entra antes de tudo da 1ª linha da parte (oráculo vmshd; corpus t15)
+    t.rows.forEach((r0, start) => {
+      for (const f of r0.mergeFills ?? []) {
+        const short = t.rows.slice(start, f.end + 1).reduce((a, r) => a + r.height, 0) - f.item.h;
+        const segs: { ps: PageState; top: number; bottom: number; at: number }[] = [];
+        for (const e of rowEmits) {
+          if (e.ri < start || e.ri > f.end) continue;
+          const last = segs[segs.length - 1];
+          if (last && last.ps === e.ps) last.bottom = e.y + e.h;
+          else segs.push({ ps: e.ps, top: e.y, bottom: e.y + e.h, at: e.at });
+        }
+        segs.forEach((sg, k) => {
+          const h = sg.bottom - sg.top - (k === segs.length - 1 ? short : 0);
+          if (h > 0) ins.push({ ps: sg.ps, at: sg.at, items: [{ ...f.item, y: sg.top, h }] });
+        });
+      }
+    });
     for (const n of ins.sort((a, b) => b.at - a.at)) n.ps.body.splice(n.at, 0, ...n.items);
     // o parágrafo seguinte vê a marca de fim de linha como anterior (contextual)
     this.prev = this.rowEndPrev();
@@ -2456,7 +2481,8 @@ class Engine {
     if (ids.length) this.reserveNotes(ids, this.rowNoteCut);
     this.rowNoteCut = null;
     this.lastRowEmit = { row, y: this.y };
-    for (const it of row.items) this.cur.body.push(shiftItem(it, this.y));
+    const skip = this.flowFills && row.mergeFills ? new Set<PageItem>(row.mergeFills.map((f) => f.item)) : null;
+    for (const it of row.items) if (!skip?.has(it)) this.cur.body.push(shiftItem(it, this.y));
     for (const it of row.borderItems) this.cur.body.push(shiftItem(it, this.y));
     for (const l of row.lines) this.cur.page.lines.push({ ...l, y: l.y + this.y, baseline: l.baseline + this.y });
     this.y += row.height;
@@ -2529,12 +2555,13 @@ class Engine {
    * em que a próxima palavra cabe — vão estreito demais fica vazio (oráculo
    * wrapsides). Nenhum cabe: o mais largo, sozinho (k = fim).
    */
-  private pickSeg(br: LineBreaker, frame: WrapFrame): { k: number; f: { left: number; right: number; gap?: boolean } } {
+  private pickSeg(br: LineBreaker, frame: WrapFrame): { k: number; f: { left: number; right: number; gap?: boolean; next?: { left: number; right: number } } } {
     if (!frame.segs) return { k: -1, f: frame };
     const need = br.peekWordWidth();
     for (let k = 0; k < frame.segs.length; k++) {
       const [a, b] = frame.segs[k]!;
-      if (b - a + 0.01 >= need) return { k, f: { left: a, right: b, gap: true } };
+      const nx = frame.segs[k + 1];
+      if (b - a + 0.01 >= need) return { k, f: { left: a, right: b, gap: true, ...(nx ? { next: { left: nx[0], right: nx[1] } } : {}) } };
     }
     return { k: frame.segs.length, f: { left: frame.left, right: frame.right, gap: true } };
   }
@@ -2543,11 +2570,14 @@ class Engine {
   private moreSegs(br: LineBreaker, frame: WrapFrame, k: number, last: Line, put: (l: Line) => void): Line {
     if (!frame.segs) return last;
     // (linha que acabou num tab além do vão: o resto não vai para o vão seguinte — tabgap)
-    for (let j = k + 1; j < frame.segs.length && !br.done() && !last.breakAfter && !last.clear && last.gapTab !== 'break'; j++) {
+    // (linha cujo tab atravessou o flutuante: o vão seguinte já foi usado — ftrtabs)
+    for (let j = k + 1 + (last.spanned ? 1 : 0); j < frame.segs.length && !br.done() && !last.breakAfter && !last.clear && last.gapTab !== 'break'; j++) {
       const [a, b] = frame.segs[j]!;
       if (b - a + 0.01 < br.peekWordWidth()) continue;
-      last = br.next({ left: a, right: b, gap: true });
+      const nx = frame.segs[j + 1];
+      last = br.next({ left: a, right: b, gap: true, ...(nx ? { next: { left: nx[0], right: nx[1] } } : {}) });
       put(last);
+      if (last.spanned) j++;
     }
     return last;
   }
@@ -2646,8 +2676,16 @@ class Engine {
       const cm = this.cellMar ?? { l: 0, r: 0 };
       const hFrom = anchor?.posH.relativeFrom ?? 'column';
       const [hx, hw] = hFrom === 'rightMargin' || hFrom === 'outsideMargin' ? [colX + colW, cm.r] : hFrom === 'leftMargin' || hFrom === 'insideMargin' ? [colX - cm.l, cm.l] : [colX, colW];
-      x = alignPos(anchor?.posH.align, anchor?.posH.offset, hx, hw, w, undefined, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
-      y = alignPos(anchor?.posV.align, anchor?.posV.offset, vFrom === 'paragraph' ? paraRef ?? paraTop : vFrom === 'line' ? paraTop : yOrigin, 0, h, undefined, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
+      // layoutInCell="0" nos modos ≤ 14 (o 15 ignora): fora da célula — na horizontal, as
+      // referências da página (coluna = a da seção); na vertical, parágrafo/linha = topo da
+      // LINHA da tabela, de qualquer parágrafo da célula (oráculo cellout; corpus t70)
+      const outCell = anchor?.layoutInCell === false && this.ctx.fmt.settings.compatibilityMode < 15;
+      if (outCell) {
+        const fr = this.colFrame(), hr = horizRef(hFrom, g, fr.x, fr.w);
+        x = alignPos(anchor?.posH.align, anchor?.posH.offset, hr.x, hr.w, w, anchor?.posH.pct, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
+      } else x = alignPos(anchor?.posH.align, anchor?.posH.offset, hx, hw, w, undefined, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
+      const vRef = outCell && (vFrom === 'paragraph' || vFrom === 'line') ? yOrigin - (cm.t ?? 0) : vFrom === 'paragraph' ? paraRef ?? paraTop : vFrom === 'line' ? paraTop : yOrigin;
+      y = alignPos(anchor?.posV.align, anchor?.posV.offset, vRef, 0, h, undefined, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
       // com quebra e relativo ao texto: não sobe acima do topo da área de texto da célula
       // (deslocamento negativo além dele vira 0 — oráculo cellpic)
       if (anchor && WRAPPING.has(anchor.wrap) && (vFrom === 'paragraph' || vFrom === 'line')) y = Math.max(y, yOrigin);

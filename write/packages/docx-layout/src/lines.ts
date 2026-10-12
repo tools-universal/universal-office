@@ -57,6 +57,8 @@ export interface Line {
   /** tab com parada além do vão do flutuante: 'break' a linha acabou antes dele;
    *  'start' ele abre a linha (o motor a leva para baixo do flutuante) — oráculo tabgap */
   gapTab?: 'break' | 'start';
+  /** um tab atravessou o flutuante: a linha já ocupou o vão seguinte (oráculo ftrtabs) */
+  spanned?: boolean;
 }
 
 export interface LineFrame {
@@ -65,6 +67,8 @@ export interface LineFrame {
   right: number;
   /** vão ao lado de um flutuante (o quadro foi estreitado por ele) */
   gap?: boolean;
+  /** o vão seguinte da mesma linha (depois do flutuante) */
+  next?: { left: number; right: number };
 }
 
 function nextTab(
@@ -193,11 +197,11 @@ export class LineBreaker {
     const first = this.lineIdx === 0;
     const start = this.pos;
     const xStart = frame.left + (first ? p.firstLine : 0);
-    const right = frame.right;
+    let right = frame.right;
     // limite do "cabe na linha" na unidade interna do Word (1/4096 pt): largura da
     // coluna/célula e recuos direito, esquerdo e da 1ª linha convertidos CADA UM com
     // arredondamento (oráculo emwidth)
-    const rightQ = this.fitRight(frame, xStart, first);
+    let rightQ = this.fitRight(frame, xStart, first);
     const placed: PlacedGlyph[] = [];
     let x = xStart;
     let markerPlaced: PlacedGlyph[] | undefined;
@@ -260,6 +264,7 @@ export class LineBreaker {
     let breakAfter: Line['breakAfter'];
     let clearAfter = false;
     let gapTab: 'break' | 'start' | undefined;
+    let spanned = false;
     let pastMargin = false;
     let forced = false;
     // hifenização da palavra que não coube: a linha acaba depois do glifo hyphAt, com o
@@ -333,8 +338,17 @@ export class LineBreaker {
         // linha antes do tab e o resto vai para baixo do flutuante; tab único fica no fim do
         // vão (oráculo tabgap)
         if (frame.gap && !g.ptab && pos > right + 0.5 && moreTabs(gs, i)) {
-          if (i > start) { gapTab = 'break'; break; }
-          gapTab = 'start';
+          // com uma parada no vão seguinte da mesma linha (antes do fim dele), o tab atravessa o
+          // flutuante e a linha continua lá — e se centraliza como linha inteira (oráculo ftrtabs;
+          // corpus t20); sem ela, a linha acaba aqui e o resto desce (tabgap)
+          const nx = frame.next && !spanned ? nextTab(frame.next.left, p.tabs, defaultTab, hangingStop, frame.next.right) : undefined;
+          if (nx && frame.next && nx.pos <= frame.next.right + 0.5) {
+            spanned = true;
+            x = frame.next.left;
+            right = frame.next.right;
+            rightQ = this.fitRight({ left: frame.left, right }, xStart, first);
+            ({ pos, tab } = nx);
+          } else if (i > start) { gapTab = 'break'; break; } else gapTab = 'start';
         }
         // Word 2013+ (oráculo tocdots-beyond-c15): parada custom direita/centro/decimal
         // além de máx(margem, fim da linha) alinha o texto pela DIREITA no fim da
@@ -564,6 +578,15 @@ export class LineBreaker {
       desc = Math.max(desc, fd);
       asc = Math.max(asc, fa, pg.g.hr + 100 - desc);
     }
+    // linha SÓ com tabulações que não é a última do parágrafo (o texto desceu para a seguinte):
+    // a altura é a das tabulações, não a da marca (oráculo ftrtabs; corpus t20)
+    if (!last && asc === 0 && desc === 0 && content.some((pg) => pg.g.kind === 'tab') && content.every((pg) => pg.g.kind === 'tab' || pg.g.ch === ' ')) {
+      for (const pg of content) {
+        if (pg.g.kind !== 'tab') continue;
+        asc = Math.max(asc, pg.g.asc); desc = Math.max(desc, pg.g.desc);
+        tAsc = Math.max(tAsc, pg.g.nAsc ?? pg.g.asc); tDesc = Math.max(tDesc, pg.g.nDesc ?? pg.g.desc);
+      }
+    }
     const emptyLine = asc === 0 && desc === 0;
     if (emptyLine) {
       // linha vazia: altura pela marca de parágrafo (deslocada por w:position — oráculo position)
@@ -648,6 +671,7 @@ export class LineBreaker {
       ...(breakAfter ? { breakAfter } : {}),
       ...(clearAfter ? { clear: true } : {}),
       ...(gapTab ? { gapTab } : {}),
+      ...(spanned ? { spanned: true } : {}),
       last,
     };
   }

@@ -76,6 +76,10 @@ describe('geometrias predefinidas (oráculo de formas)', () => {
   it('rightArrow com ajustes', () => {
     expect(pts(presetPathLocal('rightArrow', 200, 80, { adj1: 30000, adj2: 80000 }))).toEqual([[0, 28], [136, 28], [136, 0], [200, 40], [136, 80], [136, 52], [0, 52]]);
   });
+  it('setas duplas (presetShapeDefinitions; corpus: forma 70 de .doc)', () => {
+    expect(pts(presetPathLocal('upDownArrow', 100, 200))).toEqual([[0, 50], [50, 0], [100, 50], [75, 50], [75, 150], [100, 150], [50, 200], [0, 150], [25, 150], [25, 50]]);
+    expect(pts(presetPathLocal('leftRightArrow', 200, 100, { adj1: 40000 }))).toEqual([[0, 50], [50, 0], [50, 30], [150, 30], [150, 0], [200, 50], [150, 100], [150, 70], [50, 70], [50, 100]]);
+  });
 });
 
 describe('degradês (oráculo de gradientes)', () => {
@@ -203,6 +207,29 @@ describe('EMF+ só com imagem', () => {
     expect(img).toBeDefined();
     expect([img.x, img.y, img.w, img.h]).toEqual([1000, 2000, 400, 200]);
     expect(img.image.ext).toBe('bmp');
+  });
+});
+
+describe('EMF: BITBLT sem bitmap de origem (oráculo emfpat)', async () => {
+  // @ts-expect-error módulo JS das ferramentas do lab (sem tipos)
+  const { emfOf } = await import('../../../tools/layout-oracle/cases/emfpat.mjs');
+  /** o EMF do oráculo sem o registro de texto (o teste não carrega fontes) → cores dos retângulos */
+  const fills = (rop: number, stock?: number) => {
+    const b: Uint8Array = emfOf(rop, stock);
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    const parts: Uint8Array[] = [];
+    for (let pos = 0; pos < b.length; pos += dv.getUint32(pos + 4, true)) if (dv.getUint32(pos, true) !== 84) parts.push(b.subarray(pos, pos + dv.getUint32(pos + 4, true)));
+    const bytes = new Uint8Array(parts.reduce((a, x) => a + x.length, 0));
+    parts.reduce((o, x) => (bytes.set(x, o), o + x.length), 0);
+    return renderEmf({} as DocContext, bytes, { x: 0, y: 0, w: 1000, h: 400 }).flatMap((i) => (i.t === 'rect' ? [i.fill] : []));
+  };
+  const PAINT = [0x00f00021, 0x00000042, 0x00ff0062]; // PATCOPY, BLACKNESS, WHITENESS
+  it('PATCOPY, BLACKNESS e WHITENESS pintam com o pincel atual (branco padrão ou preto)', () => {
+    expect(PAINT.map((rop) => fills(rop))).toEqual([['FFFFFF'], ['FFFFFF'], ['FFFFFF']]);
+    expect(PAINT.map((rop) => fills(rop, 4))).toEqual([['000000'], ['000000'], ['000000']]);
+  });
+  it('D puro, PATINVERT, DSTINVERT e NOTPATCOPY não mudam nada', () => {
+    expect([0x00aa0029, 0x005a0049, 0x00550009, 0x000f0001].map((rop) => fills(rop, 4))).toEqual([[], [], [], []]);
   });
 });
 

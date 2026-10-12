@@ -1111,7 +1111,8 @@ internal sealed class Engine
                 } while (!br.Done());
                 if (_hfFrameAfter.Count > 0) { items.AddRange(_hfFrameAfter); _hfFrameAfter.Clear(); }
                 bool groupedNext = GroupsWithNext(p, bi + 1 < n ? blocks[bi + 1] : null, env);
-                y += BorderBottomExtent(p, groupedNext);
+                double bandB = BorderBottomExtent(p, groupedNext);
+                y += bandB;
                 PaintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext);
                 // floats ancorados no parágrafo (fora do cabeçalho/rodapé: depois das linhas)
                 if (ps is not null && !hfWrap && cellAnch is null) PlaceFloats(p, ps, x + _staticDx, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
@@ -1123,7 +1124,7 @@ internal sealed class Engine
                 // depois (efetivo) que tem de caber com a última linha (oráculo rowwidow)
                 lastPara = new ParaSplitInfo
                 {
-                    Lines = lines.Count - l0, After = after,
+                    Lines = lines.Count - l0, After = after, Band = bandB != 0 && !double.IsNaN(bandB) ? bandB : null,
                     Widow = _ctx.Fmt.Settings.CompatibilityMode >= 15 && (p.WidowControl || p.Ppr.WidowControl is null),
                 };
                 paras[$"{reference}/b{bi}"] = lastPara;
@@ -1275,7 +1276,7 @@ internal sealed class Engine
     /// <summary>conteúdo de caixa de texto: x da caixa na página (flutuantes dentro dela)</summary>
     private double _staticDx;
     /// <summary>margens laterais da célula em diagramação (âncoras relativas à célula — oráculo cellwrap)</summary>
-    private (double L, double R)? _cellMar;
+    private (double L, double R, double? T)? _cellMar;
     private static readonly Regex CellRefRe = new(@"/r\d+/c\d+$", RegexOptions.CultureInvariant);
 
     /// <summary>Lista (abstractNum) do parágrafo numerado/com marcador.</summary>
@@ -2302,6 +2303,8 @@ internal sealed class Engine
     private List<(double Id, CellContent Content)> _noteCarry = new();
     /// <summary>nota partida da linha de tabela que vai ser emitida</summary>
     private NoteCut? _rowNoteCut;
+    /// <summary>tabela do fluxo: os fundos de mescla vertical saem por página no fim (oráculo vmshd)</summary>
+    private bool _flowFills;
 
     /// <summary>Nota partida entre páginas: o começo (nesta) e o resto (na seguinte).</summary>
     private sealed record NoteCut(double Id, CellContent First, CellContent Rest);
@@ -2558,6 +2561,7 @@ internal sealed class Engine
         // partes de linhas emitidas e mesclas verticais que atravessam a página
         var rowEmits = new List<RowEmit>();
         var flowMerges = new List<FlowMerge>();
+        _flowFills = true;
         for (int ri = 0; ri < t.Rows.Count; ri++)
         {
             var row0 = t.Rows[ri];
@@ -2674,6 +2678,7 @@ internal sealed class Engine
             EmitRow(row);
             if (grow > 0.5) _y += grow;
         }
+        _flowFills = false;
         // inserções no corpo de cada página (ordem do PDF do Word: texto da mescla na
         // 1ª linha da parte, na ordem das colunas) — aplicadas do fim para o começo
         var ins = new List<(PageState Ps, int At, List<PageItem> Items)>();
@@ -2689,7 +2694,9 @@ internal sealed class Engine
                 else segs.Add(new MergeSeg { Ps = e.Ps, Top = e.Y, Bottom = e.Y + e.H, At = e.At, Cut = e.Cut });
             }
             // posição da coluna da mescla entre as células da 1ª linha (1ª parte)
-            int colAt = (m.Start >= 0 && m.Start < t.Rows.Count ? t.Rows[m.Start].MergeAt?.FirstOrDefault(a => a.Col == m.Col)?.At : null) ?? 0;
+            // (os fundos de mescla da linha não foram gravados com ela: entram no fim, antes)
+            int colAt = ((m.Start >= 0 && m.Start < t.Rows.Count ? t.Rows[m.Start].MergeAt?.FirstOrDefault(a => a.Col == m.Col)?.At : null) ?? 0)
+                - ((m.Start >= 0 && m.Start < t.Rows.Count ? t.Rows[m.Start].MergeFills?.Count : null) ?? 0);
             CellContent? c = m.Content;
             for (int k = 0; k < segs.Count; k++)
             {
@@ -2715,6 +2722,36 @@ internal sealed class Engine
                     sg.Ps.Page.Lines.Add(nl);
                 }
                 c = rest;
+            }
+        }
+        // fundo das mesclas verticais: uma faixa por página, do topo ao pé da parte (o Word pinta
+        // também a continuação na página seguinte); a última termina onde terminaria o retângulo
+        // inteiro. Entra antes de tudo da 1ª linha da parte (oráculo vmshd; corpus t15)
+        for (int start = 0; start < t.Rows.Count; start++)
+        {
+            foreach (var f in t.Rows[start].MergeFills ?? new List<MergeFill>())
+            {
+                double shortH = t.Rows.Skip(start).Take(f.End + 1 - start).Aggregate(0.0, (a, r) => a + r.Height) - f.Item.H;
+                var fsegs = new List<MergeSeg>();
+                foreach (var e in rowEmits)
+                {
+                    if (e.Ri < start || e.Ri > f.End) continue;
+                    var lastS = fsegs.Count > 0 ? fsegs[^1] : null;
+                    if (lastS is not null && ReferenceEquals(lastS.Ps, e.Ps)) lastS.Bottom = e.Y + e.H;
+                    else fsegs.Add(new MergeSeg { Ps = e.Ps, Top = e.Y, Bottom = e.Y + e.H, At = e.At });
+                }
+                for (int k = 0; k < fsegs.Count; k++)
+                {
+                    var sg = fsegs[k];
+                    double fh = sg.Bottom - sg.Top - (k == fsegs.Count - 1 ? shortH : 0);
+                    if (fh > 0)
+                    {
+                        var band = (RectItem)f.Item.ShallowClone();
+                        band.Y = sg.Top;
+                        band.H = fh;
+                        ins.Add((sg.Ps, sg.At, new List<PageItem> { band }));
+                    }
+                }
             }
         }
         foreach (var n in ins.OrderByDescending(a => a.At).ToList()) n.Ps.Body.InsertRange(n.At, n.Items);
@@ -3106,7 +3143,8 @@ internal sealed class Engine
         if (ids.Count > 0) ReserveNotes(ids, _rowNoteCut);
         _rowNoteCut = null;
         _lastRowEmit = (row, _y);
-        foreach (var it in row.Items) _cur.Body.Add(TableEngine.ShiftItem(it, _y));
+        var skip = _flowFills && row.MergeFills is not null ? new HashSet<PageItem>(row.MergeFills.Select(f => (PageItem)f.Item), ReferenceEqualityComparer.Instance) : null;
+        foreach (var it in row.Items) if (skip is null || !skip.Contains(it)) _cur.Body.Add(TableEngine.ShiftItem(it, _y));
         foreach (var it in row.BorderItems) _cur.Body.Add(TableEngine.ShiftItem(it, _y));
         foreach (var l in row.Lines)
         {
@@ -3199,7 +3237,7 @@ internal sealed class Engine
         for (int k = 0; k < frame.Segs.Count; k++)
         {
             var (a, b) = frame.Segs[k];
-            if (b - a + 0.01 >= need) return (k, new LineFrame(a, b) { Gap = true });
+            if (b - a + 0.01 >= need) return (k, new LineFrame(a, b) { Gap = true, Next = k + 1 < frame.Segs.Count ? ((double Left, double Right)?)(frame.Segs[k + 1].A, frame.Segs[k + 1].B) : null });
         }
         return (frame.Segs.Count, new LineFrame(frame.Left, frame.Right) { Gap = true });
     }
@@ -3209,12 +3247,14 @@ internal sealed class Engine
     {
         if (frame.Segs is null) return last;
         // (linha que acabou num tab além do vão: o resto não vai para o vão seguinte — tabgap)
-        for (int j = k + 1; j < frame.Segs.Count && !br.Done() && last.BreakAfter is null && !last.Clear && last.GapTab != "break"; j++)
+        // (linha cujo tab atravessou o flutuante: o vão seguinte já foi usado — ftrtabs)
+        for (int j = k + 1 + (last.Spanned ? 1 : 0); j < frame.Segs.Count && !br.Done() && last.BreakAfter is null && !last.Clear && last.GapTab != "break"; j++)
         {
             var (a, b) = frame.Segs[j];
             if (b - a + 0.01 < br.PeekWordWidth()) continue;
-            last = br.Next(new LineFrame(a, b) { Gap = true });
+            last = br.Next(new LineFrame(a, b) { Gap = true, Next = j + 1 < frame.Segs.Count ? ((double Left, double Right)?)(frame.Segs[j + 1].A, frame.Segs[j + 1].B) : null });
             put(last);
+            if (last.Spanned) j++;
         }
         return last;
     }
@@ -3385,11 +3425,22 @@ internal sealed class Engine
         {
             string vFrom = anchor?.PosV.RelativeFrom ?? "paragraph";
             // margem esquerda/direita = a margem da CÉLULA (alinhado à direita: rente à borda dela)
-            var cm = _cellMar ?? (0, 0);
+            var cm = _cellMar ?? (0, 0, null);
             string hFrom = anchor?.PosH.RelativeFrom ?? "column";
             var (hx, hw) = hFrom is "rightMargin" or "outsideMargin" ? (colX + colW, cm.R) : hFrom is "leftMargin" or "insideMargin" ? (colX - cm.L, cm.L) : (colX, colW);
-            x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, hx, hw, w, null, g.PageW, anchor?.EffectExtent?.L ?? 0, anchor?.EffectExtent?.R ?? 0);
-            y = AlignPos(anchor?.PosV.Align, anchor?.PosV.Offset, vFrom == "paragraph" ? paraRef ?? paraTop : vFrom == "line" ? paraTop : yOrigin, 0, h, null, g.PageH, anchor?.EffectExtent?.T ?? 0, anchor?.EffectExtent?.B ?? 0);
+            // layoutInCell="0" nos modos ≤ 14 (o 15 ignora): fora da célula — na horizontal, as
+            // referências da página (coluna = a da seção); na vertical, parágrafo/linha = topo da
+            // LINHA da tabela, de qualquer parágrafo da célula (oráculo cellout; corpus t70)
+            bool outCell = anchor?.LayoutInCell == false && _ctx.Fmt.Settings.CompatibilityMode < 15;
+            if (outCell)
+            {
+                var frO = ColFrame();
+                var hRefO = HorizRef(hFrom, g, frO.X, frO.W);
+                x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, hRefO.X, hRefO.W, w, anchor?.PosH.Pct, g.PageW, anchor?.EffectExtent?.L ?? 0, anchor?.EffectExtent?.R ?? 0);
+            }
+            else x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, hx, hw, w, null, g.PageW, anchor?.EffectExtent?.L ?? 0, anchor?.EffectExtent?.R ?? 0);
+            double vRefC = outCell && (vFrom == "paragraph" || vFrom == "line") ? yOrigin - (cm.T ?? 0) : vFrom == "paragraph" ? paraRef ?? paraTop : vFrom == "line" ? paraTop : yOrigin;
+            y = AlignPos(anchor?.PosV.Align, anchor?.PosV.Offset, vRefC, 0, h, null, g.PageH, anchor?.EffectExtent?.T ?? 0, anchor?.EffectExtent?.B ?? 0);
             // com quebra e relativo ao texto: não sobe acima do topo da área de texto da célula
             // (deslocamento negativo além dele vira 0 — oráculo cellpic)
             if (anchor is not null && Wrapping.Contains(anchor.Wrap) && (vFrom == "paragraph" || vFrom == "line")) y = Math.Max(y, yOrigin);

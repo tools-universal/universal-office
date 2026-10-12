@@ -967,7 +967,7 @@ export class DocxWriter {
     const lineWidth = pv(0x1cb) ?? 9525;
     const av = geo.av.map((g) => el('a:gd', { name: g.name, fmla: `val ${g.val}` })).join('');
     let spPr = xfrmXml('a:xfrm', box, shape, undefined, !!geo.flipV) + `<a:prstGeom prst="${geo.prst}">${av ? `<a:avLst>${av}</a:avLst>` : '<a:avLst/>'}</a:prstGeom>`;
-    if (!isLine) spPr += filled ? `<a:solidFill><a:srgbClr val="${oaColor(pv(0x181), 0xffffff)}"/></a:solidFill>` : '<a:noFill/>';
+    if (!isLine) spPr += filled ? oaFillXml(shape) : '<a:noFill/>';
     if (lined) {
       const dash = ['solid', 'sysDash', 'sysDot', 'sysDashDot', 'sysDashDotDot', 'dot', 'dash', 'lgDash', 'dashDot', 'lgDashDot', 'lgDashDotDot'][pv(0x1ce) ?? 0] ?? 'solid';
       const arrow = (v: number | undefined): string | undefined => (v ? ['none', 'triangle', 'stealth', 'diamond', 'oval', 'arrow'][v] ?? 'triangle' : undefined);
@@ -1392,6 +1392,51 @@ function oaFlag(v: number | undefined, bit: number): boolean | undefined {
 function oaColor(v: number | undefined, def: number): string {
   if (v === undefined || (v >>> 24) !== 0) return hex(def);
   return hex(((v & 0xff) << 16) | (v & 0xff00) | ((v >> 16) & 0xff));
+}
+
+/**
+ * Preenchimento de forma OfficeArt: sólido (0x181) ou degradê linear (fillType 0x180 = 4
+ * shade / 7 shadeScale). Medido no Word (.docx → .doc → .docx e o PDF do VML equivalente):
+ * ângulo 0x18B (graus 16.16) 0 = de cima para baixo → a:lin 90° − α, negativo vale α + 180°
+ * (−45 = 135); cores 0x181 → 0x183 ou a lista 0x197 (cor, posição 16.16), a 2ª podendo ser a
+ * do preenchimento clareada/escurecida (índice 0xF0); foco 0x18C f ≥ 0: a 2ª cor em f% e
+ * volta à 1ª; f < 0: a 1ª em 100 + f%, com a 2ª nas pontas (−100 = 100).
+ */
+function oaFillXml(shape: OAShape): string {
+  const pv = (k: number): number | undefined => shape.props.get(k)?.value;
+  const c1 = oaColor(pv(0x181), 0xffffff);
+  const type = pv(0x180) ?? 0;
+  if (type !== 4 && type !== 7) return `<a:solidFill><a:srgbClr val="${c1}"/></a:solidFill>`;
+  // índice de sistema 0xF0 (a cor do preenchimento) com função 1 = escurecer (c·p/255) ou
+  // 2 = clarear (255 − (255 − c)·p/255) — o "fill lighten(p)" do VML (fixture degrades; corpus t66)
+  const col = (v: number | undefined): string => {
+    if (v === undefined || (v >>> 24) !== 0x10 || (v & 0xff) !== 0xf0) return oaColor(v, 0xffffff);
+    const fn = (v >>> 8) & 0x0f, p = (v >>> 16) & 0xff, n = parseInt(c1, 16);
+    const ch = (c: number): number => Math.round(fn === 1 ? (c * p) / 255 : fn === 2 ? 255 - ((255 - c) * p) / 255 : c);
+    return hex((ch(n >>> 16) << 16) | (ch((n >>> 8) & 0xff) << 8) | ch(n & 0xff));
+  };
+  let base: [number, string][] = [[0, c1], [1, col(pv(0x183))]];
+  const arr = shape.props.get(0x197)?.complex;
+  if (arr && arr.length >= 6) {
+    const dv = new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
+    const n = dv.getUint16(0, true), cb = dv.getUint16(4, true);
+    const list: [number, string][] = [];
+    for (let i = 0; i < n && cb >= 8 && 6 + (i + 1) * cb <= arr.length; i++) list.push([dv.getInt32(6 + i * cb + 4, true) / 65536, col(dv.getUint32(6 + i * cb, true))]);
+    if (list.length >= 2) base = list;
+  }
+  const f = Math.max(-100, Math.min(100, (pv(0x18c) ?? 0) | 0)) / 100;
+  const rev = base.map(([q, c]): [number, string] => [1 - q, c]).reverse();
+  // f ≥ 0: da 1ª à 2ª em [0, f] e de volta em [f, 1]; f < 0: o inverso em [0, 1 + f] e [1 + f, 1]
+  const [a, b, mid] = f >= 0 ? [base, rev, f] : [rev, base, 1 + f];
+  const stops: [number, string][] = [];
+  if (mid > 0) for (const [q, c] of a) stops.push([q * mid, c]);
+  if (mid < 1) for (const [q, c] of b) if (!(mid > 0 && q === 0)) stops.push([mid + q * (1 - mid), c]);
+  let alpha = ((pv(0x18b) ?? 0) | 0) / 65536;
+  while (alpha < 0) alpha += 180;
+  const ang = ((((90 - alpha) % 360) + 360) % 360) * 60000;
+  // (posição 16.16 → 0,01%: 26214/65536 = 40%)
+  const gs = stops.map(([q, c]) => `<a:gs pos="${Math.round(Math.max(0, Math.min(1, q)) * 10000) * 10}"><a:srgbClr val="${c}"/></a:gs>`).join('');
+  return `<a:gradFill rotWithShape="1"><a:gsLst>${gs}</a:gsLst><a:lin ang="${Math.round(ang)}" scaled="${type === 7 ? 1 : 0}"/></a:gradFill>`;
 }
 
 /**

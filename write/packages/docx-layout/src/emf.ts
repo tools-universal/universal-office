@@ -376,7 +376,12 @@ export function renderEmf(ctx: DocContext, bytes: Uint8Array, dest: { x: number;
         const img = cbBmi ? dib(pos + offBmi, cbBmi, pos + offBits, cbBits) : null;
         const [x0, y0] = toPage(xd, yd), [x1, y1] = toPage(xd + cx, yd + cy);
         if (img) out.push({ t: 'image', x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0), image: img });
-        else if (dc.brush.style !== 1) out.push({ t: 'rect', x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0), fill: dc.brush.color });
+        else {
+          // sem bitmap de origem o Word só pinta PATCOPY, BLACKNESS e WHITENESS — os três com o
+          // pincel atual; D puro, PATINVERT, DSTINVERT e NOTPATCOPY não mudam nada (oráculo emfpat)
+          const rop3 = (u32(r + 32) >>> 16) & 0xff;
+          if ((rop3 === 0xf0 || rop3 === 0x00 || rop3 === 0xff) && dc.brush.style !== 1) out.push({ t: 'rect', x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0), fill: dc.brush.color });
+        }
         break;
       }
       case 114: { // ALPHABLEND

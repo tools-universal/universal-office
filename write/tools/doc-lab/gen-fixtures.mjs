@@ -399,6 +399,32 @@ fixtures.formas = () => {
   };
 };
 
+// Degradês lineares (DrawingML → OfficeArt fillType 7 no .doc): direções, foco espelhado
+// (3 paradas simétricas) e lista de cores (fillShadeColors); em VML, ângulo negativo com foco 0
+// e a 2ª cor derivada do preenchimento ("fill lighten(153)") — cores inventadas.
+fixtures.degrades = () => {
+  const gs = (stops) => `<a:gsLst>${stops.map(([pos, c]) => `<a:gs pos="${pos}"><a:srgbClr val="${c}"/></a:gs>`).join('')}</a:gsLst>`;
+  const grad = (stops, ang) => `<a:gradFill rotWithShape="1">${gs(stops)}<a:lin ang="${ang}" scaled="1"/></a:gradFill>`;
+  const shape = (id, x, fill) =>
+    `<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="${251658240 + id}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="column"><wp:posOffset>${x}</wp:posOffset></wp:positionH><wp:positionV relativeFrom="paragraph"><wp:posOffset>${EMU / 2}</wp:posOffset></wp:positionV><wp:extent cx="${2 * EMU}" cy="${EMU}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${id}" name="Forma ${id}"/><wp:cNvGraphicFramePr/>` +
+    `<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><wps:wsp><wps:cNvSpPr/><wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${2 * EMU}" cy="${EMU}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${fill}<a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln></wps:spPr><wps:bodyPr/></wps:wsp></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>`;
+  const WG = [[0, 'FFFFFF'], [100000, '999999']];
+  const rows = [
+    [grad(WG, 5400000), grad(WG, 0), grad(WG, 2700000)],
+    [grad(WG, 16200000), grad([[0, '999999'], [50000, 'FFFFFF'], [100000, '999999']], 5400000), grad([[0, 'C04040'], [40000, 'FFFFFF'], [100000, '2E5C8A']], 5400000)],
+  ];
+  let id = 0;
+  const vml = '<w:r><w:pict><v:rect id="Degrade7" style="position:absolute;margin-left:0;margin-top:14pt;width:56.7pt;height:28.35pt;z-index:7;mso-position-horizontal-relative:text;mso-position-vertical-relative:text" fillcolor="#3a7a5c"><v:fill color2="fill lighten(153)" angle="-45" focus="0" method="linear sigma" type="gradient"/></v:rect></w:pict></w:r>';
+  return {
+    body: [
+      ...rows.map((row, k) => p(r(`Degradês, linha ${k + 1}.`) + row.map((f, j) => shape(++id, j * 3 * EMU, f)).join('')) + p('') + p('') + p('')),
+      p(r('Degradê VML.') + vml) + p('') + p('') + p(''),
+      p(r('Fim.')),
+      SECT_A4,
+    ].join(''),
+  };
+};
+
 // só caracteres que cabem na peça COMPRIMIDA (Latin-1 + a tabela 0x82-0x9F do
 // [MS-DOC]); €, Ž e ž ficam de fora da tabela e fariam o Word gravar UTF-16
 fixtures.cp1252 = () => ({

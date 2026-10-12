@@ -103,6 +103,31 @@ describe('motor: regras medidas no Word', () => {
   });
 });
 
+describe('motor: fundo de mescla vertical que atravessa a página (oráculo vmshd)', () => {
+  // mescla de 6 linhas na 1ª coluna: fundo A na inicial e B nas continuações (o Word ignora B)
+  const tc = (xml: string, vm: string, fill: string) => `<w:tc><w:tcPr><w:tcW w:w="3000" w:type="dxa"/>${vm}${fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : ''}</w:tcPr>${xml}</w:tc>`;
+  const rows = Array.from({ length: 6 }, (_, k) => `<w:tr>${tc(p(k ? '' : r('mescla')), k ? '<w:vMerge/>' : '<w:vMerge w:val="restart"/>', k ? 'C04040' : '2E5C8A')}${tc(p(r(`linha ${k + 1}`)), '', '')}</w:tr>`).join('');
+  const tbl = `<w:tbl><w:tblPr><w:tblW w:w="6000" w:type="dxa"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="3000"/><w:gridCol w:w="3000"/></w:tblGrid>${rows}</w:tbl>`;
+  const N_FILL = 49; // linhas de enchimento: 3 linhas da tabela em cada página
+  const glyphRunsOf = (pg: LayoutResult['pages'][number]) => pg.items.filter((i): i is GlyphRunItem => i.t === 'glyphs');
+  it('o fundo da inicial em cada página, do topo ao pé da parte; o das continuações não', () => {
+    const res = run(Array.from({ length: N_FILL }, (_, k) => p(r(`enchimento ${k + 1}`))).join('') + tbl + p(r('Fim')));
+    const parts = res.pages.map((pg) => ({ pg, rows: glyphRunsOf(pg).filter((g) => g.text.startsWith('linha')) })).filter((x) => x.rows.length);
+    expect(parts.length).toBe(2);
+    for (const { pg, rows: ls } of parts) {
+      const fills = pg.items.filter((i) => i.t === 'rect' && i.fill === '2E5C8A');
+      expect(fills.length).toBe(1);
+      const f = fills[0] as Extract<(typeof pg.items)[number], { t: 'rect' }>;
+      const ys = ls.map((g) => g.y);
+      // cobre as linhas da parte e não passa do pé dela (uma linha de tabela abaixo da última)
+      expect(f.y).toBeLessThan(Math.min(...ys));
+      expect(f.y + f.h).toBeGreaterThan(Math.max(...ys));
+      expect(f.y + f.h - Math.max(...ys)).toBeLessThan(300);
+    }
+    expect(res.pages.some((pg) => pg.items.some((i) => i.t === 'rect' && i.fill === 'C04040'))).toBe(false);
+  });
+});
+
 describe('motor: medições sem efeito colateral', () => {
   const NUM = '<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>';
   const numbered = (t: string) => p(r(t), '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>');

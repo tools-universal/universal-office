@@ -115,6 +115,19 @@ public static class Geometry
                     if (prst == "downArrow") { double y1 = h - dy; return Poly(new[] { (0.0, y1), (x1, y1), (x1, 0.0), (x2, 0.0), (x2, y1), (w, y1), (hc, h) }); }
                     return Poly(new[] { (0.0, dy), (hc, 0.0), (w, dy), (x2, dy), (x2, h), (x1, h), (x1, dy) });
                 }
+            // setas duplas (presetShapeDefinitions; corpus t15: forma 70 de .doc)
+            case "upDownArrow":
+                {
+                    double a1 = Pin(0, Av("adj1", 50000), 100000), a2 = Pin(0, Av("adj2", 50000), (50000 * h) / ss);
+                    double y2 = (ss * a2) / 100000, y3 = h - y2, dx1 = (w * a1) / 200000, x1 = hc - dx1, x2 = hc + dx1;
+                    return Poly(new[] { (0.0, y2), (hc, 0.0), (w, y2), (x2, y2), (x2, y3), (w, y3), (hc, h), (0.0, y3), (x1, y3), (x1, y2) });
+                }
+            case "leftRightArrow":
+                {
+                    double a1 = Pin(0, Av("adj1", 50000), 100000), a2 = Pin(0, Av("adj2", 50000), (50000 * w) / ss);
+                    double x2 = (ss * a2) / 100000, x3 = w - x2, dy = (h * a1) / 200000, y1 = vc - dy, y2 = vc + dy;
+                    return Poly(new[] { (0.0, vc), (x2, 0.0), (x2, y1), (x3, y1), (x3, 0.0), (w, vc), (x3, h), (x3, y2), (x2, y2), (x2, h) });
+                }
             case "ellipse":
                 {
                     double rx = w / 2, ry = h / 2;

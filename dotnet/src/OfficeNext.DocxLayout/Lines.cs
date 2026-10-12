@@ -49,6 +49,8 @@ public sealed class Line
     /// <summary>tab com parada além do vão do flutuante: "break" a linha acabou antes dele;
     /// "start" ele abre a linha (o motor a leva para baixo do flutuante) — oráculo tabgap</summary>
     public string? GapTab;
+    /// <summary>um tab atravessou o flutuante: a linha já ocupou o vão seguinte (oráculo ftrtabs)</summary>
+    public bool Spanned;
 }
 
 public struct LineFrame
@@ -62,8 +64,10 @@ public struct LineFrame
     public List<(double A, double B)>? Segs;
     /// <summary>vão ao lado de um flutuante (o quadro foi estreitado por ele)</summary>
     public bool Gap;
+    /// <summary>o vão seguinte da mesma linha (depois do flutuante)</summary>
+    public (double Left, double Right)? Next;
 
-    public LineFrame(double left, double right) { Left = left; Right = right; SkipTo = null; Segs = null; Gap = false; }
+    public LineFrame(double left, double right) { Left = left; Right = right; SkipTo = null; Segs = null; Gap = false; Next = null; }
 }
 
 public static class Lines
@@ -321,6 +325,7 @@ public sealed class LineBreaker
         string? breakAfter = null;
         bool clearAfter = false;
         string? gapTab = null;
+        bool spanned = false;
         bool pastMargin = false;
         bool forced = false;
         // hifenização da palavra que não coube: a linha acaba depois do glifo hyphAt, com o
@@ -418,8 +423,20 @@ public sealed class LineBreaker
                 // vão (oráculo tabgap)
                 if (frame.Gap && g.Ptab is null && pos > right + 0.5 && Lines.MoreTabs(gs, i))
                 {
-                    if (i > start) { gapTab = "break"; break; }
-                    gapTab = "start";
+                    // com uma parada no vão seguinte da mesma linha (antes do fim dele), o tab atravessa o
+                    // flutuante e a linha continua lá — e se centraliza como linha inteira (oráculo ftrtabs;
+                    // corpus t20); sem ela, a linha acaba aqui e o resto desce (tabgap)
+                    (double Pos, TabSpec? Tab)? nxt = frame.Next is { } fnx0 && !spanned ? Lines.NextTab(fnx0.Left, p.Tabs, defaultTab, hangingStop, fnx0.Right) : null;
+                    if (nxt is { } nxv && frame.Next is { } fnx && nxv.Pos <= fnx.Right + 0.5)
+                    {
+                        spanned = true;
+                        x = fnx.Left;
+                        right = fnx.Right;
+                        rightQ = FitRight(new LineFrame(frame.Left, right), xStart, first);
+                        (pos, tab) = nxv;
+                    }
+                    else if (i > start) { gapTab = "break"; break; }
+                    else gapTab = "start";
                 }
                 // Word 2013+ (oráculo tocdots-beyond-c15): parada custom direita/centro/decimal
                 // além de máx(margem, fim da linha) alinha o texto pela DIREITA no fim da
@@ -680,6 +697,21 @@ public sealed class LineBreaker
             desc = Lines.JsMax2(desc, fd);
             asc = Lines.JsMax2(Lines.JsMax2(asc, fa), hr + 100 - desc);
         }
+        // linha SÓ com tabulações que não é a última do parágrafo (o texto desceu para a seguinte):
+        // a altura é a das tabulações, não a da marca (oráculo ftrtabs; corpus t20)
+        if (!lastLine && asc == 0 && desc == 0)
+        {
+            var tabContent = placed.Where(pg => pg.G.Kind != GlyphKind.Obj || pg.G.Adv > 0).ToList();
+            if (tabContent.Any(pg => pg.G.Kind == GlyphKind.Tab) && tabContent.All(pg => pg.G.Kind == GlyphKind.Tab || pg.G.Ch == " "))
+            {
+                foreach (var pg in tabContent)
+                {
+                    if (pg.G.Kind != GlyphKind.Tab) continue;
+                    asc = Lines.JsMax2(asc, pg.G.Asc); desc = Lines.JsMax2(desc, pg.G.Desc);
+                    tAsc = Lines.JsMax2(tAsc, pg.G.NAsc ?? pg.G.Asc); tDesc = Lines.JsMax2(tDesc, pg.G.NDesc ?? pg.G.Desc);
+                }
+            }
+        }
         bool emptyLine = asc == 0 && desc == 0;
         if (emptyLine)
         {
@@ -780,6 +812,7 @@ public sealed class LineBreaker
             Clear = clearAfter,
             Last = lastLine,
             GapTab = gapTab,
+            Spanned = spanned,
         };
     }
 }

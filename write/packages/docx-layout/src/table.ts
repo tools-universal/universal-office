@@ -37,10 +37,10 @@ export interface CellContent {
 
 export interface NestRow { top: number; row: RowLayout; items: PageItem[]; lines: LaidOutLine[] }
 
-export interface ParaSplitInfo { lines: number; widow: boolean; after: number }
+export interface ParaSplitInfo { lines: number; widow: boolean; after: number; /** faixa da borda de baixo (pBdr) depois da última linha */ band?: number }
 
 export type CellLayouter = (
-  cell: TableCell, x: number, width: number, env: { tablePPr?: PPr; tableRPr?: RPr; darkBackground?: boolean; cellMar?: { l: number; r: number } }, ref: string,
+  cell: TableCell, x: number, width: number, env: { tablePPr?: PPr; tableRPr?: RPr; darkBackground?: boolean; cellMar?: { l: number; r: number; t?: number } }, ref: string,
 ) => CellContent;
 
 export interface RowLayout {
@@ -79,6 +79,9 @@ export interface RowLayout {
   ownTopBorders?: PageItem[];
   /** convertida por atPageTop: quanto subiu */
   cut?: number;
+  /** fundo de mescla vertical que começa nesta linha (retângulo com a altura somada) e a
+   *  linha em que ela termina: no fluxo, o motor pinta uma faixa por página (oráculo vmshd) */
+  mergeFills?: { item: Extract<PageItem, { t: 'rect' }>; end: number }[];
 }
 
 /** Parte um conteúdo de célula num corte vertical (fim da última linha que cabe). */
@@ -98,7 +101,8 @@ export function splitContent(c: CellContent, availContent: number): [CellContent
   if (paras) for (const l of c.lines) if (paras.has(l.ref)) lastOf.set(l.ref, l);
   let cut = 0;
   for (const l of c.lines) {
-    const bottom = l.y + l.height;
+    // (a borda de baixo do parágrafo fica com ele, em cima do corte — corpus t191)
+    const bottom = l.y + l.height + (lastOf.get(l.ref) === l ? paras!.get(l.ref)!.band ?? 0 : 0);
     const after = lastOf.get(l.ref) === l ? paras!.get(l.ref)!.after : 0;
     // (sem folga: o Word compara exato — oráculo bodyfit, bf-cf-*)
     if (bottom + after <= availContent + 0.05 && bottom > cut) cut = bottom;
@@ -940,7 +944,8 @@ export function layoutTable(
           // texto vertical: diagramado depois que a altura das outras células é conhecida
           if (s.rowSpan !== 1) pendingMerges.push({ slot: s, content: null, tcPr, x0, x1, startRow: ri, vertical, marL, marR, marT, marB, env });
         } else {
-          const content = layoutCell(s.cell, x + x0 + marL, Math.max(1, x1 - x0 - marL - marR), { ...env, cellMar: { l: marL, r: marR } }, `${ref}/r${ri}/c${s.col}`);
+          // (t: do topo da linha ao do conteúdo — faixa de borda + margem de cima)
+          const content = layoutCell(s.cell, x + x0 + marL, Math.max(1, x1 - x0 - marL - marR), { ...env, cellMar: { l: marL, r: marR, t: bandTopOf(ri) + marT } }, `${ref}/r${ri}/c${s.col}`);
           info.content = content;
           if (s.rowSpan === 1) contentH = Math.max(contentH, content.height + marT + marB);
           else pendingMerges.push({ slot: s, content, tcPr, x0, x1, startRow: ri, marL, marR, marT, marB, env });
@@ -1060,9 +1065,8 @@ export function layoutTable(
           if (fill) its.push({ t: 'rect', x: x + ci.x0, y: 0, w: ci.x1 - ci.x0, h: rh, fill });
           if (content && ci.vertical) paintVertical(its, content, ci.vertical, vaOf(content, ci.tcPr.vAlign), x + ci.x0 + ci.marL, x + ci.x1 - ci.marR, bTop + ci.marT, bTop + ch - ci.marB);
           else if (content) placeContent(its, lns, content, vTop ? 'top' : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
-        } else if (s.merged && fill) {
-          its.push({ t: 'rect', x: x + ci.x0, y: 0, w: ci.x1 - ci.x0, h: rh, fill });
         }
+        // continuação de mescla: vale o fundo da célula inicial; o dela o Word ignora (oráculo vmshd)
         const tcb = ci.tcPr.tcBorders;
         // topo: na faixa de cima (continuação de linha partida: a borda de cima da célula)
         const top = drawTop ? (s.merged ? undefined : topWinner(s)) : (edge(s, 'top') ?? edge(s, 'bottom'));
@@ -1168,8 +1172,10 @@ export function layoutTable(
     const target = rows[endRow] ?? first;
     const fill = cellFill(ctx, m.tcPr, tblPr, theme);
     if (fill) {
-      first.items.unshift({ t: 'rect', x: x + m.x0, y: 0, w: m.x1 - m.x0, h, fill });
+      const item = { t: 'rect' as const, x: x + m.x0, y: 0, w: m.x1 - m.x0, h, fill };
+      first.items.unshift(item);
       for (const a of first.mergeAt ?? []) a.at++;
+      if (!first.header) (first.mergeFills ??= []).push({ item, end: endRow });
     }
     const { marT, marB } = m;
     // topo da célula mesclada no sistema de coordenadas da linha-alvo
@@ -1271,9 +1277,11 @@ export function atPageTop(row: RowLayout): RowLayout {
       : it.t === 'line' && it.y1 === 0 && it.y2 === h ? { ...it, y2: h - d }
         : shiftItem(it, -d);
   const { split: _s, topCut: _t, topBorders: _b, ownTopBorders: _o, ...rest } = row;
+  const items = row.items.map(cut);
   return {
     ...rest, height: h - d, cut: d,
-    items: row.items.map(cut),
+    items,
+    ...(row.mergeFills ? { mergeFills: row.mergeFills.map((f) => ({ ...f, item: items[row.items.indexOf(f.item)] as Extract<PageItem, { t: 'rect' }> })) } : {}),
     lines: row.lines.map((l) => keep.has(l) ? l : { ...l, y: l.y - d, baseline: l.baseline - d }),
     borderItems: [...row.borderItems.filter((it) => !top.has(it)).map(cut), ...(row.ownTopBorders ?? [])],
     ...(row.breakBorderItems ? { breakBorderItems: row.breakBorderItems.map((it) => shiftItem(it, -d)) } : {}),

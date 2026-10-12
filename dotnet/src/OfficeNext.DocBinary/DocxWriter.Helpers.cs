@@ -340,6 +340,54 @@ internal static class WriterUtil
     }
 
     /// <summary>
+    /// Preenchimento de forma OfficeArt: sólido (0x181) ou degradê linear (fillType 0x180 = 4
+    /// shade / 7 shadeScale). Medido no Word (.docx → .doc → .docx e o PDF do VML equivalente):
+    /// ângulo 0x18B (graus 16.16) 0 = de cima para baixo → a:lin 90° − α, negativo vale α + 180°
+    /// (−45 = 135); cores 0x181 → 0x183 ou a lista 0x197 (cor, posição 16.16), a 2ª podendo ser a
+    /// do preenchimento clareada/escurecida (índice 0xF0); foco 0x18C f ≥ 0: a 2ª cor em f% e
+    /// volta à 1ª; f &lt; 0: a 1ª em 100 + f%, com a 2ª nas pontas (−100 = 100).
+    /// </summary>
+    public static string OaFillXml(OAShape shape)
+    {
+        string c1 = OaColor(shape.Pv(0x181), 0xffffff);
+        long type = shape.Pv(0x180) ?? 0;
+        if (type != 4 && type != 7) return $"<a:solidFill><a:srgbClr val=\"{c1}\"/></a:solidFill>";
+        // índice de sistema 0xF0 (a cor do preenchimento) com função 1 = escurecer (c·p/255) ou
+        // 2 = clarear (255 − (255 − c)·p/255) — o "fill lighten(p)" do VML (fixture degrades; corpus t66)
+        string Col(long? v)
+        {
+            if (v is null || (v.Value >> 24) != 0x10 || (v.Value & 0xff) != 0xf0) return OaColor(v, 0xffffff);
+            long fn = (v.Value >> 8) & 0x0f, p = (v.Value >> 16) & 0xff;
+            int n = Convert.ToInt32(c1, 16);
+            int Ch(int c) => (int)JsNumber.Round(fn == 1 ? (c * p) / 255.0 : fn == 2 ? 255 - ((255 - c) * p) / 255.0 : c);
+            return OoxmlProps.Hex((Ch(n >> 16) << 16) | (Ch((n >> 8) & 0xff) << 8) | Ch(n & 0xff));
+        }
+        var bas = new List<(double Q, string C)> { (0, c1), (1, Col(shape.Pv(0x183))) };
+        if (shape.Props.TryGetValue(0x197, out var cp) && cp.Complex is { } arr && arr.Length >= 6)
+        {
+            int U16(int o) => arr[o] | (arr[o + 1] << 8);
+            int I32(int o) => arr[o] | (arr[o + 1] << 8) | (arr[o + 2] << 16) | (arr[o + 3] << 24);
+            int cnt = U16(0), cb = U16(4);
+            var list = new List<(double Q, string C)>();
+            for (int i = 0; i < cnt && cb >= 8 && 6 + (i + 1) * cb <= arr.Length; i++) list.Add((I32(6 + i * cb + 4) / 65536.0, Col((uint)I32(6 + i * cb))));
+            if (list.Count >= 2) bas = list;
+        }
+        double f = Math.Max(-100, Math.Min(100, (int)(uint)(shape.Pv(0x18c) ?? 0))) / 100.0;
+        var rev = bas.Select(t => (Q: 1 - t.Q, t.C)).Reverse().ToList();
+        // f ≥ 0: da 1ª à 2ª em [0, f] e de volta em [f, 1]; f < 0: o inverso em [0, 1 + f] e [1 + f, 1]
+        var (fa, fb, mid) = f >= 0 ? (bas, rev, f) : (rev, bas, 1 + f);
+        var stops = new List<(double Q, string C)>();
+        if (mid > 0) foreach (var (q, c) in fa) stops.Add((q * mid, c));
+        if (mid < 1) foreach (var (q, c) in fb) if (!(mid > 0 && q == 0)) stops.Add((mid + q * (1 - mid), c));
+        double alpha = (int)(uint)(shape.Pv(0x18b) ?? 0) / 65536.0;
+        while (alpha < 0) alpha += 180;
+        double ang = (((90 - alpha) % 360) + 360) % 360 * 60000;
+        // (posição 16.16 → 0,01%: 26214/65536 = 40%)
+        string gs = string.Concat(stops.Select(s => $"<a:gs pos=\"{JsNumber.ToString(JsNumber.Round(Math.Max(0, Math.Min(1, s.Q)) * 10000) * 10)}\"><a:srgbClr val=\"{s.C}\"/></a:gs>"));
+        return $"<a:gradFill rotWithShape=\"1\"><a:gsLst>{gs}</a:gsLst><a:lin ang=\"{JsNumber.ToString(JsNumber.Round(ang))}\" scaled=\"{(type == 7 ? 1 : 0)}\"/></a:gradFill>";
+    }
+
+    /// <summary>
     /// Fundo da página: forma de fundo do desenho principal com preenchimento sólido
     /// (fillType 0x180 = 0, fFilled em 0x1BF) → w:background com a cor (0x181).
     /// </summary>
