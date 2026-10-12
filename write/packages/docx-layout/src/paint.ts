@@ -1,9 +1,10 @@
 import type { BorderSpec, PBdr } from '@universal-office/docx-core';
 import type { Line, PlacedGlyph } from './lines.js';
 import type { PreparedPara, Glyph } from './para.js';
+import { WORD_UNIT } from './para.js';
 import type { PageItem, GlyphRunItem } from './tree.js';
 import { faceMetrics } from './fonts.js';
-import { resolveColor } from './resolve.js';
+import { resolveColor, fontOfSlot } from './resolve.js';
 import type { DocContext } from './context.js';
 import { isEmf, renderEmf } from './emf.js';
 import { isWmf, renderWmf } from './wmf.js';
@@ -38,7 +39,7 @@ export function paintLine(
     if (g.kind !== 'char' && g.kind !== 'nbsp' && !(g.kind === 'shy' && pg.w > 0)) {
       if (g.kind === 'space') continue;
       flush();
-      if (g.kind === 'tab' && pg.leader) paintLeader(ctx, out, pg, frameX, baseY);
+      if (g.kind === 'tab' && pg.leader) paintLeader(ctx, out, pg, frameX, baseY, all);
       if (g.kind === 'obj' && g.obj && g.adv > 0) paintInlineObject(ctx, out, g, frameX + pg.x, baseY);
       if (g.kind === 'box' && g.box) paintCheckBox(out, g, frameX + pg.x, baseY);
       continue;
@@ -89,9 +90,10 @@ export function paintLine(
  *    PÁGINA (independe de margem e recuo — tocdots-margin);
  *  - só glifos inteiros, sem respiro: 1º em k·passo ≥ fim do texto; o último
  *    termina ≤ início do texto seguinte, igualdade inclusive (tocdots-tabpos).
- *    Bordas do tab em px como o Word posiciona: px(quadro) + px(deslocamento).
+ *    Bordas do tab em px como o Word posiciona: px(quadro) + px(deslocamento); o fim do
+ *    texto é o de EXIBIÇÃO (displayEnd).
  */
-function paintLeader(ctx: DocContext, out: PageItem[], pg: PlacedGlyph, frameX: number, baseY: number): void {
+function paintLeader(ctx: DocContext, out: PageItem[], pg: PlacedGlyph, frameX: number, baseY: number, all: PlacedGlyph[]): void {
   if (pg.w <= 0) return;
   const g = pg.g;
   const ch = pg.leader === 'hyphen' ? '-' : pg.leader === 'underscore' || pg.leader === 'heavy' ? '_' : pg.leader === 'middleDot' ? '·' : '.';
@@ -108,14 +110,43 @@ function paintLeader(ctx: DocContext, out: PageItem[], pg: PlacedGlyph, frameX: 
   // px do quadro: meio pixel arredonda para o PAR (472,5 → 472; 467,5 → 468 — oráculo tdhalfpx)
   const fv = frameX / 2.4, ff = Math.floor(fv);
   const fx = Math.abs(fv - ff - 0.5) < 1e-6 ? ff + (ff % 2) : Math.round(fv);
-  const x0 = fx + Math.round(pg.x / 2.4), x1 = fx + Math.round((pg.x + pg.w) / 2.4);
+  const x0 = displayEnd(ctx, all, pg, fx), x1 = fx + Math.round((pg.x + pg.w) / 2.4);
   const run: GlyphRunItem = {
     t: 'glyphs', face, sizePt: g.sizePt, color: g.style.color, y: baseY - g.style.shift, glyphs: [], text: '',
     ...(scale !== 1 ? { scaleX: scale } : {}),
   };
   for (let k = Math.ceil(x0 / step); (k + 1) * step <= x1; k++) { run.glyphs.push({ cp, x: k * step * 2.4 }); run.text += ch; }
   if (run.glyphs.length) out.push(run);
-  void ctx;
+}
+
+/**
+ * Fim do texto antes do tab como o Word o EXIBE no PDF (px de 600 dpi; oráculos de
+ * laboratório tdfit/tdseg/tdtab/tdpage/tdcompat). O Word converte as larguras da unidade
+ * interna (1/4096 pt) para o dispositivo com o multiplicador de ponto fixo 8534/2²²
+ * (= teto(2²²/491,52)) em 32 bits: o texto desde o tab anterior (ou o início da linha) é
+ * medido em trechos — o maior prefixo de glifos cuja largura × 8534 + 2²¹ ainda cabe em
+ * 2³² (≈ 1023,5 px) — e cada trecho é arredondado ao pixel à parte. Fim = px(início do
+ * texto) + soma dos trechos; em texto longo difere de round(fim ideal) em até ±1,5 px.
+ * Exceção medida e ainda não modelada: modo de compatibilidade (≤ 14) com
+ * useWord97LineBreakRules e fonte do Leste Asiático no texto (comum em .doc) — o Word
+ * exibe de outro jeito; ali fica o arredondamento do fim ideal.
+ */
+function displayEnd(ctx: DocContext, all: PlacedGlyph[], tab: PlacedGlyph, fx: number): number {
+  const i = all.indexOf(tab);
+  let s = i;
+  while (s > 0 && all[s - 1]!.g.kind !== 'tab') s--;
+  const st = ctx.fmt.settings;
+  if (st.compatibilityMode < 15 && st.compat['useWord97LineBreakRules']
+    && fontOfSlot((s < i ? all[s]! : tab).g.style.rpr.rFonts, 'eastAsia', ctx.fmt.theme)) return fx + Math.round(tab.x / 2.4);
+  const seg = (u: number) => Math.floor((u * 8534 + 2097152) / 4194304);
+  let px = fx + Math.round((s < i ? all[s]!.x : tab.x) / 2.4);
+  let u = 0;
+  for (let j = s; j < i; j++) {
+    const w = Math.round(all[j]!.w / WORD_UNIT);
+    if (u > 0 && (u + w) * 8534 + 2097152 >= 4294967296) { px += seg(u); u = 0; }
+    u += w;
+  }
+  return px + seg(u);
 }
 
 /** Fração de equação (math.ts): numerador e denominador — nessa ordem, como o Word

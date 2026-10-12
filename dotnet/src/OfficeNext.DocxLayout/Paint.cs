@@ -72,7 +72,7 @@ public static class Paint
             {
                 if (g.Kind == GlyphKind.Space) continue;
                 Flush();
-                if (g.Kind == GlyphKind.Tab && pg.Leader is not null) PaintLeader(ctx, outp, pg, frameX, baseY);
+                if (g.Kind == GlyphKind.Tab && pg.Leader is not null) PaintLeader(ctx, outp, pg, frameX, baseY, all);
                 if (g.Kind == GlyphKind.Obj && g.Obj is not null && g.Adv > 0) PaintInlineObject(ctx, outp, g, frameX + pg.X, baseY);
                 if (g.Kind == GlyphKind.Box && g.Box is not null) PaintCheckBox(outp, g, frameX + pg.X, baseY);
                 continue;
@@ -127,9 +127,10 @@ public static class Paint
     ///    PÁGINA (independe de margem e recuo — tocdots-margin);
     ///  - só glifos inteiros, sem respiro: 1º em k·passo ≥ fim do texto; o último
     ///    termina ≤ início do texto seguinte, igualdade inclusive (tocdots-tabpos).
-    ///    Bordas do tab em px como o Word posiciona: px(quadro) + px(deslocamento).
+    ///    Bordas do tab em px como o Word posiciona: px(quadro) + px(deslocamento); o fim do
+    ///    texto é o de EXIBIÇÃO (DisplayEnd).
     /// </summary>
-    private static void PaintLeader(DocContext ctx, List<PageItem> outp, PlacedGlyph pg, double frameX, double baseY)
+    private static void PaintLeader(DocContext ctx, List<PageItem> outp, PlacedGlyph pg, double frameX, double baseY, List<PlacedGlyph> all)
     {
         if (pg.W <= 0) return;
         var g = pg.G;
@@ -147,7 +148,7 @@ public static class Paint
         // px do quadro: meio pixel arredonda para o PAR (472,5 → 472; 467,5 → 468 — oráculo tdhalfpx)
         double fv = frameX / 2.4, ff = Math.Floor(fv);
         double fx = Math.Abs(fv - ff - 0.5) < 1e-6 ? ff + (ff % 2) : Js.Round(fv);
-        double x0 = fx + Js.Round(pg.X / 2.4), x1 = fx + Js.Round((pg.X + pg.W) / 2.4);
+        double x0 = DisplayEnd(ctx, all, pg, fx), x1 = fx + Js.Round((pg.X + pg.W) / 2.4);
         var run = new GlyphRunItem
         {
             Face = face, SizePt = g.SizePt, Color = g.Style.Color, Y = baseY - g.Style.Shift,
@@ -286,6 +287,36 @@ public static class Paint
         }
     }
 
+
+    /// <summary>
+    /// Fim do texto antes do tab como o Word o EXIBE no PDF (px de 600 dpi). O Word converte
+    /// as larguras da unidade interna (1/4096 pt) para o dispositivo com o multiplicador de
+    /// ponto fixo 8534/2²² (= teto(2²²/491,52)) em 32 bits: o texto desde o tab anterior (ou o
+    /// início da linha) é medido em trechos — o maior prefixo de glifos cuja largura × 8534 +
+    /// 2²¹ ainda cabe em 2³² (≈ 1023,5 px) — e cada trecho é arredondado ao pixel à parte.
+    /// Exceção ainda não modelada: modo ≤ 14 com useWord97LineBreakRules e fonte do Leste
+    /// Asiático no texto — ali fica o arredondamento do fim ideal.
+    /// </summary>
+    private static double DisplayEnd(DocContext ctx, List<PlacedGlyph> all, PlacedGlyph tab, double fx)
+    {
+        int i = all.IndexOf(tab), s = i;
+        while (s > 0 && all[s - 1].G.Kind != GlyphKind.Tab) s--;
+        var st = ctx.Fmt.Settings;
+        var first = s < i ? all[s] : tab;
+        if (st.CompatibilityMode < 15 && st.Compat.TryGetValue("useWord97LineBreakRules", out var w97) && w97
+            && Resolve.FontOfSlot(first.G.Style.Rpr.RFonts, "eastAsia", ctx.Fmt.Theme) is { Length: > 0 })
+            return fx + Js.Round(tab.X / 2.4);
+        static double Seg(double u) => Math.Floor((u * 8534 + 2097152) / 4194304);
+        double px = fx + Js.Round(first.X / 2.4);
+        double acc = 0;
+        for (int j = s; j < i; j++)
+        {
+            double w = Js.Round(all[j].W / Para.WordUnit);
+            if (acc > 0 && (acc + w) * 8534 + 2097152 >= 4294967296.0) { px += Seg(acc); acc = 0; }
+            acc += w;
+        }
+        return px + Seg(acc);
+    }
     /// <summary>Espessura desenhada (twips) de uma borda OOXML (w:sz em 1/8 pt).</summary>
     public static double BorderWidth(BorderSpec? b)
     {
