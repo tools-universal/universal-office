@@ -161,6 +161,7 @@ public static class Lines
 public sealed class LineBreaker
 {
     /// <summary>folga do teste "cabe na linha" (twips): só o ruído de ponto flutuante</summary>
+    // (as larguras e o limite já estão na unidade interna do Word, 1/4096 pt — oráculo emwidth)
     private const double FitEps = 0.001;
     /// <summary>Espaço de largura fixa (en, em, fino, ideográfico…): fora da justificação (oráculo formjust).</summary>
     private static bool FixedSpace(int cp) => (cp >= 0x2000 && cp <= 0x200a) || cp == 0x3000;
@@ -235,6 +236,17 @@ public sealed class LineBreaker
         public double DecimalX;
     }
 
+    /// <summary>Borda direita do teste "cabe" (x relativo ao quadro): o Word converte a largura da
+    /// coluna/célula (borda direita + recuo direito) e cada recuo para 1/4096 pt
+    /// separadamente, arredondando — oráculo emwidth.</summary>
+    private double FitRight(LineFrame frame, double xStart, bool first)
+    {
+        if (_ctx.Opts.AdvanceRound != "word" || _ctx.Opts.AdvanceEm == "device") return frame.Right;
+        var p = P;
+        static double Q(double tw) => Para.ToWordUnit(tw);
+        return xStart + Q(frame.Right + p.IndRight) - Q(p.IndRight) - Q(frame.Left - p.IndLeft) - Q(p.IndLeft) - (first ? Q(p.FirstLine) : 0);
+    }
+
     /// <summary>Próxima linha no quadro dado. `frame` já desconta recuos do parágrafo.</summary>
     public Line Next(LineFrame frame)
     {
@@ -244,6 +256,10 @@ public sealed class LineBreaker
         int start = Pos;
         double xStart = frame.Left + (first ? p.FirstLine : 0);
         double right = frame.Right;
+        // limite do "cabe na linha" na unidade interna do Word (1/4096 pt): largura da
+        // coluna/célula e recuos direito, esquerdo e da 1ª linha convertidos CADA UM com
+        // arredondamento (oráculo emwidth)
+        double rightQ = FitRight(frame, xStart, first);
         var placed = new List<PlacedGlyph>();
         double x = xStart;
         List<PlacedGlyph>? markerPlaced = null;
@@ -473,7 +489,7 @@ public sealed class LineBreaker
                     if (q.BreakAfter && q.Kind != GlyphKind.Char) break;
                     if (q.BreakAfter) { e++; break; }
                 }
-                double over = x + wordW - right;
+                double over = x + wordW - rightQ;
                 // a palavra depois de um espaço que não quebra (colado a NBSP) continua a
                 // unidade anterior: se descer, desce a unidade inteira (oráculo nbspglue)
                 if (i == start || !(gs[i - 1].Kind == GlyphKind.Space && !gs[i - 1].BreakAfter))
@@ -483,7 +499,7 @@ public sealed class LineBreaker
                     bool gapBefore = i > start && gs[i - 1].Kind == GlyphKind.Space;
                     unitX = x; unitSpacesW = spacesW; unitGapW = gapBefore ? lastGapW : 0; unitGapSp = gapBefore ? lastGapSp : 0;
                 }
-                // cabe sse W ≤ A, com a largura linear exata (oráculo fitwidth: limiar de 1 twip)
+                // cabe sse W ≤ A, larguras e limite na unidade interna do Word (oráculos fitwidth, emwidth)
                 wordOk = over <= FitEps;
                 // layout asiático: a pontuação final pendura além da margem — nos modos ≤ 14
                 // sempre (oráculo fecompress), no 15 só no justificado (oráculo hang15)
@@ -519,7 +535,7 @@ public sealed class LineBreaker
                 {
                     var ch = Hyphenate.ChooseHyphenation(_ctx, gs, new HyphenUnit
                     {
-                        I = i, E = e, X = x, Right = right, LineStart = lastBreak < start, ContentEnd = xStart + widthAtBreak,
+                        I = i, E = e, X = x, Right = rightQ, LineStart = lastBreak < start, ContentEnd = xStart + widthAtBreak,
                         Justify = p.Jc == "both" || p.Jc == "distribute", SpacesW = spacesW, RestW = unitSpacesW - unitGapSp, NSpaces = nSpaces, HyphenRun = _hyphenRun,
                     });
                     if (ch is { } hc) { hyphAt = hc.K; hyphW = hc.W; wordOk = true; }
@@ -542,9 +558,9 @@ public sealed class LineBreaker
             // que vem depois delas e não cabe fica na linha assim mesmo (oráculo floatwide)
             // modo ≤ 14: o texto de um tab DIREITO que não cabe fica na linha, além da margem, e
             // a linha não quebra mais (oráculo tabnextline)
-            if (!isGap && g.Kind != GlyphKind.Shy && !wordOk && !pastMargin && projected > right + FitEps && i > start
+            if (!isGap && g.Kind != GlyphKind.Shy && !wordOk && !pastMargin && projected > rightQ + FitEps && i > start
                 && pendTab?.Tab.Val == "right" && _ctx.Fmt.Settings.CompatibilityMode < 15) pastMargin = true;
-            if (!isGap && g.Kind != GlyphKind.Shy && !wordOk && !pastMargin && projected > right + FitEps && i > start
+            if (!isGap && g.Kind != GlyphKind.Shy && !wordOk && !pastMargin && projected > rightQ + FitEps && i > start
                 && placed.Any(q => q.G.Kind != GlyphKind.Obj || q.G.Adv > 0))
             {
                 if (lastBreak >= start)

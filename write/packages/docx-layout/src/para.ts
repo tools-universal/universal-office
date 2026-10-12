@@ -275,7 +275,45 @@ const SPACE_WIDTHS: Record<number, number | string> = {
   0x2007: '0', 0x2008: '.', 0x2009: 0.2, 0x200a: 0.1, 0x200b: 0, 0x202f: ' ', 0x205f: 4 / 18,
 };
 
-export function advanceTwips(ctx: DocContext, face: FontFace, cp: number, sizePt: number): number {
+/**
+ * Unidade interna das larguras do Word: 1/4096 pt (5/1024 twip). Medido no oráculo
+ * emwidth: cada glifo mede avanço × corpo / upm em 1/4096 pt ARREDONDADO PARA BAIXO —
+ * exato nas fontes de 2048 unidades por em (corpos de meio em meio ponto), até 1/4096 pt
+ * menor nas de 1000/2000 unidades (Noto Sans, Public Sans…), instaladas ou embutidas.
+ */
+export const WORD_UNIT = 20 / 4096;
+
+/** Largura (twips) de `units` unidades da fonte no corpo sizePt: piso em 1/4096 pt. */
+export function wordWidth(units: number, sizePt: number, upm: number): number {
+  return Math.floor((units * sizePt * 4096) / upm + 1e-7) * WORD_UNIT;
+}
+
+/** Medida em twips na unidade interna, arredondada: recuos, largura da coluna/célula e
+ *  w:spacing são convertidos um a um (oráculo emwidth). */
+export function toWordUnit(tw: number): number {
+  return Math.round(tw / WORD_UNIT) * WORD_UNIT;
+}
+
+/**
+ * Escala horizontal (w:w) medida no Word (oráculo emwidth: Arial, Calibri, Noto Sans,
+ * 66–200%): a fonte escalada tem largura média INTEIRA — piso de xAvgCharWidth (OS/2) ×
+ * w/100, em unidades da fonte — e cada avanço vira round(avanço × essa largura /
+ * xAvgCharWidth) unidades; o w:spacing não escala. Sem largura média: a escala exata.
+ */
+export function scaledUnits(units: number, font: FontFace['font'], w: number): number {
+  const avg = (font.metrics as { xAvgCharWidth?: number }).xAvgCharWidth;
+  if (!avg || avg <= 0) return (units * w) / 100;
+  const lf = Math.floor((avg * w) / 100 + 1e-9);
+  return Math.floor((units * lf) / avg + 0.5);
+}
+
+/** w:spacing (twips) somado a cada caractere, na unidade interna do Word. */
+export function spacingTwips(ctx: DocContext, sp: number): number {
+  return ctx.opts.advanceRound === 'word' && ctx.opts.advanceEm !== 'device' ? toWordUnit(sp) : sp;
+}
+
+/** Avanço (twips) do caractere cp na face, no corpo sizePt e na escala horizontal w (%). */
+export function advanceTwips(ctx: DocContext, face: FontFace, cp: number, sizePt: number, w = 100): number {
   const f = face.font;
   let gid = f.glyphId(cp);
   // área privada: fonte de símbolo mapeia em 0x00xx; nas demais fica o .notdef, e o Word
@@ -287,8 +325,8 @@ export function advanceTwips(ctx: DocContext, face: FontFace, cp: number, sizePt
   }
   if (gid === 0 && SPACE_WIDTHS[cp] !== undefined) {
     const sw = SPACE_WIDTHS[cp]!;
-    if (typeof sw === 'string') return advanceTwips(ctx, face, sw.codePointAt(0)!, sizePt) * (cp === 0x202f ? 0.5 : 1);
-    return sw * sizePt * 20;
+    if (typeof sw === 'string') return advanceTwips(ctx, face, sw.codePointAt(0)!, sizePt, w) * (cp === 0x202f ? 0.5 : 1);
+    return (sw * sizePt * 20 * w) / 100;
   }
   // espaços "en", "em" e de quatro por em (U+2002, U+2003, U+2005 — os que quebram): o Word
   // mede pelo TRAVESSÃO da própria fonte — en dash, em dash, em dash/4 —, não pelo glifo do
@@ -299,8 +337,16 @@ export function advanceTwips(ctx: DocContext, face: FontFace, cp: number, sizePt
     if (dg) { gid = dg; frac = cp === 0x2005 ? 1 / 4 : 1; }
   }
   const units = f.advanceWidth(gid) * frac + extra;
-  const em = ctx.opts.advanceEm === 'device' ? deviceEmPt(sizePt) : sizePt;
-  const tw = (units * em * 20) / f.metrics.unitsPerEm;
+  if (ctx.opts.advanceRound === 'word' && ctx.opts.advanceEm !== 'device') {
+    return wordWidth(w !== 100 ? scaledUnits(units, f, w) : units, sizePt, f.metrics.unitsPerEm);
+  }
+  return (roundAdvance(ctx, (units * emOf(ctx, sizePt) * 20) / f.metrics.unitsPerEm) * w) / 100;
+}
+
+const emOf = (ctx: DocContext, sizePt: number): number => (ctx.opts.advanceEm === 'device' ? deviceEmPt(sizePt) : sizePt);
+
+/** Arredondamentos de calibração (advanceRound ≠ 'word'). */
+function roundAdvance(ctx: DocContext, tw: number): number {
   switch (ctx.opts.advanceRound) {
     case 'twip': return Math.round(tw);
     case 'twipFloor': return Math.floor(tw);
@@ -323,16 +369,8 @@ function kernGlyphs(ctx: DocContext, face: FontFace, g1: number, g2: number, siz
 /** Avanço de um GLIFO (de ligadura) em twips, na mesma escala de advanceTwips. */
 function glyphAdvTwips(ctx: DocContext, face: FontFace, gid: number, sizePt: number): number {
   const f = face.font;
-  const em = ctx.opts.advanceEm === 'device' ? deviceEmPt(sizePt) : sizePt;
-  const tw = (f.advanceWidth(gid) * em * 20) / f.metrics.unitsPerEm;
-  switch (ctx.opts.advanceRound) {
-    case 'twip': return Math.round(tw);
-    case 'twipFloor': return Math.floor(tw);
-    case 'twipCeil': return Math.ceil(tw);
-    case 'dev600': return Math.round(tw / 2.4) * 2.4;
-    case 'half': return Math.round(tw * 2) / 2;
-    default: return tw;
-  }
+  if (ctx.opts.advanceRound === 'word' && ctx.opts.advanceEm !== 'device') return wordWidth(f.advanceWidth(gid), sizePt, f.metrics.unitsPerEm);
+  return roundAdvance(ctx, (f.advanceWidth(gid) * emOf(ctx, sizePt) * 20) / f.metrics.unitsPerEm);
 }
 
 /** Features GSUB de ligadura ligadas por w14:ligatures (none, standard, contextual,
@@ -660,10 +698,10 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       let adv = 0;
       let kernAdj: number | undefined;
       if (kind === 'char' || kind === 'space' || kind === 'nbsp') {
-        adv = advanceTwips(ctx, face, shownCp, size);
+        const hs = rpr.w && rpr.w !== 100 ? rpr.w : 100;
+        adv = advanceTwips(ctx, face, shownCp, size, hs);
         // negrito sintético (sem face negrita): +1/2048 em por glifo (oráculo synthbold)
-        if (face.synthBold) adv += (size * 20) / 2048;
-        if (rpr.w && rpr.w !== 100) adv *= rpr.w / 100;
+        if (face.synthBold) adv += ((size * 20) / 2048) * (hs / 100);
         const next = chars[i + 1];
         // o espaço também kerneia (Arial: " T", " Y", " A" — oráculo kern). Com ligaduras
         // OpenType (w14:ligatures ≠ none) o Word só usa o 'kern' do script latino do GPOS:
@@ -681,7 +719,7 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
           kernAdj = sc && nextSize !== size ? 0 : kernTwips(ctx, face, shownCp, nextShown.codePointAt(0)!, size);
           adv += kernAdj;
         }
-        if (rpr.spacing) adv += rpr.spacing;
+        if (rpr.spacing) adv += spacingTwips(ctx, rpr.spacing);
         // seletor de variação (U+FE00–FE0F, ex.: emoji "⚠️"): largura zero (oráculo hidetext/emoji)
         if (cp >= 0xfe00 && cp <= 0xfe0f) adv = 0;
       }
@@ -896,7 +934,7 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       const lead = glyphs.slice(0, k).every((q) => q.kind === 'obj' && q.adv === 0);
       if (e > k || lead) for (let j = k; j <= e; j++) {
         const g = glyphs[j]!;
-        g.adv = g.sizePt * 10 + (g.style.rpr.spacing ?? 0);
+        g.adv = g.sizePt * 10 + spacingTwips(ctx, g.style.rpr.spacing ?? 0);
         g.fixed = true;
       }
       k = e;
@@ -941,10 +979,9 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
         const cp = ch.codePointAt(0)!;
         const face = faceFor(ctx, mrpr, cp, ms);
         const m = faceMetrics(notdefPua(face, cp) ? faceFor(ctx, mrpr, 0x41, ms).font : face.font);
-        let adv = advanceTwips(ctx, face, cp, ms.sizePt);
         // escala (w:w) e espaçamento (w:spacing) do rPr do nível também valem no número (oráculo numrpr)
-        if (mrpr.w && mrpr.w !== 100) adv *= mrpr.w / 100;
-        if (mrpr.spacing) adv += mrpr.spacing;
+        let adv = advanceTwips(ctx, face, cp, ms.sizePt, mrpr.w && mrpr.w !== 100 ? mrpr.w : 100);
+        if (mrpr.spacing) adv += spacingTwips(ctx, mrpr.spacing);
         mg.push({ kind: 'char', ch, cp, face, style: ms, adv, asc: m.ascent * ms.sizePt * 20, desc: m.descent * ms.sizePt * 20, offset: -1, runIdx: -1, breakAfter: false, sizePt: ms.sizePt });
         w += adv;
       }

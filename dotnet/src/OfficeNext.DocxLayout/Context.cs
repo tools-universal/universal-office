@@ -17,7 +17,10 @@ public sealed class LayoutOptions
     /// <summary>em das LARGURAS de caractere: 'nominal' (medido no Word: as larguras usam o
     /// tamanho nominal, não o em de 600 dpi) ou 'device' (11→11,04).</summary>
     public string? AdvanceEm;
-    /// <summary>arredondamento da largura de cada caractere: none | twip | twipFloor | twipCeil | dev600 | half.</summary>
+    /// <summary>largura de cada caractere: 'word' (padrão, medido no Word — oráculo emwidth: piso em
+    /// 1/4096 pt, escala horizontal pela largura média inteira; o limite da linha também na
+    /// unidade interna) ou arredondamentos de calibração ('none' = largura linear exata):
+    /// word | none | twip | twipFloor | twipCeil | dev600 | half.</summary>
     public string? AdvanceRound;
     /// <summary>compressão de espaços na justificação (medida no Word).</summary>
     public JustifyShrink? JustifyShrink;
@@ -61,7 +64,7 @@ public sealed class WordFitInfo
 public sealed class ResolvedLayoutOptions
 {
     public string AdvanceEm = "nominal";
-    public string AdvanceRound = "none";
+    public string AdvanceRound = "word";
     public JustifyShrink JustifyShrink = new();
     public string Lang = "pt-BR";
     public DateTime Now = DateTime.Now;
@@ -100,7 +103,7 @@ public sealed class DocContext
         Opts = new ResolvedLayoutOptions
         {
             AdvanceEm = opts.AdvanceEm ?? "nominal",
-            AdvanceRound = opts.AdvanceRound ?? "none",
+            AdvanceRound = opts.AdvanceRound ?? "word",
             JustifyShrink = opts.JustifyShrink ?? new JustifyShrink(),
             Lang = opts.Lang ?? "pt-BR",
             Now = opts.Now ?? DateTime.Now,

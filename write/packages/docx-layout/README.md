@@ -40,6 +40,14 @@ Cada `LayoutPage` traz:
 Cada item tem casos em `test/oracle/<grupo>` (entre parênteses).
 
 **Texto e linhas**
+- Larguras na unidade interna do Word, 1/4096 pt (`emwidth`, `gwfit`):
+  - cada glifo mede piso(avanço × corpo × 4096 / upm): exato nas fontes de 2048
+    unidades por em, até 1/4096 pt a menos nas de 1000/2000 (instaladas ou embutidas);
+  - escala `w:w`: largura média inteira piso(xAvgCharWidth × w/100) e cada avanço
+    round(avanço × essa largura / xAvgCharWidth), em unidades da fonte;
+  - `w:spacing` arredondado para a unidade, sem escala;
+  - limite da linha: largura da coluna/célula e cada recuo (direito, esquerdo, 1ª
+    linha) arredondados separadamente; a palavra cabe se a soma ≤ limite.
 - Kerning vale também para espaços (`kern`).
 - Em compat ≤ 14 não há compressão na justificação (`compat-text`, `justify*`).
 - Tabulação (`tabs`):

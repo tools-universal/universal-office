@@ -10,9 +10,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { DocxPackage, readFullDocument } from '@universal-office/docx-core';
-import { layoutDocument } from '../src/index.js';
-import { loadHyphenation, HYPHENATION_PATTERN_IDS } from '@universal-office/layout';
+import { DocxPackage, readFullDocument, readEmbeddedFonts } from '@universal-office/docx-core';
+import { layoutDocument, withEmbeddedFonts } from '../src/index.js';
+import { loadHyphenation, HYPHENATION_PATTERN_IDS, SfntFont } from '@universal-office/layout';
 import { engineLines, compareLines, type OracleDoc } from './oracle-compare.js';
 
 const oracleDir = join(__dirname, 'oracle');
@@ -51,8 +51,10 @@ for (const g of groups) {
       if (!existsSync(exp)) continue;
       it(f.replace(/\.docx$/, ''), () => {
         const word = JSON.parse(readFileSync(exp, 'utf8')) as OracleDoc;
-        const full = readFullDocument(DocxPackage.load(new Uint8Array(readFileSync(join(dir, f)))));
-        const res = layoutDocument(full, provider);
+        const pkg = DocxPackage.load(new Uint8Array(readFileSync(join(dir, f))));
+        const full = readFullDocument(pkg);
+        // fontes embutidas no documento (oráculo emwidth: fonte aberta renomeada) — como o app
+        const res = layoutDocument(full, withEmbeddedFonts(provider, readEmbeddedFonts(pkg), (b) => new SfntFont(b)));
         const r = compareLines(word, engineLines(res), EXACT_LEADERS.has(g));
         if (SWEEPS.has(g) || g === 'vertalign') {
           // vertalign: o deslocamento do sobrescrito muda o agrupamento em linhas da extração

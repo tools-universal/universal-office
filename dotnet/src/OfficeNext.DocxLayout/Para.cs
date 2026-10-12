@@ -287,7 +287,36 @@ public static class Para
         return id == "Hyperlink" || (st?.Name is { } n && Js.ToLower(n) == "hyperlink");
     }
 
-    public static double AdvanceTwips(DocContext ctx, FontFace face, int cp, double sizePt)
+    /// <summary>Unidade interna das larguras do Word: 1/4096 pt (5/1024 twip). Medido no oráculo
+    /// emwidth: cada glifo mede avanço × corpo / upm em 1/4096 pt ARREDONDADO PARA BAIXO —
+    /// exato nas fontes de 2048 unidades por em (corpos de meio em meio ponto), até 1/4096 pt
+    /// menor nas de 1000/2000 unidades (Noto Sans, Public Sans…), instaladas ou embutidas.</summary>
+    public const double WordUnit = 20.0 / 4096;
+
+    /// <summary>Largura (twips) de `units` unidades da fonte no corpo sizePt: piso em 1/4096 pt.</summary>
+    public static double WordWidth(double units, double sizePt, double upm) => Math.Floor(units * sizePt * 4096 / upm + 1e-7) * WordUnit;
+
+    /// <summary>Medida em twips na unidade interna, arredondada: recuos, largura da coluna/célula e
+    /// w:spacing são convertidos um a um (oráculo emwidth).</summary>
+    public static double ToWordUnit(double tw) => Js.Round(tw / WordUnit) * WordUnit;
+
+    /// <summary>Escala horizontal (w:w) medida no Word (oráculo emwidth: Arial, Calibri, Noto Sans,
+    /// 66–200%): a fonte escalada tem largura média INTEIRA — piso de xAvgCharWidth (OS/2) ×
+    /// w/100, em unidades da fonte — e cada avanço vira round(avanço × essa largura /
+    /// xAvgCharWidth) unidades; o w:spacing não escala. Sem largura média: a escala exata.</summary>
+    public static double ScaledUnits(double units, OfficeNext.Layout.ILayoutFont font, double w)
+    {
+        double avg = font.Metrics.XAvgCharWidth ?? 0;
+        if (!(avg > 0)) return units * w / 100;
+        double lf = Math.Floor(avg * w / 100 + 1e-9);
+        return Math.Floor(units * lf / avg + 0.5);
+    }
+
+    /// <summary>w:spacing (twips) somado a cada caractere, na unidade interna do Word.</summary>
+    public static double SpacingTwips(DocContext ctx, double sp) => ctx.Opts.AdvanceRound == "word" && ctx.Opts.AdvanceEm != "device" ? ToWordUnit(sp) : sp;
+
+    /// <summary>Avanço (twips) do caractere cp na face, no corpo sizePt e na escala horizontal w (%).</summary>
+    public static double AdvanceTwips(DocContext ctx, FontFace face, int cp, double sizePt, double w = 100)
     {
         var f = face.Font;
         int gid = f.GlyphId(cp);
@@ -301,8 +330,8 @@ public static class Para
         }
         if (gid == 0 && SpaceWidths.TryGetValue(cp, out var sw))
         {
-            if (sw.Ch is not null) return AdvanceTwips(ctx, face, sw.Ch.Value, sizePt) * (cp == 0x202f ? 0.5 : 1);
-            return sw.Em * sizePt * 20;
+            if (sw.Ch is not null) return AdvanceTwips(ctx, face, sw.Ch.Value, sizePt, w) * (cp == 0x202f ? 0.5 : 1);
+            return sw.Em * sizePt * 20 * w / 100;
         }
         // espaços "en", "em" e de quatro por em (U+2002, U+2003, U+2005 — os que quebram): o Word
         // mede pelo TRAVESSÃO da própria fonte — en dash, em dash, em dash/4 —, não pelo glifo do
@@ -314,18 +343,23 @@ public static class Para
             if (dg != 0) { gid = dg; frac = cp == 0x2005 ? 1.0 / 4 : 1; }
         }
         double units = f.AdvanceWidth(gid) * frac + extra;
-        double em = ctx.Opts.AdvanceEm == "device" ? Fonts.DeviceEmPt(sizePt) : sizePt;
-        double tw = (units * em * 20) / f.Metrics.UnitsPerEm;
-        return ctx.Opts.AdvanceRound switch
-        {
-            "twip" => Js.Round(tw),
-            "twipFloor" => Math.Floor(tw),
-            "twipCeil" => Math.Ceiling(tw),
-            "dev600" => Js.Round(tw / 2.4) * 2.4,
-            "half" => Js.Round(tw * 2) / 2,
-            _ => tw,
-        };
+        if (ctx.Opts.AdvanceRound == "word" && ctx.Opts.AdvanceEm != "device")
+            return WordWidth(w != 100 ? ScaledUnits(units, f, w) : units, sizePt, f.Metrics.UnitsPerEm);
+        return RoundAdvance(ctx, (units * EmOf(ctx, sizePt) * 20) / f.Metrics.UnitsPerEm) * w / 100;
     }
+
+    private static double EmOf(DocContext ctx, double sizePt) => ctx.Opts.AdvanceEm == "device" ? Fonts.DeviceEmPt(sizePt) : sizePt;
+
+    /// <summary>Arredondamentos de calibração (AdvanceRound ≠ 'word').</summary>
+    private static double RoundAdvance(DocContext ctx, double tw) => ctx.Opts.AdvanceRound switch
+    {
+        "twip" => Js.Round(tw),
+        "twipFloor" => Math.Floor(tw),
+        "twipCeil" => Math.Ceiling(tw),
+        "dev600" => Js.Round(tw / 2.4) * 2.4,
+        "half" => Js.Round(tw * 2) / 2,
+        _ => tw,
+    };
 
     /// <summary>Kerning de um par de GLIFOS (com glifo de ligadura), na mesma escala de KernTwips.</summary>
     private static double KernGlyphs(DocContext ctx, FontFace face, long g1, long g2, double sizePt)
@@ -340,17 +374,8 @@ public static class Para
     private static double GlyphAdvTwips(DocContext ctx, FontFace face, int gid, double sizePt)
     {
         var f = face.Font;
-        double em = ctx.Opts.AdvanceEm == "device" ? Fonts.DeviceEmPt(sizePt) : sizePt;
-        double tw = (f.AdvanceWidth(gid) * em * 20) / f.Metrics.UnitsPerEm;
-        return ctx.Opts.AdvanceRound switch
-        {
-            "twip" => Js.Round(tw),
-            "twipFloor" => Math.Floor(tw),
-            "twipCeil" => Math.Ceiling(tw),
-            "dev600" => Js.Round(tw / 2.4) * 2.4,
-            "half" => Js.Round(tw * 2) / 2,
-            _ => tw,
-        };
+        if (ctx.Opts.AdvanceRound == "word" && ctx.Opts.AdvanceEm != "device") return WordWidth(f.AdvanceWidth(gid), sizePt, f.Metrics.UnitsPerEm);
+        return RoundAdvance(ctx, (f.AdvanceWidth(gid) * EmOf(ctx, sizePt) * 20) / f.Metrics.UnitsPerEm);
     }
 
     private static readonly Regex LigStandardRe = new("standard", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
@@ -809,10 +834,10 @@ public static class Para
                 double? kernAdj = null;
                 if (kind is GlyphKind.Char or GlyphKind.Space or GlyphKind.Nbsp)
                 {
-                    adv = AdvanceTwips(ctx, face, shownCp, size);
+                    double hs = rpr.W is { } hw0 && hw0 != 0 && !double.IsNaN(hw0) && hw0 != 100 ? hw0 : 100;
+                    adv = AdvanceTwips(ctx, face, shownCp, size, hs);
                     // negrito sintético (sem face negrita): +1/2048 em por glifo (oráculo synthbold)
-                    if (face.SynthBold) adv += (size * 20) / 2048;
-                    if (rpr.W is { } w && w != 0 && !double.IsNaN(w) && w != 100) adv *= w / 100;
+                    if (face.SynthBold) adv += (size * 20) / 2048 * (hs / 100);
                     string? next = i + 1 < chars.Count ? chars[i + 1] : null;
                     // o espaço também kerneia (Arial: " T", " Y", " A" — oráculo kern). Com ligaduras
                     // OpenType (w14:ligatures ≠ none) o Word só usa o 'kern' do script latino do GPOS:
@@ -831,7 +856,7 @@ public static class Para
                         kernAdj = sc && nextSize != size ? 0 : KernTwips(ctx, face, shownCp, Js.CodePointAt0(nextShown), size);
                         adv += kernAdj.Value;
                     }
-                    if (rpr.Spacing is { } sp && sp != 0 && !double.IsNaN(sp)) adv += sp;
+                    if (rpr.Spacing is { } sp && sp != 0 && !double.IsNaN(sp)) adv += SpacingTwips(ctx, sp);
                     // seletor de variação (U+FE00–FE0F, ex.: emoji "⚠️"): largura zero (oráculo hidetext/emoji)
                     if (cp >= 0xfe00 && cp <= 0xfe0f) adv = 0;
                 }
@@ -1079,7 +1104,7 @@ public static class Para
                         for (int j = k; j <= e; j++)
                         {
                             var g = glyphs[j];
-                            g.Adv = g.SizePt * 10 + (g.Style.Rpr.Spacing ?? 0);
+                            g.Adv = g.SizePt * 10 + SpacingTwips(ctx, g.Style.Rpr.Spacing ?? 0);
                             g.Fixed = true;
                         }
                     }
@@ -1140,10 +1165,9 @@ public static class Para
                     int cp = Js.CodePointAt0(ch);
                     var face = FaceFor(ctx, mrpr, cp, ms);
                     var m = Fonts.FaceMetrics(NotdefPua(face, cp) ? FaceFor(ctx, mrpr, 0x41, ms).Font : face.Font);
-                    double adv = AdvanceTwips(ctx, face, cp, ms.SizePt);
                     // escala (w:w) e espaçamento (w:spacing) do rPr do nível também valem no número (oráculo numrpr)
-                    if (mrpr.W is { } mw && mw != 0 && !double.IsNaN(mw) && mw != 100) adv *= mw / 100;
-                    if (mrpr.Spacing is { } msp && msp != 0 && !double.IsNaN(msp)) adv += msp;
+                    double adv = AdvanceTwips(ctx, face, cp, ms.SizePt, mrpr.W is { } mw && mw != 0 && !double.IsNaN(mw) && mw != 100 ? mw : 100);
+                    if (mrpr.Spacing is { } msp && msp != 0 && !double.IsNaN(msp)) adv += SpacingTwips(ctx, msp);
                     mg.Add(new Glyph { Kind = GlyphKind.Char, Ch = ch, Cp = cp, Face = face, Style = ms, Adv = adv, Asc = m.Ascent * ms.SizePt * 20, Desc = m.Descent * ms.SizePt * 20, Offset = -1, RunIdx = -1, BreakAfter = false, SizePt = ms.SizePt });
                     w += adv;
                 }

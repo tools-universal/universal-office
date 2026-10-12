@@ -9,8 +9,10 @@ export interface LayoutOptions {
   /** em das LARGURAS de caractere: 'nominal' (medido no Word: as larguras usam o
    *  tamanho nominal, não o em de 600 dpi) ou 'device' (11→11,04). */
   advanceEm?: 'device' | 'nominal';
-  /** arredondamento da largura de cada caractere (experimento de calibração). */
-  advanceRound?: 'none' | 'twip' | 'twipFloor' | 'twipCeil' | 'dev600' | 'half';
+  /** largura de cada caractere: 'word' (padrão, medido no Word — oráculo emwidth: piso em
+   *  1/4096 pt, escala horizontal pela largura média inteira; o limite da linha também na
+   *  unidade interna) ou arredondamentos de calibração ('none' = largura linear exata). */
+  advanceRound?: 'word' | 'none' | 'twip' | 'twipFloor' | 'twipCeil' | 'dev600' | 'half';
   /** compressão de espaços na justificação (medida no Word, oráculo jsweep): o
    *  excesso cabe se for ≤ ratio × soma dos espaços E a compressão por espaço for
    *  ≤ expandRatio × a expansão por espaço que a linha teria sem a palavra. */
@@ -71,7 +73,7 @@ export class DocContext {
     this.resolver = new StyleResolver(fmt);
     const ddFonts = fmt.styles.docDefaults.rPr?.rFonts;
     this.faces = new FaceResolver(provider, fmt.fontTable, undefined, fontOfSlot(ddFonts, 'ascii', fmt.theme) ?? fmt.theme.minor.latin);
-    this.opts = { advanceEm: opts.advanceEm ?? 'nominal', advanceRound: opts.advanceRound ?? 'none', justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? 'pt-BR', now: opts.now ?? new Date(), ...(opts.onWordFit ? { onWordFit: opts.onWordFit } : {}), hyphenation: opts.hyphenation ?? true, ...(opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}) };
+    this.opts = { advanceEm: opts.advanceEm ?? 'nominal', advanceRound: opts.advanceRound ?? 'word', justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? 'pt-BR', now: opts.now ?? new Date(), ...(opts.onWordFit ? { onWordFit: opts.onWordFit } : {}), hyphenation: opts.hyphenation ?? true, ...(opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}) };
     this.numbering = new NumberingState(fmt.numbering, fmt.styles.styles, this.opts.lang);
   }
 

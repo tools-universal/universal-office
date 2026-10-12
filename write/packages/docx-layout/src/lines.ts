@@ -1,14 +1,15 @@
 import type { TabSpec } from '@universal-office/docx-core';
 import type { Glyph, PreparedPara } from './para.js';
 import type { DocContext } from './context.js';
-import { advanceTwips, shadowExtent } from './para.js';
+import { advanceTwips, shadowExtent, toWordUnit } from './para.js';
 import { faceMetrics } from './fonts.js';
 import { chooseHyphenation } from './hyphenate.js';
 
 /** Espaço de largura fixa (en, em, fino, ideográfico…): fora da justificação (oráculo formjust). */
 const FIXED_SPACE = (cp: number): boolean => (cp >= 0x2000 && cp <= 0x200a) || cp === 0x3000;
 
-/** Folga do teste "cabe na linha" (twips): só o ruído de ponto flutuante. */
+/** Folga do teste "cabe na linha" (twips): só o ruído de ponto flutuante (as larguras e o
+ *  limite já estão na unidade interna do Word, 1/4096 pt — oráculo emwidth). */
 const FIT_EPS = 0.001;
 
 /**
@@ -176,6 +177,15 @@ export class LineBreaker {
     this.hyphenRun = m.hyphenRun;
   }
 
+  /** Borda direita do teste "cabe" (x relativo ao quadro): o Word converte a largura da
+   *  coluna/célula (borda direita + recuo direito) e cada recuo para 1/4096 pt
+   *  separadamente, arredondando — oráculo emwidth. */
+  private fitRight(frame: LineFrame, xStart: number, first: boolean): number {
+    if (this.ctx.opts.advanceRound !== 'word' || this.ctx.opts.advanceEm === 'device') return frame.right;
+    const p = this.p, q = toWordUnit;
+    return xStart + q(frame.right + p.indRight) - q(p.indRight) - q(frame.left - p.indLeft) - q(p.indLeft) - (first ? q(p.firstLine) : 0);
+  }
+
   /** Próxima linha no quadro dado. `frame` já desconta recuos do parágrafo. */
   next(frame: LineFrame): Line {
     const p = this.p;
@@ -184,6 +194,10 @@ export class LineBreaker {
     const start = this.pos;
     const xStart = frame.left + (first ? p.firstLine : 0);
     const right = frame.right;
+    // limite do "cabe na linha" na unidade interna do Word (1/4096 pt): largura da
+    // coluna/célula e recuos direito, esquerdo e da 1ª linha convertidos CADA UM com
+    // arredondamento (oráculo emwidth)
+    const rightQ = this.fitRight(frame, xStart, first);
     const placed: PlacedGlyph[] = [];
     let x = xStart;
     let markerPlaced: PlacedGlyph[] | undefined;
@@ -377,7 +391,7 @@ export class LineBreaker {
           if (q.breakAfter && q.kind !== 'char') break;
           if (q.breakAfter) { e++; break; }
         }
-        const over = x + wordW - right;
+        const over = x + wordW - rightQ;
         // a palavra depois de um espaço que não quebra (colado a NBSP) continua a
         // unidade anterior: se descer, desce a unidade inteira (oráculo nbspglue)
         if (i === start || !(gs[i - 1]!.kind === 'space' && !gs[i - 1]!.breakAfter)) {
@@ -386,7 +400,7 @@ export class LineBreaker {
           const gap = i > start && gs[i - 1]!.kind === 'space';
           unitX = x; unitSpacesW = spacesW; unitGapW = gap ? lastGapW : 0; unitGapSp = gap ? lastGapSp : 0;
         }
-        // cabe sse W ≤ A, com a largura linear exata (oráculo fitwidth: limiar de 1 twip)
+        // cabe sse W ≤ A, larguras e limite na unidade interna do Word (oráculos fitwidth, emwidth)
         wordOk = over <= FIT_EPS;
         // layout asiático: a pontuação final pendura além da margem — nos modos ≤ 14
         // sempre (oráculo fecompress), no 15 só no justificado (oráculo hang15)
@@ -418,7 +432,7 @@ export class LineBreaker {
         // hifenizaria — senão ela desce (ou, abrindo a linha, quebra por caractere)
         else if (!wordOk && !pendTab && !pastMargin) {
           const ch = chooseHyphenation(this.ctx, gs, {
-            i, e, x, right, lineStart: lastBreak < start, contentEnd: xStart + widthAtBreak,
+            i, e, x, right: rightQ, lineStart: lastBreak < start, contentEnd: xStart + widthAtBreak,
             justify: p.jc === 'both' || p.jc === 'distribute', spacesW, restW: unitSpacesW - unitGapSp, nSpaces, hyphenRun: this.hyphenRun,
           });
           if (ch) { hyphAt = ch.k; hyphW = ch.w; wordOk = true; }
@@ -436,9 +450,9 @@ export class LineBreaker {
       // que vem depois delas e não cabe fica na linha assim mesmo (oráculo floatwide)
       // modo ≤ 14: o texto de um tab DIREITO que não cabe fica na linha, além da margem, e
       // a linha não quebra mais (oráculo tabnextline)
-      if (!isGap && g.kind !== 'shy' && !wordOk && !pastMargin && projected > right + FIT_EPS && i > start
+      if (!isGap && g.kind !== 'shy' && !wordOk && !pastMargin && projected > rightQ + FIT_EPS && i > start
         && pendTab?.tab.val === 'right' && this.ctx.fmt.settings.compatibilityMode < 15) pastMargin = true;
-      if (!isGap && g.kind !== 'shy' && !wordOk && !pastMargin && projected > right + FIT_EPS && i > start
+      if (!isGap && g.kind !== 'shy' && !wordOk && !pastMargin && projected > rightQ + FIT_EPS && i > start
         && placed.some((q) => q.g.kind !== 'obj' || q.g.adv > 0)) {
         if (lastBreak >= start) {
           // volta ao ponto de quebra
