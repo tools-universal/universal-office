@@ -9,6 +9,7 @@
 //
 // Uso: node tools/corpus-lab/run-ours.mjs [--only id,id] [--tenant N] [--limit N]
 //        [--from N] [--workers 4] [--no-canvas] [--no-pdf] [--force] [--tag nome]
+//        [--electron]   (runtime do shell Electron, janelas ocultas)
 import { build } from 'esbuild';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
@@ -108,20 +109,59 @@ async function resolveRefs(families) {
   return out;
 }
 
-const browser = await chromium.launch({ headless: true, args: ['--disable-gpu-sandbox'] });
-const context = await browser.newContext({ deviceScaleFactor: 1, viewport: { width: 1500, height: 1100 } });
+// --electron: o runtime do shell (Electron do write/apps/electron) em janelas OCULTAS;
+// sem a opção, Chromium headless do Playwright
+const ELECTRON = flag('electron');
+let browser, context, eapp;
+if (ELECTRON) {
+  const { _electron } = require('playwright');
+  const requireApp = createRequire(join(writeRoot, 'apps', 'electron', 'package.json'));
+  eapp = await _electron.launch({ executablePath: requireApp('electron'), args: [join(here, 'electron-lab-main.cjs')] });
+  context = eapp.context();
+} else {
+  browser = await chromium.launch({ headless: true, args: ['--disable-gpu-sandbox'] });
+  context = await browser.newContext({ deviceScaleFactor: 1, viewport: { width: 1500, height: 1100 } });
+}
 await context.exposeFunction('__labListFonts', () => listFontFamilies());
 await context.exposeFunction('__labResolveFonts', (families) => resolveRefs(families));
+
+/** janela oculta do Electron (1500×1100, escala 1) como página do Playwright — uma por
+ *  vez (o evento 'window' não diz de quem é a janela) */
+let windowLock = Promise.resolve();
+function electronPage() {
+  const p = windowLock.then(createElectronPage);
+  windowLock = p.catch(() => {});
+  return p;
+}
+async function createElectronPage() {
+  const [page] = await Promise.all([
+    eapp.waitForEvent('window'),
+    eapp.evaluate(({ BrowserWindow }) => {
+      const w = new BrowserWindow({ show: false, width: 1500, height: 1100, paintWhenInitiallyHidden: true, webPreferences: { backgroundThrottling: false, zoomFactor: 1 } });
+      w.loadURL('about:blank');
+    }),
+  ]);
+  return page;
+}
 
 const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`timeout ${what}`)), ms))]);
 
 async function newPage() {
-  const page = await context.newPage();
+  const page = ELECTRON ? await electronPage() : await context.newPage();
   page.on('pageerror', (e) => { page.__errors?.push(String(e).slice(0, 300)); });
   page.on('console', (m) => { if (m.type() === 'warning' || m.type() === 'error') page.__errors?.push(`[${m.type()}] ${m.text()}`.slice(0, 600)); });
   await page.goto(`${base}/__lab/harness.html`);
   await page.waitForFunction(() => !!window.lab);
   return page;
+}
+
+/** data de criação do PDF do Word (campos DATE/TIME do documento) */
+function wordPdfDate(pdfPath) {
+  try {
+    const head = readFileSync(pdfPath).toString('latin1');
+    const m = /\/CreationDate\s*\(D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(head);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : undefined;
+  } catch { return undefined; }
 }
 
 let done = 0;
@@ -138,6 +178,20 @@ async function worker() {
     const info = { id: d.id, rel: d.rel, container: d.container };
     {
       page.__errors = [];
+      // campos DATE/TIME: o relógio do documento é o do PDF de referência (como no
+      // run-engine) — o Word exportou naquele dia
+      const when = wordPdfDate(d.pdf);
+      // (Date da PÁGINA — o relógio do Playwright é do contexto, compartilhado pelos workers)
+      await page.evaluate((t) => {
+        const w = window;
+        const Real = w.__labRealDate ?? Date;
+        w.__labRealDate = Real;
+        if (t === null) { w.Date = Real; return; }
+        w.Date = class extends Real {
+          constructor(...a) { if (a.length) super(...a); else super(t); }
+          static now() { return t; }
+        };
+      }, when ? when.getTime() : null);
       const ts = Date.now();
       try {
         const r = await withTimeout(page.evaluate((u) => window.lab.open(u), `/__doc/${encodeURIComponent(d.id)}`), DOC_TIMEOUT, 'open');
@@ -182,7 +236,7 @@ async function worker() {
 }
 
 await Promise.all(Array.from({ length: Math.min(WORKERS, docs.length) }, worker));
-await browser.close();
+if (ELECTRON) await eapp.close(); else await browser.close();
 server.closeAllConnections?.();
 server.close();
 console.log(`fim: ${done} documentos em ${((Date.now() - t0) / 1000).toFixed(0)}s → ${outRoot}`);
