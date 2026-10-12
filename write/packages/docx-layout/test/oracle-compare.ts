@@ -37,7 +37,9 @@ export function engineLines(res: LayoutResult): OracleDoc {
         const y = it.y / 20;
         for (const g of it.glyphs) {
           const ch = normChar(g.cp);
-          if (!ch || /\s/.test(ch)) continue;
+          // fora do BMP (itálico matemático, emoji…): o pdfium devolve pares substitutos,
+          // que a extração descarta (pdftext.py)
+          if (!ch || /\s/.test(ch) || g.cp > 0xffff) continue;
           const x = g.x / 20;
           // corpo como no PDF (múltiplo de 0,12 pt: 10 → 9,96), que decide a tolerância da extração
           const size = Math.round(it.sizePt / 0.12) * 0.12;

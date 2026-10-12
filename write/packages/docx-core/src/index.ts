@@ -15,6 +15,8 @@ export {
   type DrawingTextbox,
   type NoteRef,
   type CustomInline,
+  type MathNode,
+  type MathZone,
   type BorderEdge,
   type ParagraphBorders,
   EMU_PER_TWIP,

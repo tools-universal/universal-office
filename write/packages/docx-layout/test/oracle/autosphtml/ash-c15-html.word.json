@@ -1,0 +1,109 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.24,
+"x0": 85.1,
+"x1": 147.87,
+"size": 11.04,
+"text": "Iniciodoteste"
+},
+{
+"y": 99.74,
+"x0": 85.1,
+"x1": 234.63,
+"size": 11.04,
+"text": "Automaticoantes100depois100"
+},
+{
+"y": 123.26,
+"x0": 85.1,
+"x1": 203.3,
+"size": 11.04,
+"text": "Outroautomatico100100"
+},
+{
+"y": 141.62,
+"x0": 85.1,
+"x1": 219.24,
+"size": 11.04,
+"text": "Paragrafocomumsemespaco"
+},
+{
+"y": 158.06,
+"x0": 85.1,
+"x1": 229.09,
+"size": 11.04,
+"text": "Automaticoantes60depois200"
+},
+{
+"y": 184.46,
+"x0": 85.1,
+"x1": 197.68,
+"size": 11.04,
+"text": "Outroautomatico60200"
+},
+{
+"y": 207.86,
+"x0": 85.1,
+"x1": 219.24,
+"size": 11.04,
+"text": "Paragrafocomumsemespaco"
+},
+{
+"y": 221.3,
+"x0": 85.1,
+"x1": 212.33,
+"size": 11.04,
+"text": "Automaticoantes0depois0"
+},
+{
+"y": 234.74,
+"x0": 85.1,
+"x1": 181.0,
+"size": 11.04,
+"text": "Outroautomatico00"
+},
+{
+"y": 248.18,
+"x0": 85.1,
+"x1": 219.24,
+"size": 11.04,
+"text": "Paragrafocomumsemespaco"
+},
+{
+"y": 276.65,
+"x0": 85.1,
+"x1": 229.11,
+"size": 11.04,
+"text": "Automaticoantes300depois40"
+},
+{
+"y": 307.01,
+"x0": 85.1,
+"x1": 197.67,
+"size": 11.04,
+"text": "Outroautomatico30040"
+},
+{
+"y": 322.49,
+"x0": 85.1,
+"x1": 219.24,
+"size": 11.04,
+"text": "Paragrafocomumsemespaco"
+},
+{
+"y": 335.93,
+"x0": 85.1,
+"x1": 140.18,
+"size": 11.04,
+"text": "Fimdoteste"
+}
+],
+"objs": []
+}
+]
+}

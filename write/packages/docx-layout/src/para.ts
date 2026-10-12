@@ -5,6 +5,7 @@ import { DocContext, directPPr, directRPr } from './context.js';
 import { cascadeRPr, mergePPr, mergeRPr, fontOfSlot, resolveColor, highlightHex, resolveDrawingColor, own } from './resolve.js';
 import { faceMetrics, deviceEmPt, superscriptRaiseFor, subscriptDropPt, isSymbolFont, type FontFace } from './fonts.js';
 import type { NumberMarker } from './numbering.js';
+import { mathAtoms, mathTextMetrics, type MathBox, type MathEnv } from './math.js';
 
 /**
  * Parágrafo pronto para quebrar em linhas: propriedades resolvidas (cascata
@@ -83,6 +84,8 @@ export interface Glyph {
   ligEnd?: number;
   /** pontuação que pode pendurar além da margem no fim da linha */
   hang?: boolean;
+  /** fração de equação (m:f) diagramada — o glifo é a caixa inteira (math.ts) */
+  math?: MathBox;
 }
 
 export interface ParaMarker {
@@ -146,6 +149,8 @@ const CJK = (cp: number) => (cp >= 0x2e80 && cp <= 0x9fff) || (cp >= 0xac00 && c
 const NO_BREAK_AFTER_DASH = /^[\s\u00a0\u202f\u2000-\u200b\u3000\ufeff\u00ad]$/u;
 const CS = (cp: number) => (cp >= 0x0590 && cp <= 0x08ff) || (cp >= 0xfb1d && cp <= 0xfdff) || (cp >= 0xfe70 && cp <= 0xfeff);
 
+/** Fonte das equações (m:mathFont padrão do Word). */
+const MATH_FONT = 'Cambria Math';
 const FALLBACK_FAMILIES = ['Segoe UI Symbol', 'Segoe UI Emoji', 'Arial Unicode MS', 'MS Gothic', 'Cambria Math', 'Segoe UI', 'Arial'];
 
 export function resolveRunStyle(ctx: DocContext, rpr: RPr, env: ParaEnv, link?: string): RunStyle {
@@ -658,9 +663,13 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
         const kernOff = !!lig && lig !== 'none' && (face.font as { kernInLatin?: boolean }).kernInLatin === false;
         if (next && (kind === 'char' || kind === 'space') && rpr.kern && style.sizePt * 2 >= rpr.kern && !kernOff) {
           // versalete: o par é o dos glifos DESENHADOS — a minúscula seguinte também vira
-          // maiúscula (oráculo sckern2)
-          const nextShown = rpr.smallCaps && !rpr.caps && next.toLowerCase() === next && next.toUpperCase() !== next && next.toUpperCase().length === 1 ? next.toUpperCase() : next;
-          kernAdj = kernTwips(ctx, face, shownCp, nextShown.codePointAt(0)!, size);
+          // maiúscula (oráculo sckern2); maiúscula (corpo cheio) ao lado de minúscula (corpo
+          // reduzido) não kerneia (oráculo sckmix)
+          const sc = rpr.smallCaps && !rpr.caps;
+          const lower = sc && next.toLowerCase() === next && next.toUpperCase() !== next && next.toUpperCase().length === 1;
+          const nextShown = lower ? next.toUpperCase() : next;
+          const nextSize = sc && (lower || next === ' ') ? Math.round(style.sizePt * 2 * 0.8) / 2 : style.sizePt;
+          kernAdj = sc && nextSize !== size ? 0 : kernTwips(ctx, face, shownCp, nextShown.codePointAt(0)!, size);
           adv += kernAdj;
         }
         if (rpr.spacing) adv += rpr.spacing;
@@ -683,6 +692,51 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       });
       off += ch.length;
     }
+  };
+
+  // equação de exibição (m:oMathPara): glifos na fonte de matemática, a fração é um
+  // glifo com a caixa diagramada; o w:br e cada m:oMath seguinte quebram a linha
+  let mathJc: string | undefined;
+  const mathRuns = new Set<number>();
+  const pushMath = (run: Run, runIdx: number, offset0: number): void => {
+    const zone = run.math!;
+    mathJc = zone.jc ?? 'centerGroup';
+    mathRuns.add(runIdx);
+    const menv: MathEnv = {
+      styleOf: (r) => {
+        // sem ligaduras, espaçamento e escala: o Word não os aplica na equação (o
+        // kerning do w:kern sim — oráculo omath/om-12-kern)
+        const mr: RPr & { ligatures?: string } = { ...runRPr(r ?? {}) };
+        delete mr.spacing; delete mr.w; delete mr.ligatures;
+        return { rpr: mr, style: resolveRunStyle(ctx, mr, env) };
+      },
+      face: (bold, italic) => ctx.faces.get(MATH_FONT, bold, italic),
+      adv: (face, cp, size) => advanceTwips(ctx, face, cp, size),
+      kern: (face, cp, next, size) => kernTwips(ctx, face, cp, next, size),
+    };
+    const last = Math.max(0, run.text.length - 1);
+    const off = { n: 0 };
+    let seg: typeof zone.nodes = [];
+    const flushSeg = (): void => {
+      for (const a of mathAtoms(menv, seg, 'D', 1, off)) {
+        const tm = mathTextMetrics(a.face);
+        const tA = tm.ascent * a.sizePt * 20, tD = tm.descent * a.sizePt * 20;
+        const g: Glyph = { kind: 'char', ch: String.fromCodePoint(a.cp), cp: a.cp, face: a.face, style: a.style, adv: a.adv, asc: tA, desc: tD, offset: offset0 + Math.min(a.offset, last), runIdx, breakAfter: false, sizePt: a.sizePt };
+        // a fração entra na linha com a caixa dela; a entrelinha múltipla segue o texto
+        if (a.box) Object.assign(g, { asc: Math.max(tA, a.box.lineTop), desc: Math.max(tD, a.box.lineBottom), nAsc: tA, nDesc: tD, math: a.box });
+        glyphs.push(g);
+      }
+      seg = [];
+    };
+    for (const nd of zone.nodes) {
+      if (nd.t !== 'br') { seg.push(nd); continue; }
+      flushSeg();
+      const { style: bs } = menv.styleOf(nd.rpr);
+      const bf = menv.face(false, false);
+      const tm = mathTextMetrics(bf);
+      glyphs.push({ kind: 'lb', ch: '\n', cp: 10, face: bf, style: bs, adv: 0, asc: tm.ascent * bs.sizePt * 20, desc: tm.descent * bs.sizePt * 20, offset: offset0 + Math.min(off.n, last), runIdx, breakAfter: true, sizePt: bs.sizePt });
+    }
+    flushSeg();
   };
 
   for (const { run, idx, offset } of displayRuns(para, env)) {
@@ -753,6 +807,7 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       if (run.noteRef.kind === 'footnote') for (let k = before; k < glyphs.length; k++) glyphs[k]!.noteId = run.noteRef.id;
       continue;
     }
+    if (run.math) { pushMath(run, idx, offset); continue; }
     pushChars(run.text, run, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para.runs[idx]?.field ?? ''));
   }
   // objeto inline (imagem, forma…) colado ao texto: pode quebrar ANTES dele (o
@@ -888,7 +943,13 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
   let jc = ppr.jc ?? 'left';
   if (jc === 'start') jc = 'left';
   if (jc === 'end') jc = 'right';
-  const firstLine = ind.hanging !== undefined ? -ind.hanging : (ind.firstLine ?? 0);
+  let firstLine = ind.hanging !== undefined ? -ind.hanging : (ind.firstLine ?? 0);
+  // equação de exibição sozinha no parágrafo: alinhada pelo m:jc (centerGroup: no
+  // centro) entre os recuos, sem o da 1ª linha — o w:jc do parágrafo não vale (oráculo omath)
+  if (mathJc && !glyphs.some((g) => !mathRuns.has(g.runIdx) && g.kind !== 'lb' && g.kind !== 'pb' && g.kind !== 'space' && !(g.kind === 'obj' && g.adv === 0))) {
+    jc = mathJc === 'left' ? 'left' : mathJc === 'right' ? 'right' : 'center';
+    firstLine = 0;
+  }
   return {
     para, ppr, styleId, markStyle, markFace, glyphs, marker,
     indLeft: ind.left ?? 0,
@@ -898,8 +959,10 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
     tabs: (ppr.tabs ?? []).filter((t) => t.val !== 'clear'),
     spaceBefore: sp.before ?? 0,
     spaceAfter: sp.after ?? 0,
-    beforeAuto: !!sp.beforeAutospacing,
-    afterAuto: !!sp.afterAutospacing,
+    // w:doNotUseHTMLParagraphAutoSpacing: o automático ("HTML", 14 pt) não vale — ficam os
+    // w:before/w:after explícitos (oráculo autosphtml)
+    beforeAuto: !!sp.beforeAutospacing && !settings.compat['doNotUseHTMLParagraphAutoSpacing'],
+    afterAuto: !!sp.afterAutospacing && !settings.compat['doNotUseHTMLParagraphAutoSpacing'],
     lineRule: sp.lineRule ?? 'auto',
     line: sp.line ?? 240,
     contextual: !!ppr.contextualSpacing,

@@ -14,6 +14,7 @@ import { resolveColor, resolveDrawingColor } from './resolve.js';
 import { formatNumber } from './numbering.js';
 import { NumberingState } from './numbering.js';
 import { isEmf, renderEmf } from './emf.js';
+import { isWmf, renderWmf } from './wmf.js';
 import { groupChild, shapeExtras } from './geometry.js';
 import { liftFrames, FRAME_SKIP, FRAME_CARRY, FRAME_INFO } from './frames.js';
 
@@ -2683,11 +2684,13 @@ class Engine {
     }
   }
 
-  private paintObject(run: Run, x: number, y: number, w: number, h: number, tbContent: CellContent | null, ps: PageState = this.cur): PageItem[] {
+  private paintObject(run: Run, x: number, y: number, w: number, h: number, tbContent: CellContent | null, ps: PageState = this.cur, inGroup = false): PageItem[] {
     const out: PageItem[] = [];
     const theme = this.ctx.fmt.theme;
     if (run.image && isEmf(run.image.data)) {
       out.push({ t: 'clip', op: 'push', x, y, w, h }, ...renderEmf(this.ctx, run.image.data, { x, y, w, h }), { t: 'clip', op: 'pop' });
+    } else if (run.image && isWmf(run.image.data)) {
+      out.push({ t: 'clip', op: 'push', x, y, w, h }, ...renderWmf(this.ctx, run.image.data, { x, y, w, h }), { t: 'clip', op: 'pop' });
     } else if (run.image) {
       const im = run.image;
       out.push({
@@ -2735,11 +2738,14 @@ class Engine {
           else if (tb.vAnchor === 'b' && free > 0) dy += free;
           out.push({ t: 'clip', op: 'push', x, y, w, h });
           // caixa girada fora de múltiplos de 90°: o Word rasteriza o conteúdo
-          // (imagem no PDF, sem texto) — curvas aqui (oráculo hidetext/rot-tb, rot-1)
+          // (imagem no PDF, sem texto) — curvas aqui (oráculo hidetext/rot-tb, rot-1);
+          // caixa de um GRUPO: o texto com escala horizontal (w:w) sai como curvas, o
+          // resto como texto (oráculo txbxscale)
           const raster = rot % 90 !== 0;
           for (const it of tbContent.items) {
             const s2 = shiftItem(it, dy, x + ins.l);
-            out.push(raster && s2.t === 'glyphs' ? { ...s2, asPath: true } : s2);
+            const curves = raster || (inGroup && s2.t === 'glyphs' && s2.scaleX !== undefined && s2.scaleX !== 1);
+            out.push(curves && s2.t === 'glyphs' ? { ...s2, asPath: true } : s2);
           }
           out.push({ t: 'clip', op: 'pop' });
         }
@@ -2756,7 +2762,7 @@ class Engine {
           const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
           tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, 'grp', ps);
         }
-        out.push(...this.paintObject(r, ix, iy, iw, ih, tc, ps));
+        out.push(...this.paintObject(r, ix, iy, iw, ih, tc, ps, true));
       }
     }
     return out;

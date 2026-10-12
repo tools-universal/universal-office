@@ -3393,7 +3393,7 @@ internal sealed class Engine
         }
     }
 
-    private List<PageItem> PaintObject(Run run, double x, double y, double w, double h, CellContent? tbContent, PageState? ps = null)
+    private List<PageItem> PaintObject(Run run, double x, double y, double w, double h, CellContent? tbContent, PageState? ps = null, bool inGroup = false)
     {
         ps ??= _cur;
         var outp = new List<PageItem>();
@@ -3402,6 +3402,12 @@ internal sealed class Engine
         {
             outp.Add(ClipItem.Push(x, y, w, h));
             outp.AddRange(Emf.RenderEmf(_ctx, run.Image.Data, x, y, w, h));
+            outp.Add(ClipItem.Pop());
+        }
+        else if (run.Image is not null && Wmf.IsWmf(run.Image.Data))
+        {
+            outp.Add(ClipItem.Push(x, y, w, h));
+            outp.AddRange(Wmf.RenderWmf(_ctx, run.Image.Data, x, y, w, h));
             outp.Add(ClipItem.Pop());
         }
         else if (run.Image is not null)
@@ -3459,12 +3465,15 @@ internal sealed class Engine
                     else if (tb.VAnchor == "b" && free > 0) dy += free;
                     outp.Add(ClipItem.Push(x, y, w, h));
                     // caixa girada fora de múltiplos de 90°: o Word rasteriza o conteúdo
-                    // (imagem no PDF, sem texto) — curvas aqui (oráculo hidetext/rot-tb, rot-1)
+                    // (imagem no PDF, sem texto) — curvas aqui (oráculo hidetext/rot-tb, rot-1);
+                    // caixa de um GRUPO: o texto com escala horizontal (w:w) sai como curvas, o
+                    // resto como texto (oráculo txbxscale)
                     bool raster = rot % 90 != 0;
                     foreach (var it in tbContent.Items)
                     {
                         var s2 = TableEngine.ShiftItem(it, dy, x + ins.L);
-                        outp.Add(raster && s2 is GlyphRunItem g2 ? AsPathCopy(g2) : s2);
+                        bool curves = raster || (inGroup && s2 is GlyphRunItem gs2 && gs2.ScaleX is { } scx && scx != 1);
+                        outp.Add(curves && s2 is GlyphRunItem g2 ? AsPathCopy(g2) : s2);
                     }
                     outp.Add(ClipItem.Pop());
                 }
@@ -3485,7 +3494,7 @@ internal sealed class Engine
                     var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
                     tc = LayoutStatic(blocks, 0, Math.Max(1, iw - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "grp", ps);
                 }
-                outp.AddRange(PaintObject(r, ix, iy, iw, ih, tc, ps));
+                outp.AddRange(PaintObject(r, ix, iy, iw, ih, tc, ps, true));
             }
         }
         return outp;

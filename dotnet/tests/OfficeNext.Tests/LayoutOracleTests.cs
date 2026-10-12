@@ -80,12 +80,12 @@ public class LayoutOracleTests
     /// <summary>Varreduras de limiar (justify2/4/5): a fronteira exata pode errar 1 passo de 2-4 twips.</summary>
     private static readonly HashSet<string> Sweeps = new(StringComparer.Ordinal) { "justify2", "justify3", "justify4", "justify5", "justify8", "jsweep" };
     /// <summary>Tolerância de baseline por grupo (resíduo conhecido do sobrescrito).</summary>
-    private static readonly Dictionary<string, double> DyTol = new(StringComparer.Ordinal) { ["vertalign"] = 0.6, ["notes"] = 0.65, ["fnsep"] = 0.65, ["fnrefsup"] = 0.65 };
+    private static readonly Dictionary<string, double> DyTol = new(StringComparer.Ordinal) { ["vertalign"] = 0.6, ["notes"] = 0.65, ["fnsep"] = 0.65, ["fnrefsup"] = 0.65, ["omath"] = 0.4 };
     /// <summary>Grupos em que o motor também não pode ter linhas A MAIS (texto que o Word
     /// não grava no PDF: fora da página, sem preenchimento, curvas…).</summary>
-    private static readonly HashSet<string> Strict = new(StringComparer.Ordinal) { "hidetext", "emfrop" };
+    private static readonly HashSet<string> Strict = new(StringComparer.Ordinal) { "hidetext", "emfrop", "txbxscale" };
     /// <summary>Grupos em que a posição horizontal é o que se mede (x da 1ª letra, ±pt).</summary>
-    private static readonly Dictionary<string, double> DxTol = new(StringComparer.Ordinal) { ["tblpct"] = 0.6, ["tblw"] = 0.6, ["formtext"] = 0.6, ["spacerun"] = 0.6, ["numtabind"] = 0.6, ["tallwrap"] = 0.6, ["numstyind"] = 0.6, ["tblsp"] = 0.6, ["nowrap"] = 0.6, ["tblvert"] = 0.6, ["tblnum"] = 0.6, ["fejust"] = 0.6, ["tblpctmin"] = 0.6, ["tblindctr"] = 0.6, ["txbxctr"] = 0.6, ["txbxln"] = 0.6, ["tbinset"] = 0.3, ["ftcellmar"] = 0.3 };
+    private static readonly Dictionary<string, double> DxTol = new(StringComparer.Ordinal) { ["tblpct"] = 0.6, ["tblw"] = 0.6, ["formtext"] = 0.6, ["spacerun"] = 0.6, ["numtabind"] = 0.6, ["tallwrap"] = 0.6, ["numstyind"] = 0.6, ["tblsp"] = 0.6, ["nowrap"] = 0.6, ["tblvert"] = 0.6, ["tblnum"] = 0.6, ["fejust"] = 0.6, ["tblpctmin"] = 0.6, ["tblindctr"] = 0.6, ["txbxctr"] = 0.6, ["txbxln"] = 0.6, ["tbinset"] = 0.3, ["ftcellmar"] = 0.3, ["omath"] = 0.6, ["tblbdmin"] = 0.6, ["sckmix"] = 0.6, ["rowjc"] = 0.6, ["wmftext"] = 0.6 };
     /// <summary>Grupos em que a contagem de pontos do preenchimento de tab é comparada exata.</summary>
     private static readonly HashSet<string> ExactLeaders = new(StringComparer.Ordinal) { "tdhalfpx" };
 
@@ -207,7 +207,9 @@ internal static class OracleCompare
                 foreach (var g in it.Glyphs)
                 {
                     string ch = NormChar(g.Cp);
-                    if (ch.Length == 0 || Ws.IsMatch(ch)) continue;
+                    // fora do BMP (itálico matemático, emoji…): o pdfium devolve pares substitutos,
+                    // que a extração descarta (pdftext.py)
+                    if (ch.Length == 0 || Ws.IsMatch(ch) || g.Cp > 0xffff) continue;
                     double x = g.X / 20;
                     // corpo como no PDF (múltiplo de 0,12 pt: 10 → 9,96), que decide a tolerância da extração
                     double size = OfficeNext.Core.JsNumber.Round(it.SizePt / 0.12) * 0.12;

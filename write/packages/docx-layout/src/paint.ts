@@ -6,6 +6,8 @@ import { faceMetrics } from './fonts.js';
 import { resolveColor } from './resolve.js';
 import type { DocContext } from './context.js';
 import { isEmf, renderEmf } from './emf.js';
+import { isWmf, renderWmf } from './wmf.js';
+import type { MathBox } from './math.js';
 
 /** Identidade das linhas pintadas (GlyphRunItem.lineBox.line). */
 let lineSeq = 0;
@@ -32,6 +34,7 @@ export function paintLine(
   const flush = () => { if (run && run.glyphs.length) out.push(run); run = null; runKey = ''; };
   for (const pg of all) {
     const g = pg.g;
+    if (g.math) { flush(); paintMath(out, g.math, frameX, pg.x, baseY, line, lineId); continue; }
     if (g.kind !== 'char' && g.kind !== 'nbsp' && !(g.kind === 'shy' && pg.w > 0)) {
       if (g.kind === 'space') continue;
       flush();
@@ -115,6 +118,28 @@ function paintLeader(ctx: DocContext, out: PageItem[], pg: PlacedGlyph, frameX: 
   void ctx;
 }
 
+/** Fração de equação (math.ts): numerador e denominador — nessa ordem, como o Word
+ *  grava no PDF — e o traço. */
+function paintMath(out: PageItem[], box: MathBox, frameX: number, x: number, baseY: number, line: Line, lineId: number): void {
+  let run: GlyphRunItem | null = null;
+  let key = '';
+  for (const it of box.items) {
+    const k = `${it.face.key}|${it.sizePt}|${it.style.color}|${it.y}`;
+    if (!run || k !== key) {
+      if (run) out.push(run);
+      key = k;
+      run = {
+        t: 'glyphs', face: it.face, sizePt: it.sizePt, color: it.style.color, y: baseY + it.y, glyphs: [], text: '',
+        lineBox: { asc: line.baseline + it.y, desc: line.height - line.baseline - it.y, lead: x + it.x, line: lineId },
+      };
+    }
+    run.glyphs.push({ cp: it.cp, x: frameX + x + it.x });
+    run.text += String.fromCodePoint(it.cp);
+  }
+  if (run) out.push(run);
+  for (const r of box.rules) out.push({ t: 'rect', x: frameX + x + r.x, y: baseY + r.y, w: r.w, h: r.h, fill: r.color });
+}
+
 function paintCheckBox(out: PageItem[], g: Glyph, x: number, baseY: number): void {
   const b = g.box!;
   // base da caixa ≈ 0,18 × corpo abaixo da baseline (medido)
@@ -141,6 +166,11 @@ function paintInlineObject(ctx: DocContext, out: PageItem[], g: Glyph, x0: numbe
     const im = obj.image;
     const r = { x, y: baseY - shift - im.heightTwips, w: im.widthTwips, h: im.heightTwips };
     out.push({ t: 'clip', op: 'push', ...r }, ...renderEmf(ctx, im.data, r), { t: 'clip', op: 'pop' });
+  } else if (obj.image && isWmf(obj.image.data)) {
+    // WMF (prévia do Equation Editor 3.0…): o Word desenha e grava o texto (wmf.ts)
+    const im = obj.image;
+    const r = { x, y: baseY - shift - im.heightTwips, w: im.widthTwips, h: im.heightTwips };
+    out.push({ t: 'clip', op: 'push', ...r }, ...renderWmf(ctx, im.data, r), { t: 'clip', op: 'pop' });
   } else if (obj.image) {
     const im = obj.image;
     out.push({

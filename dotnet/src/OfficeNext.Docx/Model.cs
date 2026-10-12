@@ -248,6 +248,43 @@ public sealed class NoteRef
     public int Id;
 }
 
+/// <summary>
+/// Nó de equação (OMML) — modelo mínimo para o layout: texto (m:r, com o estilo
+/// m:sty e o w:rPr do run), fração (m:f) e quebra de linha (w:br num m:r). Os
+/// demais objetos (índices, radicais, n-ários…) entram achatados como texto; os
+/// delimitadores (m:d) viram os caracteres de abertura/separação/fechamento.
+/// </summary>
+public abstract class MathNode { }
+
+/// <summary>m:r: texto com o estilo m:sty e o w:rPr do run</summary>
+public sealed class MathRun : MathNode
+{
+    public string Text = "";
+    public string? Sty;
+    public RPr? Rpr;
+}
+
+/// <summary>m:f: fração (m:type: bar, noBar, skw, lin)</summary>
+public sealed class MathFrac : MathNode
+{
+    public List<MathNode> Num = new();
+    public List<MathNode> Den = new();
+    public string? Type;
+}
+
+/// <summary>w:br num m:r: quebra de linha da equação</summary>
+public sealed class MathBreak : MathNode
+{
+    public RPr? Rpr;
+}
+
+/// <summary>Equação de exibição (m:oMathPara): justificação (m:jc) e conteúdo.</summary>
+public sealed class MathZone
+{
+    public string? Jc;
+    public List<MathNode> Nodes = new();
+}
+
 public sealed class Run
 {
     /// <summary>Para run de imagem, Text é o objeto de substituição U+FFFC.</summary>
@@ -277,6 +314,9 @@ public sealed class Run
     public bool InToc;
     /// <summary>Campo de formulário legado (w:ffData).</summary>
     public FormFieldInfo? FormField;
+    /// <summary>Equação de exibição (m:oMathPara) estruturada para o layout — Text guarda o
+    /// texto achatado (edição/salvamento).</summary>
+    public MathZone? Math;
 
     /// <summary>Cópia rasa ({ ...run }).</summary>
     public Run ShallowClone() => (Run)MemberwiseClone();

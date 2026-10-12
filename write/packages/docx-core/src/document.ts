@@ -219,6 +219,23 @@ export interface CustomInline {
   fallbackText: string;
 }
 
+/**
+ * Nó de equação (OMML) — modelo mínimo para o layout: texto (m:r, com o estilo
+ * m:sty e o w:rPr do run), fração (m:f) e quebra de linha (w:br num m:r). Os
+ * demais objetos (índices, radicais, n-ários…) entram achatados como texto; os
+ * delimitadores (m:d) viram os caracteres de abertura/separação/fechamento.
+ */
+export type MathNode =
+  | { t: 'r'; text: string; sty?: string; rpr?: RPr }
+  | { t: 'f'; num: MathNode[]; den: MathNode[]; type?: string }
+  | { t: 'br'; rpr?: RPr };
+
+/** Equação de exibição (m:oMathPara): justificação (m:jc) e conteúdo. */
+export interface MathZone {
+  jc?: string;
+  nodes: MathNode[];
+}
+
 export interface Run {
   /** Para run de imagem, text é o objeto de substituição U+FFFC. */
   text: string;
@@ -251,6 +268,9 @@ export interface Run {
   /** Campo de formulário legado (w:ffData): caixa de seleção / texto / lista.
    *  Lista (FORMDROPDOWN): entradas e o índice exibido. */
   formField?: { type: 'checkBox' | 'textInput' | 'dropDown'; checked?: boolean; sizeHalfPt?: number; sizeAuto?: boolean; entries?: string[]; selected?: number };
+  /** Equação de exibição (m:oMathPara) estruturada para o layout — text guarda o
+   *  texto achatado (edição/salvamento). */
+  math?: MathZone;
 }
 
 /** Grupo de objetos: cada item com retângulo relativo ao canto do grupo. */
@@ -1100,7 +1120,21 @@ function readRunsInto(
       case 'm:oMath':
       case 'm:oMathPara': {
         const text = collectMathText(child);
-        if (text) runTarget(ctx, runs)?.push({ text, props: { ...DEFAULT_RUN_PROPS, italic: true, isMath: true } });
+        if (!text) break;
+        const run: Run = { text, props: { ...DEFAULT_RUN_PROPS, italic: true, isMath: true } };
+        // equação de exibição: cada m:oMath numa linha
+        if (child.name === 'm:oMathPara') {
+          const paraPr = firstChild(child, 'm:oMathParaPr');
+          const jc = paraPr ? firstChild(paraPr, 'm:jc')?.attrs['m:val'] : undefined;
+          const nodes: MathNode[] = [];
+          for (const om of childElements(child)) {
+            if (om.name !== 'm:oMath') continue;
+            if (nodes.length) nodes.push({ t: 'br' });
+            readMathNodes(om, nodes);
+          }
+          run.math = { nodes, ...(jc ? { jc } : {}) };
+        }
+        runTarget(ctx, runs)?.push(run);
         break;
       }
       case 'w:sdt': {
@@ -1149,6 +1183,60 @@ function parseCustomInlineTag(tag: string | undefined): Omit<CustomInline, 'fall
   } catch {
     return undefined;
   }
+}
+
+/** Conteúdo de uma equação OMML (ver MathNode). */
+function readMathNodes(el: XmlElement, out: MathNode[] = []): MathNode[] {
+  for (const c of childElements(el)) {
+    switch (c.name) {
+      case 'm:r':
+      case 'w:r': {
+        const mrPr = firstChild(c, 'm:rPr');
+        // m:nor (texto normal): fora do alfabeto matemático, como o estilo "p"
+        const sty = mrPr ? (firstChild(mrPr, 'm:nor') ? 'p' : firstChild(mrPr, 'm:sty')?.attrs['m:val']) : undefined;
+        const wrPr = firstChild(c, 'w:rPr');
+        const rpr = wrPr ? readRPr(wrPr) : undefined;
+        let text = '';
+        const flush = () => {
+          if (text) out.push({ t: 'r', text, ...(sty ? { sty } : {}), ...(rpr ? { rpr } : {}) });
+          text = '';
+        };
+        for (const k of childElements(c)) {
+          if (k.name === 'm:t' || k.name === 'w:t') text += textContentOf(k);
+          else if (k.name === 'w:br') { flush(); out.push({ t: 'br', ...(rpr ? { rpr } : {}) }); }
+        }
+        flush();
+        break;
+      }
+      case 'm:f': {
+        const fPr = firstChild(c, 'm:fPr');
+        const type = fPr ? firstChild(fPr, 'm:type')?.attrs['m:val'] : undefined;
+        const num = firstChild(c, 'm:num'), den = firstChild(c, 'm:den');
+        out.push({ t: 'f', num: num ? readMathNodes(num) : [], den: den ? readMathNodes(den) : [], ...(type ? { type } : {}) });
+        break;
+      }
+      case 'm:d': {
+        // delimitadores: begChr/sepChr/endChr (padrão "(", "|", ")") em volta dos m:e
+        const dPr = firstChild(c, 'm:dPr');
+        const chr = (name: string, def: string): string => {
+          const e = dPr ? firstChild(dPr, name) : undefined;
+          return e ? (e.attrs['m:val'] ?? '') : def;
+        };
+        const beg = chr('m:begChr', '('), sep = chr('m:sepChr', '|'), end = chr('m:endChr', ')');
+        if (beg) out.push({ t: 'r', text: beg, sty: 'p' });
+        childElements(c).filter((e) => e.name === 'm:e').forEach((e, i) => {
+          if (i && sep) out.push({ t: 'r', text: sep, sty: 'p' });
+          readMathNodes(e, out);
+        });
+        if (end) out.push({ t: 'r', text: end, sty: 'p' });
+        break;
+      }
+      default:
+        // propriedades (m:fPr, m:ctrlPr…) ficam de fora; os outros objetos, achatados
+        if (!c.name.endsWith('Pr')) readMathNodes(c, out);
+    }
+  }
+  return out;
 }
 
 function collectMathText(el: XmlElement): string {

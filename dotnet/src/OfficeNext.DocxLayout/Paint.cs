@@ -10,6 +10,34 @@ public static class Paint
     /// <summary>Identidade das linhas pintadas (GlyphRunItem.LineBox.Line).</summary>
     private static int _lineSeq;
 
+    /// <summary>Fração de equação (Math.cs): numerador e denominador — nessa ordem, como o Word
+    /// grava no PDF — e o traço.</summary>
+    private static void PaintMath(List<PageItem> outp, MathBox box, double frameX, double x, double baseY, Line line, int lineId)
+    {
+        GlyphRunItem? run = null;
+        StringBuilder? text = null;
+        string key = "";
+        foreach (var it in box.Items)
+        {
+            string k = $"{it.Face.Key}|{Js.Str(it.SizePt)}|{it.Style.Color}|{Js.Str(it.Y)}";
+            if (run is null || k != key)
+            {
+                if (run is not null) { run.Text = text!.ToString(); outp.Add(run); }
+                key = k;
+                run = new GlyphRunItem
+                {
+                    Face = it.Face, SizePt = it.SizePt, Color = it.Style.Color, Y = baseY + it.Y,
+                    LineBox = new LineBoxInfo(line.Baseline + it.Y, line.Height - line.Baseline - it.Y, x + it.X, lineId),
+                };
+                text = new StringBuilder();
+            }
+            run.Glyphs.Add(new GlyphPos(it.Cp, frameX + x + it.X));
+            text!.Append(char.ConvertFromUtf32(it.Cp));
+        }
+        if (run is not null) { run.Text = text!.ToString(); outp.Add(run); }
+        foreach (var r in box.Rules) outp.Add(new RectItem { X = frameX + x + r.X, Y = baseY + r.Y, W = r.W, H = r.H, Fill = r.Color });
+    }
+
     public static void PaintLine(DocContext ctx, List<PageItem> outp, Line line, double frameX, double top)
     {
         double baseY = top + line.Baseline;
@@ -39,6 +67,7 @@ public static class Paint
         foreach (var pg in all)
         {
             var g = pg.G;
+            if (g.MathBox is not null) { Flush(); PaintMath(outp, g.MathBox, frameX, pg.X, baseY, line, lineId); continue; }
             if (g.Kind != GlyphKind.Char && g.Kind != GlyphKind.Nbsp && !(g.Kind == GlyphKind.Shy && pg.W > 0))
             {
                 if (g.Kind == GlyphKind.Space) continue;
@@ -170,6 +199,15 @@ public static class Paint
             double ry = baseY - shift - im.HeightTwips;
             outp.Add(ClipItem.Push(x, ry, im.WidthTwips, im.HeightTwips));
             outp.AddRange(Emf.RenderEmf(ctx, im.Data, x, ry, im.WidthTwips, im.HeightTwips));
+            outp.Add(ClipItem.Pop());
+        }
+        else if (obj.Image is not null && Wmf.IsWmf(obj.Image.Data))
+        {
+            // WMF (prévia do Equation Editor 3.0…): o Word desenha e grava o texto (Wmf.cs)
+            var im = obj.Image;
+            double ry = baseY - shift - im.HeightTwips;
+            outp.Add(ClipItem.Push(x, ry, im.WidthTwips, im.HeightTwips));
+            outp.AddRange(Wmf.RenderWmf(ctx, im.Data, x, ry, im.WidthTwips, im.HeightTwips));
             outp.Add(ClipItem.Pop());
         }
         else if (obj.Image is not null)

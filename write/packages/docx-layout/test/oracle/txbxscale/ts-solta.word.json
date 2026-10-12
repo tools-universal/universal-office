@@ -1,0 +1,89 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 430.37,
+"x0": 80.06,
+"x1": 230.38,
+"size": 11.04,
+"text": "Caixaatrasescalacemnormal"
+},
+{
+"y": 442.99,
+"x0": 80.06,
+"x1": 233.71,
+"size": 11.04,
+"text": "Caixaatrasescalanoventaestreita"
+},
+{
+"y": 455.71,
+"x0": 80.06,
+"x1": 299.53,
+"size": 11.04,
+"text": "Caixaatrasescalacentoevintelarga"
+},
+{
+"y": 81.12,
+"x0": 85.1,
+"x1": 209.66,
+"size": 11.04,
+"text": "Corpoescalacemnormal"
+},
+{
+"y": 93.86,
+"x0": 85.1,
+"x1": 215.75,
+"size": 11.04,
+"text": "Corpoescalanoventaestreita"
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 174.68,
+"size": 11.04,
+"text": "Ancoradascaixas"
+},
+{
+"y": 310.37,
+"x0": 80.06,
+"x1": 234.11,
+"size": 11.04,
+"text": "Caixafrenteescalacemnormal"
+},
+{
+"y": 322.97,
+"x0": 80.06,
+"x1": 237.05,
+"size": 11.04,
+"text": "Caixafrenteescalanoventaestreita"
+},
+{
+"y": 335.69,
+"x0": 80.06,
+"x1": 303.94,
+"size": 11.04,
+"text": "Caixafrenteescalacentoevintelarga"
+}
+],
+"objs": [
+{
+"t": "path",
+"x0": 80.0,
+"y0": 420.0,
+"x1": 380.0,
+"y1": 480.0
+},
+{
+"t": "path",
+"x0": 80.0,
+"y0": 300.0,
+"x1": 380.0,
+"y1": 360.0
+}
+]
+}
+]
+}

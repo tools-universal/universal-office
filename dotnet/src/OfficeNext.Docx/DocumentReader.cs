@@ -954,7 +954,23 @@ public static class DocumentReader
                 case "m:oMathPara":
                     {
                         string text = CollectMathText(child);
-                        if (text.Length > 0) RunTarget(ctx, runs)?.Add(new Run { Text = text, Props = new RunProps { Italic = true, IsMath = true } });
+                        if (text.Length == 0) break;
+                        var mrun = new Run { Text = text, Props = new RunProps { Italic = true, IsMath = true } };
+                        // equação de exibição: cada m:oMath numa linha
+                        if (child.Name == "m:oMathPara")
+                        {
+                            var paraPr = FirstChild(child, "m:oMathParaPr");
+                            string? mjc = paraPr is not null ? FirstChild(paraPr, "m:jc")?.Attr("m:val") : null;
+                            var nodes = new List<MathNode>();
+                            foreach (var om in ChildElements(child))
+                            {
+                                if (om.Name != "m:oMath") continue;
+                                if (nodes.Count > 0) nodes.Add(new MathBreak());
+                                ReadMathNodes(om, nodes);
+                            }
+                            mrun.Math = new MathZone { Nodes = nodes, Jc = Js.Truthy(mjc) ? mjc : null };
+                        }
+                        RunTarget(ctx, runs)?.Add(mrun);
                         break;
                     }
                 case "w:sdt":
@@ -1016,6 +1032,76 @@ public static class DocumentReader
         {
             return null;
         }
+    }
+
+    /// <summary>Conteúdo de uma equação OMML (ver MathNode).</summary>
+    private static List<MathNode> ReadMathNodes(XmlElement el, List<MathNode>? outp = null)
+    {
+        outp ??= new List<MathNode>();
+        foreach (var c in ChildElements(el))
+        {
+            switch (c.Name)
+            {
+                case "m:r":
+                case "w:r":
+                    {
+                        var mrPr = FirstChild(c, "m:rPr");
+                        // m:nor (texto normal): fora do alfabeto matemático, como o estilo "p"
+                        string? sty = mrPr is not null ? (FirstChild(mrPr, "m:nor") is not null ? "p" : FirstChild(mrPr, "m:sty")?.Attr("m:val")) : null;
+                        var wrPr = FirstChild(c, "w:rPr");
+                        var rpr = wrPr is not null ? OoxmlProps.ReadRPr(wrPr) : null;
+                        var text = new StringBuilder();
+                        void Flush()
+                        {
+                            if (text.Length > 0) outp.Add(new MathRun { Text = text.ToString(), Sty = Js.Truthy(sty) ? sty : null, Rpr = rpr });
+                            text.Clear();
+                        }
+                        foreach (var k in ChildElements(c))
+                        {
+                            if (k.Name == "m:t" || k.Name == "w:t") text.Append(TextContentOf(k));
+                            else if (k.Name == "w:br") { Flush(); outp.Add(new MathBreak { Rpr = rpr }); }
+                        }
+                        Flush();
+                        break;
+                    }
+                case "m:f":
+                    {
+                        var fPr = FirstChild(c, "m:fPr");
+                        string? type = fPr is not null ? FirstChild(fPr, "m:type")?.Attr("m:val") : null;
+                        var num = FirstChild(c, "m:num");
+                        var den = FirstChild(c, "m:den");
+                        outp.Add(new MathFrac { Num = num is not null ? ReadMathNodes(num) : new List<MathNode>(), Den = den is not null ? ReadMathNodes(den) : new List<MathNode>(), Type = Js.Truthy(type) ? type : null });
+                        break;
+                    }
+                case "m:d":
+                    {
+                        // delimitadores: begChr/sepChr/endChr (padrão "(", "|", ")") em volta dos m:e
+                        var dPr = FirstChild(c, "m:dPr");
+                        string Chr(string name, string def)
+                        {
+                            var e = dPr is not null ? FirstChild(dPr, name) : null;
+                            return e is not null ? (e.Attr("m:val") ?? "") : def;
+                        }
+                        string beg = Chr("m:begChr", "("), sep = Chr("m:sepChr", "|"), end = Chr("m:endChr", ")");
+                        if (beg.Length > 0) outp.Add(new MathRun { Text = beg, Sty = "p" });
+                        int i = 0;
+                        foreach (var e in ChildElements(c))
+                        {
+                            if (e.Name != "m:e") continue;
+                            if (i > 0 && sep.Length > 0) outp.Add(new MathRun { Text = sep, Sty = "p" });
+                            ReadMathNodes(e, outp);
+                            i++;
+                        }
+                        if (end.Length > 0) outp.Add(new MathRun { Text = end, Sty = "p" });
+                        break;
+                    }
+                default:
+                    // propriedades (m:fPr, m:ctrlPr…) ficam de fora; os outros objetos, achatados
+                    if (!c.Name.EndsWith("Pr", StringComparison.Ordinal)) ReadMathNodes(c, outp);
+                    break;
+            }
+        }
+        return outp;
     }
 
     private static string CollectMathText(XmlElement el)

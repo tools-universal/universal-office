@@ -915,9 +915,12 @@ public static class TableEngine
         // (oráculo tblsp)
         double SpacingOf(int ri) => WidthTw((ri < table.Rows.Count ? table.Rows[ri].TrPr?.TblCellSpacing : null) ?? tblPr.TblCellSpacing, frameWidth) ?? 0;
         var rawMeasure = new Dictionary<CellSlot, (double Min, double Max)>(ReferenceEqualityComparer.Instance);
+        // margem efetiva: borda mais larga que o dobro da margem empurra o texto (como no
+        // desenho) e alarga também o mínimo/máximo da coluna (oráculo tblbdmin)
+        double PadOf(CellSlot s) => new[] { "left", "right" }.Aggregate(0.0, (a, side) => a + (SpacingOf(s.Row) > 0 ? MarOf(s, side) : Math.Max(MarOf(s, side), Paint.BorderWidth(Edge(s, side)) / 2)));
         (double Min, double Max) RawOf(CellSlot s)
         {
-            if (!rawMeasure.TryGetValue(s, out var mm)) rawMeasure[s] = mm = MeasureCell(ctx, s.Cell, resolved[s], MarOf(s, "left") + MarOf(s, "right"));
+            if (!rawMeasure.TryGetValue(s, out var mm)) rawMeasure[s] = mm = MeasureCell(ctx, s.Cell, resolved[s], PadOf(s));
             return mm;
         }
         var geoCells = new List<List<GeoCell>>();
@@ -953,7 +956,7 @@ public static class TableEngine
                         // cada linha ocupa 37/36 da sua altura, em twips inteiros; espaçamentos como estão
                         double linesH = c.Lines.Aggregate(0.0, (a, l) => a + l.Height);
                         double vh = c.Lines.Aggregate(0.0, (a, l) => a + Js.Round((l.Height * 37) / 36)) + Math.Max(0, c.Height - linesH);
-                        double wv = vh + 6 + MarOf(sc, "left") + MarOf(sc, "right");
+                        double wv = vh + 6 + PadOf(sc);
                         return (wv + ex, wv + ex);
                     }
                     var mm = RawOf(sc);
@@ -961,7 +964,7 @@ public static class TableEngine
                     double mn = noWrap && Fits() ? mm.Max : Math.Max(mm.Min, floorW);
                     return (mn + ex, Math.Max(mm.Max, mn) + ex);
                 }
-                outc.Add(new GeoCell { Col = s.Col, Span = s.Span, TcW = tcW, Measure = Measure, Floor = floorW != 0, Pad = MarOf(s, "left") + MarOf(s, "right") + ex });
+                outc.Add(new GeoCell { Col = s.Col, Span = s.Span, TcW = tcW, Measure = Measure, Floor = floorW != 0, Pad = PadOf(s) + ex });
             }
             var tr = ri < table.Rows.Count ? table.Rows[ri].TrPr : null;
             // gridBefore/gridAfter com wBefore/wAfter: células "vazias" de largura dada
@@ -974,7 +977,8 @@ public static class TableEngine
         }
         // tabela flutuante: posicionada pelo chamador (âncoras do tblpPr) — sem recuo/alinhamento
         bool floating = tblPr.TblpPr is not null && tblPr.TblpPr.TblpYSpec != "inline";
-        string? jc = floating ? null : tblPr.Jc;
+        // sem w:jc na tabela, vale o da 1ª linha (trPr — oráculo rowjc)
+        string? jc = floating ? null : tblPr.Jc ?? (table.Rows.Count > 0 ? table.Rows[0].TrPr?.Jc : null);
         double indent = floating || jc is "center" or "right" or "end" ? 0 : WidthTw(tblPr.TblInd, frameWidth) ?? 0;
         // a tabela automática vai do recuo até a margem direita (tblw f7)
         // (centralizada, nos modos ≤ 14 o tblInd não posiciona mas ainda entra na largura máxima —
@@ -989,6 +993,19 @@ public static class TableEngine
         // centralizada: no meio do quadro; à direita: o espelho da esquerda (tblw a5/a9)
         if (jc == "center") x = frameX + (frameWidth - width) / 2;
         else if (jc is "right" or "end") x = frameX + frameWidth - width + (legacy ? effR : -bR / 2);
+        // w:alignTablesRowByRow (modos < 15): cada linha alinha sozinha pelo seu jc (o da linha ou
+        // o da tabela) — centralizada ou à direita só as CÉLULAS, sem o vão do gridBefore/gridAfter
+        // (oráculo rowjc; .doc convertido com linhas deslocadas)
+        bool rowByRow = legacy && !floating && ctx.Fmt.Settings.Compat.TryGetValue("alignTablesRowByRow", out var rbr) && rbr;
+        double RowShift(int ri)
+        {
+            string? rjc = (ri < table.Rows.Count ? table.Rows[ri].TrPr?.Jc : null) ?? jc;
+            var rsl = ri < slots.Count ? slots[ri] : new List<CellSlot>();
+            if (!rowByRow || rsl.Count == 0 || (rjc != "center" && rjc != "right" && rjc != "end")) return 0;
+            double c0 = ColAt(Math.Min(rsl[0].Col, nCols)), c1 = ColAt(Math.Min(rsl[^1].Col + rsl[^1].Span, nCols));
+            double want = rjc == "center" ? frameX + (frameWidth - (c1 - c0)) / 2 : frameX + frameWidth - (c1 - c0) + effR;
+            return want - (x + c0);
+        }
 
         // ── bordas SEPARADAS (oráculos cellsp/cellsp2) ──
         // tblCellSpacing presente (mesmo 0), na tabela ou em alguma linha: cada célula desenha
@@ -1053,12 +1070,13 @@ public static class TableEngine
                 .With(row.TrPr);
             double contentH = 0;
             var cellInfos = new List<CellInfo>();
+            double shiftR = RowShift(ri);
             foreach (var s in slots[ri])
             {
                 var rs = resolved[s];
                 // bordas separadas: caixa da célula (bx) e área do conteúdo (x) dentro das bordas dela
-                double bx0 = separated ? SepB(Math.Min(s.Col, nCols)) + spTbl : ColAt(Math.Min(s.Col, nCols));
-                double bx1 = separated ? SepB(Math.Min(s.Col + s.Span, nCols)) - spTbl : ColAt(Math.Min(s.Col + s.Span, nCols));
+                double bx0 = (separated ? SepB(Math.Min(s.Col, nCols)) + spTbl : ColAt(Math.Min(s.Col, nCols))) + shiftR;
+                double bx1 = (separated ? SepB(Math.Min(s.Col + s.Span, nCols)) - spTbl : ColAt(Math.Min(s.Col + s.Span, nCols))) + shiftR;
                 double x0r = bx0, x1r = bx1;
                 var mar = (tblPr.TblCellMar ?? new CellMargins()).With(ex?.TblCellMar).With(rs.TcPr.TcMar);
                 // bordas colapsadas: o texto fica pelo menos meia borda depois da linha da grade (tblw a11)

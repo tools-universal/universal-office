@@ -95,6 +95,8 @@ public sealed class Glyph
     public int? LigEnd;
     /// <summary>pontuação que pode pendurar além da margem no fim da linha</summary>
     public bool Hang;
+    /// <summary>fração de equação (m:f) diagramada — o glifo é a caixa inteira (Math.cs)</summary>
+    public MathBox? MathBox;
 }
 
 public sealed class ParaMarker
@@ -166,6 +168,8 @@ public static class Para
     /// <summary>Código da área privada desenhado como .notdef (fonte comum, sem mapeamento de símbolo).</summary>
     private static bool NotdefPua(FontFace face, int cp) => cp >= 0xf000 && cp <= 0xf0ff && face.Font.GlyphId(cp) == 0 && !Fonts.IsSymbolFont(face.Font);
 
+    /// <summary>Fonte das equações (m:mathFont padrão do Word).</summary>
+    private const string MathFont = "Cambria Math";
     private static readonly string[] FallbackFamilies = { "Segoe UI Symbol", "Segoe UI Emoji", "Arial Unicode MS", "MS Gothic", "Cambria Math", "Segoe UI", "Arial" };
 
     public static RunStyle ResolveRunStyle(DocContext ctx, RPr rpr, ParaEnv env, string? link = null)
@@ -805,9 +809,13 @@ public static class Para
                     if (next is not null && (kind is GlyphKind.Char or GlyphKind.Space) && rpr.Kern is { } kern && kern != 0 && !double.IsNaN(kern) && style.SizePt * 2 >= kern && !kernOff)
                     {
                         // versalete: o par é o dos glifos DESENHADOS — a minúscula seguinte também vira
-                        // maiúscula (oráculo sckern2)
-                        string nextShown = rpr.SmallCaps == true && rpr.Caps != true && Js.ToLower(next) == next && Js.ToUpper(next) != next && Js.ToUpper(next).Length == 1 ? Js.ToUpper(next) : next;
-                        kernAdj = KernTwips(ctx, face, shownCp, Js.CodePointAt0(nextShown), size);
+                        // maiúscula (oráculo sckern2); maiúscula (corpo cheio) ao lado de minúscula (corpo
+                        // reduzido) não kerneia (oráculo sckmix)
+                        bool sc = rpr.SmallCaps == true && rpr.Caps != true;
+                        bool lower = sc && Js.ToLower(next) == next && Js.ToUpper(next) != next && Js.ToUpper(next).Length == 1;
+                        string nextShown = lower ? Js.ToUpper(next) : next;
+                        double nextSize = sc && (lower || next == " ") ? Js.Round(style.SizePt * 2 * 0.8) / 2 : style.SizePt;
+                        kernAdj = sc && nextSize != size ? 0 : KernTwips(ctx, face, shownCp, Js.CodePointAt0(nextShown), size);
                         adv += kernAdj.Value;
                     }
                     if (rpr.Spacing is { } sp && sp != 0 && !double.IsNaN(sp)) adv += sp;
@@ -832,6 +840,57 @@ public static class Para
                 });
                 off += ch.Length;
             }
+        }
+
+        // equação de exibição (m:oMathPara): glifos na fonte de matemática, a fração é um
+        // glifo com a caixa diagramada; o w:br e cada m:oMath seguinte quebram a linha
+        string? mathJc = null;
+        var mathRuns = new HashSet<int>();
+        void PushMath(Run run, int runIdx, double offset0)
+        {
+            var zone = run.Math!;
+            mathJc = zone.Jc ?? "centerGroup";
+            mathRuns.Add(runIdx);
+            var menv = new MathEnv
+            {
+                StyleOf = r =>
+                {
+                    // sem ligaduras, espaçamento e escala: o Word não os aplica na equação (o
+                    // kerning do w:kern sim — oráculo omath/om-12-kern)
+                    var mr = RunRPr(r ?? new RPr()).Clone();
+                    mr.Spacing = null; mr.W = null; mr.Ligatures = null;
+                    return (mr, ResolveRunStyle(ctx, mr, env));
+                },
+                Face = (bold, italic) => ctx.Faces.Get(MathFont, bold, italic),
+                Adv = (face, cp, size) => AdvanceTwips(ctx, face, cp, size),
+                Kern = (face, cp, next, size) => KernTwips(ctx, face, cp, next, size),
+            };
+            int last = Math.Max(0, run.Text.Length - 1);
+            var off = new MathLayout.Counter();
+            var seg = new List<MathNode>();
+            void FlushSeg()
+            {
+                foreach (var a in MathLayout.MathAtoms(menv, seg, "D", 1, off))
+                {
+                    var tm = MathLayout.MathTextMetrics(a.Face);
+                    double tA = tm.Ascent * a.SizePt * 20, tD = tm.Descent * a.SizePt * 20;
+                    var g = new Glyph { Kind = GlyphKind.Char, Ch = char.ConvertFromUtf32(a.Cp), Cp = a.Cp, Face = a.Face, Style = a.Style, Adv = a.Adv, Asc = tA, Desc = tD, Offset = offset0 + Math.Min(a.Offset, last), RunIdx = runIdx, BreakAfter = false, SizePt = a.SizePt };
+                    // a fração entra na linha com a caixa dela; a entrelinha múltipla segue o texto
+                    if (a.Box is not null) { g.Asc = Math.Max(tA, a.Box.LineTop); g.Desc = Math.Max(tD, a.Box.LineBottom); g.NAsc = tA; g.NDesc = tD; g.MathBox = a.Box; }
+                    glyphs.Add(g);
+                }
+                seg = new List<MathNode>();
+            }
+            foreach (var nd in zone.Nodes)
+            {
+                if (nd is not MathBreak br) { seg.Add(nd); continue; }
+                FlushSeg();
+                var bs = menv.StyleOf(br.Rpr).Style;
+                var bf = menv.Face(false, false);
+                var tm = MathLayout.MathTextMetrics(bf);
+                glyphs.Add(new Glyph { Kind = GlyphKind.Lb, Ch = "\n", Cp = 10, Face = bf, Style = bs, Adv = 0, Asc = tm.Ascent * bs.SizePt * 20, Desc = tm.Descent * bs.SizePt * 20, Offset = offset0 + Math.Min(off.N, last), RunIdx = runIdx, BreakAfter = true, SizePt = bs.SizePt });
+            }
+            FlushSeg();
         }
 
         foreach (var (run, idx, offset) in DisplayRuns(para, env))
@@ -912,6 +971,7 @@ public static class Para
                 if (run.NoteRef.Kind == "footnote") for (int k = before; k < glyphs.Count; k++) glyphs[k].NoteId = run.NoteRef.Id;
                 continue;
             }
+            if (run.Math is not null) { PushMath(run, idx, offset); continue; }
             PushChars(run.Text, run, rpr, style, offset, idx, idx >= 0 && idx < para.Runs.Count && FormTextRe.IsMatch(para.Runs[idx].Field ?? ""));
         }
         // objeto inline (imagem, forma…) colado ao texto: pode quebrar ANTES dele (o
@@ -1079,6 +1139,13 @@ public static class Para
         if (jc == "start") jc = "left";
         if (jc == "end") jc = "right";
         double firstLine = ind.Hanging is { } hg ? -hg : (ind.FirstLine ?? 0);
+        // equação de exibição sozinha no parágrafo: alinhada pelo m:jc (centerGroup: no
+        // centro) entre os recuos, sem o da 1ª linha — o w:jc do parágrafo não vale (oráculo omath)
+        if (mathJc is not null && !glyphs.Any(g => !mathRuns.Contains(g.RunIdx) && g.Kind != GlyphKind.Lb && g.Kind != GlyphKind.Pb && g.Kind != GlyphKind.Space && !(g.Kind == GlyphKind.Obj && g.Adv == 0)))
+        {
+            jc = mathJc == "left" ? "left" : mathJc == "right" ? "right" : "center";
+            firstLine = 0;
+        }
         return new PreparedPara
         {
             Para = para, Ppr = ppr, StyleId = styleId, MarkStyle = markStyle, MarkFace = markFace, Glyphs = glyphs, Marker = marker,
@@ -1089,8 +1156,10 @@ public static class Para
             Tabs = (ppr.Tabs ?? new List<TabSpec>()).Where(t => t.Val != "clear").ToList(),
             SpaceBefore = spc.Before ?? 0,
             SpaceAfter = spc.After ?? 0,
-            BeforeAuto = spc.BeforeAutospacing == true,
-            AfterAuto = spc.AfterAutospacing == true,
+            // w:doNotUseHTMLParagraphAutoSpacing: o automático ("HTML", 14 pt) não vale — ficam os
+            // w:before/w:after explícitos (oráculo autosphtml)
+            BeforeAuto = spc.BeforeAutospacing == true && !(settings.Compat.TryGetValue("doNotUseHTMLParagraphAutoSpacing", out var nhtml1) && nhtml1),
+            AfterAuto = spc.AfterAutospacing == true && !(settings.Compat.TryGetValue("doNotUseHTMLParagraphAutoSpacing", out var nhtml2) && nhtml2),
             LineRule = spc.LineRule ?? "auto",
             Line = spc.Line ?? 240,
             Contextual = ppr.ContextualSpacing == true,

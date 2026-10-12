@@ -717,9 +717,12 @@ export function layoutTable(
   // (oráculo tblsp)
   const spacingOf = (ri: number) => widthTw(table.rows[ri]?.trPr?.tblCellSpacing ?? tblPr.tblCellSpacing, frameWidth) ?? 0;
   const rawMeasure = new Map<CellSlot, { min: number; max: number }>();
+  // margem efetiva: borda mais larga que o dobro da margem empurra o texto (como no
+  // desenho) e alarga também o mínimo/máximo da coluna (oráculo tblbdmin)
+  const padOf = (s: CellSlot) => (['left', 'right'] as const).reduce((a, side) => a + (spacingOf(s.row) > 0 ? marOf(s, side) : Math.max(marOf(s, side), borderWidth(edge(s, side)) / 2)), 0);
   const rawOf = (s: CellSlot) => {
     let mm = rawMeasure.get(s);
-    if (!mm) rawMeasure.set(s, (mm = measureCell(ctx, s.cell, resolved.get(s)!, marOf(s, 'left') + marOf(s, 'right'))));
+    if (!mm) rawMeasure.set(s, (mm = measureCell(ctx, s.cell, resolved.get(s)!, padOf(s))));
     return mm;
   };
   const geoCells: GeoCell[][] = slots.map((rs, ri) => {
@@ -746,7 +749,7 @@ export function layoutTable(
           // cada linha ocupa 37/36 da sua altura, em twips inteiros; espaçamentos como estão
           const linesH = c.lines.reduce((a, l) => a + l.height, 0);
           const vh = c.lines.reduce((a, l) => a + Math.round((l.height * 37) / 36), 0) + Math.max(0, c.height - linesH);
-          const w = vh + 6 + marOf(s, 'left') + marOf(s, 'right');
+          const w = vh + 6 + padOf(s);
           return { min: w + ex, max: w + ex };
         }
         const mm = rawOf(s);
@@ -754,7 +757,7 @@ export function layoutTable(
         const min = noWrap && fits() ? mm.max : Math.max(mm.min, floorW);
         return { min: min + ex, max: Math.max(mm.max, min) + ex };
       };
-      return { col: s.col, span: s.span, ...(tcW ? { tcW } : {}), measure, ...(floorW ? { floor: true } : {}), pad: marOf(s, 'left') + marOf(s, 'right') + ex };
+      return { col: s.col, span: s.span, ...(tcW ? { tcW } : {}), measure, ...(floorW ? { floor: true } : {}), pad: padOf(s) + ex };
     });
     const tr = table.rows[ri]?.trPr;
     // gridBefore/gridAfter com wBefore/wAfter: células "vazias" de largura dada
@@ -765,7 +768,8 @@ export function layoutTable(
   });
   // tabela flutuante: posicionada pelo chamador (âncoras do tblpPr) — sem recuo/alinhamento
   const floating = !!tblPr.tblpPr && tblPr.tblpPr.tblpYSpec !== 'inline';
-  const jc = floating ? undefined : tblPr.jc;
+  // sem w:jc na tabela, vale o da 1ª linha (trPr — oráculo rowjc)
+  const jc = floating ? undefined : tblPr.jc ?? table.rows[0]?.trPr?.jc;
   const indent = floating || jc === 'center' || jc === 'right' || jc === 'end' ? 0 : widthTw(tblPr.tblInd, frameWidth) ?? 0;
   // a tabela automática vai do recuo até a margem direita (tblw f7); centralizada, nos
   // modos ≤ 14 o tblInd não posiciona mas ainda entra na largura máxima — negativo alarga,
@@ -779,6 +783,18 @@ export function layoutTable(
   // centralizada: no meio do quadro; à direita: o espelho da esquerda (tblw a5/a9)
   if (jc === 'center') x = frameX + (frameWidth - width) / 2;
   else if (jc === 'right' || jc === 'end') x = frameX + frameWidth - width + (legacy ? effR : -bR / 2);
+  // w:alignTablesRowByRow (modos < 15): cada linha alinha sozinha pelo seu jc (o da linha ou
+  // o da tabela) — centralizada ou à direita só as CÉLULAS, sem o vão do gridBefore/gridAfter
+  // (oráculo rowjc; .doc convertido com linhas deslocadas)
+  const rowByRow = legacy && !floating && !!ctx.fmt.settings.compat['alignTablesRowByRow'];
+  const rowShift = (ri: number): number => {
+    const rjc = table.rows[ri]?.trPr?.jc ?? jc;
+    const rs = slots[ri] ?? [];
+    if (!rowByRow || !rs.length || (rjc !== 'center' && rjc !== 'right' && rjc !== 'end')) return 0;
+    const c0 = colX[Math.min(rs[0]!.col, nCols)]!, c1 = colX[Math.min(rs[rs.length - 1]!.col + rs[rs.length - 1]!.span, nCols)]!;
+    const want = rjc === 'center' ? frameX + (frameWidth - (c1 - c0)) / 2 : frameX + frameWidth - (c1 - c0) + effR;
+    return want - (x + c0);
+  };
 
   // ── bordas SEPARADAS (oráculos cellsp/cellsp2) ──
   // tblCellSpacing presente (mesmo 0), na tabela ou em alguma linha: cada célula desenha
@@ -835,11 +851,12 @@ export function layoutTable(
     const trp: NonNullable<typeof row.trPr> = { ...style.trPr, ...(look.firstRow && ri === 0 ? style.cond.firstRow?.trPr : undefined), ...row.trPr };
     let contentH = 0;
     const cellInfos: { slot: CellSlot; tcPr: TcPr; content?: CellContent; x0: number; x1: number; bx0: number; bx1: number; marT: number; marB: number; marL: number; marR: number; vertical?: string; env: { tablePPr?: PPr; tableRPr?: RPr } }[] = [];
+    const shiftR = rowShift(ri);
     for (const s of slots[ri]!) {
       const { tcPr, pPr, rPr } = resolved.get(s)!;
       // bordas separadas: caixa da célula (bx) e área do conteúdo (x) dentro das bordas dela
-      const bx0 = separated ? sepB(Math.min(s.col, nCols)) + spTbl : colX[Math.min(s.col, nCols)]!;
-      const bx1 = separated ? sepB(Math.min(s.col + s.span, nCols)) - spTbl : colX[Math.min(s.col + s.span, nCols)]!;
+      const bx0 = (separated ? sepB(Math.min(s.col, nCols)) + spTbl : colX[Math.min(s.col, nCols)]!) + shiftR;
+      const bx1 = (separated ? sepB(Math.min(s.col + s.span, nCols)) - spTbl : colX[Math.min(s.col + s.span, nCols)]!) + shiftR;
       const x0r = bx0, x1r = bx1;
       const mar = { ...(tblPr.tblCellMar ?? {}), ...(ex?.tblCellMar ?? {}), ...(tcPr.tcMar ?? {}) };
       // bordas colapsadas: o texto fica pelo menos meia borda depois da linha da grade (tblw a11)
