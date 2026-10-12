@@ -1530,7 +1530,8 @@ class Engine {
         const narrowed = frame.left > p.indLeft + 0.5 || frame.right < fr.w - p.indRight - 0.5;
         const g0 = p.glyphs[line.end - 1]!, g1 = p.glyphs[line.end]!;
         const word = (g: typeof g0) => g.kind === 'char' && !/\s/.test(g.ch);
-        if (narrowed && word(g0) && !g0.breakAfter && word(g1)) {
+        // (linha que acabou num ponto de hifenização não foi partida por caractere)
+        if (narrowed && word(g0) && !g0.breakAfter && word(g1) && !line.placed[line.placed.length - 1]?.g.autoHyphen) {
           const lineH = Math.max(markLineH(p), line.height);
           let below = Infinity;
           for (const f of this.cur.floats) {
@@ -2922,7 +2923,7 @@ function lineRecord(ref: string, p: PreparedPara, line: Line, frameX: number, to
   // posição de cada caractere (offset no parágrafo → x absoluto e largura): o
   // editor mapeia cursor/seleção/clique por aqui
   const chars = line.placed
-    .filter((pg) => pg.g.kind !== 'pb' && pg.g.kind !== 'cb')
+    .filter((pg) => pg.g.kind !== 'pb' && pg.g.kind !== 'cb' && !pg.g.autoHyphen)
     .map((pg) => ({ o: pg.g.offset, x: frameX + pg.x, w: pg.w }));
   return {
     ref, start, end,

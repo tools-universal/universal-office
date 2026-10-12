@@ -234,6 +234,8 @@ if (isMain) {
   const { createNodeFontProvider } = await import(
     new URL('../write/tools/corpus-lab/node-fonts.mjs', import.meta.url).href);
   const provider = await createNodeFontProvider();
+  // hifenização automática (grupos hyph*): padrões carregados antes, como no oracle.test.ts
+  await layout.loadHyphenation(layout.HYPHENATION_PATTERN_IDS);
 
   const missing = ['Arial', 'Calibri', 'Times New Roman'].filter((f) => !provider.face(f, false, false));
   if (missing.length) {

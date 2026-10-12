@@ -20,3 +20,12 @@ export {
   type FontVariant,
   type TabStop,
 } from './richbreak.js';
+export {
+  Hyphenator,
+  hyphenatorFor,
+  hyphenationPatternId,
+  loadHyphenation,
+  registerHyphenation,
+  HYPHENATION_PATTERN_IDS,
+  type HyphenationPatterns,
+} from './hyphen/index.js';

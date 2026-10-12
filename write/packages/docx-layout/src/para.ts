@@ -6,6 +6,7 @@ import { cascadeRPr, mergePPr, mergeRPr, fontOfSlot, resolveColor, highlightHex,
 import { faceMetrics, deviceEmPt, superscriptRaiseFor, subscriptDropPt, isSymbolFont, type FontFace } from './fonts.js';
 import type { NumberMarker } from './numbering.js';
 import { mathAtoms, mathTextMetrics, type MathBox, type MathEnv } from './math.js';
+import { markHyphenation } from './hyphenate.js';
 
 /**
  * Parágrafo pronto para quebrar em linhas: propriedades resolvidas (cascata
@@ -86,6 +87,10 @@ export interface Glyph {
   hang?: boolean;
   /** fração de equação (m:f) diagramada — o glifo é a caixa inteira (math.ts) */
   math?: MathBox;
+  /** hifenização automática: pode quebrar com hífen DEPOIS deste glifo (hyphenate.ts) */
+  hyph?: boolean;
+  /** hífen que a hifenização automática acrescentou no fim da linha (não é do texto) */
+  autoHyphen?: boolean;
 }
 
 export interface ParaMarker {
@@ -911,6 +916,9 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       } else if (g.kind === 'char' && ppr.overflowPunct !== false && isCjkLang(g.style.rpr) && hangPunct(g.style.rpr, altKinsoku).includes(g.ch)) g.hang = true;
     }
   }
+
+  // hifenização automática (w:autoHyphenation): pontos de quebra nas palavras
+  markHyphenation(ctx, ppr, glyphs, mathRuns);
 
   // marcador de numeração
   let marker: ParaMarker | undefined;

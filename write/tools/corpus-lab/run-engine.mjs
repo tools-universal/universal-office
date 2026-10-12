@@ -26,6 +26,11 @@ const REFERENCE_MISSING = ['Meiryo UI', 'Meiryo'];
 const provider = await createNodeFontProvider({ missing: REFERENCE_MISSING });
 const advanceEm = opt('em', 'nominal');
 const advanceRound = opt('round', undefined);
+// hifenização automática: padrões carregados antes (o layout é síncrono); só os idiomas
+// com revisores na máquina dos PDFs de referência (Office pt-BR: PT-BR, EN, ES — o Word
+// não hifeniza pt-PT, fr, de… sem eles)
+await layout.loadHyphenation(layout.HYPHENATION_PATTERN_IDS);
+const hyphenationLanguages = opt('hyph-langs', 'pt-BR,en,es').split(',').filter(Boolean);
 
 export function convert(bytes, now) {
   // .doc (Word 97-2003): converte para .docx e segue o caminho normal
@@ -38,7 +43,7 @@ export function convert(bytes, now) {
   let embedded = [];
   try { embedded = pkg ? core.readEmbeddedFonts(pkg) : []; } catch { /* sem fontes embutidas legíveis */ }
   const prov = eng.withEmbeddedFonts(provider, embedded, (b) => new layout.SfntFont(b));
-  const res = eng.layoutDocument(full, prov, { advanceEm, ...(advanceRound ? { advanceRound } : {}), ...(now ? { now } : {}) });
+  const res = eng.layoutDocument(full, prov, { advanceEm, hyphenationLanguages, ...(advanceRound ? { advanceRound } : {}), ...(now ? { now } : {}) });
   return { res, pdf: eng.renderPdf(res) };
 }
 

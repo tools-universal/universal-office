@@ -50,6 +50,9 @@ import {
   type RichLine,
   type FontRegistry,
   type FontVariant,
+  loadHyphenation,
+  hyphenatorFor,
+  hyphenationPatternId,
 } from '@universal-office/layout';
 import {
   PdfDocument,
@@ -62,9 +65,9 @@ import {
 } from '@universal-office/pdf';
 import { toHtml, toMarkdown, type ExportDoc } from '@universal-office/export';
 import {
-  layoutDocument, renderPdf, withEmbeddedFonts,
+  layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages,
   type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,
-  type LayoutResult, type LayoutPage, type LaidOutLine,
+  type LayoutResult, type LayoutPage, type LaidOutLine, type LayoutOptions,
 } from '@universal-office/docx-layout';
 import { readOdt, writeOdt } from '@universal-office/odf';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
@@ -94,6 +97,16 @@ const PX_PER_TWIP = 96 / 72 / TWIPS_PER_PT;
 /** Opacidade da região "desabilitada" (o Word esmaece o que não está em foco:
  *  header/footer ao editar o corpo; corpo + outro HF ao editar um HF). */
 const HF_DIM_ALPHA = 0.5;
+/** Hifenização automática nos idiomas que o Word pt-BR hifeniza (revisores que
+ *  acompanham a instalação: pt-BR, inglês e espanhol — medido; pt-PT, fr, de, it
+ *  não), como o corpus-lab. */
+const ENGINE_LAYOUT_OPTS: LayoutOptions = { hyphenationLanguages: ['pt-BR', 'en', 'es'] };
+/** idiomas do documento a hifenizar (os padrões a carregar antes do layout) */
+const hyphenationLangs = (full: FullDocument): string[] =>
+  documentHyphenationLanguages(full).filter((l) => {
+    const x = l.toLowerCase();
+    return ENGINE_LAYOUT_OPTS.hyphenationLanguages!.some((y) => { const z = y.toLowerCase(); return x === z || x.startsWith(`${z}-`); });
+  });
 
 /** Família de fonte PADRÃO/fallback do editor. Liberation Sans é open (OFL,
  *  métrica-compatível com Arial), então pode ser versionada e distribuída no
@@ -461,6 +474,8 @@ export class UniversalWriteElement extends HTMLElement {
   private engMissing = new Map<string, Set<FontVariant>>();
   private engFontsAttempted = new Set<string>();
   private engFontLoad: Promise<void> | null = null;
+  /** padrões de hifenização já pedidos (carga em 2º plano, uma vez por idioma) */
+  private hyphAttempted = new Set<string>();
   /** indicadores → índice do parágrafo (deslocado nas edições, como as âncoras) */
   private bookmarkParas = new Map<string, number>();
   /** edição de célula de tabela (motor) */
@@ -5499,6 +5514,21 @@ export class UniversalWriteElement extends HTMLElement {
     return this.engineFontProvider(this.engMissing, this.engFaceCache);
   }
 
+  /** Carrega em 2º plano os padrões de hifenização dos idiomas do documento (o
+   *  layout é síncrono e sem eles não hifeniza); chegando, refaz o layout. */
+  private scheduleHyphenation(full: FullDocument): void {
+    const want = hyphenationLangs(full).filter((l) => {
+      const id = hyphenationPatternId(l);
+      return !!id && !hyphenatorFor(l) && !this.hyphAttempted.has(id);
+    });
+    if (!want.length) return;
+    for (const l of want) this.hyphAttempted.add(hyphenationPatternId(l)!);
+    void loadHyphenation(want).then(
+      () => { if (this.model) this.queueRefresh(); },
+      () => { /* sem padrões: o texto fica sem hifenização */ },
+    );
+  }
+
   /** Resolve em 2º plano as famílias/variantes que o motor pediu e não tinha;
    *  chegando algo, refaz o layout. Cada família|variante é tentada uma vez
    *  (o onChange do resolvedor cobre as que mudarem depois). */
@@ -5540,11 +5570,12 @@ export class UniversalWriteElement extends HTMLElement {
       // (que o motor lê) acompanham a lista de parágrafos da edição
       const doc = this.liveEngineDoc();
       const t1 = performance.now();
-      const result = layoutDocument(doc.full, this.liveFontProvider());
+      const result = layoutDocument(doc.full, this.liveFontProvider(), ENGINE_LAYOUT_OPTS);
       const t2 = performance.now();
       this.installEngineResult(doc, result);
       this.engineStats = { ...this.engineStats, buildMs: t1 - t0, layoutMs: t2 - t1, pages: result.pages.length, mode: 'full' };
       this.scheduleEngineFonts();
+      this.scheduleHyphenation(doc.full);
       return true;
     } catch (e) {
       console.warn('[universal-write] motor de layout falhou no canvas; usando o layout legado', e);
@@ -5677,7 +5708,7 @@ export class UniversalWriteElement extends HTMLElement {
       }],
       bookmarks: new Map(),
     };
-    return layoutDocument(full, this.liveFontProvider());
+    return layoutDocument(full, this.liveFontProvider(), ENGINE_LAYOUT_OPTS);
   }
 
   /** Confere (antes da edição) que o parágrafo isolado reproduz o layout real. */
@@ -7160,9 +7191,10 @@ export class UniversalWriteElement extends HTMLElement {
     const full = pristine ? readFullDocument(pkg!) : this.liveEngineDoc().full;
     let embedded: ReturnType<typeof readEmbeddedFonts> = [];
     try { embedded = pkg ? readEmbeddedFonts(pkg) : []; } catch { /* fontes embutidas ilegíveis */ }
+    try { await loadHyphenation(hyphenationLangs(full)); } catch { /* sem padrões: sem hifenização */ }
     const layout = (): ReturnType<typeof layoutDocument> => {
       const prov = withEmbeddedFonts(this.engineFontProvider(missing), embedded, (b) => new SfntFont(b));
-      return layoutDocument(full, prov);
+      return layoutDocument(full, prov, ENGINE_LAYOUT_OPTS);
     };
     // 1ª passada registra as famílias/variantes que o motor pediu e o editor
     // ainda não tinha; resolve-as (rede/SO) e diagrama de novo

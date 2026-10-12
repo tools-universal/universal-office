@@ -12,6 +12,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { DocxPackage, readFullDocument } from '@universal-office/docx-core';
 import { layoutDocument } from '../src/index.js';
+import { loadHyphenation, HYPHENATION_PATTERN_IDS } from '@universal-office/layout';
 import { engineLines, compareLines, type OracleDoc } from './oracle-compare.js';
 
 const oracleDir = join(__dirname, 'oracle');
@@ -19,6 +20,8 @@ const oracleDir = join(__dirname, 'oracle');
 const { createNodeFontProvider } = await import('../../../tools/corpus-lab/node-fonts.mjs');
 const provider = await createNodeFontProvider();
 const hasFonts = ['Arial', 'Calibri', 'Times New Roman'].every((f) => provider.face(f, false, false));
+// padrões de hifenização (w:autoHyphenation — grupos hyph*): o layout é síncrono
+await loadHyphenation(HYPHENATION_PATTERN_IDS);
 
 /** Varreduras de limiar (justify2/4/5): a fronteira exata pode errar 1 passo de 2-4 twips. */
 const SWEEPS = new Set(['justify2', 'justify3', 'justify4', 'justify5', 'justify8', 'jsweep']);

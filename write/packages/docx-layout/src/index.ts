@@ -8,3 +8,4 @@ export type {
   LayoutResult, LayoutPage, PageItem, GlyphRunItem, RectItem, LineItem, ImageItem, ShapeItem, ClipItem, LaidOutLine,
   PathItem, PathCmdTw, XformItem, PlacedObject,
 } from './tree.js';
+export { documentHyphenationLanguages } from './hyphenate.js';

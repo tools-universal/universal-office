@@ -3,6 +3,7 @@ import type { Glyph, PreparedPara } from './para.js';
 import type { DocContext } from './context.js';
 import { advanceTwips, shadowExtent } from './para.js';
 import { faceMetrics } from './fonts.js';
+import { chooseHyphenation } from './hyphenate.js';
 
 /** Espaço de largura fixa (en, em, fino, ideográfico…): fora da justificação (oráculo formjust). */
 const FIXED_SPACE = (cp: number): boolean => (cp >= 0x2000 && cp <= 0x200a) || cp === 0x3000;
@@ -135,6 +136,8 @@ export class LineBreaker {
   /** quebra de linha (w:br) no FIM do parágrafo: a marca de parágrafo vai
    *  para uma linha vazia própria (Word) */
   private trailingBreak = false;
+  /** linhas seguidas terminadas em hífen (w:consecutiveHyphenLimit) */
+  private hyphenRun = 0;
   constructor(
     private ctx: DocContext,
     readonly p: PreparedPara,
@@ -162,14 +165,15 @@ export class LineBreaker {
     return w + (this.lineIdx === 0 ? Math.max(0, this.p.firstLine) : 0);
   }
 
-  mark(): { pos: number; lineIdx: number; trailingBreak: boolean } {
-    return { pos: this.pos, lineIdx: this.lineIdx, trailingBreak: this.trailingBreak };
+  mark(): { pos: number; lineIdx: number; trailingBreak: boolean; hyphenRun: number } {
+    return { pos: this.pos, lineIdx: this.lineIdx, trailingBreak: this.trailingBreak, hyphenRun: this.hyphenRun };
   }
 
-  reset(m: { pos: number; lineIdx: number; trailingBreak: boolean }): void {
+  reset(m: { pos: number; lineIdx: number; trailingBreak: boolean; hyphenRun: number }): void {
     this.pos = m.pos;
     this.lineIdx = m.lineIdx;
     this.trailingBreak = m.trailingBreak;
+    this.hyphenRun = m.hyphenRun;
   }
 
   /** Próxima linha no quadro dado. `frame` já desconta recuos do parágrafo. */
@@ -244,6 +248,9 @@ export class LineBreaker {
     let gapTab: 'break' | 'start' | undefined;
     let pastMargin = false;
     let forced = false;
+    // hifenização da palavra que não coube: a linha acaba depois do glifo hyphAt, com o
+    // hífen (largura hyphW) — automática ou no hífen opcional (ver hyphenate.ts)
+    let hyphAt = -1, hyphW = 0, endedHyphen = false;
 
     const closePending = () => {
       if (!pendTab) return;
@@ -266,6 +273,16 @@ export class LineBreaker {
 
     for (; i < gs.length; i++) {
       const g = gs[i]!;
+      if (hyphAt >= 0 && i > hyphAt) {
+        const kg = gs[hyphAt]!;
+        if (kg.kind === 'shy') placed[placed.length - 1]!.w = hyphW;
+        else placed.push({ g: { ...kg, kind: 'shy', ch: '', cp: 0xad, adv: 0, hyph: false, autoHyphen: true, offset: kg.offset + kg.ch.length }, x, w: hyphW });
+        contentEnd = x + hyphW;
+        // só o hífen automático conta para w:consecutiveHyphenLimit (oráculo hyphshy)
+        endedHyphen = kg.kind !== 'shy';
+        pendTab = null;
+        break;
+      }
       if (g.kind === 'lb' || g.kind === 'pb' || g.kind === 'cb') {
         closePending();
         placed.push({ g, x, w: 0 });
@@ -346,7 +363,9 @@ export class LineBreaker {
           const q = gs[e]!;
           if (q.kind === 'space' || q.kind === 'tab' || q.kind === 'lb' || q.kind === 'pb' || q.kind === 'cb') break;
           if (q.kind === 'obj' && q.adv === 0) continue;
-          wordW += q.kind === 'shy' ? 0 : q.adv;
+          // hífen opcional: ponto de hifenização DENTRO da palavra (oráculo hyphshy)
+          if (q.kind === 'shy') continue;
+          wordW += q.adv;
           if (q.breakAfter && q.kind !== 'char') break;
           if (q.breakAfter) { e++; break; }
         }
@@ -387,6 +406,15 @@ export class LineBreaker {
         // acaba nela — a seguinte desce, mesmo que coubesse comprimindo mais (oráculo fejust)
         if (squeezed && i > start) wordOk = false;
         else if (wordOk && over > FIT_EPS) squeezed = true;
+        // não coube inteira: hifenizar (pontos automáticos e hífens opcionais), se o Word
+        // hifenizaria — senão ela desce (ou, abrindo a linha, quebra por caractere)
+        else if (!wordOk && !pendTab && !pastMargin) {
+          const ch = chooseHyphenation(this.ctx, gs, {
+            i, e, x, right, lineStart: lastBreak < start, contentEnd: xStart + widthAtBreak,
+            justify: p.jc === 'both' || p.jc === 'distribute', spacesW, restW: unitSpacesW - unitGapSp, nSpaces, hyphenRun: this.hyphenRun,
+          });
+          if (ch) { hyphAt = ch.k; hyphW = ch.w; wordOk = true; }
+        }
         if (this.ctx.opts.onWordFit && over > -2000) {
           this.ctx.opts.onWordFit({ over, spacesW, nSpaces, wordW, lastGapW, justify, accepted: wordOk, lineStart: start, wordStart: i, wordEnd: e,
             sizePt: g.sizePt ?? 0, family: g.face?.family ?? '', compat: this.ctx.fmt.settings.compatibilityMode,
@@ -409,27 +437,16 @@ export class LineBreaker {
           const keep = lastBreak + 1;
           while (placed.length && placed[placed.length - 1]!.g !== gs[lastBreak]) placed.pop();
           i = keep;
-          // hífen opcional no ponto de quebra vira hífen visível
-          const brk = gs[lastBreak]!;
-          if (brk.kind === 'shy') {
-            const last = placed[placed.length - 1]!;
-            last.w = advanceTwips(this.ctx, brk.face, 0x2d, brk.sizePt);
-            contentEnd = last.x + last.w;
-            widthAtBreak = contentEnd - xStart;
-          } else {
-            contentEnd = xStart + widthAtBreak;
-          }
+          contentEnd = xStart + widthAtBreak;
           pendTab = null;
           break;
         }
         // palavra maior que a linha: quebra por caractere (o glifo atual desce)
         break;
       }
+      // hífen opcional: só vira quebra (com hífen) pela hifenização acima
       if (g.kind === 'shy') {
         placed.push({ g, x, w: 0 });
-        prevWasGap = true;
-        lastBreak = i;
-        widthAtBreak = contentEnd - xStart;
         continue;
       }
       placed.push({ g, x, w: g.adv });
@@ -461,6 +478,7 @@ export class LineBreaker {
     }
     this.pos = Math.min(gs.length, i);
     if (this.pos === start && start < gs.length) this.pos = start + 1; // garante progresso
+    this.hyphenRun = endedHyphen ? this.hyphenRun + 1 : 0;
     // quebra de linha ou de COLUNA no fim do parágrafo: a marca vai para uma linha própria
     // (na coluna/página seguinte — oráculo colbreak); a de página não (pbfit)
     // (de página também, com splitPgBreakAndParaMark nos modos ≤ 14 — oráculo pbmark)
