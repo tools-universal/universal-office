@@ -1,0 +1,34 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1623.36,"scaleX":1,"text":"AntesHxg","g":[[65,1701],[110,1847.74],[116,1970.09],[101,2031.21],[115,2153.57],[72,2324.69],[120,2483.57],[103,2593.57]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2286.34,"scaleX":1,"text":"BaseHxg","g":[[66,1814],[97,1960.74],[115,2083.09],[101,2193.09],[72,2376.57],[120,2535.45],[103,2645.45]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1886.34,"scaleX":1,"text":"OutracolunaHxg","g":[[79,5814],[117,5985.12],[116,6107.48],[114,6168.6],[97,6241.86],[99,6425.34],[111,6535.34],[108,6657.69],[117,6706.57],[110,6828.92],[97,6951.28],[72,7134.75],[120,7293.63],[103,7403.63]]},
+        {"t":"rect","x":1706,"y":1670.18,"w":4000,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":1706,"y":2880.18,"w":4000,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":1701.2,"y":1669.98,"w":9.6,"h":1220,"fill":"000000","alpha":null},
+        {"t":"rect","x":5701.2,"y":1669.98,"w":9.6,"h":1220,"fill":"000000","alpha":null},
+        {"t":"rect","x":5706,"y":1670.18,"w":4000,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":5706,"y":2880.18,"w":4000,"h":9.6,"fill":"000000","alpha":null},
+        {"t":"rect","x":5701.2,"y":1669.98,"w":9.6,"h":1220,"fill":"000000","alpha":null},
+        {"t":"rect","x":9701.2,"y":1669.98,"w":9.6,"h":1220,"fill":"000000","alpha":null},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":3096.34,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1859.88],[112,1982.23],[111,2104.58],[105,2226.94],[115,2275.81],[72,2446.94],[120,2605.81],[103,2715.81]]},
+        {"t":"clip","op":"push","x":4398,"y":2079.98,"w":1200,"h":800},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2286.34,"scaleX":1,"text":"CaixaHxg","g":[[67,4398],[97,4556.88],[105,4679.23],[120,4728.11],[97,4838.11],[72,5021.58],[120,5180.46],[103,5290.46]]},
+        {"t":"clip","op":"pop"}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":9,"x":1701,"y":1417,"height":252.98,"baseline":1623.36,"width":1014.92},
+        {"ref":"b1/r0/c0/b0","start":0,"end":9,"x":1814,"y":2079.98,"height":252.98,"baseline":2286.34,"width":953.8},
+        {"ref":"b1/r0/c1/b0","start":0,"end":16,"x":5814,"y":1679.98,"height":252.98,"baseline":1886.34,"width":1711.98},
+        {"ref":"b2","start":0,"end":10,"x":1701,"y":2889.98,"height":252.98,"baseline":3096.34,"width":1137.17}
+      ]
+    }
+  ],
+  "warnings": []
+}

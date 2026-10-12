@@ -191,6 +191,8 @@ export interface DrawingTextbox {
   shape?: ShapeStyle;
   /** espessura do contorno para o recuo do texto (wps), mesmo sem linha visível */
   lineInset?: { w?: number; ref?: number };
+  /** forma predefinida que não é retângulo: o texto vai no retângulo de texto dela (oráculo txrect) */
+  geom?: { prst: string; adj?: Record<string, number> };
   /** wps:bodyPr anchor (t | ctr | b) — alinhamento vertical do texto. */
   vAnchor?: 't' | 'ctr' | 'b';
   /** rotação da caixa (graus, horário) — xfrm rot / VML rotation */
@@ -616,6 +618,7 @@ function readGraphicObject(
       bodyPrOf(tb, firstChild(obj, 'wps:bodyPr'));
       if (style.fill || style.line || style.gradient) tb.shape = style;
       tb.lineInset = style.lineInset ?? {};
+      if (style.geom && style.geom !== 'rect' && style.geom !== 'custom') tb.geom = { prst: style.geom, ...(style.adj ? { adj: style.adj } : {}) };
       // espelho vertical gira o texto 180° (o horizontal não o afeta): rot 180 + flipV fica
       // em pé — medido no Word (corpus t43)
       if (style.rot || style.flipV) tb.rot = ((style.rot ?? 0) + (style.flipV ? 180 : 0)) % 360;

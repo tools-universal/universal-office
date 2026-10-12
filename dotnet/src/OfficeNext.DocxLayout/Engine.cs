@@ -517,19 +517,49 @@ internal sealed class Engine
             // camadas do Word: TODO o cabeçalho/rodapé (atrás, texto, frente) fica
             // abaixo do documento; no corpo, atrás do texto < texto < na frente
             // (descarte fora da página por camada: HfItems conta o que sobrou do HF)
+            // objetos ancorados em células: na camada de objetos, na ordem z (oráculo cellwrap)
+            static (List<PageItem> Keep, List<ZObj> Front, List<ZObj> Back) Late(List<PageItem> arr)
+            {
+                var keep = new List<PageItem>();
+                var front = new List<ZObj>();
+                var back = new List<ZObj>();
+                ZObj? cur = null;
+                TableEngine.LateMark? curMk = null;
+                foreach (var it in arr)
+                {
+                    if (!TableEngine.LateItems.TryGetValue(it, out var mk)) { keep.Add(it); continue; }
+                    if (!ReferenceEquals(mk, curMk)) { cur = new ZObj { Z = mk.Z, Seq = mk.Seq }; (mk.Behind ? back : front).Add(cur); curMk = mk; }
+                    cur!.Items.Add(it);
+                }
+                return (keep, front, back);
+            }
+            // (também os de tabelas flutuantes: saem do objeto da tabela para a ordem z — corpus t43)
+            static List<ZObj> LateZ(List<ZObj> objs, (List<PageItem> Keep, List<ZObj> Front, List<ZObj> Back) into) => objs.Select(o =>
+            {
+                var r = Late(o.Items);
+                into.Front.AddRange(r.Front);
+                into.Back.AddRange(r.Back);
+                return r.Front.Count > 0 || r.Back.Count > 0 ? new ZObj { Z = o.Z, Seq = o.Seq, Items = r.Keep } : o;
+            }).ToList();
+            var lh = Late(ps.Hf);
+            var lb = Late(ps.Body);
+            var hfB = LateZ(ps.HfBehind, lh);
+            var hfF = LateZ(ps.HfFront, lh);
+            var bB = LateZ(ps.Behind, lb);
+            var bF = LateZ(ps.Front, lb);
             var hf = new List<PageItem>();
-            hf.AddRange(ZItems(ps.HfBehind));
-            hf.AddRange(ps.Hf);
-            hf.AddRange(ZItems(ps.HfFront));
+            hf.AddRange(ZItems(hfB.Concat(lh.Back).ToList()));
+            hf.AddRange(lh.Keep);
+            hf.AddRange(ZItems(hfF.Concat(lh.Front).ToList()));
             var hfLayer = CullOffPage(hf, ps.Page.WidthTw, ps.Page.HeightTw);
             // bordas de página: atrás do texto (zOrder back) ou na frente (padrão)
             var pb = ps.Geom.Index < full.Sections.Count ? full.Sections[ps.Geom.Index].Sect?.PgBorders : null;
             var pbItems = pb is not null ? PageBorders(ps, pb) : new List<PageItem>();
             bool pbBack = pb?.ZOrder == "back";
             var body = new List<PageItem>();
-            body.AddRange(ZItems(ps.Behind));
-            body.AddRange(ps.Body);
-            body.AddRange(ZItems(ps.Front));
+            body.AddRange(ZItems(bB.Concat(lb.Back).ToList()));
+            body.AddRange(lb.Keep);
+            body.AddRange(ZItems(bF.Concat(lb.Front).ToList()));
             var items = new List<PageItem>(hfLayer);
             if (pbBack) items.AddRange(pbItems);
             items.AddRange(CullOffPage(body, ps.Page.WidthTw, ps.Page.HeightTw));
@@ -898,6 +928,8 @@ internal sealed class Engine
         var cellFloats = new List<FloatBox>();
         var cellPs = new PageState { Floats = cellFloats };
         double floatBottom = 0;
+        // fim dos objetos ancorados na célula (com ou sem quebra): conta no alinhamento vertical
+        double alignBottom = 0;
         // desenhadas depois do texto da célula (ordem do PDF do Word)
         var floatItems = new List<PageItem>();
         var floatLines = new List<LaidOutLine>();
@@ -996,6 +1028,31 @@ internal sealed class Engine
                 // linhas e o texto (inclusive o do próprio parágrafo) os contorna — oráculo hffloat
                 bool hfWrap = ps is not null && HfRefRe.IsMatch(reference);
                 if (hfWrap) PlaceFloats(p, ps!, x, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
+                // célula: os flutuantes do parágrafo vêm ANTES das linhas e o texto da célula
+                // contorna os que têm quebra (oráculo cellwrap); desenhados depois do texto
+                List<PageItem>? cellAnch = _inCell && ps is not null && !hfWrap && CellRefRe.IsMatch(reference) ? new List<PageItem>() : null;
+                if (cellAnch is not null)
+                {
+                    foreach (var g in p.Glyphs)
+                    {
+                        var run = g.Obj;
+                        if (run is null || _prePlaced.Contains(run) || !IsFloating(run)) continue;
+                        if (_onlyTextFloats && !FollowsText(FloatAnchor(run))) continue;
+                        var its = new List<PageItem>();
+                        var rc = PlaceFloat(run, ps!, x + _staticDx, width, yOrigin + top, its, yOrigin, null, yOrigin + paraRefS);
+                        var mk = new TableEngine.LateMark { Z = FloatAnchor(run)?.RelativeHeight ?? 0, Seq = _zSeq++, Behind = rc.Obj.Layer == "behind" };
+                        foreach (var it in its) TableEngine.LateItems.AddOrUpdate(it, mk);
+                        cellAnch.AddRange(its);
+                        if (rc.Box is not null && FloatAnchor(run)?.SimplePos is null)
+                        {
+                            cellFloats.Add(new FloatBox { X = rc.Box.X - _staticDx, Y = rc.Box.Y - yOrigin, W = rc.Box.W, H = rc.Box.H, Wrap = rc.Box.Wrap, Side = rc.Box.Side, DistL = rc.Box.DistL, DistR = rc.Box.DistR, DistT = rc.Box.DistT, DistB = rc.Box.DistB });
+                            // com quebra: a célula cresce até o fim dele; sem quebra, não (oráculo cellwrap)
+                            floatBottom = Math.Max(floatBottom, rc.Obj.Y - yOrigin + rc.Obj.H);
+                        }
+                        // todos contam na altura do conteúdo que se alinha (centro/base — oráculo cellwrap)
+                        alignBottom = Math.Max(alignBottom, rc.Obj.Y - yOrigin + rc.Obj.H);
+                    }
+                }
                 double boxTop = y;
                 int boxAt = items.Count;
                 y += BorderTopExtent(p, prev);
@@ -1054,7 +1111,8 @@ internal sealed class Engine
                 y += BorderBottomExtent(p, groupedNext);
                 PaintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext);
                 // floats ancorados no parágrafo (fora do cabeçalho/rodapé: depois das linhas)
-                if (ps is not null && !hfWrap) PlaceFloats(p, ps, x + _staticDx, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
+                if (ps is not null && !hfWrap && cellAnch is null) PlaceFloats(p, ps, x + _staticDx, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
+                if (cellAnch is not null) items.AddRange(cellAnch);
                 double after = p.AfterAuto ? (lastInCell && !hfFlow ? 0 : 280) : p.SpaceAfter;
                 // último da célula: o vizinho seguinte é o 1º da próxima célula ou a marca de fim de linha
                 if (lastInCell && nb?.Next is not null && p.Contextual && nb.Next.StyleId == p.StyleId) after = 0;
@@ -1204,7 +1262,7 @@ internal sealed class Engine
         if (prev is not null) y += prev.After;
         items.AddRange(floatItems);
         lines.AddRange(floatLines);
-        return new CellContent { Items = items, Lines = lines, Height = Math.Max(y, floatBottom), KeepNext = keepNext, Paras = paras.Count > 0 ? paras : null, Nest = nest.Count > 0 ? nest : null };
+        return new CellContent { Items = items, Lines = lines, Height = Math.Max(y, floatBottom), AlignH = alignBottom > Math.Max(y, floatBottom) ? alignBottom : null, KeepNext = keepNext, Paras = paras.Count > 0 ? paras : null, Nest = nest.Count > 0 ? nest : null };
     }
 
     /// <summary>molduras do cabeçalho/rodapé à direita do início da linha: entram depois das linhas do âncora</summary>
@@ -1213,6 +1271,9 @@ internal sealed class Engine
     private readonly List<PageItem> _hfFrameTbl = new();
     /// <summary>conteúdo de caixa de texto: x da caixa na página (flutuantes dentro dela)</summary>
     private double _staticDx;
+    /// <summary>margens laterais da célula em diagramação (âncoras relativas à célula — oráculo cellwrap)</summary>
+    private (double L, double R)? _cellMar;
+    private static readonly Regex CellRefRe = new(@"/r\d+/c\d+$", RegexOptions.CultureInvariant);
 
     /// <summary>Lista (abstractNum) do parágrafo numerado/com marcador.</summary>
     private string? ListOf(PreparedPara p)
@@ -1227,7 +1288,9 @@ internal sealed class Engine
     private CellContent LayoutCell(TableCell cell, double x, double width, CellEnv env, string reference, PageState? ps = null)
     {
         bool prevInCell = _inCell;
+        var prevMar = _cellMar;
         _inCell = true;
+        _cellMar = env.CellMar;
         try
         {
             return LayoutCellIn(cell, x, width, env, reference, ps);
@@ -1235,6 +1298,7 @@ internal sealed class Engine
         finally
         {
             _inCell = prevInCell;
+            _cellMar = prevMar;
         }
     }
 
@@ -3233,7 +3297,7 @@ internal sealed class Engine
         if (run.Textbox is not null)
         {
             var tb = run.Textbox;
-            var ins = TbInsets(tb, _ctx.Fmt.Theme);
+            var ins = TbInsets(tb, _ctx.Fmt.Theme, w, h);
             var blocks = tb.Blocks ?? tb.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
             var env = new ParaEnv { Field = FieldValue(ps), DarkBackground = IsDark(Resolve.ResolveDrawingColor(tb.Shape?.Fill, _ctx.Fmt.Theme)) };
             double inner = w - ins.L - ins.R;
@@ -3301,15 +3365,30 @@ internal sealed class Engine
         if (_inCell && anchor?.SimplePos is null)
         {
             string vFrom = anchor?.PosV.RelativeFrom ?? "paragraph";
-            x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, colX, colW, w, null, g.PageW, anchor?.EffectExtent?.L ?? 0, anchor?.EffectExtent?.R ?? 0);
+            // margem esquerda/direita = a margem da CÉLULA (alinhado à direita: rente à borda dela)
+            var cm = _cellMar ?? (0, 0);
+            string hFrom = anchor?.PosH.RelativeFrom ?? "column";
+            var (hx, hw) = hFrom is "rightMargin" or "outsideMargin" ? (colX + colW, cm.R) : hFrom is "leftMargin" or "insideMargin" ? (colX - cm.L, cm.L) : (colX, colW);
+            x = AlignPos(anchor?.PosH.Align, anchor?.PosH.Offset, hx, hw, w, null, g.PageW, anchor?.EffectExtent?.L ?? 0, anchor?.EffectExtent?.R ?? 0);
             y = AlignPos(anchor?.PosV.Align, anchor?.PosV.Offset, vFrom == "paragraph" ? paraRef ?? paraTop : vFrom == "line" ? paraTop : yOrigin, 0, h, null, g.PageH, anchor?.EffectExtent?.T ?? 0, anchor?.EffectExtent?.B ?? 0);
             if (tbFinal is not null) { double fx0 = x, fy0 = y; tbContent = _ctx.Pure(() => tbFinal(fx0, fy0)); }
             var cellItems = PaintObject(run, x, y, w, h, tbContent, ps);
             if (behind) flowItems.InsertRange(0, cellItems); else flowItems.AddRange(cellItems);
+            // com quebra: o texto da célula o contorna (LayoutStatic registra a caixa — oráculo cellwrap)
+            var cwb = anchor is not null && (anchor.Wrap == "tight" || anchor.Wrap == "through") ? anchor.WrapBox : null;
+            FloatBox? cbox = anchor is not null && Wrapping.Contains(anchor.Wrap) && anchor.LayoutInCell != false
+                ? new FloatBox
+                {
+                    X = cwb is not null ? x + w * cwb.L : x, Y = cwb is not null ? y + h * cwb.T : y,
+                    W = cwb is not null ? w * (cwb.R - cwb.L) : w, H = cwb is not null ? h * (cwb.B - cwb.T) : h,
+                    Wrap = anchor.Wrap, Side = anchor.WrapText ?? "bothSides", DistL = anchor.DistL ?? 0, DistR = anchor.DistR ?? 0, DistT = anchor.DistT ?? 0, DistB = anchor.DistB ?? 0,
+                }
+                : null;
             return new FloatReceipt
             {
                 Ps = ps, Target = new List<ZObj>(), ZObj = new ZObj { Z = 0, Seq = _zSeq++, Items = cellItems },
                 Obj = new PlacedObject { Run = run, X = x, Y = y, W = w, H = h, Layer = behind ? "behind" : "front", Hf = _inHf },
+                Box = cbox,
             };
         }
         var target = _inHf ? (behind ? ps.HfBehind : ps.HfFront) : (behind ? ps.Behind : ps.Front);
@@ -3382,7 +3461,7 @@ internal sealed class Engine
             CellContent? tc = null;
             if (r.Textbox is not null)
             {
-                var ins = TbInsets(r.Textbox, _ctx.Fmt.Theme);
+                var ins = TbInsets(r.Textbox, _ctx.Fmt.Theme, w, h);
                 var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
                 tc = LayoutStatic(blocks, 0, Math.Max(1, w - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "itb", ps);
             }
@@ -3441,7 +3520,7 @@ internal sealed class Engine
             }
             if (tbContent is not null)
             {
-                var ins = TbInsets(tb, _ctx.Fmt.Theme);
+                var ins = TbInsets(tb, _ctx.Fmt.Theme, w, h);
                 // caixa girada: o conteúdo gira em torno do centro (a forma já gira no pintor)
                 double rot = tb.Rot ?? s?.Rot ?? 0;
                 bool rotOn = rot != 0 && !double.IsNaN(rot);
@@ -3490,7 +3569,7 @@ internal sealed class Engine
                 CellContent? tc = null;
                 if (r.Textbox is not null)
                 {
-                    var ins = TbInsets(r.Textbox, _ctx.Fmt.Theme);
+                    var ins = TbInsets(r.Textbox, _ctx.Fmt.Theme, iw, ih);
                     var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
                     tc = LayoutStatic(blocks, 0, Math.Max(1, iw - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "grp", ps);
                 }
@@ -3541,9 +3620,11 @@ internal sealed class Engine
     /// <summary>Recuos internos da caixa de texto (twips); o Word ainda afasta o texto meia espessura do
     /// contorno de cada lado (oráculo txbxctr) — na caixa wps, mesmo com a linha sem
     /// preenchimento: a espessura do a:ln@w ou a da linha do tema do lnRef (oráculo txbxln)</summary>
-    private static TextboxInsets TbInsets(DrawingTextbox tb, Theme? theme)
+    private static TextboxInsets TbInsets(DrawingTextbox tb, Theme? theme, double? w = null, double? h = null)
     {
-        var ins = tb.Insets ?? DefaultInsets;
+        var ins0 = tb.Insets ?? DefaultInsets;
+        var tr = tb.Geom is not null && w is not null && h is not null ? TextRectInsets(tb.Geom, w.Value, h.Value) : null;
+        var ins = tr is not null ? new TextboxInsets { L = ins0.L + tr.L, T = ins0.T + tr.T, R = ins0.R + tr.R, B = ins0.B + tr.B } : ins0;
         var li = tb.LineInset;
         double lw = li is not null
             ? li.W ?? (li.Ref is { } r && r != 0
@@ -3553,6 +3634,32 @@ internal sealed class Engine
             : tb.Shape?.Line?.WidthPt ?? 0;
         double half = lw * 10;
         return half != 0 && !double.IsNaN(half) ? new TextboxInsets { L = ins.L + half, T = ins.T + half, R = ins.R + half, B = ins.B + half } : ins;
+    }
+
+    /// <summary>Retângulo de texto da forma predefinida (txRect das definições do DrawingML), como recuo
+    /// de cada lado da caixa w × h — o Word põe o texto nele (oráculo txrect)</summary>
+    private static TextboxInsets? TextRectInsets(TextboxGeom g, double w, double h)
+    {
+        switch (g.Prst)
+        {
+            case "roundRect":
+            {
+                double i = Math.Min(w, h) * (g.Adj is not null && g.Adj.TryGetValue("adj", out var a) ? a : 16667) / 100000 * 0.29289;
+                return new TextboxInsets { L = i, T = i, R = i, B = i };
+            }
+            case "ellipse":
+            {
+                double k = 0.5 - Math.Sqrt(0.5) / 2;
+                return new TextboxInsets { L = w * k, T = h * k, R = w * k, B = h * k };
+            }
+            case "triangle":
+            {
+                double x1 = w * (g.Adj is not null && g.Adj.TryGetValue("adj", out var a) ? a : 50000) / 200000;
+                return new TextboxInsets { L = x1, T = h / 2, R = w / 2 - x1, B = 0 };
+            }
+            case "diamond": return new TextboxInsets { L = w / 4, T = h / 4, R = w / 4, B = h / 4 };
+            default: return null;
+        }
     }
 
     /// <summary>Posição do objeto pelo alinhamento ou deslocamento. Alinhado, o Word alinha a caixa JUNTO

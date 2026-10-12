@@ -8,7 +8,7 @@ import { prepareParagraph, resolvePPr, isDark, paraVisibility, type PreparedPara
 import { LineBreaker, type Line } from './lines.js';
 import { paintLine, paintParaBox, borderWidth, pageBorderItems } from './paint.js';
 import { dateFieldValue } from './datefmt.js';
-import { layoutTable, shiftItem, isHiddenRow, mergeTextFirst, dropMoved, splitContent, atPageTop, type TableLayout, type CellContent, type ParaSplitInfo, type NestRow } from './table.js';
+import { layoutTable, shiftItem, isHiddenRow, mergeTextFirst, dropMoved, splitContent, atPageTop, LATE_ITEMS, type TableLayout, type CellContent, type ParaSplitInfo, type NestRow } from './table.js';
 import type { LayoutPage, LayoutResult, PageItem, LaidOutLine, PlacedObject } from './tree.js';
 import { resolveColor, resolveDrawingColor } from './resolve.js';
 import { formatNumber } from './numbering.js';
@@ -432,12 +432,32 @@ class Engine {
       // camadas do Word: TODO o cabeçalho/rodapé (atrás, texto, frente) fica
       // abaixo do documento; no corpo, atrás do texto < texto < na frente
       // (descarte fora da página por camada: hfItems conta o que sobrou do HF)
-      const hfLayer = cullOffPage([...zItems(ps.hfBehind), ...ps.hf, ...zItems(ps.hfFront)], ps.page.widthTw, ps.page.heightTw);
+      // objetos ancorados em células: na camada de objetos, na ordem z (oráculo cellwrap)
+      const late = (arr: PageItem[]): { keep: PageItem[]; front: ZObj[]; back: ZObj[] } => {
+        const keep: PageItem[] = [], front: ZObj[] = [], back: ZObj[] = [];
+        let cur: ZObj | null = null, curMk: object | null = null;
+        for (const it of arr) {
+          const mk = LATE_ITEMS.get(it);
+          if (!mk) { keep.push(it); continue; }
+          if (mk !== curMk) { cur = { z: mk.z, seq: mk.seq, items: [] }; (mk.behind ? back : front).push(cur); curMk = mk; }
+          cur!.items.push(it);
+        }
+        return { keep, front, back };
+      };
+      // (também os de tabelas flutuantes: saem do objeto da tabela para a ordem z — corpus t43)
+      const lateZ = (objs: ZObj[], into: { front: ZObj[]; back: ZObj[] }): ZObj[] => objs.map((o) => {
+        const r = late(o.items);
+        into.front.push(...r.front); into.back.push(...r.back);
+        return r.front.length || r.back.length ? { ...o, items: r.keep } : o;
+      });
+      const lh = late(ps.hf), lb = late(ps.body);
+      const hfB = lateZ(ps.hfBehind, lh), hfF = lateZ(ps.hfFront, lh), bB = lateZ(ps.behind, lb), bF = lateZ(ps.front, lb);
+      const hfLayer = cullOffPage([...zItems([...hfB, ...lh.back]), ...lh.keep, ...zItems([...hfF, ...lh.front])], ps.page.widthTw, ps.page.heightTw);
       // bordas de página: atrás do texto (zOrder back) ou na frente (padrão)
       const pb = this.full.sections[ps.geom.index]?.sect?.pgBorders;
       const pbItems = pb ? this.pageBorders(ps, pb) : [];
       const pbBack = pb?.zOrder === 'back';
-      ps.page.items = [...hfLayer, ...(pbBack ? pbItems : []), ...cullOffPage([...zItems(ps.behind), ...ps.body, ...zItems(ps.front)], ps.page.widthTw, ps.page.heightTw), ...(pbBack ? [] : pbItems)];
+      ps.page.items = [...hfLayer, ...(pbBack ? pbItems : []), ...cullOffPage([...zItems([...bB, ...lb.back]), ...lb.keep, ...zItems([...bF, ...lb.front])], ps.page.widthTw, ps.page.heightTw), ...(pbBack ? [] : pbItems)];
       ps.page.hfItems = hfLayer.length;
       if (bg && bg.toUpperCase() !== 'FFFFFF' && bg !== 'auto') ps.page.background = bg;
       return ps.page;
@@ -744,6 +764,8 @@ class Engine {
     const cellFloats: FloatBox[] = [];
     const cellPs = { floats: cellFloats } as unknown as PageState;
     let floatBottom = 0;
+    /** fim dos objetos ancorados na célula (com ou sem quebra): conta no alinhamento vertical */
+    let alignBottom = 0;
     /** desenhadas depois do texto da célula (ordem do PDF do Word) */
     const floatItems: PageItem[] = [];
     const floatLines: LaidOutLine[] = [];
@@ -830,6 +852,28 @@ class Engine {
         // linhas e o texto (inclusive o do próprio parágrafo) os contorna — oráculo hffloat
         const hfWrap = !!ps && /^(hdr|ftr):\w+$/.test(ref);
         if (hfWrap) this.placeFloats(p, ps!, x, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
+        // célula: os flutuantes do parágrafo vêm ANTES das linhas e o texto da célula
+        // contorna os que têm quebra (oráculo cellwrap); desenhados depois do texto
+        const cellAnch: PageItem[] | null = this.inCell && ps && !hfWrap && /\/r\d+\/c\d+$/.test(ref) ? [] : null;
+        if (cellAnch) {
+          for (const g of p.glyphs) {
+            const run = g.obj;
+            if (!run || this.prePlaced.has(run) || !(run.image?.floating || run.shape?.floating || run.group?.floating || run.textbox?.floating)) continue;
+            if (this.onlyTextFloats && !followsText(floatAnchor(run))) continue;
+            const its: PageItem[] = [];
+            const rc = this.placeFloat(run, ps!, x + this.staticDx, width, yOrigin + top, its, yOrigin, undefined, yOrigin + paraRefS);
+            const mk = { z: floatAnchor(run)?.relativeHeight ?? 0, seq: this.zSeq++, behind: rc.obj.layer === 'behind' };
+            for (const it of its) LATE_ITEMS.set(it, mk);
+            cellAnch.push(...its);
+            if (rc.box && !floatAnchor(run)?.simplePos) {
+              cellFloats.push({ ...rc.box, x: rc.box.x - this.staticDx, y: rc.box.y - yOrigin });
+              // com quebra: a célula cresce até o fim dele; sem quebra, não (oráculo cellwrap)
+              floatBottom = Math.max(floatBottom, rc.obj.y - yOrigin + rc.obj.h);
+            }
+            // todos contam na altura do conteúdo que se alinha (centro/base — oráculo cellwrap)
+            alignBottom = Math.max(alignBottom, rc.obj.y - yOrigin + rc.obj.h);
+          }
+        }
         const boxTop = y;
         const boxAt = items.length;
         y += this.borderTopExtent(p, prev);
@@ -880,7 +924,8 @@ class Engine {
         y += this.borderBottomExtent(p, groupedNext);
         this.paintBox(items, p, x, width, boxTop, y, prev, boxAt, groupedNext);
         // floats ancorados no parágrafo (fora do cabeçalho/rodapé: depois das linhas)
-        if (ps && !hfWrap) this.placeFloats(p, ps, x + this.staticDx, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
+        if (ps && !hfWrap && !cellAnch) this.placeFloats(p, ps, x + this.staticDx, width, yOrigin + top, items, yOrigin, yOrigin + paraRefS);
+        if (cellAnch) items.push(...cellAnch);
         let after = p.afterAuto ? (lastInCell && !hfFlow ? 0 : 280) : p.spaceAfter;
         // último da célula: o vizinho seguinte é o 1º da próxima célula ou a marca de fim de linha
         if (lastInCell && nb?.next && p.contextual && nb.next.styleId === p.styleId) after = 0;
@@ -990,7 +1035,7 @@ class Engine {
     if (prev) y += (prev as PrevPara).after;
     items.push(...floatItems);
     lines.push(...floatLines);
-    return { items, lines, height: Math.max(y, floatBottom), ...(keepNext ? { keepNext: true } : {}), ...(paras.size ? { paras } : {}), ...(nest.length ? { nest } : {}) };
+    return { items, lines, height: Math.max(y, floatBottom), ...(alignBottom > Math.max(y, floatBottom) ? { alignH: alignBottom } : {}), ...(keepNext ? { keepNext: true } : {}), ...(paras.size ? { paras } : {}), ...(nest.length ? { nest } : {}) };
   }
 
   /** diagramando o conteúdo de uma célula (flutuantes ficam relativos à célula) */
@@ -1001,6 +1046,8 @@ class Engine {
   private hfFrameTbl: PageItem[] = [];
   /** conteúdo de caixa de texto: x da caixa na página (flutuantes dentro dela) */
   private staticDx = 0;
+  /** margens laterais da célula em diagramação (âncoras relativas à célula — oráculo cellwrap) */
+  private cellMar: { l: number; r: number } | null = null;
   /** fundo da coluna mais alta já deixada nesta página (seção de várias colunas) */
   private colMaxY = 0;
   /** "depois" do parágrafo vazio de quebra contínua que não ocupa altura: o seguinte
@@ -1008,12 +1055,14 @@ class Engine {
   private sectGapAfter: number | null = null;
 
   private layoutCell(cell: TableCell, x: number, width: number, env: { tablePPr?: import('@universal-office/docx-core').PPr; tableRPr?: import('@universal-office/docx-core').RPr; darkBackground?: boolean }, ref: string, ps?: PageState): CellContent {
-    const prevInCell = this.inCell;
+    const prevInCell = this.inCell, prevMar = this.cellMar;
     this.inCell = true;
+    this.cellMar = (env as { cellMar?: { l: number; r: number } }).cellMar ?? null;
     try {
       return this.layoutCellIn(cell, x, width, env, ref, ps);
     } finally {
       this.inCell = prevInCell;
+      this.cellMar = prevMar;
     }
   }
 
@@ -2514,7 +2563,7 @@ class Engine {
     let tbFinal: ((bx: number, by: number) => CellContent) | null = null;
     if (run.textbox) {
       const tb = run.textbox;
-      const ins = tbInsets(tb, this.ctx.fmt.theme);
+      const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
       const blocks: Block[] = tb.blocks ?? tb.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
       const env: ParaEnv = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)) };
       let inner = w - ins.l - ins.r;
@@ -2574,12 +2623,21 @@ class Engine {
     // da célula, que se desloca com a linha — oráculo cellfloat (lab de desenho)
     if (this.inCell && !anchor?.simplePos) {
       const vFrom = anchor?.posV.relativeFrom ?? 'paragraph';
-      x = alignPos(anchor?.posH.align, anchor?.posH.offset, colX, colW, w, undefined, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
+      // margem esquerda/direita = a margem da CÉLULA (alinhado à direita: rente à borda dela)
+      const cm = this.cellMar ?? { l: 0, r: 0 };
+      const hFrom = anchor?.posH.relativeFrom ?? 'column';
+      const [hx, hw] = hFrom === 'rightMargin' || hFrom === 'outsideMargin' ? [colX + colW, cm.r] : hFrom === 'leftMargin' || hFrom === 'insideMargin' ? [colX - cm.l, cm.l] : [colX, colW];
+      x = alignPos(anchor?.posH.align, anchor?.posH.offset, hx, hw, w, undefined, g.pageW, anchor?.effectExtent?.l, anchor?.effectExtent?.r);
       y = alignPos(anchor?.posV.align, anchor?.posV.offset, vFrom === 'paragraph' ? paraRef ?? paraTop : vFrom === 'line' ? paraTop : yOrigin, 0, h, undefined, g.pageH, anchor?.effectExtent?.t, anchor?.effectExtent?.b);
       if (tbFinal) tbContent = this.ctx.pure(() => tbFinal!(x, y));
       const cellItems = this.paintObject(run, x, y, w, h, tbContent, ps);
       if (behind) flowItems.unshift(...cellItems); else flowItems.push(...cellItems);
-      return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: cellItems }, obj: { run, x, y, w, h, layer: behind ? 'behind' : 'front', hf: this.inHf } };
+      // com quebra: o texto da célula o contorna (layoutStatic registra a caixa — oráculo cellwrap)
+      const wb = anchor && (anchor.wrap === 'tight' || anchor.wrap === 'through') ? anchor.wrapBox : undefined;
+      const cbox: FloatBox | undefined = anchor && WRAPPING.has(anchor.wrap) && anchor.layoutInCell !== false
+        ? { x: wb ? x + w * wb.x0 : x, y: wb ? y + h * wb.y0 : y, w: wb ? w * (wb.x1 - wb.x0) : w, h: wb ? h * (wb.y1 - wb.y0) : h, wrap: anchor.wrap, side: anchor.wrapText ?? 'bothSides', distL: anchor.distL ?? 0, distR: anchor.distR ?? 0, distT: anchor.distT ?? 0, distB: anchor.distB ?? 0 }
+        : undefined;
+      return { ps, target: [], zobj: { z: 0, seq: this.zSeq++, items: cellItems }, obj: { run, x, y, w, h, layer: behind ? 'behind' : 'front', hf: this.inHf }, ...(cbox ? { box: cbox } : {}) };
     }
     const target = this.inHf ? (behind ? ps.hfBehind : ps.hfFront) : (behind ? ps.behind : ps.front);
     if (tbFinal) tbContent = tbFinal(x, y);
@@ -2673,7 +2731,7 @@ class Engine {
       const x = frameX + pg.x, y = top + line.baseline - pg.g.style.shift - h;
       let tc: CellContent | null = null;
       if (r.textbox) {
-        const ins = tbInsets(r.textbox, this.ctx.fmt.theme);
+        const ins = tbInsets(r.textbox, this.ctx.fmt.theme, w, h);
         const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
         tc = this.layoutStatic(blocks, 0, Math.max(1, w - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, 'itb', ps);
       }
@@ -2718,7 +2776,7 @@ class Engine {
         out.push({ t: 'shape', x, y, w, h, style: s, ...(fill ? { fill } : {}), ...(stroke ? { stroke } : {}), ...shapeExtras(s, theme) });
       }
       if (tbContent) {
-        const ins = tbInsets(tb, this.ctx.fmt.theme);
+        const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
         // caixa girada: o conteúdo gira em torno do centro (a forma já gira no pintor)
         const rot = tb.rot ?? s?.rot ?? 0;
         if (rot) out.push({ t: 'xform', op: 'push', m: rotation(x + w / 2, y + h / 2, rot) });
@@ -2758,7 +2816,7 @@ class Engine {
         const { run: r, x: ix, y: iy, w: iw, h: ih } = groupChild(gr, item, x, y, w, h);
         let tc: CellContent | null = null;
         if (r.textbox) {
-          const ins = tbInsets(r.textbox, this.ctx.fmt.theme);
+          const ins = tbInsets(r.textbox, this.ctx.fmt.theme, iw, ih);
           const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
           tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, 'grp', ps);
         }
@@ -2804,13 +2862,39 @@ function vertRef(from: string, g: SectGeom, ps: PageState, paraTop: number): { y
 /** Recuos internos da caixa de texto (twips); o Word ainda afasta o texto meia espessura do
  *  contorno de cada lado (oráculo txbxctr) — na caixa wps, mesmo com a linha sem
  *  preenchimento: a espessura do a:ln@w ou a da linha do tema do lnRef (oráculo txbxln) */
-function tbInsets(tb: { insets?: { l: number; t: number; r: number; b: number }; shape?: { line?: { widthPt: number } }; lineInset?: { w?: number; ref?: number } }, theme?: { lineWidthsPt?: number[] }): { l: number; t: number; r: number; b: number } {
-  const ins = tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
+function tbInsets(
+  tb: { insets?: { l: number; t: number; r: number; b: number }; shape?: { line?: { widthPt: number } }; lineInset?: { w?: number; ref?: number }; geom?: { prst: string; adj?: Record<string, number> } },
+  theme?: { lineWidthsPt?: number[] }, w?: number, h?: number,
+): { l: number; t: number; r: number; b: number } {
+  const ins0 = tb.insets ?? { l: 144, t: 72, r: 144, b: 72 };
+  const tr = tb.geom && w !== undefined && h !== undefined ? textRectInsets(tb.geom, w, h) : null;
+  const ins = tr ? { l: ins0.l + tr.l, t: ins0.t + tr.t, r: ins0.r + tr.r, b: ins0.b + tr.b } : ins0;
   const li = tb.lineInset;
   // sem tema no arquivo vale o do Word: linhas de 1; 1,5; 2 pt (oráculo tbinset)
   const lw = li ? li.w ?? (li.ref ? theme?.lineWidthsPt?.[li.ref - 1] ?? [1, 1.5, 2][li.ref - 1] ?? 0.75 : 0) : tb.shape?.line?.widthPt ?? 0;
   const half = lw * 10;
   return half ? { l: ins.l + half, t: ins.t + half, r: ins.r + half, b: ins.b + half } : ins;
+}
+
+/** Retângulo de texto da forma predefinida (txRect das definições do DrawingML), como recuo
+ *  de cada lado da caixa w × h — o Word põe o texto nele (oráculo txrect) */
+function textRectInsets(g: { prst: string; adj?: Record<string, number> }, w: number, h: number): { l: number; t: number; r: number; b: number } | null {
+  switch (g.prst) {
+    case 'roundRect': {
+      const i = ((Math.min(w, h) * (g.adj?.['adj'] ?? 16667)) / 100000) * 0.29289;
+      return { l: i, t: i, r: i, b: i };
+    }
+    case 'ellipse': {
+      const k = 0.5 - Math.SQRT1_2 / 2;
+      return { l: w * k, t: h * k, r: w * k, b: h * k };
+    }
+    case 'triangle': {
+      const x1 = (w * (g.adj?.['adj'] ?? 50000)) / 200000;
+      return { l: x1, t: h / 2, r: w / 2 - x1, b: 0 };
+    }
+    case 'diamond': return { l: w / 4, t: h / 4, r: w / 4, b: h / 4 };
+    default: return null;
+  }
 }
 
 /** Posição do objeto pelo alinhamento ou deslocamento. Alinhado, o Word alinha a caixa JUNTO

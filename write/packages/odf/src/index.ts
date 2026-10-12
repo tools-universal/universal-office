@@ -18,6 +18,9 @@ import {
   type TableBorders,
   type CommentInfo,
   type InlineImage,
+  type DrawingTextbox,
+  type DrawingAnchor,
+  type RPr,
   type ParagraphBorders,
   type BorderEdge,
   type StylesMap,
@@ -178,8 +181,15 @@ function readParagraph(pEl: XmlElement, ctx: ReadCtx, list: ListContext | undefi
   applyParaBorders(ctx.styleIndex, styleName, props);
 
   const runs: Run[] = [];
-  collectRuns(pEl, runs, ctx, baseRunPropsFor(resolved), undefined);
-  return { runs, props };
+  const base = baseRunPropsFor(resolved);
+  collectRuns(pEl, runs, ctx, base, undefined);
+  // marca do parágrafo com o corpo/fonte do estilo: o parágrafo vazio mede por ela (corpus t20)
+  const rPr: RPr = {};
+  if (base.szHalfPt) { rPr.sz = base.szHalfPt; rPr.szCs = base.szHalfPt; }
+  if (base.fontAscii) rPr.rFonts = { ascii: base.fontAscii, hAnsi: base.fontAscii, cs: base.fontAscii };
+  if (base.bold) rPr.b = true;
+  if (base.italic) rPr.i = true;
+  return { runs, props, ...(Object.keys(rPr).length ? { ppr: { rPr } } : {}) };
 }
 
 function readHeading(hEl: XmlElement, ctx: ReadCtx): Paragraph {
@@ -298,8 +308,11 @@ function collectRuns(
         if (img) {
           runs.push({ text: '￼', props: { ...base }, image: img });
         } else {
-          // frame sem imagem: tenta extrair texto interno (text-box)
-          collectRuns(child, runs, ctx, base, pendingLink);
+          // moldura de texto: caixa de texto na posição dela (corpus t20); outra moldura
+          // sem imagem: o texto interno vai no parágrafo
+          const tb = readTextFrame(child, ctx);
+          if (tb) runs.push({ text: '￼', props: { ...base }, textbox: tb });
+          else collectRuns(child, runs, ctx, base, pendingLink);
         }
         break;
       }
@@ -561,6 +574,55 @@ function readImage(frame: XmlElement, ctx: ReadCtx): InlineImage | undefined {
   const widthTwips = lengthToTwips(frame.attrs['svg:width']) ?? 0;
   const heightTwips = lengthToTwips(frame.attrs['svg:height']) ?? 0;
   return { data, ext, widthTwips, heightTwips };
+}
+
+/**
+ * Moldura de texto (draw:frame + draw:text-box) → caixa de texto com os parágrafos e
+ * estilos dela, posicionada como o Word a abre (corpus t20: etiquetas de caixa-arquivo).
+ * Sem estilo gráfico: margens internas 0, sem contorno, sem afastar o texto.
+ */
+function readTextFrame(frame: XmlElement, ctx: ReadCtx): DrawingTextbox | undefined {
+  const box = firstChild(frame, 'draw:text-box');
+  if (!box) return undefined;
+  const blocks: Block[] = [];
+  for (const c of childElements(box)) readBodyChild(c, blocks, ctx, 0);
+  if (!blocks.length) blocks.push({ type: 'paragraph', paragraph: { runs: [], props: {} } });
+  const gp = ctx.styleIndex.styles.get(frame.attrs['draw:style-name'] ?? '')?.graphic;
+  const ga = (k: string): string | undefined => gp?.attrs[k];
+  const pad = (side: string) => lengthToTwips(ga(`fo:padding-${side}`) ?? ga('fo:padding')) ?? 0;
+  const tb: DrawingTextbox = {
+    paras: blocks.flatMap((b) => (b.type === 'paragraph' ? [b.paragraph] : [])),
+    blocks,
+    widthTwips: lengthToTwips(frame.attrs['svg:width'] ?? box.attrs['fo:min-width']) ?? 0,
+    heightTwips: lengthToTwips(frame.attrs['svg:height'] ?? box.attrs['fo:min-height']) ?? 0,
+    insets: { l: pad('left'), t: pad('top'), r: pad('right'), b: pad('bottom') },
+  };
+  const at = frame.attrs['text:anchor-type'] ?? 'paragraph';
+  if (at === 'as-char') return tb;
+  // style:wrap: none = acima e abaixo; run-through = sem afastar; os outros = dos lados
+  const w = ga('style:wrap');
+  const wrap: DrawingAnchor['wrap'] = w === 'none' ? 'topAndBottom' : w === undefined || w === 'run-through' ? 'none' : 'square';
+  const hRel = ga('style:horizontal-rel') ?? (at === 'page' ? 'page' : 'paragraph');
+  const vRel = ga('style:vertical-rel') ?? (at === 'page' ? 'page' : 'paragraph');
+  const hPos = ga('style:horizontal-pos'), vPos = ga('style:vertical-pos');
+  tb.floating = true;
+  tb.anchor = {
+    wrap,
+    ...(wrap === 'square' ? { wrapText: w === 'left' ? 'left' : w === 'right' ? 'right' : w === 'biggest' || w === 'dynamic' ? 'largest' : 'bothSides' } : {}),
+    ...(w === 'run-through' && ga('style:run-through') === 'background' ? { behindDoc: true } : {}),
+    posH: {
+      relativeFrom: hRel === 'page' ? 'page' : hRel === 'page-content' ? 'margin' : hRel === 'char' ? 'character' : 'column',
+      ...(hPos && hPos !== 'from-left' ? { align: hPos === 'center' ? 'center' : hPos === 'right' ? 'right' : 'left' } : { offset: lengthToTwips(frame.attrs['svg:x']) ?? 0 }),
+    },
+    posV: {
+      relativeFrom: vRel === 'page' ? 'page' : vRel === 'page-content' ? 'margin' : vRel === 'line' || vRel === 'char' ? 'line' : 'paragraph',
+      ...(vPos && vPos !== 'from-top' ? { align: vPos === 'middle' ? 'center' : vPos === 'bottom' ? 'bottom' : 'top' } : { offset: lengthToTwips(frame.attrs['svg:y']) ?? 0 }),
+    },
+    relativeHeight: parseInt(frame.attrs['draw:z-index'] ?? '0', 10) || 0,
+    layoutInCell: true,
+    allowOverlap: true,
+  };
+  return tb;
 }
 
 function decodeBase64(b64: string): Uint8Array {

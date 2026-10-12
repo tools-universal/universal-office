@@ -1202,6 +1202,23 @@ internal sealed class DocxWriter
         if (rows.Count == 0) return "";
         // grade: todas as fronteiras de célula
         foreach (var row in rows) row.Centers = LayoutCenters(row.Tap, row.Cells.Count);
+        // linhas centralizadas: o Word centraliza CADA linha — o rgdxaCenter de linhas de
+        // larguras quase iguais pode vir deslocado de uma para outra (corpus t119); a grade
+        // é montada com cada linha centrada no meio dela
+        bool centered = rows.All(r => r.Tap.Jc == 1) && !IsPositioned(rows[0].Tap);
+        if (centered)
+        {
+            foreach (var row in rows)
+            {
+                var c = row.Centers;
+                int n = Math.Min(row.Cells.Count, c.Count - 1);
+                if (n > 0)
+                {
+                    int mid = (int)JsNumber.Round((c[0] + c[n]) / 2.0);
+                    row.Centers = c.Select(v => v - mid).ToList();
+                }
+            }
+        }
         var bounds = new List<int>();
         foreach (var row in rows)
         {
@@ -1211,7 +1228,7 @@ internal sealed class DocxWriter
         var grid = bounds.OrderBy(v => v).ToList();
         var first = rows[0].Tap;
         var x = new StringBuilder("<w:tbl>");
-        x.Append($"<w:tblPr>{TblPrXml(first)}</w:tblPr>");
+        x.Append($"<w:tblPr>{TblPrXml(first, centered && grid.Count > 1 ? grid[^1] - grid[0] : null)}</w:tblPr>");
         x.Append("<w:tblGrid>");
         for (int i = 0; i + 1 < grid.Count; i++) x.Append(Xml.El("w:gridCol", new Attrs { { "w:w", grid[i + 1] - grid[i] } }));
         if (grid.Count < 2) x.Append(Xml.El("w:gridCol", new Attrs { { "w:w", 0 } }));
@@ -1291,7 +1308,7 @@ internal sealed class DocxWriter
         return x.ToString();
     }
 
-    private string TblPrXml(Tap tap)
+    private string TblPrXml(Tap tap, int? centeredW = null)
     {
         string x = "";
         if (tap.Istd is not null)
@@ -1321,7 +1338,9 @@ internal sealed class DocxWriter
             if (tap.NoAllowOverlap == true) x += "<w:tblOverlap w:val=\"never\"/>";
         }
         if (tap.Bidi == true) x += "<w:bidiVisual/>";
-        string tw = WidthXml("w:tblW", tap.TableWidth);
+        // (linhas centralizadas: a largura dxa não passa da grade montada — ela somava o deslocamento)
+        var tblW = centeredW is { } cw && tap.TableWidth?.Fts == 3 && tap.TableWidth.W > cw ? new FtsWidth { Fts = 3, W = cw } : tap.TableWidth;
+        string tw = WidthXml("w:tblW", tblW);
         x += tw.Length > 0 ? tw : Xml.El("w:tblW", new Attrs { { "w:w", 0 }, { "w:type", "auto" } });
         if ((tap.Jc ?? 0) != 0)
         {

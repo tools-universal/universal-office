@@ -323,6 +323,30 @@ describe('imagens', () => {
   });
 });
 
+describe('molduras de texto', () => {
+  it('draw:frame com draw:text-box vira caixa de texto posicionada, com os estilos dos parágrafos', () => {
+    const odt = makeOdt({
+      automaticStyles: '<style:style style:name="P9" style:family="paragraph"><style:text-properties fo:font-size="24pt"/></style:style>',
+      body:
+        '<text:p><draw:frame text:anchor-type="paragraph" svg:x="1in" svg:y="2in" svg:width="3in" svg:height="1in" draw:z-index="3">' +
+        '<draw:text-box><text:p text:style-name="P9">Etiqueta</text:p><text:p text:style-name="P9"/></draw:text-box></draw:frame>Corpo</text:p>',
+    });
+    const p = paras(readOdt(odt).blocks)[0]!;
+    const tb = p.runs.find((r) => r.textbox)!.textbox!;
+    expect(tb.floating).toBe(true);
+    expect(tb.widthTwips).toBe(4320);
+    expect(tb.anchor?.posH).toEqual({ relativeFrom: 'column', offset: 1440 });
+    expect(tb.anchor?.posV).toEqual({ relativeFrom: 'paragraph', offset: 2880 });
+    expect(tb.anchor?.wrap).toBe('none');
+    expect(tb.insets).toEqual({ l: 0, t: 0, r: 0, b: 0 });
+    expect(tb.paras.map((q) => q.runs.map((r) => r.text).join(''))).toEqual(['Etiqueta', '']);
+    // o parágrafo vazio leva o corpo do estilo na marca
+    expect(tb.paras[1]!.ppr?.rPr?.sz).toBe(48);
+    // o texto da moldura não entra no parágrafo âncora
+    expect(p.runs.filter((r) => !r.textbox).map((r) => r.text).join('')).toBe('Corpo');
+  });
+});
+
 describe('anotações (comentários)', () => {
   it('office:annotation vira CommentInfo', () => {
     const odt = makeOdt({

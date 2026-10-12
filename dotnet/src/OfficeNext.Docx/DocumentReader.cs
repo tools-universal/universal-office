@@ -308,6 +308,7 @@ public static class DocumentReader
                 BodyPrOf(tb, FirstChild(obj, "wps:bodyPr"));
                 if (Js.Truthy(style.Fill) || style.Line is not null || style.Gradient is not null) tb.Shape = style;
                 tb.LineInset = style.LineInset ?? new LineInset();
+                if (!string.IsNullOrEmpty(style.Geom) && style.Geom != "rect" && style.Geom != "custom") tb.Geom = new TextboxGeom { Prst = style.Geom, Adj = style.Adj };
                 // espelho vertical gira o texto 180° (o horizontal não o afeta): rot 180 + flipV fica
                 // em pé — medido no Word (corpus t43)
                 bool hasRot = style.Rot is { } srot && srot != 0 && !double.IsNaN(srot);

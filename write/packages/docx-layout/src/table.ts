@@ -27,6 +27,9 @@ export interface CellContent {
   /** linhas de tabela ANINHADA no conteúdo: topo, a linha e os itens/linhas dela (os
    *  mesmos objetos de items/lines) — partem como linha de tabela (oráculo nestsplit) */
   nest?: NestRow[];
+  /** altura que se alinha na vertical (centro/base) quando passa de `height`: inclui os
+   *  objetos ancorados na célula sem quebra (oráculo cellwrap) */
+  alignH?: number;
 }
 
 export interface NestRow { top: number; row: RowLayout; items: PageItem[]; lines: LaidOutLine[] }
@@ -34,7 +37,7 @@ export interface NestRow { top: number; row: RowLayout; items: PageItem[]; lines
 export interface ParaSplitInfo { lines: number; widow: boolean; after: number }
 
 export type CellLayouter = (
-  cell: TableCell, x: number, width: number, env: { tablePPr?: PPr; tableRPr?: RPr; darkBackground?: boolean }, ref: string,
+  cell: TableCell, x: number, width: number, env: { tablePPr?: PPr; tableRPr?: RPr; darkBackground?: boolean; cellMar?: { l: number; r: number } }, ref: string,
 ) => CellContent;
 
 export interface RowLayout {
@@ -481,13 +484,35 @@ function measureCell(ctx: DocContext, cell: TableCell, r: { pPr: PPr; rPr: RPr }
         continue;
       }
       const w = paraContentWidths(prepareParagraph(ctx, b.paragraph, env), ctx.fmt.settings.defaultTabStop);
-      min = Math.max(min, w.min);
-      max = Math.max(max, w.max);
+      // objeto ancorado na célula com quebra: a coluna automática alarga até caber nele (oráculo cellwrap)
+      const ow = anchoredWidth(ctx, b.paragraph);
+      min = Math.max(min, w.min, ow);
+      max = Math.max(max, w.max, ow);
     }
   });
   // o Word arredonda a largura do conteúdo para cima, em twips inteiros; vazio (ou só
   // espaços) mede 6 twips em qualquer tamanho de fonte (tblw e1 + sondas de largura)
   return { min: Math.max(6, Math.ceil(min - 1e-6)) + mar, max: Math.max(6, Math.ceil(max - 1e-6)) + mar };
+}
+
+/** Largura dos objetos ancorados no parágrafo da célula com quebra de texto (layoutInCell);
+ *  caixa que se ajusta ao texto sem quebrar: a linha mais longa + margens (oráculo cellwrap) */
+function anchoredWidth(ctx: DocContext, para: TableCell['paragraphs'][number]): number {
+  let w = 0;
+  for (const run of para.runs) {
+    const t = run.image ?? run.shape ?? run.group ?? run.textbox;
+    const anc = t?.anchor;
+    if (!t?.floating || !anc || anc.wrap === 'none' || anc.wrap === 'inline' || anc.layoutInCell === false) continue;
+    let ow = t.widthTwips;
+    const tb = run.textbox;
+    if (tb?.autoFit && tb.noWrap) {
+      let tw = 0;
+      for (const tp of tb.paras) tw = Math.max(tw, paraContentWidths(prepareParagraph(ctx, tp, {}), ctx.fmt.settings.defaultTabStop).max);
+      ow = tw + (tb.insets?.l ?? 144) + (tb.insets?.r ?? 144);
+    }
+    w = Math.max(w, ow);
+  }
+  return w;
 }
 
 function paraContentWidths(p: PreparedPara, defaultTab: number): { min: number; max: number } {
@@ -878,7 +903,7 @@ export function layoutTable(
           // texto vertical: diagramado depois que a altura das outras células é conhecida
           if (s.rowSpan !== 1) pendingMerges.push({ slot: s, content: null, tcPr, x0, x1, startRow: ri, vertical, marL, marR, env });
         } else {
-          const content = layoutCell(s.cell, x + x0 + marL, Math.max(1, x1 - x0 - marL - marR), env, `${ref}/r${ri}/c${s.col}`);
+          const content = layoutCell(s.cell, x + x0 + marL, Math.max(1, x1 - x0 - marL - marR), { ...env, cellMar: { l: marL, r: marR } }, `${ref}/r${ri}/c${s.col}`);
           info.content = content;
           if (s.rowSpan === 1) contentH = Math.max(contentH, content.height + marT + marB);
           else pendingMerges.push({ slot: s, content, tcPr, x0, x1, startRow: ri, marL, marR, env });
@@ -1163,7 +1188,7 @@ function paintVertical(items: PageItem[], c: CellContent, dir: string, vAlign: s
 function placeContent(items: PageItem[], lines: LaidOutLine[], c: CellContent, vAlign: string | undefined, rowH: number, marT: number, marB: number, y0 = 0): void {
   if (!c) return;
   let dy = y0 + marT;
-  const free = rowH - marT - marB - c.height;
+  const free = rowH - marT - marB - (c.alignH ?? c.height);
   if (vAlign === 'center' && free > 0) dy += free / 2;
   else if (vAlign === 'bottom' && free > 0) dy += free;
   for (const it of c.items) items.push(shiftItem(it, dy));
@@ -1223,7 +1248,19 @@ export function dropMoved(row: RowLayout, moved: Set<object>): RowLayout {
   return { ...row, items: row.items.filter((it) => !moved.has(it)), lines: row.lines.filter((l) => !moved.has(l)) };
 }
 
+/** itens de objetos ancorados em CÉLULA: no PDF do Word entram na camada de objetos da
+ *  página (atrás/na frente do texto), na ordem z junto com os outros flutuantes — a marca
+ *  (um objeto por flutuante) acompanha os deslocamentos (oráculo cellwrap; corpus t43, t70) */
+export const LATE_ITEMS = new WeakMap<object, { z: number; seq: number; behind: boolean }>();
+
 export function shiftItem(it: PageItem, dy: number, dx = 0): PageItem {
+  const out = shiftItem0(it, dy, dx);
+  const m = out !== it ? LATE_ITEMS.get(it) : undefined;
+  if (m) LATE_ITEMS.set(out, m);
+  return out;
+}
+
+function shiftItem0(it: PageItem, dy: number, dx: number): PageItem {
   switch (it.t) {
     case 'glyphs': return { ...it, y: it.y + dy, glyphs: dx ? it.glyphs.map((g) => ({ ...g, x: g.x + dx })) : it.glyphs };
     case 'rect': case 'image': case 'shape': return { ...it, x: it.x + dx, y: it.y + dy };

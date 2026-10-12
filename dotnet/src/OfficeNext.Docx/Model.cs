@@ -137,6 +137,13 @@ public sealed class ShapeLinePoints
     public double Y2;
 }
 
+/// <summary>Forma predefinida da caixa de texto (prstGeom + a:avLst) — retângulo de texto (oráculo txrect).</summary>
+public sealed class TextboxGeom
+{
+    public string Prst = "";
+    public Dictionary<string, double>? Adj;
+}
+
 public sealed class TextboxInsets
 {
     public double L;
@@ -170,6 +177,8 @@ public sealed class DrawingTextbox
     public ShapeStyle? Shape;
     /// <summary>espessura do contorno para o recuo do texto (wps), mesmo sem linha visível</summary>
     public LineInset? LineInset;
+    /// <summary>forma predefinida que não é retângulo: o texto vai no retângulo de texto dela (oráculo txrect)</summary>
+    public TextboxGeom? Geom;
     /// <summary>t | ctr | b — alinhamento vertical do texto.</summary>
     public string? VAnchor;
     /// <summary>rotação da caixa (graus, horário) — xfrm rot / VML rotation</summary>

@@ -28,6 +28,8 @@ export interface RawStyle {
   column: XmlElement | undefined;
   /** style:table-cell-properties (bordas/fundo de célula). */
   cell: XmlElement | undefined;
+  /** style:graphic-properties (molduras: quebra, posição, margens internas) */
+  graphic?: XmlElement | undefined;
 }
 
 export type ListKind = 'bullet' | 'decimal';
@@ -50,6 +52,7 @@ function readRawStyle(st: XmlElement): RawStyle {
     para: firstChild(st, 'style:paragraph-properties'),
     column: firstChild(st, 'style:table-column-properties'),
     cell: firstChild(st, 'style:table-cell-properties'),
+    graphic: firstChild(st, 'style:graphic-properties'),
   };
 }
 

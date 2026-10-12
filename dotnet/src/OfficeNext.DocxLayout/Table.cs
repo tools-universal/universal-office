@@ -25,6 +25,9 @@ public sealed class CellContent
     /// <summary>linhas de tabela ANINHADA no conteúdo: topo, a linha e os itens/linhas dela (os
     /// mesmos objetos de Items/Lines) — partem como linha de tabela (oráculo nestsplit)</summary>
     public List<NestRow>? Nest;
+    /// <summary>altura que se alinha na vertical (centro/base) quando passa de Height: inclui os
+    /// objetos ancorados na célula sem quebra (oráculo cellwrap)</summary>
+    public double? AlignH;
 }
 
 public sealed class NestRow
@@ -48,6 +51,8 @@ public sealed class CellEnv
     public PPr? TablePPr;
     public RPr? TableRPr;
     public bool DarkBackground;
+    /// <summary>margens laterais da célula (âncoras relativas à célula — oráculo cellwrap)</summary>
+    public (double L, double R)? CellMar;
 }
 
 /// <summary>(célula, x, largura, ambiente, ref) → conteúdo.</summary>
@@ -615,14 +620,43 @@ public static class TableEngine
                 }
                 if (b is not ParagraphBlock pb) continue;
                 var pw = ParaContentWidths(Para.PrepareParagraph(ctx, pb.Paragraph, env), ctx.Fmt.Settings.DefaultTabStop);
-                min = Math.Max(min, pw.Min);
-                max = Math.Max(max, pw.Max);
+                // objeto ancorado na célula com quebra: a coluna automática alarga até caber nele (oráculo cellwrap)
+                double ow = AnchoredWidth(ctx, pb.Paragraph);
+                min = Math.Max(min, Math.Max(pw.Min, ow));
+                max = Math.Max(max, Math.Max(pw.Max, ow));
             }
             return 0;
         });
         // o Word arredonda a largura do conteúdo para cima, em twips inteiros; vazio (ou só
         // espaços) mede 6 twips em qualquer tamanho de fonte (tblw e1 + sondas de largura)
         return (Math.Max(6, Math.Ceiling(min - 1e-6)) + mar, Math.Max(6, Math.Ceiling(max - 1e-6)) + mar);
+    }
+
+    /// <summary>Largura dos objetos ancorados no parágrafo da célula com quebra de texto (layoutInCell);
+    /// caixa que se ajusta ao texto sem quebrar: a linha mais longa + margens (oráculo cellwrap)</summary>
+    private static double AnchoredWidth(DocContext ctx, Paragraph para)
+    {
+        double w = 0;
+        foreach (var run in para.Runs)
+        {
+            bool floating; DrawingAnchor? anc; double tw0;
+            if (run.Image is { } im) { floating = im.Floating; anc = im.Anchor; tw0 = im.WidthTwips; }
+            else if (run.Shape is { } sh) { floating = sh.Floating; anc = sh.Anchor; tw0 = sh.WidthTwips; }
+            else if (run.Group is { } gr) { floating = gr.Floating; anc = gr.Anchor; tw0 = gr.WidthTwips; }
+            else if (run.Textbox is { } tbx) { floating = tbx.Floating; anc = tbx.Anchor; tw0 = tbx.WidthTwips; }
+            else continue;
+            if (!floating || anc is null || anc.Wrap == "none" || anc.Wrap == "inline" || anc.LayoutInCell == false) continue;
+            double ow = tw0;
+            var tb = run.Textbox;
+            if (tb is not null && tb.AutoFit && tb.NoWrap)
+            {
+                double tw = 0;
+                foreach (var tp in tb.Paras) tw = Math.Max(tw, ParaContentWidths(Para.PrepareParagraph(ctx, tp, new ParaEnv()), ctx.Fmt.Settings.DefaultTabStop).Max);
+                ow = tw + (tb.Insets?.L ?? 144) + (tb.Insets?.R ?? 144);
+            }
+            w = Math.Max(w, ow);
+        }
+        return w;
     }
 
     private static (double Min, double Max) ParaContentWidths(PreparedPara p, double defaultTab)
@@ -1103,7 +1137,7 @@ public static class TableEngine
                     }
                     else
                     {
-                        var content = layoutCell(s.Cell, x + x0 + marL, Math.Max(1, x1 - x0 - marL - marR), env, $"{reference}/r{ri}/c{s.Col}");
+                        var content = layoutCell(s.Cell, x + x0 + marL, Math.Max(1, x1 - x0 - marL - marR), new CellEnv { TablePPr = env.TablePPr, TableRPr = env.TableRPr, DarkBackground = env.DarkBackground, CellMar = (marL, marR) }, $"{reference}/r{ri}/c{s.Col}");
                         info.Content = content;
                         if (s.RowSpan == 1) contentH = Math.Max(contentH, content.Height + marT + marB);
                         else pendingMerges.Add(new PendingMerge { Slot = s, Content = content, TcPr = rs.TcPr, X0 = x0, X1 = x1, StartRow = ri, MarL = marL, MarR = marR, Env = env });
@@ -1446,7 +1480,7 @@ public static class TableEngine
     {
         if (c is null) return;
         double dy = y0 + marT;
-        double free = rowH - marT - marB - c.Height;
+        double free = rowH - marT - marB - (c.AlignH ?? c.Height);
         if (vAlign == "center" && free > 0) dy += free / 2;
         else if (vAlign == "bottom" && free > 0) dy += free;
         foreach (var it in c.Items) items.Add(ShiftItem(it, dy));
@@ -1544,7 +1578,27 @@ public static class TableEngine
         return r2;
     }
 
+    /// <summary>marca de um objeto ancorado em CÉLULA (ordem z e camada)</summary>
+    public sealed class LateMark
+    {
+        public double Z;
+        public int Seq;
+        public bool Behind;
+    }
+
+    /// <summary>itens de objetos ancorados em CÉLULA: no PDF do Word entram na camada de objetos da
+    /// página (atrás/na frente do texto), na ordem z junto com os outros flutuantes — a marca
+    /// (um objeto por flutuante) acompanha os deslocamentos (oráculo cellwrap; corpus t43, t70)</summary>
+    public static readonly System.Runtime.CompilerServices.ConditionalWeakTable<PageItem, LateMark> LateItems = new();
+
     public static PageItem ShiftItem(PageItem it, double dy, double dx = 0)
+    {
+        var outp = ShiftItem0(it, dy, dx);
+        if (!ReferenceEquals(outp, it) && LateItems.TryGetValue(it, out var m)) LateItems.AddOrUpdate(outp, m);
+        return outp;
+    }
+
+    private static PageItem ShiftItem0(PageItem it, double dy, double dx)
     {
         bool hasDx = dx != 0 && !double.IsNaN(dx);
         switch (it)

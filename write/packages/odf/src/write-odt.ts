@@ -23,6 +23,7 @@ import type {
   TableCell,
   Block,
   InlineImage,
+  DrawingTextbox,
   ParagraphBorders,
   BorderEdge,
   CommentInfo,
@@ -46,6 +47,8 @@ interface Ctx {
   comments: Map<number, CommentInfo>;
   /** Ids já emitidos: o reader inlina o comentário; emitimos só uma vez. */
   emittedComments: Set<number>;
+  /** molduras de texto emitidas (nome único) */
+  frames?: number;
 }
 
 function xmlEscape(s: string): string {
@@ -209,6 +212,7 @@ function runXml(run: Run, ctx: Ctx): string {
     if (ctx.options.images === 'omit') return '';
     return annotationsForRun(run, ctx) + imageXml(run.image, ctx);
   }
+  if (run.textbox) return annotationsForRun(run, ctx) + textFrameXml(run.textbox, ctx);
   const styleName = isAllDefault(run.props) ? null : getRunStyle(ctx, run.props);
   const text = escapeText(run.text);
   if (!text) return annotationsForRun(run, ctx); // ainda emite comentário em run vazio
@@ -264,6 +268,18 @@ function imageXml(img: InlineImage, ctx: Ctx): string {
     `svg:width="${twipsToCm(img.widthTwips)}" svg:height="${twipsToCm(img.heightTwips)}">` +
     `<draw:image xlink:href="${path}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
     `</draw:frame>`;
+}
+
+/** Caixa de texto → moldura de texto (draw:frame + draw:text-box) na posição dela. */
+function textFrameXml(tb: DrawingTextbox, ctx: Ctx): string {
+  const out: string[] = [];
+  emitBlocks(tb.blocks ?? tb.paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph })), out, ctx);
+  const a = tb.floating ? tb.anchor : undefined;
+  const at = !a ? 'as-char' : a.posV.relativeFrom === 'page' ? 'page' : 'paragraph';
+  const pos = a ? ` svg:x="${twipsToCm(a.posH.offset ?? 0)}" svg:y="${twipsToCm(a.posV.offset ?? 0)}"` : '';
+  ctx.frames = (ctx.frames ?? 0) + 1;
+  return `<draw:frame draw:name="Moldura${ctx.frames}" text:anchor-type="${at}"${pos} svg:width="${twipsToCm(tb.widthTwips)}" svg:height="${twipsToCm(tb.heightTwips)}">`
+    + `<draw:text-box>${out.join('')}</draw:text-box></draw:frame>`;
 }
 
 function paragraphXml(para: Paragraph, ctx: Ctx, opts: {

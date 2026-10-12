@@ -1039,6 +1039,16 @@ export class DocxWriter {
     // grade: todas as fronteiras de célula (larguras preferidas em dxa valem mais
     // que o rgdxaCenter — o Word monta a grade por elas)
     for (const row of rows) row.centers = layoutCenters(row.tap, row.cells.length);
+    // linhas centralizadas: o Word centraliza CADA linha — o rgdxaCenter de linhas de
+    // larguras quase iguais pode vir deslocado de uma para outra (corpus t119); a grade
+    // é montada com cada linha centrada no meio dela
+    const centered = rows.every((r) => r.tap.jc === 1) && !isPositioned(rows[0]!.tap);
+    if (centered) {
+      for (const row of rows) {
+        const c = row.centers!, n = Math.min(row.cells.length, c.length - 1);
+        if (n > 0) { const mid = Math.round((c[0]! + c[n]!) / 2); row.centers = c.map((v) => v - mid); }
+      }
+    }
     const bounds = new Set<number>();
     for (const row of rows) {
       const c = row.centers!;
@@ -1047,7 +1057,7 @@ export class DocxWriter {
     const grid = [...bounds].sort((a, b) => a - b);
     const first = rows[0]!.tap;
     let x = '<w:tbl>';
-    x += `<w:tblPr>${this.tblPrXml(first)}</w:tblPr>`;
+    x += `<w:tblPr>${this.tblPrXml(first, centered && grid.length > 1 ? grid[grid.length - 1]! - grid[0]! : undefined)}</w:tblPr>`;
     x += '<w:tblGrid>';
     for (let i = 0; i + 1 < grid.length; i++) x += el('w:gridCol', { 'w:w': grid[i + 1]! - grid[i]! });
     if (grid.length < 2) x += el('w:gridCol', { 'w:w': 0 });
@@ -1112,7 +1122,7 @@ export class DocxWriter {
     return x;
   }
 
-  private tblPrXml(tap: Tap): string {
+  private tblPrXml(tap: Tap, centeredW?: number): string {
     let x = '';
     if (tap.istd !== undefined) {
       const id = this.styleIds.get(tap.istd);
@@ -1136,7 +1146,9 @@ export class DocxWriter {
       if (tap.noAllowOverlap) x += '<w:tblOverlap w:val="never"/>';
     }
     if (tap.bidi) x += '<w:bidiVisual/>';
-    x += widthXml('w:tblW', tap.tableWidth) || el('w:tblW', { 'w:w': 0, 'w:type': 'auto' });
+    // (linhas centralizadas: a largura dxa não passa da grade montada — ela somava o deslocamento)
+    const tw = centeredW !== undefined && tap.tableWidth?.fts === 3 && tap.tableWidth.w > centeredW ? { fts: 3, w: centeredW } : tap.tableWidth;
+    x += widthXml('w:tblW', tw) || el('w:tblW', { 'w:w': 0, 'w:type': 'auto' });
     if (tap.jc) x += el('w:jc', { 'w:val': ['left', 'center', 'right'][tap.jc] ?? 'left' });
     if (tap.spacing) x += el('w:tblCellSpacing', { 'w:w': tap.spacing, 'w:type': 'dxa' });
     // sprmTWidthIndent é o w:tblInd que o Word grava; sem ele, calcula pela 1ª célula. Na
