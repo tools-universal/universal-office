@@ -20,9 +20,10 @@ const argv = process.argv.slice(2);
 const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : d; };
 const flag = (n) => argv.includes(`--${n}`);
 const TAG = opt('tag', 'eng');
-// fontes que a máquina dos PDFs de referência NÃO tinha (o PDF do Word mostra a
-// substituta onde o documento pede a família): o laboratório faz igual
-const REFERENCE_MISSING = ['Meiryo UI', 'Meiryo'];
+// fontes a tratar como ausentes (--missing "A,B"): imitar uma máquina sem elas. As
+// referências do corpus foram reexportadas em sessão nova do Word com o cache de
+// fontes de nuvem completo (Meiryo UI, Fira Mono…), então o padrão é nenhuma
+const REFERENCE_MISSING = opt('missing', '').split(',').filter(Boolean);
 const provider = await createNodeFontProvider({ missing: REFERENCE_MISSING });
 const advanceEm = opt('em', 'nominal');
 const advanceRound = opt('round', undefined);
