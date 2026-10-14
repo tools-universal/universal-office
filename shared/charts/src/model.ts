@@ -225,5 +225,7 @@ export interface ChartSpace {
   bg1: string;
   /** Fonte menor do tema (texto sem `latin`). */
   minorFont?: string;
+  /** Estilo de preenchimento do tema (fillStyleLst idx, phClr) — vem do host. */
+  themeFill?: (idx: number, phClr: string) => Paint | undefined;
   majorFont?: string;
 }

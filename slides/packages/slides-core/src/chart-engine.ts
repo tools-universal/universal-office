@@ -5,7 +5,7 @@
  * PowerPoint), fontes pela pilha do componente — e um resumo do modelo para
  * quem só precisa saber tipo/título/séries.
  */
-import { parseChartSpace, paintChartSpace, type ChartSpace, type ChartSel, type XmlNode } from '@universal-office/charts';
+import { parseChartSpace, parsePaint, paintChartSpace, type ChartSpace, type ChartSel, type XmlNode } from '@universal-office/charts';
 import { parseXml, type XmlElement } from './xml.js';
 import { colorFromDml } from './theme.js';
 import type { Theme } from './model.js';
@@ -55,6 +55,12 @@ export function parseChart(xml: string, theme?: Theme): ChartModel {
   const space = parseChartSpace(root as XmlNode, {
     color: (el) => colorFromDml(el as XmlElement, th),
     fonts: { ...(theme?.fonts?.minor ? { minor: theme.fonts.minor } : {}), ...(theme?.fonts?.major ? { major: theme.fonts.major } : {}) },
+    fillStyle: (idx, ph) => {
+      const el = theme?.fillStyles?.[idx - 1];
+      if (!el) return undefined;
+      const tp: Theme = { ...th, colors: { ...th.colors, phClr: ph } };
+      return parsePaint({ name: 'w', attrs: {}, children: [el] } as unknown as XmlNode, (e) => colorFromDml(e as XmlElement, tp));
+    },
   });
   return summarize(space);
 }

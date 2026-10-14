@@ -14,6 +14,17 @@ export interface ChartHost {
   color(el: XmlNode): string | undefined;
   /** Fontes do tema (`+mj-lt`/`+mn-lt`). */
   fonts?: { major?: string; minor?: string };
+  /**
+   * Estilo de preenchimento `idx` (1–3) do fillStyleLst do tema com phClr =
+   * `phClr` — os estilos 17–32 e 41–48 da galeria pintam as séries com o 3º
+   * ("intenso"). Sem ele, uma aproximação do tema Office.
+   */
+  fillStyle?(idx: number, phClr: string): Paint | undefined;
+}
+
+/** Preenchimento DrawingML (filho de `el`: noFill/solid/grad/patt) → Paint, com o resolvedor de cor dado. */
+export function parsePaint(el: XmlNode, color: (el: XmlNode) => string | undefined): Paint | undefined {
+  return new Parser({ color }).paint(el);
 }
 
 const COLOR_TAGS = new Set(['a:srgbClr', 'a:schemeClr', 'a:sysClr', 'a:prstClr', 'a:scrgbClr', 'a:hslClr']);
@@ -497,6 +508,7 @@ export function parseChartSpace(root: XmlNode, host: ChartHost): ChartSpace {
     bg1: scheme('bg1'),
     ...(host.fonts?.minor ? { minorFont: host.fonts.minor } : {}),
     ...(host.fonts?.major ? { majorFont: host.fonts.major } : {}),
+    ...(host.fillStyle ? { themeFill: (idx: number, ph: string) => host.fillStyle!(idx, ph) } : {}),
   };
   const chart = firstChild(root, 'c:chart');
   if (!chart) return cs;

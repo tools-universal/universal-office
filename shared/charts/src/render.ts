@@ -253,15 +253,16 @@ class Renderer {
     const st = this.cs.style;
     const acc = this.cs.accents;
     const scheme = ((st - 1) % 8 + 8) % 8;
-    if (scheme === 1) {
-      const base = acc[i % 6]!;
-      const cycles = Math.floor((Math.max(1, n) - 1) / 6);
-      if (cycles === 0) return base;
-      return chartShadeTint(base, (Math.floor(i / 6) + 1) / (cycles + 2) - 0.5);
-    }
-    if (scheme === 0) {
-      const GRAYS = ['#616161', '#B3B3B3', '#818181', '#505050', '#D0D0D0', '#999999', '#3F3F3F', '#E2E2E2'];
-      return GRAYS[i % GRAYS.length]!;
+    // colorido e cinza: 6 cores base em blocos de 6 séries; com m = ⌊n/6⌋ + 1
+    // blocos (6 séries exatas já são 2!), o bloco k sai com sombra/tinta
+    // (k+1)/(m+1) − ½ (medido com 1–24 séries, syn-colpal/syn-graypal)
+    if (scheme === 1 || scheme === 0) {
+      // fundo escuro (41–48): os dois cinzas mais escuros viram claros (medido: F9F9F9, EDEDED)
+      const GRAYS = st >= 41 ? ['#F9F9F9', '#B3B3B3', '#818181', '#EDEDED', '#959595', '#DADADA'] : ['#616161', '#B3B3B3', '#818181', '#505050', '#959595', '#DADADA'];
+      const base = scheme === 1 ? acc[i % 6]! : GRAYS[i % 6]!;
+      const m = Math.floor(Math.max(1, n) / 6) + 1;
+      if (m === 1) return base;
+      return chartShadeTint(base, (Math.floor(i / 6) + 1) / (m + 1) - 0.5);
     }
     const base = acc[scheme - 2]!;
     return chartShadeTint(base, (i + 1) / (Math.max(1, n) + 1) - 0.5);
@@ -270,7 +271,8 @@ class Renderer {
   /** Preenchimento default da área de plotagem (medido: 34 → #E7E7E7, 42 → #3F3F3F). */
   private plotDefault(): Paint | undefined {
     const row = this.styleRow();
-    if (row === 4) return { kind: 'solid', color: adjustLum(this.cs.bg1, -0.094) };
+    // 33–34: cinza; 35–40: o próprio accent do estilo (medido: 35 → accent1)
+    if (row === 4) return { kind: 'solid', color: (this.cs.style - 1) % 8 >= 2 ? this.cs.accents[(this.cs.style - 1) % 8 - 2]! : adjustLum(this.cs.bg1, -0.094) };
     if (row === 5) return { kind: 'solid', color: adjustLum(this.cs.tx1, 0.25) };
     return undefined;
   }
@@ -289,9 +291,11 @@ class Renderer {
     return s.sp.fill ?? p;
   }
 
-  /** Efeito do estilo (linhas 4: gradiente "intenso"). */
+  /** Efeito do estilo: 17–32 e 41–48 = 3º preenchimento do tema ("intenso", medido: idêntico nos três). */
   private styleFill(color: string): Paint {
     const row = this.styleRow();
+    const th = row === 2 || row === 3 || row === 5 ? this.cs.themeFill?.(3, color) : undefined;
+    if (th) return th;
     if (row === 2 || row === 3 || row === 5) return { kind: 'grad', angle: 90, stops: [{ pos: 0, color: chartShadeTint(color, 0.065 / 1.41) }, { pos: 0.6, color }, { pos: 1, color: adjustLum(color, -0.08) }] };
     return { kind: 'solid', color };
   }
@@ -308,7 +312,8 @@ class Renderer {
   }
 
   private defaultLine(): LineProps {
-    const base = this.cs.style >= 41 ? this.cs.bg1 : this.cs.tx1;
+    // linhas (grade/eixos) em tx1 mesmo nos estilos escuros 41–48 (medido: grade preta sobre o 3F3F3F)
+    const base = this.cs.tx1;
     return { paint: { kind: 'solid', color: this.cs.office2010 ? tintLinear(base, 0.75) : base }, w: 0.75 };
   }
 
