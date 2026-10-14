@@ -1696,7 +1696,11 @@ function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>): Run {
 function readPic(pic: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<string, string>): Shape {
   const nvPicPr = firstChild(pic, 'p:nvPicPr');
   const cNvPr = nvPicPr ? firstChild(nvPicPr, 'p:cNvPr') : undefined;
-  const blipFill = firstChild(pic, 'p:blipFill');
+  // <p:blipFill> dentro de mc:AlternateContent (PowerPoint do Mac: Choice "ma" com PDF,
+  // Fallback com PNG) — vale o Fallback, que é o que o app do Windows desenha
+  const alt = firstChild(pic, 'mc:AlternateContent');
+  const blipFill = firstChild(pic, 'p:blipFill')
+    ?? (alt ? firstChild(firstChild(alt, 'mc:Fallback') ?? firstChild(alt, 'mc:Choice') ?? alt, 'p:blipFill') : undefined);
   const blip = blipFill ? firstChild(blipFill, 'a:blip') : undefined;
   const srcRect = blipFill ? firstChild(blipFill, 'a:srcRect') : undefined;
   const spPr = firstChild(pic, 'p:spPr');
