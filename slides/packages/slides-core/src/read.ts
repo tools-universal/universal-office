@@ -41,6 +41,23 @@ function relsPathFor(part: string): string {
   return `${dir}/_rels/${file}.rels`;
 }
 
+const slideNumCache = new WeakMap<PptxPackage, Map<string, number>>();
+/** Número exibido do slide: posição na lista + `firstSlideNum` da apresentação. */
+function slideNumberOf(pkg: PptxPackage, slidePath: string): number | undefined {
+  let m = slideNumCache.get(pkg);
+  if (!m) {
+    const map = new Map<string, number>();
+    try {
+      const pres = readPresentation(pkg);
+      const first = parseInt(parseXml(pkg.presentationXml()).attrs['firstSlideNum'] ?? '1', 10) || 1;
+      pres.slides.forEach((s, i) => { if (s.target) map.set(s.target, first + i); });
+    } catch { /* sem presentation.xml legível: fica o texto em cache */ }
+    slideNumCache.set(pkg, map);
+    m = map;
+  }
+  return m.get(slidePath);
+}
+
 /** Le ppt/presentation.xml -> Presentation (tamanho do slide + lista de slides). */
 export function readPresentation(pkg: PptxPackage): Presentation {
   const root = parseXml(pkg.presentationXml());
@@ -165,6 +182,12 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     }
   }
   if (inherited.length) shapes.unshift(...inherited);
+  // número do slide: o app mostra o número ATUAL (o cache do campo é o da gravação —
+  // num master/layout é sempre o mesmo, ex. "1")
+  const num = slideNumberOf(pkg, slidePath);
+  if (num !== undefined) {
+    for (const sh of shapes) for (const p of sh.txBody?.paragraphs ?? []) for (const r of p.runs) if (r.field === 'slidenum') r.text = String(num);
+  }
 
   // herda xfrm de placeholders sem geometria propria
   const phMap = placeholderXfrmMap(pkg, slidePath, theme);
@@ -1532,7 +1555,12 @@ function readParagraph(p: XmlElement, theme: Theme, rels?: Map<string, string>, 
   for (const child of childElements(p)) {
     if (child.name === 'a:r') para.runs.push(readRun(child, theme, rels));
     else if (child.name === 'a:br') para.runs.push({ text: '\n' });
-    else if (child.name === 'a:fld') { const t = firstChild(child, 'a:t'); para.runs.push({ text: t ? textContent(t) : '' }); }
+    else if (child.name === 'a:fld') {
+      // campo: formatação própria como um run (rPr); o tipo fica para o valor ao vivo
+      const fr = readRun(child, theme, rels);
+      if (child.attrs['type']) fr.field = child.attrs['type'];
+      para.runs.push(fr);
+    }
   }
   return para;
 }

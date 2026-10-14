@@ -142,7 +142,9 @@ export interface Xfrm {
 /** Run de texto (<a:r><a:rPr/><a:t>). */
 export interface Run {
   text: string;
-  sz?: number;       // pontos (sz/100)
+  /** Campo (`<a:fld type>`): slidenum, datetime… — `text` é o valor em cache. */
+  field?: string;
+  sz?: number;      // pontos (sz/100)
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
