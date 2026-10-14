@@ -7,7 +7,7 @@
  * Tudo é escrito explicitamente; com round-trip, a aparência gravada pelo
  * PowerPoint 2007+ no metroBlob (shapexml) sobrepõe a do binário.
  */
-import { FSP, type OAShape, type OAProp } from './officeart.js';
+import { FSP, decodeBlip, type OAShape, type OAProp } from './officeart.js';
 import { RT, children, readRec, ByteReader, type Rec, utf16 } from './records.js';
 import { readClientTextbox, readStyleTextProp9, type TextBlock } from './text.js';
 import { presetFor, isConnectorType, isWordArtType, type RawAdjust } from './preset-map.js';
@@ -184,6 +184,26 @@ function patternPrst(conv: ConvCtx, pib: number): string | undefined {
   return undefined;
 }
 
+/** Imagem embutida nos dados complexos da propriedade (registro OfficeArtBlip) → rId. */
+function complexImageRel(pc: PartCtx, p: OAProp): string | undefined {
+  const r = p.complex!;
+  const cache = ((pc.conv as unknown as { complexMedia?: Map<string, string> }).complexMedia ??= new Map());
+  let key = String(r.length) + ':';
+  for (let i = 0; i < Math.min(r.length, 64); i++) key += r[i]!.toString(16);
+  let path = cache.get(key);
+  if (!path) {
+    const rec = readRec(new ByteReader(r), 0);
+    let blip;
+    try { blip = rec ? decodeBlip(rec) : undefined; } catch { blip = undefined; }
+    if (!blip) return undefined;
+    path = `ppt/media/image${pc.conv.media.size + cache.size + 1}c.${blip.ext}`;
+    cache.set(key, path);
+    pc.conv.parts.set(path, blip.bytes);
+    pc.conv.mediaExts.add(blip.ext);
+  }
+  return pc.rels.add('image', '../media/' + path.slice('ppt/media/'.length));
+}
+
 /** Relação de imagem da parte atual → rId (ou undefined sem imagem). */
 function imageRel(pc: PartCtx, pib: number): string | undefined {
   const path = mediaFor(pc.conv, pib);
@@ -249,7 +269,8 @@ function fillXml(sh: OAShape, pc: PartCtx, isBackground = false): string {
   switch (type) {
     case 2: case 3: {
       const pib = prop(sh, 0x186);
-      const rid = pib ? imageRel(pc, pib) : undefined;
+      // fillBlip COMPLEXO (OpenOffice grava a imagem dentro da forma, sem BStore)
+      const rid = sh.props.get(0x186)?.complex ? complexImageRel(pc, sh.props.get(0x186)!) : pib ? imageRel(pc, pib) : undefined;
       if (!rid) return el('a:solidFill', {}, srgb(color, opacity));
       // fRecolorFillAsPicture: a imagem em duas cores (escuro = preenchimento, claro = fundo) — o app converte em
       // duotone; no FUNDO do slide o preenchimento default é a cor de fundo do esquema (bg1 na conversão do app)
