@@ -17,10 +17,19 @@ type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
 /** Deslocamento do início do PICT: 0, ou 512 quando vem com o cabeçalho de arquivo do Mac. */
 function pictStart(b: Uint8Array): number {
+  if (b.length < 16) return -1;
+  // o PICT não tem assinatura: recusa antes os formatos que têm (JPEG, PNG, GIF, BMP,
+  // TIFF, EMF, WMF) — bytes de um JPEG no deslocamento 522 podem imitar o cabeçalho
+  const sig = (b[0]! << 24 | b[1]! << 16 | b[2]! << 8 | b[3]!) >>> 0;
+  if ((sig >>> 8) === 0xffd8ff || sig === 0x89504e47 || sig === 0x47494638 || (sig >>> 16) === 0x424d
+    || sig === 0x49492a00 || sig === 0x4d4d002a || sig === 0x01000000 || sig === 0xd7cdc69a || sig === 0x01000900 || sig === 0x02000900 || sig === 0x52494646 || (sig >>> 24) === 0x3c) return -1;
   for (const o of [0, 512]) {
-    if (b.length < o + 14) continue;
-    // v2: 0x0011 0x02FF 0x0C00; v1: 0x11 0x01
-    if (b[o + 10] === 0x00 && b[o + 11] === 0x11 && b[o + 12] === 0x02 && b[o + 13] === 0xff) return o;
+    if (b.length < o + 16) continue;
+    const t = (b[o + 2]! << 8 | b[o + 3]!) << 16 >> 16, l = (b[o + 4]! << 8 | b[o + 5]!) << 16 >> 16;
+    const bt = (b[o + 6]! << 8 | b[o + 7]!) << 16 >> 16, r = (b[o + 8]! << 8 | b[o + 9]!) << 16 >> 16;
+    if (bt <= t || r <= l) continue; // picFrame vazio/invertido
+    // v2: 0x0011 0x02FF seguido do cabeçalho 0x0C00; v1: 0x11 0x01
+    if (b[o + 10] === 0x00 && b[o + 11] === 0x11 && b[o + 12] === 0x02 && b[o + 13] === 0xff && b[o + 14] === 0x0c && b[o + 15] === 0x00) return o;
     if (b[o + 10] === 0x11 && b[o + 11] === 0x01) return o;
   }
   return -1;

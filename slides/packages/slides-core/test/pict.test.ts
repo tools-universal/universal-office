@@ -49,3 +49,14 @@ describe('PICT (QuickDraw)', () => {
     expect(fitPictFrame(b, 200 * 12700, 100 * 12700)).toBe(b); // mesma proporção: intacto
   });
 });
+
+describe('PICT: detecção sem falso positivo', () => {
+  it('JPEG/PNG com bytes que imitam o cabeçalho no deslocamento 512 não viram PICT', () => {
+    const j = new Uint8Array(600);
+    j.set([0xff, 0xd8, 0xff, 0xe0]);
+    j.set([0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0x11, 0x01], 512);
+    expect(isPict(j)).toBe(false);
+    const p = j.slice(); p.set([0x89, 0x50, 0x4e, 0x47]);
+    expect(isPict(p)).toBe(false);
+  });
+});
