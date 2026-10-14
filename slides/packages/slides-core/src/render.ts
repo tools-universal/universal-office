@@ -1560,7 +1560,15 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
   const rowY: number[] = [0];
   for (const rh of rowHs) rowY.push(rowY[rowY.length - 1]! + rh * sy);
 
-  // sem fundo forçado: tabela sem fill é TRANSPARENTE (templates translúcidos)
+  // sem fundo forçado: tabela sem fill é TRANSPARENTE (templates translúcidos);
+  // o fundo do estilo (<a:tblBg>) vai atrás de todas as células
+  if (t.bg) {
+    ctx.save();
+    if (t.bg.alpha !== undefined) ctx.globalAlpha *= t.bg.alpha;
+    ctx.fillStyle = t.bg.color;
+    ctx.fillRect(x, y, colX[colX.length - 1]!, rowY[rowY.length - 1]!);
+    ctx.restore();
+  }
 
   // primeira passada: fills das células
   for (let ri = 0; ri < t.rows.length; ri++) {

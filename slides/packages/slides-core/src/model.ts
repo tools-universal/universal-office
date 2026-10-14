@@ -385,6 +385,8 @@ export interface TableRow {
 export interface Table {
   /** Larguras das colunas em EMU (`<a:tblGrid><a:gridCol w>`). */
   colWidthsEmu: number[];
+  /** Fundo da tabela inteira (`<a:tblBg>` do estilo), atrás das células. */
+  bg?: { color: string; alpha?: number };
   rows: TableRow[];
 }
 
