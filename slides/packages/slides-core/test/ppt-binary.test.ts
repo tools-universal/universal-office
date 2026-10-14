@@ -134,15 +134,15 @@ describe('Conversão .ppt → .pptx (corpus do PowerPoint)', () => {
     expect(s1.shapes.some((s) => s.image?.mime === 'image/png')).toBe(true);
   });
 
-  it('round-trip do PowerPoint 2007+: contorno oculto (shapexml) só com useRoundTrip', () => {
+  it('round-trip do PowerPoint 2007+ e binário concordam no contorno oculto', () => {
     const f = pb('pb-enfase.ppt');
     if (!existsSync(f)) return;
     const withRt = PptxPackage.load(convertPptToPptx(load(f)));
     const binOnly = PptxPackage.load(convertPptToPptx(load(f), { useRoundTrip: false }));
     const shape = (pkg: PptxPackage) => readSlide(pkg, readPresentation(pkg).slides[0]!.target!).shapes[1]!;
     expect(shape(withRt).lineNone).toBe(true);
-    expect(shape(binOnly).lineNone).toBeUndefined();
-    expect(shape(binOnly).lineColor).toBe('#042433'); // cor da linha "oculta" gravada no binário
+    // o fLine=0 do FOPT primário sobrevive ao FOPT terciário (só bits com fUse mesclam)
+    expect(shape(binOnly).lineNone).toBe(true);
     expect(shape(withRt).fill).toEqual(shape(binOnly).fill);
   });
 

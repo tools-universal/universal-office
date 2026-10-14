@@ -75,6 +75,17 @@ export function readFopt(rec: Rec, into: Map<number, OAProp>): void {
       prop.complex = r.sub(complexOff, complexOff + len);
       complexOff += len;
     }
+    // conjunto BOOLEANO repetido (FOPT primário + terciário): só os bits com fUse no
+    // novo substituem — o terciário grava 0x1BF=0x600000 (fUseShapeAnchor/fUseRecolor…)
+    // e sobrescrever apagava o fFilled=0 do primário (forma vazia saía preenchida)
+    const prev = into.get(prop.id);
+    if (prev && (prop.id & 0x3f) === 0x3f && !prev.complex && !prop.complex && (prop.value >>> 16) !== 0) {
+      const use = prop.value >>> 16;
+      let v = prev.value;
+      for (let b = 0; b < 16; b++) if (use & (1 << b)) v = (v & ~(1 << b) & ~(1 << (b + 16))) | (prop.value & (1 << b)) | (1 << (b + 16));
+      into.set(prop.id, { ...prev, value: v >>> 0 });
+      continue;
+    }
     into.set(prop.id, prop);
   }
 }
