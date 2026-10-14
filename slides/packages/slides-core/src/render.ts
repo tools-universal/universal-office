@@ -10,7 +10,8 @@
  *
  * Coordenadas: geometria do slide em EMU; `scale` converte EMU → px do canvas.
  */
-import { parseChart, paintChart, chartPartBounds, setChartFontStack, type ChartModel, type ChartSel } from './chart-engine.js';
+import { parseChart, paintChart, chartPartBounds, setChartFontStack, type ChartModel, type ChartSel, type ChartImage } from './chart-engine.js';
+import { imageDpi } from '@universal-office/charts';
 import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine } from './text-layout.js';
 import { presetPath } from './geometry.js';
 import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run, type ImageRef, type ImageFx } from './model.js';
@@ -355,6 +356,25 @@ function imgH(img: PaintImage): number {
     : typeof img.height === 'number' ? img.height : 0;
 }
 
+const dpiCache = new WeakMap<Uint8Array, { x: number; y: number } | null>();
+
+/**
+ * Imagens dos preenchimentos `a:blipFill` de um gráfico: parte → decodificada
+ * (do mapa do paint) com o tamanho natural em pt pela resolução do arquivo.
+ */
+function chartImageResolver(refs: Record<string, ImageRef>, res: PaintResources): (part: string) => ChartImage | undefined {
+  return (part) => {
+    const img = res.images?.get(part);
+    if (!img) return undefined;
+    const w = imgW(img), h = imgH(img);
+    if (!(w > 0 && h > 0)) return undefined;
+    const ref = Object.values(refs).find((r) => r.part === part);
+    let dpi = ref ? dpiCache.get(ref.bytes) : undefined;
+    if (ref && dpi === undefined) { dpi = imageDpi(ref.bytes) ?? null; dpiCache.set(ref.bytes, dpi); }
+    return { src: img as CanvasImageSource, w, h, ...(dpi ? { wPt: w * 72 / dpi.x, hPt: h * 72 / dpi.y } : {}) };
+  };
+}
+
 /** Canvas auxiliar (OffscreenCanvas ou <canvas>); sem nenhum (Node sem fábrica) = undefined. */
 function scratchCanvas(w: number, h: number): (HTMLCanvasElement | OffscreenCanvas) | undefined {
   if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
@@ -662,10 +682,13 @@ function paintBody(
 ): boolean {
   // <p:graphicFrame> com chart: pinta a engine de chart no xfrm.
   if (sh.chartXml) {
-    let model = res.charts?.get(sh.chartXml);
-    if (!model) { model = parseChart(sh.chartXml, sh.chartTheme); res.charts?.set(sh.chartXml, model); }
+    // XML igual com imagens de outras partes (rIdN relativo à parte) = outro modelo
+    const key = sh.chartImages ? `${sh.chartXml}\u0000${Object.values(sh.chartImages).map((r) => r.part).join('|')}` : sh.chartXml;
+    let model = res.charts?.get(key);
+    if (!model) { model = parseChart(sh.chartXml, sh.chartTheme, sh.chartImages); res.charts?.set(key, model); }
     setChartFontStack(fontStack);
     const ppt = EMU_PER_POINT * fit.scale;
+    const image = sh.chartImages ? chartImageResolver(sh.chartImages, res) : undefined;
     if (ov.chartParts && ov.chartBase) {
       // por partes: cada camada (fundo / série / categoria / ponto) com o próprio
       // estado, na PRÓPRIA caixa — a das marcas que desenha (medido: o "revelar"
@@ -684,16 +707,16 @@ function paintBody(
           if (on && box && soft.length) {
             const lc = acquireLayer(ctx);
             if (lc) {
-              paintChart(lc, model, x, y, w, h, ppt, undefined, true, p.sel);
+              paintChart(lc, model, x, y, w, h, ppt, undefined, true, p.sel, image);
               compositeLayer(ctx, lc, soft, box.x, box.y, box.w, box.h);
               on = false;
             } else for (const s of soft) ctx.globalAlpha = ctx.globalAlpha * applyReveal(ctx, s.filter, s.q, box.x, box.y, box.w, box.h);
           }
         }
-        if (on) paintChart(ctx, model, x, y, w, h, ppt, undefined, true, p.sel);
+        if (on) paintChart(ctx, model, x, y, w, h, ppt, undefined, true, p.sel, image);
         ctx.restore();
       }
-    } else paintChart(ctx, model, x, y, w, h, ppt);
+    } else paintChart(ctx, model, x, y, w, h, ppt, undefined, true, undefined, image);
     return false;
   }
   // <p:graphicFrame> com tabela. PowerPoint frequentemente seta xfrm.cy como

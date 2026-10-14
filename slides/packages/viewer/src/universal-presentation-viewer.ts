@@ -392,6 +392,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
       for (const sh of s.shapes) {
         if (sh.image) this.warmImage(sh.image, picDisplaySize(sh));
         if (sh.fillImage) this.warmImage(sh.fillImage);
+        for (const r of Object.values(sh.chartImages ?? {})) this.warmImage(r);
         for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) this.warmImage(p.bulletImage);
       }
     }
@@ -578,6 +579,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     for (const sh of slide.shapes) {
       if (sh.image) this.warmImage(sh.image, picDisplaySize(sh));
       if (sh.fillImage) this.warmImage(sh.fillImage);
+      for (const r of Object.values(sh.chartImages ?? {})) this.warmImage(r);
       for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) this.warmImage(p.bulletImage);
     }
     const map = new Map<string, PaintImage>();

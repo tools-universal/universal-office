@@ -859,6 +859,8 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
         if (xml) {
           shape.chartXml = xml;
           shape.chartTheme = chartThemeFor(pkg, target, theme);
+          const imgs = chartImagesFor(pkg, target, xml);
+          if (imgs) shape.chartImages = imgs;
         }
       }
     }
@@ -970,6 +972,23 @@ function chartThemeFor(pkg: PptxPackage, chartPath: string, theme: Theme): Theme
   if (!o.scheme || !Object.keys(o.scheme).length) return theme;
   const merged: Theme = { ...theme, colors: o.colors, scheme: o.scheme, ...(o.fonts ? { fonts: { ...theme.fonts, ...o.fonts } } : {}) };
   return theme.clrMap ? applyClrMap(merged, theme.clrMap) : merged;
+}
+
+/**
+ * Imagens referenciadas por `r:embed` no XML do gráfico (preenchimento de
+ * imagem/textura da área, plotagem, séries…), resolvidas pelos rels da parte.
+ */
+function chartImagesFor(pkg: PptxPackage, chartPath: string, xml: string): Record<string, ImageRef> | undefined {
+  if (!xml.includes('embed=')) return undefined;
+  const rels = readRels(pkg, relsPathFor(chartPath), chartPath);
+  let out: Record<string, ImageRef> | undefined;
+  for (const [rid, part] of rels) {
+    const mime = mimeFromPart(part);
+    if (!mime.startsWith('image/') || !xml.includes(`embed="${rid}"`)) continue;
+    const bytes = pkg.getPart(part);
+    if (bytes) (out ??= {})[rid] = { part, bytes, mime };
+  }
+  return out;
 }
 
 /** Campos definidos de uma forma (para mesclar master → layout). */

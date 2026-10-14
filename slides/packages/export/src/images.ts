@@ -120,6 +120,7 @@ function collectImageRefs(slides: Slide[]): Map<string, ImageRef> {
     for (const sh of s.shapes) {
       if (sh.image) map.set(sh.image.part, sh.image);
       if (sh.fillImage) map.set(sh.fillImage.part, sh.fillImage);
+      for (const r of Object.values(sh.chartImages ?? {})) map.set(r.part, r);
       for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) map.set(p.bulletImage.part, p.bulletImage);
     }
   }

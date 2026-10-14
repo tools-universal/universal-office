@@ -5,12 +5,12 @@
  * PowerPoint), fontes pela pilha do componente — e um resumo do modelo para
  * quem só precisa saber tipo/título/séries.
  */
-import { parseChartSpace, parsePaint, paintChartSpace, type ChartSpace, type ChartSel, type XmlNode } from '@universal-office/charts';
+import { parseChartSpace, parsePaint, paintChartSpace, type ChartSpace, type ChartSel, type ChartImage, type XmlNode } from '@universal-office/charts';
 import { parseXml, type XmlElement } from './xml.js';
 import { colorFromDml } from './theme.js';
-import type { Theme } from './model.js';
+import type { Theme, ImageRef } from './model.js';
 
-export type { ChartSel };
+export type { ChartSel, ChartImage };
 
 export type ChartType = 'bar-col' | 'bar-row' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'radar' | 'area' | 'unknown';
 
@@ -48,12 +48,20 @@ const FALLBACK: Record<string, string> = {
   tx1: '#000000', bg1: '#FFFFFF', dk1: '#000000', lt1: '#FFFFFF', tx2: '#44546A', bg2: '#E7E6E6', dk2: '#44546A', lt2: '#E7E6E6',
 };
 
-export function parseChart(xml: string, theme?: Theme): ChartModel {
+/**
+ * `images`: imagens dos `a:blipFill` do gráfico por r:id (`Shape.chartImages`)
+ * — o modelo guarda a PARTE da imagem, que a pintura busca decodificada.
+ */
+export function parseChart(xml: string, theme?: Theme, images?: Record<string, ImageRef>): ChartModel {
   let root: XmlElement;
   try { root = parseXml(xml); } catch { root = { name: 'c:chartSpace', attrs: {}, children: [] }; }
   const th: Theme = { ...(theme ?? {}), colors: { ...FALLBACK, ...(theme?.colors ?? {}) } };
   const space = parseChartSpace(root as XmlNode, {
     color: (el) => colorFromDml(el as XmlElement, th),
+    blip: (el) => {
+      const rid = el.attrs['r:embed'] ?? el.attrs['embed'];
+      return rid ? images?.[rid]?.part : undefined;
+    },
     fonts: { ...(theme?.fonts?.minor ? { minor: theme.fonts.minor } : {}), ...(theme?.fonts?.major ? { major: theme.fonts.major } : {}) },
     fillStyle: (idx, ph) => {
       const el = theme?.fillStyles?.[idx - 1];
@@ -108,15 +116,17 @@ export function setChartFontStack(f: ((family: string, bold?: boolean, italic?: 
 
 /**
  * Desenha o gráfico no retângulo. PowerPoint: área sem `spPr` transparente e
- * sem moldura. `frameBorder` (Excel) desenha a moldura default.
+ * sem moldura. `frameBorder` (Excel) desenha a moldura default. `image`:
+ * parte → imagem decodificada dos preenchimentos de imagem (`a:blipFill`).
  */
-export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt?: number, frameBorder?: string, _sliceBorder = true, sel?: ChartSel): void {
+export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt?: number, frameBorder?: string, _sliceBorder = true, sel?: ChartSel, image?: (part: string) => ChartImage | undefined): void {
   paintChartSpace(ctx, chart.space, x, y, w, h, {
     pxPerPt: pxPerPt ?? Math.max(0.8, h / 360),
     defaultAreaFill: frameBorder ? 'bg1' : 'none',
     ...(frameBorder ? { defaultAreaLine: frameBorder } : {}),
     cssFont: chartFontStack ?? ((f) => `'${f}', 'Aptos', Calibri, 'Liberation Sans', Arial, sans-serif`),
     ...(sel ? { sel } : {}),
+    ...(image ? { image } : {}),
   });
 }
 

@@ -22,11 +22,21 @@ export interface TextProps {
 
 export interface GradStop { pos: number; color: string; alpha?: number }
 
+/** `<a:tile>`: escala (1 = tamanho natural), deslocamento (pt), alinhamento e espelho do ladrilho. */
+export interface BlipTile { sx: number; sy: number; tx: number; ty: number; algn: string; flip?: 'x' | 'y' | 'xy' }
+
 export type Paint =
   | { kind: 'none' }
   | { kind: 'solid'; color: string; alpha?: number }
   | { kind: 'grad'; stops: GradStop[]; angle: number; path?: 'circle' | 'rect' | 'shape' }
-  | { kind: 'patt'; fg: string; bg: string; prst: string };
+  | { kind: 'patt'; fg: string; bg: string; prst: string }
+  /**
+   * `a:blipFill`: imagem da parte do gráfico — `ref` é a chave opaca que o
+   * hospedeiro deu ao `<a:blip>` (`ChartHost.blip`) e devolve decodificada na
+   * pintura (`RenderOptions.image`). Sem `tile` = esticada (`a:stretch`) no
+   * retângulo recuado por `fillRect` (frações dos lados).
+   */
+  | { kind: 'blip'; ref: string; tile?: BlipTile; fillRect?: { l: number; t: number; r: number; b: number }; alpha?: number };
 
 export interface LineProps {
   /** null = sem linha (`a:noFill`). */

@@ -297,6 +297,8 @@ export interface Shape {
   chartXml?: string;
   /** Tema da apresentação: resolve cores (schemeClr) e fontes (+mn-lt) do gráfico. */
   chartTheme?: Theme;
+  /** Imagens dos `a:blipFill` do gráfico (rels da parte do gráfico), por r:id. */
+  chartImages?: Record<string, ImageRef>;
   /** Tabela embutida (`<a:tbl>` dentro de `<p:graphicFrame>`). */
   table?: Table;
   /**

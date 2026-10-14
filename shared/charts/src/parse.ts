@@ -20,6 +20,13 @@ export interface ChartHost {
    * ("intenso"). Sem ele, uma aproximação do tema Office.
    */
   fillStyle?(idx: number, phClr: string): Paint | undefined;
+  /**
+   * `<a:blip>` de um `a:blipFill` (r:embed nos rels da PARTE do gráfico) →
+   * chave opaca da imagem, devolvida decodificada na pintura por
+   * `RenderOptions.image`. Sem ele (ou undefined), o preenchimento de imagem é
+   * ignorado (cai no default do estilo).
+   */
+  blip?(blip: XmlNode): string | undefined;
 }
 
 /** Preenchimento DrawingML (filho de `el`: noFill/solid/grad/patt) → Paint, com o resolvedor de cor dado. */
@@ -81,11 +88,51 @@ class Parser {
           const bg = this.color(colorChild(firstChild(c, 'a:bgClr'))) ?? '#FFFFFF';
           return { kind: 'patt', fg, bg, prst: c.attrs['prst'] ?? 'pct50' };
         }
-        case 'a:blipFill': return undefined;
+        case 'a:blipFill': return this.blipFill(c);
         default: break;
       }
     }
     return undefined;
+  }
+
+  /**
+   * `a:blipFill` → imagem esticada (`a:stretch`, recuada por `a:fillRect`) ou
+   * em ladrilho (`a:tile`; sem nenhum dos dois o PowerPoint também ladrilha no
+   * tamanho natural — mesma regra das formas, tdf#128596). A imagem em si só o
+   * hospedeiro resolve (rels da parte do gráfico).
+   */
+  private blipFill(bf: XmlNode): Paint | undefined {
+    const blip = firstChild(bf, 'a:blip');
+    const ref = blip && this.host.blip ? this.host.blip(blip) : undefined;
+    if (!ref) return undefined;
+    const out: Extract<Paint, { kind: 'blip' }> = { kind: 'blip', ref };
+    const amt = firstChild(blip, 'a:alphaModFix')?.attrs['amt'];
+    if (amt !== undefined) {
+      const a = parseInt(amt, 10) / 100000;
+      if (Number.isFinite(a) && a < 1) out.alpha = Math.max(0, a);
+    }
+    const tile = firstChild(bf, 'a:tile');
+    const stretch = firstChild(bf, 'a:stretch');
+    if (tile || !stretch) {
+      const n = (k: string, d: number): number => {
+        const v = tile?.attrs[k];
+        const x = v !== undefined ? parseInt(v, 10) : NaN;
+        return Number.isFinite(x) ? x : d;
+      };
+      const fl = tile?.attrs['flip'];
+      out.tile = {
+        sx: n('sx', 100000) / 100000, sy: n('sy', 100000) / 100000, tx: n('tx', 0) / 12700, ty: n('ty', 0) / 12700,
+        algn: tile?.attrs['algn'] ?? 'tl', ...(fl === 'x' || fl === 'y' || fl === 'xy' ? { flip: fl } : {}),
+      };
+    } else {
+      const fr = firstChild(stretch, 'a:fillRect');
+      const v = (k: string): number => {
+        const x = fr?.attrs[k] !== undefined ? parseInt(fr.attrs[k]!, 10) / 100000 : 0;
+        return Number.isFinite(x) ? x : 0;
+      };
+      if (fr && (v('l') || v('t') || v('r') || v('b'))) out.fillRect = { l: v('l'), t: v('t'), r: v('r'), b: v('b') };
+    }
+    return out;
   }
 
   line(ln: XmlNode | undefined): LineProps | undefined {

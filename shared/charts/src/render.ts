@@ -34,7 +34,21 @@ export interface RenderOptions {
   cssFont?: (family: string, bold?: boolean, italic?: boolean) => string;
   locale?: FormatLocale;
   sel?: ChartSel;
+  /**
+   * Imagem decodificada de um preenchimento `a:blipFill` pela chave que o
+   * hospedeiro deu (`ChartHost.blip`); undefined = ainda não decodificou (não
+   * desenha — o hospedeiro repinta quando chegar).
+   */
+  image?: (ref: string) => ChartImage | undefined;
 }
+
+/**
+ * Imagem pronta para o canvas: `w`/`h` em pixels da imagem; `wPt`/`hPt` =
+ * tamanho natural em pt pela resolução gravada no arquivo (JFIF/pHYs). O
+ * ladrilho do PowerPoint usa esse tamanho (medido: textura 128 px a 75 dpi →
+ * período de 122,88 pt); sem ele, 96 dpi.
+ */
+export interface ChartImage { src: CanvasImageSource; w: number; h: number; wPt?: number; hPt?: number }
 
 type Ctx = CanvasRenderingContext2D;
 interface Rect { x: number; y: number; w: number; h: number }
@@ -50,6 +64,39 @@ const TITLE_TOP = 3.75;
 const TITLE_GAP = 6.25;
 /** Marcadores automáticos por série. */
 const AUTO_SYMBOLS = ['diamond', 'square', 'triangle', 'x', 'star', 'circle', 'plus', 'dot', 'dash'];
+const flipCache = new WeakMap<object, Map<string, CanvasImageSource>>();
+
+/**
+ * Ladrilho espelhado (`a:tile flip`): bloco com a imagem e as cópias
+ * espelhadas à direita (x) / embaixo (y) — repetir o bloco alterna os
+ * espelhos. Sem canvas fora da tela (OffscreenCanvas), sem espelho.
+ */
+function flippedTile(src: CanvasImageSource, w: number, h: number, flip: 'x' | 'y' | 'xy'): CanvasImageSource {
+  if (typeof OffscreenCanvas === 'undefined') return src;
+  let cache = flipCache.get(src as object);
+  if (!cache) flipCache.set(src as object, cache = new Map());
+  const hit = cache.get(`${flip}|${w}|${h}`);
+  if (hit) return hit;
+  const fx = flip !== 'y', fy = flip !== 'x';
+  const cv = new OffscreenCanvas(w * (fx ? 2 : 1), h * (fy ? 2 : 1));
+  const g = cv.getContext('2d');
+  if (!g) return src;
+  for (const [ix, iy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
+    if ((ix && !fx) || (iy && !fy)) continue;
+    g.save();
+    g.translate(ix ? 2 * w : 0, iy ? 2 * h : 0);
+    g.scale(ix ? -1 : 1, iy ? -1 : 1);
+    g.drawImage(src, 0, 0, w, h);
+    g.restore();
+  }
+  cache.set(`${flip}|${w}|${h}`, cv);
+  return cv;
+}
+
+/** `a:tile algn` → fração (horizontal, vertical) da folga caixa − ladrilho onde fica o 1º ladrilho. */
+const TILE_ALIGN: Record<string, [number, number]> = {
+  tl: [0, 0], t: [0.5, 0], tr: [1, 0], l: [0, 0.5], ctr: [0.5, 0.5], r: [1, 0.5], bl: [0, 1], b: [0.5, 1], br: [1, 1],
+};
 
 interface ResolvedText { sz: number; b: boolean; i: boolean; u: boolean; color: string; alpha: number; font: string; rot?: number; vert?: string }
 
@@ -186,6 +233,7 @@ class Renderer {
     if (p.kind === 'none') return false;
     if (p.kind === 'solid') { c.fillStyle = rgba(p.color, p.alpha); return true; }
     if (p.kind === 'patt') { c.fillStyle = mixPattern(p.fg, p.bg, p.prst); return true; }
+    if (p.kind === 'blip') return this.setBlip(p, r);
     // gradiente linear (ângulo DrawingML: 0 = esquerda→direita, 90 = cima→baixo)
     const a = p.angle * Math.PI / 180;
     const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
@@ -200,13 +248,61 @@ class Renderer {
     return true;
   }
 
+  /**
+   * `a:blipFill` como padrão do canvas: esticada no retângulo (recuado pelo
+   * `fillRect`) ou em ladrilho do tamanho natural × escala, o 1º ladrilho
+   * alinhado pelo `algn` na caixa e deslocado por tx/ty (medido: textura com
+   * algn="tl" começa no canto da área do gráfico).
+   */
+  private setBlip(p: Extract<Paint, { kind: 'blip' }>, r: Rect): boolean {
+    const im = this.o.image?.(p.ref);
+    if (!im || !(im.w > 0 && im.h > 0)) return false;
+    const c = this.ctx;
+    // espelho (flip x/y/xy): o ladrilho vira um bloco 2×1/1×2/2×2 com as cópias espelhadas
+    const flip = p.tile?.flip;
+    const src = flip ? flippedTile(im.src, im.w, im.h, flip) : im.src;
+    const pat = src ? c.createPattern(src, p.tile ? 'repeat' : 'no-repeat') : null;
+    if (!pat) return false;
+    let m: [number, number, number, number, number, number];
+    if (p.tile) {
+      const t = p.tile, S = this.S;
+      let tw = (im.wPt ?? im.w * 0.75) * t.sx * S, th = (im.hPt ?? im.h * 0.75) * t.sy * S;
+      // reduzida, a imagem vira um bitmap de tamanho INTEIRO em pixels do dispositivo
+      // (medido: 30,3→30, 33,6→34, 26,67→27 px); ampliada, o período fica fracionário (75,48)
+      const d = c.getTransform?.();
+      const kx = d ? Math.hypot(d.a, d.b) || 1 : 1, ky = d ? Math.hypot(d.c, d.d) || 1 : 1;
+      if (tw * kx < im.w) tw = Math.max(1, Math.round(tw * kx)) / kx;
+      if (th * ky < im.h) th = Math.max(1, Math.round(th * ky)) / ky;
+      const [ah, av] = TILE_ALIGN[t.algn] ?? [0, 0];
+      m = [tw / im.w, 0, 0, th / im.h, r.x + (r.w - tw) * ah + t.tx * S, r.y + (r.h - th) * av + t.ty * S];
+    } else {
+      const f = p.fillRect ?? { l: 0, t: 0, r: 0, b: 0 };
+      m = [r.w * (1 - f.l - f.r) / im.w, 0, 0, r.h * (1 - f.t - f.b) / im.h, r.x + f.l * r.w, r.y + f.t * r.h];
+    }
+    if (typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') pat.setTransform(new DOMMatrix(m));
+    c.fillStyle = pat;
+    return true;
+  }
+
+  /** Preenche com `draw` sob a opacidade própria do preenchimento (`a:alphaModFix` da imagem). */
+  private withFillAlpha(p: Paint, draw: () => void): void {
+    const a = p.kind === 'blip' ? p.alpha : undefined;
+    if (a === undefined) { draw(); return; }
+    const c = this.ctx;
+    c.save();
+    c.globalAlpha *= a;
+    draw();
+    c.restore();
+  }
+
   private setLine(l: LineProps, defW = 0.75): boolean {
     const c = this.ctx;
     const p = l.paint;
     if (!p || p.kind === 'none') return false;
     if (p.kind === 'solid') c.strokeStyle = rgba(p.color, p.alpha);
     else if (p.kind === 'grad') c.strokeStyle = rgba(p.stops[0]!.color, p.stops[0]!.alpha);
-    else c.strokeStyle = p.fg;
+    else if (p.kind === 'patt') c.strokeStyle = p.fg;
+    else return false;
     const w = Math.max(0.5, (l.w ?? defW) * this.S);
     c.lineWidth = w;
     c.setLineDash(dashPattern(l.dash, w));
@@ -220,7 +316,7 @@ class Renderer {
     const fill = sp.fill ?? defFill;
     if (radius > 0) {
       const path = () => { c.beginPath(); c.roundRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, radius); };
-      if (fill && this.setFill(fill, r)) { path(); c.fill(); }
+      if (fill && this.setFill(fill, r)) { path(); this.withFillAlpha(fill, () => c.fill()); }
       const ln = mergeLine(defLine, sp.line);
       if (ln && this.setLine(ln)) { path(); c.stroke(); c.setLineDash([]); }
       return;
@@ -231,9 +327,9 @@ class Renderer {
       c.shadowBlur = sp.shadow.blur * this.S;
       c.shadowOffsetX = sp.shadow.dx * this.S;
       c.shadowOffsetY = sp.shadow.dy * this.S;
-      if (this.setFill(fill, r)) c.fillRect(r.x, r.y, r.w, r.h);
+      if (this.setFill(fill, r)) this.withFillAlpha(fill, () => c.fillRect(r.x, r.y, r.w, r.h));
       c.restore();
-    } else if (fill && this.setFill(fill, r)) c.fillRect(r.x, r.y, r.w, r.h);
+    } else if (fill && this.setFill(fill, r)) this.withFillAlpha(fill, () => c.fillRect(r.x, r.y, r.w, r.h));
     const line = mergeLine(defLine, sp.line);
     if (line && this.setLine(line)) {
       // traço fino alinhado ao pixel (moldura/legenda nítidas como no app)

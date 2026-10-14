@@ -130,3 +130,35 @@ describe('cor DrawingML (hospedeiro sem resolvedor: Sheet)', () => {
     expect(cs.office2010).toBe(true);
   });
 });
+
+describe('preenchimento de imagem (a:blipFill)', () => {
+  const area = (fill: string) => xml(`<c:chartSpace><c:chart><c:plotArea/></c:chart><c:spPr>${fill}</c:spPr></c:chartSpace>`);
+  const blipHost = { ...host, blip: (el: XmlNode) => (el.attrs['r:embed'] === 'rId3' ? 'ppt/media/image1.jpeg' : undefined) };
+  it('a imagem chega pela chave do hospedeiro; ladrilho (tx/ty em pt) ou esticada (fillRect)', () => {
+    const tile = parseChartSpace(area('<a:blipFill><a:blip r:embed="rId3"/><a:tile tx="12700" ty="0" sx="50000" sy="100000" flip="xy" algn="ctr"/></a:blipFill>'), blipHost);
+    expect(tile.sp.fill).toEqual({ kind: 'blip', ref: 'ppt/media/image1.jpeg', tile: { sx: 0.5, sy: 1, tx: 1, ty: 0, algn: 'ctr', flip: 'xy' } });
+    const st = parseChartSpace(area('<a:blipFill><a:blip r:embed="rId3"><a:alphaModFix amt="50000"/></a:blip><a:stretch><a:fillRect l="10000"/></a:stretch></a:blipFill>'), blipHost);
+    expect(st.sp.fill).toEqual({ kind: 'blip', ref: 'ppt/media/image1.jpeg', alpha: 0.5, fillRect: { l: 0.1, t: 0, r: 0, b: 0 } });
+    // sem a:stretch nem a:tile: ladrilho no tamanho natural
+    expect(parseChartSpace(area('<a:blipFill><a:blip r:embed="rId3"/></a:blipFill>'), blipHost).sp.fill).toMatchObject({ tile: { sx: 1, sy: 1, algn: 'tl' } });
+  });
+  it('hospedeiro sem imagens (ou rel desconhecido): ignora o preenchimento', () => {
+    expect(parseChartSpace(area('<a:blipFill><a:blip r:embed="rId3"/><a:stretch/></a:blipFill>'), host).sp.fill).toBeUndefined();
+    expect(parseChartSpace(area('<a:blipFill><a:blip r:embed="rId9"/><a:stretch/></a:blipFill>'), blipHost).sp.fill).toBeUndefined();
+  });
+  it('resolução gravada no arquivo: PNG pHYs, JPEG JFIF; sem ela, undefined', async () => {
+    const { imageDpi } = await import('./image.js');
+    const png = (phys?: number[]): Uint8Array => new Uint8Array([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 60, 0, 0, 0, 40, 8, 6, 0, 0, 0, 0, 0, 0, 0,
+      ...(phys ? [0, 0, 0, 9, 0x70, 0x48, 0x59, 0x73, ...phys, 0, 0, 0, 0] : []),
+      0, 0, 0, 0, 0x49, 0x45, 0x4e, 0x44, 0, 0, 0, 0,
+    ]);
+    // 5669 px/m = 144 dpi
+    expect(imageDpi(png([0, 0, 0x16, 0x25, 0, 0, 0x16, 0x25, 1]))!.x).toBeCloseTo(144, 0);
+    expect(imageDpi(png())).toBeUndefined();
+    // JFIF APP0 com densidade 75×75 dpi
+    const jfif = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 1, 0, 75, 0, 75, 0, 0, 0xff, 0xda, 0, 2]);
+    expect(imageDpi(jfif)).toEqual({ x: 75, y: 75 });
+  });
+});
