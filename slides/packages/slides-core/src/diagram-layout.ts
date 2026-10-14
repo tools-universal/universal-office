@@ -279,6 +279,8 @@ interface PNode {
   fromParent?: Set<string>;
   /** tetos (op="lte") numéricos por tipo */
   hi?: Record<string, number>;
+  /** tamanho crescido pelo conteúdo (o lin do pai mede e as restrições dos irmãos o veem) */
+  gw?: Record<string, number>;
   /** tamanho dado pelo pai antes de encolher ao conteúdo (o layout interno usa este) */
   cw?: { w: number; h: number };
   /** tipo ligado a outro do próprio nó por igualdade: [tipo de referência, fator] */
@@ -547,7 +549,7 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
       // margem proporcional à fonte: resolvida depois do ajuste do texto
       if (MARG.has(c.type) && FONT.has(c.refType)) { t.margF[c.type] = [Number.isFinite(c.fact) ? c.fact : 1, c.refType]; continue; }
       // valor decidido pelas regras (fonte reduzida, altura crescida) vence a restrição
-      if (t.ov[c.type] !== undefined) { if (c.op === 'equ') t.equ[c.type] = `${owner.uid}:${c.type}:${c.forName ?? ''}:${c.ptType ?? ''}`; continue; }
+      if (t.ov[c.type] !== undefined || t.gw?.[c.type] !== undefined) { if (c.op === 'equ') t.equ[c.type] = `${owner.uid}:${c.type}:${c.forName ?? ''}:${c.ptType ?? ''}`; continue; }
       let value: number | undefined;
       let ref: PNode | undefined;
       if (c.refType !== 'none') {
@@ -612,7 +614,7 @@ function refNode(owner: PNode, c: Constr, target: PNode): PNode | undefined {
 /** Restrições do dono + as "self" de cada filho (tamanho ideal dos filhos). */
 function evalKids(n: PNode, scale?: (c: Constr, ref: PNode) => number): void {
   // valores impostos de cima (for="des" de ancestrais) continuam valendo
-  for (const k of n.kids) { k.v = { ...k.desV, ...k.ov }; k.lte = { ...k.desLte }; k.hi = undefined; k.link = undefined; k.fromParent = new Set(Object.keys(k.desV)); }
+  for (const k of n.kids) { k.v = { ...k.desV, ...k.ov, ...k.gw }; k.lte = { ...k.desLte }; k.hi = undefined; k.link = undefined; k.fromParent = new Set(Object.keys(k.desV)); }
   applyConstrs(n, scale);
   for (const k of n.kids) applyConstrs(k, undefined, true);
   // segunda passada: referências do pai a valores que o filho ajustou (teto h ≤ 0,4 w do
@@ -669,8 +671,8 @@ function algComposite(n: PNode): void {
 /** Tamanho natural (caixa envolvente dos filhos) de um contêiner posto numa caixa w×h. */
 function naturalSize(k: PNode, w: number, h: number): { w: number; h: number } {
   const keep = { x: k.x, y: k.y, w: k.w, h: k.h, v: k.v };
-  k.x = 0; k.y = 0; k.w = w; k.h = h; k.v = { ...k.v, w, h };
   const t = algType(k);
+  k.x = 0; k.y = 0; k.w = w; k.h = h; k.v = { ...k.v, w, h };
   if (t === 'lin') algLin(k); else if (t === 'snake') algSnake(k); else algComposite(k);
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const c of k.kids) {
@@ -706,10 +708,17 @@ function place(k: PNode, x: number, y: number, w: number, h: number): void {
 }
 
 /** Busca binária do maior fator (0, 1] que faz `fits(s)` valer. */
+/**
+ * Maior escala (0, 1] que cabe — bissecção de 12 passos como o app (o resultado
+ * é múltiplo de 1/4096, medido em process1/chevron1/default). Orçamento global
+ * de passos: lin aninhado não explode (entrada hostil).
+ */
+let SCALE_BUDGET = 0;
 function bestScale(fits: (s: number) => boolean): number {
   if (fits(1)) return 1;
+  if (--SCALE_BUDGET < 0) return 1e-6;
   let lo = 0, hi = 1;
-  for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (fits(m)) lo = m; else hi = m; }
+  for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (fits(m)) lo = m; else hi = m; }
   return lo || 1e-6;
 }
 
@@ -722,61 +731,108 @@ function algLin(n: PNode): void {
   const main = horiz ? 'w' : 'h';
   // fromR/fromB: mesma ordem, posição espelhada
   const order = n.kids;
-  let sizes: { w: number; h: number; full?: { w: number; h: number } }[] = [];
+  let sizes: { w: number; h: number; full?: { w: number; h: number }; grow?: { w: number; h: number } }[] = [];
   let mode: 'main' | 'all' = 'main';
   // escala só valores derivados do tamanho do DONO (comprimentos absolutos e os
   // referidos à fonte não encolhem — aí quem resolve é a regra de fonte)
-  const run = (s: number): { len: number; sec: number } => {
-    evalKids(n, (c) => (c.refType === main || (mode === 'all' && (c.refType === 'w' || c.refType === 'h')) ? s : 1));
-    sizes = order.map((k) => {
-      const z = kidSize(k, n);
-      // tamanho infinito (h="INF" do list1): o natural do conteúdo
-      if (!Number.isFinite(z.w) || !Number.isFinite(z.h)) {
-        const nat = naturalSize(k, Number.isFinite(z.w) ? z.w : W, Number.isFinite(z.h) ? z.h : H);
-        return { w: Number.isFinite(z.w) ? z.w : nat.w, h: Number.isFinite(z.h) ? z.h : nat.h };
-      }
-      // composto: no eixo secundário vale o conteúdo (process3 tem h = 1000 × w)
-      if (algType(k) === 'composite') {
-        const c = contentExtent(k, z.w, z.h);
-        if (horiz && c.h > 0 && c.h < z.h - 1) return { w: z.w, h: c.h, full: z };
-        if (!horiz && c.w > 0 && c.w < z.w - 1) return { w: c.w, h: z.h, full: z };
-      }
-      return z;
-    });
-    const sp = n.v['sp'] ?? 0;
-    let len = 0, sec = 0;
-    sizes.forEach((z, i) => { len += horiz ? z.w : z.h; if (i) len += sp; sec = Math.max(sec, horiz ? z.h : z.w); });
-    return { len, sec };
+  let starts: number[] = [];
+  const secDim = horiz ? 'h' : 'w';
+  const sizeOf = (k: PNode): { w: number; h: number; full?: { w: number; h: number }; grow?: { w: number; h: number } } => {
+    const z = kidSize(k, n);
+    // espaçador sem tamanho (referência a um nó que não existe): não ocupa nada
+    if (algType(k) === 'sp' && !k.shape?.attrs['type']) {
+      return { w: getVal(k, 'w') === undefined ? 0 : z.w, h: getVal(k, 'h') === undefined ? 0 : z.h };
+    }
+    // tamanho infinito (h="INF" do list1): o natural do conteúdo
+    if (!Number.isFinite(z.w) || !Number.isFinite(z.h)) {
+      const nat = naturalSize(k, Number.isFinite(z.w) ? z.w : W, Number.isFinite(z.h) ? z.h : H);
+      return { w: Number.isFinite(z.w) ? z.w : nat.w, h: Number.isFinite(z.h) ? z.h : nat.h };
+    }
+    const t = algType(k);
+    if (t === 'lin' || t === 'snake') {
+      // lin/snake filho: o conteúdo manda — sem tamanho no eixo secundário vale o
+      // natural (vertFlow do hList9); transbordando a caixa, cresce (hierarchy4)
+      const nat = naturalSize(k, z.w, z.h);
+      // sem restrição num eixo: o natural (vazio = 0, não o tamanho do pai);
+      // com restrição: cresce se o conteúdo transborda
+      const fw = getVal(k, 'w') === undefined, fh = getVal(k, 'h') === undefined;
+      const w = fw ? nat.w : Math.max(z.w, nat.w), h = fh ? nat.h : Math.max(z.h, nat.h);
+      // (lin refeito na caixa do conteúdo cabe nela: sem "tamanho original")
+      const grow = (!fw && nat.w > z.w + 1) || (!fh && nat.h > z.h + 1) ? { w, h } : undefined;
+      return { w, h, ...(grow ? { grow } : {}) };
+    }
+    // composto: no eixo secundário vale o conteúdo (process3 tem h = 1000 × w)
+    if (t === 'composite') {
+      const c = contentExtent(k, z.w, z.h);
+      if (horiz && c.h > 0 && c.h < z.h - 1) return { w: z.w, h: c.h, full: z };
+      if (!horiz && c.w > 0 && c.w < z.w - 1) return { w: c.w, h: z.h, full: z };
+    }
+    return z;
   };
-  const fits = (s: number): boolean => { const r = run(s); return r.len <= (horiz ? W : H) * 1.0001 && r.sec <= (horiz ? H : W) * 1.0001; };
-  let s = bestScale(fits);
+  const run = (s: number): { len: number; sec: number; lo: number } => {
+    for (const k of order) k.gw = undefined;
+    const scale = (c: Constr) => (c.refType === main || (mode === 'all' && (c.refType === 'w' || c.refType === 'h')) ? s : 1);
+    evalKids(n, scale);
+    sizes = order.map(sizeOf);
+    // filho que cresceu: as restrições dos irmãos que o referem (w ≥ linha dos
+    // filhos no hierarchy4) veem o tamanho crescido
+    if (sizes.some((z) => z.grow)) {
+      order.forEach((k, i) => { const g = sizes[i]!.grow; if (g) k.gw = { w: g.w, h: g.h }; });
+      evalKids(n, scale);
+      sizes = order.map(sizeOf);
+    }
+    // posições em sequência (espaçador negativo volta o cursor); a extensão é a
+    // caixa envolvente dos filhos — é ela que precisa caber (hList9)
+    const sp = n.v['sp'] ?? 0;
+    let cur = 0, lo = Infinity, hi = -Infinity, sec = 0;
+    starts = sizes.map((z, i) => {
+      if (i) cur += sp;
+      const a = cur, d = horiz ? z.w : z.h;
+      cur += d;
+      lo = Math.min(lo, a, a + d); hi = Math.max(hi, a, a + d);
+      sec = Math.max(sec, horiz ? z.h : z.w);
+      return a;
+    });
+    if (lo === Infinity) { lo = 0; hi = 0; }
+    return { len: hi - lo, sec, lo };
+  };
+  // só o eixo PRINCIPAL decide a escala; o secundário que transborda é cortado no
+  // espaço disponível (process1 num quadro baixo: largura igual, altura = a do quadro)
+  const availS = horiz ? H : W;
+  const fits = (s: number): boolean => run(s).len <= (horiz ? W : H) * 1.0001;
+  // regra de crescer no eixo principal (horzOne do hierarchy4: w INF): não encolhe, cresce
+  const growPrim = n.rules.some((r) => r.for === 'self' && !r.forName && r.type === main && r.val === Infinity);
+  let s = growPrim ? 1 : bestScale(fits);
   if (s <= 1e-5) { mode = 'all'; s = bestScale(fits); }
   // nem encolhendo cabe (tamanhos absolutos): fica como está e transborda
   if (s <= 1e-5) { mode = 'main'; s = 1; }
-  const { len } = run(s);
-  // composto cujo conteúdo não preenche a célula encolhe até o conteúdo (eixo
-  // secundário) e o lin o centraliza — hList1/chevron1 com filhos
+  let { len, sec, lo } = run(s);
+  if (Number.isFinite(availS) && sec > availS * 1.0001) {
+    sizes = sizes.map((z) => (horiz ? (z.h > availS ? { ...z, h: availS } : z) : (z.w > availS ? { ...z, w: availS } : z)));
+    sec = availS;
+  }
   // a caixa encolhida ao conteúdo mantém o layout interno relativo ao tamanho dado
   order.forEach((k, i) => { k.cw = sizes[i]!.full; });
-  const sp = n.v['sp'] ?? 0;
   const hAl = p['nodeHorzAlign'] ?? 'ctr', vAl = p['nodeVertAlign'] ?? 'mid';
-  // alinhamento do conjunto no eixo principal (horzAlign/vertAlign do lin)
+  // alinhamento do conjunto (horzAlign/vertAlign do lin) nos dois eixos; o do
+  // nó (nodeVertAlign/nodeHorzAlign) dentro da faixa do conjunto
   const grp = horiz ? p['horzAlign'] : p['vertAlign'];
-  const room = (horiz ? W : H) - len;
-  let pos = grp === 'l' || grp === 't' ? 0 : grp === 'r' || grp === 'b' ? room : room / 2;
+  const room = Number.isFinite(horiz ? W : H) ? (horiz ? W : H) - len : 0;
+  const base = (grp === 'l' || grp === 't' ? 0 : grp === 'r' || grp === 'b' ? room : room / 2) - lo;
+  const sg = horiz ? p['vertAlign'] : p['horzAlign'];
+  const secRoom = Number.isFinite(horiz ? H : W) ? (horiz ? H : W) - sec : 0;
+  const band = sg === 't' || sg === 'l' ? 0 : sg === 'b' || sg === 'r' ? secRoom : secRoom / 2;
   order.forEach((k, i) => {
     const z = sizes[i]!;
+    const pos = base + starts[i]!;
     if (horiz) {
-      const y = vAl === 't' ? 0 : vAl === 'b' ? H - z.h : (H - z.h) / 2;
+      const y = band + (vAl === 't' ? 0 : vAl === 'b' ? sec - z.h : (sec - z.h) / 2);
       place(k, rev ? W - pos - z.w : pos, y, z.w, z.h);
-      pos += z.w + sp;
     } else {
-      const x = hAl === 'l' ? 0 : hAl === 'r' ? W - z.w : (W - z.w) / 2;
+      const x = band + (hAl === 'l' ? 0 : hAl === 'r' ? sec - z.w : (sec - z.w) / 2);
       place(k, x, rev ? H - pos - z.h : pos, z.w, z.h);
-      pos += z.h + sp;
     }
   });
-  // os filhos voltam a valer na ordem original (rev usa posição espelhada)
 }
 
 function algSnake(n: PNode): void {
@@ -1406,6 +1462,7 @@ export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
   assignStyles(b.nodes);
   const family = inp.minorFont;
   FIT = { measure: inp.measure ?? measureApprox, family, lineK: lineFactor(family), root: model.root };
+  SCALE_BUDGET = 20000;
   try {
     const run = () => {
       for (const n of b.nodes) { n.v = { ...n.ov }; n.desV = {}; n.desLte = undefined; n.margF = {}; n.equ = {}; n.lte = {}; n.fromParent = undefined; n.conn = undefined; n.cyc = undefined; n.preplaced = undefined; n.adjOv = undefined; n.rot = 0; n.rx = n.ry = n.rw = n.rh = undefined; }
@@ -1415,6 +1472,10 @@ export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
     run();
     // regras: reduz fonte / cresce formas até o texto caber, e refaz o layout (até 3 passadas)
     runTextRules(b.nodes, run, inp.cx, inp.cy);
+    if ((globalThis as { __dgmTree?: boolean }).__dgmTree) {
+      const pr = (n: PNode, d: number): void => { console.log(`${'  '.repeat(d)}${n.name} [${algType(n)}] ${Math.round(n.x)},${Math.round(n.y)} ${Math.round(n.w)}x${Math.round(n.h)}`); if (d < 8) for (const k of n.kids) pr(k, d + 1); };
+      pr(root, 0);
+    }
     const style = inp.style ? normNs(inp.style) : undefined, colors = inp.colors ? normNs(inp.colors) : undefined;
     return emit(b.nodes, root, model, style, colors, inp);
   } finally {
