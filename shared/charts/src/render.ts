@@ -640,13 +640,14 @@ class Renderer {
     const a = inf.ax;
     const L = len ?? (inf.dir === 'v' ? this.area.h * 0.75 : this.area.w * 0.75);
     const em = this.text(a.txPr).sz * this.S;
-    // densidade (medida variando a altura do gráfico): vertical = ⌊altura/linha de texto⌋ − 1
+    // densidade (medida variando a altura do gráfico): vertical = ⌊(altura − 14 pt)/linha de texto⌋ − 1
+    // (limiar medido com 10 e 18 pt: o PowerPoint pede 14 pt a mais que 8 linhas para 7 divisões)
     // divisões (teto 10); horizontal bem mais esparsa (≥ 72 pt ou o rótulo + 2 em)
     const lblW = this.measure(formatValue(Math.max(Math.abs(lo), Math.abs(hi)) * 1.1, pickFmt(a.numFmt, pct ? '0%' : inf.groups[0]?.series[0]?.fmt), { locale: this.loc }).text, this.text(a.txPr));
     const wide = inf.dir === 'h' ? Math.max(lblW + em * 2, 72 * this.S) : Math.max(21 * this.S, this.lineH(this.text(a.txPr)) * 1.05);
     // 3D: sem a folga de 5% e com a mesma densidade nos dois sentidos (medido no oráculo)
     const is3D = inf.groups.some((g) => g.threeD);
-    const maxDiv = inf.dir === 'h' && !is3D ? Math.max(2, Math.min(10, Math.floor(L / wide))) : Math.max(1, Math.min(10, Math.floor(L / this.lineH(this.text(a.txPr))) - 1));
+    const maxDiv = inf.dir === 'h' && !is3D ? Math.max(2, Math.min(10, Math.floor(L / wide))) : Math.max(1, Math.min(10, Math.floor((L - (inf.dir === 'v' ? 14 * this.S : 0)) / this.lineH(this.text(a.txPr))) - 1));
     const pctFix = pct ? { min: a.min ?? (lo < 0 ? -1 : 0), max: a.max ?? 1 } : {};
     inf.scale = autoScale(lo, hi, maxDiv, { ...pctFix, ...(a.min !== undefined ? { min: a.min } : {}), ...(a.max !== undefined ? { max: a.max } : {}), ...(a.majorUnit !== undefined ? { major: a.majorUnit } : {}), ...(a.minorUnit !== undefined ? { minor: a.minorUnit } : {}), ...(a.logBase ? { log: a.logBase } : {}) }, is3D ? 0 : 0.05);
     const firstSer = inf.groups[0]?.series[0];

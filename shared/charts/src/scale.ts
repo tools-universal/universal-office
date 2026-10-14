@@ -39,8 +39,9 @@ export function autoScale(dataMin: number, dataMax: number, maxDiv: number, fixe
   if (fixed.max !== undefined) max = Math.max(max, fixed.max);
   // zero no eixo, salvo dados todos do mesmo lado e longe dele
   let lo0 = min, hi0 = max;
-  if (min >= 0 && fixed.min === undefined) lo0 = max > 0 && (max - min) / max < 1 / 6 ? min - (max - min) / 2 : 0;
-  if (max <= 0 && fixed.max === undefined) hi0 = min < 0 && (min - max) / min < 1 / 6 ? max + (max - min) / 2 : 0;
+  // (valores todos iguais não contam como "faixa estreita": o eixo vai do zero — medido, 5,5,5 → 0..6)
+  if (min >= 0 && fixed.min === undefined) lo0 = max > min && (max - min) / max < 1 / 6 ? min - (max - min) / 2 : 0;
+  if (max <= 0 && fixed.max === undefined) hi0 = min < max && (min - max) / min < 1 / 6 ? max + (max - min) / 2 : 0;
   if (hi0 === lo0) { hi0 = lo0 === 0 ? 1 : lo0 + Math.abs(lo0) * 0.1; }
   const span0 = hi0 - lo0;
   const loAdj = fixed.min ?? (lo0 < 0 ? lo0 - span0 * pad : lo0);
