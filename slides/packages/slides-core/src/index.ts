@@ -22,7 +22,7 @@ export { evalFormula, type FormulaVars } from './anim-formula.js';
 export { applyReveal, applySoftReveal, parseFilter, WIPE_SOFT } from './reveal.js';
 export { paintTransition, type TransitionRect } from './transition.js';
 export { readTheme, colorFromDml, solidFillColor } from './theme.js';
-export { rasterizeSpecialImage } from './raster.js';
+export { rasterizeSpecialImage, specialImageNeedsPrepare, prepareSpecialImage } from './raster.js';
 export { isTiff, decodeTiff } from './tiff.js';
 export { isPict, pictSize, drawPict, rasterizePict, fitPictFrame } from './pict.js';
 export { isMetafile, isEmf, isWmf, metafileSize, rasterizeMetafile, drawMetafile, symbolToUnicode } from './metafile.js';

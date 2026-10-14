@@ -10,7 +10,7 @@
  * (`opts.decodeImage`) — sem ela em node, shapes de imagem ficam em branco.
  */
 import {
-  paintSlideTo, EMU_PER_PX, rasterizeSpecialImage,
+  paintSlideTo, EMU_PER_PX, rasterizeSpecialImage, prepareSpecialImage,
   type Slide, type ImageRef, type PaintImage, type ChartModel,
 } from '@universal/slides-core';
 import { loadDeck } from './model.js';
@@ -33,8 +33,12 @@ export interface CanvasLike {
 /** Factory de canvas injetável (obrigatória em node). */
 export type CanvasFactory = (width: number, height: number) => CanvasLike;
 
-/** Decodificador de imagem injetável (default: createImageBitmap no browser). */
-export type ImageDecoder = (ref: ImageRef) => Promise<PaintImage | null>;
+/**
+ * Decodificador de imagem injetável (default: createImageBitmap no browser).
+ * `display` = tamanho (px de saída) da imagem inteira no slide, quando conhecido —
+ * metarquivos rasterizam nessa escala (traço mínimo de 1 px, como o app).
+ */
+export type ImageDecoder = (ref: ImageRef, display?: { w: number; h: number }) => Promise<PaintImage | null>;
 
 export interface SlidesImagesOptions {
   /** Multiplicador sobre a resolução base de 96dpi (1 = 96dpi; 2 = 192dpi). */
@@ -75,10 +79,12 @@ function resolveFactory(opts: SlidesImagesOptions): CanvasFactory {
 function defaultDecoder(): ImageDecoder {
   const g = globalThis as { createImageBitmap?: (b: Blob) => Promise<ImageBitmap>; Blob?: typeof Blob };
   if (typeof g.createImageBitmap === 'function' && typeof g.Blob === 'function') {
-    return async (ref) => {
-      // WMF/EMF e TIFF: rasteriza num OffscreenCanvas (o navegador não decodifica)
+    return async (ref, display) => {
+      // WMF/EMF e TIFF: rasteriza num OffscreenCanvas (o navegador não decodifica);
+      // EMF+ com PNG/JPEG embutido decodifica antes
       if (typeof OffscreenCanvas !== 'undefined') {
-        const meta = rasterizeSpecialImage(ref.bytes, (w, h) => new OffscreenCanvas(w, h));
+        await prepareSpecialImage(ref.bytes).catch(() => undefined);
+        const meta = rasterizeSpecialImage(ref.bytes, (w, h) => new OffscreenCanvas(w, h), display);
         if (meta) return meta as unknown as PaintImage;
       }
       try {
@@ -112,13 +118,21 @@ async function encodePng(canvas: CanvasLike): Promise<Uint8Array> {
   );
 }
 
-/** Coleta as ImageRef únicas (por part) de todos os slides. */
-function collectImageRefs(slides: Slide[]): Map<string, ImageRef> {
+/**
+ * Coleta as ImageRef únicas (por part) de todos os slides; `sizes` recebe o
+ * tamanho (px a 96 dpi) da imagem INTEIRA de cada p:pic (o recorte a amplia).
+ */
+function collectImageRefs(slides: Slide[], sizes?: Map<string, { w: number; h: number }>): Map<string, ImageRef> {
   const map = new Map<string, ImageRef>();
   for (const s of slides) {
     if (s.bgImage) map.set(s.bgImage.part, s.bgImage);
     for (const sh of s.shapes) {
       if (sh.image) map.set(sh.image.part, sh.image);
+      if (sh.image && sizes && sh.xfrm && sh.xfrm.cx > 0 && sh.xfrm.cy > 0 && !sizes.has(sh.image.part)) {
+        const c = sh.srcRect;
+        const fw = c ? Math.max(0.05, 1 - c.l - c.r) : 1, fh = c ? Math.max(0.05, 1 - c.t - c.b) : 1;
+        sizes.set(sh.image.part, { w: sh.xfrm.cx / EMU_PER_PX / fw, h: sh.xfrm.cy / EMU_PER_PX / fh });
+      }
       if (sh.fillImage) map.set(sh.fillImage.part, sh.fillImage);
       for (const r of Object.values(sh.chartImages ?? {})) map.set(r.part, r);
       for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) map.set(p.bulletImage.part, p.bulletImage);
@@ -138,10 +152,12 @@ export async function pptxToImages(bytes: Uint8Array, opts: SlidesImagesOptions 
 
   // decodifica todas as imagens do deck em paralelo (cache por part)
   const decode = opts.decodeImage ?? defaultDecoder();
-  const refs = collectImageRefs(deck.slides.map((d) => d.slide));
+  const sizes = new Map<string, { w: number; h: number }>();
+  const refs = collectImageRefs(deck.slides.map((d) => d.slide), sizes);
   const images = new Map<string, PaintImage>();
   await Promise.all([...refs.values()].map(async (ref) => {
-    const img = await decode(ref);
+    const sz = sizes.get(ref.part);
+    const img = await decode(ref, sz ? { w: sz.w * scale, h: sz.h * scale } : undefined);
     if (img) images.set(ref.part, img);
   }));
 

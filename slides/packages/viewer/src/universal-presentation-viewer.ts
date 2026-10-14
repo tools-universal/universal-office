@@ -3,6 +3,7 @@ import {
   PptxPackage, readPresentation, readSlide, paintSlideTo,
   readEmbeddedFonts, collectDeckTypefaces,
   buildPlaybackTimeline, playbackStateAt, shapeAnimHooks, paintTransition, SlideShow, rasterizeSpecialImage,
+  specialImageNeedsPrepare, prepareSpecialImage,
   type ChartModel, type PaintImage, type PaintSlideOptions,
   type Presentation, type Slide, type Shape, type ImageRef,
   type PlaybackOptions, type PlaybackTimeline, type PlaybackSlide, type SlideShowAction, type SlideTimingModel,
@@ -546,9 +547,21 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     // WMF/EMF e TIFF: o navegador não decodifica — rasterizamos num canvas
     // (síncrono, uma vez por parte) e ele vira a imagem; `display` = tamanho na
     // página (metarquivo: escala do raster e traço mínimo de 1 px)
-    const meta = rasterizeSpecialImage(ref.bytes, (w, h) => {
-      const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
-    }, display);
+    const mk = (w: number, h: number): HTMLCanvasElement => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+    if (specialImageNeedsPrepare(ref.bytes)) {
+      // EMF+ com PNG/JPEG embutido: decodifica antes (assíncrono) e só então rasteriza
+      const pending = { img: mk(1, 1) as PaintImage, ready: false };
+      this.imageCache.set(ref.part, pending);
+      void prepareSpecialImage(ref.bytes).catch(() => undefined).then(() => {
+        const c = rasterizeSpecialImage(ref.bytes, mk, display);
+        if (c) pending.img = c;
+        pending.ready = true;
+        this.paint();
+        this.dispatchEvent(new CustomEvent('us-image', { detail: { part: ref.part } }));
+      });
+      return;
+    }
+    const meta = rasterizeSpecialImage(ref.bytes, mk, display);
     if (meta) {
       this.imageCache.set(ref.part, { img: meta, ready: true });
       return;
