@@ -216,6 +216,8 @@ export function mergeStyleLevels(...layers: TextStyleLevels[]): TextStyleLevels 
       if (src.spaceAfterPt !== undefined) { dst.spaceAfterPt = src.spaceAfterPt; delete dst.spaceAfterPct; }
       if (src.spaceAfterPct !== undefined) { dst.spaceAfterPct = src.spaceAfterPct; delete dst.spaceAfterPt; }
       if (src.marL !== undefined) dst.marL = src.marL;
+      if (src.tabs !== undefined) dst.tabs = src.tabs;
+      if (src.defTabSz !== undefined) dst.defTabSz = src.defTabSz;
       if (src.indent !== undefined) dst.indent = src.indent;
       if (src.buFont !== undefined) dst.buFont = src.buFont;
       if (src.buClr !== undefined) dst.buClr = src.buClr;
