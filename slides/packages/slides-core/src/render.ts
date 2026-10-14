@@ -729,7 +729,8 @@ function paintBody(
       }
       // geometria do pic != rect (ex.: crop circular via prstGeom ellipse):
       // recorta a imagem pelo path da geometria, como o app de referência.
-      const clipGeom = sh.geom !== undefined && sh.geom !== 'rect';
+      // (custGeom também — placeholder de imagem do layout em triângulo, web-intl-ilo)
+      const clipGeom = !!sh.custGeom || (sh.geom !== undefined && sh.geom !== 'rect');
       if (clipGeom) {
         ctx.save();
         const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
