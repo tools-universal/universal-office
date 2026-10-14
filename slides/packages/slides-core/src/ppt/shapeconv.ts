@@ -816,6 +816,33 @@ function visualParts(sh: OAShape, pc: PartCtx, xf: Xf, kind: 'shape' | 'pic' | '
   return parts;
 }
 
+/**
+ * Ajustes de imagem do binário → filhos do <a:blip>, como a conversão do app
+ * (medido em ~60 imagens do corpus, _lab/tmp/picprops.ts): cor transparente
+ * (0x107) → clrChange para alpha 0; brilho (0x109, ±32768 = ±100%) e contraste
+ * (0x108, 16.16: < 1 → (c−1), > 1 → 1 − 1/c) → <a:lum>; escala de cinza / preto
+ * e branco (0x13F bits 2/1) → grayscl / biLevel.
+ */
+function blipAdjustXml(sh: OAShape, pc: PartCtx): string {
+  let out = '';
+  const tr = prop(sh, 0x107);
+  if (tr !== undefined) {
+    const c = oaColor(tr, sh, pc);
+    out += el('a:clrChange', {}, el('a:clrFrom', {}, srgb(c)) + el('a:clrTo', {}, el('a:srgbClr', { val: c.replace('#', '').toUpperCase() }, '<a:alpha val="0"/>')));
+  }
+  const br = prop(sh, 0x109), ct = prop(sh, 0x108);
+  const bright = br !== undefined ? Math.round(((br | 0) / 32768) * 100) * 1000 : 0;
+  let contrast = 0;
+  if (ct !== undefined) {
+    const c = (ct >>> 0) / 65536;
+    contrast = Math.round((c < 1 ? c - 1 : 1 - 1 / c) * 100) * 1000;
+  }
+  if (bright || contrast) out += el('a:lum', { bright: bright || undefined, contrast: contrast || undefined });
+  if (boolProp(sh, 0x13f, 2, false)) out += '<a:grayscl/>';
+  else if (boolProp(sh, 0x13f, 1, false)) out += '<a:biLevel thresh="50000"/>';
+  return out;
+}
+
 /** Uma forma (ou grupo) → XML do spTree. `skipPlaceholders` omite placeholders (decorações herdadas). */
 export function shapeXml(sh: OAShape, pc: PartCtx, opts: ShapeOpts = {}): string {
   if (sh.flags & FSP.deleted) return '';
@@ -846,7 +873,7 @@ export function shapeXml(sh: OAShape, pc: PartCtx, opts: ShapeOpts = {}): string
       const crop = (pid: number): number => Math.round(fixed(prop(sh, pid)) * 100000);
       const t = crop(0x100), b = crop(0x101), l = crop(0x102), r = crop(0x103);
       const blipFill = el('p:blipFill', {},
-        el('a:blip', { 'r:embed': rid }) +
+        el('a:blip', { 'r:embed': rid }, blipAdjustXml(sh, pc)) +
         ((t || b || l || r) ? el('a:srcRect', { l: l || undefined, t: t || undefined, r: r || undefined, b: b || undefined }) : '') +
         '<a:stretch><a:fillRect/></a:stretch>');
       const spPr = el('p:spPr', {}, xfrmXml(xf) + v.geom + v.fill + v.line + v.effects);

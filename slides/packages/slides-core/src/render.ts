@@ -392,7 +392,8 @@ function fxImage(img: PaintImage, fx: ImageFx | undefined): PaintImage {
         continue;
       }
       if (b || c) {
-        const adj = (v: number): number => ((v / 255 + b - 0.5) * k + 0.5) * 255;
+        // contraste em volta do meio-tom e DEPOIS o brilho (medido: −40%/+60% deixa o fundo branco branco)
+        const adj = (v: number): number => ((v / 255 - 0.5) * k + 0.5 + b) * 255;
         r = adj(r); g = adj(g); bl = adj(bl);
       }
       const y = (0.299 * r + 0.587 * g + 0.114 * bl) / 255;
