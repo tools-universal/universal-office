@@ -875,6 +875,15 @@ function paintBody(
     ctx.save();
     if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
     const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
+    // <a:fillOverlay blend≠over>: a sobreposição (opaca) é a BASE e o preenchimento se
+    // mistura nela — textura com alphaModFix 50% não deixa o fundo do slide aparecer
+    // (poi-…GeomLec1: faixa azul com listras, sem o pergaminho por baixo)
+    const ovl = sh.fillOverlay && sh.fillOverlay.blend !== 'over' && !ov.fill ? sh.fillOverlay : undefined;
+    if (ovl) {
+      ctx.fillStyle = ovl.fill.type === 'gradient' && ovl.fill.stops && ovl.fill.stops.length >= 2 ? makeLinearGradient(ctx, ovl.fill, x, y, w, h) : ovl.fill.color ?? '#000000';
+      if (rule) ctx.fill(rule); else ctx.fill();
+      ctx.globalCompositeOperation = ovl.blend === 'mult' ? 'multiply' : ovl.blend === 'screen' ? 'screen' : ovl.blend === 'darken' ? 'darken' : 'lighten';
+    }
     // rotWithShape="0": o caminho já está girado; o preenchimento volta ao
     // referencial da página (desfaz só a rotação — com um espelho o sentido inverte)
     // e ocupa a caixa ALINHADA da forma girada (ladrilho ancorado nela, imagem
@@ -983,7 +992,7 @@ function paintBody(
     ctx.restore();
   }
   // <a:fillOverlay>: preenchimento misturado por cima (multiplicar etc.), recortado na forma
-  if (sh.fillOverlay && !isLineGeom && (sh.fill?.type !== 'none' || sh.fillImage)) {
+  if (sh.fillOverlay && (sh.fillOverlay.blend === 'over' || ov.fill) && !isLineGeom && (sh.fill?.type !== 'none' || sh.fillImage)) {
     const o = sh.fillOverlay;
     ctx.save();
     const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
