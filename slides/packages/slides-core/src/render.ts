@@ -439,6 +439,8 @@ function paintShape(
 
   // ── transformação de instância: rot (1/60000 grau) + flipH/flipV em torno
   //    do CENTRO geométrico. Pintada DENTRO de save/restore para não vazar.
+  // transformação ANTES da da forma (useBgFill pinta o fundo no referencial do slide)
+  const baseM = ctx.getTransform();
   const cam = sh.camRot ? cameraMatrix(sh.camRot) : undefined;
   const hasXform = sh.xfrm.rot || sh.xfrm.flipH || sh.xfrm.flipV || cam;
   const hasAlpha = sh.alpha !== undefined && sh.alpha < 1;
@@ -463,6 +465,8 @@ function paintShape(
   const lineOv = bgSt?.lineColor ?? anim?.all.lineColor;
   if (fillOv) ov.fill = fillOv;
   if (lineOv) ov.line = lineOv;
+  // useBgFill: desfaz a transformação da PRÓPRIA forma (vale também na camada de efeitos)
+  if (sh.useBgFill && hasXform) ov.unshape = ctx.getTransform().inverse().multiply(baseM);
   if (frame) ov.frame = frame;
   if (anim?.hooks.chartParts && sh.chartXml) {
     ov.chartParts = anim.hooks.chartParts;
@@ -616,6 +620,8 @@ function paintReflection(ctx: CanvasRenderingContext2D, lc: LayerCtx, rf: NonNul
 /** Cores animadas do corpo da forma (animClr/set em fillcolor/stroke.color). */
 interface BodyOverrides {
   fill?: string; line?: string; frame?: MediaFramePaint;
+  /** Matriz que volta do referencial da forma (rot/espelho/câmera) ao do slide. */
+  unshape?: DOMMatrix;
   /** Gráfico animado por partes: camadas (seleção + estado; null = estática) e a geometria-base da forma. */
   chartParts?: { sel: ChartSel; state: ((base: AnimBase) => PartState | null) | null }[];
   chartBase?: { base: AnimBase; m: SlidePx };
@@ -739,7 +745,7 @@ function paintBody(
 
   // sombra externa (outerShdw) — aplicada no fill path. Shape SEM fill não
   // pinta proxy (a sombra vai no texto/imagem herdada — nunca um rect branco).
-  const hasVisibleFill = sh.fill !== undefined && sh.fill.type !== 'none';
+  const hasVisibleFill = (sh.fill !== undefined && sh.fill.type !== 'none') || !!sh.fillImage;
   if (sh.shadow && hasVisibleFill) {
     // fit.scale já é px por EMU (dividir por 9525 zerava a sombra)
     const sx = sh.shadow.dist * Math.cos(sh.shadow.dirDeg * Math.PI / 180) * fit.scale;
@@ -752,7 +758,16 @@ function paintBody(
     ctx.shadowColor = `rgba(${r},${g},${b},${sh.shadow.alpha})`;
     ctx.shadowBlur = sh.shadow.blurRad * fit.scale;
     ctx.fillStyle = ov.fill ?? (sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color : '#ffffff');
-    if (sh.shadow.sx !== undefined || sh.shadow.sy !== undefined) {
+    if (sh.fillImage && sh.shadow.sx === undefined && sh.shadow.sy === undefined) {
+      // preenchimento de imagem (pode ter transparência): só a SOMBRA da silhueta — a
+      // forma vai para fora da tela e o deslocamento traz a sombra de volta
+      const K = 20000;
+      const m = ctx.getTransform();
+      ctx.shadowOffsetX = sx + m.a * K;
+      ctx.shadowOffsetY = sy + m.b * K;
+      ctx.translate(-K, 0);
+      ctx.fillStyle = '#000';
+    } else if (sh.shadow.sx !== undefined || sh.shadow.sy !== undefined) {
       // sombra ESCALADA em volta da âncora (algn): desenha a cópia escalada FORA da
       // tela e traz só a sombra pelo deslocamento (que é em px do dispositivo)
       const a = sh.shadow.algn ?? 'b';
@@ -796,7 +811,26 @@ function paintBody(
       const co = Math.abs(Math.cos(th)), si = Math.abs(Math.sin(th));
       fw = w * co + h * si; fh = w * si + h * co; fx = cx - fw / 2; fy = cy - fh / 2;
     }
-    if (ov.fill) {
+    if (!ov.fill && sh.useBgFill && (sh.fillImage || sh.fill)) {
+      // useBgFill: uma JANELA para o fundo do slide — imagem/degradê no
+      // retângulo do SLIDE (não esticado na forma), recortado pela forma
+      if (rule) ctx.clip(rule); else ctx.clip();
+      if (ov.unshape) ctx.transform(ov.unshape.a, ov.unshape.b, ov.unshape.c, ov.unshape.d, ov.unshape.e, ov.unshape.f);
+      const sw = res.slideW * fit.scale, shh = res.slideH * fit.scale;
+      if (sh.fillImage) {
+        const raw = res.images?.get(sh.fillImage.part);
+        const img = raw ? fxImage(raw, sh.fillImage.fx) : undefined;
+        if (img && sh.fillImage.fx?.alpha !== undefined) ctx.globalAlpha *= sh.fillImage.fx.alpha;
+        const pat = img && sh.fillTile ? tilePattern(ctx, img, sh.fillImage, fit.ox, fit.oy, fit.scale) : null;
+        if (pat) { ctx.fillStyle = pat; ctx.fillRect(fit.ox, fit.oy, sw, shh); } else if (img) ctx.drawImage(img, fit.ox, fit.oy, sw, shh);
+      } else if (sh.fill!.type === 'gradient' && sh.fill!.stops && sh.fill!.stops.length >= 2) {
+        ctx.fillStyle = makeLinearGradient(ctx, sh.fill!, fit.ox, fit.oy, sw, shh);
+        ctx.fillRect(fit.ox, fit.oy, sw, shh);
+      } else if (sh.fill!.pattern && presetPattern(ctx, sh.fill!.pattern, fit.ox, fit.oy, fit.scale)) {
+        ctx.fillStyle = presetPattern(ctx, sh.fill!.pattern, fit.ox, fit.oy, fit.scale)!;
+        ctx.fillRect(fit.ox, fit.oy, sw, shh);
+      } else if (sh.fill!.color) { ctx.fillStyle = sh.fill!.color; ctx.fillRect(fit.ox, fit.oy, sw, shh); }
+    } else if (ov.fill) {
       // cor de preenchimento animada (o app troca fill.type p/ sólido)
       ctx.fillStyle = ov.fill;
       if (rule) ctx.fill(rule); else ctx.fill();
@@ -902,7 +936,7 @@ function paintBody(
 function shapePath(
   ctx: CanvasRenderingContext2D, geom: string | undefined,
   x: number, y: number, w: number, h: number,
-  custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][] },
+  custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][]; noFill?: boolean[]; noStroke?: boolean[] },
   adj?: number[],
   adjNames?: string[],
   /** Só os subcaminhos que PREENCHEM (`fill`) ou que têm CONTORNO (`stroke`); ausente = todos. */
@@ -914,7 +948,10 @@ function shapePath(
   // geometria CUSTOM (freeform): segs nas unidades do path, escalados ao rect
   if (custGeom) {
     const sx = w / custGeom.w, sy = h / custGeom.h;
-    drawSegs(ctx, custGeom.subs, x, y, sx, sy);
+    // <a:path fill="none"> não preenche; stroke="0" não contorna
+    const subs = mode === 'fill' && custGeom.noFill ? custGeom.subs.filter((_, i) => !custGeom.noFill![i])
+      : mode === 'stroke' && custGeom.noStroke ? custGeom.subs.filter((_, i) => !custGeom.noStroke![i]) : custGeom.subs;
+    drawSegs(ctx, subs, x, y, sx, sy);
     return undefined;
   }
   const p = presetPath(geom, w, h, adj, adjNames);
@@ -1677,11 +1714,15 @@ function pathGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number, y: n
     const circle = fill.path === 'circle';
     // círculo: foco F (ponto), centro C, raio R; |P − F − t(C − F)| = t·R → 2º grau em t
     const Fx = (fl + fr) / 2, Fy = (fT + fb) / 2, Ex = gw / 2 - Fx, Ey = gh / 2 - Fy;
-    const R = Math.hypot(gw, gh) / 2, qa = R * R - Ex * Ex - Ey * Ey;
+    // menor t ≥ 0 com |D − t·E|² ≤ (t·R)²: a·t² − 2b·t + c ≤ 0 (a < 0 com o foco dentro do
+    // círculo; foco FORA (fillToRect além da forma): a > 0, entra no 1º cruzamento ou nunca → fim)
+    const R = Math.hypot(gw, gh) / 2, qa = Ex * Ex + Ey * Ey - R * R;
     const tCircle = (px: number, py: number): number => {
       const dx = px - Fx, dy = py - Fy, bq = dx * Ex + dy * Ey, c = dx * dx + dy * dy;
-      if (qa > 1e-9) return (-bq + Math.sqrt(Math.max(0, bq * bq + qa * c))) / qa;
-      return bq > 0 ? c / (2 * bq) : 1;
+      if (Math.abs(qa) < 1e-9) return bq > 0 ? c / (2 * bq) : 1;
+      const disc = bq * bq - qa * c;
+      if (disc < 0) return 1;
+      return Math.max(0, (bq - Math.sqrt(disc)) / qa);
     };
     const lin = (v: number): number => Math.pow(v / 255, 2.2);
     const srgb = (v: number): number => Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255;

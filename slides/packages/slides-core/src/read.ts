@@ -212,6 +212,7 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
       if (sh.lineDash === undefined && inh.lineDash !== undefined) sh.lineDash = inh.lineDash;
     }
     if (sh.geom === undefined && !sh.custGeom && inh.geom) { sh.geom = inh.geom; if (inh.adj) { sh.adj = inh.adj; if (inh.adjNames) sh.adjNames = inh.adjNames; } }
+    else if (sh.geom === undefined && !sh.custGeom && inh.custGeom) sh.custGeom = inh.custGeom;
     for (const k of ['glow', 'softEdge', 'reflection', 'innerShadow'] as const) if (sh[k] === undefined && inh[k] !== undefined) (sh as unknown as Record<string, unknown>)[k] = inh[k];
   }
 
@@ -1193,10 +1194,11 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
  * do próprio path (`<a:path w h>`); o renderer escala para o xfrm da shape.
  * Cobre moveTo/lnTo/cubicBezTo/quadBezTo/close (freeforms do app de referência).
  */
-function parseCustGeom(cust: XmlElement): { w: number; h: number; subs: PathSeg[][] } | undefined {
+function parseCustGeom(cust: XmlElement): { w: number; h: number; subs: PathSeg[][]; noFill?: boolean[]; noStroke?: boolean[] } | undefined {
   const pathLst = firstChild(cust, 'a:pathLst');
   if (!pathLst) return undefined;
   const subs: PathSeg[][] = [];
+  const noFill: boolean[] = [], noStroke: boolean[] = [];
   let pw = 0, ph = 0;
   const pt = (el: XmlElement | undefined): { x: number; y: number } => ({
     x: el?.attrs['x'] !== undefined ? parseInt(el.attrs['x'], 10) : 0,
@@ -1218,10 +1220,14 @@ function parseCustGeom(cust: XmlElement): { w: number; h: number; subs: PathSeg[
         segs.push({ c: 'Q', x1: p1.x, y1: p1.y, x: p2.x, y: p2.y });
       } else if (el.name === 'a:close') segs.push({ c: 'Z' });
     }
-    if (segs.length) subs.push(segs);
+    if (segs.length) {
+      subs.push(segs);
+      noFill.push(path.attrs['fill'] === 'none');
+      noStroke.push(path.attrs['stroke'] === '0' || path.attrs['stroke'] === 'false');
+    }
   }
   if (!subs.length) return undefined;
-  return { w: pw || 1, h: ph || 1, subs };
+  return { w: pw || 1, h: ph || 1, subs, ...(noFill.some(Boolean) ? { noFill } : {}), ...(noStroke.some(Boolean) ? { noStroke } : {}) };
 }
 
 /**

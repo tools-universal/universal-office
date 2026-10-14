@@ -247,7 +247,8 @@ export interface Shape {
   /** Nomes dos adjust values (`<a:gd name>`), paralelos a `adj`. */
   adjNames?: string[];
   /** Geometria custom (`<a:custGeom>`, freeforms): paths em unidades w×h próprias. */
-  custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][] };
+  /** `noFill`/`noStroke`: por subcaminho (`<a:path fill="none" stroke="0">`). */
+  custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][]; noFill?: boolean[]; noStroke?: boolean[] };
   fill?: Fill;
   lineColor?: string;
   lineWidth?: number; // EMU
