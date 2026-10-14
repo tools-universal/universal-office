@@ -16,13 +16,15 @@
  * mundo). EMF+ "dual" toca os registros EMF equivalentes.
  */
 
+import { isSymbolFont, symbolText } from './symbol-fonts.js';
+
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type Pt = [number, number];
 
 interface Pen { style: number; width: number; color: string; cap?: number; join?: number }
 /** `mono`: padrão monocromático (fração de bits 1) — cor resolvida na hora com texto/fundo do DC. */
 interface Brush { style: number; color: string; hatch?: number; mono?: number }
-interface Font { height: number; weight: number; italic: boolean; underline: boolean; strike: boolean; face: string; escapement: number; charset: number }
+interface Font { height: number; weight: number; italic: boolean; underline: boolean; strike: boolean; face: string; escapement: number; charset: number; pitchFamily?: number }
 type Obj = { kind: 'pen'; pen: Pen } | { kind: 'brush'; brush: Brush } | { kind: 'font'; font: Font } | { kind: 'other' };
 
 /** Comando de path em coordenadas de SAÍDA (px do canvas). */
@@ -101,11 +103,11 @@ export function rasterizeMetafile<C extends { getContext(id: '2d'): unknown; wid
   return cv;
 }
 
-/** ROP3 que depende da origem E do destino (SRCAND, SRCPAINT, SRCINVERT…; não SRCCOPY/PATCOPY/D puro). */
+/** ROP3 que mistura o destino com a origem ou o pincel (SRCAND, SRCPAINT, SRCINVERT, PATINVERT…; não SRCCOPY/PATCOPY/D puro). */
 function rop3MixesDest(rop: number): boolean {
   const r3 = (rop >>> 16) & 0xff;
-  const usesD = ((r3 & 0xaa) >>> 1) !== (r3 & 0x55), usesS = ((r3 & 0xcc) >>> 2) !== (r3 & 0x33);
-  return usesD && usesS;
+  const usesD = ((r3 & 0xaa) >>> 1) !== (r3 & 0x55), usesS = ((r3 & 0xcc) >>> 2) !== (r3 & 0x33), usesP = (r3 >>> 4) !== (r3 & 0x0f);
+  return usesD && (usesS || usesP);
 }
 
 /** O metarquivo copia bits misturando com o destino (bitblt/stretchblt/stretchdib com ROP3 assim). */
@@ -117,8 +119,7 @@ export function metafileReadsDest(b: Uint8Array): boolean {
       const type = dv.getUint32(pos, true), size = dv.getUint32(pos + 4, true);
       if (size < 8 || pos + size > b.length || type === 14) break;
       const at = type === 76 || type === 77 ? 40 : type === 81 ? 68 : -1;
-      const withBits = type === 81 || (pos + 92 <= b.length && dv.getUint32(pos + 88, true) > 0);
-      if (at >= 0 && withBits && pos + at + 4 <= b.length && rop3MixesDest(dv.getUint32(pos + at, true))) return true;
+      if (at >= 0 && pos + at + 4 <= b.length && rop3MixesDest(dv.getUint32(pos + at, true))) return true;
       pos += size;
     }
     return false;
@@ -130,19 +131,104 @@ export function metafileReadsDest(b: Uint8Array): boolean {
   for (let guard = 0; pos + 10 <= b.length && guard < 500000; guard++) {
     const size = dv.getUint32(pos, true) * 2, fn = dv.getUint16(pos + 4, true);
     if (fn === 0 || size < 6 || pos + size > b.length) break;
-    // DIBSTRETCHBLT, STRETCHDIB, DIBBITBLT, BITBLT, STRETCHBLT: RasterOperation no início
-    if ((fn === 0x0b41 || fn === 0x0f43 || fn === 0x0940 || fn === 0x0922 || fn === 0x0b23) && size >= 10 && rop3MixesDest(dv.getUint32(pos + 6, true))) return true;
+    // DIBSTRETCHBLT, STRETCHDIB, DIBBITBLT, BITBLT, STRETCHBLT, PATBLT: RasterOperation no início
+    if ((fn === 0x0b41 || fn === 0x0f43 || fn === 0x0940 || fn === 0x0922 || fn === 0x0b23 || fn === 0x061d) && size >= 10 && rop3MixesDest(dv.getUint32(pos + 6, true))) return true;
     pos += size;
   }
   return false;
+}
+
+/**
+ * "Recolorir imagem" do PowerPoint 97 (RecolorInfoAtom do .ppt): troca as cores
+ * dos registros do metarquivo — texto, fundo, canetas, pincéis, pixels,
+ * paletas e vértices de degradê — pela tabela `map` (COLORREF 0x00BBGGRR →
+ * COLORREF, comparando os 24 bits de cor; o byte alto PALETTERGB é mantido).
+ * Bitmaps não mudam. Devolve uma CÓPIA, ou undefined se nada mudou.
+ */
+export function recolorMetafile(bytes: Uint8Array, map: ReadonlyMap<number, number>): Uint8Array | undefined {
+  if (!map.size || !isMetafile(bytes)) return undefined;
+  const b = bytes.slice();
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  let changed = false;
+  const cref = (o: number): void => {
+    if (o < 0 || o + 4 > b.length) return;
+    const v = dv.getUint32(o, true), hi = v >>> 24;
+    if (hi === 1 || hi > 2) return; // PALETTEINDEX / inválida
+    const to = map.get(v & 0xffffff);
+    if (to === undefined || to === (v & 0xffffff)) return;
+    dv.setUint32(o, ((hi << 24) | (to & 0xffffff)) >>> 0, true);
+    changed = true;
+  };
+  /** cor de 16 bits por canal (TriVertex / entrada de paleta de 8 bits) */
+  const rgbAt = (o: number, wide: boolean): void => {
+    if (o + (wide ? 6 : 3) > b.length) return;
+    const g = (k: number): number => (wide ? b[o + k * 2 + 1]! : b[o + k]!);
+    const to = map.get(g(0) | (g(1) << 8) | (g(2) << 16));
+    if (to === undefined) return;
+    for (let k = 0; k < 3; k++) {
+      const c = (to >>> (k * 8)) & 0xff;
+      if (wide) dv.setUint16(o + k * 2, c * 257, true); else b[o + k] = c;
+    }
+    changed = true;
+  };
+  if (isEmf(b)) {
+    let pos = 0;
+    for (let guard = 0; pos + 8 <= b.length && guard < 500000; guard++) {
+      const type = dv.getUint32(pos, true), size = dv.getUint32(pos + 4, true);
+      if (size < 8 || pos + size > b.length) break;
+      const r = pos + 8;
+      switch (type) {
+        case 24: case 25: cref(r); break; // SETTEXTCOLOR / SETBKCOLOR
+        case 38: cref(r + 16); break; // CREATEPEN
+        case 95: cref(r + 32); break; // EXTCREATEPEN
+        case 39: cref(r + 8); break; // CREATEBRUSHINDIRECT
+        case 15: case 53: cref(r + 8); break; // SETPIXELV / EXTFLOODFILL
+        case 49: { // CREATEPALETTE: LogPalette (versão, n, entradas RGB+flags)
+          const n = dv.getUint16(r + 6, true);
+          for (let k = 0; k < n && r + 8 + k * 4 + 4 <= pos + size; k++) rgbAt(r + 8 + k * 4, false);
+          break;
+        }
+        case 118: { // GRADIENTFILL: TriVertex x, y, R, G, B, A (16 bits)
+          const nVer = dv.getUint32(r + 16, true);
+          for (let k = 0; k < nVer && r + 28 + k * 16 + 16 <= pos + size; k++) rgbAt(r + 28 + k * 16 + 8, true);
+          break;
+        }
+      }
+      if (type === 14) break;
+      pos += size;
+    }
+  } else {
+    let pos = b[0] === 0xd7 ? 22 : 0;
+    pos += dv.getUint16(pos + 2, true) * 2;
+    for (let guard = 0; pos + 6 <= b.length && guard < 500000; guard++) {
+      const size = dv.getUint32(pos, true) * 2, fn = dv.getUint16(pos + 4, true), p = pos + 6;
+      if (fn === 0 || size < 6 || pos + size > b.length) break;
+      switch (fn) {
+        case 0x0209: case 0x0201: case 0x041f: case 0x0419: cref(p); break; // texto, fundo, SETPIXEL, FLOODFILL
+        case 0x02fa: cref(p + 6); break; // CREATEPENINDIRECT
+        case 0x02fc: cref(p + 2); break; // CREATEBRUSHINDIRECT
+        case 0x0548: cref(p + 2); break; // EXTFLOODFILL
+        case 0x00f7: { // CREATEPALETTE: start, n, entradas
+          const n = dv.getUint16(p + 2, true);
+          for (let k = 0; k < n && p + 4 + k * 4 + 4 <= pos + size; k++) rgbAt(p + 4 + k * 4, false);
+          break;
+        }
+      }
+      pos += size;
+    }
+  }
+  return changed ? b : undefined;
 }
 
 /** Toca EMF/WMF no retângulo (x, y, w, h) do contexto. */
 export function drawMetafile(ctx: Ctx, bytes: Uint8Array, x: number, y: number, w: number, h: number): void {
   ctx.save();
   try {
-    if (isEmf(bytes)) playEmf(ctx, bytes, { x, y, w, h });
-    else if (isWmf(bytes)) playWmf(ctx, bytes, { x, y, w, h });
+    // px de saída por px a 96 dpi do tamanho natural (EMF: o quadro em mm é físico)
+    const nat = metafileSize(bytes);
+    const px = nat ? Math.sqrt(Math.abs((w / nat.w) * (h / nat.h))) || 1 : 1;
+    if (isEmf(bytes)) playEmf(ctx, bytes, { x, y, w, h, px });
+    else if (isWmf(bytes)) playWmf(ctx, bytes, { x, y, w, h, px });
   } finally { ctx.restore(); }
 }
 
@@ -152,9 +238,124 @@ interface Paint {
   pen: Pen; brush: Brush; polyFill: number;
   /** px de saída por unidade lógica (para espessura de caneta). */
   penScale: number;
-  /** caneta cosmética (largura 0) → 1 px do dispositivo de referência, em px de saída */
+  /** caneta cosmética (largura 0) → 1 px do dispositivo, em px de saída */
   hairline: number;
-  clip: Cmd[][];
+  /** largura mínima de qualquer caneta (px de saída) */
+  minWidth: number;
+  clip: Clip[];
+  /** modo de mistura do primeiro plano (SETROP2, R2_*); 13 = R2_COPYPEN */
+  rop2?: number;
+}
+
+/** Inverte '#rrggbb'. */
+const invHex = (c: string): string => '#' + (0xffffff ^ parseInt(c.slice(1), 16)).toString(16).padStart(6, '0');
+
+/**
+ * ROP2 (SETROP2) da caneta e do pincel → cor + modo de composição do canvas.
+ * undefined = não desenha (R2_NOP). Os modos lógicos (AND/OR/XOR) viram os
+ * equivalentes de composição — exatos nas cores puras (0/255), que é o uso real
+ * (máscaras e molduras "invisíveis" dos exportadores).
+ */
+function rop2Paint(rop2: number | undefined, color: string): { color: string; op?: GlobalCompositeOperation } | undefined {
+  switch (rop2 ?? 13) {
+    case 11: return undefined; // R2_NOP
+    case 1: return { color: '#000000' }; // R2_BLACK
+    case 16: return { color: '#ffffff' }; // R2_WHITE
+    case 4: return { color: invHex(color) }; // R2_NOTCOPYPEN
+    case 6: return { color: '#ffffff', op: 'difference' }; // R2_NOT (inverte o destino)
+    case 7: return { color, op: 'difference' }; // R2_XORPEN
+    case 10: return { color: invHex(color), op: 'difference' }; // R2_NOTXORPEN = ~P ^ D
+    case 9: return { color, op: 'multiply' }; // R2_MASKPEN (P & D)
+    case 3: return { color: invHex(color), op: 'multiply' }; // R2_MASKNOTPEN (~P & D)
+    case 15: return { color, op: 'lighten' }; // R2_MERGEPEN (P | D)
+    case 12: return { color: invHex(color), op: 'lighten' }; // R2_MERGENOTPEN (~P | D)
+    default: return { color };
+  }
+}
+
+/**
+ * PATINVERT (destino XOR pincel) EXATO num retângulo, nos pixels do canvas. Os
+ * exportadores de degradê do Office recortam o degradê no formato da figura
+ * com XOR → figura preta → XOR de novo: fora da figura o destino volta
+ * idêntico — com 'difference' sobrava resíduo. Sem recorte ativo e com
+ * transformação só de escala/translação; senão devolve false (aproximação).
+ */
+function xorRect(ctx: Ctx, color: string, x0: number, y0: number, x1: number, y1: number, clipped: boolean): boolean {
+  if (clipped || typeof ctx.getImageData !== 'function') return false;
+  const t = ctx.getTransform();
+  if (t.b || t.c) return false;
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  const X0 = Math.max(0, Math.round(Math.min(x0 * t.a, x1 * t.a) + t.e)), X1 = Math.min(W, Math.round(Math.max(x0 * t.a, x1 * t.a) + t.e));
+  const Y0 = Math.max(0, Math.round(Math.min(y0 * t.d, y1 * t.d) + t.f)), Y1 = Math.min(H, Math.round(Math.max(y0 * t.d, y1 * t.d) + t.f));
+  if (X1 <= X0 || Y1 <= Y0) return true;
+  const c = parseInt(color.slice(1), 16), r = (c >> 16) & 0xff, g = (c >> 8) & 0xff, b = c & 0xff;
+  const img = ctx.getImageData(X0, Y0, X1 - X0, Y1 - Y0), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { d[i] = d[i]! ^ r; d[i + 1] = d[i + 1]! ^ g; d[i + 2] = d[i + 2]! ^ b; d[i + 3] = 255; }
+  ctx.putImageData(img, X0, Y0);
+  return true;
+}
+
+type Rect4 = [number, number, number, number];
+/**
+ * Entrada da pilha de recorte (todas se intersectam): um caminho (regra
+ * nonzero) ou um CONJUNTO de retângulos excluídos (EXCLUDECLIPRECT seguidos —
+ * exportadores fazem hachuras com milhares deles; um clip() por retângulo
+ * era lento e o Chromium deixava de recortar).
+ */
+type Clip = Cmd[] | { ex: Rect4[] };
+
+/** Junta EXCLUDECLIPRECT (cantos em px de saída) à pilha; retângulo girado (mundo) vira caminho. */
+function excludeClip(clip: Clip[], corners: Pt[]): Clip[] {
+  const xs = corners.map((p) => p[0]), ys = corners.map((p) => p[1]);
+  const axis = (corners[0]![0] === corners[3]![0] && corners[1]![0] === corners[2]![0]) || (corners[0]![1] === corners[3]![1] && corners[1]![1] === corners[2]![1]);
+  if (!axis) {
+    // caminho: moldura enorme + o retângulo no sentido contrário (nonzero)
+    const B = 1e6;
+    const outer: Pt[] = [[-B, -B], [B, -B], [B, B], [-B, B]];
+    const area = (q: Pt[]): number => q.reduce((s, p, i) => { const n = q[(i + 1) % q.length]!; return s + p[0] * n[1] - n[0] * p[1]; }, 0);
+    const inner = Math.sign(area(corners)) === Math.sign(area(outer)) ? [...corners].reverse() : corners;
+    const out: Cmd[] = [];
+    for (const q of [outer, inner]) { q.forEach(([x, y], i) => out.push({ op: i ? 'L' : 'M', x, y })); out.push({ op: 'Z' }); }
+    return [...clip, out];
+  }
+  const r: Rect4 = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  if (r[2] <= r[0] || r[3] <= r[1]) return clip;
+  const last = clip[clip.length - 1];
+  return last && !Array.isArray(last) ? [...clip.slice(0, -1), { ex: [...last.ex, r] }] : [...clip, { ex: [r] }];
+}
+
+const exPaths = new WeakMap<object, Cmd[]>();
+/**
+ * Caminho (par-ímpar) da moldura enorme menos a UNIÃO dos retângulos: faixas
+ * horizontais nas bordas y, com os intervalos x de cada faixa fundidos — sem
+ * sobreposição, o par-ímpar exclui exatamente a união.
+ */
+function excludePath(set: { ex: Rect4[] }): Cmd[] {
+  const hit = exPaths.get(set);
+  if (hit) return hit;
+  const B = 1e6;
+  const out: Cmd[] = [];
+  const box = (x0: number, y0: number, x1: number, y1: number): void => {
+    out.push({ op: 'M', x: x0, y: y0 }, { op: 'L', x: x1, y: y0 }, { op: 'L', x: x1, y: y1 }, { op: 'L', x: x0, y: y1 }, { op: 'Z' });
+  };
+  box(-B, -B, B, B);
+  const rs = [...set.ex].sort((a, b) => a[1] - b[1]);
+  const ys = [...new Set(rs.flatMap((r) => [r[1], r[3]]))].sort((a, b) => a - b);
+  let active: Rect4[] = [], next = 0, prevKey = '', pending: { y0: number; iv: [number, number][] } | undefined;
+  const flush = (y1: number): void => { if (pending) for (const [a, b] of pending.iv) box(a, pending.y0, b, y1); pending = undefined; };
+  for (let i = 0; i + 1 < ys.length; i++) {
+    const y = ys[i]!, y2 = ys[i + 1]!;
+    while (next < rs.length && rs[next]![1] <= y) active.push(rs[next++]!);
+    active = active.filter((r) => r[3] > y);
+    const iv = active.filter((r) => r[1] <= y && r[3] >= y2).map((r): [number, number] => [r[0], r[2]]).sort((a, b) => a[0] - b[0]);
+    const merged: [number, number][] = [];
+    for (const v of iv) { const m = merged[merged.length - 1]; if (m && v[0] <= m[1]) m[1] = Math.max(m[1], v[1]); else merged.push([v[0], v[1]]); }
+    const key = merged.map((m) => m.join(',')).join(';');
+    if (key !== prevKey) { flush(y); if (merged.length) pending = { y0: y, iv: merged }; prevKey = key; }
+  }
+  flush(ys[ys.length - 1] ?? 0);
+  exPaths.set(set, out);
+  return out;
 }
 
 function tracePath(ctx: Ctx, cmds: Cmd[]): void {
@@ -167,10 +368,12 @@ function tracePath(ctx: Ctx, cmds: Cmd[]): void {
   }
 }
 
-function withClip(ctx: Ctx, clip: Cmd[][], f: () => void): void {
+function withClip(ctx: Ctx, clip: Clip[], f: () => void): void {
   if (!clip.length) { f(); return; }
   ctx.save();
-  for (const c of clip) { tracePath(ctx, c); ctx.clip(); }
+  for (const c of clip) {
+    if (Array.isArray(c)) { tracePath(ctx, c); ctx.clip(); } else { tracePath(ctx, excludePath(c)); ctx.clip('evenodd'); }
+  }
   f();
   ctx.restore();
 }
@@ -195,16 +398,21 @@ function paintPath(ctx: Ctx, p: Paint, cmds: Cmd[], fill: boolean, stroke: boole
   const doFill = fill && p.brush.style !== 1;
   const doStroke = stroke && p.pen.style !== 5;
   if (!doFill && !doStroke) return;
+  // ROP2 vale para a caneta E para o interior (pincel); R2_NOP não desenha nada
+  const fillMix = rop2Paint(p.rop2, p.brush.color), penMix = rop2Paint(p.rop2, p.pen.color);
+  if (!fillMix || !penMix) return;
   withClip(ctx, p.clip, () => {
+    ctx.save();
+    if (fillMix.op) ctx.globalCompositeOperation = fillMix.op;
     tracePath(ctx, cmds);
     if (doFill) {
-      ctx.fillStyle = p.brush.style === 2 ? hatchPattern(ctx, p.brush.color, p.brush.hatch ?? 0) : p.brush.color;
+      ctx.fillStyle = p.brush.style === 2 ? hatchPattern(ctx, fillMix.color, p.brush.hatch ?? 0) : fillMix.color;
       ctx.fill(p.polyFill === 1 ? 'evenodd' : 'nonzero');
     }
     if (doStroke) {
       const lw = p.pen.width > 0 ? p.pen.width * p.penScale : p.hairline;
-      ctx.lineWidth = Math.max(p.hairline * 0.5, lw);
-      ctx.strokeStyle = p.pen.color;
+      ctx.lineWidth = Math.max(p.minWidth, lw);
+      ctx.strokeStyle = penMix.color;
       const s = p.pen.style & 0xf;
       const u = Math.max(1, ctx.lineWidth);
       ctx.setLineDash(s === 1 ? [6 * u, 2 * u] : s === 2 ? [u, u] : s === 3 ? [6 * u, 2 * u, u, 2 * u] : s === 4 ? [6 * u, 2 * u, u, 2 * u, u, 2 * u] : []);
@@ -212,9 +420,11 @@ function paintPath(ctx: Ctx, p: Paint, cmds: Cmd[], fill: boolean, stroke: boole
       const cap = p.pen.cap ?? 0, join = p.pen.join ?? 0;
       ctx.lineCap = cap === 0x100 ? 'square' : cap === 0x200 ? 'butt' : 'round';
       ctx.lineJoin = join === 0x1000 ? 'bevel' : join === 0x2000 ? 'miter' : 'round';
+      ctx.globalCompositeOperation = penMix.op ?? 'source-over';
       ctx.stroke();
       ctx.setLineDash([]);
     }
+    ctx.restore();
   });
 }
 
@@ -377,7 +587,7 @@ function decodeDib(b: Uint8Array, offBmi: number, cbBmi: number, offBits: number
 }
 
 /** Desenha uma DIB com operação raster (ROP3) aproximada por modo de composição. */
-function blitDib(ctx: Ctx, img: ImageData | undefined, rop: number, x0: number, y0: number, x1: number, y1: number, clip: Cmd[][], sx = 0, sy = 0, sw = 0, sh = 0, alphaBlend?: { alpha: number; srcAlpha: boolean }): void {
+function blitDib(ctx: Ctx, img: ImageData | undefined, rop: number, x0: number, y0: number, x1: number, y1: number, clip: Clip[], sx = 0, sy = 0, sw = 0, sh = 0, alphaBlend?: { alpha: number; srcAlpha: boolean }): void {
   if (!img) return;
   const cv = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(img.width, img.height) : undefined;
   const c2 = cv?.getContext('2d');
@@ -417,27 +627,60 @@ function blitDib(ctx: Ctx, img: ImageData | undefined, rop: number, x0: number, 
 
 // ─────────────────────────── texto ───────────────────────────
 
-/** Fonte Symbol (charset SYMBOL) → Unicode: gregos e sinais matemáticos. */
-const SYMBOL: Record<number, number> = {
-  0x22: 0x2200, 0x24: 0x2203, 0x27: 0x220b, 0x2a: 0x2217, 0x2d: 0x2212, 0x40: 0x2245,
-  0x41: 0x391, 0x42: 0x392, 0x43: 0x3a7, 0x44: 0x394, 0x45: 0x395, 0x46: 0x3a6, 0x47: 0x393, 0x48: 0x397, 0x49: 0x399, 0x4a: 0x3d1,
-  0x4b: 0x39a, 0x4c: 0x39b, 0x4d: 0x39c, 0x4e: 0x39d, 0x4f: 0x39f, 0x50: 0x3a0, 0x51: 0x398, 0x52: 0x3a1, 0x53: 0x3a3, 0x54: 0x3a4,
-  0x55: 0x3a5, 0x56: 0x3c2, 0x57: 0x3a9, 0x58: 0x39e, 0x59: 0x3a8, 0x5a: 0x396, 0x5c: 0x2234, 0x5e: 0x22a5,
-  0x61: 0x3b1, 0x62: 0x3b2, 0x63: 0x3c7, 0x64: 0x3b4, 0x65: 0x3b5, 0x66: 0x3c6, 0x67: 0x3b3, 0x68: 0x3b7, 0x69: 0x3b9, 0x6a: 0x3d5,
-  0x6b: 0x3ba, 0x6c: 0x3bb, 0x6d: 0x3bc, 0x6e: 0x3bd, 0x6f: 0x3bf, 0x70: 0x3c0, 0x71: 0x3b8, 0x72: 0x3c1, 0x73: 0x3c3, 0x74: 0x3c4,
-  0x75: 0x3c5, 0x76: 0x3d6, 0x77: 0x3c9, 0x78: 0x3be, 0x79: 0x3c8, 0x7a: 0x3b6, 0x7e: 0x223c,
-  0xa1: 0x3d2, 0xa2: 0x2032, 0xa3: 0x2264, 0xa4: 0x2044, 0xa5: 0x221e, 0xa6: 0x192, 0xa7: 0x2663, 0xa8: 0x2666, 0xa9: 0x2665, 0xaa: 0x2660,
-  0xab: 0x2194, 0xac: 0x2190, 0xad: 0x2191, 0xae: 0x2192, 0xaf: 0x2193, 0xb0: 0xb0, 0xb1: 0xb1, 0xb2: 0x2033, 0xb3: 0x2265, 0xb4: 0xd7,
-  0xb5: 0x221d, 0xb6: 0x2202, 0xb7: 0x2022, 0xb8: 0xf7, 0xb9: 0x2260, 0xba: 0x2261, 0xbb: 0x2248, 0xbc: 0x2026, 0xbf: 0x21b5,
-  0xc0: 0x2135, 0xc1: 0x2111, 0xc2: 0x211c, 0xc3: 0x2118, 0xc4: 0x2297, 0xc5: 0x2295, 0xc6: 0x2205, 0xc7: 0x2229, 0xc8: 0x222a,
-  0xc9: 0x2283, 0xca: 0x2287, 0xcb: 0x2284, 0xcc: 0x2282, 0xcd: 0x2286, 0xce: 0x2208, 0xcf: 0x2209, 0xd0: 0x2220, 0xd1: 0x2207,
-  0xd2: 0xae, 0xd3: 0xa9, 0xd4: 0x2122, 0xd5: 0x220f, 0xd6: 0x221a, 0xd7: 0x22c5, 0xd8: 0xac, 0xd9: 0x2227, 0xda: 0x2228,
-  0xdb: 0x21d4, 0xdc: 0x21d0, 0xdd: 0x21d1, 0xde: 0x21d2, 0xdf: 0x21d3, 0xe0: 0x25ca, 0xe1: 0x2329, 0xe5: 0x2211,
-  0xf1: 0x232a, 0xf2: 0x222b, 0xf3: 0x2320, 0xf5: 0x2321,
-};
+/** Fonte Symbol (charset SYMBOL) → Unicode: gregos, sinais matemáticos e peças de delimitadores. */
 export function symbolToUnicode(code: number): number {
-  const c = code >= 0xf000 && code <= 0xf0ff ? code - 0xf000 : code;
-  return SYMBOL[c] ?? c;
+  return symbolText('Symbol', String.fromCharCode(code)).codePointAt(0) ?? code;
+}
+
+/**
+ * Substituições de fonte do GDI (chave FontSubstitutes do Windows): nomes
+ * antigos/de Mac que os exportadores gravam e o mapeador troca pela TrueType.
+ */
+const GDI_SUBST: Record<string, string> = {
+  helvetica: 'Arial', helv: 'Arial', 'arial mt': 'Arial', geneva: 'Arial', 'ms sans serif': 'Microsoft Sans Serif',
+  times: 'Times New Roman', 'tms rmn': 'Times New Roman', 'times roman': 'Times New Roman', 'ms serif': 'Times New Roman', 'new york': 'Times New Roman',
+  courier: 'Courier New',
+};
+
+/** Família de reserva pelo lfPitchAndFamily (FF_ROMAN/SWISS/MODERN), como o mapeador de fontes do GDI. */
+function familyFallback(pf: number): string {
+  const fam = (pf >> 4) & 7;
+  return fam === 1 ? '"Times New Roman", serif' : fam === 3 ? '"Courier New", monospace' : 'Arial, sans-serif';
+}
+
+const fontAvail = new Map<string, boolean>();
+/** A fonte instalada/carregada desenha `probe` (≠ da reserva genérica)? Cache por nome. */
+function fontAvailable(ctx: Ctx, name: string, probe: string): boolean {
+  const k = name.toLowerCase();
+  let v = fontAvail.get(k);
+  if (v === undefined) {
+    ctx.save();
+    const w = (fam: string): number => { ctx.font = `40px ${fam}`; return ctx.measureText(probe).width; };
+    v = w(`"${name}", monospace`) !== w('monospace') || w(`"${name}", serif`) !== w('serif');
+    ctx.restore();
+    fontAvail.set(k, v);
+  }
+  return v;
+}
+
+/**
+ * Texto e família CSS de uma fonte do metarquivo. Fonte de símbolo (charset 2
+ * ou Symbol/Wingdings…): instalada → os códigos vão para a área privada
+ * U+F0xx, que é como o cmap (3,0) delas mapeia (peças de colchetes do Equation
+ * Editor exatas); ausente → equivalente Unicode (tabela de symbol-fonts.ts).
+ */
+function textFace(ctx: Ctx, f: Font, text: string): { s: string; family: string } {
+  const face = (f.face || '').trim();
+  const known = isSymbolFont(face);
+  if (f.charset === 2 || known) {
+    const name = face || 'Symbol';
+    const codes = Array.from(text, (ch) => { const c = ch.charCodeAt(0); return c >= 0xf020 && c <= 0xf0ff ? c - 0xf000 : c; });
+    if (fontAvailable(ctx, name, '\uF061\uF062\uF0E6\uF0F8')) return { s: String.fromCharCode(...codes.map((c) => (c >= 0x20 && c <= 0xff ? 0xf000 + c : c))), family: `"${name}"` };
+    const raw = String.fromCharCode(...codes);
+    return known || !face ? { s: symbolText(face || 'Symbol', raw), family: '"Segoe UI Symbol", "Cambria Math", serif' } : { s: raw, family: `"${name}", ${familyFallback(f.pitchFamily ?? 0)}` };
+  }
+  const sub = GDI_SUBST[face.toLowerCase()];
+  return { s: text, family: `${face ? `"${face}", ` : ''}${sub ? `"${sub}", ` : ''}${familyFallback(f.pitchFamily ?? 0)}` };
 }
 
 interface TextReq {
@@ -449,23 +692,33 @@ interface TextReq {
   bk?: string;
 }
 
-function drawText(ctx: Ctx, t: TextReq, clip: Cmd[][]): number {
+function drawText(ctx: Ctx, t: TextReq, clip: Clip[]): number {
   const f = t.font;
-  const sym = f.charset === 2 || /^symbol$/i.test(f.face);
-  let s = '';
-  for (const ch of t.text) {
-    const c = ch.charCodeAt(0);
-    s += String.fromCharCode(sym ? symbolToUnicode(c) : c);
-  }
+  const { s, family } = textFace(ctx, f, t.text);
   if (!s.trim()) return 0;
-  // altura negativa = corpo (em); positiva = altura da célula (≈ em / 0,86 nas fontes de texto comuns)
+  const style = `${f.italic ? 'italic ' : ''}${f.weight >= 600 ? 'bold ' : ''}`;
+  // altura negativa = corpo (em); positiva = altura da CÉLULA (ascendente + descendente
+  // da fonte, as métricas win do GDI) — medida na própria fonte
   const cell = Math.abs(f.height) || 12;
-  const emPx = (f.height < 0 ? cell : cell * 0.86) * t.scaleY;
+  let ratio = 1;
+  if (f.height > 0) {
+    ctx.font = `${style}100px ${family}`;
+    const m = ctx.measureText('Hg');
+    const asc = m.fontBoundingBoxAscent, desc = m.fontBoundingBoxDescent;
+    ratio = asc > 0 && desc >= 0 ? 100 / (asc + desc) : 0.86;
+  }
+  const emPx = cell * ratio * t.scaleY;
   if (emPx < 0.5) return 0;
-  const face = sym ? '"Segoe UI Symbol", "Cambria Math", serif' : `"${f.face || 'Arial'}", Arial, sans-serif`;
-  ctx.font = `${f.italic ? 'italic ' : ''}${f.weight >= 600 ? 'bold ' : ''}${emPx.toFixed(2)}px ${face}`;
+  ctx.font = `${style}${emPx.toFixed(2)}px ${family}`;
+  // TA_TOP/TA_BOTTOM do GDI = topo/pé da CÉLULA (ascendente/descendente da fonte),
+  // não o quadrado do em do canvas
   const va = t.align & 24;
-  ctx.textBaseline = va === 24 ? 'alphabetic' : va === 8 ? 'bottom' : 'top';
+  ctx.textBaseline = 'alphabetic';
+  let dy = 0;
+  if (va !== 24) {
+    const m = ctx.measureText('Hg');
+    dy = va === 8 ? -(m.fontBoundingBoxDescent || emPx * 0.21) : (m.fontBoundingBoxAscent || emPx * 0.9);
+  }
   const widths = t.dx && t.dx.length >= s.length ? t.dx.slice(0, s.length) : Array.from(s, (ch) => ctx.measureText(ch).width);
   const total = widths.reduce((a, b) => a + b, 0);
   const ha = t.align & 6;
@@ -476,18 +729,19 @@ function drawText(ctx: Ctx, t: TextReq, clip: Cmd[][]): number {
     if (rot) ctx.rotate(rot);
     let x = ha === 2 ? -total : ha === 6 ? -total / 2 : 0;
     if (t.bk) {
-      const asc = va === 24 ? emPx * 0.9 : 0;
+      // fundo opaco (OPAQUE): a célula inteira do texto
+      const m = ctx.measureText('Hg');
+      const asc = m.fontBoundingBoxAscent || emPx * 0.9, desc = m.fontBoundingBoxDescent || emPx * 0.21;
       ctx.fillStyle = t.bk;
-      ctx.fillRect(x, -asc, total, emPx * 1.15);
+      ctx.fillRect(x, dy - asc, total, asc + desc);
     }
     ctx.fillStyle = t.color;
     if (t.dx) {
-      for (let k = 0; k < s.length; k++) { ctx.fillText(s[k]!, x, 0); x += widths[k]!; }
-    } else ctx.fillText(s, x, 0);
+      for (let k = 0; k < s.length; k++) { ctx.fillText(s[k]!, x, dy); x += widths[k]!; }
+    } else ctx.fillText(s, x, dy);
     if (f.underline || f.strike) {
       const x0 = ha === 2 ? -total : ha === 6 ? -total / 2 : 0;
-      const base = va === 24 ? 0 : va === 8 ? -emPx * 0.22 : emPx * 0.9;
-      ctx.fillRect(x0, base + (f.underline ? emPx * 0.1 : -emPx * 0.3), total, Math.max(0.5, emPx * 0.06));
+      ctx.fillRect(x0, dy + (f.underline ? emPx * 0.1 : -emPx * 0.3), total, Math.max(0.5, emPx * 0.06));
     }
     ctx.restore();
   });
@@ -527,11 +781,11 @@ const STOCK: Record<number, Obj> = {
 interface EmfDc {
   mapMode: number; winOrg: Pt; winExt: Pt; vpOrg: Pt; vpExt: Pt; world: Xform;
   pen: Pen; brush: Brush; font: Font;
-  textColor: string; bkColor: string; bkMode: number; textAlign: number; polyFill: number;
-  cur: Pt; clip: Cmd[][];
+  textColor: string; bkColor: string; bkMode: number; textAlign: number; polyFill: number; rop2: number;
+  cur: Pt; clip: Clip[];
 }
 
-function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: number; h: number }): void {
+function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: number; h: number; px: number }): void {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const i32 = (o: number): number => dv.getInt32(o, true);
   const u32 = (o: number): number => dv.getUint32(o, true);
@@ -550,11 +804,17 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     fx0 = i32(8); fy0 = i32(12); fw = Math.max(1, i32(16) - i32(8)); fh = Math.max(1, i32(20) - i32(12));
   }
   const sx = dest.w / fw, sy = dest.h / fh;
+  // caneta cosmética = 1 px do dispositivo de referência; EMF de impressora (600 dpi…) dá
+  // traço fino demais — o app desenha na resolução da TELA: 1 px a 96 dpi do quadro físico
+  // (só com escala plausível: quadro minúsculo ampliado engrossaria tudo)
+  const devHair = Math.max(0.5, Math.sqrt(Math.abs(sx * sy)));
+  const screenPx = dest.px <= 4 ? dest.px : 0;
+  const hairline = Math.max(devHair, screenPx), minWidth = screenPx ? hairline : devHair * 0.5;
 
   let dc: EmfDc = {
     mapMode: 1, winOrg: [0, 0], winExt: [1, 1], vpOrg: [0, 0], vpExt: [1, 1], world: IDENT,
     pen: (STOCK[7] as { pen: Pen }).pen, brush: (STOCK[0] as { brush: Brush }).brush, font: DEF_FONT,
-    textColor: '#000000', bkColor: '#ffffff', bkMode: 2, textAlign: 0, polyFill: 1, cur: [0, 0], clip: [],
+    textColor: '#000000', bkColor: '#ffffff', bkMode: 2, textAlign: 0, polyFill: 1, rop2: 13, cur: [0, 0], clip: [],
   };
   const stack: EmfDc[] = [];
   const objs = new Map<number, Obj>();
@@ -599,7 +859,7 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     const ch = (sh: number) => Math.round(((pa >> sh) & 255) * (1 - f) + ((pb >> sh) & 255) * f);
     return '#' + [16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('');
   };
-  const paint = (): Paint => ({ pen: dc.pen, brush: dc.brush.mono !== undefined ? { ...dc.brush, color: mixHexE(dc.textColor, dc.bkColor, dc.brush.mono) } : dc.brush, polyFill: dc.polyFill, penScale: len(1), hairline: Math.max(0.5, Math.sqrt(Math.abs(sx * sy))), clip: dc.clip });
+  const paint = (): Paint => ({ pen: dc.pen, brush: dc.brush.mono !== undefined ? { ...dc.brush, color: mixHexE(dc.textColor, dc.bkColor, dc.brush.mono) } : dc.brush, polyFill: dc.polyFill, penScale: len(1), hairline, minWidth, clip: dc.clip, rop2: dc.rop2 });
 
   let path: Cmd[] | null = null;
   const draw = (cmds: Cmd[], closed: boolean): void => {
@@ -633,7 +893,7 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     let text = '';
     for (let k = 0; k < nChars; k++) {
       const c = wide ? u16(pos + offStr + k * 2) : bytes[pos + offStr + k]!;
-      text += String.fromCharCode(!wide && c >= 0x80 && c < 0xa0 ? CP1252[c - 0x80]! : c);
+      text += String.fromCharCode(!wide && c >= 0x80 && c < 0xa0 && dc.font.charset !== 2 && !isSymbolFont(dc.font.face) ? CP1252[c - 0x80]! : c);
     }
     const anchor: Pt = dc.textAlign & 1 ? dc.cur : [refX, refY];
     const [px, py] = P(anchor[0], anchor[1]);
@@ -743,7 +1003,7 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
         for (let k = 0; k < 32; k++) { const c = u16(r + 32 + k * 2); if (!c) break; face += String.fromCharCode(c); }
         objs.set(u32(r), {
           kind: 'font',
-          font: { height: i32(r + 4), escapement: i32(r + 12), weight: i32(r + 20), italic: bytes[r + 24] !== 0, underline: bytes[r + 25] !== 0, strike: bytes[r + 26] !== 0, charset: bytes[r + 27]!, face },
+          font: { height: i32(r + 4), escapement: i32(r + 12), weight: i32(r + 20), italic: bytes[r + 24] !== 0, underline: bytes[r + 25] !== 0, strike: bytes[r + 26] !== 0, charset: bytes[r + 27]!, pitchFamily: bytes[r + 31]!, face },
         });
         break;
       }
@@ -831,6 +1091,17 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
         dc.clip = [...dc.clip, rect(i32(r), i32(r + 4), i32(r + 8), i32(r + 12))];
         break;
       }
+      case 29: { // EXCLUDECLIPRECT: tira o retângulo da região de recorte
+        const l = i32(r), t = i32(r + 4), rr = i32(r + 8), b = i32(r + 12);
+        dc.clip = excludeClip(dc.clip, [P(l, t), P(rr, t), P(rr, b), P(l, b)]);
+        break;
+      }
+      case 20: dc.rop2 = u32(r); break; // SETROP2
+      case 15: { // SETPIXELV: um pixel do dispositivo
+        const [x0, y0] = P(i32(r), i32(r + 4)), k = Math.max(1, Math.abs(sx));
+        withClip(ctx, dc.clip, () => { ctx.fillStyle = hex(u32(r + 8)); ctx.fillRect(x0, y0, k, Math.max(1, Math.abs(sy))); });
+        break;
+      }
       case 75: { // EXTSELECTCLIPRGN: RGN_COPY sem região = sem recorte
         const cb = u32(r), mode = u32(r + 4);
         if (mode === 5 || cb === 0) dc.clip = [];
@@ -861,9 +1132,11 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
         if (cbBmi) blitDib(ctx, decodeDib(bytes, pos + offBmi, cbBmi, pos + offBits, cbBits), rop, x0, y0, x1, y1, dc.clip, xs, ys, sw, sh);
         else {
           // sem bitmap de origem só PATCOPY/BLACKNESS/WHITENESS pintam (com o pincel atual)
-          const r3 = (rop >>> 16) & 0xff;
-          const color = r3 === 0x00 ? '#000000' : r3 === 0xff ? '#ffffff' : r3 === 0xf0 && dc.brush.style !== 1 ? dc.brush.color : undefined;
-          if (color) withClip(ctx, dc.clip, () => { ctx.fillStyle = color; ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0)); });
+          const r3 = (rop >>> 16) & 0xff, br = paint().brush;
+          if (r3 === 0x5a && br.style !== 1 && xorRect(ctx, br.color, x0, y0, x1, y1, dc.clip.length > 0)) break; // PATINVERT
+          const color = r3 === 0x00 ? '#000000' : r3 === 0xff ? '#ffffff' : (r3 === 0xf0 || r3 === 0x5a) && br.style !== 1 ? br.color : r3 === 0x55 ? '#ffffff' : undefined;
+          const op = r3 === 0x5a || r3 === 0x55 ? 'difference' : undefined;
+          if (color) withClip(ctx, dc.clip, () => { ctx.save(); if (op) ctx.globalCompositeOperation = op; ctx.fillStyle = color; ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0)); ctx.restore(); });
         }
         break;
       }
@@ -953,8 +1226,8 @@ interface WmfDc {
   /** SCALEVIEWPORTEXT acumulado sobre a viewport do chamador (= a caixa → dest) */
   vpScale: Pt;
   pen: Pen; brush: Brush; font: Font;
-  textColor: string; bkColor: string; bkMode: number; textAlign: number; polyFill: number;
-  cur: Pt; clip: Cmd[][];
+  textColor: string; bkColor: string; bkMode: number; textAlign: number; polyFill: number; rop2: number;
+  cur: Pt; clip: Clip[];
 }
 
 // ───────────────────── EMF+ (subconjunto de imagens) ─────────────────────
@@ -1137,7 +1410,7 @@ class EmfPlusPlayer {
   }
 }
 
-function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: number; h: number }): void {
+function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: number; h: number; px: number }): void {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const i16 = (o: number): number => dv.getInt16(o, true);
   const u16 = (o: number): number => dv.getUint16(o, true);
@@ -1164,7 +1437,7 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
   let dc: WmfDc = {
     mapMode: 1, winOrg: [box[0], box[1]], winExt: [box[2] - box[0] || 1, box[3] - box[1] || 1], vpOrg: [0, 0], vpExt: [1, 1], vpScale: [1, 1],
     pen: { style: 0, width: 0, color: '#000000' }, brush: { style: 0, color: '#ffffff' }, font: DEF_FONT,
-    textColor: '#000000', bkColor: '#ffffff', bkMode: 2, textAlign: 0, polyFill: 1, cur: [0, 0], clip: [],
+    textColor: '#000000', bkColor: '#ffffff', bkMode: 2, textAlign: 0, polyFill: 1, rop2: 13, cur: [0, 0], clip: [],
   };
   // a janela do arquivo mapeia na caixa do cabeçalho; a saída = caixa → dest
   const bx = box[0], by = box[1], bw = (box[2] - box[0]) || 1, bh = (box[3] - box[1]) || 1;
@@ -1189,7 +1462,7 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     return '#' + [16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('');
   };
   const brushNow = (): Brush => (dc.brush.mono !== undefined ? { ...dc.brush, color: mixHex(dc.textColor, dc.bkColor, dc.brush.mono) } : dc.brush);
-  const paint = (): Paint => ({ pen: dc.pen, brush: brushNow(), polyFill: dc.polyFill, penScale: Math.sqrt(kx() * ky()), hairline: Math.max(0.5, dest.w / 1000), clip: dc.clip });
+  const paint = (): Paint => ({ pen: dc.pen, brush: brushNow(), polyFill: dc.polyFill, penScale: Math.sqrt(kx() * ky()), hairline: Math.max(0.5, dest.w / 1000), minWidth: Math.max(0.25, dest.w / 2000), clip: dc.clip, rop2: dc.rop2 });
   const draw = (cmds: Cmd[], fill: boolean): void => paintPath(ctx, paint(), cmds, fill, true);
   const poly = (o: number, n: number, closed: boolean): Cmd[] => {
     const c: Cmd[] = [];
@@ -1202,7 +1475,7 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     return [{ op: 'M', x: x0, y: y0 }, { op: 'L', x: x1, y: y0 }, { op: 'L', x: x1, y: y1 }, { op: 'L', x: x0, y: y1 }, { op: 'Z' }];
   };
   const text = (x: number, y: number, raw: Uint8Array, dx: ((k: number) => number) | null, opaque?: [number, number, number, number]): void => {
-    const sym = dc.font.charset === 2;
+    const sym = dc.font.charset === 2 || isSymbolFont(dc.font.face);
     let s = '';
     for (const b of raw) s += String.fromCharCode(sym ? b : b >= 0x80 && b < 0xa0 ? CP1252[b - 0x80]! : b);
     if (opaque) {
@@ -1217,6 +1490,21 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
       ...(dc.bkMode === 2 && !opaque ? { bk: dc.bkColor } : {}),
     }, dc.clip);
     if (dc.textAlign & 1) dc.cur = [dc.cur[0] + adv / (kx() || 1), dc.cur[1]];
+  };
+  /** cópia de bits SEM origem: só o pincel (PATCOPY/PATINVERT), preto, branco ou inverter o destino */
+  const patBlt = (rop: number, x0: number, y0: number, x1: number, y1: number): void => {
+    const r3 = (rop >>> 16) & 0xff, b = brushNow();
+    if (r3 === 0x5a && b.style !== 1 && xorRect(ctx, b.color, x0, y0, x1, y1, dc.clip.length > 0)) return;
+    const mix = r3 === 0x00 ? { color: '#000000' } : r3 === 0xff ? { color: '#ffffff' } : r3 === 0x55 ? { color: '#ffffff', op: 'difference' as const }
+      : b.style === 1 ? undefined : r3 === 0xf0 ? { color: b.color } : r3 === 0x5a ? { color: b.color, op: 'difference' as const } : undefined;
+    if (!mix) return;
+    withClip(ctx, dc.clip, () => {
+      ctx.save();
+      if ('op' in mix && mix.op) ctx.globalCompositeOperation = mix.op;
+      ctx.fillStyle = mix.color;
+      ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+      ctx.restore();
+    });
   };
   const dibAt = (o: number, end: number): { img: ImageData | undefined } => {
     // DIB empacotado: BITMAPINFOHEADER + paleta + bits
@@ -1273,7 +1561,7 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
       case 0x02fb: { // CREATEFONTINDIRECT
         let face = '';
         for (let k = p + 18; k < Math.min(p + 50, end) && bytes[k]; k++) face += String.fromCharCode(bytes[k]!);
-        add({ kind: 'font', font: { height: i16(p), escapement: i16(p + 4), weight: i16(p + 8), italic: bytes[p + 10] !== 0, underline: bytes[p + 11] !== 0, strike: bytes[p + 12] !== 0, charset: bytes[p + 13]!, face } });
+        add({ kind: 'font', font: { height: i16(p), escapement: i16(p + 4), weight: i16(p + 8), italic: bytes[p + 10] !== 0, underline: bytes[p + 11] !== 0, strike: bytes[p + 12] !== 0, charset: bytes[p + 13]!, pitchFamily: bytes[p + 17]!, face } });
         break;
       }
       case 0x0142: { // DIBCREATEPATTERNBRUSH: style, usage, DIB — a cor MÉDIA do padrão (meio-tom do app)
@@ -1331,6 +1619,17 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
         break;
       }
       case 0x0416: dc.clip = [...dc.clip, rectCmds(i16(p + 6), i16(p + 4), i16(p + 2), i16(p))]; break; // INTERSECTCLIPRECT (b, r, t, l)
+      case 0x0415: { // EXCLUDECLIPRECT (b, r, t, l): tira o retângulo da região de recorte
+        const l = i16(p + 6), t = i16(p + 4), rr = i16(p + 2), b = i16(p);
+        dc.clip = excludeClip(dc.clip, [P(l, t), P(rr, t), P(rr, b), P(l, b)]);
+        break;
+      }
+      case 0x0104: dc.rop2 = u16(p); break; // SETROP2
+      case 0x041f: { // SETPIXEL: cor, y, x — um pixel (≥ 1 px de saída)
+        const [x0, y0] = P(i16(p + 6), i16(p + 4));
+        withClip(ctx, dc.clip, () => { ctx.fillStyle = hex(u32(p)); ctx.fillRect(x0, y0, Math.max(1, kx()), Math.max(1, ky())); });
+        break;
+      }
       case 0x012c: dc.clip = []; break; // SELECTCLIPREGION (sem região = sem recorte)
       case 0x0521: { // TEXTOUT: n, cadeia (par), y, x
         const n = i16(p), o = p + 2 + ((n + 1) & ~1);
@@ -1347,43 +1646,34 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
         text(i16(p + 2), i16(p), bytes.subarray(so, so + n), hasDx ? (k) => i16(dxo + 2 * k) : null, opaque);
         break;
       }
-      case 0x0b41: { // DIBSTRETCHBLT: rop(4), srcH, srcW, ySrc, xSrc, destH, destW, yDst, xDst, DIB
-        const rop = u32(p);
+      case 0x0b41: { // DIBSTRETCHBLT: rop(4), srcH, srcW, ySrc, xSrc, [reservado se sem DIB], destH, destW, yDst, xDst, DIB
+        // sem bitmap (tamanho = (função >> 8) + 3 palavras) há um campo reservado depois de xSrc
+        const rop = u32(p), withDib = size > 28, q = withDib ? p : p + 2;
         const sh = i16(p + 4), sw = i16(p + 6), ys = i16(p + 8), xs = i16(p + 10);
-        const dh = i16(p + 12), dw = i16(p + 14), yd = i16(p + 16), xd = i16(p + 18);
+        const dh = i16(q + 12), dw = i16(q + 14), yd = i16(q + 16), xd = i16(q + 18);
         const [x0, y0] = P(xd, yd), [x1, y1] = P(xd + dw, yd + dh);
-        if (size > 26) {
+        if (withDib) {
           const { img } = dibAt(p + 20, end);
           const bottomSrc = img ? img.height - ys - sh : ys;
           blitDib(ctx, img, rop, x0, y0, x1, y1, dc.clip, xs, bottomSrc, sw, sh);
-        } else {
-          const r3 = (rop >>> 16) & 0xff;
-          const color = r3 === 0x00 ? '#000000' : r3 === 0xff ? '#ffffff' : r3 === 0xf0 ? dc.brush.color : undefined;
-          if (color) withClip(ctx, dc.clip, () => { ctx.fillStyle = color; ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0)); });
-        }
+        } else patBlt(rop, x0, y0, x1, y1);
         break;
       }
-      case 0x0940: { // DIBBITBLT: rop(4), ySrc, xSrc, height, width, yDst, xDst, DIB
-        const rop = u32(p);
-        const ys = i16(p + 4), xs = i16(p + 6), hh = i16(p + 8), ww = i16(p + 10), yd = i16(p + 12), xd = i16(p + 14);
+      case 0x0940: { // DIBBITBLT: rop(4), ySrc, xSrc, [reservado se sem DIB], height, width, yDst, xDst, DIB
+        const rop = u32(p), withDib = size > 24, q = withDib ? p : p + 2;
+        const ys = i16(p + 4), xs = i16(p + 6), hh = i16(q + 8), ww = i16(q + 10), yd = i16(q + 12), xd = i16(q + 14);
         const [x0, y0] = P(xd, yd), [x1, y1] = P(xd + ww, yd + hh);
-        if (size > 22) {
+        if (withDib) {
           const { img } = dibAt(p + 16, end);
           blitDib(ctx, img, rop, x0, y0, x1, y1, dc.clip, xs, img ? img.height - ys - hh : ys, ww, hh);
-        } else {
-          const r3 = (rop >>> 16) & 0xff;
-          const color = r3 === 0x00 ? '#000000' : r3 === 0xff ? '#ffffff' : r3 === 0xf0 ? dc.brush.color : undefined;
-          if (color) withClip(ctx, dc.clip, () => { ctx.fillStyle = color; ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0)); });
-        }
+        } else patBlt(rop, x0, y0, x1, y1);
         break;
       }
       case 0x061d: { // PATBLT: rop(4), height, width, yLeft, xLeft — pincel/preto/branco no retângulo
         const rop = u32(p);
         const hh = i16(p + 4), ww = i16(p + 6), yd = i16(p + 8), xd = i16(p + 10);
         const [x0, y0] = P(xd, yd), [x1, y1] = P(xd + ww, yd + hh);
-        const r3 = (rop >>> 16) & 0xff;
-        const color = r3 === 0x00 ? '#000000' : r3 === 0xff ? '#ffffff' : r3 === 0xf0 && dc.brush.style !== 1 ? dc.brush.color : undefined;
-        if (color) withClip(ctx, dc.clip, () => { ctx.fillStyle = color; ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0)); });
+        patBlt(rop, x0, y0, x1, y1);
         break;
       }
       case 0x0f43: { // STRETCHDIB: rop(4), usage, srcH, srcW, ySrc, xSrc, destH, destW, yDst, xDst, DIB

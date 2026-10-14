@@ -18,6 +18,7 @@ import { DEFAULT_SCHEME, type ConvCtx, type PartCtx } from './context.js';
 import { el, escText, escAttr, XML_DECL, NS } from './xmlw.js';
 import { firstChild, parseXml, type XmlElement } from '../xml.js';
 import { PRESET_PATTERNS } from '../patterns.js';
+import { recolorMetafile } from '../metafile.js';
 
 // ───────────────────────────── propriedades ─────────────────────────────
 
@@ -199,6 +200,49 @@ function complexImageRel(pc: PartCtx, p: OAProp): string | undefined {
     path = `ppt/media/image${pc.conv.media.size + cache.size + 1}c.${blip.ext}`;
     cache.set(key, path);
     pc.conv.parts.set(path, blip.bytes);
+    pc.conv.mediaExts.add(blip.ext);
+  }
+  return pc.rels.add('image', '../media/' + path.slice('ppt/media/'.length));
+}
+
+/**
+ * "Recolorir imagem" do PowerPoint 97: o RecolorInfoAtom (0x0FE7) do ClientData
+ * troca cores do METARQUIVO. Entradas de 44 bytes após 12 de cabeçalho (nº de
+ * cores em +2); cada uma: bit 0 = trocada, cor nova (16 bits/canal), índice,
+ * cor original. Índice < 8 = cor do ESQUEMA do slide — a gravada é só o
+ * retrato de quando foi escolhida (gd-084485: preto → texto branco do esquema
+ * atual). A lista de "preenchimentos" não vale por cima (gd-665775: bordas
+ * PATCOPY pretas saem brancas, não na cor de preenchimento gravada).
+ * → rId de uma cópia recolorida da mídia, ou undefined.
+ */
+function recolorRel(sh: OAShape, pc: PartCtx, pib: number): string | undefined {
+  const rec = sh.clientData ? children(sh.clientData).find((c) => c.type === 0x0fe7) : undefined;
+  if (!rec) return undefined;
+  const d = rec.r.sub(rec.start, rec.end);
+  if (d.length < 12) return undefined;
+  const u16 = (o: number): number => d[o]! | (d[o + 1]! << 8);
+  const map = new Map<number, number>();
+  for (let k = 0, nG = u16(2); k < nG && 12 + k * 44 + 18 <= d.length; k++) {
+    const o = 12 + k * 44;
+    if (!(u16(o) & 1)) continue;
+    const idx = u16(o + 8);
+    const from = d[o + 13]! | (d[o + 15]! << 8) | (d[o + 17]! << 16);
+    let to = d[o + 3]! | (d[o + 5]! << 8) | (d[o + 7]! << 16);
+    const sch = idx < 8 ? pc.scheme[idx] ?? DEFAULT_SCHEME[idx] : undefined;
+    if (sch) { const v = parseInt(sch, 16); to = ((v >> 16) & 0xff) | (v & 0xff00) | ((v & 0xff) << 16); }
+    if (to !== from) map.set(from, to);
+  }
+  const blip = map.size ? pc.conv.doc.blip(pib) : undefined;
+  if (!blip || (blip.ext !== 'emf' && blip.ext !== 'wmf')) return undefined;
+  const cache = ((pc.conv as unknown as { recolorMedia?: Map<string, string> }).recolorMedia ??= new Map());
+  const key = `${pib}:${[...map].join(';')}`;
+  let path = cache.get(key);
+  if (!path) {
+    const bytes = recolorMetafile(blip.bytes, map);
+    if (!bytes) return undefined;
+    path = `ppt/media/image${cache.size + 1}r.${blip.ext}`;
+    cache.set(key, path);
+    pc.conv.parts.set(path, bytes);
     pc.conv.mediaExts.add(blip.ext);
   }
   return pc.rels.add('image', '../media/' + path.slice('ppt/media/'.length));
@@ -901,7 +945,7 @@ export function shapeXml(sh: OAShape, pc: PartCtx, opts: ShapeOpts = {}): string
 
   // imagem (PictureFrame ou qualquer forma com pib)
   if (pib) {
-    const rid = imageRel(pc, pib);
+    const rid = recolorRel(sh, pc, pib) ?? imageRel(pc, pib);
     if (rid) {
       const v = visualParts(sh, pc, xf, 'pic', inGroup);
       const crop = (pid: number): number => Math.round(fixed(prop(sh, pid)) * 100000);
