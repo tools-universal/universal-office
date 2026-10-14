@@ -918,7 +918,7 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
   if (ole) {
     // mc:Choice sem prévia (só <p:embed/>): a <p:pic> do mc:Fallback vale (lo-tdf143222)
     const pic = descend(ole, 'p:pic') ?? descend(data, 'p:pic');
-    const img = pic ? readPic(pic, theme, pkg, rels).image : olePreviewFromVml(ole.attrs['spid'], pkg, rels, theme);
+    const img = pic ? readPic(pic, theme, pkg, rels).image : olePreviewFromVml(ole.attrs['spid'], pkg, rels, theme, shape);
     if (img) shape.image = img;
   }
   // tabela
@@ -941,7 +941,7 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
  * = spid no `vmlDrawing` do slide traz `<v:imagedata o:relid>` (EMF/WMF/PNG).
  * O VML legado nem sempre é XML bem-formado — busca por texto.
  */
-function olePreviewFromVml(spid: string | undefined, pkg: PptxPackage, rels: Map<string, string>, theme: Theme): ImageRef | undefined {
+function olePreviewFromVml(spid: string | undefined, pkg: PptxPackage, rels: Map<string, string>, theme: Theme, shape?: Shape): ImageRef | undefined {
   if (!spid) return undefined;
   for (const target of rels.values()) {
     if (!/vmlDrawing\d*\.vml$/i.test(target)) continue;
@@ -950,13 +950,44 @@ function olePreviewFromVml(spid: string | undefined, pkg: PptxPackage, rels: Map
     const at = vml.search(new RegExp(`<v:shape\\b[^>]*\\b(?:id|o:spid)="${spid.replace(/[^\w]/g, '')}"`));
     if (at < 0) continue;
     const end = vml.indexOf('</v:shape>', at);
-    const m = /<v:imagedata\b[^>]*\b(?:o:relid|r:id)="([^"]+)"/.exec(vml.slice(at, end < 0 ? undefined : end));
+    const block = vml.slice(at, end < 0 ? undefined : end);
+    const m = /<v:imagedata\b[^>]*\b(?:o:relid|r:id)="([^"]+)"/.exec(block);
     if (!m) continue;
+    // preenchimento/contorno da moldura VML (filled="t" fillcolor…, stroked="t" strokecolor…):
+    // o app pinta atrás da prévia (gdx-320163: equação com fundo amarelo e borda)
+    if (shape) {
+      const tag = /<v:shape\b[^>]*>/.exec(block)?.[0] ?? '';
+      const attr = (n: string): string | undefined => new RegExp(`\\b${n}="([^"]*)"`).exec(tag)?.[1];
+      const fc = attr('filled') === 't' ? vmlColor(attr('fillcolor')) : undefined;
+      if (fc && !shape.fill) shape.fill = { type: 'solid', color: fc };
+      const sc = attr('stroked') === 't' ? vmlColor(attr('strokecolor') ?? 'black') : undefined;
+      if (sc && shape.lineColor === undefined) {
+        shape.lineColor = sc;
+        const sw = /^([\d.]+)pt$/.exec(attr('strokeweight') ?? '');
+        shape.lineWidth = Math.round((sw ? parseFloat(sw[1]!) : 0.75) * 12700);
+      }
+    }
     const vrels = readRels(pkg, relsPathFor(target), target);
     const img = resolveBlip({ name: 'a:blip', attrs: { 'r:embed': m[1]! }, children: [] }, pkg, vrels, theme);
     if (img) return img;
   }
   return undefined;
+}
+
+/** Cor VML ("#e4e838", "#3cf", "black [3]", "white"…) → #RRGGBB. */
+function vmlColor(v: string | undefined): string | undefined {
+  if (!v) return undefined;
+  const c = v.replace(/\s*\[\d+\]\s*$/, '').trim().toLowerCase();
+  const m6 = /^#([0-9a-f]{6})$/.exec(c);
+  if (m6) return '#' + m6[1]!.toUpperCase();
+  const m3 = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(c);
+  if (m3) return ('#' + m3[1] + m3[1] + m3[2] + m3[2] + m3[3] + m3[3]).toUpperCase();
+  const named: Record<string, string> = {
+    black: '#000000', white: '#FFFFFF', red: '#FF0000', green: '#008000', blue: '#0000FF', yellow: '#FFFF00',
+    gray: '#808080', silver: '#C0C0C0', navy: '#000080', maroon: '#800000', olive: '#808000', purple: '#800080',
+    teal: '#008080', aqua: '#00FFFF', fuchsia: '#FF00FF', lime: '#00FF00',
+  };
+  return named[c];
 }
 
 /**
