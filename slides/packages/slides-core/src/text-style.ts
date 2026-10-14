@@ -1,4 +1,4 @@
-import { childElements, firstChild, type XmlElement } from './xml.js';
+import { childElements, firstChild, lastChild, type XmlElement } from './xml.js';
 import { colorFromDml, textFillColor } from './theme.js';
 import type { Theme, TextBody, Shape, ImageRef } from './model.js';
 
@@ -169,7 +169,7 @@ export function parsePPrLevel(pPr: XmlElement, theme: Theme, blip?: BlipResolver
       if (colorEl) {
         const c = colorFromDml(colorEl, theme);
         if (c) color = c;
-        const aEl = firstChild(colorEl, 'a:alpha');
+        const aEl = lastChild(colorEl, 'a:alpha');
         if (aEl?.attrs['val']) alpha = parseInt(aEl.attrs['val'], 10) / 100000;
       }
       lvl.shadow = {

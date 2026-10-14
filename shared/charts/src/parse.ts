@@ -24,7 +24,8 @@ function colorChild(el: XmlNode | undefined): XmlNode | undefined {
 }
 
 function alphaOf(clr: XmlNode | undefined): number | undefined {
-  const a = clr ? firstChild(clr, 'a:alpha')?.attrs['val'] : undefined;
+  // <a:alpha> repetido: o PowerPoint usa o ÚLTIMO (medido)
+  const a = clr ? childElements(clr, 'a:alpha').pop()?.attrs['val'] : undefined;
   return a !== undefined ? Math.max(0, Math.min(1, parseInt(a, 10) / 100000)) : undefined;
 }
 

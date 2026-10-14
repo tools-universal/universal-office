@@ -102,6 +102,18 @@ export function firstChild(el: XmlElement, name: string): XmlElement | undefined
   return childElements(el, name)[0];
 }
 
+/** Último filho com o nome dado (ex.: `<a:alpha>` repetido — o PowerPoint usa o último). */
+export function lastChild(el: XmlElement, name: string): XmlElement | undefined {
+  const l = childElements(el, name);
+  return l[l.length - 1];
+}
+
+/** `<a:alpha>` da cor de um preenchimento (`<a:solidFill><a:srgbClr><a:alpha/>`): o ÚLTIMO vale (medido). */
+export function fillAlphaEl(fill: XmlElement): XmlElement | undefined {
+  const c = childElements(fill)[0];
+  return c ? lastChild(c, 'a:alpha') : undefined;
+}
+
 /** Busca o primeiro descendente (qualquer profundidade) com o nome dado. */
 export function descend(el: XmlElement, name: string): XmlElement | undefined {
   for (const c of el.children) {

@@ -1579,7 +1579,7 @@ function makeLinearGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number
     if (pat) return pat as unknown as CanvasGradient;
     const cx = x + w / 2, cy = y + h / 2;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) / 2);
-    addLinearSpaceStops(g, fill.stops ?? []);
+    addGradientStops(g, fill.stops ?? [], true);
     return g;
   }
   const ang = (fill.angleDeg ?? 0) * Math.PI / 180;
@@ -1596,7 +1596,7 @@ function makeLinearGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number
   const cx = x + w / 2, cy = y + h / 2;
   const half = (Math.abs(dx) * w + Math.abs(dy) * h) / 2;
   const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
-  addLinearSpaceStops(g, fill.stops ?? []);
+  addGradientStops(g, fill.stops ?? [], false);
   return g;
 }
 
@@ -1635,11 +1635,14 @@ const pathGradCache = new Map<string, PaintImage>();
 
 /**
  * Gradiente de CAMINHO (`<a:path path="circle|rect|shape">` + `fillToRect`),
- * como o app de referência (medido): pos 0 no retângulo de FOCO, pos 1 na
- * borda; `circle` = círculo (não elipse) com raio até o canto mais distante;
- * `rect`/`shape` = contornos retangulares, t = max(dx, dy) normalizados pela
- * distância do foco à borda de cada lado. Rasterizado numa grade pequena
- * (cores suaves) em RGB linear e esticado como padrão.
+ * como o app de referência (medido, decks syn-pathinv/syn-gradmode): o
+ * retângulo de foco com lado invertido (l + r > 100%) colapsa no l/t;
+ * `circle` = o círculo CIRCUNSCRITO à forma (centro da forma, raio = meia
+ * diagonal) encolhido em direção ao PONTO central do foco — o anel t é o
+ * círculo de centro F + t·(C − F) e raio t·R; `rect`/`shape` = contornos
+ * retangulares, t = max(dx, dy) normalizados pela distância do retângulo de
+ * foco à borda de cada lado. Rasterizado numa grade pequena (cores suaves) e
+ * esticado como padrão.
  */
 function pathGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number, y: number, w: number, h: number): CanvasPattern | null {
   const stops = (fill.stops ?? []).map((s) => ({ pos: Math.max(0, Math.min(1, s.pos)), rgb: hexRgb(s.color), a: s.alpha ?? 1 }));
@@ -1655,17 +1658,24 @@ function pathGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number, y: n
     const c2 = cv?.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null | undefined;
     if (!cv || !c2) return null;
     const id = c2.createImageData(gw, gh);
-    const fl = ft.l * gw, fr = gw - ft.r * gw, fT = ft.t * gh, fb = gh - ft.b * gh;
+    const fl = ft.l * gw, fT = ft.t * gh;
+    const fr = Math.max(fl, gw - ft.r * gw), fb = Math.max(fT, gh - ft.b * gh);
     const circle = fill.path === 'circle';
-    // raio do círculo: do foco ao canto mais distante
-    const dRect = (px: number, py: number): number => Math.hypot(Math.max(fl - px, 0, px - fr), Math.max(fT - py, 0, py - fb));
-    const rMax = Math.max(dRect(0, 0), dRect(gw, 0), dRect(0, gh), dRect(gw, gh)) || 1;
+    // círculo: foco F (ponto), centro C, raio R; |P − F − t(C − F)| = t·R → 2º grau em t
+    const Fx = (fl + fr) / 2, Fy = (fT + fb) / 2, Ex = gw / 2 - Fx, Ey = gh / 2 - Fy;
+    const R = Math.hypot(gw, gh) / 2, qa = R * R - Ex * Ex - Ey * Ey;
+    const tCircle = (px: number, py: number): number => {
+      const dx = px - Fx, dy = py - Fy, bq = dx * Ex + dy * Ey, c = dx * dx + dy * dy;
+      if (qa > 1e-9) return (-bq + Math.sqrt(Math.max(0, bq * bq + qa * c))) / qa;
+      return bq > 0 ? c / (2 * bq) : 1;
+    };
     const lin = (v: number): number => Math.pow(v / 255, 2.2);
     const srgb = (v: number): number => Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255;
+    const mode = gradMode(fill.stops ?? []);
     for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
       const px = i + 0.5, py = j + 0.5;
       let t: number;
-      if (circle) t = dRect(px, py) / rMax;
+      if (circle) t = tCircle(px, py);
       else {
         const tx = px < fl ? (fl - px) / (fl || 1) : px > fr ? (px - fr) / ((gw - fr) || 1) : 0;
         const ty = py < fT ? (fT - py) / (fT || 1) : py > fb ? (py - fb) / ((gh - fb) || 1) : 0;
@@ -1674,9 +1684,14 @@ function pathGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number, y: n
       t = Math.max(0, Math.min(1, t));
       let a = stops[0]!, b = stops[stops.length - 1]!;
       for (let s = 0; s + 1 < stops.length; s++) if (t >= stops[s]!.pos && t <= stops[s + 1]!.pos) { a = stops[s]!; b = stops[s + 1]!; break; }
-      const u = t <= a.pos ? 0 : t >= b.pos ? 1 : (t - a.pos) / ((b.pos - a.pos) || 1);
+      let u = t <= a.pos ? 0 : t >= b.pos ? 1 : (t - a.pos) / ((b.pos - a.pos) || 1);
       const o = (j * gw + i) * 4;
-      for (let c = 0; c < 3; c++) id.data[o + c] = srgb(lin(a.rgb[c]!) * (1 - u) + lin(b.rgb[c]!) * u);
+      // caminho: 2 stops = sigma em luz linear; 3 simétricos = luz linear SEM sigma; resto = sRGB
+      if (mode === 'srgb') for (let c = 0; c < 3; c++) id.data[o + c] = a.rgb[c]! * (1 - u) + b.rgb[c]! * u;
+      else {
+        if (mode === 'sigma') u = sigmaT(u);
+        for (let c = 0; c < 3; c++) id.data[o + c] = srgb(lin(a.rgb[c]!) * (1 - u) + lin(b.rgb[c]!) * u);
+      }
       id.data[o + 3] = Math.round((a.a * (1 - u) + b.a * u) * 255);
     }
     c2.putImageData(id, 0, 0);
@@ -1693,13 +1708,44 @@ function pathGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number, y: n
 }
 
 /**
- * Adiciona os stops com SUBSTOPS interpolados em RGB LINEAR (gamma) — o app de
- * referência interpola em linear; o canvas interpola em sRGB (meio mais escuro).
+ * Como o PowerPoint interpola um degradê (medido, decks syn-gradmode*): ele
+ * reconstrói o preenchimento "de 2 cores" do formato binário quando dá —
+ *  - 2 stops em 0 e 100%: luz LINEAR (γ 2,2) com curva SIGMA (normal, σ = 0,25);
+ *  - 3 stops com as pontas iguais (0/100%) — o "foco" do .ppt: linear → sigma
+ *    em cada metade; caminho (path) → luz linear sem sigma;
+ *  - o resto (stops em outras posições, 4+, pontas diferentes): sRGB direto.
  */
-function addLinearSpaceStops(g: CanvasGradient, rawStops: { pos: number; color: string; alpha?: number }[]): void {
+type GradMode = 'sigma' | 'sym' | 'srgb';
+function gradMode(stops: readonly { pos: number; color: string; alpha?: number }[]): GradMode {
+  const n = stops.length;
+  if (n < 2 || stops[0]!.pos > 0 || stops[n - 1]!.pos < 1) return 'srgb';
+  if (n === 2) return 'sigma';
+  if (n === 3 && stops[0]!.color.toLowerCase() === stops[2]!.color.toLowerCase() && (stops[0]!.alpha ?? 1) === (stops[2]!.alpha ?? 1)) return 'sym';
+  return 'srgb';
+}
+
+/** Φ (CDF normal) — aproximação de Abramowitz-Stegun via erf. */
+function normCdf(z: number): number {
+  const x = Math.abs(z) / Math.SQRT2, t = 1 / (1 + 0.3275911 * x);
+  const e = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return z >= 0 ? (1 + e) / 2 : (1 - e) / 2;
+}
+const SIGMA0 = normCdf(-2);
+/** Curva sigma do degradê de 2 cores (σ = 0,25, normalizada para 0..1). */
+function sigmaT(u: number): number {
+  return (normCdf((u - 0.5) / 0.25) - SIGMA0) / (1 - 2 * SIGMA0);
+}
+
+/**
+ * Adiciona os stops ao CanvasGradient conforme o modo do PowerPoint: sRGB
+ * direto (o próprio canvas) ou SUBSTOPS em luz linear, com a curva sigma.
+ */
+function addGradientStops(g: CanvasGradient, rawStops: { pos: number; color: string; alpha?: number }[], path: boolean): void {
   const stops = rawStops.map((s) => ({
     pos: Math.max(0, Math.min(1, s.pos)), color: s.color, alpha: s.alpha ?? 1,
   }));
+  const mode = gradMode(rawStops);
+  const sig = mode === 'sigma' || (mode === 'sym' && !path);
   const rgba = (hex: string, a: number): string => {
     if (a >= 1) return hex;
     const n = parseInt(hex.replace('#', ''), 16);
@@ -1709,11 +1755,12 @@ function addLinearSpaceStops(g: CanvasGradient, rawStops: { pos: number; color: 
     const s = stops[i]!;
     g.addColorStop(s.pos, rgba(s.color, s.alpha));
     const nx = stops[i + 1];
-    if (!nx || nx.pos - s.pos < 0.05) continue;
-    for (let k = 1; k < 8; k++) {
-      const f = k / 8;
-      const a = s.alpha + (nx.alpha - s.alpha) * f;
-      g.addColorStop(s.pos + (nx.pos - s.pos) * f, rgba(mixLinearRgb(s.color, nx.color, f), a));
+    if (mode === 'srgb' || !nx || nx.pos - s.pos < 0.05) continue;
+    const N = sig ? 24 : 8;
+    for (let k = 1; k < N; k++) {
+      const f = k / N, t = sig ? sigmaT(f) : f;
+      const a = s.alpha + (nx.alpha - s.alpha) * t;
+      g.addColorStop(s.pos + (nx.pos - s.pos) * f, rgba(mixLinearRgb(s.color, nx.color, t), a));
     }
   }
 }

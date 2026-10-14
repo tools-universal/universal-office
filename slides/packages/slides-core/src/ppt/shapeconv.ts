@@ -227,6 +227,10 @@ function gradientStops(sh: OAShape, pc: PartCtx, fill: string, back: string, fil
     stops = [...a.map((x) => ({ ...x, pos: x.pos * F })), ...rev(a).map((x) => ({ ...x, pos: F + x.pos * (1 - F) }))];
   }
   stops.sort((x, y) => x.pos - y.pos);
+  // espelho de 2 cores: o PowerPoint grava f/b/b/f, mas no .ppt ele desenha o
+  // degradê "de 2 cores com foco" (curva sigma em cada metade) — o que no .pptx
+  // só sai com 3 stops de pontas iguais (medido, syn-gradmode2); 4 stops = sRGB
+  stops = stops.filter((st, i) => i === 0 || st.pos !== stops[i - 1]!.pos || st.color !== stops[i - 1]!.color || st.alpha !== stops[i - 1]!.alpha);
   return el('a:gsLst', {}, stops.map((st) =>
     el('a:gs', { pos: Math.round(Math.max(0, Math.min(1, st.pos)) * 100000) }, srgb(st.color, st.alpha))).join(''));
 }

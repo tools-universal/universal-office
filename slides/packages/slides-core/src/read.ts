@@ -1,4 +1,4 @@
-import { parseXml, childElements, firstChild, textContent, descend, type XmlElement } from './xml.js';
+import { parseXml, childElements, firstChild, lastChild, fillAlphaEl, textContent, descend, type XmlElement } from './xml.js';
 import type { PathSeg } from './geometry.js';
 import { readTheme, colorFromDml, solidFillColor, applyClrMap, clrMapAttrs, textFillColor } from './theme.js';
 import { patternDensity } from './patterns.js';
@@ -683,7 +683,7 @@ function groupFill(grpSpPr: XmlElement, theme: Theme): { fill: Fill; alpha?: num
     const c = colorFromDml(childElements(sf)[0], theme);
     if (!c) return undefined;
     const out: { fill: Fill; alpha?: number } = { fill: { type: 'solid', color: c } };
-    const a = descend(sf, 'a:alpha')?.attrs['val'];
+    const a = fillAlphaEl(sf)?.attrs['val'];
     if (a) out.alpha = parseInt(a, 10) / 100000;
     return out;
   }
@@ -1008,7 +1008,7 @@ function readTable(tbl: XmlElement, theme: Theme): Table {
         if (fill) cell.fill = fill;
         // alfa do fill da célula (tabelas translúcidas de template)
         const sfEl = firstChild(tcPr, 'a:solidFill');
-        const aEl = sfEl ? descend(sfEl, 'a:alpha') : undefined;
+        const aEl = sfEl ? fillAlphaEl(sfEl) : undefined;
         if (aEl?.attrs['val']) cell.fillAlpha = parseInt(aEl.attrs['val'], 10) / 100000;
         // bordas POR LADO (o app de referência trata cada lado independente)
         const sides: [keyof NonNullable<TableCell['borders']>, string][] =
@@ -1107,7 +1107,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
     // alpha do fill: <a:solidFill><a:srgbClr><a:alpha val=60000/></a:srgbClr></a:solidFill>
     const sf = firstChild(spPr, 'a:solidFill');
     if (sf) {
-      const alphaEl = descend(sf, 'a:alpha');
+      const alphaEl = fillAlphaEl(sf);
       if (alphaEl?.attrs['val']) shape.fillAlpha = parseInt(alphaEl.attrs['val'], 10) / 100000;
     }
     const ln = firstChild(spPr, 'a:ln');
@@ -1344,7 +1344,7 @@ function parseGradFill(grad: XmlElement, theme: Theme): { type: 'gradient'; stop
     if (!color) continue;
     const stop: GradientStop = { pos: Math.max(0, Math.min(1, pos)), color };
     // alfa por stop (overlays de template usam transparente→escuro)
-    const alphaEl = colorEl ? firstChild(colorEl, 'a:alpha') : undefined;
+    const alphaEl = colorEl ? lastChild(colorEl, 'a:alpha') : undefined;
     if (alphaEl?.attrs['val']) stop.alpha = parseInt(alphaEl.attrs['val'], 10) / 100000;
     stops.push(stop);
   }
@@ -1540,7 +1540,7 @@ function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>): Run {
       if (colorEl) {
         const c = colorFromDml(colorEl, theme);
         if (c) color = c;
-        const aEl = firstChild(colorEl, 'a:alpha');
+        const aEl = lastChild(colorEl, 'a:alpha');
         if (aEl?.attrs['val']) alpha = parseInt(aEl.attrs['val'], 10) / 100000;
       }
       run.shadow = { color, blurRad, dist, dirDeg, alpha };
@@ -1645,7 +1645,7 @@ function readEffects(spPr: XmlElement | undefined, styleEl: XmlElement | undefin
   const num = (e: XmlElement, k: string, d = 0) => (e.attrs[k] !== undefined ? parseInt(e.attrs[k]!, 10) : d);
   const colorOf = (e: XmlElement, defAlpha = 1): { color: string; alpha: number } => {
     const c = childElements(e)[0];
-    const a = c ? firstChild(c, 'a:alpha')?.attrs['val'] : undefined;
+    const a = c ? lastChild(c, 'a:alpha')?.attrs['val'] : undefined;
     return { color: (c ? colorFromDml(c, th) : undefined) ?? '#000000', alpha: a !== undefined ? parseInt(a, 10) / 100000 : defAlpha };
   };
   // sombra predefinida (prstShdw) ≈ externa sem desfoque
@@ -1772,7 +1772,7 @@ function readImageFx(blip: XmlElement, theme: Theme): ImageFx | undefined {
         const toEl = to ? childElements(to)[0] : undefined;
         const tc = colorFromDml(toEl, theme);
         if (fc && tc) {
-          const a = toEl ? firstChild(toEl, 'a:alpha')?.attrs['val'] : undefined;
+          const a = toEl ? lastChild(toEl, 'a:alpha')?.attrs['val'] : undefined;
           fx.clrChange = { from: fc, to: tc, toAlpha: a !== undefined ? parseInt(a, 10) / 100000 : 1 };
         }
         break;
