@@ -273,6 +273,8 @@ interface PNode {
   v: Record<string, number>;
   /** valores impostos por restrições for="des" de ancestrais (sobrevivem à reavaliação do pai) */
   desV: Record<string, number>;
+  /** restrição que impôs cada valor de desV (o lin do pai encolhe os referidos a tamanho) */
+  desC?: Record<string, Constr>;
   /** valores decididos pelas REGRAS (fonte reduzida, altura crescida): vencem as restrições */
   ov: Record<string, number>;
   /** tipos com valor imposto por ancestral nesta avaliação */
@@ -289,6 +291,8 @@ interface PNode {
   preplaced?: boolean;
   /** ajustes da geometria decididos pelo algoritmo (inclinação do trapézio da pirâmide) */
   adjOv?: [string, number][];
+  /** fonte máxima da restrição, antes das regras (as passadas de regra partem dela) */
+  fmax0?: number;
   /** tetos de fonte vindos de ancestrais (for="des") */
   desLte?: Record<string, [PNode, string, number]>;
   /** ciclo: centro/raio do círculo (absolutos) e sentido */
@@ -296,7 +300,7 @@ interface PNode {
   /** parágrafos do texto (cache) */
   paras?: TextPara[];
   /** margens proporcionais à fonte (fração de primFontSz/secFontSz) */
-  margF: Record<string, [number, string]>;
+  margF: Record<string, [number, string, PNode?]>;
   /** grupos de igualdade (op="equ") por tipo */
   equ: Record<string, string>;
   /** limites (op="lte"/"gte") por tipo: [refNode, refType, fact] */
@@ -547,7 +551,13 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
     const targets = select(owner, c.for, c.forName, c.ptType);
     for (const t of targets) {
       // margem proporcional à fonte: resolvida depois do ajuste do texto
-      if (MARG.has(c.type) && FONT.has(c.refType)) { t.margF[c.type] = [Number.isFinite(c.fact) ? c.fact : 1, c.refType]; continue; }
+      if (MARG.has(c.type) && FONT.has(c.refType)) {
+        // referida à fonte de OUTRO nó (tMarg do childText = 1,64 × fonte do parentText
+        // no list1): vale a variável dele, não o tamanho personalizado do texto (custT)
+        const r = c.refFor && c.refFor !== 'self' ? refNode(owner, c, t) : undefined;
+        t.margF[c.type] = [Number.isFinite(c.fact) ? c.fact : 1, c.refType, r && r !== t ? r : undefined];
+        continue;
+      }
       // valor decidido pelas regras (fonte reduzida, altura crescida) vence a restrição
       if (t.ov[c.type] !== undefined || t.gw?.[c.type] !== undefined) { if (c.op === 'equ') t.equ[c.type] = `${owner.uid}:${c.type}:${c.forName ?? ''}:${c.ptType ?? ''}`; continue; }
       let value: number | undefined;
@@ -598,7 +608,7 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
       }
       if (c.op === 'equ') t.equ[c.type] = `${owner.uid}:${c.type}:${c.forName ?? ''}:${c.ptType ?? ''}`;
       t.v[c.type] = value;
-      if (c.for === 'des') t.desV[c.type] = value;
+      if (c.for === 'des') { t.desV[c.type] = value; (t.desC ??= {})[c.type] = c; }
       // valor ligado a outro do MESMO nó com igualdade (h = w): tetos mantêm a proporção
       if (c.op === 'equ' && ref === t && LEN.has(c.refType)) (t.link ??= {})[c.type] = [c.refType, Number.isFinite(c.fact) ? c.fact : 1];
     }
@@ -614,7 +624,17 @@ function refNode(owner: PNode, c: Constr, target: PNode): PNode | undefined {
 /** Restrições do dono + as "self" de cada filho (tamanho ideal dos filhos). */
 function evalKids(n: PNode, scale?: (c: Constr, ref: PNode) => number): void {
   // valores impostos de cima (for="des" de ancestrais) continuam valendo
-  for (const k of n.kids) { k.v = { ...k.desV, ...k.ov, ...k.gw }; k.lte = { ...k.desLte }; k.hi = undefined; k.link = undefined; k.fromParent = new Set(Object.keys(k.desV)); }
+  for (const k of n.kids) {
+    k.v = { ...k.desV, ...k.ov, ...k.gw }; k.lte = { ...k.desLte }; k.hi = undefined; k.link = undefined; k.fromParent = new Set(Object.keys(k.desV));
+    // tamanho imposto por ancestral (h do childNode = h do compChildNode no lProcess2)
+    // encolhe com o lin como os do próprio dono (medido: 3 filhos de 0,65 h → × 0,3022)
+    if (scale && k.desC) {
+      for (const [key, c] of Object.entries(k.desC)) {
+        if (!LEN.has(key) || k.ov[key] !== undefined || k.gw?.[key] !== undefined || k.desV[key] === undefined) continue;
+        if (c.refType === 'w' || c.refType === 'h') k.v[key] = k.desV[key]! * scale(c, n);
+      }
+    }
+  }
   applyConstrs(n, scale);
   for (const k of n.kids) applyConstrs(k, undefined, true);
   // segunda passada: referências do pai a valores que o filho ajustou (teto h ≤ 0,4 w do
@@ -808,8 +828,12 @@ function algLin(n: PNode): void {
   if (s <= 1e-5) { mode = 'main'; s = 1; }
   let { len, sec, lo } = run(s);
   if (Number.isFinite(availS) && sec > availS * 1.0001) {
-    sizes = sizes.map((z) => (horiz ? (z.h > availS ? { ...z, h: availS } : z) : (z.w > availS ? { ...z, w: availS } : z)));
-    sec = availS;
+    // a escala do usuário (custScale) fica fora do corte: o tamanho dado é que é cortado
+    sizes = sizes.map((z, i) => {
+      const cs = custScale(order[i]!, horiz ? 'Y' : 'X');
+      return horiz ? (z.h / cs > availS ? { ...z, h: availS * cs } : z) : (z.w / cs > availS ? { ...z, w: availS * cs } : z);
+    });
+    sec = Math.max(availS, ...sizes.map((z) => (horiz ? z.h : z.w)));
   }
   // a caixa encolhida ao conteúdo mantém o layout interno relativo ao tamanho dado
   order.forEach((k, i) => { k.cw = sizes[i]!.full; });
@@ -1054,15 +1078,78 @@ function layoutNodeAlg(n: PNode, depth: number): void {
   }
   for (const k of n.kids) {
     k.x = n.x + (k.rx ?? 0); k.y = n.y + (k.ry ?? 0); k.w = k.rw ?? n.w; k.h = k.rh ?? n.h;
+    custShift(k, n);
     layoutNode(k, depth + 1);
   }
+}
+
+/** Quadro do diagrama (o deslocamento do usuário não tira a forma dele). */
+let FRAME: { w: number; h: number } | undefined;
+function custFact(k: PNode, name: string): number {
+  const s = k.pres?.prSet?.attrs[name];
+  const v = s !== undefined ? parseInt(s, 10) / 100000 : 0;
+  return Number.isFinite(v) && Math.abs(v) < 1000 ? v : 0;
+}
+/**
+ * Deslocamento do usuário (custLinFactNeighborX/Y): no lin, fração do tamanho do
+ * VIZINHO (o irmão anterior; o primeiro usa o seguinte) no eixo — medido: childText
+ * do list1 × |h do negativeSpace|, childNode do lProcess2 × h do aSpace2; no
+ * composto, do próprio nó (aNode do lProcess2, img do vList4). A forma não sai do
+ * quadro por isso (o aNode de altura total não desce).
+ */
+function custShift(k: PNode, n: PNode): void {
+  const fx = custFact(k, 'custLinFactNeighborX'), fy = custFact(k, 'custLinFactNeighborY');
+  if (!fx && !fy) return;
+  const i = n.kids.indexOf(k);
+  // no composto vale o tamanho do PRÓPRIO nó (img do vList4 quase não anda)
+  const t = algType(n);
+  const nb = t === 'lin' || t === 'snake' ? n.kids[i - 1] ?? n.kids[i + 1] : k;
+  if (!nb) return;
+  const clampD = (p: number, s: number, d: number, L: number | undefined): number => {
+    if (!d || L === undefined) return d;
+    const t = Math.min(Math.max(p + d, Math.min(p, 0)), Math.max(p, L - s));
+    return t - p;
+  };
+  // vizinho sem tamanho no eixo (espaçador do hProcess9 sem h): vale o do pai
+  const dim = (key: 'w' | 'h'): number => {
+    const r = Math.abs((key === 'w' ? nb.rw : nb.rh) ?? 0);
+    return r > 0 || getVal(nb, key) !== undefined ? r : key === 'w' ? n.w : n.h;
+  };
+  if (fx) k.x += clampD(k.x, k.w, fx * dim('w'), FRAME?.w);
+  if (fy) k.y += clampD(k.y, k.h, fy * dim('h'), FRAME?.h);
 }
 
 // ---------------------------------------------------------------------------
 // hierarquia (hierRoot / hierChild): arranjo em unidades ideais, de baixo para
 // cima, depois escala uniforme para caber no nó e centraliza
 // ---------------------------------------------------------------------------
-interface Box { n: PNode; x: number; y: number; w: number; h: number }
+interface Box {
+  n: PNode; x: number; y: number; w: number; h: number;
+  /** caixa do composto (sem a escala do usuário) dentro da caixa arranjada */
+  inner?: { dx: number; dy: number; w: number; h: number };
+}
+/**
+ * Caixa de um nó da hierarquia com a escala do usuário (custScaleX/Y) dos filhos
+ * do composto: o app arranja a caixa ESCALADA (gdx-073128: espaçamento igual entre
+ * caixas de larguras diferentes, topos alinhados) — a envolvente dos filhos.
+ */
+function hierBox(n: PNode, z: { w: number; h: number }): Box {
+  const box: Box = { n, x: 0, y: 0, w: z.w, h: z.h };
+  if (algType(n) !== 'composite' || n.preplaced || !n.kids.some((c) => custScale(c, 'X') !== 1 || custScale(c, 'Y') !== 1)) return box;
+  const keep = { x: n.x, y: n.y, w: n.w, h: n.h, v: n.v };
+  n.x = 0; n.y = 0; n.w = z.w; n.h = z.h; n.v = { ...n.v, w: z.w, h: z.h };
+  let x0 = 0, y0 = 0, x1 = z.w, y1 = z.h;
+  try {
+    algComposite(n);
+    for (const c of n.kids) {
+      if (c.rw === undefined || c.rh === undefined || !Number.isFinite(c.rw) || !Number.isFinite(c.rh) || c.rw <= 0 || c.rh <= 0) continue;
+      x0 = Math.min(x0, c.rx ?? 0); y0 = Math.min(y0, c.ry ?? 0);
+      x1 = Math.max(x1, (c.rx ?? 0) + c.rw); y1 = Math.max(y1, (c.ry ?? 0) + c.rh);
+    }
+  } finally { Object.assign(n, keep); }
+  if (x0 > -1 && y0 > -1 && x1 < z.w + 1 && y1 < z.h + 1) return box;
+  return { n, x: 0, y: 0, w: x1 - x0, h: y1 - y0, inner: { dx: -x0, dy: -y0, w: z.w, h: z.h } };
+}
 interface Arr {
   boxes: Box[];
   /** caixa da raiz do ramo (âncora para centralizar o pai e ligar conectores) */
@@ -1088,7 +1175,7 @@ function arrange(n: PNode, depth: number, parent?: PNode): Arr {
   if (t === 'hierRoot') return arrangeRoot(n, depth);
   if (t === 'hierChild') return arrangeChild(n, depth);
   const z = parent ? kidSize(n, parent) : { w: n.w, h: n.h };
-  const box: Box = { n, x: 0, y: 0, w: z.w, h: z.h };
+  const box = hierBox(n, z);
   return { boxes: [box], anchor: box };
 }
 
@@ -1106,7 +1193,7 @@ function arrangeRoot(hr: PNode, depth: number): Arr {
   if (rootK) {
     const z = kidSize(rootK, hr);
     rootK.w = z.w; rootK.h = z.h;
-    anchor = { n: rootK, x: 0, y: 0, w: z.w, h: z.h };
+    anchor = hierBox(rootK, z);
     boxes.push(anchor);
   }
   // demais nós que não são hierárquicos (conectores ficam para depois)
@@ -1221,6 +1308,9 @@ function layoutHier(top: PNode, depth: number): void {
   for (const b of a.boxes) {
     const n = b.n;
     n.x = ox + (b.x - bb.x) * k; n.y = oy + (b.y - bb.y) * k; n.w = b.w * k; n.h = b.h * k;
+    // composto com filho escalado pelo usuário: o layout interno usa a caixa original
+    // (o filho escalado em volta do centro dela cobre a caixa arranjada)
+    if (b.inner) { n.x += b.inner.dx * k; n.y += b.inner.dy * k; n.w = b.inner.w * k; n.h = b.inner.h * k; }
     layoutNode(n, depth + 1);
   }
 }
@@ -1328,6 +1418,29 @@ function rulesFor(n: PNode): { rules: Rule[]; group?: string } {
   return { rules, group };
 }
 
+const hasFontRule = (rs: Rule[]): boolean => rs.some((r) => FONT.has(r.type));
+/** Até onde uma regra de crescer (h/w) deixa ir a partir de `cur`. */
+function growLimit(r: Rule | undefined, cur: number, hi: number | undefined): number {
+  if (!r) return cur;
+  let L = Number.isFinite(r.fact) ? cur * r.fact : r.val === Infinity ? Infinity : Number.isFinite(r.val) ? Math.max(cur, r.val * EMU_MM) : Infinity;
+  if (Number.isFinite(r.max)) L = Math.min(L, r.max * EMU_MM);
+  if (hi !== undefined) L = Math.min(L, hi); // crescer não passa do teto lte (h ≤ 0,4 w)
+  return Math.max(cur, L);
+}
+/** Menor caixa (até os limites das regras de crescer) em que o texto de m cabe; undefined = não cabe. */
+function needBox(m: PNode, f: number, sec: number, gH?: Rule, gW?: Rule): { w: number; h: number } | undefined {
+  const b = { w: m.w, h: m.h };
+  if (boxFits(m, b.w, b.h, f, sec)) return b;
+  const W = growLimit(gW, b.w, m.hi?.['w']), H = growLimit(gH, b.h, m.hi?.['h']);
+  if (W <= b.w + 1 && H <= b.h + 1) return undefined;
+  const capW = Number.isFinite(W) ? W : b.w * 20, capH = Number.isFinite(H) ? H : b.h * 50 + EMU_PT * 400;
+  if (!boxFits(m, capW, capH, f, sec)) return undefined;
+  let w = b.w, h = b.h;
+  if (capW > b.w + 1) { let lo = b.w, hi = capW; for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (boxFits(m, mid, capH, f, sec)) hi = mid; else lo = mid; } w = hi; }
+  if (capH > b.h + 1) { let lo = b.h, hi = capH; for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (boxFits(m, w, mid, f, sec)) hi = mid; else lo = mid; } h = hi; }
+  return { w, h };
+}
+
 /**
  * Aplica as regras aos nós de texto (por grupo de fonte igual). Devolve true se
  * algum valor mudou (o layout precisa ser refeito com os `ov` novos).
@@ -1344,39 +1457,53 @@ function runTextRules(nodes: PNode[], run: () => void, frameW: number, frameH: n
   const fontDependent = nodes.some((n) => n.constrs.some((c) => LEN.has(c.type) && FONT.has(c.refType)));
   // grupos com regra de fonte de ancestral primeiro (definem a fonte que os outros referem)
   const ordered = [...groups.values()].sort((a, b) => Number(!rulesFor(a[0]!).group) - Number(!rulesFor(b[0]!).group));
-  for (const G of ordered) {
+  // duas passadas: a segunda vê o crescimento decidido para os outros grupos
+  // (o texto do filho que cresce no list1 obriga a fonte do pai a descer mais)
+  const passes = fontDependent && ordered.length > 1 ? [...ordered, ...ordered] : ordered;
+  for (const G of passes) {
     const n0 = G[0]!;
     const rules = rulesFor(n0).rules;
     const growth = rules.some((r) => r.type === 'h' || r.type === 'w');
     if (!growth && !fontDependent) continue; // só fonte: o ajuste final resolve
     const hasPrim = nodeParas(n0).some((p) => p.level === 0);
     const key = hasPrim ? 'primFontSz' : 'secFontSz';
-    const fmax = Math.round(n0.ov[key] ?? (hasPrim ? n0.v['primFontSz'] ?? 65 : n0.v['secFontSz'] ?? n0.v['primFontSz'] ?? 65));
+    // fonte da restrição (antes de qualquer regra) e a atual (2ª passada parte dela)
+    const fNow = Math.round(hasPrim ? n0.v['primFontSz'] ?? 65 : n0.v['secFontSz'] ?? n0.v['primFontSz'] ?? 65);
+    n0.fmax0 ??= fNow;
+    // sem regra de fonte própria a fonte vem de outro nó (já decidida): vale a atual
+    const ownFont = hasFontRule(rules);
+    const fmax = ownFont ? n0.fmax0 : fNow;
+    const fcur = ownFont ? Math.round(n0.ov[key] ?? fmax) : fmax;
     const secOf = (f: number) => (hasPrim ? (n0.v['secFontSz'] !== undefined ? Math.min(f, Math.round(n0.v['secFontSz'])) : Math.round(f * 0.78)) : f);
     interface State { F: number; gH?: Rule; gW?: Rule }
-    const limit = (r: Rule | undefined, cur: number, hi: number | undefined): number => {
-      if (!r) return cur;
-      let L = Number.isFinite(r.fact) ? cur * r.fact : r.val === Infinity ? Infinity : Number.isFinite(r.val) ? Math.max(cur, r.val * EMU_MM) : Infinity;
-      if (Number.isFinite(r.max)) L = Math.min(L, r.max * EMU_MM);
-      if (hi !== undefined) L = Math.min(L, hi); // crescer não passa do teto lte (h ≤ 0,4 w)
-      return Math.max(cur, L);
-    };
-    // menor caixa (até os limites) em que o texto de m cabe; undefined = não cabe
-    const need = (m: PNode, s: State): { w: number; h: number } | undefined => {
-      const f = s.F, b = { w: m.w, h: m.h };
-      if (boxFits(m, b.w, b.h, f, secOf(f))) return b;
-      const W = limit(s.gW, b.w, m.hi?.['w']), H = limit(s.gH, b.h, m.hi?.['h']);
-      if (W <= b.w + 1 && H <= b.h + 1) return undefined;
-      const capW = Number.isFinite(W) ? W : b.w * 20, capH = Number.isFinite(H) ? H : b.h * 50 + EMU_PT * 400;
-      if (!boxFits(m, capW, capH, f, secOf(f))) return undefined;
-      let w = b.w, h = b.h;
-      if (capW > b.w + 1) { let lo = b.w, hi = capW; for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (boxFits(m, mid, capH, f, secOf(f))) hi = mid; else lo = mid; } w = hi; }
-      if (capH > b.h + 1) { let lo = b.h, hi = capH; for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (boxFits(m, w, mid, f, secOf(f))) hi = mid; else lo = mid; } h = hi; }
-      return { w, h };
-    };
+    const need = (m: PNode, s: State) => needBox(m, s.F, secOf(s.F), s.gH, s.gW);
     let useFrame = fontDependent;
     const custom = G.every((m) => allCustom(nodeParas(m)));
     let textOk = false, frameOk = false;
+    // grupos que só CRESCEM (sem regra de fonte própria: o childText do list1 com
+    // h INF): na checagem da moldura crescem junto — a fonte do grupo que manda
+    // desce até o filho crescido caber (medido: list1 custT → primFontSz 14)
+    const followers = fontDependent && hasFontRule(rules)
+      ? ordered.filter((H) => H !== G && !hasFontRule(rulesFor(H[0]!).rules) && rulesFor(H[0]!).rules.some((r) => r.type === 'h' || r.type === 'w')) : [];
+    // devolve false se o texto de algum seguidor não cabe nem crescendo (palavra
+    // mais larga que a caixa no hList1: a fonte do parTx tem de descer)
+    const growFollowers = (): boolean => {
+      let grew = false, ok = true;
+      for (const H of followers) {
+        const fr = rulesFor(H[0]!).rules;
+        const gH = [...fr].reverse().find((r) => r.type === 'h'), gW = [...fr].reverse().find((r) => r.type === 'w');
+        for (const m of H) {
+          if (!nodeParas(m).length || !(m.w > 0) || !(m.h > 0)) continue;
+          const prim = Math.round(m.v['primFontSz'] ?? 65), sec = Math.round(m.v['secFontSz'] ?? prim * 0.78);
+          const z = needBox(m, prim, sec, gH, gW);
+          if (!z) { ok = false; continue; }
+          if (z.h > m.h + 1) { m.ov['h'] = z.h; grew = true; }
+          if (z.w > m.w + 1) { m.ov['w'] = z.w; grew = true; }
+        }
+      }
+      if (grew) run();
+      return ok;
+    };
     // aplica o estado (fonte + crescimento), refaz o layout e diz se tudo cabe
     const apply = (s: State): boolean => {
       for (const m of G) {
@@ -1384,6 +1511,7 @@ function runTextRules(nodes: PNode[], run: () => void, frameW: number, frameH: n
         if (s.F < fmax) { m.ov[key] = s.F; if (!hasPrim) m.ov['primFontSz'] = s.F; }
         else { delete m.ov[key]; if (!hasPrim) delete m.ov['primFontSz']; }
       }
+      for (const H of followers) for (const m of H) { delete m.ov['h']; delete m.ov['w']; }
       run();
       const sizes = G.map((m) => need(m, s));
       textOk = !sizes.some((z) => !z);
@@ -1398,12 +1526,14 @@ function runTextRules(nodes: PNode[], run: () => void, frameW: number, frameH: n
         });
         if (grew) run();
       }
-      frameOk = !useFrame || withinFrame(nodes, frameW, frameH);
+      const followOk = useFrame && followers.length ? growFollowers() : true;
+      frameOk = followOk && (!useFrame || withinFrame(nodes, frameW, frameH));
       if ((globalThis as { __dgmDebug?: boolean }).__dgmDebug) console.log('rules', n0.name, 'F', s.F, s.gH ? 'gH' : '', s.gW ? 'gW' : '', 'text', textOk, 'frame', frameOk);
-      // texto personalizado não depende da fonte do layout: só a moldura decide
-      return (custom || textOk) && frameOk;
+      // texto personalizado não depende da fonte do layout: só a moldura decide —
+      // mas as regras de crescer valem (o childText custT do list1 cresce até caber)
+      return (textOk || (custom && !growth)) && frameOk;
     };
-    let st: State = { F: fmax };
+    let st: State = { F: fcur };
     if (apply(st)) continue;
     // só a moldura estoura mesmo na menor fonte das regras: não é caso de fonte
     if (useFrame) {
@@ -1465,8 +1595,9 @@ export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
   SCALE_BUDGET = 20000;
   try {
     const run = () => {
-      for (const n of b.nodes) { n.v = { ...n.ov }; n.desV = {}; n.desLte = undefined; n.margF = {}; n.equ = {}; n.lte = {}; n.fromParent = undefined; n.conn = undefined; n.cyc = undefined; n.preplaced = undefined; n.adjOv = undefined; n.rot = 0; n.rx = n.ry = n.rw = n.rh = undefined; }
+      for (const n of b.nodes) { n.v = { ...n.ov }; n.desV = {}; n.desC = undefined; n.desLte = undefined; n.margF = {}; n.equ = {}; n.lte = {}; n.fromParent = undefined; n.conn = undefined; n.cyc = undefined; n.preplaced = undefined; n.adjOv = undefined; n.rot = 0; n.rx = n.ry = n.rw = n.rh = undefined; }
       root.x = 0; root.y = 0; root.w = inp.cx; root.h = inp.cy;
+      FRAME = { w: inp.cx, h: inp.cy };
       layoutNode(root, 0);
     };
     run();
@@ -1480,6 +1611,7 @@ export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
     return emit(b.nodes, root, model, style, colors, inp);
   } finally {
     FIT = undefined;
+    FRAME = undefined;
   }
 }
 
@@ -1966,7 +2098,11 @@ function emit(nodes: PNode[], root: PNode, model: Model, style: XmlElement | und
 /** Margens do texto em EMU no tamanho dado (proporcionais à fonte ou absolutas). */
 function margin(n: PNode, k: string, prim: number, sec: number): number {
   const f = n.margF[k];
-  if (f) return f[0] * (f[1] === 'secFontSz' ? sec : prim) * EMU_PT;
+  if (f) {
+    const rv = f[2] ? f[2].v[f[1]] ?? f[2].v['primFontSz'] : undefined;
+    if (rv !== undefined && Number.isFinite(rv)) return f[0] * rv * EMU_PT;
+    return f[0] * (f[1] === 'secFontSz' ? sec : prim) * EMU_PT;
+  }
   // sem restrição: 0,56 × fonte (medido em pList2/hList1)
   return n.v[k] ?? 0.56 * prim * EMU_PT;
 }
@@ -2010,7 +2146,7 @@ function fitText(job: TextJob, measure: DiagramMeasure, family: string | undefin
   for (; p > Math.max(1, min); p--) if (fits(p, secOf(p))) break;
   n.fontPt = p;
   n.secPt = secOf(p);
-  if ((globalThis as { __dgmDebug?: boolean }).__dgmDebug) console.log('fit', n.name, family, `max=${max} min=${min} -> ${p}/${n.secPt}`, job.box.map(Math.round).join(','), JSON.stringify(n.margF), n.equ['primFontSz'] ?? '', job.paras.map((q) => paraText(q.p).runs.map((r) => r.text).join('')).join('|'));
+  if ((globalThis as { __dgmDebug?: boolean }).__dgmDebug) console.log('fit', n.name, family, `max=${max} min=${min} -> ${p}/${n.secPt}`, job.box.map(Math.round).join(','), JSON.stringify(Object.fromEntries(Object.entries(n.margF).map(([k, f]) => [k, [f[0], f[1], f[2]?.name]]))), n.equ['primFontSz'] ?? '', job.paras.map((q) => paraText(q.p).runs.map((r) => r.text).join('')).join('|'));
 }
 
 function adjOf(n: PNode): [string, number][] {
