@@ -81,14 +81,21 @@ export function metafileSize(b: Uint8Array): { w: number; h: number } | undefine
  * Rasteriza o metarquivo num canvas novo (tamanho natural × `scale`, limitado
  * a `maxSide`). `makeCanvas` fornece o canvas (OffscreenCanvas, <canvas> ou o
  * da fábrica do export). Devolve undefined se não for metarquivo/sem canvas.
+ * `display` = tamanho (px a 96 dpi) com que a imagem INTEIRA aparece no slide:
+ * o raster acompanha (ampliada não borra) e a caneta cosmética/largura mínima
+ * vira 1 px DELE — o app desenha o metarquivo na resolução de saída.
  */
 export function rasterizeMetafile<C extends { getContext(id: '2d'): unknown; width: number; height: number }>(
-  bytes: Uint8Array, makeCanvas: (w: number, h: number) => C | undefined, opts: { scale?: number; maxSide?: number; minSide?: number } = {},
+  bytes: Uint8Array, makeCanvas: (w: number, h: number) => C | undefined,
+  opts: { scale?: number; maxSide?: number; minSide?: number; display?: { w: number; h: number } } = {},
 ): C | undefined {
   if (!isMetafile(bytes)) return undefined;
   const nat = metafileSize(bytes) ?? { w: 512, h: 512 };
   let k = opts.scale ?? 2;
   const maxSide = opts.maxSide ?? 2400, minSide = opts.minSide ?? 600;
+  const disp = opts.display && opts.display.w > 0 && opts.display.h > 0 ? opts.display : undefined;
+  // a imagem aparece maior que o tamanho natural: o raster segue o tamanho na página
+  if (disp) k *= Math.max(1, Math.max(disp.w, disp.h) / Math.max(nat.w, nat.h));
   const big = Math.max(nat.w, nat.h) * k;
   if (big > maxSide) k *= maxSide / big;
   else if (big < minSide) k *= minSide / Math.max(1, big);
@@ -99,7 +106,8 @@ export function rasterizeMetafile<C extends { getContext(id: '2d'): unknown; wid
   // cópia de bits que mistura origem e DESTINO (máscara SRCAND + SRCINVERT…): o app
   // rasteriza a figura sobre BRANCO (medido: prévia OLE de .ppt sai com fundo branco)
   if (metafileReadsDest(bytes)) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); }
-  try { drawMetafile(ctx, bytes, 0, 0, w, h); } catch { /* metarquivo truncado: fica o que foi desenhado */ }
+  const devPx = disp ? Math.sqrt((w / disp.w) * (h / disp.h)) : undefined;
+  try { drawMetafile(ctx, bytes, 0, 0, w, h, devPx); } catch { /* metarquivo truncado: fica o que foi desenhado */ }
   return cv;
 }
 
@@ -220,13 +228,21 @@ export function recolorMetafile(bytes: Uint8Array, map: ReadonlyMap<number, numb
   return changed ? b : undefined;
 }
 
-/** Toca EMF/WMF no retângulo (x, y, w, h) do contexto. */
-export function drawMetafile(ctx: Ctx, bytes: Uint8Array, x: number, y: number, w: number, h: number): void {
+/**
+ * Toca EMF/WMF no retângulo (x, y, w, h) do contexto. `devPx` = px do contexto
+ * por px do dispositivo de saída (a página): caneta cosmética e largura mínima
+ * de caneta = 1 px dele, como o GDI na tela. Sem ele: EMF usa o tamanho natural
+ * (o quadro em mm é físico); WMF, uma fração do raster.
+ */
+export function drawMetafile(ctx: Ctx, bytes: Uint8Array, x: number, y: number, w: number, h: number, devPx?: number): void {
   ctx.save();
   try {
-    // px de saída por px a 96 dpi do tamanho natural (EMF: o quadro em mm é físico)
-    const nat = metafileSize(bytes);
-    const px = nat ? Math.sqrt(Math.abs((w / nat.w) * (h / nat.h))) || 1 : 1;
+    let px = devPx && devPx > 0 ? devPx : 0;
+    if (!px && isEmf(bytes)) {
+      const nat = metafileSize(bytes);
+      px = nat ? Math.sqrt(Math.abs((w / nat.w) * (h / nat.h))) || 0 : 0;
+      if (px > 4) px = 0; // quadro minúsculo ampliado: escala não confiável
+    }
     if (isEmf(bytes)) playEmf(ctx, bytes, { x, y, w, h, px });
     else if (isWmf(bytes)) playWmf(ctx, bytes, { x, y, w, h, px });
   } finally { ctx.restore(); }
@@ -242,6 +258,12 @@ interface Paint {
   hairline: number;
   /** largura mínima de qualquer caneta (px de saída) */
   minWidth: number;
+  /**
+   * px de saída por px do dispositivo para a grade de pixels do GDI no traço fino
+   * (0 = não aplicar). Só no WMF: no EMF o deslocamento de meio pixel piorou
+   * (gdx-288847, gd-004602…) e no WMF melhorou (gd-000165, gd-663355…).
+   */
+  devPx: number;
   clip: Clip[];
   /** modo de mistura do primeiro plano (SETROP2, R2_*); 13 = R2_COPYPEN */
   rop2?: number;
@@ -358,6 +380,18 @@ function excludePath(set: { ex: Rect4[] }): Cmd[] {
   return out;
 }
 
+/**
+ * RECTANGLE do GDI em px de saída: a figura EXCLUI a borda direita e a de baixo
+ * (1 px do dispositivo, `d`) — moldura na extensão inteira fica dentro da imagem.
+ */
+function gdiRect(a: Pt, c: Pt, d: number): Cmd[] {
+  const x0 = Math.min(a[0], c[0]), y0 = Math.min(a[1], c[1]);
+  let x1 = Math.max(a[0], c[0]), y1 = Math.max(a[1], c[1]);
+  if (d > 0 && x1 - x0 > 2 * d) x1 -= d;
+  if (d > 0 && y1 - y0 > 2 * d) y1 -= d;
+  return [{ op: 'M', x: x0, y: y0 }, { op: 'L', x: x1, y: y0 }, { op: 'L', x: x1, y: y1 }, { op: 'L', x: x0, y: y1 }, { op: 'Z' }];
+}
+
 function tracePath(ctx: Ctx, cmds: Cmd[]): void {
   ctx.beginPath();
   for (const c of cmds) {
@@ -421,6 +455,9 @@ function paintPath(ctx: Ctx, p: Paint, cmds: Cmd[], fill: boolean, stroke: boole
       ctx.lineCap = cap === 0x100 ? 'square' : cap === 0x200 ? 'butt' : 'round';
       ctx.lineJoin = join === 0x1000 ? 'bevel' : join === 0x2000 ? 'miter' : 'round';
       ctx.globalCompositeOperation = penMix.op ?? 'source-over';
+      // GDI: traço de 1 px ocupa a coluna/linha [x, x+1) — meio pixel à direita/abaixo
+      // do eixo (traço fino na borda da imagem não sai cortado ao meio)
+      if (p.devPx && ctx.lineWidth <= 1.5 * p.devPx) { ctx.translate(p.devPx / 2, p.devPx / 2); tracePath(ctx, cmds); }
       ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -804,12 +841,10 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     fx0 = i32(8); fy0 = i32(12); fw = Math.max(1, i32(16) - i32(8)); fh = Math.max(1, i32(20) - i32(12));
   }
   const sx = dest.w / fw, sy = dest.h / fh;
-  // caneta cosmética = 1 px do dispositivo de referência; EMF de impressora (600 dpi…) dá
-  // traço fino demais — o app desenha na resolução da TELA: 1 px a 96 dpi do quadro físico
-  // (só com escala plausível: quadro minúsculo ampliado engrossaria tudo)
+  // caneta cosmética e largura mínima = 1 px do dispositivo de SAÍDA (dest.px); sem ele,
+  // 1 px do dispositivo de referência (EMF de impressora, 600 dpi, dava traço fino demais)
   const devHair = Math.max(0.5, Math.sqrt(Math.abs(sx * sy)));
-  const screenPx = dest.px <= 4 ? dest.px : 0;
-  const hairline = Math.max(devHair, screenPx), minWidth = screenPx ? hairline : devHair * 0.5;
+  const hairline = dest.px || devHair, minWidth = dest.px || devHair * 0.5;
 
   let dc: EmfDc = {
     mapMode: 1, winOrg: [0, 0], winExt: [1, 1], vpOrg: [0, 0], vpExt: [1, 1], world: IDENT,
@@ -859,7 +894,7 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     const ch = (sh: number) => Math.round(((pa >> sh) & 255) * (1 - f) + ((pb >> sh) & 255) * f);
     return '#' + [16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('');
   };
-  const paint = (): Paint => ({ pen: dc.pen, brush: dc.brush.mono !== undefined ? { ...dc.brush, color: mixHexE(dc.textColor, dc.bkColor, dc.brush.mono) } : dc.brush, polyFill: dc.polyFill, penScale: len(1), hairline, minWidth, clip: dc.clip, rop2: dc.rop2 });
+  const paint = (): Paint => ({ pen: dc.pen, brush: dc.brush.mono !== undefined ? { ...dc.brush, color: mixHexE(dc.textColor, dc.bkColor, dc.brush.mono) } : dc.brush, polyFill: dc.polyFill, penScale: len(1), hairline, minWidth, devPx: 0, clip: dc.clip, rop2: dc.rop2 });
 
   let path: Cmd[] | null = null;
   const draw = (cmds: Cmd[], closed: boolean): void => {
@@ -1024,7 +1059,7 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
         dc.cur = to;
         break;
       }
-      case 43: draw(rect(i32(r), i32(r + 4), i32(r + 8), i32(r + 12)), true); break;
+      case 43: draw(dc.world.b || dc.world.c ? rect(i32(r), i32(r + 4), i32(r + 8), i32(r + 12)) : gdiRect(P(i32(r), i32(r + 4)), P(i32(r + 8), i32(r + 12)), dest.px || devHair), true); break;
       case 44: draw(roundRectCmds(P, i32(r), i32(r + 4), i32(r + 8), i32(r + 12), i32(r + 16), i32(r + 20)), true); break;
       case 42: draw(ellipseCmds(P, i32(r), i32(r + 4), i32(r + 8), i32(r + 12)), true); break;
       case 45: case 46: case 47: case 55: { // ARC / CHORD / PIE / ARCTO
@@ -1462,7 +1497,7 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     return '#' + [16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('');
   };
   const brushNow = (): Brush => (dc.brush.mono !== undefined ? { ...dc.brush, color: mixHex(dc.textColor, dc.bkColor, dc.brush.mono) } : dc.brush);
-  const paint = (): Paint => ({ pen: dc.pen, brush: brushNow(), polyFill: dc.polyFill, penScale: Math.sqrt(kx() * ky()), hairline: Math.max(0.5, dest.w / 1000), minWidth: Math.max(0.25, dest.w / 2000), clip: dc.clip, rop2: dc.rop2 });
+  const paint = (): Paint => ({ pen: dc.pen, brush: brushNow(), polyFill: dc.polyFill, penScale: Math.sqrt(kx() * ky()), hairline: dest.px || Math.max(0.5, dest.w / 1000), minWidth: dest.px || Math.max(0.25, dest.w / 2000), devPx: dest.px, clip: dc.clip, rop2: dc.rop2 });
   const draw = (cmds: Cmd[], fill: boolean): void => paintPath(ctx, paint(), cmds, fill, true);
   const poly = (o: number, n: number, closed: boolean): Cmd[] => {
     const c: Cmd[] = [];
@@ -1610,7 +1645,7 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
         draw(cmds, true);
         break;
       }
-      case 0x041b: draw(rectCmds(i16(p + 6), i16(p + 4), i16(p + 2), i16(p)), true); break; // RECTANGLE (b, r, t, l)
+      case 0x041b: draw(gdiRect(P(i16(p + 6), i16(p + 4)), P(i16(p + 2), i16(p)), dest.px), true); break; // RECTANGLE (b, r, t, l)
       case 0x061c: draw(roundRectCmds(P, i16(p + 10), i16(p + 8), i16(p + 6), i16(p + 4), i16(p + 2), i16(p)), true); break; // ROUNDRECT (h, w, b, r, t, l)
       case 0x0418: draw(ellipseCmds(P, i16(p + 6), i16(p + 4), i16(p + 2), i16(p)), true); break; // ELLIPSE (b, r, t, l)
       case 0x0817: case 0x081a: case 0x0830: { // ARC / PIE / CHORD (yEnd, xEnd, yStart, xStart, b, r, t, l)

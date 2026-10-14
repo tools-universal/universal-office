@@ -45,6 +45,15 @@ export interface PresentOptions {
 
 const NO_TIMING: SlideTimingModel = { steps: [], interactive: [], hidden: false };
 
+/** Tamanho (px a 96 dpi) da imagem INTEIRA de um p:pic na página — o recorte (srcRect) a amplia. */
+function picDisplaySize(sh: Shape): { w: number; h: number } | undefined {
+  const x = sh.xfrm;
+  if (!x || !(x.cx > 0) || !(x.cy > 0)) return undefined;
+  const c = sh.srcRect;
+  const fw = c ? Math.max(0.05, 1 - c.l - c.r) : 1, fh = c ? Math.max(0.05, 1 - c.t - c.b) : 1;
+  return { w: x.cx / 9525 / fw, h: x.cy / 9525 / fh };
+}
+
 /**
  * Substituto do PowerPoint para família que não existe em lugar nenhum (nem
  * embutida, nem no SO): medido no oráculo (interest-calculator: "Bellota Text"
@@ -381,7 +390,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     for (const s of this.slides) {
       if (s.bgImage) this.warmImage(s.bgImage);
       for (const sh of s.shapes) {
-        if (sh.image) this.warmImage(sh.image);
+        if (sh.image) this.warmImage(sh.image, picDisplaySize(sh));
         if (sh.fillImage) this.warmImage(sh.fillImage);
         for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) this.warmImage(p.bulletImage);
       }
@@ -531,13 +540,14 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    * Inicia a decodificacao de uma ImageRef e dispara um repaint quando carrega.
    * Reentrante: chamadas repetidas para o mesmo `part` reaproveitam o HTMLImageElement.
    */
-  protected warmImage(ref: ImageRef): void {
+  protected warmImage(ref: ImageRef, display?: { w: number; h: number }): void {
     if (this.imageCache.has(ref.part)) return;
     // WMF/EMF e TIFF: o navegador não decodifica — rasterizamos num canvas
-    // (síncrono, uma vez por parte) e ele vira a imagem
+    // (síncrono, uma vez por parte) e ele vira a imagem; `display` = tamanho na
+    // página (metarquivo: escala do raster e traço mínimo de 1 px)
     const meta = rasterizeSpecialImage(ref.bytes, (w, h) => {
       const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
-    });
+    }, display);
     if (meta) {
       this.imageCache.set(ref.part, { img: meta, ready: true });
       return;
@@ -566,7 +576,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   protected readyImages(slide: Slide): Map<string, PaintImage> {
     if (slide.bgImage) this.warmImage(slide.bgImage);
     for (const sh of slide.shapes) {
-      if (sh.image) this.warmImage(sh.image);
+      if (sh.image) this.warmImage(sh.image, picDisplaySize(sh));
       if (sh.fillImage) this.warmImage(sh.fillImage);
       for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) this.warmImage(p.bulletImage);
     }

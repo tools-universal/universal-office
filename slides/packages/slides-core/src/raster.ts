@@ -8,8 +8,9 @@ import { isPict, rasterizePict } from './pict.js';
 
 type CanvasLike = { getContext(id: '2d'): unknown; width: number; height: number };
 
-export function rasterizeSpecialImage<C extends CanvasLike>(bytes: Uint8Array, makeCanvas: (w: number, h: number) => C | undefined): C | undefined {
-  const meta = rasterizeMetafile(bytes, makeCanvas);
+/** `display`: tamanho (px a 96 dpi) da imagem inteira no slide — metarquivos rasterizam nessa escala. */
+export function rasterizeSpecialImage<C extends CanvasLike>(bytes: Uint8Array, makeCanvas: (w: number, h: number) => C | undefined, display?: { w: number; h: number }): C | undefined {
+  const meta = rasterizeMetafile(bytes, makeCanvas, display ? { display } : {});
   if (meta) return meta;
   if (isPict(bytes)) return rasterizePict(bytes, makeCanvas);
   if (isTiff(bytes)) {
