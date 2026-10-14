@@ -17,6 +17,8 @@ export interface Theme {
   byName: Record<string, string>;
   /** Fontes do fontScheme (`+mj-lt`/`+mn-lt` dos gráficos). */
   fonts?: { major?: string; minor?: string };
+  /** `a:fmtScheme/a:fillStyleLst` (preenchimentos com phClr — estilos de gráfico 17–32/41–48). */
+  fillStyles?: XmlElement[];
 }
 
 /** Paleta Office padrão — fallback quando o pacote não traz theme1.xml. */
@@ -83,6 +85,9 @@ export function readTheme(pkg: XlsxPackage): Theme {
   const face = (k: string) => { const f = fs ? firstChild(fs, k) : undefined; return f ? firstChild(f, 'a:latin')?.attrs['typeface'] : undefined; };
   const major = face('a:majorFont'), minor = face('a:minorFont');
   if (major || minor) theme.fonts = { ...(major ? { major } : {}), ...(minor ? { minor } : {}) };
+  const fmt = themeEls ? firstChild(themeEls, 'a:fmtScheme') : undefined;
+  const fills = fmt ? firstChild(fmt, 'a:fillStyleLst') : undefined;
+  if (fills) theme.fillStyles = childElements(fills);
   return theme;
 }
 

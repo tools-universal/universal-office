@@ -3,7 +3,7 @@
  * mesmo do Slides). Aqui só a ponte — XML pelo parser do sheet-core, cores
  * DrawingML pelo tema do workbook — e um resumo do modelo (tipo/título/séries).
  */
-import { parseChartSpace, paintChartSpace, dmlColor, type ChartSpace, type XmlNode } from '@universal-office/charts';
+import { parseChartSpace, parsePaint, paintChartSpace, dmlColor, type ChartSpace, type XmlNode } from '@universal-office/charts';
 import { parseXml, type XmlElement } from './xml.js';
 import type { Theme } from './theme.js';
 
@@ -33,6 +33,12 @@ export function parseChart(xml: string, theme?: Theme): ChartModel {
   const space = parseChartSpace(root as XmlNode, {
     color: (el) => dmlColor(el, scheme),
     fonts: { ...(theme?.fonts?.minor ? { minor: theme.fonts.minor } : { minor: 'Calibri' }), ...(theme?.fonts?.major ? { major: theme.fonts.major } : {}) },
+    fillStyle: (idx, ph) => {
+      const el = theme?.fillStyles?.[idx - 1];
+      if (!el) return undefined;
+      const sc = { ...scheme, phClr: ph };
+      return parsePaint({ name: 'w', attrs: {}, children: [el] } as unknown as XmlNode, (e) => dmlColor(e, sc));
+    },
   });
   const g0 = space.groups[0];
   const type: ChartType = !g0 ? 'unknown' : g0.kind === 'bar' ? (g0.dir === 'bar' ? 'bar-row' : 'bar-col')

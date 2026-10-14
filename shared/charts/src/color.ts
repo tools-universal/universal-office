@@ -53,7 +53,8 @@ export function mixWhite(hex: string, t: number): string {
 /** `a:tint` DrawingML (RGB linear, gama 2,2): `keep` = fração da cor que fica. */
 export function tintLinear(hex: string, keep: number): string {
   const [r, g, b] = hexToRgb(hex);
-  const f = (v: number) => Math.pow(Math.pow(v / 255, 2.2) * keep + (1 - keep), 1 / 2.2) * 255;
+  // curva sRGB exata (medido: tx1 tint 75% → #898989)
+  const f = (v: number) => toSrgb(toLin(v) * keep + (1 - keep));
   return rgbToHex(f(r), f(g), f(b));
 }
 
