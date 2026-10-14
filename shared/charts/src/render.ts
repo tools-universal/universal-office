@@ -73,6 +73,11 @@ const TITLE_TOP = 3.75;
 const TITLE_GAP = 6.25;
 /** Marcadores automáticos por série. */
 const AUTO_SYMBOLS = ['diamond', 'square', 'triangle', 'x', 'star', 'circle', 'plus', 'dot', 'dash'];
+/** Luz do 3D oblíquo (fator RGB): faces laterais e faces de cima/piso (medido, syn-a-3dobl). */
+const SHADE_SIDE = 0.645;
+const SHADE_TOP = 0.756;
+/** Folga mínima da figura 3D oblíqua até o topo/base da moldura (pt; 19/17 px a 96 dpi). */
+const MARGIN_3D = { t: 12.75, b: 12.75 };
 
 interface ResolvedText { sz: number; b: boolean; i: boolean; u: boolean; color: string; alpha: number; font: string; rot?: number; vert?: string }
 
@@ -445,7 +450,12 @@ class Renderer {
       let cur: { text: string; t: ResolvedText }[] = [];
       let curW = 0;
       for (const r of p.runs) {
-        const rt = this.text({ sz: t.paras || t.text ? this.base.sz : 18, b: true }, t.txPr, p.props, r.props);
+        // parágrafo rico SEM a:defRPr: 18,62 pt regular, sem herdar o txPr do título nem o
+        // tamanho do gráfico (medido, syn-a-misc3b #7/#9–#13); com defRPr (mesmo vazio):
+        // tamanho base, negrito
+        const rt = t.paras && p.noDefRPr
+          ? this.text({ sz: 18.62, b: false }, r.props)
+          : this.text({ sz: t.paras || t.text ? this.base.sz : 18, b: true }, t.txPr, p.props, r.props);
         if (r.text === '\n') { lines.push(cur); cur = []; curW = 0; continue; }
         for (const piece of r.text.split(/(\s+)/)) {
           if (!piece) continue;
@@ -650,8 +660,31 @@ class Renderer {
       if (valueish(inf)) this.prepValueAxis(inf);
       else this.prepCatAxis(inf);
     }
+    // tabela de dados (c:dTable): linhas de 1,5 em embaixo da plotagem — cabeçalho com
+    // as categorias (no lugar dos rótulos do eixo) e uma linha por série com chave e
+    // nome numa coluna à esquerda (medido, syn-a-misc3b #1–#6)
+    this.dtab = undefined;
+    const catInf = this.axisById(primary.axIds[0]) ? infos.get(this.axisById(primary.axIds[0])!) : undefined;
+    const is3D = cs.groups.some((g) => g.threeD);
+    if (cs.dTable && catInf && !catInf.scale && catInf.dir === 'h' && !is3D) {
+      const dt = cs.dTable;
+      const t = this.text(dt.txPr);
+      const series = catInf.groups.flatMap((g) => g.series.map((s) => ({ s, g })));
+      const rowH = 1.5 * t.sz * S;
+      const lineKey = (g: Group) => g.kind === 'line' || g.kind === 'scatter' || g.kind === 'radar';
+      const keyW = (g: Group) => (!dt.keys ? 0 : lineKey(g) ? 21.75 * S + 2.25 * S : t.sz * S * 0.52 + 3.75 * S);
+      const nameW = Math.max(0, ...series.map(({ s, g }) => 2.25 * S + keyW(g) + this.measure(s.name, t) + 3 * S));
+      catInf.showLabels = false;
+      this.dtab = { x: this.area.x + 16.5 * S, nameW, rowH, series, t, catInf };
+      outer = { ...outer, h: outer.h - (1 + series.length) * rowH };
+    }
     // layout iterativo: reserva rótulos nos lados
     let plot = this.plotRect(outer, [...infos.values()]);
+    if (this.dtab && plot.x < this.dtab.x + this.dtab.nameW) {
+      const dx = this.dtab.x + this.dtab.nameW - plot.x;
+      plot = { ...plot, x: plot.x + dx, w: Math.max(10, plot.w - dx) };
+      for (const inf of infos.values()) this.measureAxis(inf, plot);
+    }
     // 3D com eixos em ângulo reto (rAngAx, o padrão): projeção OBLÍQUA — a
     // profundidade sobe para a direita, D = L·(sen rotY, −sen rotX) (proporção
     // medida nos gráficos 3D do oráculo: 15°/20° → (32, −24) px), e o plano da
@@ -659,15 +692,46 @@ class Renderer {
     this.depth = undefined;
     const g3 = cs.groups.find((g) => g.threeD && (g.kind === 'bar' || g.kind === 'line' || g.kind === 'area'));
     if (g3 && cs.view3D?.rAngAx !== false) {
-      const L = 0.155 * plot.w * Math.max(0.2, (cs.view3D?.depthPercent ?? 100) / 100);
-      const rx = (cs.view3D?.rotX ?? 15) * Math.PI / 180, ry = (cs.view3D?.rotY ?? 20) * Math.PI / 180;
-      const dx = L * Math.sin(ry), dy = L * Math.sin(rx);
-      this.depth = { dx, dy, gapDepth: 150 };
-      plot = { x: plot.x, y: plot.y + dy, w: plot.w - dx, h: plot.h - dy };
+      const v = cs.view3D;
+      const rx = (v?.rotX ?? 15) * Math.PI / 180, ry = (v?.rotY ?? 20) * Math.PI / 180;
+      const horiz = g3.kind === 'bar' && g3.dir === 'bar';
+      const a0 = this.axisById(g3.axIds[0]);
+      const n = Math.max(1, (a0 ? infos.get(a0)?.nCats : undefined) ?? 1);
+      // profundidade = largura da barra × (1 + gapDepth) × depthPercent, com a barra como
+      // fração da faixa da categoria (medido, syn-a-3dbox2/3dobl: 1 série e gapWidth 150 →
+      // uma faixa; 3 séries agrupadas → 0,56 faixa; gapDepth 500 → 2,4×; depthPercent linear)
+      const clustered = g3.kind === 'bar' && g3.grouping === 'clustered';
+      const ns = clustered ? g3.series.length : 1;
+      const ov = clustered ? Math.max(-1, Math.min(1, g3.overlap / 100)) : 1;
+      const barFrac = 1 / (1 + (ns - 1) * (1 - ov) + g3.gapWidth / 100);
+      const kL = barFrac * (1 + (g3.gapDepth ?? 150) / 100) * Math.max(0.2, (v?.depthPercent ?? 100) / 100) / n;
+      const sx = Math.sin(ry), sy = Math.sin(rx);
+      // a face da frente mantém a proporção altura/largura do retângulo interno do gráfico
+      // (moldura − 20,25/16,5/19,5/15,75 pt, sem título/legenda) e a figura (frente +
+      // profundidade) é a maior que cabe na área de plotagem, centrada (medido,
+      // syn-a-3dbox2 #17–#23, syn-a-3dobl: legenda embaixo achata a proporção)
+      const S = this.S;
+      const asp = Math.max(0.05, (outer.h + (PAD.t + PAD_B_AXES - 32.25) * S) / Math.max(1, outer.w + (PAD.l + PAD.r - 39.75) * S));
+      // na vertical a figura 3D fica ≥ 14,25 pt do topo da moldura e ≥ 12,75 pt da base
+      // (medido com e sem eixos, syn-a-3dobl/3dbox2); na horizontal, centrada na área livre
+      const A = this.area;
+      const fy0 = Math.max(plot.y, A.y + MARGIN_3D.t * S), fy1 = Math.min(plot.y + plot.h, A.y + A.h - MARGIN_3D.b * S);
+      plot = { x: plot.x, y: fy0, w: plot.w, h: Math.max(4, fy1 - fy0) };
+      // L = kL × comprimento do eixo de categorias na face da frente
+      let W: number, H: number;
+      if (!horiz) { W = Math.min(plot.w / (1 + kL * sx), plot.h / (asp + kL * sy)); H = asp * W; }
+      else { H = Math.min(plot.h / (1 + kL * sy), plot.w / (1 / asp + kL * sx)); W = H / asp; }
+      const L = kL * (horiz ? H : W);
+      const dx = L * sx, dy = L * sy;
+      this.depth = { dx, dy, gapDepth: g3.gapDepth ?? 150, horiz };
+      // centrada na horizontal, encostada no topo
+      const ox = (plot.w - W - dx) / 2;
+      plot = { x: plot.x + ox, y: plot.y + dy, w: W, h: H };
       for (const inf of infos.values()) this.measureAxis(inf, plot);
     }
     // grade e área de plotagem
     if (this.showBg()) {
+      if (this.depth) this.paintWalls3D(plot);
       this.shapeRect(plot, cs.plotSp, this.plotDefault());
       for (const inf of infos.values()) this.paintGrid(inf, plot, true);
       for (const inf of infos.values()) this.paintGrid(inf, plot, false);
@@ -684,7 +748,7 @@ class Renderer {
       else if (g.kind === 'scatter') this.paintScatter(g, ci, vi, plot);
       else if (g.kind === 'bubble') this.paintBubbles(g, ci, vi, plot);
     }
-    if (this.showBg()) { for (const inf of infos.values()) this.paintAxis(inf, plot); this.paintFloor3D(plot); }
+    if (this.showBg()) { for (const inf of infos.values()) this.paintAxis(inf, plot); this.paintFloor3D(plot); if (this.dtab) this.paintDataTable(plot); }
     for (const g of order) {
       const a0 = this.axisById(g.axIds[0]), a1 = this.axisById(g.axIds[1]);
       const ci = a0 ? infos.get(a0) : undefined, vi = a1 ? infos.get(a1) : undefined;
@@ -1081,7 +1145,105 @@ class Renderer {
 
   private infosCache?: AxisInfo[];
   /** Profundidade 3D (px) do gráfico atual, quando há grupo 3D com eixos em ângulo reto. */
-  private depth: { dx: number; dy: number; gapDepth: number } | undefined;
+  private depth: { dx: number; dy: number; gapDepth: number; horiz?: boolean } | undefined;
+  /** Tabela de dados em curso (layout feito em paintAxesChart). */
+  private dtab: { x: number; nameW: number; rowH: number; series: { s: Series; g: Group }[]; t: ResolvedText; catInf: AxisInfo } | undefined;
+
+  /**
+   * Tabela de dados: cabeçalho com as categorias alinhado às faixas do eixo,
+   * uma linha por série (chave + nome à esquerda, valores no formato da
+   * série, sem a cor do formato); bordas cinza 50% conforme showHorzBorder /
+   * showVertBorder / showOutline (o canto de cima à esquerda fica vazio).
+   */
+  private paintDataTable(plot: Rect): void {
+    const T = this.dtab!, dt = this.cs.dTable!;
+    const c = this.ctx, S = this.S, t = T.t;
+    const inf = T.catInf;
+    const n = inf.nCats ?? 1;
+    const y0 = plot.y + plot.h, x0 = T.x, xp = plot.x, x1 = plot.x + plot.w;
+    const rows = T.series.length;
+    const yb = y0 + (rows + 1) * T.rowH;
+    const edges = Array.from({ length: n + 1 }, (_, i) => this.pos(inf, plot, i, false));
+    // textos
+    const lh = T.rowH;
+    for (let i = 0; i < n; i++) {
+      const cx = (edges[i]! + edges[i + 1]!) / 2;
+      this.drawLines([inf.cats?.[i] ?? String(i + 1)], t, cx, y0 + lh / 2, 'center');
+    }
+    T.series.forEach(({ s, g }, r) => {
+      const yc = y0 + (r + 1.5) * lh;
+      let x = x0 + 2.25 * S;
+      if (dt.keys) {
+        const lineKey = g.kind === 'line' || g.kind === 'scatter' || g.kind === 'radar';
+        if (lineKey) {
+          const kw = 21.75 * S;
+          const ln = mergeLine({ paint: { kind: 'solid', color: this.seriesColor(s, g) }, w: 2.25 }, s.sp.line);
+          if (ln && this.setLine(ln)) { c.beginPath(); c.moveTo(x, yc); c.lineTo(x + kw, yc); c.stroke(); c.setLineDash([]); }
+          const m = this.markerOf(g, s, -1);
+          if (m) this.paintMarker(m, x + kw / 2, yc, s, g, Math.min(m.size, 7));
+          x += kw + 2.25 * S;
+        } else {
+          const k = t.sz * S * 0.52;
+          const fill = this.pointFill(g, s, -1, 1);
+          if (this.setFill(fill, { x, y: yc - k / 2, w: k, h: k })) c.fillRect(x, yc - k / 2, k, k);
+          x += k + 3.75 * S;
+        }
+      }
+      this.drawLines([s.name], t, x, yc, 'left');
+      for (let i = 0; i < n; i++) {
+        const v = s.values[i];
+        if (v === null || v === undefined) continue;
+        const txt = formatValue(v, s.ptFmts?.[i] ?? s.fmt ?? 'General', { locale: this.loc }).text;
+        this.drawLines([txt], t, (edges[i]! + edges[i + 1]!) / 2, yc, 'center');
+      }
+    });
+    // bordas (cinza 50% da linha default)
+    const base = this.defaultLine().paint;
+    const col = base?.kind === 'solid' ? mixWhite(base.color, 0.5) : '#808080';
+    c.save();
+    c.strokeStyle = col;
+    c.lineWidth = 1;
+    c.setLineDash([]);
+    c.beginPath();
+    const hl = (y: number, xa: number, xb: number) => { const q = Math.round(y) + 0.5; c.moveTo(xa, q); c.lineTo(xb, q); };
+    const vl = (x: number, ya: number, yb2: number) => { const q = Math.round(x) + 0.5; c.moveTo(q, ya); c.lineTo(q, yb2); };
+    if (dt.horz) { hl(y0, xp, x1); for (let r = 1; r <= rows; r++) hl(y0 + r * lh, x0, x1); }
+    if (dt.vert) { for (let i = 0; i <= n; i++) vl(edges[i]!, y0, yb); }
+    if (dt.outline) { hl(y0, xp, x1); hl(y0 + lh, x0, xp); hl(yb, x0, x1); vl(x0, y0 + lh, yb); vl(xp, y0, yb); vl(x1, y0, yb); }
+    c.stroke();
+    c.restore();
+  }
+
+  /**
+   * Paredes e piso do 3D oblíquo com o preenchimento do spPr deles, sombreados
+   * como no PowerPoint (medido, syn-a-3dobl: fundo ×1, lateral ×0,645, piso
+   * ×0,756 em RGB). Nas barras horizontais o piso fica à ESQUERDA (com o
+   * sombreado da lateral) e a parede lateral embaixo (com o do piso).
+   */
+  private paintWalls3D(plot: Rect): void {
+    const D = this.depth!;
+    const cs = this.cs;
+    const c = this.ctx;
+    const x0 = plot.x, y0 = plot.y, x1 = plot.x + plot.w, y1 = plot.y + plot.h;
+    const left: [number, number][] = [[x0, y0], [x0 + D.dx, y0 - D.dy], [x0 + D.dx, y1 - D.dy], [x0, y1]];
+    const bottom: [number, number][] = [[x0, y1], [x1, y1], [x1 + D.dx, y1 - D.dy], [x0 + D.dx, y1 - D.dy]];
+    const back: [number, number][] = [[x0 + D.dx, y0 - D.dy], [x1 + D.dx, y0 - D.dy], [x1 + D.dx, y1 - D.dy], [x0 + D.dx, y1 - D.dy]];
+    const planes: [ShapeProps | undefined, [number, number][], number][] = [
+      [cs.backWallSp, back, 1],
+      [D.horiz ? cs.floorSp : cs.sideWallSp, left, SHADE_SIDE],
+      [D.horiz ? cs.sideWallSp : cs.floorSp, bottom, SHADE_TOP],
+    ];
+    for (const [sp, pts, k] of planes) {
+      const f = sp?.fill;
+      if (!f || f.kind === 'none') continue;
+      c.beginPath();
+      pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+      c.closePath();
+      const p: Paint = f.kind === 'solid' && k !== 1 ? { ...f, color: scaleRgb(f.color, k) } : f;
+      const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
+      if (this.setFill(p, { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) })) this.withFillAlpha(p, () => c.fill());
+    }
+  }
   private allInfos(_plot: Rect): AxisInfo[] { return this.infosCache ?? []; }
 
   private paintAxisLabels(inf: AxisInfo, plot: Rect, at: number, sgn: number): void {
@@ -1232,7 +1394,7 @@ class Renderer {
 
   /**
    * Barra 3D (caixa): frente na fatia do meio da profundidade (folga
-   * gapDepth = 150%), topo e lado direito sombreados (−25% / −45% de luz).
+   * gapDepth, default 150%), topo e lado direito sombreados (×0,756 / ×0,645).
    */
   private box3D(r: Rect, fill: Paint, line?: LineProps): void {
     const D = this.depth!;
@@ -1251,8 +1413,9 @@ class Renderer {
       if (line && this.setLine(line)) { c.stroke(); c.setLineDash([]); }
     };
     if (fill.kind === 'none') return;
-    face([[fx + r.w, fy], [fx + r.w + bx, fy + by], [fx + r.w + bx, fy + r.h + by], [fx + r.w, fy + r.h]], base && adjustLum(base, -0.45));
-    face([[fx, fy], [fx + bx, fy + by], [fx + r.w + bx, fy + by], [fx + r.w, fy]], base && adjustLum(base, -0.25));
+    // luz medida (syn-a-3dobl): lado ×0,645 e topo ×0,756 da cor da frente, em RGB
+    face([[fx + r.w, fy], [fx + r.w + bx, fy + by], [fx + r.w + bx, fy + r.h + by], [fx + r.w, fy + r.h]], base && scaleRgb(base, SHADE_SIDE));
+    face([[fx, fy], [fx + bx, fy + by], [fx + r.w + bx, fy + by], [fx + r.w, fy]], base && scaleRgb(base, SHADE_TOP));
     face([[fx, fy], [fx + r.w, fy], [fx + r.w, fy + r.h], [fx, fy + r.h]], undefined, fill);
   }
 
@@ -1474,9 +1637,141 @@ class Renderer {
   }
 
   // ───────────── pizza / rosca ─────────────
+  /**
+   * Pizza 3D como o PowerPoint (medido, syn-a-pie3d): cilindro de raio R e
+   * altura 0,236·R·hPercent, visto de cima pela elevação rotX, em PERSPECTIVA
+   * (câmera a 234·R/perspective do centro; rAngAx não vale para pizza; rotY
+   * gira as fatias como o firstSliceAng). A área de plotagem fica a 11,25 pt
+   * da moldura; a projeção cabe em 97,7% dela, centrada — com sobra na
+   * vertical, sobe 0,0019·perspective × sobra. A lateral escurece da esquerda
+   * (×0,87) para a direita (×0,23).
+   */
+  private paintPie3D(outer: Rect): void {
+    const c = this.ctx;
+    const cs = this.cs;
+    const S = this.S, A = this.area;
+    const g = cs.groups[0]!;
+    const pl = cs.plotLayout;
+    let r: Rect;
+    if (pl && pl.w !== undefined && pl.h !== undefined) r = { x: A.x + (pl.x ?? 0) * A.w, y: A.y + (pl.y ?? 0) * A.h, w: pl.w * A.w, h: pl.h * A.h };
+    else {
+      const m = 11.25 * S;
+      const x0 = Math.max(outer.x, A.x + m), y0 = Math.max(outer.y, A.y + m);
+      const x1 = Math.min(outer.x + outer.w, A.x + A.w - m), y1 = Math.min(outer.y + outer.h, A.y + A.h - m);
+      r = { x: x0, y: y0, w: Math.max(4, x1 - x0), h: Math.max(4, y1 - y0) };
+    }
+    if (this.showBg()) this.shapeRect(r, cs.plotSp);
+    const s = g.series[0];
+    if (!s) return;
+    const v = cs.view3D;
+    const a = Math.max(0, Math.min(90, v?.rotX ?? 30)) * Math.PI / 180;
+    const p = Math.max(0, v?.perspective ?? 30);
+    const h = 0.236 * Math.max(0, (v?.hPercent ?? 100) / 100);
+    const d = p > 0 ? 234 / p : Infinity;
+    const exs = s.values.map((_, i) => Math.max(0, (s.dPts.get(i)?.explosion ?? s.explosion ?? 0) / 100));
+    const exMax = Math.max(0, ...exs);
+    const R = 1 / (1 + exMax);
+    // x à direita, y para cima, z para o observador (unidades: raio total = 1)
+    const proj = (x: number, y: number, z: number): [number, number] => {
+      const y2 = y * Math.cos(a) - z * Math.sin(a), z2 = y * Math.sin(a) + z * Math.cos(a);
+      const f = Number.isFinite(d) ? d / Math.max(0.05, d - z2) : 1;
+      return [x * f, -y2 * f];
+    };
+    let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
+    for (let k = 0; k < 120; k++) {
+      const t = k * Math.PI / 60;
+      for (const y of [h / 2, -h / 2]) { const [u, w] = proj(Math.sin(t), y, -Math.cos(t)); bx0 = Math.min(bx0, u); bx1 = Math.max(bx1, u); by0 = Math.min(by0, w); by1 = Math.max(by1, w); }
+    }
+    const sc = 0.977 * Math.min(r.w / (bx1 - bx0), r.h / (by1 - by0));
+    const slack = Math.max(0, 0.977 * r.h - sc * (by1 - by0));
+    const cx = r.x + r.w / 2 - sc * (bx0 + bx1) / 2;
+    const cy = r.y + r.h / 2 - sc * (by0 + by1) / 2 - 0.0019 * p * slack;
+    const P = (x: number, y: number, z: number): [number, number] => { const [u, w] = proj(x, y, z); return [cx + sc * u, cy + sc * w]; };
+    // fatias: ângulo φ no sentido horário a partir das 12 h, no plano da face de cima
+    const vals = s.values.map((x) => Math.max(0, x ?? 0));
+    const total = vals.reduce((x, y) => x + y, 0);
+    if (!(total > 0)) return;
+    const rot = ((g.firstSliceAng + (v?.rotY ?? 0)) % 360) * Math.PI / 180;
+    let acc = rot;
+    const sl = vals.map((val, i) => {
+      const f0 = acc, f1 = acc + (val / total) * Math.PI * 2;
+      acc = f1;
+      const mid = (f0 + f1) / 2;
+      return { i, f0, f1, ox: Math.sin(mid) * exs[i]!, oz: -Math.cos(mid) * exs[i]! };
+    });
+    const rim = (q: (typeof sl)[number], f: number, y: number): [number, number] => P(q.ox + R * Math.sin(f), y, q.oz - R * Math.cos(f));
+    const baseColor = (i: number): string | undefined => {
+      const fill = this.pointFill(g, s, i, vals.length);
+      return fill.kind === 'solid' ? fill.color : fill.kind === 'grad' ? fill.stops[Math.floor(fill.stops.length / 2)]!.color : fill.kind === 'patt' ? fill.fg : undefined;
+    };
+    // laterais (só a metade da frente aparece), em faixas sombreadas de trás para a frente
+    const strips: { z: number; pts: [number, number][]; color: string }[] = [];
+    for (const q of sl) {
+      if (!this.showData(this.seriesIndex.get(s) ?? 0, q.i)) continue;
+      const col = baseColor(q.i);
+      if (!col || vals[q.i] === 0) continue;
+      const n = Math.max(2, Math.ceil((q.f1 - q.f0) / (Math.PI / 60)));
+      for (let k = 0; k < n; k++) {
+        const t0 = q.f0 + (q.f1 - q.f0) * k / n, t1 = q.f0 + (q.f1 - q.f0) * (k + 1) / n, tm = (t0 + t1) / 2;
+        if (Math.cos(tm) > 0.02) continue; // de costas
+        const xr = Math.sin(tm);
+        const kk = Math.max(0.2, Math.min(1, 0.548 - 0.32 * xr));
+        strips.push({ z: -Math.cos(tm), pts: [rim(q, t0, h / 2), rim(q, t1, h / 2), rim(q, t1, -h / 2), rim(q, t0, -h / 2)], color: scaleRgb(col, kk) });
+      }
+    }
+    strips.sort((x, y) => x.z - y.z);
+    for (const st of strips) {
+      c.beginPath();
+      st.pts.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y)));
+      c.closePath();
+      c.fillStyle = st.color;
+      c.fill();
+      c.strokeStyle = st.color; c.lineWidth = 0.6; c.setLineDash([]); c.stroke(); // emenda das faixas
+    }
+    // faces de cima
+    for (const q of sl) {
+      if (!this.showData(this.seriesIndex.get(s) ?? 0, q.i) || vals[q.i] === 0) continue;
+      const n = Math.max(2, Math.ceil((q.f1 - q.f0) / (Math.PI / 90)));
+      c.beginPath();
+      const [x0, y0] = P(q.ox, h / 2, q.oz);
+      c.moveTo(x0, y0);
+      for (let k = 0; k <= n; k++) { const [x, y] = rim(q, q.f0 + (q.f1 - q.f0) * k / n, h / 2); c.lineTo(x, y); }
+      c.closePath();
+      const fill = this.pointFill(g, s, q.i, vals.length);
+      if (this.setFill(fill, { x: cx - sc, y: cy - sc, w: 2 * sc, h: 2 * sc })) this.withFillAlpha(fill, () => c.fill());
+      const line = mergeLine(s.sp.line, s.dPts.get(q.i)?.sp.line);
+      if (line && this.setLine(line)) { c.lineJoin = 'round'; c.stroke(); c.setLineDash([]); }
+    }
+    // rótulos: como na pizza 2D, no plano da face de cima projetado
+    const dl = mergeDLbls(g.dLbls, s.dLbls);
+    if (!dl) return;
+    for (const q of sl) {
+      const pd = dl.points?.get(q.i);
+      const eff = pd ? { ...dl, ...stripUndef(pd) } : dl;
+      if (eff.delete || !this.showData(this.seriesIndex.get(s) ?? 0, q.i)) continue;
+      const txt = pd?.text ?? this.labelText(eff, s, q.i, vals[q.i]! / total, 'pie');
+      if (!txt) continue;
+      const t = this.text(dl.txPr, pd?.txPr);
+      const lines = txt.split('\n');
+      const tw = Math.max(...lines.map((l) => this.measure(l, t))), th = lines.length * this.lineH(t);
+      const pos = eff.pos ?? 'bestFit';
+      const Rpx = sc * R;
+      let rr: number;
+      if (pos === 'ctr') rr = R / 2;
+      else if (pos === 'inEnd') rr = R - Math.max(tw, th) * 0.6 / sc;
+      else if (pos === 'outEnd') rr = R + (Math.max(tw, th) * 0.6 + 4 * S) / sc;
+      else rr = (q.f1 - q.f0) * Rpx * 0.65 < Math.max(tw, th) * 1.1 ? R + (Math.max(tw, th) * 0.6 + 4 * S) / sc : R * 0.62;
+      const mid = (q.f0 + q.f1) / 2;
+      const [x, y] = P(q.ox + rr * Math.sin(mid), h / 2, q.oz - rr * Math.cos(mid));
+      this.shapeRect({ x: x - tw / 2 - 2, y: y - th / 2 - 1, w: tw + 4, h: th + 2 }, eff.sp);
+      this.drawLines(lines, t, x, y, 'center');
+    }
+  }
+
   private paintPies(outer: Rect): void {
     const c = this.ctx;
     const cs = this.cs;
+    if (cs.groups[0]?.threeD && cs.groups[0].kind === 'pie') { this.paintPie3D(outer); return; }
     // área de plotagem: quadrado centrado (ou o layout manual)
     let r = outer;
     const pl = cs.plotLayout;
@@ -1746,6 +2041,20 @@ function isPieLike(g: Group): boolean { return g.kind === 'pie' || g.kind === 'd
 
 /** Ordem de pintura no mesmo plot: áreas, barras, depois linhas/dispersão. */
 function rank(g: Group): number { return g.kind === 'area' ? 0 : g.kind === 'bar' ? 1 : 2; }
+
+/** Mistura #RRGGBB com branco (k = fração do branco). */
+function mixWhite(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1, 7), 16);
+  const ch = (s: number) => Math.round(((n >> s) & 255) * (1 - k) + 255 * k).toString(16).padStart(2, '0');
+  return `#${ch(16)}${ch(8)}${ch(0)}`;
+}
+
+/** Cor #RRGGBB com os canais multiplicados por k (luz das faces 3D). */
+function scaleRgb(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1, 7), 16);
+  const ch = (s: number) => Math.max(0, Math.min(255, Math.round(((n >> s) & 255) * k))).toString(16).padStart(2, '0');
+  return `#${ch(16)}${ch(8)}${ch(0)}`;
+}
 
 function mergeLine(a: LineProps | undefined, b: LineProps | undefined): LineProps | undefined {
   if (!a && !b) return undefined;

@@ -156,6 +156,10 @@ describe('quem gravou o arquivo (ChartHost.fileFormat)', () => {
     expect(cs.roundedCorners).toBe(true);
     expect(cs.title).toBeUndefined();
   });
+  it('2010+: barras sem <c:invertIfNegative> invertem as negativas', () => {
+    const cs = parseChartSpace(doc('', bar(ser(0, [1, -2]))), { ...host, fileFormat: 'modern' as const });
+    expect(cs.groups[0]!.series[0]!.invertIfNegative).toBe(true);
+  });
   it('hospedeiro sem fileFormat (Sheet): comportamento anterior', () => {
     const cs = parseChartSpace(doc('', bar(ser(0, [1, 2]), '<c:varyColors/>')), host);
     expect(cs.groups[0]!.varyColors).toBe(true);
@@ -169,6 +173,35 @@ describe('quem gravou o arquivo (ChartHost.fileFormat)', () => {
     paintChartSpace(c, parseChartSpace(space(bar(s)), host), 0, 0, 600, 400, { pxPerPt: 1.333 });
     expect(c.texts).toContain('29%');
     expect(c.texts).toContain('0,5');
+  });
+});
+
+describe('3D, tabela de dados e título', () => {
+  it('view3D: ausentes ficam para a pintura; gapDepth e hPercent lidos', () => {
+    const cs = parseChartSpace(xml(`<c:chartSpace><c:chart><c:view3D><c:rotX val="30"/><c:hPercent val="50"/><c:rAngAx val="0"/></c:view3D><c:plotArea><c:bar3DChart><c:barDir val="col"/>${ser(0, [1, 2])}<c:gapDepth val="300"/><c:axId val="1"/><c:axId val="2"/></c:bar3DChart>${AX}</c:plotArea></c:chart></c:chartSpace>`), host);
+    expect(cs.view3D).toMatchObject({ rotX: 30, hPercent: 50, rAngAx: false });
+    expect(cs.view3D!.rotY).toBeUndefined();
+    expect(cs.groups[0]!.gapDepth).toBe(300);
+  });
+  it('tabela de dados: cabeçalho com as categorias e valores no formato da série', () => {
+    const c = rec();
+    const dt = '<c:dTable><c:showHorzBorder val="1"/><c:showVertBorder val="1"/><c:showOutline val="1"/><c:showKeys val="1"/></c:dTable>';
+    const cs = parseChartSpace(space(`<c:lineChart>${ser(0, [1.5, 2, 3, 4])}<c:axId val="1"/><c:axId val="2"/></c:lineChart>${dt}`), host);
+    expect(cs.dTable).toMatchObject({ horz: true, vert: true, outline: true, keys: true });
+    paintChartSpace(c, cs, 0, 0, 600, 400, { pxPerPt: 1.333 });
+    expect(c.texts).toContain('S1');
+    expect(c.texts).toContain('1,5');
+    expect(c.texts).toContain('A');
+  });
+  it('título rico sem a:defRPr: 18,62 pt regular; com defRPr vazio: tamanho base negrito', () => {
+    const mk = (p: string) => xml(`<c:chartSpace><c:chart><c:title><c:tx><c:rich><a:bodyPr/>${p}</c:rich></c:tx><c:overlay val="0"/></c:title><c:plotArea><c:barChart>${ser(0, [1, 2])}<c:axId val="1"/><c:axId val="2"/></c:barChart>${AX}</c:plotArea></c:chart></c:chartSpace>`);
+    const fonts: string[] = [];
+    const c = rec();
+    const ctx = new Proxy(c, { set(o, k, v) { if (k === 'font') fonts.push(String(v)); (o as unknown as Record<string, unknown>)[k as string] = v; return true; } });
+    paintChartSpace(ctx, parseChartSpace(mk('<a:p><a:r><a:t>T</a:t></a:r></a:p>'), host), 0, 0, 600, 400, { pxPerPt: 1 });
+    expect(fonts.some((f) => /^18\.62px/.test(f))).toBe(true);
+    const cs2 = parseChartSpace(mk('<a:p><a:pPr><a:defRPr/></a:pPr><a:r><a:t>T</a:t></a:r></a:p>'), host);
+    expect(cs2.title!.paras![0]!.noDefRPr).toBeUndefined();
   });
 });
 

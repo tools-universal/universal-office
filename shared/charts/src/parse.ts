@@ -224,7 +224,9 @@ class Parser {
     const out: RichPara[] = [];
     for (const p of childElements(rich, 'a:p')) {
       const ppr = firstChild(p, 'a:pPr');
-      const para: RichPara = { runs: [], props: this.runProps(ppr ? firstChild(ppr, 'a:defRPr') : undefined) };
+      const def = ppr ? firstChild(ppr, 'a:defRPr') : undefined;
+      const para: RichPara = { runs: [], props: this.runProps(def) };
+      if (!def) para.noDefRPr = true;
       if (ppr?.attrs['algn']) para.align = ppr.attrs['algn'];
       for (const r of childElements(p)) {
         if (r.name === 'a:r' || r.name === 'a:fld') {
@@ -406,7 +408,8 @@ class Parser {
     // Office 2007: sem <c:smooth> = reta (2010+: suave, o default da pintura)
     const sm = this.bool(ser, 'c:smooth') ?? (this.v07 ? false : undefined);
     if (sm !== undefined) s.smooth = sm;
-    const inv = this.bool(ser, 'c:invertIfNegative');
+    // 2010+: série de barras sem <c:invertIfNegative> inverte as negativas (medido, syn-a-misc3b #2)
+    const inv = this.bool(ser, 'c:invertIfNegative') ?? (this.modern && kind === 'bar' ? true : undefined);
     if (inv !== undefined) s.invertIfNegative = inv;
     const ex = valNum(ser, 'c:explosion');
     if (ex !== undefined) s.explosion = ex;
@@ -469,6 +472,8 @@ class Parser {
     if (sl) g.serLines = this.shape(firstChild(sl, 'c:spPr'));
     const ud = firstChild(el, 'c:upDownBars');
     if (ud) g.upDownBars = { gapWidth: valNum(ud, 'c:gapWidth') ?? 150, up: this.shape(firstChild(firstChild(ud, 'c:upBars'), 'c:spPr')), down: this.shape(firstChild(firstChild(ud, 'c:downBars'), 'c:spPr')) };
+    const gdp = valNum(el, 'c:gapDepth');
+    if (gdp !== undefined && gdp >= 0) g.gapDepth = gdp;
     const bs = valNum(el, 'c:bubbleScale');
     if (bs !== undefined) g.bubbleScale = bs;
     const sh = valStr(el, 'c:shape');
@@ -600,7 +605,13 @@ export function parseChartSpace(root: XmlNode, host: ChartHost): ChartSpace {
   if (t) cs.title = t;
   cs.autoTitleDeleted = P.bool(chart, 'c:autoTitleDeleted') ?? false;
   const v3 = firstChild(chart, 'c:view3D');
-  if (v3) cs.view3D = { rotX: valNum(v3, 'c:rotX') ?? 15, rotY: valNum(v3, 'c:rotY') ?? 20, rAngAx: P.bool(v3, 'c:rAngAx') ?? true, perspective: valNum(v3, 'c:perspective') ?? 30, depthPercent: valNum(v3, 'c:depthPercent') ?? 100 };
+  if (v3) {
+    cs.view3D = { rAngAx: P.bool(v3, 'c:rAngAx') ?? true, perspective: valNum(v3, 'c:perspective') ?? 30, depthPercent: valNum(v3, 'c:depthPercent') ?? 100 };
+    const rx = valNum(v3, 'c:rotX'), ry = valNum(v3, 'c:rotY'), hp = valNum(v3, 'c:hPercent');
+    if (rx !== undefined) cs.view3D.rotX = rx;
+    if (ry !== undefined) cs.view3D.rotY = ry;
+    if (hp !== undefined) cs.view3D.hPercent = hp;
+  }
   for (const [k, f] of [['c:floor', 'floorSp'], ['c:backWall', 'backWallSp'], ['c:sideWall', 'sideWallSp']] as const) {
     const e = firstChild(chart, k);
     if (e) cs[f] = P.shape(firstChild(e, 'c:spPr'));
@@ -610,6 +621,14 @@ export function parseChartSpace(root: XmlNode, host: ChartHost): ChartSpace {
     const lay = P.layout(plot);
     if (lay) cs.plotLayout = lay;
     cs.plotSp = P.shape(firstChild(plot, 'c:spPr'));
+    const dt = firstChild(plot, 'c:dTable');
+    if (dt) {
+      cs.dTable = {
+        horz: P.bool(dt, 'c:showHorzBorder') ?? false, vert: P.bool(dt, 'c:showVertBorder') ?? false,
+        outline: P.bool(dt, 'c:showOutline') ?? false, keys: P.bool(dt, 'c:showKeys') ?? false,
+        txPr: P.textProps(firstChild(dt, 'c:txPr')),
+      };
+    }
     let gi = 0;
     for (const c of childElements(plot)) {
       const g = P.group(c, gi);

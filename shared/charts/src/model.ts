@@ -66,7 +66,13 @@ export interface ManualLayout {
   h?: number;
 }
 
-export interface RichPara { runs: { text: string; props: TextProps }[]; props: TextProps; align?: string }
+export interface RichPara {
+  runs: { text: string; props: TextProps }[];
+  props: TextProps;
+  align?: string;
+  /** Parágrafo sem `a:pPr/a:defRPr`: o título usa o estilo próprio do Office (18,62 pt, regular). */
+  noDefRPr?: boolean;
+}
 
 export interface ChartTitle {
   /** Texto rico (`c:tx/c:rich`); undefined = título automático. */
@@ -160,6 +166,8 @@ export interface Group {
   upDownBars?: { gapWidth: number; up: ShapeProps; down: ShapeProps };
   serLines?: ShapeProps;
   bubbleScale?: number;
+  /** 3D: vão entre as fileiras de barras em profundidade, % da largura da barra (default 150). */
+  gapDepth?: number;
   shape?: string;
   ofPieType?: string;
 }
@@ -208,7 +216,8 @@ export interface Legend {
   sp: ShapeProps;
 }
 
-export interface View3D { rotX: number; rotY: number; rAngAx: boolean; perspective: number; depthPercent: number }
+/** `c:view3D`: ausentes = default do tipo (barras 15°/20°, pizza 30°/0°), decidido na pintura. */
+export interface View3D { rotX?: number; rotY?: number; rAngAx: boolean; perspective: number; depthPercent: number; hPercent?: number }
 
 export interface ChartSpace {
   /** `c:style` (1–48; default 2) — define cores/efeitos default. */
@@ -226,6 +235,8 @@ export interface ChartSpace {
   sp: ShapeProps;
   txPr: TextProps;
   dispBlanksAs: 'gap' | 'zero' | 'span';
+  /** Tabela de dados sob a plotagem (`c:dTable`). */
+  dTable?: { horz: boolean; vert: boolean; outline: boolean; keys: boolean; txPr: TextProps };
   view3D?: View3D;
   floorSp?: ShapeProps;
   backWallSp?: ShapeProps;
