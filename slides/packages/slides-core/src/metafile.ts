@@ -605,6 +605,20 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     if (dc.textAlign & 1) { const s = len(1) || 1; dc.cur = [dc.cur[0] + adv / s, dc.cur[1]]; }
   };
 
+  // EMF+ "só EMF+" (sem registros GDI equivalentes): o PowerPoint desenha pelo
+  // GDI+ — tocamos o subconjunto de imagens (bitmaps crus + DrawImage/Points)
+  if (emfPlusOnly(bytes)) {
+    const player = new EmfPlusPlayer(bytes, (img, x0, y0, x1, y1, src) =>
+      blitDib(ctx, img, 0xcc0020, dest.x + (x0 - fx0) * sx, dest.y + (y0 - fy0) * sy, dest.x + (x1 - fx0) * sx, dest.y + (y1 - fy0) * sy, [], ...src));
+    for (let p = 0, g = 0; p + 8 <= bytes.length && g++ < 500000;) {
+      const type = u32(p), size = u32(p + 4);
+      if (size < 8 || p + size > bytes.length || type === 14) break;
+      if (type === 70 && size >= 16 && u32(p + 12) === EMF_PLUS) player.play(p + 16, Math.min(p + size, p + 12 + u32(p + 8)));
+      p += size;
+    }
+    return;
+  }
+
   let pos = 0, guard = 0;
   while (pos + 8 <= bytes.length && guard++ < 500000) {
     const type = u32(pos), size = u32(pos + 4);
@@ -876,6 +890,186 @@ interface WmfDc {
   pen: Pen; brush: Brush; font: Font;
   textColor: string; bkColor: string; bkMode: number; textAlign: number; polyFill: number;
   cur: Pt; clip: Cmd[][];
+}
+
+// ───────────────────── EMF+ (subconjunto de imagens) ─────────────────────
+// Portado de write/packages/docx-layout/src/emf.ts (lá vira item de página).
+
+const EMF_PLUS = 0x2b464d45; // "EMF+"
+
+/** Há registros EMF+ e o cabeçalho EMF+ NÃO é "dual" (sem registros GDI equivalentes). */
+function emfPlusOnly(b: Uint8Array): boolean {
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  let pos = 0;
+  for (let guard = 0; pos + 16 <= b.length && guard < 64; guard++) {
+    const type = dv.getUint32(pos, true), size = dv.getUint32(pos + 4, true);
+    if (size < 8) return false;
+    if (type === 70 && dv.getUint32(pos + 12, true) === EMF_PLUS && pos + 28 <= b.length) {
+      // 1º registro EMF+ = cabeçalho (0x4001); bit 0 das flags = dual
+      return dv.getUint16(pos + 16, true) === 0x4001 && (dv.getUint16(pos + 18, true) & 1) === 0;
+    }
+    if (type !== 1) return false; // o cabeçalho EMF+ vem logo após o do EMF
+    pos += size;
+  }
+  return false;
+}
+
+type Mat = [number, number, number, number, number, number];
+const matMul = (m: Mat, n: Mat): Mat => [
+  m[0] * n[0] + m[1] * n[2], m[0] * n[1] + m[1] * n[3],
+  m[2] * n[0] + m[3] * n[2], m[2] * n[1] + m[3] * n[3],
+  m[4] * n[0] + m[5] * n[2] + n[4], m[4] * n[1] + m[5] * n[3] + n[5],
+];
+
+/**
+ * Pixels de um EmfPlusBitmap cru (32 bpp ARGB/PARGB/RGB ou 24 bpp, linhas de
+ * cima para baixo) → ImageData. Comprimido (PNG/JPEG dentro do EMF+) não: a
+ * decodificação seria assíncrona e o metarquivo é tocado de uma vez.
+ */
+function emfPlusBitmap(b: Uint8Array, o: number, end: number): ImageData | undefined {
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  if (o + 20 > end || typeof ImageData === 'undefined') return undefined;
+  const w = dv.getInt32(o, true), h = dv.getInt32(o + 4, true), stride = dv.getInt32(o + 8, true);
+  const fmt = dv.getUint32(o + 12, true), kind = dv.getUint32(o + 16, true);
+  const bpp = (fmt >>> 8) & 0xff;
+  if (kind !== 0 || w <= 0 || h <= 0 || w * h > 64e6 || (bpp !== 32 && bpp !== 24) || (fmt & 0x10000) || o + 20 + stride * h > end) return undefined;
+  const alpha = (fmt & 0x40000) !== 0, premul = (fmt & 0x80000) !== 0;
+  const img = new ImageData(w, h);
+  const d = img.data;
+  for (let y = 0; y < h; y++) {
+    let s = o + 20 + y * stride, t = y * w * 4;
+    for (let x = 0; x < w; x++, t += 4) {
+      d[t] = b[s + 2]!; d[t + 1] = b[s + 1]!; d[t + 2] = b[s]!;
+      let a = 255;
+      if (bpp === 32) { if (alpha) a = b[s + 3]!; s += 4; } else s += 3;
+      if (premul && a > 0 && a < 255) for (let c = 0; c < 3; c++) d[t + c] = Math.min(255, Math.round((d[t + c]! * 255) / a));
+      d[t + 3] = a;
+    }
+  }
+  return img;
+}
+
+/** Imagem desenhada: cantos em px do dispositivo de referência + recorte da origem (sx, sy, sw, sh). */
+type EmitPlusImage = (img: ImageData, x0: number, y0: number, x1: number, y1: number, src: [number, number, number, number]) => void;
+
+/**
+ * Toca registros EMF+ ([MS-EMFPLUS]) de imagem: objetos Image (inclusive em
+ * registros "continuados"), DrawImage e DrawImagePoints, com as
+ * transformações de mundo/página e Save/Restore.
+ */
+class EmfPlusPlayer {
+  private world: Mat = [1, 0, 0, 1, 0, 0];
+  private pageScale = 1;
+  private unit = 2;
+  private dpi = 96;
+  private readonly saved = new Map<number, { world: Mat; pageScale: number; unit: number }>();
+  private readonly images = new Map<number, ImageData | undefined>();
+  private pending: { id: number; total: number; parts: Uint8Array[]; got: number } | null = null;
+  private readonly dv: DataView;
+
+  constructor(private readonly b: Uint8Array, private readonly emit: EmitPlusImage) {
+    this.dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  }
+
+  /** unidade de página → pixels */
+  private unitPx(): number {
+    switch (this.unit) {
+      case 3: return this.dpi / 72;
+      case 4: return this.dpi;
+      case 5: return this.dpi / 300;
+      case 6: return this.dpi / 25.4;
+      default: return 1; // mundo, display, pixel
+    }
+  }
+
+  private dev(x: number, y: number): Pt {
+    const m = this.world, k = this.pageScale * this.unitPx();
+    return [(x * m[0] + y * m[2] + m[4]) * k, (x * m[1] + y * m[3] + m[5]) * k];
+  }
+
+  /** EmfPlusImage (só bitmap) */
+  private image(id: number, b: Uint8Array, o: number, end: number): void {
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    this.images.set(id, o + 16 <= end && dv.getUint32(o + 4, true) === 1 ? emfPlusBitmap(b, o + 8, end) : undefined);
+  }
+
+  private draw(id: number, srcUnit: number, src: number[], p0: Pt, p1: Pt, p2: Pt): void {
+    const im = this.images.get(id);
+    if (!im) return;
+    const [d0x, d0y] = this.dev(...p0), [d1x] = this.dev(...p1), [, d2y] = this.dev(...p2);
+    this.emit(im, d0x, d0y, d1x, d2y, srcUnit === 2 ? [src[0]!, src[1]!, src[2]!, src[3]!] : [0, 0, 0, 0]);
+  }
+
+  play(start: number, end: number): void {
+    const dv = this.dv;
+    let q = start;
+    while (q + 12 <= end) {
+      const type = dv.getUint16(q, true), flags = dv.getUint16(q + 2, true);
+      const size = dv.getUint32(q + 4, true), dsz = dv.getUint32(q + 8, true);
+      if (size < 12 || q + size > end) break;
+      const d = q + 12, dEnd = Math.min(q + size, d + dsz);
+      const f32 = (o: number): number => dv.getFloat32(o, true);
+      switch (type) {
+        case 0x4001: this.dpi = dv.getUint32(d + 8, true) || 96; break; // cabeçalho
+        case 0x4008: { // Object (só Image)
+          const id = flags & 0xff;
+          if (((flags >> 8) & 0x7f) !== 5) break;
+          if (flags & 0x8000) {
+            // continuado: TotalObjectSize + pedaços em registros seguidos
+            const total = dv.getUint32(d, true);
+            if (!this.pending || this.pending.id !== id) this.pending = { id, total, parts: [], got: 0 };
+            const part = this.b.subarray(d + 4, dEnd);
+            this.pending.parts.push(part); this.pending.got += part.length;
+            if (this.pending.got >= total) {
+              const all = new Uint8Array(this.pending.got);
+              let o = 0;
+              for (const p of this.pending.parts) { all.set(p, o); o += p.length; }
+              this.pending = null;
+              this.image(id, all, 0, all.length);
+            }
+          } else this.image(id, this.b, d, dEnd);
+          break;
+        }
+        case 0x401a: { // DrawImage
+          const id = flags & 0xff, srcUnit = dv.getInt32(d + 4, true);
+          const src = [f32(d + 8), f32(d + 12), f32(d + 16), f32(d + 20)];
+          const r = flags & 0x4000 ? [dv.getInt16(d + 24, true), dv.getInt16(d + 26, true), dv.getInt16(d + 28, true), dv.getInt16(d + 30, true)]
+            : [f32(d + 24), f32(d + 28), f32(d + 32), f32(d + 36)];
+          this.draw(id, srcUnit, src, [r[0]!, r[1]!], [r[0]! + r[2]!, r[1]!], [r[0]!, r[1]! + r[3]!]);
+          break;
+        }
+        case 0x401b: { // DrawImagePoints (sup. esq., sup. dir., inf. esq.)
+          const id = flags & 0xff, srcUnit = dv.getInt32(d + 4, true);
+          const src = [f32(d + 8), f32(d + 12), f32(d + 16), f32(d + 20)];
+          if (flags & 0x0800) break; // pontos relativos
+          const pt = (k: number): Pt => flags & 0x4000
+            ? [dv.getInt16(d + 28 + k * 4, true), dv.getInt16(d + 30 + k * 4, true)] : [f32(d + 28 + k * 8), f32(d + 32 + k * 8)];
+          this.draw(id, srcUnit, src, pt(0), pt(1), pt(2));
+          break;
+        }
+        case 0x402a: this.world = [f32(d), f32(d + 4), f32(d + 8), f32(d + 12), f32(d + 16), f32(d + 20)]; break;
+        case 0x402b: this.world = [1, 0, 0, 1, 0, 0]; break;
+        case 0x402c: case 0x402d: case 0x402e: case 0x402f: {
+          let m: Mat;
+          if (type === 0x402c) m = [f32(d), f32(d + 4), f32(d + 8), f32(d + 12), f32(d + 16), f32(d + 20)];
+          else if (type === 0x402d) m = [1, 0, 0, 1, f32(d), f32(d + 4)];
+          else if (type === 0x402e) m = [f32(d), 0, 0, f32(d + 4), 0, 0];
+          else { const a = (f32(d) * Math.PI) / 180; m = [Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), 0, 0]; }
+          // flag A (0x2000): depois da atual; senão antes
+          this.world = flags & 0x2000 ? matMul(this.world, m) : matMul(m, this.world);
+          break;
+        }
+        case 0x4030: this.unit = flags & 0xff; this.pageScale = f32(d) || 1; break;
+        case 0x4025: this.saved.set(dv.getUint32(d, true), { world: this.world, pageScale: this.pageScale, unit: this.unit }); break;
+        case 0x4026: {
+          const s = this.saved.get(dv.getUint32(d, true));
+          if (s) { this.world = s.world; this.pageScale = s.pageScale; this.unit = s.unit; }
+          break;
+        }
+      }
+      q += size;
+    }
+  }
 }
 
 function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: number; h: number }): void {
