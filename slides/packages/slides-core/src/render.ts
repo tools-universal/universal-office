@@ -745,7 +745,9 @@ function paintBody(
 
   // sombra externa (outerShdw) — aplicada no fill path. Shape SEM fill não
   // pinta proxy (a sombra vai no texto/imagem herdada — nunca um rect branco).
-  const hasVisibleFill = (sh.fill !== undefined && sh.fill.type !== 'none') || !!sh.fillImage;
+  // imagem própria: a sombra sai do ALFA da imagem (no próprio desenho, abaixo); a janela
+  // do fundo (useBgFill) é opaca — sombra da silhueta
+  const hasVisibleFill = (sh.fill !== undefined && sh.fill.type !== 'none' && !(sh.fillImage && !sh.useBgFill)) || (!!sh.fillImage && !!sh.useBgFill);
   if (sh.shadow && hasVisibleFill) {
     // fit.scale já é px por EMU (dividir por 9525 zerava a sombra)
     const sx = sh.shadow.dist * Math.cos(sh.shadow.dirDeg * Math.PI / 180) * fit.scale;
@@ -758,7 +760,7 @@ function paintBody(
     ctx.shadowColor = `rgba(${r},${g},${b},${sh.shadow.alpha})`;
     ctx.shadowBlur = sh.shadow.blurRad * fit.scale;
     ctx.fillStyle = ov.fill ?? (sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color : '#ffffff');
-    if (sh.fillImage && sh.shadow.sx === undefined && sh.shadow.sy === undefined) {
+    if (sh.fillImage && sh.useBgFill && sh.shadow.sx === undefined && sh.shadow.sy === undefined) {
       // preenchimento de imagem (pode ter transparência): só a SOMBRA da silhueta — a
       // forma vai para fora da tela e o deslocamento traz a sombra de volta
       const K = 20000;
@@ -840,13 +842,32 @@ function paintBody(
       const rawImg = res.images?.get(sh.fillImage.part);
       const img = rawImg ? fxImage(rawImg, sh.fillImage.fx) : undefined;
       if (img && sh.fillImage.fx?.alpha !== undefined) ctx.globalAlpha *= sh.fillImage.fx.alpha;
+      // sombra externa pelo alfa da imagem: desenha COM a sombra do canvas (o padrão
+      // preenche o caminho sem recorte, então a sombra não é cortada)
+      if (img && sh.shadow && sh.shadow.sx === undefined && sh.shadow.sy === undefined) {
+        const sd = sh.shadow;
+        ctx.shadowColor = rgbaOf(sd.color, sd.alpha);
+        ctx.shadowBlur = sd.blurRad * fit.scale;
+        const a = sd.dirDeg * Math.PI / 180;
+        // deslocamento da sombra é no espaço do dispositivo (ignora a rotação da forma)
+        ctx.shadowOffsetX = sd.dist * Math.cos(a) * fit.scale;
+        ctx.shadowOffsetY = sd.dist * Math.sin(a) * fit.scale;
+      }
       if (img && sh.fillTile) {
         const pat = tilePattern(ctx, img, sh.fillImage, fx, fy, fit.scale);
         if (pat) {
           ctx.fillStyle = pat;
           if (rule) ctx.fill(rule); else ctx.fill();
         }
-      } else if (img) { ctx.clip(); ctx.drawImage(img, fx, fy, fw, fh); }
+      } else if (img) {
+        // esticada: padrão sem repetição transformado para a caixa (sem clip, mantém a sombra)
+        const pat = ctx.createPattern(img as CanvasImageSource, 'no-repeat');
+        if (pat && typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') {
+          pat.setTransform(new DOMMatrix([fw / (imgW(img) || 1), 0, 0, fh / (imgH(img) || 1), fx, fy]));
+          ctx.fillStyle = pat;
+          if (rule) ctx.fill(rule); else ctx.fill();
+        } else { ctx.clip(); ctx.drawImage(img, fx, fy, fw, fh); }
+      }
     } else if (sh.fill!.pattern && presetPattern(ctx, sh.fill!.pattern, fit.ox, fit.oy, fit.scale)) {
       ctx.fillStyle = presetPattern(ctx, sh.fill!.pattern, fit.ox, fit.oy, fit.scale)!;
       if (rule) ctx.fill(rule); else ctx.fill();

@@ -1199,6 +1199,7 @@ function parseCustGeom(cust: XmlElement): { w: number; h: number; subs: PathSeg[
   if (!pathLst) return undefined;
   const subs: PathSeg[][] = [];
   const noFill: boolean[] = [], noStroke: boolean[] = [];
+  const sizes: [number, number][] = [];
   let pw = 0, ph = 0;
   const pt = (el: XmlElement | undefined): { x: number; y: number } => ({
     x: el?.attrs['x'] !== undefined ? parseInt(el.attrs['x'], 10) : 0,
@@ -1222,11 +1223,23 @@ function parseCustGeom(cust: XmlElement): { w: number; h: number; subs: PathSeg[
     }
     if (segs.length) {
       subs.push(segs);
+      sizes.push([parseInt(path.attrs['w'] ?? '0', 10) || 0, parseInt(path.attrs['h'] ?? '0', 10) || 0]);
       noFill.push(path.attrs['fill'] === 'none');
       noStroke.push(path.attrs['stroke'] === '0' || path.attrs['stroke'] === 'false');
     }
   }
   if (!subs.length) return undefined;
+  // cada <a:path> tem o próprio sistema w×h: leva todos ao maior (o que a forma estica)
+  subs.forEach((segs, i) => {
+    const [wi, hi] = sizes[i]!;
+    const kx = wi > 0 && pw > 0 && wi !== pw ? pw / wi : 1, ky = hi > 0 && ph > 0 && hi !== ph ? ph / hi : 1;
+    if (kx === 1 && ky === 1) return;
+    for (const g of segs) {
+      if ('x' in g) { g.x *= kx; g.y *= ky; }
+      if ('x1' in g) { g.x1 *= kx; g.y1 *= ky; }
+      if ('x2' in g) { g.x2 *= kx; g.y2 *= ky; }
+    }
+  });
   return { w: pw || 1, h: ph || 1, subs, ...(noFill.some(Boolean) ? { noFill } : {}), ...(noStroke.some(Boolean) ? { noStroke } : {}) };
 }
 
@@ -1814,6 +1827,8 @@ function resolveBlip(blip: XmlElement, pkg: PptxPackage, rels: Map<string, strin
 /** `<a:tile sx sy tx ty>` de um `<a:blipFill>` → escala/deslocamento do ladrilho na ImageRef. */
 function applyTile(ref: ImageRef, blipFill: XmlElement | undefined): boolean {
   const tile = blipFill ? firstChild(blipFill, 'a:tile') : undefined;
+  // sem <a:stretch> nem <a:tile>: o PowerPoint LADRILHA no tamanho natural (tdf#128596, medido)
+  if (!tile && blipFill && !firstChild(blipFill, 'a:stretch')) { ref.tile = { sx: 1, sy: 1, tx: 0, ty: 0 }; return true; }
   if (!tile) return false;
   const n = (k: string, d: number): number => (tile.attrs[k] !== undefined ? parseInt(tile.attrs[k]!, 10) : d);
   ref.tile = { sx: n('sx', 100000) / 100000, sy: n('sy', 100000) / 100000, tx: n('tx', 0), ty: n('ty', 0) };
