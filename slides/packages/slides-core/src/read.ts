@@ -176,24 +176,43 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
 
   // spPr herdado do placeholder: SOMBRA do layout/master aplica ao slide
   // (títulos de template carregam outerShdw no placeholder do layout)
-  const shadowMap = new Map<string, NonNullable<Shape['shadow']>>();
+  // e também o resto do spPr: preenchimento, contorno, geometria e efeitos do
+  // placeholder do layout/master valem no slide quando a forma não tem os seus
+  const spMap = new Map<string, Shape>();
   for (const part of [masterPath, layoutPath]) {
     if (!part) continue;
     const xml2 = pkg.getPartText(part);
     if (xml2 === undefined) continue;
     const tree = descend(parseXml(xml2), 'p:spTree');
     if (!tree) continue;
-    for (const psh of readShapes(tree, theme, pkg, new Map())) {
-      if ((psh.phType === undefined && psh.phIdx === undefined) || !psh.shadow) continue;
-      shadowMap.set(phKey(psh.phType, psh.phIdx), psh.shadow);
-      shadowMap.set(phKey(psh.phType), psh.shadow);
-      if (psh.phIdx !== undefined && part === layoutPath) shadowMap.set('idx:' + psh.phIdx, psh.shadow);
+    const prels = readRels(pkg, relsPathFor(part), part);
+    for (const psh of readShapes(tree, theme, pkg, prels)) {
+      if (psh.phType === undefined && psh.phIdx === undefined) continue;
+      const merge = (k: string) => { const prev = spMap.get(k); spMap.set(k, prev ? { ...prev, ...stripUndefShape(psh) } : psh); };
+      merge(phKey(psh.phType, psh.phIdx));
+      merge(phKey(psh.phType));
+      if (psh.phIdx !== undefined && part === layoutPath) merge('idx:' + psh.phIdx);
     }
   }
   for (const sh of shapes) {
-    if (sh.shadow || (sh.phType === undefined && sh.phIdx === undefined)) continue;
-    const inh = shadowMap.get(phKey(sh.phType, sh.phIdx)) ?? shadowMap.get(phKey(sh.phType)) ?? shadowMap.get('idx:' + (sh.phIdx ?? ''));
-    if (inh) sh.shadow = inh;
+    if (sh.inherited || (sh.phType === undefined && sh.phIdx === undefined)) continue;
+    const inh = spMap.get(phKey(sh.phType, sh.phIdx)) ?? spMap.get(phKey(sh.phType)) ?? spMap.get('idx:' + (sh.phIdx ?? ''));
+    if (!inh) continue;
+    if (!sh.shadow && inh.shadow) sh.shadow = inh.shadow;
+    if (!sh.fill && !sh.fillImage && !sh.grpFill && !sh.useBgFill) {
+      if (inh.fill) sh.fill = inh.fill;
+      if (inh.fillAlpha !== undefined && sh.fillAlpha === undefined) sh.fillAlpha = inh.fillAlpha;
+      if (inh.fillImage) { sh.fillImage = inh.fillImage; if (inh.fillTile) sh.fillTile = true; }
+      if (inh.useBgFill) sh.useBgFill = true;
+    }
+    if (sh.lineColor === undefined && !sh.lineNone) {
+      if (inh.lineColor) sh.lineColor = inh.lineColor;
+      if (inh.lineNone) sh.lineNone = true;
+      if (sh.lineWidth === undefined && inh.lineWidth !== undefined) sh.lineWidth = inh.lineWidth;
+      if (sh.lineDash === undefined && inh.lineDash !== undefined) sh.lineDash = inh.lineDash;
+    }
+    if (sh.geom === undefined && !sh.custGeom && inh.geom) { sh.geom = inh.geom; if (inh.adj) { sh.adj = inh.adj; if (inh.adjNames) sh.adjNames = inh.adjNames; } }
+    for (const k of ['glow', 'softEdge', 'reflection', 'innerShadow'] as const) if (sh[k] === undefined && inh[k] !== undefined) (sh as unknown as Record<string, unknown>)[k] = inh[k];
   }
 
   // bodyPr herdado do placeholder (âncora vertical/insets/autofit/colunas)
@@ -304,6 +323,16 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     if (mx !== undefined) {
       applyBg(masterPath, parseXml(mx), readRels(pkg, relsPathFor(masterPath), masterPath));
     }
+  }
+  // sem <p:bg> em nenhum nível: o fundo é bg1 do mapa de cores EFETIVO (clrMapOvr
+  // do layout invertendo bg1→dk1 deixa o slide preto no app)
+  if (!slide.bg && !slide.bgImage && theme.colors['bg1']) slide.bg = { type: 'solid', color: theme.colors['bg1'] };
+  // formas com useBgFill (inclusive as herdadas do master/layout) recebem o fundo resolvido
+  for (const sh of shapes) {
+    if (!sh.useBgFill) continue;
+    if (slide.bg) sh.fill = slide.bg;
+    else if (slide.bgImage) { sh.fillImage = slide.bgImage; if (slide.bgTile) sh.fillTile = true; }
+    else sh.fill = { type: 'solid', color: '#FFFFFF' };
   }
   // animacoes (<p:timing> cascade fade do showcase)
   const timing = firstChild(root, 'p:timing');
@@ -885,6 +914,13 @@ function chartThemeFor(pkg: PptxPackage, chartPath: string, theme: Theme): Theme
   return theme.clrMap ? applyClrMap(merged, theme.clrMap) : merged;
 }
 
+/** Campos definidos de uma forma (para mesclar master → layout). */
+function stripUndefShape(sh: Shape): Partial<Shape> {
+  const out: Partial<Shape> = {};
+  for (const [k, v] of Object.entries(sh)) if (v !== undefined) (out as Record<string, unknown>)[k] = v;
+  return out;
+}
+
 /** Clona a árvore renomeando prefixo de elementos (`dsp:sp` → `p:sp` etc.). */
 function renamePrefix(el: XmlElement, from: string, to: string): XmlElement {
   return {
@@ -1089,6 +1125,8 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       if (tail?.attrs['type'] && tail.attrs['type'] !== 'none') shape.tailArrow = tail.attrs['type'];
     }
   }
+  // <p:sp useBgFill="1">: o preenchimento é o fundo do slide (aplicado em readSlide)
+  if (sp.attrs['useBgFill'] === '1' || sp.attrs['useBgFill'] === 'true') { shape.useBgFill = true; delete shape.fill; }
   // efeitos (sombra externa/interna, brilho, bordas suaves, reflexo): os do
   // spPr ou, sem `<a:effectLst>` próprio, o estilo do tema pelo effectRef
   readEffects(spPr, firstChild(sp, 'p:style'), theme, shape);
@@ -1111,7 +1149,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       if (!ref || ref.attrs['idx'] === '0') return undefined; // idx=0 = sem estilo
       return colorFromDml(childElements(ref)[0], theme);
     };
-    if (!shape.fill && !shape.fillImage && !shape.grpFill) {
+    if (!shape.fill && !shape.fillImage && !shape.grpFill && !shape.useBgFill) {
       // estilo do fillStyleLst do tema (idx 1 sólido, 2/3 degradês nos temas
       // 2007–2013) com phClr = cor da referência; sem tema, a cor pura
       const ref = firstChild(styleEl, 'a:fillRef');

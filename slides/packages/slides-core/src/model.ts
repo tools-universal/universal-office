@@ -294,6 +294,8 @@ export interface Shape {
   reflection?: { blurRad: number; stA: number; endA: number; stPos: number; endPos: number; dist: number; dirDeg: number; sy: number; fadeDirDeg: number };
   /** Câmera 3D com rotação explícita (`<a:scene3d><a:camera><a:rot lat lon rev>`), graus: a forma é vista girada (projeção ortográfica). */
   camRot?: { lat: number; lon: number; rev: number };
+  /** `<p:sp useBgFill="1">`: preenchida com o FUNDO do slide (resolvido no fim da leitura). */
+  useBgFill?: boolean;
   /** Sombra interna (`<a:innerShdw>`). */
   innerShadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number };
   /** Transparência do fill (`<a:solidFill><a:srgbClr><a:alpha val=...`). 0..1. */
