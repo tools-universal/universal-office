@@ -202,10 +202,18 @@ function gradientStops(sh: OAShape, pc: PartCtx, fill: string, back: string, fil
   const arr = msoArray(sh.props.get(0x197));
   const stops: { pos: number; color: string; alpha?: number }[] = [];
   if (arr && arr.size === 8 && arr.n >= 2) {
+    // paradas explícitas (preenchimento → fundo); o foco vale para elas também:
+    // ±100 inverte, entre 0 e ±100 espelha em volta do foco (conversão do app)
+    const raw: { pos: number; color: string }[] = [];
     for (let i = 0; i < arr.n; i++) {
       const o = arr.off + i * 8;
-      stops.push({ color: oaColor(arr.r.u32(o), sh, pc), pos: fixed(arr.r.u32(o + 4)) });
+      raw.push({ color: oaColor(arr.r.u32(o), sh, pc), pos: fixed(arr.r.u32(o + 4)) });
     }
+    const F = (propS(sh, 0x18c) ?? 0) / 100;
+    if (F >= 1 || F <= -1) for (const s of raw) stops.push({ ...s, pos: 1 - s.pos });
+    else if (F > 0) for (const s of raw) stops.push({ ...s, pos: (1 - s.pos) * F }, { ...s, pos: F + s.pos * (1 - F) });
+    else if (F < 0) for (const s of raw) stops.push({ ...s, pos: s.pos * (1 + F) }, { ...s, pos: 1 + F - (1 - s.pos) * F });
+    else stops.push(...raw);
   } else {
     const focus = propS(sh, 0x18c) ?? 0;
     const f = { color: fill, alpha: fillA }, b = { color: back, alpha: backA };
@@ -235,8 +243,14 @@ function fillXml(sh: OAShape, pc: PartCtx, isBackground = false): string {
       const pib = prop(sh, 0x186);
       const rid = pib ? imageRel(pc, pib) : undefined;
       if (!rid) return el('a:solidFill', {}, srgb(color, opacity));
+      // fRecolorFillAsPicture: a imagem em duas cores (escuro = preenchimento, claro = fundo) — o app converte em
+      // duotone; no FUNDO do slide o preenchimento default é a cor de fundo do esquema (bg1 na conversão do app)
+      // (só sem fillBackColor e sem fillBlipFlags gravados: nos 13 fundos do corpus o app casa exatamente assim)
+      const recolor = boolProp(sh, 0x1bf, 6, false) && prop(sh, 0x183) === undefined && prop(sh, 0x188) === undefined;
+      const dflt = pc.conv.doc.drawingDefaults;
+      const duo = recolor ? el('a:duotone', {}, srgb(oaColor(prop(sh, 0x181) ?? (isBackground ? 0x08000000 : dflt.get(0x181)?.value ?? 0xffffff), sh, pc)) + srgb(oaColor(prop(sh, 0x183) ?? 0xffffff, sh, pc))) : '';
       return el('a:blipFill', { dpi: 0, rotWithShape: 1 },
-        el('a:blip', { 'r:embed': rid }) + '<a:srcRect/>' + (type === 2 ? '<a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"/>' : '<a:stretch><a:fillRect/></a:stretch>'));
+        el('a:blip', { 'r:embed': rid }, duo) + '<a:srcRect/>' + (type === 2 ? '<a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"/>' : '<a:stretch><a:fillRect/></a:stretch>'));
     }
     case 4: case 5: case 6: case 7: case 8: {
       if (type === 4 || type === 7 || type === 8) {
