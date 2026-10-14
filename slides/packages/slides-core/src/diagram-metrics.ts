@@ -34,9 +34,22 @@ function widths(face: string, st: Style): number[] {
 
 /**
  * Aptos (tema do Office 2023+) não tem clone aberto: a tabela da Liberation Sans
- * com fatores por classe medidos (minúsculas, maiúsculas, dígitos, espaço).
+ * com a RAZÃO de largura medida por caractere ASCII (%, base 36, U+0020–U+007E),
+ * regular e negrito; fora do ASCII, 95%.
  */
-const APTOS: Record<'r' | 'b', [number, number, number, number, number]> = { r: [0.986, 0.89, 0.96, 0.731, 0.95], b: [0.955, 0.914, 0.96, 0.731, 0.94] };
+const APTOS_R = '212x2w2p2o2l2o322g2g392j2v2u2v3e2o2o2o2o2o2o2o2o2o2o2v2v2j2j2j2i2g2g2j2o2n2b2e2j2q2m1u2d2i2n2q2m2f2m2c2d262m2g2n2b292c2y3e2y362b4m2o2t2x2t2n302f2r2z2z2p392u2r2r2t2t2s2p382s2i2s2g2i2g2g2w2g2j';
+const APTOS_B = '212g2h2p2o2n2m2q2g2g392j302u303v2o2o2o2o2o2o2o2o2o2o2i2i2j2j2j2d2k2e2e2q2q2e2g2k2t2y1u2e2c2r2s2n2j2n2g2i2b2o2k2s2i2g2i2t3v2t2j2b4m2r2o2r2o2s2t2c2n2o2o2o2z2s2n2m2o2o2n2l2z2n2h2q2h2h2l2f2p2f2j';
+const aptosCache: Record<string, number[]> = {};
+function aptosRatios(bold: boolean): number[] {
+  const k = bold ? 'b' : 'r';
+  if (!aptosCache[k]) {
+    const s = bold ? APTOS_B : APTOS_R;
+    const a: number[] = [];
+    for (let i = 0; i < s.length; i += 2) a.push(parseInt(s.slice(i, i + 2), 36) / 100);
+    aptosCache[k] = a;
+  }
+  return aptosCache[k]!;
+}
 
 /** Família → [tabela, fator de largura]. */
 function faceOf(family: string | undefined): [string, number] {
@@ -58,7 +71,7 @@ function faceOf(family: string | undefined): [string, number] {
 /** Largura (EMU) do texto em `sizePt`. */
 export function measureApprox(text: string, sizePt: number, font: DiagramFont): number {
   const [face, k] = faceOf(font.family);
-  const ap = face === 'aptos' ? APTOS[font.bold ? 'b' : 'r'] : undefined;
+  const ap = face === 'aptos' ? aptosRatios(!!font.bold) : undefined;
   const st: Style = font.bold ? (font.italic ? 'z' : 'b') : font.italic ? 'i' : 'r';
   const w = widths(ap ? 'sans' : face, st);
   let em = 0;
@@ -70,7 +83,7 @@ export function measureApprox(text: string, sizePt: number, font: DiagramFont): 
     else if (c >= 0x2e80 && c < 0xffa0) { em += 1; continue; } // CJK / largura cheia
     else if (c === 9) { em += 2; continue; }
     else v = (w[33]! + w[65]!) / 2000; // demais: média de A/a
-    if (ap) v *= c >= 97 && c <= 122 ? ap[0] : c >= 65 && c <= 90 ? ap[1] : c >= 48 && c <= 57 ? ap[2] : c === 32 ? ap[3] : ap[4];
+    if (ap) v *= c >= 32 && c < 127 ? ap[c - 32]! : 0.95;
     em += v;
   }
   return em * k * sizePt * 12700;

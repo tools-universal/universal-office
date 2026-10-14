@@ -15,6 +15,7 @@
 import { childElements, firstChild, textContent, type XmlElement } from './xml.js';
 import { measureApprox, lineFactor } from './diagram-metrics.js';
 import { colorFromDml } from './theme.js';
+import { presetGuides } from './preset-engine.js';
 import type { Theme } from './model.js';
 
 /** Largura (EMU) de `text` no tamanho `sizePt`. */
@@ -172,9 +173,11 @@ function ptMatch(p: Pt, t: string | undefined): boolean {
     case 'all': return true;
     case 'node': return p.type === 'node' || p.type === 'asst';
     case 'norm': return p.type === 'node';
-    case 'nonNorm': return p.type !== 'node';
+    // "não normal"/"não assistente" são NÓS (sem transições): orgChart itera ch nonAsst
+    // e cria um ramo por item — com transições sairiam conectores duplicados
+    case 'nonNorm': return p.type === 'asst';
     case 'asst': return p.type === 'asst';
-    case 'nonAsst': return p.type !== 'asst';
+    case 'nonAsst': return p.type === 'node';
     case 'doc': return p.type === 'doc';
     case 'parTrans': return p.type === 'parTrans';
     case 'sibTrans': return p.type === 'sibTrans';
@@ -270,6 +273,14 @@ interface PNode {
   v: Record<string, number>;
   /** valores impostos por restrições for="des" de ancestrais (sobrevivem à reavaliação do pai) */
   desV: Record<string, number>;
+  /** valores decididos pelas REGRAS (fonte reduzida, altura crescida): vencem as restrições */
+  ov: Record<string, number>;
+  /** tipos com valor imposto por ancestral nesta avaliação */
+  fromParent?: Set<string>;
+  /** tetos (op="lte") numéricos por tipo */
+  hi?: Record<string, number>;
+  /** parágrafos do texto (cache) */
+  paras?: TextPara[];
   /** margens proporcionais à fonte (fração de primFontSz/secFontSz) */
   margF: Record<string, [number, string]>;
   /** grupos de igualdade (op="equ") por tipo */
@@ -341,7 +352,7 @@ class Builder {
     const name = def.attrs['name'] ?? '';
     const n: PNode = {
       uid: this.nodes.length, name, def, pt, parent, kids: [], constrs: [], rules: [], lvars: {}, styleLbl: def.attrs['styleLbl'],
-      styleIdx: 0, styleCnt: 0, v: {}, desV: {}, margF: {}, equ: {}, lte: {}, x: 0, y: 0, w: 0, h: 0, rot: 0,
+      styleIdx: 0, styleCnt: 0, v: {}, desV: {}, ov: {}, margF: {}, equ: {}, lte: {}, x: 0, y: 0, w: 0, h: 0, rot: 0,
     };
     this.nodes.push(n);
     // ponto de apresentação gravado (ajustes do usuário: variáveis, escala, formatação)
@@ -484,6 +495,8 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
     for (const t of targets) {
       // margem proporcional à fonte: resolvida depois do ajuste do texto
       if (MARG.has(c.type) && FONT.has(c.refType)) { t.margF[c.type] = [Number.isFinite(c.fact) ? c.fact : 1, c.refType]; continue; }
+      // valor decidido pelas regras (fonte reduzida, altura crescida) vence a restrição
+      if (t.ov[c.type] !== undefined) { if (c.op === 'equ') t.equ[c.type] = `${owner.uid}:${c.type}:${c.forName ?? ''}:${c.ptType ?? ''}`; continue; }
       let value: number | undefined;
       let ref: PNode | undefined;
       if (c.refType !== 'none') {
@@ -491,8 +504,13 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
         const rv = ref ? getVal(ref, c.refType) : undefined;
         if (rv === undefined) continue;
         value = rv * (Number.isFinite(c.fact) ? c.fact : 1);
+        // comprimento referido a um tamanho de fonte: o número vale em mm (hList1: h = 1,22 × fonte)
+        if (LEN.has(c.type) && FONT.has(c.refType)) value *= EMU_MM;
+        else if (FONT.has(c.type) && LEN.has(c.refType)) value /= EMU_MM;
         if (c.op === 'lte' || c.op === 'gte') {
           if (c.op === 'lte' && ref) t.lte[c.type] = [ref, c.refType, Number.isFinite(c.fact) ? c.fact : 1];
+          // teto numérico (limita também o crescimento pelas regras)
+          if (c.op === 'lte' && Number.isFinite(value)) (t.hi ??= {})[c.type] = Math.min(t.hi[c.type] ?? Infinity, value);
           const cur = t.v[c.type];
           if (cur !== undefined && Number.isFinite(value)) t.v[c.type] = c.op === 'lte' ? Math.min(cur, value) : Math.max(cur, value);
           else if (cur === undefined && c.op === 'gte') t.v[c.type] = value;
@@ -505,6 +523,10 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
         continue;
       } else value = 0;
       if (value === undefined || Number.isNaN(value)) continue;
+      // restrição do próprio nó não sobrepõe valor imposto por um ancestral (hList1: o
+      // "h" vazio do parTx/desTx não zera a altura dada pela raiz)
+      if (t === owner && c.op === 'none' && t.fromParent?.has(c.type)) continue;
+      if (t !== owner) (t.fromParent ??= new Set()).add(c.type);
       if (scale && t !== owner) {
         if (ref === owner && (c.refType === 'w' || c.refType === 'h')) value *= scale(c, owner);
         else if (c.refType === 'none' && LEN.has(c.type)) value *= scale(c, owner);
@@ -525,7 +547,11 @@ function refNode(owner: PNode, c: Constr, target: PNode): PNode | undefined {
 /** Restrições do dono + as "self" de cada filho (tamanho ideal dos filhos). */
 function evalKids(n: PNode, scale?: (c: Constr, ref: PNode) => number): void {
   // valores impostos de cima (for="des" de ancestrais) continuam valendo
-  for (const k of n.kids) { k.v = { ...k.desV }; k.lte = {}; }
+  for (const k of n.kids) { k.v = { ...k.desV, ...k.ov }; k.lte = {}; k.hi = undefined; k.fromParent = new Set(Object.keys(k.desV)); }
+  applyConstrs(n, scale);
+  for (const k of n.kids) applyConstrs(k, undefined, true);
+  // segunda passada: referências do pai a valores que o filho ajustou (teto h ≤ 0,4 w do
+  // parTx → t do desTx no hList1) — o app resolve as restrições como um grafo
   applyConstrs(n, scale);
   for (const k of n.kids) applyConstrs(k, undefined, true);
 }
@@ -550,7 +576,8 @@ function kidSize(k: PNode, n: PNode): { w: number; h: number } {
   w = (w ?? n.w) + (v['wOff'] ?? 0);
   h = (h ?? n.h) + (v['hOff'] ?? 0);
   const sx = custScale(k, 'X'), sy = custScale(k, 'Y');
-  return { w: Math.max(0, w * sx), h: Math.max(0, h * sy) };
+  // espaçador pode ter tamanho NEGATIVO (setas encaixadas: w = −0,1 × nó)
+  return { w: w * sx, h: h * sy };
 }
 function custScale(k: PNode, axis: 'X' | 'Y'): number {
   const s = k.pres?.prSet?.attrs[`custScale${axis}`];
@@ -577,6 +604,23 @@ function algComposite(n: PNode): void {
     y += (v['tOff'] ?? 0) + (v['ctrYOff'] ?? 0);
     place(k, x, y, w, h);
   }
+}
+
+/** Extensão do conteúdo de um composto posto numa caixa w×h (só conteúdo ancorado na origem). */
+function contentExtent(k: PNode, w: number, h: number): { w: number; h: number } {
+  const keep = { x: k.x, y: k.y, w: k.w, h: k.h, v: k.v };
+  k.x = 0; k.y = 0; k.w = w; k.h = h; k.v = { ...k.v, w, h };
+  algComposite(k);
+  let x1 = 0, y1 = 0, x0 = Infinity, y0 = Infinity;
+  for (const c of k.kids) {
+    if (c.rw === undefined || c.rh === undefined) continue;
+    x0 = Math.min(x0, c.rx ?? 0); y0 = Math.min(y0, c.ry ?? 0);
+    x1 = Math.max(x1, (c.rx ?? 0) + c.rw); y1 = Math.max(y1, (c.ry ?? 0) + c.rh);
+  }
+  Object.assign(k, keep);
+  if (x0 === Infinity) return { w, h };
+  // conteúdo que não começa na origem (centralizado etc.) não encolhe
+  return { w: x0 > 1 ? w : x1, h: y0 > 1 ? h : y1 };
 }
 
 function place(k: PNode, x: number, y: number, w: number, h: number): void {
@@ -614,6 +658,15 @@ function algLin(n: PNode): void {
   let s = bestScale(fits);
   if (s <= 1e-5) { mode = 'all'; s = bestScale(fits); }
   const { len } = run(s);
+  // composto cujo conteúdo não preenche a célula encolhe até o conteúdo (eixo
+  // secundário) e o lin o centraliza — hList1/chevron1 com filhos
+  order.forEach((k, i) => {
+    if (algType(k) !== 'composite') return;
+    const z = sizes[i]!;
+    const c = contentExtent(k, z.w, z.h);
+    if (horiz && c.h > 0 && c.h < z.h - 1) sizes[i] = { w: z.w, h: c.h };
+    else if (!horiz && c.w > 0 && c.w < z.w - 1) sizes[i] = { w: c.w, h: z.h };
+  });
   const sp = n.v['sp'] ?? 0;
   const hAl = p['nodeHorzAlign'] ?? 'ctr', vAl = p['nodeVertAlign'] ?? 'mid';
   let pos = ((horiz ? W : H) - len) / 2;
@@ -698,11 +751,179 @@ function layoutNode(n: PNode, depth: number): void {
   switch (algType(n)) {
     case 'lin': algLin(n); break;
     case 'snake': algSnake(n); break;
+    case 'hierChild': case 'hierRoot': layoutHier(n, depth); return;
     default: algComposite(n); break;
   }
   for (const k of n.kids) {
     k.x = n.x + (k.rx ?? 0); k.y = n.y + (k.ry ?? 0); k.w = k.rw ?? n.w; k.h = k.rh ?? n.h;
     layoutNode(k, depth + 1);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// hierarquia (hierRoot / hierChild): arranjo em unidades ideais, de baixo para
+// cima, depois escala uniforme para caber no nó e centraliza
+// ---------------------------------------------------------------------------
+interface Box { n: PNode; x: number; y: number; w: number; h: number }
+interface Arr {
+  boxes: Box[];
+  /** caixa da raiz do ramo (âncora para centralizar o pai e ligar conectores) */
+  anchor?: Box;
+  /** âncoras dos filhos (primeira e última) no eixo principal do hierChild */
+  span?: [number, number];
+}
+const isHier = (n: PNode) => { const t = algType(n); return t === 'hierChild' || t === 'hierRoot'; };
+function bbox(bs: Box[]): { x: number; y: number; w: number; h: number } {
+  if (!bs.length) return { x: 0, y: 0, w: 0, h: 0 };
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const b of bs) { x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); }
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+const shift = (a: Arr, dx: number, dy: number): void => {
+  for (const b of a.boxes) { b.x += dx; b.y += dy; }
+  if (a.span) { /* o span é relativo ao eixo principal de quem o criou; o chamador ajusta */ }
+};
+
+function arrange(n: PNode, depth: number, parent?: PNode): Arr {
+  if (depth > MAX_DEPTH) return { boxes: [] };
+  const t = algType(n);
+  if (t === 'hierRoot') return arrangeRoot(n, depth);
+  if (t === 'hierChild') return arrangeChild(n, depth);
+  const z = parent ? kidSize(n, parent) : { w: n.w, h: n.h };
+  const box: Box = { n, x: 0, y: 0, w: z.w, h: z.h };
+  return { boxes: [box], anchor: box };
+}
+
+/** Raiz + filhos: hierAlign diz de que lado fica a raiz e como alinha (tCtrCH = em cima, centrada nos filhos). */
+function arrangeRoot(hr: PNode, depth: number): Arr {
+  evalKids(hr);
+  const p = params(hr.alg);
+  const align = (p['hierAlign'] ?? 'tCtrCH').toLowerCase();
+  const sp = hr.v['sp'] ?? 0;
+  const off = hr.v['alignOff'] ?? 0;
+  const rootK = hr.kids.find((k) => !isHier(k) && algType(k) !== 'conn');
+  const chKs = hr.kids.filter((k) => algType(k) === 'hierChild');
+  const boxes: Box[] = [];
+  let anchor: Box | undefined;
+  if (rootK) {
+    const z = kidSize(rootK, hr);
+    rootK.w = z.w; rootK.h = z.h;
+    anchor = { n: rootK, x: 0, y: 0, w: z.w, h: z.h };
+    boxes.push(anchor);
+  }
+  // demais nós que não são hierárquicos (conectores ficam para depois)
+  const blocks = chKs.map((k) => arrange(k, depth + 1, hr)).filter((a) => a.boxes.length);
+  // assistentes (hierChild cujos filhos são assistentes) vêm antes, colados à raiz
+  blocks.sort((a, b) => Number(!isAsstBlock(a)) - Number(!isAsstBlock(b)));
+  const side = align[0] ?? 't';
+  const vert = side === 't' || side === 'b';
+  const rw = anchor?.w ?? 0, rh = anchor?.h ?? 0;
+  let cursor = (vert ? rh : rw) + sp;
+  for (const a of blocks) {
+    const bb = bbox(a.boxes);
+    // eixo principal (afastamento da raiz)
+    if (vert) shift(a, 0, cursor - bb.y); else shift(a, cursor - bb.x, 0);
+    cursor += (vert ? bb.h : bb.w) + sp;
+    // eixo secundário: alinhamento da raiz em relação ao bloco
+    const span = a.span ?? (a.anchor ? (vert ? [a.anchor.x + a.anchor.w / 2, a.anchor.x + a.anchor.w / 2] : [a.anchor.y + a.anchor.h / 2, a.anchor.y + a.anchor.h / 2]) as [number, number] : undefined);
+    const nb = bbox(a.boxes);
+    const mode = align.slice(1);
+    if (vert) {
+      if (mode === 'l') shift(a, off * rw - nb.x, 0);
+      else if (mode === 'r') shift(a, rw - off * rw - (nb.x + nb.w), 0);
+      else if (span) shift(a, rw / 2 - (span[0] + span[1]) / 2, 0);
+      else shift(a, rw / 2 - (nb.x + nb.w / 2), 0);
+    } else {
+      if (mode === 't') shift(a, 0, off * rh - nb.y);
+      else if (mode === 'b') shift(a, 0, rh - off * rh - (nb.y + nb.h));
+      else if (span) shift(a, 0, rh / 2 - (span[0] + span[1]) / 2);
+      else shift(a, 0, rh / 2 - (nb.y + nb.h / 2));
+    }
+    boxes.push(...a.boxes);
+  }
+  // raiz embaixo / à direita: espelha o eixo principal
+  if (side === 'b' || side === 'r') {
+    const bb = bbox(boxes);
+    for (const b of boxes) {
+      if (side === 'b') b.y = bb.y + bb.h - (b.y - bb.y) - b.h;
+      else b.x = bb.x + bb.w - (b.x - bb.x) - b.w;
+    }
+  }
+  return { boxes, anchor };
+}
+const isAsstBlock = (a: Arr): boolean => a.boxes.length > 0 && a.boxes.every((b) => b.n.pt.type === 'asst' || isTransOrConn(b.n)) && a.boxes.some((b) => b.n.pt.type === 'asst');
+const isTransOrConn = (n: PNode) => isTrans(n) || algType(n) === 'conn';
+
+/** Filhos em linha (linDir) com sibSp entre ramos — empacotados pelo contorno (sem sobrepor caixas). */
+function arrangeChild(hc: PNode, depth: number): Arr {
+  evalKids(hc);
+  const p = params(hc.alg);
+  const dir = p['linDir'] ?? 'fromL';
+  const horiz = dir === 'fromL' || dir === 'fromR';
+  const rev = dir === 'fromR' || dir === 'fromB';
+  const chAlign = p['chAlign'] ?? (horiz ? 't' : 'l');
+  const sib = hc.v['sibSp'] ?? 0, sec = hc.v['secSibSp'] ?? sib;
+  const two = !!p['secLinDir'];
+  const subs = hc.kids.filter((k) => !isTransOrConn(k)).map((k) => arrange(k, depth + 1, hc)).filter((a) => a.boxes.length);
+  const placed: Box[] = [];
+  const anchors: Box[] = [];
+  // em 2D (assistentes, "hang"): duas colunas, linhas de cima para baixo
+  const perRow = two ? 2 : subs.length || 1;
+  let rowStart = 0;
+  for (let r = 0; r * perRow < subs.length; r++) {
+    const row = subs.slice(r * perRow, (r + 1) * perRow);
+    const rowBoxes: Box[] = [];
+    row.forEach((a, i) => {
+      const bb = bbox(a.boxes);
+      // alinhamento perpendicular
+      if (horiz) shift(a, 0, (chAlign === 'b' ? -(bb.y + bb.h) : chAlign === 'ctr' || chAlign === 'mid' ? -(bb.y + bb.h / 2) : -bb.y) + rowStart);
+      else shift(a, (chAlign === 'r' ? -(bb.x + bb.w) : chAlign === 'ctr' ? -(bb.x + bb.w / 2) : -bb.x) + rowStart, 0);
+      const nb = bbox(a.boxes);
+      if (!i) { if (horiz) shift(a, -nb.x, 0); else shift(a, 0, -nb.y); }
+      else {
+        // menor deslocamento que mantém sibSp de toda caixa já posta que se sobrepõe no outro eixo
+        let d = -Infinity;
+        for (const q of rowBoxes) for (const b of a.boxes) {
+          const ov = horiz ? Math.min(q.y + q.h, b.y + b.h) - Math.max(q.y, b.y) : Math.min(q.x + q.w, b.x + b.w) - Math.max(q.x, b.x);
+          if (ov <= 0) continue;
+          d = Math.max(d, horiz ? q.x + q.w + sib - b.x : q.y + q.h + sib - b.y);
+        }
+        if (d === -Infinity) { const pb = bbox(rowBoxes); d = horiz ? pb.x + pb.w + sib - nb.x : pb.y + pb.h + sib - nb.y; }
+        if (horiz) shift(a, d, 0); else shift(a, 0, d);
+      }
+      rowBoxes.push(...a.boxes);
+      if (a.anchor) anchors.push(a.anchor);
+    });
+    placed.push(...rowBoxes);
+    const rb = bbox(rowBoxes);
+    rowStart = (horiz ? rb.y + rb.h : rb.x + rb.w) + sec;
+  }
+  if (rev) {
+    const bb = bbox(placed);
+    for (const b of placed) { if (horiz) b.x = bb.x + bb.w - (b.x - bb.x) - b.w; else b.y = bb.y + bb.h - (b.y - bb.y) - b.h; }
+  }
+  const out: Arr = { boxes: placed };
+  if (anchors.length) {
+    const c = anchors.map((b) => (horiz ? b.x + b.w / 2 : b.y + b.h / 2));
+    out.span = [Math.min(...c), Math.max(...c)];
+  }
+  return out;
+}
+
+/** Topo de uma hierarquia: arranja tudo em unidades ideais, escala para caber, centraliza e posiciona. */
+function layoutHier(top: PNode, depth: number): void {
+  const a = arrange(top, depth);
+  if (!a.boxes.length) return;
+  const bb = bbox(a.boxes);
+  const s = Math.min(bb.w > 0 ? top.w / bb.w : Infinity, bb.h > 0 ? top.h / bb.h : Infinity);
+  const k = Number.isFinite(s) && s > 0 ? s : 1;
+  const ox = top.x + (top.w - bb.w * k) / 2, oy = top.y + (top.h - bb.h * k) / 2;
+  // valores ideais de comprimento (sp, bendDist…) acompanham a escala
+  for (const n of des(top)) for (const key of Object.keys(n.v)) if (LEN.has(key) && key !== 'w' && key !== 'h' && !MARG.has(key)) n.v[key] = n.v[key]! * k;
+  for (const b of a.boxes) {
+    const n = b.n;
+    n.x = ox + (b.x - bb.x) * k; n.y = oy + (b.y - bb.y) * k; n.w = b.w * k; n.h = b.h * k;
+    layoutNode(n, depth + 1);
   }
 }
 
@@ -726,7 +947,7 @@ export function regenerateDiagram(data: XmlElement | undefined, layout: XmlEleme
   }
 }
 
-const ALGS = new Set(['composite', 'lin', 'snake', 'tx', 'sp', 'conn']);
+const ALGS = new Set(['composite', 'lin', 'snake', 'tx', 'sp', 'conn', 'hierRoot', 'hierChild']);
 function supported(layout: XmlElement, depth = 0): boolean {
   if (depth > 200) return false;
   for (const c of kids(layout)) {
@@ -734,6 +955,139 @@ function supported(layout: XmlElement, depth = 0): boolean {
     if (!supported(c, depth + 1)) return false;
   }
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// regras (ruleLst): com o texto que não cabe, o app aplica as regras NA ORDEM —
+// reduz a fonte até o limite, cresce a altura/largura até o fator/limite… — e
+// refaz o layout com os valores decididos (que vencem as restrições)
+// ---------------------------------------------------------------------------
+interface FitCtx { measure: DiagramMeasure; family?: string; lineK: number; root: Pt }
+let FIT: FitCtx | undefined;
+
+function nodeParas(n: PNode): TextPara[] {
+  if (n.paras) return n.paras;
+  const out: TextPara[] = [];
+  if (FIT) for (const { pt, level } of presTexts(n, FIT.root)) {
+    const ps = pt.t ? childElements(pt.t, 'a:p') : [];
+    for (const p of ps.length ? ps : [mk('a:p')]) out.push({ p, level });
+  }
+  n.paras = out;
+  return out;
+}
+const hasTextAlg = (n: PNode) => algType(n) === 'tx' && !!n.presOf;
+
+/** O texto do nó cabe na caixa w×h (geometria, margens, quebra por palavras) com as fontes dadas? */
+function boxFits(n: PNode, w: number, h: number, prim: number, sec: number): boolean {
+  const paras = nodeParas(n);
+  if (!paras.length || !FIT) return true;
+  const ty = n.shape?.attrs['type'] ?? 'rect';
+  const hide = n.shape?.attrs['hideGeom'] === '1' || n.shape?.attrs['hideGeom'] === 'true' || ty === 'none';
+  const sw = quarter(parseFloat(n.shape?.attrs['rot'] ?? '0') || 0);
+  const lw = sw ? h : w, lh = sw ? w : h;
+  const [l, t, r, b] = hide ? [0, 0, lw, lh] : textRect(ty === 'conn' ? 'rightArrow' : ty, lw, lh, adjOf(n));
+  const tw = sw ? b - t : r - l, th = sw ? r - l : b - t;
+  const wA = tw - margin(n, 'lMarg', prim, sec) - margin(n, 'rMarg', prim, sec);
+  const hA = th - margin(n, 'tMarg', prim, sec) - margin(n, 'bMarg', prim, sec);
+  return textHeight(paras, prim, sec, wA, FIT.measure, FIT.family, FIT.lineK) <= hA + 1;
+}
+
+/**
+ * Regras que valem para o nó: as próprias (self) e as de ancestrais que o
+ * alcançam (ch/des), de dentro para fora. `group`: a regra de um ancestral vale
+ * para todos os alvos JUNTOS (a fonte desce igual em todos os parTx do hList1).
+ */
+function rulesFor(n: PNode): { rules: Rule[]; group?: string } {
+  const rules = n.rules.filter((r) => r.for === 'self' && !r.forName);
+  let group: string | undefined;
+  for (let q = n.parent, d = 1; q; q = q.parent, d++) {
+    for (const r of q.rules) {
+      if (r.for === 'self' || (r.for === 'ch' && d > 1)) continue;
+      if (r.forName && r.forName !== n.name) continue;
+      if (r.ptType && !ptMatch(n.pt, r.ptType)) continue;
+      rules.push(r);
+      if (!group && FONT.has(r.type)) group = `r${q.uid}:${r.type}:${r.forName ?? ''}:${r.ptType ?? ''}`;
+    }
+  }
+  return { rules, group };
+}
+
+/**
+ * Aplica as regras aos nós de texto (por grupo de fonte igual). Devolve true se
+ * algum valor mudou (o layout precisa ser refeito com os `ov` novos).
+ */
+function runTextRules(nodes: PNode[]): boolean {
+  const groups = new Map<string, PNode[]>();
+  for (const n of nodes) {
+    if (!hasTextAlg(n) || !nodeParas(n).length || !(n.w > 0) || !(n.h > 0)) continue;
+    if (!nodeParas(n).some((p) => paraText(p.p).runs.some((r) => r.text.trim()))) continue;
+    const g = n.equ['primFontSz'] ?? n.equ['secFontSz'] ?? rulesFor(n).group ?? `u${n.uid}`;
+    (groups.get(g) ?? groups.set(g, []).get(g)!).push(n);
+  }
+  let changed = false;
+  for (const G of groups.values()) {
+    const n0 = G[0]!;
+    const rules = rulesFor(n0).rules;
+    if (!rules.some((r) => r.type === 'h' || r.type === 'w')) continue; // só fonte: o ajuste final resolve
+    const hasPrim = nodeParas(n0).some((p) => p.level === 0);
+    const fmax = Math.round(hasPrim ? n0.v['primFontSz'] ?? 65 : n0.v['secFontSz'] ?? n0.v['primFontSz'] ?? 65);
+    const secOf = (f: number) => (hasPrim ? (n0.v['secFontSz'] !== undefined ? Math.min(f, Math.round(n0.v['secFontSz'])) : Math.round(f * 0.78)) : f);
+    const base = G.map((m) => ({ w: m.w, h: m.h }));
+    let F = fmax;
+    let limH = base.map((b) => b.h), limW = base.map((b) => b.w);
+    // tamanho mínimo (até o limite) em que o texto de m cabe na fonte f; undefined = não cabe
+    const need = (i: number, f: number): { w: number; h: number } | undefined => {
+      const m = G[i]!, b = base[i]!;
+      if (boxFits(m, b.w, b.h, f, secOf(f))) return b;
+      let w = b.w, h = b.h;
+      if (limW[i]! > b.w + 1) { if (!boxFits(m, limW[i]!, b.h, f, secOf(f)) && limH[i]! <= b.h + 1) return undefined; }
+      if (limH[i]! > b.h + 1 || limW[i]! > b.w + 1) {
+        const W = limW[i]!, H = limH[i]!;
+        const capW = Number.isFinite(W) ? W : b.w * 20, capH = Number.isFinite(H) ? H : b.h * 50 + 12700 * 400;
+        if (!boxFits(m, capW, capH, f, secOf(f))) return undefined;
+        // cresce primeiro a largura (se permitida), depois a altura — busca binária do mínimo
+        if (capW > b.w + 1) { let lo = b.w, hi = capW; for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (boxFits(m, mid, capH, f, secOf(f))) hi = mid; else lo = mid; } w = hi; }
+        if (capH > b.h + 1) { let lo = b.h, hi = capH; for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (boxFits(m, w, mid, f, secOf(f))) hi = mid; else lo = mid; } h = hi; }
+        return { w, h };
+      }
+      return undefined;
+    };
+    const allFit = (f: number) => G.every((_, i) => need(i, f) !== undefined);
+    let ok = allFit(F);
+    for (const r of rules) {
+      if (ok) break;
+      if (r.type === 'primFontSz' || r.type === 'secFontSz') {
+        const lo = Math.max(1, Math.round(Number.isFinite(r.val) ? r.val : 1));
+        while (F > lo && !allFit(F)) F--;
+        ok = allFit(F);
+      } else if (r.type === 'h' || r.type === 'w') {
+        const lim = base.map((b, i) => {
+          const cur = r.type === 'h' ? b.h : b.w;
+          let L = Number.isFinite(r.fact) ? cur * r.fact : r.val === Infinity ? Infinity : Number.isFinite(r.val) ? Math.max(cur, r.val * EMU_MM) : Infinity;
+          if (Number.isFinite(r.max)) L = Math.min(L, r.max * EMU_MM);
+          // crescer não passa do teto da restrição (h ≤ 0,4 w no parTx do hList1)
+          const hi = G[i]!.hi?.[r.type];
+          if (hi !== undefined) L = Math.min(L, hi);
+          return Math.max(cur, L);
+        });
+        if (r.type === 'h') limH = lim; else limW = lim;
+        ok = allFit(F);
+      }
+    }
+    if (!ok) continue;
+    const sizes = G.map((_, i) => need(i, F)!);
+    // altura igual no grupo (h op="equ"): a maior
+    const eqH = n0.equ['h'] ? Math.max(...sizes.map((s) => s.h)) : undefined;
+    G.forEach((m, i) => {
+      const s = sizes[i]!, b = base[i]!;
+      const h = eqH ?? s.h;
+      if (h > b.h + 1 && m.ov['h'] !== h) { m.ov['h'] = h; changed = true; }
+      if (s.w > b.w + 1 && m.ov['w'] !== s.w) { m.ov['w'] = s.w; changed = true; }
+      const key = hasPrim ? 'primFontSz' : 'secFontSz';
+      if (F < fmax && m.ov[key] !== F) { m.ov[key] = F; if (!hasPrim) m.ov['primFontSz'] = F; changed = true; }
+    });
+  }
+  return changed;
 }
 
 export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
@@ -747,10 +1101,22 @@ export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
   const root = b.node(rootDef, model.root, undefined, 0);
   if (!root) return undefined;
   assignStyles(b.nodes);
-  root.x = 0; root.y = 0; root.w = inp.cx; root.h = inp.cy;
-  layoutNode(root, 0);
-  const style = inp.style ? normNs(inp.style) : undefined, colors = inp.colors ? normNs(inp.colors) : undefined;
-  return emit(b.nodes, root, model, style, colors, inp);
+  const family = inp.minorFont;
+  FIT = { measure: inp.measure ?? measureApprox, family, lineK: lineFactor(family), root: model.root };
+  try {
+    const run = () => {
+      for (const n of b.nodes) { n.v = { ...n.ov }; n.desV = {}; n.margF = {}; n.equ = {}; n.lte = {}; n.fromParent = undefined; n.conn = undefined; n.rx = n.ry = n.rw = n.rh = undefined; }
+      root.x = 0; root.y = 0; root.w = inp.cx; root.h = inp.cy;
+      layoutNode(root, 0);
+    };
+    run();
+    // regras: reduz fonte / cresce formas até o texto caber, e refaz o layout (até 3 passadas)
+    for (let i = 0; i < 3 && runTextRules(b.nodes); i++) run();
+    const style = inp.style ? normNs(inp.style) : undefined, colors = inp.colors ? normNs(inp.colors) : undefined;
+    return emit(b.nodes, root, model, style, colors, inp);
+  } finally {
+    FIT = undefined;
+  }
 }
 
 /** presStyleLbl/Idx/Cnt: rótulo do nó (ou o padrão pelo tipo/profundidade) e a ordem dentro do rótulo. */
@@ -902,19 +1268,31 @@ function textHeight(paras: TextPara[], prim: number, sec: number, width: number,
 const bulletIndent = (szPt: number): number => szPt * EMU_PT * 0.5;
 
 // --- geometria de texto dos presets (retângulo de texto da forma) -----------
+/**
+ * Retângulo de texto dos presets (ECMA-376, presetShapeDefinitions `<a:rect>`):
+ * nomes das guias l/t/r/b, avaliadas pelo motor de presets.
+ */
+const TEXT_RECT: Record<string, [string, string, string, string]> = {
+  roundRect: ['il', 'il', 'ir', 'ib'], round1Rect: ['l', 't', 'ir', 'b'], round2SameRect: ['il', 'tdx', 'ir', 'ib'],
+  snip1Rect: ['l', 'it', 'ir', 'b'], snip2SameRect: ['il', 'it', 'ir', 'ib'], plaque: ['il', 'il', 'ir', 'ib'],
+  ellipse: ['il', 'it', 'ir', 'ib'], flowChartConnector: ['il', 'it', 'ir', 'ib'], pie: ['il', 'it', 'ir', 'ib'], donut: ['il', 'it', 'ir', 'ib'],
+  blockArc: ['il', 'it', 'ir', 'ib'], circularArrow: ['il', 'it', 'ir', 'ib'], leftCircularArrow: ['il', 'it', 'ir', 'ib'], teardrop: ['il', 'it', 'ir', 'ib'],
+  chevron: ['il', 't', 'ir', 'b'], homePlate: ['l', 't', 'ir', 'b'], pentagon: ['x2', 'it', 'x3', 'y2'],
+  hexagon: ['il', 'it', 'ir', 'ib'], octagon: ['il', 'il', 'ir', 'ib'], triangle: ['x1', 'vc', 'x3', 'b'],
+  trapezoid: ['il', 'it', 'ir', 'b'], nonIsoscelesTrapezoid: ['il', 'it', 'ir', 'b'], parallelogram: ['il', 'it', 'ir', 'ib'], diamond: ['wd4', 'hd4', 'ir', 'ib'],
+  rightArrow: ['l', 'y1', 'x2', 'y2'], leftArrow: ['x1', 'y1', 'r', 'y2'], upArrow: ['x1', 'y1', 'x2', 'b'], downArrow: ['x1', 't', 'x2', 'y2'],
+  leftRightArrow: ['x1', 'y1', 'x4', 'y2'], flowChartManualOperation: ['x3', 't', 'x4', 'b'], flowChartExtract: ['wd4', 'vc', 'x2', 'b'],
+  can: ['l', 'y2', 'r', 'y3'], cube: ['l', 'y1', 'x4', 'b'], upArrowCallout: ['l', 'y2', 'r', 'b'], downArrowCallout: ['l', 't', 'r', 'y2'],
+  rightArrowCallout: ['l', 't', 'x2', 'b'], leftArrowCallout: ['x2', 't', 'r', 'b'], mathPlus: ['x1', 'y2', 'x4', 'y3'], mathMinus: ['x1', 'y1', 'x2', 'y2'],
+  mathEqual: ['x1', 'y1', 'x2', 'y4'], leftBrace: ['il', 'it', 'r', 'ib'], rightBrace: ['l', 'it', 'ir', 'ib'],
+};
 function textRect(prst: string, w: number, h: number, adj: [string, number][]): [number, number, number, number] {
-  const ss = Math.min(w, h);
-  const a = (i: number, d: number) => adj[i]?.[1] ?? d;
-  switch (prst) {
-    case 'roundRect': { const il = ss * Math.min(50000, Math.max(0, a(0, 16667))) / 100000 * 0.29289; return [il, il, w - il, h - il]; }
-    case 'ellipse': case 'flowChartConnector': { const dx = w / 2 * (1 - Math.SQRT1_2), dy = h / 2 * (1 - Math.SQRT1_2); return [dx, dy, w - dx, h - dy]; }
-    case 'rightArrow': {
-      const a1 = Math.min(100000, Math.max(0, a(0, 50000))), mx2 = 100000 * w / ss, a2 = Math.min(mx2, Math.max(0, a(1, 50000)));
-      const dx1 = ss * a2 / 100000, x1 = w - dx1, dy1 = h * a1 / 200000, y1 = h / 2 - dy1, y2 = h / 2 + dy1, dx2 = y1 * dx1 / (h / 2);
-      return [0, y1, x1 + dx2, y2];
-    }
-    default: return [0, 0, w, h];
-  }
+  const names = TEXT_RECT[prst];
+  if (!names) return [0, 0, w, h];
+  const g = presetGuides(prst, w, h, adj.map((a) => a[1]), adj.map((a) => a[0]));
+  if (!g) return [0, 0, w, h];
+  const v = (k: string, d: number) => { const x = g.get(k); return x !== undefined && Number.isFinite(x) ? x : d; };
+  return [v(names[0], 0), v(names[1], 0), v(names[2], w), v(names[3], h)];
 }
 
 // --- conectores (alg conn) --------------------------------------------------
@@ -941,6 +1319,15 @@ function exitPt(n: PNode, to: P2): P2 {
   }
   const t = Math.min(dx ? n.w / 2 / Math.abs(dx) : Infinity, dy ? n.h / 2 / Math.abs(dy) : Infinity);
   return [cx + dx * t, cy + dy * t];
+}
+
+/** Nome do ponto de conexão escolhido numa lista (o mais próximo do outro lado). */
+function pickedName(k: PNode, spec: string, other: P2): string {
+  const opts = spec.split(/\s+/).filter(Boolean);
+  if (opts.length <= 1) return opts[0] ?? 'auto';
+  let best = opts[0]!, bd = Infinity;
+  for (const o of opts) { const q = boxPt(k, o); const d = Math.hypot(q[0] - other[0], q[1] - other[1]); if (d < bd) { bd = d; best = o; } }
+  return best;
 }
 
 function connEnds(n: PNode, nodes: PNode[]): [PNode, PNode] | undefined {
@@ -996,15 +1383,21 @@ function layoutConn(n: PNode, nodes: PNode[]): void {
     const s: P2 = [a[0] + ux * beg, a[1] + uy * beg], e: P2 = [b[0] - ux * end, b[1] - uy * end];
     const pts: P2[] = [s];
     if (p['connRout'] === 'bend' && Math.abs(s[0] - e[0]) > 1 && Math.abs(s[1] - e[1]) > 1) {
-      const vert = /[tb]Ctr/.test(bp);
-      if (p['bendPt'] === 'end') pts.push(vert ? [s[0], e[1]] : [e[0], s[1]]);
-      else if (vert) { const my = (s[1] + e[1]) / 2; pts.push([s[0], my], [e[0], my]); }
-      else { const mx = (s[0] + e[0]) / 2; pts.push([mx, s[1]], [mx, e[1]]); }
+      // direção de saída/chegada pelos pontos de conexão (meio do lado: perpendicular a ele)
+      const vOut = /^[tb]Ctr$/.test(pickedName(src, bp, dc)) || (!/^mid[LR]$/.test(pickedName(src, bp, dc)) && Math.abs(e[1] - s[1]) >= Math.abs(e[0] - s[0]));
+      const vIn = /^[tb]Ctr$/.test(pickedName(dst, ep, sc)) || (!/^mid[LR]$/.test(pickedName(dst, ep, sc)) && Math.abs(e[1] - s[1]) >= Math.abs(e[0] - s[0]));
+      const bd = n.v['bendDist'];
+      if (vOut && vIn) { const my = s[1] + (bd !== undefined ? Math.sign(e[1] - s[1]) * bd : (e[1] - s[1]) / 2); pts.push([s[0], my], [e[0], my]); }
+      else if (!vOut && !vIn) { const mx = s[0] + (bd !== undefined ? Math.sign(e[0] - s[0]) * bd : (e[0] - s[0]) / 2); pts.push([mx, s[1]], [mx, e[1]]); }
+      else pts.push(vOut ? [s[0], e[1]] : [e[0], s[1]]);
     }
     pts.push(e);
-    const x0 = Math.min(...pts.map((q) => q[0])), y0 = Math.min(...pts.map((q) => q[1]));
+    let x0 = Math.min(...pts.map((q) => q[0])), y0 = Math.min(...pts.map((q) => q[1]));
     const x1 = Math.max(...pts.map((q) => q[0])), y1 = Math.max(...pts.map((q) => q[1]));
-    const W = x1 - x0, H = y1 - y0;
+    let W = x1 - x0, H = y1 - y0;
+    // linha reta vertical/horizontal: o app grava caixa de 0,1" centrada na linha
+    if (W < 1) { W = 91440; x0 -= 45720; }
+    if (H < 1) { H = 91440; y0 -= 45720; }
     const path = mk('a:path', { w: String(Math.max(1, Math.round(W))), h: String(Math.max(1, Math.round(H))) }, pts.map((q, i) => mk(i ? 'a:lnTo' : 'a:moveTo', {}, [mk('a:pt', { x: String(Math.round(q[0] - x0)), y: String(Math.round(q[1] - y0)) })])));
     n.conn = { prst: 'cust', x: x0, y: y0, w: W, h: H, rot: 0, path, line: true };
     return;
@@ -1093,10 +1486,13 @@ function emit(nodes: PNode[], root: PNode, model: Model, style: XmlElement | und
   // o texto vai na forma (txXfrm = caixa do nó de texto) — o app grava uma forma só
   const jobs = new Map<PNode, TextJob>();
   const merged = new Set<PNode>();
+  // nó oculto SEM algoritmo de texto (rootConnector…) não carrega texto nenhum
+  for (const n of order) if (hidden(n) && algType(n) !== 'tx' && texts.has(n)) { texts.delete(n); }
   for (const n of order) {
     const t = texts.get(n);
     if (!t || !hidden(n)) continue;
-    const same = (k: PNode) => k !== n && !hidden(k) && (texts.get(k)?.pts[0] === t.pts[0] || (!texts.has(k) && k.pt === t.pts[0] && algType(k) === 'conn'));
+    // a forma parceira não pode ser outro nó de texto (tx) com o seu próprio texto
+    const same = (k: PNode) => k !== n && !hidden(k) && ((texts.get(k)?.pts[0] === t.pts[0] && algType(k) !== 'tx') || (!texts.has(k) && k.pt === t.pts[0] && algType(k) === 'conn'));
     const partner = (n.parent && order.includes(n.parent) && same(n.parent) ? n.parent : undefined)
       ?? order.find((k) => k.parent === n.parent && same(k)) ?? order.find(same);
     if (!partner) continue;
@@ -1115,7 +1511,11 @@ function emit(nodes: PNode[], root: PNode, model: Model, style: XmlElement | und
   for (const job of jobs.values()) fitText(job, measure, family, lineK);
   const equalize = (key: 'primFontSz' | 'secFontSz', get: (n: PNode) => number | undefined, set: (n: PNode, v: number) => void) => {
     const groups = new Map<string, PNode[]>();
-    for (const job of jobs.values()) { const g = job.tn.equ[key]; if (g && get(job.tn) !== undefined) (groups.get(g) ?? groups.set(g, []).get(g)!).push(job.tn); }
+    for (const job of jobs.values()) {
+      // igualdade explícita (op="equ") ou regra de fonte de um ancestral que vale para todos os alvos
+      const g = job.tn.equ[key] ?? (key === 'primFontSz' ? rulesFor(job.tn).group : undefined);
+      if (g && get(job.tn) !== undefined) (groups.get(g) ?? groups.set(g, []).get(g)!).push(job.tn);
+    }
     for (const g of groups.values()) { const m = Math.min(...g.map((n) => get(n)!)); for (const n of g) set(n, m); }
   };
   equalize('primFontSz', (n) => n.fontPt, (n, v) => { n.fontPt = v; });
@@ -1143,7 +1543,8 @@ function emit(nodes: PNode[], root: PNode, model: Model, style: XmlElement | und
 function margin(n: PNode, k: string, prim: number, sec: number): number {
   const f = n.margF[k];
   if (f) return f[0] * (f[1] === 'secFontSz' ? sec : prim) * EMU_PT;
-  return n.v[k] ?? 0;
+  // sem restrição: 0,56 × fonte (medido em pList2/hList1)
+  return n.v[k] ?? 0.56 * prim * EMU_PT;
 }
 
 /**

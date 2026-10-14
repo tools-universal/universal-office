@@ -125,6 +125,25 @@ export function arcToSeg(cx: number, cy: number, rx: number, ry: number, stAng: 
   return { seg: { c: 'E', cx: ecx, cy: ecy, rx, ry, a0: p0, a1: p1, ccw: sw < 0 }, x: ecx + rx * Math.cos(p1), y: ecy + ry * Math.sin(p1) };
 }
 
+/**
+ * Guias avaliadas do preset `name` num retângulo w×h (inclui as embutidas e os
+ * ajustes) — para o retângulo de TEXTO da forma (`il`, `it`, `ir`, `ib`…).
+ */
+export function presetGuides(name: string, w: number, h: number, adj?: number[], adjNames?: string[]): Map<string, number> | null {
+  const def = parseDef(name);
+  if (!def) return null;
+  const vars = builtins(w, h);
+  const val = (t: string): number => { const v = vars.get(t); if (v !== undefined) return v; const n = Number(t); return Number.isFinite(n) ? n : 0; };
+  def.av.forEach(([n, f], i) => {
+    let v: number | undefined;
+    if (adj && adjNames) { const k = adjNames.indexOf(n); if (k >= 0) v = adj[k]; }
+    else if (adj && i < adj.length) v = adj[i];
+    vars.set(n, v ?? evalFormula(f, val));
+  });
+  for (const [n, f] of def.gd) vars.set(n, evalFormula(f, val));
+  return vars;
+}
+
 /** Geometria resolvida: subcaminhos + preenchimento (null = sem; número = deslocamento de luminância) + contorno. */
 export interface PresetGeometry { subs: PathSeg[][]; fill: (number | null)[]; stroke: boolean[] }
 
