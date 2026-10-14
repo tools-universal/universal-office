@@ -85,20 +85,56 @@ cinza/transparente — 97,7%), e <a:gamma/> nas cores. Rodada completa r6:
 mediana **3,05**, média **6,0** (r4: 3,37/8,42; início: 14,6/24,3); .ppt reais
 (gd) média 10,1 → 5,9.
 
+Depois (4ª etapa, 2026-10-14) — regras novas MEDIDAS em decks sintéticos
+(`_lab/syn/*.cjs`, `gen-shapes.cjs`; todos voltam a 0 depois da correção):
+
+- **Interpolação do degradê** depende dos stops: 2 stops em 0/100% = luz
+  linear com curva sigma (Φ normal, σ = 0,25); 3 stops de pontas iguais =
+  sigma por metade (linear) ou luz linear (caminho); o resto = sRGB direto.
+  O espelho de 2 cores do .ppt sai com 3 stops (é o único jeito de o .pptx
+  reproduzir o "foco" do binário).
+- **Degradê de caminho `circle`**: círculo circunscrito à forma encolhido rumo
+  ao PONTO central do foco (anel t: centro F + t·(C − F), raio t·R), também
+  com o foco fora da forma (temas Office 2007); lado invertido colapsa no l/t.
+- **Cor**: shade/tint com a curva sRGB exata; satMod/satOff com S sem teto
+  (só o RGB é cortado); modificadores encadeados em ponto flutuante;
+  `<a:alpha>` repetido = o último; luminância (grayscl, biLevel, duotone,
+  `<a:gray/>`) Rec. 709 sobre o sRGB. O mesmo no motor de gráficos (Sheet).
+- `innerShdw` sai do alfa da forma (forma translúcida escurece por dentro);
+  sombra de forma com imagem pelo alfa da imagem.
+- `useBgFill` = janela para o fundo do slide; fundo padrão = bg1; o
+  placeholder herda preenchimento/contorno/geometria (inclusive custGeom) e
+  efeitos do layout/master; `<a:path fill="none">`; `rotWithShape="0"`
+  (preenchimento no referencial da página, na caixa alinhada da forma
+  girada); blipFill sem modo = ladrilho.
+- EMF+ "só EMF+" (imagens) e WMF com SCALEVIEWPORTEXT (metarquivo dentro de
+  metarquivo — fundos em "estrela" de .ppt antigos).
+- Gráficos: estilos 17–32/41–48 com o 3º preenchimento do tema; 35–40 com a
+  área de plotagem no accent; blocos de 6 séries (m = ⌊n/6⌋ + 1) e cinzas
+  medidos (claros nos escuros); grade em tx1; densidade do eixo (+14 pt);
+  valores iguais → eixo do zero.
+- SmartArt sem desenho: texto personalizado (custT) com tamanho/negrito/
+  itálico gravados e a fonte do tema.
+
+Rodada completa **r7** (antes das correções de foco externo/useBgFill/
+custGeom): mediana **2,80**, média **5,15** (r6: 3,05/6,0; início:
+14,6/24,3). Subconjunto (s38): mediana 2,42, média 4,27 (s27: 2,82/5,66).
+
 ### Ainda faltando (por impacto observado)
 
 - WordArt do .ppt: espaçamento entre linhas e sombra do texto (a escala comum já bate).
 - SmartArt sem desenho nos layouts ainda não medidos (arrow5, radial*,
-  hierarchy1/2, gear, HexagonCluster…) — idealmente o motor de layout do app
+  hierarchy1/2, gear, HexagonCluster…) e geometria personalizada
+  (custScale/custLinFact) — idealmente o motor de layout do app
   (algoritmos lin/snake/hierRoot/cycle + constraints) em vez de famílias.
-- Gráficos: área/linha 3D (séries em profundidade), tabela de dados
-  (`c:dTable`, 1 deck), imagem/textura de fundo (blipFill no gráfico).
-- Efeitos: bevel/3D de forma (sp3d) e iluminação.
+- Gráficos: 3D em perspectiva (rAngAx=0: área/linha, 1 deck), tabela de
+  dados (`c:dTable`, 1 deck), imagem/textura de fundo (blipFill no gráfico).
+- Efeitos: bevel/3D de forma (sp3d), 3D legado do .ppt (extrusão com luz).
 - Fundo "sombrear até o título" (shadeToTitle, 2 decks).
 - Métrica da substituta de fonte ausente (Aptos/Calibri) × a do app: quebras
   de linha diferentes (haunted-mansion slide 2: a linha da tabela cresce).
-- EMF+ puro (1 deck), PICT vetorial de equações do Mac (6 decks), marcador de
-  imagem no estilo-mestre PP9.
+- PICT vetorial de equações do Mac (6 decks), marcador de imagem no
+  estilo-mestre PP9.
 
 ## Corpus
 
