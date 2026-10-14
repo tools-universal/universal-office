@@ -88,8 +88,11 @@ export interface ImageRef {
   mime: string;
   /** Efeitos de cor do `<a:blip>` aplicados ao desenhar (a imagem decodificada é a crua). */
   fx?: ImageFx;
-  /** Ladrilho (`<a:tile>`): escala (1 = tamanho natural a 96 dpi) e deslocamento em EMU. */
-  tile?: { sx: number; sy: number; tx: number; ty: number };
+  /**
+   * Ladrilho (`<a:tile>`): escala (1 = tamanho natural pela resolução do
+   * arquivo; sem ela, 96 dpi), deslocamento em EMU, alinhamento e espelho.
+   */
+  tile?: { sx: number; sy: number; tx: number; ty: number; algn?: string; flip?: 'x' | 'y' | 'xy' };
   /** `<a:stretch><a:fillRect l t r b>`: a imagem esticada no retângulo recuado (frações; negativo = além). */
   fillRect?: { l: number; t: number; r: number; b: number };
 }

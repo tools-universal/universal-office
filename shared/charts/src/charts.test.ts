@@ -187,6 +187,25 @@ describe('preenchimento de imagem (a:blipFill)', () => {
     expect(parseChartSpace(area('<a:blipFill><a:blip r:embed="rId3"/><a:stretch/></a:blipFill>'), host).sp.fill).toBeUndefined();
     expect(parseChartSpace(area('<a:blipFill><a:blip r:embed="rId9"/><a:stretch/></a:blipFill>'), blipHost).sp.fill).toBeUndefined();
   });
+  it('ladrilho: reduzido em pixels inteiros, ampliado fracionário, alinhado pelo algn', async () => {
+    const { tilePattern } = await import('./image.js');
+    const g = globalThis as { DOMMatrix?: unknown };
+    const had = g.DOMMatrix;
+    g.DOMMatrix = class { constructor(public m: number[]) {} };
+    try {
+      const ctx = {
+        createPattern: () => ({ setTransform(this: { M?: number[] }, d: { m: number[] }) { this.M = d.m; } }),
+        getTransform: () => ({ a: 1, b: 0, c: 0, d: 1 }),
+      } as unknown as CanvasRenderingContext2D;
+      const box = { x: 10, y: 20, w: 300, h: 200 };
+      const down = tilePattern(ctx, {} as CanvasImageSource, 60, 40, 50.4, 33.6, { sx: 1, sy: 1, tx: 0, ty: 0 }, box) as unknown as { M: number[] };
+      expect(down.M[0]).toBeCloseTo(50 / 60, 6);
+      expect(down.M[3]).toBeCloseTo(34 / 40, 6);
+      const up = tilePattern(ctx, {} as CanvasImageSource, 60, 40, 75.48, 50.32, { sx: 1, sy: 1, tx: 0, ty: 0, algn: 'ctr' }, box) as unknown as { M: number[] };
+      expect(up.M[0]).toBeCloseTo(75.48 / 60, 6);
+      expect(up.M[4]).toBeCloseTo(10 + (300 - 75.48) / 2, 6);
+    } finally { g.DOMMatrix = had; }
+  });
   it('resolução gravada no arquivo: PNG pHYs, JPEG JFIF; sem ela, undefined', async () => {
     const { imageDpi } = await import('./image.js');
     const png = (phys?: number[]): Uint8Array => new Uint8Array([

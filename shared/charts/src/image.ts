@@ -20,6 +20,70 @@ export function imageDpi(b: Uint8Array): { x: number; y: number } | undefined {
   return undefined;
 }
 
+/** Ladrilho (`a:tile`): escala, deslocamento (unidades do contexto), alinhamento e espelho. */
+export interface TileSpec { sx: number; sy: number; tx: number; ty: number; algn?: string; flip?: 'x' | 'y' | 'xy' }
+
+/** `a:tile algn` → fração (horizontal, vertical) da folga caixa − ladrilho onde fica o 1º ladrilho. */
+const TILE_ALIGN: Record<string, [number, number]> = {
+  tl: [0, 0], t: [0.5, 0], tr: [1, 0], l: [0, 0.5], ctr: [0.5, 0.5], r: [1, 0.5], bl: [0, 1], b: [0.5, 1], br: [1, 1],
+};
+
+/**
+ * Padrão de ladrilho como o PowerPoint (gráficos, formas e fundo — medido,
+ * syn-a-blip/blip2/shtile): ladrilho do tamanho natural (`natW`×`natH`, nas
+ * unidades do contexto, pela resolução do arquivo) × sx/sy; o 1º ladrilho
+ * alinhado pelo `algn` na caixa e deslocado por tx/ty; REDUZIDA, a imagem vira
+ * um bitmap de tamanho inteiro em pixels do dispositivo (30,3→30, 33,6→34,
+ * 26,67→27), ampliada o período fica fracionário; flip alterna as cópias
+ * espelhadas. `iw`/`ih` = pixels da imagem.
+ */
+export function tilePattern(ctx: CanvasRenderingContext2D, src: CanvasImageSource, iw: number, ih: number, natW: number, natH: number, t: TileSpec, box: { x: number; y: number; w: number; h: number }): CanvasPattern | null {
+  if (!(iw > 0 && ih > 0)) return null;
+  const pat = ctx.createPattern(t.flip ? flippedTile(src, iw, ih, t.flip) : src, 'repeat');
+  if (!pat) return null;
+  let tw = natW * t.sx, th = natH * t.sy;
+  const d = typeof ctx.getTransform === 'function' ? ctx.getTransform() : undefined;
+  const kx = d ? Math.hypot(d.a, d.b) || 1 : 1, ky = d ? Math.hypot(d.c, d.d) || 1 : 1;
+  if (tw * kx < iw) tw = Math.max(1, Math.round(tw * kx)) / kx;
+  if (th * ky < ih) th = Math.max(1, Math.round(th * ky)) / ky;
+  const [ah, av] = TILE_ALIGN[t.algn ?? 'tl'] ?? [0, 0];
+  if (typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') {
+    pat.setTransform(new DOMMatrix([tw / iw, 0, 0, th / ih, box.x + (box.w - tw) * ah + t.tx, box.y + (box.h - th) * av + t.ty]));
+  }
+  return pat;
+}
+
+const flipCache = new WeakMap<object, Map<string, CanvasImageSource>>();
+
+/**
+ * Ladrilho espelhado (`a:tile flip`): bloco com a imagem e as cópias
+ * espelhadas à direita (x) / embaixo (y) — repetir o bloco alterna os
+ * espelhos (medido, syn-a-blip #7, syn-a-blip2 #4/#5). Sem canvas fora da
+ * tela (OffscreenCanvas), sem espelho.
+ */
+function flippedTile(src: CanvasImageSource, w: number, h: number, flip: 'x' | 'y' | 'xy'): CanvasImageSource {
+  if (typeof OffscreenCanvas === 'undefined') return src;
+  let cache = flipCache.get(src as object);
+  if (!cache) flipCache.set(src as object, cache = new Map());
+  const key = `${flip}|${w}|${h}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const fx = flip !== 'y', fy = flip !== 'x';
+  const cv = new OffscreenCanvas(w * (fx ? 2 : 1), h * (fy ? 2 : 1));
+  const g = cv.getContext('2d');
+  if (!g) return src;
+  for (const [ix, iy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
+    if ((ix && !fx) || (iy && !fy)) continue;
+    g.save();
+    g.translate(ix ? 2 * w : 0, iy ? 2 * h : 0);
+    g.scale(ix ? -1 : 1, iy ? -1 : 1);
+    g.drawImage(src, 0, 0, w, h);
+    g.restore();
+  }
+  cache.set(key, cv);
+  return cv;
+}
+
 function sane(d: { x: number; y: number } | undefined): { x: number; y: number } | undefined {
   return d && d.x >= 1 && d.y >= 1 && d.x <= 100000 && d.y <= 100000 ? d : undefined;
 }

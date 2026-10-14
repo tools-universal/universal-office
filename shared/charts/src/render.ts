@@ -10,6 +10,7 @@ import type {
 import { autoScale, tickValues, frac, type Scale } from './scale.js';
 import { adjustLum, rgba, chartShadeTint, tintLinear } from './color.js';
 import { formatValue as fmtRaw, builtinFormatCode, PT_BR, type FormatLocale } from './numfmt.js';
+import { tilePattern } from './image.js';
 
 /** formatValue com os formatos de data do sistema trocados pelo do locale. */
 function formatValue(v: number, code: string, o: { locale: FormatLocale }): { text: string } {
@@ -72,39 +73,6 @@ const TITLE_TOP = 3.75;
 const TITLE_GAP = 6.25;
 /** Marcadores automáticos por série. */
 const AUTO_SYMBOLS = ['diamond', 'square', 'triangle', 'x', 'star', 'circle', 'plus', 'dot', 'dash'];
-const flipCache = new WeakMap<object, Map<string, CanvasImageSource>>();
-
-/**
- * Ladrilho espelhado (`a:tile flip`): bloco com a imagem e as cópias
- * espelhadas à direita (x) / embaixo (y) — repetir o bloco alterna os
- * espelhos. Sem canvas fora da tela (OffscreenCanvas), sem espelho.
- */
-function flippedTile(src: CanvasImageSource, w: number, h: number, flip: 'x' | 'y' | 'xy'): CanvasImageSource {
-  if (typeof OffscreenCanvas === 'undefined') return src;
-  let cache = flipCache.get(src as object);
-  if (!cache) flipCache.set(src as object, cache = new Map());
-  const hit = cache.get(`${flip}|${w}|${h}`);
-  if (hit) return hit;
-  const fx = flip !== 'y', fy = flip !== 'x';
-  const cv = new OffscreenCanvas(w * (fx ? 2 : 1), h * (fy ? 2 : 1));
-  const g = cv.getContext('2d');
-  if (!g) return src;
-  for (const [ix, iy] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
-    if ((ix && !fx) || (iy && !fy)) continue;
-    g.save();
-    g.translate(ix ? 2 * w : 0, iy ? 2 * h : 0);
-    g.scale(ix ? -1 : 1, iy ? -1 : 1);
-    g.drawImage(src, 0, 0, w, h);
-    g.restore();
-  }
-  cache.set(`${flip}|${w}|${h}`, cv);
-  return cv;
-}
-
-/** `a:tile algn` → fração (horizontal, vertical) da folga caixa − ladrilho onde fica o 1º ladrilho. */
-const TILE_ALIGN: Record<string, [number, number]> = {
-  tl: [0, 0], t: [0.5, 0], tr: [1, 0], l: [0, 0.5], ctr: [0.5, 0.5], r: [1, 0.5], bl: [0, 1], b: [0.5, 1], br: [1, 1],
-};
 
 interface ResolvedText { sz: number; b: boolean; i: boolean; u: boolean; color: string; alpha: number; font: string; rot?: number; vert?: string }
 
@@ -266,28 +234,19 @@ class Renderer {
     const im = this.o.image?.(p.ref);
     if (!im || !(im.w > 0 && im.h > 0)) return false;
     const c = this.ctx;
-    // espelho (flip x/y/xy): o ladrilho vira um bloco 2×1/1×2/2×2 com as cópias espelhadas
-    const flip = p.tile?.flip;
-    const src = flip ? flippedTile(im.src, im.w, im.h, flip) : im.src;
-    const pat = src ? c.createPattern(src, p.tile ? 'repeat' : 'no-repeat') : null;
-    if (!pat) return false;
-    let m: [number, number, number, number, number, number];
     if (p.tile) {
       const t = p.tile, S = this.S;
-      let tw = (im.wPt ?? im.w * 0.75) * t.sx * S, th = (im.hPt ?? im.h * 0.75) * t.sy * S;
-      // reduzida, a imagem vira um bitmap de tamanho INTEIRO em pixels do dispositivo
-      // (medido: 30,3→30, 33,6→34, 26,67→27 px); ampliada, o período fica fracionário (75,48)
-      const d = c.getTransform?.();
-      const kx = d ? Math.hypot(d.a, d.b) || 1 : 1, ky = d ? Math.hypot(d.c, d.d) || 1 : 1;
-      if (tw * kx < im.w) tw = Math.max(1, Math.round(tw * kx)) / kx;
-      if (th * ky < im.h) th = Math.max(1, Math.round(th * ky)) / ky;
-      const [ah, av] = TILE_ALIGN[t.algn] ?? [0, 0];
-      m = [tw / im.w, 0, 0, th / im.h, r.x + (r.w - tw) * ah + t.tx * S, r.y + (r.h - th) * av + t.ty * S];
-    } else {
-      const f = p.fillRect ?? { l: 0, t: 0, r: 0, b: 0 };
-      m = [r.w * (1 - f.l - f.r) / im.w, 0, 0, r.h * (1 - f.t - f.b) / im.h, r.x + f.l * r.w, r.y + f.t * r.h];
+      const pat = tilePattern(c, im.src, im.w, im.h, (im.wPt ?? im.w * 0.75) * S, (im.hPt ?? im.h * 0.75) * S, { ...t, tx: t.tx * S, ty: t.ty * S }, r);
+      if (!pat) return false;
+      c.fillStyle = pat;
+      return true;
     }
-    if (typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') pat.setTransform(new DOMMatrix(m));
+    const pat = c.createPattern(im.src, 'no-repeat');
+    if (!pat) return false;
+    const f = p.fillRect ?? { l: 0, t: 0, r: 0, b: 0 };
+    if (typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') {
+      pat.setTransform(new DOMMatrix([r.w * (1 - f.l - f.r) / im.w, 0, 0, r.h * (1 - f.t - f.b) / im.h, r.x + f.l * r.w, r.y + f.t * r.h]));
+    }
     c.fillStyle = pat;
     return true;
   }

@@ -11,7 +11,7 @@
  * Coordenadas: geometria do slide em EMU; `scale` converte EMU → px do canvas.
  */
 import { parseChart, paintChart, chartPartBounds, setChartFontStack, type ChartModel, type ChartSel, type ChartImage } from './chart-engine.js';
-import { imageDpi } from '@universal-office/charts';
+import { imageDpi, tilePattern } from '@universal-office/charts';
 import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine } from './text-layout.js';
 import { presetPath } from './geometry.js';
 import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run, type ImageRef, type ImageFx } from './model.js';
@@ -259,7 +259,7 @@ function paintSlide(
     // no tamanho natural (px @96 dpi → EMU → canvas) × escala, ancorado no canto
     ctx.save();
     if (slide.bgImage.fx?.alpha !== undefined) ctx.globalAlpha *= slide.bgImage.fx.alpha;
-    const pat = bg && slide.bgTile ? tilePattern(ctx, bg, slide.bgImage, ox, oy, scale) : null;
+    const pat = bg && slide.bgTile ? imageTile(ctx, bg, slide.bgImage, ox, oy, scale, sw, sh) : null;
     if (pat) {
       ctx.fillStyle = pat;
       ctx.fillRect(ox, oy, sw, sh);
@@ -369,8 +369,7 @@ function chartImageResolver(refs: Record<string, ImageRef>, res: PaintResources)
     const w = imgW(img), h = imgH(img);
     if (!(w > 0 && h > 0)) return undefined;
     const ref = Object.values(refs).find((r) => r.part === part);
-    let dpi = ref ? dpiCache.get(ref.bytes) : undefined;
-    if (ref && dpi === undefined) { dpi = imageDpi(ref.bytes) ?? null; dpiCache.set(ref.bytes, dpi); }
+    const dpi = ref ? refDpi(ref) : null;
     return { src: img as CanvasImageSource, w, h, ...(dpi ? { wPt: w * 72 / dpi.x, hPt: h * 72 / dpi.y } : {}) };
   };
 }
@@ -444,16 +443,27 @@ function insetRect(fr: { l: number; t: number; r: number; b: number } | undefine
   return { x: x + fr.l * w, y: y + fr.t * h, w: w * (1 - fr.l - fr.r), h: h * (1 - fr.t - fr.b) };
 }
 
-/** Ladrilho de imagem (`<a:tile>`): padrão em tamanho natural @96 dpi × escala, ancorado em (x0, y0). */
-function tilePattern(ctx: CanvasRenderingContext2D, img: PaintImage, ref: ImageRef, x0: number, y0: number, scale: number): CanvasPattern | null {
-  const pat = ctx.createPattern(img as CanvasImageSource, 'repeat');
-  if (!pat) return null;
-  const sx = ref.tile?.sx ?? 1, sy = ref.tile?.sy ?? 1;
-  const k = 9525 * scale; // px da imagem (96dpi) → px do canvas
-  if (typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') {
-    pat.setTransform(new DOMMatrix([k * sx, 0, 0, k * sy, x0 + (ref.tile?.tx ?? 0) * scale, y0 + (ref.tile?.ty ?? 0) * scale]));
-  }
-  return pat;
+/** Resolução gravada no arquivo da imagem (memoizada pelos bytes); null = sem (96 dpi). */
+function refDpi(ref: ImageRef): { x: number; y: number } | null {
+  let dpi = dpiCache.get(ref.bytes);
+  if (dpi === undefined) { dpi = imageDpi(ref.bytes) ?? null; dpiCache.set(ref.bytes, dpi); }
+  return dpi;
+}
+
+/**
+ * Ladrilho de imagem (`<a:tile>`) na caixa (x0, y0, w, h): o mesmo do motor de
+ * gráficos — tamanho natural pela RESOLUÇÃO do arquivo (medido, syn-a-shtile:
+ * PNG 144 dpi e JPEG 75 dpi; sem ela, 96 dpi), reduzido em pixels inteiros,
+ * alinhamento e espelho.
+ */
+function imageTile(ctx: CanvasRenderingContext2D, img: PaintImage, ref: ImageRef, x0: number, y0: number, scale: number, w = 0, h = 0): CanvasPattern | null {
+  const iw = imgW(img), ih = imgH(img);
+  const dpi = refDpi(ref);
+  const t = ref.tile;
+  // px da imagem → EMU (914400/dpi; 96 dpi = 9525) → px do canvas
+  return tilePattern(ctx, img as CanvasImageSource, iw, ih, iw * (dpi ? 914400 / dpi.x : 9525) * scale, ih * (dpi ? 914400 / dpi.y : 9525) * scale,
+    { sx: t?.sx ?? 1, sy: t?.sy ?? 1, tx: (t?.tx ?? 0) * scale, ty: (t?.ty ?? 0) * scale, ...(t?.algn ? { algn: t.algn } : {}), ...(t?.flip ? { flip: t.flip } : {}) },
+    { x: x0, y: y0, w, h });
 }
 
 function paintShape(
@@ -888,7 +898,7 @@ function paintBody(
         const raw = res.images?.get(sh.fillImage.part);
         const img = raw ? fxImage(raw, sh.fillImage.fx) : undefined;
         if (img && sh.fillImage.fx?.alpha !== undefined) ctx.globalAlpha *= sh.fillImage.fx.alpha;
-        const pat = img && sh.fillTile ? tilePattern(ctx, img, sh.fillImage, fit.ox, fit.oy, fit.scale) : null;
+        const pat = img && sh.fillTile ? imageTile(ctx, img, sh.fillImage, fit.ox, fit.oy, fit.scale, sw, shh) : null;
         if (pat) { ctx.fillStyle = pat; ctx.fillRect(fit.ox, fit.oy, sw, shh); } else if (img) { const r = insetRect(sh.fillImage.fillRect, fit.ox, fit.oy, sw, shh); ctx.drawImage(img, r.x, r.y, r.w, r.h); }
       } else if (sh.fill!.type === 'gradient' && sh.fill!.stops && sh.fill!.stops.length >= 2) {
         ctx.fillStyle = makeLinearGradient(ctx, sh.fill!, fit.ox, fit.oy, sw, shh);
@@ -919,7 +929,7 @@ function paintBody(
         ctx.shadowOffsetY = sd.dist * Math.sin(a) * fit.scale;
       }
       if (img && sh.fillTile) {
-        const pat = tilePattern(ctx, img, sh.fillImage, fx, fy, fit.scale);
+        const pat = imageTile(ctx, img, sh.fillImage, fx, fy, fit.scale, fw, fh);
         if (pat) {
           ctx.fillStyle = pat;
           if (rule) ctx.fill(rule); else ctx.fill();

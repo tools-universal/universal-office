@@ -4,4 +4,4 @@ export type * from './model.js';
 export { parseChartSpace, parsePaint, type ChartHost } from './parse.js';
 export { paintChartSpace, type RenderOptions, type ChartSel, type ChartImage } from './render.js';
 export { dmlColor } from './dml-color.js';
-export { imageDpi } from './image.js';
+export { imageDpi, tilePattern, type TileSpec } from './image.js';

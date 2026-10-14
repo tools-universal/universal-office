@@ -2036,6 +2036,9 @@ function applyTile(ref: ImageRef, blipFill: XmlElement | undefined): boolean {
   if (!tile) return false;
   const n = (k: string, d: number): number => (tile.attrs[k] !== undefined ? parseInt(tile.attrs[k]!, 10) : d);
   ref.tile = { sx: n('sx', 100000) / 100000, sy: n('sy', 100000) / 100000, tx: n('tx', 0), ty: n('ty', 0) };
+  const algn = tile.attrs['algn'], flip = tile.attrs['flip'];
+  if (algn && algn !== 'tl') ref.tile.algn = algn;
+  if (flip === 'x' || flip === 'y' || flip === 'xy') ref.tile.flip = flip;
   return true;
 }
 
