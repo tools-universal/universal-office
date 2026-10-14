@@ -469,17 +469,44 @@ function select(owner: PNode, f: string, name: string | undefined, ptType: strin
 }
 
 /** Valor de um tipo no nó (derivados de posição a partir de l/t/w/h). */
+/**
+ * Um eixo (x: l/r/ctrX/w, y: t/b/ctrY/h, com os deslocamentos *Off): dois
+ * valores quaisquer determinam o resto. `dflt` = tamanho quando nada o define.
+ */
+function axis(v: Record<string, number>, x: boolean, dflt?: number): { s?: number; z?: number } {
+  const [lo, hi, ctr, sz] = x ? ['l', 'r', 'ctrX', 'w'] : ['t', 'b', 'ctrY', 'h'];
+  const off = (k: string) => v[k + 'Off'] ?? 0;
+  const L = v[lo] !== undefined ? v[lo]! + off(lo) : undefined;
+  const R = v[hi] !== undefined ? v[hi]! + off(hi) : undefined;
+  const C = v[ctr] !== undefined ? v[ctr]! + off(ctr) : undefined;
+  let Z = v[sz] !== undefined ? v[sz]! + off(sz) : undefined;
+  if (Z === undefined) {
+    if (L !== undefined && R !== undefined) Z = R - L;
+    else if (L !== undefined && C !== undefined) Z = 2 * (C - L);
+    else if (R !== undefined && C !== undefined) Z = 2 * (R - C);
+    else if (dflt !== undefined) Z = dflt + off(sz);
+  }
+  const S = L ?? (C !== undefined && Z !== undefined ? C - Z / 2 : R !== undefined && Z !== undefined ? R - Z : undefined);
+  return { s: S, z: Z };
+}
+
 function getVal(n: PNode, t: string): number | undefined {
   const v = n.v;
-  if (v[t] !== undefined) return v[t];
+  if (v[t] !== undefined && !t.endsWith('Off')) {
+    if (t !== 'l' && t !== 'r' && t !== 't' && t !== 'b' && t !== 'ctrX' && t !== 'ctrY') return v[t];
+  }
   switch (t) {
-    case 'r': return v['l'] !== undefined && v['w'] !== undefined ? v['l'] + v['w'] : undefined;
-    case 'b': return v['t'] !== undefined && v['h'] !== undefined ? v['t'] + v['h'] : undefined;
-    case 'ctrX': return v['l'] !== undefined && v['w'] !== undefined ? v['l'] + v['w'] / 2 : undefined;
-    case 'ctrY': return v['t'] !== undefined && v['h'] !== undefined ? v['t'] + v['h'] / 2 : undefined;
-    case 'l': return v['r'] !== undefined && v['w'] !== undefined ? v['r'] - v['w'] : v['ctrX'] !== undefined && v['w'] !== undefined ? v['ctrX'] - v['w'] / 2 : undefined;
-    case 't': return v['b'] !== undefined && v['h'] !== undefined ? v['b'] - v['h'] : v['ctrY'] !== undefined && v['h'] !== undefined ? v['ctrY'] - v['h'] / 2 : undefined;
-    default: return undefined;
+    case 'l': case 'r': case 'ctrX': case 'w': {
+      const a = axis(v, true);
+      if (a.s === undefined) return t === 'w' ? a.z : v[t];
+      return t === 'l' ? a.s : t === 'r' ? (a.z !== undefined ? a.s + a.z : v[t]) : t === 'ctrX' ? (a.z !== undefined ? a.s + a.z / 2 : v[t]) : a.z;
+    }
+    case 't': case 'b': case 'ctrY': case 'h': {
+      const a = axis(v, false);
+      if (a.s === undefined) return t === 'h' ? a.z : v[t];
+      return t === 't' ? a.s : t === 'b' ? (a.z !== undefined ? a.s + a.z : v[t]) : t === 'ctrY' ? (a.z !== undefined ? a.s + a.z / 2 : v[t]) : a.z;
+    }
+    default: return v[t];
   }
 }
 
@@ -488,9 +515,21 @@ function getVal(n: PNode, t: string): number | undefined {
  * fator aplicado a valores derivados do PRÓPRIO tamanho do dono (o algoritmo
  * encolhe o eixo principal assim; dependentes acompanham pela referência).
  */
+/**
+ * Par lte+gte para o MESMO alvo/tipo vindo do pai = faixa usada pelas regras,
+ * não um valor (list1: o h do negativeSpace segue o −0,41 × fonte). Lado único
+ * (hList1: h ≤ 0,4 w; hierarchy4: w ≥ linha dos filhos) vale como limite.
+ */
+function rangePair(owner: PNode, c: Constr): boolean {
+  if (c.for === 'self' || (c.op !== 'lte' && c.op !== 'gte') || FONT.has(c.type)) return false;
+  const other = c.op === 'lte' ? 'gte' : 'lte';
+  return owner.constrs.some((d) => d !== c && d.op === other && d.type === c.type && d.for === c.for && d.forName === c.forName && d.ptType === c.ptType);
+}
+
 function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, onlySelf = false): void {
   for (const c of owner.constrs) {
     if (onlySelf && c.for !== 'self') continue;
+    if (rangePair(owner, c)) continue;
     const targets = select(owner, c.for, c.forName, c.ptType);
     for (const t of targets) {
       // margem proporcional à fonte: resolvida depois do ajuste do texto
@@ -505,7 +544,10 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
         if (rv === undefined) continue;
         value = rv * (Number.isFinite(c.fact) ? c.fact : 1);
         // comprimento referido a um tamanho de fonte: o número vale em mm (hList1: h = 1,22 × fonte)
-        if (LEN.has(c.type) && FONT.has(c.refType)) value *= EMU_MM;
+        // MARGENS valem em pontos: referidas a um comprimento, o número em mm vira pt (list1:
+        // lMarg = 0,075 × w → 21,17 "mm" = 21,17 pt)
+        if (MARG.has(c.type) && LEN.has(c.refType) && !MARG.has(c.refType)) value *= EMU_PT / EMU_MM;
+        else if (LEN.has(c.type) && FONT.has(c.refType)) value *= EMU_MM;
         else if (FONT.has(c.type) && LEN.has(c.refType)) value /= EMU_MM;
         if (c.op === 'lte' || c.op === 'gte') {
           if (c.op === 'lte' && ref) t.lte[c.type] = [ref, c.refType, Number.isFinite(c.fact) ? c.fact : 1];
@@ -517,7 +559,7 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
           continue;
         }
       } else if (c.hasVal) {
-        value = LEN.has(c.type) ? c.val * EMU_MM : c.val;
+        value = MARG.has(c.type) ? c.val * EMU_PT : LEN.has(c.type) ? c.val * EMU_MM : c.val;
       } else if (c.op !== 'none') {
         if (c.op === 'equ') t.equ[c.type] = `${owner.uid}:${c.type}:${c.forName ?? ''}:${c.ptType ?? ''}`;
         continue;
@@ -569,12 +611,7 @@ const isTrans = (n: PNode): boolean => n.pt.type === 'sibTrans' || n.pt.type ===
 
 /** Tamanho de um filho pelos valores de restrição (ausente = do pai). */
 function kidSize(k: PNode, n: PNode): { w: number; h: number } {
-  const v = k.v;
-  let w = v['w'], h = v['h'];
-  if (w === undefined && v['l'] !== undefined && v['r'] !== undefined) w = v['r'] - v['l'];
-  if (h === undefined && v['t'] !== undefined && v['b'] !== undefined) h = v['b'] - v['t'];
-  w = (w ?? n.w) + (v['wOff'] ?? 0);
-  h = (h ?? n.h) + (v['hOff'] ?? 0);
+  const w = axis(k.v, true, n.w).z ?? n.w, h = axis(k.v, false, n.h).z ?? n.h;
   const sx = custScale(k, 'X'), sy = custScale(k, 'Y');
   // espaçador pode ter tamanho NEGATIVO (setas encaixadas: w = −0,1 × nó)
   return { w: w * sx, h: h * sy };
@@ -596,14 +633,30 @@ function algComposite(n: PNode): void {
   }
   evalKids(n);
   for (const k of n.kids) {
-    const { w, h } = kidSize(k, n);
-    const v = k.v;
-    let x = v['l'] ?? (v['ctrX'] !== undefined ? v['ctrX'] - w / 2 : v['r'] !== undefined ? v['r'] - w : 0);
-    let y = v['t'] ?? (v['ctrY'] !== undefined ? v['ctrY'] - h / 2 : v['b'] !== undefined ? v['b'] - h : 0);
-    x += (v['lOff'] ?? 0) + (v['ctrXOff'] ?? 0) - (v['rOff'] ?? 0) * 0;
-    y += (v['tOff'] ?? 0) + (v['ctrYOff'] ?? 0);
+    const ax = axis(k.v, true, n.w), ay = axis(k.v, false, n.h);
+    const w0 = ax.z ?? n.w, h0 = ay.z ?? n.h;
+    const sx = custScale(k, 'X'), sy = custScale(k, 'Y');
+    const w = w0 * sx, h = h0 * sy;
+    // escala do usuário em volta do centro da caixa calculada
+    const x = (ax.s ?? 0) + (w0 - w) / 2, y = (ay.s ?? 0) + (h0 - h) / 2;
     place(k, x, y, w, h);
   }
+}
+
+/** Tamanho natural (caixa envolvente dos filhos) de um contêiner posto numa caixa w×h. */
+function naturalSize(k: PNode, w: number, h: number): { w: number; h: number } {
+  const keep = { x: k.x, y: k.y, w: k.w, h: k.h, v: k.v };
+  k.x = 0; k.y = 0; k.w = w; k.h = h; k.v = { ...k.v, w, h };
+  const t = algType(k);
+  if (t === 'lin') algLin(k); else if (t === 'snake') algSnake(k); else algComposite(k);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of k.kids) {
+    if (c.rw === undefined || c.rh === undefined || !Number.isFinite(c.rw) || !Number.isFinite(c.rh)) continue;
+    x0 = Math.min(x0, c.rx ?? 0); y0 = Math.min(y0, c.ry ?? 0);
+    x1 = Math.max(x1, (c.rx ?? 0) + c.rw); y1 = Math.max(y1, (c.ry ?? 0) + c.rh);
+  }
+  Object.assign(k, keep);
+  return x0 === Infinity ? { w: 0, h: 0 } : { w: x1 - x0, h: y1 - y0 };
 }
 
 /** Extensão do conteúdo de um composto posto numa caixa w×h (só conteúdo ancorado na origem). */
@@ -646,9 +699,19 @@ function algLin(n: PNode): void {
   const order = n.kids;
   let sizes: { w: number; h: number }[] = [];
   let mode: 'main' | 'all' = 'main';
+  // escala só valores derivados do tamanho do DONO (comprimentos absolutos e os
+  // referidos à fonte não encolhem — aí quem resolve é a regra de fonte)
   const run = (s: number): { len: number; sec: number } => {
-    evalKids(n, (c) => (mode === 'all' || c.refType === main ? s : 1));
-    sizes = order.map((k) => kidSize(k, n));
+    evalKids(n, (c) => (c.refType === main || (mode === 'all' && (c.refType === 'w' || c.refType === 'h')) ? s : 1));
+    sizes = order.map((k) => {
+      const z = kidSize(k, n);
+      // tamanho infinito (h="INF" do list1): o natural do conteúdo
+      if (!Number.isFinite(z.w) || !Number.isFinite(z.h)) {
+        const nat = naturalSize(k, Number.isFinite(z.w) ? z.w : W, Number.isFinite(z.h) ? z.h : H);
+        return { w: Number.isFinite(z.w) ? z.w : nat.w, h: Number.isFinite(z.h) ? z.h : nat.h };
+      }
+      return z;
+    });
     const sp = n.v['sp'] ?? 0;
     let len = 0, sec = 0;
     sizes.forEach((z, i) => { len += horiz ? z.w : z.h; if (i) len += sp; sec = Math.max(sec, horiz ? z.h : z.w); });
@@ -657,6 +720,8 @@ function algLin(n: PNode): void {
   const fits = (s: number): boolean => { const r = run(s); return r.len <= (horiz ? W : H) * 1.0001 && r.sec <= (horiz ? H : W) * 1.0001; };
   let s = bestScale(fits);
   if (s <= 1e-5) { mode = 'all'; s = bestScale(fits); }
+  // nem encolhendo cabe (tamanhos absolutos): fica como está e transborda
+  if (s <= 1e-5) { mode = 'main'; s = 1; }
   const { len } = run(s);
   // composto cujo conteúdo não preenche a célula encolhe até o conteúdo (eixo
   // secundário) e o lin o centraliza — hList1/chevron1 com filhos
@@ -669,7 +734,10 @@ function algLin(n: PNode): void {
   });
   const sp = n.v['sp'] ?? 0;
   const hAl = p['nodeHorzAlign'] ?? 'ctr', vAl = p['nodeVertAlign'] ?? 'mid';
-  let pos = ((horiz ? W : H) - len) / 2;
+  // alinhamento do conjunto no eixo principal (horzAlign/vertAlign do lin)
+  const grp = horiz ? p['horzAlign'] : p['vertAlign'];
+  const room = (horiz ? W : H) - len;
+  let pos = grp === 'l' || grp === 't' ? 0 : grp === 'r' || grp === 'b' ? room : room / 2;
   order.forEach((k, i) => {
     const z = sizes[i]!;
     if (horiz) {
@@ -1016,7 +1084,7 @@ function rulesFor(n: PNode): { rules: Rule[]; group?: string } {
  * Aplica as regras aos nós de texto (por grupo de fonte igual). Devolve true se
  * algum valor mudou (o layout precisa ser refeito com os `ov` novos).
  */
-function runTextRules(nodes: PNode[]): boolean {
+function runTextRules(nodes: PNode[], run: () => void, frameW: number, frameH: number): void {
   const groups = new Map<string, PNode[]>();
   for (const n of nodes) {
     if (!hasTextAlg(n) || !nodeParas(n).length || !(n.w > 0) || !(n.h > 0)) continue;
@@ -1024,70 +1092,104 @@ function runTextRules(nodes: PNode[]): boolean {
     const g = n.equ['primFontSz'] ?? n.equ['secFontSz'] ?? rulesFor(n).group ?? `u${n.uid}`;
     (groups.get(g) ?? groups.set(g, []).get(g)!).push(n);
   }
-  let changed = false;
-  for (const G of groups.values()) {
+  // layout que depende da fonte (comprimento referido a primFontSz): só cabe refazendo
+  const fontDependent = nodes.some((n) => n.constrs.some((c) => LEN.has(c.type) && FONT.has(c.refType)));
+  // grupos com regra de fonte de ancestral primeiro (definem a fonte que os outros referem)
+  const ordered = [...groups.values()].sort((a, b) => Number(!rulesFor(a[0]!).group) - Number(!rulesFor(b[0]!).group));
+  for (const G of ordered) {
     const n0 = G[0]!;
     const rules = rulesFor(n0).rules;
-    if (!rules.some((r) => r.type === 'h' || r.type === 'w')) continue; // só fonte: o ajuste final resolve
+    const growth = rules.some((r) => r.type === 'h' || r.type === 'w');
+    if (!growth && !fontDependent) continue; // só fonte: o ajuste final resolve
     const hasPrim = nodeParas(n0).some((p) => p.level === 0);
-    const fmax = Math.round(hasPrim ? n0.v['primFontSz'] ?? 65 : n0.v['secFontSz'] ?? n0.v['primFontSz'] ?? 65);
+    const key = hasPrim ? 'primFontSz' : 'secFontSz';
+    const fmax = Math.round(n0.ov[key] ?? (hasPrim ? n0.v['primFontSz'] ?? 65 : n0.v['secFontSz'] ?? n0.v['primFontSz'] ?? 65));
     const secOf = (f: number) => (hasPrim ? (n0.v['secFontSz'] !== undefined ? Math.min(f, Math.round(n0.v['secFontSz'])) : Math.round(f * 0.78)) : f);
-    const base = G.map((m) => ({ w: m.w, h: m.h }));
-    let F = fmax;
-    let limH = base.map((b) => b.h), limW = base.map((b) => b.w);
-    // tamanho mínimo (até o limite) em que o texto de m cabe na fonte f; undefined = não cabe
-    const need = (i: number, f: number): { w: number; h: number } | undefined => {
-      const m = G[i]!, b = base[i]!;
-      if (boxFits(m, b.w, b.h, f, secOf(f))) return b;
-      let w = b.w, h = b.h;
-      if (limW[i]! > b.w + 1) { if (!boxFits(m, limW[i]!, b.h, f, secOf(f)) && limH[i]! <= b.h + 1) return undefined; }
-      if (limH[i]! > b.h + 1 || limW[i]! > b.w + 1) {
-        const W = limW[i]!, H = limH[i]!;
-        const capW = Number.isFinite(W) ? W : b.w * 20, capH = Number.isFinite(H) ? H : b.h * 50 + 12700 * 400;
-        if (!boxFits(m, capW, capH, f, secOf(f))) return undefined;
-        // cresce primeiro a largura (se permitida), depois a altura — busca binária do mínimo
-        if (capW > b.w + 1) { let lo = b.w, hi = capW; for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (boxFits(m, mid, capH, f, secOf(f))) hi = mid; else lo = mid; } w = hi; }
-        if (capH > b.h + 1) { let lo = b.h, hi = capH; for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (boxFits(m, w, mid, f, secOf(f))) hi = mid; else lo = mid; } h = hi; }
-        return { w, h };
-      }
-      return undefined;
+    interface State { F: number; gH?: Rule; gW?: Rule }
+    const limit = (r: Rule | undefined, cur: number, hi: number | undefined): number => {
+      if (!r) return cur;
+      let L = Number.isFinite(r.fact) ? cur * r.fact : r.val === Infinity ? Infinity : Number.isFinite(r.val) ? Math.max(cur, r.val * EMU_MM) : Infinity;
+      if (Number.isFinite(r.max)) L = Math.min(L, r.max * EMU_MM);
+      if (hi !== undefined) L = Math.min(L, hi); // crescer não passa do teto lte (h ≤ 0,4 w)
+      return Math.max(cur, L);
     };
-    const allFit = (f: number) => G.every((_, i) => need(i, f) !== undefined);
-    let ok = allFit(F);
+    // menor caixa (até os limites) em que o texto de m cabe; undefined = não cabe
+    const need = (m: PNode, s: State): { w: number; h: number } | undefined => {
+      const f = s.F, b = { w: m.w, h: m.h };
+      if (boxFits(m, b.w, b.h, f, secOf(f))) return b;
+      const W = limit(s.gW, b.w, m.hi?.['w']), H = limit(s.gH, b.h, m.hi?.['h']);
+      if (W <= b.w + 1 && H <= b.h + 1) return undefined;
+      const capW = Number.isFinite(W) ? W : b.w * 20, capH = Number.isFinite(H) ? H : b.h * 50 + EMU_PT * 400;
+      if (!boxFits(m, capW, capH, f, secOf(f))) return undefined;
+      let w = b.w, h = b.h;
+      if (capW > b.w + 1) { let lo = b.w, hi = capW; for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (boxFits(m, mid, capH, f, secOf(f))) hi = mid; else lo = mid; } w = hi; }
+      if (capH > b.h + 1) { let lo = b.h, hi = capH; for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (boxFits(m, w, mid, f, secOf(f))) hi = mid; else lo = mid; } h = hi; }
+      return { w, h };
+    };
+    let useFrame = fontDependent;
+    // aplica o estado (fonte + crescimento), refaz o layout e diz se tudo cabe
+    const apply = (s: State): boolean => {
+      for (const m of G) {
+        delete m.ov['h']; delete m.ov['w'];
+        if (s.F < fmax) { m.ov[key] = s.F; if (!hasPrim) m.ov['primFontSz'] = s.F; }
+        else { delete m.ov[key]; if (!hasPrim) delete m.ov['primFontSz']; }
+      }
+      run();
+      const sizes = G.map((m) => need(m, s));
+      if (sizes.some((z) => !z)) return false;
+      const eqH = n0.equ['h'] ? Math.max(...sizes.map((z) => z!.h)) : undefined;
+      let grew = false;
+      G.forEach((m, i) => {
+        const z = sizes[i]!;
+        const h = eqH ?? z.h;
+        if (h > m.h + 1) { m.ov['h'] = h; grew = true; }
+        if (z.w > m.w + 1) { m.ov['w'] = z.w; grew = true; }
+      });
+      if (grew) run();
+      const r = !useFrame || withinFrame(nodes, frameW, frameH);
+      if ((globalThis as { __dgmDebug?: boolean }).__dgmDebug) console.log('rules', n0.name, 'F', s.F, s.gH ? 'gH' : '', s.gW ? 'gW' : '', 'frame', r);
+      return r;
+    };
+    let st: State = { F: fmax };
+    if (apply(st)) continue;
+    // só a moldura estoura mesmo na menor fonte das regras: não é caso de fonte
+    if (useFrame) {
+      const minF = Math.min(...rules.filter((r) => FONT.has(r.type) && Number.isFinite(r.val)).map((r) => r.val), fmax);
+      const last: State = { F: Math.max(1, Math.round(minF)), ...(rules.find((r) => r.type === 'h') ? { gH: [...rules].reverse().find((r) => r.type === 'h') } : {}) };
+      if (!apply(last)) { useFrame = false; if (apply(st)) continue; }
+    }
+    let ok = false;
     for (const r of rules) {
-      if (ok) break;
-      if (r.type === 'primFontSz' || r.type === 'secFontSz') {
+      if (FONT.has(r.type)) {
         const lo = Math.max(1, Math.round(Number.isFinite(r.val) ? r.val : 1));
-        while (F > lo && !allFit(F)) F--;
-        ok = allFit(F);
+        if (lo >= st.F) continue;
+        if (!apply({ ...st, F: lo })) { st = { ...st, F: lo }; continue; }
+        // maior fonte que cabe (busca binária)
+        let a = lo + 1, b = st.F - 1, best = lo;
+        while (a <= b) { const mid = (a + b) >> 1; if (apply({ ...st, F: mid })) { best = mid; a = mid + 1; } else b = mid - 1; }
+        st = { ...st, F: best };
+        ok = true;
+        break;
       } else if (r.type === 'h' || r.type === 'w') {
-        const lim = base.map((b, i) => {
-          const cur = r.type === 'h' ? b.h : b.w;
-          let L = Number.isFinite(r.fact) ? cur * r.fact : r.val === Infinity ? Infinity : Number.isFinite(r.val) ? Math.max(cur, r.val * EMU_MM) : Infinity;
-          if (Number.isFinite(r.max)) L = Math.min(L, r.max * EMU_MM);
-          // crescer não passa do teto da restrição (h ≤ 0,4 w no parTx do hList1)
-          const hi = G[i]!.hi?.[r.type];
-          if (hi !== undefined) L = Math.min(L, hi);
-          return Math.max(cur, L);
-        });
-        if (r.type === 'h') limH = lim; else limW = lim;
-        ok = allFit(F);
+        st = r.type === 'h' ? { ...st, gH: r } : { ...st, gW: r };
+        if (apply(st)) { ok = true; break; }
       }
     }
-    if (!ok) continue;
-    const sizes = G.map((_, i) => need(i, F)!);
-    // altura igual no grupo (h op="equ"): a maior
-    const eqH = n0.equ['h'] ? Math.max(...sizes.map((s) => s.h)) : undefined;
-    G.forEach((m, i) => {
-      const s = sizes[i]!, b = base[i]!;
-      const h = eqH ?? s.h;
-      if (h > b.h + 1 && m.ov['h'] !== h) { m.ov['h'] = h; changed = true; }
-      if (s.w > b.w + 1 && m.ov['w'] !== s.w) { m.ov['w'] = s.w; changed = true; }
-      const key = hasPrim ? 'primFontSz' : 'secFontSz';
-      if (F < fmax && m.ov[key] !== F) { m.ov[key] = F; if (!hasPrim) m.ov['primFontSz'] = F; changed = true; }
-    });
+    apply(st);
+    void ok;
   }
-  return changed;
+}
+
+/** As formas visíveis cabem no quadro (folga de arredondamento)? */
+function withinFrame(nodes: PNode[], W: number, H: number): boolean {
+  const tw = W * 0.0001 + 1, th = H * 0.0001 + 1;
+  for (const n of nodes) {
+    const ty = n.shape?.attrs['type'];
+    if (!ty || ty === 'none' || ty === 'conn' || n.shape!.attrs['hideGeom'] === '1') continue;
+    if (!(n.w > 0) || !(n.h > 0)) continue;
+    if (n.x < -tw || n.y < -th || n.x + n.w > W + tw || n.y + n.h > H + th) return false;
+  }
+  return true;
 }
 
 export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
@@ -1111,7 +1213,7 @@ export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
     };
     run();
     // regras: reduz fonte / cresce formas até o texto caber, e refaz o layout (até 3 passadas)
-    for (let i = 0; i < 3 && runTextRules(b.nodes); i++) run();
+    runTextRules(b.nodes, run, inp.cx, inp.cy);
     const style = inp.style ? normNs(inp.style) : undefined, colors = inp.colors ? normNs(inp.colors) : undefined;
     return emit(b.nodes, root, model, style, colors, inp);
   } finally {
