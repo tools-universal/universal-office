@@ -339,10 +339,16 @@ function fillOn(sh: OAShape, pc: PartCtx): boolean {
   if (placeholderOf(sh)) return false;
   const fc = prop(sh, 0x181);
   const defs = pc.conv.doc.drawingDefaults;
-  // moldura de imagem (75): cor própria ≠ a padrão do documento e ≠ a cor "preenchimento"
-  // do esquema (0x08000004) — 99,5% nas ~3,6 mil imagens convertidas pelo app (_lab/pic-fill.ts)
+  // cor própria ≠ a padrão do documento e ≠ a cor "preenchimento" do esquema (0x08000004):
+  // 99,5% nas ~3,6 mil imagens e 99,0% nas ~35 mil autoformas convertidas pelo app
+  // (_lab/pic-fill.ts, shape-fill.ts)
   if (sh.type === 75) return fc !== undefined && fc !== defs.get(0x181)?.value && fc !== 0x08000004;
-  if (fc !== undefined) return fc !== defs.get(0x181)?.value;
+  if (fc !== undefined) {
+    // no MESTRE, a cor igual à padrão segue o fFilled padrão do documento (99,5% em ~2,4 mil
+    // formas de mestre/layout convertidas pelo app, _lab/shape-fill-m.ts)
+    if (pc.isMaster && fc === defs.get(0x181)?.value) return boolPropOpt({ props: defs } as OAShape, 0x1bf, 4) ?? true;
+    return fc !== defs.get(0x181)?.value && fc !== 0x08000004;
+  }
   if (sh.type === 202) return boolPropOpt({ props: defs } as OAShape, 0x1bf, 4) ?? true;
   return false;
 }

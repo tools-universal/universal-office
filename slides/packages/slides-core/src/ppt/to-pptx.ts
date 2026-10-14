@@ -162,6 +162,7 @@ export function pptToPptxParts(doc: PptDocument, opts: ConvertOptions = {}): Map
     const mrels = new PartRels();
     const pc = newPartCtx(conv, scheme, main?.masterStyles, m.outline, undefined, mrels);
     pc.bgColor = backgroundColor(m.drawing.background ?? main?.drawing.background, pc);
+    pc.isMaster = true;
     const ctx = pc.text;
     // decorações do mestre principal sob um mestre de título com fMasterObjects
     let tree = '';

@@ -20,7 +20,8 @@ type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type Pt = [number, number];
 
 interface Pen { style: number; width: number; color: string; cap?: number; join?: number }
-interface Brush { style: number; color: string; hatch?: number }
+/** `mono`: padrão monocromático (fração de bits 1) — cor resolvida na hora com texto/fundo do DC. */
+interface Brush { style: number; color: string; hatch?: number; mono?: number }
 interface Font { height: number; weight: number; italic: boolean; underline: boolean; strike: boolean; face: string; escapement: number; charset: number }
 type Obj = { kind: 'pen'; pen: Pen } | { kind: 'brush'; brush: Brush } | { kind: 'font'; font: Font } | { kind: 'other' };
 
@@ -593,7 +594,12 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     const w = dc.world;
     return Math.abs(l * Math.hypot(w.c, w.d) * s[1]) * Math.abs(sy);
   };
-  const paint = (): Paint => ({ pen: dc.pen, brush: dc.brush, polyFill: dc.polyFill, penScale: len(1), hairline: Math.max(0.5, Math.sqrt(Math.abs(sx * sy))), clip: dc.clip });
+  const mixHexE = (a: string, b: string, f: number): string => {
+    const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+    const ch = (sh: number) => Math.round(((pa >> sh) & 255) * (1 - f) + ((pb >> sh) & 255) * f);
+    return '#' + [16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('');
+  };
+  const paint = (): Paint => ({ pen: dc.pen, brush: dc.brush.mono !== undefined ? { ...dc.brush, color: mixHexE(dc.textColor, dc.bkColor, dc.brush.mono) } : dc.brush, polyFill: dc.polyFill, penScale: len(1), hairline: Math.max(0.5, Math.sqrt(Math.abs(sx * sy))), clip: dc.clip });
 
   let path: Cmd[] | null = null;
   const draw = (cmds: Cmd[], closed: boolean): void => {
@@ -710,8 +716,26 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
         objs.set(u32(r), { kind: 'brush', brush: { style: st === 2 ? 2 : st === 1 ? 1 : 0, color: hex(u32(r + 8)), hatch: u32(r + 12) } });
         break;
       }
-      case 93: case 94: { // CREATEMONOBRUSH / CREATEDIBPATTERNBRUSHPT: cor média ≈ cinza do texto
-        objs.set(u32(r), { kind: 'brush', brush: { style: 0, color: dc.textColor === '#000000' ? '#808080' : dc.textColor } });
+      case 93: case 94: { // CREATEMONOBRUSH / CREATEDIBPATTERNBRUSHPT
+        // monocromático: bit 0 = texto, bit 1 = fundo do DC na hora; colorido: a cor MÉDIA
+        const rec = pos, offBmi = u32(r + 8), offBits = u32(r + 16), cbBits = u32(r + 20);
+        const hdr = rec + offBmi + 4 <= bytes.length ? u32(rec + offBmi) : 0;
+        const bpp = hdr >= 40 && rec + offBmi + 16 <= bytes.length ? u16(rec + offBmi + 14) : 0;
+        let brush: Brush = { style: 0, color: '#808080' };
+        if (bpp === 1) {
+          const w = Math.abs(i32(rec + offBmi + 4)), h = Math.abs(i32(rec + offBmi + 8)), row = Math.ceil(w / 32) * 4, bits = rec + offBits;
+          let ones = 0, n = 0;
+          for (let y = 0; y < h && bits + (y + 1) * row <= Math.min(bytes.length, bits + cbBits); y++) for (let x = 0; x < w; x++) { n++; if ((bytes[bits + y * row + (x >> 3)]! >> (7 - (x & 7))) & 1) ones++; }
+          brush = { style: 0, color: '#808080', mono: n ? ones / n : 0.5 };
+        } else if (hdr >= 40) {
+          const img = decodeDib(bytes, rec + offBmi, offBits - offBmi, rec + offBits, cbBits);
+          if (img && img.width * img.height > 0) {
+            const d = img.data; let rr = 0, gg = 0, bb = 0; const n = img.width * img.height;
+            for (let k = 0; k < d.length; k += 4) { rr += d[k]!; gg += d[k + 1]!; bb += d[k + 2]!; }
+            brush = { style: 0, color: hex(((Math.round(bb / n) << 16) | (Math.round(gg / n) << 8) | Math.round(rr / n)) >>> 0) };
+          }
+        }
+        objs.set(u32(r), { kind: 'brush', brush });
         break;
       }
       case 82: { // EXTCREATEFONTINDIRECTW (LOGFONTW em r+4)
@@ -1158,7 +1182,14 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
   };
   const kx = (): number => Math.abs((dest.w * dc.vpScale[0]) / (dc.winExt[0] || 1));
   const ky = (): number => Math.abs((dest.h * dc.vpScale[1]) / (dc.winExt[1] || 1));
-  const paint = (): Paint => ({ pen: dc.pen, brush: dc.brush, polyFill: dc.polyFill, penScale: Math.sqrt(kx() * ky()), hairline: Math.max(0.5, dest.w / 1000), clip: dc.clip });
+  // pincel de padrão MONOCROMÁTICO: bit 0 = cor do texto, bit 1 = cor de fundo do DC no momento do desenho
+  const mixHex = (a: string, b: string, f: number): string => {
+    const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+    const ch = (sh: number) => Math.round(((pa >> sh) & 255) * (1 - f) + ((pb >> sh) & 255) * f);
+    return '#' + [16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('');
+  };
+  const brushNow = (): Brush => (dc.brush.mono !== undefined ? { ...dc.brush, color: mixHex(dc.textColor, dc.bkColor, dc.brush.mono) } : dc.brush);
+  const paint = (): Paint => ({ pen: dc.pen, brush: brushNow(), polyFill: dc.polyFill, penScale: Math.sqrt(kx() * ky()), hairline: Math.max(0.5, dest.w / 1000), clip: dc.clip });
   const draw = (cmds: Cmd[], fill: boolean): void => paintPath(ctx, paint(), cmds, fill, true);
   const poly = (o: number, n: number, closed: boolean): Cmd[] => {
     const c: Cmd[] = [];
@@ -1245,7 +1276,27 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
         add({ kind: 'font', font: { height: i16(p), escapement: i16(p + 4), weight: i16(p + 8), italic: bytes[p + 10] !== 0, underline: bytes[p + 11] !== 0, strike: bytes[p + 12] !== 0, charset: bytes[p + 13]!, face } });
         break;
       }
-      case 0x0142: add({ kind: 'brush', brush: { style: 0, color: '#808080' } }); break; // DIBCREATEPATTERNBRUSH ≈ cinza
+      case 0x0142: { // DIBCREATEPATTERNBRUSH: style, usage, DIB — a cor MÉDIA do padrão (meio-tom do app)
+        const hdrSz = p + 8 <= end ? u32(p + 4) : 0, bpp = hdrSz >= 12 && p + 4 + 16 <= end ? (hdrSz === 12 ? u16(p + 4 + 10) : u16(p + 4 + 14)) : 0;
+        if (bpp === 1 && hdrSz === 40) {
+          // monocromático: as cores vêm do DC (texto/fundo) quando desenha
+          const w = Math.abs(dv.getInt32(p + 8, true)), h = Math.abs(dv.getInt32(p + 12, true));
+          const row = Math.ceil(w / 32) * 4, bits = p + 4 + 40 + 8;
+          let ones = 0, n = 0;
+          for (let y = 0; y < h && bits + (y + 1) * row <= end; y++) for (let x = 0; x < w; x++) { n++; if ((bytes[bits + y * row + (x >> 3)]! >> (7 - (x & 7))) & 1) ones++; }
+          add({ kind: 'brush', brush: { style: 0, color: '#808080', mono: n ? ones / n : 0.5 } });
+          break;
+        }
+        const { img } = dibAt(p + 4, end);
+        let color = '#808080';
+        if (img && img.width * img.height > 0) {
+          const d = img.data; let r = 0, g = 0, b = 0; const n = img.width * img.height;
+          for (let k = 0; k < d.length; k += 4) { r += d[k]!; g += d[k + 1]!; b += d[k + 2]!; }
+          color = hex(((Math.round(b / n) << 16) | (Math.round(g / n) << 8) | Math.round(r / n)) >>> 0);
+        }
+        add({ kind: 'brush', brush: { style: 0, color } });
+        break;
+      }
       case 0x00f7: case 0x01f9: case 0x06ff: add({ kind: 'other' }); break; // paleta, pincel padrão, região
       case 0x012d: { // SELECTOBJECT
         const o = objs[u16(p)];

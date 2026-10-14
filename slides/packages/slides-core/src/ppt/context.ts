@@ -74,6 +74,8 @@ export interface PartCtx {
   scheme: string[];
   /** Cor de fundo efetiva (para fillType "background"). */
   bgColor?: string;
+  /** Parte de MESTRE (formas do mestre/título): o padrão de preenchimento do documento vale. */
+  isMaster?: boolean;
   /** Blocos do SlideListWithText (OutlineTextRefAtom). */
   outline: TextBlock[];
   /** slideId do slide (chave do PP9 do outline no documento). */
