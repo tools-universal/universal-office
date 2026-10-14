@@ -20,6 +20,7 @@ import type { ShapeAnimHooks, PartState, AnimBase, UnitRef } from './anim-engine
 import { applyReveal, applySoftReveal, softRevealFilter } from './reveal.js';
 import { patternRows } from './patterns.js';
 import { paintWarpedText, type WarpLine } from './text-warp.js';
+import { lightTable, lightAt, lightFace, bevelPhi } from './light3d.js';
 
 /** Tamanhos default (pt) quando a cascata não resolveu sz. */
 export const DEFAULT_TITLE_PT = 40;
@@ -1001,6 +1002,10 @@ function paintBody(
     if (rule) ctx.fill(rule); else ctx.fill();
     ctx.restore();
   }
+  // chanfro 3D: a luz medida do PowerPoint sobre o preenchimento (light3d.ts)
+  if (sh.bevel && !isLineGeom && ((sh.fill && sh.fill.type !== 'none') || sh.fillImage || ov.fill)) {
+    try { applyBevel(ctx, sh, x, y, w, h, fit.scale); } catch { /* canvas sem leitura de pixels */ }
+  }
   // sombra interna: moldura em volta da forma, recortada nela, só a sombra entra;
   // a sombra fica do LADO de dir (225° = escura em cima à esquerda — medido): a moldura anda ao contrário
   if (sh.innerShadow && !isLineGeom) {
@@ -1055,6 +1060,95 @@ function paintBody(
     }
   }
   return true;
+}
+
+const SRGB_LIN = new Float32Array(256).map((_, i) => { const v = i / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+const LIN_SRGB = new Uint8ClampedArray(4096).map((_, i) => { const v = i / 4095; return Math.round(255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055)); });
+
+/** Distância euclidiana ao quadrado (Felzenszwalb, 1D) — `f` = 0 fora, ∞ dentro. */
+function edt1d(f: Float64Array, n: number, d: Float64Array, v: Int32Array, z: Float64Array): void {
+  let k = 0;
+  v[0] = 0; z[0] = -Infinity; z[1] = Infinity;
+  for (let q = 1; q < n; q++) {
+    let s = (f[q]! + q * q - (f[v[k]!]! + v[k]! * v[k]!)) / (2 * q - 2 * v[k]!);
+    while (s <= z[k]!) { k--; s = (f[q]! + q * q - (f[v[k]!]! + v[k]! * v[k]!)) / (2 * q - 2 * v[k]!); }
+    k++; v[k] = q; z[k] = s; z[k + 1] = Infinity;
+  }
+  k = 0;
+  for (let q = 0; q < n; q++) { while (z[k + 1]! < q) k++; const dq = q - v[k]!; d[q] = dq * dq + f[v[k]!]!; }
+}
+
+/**
+ * Sombreado do chanfro (orthographicFront): distância de cada pixel à borda da
+ * forma → inclinação do perfil (bevelSlope) → normal (azimute na tela, ângulo
+ * polar pela razão altura/largura) → luz medida: em luz linear cor·D + S. A face
+ * plana também muda (D da face: threePt +17%, harsh −33%…).
+ */
+function applyBevel(ctx: CanvasRenderingContext2D, sh: Shape, x: number, y: number, w: number, h: number, scale: number): void {
+  const b = sh.bevel!;
+  const tab = lightTable(b.rig, b.mat);
+  if (!tab) return;
+  const M = ctx.getTransform();
+  const kpx = Math.sqrt(Math.abs(M.a * M.d - M.b * M.c)) || 1;
+  const bw = b.w * scale * kpx; // largura do chanfro em px do dispositivo
+  const hw = b.h / b.w;
+  const cv = (ctx as { canvas?: { width: number; height: number } }).canvas;
+  if (!cv || !(bw > 0.5)) return;
+  const pts = [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(([px, py]) => [M.a * px! + M.c * py! + M.e, M.b * px! + M.d * py! + M.f]);
+  const x0 = Math.max(0, Math.floor(Math.min(...pts.map((p) => p[0]!))) - 1), y0 = Math.max(0, Math.floor(Math.min(...pts.map((p) => p[1]!))) - 1);
+  const x1 = Math.min(cv.width, Math.ceil(Math.max(...pts.map((p) => p[0]!))) + 1), y1 = Math.min(cv.height, Math.ceil(Math.max(...pts.map((p) => p[1]!))) + 1);
+  const W = x1 - x0, H = y1 - y0;
+  if (W <= 2 || H <= 2 || W * H > 6e6) return;
+  // máscara da forma (mesma geometria do preenchimento)
+  const mc = scratchCanvas(W, H);
+  const m2 = mc?.getContext('2d') as CanvasRenderingContext2D | null | undefined;
+  if (!m2) return;
+  m2.setTransform(M.a, M.b, M.c, M.d, M.e - x0, M.f - y0);
+  const rule = shapePath(m2, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
+  m2.fillStyle = '#fff';
+  if (rule) m2.fill(rule); else m2.fill();
+  const mask = m2.getImageData(0, 0, W, H).data;
+  // distância (px) até fora da forma
+  const N = Math.max(W, H) + 2, f = new Float64Array(N), dd = new Float64Array(N), vv = new Int32Array(N), zz = new Float64Array(N + 1);
+  const D2 = new Float64Array(W * H);
+  const INF = 1e20;
+  for (let c = 0; c < W; c++) {
+    f[0] = 0; for (let r = 0; r < H; r++) f[r + 1] = mask[(r * W + c) * 4 + 3]! > 127 ? INF : 0; f[H + 1] = 0;
+    edt1d(f, H + 2, dd, vv, zz);
+    for (let r = 0; r < H; r++) D2[r * W + c] = dd[r + 1]!;
+  }
+  const dist = new Float32Array(W * H);
+  for (let r = 0; r < H; r++) {
+    f[0] = 0; for (let c = 0; c < W; c++) f[c + 1] = D2[r * W + c]!; f[W + 1] = 0;
+    edt1d(f, W + 2, dd, vv, zz);
+    for (let c = 0; c < W; c++) dist[r * W + c] = Math.sqrt(dd[c + 1]!);
+  }
+  const img = ctx.getImageData(x0, y0, W, H), px = img.data;
+  const L = new Float32Array(4), face = new Float32Array(4);
+  lightFace(tab, face);
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+    const i = r * W + c, a = mask[i * 4 + 3]! / 255;
+    if (a <= 0) continue;
+    const d = dist[i]!;
+    let lt = face;
+    if (d < bw) {
+      // direção para FORA = −∇d (diferenças centrais)
+      const dl = c > 0 ? dist[i - 1]! : 0, dr = c < W - 1 ? dist[i + 1]! : 0, du = r > 0 ? dist[i - W]! : 0, dn = r < H - 1 ? dist[i + W]! : 0;
+      const gx = dl - dr, gy = du - dn;
+      const th = (Math.atan2(gy, gx) * 180) / Math.PI;
+      const ph = bevelPhi(b.prst, d / bw, hw);
+      // inclinada para dentro: a normal aponta para o lado oposto
+      lightAt(tab, b.dir, ph < 0 ? th + 180 : th, Math.abs(ph), L);
+      lt = L;
+    }
+    const o = i * 4;
+    for (let k = 0; k < 3; k++) {
+      const v = SRGB_LIN[px[o + k]!]! * lt[k]! + lt[3]!;
+      const nv = LIN_SRGB[Math.max(0, Math.min(4095, Math.round(v * 4095)))]!;
+      px[o + k] = a >= 1 ? nv : Math.round(px[o + k]! + (nv - px[o + k]!) * a);
+    }
+  }
+  ctx.putImageData(img, x0, y0);
 }
 
 /**

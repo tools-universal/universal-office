@@ -1275,6 +1275,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
   // efeitos (sombra externa/interna, brilho, bordas suaves, reflexo): os do
   // spPr ou, sem `<a:effectLst>` próprio, o estilo do tema pelo effectRef
   readEffects(spPr, firstChild(sp, 'p:style'), theme, shape);
+  readBevel(spPr, firstChild(sp, 'p:style'), theme, shape);
   // câmera 3D girada (cena 3D da forma): a projeção vira uma transformação afim
   const scene = spPr ? firstChild(spPr, 'a:scene3d') : undefined;
   const camera = scene ? firstChild(scene, 'a:camera') : undefined;
@@ -1889,6 +1890,34 @@ function readPic(pic: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<stri
   }
   readEffects(spPr, firstChild(pic, 'p:style'), theme, shape);
   return shape;
+}
+
+/**
+ * Chanfro 3D: `<a:sp3d><a:bevelT>` + `<a:scene3d><a:lightRig>` do spPr ou, sem
+ * cena/sp3d próprios, do effectStyle do tema apontado pelo effectRef (temas 2007
+ * põem um chanfro circular com luz threePt no 3º estilo).
+ */
+function readBevel(spPr: XmlElement | undefined, styleEl: XmlElement | undefined, theme: Theme, shape: Shape): void {
+  let sp3d = spPr ? firstChild(spPr, 'a:sp3d') : undefined;
+  let scene = spPr ? firstChild(spPr, 'a:scene3d') : undefined;
+  if (!sp3d && !scene && styleEl) {
+    const ref = firstChild(styleEl, 'a:effectRef');
+    const idx = ref ? parseInt(ref.attrs['idx'] ?? '0', 10) : 0;
+    const st = idx > 0 ? theme.effectStyles?.[idx - 1] : undefined;
+    if (st) { sp3d = firstChild(st, 'a:sp3d'); scene = firstChild(st, 'a:scene3d'); }
+  }
+  const bt = sp3d ? firstChild(sp3d, 'a:bevelT') : undefined;
+  if (!bt) return;
+  const w = bt.attrs['w'] !== undefined ? parseInt(bt.attrs['w'], 10) : 76200, h = bt.attrs['h'] !== undefined ? parseInt(bt.attrs['h'], 10) : 76200;
+  if (!(w > 0) || !(h > 0)) return;
+  const rig = scene ? firstChild(scene, 'a:lightRig') : undefined;
+  shape.bevel = {
+    w, h,
+    ...(bt.attrs['prst'] ? { prst: bt.attrs['prst'] } : {}),
+    ...(rig?.attrs['rig'] ? { rig: rig.attrs['rig'] } : {}),
+    ...(rig?.attrs['dir'] ? { dir: rig.attrs['dir'] } : {}),
+    ...(sp3d?.attrs['prstMaterial'] ? { mat: sp3d.attrs['prstMaterial'] } : {}),
+  };
 }
 
 /**

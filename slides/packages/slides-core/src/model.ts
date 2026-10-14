@@ -327,6 +327,12 @@ export interface Shape {
   softEdge?: number;
   /** Reflexo (`<a:reflection>`): cópia espelhada abaixo com alpha stA→endA entre stPos..endPos (frações), `dist`/`blurRad` em EMU, `sy` escala vertical. */
   reflection?: { blurRad: number; stA: number; endA: number; stPos: number; endPos: number; dist: number; dirDeg: number; sy: number; fadeDirDeg: number };
+  /**
+   * Chanfro 3D (`<a:sp3d><a:bevelT w h prst>`, EMU) com a luz da cena
+   * (`<a:lightRig rig dir>`) e o material (`prstMaterial`) — do spPr ou do
+   * effectStyle do tema pelo effectRef. Sombreado pela tabela medida (light3d.ts).
+   */
+  bevel?: { w: number; h: number; prst?: string; rig?: string; dir?: string; mat?: string };
   /** Câmera 3D com rotação explícita (`<a:scene3d><a:camera><a:rot lat lon rev>`), graus: a forma é vista girada (projeção ortográfica). */
   camRot?: { lat: number; lon: number; rev: number };
   /** `<p:sp useBgFill="1">`: preenchida com o FUNDO do slide (resolvido no fim da leitura). */
