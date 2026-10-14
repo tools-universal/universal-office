@@ -1191,11 +1191,23 @@ function nodeParas(n: PNode): TextPara[] {
   const out: TextPara[] = [];
   if (FIT) for (const { pt, level } of presTexts(n, FIT.root)) {
     const ps = pt.t ? childElements(pt.t, 'a:p') : [];
-    for (const p of ps.length ? ps : [mk('a:p')]) out.push({ p, level });
+    // texto personalizado (custT): o tamanho gravado nos trechos vale e não encolhe
+    const cust = pt.prSet?.attrs['custT'] === '1' || pt.prSet?.attrs['custT'] === 'true';
+    for (const p of ps.length ? ps : [mk('a:p')]) {
+      let csz: number | undefined;
+      if (cust) for (const r of kids(p)) {
+        const rp = r.name === 'a:r' || r.name === 'a:fld' ? firstChild(r, 'a:rPr') : r.name === 'a:endParaRPr' ? r : undefined;
+        const v = parseInt(rp?.attrs['sz'] ?? '', 10);
+        if (v > 0) csz = Math.max(csz ?? 0, v / 100);
+      }
+      out.push(csz ? { p, level, csz } : { p, level });
+    }
   }
   n.paras = out;
   return out;
 }
+/** Todo o texto do nó tem tamanho personalizado (não há o que encolher). */
+const allCustom = (paras: TextPara[]) => paras.length > 0 && paras.every((p) => p.csz !== undefined);
 const hasTextAlg = (n: PNode) => algType(n) === 'tx' && !!n.presOf;
 
 /** O texto do nó cabe na caixa w×h (geometria, margens, quebra por palavras) com as fontes dadas? */
@@ -1208,9 +1220,15 @@ function boxFits(n: PNode, w: number, h: number, prim: number, sec: number): boo
   const lw = sw ? h : w, lh = sw ? w : h;
   const [l, t, r, b] = hide ? [0, 0, lw, lh] : textRect(ty === 'conn' ? 'rightArrow' : ty, lw, lh, adjOf(n));
   const tw = sw ? b - t : r - l, th = sw ? r - l : b - t;
-  const wA = tw - margin(n, 'lMarg', prim, sec) - margin(n, 'rMarg', prim, sec);
-  const hA = th - margin(n, 'tMarg', prim, sec) - margin(n, 'bMarg', prim, sec);
+  const [mp, ms] = margFonts(paras, prim, sec);
+  const wA = tw - margin(n, 'lMarg', mp, ms) - margin(n, 'rMarg', mp, ms);
+  const hA = th - margin(n, 'tMarg', mp, ms) - margin(n, 'bMarg', mp, ms);
   return textHeight(paras, prim, sec, wA, FIT.measure, FIT.family, FIT.lineK) <= hA + 1;
+}
+/** Fontes das margens: o tamanho personalizado (custT) do 1º parágrafo de cada nível, senão o calculado. */
+function margFonts(paras: TextPara[], prim: number, sec: number): [number, number] {
+  const p0 = paras.find((p) => p.level === 0), p1 = paras.find((p) => p.level > 0);
+  return [p0?.csz ?? (p0 ? prim : p1?.csz ?? prim), p1?.csz ?? sec];
 }
 
 /**
@@ -1280,6 +1298,8 @@ function runTextRules(nodes: PNode[], run: () => void, frameW: number, frameH: n
       return { w, h };
     };
     let useFrame = fontDependent;
+    const custom = G.every((m) => allCustom(nodeParas(m)));
+    let textOk = false, frameOk = false;
     // aplica o estado (fonte + crescimento), refaz o layout e diz se tudo cabe
     const apply = (s: State): boolean => {
       for (const m of G) {
@@ -1289,19 +1309,22 @@ function runTextRules(nodes: PNode[], run: () => void, frameW: number, frameH: n
       }
       run();
       const sizes = G.map((m) => need(m, s));
-      if (sizes.some((z) => !z)) return false;
-      const eqH = n0.equ['h'] ? Math.max(...sizes.map((z) => z!.h)) : undefined;
-      let grew = false;
-      G.forEach((m, i) => {
-        const z = sizes[i]!;
-        const h = eqH ?? z.h;
-        if (h > m.h + 1) { m.ov['h'] = h; grew = true; }
-        if (z.w > m.w + 1) { m.ov['w'] = z.w; grew = true; }
-      });
-      if (grew) run();
-      const r = !useFrame || withinFrame(nodes, frameW, frameH);
-      if ((globalThis as { __dgmDebug?: boolean }).__dgmDebug) console.log('rules', n0.name, 'F', s.F, s.gH ? 'gH' : '', s.gW ? 'gW' : '', 'frame', r);
-      return r;
+      textOk = !sizes.some((z) => !z);
+      if (textOk) {
+        const eqH = n0.equ['h'] ? Math.max(...sizes.map((z) => z!.h)) : undefined;
+        let grew = false;
+        G.forEach((m, i) => {
+          const z = sizes[i]!;
+          const h = eqH ?? z.h;
+          if (h > m.h + 1) { m.ov['h'] = h; grew = true; }
+          if (z.w > m.w + 1) { m.ov['w'] = z.w; grew = true; }
+        });
+        if (grew) run();
+      }
+      frameOk = !useFrame || withinFrame(nodes, frameW, frameH);
+      if ((globalThis as { __dgmDebug?: boolean }).__dgmDebug) console.log('rules', n0.name, 'F', s.F, s.gH ? 'gH' : '', s.gW ? 'gW' : '', 'text', textOk, 'frame', frameOk);
+      // texto personalizado não depende da fonte do layout: só a moldura decide
+      return (custom || textOk) && frameOk;
     };
     let st: State = { F: fmax };
     if (apply(st)) continue;
@@ -1309,11 +1332,15 @@ function runTextRules(nodes: PNode[], run: () => void, frameW: number, frameH: n
     if (useFrame) {
       const minF = Math.min(...rules.filter((r) => FONT.has(r.type) && Number.isFinite(r.val)).map((r) => r.val), fmax);
       const last: State = { F: Math.max(1, Math.round(minF)), ...(rules.find((r) => r.type === 'h') ? { gH: [...rules].reverse().find((r) => r.type === 'h') } : {}) };
-      if (!apply(last)) { useFrame = false; if (apply(st)) continue; }
+      apply(last);
+      if (!frameOk) { useFrame = false; if (apply(st)) continue; }
     }
     let ok = false;
     for (const r of rules) {
       if (FONT.has(r.type)) {
+        // texto personalizado não encolhe: a regra de fonte só ajuda se o layout
+        // depende da fonte (alturas do list1 cabendo no quadro)
+        if (!useFrame && custom) continue;
         const lo = Math.max(1, Math.round(Number.isFinite(r.val) ? r.val : 1));
         if (lo >= st.F) continue;
         if (!apply({ ...st, F: lo })) { st = { ...st, F: lo }; continue; }
@@ -1455,7 +1482,7 @@ function hsl(hex: string): [number, number, number] {
 }
 
 // --- texto ----------------------------------------------------------------
-interface TextPara { p: XmlElement; level: number }
+interface TextPara { p: XmlElement; level: number; /** tamanho personalizado (custT), pt */ csz?: number }
 
 /**
  * Pontos do texto de um nó (`presOf`) e o NÍVEL de cada parágrafo: relativo à
@@ -1498,7 +1525,7 @@ function textHeight(paras: TextPara[], prim: number, sec: number, width: number,
   let hgt = 0;
   for (let pi = 0; pi < paras.length; pi++) {
     const tp = paras[pi]!;
-    const sz = tp.level === 0 ? prim : sec;
+    const sz = tp.csz ?? (tp.level === 0 ? prim : sec);
     const avail = width - (tp.level > 0 ? bulletIndent(sz) * tp.level : 0);
     const { runs } = paraText(tp.p);
     const text = runs.map((r) => r.text).join('');
@@ -1795,12 +1822,7 @@ function emit(nodes: PNode[], root: PNode, model: Model, style: XmlElement | und
   for (const n of order) {
     const pts = presTexts(n, model.root);
     if (!pts.length) continue;
-    const paras: TextPara[] = [];
-    for (const { pt, level } of pts) {
-      const ps = pt.t ? childElements(pt.t, 'a:p') : [];
-      for (const p of ps.length ? ps : [mk('a:p')]) paras.push({ p, level });
-    }
-    texts.set(n, { pts: pts.map((x) => x.pt), paras });
+    texts.set(n, { pts: pts.map((x) => x.pt), paras: nodeParas(n) });
   }
   // nó de texto sem geometria (hideGeom) que apresenta o mesmo ponto de uma forma:
   // o texto vai na forma (txXfrm = caixa do nó de texto) — o app grava uma forma só
@@ -1882,10 +1904,17 @@ function fitText(job: TextJob, measure: DiagramMeasure, family: string | undefin
   const [, , bw, bh] = job.box;
   const textW = quarter(job.rot) ? bh : bw, textH = quarter(job.rot) ? bw : bh;
   const fits = (prim: number, sec: number): boolean => {
-    const wA = textW - margin(n, 'lMarg', prim, sec) - margin(n, 'rMarg', prim, sec);
-    const hA = textH - margin(n, 'tMarg', prim, sec) - margin(n, 'bMarg', prim, sec);
+    const [mp, ms] = margFonts(job.paras, prim, sec);
+    const wA = textW - margin(n, 'lMarg', mp, ms) - margin(n, 'rMarg', mp, ms);
+    const hA = textH - margin(n, 'tMarg', mp, ms) - margin(n, 'bMarg', mp, ms);
     return textHeight(job.paras, prim, sec, wA, measure, family, lineK) <= hA + 1;
   };
+  // texto todo personalizado: nada encolhe (a variável de fonte do layout fica no máximo)
+  if (allCustom(job.paras)) {
+    n.fontPt = Math.round(primMax);
+    n.secPt = Math.round(secFixed ?? (hasPrim ? primMax * 0.78 : primMax));
+    return;
+  }
   if (!hasPrim) {
     const max = Math.round(secFixed ?? primMax), min = Math.round(ruleMin('secFontSz', ruleMin('primFontSz', max)));
     let s = max;
@@ -1988,7 +2017,8 @@ function textXml(job: TextJob, shapeRot: number): XmlElement[] {
   const n = job.tn, paras = job.paras;
   const sz = n.fontPt ?? 65;
   const sec = n.secPt ?? Math.round(sz * 0.78);
-  const m = (k: string) => String(Math.round(margin(n, k, sz, sec)));
+  const [mp, ms] = margFonts(paras, sz, sec);
+  const m = (k: string) => String(Math.round(margin(n, k, mp, ms)));
   const p = params(n.alg);
   const hasCh = paras.some((tp) => tp.level > 0);
   const anchor = (hasCh ? p['txAnchorVertCh'] : undefined) ?? p['txAnchorVert'] ?? 'mid';
@@ -2000,8 +2030,8 @@ function textXml(job: TextJob, shapeRot: number): XmlElement[] {
   const chAlgn = p['shpTxLTRAlignCh'] ?? 'l';
   const bullets = varOf(n, 'bulletEnabled') === '1' || varOf(n, 'bulletEnabled') === 'true';
   const stBullet = parseInt(p['stBulletLvl'] ?? '1', 10) || 1;
-  const ps = paras.map(({ p: src, level }) => {
-    const size = level === 0 ? sz : sec;
+  const ps = paras.map(({ p: src, level, csz }) => {
+    const size = csz ?? (level === 0 ? sz : sec);
     const lvl = Math.min(8, level);
     const bu = bullets && level >= stBullet;
     const ind = bu ? bulletMarL(size) : 0;
@@ -2021,7 +2051,9 @@ function textXml(job: TextJob, shapeRot: number): XmlElement[] {
       if (r.name === 'a:r' || r.name === 'a:fld') {
         const rr = clone(r);
         const rPr = firstChild(rr, 'a:rPr');
-        const attrs: Attrs = { lang: 'en-US', ...(rPr?.attrs ?? {}), sz: String(Math.round(size * 100)), kern: rPr?.attrs['kern'] ?? '1200' };
+        // custT: cada trecho fica com o tamanho gravado
+        const own = csz !== undefined ? rPr?.attrs['sz'] : undefined;
+        const attrs: Attrs = { lang: 'en-US', ...(rPr?.attrs ?? {}), sz: own ?? String(Math.round(size * 100)), kern: rPr?.attrs['kern'] ?? '1200' };
         const nr = mk('a:rPr', attrs, rPr ? rPr.children : []);
         rr.children = rr.children.filter((k) => typeof k === 'string' || k.name !== 'a:rPr');
         rr.children.unshift(nr);
