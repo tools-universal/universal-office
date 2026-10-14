@@ -279,6 +279,10 @@ interface PNode {
   fromParent?: Set<string>;
   /** tetos (op="lte") numéricos por tipo */
   hi?: Record<string, number>;
+  /** tetos de fonte vindos de ancestrais (for="des") */
+  desLte?: Record<string, [PNode, string, number]>;
+  /** ciclo: centro/raio do círculo (absolutos) e sentido */
+  cyc?: { cx: number; cy: number; r: number; cw: boolean };
   /** parágrafos do texto (cache) */
   paras?: TextPara[];
   /** margens proporcionais à fonte (fração de primFontSz/secFontSz) */
@@ -550,7 +554,11 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
         else if (LEN.has(c.type) && FONT.has(c.refType)) value *= EMU_MM;
         else if (FONT.has(c.type) && LEN.has(c.refType)) value /= EMU_MM;
         if (c.op === 'lte' || c.op === 'gte') {
-          if (c.op === 'lte' && ref) t.lte[c.type] = [ref, c.refType, Number.isFinite(c.fact) ? c.fact : 1];
+          if (c.op === 'lte' && ref) {
+            t.lte[c.type] = [ref, c.refType, Number.isFinite(c.fact) ? c.fact : 1];
+            // teto vindo de ancestral (for="des") sobrevive à reavaliação do pai do alvo
+            if (c.for === 'des') (t.desLte ??= {})[c.type] = t.lte[c.type]!;
+          }
           // teto numérico (limita também o crescimento pelas regras)
           if (c.op === 'lte' && Number.isFinite(value)) (t.hi ??= {})[c.type] = Math.min(t.hi[c.type] ?? Infinity, value);
           const cur = t.v[c.type];
@@ -589,7 +597,7 @@ function refNode(owner: PNode, c: Constr, target: PNode): PNode | undefined {
 /** Restrições do dono + as "self" de cada filho (tamanho ideal dos filhos). */
 function evalKids(n: PNode, scale?: (c: Constr, ref: PNode) => number): void {
   // valores impostos de cima (for="des" de ancestrais) continuam valendo
-  for (const k of n.kids) { k.v = { ...k.desV, ...k.ov }; k.lte = {}; k.hi = undefined; k.fromParent = new Set(Object.keys(k.desV)); }
+  for (const k of n.kids) { k.v = { ...k.desV, ...k.ov }; k.lte = { ...k.desLte }; k.hi = undefined; k.fromParent = new Set(Object.keys(k.desV)); }
   applyConstrs(n, scale);
   for (const k of n.kids) applyConstrs(k, undefined, true);
   // segunda passada: referências do pai a valores que o filho ajustou (teto h ≤ 0,4 w do
@@ -810,6 +818,76 @@ function algSnake(n: PNode): void {
   for (const k of n.kids) if (isTrans(k)) { const z = kidSize(k, n); place(k, 0, 0, z.w, z.h); }
 }
 
+/**
+ * Ciclo: nós num círculo a partir de stAng (0 = 12 h, sentido horário), passo
+ * spanAng/n; raio tal que nós vizinhos fiquem a sibSp (na corda) e o central
+ * (ctrShpMap="fNode") a sp do anel. O conjunto ideal escala para caber.
+ */
+function algCycle(n: PNode): void {
+  const p = params(n.alg);
+  const st = parseFloat(p['stAng'] ?? '0') || 0, span = parseFloat(p['spanAng'] ?? '360') || 360;
+  const ctrMap = p['ctrShpMap'] === 'fNode';
+  const along = p['rotPath'] === 'alongPath';
+  evalKids(n);
+  const items = n.kids.filter((k) => !isTransOrConn(k));
+  if (!items.length) return;
+  const center = ctrMap ? items[0] : undefined;
+  const ring = ctrMap ? items.slice(1) : items;
+  const sz = new Map(items.map((k) => [k, kidSize(k, n)]));
+  const N = ring.length;
+  const sib = n.v['sibSp'] ?? 0, sp = n.v['sp'] ?? 0;
+  const full = Math.abs(span) >= 359.999;
+  const step = N > 0 ? (full ? span / N : N > 1 ? span / (N - 1) : 0) : 0;
+  // raio: vizinhos no anel a sibSp na corda (largura média do par + sibSp; medido em
+  // cycle2/cycle7); com nó central, o anel fica a sp dele
+  let r = 0;
+  if (N > 1) {
+    const half = Math.min(Math.PI / 2, (Math.abs(step) * Math.PI) / 360);
+    let need = 0;
+    for (let i = 0; i < N; i++) {
+      if (!full && i === N - 1) break;
+      const a = sz.get(ring[i]!)!, b = sz.get(ring[(i + 1) % N]!)!;
+      need = Math.max(need, (a.w + b.w) / 2 + sib);
+    }
+    r = need / (2 * Math.sin(half || Math.PI / 2));
+  }
+  const d = Math.max(0, ...ring.map((k) => sz.get(k)!.w));
+  if (center && N) { const c = sz.get(center)!; r = Math.max(r, Math.max(c.w, c.h) / 2 + sp + d / 2); }
+  const boxes: { k: PNode; x: number; y: number; w: number; h: number; rot: number }[] = [];
+  if (center) { const c = sz.get(center)!; boxes.push({ k: center, x: -c.w / 2, y: -c.h / 2, w: c.w, h: c.h, rot: 0 }); }
+  ring.forEach((k, i) => {
+    const z = sz.get(k)!;
+    const a = ((st + i * step) * Math.PI) / 180;
+    const cx = r * Math.sin(a), cy = -r * Math.cos(a);
+    boxes.push({ k, x: cx - z.w / 2, y: cy - z.h / 2, w: z.w, h: z.h, rot: along ? st + i * step : 0 });
+  });
+  const x0 = Math.min(...boxes.map((b) => b.x)), y0 = Math.min(...boxes.map((b) => b.y));
+  const bw = Math.max(...boxes.map((b) => b.x + b.w)) - x0, bh = Math.max(...boxes.map((b) => b.y + b.h)) - y0;
+  const s = quantScale(Math.min(bw > 0 ? n.w / bw : Infinity, bh > 0 ? n.h / bh : Infinity));
+  const ox = (n.w - bw * s) / 2, oy = (n.h - bh * s) / 2;
+  // círculo do ciclo (conectores em arco o seguem)
+  n.cyc = { cx: n.x + ox - x0 * s, cy: n.y + oy - y0 * s, r: r * s, cw: span >= 0 };
+  for (const b of boxes) {
+    place(b.k, ox + (b.x - x0) * s, oy + (b.y - y0) * s, b.w * s, b.h * s);
+    b.k.rot = b.rot;
+  }
+  // conectores e valores ideais de comprimento acompanham a escala do conjunto
+  for (const k of n.kids) {
+    if (!isTransOrConn(k)) continue;
+    const z = kidSize(k, n);
+    place(k, 0, 0, z.w * s, z.h * s);
+    k.desV = Object.fromEntries(Object.entries(k.desV).map(([key, v]) => [key, LEN.has(key) ? v * s : v]));
+  }
+  n.v['sibSp'] = sib * s; n.v['sp'] = sp * s;
+}
+
+/** O app acha a escala por bissecção de 12 passos: múltiplo de 1/4096 que cabe. */
+function quantScale(s: number): number {
+  if (!Number.isFinite(s) || s <= 0) return 1;
+  if (s >= 1) return s;
+  return Math.max(1 / 4096, Math.floor(s * 4096) / 4096);
+}
+
 // ---------------------------------------------------------------------------
 // laço principal
 // ---------------------------------------------------------------------------
@@ -820,6 +898,7 @@ function layoutNode(n: PNode, depth: number): void {
     case 'lin': algLin(n); break;
     case 'snake': algSnake(n); break;
     case 'hierChild': case 'hierRoot': layoutHier(n, depth); return;
+    case 'cycle': algCycle(n); break;
     default: algComposite(n); break;
   }
   for (const k of n.kids) {
@@ -1015,7 +1094,7 @@ export function regenerateDiagram(data: XmlElement | undefined, layout: XmlEleme
   }
 }
 
-const ALGS = new Set(['composite', 'lin', 'snake', 'tx', 'sp', 'conn', 'hierRoot', 'hierChild']);
+const ALGS = new Set(['composite', 'lin', 'snake', 'tx', 'sp', 'conn', 'hierRoot', 'hierChild', 'cycle']);
 function supported(layout: XmlElement, depth = 0): boolean {
   if (depth > 200) return false;
   for (const c of kids(layout)) {
@@ -1207,7 +1286,7 @@ export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
   FIT = { measure: inp.measure ?? measureApprox, family, lineK: lineFactor(family), root: model.root };
   try {
     const run = () => {
-      for (const n of b.nodes) { n.v = { ...n.ov }; n.desV = {}; n.margF = {}; n.equ = {}; n.lte = {}; n.fromParent = undefined; n.conn = undefined; n.rx = n.ry = n.rw = n.rh = undefined; }
+      for (const n of b.nodes) { n.v = { ...n.ov }; n.desV = {}; n.desLte = undefined; n.margF = {}; n.equ = {}; n.lte = {}; n.fromParent = undefined; n.conn = undefined; n.cyc = undefined; n.rx = n.ry = n.rw = n.rh = undefined; }
       root.x = 0; root.y = 0; root.w = inp.cx; root.h = inp.cy;
       layoutNode(root, 0);
     };
@@ -1457,6 +1536,7 @@ function layoutConn(n: PNode, nodes: PNode[]): void {
   if (!ends) return;
   const [src, dst] = ends;
   const p = params(n.alg);
+  if (p['connRout'] === 'curve' && (p['dim'] ?? '2D') === '1D' && n.parent?.cyc && arcConn(n, src, dst, n.parent.cyc)) return;
   const sc: P2 = [src.x + src.w / 2, src.y + src.h / 2], dc: P2 = [dst.x + dst.w / 2, dst.y + dst.h / 2];
   const bp = p['begPts'] ?? 'auto', ep = p['endPts'] ?? 'auto';
   const pick = (k: PNode, spec: string, other: P2): P2 => {
@@ -1475,7 +1555,9 @@ function layoutConn(n: PNode, nodes: PNode[]): void {
   n.constrs = keep.filter((c) => !(c.type === 'connDist' && c.refType === 'none' && !c.hasVal));
   applyConstrs(n, undefined, true);
   n.constrs = keep;
-  const beg = n.v['begPad'] ?? 0, end = n.v['endPad'] ?? 0;
+  // seta 2D sem begPad/endPad: recuos de 22% e 25% da distância (medido no cycle2)
+  const twoD = (p['dim'] ?? '2D') !== '1D';
+  const beg = n.v['begPad'] ?? (twoD ? 0.22 * dist : 0), end = n.v['endPad'] ?? (twoD ? 0.25 * dist : 0);
   const len = Math.max(0, dist - beg - end);
   const ux = dist ? (b[0] - a[0]) / dist : 1, uy = dist ? (b[1] - a[1]) / dist : 0;
   const ang = Math.atan2(uy, ux) * 180 / Math.PI;
@@ -1508,7 +1590,69 @@ function layoutConn(n: PNode, nodes: PNode[]): void {
   const hh = n.h;
   const cx = a[0] + ux * (beg + len / 2), cy = a[1] + uy * (beg + len / 2);
   const rot = ((Math.round(ang * 1e4) / 1e4) % 360 + 360) % 360;
-  n.conn = { prst: 'rightArrow', x: cx - len / 2, y: cy - hh / 2, w: len, h: hh, rot, adj: [['adj1', 60000], ['adj2', 50000]] };
+  const begArr = p['begSty'] === 'arr', endArr = (p['endSty'] ?? 'arr') === 'arr';
+  const prst = begArr && endArr ? 'leftRightArrow' : begArr ? 'leftArrow' : endArr ? 'rightArrow' : 'rect';
+  n.conn = { prst, x: cx - len / 2, y: cy - hh / 2, w: len, h: hh, rot, ...(prst === 'rightArrow' ? { adj: [['adj1', 60000], ['adj2', 50000]] as [string, number][] } : {}) };
+}
+
+/** Pontas de seta da linha 1D (endSty padrão = seta; begSty padrão = nenhuma). */
+function lineEnds(p: Attrs): XmlElement[] {
+  const o: XmlElement[] = [];
+  if (p['begSty'] === 'arr') o.push(mk('a:headEnd', { type: 'arrow' }));
+  if ((p['endSty'] ?? 'arr') === 'arr') o.push(mk('a:tailEnd', { type: 'arrow' }));
+  return o;
+}
+
+/**
+ * Conector curvo (connRout="curve") num ciclo: arco do próprio círculo, da saída
+ * da caixa do nó de origem à entrada da do destino, menos begPad/endPad
+ * (frações do comprimento do arco) — o app grava o arco numa caixa do tamanho do
+ * círculo. Aqui o arco vira Béziers cúbicas.
+ */
+function arcConn(n: PNode, src: PNode, dst: PNode, cyc: { cx: number; cy: number; r: number; cw: boolean }): boolean {
+  const { cx, cy, r } = cyc;
+  if (!(r > 0)) return false;
+  const at = (k: PNode) => Math.atan2(k.x + k.w / 2 - cx, -(k.y + k.h / 2 - cy)); // 0 = 12 h, horário
+  const pt = (phi: number): P2 => [cx + r * Math.sin(phi), cy - r * Math.cos(phi)];
+  const inside = (k: PNode, q: P2) => q[0] > k.x && q[0] < k.x + k.w && q[1] > k.y && q[1] < k.y + k.h;
+  const dir = cyc.cw ? 1 : -1;
+  const a0 = at(src);
+  let a1 = at(dst);
+  while (dir * (a1 - a0) <= 0) a1 += dir * 2 * Math.PI;
+  const span = Math.abs(a1 - a0);
+  // saída da origem / entrada no destino ao longo do círculo (passo fino + bissecção)
+  const edge = (k: PNode, from: number, sgn: number): number => {
+    let lo = 0, hi = 0;
+    for (let d = 0; d <= span; d += span / 200) { if (!inside(k, pt(from + sgn * d))) { hi = d; break; } lo = d; hi = d; }
+    for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (inside(k, pt(from + sgn * m))) lo = m; else hi = m; }
+    return hi;
+  };
+  const e0 = a0 + dir * edge(src, a0, dir), e1 = a1 - dir * edge(dst, a1, -dir);
+  const arc = Math.abs(e1 - e0);
+  n.v['connDist'] = arc * r;
+  const keep = n.constrs;
+  n.constrs = keep.filter((c) => !(c.type === 'connDist' && c.refType === 'none' && !c.hasVal));
+  applyConstrs(n, undefined, true);
+  n.constrs = keep;
+  const bp = (n.v['begPad'] ?? 0) / r, ep = (n.v['endPad'] ?? 0) / r;
+  const s0 = e0 + dir * bp, s1 = e1 - dir * ep;
+  if (dir * (s1 - s0) <= 0) return false;
+  // Béziers cúbicas por trechos de até 45°
+  const x0 = cx - r, y0 = cy - r;
+  const segs: XmlElement[] = [];
+  const P = (q: P2) => mk('a:pt', { x: String(Math.round(q[0] - x0)), y: String(Math.round(q[1] - y0)) });
+  segs.push(mk('a:moveTo', {}, [P(pt(s0))]));
+  const parts = Math.max(1, Math.ceil(Math.abs(s1 - s0) / (Math.PI / 4)));
+  for (let i = 0; i < parts; i++) {
+    const t0 = s0 + ((s1 - s0) * i) / parts, t1 = s0 + ((s1 - s0) * (i + 1)) / parts;
+    const k = (4 / 3) * Math.tan((t1 - t0) / 4) * r;
+    const p0 = pt(t0), p3 = pt(t1);
+    const d0: P2 = [Math.cos(t0), Math.sin(t0)], d1: P2 = [Math.cos(t1), Math.sin(t1)];
+    segs.push(mk('a:cubicBezTo', {}, [P([p0[0] + k * d0[0], p0[1] + k * d0[1]]), P([p3[0] - k * d1[0], p3[1] - k * d1[1]]), P(p3)]));
+  }
+  const path = mk('a:path', { w: String(Math.round(2 * r)), h: String(Math.round(2 * r)), fill: 'none' }, segs);
+  n.conn = { prst: 'cust', x: x0, y: y0, w: 2 * r, h: 2 * r, rot: 0, path, line: true };
+  return true;
 }
 
 // --- saída -------------------------------------------------------------------
@@ -1734,7 +1878,11 @@ function shapeXml(n: PNode, ty: string, hide: boolean, job: TextJob | undefined,
   const spPrKids: XmlElement[] = [xfrm, geom];
   if (hide) spPrKids.push(mk('a:noFill'), mk('a:ln', {}, [mk('a:noFill')]));
   else {
-    if (n.conn?.line) spPrKids.push(mk('a:noFill'));
+    if (n.conn?.line) {
+      spPrKids.push(mk('a:noFill'));
+      const ends = lineEnds(params(n.alg));
+      if (ends.length) spPrKids.push(mk('a:ln', {}, ends));
+    }
     // formatação do usuário (ponto de dados e ponto de apresentação) por cima do estilo
     for (const own of [n.pt.spPr, n.pres?.spPr]) {
       if (!own) continue;
