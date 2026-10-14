@@ -1659,6 +1659,9 @@ class Renderer {
       const x0 = Math.max(outer.x, A.x + m), y0 = Math.max(outer.y, A.y + m);
       const x1 = Math.min(outer.x + outer.w, A.x + A.w - m), y1 = Math.min(outer.y + outer.h, A.y + A.h - m);
       r = { x: x0, y: y0, w: Math.max(4, x1 - x0), h: Math.max(4, y1 - y0) };
+      // com rótulos de dados que podem sair da fatia, a área encolhe 1/15 de cada lado
+      // (medido, syn-a-pie3db/pie3dc: 450 → 390 px no quadrado, 389×274 → 338×237)
+      if (this.pieLabelsOutside(g)) r = { x: r.x + r.w / 15, y: r.y + r.h / 15, w: r.w * 13 / 15, h: r.h * 13 / 15 };
     }
     if (this.showBg()) this.shapeRect(r, cs.plotSp);
     const s = g.series[0];
