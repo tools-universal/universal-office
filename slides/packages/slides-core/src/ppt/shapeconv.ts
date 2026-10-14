@@ -975,7 +975,10 @@ export function backgroundXml(bg: OAShape | undefined, pc: PartCtx): string {
   if (!bg) return '';
   const fill = fillXml(bg, pc, true);
   if (fill === '<a:noFill/>') return '';
-  return el('p:bg', {}, el('p:bgPr', {}, fill + '<a:effectLst/>'));
+  // fundo "a partir do título" (msofillShadeShape no FUNDO): o app grava shadeToTitle
+  // (2 de 2 decks da conversão do próprio PowerPoint)
+  const toTitle = (prop(bg, 0x180) ?? 0) === 6;
+  return el('p:bg', {}, el('p:bgPr', toTitle ? { shadeToTitle: 1 } : {}, fill + '<a:effectLst/>'));
 }
 
 /** Cor sólida efetiva do fundo (para fillType "background" das formas). */

@@ -275,6 +275,7 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
   const slide: Slide = { shapes };
   // fundo: o do SLIDE vence; sem ele, herda do LAYOUT e por fim do MASTER
   // (cada um resolve blips com os PRÓPRIOS rels).
+  let shadeToTitle = false;
   const applyBg = (part: string, partRoot: XmlElement, rels: Map<string, string>): boolean => {
     const bgEl = descend(partRoot, 'p:bg');
     if (!bgEl) return false;
@@ -291,6 +292,7 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     }
     const c = solidFillColor(bgPr, theme);
     if (c) slide.bg = { type: 'solid', color: c };
+    if (bgPr.attrs['shadeToTitle'] === '1' || bgPr.attrs['shadeToTitle'] === 'true') shadeToTitle = true;
     if (!slide.bg) {
       const pf = firstChild(bgPr, 'a:pattFill');
       const pfill = pf ? parsePattFill(pf, theme) : undefined;
@@ -329,6 +331,13 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
   // sem <p:bg> em nenhum nível: o fundo é bg1 do mapa de cores EFETIVO (clrMapOvr
   // do layout invertendo bg1→dk1 deixa o slide preto no app)
   if (!slide.bg && !slide.bgImage && theme.colors['bg1']) slide.bg = { type: 'solid', color: theme.colors['bg1'] };
+  // shadeToTitle: o foco do degradê de caminho é o retângulo do TÍTULO (do slide; senão do master)
+  if (shadeToTitle && slide.bg?.type === 'gradient' && (slide.bg as { path?: string }).path) {
+    const t = shapes.find((s) => (s.phType === 'title' || s.phType === 'ctrTitle') && s.xfrm)?.xfrm ?? phMap.get(phKey('title')) ?? phMap.get(phKey('ctrTitle'));
+    const sz = firstChild(parseXml(pkg.presentationXml()), 'p:sldSz');
+    const W = parseInt(sz?.attrs['cx'] ?? '9144000', 10), H = parseInt(sz?.attrs['cy'] ?? '5143500', 10);
+    if (t && W && H) (slide.bg as { fillTo?: { l: number; t: number; r: number; b: number } }).fillTo = { l: t.x / W, t: t.y / H, r: 1 - (t.x + t.cx) / W, b: 1 - (t.y + t.cy) / H };
+  }
   // formas com useBgFill (inclusive as herdadas do master/layout) recebem o fundo resolvido
   for (const sh of shapes) {
     if (!sh.useBgFill) continue;
