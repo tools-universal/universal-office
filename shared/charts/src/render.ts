@@ -13,7 +13,7 @@ import { formatValue as fmtRaw, builtinFormatCode, PT_BR, type FormatLocale } fr
 import { tilePattern } from './image.js';
 
 /** formatValue com os formatos de data do sistema trocados pelo do locale. */
-function formatValue(v: number, code: string, o: { locale: FormatLocale }): { text: string } {
+function formatValue(v: number, code: string, o: { locale: FormatLocale }): { text: string; color?: string } {
   return fmtRaw(v, localeFmt(code, o.locale), o);
 }
 
@@ -762,10 +762,11 @@ class Renderer {
   }
 
   /** Rótulos de um eixo de valores. */
-  private valueLabels(inf: AxisInfo): { v: number; s: string }[] {
+  private valueLabels(inf: AxisInfo): { v: number; s: string; color?: string }[] {
     const sc = inf.scale!;
     const div = inf.ax.dispUnits ?? 1;
-    return tickValues(sc).map((v) => ({ v, s: formatValue(v / div, inf.fmt, { locale: this.loc }).text }));
+    // cor do formato ([Red]…) pinta o rótulo (medido, lo-tdf137691: negativos em #FF0000)
+    return tickValues(sc).map((v) => { const f = formatValue(v / div, inf.fmt, { locale: this.loc }); return { v, s: f.text, ...(f.color ? { color: f.color } : {}) }; });
   }
 
   /**
@@ -774,7 +775,29 @@ class Renderer {
    * 32 pt → 9,9 pt; só o tamanho do eixo de valores muda o tique dele).
    */
   private tickSize(a: Axis): number {
-    return (TICK_K * this.text(a.txPr).sz + TICK_B) * this.S;
+    const t = this.text(a.txPr);
+    return (TICK_K * t.sz + TICK_B) * this.S * this.fontK(t);
+  }
+
+  private fontKCache = new Map<string, number>();
+
+  /**
+   * Altura de linha da fonte (ascendente + descendente) ÷ a da Aptos (1,22 em):
+   * o tique e as folgas dos rótulos dos eixos escalam com ela (medido,
+   * syn-a-ticks3: Times New Roman ≈ 0,91 da Aptos no mesmo tamanho; Calibri,
+   * 1,22 em, igual à Aptos). Sem a métrica no canvas, 1.
+   */
+  private fontK(t: ResolvedText): number {
+    const f = this.font({ ...t, sz: 100 / this.S });
+    let k = this.fontKCache.get(f);
+    if (k === undefined) {
+      this.ctx.font = f;
+      const m = this.ctx.measureText('Hg') as Partial<TextMetrics>;
+      const h = (m.fontBoundingBoxAscent ?? NaN) + (m.fontBoundingBoxDescent ?? NaN);
+      k = Number.isFinite(h) && h > 0 ? Math.max(0.8, Math.min(1.25, h / 100 / 1.22)) : 1;
+      this.fontKCache.set(f, k);
+    }
+    return k;
   }
 
   private tickLen(a: Axis, kind: Axis['majorTick'] = a.majorTick): { out: number; inn: number } {
@@ -866,7 +889,8 @@ class Renderer {
     const S = this.S;
     const a = inf.ax;
     const t = this.text(a.txPr);
-    const em = t.sz * S;
+    // folgas em "em" escaladas pela altura de linha da fonte (fontK)
+    const em = t.sz * S * this.fontK(t);
     const tk = this.tickLen(a);
     const off = this.lblTick(a);
     let ext = 0;
@@ -1063,7 +1087,8 @@ class Renderer {
   private paintAxisLabels(inf: AxisInfo, plot: Rect, at: number, sgn: number): void {
     const a = inf.ax;
     const t = this.text(a.txPr);
-    const S = this.S, em = t.sz * S;
+    // folgas em "em" escaladas pela altura de linha da fonte (fontK)
+    const S = this.S, em = t.sz * S * this.fontK(t);
     const tk = this.lblTick(a);
     // tickLblPos low/high: rótulos na borda do plot e não junto do eixo
     let base = at;
@@ -1072,14 +1097,15 @@ class Renderer {
     else if (a.tickLblPos === 'high') base = inf.dir === 'v' ? plot.x + plot.w : plot.y;
     const sg = a.tickLblPos === 'high' ? -sgn : sgn;
     if (inf.scale) {
-      for (const { v, s } of this.valueLabels(inf)) {
+      for (const { v, s, color } of this.valueLabels(inf)) {
         const p = this.pos(inf, plot, v);
+        const tc = color ? { ...t, color, alpha: 1 } : t;
         if (inf.dir === 'v') {
           const x = base + sg * (tk + em * 0.6);
-          this.drawLines([s], t, x, p, sg < 0 ? 'right' : 'left');
+          this.drawLines([s], tc, x, p, sg < 0 ? 'right' : 'left');
         } else {
           const y = base + sg * (tk + em * H_LBL_GAP + this.lineH(t) / 2);
-          this.drawLines([s], t, p, y, 'center');
+          this.drawLines([s], tc, p, y, 'center');
         }
       }
       return;
