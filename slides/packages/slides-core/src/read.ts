@@ -1530,7 +1530,13 @@ function parsePattFill(el: XmlElement, theme: Theme): Fill | undefined {
   const n = (h: string): number[] => { const v = parseInt(h.replace('#', ''), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
   const a = n(fg), b = n(bg);
   const avg = '#' + a.map((c, i) => Math.round(c * d + b[i]! * (1 - d)).toString(16).padStart(2, '0')).join('');
-  return { type: 'solid', color: avg, pattern: { prst, fg, bg } };
+  // alfa de cada cor do padrão (medido, syn-pattalpha: o app compõe frente/fundo com o alfa)
+  const alphaOf = (e: XmlElement | undefined): number | undefined => {
+    const v = e ? fillAlphaEl(e)?.attrs['val'] : undefined;
+    return v !== undefined ? Math.max(0, Math.min(1, parseInt(v, 10) / 100000)) : undefined;
+  };
+  const fgA = alphaOf(fgEl), bgA = alphaOf(bgEl);
+  return { type: 'solid', color: avg, pattern: { prst, fg, bg, ...(fgA !== undefined && fgA < 1 ? { fgA } : {}), ...(bgA !== undefined && bgA < 1 ? { bgA } : {}) } };
 }
 
 /** Parse de `<a:gradFill>` -> Fill gradient (2+ stops; `<a:lin ang>` em graus). */
@@ -1593,6 +1599,7 @@ function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>, pk
     if (bodyPr.attrs['wrap']) tb.wrap = bodyPr.attrs['wrap'];
     if (bodyPr.attrs['spcFirstLastPara'] !== undefined) tb.spcFirstLastPara = bodyPr.attrs['spcFirstLastPara'] === '1';
     if (bodyPr.attrs['vert']) tb.vert = bodyPr.attrs['vert']; // 'horz' explícito também (vence o vertical herdado)
+    if (bodyPr.attrs['rot'] && /^-?\d+$/.test(bodyPr.attrs['rot'])) tb.rot = parseInt(bodyPr.attrs['rot'], 10);
     // insets em EMU (defaults do app ficam a cargo do layout/render)
     if (bodyPr.attrs['lIns'] !== undefined) tb.insL = parseInt(bodyPr.attrs['lIns'], 10);
     if (bodyPr.attrs['tIns'] !== undefined) tb.insT = parseInt(bodyPr.attrs['tIns'], 10);

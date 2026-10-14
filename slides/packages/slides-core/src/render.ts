@@ -1254,6 +1254,19 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
       return;
     }
   }
+  // <a:bodyPr rot>: giro extra do texto em volta do centro (forma girada 180° com o
+  // texto desvirado — gdx-268620)
+  if (tb.rot && tb.rot % 21600000 !== 0) {
+    const { rot, ...flat } = tb;
+    const cx = x + w / 2, cy = y + h / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((rot / 60000) * Math.PI / 180);
+    ctx.translate(-cx, -cy);
+    paintText(ctx, sh, flat, x, y, w, h, scale, anim, true);
+    ctx.restore();
+    return;
+  }
   const turn = tb.vert === 'vert' || tb.vert === 'eaVert' ? 1 : tb.vert === 'vert270' ? -1 : 0;
   if (turn) {
     const { vert: _v, ...flat } = tb;
@@ -1886,7 +1899,8 @@ const pattCache = new Map<string, PaintImage>();
 function presetPattern(ctx: CanvasRenderingContext2D, p: NonNullable<Fill['pattern']>, ox: number, oy: number, scale: number): CanvasPattern | null {
   const rows = patternRows(p.prst);
   if (!rows) return null;
-  const key = p.prst + p.fg + p.bg;
+  const fa = Math.round((p.fgA ?? 1) * 255), ba = Math.round((p.bgA ?? 1) * 255);
+  const key = p.prst + p.fg + p.bg + fa + '/' + ba;
   let img = pattCache.get(key);
   if (!img) {
     const cv = scratchCanvas(8, 8);
@@ -1896,7 +1910,7 @@ function presetPattern(ctx: CanvasRenderingContext2D, p: NonNullable<Fill['patte
     const fg = hexRgb(p.fg), bg = hexRgb(p.bg);
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
       const on = (rows[r]! >> (7 - c)) & 1, col = on ? fg : bg, o = (r * 8 + c) * 4;
-      id.data[o] = col[0]; id.data[o + 1] = col[1]; id.data[o + 2] = col[2]; id.data[o + 3] = 255;
+      id.data[o] = col[0]; id.data[o + 1] = col[1]; id.data[o + 2] = col[2]; id.data[o + 3] = on ? fa : ba;
     }
     c2.putImageData(id, 0, 0);
     img = cv as unknown as PaintImage;

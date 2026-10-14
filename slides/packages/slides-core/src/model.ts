@@ -72,7 +72,7 @@ export interface Fill {
    *  recuos (frações) de cada borda; ausente = ponto central. */
   fillTo?: { l: number; t: number; r: number; b: number };
   /** Padrão (`<a:pattFill prst>`): `color` vira a cor MÉDIA (fallback de quem não desenha padrão). */
-  pattern?: { prst: string; fg: string; bg: string };
+  pattern?: { prst: string; fg: string; bg: string; fgA?: number; bgA?: number };
 }
 
 /**
@@ -241,6 +241,8 @@ export interface TextBody {
   insB?: number;
   /** Texto vertical (`<a:bodyPr vert>` / `<a:tcPr vert>`): vert (90°), vert270, eaVert… */
   vert?: string;
+  /** Giro extra do texto dentro da forma (`<a:bodyPr rot>`, 1/60000°), em volta do centro. */
+  rot?: number;
   /** Colunas de texto (`<a:bodyPr numCol spcCol>`); spcCol em EMU. */
   numCol?: number;
   spcCol?: number;
