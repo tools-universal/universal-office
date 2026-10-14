@@ -135,7 +135,10 @@ function collectImageRefs(slides: Slide[], sizes?: Map<string, { w: number; h: n
       }
       if (sh.fillImage) map.set(sh.fillImage.part, sh.fillImage);
       for (const r of Object.values(sh.chartImages ?? {})) map.set(r.part, r);
-      for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) map.set(p.bulletImage.part, p.bulletImage);
+      for (const p of sh.txBody?.paragraphs ?? []) {
+        if (p.bulletImage) map.set(p.bulletImage.part, p.bulletImage);
+        for (const r of p.runs) if (r.fillImage) map.set(r.fillImage.part, r.fillImage);
+      }
     }
   }
   return map;

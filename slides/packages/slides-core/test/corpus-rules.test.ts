@@ -222,6 +222,22 @@ describe('WordArt (prstTxWarp) e sombra do texto', () => {
     const b = deck({ slide: sp('<a:bodyPr><a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp></a:bodyPr>') });
     expect(b.shapes[0]!.txBody!.warp).toBeUndefined();
   });
+  it('preenchimento das letras: degradê, imagem (ladrilho), opacidade e sem preenchimento (syn-b-e11)', () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const g = deck({ slide: sp('<a:bodyPr/>', '<a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="FF0000"/></a:gs><a:gs pos="100000"><a:srgbClr val="0000FF"/></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>') });
+    expect(g.shapes[0]!.txBody!.paragraphs[0]!.runs[0]!.gradFill).toMatchObject({ type: 'gradient', angleDeg: 90 });
+    const b = deck({
+      slide: sp('<a:bodyPr/>', '<a:blipFill><a:blip r:embed="rId9"/><a:tile tx="0" ty="0" sx="100000" sy="100000" algn="tl"/></a:blipFill>'),
+      media: { 'ppt/media/i.png': png }, slideRels: REL('rId9', 'image', '../media/i.png'),
+    });
+    const br = b.shapes[0]!.txBody!.paragraphs[0]!.runs[0]!;
+    expect(br.fillImage?.part).toBe('ppt/media/i.png');
+    expect(br.fillTile).toBe(true);
+    const a = deck({ slide: sp('<a:bodyPr/>', '<a:solidFill><a:srgbClr val="FF0000"><a:alpha val="50000"/></a:srgbClr></a:solidFill>') });
+    expect(a.shapes[0]!.txBody!.paragraphs[0]!.runs[0]!.alpha).toBe(0.5);
+    const n = deck({ slide: sp('<a:bodyPr/>', '<a:noFill/>') });
+    expect(n.shapes[0]!.txBody!.paragraphs[0]!.runs[0]!.alpha).toBe(0);
+  });
   it('sombra do texto sem <a:alpha> é opaca (syn-b-e7)', () => {
     const s = deck({ slide: sp('<a:bodyPr/>', '<a:effectLst><a:outerShdw dist="76200" dir="2700000"><a:srgbClr val="FF8000"/></a:outerShdw></a:effectLst>') });
     expect(s.shapes[0]!.txBody!.paragraphs[0]!.runs[0]!.shadow).toMatchObject({ color: '#FF8000', alpha: 1 });

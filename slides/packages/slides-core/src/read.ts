@@ -1686,11 +1686,11 @@ function readParagraph(p: XmlElement, theme: Theme, rels?: Map<string, string>, 
   const endRPr = firstChild(p, 'a:endParaRPr');
   if (endRPr?.attrs['sz']) para.endSz = parseInt(endRPr.attrs['sz'], 10) / 100;
   for (const child of childElements(p)) {
-    if (child.name === 'a:r') para.runs.push(readRun(child, theme, rels));
+    if (child.name === 'a:r') para.runs.push(readRun(child, theme, rels, blip));
     else if (child.name === 'a:br') para.runs.push({ text: '\n' });
     else if (child.name === 'a:fld') {
       // campo: formatação própria como um run (rPr); o tipo fica para o valor ao vivo
-      const fr = readRun(child, theme, rels);
+      const fr = readRun(child, theme, rels, blip);
       if (child.attrs['type']) fr.field = child.attrs['type'];
       para.runs.push(fr);
     }
@@ -1711,7 +1711,7 @@ function readBulletStyle(pPr: XmlElement, theme: Theme, para: Paragraph): void {
   else if (firstChild(pPr, 'a:buSzTx')) para.bulletSizePct = 1;
 }
 
-function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>): Run {
+function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>, blip?: BlipResolver): Run {
   const t = firstChild(r, 'a:t');
   const run: Run = { text: t ? textContent(t) : '' };
   const rPr = firstChild(r, 'a:rPr');
@@ -1745,6 +1745,17 @@ function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>): Run {
     const rpf = firstChild(rPr, 'a:pattFill');
     const pf = rpf ? parsePattFill(rpf, theme) : undefined;
     if (pf?.pattern) { run.pattFill = pf.pattern; run.color = pf.color!; }
+    // degradê, imagem e opacidade das letras (o desenho usa a caixa da LINHA — medido, syn-b-e11)
+    const rgf = firstChild(rPr, 'a:gradFill');
+    const gfill = rgf ? parseGradFill(rgf, theme) : undefined;
+    if (gfill) run.gradFill = gfill;
+    const rbf = firstChild(rPr, 'a:blipFill'), rbb = rbf ? firstChild(rbf, 'a:blip') : undefined;
+    const rimg = rbb && blip ? blip(rbb) : undefined;
+    if (rimg && rbf) { run.fillImage = rimg; if (applyTile(rimg, rbf)) run.fillTile = true; }
+    const rsf = firstChild(rPr, 'a:solidFill'), ra = rsf ? fillAlphaEl(rsf)?.attrs['val'] : undefined;
+    if (ra !== undefined && parseInt(ra, 10) < 100000) run.alpha = Math.max(0, parseInt(ra, 10) / 100000);
+    // letras sem preenchimento (só o contorno)
+    if (firstChild(rPr, 'a:noFill')) run.alpha = 0;
     // hyperlink: <a:hlinkClick r:id="rIdN"/> -> resolve via rels do slide
     const hlink = firstChild(rPr, 'a:hlinkClick');
     // aparência de link: cor hlink do tema + sublinhado — salvo `<ahyp:hlinkClr val="tx">`

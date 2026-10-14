@@ -394,7 +394,10 @@ export class UniversalPresentationViewerElement extends HTMLElement {
         if (sh.image) this.warmImage(sh.image, picDisplaySize(sh));
         if (sh.fillImage) this.warmImage(sh.fillImage);
         for (const r of Object.values(sh.chartImages ?? {})) this.warmImage(r);
-        for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) this.warmImage(p.bulletImage);
+        for (const p of sh.txBody?.paragraphs ?? []) {
+          if (p.bulletImage) this.warmImage(p.bulletImage);
+          for (const r of p.runs) if (r.fillImage) this.warmImage(r.fillImage);
+        }
       }
     }
     this.index = 0;
@@ -593,7 +596,10 @@ export class UniversalPresentationViewerElement extends HTMLElement {
       if (sh.image) this.warmImage(sh.image, picDisplaySize(sh));
       if (sh.fillImage) this.warmImage(sh.fillImage);
       for (const r of Object.values(sh.chartImages ?? {})) this.warmImage(r);
-      for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) this.warmImage(p.bulletImage);
+      for (const p of sh.txBody?.paragraphs ?? []) {
+        if (p.bulletImage) this.warmImage(p.bulletImage);
+        for (const r of p.runs) if (r.fillImage) this.warmImage(r.fillImage);
+      }
     }
     const map = new Map<string, PaintImage>();
     for (const [part, e] of this.imageCache) if (e.ready) map.set(part, e.img);

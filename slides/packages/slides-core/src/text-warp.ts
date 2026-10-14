@@ -41,6 +41,10 @@ export interface WarpRun {
   pattern?: { prst: string; fg: string; bg: string };
   /** Espaçamento extra entre caracteres (pt, `spc`). */
   spc?: number;
+  /** Preenchimento (degradê/imagem) na caixa (px do raster) `[x, y, w, h]`; `k` = px do raster por pt. */
+  paint?: (c: Ctx, box: [number, number, number, number], k: number) => CanvasGradient | CanvasPattern | null;
+  /** Opacidade do preenchimento das letras (0 = só o contorno). */
+  alpha?: number;
 }
 
 /** `letterSpacing` do canvas (Chromium/Firefox recentes); sem suporte, ignora. */
@@ -382,7 +386,9 @@ function measureLine(ctx: Ctx, line: WarpLine, withCells: boolean): LineInfo {
  * app traça o contorno DEPOIS de deformar (a espessura não estica com o texto —
  * medido, lo-tdf139618), então quem chama desconta a ampliação média.
  */
-function rasterLine(li: LineInfo, k: number, makeCanvas: (w: number, h: number) => Cv | undefined, strokeK = k): { cv: Cv; w: number; h: number } | undefined {
+function rasterLine(li: LineInfo, k: number, makeCanvas: (w: number, h: number) => Cv | undefined, strokeK = k,
+  /** Caixa (pt do layout) do degradê/imagem das letras: o bloco do envelope ou a linha do arco. */
+  fillBox?: readonly [number, number, number, number]): { cv: Cv; w: number; h: number } | undefined {
   const w = Math.max(1, Math.ceil((li.rx1 - li.rx0) * k)), h = Math.max(1, Math.ceil((li.ry1 - li.ry0) * k));
   const cv = makeCanvas(w, h);
   const c2 = cv?.getContext('2d') as Ctx | null | undefined;
@@ -409,8 +415,16 @@ function rasterLine(li: LineInfo, k: number, makeCanvas: (w: number, h: number) 
         }
       }
     }
+    if (r.paint && fillBox) {
+      const fs = r.paint(c2, [(fillBox[0] - li.rx0) * k, (fillBox[1] - li.ry0) * k, (fillBox[2] - fillBox[0]) * k, (fillBox[3] - fillBox[1]) * k], k);
+      if (fs) c2.fillStyle = fs;
+    }
     const tx = (r.x - li.rx0) * k;
-    c2.fillText(r.text, tx, by);
+    if ((r.alpha ?? 1) > 0) {
+      c2.globalAlpha = r.alpha ?? 1;
+      c2.fillText(r.text, tx, by);
+      c2.globalAlpha = 1;
+    }
     if (r.stroke) { c2.strokeStyle = r.stroke.color; c2.lineWidth = Math.max(0.5, r.stroke.width * strokeK); c2.lineJoin = 'round'; c2.strokeText(r.text, tx, by); }
   }
   return { cv, w, h };
@@ -460,6 +474,12 @@ function arcLift(p: number | undefined): number {
   return 0.154;
 }
 
+/** Caixa da linha (pt): avanço × altura da linha (topo a 0,8 da altura acima da baseline). */
+function lineBoxOf(li: LineInfo): [number, number, number, number] {
+  const h = li.line.height ?? li.line.sizePt * 1.2;
+  return [li.penL, li.line.baseline - 0.8 * h, li.penR, li.line.baseline + 0.2 * h];
+}
+
 /** Linhas em grupos para as faixas (⌈restantes/faixas⌉ cada). */
 function groups<T>(items: T[], n: number): T[][] {
   const out: T[][] = [];
@@ -504,7 +524,7 @@ export function paintWarpedText(ctx: Ctx, prst: string, adj: number[] | undefine
         const delta = (yRefLast - yRef) * f;
         const path = Math.abs(delta) > 0.01 ? offsetPath(base, delta) : base;
         const k = cap(f * 1.25, li);
-        const r = rasterLine(li, k, makeCanvas, (k * pxPerPt) / f);
+        const r = rasterLine(li, k, makeCanvas, (k * pxPerPt) / f, lineBoxOf(li));
         if (!r) continue;
         const pc = (li.penL + li.penR) / 2;
         const sOf = fromWordArt ? (x: number): number => (x - blockL) * f
@@ -540,7 +560,10 @@ export function paintWarpedText(ctx: Ctx, prst: string, adj: number[] | undefine
     const T = paths[2 * gi]!, B = paths[2 * gi + 1]!;
     const vis = g.filter((i) => i.visible);
     if (!vis.length) return;
-    const x0 = Math.min(...vis.map((i) => i.extL)), x1 = Math.max(...vis.map((i) => i.extR));
+    // largura comum a TODAS as faixas (a linha mais curta não estica até a borda da sua
+    // faixa — lo-tdf139618_WordArtBitmapFill, DeflateInflate "Happy"/"Birthday")
+    const all = infos.filter((i) => i.visible);
+    const x0 = Math.min(...all.map((i) => i.extL)), x1 = Math.max(...all.map((i) => i.extR));
     const y0 = Math.min(...vis.map((i) => i.line.baseline - i.inkAsc));
     let y1 = Math.max(...vis.map((i) => i.line.baseline + i.inkDesc));
     if (g.length < slots) {
@@ -554,9 +577,12 @@ export function paintWarpedText(ctx: Ctx, prst: string, adj: number[] | undefine
     };
     const span = Math.max(T.len, B.len);
     const kx = span / (x1 - x0), ky = bh / (y1 - y0);
+    // degradê/imagem das letras: no bloco todo (as linhas compartilham — medido, syn-b-e11)
+    const boxes = vis.map(lineBoxOf);
+    const blockBox: [number, number, number, number] = [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1])), Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))];
     for (const li of vis) {
       const k = cap(Math.max(kx, ky, pxPerPt) * 1.25, li);
-      const r = rasterLine(li, k, makeCanvas, (k * pxPerPt) / Math.sqrt(kx * ky));
+      const r = rasterLine(li, k, makeCanvas, (k * pxPerPt) / Math.sqrt(kx * ky), blockBox);
       if (!r) continue;
       const outW = ((li.rx1 - li.rx0) / (x1 - x0)) * span;
       const n = Math.max(4, Math.min(1500, Math.ceil(outW / 1.5)));

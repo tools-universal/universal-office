@@ -1311,6 +1311,8 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
   };
   const colorOf = (c: string, st?: PartState | null): string => st?.textColor ?? all?.textColor ?? c;
   const underOf = (u: boolean, st?: PartState | null): boolean => st?.underline ?? all?.underline ?? u;
+  /** Caixa (px) da linha em desenho — referência do degradê/imagem das letras. */
+  let lineBox: [number, number, number, number] | undefined;
   const drawText = (text: string, r: PlacedRun, tx: number, by0: number, st?: PartState | null): void => {
     const f = fontOf(r.font, st);
     ctx.font = layoutFontStr(f, pxPerPt);
@@ -1324,8 +1326,13 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     ctx.fillStyle = color;
     // letras com padrão (WordArt): o padrão 8×8 ancorado no slide
     if (r.pattFill && !st) { const pat = presetPattern(ctx, r.pattFill, 0, 0, scale); if (pat) ctx.fillStyle = pat; }
-    const effShadow = r.shadow ?? (shapeFilled(sh) ? undefined : sh.shadow);
-    if (effShadow) {
+    // degradê/imagem das letras: na caixa da LINHA (avanço × altura da linha — medido, syn-b-e11)
+    if (!st && lineBox && (r.gradFill || r.fillImage)) { const lf = letterFill(ctx, r, lineBox, scale); if (lf) ctx.fillStyle = lf; }
+    const fillA = st ? 1 : r.alpha ?? 1;
+    const prevA = ctx.globalAlpha;
+    if (fillA < 1) ctx.globalAlpha = prevA * fillA;
+    const effShadow = fillA <= 0 ? undefined : r.shadow ?? (shapeFilled(sh) ? undefined : sh.shadow);
+    if (fillA <= 0) { /* letras sem preenchimento: só o contorno */ } else if (effShadow) {
       // sombra do texto: EMU→px pela escala; alpha na cor da sombra
       // (a sombra da SHAPE se aplica ao texto só quando a forma NÃO tem
       // preenchimento — com preenchimento ela é só da caixa; medido, syn-b-e8)
@@ -1341,6 +1348,7 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     } else {
       ctx.fillText(text, tx, by);
     }
+    ctx.globalAlpha = prevA;
     // contorno das letras (<a:ln> do rPr)
     if (r.outline) {
       ctx.save();
@@ -1397,6 +1405,10 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
   ctx.textBaseline = 'alphabetic';
   for (const line of layout.lines) {
     const by = y + line.baseline * scale;
+    if (line.runs.some((r) => r.gradFill || r.fillImage)) {
+      const l0 = Math.min(...line.runs.map((r) => r.x)), l1 = Math.max(...line.runs.map((r) => r.x + r.w));
+      lineBox = [x + l0 * scale, y + (line.baseline - line.height * 0.8) * scale, (l1 - l0) * scale, line.height * scale];
+    } else lineBox = undefined;
     const pst = stOfPara(line.para);
     if (pst && !pst.visible) continue;
     ctx.save();
@@ -1472,6 +1484,28 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
   if (unflip) ctx.restore();
 }
 
+/**
+ * Preenchimento das letras com degradê ou imagem na caixa (px) `box` — a da
+ * LINHA no texto normal (medido, syn-b-e11: degradê e imagem esticada no avanço
+ * da linha × altura da linha; ladrilho no tamanho natural a partir do canto dela).
+ * `scale` = px por EMU no espaço de `ctx`.
+ */
+function letterFill(ctx: CanvasRenderingContext2D, r: { gradFill?: Fill; fillImage?: ImageRef; fillTile?: boolean }, box: readonly [number, number, number, number], scale: number): CanvasGradient | CanvasPattern | null {
+  const [bx, by, bw, bh] = box;
+  if (!(bw > 0) || !(bh > 0)) return null;
+  if (r.gradFill?.stops && r.gradFill.stops.length >= 2) return makeLinearGradient(ctx, r.gradFill, bx, by, bw, bh);
+  const raw = r.fillImage ? paintImages?.get(r.fillImage.part) : undefined;
+  if (!raw || !r.fillImage) return null;
+  const img = fxImage(raw, r.fillImage.fx);
+  if (r.fillTile) return imageTile(ctx, img, r.fillImage, bx, by, scale, bw, bh);
+  const rr = insetRect(r.fillImage.fillRect, bx, by, bw, bh);
+  const pat = ctx.createPattern(img as CanvasImageSource, 'no-repeat');
+  if (pat && typeof pat.setTransform === 'function' && typeof DOMMatrix !== 'undefined' && imgW(img) > 0 && imgH(img) > 0) {
+    pat.setTransform(new DOMMatrix([rr.w / imgW(img), 0, 0, rr.h / imgH(img), rr.x, rr.y]));
+  }
+  return pat;
+}
+
 /** A forma tem preenchimento (aí a sombra da forma é só da caixa, não do texto). */
 function shapeFilled(sh: Shape): boolean {
   return (!!sh.fill && sh.fill.type !== 'none') || !!sh.fillImage || !!sh.useBgFill;
@@ -1529,6 +1563,8 @@ function paintWarp(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
         ...(r.outline ? { stroke: { color: r.outline.color, width: r.outline.width / EMU_PER_POINT } } : {}),
         ...(r.pattFill ? { pattern: r.pattFill } : {}),
         ...(r.spc ? { spc: r.spc / EMU_PER_POINT } : {}),
+        ...(r.gradFill || r.fillImage ? { paint: (c: CanvasRenderingContext2D, box: [number, number, number, number], k: number) => letterFill(c, r, box, k / EMU_PER_POINT) } : {}),
+        ...(r.alpha !== undefined ? { alpha: r.alpha } : {}),
       })),
       baseline: line.baseline / EMU_PER_POINT,
       height: line.height / EMU_PER_POINT,
@@ -1539,16 +1575,34 @@ function paintWarp(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
   });
   const run0 = tb.paragraphs.flatMap((p) => p.runs).find((r) => /\S/.test(r.text));
   const sd = run0?.shadow ?? (shapeFilled(sh) ? undefined : sh.shadow);
-  const layer = sd ? acquireLayer(ctx) : null;
+  // imagem LADRILHADA nas letras deformadas: as células ficam no tamanho natural na
+  // SAÍDA (não esticam com a deformação — lo-tdf139618_WordArtBitmapFill): pinta a
+  // silhueta deformada e a recobre com o ladrilho
+  const vis = layout.lines.flatMap((l) => l.runs).filter((r) => /\S/.test(r.text));
+  const tileRun = vis.length && vis.every((r) => r.fillTile && r.fillImage && r.fillImage.part === vis[0]!.fillImage!.part && !r.outline) ? vis[0] : undefined;
+  const tileImg = tileRun?.fillImage ? paintImages?.get(tileRun.fillImage.part) : undefined;
+  const layer = sd || tileImg ? acquireLayer(ctx) : null;
   const target = layer ?? ctx;
   paintWarpedText(target, warp.prst, warp.adj, !!warp.fromWordArt, lines, x, y, w, h, EMU_PER_POINT * scale, (cw, ch) => scratchCanvas(cw, ch));
-  if (layer && sd) {
+  if (layer && tileImg && tileRun?.fillImage) {
+    const pat = imageTile(layer, fxImage(tileImg, tileRun.fillImage.fx), tileRun.fillImage, x, y, scale, w, h);
+    if (pat) {
+      layer.save();
+      layer.globalCompositeOperation = 'source-in';
+      layer.fillStyle = pat;
+      layer.fillRect(x - 4 * w, y - 4 * h, 9 * w, 9 * h);
+      layer.restore();
+    }
+  }
+  if (layer) {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.shadowColor = rgbaOf(sd.color, sd.alpha);
-    ctx.shadowBlur = sd.blurRad * scale * TEXT_SHADOW_BLUR_K;
-    ctx.shadowOffsetX = sd.dist * Math.cos(sd.dirDeg * Math.PI / 180) * scale;
-    ctx.shadowOffsetY = sd.dist * Math.sin(sd.dirDeg * Math.PI / 180) * scale;
+    if (sd) {
+      ctx.shadowColor = rgbaOf(sd.color, sd.alpha);
+      ctx.shadowBlur = sd.blurRad * scale * TEXT_SHADOW_BLUR_K;
+      ctx.shadowOffsetX = sd.dist * Math.cos(sd.dirDeg * Math.PI / 180) * scale;
+      ctx.shadowOffsetY = sd.dist * Math.sin(sd.dirDeg * Math.PI / 180) * scale;
+    }
     ctx.drawImage(layer.canvas as unknown as CanvasImageSource, 0, 0);
     ctx.restore();
     layerBusy.delete(layer);

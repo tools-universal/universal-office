@@ -157,6 +157,13 @@ export interface Run {
   outline?: { color: string; width: number };
   /** Preenchimento de PADRÃO das letras (`<a:rPr><a:pattFill>`); `color` fica a média. */
   pattFill?: { prst: string; fg: string; bg: string };
+  /** Degradê das letras (`<a:rPr><a:gradFill>`); `color` fica o stop do meio (reserva). */
+  gradFill?: Fill;
+  /** Imagem das letras (`<a:rPr><a:blipFill>`): esticada na caixa da linha ou ladrilhada (`fillTile`). */
+  fillImage?: ImageRef;
+  fillTile?: boolean;
+  /** Opacidade das letras (`<a:alpha>` do solidFill do rPr), 0..1. */
+  alpha?: number;
   /** `<a:sym typeface>`: fonte dos caracteres de símbolo (U+F020–F0FF, área privada). */
   symFont?: string;
   /** Hyperlink alvo (resolvido via slideRels a partir de `<a:hlinkClick r:id>`). */

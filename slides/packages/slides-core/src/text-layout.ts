@@ -51,6 +51,11 @@ export interface PlacedRun {
   spc?: number;
   outline?: Run['outline'];
   pattFill?: Run['pattFill'];
+  /** Degradê/imagem/opacidade das letras (desenhados na caixa da linha). */
+  gradFill?: Run['gradFill'];
+  fillImage?: Run['fillImage'];
+  fillTile?: boolean;
+  alpha?: number;
 }
 
 /** Linha final do layout. */
@@ -408,6 +413,9 @@ export function layoutTextBody(
       if (m.run.shadow !== undefined) pr.shadow = m.run.shadow;
       if (m.run.outline) pr.outline = m.run.outline;
       if (m.run.pattFill) pr.pattFill = m.run.pattFill;
+      if (m.run.gradFill) pr.gradFill = m.run.gradFill;
+      if (m.run.fillImage) { pr.fillImage = m.run.fillImage; if (m.run.fillTile) pr.fillTile = true; }
+      if (m.run.alpha !== undefined) pr.alpha = m.run.alpha;
       placed.push(pr);
       w += mw;
     }
