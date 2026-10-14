@@ -774,7 +774,11 @@ function paintBody(
     const b = parseInt(hex.slice(4, 6), 16) || 0;
     ctx.shadowColor = `rgba(${r},${g},${b},${sh.shadow.alpha})`;
     ctx.shadowBlur = sh.shadow.blurRad * fit.scale;
-    ctx.fillStyle = ov.fill ?? (sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color : '#ffffff');
+    // a "cópia" que projeta a sombra tem o ALFA do preenchimento (forma translúcida:
+    // sombra mais fraca e visível através dela) e fica FORA da tela — só a sombra volta
+    ctx.fillStyle = ov.fill ?? (sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color
+      : sh.fill?.type === 'gradient' && sh.fill.stops && sh.fill.stops.length >= 2 ? makeLinearGradient(ctx, sh.fill, x, y, w, h) : '#ffffff');
+    if (!ov.fill && sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha *= sh.fillAlpha;
     if (sh.fillImage && sh.useBgFill && sh.shadow.sx === undefined && sh.shadow.sy === undefined) {
       // preenchimento de imagem (pode ter transparência): só a SOMBRA da silhueta — a
       // forma vai para fora da tela e o deslocamento traz a sombra de volta
@@ -799,8 +803,11 @@ function paintBody(
       ctx.scale(sh.shadow.sx ?? 1, sh.shadow.sy ?? 1);
       ctx.translate(-ax, -ay);
     } else {
-      ctx.shadowOffsetX = sx;
-      ctx.shadowOffsetY = sy;
+      const K = 20000;
+      const m = ctx.getTransform();
+      ctx.shadowOffsetX = sx + m.a * K;
+      ctx.shadowOffsetY = sy + m.b * K;
+      ctx.translate(-K, 0);
     }
     const shRule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
     if (shRule) ctx.fill(shRule); else ctx.fill();
