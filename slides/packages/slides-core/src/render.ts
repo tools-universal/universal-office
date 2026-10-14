@@ -436,7 +436,8 @@ function paintShape(
 
   // ── transformação de instância: rot (1/60000 grau) + flipH/flipV em torno
   //    do CENTRO geométrico. Pintada DENTRO de save/restore para não vazar.
-  const hasXform = sh.xfrm.rot || sh.xfrm.flipH || sh.xfrm.flipV;
+  const cam = sh.camRot ? cameraMatrix(sh.camRot) : undefined;
+  const hasXform = sh.xfrm.rot || sh.xfrm.flipH || sh.xfrm.flipV || cam;
   const hasAlpha = sh.alpha !== undefined && sh.alpha < 1;
   if (hasXform || hasAlpha) {
     ctx.save();
@@ -444,6 +445,7 @@ function paintShape(
     if (hasXform) {
       const cx = x + w / 2, cy = y + h / 2;
       ctx.translate(cx, cy);
+      if (cam) ctx.transform(cam[0], cam[1], cam[2], cam[3], 0, 0);
       if (sh.xfrm.rot) ctx.rotate(sh.xfrm.rot / 60000 * Math.PI / 180);
       if (sh.xfrm.flipH) ctx.scale(-1, 1);
       if (sh.xfrm.flipV) ctx.scale(1, -1);
@@ -488,6 +490,24 @@ function paintShape(
     throw e;
   }
   if (hasXform || hasAlpha) ctx.restore();
+}
+
+/**
+ * Projeção ortográfica da forma vista pela câmera girada (lat/lon/rev em graus):
+ * o objeto aparece com a rotação INVERSA da câmera, R = Rz(−rev)·Rx(−lat)·Ry(−lon)
+ * (ordem e sinais casados com o PowerPoint numa seta longa do corpus); devolve
+ * a parte 2×2 (a, b, c, d) para `ctx.transform`.
+ */
+function cameraMatrix(r: { lat: number; lon: number; rev: number }): [number, number, number, number] {
+  const d = Math.PI / 180;
+  const la = -r.lat * d, lo = -r.lon * d, re = -r.rev * d;
+  const rx = [[1, 0, 0], [0, Math.cos(la), -Math.sin(la)], [0, Math.sin(la), Math.cos(la)]];
+  const ry = [[Math.cos(lo), 0, Math.sin(lo)], [0, 1, 0], [-Math.sin(lo), 0, Math.cos(lo)]];
+  const rz = [[Math.cos(re), -Math.sin(re), 0], [Math.sin(re), Math.cos(re), 0], [0, 0, 1]];
+  const mul = (A: number[][], B: number[][]) => A.map((row, i) => B[0]!.map((_, j) => row.reduce((s, _v, k) => s + A[i]![k]! * B[k]![j]!, 0)));
+  const M = mul(mul(rz, rx), ry);
+  // imagem dos eixos x e y da forma no plano da tela
+  return [M[0]![0]!, M[1]![0]!, M[0]![1]!, M[1]![1]!];
 }
 
 /** `rgba()` de uma cor #RRGGBB com alpha. */

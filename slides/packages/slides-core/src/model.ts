@@ -292,6 +292,8 @@ export interface Shape {
   softEdge?: number;
   /** Reflexo (`<a:reflection>`): cópia espelhada abaixo com alpha stA→endA entre stPos..endPos (frações), `dist`/`blurRad` em EMU, `sy` escala vertical. */
   reflection?: { blurRad: number; stA: number; endA: number; stPos: number; endPos: number; dist: number; dirDeg: number; sy: number; fadeDirDeg: number };
+  /** Câmera 3D com rotação explícita (`<a:scene3d><a:camera><a:rot lat lon rev>`), graus: a forma é vista girada (projeção ortográfica). */
+  camRot?: { lat: number; lon: number; rev: number };
   /** Sombra interna (`<a:innerShdw>`). */
   innerShadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number };
   /** Transparência do fill (`<a:solidFill><a:srgbClr><a:alpha val=...`). 0..1. */

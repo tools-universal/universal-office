@@ -1092,6 +1092,14 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
   // efeitos (sombra externa/interna, brilho, bordas suaves, reflexo): os do
   // spPr ou, sem `<a:effectLst>` próprio, o estilo do tema pelo effectRef
   readEffects(spPr, firstChild(sp, 'p:style'), theme, shape);
+  // câmera 3D girada (cena 3D da forma): a projeção vira uma transformação afim
+  const scene = spPr ? firstChild(spPr, 'a:scene3d') : undefined;
+  const camera = scene ? firstChild(scene, 'a:camera') : undefined;
+  const camRot = camera ? firstChild(camera, 'a:rot') : undefined;
+  if (camRot && (camRot.attrs['lat'] || camRot.attrs['lon'] || camRot.attrs['rev'])) {
+    const deg = (k: string) => parseInt(camRot.attrs[k] ?? '0', 10) / 60000;
+    shape.camRot = { lat: deg('lat'), lon: deg('lon'), rev: deg('rev') };
+  }
 
   // <p:style> (spec 03 B): defaults tematicos quando spPr/run nao especifica.
   //   fillRef -> cor de preenchimento; lnRef -> cor de linha;
