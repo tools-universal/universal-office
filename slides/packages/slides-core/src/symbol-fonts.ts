@@ -41,9 +41,16 @@ const T: Record<string, number[]> = {
 
 const norm = (face: string): string => face.toLowerCase().replace(/[\s_-]+/g, '');
 
-/** A fonte é uma fonte de símbolo com tabela conhecida? */
+/**
+ * Fontes de símbolo que NÃO vêm com o Windows/Office (Monotype Sorts, Zapf
+ * Dingbats): o app não tem o glifo e desenha a caixa de "glifo ausente" —
+ * medido em gd-676970 (marcadores 'u'/'w' em Monotype Sorts saem como ▯).
+ */
+const MISSING = new Set(['monotypesorts', 'monotypesorts2', 'zapfdingbats', 'itczapfdingbats']);
+
+/** A fonte é uma fonte de símbolo com tabela conhecida (ou ausente no app)? */
 export function isSymbolFont(face: string | undefined): boolean {
-  return !!face && norm(face) in T;
+  return !!face && (norm(face) in T || MISSING.has(norm(face)));
 }
 
 /**
@@ -52,6 +59,7 @@ export function isSymbolFont(face: string | undefined): boolean {
  * é de símbolo: texto inalterado.
  */
 export function symbolText(face: string | undefined, text: string): string {
+  if (face && MISSING.has(norm(face))) return text.replace(/\S/gu, '▯');
   const t = face ? T[norm(face)] : undefined;
   if (!t) return text;
   let out = '';

@@ -114,16 +114,21 @@ export function paintWarpedText(ctx: Ctx, prst: string, adj: number[] | undefine
     });
     return;
   }
+  // várias linhas: escala COMUM — a linha mais larga (espaços incluídos) cobre a
+  // largura e as outras mantêm a proporção, centradas (medido num WordArt de 3
+  // linhas do .ppt: letras da mesma altura, a linha com espaços à esquerda desloca)
   const n = rasters.length;
+  const maxW = Math.max(1, ...rasters.map((r) => r?.lw ?? 0));
   for (let i = 0; i < n; i++) {
     const r = rasters[i];
     if (!r) continue;
+    const u0 = n > 1 ? (maxW - r.lw) / 2 / maxW : 0, uw = n > 1 ? r.lw / maxW : 1;
     for (let k = 0; k < STRIPS; k++) {
-      const u = (k + 0.5) / STRIPS;
+      const u = u0 + ((k + 0.5) / STRIPS) * uw;
       const [t, b] = envelope(prst, u, depth);
       const top = y + h * (t + ((b - t) * i) / n), bot = y + h * (t + ((b - t) * (i + 1)) / n);
-      const dx = x + (k / STRIPS) * w;
-      ctx.drawImage(r.cv as CanvasImageSource, (k / STRIPS) * r.lw, 0, r.lw / STRIPS, r.lh, dx, top, w / STRIPS + 0.6, Math.max(0.5, bot - top));
+      const dx = x + (u0 + (k / STRIPS) * uw) * w;
+      ctx.drawImage(r.cv as CanvasImageSource, (k / STRIPS) * r.lw, 0, r.lw / STRIPS, r.lh, dx, top, (w * uw) / STRIPS + 0.6, Math.max(0.5, bot - top));
     }
   }
 }
