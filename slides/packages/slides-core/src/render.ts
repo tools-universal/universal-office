@@ -392,8 +392,9 @@ function fxImage(img: PaintImage, fx: ImageFx | undefined): PaintImage {
         continue;
       }
       if (b || c) {
-        // contraste em volta do meio-tom e DEPOIS o brilho (medido: −40%/+60% deixa o fundo branco branco)
-        const adj = (v: number): number => ((v / 255 - 0.5) * k + 0.5 + b) * 255;
+        // contraste em volta do meio-tom e o brilho escalado por (1+k)/2 (medido, syn-lum:
+        // o pivô do contraste anda b/2 com o brilho; k = 1/(1−c) se c ≥ 0, senão 1+c)
+        const adj = (v: number): number => ((v / 255 - 0.5) * k + 0.5 + b * (1 + k) / 2) * 255;
         r = adj(r); g = adj(g); bl = adj(bl);
       }
       // luminância Rec. 709 sobre o sRGB (sem linearizar) — medido no oráculo com
