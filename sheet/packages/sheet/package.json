@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal/sheet-core=../sheet-core/src/index.ts --alias:@universal/sheet-export=../export/src/index.ts --alias:@universal-office/fonts=../../../shared/fonts/src/index.ts",
+    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal/sheet-core=../sheet-core/src/index.ts --alias:@universal/sheet-export=../export/src/index.ts --alias:@universal-office/fonts=../../../shared/fonts/src/index.ts --alias:@universal-office/charts=../../../shared/charts/src/index.ts",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {

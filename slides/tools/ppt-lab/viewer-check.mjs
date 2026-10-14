@@ -49,7 +49,10 @@ await build({
     resolveDir: work, loader: 'ts',
   },
   bundle: true, format: 'esm', outfile: join(work, 'bundle.js'), logLevel: 'warning',
-  alias: { '@universal/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts') },
+  alias: {
+    '@universal/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
+    '@universal-office/charts': join(slidesRoot, '..', 'shared', 'charts', 'src', 'index.ts'),
+  },
 });
 writeFileSync(join(work, 'index.html'),
   '<!DOCTYPE html><meta charset="utf-8"><body style="margin:0"><div id="host" style="width:800px;height:450px"></div><script type="module" src="./bundle.js"></script>');

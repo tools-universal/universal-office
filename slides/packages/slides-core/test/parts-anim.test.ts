@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  PptxPackage, readPresentation, readSlide, buildPlaybackTimeline, shapeAnimHooks, chartPartBounds, applySoftReveal,
-  type Slide, type Shape, type ChartModel, type PlacedEffect,
+  PptxPackage, readPresentation, readSlide, buildPlaybackTimeline, shapeAnimHooks, chartPartBounds, applySoftReveal, parseChart,
+  type Slide, type Shape, type PlacedEffect,
 } from '../src/index.js';
 
 // deck do corpus de reprodução: gráficos e SmartArt animados POR PARTES, regravado
@@ -54,7 +54,7 @@ describe('gráfico animado por partes (pb-graficos-partes)', () => {
   it.skipIf(!has('pb-graficos-partes.pptx'))('fundo noFill do chartSpace; série entra no próprio efeito', () => {
     const s = deck('pb-graficos-partes.pptx')[0]!;
     const chart = s.shapes.find((x) => x.chartXml)!;
-    expect(chart.chartBg).toBeNull(); // gráfico inserido no PowerPoint 2013+: transparente
+    expect(parseChart(chart.chartXml!, chart.chartTheme).space.sp.fill).toEqual({ kind: 'none' }); // gráfico inserido no PowerPoint 2013+: transparente
     const fx = placed(s);
     const s2 = fx.find((e) => e.target?.chart?.step === 'series' && e.target.chart.series === 1)!;
     const part = (ms: number) => shapeAnimHooks(fx, [chart.id], ms)!.chartParts!.find((p) => p.sel.key === 'series|1|-4')!;
@@ -105,10 +105,9 @@ describe('chartPartBounds', () => {
     measureText: (s: string) => ({ width: s.length * 6 }),
     fillRect() { throw new Error('desenhou no contexto real'); },
   }) as unknown as CanvasRenderingContext2D;
-  const model: ChartModel = {
-    type: 'bar-col', categories: ['A', 'B'],
-    series: [{ name: 's1', values: [1, 4] }, { name: 's2', values: [3, 2] }],
-  };
+  const cache = (v: number[]) => `<c:numRef><c:numCache><c:ptCount val="2"/>${v.map((x, i) => `<c:pt idx="${i}"><c:v>${x}</c:v></c:pt>`).join('')}</c:numCache></c:numRef>`;
+  const ser = (i: number, v: number[]) => `<c:ser><c:idx val="${i}"/><c:order val="${i}"/><c:cat><c:strRef><c:strCache><c:ptCount val="2"/><c:pt idx="0"><c:v>A</c:v></c:pt><c:pt idx="1"><c:v>B</c:v></c:pt></c:strCache></c:strRef></c:cat><c:val>${cache(v)}</c:val></c:ser>`;
+  const model = parseChart(`<c:chartSpace xmlns:c="c" xmlns:a="a"><c:chart><c:plotArea><c:barChart><c:barDir val="col"/><c:grouping val="clustered"/>${ser(0, [1, 4])}${ser(1, [3, 2])}</c:barChart></c:plotArea></c:chart></c:chartSpace>`);
 
   it('caixa das marcas da parte (série), menor que o quadro; nada desenhado de verdade', () => {
     const ctx = fakeCtx();

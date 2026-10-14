@@ -11,7 +11,8 @@ export function readTheme(pkg: PptxPackage, themePath: string): Theme {
   const xml = pkg.getPartText(themePath);
   if (xml === undefined) return { colors };
   const root = parseXml(xml);
-  const themeEls = firstChild(root, 'a:themeElements');
+  // tema normal ou `<a:themeOverride>` de gráfico (clrScheme/fontScheme direto na raiz)
+  const themeEls = firstChild(root, 'a:themeElements') ?? (root.name === 'a:themeOverride' ? root : undefined);
   const scheme = themeEls ? firstChild(themeEls, 'a:clrScheme') : undefined;
   if (scheme) {
     for (const el of childElements(scheme)) {
@@ -67,7 +68,7 @@ export function applyClrMap(theme: Theme, map: Record<string, string> | undefine
     const c = theme.scheme[src];
     if (c) colors[alias] = c;
   }
-  return { ...theme, colors };
+  return { ...theme, colors, clrMap: map };
 }
 
 /** Atributos de um `<p:clrMap>`/`<a:overrideClrMapping>` → mapa alias → cor do esquema. */

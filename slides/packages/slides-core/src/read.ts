@@ -772,16 +772,7 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
         const xml = pkg.getPartText(target);
         if (xml) {
           shape.chartXml = xml;
-          // paleta default das séries = accents do tema, em ordem
-          const pal: string[] = [];
-          for (let i = 1; i <= 6; i++) {
-            const c = theme.colors[`accent${i}`];
-            if (c) pal.push(c);
-          }
-          if (pal.length) shape.chartPalette = pal;
-          shape.chartTheme = theme;
-          const bg = chartAreaFill(xml, theme);
-          if (bg !== undefined) shape.chartBg = bg;
+          shape.chartTheme = chartThemeFor(pkg, target, theme);
         }
       }
     }
@@ -846,14 +837,20 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
   return shape;
 }
 
-/** Preenchimento da área do gráfico (`<c:chartSpace><c:spPr>`): null = noFill, undefined = padrão (branco). */
-function chartAreaFill(xml: string, theme: Theme): string | null | undefined {
-  let root: XmlElement;
-  try { root = parseXml(xml); } catch { return undefined; }
-  const spPr = firstChild(root, 'c:spPr');
-  if (!spPr) return undefined;
-  if (firstChild(spPr, 'a:noFill')) return null;
-  return solidFillColor(spPr, theme);
+/**
+ * Tema do gráfico: o da apresentação, ou o `themeOverride` do próprio gráfico
+ * (cores/fontes de quando ele foi colado de outra apresentação/planilha), com o
+ * mesmo clrMap do slide.
+ */
+function chartThemeFor(pkg: PptxPackage, chartPath: string, theme: Theme): Theme {
+  const rels = readRels(pkg, relsPathFor(chartPath), chartPath);
+  let ov: string | undefined;
+  for (const t of rels.values()) if (/themeOverride\d*\.xml$/i.test(t)) { ov = t; break; }
+  if (!ov) return theme;
+  const o = readTheme(pkg, ov);
+  if (!o.scheme || !Object.keys(o.scheme).length) return theme;
+  const merged: Theme = { ...theme, colors: o.colors, scheme: o.scheme, ...(o.fonts ? { fonts: { ...theme.fonts, ...o.fonts } } : {}) };
+  return theme.clrMap ? applyClrMap(merged, theme.clrMap) : merged;
 }
 
 /** Clona a árvore renomeando prefixo de elementos (`dsp:sp` → `p:sp` etc.). */

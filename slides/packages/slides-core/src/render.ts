@@ -10,7 +10,7 @@
  *
  * Coordenadas: geometria do slide em EMU; `scale` converte EMU → px do canvas.
  */
-import { parseChart, paintChart, chartPartBounds, type ChartModel, type ChartSel } from './chart-engine.js';
+import { parseChart, paintChart, chartPartBounds, setChartFontStack, type ChartModel, type ChartSel } from './chart-engine.js';
 import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine } from './text-layout.js';
 import { presetPath } from './geometry.js';
 import { lumHsl } from './theme.js';
@@ -493,8 +493,7 @@ function paintBody(
   if (sh.chartXml) {
     let model = res.charts?.get(sh.chartXml);
     if (!model) { model = parseChart(sh.chartXml, sh.chartTheme); res.charts?.set(sh.chartXml, model); }
-    if (!model.palette && sh.chartPalette) model.palette = sh.chartPalette;
-    if (sh.chartBg !== undefined) model.bg = sh.chartBg;
+    setChartFontStack(fontStack);
     const ppt = EMU_PER_POINT * fit.scale;
     if (ov.chartParts && ov.chartBase) {
       // por partes: cada camada (fundo / série / categoria / ponto) com o próprio

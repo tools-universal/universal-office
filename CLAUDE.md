@@ -54,3 +54,15 @@ qualquer família (não serve para saber se a fonte existe); nenhum navegador
 enxerga o cache de fontes do Office (Aptos); só o Chromium enumera/dá bytes
 (`queryLocalFonts`, com permissão); Firefox privado/ETP estrito só vê as
 fontes base do sistema.
+
+## Gráficos e formatação numérica: um lugar só
+
+Gráficos DrawingML (`c:chartSpace`) e a formatação numérica do Office ficam em
+`shared/charts` (`@universal-office/charts`) — Slides e Sheet usam o MESMO
+motor; não reimplementar nos apps. O app hospedeiro entrega a árvore XML já
+parseada e o resolvedor de cor do próprio tema (clrMap/modificadores do app);
+o motor faz layout, escala e pintura em canvas. Fatos medidos no oráculo
+(PowerPoint 365 pt-BR, gráficos sintéticos do lab): área sem `spPr`
+transparente no PowerPoint; linha sem `c:smooth` sai SUAVE; série além da 6ª e
+estilos monocromáticos variam em RGB linear; data curta "m/d/yyyy" segue o
+locale.

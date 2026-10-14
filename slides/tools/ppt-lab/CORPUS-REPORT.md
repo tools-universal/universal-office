@@ -62,13 +62,26 @@ ponto (`dgm:spPr`). Layout fora da lista fica vazio: palpite errado (setas
 radiais, hexágonos) mediu PIOR que o vazio. Nesses decks: média 12,0 → **8,7**
 (LibreOffice: mediana 20,5 → 6,7); sem regressão no subconjunto nem no repo.
 
+Gráficos: motor novo e COMPARTILHADO (`shared/charts`, a formatação numérica
+do Sheet mudou para lá). Layout medido em gráficos sintéticos exportados pelo
+PowerPoint (`_lab/syn`, `gen-charts.cjs`): margens, título, legenda (ordem
+invertida em barras horizontais/empilhadas), escala automática (zero, 5% de
+folga, densidade de marcas), rótulos de categoria (quebra/45°/salto), rótulos
+de dados, formato de número (vinculado = cache do formato), estilos `c:style`
+1–48 (paletas colorida/mono/cinza em RGB linear, degradês, áreas escuras),
+linhas suaves por padrão, marcadores automáticos, eixos secundários,
+`themeOverride` do gráfico. Nos 100 slides com gráfico do corpus: média
+16,5 → **8,4**, mediana 12,3 → **5,6**.
+
 ### Ainda faltando (por impacto observado)
 
 - WordArt: fonte/posição do bloco ainda diferem nos .ppt (o formato já bate).
 - SmartArt sem desenho nos layouts ainda não medidos (arrow5, radial*,
   hierarchy1/2, gear, HexagonCluster…) — idealmente o motor de layout do app
   (algoritmos lin/snake/hierRoot/cycle + constraints) em vez de famílias.
-- Gráficos antigos (formato de número, rótulos de dados, linhas suaves, 3D) — o motor de gráfico do Sheet é
+- Gráficos: 3D (perspectiva de bar3D/area3D/pie3D), tabela de dados
+  (`c:dTable`), imagem/textura de fundo, densidade de marcas de eixo em
+  gráficos pequenos, Sheet ainda no motor antigo — o motor de gráfico do Sheet é
   um fork menor do mesmo código: unificar.
 - Efeitos: innerShdw, glow, softEdge, reflexo, bevel/3D.
 - Métrica da substituta de fonte ausente (Aptos/Calibri) × a do app: quebras

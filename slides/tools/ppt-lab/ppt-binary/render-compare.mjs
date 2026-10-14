@@ -38,7 +38,10 @@ await build({
   entryPoints: [join(here, '..', 'harness.ts')],
   bundle: true, format: 'esm', logLevel: 'warning',
   outfile: join(work, 'harness.bundle.js'),
-  alias: { '@universal/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts') },
+  alias: {
+    '@universal/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
+    '@universal-office/charts': join(slidesRoot, '..', 'shared', 'charts', 'src', 'index.ts'),
+  },
 });
 const html = readFileSync(join(here, '..', 'harness.html'), 'utf8')
   .replace(/url\('\.\/fonts\//g, "url('/tools/ppt-lab/fonts/")

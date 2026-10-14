@@ -77,7 +77,7 @@ describe('gráficos: robustez e desenho', () => {
     const ctx = recCtx();
     paintChart(ctx, parseChart(bars([5, 500], '<c:scaling><c:logBase val="10"/></c:scaling>')), 0, 0, 400, 300, 1.33);
     const labels = ctx.calls.filter((c) => c.op === 'fillText').map((c) => String(c.args[0]));
-    expect(labels).toEqual(expect.arrayContaining(['1', '10', '100', '1.000']));
+    expect(labels).toEqual(expect.arrayContaining(['1', '10', '100', '1000'])); // Geral do Excel: sem separador de milhar
   });
 });
 

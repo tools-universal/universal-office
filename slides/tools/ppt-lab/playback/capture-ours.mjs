@@ -65,7 +65,10 @@ await build({
   bundle: true,
   format: 'esm',
   outfile: join(here, 'harness.bundle.js'),
-  alias: { '@universal/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts') },
+  alias: {
+    '@universal/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
+    '@universal-office/charts': join(slidesRoot, '..', 'shared', 'charts', 'src', 'index.ts'),
+  },
   logLevel: 'warning',
 });
 

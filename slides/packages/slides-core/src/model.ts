@@ -276,16 +276,8 @@ export interface Shape {
   alpha?: number;
   /** XML cru do chart (`ppt/charts/chartN.xml`) — engine parseia on-demand no paint. */
   chartXml?: string;
-  /** Paleta default do chart = accents 1..6 do TEMA (séries sem spPr). */
-  chartPalette?: string[];
   /** Tema da apresentação: resolve cores (schemeClr) e fontes (+mn-lt) do gráfico. */
   chartTheme?: Theme;
-  /**
-   * Fundo da área do gráfico (`<c:chartSpace><c:spPr>`): null = sem
-   * preenchimento (padrão dos gráficos inseridos no PowerPoint 2013+);
-   * ausente = branco.
-   */
-  chartBg?: string | null;
   /** Tabela embutida (`<a:tbl>` dentro de `<p:graphicFrame>`). */
   table?: Table;
   /**
@@ -442,6 +434,8 @@ export interface Theme {
   scheme?: Record<string, string>;
   /** Fontes do fontScheme (`+mj-lt` → major, `+mn-lt` → minor). */
   fonts?: { major?: string; minor?: string };
+  /** clrMap aplicado (alias → nome do esquema): reaplicado a temas de gráfico (themeOverride). */
+  clrMap?: Record<string, string>;
   /** Larguras (EMU) do `<a:lnStyleLst>` — resolvem `<a:lnRef idx>`. */
   lineWidths?: number[];
   /** `<a:fillStyleLst>` (idx 1…) e `<a:bgFillStyleLst>` (idx 1001…) — resolvem fillRef/bgRef (cor `phClr`). */
