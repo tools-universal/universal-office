@@ -24,6 +24,7 @@ export { paintTransition, type TransitionRect } from './transition.js';
 export { readTheme, colorFromDml, solidFillColor } from './theme.js';
 export { rasterizeSpecialImage } from './raster.js';
 export { isTiff, decodeTiff } from './tiff.js';
+export { isPict, pictSize, drawPict, rasterizePict, fitPictFrame } from './pict.js';
 export { isMetafile, isEmf, isWmf, metafileSize, rasterizeMetafile, drawMetafile, symbolToUnicode } from './metafile.js';
 export { parseChart, paintChart, chartPartBounds, type ChartModel, type ChartSeries, type ChartType, type ChartSel, type ChartBox } from './chart-engine.js';
 export {

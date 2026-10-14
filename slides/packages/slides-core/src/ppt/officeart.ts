@@ -4,6 +4,7 @@
  * imagens (BStore → BSE → blip no stream "Pictures").
  */
 import { Unzlib, Inflate } from 'fflate';
+import { fitPictFrame } from '../pict.js';
 import { ByteReader, type Rec, children, OA, readRec } from './records.js';
 
 /** Propriedade de forma (OfficeArtFOPTE): id de 14 bits + valor de 32 bits. */
@@ -323,7 +324,8 @@ export function decodeBlip(rec: Rec, budget?: { left: number }): Blip | undefine
         const b = { l: r.i32(h + 4), t: r.i32(h + 8), r: r.i32(h + 12), b: r.i32(h + 16) };
         return { ext: 'wmf', mime: 'image/x-wmf', bytes: withPlaceableHeader(bytes, b) };
       }
-      return { ext: 'pict', mime: 'image/pict', bytes };
+      // ptSize (EMU) com outra proporção que o picFrame: o app usa a escala horizontal e corta embaixo
+      return { ext: 'pict', mime: 'image/pict', bytes: fitPictFrame(bytes, r.i32(h + 20), r.i32(h + 24)) };
     }
   }
   return undefined;
