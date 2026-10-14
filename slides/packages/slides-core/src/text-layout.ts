@@ -158,7 +158,8 @@ function tokenize(runs: Run[]): Word[] {
   for (const r of runs) {
     if (r.text === '\n') { out.push({ text: '\n', run: r }); continue; }
     // separa mantendo espaços colados à palavra anterior (quebra APÓS espaço)
-    const parts = r.text.match(/\S+\s*|\s+/g) ?? [];
+    // TAB é um token próprio (avança até a próxima parada)
+    const parts = r.text.match(/\t|[^\s]+[^\S\t]*|[^\S\t]+/g) ?? [];
     for (const p of parts) out.push({ text: p, run: r });
   }
   return out;
@@ -203,7 +204,7 @@ export function layoutTextBody(
   const measureRun = (text: string, r: Run, f: LayoutFont): number =>
     measureEmu(text, f) + (r.spc ? r.spc * EMU_PER_POINT * fontScale * [...text].length : 0);
 
-  interface ProtoLine { runs: { text: string; run: Run }[]; marL: number; align: string; bullet?: PlacedLine['bullet']; para: number }
+  interface ProtoLine { runs: { text: string; run: Run }[]; marL: number; align: string; bullet?: PlacedLine['bullet']; para: number; tabTo?: (xRel: number) => number }
   const proto: ProtoLine[] = [];
   const heights: number[] = [];
   /** Espaço EXTRA (EMU) antes de cada linha (spcBef/spcAft dos parágrafos). */
@@ -258,9 +259,18 @@ export function layoutTextBody(
     const contX = insL + marL;
     const firstX = p.bullet ? contX : insL + Math.max(0, marL + indent);
     const words = tokenize(runs);
+    // tabulação: próxima parada depois de xRel (EMU desde a margem esquerda da caixa)
+    const defTab = p.defTabSz && p.defTabSz > 0 ? p.defTabSz : 914400;
+    // recuo deslocado (indent < 0): antes da margem, o TAB para nela (como no app)
+    const tabTo = (xRel: number): number => {
+      let next = (Math.floor(xRel / defTab) + 1) * defTab;
+      for (const t of p.tabs ?? []) if (t.pos > xRel + 1) { next = t.pos; break; }
+      if (indent < 0 && xRel < marL - 1 && marL < next) return marL;
+      return next;
+    };
 
     // agrupamento em linhas por largura
-    let cur: ProtoLine = { runs: [], marL: firstX, align, bullet, para: pi };
+    let cur: ProtoLine = { runs: [], marL: firstX, align, bullet, para: pi, tabTo };
     let curW = 0;
     let firstLineOfPara = true;
     const emptyPt = (runs[0]!.sz ?? defaultSzPt) * fontScale;
@@ -284,11 +294,17 @@ export function layoutTextBody(
       lastMaxPt = maxPt;
       if (firstLineOfPara) pendingSpacer = 0;
       firstLineOfPara = false;
-      cur = { runs: [], marL: contX, align, para: pi };
+      cur = { runs: [], marL: contX, align, para: pi, tabTo };
       curW = 0;
     };
     for (const wd of words) {
       if (wd.text === '\n') { flush(); continue; }
+      if (wd.text === '\t') {
+        const xRel = cur.marL - insL + curW;
+        cur.runs.push({ text: '\t', run: wd.run });
+        curW += tabTo(xRel) - xRel;
+        continue;
+      }
       const f = fontOf(wd.run, fontScale, fOpts);
       const wEmu = measureRun(wd.text, wd.run, f);
       const availW = Math.max(0, colW - (cur.marL - insL));
@@ -329,7 +345,8 @@ export function layoutTextBody(
     const merged: { text: string; run: Run }[] = [];
     for (const t of pl.runs) {
       const last = merged[merged.length - 1];
-      if (last && last.run === t.run) last.text += t.text;
+      // TAB fica isolado (posição calculada na hora)
+      if (last && last.run === t.run && t.text !== '\t' && last.text !== '\t') last.text += t.text;
       else merged.push({ text: t.text, run: t.run });
     }
     // remove trailing whitespace da última fatia (não conta p/ alinhamento)
@@ -340,6 +357,11 @@ export function layoutTextBody(
     const placed: PlacedRun[] = [];
     let w = 0;
     for (const m of merged) {
+      if (m.text === '\t') {
+        const xRel = pl.marL - insL + w;
+        w += (pl.tabTo ? pl.tabTo(xRel) : (Math.floor(xRel / 914400) + 1) * 914400) - xRel;
+        continue;
+      }
       const f = fontOf(m.run, fontScale, fOpts);
       const mw = measureRun(m.text, m.run, f);
       const pr: PlacedRun = {

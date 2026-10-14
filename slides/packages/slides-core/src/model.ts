@@ -183,6 +183,10 @@ export interface Paragraph {
   lineSpacing?: number;
   /** Entrelinha absoluta `<a:lnSpc><a:spcPts val>` em pontos. */
   lineSpacingPt?: number;
+  /** Paradas de tabulação (`<a:tabLst><a:tab pos algn>`, EMU a partir da margem esquerda da caixa). */
+  tabs?: { pos: number; algn: string }[];
+  /** Tabulação padrão (`defTabSz`, EMU; ausente = 914400). */
+  defTabSz?: number;
   /** Espaço antes do parágrafo `<a:spcBef><a:spcPts>` em pontos. */
   spaceBeforePt?: number;
   /** Espaço depois do parágrafo `<a:spcAft><a:spcPts>` em pontos. */

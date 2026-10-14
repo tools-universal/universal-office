@@ -1463,6 +1463,9 @@ function readParagraph(p: XmlElement, theme: Theme, rels?: Map<string, string>, 
     if (pPr.attrs['algn']) para.align = pPr.attrs['algn'];
     if (pPr.attrs['lvl']) para.level = parseInt(pPr.attrs['lvl'], 10);
     if (pPr.attrs['marL'] !== undefined) para.marL = parseInt(pPr.attrs['marL'], 10);
+    if (pPr.attrs['defTabSz'] !== undefined) para.defTabSz = parseInt(pPr.attrs['defTabSz'], 10);
+    const tl = firstChild(pPr, 'a:tabLst');
+    if (tl) para.tabs = childElements(tl, 'a:tab').map((t) => ({ pos: parseInt(t.attrs['pos'] ?? '0', 10), algn: t.attrs['algn'] ?? 'l' })).sort((a, b) => a.pos - b.pos);
     if (pPr.attrs['indent'] !== undefined) para.indent = parseInt(pPr.attrs['indent'], 10);
     // entrelinha e espaçamento antes/depois do parágrafo
     const lnSpc = firstChild(pPr, 'a:lnSpc');

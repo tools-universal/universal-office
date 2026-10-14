@@ -36,6 +36,8 @@ export function readRunExtras(rPr: XmlElement, out: { baseline?: number; cap?: '
 
 /** Propriedades efetivas de UM nível (lvl1pPr..lvl9pPr) já resolvidas. */
 export interface TextStyleLevel {
+  tabs?: { pos: number; algn: string }[];
+  defTabSz?: number;
   /** Tamanho em pontos (defRPr sz/100). */
   sz?: number;
   bold?: boolean;
@@ -115,6 +117,9 @@ export function parsePPrLevel(pPr: XmlElement, theme: Theme, blip?: BlipResolver
   if (pPr.attrs['algn']) lvl.align = pPr.attrs['algn'];
   if (pPr.attrs['marL'] !== undefined) lvl.marL = parseInt(pPr.attrs['marL'], 10);
   if (pPr.attrs['indent'] !== undefined) lvl.indent = parseInt(pPr.attrs['indent'], 10);
+  if (pPr.attrs['defTabSz'] !== undefined) lvl.defTabSz = parseInt(pPr.attrs['defTabSz'], 10);
+  const tl = firstChild(pPr, 'a:tabLst');
+  if (tl) lvl.tabs = childElements(tl, 'a:tab').map((t) => ({ pos: parseInt(t.attrs['pos'] ?? '0', 10), algn: t.attrs['algn'] ?? 'l' })).sort((a, b) => a.pos - b.pos);
   // entrelinha e espaçamento herdáveis (título compacto de template = 75%)
   const lnSpc = firstChild(pPr, 'a:lnSpc');
   if (lnSpc) {
@@ -261,6 +266,8 @@ export function applyTextStyles(tb: TextBody, levels: TextStyleLevels, theme: Th
       else if (lvl.spaceAfterPct !== undefined) p.spaceAfterPct = lvl.spaceAfterPct;
     }
     if (p.marL === undefined && lvl.marL !== undefined) p.marL = lvl.marL;
+    if (p.tabs === undefined && lvl.tabs !== undefined) p.tabs = lvl.tabs;
+    if (p.defTabSz === undefined && lvl.defTabSz !== undefined) p.defTabSz = lvl.defTabSz;
     if (p.indent === undefined && lvl.indent !== undefined) p.indent = lvl.indent;
     if (p.bulletFont === undefined && lvl.buFont !== undefined) p.bulletFont = resolveFontAlias(lvl.buFont, theme) ?? lvl.buFont;
     else if (p.bulletFont?.startsWith('+')) p.bulletFont = resolveFontAlias(p.bulletFont, theme) ?? p.bulletFont;
