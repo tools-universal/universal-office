@@ -954,11 +954,24 @@ function readDiagramShapes(pkg: PptxPackage, drawingPath: string, theme: Theme, 
   const spTree = descend(root, 'dsp:spTree');
   if (!spTree) return [];
   const out: Shape[] = [];
+  // o desenho tem rels próprios (imagens das formas)
+  const drels = readRels(pkg, relsPathFor(drawingPath), drawingPath);
   for (const c of childElements(spTree, 'dsp:sp')) {
     const sp = renamePrefix(c, 'dsp:', 'p:');
-    const sh = readShape(sp, theme);
+    const sh = readShape(sp, theme, pkg, drels);
     if (c.attrs['modelId']) sh.dgmId = c.attrs['modelId'];
-    if (sh.xfrm) out.push(sh);
+    if (!sh.xfrm) continue;
+    out.push(sh);
+    // <dsp:txXfrm>: o TEXTO tem caixa própria; o rot dele é RELATIVO ao da forma
+    // (forma a 90° + texto a −90° = texto na horizontal; 180° + 180° = em pé)
+    const txEl = firstChild(c, 'dsp:txXfrm');
+    if (txEl && sh.txBody) {
+      const tf = parseXfrm(txEl);
+      const net = (((sh.xfrm.rot ?? 0) + (tf.rot ?? 0)) % 21600000 + 21600000) % 21600000;
+      if (net) tf.rot = net; else delete tf.rot;
+      out.push({ id: sh.id + 't', name: sh.name, xfrm: tf, geom: 'rect', fill: { type: 'none' }, lineNone: true, txBody: sh.txBody, ...(sh.dgmId ? { dgmId: sh.dgmId } : {}), ...(sh.styleFontColor ? { styleFontColor: sh.styleFontColor } : {}), ...(sh.styleFontIdx ? { styleFontIdx: sh.styleFontIdx } : {}) });
+      delete sh.txBody;
+    }
   }
   if (!out.length) return out;
   // as coordenadas do desenho são as do PRÓPRIO quadro (origem no canto dele): só
