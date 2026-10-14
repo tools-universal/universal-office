@@ -116,3 +116,17 @@ describe('pintura', () => {
     expect(c.texts).not.toContain('120%');
   });
 });
+
+describe('cor DrawingML (hospedeiro sem resolvedor: Sheet)', () => {
+  it('schemeClr com lumMod/lumOff em HSL e tint em RGB linear', async () => {
+    const { dmlColor } = await import('./dml-color.js');
+    const sc = { dk1: '#000000', lt1: '#FFFFFF', accent1: '#156082' };
+    expect(dmlColor(xml('<a:schemeClr val="tx1"><a:lumMod val="65000"/><a:lumOff val="35000"/></a:schemeClr>'), sc)).toBe('#595959');
+    // linhas default do Office 2010+: tx1 tint 75% (medido #898989)
+    expect(dmlColor(xml('<a:schemeClr val="tx1"><a:tint val="75000"/></a:schemeClr>'), sc)).toBe('#888888');
+  });
+  it('gráfico com c14:style: linhas default cinza', () => {
+    const cs = parseChartSpace(xml(`<c:chartSpace><mc:AlternateContent><mc:Choice><c14:style val="102"/></mc:Choice></mc:AlternateContent><c:chart><c:plotArea/></c:chart></c:chartSpace>`), host);
+    expect(cs.office2010).toBe(true);
+  });
+});

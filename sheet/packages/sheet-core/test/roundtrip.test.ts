@@ -151,7 +151,7 @@ describe('Showcase.xlsx — fidelidade 1:1 contra o app de referência', () => {
 
   it('aba Graficos lê 3 charts ancorados (bar/line/pie) com séries corretas', async () => {
     if (!existsSync(showcase)) return;
-    const { parseChart } = await import('../src/chart-engine.js');
+    const { parseChart } = await import('../src/chart.js');
     const pkg = XlsxPackage.load(new Uint8Array(readFileSync(showcase)));
     const wb = readWorkbook(pkg);
     const sheet = wb.sheets.find((s) => s.name === 'Graficos')!;

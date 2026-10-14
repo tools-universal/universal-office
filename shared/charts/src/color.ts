@@ -50,6 +50,13 @@ export function mixWhite(hex: string, t: number): string {
   return rgbToHex(r + (255 - r) * t, g + (255 - g) * t, b + (255 - b) * t);
 }
 
+/** `a:tint` DrawingML (RGB linear, gama 2,2): `keep` = fração da cor que fica. */
+export function tintLinear(hex: string, keep: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const f = (v: number) => Math.pow(Math.pow(v / 255, 2.2) * keep + (1 - keep), 1 / 2.2) * 255;
+  return rgbToHex(f(r), f(g), f(b));
+}
+
 export function rgba(hex: string, alpha = 1): string {
   if (alpha >= 1) return hex;
   const [r, g, b] = hexToRgb(hex);

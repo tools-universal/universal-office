@@ -81,7 +81,7 @@ linhas suaves por padrão, marcadores automáticos, eixos secundários,
   (algoritmos lin/snake/hierRoot/cycle + constraints) em vez de famílias.
 - Gráficos: 3D (perspectiva de bar3D/area3D/pie3D), tabela de dados
   (`c:dTable`), imagem/textura de fundo, densidade de marcas de eixo em
-  gráficos pequenos, Sheet ainda no motor antigo — o motor de gráfico do Sheet é
+  gráficos pequenos, (Sheet migrado em seguida) — o motor de gráfico do Sheet é
   um fork menor do mesmo código: unificar.
 - Efeitos: innerShdw, glow, softEdge, reflexo, bevel/3D.
 - Métrica da substituta de fonte ausente (Aptos/Calibri) × a do app: quebras

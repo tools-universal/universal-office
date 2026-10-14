@@ -8,7 +8,7 @@ import type {
   ChartSpace, TextProps, Paint, LineProps, ShapeProps, Series, Group, Axis, DLbls, ManualLayout, RichPara, Marker,
 } from './model.js';
 import { autoScale, tickValues, frac, type Scale } from './scale.js';
-import { adjustLum, rgba, chartShadeTint } from './color.js';
+import { adjustLum, rgba, chartShadeTint, tintLinear } from './color.js';
 import { formatValue as fmtRaw, builtinFormatCode, PT_BR, type FormatLocale } from './numfmt.js';
 
 /** formatValue com os formatos de data do sistema trocados pelo do locale. */
@@ -28,7 +28,7 @@ export interface RenderOptions {
   pxPerPt: number;
   /** Preenchimento da área do gráfico sem `spPr`: o PowerPoint deixa transparente, o Excel pinta bg1. */
   defaultAreaFill?: 'none' | 'bg1';
-  /** Moldura sem `spPr/a:ln` (o Excel desenha cinza; o PowerPoint não). */
+  /** Moldura sem `spPr/a:ln` (o Excel desenha — 'auto' = cor das linhas default; o PowerPoint não). */
   defaultAreaLine?: string;
   /** Família CSS para um nome de fonte (o hospedeiro sabe as substitutas). */
   cssFont?: (family: string, bold?: boolean, italic?: boolean) => string;
@@ -236,6 +236,8 @@ class Renderer {
     } else if (fill && this.setFill(fill, r)) c.fillRect(r.x, r.y, r.w, r.h);
     const line = mergeLine(defLine, sp.line);
     if (line && this.setLine(line)) {
+      // traço fino alinhado ao pixel (moldura/legenda nítidas como no app)
+      if (c.lineWidth <= 1.5) { const x0 = Math.round(r.x) + 0.5, y0 = Math.round(r.y) + 0.5; c.strokeRect(x0, y0, Math.round(r.x + r.w) - x0 - 0.5 + 0.5 - 1, Math.round(r.y + r.h) - y0 - 1 + 0.5); } else
       c.strokeRect(r.x, r.y, r.w, r.h);
       c.setLineDash([]);
     }
@@ -281,7 +283,7 @@ class Renderer {
     const dp = s.dPts.get(i);
     if (dp?.sp.fill) return dp.sp.fill;
     if (s.sp.fill && !(g.varyColors && g.series.length === 1 && isPieLike(g))) return s.sp.fill;
-    if (g.varyColors && (g.series.length === 1 || isPieLike(g))) return s.sp.fill && !isPieLike(g) ? s.sp.fill : this.styleFill(this.autoColor(i, nPts));
+    if (g.varyColors && (g.series.length === 1 || isPieLike(g))) return s.sp.fill && !isPieLike(g) ? s.sp.fill : this.styleFill(this.autoColor(i, isPieLike(g) ? g.series.reduce((a, x) => a + x.values.length, 0) : nPts));
     const k = this.seriesIndex.get(s) ?? 0;
     const p = this.styleFill(this.autoColor(k, this.totalSeries));
     return s.sp.fill ?? p;
@@ -306,7 +308,8 @@ class Renderer {
   }
 
   private defaultLine(): LineProps {
-    return { paint: { kind: 'solid', color: this.cs.style >= 41 ? this.cs.bg1 : this.cs.tx1 }, w: 0.75 };
+    const base = this.cs.style >= 41 ? this.cs.bg1 : this.cs.tx1;
+    return { paint: { kind: 'solid', color: this.cs.office2010 ? tintLinear(base, 0.75) : base }, w: 0.75 };
   }
 
   // ───────────── pintura principal ─────────────
@@ -319,7 +322,7 @@ class Renderer {
         // estilos 33–40: área branca com moldura; 41–48: área tx1 (escura)
         const row = this.styleRow();
         const defFill: Paint | undefined = row === 5 ? { kind: 'solid', color: this.cs.tx1 } : this.o.defaultAreaFill === 'bg1' || row === 4 ? { kind: 'solid', color: cs.bg1 } : undefined;
-        const defLine: LineProps | undefined = this.o.defaultAreaLine ? { paint: { kind: 'solid', color: this.o.defaultAreaLine }, w: 0.75 } : row === 4 ? { paint: { kind: 'solid', color: adjustLum(cs.tx1, 0.7) }, w: 0.75 } : undefined;
+        const defLine: LineProps | undefined = this.o.defaultAreaLine ? (this.o.defaultAreaLine === 'auto' ? this.defaultLine() : { paint: { kind: 'solid', color: this.o.defaultAreaLine }, w: 0.75 }) : row === 4 ? { paint: { kind: 'solid', color: adjustLum(cs.tx1, 0.7) }, w: 0.75 } : undefined;
         this.shapeRect(A, cs.sp, defFill, defLine, cs.roundedCorners ? 6 * this.o.pxPerPt : 0);
       }
       const S = this.S;
@@ -350,7 +353,8 @@ class Renderer {
     if (t.text) return { paras: [{ runs: [{ text: t.text, props: {} }], props: {} }] };
     // título automático: nome da série única, senão "Título do Gráfico"
     const all = this.cs.groups.flatMap((g) => g.series);
-    const name = all.length === 1 ? all[0]!.name : 'Título do Gráfico';
+    const g0 = this.cs.groups[0];
+    const name = all.length === 1 || g0 && isPieLike(g0) && all[0] ? all[0]!.name : 'Título do Gráfico';
     return { paras: [{ runs: [{ text: name, props: {} }], props: {} }] };
   }
 
@@ -367,7 +371,7 @@ class Renderer {
       let cur: { text: string; t: ResolvedText }[] = [];
       let curW = 0;
       for (const r of p.runs) {
-        const rt = this.text({ sz: this.base.sz * (t.paras || t.text ? 1 : 1.2), b: true }, t.txPr, p.props, r.props);
+        const rt = this.text({ sz: t.paras || t.text ? this.base.sz : 18, b: true }, t.txPr, p.props, r.props);
         if (r.text === '\n') { lines.push(cur); cur = []; curW = 0; continue; }
         for (const piece of r.text.split(/(\s+)/)) {
           if (!piece) continue;
@@ -622,11 +626,11 @@ class Renderer {
     const a = inf.ax;
     const L = len ?? (inf.dir === 'v' ? this.area.h * 0.75 : this.area.w * 0.75);
     const em = this.text(a.txPr).sz * this.S;
-    // densidade (medida): vertical ≥ ~21 pt por divisão (ou a altura da linha); horizontal
-    // bem mais esparsa (≥ 72 pt ou o rótulo + 2 em)
+    // densidade (medida variando a altura do gráfico): vertical = ⌊altura/linha de texto⌋ − 1
+    // divisões (teto 10); horizontal bem mais esparsa (≥ 72 pt ou o rótulo + 2 em)
     const lblW = this.measure(formatValue(Math.max(Math.abs(lo), Math.abs(hi)) * 1.1, pickFmt(a.numFmt, pct ? '0%' : inf.groups[0]?.series[0]?.fmt), { locale: this.loc }).text, this.text(a.txPr));
     const wide = inf.dir === 'h' ? Math.max(lblW + em * 2, 72 * this.S) : Math.max(21 * this.S, this.lineH(this.text(a.txPr)) * 1.05);
-    const maxDiv = Math.max(2, Math.min(10, Math.floor(L / wide)));
+    const maxDiv = inf.dir === 'h' ? Math.max(2, Math.min(10, Math.floor(L / wide))) : Math.max(1, Math.min(10, Math.floor(L / this.lineH(this.text(a.txPr))) - 1));
     const pctFix = pct ? { min: a.min ?? (lo < 0 ? -1 : 0), max: a.max ?? 1 } : {};
     inf.scale = autoScale(lo, hi, maxDiv, { ...pctFix, ...(a.min !== undefined ? { min: a.min } : {}), ...(a.max !== undefined ? { max: a.max } : {}), ...(a.majorUnit !== undefined ? { major: a.majorUnit } : {}), ...(a.minorUnit !== undefined ? { minor: a.minorUnit } : {}), ...(a.logBase ? { log: a.logBase } : {}) });
     const firstSer = inf.groups[0]?.series[0];

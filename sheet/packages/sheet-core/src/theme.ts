@@ -15,6 +15,8 @@ export interface Theme {
   colors: string[];
   /** Cores por nome do slot do clrScheme (dk1, lt1, accent1, …). */
   byName: Record<string, string>;
+  /** Fontes do fontScheme (`+mj-lt`/`+mn-lt` dos gráficos). */
+  fonts?: { major?: string; minor?: string };
 }
 
 /** Paleta Office padrão — fallback quando o pacote não traz theme1.xml. */
@@ -77,6 +79,10 @@ export function readTheme(pkg: XlsxPackage): Theme {
     theme.byName[name] = color;
     if (idx !== undefined) theme.colors[idx] = color;
   }
+  const fs = themeEls ? firstChild(themeEls, 'a:fontScheme') : undefined;
+  const face = (k: string) => { const f = fs ? firstChild(fs, k) : undefined; return f ? firstChild(f, 'a:latin')?.attrs['typeface'] : undefined; };
+  const major = face('a:majorFont'), minor = face('a:minorFont');
+  if (major || minor) theme.fonts = { ...(major ? { major } : {}), ...(minor ? { minor } : {}) };
   return theme;
 }
 

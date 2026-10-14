@@ -2,7 +2,7 @@ import { FontResolver, variantOf } from '@universal-office/fonts';
 import {
   XlsxPackage, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, applyTint,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
-  parseChart, paintChart, type ChartModel,
+  parseChart, paintChart, type ChartModel, type Theme,
   type Workbook, type Worksheet, type Cell, type SharedString, type Styles, type Font, type Fill,
   type Border, type PaneInfo, type CondFormat, type ColDef, type ColorStop, type FormatResult,
   type Comment, type DrawingChart, type Hyperlink, type RichRun, type RunProps,
@@ -224,6 +224,7 @@ export class UniversalSheetElement extends HTMLElement {
     this.styles = readStyles(pkg, cx);
     // paleta default de charts = accents 1..6 do tema (índices 4..9)
     this.chartPalette = cx.theme.colors.slice(4, 10);
+    this.chartTheme = cx.theme;
     // fontes do SO usadas pelos estilos, sob demanda (lógica do Universal Write)
     void this.ensureSheetFonts();
 
@@ -1436,6 +1437,8 @@ export class UniversalSheetElement extends HTMLElement {
   private chartCache = new Map<string, ChartModel>();
   /** Accents 1..6 do tema do workbook — paleta default das séries de chart. */
   private chartPalette: string[] = [];
+  /** Tema do workbook: cores DrawingML e fontes dos gráficos. */
+  private chartTheme: Theme | undefined;
 
   /**
    * Pinta todos os charts ancorados do sheet ativo. Converte cada
@@ -1455,13 +1458,10 @@ export class UniversalSheetElement extends HTMLElement {
       const x = fl, y = ft, w = tr - fl, h = tb - ft;
       if (w <= 0 || h <= 0) continue;
       let model = this.chartCache.get(ch.chartXml);
-      if (!model) { model = parseChart(ch.chartXml); this.chartCache.set(ch.chartXml, model); }
-      if (!model.palette && this.chartPalette.length) model.palette = this.chartPalette;
+      if (!model) { model = parseChart(ch.chartXml, this.chartTheme); this.chartCache.set(ch.chartXml, model); }
       // px por pt: 96/72 na base, escalado pelo zoom (tipografia do chart).
-      // Moldura cinza clara: default do app de referência p/ charts embutidos.
-      // sliceBorder=false: o Excel NÃO separa fatias de pizza com branco
-      // (séries sem <a:ln> — verificado no chart3.xml do showcase).
-      paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72, '#D9D9D9', false);
+      // Moldura: a cor das linhas default do gráfico (o Excel desenha; medido #898989).
+      paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72);
     }
   }
 

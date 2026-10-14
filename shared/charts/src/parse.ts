@@ -481,6 +481,7 @@ export function parseChartSpace(root: XmlNode, host: ChartHost): ChartSpace {
   const scheme = (v: string) => host.color(node('a:schemeClr', { val: v })) ?? '#000000';
   const cs: ChartSpace = {
     style: styleOf(root),
+    office2010: childElements(root, 'mc:AlternateContent').some((ac) => !!descend(ac, 'c14:style')),
     // ausente = cantos arredondados (o Office desenha assim na moldura dos estilos 33–40)
     roundedCorners: valBool(root, 'c:roundedCorners') ?? true,
     autoTitleDeleted: false,
