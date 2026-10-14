@@ -279,6 +279,10 @@ interface PNode {
   fromParent?: Set<string>;
   /** tetos (op="lte") numéricos por tipo */
   hi?: Record<string, number>;
+  /** tamanho dado pelo pai antes de encolher ao conteúdo (o layout interno usa este) */
+  cw?: { w: number; h: number };
+  /** tipo ligado a outro do próprio nó por igualdade: [tipo de referência, fator] */
+  link?: Record<string, [string, number]>;
   /** filhos já posicionados pelo algoritmo do pai (pirâmide): não refaz o composto */
   preplaced?: boolean;
   /** ajustes da geometria decididos pelo algoritmo (inclinação do trapézio da pirâmide) */
@@ -566,8 +570,13 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
           // teto numérico (limita também o crescimento pelas regras)
           if (c.op === 'lte' && Number.isFinite(value)) (t.hi ??= {})[c.type] = Math.min(t.hi[c.type] ?? Infinity, value);
           const cur = t.v[c.type];
-          if (cur !== undefined && Number.isFinite(value)) t.v[c.type] = c.op === 'lte' ? Math.min(cur, value) : Math.max(cur, value);
-          else if (cur === undefined && c.op === 'gte') t.v[c.type] = value;
+          if (cur !== undefined && Number.isFinite(value)) {
+            const nv = c.op === 'lte' ? Math.min(cur, value) : Math.max(cur, value);
+            t.v[c.type] = nv;
+            // h "equ" w do próprio nó (círculo do vList3): o teto vale para os dois
+            const lk = t.link?.[c.type];
+            if (lk && nv !== cur && lk[1]) t.v[lk[0]] = nv / lk[1];
+          } else if (cur === undefined && c.op === 'gte') t.v[c.type] = value;
           continue;
         }
       } else if (c.hasVal) {
@@ -588,6 +597,8 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
       if (c.op === 'equ') t.equ[c.type] = `${owner.uid}:${c.type}:${c.forName ?? ''}:${c.ptType ?? ''}`;
       t.v[c.type] = value;
       if (c.for === 'des') t.desV[c.type] = value;
+      // valor ligado a outro do MESMO nó com igualdade (h = w): tetos mantêm a proporção
+      if (c.op === 'equ' && ref === t && LEN.has(c.refType)) (t.link ??= {})[c.type] = [c.refType, Number.isFinite(c.fact) ? c.fact : 1];
     }
   }
 }
@@ -601,7 +612,7 @@ function refNode(owner: PNode, c: Constr, target: PNode): PNode | undefined {
 /** Restrições do dono + as "self" de cada filho (tamanho ideal dos filhos). */
 function evalKids(n: PNode, scale?: (c: Constr, ref: PNode) => number): void {
   // valores impostos de cima (for="des" de ancestrais) continuam valendo
-  for (const k of n.kids) { k.v = { ...k.desV, ...k.ov }; k.lte = { ...k.desLte }; k.hi = undefined; k.fromParent = new Set(Object.keys(k.desV)); }
+  for (const k of n.kids) { k.v = { ...k.desV, ...k.ov }; k.lte = { ...k.desLte }; k.hi = undefined; k.link = undefined; k.fromParent = new Set(Object.keys(k.desV)); }
   applyConstrs(n, scale);
   for (const k of n.kids) applyConstrs(k, undefined, true);
   // segunda passada: referências do pai a valores que o filho ajustou (teto h ≤ 0,4 w do
@@ -673,6 +684,8 @@ function naturalSize(k: PNode, w: number, h: number): { w: number; h: number } {
 
 /** Extensão do conteúdo de um composto posto numa caixa w×h (só conteúdo ancorado na origem). */
 function contentExtent(k: PNode, w: number, h: number): { w: number; h: number } {
+  // proporção fixa (ar): o composto já se ajusta e centraliza sozinho
+  if (params(k.alg)['ar'] !== undefined) return { w, h };
   const keep = { x: k.x, y: k.y, w: k.w, h: k.h, v: k.v };
   k.x = 0; k.y = 0; k.w = w; k.h = h; k.v = { ...k.v, w, h };
   algComposite(k);
@@ -738,11 +751,13 @@ function algLin(n: PNode): void {
   // composto cujo conteúdo não preenche a célula encolhe até o conteúdo (eixo
   // secundário) e o lin o centraliza — hList1/chevron1 com filhos
   order.forEach((k, i) => {
+    k.cw = undefined;
     if (algType(k) !== 'composite') return;
     const z = sizes[i]!;
     const c = contentExtent(k, z.w, z.h);
-    if (horiz && c.h > 0 && c.h < z.h - 1) sizes[i] = { w: z.w, h: c.h };
-    else if (!horiz && c.w > 0 && c.w < z.w - 1) sizes[i] = { w: c.w, h: z.h };
+    // a caixa encolhe, mas o layout interno continua relativo ao tamanho dado
+    if (horiz && c.h > 0 && c.h < z.h - 1) { sizes[i] = { w: z.w, h: c.h }; k.cw = z; }
+    else if (!horiz && c.w > 0 && c.w < z.w - 1) { sizes[i] = { w: c.w, h: z.h }; k.cw = z; }
   });
   const sp = n.v['sp'] ?? 0;
   const hAl = p['nodeHorzAlign'] ?? 'ctr', vAl = p['nodeVertAlign'] ?? 'mid';
@@ -965,7 +980,14 @@ function quantScale(s: number): number {
 // ---------------------------------------------------------------------------
 function layoutNode(n: PNode, depth: number): void {
   if (depth > MAX_DEPTH) return;
+  // composto encolhido ao conteúdo: o layout interno usa o tamanho original
+  const box = n.cw ? { w: n.w, h: n.h } : undefined;
+  if (n.cw) { n.w = n.cw.w; n.h = n.cw.h; }
   n.v['w'] = n.w; n.v['h'] = n.h;
+  try { layoutNodeAlg(n, depth); } finally { if (box) { n.w = box.w; n.h = box.h; } }
+}
+
+function layoutNodeAlg(n: PNode, depth: number): void {
   switch (n.preplaced ? 'pre' : algType(n)) {
     case 'pre': break;
     case 'lin': algLin(n); break;
