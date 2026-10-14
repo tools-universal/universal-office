@@ -12,11 +12,17 @@
 
 type Ctx = CanvasRenderingContext2D;
 
+import { patternRows } from './patterns.js';
+
 export interface WarpLine {
   text: string;
   font: string;   // CSS font com tamanho de REFERÊNCIA (px)
   refPx: number;  // tamanho de referência usado em `font`
   color: string;
+  /** Contorno: cor + espessura RELATIVA ao tamanho da fonte (pt de linha / pt de fonte). */
+  stroke?: { color: string; rel: number };
+  /** Preenchimento de padrão 8×8 (`<a:pattFill>` das letras). */
+  pattern?: { prst: string; fg: string; bg: string };
 }
 
 const STRIPS = 240;
@@ -77,7 +83,24 @@ export function paintWarpedText(ctx: Ctx, prst: string, adj: number[] | undefine
     const c2 = cv?.getContext('2d') as CanvasRenderingContext2D | null | undefined;
     if (!cv || !c2) return undefined;
     c2.font = l.font; c2.fillStyle = l.color; c2.textBaseline = 'alphabetic';
+    if (l.pattern) {
+      // padrão em células de ~1/30 do tamanho da fonte (o app desenha em 1/96 pol)
+      const rows = patternRows(l.pattern.prst);
+      const pc = rows ? makeCanvas(8, 8) : undefined;
+      const p2 = pc?.getContext('2d') as CanvasRenderingContext2D | null | undefined;
+      if (rows && pc && p2) {
+        const fg = l.pattern.fg, bg = l.pattern.bg;
+        for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { p2.fillStyle = (rows[r]! >> (7 - c)) & 1 ? fg : bg; p2.fillRect(c, r, 1, 1); }
+        const pat = c2.createPattern(pc as CanvasImageSource, 'repeat');
+        if (pat) {
+          const k = Math.max(1, l.refPx / 30);
+          if (typeof pat.setTransform === 'function' && typeof DOMMatrix !== 'undefined') pat.setTransform(new DOMMatrix([k, 0, 0, k, 0, 0]));
+          c2.fillStyle = pat;
+        }
+      }
+    }
     c2.fillText(l.text, 0, asc);
+    if (l.stroke) { c2.strokeStyle = l.stroke.color; c2.lineWidth = Math.max(1, l.stroke.rel * l.refPx); c2.lineJoin = 'round'; c2.strokeText(l.text, 0, asc); }
     return { cv, lw, lh };
   });
   // ajustes: fração direta (inflar/desinflar 18750, onda 12500…); arcos: ângulo em 1/60000°

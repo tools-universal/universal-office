@@ -963,8 +963,12 @@ function wordArtXml(sh: OAShape, pc: PartCtx, xf: Xf): string | undefined {
   const byH = (xf.cy / 12700 / lines.length) * 0.75;
   const byW = (xf.cx / 12700) / (longest * (bold ? 0.66 : 0.6));
   const szPt = Math.max(4, Math.min(400, byH, byW));
+  // as LETRAS levam o contorno, o preenchimento (sólido/degradê/padrão) e a sombra da forma
+  // (como a conversão do próprio app: <a:ln> + pattFill + outerShdw no rPr)
+  const fx = fillXml(sh, pc);
+  const letterFill = /^<a:(solidFill|gradFill|pattFill)/.test(fx) ? fx : el('a:solidFill', {}, srgb(color));
   const rPr = el('a:rPr', { sz: Math.round(szPt * 100), b: bold ? 1 : 0, i: italic ? 1 : 0 },
-    el('a:solidFill', {}, srgb(color)) + (font ? el('a:latin', { typeface: font }) : ''));
+    lineXml(sh, pc, true) + letterFill + shadowXml(sh, pc) + (font ? el('a:latin', { typeface: font }) : ''));
   const paras = lines.map((l) => `<a:p><a:pPr algn="ctr"><a:buNone/></a:pPr><a:r>${rPr}<a:t>${escText(l)}</a:t></a:r></a:p>`).join('');
   // msosptText* (136–175) ↔ prstTxWarp na MESMA ordem do DrawingML
   const warp = sh.type >= 136 && sh.type <= 175 ? WARPS[sh.type - 136] : undefined;

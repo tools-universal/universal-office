@@ -49,6 +49,8 @@ export interface PlacedRun {
   strike?: boolean;
   /** Espaço extra por caractere (EMU). */
   spc?: number;
+  outline?: Run['outline'];
+  pattFill?: Run['pattFill'];
 }
 
 /** Linha final do layout. */
@@ -404,6 +406,8 @@ export function layoutTextBody(
       if (dr.spc) pr.spc = dr.spc * EMU_PER_POINT * fontScale;
       if (m.run.hyperlink !== undefined) pr.hyperlink = m.run.hyperlink;
       if (m.run.shadow !== undefined) pr.shadow = m.run.shadow;
+      if (m.run.outline) pr.outline = m.run.outline;
+      if (m.run.pattFill) pr.pattFill = m.run.pattFill;
       placed.push(pr);
       w += mw;
     }

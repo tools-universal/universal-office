@@ -1173,7 +1173,12 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
       const sym = isSymbolFont(fam);
       const text = p.runs.map((r) => (sym ? symbolText(fam, r.text) : r.text)).join('').replace(/\n/g, ' ');
       const f: LayoutFont = { family: sym ? 'Segoe UI Symbol' : fam, sizePt: refPx, bold: !!r0?.bold, italic: !!r0?.italic };
-      return { text, font: layoutFontStr(f, 1), refPx, color: r0?.color ?? '#000000' };
+      const szPt = r0?.sz ?? 18;
+      return {
+        text, font: layoutFontStr(f, 1), refPx, color: r0?.color ?? '#000000',
+        ...(r0?.outline ? { stroke: { color: r0.outline.color, rel: r0.outline.width / 12700 / szPt } } : {}),
+        ...(r0?.pattFill ? { pattern: r0.pattFill } : {}),
+      };
     });
     const iL = (tb.insL ?? 91440) * scale, iT = (tb.insT ?? 45720) * scale, iR = (tb.insR ?? 91440) * scale, iB = (tb.insB ?? 45720) * scale;
     paintWarpedText(ctx, tb.warp.prst, tb.warp.adj, lines, x + iL, y + iT, w - iL - iR, h - iT - iB, (cw, ch) => scratchCanvas(cw, ch));
@@ -1234,6 +1239,8 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     if (ls && prevLs !== undefined) lsCtx.letterSpacing = `${ls}px`;
     const color = colorOf(r.color, st);
     ctx.fillStyle = color;
+    // letras com padrão (WordArt): o padrão 8×8 ancorado no slide
+    if (r.pattFill && !st) { const pat = presetPattern(ctx, r.pattFill, 0, 0, scale); if (pat) ctx.fillStyle = pat; }
     const effShadow = r.shadow ?? sh.shadow;
     if (effShadow) {
       // sombra do texto: EMU→px pela escala; alpha na cor da sombra
@@ -1249,6 +1256,13 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
       ctx.restore();
     } else {
       ctx.fillText(text, tx, by);
+    }
+    // contorno das letras (<a:ln> do rPr)
+    if (r.outline) {
+      ctx.save();
+      ctx.strokeStyle = r.outline.color; ctx.lineWidth = Math.max(0.5, r.outline.width * scale); ctx.lineJoin = 'round';
+      ctx.strokeText(text, tx, by);
+      ctx.restore();
     }
     if (underOf(r.underline, st)) {
       const sizePx = f.sizePt * pxPerPt;

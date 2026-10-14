@@ -148,6 +148,10 @@ export interface Run {
   underline?: boolean;
   color?: string;    // #RRGGBB
   font?: string;
+  /** Contorno das letras (`<a:rPr><a:ln>`): cor e espessura (EMU). */
+  outline?: { color: string; width: number };
+  /** Preenchimento de PADRÃO das letras (`<a:rPr><a:pattFill>`); `color` fica a média. */
+  pattFill?: { prst: string; fg: string; bg: string };
   /** `<a:sym typeface>`: fonte dos caracteres de símbolo (U+F020–F0FF, área privada). */
   symFont?: string;
   /** Hyperlink alvo (resolvido via slideRels a partir de `<a:hlinkClick r:id>`). */

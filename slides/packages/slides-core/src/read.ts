@@ -1567,6 +1567,23 @@ function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>): Run {
     if (latin?.attrs['typeface']) run.font = latin.attrs['typeface'];
     const sym = firstChild(rPr, 'a:sym');
     if (sym?.attrs['typeface']) run.symFont = sym.attrs['typeface'];
+    // contorno das letras e preenchimento de padrão (WordArt)
+    const rln = firstChild(rPr, 'a:ln');
+    if (rln && !firstChild(rln, 'a:noFill')) {
+      const oc = solidFillColor(rln, theme);
+      const sfl = firstChild(rln, 'a:solidFill');
+      const oa = sfl ? fillAlphaEl(sfl)?.attrs['val'] : undefined;
+      const alpha = oa !== undefined ? parseInt(oa, 10) / 100000 : 1;
+      // contorno transparente (alpha 0, comum em decks coreanos) não desenha
+      if (oc && alpha > 0) {
+        const n = parseInt(oc.slice(1), 16);
+        const color = alpha < 1 ? `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})` : oc;
+        run.outline = { color, width: rln.attrs['w'] ? parseInt(rln.attrs['w'], 10) : 12700 };
+      }
+    }
+    const rpf = firstChild(rPr, 'a:pattFill');
+    const pf = rpf ? parsePattFill(rpf, theme) : undefined;
+    if (pf?.pattern) { run.pattFill = pf.pattern; run.color = pf.color!; }
     // hyperlink: <a:hlinkClick r:id="rIdN"/> -> resolve via rels do slide
     const hlink = firstChild(rPr, 'a:hlinkClick');
     // aparência de link: cor hlink do tema + sublinhado — salvo `<ahyp:hlinkClr val="tx">`
