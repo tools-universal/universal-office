@@ -1565,6 +1565,8 @@ function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>): Run {
     if (c) run.color = c;
     const latin = firstChild(rPr, 'a:latin');
     if (latin?.attrs['typeface']) run.font = latin.attrs['typeface'];
+    const sym = firstChild(rPr, 'a:sym');
+    if (sym?.attrs['typeface']) run.symFont = sym.attrs['typeface'];
     // hyperlink: <a:hlinkClick r:id="rIdN"/> -> resolve via rels do slide
     const hlink = firstChild(rPr, 'a:hlinkClick');
     // aparência de link: cor hlink do tema + sublinhado — salvo `<ahyp:hlinkClr val="tx">`

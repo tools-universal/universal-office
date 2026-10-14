@@ -133,6 +133,16 @@ function displayRuns(runs: Run[], defaultSzPt: number): DisplayRun[] {
     if (r.text === '\n') { out.push(r); continue; }
     const base: DisplayRun = { ...r };
     if (isSymbolFont(r.font)) { base.text = symbolText(r.font, r.text); base.font = SYMBOL_FAMILY; }
+    else if (/[\uF020-\uF0FF]/.test(r.text)) {
+      // caracteres da ÁREA PRIVADA (U+F0xx) usam a fonte de símbolo do <a:sym>
+      // (Symbol sem ela): γ gravado como U+F067 em "Symbol"
+      const sf = r.symFont && isSymbolFont(r.symFont) ? r.symFont : 'Symbol';
+      for (const m of r.text.match(/[\uF020-\uF0FF]+|[^\uF020-\uF0FF]+/g) ?? []) {
+        const pua = /[\uF020-\uF0FF]/.test(m);
+        out.push(...displayRuns([{ ...r, text: pua ? symbolText(sf, m) : m, ...(pua ? { font: SYMBOL_FAMILY } : {}) }], defaultSzPt));
+      }
+      continue;
+    }
     if (r.baseline) {
       const sz = r.sz ?? defaultSzPt;
       base.sz = (sz * 2) / 3;

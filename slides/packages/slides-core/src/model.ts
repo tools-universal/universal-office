@@ -148,6 +148,8 @@ export interface Run {
   underline?: boolean;
   color?: string;    // #RRGGBB
   font?: string;
+  /** `<a:sym typeface>`: fonte dos caracteres de símbolo (U+F020–F0FF, área privada). */
+  symFont?: string;
   /** Hyperlink alvo (resolvido via slideRels a partir de `<a:hlinkClick r:id>`). */
   hyperlink?: string;
   /** Sombra do TEXTO (`<a:rPr><a:effectLst><a:outerShdw>`), como na shape. */
