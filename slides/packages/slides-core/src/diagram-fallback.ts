@@ -12,7 +12,7 @@
  */
 import { childElements, firstChild, parseXml, textContent, type XmlElement } from './xml.js';
 import { colorFromDml } from './theme.js';
-import type { Fill, Shape, Theme, Xfrm, Paragraph } from './model.js';
+import type { Fill, Shape, Theme, Xfrm, Paragraph, Run } from './model.js';
 
 /** Estilo resolvido de um rótulo (`presStyleLbl`) pelas partes de cores/estilo rápido. */
 export interface DgmStyle { fill?: Fill; fillAlpha?: number; line?: string; lineWidth?: number; text?: string }
@@ -20,6 +20,9 @@ type Styler = (lbl: string, idx: number, cnt: number, spPr?: XmlElement) => DgmS
 
 interface Pres { name: string; lbl: string; idx: number; cnt: number; sx: number; sy: number; spPr?: XmlElement }
 interface Node { id: string; text: string[]; children: Node[]; pres: Pres[]; spPr?: XmlElement; hierBranch?: string }
+
+/** Formatação de um trecho do texto do ponto (`custT="1"`: o app usa o tamanho gravado). */
+type RunFmt = Pick<Run, 'text' | 'sz' | 'bold' | 'italic' | 'underline' | 'font'>;
 
 function descendFirst(e: XmlElement, name: string): XmlElement | undefined {
   for (const c of childElements(e)) { if (c.name === name) return c; const d = descendFirst(c, name); if (d) return d; }
@@ -34,7 +37,7 @@ const mainPres = (n: Node) => n.pres.find((p) => p.cnt > 0 && /^(node|asst)/.tes
 const subPres = (n: Node) => n.pres.find((p) => p.cnt > 0 && /Acc|Follow/.test(p.lbl));
 
 /** Árvore de nós do data model (raiz = pt type="doc"). */
-function buildTree(data: XmlElement): Node | undefined {
+function buildTree(data: XmlElement, fmt?: Map<string, RunFmt[]>): Node | undefined {
   const ptLst = firstChild(data, 'dgm:ptLst');
   const cxnLst = firstChild(data, 'dgm:cxnLst');
   if (!ptLst) return undefined;
@@ -47,6 +50,27 @@ function buildTree(data: XmlElement): Node | undefined {
     const text = t ? childElements(t, 'a:p').map((p) => childElements(p).filter((r) => r.name === 'a:r' || r.name === 'a:fld')
       .map((r) => { const tt = firstChild(r, 'a:t'); return tt ? textContent(tt) : ''; }).join('')).filter((s) => s.trim()) : [];
     const n: Node = { id: pt.attrs['modelId'] ?? '', text, children: [], pres: [], spPr: ownSpPr(pt) };
+    // texto personalizado (custT): guarda os trechos com tamanho/negrito/itálico de cada linha
+    if (fmt && t && firstChild(pt, 'dgm:prSet')?.attrs['custT'] === '1') {
+      for (const p of childElements(t, 'a:p')) {
+        const runs: RunFmt[] = [];
+        for (const r of childElements(p)) {
+          if (r.name !== 'a:r' && r.name !== 'a:fld') continue;
+          const tt = firstChild(r, 'a:t'), rp = firstChild(r, 'a:rPr');
+          const run: RunFmt = { text: tt ? textContent(tt) : '' };
+          const sz = parseInt(rp?.attrs['sz'] ?? '', 10);
+          if (sz > 0) run.sz = sz / 100;
+          if (rp?.attrs['b'] === '1') run.bold = true;
+          if (rp?.attrs['i'] === '1') run.italic = true;
+          if (rp?.attrs['u'] && rp.attrs['u'] !== 'none') run.underline = true;
+          const face = rp ? firstChild(rp, 'a:latin')?.attrs['typeface'] : undefined;
+          if (face) run.font = face;
+          runs.push(run);
+        }
+        const line = runs.map((r) => r.text).join('');
+        if (line.trim() && runs.some((r) => r.sz)) fmt.set(line, runs);
+      }
+    }
     nodes.set(n.id, n);
     if (type === 'doc') root = n;
   }
@@ -131,8 +155,15 @@ function fitUnits(items: Rect[], frame: Xfrm): (r: Rect) => Rect {
 export function diagramFallbackShapes(data: XmlElement, layoutUniqueId: string, frame: Xfrm, theme: Theme, styler?: Styler): Shape[] {
   const fam = familyOf(layoutUniqueId);
   if (!fam) return [];
-  const root = buildTree(data);
+  const fmt = new Map<string, RunFmt[]>();
+  const root = buildTree(data, fmt);
   if (!root || !root.children.length) return [];
+  /** Trechos da linha: os gravados (custT, tamanho do arquivo) ou um só no tamanho calculado. */
+  // fonte: a do trecho ou a do corpo do tema (o texto do SmartArt usa +mn-lt)
+  const body = theme.fonts?.minor;
+  const face = (f?: string): string | undefined => (f === '+mn-lt' ? body : f === '+mj-lt' ? theme.fonts?.major ?? body : f ?? body);
+  const runsOf = (t: string, size: number, color: string): Run[] =>
+    fmt.get(t)?.map((r) => ({ ...r, sz: r.sz ?? size, color, ...(face(r.font) ? { font: face(r.font)! } : {}) })) ?? [{ text: t, sz: size, color, ...(body ? { font: body } : {}) }];
   const scheme = (val: string, mod = ''): string =>
     colorFromDml(parseXml(`<a:schemeClr xmlns:a="a" val="${val}">${mod}</a:schemeClr>`), theme) ?? '#4472C4';
   const fill = scheme('accent1');
@@ -234,11 +265,17 @@ export function diagramFallbackShapes(data: XmlElement, layoutUniqueId: string, 
     // lista agrupada: retângulo contornado com os filhos e um rótulo sobre a borda superior
     const n = tops.length, gap = fh * 0.05;
     const ih = (fh - gap * (n - 1)) / n, hh = Math.min(ih * 0.2, fh * 0.08);
+    // texto personalizado (custT) não encolhe: o rótulo cresce até caber as linhas no tamanho gravado
+    const custH = (t: Node): number => {
+      const pts = t.text.map((l) => Math.max(0, ...(fmt.get(l)?.map((r) => r.sz ?? 0) ?? [0])));
+      return pts.every((p) => p > 0) && pts.length ? pts.reduce((a, p) => a + p * 1.2, 0) * EMU_PT + 2 * 45720 : 0;
+    };
     tops.forEach((t, i) => {
-      const y = fy + i * (ih + gap);
+      const y = fy + i * (ih + gap), h = Math.min(ih * 0.5, Math.max(hh, custH(t)));
       boxes.push({
-        x: fx + fw * 0.04, y, w: fw * 0.9, h: hh, lines: t.text, nd: t, geom: 'roundRect',
-        sub: { x: fx, y: y + hh / 2, w: fw, h: ih - hh / 2, lines: subOf(t) },
+        // rótulo: 70% da largura no layout; esticado pelo usuário (custScaleX) até a borda (medido: ×1,91 → 96%)
+        x: fx + fw * 0.04, y, w: fw * (mainPres(t)?.sx !== undefined && mainPres(t)!.sx !== 1 ? Math.min(0.7 * mainPres(t)!.sx, 0.96) : 0.9), h, lines: t.text, nd: t, geom: 'roundRect',
+        sub: { x: fx, y: y + h / 2, w: fw, h: ih - h / 2, lines: subOf(t) },
       });
     });
     subStyle = { fill: scheme('lt1'), line: fill, geom: 'rect' };
@@ -354,7 +391,7 @@ export function diagramFallbackShapes(data: XmlElement, layoutUniqueId: string, 
       fill: st?.fill ?? { type: 'solid', color: scheme('accent1', '<a:tint val="60000"/>') },
     });
   });
-  const para = (t: string, size: number, color: string): Paragraph => ({ align: 'ctr', bullet: false, marL: 0, indent: 0, lineSpacing: 0.9, spaceBeforePt: 0, spaceAfterPt: 0, runs: [{ text: t, sz: size, color }] });
+  const para = (t: string, size: number, color: string): Paragraph => ({ align: 'ctr', bullet: false, marL: 0, indent: 0, lineSpacing: 0.9, spaceBeforePt: 0, spaceAfterPt: 0, runs: runsOf(t, size, color) });
   const bulletInd = Math.round(0.12 * 914400);
   boxes.forEach((b, bi) => {
     if (b.sub?.lines.length) {
@@ -370,8 +407,9 @@ export function diagramFallbackShapes(data: XmlElement, layoutUniqueId: string, 
         fill: sfill, ...(st?.fillAlpha !== undefined ? { fillAlpha: st.fillAlpha } : !st && subStyle.alpha !== undefined ? { fillAlpha: subStyle.alpha } : {}),
         ...(st ? (st.line ? { lineColor: st.line, lineWidth: st.lineWidth ?? 12700 } : {}) : subStyle.line ? { lineColor: subStyle.line, lineWidth: 12700 } : {}),
         txBody: {
-          anchor: fam === 'column' ? 'ctr' : 't', insL: ins * 2, insR: ins, insT: topIns, insB: ins,
-          paragraphs: s.lines.map((t) => ({ align: 'l', bullet: true, bulletChar: '•', marL: bulletInd, indent: -bulletInd, lineSpacing: 0.9, spaceBeforePt: 0, runs: [{ text: t, sz: subSz, color: st?.text ?? dark }] })),
+          // lista agrupada: marcadores a ~8% da largura (medido); filhos com 15% antes (como o desenho do app)
+          anchor: fam === 'column' ? 'ctr' : 't', insL: fam === 'list1' ? Math.round(s.w * 0.079) : ins * 2, insR: ins, insT: topIns, insB: ins,
+          paragraphs: s.lines.map((t) => ({ align: 'l', bullet: true, bulletChar: '•', marL: bulletInd, indent: -bulletInd, lineSpacing: 0.9, spaceBeforePt: 0, spaceBeforePct: 0.15, runs: runsOf(t, subSz, st?.text ?? dark) })),
         },
       });
     }
