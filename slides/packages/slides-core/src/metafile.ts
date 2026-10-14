@@ -55,6 +55,22 @@ export function metafileSize(b: Uint8Array): { w: number; h: number } | undefine
     const w = Math.abs(dv.getInt16(10, true) - dv.getInt16(6, true)), h = Math.abs(dv.getInt16(12, true) - dv.getInt16(8, true));
     if (w > 0 && h > 0) return { w: (w / inch) * 96, h: (h / inch) * 96 };
   }
+  if (isWmf(b) && b[0] !== 0xd7) {
+    // sem cabeçalho "placeable" (equações do Equation Editor, prévias OLE): a
+    // janela do 1º SETWINDOWEXT dá a PROPORÇÃO — rasterizar quadrado espremia o
+    // x e mantinha o corpo da fonte (glifos encavalados); unidade ≈ twip
+    let q = dv.getUint16(2, true) * 2;
+    for (let guard = 0; q + 10 <= b.length && guard < 20000; guard++) {
+      const size = dv.getUint32(q, true) * 2, fn = dv.getUint16(q + 4, true);
+      if (fn === 0 || size < 6) break;
+      if (fn === 0x020c) {
+        const w = Math.abs(dv.getInt16(q + 8, true)), h = Math.abs(dv.getInt16(q + 6, true));
+        if (w > 0 && h > 0) return { w: w / 15, h: h / 15 };
+        break;
+      }
+      q += size;
+    }
+  }
   return undefined;
 }
 

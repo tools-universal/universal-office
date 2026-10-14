@@ -822,6 +822,15 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
       }
     }
   }
+  // objeto OLE (planilha, documento, equação, apresentação…): o app desenha a
+  // PRÉVIA gravada — o `<p:pic>` dentro do oleObj (2010+) ou a `v:imagedata` da
+  // forma de mesmo spid no desenho VML do slide (2007)
+  const ole = firstChild(data, 'p:oleObj') ?? descend(data, 'p:oleObj');
+  if (ole) {
+    const pic = descend(ole, 'p:pic');
+    const img = pic ? readPic(pic, theme, pkg, rels).image : olePreviewFromVml(ole.attrs['spid'], pkg, rels, theme);
+    if (img) shape.image = img;
+  }
   // tabela
   const tblEl = firstChild(data, 'a:tbl');
   if (tblEl) {
@@ -835,6 +844,29 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
     shape.table = table;
   }
   return shape;
+}
+
+/**
+ * Prévia de um objeto OLE do PowerPoint 2007 (sem `<p:pic>`): a forma VML de id
+ * = spid no `vmlDrawing` do slide traz `<v:imagedata o:relid>` (EMF/WMF/PNG).
+ * O VML legado nem sempre é XML bem-formado — busca por texto.
+ */
+function olePreviewFromVml(spid: string | undefined, pkg: PptxPackage, rels: Map<string, string>, theme: Theme): ImageRef | undefined {
+  if (!spid) return undefined;
+  for (const target of rels.values()) {
+    if (!/vmlDrawing\d*\.vml$/i.test(target)) continue;
+    const vml = pkg.getPartText(target);
+    if (!vml) continue;
+    const at = vml.search(new RegExp(`<v:shape\\b[^>]*\\b(?:id|o:spid)="${spid.replace(/[^\w]/g, '')}"`));
+    if (at < 0) continue;
+    const end = vml.indexOf('</v:shape>', at);
+    const m = /<v:imagedata\b[^>]*\b(?:o:relid|r:id)="([^"]+)"/.exec(vml.slice(at, end < 0 ? undefined : end));
+    if (!m) continue;
+    const vrels = readRels(pkg, relsPathFor(target), target);
+    const img = resolveBlip({ name: 'a:blip', attrs: { 'r:embed': m[1]! }, children: [] }, pkg, vrels, theme);
+    if (img) return img;
+  }
+  return undefined;
 }
 
 /**
