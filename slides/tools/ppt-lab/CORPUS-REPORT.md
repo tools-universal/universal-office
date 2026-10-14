@@ -73,20 +73,32 @@ linhas suaves por padrão, marcadores automáticos, eixos secundários,
 `themeOverride` do gráfico. Nos 100 slides com gráfico do corpus: média
 16,5 → **8,4**, mediana 12,3 → **5,6**.
 
+Depois (3ª etapa, 2026-10-14): o Sheet passou para o motor compartilhado
+(Excel Chart.Export como oráculo; gráficos 2010+ com linhas #898989);
+prévias de objetos OLE (p:pic do oleObj / v:imagedata do VML; WMF sem
+cabeçalho); efeitos brilho, bordas suaves, reflexo, sombra interna e
+effectRef do tema; câmera 3D girada; barras/pizza 3D; e regras da conversão
+.ppt casadas 1:1 com a do próprio PowerPoint (`_lab/grad-shapes.ts`,
+`grad-agree.ts`, `pic-agree.ts`): degradês (ângulo, foco, espelho — 100% em
+~13 mil), fundo recolorido (duotone), ajustes de imagem (brilho/contraste/
+cinza/transparente — 97,7%), e <a:gamma/> nas cores. Rodada completa r6:
+mediana **3,05**, média **6,0** (r4: 3,37/8,42; início: 14,6/24,3); .ppt reais
+(gd) média 10,1 → 5,9.
+
 ### Ainda faltando (por impacto observado)
 
-- WordArt: fonte/posição do bloco ainda diferem nos .ppt (o formato já bate).
+- WordArt do .ppt: espaçamento entre linhas e sombra do texto (a escala comum já bate).
 - SmartArt sem desenho nos layouts ainda não medidos (arrow5, radial*,
   hierarchy1/2, gear, HexagonCluster…) — idealmente o motor de layout do app
   (algoritmos lin/snake/hierRoot/cycle + constraints) em vez de famílias.
-- Gráficos: 3D (perspectiva de bar3D/area3D/pie3D), tabela de dados
-  (`c:dTable`), imagem/textura de fundo, densidade de marcas de eixo em
-  gráficos pequenos, (Sheet migrado em seguida) — o motor de gráfico do Sheet é
-  um fork menor do mesmo código: unificar.
-- Efeitos: innerShdw, glow, softEdge, reflexo, bevel/3D.
+- Gráficos: área/linha 3D (séries em profundidade), tabela de dados
+  (`c:dTable`, 1 deck), imagem/textura de fundo (blipFill no gráfico).
+- Efeitos: bevel/3D de forma (sp3d) e iluminação.
+- Fundo "sombrear até o título" (shadeToTitle, 2 decks).
 - Métrica da substituta de fonte ausente (Aptos/Calibri) × a do app: quebras
   de linha diferentes (haunted-mansion slide 2: a linha da tabela cresce).
-- EMF+ puro (1 deck), PICT, marcador de imagem no estilo-mestre PP9.
+- EMF+ puro (1 deck), PICT vetorial de equações do Mac (6 decks), marcador de
+  imagem no estilo-mestre PP9.
 
 ## Corpus
 
