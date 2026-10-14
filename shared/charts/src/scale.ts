@@ -24,7 +24,7 @@ export function niceStep(span: number, maxDiv: number): number {
  * Office só tira o zero se min > 5/6·max), 5% de folga no extremo, e o MENOR
  * passo {1,2,5}·10^k com até `maxDiv` divisões.
  */
-export function autoScale(dataMin: number, dataMax: number, maxDiv: number, fixed: { min?: number; max?: number; major?: number; minor?: number; log?: number }): Scale {
+export function autoScale(dataMin: number, dataMax: number, maxDiv: number, fixed: { min?: number; max?: number; major?: number; minor?: number; log?: number }, pad = 0.05): Scale {
   if (fixed.log) {
     const b = fixed.log;
     const pmin = dataMin > 0 ? dataMin : 1, pmax = dataMax > 0 ? dataMax : b;
@@ -43,8 +43,8 @@ export function autoScale(dataMin: number, dataMax: number, maxDiv: number, fixe
   if (max <= 0 && fixed.max === undefined) hi0 = min < 0 && (min - max) / min < 1 / 6 ? max + (max - min) / 2 : 0;
   if (hi0 === lo0) { hi0 = lo0 === 0 ? 1 : lo0 + Math.abs(lo0) * 0.1; }
   const span0 = hi0 - lo0;
-  const loAdj = fixed.min ?? (lo0 < 0 ? lo0 - span0 * 0.05 : lo0);
-  const hiAdj = fixed.max ?? (hi0 > 0 ? hi0 + span0 * 0.05 : hi0);
+  const loAdj = fixed.min ?? (lo0 < 0 ? lo0 - span0 * pad : lo0);
+  const hiAdj = fixed.max ?? (hi0 > 0 ? hi0 + span0 * pad : hi0);
   let major = fixed.major ?? 0;
   if (!(major > 0) || (hiAdj - loAdj) / major > MAX_TICKS) {
     major = niceStep(hiAdj - loAdj, maxDiv);

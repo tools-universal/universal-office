@@ -565,7 +565,21 @@ class Renderer {
       else this.prepCatAxis(inf);
     }
     // layout iterativo: reserva rótulos nos lados
-    const plot = this.plotRect(outer, [...infos.values()]);
+    let plot = this.plotRect(outer, [...infos.values()]);
+    // 3D com eixos em ângulo reto (rAngAx, o padrão): projeção OBLÍQUA — a
+    // profundidade sobe para a direita, D = L·(sen rotY, −sen rotX) (proporção
+    // medida nos gráficos 3D do oráculo: 15°/20° → (32, −24) px), e o plano da
+    // frente encolhe para caber o fundo
+    this.depth = undefined;
+    const g3 = cs.groups.find((g) => g.threeD && (g.kind === 'bar' || g.kind === 'line' || g.kind === 'area'));
+    if (g3 && cs.view3D?.rAngAx !== false) {
+      const L = 0.155 * plot.w * Math.max(0.2, (cs.view3D?.depthPercent ?? 100) / 100);
+      const rx = (cs.view3D?.rotX ?? 15) * Math.PI / 180, ry = (cs.view3D?.rotY ?? 20) * Math.PI / 180;
+      const dx = L * Math.sin(ry), dy = L * Math.sin(rx);
+      this.depth = { dx, dy, gapDepth: 150 };
+      plot = { x: plot.x, y: plot.y + dy, w: plot.w - dx, h: plot.h - dy };
+      for (const inf of infos.values()) this.measureAxis(inf, plot);
+    }
     // grade e área de plotagem
     if (this.showBg()) {
       this.shapeRect(plot, cs.plotSp, this.plotDefault());
@@ -584,7 +598,7 @@ class Renderer {
       else if (g.kind === 'scatter') this.paintScatter(g, ci, vi, plot);
       else if (g.kind === 'bubble') this.paintBubbles(g, ci, vi, plot);
     }
-    if (this.showBg()) for (const inf of infos.values()) this.paintAxis(inf, plot);
+    if (this.showBg()) { for (const inf of infos.values()) this.paintAxis(inf, plot); this.paintFloor3D(plot); }
     for (const g of order) {
       const a0 = this.axisById(g.axIds[0]), a1 = this.axisById(g.axIds[1]);
       const ci = a0 ? infos.get(a0) : undefined, vi = a1 ? infos.get(a1) : undefined;
@@ -630,9 +644,11 @@ class Renderer {
     // divisões (teto 10); horizontal bem mais esparsa (≥ 72 pt ou o rótulo + 2 em)
     const lblW = this.measure(formatValue(Math.max(Math.abs(lo), Math.abs(hi)) * 1.1, pickFmt(a.numFmt, pct ? '0%' : inf.groups[0]?.series[0]?.fmt), { locale: this.loc }).text, this.text(a.txPr));
     const wide = inf.dir === 'h' ? Math.max(lblW + em * 2, 72 * this.S) : Math.max(21 * this.S, this.lineH(this.text(a.txPr)) * 1.05);
-    const maxDiv = inf.dir === 'h' ? Math.max(2, Math.min(10, Math.floor(L / wide))) : Math.max(1, Math.min(10, Math.floor(L / this.lineH(this.text(a.txPr))) - 1));
+    // 3D: sem a folga de 5% e com a mesma densidade nos dois sentidos (medido no oráculo)
+    const is3D = inf.groups.some((g) => g.threeD);
+    const maxDiv = inf.dir === 'h' && !is3D ? Math.max(2, Math.min(10, Math.floor(L / wide))) : Math.max(1, Math.min(10, Math.floor(L / this.lineH(this.text(a.txPr))) - 1));
     const pctFix = pct ? { min: a.min ?? (lo < 0 ? -1 : 0), max: a.max ?? 1 } : {};
-    inf.scale = autoScale(lo, hi, maxDiv, { ...pctFix, ...(a.min !== undefined ? { min: a.min } : {}), ...(a.max !== undefined ? { max: a.max } : {}), ...(a.majorUnit !== undefined ? { major: a.majorUnit } : {}), ...(a.minorUnit !== undefined ? { minor: a.minorUnit } : {}), ...(a.logBase ? { log: a.logBase } : {}) });
+    inf.scale = autoScale(lo, hi, maxDiv, { ...pctFix, ...(a.min !== undefined ? { min: a.min } : {}), ...(a.max !== undefined ? { max: a.max } : {}), ...(a.majorUnit !== undefined ? { major: a.majorUnit } : {}), ...(a.minorUnit !== undefined ? { minor: a.minorUnit } : {}), ...(a.logBase ? { log: a.logBase } : {}) }, is3D ? 0 : 0.05);
     const firstSer = inf.groups[0]?.series[0];
     inf.fmt = pickFmt(a.numFmt, pct ? '0%' : isX ? firstSer?.catFmt : firstSer?.fmt);
   }
@@ -831,12 +847,32 @@ class Renderer {
       for (let i = 0; i < k; i++) pts.push(this.pos(inf, plot, i, false));
     }
     c.beginPath();
+    const D = this.depth;
     for (const p of pts) {
       const q = Math.round(p) + (Math.round(c.lineWidth) % 2 ? 0.5 : 0);
+      if (D) {
+        // 3D: a grade fica na parede do fundo + o traço na parede lateral (v) ou no piso (h)
+        if (inf.dir === 'v') { c.moveTo(plot.x, q); c.lineTo(plot.x + D.dx, q - D.dy); c.lineTo(plot.x + plot.w + D.dx, q - D.dy); }
+        else { c.moveTo(q, plot.y + plot.h); c.lineTo(q + D.dx, plot.y + plot.h - D.dy); c.lineTo(q + D.dx, plot.y - D.dy); }
+        continue;
+      }
       if (inf.dir === 'v') { c.moveTo(plot.x, q); c.lineTo(plot.x + plot.w, q); } else { c.moveTo(q, plot.y); c.lineTo(q, plot.y + plot.h); }
     }
     c.stroke();
     c.setLineDash([]);
+  }
+
+  /** Arestas do piso 3D (frente já é a linha do eixo; desenha o lado direito). */
+  private paintFloor3D(plot: Rect): void {
+    const D = this.depth;
+    if (!D || !this.showBg()) return;
+    const c = this.ctx;
+    const line = this.defaultLine();
+    if (!this.setLine(line)) return;
+    const y = plot.y + plot.h, x = plot.x + plot.w;
+    c.beginPath();
+    c.moveTo(x, y); c.lineTo(x + D.dx, y - D.dy);
+    c.stroke();
   }
 
   private paintAxis(inf: AxisInfo, plot: Rect): void {
@@ -886,6 +922,8 @@ class Renderer {
   }
 
   private infosCache?: AxisInfo[];
+  /** Profundidade 3D (px) do gráfico atual, quando há grupo 3D com eixos em ângulo reto. */
+  private depth: { dx: number; dy: number; gapDepth: number } | undefined;
   private allInfos(_plot: Rect): AxisInfo[] { return this.infosCache ?? []; }
 
   private paintAxisLabels(inf: AxisInfo, plot: Rect, at: number, sgn: number): void {
@@ -1021,11 +1059,38 @@ class Renderer {
         if (inv && raw < 0 && fill.kind === 'solid') fill = { kind: 'solid', color: this.cs.bg1 };
         const sp: ShapeProps = { ...s.sp, ...(dp?.sp ?? {}) };
         const line = mergeLine(s.sp.line, dp?.sp.line);
-        this.shapeRect(r, { ...(sp.shadow ? { shadow: sp.shadow } : {}), ...(line ? { line } : {}) }, fill);
+        if (this.depth) this.box3D(r, fill, line);
+        else this.shapeRect(r, { ...(sp.shadow ? { shadow: sp.shadow } : {}), ...(line ? { line } : {}) }, fill);
         off = 0;
       }
     });
     void c;
+  }
+
+  /**
+   * Barra 3D (caixa): frente na fatia do meio da profundidade (folga
+   * gapDepth = 150%), topo e lado direito sombreados (−25% / −45% de luz).
+   */
+  private box3D(r: Rect, fill: Paint, line?: LineProps): void {
+    const D = this.depth!;
+    const c = this.ctx;
+    const f = 1 / (1 + D.gapDepth / 100);
+    const g = (1 - f) / 2;
+    const fx = r.x + D.dx * g, fy = r.y - D.dy * g;
+    const bx = D.dx * f, by = -D.dy * f;
+    const base = fill.kind === 'solid' ? fill.color : fill.kind === 'grad' ? fill.stops[Math.floor(fill.stops.length / 2)]!.color : fill.kind === 'patt' ? fill.fg : undefined;
+    const face = (pts: [number, number][], color: string | undefined, p?: Paint) => {
+      c.beginPath();
+      pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+      c.closePath();
+      if (p) { if (this.setFill(p, { x: fx, y: fy, w: r.w, h: r.h })) c.fill(); }
+      else if (color) { c.fillStyle = color; c.fill(); }
+      if (line && this.setLine(line)) { c.stroke(); c.setLineDash([]); }
+    };
+    if (fill.kind === 'none') return;
+    face([[fx + r.w, fy], [fx + r.w + bx, fy + by], [fx + r.w + bx, fy + r.h + by], [fx + r.w, fy + r.h]], base && adjustLum(base, -0.45));
+    face([[fx, fy], [fx + bx, fy + by], [fx + r.w + bx, fy + by], [fx + r.w, fy]], base && adjustLum(base, -0.25));
+    face([[fx, fy], [fx + r.w, fy], [fx + r.w, fy + r.h], [fx, fy + r.h]], undefined, fill);
   }
 
   // ───────────── linhas ─────────────
@@ -1261,14 +1326,18 @@ class Renderer {
     const lt = this.text(g.series[0]?.dLbls?.txPr ?? g.dLbls?.txPr);
     const margin = hasOutside ? this.lineH(lt) * 1.6 : 0;
     // diâmetro: 97% do lado menor da área de plotagem (medido)
-    const d = Math.max(4, (Math.min(r.w, r.h) - 2 * margin) * 0.97);
-    const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    const tilt = g.threeD ? Math.max(0.25, Math.sin(((cs.view3D?.rotX ?? 30) * Math.PI) / 180)) : 1;
+    // 3D: a elipse achatada (tilt) + a espessura (23% do raio, medido) cabem na altura
+    const d = g.threeD
+      ? Math.max(4, Math.min(r.w - 2 * margin, (r.h - 2 * margin) / (tilt + 0.23)) * 0.97)
+      : Math.max(4, (Math.min(r.w, r.h) - 2 * margin) * 0.97);
+    const cx = r.x + r.w / 2;
     let R = d / 2;
+    const cy = r.y + r.h / 2 - (g.threeD ? R * 0.115 : 0);
     const exMax = Math.max(0, ...g.series.flatMap((s) => [s.explosion ?? 0, ...[...s.dPts.values()].map((p) => p.explosion ?? 0)])) / 100;
     if (exMax > 0) R = R / (1 + exMax);
     if (this.showBg()) this.shapeRect(r, cs.plotSp);
-    const tilt = g.threeD ? Math.max(0.25, Math.sin(((cs.view3D?.rotX ?? 30) * Math.PI) / 180)) : 1;
-    const depth = g.threeD ? R * 0.18 : 0;
+    const depth = g.threeD ? R * 0.23 : 0;
     const rings = g.kind === 'pie' || g.kind === 'ofPie' ? g.series.slice(0, 1) : g.series;
     const hole = g.kind === 'doughnut' ? Math.max(0.1, Math.min(0.9, g.holeSize / 100)) : 0;
     const ringW = (R * (1 - hole)) / Math.max(1, rings.length);
