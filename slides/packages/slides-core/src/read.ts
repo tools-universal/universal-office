@@ -4,6 +4,7 @@ import { customGuides, arcToSeg } from './preset-engine.js';
 import { readTheme, colorFromDml, solidFillColor, applyClrMap, clrMapAttrs, textFillColor } from './theme.js';
 import { patternDensity } from './patterns.js';
 import { diagramFallbackShapes, type DgmStyle } from './diagram-fallback.js';
+import { regenerateDiagram } from './diagram-layout.js';
 import { readTblPr, readTableStyle, applyTableStyle, cellLine, type CellPaint, type PaintResolver } from './table-style.js';
 import {
   parseTxStyleLevels, applyShapeTextCascade, applyTextStyles, mergeStyleLevels, readRunExtras, type BlipResolver,
@@ -881,15 +882,20 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
         const guess = dataPath.replace(/data(\d+)\.xml$/, 'drawing$1.xml');
         if (pkg.getPartText(guess) !== undefined) drawingPath = guess;
       }
-      if (drawingPath) {
-        const shapes = readDiagramShapes(pkg, drawingPath, theme, shape.xfrm);
-        if (shapes.length) {
-          // animações miram o FRAME (spid do SmartArt); por partes, `<a:dgm id>`
-          // nomeia a forma do desenho (dgmId)
-          for (const s of shapes) if (shape.id) s.groupIds = [...(s.groupIds ?? []), shape.id];
-          return shapes;
-        }
-      } else {
+      // sem desenho em cache (ou vazio): o app refaz o layout pela definição
+      const part = (id: string | undefined) => { const p = id ? rels.get(id) : undefined; const x = p ? pkg.getPartText(p) : undefined; try { return x ? parseXml(x) : undefined; } catch { return undefined; } };
+      let shapes = drawingPath ? readDiagramShapes(pkg, drawingPath, theme, shape.xfrm) : [];
+      if (!shapes.length) {
+        const tree = regenerateDiagram(part(dmId), part(relIds.attrs['r:lo']), part(relIds.attrs['r:qs']), part(relIds.attrs['r:cs']), shape.xfrm.cx, shape.xfrm.cy, theme);
+        if (tree) shapes = readDiagramShapes(pkg, dataPath, theme, shape.xfrm, tree);
+      }
+      if (shapes.length) {
+        // animações miram o FRAME (spid do SmartArt); por partes, `<a:dgm id>`
+        // nomeia a forma do desenho (dgmId)
+        for (const s of shapes) if (shape.id) s.groupIds = [...(s.groupIds ?? []), shape.id];
+        return shapes;
+      }
+      if (!drawingPath) {
         // sem desenho pré-calculado (Office 2007): layout aproximado pelo modelo de dados
         const dataXml = pkg.getPartText(dataPath);
         const loId = relIds.attrs['r:lo'];
@@ -897,8 +903,6 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
         const loXml = loPath ? pkg.getPartText(loPath) : undefined;
         const uid = loXml ? /uniqueId="([^"]*)"/.exec(loXml)?.[1] ?? '' : '';
         if (dataXml !== undefined) {
-          let shapes: Shape[] = [];
-          const part = (id: string | undefined) => { const p = id ? rels.get(id) : undefined; const x = p ? pkg.getPartText(p) : undefined; return x ? parseXml(x) : undefined; };
           try {
             const styler = diagramStyler(part(relIds.attrs['r:cs']), part(relIds.attrs['r:qs']), theme);
             shapes = diagramFallbackShapes(parseXml(dataXml), uid, shape.xfrm, theme, styler);
@@ -1103,12 +1107,15 @@ function renamePrefix(el: XmlElement, from: string, to: string): XmlElement {
  * `<dsp:spTree>` com shapes padrão) e REESCALA o conjunto para caber no xfrm
  * do graphicFrame (o drawing usa um canvas próprio em EMU).
  */
-function readDiagramShapes(pkg: PptxPackage, drawingPath: string, theme: Theme, frame: Xfrm): Shape[] {
-  const xml = pkg.getPartText(drawingPath);
-  if (!xml) return [];
+function readDiagramShapes(pkg: PptxPackage, drawingPath: string, theme: Theme, frame: Xfrm, regenerated?: XmlElement): Shape[] {
   let root: XmlElement;
-  try { root = parseXml(xml); } catch { return []; }
-  const spTree = descend(root, 'dsp:spTree');
+  if (regenerated) root = regenerated; // desenho refeito pelo motor (rels = os do modelo de dados)
+  else {
+    const xml = pkg.getPartText(drawingPath);
+    if (!xml) return [];
+    try { root = parseXml(xml); } catch { return []; }
+  }
+  const spTree = root.name === 'dsp:spTree' ? root : descend(root, 'dsp:spTree');
   if (!spTree) return [];
   const out: Shape[] = [];
   // o desenho tem rels próprios (imagens das formas)
