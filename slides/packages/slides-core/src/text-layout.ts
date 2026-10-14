@@ -204,7 +204,7 @@ export function layoutTextBody(
   const measureRun = (text: string, r: Run, f: LayoutFont): number =>
     measureEmu(text, f) + (r.spc ? r.spc * EMU_PER_POINT * fontScale * [...text].length : 0);
 
-  interface ProtoLine { runs: { text: string; run: Run }[]; marL: number; align: string; bullet?: PlacedLine['bullet']; para: number; tabTo?: (xRel: number) => number }
+  interface ProtoLine { runs: { text: string; run: Run }[]; marL: number; align: string; bullet?: PlacedLine['bullet']; para: number; tabTo?: (xRel: number, seg?: [number, number]) => number; segOf?: (items: { text: string; run: Run }[], from: number) => [number, number] }
   const proto: ProtoLine[] = [];
   const heights: number[] = [];
   /** Espaço EXTRA (EMU) antes de cada linha (spcBef/spcAft dos parágrafos). */
@@ -262,15 +262,33 @@ export function layoutTextBody(
     // tabulação: próxima parada depois de xRel (EMU desde a margem esquerda da caixa)
     const defTab = p.defTabSz && p.defTabSz > 0 ? p.defTabSz : 914400;
     // recuo deslocado (indent < 0): antes da margem, o TAB para nela (como no app)
-    const tabTo = (xRel: number): number => {
-      let next = (Math.floor(xRel / defTab) + 1) * defTab;
-      for (const t of p.tabs ?? []) if (t.pos > xRel + 1) { next = t.pos; break; }
+    // parada alinhada à direita/centro/decimal: o TRECHO seguinte (até o próximo TAB)
+    // termina/centra/tem o separador decimal na parada — seg = [largura, largura antes do decimal]
+    const tabTo = (xRel: number, seg: [number, number] = [0, 0]): number => {
+      let next = (Math.floor(xRel / defTab) + 1) * defTab, algn = 'l';
+      for (const t of p.tabs ?? []) if (t.pos > xRel + 1) { next = t.pos; algn = t.algn; break; }
       if (indent < 0 && xRel < marL - 1 && marL < next) return marL;
+      if (algn === 'r') return Math.max(xRel, next - seg[0]);
+      if (algn === 'ctr') return Math.max(xRel, next - seg[0] / 2);
+      if (algn === 'dec') return Math.max(xRel, next - seg[1]);
       return next;
+    };
+    /** Largura do trecho seguinte e a parte antes do separador decimal. */
+    const segOf = (items: { text: string; run: Run }[], from: number): [number, number] => {
+      let wAll = 0, wDec = -1;
+      for (let k = from; k < items.length; k++) {
+        const it = items[k]!;
+        if (it.text === '\t' || it.text === '\n') break;
+        const fo = fontOf(it.run, fontScale, fOpts);
+        const ix = wDec < 0 ? it.text.search(/[.,]/) : -1;
+        if (ix >= 0) wDec = wAll + measureRun(it.text.slice(0, ix), it.run, fo);
+        wAll += measureRun(it.text, it.run, fo);
+      }
+      return [wAll, wDec < 0 ? wAll : wDec];
     };
 
     // agrupamento em linhas por largura
-    let cur: ProtoLine = { runs: [], marL: firstX, align, bullet, para: pi, tabTo };
+    let cur: ProtoLine = { runs: [], marL: firstX, align, bullet, para: pi, tabTo, segOf };
     let curW = 0;
     let firstLineOfPara = true;
     const emptyPt = (runs[0]!.sz ?? defaultSzPt) * fontScale;
@@ -294,15 +312,16 @@ export function layoutTextBody(
       lastMaxPt = maxPt;
       if (firstLineOfPara) pendingSpacer = 0;
       firstLineOfPara = false;
-      cur = { runs: [], marL: contX, align, para: pi, tabTo };
+      cur = { runs: [], marL: contX, align, para: pi, tabTo, segOf };
       curW = 0;
     };
-    for (const wd of words) {
+    for (let wi = 0; wi < words.length; wi++) {
+      const wd = words[wi]!;
       if (wd.text === '\n') { flush(); continue; }
       if (wd.text === '\t') {
         const xRel = cur.marL - insL + curW;
         cur.runs.push({ text: '\t', run: wd.run });
-        curW += tabTo(xRel) - xRel;
+        curW += tabTo(xRel, segOf(words, wi + 1)) - xRel;
         continue;
       }
       const f = fontOf(wd.run, fontScale, fOpts);
@@ -356,10 +375,11 @@ export function layoutTextBody(
     }
     const placed: PlacedRun[] = [];
     let w = 0;
-    for (const m of merged) {
+    for (let mi = 0; mi < merged.length; mi++) {
+      const m = merged[mi]!;
       if (m.text === '\t') {
         const xRel = pl.marL - insL + w;
-        w += (pl.tabTo ? pl.tabTo(xRel) : (Math.floor(xRel / 914400) + 1) * 914400) - xRel;
+        w += (pl.tabTo ? pl.tabTo(xRel, pl.segOf?.(merged, mi + 1)) : (Math.floor(xRel / 914400) + 1) * 914400) - xRel;
         continue;
       }
       const f = fontOf(m.run, fontScale, fOpts);
