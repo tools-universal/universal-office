@@ -1089,7 +1089,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       const grad = firstChild(spPr, 'a:gradFill');
       if (grad) {
         const g = parseGradFill(grad, theme);
-        if (g) shape.fill = g;
+        if (g) { shape.fill = g; if (grad.attrs['rotWithShape'] === '0') shape.fillNoRot = true; }
       }
     }
     // blipFill de shape (stretch): imagem como preenchimento da geometria
@@ -1101,6 +1101,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
         if (img) {
           shape.fillImage = img;
           if (applyTile(img, bf)) shape.fillTile = true;
+          if (bf!.attrs['rotWithShape'] === '0') shape.fillNoRot = true;
         }
       }
     }

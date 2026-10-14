@@ -782,6 +782,20 @@ function paintBody(
     ctx.save();
     if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
     const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
+    // rotWithShape="0": o caminho já está girado; o preenchimento volta ao
+    // referencial da página (desfaz só a rotação — com um espelho o sentido inverte)
+    // e ocupa a caixa ALINHADA da forma girada (ladrilho ancorado nela, imagem
+    // esticada nela — medido, syn-tilerot)
+    let fx = x, fy = y, fw = w, fh = h;
+    if (sh.fillNoRot && sh.xfrm?.rot) {
+      const flips = (sh.xfrm.flipH ? 1 : 0) + (sh.xfrm.flipV ? 1 : 0);
+      const cx = x + w / 2, cy = y + h / 2, th = sh.xfrm.rot / 60000 * Math.PI / 180;
+      ctx.translate(cx, cy);
+      ctx.rotate((flips === 1 ? 1 : -1) * th);
+      ctx.translate(-cx, -cy);
+      const co = Math.abs(Math.cos(th)), si = Math.abs(Math.sin(th));
+      fw = w * co + h * si; fh = w * si + h * co; fx = cx - fw / 2; fy = cy - fh / 2;
+    }
     if (ov.fill) {
       // cor de preenchimento animada (o app troca fill.type p/ sólido)
       ctx.fillStyle = ov.fill;
@@ -793,17 +807,17 @@ function paintBody(
       const img = rawImg ? fxImage(rawImg, sh.fillImage.fx) : undefined;
       if (img && sh.fillImage.fx?.alpha !== undefined) ctx.globalAlpha *= sh.fillImage.fx.alpha;
       if (img && sh.fillTile) {
-        const pat = tilePattern(ctx, img, sh.fillImage, x, y, fit.scale);
+        const pat = tilePattern(ctx, img, sh.fillImage, fx, fy, fit.scale);
         if (pat) {
           ctx.fillStyle = pat;
           if (rule) ctx.fill(rule); else ctx.fill();
         }
-      } else if (img) { ctx.clip(); ctx.drawImage(img, x, y, w, h); }
+      } else if (img) { ctx.clip(); ctx.drawImage(img, fx, fy, fw, fh); }
     } else if (sh.fill!.pattern && presetPattern(ctx, sh.fill!.pattern, fit.ox, fit.oy, fit.scale)) {
       ctx.fillStyle = presetPattern(ctx, sh.fill!.pattern, fit.ox, fit.oy, fit.scale)!;
       if (rule) ctx.fill(rule); else ctx.fill();
     } else if (sh.fill!.type === 'gradient' && sh.fill!.stops && sh.fill!.stops.length >= 2) {
-      ctx.fillStyle = makeLinearGradient(ctx, sh.fill!, x, y, w, h);
+      ctx.fillStyle = makeLinearGradient(ctx, sh.fill!, fx, fy, fw, fh);
       if (rule) ctx.fill(rule); else ctx.fill();
     } else if (sh.fill!.type === 'solid' && sh.fill!.color) {
       // sombreado por face (can/cube): cada subpath preenche com a luminância

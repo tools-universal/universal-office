@@ -310,6 +310,8 @@ export interface Shape {
   fillImage?: ImageRef;
   /** `<a:blipFill><a:tile>`: ladrilha a imagem no tamanho natural (96dpi). */
   fillTile?: boolean;
+  /** `rotWithShape="0"` no blipFill/gradFill: o preenchimento NÃO gira com a forma. */
+  fillNoRot?: boolean;
   /**
    * Cor de texto default vinda de `<p:style><a:fontRef>` (resolvida via tema).
    * Aplicada na cascata quando run/lstStyle nao especificam cor.
