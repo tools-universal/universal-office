@@ -272,6 +272,8 @@ export interface Shape {
    * modelo de dados) — é o id que a animação por partes (`<a:dgm id>`) nomeia.
    */
   dgmId?: string;
+  /** Caixa de TEXTO de uma forma de SmartArt desenhado (`<dsp:txXfrm>`): id da forma dona. */
+  dgmTextOf?: string;
   /**
    * Vídeo/áudio do `<p:pic>` (`p14:media r:embed` / `a:videoFile`): a imagem
    * acima é a CAPA; a reprodução troca pelos quadros da mídia (media.ts).

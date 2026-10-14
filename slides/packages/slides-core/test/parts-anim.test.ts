@@ -24,7 +24,8 @@ describe('SmartArt animado por partes (pb-graficos-partes)', () => {
       const s = deck(`pb-graficos-partes.${ext}`);
       // .ppt: o SmartArt volta como diagrama real (metroBlob → graphicFrame + partes)
       for (const k of [6, 7, 8]) {
-        const shapes = s[k]!.shapes.filter((x) => x.dgmId);
+        // (a caixa de texto do txXfrm acompanha a forma: mesmo dgmId, fora da contagem)
+        const shapes = s[k]!.shapes.filter((x) => x.dgmId && !x.dgmTextOf);
         expect(shapes.length).toBe(5);
         const targets = s[k]!.timing!.steps.flatMap((st) => st.effects).map((e) => e.target!);
         expect(targets.length).toBe(5);

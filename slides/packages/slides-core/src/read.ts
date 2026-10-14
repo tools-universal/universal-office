@@ -969,7 +969,7 @@ function readDiagramShapes(pkg: PptxPackage, drawingPath: string, theme: Theme, 
       const tf = parseXfrm(txEl);
       const net = (((sh.xfrm.rot ?? 0) + (tf.rot ?? 0)) % 21600000 + 21600000) % 21600000;
       if (net) tf.rot = net; else delete tf.rot;
-      out.push({ id: sh.id + 't', name: sh.name, xfrm: tf, geom: 'rect', fill: { type: 'none' }, lineNone: true, txBody: sh.txBody, ...(sh.dgmId ? { dgmId: sh.dgmId } : {}), ...(sh.styleFontColor ? { styleFontColor: sh.styleFontColor } : {}), ...(sh.styleFontIdx ? { styleFontIdx: sh.styleFontIdx } : {}) });
+      out.push({ id: sh.id + 't', dgmTextOf: sh.id, name: sh.name, xfrm: tf, geom: 'rect', fill: { type: 'none' }, lineNone: true, txBody: sh.txBody, ...(sh.dgmId ? { dgmId: sh.dgmId } : {}), ...(sh.styleFontColor ? { styleFontColor: sh.styleFontColor } : {}), ...(sh.styleFontIdx ? { styleFontIdx: sh.styleFontIdx } : {}) });
       delete sh.txBody;
     }
   }
