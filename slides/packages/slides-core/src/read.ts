@@ -245,7 +245,9 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
   const bodyPrMap = placeholderBodyPrMap(pkg, slidePath);
   for (const sh of shapes) {
     if (!sh.txBody || (sh.phType === undefined && sh.phIdx === undefined)) continue;
-    const inh = bodyPrMap.get(phKey(sh.phType, sh.phIdx)) ?? bodyPrMap.get(phKey(sh.phType)) ?? bodyPrMap.get('idx:' + (sh.phIdx ?? ''));
+    // casa pelo idx no layout antes do tipo (o tipo cai no master)
+    const inh = bodyPrMap.get(phKey(sh.phType, sh.phIdx)) ?? (sh.phIdx !== undefined ? bodyPrMap.get('idx:' + sh.phIdx) : undefined)
+      ?? bodyPrMap.get(phKey(sh.phType)) ?? bodyPrMap.get(phKey(masterTypeOf(sh.phType ?? 'body')));
     if (!inh) continue;
     const tb = sh.txBody;
     if (tb.anchor === undefined && inh.anchor !== undefined) tb.anchor = inh.anchor;
@@ -581,6 +583,7 @@ function emptyLevels(): TextStyleLevels { return Array.from({ length: 9 }, () =>
  */
 function placeholderBodyPrMap(pkg: PptxPackage, slidePath: string): Map<string, Partial<TextBody>> {
   const map = new Map<string, Partial<TextBody>>();
+  const masterByType = new Map<string, Partial<TextBody>>();
   const layoutPath = findRelTarget(pkg, slidePath, 'slideLayout');
   const masterPath = layoutPath ? findRelTarget(pkg, layoutPath, 'slideMaster') : undefined;
   for (const part of [masterPath, layoutPath]) {
@@ -615,17 +618,30 @@ function placeholderBodyPrMap(pkg: PptxPackage, slidePath: string): Map<string, 
         if (na.attrs['fontScale'] !== undefined) props.fontScale = parseInt(na.attrs['fontScale'], 10) / 100000;
         if (na.attrs['lnSpcReduction'] !== undefined) props.lnSpcReduction = parseInt(na.attrs['lnSpcReduction'], 10) / 100000;
       }
-      if (Object.keys(props).length === 0) continue;
       const type = ph.attrs['type'] ?? 'body';
       const idx = ph.attrs['idx'];
-      // layout MESCLA sobre o master (o que o layout não diz continua o do master)
-      const put = (k: string): void => { const prev = map.get(k); map.set(k, prev ? { ...prev, ...props } : props); };
-      put(phKey(type, idx));
-      put(phKey(type));
-      if (idx !== undefined && part === layoutPath) put('idx:' + idx);
+      if (part === masterPath && part !== layoutPath) {
+        // master: por TIPO (o placeholder do layout herda o do master do mesmo tipo)
+        masterByType.set(type, props);
+        map.set(phKey(type), props);
+        continue;
+      }
+      // layout: o placeholder do slide casa com o do layout pelo idx; o do layout
+      // MESCLA sobre o do master do tipo correspondente (mesmo com <a:bodyPr/> vazio —
+      // antes caía no tipo e herdava a âncora de OUTRO placeholder do layout)
+      const merged = { ...(masterByType.get(masterTypeOf(type)) ?? {}), ...props };
+      map.set(phKey(type, idx), merged);
+      if (idx !== undefined) map.set('idx:' + idx, merged);
+      else map.set(phKey(type), merged);
     }
   }
   return map;
+}
+
+/** Tipo do placeholder do MASTER que um placeholder de layout/slide herda. */
+function masterTypeOf(type: string): string {
+  if (type === 'ctrTitle') return 'title';
+  return type === 'title' || type === 'dt' || type === 'ftr' || type === 'sldNum' ? type : 'body';
 }
 
 
