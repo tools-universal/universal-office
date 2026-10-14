@@ -115,6 +115,8 @@ export function oaColor(value: number, sh: OAShape, pc: PartCtx, depth = 0): str
     let [cr, cg, cb] = [0, 2, 4].map((i) => parseInt(base.slice(i, i + 2), 16)) as [number, number, number];
     const f = (c: number): number => {
       switch (fn) {
+        // escurecer/clarear no sRGB (a conversão do app grava <a:gamma/><a:shade|tint/><a:invGamma/>:
+        // o gamma tira o shade/tint do espaço linear — o app desenha assim, mais escuro)
         case 1: return (c * param) / 255;                 // escurecer
         case 2: return 255 - ((255 - c) * param) / 255;   // clarear
         case 3: return c + param;                         // somar cinza
@@ -192,39 +194,41 @@ function imageRel(pc: PartCtx, pib: number): string | undefined {
 // ───────────────────────────── preenchimento / linha / sombra ─────────────────────────────
 
 /**
- * Paradas do gradiente ao longo do vetor "início → fim". No binário o
- * gradiente vai da cor de preenchimento (início) à cor de fundo (fim); o foco
- * (−100..100 %) é a posição da cor de preenchimento: 0 = normal, 100 =
- * invertido, 50 = espelhado (preenchimento no meio). fillShadeColors, quando
- * presente, lista paradas explícitas (cor + posição 16.16).
+ * Paradas do gradiente ao longo do vetor. As cores vão do preenchimento ao
+ * fundo (ou a lista explícita fillShadeColors, preenchimento → fundo) e o foco
+ * decide a ordem — casado com a conversão do próprio PowerPoint (~13 mil
+ * degradês do corpus, _lab/grad-shapes.ts): foco 0 = preenchimento → fundo,
+ * ±100 = invertido, entre os dois = espelhado; o espelho põe o preenchimento
+ * nas pontas com foco positivo e no meio com negativo — e ao contrário quando
+ * o fillAngle foi gravado (≠ 0), o que o `flipMirror` indica.
  */
-function gradientStops(sh: OAShape, pc: PartCtx, fill: string, back: string, fillA?: number, backA?: number): string {
+function gradientStops(sh: OAShape, pc: PartCtx, fill: string, back: string, fillA?: number, backA?: number, flipMirror = false): string {
   const arr = msoArray(sh.props.get(0x197));
-  const stops: { pos: number; color: string; alpha?: number }[] = [];
+  type Stop = { pos: number; color: string; alpha?: number };
+  let list: Stop[];
   if (arr && arr.size === 8 && arr.n >= 2) {
-    // paradas explícitas (preenchimento → fundo); o foco vale para elas também:
-    // ±100 inverte, entre 0 e ±100 espelha em volta do foco (conversão do app)
-    const raw: { pos: number; color: string }[] = [];
+    list = [];
     for (let i = 0; i < arr.n; i++) {
       const o = arr.off + i * 8;
-      raw.push({ color: oaColor(arr.r.u32(o), sh, pc), pos: fixed(arr.r.u32(o + 4)) });
+      list.push({ color: oaColor(arr.r.u32(o), sh, pc), pos: fixed(arr.r.u32(o + 4)) });
     }
-    const F = (propS(sh, 0x18c) ?? 0) / 100;
-    if (F >= 1 || F <= -1) for (const s of raw) stops.push({ ...s, pos: 1 - s.pos });
-    else if (F > 0) for (const s of raw) stops.push({ ...s, pos: (1 - s.pos) * F }, { ...s, pos: F + s.pos * (1 - F) });
-    else if (F < 0) for (const s of raw) stops.push({ ...s, pos: s.pos * (1 + F) }, { ...s, pos: 1 + F - (1 - s.pos) * F });
-    else stops.push(...raw);
-  } else {
-    const focus = propS(sh, 0x18c) ?? 0;
-    const f = { color: fill, alpha: fillA }, b = { color: back, alpha: backA };
-    if (focus === 0) stops.push({ pos: 0, ...f }, { pos: 1, ...b });
-    else if (focus >= 100 || focus <= -100) stops.push({ pos: 0, ...b }, { pos: 1, ...f });
-    else if (focus > 0) stops.push({ pos: 0, ...b }, { pos: focus / 100, ...f }, { pos: 1, ...b });
-    else stops.push({ pos: 0, ...f }, { pos: 1 + focus / 100, ...b }, { pos: 1, ...f });
+    list.sort((x, y) => x.pos - y.pos);
+  } else list = [{ pos: 0, color: fill, alpha: fillA }, { pos: 1, color: back, alpha: backA }];
+  const focus = propS(sh, 0x18c) ?? 0;
+  const rev = (l: Stop[]): Stop[] => l.map((x) => ({ ...x, pos: 1 - x.pos })).reverse();
+  let stops: Stop[];
+  if (focus === 0) stops = list;
+  else if (focus >= 100 || focus <= -100) stops = rev(list);
+  else {
+    const F = Math.abs(focus) / 100;
+    // fillAtEnds: preenchimento nas pontas (f…b…f); senão no meio (b…f…b)
+    const fillAtEnds = (focus > 0) !== flipMirror;
+    const a = fillAtEnds ? list : rev(list); // trecho [0, F]
+    stops = [...a.map((x) => ({ ...x, pos: x.pos * F })), ...rev(a).map((x) => ({ ...x, pos: F + x.pos * (1 - F) }))];
   }
   stops.sort((x, y) => x.pos - y.pos);
-  return el('a:gsLst', {}, stops.map((s) =>
-    el('a:gs', { pos: Math.round(Math.max(0, Math.min(1, s.pos)) * 100000) }, srgb(s.color, s.alpha))).join(''));
+  return el('a:gsLst', {}, stops.map((st) =>
+    el('a:gs', { pos: Math.round(Math.max(0, Math.min(1, st.pos)) * 100000) }, srgb(st.color, st.alpha))).join(''));
 }
 
 /** Preenchimento da forma → XML DrawingML (`<a:noFill/>`, solid, grad, blip). */
@@ -254,11 +258,13 @@ function fillXml(sh: OAShape, pc: PartCtx, isBackground = false): string {
     }
     case 4: case 5: case 6: case 7: case 8: {
       if (type === 4 || type === 7 || type === 8) {
-        // [MS-ODRAW] fillAngle: 0° = vetor vertical de baixo para cima (início
-        // embaixo), girando no sentido horário → DrawingML ang = 270° + θ
-        // (conferido com os decks gravados pelo LibreOffice: 0° e ±90°)
-        const ang = ((270 + fixed(prop(sh, 0x18b))) % 360 + 360) % 360;
-        const gs = gradientStops(sh, pc, color, back, opacity, backOpacity);
+        // [MS-ODRAW] fillAngle θ → DrawingML ang = 90° − θ, com θ ausente/0 valendo
+        // −180° (casado com a conversão do próprio PowerPoint em ~13 mil degradês
+        // de formas/fundos do corpus: _lab/grad-shapes.ts e grad-agree.ts)
+        const raw = prop(sh, 0x18b) === undefined ? 0 : fixed(prop(sh, 0x18b));
+        const theta = raw === 0 ? -180 : raw;
+        const ang = ((90 - theta) % 360 + 360) % 360;
+        const gs = gradientStops(sh, pc, color, back, opacity, backOpacity, raw !== 0);
         return el('a:gradFill', { flip: 'none', rotWithShape: 1 }, gs + el('a:lin', { ang: Math.round(ang * 60000) % 21600000, scaled: type === 7 ? 1 : 0 }));
       }
       // radial (shadeCenter/shadeShape): cor de fundo no foco (fillTo*), de preenchimento na borda

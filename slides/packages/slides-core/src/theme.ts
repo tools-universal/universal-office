@@ -94,14 +94,19 @@ export function colorFromDml(el: XmlElement | undefined, theme: Theme): string |
   }
   if (base === undefined) return undefined;
   // modificadores de luminancia/saturacao (subconjunto comum)
+  // <a:gamma/> … <a:invGamma/>: o shade/tint entre eles opera no sRGB (cores
+  // "escurecidas/clareadas" do .ppt convertidas pelo app — desenhadas assim)
+  let srgbMode = false;
   for (const mod of childElements(el)) {
+    if (mod.name === 'a:gamma') { srgbMode = true; continue; }
+    if (mod.name === 'a:invGamma') { srgbMode = false; continue; }
     const val = mod.attrs['val'] !== undefined ? parseInt(mod.attrs['val'], 10) / 100000 : undefined;
     if (val === undefined) continue;
     // shade/tint operam em RGB LINEAR (gamma ~2.2) no app de referência —
     // verificado no estilo de tabela (accent1 tint 40% => #CAD1D7, não #A1BFCD).
-    if (mod.name === 'a:shade') base = mixLinear(base, 0, val);          // -> preto
+    if (mod.name === 'a:shade') base = srgbMode ? mixSrgb(base, 0, val) : mixLinear(base, 0, val); // -> preto
     // tint: `val` é a fração da COR que permanece (val=20% => 20% cor + 80% branco)
-    else if (mod.name === 'a:tint') base = mixLinear(base, 1, val);
+    else if (mod.name === 'a:tint') base = srgbMode ? mixSrgb(base, 1, val) : mixLinear(base, 1, val);
     // lumMod/lumOff operam na LUMINÂNCIA HSL (mantêm matiz/saturação — o
     // "claro" do tema fica azul vívido, não cinza; verificado no deck de formas)
     else if (mod.name === 'a:lumMod') base = lumHsl(base, val, 0);
@@ -219,6 +224,12 @@ function mixLinear(h: string, target: 0 | 1, f: number): string {
   const lin = (v: number): number => Math.pow(v / 255, 2.2);
   const srgb = (v: number): number => Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255;
   const mix = (v: number): number => srgb(lin(v) * f + target * (1 - f));
+  return hex(mix(r), mix(g), mix(b));
+}
+/** Mistura no sRGB (dentro de <a:gamma/>…<a:invGamma/>): `f` = fração da cor que fica. */
+function mixSrgb(h: string, target: 0 | 1, f: number): string {
+  const [r, g, b] = rgb(h);
+  const mix = (v: number): number => v * f + target * 255 * (1 - f);
   return hex(mix(r), mix(g), mix(b));
 }
 /** Soma luminosidade (lumOff): empurra em direcao ao branco proporcionalmente. */

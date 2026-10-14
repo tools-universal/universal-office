@@ -27,13 +27,17 @@ export function dmlColor(el: XmlNode | undefined, scheme: Record<string, string>
     base = scheme[v] ?? scheme[STD_MAP[v] ?? v] ?? '#000000';
   }
   if (base === undefined) return undefined;
+  // <a:gamma/> … <a:invGamma/>: shade/tint entre eles no sRGB
+  let srgbMode = false;
   for (const mod of childElements(el)) {
+    if (mod.name === 'a:gamma') { srgbMode = true; continue; }
+    if (mod.name === 'a:invGamma') { srgbMode = false; continue; }
     const raw = mod.attrs['val'];
     if (raw === undefined) continue;
     const val = parseInt(raw, 10) / 100000;
     switch (mod.name) {
-      case 'a:shade': base = mixLinear(base, 0, val); break;
-      case 'a:tint': base = mixLinear(base, 1, val); break;
+      case 'a:shade': base = srgbMode ? mixSrgb(base, 0, val) : mixLinear(base, 0, val); break;
+      case 'a:tint': base = srgbMode ? mixSrgb(base, 1, val) : mixLinear(base, 1, val); break;
       case 'a:lumMod': base = hsl(base, (h, s, l) => [h, s, l * val]); break;
       case 'a:lumOff': base = hsl(base, (h, s, l) => [h, s, l + val]); break;
       case 'a:lum': base = hsl(base, (h, s) => [h, s, val]); break;
@@ -71,6 +75,12 @@ function mixLinear(h: string, target: 0 | 1, f: number): string {
   const lin = (v: number) => Math.pow(v / 255, 2.2);
   const srgb = (v: number) => Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255;
   const mix = (v: number) => srgb(lin(v) * f + target * (1 - f));
+  return hex(mix(r), mix(g), mix(b));
+}
+
+function mixSrgb(h: string, target: 0 | 1, f: number): string {
+  const [r, g, b] = rgb(h);
+  const mix = (v: number) => v * f + target * 255 * (1 - f);
   return hex(mix(r), mix(g), mix(b));
 }
 
