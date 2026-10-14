@@ -279,6 +279,10 @@ interface PNode {
   fromParent?: Set<string>;
   /** tetos (op="lte") numéricos por tipo */
   hi?: Record<string, number>;
+  /** filhos já posicionados pelo algoritmo do pai (pirâmide): não refaz o composto */
+  preplaced?: boolean;
+  /** ajustes da geometria decididos pelo algoritmo (inclinação do trapézio da pirâmide) */
+  adjOv?: [string, number][];
   /** tetos de fonte vindos de ancestrais (for="des") */
   desLte?: Record<string, [PNode, string, number]>;
   /** ciclo: centro/raio do círculo (absolutos) e sentido */
@@ -881,6 +885,74 @@ function algCycle(n: PNode): void {
   n.v['sibSp'] = sib * s; n.v['sp'] = sp * s;
 }
 
+/**
+ * Pirâmide (pyra): N níveis de altura H/N; o nível i tem largura (i+1)/N da base
+ * (fromB: o 1º em cima), trapézio com a inclinação que encaixa os vizinhos; o
+ * texto do nível ocupa a largura do nível (o de cima inteiro, os demais pelas
+ * restrições do composto). Com "contas" (filhos), a pirâmide fica com
+ * (1 − pyraAcctRatio) da largura e o fundo da conta vai do eixo da pirâmide à
+ * borda (trapézio girado 180°), o texto da conta da quina do nível à borda.
+ */
+function algPyra(n: PNode): void {
+  const p = params(n.alg);
+  evalKids(n);
+  const comps = n.kids.filter((k) => !isTransOrConn(k));
+  const N = comps.length;
+  if (!N) return;
+  const lvlName = p['pyraLvlNode'] ?? 'level', bgName = p['pyraAcctBkgdNode'], txName = p['pyraAcctTxNode'];
+  const hasAcct = comps.some((c) => c.kids.some((k) => k.name === bgName && nodeParas(k).length));
+  const ratio = hasAcct ? Math.min(0.9, Math.max(0, n.v['pyraAcctRatio'] ?? 0)) : 0;
+  const W = n.w, H = n.h, pyrW = W * (1 - ratio), lh = H / N, half = pyrW / (2 * N);
+  const aft = (p['pyraAcctPos'] ?? 'aft') !== 'bef';
+  const inv = p['linDir'] === 'fromT';
+  const x0 = hasAcct && !aft ? W - pyrW : 0;
+  comps.forEach((c, i) => {
+    const step = inv ? N - i : i + 1;
+    const wi = (pyrW * step) / N, xi = x0 + (pyrW - wi) / 2;
+    place(c, 0, i * lh, W, lh);
+    c.preplaced = true;
+    c.v = { ...c.v, w: W, h: lh };
+    // filhos do nível: posições ditadas pelo algoritmo (as restrições do composto são simbólicas)
+    const lvl = c.kids.find((k) => k.name === lvlName);
+    if (lvl) {
+      place(lvl, xi, 0, wi, lh);
+      lvl.adjOv = [['adj', Math.round((half / Math.max(1, Math.min(wi, lh))) * 100000)]];
+      if (inv) lvl.rot = 180;
+      lvl.v = { ...lvl.v, l: xi, t: 0, w: wi, h: lh };
+    }
+    for (const k of c.kids) {
+      if (k === lvl) continue;
+      if (k.name === bgName) {
+        // da quina de cima do nível (lado da conta) até a borda
+        const l = aft ? xi + wi - half : 0, w = aft ? W - l : xi + half;
+        place(k, l, 0, w, lh);
+        k.adjOv = [['adj1', 0], ['adj2', Math.round((half / Math.max(1, Math.min(w, lh))) * 100000)]];
+        k.rot = aft !== inv ? 180 : 0;
+      } else if (k.name === txName) {
+        const l = aft ? xi + wi : 0, w = aft ? W - l : xi;
+        place(k, l, 0, w, lh);
+      } else if (lvl) {
+        // texto do nível: pelas restrições do composto relativas ao nível (w = 0,65 × nível…)
+        evalKids(c);
+        lvl.v = { ...lvl.v, l: xi, t: 0, w: wi, h: lh };
+        evalKidsOnly(c, k);
+        const ax = axis(k.v, true, wi), ay = axis(k.v, false, lh);
+        const w = ax.z ?? wi, h = ay.z ?? lh;
+        place(k, ax.s ?? xi + (wi - w) / 2, ay.s ?? 0, w, h);
+      }
+    }
+  });
+}
+/** Reavalia só as restrições do composto que miram `target` (o resto já está posto). */
+function evalKidsOnly(c: PNode, target: PNode): void {
+  target.v = { ...target.desV, ...target.ov };
+  for (const k of c.constrs) {
+    if (k.for !== 'ch' || (k.forName && k.forName !== target.name)) continue;
+    const one: PNode = { ...c, constrs: [k] };
+    applyConstrs(one);
+  }
+}
+
 /** O app acha a escala por bissecção de 12 passos: múltiplo de 1/4096 que cabe. */
 function quantScale(s: number): number {
   if (!Number.isFinite(s) || s <= 0) return 1;
@@ -894,11 +966,13 @@ function quantScale(s: number): number {
 function layoutNode(n: PNode, depth: number): void {
   if (depth > MAX_DEPTH) return;
   n.v['w'] = n.w; n.v['h'] = n.h;
-  switch (algType(n)) {
+  switch (n.preplaced ? 'pre' : algType(n)) {
+    case 'pre': break;
     case 'lin': algLin(n); break;
     case 'snake': algSnake(n); break;
     case 'hierChild': case 'hierRoot': layoutHier(n, depth); return;
     case 'cycle': algCycle(n); break;
+    case 'pyra': algPyra(n); break;
     default: algComposite(n); break;
   }
   for (const k of n.kids) {
@@ -1094,7 +1168,7 @@ export function regenerateDiagram(data: XmlElement | undefined, layout: XmlEleme
   }
 }
 
-const ALGS = new Set(['composite', 'lin', 'snake', 'tx', 'sp', 'conn', 'hierRoot', 'hierChild', 'cycle']);
+const ALGS = new Set(['composite', 'lin', 'snake', 'tx', 'sp', 'conn', 'hierRoot', 'hierChild', 'cycle', 'pyra']);
 function supported(layout: XmlElement, depth = 0): boolean {
   if (depth > 200) return false;
   for (const c of kids(layout)) {
@@ -1286,7 +1360,7 @@ export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
   FIT = { measure: inp.measure ?? measureApprox, family, lineK: lineFactor(family), root: model.root };
   try {
     const run = () => {
-      for (const n of b.nodes) { n.v = { ...n.ov }; n.desV = {}; n.desLte = undefined; n.margF = {}; n.equ = {}; n.lte = {}; n.fromParent = undefined; n.conn = undefined; n.cyc = undefined; n.rx = n.ry = n.rw = n.rh = undefined; }
+      for (const n of b.nodes) { n.v = { ...n.ov }; n.desV = {}; n.desLte = undefined; n.margF = {}; n.equ = {}; n.lte = {}; n.fromParent = undefined; n.conn = undefined; n.cyc = undefined; n.preplaced = undefined; n.adjOv = undefined; n.rot = 0; n.rx = n.ry = n.rw = n.rh = undefined; }
       root.x = 0; root.y = 0; root.w = inp.cx; root.h = inp.cy;
       layoutNode(root, 0);
     };
@@ -1674,7 +1748,7 @@ function geomOf(n: PNode): { x: number; y: number; w: number; h: number; prst: s
   const rot = norm360((g ? g.rot : 0) + (parseFloat(n.shape?.attrs['rot'] ?? '0') || 0) + n.rot);
   if (g) return { x: g.x, y: g.y, w: g.w, h: g.h, prst: g.prst === 'cust' ? 'rect' : g.prst, adj: g.adj ?? [], rot };
   const ty = n.shape?.attrs['type'] ?? 'rect';
-  return { x: n.x, y: n.y, w: n.w, h: n.h, prst: ty === 'conn' ? 'rightArrow' : ty, adj: adjOf(n), rot };
+  return { x: n.x, y: n.y, w: n.w, h: n.h, prst: ty === 'conn' ? 'rightArrow' : ty, adj: n.adjOv ?? adjOf(n), rot };
 }
 
 /** Rotação do texto pelo autoTxRot do nó de texto: upr (em pé), grav (acompanha sem ficar de cabeça para baixo), none. */
