@@ -572,8 +572,43 @@ function custGeomXml(sh: OAShape): string | undefined {
   return el('a:custGeom', {}, '<a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/>' + el('a:pathLst', {}, paths.join('')));
 }
 
+/**
+ * Arco legado (msosptArc): a caixa é a do ARCO + centro (não a da elipse inteira);
+ * adjust1/adjust2 = ângulos inicial/final (16.16 graus, sentido horário na tela,
+ * 270 = topo; padrão 270 → 0). Como a conversão do próprio app (oracle/ppt2pptx,
+ * gd-186736): custGeom em unidades de raio 21600 com o caminho do contorno (sem
+ * preenchimento) e a FATIA (arco + centro) que preenche.
+ */
+function arcGeomXml(sh: OAShape): string {
+  const deg = (v: number | undefined, d: number): number => (v === undefined ? d : (v | 0) / 65536);
+  const a0 = deg(sh.props.get(0x147)?.value, 270);
+  let a1 = deg(sh.props.get(0x148)?.value, 0);
+  while (a1 <= a0) a1 += 360;
+  while (a1 - a0 > 360) a1 -= 360;
+  const R = 21600, P = (a: number): [number, number] => [R * Math.cos((a * Math.PI) / 180), R * Math.sin((a * Math.PI) / 180)];
+  // caixa: centro + pontas + extremos (0/90/180/270) cruzados pelo arco
+  const pts: [number, number][] = [[0, 0], P(a0), P(a1)];
+  for (let k = Math.ceil(a0 / 90) * 90; k < a1; k += 90) pts.push(P(k));
+  const minX = Math.min(...pts.map((p) => p[0])), minY = Math.min(...pts.map((p) => p[1]));
+  const w = Math.max(1, Math.round(Math.max(...pts.map((p) => p[0])) - minX)), h = Math.max(1, Math.round(Math.max(...pts.map((p) => p[1])) - minY));
+  const q = (p: [number, number]): string => `<a:pt x="${Math.round(p[0] - minX)}" y="${Math.round(p[1] - minY)}"/>`;
+  // arco em cúbicas de até 90°
+  const n = Math.max(1, Math.ceil((a1 - a0) / 90)), step = (a1 - a0) / n, kk = (4 / 3) * Math.tan((step * Math.PI) / 720);
+  let arc = `<a:moveTo>${q(P(a0))}</a:moveTo>`;
+  for (let i = 0; i < n; i++) {
+    const s = ((a0 + i * step) * Math.PI) / 180, e = ((a0 + (i + 1) * step) * Math.PI) / 180;
+    const c1: [number, number] = [R * (Math.cos(s) - kk * Math.sin(s)), R * (Math.sin(s) + kk * Math.cos(s))];
+    const c2: [number, number] = [R * (Math.cos(e) + kk * Math.sin(e)), R * (Math.sin(e) - kk * Math.cos(e))];
+    arc += `<a:cubicBezTo>${q(c1)}${q(c2)}${q([R * Math.cos(e), R * Math.sin(e)])}</a:cubicBezTo>`;
+  }
+  const paths = el('a:path', { w, h, fill: 'none', extrusionOk: 0 }, arc) +
+    el('a:path', { w, h, stroke: 0, extrusionOk: 0 }, `${arc}<a:lnTo>${q([0, 0])}</a:lnTo><a:close/>`);
+  return el('a:custGeom', {}, '<a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="l" t="t" r="r" b="b"/>' + el('a:pathLst', {}, paths));
+}
+
 /** Geometria da forma: preset (com avLst) ou custGeom; devolve flipV extra. */
 function geometryXml(sh: OAShape, xf: Xf | undefined): { xml: string; flipV: boolean } {
+  if (sh.type === 19) return { xml: arcGeomXml(sh), flipV: false };
   if (sh.type === 0 || !presetFor(sh.type, [], 1, 1)) {
     const cg = custGeomXml(sh);
     if (cg) return { xml: cg, flipV: false };
@@ -1002,22 +1037,69 @@ function wordArtXml(sh: OAShape, pc: PartCtx, xf: Xf): string | undefined {
   const bold = boolProp(sh, 0xff, 5, false), italic = boolProp(sh, 0xff, 4, false);
   const color = oaColor(prop(sh, 0x181) ?? 0xffffff, sh, pc);
   const lines = text.split(/\r\n|\r|\n/);
-  // cabe na altura (linhas) e na largura (linha mais longa, ~0,6 em por glifo)
-  const longest = Math.max(1, ...lines.map((l) => l.length));
-  const byH = (xf.cy / 12700 / lines.length) * 0.75;
-  const byW = (xf.cx / 12700) / (longest * (bold ? 0.66 : 0.6));
-  const szPt = Math.max(4, Math.min(400, byH, byW));
+  // msosptText* (136–175) ↔ prstTxWarp na MESMA ordem do DrawingML
+  const warp = sh.type >= 136 && sh.type <= 175 ? WARPS[sh.type - 136] : undefined;
+  let szPt: number;
+  if (warp) {
+    // como a conversão do app: gtextSize (16.16 pt; ausente = 36) — a deformação estica o texto até a forma
+    szPt = fixed(prop(sh, 0xc3), 36) || 36;
+  } else {
+    // sem deformação: cabe na altura (linhas) e na largura (linha mais longa, ~0,6 em por glifo)
+    const longest = Math.max(1, ...lines.map((l) => l.length));
+    const byH = (xf.cy / 12700 / lines.length) * 0.75;
+    const byW = (xf.cx / 12700) / (longest * (bold ? 0.66 : 0.6));
+    szPt = Math.max(4, Math.min(400, byH, byW));
+  }
+  // espaçamento (gtextSpacing, 16.16; 1 = normal) → spc em 1/100 pt, como o app grava
+  // (1,2 a 28 pt → 560; 0,8 a 36 pt → −360)
+  const sp = prop(sh, 0xc4) !== undefined ? fixed(prop(sh, 0xc4)) : 1;
+  const spc = warp && sp !== 1 ? Math.round((sp - 1) * szPt * (sp > 1 ? 100 : 50)) : undefined;
   // as LETRAS levam o contorno, o preenchimento (sólido/degradê/padrão) e a sombra da forma
   // (como a conversão do próprio app: <a:ln> + pattFill + outerShdw no rPr)
   const fx = fillXml(sh, pc);
   const letterFill = /^<a:(solidFill|gradFill|pattFill)/.test(fx) ? fx : el('a:solidFill', {}, srgb(color));
-  const rPr = el('a:rPr', { sz: Math.round(szPt * 100), b: bold ? 1 : 0, i: italic ? 1 : 0 },
+  const rPr = el('a:rPr', { sz: Math.round(szPt * 100), b: bold ? 1 : 0, i: italic ? 1 : 0, spc },
     lineXml(sh, pc, true) + letterFill + shadowXml(sh, pc) + (font ? el('a:latin', { typeface: font }) : ''));
   const paras = lines.map((l) => `<a:p><a:pPr algn="ctr"><a:buNone/></a:pPr><a:r>${rPr}<a:t>${escText(l)}</a:t></a:r></a:p>`).join('');
-  // msosptText* (136–175) ↔ prstTxWarp na MESMA ordem do DrawingML
-  const warp = sh.type >= 136 && sh.type <= 175 ? WARPS[sh.type - 136] : undefined;
-  const w = warp ? el('a:prstTxWarp', { prst: warp }, '<a:avLst/>') : '';
-  return el('p:txBody', {}, `<a:bodyPr wrap="none" lIns="0" tIns="0" rIns="0" bIns="0" anchor="ctr" rtlCol="0"${warp ? ' fromWordArt="1"' : ''}>${w}<a:noAutofit/></a:bodyPr><a:lstStyle/>` + paras);
+  const av = warp ? warpAdjust(warp, rawAdjust(sh), xf.cx, xf.cy) : [];
+  const w = warp ? el('a:prstTxWarp', { prst: warp }, el('a:avLst', {}, av.map((v, i) => el('a:gd', { name: av.length > 1 ? `adj${i + 1}` : 'adj', fmla: `val ${v}` })).join(''))) : '';
+  // texto vertical (gtextFVertical, bit 13): letras empilhadas — o app grava vert="wordArtVert"
+  const vert = warp && boolProp(sh, 0xff, 13, false) ? ' vert="wordArtVert"' : '';
+  return el('p:txBody', {}, `<a:bodyPr wrap="none" lIns="0" tIns="0" rIns="0" bIns="0" anchor="ctr" rtlCol="0"${vert}${warp ? ' fromWordArt="1"' : ''}>${w}<a:noAutofit/></a:bodyPr><a:lstStyle/>` + paras);
+}
+
+/** Presets cujo 1º ajuste é um ÂNGULO (16.16 graus no binário). */
+const WARP_ANGLE = new Set(['textArchUp', 'textArchDown', 'textCircle', 'textButton', 'textArchUpPour', 'textArchDownPour', 'textCirclePour', 'textButtonPour']);
+/** Padrões do binário que diferem dos do DrawingML (o app grava o valor convertido). */
+const WARP_BIN_DEFAULT: Record<string, number> = { textWave1: 2809, textWave2: 2809, textDoubleWave1: 1404, textWave4: 1404, textInflateBottom: 14706 };
+
+/**
+ * Ajustes do WordArt legado → avLst do prstTxWarp, como a conversão do próprio
+ * app (oracle/ppt2pptx, 60 formas): fração linear ×100000/21600; ângulos 16.16
+ * levados pela proporção da caixa (θ' = atan2(h·sen θ, w·cos θ)); o 2º ajuste dos
+ * "pour" (raio interno) ×200000/21600; o deslocamento das ondas em torno de 10800.
+ */
+function warpAdjust(prst: string, raw: RawAdjust, w: number, h: number): number[] {
+  const K = 100000 / 21600;
+  if (WARP_ANGLE.has(prst)) {
+    const ang = (v: number | undefined, dflt: number): number => {
+      if (v === undefined) return dflt;
+      const t = ((v / 65536) * Math.PI) / 180;
+      let d = (Math.atan2(h * Math.sin(t), w * Math.cos(t)) * 180) / Math.PI;
+      if (d < 0) d += 360;
+      return Math.round(d * 60000) % 21600000;
+    };
+    const a1 = ang(raw[0], /Down/.test(prst) ? 0 : 10800000);
+    if (!/Pour$/.test(prst)) return raw[0] === undefined ? [] : [a1];
+    if (raw[0] === undefined && raw[1] === undefined) return [];
+    return [a1, raw[1] === undefined ? (prst === 'textArchDownPour' ? 25000 : 50000) : Math.round(raw[1] * 2 * K)];
+  }
+  const a0 = raw[0] ?? WARP_BIN_DEFAULT[prst];
+  if (/Wave/.test(prst)) {
+    if (a0 === undefined && raw[1] === undefined) return [];
+    return [Math.round((a0 ?? 0) * K), raw[1] === undefined ? 0 : Math.round((raw[1] - 10800) * K)];
+  }
+  return a0 === undefined ? [] : [Math.round(a0 * K)];
 }
 
 const WARPS = ['textPlain', 'textStop', 'textTriangle', 'textTriangleInverted', 'textChevron', 'textChevronInverted', 'textRingInside', 'textRingOutside',

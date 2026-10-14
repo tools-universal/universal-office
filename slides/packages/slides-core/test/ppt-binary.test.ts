@@ -193,6 +193,9 @@ describe('Conversão .ppt → .pptx (corpus do PowerPoint)', () => {
     expect(wa).toBeDefined();
     expect(wa.fill).toEqual({ type: 'none' });
     expect(wa.txBody!.paragraphs[0]!.runs[0]).toMatchObject({ bold: true, color: '#C00000', font: 'Arial Black' });
+    // como a conversão do app: deformação legada com o ajuste convertido e o gtextSize como tamanho
+    expect(wa.txBody!.warp).toEqual({ prst: 'textArchUp', adj: [10800000], fromWordArt: true });
+    expect(wa.txBody!.paragraphs[0]!.runs[0]!.sz).toBe(54);
   });
 
   it('notas do apresentador viram notesSlide (placeholder body) + notesMaster', () => {
