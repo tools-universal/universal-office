@@ -887,6 +887,8 @@ function playEmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
 
 interface WmfDc {
   mapMode: number; winOrg: Pt; winExt: Pt; vpOrg: Pt; vpExt: Pt;
+  /** SCALEVIEWPORTEXT acumulado sobre a viewport do chamador (= a caixa → dest) */
+  vpScale: Pt;
   pen: Pen; brush: Brush; font: Font;
   textColor: string; bkColor: string; bkMode: number; textAlign: number; polyFill: number;
   cur: Pt; clip: Cmd[][];
@@ -1097,7 +1099,7 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     else { box[2] = 1000; box[3] = 1000; }
   }
   let dc: WmfDc = {
-    mapMode: 1, winOrg: [box[0], box[1]], winExt: [box[2] - box[0] || 1, box[3] - box[1] || 1], vpOrg: [0, 0], vpExt: [1, 1],
+    mapMode: 1, winOrg: [box[0], box[1]], winExt: [box[2] - box[0] || 1, box[3] - box[1] || 1], vpOrg: [0, 0], vpExt: [1, 1], vpScale: [1, 1],
     pen: { style: 0, width: 0, color: '#000000' }, brush: { style: 0, color: '#ffffff' }, font: DEF_FONT,
     textColor: '#000000', bkColor: '#ffffff', bkMode: 2, textAlign: 0, polyFill: 1, cur: [0, 0], clip: [],
   };
@@ -1111,12 +1113,12 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
     // janela → caixa (na escala da 1ª janela = caixa): u = box + (x − org)·(box/ext)?
     // No WMF "placeable" a convenção é: lógico == coordenadas da caixa quando a janela
     // é a própria caixa; janelas diferentes reescalam relativo à caixa.
-    const ux = bx + ((x - dc.winOrg[0]) * bw) / (dc.winExt[0] || 1);
-    const uy = by + ((y - dc.winOrg[1]) * bh) / (dc.winExt[1] || 1);
+    const ux = bx + ((x - dc.winOrg[0]) * bw * dc.vpScale[0]) / (dc.winExt[0] || 1);
+    const uy = by + ((y - dc.winOrg[1]) * bh * dc.vpScale[1]) / (dc.winExt[1] || 1);
     return [dest.x + ((ux - bx) * dest.w) / bw, dest.y + ((uy - by) * dest.h) / bh];
   };
-  const kx = (): number => Math.abs(dest.w / (dc.winExt[0] || 1));
-  const ky = (): number => Math.abs(dest.h / (dc.winExt[1] || 1));
+  const kx = (): number => Math.abs((dest.w * dc.vpScale[0]) / (dc.winExt[0] || 1));
+  const ky = (): number => Math.abs((dest.h * dc.vpScale[1]) / (dc.winExt[1] || 1));
   const paint = (): Paint => ({ pen: dc.pen, brush: dc.brush, polyFill: dc.polyFill, penScale: Math.sqrt(kx() * ky()), hairline: Math.max(0.5, dest.w / 1000), clip: dc.clip });
   const draw = (cmds: Cmd[], fill: boolean): void => paintPath(ctx, paint(), cmds, fill, true);
   const poly = (o: number, n: number, closed: boolean): Cmd[] => {
@@ -1172,6 +1174,11 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
       case 0x020f: dc.winOrg = [dc.winOrg[0] + i16(p + 2), dc.winOrg[1] + i16(p)]; break; // OFFSETWINDOWORG
       case 0x0410: { // SCALEWINDOWEXT (yDenom, yNum, xDenom, xNum)
         dc.winExt = [Math.round((dc.winExt[0] * i16(p + 6)) / (i16(p + 4) || 1)), Math.round((dc.winExt[1] * i16(p + 2)) / (i16(p) || 1))];
+        break;
+      }
+      case 0x0412: { // SCALEVIEWPORTEXT (yDenom, yNum, xDenom, xNum): o PowerPoint grava
+        // metarquivo dentro de metarquivo assim — a viewport do chamador (caixa → dest) é reescalada
+        if (dc.mapMode === 7 || dc.mapMode === 8) dc.vpScale = [dc.vpScale[0] * i16(p + 6) / (i16(p + 4) || 1), dc.vpScale[1] * i16(p + 2) / (i16(p) || 1)];
         break;
       }
       case 0x0102: dc.bkMode = u16(p); break;
