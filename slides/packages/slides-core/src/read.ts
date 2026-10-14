@@ -896,7 +896,8 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
   // forma de mesmo spid no desenho VML do slide (2007)
   const ole = firstChild(data, 'p:oleObj') ?? descend(data, 'p:oleObj');
   if (ole) {
-    const pic = descend(ole, 'p:pic');
+    // mc:Choice sem prévia (só <p:embed/>): a <p:pic> do mc:Fallback vale (lo-tdf143222)
+    const pic = descend(ole, 'p:pic') ?? descend(data, 'p:pic');
     const img = pic ? readPic(pic, theme, pkg, rels).image : olePreviewFromVml(ole.attrs['spid'], pkg, rels, theme);
     if (img) shape.image = img;
   }
