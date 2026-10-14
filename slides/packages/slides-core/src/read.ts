@@ -961,19 +961,22 @@ function readDiagramShapes(pkg: PptxPackage, drawingPath: string, theme: Theme, 
     if (sh.xfrm) out.push(sh);
   }
   if (!out.length) return out;
-  // bbox do conjunto → escala/translação para o retângulo do frame
+  // as coordenadas do desenho são as do PRÓPRIO quadro (origem no canto dele): só
+  // desloca. Reescala apenas se o conjunto (caixas GIRADAS) não couber — quadro
+  // redimensionado por outro gerador sem refazer o desenho
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const sh of out) {
     const f = sh.xfrm!;
-    if (f.x < minX) minX = f.x;
-    if (f.y < minY) minY = f.y;
-    if (f.x + f.cx > maxX) maxX = f.x + f.cx;
-    if (f.y + f.cy > maxY) maxY = f.y + f.cy;
+    const th = ((f.rot ?? 0) / 60000) * Math.PI / 180, co = Math.abs(Math.cos(th)), si = Math.abs(Math.sin(th));
+    const w = f.cx * co + f.cy * si, h = f.cx * si + f.cy * co, cx = f.x + f.cx / 2, cy = f.y + f.cy / 2;
+    minX = Math.min(minX, cx - w / 2); minY = Math.min(minY, cy - h / 2);
+    maxX = Math.max(maxX, cx + w / 2); maxY = Math.max(maxY, cy + h / 2);
   }
   const bw = maxX - minX || 1, bh = maxY - minY || 1;
-  const s = Math.min(frame.cx / bw, frame.cy / bh);
-  const ox = frame.x + (frame.cx - bw * s) / 2 - minX * s;
-  const oy = frame.y + (frame.cy - bh * s) / 2 - minY * s;
+  const fits = minX >= -0.05 * frame.cx && minY >= -0.05 * frame.cy && maxX <= frame.cx * 1.05 && maxY <= frame.cy * 1.05;
+  const s = fits ? 1 : Math.min(frame.cx / bw, frame.cy / bh);
+  const ox = fits ? frame.x : frame.x + (frame.cx - bw * s) / 2 - minX * s;
+  const oy = fits ? frame.y : frame.y + (frame.cy - bh * s) / 2 - minY * s;
   for (const sh of out) {
     const f = sh.xfrm!;
     f.x = ox + f.x * s;
