@@ -32,7 +32,7 @@ export type PresetPath =
   /** Retângulo arredondado com raio em unidades do rect. */
   | { kind: 'roundRect'; r: number }
   /** Path genérico (beziers/arcos, múltiplos subpaths, fillRule opcional).
-   *  `subLum` (paralelo a subs): offset de luminância HSL do FILL por subpath
+   *  `subLum` (paralelo a subs): sombreado do FILL por subpath (v<0: RGB×(1+v); v>0: v rumo ao branco)
    *  (sombreado 3D de can/cube; null = subpath só de stroke, não preenche). */
   | { kind: 'path'; fillRule?: 'evenodd'; subs: PathSeg[][]; subLum?: (number | null)[]; subStroke?: boolean[] };
 
@@ -337,7 +337,7 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
             { c: 'Z' },
           ],
         ],
-        subLum: [0, 0.18],
+        subLum: [0, 0.4], // tampa: lighten
       };
     }
     case 'cube': { // adj=25000 → profundidade ss/4; faces sombreadas como o app
@@ -358,7 +358,7 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
             { c: 'L', x: w - d, y: h }, { c: 'Z' },
           ],
         ],
-        subLum: [0, 0.15, -0.15],
+        subLum: [0, 0.2, -0.2], // topo lightenLess, lado darkenLess
       };
     }
     default:
@@ -368,7 +368,7 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
         const cx = w / 2, cy = h / 2, g = Math.min(w, h) * 0.3;
         const glyph = actionGlyph(geom, cx, cy, g);
         // a dobra do Document é RECORTE: volta à cor da face (lum 0)
-        const lums = glyph.map((_, i) => (geom === 'actionButtonDocument' && i === 1 ? 0 : -0.25));
+        const lums = glyph.map((_, i) => (geom === 'actionButtonDocument' && i === 1 ? 0 : -0.4));
         return {
           kind: 'path',
           subs: [

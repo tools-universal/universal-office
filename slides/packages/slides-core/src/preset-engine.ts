@@ -88,11 +88,48 @@ function evalFormula(f: string[], val: (t: string) => number): number {
   }
 }
 
+/**
+ * Guias de uma geometria PERSONALIZADA (`<a:custGeom>` com `avLst`/`gdLst` em
+ * fórmulas — LibreOffice grava assim os presets): resolvedor de nome/número
+ * para um retângulo w×h. Fórmula malformada vale 0 (não lança).
+ */
+export function customGuides(av: [string, string[]][], gd: [string, string[]][], w: number, h: number): (t: string) => number {
+  const vars = builtins(w, h);
+  const val = (t: string): number => {
+    const v = vars.get(t);
+    if (v !== undefined) return v;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : 0;
+  };
+  for (const [n, f] of av) vars.set(n, evalFormula(f, val));
+  for (const [n, f] of gd) vars.set(n, evalFormula(f, val));
+  return val;
+}
+
+/**
+ * `arcTo` que continua do ponto (cx, cy): elipse rx×ry em que o ponto atual está
+ * no ângulo stAng (1/60000°), varrendo swAng. Devolve o segmento e o ponto final.
+ */
+export function arcToSeg(cx: number, cy: number, rx: number, ry: number, stAng: number, swAng: number): { seg: PathSeg; x: number; y: number } | null {
+  const st = stAng * DEG, sw = swAng * DEG;
+  if (rx <= 0 || ry <= 0 || sw === 0) return null;
+  const param = (a: number): number => Math.atan2(rx * Math.sin(a), ry * Math.cos(a));
+  const p0 = param(st);
+  let p1 = param(st + sw);
+  if (Math.abs(sw) >= 2 * Math.PI - 1e-9) p1 = p0 + Math.sign(sw) * 2 * Math.PI;
+  else if (sw > 0) { while (p1 <= p0) p1 += 2 * Math.PI; }
+  else { while (p1 >= p0) p1 -= 2 * Math.PI; }
+  const ecx = cx - rx * Math.cos(p0), ecy = cy - ry * Math.sin(p0);
+  return { seg: { c: 'E', cx: ecx, cy: ecy, rx, ry, a0: p0, a1: p1, ccw: sw < 0 }, x: ecx + rx * Math.cos(p1), y: ecy + ry * Math.sin(p1) };
+}
+
 /** Geometria resolvida: subcaminhos + preenchimento (null = sem; número = deslocamento de luminância) + contorno. */
 export interface PresetGeometry { subs: PathSeg[][]; fill: (number | null)[]; stroke: boolean[] }
 
 /** Sombreado dos caminhos (`fill="darken"…`) como deslocamento de luminância. */
-const SHADE: Record<string, number | null> = { none: null, darken: -0.2, darkenLess: -0.1, lighten: 0.2, lightenLess: 0.1 };
+// medido (lo-cshapes, PowerPoint): darken = RGB×0,6, darkenLess = ×0,8, lighten = 40% rumo ao
+// branco, lightenLess = 20% — negativo multiplica (1+v), positivo clareia v (ver shadeRgb)
+const SHADE: Record<string, number | null> = { none: null, darken: -0.4, darkenLess: -0.2, lighten: 0.4, lightenLess: 0.2 };
 
 /**
  * Caminhos do preset `name` num retângulo w×h (origem 0,0), com os ajustes da

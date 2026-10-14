@@ -13,7 +13,6 @@
 import { parseChart, paintChart, chartPartBounds, setChartFontStack, type ChartModel, type ChartSel } from './chart-engine.js';
 import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine } from './text-layout.js';
 import { presetPath } from './geometry.js';
-import { lumHsl } from './theme.js';
 import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run, type ImageRef, type ImageFx } from './model.js';
 import type { ShapeAnimHooks, PartState, AnimBase, UnitRef } from './anim-engine.js';
 import { applyReveal, applySoftReveal, softRevealFilter } from './reveal.js';
@@ -524,6 +523,17 @@ function cameraMatrix(r: { lat: number; lon: number; rev: number }): [number, nu
   return [M[0]![0]!, M[1]![0]!, M[0]![1]!, M[1]![1]!];
 }
 
+/**
+ * Face sombreada de geometria (`<a:path fill="darken|lighten…">`): v < 0 multiplica o
+ * RGB por 1+v (darken ×0,6, darkenLess ×0,8); v > 0 leva v rumo ao branco (lighten
+ * 40%, lightenLess 20%) — medido no app (lo-cshapes), direto no sRGB.
+ */
+function shadeRgb(hex: string, v: number): string {
+  const n = parseInt(hex.replace('#', ''), 16) || 0;
+  const f = (c: number): number => Math.round(v < 0 ? c * (1 + v) : c + (255 - c) * v);
+  return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;
+}
+
 /** `rgba()` de uma cor #RRGGBB com alpha. */
 function rgbaOf(hex: string, a: number): string {
   const n = parseInt(hex.replace('#', ''), 16) || 0;
@@ -901,14 +911,25 @@ function paintBody(
     } else if (sh.fill!.type === 'solid' && sh.fill!.color) {
       // sombreado por face (can/cube): cada subpath preenche com a luminância
       // deslocada; demais geometrias preenchem o path combinado de uma vez.
-      const desc = sh.custGeom ? null : presetPath(sh.geom, w, h, sh.adj, sh.adjNames);
-      if (desc && desc.kind === 'path' && desc.subLum) {
+      const cg = sh.custGeom;
+      const desc = cg ? null : presetPath(sh.geom, w, h, sh.adj, sh.adjNames);
+      if (cg?.lum) {
+        // geometria personalizada com faces sombreadas (<a:path fill="darken">…)
+        for (let i = 0; i < cg.subs.length; i++) {
+          if (cg.noFill?.[i]) continue;
+          const lum = cg.lum[i] ?? 0;
+          ctx.beginPath();
+          drawSegs(ctx, [cg.subs[i]!], x, y, w / cg.w, h / cg.h);
+          ctx.fillStyle = lum === 0 ? sh.fill!.color! : shadeRgb(sh.fill!.color!, lum);
+          ctx.fill();
+        }
+      } else if (desc && desc.kind === 'path' && desc.subLum) {
         for (let i = 0; i < desc.subs.length; i++) {
           const lum = desc.subLum[i];
           if (lum === null || lum === undefined) continue;
           ctx.beginPath();
           drawSegs(ctx, [desc.subs[i]!], x, y, 1, 1);
-          ctx.fillStyle = lum === 0 ? sh.fill!.color! : lumHsl(sh.fill!.color!, 1, lum);
+          ctx.fillStyle = lum === 0 ? sh.fill!.color! : shadeRgb(sh.fill!.color!, lum);
           ctx.fill();
         }
       } else {

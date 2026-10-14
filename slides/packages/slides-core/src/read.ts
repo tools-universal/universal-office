@@ -1,5 +1,6 @@
 import { parseXml, childElements, firstChild, lastChild, fillAlphaEl, textContent, descend, type XmlElement } from './xml.js';
 import type { PathSeg } from './geometry.js';
+import { customGuides, arcToSeg } from './preset-engine.js';
 import { readTheme, colorFromDml, solidFillColor, applyClrMap, clrMapAttrs, textFillColor } from './theme.js';
 import { patternDensity } from './patterns.js';
 import { diagramFallbackShapes, type DgmStyle } from './diagram-fallback.js';
@@ -1130,7 +1131,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
     // geometria custom (freeform): <a:custGeom><a:pathLst><a:path w h>…
     const cust = firstChild(spPr, 'a:custGeom');
     if (cust) {
-      const cg = parseCustGeom(cust);
+      const cg = parseCustGeom(cust, shape.xfrm?.cx, shape.xfrm?.cy);
       if (cg) shape.custGeom = cg;
     }
     if (firstChild(spPr, 'a:noFill')) shape.fill = { type: 'none' };
@@ -1250,37 +1251,54 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
  * do próprio path (`<a:path w h>`); o renderer escala para o xfrm da shape.
  * Cobre moveTo/lnTo/cubicBezTo/quadBezTo/close (freeforms do app de referência).
  */
-function parseCustGeom(cust: XmlElement): { w: number; h: number; subs: PathSeg[][]; noFill?: boolean[]; noStroke?: boolean[] } | undefined {
+function parseCustGeom(cust: XmlElement, shapeW?: number, shapeH?: number): { w: number; h: number; subs: PathSeg[][]; noFill?: boolean[]; noStroke?: boolean[]; lum?: number[] } | undefined {
   const pathLst = firstChild(cust, 'a:pathLst');
   if (!pathLst) return undefined;
   const subs: PathSeg[][] = [];
   const noFill: boolean[] = [], noStroke: boolean[] = [];
+  // fill="darken|darkenLess|lighten|lightenLess": face mais escura/clara (como nos presets)
+  const lum: number[] = [];
+  const SHADE: Record<string, number> = { darken: -0.4, darkenLess: -0.2, lighten: 0.4, lightenLess: 0.2 };
   const sizes: [number, number][] = [];
   let pw = 0, ph = 0;
-  const pt = (el: XmlElement | undefined): { x: number; y: number } => ({
-    x: el?.attrs['x'] !== undefined ? parseInt(el.attrs['x'], 10) : 0,
-    y: el?.attrs['y'] !== undefined ? parseInt(el.attrs['y'], 10) : 0,
-  });
+  // guias em fórmula (avLst/gdLst — o LibreOffice grava os presets assim): os pontos
+  // citam guias pelo nome, avaliadas no tamanho da forma (EMU); sem w/h no <a:path>,
+  // o caminho está nesse mesmo sistema
+  const sw = shapeW && shapeW > 0 ? shapeW : 0, sh = shapeH && shapeH > 0 ? shapeH : 0;
+  const guides = (el: XmlElement | undefined): [string, string[]][] => (el ? childElements(el, 'a:gd') : [])
+    .slice(0, 2000).map((g) => [g.attrs['name'] ?? '', (g.attrs['fmla'] ?? '').trim().split(/\s+/)] as [string, string[]]);
+  const val = customGuides(guides(firstChild(cust, 'a:avLst')), guides(firstChild(cust, 'a:gdLst')), sw || 21600, sh || 21600);
+  const num = (t: string | undefined): number => (t === undefined ? 0 : /^-?\d+$/.test(t) ? parseInt(t, 10) : val(t));
+  const pt = (el: XmlElement | undefined): { x: number; y: number } => ({ x: num(el?.attrs['x']), y: num(el?.attrs['y']) });
   for (const path of childElements(pathLst, 'a:path')) {
     if (path.attrs['w']) pw = Math.max(pw, parseInt(path.attrs['w'], 10));
     if (path.attrs['h']) ph = Math.max(ph, parseInt(path.attrs['h'], 10));
     const segs: PathSeg[] = [];
+    let cx = 0, cy = 0;
     for (const el of childElements(path)) {
       const pts = childElements(el, 'a:pt');
-      if (el.name === 'a:moveTo') { const p = pt(pts[0]); segs.push({ c: 'M', x: p.x, y: p.y }); }
-      else if (el.name === 'a:lnTo') { const p = pt(pts[0]); segs.push({ c: 'L', x: p.x, y: p.y }); }
+      if (el.name === 'a:moveTo') { const p = pt(pts[0]); segs.push({ c: 'M', x: p.x, y: p.y }); cx = p.x; cy = p.y; }
+      else if (el.name === 'a:lnTo') { const p = pt(pts[0]); segs.push({ c: 'L', x: p.x, y: p.y }); cx = p.x; cy = p.y; }
       else if (el.name === 'a:cubicBezTo') {
         const p1 = pt(pts[0]), p2 = pt(pts[1]), p3 = pt(pts[2]);
-        segs.push({ c: 'C', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, x: p3.x, y: p3.y });
+        segs.push({ c: 'C', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, x: p3.x, y: p3.y }); cx = p3.x; cy = p3.y;
       } else if (el.name === 'a:quadBezTo') {
         const p1 = pt(pts[0]), p2 = pt(pts[1]);
-        segs.push({ c: 'Q', x1: p1.x, y1: p1.y, x: p2.x, y: p2.y });
+        segs.push({ c: 'Q', x1: p1.x, y1: p1.y, x: p2.x, y: p2.y }); cx = p2.x; cy = p2.y;
+      } else if (el.name === 'a:arcTo') {
+        const a = arcToSeg(cx, cy, num(el.attrs['wR']), num(el.attrs['hR']), num(el.attrs['stAng']), num(el.attrs['swAng']));
+        if (a) { segs.push(a.seg); cx = a.x; cy = a.y; }
       } else if (el.name === 'a:close') segs.push({ c: 'Z' });
     }
     if (segs.length) {
       subs.push(segs);
-      sizes.push([parseInt(path.attrs['w'] ?? '0', 10) || 0, parseInt(path.attrs['h'] ?? '0', 10) || 0]);
+      const ownW = parseInt(path.attrs['w'] ?? '0', 10) || 0, ownH = parseInt(path.attrs['h'] ?? '0', 10) || 0;
+      // caminho sem w/h: coordenadas no tamanho da forma
+      if (!ownW && sw) pw = Math.max(pw, sw);
+      if (!ownH && sh) ph = Math.max(ph, sh);
+      sizes.push([ownW || sw, ownH || sh]);
       noFill.push(path.attrs['fill'] === 'none');
+      lum.push(SHADE[path.attrs['fill'] ?? ''] ?? 0);
       noStroke.push(path.attrs['stroke'] === '0' || path.attrs['stroke'] === 'false');
     }
   }
@@ -1296,7 +1314,7 @@ function parseCustGeom(cust: XmlElement): { w: number; h: number; subs: PathSeg[
       if ('x2' in g) { g.x2 *= kx; g.y2 *= ky; }
     }
   });
-  return { w: pw || 1, h: ph || 1, subs, ...(noFill.some(Boolean) ? { noFill } : {}), ...(noStroke.some(Boolean) ? { noStroke } : {}) };
+  return { w: pw || 1, h: ph || 1, subs, ...(noFill.some(Boolean) ? { noFill } : {}), ...(noStroke.some(Boolean) ? { noStroke } : {}), ...(lum.some((v) => v !== 0) ? { lum } : {}) };
 }
 
 /**
