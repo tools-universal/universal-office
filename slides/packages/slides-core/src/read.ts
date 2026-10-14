@@ -139,7 +139,8 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
   const masterPath = layoutPath ? findRelTarget(pkg, layoutPath, 'slideMaster') : undefined;
   const inherited: Shape[] = [];
   let layoutShowMasterSp = true;
-  if (layoutPath) {
+  // no SLIDE, showMasterSp="0" = "ocultar gráficos de fundo": nem master nem layout
+  if (layoutPath && root.attrs['showMasterSp'] !== '0') {
     const lx = pkg.getPartText(layoutPath);
     if (lx !== undefined) {
       const lroot = parseXml(lx);
@@ -1634,6 +1635,18 @@ function readPic(pic: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<stri
     if (xfrm) shape.xfrm = parseXfrm(xfrm);
     const geom = firstChild(spPr, 'a:prstGeom');
     if (geom?.attrs['prst']) shape.geom = geom.attrs['prst'];
+    // preenchimento ATRÁS da imagem (prévias OLE/WMF transparentes com fundo branco)
+    const sf = firstChild(spPr, 'a:solidFill');
+    const sc = sf ? solidFillColor(spPr, theme) : undefined;
+    if (sc) {
+      shape.fill = { type: 'solid', color: sc };
+      const a = fillAlphaEl(sf!)?.attrs['val'];
+      if (a) shape.fillAlpha = parseInt(a, 10) / 100000;
+    } else {
+      const gf = firstChild(spPr, 'a:gradFill');
+      const g = gf ? parseGradFill(gf, theme) : undefined;
+      if (g) shape.fill = g;
+    }
     const ln = firstChild(spPr, 'a:ln');
     if (ln) {
       const lc = solidFillColor(ln, theme);
@@ -1827,6 +1840,11 @@ function resolveBlip(blip: XmlElement, pkg: PptxPackage, rels: Map<string, strin
 /** `<a:tile sx sy tx ty>` de um `<a:blipFill>` → escala/deslocamento do ladrilho na ImageRef. */
 function applyTile(ref: ImageRef, blipFill: XmlElement | undefined): boolean {
   const tile = blipFill ? firstChild(blipFill, 'a:tile') : undefined;
+  const fr = blipFill ? firstChild(firstChild(blipFill, 'a:stretch') ?? { name: '', attrs: {}, children: [] }, 'a:fillRect') : undefined;
+  if (fr && ['l', 't', 'r', 'b'].some((k) => fr.attrs[k] && fr.attrs[k] !== '0')) {
+    const v = (k: string): number => (fr.attrs[k] ? parseInt(fr.attrs[k]!, 10) / 100000 : 0);
+    ref.fillRect = { l: v('l'), t: v('t'), r: v('r'), b: v('b') };
+  }
   // sem <a:stretch> nem <a:tile>: o PowerPoint LADRILHA no tamanho natural (tdf#128596, medido)
   if (!tile && blipFill && !firstChild(blipFill, 'a:stretch')) { ref.tile = { sx: 1, sy: 1, tx: 0, ty: 0 }; return true; }
   if (!tile) return false;

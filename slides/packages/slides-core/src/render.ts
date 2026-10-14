@@ -256,7 +256,7 @@ function paintSlide(
     if (pat) {
       ctx.fillStyle = pat;
       ctx.fillRect(ox, oy, sw, sh);
-    } else if (bg) ctx.drawImage(bg, ox, oy, sw, sh);
+    } else if (bg) { const r = insetRect(slide.bgImage.fillRect, ox, oy, sw, sh); ctx.drawImage(bg, r.x, r.y, r.w, r.h); }
     ctx.restore();
   }
   const m: SlidePx = { ox, oy, sw, sh };
@@ -409,6 +409,12 @@ function fxImage(img: PaintImage, fx: ImageFx | undefined): PaintImage {
   const out = cv as unknown as PaintImage;
   m.set(key, out);
   return out;
+}
+
+/** Retângulo recuado pelo `<a:fillRect>` (frações dos lados). */
+function insetRect(fr: { l: number; t: number; r: number; b: number } | undefined, x: number, y: number, w: number, h: number): { x: number; y: number; w: number; h: number } {
+  if (!fr) return { x, y, w, h };
+  return { x: x + fr.l * w, y: y + fr.t * h, w: w * (1 - fr.l - fr.r), h: h * (1 - fr.t - fr.b) };
 }
 
 /** Ladrilho de imagem (`<a:tile>`): padrão em tamanho natural @96 dpi × escala, ancorado em (x0, y0). */
@@ -690,6 +696,15 @@ function paintBody(
     const rawPoster = res.images?.get(sh.image.part);
     const poster = rawPoster ? fxImage(rawPoster, sh.image.fx) : undefined;
     const img = ov.frame && ov.frame.alpha >= 1 ? ov.frame.image : poster;
+    // preenchimento do spPr do pic: atrás da imagem, na geometria
+    if (sh.fill && sh.fill.type !== 'none' && (sh.fill.color || sh.fill.stops)) {
+      ctx.save();
+      if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha *= sh.fillAlpha;
+      const rule = shapePath(ctx, sh.geom ?? 'rect', x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
+      ctx.fillStyle = sh.fill.type === 'gradient' && sh.fill.stops && sh.fill.stops.length >= 2 ? makeLinearGradient(ctx, sh.fill, x, y, w, h) : sh.fill.color ?? '#ffffff';
+      if (rule) ctx.fill(rule); else ctx.fill();
+      ctx.restore();
+    }
     if (img) {
       // sombra da shape aplicada à imagem (cards de foto de template)
       if (sh.shadow) {
@@ -824,7 +839,7 @@ function paintBody(
         const img = raw ? fxImage(raw, sh.fillImage.fx) : undefined;
         if (img && sh.fillImage.fx?.alpha !== undefined) ctx.globalAlpha *= sh.fillImage.fx.alpha;
         const pat = img && sh.fillTile ? tilePattern(ctx, img, sh.fillImage, fit.ox, fit.oy, fit.scale) : null;
-        if (pat) { ctx.fillStyle = pat; ctx.fillRect(fit.ox, fit.oy, sw, shh); } else if (img) ctx.drawImage(img, fit.ox, fit.oy, sw, shh);
+        if (pat) { ctx.fillStyle = pat; ctx.fillRect(fit.ox, fit.oy, sw, shh); } else if (img) { const r = insetRect(sh.fillImage.fillRect, fit.ox, fit.oy, sw, shh); ctx.drawImage(img, r.x, r.y, r.w, r.h); }
       } else if (sh.fill!.type === 'gradient' && sh.fill!.stops && sh.fill!.stops.length >= 2) {
         ctx.fillStyle = makeLinearGradient(ctx, sh.fill!, fit.ox, fit.oy, sw, shh);
         ctx.fillRect(fit.ox, fit.oy, sw, shh);
@@ -863,10 +878,11 @@ function paintBody(
         // esticada: padrão sem repetição transformado para a caixa (sem clip, mantém a sombra)
         const pat = ctx.createPattern(img as CanvasImageSource, 'no-repeat');
         if (pat && typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') {
-          pat.setTransform(new DOMMatrix([fw / (imgW(img) || 1), 0, 0, fh / (imgH(img) || 1), fx, fy]));
+          const r = insetRect(sh.fillImage.fillRect, fx, fy, fw, fh);
+          pat.setTransform(new DOMMatrix([r.w / (imgW(img) || 1), 0, 0, r.h / (imgH(img) || 1), r.x, r.y]));
           ctx.fillStyle = pat;
           if (rule) ctx.fill(rule); else ctx.fill();
-        } else { ctx.clip(); ctx.drawImage(img, fx, fy, fw, fh); }
+        } else { ctx.clip(); const r = insetRect(sh.fillImage.fillRect, fx, fy, fw, fh); ctx.drawImage(img, r.x, r.y, r.w, r.h); }
       }
     } else if (sh.fill!.pattern && presetPattern(ctx, sh.fill!.pattern, fit.ox, fit.oy, fit.scale)) {
       ctx.fillStyle = presetPattern(ctx, sh.fill!.pattern, fit.ox, fit.oy, fit.scale)!;

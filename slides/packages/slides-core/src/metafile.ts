@@ -93,8 +93,47 @@ export function rasterizeMetafile<C extends { getContext(id: '2d'): unknown; wid
   const cv = makeCanvas(w, h);
   const ctx = cv?.getContext('2d') as Ctx | null | undefined;
   if (!cv || !ctx) return undefined;
+  // cópia de bits que mistura origem e DESTINO (máscara SRCAND + SRCINVERT…): o app
+  // rasteriza a figura sobre BRANCO (medido: prévia OLE de .ppt sai com fundo branco)
+  if (metafileReadsDest(bytes)) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); }
   try { drawMetafile(ctx, bytes, 0, 0, w, h); } catch { /* metarquivo truncado: fica o que foi desenhado */ }
   return cv;
+}
+
+/** ROP3 que depende da origem E do destino (SRCAND, SRCPAINT, SRCINVERT…; não SRCCOPY/PATCOPY/D puro). */
+function rop3MixesDest(rop: number): boolean {
+  const r3 = (rop >>> 16) & 0xff;
+  const usesD = ((r3 & 0xaa) >>> 1) !== (r3 & 0x55), usesS = ((r3 & 0xcc) >>> 2) !== (r3 & 0x33);
+  return usesD && usesS;
+}
+
+/** O metarquivo copia bits misturando com o destino (bitblt/stretchblt/stretchdib com ROP3 assim). */
+export function metafileReadsDest(b: Uint8Array): boolean {
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  if (isEmf(b)) {
+    let pos = 0;
+    for (let guard = 0; pos + 8 <= b.length && guard < 500000; guard++) {
+      const type = dv.getUint32(pos, true), size = dv.getUint32(pos + 4, true);
+      if (size < 8 || pos + size > b.length || type === 14) break;
+      const at = type === 76 || type === 77 ? 40 : type === 81 ? 68 : -1;
+      const withBits = type === 81 || (pos + 92 <= b.length && dv.getUint32(pos + 88, true) > 0);
+      if (at >= 0 && withBits && pos + at + 4 <= b.length && rop3MixesDest(dv.getUint32(pos + at, true))) return true;
+      pos += size;
+    }
+    return false;
+  }
+  if (!isWmf(b)) return false;
+  let pos = b[0] === 0xd7 ? 22 : 0;
+  if (pos + 4 > b.length) return false;
+  pos += dv.getUint16(pos + 2, true) * 2;
+  for (let guard = 0; pos + 10 <= b.length && guard < 500000; guard++) {
+    const size = dv.getUint32(pos, true) * 2, fn = dv.getUint16(pos + 4, true);
+    if (fn === 0 || size < 6 || pos + size > b.length) break;
+    // DIBSTRETCHBLT, STRETCHDIB, DIBBITBLT, BITBLT, STRETCHBLT: RasterOperation no início
+    if ((fn === 0x0b41 || fn === 0x0f43 || fn === 0x0940 || fn === 0x0922 || fn === 0x0b23) && size >= 10 && rop3MixesDest(dv.getUint32(pos + 6, true))) return true;
+    pos += size;
+  }
+  return false;
 }
 
 /** Toca EMF/WMF no retângulo (x, y, w, h) do contexto. */
@@ -1285,6 +1324,15 @@ function playWmf(ctx: Ctx, bytes: Uint8Array, dest: { x: number; y: number; w: n
           const color = r3 === 0x00 ? '#000000' : r3 === 0xff ? '#ffffff' : r3 === 0xf0 ? dc.brush.color : undefined;
           if (color) withClip(ctx, dc.clip, () => { ctx.fillStyle = color; ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0)); });
         }
+        break;
+      }
+      case 0x061d: { // PATBLT: rop(4), height, width, yLeft, xLeft — pincel/preto/branco no retângulo
+        const rop = u32(p);
+        const hh = i16(p + 4), ww = i16(p + 6), yd = i16(p + 8), xd = i16(p + 10);
+        const [x0, y0] = P(xd, yd), [x1, y1] = P(xd + ww, yd + hh);
+        const r3 = (rop >>> 16) & 0xff;
+        const color = r3 === 0x00 ? '#000000' : r3 === 0xff ? '#ffffff' : r3 === 0xf0 && dc.brush.style !== 1 ? dc.brush.color : undefined;
+        if (color) withClip(ctx, dc.clip, () => { ctx.fillStyle = color; ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0)); });
         break;
       }
       case 0x0f43: { // STRETCHDIB: rop(4), usage, srcH, srcW, ySrc, xSrc, destH, destW, yDst, xDst, DIB

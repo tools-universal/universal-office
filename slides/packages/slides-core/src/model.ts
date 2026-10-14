@@ -90,6 +90,8 @@ export interface ImageRef {
   fx?: ImageFx;
   /** Ladrilho (`<a:tile>`): escala (1 = tamanho natural a 96 dpi) e deslocamento em EMU. */
   tile?: { sx: number; sy: number; tx: number; ty: number };
+  /** `<a:stretch><a:fillRect l t r b>`: a imagem esticada no retângulo recuado (frações; negativo = além). */
+  fillRect?: { l: number; t: number; r: number; b: number };
 }
 
 /** Efeitos de cor de imagem (DrawingML `<a:blip>`). Cores #RRGGBB, frações 0..1. */

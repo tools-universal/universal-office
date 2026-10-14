@@ -318,6 +318,9 @@ function fillOn(sh: OAShape, pc: PartCtx): boolean {
   if (placeholderOf(sh)) return false;
   const fc = prop(sh, 0x181);
   const defs = pc.conv.doc.drawingDefaults;
+  // moldura de imagem (75): cor própria ≠ a padrão do documento e ≠ a cor "preenchimento"
+  // do esquema (0x08000004) — 99,5% nas ~3,6 mil imagens convertidas pelo app (_lab/pic-fill.ts)
+  if (sh.type === 75) return fc !== undefined && fc !== defs.get(0x181)?.value && fc !== 0x08000004;
   if (fc !== undefined) return fc !== defs.get(0x181)?.value;
   if (sh.type === 202) return boolPropOpt({ props: defs } as OAShape, 0x1bf, 4) ?? true;
   return false;
