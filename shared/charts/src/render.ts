@@ -56,8 +56,16 @@ interface Rect { x: number; y: number; w: number; h: number }
 // ───────────── constantes medidas (pt) ─────────────
 /** Margem interna da área do gráfico. */
 const PAD = { t: 5, b: 7.2, l: 6, r: 7.5 };
-/** Tique principal "out"/"cross" (comprimento para fora). */
-const TICK = 3.75;
+/** Folga de baixo nos gráficos com eixos (a legenda embaixo desce junto, o eixo não). */
+const PAD_B_AXES = 5.7;
+/** Tique principal "out"/"cross" (comprimento para fora): TICK_K·(texto do eixo, pt) + TICK_B. */
+const TICK_K = 0.3;
+const TICK_B = 0.75;
+/** Rótulos de um eixo horizontal de valores: distância após o tique, em em (medido 6–32 pt; categorias: `catGap`). */
+const H_LBL_GAP = 0.4;
+/** Plotagem com eixo vertical: folga mínima no topo (rótulo extremo) e à direita sem legenda lá (pt). */
+const PLOT_MIN_T = 5.5;
+const PLOT_PAD_R = 3.75;
 const MINOR_TICK = 2.6;
 /** Título: deslocamento extra do topo e distância até a área de plotagem. */
 const TITLE_TOP = 3.75;
@@ -303,7 +311,9 @@ class Renderer {
     else if (p.kind === 'grad') c.strokeStyle = rgba(p.stops[0]!.color, p.stops[0]!.alpha);
     else if (p.kind === 'patt') c.strokeStyle = p.fg;
     else return false;
-    const w = Math.max(0.5, (l.w ?? defW) * this.S);
+    // traço mais fino que 1 px sai com 1 px cheio (medido, gdx-545393: eixo de
+    // 0,27 pt preto nítido no PowerPoint; w="0" = fio de cabelo), como nas formas
+    const w = Math.max(1, (l.w ?? defW) * this.S);
     c.lineWidth = w;
     c.setLineDash(dashPattern(l.dash, w));
     c.lineCap = l.cap === 'rnd' ? 'round' : l.cap === 'sq' ? 'square' : 'butt';
@@ -427,15 +437,19 @@ class Renderer {
         this.shapeRect(A, cs.sp, defFill, defLine, cs.roundedCorners ? 6 * this.o.pxPerPt : 0);
       }
       const S = this.S;
-      let inner: Rect = { x: A.x + PAD.l * S, y: A.y + PAD.t * S, w: A.w - (PAD.l + PAD.r) * S, h: A.h - (PAD.t + PAD.b) * S };
+      const pie = cs.groups.length > 0 && cs.groups.every(isPieLike);
+      const axes = !pie && cs.groups.length > 0 && !cs.groups.some((g) => g.kind === 'radar');
+      // gráfico com eixos: a folga de baixo é menor (medido, syn-a-ticks/ticks2: eixo e
+      // legenda de baixo 1,5–2,75 pt mais perto da borda que nos 7,2 pt de pizza/radar)
+      const padB = axes ? PAD_B_AXES : PAD.b;
+      let inner: Rect = { x: A.x + PAD.l * S, y: A.y + PAD.t * S, w: A.w - (PAD.l + PAD.r) * S, h: A.h - (PAD.t + padB) * S };
       // título
       const title = this.layoutTitle(inner);
       if (title && !title.overlay) { const d = TITLE_TOP * S + title.h + TITLE_GAP * S; inner = { ...inner, y: inner.y + d, h: inner.h - d }; }
       // legenda
-      const legend = this.layoutLegend(inner);
+      const legend = this.layoutLegend(inner, axes ? (PAD.b - PAD_B_AXES) * S : 0);
       if (legend && !legend.overlay) inner = legend.rest;
       // área de plotagem + eixos
-      const pie = cs.groups.length > 0 && cs.groups.every(isPieLike);
       if (pie) this.paintPies(inner);
       else if (cs.groups.some((g) => g.kind === 'radar')) this.paintRadar(inner);
       else if (cs.groups.length) this.paintAxesChart(inner);
@@ -547,7 +561,8 @@ class Renderer {
     return formatValue(v, s.catFmt ?? 'General', { locale: this.loc }).text;
   }
 
-  private layoutLegend(inner: Rect): { entries: ReturnType<Renderer['legendEntries']>; t: ResolvedText; rows: { x: number; y: number; e: ReturnType<Renderer['legendEntries']>[number] }[]; box: Rect; rest: Rect; overlay: boolean } | undefined {
+  /** `extraB`: folga a mais entre a legenda de baixo e a plotagem (gráficos com eixos). */
+  private layoutLegend(inner: Rect, extraB = 0): { entries: ReturnType<Renderer['legendEntries']>; t: ResolvedText; rows: { x: number; y: number; e: ReturnType<Renderer['legendEntries']>[number] }[]; box: Rect; rest: Rect; overlay: boolean } | undefined {
     const lg = this.cs.legend;
     if (!lg) return undefined;
     const entries = this.legendEntries();
@@ -574,24 +589,35 @@ class Renderer {
       rest = lg.pos === 'l' ? { x: inner.x + bw + gap, y: inner.y, w: inner.w - bw - gap, h: inner.h } : { x: inner.x, y: inner.y, w: inner.w - bw - gap, h: inner.h };
     } else {
       const sp = em * 1.2;
-      const lines: number[][] = [[]];
-      let lw = 0;
-      widths.forEach((wd, i) => {
-        const cur = lines[lines.length - 1]!;
-        if (cur.length && lw + sp + wd > inner.w) { lines.push([i]); lw = wd; } else { cur.push(i); lw += (cur.length > 1 ? sp : 0) + wd; }
-      });
-      const bh = lines.length * pitch;
+      const availW = lg.layout?.w !== undefined ? lg.layout.w * this.area.w : inner.w;
+      const n = widths.length;
+      // cabe numa linha: fluxo centrado; senão TABELA em ordem de linhas: colunas =
+      // ⌊largura ÷ (maior entrada + espaço)⌋, cada coluna com a largura da maior entrada
+      // DELA (medido, syn-a-legend #1: 8 entradas em 3 colunas de larguras diferentes
+      // onde caberiam 4; #5 e syn-a-legend2 #4: uma coluna só)
+      let cols = n;
+      let colW = widths.slice();
+      if (widths.reduce((a, w) => a + w, 0) + sp * (n - 1) > availW) {
+        cols = Math.max(1, Math.min(n - 1, Math.floor(availW / (Math.max(...widths) + sp))));
+        colW = Array.from({ length: cols }, (_, c) => Math.max(...widths.filter((_, i) => i % cols === c)));
+      }
+      const nRows = Math.ceil(n / cols);
+      const bh = nRows * pitch;
       const by = lg.pos === 't' ? inner.y : inner.y + inner.h - bh;
       let maxW = 0;
-      lines.forEach((ln, r) => {
-        const tw = ln.reduce((a, i) => a + widths[i]!, 0) + sp * (ln.length - 1);
-        maxW = Math.max(maxW, tw);
-        let x = inner.x + (inner.w - tw) / 2;
-        for (const i of ln) { rows.push({ x, y: by + pitch * (r + 0.5), e: entries[i]! }); x += widths[i]! + sp; }
-      });
+      if (nRows === 1) {
+        maxW = widths.reduce((a, w) => a + w, 0) + sp * (n - 1);
+        let x = inner.x + (inner.w - maxW) / 2;
+        entries.forEach((e, i) => { rows.push({ x, y: by + pitch / 2, e }); x += widths[i]! + sp; });
+      } else {
+        maxW = colW.reduce((a, w) => a + w, 0) + sp * (cols - 1);
+        const x0 = inner.x + (inner.w - maxW) / 2;
+        const colX = colW.map((_, c) => x0 + colW.slice(0, c).reduce((a, w) => a + w + sp, 0));
+        entries.forEach((e, i) => rows.push({ x: colX[i % cols]!, y: by + pitch * (Math.floor(i / cols) + 0.5), e }));
+      }
       box = { x: inner.x + (inner.w - maxW) / 2, y: by, w: maxW, h: bh };
       const gap = 4 * S;
-      rest = lg.pos === 't' ? { x: inner.x, y: inner.y + bh + gap, w: inner.w, h: inner.h - bh - gap } : { x: inner.x, y: inner.y, w: inner.w, h: inner.h - bh - gap };
+      rest = lg.pos === 't' ? { x: inner.x, y: inner.y + bh + gap, w: inner.w, h: inner.h - bh - gap } : { x: inner.x, y: inner.y, w: inner.w, h: inner.h - bh - gap - extraB };
     }
     if (lg.layout) {
       const A = this.area;
@@ -783,9 +809,27 @@ class Renderer {
     return tickValues(sc).map((v) => ({ v, s: formatValue(v / div, inf.fmt, { locale: this.loc }).text }));
   }
 
-  private tickLen(kind: Axis['majorTick']): { out: number; inn: number } {
-    const L = TICK * this.S;
+  /**
+   * Comprimento do tique principal (px): cresce com o texto do PRÓPRIO eixo
+   * (medido, syn-a-ticks2: 6 pt → 2,4 pt, 10 pt → 3,75 pt, 24 pt → 7,7 pt,
+   * 32 pt → 9,9 pt; só o tamanho do eixo de valores muda o tique dele).
+   */
+  private tickSize(a: Axis): number {
+    return (TICK_K * this.text(a.txPr).sz + TICK_B) * this.S;
+  }
+
+  private tickLen(a: Axis, kind: Axis['majorTick'] = a.majorTick): { out: number; inn: number } {
+    const L = this.tickSize(a);
     return kind === 'out' ? { out: L, inn: 0 } : kind === 'in' ? { out: 0, inn: L } : kind === 'cross' ? { out: L, inn: L } : { out: 0, inn: 0 };
+  }
+
+  /**
+   * Distância eixo → rótulos reservada pelo tique: a MESMA com tique para
+   * fora, para dentro, cruzado ou sem tique (medido: o eixo e os rótulos não
+   * se mexem entre none/in/out/cross — o espaço do tique fica vazio).
+   */
+  private lblTick(a: Axis): number {
+    return this.tickSize(a);
   }
 
   /** Retângulo interno de plotagem: desconta rótulos/títulos de eixo de cada lado (iterando 2×). */
@@ -801,26 +845,54 @@ class Renderer {
       if (pl.target !== 'outer') { for (const inf of infos) this.measureAxis(inf, r); return r; }
     }
     let plot = { ...r };
+    // nada à direita (legenda embaixo/em cima/sem legenda): a plotagem para
+    // 3,75 pt antes (medido: 11,25 pt da borda do gráfico com texto de 10 e 18 pt)
+    const lg = this.cs.legend;
+    const padR = lg && !lg.overlay && (lg.pos === 'r' || lg.pos === 'tr') ? 0 : PLOT_PAD_R * S;
     for (let it = 0; it < 3; it++) {
       const ext = { l: 0, r: 0, t: 0, b: 0 };
+      for (const inf of infos) this.measureAxis(inf, plot);
       for (const inf of infos) {
-        this.measureAxis(inf, plot);
+        // eixo que cruza o outro DENTRO da plotagem (zero entre negativos e positivos):
+        // os rótulos ficam junto dele, lá dentro — nada reservado na borda (medido,
+        // syn-a-mso07/16 #12: barras com negativos usam a altura toda)
+        if (this.crossesInside(inf, infos)) continue;
         const side = this.axisSide(inf);
         ext[side] = Math.max(ext[side], inf.extent);
       }
       // meia altura do rótulo extremo de um eixo vertical vaza para cima/baixo
       const vAx = infos.find((i) => i.dir === 'v' && i.showLabels);
       const halfT = vAx ? this.lineH(this.text(vAx.ax.txPr)) / 2 : 0;
-      const t = Math.max(ext.t, halfT - 1 * S), b = Math.max(ext.b, ext.b === 0 ? halfT : 0);
+      // (medido, syn-a-ticks2: 6–10 pt → 5,5 pt; 12/14/24/32 pt → 7/8,5/14,5/19 pt)
+      const t = Math.max(ext.t, vAx ? Math.max(PLOT_MIN_T * S, halfT - 0.25 * S) : 0), b = Math.max(ext.b, ext.b === 0 ? halfT : 0);
       const hAx = infos.find((i) => i.dir === 'h' && i.showLabels && i.scale);
       const halfR = hAx ? this.measure(this.valueLabels(hAx).at(-1)?.s ?? '', this.text(hAx.ax.txPr)) / 2 : 0;
       // categorias nas marcas (área/linha midCat): o último rótulo centrado na borda direita
       const cAx = infos.find((i) => i.dir === 'h' && i.showLabels && !i.scale && i.onTicks && !i.labelRot);
       const halfC = cAx ? Math.max(0, ...(cAx.labelLines.at(-1) ?? [cAx.cats?.at(-1) ?? '']).map((l) => this.measure(l, this.text(cAx.ax.txPr)))) / 2 : 0;
-      plot = { x: r.x + ext.l, y: r.y + t, w: r.w - ext.l - Math.max(ext.r, halfR, halfC), h: r.h - t - b };
+      plot = { x: r.x + ext.l, y: r.y + t, w: r.w - ext.l - Math.max(ext.r, halfR, halfC, padR), h: r.h - t - b };
       if (plot.w < 10 || plot.h < 10) { plot = { x: r.x + r.w * 0.1, y: r.y + r.h * 0.1, w: r.w * 0.8, h: r.h * 0.8 }; break; }
     }
     return plot;
+  }
+
+  /**
+   * Distância (em em) entre o tique e os rótulos de categoria de um eixo
+   * horizontal: 0,1 em + 0,3 em × lblOffset/100 (medido, syn-a-lbloff com
+   * 0/50/100/200/1000 a 16 pt, Aptos e Calibri iguais).
+   */
+  private catGap(a: Axis): number {
+    return 0.1 + 0.3 * Math.max(0, Math.min(1000, a.lblOffset)) / 100;
+  }
+
+  /** O eixo (rótulos junto dele, sem título) cruza o eixo de valores estritamente dentro da escala? */
+  private crossesInside(inf: AxisInfo, infos: AxisInfo[]): boolean {
+    const a = inf.ax;
+    if (a.deleted || a.title || inf.secondary || a.tickLblPos !== 'nextTo') return false;
+    const sc = infos.find((i) => i.ax === inf.cross)?.scale;
+    if (!sc || sc.log) return false;
+    const v = a.crossesAt ?? (a.crosses === 'autoZero' ? 0 : undefined);
+    return v !== undefined && v > sc.lo && v < sc.hi;
   }
 
   private axisSide(inf: AxisInfo): 'l' | 'r' | 't' | 'b' {
@@ -836,14 +908,15 @@ class Renderer {
     const a = inf.ax;
     const t = this.text(a.txPr);
     const em = t.sz * S;
-    const tk = this.tickLen(a.majorTick);
+    const tk = this.tickLen(a);
+    const off = this.lblTick(a);
     let ext = 0;
     if (inf.showLabels) {
-      const gap = tk.out + em * 0.6;
+      const gap = off + em * 0.6;
       if (inf.scale) {
         const labels = this.valueLabels(inf);
         if (inf.dir === 'v') ext = Math.max(0, ...labels.map((l) => this.measure(l.s, t))) + gap;
-        else ext = this.lineH(t) + tk.out + em * 0.3;
+        else ext = this.lineH(t) + off + em * H_LBL_GAP;
       } else {
         const n = inf.nCats ?? 1;
         const band = (inf.dir === 'h' ? plot.w : plot.h) / Math.max(1, inf.onTicks ? n - 1 || 1 : n);
@@ -857,11 +930,11 @@ class Renderer {
             inf.labelRot = rot;
             inf.labelLines = cats.map((s) => [s]);
             const rad = Math.abs(rot) * Math.PI / 180;
-            ext = maxW * Math.sin(rad) + this.lineH(t) * Math.cos(rad) + tk.out + em * 0.3;
+            ext = maxW * Math.sin(rad) + this.lineH(t) * Math.cos(rad) + off + em * this.catGap(a);
           } else if (maxW <= band * 0.98 || rot === 0) {
             inf.labelRot = 0;
             inf.labelLines = cats.map((s) => (rot === 0 && this.measure(s, t) > band ? this.wrap(s, t, band) : [s]));
-            ext = Math.max(1, ...inf.labelLines.map((l) => l.length)) * this.lineH(t) + tk.out + em * 0.3;
+            ext = Math.max(1, ...inf.labelLines.map((l) => l.length)) * this.lineH(t) + off + em * this.catGap(a);
           } else {
             // quebra em palavras se couber em até 3 linhas sem palavra maior que a faixa
             const wrapped = cats.map((s) => this.wrap(s, t, band * 0.98));
@@ -869,20 +942,20 @@ class Renderer {
             if (okWrap) {
               inf.labelRot = 0;
               inf.labelLines = wrapped;
-              ext = Math.max(...wrapped.map((l) => l.length)) * this.lineH(t) + tk.out + em * 0.3;
+              ext = Math.max(...wrapped.map((l) => l.length)) * this.lineH(t) + off + em * this.catGap(a);
             } else {
               inf.labelRot = -45;
               inf.labelLines = cats.map((s) => [s]);
               const lh = this.lineH(t);
               if (a.tickLblSkip === undefined) inf.labelSkip = Math.max(1, Math.ceil(lh * 1.05 / (band * Math.SQRT1_2)));
-              ext = Math.min(maxW * Math.SQRT1_2 + lh * Math.SQRT1_2, this.area.h * 0.45) + tk.out + em * 0.3;
+              ext = Math.min(maxW * Math.SQRT1_2 + lh * Math.SQRT1_2, this.area.h * 0.45) + off + em * this.catGap(a);
             }
           }
         } else {
           inf.labelLines = cats.map((s) => this.wrap(s, t, this.area.w * 0.4));
           const lh = this.lineH(t);
           if (a.tickLblSkip === undefined) inf.labelSkip = Math.max(1, Math.ceil(lh * 1.0 / Math.max(1, band)));
-          ext = Math.max(0, ...inf.labelLines.flat().map((s) => this.measure(s, t))) + tk.out + em * 0.6;
+          ext = Math.max(0, ...inf.labelLines.flat().map((s) => this.measure(s, t))) + off + em * 0.6;
         }
         if (inf.catLevels) ext += inf.catLevels.length * (this.lineH(t) + em * 0.3);
       }
@@ -995,7 +1068,7 @@ class Renderer {
       c.stroke();
       c.setLineDash([]);
       // tiques
-      const maj = this.tickLen(a.majorTick);
+      const maj = this.tickLen(a);
       const tickPos: number[] = [];
       const minorPos: number[] = [];
       if (inf.scale) {
@@ -1032,7 +1105,7 @@ class Renderer {
     const a = inf.ax;
     const t = this.text(a.txPr);
     const S = this.S, em = t.sz * S;
-    const tk = this.tickLen(a.majorTick);
+    const tk = this.lblTick(a);
     // tickLblPos low/high: rótulos na borda do plot e não junto do eixo
     let base = at;
     const side = this.axisSide(inf);
@@ -1043,10 +1116,10 @@ class Renderer {
       for (const { v, s } of this.valueLabels(inf)) {
         const p = this.pos(inf, plot, v);
         if (inf.dir === 'v') {
-          const x = base + sg * (tk.out + em * 0.6);
+          const x = base + sg * (tk + em * 0.6);
           this.drawLines([s], t, x, p, sg < 0 ? 'right' : 'left');
         } else {
-          const y = base + sg * (tk.out + em * 0.3 + this.lineH(t) / 2);
+          const y = base + sg * (tk + em * H_LBL_GAP + this.lineH(t) / 2);
           this.drawLines([s], t, p, y, 'center');
         }
       }
@@ -1059,7 +1132,7 @@ class Renderer {
       if (!lines.some((l) => l)) continue;
       const p = this.pos(inf, plot, i, true);
       if (inf.dir === 'h') {
-        const y0 = base + sg * (tk.out + em * 0.3);
+        const y0 = base + sg * (tk + em * this.catGap(a));
         if (inf.labelRot) {
           // rotacionado: o FIM do texto encosta no eixo (âncora à direita)
           const c = this.ctx;
@@ -1074,7 +1147,7 @@ class Renderer {
           c.restore();
         } else this.drawLines(lines, t, p, y0 + sg * (lines.length * lh) / 2, 'center');
       } else {
-        const x = base + sg * (tk.out + em * 0.6);
+        const x = base + sg * (tk + em * 0.6);
         this.drawLines(lines, t, x, p, sg < 0 ? 'right' : 'left');
       }
     }
@@ -1158,9 +1231,12 @@ class Renderer {
         let fill = this.pointFill(g, s, i, n);
         const dp = s.dPts.get(i);
         const inv = dp?.invertIfNegative ?? s.invertIfNegative;
-        if (inv && raw < 0 && fill.kind === 'solid') fill = { kind: 'solid', color: this.cs.bg1 };
+        const inverted = !!inv && raw < 0 && fill.kind === 'solid';
+        if (inverted) fill = { kind: 'solid', color: this.cs.bg1 };
         const sp: ShapeProps = { ...s.sp, ...(dp?.sp ?? {}) };
-        const line = mergeLine(s.sp.line, dp?.sp.line);
+        // invertida sem contorno próprio: branca com o contorno das linhas default
+        // (medido, syn-a-mso16 #12: preto 0,75 pt; as positivas seguem sem contorno)
+        const line = mergeLine(inverted ? this.defaultLine() : undefined, mergeLine(s.sp.line, dp?.sp.line));
         if (this.depth) this.box3D(r, fill, line);
         else this.shapeRect(r, { ...(sp.shadow ? { shadow: sp.shadow } : {}), ...(line ? { line } : {}) }, fill);
         off = 0;
@@ -1590,7 +1666,9 @@ class Renderer {
   private labelText(d: DLbls, s: Series, i: number, pct: number | undefined, kind: 'pie' | 'other', valOverride?: number): string {
     const parts: string[] = [];
     const v = valOverride ?? s.values[i];
-    const fmt = pickFmt(d.numFmt, s.fmt);
+    // formato vinculado: o do PONTO (`c:pt formatCode`) vence o do cache da série
+    // (gdx-545393 #12: cache "General", pontos "0%" → o PowerPoint mostra 29%)
+    const fmt = pickFmt(d.numFmt, (valOverride === undefined ? s.ptFmts?.[i] : undefined) ?? s.fmt);
     if (d.showSer) parts.push(s.name);
     if (d.showCat) parts.push(s.cats?.[i] ?? this.catNumLabel(s, i));
     if (d.showVal && v !== null && v !== undefined) parts.push(formatValue(v, fmt, { locale: this.loc }).text);

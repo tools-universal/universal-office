@@ -131,6 +131,47 @@ describe('cor DrawingML (hospedeiro sem resolvedor: Sheet)', () => {
   });
 });
 
+describe('quem gravou o arquivo (ChartHost.fileFormat)', () => {
+  const doc = (inner: string, plot: string, ax = AX) => xml(`<c:chartSpace>${inner}<c:chart><c:plotArea>${plot}${ax}</c:plotArea></c:chart></c:chartSpace>`);
+  const bar = (body: string, extra = '') => `<c:barChart><c:barDir val="col"/>${extra}${body}<c:axId val="1"/><c:axId val="2"/></c:barChart>`;
+  it('Office 2007: <c:x/> sem val = falso; tiques ausentes = out/none; cantos retos; linha reta; título automático', () => {
+    const h = { ...host, fileFormat: 'mso2007' as const };
+    const cs = parseChartSpace(doc('', bar(ser(0, [1, -2, 3, 4], '<c:invertIfNegative/>'), '<c:varyColors/>')), h);
+    expect(cs.groups[0]!.varyColors).toBe(false);
+    expect(cs.groups[0]!.series[0]!.invertIfNegative).toBe(false);
+    expect(cs.axes.map((a) => [a.majorTick, a.minorTick])).toEqual([['out', 'none'], ['out', 'none']]);
+    expect(cs.roundedCorners).toBe(false);
+    expect(cs.office2010).toBe(true); // linhas default cinza
+    expect(cs.title).toBeDefined(); // série única sem <c:title>
+    const ln = parseChartSpace(doc('', `<c:lineChart>${ser(0, [1, 2])}<c:axId val="1"/><c:axId val="2"/></c:lineChart>`), h);
+    expect(ln.groups[0]!.series[0]!.smooth).toBe(false);
+    expect(ln.groups[0]!.showMarker).toBe(true);
+  });
+  it('2010+: eixo sem <c:delete> some; grupo sem varyColors varia; dLbls sem show* mostram', () => {
+    const h = { ...host, fileFormat: 'modern' as const };
+    const cs = parseChartSpace(doc('', bar(ser(0, [1, 2], '<c:dLbls><c:showVal val="1"/></c:dLbls>'))), h);
+    expect(cs.axes.every((a) => a.deleted)).toBe(true);
+    expect(cs.groups[0]!.varyColors).toBe(true);
+    expect(cs.groups[0]!.series[0]!.dLbls).toMatchObject({ showVal: true, showCat: true, showSer: true });
+    expect(cs.roundedCorners).toBe(true);
+    expect(cs.title).toBeUndefined();
+  });
+  it('hospedeiro sem fileFormat (Sheet): comportamento anterior', () => {
+    const cs = parseChartSpace(doc('', bar(ser(0, [1, 2]), '<c:varyColors/>')), host);
+    expect(cs.groups[0]!.varyColors).toBe(true);
+    expect(cs.axes.some((a) => a.deleted)).toBe(false);
+    expect(cs.axes[0]!.majorTick).toBe('cross');
+  });
+  it('formato do ponto (c:pt formatCode) no rótulo de dados', () => {
+    const c = rec();
+    const pts = '<c:val><c:numRef><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="2"/><c:pt idx="0" formatCode="0%"><c:v>0.29</c:v></c:pt><c:pt idx="1"><c:v>0.5</c:v></c:pt></c:numCache></c:numRef></c:val>';
+    const s = `<c:ser><c:idx val="0"/><c:order val="0"/><c:dLbls><c:showVal val="1"/></c:dLbls>${pts}</c:ser>`;
+    paintChartSpace(c, parseChartSpace(space(bar(s)), host), 0, 0, 600, 400, { pxPerPt: 1.333 });
+    expect(c.texts).toContain('29%');
+    expect(c.texts).toContain('0,5');
+  });
+});
+
 describe('preenchimento de imagem (a:blipFill)', () => {
   const area = (fill: string) => xml(`<c:chartSpace><c:chart><c:plotArea/></c:chart><c:spPr>${fill}</c:spPr></c:chartSpace>`);
   const blipHost = { ...host, blip: (el: XmlNode) => (el.attrs['r:embed'] === 'rId3' ? 'ppt/media/image1.jpeg' : undefined) };

@@ -861,6 +861,7 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
           shape.chartTheme = chartThemeFor(pkg, target, theme);
           const imgs = chartImagesFor(pkg, target, xml);
           if (imgs) shape.chartImages = imgs;
+          shape.chartFormat = chartFileFormat(pkg);
         }
       }
     }
@@ -989,6 +990,25 @@ function chartImagesFor(pkg: PptxPackage, chartPath: string, xml: string): Recor
     if (bytes) (out ??= {})[rid] = { part, bytes, mime };
   }
   return out;
+}
+
+const chartFormatCache = new WeakMap<PptxPackage, 'mso2007' | 'modern'>();
+
+/**
+ * Deck gravado pelo Office 2007 (`docProps/app.xml`: Application "Microsoft…"
+ * e AppVersion 12.x): o PowerPoint lê os gráficos dele com o sentido antigo
+ * de elementos ausentes e booleanos sem val (medido, syn-a-mso07 × syn-a-mso16).
+ */
+function chartFileFormat(pkg: PptxPackage): 'mso2007' | 'modern' {
+  let f = chartFormatCache.get(pkg);
+  if (!f) {
+    const app = pkg.getPartText('docProps/app.xml') ?? '';
+    const name = /<Application>([^<]*)</.exec(app)?.[1]?.trim() ?? '';
+    const ver = /<AppVersion>([^<]*)</.exec(app)?.[1]?.trim() ?? '';
+    f = /^Microsoft/i.test(name) && /^12\./.test(ver) ? 'mso2007' : 'modern';
+    chartFormatCache.set(pkg, f);
+  }
+  return f;
 }
 
 /** Campos definidos de uma forma (para mesclar master → layout). */

@@ -299,6 +299,8 @@ export interface Shape {
   chartTheme?: Theme;
   /** Imagens dos `a:blipFill` do gráfico (rels da parte do gráfico), por r:id. */
   chartImages?: Record<string, ImageRef>;
+  /** Deck gravado pelo Office 2007 (AppVersion 12) ou posterior: muda o sentido de elementos ausentes no gráfico. */
+  chartFormat?: 'mso2007' | 'modern';
   /** Tabela embutida (`<a:tbl>` dentro de `<p:graphicFrame>`). */
   table?: Table;
   /**

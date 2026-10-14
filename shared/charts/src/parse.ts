@@ -3,7 +3,7 @@
  * Cores via `host.color` (o mesmo resolvedor DrawingML que o app usa para as
  * formas — clrMap e modificadores do jeito do app hospedeiro).
  */
-import { childElements, firstChild, textContent, descend, node, valNum, valBool, valStr, type XmlNode } from './xml.js';
+import { childElements, firstChild, textContent, descend, node, valNum, valStr, type XmlNode } from './xml.js';
 import type {
   ChartSpace, ChartTitle, TextProps, Paint, LineProps, ShapeProps, ManualLayout, RichPara, NumFmt, DLbls,
   Marker, DataPoint, Series, Group, GroupKind, Axis, Legend, GradStop,
@@ -27,6 +27,20 @@ export interface ChartHost {
    * ignorado (cai no default do estilo).
    */
   blip?(blip: XmlNode): string | undefined;
+  /**
+   * Quem gravou o arquivo muda o sentido de elementos AUSENTES e de booleanos
+   * sem `val` (medido no PowerPoint, decks syn-a-mso07/syn-a-mso16 com o MESMO
+   * XML e AppVersion 12 × 16):
+   * - 'mso2007' (Office 2007, AppVersion 12): `<c:x/>` sem val = FALSO; sem
+   *   tiques = principal "out", secundário nenhum; sem `roundedCorners` =
+   *   cantos retos; sem `smooth` = linha reta; sem `autoTitleDeleted` = título
+   *   automático (série única) não apagado;
+   * - 'modern' (2010+): `<c:x/>` = verdadeiro; eixo sem `<c:delete>` = APAGADO;
+   *   grupo sem `varyColors` = varia; `dLbls` sem algum show* = mostra;
+   * - nos dois: grupo de linhas sem `<c:marker>` mostra os marcadores.
+   * Ausente = o comportamento anterior (hospedeiro que não sabe a origem).
+   */
+  fileFormat?: 'mso2007' | 'modern';
 }
 
 /** Preenchimento DrawingML (filho de `el`: noFill/solid/grad/patt) → Paint, com o resolvedor de cor dado. */
@@ -49,6 +63,19 @@ function alphaOf(clr: XmlNode | undefined): number | undefined {
 
 class Parser {
   constructor(private host: ChartHost) {}
+
+  /** Arquivo do Office 2007 / do 2010+ (ver `ChartHost.fileFormat`). */
+  get v07(): boolean { return this.host.fileFormat === 'mso2007'; }
+  get modern(): boolean { return this.host.fileFormat === 'modern'; }
+
+  /** CT_Boolean: `<c:x/>` sem val = verdadeiro (spec, 2010+); no Office 2007 = falso (medido). */
+  bool(el: XmlNode | undefined, name: string): boolean | undefined {
+    const c = firstChild(el, name);
+    if (!c) return undefined;
+    const v = c.attrs['val'];
+    if (v === undefined) return !this.v07;
+    return v === '1' || v === 'true';
+  }
 
   color(clr: XmlNode | undefined): string | undefined {
     return clr ? this.host.color(clr) : undefined;
@@ -228,7 +255,7 @@ class Parser {
 
   title(el: XmlNode | undefined): ChartTitle | undefined {
     if (!el) return undefined;
-    const t: ChartTitle = { overlay: valBool(el, 'c:overlay') ?? false, sp: this.shape(firstChild(el, 'c:spPr')), txPr: this.textProps(firstChild(el, 'c:txPr')) };
+    const t: ChartTitle = { overlay: this.bool(el, 'c:overlay') ?? false, sp: this.shape(firstChild(el, 'c:spPr')), txPr: this.textProps(firstChild(el, 'c:txPr')) };
     const tx = firstChild(el, 'c:tx');
     const rich = firstChild(tx, 'c:rich');
     if (rich) {
@@ -268,9 +295,10 @@ class Parser {
 
   private dLblCommon(el: XmlNode): DLbls {
     const d: DLbls = { txPr: this.textProps(firstChild(el, 'c:txPr')), sp: this.shape(firstChild(el, 'c:spPr')) };
-    const del = valBool(el, 'c:delete');
+    const del = this.bool(el, 'c:delete');
     if (del !== undefined) d.delete = del;
-    const b = (k: string) => valBool(el, k);
+    // 2010+: show* ausente num dLbls/dLbl = mostra (medido, syn-a-mso16 #13)
+    const b = (k: string) => this.bool(el, k) ?? (this.modern ? true : undefined);
     const sv = b('c:showVal'), sc = b('c:showCatName'), ss = b('c:showSerName'), sp = b('c:showPercent'), sb = b('c:showBubbleSize'), sk = b('c:showLegendKey');
     if (sv !== undefined) d.showVal = sv;
     if (sc !== undefined) d.showCat = sc;
@@ -298,12 +326,13 @@ class Parser {
   }
 
   /** Cache numérico/texto de um `c:val`/`c:cat`/… (Ref ou Lit). */
-  nums(el: XmlNode | undefined): { vals: (number | null)[]; fmt?: string } | undefined {
+  nums(el: XmlNode | undefined): { vals: (number | null)[]; fmt?: string; ptFmts?: (string | undefined)[] } | undefined {
     if (!el) return undefined;
     const cache = descend(el, 'c:numCache') ?? descend(el, 'c:numLit');
     if (!cache) return undefined;
     const n = Math.min(100000, valNum(cache, 'c:ptCount') ?? 0);
     const vals: (number | null)[] = [];
+    let ptFmts: (string | undefined)[] | undefined;
     for (const pt of childElements(cache, 'c:pt')) {
       const i = parseInt(pt.attrs['idx'] ?? '-1', 10);
       if (!(i >= 0 && i < 100000)) continue;
@@ -311,10 +340,12 @@ class Parser {
       const x = v ? parseFloat(textContent(v)) : NaN;
       while (vals.length < i) vals.push(null);
       vals[i] = Number.isFinite(x) ? x : null;
+      const pf = pt.attrs['formatCode'];
+      if (pf) (ptFmts ??= [])[i] = pf;
     }
     while (vals.length < n) vals.push(null);
     const fc = firstChild(cache, 'c:formatCode');
-    return { vals, ...(fc ? { fmt: textContent(fc) } : {}) };
+    return { vals, ...(fc ? { fmt: textContent(fc) } : {}), ...(ptFmts ? { ptFmts } : {}) };
   }
 
   strs(el: XmlNode | undefined): string[] | undefined {
@@ -351,7 +382,7 @@ class Parser {
     };
     const xy = kind === 'scatter' || kind === 'bubble';
     const val = this.nums(firstChild(ser, xy ? 'c:yVal' : 'c:val'));
-    if (val) { s.values = val.vals; if (val.fmt) s.fmt = val.fmt; }
+    if (val) { s.values = val.vals; if (val.fmt) s.fmt = val.fmt; if (val.ptFmts) s.ptFmts = val.ptFmts; }
     const catEl = firstChild(ser, xy ? 'c:xVal' : 'c:cat');
     if (catEl) {
       const ml = descend(catEl, 'c:multiLvlStrCache') ?? descend(catEl, 'c:multiLvlStrLit');
@@ -372,9 +403,10 @@ class Parser {
     if (kind === 'bubble') { const b = this.nums(firstChild(ser, 'c:bubbleSize')); if (b) s.bubble = b.vals; }
     const mk = this.marker(firstChild(ser, 'c:marker'));
     if (mk) s.marker = mk;
-    const sm = valBool(ser, 'c:smooth');
+    // Office 2007: sem <c:smooth> = reta (2010+: suave, o default da pintura)
+    const sm = this.bool(ser, 'c:smooth') ?? (this.v07 ? false : undefined);
     if (sm !== undefined) s.smooth = sm;
-    const inv = valBool(ser, 'c:invertIfNegative');
+    const inv = this.bool(ser, 'c:invertIfNegative');
     if (inv !== undefined) s.invertIfNegative = inv;
     const ex = valNum(ser, 'c:explosion');
     if (ex !== undefined) s.explosion = ex;
@@ -386,7 +418,7 @@ class Parser {
       if (m) p.marker = m;
       const e = valNum(dp, 'c:explosion');
       if (e !== undefined) p.explosion = e;
-      const iv = valBool(dp, 'c:invertIfNegative');
+      const iv = this.bool(dp, 'c:invertIfNegative');
       if (iv !== undefined) p.invertIfNegative = iv;
       s.dPts.set(i, p);
     }
@@ -414,12 +446,12 @@ class Parser {
       kind, threeD, index,
       dir: valStr(el, 'c:barDir') === 'bar' ? 'bar' : 'col',
       grouping,
-      varyColors: valBool(el, 'c:varyColors') ?? (kind === 'pie' || kind === 'doughnut' || kind === 'ofPie'),
+      varyColors: this.bool(el, 'c:varyColors') ?? (this.modern || kind === 'pie' || kind === 'doughnut' || kind === 'ofPie'),
       gapWidth: valNum(el, 'c:gapWidth') ?? 150,
       overlap: valNum(el, 'c:overlap') ?? (grouping === 'stacked' || grouping === 'percentStacked' ? 100 : 0),
       holeSize: valNum(el, 'c:holeSize') ?? 10,
       firstSliceAng: valNum(el, 'c:firstSliceAng') ?? 0,
-      showMarker: kind === 'line' ? valBool(el, 'c:marker') ?? false : kind === 'scatter' || kind === 'radar',
+      showMarker: kind === 'line' ? this.bool(el, 'c:marker') ?? !!this.host.fileFormat : kind === 'scatter' || kind === 'radar',
       series: childElements(el, 'c:ser').map((s) => this.series(s, kind)),
       axIds: childElements(el, 'c:axId').map((a) => a.attrs['val'] ?? ''),
     };
@@ -452,12 +484,14 @@ class Parser {
     const kind = kinds[el.name];
     if (!kind) return undefined;
     const sc = firstChild(el, 'c:scaling');
-    const tick = (k: string): Axis['majorTick'] => (valStr(el, k) ?? 'cross') as Axis['majorTick'];
+    // ausente no Office 2007: principal "out", secundário nenhum (medido, gdx-545393 e
+    // syn-a-mso07 #1); senão "cross" (o default do schema)
+    const tick = (k: string): Axis['majorTick'] => (valStr(el, k) ?? (this.v07 && !firstChild(el, k) ? (k === 'c:majorTickMark' ? 'out' : 'none') : 'cross')) as Axis['majorTick'];
     const a: Axis = {
       id: valStr(el, 'c:axId') ?? '',
       kind,
       pos: (valStr(el, 'c:axPos') ?? 'b') as Axis['pos'],
-      deleted: valBool(el, 'c:delete') ?? false,
+      deleted: this.bool(el, 'c:delete') ?? this.modern,
       reversed: valStr(sc, 'c:orientation') === 'maxMin',
       crosses: (valStr(el, 'c:crosses') ?? 'autoZero') as Axis['crosses'],
       majorTick: tick('c:majorTickMark'),
@@ -466,7 +500,7 @@ class Parser {
       txPr: this.textProps(firstChild(el, 'c:txPr')),
       sp: this.shape(firstChild(el, 'c:spPr')),
       lblOffset: valNum(el, 'c:lblOffset') ?? 100,
-      noMultiLvlLbl: valBool(el, 'c:noMultiLvlLbl') ?? false,
+      noMultiLvlLbl: this.bool(el, 'c:noMultiLvlLbl') ?? false,
     };
     const mn = valNum(sc, 'c:min'), mx = valNum(sc, 'c:max'), lb = valNum(sc, 'c:logBase');
     if (mn !== undefined) a.min = mn;
@@ -509,14 +543,14 @@ class Parser {
     if (!el) return undefined;
     const lg: Legend = {
       pos: (valStr(el, 'c:legendPos') ?? 'r') as Legend['pos'],
-      overlay: valBool(el, 'c:overlay') ?? false,
+      overlay: this.bool(el, 'c:overlay') ?? false,
       deleted: new Set(),
       txPr: this.textProps(firstChild(el, 'c:txPr')),
       sp: this.shape(firstChild(el, 'c:spPr')),
     };
     for (const e of childElements(el, 'c:legendEntry')) {
       const i = valNum(e, 'c:idx');
-      if (i !== undefined && valBool(e, 'c:delete')) lg.deleted.add(i);
+      if (i !== undefined && this.bool(e, 'c:delete')) lg.deleted.add(i);
     }
     const lay = this.layout(el);
     if (lay) lg.layout = lay;
@@ -540,9 +574,12 @@ export function parseChartSpace(root: XmlNode, host: ChartHost): ChartSpace {
   const scheme = (v: string) => host.color(node('a:schemeClr', { val: v })) ?? '#000000';
   const cs: ChartSpace = {
     style: styleOf(root),
-    office2010: childElements(root, 'mc:AlternateContent').some((ac) => !!descend(ac, 'c14:style')),
-    // ausente = cantos arredondados (o Office desenha assim na moldura dos estilos 33–40)
-    roundedCorners: valBool(root, 'c:roundedCorners') ?? true,
+    // linhas default cinza (tx1 75%): gráfico com c14:style OU deck do Office 2007
+    // (medido, syn-a-mso07/ticks07: grade #898989 onde o deck 2016 sem c14 pinta preto)
+    office2010: P.v07 || childElements(root, 'mc:AlternateContent').some((ac) => !!descend(ac, 'c14:style')),
+    // ausente = cantos arredondados (o Office desenha assim na moldura dos estilos 33–40);
+    // no Office 2007, ausente = retos (medido, syn-a-mso07 #3)
+    roundedCorners: P.bool(root, 'c:roundedCorners') ?? !P.v07,
     autoTitleDeleted: false,
     groups: [],
     axes: [],
@@ -561,9 +598,9 @@ export function parseChartSpace(root: XmlNode, host: ChartHost): ChartSpace {
   if (!chart) return cs;
   const t = P.title(firstChild(chart, 'c:title'));
   if (t) cs.title = t;
-  cs.autoTitleDeleted = valBool(chart, 'c:autoTitleDeleted') ?? false;
+  cs.autoTitleDeleted = P.bool(chart, 'c:autoTitleDeleted') ?? false;
   const v3 = firstChild(chart, 'c:view3D');
-  if (v3) cs.view3D = { rotX: valNum(v3, 'c:rotX') ?? 15, rotY: valNum(v3, 'c:rotY') ?? 20, rAngAx: valBool(v3, 'c:rAngAx') ?? true, perspective: valNum(v3, 'c:perspective') ?? 30, depthPercent: valNum(v3, 'c:depthPercent') ?? 100 };
+  if (v3) cs.view3D = { rotX: valNum(v3, 'c:rotX') ?? 15, rotY: valNum(v3, 'c:rotY') ?? 20, rAngAx: P.bool(v3, 'c:rAngAx') ?? true, perspective: valNum(v3, 'c:perspective') ?? 30, depthPercent: valNum(v3, 'c:depthPercent') ?? 100 };
   for (const [k, f] of [['c:floor', 'floorSp'], ['c:backWall', 'backWallSp'], ['c:sideWall', 'sideWallSp']] as const) {
     const e = firstChild(chart, k);
     if (e) cs[f] = P.shape(firstChild(e, 'c:spPr'));
@@ -582,6 +619,11 @@ export function parseChartSpace(root: XmlNode, host: ChartHost): ChartSpace {
     }
   }
   fixAxes(cs);
+  // Office 2007: série única sem <c:title> e título automático não apagado = título
+  // com o nome da série (medido, syn-a-mso07 #10; no 2010+ só com <c:title>)
+  if (P.v07 && !cs.title && !cs.autoTitleDeleted && cs.groups.reduce((n, g) => n + g.series.length, 0) === 1) {
+    cs.title = { overlay: false, sp: {}, txPr: {} };
+  }
   const lg = P.legend(firstChild(chart, 'c:legend'));
   if (lg) cs.legend = lg;
   const db = valStr(chart, 'c:dispBlanksAs');

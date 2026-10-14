@@ -685,7 +685,7 @@ function paintBody(
     // XML igual com imagens de outras partes (rIdN relativo à parte) = outro modelo
     const key = sh.chartImages ? `${sh.chartXml}\u0000${Object.values(sh.chartImages).map((r) => r.part).join('|')}` : sh.chartXml;
     let model = res.charts?.get(key);
-    if (!model) { model = parseChart(sh.chartXml, sh.chartTheme, sh.chartImages); res.charts?.set(key, model); }
+    if (!model) { model = parseChart(sh.chartXml, sh.chartTheme, sh.chartImages, sh.chartFormat); res.charts?.set(key, model); }
     setChartFontStack(fontStack);
     const ppt = EMU_PER_POINT * fit.scale;
     const image = sh.chartImages ? chartImageResolver(sh.chartImages, res) : undefined;

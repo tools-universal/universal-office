@@ -51,8 +51,10 @@ const FALLBACK: Record<string, string> = {
 /**
  * `images`: imagens dos `a:blipFill` do gráfico por r:id (`Shape.chartImages`)
  * — o modelo guarda a PARTE da imagem, que a pintura busca decodificada.
+ * `fileFormat`: quem gravou o deck (`Shape.chartFormat`) — muda o sentido de
+ * elementos ausentes (ver `ChartHost.fileFormat`).
  */
-export function parseChart(xml: string, theme?: Theme, images?: Record<string, ImageRef>): ChartModel {
+export function parseChart(xml: string, theme?: Theme, images?: Record<string, ImageRef>, fileFormat?: 'mso2007' | 'modern'): ChartModel {
   let root: XmlElement;
   try { root = parseXml(xml); } catch { root = { name: 'c:chartSpace', attrs: {}, children: [] }; }
   const th: Theme = { ...(theme ?? {}), colors: { ...FALLBACK, ...(theme?.colors ?? {}) } };
@@ -62,6 +64,7 @@ export function parseChart(xml: string, theme?: Theme, images?: Record<string, I
       const rid = el.attrs['r:embed'] ?? el.attrs['embed'];
       return rid ? images?.[rid]?.part : undefined;
     },
+    ...(fileFormat ? { fileFormat } : {}),
     fonts: { ...(theme?.fonts?.minor ? { minor: theme.fonts.minor } : {}), ...(theme?.fonts?.major ? { major: theme.fonts.major } : {}) },
     fillStyle: (idx, ph) => {
       const el = theme?.fillStyles?.[idx - 1];

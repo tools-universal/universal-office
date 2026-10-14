@@ -122,6 +122,8 @@ export interface Series {
   xVals?: (number | null)[];
   bubble?: (number | null)[];
   fmt?: string;
+  /** Formato por ponto (`c:pt formatCode`), quando o cache traz — vence `fmt`. */
+  ptFmts?: (string | undefined)[];
   sp: ShapeProps;
   marker?: Marker;
   smooth?: boolean;
@@ -211,7 +213,7 @@ export interface View3D { rotX: number; rotY: number; rAngAx: boolean; perspecti
 export interface ChartSpace {
   /** `c:style` (1–48; default 2) — define cores/efeitos default. */
   style: number;
-  /** Gráfico do Office 2010+ (`c14:style`): linhas default cinza (tx1 tint 75%), não pretas. */
+  /** Gráfico do Office 2010+ (`c14:style`) ou deck do Office 2007: linhas default cinza (tx1 tint 75%), não pretas. */
   office2010: boolean;
   roundedCorners: boolean;
   title?: ChartTitle;
