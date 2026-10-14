@@ -1220,6 +1220,20 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
         if (fc) shape.fill = { type: 'solid', color: fc };
       }
     }
+    // degradê do spPr SEM <a:lin>/<a:path>: a direção vem do degradê do estilo do
+    // tema apontado pelo fillRef (medido, syn-gradnolin2: fillRef 2/3 com lin 90° →
+    // vertical; fillRef 1 sólido → o padrão horizontal)
+    const spPrEl = firstChild(sp, 'p:spPr');
+    const gfEl = spPrEl ? firstChild(spPrEl, 'a:gradFill') : undefined;
+    if (shape.fill?.type === 'gradient' && gfEl && !firstChild(gfEl, 'a:lin') && !firstChild(gfEl, 'a:path')) {
+      const fr = firstChild(styleEl, 'a:fillRef');
+      const idx = fr ? parseInt(fr.attrs['idx'] ?? '0', 10) : 0;
+      const stEl = idx >= 1 && idx < 1000 ? theme.fillStyles?.[idx - 1] : undefined;
+      const lin = stEl?.name === 'a:gradFill' ? firstChild(stEl, 'a:lin') : undefined;
+      if (lin?.attrs['ang'] !== undefined) {
+        shape.fill = { ...shape.fill, angleDeg: parseInt(lin.attrs['ang'], 10) / 60000, ...(lin.attrs['scaled'] === '1' ? { scaled: true } : {}) };
+      }
+    }
     if (shape.lineColor === undefined && !shape.lineNone) {
       const lc = refColor('a:lnRef');
       if (lc) {
