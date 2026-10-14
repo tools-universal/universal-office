@@ -93,7 +93,22 @@ export const DEFAULT_SCHEME = ['FFFFFF', '000000', '808080', '000000', '00CC99',
 
 /** Novo contexto de parte (os hiperlinks do texto entram nas relações da parte). */
 export function newPartCtx(conv: ConvCtx, scheme: string[], styles: TextConvCtx['styles'], outline: TextBlock[], slideNumber?: number, rels = new PartRels()): PartCtx {
-  const text: TextConvCtx = { doc: conv.doc, scheme, linkRel: (target) => rels.add('hyperlink', target, true) };
+  const text: TextConvCtx = {
+    doc: conv.doc, scheme, linkRel: (target) => rels.add('hyperlink', target, true),
+    bulletBlipRel: (ref) => {
+      const key = -1 - ref; // chave própria no mapa de mídia (pibs são ≥ 1)
+      let path = conv.media.get(key);
+      if (!path) {
+        const b = conv.doc.bulletBlips[ref];
+        if (!b) return undefined;
+        path = `ppt/media/image${conv.media.size + 1}.${b.ext}`;
+        conv.media.set(key, path);
+        conv.parts.set(path, b.bytes);
+        conv.mediaExts.add(b.ext);
+      }
+      return rels.add('image', '../media/' + path.slice('ppt/media/'.length));
+    },
+  };
   if (styles) text.styles = styles;
   if (slideNumber !== undefined) text.slideNumber = slideNumber;
   return { conv, rels, text, scheme, outline, usedIds: new Set([1]), spids: new Set(), texts: new Map(), ooxmlIds: new Map() };

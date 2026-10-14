@@ -68,6 +68,11 @@ export interface Fill {
   /** Gradiente RADIAL (`<a:path path="rect|circle|shape">`): pos 0 = centro
    *  (fillToRect), pos 1 = borda. Presente => ignora angleDeg. */
   path?: string;
+  /** `<a:fillToRect l t r b>` do gradiente de caminho: retângulo de FOCO como
+   *  recuos (frações) de cada borda; ausente = ponto central. */
+  fillTo?: { l: number; t: number; r: number; b: number };
+  /** Padrão (`<a:pattFill prst>`): `color` vira a cor MÉDIA (fallback de quem não desenha padrão). */
+  pattern?: { prst: string; fg: string; bg: string };
 }
 
 /**
@@ -81,6 +86,27 @@ export interface ImageRef {
   bytes: Uint8Array;
   /** MIME inferido pela extensao (image/png, image/jpeg, image/gif, image/svg+xml). */
   mime: string;
+  /** Efeitos de cor do `<a:blip>` aplicados ao desenhar (a imagem decodificada é a crua). */
+  fx?: ImageFx;
+  /** Ladrilho (`<a:tile>`): escala (1 = tamanho natural a 96 dpi) e deslocamento em EMU. */
+  tile?: { sx: number; sy: number; tx: number; ty: number };
+}
+
+/** Efeitos de cor de imagem (DrawingML `<a:blip>`). Cores #RRGGBB, frações 0..1. */
+export interface ImageFx {
+  /** `<a:duotone>`: luminância mapeada entre as duas cores (escuro → claro). */
+  duotone?: [string, string];
+  /** `<a:alphaModFix amt>`: opacidade da imagem. */
+  alpha?: number;
+  /** `<a:grayscl>`. */
+  gray?: boolean;
+  /** `<a:biLevel thresh>`: preto e branco pelo limiar de luminância. */
+  biLevel?: number;
+  /** `<a:lum bright contrast>` (−1..1). */
+  bright?: number;
+  contrast?: number;
+  /** `<a:clrChange>`: troca a cor `from` (pixels iguais) por `to` com alfa. */
+  clrChange?: { from: string; to: string; toAlpha: number };
 }
 
 /** Mídia embutida (vídeo/áudio) de um `<p:pic>`. */
@@ -124,6 +150,16 @@ export interface Run {
   hyperlink?: string;
   /** Sombra do TEXTO (`<a:rPr><a:effectLst><a:outerShdw>`), como na shape. */
   shadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number };
+  /** Sobrescrito/subscrito (`baseline`, fração do tamanho; + = acima). Exibido a 2/3 do tamanho. */
+  baseline?: number;
+  /** Maiúsculas (`cap="all"`) ou versalete (`cap="small"`). */
+  cap?: 'all' | 'small' | 'none';
+  /** Tachado (`strike="sngStrike|dblStrike"`). */
+  strike?: boolean;
+  /** Espaçamento entre caracteres em pontos (`spc`, centésimos de pt no XML). */
+  spc?: number;
+  /** Texto com hiperlink: cor `hlink` do tema (desenhado sublinhado nessa cor). */
+  linkColor?: string;
 }
 
 /** Paragrafo (<a:p>). */
@@ -149,6 +185,20 @@ export interface Paragraph {
   spaceBeforePt?: number;
   /** Espaço depois do parágrafo `<a:spcAft><a:spcPts>` em pontos. */
   spaceAfterPt?: number;
+  /** spcBef/spcAft em PORCENTAGEM da altura de uma linha simples (`<a:spcPct>`), fração. */
+  spaceBeforePct?: number;
+  spaceAfterPct?: number;
+  /** Fonte do marcador (`<a:buFont typeface>`); ausente = a do 1º run. */
+  bulletFont?: string;
+  /** Cor do marcador (`<a:buClr>`); ausente = a do 1º run. */
+  bulletColor?: string;
+  /** Tamanho do marcador: fração do texto (`<a:buSzPct>`) ou pontos (`<a:buSzPts>`). */
+  bulletSizePct?: number;
+  bulletSizePt?: number;
+  /** Marcador de IMAGEM (`<a:buBlip>`): desenhado no lugar do caractere. */
+  bulletImage?: ImageRef;
+  /** Tamanho (pt) do fim de parágrafo (`<a:endParaRPr sz>`) — altura de parágrafo VAZIO. */
+  endSz?: number;
 }
 
 /** Corpo de texto (<p:txBody>). */
@@ -161,6 +211,10 @@ export interface TextBody {
   fontScale?: number;
   /** Reducao de entrelinha do autofit (`<a:normAutofit lnSpcReduction>`), 0..1. */
   lnSpcReduction?: number;
+  /** `<a:bodyPr spcFirstLastPara="1">`: aplica o spcBef do 1º parágrafo (e o spcAft do último). */
+  spcFirstLastPara?: boolean;
+  /** WordArt: deformação do texto (`<a:prstTxWarp prst>` ≠ textNoShape) + ajustes (fração). */
+  warp?: { prst: string; adj?: number[] };
   /** Insets do bodyPr em EMU (lIns/tIns/rIns/bIns); ausentes = default do app. */
   insL?: number;
   insT?: number;
@@ -239,7 +293,7 @@ export interface Shape {
    * `dir` em 1/60000 de grau (0 = direita; 5400000 = baixo-esq), `alpha` em
    * milésimos de %.
    */
-  shadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number };
+  shadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number; sx?: number; sy?: number; algn?: string };
   /** Transparência do fill (`<a:solidFill><a:srgbClr><a:alpha val=...`). 0..1. */
   fillAlpha?: number;
   /** Estilo de traço da borda (`<a:ln><a:prstDash val>`). v1: solid|dash|dot|lgDash|sysDash. */
@@ -367,6 +421,8 @@ export interface Slide {
   bg?: Fill;
   /** Imagem de fundo (`<p:bgPr><a:blipFill>`) — desenhada antes das shapes. */
   bgImage?: ImageRef;
+  /** `bgImage` em LADRILHO (`<a:tile>`, tamanho natural a 96 dpi) em vez de esticada. */
+  bgTile?: boolean;
   /** Efeitos de entrada animados, em ordem do `<p:seq>` (`<p:timing>`). */
   animations?: SlideAnimEntry[];
   /** Transição quando o slide ENTRA (vinda do anterior). */
@@ -382,8 +438,15 @@ export interface Slide {
 export interface Theme {
   /** Nome de cor (dk1,lt1,accent1…,tx1,bg1,…) -> #RRGGBB. */
   colors: Record<string, string>;
+  /** Cores CRUAS do `<a:clrScheme>` (dk1…folHlink), antes do clrMap — base de `applyClrMap`. */
+  scheme?: Record<string, string>;
   /** Fontes do fontScheme (`+mj-lt` → major, `+mn-lt` → minor). */
   fonts?: { major?: string; minor?: string };
   /** Larguras (EMU) do `<a:lnStyleLst>` — resolvem `<a:lnRef idx>`. */
   lineWidths?: number[];
+  /** `<a:fillStyleLst>` (idx 1…) e `<a:bgFillStyleLst>` (idx 1001…) — resolvem fillRef/bgRef (cor `phClr`). */
+  fillStyles?: import('./xml.js').XmlElement[];
+  bgFillStyles?: import('./xml.js').XmlElement[];
+  /** Parte do tema (os `r:embed` dos estilos com imagem resolvem pelos rels DELE). */
+  part?: string;
 }

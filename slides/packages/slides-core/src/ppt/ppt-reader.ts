@@ -14,7 +14,7 @@
  */
 import { readCfb, type CfbFile } from './cfb.js';
 import { ByteReader, type Rec, readRec, recsIn, children, child, recData, RT, OA, utf16 } from './records.js';
-import { readDgContainer, readBStore, decodeBlip, type OADrawing, type Blip } from './officeart.js';
+import { readDgContainer, resolveShapeMasters, readBStore, decodeBlip, readFopt, type OADrawing, type Blip, type OAProp } from './officeart.js';
 import {
   readTextMasterStyle, readCFExceptionAtom, readPFExceptionAtom, splitTextBlocks, readStyleTextProp9,
   type TextBlock, type TextCF, type TextPF, type MasterStyleLevel,
@@ -112,6 +112,8 @@ export interface PptDocument {
    * usadas por formas), uma vez por origem e com teto total de memória.
    */
   blip(pib: number): Blip | undefined;
+  /** Propriedades PADRÃO do documento (FOPT do DggContainer) — base das regras de default de preenchimento/contorno. */
+  drawingDefaults: Map<number, OAProp>;
   masters: PptSlide[];
   slides: PptSlide[];
   /** Páginas de notas (uma por slide que tem notas) e o mestre das notas. */
@@ -132,6 +134,8 @@ export interface PptDocument {
    * etiqueta "___PPT9" do documento, por `${slideIdRef}:${tipoDeTexto}`.
    */
   outlinePf9: Map<string, TextPF[]>;
+  /** Marcadores de IMAGEM (BlipCollection9 da etiqueta "___PPT9"), pelo bulletBlipRef do PP9. */
+  bulletBlips: (Blip | undefined)[];
 }
 
 /** Erro de formato com mensagem em português (vai para o usuário final). */
@@ -192,8 +196,8 @@ export function readPptDocument(bytes: Uint8Array): PptDocument {
 
   const out: PptDocument = {
     slideW: 5760, slideH: 4320, notesW: 4320, notesH: 5760, slideSizeType: 0, firstSlideNumber: 1,
-    fonts: [], docCF: {}, docPF: {}, blip: () => undefined, masters: [], slides: [], notes: [], binaryTags: new Map(),
-    hyperlinks: new Map(), omitTitlePlace: false, outlinePf9: new Map(),
+    fonts: [], docCF: {}, docPF: {}, blip: () => undefined, drawingDefaults: new Map(), masters: [], slides: [], notes: [], binaryTags: new Map(),
+    hyperlinks: new Map(), omitTitlePlace: false, outlinePf9: new Map(), bulletBlips: [],
   };
   let notesMasterPersist = 0;
   const picStream = cfb.getStream('Pictures');
@@ -222,6 +226,8 @@ export function readPptDocument(bytes: Uint8Array): PptDocument {
       case RT.Environment: readEnvironment(c, out); break;
       case RT.DrawingGroup: {
         const dgg = child(c, OA.DggContainer);
+        const dopt = dgg ? child(dgg, OA.FOPT) : undefined;
+        if (dopt) readFopt(dopt, out.drawingDefaults);
         const bstore = dgg ? child(dgg, OA.BStoreContainer) : undefined;
         if (bstore) {
           const entries = readBStore(bstore);
@@ -295,6 +301,17 @@ export function readPptDocument(bytes: Uint8Array): PptDocument {
   const pp9 = out.binaryTags.get('___PPT9');
   if (pp9) {
     for (const c of recsIn(pp9.r, pp9.start, pp9.end)) {
+      // BlipCollection9Container (0x07F8) → BlipEntity9Atom (0x07F9): tipo (1) + não usado (1) + registro do blip
+      if (c.type === 0x07f8) {
+        for (const e of children(c)) {
+          if (e.type !== 0x07f9) continue;
+          const inner = recsIn(e.r, e.start + 2, e.end)[0];
+          let b: Blip | undefined;
+          try { b = inner ? decodeBlip(inner) : undefined; } catch { b = undefined; }
+          out.bulletBlips.push(b);
+        }
+        continue;
+      }
       if (c.type !== 0x0fae) continue;
       let key: string | undefined;
       for (const k of children(c)) {
@@ -324,6 +341,7 @@ export function readPptDocument(bytes: Uint8Array): PptDocument {
     const rec = recAtPersist(doc, persist, notesMasterPersist);
     if (rec && rec.type === RT.Notes) out.notesMaster = readSlideContainer(rec, 'notes', notesMasterPersist, 0, []);
   }
+  resolveShapeMasters([...out.masters, ...out.slides, ...out.notes, ...(out.notesMaster ? [out.notesMaster] : [])].map((s) => s.drawing));
   return out;
 }
 

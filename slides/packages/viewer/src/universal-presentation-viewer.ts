@@ -2,7 +2,7 @@ import { FontResolver, variantOf } from '@universal-office/fonts';
 import {
   PptxPackage, readPresentation, readSlide, paintSlideTo,
   readEmbeddedFonts, collectDeckTypefaces,
-  buildPlaybackTimeline, playbackStateAt, shapeAnimHooks, paintTransition, SlideShow,
+  buildPlaybackTimeline, playbackStateAt, shapeAnimHooks, paintTransition, SlideShow, rasterizeSpecialImage,
   type ChartModel, type PaintImage, type PaintSlideOptions,
   type Presentation, type Slide, type Shape, type ImageRef,
   type PlaybackOptions, type PlaybackTimeline, type PlaybackSlide, type SlideShowAction, type SlideTimingModel,
@@ -102,7 +102,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    * ainda nao carregou, deixamos o retangulo vazio; um repaint e disparado quando
    * `onload` chega.
    */
-  protected imageCache = new Map<string, { img: HTMLImageElement; ready: boolean }>();
+  protected imageCache = new Map<string, { img: PaintImage; ready: boolean }>();
   /** Cache de ChartModel parseado, por XML cru (passado a paintSlideTo). */
   protected chartCache = new Map<string, ChartModel>();
   /**
@@ -383,6 +383,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
       for (const sh of s.shapes) {
         if (sh.image) this.warmImage(sh.image);
         if (sh.fillImage) this.warmImage(sh.fillImage);
+        for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) this.warmImage(p.bulletImage);
       }
     }
     this.index = 0;
@@ -532,6 +533,15 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    */
   protected warmImage(ref: ImageRef): void {
     if (this.imageCache.has(ref.part)) return;
+    // WMF/EMF e TIFF: o navegador não decodifica — rasterizamos num canvas
+    // (síncrono, uma vez por parte) e ele vira a imagem
+    const meta = rasterizeSpecialImage(ref.bytes, (w, h) => {
+      const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
+    });
+    if (meta) {
+      this.imageCache.set(ref.part, { img: meta, ready: true });
+      return;
+    }
     const img = new Image();
     const entry = { img, ready: false };
     this.imageCache.set(ref.part, entry);
@@ -558,6 +568,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     for (const sh of slide.shapes) {
       if (sh.image) this.warmImage(sh.image);
       if (sh.fillImage) this.warmImage(sh.fillImage);
+      for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) this.warmImage(p.bulletImage);
     }
     const map = new Map<string, PaintImage>();
     for (const [part, e] of this.imageCache) if (e.ready) map.set(part, e.img);

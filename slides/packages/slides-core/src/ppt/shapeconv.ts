@@ -17,6 +17,7 @@ import { metroVisual, metroTextBody, metroShape, metroDiagram, serializeXml, zip
 import { DEFAULT_SCHEME, type ConvCtx, type PartCtx } from './context.js';
 import { el, escText, escAttr, XML_DECL, NS } from './xmlw.js';
 import { firstChild, parseXml, type XmlElement } from '../xml.js';
+import { PRESET_PATTERNS } from '../patterns.js';
 
 // ───────────────────────────── propriedades ─────────────────────────────
 
@@ -40,6 +41,16 @@ function boolProp(sh: OAShape, id: number, bit: number, dflt: boolean): boolean 
   if (v & (1 << (bit + 16))) return (v & (1 << bit)) !== 0;
   if ((v >>> 16) === 0) return (v & (1 << bit)) !== 0;
   return dflt;
+}
+
+/** Booleano do conjunto com estado: true/false especificado (fUse, ou escritor sem fUse), undefined = não especificado. */
+function boolPropOpt(sh: OAShape, id: number, bit: number): boolean | undefined {
+  const p = sh.props.get(id);
+  if (!p) return undefined;
+  const v = p.value;
+  if (v & (1 << (bit + 16))) return (v & (1 << bit)) !== 0;
+  if ((v >>> 16) === 0) return (v & (1 << bit)) !== 0;
+  return undefined;
 }
 
 /** 16.16 fixo com sinal → número. */
@@ -142,6 +153,35 @@ function mediaFor(conv: ConvCtx, pib: number): string | undefined {
   return path;
 }
 
+/**
+ * Preenchimento de PADRÃO do binário: o fillBlip é um BMP 1 bpp 8×8. Casa o
+ * bitmap (pixel CLARO da paleta = cor de frente/fillColor — conferido no app
+ * de referência: fundo branco com linhas finas) com os padrões predefinidos do
+ * DrawingML, em qualquer fase (deslocamento cíclico); sem casamento → undefined.
+ */
+function patternPrst(conv: ConvCtx, pib: number): string | undefined {
+  const b = conv.doc.blip(pib)?.bytes;
+  if (!b || b.length < 62 || b[0] !== 0x42 || b[1] !== 0x4d) return undefined;
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const off = dv.getUint32(10, true), hdr = dv.getUint32(14, true);
+  const w = dv.getInt32(18, true), h = dv.getInt32(22, true), bpp = dv.getUint16(28, true);
+  if (w !== 8 || Math.abs(h) !== 8 || bpp !== 1) return undefined;
+  const pal = [0, 1].map((i) => { const o = 14 + hdr + i * 4; return (b[o] ?? 0) + (b[o + 1] ?? 0) + (b[o + 2] ?? 0); });
+  const lightBit = pal[1]! > pal[0]! ? 1 : 0;
+  const rows: number[] = [];
+  for (let r = 0; r < 8; r++) {
+    const v = b[off + (h > 0 ? 7 - r : r) * 4] ?? 0;
+    rows.push(lightBit ? v : ~v & 0xff);
+  }
+  const rot = (v: number, n: number): number => ((v << n) | (v >>> (8 - n))) & 0xff;
+  for (let dy = 0; dy < 8; dy++) for (let dx = 0; dx < 8; dx++) {
+    let hex = '';
+    for (let r = 0; r < 8; r++) hex += rot(rows[(r + dy) % 8]!, dx).toString(16).padStart(2, '0');
+    for (const [k, pat] of Object.entries(PRESET_PATTERNS)) if (pat === hex) return k;
+  }
+  return undefined;
+}
+
 /** Relação de imagem da parte atual → rId (ou undefined sem imagem). */
 function imageRel(pc: PartCtx, pib: number): string | undefined {
   const path = mediaFor(pc.conv, pib);
@@ -181,7 +221,10 @@ function gradientStops(sh: OAShape, pc: PartCtx, fill: string, back: string, fil
 
 /** Preenchimento da forma → XML DrawingML (`<a:noFill/>`, solid, grad, blip). */
 function fillXml(sh: OAShape, pc: PartCtx, isBackground = false): string {
-  if (!isBackground && !boolProp(sh, 0x1bf, 4, true)) return '<a:noFill/>';
+  // placeholder e caixa de texto (msosptTextBox, 202) sem fFilled na cadeia
+  // (forma → mestre) saem SEM preenchimento no app de referência, apesar do
+  // default "preenchido" do formato (medido no corpus); idem o contorno
+  if (!isBackground && !fillOn(sh, pc)) return '<a:noFill/>';
   const type = prop(sh, 0x180) ?? 0;
   const color = oaColor(prop(sh, 0x181) ?? 0xffffff, sh, pc);
   const opacity = fixed(prop(sh, 0x182), 1);
@@ -212,7 +255,12 @@ function fillXml(sh: OAShape, pc: PartCtx, isBackground = false): string {
     }
     case 9:
       return pc.bgColor ? el('a:solidFill', {}, srgb(pc.bgColor)) : '<a:noFill/>';
-    case 1: // padrão (bitmap 8×8): aproximado pela cor de frente
+    case 1: { // padrão (bitmap 8×8) → pattFill predefinido; sem casamento, a cor de frente
+      const pib = prop(sh, 0x186);
+      const prst = pib ? patternPrst(pc.conv, pib) : undefined;
+      if (prst) return el('a:pattFill', { prst }, el('a:fgClr', {}, srgb(color)) + el('a:bgClr', {}, srgb(back)));
+      return el('a:solidFill', {}, srgb(color, opacity));
+    }
     default:
       return el('a:solidFill', {}, srgb(color, opacity));
   }
@@ -231,6 +279,38 @@ function arrowEnd(tag: string, sh: OAShape, typeId: number, wId: number, lenId: 
     w: w !== undefined && w !== 1 ? ARROW_SZ[w] : undefined,
     len: len !== undefined && len !== 1 ? ARROW_SZ[len] : undefined,
   });
+}
+
+/**
+ * fFilled com DEFAULT medido no app de referência (conversão .ppt→.pptx do
+ * próprio app em ~240 decks reais): sem fFilled na forma (nem no mestre), o
+ * placeholder fica vazio; com fillColor DIFERENTE do padrão do documento
+ * (FOPT do Dgg) a forma fica preenchida e com a cor igual ao padrão, vazia;
+ * sem cor, caixa de texto segue o padrão do documento e autoforma fica vazia.
+ */
+function fillOn(sh: OAShape, pc: PartCtx): boolean {
+  const own = boolPropOpt(sh, 0x1bf, 4);
+  if (own !== undefined) return own;
+  if (placeholderOf(sh)) return false;
+  const fc = prop(sh, 0x181);
+  const defs = pc.conv.doc.drawingDefaults;
+  if (fc !== undefined) return fc !== defs.get(0x181)?.value;
+  if (sh.type === 202) return boolPropOpt({ props: defs } as OAShape, 0x1bf, 4) ?? true;
+  return false;
+}
+
+/**
+ * Default do fLine (mesma medição): linhas/conectores com contorno; caixa de
+ * texto e placeholder sem; autoforma com contorno se a cor difere do padrão
+ * do documento ou a largura foi dada, senão o padrão do documento.
+ */
+function lineDefault(sh: OAShape, pc: PartCtx): boolean {
+  if (placeholderOf(sh) || sh.type === 202) return false;
+  if (sh.type === 20 || isConnectorType(sh.type)) return true;
+  const defs = pc.conv.doc.drawingDefaults;
+  const lc = prop(sh, 0x1c0);
+  if ((lc !== undefined && lc !== defs.get(0x1c0)?.value) || prop(sh, 0x1cb) !== undefined) return true;
+  return boolPropOpt({ props: defs } as OAShape, 0x1ff, 3) ?? true;
 }
 
 /** Contorno → `<a:ln>`. */
@@ -435,7 +515,8 @@ function bodyPrXml(sh: OAShape): string {
 function textBlockOf(sh: OAShape, pc: PartCtx): TextBlock | undefined {
   if (!sh.clientTextbox) return undefined;
   const ct = readClientTextbox(sh.clientTextbox);
-  const block = ct.block ?? (ct.outlineRef !== undefined ? pc.outline[ct.outlineRef] : undefined);
+  const outl = ct.outlineRef !== undefined ? pc.outline[ct.outlineRef] : undefined;
+  const block = ct.block ?? (outl && ct.ruler ? { ...outl, ruler: ct.ruler } : outl);
   if (!block) return undefined;
   // StyleTextProp9Atom na etiqueta "___PPT9" do ClientData; texto de outline
   // usa o OutlineTextProps9 do documento (slideId + tipo de texto)
@@ -693,7 +774,7 @@ function visualParts(sh: OAShape, pc: PartCtx, xf: Xf, kind: 'shape' | 'pic' | '
   const parts = {
     geom: geom.xml,
     fill: kind === 'line' ? '<a:noFill/>' : fillXml(sh, pc),
-    line: lineXml(sh, pc, kind !== 'pic'),
+    line: lineXml(sh, pc, kind !== 'pic' && lineDefault(sh, pc)),
     effects: shadowXml(sh, pc),
   };
   const mv = pc.conv.useRoundTrip ? metroVisual(sh) : undefined;
@@ -804,8 +885,17 @@ function wordArtXml(sh: OAShape, pc: PartCtx, xf: Xf): string | undefined {
   const rPr = el('a:rPr', { sz: Math.round(szPt * 100), b: bold ? 1 : 0, i: italic ? 1 : 0 },
     el('a:solidFill', {}, srgb(color)) + (font ? el('a:latin', { typeface: font }) : ''));
   const paras = lines.map((l) => `<a:p><a:pPr algn="ctr"><a:buNone/></a:pPr><a:r>${rPr}<a:t>${escText(l)}</a:t></a:r></a:p>`).join('');
-  return el('p:txBody', {}, '<a:bodyPr wrap="none" lIns="0" tIns="0" rIns="0" bIns="0" anchor="ctr" rtlCol="0"><a:noAutofit/></a:bodyPr><a:lstStyle/>' + paras);
+  // msosptText* (136–175) ↔ prstTxWarp na MESMA ordem do DrawingML
+  const warp = sh.type >= 136 && sh.type <= 175 ? WARPS[sh.type - 136] : undefined;
+  const w = warp ? el('a:prstTxWarp', { prst: warp }, '<a:avLst/>') : '';
+  return el('p:txBody', {}, `<a:bodyPr wrap="none" lIns="0" tIns="0" rIns="0" bIns="0" anchor="ctr" rtlCol="0"${warp ? ' fromWordArt="1"' : ''}>${w}<a:noAutofit/></a:bodyPr><a:lstStyle/>` + paras);
 }
+
+const WARPS = ['textPlain', 'textStop', 'textTriangle', 'textTriangleInverted', 'textChevron', 'textChevronInverted', 'textRingInside', 'textRingOutside',
+  'textArchUp', 'textArchDown', 'textCircle', 'textButton', 'textArchUpPour', 'textArchDownPour', 'textCirclePour', 'textButtonPour', 'textCurveUp',
+  'textCurveDown', 'textCascadeUp', 'textCascadeDown', 'textWave1', 'textWave2', 'textDoubleWave1', 'textWave4', 'textInflate', 'textDeflate',
+  'textInflateBottom', 'textDeflateBottom', 'textInflateTop', 'textDeflateTop', 'textDeflateInflate', 'textDeflateInflateDeflate', 'textFadeRight',
+  'textFadeLeft', 'textFadeUp', 'textFadeDown', 'textSlantUp', 'textSlantDown', 'textCanUp', 'textCanDown'];
 
 /** Grupo: off/ext = âncora do grupo; chOff/chExt = FSPGR (mesma escala). */
 function groupXml(sh: OAShape, pc: PartCtx, opts: ShapeOpts): string {

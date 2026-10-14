@@ -22,6 +22,9 @@ export { evalFormula, type FormulaVars } from './anim-formula.js';
 export { applyReveal, applySoftReveal, parseFilter, WIPE_SOFT } from './reveal.js';
 export { paintTransition, type TransitionRect } from './transition.js';
 export { readTheme, colorFromDml, solidFillColor } from './theme.js';
+export { rasterizeSpecialImage } from './raster.js';
+export { isTiff, decodeTiff } from './tiff.js';
+export { isMetafile, isEmf, isWmf, metafileSize, rasterizeMetafile, drawMetafile, symbolToUnicode } from './metafile.js';
 export { parseChart, paintChart, chartPartBounds, type ChartModel, type ChartSeries, type ChartType, type ChartSel, type ChartBox } from './chart-engine.js';
 export {
   parseTxStyleLevels, parsePPrLevel, mergeStyleLevels, applyTextStyles,
@@ -52,7 +55,7 @@ export {
 export {
   EMU_PER_INCH, EMU_PER_POINT, EMU_PER_PX,
   type Presentation, type ShowSettings, type SlideRef, type Slide, type Shape, type Xfrm,
-  type Fill, type GradientStop, type ImageRef, type MediaRef, type TextBody, type Paragraph, type Run, type Theme,
+  type Fill, type GradientStop, type ImageRef, type ImageFx, type MediaRef, type TextBody, type Paragraph, type Run, type Theme,
   type SlideAnimEntry, type SlideTransition,
   type Table, type TableRow, type TableCell,
 } from './model.js';

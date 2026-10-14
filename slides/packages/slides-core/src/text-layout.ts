@@ -1,5 +1,9 @@
 import { EMU_PER_POINT } from './model.js';
 import type { TextBody, Run } from './model.js';
+import { isSymbolFont, symbolText } from './symbol-fonts.js';
+
+/** Família usada para desenhar o texto CONVERTIDO de fontes de símbolo (Wingdings…). */
+export const SYMBOL_FAMILY = 'Segoe UI Symbol';
 
 /**
  * Layout de texto de um `<p:txBody>` como FUNÇÃO PURA (spec 03, item D).
@@ -39,6 +43,12 @@ export interface PlacedRun {
   hyperlink?: string;
   /** Sombra do texto (propagada do Run). */
   shadow?: Run['shadow'];
+  /** Deslocamento vertical (EMU, + = acima) de sobrescrito/subscrito. */
+  rise?: number;
+  /** Tachado. */
+  strike?: boolean;
+  /** Espaço extra por caractere (EMU). */
+  spc?: number;
 }
 
 /** Linha final do layout. */
@@ -49,7 +59,7 @@ export interface PlacedLine {
   /** Altura da linha em EMU. */
   height: number;
   /** Marcador do parágrafo — presente apenas na PRIMEIRA linha dele. */
-  bullet?: { text: string; x: number; font: LayoutFont; color: string };
+  bullet?: { text: string; x: number; font: LayoutFont; color: string; image?: import('./model.js').ImageRef };
   /** Índice do parágrafo de origem (animação por parágrafo/letra). */
   para: number;
 }
@@ -108,6 +118,40 @@ export function formatAutoNum(scheme: string, n: number): string {
 
 interface Word { text: string; run: Run }
 
+/** Run de exibição: o texto já transformado + deslocamento de sobrescrito (pt). */
+type DisplayRun = Run & { rise?: number };
+
+/**
+ * Runs como SERÃO DESENHADOS: maiúsculas (`cap="all"`), versalete (minúsculas
+ * viram maiúsculas a 0,8), fonte de símbolo → Unicode (Wingdings/Symbol só
+ * existem no Windows) e sobrescrito/subscrito a 2/3 do tamanho, deslocado
+ * por `baseline × tamanho` (medido no app de referência: 40 pt, 30% → 12 pt).
+ */
+function displayRuns(runs: Run[], defaultSzPt: number): DisplayRun[] {
+  const out: DisplayRun[] = [];
+  for (const r of runs) {
+    if (r.text === '\n') { out.push(r); continue; }
+    const base: DisplayRun = { ...r };
+    if (isSymbolFont(r.font)) { base.text = symbolText(r.font, r.text); base.font = SYMBOL_FAMILY; }
+    if (r.baseline) {
+      const sz = r.sz ?? defaultSzPt;
+      base.sz = (sz * 2) / 3;
+      base.rise = r.baseline * sz;
+    }
+    if (r.cap === 'all') { base.text = base.text.toUpperCase(); out.push(base); continue; }
+    if (r.cap === 'small') {
+      const sz = base.sz ?? defaultSzPt;
+      for (const m of base.text.match(/[^\p{Ll}]+|\p{Ll}+/gu) ?? []) {
+        const lower = /\p{Ll}/u.test(m);
+        out.push(lower ? { ...base, text: m.toUpperCase(), sz: sz * 0.8 } : { ...base, text: m });
+      }
+      continue;
+    }
+    out.push(base);
+  }
+  return out;
+}
+
 /** Quebra os runs de um parágrafo em tokens (palavras + espaços), preservando o run de origem. */
 function tokenize(runs: Run[]): Word[] {
   const out: Word[] = [];
@@ -155,6 +199,9 @@ export function layoutTextBody(
   const fOpts = { defaultSzPt, defaultFont };
 
   const measureEmu = (text: string, f: LayoutFont): number => measure(text, f) * EMU_PER_POINT;
+  /** Largura de um pedaço de run, com o espaçamento de caracteres (`spc`). */
+  const measureRun = (text: string, r: Run, f: LayoutFont): number =>
+    measureEmu(text, f) + (r.spc ? r.spc * EMU_PER_POINT * fontScale * [...text].length : 0);
 
   interface ProtoLine { runs: { text: string; run: Run }[]; marL: number; align: string; bullet?: PlacedLine['bullet']; para: number }
   const proto: ProtoLine[] = [];
@@ -171,7 +218,10 @@ export function layoutTextBody(
     const marL = p.marL ?? 0;
     const indent = p.indent ?? 0;
     const align = p.align ?? 'l';
-    const runs = p.runs.length ? p.runs : [{ text: '' } as Run];
+    // parágrafo SEM caracteres (nenhum run ou só runs vazios): a altura da linha
+    // vem do endParaRPr, como no app (célula com run vazio + endParaRPr 2 pt)
+    const hasChars = p.runs.some((r) => r.text.length > 0);
+    const runs = displayRuns(hasChars ? p.runs : [{ text: '', ...(p.endSz !== undefined ? { sz: p.endSz } : p.runs[0]?.sz !== undefined ? { sz: p.runs[0].sz } : {}) } as Run], defaultSzPt);
 
     // bullet do parágrafo (só na primeira linha). Parágrafo VAZIO não mostra
     // marcador nem consome número (como o app de referência)
@@ -186,14 +236,21 @@ export function layoutTextBody(
       } else {
         btext = p.bulletChar ?? '•';
       }
-      const bFont = fontOf(runs[0]!, fontScale, fOpts);
+      // marcador: fonte/cor/tamanho próprios (buFont/buClr/buSz) ou os do 1º run;
+      // fonte de símbolo → Unicode equivalente
+      const first = runs.find((r) => r.text && r.text !== '\n') ?? runs[0]!;
+      const tf = fontOf(first, fontScale, fOpts);
+      let family = p.bulletFont ?? tf.family;
+      if (p.bulletAutoNum === undefined && isSymbolFont(p.bulletFont)) { btext = symbolText(p.bulletFont, btext); family = SYMBOL_FAMILY; }
+      const sizePt = p.bulletSizePt !== undefined ? p.bulletSizePt * fontScale : tf.sizePt * (p.bulletSizePct ?? 1);
       bullet = {
         text: btext,
         // hanging indent: bullet fica em marL+indent (indent tipicamente negativo)
         x: insL + Math.max(0, marL + indent),
-        font: bFont,
-        color: runs[0]!.color ?? defaultColor,
+        font: { ...tf, family, sizePt },
+        color: p.bulletColor ?? first.color ?? defaultColor,
       };
+      if (p.bulletImage) bullet.image = p.bulletImage;
     }
 
     // indent de 1ª linha vale SÓ para a primeira linha do parágrafo;
@@ -207,6 +264,7 @@ export function layoutTextBody(
     let curW = 0;
     let firstLineOfPara = true;
     const emptyPt = (runs[0]!.sz ?? defaultSzPt) * fontScale;
+    let lastMaxPt = emptyPt;
     // entrelinha do parágrafo: spcPct multiplica o single; spcPts é absoluto
     const paraFactor = p.lineSpacing ?? 1;
     const flush = (): void => {
@@ -217,7 +275,13 @@ export function layoutTextBody(
         ? p.lineSpacingPt * EMU_PER_POINT
         : maxPt * EMU_PER_POINT * lineFactor * paraFactor);
       // spcBef entra antes da 1ª linha do parágrafo (+ spcAft pendente do anterior)
-      spacers.push(firstLineOfPara ? pendingSpacer + (p.spaceBeforePt ?? 0) * EMU_PER_POINT : 0);
+      // spcPct: fração da altura de UMA linha simples (sz × fator de linha) da 1ª linha
+      const bef = p.spaceBeforePt !== undefined ? p.spaceBeforePt * EMU_PER_POINT
+        : (p.spaceBeforePct ?? 0) * maxPt * EMU_PER_POINT * lineFactor;
+      // o app IGNORA o spcBef do 1º parágrafo da caixa (medido: 0, 40 pt e 100% → mesma
+      // posição) — salvo `spcFirstLastPara="1"` no bodyPr (exports do Google Slides)
+      spacers.push(firstLineOfPara ? pendingSpacer + (pi > 0 || tb.spcFirstLastPara ? bef : 0) : 0);
+      lastMaxPt = maxPt;
       if (firstLineOfPara) pendingSpacer = 0;
       firstLineOfPara = false;
       cur = { runs: [], marL: contX, align, para: pi };
@@ -226,18 +290,20 @@ export function layoutTextBody(
     for (const wd of words) {
       if (wd.text === '\n') { flush(); continue; }
       const f = fontOf(wd.run, fontScale, fOpts);
-      const wEmu = measureEmu(wd.text, f);
+      const wEmu = measureRun(wd.text, wd.run, f);
       const availW = Math.max(0, colW - (cur.marL - insL));
-      if (wrap && cur.runs.length > 0 && curW + measureEmu(wd.text.replace(/\s+$/, ''), f) > availW) flush();
+      if (wrap && cur.runs.length > 0 && curW + measureRun(wd.text.replace(/\s+$/, ''), wd.run, f) > availW) flush();
       cur.runs.push({ text: wd.text, run: wd.run });
       curW += wEmu;
     }
     flush();
     if (p.spaceAfterPt !== undefined) pendingSpacer += p.spaceAfterPt * EMU_PER_POINT;
+    else if (p.spaceAfterPct !== undefined) pendingSpacer += p.spaceAfterPct * lastMaxPt * EMU_PER_POINT * lineFactor;
   }
 
   // âncora vertical (inclui espaçadores de parágrafo)
-  const totalH = heights.reduce((a, b) => a + b, 0) + spacers.reduce((a, b) => a + b, 0);
+  // spcFirstLastPara: o spcAft do ÚLTIMO parágrafo também ocupa altura (âncora ctr/b)
+  const totalH = heights.reduce((a, b) => a + b, 0) + spacers.reduce((a, b) => a + b, 0) + (tb.spcFirstLastPara ? pendingSpacer : 0);
   const usableH = Math.max(0, boxH - insT - insB);
   const anchor = tb.anchor ?? opts.defaultAnchor ?? 't';
   let y = insT;
@@ -275,11 +341,15 @@ export function layoutTextBody(
     let w = 0;
     for (const m of merged) {
       const f = fontOf(m.run, fontScale, fOpts);
-      const mw = measureEmu(m.text, f);
+      const mw = measureRun(m.text, m.run, f);
       const pr: PlacedRun = {
         text: m.text, x: pl.marL + w, w: mw, font: f,
-        color: m.run.color ?? defaultColor, underline: !!m.run.underline,
+        color: m.run.linkColor ?? m.run.color ?? defaultColor, underline: !!m.run.underline || !!m.run.linkColor,
       };
+      const dr = m.run as DisplayRun;
+      if (dr.rise) pr.rise = dr.rise * EMU_PER_POINT * fontScale;
+      if (dr.strike) pr.strike = true;
+      if (dr.spc) pr.spc = dr.spc * EMU_PER_POINT * fontScale;
       if (m.run.hyperlink !== undefined) pr.hyperlink = m.run.hyperlink;
       if (m.run.shadow !== undefined) pr.shadow = m.run.shadow;
       placed.push(pr);

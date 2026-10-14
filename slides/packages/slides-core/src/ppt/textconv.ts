@@ -31,6 +31,8 @@ export interface TextConvCtx {
   scheme: string[];
   /** Número do slide (campos de nº de slide). */
   slideNumber?: number;
+  /** Registra a imagem do marcador (bulletBlipRef do PP9) na parte → rId. */
+  bulletBlipRel?: (ref: number) => string | undefined;
   /** Registra um hiperlink externo na parte → rId. */
   linkRel?: (target: string) => string;
   /** Textos de cabeçalho/rodapé (meta-chars dos placeholders do mestre). */
@@ -71,9 +73,13 @@ export function resolveLevel(ctx: TextConvCtx, textType: number, level: number):
   const pf: TextPF = { ...ctx.doc.docPF };
   const cf: TextCF = { ...ctx.doc.docCF };
   const base = baseType(textType);
-  // sem estilo do tipo no mestre (ou tipo "outro"/desconhecido): estilo
-  // "outro" do mestre (inst 4) e, por fim, o do documento
-  const baseLevels = ctx.styles?.get(base) ?? ctx.styles?.get(4) ?? ctx.doc.docOtherStyle;
+  // texto "outro" (caixas de texto/autoformas): estilo do DOCUMENTO (Environment —
+  // vira o defaultTextStyle; o app NÃO usa o "outro" do mestre nesse texto, medido:
+  // Times New Roman negrito do documento × Arial do mestre); demais tipos: o do
+  // mestre, com fallback no "outro" do mestre e por fim no do documento
+  const baseLevels = base === 4
+    ? (ctx.doc.docOtherStyle ?? ctx.styles?.get(4))
+    : (ctx.styles?.get(base) ?? ctx.styles?.get(4) ?? ctx.doc.docOtherStyle);
   const derived = base !== textType ? ctx.styles?.get(textType) : undefined;
   for (let l = 0; l <= lvl; l++) {
     const b = levelOf(baseLevels, l);
@@ -161,7 +167,10 @@ export function pPrXml(tag: string, pf: TextPF, cf: TextCF, ctx: TextConvCtx, ex
     }
     const bf = pf.bulletHasFont ? fontName(ctx, pf.bulletFont) : undefined;
     if (bf) kids += el('a:buFont', { typeface: bf });
-    if (pf.hasAutoNum) {
+    const blipRid = !pf.hasAutoNum && pf.bulletBlipRef !== undefined && pf.bulletBlipRef >= 0 ? ctx.bulletBlipRel?.(pf.bulletBlipRef) : undefined;
+    if (blipRid) {
+      kids += el('a:buBlip', {}, el('a:blip', { 'r:embed': blipRid }));
+    } else if (pf.hasAutoNum) {
       kids += el('a:buAutoNum', {
         type: AUTONUM[pf.autoNumScheme ?? 3] ?? 'arabicPeriod',
         startAt: pf.autoNumStart !== undefined && pf.autoNumStart > 1 ? pf.autoNumStart : undefined,
@@ -246,7 +255,7 @@ function metaCharContent(recType: number, ctx: TextConvCtx): { fld?: string; tex
     case RT.DateTimeMetaCharAtom:
     case RT.GenericDateMetaCharAtom:
     case RT.RtfDateTimeMetaCharAtom: {
-      if (ctx.hf?.userDate) return { text: ctx.hf.userDate };
+      if (ctx.hf?.userDate !== undefined) return { text: ctx.hf.userDate };
       const d = new Date();
       return { fld: 'datetime1', text: `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}` };
     }
@@ -351,6 +360,7 @@ export function paragraphsXml(block: TextBlock, ctx: TextConvCtx): string {
         if (p9.autoNumScheme !== undefined) pf.autoNumScheme = p9.autoNumScheme;
         if (p9.autoNumStart !== undefined) pf.autoNumStart = p9.autoNumStart;
       }
+      if (p9?.bulletBlipRef !== undefined) pf.bulletBlipRef = p9.bulletBlipRef;
     }
     let body = pPrXml('a:pPr', pf, base.cf, ctx, { lvl: level });
     const cfAt = (pos: number): TextCF => ({ ...base.cf, ...(runAt(cfIx, pos)?.cf ?? {}) });

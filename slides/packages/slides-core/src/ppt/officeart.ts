@@ -149,6 +149,55 @@ export interface OADrawing {
   background?: OAShape;
 }
 
+/** Propriedades que NUNCA vêm da forma mestre (identidade/texto da própria forma). */
+const NO_INHERIT = new Set([0x80 /* lTxid */, 0x301 /* hspMaster */, 0x380 /* nome */, 0x381 /* descrição */, 0x3a9 /* blob Metro */]);
+
+/**
+ * Herança de FORMA MESTRE ([MS-ODRAW] fHaveMaster + hspMaster 0x0301): o que a
+ * forma não especifica vem da forma mestre (placeholders do slide → os do
+ * mestre: sem isso o slide "ganha" fundo branco e contorno pretos, os
+ * defaults do formato). Conjuntos booleanos (id ≡ 0x3F mod 0x40) mesclam bit a
+ * bit pelos fUse. Resolve em cadeia (mestre do mestre) e grava nas próprias props.
+ */
+export function resolveShapeMasters(drawings: OADrawing[]): void {
+  const bySpid = new Map<number, OAShape>();
+  const all: OAShape[] = [];
+  const walk = (sh: OAShape | undefined): void => {
+    if (!sh) return;
+    if (!bySpid.has(sh.spid)) bySpid.set(sh.spid, sh);
+    all.push(sh);
+    for (const c of sh.children ?? []) walk(c);
+  };
+  for (const d of drawings) { walk(d.root); walk(d.background); }
+  const done = new Set<OAShape>();
+  const resolve = (sh: OAShape, depth: number): void => {
+    if (done.has(sh) || depth > 8) return;
+    done.add(sh);
+    const ref = sh.props.get(0x301);
+    if (!(sh.flags & FSP.haveMaster) || !ref) return;
+    const m = bySpid.get(ref.value);
+    if (!m || m === sh) return;
+    resolve(m, depth + 1);
+    for (const [id, mp] of m.props) {
+      if (NO_INHERIT.has(id)) continue;
+      const own = sh.props.get(id);
+      if (!own) { sh.props.set(id, mp); continue; }
+      if ((id & 0x3f) !== 0x3f || own.complex || mp.complex) continue;
+      // conjunto booleano: bits sem fUse próprio (e com fUse — ou sem nenhum — no mestre) vêm do mestre
+      const ownUse = own.value >>> 16, mUse = mp.value >>> 16;
+      if (ownUse === 0) continue; // escritor antigo: o valor vale inteiro
+      let v = own.value;
+      for (let b = 0; b < 16; b++) {
+        if (ownUse & (1 << b)) continue;
+        if (mUse !== 0 && !(mUse & (1 << b))) continue;
+        v = (v & ~(1 << b)) | (mp.value & (1 << b)) | (1 << (b + 16));
+      }
+      sh.props.set(id, { ...own, value: v >>> 0 });
+    }
+  };
+  for (const sh of all) resolve(sh, 0);
+}
+
 /** OfficeArtDgContainer → desenho. */
 export function readDgContainer(rec: Rec): OADrawing {
   const d: OADrawing = {};

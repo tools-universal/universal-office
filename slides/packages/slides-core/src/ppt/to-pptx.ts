@@ -111,7 +111,8 @@ function headerFooterShapes(doc: PptDocument, s: PptSlide, m: PptSlide | undefin
   const hfText: NonNullable<TextConvCtx['hf']> = {};
   if (hf.footer) hfText.footer = hf.footer;
   if (hf.header) hfText.header = hf.header;
-  if (hf.hasUserDate && hf.userDate) hfText.userDate = hf.userDate;
+  // data FIXA (fHasUserDate): o texto do usuário, mesmo vazio — não a data de hoje
+  if (hf.hasUserDate && !hf.hasTodayDate) hfText.userDate = hf.userDate ?? '';
   pc.text.hf = hfText;
   let xml = '';
   for (const c of m.drawing.root?.children ?? []) {

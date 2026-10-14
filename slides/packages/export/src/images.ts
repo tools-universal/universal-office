@@ -10,7 +10,7 @@
  * (`opts.decodeImage`) — sem ela em node, shapes de imagem ficam em branco.
  */
 import {
-  paintSlideTo, EMU_PER_PX,
+  paintSlideTo, EMU_PER_PX, rasterizeSpecialImage,
   type Slide, type ImageRef, type PaintImage, type ChartModel,
 } from '@universal/slides-core';
 import { loadDeck } from './model.js';
@@ -76,6 +76,11 @@ function defaultDecoder(): ImageDecoder {
   const g = globalThis as { createImageBitmap?: (b: Blob) => Promise<ImageBitmap>; Blob?: typeof Blob };
   if (typeof g.createImageBitmap === 'function' && typeof g.Blob === 'function') {
     return async (ref) => {
+      // WMF/EMF e TIFF: rasteriza num OffscreenCanvas (o navegador não decodifica)
+      if (typeof OffscreenCanvas !== 'undefined') {
+        const meta = rasterizeSpecialImage(ref.bytes, (w, h) => new OffscreenCanvas(w, h));
+        if (meta) return meta as unknown as PaintImage;
+      }
       try {
         const blob = new g.Blob!([new Uint8Array(ref.bytes)], { type: ref.mime });
         return await g.createImageBitmap!(blob);
@@ -115,6 +120,7 @@ function collectImageRefs(slides: Slide[]): Map<string, ImageRef> {
     for (const sh of s.shapes) {
       if (sh.image) map.set(sh.image.part, sh.image);
       if (sh.fillImage) map.set(sh.fillImage.part, sh.fillImage);
+      for (const p of sh.txBody?.paragraphs ?? []) if (p.bulletImage) map.set(p.bulletImage.part, p.bulletImage);
     }
   }
   return map;

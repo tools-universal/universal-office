@@ -14,9 +14,12 @@ import { parseChart, paintChart, chartPartBounds, type ChartModel, type ChartSel
 import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine } from './text-layout.js';
 import { presetPath } from './geometry.js';
 import { lumHsl } from './theme.js';
-import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run } from './model.js';
+import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run, type ImageRef, type ImageFx } from './model.js';
 import type { ShapeAnimHooks, PartState, AnimBase, UnitRef } from './anim-engine.js';
 import { applyReveal, applySoftReveal, softRevealFilter } from './reveal.js';
+import { patternRows } from './patterns.js';
+import { paintWarpedText } from './text-warp.js';
+import { isSymbolFont, symbolText } from './symbol-fonts.js';
 
 /** Tamanhos default (pt) quando a cascata não resolveu sz. */
 export const DEFAULT_TITLE_PT = 40;
@@ -203,14 +206,19 @@ export function paintSlideTo(
   scale: number,
   opts: PaintSlideOptions = {},
 ): void {
-  const prev = fontStack;
+  const prev = fontStack, prevImgs = paintImages;
   fontStack = opts.fontStack ?? DEFAULT_FONT_STACK;
+  paintImages = resources.images;
   try {
     paintSlide(ctx, slide, resources, scale, opts);
   } finally {
     fontStack = prev;
+    paintImages = prevImgs;
   }
 }
+
+/** Imagens decodificadas do paint em curso (marcadores de imagem no texto). */
+let paintImages: PaintResources['images'] | undefined;
 
 function paintSlide(
   ctx: CanvasRenderingContext2D,
@@ -226,7 +234,10 @@ function paintSlide(
   const fit: Fit = { ox, oy, scale };
 
   // fundo do slide: cor sólida ou gradiente (fallback branco) + opcional imagem
-  if (slide.bg?.type === 'gradient' && slide.bg.stops && slide.bg.stops.length >= 2) {
+  const bgPat = slide.bg?.pattern ? presetPattern(ctx, slide.bg.pattern, ox, oy, scale) : null;
+  if (bgPat) {
+    ctx.fillStyle = bgPat;
+  } else if (slide.bg?.type === 'gradient' && slide.bg.stops && slide.bg.stops.length >= 2) {
     ctx.fillStyle = makeLinearGradient(ctx, slide.bg, ox, oy, sw, sh);
   } else {
     ctx.fillStyle = slide.bg?.color ?? '#ffffff';
@@ -235,9 +246,18 @@ function paintSlide(
   ctx.save();
   ctx.beginPath(); ctx.rect(ox, oy, sw, sh); ctx.clip();
   if (slide.bgImage) {
-    const bg = resources.images?.get(slide.bgImage.part);
-    // blipFill default = stretch p/ a área inteira do slide
-    if (bg) ctx.drawImage(bg, ox, oy, sw, sh);
+    const raw = resources.images?.get(slide.bgImage.part);
+    const bg = raw ? fxImage(raw, slide.bgImage.fx) : undefined;
+    // blipFill default = stretch p/ a área inteira do slide; <a:tile> = ladrilho
+    // no tamanho natural (px @96 dpi → EMU → canvas) × escala, ancorado no canto
+    ctx.save();
+    if (slide.bgImage.fx?.alpha !== undefined) ctx.globalAlpha *= slide.bgImage.fx.alpha;
+    const pat = bg && slide.bgTile ? tilePattern(ctx, bg, slide.bgImage, ox, oy, scale) : null;
+    if (pat) {
+      ctx.fillStyle = pat;
+      ctx.fillRect(ox, oy, sw, sh);
+    } else if (bg) ctx.drawImage(bg, ox, oy, sw, sh);
+    ctx.restore();
   }
   const m: SlidePx = { ox, oy, sw, sh };
   for (let i = 0; i < slide.shapes.length; i++) {
@@ -327,6 +347,77 @@ function imgH(img: PaintImage): number {
   return typeof img.naturalHeight === 'number' && img.naturalHeight > 0
     ? img.naturalHeight
     : typeof img.height === 'number' ? img.height : 0;
+}
+
+/** Canvas auxiliar (OffscreenCanvas ou <canvas>); sem nenhum (Node sem fábrica) = undefined. */
+function scratchCanvas(w: number, h: number): (HTMLCanvasElement | OffscreenCanvas) | undefined {
+  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
+  const doc = (globalThis as { document?: Document }).document;
+  if (!doc) return undefined;
+  const c = doc.createElement('canvas'); c.width = w; c.height = h; return c;
+}
+
+const fxCache = new WeakMap<object, Map<string, PaintImage>>();
+const hexRgb = (h: string): [number, number, number] => { const n = parseInt(h.replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+
+/**
+ * Imagem com os efeitos de cor do `<a:blip>` (duotone, escala de cinza,
+ * brilho/contraste, preto-e-branco, troca de cor) — processada uma vez por
+ * (imagem, efeito) e guardada. `alpha` NÃO entra aqui (vira globalAlpha).
+ */
+function fxImage(img: PaintImage, fx: ImageFx | undefined): PaintImage {
+  if (!fx || !(fx.duotone || fx.gray || fx.biLevel !== undefined || fx.bright || fx.contrast || fx.clrChange)) return img;
+  const key = JSON.stringify([fx.duotone, fx.gray, fx.biLevel, fx.bright, fx.contrast, fx.clrChange]);
+  let m = fxCache.get(img as object);
+  if (!m) { m = new Map(); fxCache.set(img as object, m); }
+  const hit = m.get(key);
+  if (hit) return hit;
+  const w = imgW(img), h = imgH(img);
+  const cv = w > 0 && h > 0 ? scratchCanvas(w, h) : undefined;
+  const c2 = cv?.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null | undefined;
+  if (!cv || !c2) return img;
+  try {
+    c2.drawImage(img, 0, 0, w, h);
+    const id = c2.getImageData(0, 0, w, h);
+    const d = id.data;
+    const from = fx.clrChange ? hexRgb(fx.clrChange.from) : undefined;
+    const to = fx.clrChange ? hexRgb(fx.clrChange.to) : undefined;
+    const d0 = fx.duotone ? hexRgb(fx.duotone[0]) : undefined, d1 = fx.duotone ? hexRgb(fx.duotone[1]) : undefined;
+    const b = fx.bright ?? 0, c = fx.contrast ?? 0;
+    const k = c >= 0 ? 1 / Math.max(0.0001, 1 - c) : 1 + c;
+    for (let i = 0; i < d.length; i += 4) {
+      let r = d[i]!, g = d[i + 1]!, bl = d[i + 2]!;
+      if (from && to && Math.abs(r - from[0]) <= 2 && Math.abs(g - from[1]) <= 2 && Math.abs(bl - from[2]) <= 2) {
+        d[i] = to[0]; d[i + 1] = to[1]; d[i + 2] = to[2]; d[i + 3] = Math.round(d[i + 3]! * fx.clrChange!.toAlpha);
+        continue;
+      }
+      if (b || c) {
+        const adj = (v: number): number => ((v / 255 + b - 0.5) * k + 0.5) * 255;
+        r = adj(r); g = adj(g); bl = adj(bl);
+      }
+      const y = (0.299 * r + 0.587 * g + 0.114 * bl) / 255;
+      if (fx.biLevel !== undefined) { r = g = bl = y >= fx.biLevel ? 255 : 0; }
+      else if (d0 && d1) { r = d0[0] + (d1[0] - d0[0]) * y; g = d0[1] + (d1[1] - d0[1]) * y; bl = d0[2] + (d1[2] - d0[2]) * y; }
+      else if (fx.gray) { r = g = bl = y * 255; }
+      d[i] = r; d[i + 1] = g; d[i + 2] = bl;
+    }
+    c2.putImageData(id, 0, 0);
+  } catch { return img; } // origem cruzada / canvas sem getImageData
+  const out = cv as unknown as PaintImage;
+  m.set(key, out);
+  return out;
+}
+
+/** Ladrilho de imagem (`<a:tile>`): padrão em tamanho natural @96 dpi × escala, ancorado em (x0, y0). */
+function tilePattern(ctx: CanvasRenderingContext2D, img: PaintImage, ref: ImageRef, x0: number, y0: number, scale: number): CanvasPattern | null {
+  const pat = ctx.createPattern(img as CanvasImageSource, 'repeat');
+  if (!pat) return null;
+  const sx = ref.tile?.sx ?? 1, sy = ref.tile?.sy ?? 1;
+  const k = 9525 * scale; // px da imagem (96dpi) → px do canvas
+  if (typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') {
+    pat.setTransform(new DOMMatrix([k * sx, 0, 0, k * sy, x0 + (ref.tile?.tx ?? 0) * scale, y0 + (ref.tile?.ty ?? 0) * scale]));
+  }
+  return pat;
 }
 
 function paintShape(
@@ -450,7 +541,8 @@ function paintBody(
   // <p:pic>: prioridade absoluta sobre fill — a imagem ocupa o xfrm.
   if (sh.image) {
     // quadro de mídia: opaco substitui a capa; com esmaecer, a capa fica por baixo
-    const poster = res.images?.get(sh.image.part);
+    const rawPoster = res.images?.get(sh.image.part);
+    const poster = rawPoster ? fxImage(rawPoster, sh.image.fx) : undefined;
     const img = ov.frame && ov.frame.alpha >= 1 ? ov.frame.image : poster;
     if (img) {
       // sombra da shape aplicada à imagem (cards de foto de template)
@@ -498,7 +590,7 @@ function paintBody(
     // contorno (raro em pic mas válido) — segue a geometria do pic
     if (sh.lineColor) {
       ctx.strokeStyle = sh.lineColor;
-      ctx.lineWidth = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
+      ctx.lineWidth = Math.max(1, (sh.lineWidth ?? 9525) * fit.scale);
       shapePath(ctx, sh.geom ?? 'rect', x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'stroke');
       ctx.stroke();
     }
@@ -509,18 +601,35 @@ function paintBody(
   // pinta proxy (a sombra vai no texto/imagem herdada — nunca um rect branco).
   const hasVisibleFill = sh.fill !== undefined && sh.fill.type !== 'none';
   if (sh.shadow && hasVisibleFill) {
-    const sx = sh.shadow.dist * Math.cos(sh.shadow.dirDeg * Math.PI / 180) / 9525 * fit.scale;
-    const sy = sh.shadow.dist * Math.sin(sh.shadow.dirDeg * Math.PI / 180) / 9525 * fit.scale;
+    // fit.scale já é px por EMU (dividir por 9525 zerava a sombra)
+    const sx = sh.shadow.dist * Math.cos(sh.shadow.dirDeg * Math.PI / 180) * fit.scale;
+    const sy = sh.shadow.dist * Math.sin(sh.shadow.dirDeg * Math.PI / 180) * fit.scale;
     ctx.save();
     const hex = sh.shadow.color.replace('#', '');
     const r = parseInt(hex.slice(0, 2), 16) || 0;
     const g = parseInt(hex.slice(2, 4), 16) || 0;
     const b = parseInt(hex.slice(4, 6), 16) || 0;
     ctx.shadowColor = `rgba(${r},${g},${b},${sh.shadow.alpha})`;
-    ctx.shadowBlur = sh.shadow.blurRad / 9525 * fit.scale;
-    ctx.shadowOffsetX = sx;
-    ctx.shadowOffsetY = sy;
+    ctx.shadowBlur = sh.shadow.blurRad * fit.scale;
     ctx.fillStyle = ov.fill ?? (sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color : '#ffffff');
+    if (sh.shadow.sx !== undefined || sh.shadow.sy !== undefined) {
+      // sombra ESCALADA em volta da âncora (algn): desenha a cópia escalada FORA da
+      // tela e traz só a sombra pelo deslocamento (que é em px do dispositivo)
+      const a = sh.shadow.algn ?? 'b';
+      const ax = x + (a === 'tl' || a === 'l' || a === 'bl' ? 0 : a === 'tr' || a === 'r' || a === 'br' ? w : w / 2);
+      const ay = y + (/^t/.test(a) ? 0 : /^b/.test(a) ? h : h / 2);
+      const K = 20000;
+      const m = ctx.getTransform();
+      ctx.shadowOffsetX = sx + m.a * K;
+      ctx.shadowOffsetY = sy + m.b * K;
+      ctx.translate(-K, 0);
+      ctx.translate(ax, ay);
+      ctx.scale(sh.shadow.sx ?? 1, sh.shadow.sy ?? 1);
+      ctx.translate(-ax, -ay);
+    } else {
+      ctx.shadowOffsetX = sx;
+      ctx.shadowOffsetY = sy;
+    }
     const shRule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
     if (shRule) ctx.fill(shRule); else ctx.fill();
     ctx.restore();
@@ -540,18 +649,19 @@ function paintBody(
     } else if (sh.fillImage) {
       // blipFill de shape: esticada OU em LADRILHO (a:tile, tamanho natural
       // @96dpi convertido a EMU), sempre recortada pelo path da geometria
-      const img = res.images?.get(sh.fillImage.part);
+      const rawImg = res.images?.get(sh.fillImage.part);
+      const img = rawImg ? fxImage(rawImg, sh.fillImage.fx) : undefined;
+      if (img && sh.fillImage.fx?.alpha !== undefined) ctx.globalAlpha *= sh.fillImage.fx.alpha;
       if (img && sh.fillTile) {
-        const pat = ctx.createPattern(img as CanvasImageSource, 'repeat');
+        const pat = tilePattern(ctx, img, sh.fillImage, x, y, fit.scale);
         if (pat) {
-          const k = 9525 * fit.scale; // px da imagem (96dpi) → px do canvas
-          if (typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') {
-            pat.setTransform(new DOMMatrix([k, 0, 0, k, x, y]));
-          }
           ctx.fillStyle = pat;
           if (rule) ctx.fill(rule); else ctx.fill();
         }
       } else if (img) { ctx.clip(); ctx.drawImage(img, x, y, w, h); }
+    } else if (sh.fill!.pattern && presetPattern(ctx, sh.fill!.pattern, fit.ox, fit.oy, fit.scale)) {
+      ctx.fillStyle = presetPattern(ctx, sh.fill!.pattern, fit.ox, fit.oy, fit.scale)!;
+      if (rule) ctx.fill(rule); else ctx.fill();
     } else if (sh.fill!.type === 'gradient' && sh.fill!.stops && sh.fill!.stops.length >= 2) {
       ctx.fillStyle = makeLinearGradient(ctx, sh.fill!, x, y, w, h);
       if (rule) ctx.fill(rule); else ctx.fill();
@@ -579,7 +689,8 @@ function paintBody(
   const lineColor = ov.line ?? sh.lineColor;
   if (lineColor) {
     ctx.strokeStyle = lineColor;
-    const lw = Math.max(1, (sh.lineWidth ?? 9525) / 9525 * fit.scale);
+    // largura em EMU × (px por EMU) — antes dividia por 9525 e todo contorno saía com 1 px
+    const lw = Math.max(1, (sh.lineWidth ?? 9525) * fit.scale);
     ctx.lineWidth = lw;
     if (sh.lineDash) ctx.setLineDash(dashPattern(sh.lineDash, lw));
     shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'stroke');
@@ -774,6 +885,21 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
   anim?: ShapeAnimPaint): void {
   // texto VERTICAL (vert = 90° horário; vert270 = 90° anti-horário): diagrama
   // na caixa de lados trocados e gira em volta do centro
+  // WordArt (prstTxWarp): o texto é deformado para preencher a caixa
+  if (tb.warp) {
+    const refPx = 120;
+    const lines = tb.paragraphs.map((p) => {
+      const r0 = p.runs.find((r) => r.text.trim()) ?? p.runs[0];
+      const fam = r0?.font ?? 'Arial';
+      const sym = isSymbolFont(fam);
+      const text = p.runs.map((r) => (sym ? symbolText(fam, r.text) : r.text)).join('').replace(/\n/g, ' ');
+      const f: LayoutFont = { family: sym ? 'Segoe UI Symbol' : fam, sizePt: refPx, bold: !!r0?.bold, italic: !!r0?.italic };
+      return { text, font: layoutFontStr(f, 1), refPx, color: r0?.color ?? '#000000' };
+    });
+    const iL = (tb.insL ?? 91440) * scale, iT = (tb.insT ?? 45720) * scale, iR = (tb.insR ?? 91440) * scale, iB = (tb.insB ?? 45720) * scale;
+    paintWarpedText(ctx, tb.warp.prst, tb.warp.adj, lines, x + iL, y + iT, w - iL - iR, h - iT - iB, (cw, ch) => scratchCanvas(cw, ch));
+    return;
+  }
   const turn = tb.vert === 'vert' || tb.vert === 'eaVert' ? 1 : tb.vert === 'vert270' ? -1 : 0;
   if (turn) {
     const { vert: _v, ...flat } = tb;
@@ -819,9 +945,15 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
   };
   const colorOf = (c: string, st?: PartState | null): string => st?.textColor ?? all?.textColor ?? c;
   const underOf = (u: boolean, st?: PartState | null): boolean => st?.underline ?? all?.underline ?? u;
-  const drawText = (text: string, r: PlacedRun, tx: number, by: number, st?: PartState | null): void => {
+  const drawText = (text: string, r: PlacedRun, tx: number, by0: number, st?: PartState | null): void => {
     const f = fontOf(r.font, st);
     ctx.font = layoutFontStr(f, pxPerPt);
+    // sobrescrito/subscrito: baseline deslocada; espaçamento de caracteres (spc)
+    const by = r.rise ? by0 - r.rise * scale : by0;
+    const ls = r.spc ? r.spc * scale : 0;
+    const lsCtx = ctx as unknown as { letterSpacing?: string };
+    const prevLs = lsCtx.letterSpacing;
+    if (ls && prevLs !== undefined) lsCtx.letterSpacing = `${ls}px`;
     const color = colorOf(r.color, st);
     ctx.fillStyle = color;
     const effShadow = r.shadow ?? sh.shadow;
@@ -847,6 +979,14 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
       const tw = text === r.text ? r.w * scale : ctx.measureText(text).width;
       ctx.beginPath(); ctx.moveTo(tx, uy); ctx.lineTo(tx + tw, uy); ctx.stroke();
     }
+    if (r.strike) {
+      const sizePx = f.sizePt * pxPerPt;
+      ctx.strokeStyle = color; ctx.lineWidth = Math.max(1, sizePx / 16);
+      const sy = Math.round(by - sizePx * 0.3) + 0.5;
+      const tw = text === r.text ? r.w * scale : ctx.measureText(text).width;
+      ctx.beginPath(); ctx.moveTo(tx, sy); ctx.lineTo(tx + tw, sy); ctx.stroke();
+    }
+    if (ls && prevLs !== undefined) lsCtx.letterSpacing = prevLs;
   };
 
   // caixas por parágrafo (px) — geometria-base das animações por parágrafo
@@ -900,7 +1040,14 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
           plan.firstWordRef(line.para));
         bulletOn = !bst || (bst.visible && bst.opacity > 0);
       }
-      if (bulletOn) {
+      const bimg = line.bullet.image ? paintImages?.get(line.bullet.image.part) : undefined;
+      if (bulletOn && bimg) {
+        // marcador de IMAGEM: altura = tamanho do marcador, proporção da imagem, base na baseline
+        const hPx = line.bullet.font.sizePt * pxPerPt * 0.8;
+        const iw = imgW(bimg), ih = imgH(bimg);
+        const wPx = ih > 0 ? (hPx * iw) / ih : hPx;
+        ctx.drawImage(bimg, x + line.bullet.x * scale, by - hPx, wPx, hPx);
+      } else if (bulletOn && !line.bullet.image) {
         ctx.font = layoutFontStr(line.bullet.font, pxPerPt);
         ctx.fillStyle = line.bullet.color;
         ctx.fillText(line.bullet.text, x + line.bullet.x * scale, by);
@@ -1086,17 +1233,58 @@ function layoutFontStr(f: LayoutFont, pxPerPt: number): string {
  * texto conforme `cell.anchor` (default TOPO, como o app de referência) +
  * `pPr.algn`. `scale` = px por EMU (dimensiona texto e insets).
  */
+/**
+ * Corpo de texto de uma célula como o motor de texto o vê: margens e âncora do
+ * tcPr (default do app: 0,1" nas laterais, 0,05" em cima/embaixo, âncora no
+ * TOPO) e cor/negrito default do ESTILO da tabela onde o run não define.
+ */
+function cellBody(cell: Table['rows'][number]['cells'][number]): TextBody {
+  const { txColor, txBold } = cell;
+  return {
+    ...cell.txBody!,
+    anchor: cell.anchor ?? 't',
+    ...(cell.vert ? { vert: cell.vert } : {}),
+    insL: cell.marL ?? 91440, insR: cell.marR ?? 91440,
+    insT: cell.marT ?? 45720, insB: cell.marB ?? 45720,
+    paragraphs: txColor === undefined && txBold === undefined ? cell.txBody!.paragraphs
+      : cell.txBody!.paragraphs.map((p) => ({
+        ...p,
+        runs: p.runs.map((r): Run => {
+          const o: Run = { ...r };
+          if (o.color === undefined && txColor !== undefined) o.color = txColor;
+          if (o.bold === undefined && txBold !== undefined) o.bold = txBold;
+          return o;
+        }),
+      })),
+  };
+}
+
 function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: number, w: number, h: number, scale: number): void {
   // Alturas: se TODAS forem 0 (XML sem atributo h em <a:tr>), distribui
   // igualmente; caso contrário, usa as proporções do XML.
   const allZeroRows = t.rows.every((r) => !r.heightEmu);
+  const totalColEmu = t.colWidthsEmu.reduce((a, b) => a + b, 0) || 1;
+  const sx = w / totalColEmu;
+  // a linha CRESCE até caber o texto da célula mais alta (como o app de
+  // referência: a tabela pode passar do quadro); alturas absolutas do XML
+  const measure: MeasureText = (text, f) => { ctx.font = layoutFontStr(f, 1); return ctx.measureText(text).width; };
   const rowHs = allZeroRows
     ? t.rows.map(() => 1)
-    : t.rows.map((r) => Math.max(r.heightEmu, 1));
-  const totalColEmu = t.colWidthsEmu.reduce((a, b) => a + b, 0) || 1;
+    : t.rows.map((r) => {
+      let need = Math.max(r.heightEmu, 1);
+      r.cells.forEach((cell, ci) => {
+        if (cell.hMerge || cell.vMerge || (cell.rowSpan ?? 1) > 1 || !cell.txBody || cell.vert) return;
+        const span = cell.gridSpan ?? 1;
+        let cwEmu = 0;
+        for (let k = ci; k < ci + span; k++) cwEmu += t.colWidthsEmu[k] ?? 0;
+        const body = cellBody(cell);
+        const lay = layoutTextBody(body, cwEmu, 1e12, measure, { defaultSzPt: DEFAULT_BODY_PT, defaultAnchor: 't' });
+        need = Math.max(need, lay.totalH + (body.insT ?? 0) + (body.insB ?? 0));
+      });
+      return need;
+    });
   const totalRowEmu = rowHs.reduce((a, b) => a + b, 0) || 1;
-  const sx = w / totalColEmu;
-  const sy = h / totalRowEmu;
+  const sy = allZeroRows ? h / totalRowEmu : scale;
   // posições acumuladas em px
   const colX: number[] = [0];
   for (const cw of t.colWidthsEmu) colX.push(colX[colX.length - 1]! + cw * sx);
@@ -1195,26 +1383,7 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
       // o MESMO motor de texto das formas (runs na mesma linha, quebra,
       // sublinhado, espaçamentos); margens e âncora vêm do tcPr — default do
       // app: 0,1" nas laterais, 0,05" em cima/embaixo, âncora no TOPO
-      const { txColor, txBold } = cell;
-      const body: TextBody = {
-        ...cell.txBody,
-        anchor: cell.anchor ?? 't',
-        ...(cell.vert ? { vert: cell.vert } : {}),
-        insL: cell.marL ?? 91440, insR: cell.marR ?? 91440,
-        insT: cell.marT ?? 45720, insB: cell.marB ?? 45720,
-        // cor/negrito default do ESTILO da tabela (tcTxStyle) onde o run não define
-        paragraphs: txColor === undefined && txBold === undefined ? cell.txBody.paragraphs
-          : cell.txBody.paragraphs.map((p) => ({
-            ...p,
-            runs: p.runs.map((r): Run => {
-              const o: Run = { ...r };
-              if (o.color === undefined && txColor !== undefined) o.color = txColor;
-              if (o.bold === undefined && txBold !== undefined) o.bold = txBold;
-              return o;
-            }),
-          })),
-      };
-      paintText(ctx, TABLE_CELL, body, cx0, cy0, cw, ch, scale);
+      paintText(ctx, TABLE_CELL, cellBody(cell), cx0, cy0, cw, ch, scale);
     }
   }
 }
@@ -1232,6 +1401,8 @@ function makeLinearGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number
   // gradiente RADIAL (<a:path>): pos 0 = centro (fillToRect), pos 1 = borda.
   // Aproximação circular do path rect/shape do app de referência.
   if (fill.path) {
+    const pat = pathGradient(ctx, fill, x, y, w, h);
+    if (pat) return pat as unknown as CanvasGradient;
     const cx = x + w / 2, cy = y + h / 2;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) / 2);
     addLinearSpaceStops(g, fill.stops ?? []);
@@ -1253,6 +1424,98 @@ function makeLinearGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number
   const g = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
   addLinearSpaceStops(g, fill.stops ?? []);
   return g;
+}
+
+const pattCache = new Map<string, PaintImage>();
+
+/** Padrão 8×8 (`pattFill`) como CanvasPattern ancorado na origem do slide, 1 px do padrão = 1/96 pol. */
+function presetPattern(ctx: CanvasRenderingContext2D, p: NonNullable<Fill['pattern']>, ox: number, oy: number, scale: number): CanvasPattern | null {
+  const rows = patternRows(p.prst);
+  if (!rows) return null;
+  const key = p.prst + p.fg + p.bg;
+  let img = pattCache.get(key);
+  if (!img) {
+    const cv = scratchCanvas(8, 8);
+    const c2 = cv?.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null | undefined;
+    if (!cv || !c2) return null;
+    const id = c2.createImageData(8, 8);
+    const fg = hexRgb(p.fg), bg = hexRgb(p.bg);
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      const on = (rows[r]! >> (7 - c)) & 1, col = on ? fg : bg, o = (r * 8 + c) * 4;
+      id.data[o] = col[0]; id.data[o + 1] = col[1]; id.data[o + 2] = col[2]; id.data[o + 3] = 255;
+    }
+    c2.putImageData(id, 0, 0);
+    img = cv as unknown as PaintImage;
+    pattCache.set(key, img);
+  }
+  const pat = ctx.createPattern(img as CanvasImageSource, 'repeat');
+  if (!pat) return null;
+  const k = 9525 * scale;
+  if (typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') {
+    pat.setTransform(new DOMMatrix([k, 0, 0, k, ox, oy]));
+  }
+  return pat;
+}
+
+const pathGradCache = new Map<string, PaintImage>();
+
+/**
+ * Gradiente de CAMINHO (`<a:path path="circle|rect|shape">` + `fillToRect`),
+ * como o app de referência (medido): pos 0 no retângulo de FOCO, pos 1 na
+ * borda; `circle` = círculo (não elipse) com raio até o canto mais distante;
+ * `rect`/`shape` = contornos retangulares, t = max(dx, dy) normalizados pela
+ * distância do foco à borda de cada lado. Rasterizado numa grade pequena
+ * (cores suaves) em RGB linear e esticado como padrão.
+ */
+function pathGradient(ctx: CanvasRenderingContext2D, fill: Fill, x: number, y: number, w: number, h: number): CanvasPattern | null {
+  const stops = (fill.stops ?? []).map((s) => ({ pos: Math.max(0, Math.min(1, s.pos)), rgb: hexRgb(s.color), a: s.alpha ?? 1 }));
+  if (stops.length < 2 || !(w > 0) || !(h > 0)) return null;
+  const ft = fill.fillTo ?? { l: 0.5, t: 0.5, r: 0.5, b: 0.5 };
+  // grade de amostragem: proporção do retângulo, lado maior 192
+  const k = 192 / Math.max(w, h);
+  const gw = Math.max(2, Math.round(w * k)), gh = Math.max(2, Math.round(h * k));
+  const key = JSON.stringify([fill.path, ft, gw, gh, fill.stops]);
+  let img = pathGradCache.get(key);
+  if (!img) {
+    const cv = scratchCanvas(gw, gh);
+    const c2 = cv?.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null | undefined;
+    if (!cv || !c2) return null;
+    const id = c2.createImageData(gw, gh);
+    const fl = ft.l * gw, fr = gw - ft.r * gw, fT = ft.t * gh, fb = gh - ft.b * gh;
+    const circle = fill.path === 'circle';
+    // raio do círculo: do foco ao canto mais distante
+    const dRect = (px: number, py: number): number => Math.hypot(Math.max(fl - px, 0, px - fr), Math.max(fT - py, 0, py - fb));
+    const rMax = Math.max(dRect(0, 0), dRect(gw, 0), dRect(0, gh), dRect(gw, gh)) || 1;
+    const lin = (v: number): number => Math.pow(v / 255, 2.2);
+    const srgb = (v: number): number => Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255;
+    for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
+      const px = i + 0.5, py = j + 0.5;
+      let t: number;
+      if (circle) t = dRect(px, py) / rMax;
+      else {
+        const tx = px < fl ? (fl - px) / (fl || 1) : px > fr ? (px - fr) / ((gw - fr) || 1) : 0;
+        const ty = py < fT ? (fT - py) / (fT || 1) : py > fb ? (py - fb) / ((gh - fb) || 1) : 0;
+        t = Math.max(tx, ty);
+      }
+      t = Math.max(0, Math.min(1, t));
+      let a = stops[0]!, b = stops[stops.length - 1]!;
+      for (let s = 0; s + 1 < stops.length; s++) if (t >= stops[s]!.pos && t <= stops[s + 1]!.pos) { a = stops[s]!; b = stops[s + 1]!; break; }
+      const u = t <= a.pos ? 0 : t >= b.pos ? 1 : (t - a.pos) / ((b.pos - a.pos) || 1);
+      const o = (j * gw + i) * 4;
+      for (let c = 0; c < 3; c++) id.data[o + c] = srgb(lin(a.rgb[c]!) * (1 - u) + lin(b.rgb[c]!) * u);
+      id.data[o + 3] = Math.round((a.a * (1 - u) + b.a * u) * 255);
+    }
+    c2.putImageData(id, 0, 0);
+    img = cv as unknown as PaintImage;
+    if (pathGradCache.size > 64) pathGradCache.clear();
+    pathGradCache.set(key, img);
+  }
+  const pat = ctx.createPattern(img as CanvasImageSource, 'no-repeat');
+  if (!pat) return null;
+  if (typeof (pat as { setTransform?: unknown }).setTransform === 'function' && typeof DOMMatrix !== 'undefined') {
+    pat.setTransform(new DOMMatrix([w / gw, 0, 0, h / gh, x, y]));
+  }
+  return pat;
 }
 
 /**

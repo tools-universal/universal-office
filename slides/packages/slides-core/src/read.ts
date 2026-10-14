@@ -1,15 +1,16 @@
 import { parseXml, childElements, firstChild, textContent, descend, type XmlElement } from './xml.js';
 import type { PathSeg } from './geometry.js';
-import { readTheme, colorFromDml, solidFillColor } from './theme.js';
+import { readTheme, colorFromDml, solidFillColor, applyClrMap, clrMapAttrs, textFillColor } from './theme.js';
+import { patternDensity } from './patterns.js';
 import { readTblPr, readTableStyle, applyTableStyle } from './table-style.js';
 import {
-  parseTxStyleLevels, applyShapeTextCascade, applyTextStyles, mergeStyleLevels,
+  parseTxStyleLevels, applyShapeTextCascade, applyTextStyles, mergeStyleLevels, readRunExtras, type BlipResolver,
   type TextStyleContext, type TextStyleLevel, type TextStyleLevels,
 } from './text-style.js';
 import type { PptxPackage } from './package.js';
 import { parseSlideTiming, type CountTextUnits } from './timing.js';
 import type {
-  Presentation, SlideRef, Slide, Shape, Xfrm, ImageRef, MediaRef, TextBody, Paragraph, Run, Theme,
+  Presentation, SlideRef, Slide, Shape, Xfrm, ImageRef, ImageFx, MediaRef, TextBody, Paragraph, Run, Theme,
   SlideAnimEntry, SlideTransition, Table, TableRow, TableCell, GradientStop, Fill, ShowSettings,
 } from './model.js';
 
@@ -88,7 +89,20 @@ function themeFor(pkg: PptxPackage, part: string): Theme {
   // master -> theme. Slides nao referenciam tema direto; sobem ate o master.
   const masterPath = findRelTarget(pkg, part, 'slideMaster') ?? findRelTarget(pkg, findRelTarget(pkg, part, 'slideLayout') ?? '', 'slideMaster');
   const themePath = masterPath ? findRelTarget(pkg, masterPath, 'theme') : findRelTarget(pkg, 'ppt/presentation.xml', 'theme');
-  return readTheme(pkg, themePath ?? 'ppt/theme/theme1.xml');
+  const theme = readTheme(pkg, themePath ?? 'ppt/theme/theme1.xml');
+  // clrMap: o do master; `<p:clrMapOvr><a:overrideClrMapping>` da própria parte
+  // (slide) e, sem ele, o do layout substituem (`masterClrMapping` = herda)
+  const ovr = (p: string | undefined): Record<string, string> | undefined => {
+    const xml = p ? pkg.getPartText(p) : undefined;
+    if (xml === undefined) return undefined;
+    const o = firstChild(parseXml(xml), 'p:clrMapOvr');
+    return clrMapAttrs(o ? firstChild(o, 'a:overrideClrMapping') : undefined);
+  };
+  const mx = masterPath ? pkg.getPartText(masterPath) : undefined;
+  const masterMap = mx !== undefined ? clrMapAttrs(firstChild(parseXml(mx), 'p:clrMap')) : undefined;
+  const layoutPath = part === masterPath ? undefined : (/slideLayout/.test(part) ? part : findRelTarget(pkg, part, 'slideLayout'));
+  const map = (part !== layoutPath ? ovr(part) : undefined) ?? ovr(layoutPath) ?? masterMap;
+  return applyClrMap(theme, map);
 }
 
 function findRelTarget(pkg: PptxPackage, part: string, typeSuffix: string): string | undefined {
@@ -172,7 +186,7 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
       if ((psh.phType === undefined && psh.phIdx === undefined) || !psh.shadow) continue;
       shadowMap.set(phKey(psh.phType, psh.phIdx), psh.shadow);
       shadowMap.set(phKey(psh.phType), psh.shadow);
-      if (psh.phIdx !== undefined) shadowMap.set('idx:' + psh.phIdx, psh.shadow);
+      if (psh.phIdx !== undefined && part === layoutPath) shadowMap.set('idx:' + psh.phIdx, psh.shadow);
     }
   }
   for (const sh of shapes) {
@@ -190,6 +204,7 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     const tb = sh.txBody;
     if (tb.anchor === undefined && inh.anchor !== undefined) tb.anchor = inh.anchor;
     if (tb.wrap === undefined && inh.wrap !== undefined) tb.wrap = inh.wrap;
+    if (tb.spcFirstLastPara === undefined && inh.spcFirstLastPara !== undefined) tb.spcFirstLastPara = inh.spcFirstLastPara;
     if (tb.vert === undefined && inh.vert !== undefined) tb.vert = inh.vert;
     if (tb.insL === undefined && inh.insL !== undefined) tb.insL = inh.insL;
     if (tb.insT === undefined && inh.insT !== undefined) tb.insT = inh.insT;
@@ -210,7 +225,11 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     const keys = (sh.phType !== undefined || sh.phIdx !== undefined)
       ? [phKey(sh.phType, sh.phIdx), phKey(sh.phType), 'idx:' + (sh.phIdx ?? '')]
       : [];
-    applyShapeTextCascade(sh, styleCtx, theme, keys);
+    const mType = sh.phType === undefined || sh.phType === 'obj' || sh.phType === 'subTitle' ? 'body' : sh.phType;
+    applyShapeTextCascade(sh, styleCtx, theme, keys, keys.length ? [phKey(mType)] : []);
+    // nenhuma camada definiu a cor: o padrão do app é tx1 (já pelo clrMap — branco em tema escuro)
+    const tx1 = theme.colors['tx1'];
+    if (tx1) for (const p of sh.txBody.paragraphs) for (const r of p.runs) if (r.color === undefined) r.color = tx1;
   }
   // células de tabela: defaultTextStyle + otherStyle do master + tcTxStyle do
   // ESTILO da tabela (cor/negrito por parte, ex. header branco/bold) por cima.
@@ -238,9 +257,23 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     const bgEl = descend(partRoot, 'p:bg');
     if (!bgEl) return false;
     const bgPr = firstChild(bgEl, 'p:bgPr');
-    if (!bgPr) return false;
+    if (!bgPr) {
+      // <p:bgRef idx="1001…"><a:schemeClr val="bg2"/>: estilo do bgFillStyleLst do
+      // tema (sólido/degradê/imagem) com phClr = a cor da referência
+      const ref = firstChild(bgEl, 'p:bgRef');
+      const st = ref ? themeStyleFill(ref, theme, pkg) : undefined;
+      if (!st) return false;
+      if (st.fill && st.fill.type !== 'none') slide.bg = st.fill;
+      if (st.image) { slide.bgImage = st.image; if (st.tile) slide.bgTile = true; }
+      return slide.bg !== undefined || slide.bgImage !== undefined;
+    }
     const c = solidFillColor(bgPr, theme);
     if (c) slide.bg = { type: 'solid', color: c };
+    if (!slide.bg) {
+      const pf = firstChild(bgPr, 'a:pattFill');
+      const pfill = pf ? parsePattFill(pf, theme) : undefined;
+      if (pfill) slide.bg = pfill;
+    }
     if (!slide.bg) {
       const grad = firstChild(bgPr, 'a:gradFill');
       if (grad) {
@@ -250,8 +283,11 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     }
     const blip = descend(bgPr, 'a:blip');
     if (blip) {
-      const img = resolveBlip(blip, pkg, rels);
-      if (img) slide.bgImage = img;
+      const img = resolveBlip(blip, pkg, rels, theme);
+      if (img) {
+        slide.bgImage = img;
+        if (applyTile(img, firstChild(bgPr, 'a:blipFill'))) slide.bgTile = true;
+      }
     }
     return slide.bg !== undefined || slide.bgImage !== undefined;
   };
@@ -457,7 +493,8 @@ function placeholderXfrmMap(pkg: PptxPackage, slidePath: string, theme: Theme): 
       if (!sh.xfrm) continue;
       map.set(phKey(sh.phType, sh.phIdx), sh.xfrm);
       map.set(phKey(sh.phType), sh.xfrm);
-      if (sh.phIdx !== undefined) map.set('idx:' + sh.phIdx, sh.xfrm);
+      // idx sem tipo só no LAYOUT (o idx do master é outra numeração)
+      if (sh.phIdx !== undefined && part === layoutPath) map.set('idx:' + sh.phIdx, sh.xfrm);
     }
   }
   return map;
@@ -496,6 +533,7 @@ function placeholderBodyPrMap(pkg: PptxPackage, slidePath: string): Map<string, 
       const props: Partial<TextBody> = {};
       if (bodyPr.attrs['anchor']) props.anchor = bodyPr.attrs['anchor'];
       if (bodyPr.attrs['wrap']) props.wrap = bodyPr.attrs['wrap'];
+      if (bodyPr.attrs['spcFirstLastPara'] !== undefined) props.spcFirstLastPara = bodyPr.attrs['spcFirstLastPara'] === '1';
       if (bodyPr.attrs['vert']) props.vert = bodyPr.attrs['vert']; // texto vertical do layout ("Título e texto verticais")
       if (bodyPr.attrs['lIns'] !== undefined) props.insL = parseInt(bodyPr.attrs['lIns'], 10);
       if (bodyPr.attrs['tIns'] !== undefined) props.insT = parseInt(bodyPr.attrs['tIns'], 10);
@@ -513,7 +551,7 @@ function placeholderBodyPrMap(pkg: PptxPackage, slidePath: string): Map<string, 
       const idx = ph.attrs['idx'];
       map.set(phKey(type, idx), props);
       map.set(phKey(type), props);
-      if (idx !== undefined) map.set('idx:' + idx, props);
+      if (idx !== undefined && part === layoutPath) map.set('idx:' + idx, props);
     }
   }
   return map;
@@ -537,26 +575,28 @@ function buildTextStyleContext(pkg: PptxPackage, slidePath: string, theme: Theme
     if (xml !== undefined) {
       const root = parseXml(xml);
       const tx = firstChild(root, 'p:txStyles');
+      const mRels = readRels(pkg, relsPathFor(masterPath), masterPath);
+      const mBlip: BlipResolver = (b) => resolveBlip(b, pkg, mRels, theme);
       if (tx) {
-        ctx.titleStyle = parseTxStyleLevels(firstChild(tx, 'p:titleStyle'), theme);
-        ctx.bodyStyle = parseTxStyleLevels(firstChild(tx, 'p:bodyStyle'), theme);
-        ctx.otherStyle = parseTxStyleLevels(firstChild(tx, 'p:otherStyle'), theme);
+        ctx.titleStyle = parseTxStyleLevels(firstChild(tx, 'p:titleStyle'), theme, mBlip);
+        ctx.bodyStyle = parseTxStyleLevels(firstChild(tx, 'p:bodyStyle'), theme, mBlip);
+        ctx.otherStyle = parseTxStyleLevels(firstChild(tx, 'p:otherStyle'), theme, mBlip);
       }
-      collectPhStyles(root, theme, pkg, ctx.masterPh);
+      collectPhStyles(root, theme, pkg, ctx.masterPh, mRels);
     }
   }
   if (layoutPath) {
     const xml = pkg.getPartText(layoutPath);
-    if (xml !== undefined) collectPhStyles(parseXml(xml), theme, pkg, ctx.layoutPh);
+    if (xml !== undefined) collectPhStyles(parseXml(xml), theme, pkg, ctx.layoutPh, readRels(pkg, relsPathFor(layoutPath), layoutPath));
   }
   return ctx;
 }
 
 /** Coleta os lstStyle (ja parseados em readTxBody) dos placeholders de uma parte. */
-function collectPhStyles(root: XmlElement, theme: Theme, pkg: PptxPackage, map: Map<string, TextStyleLevels>): void {
+function collectPhStyles(root: XmlElement, theme: Theme, pkg: PptxPackage, map: Map<string, TextStyleLevels>, rels: Map<string, string> = new Map()): void {
   const tree = descend(root, 'p:spTree');
   if (!tree) return;
-  for (const sh of readShapes(tree, theme, pkg, new Map())) {
+  for (const sh of readShapes(tree, theme, pkg, rels)) {
     if (sh.phType === undefined && sh.phIdx === undefined) continue;
     const ls = sh.txBody?.lstStyle;
     if (!ls) continue;
@@ -690,10 +730,8 @@ function readGroup(grp: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<st
       x.y = ncy - x.cy / 2;
       x.rot = ((x.rot ?? 0) + rotRaw) || undefined;
     }
-    // escala tambem a espessura de linha (media geometrica dos eixos)
-    if (sh.lineWidth !== undefined && sx > 0 && sy > 0) {
-      sh.lineWidth = Math.round(sh.lineWidth * Math.sqrt(sx * sy));
-    }
+    // a espessura de linha NÃO escala com o grupo (o app desenha a largura
+    // absoluta; grupos com chExt minúsculo davam contornos de centenas de pt)
   }
   return children;
 }
@@ -956,6 +994,11 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
     if (firstChild(spPr, 'a:noFill')) shape.fill = { type: 'none' };
     else if (firstChild(spPr, 'a:grpFill')) shape.grpFill = true; // herda do grupo (readGroup)
     else { const c = solidFillColor(spPr, theme); if (c) shape.fill = { type: 'solid', color: c }; }
+    if (!shape.fill) {
+      const pf = firstChild(spPr, 'a:pattFill');
+      const pfill = pf ? parsePattFill(pf, theme) : undefined;
+      if (pfill) shape.fill = pfill;
+    }
     // gradiente linear (spec 03 G): <a:gradFill><a:gsLst>… + <a:lin ang>
     if (!shape.fill) {
       const grad = firstChild(spPr, 'a:gradFill');
@@ -969,10 +1012,10 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       const bf = firstChild(spPr, 'a:blipFill');
       const blip = bf ? firstChild(bf, 'a:blip') : undefined;
       if (blip) {
-        const img = resolveBlip(blip, pkg, rels);
+        const img = resolveBlip(blip, pkg, rels, theme);
         if (img) {
           shape.fillImage = img;
-          if (bf && firstChild(bf, 'a:tile')) shape.fillTile = true;
+          if (applyTile(img, bf)) shape.fillTile = true;
         }
       }
     }
@@ -1003,17 +1046,19 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       const blurRad = shd.attrs['blurRad'] ? parseInt(shd.attrs['blurRad'], 10) : 0;
       const dist = shd.attrs['dist'] ? parseInt(shd.attrs['dist'], 10) : 0;
       const dirDeg = (shd.attrs['dir'] ? parseInt(shd.attrs['dir'], 10) : 5400000) / 60000;
-      // cor + alpha vem do filho a:srgbClr ou a:schemeClr (com a:alpha)
-      const srgb = firstChild(shd, 'a:srgbClr');
-      const scheme = firstChild(shd, 'a:schemeClr');
+      // cor (srgb/scheme/prst/sys, com modificadores) + alpha do filho de cor
       let color = '#000000', alpha = 1;
-      const colorEl = srgb ?? scheme;
+      const colorEl = childElements(shd)[0];
       if (colorEl) {
-        if (srgb?.attrs['val']) color = '#' + srgb.attrs['val'];
+        color = colorFromDml(colorEl, theme) ?? color;
         const aEl = firstChild(colorEl, 'a:alpha');
         if (aEl?.attrs['val']) alpha = parseInt(aEl.attrs['val'], 10) / 100000;
       }
       shape.shadow = { color, blurRad, dist, dirDeg, alpha };
+      // sombra ESCALADA (sx/sy) ancorada (algn): ex. 93% no topo = só a base aparece
+      const ssx = shd.attrs['sx'] !== undefined ? parseInt(shd.attrs['sx'], 10) / 100000 : 1;
+      const ssy = shd.attrs['sy'] !== undefined ? parseInt(shd.attrs['sy'], 10) / 100000 : 1;
+      if (ssx !== 1 || ssy !== 1) { shape.shadow.sx = ssx; shape.shadow.sy = ssy; shape.shadow.algn = shd.attrs['algn'] ?? 'b'; }
     }
   }
 
@@ -1028,8 +1073,16 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       return colorFromDml(childElements(ref)[0], theme);
     };
     if (!shape.fill && !shape.fillImage && !shape.grpFill) {
-      const fc = refColor('a:fillRef');
-      if (fc) shape.fill = { type: 'solid', color: fc };
+      // estilo do fillStyleLst do tema (idx 1 sólido, 2/3 degradês nos temas
+      // 2007–2013) com phClr = cor da referência; sem tema, a cor pura
+      const ref = firstChild(styleEl, 'a:fillRef');
+      const st = ref ? themeStyleFill(ref, theme, pkg) : undefined;
+      if (st?.fill) shape.fill = st.fill;
+      else if (st?.image) { shape.fillImage = st.image; if (st.tile) shape.fillTile = true; }
+      else {
+        const fc = refColor('a:fillRef');
+        if (fc) shape.fill = { type: 'solid', color: fc };
+      }
     }
     if (shape.lineColor === undefined && !shape.lineNone) {
       const lc = refColor('a:lnRef');
@@ -1053,7 +1106,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
   }
 
   const txBody = firstChild(sp, 'p:txBody');
-  if (txBody) shape.txBody = readTxBody(txBody, theme, rels);
+  if (txBody) shape.txBody = readTxBody(txBody, theme, rels, pkg);
   return shape;
 }
 
@@ -1093,6 +1146,56 @@ function parseCustGeom(cust: XmlElement): { w: number; h: number; subs: PathSeg[
   return { w: pw || 1, h: ph || 1, subs };
 }
 
+/**
+ * Estilo de preenchimento do TEMA referenciado por `<a:fillRef idx>` (1…) ou
+ * `<p:bgRef idx>` (1001…), com `phClr` = cor filha da referência. idx 0 = nada.
+ * Imagens do estilo resolvem pelos rels do próprio tema.
+ */
+function themeStyleFill(ref: XmlElement, theme: Theme, pkg?: PptxPackage): { fill?: Fill; image?: ImageRef; tile?: boolean } | undefined {
+  const idx = parseInt(ref.attrs['idx'] ?? '0', 10);
+  if (!(idx > 0)) return undefined;
+  const el = idx >= 1001 ? theme.bgFillStyles?.[idx - 1001] : theme.fillStyles?.[idx - 1];
+  if (!el) return undefined;
+  const ph = colorFromDml(childElements(ref)[0], theme);
+  const t: Theme = ph ? { ...theme, colors: { ...theme.colors, phClr: ph } } : theme;
+  switch (el.name) {
+    case 'a:noFill': return { fill: { type: 'none' } };
+    case 'a:solidFill': {
+      const c = colorFromDml(childElements(el)[0], t);
+      return c ? { fill: { type: 'solid', color: c } } : undefined;
+    }
+    case 'a:gradFill': {
+      const g = parseGradFill(el, t);
+      return g ? { fill: g } : undefined;
+    }
+    case 'a:pattFill': {
+      const f = parsePattFill(el, t);
+      return f ? { fill: f } : undefined;
+    }
+    case 'a:blipFill': {
+      const blip = firstChild(el, 'a:blip');
+      if (!blip || !pkg || !theme.part) return ph ? { fill: { type: 'solid', color: ph } } : undefined;
+      const img = resolveBlip(blip, pkg, readRels(pkg, relsPathFor(theme.part), theme.part), t);
+      if (!img) return ph ? { fill: { type: 'solid', color: ph } } : undefined;
+      return { image: img, tile: applyTile(img, el) };
+    }
+  }
+  return undefined;
+}
+
+/** `<a:pattFill prst>` → Fill sólido na cor MÉDIA + o padrão (frente/fundo resolvidos). */
+function parsePattFill(el: XmlElement, theme: Theme): Fill | undefined {
+  const fgEl = firstChild(el, 'a:fgClr'), bgEl = firstChild(el, 'a:bgClr');
+  const fg = (fgEl ? colorFromDml(childElements(fgEl)[0], theme) : undefined) ?? '#000000';
+  const bg = (bgEl ? colorFromDml(childElements(bgEl)[0], theme) : undefined) ?? '#FFFFFF';
+  const prst = el.attrs['prst'] ?? 'pct5';
+  const d = patternDensity(prst);
+  const n = (h: string): number[] => { const v = parseInt(h.replace('#', ''), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
+  const a = n(fg), b = n(bg);
+  const avg = '#' + a.map((c, i) => Math.round(c * d + b[i]! * (1 - d)).toString(16).padStart(2, '0')).join('');
+  return { type: 'solid', color: avg, pattern: { prst, fg, bg } };
+}
+
 /** Parse de `<a:gradFill>` -> Fill gradient (2+ stops; `<a:lin ang>` em graus). */
 function parseGradFill(grad: XmlElement, theme: Theme): { type: 'gradient'; stops: GradientStop[]; angleDeg: number } | undefined {
   const gsLst = firstChild(grad, 'a:gsLst');
@@ -1118,7 +1221,14 @@ function parseGradFill(grad: XmlElement, theme: Theme): { type: 'gradient'; stop
   if (lin?.attrs['scaled'] === '1') out.scaled = true;
   // gradiente radial: <a:path path="rect|circle|shape"> (pos 0 = centro)
   const pathEl = firstChild(grad, 'a:path');
-  if (pathEl) out.path = pathEl.attrs['path'] ?? 'shape';
+  if (pathEl) {
+    out.path = pathEl.attrs['path'] ?? 'shape';
+    const ftr = firstChild(pathEl, 'a:fillToRect');
+    if (ftr) {
+      const n = (k: string): number => (ftr.attrs[k] !== undefined ? parseInt(ftr.attrs[k]!, 10) / 100000 : 0);
+      (out as { fillTo?: { l: number; t: number; r: number; b: number } }).fillTo = { l: n('l'), t: n('t'), r: n('r'), b: n('b') };
+    }
+  }
   return out;
 }
 
@@ -1137,12 +1247,14 @@ function parseXfrm(el: XmlElement): Xfrm {
   return x;
 }
 
-function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>): TextBody {
+function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>, pkg?: PptxPackage): TextBody {
+  const blip: BlipResolver | undefined = pkg && rels ? (b) => resolveBlip(b, pkg, rels, theme) : undefined;
   const bodyPr = firstChild(el, 'a:bodyPr');
   const tb: TextBody = { paragraphs: [] };
   if (bodyPr) {
     if (bodyPr.attrs['anchor']) tb.anchor = bodyPr.attrs['anchor'];
     if (bodyPr.attrs['wrap']) tb.wrap = bodyPr.attrs['wrap'];
+    if (bodyPr.attrs['spcFirstLastPara'] !== undefined) tb.spcFirstLastPara = bodyPr.attrs['spcFirstLastPara'] === '1';
     if (bodyPr.attrs['vert']) tb.vert = bodyPr.attrs['vert']; // 'horz' explícito também (vence o vertical herdado)
     // insets em EMU (defaults do app ficam a cargo do layout/render)
     if (bodyPr.attrs['lIns'] !== undefined) tb.insL = parseInt(bodyPr.attrs['lIns'], 10);
@@ -1152,6 +1264,15 @@ function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>): T
     // colunas de texto: numCol + espaçamento entre colunas (EMU)
     if (bodyPr.attrs['numCol'] !== undefined) tb.numCol = parseInt(bodyPr.attrs['numCol'], 10);
     if (bodyPr.attrs['spcCol'] !== undefined) tb.spcCol = parseInt(bodyPr.attrs['spcCol'], 10);
+    // WordArt: <a:prstTxWarp prst="textArchUp"><a:avLst><a:gd fmla="val N"/>…
+    const warp = firstChild(bodyPr, 'a:prstTxWarp');
+    // só o WordArt LEGADO (fromWordArt="1") estica até a caixa; a transformação do
+    // 2007+ mantém o tamanho do texto (o app não preenche a forma) — essa fica sem deformar
+    if (warp?.attrs['prst'] && warp.attrs['prst'] !== 'textNoShape' && bodyPr.attrs['fromWordArt'] === '1') {
+      const av = firstChild(warp, 'a:avLst');
+      const adj = av ? childElements(av, 'a:gd').map((g) => parseInt(/val (-?\d+)/.exec(g.attrs['fmla'] ?? '')?.[1] ?? '0', 10)) : [];
+      tb.warp = adj.length ? { prst: warp.attrs['prst'], adj } : { prst: warp.attrs['prst'] };
+    }
     // autofit: <a:normAutofit fontScale="62500" lnSpcReduction="20000"/>
     const na = firstChild(bodyPr, 'a:normAutofit');
     if (na) {
@@ -1161,12 +1282,12 @@ function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>): T
   }
   // <a:lstStyle> do txBody — maior prioridade da cascata (spec 03 A)
   const lst = firstChild(el, 'a:lstStyle');
-  if (lst && childElements(lst).length > 0) tb.lstStyle = parseTxStyleLevels(lst, theme);
-  for (const p of childElements(el, 'a:p')) tb.paragraphs.push(readParagraph(p, theme, rels));
+  if (lst && childElements(lst).length > 0) tb.lstStyle = parseTxStyleLevels(lst, theme, blip);
+  for (const p of childElements(el, 'a:p')) tb.paragraphs.push(readParagraph(p, theme, rels, blip));
   return tb;
 }
 
-function readParagraph(p: XmlElement, theme: Theme, rels?: Map<string, string>): Paragraph {
+function readParagraph(p: XmlElement, theme: Theme, rels?: Map<string, string>, blip?: BlipResolver): Paragraph {
   const para: Paragraph = { runs: [] };
   const pPr = firstChild(p, 'a:pPr');
   if (pPr) {
@@ -1185,9 +1306,13 @@ function readParagraph(p: XmlElement, theme: Theme, rels?: Map<string, string>):
     const spcBef = firstChild(pPr, 'a:spcBef');
     const befPts = spcBef ? firstChild(spcBef, 'a:spcPts') : undefined;
     if (befPts?.attrs['val']) para.spaceBeforePt = parseInt(befPts.attrs['val'], 10) / 100;
+    const befPct = spcBef ? firstChild(spcBef, 'a:spcPct') : undefined;
+    if (befPct?.attrs['val']) para.spaceBeforePct = parseInt(befPct.attrs['val'], 10) / 100000;
     const spcAft = firstChild(pPr, 'a:spcAft');
     const aftPts = spcAft ? firstChild(spcAft, 'a:spcPts') : undefined;
     if (aftPts?.attrs['val']) para.spaceAfterPt = parseInt(aftPts.attrs['val'], 10) / 100;
+    const aftPct = spcAft ? firstChild(spcAft, 'a:spcPct') : undefined;
+    if (aftPct?.attrs['val']) para.spaceAfterPct = parseInt(aftPct.attrs['val'], 10) / 100000;
     // bullet explicito: buChar/buAutoNum ligam; buNone desliga (bloqueia heranca)
     const buChar = firstChild(pPr, 'a:buChar');
     const buAuto = firstChild(pPr, 'a:buAutoNum');
@@ -1200,13 +1325,35 @@ function readParagraph(p: XmlElement, theme: Theme, rels?: Map<string, string>):
     } else if (firstChild(pPr, 'a:buNone')) {
       para.bullet = false;
     }
+    // marcador de IMAGEM (buBlip): substitui o caractere
+    const buBlip = firstChild(pPr, 'a:buBlip');
+    const bb = buBlip ? firstChild(buBlip, 'a:blip') : undefined;
+    const bimg = bb && blip ? blip(bb) : undefined;
+    if (bimg) { para.bullet = true; para.bulletImage = bimg; para.bulletChar ??= '•'; }
+    readBulletStyle(pPr, theme, para);
   }
+  // fim de parágrafo: tamanho da linha de um parágrafo VAZIO
+  const endRPr = firstChild(p, 'a:endParaRPr');
+  if (endRPr?.attrs['sz']) para.endSz = parseInt(endRPr.attrs['sz'], 10) / 100;
   for (const child of childElements(p)) {
     if (child.name === 'a:r') para.runs.push(readRun(child, theme, rels));
     else if (child.name === 'a:br') para.runs.push({ text: '\n' });
     else if (child.name === 'a:fld') { const t = firstChild(child, 'a:t'); para.runs.push({ text: t ? textContent(t) : '' }); }
   }
   return para;
+}
+
+/** Marcador do pPr: fonte, cor e tamanho (`buFont`/`buClr`/`buSzPct|Pts`; `*Tx` = segue o texto). */
+function readBulletStyle(pPr: XmlElement, theme: Theme, para: Paragraph): void {
+  const bf = firstChild(pPr, 'a:buFont');
+  if (bf?.attrs['typeface']) para.bulletFont = bf.attrs['typeface'];
+  const bc = firstChild(pPr, 'a:buClr');
+  const c = bc ? colorFromDml(childElements(bc)[0], theme) : undefined;
+  if (c) para.bulletColor = c;
+  const pct = firstChild(pPr, 'a:buSzPct'), pts = firstChild(pPr, 'a:buSzPts');
+  if (pct?.attrs['val']) para.bulletSizePct = parseInt(pct.attrs['val'], 10) / 100000;
+  else if (pts?.attrs['val']) para.bulletSizePt = parseInt(pts.attrs['val'], 10) / 100;
+  else if (firstChild(pPr, 'a:buSzTx')) para.bulletSizePct = 1;
 }
 
 function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>): Run {
@@ -1219,12 +1366,21 @@ function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>): Run {
     if (rPr.attrs['b'] !== undefined) run.bold = rPr.attrs['b'] === '1';
     if (rPr.attrs['i'] !== undefined) run.italic = rPr.attrs['i'] === '1';
     if (rPr.attrs['u'] && rPr.attrs['u'] !== 'none') run.underline = true;
-    const c = solidFillColor(rPr, theme);
+    readRunExtras(rPr, run);
+    const c = textFillColor(rPr, theme);
     if (c) run.color = c;
     const latin = firstChild(rPr, 'a:latin');
     if (latin?.attrs['typeface']) run.font = latin.attrs['typeface'];
     // hyperlink: <a:hlinkClick r:id="rIdN"/> -> resolve via rels do slide
     const hlink = firstChild(rPr, 'a:hlinkClick');
+    // aparência de link: cor hlink do tema + sublinhado — salvo `<ahyp:hlinkClr val="tx">`
+    // (Office 2019+: segue a cor do texto) ou ação que não é salto (macro, "nada")
+    if (hlink) {
+      const action = hlink.attrs['action'] ?? '';
+      const tx = descend(hlink, 'ahyp:hlinkClr')?.attrs['val'] === 'tx';
+      const isLink = !!(hlink.attrs['r:id'] || hlink.attrs['id']) || action.startsWith('ppaction://hlink');
+      if (isLink && !tx && theme.colors['hlink']) run.linkColor = theme.colors['hlink'];
+    }
     if (hlink && rels) {
       const rid = hlink.attrs['r:id'] ?? hlink.attrs['id'];
       // hlinkClick External targets vão num formato especial — `pkg.resolveRelTarget`
@@ -1290,10 +1446,18 @@ function readPic(pic: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<stri
     name: cNvPr?.attrs['name'] ?? '',
   };
 
+  // imagem DENTRO de placeholder (`<p:ph type="pic" idx>`, templates modernos):
+  // sem xfrm próprio, a geometria vem do placeholder do layout/master
+  const nvPr = nvPicPr ? firstChild(nvPicPr, 'p:nvPr') : undefined;
+  const ph = nvPr ? firstChild(nvPr, 'p:ph') : undefined;
+  if (ph) {
+    shape.phType = ph.attrs['type'] ?? 'body';
+    if (ph.attrs['idx']) shape.phIdx = ph.attrs['idx'];
+  }
   const media = nvPicPr ? readPicMedia(nvPicPr, pkg, rels) : undefined;
   if (media) shape.media = media;
   if (blip) {
-    const img = resolveBlip(blip, pkg, rels);
+    const img = resolveBlip(blip, pkg, rels, theme);
     if (img) shape.image = img;
     // <a:alphaModFix amt="55000"/> -> 55% opaco
     const am = firstChild(blip, 'a:alphaModFix');
@@ -1392,7 +1556,42 @@ function mediaMime(path: string, kind: MediaRef['kind']): string {
 }
 
 /** `<a:blip r:embed="rIdN">` -> ImageRef com bytes + MIME (ou undefined se nao resolver). */
-function resolveBlip(blip: XmlElement, pkg: PptxPackage, rels: Map<string, string>): ImageRef | undefined {
+/** Efeitos de cor do `<a:blip>` (duotone, alphaModFix, grayscl, clrChange, lum, biLevel). */
+function readImageFx(blip: XmlElement, theme: Theme): ImageFx | undefined {
+  const fx: ImageFx = {};
+  for (const e of childElements(blip)) {
+    switch (e.name) {
+      case 'a:duotone': {
+        const cs = childElements(e).map((c) => colorFromDml(c, theme)).filter((c): c is string => !!c);
+        if (cs.length === 2) fx.duotone = [cs[0]!, cs[1]!];
+        break;
+      }
+      case 'a:alphaModFix': fx.alpha = parseInt(e.attrs['amt'] ?? '100000', 10) / 100000; break;
+      case 'a:grayscl': fx.gray = true; break;
+      case 'a:biLevel': fx.biLevel = parseInt(e.attrs['thresh'] ?? '50000', 10) / 100000; break;
+      case 'a:lum': {
+        const b = parseInt(e.attrs['bright'] ?? '0', 10) / 100000, c = parseInt(e.attrs['contrast'] ?? '0', 10) / 100000;
+        if (b) fx.bright = b;
+        if (c) fx.contrast = c;
+        break;
+      }
+      case 'a:clrChange': {
+        const from = firstChild(e, 'a:clrFrom'), to = firstChild(e, 'a:clrTo');
+        const fc = from ? colorFromDml(childElements(from)[0], theme) : undefined;
+        const toEl = to ? childElements(to)[0] : undefined;
+        const tc = colorFromDml(toEl, theme);
+        if (fc && tc) {
+          const a = toEl ? firstChild(toEl, 'a:alpha')?.attrs['val'] : undefined;
+          fx.clrChange = { from: fc, to: tc, toAlpha: a !== undefined ? parseInt(a, 10) / 100000 : 1 };
+        }
+        break;
+      }
+    }
+  }
+  return Object.keys(fx).length ? fx : undefined;
+}
+
+function resolveBlip(blip: XmlElement, pkg: PptxPackage, rels: Map<string, string>, theme?: Theme): ImageRef | undefined {
   // ícone SVG (2016+): `<a:blip r:embed=PNG><a:extLst><a:ext><asvg:svgBlip r:embed=SVG/>` —
   // usa o PNG quando existe; o app às vezes grava SÓ o SVG (inserido por automação)
   let rid = blip.attrs['r:embed'] ?? blip.attrs['embed'];
@@ -1408,7 +1607,19 @@ function resolveBlip(blip: XmlElement, pkg: PptxPackage, rels: Map<string, strin
   if (!part) return undefined;
   const bytes = pkg.getPart(part);
   if (!bytes) return undefined;
-  return { part, bytes, mime: mimeFromPart(part) };
+  const ref: ImageRef = { part, bytes, mime: mimeFromPart(part) };
+  const fx = theme ? readImageFx(blip, theme) : undefined;
+  if (fx) ref.fx = fx;
+  return ref;
+}
+
+/** `<a:tile sx sy tx ty>` de um `<a:blipFill>` → escala/deslocamento do ladrilho na ImageRef. */
+function applyTile(ref: ImageRef, blipFill: XmlElement | undefined): boolean {
+  const tile = blipFill ? firstChild(blipFill, 'a:tile') : undefined;
+  if (!tile) return false;
+  const n = (k: string, d: number): number => (tile.attrs[k] !== undefined ? parseInt(tile.attrs[k]!, 10) : d);
+  ref.tile = { sx: n('sx', 100000) / 100000, sy: n('sy', 100000) / 100000, tx: n('tx', 0), ty: n('ty', 0) };
+  return true;
 }
 
 function mimeFromPart(part: string): string {
@@ -1421,6 +1632,9 @@ function mimeFromPart(part: string): string {
     case 'svg': return 'image/svg+xml';
     case 'webp': return 'image/webp';
     case 'bmp': return 'image/bmp';
+    case 'emf': return 'image/x-emf';
+    case 'wmf': return 'image/x-wmf';
+    case 'tif': case 'tiff': return 'image/tiff';
     default: return 'application/octet-stream';
   }
 }

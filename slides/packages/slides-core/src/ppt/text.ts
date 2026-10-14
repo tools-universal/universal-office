@@ -44,6 +44,8 @@ export interface TextPF {
   /** PP9: numeração automática (TextAutoNumberScheme). */
   autoNumScheme?: number;
   autoNumStart?: number;
+  /** PP9: índice do marcador de IMAGEM na BlipCollection9 do documento (−1 = nenhum). */
+  bulletBlipRef?: number;
   hasAutoNum?: boolean;
 }
 
@@ -273,7 +275,7 @@ export function readStyleTextProp9(rec: Rec): TextPF[] {
   while (o + 12 <= rec.end) {
     const pm = r.u32(o); o += 4;
     const pf: TextPF = {};
-    if (pm & 0x800000) o += 2; // bulletBlipRef
+    if (pm & 0x800000) { pf.bulletBlipRef = r.i16(o); o += 2; } // marcador de imagem
     if (pm & 0x2000000) { pf.hasAutoNum = r.u16(o) !== 0; o += 2; }
     if (pm & 0x1000000) { pf.autoNumScheme = r.u16(o); pf.autoNumStart = r.i16(o + 2); o += 4; }
     const cm = r.u32(o); o += 4;
@@ -369,10 +371,15 @@ export function splitTextBlocks(recs: Rec[]): TextBlock[] {
 }
 
 /** Filhos de texto de um ClientTextbox → bloco (ou referência ao outline). */
-export function readClientTextbox(rec: Rec): { block?: TextBlock; outlineRef?: number } {
+export function readClientTextbox(rec: Rec): { block?: TextBlock; outlineRef?: number; ruler?: TextRuler } {
   const kids = children(rec);
   const ref = kids.find((k) => k.type === RT.OutlineTextRefAtom);
-  if (ref) return { outlineRef: ref.r.u32(ref.start) };
+  if (ref) {
+    // texto do outline (SlideListWithText), mas a RÉGUA pode estar na própria forma
+    // (margens/recuos/tabulações do placeholder — o app usa esta)
+    const r = kids.find((k) => k.type === RT.TextRulerAtom);
+    return r ? { outlineRef: ref.r.u32(ref.start), ruler: readTextRuler(r) } : { outlineRef: ref.r.u32(ref.start) };
+  }
   const blocks = splitTextBlocks(kids);
   return blocks[0] ? { block: blocks[0] } : {};
 }
