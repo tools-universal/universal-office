@@ -722,7 +722,7 @@ function algLin(n: PNode): void {
   const main = horiz ? 'w' : 'h';
   // fromR/fromB: mesma ordem, posição espelhada
   const order = n.kids;
-  let sizes: { w: number; h: number }[] = [];
+  let sizes: { w: number; h: number; full?: { w: number; h: number } }[] = [];
   let mode: 'main' | 'all' = 'main';
   // escala só valores derivados do tamanho do DONO (comprimentos absolutos e os
   // referidos à fonte não encolhem — aí quem resolve é a regra de fonte)
@@ -734,6 +734,12 @@ function algLin(n: PNode): void {
       if (!Number.isFinite(z.w) || !Number.isFinite(z.h)) {
         const nat = naturalSize(k, Number.isFinite(z.w) ? z.w : W, Number.isFinite(z.h) ? z.h : H);
         return { w: Number.isFinite(z.w) ? z.w : nat.w, h: Number.isFinite(z.h) ? z.h : nat.h };
+      }
+      // composto: no eixo secundário vale o conteúdo (process3 tem h = 1000 × w)
+      if (algType(k) === 'composite') {
+        const c = contentExtent(k, z.w, z.h);
+        if (horiz && c.h > 0 && c.h < z.h - 1) return { w: z.w, h: c.h, full: z };
+        if (!horiz && c.w > 0 && c.w < z.w - 1) return { w: c.w, h: z.h, full: z };
       }
       return z;
     });
@@ -750,15 +756,8 @@ function algLin(n: PNode): void {
   const { len } = run(s);
   // composto cujo conteúdo não preenche a célula encolhe até o conteúdo (eixo
   // secundário) e o lin o centraliza — hList1/chevron1 com filhos
-  order.forEach((k, i) => {
-    k.cw = undefined;
-    if (algType(k) !== 'composite') return;
-    const z = sizes[i]!;
-    const c = contentExtent(k, z.w, z.h);
-    // a caixa encolhe, mas o layout interno continua relativo ao tamanho dado
-    if (horiz && c.h > 0 && c.h < z.h - 1) { sizes[i] = { w: z.w, h: c.h }; k.cw = z; }
-    else if (!horiz && c.w > 0 && c.w < z.w - 1) { sizes[i] = { w: c.w, h: z.h }; k.cw = z; }
-  });
+  // a caixa encolhida ao conteúdo mantém o layout interno relativo ao tamanho dado
+  order.forEach((k, i) => { k.cw = sizes[i]!.full; });
   const sp = n.v['sp'] ?? 0;
   const hAl = p['nodeHorzAlign'] ?? 'ctr', vAl = p['nodeVertAlign'] ?? 'mid';
   // alinhamento do conjunto no eixo principal (horzAlign/vertAlign do lin)
