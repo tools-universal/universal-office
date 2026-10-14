@@ -120,6 +120,27 @@ Rodada completa **r7** (antes das correções de foco externo/useBgFill/
 custGeom): mediana **2,80**, média **5,15** (r6: 3,05/6,0; início:
 14,6/24,3). Subconjunto (s38): mediana 2,42, média 4,27 (s27: 2,82/5,66).
 
+Depois (5ª etapa, 2026-10-14): tabulação (paradas l/r/ctr/dec, defTabSz
+herdado, recuo deslocado leva o 1º TAB até marL), texto justificado/dist,
+bodyPr do layout MESCLADO sobre o do master, `normAutofit` sem fontScale NÃO
+encolhe (medido), estilos de tabela embutidos (63 do app, por id), contorno e
+padrão nas letras (rPr ln/pattFill), `fillOverlay`, símbolos da área privada
+pela fonte do `<a:sym>`, shadeToTitle, regras de preenchimento do .ppt
+casadas com o app (molduras de imagem, master), pincéis de padrão mono no
+WMF/EMF. Rodada **r11**: mediana **2,41**, média **3,98** (r10: 2,61/4,30;
+r7: 2,80/5,15; início: 14,6/24,3).
+
+Medido depois do r11 (`_lab/syn/lum.cjs`, 8 combinações, ±1 nível):
+`<a:lum bright contrast>` = (v − ½)·k + ½ + b·(1 + k)/2, k = 1/(1 − c) se
+c ≥ 0, senão 1 + c — o pivô do contraste anda b/2 com o brilho (gd-198810
+20,1 → 3,3). PICT do Mac (16 decks, ~155 imagens): tocador próprio
+(`pict.ts`); ptSize ≠ picFrame → escala horizontal nos dois eixos e corte
+embaixo; texto girado do TextBegin vem com recorte vazio. **O PowerPoint 365
+não exibe os PICT de instância 0x542** ("Não é possível exibir esta imagem",
+~30 imagens em 5 decks): desenhamos o conteúdo mesmo assim, então esses
+slides divergem do oráculo de propósito. Campos `a:fld` com o rPr próprio e
+`slidenum` com o número atual (o cache do master é sempre "1").
+
 ### Ainda faltando (por impacto observado)
 
 - WordArt do .ppt: espaçamento entre linhas e sombra do texto (a escala comum já bate).
@@ -130,11 +151,11 @@ custGeom): mediana **2,80**, média **5,15** (r6: 3,05/6,0; início:
 - Gráficos: 3D em perspectiva (rAngAx=0: área/linha, 1 deck), tabela de
   dados (`c:dTable`, 1 deck), imagem/textura de fundo (blipFill no gráfico).
 - Efeitos: bevel/3D de forma (sp3d), 3D legado do .ppt (extrusão com luz).
-- Fundo "sombrear até o título" (shadeToTitle, 2 decks).
 - Métrica da substituta de fonte ausente (Aptos/Calibri) × a do app: quebras
-  de linha diferentes (haunted-mansion slide 2: a linha da tabela cresce).
-- PICT vetorial de equações do Mac (6 decks), marcador de imagem no
-  estilo-mestre PP9.
+  de linha diferentes (haunted-mansion slide 2: a linha da tabela cresce;
+  gd-601441 slide 5: "tt events" quebra antes).
+- PICT: QuickTime/JPEG dentro do PICT (poi-pictures), posição fina do texto
+  girado; marcador de imagem no estilo-mestre PP9.
 
 ## Corpus
 
