@@ -463,13 +463,131 @@ function paintShape(
     ov.chartParts = anim.hooks.chartParts;
     ov.chartBase = { base: anim.base, m: anim.m };
   }
-  ctx.save();
-  const bodyOn = !bgSt || applyPart(ctx, bgSt, anim!.base, x, y, w, h, anim!.m);
-  const hostsText = bodyOn ? paintBody(ctx, sh, x, y, w, h, fit, res, ov) : !(sh.chartXml || sh.table || sh.image);
-  ctx.restore();
-  // texto (suprimido quando a shape está em edição — overlay HTML cobre)
-  if (hostsText && sh.txBody && !suppressText) paintText(ctx, sh, sh.txBody, x, y, w, h, fit.scale, anim);
+  // brilho: halo da silhueta, ATRÁS da forma
+  // (só com corpo visível: forma sem preenchimento nem contorno não brilha — medido)
+  // (o halo segue a opacidade do corpo: preenchimento transparente sem contorno não brilha — medido)
+  const bodyAlpha = sh.image || sh.fillImage || sh.lineColor ? 1 : sh.fill && sh.fill.type !== 'none' ? sh.fillAlpha ?? 1 : 0;
+  if (sh.glow && bodyAlpha > 0) paintGlow(ctx, sh, x, y, w, h, fit.scale, bodyAlpha);
+  // reflexo/bordas suaves precisam da forma inteira (corpo + texto) numa camada
+  const fxLayer = sh.reflection || sh.softEdge ? acquireLayer(ctx) : null;
+  const target: CanvasRenderingContext2D = fxLayer ?? ctx;
+  try {
+    target.save();
+    const bodyOn = !bgSt || applyPart(target, bgSt, anim!.base, x, y, w, h, anim!.m);
+    const hostsText = bodyOn ? paintBody(target, sh, x, y, w, h, fit, res, ov) : !(sh.chartXml || sh.table || sh.image);
+    target.restore();
+    // texto (suprimido quando a shape está em edição — overlay HTML cobre)
+    if (hostsText && sh.txBody && !suppressText) paintText(target, sh, sh.txBody, x, y, w, h, fit.scale, anim);
+    if (fxLayer) {
+      if (sh.softEdge) applySoftEdge(fxLayer, sh, x, y, w, h, fit.scale);
+      if (sh.reflection) paintReflection(ctx, fxLayer, sh.reflection, x, y, w, h, fit.scale);
+      compositeLayer(ctx, fxLayer, [], x, y, w, h);
+    }
+  } catch (e) {
+    if (fxLayer) discardLayer(ctx, fxLayer);
+    throw e;
+  }
   if (hasXform || hasAlpha) ctx.restore();
+}
+
+/** `rgba()` de uma cor #RRGGBB com alpha. */
+function rgbaOf(hex: string, a: number): string {
+  const n = parseInt(hex.replace('#', ''), 16) || 0;
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/**
+ * Brilho (`<a:glow rad>`): silhueta dilatada em rad/2 e desfocada em rad,
+ * pintada SÓ como sombra (a forma desenhada fora da tela, trazida pelo
+ * deslocamento em px do dispositivo) — o halo fica atrás da forma.
+ */
+function paintGlow(ctx: CanvasRenderingContext2D, sh: Shape, x: number, y: number, w: number, h: number, scale: number, k = 1): void {
+  const g = sh.glow!;
+  const r = g.rad * scale;
+  if (!(r > 0.3)) return;
+  ctx.save();
+  const K = 20000;
+  const m = ctx.getTransform();
+  ctx.shadowColor = rgbaOf(g.color, g.alpha);
+  ctx.shadowBlur = r;
+  ctx.shadowOffsetX = m.a * K;
+  ctx.shadowOffsetY = m.b * K;
+  ctx.translate(-K, 0);
+  ctx.fillStyle = '#000';
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = r;
+  ctx.lineJoin = 'round';
+  const rule = shapePath(ctx, sh.geom ?? 'rect', x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
+  if (rule) ctx.fill(rule); else ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Bordas suaves (`<a:softEdge rad>`): máscara = silhueta corroída em rad/2 e
+ * desfocada (rad/4), aplicada com destination-in na camada da forma.
+ */
+function applySoftEdge(lc: CanvasRenderingContext2D, sh: Shape, x: number, y: number, w: number, h: number, scale: number): void {
+  const r = sh.softEdge! * scale;
+  if (!(r > 0.5)) return;
+  const mk = acquireLayer(lc);
+  if (!mk) return;
+  try {
+    mk.fillStyle = '#000';
+    const rule = shapePath(mk, sh.geom ?? 'rect', x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
+    if (rule) mk.fill(rule); else mk.fill();
+    mk.globalCompositeOperation = 'destination-out';
+    mk.lineWidth = r;
+    mk.stroke();
+    lc.save();
+    lc.setTransform(1, 0, 0, 1, 0, 0);
+    lc.globalCompositeOperation = 'destination-in';
+    lc.filter = `blur(${(r / 4).toFixed(2)}px)`;
+    lc.drawImage(mk.canvas as unknown as CanvasImageSource, 0, 0);
+    lc.restore();
+  } finally {
+    layerBusy.delete(mk);
+  }
+}
+
+/**
+ * Reflexo (`<a:reflection>`): a camada da forma espelhada sob a borda de baixo
+ * (+dist, escala vertical sy), desfocada em blurRad, com alpha stA→endA entre
+ * stPos..endPos da altura refletida.
+ */
+function paintReflection(ctx: CanvasRenderingContext2D, lc: LayerCtx, rf: NonNullable<Shape['reflection']>, x: number, y: number, w: number, h: number, scale: number): void {
+  const rl = acquireLayer(ctx);
+  if (!rl) return;
+  try {
+    const T = ctx.getTransform();
+    const inv = T.inverse();
+    const base = y + h + rf.dist * scale;
+    const sy = Math.abs(rf.sy) || 1;
+    rl.save();
+    rl.translate(0, base);
+    rl.scale(1, -sy);
+    rl.translate(0, -(y + h));
+    rl.transform(inv.a, inv.b, inv.c, inv.d, inv.e, inv.f);
+    if (rf.blurRad > 0) rl.filter = `blur(${(rf.blurRad * scale / 2).toFixed(2)}px)`;
+    rl.drawImage(lc.canvas as unknown as CanvasImageSource, 0, 0);
+    rl.restore();
+    // alpha ao longo da altura refletida (local)
+    const hh = h * sy;
+    const grad = rl.createLinearGradient(0, base, 0, base + hh);
+    const st = Math.max(0, Math.min(1, rf.stPos)), en = Math.max(st, Math.min(1, rf.endPos));
+    grad.addColorStop(0, `rgba(0,0,0,${rf.stA})`);
+    grad.addColorStop(st, `rgba(0,0,0,${rf.stA})`);
+    grad.addColorStop(en, `rgba(0,0,0,${rf.endA})`);
+    grad.addColorStop(1, `rgba(0,0,0,${rf.endA})`);
+    rl.save();
+    rl.globalCompositeOperation = 'destination-in';
+    rl.fillStyle = grad;
+    rl.fillRect(x - w, base - 1, w * 3, hh + 2);
+    rl.restore();
+    compositeLayer(ctx, rl, [], x, y, w, h);
+  } catch {
+    discardLayer(ctx, rl);
+  }
 }
 
 /** Cores animadas do corpo da forma (animClr/set em fillcolor/stroke.color). */
@@ -684,6 +802,29 @@ function paintBody(
     }
     ctx.restore();
   }
+  // sombra interna: moldura em volta da forma, recortada nela, só a sombra entra;
+  // a sombra fica do LADO de dir (225° = escura em cima à esquerda — medido): a moldura anda ao contrário
+  if (sh.innerShadow && !isLineGeom) {
+    const s = sh.innerShadow;
+    ctx.save();
+    const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
+    if (rule) ctx.clip(rule); else ctx.clip();
+    const K = 20000;
+    const m = ctx.getTransform();
+    const dx = s.dist * Math.cos(s.dirDeg * Math.PI / 180) * fit.scale, dy = s.dist * Math.sin(s.dirDeg * Math.PI / 180) * fit.scale;
+    ctx.shadowColor = rgbaOf(s.color, s.alpha);
+    ctx.shadowBlur = s.blurRad * fit.scale;
+    ctx.shadowOffsetX = m.a * K - dx;
+    ctx.shadowOffsetY = m.b * K - dy;
+    ctx.translate(-K, 0);
+    ctx.beginPath();
+    const B = Math.max(w, h);
+    ctx.rect(x - B, y - B, w + 2 * B, h + 2 * B);
+    shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill', true);
+    ctx.fillStyle = '#000';
+    ctx.fill('evenodd');
+    ctx.restore();
+  }
   // contorno (com prstDash opcional)
   const lineColor = ov.line ?? sh.lineColor;
   if (lineColor) {
@@ -720,8 +861,10 @@ function shapePath(
   adjNames?: string[],
   /** Só os subcaminhos que PREENCHEM (`fill`) ou que têm CONTORNO (`stroke`); ausente = todos. */
   mode?: 'fill' | 'stroke',
+  /** Acrescenta ao caminho atual (sem beginPath) — moldura da sombra interna. */
+  append = false,
 ): CanvasFillRule | undefined {
-  ctx.beginPath();
+  if (!append) ctx.beginPath();
   // geometria CUSTOM (freeform): segs nas unidades do path, escalados ao rect
   if (custGeom) {
     const sx = w / custGeom.w, sy = h / custGeom.h;

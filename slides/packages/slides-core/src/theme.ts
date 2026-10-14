@@ -40,6 +40,8 @@ export function readTheme(pkg: PptxPackage, themePath: string): Theme {
   if (fills) theme.fillStyles = childElements(fills);
   const bgFills = fmtScheme ? firstChild(fmtScheme, 'a:bgFillStyleLst') : undefined;
   if (bgFills) theme.bgFillStyles = childElements(bgFills);
+  const effects = fmtScheme ? firstChild(fmtScheme, 'a:effectStyleLst') : undefined;
+  if (effects) theme.effectStyles = childElements(effects, 'a:effectStyle');
   // fontScheme: tipografia major/minor p/ resolver "+mj-lt" / "+mn-lt"
   const fontScheme = themeEls ? firstChild(themeEls, 'a:fontScheme') : undefined;
   if (fontScheme) {

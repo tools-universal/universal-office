@@ -1088,28 +1088,10 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       const tail = firstChild(ln, 'a:tailEnd');
       if (tail?.attrs['type'] && tail.attrs['type'] !== 'none') shape.tailArrow = tail.attrs['type'];
     }
-    // sombra externa (effectLst > outerShdw): cards do slide 2 dependem disso
-    const eff = firstChild(spPr, 'a:effectLst');
-    const shd = eff ? firstChild(eff, 'a:outerShdw') : undefined;
-    if (shd) {
-      const blurRad = shd.attrs['blurRad'] ? parseInt(shd.attrs['blurRad'], 10) : 0;
-      const dist = shd.attrs['dist'] ? parseInt(shd.attrs['dist'], 10) : 0;
-      const dirDeg = (shd.attrs['dir'] ? parseInt(shd.attrs['dir'], 10) : 5400000) / 60000;
-      // cor (srgb/scheme/prst/sys, com modificadores) + alpha do filho de cor
-      let color = '#000000', alpha = 1;
-      const colorEl = childElements(shd)[0];
-      if (colorEl) {
-        color = colorFromDml(colorEl, theme) ?? color;
-        const aEl = firstChild(colorEl, 'a:alpha');
-        if (aEl?.attrs['val']) alpha = parseInt(aEl.attrs['val'], 10) / 100000;
-      }
-      shape.shadow = { color, blurRad, dist, dirDeg, alpha };
-      // sombra ESCALADA (sx/sy) ancorada (algn): ex. 93% no topo = só a base aparece
-      const ssx = shd.attrs['sx'] !== undefined ? parseInt(shd.attrs['sx'], 10) / 100000 : 1;
-      const ssy = shd.attrs['sy'] !== undefined ? parseInt(shd.attrs['sy'], 10) / 100000 : 1;
-      if (ssx !== 1 || ssy !== 1) { shape.shadow.sx = ssx; shape.shadow.sy = ssy; shape.shadow.algn = shd.attrs['algn'] ?? 'b'; }
-    }
   }
+  // efeitos (sombra externa/interna, brilho, bordas suaves, reflexo): os do
+  // spPr ou, sem `<a:effectLst>` próprio, o estilo do tema pelo effectRef
+  readEffects(spPr, firstChild(sp, 'p:style'), theme, shape);
 
   // <p:style> (spec 03 B): defaults tematicos quando spPr/run nao especifica.
   //   fillRef -> cor de preenchimento; lnRef -> cor de linha;
@@ -1593,7 +1575,62 @@ function readPic(pic: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<stri
       if (ln.attrs['w']) shape.lineWidth = parseInt(ln.attrs['w'], 10);
     }
   }
+  readEffects(spPr, firstChild(pic, 'p:style'), theme, shape);
   return shape;
+}
+
+/**
+ * Efeitos DrawingML de uma forma/imagem: `<a:effectLst>` do spPr (vazio = sem
+ * efeitos) ou o `<a:effectStyle>` do tema apontado pelo effectRef do
+ * `<p:style>` (cor phClr = a da referência). Temas 2007 põem sombra (e 3D) aí.
+ */
+function readEffects(spPr: XmlElement | undefined, styleEl: XmlElement | undefined, theme: Theme, shape: Shape): void {
+  let eff = spPr ? firstChild(spPr, 'a:effectLst') : undefined;
+  let th = theme;
+  if (!eff && !(spPr && firstChild(spPr, 'a:effectDag')) && styleEl) {
+    const ref = firstChild(styleEl, 'a:effectRef');
+    const idx = ref ? parseInt(ref.attrs['idx'] ?? '0', 10) : 0;
+    const st = idx > 0 ? theme.effectStyles?.[idx - 1] : undefined;
+    eff = st ? firstChild(st, 'a:effectLst') : undefined;
+    const ph = ref ? colorFromDml(childElements(ref)[0], theme) : undefined;
+    if (ph) th = { ...theme, colors: { ...theme.colors, phClr: ph } };
+  }
+  if (!eff) return;
+  const num = (e: XmlElement, k: string, d = 0) => (e.attrs[k] !== undefined ? parseInt(e.attrs[k]!, 10) : d);
+  const colorOf = (e: XmlElement, defAlpha = 1): { color: string; alpha: number } => {
+    const c = childElements(e)[0];
+    const a = c ? firstChild(c, 'a:alpha')?.attrs['val'] : undefined;
+    return { color: (c ? colorFromDml(c, th) : undefined) ?? '#000000', alpha: a !== undefined ? parseInt(a, 10) / 100000 : defAlpha };
+  };
+  // sombra predefinida (prstShdw) ≈ externa sem desfoque
+  const shd = firstChild(eff, 'a:outerShdw') ?? firstChild(eff, 'a:prstShdw');
+  if (shd) {
+    const { color, alpha } = colorOf(shd);
+    shape.shadow = { color, alpha, blurRad: num(shd, 'blurRad'), dist: num(shd, 'dist'), dirDeg: num(shd, 'dir', 5400000) / 60000 };
+    // sombra ESCALADA (sx/sy) ancorada (algn): ex. 93% no topo = só a base aparece
+    const ssx = num(shd, 'sx', 100000) / 100000, ssy = num(shd, 'sy', 100000) / 100000;
+    if (ssx !== 1 || ssy !== 1) { shape.shadow.sx = ssx; shape.shadow.sy = ssy; shape.shadow.algn = shd.attrs['algn'] ?? 'b'; }
+  }
+  const inner = firstChild(eff, 'a:innerShdw');
+  if (inner) {
+    const { color, alpha } = colorOf(inner);
+    shape.innerShadow = { color, alpha, blurRad: num(inner, 'blurRad'), dist: num(inner, 'dist'), dirDeg: num(inner, 'dir') / 60000 };
+  }
+  const glow = firstChild(eff, 'a:glow');
+  if (glow) {
+    const { color, alpha } = colorOf(glow);
+    if (num(glow, 'rad') > 0) shape.glow = { rad: num(glow, 'rad'), color, alpha };
+  }
+  const soft = firstChild(eff, 'a:softEdge');
+  if (soft && num(soft, 'rad') > 0) shape.softEdge = num(soft, 'rad');
+  const refl = firstChild(eff, 'a:reflection');
+  if (refl) {
+    shape.reflection = {
+      blurRad: num(refl, 'blurRad'), stA: num(refl, 'stA', 100000) / 100000, endA: num(refl, 'endA', 0) / 100000,
+      stPos: num(refl, 'stPos', 0) / 100000, endPos: num(refl, 'endPos', 100000) / 100000, dist: num(refl, 'dist'),
+      dirDeg: num(refl, 'dir', 5400000) / 60000, sy: num(refl, 'sy', 100000) / 100000, fadeDirDeg: num(refl, 'fadeDir', 5400000) / 60000,
+    };
+  }
 }
 
 /**

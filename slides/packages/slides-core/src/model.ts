@@ -286,6 +286,14 @@ export interface Shape {
    * milésimos de %.
    */
   shadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number; sx?: number; sy?: number; algn?: string };
+  /** Brilho (`<a:glow rad>`): halo da silhueta na cor/alpha, raio em EMU. */
+  glow?: { rad: number; color: string; alpha: number };
+  /** Bordas suaves (`<a:softEdge rad>`): a forma esmaece para dentro em `rad` EMU. */
+  softEdge?: number;
+  /** Reflexo (`<a:reflection>`): cópia espelhada abaixo com alpha stA→endA entre stPos..endPos (frações), `dist`/`blurRad` em EMU, `sy` escala vertical. */
+  reflection?: { blurRad: number; stA: number; endA: number; stPos: number; endPos: number; dist: number; dirDeg: number; sy: number; fadeDirDeg: number };
+  /** Sombra interna (`<a:innerShdw>`). */
+  innerShadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number };
   /** Transparência do fill (`<a:solidFill><a:srgbClr><a:alpha val=...`). 0..1. */
   fillAlpha?: number;
   /** Estilo de traço da borda (`<a:ln><a:prstDash val>`). v1: solid|dash|dot|lgDash|sysDash. */
@@ -441,6 +449,8 @@ export interface Theme {
   /** `<a:fillStyleLst>` (idx 1…) e `<a:bgFillStyleLst>` (idx 1001…) — resolvem fillRef/bgRef (cor `phClr`). */
   fillStyles?: import('./xml.js').XmlElement[];
   bgFillStyles?: import('./xml.js').XmlElement[];
+  /** `<a:effectStyleLst>` (idx 1…) — resolvem `<a:effectRef idx>` (cor `phClr`). */
+  effectStyles?: import('./xml.js').XmlElement[];
   /** Parte do tema (os `r:embed` dos estilos com imagem resolvem pelos rels DELE). */
   part?: string;
 }
