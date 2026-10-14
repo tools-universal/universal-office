@@ -131,3 +131,19 @@ describe('presetPath — geometrias preset (spec 03 F)', () => {
     expect(presetPath('straightConnector1', 100, 50)).toEqual({ kind: 'line', x1: 0, y1: 0, x2: 100, y2: 50 });
   });
 });
+
+describe('retângulo de texto do preset (<a:rect> oficial)', () => {
+  it('elipse: caixa inscrita (≈ 14,6% de cada lado); triângulo: metade de baixo; rect: nenhum', async () => {
+    const { presetTextRect } = await import('../src/preset-engine.js');
+    const e = presetTextRect('ellipse', 1000, 500)!;
+    expect(e.l).toBeCloseTo(1000 * (0.5 - Math.SQRT1_2 / 2), 0);
+    expect(e.b).toBeCloseTo(500 * (0.5 + Math.SQRT1_2 / 2), 0);
+    const t = presetTextRect('triangle', 1000, 1000)!;
+    expect(t.t).toBeCloseTo(500, 0);
+    expect(t.b).toBeCloseTo(1000, 0);
+    const pc = presetTextRect('flowChartPunchedCard', 500, 500)!;
+    expect(pc.t).toBeCloseTo(100, 0); // hd5
+    const r = presetTextRect('rect', 100, 100);
+    expect(r === null || (r.l === 0 && r.t === 0 && r.r === 100 && r.b === 100)).toBe(true);
+  });
+});

@@ -14,6 +14,7 @@ import { parseChart, paintChart, chartPartBounds, setChartFontStack, type ChartM
 import { imageDpi, tilePattern } from '@universal-office/charts';
 import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine } from './text-layout.js';
 import { presetPath } from './geometry.js';
+import { presetTextRect } from './preset-engine.js';
 import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run, type ImageRef, type ImageFx } from './model.js';
 import type { ShapeAnimHooks, PartState, AnimBase, UnitRef } from './anim-engine.js';
 import { applyReveal, applySoftReveal, softRevealFilter } from './reveal.js';
@@ -1225,11 +1226,25 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
  * igual a pontos (escala linear do canvas).
  */
 function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: number, y: number, w: number, h: number, scale: number,
-  anim?: ShapeAnimPaint): void {
+  anim?: ShapeAnimPaint, inTextRect = false): void {
   // texto VERTICAL (vert = 90° horário; vert270 = 90° anti-horário): diagrama
   // na caixa de lados trocados e gira em volta do centro
   // WordArt (prstTxWarp): texto deformado pelas regras medidas (text-warp.ts)
   if (tb.warp) { paintWarp(ctx, sh, tb, x, y, w, h, scale); return; }
+  // retângulo de TEXTO da geometria (<a:rect> do preset ou da custGeom): o texto
+  // quebra e ancora dentro dele, não na caixa inteira (elipse, triângulo, nuvem…)
+  if (!inTextRect) {
+    const cg = sh.custGeom;
+    let tr = cg?.textRect ? { l: cg.textRect.l * w, t: cg.textRect.t * h, r: cg.textRect.r * w, b: cg.textRect.b * h }
+      : !cg ? presetTextRect(sh.geom, w, h, sh.adj, sh.adjNames) : null;
+    if (tr && (tr.l > 0.01 || tr.t > 0.01 || tr.r < w - 0.01 || tr.b < h - 0.01)) {
+      // a geometria espelhada leva o retângulo junto (o texto continua legível)
+      if (sh.xfrm?.flipH) tr = { ...tr, l: w - tr.r, r: w - tr.l };
+      if (sh.xfrm?.flipV) tr = { ...tr, t: h - tr.b, b: h - tr.t };
+      paintText(ctx, sh, tb, x + tr.l, y + tr.t, tr.r - tr.l, tr.b - tr.t, scale, anim, true);
+      return;
+    }
+  }
   const turn = tb.vert === 'vert' || tb.vert === 'eaVert' ? 1 : tb.vert === 'vert270' ? -1 : 0;
   if (turn) {
     const { vert: _v, ...flat } = tb;
@@ -1238,7 +1253,7 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     ctx.translate(cx, cy);
     ctx.rotate((turn * Math.PI) / 2);
     ctx.translate(-cx, -cy);
-    paintText(ctx, sh, flat, cx - h / 2, cy - w / 2, h, w, scale, anim);
+    paintText(ctx, sh, flat, cx - h / 2, cy - w / 2, h, w, scale, anim, true);
     ctx.restore();
     return;
   }

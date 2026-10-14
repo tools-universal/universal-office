@@ -1320,7 +1320,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
  * do próprio path (`<a:path w h>`); o renderer escala para o xfrm da shape.
  * Cobre moveTo/lnTo/cubicBezTo/quadBezTo/close (freeforms do app de referência).
  */
-function parseCustGeom(cust: XmlElement, shapeW?: number, shapeH?: number): { w: number; h: number; subs: PathSeg[][]; noFill?: boolean[]; noStroke?: boolean[]; lum?: number[] } | undefined {
+function parseCustGeom(cust: XmlElement, shapeW?: number, shapeH?: number): { w: number; h: number; subs: PathSeg[][]; noFill?: boolean[]; noStroke?: boolean[]; lum?: number[]; textRect?: { l: number; t: number; r: number; b: number } } | undefined {
   const pathLst = firstChild(cust, 'a:pathLst');
   if (!pathLst) return undefined;
   const subs: PathSeg[][] = [];
@@ -1372,6 +1372,13 @@ function parseCustGeom(cust: XmlElement, shapeW?: number, shapeH?: number): { w:
     }
   }
   if (!subs.length) return undefined;
+  // retângulo de texto (<a:rect l t r b>, guias no tamanho da forma) como fração da caixa
+  const rc = firstChild(cust, 'a:rect');
+  let textRect: { l: number; t: number; r: number; b: number } | undefined;
+  if (rc && sw && sh) {
+    const [l, t, r, b] = (['l', 't', 'r', 'b'] as const).map((k) => num(rc.attrs[k] ?? (k === 'l' || k === 't' ? '0' : k === 'r' ? 'r' : 'b')));
+    if (r! > l! && b! > t! && (l! > 1 || t! > 1 || r! < sw - 1 || b! < sh - 1)) textRect = { l: l! / sw, t: t! / sh, r: r! / sw, b: b! / sh };
+  }
   // cada <a:path> tem o próprio sistema w×h: leva todos ao maior (o que a forma estica)
   subs.forEach((segs, i) => {
     const [wi, hi] = sizes[i]!;
@@ -1383,7 +1390,7 @@ function parseCustGeom(cust: XmlElement, shapeW?: number, shapeH?: number): { w:
       if ('x2' in g) { g.x2 *= kx; g.y2 *= ky; }
     }
   });
-  return { w: pw || 1, h: ph || 1, subs, ...(noFill.some(Boolean) ? { noFill } : {}), ...(noStroke.some(Boolean) ? { noStroke } : {}), ...(lum.some((v) => v !== 0) ? { lum } : {}) };
+  return { w: pw || 1, h: ph || 1, subs, ...(noFill.some(Boolean) ? { noFill } : {}), ...(noStroke.some(Boolean) ? { noStroke } : {}), ...(lum.some((v) => v !== 0) ? { lum } : {}), ...(textRect ? { textRect } : {}) };
 }
 
 /**

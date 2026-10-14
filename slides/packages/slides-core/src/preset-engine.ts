@@ -9,7 +9,7 @@ import { PRESET_DEFS } from './preset-defs.js';
 import type { PathSeg } from './geometry.js';
 
 interface PathDef { w?: number; h?: number; fill: string; stroke: boolean; cmds: string[][] }
-interface PresetDef { av: [string, string[]][]; gd: [string, string[]][]; paths: PathDef[] }
+interface PresetDef { av: [string, string[]][]; gd: [string, string[]][]; paths: PathDef[]; rect?: string[] }
 
 const parsed = new Map<string, PresetDef | null>();
 
@@ -18,7 +18,7 @@ function parseDef(name: string): PresetDef | null {
   const raw = Object.prototype.hasOwnProperty.call(PRESET_DEFS, name) ? PRESET_DEFS[name] : undefined;
   let def: PresetDef | null = null;
   if (raw !== undefined) {
-    const [av = '', gd = '', ps = ''] = raw.split('|');
+    const [av = '', gd = '', ps = '', rc = ''] = raw.split('|');
     // tokens por QUALQUER espaço: a definição oficial tem "*/ vc  vf 100000"
     // (espaço duplo em pentagon/heptagon/star5/star7/leftArrow/upArrow) — com
     // split(' ') os argumentos deslocavam e `svc` virava 0 (forma deformada)
@@ -36,6 +36,8 @@ function parseDef(name: string): PresetDef | null {
       return d;
     }) : [];
     def = { av: guides(av), gd: guides(gd), paths };
+    const rw = words(rc);
+    if (rw.length === 4) def.rect = rw;
   }
   parsed.set(name, def);
   return def;
@@ -136,9 +138,8 @@ const SHADE: Record<string, number | null> = { none: null, darken: -0.4, darkenL
  * forma (`adj`, por nome em `adjNames` ou na ordem do `avLst`). null = preset
  * sem definição.
  */
-export function evalPreset(name: string, w: number, h: number, adj?: number[], adjNames?: string[]): PresetGeometry | null {
-  const def = parseDef(name);
-  if (!def) return null;
+/** Guias do preset avaliadas num retângulo w×h, com os ajustes da forma. */
+function presetVals(def: PresetDef, w: number, h: number, adj?: number[], adjNames?: string[]): (t: string) => number {
   const vars = builtins(w, h);
   const val = (t: string): number => {
     const v = vars.get(t);
@@ -154,6 +155,27 @@ export function evalPreset(name: string, w: number, h: number, adj?: number[], a
     vars.set(n, v ?? evalFormula(f, val));
   });
   for (const [n, f] of def.gd) vars.set(n, evalFormula(f, val));
+  return val;
+}
+
+/**
+ * Retângulo de TEXTO do preset (`<a:rect l t r b>` da definição oficial) num
+ * retângulo w×h: o app quebra e ancora o texto dentro dele (elipse ≈ 70,7% da
+ * caixa, triângulo na metade de baixo…). null = sem definição (caixa inteira).
+ */
+export function presetTextRect(name: string | undefined, w: number, h: number, adj?: number[], adjNames?: string[]): { l: number; t: number; r: number; b: number } | null {
+  const def = name ? parseDef(name) : null;
+  if (!def?.rect) return null;
+  const val = presetVals(def, w, h, adj, adjNames);
+  const [l, t, r, b] = def.rect.map(val) as [number, number, number, number];
+  if (!(r > l) || !(b > t)) return null;
+  return { l, t, r, b };
+}
+
+export function evalPreset(name: string, w: number, h: number, adj?: number[], adjNames?: string[]): PresetGeometry | null {
+  const def = parseDef(name);
+  if (!def) return null;
+  const val = presetVals(def, w, h, adj, adjNames);
 
   const out: PresetGeometry = { subs: [], fill: [], stroke: [] };
   for (const p of def.paths) {

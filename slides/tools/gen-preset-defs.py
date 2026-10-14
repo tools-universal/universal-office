@@ -2,11 +2,12 @@
 # (ECMA-376 Parte 1, anexo D — as ~187 geometrias preset do DrawingML) num formato
 # compacto, interpretado em tempo de execução por preset-engine.ts.
 #
-# Formato por preset: "av|gd|paths"
+# Formato por preset: "av|gd|paths|rect"
 #   av / gd : "nome=fórmula" separados por ';' (fórmula = tokens separados por espaço)
 #   paths   : caminhos separados por '#'; cada um "w,h,fill,stroke~comandos"
 #             comandos separados por ';': M x y | L x y | A wR hR st sw |
 #             Q x1 y1 x y | C x1 y1 x2 y2 x y | Z
+#   rect    : retângulo de texto "l t r b" (guias), vazio = a caixa inteira
 #
 # Uso: python tools/gen-preset-defs.py <presetShapeDefinitions.xml>
 import re, sys, os
@@ -45,14 +46,17 @@ for shape in root:
                 ps = c.findall(A + 'pt'); cmds.append('C ' + ' '.join(f"{q.get('x')} {q.get('y')}" for q in ps))
             elif t == 'close': cmds.append('Z')
         paths.append(attrs + '~' + ';'.join(cmds))
-    out[name] = f"{av}|{gd}|{'#'.join(paths)}"
+    # retângulo de texto (<a:rect l t r b>, nomes de guia ou números)
+    rc = shape.find(A + 'rect')
+    rect = ' '.join(rc.get(k, '') for k in ('l', 't', 'r', 'b')) if rc is not None else ''
+    out[name] = f"{av}|{gd}|{'#'.join(paths)}|{rect}"
 
 here = os.path.dirname(os.path.abspath(__file__))
 dst = os.path.join(here, '..', 'packages', 'slides-core', 'src', 'preset-defs.ts')
 with open(dst, 'w', encoding='utf8', newline='\n') as f:
     f.write('// GERADO por tools/gen-preset-defs.py a partir do presetShapeDefinitions.xml\n')
     f.write('// (ECMA-376 Parte 1) — não editar à mão. Interpretado por preset-engine.ts.\n')
-    f.write('// Formato: "av|gd|paths"; paths = "w,h,fill,stroke~M x y;L x y;A wR hR st sw;Q …;C …;Z" separados por #.\n')
+    f.write('// Formato: "av|gd|paths|rect"; rect = "l t r b" do retângulo de texto; paths = "w,h,fill,stroke~M x y;L x y;A wR hR st sw;Q …;C …;Z" separados por #.\n')
     f.write('export const PRESET_DEFS: Record<string, string> = {\n')
     for k in sorted(out):
         f.write(f"  {k}: {repr(out[k])},\n" if re.match(r'^[A-Za-z_]\w*$', k) else f"  '{k}': {repr(out[k])},\n")
