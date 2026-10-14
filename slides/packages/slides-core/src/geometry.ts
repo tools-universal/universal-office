@@ -82,7 +82,9 @@ export function presetPath(geom: string | undefined, w: number, h: number, adj?:
   // (avLst só com adj2 era lido como adj1), os `pin` (seta com adj2 > máximo
   // saía da caixa; rosca com adj > 50000 dava raio negativo e derrubava a
   // pintura) e, em vários (arco, lua, sol, cubo…), o próprio ajuste.
-  if (adj?.length && geom && ADJUSTED_OFFICIAL.has(geom)) {
+  // (o arco sempre: a definição oficial tem o caminho de PREENCHIMENTO em fatia —
+  // o app pinta o arco cheio como uma fatia, medido no .ppt gd-186736)
+  if (geom && ((adj?.length && ADJUSTED_OFFICIAL.has(geom)) || geom === 'arc')) {
     const g = evalPreset(geom, w, h, adj, adjNames);
     if (g && g.subs.length) {
       const out: PresetPath = { kind: 'path', subs: g.subs, subLum: g.fill };

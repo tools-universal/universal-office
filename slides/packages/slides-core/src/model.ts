@@ -229,8 +229,8 @@ export interface TextBody {
   lnSpcReduction?: number;
   /** `<a:bodyPr spcFirstLastPara="1">`: aplica o spcBef do 1º parágrafo (e o spcAft do último). */
   spcFirstLastPara?: boolean;
-  /** WordArt: deformação do texto (`<a:prstTxWarp prst>` ≠ textNoShape) + ajustes (fração). */
-  warp?: { prst: string; adj?: number[] };
+  /** WordArt: deformação do texto (`<a:prstTxWarp prst>` ≠ textNoShape) + ajustes (valores do avLst); `fromWordArt` = legado. */
+  warp?: { prst: string; adj?: number[]; fromWordArt?: boolean };
   /** Insets do bodyPr em EMU (lIns/tIns/rIns/bIns); ausentes = default do app. */
   insL?: number;
   insT?: number;

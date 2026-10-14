@@ -1526,12 +1526,12 @@ function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>, pk
     if (bodyPr.attrs['spcCol'] !== undefined) tb.spcCol = parseInt(bodyPr.attrs['spcCol'], 10);
     // WordArt: <a:prstTxWarp prst="textArchUp"><a:avLst><a:gd fmla="val N"/>…
     const warp = firstChild(bodyPr, 'a:prstTxWarp');
-    // só o WordArt LEGADO (fromWordArt="1") estica até a caixa; a transformação do
-    // 2007+ mantém o tamanho do texto (o app não preenche a forma) — essa fica sem deformar
-    if (warp?.attrs['prst'] && warp.attrs['prst'] !== 'textNoShape' && bodyPr.attrs['fromWordArt'] === '1') {
+    // 2007+ e legado (fromWordArt="1") deformam; o legado escala o texto até cobrir o
+    // caminho dos arcos (text-warp.ts tem as regras medidas)
+    if (warp?.attrs['prst'] && warp.attrs['prst'] !== 'textNoShape') {
       const av = firstChild(warp, 'a:avLst');
       const adj = av ? childElements(av, 'a:gd').map((g) => parseInt(/val (-?\d+)/.exec(g.attrs['fmla'] ?? '')?.[1] ?? '0', 10)) : [];
-      tb.warp = adj.length ? { prst: warp.attrs['prst'], adj } : { prst: warp.attrs['prst'] };
+      tb.warp = { prst: warp.attrs['prst'], ...(adj.length ? { adj } : {}), ...(bodyPr.attrs['fromWordArt'] === '1' ? { fromWordArt: true } : {}) };
     }
     // autofit: <a:normAutofit fontScale="62500" lnSpcReduction="20000"/>
     const na = firstChild(bodyPr, 'a:normAutofit');
@@ -1690,7 +1690,8 @@ function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>): Run {
       const dist = shd.attrs['dist'] ? parseInt(shd.attrs['dist'], 10) : 0;
       const dirDeg = (shd.attrs['dir'] ? parseInt(shd.attrs['dir'], 10) : 5400000) / 60000;
       const colorEl = childElements(shd)[0];
-      let color = '#000000', alpha = 0.6;
+      // sem <a:alpha> a sombra é OPACA (medido, syn-b-e7: FF8000 sai FF8000)
+      let color = '#000000', alpha = 1;
       if (colorEl) {
         const c = colorFromDml(colorEl, theme);
         if (c) color = c;

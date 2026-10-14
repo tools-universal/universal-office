@@ -17,12 +17,19 @@ import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type T
 import type { ShapeAnimHooks, PartState, AnimBase, UnitRef } from './anim-engine.js';
 import { applyReveal, applySoftReveal, softRevealFilter } from './reveal.js';
 import { patternRows } from './patterns.js';
-import { paintWarpedText } from './text-warp.js';
-import { isSymbolFont, symbolText } from './symbol-fonts.js';
+import { paintWarpedText, type WarpLine } from './text-warp.js';
 
 /** Tamanhos default (pt) quando a cascata não resolveu sz. */
 export const DEFAULT_TITLE_PT = 40;
 export const DEFAULT_BODY_PT = 18;
+/**
+ * `shadowBlur` do canvas por px de `blurRad` da sombra EXTERNA: o app desfoca a
+ * da FORMA com σ ≈ blurRad/3,1 (borda de uma forma cheia, syn-b-e10: blurRad 12 pt →
+ * σ 3,8 pt) e a do TEXTO com σ ≈ blurRad/2,5 (haste de um "I" a 96 pt, 4–24 pt de
+ * desfoque); o canvas usa σ = shadowBlur/2.
+ */
+const SHADOW_BLUR_K = 0.64;
+const TEXT_SHADOW_BLUR_K = 0.8;
 
 /**
  * Imagem já decodificada, pronta para `ctx.drawImage`. Estruturalmente cobre
@@ -723,7 +730,7 @@ function paintBody(
         const n = parseInt(sc.color.replace('#', ''), 16);
         ctx.save();
         ctx.shadowColor = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${sc.alpha})`;
-        ctx.shadowBlur = sc.blurRad * fit.scale;
+        ctx.shadowBlur = sc.blurRad * fit.scale * SHADOW_BLUR_K;
         ctx.shadowOffsetX = sc.dist * Math.cos(sc.dirDeg * Math.PI / 180) * fit.scale;
         ctx.shadowOffsetY = sc.dist * Math.sin(sc.dirDeg * Math.PI / 180) * fit.scale;
       }
@@ -785,7 +792,7 @@ function paintBody(
     const g = parseInt(hex.slice(2, 4), 16) || 0;
     const b = parseInt(hex.slice(4, 6), 16) || 0;
     ctx.shadowColor = `rgba(${r},${g},${b},${sh.shadow.alpha})`;
-    ctx.shadowBlur = sh.shadow.blurRad * fit.scale;
+    ctx.shadowBlur = sh.shadow.blurRad * fit.scale * SHADOW_BLUR_K;
     // a "cópia" que projeta a sombra tem o ALFA do preenchimento (forma translúcida:
     // sombra mais fraca e visível através dela) e fica FORA da tela — só a sombra volta
     ctx.fillStyle = ov.fill ?? (sh.fill?.type === 'solid' && sh.fill.color ? sh.fill.color
@@ -826,8 +833,9 @@ function paintBody(
     ctx.restore();
   }
   // preenchimento (solid com alpha opcional, gradiente linear ou blipFill).
-  // Geometrias "linha pura" (line/conectores/arc) não têm área p/ fill.
-  const isLineGeom = sh.geom === 'line' || sh.geom === 'arc' ||
+  // Geometrias "linha pura" (line/conectores) não têm área p/ fill; o arco
+  // preenchido vira a FATIA da definição oficial (como no app)
+  const isLineGeom = sh.geom === 'line' ||
     /^(straight|bent|curved)Connector\d?$/.test(sh.geom ?? '');
   if (!isLineGeom && (ov.fill || sh.fillImage || (sh.fill && sh.fill.type !== 'none'))) {
     ctx.save();
@@ -881,7 +889,7 @@ function paintBody(
       if (img && sh.shadow && sh.shadow.sx === undefined && sh.shadow.sy === undefined) {
         const sd = sh.shadow;
         ctx.shadowColor = rgbaOf(sd.color, sd.alpha);
-        ctx.shadowBlur = sd.blurRad * fit.scale;
+        ctx.shadowBlur = sd.blurRad * fit.scale * SHADOW_BLUR_K;
         const a = sd.dirDeg * Math.PI / 180;
         // deslocamento da sombra é no espaço do dispositivo (ignora a rotação da forma)
         ctx.shadowOffsetX = sd.dist * Math.cos(a) * fit.scale;
@@ -1187,26 +1195,8 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
   anim?: ShapeAnimPaint): void {
   // texto VERTICAL (vert = 90° horário; vert270 = 90° anti-horário): diagrama
   // na caixa de lados trocados e gira em volta do centro
-  // WordArt (prstTxWarp): o texto é deformado para preencher a caixa
-  if (tb.warp) {
-    const refPx = 120;
-    const lines = tb.paragraphs.map((p) => {
-      const r0 = p.runs.find((r) => r.text.trim()) ?? p.runs[0];
-      const fam = r0?.font ?? 'Arial';
-      const sym = isSymbolFont(fam);
-      const text = p.runs.map((r) => (sym ? symbolText(fam, r.text) : r.text)).join('').replace(/\n/g, ' ');
-      const f: LayoutFont = { family: sym ? 'Segoe UI Symbol' : fam, sizePt: refPx, bold: !!r0?.bold, italic: !!r0?.italic };
-      const szPt = r0?.sz ?? 18;
-      return {
-        text, font: layoutFontStr(f, 1), refPx, color: r0?.color ?? '#000000',
-        ...(r0?.outline ? { stroke: { color: r0.outline.color, rel: r0.outline.width / 12700 / szPt } } : {}),
-        ...(r0?.pattFill ? { pattern: r0.pattFill } : {}),
-      };
-    });
-    const iL = (tb.insL ?? 91440) * scale, iT = (tb.insT ?? 45720) * scale, iR = (tb.insR ?? 91440) * scale, iB = (tb.insB ?? 45720) * scale;
-    paintWarpedText(ctx, tb.warp.prst, tb.warp.adj, lines, x + iL, y + iT, w - iL - iR, h - iT - iB, (cw, ch) => scratchCanvas(cw, ch));
-    return;
-  }
+  // WordArt (prstTxWarp): texto deformado pelas regras medidas (text-warp.ts)
+  if (tb.warp) { paintWarp(ctx, sh, tb, x, y, w, h, scale); return; }
   const turn = tb.vert === 'vert' || tb.vert === 'eaVert' ? 1 : tb.vert === 'vert270' ? -1 : 0;
   if (turn) {
     const { vert: _v, ...flat } = tb;
@@ -1264,15 +1254,16 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     ctx.fillStyle = color;
     // letras com padrão (WordArt): o padrão 8×8 ancorado no slide
     if (r.pattFill && !st) { const pat = presetPattern(ctx, r.pattFill, 0, 0, scale); if (pat) ctx.fillStyle = pat; }
-    const effShadow = r.shadow ?? sh.shadow;
+    const effShadow = r.shadow ?? (shapeFilled(sh) ? undefined : sh.shadow);
     if (effShadow) {
       // sombra do texto: EMU→px pela escala; alpha na cor da sombra
-      // (a sombra da SHAPE se aplica ao texto no app de referência)
+      // (a sombra da SHAPE se aplica ao texto só quando a forma NÃO tem
+      // preenchimento — com preenchimento ela é só da caixa; medido, syn-b-e8)
       const sc = effShadow;
       const n = parseInt(sc.color.replace('#', ''), 16);
       ctx.save();
       ctx.shadowColor = `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${sc.alpha})`;
-      ctx.shadowBlur = sc.blurRad * scale;
+      ctx.shadowBlur = sc.blurRad * scale * TEXT_SHADOW_BLUR_K;
       ctx.shadowOffsetX = sc.dist * Math.cos(sc.dirDeg * Math.PI / 180) * scale;
       ctx.shadowOffsetY = sc.dist * Math.sin(sc.dirDeg * Math.PI / 180) * scale;
       ctx.fillText(text, tx, by);
@@ -1409,6 +1400,89 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     ctx.restore();
   }
   if (unflip) ctx.restore();
+}
+
+/** A forma tem preenchimento (aí a sombra da forma é só da caixa, não do texto). */
+function shapeFilled(sh: Shape): boolean {
+  return (!!sh.fill && sh.fill.type !== 'none') || !!sh.fillImage || !!sh.useBgFill;
+}
+
+/**
+ * WordArt (`<a:prstTxWarp>`): layout normal do corpo (sem quebra nos presets de
+ * caminho único — o app não quebra o texto do arco) e as linhas deformadas por
+ * text-warp.ts. A sombra do texto (do run, ou da forma SEM preenchimento —
+ * com preenchimento ela é só da caixa; medido, syn-b-e7/e8) é a silhueta
+ * deformada deslocada: pinta numa camada e compõe com a sombra.
+ */
+function paintWarp(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: number, y: number, w: number, h: number, scale: number): void {
+  const warp = tb.warp!;
+  // WordArt vertical (vert="wordArtVert", gtextFVertical do .ppt): letras EMPILHADAS,
+  // uma por linha, no quadro de lados trocados girado −90° — a conversão do app grava
+  // a forma girada 90° com a caixa deitada (gd-109837), e as letras saem em pé
+  if (tb.vert === 'wordArtVert' || tb.vert === 'wordArtVertRtl') {
+    const { vert: _v, ...flat } = tb;
+    const stacked: TextBody = {
+      ...flat, wrap: 'none',
+      paragraphs: tb.paragraphs.flatMap((p) => p.runs.flatMap((r) => Array.from(r.text.replace(/\n/g, '')).map((ch) => ({ ...p, runs: [{ ...r, text: ch }] })))),
+    };
+    const cx = x + w / 2, cy = y + h / 2;
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(-Math.PI / 2); ctx.translate(-cx, -cy);
+    paintWarp(ctx, sh, stacked, cx - h / 2, cy - w / 2, h, w, scale);
+    ctx.restore();
+    return;
+  }
+  const single = /^text(ArchUp|ArchDown|Circle|Button)$/.test(warp.prst);
+  const body: TextBody = single ? { ...tb, wrap: 'none' } : tb;
+  const isTitle = sh.phType === 'title' || sh.phType === 'ctrTitle';
+  const measure: MeasureText = (text, f) => { ctx.font = layoutFontStr(f, 1); return ctx.measureText(text).width; };
+  const lopts = { defaultSzPt: isTitle ? DEFAULT_TITLE_PT : DEFAULT_BODY_PT, defaultAnchor: (isTitle ? 'ctr' : 't') as 't' | 'ctr' };
+  ctx.save();
+  const layout = layoutTextBody(body, w / scale, h / scale, measure, lopts);
+  // espaços no FIM do parágrafo: o layout os descarta, a deformação os conta (medido)
+  const trailing = tb.paragraphs.map((p) => {
+    const runs = p.runs.filter((r) => r.text && r.text !== '\n');
+    const last = runs[runs.length - 1], m = last ? /\s+$/.exec(last.text) : null;
+    if (!last || !m || !runs.some((r) => /\S/.test(r.text))) return 0;
+    return measure(m[0], { family: last.font ?? 'Calibri', sizePt: (last.sz ?? lopts.defaultSzPt) * (tb.fontScale ?? 1), bold: !!last.bold, italic: !!last.italic });
+  });
+  ctx.restore();
+  const lines: WarpLine[] = layout.lines.map((line, i) => {
+    const lastOfPara = layout.lines[i + 1]?.para !== line.para;
+    const p = tb.paragraphs[line.para];
+    const szPt = line.runs.length ? Math.max(...line.runs.map((r) => r.font.sizePt)) : line.height / EMU_PER_POINT / 1.2;
+    const lnPct = p?.lineSpacingPt !== undefined ? p.lineSpacingPt / (1.2 * szPt) : p?.lineSpacing;
+    return {
+      ...(lnPct !== undefined ? { lnPct } : {}),
+      runs: line.runs.map((r) => ({
+        text: r.text, font: (k: number) => layoutFontStr(r.font, k), x: r.x / EMU_PER_POINT, color: r.color,
+        ...(r.outline ? { stroke: { color: r.outline.color, width: r.outline.width / EMU_PER_POINT } } : {}),
+        ...(r.pattFill ? { pattern: r.pattFill } : {}),
+        ...(r.spc ? { spc: r.spc / EMU_PER_POINT } : {}),
+      })),
+      baseline: line.baseline / EMU_PER_POINT,
+      height: line.height / EMU_PER_POINT,
+      sizePt: szPt,
+      align: p?.align ?? 'l',
+      ...(lastOfPara && trailing[line.para] ? { trailing: trailing[line.para] } : {}),
+    };
+  });
+  const run0 = tb.paragraphs.flatMap((p) => p.runs).find((r) => /\S/.test(r.text));
+  const sd = run0?.shadow ?? (shapeFilled(sh) ? undefined : sh.shadow);
+  const layer = sd ? acquireLayer(ctx) : null;
+  const target = layer ?? ctx;
+  paintWarpedText(target, warp.prst, warp.adj, !!warp.fromWordArt, lines, x, y, w, h, EMU_PER_POINT * scale, (cw, ch) => scratchCanvas(cw, ch));
+  if (layer && sd) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.shadowColor = rgbaOf(sd.color, sd.alpha);
+    ctx.shadowBlur = sd.blurRad * scale * TEXT_SHADOW_BLUR_K;
+    ctx.shadowOffsetX = sd.dist * Math.cos(sd.dirDeg * Math.PI / 180) * scale;
+    ctx.shadowOffsetY = sd.dist * Math.sin(sd.dirDeg * Math.PI / 180) * scale;
+    ctx.drawImage(layer.canvas as unknown as CanvasImageSource, 0, 0);
+    ctx.restore();
+    layerBusy.delete(layer);
+  }
 }
 
 /** Pedaço de uma unidade de texto animada dentro de um run posicionado. */

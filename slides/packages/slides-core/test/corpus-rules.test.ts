@@ -209,3 +209,21 @@ describe('SmartArt sem desenho pré-calculado (Office 2007)', () => {
     expect(c2!.y).toBeGreaterThan(c1!.y);
   });
 });
+
+describe('WordArt (prstTxWarp) e sombra do texto', () => {
+  const sp = (bodyPr: string, rPr = ''): string => `<p:sp><p:nvSpPr><p:cNvPr id="2" name="W"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="3810000" cy="1905000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody>${bodyPr}<a:p><a:r><a:rPr lang="en-US" sz="4000">${rPr}</a:rPr><a:t>HHHH</a:t></a:r></a:p></p:txBody></p:sp>`;
+  it('a deformação do 2007+ (sem fromWordArt) também vale — o app deforma (syn-b-e1)', () => {
+    const s = deck({ slide: sp('<a:bodyPr wrap="none"><a:prstTxWarp prst="textWave1"><a:avLst><a:gd name="adj1" fmla="val 20000"/><a:gd name="adj2" fmla="val 5000"/></a:avLst></a:prstTxWarp></a:bodyPr>') });
+    expect(s.shapes[0]!.txBody!.warp).toEqual({ prst: 'textWave1', adj: [20000, 5000] });
+  });
+  it('fromWordArt="1" marca o legado; textNoShape não deforma', () => {
+    const a = deck({ slide: sp('<a:bodyPr fromWordArt="1"><a:prstTxWarp prst="textArchUp"><a:avLst/></a:prstTxWarp></a:bodyPr>') });
+    expect(a.shapes[0]!.txBody!.warp).toEqual({ prst: 'textArchUp', fromWordArt: true });
+    const b = deck({ slide: sp('<a:bodyPr><a:prstTxWarp prst="textNoShape"><a:avLst/></a:prstTxWarp></a:bodyPr>') });
+    expect(b.shapes[0]!.txBody!.warp).toBeUndefined();
+  });
+  it('sombra do texto sem <a:alpha> é opaca (syn-b-e7)', () => {
+    const s = deck({ slide: sp('<a:bodyPr/>', '<a:effectLst><a:outerShdw dist="76200" dir="2700000"><a:srgbClr val="FF8000"/></a:outerShdw></a:effectLst>') });
+    expect(s.shapes[0]!.txBody!.paragraphs[0]!.runs[0]!.shadow).toMatchObject({ color: '#FF8000', alpha: 1 });
+  });
+});
