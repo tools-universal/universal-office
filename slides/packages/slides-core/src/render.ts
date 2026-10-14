@@ -1200,10 +1200,9 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     ctx.font = layoutFontStr(f, 1);
     return ctx.measureText(text).width;
   };
-  const layout = layoutTextBody(body, w / scale, h / scale, measure, {
-    defaultSzPt: isTitle ? DEFAULT_TITLE_PT : DEFAULT_BODY_PT,
-    defaultAnchor: isTitle ? 'ctr' : 't',
-  });
+  const lopts = { defaultSzPt: isTitle ? DEFAULT_TITLE_PT : DEFAULT_BODY_PT, defaultAnchor: (isTitle ? 'ctr' : 't') as 't' | 'ctr' };
+  // normAutofit sem fontScale NÃO encolhe: o app usa só o valor gravado (medido, syn-autofit)
+  const layout = layoutTextBody(body, w / scale, h / scale, measure, lopts);
 
   const pxPerPt = EMU_PER_POINT * scale; // 1pt em px na escala atual
   // sobreposições de estilo animadas (forma inteira < parágrafo < unidade)

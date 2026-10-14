@@ -234,7 +234,8 @@ export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
     if (tb.insB === undefined && inh.insB !== undefined) tb.insB = inh.insB;
     if (tb.numCol === undefined && inh.numCol !== undefined) tb.numCol = inh.numCol;
     if (tb.spcCol === undefined && inh.spcCol !== undefined) tb.spcCol = inh.spcCol;
-    if (tb.fontScale === undefined && inh.fontScale !== undefined) tb.fontScale = inh.fontScale;
+    if (tb.autofit === undefined && inh.autofit !== undefined) tb.autofit = inh.autofit;
+    if (tb.fontScale === undefined && inh.fontScale !== undefined && tb.autofit === 'norm') tb.fontScale = inh.fontScale;
     if (tb.lnSpcReduction === undefined && inh.lnSpcReduction !== undefined) tb.lnSpcReduction = inh.lnSpcReduction;
   }
 
@@ -583,6 +584,9 @@ function placeholderBodyPrMap(pkg: PptxPackage, slidePath: string): Map<string, 
       if (bodyPr.attrs['numCol'] !== undefined) props.numCol = parseInt(bodyPr.attrs['numCol'], 10);
       if (bodyPr.attrs['spcCol'] !== undefined) props.spcCol = parseInt(bodyPr.attrs['spcCol'], 10);
       const na = firstChild(bodyPr, 'a:normAutofit');
+      if (na) props.autofit = 'norm';
+      else if (firstChild(bodyPr, 'a:noAutofit')) props.autofit = 'none';
+      else if (firstChild(bodyPr, 'a:spAutoFit')) props.autofit = 'shape';
       if (na) {
         if (na.attrs['fontScale'] !== undefined) props.fontScale = parseInt(na.attrs['fontScale'], 10) / 100000;
         if (na.attrs['lnSpcReduction'] !== undefined) props.lnSpcReduction = parseInt(na.attrs['lnSpcReduction'], 10) / 100000;
@@ -590,9 +594,11 @@ function placeholderBodyPrMap(pkg: PptxPackage, slidePath: string): Map<string, 
       if (Object.keys(props).length === 0) continue;
       const type = ph.attrs['type'] ?? 'body';
       const idx = ph.attrs['idx'];
-      map.set(phKey(type, idx), props);
-      map.set(phKey(type), props);
-      if (idx !== undefined && part === layoutPath) map.set('idx:' + idx, props);
+      // layout MESCLA sobre o master (o que o layout não diz continua o do master)
+      const put = (k: string): void => { const prev = map.get(k); map.set(k, prev ? { ...prev, ...props } : props); };
+      put(phKey(type, idx));
+      put(phKey(type));
+      if (idx !== undefined && part === layoutPath) put('idx:' + idx);
     }
   }
   return map;
@@ -1457,6 +1463,9 @@ function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>, pk
     }
     // autofit: <a:normAutofit fontScale="62500" lnSpcReduction="20000"/>
     const na = firstChild(bodyPr, 'a:normAutofit');
+    if (na) tb.autofit = 'norm';
+    else if (firstChild(bodyPr, 'a:noAutofit')) tb.autofit = 'none';
+    else if (firstChild(bodyPr, 'a:spAutoFit')) tb.autofit = 'shape';
     if (na) {
       if (na.attrs['fontScale'] !== undefined) tb.fontScale = parseInt(na.attrs['fontScale'], 10) / 100000;
       if (na.attrs['lnSpcReduction'] !== undefined) tb.lnSpcReduction = parseInt(na.attrs['lnSpcReduction'], 10) / 100000;

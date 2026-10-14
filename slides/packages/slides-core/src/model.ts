@@ -215,6 +215,8 @@ export interface TextBody {
   wrap?: string;
   /** Escala de fonte do autofit (`<a:normAutofit fontScale>`), 0..1. */
   fontScale?: number;
+  /** Ajuste automático do corpo (`<a:normAutofit>`/`<a:noAutofit>`/`<a:spAutoFit>`), próprio ou herdado. */
+  autofit?: 'norm' | 'none' | 'shape';
   /** Reducao de entrelinha do autofit (`<a:normAutofit lnSpcReduction>`), 0..1. */
   lnSpcReduction?: number;
   /** `<a:bodyPr spcFirstLastPara="1">`: aplica o spcBef do 1º parágrafo (e o spcAft do último). */

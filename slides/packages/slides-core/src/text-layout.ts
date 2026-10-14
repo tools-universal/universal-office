@@ -400,7 +400,41 @@ export function layoutTextBody(
     // alinhamento horizontal desloca os runs (bullet fica fixo no marL+indent);
     // em multi-coluna o alinhamento é relativo à LARGURA DA COLUNA
     let dx = 0;
-    if (pl.align === 'ctr') dx = (colW - (pl.marL - insL) - w) / 2;
+    const lastOfPara = proto[i + 1]?.para !== pl.para;
+    if ((pl.align === 'just' || pl.align === 'dist') && (!lastOfPara || pl.align === 'dist') && placed.length) {
+      // justificado: o espaço que sobra vai para os ESPAÇOS entre palavras (dist: também a última linha)
+      const extra = colW - (pl.marL - insL) - w;
+      const pieces: PlacedRun[] = [];
+      for (const pr of placed) {
+        const toks = pr.text.match(/\s+|\S+/g) ?? [pr.text];
+        if (toks.length === 1) { pieces.push(pr); continue; }
+        let x0 = pr.x;
+        for (const t of toks) {
+          const tw = measureRun(t, (merged.find((m) => m.text === pr.text)?.run ?? merged[0]!.run), pr.font);
+          pieces.push({ ...pr, text: t, x: x0, w: tw });
+          x0 += tw;
+        }
+      }
+      // dist com uma palavra só: o espaço vai entre os CARACTERES (medido, syn-just)
+      if (pl.align === 'dist' && pieces.length === 1 && [...pieces[0]!.text].length > 1) {
+        const p0 = pieces[0]!, chars = [...p0.text];
+        const run = merged.find((m) => m.text === p0.text)?.run ?? merged[0]!.run;
+        let x0 = p0.x;
+        const g = extra > 0 ? extra / (chars.length - 1) : 0;
+        pieces.splice(0, 1, ...chars.map((ch) => { const cw = measureRun(ch, run, p0.font); const pc = { ...p0, text: ch, x: x0, w: cw }; x0 += cw + g; return pc; }));
+        placed.splice(0, placed.length, ...pieces);
+      }
+      const gaps = pieces.filter((p, k) => /^\s+$/.test(p.text) && k < pieces.length - 1).length;
+      if (extra > 0 && gaps > 0) {
+        const g = extra / gaps;
+        let add = 0;
+        for (let k = 0; k < pieces.length; k++) {
+          pieces[k]!.x += add;
+          if (/^\s+$/.test(pieces[k]!.text) && k < pieces.length - 1) add += g;
+        }
+        placed.splice(0, placed.length, ...pieces.filter((p) => !/^\s+$/.test(p.text)));
+      }
+    } else if (pl.align === 'ctr') dx = (colW - (pl.marL - insL) - w) / 2;
     else if (pl.align === 'r') dx = colW - (pl.marL - insL) - w;
     if (dx > 0) for (const pr of placed) pr.x += dx;
     if (colShift > 0) {
