@@ -1741,6 +1741,15 @@ function readEffects(spPr: XmlElement | undefined, styleEl: XmlElement | undefin
   }
   const soft = firstChild(eff, 'a:softEdge');
   if (soft && num(soft, 'rad') > 0) shape.softEdge = num(soft, 'rad');
+  // sobreposição de preenchimento (temas 2007: textura × degradê em multiplicação)
+  const ov = firstChild(eff, 'a:fillOverlay');
+  if (ov) {
+    const gf = firstChild(ov, 'a:gradFill');
+    const g = gf ? parseGradFill(gf, th) : undefined;
+    const sc = g ? undefined : solidFillColor(ov, th);
+    const fill: Fill | undefined = g ?? (sc ? { type: 'solid', color: sc } : undefined);
+    if (fill) shape.fillOverlay = { blend: ov.attrs['blend'] ?? 'over', fill };
+  }
   const refl = firstChild(eff, 'a:reflection');
   if (refl) {
     shape.reflection = {

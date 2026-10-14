@@ -311,6 +311,8 @@ export interface Shape {
   useBgFill?: boolean;
   /** Sombra interna (`<a:innerShdw>`). */
   innerShadow?: { color: string; blurRad: number; dist: number; dirDeg: number; alpha: number };
+  /** `<a:fillOverlay blend>`: preenchimento misturado POR CIMA do preenchimento (mult/screen/darken/lighten/over). */
+  fillOverlay?: { blend: string; fill: Fill };
   /** Transparência do fill (`<a:solidFill><a:srgbClr><a:alpha val=...`). 0..1. */
   fillAlpha?: number;
   /** Estilo de traço da borda (`<a:ln><a:prstDash val>`). v1: solid|dash|dot|lgDash|sysDash. */

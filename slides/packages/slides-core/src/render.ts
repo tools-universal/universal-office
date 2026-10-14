@@ -917,6 +917,16 @@ function paintBody(
     }
     ctx.restore();
   }
+  // <a:fillOverlay>: preenchimento misturado por cima (multiplicar etc.), recortado na forma
+  if (sh.fillOverlay && !isLineGeom && (sh.fill?.type !== 'none' || sh.fillImage)) {
+    const o = sh.fillOverlay;
+    ctx.save();
+    const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
+    ctx.globalCompositeOperation = o.blend === 'mult' ? 'multiply' : o.blend === 'screen' ? 'screen' : o.blend === 'darken' ? 'darken' : o.blend === 'lighten' ? 'lighten' : 'source-over';
+    ctx.fillStyle = o.fill.type === 'gradient' && o.fill.stops && o.fill.stops.length >= 2 ? makeLinearGradient(ctx, o.fill, x, y, w, h) : o.fill.color ?? '#000000';
+    if (rule) ctx.fill(rule); else ctx.fill();
+    ctx.restore();
+  }
   // sombra interna: moldura em volta da forma, recortada nela, só a sombra entra;
   // a sombra fica do LADO de dir (225° = escura em cima à esquerda — medido): a moldura anda ao contrário
   if (sh.innerShadow && !isLineGeom) {
