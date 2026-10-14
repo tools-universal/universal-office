@@ -435,6 +435,36 @@ function lineXml(sh: OAShape, pc: PartCtx, dfltOn: boolean): string {
   }, kids);
 }
 
+/**
+ * 3D legado (f3D, 0x2BF bit 3) → `<a:scene3d>` + `<a:sp3d>`, como a conversão do
+ * próprio app (oracle/ppt2pptx: gd-134984, gd-186736, gd-109837, gd-079780):
+ * profundidade = c3DExtrudeBackward (0x285; padrão 36 pt) − 27000 EMU dos dois
+ * chanfros "angle" de 13500; rotação lat = −rotX (0x2C1), lon = rotY (0x2C0);
+ * câmera oblíqua sem ponto de vista Z (0x2CB) e em perspectiva com ele, na
+ * direção do ângulo de inclinação (0x2D0, padrão −135° = em cima à direita;
+ * quantidade 0x2D1 = 0 → frontal); cor da extrusão = 0x287.
+ */
+function threeDXml(sh: OAShape, pc: PartCtx, wordArt: boolean): string {
+  if (!boolProp(sh, 0x2bf, 3, false)) return '';
+  const depth = propS(sh, 0x285) ?? 457200;
+  const ext = Math.max(0, depth - 27000);
+  const deg = (id: number): number => fixed(prop(sh, id));
+  const norm = (d: number): number => Math.round((((d % 360) + 360) % 360) * 60000) % 21600000;
+  const lat = norm(-deg(0x2c1)), lon = norm(deg(0x2c0));
+  const ang = prop(sh, 0x2d0) !== undefined ? deg(0x2d0) : -135;
+  const amount = prop(sh, 0x2d1) !== undefined ? deg(0x2d1) : 50;
+  const persp = sh.props.has(0x2cb);
+  const a = ((ang + 180) * Math.PI) / 180, dx = Math.cos(a), dy = -Math.sin(a);
+  const dir = amount === 0 ? 'Front' : `${dy < -0.38 ? 'Top' : dy > 0.38 ? 'Bottom' : ''}${dx < -0.38 ? 'Left' : dx > 0.38 ? 'Right' : ''}` || 'Front';
+  const cam = `${persp ? 'legacyPerspective' : 'legacyOblique'}${dir}`;
+  const rot = lat || lon ? el('a:rot', { lat, lon, rev: 0 }) : '';
+  const ec = prop(sh, 0x287);
+  const clr = ec !== undefined ? srgb(oaColor(ec, sh, pc)) : '';
+  const bev = wordArt ? '' : '<a:bevelT w="13500" h="13500" prst="angle"/><a:bevelB w="13500" h="13500" prst="angle"/>';
+  return el('a:scene3d', {}, el('a:camera', { prst: cam }, rot) + '<a:lightRig rig="legacyFlat3" dir="b"/>') +
+    el('a:sp3d', { extrusionH: ext, prstMaterial: 'legacyMatte' }, bev + (clr ? el('a:extrusionClr', {}, clr) + el('a:contourClr', {}, clr) : ''));
+}
+
 /** Sombra (fShadow) → `<a:effectLst><a:outerShdw>`. */
 function shadowXml(sh: OAShape, pc: PartCtx): string {
   if (!boolProp(sh, 0x23f, 1, false)) return '';
@@ -908,7 +938,7 @@ function visualParts(sh: OAShape, pc: PartCtx, xf: Xf, kind: 'shape' | 'pic' | '
     geom: geom.xml,
     fill: kind === 'line' ? '<a:noFill/>' : fillXml(sh, pc),
     line: lineXml(sh, pc, kind !== 'pic' && lineDefault(sh, pc)),
-    effects: shadowXml(sh, pc),
+    effects: shadowXml(sh, pc) + (kind === 'shape' ? threeDXml(sh, pc, false) : ''),
   };
   const mv = pc.conv.useRoundTrip ? metroVisual(sh) : undefined;
   if (mv) {

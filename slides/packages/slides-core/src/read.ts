@@ -1906,11 +1906,24 @@ function readBevel(spPr: XmlElement | undefined, styleEl: XmlElement | undefined
     const st = idx > 0 ? theme.effectStyles?.[idx - 1] : undefined;
     if (st) { sp3d = firstChild(st, 'a:sp3d'); scene = firstChild(st, 'a:scene3d'); }
   }
+  const rig = scene ? firstChild(scene, 'a:lightRig') : undefined;
+  const cam = scene ? firstChild(scene, 'a:camera') : undefined;
+  if (cam?.attrs['prst'] && cam.attrs['prst'] !== 'orthographicFront') shape.camPrst = cam.attrs['prst'];
+  // extrusão: laterais na cor própria (ou na do preenchimento), com a luz da cena
+  const eh = sp3d?.attrs['extrusionH'] !== undefined ? parseInt(sp3d.attrs['extrusionH'], 10) : 0;
+  if (eh > 0 && sp3d) {
+    const ec = firstChild(sp3d, 'a:extrusionClr');
+    const color = ec ? colorFromDml(childElements(ec)[0], theme) : undefined;
+    shape.extrusion = {
+      h: eh, ...(color ? { color } : {}),
+      ...(rig?.attrs['rig'] ? { rig: rig.attrs['rig'] } : {}), ...(rig?.attrs['dir'] ? { dir: rig.attrs['dir'] } : {}),
+      ...(sp3d.attrs['prstMaterial'] ? { mat: sp3d.attrs['prstMaterial'] } : {}),
+    };
+  }
   const bt = sp3d ? firstChild(sp3d, 'a:bevelT') : undefined;
   if (!bt) return;
   const w = bt.attrs['w'] !== undefined ? parseInt(bt.attrs['w'], 10) : 76200, h = bt.attrs['h'] !== undefined ? parseInt(bt.attrs['h'], 10) : 76200;
   if (!(w > 0) || !(h > 0)) return;
-  const rig = scene ? firstChild(scene, 'a:lightRig') : undefined;
   shape.bevel = {
     w, h,
     ...(bt.attrs['prst'] ? { prst: bt.attrs['prst'] } : {}),

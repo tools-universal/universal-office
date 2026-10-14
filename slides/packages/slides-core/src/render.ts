@@ -486,7 +486,9 @@ function paintShape(
   //    do CENTRO geométrico. Pintada DENTRO de save/restore para não vazar.
   // transformação ANTES da da forma (useBgFill pinta o fundo no referencial do slide)
   const baseM = ctx.getTransform();
-  const cam = sh.camRot ? cameraMatrix(sh.camRot) : undefined;
+  // câmera girada: <a:rot> explícito ou a rotação medida do preset
+  const camR = sh.camRot ?? (sh.camPrst ? CAM_ROT[sh.camPrst] : undefined);
+  const cam = camR ? cameraMatrix(camR) : undefined;
   const hasXform = sh.xfrm.rot || sh.xfrm.flipH || sh.xfrm.flipV || cam;
   const hasAlpha = sh.alpha !== undefined && sh.alpha < 1;
   if (hasXform || hasAlpha) {
@@ -528,6 +530,8 @@ function paintShape(
   try {
     target.save();
     const bodyOn = !bgSt || applyPart(target, bgSt, anim!.base, x, y, w, h, anim!.m);
+    // extrusão 3D: laterais atrás da frente
+    if (bodyOn && sh.extrusion && !sh.image) paintExtrusion(target, sh, x, y, w, h, fit.scale, baseM, camR);
     const hostsText = bodyOn ? paintBody(target, sh, x, y, w, h, fit, res, ov) : !(sh.chartXml || sh.table || sh.image);
     target.restore();
     // texto (suprimido quando a shape está em edição — overlay HTML cobre)
@@ -550,14 +554,17 @@ function paintShape(
  * (ordem e sinais casados com o PowerPoint numa seta longa do corpus); devolve
  * a parte 2×2 (a, b, c, d) para `ctx.transform`.
  */
-function cameraMatrix(r: { lat: number; lon: number; rev: number }): [number, number, number, number] {
+function cameraMatrix3(r: { lat: number; lon: number; rev: number }): number[][] {
   const d = Math.PI / 180;
   const la = -r.lat * d, lo = -r.lon * d, re = -r.rev * d;
   const rx = [[1, 0, 0], [0, Math.cos(la), -Math.sin(la)], [0, Math.sin(la), Math.cos(la)]];
   const ry = [[Math.cos(lo), 0, Math.sin(lo)], [0, 1, 0], [-Math.sin(lo), 0, Math.cos(lo)]];
   const rz = [[Math.cos(re), -Math.sin(re), 0], [Math.sin(re), Math.cos(re), 0], [0, 0, 1]];
   const mul = (A: number[][], B: number[][]) => A.map((row, i) => B[0]!.map((_, j) => row.reduce((s, _v, k) => s + A[i]![k]! * B[k]![j]!, 0)));
-  const M = mul(mul(rz, rx), ry);
+  return mul(mul(rz, rx), ry);
+}
+function cameraMatrix(r: { lat: number; lon: number; rev: number }): [number, number, number, number] {
+  const M = cameraMatrix3(r);
   // imagem dos eixos x e y da forma no plano da tela
   return [M[0]![0]!, M[1]![0]!, M[0]![1]!, M[1]![1]!];
 }
@@ -872,7 +879,9 @@ function paintBody(
   // preenchido vira a FATIA da definição oficial (como no app)
   const isLineGeom = sh.geom === 'line' ||
     /^(straight|bent|curved)Connector\d?$/.test(sh.geom ?? '');
-  if (!isLineGeom && (ov.fill || sh.fillImage || (sh.fill && sh.fill.type !== 'none'))) {
+  // 3D "aramado" (prstMaterial="wireframe"): só as arestas, a frente não preenche
+  const wire = /^(legacy)?[wW]ireframe$/.test(sh.extrusion?.mat ?? '');
+  if (!isLineGeom && !wire && (ov.fill || sh.fillImage || (sh.fill && sh.fill.type !== 'none'))) {
     ctx.save();
     if (sh.fillAlpha !== undefined && sh.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * sh.fillAlpha;
     const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
@@ -1060,6 +1069,137 @@ function paintBody(
     }
   }
   return true;
+}
+
+/**
+ * Rotação (lat, lon, rev) equivalente dos presets de câmera sem `<a:rot>`, AJUSTADA
+ * no app (syn-b-e15: retângulo vermelho extrudado em azul — função de suporte em 16
+ * direções; as perspectivas viram ortográficas aproximadas).
+ */
+const CAM_ROT: Record<string, { lat: number; lon: number; rev: number }> = {
+  isometricRightUp: { lat: 35, lon: 314.75, rev: 0.25 },
+  perspectiveRight: { lat: 359.75, lon: 157.75, rev: 180.25 },
+  perspectiveAbove: { lat: 160.5, lon: 0.75, rev: 179.75 },
+  perspectiveContrastingRightFacing: { lat: 170.75, lon: 135, rev: 176 },
+};
+/**
+ * Câmeras OBLÍQUAS: a frente fica intacta e o fundo da extrusão desloca na
+ * direção do preset — 0,3·profundidade (oblique*), 0,5 (legacyOblique*) e 0,18 nas
+ * perspectivas legadas (medido, syn-b-e15).
+ */
+function obliqueOffset(prst: string | undefined): [number, number] | undefined {
+  if (!prst) return undefined;
+  const m = /^(legacyOblique|oblique|legacyPerspective)(Top|Bottom)?(Left|Right)?$/.exec(prst);
+  if (!m) return undefined;
+  const k = m[1] === 'oblique' ? 0.3 : m[1] === 'legacyOblique' ? 0.505 : 0.18;
+  const dx = m[3] === 'Left' ? -1 : m[3] === 'Right' ? 1 : 0, dy = m[2] === 'Top' ? -1 : m[2] === 'Bottom' ? 1 : 0;
+  if (!dx && !dy) return [0, 0];
+  const l = Math.hypot(dx, dy);
+  return [(k * dx) / l, (k * dy) / l];
+}
+
+/** Contorno da geometria achatado em polígonos (coordenadas da caixa x,y,w,h). */
+function outlinePolys(sh: Shape, x: number, y: number, w: number, h: number): [number, number][][] {
+  const out: [number, number][][] = [];
+  const segsTo = (subs: import('./geometry.js').PathSeg[][], ox: number, oy: number, sx: number, sy: number): void => {
+    for (const sub of subs) {
+      let cur: [number, number][] = [], px = 0, py = 0;
+      const push = (X: number, Y: number): void => { cur.push([ox + X * sx, oy + Y * sy]); px = X; py = Y; };
+      for (const s of sub) {
+        if (s.c === 'M') { if (cur.length > 2) out.push(cur); cur = []; push(s.x, s.y); }
+        else if (s.c === 'L') push(s.x, s.y);
+        else if (s.c === 'C') { const x0 = px, y0 = py; for (let i = 1; i <= 12; i++) { const t = i / 12, m = 1 - t; push(m * m * m * x0 + 3 * t * m * m * s.x1 + 3 * t * t * m * s.x2 + t * t * t * s.x, m * m * m * y0 + 3 * t * m * m * s.y1 + 3 * t * t * m * s.y2 + t * t * t * s.y); } }
+        else if (s.c === 'Q') { const x0 = px, y0 = py; for (let i = 1; i <= 8; i++) { const t = i / 8, m = 1 - t; push(m * m * x0 + 2 * t * m * s.x1 + t * t * s.x, m * m * y0 + 2 * t * m * s.y1 + t * t * s.y); } }
+        else if (s.c === 'E') { let a1 = s.a1; if (s.ccw && a1 > s.a0) a1 -= 2 * Math.PI; if (!s.ccw && a1 < s.a0) a1 += 2 * Math.PI; const n = Math.max(8, Math.ceil(Math.abs(a1 - s.a0) / 0.1)); for (let i = 0; i <= n; i++) { const a = s.a0 + ((a1 - s.a0) * i) / n; push(s.cx + s.rx * Math.cos(a), s.cy + s.ry * Math.sin(a)); } }
+      }
+      if (cur.length > 2) out.push(cur);
+    }
+  };
+  if (sh.custGeom) { segsTo(sh.custGeom.subs, x, y, w / sh.custGeom.w, h / sh.custGeom.h); return out; }
+  const p = presetPath(sh.geom, w, h, sh.adj, sh.adjNames);
+  if (p.kind === 'path') segsTo(p.fillRule === 'evenodd' ? p.subs.slice(0, 1) : p.subs.filter((_, i) => !p.subLum || p.subLum[i] !== null), x, y, 1, 1);
+  else if (p.kind === 'poly') out.push(p.points.map((q) => [x + q.x, y + q.y]));
+  else if (p.kind === 'ellipse' || p.kind === 'roundRect') {
+    const r = p.kind === 'roundRect' ? Math.min(p.r, w / 2, h / 2) : 0, poly: [number, number][] = [];
+    if (p.kind === 'ellipse') for (let i = 0; i < 64; i++) { const a = (i / 64) * 2 * Math.PI; poly.push([x + w / 2 + (w / 2) * Math.cos(a), y + h / 2 + (h / 2) * Math.sin(a)]); }
+    else for (const [cx, cy, a0] of [[x + w - r, y + r, -90], [x + w - r, y + h - r, 0], [x + r, y + h - r, 90], [x + r, y + r, 180]] as const) for (let i = 0; i <= 6; i++) { const a = ((a0 + i * 15) * Math.PI) / 180; poly.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
+    out.push(poly);
+  } else out.push([[x, y], [x + w, y], [x + w, y + h], [x, y + h]]);
+  return out;
+}
+
+/**
+ * Laterais da extrusão 3D (`extrusionH`): cada aresta do contorno vira um
+ * quadrilátero entre a frente e o fundo (girado pela câmera — ortográfica — ou
+ * deslocado pela oblíqua), pintado na cor da extrusão com a luz medida (normal
+ * da lateral → light3d) e em ordem de profundidade; a frente vem depois, por
+ * cima. Desenha no referencial do slide (`baseM`).
+ */
+function paintExtrusion(ctx: CanvasRenderingContext2D, sh: Shape, x: number, y: number, w: number, h: number, scale: number, baseM: DOMMatrix,
+  camR: { lat: number; lon: number; rev: number } | undefined): void {
+  const ex = sh.extrusion!;
+  const E = ex.h * scale;
+  const color = ex.color ?? sh.fill?.color ?? sh.fill?.stops?.[0]?.color;
+  if (!color || !(E > 0)) return;
+  const tab = lightTable(ex.rig, ex.mat);
+  const cx = x + w / 2, cy = y + h / 2;
+  const rot = ((sh.xfrm?.rot ?? 0) / 60000) * Math.PI / 180, fh = sh.xfrm?.flipH ? -1 : 1, fv = sh.xfrm?.flipV ? -1 : 1;
+  const M = camR ? cameraMatrix3(camR) : [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  const obl = camR ? undefined : obliqueOffset(sh.camPrst);
+  // de frente (sem rotação nem oblíqua) a extrusão fica escondida atrás da face
+  if (!camR && (!obl || (obl[0] === 0 && obl[1] === 0))) return;
+  // ponto local (no plano da forma, já girado/espelhado) + profundidade z (0 frente, −E fundo) → tela
+  const P = (lx: number, ly: number, z: number): [number, number, number] => {
+    const ux = (lx - cx) * fh, uy = (ly - cy) * fv;
+    const X = ux * Math.cos(rot) - uy * Math.sin(rot), Y = ux * Math.sin(rot) + uy * Math.cos(rot);
+    if (obl) return [cx + X - obl[0] * z, cy + Y - obl[1] * z, z];
+    return [cx + M[0]![0]! * X + M[0]![1]! * Y + M[0]![2]! * z, cy + M[1]![0]! * X + M[1]![1]! * Y + M[1]![2]! * z, M[2]![0]! * X + M[2]![1]! * Y + M[2]![2]! * z];
+  };
+  const quads: { pts: [number, number][]; z: number; fill: string }[] = [];
+  const L = new Float32Array(4);
+  const base = parseInt(color.replace('#', ''), 16);
+  const lin = [(base >> 16) & 255, (base >> 8) & 255, base & 255].map((c) => SRGB_LIN[c]!);
+  for (const poly of outlinePolys(sh, x, y, w, h)) {
+    // orientação do polígono (normal para FORA)
+    let area = 0;
+    for (let i = 0; i < poly.length; i++) { const a = poly[i]!, b = poly[(i + 1) % poly.length]!; area += a[0] * b[1] - b[0] * a[1]; }
+    const sgn = area >= 0 ? 1 : -1;
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i]!, b = poly[(i + 1) % poly.length]!;
+      if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1e-6) continue;
+      const fa = P(a[0], a[1], 0), fb = P(b[0], b[1], 0), ba = P(a[0], a[1], -E), bb = P(b[0], b[1], -E);
+      // normal da lateral: (dy, −dx) no plano local → 3D
+      const nl = [(b[1] - a[1]) * sgn, -(b[0] - a[0]) * sgn], nlen = Math.hypot(nl[0]!, nl[1]!);
+      const n0 = P(cx + (nl[0]! / nlen) * 100, cy + (nl[1]! / nlen) * 100, 0), c0 = P(cx, cy, 0);
+      let nx = n0[0] - c0[0], ny = n0[1] - c0[1], nz = obl ? 0 : n0[2] - c0[2];
+      const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+      if (!obl && nz < -1e-3) continue; // de costas para a câmera
+      let fill = color;
+      if (tab) {
+        lightAt(tab, ex.dir, (Math.atan2(ny, nx) * 180) / Math.PI, (Math.acos(Math.max(-1, Math.min(1, nz))) * 180) / Math.PI, L);
+        fill = `rgb(${[0, 1, 2].map((k) => LIN_SRGB[Math.max(0, Math.min(4095, Math.round((lin[k]! * L[k]! + L[3]!) * 4095)))]!).join(',')})`;
+      }
+      quads.push({ pts: [[fa[0], fa[1]], [fb[0], fb[1]], [bb[0], bb[1]], [ba[0], ba[1]]], z: (fa[2] + fb[2] + ba[2] + bb[2]) / 4, fill });
+    }
+  }
+  quads.sort((p, q) => p.z - q.z);
+  ctx.save();
+  ctx.setTransform(baseM);
+  if (/^(legacy)?[wW]ireframe$/.test(ex.mat ?? '')) {
+    // material "aramado": só as arestas (frente, fundo e as ligações), sem preenchimento
+    ctx.strokeStyle = sh.lineColor ?? '#000000'; ctx.lineWidth = Math.max(0.75, 9525 * scale);
+    for (const q of quads) { ctx.beginPath(); q.pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.closePath(); ctx.stroke(); }
+    ctx.restore();
+    return;
+  }
+  for (const q of quads) {
+    ctx.beginPath();
+    q.pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+    ctx.closePath();
+    ctx.fillStyle = q.fill; ctx.strokeStyle = q.fill; ctx.lineWidth = 0.6;
+    ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
 }
 
 const SRGB_LIN = new Float32Array(256).map((_, i) => { const v = i / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });

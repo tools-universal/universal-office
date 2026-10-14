@@ -333,6 +333,10 @@ export interface Shape {
    * effectStyle do tema pelo effectRef. Sombreado pela tabela medida (light3d.ts).
    */
   bevel?: { w: number; h: number; prst?: string; rig?: string; dir?: string; mat?: string };
+  /** Extrusão 3D (`<a:sp3d extrusionH>`, EMU) com a cor das laterais (`extrusionClr`; ausente = a do preenchimento) e a luz. */
+  extrusion?: { h: number; color?: string; rig?: string; dir?: string; mat?: string };
+  /** Preset da câmera da cena 3D (`<a:camera prst>`) quando não é o frontal. */
+  camPrst?: string;
   /** Câmera 3D com rotação explícita (`<a:scene3d><a:camera><a:rot lat lon rev>`), graus: a forma é vista girada (projeção ortográfica). */
   camRot?: { lat: number; lon: number; rev: number };
   /** `<p:sp useBgFill="1">`: preenchida com o FUNDO do slide (resolvido no fim da leitura). */
