@@ -52,11 +52,23 @@ Medido e DESCARTADO: "fonte com Bold no nome sai em negrito quando substituída"
 — o app desenha a substituta REGULAR (decks CJK com "… Bold/Heavy"); o caso que
 sugeria o contrário (Arial Rounded MT Bold) tinha a fonte instalada.
 
+SmartArt sem `drawingN.xml` (Office 2007; 43 decks do corpus): `diagram-fallback.ts`
+refaz o diagrama pelo modelo de dados para os layouts MEDIDOS — organograma
+(hierBranch r/l/hang/init, custScaleX), processo e processo em curva (setas),
+bloco básico, lista agrupada (list1), blocos verticais, lista com círculo,
+chevron, ciclo, matriz — com cores da definição de cores (repeat/span por
+presStyleIdx), estilo rápido (fillRef/lnRef do tema) e a formatação manual do
+ponto (`dgm:spPr`). Layout fora da lista fica vazio: palpite errado (setas
+radiais, hexágonos) mediu PIOR que o vazio. Nesses decks: média 12,0 → **8,7**
+(LibreOffice: mediana 20,5 → 6,7); sem regressão no subconjunto nem no repo.
+
 ### Ainda faltando (por impacto observado)
 
 - WordArt: fonte/posição do bloco ainda diferem nos .ppt (o formato já bate).
-- SmartArt sem `drawingN.xml` (Office 2007) e gráficos antigos (formato de
-  número, rótulos de dados, linhas suaves, 3D) — o motor de gráfico do Sheet é
+- SmartArt sem desenho nos layouts ainda não medidos (arrow5, radial*,
+  hierarchy1/2, gear, HexagonCluster…) — idealmente o motor de layout do app
+  (algoritmos lin/snake/hierRoot/cycle + constraints) em vez de famílias.
+- Gráficos antigos (formato de número, rótulos de dados, linhas suaves, 3D) — o motor de gráfico do Sheet é
   um fork menor do mesmo código: unificar.
 - Efeitos: innerShdw, glow, softEdge, reflexo, bevel/3D.
 - Métrica da substituta de fonte ausente (Aptos/Calibri) × a do app: quebras

@@ -7,6 +7,8 @@ import {
 import { symbolText, isSymbolFont } from '../src/symbol-fonts.js';
 import { patternDensity, patternRows } from '../src/patterns.js';
 import { SYMBOL_FAMILY } from '../src/text-layout.js';
+import { diagramFallbackShapes } from '../src/diagram-fallback.js';
+import { parseXml } from '../src/xml.js';
 
 /**
  * Regras medidas no app de referência contra o corpus real (E:\UniversalSlidesTest,
@@ -173,5 +175,37 @@ describe('metarquivos', () => {
     dv.setUint16(14, 1440, true); // unidades por polegada
     expect(isWmf(b)).toBe(true);
     expect(metafileSize(b)).toEqual({ w: 96, h: 48 });
+  });
+});
+
+describe('SmartArt sem desenho pré-calculado (Office 2007)', () => {
+  const theme = { colors: { accent1: '#4472C4', lt1: '#FFFFFF', tx1: '#000000', dk1: '#000000' } } as unknown as Parameters<typeof diagramFallbackShapes>[3];
+  const frame = { x: 0, y: 0, cx: 9144000, cy: 4572000 };
+  const data = (nodes: [string, string, string?][], pres = ''): ReturnType<typeof parseXml> => parseXml(
+    `<dgm:dataModel xmlns:dgm="d" xmlns:a="a"><dgm:ptLst><dgm:pt modelId="0" type="doc"/>${nodes.map(([id, t]) =>
+      `<dgm:pt modelId="${id}"><dgm:t><a:p><a:r><a:t>${t}</a:t></a:r></a:p></dgm:t></dgm:pt>`).join('')}${pres}</dgm:ptLst><dgm:cxnLst>${nodes.map(([id, , par], i) =>
+      `<dgm:cxn modelId="c${id}" srcId="${par ?? '0'}" destId="${id}" srcOrd="${i}"/>`).join('')}</dgm:cxnLst></dgm:dataModel>`);
+  const nodes = (s: ReturnType<typeof diagramFallbackShapes>) => s.filter((x) => x.name === 'nó');
+
+  it('layout fora da lista medida não desenha palpite', () => {
+    expect(diagramFallbackShapes(data([['1', 'a'], ['2', 'b']]), 'urn:microsoft.com/office/officeart/2005/8/layout/arrow5', frame, theme)).toEqual([]);
+  });
+
+  it('bloco básico: 5 itens em 2 colunas (bloco maior), última linha centralizada', () => {
+    const s = nodes(diagramFallbackShapes(data([['1', 'a'], ['2', 'b'], ['3', 'c'], ['4', 'd'], ['5', 'e']]), 'urn:microsoft.com/office/officeart/2005/8/layout/default', { ...frame, cx: 5486400 }, theme));
+    expect(s).toHaveLength(5);
+    const xs = s.map((b) => b.xfrm!.x);
+    expect(xs[0]).toBe(xs[2]);
+    expect(xs[1]).toBe(xs[3]);
+    expect(xs[4]! + s[4]!.xfrm!.cx / 2).toBeCloseTo((xs[0]! + xs[1]! + s[1]!.xfrm!.cx) / 2, -2);
+  });
+
+  it('organograma: hierBranch="r" pendura os filhos abaixo, à direita do pai', () => {
+    const pres = `<dgm:pt modelId="p2" type="pres"><dgm:prSet presAssocID="2" presName="hierRoot1"><dgm:presLayoutVars><dgm:hierBranch val="r"/></dgm:presLayoutVars></dgm:prSet></dgm:pt>`;
+    const s = nodes(diagramFallbackShapes(data([['2', 'A'], ['3', 'C1', '2'], ['4', 'C2', '2']], pres), 'urn:microsoft.com/office/officeart/2005/8/layout/orgChart1', frame, theme));
+    const [a, c1, c2] = ['A', 'C1', 'C2'].map((t) => s.find((b) => b.txBody?.paragraphs[0]?.runs[0]?.text === t)!.xfrm!);
+    expect(c1!.x).toBe(c2!.x);
+    expect(c1!.x).toBeGreaterThan(a!.x);
+    expect(c2!.y).toBeGreaterThan(c1!.y);
   });
 });

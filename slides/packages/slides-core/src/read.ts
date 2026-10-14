@@ -2,6 +2,7 @@ import { parseXml, childElements, firstChild, textContent, descend, type XmlElem
 import type { PathSeg } from './geometry.js';
 import { readTheme, colorFromDml, solidFillColor, applyClrMap, clrMapAttrs, textFillColor } from './theme.js';
 import { patternDensity } from './patterns.js';
+import { diagramFallbackShapes, type DgmStyle } from './diagram-fallback.js';
 import { readTblPr, readTableStyle, applyTableStyle } from './table-style.js';
 import {
   parseTxStyleLevels, applyShapeTextCascade, applyTextStyles, mergeStyleLevels, readRunExtras, type BlipResolver,
@@ -808,6 +809,25 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
           for (const s of shapes) if (shape.id) s.groupIds = [...(s.groupIds ?? []), shape.id];
           return shapes;
         }
+      } else {
+        // sem desenho pré-calculado (Office 2007): layout aproximado pelo modelo de dados
+        const dataXml = pkg.getPartText(dataPath);
+        const loId = relIds.attrs['r:lo'];
+        const loPath = loId ? rels.get(loId) : undefined;
+        const loXml = loPath ? pkg.getPartText(loPath) : undefined;
+        const uid = loXml ? /uniqueId="([^"]*)"/.exec(loXml)?.[1] ?? '' : '';
+        if (dataXml !== undefined) {
+          let shapes: Shape[] = [];
+          const part = (id: string | undefined) => { const p = id ? rels.get(id) : undefined; const x = p ? pkg.getPartText(p) : undefined; return x ? parseXml(x) : undefined; };
+          try {
+            const styler = diagramStyler(part(relIds.attrs['r:cs']), part(relIds.attrs['r:qs']), theme);
+            shapes = diagramFallbackShapes(parseXml(dataXml), uid, shape.xfrm, theme, styler);
+          } catch { shapes = []; }
+          if (shapes.length) {
+            for (const s of shapes) if (shape.id) s.groupIds = [...(s.groupIds ?? []), shape.id];
+            return shapes;
+          }
+        }
       }
     }
   }
@@ -1151,6 +1171,65 @@ function parseCustGeom(cust: XmlElement): { w: number; h: number; subs: PathSeg[
  * `<p:bgRef idx>` (1001…), com `phClr` = cor filha da referência. idx 0 = nada.
  * Imagens do estilo resolvem pelos rels do próprio tema.
  */
+/**
+ * Estilo de um rótulo do SmartArt (`node1`, `sibTrans2D1`…): cor pela definição
+ * de cores (`colorsN.xml`: lista repeat/cycle ou span interpolado pelo índice do
+ * nó) e preenchimento/contorno pelo estilo rápido (`quickStyleN.xml`: fillRef/lnRef
+ * do tema com essa cor no phClr). Sem a parte, o default do app (accent1_2).
+ */
+function diagramStyler(colors: XmlElement | undefined, quick: XmlElement | undefined, theme: Theme): (lbl: string, idx: number, cnt: number, spPr?: XmlElement) => DgmStyle | undefined {
+  const lbls = (root: XmlElement | undefined) => new Map((root ? childElements(root, 'dgm:styleLbl') : []).map((e) => [e.attrs['name'] ?? '', e]));
+  const cl = lbls(colors), qs = lbls(quick);
+  const pick = (lst: XmlElement | undefined, idx: number, cnt: number): string | undefined => {
+    const cs = lst ? childElements(lst).map((c) => colorFromDml(c, theme)).filter((c): c is string => !!c) : [];
+    if (!cs.length) return undefined;
+    const meth = lst!.attrs['meth'] ?? 'span';
+    if (meth !== 'span' || cs.length === 1) return cs[idx % cs.length];
+    const t = cnt > 1 ? Math.min(1, idx / (cnt - 1)) * (cs.length - 1) : 0;
+    const i = Math.min(cs.length - 2, Math.floor(t)), u = t - i;
+    const a = cs[i]!, b = cs[i + 1]!;
+    const ch = (k: number) => Math.round(parseInt(a.slice(k, k + 2), 16) * (1 - u) + parseInt(b.slice(k, k + 2), 16) * u).toString(16).padStart(2, '0');
+    return '#' + ch(1) + ch(3) + ch(5);
+  };
+  return (lbl, idx, cnt, spPr) => {
+    const base = styleOf(lbl, idx, cnt);
+    if (!spPr) return base;
+    // formatação do usuário no ponto (`dgm:spPr`) por cima do estilo
+    const out: DgmStyle = { ...(base ?? {}) };
+    const f = groupFill(spPr, theme);
+    if (f) { out.fill = f.fill; if (f.alpha !== undefined) out.fillAlpha = f.alpha; }
+    const ln = firstChild(spPr, 'a:ln');
+    if (ln) {
+      if (firstChild(ln, 'a:noFill')) { out.line = undefined; out.lineWidth = undefined; } else {
+        const lc = solidFillColor(ln, theme);
+        if (lc) out.line = lc;
+        if (ln.attrs['w']) out.lineWidth = parseInt(ln.attrs['w'], 10);
+        else if (lc) out.lineWidth ??= 9525;
+      }
+    }
+    return out;
+  };
+  function styleOf(lbl: string, idx: number, cnt: number): DgmStyle | undefined {
+    const c = cl.get(lbl), q = qs.get(lbl);
+    if (!c) return undefined;
+    const fillC = pick(firstChild(c, 'dgm:fillClrLst'), idx, cnt);
+    const lineC = pick(firstChild(c, 'dgm:linClrLst'), idx, cnt);
+    const style = q ? firstChild(q, 'dgm:style') : undefined;
+    const fontRef = style ? firstChild(style, 'a:fontRef') : undefined;
+    const text = pick(firstChild(c, 'dgm:txFillClrLst'), idx, cnt) ?? (fontRef ? colorFromDml(childElements(fontRef)[0], theme) : undefined);
+    const fillRef = style ? firstChild(style, 'a:fillRef') : undefined;
+    const lnRef = style ? firstChild(style, 'a:lnRef') : undefined;
+    let fill: Fill | undefined = fillC ? { type: 'solid', color: fillC } : { type: 'none' };
+    if (fillRef && fillC) {
+      const idxF = parseInt(fillRef.attrs['idx'] ?? '0', 10);
+      fill = idxF > 0 ? themeStyleFill(parseXml(`<a:fillRef idx="${idxF}"><a:srgbClr val="${fillC.slice(1)}"/></a:fillRef>`), theme)?.fill ?? fill : { type: 'none' };
+    }
+    const lnIdx = lnRef ? parseInt(lnRef.attrs['idx'] ?? '0', 10) : 1;
+    const lineWidth = lnIdx > 0 && lineC ? theme.lineWidths?.[lnIdx - 1] ?? 9525 : undefined;
+    return { fill, line: lineWidth ? lineC : undefined, lineWidth, text };
+  }
+}
+
 function themeStyleFill(ref: XmlElement, theme: Theme, pkg?: PptxPackage): { fill?: Fill; image?: ImageRef; tile?: boolean } | undefined {
   const idx = parseInt(ref.attrs['idx'] ?? '0', 10);
   if (!(idx > 0)) return undefined;
