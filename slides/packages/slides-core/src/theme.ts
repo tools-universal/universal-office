@@ -93,46 +93,52 @@ export function colorFromDml(el: XmlElement | undefined, theme: Theme): string |
     base = theme.colors[v] ?? theme.colors[STD_MAP[v] ?? v] ?? '#000000';
   }
   if (base === undefined) return undefined;
-  // modificadores de luminancia/saturacao (subconjunto comum)
+  // modificadores em PONTO FLUTUANTE (sem arredondar a 8 bits entre um e outro)
   // <a:gamma/> … <a:invGamma/>: o shade/tint entre eles opera no sRGB (cores
   // "escurecidas/clareadas" do .ppt convertidas pelo app — desenhadas assim)
-  let srgbMode = false;
+  let c = rgbF(base);
+  let srgbMode = false, touched = false;
   for (const mod of childElements(el)) {
+    if (mod.name !== 'a:alpha' && mod.name !== 'a:alphaMod' && mod.name !== 'a:alphaOff') touched = true;
     if (mod.name === 'a:gamma') { srgbMode = true; continue; }
     if (mod.name === 'a:invGamma') { srgbMode = false; continue; }
+    if (mod.name === 'a:comp') { c = hslF(c, (h, s, l) => [h + 0.5, s, l]); continue; }
+    if (mod.name === 'a:inv') { c = [1 - c[0], 1 - c[1], 1 - c[2]]; continue; }
+    if (mod.name === 'a:gray') { const y = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; /* Rec. 709 no sRGB (medido: vermelho → 36) */ c = [y, y, y]; continue; }
     const val = mod.attrs['val'] !== undefined ? parseInt(mod.attrs['val'], 10) / 100000 : undefined;
     if (val === undefined) continue;
-    // shade/tint operam em RGB LINEAR (gamma ~2.2) no app de referência —
-    // verificado no estilo de tabela (accent1 tint 40% => #CAD1D7, não #A1BFCD).
-    if (mod.name === 'a:shade') base = srgbMode ? mixSrgb(base, 0, val) : mixLinear(base, 0, val); // -> preto
-    // tint: `val` é a fração da COR que permanece (val=20% => 20% cor + 80% branco)
-    else if (mod.name === 'a:tint') base = srgbMode ? mixSrgb(base, 1, val) : mixLinear(base, 1, val);
+    // shade/tint operam em RGB LINEAR (curva sRGB exata — medido: 04617B shade
+    // 15% → 012430) no app de referência; `val` = fração da COR que fica
+    if (mod.name === 'a:shade') c = c.map((v) => (srgbMode ? v * val : linToSrgb(srgbToLin(v) * val))) as Rgb;
+    else if (mod.name === 'a:tint') c = c.map((v) => (srgbMode ? v * val + (1 - val) : linToSrgb(srgbToLin(v) * val + (1 - val)))) as Rgb;
     // lumMod/lumOff operam na LUMINÂNCIA HSL (mantêm matiz/saturação — o
     // "claro" do tema fica azul vívido, não cinza; verificado no deck de formas)
-    else if (mod.name === 'a:lumMod') base = lumHsl(base, val, 0);
-    else if (mod.name === 'a:lumOff') base = lumHsl(base, 1, val);
-    else if (mod.name === 'a:lum') base = lumHsl(base, 0, val);
-    // saturação/matiz em HSL (temas 2007–2013: degradês com satMod 150–350%)
-    else if (mod.name === 'a:satMod') base = hslAdjust(base, (h, s, l) => [h, s * val, l]);
-    else if (mod.name === 'a:satOff') base = hslAdjust(base, (h, s, l) => [h, s + val, l]);
-    else if (mod.name === 'a:sat') base = hslAdjust(base, (h, _s, l) => [h, val, l]);
-    else if (mod.name === 'a:hueMod') base = hslAdjust(base, (h, s, l) => [h * val, s, l]);
-    else if (mod.name === 'a:hueOff') base = hslAdjust(base, (h, s, l) => [h + (val * 100000) / 21600000, s, l]);
-    else if (mod.name === 'a:hue') base = hslAdjust(base, (_h, s, l) => [(val * 100000) / 21600000, s, l]);
+    else if (mod.name === 'a:lumMod') c = hslF(c, (h, s, l) => [h, s, clamp01(l * val)]);
+    else if (mod.name === 'a:lumOff') c = hslF(c, (h, s, l) => [h, s, clamp01(l + val)]);
+    else if (mod.name === 'a:lum') c = hslF(c, (h, s) => [h, s, clamp01(val)]);
+    // saturação em HSL SEM teto: S > 1 volta ao RGB e só os canais são cortados
+    // (medido: 04617B satMod 320% → 00ABFE — a luminância sobe junto)
+    else if (mod.name === 'a:satMod') c = hslF(c, (h, s, l) => [h, Math.max(0, s * val), l]);
+    else if (mod.name === 'a:satOff') c = hslF(c, (h, s, l) => [h, Math.max(0, s + val), l]);
+    else if (mod.name === 'a:sat') c = hslF(c, (h, _s, l) => [h, Math.max(0, val), l]);
+    else if (mod.name === 'a:hueMod') c = hslF(c, (h, s, l) => [h * val, s, l]);
+    else if (mod.name === 'a:hueOff') c = hslF(c, (h, s, l) => [h + (val * 100000) / 21600000, s, l]);
+    else if (mod.name === 'a:hue') c = hslF(c, (_h, s, l) => [(val * 100000) / 21600000, s, l]);
   }
-  // modificadores SEM val
-  for (const mod of childElements(el)) {
-    if (mod.name === 'a:comp') base = hslAdjust(base, (h, s, l) => [h + 0.5, s, l]);
-    else if (mod.name === 'a:inv') { const [r, g, b] = rgb(base); base = hex(255 - r, 255 - g, 255 - b); }
-    else if (mod.name === 'a:gray') { const [r, g, b] = rgb(base); const y = 0.2126 * r + 0.7152 * g + 0.0722 * b; /* Rec. 709 no sRGB (medido: vermelho → 36) */ base = hex(y, y, y); }
-  }
-  return base;
+  // sem modificador de cor: devolve a cor como veio (grafia original)
+  return touched ? hex(c[0] * 255, c[1] * 255, c[2] * 255) : base;
 }
 
-/** Ajuste em HSL (h 0..1 cíclico, s e l 0..1 com clamp). */
-function hslAdjust(hexIn: string, f: (h: number, s: number, l: number) => [number, number, number]): string {
-  const [r, g, b] = rgb(hexIn);
-  const rf = r / 255, gf = g / 255, bf = b / 255;
+type Rgb = [number, number, number];
+const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
+function rgbF(hexIn: string): Rgb { const [r, g, b] = rgb(hexIn); return [r / 255, g / 255, b / 255]; }
+/** Curva sRGB exata (IEC 61966-2-1). */
+function srgbToLin(v: number): number { return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+function linToSrgb(v: number): number { v = clamp01(v); return v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055; }
+
+/** Ajuste em HSL (h 0..1 cíclico; s sem teto — o RGB resultante é cortado em 0..1). */
+function hslF(c: Rgb, f: (h: number, s: number, l: number) => [number, number, number]): Rgb {
+  const [rf, gf, bf] = c;
   const max = Math.max(rf, gf, bf), min = Math.min(rf, gf, bf), d = max - min;
   let h = 0, s = 0;
   const l = (max + min) / 2;
@@ -144,13 +150,13 @@ function hslAdjust(hexIn: string, f: (h: number, s: number, l: number) => [numbe
     h /= 6; if (h < 0) h += 1;
   }
   let [h2, s2, l2] = f(h, s, l);
-  h2 = ((h2 % 1) + 1) % 1; s2 = Math.max(0, Math.min(1, s2)); l2 = Math.max(0, Math.min(1, l2));
-  const c = (1 - Math.abs(2 * l2 - 1)) * s2;
-  const x = c * (1 - Math.abs(((h2 * 6) % 2) - 1));
-  const m = l2 - c / 2;
+  h2 = ((h2 % 1) + 1) % 1; l2 = clamp01(l2);
+  const k = (1 - Math.abs(2 * l2 - 1)) * s2;
+  const x = k * (1 - Math.abs(((h2 * 6) % 2) - 1));
+  const m = l2 - k / 2;
   const seg = Math.floor(h2 * 6) % 6;
-  const [r2, g2, b2] = seg === 0 ? [c, x, 0] : seg === 1 ? [x, c, 0] : seg === 2 ? [0, c, x] : seg === 3 ? [0, x, c] : seg === 4 ? [x, 0, c] : [c, 0, x];
-  return hex((r2 + m) * 255, (g2 + m) * 255, (b2 + m) * 255);
+  const [r2, g2, b2] = seg === 0 ? [k, x, 0] : seg === 1 ? [x, k, 0] : seg === 2 ? [0, k, x] : seg === 3 ? [0, x, k] : seg === 4 ? [x, 0, k] : [k, 0, x];
+  return [clamp01(r2 + m), clamp01(g2 + m), clamp01(b2 + m)];
 }
 
 /**
@@ -214,23 +220,6 @@ export function lumHsl(hexIn: string, mod: number, off: number): string {
   else if (seg === 4) { r2 = x; b2 = c; }
   else { r2 = c; b2 = x; }
   return hex((r2 + m) * 255, (g2 + m) * 255, (b2 + m) * 255);
-}
-/**
- * Mistura em RGB LINEAR: canal' = srgb⁻¹(lin(canal)·f + alvo·(1-f)).
- * `target` 0 = preto (shade), 1 = branco (tint); `f` = fração da COR original.
- */
-function mixLinear(h: string, target: 0 | 1, f: number): string {
-  const [r, g, b] = rgb(h);
-  const lin = (v: number): number => Math.pow(v / 255, 2.2);
-  const srgb = (v: number): number => Math.pow(Math.max(0, Math.min(1, v)), 1 / 2.2) * 255;
-  const mix = (v: number): number => srgb(lin(v) * f + target * (1 - f));
-  return hex(mix(r), mix(g), mix(b));
-}
-/** Mistura no sRGB (dentro de <a:gamma/>…<a:invGamma/>): `f` = fração da cor que fica. */
-function mixSrgb(h: string, target: 0 | 1, f: number): string {
-  const [r, g, b] = rgb(h);
-  const mix = (v: number): number => v * f + target * 255 * (1 - f);
-  return hex(mix(r), mix(g), mix(b));
 }
 /** Soma luminosidade (lumOff): empurra em direcao ao branco proporcionalmente. */
 function offsetLum(h: string, f: number): string { const [r, g, b] = rgb(h); return hex(r + 255 * f, g + 255 * f, b + 255 * f); }
