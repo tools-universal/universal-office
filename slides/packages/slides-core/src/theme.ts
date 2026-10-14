@@ -124,7 +124,7 @@ export function colorFromDml(el: XmlElement | undefined, theme: Theme): string |
   for (const mod of childElements(el)) {
     if (mod.name === 'a:comp') base = hslAdjust(base, (h, s, l) => [h + 0.5, s, l]);
     else if (mod.name === 'a:inv') { const [r, g, b] = rgb(base); base = hex(255 - r, 255 - g, 255 - b); }
-    else if (mod.name === 'a:gray') { const [r, g, b] = rgb(base); const y = 0.299 * r + 0.587 * g + 0.114 * b; base = hex(y, y, y); }
+    else if (mod.name === 'a:gray') { const [r, g, b] = rgb(base); const y = 0.2126 * r + 0.7152 * g + 0.0722 * b; /* Rec. 709 no sRGB (medido: vermelho → 36) */ base = hex(y, y, y); }
   }
   return base;
 }

@@ -396,7 +396,9 @@ function fxImage(img: PaintImage, fx: ImageFx | undefined): PaintImage {
         const adj = (v: number): number => ((v / 255 - 0.5) * k + 0.5 + b) * 255;
         r = adj(r); g = adj(g); bl = adj(bl);
       }
-      const y = (0.299 * r + 0.587 * g + 0.114 * bl) / 255;
+      // luminância Rec. 709 sobre o sRGB (sem linearizar) — medido no oráculo com
+      // grayscl/biLevel/duotone: vermelho 54, verde 182, azul 18
+      const y = (0.2126 * r + 0.7152 * g + 0.0722 * bl) / 255;
       if (fx.biLevel !== undefined) { r = g = bl = y >= fx.biLevel ? 255 : 0; }
       else if (d0 && d1) { r = d0[0] + (d1[0] - d0[0]) * y; g = d0[1] + (d1[1] - d0[1]) * y; bl = d0[2] + (d1[2] - d0[2]) * y; }
       else if (fx.gray) { r = g = bl = y * 255; }
@@ -830,10 +832,19 @@ function paintBody(
     ctx.save();
     const rule = shapePath(ctx, sh.geom, x, y, w, h, sh.custGeom, sh.adj, sh.adjNames, 'fill');
     if (rule) ctx.clip(rule); else ctx.clip();
+    // a sombra sai do ALFA da forma, não da geometria: com preenchimento
+    // translúcido (a) o "buraco" vaza para dentro todo — sombra a·(1 − a·B),
+    // B = máscara borrada (medido: 808080 a 65% sobre branco → 858585). Fica
+    // um véu uniforme a·(1−a) + a moldura com a².
+    const a = sh.fill && sh.fill.type !== 'none' && !sh.fillImage ? sh.fillAlpha ?? 1 : 1;
+    if (a < 1) {
+      ctx.fillStyle = rgbaOf(s.color, s.alpha * a * (1 - a));
+      if (rule) ctx.fill(rule); else ctx.fill();
+    }
     const K = 20000;
     const m = ctx.getTransform();
     const dx = s.dist * Math.cos(s.dirDeg * Math.PI / 180) * fit.scale, dy = s.dist * Math.sin(s.dirDeg * Math.PI / 180) * fit.scale;
-    ctx.shadowColor = rgbaOf(s.color, s.alpha);
+    ctx.shadowColor = rgbaOf(s.color, s.alpha * a * a);
     ctx.shadowBlur = s.blurRad * fit.scale;
     ctx.shadowOffsetX = m.a * K - dx;
     ctx.shadowOffsetY = m.b * K - dy;
