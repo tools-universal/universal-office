@@ -228,6 +228,7 @@ function strCache(cells: (ChartCell | undefined)[], tag = 'c:strCache'): XmlElem
  * nada resolve (pasta externa, aba ausente).
  */
 export function refreshChartData(root: XmlElement, src: ChartCellSource): XmlElement {
+  if (root.name === 'cx:chartSpace') return refreshChartEx(root, src);
   const chart = firstChild(root, 'c:chart');
   // gráfico dinâmico: o Excel desenha da tabela dinâmica (sem os totais do intervalo) — fica o cache
   if (!chart || firstChild(root, 'c:pivotSource')) return root;
@@ -283,4 +284,50 @@ function refreshMultiLevel(ref: XmlElement, src: ChartCellSource, visOnly: boole
   const cache = el('c:multiLvlStrCache', {}, [el('c:ptCount', { val: String(idx.length) }), ...lvls]);
   const ext = ref.children.filter((x) => typeof x !== 'string' && x.name !== 'c:multiLvlStrCache' && x.name !== 'c:f');
   ref.children = [f!, cache, ...ext];
+}
+
+/**
+ * chartex (`cx:chartData/cx:data`): cada dimensão `cx:numDim`/`cx:strDim` com
+ * `cx:f` (em geral o nome oculto `_xlchart.v1.N`) ganha os níveis `cx:lvl` das
+ * células — categorias 2D viram níveis, do interno (última coluna) ao externo.
+ */
+function refreshChartEx(root: XmlElement, src: ChartCellSource): XmlElement {
+  const cd = firstChild(root, 'cx:chartData');
+  for (const d of cd ? childElements(cd, 'cx:data') : []) {
+    for (const dim of childElements(d)) {
+      if (dim.name !== 'cx:numDim' && dim.name !== 'cx:strDim') continue;
+      const f = firstChild(dim, 'cx:f');
+      const areas = f ? resolveRef(textContent(f), src) : undefined;
+      if (!areas) continue;
+      const lvls: XmlElement[] = [];
+      const a0 = areas[0]!;
+      if (dim.name === 'cx:strDim' && areas.length === 1 && a0.r0 !== a0.r1 && a0.c0 !== a0.c1) {
+        const byRows = a0.r1 - a0.r0 >= a0.c1 - a0.c0;
+        const nPts = byRows ? a0.r1 - a0.r0 + 1 : a0.c1 - a0.c0 + 1, nLvl = byRows ? a0.c1 - a0.c0 + 1 : a0.r1 - a0.r0 + 1;
+        if (nPts > 100000 || nLvl > 10) continue;
+        for (let l = nLvl - 1; l >= 0; l--) {
+          const pts: XmlElement[] = [];
+          for (let k = 0; k < nPts; k++) {
+            const cell = byRows ? src.cell(a0.sheet, a0.r0 + k, a0.c0 + l) : src.cell(a0.sheet, a0.r0 + l, a0.c0 + k);
+            if (cell && cell.text !== '') pts.push(el('cx:pt', { idx: String(k) }, [cell.text]));
+          }
+          lvls.push(el('cx:lvl', { ptCount: String(nPts) }, pts));
+        }
+      } else {
+        const cells = cellsOf(areas, src, false);
+        if (!cells) continue;
+        const pts: XmlElement[] = [];
+        if (dim.name === 'cx:numDim') {
+          const fmt = cells.find((c) => c?.num !== undefined)?.fmt ?? 'General';
+          cells.forEach((c, i) => { if (c?.num !== undefined) pts.push(el('cx:pt', { idx: String(i) }, [String(c.num)])); });
+          lvls.push(el('cx:lvl', { ptCount: String(cells.length), formatCode: fmt }, pts));
+        } else {
+          cells.forEach((c, i) => { if (c && c.text !== '') pts.push(el('cx:pt', { idx: String(i) }, [c.text])); });
+          lvls.push(el('cx:lvl', { ptCount: String(cells.length) }, pts));
+        }
+      }
+      dim.children = [f!, ...lvls];
+    }
+  }
+  return root;
 }

@@ -8,6 +8,7 @@ import type {
   ChartSpace, ChartTitle, TextProps, Paint, LineProps, ShapeProps, ManualLayout, RichPara, NumFmt, DLbls,
   Marker, DataPoint, Series, Group, GroupKind, Axis, Legend, GradStop, UserShape, UserText,
 } from './model.js';
+import { parseChartEx } from './chartex.js';
 
 export interface ChartHost {
   /** Elemento de cor DrawingML (`a:srgbClr`, `a:schemeClr`… com modificadores) → `#RRGGBB`. */
@@ -703,6 +704,8 @@ export function parseChartSpace(root: XmlNode, host: ChartHost): ChartSpace {
     ...(host.fillStyle ? { themeFill: (idx: number, ph: string) => host.fillStyle!(idx, ph) } : {}),
     ...(host.themeLineWidths?.length ? { themeLn: host.themeLineWidths } : {}),
   };
+  // gráfico do Office 2016 (cx:): convertido no modelo do motor
+  if (root.name === 'cx:chartSpace') return parseChartEx(root, P, cs);
   const chart = firstChild(root, 'c:chart');
   if (!chart) return cs;
   const t = P.title(firstChild(chart, 'c:title'));

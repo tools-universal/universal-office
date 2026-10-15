@@ -278,3 +278,35 @@ describe('desenho do gráfico (c:userShapes) e regras do Excel', () => {
     expect(cs({}).themeLn).toBeUndefined();
   });
 });
+
+describe('chartex (Office 2016) convertido no modelo', () => {
+  const ex = (series: string, data: string, axes = '') => parseChartSpace(xml(`<cx:chartSpace xmlns:cx="cx" xmlns:a="a"><cx:chartData>${data}</cx:chartData><cx:chart><cx:plotArea><cx:plotAreaRegion>${series}</cx:plotAreaRegion>${axes}</cx:plotArea><cx:legend pos="t"/></cx:chart></cx:chartSpace>`), host);
+  const num = (id: string, vals: number[], type = 'val') => `<cx:data id="${id}"><cx:numDim type="${type}"><cx:f>x</cx:f><cx:lvl ptCount="${vals.length}" formatCode="General">${vals.map((v, i) => `<cx:pt idx="${i}">${v}</cx:pt>`).join('')}</cx:lvl></cx:numDim></cx:data>`;
+  it('cascata: pilha com base invisível; Aumento/Diminuição/Total; subtotal zera o acumulado', () => {
+    const cs = ex('<cx:series layoutId="waterfall"><cx:dataId val="0"/><cx:layoutPr><cx:subtotals><cx:idx val="3"/></cx:subtotals></cx:layoutPr></cx:series>', num('0', [5, 3, -2, 6, -1]));
+    const g = cs.groups[0]!;
+    expect(g).toMatchObject({ kind: 'bar', grouping: 'stacked' });
+    expect(g.series.map((s) => s.name)).toEqual(['', 'Aumento', 'Diminuição', 'Total']);
+    expect(g.series[0]!.values).toEqual([0, 5, 6, null, 5]); // base: início de cada faixa
+    expect(g.series[1]!.values).toEqual([5, 3, null, null, null]);
+    expect(g.series[2]!.values).toEqual([null, null, 2, null, 1]);
+    expect(g.series[3]!.values).toEqual([null, null, null, 6, null]);
+    expect(cs.legend!.deleted.has(0)).toBe(true);
+  });
+  it('histograma: largura de Scott com 2 algarismos significativos, rótulos [a, b] e (a, b]', () => {
+    const cs = ex('<cx:series layoutId="clusteredColumn"><cx:dataId val="0"/><cx:layoutPr><cx:binning intervalClosed="r"/></cx:layoutPr></cx:series>', num('0', [12, 10, 11, 13, 15]),
+      '<cx:axis id="0"><cx:catScaling gapWidth="0"/><cx:tickLabels/></cx:axis><cx:axis id="1"><cx:valScaling/><cx:tickLabels/></cx:axis>');
+    const s = cs.groups[0]!.series[0]!;
+    expect(s.cats).toEqual(['[10, 13,9]', '(13,9, 17,8]']);
+    expect(s.values).toEqual([4, 1]);
+    expect(cs.groups[0]!.gapWidth).toBe(0);
+  });
+  it('mapa de árvore: níveis de pais herdam a célula de cima', () => {
+    const cats = '<cx:strDim type="cat"><cx:lvl ptCount="3"><cx:pt idx="0">a</cx:pt><cx:pt idx="1">b</cx:pt><cx:pt idx="2">c</cx:pt></cx:lvl><cx:lvl ptCount="3"><cx:pt idx="0">P</cx:pt><cx:pt idx="2">Q</cx:pt></cx:lvl></cx:strDim>';
+    const cs = ex('<cx:series layoutId="treemap"><cx:dataId val="0"/></cx:series>', `<cx:data id="0">${cats}<cx:numDim type="size"><cx:lvl ptCount="3"><cx:pt idx="0">1</cx:pt><cx:pt idx="1">2</cx:pt><cx:pt idx="2">3</cx:pt></cx:lvl></cx:numDim></cx:data>`);
+    const s = cs.groups[0]!.series[0]!;
+    expect(cs.groups[0]!.kind).toBe('treemap');
+    expect(s.cats).toEqual(['a', 'b', 'c']);
+    expect(s.catLevels).toEqual([['P', 'P', 'Q']]);
+  });
+});

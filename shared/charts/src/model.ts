@@ -138,9 +138,13 @@ export interface Series {
   dPts: Map<number, DataPoint>;
   dLbls?: DLbls;
   trendlines: { kind: string; sp: ShapeProps; order?: number; period?: number }[];
+  /** Caixa estreita (chartex): o que mostrar e o método dos quartis. */
+  box?: { meanLine: boolean; meanMarker: boolean; outliers: boolean; nonoutliers: boolean; exclusive: boolean };
 }
 
-export type GroupKind = 'bar' | 'line' | 'area' | 'pie' | 'doughnut' | 'ofPie' | 'scatter' | 'radar' | 'bubble' | 'stock' | 'surface';
+export type GroupKind = 'bar' | 'line' | 'area' | 'pie' | 'doughnut' | 'ofPie' | 'scatter' | 'radar' | 'bubble' | 'stock' | 'surface'
+  /** chartex (Office 2016): caixa estreita, mapa de árvore, explosão solar. */
+  | 'box' | 'treemap' | 'sunburst';
 
 export interface Group {
   kind: GroupKind;
@@ -170,6 +174,8 @@ export interface Group {
   gapDepth?: number;
   shape?: string;
   ofPieType?: string;
+  /** Mapa de árvore/explosão solar: rótulo dos pais (overlapping/banner/none). */
+  parentLabel?: string;
 }
 
 export interface Axis {

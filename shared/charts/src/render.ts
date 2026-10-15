@@ -409,7 +409,8 @@ class Renderer {
       }
       const S = this.S;
       const pie = cs.groups.length > 0 && cs.groups.every(isPieLike);
-      const axes = !pie && cs.groups.length > 0 && !cs.groups.some((g) => g.kind === 'radar');
+      const hier = cs.groups.length > 0 && cs.groups.every((g) => g.kind === 'treemap' || g.kind === 'sunburst');
+      const axes = !pie && !hier && cs.groups.length > 0 && !cs.groups.some((g) => g.kind === 'radar');
       // gráfico com eixos: a folga de baixo é menor (medido, syn-a-ticks/ticks2: eixo e
       // legenda de baixo 1,5–2,75 pt mais perto da borda que nos 7,2 pt de pizza/radar)
       const padB = axes ? PAD_B_AXES : PAD.b;
@@ -422,6 +423,7 @@ class Renderer {
       if (legend && !legend.overlay) inner = legend.rest;
       // área de plotagem + eixos
       if (pie) this.paintPies(inner);
+      else if (hier) this.paintHierarchy(inner);
       else if (cs.groups.some((g) => g.kind === 'radar')) this.paintRadar(inner);
       else if (cs.groups.length) this.paintAxesChart(inner);
       if (legend && this.showBg()) this.paintLegend(legend);
@@ -887,6 +889,7 @@ class Renderer {
       else if (g.kind === 'line' || g.kind === 'stock') this.paintLineGroup(g, ci, vi, plot);
       else if (g.kind === 'scatter') this.paintScatter(g, ci, vi, plot);
       else if (g.kind === 'bubble') this.paintBubbles(g, ci, vi, plot);
+      else if (g.kind === 'box') this.paintBoxes(g, ci, vi, plot);
     }
     if (this.showBg()) { for (const inf of infos.values()) this.paintAxis(inf, plot); this.paintFloor3D(plot); if (this.dtab) this.paintDataTable(plot); }
     for (const g of order) {
@@ -950,6 +953,8 @@ class Renderer {
     let levels: string[][] | undefined;
     let src: Series | undefined;
     for (const g of inf.groups) for (const s of g.series) {
+      // caixa estreita: as categorias são os valores DISTINTOS (um ponto por linha de dados)
+      if (g.kind === 'box') { const u = boxCats(g); n = Math.max(n, u.length); cats ??= u; continue; }
       n = Math.max(n, s.values.length, s.cats?.length ?? 0, s.catNums?.length ?? 0);
       if (!cats && (s.cats || s.catNums)) { src = s; cats = s.cats; levels = s.catLevels; }
     }
@@ -1944,6 +1949,194 @@ class Renderer {
     }
   }
 
+  // ───────────── chartex: caixa estreita, mapa de árvore, explosão solar ─────────────
+  /**
+   * Caixa estreita: por categoria e série, quartis (método exclusivo/inclusivo
+   * do Excel), mediana, média (×), bigodes até o último ponto dentro de 1,5 IQR
+   * e os pontos fora como círculos; caixas lado a lado como barras agrupadas.
+   */
+  private paintBoxes(g: Group, ci: AxisInfo, vi: AxisInfo, plot: Rect): void {
+    const c = this.ctx, S = this.S;
+    const cats = boxCats(g);
+    const n = Math.max(1, cats.length), ns = Math.max(1, g.series.length);
+    const band = plot.w / n;
+    const bw = band / (ns + g.gapWidth / 100);
+    g.series.forEach((s, si) => {
+      const fill = this.pointFill(g, s, -1, 1);
+      const col = fill.kind === 'solid' ? fill.color : this.seriesColor(s, g);
+      const dark = scaleRgb(col, 0.75);
+      const ln = mergeLine({ paint: { kind: 'solid', color: col }, w: 0.75 }, s.sp.line)!;
+      const opt = s.box ?? { meanLine: false, meanMarker: true, outliers: true, nonoutliers: false, exclusive: true };
+      cats.forEach((cat, ci2) => {
+        const v = s.values.filter((x, i): x is number => x !== null && (s.cats?.[i] ?? '1') === cat && Number.isFinite(x)).sort((a, b) => a - b);
+        if (!v.length) return;
+        const q1 = quartile(v, 0.25, opt.exclusive), q2 = quartile(v, 0.5, opt.exclusive), q3 = quartile(v, 0.75, opt.exclusive);
+        const iqr = q3 - q1;
+        const inside = v.filter((x) => x >= q1 - 1.5 * iqr && x <= q3 + 1.5 * iqr);
+        const lo = inside[0] ?? q1, hi = inside[inside.length - 1] ?? q3;
+        const mean = v.reduce((a, x) => a + x, 0) / v.length;
+        const x0 = plot.x + band * ci2 + (band - bw * ns) / 2 + bw * si, xc = x0 + bw / 2;
+        const y = (val: number) => this.pos(vi, plot, val);
+        c.save();
+        // bigodes e tampas
+        if (this.setLine(ln)) {
+          c.beginPath();
+          c.moveTo(xc, y(hi)); c.lineTo(xc, y(q3)); c.moveTo(xc, y(q1)); c.lineTo(xc, y(lo));
+          c.moveTo(xc - bw / 4, y(hi)); c.lineTo(xc + bw / 4, y(hi)); c.moveTo(xc - bw / 4, y(lo)); c.lineTo(xc + bw / 4, y(lo));
+          c.stroke();
+        }
+        const box = { x: x0, y: y(q3), w: bw, h: y(q1) - y(q3) };
+        if (this.setFill(fill, box)) c.fillRect(box.x, box.y, box.w, box.h);
+        if (this.setLine(ln)) { c.strokeRect(box.x, box.y, box.w, box.h); }
+        // mediana e média
+        if (this.setLine({ paint: { kind: 'solid', color: dark }, w: 0.75 })) {
+          c.beginPath(); c.moveTo(x0, y(q2)); c.lineTo(x0 + bw, y(q2)); c.stroke();
+          if (opt.meanMarker) { const m = 3.5 * S, ym = y(mean); c.beginPath(); c.moveTo(xc - m, ym - m); c.lineTo(xc + m, ym + m); c.moveTo(xc + m, ym - m); c.lineTo(xc - m, ym + m); c.stroke(); }
+        }
+        if (opt.outliers && this.setLine(ln)) {
+          for (const x of v) if (x < lo || x > hi) { c.beginPath(); c.arc(xc, y(x), 2.5 * S, 0, Math.PI * 2); c.stroke(); }
+        }
+        c.restore();
+      });
+    });
+    void ci;
+  }
+
+  /** Mapa de árvore / explosão solar: nós da hierarquia (níveis de categoria) com tamanho somado. */
+  private hierarchy(g: Group): HNode {
+    const s = g.series[0]!;
+    const levels = [...(s.catLevels ?? [])].reverse().concat([s.cats ?? []]); // externo → folha
+    const root: HNode = { name: '', size: 0, children: [], top: -1, leaf: -1 };
+    s.values.forEach((v, i) => {
+      if (v === null || !(v > 0)) return;
+      const path = levels.map((l) => l[i] ?? '');
+      while (path.length > 1 && !path[path.length - 1]) path.pop();
+      let node = root;
+      path.forEach((name, d) => {
+        // pais se juntam pelo nome; cada linha de dados é uma folha própria
+        const last = d === path.length - 1;
+        let ch = last ? undefined : node.children.find((x) => x.name === name && x.leaf < 0);
+        if (!ch) { ch = { name, size: 0, children: [], top: -1, leaf: last ? i : -1 }; node.children.push(ch); }
+        ch.size += v;
+        node = ch;
+      });
+      root.size += v;
+    });
+    // o 1º nível define a cor (accent por grupo de topo)
+    root.children.forEach((ch, k) => { const mark = (x: HNode) => { x.top = k; x.children.forEach(mark); }; mark(ch); });
+    return root;
+  }
+
+  private hierFill(g: Group, n: HNode): Paint {
+    const s = g.series[0]!;
+    const dp = n.leaf >= 0 ? s.dPts.get(n.leaf)?.sp.fill : undefined;
+    return dp ?? s.sp.fill ?? { kind: 'solid', color: this.cs.accents[Math.max(0, n.top) % 6]! };
+  }
+
+  private paintHierarchy(outer: Rect): void {
+    const g = this.cs.groups[0]!;
+    if (!g.series[0]) return;
+    const root = this.hierarchy(g);
+    if (!(root.size > 0)) return;
+    const S = this.S;
+    if (g.kind === 'sunburst') { this.paintSunburst(g, root, outer); return; }
+    const c = this.ctx;
+    const t = this.text(g.series[0].dLbls?.txPr ?? { color: '#FFFFFF' });
+    const lh = this.lineH(t);
+    const overlapping = (g.parentLabel ?? 'overlapping') === 'overlapping';
+    const banner = g.parentLabel === 'banner';
+    const tiles: { r: Rect; n: HNode; depth: number }[] = [];
+    const layout = (n: HNode, r: Rect, depth: number) => {
+      tiles.push({ r, n, depth });
+      if (!n.children.length) return;
+      let inner = r;
+      if (banner && depth >= 1) inner = { ...r, y: r.y + lh, h: Math.max(0, r.h - lh) };
+      const kids = [...n.children].sort((a, b) => b.size - a.size);
+      squarify(kids.map((k) => k.size), inner).forEach((rr, i) => layout(kids[i]!, rr, depth + 1));
+    };
+    layout(root, outer, 0);
+    const white = { paint: { kind: 'solid' as const, color: '#FFFFFF' }, w: 1.5 };
+    for (const { r, n, depth } of tiles) {
+      if (depth === 0 || n.children.length) continue;
+      const f = this.hierFill(g, n);
+      if (this.setFill(f, r)) c.fillRect(r.x, r.y, r.w, r.h);
+    }
+    if (this.setLine(white)) for (const { r, depth } of tiles) if (depth > 0) c.strokeRect(r.x, r.y, r.w, r.h);
+    const showCat = g.series[0].dLbls ? g.series[0].dLbls.showCat !== false : true;
+    if (!showCat) return;
+    const pad = 3.75 * S;
+    c.save();
+    for (const { r, n, depth } of tiles) {
+      if (depth === 0 || r.w < 8 || r.h < 8) continue;
+      c.save();
+      c.beginPath(); c.rect(r.x, r.y, r.w, r.h); c.clip();
+      if (n.children.length) {
+        // pai: no canto superior esquerdo (sobreposto) ou na faixa
+        if (overlapping || banner) this.drawLines([n.name], t, r.x + pad, r.y + pad + lh / 2, 'left');
+      } else {
+        // folha: com o rótulo do pai sobreposto no topo, vai para baixo (medido, lo-treemap)
+        const yy = overlapping && depth > 1 ? r.y + r.h - pad - lh / 2 : r.y + pad + lh / 2;
+        this.drawLines([n.name], t, r.x + pad, yy, 'left');
+      }
+      c.restore();
+    }
+    c.restore();
+  }
+
+  /** Explosão solar: anéis do nível de topo (dentro) às folhas (fora), a partir das 12 h no sentido horário. */
+  private paintSunburst(g: Group, root: HNode, outer: Rect): void {
+    const c = this.ctx, S = this.S;
+    const depthOf = (n: HNode): number => (n.children.length ? 1 + Math.max(...n.children.map(depthOf)) : 0);
+    const D = Math.max(1, depthOf(root));
+    const cx = outer.x + outer.w / 2, cy = outer.y + outer.h / 2;
+    const R = Math.min(outer.w, outer.h) / 2 * 0.97;
+    const hole = R * 0.25;
+    const ring = (R - hole) / D;
+    const t = this.text(g.series[0]!.dLbls?.txPr ?? { color: '#FFFFFF' });
+    const white = { paint: { kind: 'solid' as const, color: '#FFFFFF' }, w: 1.5 };
+    const segs: { n: HNode; a0: number; a1: number; r0: number; r1: number }[] = [];
+    const walk = (n: HNode, a0: number, a1: number, d: number) => {
+      let a = a0;
+      for (const ch of n.children) {
+        const span = (a1 - a0) * ch.size / (n.size || 1);
+        segs.push({ n: ch, a0: a, a1: a + span, r0: hole + ring * d, r1: hole + ring * (d + 1) });
+        walk(ch, a, a + span, d + 1);
+        a += span;
+      }
+    };
+    walk(root, -Math.PI / 2, Math.PI * 1.5, 0);
+    for (const sg of segs) {
+      c.beginPath();
+      c.arc(cx, cy, sg.r1, sg.a0, sg.a1);
+      c.arc(cx, cy, sg.r0, sg.a1, sg.a0, true);
+      c.closePath();
+      const f = this.hierFill(g, sg.n);
+      if (this.setFill(f, { x: cx - R, y: cy - R, w: 2 * R, h: 2 * R })) c.fill();
+      if (this.setLine(white)) c.stroke();
+    }
+    const showCat = g.series[0]!.dLbls ? g.series[0]!.dLbls.showCat !== false : true;
+    if (!showCat) return;
+    for (const sg of segs) {
+      const am = (sg.a0 + sg.a1) / 2, rm = (sg.r0 + sg.r1) / 2;
+      const arcLen = (sg.a1 - sg.a0) * rm;
+      if (arcLen < this.lineH(t) * 0.8) continue;
+      c.save();
+      c.translate(cx + Math.cos(am) * rm, cy + Math.sin(am) * rm);
+      // texto ao longo do raio, de pé (vira na metade esquerda)
+      let rot = am;
+      if (Math.cos(am) < 0) rot += Math.PI;
+      c.rotate(rot);
+      c.font = this.font(t);
+      c.fillStyle = rgba(t.color, t.alpha);
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      const maxW = sg.r1 - sg.r0 - 4 * S;
+      const lines = this.measure(sg.n.name, t) > maxW ? this.wrap(sg.n.name, t, maxW) : [sg.n.name];
+      lines.forEach((l, k) => c.fillText(l, 0, (k - (lines.length - 1) / 2) * this.lineH(t)));
+      c.restore();
+    }
+  }
+
   private paintPies(outer: Rect): void {
     const c = this.ctx;
     const cs = this.cs;
@@ -2191,6 +2384,8 @@ class Renderer {
           if (pos === 'ctr') along = (a0 + a1) / 2;
           else if (pos === 'inEnd') along = a1 - sgn * (ext / 2 + gap);
           else if (pos === 'inBase') along = a0 + sgn * (ext / 2 + gap);
+          // fora, do lado da base (cascata: a diminuição tem o rótulo embaixo)
+          else if (pos === 'outBase') along = a0 - sgn * (ext / 2 + gap);
           else along = a1 + sgn * (ext / 2 + gap);
           if (horiz) { x = along; y = center; } else { x = center; y = along; }
         } else {
@@ -2221,6 +2416,63 @@ class Renderer {
 
 // ───────────── utilidades ─────────────
 function isPieLike(g: Group): boolean { return g.kind === 'pie' || g.kind === 'doughnut' || g.kind === 'ofPie'; }
+
+/** Nó da hierarquia do mapa de árvore/explosão solar. `top` = índice do grupo de topo (cor); `leaf` = linha de dados. */
+interface HNode { name: string; size: number; children: HNode[]; top: number; leaf: number }
+
+/** Categorias distintas de uma caixa estreita, na ordem em que aparecem (sem categoria = "1"). */
+function boxCats(g: Group): string[] {
+  const out: string[] = [];
+  for (const s of g.series) s.values.forEach((_, i) => { const c = s.cats?.[i] ?? '1'; if (!out.includes(c)) out.push(c); });
+  return out.length ? out : ['1'];
+}
+
+/** Quartil como o Excel: QUARTIL.EXC (posição p(n+1)) ou QUARTIL.INC (p(n−1)+1), interpolado. */
+function quartile(v: number[], p: number, exclusive: boolean): number {
+  const n = v.length;
+  if (n === 1) return v[0]!;
+  let h = exclusive ? p * (n + 1) : p * (n - 1) + 1;
+  h = Math.max(1, Math.min(n, h));
+  const k = Math.floor(h), f = h - k;
+  return v[k - 1]! + (k < n ? f * (v[k]! - v[k - 1]!) : 0);
+}
+
+/** Retângulos "squarified" (Bruls, Huizing e van Wijk) para tamanhos em ordem decrescente. */
+function squarify(sizes: number[], r: { x: number; y: number; w: number; h: number }): { x: number; y: number; w: number; h: number }[] {
+  const total = sizes.reduce((a, b) => a + b, 0);
+  const out: { x: number; y: number; w: number; h: number }[] = [];
+  if (!(total > 0) || r.w <= 0 || r.h <= 0) return sizes.map(() => ({ x: r.x, y: r.y, w: 0, h: 0 }));
+  const scale = (r.w * r.h) / total;
+  const areas = sizes.map((s) => s * scale);
+  let rect = { ...r };
+  let i = 0;
+  const worst = (row: number[], side: number): number => {
+    const s = row.reduce((a, b) => a + b, 0);
+    const mx = Math.max(...row), mn = Math.min(...row);
+    return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn));
+  };
+  while (i < areas.length) {
+    const side = Math.min(rect.w, rect.h);
+    const row = [areas[i]!];
+    let j = i + 1;
+    while (j < areas.length && worst([...row, areas[j]!], side) <= worst(row, side)) { row.push(areas[j]!); j++; }
+    const s = row.reduce((a, b) => a + b, 0);
+    if (rect.w >= rect.h) {
+      // coluna à esquerda
+      const cw = s / rect.h;
+      let y = rect.y;
+      for (const a of row) { const hh = a / cw; out.push({ x: rect.x, y, w: cw, h: hh }); y += hh; }
+      rect = { x: rect.x + cw, y: rect.y, w: rect.w - cw, h: rect.h };
+    } else {
+      const rh = s / rect.w;
+      let x = rect.x;
+      for (const a of row) { const ww = a / rh; out.push({ x, y: rect.y, w: ww, h: rh }); x += ww; }
+      rect = { x: rect.x, y: rect.y + rh, w: rect.w, h: rect.h - rh };
+    }
+    i = j;
+  }
+  return out;
+}
 
 /** Ordem de pintura no mesmo plot: áreas, barras, depois linhas/dispersão. */
 function rank(g: Group): number { return g.kind === 'area' ? 0 : g.kind === 'bar' ? 1 : 2; }
