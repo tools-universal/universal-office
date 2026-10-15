@@ -141,6 +141,38 @@ não exibe os PICT de instância 0x542** ("Não é possível exibir esta imagem"
 slides divergem do oráculo de propósito. Campos `a:fld` com o rPr próprio e
 `slidenum` com o número atual (o cache do master é sempre "1").
 
+Depois (6ª etapa, 2026-10-14, frentes em paralelo — agentes em worktrees,
+integração no main com testes + regress + subconjunto a cada passo). Rodada
+**r12**: mediana **2,12**, média **3,48** (r11: 2,41/3,98; .ppt reais gd
+4,09 → 3,51; erros de leitura 61 → 40, todos de entrada inválida/senha).
+
+- Gráficos (`shared/charts`): imagem/textura de fundo (ladrilho pela
+  resolução do arquivo), tiques/folgas pela altura de linha da fonte, legenda
+  em tabela, defaults do Office 2007 × 2010+ (AppVersion), barras 3D
+  oblíquas, pizza 3D em perspectiva, tabela de dados, título rico.
+- WordArt: envelopes entre os dois caminhos por comprimento de arco, presets
+  de um caminho com glifos rígidos, sombra do texto (opaca sem alpha; blur
+  σ ≈ blurRad/3,1), WordArt e arcos do .ppt como a conversão do app;
+  preenchimento das letras (degradê/imagem/alfa); chanfro com luz medida
+  (tabelas por rig/material), extrusão com câmera, 3D legado do .ppt.
+- Metarquivos: Recolorir do .ppt, EXCLUDECLIPRECT, ROP2, PATINVERT, fontes de
+  símbolo, tocador EMF+ completo (o "dual" toca o EMF+, como o app).
+- .ppt: FOPT terciário não apaga mais os booleanos do primário (formas e
+  células vazias saíam preenchidas; regra × app 99,0% → 99,4%); campos com rPr
+  e número de slide ao vivo; PICT do Mac.
+- Geometria: custGeom com guias em fórmula e arcTo; retângulo de TEXTO das
+  geometrias (presets e custGeom — o texto quebrava na caixa inteira); faces
+  sombreadas medidas (darken ×0,6, darkenLess ×0,8, lighten 40% e
+  lightenLess 20% rumo ao branco).
+- Herança: bodyPr do placeholder pelo idx no layout e pelo tipo no master;
+  degradê sem lin com a direção do estilo (fillRef); fillOverlay como base.
+- Imagens: brilho/contraste exatos (a:lum), blipFill em mc:AlternateContent
+  (Mac), recorte por custGeom, prévia OLE só no Fallback e moldura VML,
+  alfa no pattFill, bodyPr rot.
+- Medido e mantido: entrelinha simples = 1,2 × sz em todas as fontes; o app
+  NÃO desenha com a fonte EMBUTIDA (nós desenhamos — web-intl-who diverge de
+  propósito); PICT 0x542 não exibido pelo app (desenhamos).
+
 ### Ainda faltando (por impacto observado)
 
 - WordArt do .ppt: espaçamento entre linhas e sombra do texto (a escala comum já bate).
