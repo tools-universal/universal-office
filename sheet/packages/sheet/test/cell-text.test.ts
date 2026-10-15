@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutCellText, cellMarginPx, isoToSerial, localizeError, type FontMetrics } from '../src/cell-text.js';
+import { layoutCellText, cellMarginPx, autofitWrapWidthPx, isoToSerial, localizeError, type FontMetrics } from '../src/cell-text.js';
 
 /**
  * Range.Text MEDIDO no Excel 365 pt-BR (lab do Sheet, e2/e5/e7) para a Calibri
@@ -85,5 +85,18 @@ describe('valores', () => {
   it('showZeros=0 esconde o zero sem seção própria', () => {
     expect(layoutCellText({ kind: 'number', num: 0, code: 'General', showZeros: false }, calibri11, 64).text).toBe('');
     expect(layoutCellText({ kind: 'number', num: 0, code: '0;-0;"zero"', showZeros: false }, calibri11, 64).text).toBe('zero');
+  });
+
+  it('altura automática: quebra em mín(col − k − 2, (col − k + 1)·MDW/(MDW + ¼)) (e16/e25/e26)', () => {
+    // colunas estreitas: 2 px a menos que a pintura (0×10 = 70 px cabe a partir de 77)
+    expect(autofitWrapWidthPx(77, 15, 7)).toBe(70);
+    expect(autofitWrapWidthPx(76, 15, 7)).toBeLessThan(70);
+    // largas: 0×80 = 560 px cabe a partir de 584 (MDW 7), 578 (10), 588 (6); 0×140 a partir de 1019
+    for (const [col, mdw] of [[584, 7], [578, 10], [588, 6]] as const) {
+      expect(autofitWrapWidthPx(col, 15, mdw)).toBeGreaterThanOrEqual(560);
+      expect(autofitWrapWidthPx(col - 1, 15, mdw)).toBeLessThan(560);
+    }
+    expect(autofitWrapWidthPx(1019, 15, 7)).toBe(980);
+    expect(autofitWrapWidthPx(1018, 15, 7)).toBeLessThan(980);
   });
 });

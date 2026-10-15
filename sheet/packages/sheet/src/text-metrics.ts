@@ -4,8 +4,9 @@
 // glifo desenhado na posição inteira acumulada, sem kerning. Escritas com
 // shaping (árabe, hebraico, índicas, tailandês…) são medidas e desenhadas como
 // string inteira pelo canvas.
-import { gdiGlyphFixes, ppemOf } from '@universal/sheet-core';
+import { gdiGlyphFixes, measuredFamily, ppemOf } from '@universal/sheet-core';
 import type { FontMetrics } from './cell-text.js';
+import { DESC_PPEM_MAX, DESC_PPEM_MIN, ROW_DESC, ROW_DESC_BOLD } from './row-descent-data.js';
 
 /** Escritas que dependem de shaping/bidi: não dá para medir/desenhar glifo a glifo. */
 const COMPLEX = /[\u0590-\u08ff\u0900-\u0dff\u0e00-\u0eff\u0f00-\u109f\u1780-\u18af\ufb1d-\ufdff\ufe70-\ufeff]/;
@@ -145,3 +146,36 @@ export function drawCellText(ctx: CanvasRenderingContext2D, f: CellFont, s: stri
   }
   return cx;
 }
+
+/**
+ * Descent (px) que a altura automática da linha usa para a fonte: uma célula
+ * com n linhas de texto (quebra) mede n·R(fonte) + máx(0, descent da linha −
+ * descent da fonte) — a última linha senta na base compartilhada da linha, que
+ * desce até o maior descent (fonte Normal das células vazias, demais células).
+ * Ex.: Normal Calibri 11 (4) + célula Arial 10 (3) com 2 linhas = 2·17 + 1.
+ * Fonte: tmDescent do GDI (row-descent-data); Aptos* e Segoe UI o Excel não
+ * mede pelo GDI — valores medidos (lab e27/e28). Família desconhecida = Arial.
+ * (Com fonte Normal muito grande — Calibri 36 — o modelo erra por 1 px; lab e29.)
+ */
+export function rowDescentPx(name: string | undefined, sizePt: number, bold: boolean): number {
+  const p = ppemOf(sizePt);
+  const fam = (name ?? '').normalize('NFKC').trim().toLowerCase();
+  const xl = EXCEL_DESC[fam.startsWith('aptos') ? 'aptos' : fam.startsWith('segoe ui') ? 'segoe ui' : ''];
+  if (xl) {
+    // medido em ppem esparsos: o mais próximo abaixo (acima de 27: proporcional)
+    if (p > 27) return Math.round((xl[27]! * p) / 27);
+    for (let q = Math.max(8, p); q >= 8; q--) if (xl[q] !== undefined) return xl[q]!;
+    return 2;
+  }
+  const key = ROW_DESC[fam] !== undefined ? fam : (measuredFamily(name) ?? 'arial');
+  const s = (bold && ROW_DESC_BOLD[key]) || ROW_DESC[key] || ROW_DESC['arial']!;
+  if (p < DESC_PPEM_MIN) return 1;
+  if (p > DESC_PPEM_MAX) return Math.round((VM_B62.indexOf(s[s.length - 1]!) * p) / DESC_PPEM_MAX);
+  return VM_B62.indexOf(s[p - DESC_PPEM_MIN]!);
+}
+
+/** Descent efetivo medido no Excel por ppem (Normal Calibri 26, 6 linhas; lab e28). */
+const EXCEL_DESC: Record<string, Record<number, number>> = {
+  'aptos': { 8: 2, 9: 2, 11: 3, 12: 3, 13: 4, 15: 4, 16: 4, 17: 5, 19: 5, 20: 5, 21: 6, 24: 7, 27: 7 },
+  'segoe ui': { 8: 2, 9: 2, 11: 2, 12: 3, 13: 4, 15: 5, 16: 5, 17: 6, 19: 6, 20: 8, 21: 9, 24: 8, 27: 9 },
+};

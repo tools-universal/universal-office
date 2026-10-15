@@ -76,13 +76,21 @@ export function cellMarginPx(ppem: number): number {
 }
 
 /**
- * A ALTURA AUTOMÁTICA da linha quebra o texto 2 px mais estreito que a pintura:
- * conta linhas com coluna − margem − 2, mas desenha com coluna − margem (medido,
- * e15/e16/e19: Calibri 11/12b/14/20, Arial 10/16, Times 10 negrito — "ab ab …"
- * pintado cabe 2 por linha a partir de 38 px, a altura só a partir de 40 px).
- * Por isso uma linha auto-ajustada às vezes sobra uma linha em branco no Excel.
+ * Largura (px) em que a ALTURA AUTOMÁTICA da linha quebra o texto — mais
+ * estreita que a da pintura (coluna − margem), por isso a linha auto-ajustada às
+ * vezes sobra uma linha em branco no Excel. Medido (e15–e26, mesmas larguras
+ * GDI do desenho): o menor entre
+ *  - coluna − margem − 2 (domina em colunas estreitas: "ab ab …" em Calibri 11
+ *    é pintado 2 por linha a partir de 38 px, mas a altura só conta 2 a partir
+ *    de 40; Calibri 11/12b/14/20, Arial 10/16, Times 10 negrito);
+ *  - (coluna − margem + 1) · MDW/(MDW + ¼), MDW = dígito máximo da fonte Normal
+ *    (domina nas largas: "0"×80 = 560 px só cabe em 1 linha a partir de 584 px
+ *    com MDW 7, 578 com 10, 582 com 8, 588 com 6; "0"×140 a partir de 1019).
  */
-export const WRAP_SLACK_PX = 2;
+export function autofitWrapWidthPx(colPx: number, ppem: number, mdw: number): number {
+  const k = cellMarginPx(ppem);
+  return Math.min(colPx - k - 2, ((colPx - k + 1) * mdw) / (mdw + 0.25));
+}
 
 /** Largura (px) do texto como soma das larguras inteiras; para ao passar de `limit`. */
 export function textWidth(m: FontMetrics, s: string, limit = Infinity): number {

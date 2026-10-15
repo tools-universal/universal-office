@@ -21,10 +21,10 @@ import { CfEngine, cellCfValue, todaySerial, paintDataBar, type CfResult, type C
 import { paintCfIcon } from './cf-icons.js';
 import { winningEdge, edgeExtent, paintHEdge, paintVEdge, paintDiagonals, NO_CORNER, type CornerInfo } from './borders.js';
 import {
-  layoutCellText, localizeError, localizeBool, isoToSerial, cellMarginPx, MAX_CELL_CHARS, WRAP_SLACK_PX,
+  layoutCellText, localizeError, localizeBool, isoToSerial, cellMarginPx, MAX_CELL_CHARS, autofitWrapWidthPx,
   type CellText, type CellTextInput,
 } from './cell-text.js';
-import { CellFonts, type CellFont } from './text-metrics.js';
+import { CellFonts, rowDescentPx, type CellFont } from './text-metrics.js';
 import { paintCellText, paintRichText, wrapLines, type RichRunStyle } from './cell-paint.js';
 
 /**
@@ -230,15 +230,27 @@ export class UniversalSheetElement extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.unsubscribeFonts ??= this.fontResolver.onChange(() => { this.cellFonts.clear(); this.paint(); });
+    this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.onFontsChanged());
     new ResizeObserver(() => { this.resize(); this.paint(); }).observe(this.canvas);
     this.resize();
     this.paint();
     // repinta quando as @font-face (Aptos Narrow) terminarem de carregar
     const fontSet = (document as unknown as { fonts?: { ready: Promise<unknown>; addEventListener?: (t: string, cb: () => void) => void } }).fonts;
-    fontSet?.ready.then(() => { this.cellFonts.clear(); this.paint(); }).catch(() => {});
-    // fonte que chega depois muda as larguras medidas: esquece o cache
-    fontSet?.addEventListener?.('loadingdone', () => this.cellFonts.clear());
+    fontSet?.ready.then(() => this.onFontsChanged()).catch(() => {});
+    fontSet?.addEventListener?.('loadingdone', () => this.onFontsChanged());
+  }
+
+  /**
+   * Fonte que chega depois (a @font-face só carrega no 1º uso) muda as larguras
+   * medidas: esquece o cache, refaz a altura automática das linhas com quebra —
+   * contadas, na carga, com a substituta — e repinta.
+   */
+  private onFontsChanged(): void {
+    this.cellFonts.clear();
+    let refit = false;
+    for (const v of this.views) if (this.wrapFitViews.has(v)) { this.fitRowHeights(v); refit = true; }
+    if (refit) { this.recalcGrid(); this.repositionEditor(); }
+    this.paint();
   }
 
   private get view(): SheetView | null {
@@ -395,6 +407,8 @@ export class UniversalSheetElement extends HTMLElement {
   private mdw = 7;
   /** Altura (px) da linha auto-ajustada só com a fonte Normal. */
   private normalRowPx = 20;
+  /** Abas cuja altura automática mediu texto com quebra (refeita quando chega fonte). */
+  private wrapFitViews = new WeakSet<SheetView>();
   /** Contexto 2D só para medir texto (auto-ajuste de linhas com quebra). */
   private measureCtx: CanvasRenderingContext2D | null = null;
 
@@ -445,7 +459,10 @@ export class UniversalSheetElement extends HTMLElement {
     };
     // células VAZIAS da linha também entram (medido): a de coluna com estilo
     // usa a fonte do estilo da coluna; as demais, a fonte Normal
-    const colStyled: { min: number; max: number; px: number }[] = [];
+    // descent da fonte p/ a base compartilhada da linha (rowDescentPx, medido)
+    const descOf = (name: string | undefined, size: number | undefined, bold: boolean | undefined): number =>
+      rowDescentPx(name ?? nf.name, size ?? nf.size, !!bold);
+    const colStyled: { min: number; max: number; px: number; desc: number }[] = [];
     let normalCols = false;
     let next = 1;
     for (const cd of [...(ws.cols ?? [])].sort((a, b) => a.min - b.min)) {
@@ -453,7 +470,7 @@ export class UniversalSheetElement extends HTMLElement {
       if (cd.style === undefined) normalCols = true;
       else {
         const f = fonts[xfs[cd.style]?.fontId ?? 0];
-        colStyled.push({ min: cd.min, max: cd.max, px: pxOf(f?.name, f?.size, f?.bold, f?.vertAlign) });
+        colStyled.push({ min: cd.min, max: cd.max, px: pxOf(f?.name, f?.size, f?.bold, f?.vertAlign), desc: descOf(f?.name, f?.size, f?.bold) });
       }
       next = Math.max(next, cd.max + 1);
     }
@@ -462,13 +479,18 @@ export class UniversalSheetElement extends HTMLElement {
       if (row.customHeight && row.height !== undefined) { v.rowHeights.set(row.r, rowPtToPx(row.height)); continue; }
       // zeroHeight: a altura padrão (0) é só das linhas AUSENTES; as listadas se auto-ajustam (medido)
       if (sheetCustom && !looseHt && row.height === undefined && !sfp?.zeroHeight) { v.rowHeights.set(row.r, v.defaultRowH); continue; }
-      let h = 0;
+      // as fontes da linha sentam numa base COMPARTILHADA: altura = maior parte
+      // acima da base (R − descent; texto de n linhas: n·R − descent) + maior
+      // descent (medido, lab e21/e27: Normal Calibri 11 + Arial 12 = 21 px;
+      // + Arial 10 com 2 linhas = 2·17 + 1)
+      let above = 0, below = 0;
+      const add = (px: number, desc: number): void => { above = Math.max(above, px - desc); below = Math.max(below, desc); };
       if (row.style !== undefined) {
         // estilo de linha: vale para todas as células vazias da linha
         const f = fonts[xfs[row.style]?.fontId ?? 0];
-        h = pxOf(f?.name, f?.size, f?.bold, f?.vertAlign);
+        add(pxOf(f?.name, f?.size, f?.bold, f?.vertAlign), descOf(f?.name, f?.size, f?.bold));
       } else {
-        if (normalCols) h = this.normalRowPx;
+        if (normalCols) add(this.normalRowPx, descOf(nf.name, nf.size, nf.bold));
         if (colStyled.length) {
           const filled = new Set(row.cells.map((c) => refToRowCol(c.ref).col));
           for (const cs of colStyled) {
@@ -478,7 +500,7 @@ export class UniversalSheetElement extends HTMLElement {
               for (let c = cs.min; c <= cs.max && all; c++) if (!filled.has(c)) all = false;
               if (all) continue;
             }
-            h = Math.max(h, cs.px);
+            add(cs.px, cs.desc);
           }
         }
       }
@@ -486,9 +508,15 @@ export class UniversalSheetElement extends HTMLElement {
         const xf = xfs[c.style ?? row.style ?? 0];
         const f = fonts[xf?.fontId ?? 0];
         const lineH = pxOf(f?.name, f?.size, f?.bold, f?.vertAlign);
-        h = Math.max(h, lineH);
+        const desc = descOf(f?.name, f?.size, f?.bold);
+        add(lineH, desc);
         const runs = this.cellRuns(c);
-        if (runs) for (const r of runs) h = Math.max(h, pxOf(r.props?.font ?? f?.name, r.props?.size ?? f?.size, r.props?.bold ?? f?.bold, r.props?.vertAlign ?? f?.vertAlign));
+        if (runs) {
+          for (const r of runs) {
+            const rn = r.props?.font ?? f?.name, rs = r.props?.size ?? f?.size, rb = r.props?.bold ?? f?.bold;
+            add(pxOf(rn, rs, rb, r.props?.vertAlign ?? f?.vertAlign), descOf(rn, rs, rb));
+          }
+        }
         if (xf?.wrapText) {
           const { col } = refToRowCol(c.ref);
           if (mergedCells.has(`${col},${row.r}`)) continue;
@@ -505,10 +533,11 @@ export class UniversalSheetElement extends HTMLElement {
               wrapW += v.colWidths.get(cc) ?? v.defaultColW;
             }
           }
-          const lines = this.countWrapLines(text, f, wrapW);
-          h = Math.max(h, lines * lineH);
+          this.wrapFitViews.add(v);
+          add(this.countWrapLines(text, f, wrapW) * lineH, desc);
         }
       }
+      let h = above + below;
       // bordas grossas sinalizadas na linha: +1 px cada (medido)
       if (row.thickTop) h++;
       if (row.thickBot) h++;
@@ -518,10 +547,10 @@ export class UniversalSheetElement extends HTMLElement {
 
   /** Linhas de um texto com quebra numa coluna de `colPx` px, na fonte da célula,
    *  para a ALTURA automática: mesmas larguras do desenho (cell-paint), caixa
-   *  2 px mais estreita (WRAP_SLACK_PX, medido). */
+   *  mais estreita que a da pintura (autofitWrapWidthPx, medido). */
   private countWrapLines(text: string, font: Font | undefined, colPx: number): number {
     const f = this.cellFont(font, 1);
-    return Math.max(1, wrapLines(f, text, Math.max(1, colPx - cellMarginPx(f.ppem) - WRAP_SLACK_PX)).length);
+    return Math.max(1, wrapLines(f, text, Math.max(1, autofitWrapWidthPx(colPx, f.ppem, this.mdw))).length);
   }
 
   /** Views com edições pendentes (célula/resize) a persistir no save. */
