@@ -6,6 +6,7 @@
 export * from './values.js';
 export * from './fn.js';
 export * from './coerce.js';
+export * from './collation.js';
 export * from './criteria.js';
 export * from './collate.js';
 export * from './stats.js';

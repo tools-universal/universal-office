@@ -18,7 +18,7 @@ export function liftAtp(args: readonly Value[], ctx: FnContext, f: (xs: Scalar[]
   const xs: (Scalar | ArrayValue)[] = [];
   const arrs: number[] = [];
   for (let i = 0; i < args.length; i++) {
-    let v = args[i]!;
+    let v: Value = args[i]!;
     if (pass(i)) { xs.push(v as Scalar); continue; }
     if (v instanceof RefValue) {
       const a = v.single;

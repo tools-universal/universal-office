@@ -1,0 +1,6 @@
+{
+ "text-concatenate-27": "limite: o double 9,99999999999999E+307 o Excel converte em \"1E+308\" (arredondamento próprio no último dígito do maior número); nós damos \"9,99999999999999E+307\"",
+ "text-midb-534": "meio par substituto: o Excel devolve \"é\ud83d\"; o COM/JSON do oráculo troca o substituto solto por U+FFFD",
+ "text-midb-541": "meio par substituto: o Excel devolve \"é\ud83d\"; o COM/JSON do oráculo troca o substituto solto por U+FFFD",
+ "text-replaceb-852": "meio par substituto: o Excel devolve \"éX\ude00z\"; o COM/JSON do oráculo troca o substituto solto por U+FFFD"
+}
