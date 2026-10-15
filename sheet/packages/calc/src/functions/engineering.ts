@@ -17,6 +17,7 @@ import { register, type FnContext, type FnDef } from '../fn.js';
 import { CalcError, ERR, type Scalar, type Value } from '../values.js';
 import { atpFn, atpNum, atpRaw, fin, finFlush, liftScalars, numFn, type Num } from './math-util.js';
 import './complex.js';
+import { xlCos, xlSin } from './libm.js';
 
 const X = '_xlfn.';
 
@@ -490,10 +491,12 @@ function bessj0(x: number): number {
     const a2 = 57568490411.0 + y * (1029532985.0 + y * (9494680.718 + y * (59272.64853 + y * (267.8532712 + y * 1.0))));
     return a1 / a2;
   }
+  // medido (ajuste exato a 80 valores do Excel, erro 8E-17): o Excel tem −0,1098628267E-2 no
+  // lugar do −0,1098628627E-2 do Numerical Recipes (algarismos trocados) — só no J0
   const z = 8.0 / ax, y = z * z, xx = ax - 0.785398164;
-  const a1 = 1.0 + y * (-0.1098628627e-2 + y * (0.2734510407e-4 + y * (-0.2073370639e-5 + y * 0.2093887211e-6)));
+  const a1 = 1.0 + y * (-0.1098628267e-2 + y * (0.2734510407e-4 + y * (-0.2073370639e-5 + y * 0.2093887211e-6)));
   const a2 = -0.1562499995e-1 + y * (0.1430488765e-3 + y * (-0.6911147651e-5 + y * (0.7621095161e-6 - y * 0.934935152e-7)));
-  return Math.sqrt(0.636619772 / ax) * (Math.cos(xx) * a1 - z * Math.sin(xx) * a2);
+  return Math.sqrt(0.636619772 / ax) * (xlCos(xx) * a1 - z * xlSin(xx) * a2);
 }
 function bessj1(x: number): number {
   const ax = Math.abs(x);
@@ -503,10 +506,13 @@ function bessj1(x: number): number {
     const a2 = 144725228442.0 + y * (2300535178.0 + y * (18583304.74 + y * (99447.43394 + y * (376.9991397 + y * 1.0))));
     return a1 / a2;
   }
+  // medido (ajuste exato a 80 valores do Excel, erro 3E-16): no J1 o Excel repete o termo
+  // −0,3516396496E-4 (aparece em y² e y³, empurrando os seguintes um grau) — por isso o
+  // BESSELJ(x;1) do Excel erra até ~8E-6 perto de x = 8
   const z = 8.0 / ax, y = z * z, xx = ax - 2.356194491;
-  const a1 = 1.0 + y * (0.183105e-2 + y * (-0.3516396496e-4 + y * (0.2457520174e-5 + y * (-0.240337019e-6))));
+  const a1 = 1.0 + y * (0.183105e-2 + y * (-0.3516396496e-4 + y * (-0.3516396496e-4 + y * (0.2457520174e-5 + y * (-0.240337019e-6)))));
   const a2 = 0.04687499995 + y * (-0.2002690873e-3 + y * (0.8449199096e-5 + y * (-0.88228987e-6 + y * 0.105787412e-6)));
-  const r = Math.sqrt(0.636619772 / ax) * (Math.cos(xx) * a1 - z * Math.sin(xx) * a2);
+  const r = Math.sqrt(0.636619772 / ax) * (xlCos(xx) * a1 - z * xlSin(xx) * a2);
   return x < 0 ? -r : r;
 }
 function bessj(n: number, x: number): number {
@@ -547,7 +553,7 @@ function bessy0(x: number): number {
   const z = 8.0 / x, y = z * z, xx = x - 0.785398164;
   const a1 = 1.0 + y * (-0.1098628627e-2 + y * (0.2734510407e-4 + y * (-0.2073370639e-5 + y * 0.2093887211e-6)));
   const a2 = -0.1562499995e-1 + y * (0.1430488765e-3 + y * (-0.6911147651e-5 + y * (0.7621095161e-6 + y * (-0.934945152e-7))));
-  return Math.sqrt(0.636619772 / x) * (Math.sin(xx) * a1 + z * Math.cos(xx) * a2);
+  return Math.sqrt(0.636619772 / x) * (xlSin(xx) * a1 + z * xlCos(xx) * a2);
 }
 function bessy1(x: number): number {
   if (x < 8.0) {
@@ -559,7 +565,7 @@ function bessy1(x: number): number {
   const z = 8.0 / x, y = z * z, xx = x - 2.356194491;
   const a1 = 1.0 + y * (0.183105e-2 + y * (-0.3516396496e-4 + y * (0.2457520174e-5 + y * (-0.240337019e-6))));
   const a2 = 0.04687499995 + y * (-0.2002690873e-3 + y * (0.8449199096e-5 + y * (-0.88228987e-6 + y * 0.105787412e-6)));
-  return Math.sqrt(0.636619772 / x) * (Math.sin(xx) * a1 + z * Math.cos(xx) * a2);
+  return Math.sqrt(0.636619772 / x) * (xlSin(xx) * a1 + z * xlCos(xx) * a2);
 }
 function bessy(n: number, x: number): number {
   if (n === 0) return bessy0(x);

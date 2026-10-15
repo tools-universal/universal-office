@@ -1,0 +1,1402 @@
+[
+ {
+  "id": "fix-bessel-1",
+  "v": 0.2369010870922374,
+  "text": "0,236901",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-2",
+  "v": 0.22604984110441806,
+  "text": "0,22605",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-3",
+  "v": 0.09250432932070213,
+  "text": "0,092504",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-4",
+  "v": -0.028376944486760577,
+  "text": "-0,02838",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-5",
+  "v": -0.07705133418006178,
+  "text": "-0,07705",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-6",
+  "v": 0.2719600057348013,
+  "text": "0,27196",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-7",
+  "v": 0.2712428417325382,
+  "text": "0,271243",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-8",
+  "v": -0.07742434180915331,
+  "text": "-0,07742",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-9",
+  "v": 0.133550512620907,
+  "text": "0,133551",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-10",
+  "v": 0.09175113696218334,
+  "text": "0,091751",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-11",
+  "v": 0.21119315619685522,
+  "text": "0,211193",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-12",
+  "v": 0.21870018660825621,
+  "text": "0,2187",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-13",
+  "v": -0.19124345464958362,
+  "text": "-0,19124",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-14",
+  "v": 0.22598116616488892,
+  "text": "0,225981",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-15",
+  "v": 0.20068229908827262,
+  "text": "0,200682",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-16",
+  "v": 0.08566436448708364,
+  "text": "0,085664",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-17",
+  "v": 0.09746064157259846,
+  "text": "0,097461",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-18",
+  "v": -0.2493417208549437,
+  "text": "-0,24934",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-19",
+  "v": 0.25200703893022497,
+  "text": "0,252007",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-20",
+  "v": 0.2509107159461232,
+  "text": "0,250911",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-21",
+  "v": -0.05508922940946362,
+  "text": "-0,05509",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-22",
+  "v": -0.04335979416298181,
+  "text": "-0,04336",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-23",
+  "v": -0.22542693148808246,
+  "text": "-0,22543",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-24",
+  "v": 0.2054951597664808,
+  "text": "0,205495",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-25",
+  "v": 0.22120347006163707,
+  "text": "0,221203",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-26",
+  "v": -0.16319213676047042,
+  "text": "-0,16319",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-27",
+  "v": -0.15455921534602418,
+  "text": "-0,15456",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-28",
+  "v": -0.12704748329353235,
+  "text": "-0,12705",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-29",
+  "v": 0.09016352283997497,
+  "text": "0,090164",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-30",
+  "v": 0.11822842725915651,
+  "text": "0,118228",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-31",
+  "v": -0.23036973194870589,
+  "text": "-0,23037",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-32",
+  "v": -0.2277017785821755,
+  "text": "-0,2277",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-33",
+  "v": -0.004098230808682985,
+  "text": "-0,0041",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-34",
+  "v": -0.035441834779352824,
+  "text": "-0,03544",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-35",
+  "v": -0.005749583441187638,
+  "text": "-0,00575",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-36",
+  "v": -0.21181554965206503,
+  "text": "-0,21182",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-37",
+  "v": -0.2148759338350282,
+  "text": "-0,21488",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-38",
+  "v": 0.12364964603086138,
+  "text": "0,12365",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-39",
+  "v": -0.15361107690351244,
+  "text": "-0,15361",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-40",
+  "v": -0.13142331761286544,
+  "text": "-0,13142",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-41",
+  "v": -0.1275067368071022,
+  "text": "-0,12751",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-42",
+  "v": -0.13442180372954468,
+  "text": "-0,13442",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-43",
+  "v": 0.20490064938110142,
+  "text": "0,204901",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-44",
+  "v": -0.2166438187766727,
+  "text": "-0,21664",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-45",
+  "v": -0.208284131344245,
+  "text": "-0,20828",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-46",
+  "v": -0.005409329723668637,
+  "text": "-0,00541",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-47",
+  "v": -0.013595564965369296,
+  "text": "-0,0136",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-48",
+  "v": 0.21428115495330222,
+  "text": "0,214281",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-49",
+  "v": -0.20809625446657626,
+  "text": "-0,2081",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-50",
+  "v": -0.21317560080941264,
+  "text": "-0,21318",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-51",
+  "v": 0.10195668602955352,
+  "text": "0,101957",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-52",
+  "v": 0.09494219992253215,
+  "text": "0,094942",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-53",
+  "v": 0.15489704285965736,
+  "text": "0,154897",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-54",
+  "v": -0.13353080716737953,
+  "text": "-0,13353",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-55",
+  "v": -0.1498556550683461,
+  "text": "-0,14986",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-56",
+  "v": 0.18750715210878274,
+  "text": "0,187507",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-57",
+  "v": 0.18388706062998272,
+  "text": "0,183887",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-58",
+  "v": 0.048616018598127475,
+  "text": "0,048616",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-59",
+  "v": -0.02083996716075736,
+  "text": "-0,02084",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-60",
+  "v": -0.04176796857184305,
+  "text": "-0,04177",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-61",
+  "v": 0.20447138840659412,
+  "text": "0,204471",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-62",
+  "v": 0.20497517774493934,
+  "text": "0,204975",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-63",
+  "v": -0.07223544040324725,
+  "text": "-0,07224",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-64",
+  "v": 0.09688780025469299,
+  "text": "0,096888",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-65",
+  "v": 0.07850413978996652,
+  "text": "0,078504",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-66",
+  "v": 0.1605251997070235,
+  "text": "0,160525",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-67",
+  "v": 0.16423214985608153,
+  "text": "0,164232",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-68",
+  "v": -0.16066564888232904,
+  "text": "-0,16067",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-69",
+  "v": 0.17511535696353217,
+  "text": "0,175115",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-70",
+  "v": 0.16451135782591797,
+  "text": "0,164511",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-71",
+  "v": 0.055908670712484385,
+  "text": "0,055909",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-72",
+  "v": 0.06169551404352003,
+  "text": "0,061696",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-73",
+  "v": -0.19634144039140364,
+  "text": "-0,19634",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-74",
+  "v": 0.19549664503862407,
+  "text": "0,195497",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-75",
+  "v": 0.19639985459924925,
+  "text": "0,1964",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-76",
+  "v": -0.05499998236032898,
+  "text": "-0,055",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-77",
+  "v": -0.049358053906551104,
+  "text": "-0,04936",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-78",
+  "v": -0.16168454920307573,
+  "text": "-0,16168",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-79",
+  "v": 0.14877744721249972,
+  "text": "0,148777",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-80",
+  "v": 0.15866909632121715,
+  "text": "0,158669",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-81",
+  "v": -0.1490354668387506,
+  "text": "-0,14904",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-82",
+  "v": -0.14539200213965986,
+  "text": "-0,14539",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-83",
+  "v": -0.08204978132217003,
+  "text": "-0,08205",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-84",
+  "v": 0.062329404456163945,
+  "text": "0,062329",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-85",
+  "v": 0.0772243416236781,
+  "text": "0,077224",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-86",
+  "v": -0.1872038896227549,
+  "text": "-0,1872",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-87",
+  "v": -0.18635345770052383,
+  "text": "-0,18635",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-88",
+  "v": 0.030169877784253528,
+  "text": "0,03017",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-89",
+  "v": -0.05031025250065379,
+  "text": "-0,05031",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-90",
+  "v": -0.03523327683876323,
+  "text": "-0,03523",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-91",
+  "v": -0.16467971402967874,
+  "text": "-0,16468",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-92",
+  "v": -0.16680005214122692,
+  "text": "-0,1668",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-93",
+  "v": 0.1208503104702046,
+  "text": "0,12085",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-94",
+  "v": -0.13529088070396647,
+  "text": "-0,13529",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-95",
+  "v": -0.12458470915515098,
+  "text": "-0,12458",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-96",
+  "v": -0.08875225646191237,
+  "text": "-0,08875",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-97",
+  "v": -0.09282938517363128,
+  "text": "-0,09283",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-98",
+  "v": 0.17582584052271863,
+  "text": "0,175826",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-99",
+  "v": -0.17984461432403634,
+  "text": "-0,17984",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-100",
+  "v": -0.17700431934765454,
+  "text": "-0,177",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-101",
+  "v": 0.013698114114592883,
+  "text": "0,013698",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-102",
+  "v": 0.009139422053489102,
+  "text": "0,009139",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-103",
+  "v": 0.1697073997021786,
+  "text": "0,169707",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-104",
+  "v": -0.1637111156200307,
+  "text": "-0,16371",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-105",
+  "v": -0.16836913458973482,
+  "text": "-0,16837",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-106",
+  "v": 0.10416442010659294,
+  "text": "0,104164",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-107",
+  "v": 0.1005287159850018,
+  "text": "0,100529",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-108",
+  "v": 0.11068646496026498,
+  "text": "0,110686",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-109",
+  "v": -0.09708338983071306,
+  "text": "-0,09708",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-110",
+  "v": -0.1073869453794271,
+  "text": "-0,10739",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-111",
+  "v": 0.16482765821180276,
+  "text": "0,164828",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-112",
+  "v": 0.16329101246679878,
+  "text": "0,163291",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-113",
+  "v": 0.025324516386404098,
+  "text": "0,025325",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-114",
+  "v": -0.008936379955542691,
+  "text": "-0,00894",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-115",
+  "v": -0.021252278553877554,
+  "text": "-0,02125",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-116",
+  "v": 0.16774422783919152,
+  "text": "0,167744",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-117",
+  "v": 0.1685406109565612,
+  "text": "0,168541",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-118",
+  "v": -0.08239315980915363,
+  "text": "-0,08239",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-119",
+  "v": 0.09604531589915073,
+  "text": "0,096045",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-120",
+  "v": 0.08586890419552821,
+  "text": "0,085869",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-121",
+  "v": 0.11984918316728993,
+  "text": "0,119849",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-122",
+  "v": 0.12250323974296073,
+  "text": "0,122503",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-123",
+  "v": -0.14765609343124186,
+  "text": "-0,14766",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-124",
+  "v": 0.15474975227898977,
+  "text": "0,15475",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-125",
+  "v": 0.14953957483899535,
+  "text": "0,14954",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-126",
+  "v": 0.029987864923058376,
+  "text": "0,029988",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-127",
+  "v": 0.033620131866713504,
+  "text": "0,03362",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-128",
+  "v": -0.16652472498960166,
+  "text": "-0,16652",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-129",
+  "v": 0.16522750647975884,
+  "text": "0,165228",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-130",
+  "v": 0.16632005099914185,
+  "text": "0,16632",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-131",
+  "v": -0.06258523701670984,
+  "text": "-0,06259",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-132",
+  "v": -0.05922739609644429,
+  "text": "-0,05923",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-133",
+  "v": -0.12948272167883684,
+  "text": "-0,12948",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-134",
+  "v": 0.12055640757628014,
+  "text": "0,120556",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-135",
+  "v": 0.1273408186387629,
+  "text": "0,127341",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-136",
+  "v": -0.1374689499906467,
+  "text": "-0,13747",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-137",
+  "v": -0.13550765294311745,
+  "text": "-0,13551",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-138",
+  "v": -0.06080465585325557,
+  "text": "-0,0608",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-139",
+  "v": 0.04808198389403034,
+  "text": "0,048082",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-140",
+  "v": 0.05766567431219538,
+  "text": "0,057666",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-141",
+  "v": -0.16183819817690132,
+  "text": "-0,16184",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-142",
+  "v": -0.1616665451106366,
+  "text": "-0,16167",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-143",
+  "v": 0.03189968436912363,
+  "text": "0,0319",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-144",
+  "v": -0.04470535638200333,
+  "text": "-0,04471",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-145",
+  "v": -0.03511893428226377,
+  "text": "-0,03512",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-146",
+  "v": -0.13851274168592675,
+  "text": "-0,13851",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-147",
+  "v": -0.14004118569620697,
+  "text": "-0,14004",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-148",
+  "v": 0.11922440159927782,
+  "text": "0,119224",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-149",
+  "v": -0.12737815046874051,
+  "text": "-0,12738",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-150",
+  "v": -0.12133193723853951,
+  "text": "-0,12133",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-151",
+  "v": -0.06607939134986841,
+  "text": "-0,06608",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-152",
+  "v": -0.068858113053622,
+  "text": "-0,06886",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-153",
+  "v": 0.15462844141067472,
+  "text": "0,154628",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-154",
+  "v": -0.15661783649040692,
+  "text": "-0,15662",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-155",
+  "v": -0.15521290539319055,
+  "text": "-0,15521",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-156",
+  "v": 0.022016336786536923,
+  "text": "0,022016",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-157",
+  "v": 0.01903514007739678,
+  "text": "0,019035",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-158",
+  "v": 0.1425342524745127,
+  "text": "0,142534",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-159",
+  "v": -0.13761256357790796,
+  "text": "-0,13761",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-160",
+  "v": -0.14138146672400548,
+  "text": "-0,14138",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-161",
+  "v": 0.09925041350740317,
+  "text": "0,09925",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-162",
+  "v": 0.09696869524578938,
+  "text": "0,096969",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-163",
+  "v": 0.08671509103090892,
+  "text": "0,086715",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-164",
+  "v": -0.07714407583102817,
+  "text": "-0,07714",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-165",
+  "v": -0.0843684712740075,
+  "text": "-0,08437",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-166",
+  "v": 0.14646395494194625,
+  "text": "0,146464",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-167",
+  "v": 0.14557148588294685,
+  "text": "0,145571",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-168",
+  "v": -0.004921071485462012,
+  "text": "-0,00492",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-169",
+  "v": 0.01595962083198124,
+  "text": "0,01596",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-170",
+  "v": 0.007681780654755917,
+  "text": "0,007682",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-171",
+  "v": 0.1442089413115235,
+  "text": "0,144209",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-172",
+  "v": 0.1449681934485961,
+  "text": "0,144968",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-173",
+  "v": -0.08030722570632394,
+  "text": "-0,08031",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-174",
+  "v": 0.08929073925729503,
+  "text": "0,089291",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-175",
+  "v": 0.08259025240367798,
+  "text": "0,08259",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-176",
+  "v": 0.09928262249762744,
+  "text": "0,099283",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-177",
+  "v": 0.1012184518567957,
+  "text": "0,101218",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-178",
+  "v": -0.13615347205443787,
+  "text": "-0,13615",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-179",
+  "v": 0.1402257804197716,
+  "text": "0,140226",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-180",
+  "v": 0.13723324030468387,
+  "text": "0,137233",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-181",
+  "v": 0.010386296584727487,
+  "text": "0,010386",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-182",
+  "v": 0.012931303019578542,
+  "text": "0,012931",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-183",
+  "v": -0.1468897599520325,
+  "text": "-0,14689",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-184",
+  "v": 0.14564470795139728,
+  "text": "0,145645",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-185",
+  "v": 0.14664329888020716,
+  "text": "0,146643",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-186",
+  "v": -0.07081459303023184,
+  "text": "-0,07081",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-187",
+  "v": -0.06861014229742853,
+  "text": "-0,06861",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-188",
+  "v": -0.11024266856846006,
+  "text": "-0,11024",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-189",
+  "v": 0.10366870666728417,
+  "text": "0,103669",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-190",
+  "v": 0.10864643581531315,
+  "text": "0,108646",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-191",
+  "v": -0.12261529507867135,
+  "text": "-0,12262",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-192",
+  "v": -0.12125949020874625,
+  "text": "-0,12126",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-193",
+  "v": -0.041149644254137994,
+  "text": "-0,04115",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-194",
+  "v": 0.03195209519036823,
+  "text": "0,031952",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-195",
+  "v": 0.03886792979763988,
+  "text": "0,038868",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ },
+ {
+  "id": "fix-bessel-196",
+  "v": -0.1435259098239192,
+  "text": "-0,14353",
+  "f": "=BESSELJ(A1,1)",
+  "local": "=BESSELJ(A1;1)"
+ },
+ {
+  "id": "fix-bessel-197",
+  "v": -0.14366426801548407,
+  "text": "-0,14366",
+  "f": "=BESSELY(A1,0)",
+  "local": "=BESSELY(A1;0)"
+ },
+ {
+  "id": "fix-bessel-198",
+  "v": 0.04783347443193935,
+  "text": "0,047833",
+  "f": "=BESSELJ(A1,0)",
+  "local": "=BESSELJ(A1;0)"
+ },
+ {
+  "id": "fix-bessel-199",
+  "v": -0.056510417957911493,
+  "text": "-0,05651",
+  "f": "=BESSELJ(A1,2)",
+  "local": "=BESSELJ(A1;2)"
+ },
+ {
+  "id": "fix-bessel-200",
+  "v": -0.05002054265878478,
+  "text": "-0,05002",
+  "f": "=BESSELY(A1,1)",
+  "local": "=BESSELY(A1;1)"
+ }
+]
