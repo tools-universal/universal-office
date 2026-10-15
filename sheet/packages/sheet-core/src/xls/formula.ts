@@ -62,6 +62,8 @@ export interface FormulaContext {
    * DESLOCAMENTO (como RefN/AreaN), não posição ([MS-XLS] RgceLocRel).
    */
   rel3d?: boolean;
+  /** Diagnóstico: token em que a descompilação desistiu. */
+  fail?: (ptg: number) => void;
 }
 
 /**
@@ -189,6 +191,14 @@ function arrayConst(r: Bytes, p: number): { text: string; next: number } | undef
  * undefined = token não suportado (referência a outra pasta, extensões futuras…).
  */
 export function decompile(r: Bytes, off: number, cce: number, ctx: FormulaContext): string | undefined {
+  const out = decompileRpn(r, off, cce, ctx);
+  if (out === undefined && ctx.fail) ctx.fail(lastPtg);
+  return out;
+}
+
+let lastPtg = -1;
+
+function decompileRpn(r: Bytes, off: number, cce: number, ctx: FormulaContext): string | undefined {
   const end = Math.min(r.length, off + cce);
   let extra = off + cce;
   const st: string[] = [];
@@ -198,8 +208,10 @@ export function decompile(r: Bytes, off: number, cce: number, ctx: FormulaContex
     const s = ctx.sheetOf(ixti);
     return s === undefined ? undefined : s === '#REF' ? '#REF!' : `${s}!`;
   };
+  lastPtg = -1;
   while (p < end) {
     const ptg = r.u8(p);
+    lastPtg = ptg;
     if (ptg >= 0x03 && ptg <= 0x11) {
       const b = pop(), a = pop();
       if (a === undefined || b === undefined) return undefined;
@@ -293,6 +305,7 @@ export function decompile(r: Bytes, off: number, cce: number, ctx: FormulaContex
     }
     return undefined;
   }
+  if (st.length !== 1) lastPtg = 0x100 + st.length;
   return st.length === 1 ? st[0] : undefined;
 }
 

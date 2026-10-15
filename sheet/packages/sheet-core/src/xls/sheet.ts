@@ -179,6 +179,12 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
   let drawingLen = 0;
   const addDrawing = (d: Uint8Array): void => { drawing.push(d); drawingLen += d.length; };
   let pendingFormula: { row: number; col: number; xf: number; fx: string; expKey?: string } | undefined;
+  /**
+   * Célula do último FORMULA: o SHRFMLA/ARRAY/TABLE vem logo depois da célula
+   * que o possui, e é ELA que o ptgExp das outras aponta — não o canto da área
+   * (medido no corpus: área B42:L50 com dono J42).
+   */
+  let lastFormula: [number, number] | undefined;
   // texto das fórmulas (<f>): diretas, compartilhadas (ptgExp → SHRFMLA) e matriciais (ARRAY);
   // o SHRFMLA/ARRAY vem DEPOIS da 1ª célula — ela recebe o <f> quando ele chegar
   const fctx: FormulaContext = workbookFormulaContext(g);
@@ -335,6 +341,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
         if (row >= MAX_ROW || col >= MAX_COL) break;
         // ptgExp (compartilhada/matriz) ou ptgTbl (tabela de dados) → a célula-mestre
         const expKey = b8 && (r.u8(22) === 0x01 || r.u8(22) === 0x02) ? `${r.u16(23)},${r.u16(25)}` : undefined;
+        lastFormula = [row, col];
         let fx = '';
         try { fx = fXml(row, col, expKey, r); } catch { fx = ''; }
         // fAlwaysCalc (ca): o Excel recalcula a célula ao abrir
@@ -371,7 +378,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
         if (fl & 0x20) a += ' del2="1"';
         a += ` r1="${cell(r.u16(8), r.u16(10))}"`;
         if (tbl2) a += ` r2="${cell(r.u16(12), r.u16(14))}"`;
-        const key = `${r1},${c1}`;
+        const key = lastFormula ? `${lastFormula[0]},${lastFormula[1]}` : `${r1},${c1}`;
         shared.set(key, { r1, r2, c1, c2, r, off: 0, cce: 0, array: false, table: `<f${a}/>` });
         for (const [wr, wc] of waiting.get(key) ?? []) patchF(wr, wc, fXml(wr, wc, key));
         waiting.delete(key);
@@ -383,7 +390,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
         const r1 = r.u16(0), r2 = r.u16(2), c1 = r.u8(4), c2 = r.u8(5);
         const array = rec.type === RT.ARRAY;
         const cceOff = array ? 12 : 8;
-        const key = `${r1},${c1}`;
+        const key = lastFormula ? `${lastFormula[0]},${lastFormula[1]}` : `${r1},${c1}`;
         shared.set(key, { r1, r2, c1, c2, r, off: cceOff + 2, cce: r.u16(cceOff), array });
         for (const [wr, wc] of waiting.get(key) ?? []) {
           let fx = '';
