@@ -216,6 +216,43 @@ export interface Legend {
   sp: ShapeProps;
 }
 
+/** Texto de uma forma do desenho do gráfico (`cdr:txBody`). */
+export interface UserText {
+  paras: RichPara[];
+  /** Recuos internos (pt; default 7,2/3,6/7,2/3,6). */
+  ins: { l: number; t: number; r: number; b: number };
+  anchor: 't' | 'ctr' | 'b';
+  wrap: boolean;
+  /** `vertOverflow="clip"`: corta o texto na caixa. */
+  clip: boolean;
+  /** Rotação do texto (`a:bodyPr rot`/`vert`) em graus. */
+  rot?: number;
+  /** Padrão do texto (lstStyle lvl1 + cor do fontRef). */
+  def: TextProps;
+}
+
+/**
+ * Forma do desenho do gráfico (`c:userShapes`, parte chartDrawing: caixas de
+ * texto, notas de fonte, setas…): caixa em FRAÇÕES da área do gráfico
+ * (`relSizeAnchor`) ou canto em frações + tamanho em pt (`absSizeAnchor`).
+ */
+export interface UserShape {
+  x: number; y: number; w: number; h: number;
+  /** `w`/`h` em pt (absSizeAnchor). */
+  abs?: boolean;
+  /** Dentro de grupo: retângulo em frações da caixa da âncora. */
+  sub?: { x: number; y: number; w: number; h: number };
+  /** Geometria predefinida (`rect`, `ellipse`, `line`…) ou 'custom'. */
+  geom: string;
+  rot?: number;
+  flipH?: boolean;
+  flipV?: boolean;
+  sp: ShapeProps;
+  text?: UserText;
+  /** Imagem (`cdr:pic`): chave do hospedeiro (`ChartHost.blip`). */
+  blip?: string;
+}
+
 /** `c:view3D`: ausentes = default do tipo (barras 15°/20°, pizza 30°/0°), decidido na pintura. */
 export interface View3D { rotX?: number; rotY?: number; rAngAx: boolean; perspective: number; depthPercent: number; hPercent?: number }
 
@@ -251,4 +288,8 @@ export interface ChartSpace {
   /** Estilo de preenchimento do tema (fillStyleLst idx, phClr) — vem do host. */
   themeFill?: (idx: number, phClr: string) => Paint | undefined;
   majorFont?: string;
+  /** Larguras (pt) do lnStyleLst do tema, quando o hospedeiro as dá (Excel: linha de série = k × a 1ª). */
+  themeLn?: number[];
+  /** Formas do desenho do gráfico (`c:userShapes`), pintadas por cima. */
+  userShapes?: UserShape[];
 }

@@ -19,6 +19,8 @@ export interface Theme {
   fonts?: { major?: string; minor?: string };
   /** `a:fmtScheme/a:fillStyleLst` (preenchimentos com phClr — estilos de gráfico 17–32/41–48). */
   fillStyles?: XmlElement[];
+  /** `a:fmtScheme/a:lnStyleLst`: larguras em pt (o Excel deriva delas as linhas de série dos gráficos). */
+  lineWidths?: number[];
 }
 
 /**
@@ -92,6 +94,8 @@ export function readTheme(pkg: XlsxPackage): Theme {
   const fmt = themeEls ? firstChild(themeEls, 'a:fmtScheme') : undefined;
   const fills = fmt ? firstChild(fmt, 'a:fillStyleLst') : undefined;
   if (fills) theme.fillStyles = childElements(fills);
+  const lns = fmt ? firstChild(fmt, 'a:lnStyleLst') : undefined;
+  if (lns) theme.lineWidths = childElements(lns, 'a:ln').map((l) => (parseInt(l.attrs['w'] ?? '0', 10) || 0) / 12700);
   return theme;
 }
 

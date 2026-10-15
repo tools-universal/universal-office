@@ -255,3 +255,26 @@ describe('preenchimento de imagem (a:blipFill)', () => {
     expect(imageDpi(jfif)).toEqual({ x: 75, y: 75 });
   });
 });
+
+describe('desenho do gráfico (c:userShapes) e regras do Excel', () => {
+  const NS = 'xmlns:c="c" xmlns:a="a"';
+  const cs = (extra: object) => parseChartSpace(xml('<c:chartSpace ' + NS + '><c:chart><c:plotArea/></c:chart></c:chartSpace>'), { ...host, ...extra });
+  it('caixa de texto em frações; grupo achatado na caixa da âncora; abs em pt', () => {
+    const us = xml('<c:userShapes><cdr:relSizeAnchor><cdr:from><cdr:x>0</cdr:x><cdr:y>0.9</cdr:y></cdr:from><cdr:to><cdr:x>1</cdr:x><cdr:y>1</cdr:y></cdr:to>'
+      + '<cdr:sp><cdr:nvSpPr><cdr:cNvPr id="2" name="T"/></cdr:nvSpPr><cdr:spPr><a:prstGeom prst="rect"/></cdr:spPr><cdr:txBody><a:bodyPr anchor="ctr" lIns="0"/><a:p><a:pPr algn="r"/><a:r><a:rPr sz="900" i="1"/><a:t>Fonte: X</a:t></a:r></a:p></cdr:txBody></cdr:sp></cdr:relSizeAnchor>'
+      + '<cdr:relSizeAnchor><cdr:from><cdr:x>0.5</cdr:x><cdr:y>0</cdr:y></cdr:from><cdr:to><cdr:x>1</cdr:x><cdr:y>0.5</cdr:y></cdr:to><cdr:grpSp><cdr:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="100" cy="100"/><a:chOff x="0" y="0"/><a:chExt cx="100" cy="100"/></a:xfrm></cdr:grpSpPr>'
+      + '<cdr:sp><cdr:spPr><a:xfrm><a:off x="50" y="0"/><a:ext cx="50" cy="25"/></a:xfrm><a:prstGeom prst="ellipse"/><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></cdr:spPr></cdr:sp></cdr:grpSp></cdr:relSizeAnchor>'
+      + '<cdr:absSizeAnchor><cdr:from><cdr:x>0.1</cdr:x><cdr:y>0.1</cdr:y></cdr:from><cdr:ext cx="127000" cy="254000"/><cdr:cxnSp><cdr:spPr><a:prstGeom prst="straightConnector1"/></cdr:spPr></cdr:cxnSp></cdr:absSizeAnchor></c:userShapes>');
+    const u = cs({ userShapes: us }).userShapes!;
+    expect(u).toHaveLength(3);
+    expect(u[0]).toMatchObject({ x: 0, y: 0.9, w: 1, geom: 'rect', text: { anchor: 'ctr', ins: { l: 0, t: 3.6 } } });
+    expect(u[0]!.h).toBeCloseTo(0.1, 9);
+    expect(u[0]!.text!.paras[0]).toMatchObject({ align: 'r', runs: [{ text: 'Fonte: X', props: { sz: 9, i: true } }] });
+    expect(u[1]).toMatchObject({ x: 0.5, y: 0, w: 0.5, h: 0.5, geom: 'ellipse', sub: { x: 0.5, y: 0, w: 0.5, h: 0.25 }, sp: { fill: { kind: 'solid', color: '#FF0000' } } });
+    expect(u[2]).toMatchObject({ abs: true, w: 10, h: 20, geom: 'straightConnector1' });
+  });
+  it('larguras do tema chegam ao modelo (linha de série do Excel = k × a 1ª)', () => {
+    expect(cs({ themeLineWidths: [0.5, 1, 1.5] }).themeLn).toEqual([0.5, 1, 1.5]);
+    expect(cs({}).themeLn).toBeUndefined();
+  });
+});

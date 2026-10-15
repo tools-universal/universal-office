@@ -7,6 +7,7 @@ import { parseChartSpace, parsePaint, paintChartSpace, dmlColor, canonicalNs, ty
 import { parseXml, type XmlElement } from './xml.js';
 import type { Theme } from './theme.js';
 import type { XlsxPackage } from './package.js';
+import { partRels } from './drawing-charts.js';
 
 export type ChartType = 'bar-col' | 'bar-row' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'radar' | 'area' | 'unknown';
 
@@ -20,7 +21,7 @@ export interface ChartModel {
   categories: string[];
 }
 
-/** Tema Office padrão (workbook sem theme1.xml). */
+/** Paleta Office 2013–2022 (base dos slots ausentes de um tema). */
 const FALLBACK: Record<string, string> = {
   dk1: '#000000', lt1: '#FFFFFF', dk2: '#44546A', lt2: '#E7E6E6',
   accent1: '#4472C4', accent2: '#ED7D31', accent3: '#A5A5A5', accent4: '#FFC000', accent5: '#5B9BD5', accent6: '#70AD47',
@@ -28,15 +29,34 @@ const FALLBACK: Record<string, string> = {
 };
 
 /**
+ * Pasta SEM tema: o Excel atual usa o tema Office 2023 (medido, syn layout1: séries
+ * 156082/E97132/196B24, texto em Aptos, linha de série 3× 1 pt).
+ */
+const OFFICE_2023: Theme = {
+  colors: [],
+  byName: {
+    dk1: '#000000', lt1: '#FFFFFF', dk2: '#0E2841', lt2: '#E8E8E8',
+    accent1: '#156082', accent2: '#E97132', accent3: '#196B24', accent4: '#0F9ED5', accent5: '#A02B93', accent6: '#4EA72E',
+    hlink: '#467886', folHlink: '#96607D',
+  },
+  fonts: { major: 'Aptos Display', minor: 'Aptos' },
+  lineWidths: [1, 1.5, 2],
+};
+
+/**
  * `fileFormat`: quem gravou a pasta (`chartFileFormat`) — muda o sentido de
  * elementos ausentes (ver `ChartHost.fileFormat`).
  */
-export function parseChart(xml: string, theme?: Theme, fileFormat?: 'mso2007' | 'modern'): ChartModel {
+export function parseChart(xml: string, theme?: Theme, fileFormat?: 'mso2007' | 'modern', extra?: { userShapes?: XmlNode; noTheme?: boolean }): ChartModel {
+  if (extra?.noTheme) theme = OFFICE_2023;
   let root: XmlElement;
   try { root = canonicalNs(parseXml(xml) as XmlNode) as XmlElement; } catch { root = { name: 'c:chartSpace', attrs: {}, children: [] }; }
   const scheme = { ...FALLBACK, ...(theme?.byName ?? {}) };
   const space = parseChartSpace(root as XmlNode, {
     ...(fileFormat ? { fileFormat } : {}),
+    ...(extra?.userShapes ? { userShapes: extra.userShapes } : {}),
+    // tema sem lnStyleLst: o do Office 2013–2022
+    themeLineWidths: theme?.lineWidths?.length ? theme.lineWidths : [0.5, 1, 1.5],
     color: (el) => dmlColor(el, scheme),
     fonts: { ...(theme?.fonts?.minor ? { minor: theme.fonts.minor } : { minor: 'Calibri' }), ...(theme?.fonts?.major ? { major: theme.fonts.major } : {}) },
     fillStyle: (idx, ph) => {
@@ -65,7 +85,18 @@ export function parseChart(xml: string, theme?: Theme, fileFormat?: 'mso2007' | 
 
 /** Modelo de um gráfico ancorado da pasta (o que o `<universal-sheet>` pinta). */
 export function chartModelFor(pkg: XlsxPackage, ch: { chartXml: string; part?: string }, theme?: Theme): ChartModel {
-  return parseChart(ch.chartXml, theme, chartFileFormat(pkg));
+  const noTheme = !pkg.partNames().some((p) => /^xl\/theme\/[^/]+\.xml$/i.test(p));
+  return parseChart(ch.chartXml, theme, chartFileFormat(pkg), { ...(ch.part ? userShapesOf(pkg, ch.part) : {}), ...(noTheme ? { noTheme } : {}) });
+}
+
+/** Desenho do gráfico (`chartUserShapes` nos rels da parte): caixas de texto, notas de fonte… */
+function userShapesOf(pkg: XlsxPackage, part: string): { userShapes?: XmlNode } {
+  for (const [, target] of partRels(pkg, part, '/chartUserShapes')) {
+    const xml = pkg.getPartText(target);
+    if (!xml) continue;
+    try { return { userShapes: canonicalNs(parseXml(xml) as XmlNode) }; } catch { return {}; }
+  }
+  return {};
 }
 
 const formatCache = new WeakMap<XlsxPackage, 'mso2007' | 'modern'>();

@@ -5,7 +5,7 @@
  * rótulo↔eixo, passo da legenda, escala automática, cores automáticas.
  */
 import type {
-  ChartSpace, TextProps, Paint, LineProps, ShapeProps, Series, Group, Axis, DLbls, ManualLayout, RichPara, Marker,
+  ChartSpace, TextProps, Paint, LineProps, ShapeProps, Series, Group, Axis, DLbls, ManualLayout, RichPara, Marker, UserShape, UserText,
 } from './model.js';
 import { autoScale, tickValues, frac, type Scale } from './scale.js';
 import { adjustLum, rgba, chartShadeTint, tintLinear } from './color.js';
@@ -425,9 +425,106 @@ class Renderer {
       else if (cs.groups.length) this.paintAxesChart(inner);
       if (legend && this.showBg()) this.paintLegend(legend);
       if (title && this.showBg()) this.paintTitle(title);
+      if (cs.userShapes && this.showBg()) for (const u of cs.userShapes) this.paintUserShape(u);
     } finally {
       c.restore();
     }
+  }
+
+  // ───────────── desenho do gráfico (c:userShapes) ─────────────
+  /** Forma do desenho do gráfico: geometria simples + texto rico na caixa (por cima de tudo). */
+  private paintUserShape(u: UserShape): void {
+    const c = this.ctx, A = this.area, S = this.S;
+    let r: Rect = { x: A.x + u.x * A.w, y: A.y + u.y * A.h, w: u.abs ? u.w * S : u.w * A.w, h: u.abs ? u.h * S : u.h * A.h };
+    if (u.sub) r = { x: r.x + u.sub.x * r.w, y: r.y + u.sub.y * r.h, w: u.sub.w * r.w, h: u.sub.h * r.h };
+    c.save();
+    if (u.rot) {
+      const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+      c.translate(cx, cy); c.rotate(u.rot * Math.PI / 180); c.translate(-cx, -cy);
+    }
+    // geometria: as predefinidas simples; as demais só o texto (sem chute de contorno)
+    const g = u.geom;
+    const path = (): boolean => {
+      c.beginPath();
+      if (g === 'rect' || g === 'textNoShape' || g === 'flowChartProcess') c.rect(r.x, r.y, r.w, r.h);
+      else if (g === 'roundRect') c.roundRect(r.x, r.y, r.w, r.h, Math.min(r.w, r.h) * 0.1667);
+      else if (g === 'ellipse' || g === 'flowChartConnector') c.ellipse(r.x + r.w / 2, r.y + r.h / 2, r.w / 2, r.h / 2, 0, 0, Math.PI * 2);
+      else if (g === 'line' || g === 'straightConnector1') {
+        const x0 = u.flipH ? r.x + r.w : r.x, x1 = u.flipH ? r.x : r.x + r.w, y0 = u.flipV ? r.y + r.h : r.y, y1 = u.flipV ? r.y : r.y + r.h;
+        c.moveTo(x0, y0); c.lineTo(x1, y1);
+      } else return false;
+      return true;
+    };
+    if (u.blip) {
+      const im = this.o.image?.(u.blip);
+      if (im) c.drawImage(im.src, r.x, r.y, r.w, r.h);
+    }
+    const isLine = g === 'line' || g === 'straightConnector1';
+    if (!isLine && u.sp.fill && this.setFill(u.sp.fill, r) && path()) this.withFillAlpha(u.sp.fill, () => c.fill());
+    if (u.sp.line && this.setLine(u.sp.line) && path()) { c.stroke(); c.setLineDash([]); }
+    if (u.text) this.paintUserText(u.text, r);
+    c.restore();
+  }
+
+  /** Texto rico de uma forma: quebra por palavras na largura útil, alinhamento por parágrafo, âncora vertical. */
+  private paintUserText(t: UserText, box: Rect): void {
+    const c = this.ctx, S = this.S;
+    let r = { x: box.x + t.ins.l * S, y: box.y + t.ins.t * S, w: box.w - (t.ins.l + t.ins.r) * S, h: box.h - (t.ins.t + t.ins.b) * S };
+    c.save();
+    if (t.rot) {
+      // texto girado: lido na caixa transposta, centrada na mesma posição
+      const cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+      c.translate(cx, cy); c.rotate(t.rot * Math.PI / 180); c.translate(-cx, -cy);
+      if (Math.abs(t.rot) % 180 === 90) r = { x: cx - r.h / 2, y: cy - r.w / 2, w: r.h, h: r.w };
+    }
+    if (t.clip) { c.beginPath(); c.rect(box.x, box.y, box.w, box.h); c.clip(); }
+    // texto de forma: 10 pt (o tamanho do gráfico), tx1, fonte menor — sem o negrito do título
+    const baseT = this.text({ sz: this.base.sz, b: false }, t.def);
+    const lines: { runs: { text: string; t: ResolvedText; w: number }[]; w: number; h: number; align: string }[] = [];
+    for (const p of t.paras) {
+      const align = p.align ?? 'l';
+      let cur: { text: string; t: ResolvedText; w: number }[] = [];
+      let curW = 0;
+      const flush = (force = false) => {
+        if (!cur.length && !force) return;
+        const h = Math.max(this.lineH(this.text({ sz: baseT.sz }, t.def, p.props)), ...cur.map((x) => this.lineH(x.t)));
+        while (cur.length && !/\S/.test(cur[cur.length - 1]!.text)) { curW -= cur[cur.length - 1]!.w; cur.pop(); }
+        lines.push({ runs: cur, w: curW, h, align });
+        cur = []; curW = 0;
+      };
+      if (!p.runs.length) { flush(true); continue; }
+      for (const run of p.runs) {
+        const rt = this.text({ sz: baseT.sz, b: false }, t.def, p.props, run.props);
+        if (run.text === '\n') { flush(true); continue; }
+        for (const piece of run.text.split(/(\s+)/)) {
+          if (!piece) continue;
+          const pw = this.measure(piece, rt);
+          if (t.wrap && curW + pw > r.w + 0.5 && curW > 0 && /\S/.test(piece)) flush();
+          if (!cur.length && !/\S/.test(piece)) continue;
+          cur.push({ text: piece, t: rt, w: pw });
+          curW += pw;
+        }
+      }
+      flush(true);
+    }
+    const total = lines.reduce((a, l) => a + l.h, 0);
+    let y = t.anchor === 'ctr' ? r.y + (r.h - total) / 2 : t.anchor === 'b' ? r.y + r.h - total : r.y;
+    c.textBaseline = 'alphabetic';
+    c.textAlign = 'left';
+    for (const ln of lines) {
+      let x = ln.align === 'ctr' ? r.x + (r.w - ln.w) / 2 : ln.align === 'r' ? r.x + r.w - ln.w : r.x;
+      // linha base a ~0,8 da altura da linha (ascendente da fonte ≈ 1 em de 1,2)
+      const base = y + ln.h * 0.8;
+      for (const run of ln.runs) {
+        c.font = this.font(run.t);
+        c.fillStyle = rgba(run.t.color, run.t.alpha);
+        c.fillText(run.text, x, base);
+        if (run.t.u) c.fillRect(x, base + run.t.sz * S * 0.12, run.w, Math.max(1, run.t.sz * S / 14));
+        x += run.w;
+      }
+      y += ln.h;
+    }
+    c.restore();
   }
 
   // ───────────── título ─────────────
@@ -537,7 +634,7 @@ class Renderer {
   }
 
   /** `extraB`: folga a mais entre a legenda de baixo e a plotagem (gráficos com eixos). */
-  private layoutLegend(inner: Rect, extraB = 0): { entries: ReturnType<Renderer['legendEntries']>; t: ResolvedText; rows: { x: number; y: number; e: ReturnType<Renderer['legendEntries']>[number] }[]; box: Rect; rest: Rect; overlay: boolean } | undefined {
+  private layoutLegend(inner: Rect, extraB = 0): { entries: ReturnType<Renderer['legendEntries']>; t: ResolvedText; rows: { x: number; y: number; e: ReturnType<Renderer['legendEntries']>[number]; lines?: string[] }[]; box: Rect; rest: Rect; overlay: boolean } | undefined {
     const lg = this.cs.legend;
     if (!lg) return undefined;
     const entries = this.legendEntries();
@@ -548,7 +645,7 @@ class Renderer {
     const gapKey = em * 0.25;
     const pitch = this.lineH(t) + 6 * S;
     const widths = entries.map((e) => key(e) + gapKey + this.measure(e.label, t));
-    const rows: { x: number; y: number; e: (typeof entries)[number] }[] = [];
+    const rows: { x: number; y: number; e: (typeof entries)[number]; lines?: string[] }[] = [];
     let box: Rect;
     let rest = inner;
     const vertical = lg.pos === 'r' || lg.pos === 'l' || lg.pos === 'tr';
@@ -594,6 +691,41 @@ class Renderer {
       const gap = 4 * S;
       rest = lg.pos === 't' ? { x: inner.x, y: inner.y + bh + gap, w: inner.w, h: inner.h - bh - gap } : { x: inner.x, y: inner.y, w: inner.w, h: inner.h - bh - gap - extraB };
     }
+    const L = lg.layout;
+    if (L && L.w !== undefined && L.h !== undefined && L.w > 0 && L.h > 0) {
+      // caixa manual com tamanho (medido, syn legend1 e senado-ifi; legendPos não importa):
+      // - todas cabem numa linha → uma linha, centrada na caixa;
+      // - senão → UMA coluna centrada na horizontal, a entrada que não cabe quebra em
+      //   palavras; faixas iguais de altura h/n, cada uma com a altura da maior entrada
+      //   centrada nela (a 1ª linha do texto alinha com a chave).
+      // O espaço da posição (legendPos) continua reservado.
+      const A = this.area;
+      const bx = L.xMode === 'factor' ? box.x + (L.x ?? 0) * A.w : A.x + (L.x ?? 0) * A.w;
+      const byy = L.yMode === 'factor' ? box.y + (L.y ?? 0) * A.h : A.y + (L.y ?? 0) * A.h;
+      const bw = L.w * A.w, bh = L.h * A.h;
+      const sp = em * 1.2, n = widths.length;
+      rows.length = 0;
+      const rowW = widths.reduce((a, w) => a + w, 0) + sp * (n - 1);
+      if (rowW <= bw) {
+        let x = bx + (bw - rowW) / 2;
+        entries.forEach((e, i) => { rows.push({ x, y: byy + bh / 2, e }); x += widths[i]! + sp; });
+      } else {
+        const lh = this.lineH(t);
+        // quebra só a entrada maior que a caixa inteira; todas aparecem, mesmo apertadas
+        // (medido, worldbank: 3 entradas de 32 pt numa caixa de 122 px)
+        const lines = entries.map((e) => { const kw = key(e) + gapKey; return this.wrap(e.label, t, Math.max(lh, bw - kw)); });
+        const ws = entries.map((e, i) => key(e) + gapKey + Math.max(...lines[i]!.map((l) => this.measure(l, t))));
+        const colW = Math.max(...ws);
+        const maxH = Math.max(...lines.map((l) => l.length)) * lh;
+        const visible = n;
+        const slot = bh / visible;
+        const x0 = bx + (bw - colW) / 2;
+        entries.slice(0, visible).forEach((e, i) => rows.push({ x: x0, y: byy + slot * i + (slot - maxH) / 2 + lh / 2, e, lines: lines[i]! }));
+      }
+      // fundo/moldura da legenda na caixa manual
+      box = { x: bx + 2 * S, y: byy, w: bw - 4 * S, h: bh };
+      return { entries, t, rows, box, rest, overlay: lg.overlay };
+    }
     if (lg.layout) {
       const A = this.area;
       const dx = lg.layout.x !== undefined ? A.x + lg.layout.x * A.w - box.x : 0;
@@ -614,7 +746,7 @@ class Renderer {
       if (e.kind === 'line') {
         const kw = em * 1.9;
         const col = this.seriesColor(e.s, e.g);
-        const ln = mergeLine({ paint: { kind: 'solid', color: col }, w: e.g.kind === 'line' || e.g.kind === 'scatter' ? 2.25 : 0.75 }, e.s.sp.line);
+        const ln = mergeLine({ paint: { kind: 'solid', color: col }, w: e.g.kind === 'line' || e.g.kind === 'scatter' ? (this.cs.themeLn ? this.seriesLineW() : 2.25) : 0.75 }, e.s.sp.line);
         if (this.setLine(ln!)) { c.beginPath(); c.moveTo(x, r.y); c.lineTo(x + kw, r.y); c.stroke(); c.setLineDash([]); }
         const m = this.markerOf(e.g, e.s, -1);
         if (m) this.paintMarker(m, x + kw / 2, r.y, e.s, e.g, Math.min(m.size, 7));
@@ -629,7 +761,8 @@ class Renderer {
         if (line && this.setLine(line)) { c.strokeRect(kr.x, kr.y, kr.w, kr.h); c.setLineDash([]); }
         x += k;
       }
-      this.drawLines([e.label], L.t, x + em * 0.25, r.y, 'left');
+      const ls = r.lines ?? [e.label];
+      this.drawLines(ls, L.t, x + em * 0.25, r.y + (ls.length - 1) * this.lineH(L.t) / 2, 'left');
     }
   }
 
@@ -1484,9 +1617,22 @@ class Renderer {
     if (line && this.setLine(line)) { c.stroke(); c.setLineDash([]); }
   }
 
+  /**
+   * Largura default da linha de série: com a 1ª linha do tema (lnStyleLst, `themeLn`)
+   * = 3× (estilos 1–8), 7× (25–32), 5× (os demais) — medido no Excel com três temas
+   * (syn lw1/lw2/lw3: 0,5/2/1 pt → 1,5/6/3 pt nos 1–8); sem ela, a do PowerPoint
+   * (2,25 pt nos 1–8, 4,5 pt nos demais).
+   */
+  private seriesLineW(): number {
+    const row = this.styleRow();
+    const ln1 = this.cs.themeLn?.[0];
+    if (ln1 !== undefined && ln1 > 0) return ln1 * (row === 0 ? 3 : row === 3 ? 7 : 5);
+    return row === 0 ? 2.25 : 4.5;
+  }
+
   private seriesLine(g: Group, s: Series): LineProps | undefined {
     const col = this.seriesColor(s, g);
-    return mergeLine({ paint: { kind: 'solid', color: col }, w: this.styleRow() === 0 ? 2.25 : 4.5, cap: 'rnd' }, s.sp.line);
+    return mergeLine({ paint: { kind: 'solid', color: col }, w: this.seriesLineW(), cap: 'rnd' }, s.sp.line);
   }
 
   private pathThrough(pts: ({ x: number; y: number } | null)[], smooth: boolean, span: boolean): void {

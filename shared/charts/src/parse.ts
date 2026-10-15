@@ -6,7 +6,7 @@
 import { childElements, firstChild, textContent, descend, node, valNum, valStr, type XmlNode } from './xml.js';
 import type {
   ChartSpace, ChartTitle, TextProps, Paint, LineProps, ShapeProps, ManualLayout, RichPara, NumFmt, DLbls,
-  Marker, DataPoint, Series, Group, GroupKind, Axis, Legend, GradStop,
+  Marker, DataPoint, Series, Group, GroupKind, Axis, Legend, GradStop, UserShape, UserText,
 } from './model.js';
 
 export interface ChartHost {
@@ -41,6 +41,16 @@ export interface ChartHost {
    * Ausente = o comportamento anterior (hospedeiro que não sabe a origem).
    */
   fileFormat?: 'mso2007' | 'modern';
+  /**
+   * Desenho do gráfico (`c:userShapes` da parte chartDrawing ligada pelos rels
+   * do gráfico), já parseado e com prefixos canônicos (`cdr:`, `a:`).
+   */
+  userShapes?: XmlNode;
+  /**
+   * Larguras (pt) do `a:lnStyleLst` do tema. O Excel deriva delas a largura
+   * default das linhas de série (medido); sem elas vale a regra do PowerPoint.
+   */
+  themeLineWidths?: number[];
 }
 
 /** Preenchimento DrawingML (filho de `el`: noFill/solid/grad/patt) → Paint, com o resolvedor de cor dado. */
@@ -561,6 +571,98 @@ class Parser {
     if (lay) lg.layout = lay;
     return lg;
   }
+
+  /**
+   * `c:userShapes` → formas: cada âncora (`relSizeAnchor` from/to em frações,
+   * `absSizeAnchor` from + ext em EMU) com sp/pic/cxnSp; grupos achatados com a
+   * transformação filho → caixa da âncora (como o desenho da planilha).
+   */
+  userShapes(root: XmlNode): UserShape[] {
+    const out: UserShape[] = [];
+    const num = (el: XmlNode | undefined, name: string): number => {
+      const c = firstChild(el, name);
+      const v = c ? parseFloat(textContent(c)) : NaN;
+      return Number.isFinite(v) ? v : 0;
+    };
+    const attr = (el: XmlNode | undefined, k: string): number => {
+      const v = el ? parseFloat(el.attrs[k] ?? '0') : 0;
+      return Number.isFinite(v) ? v : 0;
+    };
+    for (const an of childElements(root)) {
+      const rel = an.name === 'cdr:relSizeAnchor', abs = an.name === 'cdr:absSizeAnchor';
+      if (!rel && !abs) continue;
+      const from = firstChild(an, 'cdr:from'), to = firstChild(an, 'cdr:to'), ext = firstChild(an, 'cdr:ext');
+      const x = num(from, 'cdr:x'), y = num(from, 'cdr:y');
+      const box = rel
+        ? { x, y, w: num(to, 'cdr:x') - x, h: num(to, 'cdr:y') - y }
+        : { x, y, w: attr(ext, 'cx') / 12700, h: attr(ext, 'cy') / 12700, abs: true as const };
+      if (!(box.w > 0 && box.h > 0)) continue;
+      const visit = (el: XmlNode, xf: ((px: number, py: number) => [number, number]) | undefined): void => {
+        for (const c of childElements(el)) {
+          if (c.name === 'cdr:grpSp') {
+            const gx = firstChild(firstChild(c, 'cdr:grpSpPr'), 'a:xfrm');
+            const off = firstChild(gx, 'a:off'), e = firstChild(gx, 'a:ext'), cOff = firstChild(gx, 'a:chOff'), cExt = firstChild(gx, 'a:chExt');
+            const cw = attr(cExt, 'cx') || attr(e, 'cx') || 1, ch = attr(cExt, 'cy') || attr(e, 'cy') || 1;
+            const ew = attr(e, 'cx') || cw, eh = attr(e, 'cy') || ch;
+            const ox = attr(off, 'x'), oy = attr(off, 'y'), cx = attr(cOff, 'x'), cy = attr(cOff, 'y');
+            visit(c, xf ? (px, py) => xf(ox + (px - cx) * ew / cw, oy + (py - cy) * eh / ch) : (px, py) => [(px - cx) / cw, (py - cy) / ch]);
+            continue;
+          }
+          if (c.name !== 'cdr:sp' && c.name !== 'cdr:pic' && c.name !== 'cdr:cxnSp') continue;
+          const nv = descend(c, 'cdr:cNvPr');
+          if (nv?.attrs['hidden'] === '1' || nv?.attrs['hidden'] === 'true') continue;
+          const spPr = firstChild(c, 'cdr:spPr');
+          const xfrm = firstChild(spPr, 'a:xfrm');
+          const u: UserShape = { ...box, geom: firstChild(spPr, 'a:prstGeom')?.attrs['prst'] ?? (firstChild(spPr, 'a:custGeom') ? 'custom' : 'rect'), sp: this.shape(spPr) };
+          if (xf) {
+            const off = firstChild(xfrm, 'a:off'), e = firstChild(xfrm, 'a:ext');
+            const ox = attr(off, 'x'), oy = attr(off, 'y');
+            const [x0, y0] = xf(ox, oy), [x1, y1] = xf(ox + attr(e, 'cx'), oy + attr(e, 'cy'));
+            if (!(x1 > x0 && y1 > y0)) continue;
+            u.sub = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+          }
+          const rot = attr(xfrm, 'rot') / 60000;
+          if (rot) u.rot = rot;
+          if (xfrm?.attrs['flipH'] === '1') u.flipH = true;
+          if (xfrm?.attrs['flipV'] === '1') u.flipV = true;
+          // estilo (cdr:style): lnRef/fillRef/fontRef com a cor do tema
+          const st = firstChild(c, 'cdr:style');
+          const ref = (k: string) => { const r = firstChild(st, k); return r ? { idx: parseInt(r.attrs['idx'] ?? '0', 10) || 0, color: this.color(colorChild(r)) } : undefined; };
+          const fr = ref('a:fillRef'), lr = ref('a:lnRef'), fo = ref('a:fontRef');
+          if (!u.sp.fill && fr && fr.idx > 0 && fr.color) u.sp.fill = this.host.fillStyle?.(fr.idx, fr.color) ?? { kind: 'solid', color: fr.color };
+          if (lr && lr.idx > 0 && lr.color) u.sp.line = { paint: { kind: 'solid', color: lr.color }, w: [0, 0.75, 1, 1.5][Math.min(3, lr.idx)]!, ...u.sp.line };
+          if (c.name === 'cdr:cxnSp' && u.geom === 'rect') u.geom = 'line';
+          if (c.name === 'cdr:pic') {
+            const blip = descend(firstChild(c, 'cdr:blipFill'), 'a:blip');
+            const k = blip && this.host.blip ? this.host.blip(blip) : undefined;
+            if (k) u.blip = k;
+          }
+          const tb = firstChild(c, 'cdr:txBody');
+          if (tb && childElements(tb, 'a:p').some((p) => descend(p, 'a:t') && textContent(descend(p, 'a:t')!).length)) {
+            const body = firstChild(tb, 'a:bodyPr');
+            const ins = (k: string, d: number) => (body?.attrs[k] !== undefined ? attr(body, k) / 12700 : d);
+            const def = this.runProps(descend(firstChild(firstChild(tb, 'a:lstStyle'), 'a:lvl1pPr'), 'a:defRPr'));
+            if (def.color === undefined && fo?.color) def.color = fo.color;
+            const vert = body?.attrs['vert'];
+            const t: UserText = {
+              paras: this.rich(tb),
+              ins: { l: ins('lIns', 7.2), t: ins('tIns', 3.6), r: ins('rIns', 7.2), b: ins('bIns', 3.6) },
+              anchor: body?.attrs['anchor'] === 'ctr' ? 'ctr' : body?.attrs['anchor'] === 'b' ? 'b' : 't',
+              wrap: body?.attrs['wrap'] !== 'none',
+              clip: body?.attrs['vertOverflow'] === 'clip',
+              def,
+            };
+            const tr = (vert === 'vert' || vert === 'eaVert' ? 90 : vert === 'vert270' ? -90 : 0) + attr(body, 'rot') / 60000;
+            if (tr) t.rot = tr;
+            u.text = t;
+          }
+          out.push(u);
+        }
+      };
+      visit(an, undefined);
+    }
+    return out;
+  }
 }
 
 function styleOf(root: XmlNode): number {
@@ -598,6 +700,7 @@ export function parseChartSpace(root: XmlNode, host: ChartHost): ChartSpace {
     ...(host.fonts?.minor ? { minorFont: host.fonts.minor } : {}),
     ...(host.fonts?.major ? { majorFont: host.fonts.major } : {}),
     ...(host.fillStyle ? { themeFill: (idx: number, ph: string) => host.fillStyle!(idx, ph) } : {}),
+    ...(host.themeLineWidths?.length ? { themeLn: host.themeLineWidths } : {}),
   };
   const chart = firstChild(root, 'c:chart');
   if (!chart) return cs;
@@ -647,6 +750,10 @@ export function parseChartSpace(root: XmlNode, host: ChartHost): ChartSpace {
   if (lg) cs.legend = lg;
   const db = valStr(chart, 'c:dispBlanksAs');
   if (db === 'gap' || db === 'zero' || db === 'span') cs.dispBlanksAs = db;
+  if (host.userShapes) {
+    const us = P.userShapes(host.userShapes);
+    if (us.length) cs.userShapes = us;
+  }
   return cs;
 }
 
