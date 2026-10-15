@@ -274,7 +274,15 @@ export function layoutTextBody(
     // indent de 1ª linha vale SÓ para a primeira linha do parágrafo;
     // continuações voltam para marL (hanging/first-line indent do PowerPoint)
     const contX = insL + marL;
-    const firstX = p.bullet ? contX : insL + Math.max(0, marL + indent);
+    let firstX = p.bullet ? contX : insL + Math.max(0, marL + indent);
+    // marcador que invade o início do texto (marL ≤ posição do marcador, ex. marL=0
+    // indent=0 dos .ppt antigos): o texto da 1ª linha começa logo depois dele (gd-082972)
+    // (só sem recuo deslocado: com indent < 0 o app mantém o texto em marL mesmo que o
+    // marcador encoste — gd-000165)
+    if (bullet && !bullet.image && bullet.x >= firstX) {
+      const bEnd = bullet.x + measureEmu(bullet.text, bullet.font);
+      if (bEnd > firstX) firstX = bEnd;
+    }
     const words = tokenize(runs);
     // tabulação: próxima parada depois de xRel (EMU desde a margem esquerda da caixa)
     const defTab = p.defTabSz && p.defTabSz > 0 ? p.defTabSz : 914400;
@@ -336,9 +344,20 @@ export function layoutTextBody(
       const wd = words[wi]!;
       if (wd.text === '\n') { flush(); continue; }
       if (wd.text === '\t') {
-        const xRel = cur.marL - insL + curW;
+        let xRel = cur.marL - insL + curW;
+        let target = tabTo(xRel, segOf(words, wi + 1));
+        // o TAB não é ponto de quebra: fica colado à palavra seguinte — se o par
+        // não cabe, os dois vão para a linha seguinte e o TAB vale lá (texto antigo
+        // "…making \tenvironments" recuado na 2ª linha — gd-082972)
+        const nw = words[wi + 1];
+        const nextW = nw && nw.text !== '\t' && nw.text !== '\n' ? measureRun(nw.text.replace(/\s+$/, ''), nw.run, fontOf(nw.run, fontScale, fOpts)) : 0;
+        if (wrap && cur.runs.length > 0 && target + nextW - (cur.marL - insL) > Math.max(0, colW - (cur.marL - insL))) {
+          flush();
+          xRel = cur.marL - insL + curW;
+          target = tabTo(xRel, segOf(words, wi + 1));
+        }
         cur.runs.push({ text: '\t', run: wd.run });
-        curW += tabTo(xRel, segOf(words, wi + 1)) - xRel;
+        curW += target - xRel;
         continue;
       }
       const f = fontOf(wd.run, fontScale, fOpts);
