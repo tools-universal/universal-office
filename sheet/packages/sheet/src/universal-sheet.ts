@@ -1613,18 +1613,12 @@ export class UniversalSheetElement extends HTMLElement {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(left + 1, top + 1, drawW - 1, drawH - 1);
           }
-          // preenchimento (sólido, padrão, degradê) na área da célula (inclui
-          // as linhas de grade de cima/da esquerda); a grade da direita/de
-          // baixo também some — vira fundo — se a vizinha não for preenchida
-          // (medido: t-colrow/t-fills; a fronteira é da célula de baixo/direita.
-          // As bordas EXTERNAS da imagem da câmera saem sempre sem cor — artefato
-          // do oráculo, não do Excel: ver lo-condFormat_cellis)
-          paintCellFill(ctx, st.fill, left, top, drawW, drawH, -sx, -sy);
-          if (st.filled && v.showGridLines !== false) {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(Math.round(left + drawW), top, 1, drawH);
-            ctx.fillRect(left, Math.round(top + drawH), drawW, 1);
-          }
+          // preenchimento (sólido, padrão, degradê, CF) cobre a célula E as 4
+          // linhas de grade em volta; entre duas preenchidas a fronteira fica
+          // com a de baixo/direita (pinta depois). Medido em t-fillgrid (célula
+          // isolada no meio do range). A moldura EXTERNA da imagem da câmera
+          // sai sempre sem cor — artefato do oráculo (lo-condFormat_cellis)
+          paintCellFill(ctx, st.fill, left, top, drawW + 1, drawH + 1, -sx, -sy);
           // formatação condicional: barra de dados e ícone (o fundo já veio no estilo)
           if (st.cf?.bar) paintDataBar(ctx, st.cf.bar, left, top, drawW, drawH);
           if (st.cf?.icon) paintCfIcon(ctx, st.cf.icon.set, st.cf.icon.index, Math.round(left) + 2 * this.zoom, Math.round(top + drawH) - 17 * this.zoom, 16 * this.zoom);
@@ -1778,10 +1772,16 @@ export class UniversalSheetElement extends HTMLElement {
     if (!active) {
       for (let k = 0; k < 4; k++) ctx.fillRect(cx - 3 + k, ty + k, 7 - 2 * k, 1);
     } else {
-      // funil (filtro aplicado) + seta pequena
-      for (let k = 0; k < 3; k++) ctx.fillRect(cx - 4 + k, ty - 1 + k, 7 - 2 * k, 1);
-      ctx.fillRect(cx - 1, ty + 2, 1, 4);
-      for (let k = 0; k < 3; k++) ctx.fillRect(cx + 2 + k, ty + 3 + k, 5 - 2 * k, 1);
+      // filtro aplicado (medido em lo-dateAutofilter): funil 9·7·5 px + haste
+      // de 3 px à direita e setinha 3·1 px à esquerda
+      const s = size / 17;
+      const fx = x0 + Math.round(7 * s), fy = y0 + Math.round(2 * s);
+      ctx.fillRect(fx, fy, 9, 1);
+      ctx.fillRect(fx + 1, fy + 1, 7, 1);
+      ctx.fillRect(fx + 2, fy + 2, 5, 1);
+      ctx.fillRect(fx + 3, fy + 3, 3, 5);
+      ctx.fillRect(x0 + Math.round(4 * s), y0 + Math.round(8 * s), 3, 1);
+      ctx.fillRect(x0 + Math.round(5 * s), y0 + Math.round(9 * s), 1, 1);
     }
     ctx.restore();
   }
