@@ -1,16 +1,20 @@
 /**
- * Motor de formatação numérica/data fiel ao oráculo (numFmt formatCode).
+ * Motor de formatação numérica/data fiel ao Excel (numFmt formatCode), um só
+ * para Sheet e gráficos.
  *
- * Replicar o app de referência 1:1 exige tratar: General (limite de ~11 caracteres + virada
- * para notação científica), seções `pos;neg;zero;texto`, agrupamento e separador
- * decimal LOCALIZADOS (pt-BR: milhar "." e decimal ","), porcentagem, notação
- * científica `E+`, frações `?/?`, texto `@`, literais (`"..."`, `\x`), espaçador
- * `_x`, preenchimento `*x`, cores entre colchetes (`[Red]`) e tempo decorrido
- * (`[h]`/`[m]`/`[s]`). Cada regra é fixada pelo oráculo real do app de referência em
- * tools/excel-lab/results/oracle-format.json (app de referência 16.0 pt-BR).
+ * O formatCode é TOKENIZADO (cache por código) e cada seção é emitida token a
+ * token, como o Excel: literais entre placeholders sempre aparecem (`#\ ###\ ##0`
+ * c/ 62 → "  62"), dígitos são distribuídos da direita para a esquerda (os que
+ * sobram vão para o 1º placeholder), `?` vira espaço, `,` agrupa entre
+ * placeholders e escala ÷1000 depois do último, só 15 algarismos
+ * significativos, `_x`/`*x` (espaço da largura de x / preenchimento) ficam como
+ * PARTES para quem conhece a largura da coluna, condições `[<=100]`, locale
+ * `[$-409]` (nomes de mês/dia), moeda `[$€-2]`, sistema `[$-F800]`, datas com
+ * arredondamento ao segundo, frações de segundo e o bug de 1900.
+ * Regras MEDIDAS no Excel 365 pt-BR (Range.Text) com pastas sintéticas — lab
+ * do corpus do Sheet (E:\UniversalSheetTest\_lab\syn\f).
  *
- * Este módulo é PURO (sem DOM) — vive no core para ser testável e reutilizável
- * pelo renderer e por exportadores.
+ * Este módulo é PURO (sem DOM).
  */
 
 export interface FormatLocale {
@@ -22,14 +26,17 @@ export interface FormatLocale {
   daysLong: string[];
   ampm: [string, string];
   /**
-   * Overrides dos builtins dependentes de locale (ids 14–22 no app de
-   * referência) — consultados ANTES de BUILTIN_FORMATS. Capturado do oráculo
-   * pt-BR: um xlsx com xf numFmtId=14 exibe `17/06/2026`, não `6/17/2026`.
+   * Overrides dos builtins dependentes de locale (ids 14–22 no Excel) —
+   * consultados ANTES de BUILTIN_FORMATS. Oráculo pt-BR: um xlsx com xf
+   * numFmtId=14 exibe `17/06/2026`, não `6/17/2026`.
    */
   builtins?: Record<number, string>;
+  /** Data longa do sistema (`[$-F800]`) e hora do sistema (`[$-F400]`). */
+  sysDate?: string;
+  sysTime?: string;
 }
 
-/** Locale padrão pt-BR (app de referência 16.0 pt-BR usa nomes minúsculos). */
+/** Locale padrão pt-BR (Excel 16.0 pt-BR usa nomes minúsculos). */
 export const PT_BR: FormatLocale = {
   decimal: ',',
   group: '.',
@@ -41,28 +48,90 @@ export const PT_BR: FormatLocale = {
   // Oráculo COM 2026-07-01 (builtin-probe.xlsx): NumberFormatLocal por id —
   // 14 dd/mm/aaaa · 15 dd/mmm/aa · 16 dd/mmm · 17 mmm/aa · 20 hh:mm ·
   // 21 hh:mm:ss · 22 dd/mm/aaaa hh:mm (18/19 iguais ao en-US)
-  // Corpus .xls (Range.Text, 2026-10): 37–40 em pt-BR são sem parênteses e sem
-  // o recuo `_)` — 37 com −142975 exibe "-142.975"; 39 com 45,21 exibe "45,21"
   builtins: {
     14: 'dd/mm/yyyy', 15: 'dd/mmm/yy', 16: 'dd/mmm', 17: 'mmm/yy',
     20: 'hh:mm', 21: 'hh:mm:ss', 22: 'dd/mm/yyyy hh:mm',
-    37: '#,##0;-#,##0', 38: '#,##0;[Red]-#,##0', 39: '#,##0.00;-#,##0.00', 40: '#,##0.00;[Red]-#,##0.00',
+  },
+  // medido: [$-F800] → "quarta-feira, 1 de março de 2023"; [$-F400] → "18:00:00"
+  sysDate: 'dddd, d" de "mmmm" de "yyyy',
+  sysTime: 'hh:mm:ss',
+};
+
+/** Nomes de mês/dia por idioma primário do LCID (`[$-409]` → inglês). Medidos no Excel. */
+const LANG_NAMES: Record<number, Pick<FormatLocale, 'monthsShort' | 'monthsLong' | 'daysShort' | 'daysLong'> & { ampm?: [string, string] }> = {
+  0x09: { // inglês — "September 11, 2006", "01-Mar-2023", "Wed Mar"
+    monthsShort: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    monthsLong: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    daysShort: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    daysLong: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  },
+  0x16: PT_BR,
+  0x0c: { // francês — "mercredi mars"
+    monthsShort: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'],
+    monthsLong: ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'],
+    daysShort: ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'],
+    daysLong: ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'],
+  },
+  0x07: { // alemão — "Mittwoch März"
+    monthsShort: ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'],
+    monthsLong: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+    daysShort: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
+    daysLong: ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'],
+  },
+  0x0a: { // espanhol — "miércoles marzo"
+    monthsShort: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
+    monthsLong: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
+    daysShort: ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'],
+    daysLong: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'],
+  },
+  0x10: { // italiano
+    monthsShort: ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'],
+    monthsLong: ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'],
+    daysShort: ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'],
+    daysLong: ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'],
+  },
+  0x11: { // japonês — "水曜日 3月"
+    monthsShort: Array.from({ length: 12 }, (_, i) => `${i + 1}月`),
+    monthsLong: Array.from({ length: 12 }, (_, i) => `${i + 1}月`),
+    daysShort: ['日', '月', '火', '水', '木', '金', '土'],
+    daysLong: ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'],
+    ampm: ['午前', '午後'],
   },
 };
 
 export interface FormatResult {
   /** Texto exibido (já localizado). */
   text: string;
-  /** Cor pedida por código `[Red]`/`[Blue]`… em #RRGGBB, se houver. */
+  /** Cor pedida por código `[Red]`/`[Color12]`… em #RRGGBB, se houver. */
   color?: string;
 }
 
 export interface FormatOptions {
   locale?: FormatLocale;
-  /** Largura da coluna em caracteres — habilita o preenchimento `*x` (raro). */
+  /** Largura da coluna em caracteres — `*x` repete x até completá-la (sem ela, 1 vez). */
   colWidthChars?: number;
   /** Sistema de data 1904 (Mac legacy): epoch em 1904-01-01 (serial +1462). */
   date1904?: boolean;
+  /** `<sheetView showZeros="0">`: zero sem seção própria de zero sai vazio. */
+  showZeros?: boolean;
+}
+
+/**
+ * Pedaço do texto formatado. `skip` (`_x`) ocupa a largura de x; `fill` (`*x`)
+ * repete x até preencher a coluna; `general` é um número no formato Geral cuja
+ * precisão depende da largura (o chamador que conhece a coluna o reduz).
+ */
+export type FmtPart =
+  | { t: 'text'; s: string }
+  | { t: 'skip'; ch: string }
+  | { t: 'fill'; ch: string }
+  | { t: 'general'; v: number };
+
+export interface FormatParts {
+  parts: FmtPart[];
+  color?: string;
+  /** Sem seção aplicável / data fora da faixa: o Excel mostra "####". */
+  overflow?: boolean;
 }
 
 /** Built-ins (numFmtId → formatCode) presentes em todo styles.xml. */
@@ -81,95 +150,157 @@ export const BUILTIN_FORMATS: Record<number, string> = {
 
 /**
  * Resolve o formatCode de um numFmtId builtin honrando o locale
- * (ids 14–22 são dependentes de locale no app de referência).
+ * (ids 14–22 são dependentes de locale no Excel).
  */
 export function builtinFormatCode(id: number, locale: FormatLocale = PT_BR): string | undefined {
   return locale.builtins?.[id] ?? BUILTIN_FORMATS[id];
 }
 
 const COLOR_NAMES: Record<string, string> = {
-  black: '#000000', blue: '#0000FF', cyan: '#00FFFF', green: '#008000',
+  black: '#000000', blue: '#0000FF', cyan: '#00FFFF', green: '#00FF00',
   magenta: '#FF00FF', red: '#FF0000', white: '#FFFFFF', yellow: '#FFFF00',
 };
+/** `[ColorN]` (1..56) = paleta indexada padrão do Excel (índices 8..63). */
+const COLOR_N = [
+  '000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', '800000', '008000', '000080', '808000',
+  '800080', '008080', 'C0C0C0', '808080', '9999FF', '993366', 'FFFFCC', 'CCFFFF', '660066', 'FF8080', '0066CC', 'CCCCFF',
+  '000080', 'FF00FF', 'FFFF00', '00FFFF', '800080', '800000', '008080', '0000FF', '00CCFF', 'CCFFFF', 'CCFFCC', 'FFFF99',
+  '99CCFF', 'FF99CC', 'CC99FF', 'FFCC99', '3366FF', '33CCCC', '99CC00', 'FFCC00', 'FF9900', 'FF6600', '666699', '969696',
+  '003366', '339966', '003300', '333300', '993300', '993366', '333399', '333333',
+];
 
-/** Arredonda `a` para `d` casas como o app de referência (metade para longe de zero). */
-function excelRound(a: number, d: number): number {
-  if (!isFinite(a) || a === 0) return a;
-  const neg = a < 0;
-  const f = Math.pow(10, d);
-  // toPrecision(15) remove o ruído binário (ex.: 0.005*100 = 0.5000…01 → 0.5),
-  // garantindo o arredondamento "metade para cima" do app de referência (0.005→0.01).
-  const scaled = Number((Math.abs(a) * f).toPrecision(15));
-  return (neg ? -1 : 1) * Math.round(scaled) / f;
-}
+// ──────────────────────────── Dígitos ────────────────────────────
 
-/** Insere separador de milhar em uma string de dígitos inteiros (sem sinal). */
-function groupInt(digits: string, sep: string): string {
-  let out = '';
-  for (let i = 0; i < digits.length; i++) {
-    if (i > 0 && (digits.length - i) % 3 === 0) out += sep;
-    out += digits[i];
+/**
+ * Dígitos de `v` (≥ 0) com `nFrac` casas, como o Excel: só 15 algarismos
+ * significativos (o resto vira 0) e arredondamento decimal "metade para longe
+ * de zero" sobre essa representação (0,005 → 0,01; 2,5 → 3). Devolve a parte
+ * inteira SEM zeros à esquerda ('' para 0) e a fracionária com nFrac dígitos.
+ */
+export function decimalDigits(v: number, nFrac: number): [string, string] {
+  if (!(v > 0) || !isFinite(v)) return ['', '0'.repeat(nFrac)];
+  const s = v.toPrecision(15);
+  const ei = s.indexOf('e');
+  const mant = ei >= 0 ? s.slice(0, ei) : s;
+  const exp = ei >= 0 ? parseInt(s.slice(ei + 1), 10) : 0;
+  const dot = mant.indexOf('.');
+  let digits = dot >= 0 ? mant.slice(0, dot) + mant.slice(dot + 1) : mant;
+  // valor = 0.d1d2… × 10^point
+  let point = (dot >= 0 ? dot : mant.length) + exp;
+  let lead = 0;
+  while (lead < digits.length - 1 && digits[lead] === '0') lead++;
+  digits = digits.slice(lead);
+  point -= lead;
+  const cut = point + nFrac;
+  if (cut < 0) return ['', '0'.repeat(nFrac)];
+  if (cut < digits.length) {
+    const up = digits.charCodeAt(cut) >= 53; // '5'
+    digits = digits.slice(0, cut);
+    if (up) {
+      let i = digits.length - 1;
+      const arr = digits.split('');
+      while (i >= 0 && arr[i] === '9') { arr[i] = '0'; i--; }
+      if (i >= 0) arr[i] = String.fromCharCode(arr[i]!.charCodeAt(0) + 1);
+      else { arr.unshift('1'); point++; }
+      digits = arr.join('');
+    }
   }
-  return out;
+  const total = point + nFrac;
+  if (digits.length < total) digits = digits.padEnd(total, '0');
+  let intStr: string, fracStr: string;
+  if (point > 0) { intStr = digits.slice(0, point); fracStr = digits.slice(point, point + nFrac); }
+  else { intStr = ''; fracStr = ('0'.repeat(-point) + digits).slice(0, nFrac); }
+  intStr = intStr.replace(/^0+/, '');
+  return [intStr, fracStr.padEnd(nFrac, '0')];
 }
+
 
 // ──────────────────────────── General ────────────────────────────
 
 /**
- * Formato General do app de referência: cabe em ~11 caracteres (a parte numérica, sem sinal);
- * estoura para notação científica quando inteiro não cabe ou o decimal seria
- * arredondado a zero. Fixado pelo oráculo: 0.6666…→"0,666666667", 1234567.89→
+ * Formato Geral do Excel com `budget` caracteres (sinal não conta; 11 numa
+ * coluna larga). Estoura para científico quando o inteiro não cabe ou o
+ * decimal arredondaria a zero. Oráculo: 0.6666…→"0,666666667", 1234567.89→
  * "1234567,89", 123456789012→"1,23457E+11", 999999999999→"1E+12", 1e-10→"1E-10".
+ * Numa coluna estreita o chamador passa as casas que cabem (ver cell-text do
+ * Sheet); devolve '' quando nem o científico mínimo cabe.
  */
-export function formatGeneral(x: number, loc: FormatLocale = PT_BR): string {
+export function formatGeneral(x: number, loc: FormatLocale = PT_BR, budget = 11): string {
   if (x === 0) return '0';
-  if (!isFinite(x)) return x > 0 ? '' : '';
+  if (!isFinite(x)) return '';
   const neg = x < 0;
   const a = Math.abs(x);
-  const BUDGET = 11; // caracteres da parte numérica (separador conta, sinal não)
-  const intLen = a >= 1 ? Math.floor(Math.log10(a)) + 1 : 1;
+  const body = generalBody(a, loc, budget);
+  return body === '' ? '' : (neg ? '-' : '') + body;
+}
 
-  let body: string;
-  if (intLen > BUDGET) {
-    body = sciGeneral(a, loc, BUDGET);
-  } else {
-    const avail = BUDGET - intLen;             // espaço p/ "."+casas
-    const decimals = avail > 1 ? avail - 1 : 0;
-    const rounded = excelRound(a, decimals);
-    let s = rounded.toFixed(decimals);
-    if (s.includes('.')) s = s.replace(/0+$/, '').replace(/\.$/, '');
-    if (decimals > 0 && (s === '0' || s === '')) {
-      // decimal arredondou a zero mas o valor não é zero → científico
-      body = sciGeneral(a, loc, BUDGET);
-    } else {
-      body = s.replace('.', loc.decimal);
-    }
+function generalBody(a: number, loc: FormatLocale, budget: number): string {
+  const [ip] = decimalDigits(a, 0);
+  const intLen = Math.max(1, ip.length);
+  if (intLen > budget) return sciGeneral(a, loc, budget);
+  const avail = budget - intLen;              // espaço p/ "," + casas
+  const decimals = avail > 1 ? avail - 1 : 0;
+  const [i, f] = decimalDigits(a, decimals);
+  const frac = f.replace(/0+$/, '');
+  if ((i === '' || i === '0') && frac === '') {
+    // arredondou a zero mas o valor não é zero → científico (se couber)
+    const sci = sciGeneral(a, loc, budget);
+    return sci !== '' ? sci : '0';
   }
-  return neg ? '-' + body : body;
+  if (i.length > budget) return sciGeneral(a, loc, budget); // 9999…,5 → 1E+n
+  return (i || '0') + (frac ? loc.decimal + frac : '');
 }
 
 function sciGeneral(a: number, loc: FormatLocale, budget: number): string {
   let e = Math.floor(Math.log10(a));
-  let mant = a / Math.pow(10, e);
-  const expDigits = Math.max(2, String(Math.abs(e)).length);
-  let expStr = 'E' + (e < 0 ? '-' : '+') + String(Math.abs(e)).padStart(expDigits, '0');
-  let mantDecimals = Math.max(0, budget - expStr.length - 2);
-  let m = mant.toFixed(mantDecimals);
-  if (parseFloat(m) >= 10) {
-    e += 1;
-    mant = a / Math.pow(10, e);
-    const ed = Math.max(2, String(Math.abs(e)).length);
-    expStr = 'E' + (e < 0 ? '-' : '+') + String(Math.abs(e)).padStart(ed, '0');
-    mantDecimals = Math.max(0, budget - expStr.length - 2);
-    m = mant.toFixed(mantDecimals);
+  for (let pass = 0; pass < 2; pass++) {
+    const expStr = 'E' + (e < 0 ? '-' : '+') + String(Math.abs(e)).padStart(2, '0');
+    const room = budget - expStr.length;     // dígitos da mantissa + ","
+    if (room < 1) return '';
+    const dec = room >= 3 ? room - 2 : 0;
+    const [i, f] = decimalDigits(a / Math.pow(10, e), dec);
+    if (i.length > 1) { e++; continue; }      // 9,99… arredondou para 10
+    const frac = f.replace(/0+$/, '');
+    return (i || '0') + (frac ? loc.decimal + frac : '') + expStr;
   }
-  if (m.includes('.')) m = m.replace(/0+$/, '').replace(/\.$/, '');
-  return m.replace('.', loc.decimal) + expStr;
+  return '';
 }
 
-// ──────────────────────────── Seções ────────────────────────────
+// ──────────────────────────── Parse ────────────────────────────
 
-/** Divide o formatCode em seções por `;` respeitando aspas/colchetes/escape. */
+type CondOp = '<' | '>' | '=' | '<=' | '>=' | '<>';
+interface Cond { op: CondOp; v: number }
+
+type Tok =
+  | { k: 'lit'; s: string }
+  | { k: 'dig'; c: '0' | '#' | '?' }
+  | { k: 'pt' } | { k: 'comma' } | { k: 'pct' } | { k: 'slash' } | { k: 'at' } | { k: 'gen' }
+  | { k: 'exp'; plus: boolean }
+  | { k: 'skip'; c: string } | { k: 'fill'; c: string }
+  /** data/hora: c = y|M|d|h|m|s|e|g|b|a (M = mês ou minuto, resolvido depois), n = repetições */
+  | { k: 'dt'; c: string; n: number }
+  | { k: 'el'; c: 'h' | 'm' | 's'; n: number }  // [h] [mm] [ss]
+  | { k: 'ampm'; full: boolean; lower: boolean; upper: boolean }
+  | { k: 'subsec'; n: number };                  // .0 .00 .000 depois dos segundos
+
+interface Section {
+  toks: Tok[];
+  cond?: Cond;
+  color?: string;
+  lcid?: number;
+  kind: 'num' | 'date' | 'gen' | 'text' | 'lit' | 'empty';
+  // análise numérica
+  scale: number;   // multiplicador (% e vírgulas de escala)
+  group: boolean;
+  nInt: number; nFrac: number;
+  frac?: { numIdx: number[]; denIdx: number[]; fixedDen: number; intIdx: number[] };
+  exp: boolean;
+}
+
+interface Parsed { secs: Section[]; text?: Section; nums: Section[]; hasCond: boolean }
+
+const cache = new Map<string, Parsed>();
+
 function splitSections(code: string): string[] {
   const out: string[] = [];
   let cur = '';
@@ -177,7 +308,7 @@ function splitSections(code: string): string[] {
     const ch = code[i]!;
     if (ch === '"') { const end = code.indexOf('"', i + 1); const j = end < 0 ? code.length : end; cur += code.slice(i, j + 1); i = j; continue; }
     if (ch === '[') { const end = code.indexOf(']', i + 1); const j = end < 0 ? code.length : end; cur += code.slice(i, j + 1); i = j; continue; }
-    if (ch === '\\') { cur += code.slice(i, i + 2); i++; continue; }
+    if (ch === '\\' || ch === '_' || ch === '*') { cur += code.slice(i, i + 2); i++; continue; }
     if (ch === ';') { out.push(cur); cur = ''; continue; }
     cur += ch;
   }
@@ -185,323 +316,555 @@ function splitSections(code: string): string[] {
   return out;
 }
 
-/** Remove literais/escape/colchetes — sobra só a "gramática" da seção. */
-function stripDecor(section: string): string {
-  let out = '';
-  for (let i = 0; i < section.length; i++) {
-    const ch = section[i]!;
-    if (ch === '"') { const end = section.indexOf('"', i + 1); i = end < 0 ? section.length : end; continue; }
-    if (ch === '[') { const end = section.indexOf(']', i + 1); i = end < 0 ? section.length : end; continue; }
-    if (ch === '\\') { i++; continue; }
-    if (ch === '_') { i++; continue; } // _x = espaço da largura de x
-    out += ch;
+function parse(code: string): Parsed {
+  let p = cache.get(code);
+  if (p) return p;
+  const raws = splitSections(code);
+  const secs = raws.map(parseSection);
+  // seção de texto: a 4ª; com menos seções, a que contém @
+  let text: Section | undefined;
+  let nums = secs.slice(0, 3);
+  if (secs.length >= 4) text = secs[3];
+  else {
+    const ti = secs.findIndex((s) => s.kind === 'text');
+    if (ti >= 0) { text = secs[ti]; nums = secs.filter((_, i) => i !== ti); }
   }
-  return out;
+  p = { secs, text, nums, hasCond: nums.some((s) => s.cond) };
+  if (cache.size > 2000) cache.clear();
+  cache.set(code, p);
+  return p;
 }
 
-function isDateSection(section: string): boolean {
-  // [h]/[m]/[s] (decorridos) e tokens y/m/d/h/s/AM-PM fora de literais.
-  if (/\[(hh?|mm?|ss?)\]/i.test(section)) return true;
-  const bare = stripDecor(section).replace(/AM\/PM/gi, '').replace(/A\/P/gi, '');
-  return /[ymdhs]/i.test(bare);
+const DATE_CH = /[ymdhsegba]/i;
+
+function parseSection(raw: string): Section {
+  const toks: Tok[] = [];
+  let cond: Cond | undefined, color: string | undefined, lcid: number | undefined;
+  const bare = raw.replace(/"[^"]*"|\\.|_.|\*.|\[[^\]]*\]/g, '');
+  // seção de data: o ".000" depois dos segundos é fração de segundo, não placeholder
+  const dateLike = /[ymdhs]|am\/pm|a\/p/i.test(bare.replace(/general/gi, '').replace(/e[+-]/gi, ''));
+  const hasDigit = /[0#?]/.test(dateLike ? bare.replace(/\.0+/g, '') : bare);
+  const lit = (s: string): void => {
+    const last = toks[toks.length - 1];
+    if (last && last.k === 'lit') last.s += s; else toks.push({ k: 'lit', s });
+  };
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i]!;
+    if (ch === '"') { const end = raw.indexOf('"', i + 1); const j = end < 0 ? raw.length : end; lit(raw.slice(i + 1, j)); i = j; continue; }
+    if (ch === '\\') { if (i + 1 < raw.length) lit(raw[i + 1]!); i++; continue; }
+    if (ch === '_') { toks.push({ k: 'skip', c: raw[i + 1] ?? ' ' }); i++; continue; }
+    if (ch === '*') { toks.push({ k: 'fill', c: raw[i + 1] ?? ' ' }); i++; continue; }
+    if (ch === '[') {
+      const end = raw.indexOf(']', i + 1); const j = end < 0 ? raw.length : end;
+      const inner = raw.slice(i + 1, j); i = j;
+      const low = inner.toLowerCase();
+      let m: RegExpExecArray | null;
+      if (/^(h+|m+|s+)$/.test(low)) { toks.push({ k: 'el', c: low[0] as 'h' | 'm' | 's', n: low.length }); continue; }
+      if (COLOR_NAMES[low]) { color ??= COLOR_NAMES[low]; continue; }
+      if ((m = /^color\s*(\d+)$/.exec(low))) { const n = +m[1]!; if (n >= 1 && n <= 56) color ??= '#' + COLOR_N[n - 1]; continue; }
+      if ((m = /^(<=|>=|<>|<|>|=)\s*([-+]?[\d.]+(?:e[-+]?\d+)?)$/.exec(low))) { cond = { op: m[1] as CondOp, v: parseFloat(m[2]!) }; continue; }
+      if (inner.startsWith('$')) {
+        const body = inner.slice(1);
+        const dash = body.lastIndexOf('-');
+        const sym = dash >= 0 ? body.slice(0, dash) : body;
+        const code = dash >= 0 ? body.slice(dash + 1) : '';
+        if (sym) lit(sym);
+        if (/^x-sysdate$/i.test(code)) lcid = 0xf800;
+        else if (/^x-systime$/i.test(code)) lcid = 0xf400;
+        else if (/^[0-9a-f]+$/i.test(code)) lcid = parseInt(code, 16) & 0xffff;
+        continue;
+      }
+      continue; // [DBNum1], [natural]… ignorados
+    }
+    if ((ch === 'E' || ch === 'e') && (raw[i + 1] === '+' || raw[i + 1] === '-') && hasDigit) { toks.push({ k: 'exp', plus: raw[i + 1] === '+' }); i++; continue; }
+    if (ch === '0' || ch === '#' || ch === '?') { toks.push({ k: 'dig', c: ch }); continue; }
+    if (ch === '.') {
+      // .0/.00/.000 logo após segundos = fração de segundo
+      const prev = toks[toks.length - 1];
+      const n = /^0+/.exec(raw.slice(i + 1))?.[0].length ?? 0;
+      if (n > 0 && dateLike && prev && ((prev.k === 'dt' && prev.c.toLowerCase() === 's') || (prev.k === 'el' && prev.c === 's'))) { toks.push({ k: 'subsec', n }); i += n; continue; }
+      toks.push({ k: 'pt' }); continue;
+    }
+    if (ch === ',') { toks.push({ k: 'comma' }); continue; }
+    if (ch === '%') { toks.push({ k: 'pct' }); continue; }
+    if (ch === '/') {
+      toks.push({ k: 'slash' });
+      // denominador fixo ("# ?/10"): os algarismos viram um literal só
+      const m = /^[1-9][0-9]*/.exec(raw.slice(i + 1));
+      if (m && hasDigit) { toks.push({ k: 'lit', s: m[0] }); i += m[0].length; }
+      continue;
+    }
+    if (ch === '@') { toks.push({ k: 'at' }); continue; }
+    if ((ch === 'G' || ch === 'g') && /^general/i.test(raw.slice(i, i + 7))) { toks.push({ k: 'gen' }); i += 6; continue; }
+    if (/^am\/pm/i.test(raw.slice(i, i + 5))) { toks.push({ k: 'ampm', full: true, lower: false, upper: true }); i += 4; continue; }
+    if (/^a\/p/i.test(raw.slice(i, i + 3))) { toks.push({ k: 'ampm', full: false, lower: ch === 'a', upper: ch === 'A' }); i += 2; continue; }
+    if (DATE_CH.test(ch)) {
+      const lc = ch.toLowerCase();
+      let n = 1;
+      while (i + n < raw.length && raw[i + n]!.toLowerCase() === lc) n++;
+      if (lc === 'a' && n < 3) { lit(raw.slice(i, i + n)); i += n - 1; continue; }
+      toks.push({ k: 'dt', c: lc === 'm' ? 'M' : lc, n });
+      i += n - 1;
+      continue;
+    }
+    lit(ch);
+  }
+  const sec: Section = { toks, cond, color, lcid, kind: 'lit', scale: 1, group: false, nInt: 0, nFrac: 0, exp: false };
+  const has = (k: Tok['k']): boolean => toks.some((t) => t.k === k);
+  if (toks.length === 0) {
+    // só cor/condição ("[Red][<=100]") = Geral; seção vazia de verdade = nada
+    if (raw.includes('[')) { toks.push({ k: 'gen' }); sec.kind = 'gen'; } else sec.kind = 'empty';
+  }
+  else if (has('dt') || has('el') || has('ampm') || has('subsec')) sec.kind = 'date';
+  else if (has('gen')) sec.kind = 'gen';
+  else if (has('dig')) { sec.kind = 'num'; analyzeNumber(sec); }
+  else if (has('at')) sec.kind = 'text';
+  if (sec.kind === 'date') resolveMinutes(toks);
+  if (sec.kind !== 'num') {
+    // fora da seção numérica, os tokens numéricos soltos são literais
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i]!;
+      if (t.k === 'pt' || t.k === 'comma' || t.k === 'slash' || t.k === 'pct' || t.k === 'dig' || t.k === 'exp') {
+        const s = t.k === 'pt' ? '.' : t.k === 'comma' ? ',' : t.k === 'slash' ? '/' : t.k === 'pct' ? '%' : t.k === 'dig' ? t.c : t.plus ? 'E+' : 'E-';
+        toks[i] = { k: 'lit', s };
+      }
+    }
+  }
+  return sec;
+}
+
+/** `m`/`mm` depois de h (ou [h]) ou antes de s = minuto (c='m'); senão mês (c='M'). */
+function resolveMinutes(toks: Tok[]): void {
+  let afterH = false;
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i]!;
+    if (t.k === 'dt' && t.c === 'h') { afterH = true; continue; }
+    if (t.k === 'el' && t.c === 'h') { afterH = true; continue; }
+    if (t.k === 'dt' && t.c === 'M') {
+      let beforeS = false;
+      for (let j = i + 1; j < toks.length; j++) {
+        const u = toks[j]!;
+        if (u.k === 'lit' || u.k === 'skip') continue;
+        beforeS = (u.k === 'dt' && u.c === 's') || (u.k === 'el' && u.c === 's');
+        break;
+      }
+      if ((afterH || beforeS) && t.n <= 2) { t.c = 'm'; afterH = false; }
+      continue;
+    }
+    if (t.k === 'dt' || t.k === 'ampm') afterH = false;
+  }
+}
+
+function analyzeNumber(sec: Section): void {
+  const toks = sec.toks;
+  const expAt = toks.findIndex((t) => t.k === 'exp');
+  sec.exp = expAt >= 0;
+  const end = sec.exp ? expAt : toks.length;
+  // ponto decimal: o 1º antes do expoente; os demais são literais
+  let ptAt = -1;
+  for (let i = 0; i < end; i++) {
+    if (toks[i]!.k !== 'pt') continue;
+    if (ptAt < 0) ptAt = i; else toks[i] = { k: 'lit', s: '.' };
+  }
+  const intEnd = ptAt >= 0 ? ptAt : end;
+  // fração: placeholders / placeholders|número
+  const slashAt = !sec.exp && ptAt < 0 ? toks.findIndex((t) => t.k === 'slash') : -1;
+  if (slashAt > 0) {
+    const numIdx: number[] = [];
+    for (let j = slashAt - 1; j >= 0 && toks[j]!.k === 'dig'; j--) numIdx.unshift(j);
+    const denIdx: number[] = [];
+    let fixedDen = 0;
+    let j = slashAt + 1;
+    for (; j < toks.length && toks[j]!.k === 'dig'; j++) denIdx.push(j);
+    if (!denIdx.length && toks[j]?.k === 'lit') {
+      const m = /^\d+/.exec((toks[j] as { s: string }).s);
+      if (m) {
+        fixedDen = parseInt(m[0], 10);
+        const rest = (toks[j] as { s: string }).s.slice(m[0].length);
+        toks.splice(j, 1, { k: 'lit', s: '' }, ...(rest ? [{ k: 'lit', s: rest } as Tok] : []));
+        denIdx.push(j); // marca a posição do denominador fixo
+      }
+    }
+    if (numIdx.length && denIdx.length) {
+      const intIdx: number[] = [];
+      for (let k = 0; k < (numIdx[0] ?? 0); k++) if (toks[k]!.k === 'dig') intIdx.push(k);
+      sec.frac = { numIdx, denIdx, fixedDen, intIdx };
+    } else toks[slashAt] = { k: 'lit', s: '/' };
+  } else if (slashAt === 0) toks[0] = { k: 'lit', s: '/' };
+  for (let i = 0; i < toks.length; i++) if (toks[i]!.k === 'slash' && i !== slashAt) toks[i] = { k: 'lit', s: '/' };
+  // vírgulas: entre placeholders inteiros agrupa; logo após o último placeholder escala ÷1000
+  const digAt = (from: number, to: number): boolean => { for (let k = from; k < to; k++) if (toks[k]!.k === 'dig') return true; return false; };
+  let lastDig = -1;
+  for (let i = 0; i < toks.length; i++) if (toks[i]!.k === 'dig' && (!sec.exp || i < expAt)) lastDig = i;
+  let scale = 1;
+  const kind: ('group' | 'scale' | 'drop' | 'lit')[] = [];
+  for (let i = 0; i < toks.length; i++) {
+    if (toks[i]!.k !== 'comma') continue;
+    if (i < intEnd && digAt(0, i) && digAt(i + 1, intEnd)) { kind[i] = 'group'; continue; }
+    // vírgulas encostadas ao último dígito (antes do ponto ou do fim) escalam ÷1000 cada
+    let k = i - 1;
+    while (k >= 0 && toks[k]!.k === 'comma') k--;
+    const afterDigit = k >= 0 && toks[k]!.k === 'dig';
+    let n = i + 1;
+    while (n < toks.length && toks[n]!.k === 'comma') n++;
+    const nextDig = n < toks.length && toks[n]!.k === 'dig';
+    if (afterDigit && !nextDig && (i > lastDig || toks[n]?.k === 'pt')) kind[i] = 'scale';
+    else if (sec.exp && i < expAt) kind[i] = 'drop'; // #,000E+00: só conta placeholder
+    else kind[i] = 'lit';
+  }
+  kind.forEach((kd, i) => {
+    if (kd === 'group') sec.group = true;
+    if (kd === 'scale') scale /= 1000;
+    toks[i] = { k: 'lit', s: kd === 'lit' ? ',' : '' };
+  });
+  for (const t of toks) if (t.k === 'pct') scale *= 100;
+  sec.scale = scale;
+  for (let i = 0; i < (sec.exp ? expAt : toks.length); i++) {
+    if (toks[i]!.k !== 'dig') continue;
+    if (sec.frac && (sec.frac.numIdx.includes(i) || sec.frac.denIdx.includes(i))) continue;
+    if (i < intEnd) sec.nInt++; else sec.nFrac++;
+  }
 }
 
 // ──────────────────────────── Entrada ────────────────────────────
 
 /**
- * Formata um valor de célula segundo um formatCode OOXML. `value` é número
- * (numérico/data) ou string (texto). Retorna texto + cor opcional.
+ * Formata em PARTES (texto, `_x`, `*x`, Geral) — para quem conhece a largura
+ * da coluna (Sheet). `value` é número (numérico/data) ou string (texto).
  */
-export function formatValue(
-  value: number | string,
-  code: string | undefined,
-  opts: FormatOptions = {},
-): FormatResult {
+export function formatValueParts(value: number | string, code: string | undefined, opts: FormatOptions = {}): FormatParts {
   const loc = opts.locale ?? PT_BR;
-  const isText = typeof value === 'string';
-
-  if (!code || code === 'General') {
-    if (isText) return { text: value };
-    return { text: formatGeneral(value as number, loc) };
+  if (typeof value === 'string') {
+    if (!code || /^general$/i.test(code)) return { parts: [{ t: 'text', s: value }] };
+    const p = parse(code);
+    if (!p.text) return { parts: [{ t: 'text', s: value }] };
+    return { parts: emitText(p.text, value), color: p.text.color };
   }
-
-  const sections = splitSections(code);
-
-  // Texto: usa a 4ª seção se existir — ou a seção ÚNICA quando ela tem `@`
-  // (ex.: \ \ \ \ @"....": recuo + pontilhado); senão devolve cru (o app de
-  // referência ignora as seções numéricas).
-  if (isText) {
-    const tsec = sections[3] ?? (sections.length === 1 ? sections[0] : undefined);
-    if (tsec !== undefined && tsec.includes('@')) return applyTextSection(tsec, value as string);
-    return { text: value };
+  const x = value;
+  if (!isFinite(x)) return { parts: [], overflow: true };
+  if (!code || /^general$/i.test(code)) {
+    if (x === 0 && opts.showZeros === false) return { parts: [] };
+    return { parts: [{ t: 'general', v: x }] };
   }
-
-  const num = value as number;
-  // Escolha de seção: pos / neg / zero (texto fica na 4ª).
-  let section: string;
-  let useAbs = false;
-  if (num > 0) section = sections[0]!;
-  else if (num < 0) {
-    if (sections.length >= 2) { section = sections[1]!; useAbs = true; }
-    else section = sections[0]!; // 1 seção → sinal automático
-  } else {
-    section = sections.length >= 3 ? sections[2]! : sections[0]!;
+  const p = parse(code);
+  const pick = pickSection(p, x);
+  if (opts.showZeros === false && x === 0 && !(p.nums.length >= 3 && pick.sec === p.nums[2])) return { parts: [] };
+  if (!pick.sec) {
+    if (pick.overflow) return { parts: [], overflow: true };
+    return { parts: [{ t: 'general', v: pick.general ?? x }] };
   }
-
-  const { color, body } = extractColor(section);
-  const magnitude = useAbs ? Math.abs(num) : num;
-
-  if (isDateSection(body)) {
-    return { text: formatDateSection(magnitude, body, loc, !!opts.date1904), color };
-  }
-  // 1 seção e negativo: prefixo "-" automático.
-  const autoNeg = num < 0 && sections.length < 2;
-  const r = formatNumberSection(Math.abs(num), body, loc, opts);
-  return { text: (autoNeg ? '-' : '') + r, color };
-}
-
-function applyTextSection(section: string, text: string): FormatResult {
-  const { color, body } = extractColor(section);
-  let out = '';
-  for (let i = 0; i < body.length; i++) {
-    const ch = body[i]!;
-    if (ch === '"') { const end = body.indexOf('"', i + 1); const j = end < 0 ? body.length : end; out += body.slice(i + 1, j); i = j; continue; }
-    if (ch === '\\') { out += body[i + 1] ?? ''; i++; continue; }
-    if (ch === '@') { out += text; continue; }
-    if (ch === '_') { out += ' '; i++; continue; }
-    if (ch === '*') { i++; continue; }
-    out += ch;
-  }
-  return { text: out, color };
-}
-
-/** Extrai a 1ª cor `[Red]`/`[Color12]` e remove TODOS os colchetes não-decorridos. */
-function extractColor(section: string): { color?: string; body: string } {
-  let color: string | undefined;
-  let body = '';
-  for (let i = 0; i < section.length; i++) {
-    const ch = section[i]!;
-    if (ch === '[') {
-      const end = section.indexOf(']', i + 1);
-      const j = end < 0 ? section.length : end;
-      const inner = section.slice(i + 1, j);
-      const low = inner.toLowerCase();
-      if (/^(hh?|mm?|ss?)$/.test(low)) { body += section.slice(i, j + 1); i = j; continue; } // tempo decorrido: preserva
-      if (COLOR_NAMES[low] && color === undefined) color = COLOR_NAMES[low];
-      else if (/^color\s*\d+$/.test(low) && color === undefined) color = '#000000';
-      // moeda/locale [$sím-LCID]: o símbolo é exibido como literal ([$$-409] → "$",
-      // [$£-809] → "£"); [$-409] só troca o locale (nada a exibir)
-      else if (inner[0] === '$') {
-        const sym = inner.slice(1).split('-')[0]!;
-        if (sym) body += `"${sym.replace(/"/g, '')}"`;
-      }
-      // condições [>x]: descartadas (escolha de seção simplificada)
-      i = j; continue;
+  const sec = pick.sec;
+  const v = pick.abs ? Math.abs(x) : x;
+  const neg = v < 0;
+  const out: FmtPart[] = [];
+  let overflow = false;
+  let nonzero = false;
+  switch (sec.kind) {
+    case 'empty': break;
+    case 'text': out.push({ t: 'general', v }); break; // número com formato de texto: Geral
+    case 'gen': emitGeneralSection(sec, v, out); break;
+    case 'lit': emitLiterals(sec, out); break;
+    case 'date': {
+      const r = emitDate(sec, Math.abs(v), loc, !!opts.date1904, neg);
+      if (r === null) overflow = true; else out.push(...r);
+      break;
     }
-    body += ch;
+    case 'num': nonzero = emitNumber(sec, Math.abs(v), loc, out); break;
   }
-  return { color, body };
+  if (overflow) return { parts: [], overflow: true, color: sec.color };
+  // sinal "-" no começo da seção inteira (antes dos literais): "-a5", "-  5"; some
+  // quando o valor exibido arredondou a zero ("0.00" c/ −0,0001 → "0,00")
+  if (neg && sec.kind === 'num' && nonzero) out.unshift({ t: 'text', s: '-' });
+  return { parts: mergeParts(lastFillOnly(out)), color: sec.color };
+}
+
+interface SectionPick { sec?: Section; abs: boolean; overflow?: boolean; general?: number }
+
+/** Escolhe a seção e se o valor sai sem sinal (seção "negativa"). Medido no Excel pt-BR. */
+function pickSection(p: Parsed, x: number): SectionPick {
+  const n = p.nums;
+  if (n.length === 0) return { abs: false, general: x }; // só seção de texto: número em Geral
+  if (!p.hasCond) {
+    if (n.length === 1) return { sec: n[0], abs: false };
+    if (n.length === 2) return x < 0 ? { sec: n[1], abs: true } : { sec: n[0], abs: false };
+    return x > 0 ? { sec: n[0], abs: false } : x < 0 ? { sec: n[1], abs: true } : { sec: n[2], abs: false };
+  }
+  // 1ª seção sem condição (só a 2ª tem): aceita os positivos ("a"0;[<-5]"b"0 c/ 0 → ####)
+  const c0 = n[0]!.cond ?? { op: '>' as CondOp, v: 0 };
+  if (test(c0, x)) return { sec: n[0], abs: n[0]!.cond ? negOnly(c0) : false };
+  // "senão" implícito depois de uma 1ª condição: mostra o sinal após [=t] e após
+  // [>t]/[>=t] com t > 0; omite nos demais (medido, e3-sign)
+  const elseSign = !!n[0]!.cond && (c0.op === '=' || ((c0.op === '>' || c0.op === '>=') && c0.v > 0));
+  if (n.length === 1) return { abs: !elseSign, general: elseSign ? x : Math.abs(x) }; // [>=0]0 c/ −5 → "5"
+  const c1 = n[1]!.cond;
+  // 2ª seção sem condição: com 3 seções é a dos negativos (sem sinal); com 2, o "senão"
+  if (c1 ? test(c1, x) : n.length === 2 || x < 0) return { sec: n[1], abs: c1 ? negOnly(c1) : n.length >= 3 || !elseSign };
+  if (n.length >= 3) return { sec: n[2], abs: false };
+  return { abs: false, overflow: true };
+}
+
+function test(c: Cond, x: number): boolean {
+  switch (c.op) {
+    case '<': return x < c.v;
+    case '>': return x > c.v;
+    case '=': return x === c.v;
+    case '<=': return x <= c.v;
+    case '>=': return x >= c.v;
+    case '<>': return x !== c.v;
+  }
+}
+
+/** Condição que só aceita negativos: o Excel omite o "-" ([<0], [<-1], [<=-1], [=-5]; não [<=0]). */
+function negOnly(c: Cond): boolean {
+  return (c.op === '<' && c.v <= 0) || (c.op === '<=' && c.v < 0) || (c.op === '=' && c.v < 0);
+}
+
+/** Só o ÚLTIMO `*x` vale (medido: "0*-*=" preenche com "="; "*x0*y" com "y"). */
+function lastFillOnly(out: FmtPart[]): FmtPart[] {
+  let last = -1;
+  out.forEach((p, i) => { if (p.t === 'fill') last = i; });
+  return last < 0 ? out : out.filter((p, i) => p.t !== 'fill' || i === last);
+}
+
+function mergeParts(out: FmtPart[]): FmtPart[] {
+  const r: FmtPart[] = [];
+  for (const p of out) {
+    const prev = r[r.length - 1];
+    if (p.t === 'text') { if (p.s === '') continue; if (prev?.t === 'text') { prev.s += p.s; continue; } }
+    r.push(p.t === 'text' ? { t: 'text', s: p.s } : p);
+  }
+  return r;
+}
+
+function emitText(sec: Section, text: string): FmtPart[] {
+  const out: FmtPart[] = [];
+  for (const t of sec.toks) {
+    if (t.k === 'at') out.push({ t: 'text', s: text });
+    else pushDecor(t, out);
+  }
+  return mergeParts(lastFillOnly(out));
+}
+
+function pushDecor(t: Tok, out: FmtPart[]): void {
+  if (t.k === 'lit') out.push({ t: 'text', s: t.s });
+  else if (t.k === 'skip') out.push({ t: 'skip', ch: t.c });
+  else if (t.k === 'fill') out.push({ t: 'fill', ch: t.c });
+}
+
+function emitLiterals(sec: Section, out: FmtPart[]): void {
+  for (const t of sec.toks) pushDecor(t, out);
+}
+
+function emitGeneralSection(sec: Section, v: number, out: FmtPart[]): void {
+  for (const t of sec.toks) {
+    if (t.k === 'gen') out.push({ t: 'general', v });
+    else pushDecor(t, out);
+  }
+}
+
+/**
+ * Formata (texto + cor). `*x` repete x até `colWidthChars` (sem ela, 1 vez) e
+ * `_x` vira um espaço — como o Range.Text de uma coluna sem largura conhecida.
+ */
+export function formatValue(value: number | string, code: string | undefined, opts: FormatOptions = {}): FormatResult {
+  const loc = opts.locale ?? PT_BR;
+  const r = formatValueParts(value, code, opts);
+  if (r.overflow) return { text: '#', ...(r.color ? { color: r.color } : {}) };
+  let out = '';
+  let fillAt = -1, fillCh = '';
+  for (const p of r.parts) {
+    if (p.t === 'text') out += p.s;
+    else if (p.t === 'skip') out += ' ';
+    else if (p.t === 'general') out += formatGeneral(p.v, loc);
+    else { fillAt = out.length; fillCh = p.ch; }
+  }
+  if (fillAt >= 0) {
+    const reps = opts.colWidthChars ? Math.max(0, opts.colWidthChars - out.length) : 1;
+    out = out.slice(0, fillAt) + fillCh.repeat(reps) + out.slice(fillAt);
+  }
+  return r.color ? { text: out, color: r.color } : { text: out };
 }
 
 // ──────────────────────── Seção numérica ────────────────────────
 
-/** Posição da palavra (sem diferenciar caixa) FORA de aspas e escapes; −1 se ausente. */
-function unquotedIndexOf(section: string, word: string): number {
-  const low = section.toLowerCase();
-  for (let i = 0; i < section.length; i++) {
-    const ch = section[i]!;
-    if (ch === '"') { const e = section.indexOf('"', i + 1); if (e < 0) return -1; i = e; continue; }
-    if (ch === '\\' || ch === '_' || ch === '*') { i++; continue; }
-    if (low.startsWith(word, i)) return i;
-  }
-  return -1;
+/** Emite a seção numérica; devolve se o valor EXIBIDO é diferente de zero (para o sinal). */
+function emitNumber(sec: Section, a: number, loc: FormatLocale, out: FmtPart[]): boolean {
+  const v = a * sec.scale;
+  if (sec.exp) { emitScientific(sec, v, loc, out); return v > 0; }
+  if (sec.frac) return emitFraction(sec, v, loc, out);
+  const [intStr, fracStr] = decimalDigits(v, sec.nFrac);
+  emitDigits(sec, intStr, fracStr, loc, out, sec.toks.length);
+  return intStr !== '' || /[1-9]/.test(fracStr);
 }
 
-function formatNumberSection(a: number, section: string, loc: FormatLocale, opts: FormatOptions): string {
-  // `@` numa seção numérica = valor como texto (representação General).
-  if (section.includes('@')) return applyTextSection(section, formatGeneral(a, loc)).text;
-  // "General" dentro de uma seção (ex.: General;[Red]\-General): o número em
-  // General com os literais da seção em volta
-  const gen = unquotedIndexOf(section, 'general');
-  if (gen >= 0) return applyTextSection(section.slice(0, gen) + '@' + section.slice(gen + 7), formatGeneral(a, loc)).text;
-  // Fração: "?/?" ou "0/0".
-  if (/[?#0]+\s*\/\s*[?#0]+/.test(section) || /\/[?#0]/.test(section)) {
-    return formatFraction(a, section, loc);
-  }
-  // Notação científica: token E+/E-.
-  if (/[eE][+-]/.test(section)) {
-    return formatScientificSection(a, section, loc);
-  }
-
-  // Encontra o "spec" numérico contíguo ([#0?] e companhia).
-  const specMatch = section.match(/[#0?][#0?,.%]*/);
-  const numSpec = specMatch ? specMatch[0] : '';
-  // Seção só-literal (ex.: "zero") — sem placeholder numérico: não injeta número.
-  if (!numSpec) return emitSection(section, '', '', opts);
-
-  // Escala: porcentagem (×100 por %), vírgula final (÷1000 por vírgula trailing).
-  let scaled = a;
-  const pctCount = (numSpec.match(/%/g) ?? []).length;
-  if (pctCount) scaled *= Math.pow(100, pctCount);
-  const intSpecRaw = numSpec.split('.')[0] ?? '';
-  const trailingCommas = (intSpecRaw.match(/,+$/)?.[0]?.length) ?? 0;
-  if (trailingCommas) scaled /= Math.pow(1000, trailingCommas);
-
-  const dotIdx = numSpec.indexOf('.');
-  const fracSpec = dotIdx >= 0 ? numSpec.slice(dotIdx + 1).replace(/[^0#?]/g, '') : '';
-  const intSpec = (dotIdx >= 0 ? numSpec.slice(0, dotIdx) : numSpec).replace(/[^0#?]/g, '');
-  const grouped = /[#0?],[#0?]/.test(numSpec.split('.')[0] ?? '');
-
-  const decimals = fracSpec.length;
-  const rounded = excelRound(scaled, decimals);
-  const fixed = rounded.toFixed(decimals);
-  let [intDigits, fracDigits] = fixed.split('.') as [string, string?];
-  intDigits = intDigits.replace('-', '');
-
-  // Inteiro: respeita mínimo de zeros; remove zeros à esquerda (mas mantém "0"
-  // quando há ao menos um `0` no spec e o inteiro é vazio/zero).
-  const minInt = (intSpec.match(/0/g) ?? []).length;
-  let intOut = intDigits.replace(/^0+/, '');
-  if (intOut.length < minInt) intOut = intOut.padStart(minInt, '0');
-  if (intOut === '' && minInt === 0 && decimals > 0) intOut = ''; // ".5" estilo
-  if (intOut === '' && (minInt > 0 || decimals === 0)) intOut = '0';
-  if (grouped && intOut !== '') intOut = groupInt(intOut, loc.group);
-
-  // Fração: ronda já feita; aplica `0`/`#`/`?` da direita p/ esquerda.
-  let fracOut = '';
-  if (decimals > 0) {
-    const fd = (fracDigits ?? '').padEnd(decimals, '0');
-    const chars: string[] = [];
-    let sigAfter = false; // há dígito significativo à direita desta posição?
-    for (let i = decimals - 1; i >= 0; i--) {
-      const ph = fracSpec[i] ?? '#';
-      const dig = fd[i] ?? '0';
-      if (dig !== '0') { chars.unshift(dig); sigAfter = true; }
-      else if (ph === '0') chars.unshift('0');
-      else if (ph === '?') chars.unshift(' ');
-      else {
-        // '#': zero insignificante é SUPRIMIDO mesmo com slots `0` depois
-        // (oráculo: `#.##000` c/ 1999,9 → "1999,9000", não "1999,90000")
-        if (sigAfter) chars.unshift('0');
+/** Emite os tokens [0, end) com os dígitos inteiros/fracionários distribuídos nos placeholders. */
+function emitDigits(sec: Section, intStr: string, fracStr: string, loc: FormatLocale, out: FmtPart[], end: number): void {
+  const toks = sec.toks;
+  const n = sec.nInt;
+  const len = intStr.length;
+  const extra = Math.max(0, len - n);
+  // posição (da direita, 0 = unidade) do dígito mais à direita de cada placeholder inteiro
+  let intSeen = 0, fracSeen = 0, afterPt = false;
+  // último dígito fracionário significativo (zeros finais seguem a regra do placeholder)
+  let lastSig = -1;
+  for (let i = 0; i < fracStr.length; i++) if (fracStr[i] !== '0') lastSig = i;
+  const sepAfter = (pos: number): string => (sec.group && pos > 0 && pos % 3 === 0 ? loc.group : '');
+  for (let i = 0; i < end; i++) {
+    const t = toks[i]!;
+    if (t.k === 'pt') {
+      if (n === 0 && len > 0) out.push({ t: 'text', s: intStr }); // sem placeholder inteiro: inteiro antes do ponto
+      out.push({ t: 'text', s: loc.decimal });
+      afterPt = true;
+      continue;
+    }
+    if (t.k === 'dig') {
+      if (!afterPt) {
+        const j = intSeen++;
+        const pos = n - 1 - j;              // posição do placeholder (da direita)
+        let s = '';
+        if (j === 0 && extra > 0) {
+          // os dígitos que sobram entram no 1º placeholder
+          for (let q = 0; q <= extra; q++) { const p2 = len - 1 - q; s += intStr[q]! + sepAfter(p2); }
+        } else {
+          const k = len - 1 - pos;           // índice em intStr
+          if (k >= 0) s = intStr[k]! + sepAfter(pos);
+          else if (t.c === '0') s = '0' + sepAfter(pos);
+          else if (t.c === '?') s = ' ' + (sepAfter(pos) ? ' ' : '');
+          else if (len === 0 && pos === 0 && sec.nFrac === 0 && !hasZeroInt(sec)) s = ''; // "#" com 0 → ""
+        }
+        out.push({ t: 'text', s });
+      } else {
+        const j = fracSeen++;
+        const d = fracStr[j] ?? '0';
+        out.push({ t: 'text', s: j <= lastSig ? d : t.c === '0' ? '0' : t.c === '?' ? ' ' : '' });
       }
+      continue;
     }
-    fracOut = chars.join('');
+    if (t.k === 'pct') { out.push({ t: 'text', s: '%' }); continue; }
+    pushDecor(t, out);
   }
-
-  let numberText = intOut + (fracOut !== '' || (decimals > 0 && fracSpec.includes('0')) ? loc.decimal + fracOut : '');
-  if (pctCount) numberText += '%'.repeat(pctCount); // o % é literal além de escalar
-
-  // Reemite a seção, trocando o spec pelo número; trata literais/_/*/escape.
-  return emitSection(section, numSpec, numberText, opts);
+  if (n === 0 && !toks.some((t) => t.k === 'pt') && len > 0) out.push({ t: 'text', s: intStr });
 }
 
-/** Caminha pela seção emitindo literais e injetando o número no lugar do spec. */
-function emitSection(section: string, numSpec: string, numberText: string, opts: FormatOptions): string {
-  let out = '';
-  let emitted = false;
-  for (let i = 0; i < section.length; i++) {
-    const ch = section[i]!;
-    if (!emitted && numSpec && section.startsWith(numSpec, i)) { out += numberText; i += numSpec.length - 1; emitted = true; continue; }
-    if (ch === '"') { const end = section.indexOf('"', i + 1); const j = end < 0 ? section.length : end; out += section.slice(i + 1, j); i = j; continue; }
-    if (ch === '\\') { out += section[i + 1] ?? ''; i++; continue; }
-    if (ch === '_') { out += ' '; i++; continue; }              // espaço da largura de x
-    if (ch === '*') {                                            // preenche col com x
-      const fill = section[i + 1] ?? ' ';
-      const reps = opts.colWidthChars ? Math.max(0, opts.colWidthChars - out.length) : 1;
-      out += fill.repeat(reps); i++; continue;
+function hasZeroInt(sec: Section): boolean {
+  let afterPt = false;
+  for (const t of sec.toks) {
+    if (t.k === 'pt') afterPt = true;
+    else if (t.k === 'dig' && !afterPt && t.c === '0') return true;
+  }
+  return false;
+}
+
+function emitScientific(sec: Section, a: number, loc: FormatLocale, out: FmtPart[]): void {
+  const toks = sec.toks;
+  const expAt = toks.findIndex((t) => t.k === 'exp');
+  const plus = (toks[expAt] as { plus: boolean }).plus;
+  const nInt = Math.max(1, sec.nInt);
+  let e = 0, mant = 0;
+  if (a > 0) {
+    e = Math.floor(Math.log10(a));
+    // passo de engenharia = nº de placeholders inteiros (##0.0E+0 → múltiplos de 3)
+    if (nInt > 1) e = Math.floor(e / nInt) * nInt;
+    mant = a / Math.pow(10, e);
+    const [ip] = decimalDigits(mant, sec.nFrac);
+    if (ip.length > nInt) { e += nInt > 1 ? nInt : 1; mant = a / Math.pow(10, e); }
+    else if (nInt === 1 && ip.length > 1) { e += 1; mant = a / Math.pow(10, e); }
+  }
+  const [intStr, fracStr] = decimalDigits(mant, sec.nFrac);
+  emitDigits(sec, intStr || (sec.nInt === 0 ? '0' : ''), fracStr, loc, out, expAt);
+  // E+ sempre com sinal; E- só quando o expoente é negativo ("0.0E-0" c/ 12345 → "1,2E4")
+  out.push({ t: 'text', s: 'E' + (e < 0 ? '-' : plus ? '+' : '') });
+  const expToks: Tok[] = toks.slice(expAt + 1);
+  const minExp = expToks.filter((t) => t.k === 'dig' && t.c === '0').length;
+  const es = String(Math.abs(e)).padStart(minExp, '0');
+  let done = false;
+  for (const t of expToks) {
+    if (t.k === 'dig') { if (!done) { out.push({ t: 'text', s: es }); done = true; } continue; }
+    pushDecor(t, out);
+  }
+}
+
+function emitFraction(sec: Section, a: number, loc: FormatLocale, out: FmtPart[]): boolean {
+  const f = sec.frac!;
+  const toks = sec.toks;
+  const hasInt = f.intIdx.length > 0;
+  let whole = hasInt ? Math.floor(a) : 0;
+  const frac = a - whole;
+  const denDigits = f.fixedDen ? 0 : f.denIdx.length;
+  const maxDen = f.fixedDen || Math.pow(10, denDigits) - 1;
+  let bestN = 0, bestD = 1;
+  if (f.fixedDen) { bestD = f.fixedDen; bestN = Math.round(frac * f.fixedDen); }
+  else {
+    let bestErr = Infinity;
+    let lo: [number, number] = [0, 1], hi: [number, number] = [1, 0];
+    // Stern–Brocot sobre a fração (frações impróprias quando não há inteiro)
+    const target = frac;
+    for (const cand of [[Math.floor(target), 1], [Math.ceil(target), 1]] as [number, number][]) {
+      const err = Math.abs(cand[0] / cand[1] - target);
+      if (err < bestErr) { bestErr = err; bestN = cand[0]; bestD = cand[1]; }
     }
-    if ('#0?,.%'.includes(ch)) continue; // restos do spec já consumidos
-    if (ch === '[') { const end = section.indexOf(']', i + 1); i = end < 0 ? section.length : end; continue; }
-    out += ch;
-  }
-  if (!emitted && numberText !== '') out += numberText;
-  return out;
-}
-
-function formatScientificSection(a: number, section: string, loc: FormatLocale): string {
-  // mantissa aceita separador de grupo (`#,000E+00`): o `,` não agrupa aqui,
-  // só entra na CONTAGEM de placeholders inteiros que fixa o passo do expoente
-  const m = section.match(/([#0?][#0?,]*(?:\.[#0?]*)?)?[eE]([+-])([0#]+)/);
-  if (!m) return formatGeneral(a, loc);
-  const mantSpec = m[1] ?? '0';
-  const sign = m[2]!;
-  const expSpec = m[3] ?? '0';
-  const mantDecimals = (mantSpec.split('.')[1] ?? '').replace(/[^0#?]/g, '').length;
-  const mantInt = (mantSpec.split('.')[0] ?? '0').replace(/[^0#?]/g, '');
-  const intDigits = Math.max(1, mantInt.length); // #,000E+00 → engenharia (passo 4)
-  const minInt = (mantInt.match(/0/g) ?? []).length;
-  const padInt = (s: string): string => {
-    const neg = s.startsWith('-');
-    const [ip, fp] = s.replace('-', '').split('.') as [string, string?];
-    const padded = ip.length < minInt ? ip.padStart(minInt, '0') : ip;
-    return (neg ? '-' : '') + padded + (fp !== undefined ? '.' + fp : '');
-  };
-
-  if (a === 0) {
-    const mant = padInt((0).toFixed(mantDecimals)).replace('.', loc.decimal);
-    return `${mant}E${sign === '-' ? '+' : '+'}${'0'.padStart(expSpec.length, '0')}`;
-  }
-  let e = Math.floor(Math.log10(Math.abs(a)));
-  // alinha expoente a múltiplo de intDigits (engenharia) quando intDigits>1
-  let e2 = intDigits > 1 ? Math.floor(e / intDigits) * intDigits : e;
-  let mant = a / Math.pow(10, e2);
-  let mantStr = excelRound(mant, mantDecimals).toFixed(mantDecimals);
-  // renormaliza se arredondou p/ cima passando do limite de dígitos inteiros
-  if (Math.abs(parseFloat(mantStr)) >= Math.pow(10, intDigits)) {
-    e2 += intDigits; mant = a / Math.pow(10, e2); mantStr = excelRound(mant, mantDecimals).toFixed(mantDecimals);
-  }
-  const expDigits = (expSpec.match(/0/g) ?? []).length || expSpec.length;
-  const expOut = String(Math.abs(e2)).padStart(expDigits, '0');
-  const expSign = e2 < 0 ? '-' : '+';
-  return `${padInt(mantStr).replace('.', loc.decimal)}E${expSign}${expOut}`;
-}
-
-/** Aproxima `a` por fração com denominador limitado pelos placeholders (Stern-Brocot). */
-function formatFraction(a: number, section: string, loc: FormatLocale): string {
-  const m = section.match(/([#0?]+)\s*\/\s*([#0?]+|\d+)/);
-  if (!m) return formatGeneral(a, loc);
-  const numPh = m[1]!;
-  const denPh = m[2]!;
-  const whole = Math.floor(a);
-  let frac = a - whole;
-  const fixedDen = /^\d+$/.test(denPh) ? parseInt(denPh, 10) : 0;
-  const maxDen = fixedDen || (Math.pow(10, denPh.length) - 1);
-
-  let bestN = 0, bestD = 1, bestErr = Infinity;
-  if (fixedDen) {
-    bestD = fixedDen; bestN = Math.round(frac * fixedDen); bestErr = 0;
-  } else {
-    // Stern-Brocot: melhor aproximação com den <= maxDen.
-    let lo: [number, number] = [0, 1], hi: [number, number] = [1, 1];
-    for (let it = 0; it < 64; it++) {
+    lo = [Math.floor(target), 1]; hi = [Math.floor(target) + 1, 1];
+    for (let it = 0; it < 200; it++) {
       const med: [number, number] = [lo[0] + hi[0], lo[1] + hi[1]];
       if (med[1] > maxDen) break;
       const val = med[0] / med[1];
-      if (Math.abs(val - frac) < bestErr) { bestErr = Math.abs(val - frac); bestN = med[0]; bestD = med[1]; }
-      if (val < frac) lo = med; else hi = med;
-    }
-    for (const cand of [lo, hi]) {
-      if (cand[1] <= maxDen) { const err = Math.abs(cand[0] / cand[1] - frac); if (err < bestErr) { bestErr = err; bestN = cand[0]; bestD = cand[1]; } }
+      const err = Math.abs(val - target);
+      if (err < bestErr - 1e-15) { bestErr = err; bestN = med[0]; bestD = med[1]; }
+      if (val < target) lo = med; else if (val > target) hi = med; else break;
     }
   }
-  let wholeOut = whole;
-  if (bestN >= bestD && bestD > 0) { wholeOut += Math.floor(bestN / bestD); bestN = bestN % bestD; }
-
-  // Sem parte fracionária → mostra inteiro (com a parte inteira do template).
-  const intPh = section.match(/^([#0?,]+)/)?.[1] ?? '';
-  const hasWholePh = /[#0?]/.test(intPh) || section.includes(' ');
-  let head = '';
-  if (bestN === 0) {
-    head = String(wholeOut);
-    // remove a parte "/den" → mostra só inteiro
-    return head;
+  if (hasInt && bestN >= bestD && bestD > 0) { whole += Math.floor(bestN / bestD); bestN %= bestD; }
+  const zeroFrac = bestN === 0;
+  const intStr = whole > 0 ? String(whole) : '';
+  const numStr = String(bestN), denStr = String(f.fixedDen || bestD);
+  // parte "fração": dos literais depois do último placeholder inteiro até o denominador
+  const lastInt = f.intIdx.length ? f.intIdx[f.intIdx.length - 1]! : -1;
+  const fracFrom = Math.min(lastInt + 1, f.numIdx[0]!);
+  const fracTo = f.denIdx[f.denIdx.length - 1]!;
+  const pad = (c: string): string => (c === '0' ? '0' : c === '?' ? ' ' : '');
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i]!;
+    if (zeroFrac && hasInt && i >= fracFrom && i <= fracTo) {
+      // inteiro sem fração: "?/?" e o espaço antes viram espaços da mesma largura
+      // ("# ??/??" c/ 3 → "3      ")
+      if (t.k === 'dig' || t.k === 'slash') out.push({ t: 'text', s: ' ' });
+      else if (t.k === 'lit') out.push({ t: 'text', s: ' '.repeat(f.fixedDen && f.denIdx.includes(i) ? denStr.length : t.s.length) });
+      else pushDecor(t, out);
+      continue;
+    }
+    if (t.k === 'dig' && f.intIdx.includes(i)) {
+      const j = f.intIdx.indexOf(i), n = f.intIdx.length, len = intStr.length;
+      let s: string;
+      if (j === 0 && len > n) s = intStr.slice(0, len - n + 1);
+      else { const k = len - n + j; s = k >= 0 ? intStr[k]! : pad(t.c); }
+      if (zeroFrac && whole === 0 && j === n - 1 && s === '') s = '0'; // "# ?/?" c/ 0 → "0    "
+      out.push({ t: 'text', s });
+      continue;
+    }
+    if (t.k === 'dig' && f.numIdx.includes(i)) {
+      // numerador alinhado à direita
+      const j = f.numIdx.indexOf(i), n = f.numIdx.length, len = numStr.length;
+      let s: string;
+      if (j === 0 && len > n) s = numStr.slice(0, len - n + 1);
+      else { const k = len - n + j; s = k >= 0 ? numStr[k]! : pad(t.c); }
+      out.push({ t: 'text', s });
+      continue;
+    }
+    if (t.k === 'slash') { out.push({ t: 'text', s: '/' }); continue; }
+    if (f.denIdx.includes(i)) {
+      if (f.fixedDen) { out.push({ t: 'text', s: denStr }); continue; }
+      // denominador alinhado à esquerda
+      const j = f.denIdx.indexOf(i), n = f.denIdx.length;
+      const s = j === n - 1 ? denStr.slice(j) || pad((t as { c: string }).c) : denStr[j] ?? pad((t as { c: string }).c);
+      out.push({ t: 'text', s });
+      continue;
+    }
+    if (t.k === 'pct') { out.push({ t: 'text', s: '%' }); continue; }
+    if (t.k === 'dig') { out.push({ t: 'text', s: pad(t.c) }); continue; }
+    pushDecor(t, out);
   }
-  const numStr = String(bestN).padStart(numPh.length, ' ');
-  const denStr = (fixedDen ? String(fixedDen) : String(bestD)).padEnd(denPh.length, ' ');
-  const wholeStr = wholeOut === 0 ? (hasWholePh ? '' : '') : String(wholeOut);
-  // espaço literal entre inteiro e fração vem do próprio template "# ?/?"
-  const sep = section.includes(' ') ? ' ' : '';
-  return `${wholeStr}${sep}${numStr}/${denStr}`;
+  void loc;
+  return whole > 0 || bestN > 0;
 }
 
 // ──────────────────────── Seção data/hora ────────────────────────
@@ -512,57 +875,94 @@ export function serialToDate(serial: number): Date {
   return new Date(Date.UTC(1899, 11, 30) + ms);
 }
 
-function formatDateSection(serial: number, code: string, loc: FormatLocale, date1904 = false): string {
-  // Tokens de calendário usam o epoch (deslocado +1462 no sistema 1904); os de
-  // tempo decorrido ([h]/[m]/[s]) usam o serial cru (duração, sem epoch).
-  const d = serialToDate(date1904 ? serial + 1462 : serial);
-  const yr = d.getUTCFullYear(), mo = d.getUTCMonth(), day = d.getUTCDate(), wd = d.getUTCDay();
-  const h24 = d.getUTCHours(), min = d.getUTCMinutes(), sec = d.getUTCSeconds();
-  const has12 = /AM\/PM|A\/P/i.test(code);
-  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+/** Último serial válido do Excel (31/12/9999). */
+const MAX_SERIAL = 2958465;
 
-  let out = '';
-  let prevTime = false;
-  for (let i = 0; i < code.length; i++) {
-    const ch = code[i]!;
-    if (ch === '"') { const end = code.indexOf('"', i + 1); const j = end < 0 ? code.length : end; out += code.slice(i + 1, j); i = j; continue; }
-    if (ch === '\\') { out += code[i + 1] ?? ''; i++; continue; }
-    if (ch === '[') {
-      const end = code.indexOf(']', i + 1); const j = end < 0 ? code.length : end;
-      const inner = code.slice(i + 1, j).toLowerCase(); i = j;
-      if (inner[0] === 'h') out += String(Math.floor(serial * 24)).padStart(inner.length, '0');
-      else if (inner[0] === 'm') out += String(Math.floor(serial * 1440)).padStart(inner.length, '0');
-      else if (inner[0] === 's') out += String(Math.floor(serial * 86400)).padStart(inner.length, '0');
-      prevTime = true; // após tempo decorrido, um `m` seguinte é minuto
-      continue;
-    }
-    if (/AM\/PM/i.test(code.slice(i, i + 5))) { out += h24 < 12 ? loc.ampm[0] : loc.ampm[1]; i += 4; prevTime = false; continue; }
-    if (/A\/P/i.test(code.slice(i, i + 3))) { out += (h24 < 12 ? loc.ampm[0] : loc.ampm[1]).slice(0, 1); i += 2; prevTime = false; continue; }
-    if (/[ymdhs]/i.test(ch)) {
-      let run = '';
-      while (i < code.length && code[i]!.toLowerCase() === ch.toLowerCase()) { run += code[i]; i++; }
-      i--;
-      const L = run.length, lower = ch.toLowerCase();
-      if (lower === 'y') out += L >= 3 ? String(yr) : String(yr).slice(-2).padStart(2, '0');
-      else if (lower === 'd') {
-        if (L >= 4) out += loc.daysLong[wd];
-        else if (L === 3) out += loc.daysShort[wd];
-        else out += L === 2 ? String(day).padStart(2, '0') : String(day);
-      } else if (lower === 'h') { out += L >= 2 ? String(has12 ? h12 : h24).padStart(2, '0') : String(has12 ? h12 : h24); prevTime = true; }
-      else if (lower === 's') { out += L >= 2 ? String(sec).padStart(2, '0') : String(sec); prevTime = true; }
-      else if (lower === 'm') {
-        // 'm' = minuto se vizinho de hora/segundo; senão mês.
-        const isMinute = prevTime || /^[\s:.]*s/i.test(code.slice(i + 1));
-        if (isMinute) { out += L >= 2 ? String(min).padStart(2, '0') : String(min); prevTime = false; }
-        else if (L >= 4) out += loc.monthsLong[mo];
-        else if (L === 3) out += loc.monthsShort[mo];
-        else out += L === 2 ? String(mo + 1).padStart(2, '0') : String(mo + 1);
+function localeFor(sec: Section, loc: FormatLocale): FormatLocale {
+  if (sec.lcid === undefined) return loc;
+  const names = LANG_NAMES[sec.lcid & 0x3ff];
+  if (!names || names === loc) return loc;
+  return { ...loc, ...names, ampm: names.ampm ?? loc.ampm };
+}
+
+/** null = fora da faixa (data negativa ou além de 9999) → "####". */
+function emitDate(sec0: Section, serial: number, loc0: FormatLocale, date1904: boolean, neg: boolean): FmtPart[] | null {
+  let sec = sec0;
+  if (sec.lcid === 0xf800 || sec.lcid === 0xf400) {
+    // data longa / hora do sistema substituem a seção inteira
+    const sys = sec.lcid === 0xf800 ? loc0.sysDate ?? 'dddd, mmmm d, yyyy' : loc0.sysTime ?? 'h:mm:ss AM/PM';
+    sec = { ...parseSection(sys), color: sec.color };
+  }
+  const loc = localeFor(sec, loc0);
+  if (neg) return null;
+  // precisão: fração de segundo pedida (.0/.00/.000) ou segundo inteiro
+  let sub = 0;
+  for (const t of sec.toks) if (t.k === 'subsec') sub = Math.max(sub, Math.min(3, t.n));
+  const unit = Math.pow(10, sub);
+  // arredonda o serial ao segundo (ou à fração pedida): 23:59:59,9 → 00:00 do dia seguinte
+  // (sobre 15 algarismos: 0,4999971064814 d = 43199,75 s → ",8", não ",7" do binário)
+  const ticks = Number(decimalDigits(serial * 86400 * unit, 0)[0] || '0');
+  const dayN = Math.floor(ticks / (86400 * unit));
+  const sodTicks = ticks - dayN * 86400 * unit;
+  if (dayN > MAX_SERIAL + (date1904 ? -1462 : 0) || serial < 0) return null;
+  // calendário (o bug de 1900: 60 = 29/02/1900; serial 0 = 00/01/1900)
+  let yr: number, mo: number, day: number, wd: number;
+  if (date1904) {
+    const d = new Date(Date.UTC(1904, 0, 1) + dayN * 86400000);
+    yr = d.getUTCFullYear(); mo = d.getUTCMonth(); day = d.getUTCDate(); wd = d.getUTCDay();
+  } else if (dayN === 0) { yr = 1900; mo = 0; day = 0; wd = 6; }
+  else if (dayN === 60) { yr = 1900; mo = 1; day = 29; wd = 3; }
+  else {
+    const d = new Date(Date.UTC(1899, 11, dayN < 60 ? 31 : 30) + dayN * 86400000);
+    yr = d.getUTCFullYear(); mo = d.getUTCMonth(); day = d.getUTCDate(); wd = d.getUTCDay();
+    if (dayN < 60) wd = (wd + 6) % 7; // antes do dia fictício o dia da semana do Excel está 1 atrás
+  }
+  const sod = Math.floor(sodTicks / unit);
+  const subVal = sodTicks - sod * unit;
+  const h24 = Math.floor(sod / 3600), min = Math.floor((sod % 3600) / 60), sec2 = sod % 60;
+  const has12 = sec.toks.some((t) => t.k === 'ampm');
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  const totalSec = Math.floor(ticks / unit);
+  const pad = (v: number, n: number): string => String(v).padStart(n, '0');
+  const out: FmtPart[] = [];
+  for (const t of sec.toks) {
+    switch (t.k) {
+      case 'dt': {
+        const n = t.n;
+        switch (t.c) {
+          case 'y': out.push({ t: 'text', s: n <= 2 ? pad(yr % 100, 2) : String(yr) }); break;
+          case 'e': out.push({ t: 'text', s: String(yr) }); break;
+          case 'g': break; // era (calendário gregoriano: vazio)
+          case 'b': out.push({ t: 'text', s: n <= 2 ? pad((yr + 543) % 100, 2) : String(yr + 543) }); break;
+          case 'M':
+            out.push({ t: 'text', s: n === 1 ? String(mo + 1) : n === 2 ? pad(mo + 1, 2) : n === 3 ? loc.monthsShort[mo]! : n === 4 ? loc.monthsLong[mo]! : loc.monthsLong[mo]!.slice(0, 1) });
+            break;
+          case 'm': out.push({ t: 'text', s: n >= 2 ? pad(min, 2) : String(min) }); break;
+          case 'd': out.push({ t: 'text', s: n === 1 ? String(day) : n === 2 ? pad(day, 2) : n === 3 ? loc.daysShort[wd]! : loc.daysLong[wd]! }); break;
+          case 'a': out.push({ t: 'text', s: n === 3 ? loc.daysShort[wd]! : loc.daysLong[wd]! }); break;
+          case 'h': { const hv = has12 ? h12 : h24; out.push({ t: 'text', s: n >= 2 ? pad(hv, 2) : String(hv) }); break; }
+          case 's': out.push({ t: 'text', s: n >= 2 ? pad(sec2, 2) : String(sec2) }); break;
+        }
+        break;
       }
-      continue;
+      case 'el': {
+        const val = t.c === 'h' ? Math.floor(totalSec / 3600) : t.c === 'm' ? Math.floor(totalSec / 60) : totalSec;
+        out.push({ t: 'text', s: pad(val, t.n) });
+        break;
+      }
+      case 'subsec': {
+        const digits = pad(subVal, sub).slice(0, t.n).padEnd(t.n, '0');
+        out.push({ t: 'text', s: loc.decimal + digits });
+        break;
+      }
+      case 'ampm': {
+        const s = h24 < 12 ? loc.ampm[0] : loc.ampm[1];
+        out.push({ t: 'text', s: t.full ? s : t.lower ? s[0]!.toLowerCase() : s[0]!.toUpperCase() });
+        break;
+      }
+      default: pushDecor(t, out);
     }
-    if (ch === '_') { out += ' '; i++; continue; }
-    if (ch === '*') { i++; continue; }
-    out += ch;
   }
   return out;
 }
+

@@ -60,8 +60,11 @@ describe('builtins dependentes de locale + fixes do oráculo 2026-07-01', () => 
     expect(formatValue(46190, builtinFormatCode(15)!).text).toBe('17/jun/26');
     expect(formatValue(46190, builtinFormatCode(16)!).text).toBe('17/jun');
     expect(formatValue(46190, builtinFormatCode(17)!).text).toBe('jun/26');
-    expect(formatValue(46190.604861, builtinFormatCode(20)!).text).toBe('14:30');
-    expect(formatValue(46190.604861, builtinFormatCode(22)!).text).toBe('17/06/2026 14:30');
+    // ,604861 d = 14:30:59,99 → o Excel arredonda ao segundo antes de exibir
+    // (medido 2026-10-15: "hh:mm" mostra 14:31; e3-time no lab do Sheet)
+    expect(formatValue(46190.604861, builtinFormatCode(20)!).text).toBe('14:31');
+    expect(formatValue(46190.604861, builtinFormatCode(22)!).text).toBe('17/06/2026 14:31');
+    expect(formatValue(46190.6041, builtinFormatCode(20)!).text).toBe('14:29');
   });
 
   it('zero insignificante em slot # decimal é suprimido mesmo com 0s depois', () => {
