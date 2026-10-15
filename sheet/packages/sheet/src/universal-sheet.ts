@@ -1817,6 +1817,16 @@ export class UniversalSheetElement extends HTMLElement {
   private readonly shapeFontStack = (family: string, bold = false, italic = false): string =>
     this.fontResolver.cssStack(family, SHAPE_FALLBACKS, variantOf(bold, italic));
 
+  /** Abas já lidas (nome → Worksheet): fonte dos dados dos gráficos (o Excel relê as células). */
+  private chartSheetMap(): Map<string, Worksheet> {
+    const m = new Map<string, Worksheet>();
+    for (const v of this.views) {
+      const ref = this.workbook?.sheets.find((s) => s.target === v.path);
+      if (ref) m.set(ref.name, v.worksheet);
+    }
+    return m;
+  }
+
   /**
    * Pinta os desenhos do sheet ativo — gráficos, imagens, formas — na ordem
    * do arquivo (z-order), por cima da grade. (sx, sy) = scroll efetivo do
@@ -1875,7 +1885,7 @@ export class UniversalSheetElement extends HTMLElement {
     const { x, y, w, h } = r;
     if (w <= 0 || h <= 0) return;
     let model = this.chartCache.get(chartXml);
-    if (!model) { model = chartModelFor(this.pkg!, ch, this.chartTheme); this.chartCache.set(chartXml, model); }
+    if (!model) { model = chartModelFor(this.pkg!, ch, this.chartTheme, this.chartSheetMap()); this.chartCache.set(chartXml, model); }
     // px por pt: 96/72 na base, escalado pelo zoom (tipografia do chart).
     // Moldura: a cor das linhas default do gráfico (o Excel desenha; medido #898989).
     paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72);
@@ -1897,7 +1907,7 @@ export class UniversalSheetElement extends HTMLElement {
       const pw = ext.cx / 9525, ph = ext.cy / 9525;
       const k = cs.zoomToFit ? Math.min(W / (pw + 2 * px), H / (ph + 2 * py)) : cs.zoom / 100 * this.zoom;
       let model = this.chartCache.get(ch.chartXml);
-      if (!model) { model = chartModelFor(this.pkg!, ch, this.chartTheme); this.chartCache.set(ch.chartXml, model); }
+      if (!model) { model = chartModelFor(this.pkg!, ch, this.chartTheme, this.chartSheetMap()); this.chartCache.set(ch.chartXml, model); }
       paintChart(ctx, model, px * k, py * k, pw * k, ph * k, k * 96 / 72);
     }
   }

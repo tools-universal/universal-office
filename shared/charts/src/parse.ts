@@ -558,7 +558,8 @@ class Parser {
     if (!el) return undefined;
     const lg: Legend = {
       pos: (valStr(el, 'c:legendPos') ?? 'r') as Legend['pos'],
-      overlay: this.bool(el, 'c:overlay') ?? false,
+      // 2010+: legenda sem <c:overlay> SOBREPÕE a plotagem (medido no Excel, syn ff16: plotagem até a borda)
+      overlay: this.bool(el, 'c:overlay') ?? this.modern,
       deleted: new Set(),
       txPr: this.textProps(firstChild(el, 'c:txPr')),
       sp: this.shape(firstChild(el, 'c:spPr')),

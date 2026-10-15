@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
-import { XlsxPackage, readWorkbook, readWorksheet, parseChart } from '../src/index.js';
+import { XlsxPackage, readWorkbook, readWorksheet, parseChart, chartModelFor, chartFileFormat } from '../src/index.js';
 
 const NS_X = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -73,5 +73,52 @@ describe('gráficos dos desenhos (nome, parte, chartex, aba de gráfico)', () =>
     const m = parseChart(odd);
     expect(m.type).toBe('bar-col');
     expect(m.series[0]?.values).toEqual([3]);
+  });
+});
+
+describe('dados dos gráficos a partir das células (o Excel relê; o cache pode estar velho)', () => {
+  const ser = (cat: string, val: string) => `<c:ser><c:idx val="0"/><c:order val="0"/><c:tx><c:strRef><c:f>Dados!$B$1</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>velho</c:v></c:pt></c:strCache></c:strRef></c:tx>`
+    + `<c:cat><c:strRef><c:f>${cat}</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>x</c:v></c:pt></c:strCache></c:strRef></c:cat>`
+    + `<c:val><c:numRef><c:f>${val}</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="1"/><c:pt idx="0"><c:v>9</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser>`;
+  const chart = (s: string, vis = '1') => `<c:chartSpace xmlns:c="${NS_C}" xmlns:a="${NS_A}"><c:chart><c:plotArea><c:barChart><c:barDir val="col"/>${s}</c:barChart></c:plotArea><c:plotVisOnly val="${vis}"/></c:chart></c:chartSpace>`;
+  const book = (xml: string, app = '16.0300') => XlsxPackage.load(zipSync({
+    'xl/workbook.xml': strToU8(`<workbook xmlns="${NS_X}" xmlns:r="${NS_R}"><sheets><sheet name="Dados" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="vals">Dados!$B$2:$B$5</definedName></definedNames></workbook>`),
+    'xl/_rels/workbook.xml.rels': strToU8(rels([['rId1', 'worksheet', 'worksheets/sheet1.xml']])),
+    'xl/worksheets/sheet1.xml': strToU8(`<worksheet xmlns="${NS_X}" xmlns:r="${NS_R}"><sheetData>`
+      + '<row r="1"><c r="B1" t="inlineStr"><is><t>Vendas</t></is></c></row>'
+      + '<row r="2"><c r="A2" t="inlineStr"><is><t>jan</t></is></c><c r="B2"><v>1</v></c></row>'
+      + '<row r="3" hidden="1"><c r="A3" t="inlineStr"><is><t>fev</t></is></c><c r="B3"><v>2</v></c></row>'
+      + '<row r="4"><c r="A4" t="inlineStr"><is><t>mar</t></is></c><c r="B4"><v>3</v></c></row>'
+      + '<row r="5"><c r="A5" t="inlineStr"><is><t>abr</t></is></c><c r="B5" t="inlineStr"><is><t>n/d</t></is></c></row>'
+      + '</sheetData><drawing r:id="rId1"/></worksheet>'),
+    'xl/worksheets/_rels/sheet1.xml.rels': strToU8(rels([['rId1', 'drawing', '../drawings/drawing1.xml']])),
+    'xl/drawings/drawing1.xml': strToU8(`<xdr:wsDr xmlns:xdr="${NS_XDR}" xmlns:a="${NS_A}"><xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx="952500" cy="476250"/>${frame('G', 'rId1')}<xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`),
+    'xl/drawings/_rels/drawing1.xml.rels': strToU8(rels([['rId1', 'chart', '../charts/chart1.xml']])),
+    'xl/charts/chart1.xml': strToU8(xml),
+    'docProps/app.xml': strToU8(`<Properties><Application>LibreOffice</Application><AppVersion>${app}</AppVersion></Properties>`),
+  }));
+  const model = (pkg: XlsxPackage) => chartModelFor(pkg, readWorksheet(pkg, 'xl/worksheets/sheet1.xml').charts![0]!);
+
+  it('séries, categorias e nome vêm das células; oculta sai com plotVisOnly; texto em valores = 0', () => {
+    const m = model(book(chart(ser('Dados!$A$2:$A$5', 'Dados!$B$2:$B$5'))));
+    expect(m.series[0]).toMatchObject({ name: 'Vendas', values: [1, 3, 0] });
+    expect(m.categories).toEqual(['jan', 'mar', 'abr']);
+  });
+
+  it('plotVisOnly=0 mantém as ocultas; nome definido resolve', () => {
+    const m = model(book(chart(ser('Dados!$A$2:$A$5', 'vals'), '0')));
+    expect(m.series[0]?.values).toEqual([1, 2, 3, 0]);
+    expect(m.categories).toEqual(['jan', 'fev', 'mar', 'abr']);
+  });
+
+  it('referência a pasta externa fica com o cache', () => {
+    const m = model(book(chart(ser('[1]Dados!$A$2:$A$5', '[1]Dados!$B$2:$B$5'))));
+    expect(m.series[0]?.values).toEqual([9]);
+  });
+
+  it('formato do arquivo: só a versão do app conta (≤ 12 = 2007)', () => {
+    expect(chartFileFormat(book(chart(''), '12.0000'))).toBe('mso2007');
+    expect(chartFileFormat(book(chart(''), '3.0'))).toBe('mso2007');
+    expect(chartFileFormat(book(chart(''), '15.0000'))).toBe('modern');
   });
 });

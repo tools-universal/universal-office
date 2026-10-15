@@ -347,8 +347,9 @@ class Renderer {
   /** Preenchimento default da área de plotagem (medido: 34 → #E7E7E7, 42 → #3F3F3F). */
   private plotDefault(): Paint | undefined {
     const row = this.styleRow();
-    // 33–34: cinza; 35–40: o próprio accent do estilo (medido: 35 → accent1)
-    if (row === 4) return { kind: 'solid', color: (this.cs.style - 1) % 8 >= 2 ? this.cs.accents[(this.cs.style - 1) % 8 - 2]! : adjustLum(this.cs.bg1, -0.094) };
+    // 33–34: cinza; 35–40: o accent do estilo com tinta 20% em RGB linear (medido no
+    // Excel, lo-fdo54361: estilo 36, accent2 C0504D → F4E9E9)
+    if (row === 4) return { kind: 'solid', color: (this.cs.style - 1) % 8 >= 2 ? tintLinear(this.cs.accents[(this.cs.style - 1) % 8 - 2]!, 0.2) : adjustLum(this.cs.bg1, -0.094) };
     if (row === 5) return { kind: 'solid', color: adjustLum(this.cs.tx1, 0.25) };
     return undefined;
   }
@@ -2165,7 +2166,9 @@ class Renderer {
         if (!txt) continue;
         const t = this.text(dl.txPr, pd?.txPr);
         const lines = txt.split('\n');
-        const tw = Math.max(...lines.map((l) => this.measure(l, t))), th = lines.length * this.lineH(t);
+        // chave da legenda antes do texto (showLegendKey; no 2010+ o ausente vale — medido, syn ff16 #5)
+        const key = eff.showLegendKey ? t.sz * this.S * 0.52 : 0, keyGap = key ? t.sz * this.S * 0.3 : 0;
+        const tw = Math.max(...lines.map((l) => this.measure(l, t))) + key + keyGap, th = lines.length * this.lineH(t);
         const gap = 3 * this.S;
         let x: number, y: number;
         if (xyPts) {
@@ -2195,7 +2198,12 @@ class Renderer {
           ({ x, y } = g.kind === 'area' ? { x: p.x, y: (p.y + this.pt(ci, vi, plot, i, g.grouping === 'standard' ? 0 : v0).y) / 2 } : this.besideLabel(eff.pos ?? 'r', p, tw, th, gap));
         }
         this.shapeRect({ x: x - tw / 2 - 2, y: y - th / 2 - 1, w: tw + 4, h: th + 2 }, eff.sp);
-        this.drawLines(lines, t, x, y, 'center');
+        if (key) {
+          const kr = { x: x - tw / 2, y: y - th / 2 + this.lineH(t) / 2 - key / 2, w: key, h: key };
+          const kf = this.pointFill(g, s, i, n);
+          if (this.setFill(kf, kr)) this.ctx.fillRect(kr.x, kr.y, kr.w, kr.h);
+        }
+        this.drawLines(lines, t, x + (key + keyGap) / 2, y, 'center');
       }
     });
   }

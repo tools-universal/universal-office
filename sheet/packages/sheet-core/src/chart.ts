@@ -7,6 +7,8 @@ import { parseChartSpace, parsePaint, paintChartSpace, dmlColor, canonicalNs, ty
 import { parseXml, type XmlElement } from './xml.js';
 import type { Theme } from './theme.js';
 import type { XlsxPackage } from './package.js';
+import type { Worksheet } from './model.js';
+import { pkgCellSource, refreshChartData, type ChartCellSource } from './chart-data.js';
 import { partRels } from './drawing-charts.js';
 
 export type ChartType = 'bar-col' | 'bar-row' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'radar' | 'area' | 'unknown';
@@ -47,10 +49,12 @@ const OFFICE_2023: Theme = {
  * `fileFormat`: quem gravou a pasta (`chartFileFormat`) — muda o sentido de
  * elementos ausentes (ver `ChartHost.fileFormat`).
  */
-export function parseChart(xml: string, theme?: Theme, fileFormat?: 'mso2007' | 'modern', extra?: { userShapes?: XmlNode; noTheme?: boolean }): ChartModel {
+export function parseChart(xml: string, theme?: Theme, fileFormat?: 'mso2007' | 'modern', extra?: { userShapes?: XmlNode; noTheme?: boolean; cells?: ChartCellSource }): ChartModel {
   if (extra?.noTheme) theme = OFFICE_2023;
   let root: XmlElement;
   try { root = canonicalNs(parseXml(xml) as XmlNode) as XmlElement; } catch { root = { name: 'c:chartSpace', attrs: {}, children: [] }; }
+  // dados das células da pasta (o Excel relê; os caches podem estar velhos)
+  if (extra?.cells) { try { root = refreshChartData(root, extra.cells); } catch { /* fica o cache */ } }
   const scheme = { ...FALLBACK, ...(theme?.byName ?? {}) };
   const space = parseChartSpace(root as XmlNode, {
     ...(fileFormat ? { fileFormat } : {}),
@@ -83,10 +87,16 @@ export function parseChart(xml: string, theme?: Theme, fileFormat?: 'mso2007' | 
   return { space, type, series, categories, ...(title ? { title } : {}) };
 }
 
-/** Modelo de um gráfico ancorado da pasta (o que o `<universal-sheet>` pinta). */
-export function chartModelFor(pkg: XlsxPackage, ch: { chartXml: string; part?: string }, theme?: Theme): ChartModel {
+/**
+ * Modelo de um gráfico ancorado da pasta (o que o `<universal-sheet>` pinta),
+ * com os dados das células. `sheets`: abas já lidas pelo hospedeiro (nome →
+ * Worksheet), reaproveitadas como fonte dos dados.
+ */
+export function chartModelFor(pkg: XlsxPackage, ch: { chartXml: string; part?: string }, theme?: Theme, sheets?: Map<string, Worksheet>): ChartModel {
   const noTheme = !pkg.partNames().some((p) => /^xl\/theme\/[^/]+\.xml$/i.test(p));
-  return parseChart(ch.chartXml, theme, chartFileFormat(pkg), { ...(ch.part ? userShapesOf(pkg, ch.part) : {}), ...(noTheme ? { noTheme } : {}) });
+  return parseChart(ch.chartXml, theme, chartFileFormat(pkg), {
+    ...(ch.part ? userShapesOf(pkg, ch.part) : {}), ...(noTheme ? { noTheme } : {}), cells: pkgCellSource(pkg, sheets),
+  });
 }
 
 /** Desenho do gráfico (`chartUserShapes` nos rels da parte): caixas de texto, notas de fonte… */
@@ -102,17 +112,18 @@ function userShapesOf(pkg: XlsxPackage, part: string): { userShapes?: XmlNode } 
 const formatCache = new WeakMap<XlsxPackage, 'mso2007' | 'modern'>();
 
 /**
- * Pasta gravada pelo Excel 2007 (`docProps/app.xml`: Application "Microsoft…"
- * e AppVersion 12.x) ou posterior/outro gerador — o Office lê os gráficos do
- * 2007 com o sentido antigo de elementos ausentes e booleanos sem val.
+ * Pasta gravada pelo Excel 2007 ou antes (`docProps/app.xml` AppVersion ≤ 12)
+ * ou posterior — o Excel lê os gráficos do 2007 com o sentido antigo de
+ * elementos ausentes e booleanos sem val. Só a versão conta, não o nome do
+ * aplicativo (medido, syn ff*: 12.0000 e 3.0 → 2007; 13, 14, 16, LibreOffice
+ * 15.0000 e sem AppVersion → 2010+).
  */
 export function chartFileFormat(pkg: XlsxPackage): 'mso2007' | 'modern' {
   let f = formatCache.get(pkg);
   if (!f) {
     const app = pkg.getPartText('docProps/app.xml') ?? '';
-    const name = /<Application>([^<]*)</.exec(app)?.[1]?.trim() ?? '';
-    const ver = /<AppVersion>([^<]*)</.exec(app)?.[1]?.trim() ?? '';
-    f = /^Microsoft/i.test(name) && /^12\./.test(ver) ? 'mso2007' : 'modern';
+    const major = parseInt(/<AppVersion>([^<]*)</.exec(app)?.[1]?.trim() ?? '', 10);
+    f = Number.isFinite(major) && major <= 12 ? 'mso2007' : 'modern';
     formatCache.set(pkg, f);
   }
   return f;
