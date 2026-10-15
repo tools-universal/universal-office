@@ -301,7 +301,8 @@ export class UniversalSheetElement extends HTMLElement {
       }
       for (const row of ws.rows) {
         if (row.hidden) hiddenRows.add(row.r);
-        if (row.customFormat && row.style) rowStyles.set(row.r, row.style);
+        // customFormat sem `s` = estilo 0: a linha formatada vence o estilo da coluna
+        if (row.customFormat) rowStyles.set(row.r, row.style ?? 0);
         if (row.r > maxRow) maxRow = row.r;
         for (const c of row.cells) {
           const { col } = refToRowCol(c.ref);
