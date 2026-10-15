@@ -381,8 +381,10 @@ export function atpFn(name: string, min: number, max: number, body: (a: number[]
       const raw: (Scalar | ArrayValue)[] = [];
       const nDef: number[] = [];
       for (let i = 0; i < max; i++) {
-        if (i < args.length) raw.push(atpRaw(args[i], ctx));
-        else if (o.defaults?.[i - min] !== undefined) nDef.push(o.defaults[i - min]!);
+        const dv = o.defaults?.[i - min];
+        // medido: opcional omitido (DELTA(5;)) = padrão; obrigatório omitido = #N/A
+        if (i < args.length && !(args[i] === null && dv !== undefined)) raw.push(atpRaw(args[i], ctx));
+        else if (dv !== undefined) nDef.push(dv);
         else break;
       }
       return liftScalars(raw, (s) => {
