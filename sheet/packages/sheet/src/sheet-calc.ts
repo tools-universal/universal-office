@@ -261,7 +261,8 @@ export class SheetCalc {
       const own = b.engine.getFormula(sheet, r0, c0);
       const owner = own ? undefined : b.engine.getOwner(sheet, r0, c0);
       const rec = own ?? owner;
-      if (rec) {
+      // tabela de dados ({=TABELA(…)}) não tem texto de fórmula no motor: mostra o valor
+      if (rec && rec.kind !== 'dataTable') {
         const text = this.localFormula(rec);
         const cse = rec.kind === 'array' && !rec.dynamic;
         const formula = cse ? `{${text}}` : text;

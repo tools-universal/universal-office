@@ -1282,7 +1282,9 @@ export class UniversalSheetElement extends HTMLElement {
     }
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
-      this.setCellValue(this.sel.col, this.sel.row, '');
+      const r = this.setCellValue(this.sel.col, this.sel.row, '');
+      // parte de matriz CSE: o Excel recusa com aviso
+      if (!r.ok && r.message) this.dispatchEvent(new CustomEvent('us-entry-error', { detail: { message: r.message } }));
       this.emitSelection();
       this.paint();
       return;
