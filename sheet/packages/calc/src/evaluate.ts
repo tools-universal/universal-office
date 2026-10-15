@@ -55,6 +55,8 @@ export interface EvalHost {
   spillArea(sheet: number, row: number, col: number): Area | undefined;
   /** Informação de formatação/estilo para CELL (opcional). */
   cellInfo?(sheet: number, row: number, col: number, what: string): Scalar | undefined;
+  /** Memória de UM recálculo para as funções (índices de MATCH/VLOOKUP…); o motor a zera a cada passada. */
+  readonly cache?: Map<string, unknown>;
 }
 
 /** Valor de parâmetro de LAMBDA omitido (ISOMITTED). */
@@ -120,6 +122,8 @@ export class CellCtx implements FnContext {
   }
   /** Área derramada da âncora (ANCHORARRAY). */
   spillRange(sheet: number, row: number, col: number): Area | undefined { return this.ev.host.spillArea(sheet, row, col); }
+  /** Memória de um recálculo (FnContext.cache do contrato do FN-TDL). */
+  get cache(): Map<string, unknown> | undefined { return this.ev.host.cache; }
   /** Formatação da célula para CELL (gancho do hospedeiro). */
   cellInfo(sheet: number, row: number, col: number, what: string): Scalar | undefined { return this.ev.host.cellInfo?.(sheet, row, col, what); }
 }

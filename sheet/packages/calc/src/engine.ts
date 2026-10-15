@@ -204,6 +204,8 @@ export class Engine implements EvalHost {
   private readonly iterate: { on: boolean; count: number; delta: number };
   private rev: { byCol: Map<number, { r1: number; r2: number; f: FormulaRec }[]>; wide: { a: Area; f: FormulaRec }[] }[] | undefined;
   private spillChanged: Area[] = [];
+  /** Memória das funções durante um recálculo (zerada a cada passada: os valores podem mudar entre passadas). */
+  readonly cache = new Map<string, unknown>();
   /** Células cujo valor mudou (aba → chaves), para a UI repintar/gravar. */
   private readonly changes = new Map<number, Set<number>>();
 
@@ -407,9 +409,9 @@ export class Engine implements EvalHost {
     }
     const st = this.sheets[area.sheet];
     if (!st) return;
-    // calcula antes as fórmulas sujas da área (para não interromper a função no meio)
-    if (this.computing) st.each(area, (_r, _c, rec) => this.check(rec));
-    st.each(area, (r, c, rec) => fn(rec.v, r, c));
+    // célula suja interrompe (NeedCell) — a função é refeita depois, sem estado parcial
+    if (this.computing) st.each(area, (r, c, rec) => { this.check(rec); fn(rec.v, r, c); });
+    else st.each(area, (r, c, rec) => fn(rec.v, r, c));
   }
 
   values(area: Area): ArrayValue {
@@ -596,6 +598,7 @@ export class Engine implements EvalHost {
 
   private run(): void {
     this.nowValue = 0;
+    this.cache.clear();
     this.circular.clear();
     for (let round = 0; round < 10; round++) {
       this.spillChanged = [];
@@ -607,9 +610,11 @@ export class Engine implements EvalHost {
       if (![...this.formulas].some((f) => f.dirty)) break;
     }
     if (this.iterate.on && this.circular.size) this.iterateCycles();
+    this.cache.clear();
   }
 
   private computeDirty(): void {
+    this.cache.clear();
     this.computing = true;
     this.pass++;
     try {
@@ -915,6 +920,7 @@ export class Engine implements EvalHost {
       for (const m of members) this.stale.add(m);
       for (let sweep = 0; sweep < this.iterate.count; sweep++) {
         let maxDelta = 0;
+        this.cache.clear();
         for (const m of members) {
           const v0 = value(m);
           // precedente sujo fora do ciclo: calcula antes (pilha normal) e tenta de novo
