@@ -2,12 +2,14 @@ import { parseXml, childElements, firstChild, textContent, type XmlElement } fro
 import { colorContext, resolveColorEl, type ColorContext } from './theme.js';
 import type {
   Workbook, SheetRef, Worksheet, Row, Cell, CellType, SharedString, RichRun, RunProps,
-  ColDef, PaneInfo, CondFormat, CondRule, ColorStop, Comment,
-  Hyperlink, SheetFormatPr, TableInfo, AutoFilterInfo,
+  ColDef, PaneInfo, CondFormat, Comment,
+  Hyperlink, SheetFormatPr, TableInfo, AutoFilterInfo, PivotInfo,
 } from './model.js';
 import { refToRowCol, rowColToRef } from './model.js';
 import type { XlsxPackage } from './package.js';
 import { readDrawing, readOleObjects, readControls } from './drawing.js';
+import { readConditionalFormats } from './read-cf.js';
+import { readPivotTable } from './read-pivot.js';
 
 /** Mapa de relacionamentos rId → target, lido de um arquivo .rels do pacote. */
 function readRels(pkg: XlsxPackage, relsPart: string): Map<string, string> {
@@ -221,85 +223,8 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
     };
   }
 
-  // <conditionalFormatting sqref="..."> regras
-  const condFormats: CondFormat[] = [];
-  for (const cfEl of childElements(root, 'conditionalFormatting')) {
-    const sqref = cfEl.attrs['sqref'] ?? '';
-    const rules: CondRule[] = [];
-    for (const ruleEl of childElements(cfEl, 'cfRule')) {
-      const type = ruleEl.attrs['type'] as CondRule['type'];
-      const priority = parseInt(ruleEl.attrs['priority'] ?? '0', 10);
-      if (type === 'colorScale') {
-        const cs = firstChild(ruleEl, 'colorScale');
-        const stops: ColorStop[] = [];
-        if (cs) for (const cfvo of childElements(cs, 'cfvo')) {
-          stops.push({ type: cfvo.attrs['type'] ?? 'min', value: cfvo.attrs['val'] !== undefined ? parseFloat(cfvo.attrs['val']) : undefined, color: '#808080' });
-        }
-        let i = 0;
-        for (const colEl of cs ? childElements(cs, 'color') : []) {
-          const c = resolveColorEl(colEl, ctx) ?? '#000000';
-          if (stops[i]) stops[i]!.color = c; i++;
-        }
-        rules.push({ type, priority, stops });
-      } else if (type === 'dataBar') {
-        const db = firstChild(ruleEl, 'dataBar');
-        const colorEl = db ? firstChild(db, 'color') : undefined;
-        const rule: CondRule = {
-          type, priority,
-          barColor: (colorEl ? resolveColorEl(colorEl, ctx) : undefined) ?? '#638EC6',
-        };
-        // extLst do cfRule liga à definição x14 (minLength/maxLength/border)
-        const extLst = firstChild(ruleEl, 'extLst');
-        if (extLst) {
-          for (const ext of childElements(extLst, 'ext')) {
-            const idEl = firstChild(ext, 'x14:id');
-            if (idEl) { rule.x14Id = textContent(idEl).trim(); break; }
-          }
-        }
-        rules.push(rule);
-      } else if (type === 'cellIs' || type === 'expression') {
-        const dxfId = ruleEl.attrs['dxfId'] !== undefined ? parseInt(ruleEl.attrs['dxfId'], 10) : undefined;
-        const formula = childElements(ruleEl, 'formula').map((f) => textContent(f));
-        rules.push({ type, priority, operator: ruleEl.attrs['operator'], formula, dxfId });
-      }
-    }
-    if (rules.length) condFormats.push({ sqref, rules });
-  }
-
-  // definições x14 de dataBar (extLst da worksheet): minLength/maxLength/border
-  // reais das barras modernas — o cfRule clássico liga por x14Id
-  const wsExtLst = firstChild(root, 'extLst');
-  if (wsExtLst) {
-    const x14map = new Map<string, { min?: number; max?: number; border?: boolean }>();
-    for (const ext of childElements(wsExtLst, 'ext')) {
-      const cfs = firstChild(ext, 'x14:conditionalFormattings');
-      if (!cfs) continue;
-      for (const cf of childElements(cfs, 'x14:conditionalFormatting')) {
-        for (const ruleEl of childElements(cf, 'x14:cfRule')) {
-          if (ruleEl.attrs['type'] !== 'dataBar') continue;
-          const id = ruleEl.attrs['id'];
-          const db = firstChild(ruleEl, 'x14:dataBar');
-          if (!id || !db) continue;
-          x14map.set(id.trim(), {
-            min: db.attrs['minLength'] !== undefined ? parseInt(db.attrs['minLength'], 10) : 0,
-            max: db.attrs['maxLength'] !== undefined ? parseInt(db.attrs['maxLength'], 10) : 100,
-            border: db.attrs['border'] === '1',
-          });
-        }
-      }
-    }
-    if (x14map.size > 0) {
-      for (const cf of condFormats) {
-        for (const rule of cf.rules) {
-          const x14 = rule.x14Id !== undefined ? x14map.get(rule.x14Id) : undefined;
-          if (!x14) continue;
-          rule.barMinLen = x14.min;
-          rule.barMaxLen = x14.max;
-          rule.barBorder = x14.border;
-        }
-      }
-    }
-  }
+  // formatação condicional: clássica + definições x14 do <extLst> (read-cf.ts)
+  const condFormats: CondFormat[] = readConditionalFormats(root, ctx);
 
   // comentários da planilha (rels de tipo .../relationships/comments)
   const commentsPath = findRelByType(pkg, relsPath, '/comments');
@@ -330,6 +255,12 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
     const t = readTablePart(pkg, pkg.resolveRelTarget(sheetPath, target));
     if (t) tables.push(t);
   }
+  // tabelas dinâmicas (rels .../pivotTable): estilo pintado sobre o range calculado
+  const pivots: PivotInfo[] = [];
+  for (const target of findRelsByType(pkg, relsPath, '/pivotTable')) {
+    const p = readPivotTable(pkg, pkg.resolveRelTarget(sheetPath, target));
+    if (p) pivots.push(p);
+  }
 
   const ws: Worksheet = { rows };
   if (merges.length > 0) {
@@ -349,6 +280,7 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (hyperlinks.length > 0) ws.hyperlinks = hyperlinks;
   if (sheetFormatPr) ws.sheetFormatPr = sheetFormatPr;
   if (tables.length > 0) ws.tables = tables;
+  if (pivots.length > 0) ws.pivots = pivots;
   if (listValidations.length > 0) ws.listValidations = listValidations;
   const sheetAf = firstChild(root, 'autoFilter');
   if (sheetAf?.attrs['ref']) ws.autoFilter = readAutoFilter(sheetAf, sheetAf.attrs['ref']);

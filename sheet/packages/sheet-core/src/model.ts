@@ -6,6 +6,8 @@
  * e xl/styles.xml. Isso é o que garante compatibilidade (vide ARCHITECTURE.md).
  */
 
+import type { Dxf } from './styles.js';
+
 /** Planilha referenciada em xl/workbook.xml. */
 export interface SheetRef {
   name: string;
@@ -157,11 +159,22 @@ export interface SheetFormatPr {
   zeroHeight?: boolean;
 }
 
-/** Regra de formatação condicional (subconjunto suportado). */
-export interface ColorStop { type: string; value?: number; color: string; }
+/**
+ * Ponto de controle (<cfvo>) de escala de cor / barra de dados / ícones:
+ * min | max | num | percent | percentile | formula (x14: autoMin | autoMax).
+ * `val` cru (número ou fórmula); `value` = número quando é constante.
+ */
+export interface ColorStop { type: string; value?: number; val?: string; color: string; }
+export interface Cfvo { type: string; val?: string; value?: number; /** ícones: limite ≥ (default) ou > */ gte?: boolean; }
+export type CondRuleType =
+  | 'colorScale' | 'dataBar' | 'iconSet' | 'cellIs' | 'expression'
+  | 'top10' | 'aboveAverage' | 'duplicateValues' | 'uniqueValues'
+  | 'containsText' | 'notContainsText' | 'beginsWith' | 'endsWith'
+  | 'containsBlanks' | 'notContainsBlanks' | 'containsErrors' | 'notContainsErrors' | 'timePeriod';
 export interface CondRule {
-  type: 'colorScale' | 'dataBar' | 'cellIs' | 'expression';
+  type: CondRuleType;
   priority: number;
+  stopIfTrue?: boolean;
   // colorScale
   stops?: ColorStop[];
   // dataBar
@@ -171,12 +184,47 @@ export interface CondRule {
   barMaxLen?: number;
   /** Borda da barra (x14 border="1"; default sem borda). */
   barBorder?: boolean;
+  /** x14: barra em degradê (default) ou sólida. */
+  barGradient?: boolean;
+  barBorderColor?: string;
+  barNegColor?: string;
+  barNegBorderColor?: string;
+  /** x14 negativeBarColorSameAsPositive / negativeBarBorderColorSameAsPositive. */
+  barNegSame?: boolean;
+  barNegBorderSame?: boolean;
+  /** x14 axisPosition: automatic (default) | middle | none. */
+  barAxis?: string;
+  barAxisColor?: string;
+  /** x14 direction: context | leftToRight | rightToLeft. */
+  barDirection?: string;
+  /** Pontos min/max (barra) ou limites (ícones). */
+  cfvos?: Cfvo[];
+  /** showValue="0": esconde o valor (barra/ícones). */
+  showValue?: boolean;
+  /** Marca a regra como de Excel 2010+ (definição x14 presente). */
+  x14?: boolean;
   /** Id que liga o cfRule clássico à definição x14 no extLst da worksheet. */
   x14Id?: string;
-  // cellIs
+  // iconSet
+  iconSet?: string;
+  iconReverse?: boolean;
+  /** Ícones avulsos (x14 custom): conjunto + índice por limite. */
+  icons?: { set: string; id: number }[];
+  // cellIs / expression / texto / top10 / média / período
   operator?: string;
   formula?: string[];
   dxfId?: number;
+  /** dxf embutido (regras x14 — <x14:dxf>). */
+  dxf?: Dxf;
+  text?: string;
+  timePeriod?: string;
+  rank?: number;
+  percent?: boolean;
+  bottom?: boolean;
+  /** aboveAverage="0" → abaixo da média (default true). */
+  aboveAverage?: boolean;
+  equalAverage?: boolean;
+  stdDev?: number;
 }
 export interface CondFormat { sqref: string; rules: CondRule[]; }
 
@@ -266,6 +314,48 @@ export interface TableInfo {
   filter?: AutoFilterInfo;
 }
 
+/** Item de linha/coluna de tabela dinâmica (`<rowItems><i t r><x/>…</i>`). */
+export interface PivotItem {
+  /** default/sum/…/grand/blank (ausente = item de dado). */
+  t?: string;
+  /** Quantos índices repetem o item anterior (nível do item). */
+  r: number;
+  /** Quantidade de <x> (índices próprios). */
+  x: number;
+}
+
+/** Tabela dinâmica (`xl/pivotTables/pivotTableN.xml`) — só o necessário à pintura. */
+export interface PivotInfo {
+  /** `<location ref>`: range já calculado (sem os campos de página). */
+  ref: string;
+  firstHeaderRow: number;
+  firstDataRow: number;
+  firstDataCol: number;
+  rowPageCount: number;
+  colPageCount: number;
+  pageFieldCount: number;
+  /** Botão de filtro do campo de página mostra funil (item escolhido/itens ocultos). */
+  pageFieldActive?: boolean[];
+  rowFields: number[];
+  colFields: number[];
+  rowItems: PivotItem[];
+  colItems: PivotItem[];
+  compact: boolean;
+  outline: boolean;
+  showHeaders: boolean;
+  rowGrandTotals: boolean;
+  colGrandTotals: boolean;
+  /** `<pivotTableStyleInfo>` (nome ausente/vazio = sem estilo). */
+  styleName?: string;
+  showRowHeaders: boolean;
+  showColHeaders: boolean;
+  showRowStripes: boolean;
+  showColStripes: boolean;
+  showLastColumn: boolean;
+  /** Campos (índice em pivotFields) com filtro ativo. */
+  filteredFields?: number[];
+}
+
 /**
  * Autofiltro (`<autoFilter ref>` da tabela ou da planilha): o Excel desenha um
  * botão em cada célula da 1ª linha do range, exceto `hiddenButton`; coluna
@@ -307,6 +397,8 @@ export interface Worksheet {
   tables?: TableInfo[];
   /** Autofiltro da PLANILHA (`<autoFilter>` fora de tabela). */
   autoFilter?: AutoFilterInfo;
+  /** Tabelas dinâmicas desta aba (rels `/pivotTable`). */
+  pivots?: PivotInfo[];
   /** Ranges A1 com validação tipo LISTA (`<dataValidation type="list" sqref>`) —
    *  a célula selecionada dentro deles ganha a seta de dropdown. */
   listValidations?: string[];

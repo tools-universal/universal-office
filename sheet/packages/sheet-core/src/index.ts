@@ -55,6 +55,8 @@ export {
   type PaneInfo,
   type CondFormat,
   type CondRule,
+  type CondRuleType,
+  type Cfvo,
   type ColorStop,
   type Comment,
   type DrawingAnchor,
@@ -62,4 +64,6 @@ export {
   type DrawingObject,
   type TableInfo,
   type AutoFilterInfo,
+  type PivotInfo,
+  type PivotItem,
 } from './model.js';
