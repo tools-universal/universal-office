@@ -21,7 +21,9 @@ describe('contrato', () => {
   it('conversões', () => {
     expect(numberToText(0.1 + 0.2)).toBe('0.3');
     expect(numberToText(1234.5, PT)).toBe('1234,5');
-    expect(numberToText(123456789012345678)).toBe('1.23456789012346E+17');
+    // medido: decimal até 20 caracteres, científica além (=""&1,5E+20 → "1,5E+20")
+    expect(numberToText(123456789012345678)).toBe('123456789012346000');
+    expect(numberToText(1.5e20)).toBe('1.5E+20');
     expect(parseNumberText('1.234,5', PT)).toBe(1234.5);
     expect(parseNumberText('50%')).toBe(0.5);
     expect(parseNumberText('(3)')).toBe(-3);

@@ -125,6 +125,12 @@ export interface FnContext {
   readonly col: number;
   /** Sistema de datas 1904 (workbookPr date1904). */
   readonly date1904: boolean;
+  /**
+   * Fórmula de matriz dinâmica/CSE (true) ou legada com interseção implícita
+   * (false). undefined = dinâmica. Para as poucas funções que recebem a
+   * referência crua e decidem sozinhas (TYPE: 64 × interseção).
+   */
+  readonly arrayContext?: boolean;
   /** Convenções de valor do idioma em uso (texto↔número). */
   readonly locale: ValueLocale;
   /** Valores de UMA área de uma referência como matriz (vazio = null). */

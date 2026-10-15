@@ -50,6 +50,8 @@ export interface MockOptions {
   readonly now?: number;
   /** Semente do RAND determinístico. */
   readonly seed?: number;
+  /** Fórmula dinâmica (padrão) ou legada (FnContext.arrayContext). */
+  readonly arrayContext?: boolean;
 }
 
 /** FnContext sobre mapas de células. LambdaValue com `body` função JS é chamável (testes de MAP/REDUCE…). */
@@ -75,6 +77,7 @@ export function mockContext(o: MockOptions = {}): FnContext {
   const ctx: FnContext = {
     sheet: 0, row: at.row, col: at.col,
     date1904: o.date1904 ?? false,
+    arrayContext: o.arrayContext,
     locale: o.locale ?? EN_US,
     values(ref, area = 0) {
       const a = ref.areas[area]!;
@@ -124,7 +127,7 @@ export function parseRefUnion(s: string, sheet = 0): RefValue {
 }
 
 /** Argumento de teste: escalar, matriz literal, referência ("A1:B2" na aba 0) ou thunk. */
-export type TestArg = Scalar | Scalar[][] | { ref: string; sheet?: number } | { lazy: Value } | { omitted: true } | LambdaValue;
+export type TestArg = Scalar | Scalar[][] | { ref: string; sheet?: number } | { lazy: Value } | { omitted: true } | LambdaValue | ArrayValue | RefValue;
 
 /** Lambda de teste implementada em JS. */
 export function jsLambda(params: string[], f: (...a: readonly Value[]) => Value): LambdaValue {
@@ -132,7 +135,7 @@ export function jsLambda(params: string[], f: (...a: readonly Value[]) => Value)
 }
 
 function toRaw(a: TestArg): RawArg {
-  if (a === null || typeof a !== 'object' || a instanceof CalcError || a instanceof LambdaValue) return a;
+  if (a === null || typeof a !== 'object' || a instanceof CalcError || a instanceof LambdaValue || a instanceof ArrayValue || a instanceof RefValue) return a;
   if (Array.isArray(a)) return ArrayValue.of(a);
   if ('ref' in a) return parseRefUnion(a.ref, a.sheet ?? 0);
   if ('lazy' in a) { const v = a.lazy; const t = (() => v) as Thunk; Object.defineProperty(t, 'omitted', { value: false }); return t; }
@@ -174,7 +177,7 @@ export function plain(v: Value): unknown {
 
 /** Valor de célula/argumento em JSON: {e} = erro, {s} = texto que parece número. */
 export type CaseScalar = number | string | boolean | null | { e: string } | { s: string };
-export type CaseArg = CaseScalar | { omit: true } | { ref: string } | { arr: CaseScalar[][] };
+export type CaseArg = CaseScalar | { omit: true } | { ref: string } | { arr: CaseScalar[][] } | { lambda: string };
 
 export interface OracleCase {
   readonly id: string;
@@ -230,6 +233,7 @@ export function caseFormula(c: OracleCase): string {
       if ('omit' in a) return '';
       if ('ref' in a) return a.ref;
       if ('arr' in a) return `{${a.arr.map((row) => row.map(scalarLiteral).join(',')).join(';')}}`;
+      if ('lambda' in a) return a.lambda;
     }
     return scalarLiteral(a as CaseScalar);
   };
@@ -253,7 +257,7 @@ export function runCase(c: OracleCase, locale: ValueLocale, extra: Partial<MockO
   for (const [k, f] of Object.entries(c.formulas ?? {})) formulas[k] = f.replace(/^=/, '');
   const ctx = mockContext({
     sheets: { Sheet1: cells }, at: c.at ?? 'Z100', locale, date1904: c.date1904, formulas,
-    hiddenRows: c.hiddenRows?.map((r) => r - 1),
+    hiddenRows: c.hiddenRows?.map((r) => r - 1), arrayContext: !c.legacy,
     // medido: com a aba em modo de filtro (sheetPr filterMode), TODA linha oculta conta
     // como filtrada para SUBTOTAL 1–11 — inclusive as ocultas à mão, fora do AutoFiltro
     filteredRows: c.filteredRows?.length ? [...c.filteredRows, ...(c.hiddenRows ?? [])].map((r) => r - 1) : undefined,
@@ -264,6 +268,8 @@ export function runCase(c: OracleCase, locale: ValueLocale, extra: Partial<MockO
       if ('omit' in a) return { omitted: true };
       if ('ref' in a) return { ref: a.ref };
       if ('arr' in a) return a.arr.map((row) => row.map(caseScalar));
+      // nome de função como LAMBDA (eta: GROUPBY(...; SUM)) → chama a função registrada
+      if ('lambda' in a) { const fn = a.lambda; return jsLambda([], (...xs) => callFn(fn, xs as readonly Value[] as TestArg[], ctx)); }
     }
     return caseScalar(a as CaseScalar);
   });

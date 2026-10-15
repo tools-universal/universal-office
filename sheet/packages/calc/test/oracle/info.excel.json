@@ -1,0 +1,3113 @@
+[
+ {
+  "id": "info-isblank-num",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(1)"
+ },
+ {
+  "id": "info-isblank-zero",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(0)"
+ },
+ {
+  "id": "info-isblank-neg",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(-2,5)"
+ },
+ {
+  "id": "info-isblank-big",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(100000000000000000000)"
+ },
+ {
+  "id": "info-isblank-text",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(\"a\")"
+ },
+ {
+  "id": "info-isblank-empty",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(\"\")"
+ },
+ {
+  "id": "info-isblank-numtext",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(\"1\")"
+ },
+ {
+  "id": "info-isblank-t",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(VERDADEIRO)"
+ },
+ {
+  "id": "info-isblank-f",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(FALSO)"
+ },
+ {
+  "id": "info-isblank-na",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(#N/D)"
+ },
+ {
+  "id": "info-isblank-div0",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(#DIV/0!)"
+ },
+ {
+  "id": "info-isblank-value",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(#VALOR!)"
+ },
+ {
+  "id": "info-isblank-ref",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(#REF!)"
+ },
+ {
+  "id": "info-isblank-name",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(#NOME?)"
+ },
+ {
+  "id": "info-isblank-num_err",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(#NÚM!)"
+ },
+ {
+  "id": "info-isblank-null_err",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(#NULO!)"
+ },
+ {
+  "id": "info-isblank-refA1",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(A1)"
+ },
+ {
+  "id": "info-isblank-refA2",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(A2)"
+ },
+ {
+  "id": "info-isblank-refA3",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(A3)"
+ },
+ {
+  "id": "info-isblank-refA4",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(A4)"
+ },
+ {
+  "id": "info-isblank-refA5",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(A5)"
+ },
+ {
+  "id": "info-isblank-refA6",
+  "v": true,
+  "text": "########",
+  "local": "=ÉCÉL.VAZIA(A6)"
+ },
+ {
+  "id": "info-isblank-refA7",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(A7)"
+ },
+ {
+  "id": "info-isblank-arr",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false,
+    false
+   ],
+   [
+    false,
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-isblank-range",
+  "v": false,
+  "spill": [
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    true
+   ],
+   [
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(A1:A7)"
+ },
+ {
+  "id": "info-isblank-range-legacy",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(A1:A7)"
+ },
+ {
+  "id": "info-isblank-range-legacy-miss",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(A1:A7)"
+ },
+ {
+  "id": "info-isblank-row-range",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉCÉL.VAZIA(A1:B1)"
+ },
+ {
+  "id": "info-iserr-num",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(1)"
+ },
+ {
+  "id": "info-iserr-zero",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(0)"
+ },
+ {
+  "id": "info-iserr-neg",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(-2,5)"
+ },
+ {
+  "id": "info-iserr-big",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(100000000000000000000)"
+ },
+ {
+  "id": "info-iserr-text",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(\"a\")"
+ },
+ {
+  "id": "info-iserr-empty",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(\"\")"
+ },
+ {
+  "id": "info-iserr-numtext",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(\"1\")"
+ },
+ {
+  "id": "info-iserr-t",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(VERDADEIRO)"
+ },
+ {
+  "id": "info-iserr-f",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(FALSO)"
+ },
+ {
+  "id": "info-iserr-na",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(#N/D)"
+ },
+ {
+  "id": "info-iserr-div0",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERRO(#DIV/0!)"
+ },
+ {
+  "id": "info-iserr-value",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERRO(#VALOR!)"
+ },
+ {
+  "id": "info-iserr-ref",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERRO(#REF!)"
+ },
+ {
+  "id": "info-iserr-name",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERRO(#NOME?)"
+ },
+ {
+  "id": "info-iserr-num_err",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERRO(#NÚM!)"
+ },
+ {
+  "id": "info-iserr-null_err",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERRO(#NULO!)"
+ },
+ {
+  "id": "info-iserr-refA1",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(A1)"
+ },
+ {
+  "id": "info-iserr-refA2",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(A2)"
+ },
+ {
+  "id": "info-iserr-refA3",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(A3)"
+ },
+ {
+  "id": "info-iserr-refA4",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(A4)"
+ },
+ {
+  "id": "info-iserr-refA5",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(A5)"
+ },
+ {
+  "id": "info-iserr-refA6",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(A6)"
+ },
+ {
+  "id": "info-iserr-refA7",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERRO(A7)"
+ },
+ {
+  "id": "info-iserr-arr",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false,
+    false
+   ],
+   [
+    false,
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉERRO({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-iserr-range",
+  "v": false,
+  "spill": [
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    true
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉERRO(A1:A7)"
+ },
+ {
+  "id": "info-iserr-range-legacy",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERRO(A1:A7)"
+ },
+ {
+  "id": "info-iserr-range-legacy-miss",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERRO(A1:A7)"
+ },
+ {
+  "id": "info-iserr-row-range",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉERRO(A1:B1)"
+ },
+ {
+  "id": "info-iserror-num",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(1)"
+ },
+ {
+  "id": "info-iserror-zero",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(0)"
+ },
+ {
+  "id": "info-iserror-neg",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(-2,5)"
+ },
+ {
+  "id": "info-iserror-big",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(100000000000000000000)"
+ },
+ {
+  "id": "info-iserror-text",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(\"a\")"
+ },
+ {
+  "id": "info-iserror-empty",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(\"\")"
+ },
+ {
+  "id": "info-iserror-numtext",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(\"1\")"
+ },
+ {
+  "id": "info-iserror-t",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(VERDADEIRO)"
+ },
+ {
+  "id": "info-iserror-f",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(FALSO)"
+ },
+ {
+  "id": "info-iserror-na",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERROS(#N/D)"
+ },
+ {
+  "id": "info-iserror-div0",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERROS(#DIV/0!)"
+ },
+ {
+  "id": "info-iserror-value",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERROS(#VALOR!)"
+ },
+ {
+  "id": "info-iserror-ref",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERROS(#REF!)"
+ },
+ {
+  "id": "info-iserror-name",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERROS(#NOME?)"
+ },
+ {
+  "id": "info-iserror-num_err",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERROS(#NÚM!)"
+ },
+ {
+  "id": "info-iserror-null_err",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERROS(#NULO!)"
+ },
+ {
+  "id": "info-iserror-refA1",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(A1)"
+ },
+ {
+  "id": "info-iserror-refA2",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(A2)"
+ },
+ {
+  "id": "info-iserror-refA3",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(A3)"
+ },
+ {
+  "id": "info-iserror-refA4",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERROS(A4)"
+ },
+ {
+  "id": "info-iserror-refA5",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(A5)"
+ },
+ {
+  "id": "info-iserror-refA6",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(A6)"
+ },
+ {
+  "id": "info-iserror-refA7",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERROS(A7)"
+ },
+ {
+  "id": "info-iserror-arr",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false,
+    false
+   ],
+   [
+    true,
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉERROS({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-iserror-range",
+  "v": false,
+  "spill": [
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    true
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    true
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉERROS(A1:A7)"
+ },
+ {
+  "id": "info-iserror-range-legacy",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉERROS(A1:A7)"
+ },
+ {
+  "id": "info-iserror-range-legacy-miss",
+  "v": true,
+  "text": "########",
+  "local": "=ÉERROS(A1:A7)"
+ },
+ {
+  "id": "info-iserror-row-range",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉERROS(A1:B1)"
+ },
+ {
+  "id": "info-isna-num",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(1)"
+ },
+ {
+  "id": "info-isna-zero",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(0)"
+ },
+ {
+  "id": "info-isna-neg",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(-2,5)"
+ },
+ {
+  "id": "info-isna-big",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(100000000000000000000)"
+ },
+ {
+  "id": "info-isna-text",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(\"a\")"
+ },
+ {
+  "id": "info-isna-empty",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(\"\")"
+ },
+ {
+  "id": "info-isna-numtext",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(\"1\")"
+ },
+ {
+  "id": "info-isna-t",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(VERDADEIRO)"
+ },
+ {
+  "id": "info-isna-f",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(FALSO)"
+ },
+ {
+  "id": "info-isna-na",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.DISP(#N/D)"
+ },
+ {
+  "id": "info-isna-div0",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(#DIV/0!)"
+ },
+ {
+  "id": "info-isna-value",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(#VALOR!)"
+ },
+ {
+  "id": "info-isna-ref",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(#REF!)"
+ },
+ {
+  "id": "info-isna-name",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(#NOME?)"
+ },
+ {
+  "id": "info-isna-num_err",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(#NÚM!)"
+ },
+ {
+  "id": "info-isna-null_err",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(#NULO!)"
+ },
+ {
+  "id": "info-isna-refA1",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(A1)"
+ },
+ {
+  "id": "info-isna-refA2",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(A2)"
+ },
+ {
+  "id": "info-isna-refA3",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(A3)"
+ },
+ {
+  "id": "info-isna-refA4",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.DISP(A4)"
+ },
+ {
+  "id": "info-isna-refA5",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(A5)"
+ },
+ {
+  "id": "info-isna-refA6",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(A6)"
+ },
+ {
+  "id": "info-isna-refA7",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(A7)"
+ },
+ {
+  "id": "info-isna-arr",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false,
+    false
+   ],
+   [
+    true,
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-isna-range",
+  "v": false,
+  "spill": [
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    true
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(A1:A7)"
+ },
+ {
+  "id": "info-isna-range-legacy",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(A1:A7)"
+ },
+ {
+  "id": "info-isna-range-legacy-miss",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(A1:A7)"
+ },
+ {
+  "id": "info-isna-row-range",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=É.NÃO.DISP(A1:B1)"
+ },
+ {
+  "id": "info-istext-num",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(1)"
+ },
+ {
+  "id": "info-istext-zero",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(0)"
+ },
+ {
+  "id": "info-istext-neg",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(-2,5)"
+ },
+ {
+  "id": "info-istext-big",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(100000000000000000000)"
+ },
+ {
+  "id": "info-istext-text",
+  "v": true,
+  "text": "########",
+  "local": "=ÉTEXTO(\"a\")"
+ },
+ {
+  "id": "info-istext-empty",
+  "v": true,
+  "text": "########",
+  "local": "=ÉTEXTO(\"\")"
+ },
+ {
+  "id": "info-istext-numtext",
+  "v": true,
+  "text": "########",
+  "local": "=ÉTEXTO(\"1\")"
+ },
+ {
+  "id": "info-istext-t",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(VERDADEIRO)"
+ },
+ {
+  "id": "info-istext-f",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(FALSO)"
+ },
+ {
+  "id": "info-istext-na",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(#N/D)"
+ },
+ {
+  "id": "info-istext-div0",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(#DIV/0!)"
+ },
+ {
+  "id": "info-istext-value",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(#VALOR!)"
+ },
+ {
+  "id": "info-istext-ref",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(#REF!)"
+ },
+ {
+  "id": "info-istext-name",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(#NOME?)"
+ },
+ {
+  "id": "info-istext-num_err",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(#NÚM!)"
+ },
+ {
+  "id": "info-istext-null_err",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(#NULO!)"
+ },
+ {
+  "id": "info-istext-refA1",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(A1)"
+ },
+ {
+  "id": "info-istext-refA2",
+  "v": true,
+  "text": "########",
+  "local": "=ÉTEXTO(A2)"
+ },
+ {
+  "id": "info-istext-refA3",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(A3)"
+ },
+ {
+  "id": "info-istext-refA4",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(A4)"
+ },
+ {
+  "id": "info-istext-refA5",
+  "v": true,
+  "text": "########",
+  "local": "=ÉTEXTO(A5)"
+ },
+ {
+  "id": "info-istext-refA6",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(A6)"
+ },
+ {
+  "id": "info-istext-refA7",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(A7)"
+ },
+ {
+  "id": "info-istext-arr",
+  "v": false,
+  "spill": [
+   [
+    false,
+    true,
+    false
+   ],
+   [
+    false,
+    true,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉTEXTO({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-istext-range",
+  "v": false,
+  "spill": [
+   [
+    false
+   ],
+   [
+    true
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    true
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉTEXTO(A1:A7)"
+ },
+ {
+  "id": "info-istext-range-legacy",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(A1:A7)"
+ },
+ {
+  "id": "info-istext-range-legacy-miss",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉTEXTO(A1:A7)"
+ },
+ {
+  "id": "info-istext-row-range",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉTEXTO(A1:B1)"
+ },
+ {
+  "id": "info-isnontext-num",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(1)"
+ },
+ {
+  "id": "info-isnontext-zero",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(0)"
+ },
+ {
+  "id": "info-isnontext-neg",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(-2,5)"
+ },
+ {
+  "id": "info-isnontext-big",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(100000000000000000000)"
+ },
+ {
+  "id": "info-isnontext-text",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.TEXTO(\"a\")"
+ },
+ {
+  "id": "info-isnontext-empty",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.TEXTO(\"\")"
+ },
+ {
+  "id": "info-isnontext-numtext",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.TEXTO(\"1\")"
+ },
+ {
+  "id": "info-isnontext-t",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(VERDADEIRO)"
+ },
+ {
+  "id": "info-isnontext-f",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(FALSO)"
+ },
+ {
+  "id": "info-isnontext-na",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(#N/D)"
+ },
+ {
+  "id": "info-isnontext-div0",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(#DIV/0!)"
+ },
+ {
+  "id": "info-isnontext-value",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(#VALOR!)"
+ },
+ {
+  "id": "info-isnontext-ref",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(#REF!)"
+ },
+ {
+  "id": "info-isnontext-name",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(#NOME?)"
+ },
+ {
+  "id": "info-isnontext-num_err",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(#NÚM!)"
+ },
+ {
+  "id": "info-isnontext-null_err",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(#NULO!)"
+ },
+ {
+  "id": "info-isnontext-refA1",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(A1)"
+ },
+ {
+  "id": "info-isnontext-refA2",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.TEXTO(A2)"
+ },
+ {
+  "id": "info-isnontext-refA3",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(A3)"
+ },
+ {
+  "id": "info-isnontext-refA4",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(A4)"
+ },
+ {
+  "id": "info-isnontext-refA5",
+  "v": false,
+  "text": "FALSO",
+  "local": "=É.NÃO.TEXTO(A5)"
+ },
+ {
+  "id": "info-isnontext-refA6",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(A6)"
+ },
+ {
+  "id": "info-isnontext-refA7",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(A7)"
+ },
+ {
+  "id": "info-isnontext-arr",
+  "v": true,
+  "spill": [
+   [
+    true,
+    false,
+    true
+   ],
+   [
+    true,
+    false,
+    true
+   ]
+  ],
+  "text": "########",
+  "local": "=É.NÃO.TEXTO({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-isnontext-range",
+  "v": true,
+  "spill": [
+   [
+    true
+   ],
+   [
+    false
+   ],
+   [
+    true
+   ],
+   [
+    true
+   ],
+   [
+    false
+   ],
+   [
+    true
+   ],
+   [
+    true
+   ]
+  ],
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(A1:A7)"
+ },
+ {
+  "id": "info-isnontext-range-legacy",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(A1:A7)"
+ },
+ {
+  "id": "info-isnontext-range-legacy-miss",
+  "v": true,
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(A1:A7)"
+ },
+ {
+  "id": "info-isnontext-row-range",
+  "v": true,
+  "spill": [
+   [
+    true,
+    true
+   ]
+  ],
+  "text": "########",
+  "local": "=É.NÃO.TEXTO(A1:B1)"
+ },
+ {
+  "id": "info-isnumber-num",
+  "v": true,
+  "text": "########",
+  "local": "=ÉNÚM(1)"
+ },
+ {
+  "id": "info-isnumber-zero",
+  "v": true,
+  "text": "########",
+  "local": "=ÉNÚM(0)"
+ },
+ {
+  "id": "info-isnumber-neg",
+  "v": true,
+  "text": "########",
+  "local": "=ÉNÚM(-2,5)"
+ },
+ {
+  "id": "info-isnumber-big",
+  "v": true,
+  "text": "########",
+  "local": "=ÉNÚM(100000000000000000000)"
+ },
+ {
+  "id": "info-isnumber-text",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(\"a\")"
+ },
+ {
+  "id": "info-isnumber-empty",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(\"\")"
+ },
+ {
+  "id": "info-isnumber-numtext",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(\"1\")"
+ },
+ {
+  "id": "info-isnumber-t",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(VERDADEIRO)"
+ },
+ {
+  "id": "info-isnumber-f",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(FALSO)"
+ },
+ {
+  "id": "info-isnumber-na",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(#N/D)"
+ },
+ {
+  "id": "info-isnumber-div0",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(#DIV/0!)"
+ },
+ {
+  "id": "info-isnumber-value",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(#VALOR!)"
+ },
+ {
+  "id": "info-isnumber-ref",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(#REF!)"
+ },
+ {
+  "id": "info-isnumber-name",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(#NOME?)"
+ },
+ {
+  "id": "info-isnumber-num_err",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(#NÚM!)"
+ },
+ {
+  "id": "info-isnumber-null_err",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(#NULO!)"
+ },
+ {
+  "id": "info-isnumber-refA1",
+  "v": true,
+  "text": "########",
+  "local": "=ÉNÚM(A1)"
+ },
+ {
+  "id": "info-isnumber-refA2",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(A2)"
+ },
+ {
+  "id": "info-isnumber-refA3",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(A3)"
+ },
+ {
+  "id": "info-isnumber-refA4",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(A4)"
+ },
+ {
+  "id": "info-isnumber-refA5",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(A5)"
+ },
+ {
+  "id": "info-isnumber-refA6",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(A6)"
+ },
+ {
+  "id": "info-isnumber-refA7",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(A7)"
+ },
+ {
+  "id": "info-isnumber-arr",
+  "v": true,
+  "spill": [
+   [
+    true,
+    false,
+    false
+   ],
+   [
+    false,
+    false,
+    true
+   ]
+  ],
+  "text": "########",
+  "local": "=ÉNÚM({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-isnumber-range",
+  "v": true,
+  "spill": [
+   [
+    true
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ]
+  ],
+  "text": "########",
+  "local": "=ÉNÚM(A1:A7)"
+ },
+ {
+  "id": "info-isnumber-range-legacy",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(A1:A7)"
+ },
+ {
+  "id": "info-isnumber-range-legacy-miss",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉNÚM(A1:A7)"
+ },
+ {
+  "id": "info-isnumber-row-range",
+  "v": true,
+  "spill": [
+   [
+    true,
+    true
+   ]
+  ],
+  "text": "########",
+  "local": "=ÉNÚM(A1:B1)"
+ },
+ {
+  "id": "info-islogical-num",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(1)"
+ },
+ {
+  "id": "info-islogical-zero",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(0)"
+ },
+ {
+  "id": "info-islogical-neg",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(-2,5)"
+ },
+ {
+  "id": "info-islogical-big",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(100000000000000000000)"
+ },
+ {
+  "id": "info-islogical-text",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(\"a\")"
+ },
+ {
+  "id": "info-islogical-empty",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(\"\")"
+ },
+ {
+  "id": "info-islogical-numtext",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(\"1\")"
+ },
+ {
+  "id": "info-islogical-t",
+  "v": true,
+  "text": "########",
+  "local": "=ÉLÓGICO(VERDADEIRO)"
+ },
+ {
+  "id": "info-islogical-f",
+  "v": true,
+  "text": "########",
+  "local": "=ÉLÓGICO(FALSO)"
+ },
+ {
+  "id": "info-islogical-na",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(#N/D)"
+ },
+ {
+  "id": "info-islogical-div0",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(#DIV/0!)"
+ },
+ {
+  "id": "info-islogical-value",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(#VALOR!)"
+ },
+ {
+  "id": "info-islogical-ref",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(#REF!)"
+ },
+ {
+  "id": "info-islogical-name",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(#NOME?)"
+ },
+ {
+  "id": "info-islogical-num_err",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(#NÚM!)"
+ },
+ {
+  "id": "info-islogical-null_err",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(#NULO!)"
+ },
+ {
+  "id": "info-islogical-refA1",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(A1)"
+ },
+ {
+  "id": "info-islogical-refA2",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(A2)"
+ },
+ {
+  "id": "info-islogical-refA3",
+  "v": true,
+  "text": "########",
+  "local": "=ÉLÓGICO(A3)"
+ },
+ {
+  "id": "info-islogical-refA4",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(A4)"
+ },
+ {
+  "id": "info-islogical-refA5",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(A5)"
+ },
+ {
+  "id": "info-islogical-refA6",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(A6)"
+ },
+ {
+  "id": "info-islogical-refA7",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(A7)"
+ },
+ {
+  "id": "info-islogical-arr",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false,
+    true
+   ],
+   [
+    false,
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉLÓGICO({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-islogical-range",
+  "v": false,
+  "spill": [
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    true
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ],
+   [
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(A1:A7)"
+ },
+ {
+  "id": "info-islogical-range-legacy",
+  "v": true,
+  "text": "########",
+  "local": "=ÉLÓGICO(A1:A7)"
+ },
+ {
+  "id": "info-islogical-range-legacy-miss",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(A1:A7)"
+ },
+ {
+  "id": "info-islogical-row-range",
+  "v": false,
+  "spill": [
+   [
+    false,
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉLÓGICO(A1:B1)"
+ },
+ {
+  "id": "info-iseven-num",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉPAR(1)"
+ },
+ {
+  "id": "info-iseven-zero",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(0)"
+ },
+ {
+  "id": "info-iseven-neg",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(-2,5)"
+ },
+ {
+  "id": "info-iseven-big",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(100000000000000000000)"
+ },
+ {
+  "id": "info-iseven-text",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(\"a\")"
+ },
+ {
+  "id": "info-iseven-empty",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(\"\")"
+ },
+ {
+  "id": "info-iseven-numtext",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉPAR(\"1\")"
+ },
+ {
+  "id": "info-iseven-t",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(VERDADEIRO)"
+ },
+ {
+  "id": "info-iseven-f",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(FALSO)"
+ },
+ {
+  "id": "info-iseven-na",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=ÉPAR(#N/D)"
+ },
+ {
+  "id": "info-iseven-div0",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=ÉPAR(#DIV/0!)"
+ },
+ {
+  "id": "info-iseven-value",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(#VALOR!)"
+ },
+ {
+  "id": "info-iseven-ref",
+  "v": {
+   "e": "#REF!"
+  },
+  "text": "#REF!",
+  "local": "=ÉPAR(#REF!)"
+ },
+ {
+  "id": "info-iseven-name",
+  "v": {
+   "e": "#NAME?"
+  },
+  "text": "#NOME?",
+  "local": "=ÉPAR(#NOME?)"
+ },
+ {
+  "id": "info-iseven-num_err",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=ÉPAR(#NÚM!)"
+ },
+ {
+  "id": "info-iseven-null_err",
+  "v": {
+   "e": "#NULL!"
+  },
+  "text": "#NULO!",
+  "local": "=ÉPAR(#NULO!)"
+ },
+ {
+  "id": "info-iseven-refA1",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉPAR(A1)"
+ },
+ {
+  "id": "info-iseven-refA2",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(A2)"
+ },
+ {
+  "id": "info-iseven-refA3",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(A3)"
+ },
+ {
+  "id": "info-iseven-refA4",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=ÉPAR(A4)"
+ },
+ {
+  "id": "info-iseven-refA5",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(A5)"
+ },
+ {
+  "id": "info-iseven-refA6",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(A6)"
+ },
+ {
+  "id": "info-iseven-refA7",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=ÉPAR(A7)"
+ },
+ {
+  "id": "info-iseven-arr",
+  "v": false,
+  "spill": [
+   [
+    false,
+    {
+     "e": "#VALUE!"
+    },
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#N/A"
+    },
+    {
+     "e": "#VALUE!"
+    },
+    false
+   ]
+  ],
+  "text": "FALSO",
+  "local": "=ÉPAR({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-iseven-range",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(A1:A7)"
+ },
+ {
+  "id": "info-iseven-range-legacy",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(A1:A7)"
+ },
+ {
+  "id": "info-iseven-range-legacy-miss",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(A1:A7)"
+ },
+ {
+  "id": "info-iseven-row-range",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(A1:B1)"
+ },
+ {
+  "id": "info-isodd-num",
+  "v": true,
+  "text": "########",
+  "local": "=ÉIMPAR(1)"
+ },
+ {
+  "id": "info-isodd-zero",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(0)"
+ },
+ {
+  "id": "info-isodd-neg",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(-2,5)"
+ },
+ {
+  "id": "info-isodd-big",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(100000000000000000000)"
+ },
+ {
+  "id": "info-isodd-text",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(\"a\")"
+ },
+ {
+  "id": "info-isodd-empty",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(\"\")"
+ },
+ {
+  "id": "info-isodd-numtext",
+  "v": true,
+  "text": "########",
+  "local": "=ÉIMPAR(\"1\")"
+ },
+ {
+  "id": "info-isodd-t",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(VERDADEIRO)"
+ },
+ {
+  "id": "info-isodd-f",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(FALSO)"
+ },
+ {
+  "id": "info-isodd-na",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=ÉIMPAR(#N/D)"
+ },
+ {
+  "id": "info-isodd-div0",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=ÉIMPAR(#DIV/0!)"
+ },
+ {
+  "id": "info-isodd-value",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(#VALOR!)"
+ },
+ {
+  "id": "info-isodd-ref",
+  "v": {
+   "e": "#REF!"
+  },
+  "text": "#REF!",
+  "local": "=ÉIMPAR(#REF!)"
+ },
+ {
+  "id": "info-isodd-name",
+  "v": {
+   "e": "#NAME?"
+  },
+  "text": "#NOME?",
+  "local": "=ÉIMPAR(#NOME?)"
+ },
+ {
+  "id": "info-isodd-num_err",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=ÉIMPAR(#NÚM!)"
+ },
+ {
+  "id": "info-isodd-null_err",
+  "v": {
+   "e": "#NULL!"
+  },
+  "text": "#NULO!",
+  "local": "=ÉIMPAR(#NULO!)"
+ },
+ {
+  "id": "info-isodd-refA1",
+  "v": true,
+  "text": "########",
+  "local": "=ÉIMPAR(A1)"
+ },
+ {
+  "id": "info-isodd-refA2",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(A2)"
+ },
+ {
+  "id": "info-isodd-refA3",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(A3)"
+ },
+ {
+  "id": "info-isodd-refA4",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=ÉIMPAR(A4)"
+ },
+ {
+  "id": "info-isodd-refA5",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(A5)"
+ },
+ {
+  "id": "info-isodd-refA6",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(A6)"
+ },
+ {
+  "id": "info-isodd-refA7",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=ÉIMPAR(A7)"
+ },
+ {
+  "id": "info-isodd-arr",
+  "v": true,
+  "spill": [
+   [
+    true,
+    {
+     "e": "#VALUE!"
+    },
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#N/A"
+    },
+    {
+     "e": "#VALUE!"
+    },
+    true
+   ]
+  ],
+  "text": "########",
+  "local": "=ÉIMPAR({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-isodd-range",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(A1:A7)"
+ },
+ {
+  "id": "info-isodd-range-legacy",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(A1:A7)"
+ },
+ {
+  "id": "info-isodd-range-legacy-miss",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(A1:A7)"
+ },
+ {
+  "id": "info-isodd-row-range",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(A1:B1)"
+ },
+ {
+  "id": "info-n-num",
+  "v": 1,
+  "text": "1",
+  "local": "=N(1)"
+ },
+ {
+  "id": "info-n-zero",
+  "v": 0,
+  "text": "0",
+  "local": "=N(0)"
+ },
+ {
+  "id": "info-n-neg",
+  "v": -2.5,
+  "text": "-2,5",
+  "local": "=N(-2,5)"
+ },
+ {
+  "id": "info-n-big",
+  "v": 100000000000000000000,
+  "text": "1E+20",
+  "local": "=N(100000000000000000000)"
+ },
+ {
+  "id": "info-n-text",
+  "v": 0,
+  "text": "0",
+  "local": "=N(\"a\")"
+ },
+ {
+  "id": "info-n-empty",
+  "v": 0,
+  "text": "0",
+  "local": "=N(\"\")"
+ },
+ {
+  "id": "info-n-numtext",
+  "v": 0,
+  "text": "0",
+  "local": "=N(\"1\")"
+ },
+ {
+  "id": "info-n-t",
+  "v": 1,
+  "text": "1",
+  "local": "=N(VERDADEIRO)"
+ },
+ {
+  "id": "info-n-f",
+  "v": 0,
+  "text": "0",
+  "local": "=N(FALSO)"
+ },
+ {
+  "id": "info-n-na",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=N(#N/D)"
+ },
+ {
+  "id": "info-n-div0",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=N(#DIV/0!)"
+ },
+ {
+  "id": "info-n-value",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=N(#VALOR!)"
+ },
+ {
+  "id": "info-n-ref",
+  "v": {
+   "e": "#REF!"
+  },
+  "text": "#REF!",
+  "local": "=N(#REF!)"
+ },
+ {
+  "id": "info-n-name",
+  "v": {
+   "e": "#NAME?"
+  },
+  "text": "#NOME?",
+  "local": "=N(#NOME?)"
+ },
+ {
+  "id": "info-n-num_err",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=N(#NÚM!)"
+ },
+ {
+  "id": "info-n-null_err",
+  "v": {
+   "e": "#NULL!"
+  },
+  "text": "#NULO!",
+  "local": "=N(#NULO!)"
+ },
+ {
+  "id": "info-n-refA1",
+  "v": 1,
+  "text": "1",
+  "local": "=N(A1)"
+ },
+ {
+  "id": "info-n-refA2",
+  "v": 0,
+  "text": "0",
+  "local": "=N(A2)"
+ },
+ {
+  "id": "info-n-refA3",
+  "v": 1,
+  "text": "1",
+  "local": "=N(A3)"
+ },
+ {
+  "id": "info-n-refA4",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=N(A4)"
+ },
+ {
+  "id": "info-n-refA5",
+  "v": 0,
+  "text": "0",
+  "local": "=N(A5)"
+ },
+ {
+  "id": "info-n-refA6",
+  "v": 0,
+  "text": "0",
+  "local": "=N(A6)"
+ },
+ {
+  "id": "info-n-refA7",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=N(A7)"
+ },
+ {
+  "id": "info-n-arr",
+  "v": 1,
+  "spill": [
+   [
+    1,
+    0,
+    1
+   ],
+   [
+    {
+     "e": "#N/A"
+    },
+    0,
+    -3
+   ]
+  ],
+  "text": "1",
+  "local": "=N({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-n-range",
+  "v": 1,
+  "text": "1",
+  "local": "=N(A1:A7)"
+ },
+ {
+  "id": "info-n-range-legacy",
+  "v": 1,
+  "text": "1",
+  "local": "=N(A1:A7)"
+ },
+ {
+  "id": "info-n-range-legacy-miss",
+  "v": 1,
+  "text": "1",
+  "local": "=N(A1:A7)"
+ },
+ {
+  "id": "info-n-row-range",
+  "v": 1,
+  "text": "1",
+  "local": "=N(A1:B1)"
+ },
+ {
+  "id": "info-t-num",
+  "v": "",
+  "text": "",
+  "local": "=T(1)"
+ },
+ {
+  "id": "info-t-zero",
+  "v": "",
+  "text": "",
+  "local": "=T(0)"
+ },
+ {
+  "id": "info-t-neg",
+  "v": "",
+  "text": "",
+  "local": "=T(-2,5)"
+ },
+ {
+  "id": "info-t-big",
+  "v": "",
+  "text": "",
+  "local": "=T(100000000000000000000)"
+ },
+ {
+  "id": "info-t-text",
+  "v": "a",
+  "text": "a",
+  "local": "=T(\"a\")"
+ },
+ {
+  "id": "info-t-empty",
+  "v": "",
+  "text": "",
+  "local": "=T(\"\")"
+ },
+ {
+  "id": "info-t-numtext",
+  "v": "1",
+  "text": "1",
+  "local": "=T(\"1\")"
+ },
+ {
+  "id": "info-t-t",
+  "v": "",
+  "text": "",
+  "local": "=T(VERDADEIRO)"
+ },
+ {
+  "id": "info-t-f",
+  "v": "",
+  "text": "",
+  "local": "=T(FALSO)"
+ },
+ {
+  "id": "info-t-na",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=T(#N/D)"
+ },
+ {
+  "id": "info-t-div0",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=T(#DIV/0!)"
+ },
+ {
+  "id": "info-t-value",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=T(#VALOR!)"
+ },
+ {
+  "id": "info-t-ref",
+  "v": {
+   "e": "#REF!"
+  },
+  "text": "#REF!",
+  "local": "=T(#REF!)"
+ },
+ {
+  "id": "info-t-name",
+  "v": {
+   "e": "#NAME?"
+  },
+  "text": "#NOME?",
+  "local": "=T(#NOME?)"
+ },
+ {
+  "id": "info-t-num_err",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=T(#NÚM!)"
+ },
+ {
+  "id": "info-t-null_err",
+  "v": {
+   "e": "#NULL!"
+  },
+  "text": "#NULO!",
+  "local": "=T(#NULO!)"
+ },
+ {
+  "id": "info-t-refA1",
+  "v": "",
+  "text": "",
+  "local": "=T(A1)"
+ },
+ {
+  "id": "info-t-refA2",
+  "v": "x",
+  "text": "x",
+  "local": "=T(A2)"
+ },
+ {
+  "id": "info-t-refA3",
+  "v": "",
+  "text": "",
+  "local": "=T(A3)"
+ },
+ {
+  "id": "info-t-refA4",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=T(A4)"
+ },
+ {
+  "id": "info-t-refA5",
+  "v": "2",
+  "text": "2",
+  "local": "=T(A5)"
+ },
+ {
+  "id": "info-t-refA6",
+  "v": "",
+  "text": "",
+  "local": "=T(A6)"
+ },
+ {
+  "id": "info-t-refA7",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=T(A7)"
+ },
+ {
+  "id": "info-t-arr",
+  "v": "",
+  "spill": [
+   [
+    "",
+    "a",
+    ""
+   ],
+   [
+    {
+     "e": "#N/A"
+    },
+    "",
+    ""
+   ]
+  ],
+  "text": "",
+  "local": "=T({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-t-range",
+  "v": "",
+  "text": "",
+  "local": "=T(A1:A7)"
+ },
+ {
+  "id": "info-t-range-legacy",
+  "v": "",
+  "text": "",
+  "local": "=T(A1:A7)"
+ },
+ {
+  "id": "info-t-range-legacy-miss",
+  "v": "",
+  "text": "",
+  "local": "=T(A1:A7)"
+ },
+ {
+  "id": "info-t-row-range",
+  "v": "",
+  "text": "",
+  "local": "=T(A1:B1)"
+ },
+ {
+  "id": "info-type-num",
+  "v": 1,
+  "text": "1",
+  "local": "=TIPO(1)"
+ },
+ {
+  "id": "info-type-zero",
+  "v": 1,
+  "text": "1",
+  "local": "=TIPO(0)"
+ },
+ {
+  "id": "info-type-neg",
+  "v": 1,
+  "text": "1",
+  "local": "=TIPO(-2,5)"
+ },
+ {
+  "id": "info-type-big",
+  "v": 1,
+  "text": "1",
+  "local": "=TIPO(100000000000000000000)"
+ },
+ {
+  "id": "info-type-text",
+  "v": 2,
+  "text": "2",
+  "local": "=TIPO(\"a\")"
+ },
+ {
+  "id": "info-type-empty",
+  "v": 2,
+  "text": "2",
+  "local": "=TIPO(\"\")"
+ },
+ {
+  "id": "info-type-numtext",
+  "v": 2,
+  "text": "2",
+  "local": "=TIPO(\"1\")"
+ },
+ {
+  "id": "info-type-t",
+  "v": 4,
+  "text": "4",
+  "local": "=TIPO(VERDADEIRO)"
+ },
+ {
+  "id": "info-type-f",
+  "v": 4,
+  "text": "4",
+  "local": "=TIPO(FALSO)"
+ },
+ {
+  "id": "info-type-na",
+  "v": 16,
+  "text": "16",
+  "local": "=TIPO(#N/D)"
+ },
+ {
+  "id": "info-type-div0",
+  "v": 16,
+  "text": "16",
+  "local": "=TIPO(#DIV/0!)"
+ },
+ {
+  "id": "info-type-value",
+  "v": 16,
+  "text": "16",
+  "local": "=TIPO(#VALOR!)"
+ },
+ {
+  "id": "info-type-ref",
+  "v": 16,
+  "text": "16",
+  "local": "=TIPO(#REF!)"
+ },
+ {
+  "id": "info-type-name",
+  "v": 16,
+  "text": "16",
+  "local": "=TIPO(#NOME?)"
+ },
+ {
+  "id": "info-type-num_err",
+  "v": 16,
+  "text": "16",
+  "local": "=TIPO(#NÚM!)"
+ },
+ {
+  "id": "info-type-null_err",
+  "v": 16,
+  "text": "16",
+  "local": "=TIPO(#NULO!)"
+ },
+ {
+  "id": "info-type-refA1",
+  "v": 1,
+  "text": "1",
+  "local": "=TIPO(A1)"
+ },
+ {
+  "id": "info-type-refA2",
+  "v": 2,
+  "text": "2",
+  "local": "=TIPO(A2)"
+ },
+ {
+  "id": "info-type-refA3",
+  "v": 4,
+  "text": "4",
+  "local": "=TIPO(A3)"
+ },
+ {
+  "id": "info-type-refA4",
+  "v": 16,
+  "text": "16",
+  "local": "=TIPO(A4)"
+ },
+ {
+  "id": "info-type-refA5",
+  "v": 2,
+  "text": "2",
+  "local": "=TIPO(A5)"
+ },
+ {
+  "id": "info-type-refA6",
+  "v": 1,
+  "text": "1",
+  "local": "=TIPO(A6)"
+ },
+ {
+  "id": "info-type-refA7",
+  "v": 16,
+  "text": "16",
+  "local": "=TIPO(A7)"
+ },
+ {
+  "id": "info-type-arr",
+  "v": 64,
+  "text": "64",
+  "local": "=TIPO({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-type-range",
+  "v": 64,
+  "text": "64",
+  "local": "=TIPO(A1:A7)"
+ },
+ {
+  "id": "info-type-range-legacy",
+  "v": 4,
+  "text": "4",
+  "local": "=TIPO(A1:A7)"
+ },
+ {
+  "id": "info-type-range-legacy-miss",
+  "v": 16,
+  "text": "16",
+  "local": "=TIPO(A1:A7)"
+ },
+ {
+  "id": "info-type-row-range",
+  "v": 64,
+  "text": "64",
+  "local": "=TIPO(A1:B1)"
+ },
+ {
+  "id": "info-errortype-num",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(1)"
+ },
+ {
+  "id": "info-errortype-zero",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(0)"
+ },
+ {
+  "id": "info-errortype-neg",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(-2,5)"
+ },
+ {
+  "id": "info-errortype-big",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(100000000000000000000)"
+ },
+ {
+  "id": "info-errortype-text",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(\"a\")"
+ },
+ {
+  "id": "info-errortype-empty",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(\"\")"
+ },
+ {
+  "id": "info-errortype-numtext",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(\"1\")"
+ },
+ {
+  "id": "info-errortype-t",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(VERDADEIRO)"
+ },
+ {
+  "id": "info-errortype-f",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(FALSO)"
+ },
+ {
+  "id": "info-errortype-na",
+  "v": 7,
+  "text": "7",
+  "local": "=TIPO.ERRO(#N/D)"
+ },
+ {
+  "id": "info-errortype-div0",
+  "v": 2,
+  "text": "2",
+  "local": "=TIPO.ERRO(#DIV/0!)"
+ },
+ {
+  "id": "info-errortype-value",
+  "v": 3,
+  "text": "3",
+  "local": "=TIPO.ERRO(#VALOR!)"
+ },
+ {
+  "id": "info-errortype-ref",
+  "v": 4,
+  "text": "4",
+  "local": "=TIPO.ERRO(#REF!)"
+ },
+ {
+  "id": "info-errortype-name",
+  "v": 5,
+  "text": "5",
+  "local": "=TIPO.ERRO(#NOME?)"
+ },
+ {
+  "id": "info-errortype-num_err",
+  "v": 6,
+  "text": "6",
+  "local": "=TIPO.ERRO(#NÚM!)"
+ },
+ {
+  "id": "info-errortype-null_err",
+  "v": 1,
+  "text": "1",
+  "local": "=TIPO.ERRO(#NULO!)"
+ },
+ {
+  "id": "info-errortype-refA1",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(A1)"
+ },
+ {
+  "id": "info-errortype-refA2",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(A2)"
+ },
+ {
+  "id": "info-errortype-refA3",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(A3)"
+ },
+ {
+  "id": "info-errortype-refA4",
+  "v": 7,
+  "text": "7",
+  "local": "=TIPO.ERRO(A4)"
+ },
+ {
+  "id": "info-errortype-refA5",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(A5)"
+ },
+ {
+  "id": "info-errortype-refA6",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(A6)"
+ },
+ {
+  "id": "info-errortype-refA7",
+  "v": 2,
+  "text": "2",
+  "local": "=TIPO.ERRO(A7)"
+ },
+ {
+  "id": "info-errortype-arr",
+  "v": {
+   "e": "#N/A"
+  },
+  "spill": [
+   [
+    {
+     "e": "#N/A"
+    },
+    {
+     "e": "#N/A"
+    },
+    {
+     "e": "#N/A"
+    }
+   ],
+   [
+    7,
+    {
+     "e": "#N/A"
+    },
+    {
+     "e": "#N/A"
+    }
+   ]
+  ],
+  "text": "#N/D",
+  "local": "=TIPO.ERRO({1\\\"a\"\\VERDADEIRO;#N/D\\\"\"\\-3})"
+ },
+ {
+  "id": "info-errortype-range",
+  "v": {
+   "e": "#N/A"
+  },
+  "spill": [
+   [
+    {
+     "e": "#N/A"
+    }
+   ],
+   [
+    {
+     "e": "#N/A"
+    }
+   ],
+   [
+    {
+     "e": "#N/A"
+    }
+   ],
+   [
+    7
+   ],
+   [
+    {
+     "e": "#N/A"
+    }
+   ],
+   [
+    {
+     "e": "#N/A"
+    }
+   ],
+   [
+    2
+   ]
+  ],
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(A1:A7)"
+ },
+ {
+  "id": "info-errortype-range-legacy",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(A1:A7)"
+ },
+ {
+  "id": "info-errortype-range-legacy-miss",
+  "v": 3,
+  "text": "3",
+  "local": "=TIPO.ERRO(A1:A7)"
+ },
+ {
+  "id": "info-errortype-row-range",
+  "v": {
+   "e": "#N/A"
+  },
+  "spill": [
+   [
+    {
+     "e": "#N/A"
+    },
+    {
+     "e": "#N/A"
+    }
+   ]
+  ],
+  "text": "#N/D",
+  "local": "=TIPO.ERRO(A1:B1)"
+ },
+ {
+  "id": "info-iseven-x29",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(2,9)"
+ },
+ {
+  "id": "info-isodd-x29",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(2,9)"
+ },
+ {
+  "id": "info-iseven-x29",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(-2,9)"
+ },
+ {
+  "id": "info-isodd-x29",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(-2,9)"
+ },
+ {
+  "id": "info-iseven-x31",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉPAR(-3,1)"
+ },
+ {
+  "id": "info-isodd-x31",
+  "v": true,
+  "text": "########",
+  "local": "=ÉIMPAR(-3,1)"
+ },
+ {
+  "id": "info-iseven-x1000000000000000",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(1000000000000000)"
+ },
+ {
+  "id": "info-isodd-x1000000000000000",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(1000000000000000)"
+ },
+ {
+  "id": "info-iseven-x05",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(0,5)"
+ },
+ {
+  "id": "info-isodd-x05",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(0,5)"
+ },
+ {
+  "id": "info-iseven-x05",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(-0,5)"
+ },
+ {
+  "id": "info-isodd-x05",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(-0,5)"
+ },
+ {
+  "id": "info-iseven-xs3",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉPAR(\"3\")"
+ },
+ {
+  "id": "info-isodd-xs3",
+  "v": true,
+  "text": "########",
+  "local": "=ÉIMPAR(\"3\")"
+ },
+ {
+  "id": "info-iseven-xs122024",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉPAR(\"1/2/2024\")"
+ },
+ {
+  "id": "info-isodd-xs122024",
+  "v": true,
+  "text": "########",
+  "local": "=ÉIMPAR(\"1/2/2024\")"
+ },
+ {
+  "id": "info-iseven-xsabc",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉPAR(\"abc\")"
+ },
+ {
+  "id": "info-isodd-xsabc",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ÉIMPAR(\"abc\")"
+ },
+ {
+  "id": "info-iseven-x4294967297",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉPAR(4294967297)"
+ },
+ {
+  "id": "info-isodd-x4294967297",
+  "v": true,
+  "text": "########",
+  "local": "=ÉIMPAR(4294967297)"
+ },
+ {
+  "id": "info-iseven-x1e300",
+  "v": true,
+  "text": "########",
+  "local": "=ÉPAR(-1E-300)"
+ },
+ {
+  "id": "info-isodd-x1e300",
+  "v": false,
+  "text": "FALSO",
+  "local": "=ÉIMPAR(-1E-300)"
+ },
+ {
+  "id": "info-na",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=NÃO.DISP()"
+ },
+ {
+  "id": "info-type-union-blank",
+  "v": 1,
+  "text": "1",
+  "local": "=TIPO(A1)"
+ }
+]
