@@ -168,6 +168,11 @@ export function worksheetXml(g: XlsGlobals, sh: XlsSheet, index: number, media: 
 
   x += body.length ? `<sheetData>${body.join('')}</sheetData>` : '<sheetData/>';
 
+  if (sh.autoFilter) {
+    const [r1, c1, r2, c2] = sh.autoFilter;
+    x += `<autoFilter ref="${rangeRef(r1, c1, Math.max(r1, r2), Math.max(c1, c2))}"/>`;
+  }
+
   if (sh.merges.length) {
     x += `<mergeCells count="${sh.merges.length}">`;
     for (const [r1, c1, r2, c2] of sh.merges) x += `<mergeCell ref="${rangeRef(r1, c1, r2, c2)}"/>`;

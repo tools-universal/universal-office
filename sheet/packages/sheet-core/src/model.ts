@@ -262,6 +262,8 @@ export interface Worksheet {
   sheetFormatPr?: SheetFormatPr;
   /** Tabelas (ListObjects) ligadas via `<tableParts>`. */
   tables?: TableInfo[];
+  /** Autofiltro da planilha (`<autoFilter ref>`): setas na 1ª linha do range. */
+  autoFilter?: string;
   /** Ranges A1 com validação tipo LISTA (`<dataValidation type="list" sqref>`) —
    *  a célula selecionada dentro deles ganha a seta de dropdown. */
   listValidations?: string[];

@@ -83,6 +83,8 @@ function workbook(): Uint8Array {
   const globals: Rec[] = [
     rec(RT.WINDOW1, [...u16(0), ...u16(0), ...u16(0x4000), ...u16(0x2000), ...u16(0x38), ...u16(1), ...u16(0), ...u16(1), ...u16(600)]),
     rec(RT.DATEMODE, u16(0)),
+    // _FilterDatabase da aba 1: A1:G1 (área local)
+    rec(0x0018, [...u16(0x21), 0, 1, ...u16(9), ...u16(0), ...u16(1), ...u32(0), 0, 0x0d, 0x25, ...u16(0), ...u16(0), ...u16(0), ...u16(6)]),
     ...defaultFormatting(),
     font('Arial', { bold: true, color: 10 }), // ifnt 6 (o índice 4 não existe no BIFF)
     rec(RT.FORMAT, [...u16(164), ...str16('0.000')]),
@@ -121,6 +123,7 @@ function workbook(): Uint8Array {
     rec(RT.PANE, [...u16(1), ...u16(2), ...u16(2), ...u16(1), 0]),
     rec(RT.MERGECELLS, [...u16(1), ...u16(2), ...u16(3), ...u16(0), ...u16(1)]),
     hlink(2, 2, 'https://example.com/', 'Exemplo'),
+    rec(0x009d, u16(7)), // AUTOFILTERINFO
   ];
   const sheet2: Rec[] = [rec(RT.LABELSST, [...u16(0), ...u16(0), ...u16(15), ...u32(3)])];
   return buildXls(globals, [{ name: 'Dados', recs: sheet1 }, { name: 'Oculta', state: 1, recs: sheet2 }]);
@@ -197,6 +200,10 @@ describe('.xls (BIFF8) → pacote OOXML', () => {
     expect(ws.showGridLines).toBe(false);
     expect(ws.pane).toMatchObject({ xSplit: 1, ySplit: 2, state: 'frozen', topLeftCell: 'B3' });
     expect(pkg.getPartText('xl/worksheets/sheet1.xml')).toContain('zoomScale="75"');
+  });
+
+  it('autofiltro: AUTOFILTERINFO + nome _FilterDatabase', () => {
+    expect(ws.autoFilter).toBe('A1:G1');
   });
 
   it('hyperlink e comentário (NOTE + OBJ + TXO)', () => {

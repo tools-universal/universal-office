@@ -125,6 +125,8 @@ function convert(bytes: Uint8Array): XlsxPackage {
       sheet = readSheet(it, g, strings, isChart, wanted.get(i));
     } else sheet = readSheet([][Symbol.iterator](), g, strings, isChart);
     byIndex[i] = sheet;
+    const fa = sheet.hasAutoFilter ? g.filterDb.get(i) : undefined;
+    if (fa) sheet.autoFilter = [fa.r1, fa.c1, fa.r2, fa.c2];
     let name = info.name.trim() ? info.name : `Planilha${sheets.length + 1}`;
     for (let k = 2; usedNames.has(name.toLowerCase()); k++) name = `${info.name} (${k})`;
     usedNames.add(name.toLowerCase());

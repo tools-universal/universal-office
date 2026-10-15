@@ -5,6 +5,7 @@
  */
 import { INDEXED_COLORS_DEFAULT } from '../theme.js';
 import { Bytes, Codepage, readXLString, readRichExtString, RT, type BiffRecord, type RichString } from './biff.js';
+import { formulaAreas, type Area } from './formula.js';
 
 export interface XlsFont {
   /** Altura em twips (1/20 pt). */
@@ -96,6 +97,8 @@ export interface XlsGlobals {
   supbooks: boolean[];
   /** EXTERNSHEET (BIFF8): ixti → { pasta, 1ª aba }. */
   xti: { book: number; tab: number }[];
+  /** Nome embutido _FilterDatabase por aba (índice do BOUNDSHEET): área do autofiltro. */
+  filterDb: Map<number, Area>;
 }
 
 /** ifnt BIFF → posição em `fonts` (o índice 4 é omitido pelo formato). */
@@ -118,7 +121,7 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
   const g: XlsGlobals = {
     biff, cp: new Codepage(biff === 8 ? 1200 : 1252), date1904: false,
     fonts: [], formats: new Map(), xfs: [], palette: [...INDEXED_COLORS_DEFAULT.slice(0, 64)],
-    sheets: [], sst: [], activeTab: 0, supbooks: [], xti: [],
+    sheets: [], sst: [], activeTab: 0, supbooks: [], xti: [], filterDb: new Map(),
   };
   const b8 = biff === 8;
   const dg: Uint8Array[] = [];
@@ -200,6 +203,18 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
         // cch = 0x0401: referências à própria pasta
         g.supbooks.push(r.u16(2) === 0x0401);
         break;
+      case RT.NAME: {
+        // Lbl (BIFF8): grbit, chKey, cch, cce, reservado, itab (1-based), 4 reservados,
+        // nome (opções + chars), fórmula. Só o embutido 0x0D (_FilterDatabase).
+        if (!b8 || !(r.u16(0) & 0x20)) break;
+        const cch = r.u8(3), cce = r.u16(4), itab = r.u16(8);
+        const high = (r.u8(14) & 1) !== 0;
+        const code = high ? r.u16(15) : r.u8(15);
+        if (code !== 0x0d || itab === 0) break;
+        const area = formulaAreas(r, 15 + cch * (high ? 2 : 1), cce)[0];
+        if (area) g.filterDb.set(itab - 1, area);
+        break;
+      }
       case RT.EXTERNSHEET:
         if (b8) {
           const n = r.u16(0);

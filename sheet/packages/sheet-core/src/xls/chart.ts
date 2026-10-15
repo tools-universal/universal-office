@@ -17,6 +17,7 @@ import { builtinFormatCode } from '../format.js';
 import { Bytes, Codepage, readXLString, RT, type BiffRecord } from './biff.js';
 import type { XlsGlobals } from './globals.js';
 import type { CellValue, Rect } from './sheet.js';
+import { formulaAreas, type Area } from './formula.js';
 import { fontAt, normalizeFormat } from './styles-xml.js';
 import { XML_HEAD, xmlText } from './xmlw.js';
 
@@ -70,31 +71,6 @@ const kid = (n: Node | undefined, t: number): Node | undefined => n?.kids.find((
 const kidsOf = (n: Node | undefined, t: number): Node[] => n?.kids.filter((k) => k.t === t) ?? [];
 
 // ───────────────────────────── referências ─────────────────────────────
-
-interface Area { ixti: number; r1: number; c1: number; r2: number; c2: number }
-
-/** Áreas 3D (ptgRef3d/ptgArea3d) de uma fórmula de gráfico (ChartParsedFormula). */
-function formulaAreas(r: Bytes, off: number, cce: number): Area[] {
-  const out: Area[] = [];
-  const end = Math.min(r.length, off + cce);
-  let p = off;
-  while (p < end) {
-    const ptg = r.u8(p);
-    const base = (ptg & 0x1f) | 0x20;
-    if (ptg === 0x10 || ptg === 0x15) { p += 1; continue; } // união, parênteses
-    if (ptg === 0x29 || ptg === 0x49 || ptg === 0x69) { p += 3; continue; } // ptgMemFunc: cce u16
-    if (base === 0x3a) { // ptgRef3d
-      out.push({ ixti: r.u16(p + 1), r1: r.u16(p + 3), c1: r.u16(p + 5) & 0x3fff, r2: r.u16(p + 3), c2: r.u16(p + 5) & 0x3fff });
-      p += 7; continue;
-    }
-    if (base === 0x3b) { // ptgArea3d
-      out.push({ ixti: r.u16(p + 1), r1: r.u16(p + 3), r2: r.u16(p + 5), c1: r.u16(p + 7) & 0x3fff, c2: r.u16(p + 9) & 0x3fff });
-      p += 11; continue;
-    }
-    break; // outros tokens (erros, nomes): para
-  }
-  return out;
-}
 
 /** ixti → índice da aba na própria pasta (undefined = externa/ inválida). */
 function sheetOf(g: XlsGlobals, ixti: number): number | undefined {

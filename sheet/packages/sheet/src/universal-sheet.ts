@@ -374,6 +374,18 @@ export class UniversalSheetElement extends HTMLElement {
           }
         }
       }
+      // autofiltro da planilha: seta em cada célula da 1ª linha do range
+      if (ws.autoFilter) {
+        try {
+          const [a, b] = ws.autoFilter.split(':');
+          const tl = refToRowCol(a!);
+          const br = b ? refToRowCol(b) : tl;
+          for (let col = tl.col; col <= br.col; col++) {
+            const key = `${col},${tl.row}`;
+            tableDeco.set(key, { ...(tableDeco.get(key) ?? {}), arrow: true });
+          }
+        } catch { /* ref inválida: sem setas */ }
+      }
       // ranges de validação de lista (dropdown ao selecionar)
       const listValRanges: { c1: number; r1: number; c2: number; r2: number }[] = [];
       for (const sq of ws.listValidations ?? []) {

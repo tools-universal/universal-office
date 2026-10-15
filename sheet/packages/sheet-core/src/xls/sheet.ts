@@ -96,6 +96,10 @@ export interface XlsSheet {
   drawing?: Uint8Array;
   /** Registros do próprio subfluxo quando ele é uma folha de gráfico. */
   chartRecords?: BiffRecord[];
+  /** AUTOFILTERINFO presente (autofiltro ativo na aba). */
+  hasAutoFilter?: boolean;
+  /** Área do autofiltro (do nome _FilterDatabase da aba). */
+  autoFilter?: Rect;
   /** Valores das células referenciadas por gráficos (chave linha·16384 + coluna). */
   values?: Map<number, CellValue>;
 }
@@ -411,6 +415,9 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
         lastObj.text = rs;
         break;
       }
+      case RT.AUTOFILTERINFO:
+        sh.hasAutoFilter = true;
+        break;
       case RT.MSODRAWING:
         drawing.push(rec.data);
         drawingLen += rec.data.length;

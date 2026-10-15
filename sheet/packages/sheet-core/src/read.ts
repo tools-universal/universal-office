@@ -345,6 +345,8 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (hyperlinks.length > 0) ws.hyperlinks = hyperlinks;
   if (sheetFormatPr) ws.sheetFormatPr = sheetFormatPr;
   if (tables.length > 0) ws.tables = tables;
+  const af = firstChild(root, 'autoFilter')?.attrs['ref'];
+  if (af) ws.autoFilter = af;
   if (listValidations.length > 0) ws.listValidations = listValidations;
   return ws;
 }
