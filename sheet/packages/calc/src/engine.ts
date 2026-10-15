@@ -50,6 +50,14 @@ export interface FormulaRec {
   deps?: Area[];
   /** Texto original do <f> (para gravar de volta). */
   readonly input?: FormulaInput;
+  /**
+   * Valor em cache do arquivo guardado à parte com `ignoreCache`: num ciclo o
+   * Excel parte do valor anterior (o do arquivo), não de 0 (medido no corpus:
+   * iterativo com 1 passo a partir do cache).
+   */
+  cached?: Scalar;
+  /** Já calculada nesta sessão. */
+  computed?: boolean;
 }
 
 interface CellRec {
@@ -271,6 +279,7 @@ export class Engine implements EvalHost {
     };
     if (node) this.analyze(rec, node);
     const v = this.opts.ignoreCache && kind !== 'dataTable' ? 0 : (inp.v ?? (kind === 'dataTable' ? null : 0));
+    if (this.opts.ignoreCache && inp.v !== undefined && inp.v !== null) rec.cached = inp.v;
     st.set(r, c, { v, f: rec });
     this.addFormula(rec);
     if ((kind === 'array' || kind === 'dataTable') && f.ref) {
@@ -619,6 +628,7 @@ export class Engine implements EvalHost {
       }
       try {
         this.evaluateRec(f);
+        f.computed = true;
         this.setDirty(f, false);
         pop();
       } catch (e) {
@@ -632,9 +642,13 @@ export class Engine implements EvalHost {
         if (k >= 0) { while (stack.length > k) pop(); continue; }
         // ciclo real: g … f
         const members = stack.slice(i);
-        for (const m of members) this.circular.add(m);
-        if (this.iterate.on) { this.stale.add(g); continue; }
-        // sem cálculo iterativo o Excel não calcula o ciclo: ficam os valores anteriores
+        for (const m of members) {
+          this.circular.add(m);
+          // ainda não calculada: o "valor anterior" é o do arquivo
+          if (!m.computed && m.cached !== undefined) { const rec = this.sheets[m.sheet]!.get(m.row, m.col); if (rec) rec.v = m.cached; }
+        }
+        // o ciclo não é calculado aqui: ficam os valores anteriores (sem iterativo é o
+        // resultado final; com iterativo, iterateCycles() varre o ciclo depois)
         for (const m of members) this.setDirty(m, false);
         while (stack.length > i) pop();
       }
@@ -861,28 +875,48 @@ export class Engine implements EvalHost {
     if (f.dynamic) f.area = undefined;
   }
 
-  /** Cálculo iterativo (calcPr iterate): repete as fórmulas dos ciclos até convergir. */
+  /**
+   * Cálculo iterativo (calcPr iterate): varre as fórmulas dos ciclos na ordem da
+   * planilha (Gauss-Seidel, cada uma já vendo o valor novo das anteriores),
+   * partindo dos valores anteriores (os do arquivo); a 1ª varredura sempre
+   * acontece e a parada é quando a maior mudança de uma varredura fica abaixo de
+   * iterateDelta, ou em iterateCount varreduras (medido no corpus: poi-57535).
+   * Depois recalcula os dependentes dos ciclos.
+   */
   private iterateCycles(): void {
-    const members = [...this.circular];
-    // inclui os dependentes dos ciclos (calculados com valores velhos)
-    for (let i = 1; i < this.iterate.count; i++) {
-      const before = new Map<FormulaRec, Scalar>();
-      for (const f of this.formulas) before.set(f, this.sheets[f.sheet]!.get(f.row, f.col)?.v ?? null);
-      for (const f of members) this.setDirty(f, true);
-      this.markDependents(members.map((f) => this.areaOf(f)));
-      this.computing = true;
-      this.pass++;
-      try {
-        for (const m of members) this.stale.add(m);
-        for (const f of this.allFormulas()) if (f.dirty) this.computeRoot(f);
-      } finally { this.computing = false; this.stale.clear(); }
-      let maxDelta = 0;
-      for (const [f, v0] of before) {
-        const v1 = this.sheets[f.sheet]!.get(f.row, f.col)?.v ?? null;
-        if (typeof v0 === 'number' && typeof v1 === 'number') maxDelta = Math.max(maxDelta, Math.abs(v1 - v0));
-        else if (v0 !== v1) maxDelta = Infinity;
+    const members = [...this.circular].sort((a, b) => a.sheet - b.sheet || a.row - b.row || a.col - b.col);
+    const value = (f: FormulaRec): Scalar => this.sheets[f.sheet]!.get(f.row, f.col)?.v ?? null;
+    this.computing = true;
+    this.pass++;
+    try {
+      for (const m of members) this.stale.add(m);
+      for (let sweep = 0; sweep < this.iterate.count; sweep++) {
+        let maxDelta = 0;
+        for (const m of members) {
+          const v0 = value(m);
+          // precedente sujo fora do ciclo: calcula antes (pilha normal) e tenta de novo
+          for (let guard = 0; guard < 10000; guard++) {
+            try { this.evaluateRec(m); m.computed = true; break; } catch (e) {
+              if (!(e instanceof NeedCell)) throw e;
+              this.computeRoot(e.rec);
+            }
+          }
+          const v1 = value(m);
+          if (typeof v0 === 'number' && typeof v1 === 'number') maxDelta = Math.max(maxDelta, Math.abs(v1 - v0));
+          else if (v0 !== v1) maxDelta = Infinity;
+        }
+        if (sweep > 0 && maxDelta < this.iterate.delta) break;
       }
-      if (maxDelta < this.iterate.delta) break;
+    } finally { this.computing = false; this.stale.clear(); }
+    // dependentes dos ciclos (calculados com os valores de antes)
+    const memberSet = new Set(members);
+    const deps: Area[] = members.map((f) => this.areaOf(f));
+    this.markDependents(deps);
+    for (const m of members) this.setDirty(m, false);
+    if ([...this.formulas].some((f) => f.dirty && !memberSet.has(f))) {
+      const circ = new Set(this.circular);
+      this.computeDirty();
+      for (const c of circ) this.circular.add(c);
     }
   }
 }

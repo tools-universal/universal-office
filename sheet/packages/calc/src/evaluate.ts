@@ -256,13 +256,18 @@ export class Evaluator {
     }
     if (n.param) return ERR.NAME;
     let sheet = s.ctx.sheet;
+    let explicit = false;
     if (n.sheet) {
       if (n.sheet.ext !== undefined && n.sheet.ext !== 0) return ERR.REF;
-      const sh = this.sheetsOf(n.sheet, s.ctx);
-      if (sh instanceof CalcError) return sh;
-      sheet = sh[0]!;
+      // [0]!Nome = nome da própria pasta (o Excel mostra 'Pasta.xlsx'!Nome)
+      if (n.sheet.sheet) {
+        const sh = this.sheetsOf(n.sheet, s.ctx);
+        if (sh instanceof CalcError) return sh;
+        sheet = sh[0]!;
+        explicit = true;
+      } else sheet = -1;
     }
-    const def = this.host.definedName(n.name, sheet, !!n.sheet);
+    const def = this.host.definedName(n.name, sheet, explicit);
     if (!def) return ERR.NAME;
     if (++this.depth > MAX_DEPTH) { this.depth--; return ERR.NAME; }
     try {
