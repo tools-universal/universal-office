@@ -4,7 +4,7 @@
  * idiomas de interface do Office.
  */
 import type { FormulaLanguage, TableKeywords } from './types.js';
-import { PT_BR_LANG } from './langs/pt-BR.js';
+import { LANGUAGE_TABLES } from './langs/index.js';
 
 /** Inglês (EUA): a sintaxe canônica — nomes, erros e palavras-chave do arquivo. */
 export const EN_US_LANG: FormulaLanguage = {
@@ -29,7 +29,7 @@ export function registerLanguage(lang: FormulaLanguage): void {
   LANGS.set(lang.id.toLowerCase(), lang);
 }
 registerLanguage(EN_US_LANG);
-registerLanguage(PT_BR_LANG);
+for (const l of LANGUAGE_TABLES) registerLanguage(l);
 
 /**
  * Tabela do idioma: exata ("de-AT") → variante principal da mesma língua

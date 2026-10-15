@@ -10,6 +10,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { unzipSync, strFromU8 } from 'fflate';
+import { writeLangIndex } from './lang-index.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = join(here, '..', '..');
@@ -162,6 +163,8 @@ import type { FormulaLanguage } from '../types.js';
 
 export const PT_BR_LANG: FormulaLanguage = ${JSON.stringify(ptbr, null, 2).replace(/\n {2}"functions": \{[^}]*\}/, (m) => m.replace(/\n {4}/g, '\n    '))};
 `);
+
+writeLangIndex(join(pkg, 'src', 'i18n', 'langs'));
 
 // ---------------------------------------------------------------- testes
 writeFileSync(join(pkg, 'test', 'oracle', 'locale-pt-BR.functions.json'), JSON.stringify({ build, fns: fnCases }, null, 1) + '\n');
