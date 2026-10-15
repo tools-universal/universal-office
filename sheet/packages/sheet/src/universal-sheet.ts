@@ -548,7 +548,18 @@ export class UniversalSheetElement extends HTMLElement {
           if (mergedCells.has(`${col},${row.r}`)) continue;
           const text = this.displayText(c);
           if (!text) continue;
-          const lines = this.countWrapLines(text, f, (v.colWidths.get(col) ?? v.defaultColW) - 6);
+          // "centralizar na seleção": a largura útil vai até o fim da seleção (vizinhas
+          // vazias com o mesmo alinhamento), como a pintura — títulos .xls de 1 linha
+          let wrapW = v.colWidths.get(col) ?? v.defaultColW;
+          if (xf.horizontal === 'centerContinuous') {
+            const byCol = new Map(row.cells.map((rc) => [refToRowCol(rc.ref).col, rc]));
+            for (let cc = col + 1, guard = 0; cc <= 16384 && guard < 200; cc++, guard++) {
+              const nc = byCol.get(cc);
+              if (!nc || nc.value !== undefined || xfs[nc.style ?? 0]?.horizontal !== 'centerContinuous') break;
+              wrapW += v.colWidths.get(cc) ?? v.defaultColW;
+            }
+          }
+          const lines = this.countWrapLines(text, f, wrapW - 6);
           h = Math.max(h, lines * lineH);
         }
       }
