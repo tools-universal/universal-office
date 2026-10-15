@@ -95,16 +95,34 @@ export interface XlsGlobals {
   themeZip?: Uint8Array;
   /** SUPBOOK: true = a própria pasta (referências internas). */
   supbooks: boolean[];
-  /** EXTERNSHEET (BIFF8): ixti → { pasta, 1ª aba }. */
-  xti: { book: number; tab: number }[];
+  /** EXTERNSHEET (BIFF8): ixti → { pasta, 1ª e última aba } (−1/−2: aba apagada/inválida). */
+  xti: { book: number; tab: number; last: number }[];
   /** Nome embutido _FilterDatabase por aba (índice do BOUNDSHEET): área do autofiltro. */
   filterDb: Map<number, Area>;
   /** Nomes definidos (NAME), na ordem do arquivo — ptgName aponta 1-based. */
   names: string[];
+  /** Definição de cada NAME (BIFF8, mesma ordem de `names`): escopo, flags e a fórmula crua. */
+  nameDefs: XlsNameDef[];
+  /** RECALCID.dwBuild: versão do motor do último cálculo completo (→ calcPr calcId). */
+  recalcId?: number;
   /** EXTERNNAME por SUPBOOK (funções de suplemento: ptgNameX). */
   externNames: string[][];
   /** <dxf> das regras de formatação condicional (preenchido ao ler as planilhas). */
   dxfs: string[];
+}
+
+/** Nome definido do BIFF8 (Lbl) com a fórmula ainda em RPN (descompilada na conversão). */
+export interface XlsNameDef {
+  name: string;
+  /** Aba do escopo (índice do BOUNDSHEET, 0-based) ou −1 = pasta. */
+  sheet: number;
+  hidden: boolean;
+  builtin: boolean;
+  /** Função/macro (fFunc/fOB): não vai para os nomes da pasta. */
+  macro: boolean;
+  r: Bytes;
+  off: number;
+  cce: number;
 }
 
 /** Nomes embutidos (Lbl.fBuiltin) pelo código de 1 caractere. */
@@ -133,7 +151,7 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
   const g: XlsGlobals = {
     biff, cp: new Codepage(biff === 8 ? 1200 : 1252), date1904: false,
     fonts: [], formats: new Map(), xfs: [], palette: [...INDEXED_COLORS_DEFAULT.slice(0, 64)],
-    sheets: [], sst: [], activeTab: 0, supbooks: [], xti: [], filterDb: new Map(), names: [], externNames: [], dxfs: [],
+    sheets: [], sst: [], activeTab: 0, supbooks: [], xti: [], filterDb: new Map(), names: [], nameDefs: [], externNames: [], dxfs: [],
   };
   const b8 = biff === 8;
   const dg: Uint8Array[] = [];
@@ -219,16 +237,20 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
         // Lbl (BIFF8): grbit, chKey, cch, cce, reservado, itab (1-based), 4 reservados,
         // nome (opções + chars), fórmula. Embutidos: 1 caractere com o código (0x0D = _FilterDatabase).
         if (!b8) { g.names.push(''); break; }
-        const cch = r.u8(3), cce = r.u16(4), itab = r.u16(8);
+        const grbit = r.u16(0), cch = r.u8(3), cce = r.u16(4), itab = r.u16(8);
         const high = (r.u8(14) & 1) !== 0;
-        if (r.u16(0) & 0x20) {
+        const fOff = 15 + cch * (high ? 2 : 1);
+        let name: string;
+        if (grbit & 0x20) {
           const code = high ? r.u16(15) : r.u8(15);
-          g.names.push(BUILTIN_NAMES[code] ?? `_xlnm${code}`);
+          name = BUILTIN_NAMES[code] ?? `_xlnm${code}`;
           if (code === 0x0d && itab > 0) {
-            const area = formulaAreas(r, 15 + cch * (high ? 2 : 1), cce)[0];
+            const area = formulaAreas(r, fOff, cce)[0];
             if (area) g.filterDb.set(itab - 1, area);
           }
-        } else g.names.push(readChars(r, 15, cch, high, []).text);
+        } else name = readChars(r, 15, cch, high, []).text;
+        g.names.push(name);
+        g.nameDefs.push({ name, sheet: itab - 1, hidden: (grbit & 1) !== 0, builtin: (grbit & 0x20) !== 0, macro: (grbit & 0x0e) !== 0, r, off: fOff, cce });
         break;
       }
       case RT.EXTERNNAME:
@@ -238,8 +260,12 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
       case RT.EXTERNSHEET:
         if (b8) {
           const n = r.u16(0);
-          for (let i = 0, o = 2; i < n && o + 6 <= r.length; i++, o += 6) g.xti.push({ book: r.u16(o), tab: r.i16(o + 2) });
+          for (let i = 0, o = 2; i < n && o + 6 <= r.length; i++, o += 6) g.xti.push({ book: r.u16(o), tab: r.i16(o + 2), last: r.i16(o + 4) });
         }
+        break;
+      case RECALCID:
+        // FrtHeaderOld (rt u16 + grbitFrt u16) + dwBuild u32
+        if (r.length >= 8) g.recalcId = r.u32(4);
         break;
       case RT.THEME: {
         // FrtHeader (12 bytes) + dwThemeVersion: 0 = tema PERSONALIZADO (pacote
@@ -258,6 +284,9 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
   if (theme) g.themeZip = concat(theme);
   return g;
 }
+
+/** RecalcId (0x01C1): build do motor de cálculo do último recálculo completo. */
+const RECALCID = 0x01c1;
 
 /** ContinueFrt (0x0812): continuação de registros "future" grandes (THEME). */
 const CONTINUE_FRT = 0x0812;

@@ -11,7 +11,7 @@
 import { Bytes, readChars, readXLString, RT, type BiffRecord, type FormatRun, type RichString } from './biff.js';
 import type { XlsGlobals } from './globals.js';
 import { colName, xmlText } from './xmlw.js';
-import { decompile, quoteSheet, type FormulaContext } from './formula.js';
+import { decompile, workbookFormulaContext, type FormulaContext } from './formula.js';
 import { applyCfEx, readCf, readCf12, readCondFmt, type CondFormatOut, type CondRuleOut } from './cf.js';
 import { readDv } from './dv.js';
 
@@ -115,6 +115,8 @@ export interface XlsSheet {
   condFormats: CondFormatOut[];
   /** Valores das células referenciadas por gráficos (chave linha·16384 + coluna). */
   values?: Map<number, CellValue>;
+  /** Opções de cálculo (CALCMODE, CALCCOUNT, ITERATION, DELTA — repetidas em cada aba). */
+  calc?: { mode?: number; count?: number; iterate?: boolean; delta?: number };
 }
 
 /** Valor de célula guardado para os gráficos (os .xls raramente trazem o cache das séries). */
@@ -129,6 +131,9 @@ const ERRORS: Record<number, string> = {
 
 /** Linhas/colunas máximas do formato .xlsx (refs fora disso são descartadas). */
 const MAX_ROW = 1048576;
+/** TABLE (0x0236): tabela de dados (interior, flags, células de entrada). */
+const TABLE_RT = 0x0236;
+const CALCCOUNT_RT = 0x000c, ITERATION_RT = 0x0011, DELTA_RT = 0x0010;
 const MAX_COL = 16384;
 
 const RK_VIEW = new DataView(new ArrayBuffer(8));
@@ -176,18 +181,8 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
   let pendingFormula: { row: number; col: number; xf: number; fx: string; expKey?: string } | undefined;
   // texto das fórmulas (<f>): diretas, compartilhadas (ptgExp → SHRFMLA) e matriciais (ARRAY);
   // o SHRFMLA/ARRAY vem DEPOIS da 1ª célula — ela recebe o <f> quando ele chegar
-  const fctx: FormulaContext = {
-    sheetOf: (ixti) => {
-      const x = g.xti[ixti];
-      if (!x || !g.supbooks[x.book]) return undefined;
-      const s = g.sheets[x.tab];
-      return s ? quoteSheet(s.name) : undefined;
-    },
-    nameOf: (i) => g.names[i - 1],
-    externOf: (ixti, i) => { const x = g.xti[ixti]; return x ? g.externNames[x.book]?.[i - 1] : undefined; },
-    row: 0, col: 0,
-  };
-  const shared = new Map<string, { r1: number; r2: number; c1: number; c2: number; r: Bytes; off: number; cce: number; array: boolean }>();
+  const fctx: FormulaContext = workbookFormulaContext(g);
+  const shared = new Map<string, { r1: number; r2: number; c1: number; c2: number; r: Bytes; off: number; cce: number; array: boolean; table?: string }>();
   const waiting = new Map<string, [number, number][]>();
   const fXml = (row: number, col: number, expKey: string | undefined, r?: Bytes): string => {
     if (!b8) return '';
@@ -195,8 +190,12 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
     if (expKey) {
       const s = shared.get(expKey);
       if (!s || row < s.r1 || row > s.r2 || col < s.c1 || col > s.c2) return '';
+      // tabela de dados: o <f> vai só na 1ª célula do interior
+      if (s.table !== undefined) return row === s.r1 && col === s.c1 ? s.table : '';
       fctx.row = row; fctx.col = col;
-      text = decompile(s.r, s.off, s.cce, fctx);
+      // compartilhada: ptgRef3d/ptgArea3d relativos guardam deslocamento
+      fctx.rel3d = !s.array;
+      try { text = decompile(s.r, s.off, s.cce, fctx); } finally { fctx.rel3d = false; }
       if (s.array) return text !== undefined && row === s.r1 && col === s.c1 ? `<f t="array" ref="${colName(s.c1)}${s.r1 + 1}:${colName(s.c2)}${s.r2 + 1}">${xmlText(text)}</f>` : '';
     } else if (r) {
       fctx.row = row; fctx.col = col;
@@ -334,9 +333,12 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
       case RT.FORMULA: {
         const row = r.u16(0), col = r.u16(2), xf = r.u16(4);
         if (row >= MAX_ROW || col >= MAX_COL) break;
-        const expKey = b8 && r.u8(22) === 0x01 ? `${r.u16(23)},${r.u16(25)}` : undefined;
+        // ptgExp (compartilhada/matriz) ou ptgTbl (tabela de dados) → a célula-mestre
+        const expKey = b8 && (r.u8(22) === 0x01 || r.u8(22) === 0x02) ? `${r.u16(23)},${r.u16(25)}` : undefined;
         let fx = '';
         try { fx = fXml(row, col, expKey, r); } catch { fx = ''; }
+        // fAlwaysCalc (ca): o Excel recalcula a célula ao abrir
+        if (fx && (r.u16(14) & 1) && !fx.includes('t="dataTable"')) fx = '<f ca="1"' + fx.slice(2);
         const head = `<c r="${ref(row, col)}"${sAttr(xf)}`;
         if (r.u16(12) === 0xffff) {
           const kind = r.u8(6);
@@ -350,6 +352,29 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
           keep?.(row, col, v, xf);
         }
         if (!fx && expKey) (waiting.get(expKey) ?? waiting.set(expKey, []).get(expKey)!).push([row, col]);
+        break;
+      }
+      case RT.CALCMODE: (sh.calc ??= {}).mode = r.i16(0); break;
+      case CALCCOUNT_RT: (sh.calc ??= {}).count = r.u16(0); break;
+      case ITERATION_RT: (sh.calc ??= {}).iterate = r.u16(0) !== 0; break;
+      case DELTA_RT: (sh.calc ??= {}).delta = r.f64(0); break;
+      case TABLE_RT: {
+        if (!b8) break;
+        // RefU do interior + flags + células de entrada ([MS-XLS] Table)
+        const r1 = r.u16(0), r2 = r.u16(2), c1 = r.u8(4), c2 = r.u8(5), fl = r.u16(6);
+        const cell = (rw: number, cl: number): string => `${colName(cl)}${rw + 1}`;
+        const tbl2 = (fl & 0x08) !== 0;
+        let a = ` t="dataTable" ref="${cell(r1, c1)}:${cell(r2, c2)}"`;
+        if (tbl2) a += ' dt2D="1"';
+        if (fl & 0x04) a += ' dtr="1"';
+        if (fl & 0x10) a += ' del1="1"';
+        if (fl & 0x20) a += ' del2="1"';
+        a += ` r1="${cell(r.u16(8), r.u16(10))}"`;
+        if (tbl2) a += ` r2="${cell(r.u16(12), r.u16(14))}"`;
+        const key = `${r1},${c1}`;
+        shared.set(key, { r1, r2, c1, c2, r, off: 0, cce: 0, array: false, table: `<f${a}/>` });
+        for (const [wr, wc] of waiting.get(key) ?? []) patchF(wr, wc, fXml(wr, wc, key));
+        waiting.delete(key);
         break;
       }
       case RT.SHRFMLA: case RT.ARRAY: {

@@ -4,6 +4,7 @@
  * EXTERNSHEET) e ptgRef/ptgArea locais; uniões e parênteses atravessados.
  */
 import type { Bytes } from './biff.js';
+import type { XlsGlobals } from './globals.js';
 
 /** Área 0-based inclusiva; `ixti` = índice no EXTERNSHEET (−1 = local). */
 export interface Area { ixti: number; r1: number; c1: number; r2: number; c2: number }
@@ -44,7 +45,10 @@ export function formulaAreas(r: Bytes, off: number, cce: number): Area[] {
 
 /** Contexto para descompilar: nomes, abas e a célula base (referências relativas RefN/AreaN). */
 export interface FormulaContext {
-  /** ixti → nome da aba (já entre aspas se preciso) ou undefined (externa/inválida). */
+  /**
+   * ixti → prefixo da aba sem o "!" (já entre aspas se preciso; 3D = `Plan1:Plan3`),
+   * `#REF` (aba apagada) ou undefined (externa/inválida).
+   */
   sheetOf: (ixti: number) => string | undefined;
   /** Nome definido 1-based. */
   nameOf: (i: number) => string | undefined;
@@ -53,11 +57,17 @@ export interface FormulaContext {
   /** Célula base (0-based) para ptgRefN/ptgAreaN. */
   row: number;
   col: number;
+  /**
+   * Fórmula compartilhada/nome: ptgRef3d/ptgArea3d com bit relativo guardam
+   * DESLOCAMENTO (como RefN/AreaN), não posição ([MS-XLS] RgceLocRel).
+   */
+  rel3d?: boolean;
 }
 
 /**
  * Funções do Excel por índice (FTAB, [MS-XLS] 2.5.198.17) com o nº FIXO de
  * argumentos para ptgFunc (−1 = variável). "nome/n" separados por vírgula.
+ * Conferido com o catálogo do i18n do motor (número interno 0–367).
  */
 const FTAB_SRC = '0:COUNT/-1,1:IF/-1,2:ISNA/1,3:ISERROR/1,4:SUM/-1,5:AVERAGE/-1,6:MIN/-1,7:MAX/-1,8:ROW/-1,9:COLUMN/-1,10:NA/0,'
   + '11:NPV/-1,12:STDEV/-1,13:DOLLAR/-1,14:FIXED/-1,15:SIN/1,16:COS/1,17:TAN/1,18:ATAN/1,19:PI/0,20:SQRT/1,21:EXP/1,22:LN/1,'
@@ -71,7 +81,8 @@ const FTAB_SRC = '0:COUNT/-1,1:IF/-1,2:ISNA/1,3:ISERROR/1,4:SUM/-1,5:AVERAGE/-1,
   + '121:CODE/1,124:FIND/-1,125:CELL/-1,126:ISERR/1,127:ISTEXT/1,128:ISNUMBER/1,129:ISBLANK/1,130:T/1,131:N/1,140:DATEVALUE/1,'
   + '141:TIMEVALUE/1,142:SLN/3,143:SYD/4,144:DDB/-1,148:INDIRECT/-1,162:CLEAN/1,163:MDETERM/1,164:MINVERSE/1,165:MMULT/2,'
   + '167:IPMT/-1,168:PPMT/-1,169:COUNTA/-1,183:PRODUCT/-1,184:FACT/1,189:DPRODUCT/3,190:ISNONTEXT/1,193:STDEVP/-1,194:VARP/-1,'
-  + '195:DSTDEVP/3,196:DVARP/3,197:TRUNC/-1,198:ISLOGICAL/1,199:DCOUNTA/3,212:ROUNDUP/2,213:ROUNDDOWN/2,216:RANK/-1,'
+  + '195:DSTDEVP/3,196:DVARP/3,197:TRUNC/-1,198:ISLOGICAL/1,199:DCOUNTA/3,204:USDOLLAR/-1,205:FINDB/-1,206:SEARCHB/-1,'
+  + '207:REPLACEB/4,208:LEFTB/-1,209:RIGHTB/-1,210:MIDB/3,211:LENB/1,212:ROUNDUP/2,213:ROUNDDOWN/2,214:ASC/1,215:DBCS/1,216:RANK/-1,'
   + '219:ADDRESS/-1,220:DAYS360/-1,221:TODAY/0,222:VDB/-1,227:MEDIAN/-1,228:SUMPRODUCT/-1,229:SINH/1,230:COSH/1,231:TANH/1,'
   + '232:ASINH/1,233:ACOSH/1,234:ATANH/1,235:DGET/3,244:INFO/1,247:DB/-1,252:FREQUENCY/2,261:ERROR.TYPE/1,269:AVEDEV/-1,'
   + '270:BETADIST/-1,271:GAMMALN/1,272:BETAINV/-1,273:BINOMDIST/4,274:CHIDIST/2,275:CHIINV/2,276:COMBIN/2,277:CONFIDENCE/3,'
@@ -82,8 +93,9 @@ const FTAB_SRC = '0:COUNT/-1,1:IF/-1,2:ISNA/1,3:ISERROR/1,4:SUM/-1,5:AVERAGE/-1,
   + '311:INTERCEPT/2,312:PEARSON/2,313:RSQ/2,314:STEYX/2,315:SLOPE/2,316:TTEST/4,317:PROB/-1,318:DEVSQ/-1,319:GEOMEAN/-1,'
   + '320:HARMEAN/-1,321:SUMSQ/-1,322:KURT/-1,323:SKEW/-1,324:ZTEST/-1,325:LARGE/2,326:SMALL/2,327:QUARTILE/2,328:PERCENTILE/2,'
   + '329:PERCENTRANK/-1,330:MODE/-1,331:TRIMMEAN/2,332:TINV/2,336:CONCATENATE/-1,337:POWER/2,342:RADIANS/1,343:DEGREES/1,'
-  + '344:SUBTOTAL/-1,345:SUMIF/-1,346:COUNTIF/2,347:COUNTBLANK/1,350:ISPMT/4,354:ROMAN/-1,358:GETPIVOTDATA/-1,359:HYPERLINK/-1,'
-  + '361:AVERAGEA/-1,362:MAXA/-1,363:MINA/-1,364:STDEVPA/-1,365:VARPA/-1,366:STDEVA/-1,367:VARA/-1';
+  + '344:SUBTOTAL/-1,345:SUMIF/-1,346:COUNTIF/2,347:COUNTBLANK/1,350:ISPMT/4,351:DATEDIF/3,352:DATESTRING/1,353:NUMBERSTRING/2,'
+  + '354:ROMAN/-1,358:GETPIVOTDATA/-1,359:HYPERLINK/-1,360:PHONETIC/1,361:AVERAGEA/-1,362:MAXA/-1,363:MINA/-1,364:STDEVPA/-1,'
+  + '365:VARPA/-1,366:STDEVA/-1,367:VARA/-1';
 const FTAB = new Map<number, [string, number]>(FTAB_SRC.split(',').map((e) => {
   const [i, rest] = e.split(':') as [string, string];
   const [name, n] = rest.split('/') as [string, string];
@@ -116,16 +128,76 @@ function a1Rel(rowField: number, colField: number, ctx: FormulaContext): string 
   return `${cRel ? '' : '$'}${colLetters(col)}${rRel ? '' : '$'}${row + 1}`;
 }
 
+/** Área A1; linha/coluna inteira do BIFF8 (65536 linhas / 256 colunas) vira A:A / 1:1. */
+function areaText(r1f: number, r2f: number, c1f: number, c2f: number, rel: boolean, ctx: FormulaContext): string {
+  const pos = (rw: number, cf: number): { r: number; c: number; rAbs: boolean; cAbs: boolean } => {
+    const rRel = (cf & 0x8000) !== 0, cRel = (cf & 0x4000) !== 0;
+    const r = rel && rRel ? (ctx.row + ((rw << 16) >> 16) + 65536) % 65536 : rw;
+    const c = rel && cRel ? (ctx.col + ((cf << 24) >> 24) + 256) % 256 : cf & 0x3fff;
+    return { r, c, rAbs: !rRel, cAbs: !cRel };
+  };
+  const a = pos(r1f, c1f), b = pos(r2f, c2f);
+  const col = (x: typeof a): string => `${x.cAbs ? '$' : ''}${colLetters(x.c)}`;
+  const row = (x: typeof a): string => `${x.rAbs ? '$' : ''}${x.r + 1}`;
+  if (a.r === 0 && b.r === 0xffff) return `${col(a)}:${col(b)}`;
+  if (a.c === 0 && b.c === 0xff) return `${row(a)}:${row(b)}`;
+  return `${col(a)}${row(a)}:${col(b)}${row(b)}`;
+}
+
+/** Número como o Excel o escreve na fórmula ("1E-07" → "1E-7"; o parser aceita os dois). */
+function numText(v: number): string {
+  const s = String(v);
+  return s.includes('e') ? s.replace('e', 'E') : s;
+}
+
+/** Constante de matriz (PtgExtraArray, BIFF8) a partir de `p`: texto `{…}` e o fim. */
+function arrayConst(r: Bytes, p: number): { text: string; next: number } | undefined {
+  if (p + 3 > r.length) return undefined;
+  const cols = r.u8(p) + 1, rows = r.u16(p + 1) + 1;
+  p += 3;
+  const out: string[] = [];
+  for (let i = 0; i < rows; i++) {
+    const row: string[] = [];
+    for (let j = 0; j < cols; j++) {
+      if (p >= r.length) return undefined;
+      const t = r.u8(p);
+      switch (t) {
+        case 0x00: row.push(''); p += 9; break;
+        case 0x01: row.push(numText(r.f64(p + 1))); p += 9; break;
+        case 0x02: {
+          const cch = r.u16(p + 1), high = (r.u8(p + 3) & 1) !== 0;
+          let s = '';
+          for (let k = 0; k < cch; k++) s += String.fromCharCode(high ? r.u16(p + 4 + k * 2) : r.u8(p + 4 + k));
+          row.push(`"${s.replace(/"/g, '""')}"`);
+          p += 4 + cch * (high ? 2 : 1);
+          break;
+        }
+        case 0x04: row.push(r.u8(p + 1) ? 'TRUE' : 'FALSE'); p += 9; break;
+        case 0x10: row.push(ERR[r.u8(p + 1)] ?? '#N/A'); p += 9; break;
+        default: return undefined;
+      }
+    }
+    out.push(row.join(','));
+  }
+  return { text: `{${out.join(';')}}`, next: p };
+}
+
 /**
  * Descompila uma fórmula BIFF8 (RPN) no texto do Excel (sem o "="), em inglês
- * e com vírgulas, como o `<f>` do .xlsx. undefined = token não suportado
- * (matriz constante, extensões futuras, referência externa…).
+ * e com vírgulas, como o `<f>` do .xlsx. Os dados extras (constantes de
+ * matriz, áreas de ptgMem*) vêm DEPOIS do rgce, na ordem dos tokens.
+ * undefined = token não suportado (referência a outra pasta, extensões futuras…).
  */
 export function decompile(r: Bytes, off: number, cce: number, ctx: FormulaContext): string | undefined {
   const end = Math.min(r.length, off + cce);
+  let extra = off + cce;
   const st: string[] = [];
   let p = off;
   const pop = (): string | undefined => st.pop();
+  const sheet = (ixti: number): string | undefined => {
+    const s = ctx.sheetOf(ixti);
+    return s === undefined ? undefined : s === '#REF' ? '#REF!' : `${s}!`;
+  };
   while (p < end) {
     const ptg = r.u8(p);
     if (ptg >= 0x03 && ptg <= 0x11) {
@@ -135,6 +207,7 @@ export function decompile(r: Bytes, off: number, cce: number, ctx: FormulaContex
       p += 1; continue;
     }
     switch (ptg) {
+      case 0x01: case 0x02: return undefined; // ptgExp/ptgTbl: tratados por quem chama
       case 0x12: { const a = pop(); if (a === undefined) return undefined; st.push('+' + a); p += 1; continue; }
       case 0x13: { const a = pop(); if (a === undefined) return undefined; st.push('-' + a); p += 1; continue; }
       case 0x14: { const a = pop(); if (a === undefined) return undefined; st.push(a + '%'); p += 1; continue; }
@@ -147,6 +220,7 @@ export function decompile(r: Bytes, off: number, cce: number, ctx: FormulaContex
         st.push(`"${s.replace(/"/g, '""')}"`);
         p += 3 + cch * (high ? 2 : 1); continue;
       }
+      case 0x18: return undefined; // extensões (ptgElfLel…): não suportado
       case 0x19: {
         const kind = r.u8(p + 1), w = r.u16(p + 2);
         if (kind & 0x10) { const a = pop(); if (a === undefined) return undefined; st.push(`SUM(${a})`); }
@@ -155,10 +229,15 @@ export function decompile(r: Bytes, off: number, cce: number, ctx: FormulaContex
       case 0x1c: st.push(ERR[r.u8(p + 1)] ?? '#N/A'); p += 2; continue;
       case 0x1d: st.push(r.u8(p + 1) ? 'TRUE' : 'FALSE'); p += 2; continue;
       case 0x1e: st.push(String(r.u16(p + 1))); p += 3; continue;
-      case 0x1f: st.push(String(r.f64(p + 1))); p += 9; continue;
+      case 0x1f: st.push(numText(r.f64(p + 1))); p += 9; continue;
     }
     const base = (ptg & 0x1f) | 0x20;
     switch (base) {
+      case 0x20: { // ptgArray: os valores estão nos dados extras
+        const a = arrayConst(r, extra);
+        if (!a) return undefined;
+        st.push(a.text); extra = a.next; p += 8; continue;
+      }
       case 0x21: case 0x22: {
         const varArgs = base === 0x22;
         const argc = varArgs ? r.u8(p + 1) & 0x7f : 0;
@@ -169,7 +248,7 @@ export function decompile(r: Bytes, off: number, cce: number, ctx: FormulaContex
           // função de suplemento/definida pelo usuário: o 1º argumento é o nome
           n = argc;
           const args = st.splice(st.length - n, n);
-          if (args.length !== n) return undefined;
+          if (args.length !== n || !args[0]) return undefined;
           st.push(`${args[0]}(${args.slice(1).join(',')})`);
           continue;
         }
@@ -185,31 +264,58 @@ export function decompile(r: Bytes, off: number, cce: number, ctx: FormulaContex
       }
       case 0x23: { const nm = ctx.nameOf(r.u32(p + 1)); if (nm === undefined) return undefined; st.push(nm); p += 5; continue; }
       case 0x24: st.push(a1(r.u16(p + 1), r.u16(p + 3))); p += 5; continue;
-      case 0x25: st.push(`${a1(r.u16(p + 1), r.u16(p + 5))}:${a1(r.u16(p + 3), r.u16(p + 7))}`); p += 9; continue;
-      case 0x26: case 0x27: p += 7; continue; // ptgMemArea/MemErr: a área vem nos tokens seguintes
-      case 0x28: p += 7; continue;
+      case 0x25: st.push(areaText(r.u16(p + 1), r.u16(p + 3), r.u16(p + 5), r.u16(p + 7), false, ctx)); p += 9; continue;
+      case 0x26: case 0x27: case 0x28: {
+        // ptgMemArea/MemErr/MemNoMem: a área vem nos tokens seguintes; MemArea tem dados extras (cAreas + Ref8U)
+        if (base === 0x26) extra += 2 + r.u16(extra) * 8;
+        p += 7; continue;
+      }
       case 0x29: p += 3; continue;
       case 0x2a: st.push('#REF!'); p += 5; continue;
       case 0x2b: st.push('#REF!'); p += 9; continue;
       case 0x2c: st.push(a1Rel(r.u16(p + 1), r.u16(p + 3), ctx)); p += 5; continue;
-      case 0x2d: st.push(`${a1Rel(r.u16(p + 1), r.u16(p + 5), ctx)}:${a1Rel(r.u16(p + 3), r.u16(p + 7), ctx)}`); p += 9; continue;
+      case 0x2d: st.push(areaText(r.u16(p + 1), r.u16(p + 3), r.u16(p + 5), r.u16(p + 7), true, ctx)); p += 9; continue;
       case 0x39: { const nm = ctx.externOf(r.u16(p + 1), r.u16(p + 3)); if (nm === undefined) return undefined; st.push(nm); p += 7; continue; }
       case 0x3a: {
-        const sh = ctx.sheetOf(r.u16(p + 1));
+        const sh = sheet(r.u16(p + 1));
         if (sh === undefined) return undefined;
-        st.push(`${sh}!${a1(r.u16(p + 3), r.u16(p + 5))}`); p += 7; continue;
+        if (sh === '#REF!') { st.push('#REF!'); p += 7; continue; }
+        st.push(sh + (ctx.rel3d ? a1Rel(r.u16(p + 3), r.u16(p + 5), ctx) : a1(r.u16(p + 3), r.u16(p + 5)))); p += 7; continue;
       }
       case 0x3b: {
-        const sh = ctx.sheetOf(r.u16(p + 1));
+        const sh = sheet(r.u16(p + 1));
         if (sh === undefined) return undefined;
-        st.push(`${sh}!${a1(r.u16(p + 3), r.u16(p + 7))}:${a1(r.u16(p + 5), r.u16(p + 9))}`); p += 11; continue;
+        if (sh === '#REF!') { st.push('#REF!'); p += 11; continue; }
+        st.push(sh + areaText(r.u16(p + 3), r.u16(p + 5), r.u16(p + 7), r.u16(p + 9), !!ctx.rel3d, ctx)); p += 11; continue;
       }
-      case 0x3c: { const sh = ctx.sheetOf(r.u16(p + 1)); st.push(`${sh ?? ''}${sh ? '!' : ''}#REF!`); p += 7; continue; }
-      case 0x3d: { const sh = ctx.sheetOf(r.u16(p + 1)); st.push(`${sh ?? ''}${sh ? '!' : ''}#REF!`); p += 11; continue; }
+      case 0x3c: { const sh = sheet(r.u16(p + 1)); st.push(sh && sh !== '#REF!' ? `${sh}#REF!` : '#REF!'); p += 7; continue; }
+      case 0x3d: { const sh = sheet(r.u16(p + 1)); st.push(sh && sh !== '#REF!' ? `${sh}#REF!` : '#REF!'); p += 11; continue; }
     }
-    return undefined; // ptgExp/ptgTbl, matriz, extensões: não suportado aqui
+    return undefined;
   }
   return st.length === 1 ? st[0] : undefined;
+}
+
+/**
+ * Contexto de descompilação da pasta: abas pelo EXTERNSHEET (só a própria
+ * pasta; 3D = `Plan1:Plan3`; aba apagada = #REF!), nomes e nomes externos.
+ */
+export function workbookFormulaContext(g: XlsGlobals): FormulaContext {
+  return {
+    sheetOf: (ixti) => {
+      const x = g.xti[ixti];
+      if (!x || !g.supbooks[x.book]) return undefined;
+      if (x.tab < 0 || x.last < 0) return '#REF';
+      const a = g.sheets[x.tab], b = g.sheets[x.last];
+      if (!a || !b) return '#REF';
+      if (x.last === x.tab) return quoteSheet(a.name);
+      const both = `${a.name}:${b.name}`;
+      return quoteSheet(a.name) === a.name && quoteSheet(b.name) === b.name ? both : `'${both.replace(/'/g, "''")}'`;
+    },
+    nameOf: (i) => g.names[i - 1],
+    externOf: (ixti, i) => { const x = g.xti[ixti]; return x ? g.externNames[x.book]?.[i - 1] : undefined; },
+    row: 0, col: 0,
+  };
 }
 
 /** Nome de aba como aparece numa fórmula (entre aspas se tiver espaço/símbolo). */

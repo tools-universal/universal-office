@@ -16,6 +16,7 @@ import { worksheetXml, commentsXml, type SheetParts } from './sheet-xml.js';
 import { themeXml } from './theme-xml.js';
 import type { MediaState } from './drawing.js';
 import { XML_HEAD, NS_MAIN, NS_R, REL, relsXml, xmlText } from './xmlw.js';
+import { decompile, workbookFormulaContext } from './formula.js';
 
 export { XlsEncryptedError } from './globals.js';
 export { isCfbBytes } from './cfb.js';
@@ -113,10 +114,13 @@ function convert(bytes: Uint8Array): XlsxPackage {
   const rest = subs.slice(1);
   const sheets: { name: string; state: number; sheet: XlsSheet; chart: boolean }[] = [];
   const usedNames = new Set<string>();
+  /** BOUNDSHEET → posição da aba no pacote (módulos VBA não viram aba). */
+  const outIndex = new Map<number, number>();
   let activeOut = 0;
   g.sheets.forEach((info, i) => {
     const sub = byPos.get(info.pos) ?? rest[i];
     if (info.type === 6) return; // módulo VBA (BIFF5): não é aba
+    outIndex.set(i, sheets.length);
     const isChart = info.type === 2 || sub?.dt === 0x20;
     let sheet: XlsSheet;
     if (sub) {
@@ -159,7 +163,7 @@ function convert(bytes: Uint8Array): XlsxPackage {
   put('xl/workbook.xml', `${XML_HEAD}<workbook xmlns="${NS_MAIN}" xmlns:r="${NS_R}">`
     + (g.date1904 ? '<workbookPr date1904="1"/>' : '<workbookPr/>')
     + `<bookViews><workbookView activeTab="${activeOut}"/></bookViews>`
-    + `<sheets>${sheetsXml}</sheets></workbook>`);
+    + `<sheets>${sheetsXml}</sheets>${definedNamesXml(g, outIndex)}${calcPrXml(g, sheets.map((s) => s.sheet))}</workbook>`);
   put('xl/_rels/workbook.xml.rels', relsXml(wbRels));
   overrides.push(['/xl/workbook.xml', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml']);
 
@@ -207,6 +211,49 @@ function convert(bytes: Uint8Array): XlsxPackage {
   ]);
   for (const [p, d] of parts) if (!ordered.has(p)) ordered.set(p, d);
   return XlsxPackage.fromParts(ordered);
+}
+
+/**
+ * Nomes definidos do BIFF8 → `<definedNames>` (fórmula descompilada; embutidos
+ * com `_xlnm.`; referências relativas a partir de A1, como no .xlsx). Nomes de
+ * macro (fFunc/fOB) e os que não descompilam ficam de fora.
+ */
+function definedNamesXml(g: XlsGlobals, outIndex: Map<number, number>): string {
+  if (g.biff !== 8 || !g.nameDefs.length) return '';
+  const ctx = workbookFormulaContext(g);
+  ctx.rel3d = true;
+  const seen = new Set<string>();
+  let out = '';
+  for (const d of g.nameDefs) {
+    if (d.macro || !d.name) continue;
+    const local = d.sheet >= 0 ? outIndex.get(d.sheet) : undefined;
+    if (d.sheet >= 0 && local === undefined) continue;
+    let text: string | undefined;
+    try { text = d.cce ? decompile(d.r, d.off, d.cce, ctx) : undefined; } catch { text = undefined; }
+    if (text === undefined) continue;
+    const name = d.builtin ? `_xlnm.${d.name}` : d.name;
+    const key = `${name.toUpperCase()}|${local ?? -1}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out += `<definedName name="${xmlText(name)}"${local !== undefined ? ` localSheetId="${local}"` : ''}${d.hidden ? ' hidden="1"' : ''}>${xmlText(text)}</definedName>`;
+  }
+  return out ? `<definedNames>${out}</definedNames>` : '';
+}
+
+/**
+ * Opções de cálculo → `<calcPr>`: calcId = RECALCID.dwBuild (motor do último
+ * recálculo completo; sem ele, sem calcId — o Excel recalcula ao abrir), modo e
+ * iteração da 1ª aba que os traz (o BIFF repete em cada aba).
+ */
+function calcPrXml(g: XlsGlobals, sheets: readonly XlsSheet[]): string {
+  const c = sheets.find((s) => s.calc)?.calc;
+  let a = g.recalcId ? ` calcId="${g.recalcId}"` : '';
+  if (c?.mode === 0) a += ' calcMode="manual"';
+  else if (c?.mode === -1) a += ' calcMode="autoNoTable"';
+  if (c?.iterate) a += ' iterate="1"';
+  if (c?.count !== undefined && c.count !== 100) a += ` iterateCount="${c.count}"`;
+  if (c?.delta !== undefined && Number.isFinite(c.delta) && c.delta !== 0.001) a += ` iterateDelta="${c.delta}"`;
+  return a ? `<calcPr${a}/>` : '';
 }
 
 export type { XlsGlobals };
