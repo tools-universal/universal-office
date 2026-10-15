@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseXml, textContent } from '../src/index.js';
-import { decodeXstring } from '../src/read.js';
+import { decodeXstring, readSharedStrings } from '../src/read.js';
+import { defaultColorContext } from '../src/theme.js';
+import type { XlsxPackage } from '../src/package.js';
 
 describe('texto lido como o Excel (XML 1.0 + ST_Xstring)', () => {
   it('fim de linha literal CRLF/CR vira LF (§2.11); &#13; é preservado', () => {
@@ -23,5 +25,13 @@ describe('texto lido como o Excel (XML 1.0 + ST_Xstring)', () => {
     expect(decodeXstring('Rich Text_x000d_\nTest')).toBe('Rich Text\r\nTest');
     expect(decodeXstring('_x005F_x000D_')).toBe('_x000D_');
     expect(decodeXstring('sem escape')).toBe('sem escape');
+  });
+
+  it('<t> sem xml:space="preserve": pontas (espaço/TAB/LF/CR, até por referência) aparadas; miolo e NBSP ficam', () => {
+    const xml = '<sst><si><t> a \n b&#32;</t></si><si><t xml:space="preserve"> a\n</t></si>'
+      + '<si><r><t>x</t></r><r><t>&#9;y&#13;</t></r></si><si><t>  </t></si><si><t xml:space="preserve">  </t></si>'
+      + '<si><t>a\u00a0</t></si></sst>';
+    const pkg = { getPartText: (p: string) => (p === 'xl/sharedStrings.xml' ? xml : undefined) } as unknown as XlsxPackage;
+    expect(readSharedStrings(pkg, defaultColorContext()).map((s) => s.text)).toEqual(['a \n b', ' a\n', 'xy', '', '  ', 'a\u00a0']);
   });
 });

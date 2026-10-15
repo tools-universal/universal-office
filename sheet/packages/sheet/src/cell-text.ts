@@ -75,6 +75,15 @@ export function cellMarginPx(ppem: number): number {
   return 2 * Math.max(2, Math.ceil(ppem / 8)) + 1;
 }
 
+/**
+ * A ALTURA AUTOMÁTICA da linha quebra o texto 2 px mais estreito que a pintura:
+ * conta linhas com coluna − margem − 2, mas desenha com coluna − margem (medido,
+ * e15/e16/e19: Calibri 11/12b/14/20, Arial 10/16, Times 10 negrito — "ab ab …"
+ * pintado cabe 2 por linha a partir de 38 px, a altura só a partir de 40 px).
+ * Por isso uma linha auto-ajustada às vezes sobra uma linha em branco no Excel.
+ */
+export const WRAP_SLACK_PX = 2;
+
 /** Largura (px) do texto como soma das larguras inteiras; para ao passar de `limit`. */
 export function textWidth(m: FontMetrics, s: string, limit = Infinity): number {
   if (m.width) return m.width(s, limit);

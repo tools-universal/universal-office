@@ -21,6 +21,17 @@ export function decodeXstring(s: string): string {
   return s.indexOf('_x') < 0 ? s : s.replace(/_x([0-9A-Fa-f]{4})_/g, (_, h: string) => String.fromCharCode(parseInt(h, 16)));
 }
 
+/**
+ * Texto de um `<t>` (string compartilhada, inline ou run rico). Sem
+ * `xml:space="preserve"` o Excel apara espaço/TAB/LF/CR das PONTAS — inclusive
+ * os vindos de referência (`&#32;`, `&#13;`); o miolo, NBSP e U+3000 ficam
+ * (medido, lab e17: independe de quebra, formato "@" ou tipo de string).
+ */
+function tText(t: XmlElement): string {
+  const s = textContent(t);
+  return decodeXstring(t.attrs['xml:space'] === 'preserve' ? s : s.replace(/^[ \t\n\r]+|[ \t\n\r]+$/g, ''));
+}
+
 /** Mapa de relacionamentos rId → target, lido de um arquivo .rels do pacote. */
 function readRels(pkg: XlsxPackage, relsPart: string): Map<string, string> {
   const map = new Map<string, string>();
@@ -125,7 +136,7 @@ function readSharedStringEntry(el: XmlElement, cx?: ColorContext): SharedString 
       const rPr = firstChild(r, 'rPr');
       const rPrAttrs: Record<string, string> = {};
       if (rPr) for (const a of Object.keys(rPr.attrs)) rPrAttrs[a] = rPr.attrs[a]!;
-      const run: RichRun = { text: t ? decodeXstring(textContent(t)) : '' };
+      const run: RichRun = { text: t ? tText(t) : '' };
       if (Object.keys(rPrAttrs).length) run.rPr = rPrAttrs;
       if (rPr) {
         const props = readRunProps(rPr, cx);
@@ -136,7 +147,7 @@ function readSharedStringEntry(el: XmlElement, cx?: ColorContext): SharedString 
     return { text: runs.map((r) => r.text).join(''), runs };
   }
   const t = firstChild(el, 't');
-  return { text: t ? decodeXstring(textContent(t)) : '' };
+  return { text: t ? tText(t) : '' };
 }
 
 /** Lê uma planilha (path) → Worksheet. `cx` opcional: contexto de cores. */

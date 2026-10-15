@@ -21,7 +21,7 @@ import { CfEngine, cellCfValue, todaySerial, paintDataBar, type CfResult, type C
 import { paintCfIcon } from './cf-icons.js';
 import { winningEdge, edgeExtent, paintHEdge, paintVEdge, paintDiagonals, NO_CORNER, type CornerInfo } from './borders.js';
 import {
-  layoutCellText, localizeError, localizeBool, isoToSerial, cellMarginPx, MAX_CELL_CHARS,
+  layoutCellText, localizeError, localizeBool, isoToSerial, cellMarginPx, MAX_CELL_CHARS, WRAP_SLACK_PX,
   type CellText, type CellTextInput,
 } from './cell-text.js';
 import { CellFonts, type CellFont } from './text-metrics.js';
@@ -516,11 +516,12 @@ export class UniversalSheetElement extends HTMLElement {
     }
   }
 
-  /** Linhas de um texto com quebra numa coluna de `colPx` px, na fonte da célula
-   *  (mesma caixa útil e larguras do desenho — cell-paint). */
+  /** Linhas de um texto com quebra numa coluna de `colPx` px, na fonte da célula,
+   *  para a ALTURA automática: mesmas larguras do desenho (cell-paint), caixa
+   *  2 px mais estreita (WRAP_SLACK_PX, medido). */
   private countWrapLines(text: string, font: Font | undefined, colPx: number): number {
     const f = this.cellFont(font, 1);
-    return Math.max(1, wrapLines(f, text, Math.max(1, colPx - cellMarginPx(f.ppem))).length);
+    return Math.max(1, wrapLines(f, text, Math.max(1, colPx - cellMarginPx(f.ppem) - WRAP_SLACK_PX)).length);
   }
 
   /** Views com edições pendentes (célula/resize) a persistir no save. */
@@ -581,6 +582,7 @@ export class UniversalSheetElement extends HTMLElement {
       const st = v.condFormats.length > 0 ? this.styleAt(c, col, r.r) : this.resolveStyle(c, col, r.r);
       if (st.cf?.hideValue) { out.push({ ref: c.ref, display: '' }); continue; }
       // coluna oculta = largura 0: texto inteiro, Geral de 1 dígito ou "#", formatado ""
+      // (espaços/quebras das pontas: quem apara é a leitura do <t> sem xml:space)
       const lay = this.cellLayout(c, st, w, 1);
       out.push({ ref: c.ref, display: lay?.ct.text ?? '' });
     }
