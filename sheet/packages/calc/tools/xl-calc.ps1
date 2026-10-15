@@ -2,7 +2,9 @@
 # calcula. Caso: { id, f: "=FORMULA canonica (en-US)", at?: "Z100",
 #   cells?: { "A1": 1 | "texto" | true | {"f":"=..."} | {"e":"#N/A"} | {"s":"1"} },
 #   legacy?: true (Range.Formula = interseccao implicita; padrao Formula2 = matriz dinamica),
-#   date1904?: true, local?: "=FORMULA no idioma do Excel" (entra por FormulaLocal) }
+#   date1904?: true, local?: "=FORMULA no idioma do Excel" (entra por FormulaLocal),
+#   hiddenRows?: [2, 3] (linhas 1-based ocultas a mao),
+#   filteredRows?: [4] (linhas 1-based ocultas por um AutoFiltro numa coluna auxiliar AZ) }
 # Saida (JSON UTF-8): [{ id, v, spill?, text, f, local, r1c1Local, err? }]
 #   v = numero | texto | booleano | {"e":"#N/A"} | null ; spill = matriz 2D quando derrama.
 # Valores de TEXTO convertidos seguem o idioma do Excel desta maquina (pt-BR:
@@ -40,7 +42,9 @@ try {
   foreach ($c in $cases) {
     $r = [ordered]@{ id = $c.id }
     try {
+      if ($ws.AutoFilterMode) { $ws.AutoFilterMode = $false }
       [void]$ws.Cells.Clear()
+      $ws.Cells.EntireRow.Hidden = $false
       $wb.Date1904 = [bool]$c.date1904
       if ($c.cells) {
         foreach ($p in $c.cells.PSObject.Properties) {
@@ -53,6 +57,15 @@ try {
           elseif ($v -is [bool]) { $cell.Value2 = [bool]$v } elseif ($null -ne $v) { $cell.Value2 = [double]$v }
         }
       }
+      if ($c.filteredRows) {
+        # AutoFiltro numa coluna auxiliar (AZ): 1 = visivel, 0 = filtrada
+        $fr = @($c.filteredRows | ForEach-Object { [int]$_ })
+        $last = ($fr | Measure-Object -Maximum).Maximum + 1
+        $ws.Range('AZ1').Value2 = 'f'
+        for ($i = 2; $i -le $last; $i++) { $ws.Cells.Item($i, 52).Value2 = [double]$(if ($fr -contains $i) { 0 } else { 1 }) }
+        [void]$ws.Range("AZ1:AZ$last").AutoFilter(1, '1')
+      }
+      if ($c.hiddenRows) { foreach ($hr in $c.hiddenRows) { $ws.Rows.Item([int]$hr).Hidden = $true } }
       $at = if ($c.at) { [string]$c.at } else { 'Z100' }
       $t = $ws.Range($at)
       if ($c.local) { $t.FormulaLocal = [string]$c.local }

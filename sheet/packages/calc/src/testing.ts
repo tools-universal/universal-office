@@ -5,7 +5,7 @@
  */
 import { applyFn, type RawArg } from './apply.js';
 import { EN_US, lookupFn, type FnContext, type Thunk, type ValueLocale } from './fn.js';
-import { ArrayValue, CalcError, ERR, LambdaValue, RefValue, type Area, type Scalar, type Value } from './values.js';
+import { ArrayValue, CalcError, ERR, LambdaValue, MAX_COL, MAX_ROW, RefValue, type Area, type Scalar, type Value } from './values.js';
 
 /** "A1", "$B$2", "C" → índices 0-based. */
 export function parseA1Cell(s: string): { row: number; col: number } | undefined {
@@ -18,6 +18,16 @@ export function parseA1Cell(s: string): { row: number; col: number } | undefined
 
 /** "A1:B3" (ou "A1") → área na aba `sheet`. */
 export function parseA1Area(s: string, sheet = 0): Area {
+  // coluna(s) inteira(s) "A:C" e linha(s) inteira(s) "2:5"
+  const whole = /^\$?([A-Z]{1,3}):\$?([A-Z]{1,3})$/i.exec(s) ?? /^\$?(\d+):\$?(\d+)$/.exec(s);
+  if (whole) {
+    const isCol = /[A-Z]/i.test(whole[1]!);
+    const p = isCol ? parseA1Cell(`${whole[1]}1`)! : parseA1Cell(`A${whole[1]}`)!;
+    const q = isCol ? parseA1Cell(`${whole[2]}1`)! : parseA1Cell(`A${whole[2]}`)!;
+    return isCol
+      ? { sheet, r1: 0, r2: MAX_ROW, c1: Math.min(p.col, q.col), c2: Math.max(p.col, q.col) }
+      : { sheet, r1: Math.min(p.row, q.row), r2: Math.max(p.row, q.row), c1: 0, c2: MAX_COL };
+  }
   const [a, b = a] = s.split(':') as [string, string?];
   const p = parseA1Cell(a), q = parseA1Cell(b!);
   if (!p || !q) throw new Error(`referência inválida no teste: ${s}`);
@@ -83,7 +93,8 @@ export function mockContext(o: MockOptions = {}): FnContext {
       for (const [r, c, v] of hits) fn(v, r, c);
     },
     formulaAt: (s, r, c) => formulas.get(`${s},${r},${c}`),
-    isSubtotalCell: (s, r, c) => /^\s*(_xlfn\.)?(SUBTOTAL|AGGREGATE)\s*\(/i.test(formulas.get(`${s},${r},${c}`) ?? ''),
+    // medido: o Excel pula qualquer fórmula que CONTENHA SUBTOTAL/AGGREGATE (=1+SUBTOTAL(…) também)
+    isSubtotalCell: (s, r, c) => /(^|[^A-Z0-9_.])(_xlfn\.)?(SUBTOTAL|AGGREGATE)\s*\(/i.test(formulas.get(`${s},${r},${c}`) ?? ''),
     rowHidden: (s, r) => s === 0 && (o.hiddenRows ?? []).includes(r),
     rowFiltered: (s, r) => s === 0 && (o.filteredRows ?? []).includes(r),
     sheetCount: () => names.length,
@@ -106,6 +117,12 @@ export function mockContext(o: MockOptions = {}): FnContext {
   return ctx;
 }
 
+/** "A1:B2" ou união "(A1:A2,C1:C3)" → referência na aba `sheet`. */
+export function parseRefUnion(s: string, sheet = 0): RefValue {
+  const t = s.trim().replace(/^\((.*)\)$/, '$1');
+  return new RefValue(t.split(',').map((p) => parseA1Area(p.trim(), sheet)));
+}
+
 /** Argumento de teste: escalar, matriz literal, referência ("A1:B2" na aba 0) ou thunk. */
 export type TestArg = Scalar | Scalar[][] | { ref: string; sheet?: number } | { lazy: Value } | { omitted: true } | LambdaValue;
 
@@ -117,7 +134,7 @@ export function jsLambda(params: string[], f: (...a: readonly Value[]) => Value)
 function toRaw(a: TestArg): RawArg {
   if (a === null || typeof a !== 'object' || a instanceof CalcError || a instanceof LambdaValue) return a;
   if (Array.isArray(a)) return ArrayValue.of(a);
-  if ('ref' in a) return new RefValue([parseA1Area(a.ref, a.sheet ?? 0)]);
+  if ('ref' in a) return parseRefUnion(a.ref, a.sheet ?? 0);
   if ('lazy' in a) { const v = a.lazy; const t = (() => v) as Thunk; Object.defineProperty(t, 'omitted', { value: false }); return t; }
   const t = (() => null) as Thunk; Object.defineProperty(t, 'omitted', { value: true }); return t;
 }
@@ -171,6 +188,15 @@ export interface OracleCase {
   /** Fórmula legada (interseção implícita) em vez de matriz dinâmica. */
   readonly legacy?: boolean;
   readonly date1904?: boolean;
+  /** Linhas (1-based, como no Excel) ocultas à mão / por filtro (SUBTOTAL, AGGREGATE). */
+  readonly hiddenRows?: readonly number[];
+  readonly filteredRows?: readonly number[];
+  /**
+   * Fórmulas de células ("A3": "=SUBTOTAL(9,A1:A2)"). O Excel calcula a fórmula; o
+   * nosso contexto de mentira usa o valor de `cells` para a célula e só a fórmula
+   * (para isSubtotalCell/formulaAt).
+   */
+  readonly formulas?: Readonly<Record<string, string>>;
 }
 
 /** Resposta do Excel para um caso. */
@@ -212,14 +238,27 @@ export function caseFormula(c: OracleCase): string {
 
 /** Entrada do xl-calc.ps1 para uma lista de casos. */
 export function toOracleInput(cases: readonly OracleCase[]): unknown[] {
-  return cases.map((c) => ({ id: c.id, f: caseFormula(c), cells: c.cells, at: c.at, legacy: c.legacy, date1904: c.date1904 }));
+  return cases.map((c) => {
+    let cells: Record<string, unknown> | undefined = c.cells ? { ...c.cells } : undefined;
+    if (c.formulas) { cells ??= {}; for (const [k, f] of Object.entries(c.formulas)) cells[k] = { f }; }
+    return { id: c.id, f: caseFormula(c), cells, at: c.at, legacy: c.legacy, date1904: c.date1904, hiddenRows: c.hiddenRows, filteredRows: c.filteredRows };
+  });
 }
 
 /** Roda o caso no nosso motor (sem avaliador: callFn sobre um contexto de mentira). */
 export function runCase(c: OracleCase, locale: ValueLocale, extra: Partial<MockOptions> = {}): Value {
   const cells: Record<string, Scalar> = {};
   for (const [k, v] of Object.entries(c.cells ?? {})) cells[k] = caseScalar(v);
-  const ctx = mockContext({ sheets: { Sheet1: cells }, at: c.at ?? 'Z100', locale, date1904: c.date1904, ...extra });
+  const formulas: Record<string, string> = {};
+  for (const [k, f] of Object.entries(c.formulas ?? {})) formulas[k] = f.replace(/^=/, '');
+  const ctx = mockContext({
+    sheets: { Sheet1: cells }, at: c.at ?? 'Z100', locale, date1904: c.date1904, formulas,
+    hiddenRows: c.hiddenRows?.map((r) => r - 1),
+    // medido: com a aba em modo de filtro (sheetPr filterMode), TODA linha oculta conta
+    // como filtrada para SUBTOTAL 1–11 — inclusive as ocultas à mão, fora do AutoFiltro
+    filteredRows: c.filteredRows?.length ? [...c.filteredRows, ...(c.hiddenRows ?? [])].map((r) => r - 1) : undefined,
+    ...extra,
+  });
   const args: TestArg[] = c.args.map((a) => {
     if (a !== null && typeof a === 'object') {
       if ('omit' in a) return { omitted: true };
