@@ -23,6 +23,10 @@ describe('geometria do grid (Excel)', () => {
     expect(excelMdw('Arial', 10)).toBe(7);
     expect(excelMdw('Arial', 12)).toBe(9);
     expect(excelMdw('Verdana', 10)).toBe(8);
+    // PMingLiU/MingLiU: dígitos de meio em (oráculo do corpus)
+    expect(excelMdw('新細明體', 12)).toBe(8);
+    expect(excelMdw('新細明體', 10)).toBe(6);
+    expect(excelMdw('細明體', 11)).toBe(7);
   });
   it('larguras de coluna em px', () => {
     expect(colWidthToPx(10, 7)).toBe(70);

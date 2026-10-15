@@ -31,6 +31,18 @@ const ALIASES: Record<string, string> = {
 };
 
 const B62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+/**
+ * MDW de famílias sem medição sintética (mesmo formato do MDW gerado, ppem
+ * 8..32), tirado das larguras do oráculo do corpus: PMingLiU/MingLiU têm
+ * dígitos de meio em — ⌊ppem/2⌋ (ppem 13 → 6, 15 → 7, 16 → 8: poi-12843-1/2,
+ * poi-ex42564-21435, lo-129969-min, web-zh-tw-mof-fiscal-indicators-*). Sem
+ * isso a estimativa pelo canvas dava 1 px a mais (colunas 13% largas).
+ */
+const MDW_CORPUS: Record<string, string> = {
+  pmingliu: '445566778899aabbccddeeffg',
+  mingliu: '445566778899aabbccddeeffg',
+};
 const decoded = new Map<string, number[]>();
 
 /** Família medida para o nome do documento (null = não medida). */
@@ -87,7 +99,7 @@ export function excelRowPx(name: string | undefined, sizePt: number, bold = fals
  */
 export function excelMdw(name: string | undefined, sizePt: number): number | undefined {
   const fam = measuredFamily(name) ?? 'arial';
-  const s = MDW[fam];
+  const s = MDW[fam] ?? MDW_CORPUS[fam];
   if (s === undefined) return undefined;
   const p = ppemOf(sizePt);
   const at = (q: number) => B62.indexOf(s[q - MDW_PPEM_MIN]!);
