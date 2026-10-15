@@ -84,6 +84,8 @@ export interface SheetView {
   colWidths: Map<number, number>;
   /** Mapa row(1-based) → altura em px. */
   rowHeights: Map<number, number>;
+  /** Mapa row → maior descent (px a 100%) das fontes da linha: base compartilhada. */
+  rowDesc: Map<number, number>;
   hiddenCols: Set<number>;
   hiddenRows: Set<number>;
   merges: Map<string, string>; // top-left ref → range
@@ -397,7 +399,7 @@ export class UniversalSheetElement extends HTMLElement {
         listValRanges.push({ c1: tl.col, r1: tl.row, c2: br.col, r2: br.row });
       }
       this.views.push({
-        worksheet: ws, path: ref.target, colWidths, rowHeights, hiddenCols, hiddenRows, merges,
+        worksheet: ws, path: ref.target, colWidths, rowHeights, rowDesc: new Map(), hiddenCols, hiddenRows, merges,
         pane: ws.pane, condFormats: ws.condFormats ?? [],
         showGridLines: ws.showGridLines !== false,
         showZeros: ws.showZeros !== false,
@@ -514,7 +516,27 @@ export class UniversalSheetElement extends HTMLElement {
       next = Math.max(next, cd.max + 1);
     }
     if (next <= 16384) normalCols = true;
+    // base compartilhada p/ a PINTURA: maior descent das fontes da linha (sem o
+    // acréscimo de sobrescrito), também nas linhas de altura fixa
+    const baseDesc = row0Desc(this.normalFont);
+    function row0Desc(f: { name?: string; size?: number; bold?: boolean } | undefined): number {
+      return rowDescentPx(f?.name ?? nf.name, f?.size ?? nf.size, !!f?.bold) ?? 0;
+    }
+    const fontDesc = new Map<number, number>();
+    const cellDesc = new Map<number, number | undefined>();
+    const paintDesc = (row: (typeof ws.rows)[number]): number => {
+      let d = row.style !== undefined ? row0Desc(fonts[xfs[row.style]?.fontId ?? 0]) : baseDesc;
+      for (const c of row.cells) {
+        const fid = xfs[c.style ?? row.style ?? 0]?.fontId ?? 0;
+        let fd = fontDesc.get(fid);
+        if (fd === undefined) { fd = row0Desc(fonts[fid]); fontDesc.set(fid, fd); }
+        if (fd > d) d = fd;
+      }
+      return d;
+    };
+    v.rowDesc.clear();
     for (const row of ws.rows) {
+      v.rowDesc.set(row.r, paintDesc(row));
       if (row.customHeight && row.height !== undefined) { v.rowHeights.set(row.r, rowPtToPx(row.height)); continue; }
       // zeroHeight: a altura padrão (0) é só das linhas AUSENTES; as listadas se auto-ajustam (medido)
       if (sheetCustom && !looseHt && row.height === undefined && !sfp?.zeroHeight) { v.rowHeights.set(row.r, v.defaultRowH); continue; }
@@ -552,7 +574,9 @@ export class UniversalSheetElement extends HTMLElement {
         const xf = xfs[c.style ?? row.style ?? 0];
         const f = fonts[xf?.fontId ?? 0];
         const lineH = pxOf(f?.name, f?.size, f?.bold, f?.vertAlign);
-        const desc = descOf(f?.name, f?.size, f?.bold, f?.vertAlign);
+        const fid = xf?.fontId ?? 0;
+        if (!cellDesc.has(fid)) cellDesc.set(fid, descOf(f?.name, f?.size, f?.bold, f?.vertAlign));
+        const desc = cellDesc.get(fid);
         add(lineH, desc);
         const runs = this.cellRuns(c);
         if (runs) {
@@ -2143,7 +2167,14 @@ export class UniversalSheetElement extends HTMLElement {
       lineH: excelRowPx(font?.name ?? this.normalFont.name, font?.size ?? this.normalFont.size, !!font?.bold) * this.zoom,
       merged,
       overflow: (dir, need) => this.overflowExtent(col, row, cells, dir, need),
+      rowDesc: this.rowDescPx(row),
     });
+  }
+
+  /** Base compartilhada da linha (maior descent das fontes, px no zoom). */
+  private rowDescPx(row: number): number {
+    const d = this.view?.rowDesc.get(row) ?? rowDescentPx(this.normalFont.name, this.normalFont.size, this.normalFont.bold) ?? 0;
+    return Math.round(d * this.zoom);
   }
 
   /** Runs ricos da célula, se houver (shared string ou string inline). */
@@ -2190,6 +2221,7 @@ export class UniversalSheetElement extends HTMLElement {
       left, top, w, h, halign: st.align, valign: st.valign, wrap: st.wrap,
       indent: st.indent, indentPx: this.indentUnitPx() * this.zoom, merged,
       overflow: (dir, need) => this.overflowExtent(col, row, cells, dir, need),
+      rowDesc: this.rowDescPx(row),
     }, layoutRichLines);
   }
 

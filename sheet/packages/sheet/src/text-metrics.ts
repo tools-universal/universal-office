@@ -4,31 +4,13 @@
 // glifo desenhado na posição inteira acumulada, sem kerning. Escritas com
 // shaping (árabe, hebraico, índicas, tailandês…) são medidas e desenhadas como
 // string inteira pelo canvas.
-import { gdiGlyphFixes, measuredFamily, ppemOf } from '@universal/sheet-core';
+import { excelRowPx, gdiGlyphFixes, measuredFamily, ppemOf } from '@universal/sheet-core';
 import type { FontMetrics } from './cell-text.js';
 import { DESC_PPEM_MAX, DESC_PPEM_MIN, ROW_DESC, ROW_DESC_BOLD } from './row-descent-data.js';
 
 /** Escritas que dependem de shaping/bidi: não dá para medir/desenhar glifo a glifo. */
 const COMPLEX = /[\u0590-\u08ff\u0900-\u0dff\u0e00-\u0eff\u0f00-\u109f\u1780-\u18af\ufb1d-\ufdff\ufe70-\ufeff]/;
 
-/**
- * Linha de base do Excel por família (ppem 8..24): 2 caracteres base62 por ppem —
- * A (alinhado ao topo: linha de base = topo + A + 1) e D (alinhado à base: linha
- * de base = base da célula − D). Medido no Excel 365 ("H" em linhas de 50 px,
- * lab e12); os saltos em ppem altos (Calibri 24, Tahoma 18, Cambria 17…) são do
- * próprio Excel (troca de suavização).
- */
-const VMETRICS: Record<string, string> = {
-  'calibri': '8494a4b4c5c5d5e5f5g6h6i6j7j8k8l8o6',
-  'arial': '8494a4b5b5c5d5e5f5g5h5i6i6j7k7n5o6',
-  'times new roman': '84a3a5a5b5c5d5e5f5g5h6h7i7j7m5n6o6',
-  'verdana': '849595a5b5c5d5e5f5g6g6h6j7l4m4n5o5',
-  'segoe ui': '858595a5b5d5e6f6g7g8i9i8n8o9o8p8q9',
-  'aptos narrow': '758595a5b5c5d5e6e6f7g7j5k5l6m6n7n8',
-  'tahoma': '758595a5b5c5d6d6e6f6i4j4k4l4m6m6n6',
-  'cambria': '758595a5b5c6c6d6e6h4i4j4k4l6l6m6n6',
-  'courier new': '758595a5b6b6c6d6g4h5i6i6j6k7l7l8m9',
-};
 const VM_B62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 export interface CellFont extends FontMetrics {
@@ -101,12 +83,13 @@ export class CellFonts {
       for (const ch of s) { w += adv(ch); if (w > limit) return w; }
       return w;
     };
-    // linha de base do Excel: tabela medida; fora dela, as métricas do canvas
-    const vm = VMETRICS[metricFamily.trim().toLowerCase()];
-    const vi = (ppem - 8) * 2;
-    const inTable = !!vm && ppem >= 8 && vi + 1 < vm.length;
-    const xlAscent = inTable ? VM_B62.indexOf(vm[vi]!) + 1 : ascent + 1;
-    const xlDescent = inTable ? VM_B62.indexOf(vm[vi + 1]!) : descent + 2;
+    // linha de base do Excel (oráculo 1:1, lab e12 — 142/153 no topo, 147/153
+    // na base, 142/153 no centro): acima da base = R − d (altura de linha da
+    // fonte − descent do GDI), abaixo = d; família sem descent → canvas
+    const d = rowDescentPx(metricFamily, sizePt * zoom, bold);
+    const R = excelRowPx(metricFamily, sizePt * zoom, bold);
+    const xlAscent = d !== undefined ? R - d : ascent + 1;
+    const xlDescent = d !== undefined ? d : descent + 2;
     f = { css, bold, italic, ppem, ascent, descent, xlAscent, xlDescent, adv, width };
     this.cache.set(key, f);
     return f;

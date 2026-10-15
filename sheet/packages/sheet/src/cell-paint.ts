@@ -33,6 +33,8 @@ export interface PaintTextArgs {
   overflow(dir: 1 | -1, need: number): number;
   /** Deslocamento da linha de base (px, + = para baixo): sobrescrito/subscrito da célula. */
   baselineShift?: number;
+  /** Maior descent da linha (base compartilhada no alinhamento à base). */
+  rowDesc?: number;
 }
 
 /**
@@ -47,6 +49,11 @@ export function paintErrorMark(ctx: CanvasRenderingContext2D, left: number, top:
   for (let k = 0; k < n; k++) ctx.fillRect(x, y + k, n - k, 1);
 }
 
+/** x do texto centralizado de largura W numa célula [left, left + w] (medido, e4: 1 + ⌊(w − W)/2⌋). */
+export function centerX(left: number, w: number, W: number): number {
+  return left + 1 + Math.floor((w - W) / 2);
+}
+
 /** Alinhamento efetivo: geral → número à direita, texto à esquerda, booleano/erro ao centro. */
 export function effectiveHAlign(halign: string | undefined, kind: CellKind): string {
   if (!halign || halign === 'general') return kind === 'number' ? 'right' : kind === 'text' ? 'left' : 'center';
@@ -55,13 +62,15 @@ export function effectiveHAlign(halign: string | undefined, kind: CellKind): str
 
 /**
  * Linha de base de UMA linha de texto conforme o alinhamento vertical, com as
- * distâncias medidas no Excel (xlAscent do topo, xlDescent da base; centro
- * entre as duas).
+ * distâncias medidas no Excel (xlAscent do topo; centro entre as duas). Na
+ * base, a linha de base é COMPARTILHADA: sobe o maior descent da linha
+ * (`rowDesc`: fonte Normal das células vazias e demais células) — Arial 10 em
+ * linha com a Normal Calibri 11 senta a 4 px da base, não a 3 (lab e10/e12).
  */
-export function baselineFor(f: CellFont, valign: string | undefined, top: number, h: number): number {
+export function baselineFor(f: CellFont, valign: string | undefined, top: number, h: number, rowDesc = 0): number {
   if (valign === 'top') return top + f.xlAscent;
   if (valign === 'center' || valign === 'justify' || valign === 'distributed') return top + Math.floor((h - (f.xlAscent + f.xlDescent)) / 2) + f.xlAscent;
-  return top + h - f.xlDescent;
+  return top + h - Math.max(f.xlDescent, rowDesc);
 }
 
 /** Quebra como o Excel: nos espaços (e depois de "-"); palavra maior que a linha quebra por caractere; "\n" força. */
@@ -124,14 +133,14 @@ export function paintCellText(a: PaintTextArgs): void {
   if (wrapMode) { paintWrapped(a, boxL, boxW, halign, indent); return; }
 
   const W = ct.width >= 0 ? ct.width : textWidth(f, ct.text, boxW + 4096);
-  // posição horizontal (medida, e4/e10): esquerda na caixa; "direita" explícita
-  // fica 1 px antes do número em Geral; centro pela célula inteira; recuo em
-  // níveis de 3 espaços da fonte Normal
+  // posição horizontal (medida no oráculo 1:1, e4/e10): esquerda e direita na
+  // caixa; centro pela célula inteira, 1 + ⌊(w − W)/2⌋; recuo em níveis de 3
+  // espaços da fonte Normal
   let x0: number;
   if (ct.filled) x0 = boxL;
   else if (halign === 'fill' && a.kind === 'text' && W > 0) x0 = boxL;
-  else if (halign === 'right') x0 = boxR - W - indent - (a.halign === 'right' ? 1 : 0);
-  else if (halign === 'center' || halign === 'centerContinuous') x0 = a.left + Math.floor((a.w - W - 1) / 2);
+  else if (halign === 'right') x0 = boxR - W - indent;
+  else if (halign === 'center' || halign === 'centerContinuous') x0 = centerX(a.left, a.w, W);
   else x0 = boxL + indent;
   // transbordo do texto para as vizinhas vazias
   let clipL = a.left, clipR = a.left + a.w;
@@ -141,7 +150,7 @@ export function paintCellText(a: PaintTextArgs): void {
     else if (halign === 'center' || halign === 'centerContinuous') { clipL -= a.overflow(-1, over / 2 + 1); clipR += a.overflow(1, over / 2 + 1); }
     else clipR += a.overflow(1, over);
   }
-  const y = baselineFor(f, a.valign, a.top, a.h) + (a.baselineShift ?? 0);
+  const y = baselineFor(f, a.valign, a.top, a.h, a.rowDesc) + (a.baselineShift ?? 0);
   ctx.save();
   ctx.beginPath();
   ctx.rect(clipL + 1, a.top + 1, Math.max(0, clipR - clipL - 1), Math.max(0, a.h - 1));
@@ -182,13 +191,13 @@ function paintWrapped(a: PaintTextArgs, boxL: number, boxW: number, halign: stri
   const lines = wrapLines(f, ct.text, Math.max(1, boxW - indent), maxLines + 64);
   const lineH = a.lineH;
   // bloco de n linhas: 1ª linha de base a xlAscent do topo do bloco, as demais a
-  // cada lineH; a última a xlDescent da base do bloco
+  // cada lineH; a última a xlDescent da base do bloco (na base: a compartilhada)
   const blockH = (lines.length - 1) * lineH + f.xlAscent + f.xlDescent;
   let y0: number;
   const va = a.valign ?? 'bottom';
   if (va === 'top' || va === 'justify' || va === 'distributed') y0 = a.top;
   else if (va === 'center') y0 = a.top + Math.floor((a.h - blockH) / 2);
-  else y0 = a.top + a.h - blockH;
+  else y0 = a.top + a.h - blockH - Math.max(0, (a.rowDesc ?? 0) - f.xlDescent);
   const inLine = (i: number): number => y0 + f.xlAscent + i * lineH;
   ctx.save();
   ctx.beginPath();
@@ -241,6 +250,8 @@ export interface PaintRichArgs {
   indent: number; indentPx: number;
   merged: boolean;
   overflow(dir: 1 | -1, need: number): number;
+  /** Maior descent da linha (base compartilhada no alinhamento à base). */
+  rowDesc?: number;
 }
 
 /**
@@ -287,15 +298,16 @@ export function paintRichText(a: PaintRichArgs, layoutLines: (texts: readonly st
       x += sw;
     }
   };
-  const xFor = (W: number): number => (halign === 'right' ? boxR - W - indent - (a.halign === 'right' ? 1 : 0)
-    : halign === 'center' || halign === 'centerContinuous' ? a.left + Math.floor((a.w - W - 1) / 2) : boxL + indent);
+  const xFor = (W: number): number => (halign === 'right' ? boxR - W - indent
+    : halign === 'center' || halign === 'centerContinuous' ? centerX(a.left, a.w, W) : boxL + indent);
 
   if (a.wrap) {
     const lines = layoutLines(a.texts, Math.max(1, boxW - indent), measure);
     const ms = lines.map(lineMetrics);
     const total = ms.reduce((s, m, i) => s + (i < ms.length - 1 ? m.lh : m.asc + m.desc), 0);
     const va = a.valign ?? 'bottom';
-    let y = va === 'top' ? a.top : va === 'center' ? a.top + Math.floor((a.h - total) / 2) : a.top + a.h - total;
+    let y = va === 'top' ? a.top : va === 'center' ? a.top + Math.floor((a.h - total) / 2)
+      : a.top + a.h - total - Math.max(0, (a.rowDesc ?? 0) - (ms[ms.length - 1]?.desc ?? 0));
     ctx.save();
     ctx.beginPath(); ctx.rect(a.left + 1, a.top + 1, Math.max(0, a.w - 1), Math.max(0, a.h - 1)); ctx.clip();
     lines.forEach((segs, i) => {
@@ -313,7 +325,7 @@ export function paintRichText(a: PaintRichArgs, layoutLines: (texts: readonly st
   const m = lineMetrics(segs);
   const va = a.valign ?? 'bottom';
   const baseline = va === 'top' ? a.top + m.asc : va === 'center' || va === 'justify' || va === 'distributed'
-    ? a.top + Math.floor((a.h - (m.asc + m.desc)) / 2) + m.asc : a.top + a.h - m.desc;
+    ? a.top + Math.floor((a.h - (m.asc + m.desc)) / 2) + m.asc : a.top + a.h - Math.max(m.desc, a.rowDesc ?? 0);
   let clipL = a.left, clipR = a.left + a.w;
   if (!a.merged && W > boxW - indent) {
     const over = W - (boxW - indent);
