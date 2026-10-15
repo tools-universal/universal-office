@@ -67,6 +67,28 @@ function r1c1Res(row: string, col: string): { cell: RegExp; rows: RegExp; cols: 
 }
 const R1C1_STD = r1c1Res('R', 'C');
 
+/**
+ * Valor de um literal numérico como o Excel o lê: TRUNCADO a 15 algarismos
+ * significativos (=1,99999999999999999 → 1,99999999999999; medido pelo FN-STAT
+ * e no oráculo: 0,1234567890123456 → 0,123456789012345); subnormal (1E-310) ou
+ * estouro são recusados (o Excel não aceita a fórmula). undefined = recusado.
+ */
+export function numberLiteralValue(raw: string): { v: number; truncated: boolean } | undefined {
+  const m = /^(\d*)\.?(\d*)(?:[eE]([+-]?\d+))?$/.exec(raw);
+  if (!m) return undefined;
+  let digits = m[1]! + m[2]!;
+  let point = m[1]!.length + (m[3] ? parseInt(m[3], 10) : 0);
+  const lead = /^0*/.exec(digits)![0].length;
+  digits = digits.slice(lead); point -= lead;
+  digits = digits.replace(/0+$/, '');
+  let v: number, truncated = false;
+  if (!digits) v = 0;
+  else if (digits.length > 15) { v = Number(`0.${digits.slice(0, 15)}e${point}`); truncated = true; }
+  else v = Number(raw);
+  if (!Number.isFinite(v) || (v !== 0 && v < 2.2250738585072014e-308)) return undefined;
+  return { v, truncated };
+}
+
 function sticky(re: RegExp, s: string, at: number): RegExpExecArray | null {
   re.lastIndex = at;
   return re.exec(s);
@@ -156,7 +178,9 @@ class Lexer {
       }
       if (ch === '$') this.fail('referência inválida', i);
       const m = sticky(NUM_RE, s, i)!;
-      this.toks.push({ k: 'num', v: Number(m[0]), raw: m[0], p: i });
+      const lit = numberLiteralValue(m[0]);
+      if (lit === undefined) this.fail('número fora do intervalo do Excel', i);
+      this.toks.push(lit.truncated ? { k: 'num', v: lit.v, raw: '', p: i } : { k: 'num', v: lit.v, raw: m[0], p: i });
       return i + m[0].length;
     }
     if (ch === '$' || IDENT_START.test(ch)) {

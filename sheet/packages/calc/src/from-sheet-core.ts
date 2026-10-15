@@ -33,6 +33,8 @@ export interface SheetCoreWorksheet {
   readonly rows: readonly { readonly r: number; readonly hidden?: boolean; readonly cells: readonly SheetCoreCell[] }[];
   readonly merges?: readonly string[];
   readonly autoFilter?: { readonly ref: string; readonly active?: readonly number[] };
+  /** `<sheetPr filterMode>`: com ele toda linha oculta conta como filtrada. */
+  readonly filterMode?: boolean;
   readonly tables?: readonly {
     readonly ref: string; readonly name?: string; readonly displayName?: string;
     readonly headerRow?: boolean; readonly totalsRow?: boolean; readonly headerRowCount?: number; readonly totalsRowCount?: number;
@@ -111,15 +113,13 @@ export function fromSheetCore(src: SheetCoreBook): CalcWorkbook {
     const hidden: number[] = [];
     const filtered: number[] = [];
     if (ws) {
-      // linhas filtradas: ocultas dentro de autofiltro com critério ativo
-      const filters = [ws.autoFilter, ...(ws.tables ?? []).map((t) => t.filter)]
-        .filter((f): f is { ref: string; active?: readonly number[] } => !!f && !!f.active?.length)
-        .map((f) => a1ToArea(f.ref, si)).filter((a) => !!a);
+      // linha filtrada = aba em modo de filtro (sheetPr filterMode) e linha oculta —
+      // inclusive as ocultas à mão (medido pelo FN-STAT com SUBTOTAL 1–11)
       for (const row of ws.rows) {
         const r = row.r - 1;
         if (row.hidden) {
           hidden.push(r);
-          if (filters.some((a) => r > a!.r1 && r <= a!.r2)) filtered.push(r);
+          if (ws.filterMode) filtered.push(r);
         }
         for (const c of row.cells) {
           const p = a1ToCell(c.ref);

@@ -506,6 +506,11 @@ export interface Worksheet {
   tables?: TableInfo[];
   /** Autofiltro da PLANILHA (`<autoFilter>` fora de tabela). */
   autoFilter?: AutoFilterInfo;
+  /**
+   * `<sheetPr filterMode="1">`: a aba está em modo de filtro — para o SUBTOTAL toda
+   * linha oculta conta como filtrada (medido pelo FN-STAT).
+   */
+  filterMode?: boolean;
   /** Tabelas dinâmicas desta aba (rels `/pivotTable`). */
   pivots?: PivotInfo[];
   /** Ranges A1 com validação tipo LISTA (`<dataValidation type="list" sqref>`) —

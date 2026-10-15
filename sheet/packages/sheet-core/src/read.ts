@@ -441,6 +441,8 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (tables.length > 0) ws.tables = tables;
   if (pivots.length > 0) ws.pivots = pivots;
   if (listValidations.length > 0) ws.listValidations = listValidations;
+  const sheetPr = firstChild(root, 'sheetPr');
+  if (sheetPr?.attrs['filterMode'] === '1' || sheetPr?.attrs['filterMode'] === 'true') ws.filterMode = true;
   const sheetAf = firstChild(root, 'autoFilter');
   if (sheetAf?.attrs['ref']) ws.autoFilter = readAutoFilter(sheetAf, sheetAf.attrs['ref']);
   return ws;

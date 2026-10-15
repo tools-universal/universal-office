@@ -66,7 +66,7 @@ class Printer {
 
   print(n: Node): string {
     switch (n.t) {
-      case 'num': return n.raw ?? numberLiteral(n.v);
+      case 'num': return n.raw || numberLiteral(n.v);
       case 'str': return scalarLiteral(n.v);
       case 'bool': return n.v ? 'TRUE' : 'FALSE';
       case 'err': return n.v;

@@ -21,6 +21,7 @@ import { EN_US, lookupFn, type ValueLocale } from './fn.js';
 import { parseFormula, FormulaSyntaxError } from './parse.js';
 import { printFormula } from './print.js';
 import { legacyToDynamic } from './implicit.js';
+import { setComputedCriterion } from './functions/database.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, MAX_COL, MAX_ROW, RefValue, type Area, type Scalar, type Value } from './values.js';
 import type { CalcWorkbook, CellInput, FormulaInput } from './workbook.js';
 
@@ -502,6 +503,19 @@ export class Engine implements EvalHost {
     return f?.dynamic ? f.area : undefined;
   }
 
+  /**
+   * Critério calculado das D-funções: a fórmula da célula de critério avaliada
+   * como se estivesse `offset` linhas abaixo (as referências relativas apontam
+   * para o 1º registro e descem com ele). undefined = célula sem fórmula.
+   */
+  criterionAt(sheet: number, row: number, col: number, offset: number): boolean | undefined {
+    const f = this.getFormula(sheet, row, col);
+    if (!f?.node) return undefined;
+    const ctx = this.ev.context(sheet, row + offset, col, true);
+    const v = topScalar(this.ev.evalFormula(f.exec ?? f.node, ctx), ctx);
+    return v === true || (typeof v === 'number' && v !== 0);
+  }
+
   /** Todas as fórmulas (âncoras), na ordem da planilha. */
   allFormulas(): readonly FormulaRec[] {
     if (!this.ordered) {
@@ -978,3 +992,8 @@ function fitAt(a: ArrayValue, r: number, c: number): Scalar {
   if (rr >= a.rows || cc >= a.cols) return ERR.NA;
   return a.get(rr, cc);
 }
+
+setComputedCriterion((ctx, sheet, row, col, offset) => {
+  const host = ctx instanceof CellCtx ? ctx.ev.host : undefined;
+  return host instanceof Engine ? host.criterionAt(sheet, row, col, offset) : undefined;
+});
