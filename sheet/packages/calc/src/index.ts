@@ -26,6 +26,7 @@ import './functions/statistical.js';
 import './functions/conditional.js';
 import './functions/distributions.js';
 import './functions/regression.js';
+import './functions/ets.js';
 import './functions/database.js';
 import './functions/text.js';
 import './functions/datetime.js';

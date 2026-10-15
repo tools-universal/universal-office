@@ -760,3 +760,51 @@ const slug = (v) => JSON.stringify(v).replace(/-/g, 'n').replace(/\./g, 'd').rep
   }
   out('stat-reg', cases);
 }
+
+// ---------------------------------------------------------------------------
+// stat-ets: FORECAST.ETS* (séries exatas, ruidosas, buracos, duplicatas, erros)
+{
+  const cases = [];
+  const add = (id, fn, args, extra = {}) => cases.push({ id: `stat-ets-${id}`, fn, args, ...extra });
+  const n = 24;
+  const series = {
+    lin: Array.from({ length: n }, (_, i) => 2 * i + 3),
+    seas: Array.from({ length: n }, (_, i) => 10 + 0.5 * i + [3, -1, -2, 0][i % 4]),
+    seas6: Array.from({ length: 30 }, (_, i) => 50 + [5, 3, -2, -6, -1, 1][i % 6]),
+    noisy: Array.from({ length: n }, (_, i) => +(10 + 0.5 * i + [3, -1, -2, 0][i % 4] + Math.sin(i * 7.3) * 0.8).toFixed(3)),
+    flat: Array.from({ length: 12 }, () => 7),
+  };
+  const cellsOf = (ys, t = (i) => i + 1) => { const c = {}; ys.forEach((y, i) => { c[`A${i + 1}`] = t(i); c[`B${i + 1}`] = y; }); return c; };
+  for (const [name, ys] of Object.entries(series)) {
+    const cells = cellsOf(ys), R = `B1:B${ys.length}`, T = `A1:A${ys.length}`, last = ys.length;
+    for (const h of [1, 2, 5, 1.5]) add(`f-${name}-${slug(h)}`, 'FORECAST.ETS', [last + h, ref(R), ref(T)], { cells });
+    add(`f0-${name}`, 'FORECAST.ETS', [last + 1, ref(R), ref(T), 0], { cells });
+    add(`ci-${name}`, 'FORECAST.ETS.CONFINT', [last + 1, ref(R), ref(T)], { cells });
+    add(`ci3-${name}`, 'FORECAST.ETS.CONFINT', [last + 3, ref(R), ref(T), 0.9], { cells });
+    add(`season-${name}`, 'FORECAST.ETS.SEASONALITY', [ref(R), ref(T)], { cells });
+    for (let k = 1; k <= 8; k++) add(`stat${k}-${name}`, 'FORECAST.ETS.STAT', [ref(R), ref(T), k], { cells });
+  }
+  const cells = cellsOf(series.seas), R = 'B1:B24', T = 'A1:A24';
+  add('past', 'FORECAST.ETS', [20, ref(R), ref(T)], { cells });
+  add('atlast', 'FORECAST.ETS', [24, ref(R), ref(T)], { cells });
+  add('season-explicit', 'FORECAST.ETS', [25, ref(R), ref(T), 4], { cells });
+  add('season-bad', 'FORECAST.ETS', [25, ref(R), ref(T), -1], { cells });
+  add('season-big', 'FORECAST.ETS', [25, ref(R), ref(T), 13], { cells });
+  add('completion-bad', 'FORECAST.ETS', [25, ref(R), ref(T), 1, 2], { cells });
+  add('agg-bad', 'FORECAST.ETS', [25, ref(R), ref(T), 1, 1, 8], { cells });
+  add('size', 'FORECAST.ETS', [25, ref('B1:B23'), ref(T)], { cells });
+  add('text-value', 'FORECAST.ETS', [25, ref(R), ref(T)], { cells: merge(cells, { B5: 'x' }) });
+  add('text-time', 'FORECAST.ETS', [25, ref(R), ref(T)], { cells: merge(cells, { A5: 'x' }) });
+  add('hole', 'FORECAST.ETS', [25, ref(R), ref(T)], { cells: merge(cells, { B5: null }) });
+  add('hole0', 'FORECAST.ETS', [25, ref(R), ref(T), 1, 0], { cells: merge(cells, { B5: null }) });
+  add('unsorted', 'FORECAST.ETS', [25, ref(R), ref(T)], { cells: merge(cells, { A1: 2, A2: 1, B1: series.seas[1], B2: series.seas[0] }) });
+  add('dup-avg', 'FORECAST.ETS', [25, ref(R), ref(T)], { cells: merge(cells, { A24: 23 }) });
+  add('dup-sum', 'FORECAST.ETS', [25, ref(R), ref(T), 1, 1, 7], { cells: merge(cells, { A24: 23 }) });
+  add('gap-time', 'FORECAST.ETS', [25, ref(R), ref(T)], { cells: merge(cells, { A10: 10.5 }) });
+  add('step2', 'FORECAST.ETS', [50, ref(R), ref(T)], { cells: cellsOf(series.seas, (i) => 2 * i + 2) });
+  add('dates', 'FORECAST.ETS', [45658 + 24, ref(R), ref(T)], { cells: cellsOf(series.seas, (i) => 45658 + i) });
+  add('stat-bad', 'FORECAST.ETS.STAT', [ref(R), ref(T), 9], { cells });
+  add('ci-conf-bad', 'FORECAST.ETS.CONFINT', [25, ref(R), ref(T), 1], { cells });
+  add('short', 'FORECAST.ETS', [4, ref('B1:B3'), ref('A1:A3')], { cells });
+  out('stat-ets', cases);
+}

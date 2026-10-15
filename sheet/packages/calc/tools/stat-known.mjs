@@ -4,6 +4,9 @@
 // reproduzidos bit a bit (distribuições, inversas). Erros, tipos e diferenças maiores
 // continuam falhando no teste.
 //   node tools/stat-known.mjs <área>   (depois do build)
+//   node tools/stat-known.mjs <área> --todas "<motivo medido>"  registra TODAS as
+//     divergências restantes com o motivo dado (só para áreas cujo algoritmo do
+//     Excel não é documentado, ex. FORECAST.ETS)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +17,7 @@ import { ArrayValue, CalcError } from '../dist/values.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const area = process.argv[2];
+const allReason = process.argv[3] === '--todas' ? process.argv[4] : undefined;
 const dir = join(here, '..', 'test', 'oracle');
 const cases = JSON.parse(readFileSync(join(dir, `${area}.cases.json`), 'utf8'));
 const xl = new Map(JSON.parse(readFileSync(join(dir, `${area}.excel.json`), 'utf8')).map((r) => [r.id, r]));
@@ -25,6 +29,7 @@ for (const c of cases) {
   if (!r || r.err) continue;
   const ours = runCase(c, PT_BR);
   if (matchesOracle(ours, r)) continue;
+  if (allReason) { known[c.id] = allReason; n++; continue; }
   // pares (nosso, Excel) — matriz derramada compara elemento a elemento
   const pairs = [];
   if (r.spill) {

@@ -1,0 +1,620 @@
+[
+ {
+  "id": "stat-ets-f-lin-1",
+  "v": 51,
+  "text": "51",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f-lin-2",
+  "v": 53,
+  "text": "53",
+  "local": "=PREVISÃO.ETS(26;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f-lin-5",
+  "v": 59,
+  "text": "59",
+  "local": "=PREVISÃO.ETS(29;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f-lin-1d5",
+  "v": 52,
+  "text": "52",
+  "local": "=PREVISÃO.ETS(25,5;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f0-lin",
+  "v": 51,
+  "text": "51",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24;0)"
+ },
+ {
+  "id": "stat-ets-ci-lin",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.CONFINT(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-ci3-lin",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.CONFINT(27;B1:B24;A1:A24;0,9)"
+ },
+ {
+  "id": "stat-ets-season-lin",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.SAZONALIDADE(B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-stat1-lin",
+  "v": 0.9,
+  "text": "0,9",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;1)"
+ },
+ {
+  "id": "stat-ets-stat2-lin",
+  "v": 0.001,
+  "text": "0,001",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;2)"
+ },
+ {
+  "id": "stat-ets-stat3-lin",
+  "v": 2.220446049250313e-16,
+  "text": "2,22E-16",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;3)"
+ },
+ {
+  "id": "stat-ets-stat4-lin",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;4)"
+ },
+ {
+  "id": "stat-ets-stat5-lin",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;5)"
+ },
+ {
+  "id": "stat-ets-stat6-lin",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;6)"
+ },
+ {
+  "id": "stat-ets-stat7-lin",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;7)"
+ },
+ {
+  "id": "stat-ets-stat8-lin",
+  "v": 1,
+  "text": "1",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;8)"
+ },
+ {
+  "id": "stat-ets-f-seas-1",
+  "v": 25,
+  "text": "25",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f-seas-2",
+  "v": 21.5,
+  "text": "21,5",
+  "local": "=PREVISÃO.ETS(26;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f-seas-5",
+  "v": 27,
+  "text": "27",
+  "local": "=PREVISÃO.ETS(29;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f-seas-1d5",
+  "v": 23.25,
+  "text": "23,25",
+  "local": "=PREVISÃO.ETS(25,5;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f0-seas",
+  "v": 21.567896875521782,
+  "text": "21,5679",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24;0)"
+ },
+ {
+  "id": "stat-ets-ci-seas",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.CONFINT(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-ci3-seas",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.CONFINT(27;B1:B24;A1:A24;0,9)"
+ },
+ {
+  "id": "stat-ets-season-seas",
+  "v": 4,
+  "text": "4",
+  "local": "=PREVISÃO.ETS.SAZONALIDADE(B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-stat1-seas",
+  "v": 0.751,
+  "text": "0,751",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;1)"
+ },
+ {
+  "id": "stat-ets-stat2-seas",
+  "v": 0.001,
+  "text": "0,001",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;2)"
+ },
+ {
+  "id": "stat-ets-stat3-seas",
+  "v": 0.001,
+  "text": "0,001",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;3)"
+ },
+ {
+  "id": "stat-ets-stat4-seas",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;4)"
+ },
+ {
+  "id": "stat-ets-stat5-seas",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;5)"
+ },
+ {
+  "id": "stat-ets-stat6-seas",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;6)"
+ },
+ {
+  "id": "stat-ets-stat7-seas",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;7)"
+ },
+ {
+  "id": "stat-ets-stat8-seas",
+  "v": 1,
+  "text": "1",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;8)"
+ },
+ {
+  "id": "stat-ets-f-seas6-1",
+  "v": 55,
+  "text": "55",
+  "local": "=PREVISÃO.ETS(31;B1:B30;A1:A30)"
+ },
+ {
+  "id": "stat-ets-f-seas6-2",
+  "v": 53,
+  "text": "53",
+  "local": "=PREVISÃO.ETS(32;B1:B30;A1:A30)"
+ },
+ {
+  "id": "stat-ets-f-seas6-5",
+  "v": 49,
+  "text": "49",
+  "local": "=PREVISÃO.ETS(35;B1:B30;A1:A30)"
+ },
+ {
+  "id": "stat-ets-f-seas6-1d5",
+  "v": 54,
+  "text": "54",
+  "local": "=PREVISÃO.ETS(31,5;B1:B30;A1:A30)"
+ },
+ {
+  "id": "stat-ets-f0-seas6",
+  "v": 49.21312467276867,
+  "text": "49,21312",
+  "local": "=PREVISÃO.ETS(31;B1:B30;A1:A30;0)"
+ },
+ {
+  "id": "stat-ets-ci-seas6",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.CONFINT(31;B1:B30;A1:A30)"
+ },
+ {
+  "id": "stat-ets-ci3-seas6",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.CONFINT(33;B1:B30;A1:A30;0,9)"
+ },
+ {
+  "id": "stat-ets-season-seas6",
+  "v": 6,
+  "text": "6",
+  "local": "=PREVISÃO.ETS.SAZONALIDADE(B1:B30;A1:A30)"
+ },
+ {
+  "id": "stat-ets-stat1-seas6",
+  "v": 0.751,
+  "text": "0,751",
+  "local": "=PREVISÃO.ETS.STAT(B1:B30;A1:A30;1)"
+ },
+ {
+  "id": "stat-ets-stat2-seas6",
+  "v": 0.001,
+  "text": "0,001",
+  "local": "=PREVISÃO.ETS.STAT(B1:B30;A1:A30;2)"
+ },
+ {
+  "id": "stat-ets-stat3-seas6",
+  "v": 0.001,
+  "text": "0,001",
+  "local": "=PREVISÃO.ETS.STAT(B1:B30;A1:A30;3)"
+ },
+ {
+  "id": "stat-ets-stat4-seas6",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B30;A1:A30;4)"
+ },
+ {
+  "id": "stat-ets-stat5-seas6",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B30;A1:A30;5)"
+ },
+ {
+  "id": "stat-ets-stat6-seas6",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B30;A1:A30;6)"
+ },
+ {
+  "id": "stat-ets-stat7-seas6",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B30;A1:A30;7)"
+ },
+ {
+  "id": "stat-ets-stat8-seas6",
+  "v": 1,
+  "text": "1",
+  "local": "=PREVISÃO.ETS.STAT(B1:B30;A1:A30;8)"
+ },
+ {
+  "id": "stat-ets-f-noisy-1",
+  "v": 24.85203887829566,
+  "text": "24,85204",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f-noisy-2",
+  "v": 21.422498670915772,
+  "text": "21,4225",
+  "local": "=PREVISÃO.ETS(26;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f-noisy-5",
+  "v": 26.81274588000975,
+  "text": "26,81275",
+  "local": "=PREVISÃO.ETS(29;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f-noisy-1d5",
+  "v": 23.137268774605715,
+  "text": "23,13727",
+  "local": "=PREVISÃO.ETS(25,5;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-f0-noisy",
+  "v": 21.403136781805067,
+  "text": "21,40314",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24;0)"
+ },
+ {
+  "id": "stat-ets-ci-noisy",
+  "v": 1.1650663965133712,
+  "text": "1,165066",
+  "local": "=PREVISÃO.ETS.CONFINT(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-ci3-noisy",
+  "v": 0.9935222697790443,
+  "text": "0,993522",
+  "local": "=PREVISÃO.ETS.CONFINT(27;B1:B24;A1:A24;0,9)"
+ },
+ {
+  "id": "stat-ets-season-noisy",
+  "v": 4,
+  "text": "4",
+  "local": "=PREVISÃO.ETS.SAZONALIDADE(B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-stat1-noisy",
+  "v": 0.126,
+  "text": "0,126",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;1)"
+ },
+ {
+  "id": "stat-ets-stat2-noisy",
+  "v": 0.001,
+  "text": "0,001",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;2)"
+ },
+ {
+  "id": "stat-ets-stat3-noisy",
+  "v": 0.001,
+  "text": "0,001",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;3)"
+ },
+ {
+  "id": "stat-ets-stat4-noisy",
+  "v": 0.23492846603203066,
+  "text": "0,234928",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;4)"
+ },
+ {
+  "id": "stat-ets-stat5-noisy",
+  "v": 0.028245300668491957,
+  "text": "0,028245",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;5)"
+ },
+ {
+  "id": "stat-ets-stat6-noisy",
+  "v": 0.5543304962072928,
+  "text": "0,55433",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;6)"
+ },
+ {
+  "id": "stat-ets-stat7-noisy",
+  "v": 0.5967628955925309,
+  "text": "0,596763",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;7)"
+ },
+ {
+  "id": "stat-ets-stat8-noisy",
+  "v": 1,
+  "text": "1",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;8)"
+ },
+ {
+  "id": "stat-ets-f-flat-1",
+  "v": 7,
+  "text": "7",
+  "local": "=PREVISÃO.ETS(13;B1:B12;A1:A12)"
+ },
+ {
+  "id": "stat-ets-f-flat-2",
+  "v": 7,
+  "text": "7",
+  "local": "=PREVISÃO.ETS(14;B1:B12;A1:A12)"
+ },
+ {
+  "id": "stat-ets-f-flat-5",
+  "v": 7,
+  "text": "7",
+  "local": "=PREVISÃO.ETS(17;B1:B12;A1:A12)"
+ },
+ {
+  "id": "stat-ets-f-flat-1d5",
+  "v": 7,
+  "text": "7",
+  "local": "=PREVISÃO.ETS(13,5;B1:B12;A1:A12)"
+ },
+ {
+  "id": "stat-ets-f0-flat",
+  "v": 7,
+  "text": "7",
+  "local": "=PREVISÃO.ETS(13;B1:B12;A1:A12;0)"
+ },
+ {
+  "id": "stat-ets-ci-flat",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.CONFINT(13;B1:B12;A1:A12)"
+ },
+ {
+  "id": "stat-ets-ci3-flat",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.CONFINT(15;B1:B12;A1:A12;0,9)"
+ },
+ {
+  "id": "stat-ets-season-flat",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.SAZONALIDADE(B1:B12;A1:A12)"
+ },
+ {
+  "id": "stat-ets-stat1-flat",
+  "v": 0.9,
+  "text": "0,9",
+  "local": "=PREVISÃO.ETS.STAT(B1:B12;A1:A12;1)"
+ },
+ {
+  "id": "stat-ets-stat2-flat",
+  "v": 0.001,
+  "text": "0,001",
+  "local": "=PREVISÃO.ETS.STAT(B1:B12;A1:A12;2)"
+ },
+ {
+  "id": "stat-ets-stat3-flat",
+  "v": 2.220446049250313e-16,
+  "text": "2,22E-16",
+  "local": "=PREVISÃO.ETS.STAT(B1:B12;A1:A12;3)"
+ },
+ {
+  "id": "stat-ets-stat4-flat",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B12;A1:A12;4)"
+ },
+ {
+  "id": "stat-ets-stat5-flat",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B12;A1:A12;5)"
+ },
+ {
+  "id": "stat-ets-stat6-flat",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B12;A1:A12;6)"
+ },
+ {
+  "id": "stat-ets-stat7-flat",
+  "v": 0,
+  "text": "0",
+  "local": "=PREVISÃO.ETS.STAT(B1:B12;A1:A12;7)"
+ },
+ {
+  "id": "stat-ets-stat8-flat",
+  "v": 1,
+  "text": "1",
+  "local": "=PREVISÃO.ETS.STAT(B1:B12;A1:A12;8)"
+ },
+ {
+  "id": "stat-ets-past",
+  "v": 19.5,
+  "text": "19,5",
+  "local": "=PREVISÃO.ETS(20;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-atlast",
+  "v": 21.5,
+  "text": "21,5",
+  "local": "=PREVISÃO.ETS(24;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-season-explicit",
+  "v": 25,
+  "text": "25",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24;4)"
+ },
+ {
+  "id": "stat-ets-season-bad",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24;-1)"
+ },
+ {
+  "id": "stat-ets-season-big",
+  "v": 21.606180927121123,
+  "text": "21,60618",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24;13)"
+ },
+ {
+  "id": "stat-ets-completion-bad",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24;1;2)"
+ },
+ {
+  "id": "stat-ets-agg-bad",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24;1;1;8)"
+ },
+ {
+  "id": "stat-ets-size",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=PREVISÃO.ETS(25;B1:B23;A1:A24)"
+ },
+ {
+  "id": "stat-ets-text-value",
+  "v": 23.917085618249637,
+  "text": "23,91709",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-text-time",
+  "v": 23.917085618249637,
+  "text": "23,91709",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-hole",
+  "v": 23.917085618249637,
+  "text": "23,91709",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-hole0",
+  "v": 21.91655838155365,
+  "text": "21,91656",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24;1;0)"
+ },
+ {
+  "id": "stat-ets-unsorted",
+  "v": 25,
+  "text": "25",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-dup-avg",
+  "v": 25.070507737043567,
+  "text": "25,07051",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-dup-sum",
+  "v": 26.2127330771494,
+  "text": "26,21273",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24;1;1;7)"
+ },
+ {
+  "id": "stat-ets-gap-time",
+  "v": 24.944568999232608,
+  "text": "24,94457",
+  "local": "=PREVISÃO.ETS(25;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-step2",
+  "v": 25,
+  "text": "25",
+  "local": "=PREVISÃO.ETS(50;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-dates",
+  "v": 25,
+  "text": "25",
+  "local": "=PREVISÃO.ETS(45682;B1:B24;A1:A24)"
+ },
+ {
+  "id": "stat-ets-stat-bad",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=PREVISÃO.ETS.STAT(B1:B24;A1:A24;9)"
+ },
+ {
+  "id": "stat-ets-ci-conf-bad",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=PREVISÃO.ETS.CONFINT(25;B1:B24;A1:A24;1)"
+ },
+ {
+  "id": "stat-ets-short",
+  "v": 6.612401499999999,
+  "text": "6,612402",
+  "local": "=PREVISÃO.ETS(4;B1:B3;A1:A3)"
+ }
+]
