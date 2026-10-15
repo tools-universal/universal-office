@@ -6,12 +6,8 @@
   "core-concat-82": "o Excel truncou o literal digitado a 15 algarismos (F2 mostra 0.123456789012345): efeito da digitação, não do cálculo",
   "core-concat-85": "coerce.ts (dono TDL): numberToText — 2^52 vira 4503599627370500",
   "core-concat-87": "coerce.ts (dono TDL): numberToText — 1E+15 vira 1000000000000000",
-  "core-ii-269": "classe de parâmetro legado: ROWS avalia o argumento como matriz (pendente: tabela medida de classes)",
-  "core-ii-271": "classe de parâmetro legado: INDEX avalia o 1º argumento como matriz (pendente: tabela medida de classes)",
-  "core-ii-307": "classe de parâmetro legado: ROWS (pendente)",
-  "core-ii-309": "classe de parâmetro legado: INDEX (pendente)",
-  "core-ii-345": "classe de parâmetro legado: ROWS (pendente)",
-  "core-ii-347": "classe de parâmetro legado: INDEX (pendente)",
   "core-sheets-679": "CELL(\"address\") de outra aba inclui o nome da pasta do oráculo (\"[Pasta3]\"); o motor só o tem com EngineOptions.cellInfo('bookname')",
-  "core-sheets-680": "idem: nome da pasta do oráculo"
+  "core-sheets-680": "idem: nome da pasta do oráculo",
+  "core-fmt-724": "usa SUM (FN-MATH): fora desta branch; confere na integração",
+  "core-fmt-728": "usa ISNUMBER como valor (FN-TDL): fora desta branch; confere na integração"
 }

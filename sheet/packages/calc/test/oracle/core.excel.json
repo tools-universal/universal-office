@@ -6084,15 +6084,15 @@
  },
  {
   "id": "core-sheets-679",
-  "v": "[Pasta3]P2!$A$1",
-  "text": "[Pasta3]P2!$A$1",
+  "v": "[Pasta1]P2!$A$1",
+  "text": "[Pasta1]P2!$A$1",
   "f": "=CELL(\"address\",'P2'!A1)",
   "local": "=CÉL(\"address\";'P2'!A1)"
  },
  {
   "id": "core-sheets-680",
-  "v": "'[Pasta3]Minha aba'!$A$1",
-  "text": "'[Pasta3]Minha aba'!$A$1",
+  "v": "'[Pasta1]Minha aba'!$A$1",
+  "text": "'[Pasta1]Minha aba'!$A$1",
   "f": "=CELL(\"address\",'Minha aba'!A1)",
   "local": "=CÉL(\"address\";'Minha aba'!A1)"
  },
@@ -6381,5 +6381,169 @@
   "text": "#VALOR!",
   "f": "=Vendas[@[Col 2]]",
   "local": "=Vendas[@[Col 2]]"
+ },
+ {
+  "id": "core-fmt-714",
+  "v": 1,
+  "text": "1",
+  "f": "=LAMBDA(a,[b],IF(ISOMITTED(b),a,a+b))(1)",
+  "local": "=LAMBDA(a;[b];SE(ISOMITTED(b);a;a+b))(1)"
+ },
+ {
+  "id": "core-fmt-715",
+  "v": 3,
+  "text": "3",
+  "f": "=LAMBDA(a,[b],IF(ISOMITTED(b),a,a+b))(1,2)",
+  "local": "=LAMBDA(a;[b];SE(ISOMITTED(b);a;a+b))(1;2)"
+ },
+ {
+  "id": "core-fmt-716",
+  "v": 1,
+  "text": "1",
+  "f": "=LAMBDA(a,[b],[c],a)(1)",
+  "local": "=LAMBDA(a;[b];[c];a)(1)"
+ },
+ {
+  "id": "core-fmt-717",
+  "v": 2,
+  "spill": [
+   [
+    2
+   ],
+   [
+    2
+   ],
+   [
+    2
+   ]
+  ],
+  "text": "2",
+  "f": "=BYROW(A1:B3,COLUMNS)",
+  "local": "=BYROW(A1:B3;COLS)"
+ },
+ {
+  "id": "core-fmt-718",
+  "v": 3,
+  "spill": [
+   [
+    3,
+    3
+   ]
+  ],
+  "text": "3",
+  "f": "=BYCOL(A1:B3,ROWS)",
+  "local": "=BYCOL(A1:B3;LINS)"
+ },
+ {
+  "id": "core-fmt-719",
+  "v": 3,
+  "text": "3",
+  "f": "=ROWS(A1:.A100)",
+  "local": "=LINS(A1:.A100)"
+ },
+ {
+  "id": "core-fmt-720",
+  "v": 100,
+  "text": "100",
+  "f": "=ROWS(A1.:A100)",
+  "local": "=LINS(A1.:A100)"
+ },
+ {
+  "id": "core-fmt-721",
+  "v": 3,
+  "text": "3",
+  "f": "=ROWS(A1.:.A100)",
+  "local": "=LINS(A1.:.A100)"
+ },
+ {
+  "id": "core-fmt-722",
+  "v": 6,
+  "text": "6",
+  "f": "=COLUMNS(A1:.Z3)",
+  "local": "=COLS(A1:.Z3)"
+ },
+ {
+  "id": "core-fmt-723",
+  "v": 3,
+  "text": "3",
+  "f": "=ROWS(A:.A)",
+  "local": "=LINS(A:.A)"
+ },
+ {
+  "id": "core-fmt-724",
+  "v": 6,
+  "text": "6",
+  "f": "=SUM(A1:.A100)",
+  "local": "=SOMA(A1:.A100)"
+ },
+ {
+  "id": "core-fmt-725",
+  "v": "=SOMA(A1:A3)",
+  "text": "=SOMA(A1:A3)",
+  "f": "=FORMULATEXT(E1)",
+  "local": "=FÓRMULATEXTO(E1)"
+ },
+ {
+  "id": "core-fmt-726",
+  "v": "={1\\2}*1,5",
+  "text": "={1\\2}*1,5",
+  "f": "=FORMULATEXT(E2)",
+  "local": "=FÓRMULATEXTO(E2)"
+ },
+ {
+  "id": "core-fmt-727",
+  "v": "=A1:A3",
+  "text": "=A1:A3",
+  "f": "=FORMULATEXT(E3)",
+  "local": "=FÓRMULATEXTO(E3)"
+ },
+ {
+  "id": "core-fmt-728",
+  "v": true,
+  "spill": [
+   [
+    true
+   ],
+   [
+    true
+   ],
+   [
+    true
+   ]
+  ],
+  "text": "########",
+  "f": "=MAP(A1:A3,ISNUMBER)",
+  "local": "=MAP(A1:A3;ÉNÚM)"
+ },
+ {
+  "id": "core-fmt-729",
+  "v": 6,
+  "text": "6",
+  "f": "=REDUCE(0,A1:A3,LAMBDA(x,y,x+y))",
+  "local": "=REDUCE(0;A1:A3;LAMBDA(x;y;x+y))"
+ },
+ {
+  "id": "core-fmt-730",
+  "v": {
+   "e": "#SPILL!"
+  },
+  "text": "########",
+  "f": "={1;2;3;4}",
+  "local": "={1;2;3;4}"
+ },
+ {
+  "id": "core-fmt-731",
+  "v": 1,
+  "spill": [
+   [
+    1
+   ],
+   [
+    2
+   ]
+  ],
+  "text": "1",
+  "f": "={1;2}",
+  "local": "={1;2}"
  }
 ]

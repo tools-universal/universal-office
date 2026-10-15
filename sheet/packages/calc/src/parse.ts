@@ -53,8 +53,8 @@ const IDENT_CHAR = /[\p{L}\p{N}_.\\?]/u;
 const SHEET_RE = /(\[(\d+)\])?(?:([^\s'"!:;,(){}[\]+\-*/^&=<>%@#]+)(?::([^\s'"!:;,(){}[\]+\-*/^&=<>%@#]+))?)?!/uy;
 const NUM_RE = /(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/y;
 const ROWS_RE = /(\$?)(\d{1,7}):(\$?)(\d{1,7})(?![\p{L}\p{N}_.\\?(])/uy;
-const COLS_RE = /(\$?)([A-Za-z]{1,3}):(\$?)([A-Za-z]{1,3})(?![\p{L}\p{N}_.\\?(!])/uy;
-const CELL_RE = /(\$?)([A-Za-z]{1,3})(\$?)(\d{1,7})(?![\p{L}\p{N}_.\\?([!])/uy;
+const COLS_RE = /(\$?)([A-Za-z]{1,3}):(\$?)([A-Za-z]{1,3})(?![\p{L}\p{N}_\\?(!]|\.(?!:))/uy;
+const CELL_RE = /(\$?)([A-Za-z]{1,3})(\$?)(\d{1,7})(?![\p{L}\p{N}_\\?([!]|\.(?!:))/uy;
 /** Expressões do R1C1 para um par de letras (R/C, L/C…). */
 function r1c1Res(row: string, col: string): { cell: RegExp; rows: RegExp; cols: RegExp } {
   const R = `[${row.toUpperCase()}${row.toLowerCase()}]`, C = `[${col.toUpperCase()}${col.toLowerCase()}]`;
@@ -178,6 +178,9 @@ class Lexer {
     }
     const two = s.slice(i, i + 2);
     if (two === '<>' || two === '<=' || two === '>=') { this.toks.push({ k: 'op', v: two, p: i }); return i + 2; }
+    // operadores de corte (TRIMRANGE): A1:.A10, A1.:A10, A1.:.A10
+    if (s.startsWith('.:.', i)) { this.toks.push({ k: 'op', v: '.:.', p: i }); return i + 3; }
+    if (two === '.:' || two === ':.') { this.toks.push({ k: 'op', v: two, p: i }); return i + 2; }
     if ('+-*/^&=<>%:,;(){}@!'.includes(ch)) { this.toks.push({ k: 'op', v: ch, p: i }); return i + 1; }
     this.fail(`caractere inesperado "${ch}"`, i);
   }
@@ -329,14 +332,14 @@ function parseTableSpec(table: string, inner: string, pos: number): Node {
 const BIN_PREC: Record<string, number> = {
   '=': 1, '<>': 1, '<': 1, '<=': 1, '>': 1, '>=': 1,
   '&': 2, '+': 3, '-': 3, '*': 4, '/': 4, '^': 5, '%': 6,
-  ',': 8, ' ': 9, ':': 10,
+  ',': 8, ' ': 9, ':': 10, ':.': 10, '.:': 10, '.:.': 10,
 };
 const PREC_UNARY = 7;
 const PREC_SINGLE = 8;
 
 class Parser {
   private i = 0;
-  constructor(private readonly toks: Tok[], private readonly src: string) {}
+  constructor(private readonly toks: Tok[], private readonly src: string, private readonly hostCol = 0) {}
 
   private peek(): Tok { return this.toks[this.i]!; }
   private take(): Tok { return this.toks[this.i++]!; }
@@ -378,8 +381,14 @@ class Parser {
       if (prec < minPrec) break;
       this.i = o.next;
       if (o.op === '%') { left = { t: 'unary', op: '%', e: left }; continue; }
+      if (o.op === ':.' || o.op === '.:' || o.op === '.:.') {
+        const right = this.expr(prec + 1, inParens);
+        const name = o.op === ':.' ? '_TRO_TRAILING' : o.op === '.:' ? '_TRO_LEADING' : '_TRO_ALL';
+        left = { t: 'fn', name, prefix: '_xlfn.', args: [makeBin(':', left, right, this.hostCol)] };
+        continue;
+      }
       const right = this.expr(prec + 1, inParens);
-      left = makeBin(o.op as BinOp, left, right);
+      left = makeBin(o.op as BinOp, left, right, this.hostCol);
     }
     return left;
   }
@@ -410,6 +419,9 @@ class Parser {
         const u = t.v.toUpperCase();
         if (u === 'TRUE' || u === 'FALSE') return { t: 'bool', v: u === 'TRUE' };
         if (/^_XLPM\./.test(u)) return { t: 'name', name: t.v.slice(6), param: true };
+        // parâmetro opcional de LAMBDA ([b] na tela) e função usada como valor
+        if (/^_XLOP\./.test(u)) return { t: 'name', name: t.v.slice(6), param: true, optional: true };
+        if (/^_XLETA\./.test(u)) return { t: 'name', name: t.v.slice(7).toUpperCase(), eta: true };
         return this.postfix({ t: 'name', name: t.v });
       }
       case 'func':
@@ -515,10 +527,18 @@ function withSheet(n: Node, sheet: SheetSpec): Node {
   return n;
 }
 
-function makeBin(op: BinOp, a: Node, b: Node): Node {
+function makeBin(op: BinOp, a: Node, b: Node, hostCol = 0): Node {
   // A1:B2 (mesma aba) vira uma área só — é como o Excel grava e imprime
   if (op === ':' && a.t === 'cell' && b.t === 'cell' && (!b.sheet || sameSheet(a.sheet, b.sheet))) {
     return { t: 'area', ...(a.sheet ? { sheet: a.sheet } : {}), r1: a.row, c1: a.col, r2: b.row, c2: b.col };
+  }
+  // colunas que chegaram como nomes (A:.C — o lexer de colunas não vê o ".")
+  if (op === ':' && a.t === 'name' && b.t === 'name' && !a.param && !b.param && !b.sheet) {
+    const c1 = colFromLetters(a.name.replace(/\$/g, '')), c2 = colFromLetters(b.name.replace(/\$/g, ''));
+    if (c1 !== undefined && c2 !== undefined && /^\$?[A-Za-z]{1,3}$/.test(a.name) && /^\$?[A-Za-z]{1,3}$/.test(b.name)) {
+      const part = (nm: string, c: number): RefPart => (nm.startsWith('$') ? { n: c, abs: true } : { n: c - hostCol, abs: false });
+      return { t: 'area', ...(a.sheet ? { sheet: a.sheet } : {}), c1: part(a.name, c1), c2: part(b.name, c2) };
+    }
   }
   return { t: 'bin', op, a, b };
 }
@@ -531,11 +551,10 @@ function sameSheet(a: SheetSpec | undefined, b: SheetSpec | undefined): boolean 
 /** Analisa a fórmula canônica (com ou sem "=" inicial). Lança FormulaSyntaxError. */
 export function parseFormula(text: string, o: ParseOptions = {}): Node {
   const lx = new Lexer(text, o);
-  return new Parser(lx.toks, text).parseAll();
+  return new Parser(lx.toks, text, o.col ?? 0).parseAll();
 }
 
 /** Como parseFormula, mas devolve undefined em vez de lançar. */
 export function tryParseFormula(text: string, o: ParseOptions = {}): Node | undefined {
   try { return parseFormula(text, o); } catch (e) { if (e instanceof FormulaSyntaxError) return undefined; throw e; }
 }
-

@@ -1,11 +1,13 @@
 /**
- * Referência (INDEX, OFFSET, INDIRECT, ROW, ROWS, COLUMN, COLUMNS, AREAS, CELL, INFO, SHEET, SHEETS, FORMULATEXT, ISREF, ISFORMULA; SINGLE/ANCHORARRAY internos).
+ * Referência (INDEX, OFFSET, INDIRECT, ROW, ROWS, COLUMN, COLUMNS, AREAS, CELL, INFO, SHEET, SHEETS, FORMULATEXT, ISREF, ISFORMULA; SINGLE interno).
+ * ANCHORARRAY (A1#) e _TRO_* (A1:.A10) são operadores, não funções de célula: formas especiais do avaliador.
  * Dono: agente CORE.
  */
 import { register, type FnContext } from '../fn.js';
 import { toNumber, toText } from '../coerce.js';
 import { implicitIntersection } from '../apply.js';
 import { cellToA1 } from '../a1.js';
+import { toLocal } from '../i18n/translate.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, MAX_COL, MAX_ROW, RefValue, type Area, type Scalar, type Value } from '../values.js';
 
 /** Argumento cru → escalar (referência de uma célula → valor; várias → interseção implícita). */
@@ -247,9 +249,11 @@ register(
       if (v instanceof CalcError) return v;
       if (!(v instanceof RefValue)) return ERR.NA;
       const a = v.areas[0]!;
+      // no idioma de quem calcula, como a barra de fórmulas (Excel pt-BR: "=SOMA(A1:A3)")
       const one = (r: number, c: number): Scalar => {
         const f = ctx.formulaAt(a.sheet, r, c);
-        return f === undefined ? ERR.NA : `=${f}`;
+        if (f === undefined) return ERR.NA;
+        try { return toLocal(`=${f}`, { lang: ctx.locale.id, decimal: ctx.locale.decimal }); } catch { return `=${f}`; }
       };
       if (ctx.arrayContext === false || v.areas.length > 1) return one(a.r1, a.c1);
       return perCell(a, one);
@@ -348,18 +352,6 @@ register(
       if (v instanceof ArrayValue) return v.rows && v.cols ? v.get(0, 0) : ERR.VALUE;
       if (v instanceof LambdaValue) return ERR.CALC;
       return v;
-    },
-  },
-  {
-    // A1#: área derramada da âncora (gravada como _xlfn.ANCHORARRAY)
-    name: 'ANCHORARRAY', prefix: '_xlfn.', minArgs: 1, maxArgs: 1, args: 'ref', returnsRef: true,
-    call: ([v]: [Value], ctx) => {
-      if (v instanceof CalcError) return v;
-      if (!(v instanceof RefValue)) return ERR.VALUE;
-      const a = v.single;
-      if (!a) return ERR.REF;
-      const s = ctx.spillRange?.(a.sheet, a.r1, a.c1);
-      return s ? new RefValue([s]) : ERR.REF;
     },
   },
 );

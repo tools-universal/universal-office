@@ -73,7 +73,7 @@ export class Env {
   }
 }
 
-interface Closure { readonly env: Env | undefined }
+interface Closure { readonly env: Env | undefined; readonly optional?: ReadonlySet<string> }
 
 interface Scope {
   /** Contexto da célula no modo certo (`ctx.arrayContext === arr`). */
@@ -250,6 +250,7 @@ export class Evaluator {
   }
 
   private name(n: Extract<Node, { t: 'name' }>, s: Scope): Value {
+    if (n.eta) return this.eta(n.name, s);
     if (!n.sheet && s.env) {
       const b = s.env.lookup(n.name.toUpperCase());
       if (b !== undefined) return b === OMITTED ? null : b;
@@ -268,7 +269,7 @@ export class Evaluator {
       } else sheet = -1;
     }
     const def = this.host.definedName(n.name, sheet, explicit);
-    if (!def) return ERR.NAME;
+    if (!def) return !n.sheet && !n.param && lookupFn(n.name) ? this.eta(n.name.toUpperCase(), s) : ERR.NAME;
     if (++this.depth > MAX_DEPTH) { this.depth--; return ERR.NAME; }
     try {
       return this.evalNode(def, { ctx: s.ctx, arr: s.arr, env: undefined });
@@ -308,10 +309,52 @@ export class Evaluator {
 
   // ---- funções ----
 
+  /** Função usada como valor (_xleta.SUM): LAMBDA que chama a função interna. */
+  private eta(name: string, s: Scope): Value {
+    const def = lookupFn(name);
+    if (!def) return ERR.NAME;
+    const ctx = s.ctx.withArray(true);
+    return new LambdaValue(['X'], (...args: readonly Value[]) => applyFn(def, args, ctx, { arrayContext: true }), undefined);
+  }
+
+  /** A1# — área derramada da âncora (gravada como _xlfn.ANCHORARRAY; não é função de célula). */
+  private anchorArray(args: readonly Node[], s: Scope): Value {
+    if (args.length !== 1) return ERR.VALUE;
+    const v = this.evalNode(args[0]!, s);
+    if (v instanceof CalcError) return v;
+    if (!(v instanceof RefValue)) return ERR.VALUE;
+    const a = v.single;
+    if (!a) return ERR.REF;
+    const sp = this.host.spillArea(a.sheet, a.r1, a.c1);
+    return sp ? new RefValue([sp]) : ERR.REF;
+  }
+
+  /**
+   * Corte de bordas vazias (A1:.A10 / A1.:A10 / A1.:.A10, gravados como
+   * _xlfn._TRO_TRAILING/LEADING/ALL): tira linhas e colunas vazias das bordas.
+   */
+  private trimRef(name: string, args: readonly Node[], s: Scope): Value {
+    if (args.length !== 1) return ERR.VALUE;
+    const v = this.evalNode(args[0]!, s);
+    if (v instanceof CalcError) return v;
+    if (!(v instanceof RefValue) || !v.single) return ERR.VALUE;
+    const a = v.single;
+    let r1 = Infinity, c1 = Infinity, r2 = -1, c2 = -1;
+    this.host.forEachCell(a, (x, r, c) => {
+      if (x === null) return;
+      if (r < r1) r1 = r; if (r > r2) r2 = r; if (c < c1) c1 = c; if (c > c2) c2 = c;
+    });
+    if (r2 < 0) return new RefValue([{ ...a, r2: a.r1, c2: a.c1 }]);
+    const lead = name !== '_TRO_TRAILING', trail = name !== '_TRO_LEADING';
+    return new RefValue([{ sheet: a.sheet, r1: lead ? r1 : a.r1, c1: lead ? c1 : a.c1, r2: trail ? r2 : a.r2, c2: trail ? c2 : a.c2 }]);
+  }
+
   private fn(n: Extract<Node, { t: 'fn' }>, s: Scope): Value {
     switch (n.name) {
       case 'LET': return this.let(n.args, s);
       case 'LAMBDA': return this.lambda(n.args, s);
+      case 'ANCHORARRAY': return this.anchorArray(n.args, s);
+      case '_TRO_TRAILING': case '_TRO_LEADING': case '_TRO_ALL': return this.trimRef(n.name, n.args, s);
       case 'ISOMITTED': {
         if (n.args.length !== 1) return ERR.VALUE;
         const a = n.args[0]!;
@@ -377,12 +420,18 @@ export class Evaluator {
   private lambda(args: readonly Node[], s: Scope): Value {
     if (args.length < 1) return ERR.VALUE;
     const params: string[] = [];
+    const optional = new Set<string>();
     for (let i = 0; i < args.length - 1; i++) {
       const p = args[i]!;
+      // [b] na tela chega como referência estruturada sem tabela
+      if (p.t === 'table' && !p.table && !p.items.length && p.col1 !== undefined && p.col2 === undefined) {
+        const nm = p.col1.toUpperCase(); params.push(nm); optional.add(nm); continue;
+      }
       if (p.t !== 'name' || p.sheet) return ERR.VALUE;
       params.push(p.name.toUpperCase());
+      if (p.optional) optional.add(p.name.toUpperCase());
     }
-    const closure: Closure = { env: s.env };
+    const closure: Closure = optional.size ? { env: s.env, optional } : { env: s.env };
     return new LambdaValue(params, args[args.length - 1]!, closure);
   }
 
@@ -398,11 +447,13 @@ export class Evaluator {
 
   private callBound(f: LambdaValue, args: readonly Binding[], ctx: CellCtx): Value {
     if (typeof f.body === 'function') return (f.body as (...a: readonly Value[]) => Value)(...args.map((a) => (a === OMITTED ? null : a)));
-    // número de argumentos tem de ser exato (omitido explícito "(1;)" conta; medido)
-    if (args.length !== f.params.length) return ERR.VALUE;
+    const closure = f.closure as Closure | undefined;
+    // número de argumentos tem de ser exato (omitido explícito "(1;)" conta; medido),
+    // salvo os parâmetros opcionais [b] do fim
+    if (args.length > f.params.length) return ERR.VALUE;
+    for (let i = args.length; i < f.params.length; i++) if (!closure?.optional?.has(f.params[i]!)) return ERR.VALUE;
     const vars = new Map<string, Binding>();
     f.params.forEach((p, i) => vars.set(p, i < args.length ? args[i]! : OMITTED));
-    const closure = f.closure as Closure | undefined;
     if (++this.depth > MAX_DEPTH) { this.depth--; return ERR.NUM; }
     try {
       return this.evalNode(f.body as Node, { ctx: ctx.withArray(true), arr: true, env: new Env(closure?.env, vars) });

@@ -37,8 +37,12 @@ export type Node =
   | { readonly t: 'area'; readonly sheet?: SheetSpec; readonly r1?: RefPart; readonly c1?: RefPart; readonly r2?: RefPart; readonly c2?: RefPart }
   /** `#REF!` no lugar de uma referência (`Plan1!#REF!`). */
   | { readonly t: 'referr'; readonly sheet?: SheetSpec }
-  /** Nome definido, parâmetro de LET/LAMBDA (`param` = veio com `_xlpm.`) ou nome externo. */
-  | { readonly t: 'name'; readonly name: string; readonly sheet?: SheetSpec; readonly param?: boolean }
+  /**
+   * Nome definido, parâmetro de LET/LAMBDA (`param` = veio com `_xlpm.`;
+   * `optional` = `_xlop.b`, na tela `[b]`) ou nome externo. `eta` = função
+   * usada como valor (`_xleta.SUM`, na tela `SUM`: BYROW(A1:B3;SOMA)).
+   */
+  | { readonly t: 'name'; readonly name: string; readonly sheet?: SheetSpec; readonly param?: boolean; readonly optional?: boolean; readonly eta?: boolean }
   /**
    * Referência estruturada: `Tabela1[Col]`, `Tabela1[[#Headers],[A]:[B]]`,
    * `[@Col]` (tabela vazia = a da célula). `cols` = 1ª e última coluna (ou nenhuma).

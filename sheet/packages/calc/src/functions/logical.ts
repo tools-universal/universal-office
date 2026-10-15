@@ -213,7 +213,7 @@ register(
     },
   },
   {
-    name: 'REDUCE', prefix: '_xlfn.', minArgs: 2, maxArgs: 3, args: 'any',
+    name: 'REDUCE', prefix: '_xlfn.', minArgs: 3, maxArgs: 3, args: 'any',
     call: (args: Value[], ctx) => {
       const [init, arr, fn] = args.length === 3 ? args : [null, args[0], args[1]];
       if (!(fn instanceof LambdaValue)) return ERR.VALUE;
@@ -226,7 +226,7 @@ register(
     },
   },
   {
-    name: 'SCAN', prefix: '_xlfn.', minArgs: 2, maxArgs: 3, args: 'any',
+    name: 'SCAN', prefix: '_xlfn.', minArgs: 3, maxArgs: 3, args: 'any',
     call: (args: Value[], ctx) => {
       const [init, arr, fn] = args.length === 3 ? args : [null, args[0], args[1]];
       if (!(fn instanceof LambdaValue)) return ERR.VALUE;
@@ -238,11 +238,11 @@ register(
     },
   },
   {
-    name: 'BYROW', prefix: '_xlfn.', minArgs: 2, maxArgs: 2, args: 'any',
+    name: 'BYROW', prefix: '_xlfn.', minArgs: 1, maxArgs: 2, args: 'any',
     call: ([arr, fn]: Value[], ctx) => byLine(arr!, fn!, ctx, true),
   },
   {
-    name: 'BYCOL', prefix: '_xlfn.', minArgs: 2, maxArgs: 2, args: 'any',
+    name: 'BYCOL', prefix: '_xlfn.', minArgs: 1, maxArgs: 2, args: 'any',
     call: ([arr, fn]: Value[], ctx) => byLine(arr!, fn!, ctx, false),
   },
   {

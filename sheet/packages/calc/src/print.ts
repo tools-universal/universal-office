@@ -8,6 +8,7 @@
 import { colToLetters, quoteSheetName, wrapCol, wrapRow } from './a1.js';
 import type { Node, RefPart, SheetSpec, TableItem } from './ast.js';
 import { lookupFn } from './fn.js';
+import { catalogEntry } from './i18n/catalog.js';
 import { CalcError, type Scalar } from './values.js';
 
 export interface PrintOptions {
@@ -85,12 +86,21 @@ class Printer {
         return `${sp}${this.cellText(n.r1, n.c1)}:${this.cellText(n.r2, n.c2)}`;
       }
       case 'referr': return `${sheetPrefix(n.sheet)}#REF!`;
-      case 'name': return sheetPrefix(n.sheet) + (n.param && !this.o.ui ? `_xlpm.${n.name}` : n.name);
+      case 'name':
+        if (n.eta) return this.o.ui ? n.name : `_xleta.${n.name}`;
+        if (n.optional) return this.o.ui ? `[${n.name}]` : `_xlop.${n.name}`;
+        return sheetPrefix(n.sheet) + (n.param && !this.o.ui ? `_xlpm.${n.name}` : n.name);
       case 'table': return this.table(n);
       case 'fn': {
         if (this.o.ui && n.name === 'SINGLE' && n.args.length === 1) return `@${this.print(n.args[0]!)}`;
         if (this.o.ui && n.name === 'ANCHORARRAY' && n.args.length === 1) return `${this.print(n.args[0]!)}#`;
-        const prefix = this.o.ui ? '' : (n.prefix ?? lookupFn(n.name)?.prefix ?? '');
+        if (this.o.ui && n.args.length === 1 && TRO[n.name]) {
+          const a = n.args[0]!;
+          const t = this.print(a);
+          // o ":" do intervalo ganha os pontos (A1:.A10, A1.:A10, A1.:.A10)
+          return a.t === 'area' || (a.t === 'bin' && a.op === ':') ? t.replace(/:(?=[^:]*$)/, TRO[n.name]!) : `${n.name}(${t})`;
+        }
+        const prefix = this.o.ui ? '' : (n.prefix ?? catalogEntry(n.name)?.prefix ?? lookupFn(n.name)?.prefix ?? (TRO[n.name] || n.name === 'ANCHORARRAY' ? '_xlfn.' : ''));
         return `${prefix}${n.name}(${n.args.map((a) => this.print(a)).join(',')})`;
       }
       case 'call': return `${this.print(n.fn)}(${n.args.map((a) => this.print(a)).join(',')})`;
@@ -122,6 +132,9 @@ class Printer {
 }
 
 function sameRef(a: RefPart, b: RefPart): boolean { return a.n === b.n && a.abs === b.abs; }
+
+/** Operadores de corte (TRIMRANGE): arquivo _xlfn._TRO_* ↔ tela :. .: .:. */
+const TRO: Record<string, string> = { _TRO_TRAILING: ':.', _TRO_LEADING: '.:', _TRO_ALL: '.:.' };
 
 /** AST → texto da fórmula (sem "="). */
 export function printFormula(n: Node, o: PrintOptions = {}): string {

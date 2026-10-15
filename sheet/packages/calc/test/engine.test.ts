@@ -53,6 +53,12 @@ describe('motor', () => {
     expect([val(e, 'B1'), val(e, 'B2'), val(e, 'B3'), val(e, 'C1'), val(e, 'C2'), val(e, 'C3'), val(e, 'C5')]).toEqual(['small', 'small', 'big', 110, 12, 1, 100]);
     expect([val(e, 'D1'), val(e, 'D2'), val(e, 'D3'), val(e, 'D4'), val(e, 'E1'), val(e, 'E4'), val(e, 'F6')]).toEqual(['err', 'b', true, false, 16, 16, 22]);
   });
+  it('arquivo: _xlop. (opcional), _xleta. (função como valor), _TRO_ (corte)', () => {
+    const e = book({ A1: 1, A2: 2, A3: 3, B1: 4, B2: 5,
+      D1: '=_xlfn.LAMBDA(_xlpm.a,_xlop.b,IF(_xlfn.ISOMITTED(_xlpm.b),_xlpm.a,_xlpm.a+_xlpm.b))(1)', D2: '=_xlfn.LAMBDA(_xlpm.a,_xlop.b,_xlpm.a+_xlpm.b)(1,2)',
+      D3: '=_xlfn.LAMBDA(_xlpm.a,_xlpm.b,_xlpm.a)(1)', E1: '=_xlfn.BYROW(A1:B3,_xleta.COLUMNS)', F1: '=ROWS(_xlfn._TRO_TRAILING(A1:B100))', F2: '=COLUMNS(_xlfn._TRO_ALL(A1:C3))' });
+    expect([val(e, 'D1'), val(e, 'D2'), val(e, 'D3'), val(e, 'E1'), val(e, 'E3'), val(e, 'F1'), val(e, 'F2')]).toEqual([1, 3, '#VALUE!', 2, 2, 3, 2]);
+  });
   it('INDEX, OFFSET, INDIRECT, ROW/COLUMN', () => {
     const e = book({
       A1: 1, A2: 2, A3: 3, B1: 4, B2: 5, B3: 6,

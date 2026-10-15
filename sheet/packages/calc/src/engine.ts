@@ -20,6 +20,7 @@ import { CellCtx, Evaluator, type EvalHost, type TableDef } from './evaluate.js'
 import { EN_US, lookupFn, type ValueLocale } from './fn.js';
 import { parseFormula, FormulaSyntaxError } from './parse.js';
 import { printFormula } from './print.js';
+import { legacyToDynamic } from './implicit.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, MAX_COL, MAX_ROW, RefValue, type Area, type Scalar, type Value } from './values.js';
 import type { CalcWorkbook, CellInput, FormulaInput } from './workbook.js';
 
@@ -35,6 +36,11 @@ export interface FormulaRec {
   readonly row: number;
   readonly col: number;
   node: Node | undefined;
+  /**
+   * Árvore avaliada: a legada (sem t="array") ganha os "@" que o Excel 365 insere
+   * ao abri-la (implicit.ts) e é avaliada como dinâmica, sem derramar.
+   */
+  exec?: Node;
   /** Texto canônico como veio (vazio = filha de compartilhada: imprime do AST). */
   text: string;
   kind: 'normal' | 'array' | 'dataTable';
@@ -297,7 +303,22 @@ export class Engine implements EvalHost {
     }
   }
 
+  private readonly execCache = new WeakMap<Node, Node>();
+
+  /** O nome definido pode valer várias células (para o @ da fórmula legada)? */
+  private nameIsMulti(sheet: number, name: string): boolean {
+    const d = this.definedName(name, sheet);
+    if (!d) return true;
+    const e = d.t === 'paren' ? d.e : d;
+    return !(e.t === 'cell' || e.t === 'num' || e.t === 'str' || e.t === 'bool' || e.t === 'err');
+  }
+
   private analyze(rec: FormulaRec, node: Node): void {
+    if (rec.kind === 'normal') {
+      let ex = this.execCache.get(node);
+      if (!ex) { ex = legacyToDynamic(node, { nameIsMulti: (nm) => this.nameIsMulti(rec.sheet, nm) }); this.execCache.set(node, ex); }
+      rec.exec = ex;
+    }
     walk(node, (n) => {
       if (n.t !== 'fn') return;
       if (n.name === 'SUBTOTAL' || n.name === 'AGGREGATE') rec.hasSubtotal = true;
@@ -409,7 +430,7 @@ export class Engine implements EvalHost {
     const rec = this.sheets[sheet]?.get(row, col);
     const f = rec?.f ?? (rec?.owner && !rec.owner.dynamic ? rec.owner : undefined);
     if (!f?.node) return f ? f.text || undefined : undefined;
-    return printFormula(f.node, { row: f.row, col: f.col, ui: true });
+    return printFormula(f.exec ?? f.node, { row: f.row, col: f.col, ui: true });
   }
 
   isSubtotalCell(sheet: number, row: number, col: number): boolean {
@@ -470,7 +491,7 @@ export class Engine implements EvalHost {
     const f = this.getFormula(sheet, row, col);
     if (!f) return undefined;
     if (!f.node) return f.text ? `=${f.text}` : undefined;
-    return '=' + printFormula(f.node, { row, col, ui: true });
+    return '=' + printFormula(f.exec ?? f.node, { row, col, ui: true });
   }
 
   /** Área derramada pela âncora (sheet,row,col), se houver. */
@@ -757,12 +778,12 @@ export class Engine implements EvalHost {
     const st = this.sheets[f.sheet]!;
     if (f.kind === 'dataTable') return;
     const arrayFormula = f.kind === 'array';
-    const ctx = this.ev.context(f.sheet, f.row, f.col, arrayFormula);
+    const ctx = this.ev.context(f.sheet, f.row, f.col, true);
     let v: Value;
     if (!f.node) v = ERR.NAME;
     else {
       try {
-        v = this.ev.evalFormula(f.node, ctx);
+        v = this.ev.evalFormula(f.exec ?? f.node, ctx);
       } catch (e) {
         if (e instanceof NeedCell) throw e;
         if (e instanceof RangeError) v = ERR.NUM;
@@ -837,6 +858,8 @@ export class Engine implements EvalHost {
         if (rec.f || (rec.owner && rec.owner !== f) || (!rec.owner && rec.v !== null)) blocked = true;
       });
       if (!blocked && st.merges.some((m) => areasOverlap(m, target))) blocked = true;
+      // matriz dinâmica não derrama dentro de tabela (ListObject)
+      if (!blocked && this.tables.some((t) => areasOverlap(t.area, target))) blocked = true;
     }
     if (blocked) {
       this.clearArea(f);

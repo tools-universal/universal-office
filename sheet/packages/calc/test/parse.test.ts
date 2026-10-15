@@ -17,6 +17,7 @@ describe('parser/serializador', () => {
       'Tabela1[[#Headers],[A]:[B]]', 'Tabela1[[#This Row],[Preço]]', 'Tabela1[[Col 1]]', "Tabela1[[a'#b]]", 'Sheet1!#REF!', '#REF!',
       'A1=B1', 'A1<>B1', 'A1<=B1', '"a"&"b"', '--A1', '+A1', 'LOG10(100)', 'ATAN2(1,2)', 'MeuNome', 'Plan1!MeuNome',
       'TRUE', 'FALSE', 'TRUE()', 'SUM(A1:A3)-SUM(B1)', '#DIV/0!', 'INDEX(A1:B2,1,1):B3', 'Preço*2',
+      '_xlfn.LAMBDA(_xlpm.a,_xlop.b,_xlpm.a)', '_xlfn.BYROW(A1:B3,_xleta.SUM)', '_xlfn._TRO_TRAILING(A1:A10)', '_xludf.MINHA(1)',
     ];
     const bad: string[] = [];
     for (const f of cases) { try { const r = rt(f); if (r !== f) bad.push(`${f} → ${r}`); } catch (e) { bad.push(`${f}: ${(e as Error).message}`); } }
@@ -39,6 +40,8 @@ describe('parser/serializador', () => {
     expect(printFormula(parseFormula('@A1:A3+B1#'))).toBe('_xlfn.SINGLE(A1:A3)+_xlfn.ANCHORARRAY(B1)');
     expect(printFormula(parseFormula('Tabela1[[#This Row],[Col]]'), { ui: true })).toBe('Tabela1[@Col]');
     expect(printFormula(parseFormula('[@[Col 1]]'))).toBe('[[#This Row],[Col 1]]');
+    expect(printFormula(parseFormula('_xlfn.LAMBDA(_xlpm.a,_xlop.b,_xlpm.a)+_xlfn._TRO_ALL(A1:B9)'), { ui: true })).toBe('LAMBDA(a,[b],a)+A1.:.B9');
+    expect(printFormula(parseFormula('_xlfn.BYROW(A1:B3,_xleta.SUM)'), { ui: true })).toBe('BYROW(A1:B3,SUM)');
   });
   it('precedência', () => {
     const p = (f: string): unknown => JSON.parse(JSON.stringify(parseFormula(f)));

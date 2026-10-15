@@ -28,6 +28,7 @@ export * from './evaluate.js';
 export * from './workbook.js';
 export * from './engine.js';
 export * from './from-sheet-core.js';
+export * from './implicit.js';
 
 // bibliotecas de funções (registram no carregamento)
 import './functions/math.js';
