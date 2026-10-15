@@ -2401,15 +2401,16 @@ export class UniversalSheetElement extends HTMLElement {
   private formatCell(cell: Cell | undefined): FormatResult {
     if (!cell) return { text: '' };
     if (cell.type === 's' && cell.value !== undefined) {
-      return { text: this.shared[parseInt(cell.value, 10)]?.text ?? '' };
+      const ss = this.shared[parseInt(cell.value, 10)];
+      return this.formatText(cell, ss?.text ?? '', !!ss?.runs);
     }
-    if (cell.type === 'inlineStr') return { text: cell.inlineString?.text ?? '' };
+    if (cell.type === 'inlineStr') return this.formatText(cell, cell.inlineString?.text ?? '', !!cell.inlineString?.runs);
     // booleano exibido localizado, como o app de referência pt-BR
     if (cell.type === 'b') return { text: cell.value === '1' ? 'VERDADEIRO' : 'FALSO' };
     // erros exibidos localizados, como o app de referência pt-BR (#N/A → #N/D…)
     if (cell.type === 'e') return { text: ERRORS_PT_BR[cell.value ?? ''] ?? cell.value ?? '' };
     if (cell.value === undefined) return { text: '' };
-    if (cell.type === 'str') return { text: cell.value }; // string de fórmula = texto cru
+    if (cell.type === 'str') return this.formatText(cell, cell.value, false); // string de fórmula
     const n = parseFloat(cell.value);
     if (Number.isNaN(n)) return { text: cell.value };
     // "mostrar zero" desligado na aba: zero numérico (inclusive de fórmula) em branco
@@ -2418,6 +2419,20 @@ export class UniversalSheetElement extends HTMLElement {
     const { numFmtId } = this.resolveStyle(cell);
     const code = this.styles.numFmts.get(numFmtId) ?? builtinFormatCode(numFmtId) ?? 'General';
     return formatValue(n, code, { date1904: this.workbook?.date1904 });
+  }
+
+  /**
+   * Texto da célula com a seção de texto do formato (`@` com literais, ex.:
+   * `\ \ @"...."` = recuo + pontilhado). Texto rico fica cru (os runs são
+   * pintados como estão).
+   */
+  private formatText(cell: Cell, text: string, rich: boolean): FormatResult {
+    if (rich) return { text };
+    const { numFmtId } = this.resolveStyle(cell);
+    if (numFmtId === 0 || numFmtId === 49) return { text };
+    const code = this.styles.numFmts.get(numFmtId) ?? builtinFormatCode(numFmtId);
+    if (!code || !code.includes('@')) return { text };
+    return formatValue(text, code);
   }
 
   /** General: tipo numérico (n/date/currency/percent) → alinha à direita. */

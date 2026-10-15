@@ -82,6 +82,11 @@ describe('builtins dependentes de locale + fixes do oráculo 2026-07-01', () => 
     expect(formatValue(5, '[$-409]0').text).toBe('5');
   });
 
+  it('seção única com @ formata texto (recuo + pontilhado)', () => {
+    expect(formatValue('Juros', '\\ \\ @"...."').text).toBe('  Juros....');
+    expect(formatValue('Juros', '0.00').text).toBe('Juros');
+  });
+
   it('"General" dentro de seções', () => {
     expect(formatValue(20, 'General;[Red]\\-General').text).toBe('20');
     const neg = formatValue(-2.5, 'General;[Red]\\-General');

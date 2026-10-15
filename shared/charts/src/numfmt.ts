@@ -227,9 +227,11 @@ export function formatValue(
 
   const sections = splitSections(code);
 
-  // Texto: usa a 4ª seção se existir; senão devolve cru (o app de referência ignora numéricos).
+  // Texto: usa a 4ª seção se existir — ou a seção ÚNICA quando ela tem `@`
+  // (ex.: \ \ \ \ @"....": recuo + pontilhado); senão devolve cru (o app de
+  // referência ignora as seções numéricas).
   if (isText) {
-    const tsec = sections[3];
+    const tsec = sections[3] ?? (sections.length === 1 ? sections[0] : undefined);
     if (tsec !== undefined && tsec.includes('@')) return applyTextSection(tsec, value as string);
     return { text: value };
   }
