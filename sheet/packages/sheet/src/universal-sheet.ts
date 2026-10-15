@@ -2448,17 +2448,25 @@ export class UniversalSheetElement extends HTMLElement {
     if (hit !== undefined) return hit;
     const v = this.views[idx];
     if (!v || v.condFormats.length === 0) { this.cfEngines.set(idx, null); return null; }
+    const sortedRows = new WeakMap<Map<number, Map<number, Cell>>, number[]>();
     const access = (view: SheetView, sheetIdx: number): Pick<CfSheetAccess, 'value' | 'each'> => {
       const map = (): Map<number, Map<number, Cell>> => this.cellIndex(view, sheetIdx);
       const shared = (i: number): string => this.shared[i]?.text ?? '';
       return {
         value: (c, r) => cellCfValue(map().get(r)?.get(c), shared),
         each: (c1, r1, c2, r2, fn) => {
-          for (const row of view.worksheet.rows) {
-            if (row.r < r1 || row.r > r2) continue;
-            const cells = map().get(row.r);
-            if (!cells) continue;
-            for (const [c, cell] of cells) if (c >= c1 && c <= c2) fn(cellCfValue(cell, shared), c, row.r);
+          // só as linhas EXISTENTES do intervalo (números ordenados: busca binária do início)
+          const m = map();
+          let nums = sortedRows.get(m);
+          if (!nums) { nums = [...m.keys()].sort((a, b) => a - b); sortedRows.set(m, nums); }
+          let lo = 0, hi = nums.length;
+          while (lo < hi) { const mid = (lo + hi) >> 1; if (nums[mid]! < r1) lo = mid + 1; else hi = mid; }
+          for (let i = lo; i < nums.length && nums[i]! <= r2; i++) {
+            const r = nums[i]!;
+            const cells = m.get(r)!;
+            if (c2 - c1 < cells.size) {
+              for (let c = c1; c <= c2; c++) { const cell = cells.get(c); if (cell) fn(cellCfValue(cell, shared), c, r); }
+            } else for (const [c, cell] of cells) if (c >= c1 && c <= c2) fn(cellCfValue(cell, shared), c, r);
           }
         },
       };
