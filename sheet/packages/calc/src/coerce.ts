@@ -107,9 +107,25 @@ function numberCore(s: string, locale: ValueLocale): number | undefined {
   const m = re.exec(s);
   if (!m || (!m[1] && !m[2])) return undefined;
   const int = (m[1] ?? '').split(locale.group).join('');
-  const n = Number(`${int || '0'}.${m[2] ?? ''}${m[3] !== undefined ? 'e' + m[3] : ''}`);
+  const n = Number(`${truncate15(int || '0', m[2] ?? '')}${m[3] !== undefined ? 'e' + m[3] : ''}`);
   if (!Number.isFinite(n) || n >= 1e308) return undefined;
+  // abaixo do menor normal o Excel recusa ("1e-400" → #VALUE!)
+  if (n !== 0 ? n < 2.2250738585072014e-308 : /[1-9]/.test(int + (m[2] ?? ''))) return undefined;
   return n;
+}
+
+/**
+ * Só 15 algarismos significativos, TRUNCADOS, como ao digitar
+ * ("9999999999999999" → 9999999999999990; medido em VALUE).
+ */
+function truncate15(int: string, frac: string): string {
+  const all = int + frac;
+  let first = 0;
+  while (first < all.length && all[first] === '0') first++;
+  if (all.length - first <= 15) return `${int}.${frac}`;
+  const keep = first + 15;
+  const kept = all.slice(0, keep) + '0'.repeat(Math.max(0, int.length - keep));
+  return `${kept.slice(0, int.length)}.${kept.slice(int.length)}`;
 }
 
 /** Número "puro" (sem data/hora): moeda, sinal, parênteses, porcentagem. */
@@ -135,7 +151,8 @@ function parsePlainNumber(text: string, locale: ValueLocale): number | undefined
   if (pct && hasCur) return undefined;
   const n = numberCore(s, locale);
   if (n === undefined) return undefined;
-  const v = pct ? n / 100 : n;
+  let v = pct ? n / 100 : n;
+  if (Math.abs(v) < 2.2250738585072014e-308) v = 0; // subnormal vira 0 (medido: "2082e-310%" = 0)
   return neg ? -v : v;
 }
 
@@ -144,7 +161,8 @@ function parseMixedFraction(s: string): number | undefined {
   const m = /^([+-]?)(\d+) +(\d+)\/(\d+)$/.exec(s);
   if (!m) return undefined;
   const den = +m[4]!;
-  if (den === 0) return undefined;
+  // numerador e denominador em 16 bits (medido: 32767 vale, 32768 não)
+  if (den === 0 || den > 32767 || +m[3]! > 32767) return undefined;
   const v = +m[2]! + +m[3]! / den;
   return m[1] === '-' ? -v : v;
 }
@@ -195,7 +213,8 @@ function currentYear(): number {
 export function parseDateTimeParts(text: string, locale: ValueLocale = EN_US, date1904 = false, year = currentYear()): { date?: number; time?: number } | undefined {
   const s = trimSpaces(asciiDigits(text));
   if (!s) return undefined;
-  const words = s.split(/ +/);
+  // espaços em volta do ":" não contam ("10 : 30" = 10:30, medido)
+  const words = s.replace(/ *: */g, ':').split(/ +/);
   const n = words.length;
   let time: number | undefined, rest: string[] = words;
   const attempts: [number, number][] = []; // [início, fim) da hora
@@ -274,13 +293,15 @@ function parseDatePart(text: string, locale: ValueLocale, date1904: boolean, yea
     const c = s[i]!;
     if (c >= '0' && c <= '9') {
       let j = i; while (j < s.length && s[j]! >= '0' && s[j]! <= '9') j++;
-      if (parts.length > seps.length) return undefined;
+      // número colado no nome do mês vale como separado ("1jan2024", "fev1941", medido)
+      if (parts.length > seps.length) { if (parts[parts.length - 1]!.mon === undefined) return undefined; seps.push(' '); }
       parts.push({ num: s.slice(i, j) }); i = j; continue;
     }
     if (c === '/' || c === '-' || c === ' ' || c === ',') {
       if (parts.length !== seps.length + 1) return undefined;
       if (c === ',') {
-        if (parts[parts.length - 1]!.mon === undefined) return undefined;
+        // vírgula só depois do mês no meio e seguida de espaço ("1 jan, 2024"; "jan, 2024" e "mar,3412" não)
+        if (parts[parts.length - 1]!.mon === undefined || parts.length < 2 || s[i + 1] !== ' ') return undefined;
         i++; while (s[i] === ' ') i++;
         seps.push(','); continue;
       }
@@ -288,7 +309,8 @@ function parseDatePart(text: string, locale: ValueLocale, date1904: boolean, yea
     }
     let j = i; while (j < s.length && !/[\d/\- ,]/.test(s[j]!)) j++;
     const mon = monthOf(s.slice(i, j), locale);
-    if (mon === undefined || parts.length > seps.length) return undefined;
+    if (mon === undefined) return undefined;
+    if (parts.length > seps.length) { if (parts[parts.length - 1]!.num === undefined) return undefined; seps.push(' '); }
     parts.push({ mon }); i = j;
   }
   if (parts.length !== seps.length + 1 || parts.length < 2 || parts.length > 3) return undefined;

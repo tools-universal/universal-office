@@ -14428,5 +14428,2765 @@
   },
   "text": "#VALOR!",
   "local": "=DATA.SÉRIE(\"x\")"
+ },
+ {
+  "id": "text-value-2110",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"dezembro\")"
+ },
+ {
+  "id": "text-value-2111",
+  "v": 15008,
+  "text": "15008",
+  "local": "=VALOR(\"fev1941\")"
+ },
+ {
+  "id": "text-value-2112",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"15435dezembro15923\")"
+ },
+ {
+  "id": "text-value-2113",
+  "v": 21471632,
+  "text": "21471632",
+  "local": "=VALOR(\"21471632\")"
+ },
+ {
+  "id": "text-value-2114",
+  "v": 0.632,
+  "text": "0,632",
+  "local": "=VALOR(\",632\")"
+ },
+ {
+  "id": "text-value-2115",
+  "v": 111660,
+  "text": "111660",
+  "local": "=VALOR(\"111660\")"
+ },
+ {
+  "id": "text-value-2116",
+  "v": 27571227,
+  "text": "27571227",
+  "local": "=VALOR(\"27571227\")"
+ },
+ {
+  "id": "text-value-2117",
+  "v": 12,
+  "text": "12",
+  "local": "=VALOR(\"12\")"
+ },
+ {
+  "id": "text-value-2118",
+  "v": 816,
+  "text": "816",
+  "local": "=VALOR(\"816\")"
+ },
+ {
+  "id": "text-value-2119",
+  "v": 255025573,
+  "text": "2,55E+08",
+  "local": "=VALOR(\"255025573\")"
+ },
+ {
+  "id": "text-value-2120",
+  "v": 28,
+  "text": "28",
+  "local": "=VALOR(\"28\")"
+ },
+ {
+  "id": "text-value-2121",
+  "v": 39,
+  "text": "39",
+  "local": "=VALOR(\"39\")"
+ },
+ {
+  "id": "text-value-2122",
+  "v": 2981,
+  "text": "2981",
+  "local": "=VALOR(\"2981\")"
+ },
+ {
+  "id": "text-value-2123",
+  "v": 2731,
+  "text": "2731",
+  "local": "=VALOR(\"2731\")"
+ },
+ {
+  "id": "text-value-2124",
+  "v": 1464263,
+  "text": "1464263",
+  "local": "=VALOR(\"1464263\")"
+ },
+ {
+  "id": "text-value-2125",
+  "v": 14.32,
+  "text": "14,32",
+  "local": "=VALOR(\"14,32\")"
+ },
+ {
+  "id": "text-value-2126",
+  "v": 13759,
+  "text": "13759",
+  "local": "=VALOR(\"Set37\")"
+ },
+ {
+  "id": "text-value-2127",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"111212-Set14\")"
+ },
+ {
+  "id": "text-value-2128",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"-257mar27\")"
+ },
+ {
+  "id": "text-value-2129",
+  "v": 1852,
+  "text": "1852",
+  "local": "=VALOR(\"1852\")"
+ },
+ {
+  "id": "text-value-2130",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"feb\")"
+ },
+ {
+  "id": "text-value-2131",
+  "v": 43466,
+  "text": "43466",
+  "local": "=VALOR(\"jan19\")"
+ },
+ {
+  "id": "text-value-2132",
+  "v": 21,
+  "text": "21",
+  "local": "=VALOR(\"21\")"
+ },
+ {
+  "id": "text-value-2133",
+  "v": 36,
+  "text": "36",
+  "local": "=VALOR(\"36\")"
+ },
+ {
+  "id": "text-value-2134",
+  "v": 100,
+  "text": "100",
+  "local": "=VALOR(\"100\")"
+ },
+ {
+  "id": "text-value-2135",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"/  331006\")"
+ },
+ {
+  "id": "text-value-2136",
+  "v": 32,
+  "text": "32",
+  "local": "=VALOR(\" 32\")"
+ },
+ {
+  "id": "text-value-2137",
+  "v": 32094,
+  "text": "32094",
+  "local": "=VALOR(\"32094\")"
+ },
+ {
+  "id": "text-value-2138",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"33dezembroabril\")"
+ },
+ {
+  "id": "text-value-2139",
+  "v": 35.52430555555556,
+  "text": "35,52431",
+  "local": "=VALOR(\"852  :35\")"
+ },
+ {
+  "id": "text-value-2140",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"185010AM((jan\")"
+ },
+ {
+  "id": "text-value-2141",
+  "v": 9221788,
+  "text": "9221788",
+  "local": "=VALOR(\"9221788\")"
+ },
+ {
+  "id": "text-value-2142",
+  "v": 29571030159,
+  "text": "2,96E+10",
+  "local": "=VALOR(\"29571030159  \")"
+ },
+ {
+  "id": "text-value-2143",
+  "v": 261233234038228000,
+  "text": "2,61E+17",
+  "local": "=VALOR(\"261233234038228910\")"
+ },
+ {
+  "id": "text-value-2144",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\",.263136feb\")"
+ },
+ {
+  "id": "text-value-2145",
+  "v": 24,
+  "text": "24",
+  "local": "=VALOR(\"24\")"
+ },
+ {
+  "id": "text-value-2146",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\":2mar(/\")"
+ },
+ {
+  "id": "text-value-2147",
+  "v": 417255,
+  "text": "417255",
+  "local": "=VALOR(\"417255\")"
+ },
+ {
+  "id": "text-value-2148",
+  "v": 2222,
+  "text": "2222",
+  "local": "=VALOR(\"2222\")"
+ },
+ {
+  "id": "text-value-2149",
+  "v": 24862389416,
+  "text": "2,49E+10",
+  "local": "=VALOR(\"24862389416\")"
+ },
+ {
+  "id": "text-value-2150",
+  "v": 232530,
+  "text": "232530",
+  "local": "=VALOR(\"232530\")"
+ },
+ {
+  "id": "text-value-2151",
+  "v": 10644,
+  "text": "10644",
+  "local": "=VALOR(\"  10644\")"
+ },
+ {
+  "id": "text-value-2152",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"9241027-+\")"
+ },
+ {
+  "id": "text-value-2153",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\".eSet\")"
+ },
+ {
+  "id": "text-value-2154",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"2474141/2\")"
+ },
+ {
+  "id": "text-value-2155",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"16abril203\")"
+ },
+ {
+  "id": "text-value-2156",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"32Set8a\")"
+ },
+ {
+  "id": "text-value-2157",
+  "v": 1941129,
+  "text": "1941129",
+  "local": "=VALOR(\"1941129\")"
+ },
+ {
+  "id": "text-value-2158",
+  "v": 811,
+  "text": "811",
+  "local": "=VALOR(\"811\")"
+ },
+ {
+  "id": "text-value-2159",
+  "v": 87.33333333333333,
+  "text": "87,33333",
+  "local": "=VALOR(\"2096:\")"
+ },
+ {
+  "id": "text-value-2160",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"/1969,35jan\")"
+ },
+ {
+  "id": "text-value-2161",
+  "v": 45992,
+  "text": "45992",
+  "local": "=VALOR(\"dezembro25\")"
+ },
+ {
+  "id": "text-value-2162",
+  "v": 176,
+  "text": "176",
+  "local": "=VALOR(\"176\")"
+ },
+ {
+  "id": "text-value-2163",
+  "v": 1423,
+  "text": "1423",
+  "local": "=VALOR(\"1423\")"
+ },
+ {
+  "id": "text-value-2164",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"(\")"
+ },
+ {
+  "id": "text-value-2165",
+  "v": 1283914,
+  "text": "1283914",
+  "local": "=VALOR(\"1283914\")"
+ },
+ {
+  "id": "text-value-2166",
+  "v": 2712931222,
+  "text": "2,71E+09",
+  "local": "=VALOR(\"2712931222\")"
+ },
+ {
+  "id": "text-value-2167",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"e\")"
+ },
+ {
+  "id": "text-value-2168",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"559  39\")"
+ },
+ {
+  "id": "text-value-2169",
+  "v": 3211.86,
+  "text": "3211,86",
+  "local": "=VALOR(\"%32.1186  \")"
+ },
+ {
+  "id": "text-value-2170",
+  "v": 13,
+  "text": "13",
+  "local": "=VALOR(\"R$ 13\")"
+ },
+ {
+  "id": "text-value-2171",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"23Set735522\")"
+ },
+ {
+  "id": "text-value-2172",
+  "v": 9872153,
+  "text": "9872153",
+  "local": "=VALOR(\"9872153 \")"
+ },
+ {
+  "id": "text-value-2173",
+  "v": 155,
+  "text": "155",
+  "local": "=VALOR(\"155\")"
+ },
+ {
+  "id": "text-value-2174",
+  "v": 3339,
+  "text": "3339",
+  "local": "=VALOR(\"3339\")"
+ },
+ {
+  "id": "text-value-2175",
+  "v": 38,
+  "text": "38",
+  "local": "=VALOR(\"38\")"
+ },
+ {
+  "id": "text-value-2176",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\".016a\")"
+ },
+ {
+  "id": "text-value-2177",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\" 33dezembro30e/\")"
+ },
+ {
+  "id": "text-value-2178",
+  "v": 214310,
+  "text": "214310",
+  "local": "=VALOR(\"214310\")"
+ },
+ {
+  "id": "text-value-2179",
+  "v": 934,
+  "text": "934",
+  "local": "=VALOR(\"  934\")"
+ },
+ {
+  "id": "text-value-2180",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"AMjan342888\")"
+ },
+ {
+  "id": "text-value-2181",
+  "v": 5373515,
+  "text": "5373515",
+  "local": "=VALOR(\"5373515\")"
+ },
+ {
+  "id": "text-value-2182",
+  "v": 2343,
+  "text": "2343",
+  "local": "=VALOR(\"2343\")"
+ },
+ {
+  "id": "text-value-2183",
+  "v": -1721859,
+  "text": "-1721859",
+  "local": "=VALOR(\"-1721859\")"
+ },
+ {
+  "id": "text-value-2184",
+  "v": 80528282,
+  "text": "80528282",
+  "local": "=VALOR(\"80528282\")"
+ },
+ {
+  "id": "text-value-2185",
+  "v": 1.2083333333333333,
+  "text": "1,208333",
+  "local": "=VALOR(\"29: \")"
+ },
+ {
+  "id": "text-value-2186",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"p\")"
+ },
+ {
+  "id": "text-value-2187",
+  "v": 2949,
+  "text": "2949",
+  "local": "=VALOR(\"2949\")"
+ },
+ {
+  "id": "text-value-2188",
+  "v": 0,
+  "text": "0",
+  "local": "=VALOR(\"0\")"
+ },
+ {
+  "id": "text-value-2189",
+  "v": 12001265281,
+  "text": "1,2E+10",
+  "local": "=VALOR(\"12001265281\")"
+ },
+ {
+  "id": "text-value-2190",
+  "v": 23525171,
+  "text": "23525171",
+  "local": "=VALOR(\"23525171\")"
+ },
+ {
+  "id": "text-value-2191",
+  "v": 17262627,
+  "text": "17262627",
+  "local": "=VALOR(\"17262627  \")"
+ },
+ {
+  "id": "text-value-2192",
+  "v": 1205,
+  "text": "1205",
+  "local": "=VALOR(\" 1205\")"
+ },
+ {
+  "id": "text-value-2193",
+  "v": 4.61198,
+  "text": "4,61198",
+  "local": "=VALOR(\"4,61198\")"
+ },
+ {
+  "id": "text-value-2194",
+  "v": 8639,
+  "text": "8639",
+  "local": "=VALOR(\"8639\")"
+ },
+ {
+  "id": "text-value-2195",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"jan3231816dezembro:\")"
+ },
+ {
+  "id": "text-value-2196",
+  "v": 44531,
+  "text": "44531",
+  "local": "=VALOR(\"dezembro  21\")"
+ },
+ {
+  "id": "text-value-2197",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\",+37\")"
+ },
+ {
+  "id": "text-value-2198",
+  "v": 1413,
+  "text": "1413",
+  "local": "=VALOR(\"1413\")"
+ },
+ {
+  "id": "text-value-2199",
+  "v": 179435,
+  "text": "179435",
+  "local": "=VALOR(\"179435\")"
+ },
+ {
+  "id": "text-value-2200",
+  "v": 753,
+  "text": "753",
+  "local": "=VALOR(\"753\")"
+ },
+ {
+  "id": "text-value-2201",
+  "v": 11,
+  "text": "11",
+  "local": "=VALOR(\"11  \")"
+ },
+ {
+  "id": "text-value-2202",
+  "v": 37611,
+  "text": "37611",
+  "local": "=VALOR(\"37611\")"
+ },
+ {
+  "id": "text-value-2203",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"733+jan2257\")"
+ },
+ {
+  "id": "text-value-2204",
+  "v": 34,
+  "text": "34",
+  "local": "=VALOR(\"34\")"
+ },
+ {
+  "id": "text-value-2205",
+  "v": 1841,
+  "text": "1841",
+  "local": "=VALOR(\"1841\")"
+ },
+ {
+  "id": "text-value-2206",
+  "v": 1457,
+  "text": "1457",
+  "local": "=VALOR(\"1457\")"
+ },
+ {
+  "id": "text-value-2207",
+  "v": 18,
+  "text": "18",
+  "local": "=VALOR(\"18\")"
+ },
+ {
+  "id": "text-value-2208",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"2947Set-eR$31\")"
+ },
+ {
+  "id": "text-value-2209",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"%11fev\")"
+ },
+ {
+  "id": "text-value-2210",
+  "v": 131,
+  "text": "131",
+  "local": "=VALOR(\"131\")"
+ },
+ {
+  "id": "text-value-2211",
+  "v": 28398,
+  "text": "28398",
+  "local": "=VALOR(\"28398\")"
+ },
+ {
+  "id": "text-value-2212",
+  "v": 365,
+  "text": "365",
+  "local": "=VALOR(\"365\")"
+ },
+ {
+  "id": "text-value-2213",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"26-523\")"
+ },
+ {
+  "id": "text-value-2214",
+  "v": 15,
+  "text": "15",
+  "local": "=VALOR(\"R$15\")"
+ },
+ {
+  "id": "text-value-2215",
+  "v": 171826,
+  "text": "171826",
+  "local": "=VALOR(\"171826\")"
+ },
+ {
+  "id": "text-value-2216",
+  "v": 1148,
+  "text": "1148",
+  "local": "=VALOR(\"1148\")"
+ },
+ {
+  "id": "text-value-2217",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"16422456R$.AM\")"
+ },
+ {
+  "id": "text-value-2218",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"17261/226548\")"
+ },
+ {
+  "id": "text-value-2219",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\",--\")"
+ },
+ {
+  "id": "text-value-2220",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"348fevabril\")"
+ },
+ {
+  "id": "text-value-2221",
+  "v": 22491595,
+  "text": "22491595",
+  "local": "=VALOR(\"22491595\")"
+ },
+ {
+  "id": "text-value-2222",
+  "v": 32,
+  "text": "32",
+  "local": "=VALOR(\"32\")"
+ },
+ {
+  "id": "text-value-2223",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"2R$-\")"
+ },
+ {
+  "id": "text-value-2224",
+  "v": 508,
+  "text": "508",
+  "local": "=VALOR(\"508\")"
+ },
+ {
+  "id": "text-value-2225",
+  "v": -3341722083,
+  "text": "-3,3E+09",
+  "local": "=VALOR(\"-3341722083\")"
+ },
+ {
+  "id": "text-value-2226",
+  "v": 39814,
+  "text": "39814",
+  "local": "=VALOR(\"jan9\")"
+ },
+ {
+  "id": "text-value-2227",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\".32251728,\")"
+ },
+ {
+  "id": "text-value-2228",
+  "v": 21192717901655,
+  "text": "2,12E+13",
+  "local": "=VALOR(\"21192717901655\")"
+ },
+ {
+  "id": "text-value-2229",
+  "v": 160,
+  "text": "160",
+  "local": "=VALOR(\"160\")"
+ },
+ {
+  "id": "text-value-2230",
+  "v": 27230134,
+  "text": "27230134",
+  "local": "=VALOR(\"27230134\")"
+ },
+ {
+  "id": "text-value-2231",
+  "v": 1998,
+  "text": "1998",
+  "local": "=VALOR(\"1998\")"
+ },
+ {
+  "id": "text-value-2232",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"10908-  131932\")"
+ },
+ {
+  "id": "text-value-2233",
+  "v": 272652039,
+  "text": "2,73E+08",
+  "local": "=VALOR(\"272652039\")"
+ },
+ {
+  "id": "text-value-2234",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"14242923.-\")"
+ },
+ {
+  "id": "text-value-2235",
+  "v": 3936,
+  "text": "3936",
+  "local": "=VALOR(\"  3936\")"
+ },
+ {
+  "id": "text-value-2236",
+  "v": -3820,
+  "text": "-3820",
+  "local": "=VALOR(\"-3820\")"
+ },
+ {
+  "id": "text-value-2237",
+  "v": 141218,
+  "text": "141218",
+  "local": "=VALOR(\"141218\")"
+ },
+ {
+  "id": "text-value-2238",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"PM425  139\")"
+ },
+ {
+  "id": "text-value-2239",
+  "v": 142970,
+  "text": "142970",
+  "local": "=VALOR(\"142970\")"
+ },
+ {
+  "id": "text-value-2240",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"3133288027-\")"
+ },
+ {
+  "id": "text-value-2241",
+  "v": 1070,
+  "text": "1070",
+  "local": "=VALOR(\"1070\")"
+ },
+ {
+  "id": "text-value-2242",
+  "v": 0,
+  "text": "0",
+  "local": "=VALOR(\"2082e-310%\")"
+ },
+ {
+  "id": "text-value-2243",
+  "v": 17118398911312,
+  "text": "1,71E+13",
+  "local": "=VALOR(\"17118398911312\")"
+ },
+ {
+  "id": "text-value-2244",
+  "v": 3230109732,
+  "text": "3,23E+09",
+  "local": "=VALOR(\"3230109732\")"
+ },
+ {
+  "id": "text-value-2245",
+  "v": 251253,
+  "text": "251253",
+  "local": "=VALOR(\"251253\")"
+ },
+ {
+  "id": "text-value-2246",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\":2090,923191124\")"
+ },
+ {
+  "id": "text-value-2247",
+  "v": 342911,
+  "text": "342911",
+  "local": "=VALOR(\"342911\")"
+ },
+ {
+  "id": "text-value-2248",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"+abril34\")"
+ },
+ {
+  "id": "text-value-2249",
+  "v": 0.271627332405,
+  "text": "0,271627",
+  "local": "=VALOR(\",271627332405\")"
+ },
+ {
+  "id": "text-value-2250",
+  "v": 38322,
+  "text": "38322",
+  "local": "=VALOR(\"dezembro4\")"
+ },
+ {
+  "id": "text-value-2251",
+  "v": 34,
+  "text": "34",
+  "local": "=VALOR(\"34   \")"
+ },
+ {
+  "id": "text-value-2252",
+  "v": 302319,
+  "text": "302319",
+  "local": "=VALOR(\"302319\")"
+ },
+ {
+  "id": "text-value-2253",
+  "v": 2145,
+  "text": "2145",
+  "local": "=VALOR(\"2145\")"
+ },
+ {
+  "id": "text-value-2254",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"feb20abril\")"
+ },
+ {
+  "id": "text-value-2255",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"21453.p11.\")"
+ },
+ {
+  "id": "text-value-2256",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"25 18abril\")"
+ },
+ {
+  "id": "text-value-2257",
+  "v": 3.51338e+253,
+  "text": "3,5E+253",
+  "local": "=VALOR(\"351338E248\")"
+ },
+ {
+  "id": "text-value-2258",
+  "v": 234638,
+  "text": "234638",
+  "local": "=VALOR(\"234638\")"
+ },
+ {
+  "id": "text-value-2259",
+  "v": 80126,
+  "text": "80126",
+  "local": "=VALOR(\"80126\")"
+ },
+ {
+  "id": "text-value-2260",
+  "v": 2355,
+  "text": "2355",
+  "local": "=VALOR(\"2355\")"
+ },
+ {
+  "id": "text-value-2261",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"abrilPM+27E22\")"
+ },
+ {
+  "id": "text-value-2262",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"22711mar\")"
+ },
+ {
+  "id": "text-value-2263",
+  "v": 149202331,
+  "text": "1,49E+08",
+  "local": "=VALOR(\"149202331\")"
+ },
+ {
+  "id": "text-value-2264",
+  "v": 2537,
+  "text": "2537",
+  "local": "=VALOR(\"2537\")"
+ },
+ {
+  "id": "text-value-2265",
+  "v": 5,
+  "text": "5",
+  "local": "=VALOR(\"5\")"
+ },
+ {
+  "id": "text-value-2266",
+  "v": 1213,
+  "text": "1213",
+  "local": "=VALOR(\"1213\")"
+ },
+ {
+  "id": "text-value-2267",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"19281530dezembro\")"
+ },
+ {
+  "id": "text-value-2268",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"dezembro124131a\")"
+ },
+ {
+  "id": "text-value-2269",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"3654fev\")"
+ },
+ {
+  "id": "text-value-2270",
+  "v": 233930381431,
+  "text": "2,34E+11",
+  "local": "=VALOR(\"233930381431\")"
+ },
+ {
+  "id": "text-value-2271",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\",fevabril22995 \")"
+ },
+ {
+  "id": "text-value-2272",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"28441834e+\")"
+ },
+ {
+  "id": "text-value-2273",
+  "v": 23,
+  "text": "23",
+  "local": "=VALOR(\"23\")"
+ },
+ {
+  "id": "text-value-2274",
+  "v": 2734,
+  "text": "2734",
+  "local": "=VALOR(\"2734\")"
+ },
+ {
+  "id": "text-value-2275",
+  "v": 342679,
+  "text": "342679",
+  "local": "=VALOR(\"342679\")"
+ },
+ {
+  "id": "text-value-2276",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"e)\")"
+ },
+ {
+  "id": "text-value-2277",
+  "v": 19,
+  "text": "19",
+  "local": "=VALOR(\"19\")"
+ },
+ {
+  "id": "text-value-2278",
+  "v": 17,
+  "text": "17",
+  "local": "=VALOR(\"17\")"
+ },
+ {
+  "id": "text-value-2279",
+  "v": 2028,
+  "text": "2028",
+  "local": "=VALOR(\"2028\")"
+ },
+ {
+  "id": "text-value-2280",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"22-21152777\")"
+ },
+ {
+  "id": "text-value-2281",
+  "v": 4,
+  "text": "4",
+  "local": "=VALOR(\"4\")"
+ },
+ {
+  "id": "text-value-2282",
+  "v": 0.12826,
+  "text": "0,12826",
+  "local": "=VALOR(\",12826\")"
+ },
+ {
+  "id": "text-value-2283",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\":32a\")"
+ },
+ {
+  "id": "text-value-2284",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"5e\")"
+ },
+ {
+  "id": "text-value-2285",
+  "v": 10959,
+  "text": "10959",
+  "local": "=VALOR(\"jan30\")"
+ },
+ {
+  "id": "text-value-2286",
+  "v": 2249525711928,
+  "text": "2,25E+12",
+  "local": "=VALOR(\"2249525711928\")"
+ },
+ {
+  "id": "text-value-2287",
+  "v": 41319852236,
+  "text": "4,13E+10",
+  "local": "=VALOR(\"41319852236\")"
+ },
+ {
+  "id": "text-value-2288",
+  "v": 1881,
+  "text": "1881",
+  "local": "=VALOR(\"1881\")"
+ },
+ {
+  "id": "text-value-2289",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\":32p+\")"
+ },
+ {
+  "id": "text-value-2290",
+  "v": 4302,
+  "text": "4302",
+  "local": "=VALOR(\"4302\")"
+ },
+ {
+  "id": "text-value-2291",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"1/2312fevSetdezembro\")"
+ },
+ {
+  "id": "text-value-2292",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"p461865/AM\")"
+ },
+ {
+  "id": "text-value-2293",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"2339-33220\")"
+ },
+ {
+  "id": "text-value-2294",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"2fevfeb13mar\")"
+ },
+ {
+  "id": "text-value-2295",
+  "v": 1242032,
+  "text": "1242032",
+  "local": "=VALOR(\"1242032\")"
+ },
+ {
+  "id": "text-value-2296",
+  "v": 34181919.36,
+  "text": "34181919",
+  "local": "=VALOR(\"34181919,36\")"
+ },
+ {
+  "id": "text-value-2297",
+  "v": 11780,
+  "text": "11780",
+  "local": "=VALOR(\"abril32\")"
+ },
+ {
+  "id": "text-value-2298",
+  "v": 31112337,
+  "text": "31112337",
+  "local": "=VALOR(\" 031112337\")"
+ },
+ {
+  "id": "text-value-2299",
+  "v": 31261342619,
+  "text": "3,13E+10",
+  "local": "=VALOR(\"31261342619\")"
+ },
+ {
+  "id": "text-value-2300",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"E1648  \")"
+ },
+ {
+  "id": "text-value-2301",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"7-( 18\")"
+ },
+ {
+  "id": "text-value-2302",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\":feb6fev\")"
+ },
+ {
+  "id": "text-value-2303",
+  "v": 1913142596,
+  "text": "1,91E+09",
+  "local": "=VALOR(\"1913142596\")"
+ },
+ {
+  "id": "text-value-2304",
+  "v": 353951782448,
+  "text": "3,54E+11",
+  "local": "=VALOR(\"353951782448\")"
+ },
+ {
+  "id": "text-value-2305",
+  "v": 22,
+  "text": "22",
+  "local": "=VALOR(\"22\")"
+ },
+ {
+  "id": "text-value-2306",
+  "v": 35911,
+  "text": "35911",
+  "local": "=VALOR(\"35911\")"
+ },
+ {
+  "id": "text-value-2307",
+  "v": 6,
+  "text": "6",
+  "local": "=VALOR(\"6\")"
+ },
+ {
+  "id": "text-value-2308",
+  "v": 861363813,
+  "text": "8,61E+08",
+  "local": "=VALOR(\"861363813\")"
+ },
+ {
+  "id": "text-value-2309",
+  "v": 105.3013888888889,
+  "text": "105,3014",
+  "local": "=VALOR(\"  2527:14\")"
+ },
+ {
+  "id": "text-value-2310",
+  "v": 139,
+  "text": "139",
+  "local": "=VALOR(\"139\")"
+ },
+ {
+  "id": "text-value-2311",
+  "v": 5412372,
+  "text": "5412372",
+  "local": "=VALOR(\"5412372\")"
+ },
+ {
+  "id": "text-value-2312",
+  "v": 2127,
+  "text": "2127",
+  "local": "=VALOR(\"2127\")"
+ },
+ {
+  "id": "text-value-2313",
+  "v": -292838,
+  "text": "-292838",
+  "local": "=VALOR(\"-292838\")"
+ },
+ {
+  "id": "text-value-2314",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"36Set2824:\")"
+ },
+ {
+  "id": "text-value-2315",
+  "v": 20,
+  "text": "20",
+  "local": "=VALOR(\"20\")"
+ },
+ {
+  "id": "text-value-2316",
+  "v": 3161813,
+  "text": "3161813",
+  "local": "=VALOR(\"3161813\")"
+ },
+ {
+  "id": "text-value-2317",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"453jan,181138\")"
+ },
+ {
+  "id": "text-value-2318",
+  "v": 19302512862,
+  "text": "1,93E+10",
+  "local": "=VALOR(\"019302512862\")"
+ },
+ {
+  "id": "text-value-2319",
+  "v": 4267,
+  "text": "4267",
+  "local": "=VALOR(\"4267\")"
+ },
+ {
+  "id": "text-value-2320",
+  "v": 627,
+  "text": "627",
+  "local": "=VALOR(\"627\")"
+ },
+ {
+  "id": "text-value-2321",
+  "v": 291720,
+  "text": "291720",
+  "local": "=VALOR(\"291720\")"
+ },
+ {
+  "id": "text-value-2322",
+  "v": 919,
+  "text": "919",
+  "local": "=VALOR(\"919\")"
+ },
+ {
+  "id": "text-value-2323",
+  "v": 55636,
+  "text": "55636",
+  "local": "=VALOR(\"55636\")"
+ },
+ {
+  "id": "text-value-2324",
+  "v": 689,
+  "text": "689",
+  "local": "=VALOR(\"689\")"
+ },
+ {
+  "id": "text-value-2325",
+  "v": 962,
+  "text": "962",
+  "local": "=VALOR(\"962\")"
+ },
+ {
+  "id": "text-value-2326",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"abril  17dezembroE2164\")"
+ },
+ {
+  "id": "text-value-2327",
+  "v": 3553,
+  "text": "3553",
+  "local": "=VALOR(\"3553\")"
+ },
+ {
+  "id": "text-value-2328",
+  "v": 111874730,
+  "text": "1,12E+08",
+  "local": "=VALOR(\" 111874730\")"
+ },
+ {
+  "id": "text-value-2329",
+  "v": 2339,
+  "text": "2339",
+  "local": "=VALOR(\"2339\")"
+ },
+ {
+  "id": "text-value-2330",
+  "v": 6,
+  "text": "6",
+  "local": "=VALOR(\"06\")"
+ },
+ {
+  "id": "text-value-2331",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"32SetE\")"
+ },
+ {
+  "id": "text-value-2332",
+  "v": 1.4388888888888889,
+  "text": "1,438889",
+  "local": "=VALOR(\"34  :32\")"
+ },
+ {
+  "id": "text-value-2333",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"37402761-\")"
+ },
+ {
+  "id": "text-value-2334",
+  "v": 32,
+  "text": "32",
+  "local": "=VALOR(\"  32\")"
+ },
+ {
+  "id": "text-value-2335",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"3623273%1/238\")"
+ },
+ {
+  "id": "text-value-2336",
+  "v": 2027271914,
+  "text": "2,03E+09",
+  "local": "=VALOR(\"2027271914 \")"
+ },
+ {
+  "id": "text-value-2337",
+  "v": 864865,
+  "text": "864865",
+  "local": "=VALOR(\"dezembro4267\")"
+ },
+ {
+  "id": "text-value-2338",
+  "v": 82839,
+  "text": "82839",
+  "local": "=VALOR(\"82839\")"
+ },
+ {
+  "id": "text-value-2339",
+  "v": 20873923,
+  "text": "20873923",
+  "local": "=VALOR(\"20873923 \")"
+ },
+ {
+  "id": "text-value-2340",
+  "v": 1591,
+  "text": "1591",
+  "local": "=VALOR(\"1591,\")"
+ },
+ {
+  "id": "text-value-2341",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"abril)10janE\")"
+ },
+ {
+  "id": "text-value-2342",
+  "v": 8282,
+  "text": "8282",
+  "local": "=VALOR(\"8282\")"
+ },
+ {
+  "id": "text-value-2343",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"AM37\")"
+ },
+ {
+  "id": "text-value-2344",
+  "v": 172585696,
+  "text": "1,73E+08",
+  "local": "=VALOR(\"172585696\")"
+ },
+ {
+  "id": "text-value-2345",
+  "v": 43252,
+  "text": "43252",
+  "local": "=VALOR(\"6/18\")"
+ },
+ {
+  "id": "text-value-2346",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"15mar23janabrilabril\")"
+ },
+ {
+  "id": "text-value-2347",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"1/27431905\")"
+ },
+ {
+  "id": "text-value-2348",
+  "v": 8239127,
+  "text": "8239127",
+  "local": "=VALOR(\"8239127\")"
+ },
+ {
+  "id": "text-value-2349",
+  "v": 163621,
+  "text": "163621",
+  "local": "=VALOR(\"163621\")"
+ },
+ {
+  "id": "text-value-2350",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"1204/aR$feb35\")"
+ },
+ {
+  "id": "text-value-2351",
+  "v": 609,
+  "text": "609",
+  "local": "=VALOR(\"609\")"
+ },
+ {
+  "id": "text-value-2352",
+  "v": 202497,
+  "text": "202497",
+  "local": "=VALOR(\"202497\")"
+ },
+ {
+  "id": "text-value-2353",
+  "v": 16226694,
+  "text": "16226694",
+  "local": "=VALOR(\"16226694\")"
+ },
+ {
+  "id": "text-value-2354",
+  "v": 39312180261610,
+  "text": "3,93E+13",
+  "local": "=VALOR(\"39312180261610\")"
+ },
+ {
+  "id": "text-value-2355",
+  "v": 0.3,
+  "text": "0,3",
+  "local": "=VALOR(\"0,3\")"
+ },
+ {
+  "id": "text-value-2356",
+  "v": 6132,
+  "text": "6132",
+  "local": "=VALOR(\"6132\")"
+ },
+ {
+  "id": "text-value-2357",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"249125 649\")"
+ },
+ {
+  "id": "text-value-2358",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"jan4fevabril18037\")"
+ },
+ {
+  "id": "text-value-2359",
+  "v": 152411,
+  "text": "152411",
+  "local": "=VALOR(\"152411\")"
+ },
+ {
+  "id": "text-value-2360",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"6792969935/\")"
+ },
+ {
+  "id": "text-value-2361",
+  "v": 337271142,
+  "text": "3,37E+08",
+  "local": "=VALOR(\"337271142\")"
+ },
+ {
+  "id": "text-value-2362",
+  "v": -2718161382,
+  "text": "-2,7E+09",
+  "local": "=VALOR(\"-2718161382\")"
+ },
+ {
+  "id": "text-value-2363",
+  "v": 1036,
+  "text": "1036",
+  "local": "=VALOR(\"1036\")"
+ },
+ {
+  "id": "text-value-2364",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\":191510\")"
+ },
+ {
+  "id": "text-value-2365",
+  "v": 204128,
+  "text": "204128",
+  "local": "=VALOR(\"204128\")"
+ },
+ {
+  "id": "text-value-2366",
+  "v": 261454,
+  "text": "261454",
+  "local": "=VALOR(\"261454\")"
+ },
+ {
+  "id": "text-value-2367",
+  "v": 37591,
+  "text": "37591",
+  "local": "=VALOR(\"1dezembro2\")"
+ },
+ {
+  "id": "text-value-2368",
+  "v": 3028411025,
+  "text": "3,03E+09",
+  "local": "=VALOR(\"30.28411025\")"
+ },
+ {
+  "id": "text-value-2369",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"184331 725\")"
+ },
+ {
+  "id": "text-value-2370",
+  "v": 0.123817,
+  "text": "0,123817",
+  "local": "=VALOR(\",123817\")"
+ },
+ {
+  "id": "text-value-2371",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"a1346dezembro\")"
+ },
+ {
+  "id": "text-value-2372",
+  "v": 1288,
+  "text": "1288",
+  "local": "=VALOR(\"1288\")"
+ },
+ {
+  "id": "text-value-2373",
+  "v": 2939114,
+  "text": "2939114",
+  "local": "=VALOR(\"2939114\")"
+ },
+ {
+  "id": "text-value-2374",
+  "v": 2627,
+  "text": "2627",
+  "local": "=VALOR(\"2627\")"
+ },
+ {
+  "id": "text-value-2375",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"241537:\")"
+ },
+ {
+  "id": "text-value-2376",
+  "v": 210,
+  "text": "210",
+  "local": "=VALOR(\"210\")"
+ },
+ {
+  "id": "text-value-2377",
+  "v": 0.16,
+  "text": "0,16",
+  "local": "=VALOR(\"16%\")"
+ },
+ {
+  "id": "text-value-2378",
+  "v": 221635,
+  "text": "221635",
+  "local": "=VALOR(\"221635\")"
+ },
+ {
+  "id": "text-value-2379",
+  "v": 323811,
+  "text": "323811",
+  "local": "=VALOR(\"323811\")"
+ },
+ {
+  "id": "text-value-2380",
+  "v": 27009,
+  "text": "27009",
+  "local": "=VALOR(\"27009,\")"
+ },
+ {
+  "id": "text-value-2381",
+  "v": 4475,
+  "text": "4475",
+  "local": "=VALOR(\"abril1912\")"
+ },
+ {
+  "id": "text-value-2382",
+  "v": 634,
+  "text": "634",
+  "local": "=VALOR(\"634\")"
+ },
+ {
+  "id": "text-value-2383",
+  "v": 15432148,
+  "text": "15432148",
+  "local": "=VALOR(\"15432148\")"
+ },
+ {
+  "id": "text-value-2384",
+  "v": 117,
+  "text": "117",
+  "local": "=VALOR(\"117\")"
+ },
+ {
+  "id": "text-value-2385",
+  "v": 1.542361111111111,
+  "text": "1,542361",
+  "local": "=VALOR(\"37:1\")"
+ },
+ {
+  "id": "text-value-2386",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"-).2332  \")"
+ },
+ {
+  "id": "text-value-2387",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"317/148\")"
+ },
+ {
+  "id": "text-value-2388",
+  "v": 28381037,
+  "text": "28381037",
+  "local": "=VALOR(\"28381037\")"
+ },
+ {
+  "id": "text-value-2389",
+  "v": 689201024938,
+  "text": "6,89E+11",
+  "local": "=VALOR(\"689201024938\")"
+ },
+ {
+  "id": "text-value-2390",
+  "v": 8000,
+  "text": "8000",
+  "local": "=VALOR(\"8000\")"
+ },
+ {
+  "id": "text-value-2391",
+  "v": 15992326.31,
+  "text": "15992326",
+  "local": "=VALOR(\"1599232631%\")"
+ },
+ {
+  "id": "text-value-2392",
+  "v": 426,
+  "text": "426",
+  "local": "=VALOR(\"426\")"
+ },
+ {
+  "id": "text-value-2393",
+  "v": 2.39e+30,
+  "text": "2,39E+30",
+  "local": "=VALOR(\"+239e30%\")"
+ },
+ {
+  "id": "text-value-2394",
+  "v": 3227611,
+  "text": "3227611",
+  "local": "=VALOR(\"32.27611\")"
+ },
+ {
+  "id": "text-value-2395",
+  "v": 17337,
+  "text": "17337",
+  "local": "=VALOR(\"17337,\")"
+ },
+ {
+  "id": "text-value-2396",
+  "v": 380,
+  "text": "380",
+  "local": "=VALOR(\"380\")"
+ },
+ {
+  "id": "text-value-2397",
+  "v": 46776,
+  "text": "46776",
+  "local": "=VALOR(\"24jan28\")"
+ },
+ {
+  "id": "text-value-2398",
+  "v": 0.06,
+  "text": "0,06",
+  "local": "=VALOR(\"6%\")"
+ },
+ {
+  "id": "text-value-2399",
+  "v": 36524,
+  "text": "36524",
+  "local": "=VALOR(\"30-12-99\")"
+ },
+ {
+  "id": "text-value-2400",
+  "v": 11185.791666666666,
+  "text": "11185,79",
+  "local": "=VALOR(\"15/8-30 7 PM\")"
+ },
+ {
+  "id": "text-value-2401",
+  "v": -37409000.25,
+  "text": "-3,7E+07",
+  "local": "=VALOR(\"-37409.000,25\")"
+ },
+ {
+  "id": "text-value-2402",
+  "v": 11130.041666666666,
+  "text": "11130,04",
+  "local": "=VALOR(\"20-6/30 25:00\")"
+ },
+ {
+  "id": "text-value-2403",
+  "v": 45463.791666666664,
+  "text": "45463,79",
+  "local": "=VALOR(\"20-6/2024 7 PM\")"
+ },
+ {
+  "id": "text-value-2404",
+  "v": 67226.05,
+  "text": "67226,05",
+  "local": "=VALOR(\"+67226,05\")"
+ },
+ {
+  "id": "text-value-2405",
+  "v": 45318,
+  "text": "45318",
+  "local": "=VALOR(\"27/1-24\")"
+ },
+ {
+  "id": "text-value-2406",
+  "v": 36430,
+  "text": "36430",
+  "local": "=VALOR(\"27-9/99\")"
+ },
+ {
+  "id": "text-value-2407",
+  "v": 36057.05,
+  "text": "36057,05",
+  "local": "=VALOR(\"36057,05\")"
+ },
+ {
+  "id": "text-value-2408",
+  "v": 49916.5,
+  "text": "49916,5",
+  "local": "=VALOR(\"R$ 49916,5\")"
+ },
+ {
+  "id": "text-value-2409",
+  "v": -79912.5,
+  "text": "-79912,5",
+  "local": "=VALOR(\"(79912,5)\")"
+ },
+ {
+  "id": "text-value-2410",
+  "v": 4232.5,
+  "text": "4232,5",
+  "local": "=VALOR(\"+4232,5\")"
+ },
+ {
+  "id": "text-value-2411",
+  "v": 36500,
+  "text": "36500",
+  "local": "=VALOR(\"6/12/1999\")"
+ },
+ {
+  "id": "text-value-2412",
+  "v": 45437,
+  "text": "45437",
+  "local": "=VALOR(\"25-5/24\")"
+ },
+ {
+  "id": "text-value-2413",
+  "v": 2958435.4375,
+  "text": "2958435",
+  "local": "=VALOR(\"1/12-9999 10:30\")"
+ },
+ {
+  "id": "text-value-2414",
+  "v": 11018,
+  "text": "11018",
+  "local": "=VALOR(\"1/3-30\")"
+ },
+ {
+  "id": "text-value-2415",
+  "v": 36327.041666666664,
+  "text": "36327,04",
+  "local": "=VALOR(\"15/6/1999 25:00\")"
+ },
+ {
+  "id": "text-value-2416",
+  "v": 68685.05,
+  "text": "68685,05",
+  "local": "=VALOR(\"R$ 68685,05\")"
+ },
+ {
+  "id": "text-value-2417",
+  "v": 45223.4375,
+  "text": "45223,44",
+  "local": "=VALOR(\"24/10-2023 10:30\")"
+ },
+ {
+  "id": "text-value-2418",
+  "v": 3308000,
+  "text": "3308000",
+  "local": "=VALOR(\"+3308e3\")"
+ },
+ {
+  "id": "text-value-2419",
+  "v": 921.47,
+  "text": "921,47",
+  "local": "=VALOR(\"92147%\")"
+ },
+ {
+  "id": "text-value-2420",
+  "v": 36276.99998842592,
+  "text": "36277",
+  "local": "=VALOR(\"26/4-1999 23:59:59\")"
+ },
+ {
+  "id": "text-value-2421",
+  "v": 47292,
+  "text": "47292",
+  "local": "=VALOR(\"23/6-29 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2422",
+  "v": 36185.99998842592,
+  "text": "36186",
+  "local": "=VALOR(\"25-1-99 23:59:59\")"
+ },
+ {
+  "id": "text-value-2423",
+  "v": 19031,
+  "text": "19031",
+  "local": "=VALOR(\"+19031\")"
+ },
+ {
+  "id": "text-value-2424",
+  "v": -20871.05,
+  "text": "-20871,1",
+  "local": "=VALOR(\"-20871,05\")"
+ },
+ {
+  "id": "text-value-2425",
+  "v": 39746000,
+  "text": "39746000",
+  "local": "=VALOR(\"39746e3\")"
+ },
+ {
+  "id": "text-value-2426",
+  "v": 15225000,
+  "text": "15225000",
+  "local": "=VALOR(\"+15225.000\")"
+ },
+ {
+  "id": "text-value-2427",
+  "v": 56468000.25,
+  "text": "56468000",
+  "local": "=VALOR(\"+56468.000,25\")"
+ },
+ {
+  "id": "text-value-2428",
+  "v": 45538.791666666664,
+  "text": "45538,79",
+  "local": "=VALOR(\"3-9/24 7 PM\")"
+ },
+ {
+  "id": "text-value-2429",
+  "v": 45076.99998842592,
+  "text": "45077",
+  "local": "=VALOR(\"30-5/2023 23:59:59\")"
+ },
+ {
+  "id": "text-value-2430",
+  "v": 11085.4375,
+  "text": "11085,44",
+  "local": "=VALOR(\"7-5-30 10:30\")"
+ },
+ {
+  "id": "text-value-2431",
+  "v": 45633,
+  "text": "45633",
+  "local": "=VALOR(\"7/12-2024\")"
+ },
+ {
+  "id": "text-value-2432",
+  "v": 36324,
+  "text": "36324",
+  "local": "=VALOR(\"13/6-99 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2433",
+  "v": 45634,
+  "text": "45634",
+  "local": "=VALOR(\"8/12-2024 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2434",
+  "v": 45482.791666666664,
+  "text": "45482,79",
+  "local": "=VALOR(\"9/7/24 7 PM\")"
+ },
+ {
+  "id": "text-value-2435",
+  "v": 318.4375,
+  "text": "318,4375",
+  "local": "=VALOR(\"13-11-1900 10:30\")"
+ },
+ {
+  "id": "text-value-2436",
+  "v": 54651000,
+  "text": "54651000",
+  "local": "=VALOR(\"R$ 54651e3\")"
+ },
+ {
+  "id": "text-value-2437",
+  "v": 1931000,
+  "text": "1931000",
+  "local": "=VALOR(\"1931.000\")"
+ },
+ {
+  "id": "text-value-2438",
+  "v": 36838.791666666664,
+  "text": "36838,79",
+  "local": "=VALOR(\"8-11-0 7 PM\")"
+ },
+ {
+  "id": "text-value-2439",
+  "v": 45333.99998842592,
+  "text": "45334",
+  "local": "=VALOR(\"11/2/24 23:59:59\")"
+ },
+ {
+  "id": "text-value-2440",
+  "v": 11306.041666666666,
+  "text": "11306,04",
+  "local": "=VALOR(\"13/12/30 25:00\")"
+ },
+ {
+  "id": "text-value-2441",
+  "v": 87325,
+  "text": "87325",
+  "local": "=VALOR(\"R$ 87325\")"
+ },
+ {
+  "id": "text-value-2442",
+  "v": 45622.791666666664,
+  "text": "45622,79",
+  "local": "=VALOR(\"26/11/2024 7 PM\")"
+ },
+ {
+  "id": "text-value-2443",
+  "v": -12410.5,
+  "text": "-12410,5",
+  "local": "=VALOR(\"(12410,5)\")"
+ },
+ {
+  "id": "text-value-2444",
+  "v": 36424,
+  "text": "36424",
+  "local": "=VALOR(\"21/9-1999 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2445",
+  "v": 11119.791666666666,
+  "text": "11119,79",
+  "local": "=VALOR(\"10-6-30 7 PM\")"
+ },
+ {
+  "id": "text-value-2446",
+  "v": 36290,
+  "text": "36290",
+  "local": "=VALOR(\"10-5/99\")"
+ },
+ {
+  "id": "text-value-2447",
+  "v": 36731.99998842592,
+  "text": "36732",
+  "local": "=VALOR(\"24-7-0 23:59:59\")"
+ },
+ {
+  "id": "text-value-2448",
+  "v": 32316000,
+  "text": "32316000",
+  "local": "=VALOR(\"R$ 32316.000\")"
+ },
+ {
+  "id": "text-value-2449",
+  "v": 328,
+  "text": "328",
+  "local": "=VALOR(\"23-11-1900\")"
+ },
+ {
+  "id": "text-value-2450",
+  "v": 37152,
+  "text": "37152",
+  "local": "=VALOR(\"18-9-1\")"
+ },
+ {
+  "id": "text-value-2451",
+  "v": 45481,
+  "text": "45481",
+  "local": "=VALOR(\"8/7-24 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2452",
+  "v": 37077.791666666664,
+  "text": "37077,79",
+  "local": "=VALOR(\"5-7/1 7 PM\")"
+ },
+ {
+  "id": "text-value-2453",
+  "v": 61881.5,
+  "text": "61881,5",
+  "local": "=VALOR(\"+61881,5\")"
+ },
+ {
+  "id": "text-value-2454",
+  "v": 25920,
+  "text": "25920",
+  "local": "=VALOR(\"25920\")"
+ },
+ {
+  "id": "text-value-2455",
+  "v": -64712.05,
+  "text": "-64712,1",
+  "local": "=VALOR(\"(64712,05)\")"
+ },
+ {
+  "id": "text-value-2456",
+  "v": -67.07,
+  "text": "-67,07",
+  "local": "=VALOR(\"(6707%)\")"
+ },
+ {
+  "id": "text-value-2457",
+  "v": 5964000,
+  "text": "5964000",
+  "local": "=VALOR(\"+5964.000\")"
+ },
+ {
+  "id": "text-value-2458",
+  "v": 44947,
+  "text": "44947",
+  "local": "=VALOR(\"21/1/2023 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2459",
+  "v": 45423,
+  "text": "45423",
+  "local": "=VALOR(\"11-5-24 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2460",
+  "v": 261,
+  "text": "261",
+  "local": "=VALOR(\"17-9-1900 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2461",
+  "v": 36774.041666666664,
+  "text": "36774,04",
+  "local": "=VALOR(\"4/9/0 25:00\")"
+ },
+ {
+  "id": "text-value-2462",
+  "v": 45624.4375,
+  "text": "45624,44",
+  "local": "=VALOR(\"28/11/24 10:30\")"
+ },
+ {
+  "id": "text-value-2463",
+  "v": 45215.4375,
+  "text": "45215,44",
+  "local": "=VALOR(\"16/10/2023 10:30\")"
+ },
+ {
+  "id": "text-value-2464",
+  "v": 37109.99998842592,
+  "text": "37110",
+  "local": "=VALOR(\"6-8-1 23:59:59\")"
+ },
+ {
+  "id": "text-value-2465",
+  "v": 81,
+  "text": "81",
+  "local": "=VALOR(\"21/3-1900\")"
+ },
+ {
+  "id": "text-value-2466",
+  "v": 45132.4375,
+  "text": "45132,44",
+  "local": "=VALOR(\"25/7/2023 10:30\")"
+ },
+ {
+  "id": "text-value-2467",
+  "v": 2958423.4375,
+  "text": "2958423",
+  "local": "=VALOR(\"19-11-9999 10:30\")"
+ },
+ {
+  "id": "text-value-2468",
+  "v": 68355000.25,
+  "text": "68355000",
+  "local": "=VALOR(\"68355.000,25\")"
+ },
+ {
+  "id": "text-value-2469",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"11-13/99 23:59:59\")"
+ },
+ {
+  "id": "text-value-2470",
+  "v": 45414,
+  "text": "45414",
+  "local": "=VALOR(\"2-5-2024 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2471",
+  "v": 36460.791666666664,
+  "text": "36460,79",
+  "local": "=VALOR(\"27/10/99 7 PM\")"
+ },
+ {
+  "id": "text-value-2472",
+  "v": 47305.99998842592,
+  "text": "47306",
+  "local": "=VALOR(\"6-7-29 23:59:59\")"
+ },
+ {
+  "id": "text-value-2473",
+  "v": 36461.791666666664,
+  "text": "36461,79",
+  "local": "=VALOR(\"28-10-99 7 PM\")"
+ },
+ {
+  "id": "text-value-2474",
+  "v": 2958248.0416666665,
+  "text": "2958248",
+  "local": "=VALOR(\"27/5/9999 25:00\")"
+ },
+ {
+  "id": "text-value-2475",
+  "v": 45104.041666666664,
+  "text": "45104,04",
+  "local": "=VALOR(\"26-6/2023 25:00\")"
+ },
+ {
+  "id": "text-value-2476",
+  "v": 140,
+  "text": "140",
+  "local": "=VALOR(\"19/5-1900 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2477",
+  "v": 45501,
+  "text": "45501",
+  "local": "=VALOR(\"28/7/2024 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2478",
+  "v": 19003.05,
+  "text": "19003,05",
+  "local": "=VALOR(\"+19003,05\")"
+ },
+ {
+  "id": "text-value-2479",
+  "v": 45455,
+  "text": "45455",
+  "local": "=VALOR(\"12-6-24\")"
+ },
+ {
+  "id": "text-value-2480",
+  "v": 45457.791666666664,
+  "text": "45457,79",
+  "local": "=VALOR(\"14/6/2024 7 PM\")"
+ },
+ {
+  "id": "text-value-2481",
+  "v": -99548000,
+  "text": "-1E+08",
+  "local": "=VALOR(\"-99548e3\")"
+ },
+ {
+  "id": "text-value-2482",
+  "v": -95833000,
+  "text": "-9,6E+07",
+  "local": "=VALOR(\"-95833e3\")"
+ },
+ {
+  "id": "text-value-2483",
+  "v": 98547,
+  "text": "98547",
+  "local": "=VALOR(\"98547\")"
+ },
+ {
+  "id": "text-value-2484",
+  "v": 47366.791666666664,
+  "text": "47366,79",
+  "local": "=VALOR(\"5/9/29 7 PM\")"
+ },
+ {
+  "id": "text-value-2485",
+  "v": 36468,
+  "text": "36468",
+  "local": "=VALOR(\"4/11-1999 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2486",
+  "v": -87398.5,
+  "text": "-87398,5",
+  "local": "=VALOR(\"-87398,5\")"
+ },
+ {
+  "id": "text-value-2487",
+  "v": 47171,
+  "text": "47171",
+  "local": "=VALOR(\"22-2/29 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2488",
+  "v": 8260.05,
+  "text": "8260,05",
+  "local": "=VALOR(\"+8260,05\")"
+ },
+ {
+  "id": "text-value-2489",
+  "v": 55131000.25,
+  "text": "55131000",
+  "local": "=VALOR(\"R$ 55131.000,25\")"
+ },
+ {
+  "id": "text-value-2490",
+  "v": 11312.4375,
+  "text": "11312,44",
+  "local": "=VALOR(\"20-12-30 10:30\")"
+ },
+ {
+  "id": "text-value-2491",
+  "v": -702.1,
+  "text": "-702,1",
+  "local": "=VALOR(\"(70210%)\")"
+ },
+ {
+  "id": "text-value-2492",
+  "v": 30841000,
+  "text": "30841000",
+  "local": "=VALOR(\"+30841e3\")"
+ },
+ {
+  "id": "text-value-2493",
+  "v": 2958383,
+  "text": "2958383",
+  "local": "=VALOR(\"10/10/9999 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2494",
+  "v": -65467000,
+  "text": "-6,5E+07",
+  "local": "=VALOR(\"(65467e3)\")"
+ },
+ {
+  "id": "text-value-2495",
+  "v": 74398.05,
+  "text": "74398,05",
+  "local": "=VALOR(\"R$ 74398,05\")"
+ },
+ {
+  "id": "text-value-2496",
+  "v": 45122.791666666664,
+  "text": "45122,79",
+  "local": "=VALOR(\"15-7-2023 7 PM\")"
+ },
+ {
+  "id": "text-value-2497",
+  "v": 47460.791666666664,
+  "text": "47460,79",
+  "local": "=VALOR(\"8/12/29 7 PM\")"
+ },
+ {
+  "id": "text-value-2498",
+  "v": 11313.791666666666,
+  "text": "11313,79",
+  "local": "=VALOR(\"21-12/30 7 PM\")"
+ },
+ {
+  "id": "text-value-2499",
+  "v": 45369,
+  "text": "45369",
+  "local": "=VALOR(\"18/3/24 12:00 AM\")"
+ },
+ {
+  "id": "text-value-2500",
+  "v": 351.7916666666667,
+  "text": "351,7917",
+  "local": "=VALOR(\"16-12-1900 7 PM\")"
+ },
+ {
+  "id": "text-value-2501",
+  "v": 36797,
+  "text": "36797",
+  "local": "=VALOR(\"28-9/0\")"
+ },
+ {
+  "id": "text-value-2502",
+  "v": 45298.99998842592,
+  "text": "45299",
+  "local": "=VALOR(\"7/1/24 23:59:59\")"
+ },
+ {
+  "id": "text-value-2503",
+  "v": 36680.791666666664,
+  "text": "36680,79",
+  "local": "=VALOR(\"3/6/0 7 PM\")"
+ },
+ {
+  "id": "text-value-2504",
+  "v": 36272.041666666664,
+  "text": "36272,04",
+  "local": "=VALOR(\"21-4-1999 25:00\")"
+ },
+ {
+  "id": "text-value-2505",
+  "v": 45603,
+  "text": "45603",
+  "local": "=VALOR(\"7/11-2024\")"
+ },
+ {
+  "id": "text-value-2506",
+  "v": 36561.99998842592,
+  "text": "36562",
+  "local": "=VALOR(\"5-2-0 23:59:59\")"
+ },
+ {
+  "id": "text-value-2507",
+  "v": 36670.791666666664,
+  "text": "36670,79",
+  "local": "=VALOR(\"24-5/0 7 PM\")"
+ },
+ {
+  "id": "text-value-2508",
+  "v": -32967000,
+  "text": "-3,3E+07",
+  "local": "=VALOR(\"-32967e3\")"
+ },
+ {
+  "id": "text-value-2509",
+  "v": 44936,
+  "text": "44936",
+  "local": "=VALOR(\"10/1-2023\")"
+ },
+ {
+  "id": "text-value-2510",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"1 618351/2\")"
+ },
+ {
+  "id": "text-value-2511",
+  "v": 5000.5,
+  "text": "5000,5",
+  "local": "=VALOR(\"1 9999/2\")"
+ },
+ {
+  "id": "text-value-2512",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"1 99999/2\")"
+ },
+ {
+  "id": "text-value-2513",
+  "v": 16384.5,
+  "text": "16384,5",
+  "local": "=VALOR(\"1 32767/2\")"
+ },
+ {
+  "id": "text-value-2514",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"1 32768/2\")"
+ },
+ {
+  "id": "text-value-2515",
+  "v": 1.000030518509476,
+  "text": "1,000031",
+  "local": "=VALOR(\"1 1/32767\")"
+ },
+ {
+  "id": "text-value-2516",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"1 1/32768\")"
+ },
+ {
+  "id": "text-value-2517",
+  "v": 32768.5,
+  "text": "32768,5",
+  "local": "=VALOR(\"32768 1/2\")"
+ },
+ {
+  "id": "text-value-2518",
+  "v": 0.4375,
+  "text": "0,4375",
+  "local": "=VALOR(\"10 : 30\")"
+ },
+ {
+  "id": "text-value-2519",
+  "v": 0.4375,
+  "text": "0,4375",
+  "local": "=VALOR(\"10: 30\")"
+ },
+ {
+  "id": "text-value-2520",
+  "v": 0.9375,
+  "text": "0,9375",
+  "local": "=VALOR(\"10 :30 PM\")"
+ },
+ {
+  "id": "text-value-2521",
+  "v": 45323.4375,
+  "text": "45323,44",
+  "local": "=VALOR(\"1/2/2024 10 : 30\")"
+ },
+ {
+  "id": "text-value-2522",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"jan,2024\")"
+ },
+ {
+  "id": "text-value-2523",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"jan, 2024\")"
+ },
+ {
+  "id": "text-value-2524",
+  "v": 45292,
+  "text": "45292",
+  "local": "=VALOR(\"1jan2024\")"
+ },
+ {
+  "id": "text-value-2525",
+  "v": 36892,
+  "text": "36892",
+  "local": "=VALOR(\"jan1\")"
+ },
+ {
+  "id": "text-value-2526",
+  "v": 45292,
+  "text": "45292",
+  "local": "=VALOR(\"1 jan2024\")"
+ },
+ {
+  "id": "text-value-2527",
+  "v": 0.123456789012345,
+  "text": "0,123457",
+  "local": "=VALOR(\"0,1234567890123456789\")"
+ },
+ {
+  "id": "text-value-2528",
+  "v": 123456789012345000,
+  "text": "1,23E+17",
+  "local": "=VALOR(\"123456789012345678,9\")"
+ },
+ {
+  "id": "text-value-2529",
+  "v": 9999999999999990,
+  "text": "1E+16",
+  "local": "=VALOR(\"9999999999999999\")"
+ },
+ {
+  "id": "text-value-2530",
+  "v": 1.99999999999999,
+  "text": "2",
+  "local": "=VALOR(\"1,99999999999999999\")"
+ },
+ {
+  "id": "text-value-2531",
+  "v": 1234567890123450000,
+  "text": "1,23E+18",
+  "local": "=VALOR(\"12345678901234567e2\")"
+ },
+ {
+  "id": "text-value-2532",
+  "v": 0.00001,
+  "text": "0,00001",
+  "local": "=VALOR(\"1e-5\")"
+ },
+ {
+  "id": "text-value-2533",
+  "v": 1.5e-300,
+  "text": "1,5E-300",
+  "local": "=VALOR(\"1,5e-300\")"
+ },
+ {
+  "id": "text-value-2534",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"1e-400\")"
+ },
+ {
+  "id": "text-value-2535",
+  "v": 15008,
+  "text": "15008",
+  "local": "=VALOR(\"fev1941\")"
+ },
+ {
+  "id": "text-value-2536",
+  "v": 46776,
+  "text": "46776",
+  "local": "=VALOR(\"24jan28\")"
+ },
+ {
+  "id": "text-value-2537",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=VALOR(\"mar,3412\")"
+ },
+ {
+  "id": "text-value-2538",
+  "v": 35.52430555555556,
+  "text": "35,52431",
+  "local": "=VALOR(\"852  :35\")"
  }
 ]
