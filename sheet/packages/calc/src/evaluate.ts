@@ -17,6 +17,7 @@ import { boundingArea, intersectAreas, wrapCol, wrapRow } from './a1.js';
 import type { Node, RefPart, SheetSpec, TableItem } from './ast.js';
 import { arith, broadcast2, compare, concat, map1, negate, percent, type ArithOp, type CmpOp } from './ops.js';
 import { parseFormula, FormulaSyntaxError } from './parse.js';
+import { getLanguage } from './i18n/languages.js';
 
 /** Tabela (ListObject) já resolvida em coordenadas. */
 export interface TableDef {
@@ -475,7 +476,9 @@ export class Evaluator {
     let node: Node;
     try {
       const loc = this.host.locale;
-      const r1c1Letters = loc.r1c1 ?? R1C1_LETTERS[loc.id];
+      // letras do idioma: ValueLocale.r1c1, a tabela do idioma (i18n, LOCALE) ou a interna
+      const lang = getLanguage(loc.id)?.r1c1;
+      const r1c1Letters = loc.r1c1 ?? (lang ? { row: lang.row, col: lang.col } : R1C1_LETTERS[loc.id]);
       node = parseFormula(text, { r1c1: !a1, row: ctx.row, col: ctx.col, ...(r1c1Letters ? { r1c1Letters } : {}) });
     } catch (e) {
       if (e instanceof FormulaSyntaxError) return ERR.REF;
