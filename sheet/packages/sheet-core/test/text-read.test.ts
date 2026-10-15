@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseXml, textContent } from '../src/index.js';
-import { decodeXstring, readSharedStrings } from '../src/read.js';
+import { decodeXstring, readSharedStrings, readWorksheet } from '../src/read.js';
 import { defaultColorContext } from '../src/theme.js';
 import type { XlsxPackage } from '../src/package.js';
 
@@ -33,5 +33,15 @@ describe('texto lido como o Excel (XML 1.0 + ST_Xstring)', () => {
       + '<si><t>a\u00a0</t></si></sst>';
     const pkg = { getPartText: (p: string) => (p === 'xl/sharedStrings.xml' ? xml : undefined) } as unknown as XlsxPackage;
     expect(readSharedStrings(pkg, defaultColorContext()).map((s) => s.text)).toEqual(['a \n b', ' a\n', 'xy', '', '  ', 'a\u00a0']);
+  });
+
+  it('<ignoredErrors numberStoredAsText> vira faixas sem o indicador', () => {
+    const xml = '<worksheet><sheetData/><ignoredErrors><ignoredError sqref="A1:B3 D4" numberStoredAsText="1"/>'
+      + '<ignoredError sqref="C1" evalError="1"/></ignoredErrors></worksheet>';
+    const pkg = {
+      getPartText: (p: string) => (p === 'xl/worksheets/sheet1.xml' ? xml : undefined),
+      resolveRelTarget: (_: string, t: string) => t,
+    } as unknown as XlsxPackage;
+    expect(readWorksheet(pkg, 'xl/worksheets/sheet1.xml', defaultColorContext()).ignoreNumberAsText).toEqual(['A1:B3', 'D4']);
   });
 });

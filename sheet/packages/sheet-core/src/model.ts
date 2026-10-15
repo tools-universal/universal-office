@@ -384,6 +384,11 @@ export interface Worksheet {
   showZeros?: boolean;
   /** `<sheetView rightToLeft="1">` → true: colunas da direita para a esquerda. */
   rightToLeft?: boolean;
+  /**
+   * Faixas (A1, "A1:B3") com o indicador "número armazenado como texto"
+   * desligado (`<ignoredErrors><ignoredError numberStoredAsText="1">`).
+   */
+  ignoreNumberAsText?: string[];
   condFormats?: CondFormat[];
   /** Mapa top-left ref → range (conveniência para render). */
   mergedAreas?: Map<string, string>;

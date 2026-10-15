@@ -35,6 +35,18 @@ export interface PaintTextArgs {
   baselineShift?: number;
 }
 
+/**
+ * Indicador de erro do Excel (verificação em segundo plano: "número armazenado
+ * como texto"): triângulo #008000 no canto superior esquerdo, catetos de 6 px a
+ * 100%, a 1 px da linha de grade (medido na imagem do Excel, lab e18).
+ */
+export function paintErrorMark(ctx: CanvasRenderingContext2D, left: number, top: number, zoom: number): void {
+  const n = Math.max(2, Math.round(6 * zoom));
+  const x = Math.round(left) + 1, y = Math.round(top) + 1;
+  ctx.fillStyle = '#008000';
+  for (let k = 0; k < n; k++) ctx.fillRect(x, y + k, n - k, 1);
+}
+
 /** Alinhamento efetivo: geral → número à direita, texto à esquerda, booleano/erro ao centro. */
 export function effectiveHAlign(halign: string | undefined, kind: CellKind): string {
   if (!halign || halign === 'general') return kind === 'number' ? 'right' : kind === 'text' ? 'left' : 'center';

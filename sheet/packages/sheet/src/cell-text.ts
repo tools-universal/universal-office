@@ -32,6 +32,24 @@ export function localizeError(v: string): string {
   return ERRORS_PT_BR[v.trim().toUpperCase()] ?? v;
 }
 
+/** Mantissa pt-BR: inteiro (milhar com "." em grupos de 3) e/ou ",decimais"; expoente; "%". */
+const NUM_PT_BR = /^[+-]?\s*(?:R\$|€)?\s*[+-]?\s*(\d+|\d{1,3}(?:\.\d{3})+)?(,\d*)?(?:[eE][+-]?\d+)?\s*%?\s*(?:R\$|€)?$/;
+
+/**
+ * Texto que o Excel pt-BR marca como "número armazenado como texto" (triângulo
+ * verde no canto). Medido (lab e30, Range.Errors(3)): "007", "-5", "+5", "1,5",
+ * "1.234", "1.234,5", " 12", "12%", "R$ 12", "€12", "12€", "(12)", "1E5",
+ * ",5", "5,", "- 5" sim; "1.5", "12.0", "1 234", "$12", "12,345,678", datas
+ * ("1/2", "01/02/2020"), horas, "TRUE", dígitos de largura total não. Vale para
+ * compartilhada e inline, com formato Geral ou "@".
+ */
+export function looksLikeNumberPtBR(s: string): boolean {
+  let t = s.replace(/^ +| +$/g, '');
+  if (t.length > 2 && t.startsWith('(') && t.endsWith(')')) t = t.slice(1, -1).trim();
+  const m = NUM_PT_BR.exec(t);
+  return !!m && (/\d/.test(m[1] ?? '') || /\d/.test(m[2] ?? ''));
+}
+
 /**
  * Célula t="d" (data ISO 8601: "2023-01-15", "2023-01-15T10:30:00", "10:30") →
  * serial do Excel (1900: dias desde 30/12/1899, com o dia fictício 29/02/1900;

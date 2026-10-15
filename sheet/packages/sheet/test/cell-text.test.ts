@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { layoutCellText, cellMarginPx, autofitWrapWidthPx, isoToSerial, localizeError, type FontMetrics } from '../src/cell-text.js';
+import {
+  layoutCellText, cellMarginPx, autofitWrapWidthPx, isoToSerial, localizeError, looksLikeNumberPtBR, type FontMetrics,
+} from '../src/cell-text.js';
+
+describe('número armazenado como texto (Excel pt-BR, lab e30)', () => {
+  it('marca o que o Excel marca', () => {
+    const yes = ['00', '007', '123', '-5', '+5', '1,5', '1.234', '1.234,5', '12 ', ' 12', '12%', 'R$ 12', '(12)', '1E5', '1e5',
+      '1,5E3', '0,5', '-0,5', ',5', '5,', '1.234.567', '12,0', '1,234', '2020', '99999999999999999999', '0', '- 5', '5 %', 'R$12', '€12', '12€'];
+    const no = ['1.5', '1 234', '$12', '12-3', '1/2', '01/02/2020', '12:30', 'TRUE', 'VERDADEIRO', '#N/D', '１２３', '1_000', '12.0',
+      '-', '5-', '1.2.3', '12,345,678', '', '%', 'abc'];
+    for (const s of yes) expect([s, looksLikeNumberPtBR(s)]).toEqual([s, true]);
+    for (const s of no) expect([s, looksLikeNumberPtBR(s)]).toEqual([s, false]);
+  });
+});
 
 /**
  * Range.Text MEDIDO no Excel 365 pt-BR (lab do Sheet, e2/e5/e7) para a Calibri

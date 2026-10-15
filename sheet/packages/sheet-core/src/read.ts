@@ -296,6 +296,13 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (showGridLines === false) ws.showGridLines = false;
   if (offAttr('showZeros')) ws.showZeros = false;
   if (onAttr('rightToLeft')) ws.rightToLeft = true;
+  // erros ignorados: só o "número armazenado como texto" tem indicador pintado aqui
+  const ignored: string[] = [];
+  for (const ie of childElements(firstChild(root, 'ignoredErrors') ?? root, 'ignoredError')) {
+    const v = ie.attrs['numberStoredAsText'];
+    if (v === '1' || v === 'true') ignored.push(...(ie.attrs['sqref'] ?? '').split(/\s+/).filter(Boolean));
+  }
+  if (ignored.length > 0) ws.ignoreNumberAsText = ignored;
   if (condFormats.length > 0) ws.condFormats = condFormats;
   if (comments.length > 0) ws.comments = comments;
   if (charts.length > 0) ws.charts = charts;

@@ -21,11 +21,11 @@ import { CfEngine, cellCfValue, todaySerial, paintDataBar, type CfResult, type C
 import { paintCfIcon } from './cf-icons.js';
 import { winningEdge, edgeExtent, paintHEdge, paintVEdge, paintDiagonals, NO_CORNER, type CornerInfo } from './borders.js';
 import {
-  layoutCellText, localizeError, localizeBool, isoToSerial, cellMarginPx, MAX_CELL_CHARS, autofitWrapWidthPx,
+  layoutCellText, localizeError, localizeBool, isoToSerial, cellMarginPx, MAX_CELL_CHARS, autofitWrapWidthPx, looksLikeNumberPtBR,
   type CellText, type CellTextInput,
 } from './cell-text.js';
 import { CellFonts, rowDescentPx, type CellFont } from './text-metrics.js';
-import { paintCellText, paintRichText, wrapLines, type RichRunStyle } from './cell-paint.js';
+import { paintCellText, paintRichText, paintErrorMark, wrapLines, type RichRunStyle } from './cell-paint.js';
 
 /**
  * <universal-sheet> — webcomponent que renderiza uma pasta de trabalho .xlsx
@@ -409,6 +409,8 @@ export class UniversalSheetElement extends HTMLElement {
   private normalRowPx = 20;
   /** Abas cuja altura automática mediu texto com quebra (refeita quando chega fonte). */
   private wrapFitViews = new WeakSet<SheetView>();
+  /** Retângulos [c0, r0, c1, r1] de ignoredErrors numberStoredAsText por aba. */
+  private ignoreRects = new WeakMap<SheetView, [number, number, number, number][]>();
   /** Contexto 2D só para medir texto (auto-ajuste de linhas com quebra). */
   private measureCtx: CanvasRenderingContext2D | null = null;
 
@@ -2015,6 +2017,40 @@ export class UniversalSheetElement extends HTMLElement {
     ctx: CanvasRenderingContext2D, cell: Cell | undefined,
     st: ResolvedStyle, left: number, top: number, w: number, h: number,
     col = 0, row = 0, cells?: Map<number, Cell>, merged = false,
+  ): void {
+    // indicador "número armazenado como texto" (por cima do texto; também com showValue=0)
+    this.paintCellContent(ctx, cell, st, left, top, w, h, col, row, cells, merged);
+    if (this.numberAsTextMark(cell, col, row)) paintErrorMark(ctx, left, top, this.zoom);
+  }
+
+  /** Célula de TEXTO que o Excel marca como número armazenado como texto (fora de ignoredErrors). */
+  private numberAsTextMark(cell: Cell | undefined, col: number, row: number): boolean {
+    if (!cell || (cell.type !== 's' && cell.type !== 'inlineStr') || cell.formula !== undefined) return false;
+    const t = cell.type === 's' ? this.shared[parseInt(cell.value ?? '', 10)]?.text : cell.inlineString?.text ?? cell.value;
+    if (!t || !looksLikeNumberPtBR(t)) return false;
+    const v = this.view;
+    const ign = v?.worksheet.ignoreNumberAsText;
+    if (!v || !ign) return true;
+    let rects = this.ignoreRects.get(v);
+    if (!rects) {
+      rects = [];
+      for (const s of ign) {
+        try {
+          const [a, b] = s.split(':');
+          const p = refToRowCol(a!), q = b ? refToRowCol(b) : p;
+          rects.push([Math.min(p.col, q.col), Math.min(p.row, q.row), Math.max(p.col, q.col), Math.max(p.row, q.row)]);
+        } catch { /* faixa de coluna/linha inteira: ignora */ }
+      }
+      this.ignoreRects.set(v, rects);
+    }
+    return !rects.some(([c0, r0, c1, r1]) => col >= c0 && col <= c1 && row >= r0 && row <= r1);
+  }
+
+  /** Texto da célula (normal ou rico) — sem os indicadores. */
+  private paintCellContent(
+    ctx: CanvasRenderingContext2D, cell: Cell | undefined,
+    st: ResolvedStyle, left: number, top: number, w: number, h: number,
+    col: number, row: number, cells: Map<number, Cell> | undefined, merged: boolean,
   ): void {
     // formatação condicional com showValue=0: só a barra/ícone, sem o valor
     if (st.cf?.hideValue) return;
