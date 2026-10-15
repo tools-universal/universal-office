@@ -296,10 +296,23 @@ export function paintShapesTo(
   paintImages = resources.images;
   clipOverflow = !!opts.clipOverflow;
   advCache.clear();
+  // o contexto vem do hospedeiro (a grade deixa textAlign/linha tracejada da
+  // célula): a pintura assume o estado padrão do canvas
+  ctx.save();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.setLineDash([]);
+  ctx.lineCap = 'butt';
+  ctx.lineJoin = 'miter';
+  ctx.miterLimit = 10;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.shadowColor = 'rgba(0,0,0,0)';
+  ctx.imageSmoothingEnabled = true;
   try {
     const ox = opts.ox ?? 0, oy = opts.oy ?? 0;
     paintShapeList(ctx, shapes, resources, { ox, oy, scale }, { ox, oy, sw: resources.slideW * scale, sh: resources.slideH * scale }, opts);
   } finally {
+    ctx.restore();
     fontStack = prev;
     paintImages = prevImgs;
     clipOverflow = prevClip;
