@@ -46,6 +46,12 @@ export interface RenderOptions {
    * desenha — o hospedeiro repinta quando chegar).
    */
   image?: (ref: string) => ChartImage | undefined;
+  /**
+   * Densidade dos eixos de valores do EXCEL (mais densa que a do PowerPoint;
+   * medido, syn dens2): vertical = ⌊comprimento ÷ linha de texto⌋ divisões,
+   * horizontal = ⌊comprimento ÷ máx(33 pt, rótulo + 1 em)⌋, as duas com teto 10.
+   */
+  excelAxisDensity?: boolean;
 }
 
 /**
@@ -949,7 +955,10 @@ class Renderer {
     const wide = inf.dir === 'h' ? Math.max(lblW + em * 2, 72 * this.S) : Math.max(21 * this.S, this.lineH(this.text(a.txPr)) * 1.05);
     // 3D: sem a folga de 5% e com a mesma densidade nos dois sentidos (medido no oráculo)
     const is3D = inf.groups.some((g) => g.threeD);
-    const maxDiv = inf.dir === 'h' && !is3D ? Math.max(2, Math.min(10, Math.floor(L / wide))) : Math.max(1, Math.min(10, Math.floor((L - (inf.dir === 'v' ? 14 * this.S : 0)) / this.lineH(this.text(a.txPr))) - 1));
+    const xl = this.o.excelAxisDensity && !is3D;
+    const maxDiv = xl
+      ? Math.max(1, Math.min(10, Math.floor(L / (inf.dir === 'h' ? Math.max(33 * this.S, lblW + em) : this.lineH(this.text(a.txPr))))))
+      : inf.dir === 'h' && !is3D ? Math.max(2, Math.min(10, Math.floor(L / wide))) : Math.max(1, Math.min(10, Math.floor((L - (inf.dir === 'v' ? 14 * this.S : 0)) / this.lineH(this.text(a.txPr))) - 1));
     const pctFix = pct ? { min: a.min ?? (lo < 0 ? -1 : 0), max: a.max ?? 1 } : {};
     inf.scale = autoScale(lo, hi, maxDiv, { ...pctFix, ...(a.min !== undefined ? { min: a.min } : {}), ...(a.max !== undefined ? { max: a.max } : {}), ...(a.majorUnit !== undefined ? { major: a.majorUnit } : {}), ...(a.minorUnit !== undefined ? { minor: a.minorUnit } : {}), ...(a.logBase ? { log: a.logBase } : {}) }, is3D ? 0 : 0.05);
     const firstSer = inf.groups[0]?.series[0];

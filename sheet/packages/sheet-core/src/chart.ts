@@ -139,6 +139,7 @@ export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: 
     defaultAreaFill: 'bg1',
     // moldura do Excel: a cor das linhas default do gráfico ('auto'), ou a pedida
     defaultAreaLine: frameBorder ?? 'auto2010',
+    excelAxisDensity: true,
     cssFont: cssFont ?? ((f) => `'${f}', Calibri, 'Liberation Sans', Arial, sans-serif`),
   });
 }
