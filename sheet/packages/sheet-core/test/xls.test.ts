@@ -370,6 +370,34 @@ describe('.xls — gráfico embutido (subfluxo BIFF8 → c:chartSpace)', () => {
     expect(ch.chartXml).toContain('<c:legendPos val="r"/>');
     expect(m.space.plotSp.fill).toMatchObject({ kind: 'solid', color: '#C0C0C0' });
   });
+
+  it('GELFRAME (degradê do Office 2007) e eixo de datas (AXCEXT) com uma posição por dia', () => {
+    // degradê de 2 cores com fillShadeColors (escura → clara), θ = 180°, foco 100: claro em cima, escuro embaixo
+    const shades = [...u16(2), ...u16(2), ...u16(8), 0x9b, 0x2d, 0x2a, 0x02, ...u32(0), 0xce, 0x3b, 0x37, 0x02, ...u32(0x10000)];
+    const fopt = oa(0xf00b, 5, 3, [...u16(0x180), ...u32(4), ...u16(0x181), ...u32(0x0800003c), ...u16(0x18b), ...u32(180 << 16),
+      ...u16(0x18c), ...u32(100), ...u16(0x197 | 0x8000), ...u32(shades.length), ...shades]);
+    const gel = rec(0x1066, fopt);
+    const axcext = rec(0x1062, [...u16(0), ...u16(0), ...u16(1), ...u16(0), ...u16(1), ...u16(0), ...u16(0), ...u16(0), ...u16(0xdf)]);
+    const stream = [...chartStream];
+    stream.splice(stream.findIndex((r) => r.type === 0x100a) + 1, 0, gel); // depois do AREAFORMAT da série
+    stream.splice(stream.findIndex((r) => r.type === 0x1020) + 1, 0, axcext); // depois do CATSERRANGE
+    const areaIdx = stream.findIndex((r) => r.type === 0x100a);
+    stream[areaIdx] = areaFmt(0x3c);
+    const recs2: Rec[] = [
+      ...[36526, 36528, 36527].map((d, i) => rec(RT.NUMBER, [...u16(i), ...u16(0), ...u16(16), ...f64(d)])),
+      ...[1, 2, 3].map((v, i) => rec(RT.NUMBER, [...u16(i), ...u16(1), ...u16(15), ...f64(v)])),
+      rec(RT.MSODRAWING, dg),
+      rec(RT.OBJ, [...u16(0x15), ...u16(0x12), ...u16(5), ...u16(1), ...u16(0x6011), ...new Array(12).fill(0), ...u32(0)]),
+      ...stream,
+    ];
+    const p = openSpreadsheet(buildXls([...globals, xf({ fmt: 14 })], [{ name: 'Dados', recs: recs2 }]));
+    const x = readWorksheet(p, readWorkbook(p).sheets[0]!.target!).charts![0]!.chartXml;
+    expect(x).toContain('<a:gsLst><a:gs pos="0"><a:srgbClr val="CE3B37"/></a:gs><a:gs pos="100000"><a:srgbClr val="9B2D2A"/></a:gs></a:gsLst><a:lin ang="5400000"');
+    // 01/01, 03/01, 02/01 → posições 0, 2, 1 do eixo de datas (dias)
+    expect(x).toContain('<c:dateAx>');
+    expect(x).toContain('<c:baseTimeUnit val="days"/>');
+    expect(parseChart(x).series[0]!.values).toEqual([1, 3, 2]);
+  });
 });
 
 describe('.xls — formas e caixas de texto (OfficeArt → xdr:sp)', () => {

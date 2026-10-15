@@ -20,6 +20,8 @@ import type { CellValue, Rect } from './sheet.js';
 import { formulaAreas, type Area } from './formula.js';
 import { fontAt, normalizeFormat } from './styles-xml.js';
 import { XML_HEAD, xmlText } from './xmlw.js';
+import { readFoptBlock } from './officeart.js';
+import { foptFillXml } from './shapes.js';
 
 /** Acesso às células da pasta para resolver as referências das séries. */
 export interface ChartContext {
@@ -37,10 +39,10 @@ const CT = {
   CATSERRANGE: 0x1020, AXISLINEFORMAT: 0x1021, DEFAULTTEXT: 0x1024, TEXT: 0x1025, FONTX: 0x1026, OBJECTLINK: 0x1027,
   FRAME: 0x1032, BEGIN: 0x1033, END: 0x1034, PLOTAREA: 0x1035, D3: 0x103a, RADAR: 0x103e, SURF: 0x103f,
   RADARAREA: 0x1040, AXISPARENT: 0x1041, SHTPROPS: 0x1044, SERTOCRT: 0x1045, SERPARENT: 0x104a, IFMT: 0x104e,
-  AI: 0x1051, SERFMT: 0x105d, BOPPOP: 0x1061, SIINDEX: 0x1065,
+  AI: 0x1051, SERFMT: 0x105d, FBI: 0x1060, AXCEXT: 0x1062, BOPPOP: 0x1061, SIINDEX: 0x1065, GELFRAME: 0x1066,
 } as const;
 
-interface Node { t: number; r: Bytes; conts: number[]; kids: Node[] }
+interface Node { t: number; r: Bytes; conts: number[]; kids: Node[]; gel?: Node }
 
 /** Registros → árvore pelos BEGIN/END (o registro antes do BEGIN é o pai). */
 function tree(records: BiffRecord[]): Node[] {
@@ -59,7 +61,10 @@ function tree(records: BiffRecord[]): Node[] {
     }
     if (rec.type === CT.END) { if (stack.length > 1) stack.pop(); last = undefined; continue; }
     last = { t: rec.type, r: new Bytes(rec.data), conts: rec.conts, kids: [] };
-    stack[stack.length - 1]!.push(last);
+    const level = stack[stack.length - 1]!;
+    // GELFRAME (preenchimento do Office 2007 em OfficeArt) complementa o AREAFORMAT anterior
+    if (rec.type === CT.GELFRAME) { const area = [...level].reverse().find((k) => k.t === CT.AREAFORMAT); if (area) area.gel = last; }
+    level.push(last);
   }
   return root;
 }
@@ -154,6 +159,13 @@ function fillXml(g: XlsGlobals, n: Node | undefined, auto: string | undefined): 
   const fls = r.u16(8), grbit = r.u16(10), icvFore = r.u16(12);
   if (grbit & 1) return auto ? solid(auto) : '<a:noFill/>';
   if (fls === 0) return '<a:noFill/>';
+  // Excel 2007+: o GELFRAME traz o preenchimento verdadeiro (RGB, degradê com
+  // fillShadeColors) — o AREAFORMAT guarda só a aproximação da paleta
+  if (n.gel) {
+    let x: string | undefined;
+    try { const fo = readFoptBlock(n.gel.r.sub(0, n.gel.r.length)); x = foptFillXml(g, fo.props, fo.complex); } catch { x = undefined; }
+    if (x) return x;
+  }
   return solid(icvColor(g, icvFore));
 }
 
@@ -372,6 +384,18 @@ export function chartSpaceXml(ctx: ChartContext, records: BiffRecord[]): string 
     series.push(sd);
   }
 
+  // ── eixo de datas (AXCEXT fDateAxis): uma posição por unidade de tempo ──
+  const dateAxes = new Map<Node, DateAxis>();
+  for (const ap of parents) {
+    const xAxis = kidsOf(ap, CT.AXIS).find((a) => a.r.u16(0) === 0);
+    const ext = kid(xAxis, CT.AXCEXT);
+    const gs = groups.filter((x) => x.parent === ap);
+    if (!ext || !gs.length || gs.some((x) => x.kind === 'pie' || x.kind === 'scatter' || x.kind === 'bubble' || x.kind === 'radar')) continue;
+    const sers = series.filter((s) => gs.includes(groups[s.group]!));
+    const da = dateAxis(g, ext, sers);
+    if (da) dateAxes.set(ap, da);
+  }
+
   // ── eixos (um par por AXISPARENT) ──
   let axId = 100000;
   const axesXml: string[] = [];
@@ -398,7 +422,7 @@ export function chartSpaceXml(ctx: ChartContext, records: BiffRecord[]): string 
     const xPos = secondary ? (horizontal ? 'r' : 't') : horizontal ? 'l' : 'b';
     const yPos = secondary ? (horizontal ? 't' : 'r') : horizontal ? 'b' : 'l';
     axesXml.push(axisXml(g, ctx, xAxis, xy ? 'val' : 'cat', ids[0], ids[1], xPos, secondary, axisText!,
-      secondary ? undefined : titles.get(3), first?.catsNumeric ? first.catFmt : undefined, between, xy));
+      secondary ? undefined : titles.get(3), first?.catsNumeric ? first.catFmt : undefined, between, xy, dateAxes.get(ap)));
     axesXml.push(axisXml(g, ctx, yAxis, 'val', ids[1], ids[0], yPos, secondary, axisText!,
       secondary ? undefined : titles.get(2), first?.valFmt ?? 'General', between, xy));
   }
@@ -611,12 +635,84 @@ function seriesXml(g: XlsGlobals, s: SeriesData, kind: Kind, varied: boolean, or
 const TICK_MARK = ['none', 'in', 'out', 'cross'];
 const TICK_LBL = ['none', 'low', 'high', 'nextTo'];
 
+/** Eixo de datas já resolvido: unidade base e unidades principal/secundária. */
+interface DateAxis { base: number; major?: number; majorUnit: number; minor?: number; minorUnit: number }
+const TIME_UNIT = ['days', 'months', 'years'];
+
+/** Data serial → [ano, mês 0-based, dia] (sistema 1900 com o 29/02/1900 fictício, ou 1904). */
+function serialYmd(v: number, d1904: boolean): [number, number, number] {
+  let n = Math.floor(v);
+  if (!d1904 && n < 61) n += 1; // antes do 29/02/1900 fictício
+  const t = new Date(Date.UTC(d1904 ? 1904 : 1899, d1904 ? 0 : 11, d1904 ? 1 : 30) + n * 86400000);
+  return [t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()];
+}
+function ymdSerial(y: number, m: number, d: number, d1904: boolean): number {
+  const ms = Date.UTC(y, m, d) - Date.UTC(d1904 ? 1904 : 1899, d1904 ? 0 : 11, d1904 ? 1 : 30);
+  let n = Math.round(ms / 86400000);
+  if (!d1904 && n < 61) n -= 1;
+  return n;
+}
+
+/**
+ * Eixo de categorias com datas (AXCEXT.fDateAxis, [MS-XLS] 2.4.9): o Excel
+ * põe UMA posição por unidade base (dias/meses/anos) entre o mínimo e o
+ * máximo — categorias vazias somem e as datas repetidas caem na mesma
+ * posição. O motor de gráficos posiciona por índice: as séries são
+ * redistribuídas aqui nas posições de data (e o eixo sai como `c:dateAx`).
+ */
+function dateAxis(g: XlsGlobals, ext: Node, sers: SeriesData[]): DateAxis | undefined {
+  const r = ext.r;
+  const fl = r.u16(16);
+  if (!(fl & 0x10)) return undefined;
+  const ref = sers.find((s) => s.cats && s.catsNumeric && s.cats.some((v) => typeof v === 'number'));
+  if (!ref) return undefined;
+  // tipo automático (fAutoDate): datas só se as categorias estão formatadas como data
+  const fmt = (ref.catFmt ?? 'General').replace(/"[^"]*"|\[[^\]]*\]|\\./g, '');
+  if (fl & 0x80 && !(/[dmy]/i.test(fmt) && !/^general$/i.test(fmt.trim()))) return undefined;
+  const base = Math.min(2, r.u16(12));
+  const key = (v: number): number => {
+    if (base === 0) return Math.floor(v);
+    const [y, m] = serialYmd(v, g.date1904);
+    return base === 1 ? y * 12 + m : y;
+  };
+  const nums = ref.cats!.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  let lo = Math.min(...nums.map(key)), hi = Math.max(...nums.map(key));
+  if (!(fl & 1)) lo = key(r.u16(0));
+  if (!(fl & 2)) hi = key(r.u16(2));
+  const n = hi - lo + 1;
+  if (!(n > 0 && n <= 4000)) return undefined;
+  const slotSerial = (k: number): number => {
+    const v = lo + k;
+    if (base === 0) return v;
+    return base === 1 ? ymdSerial(Math.floor(v / 12), v % 12, 1, g.date1904) : ymdSerial(v, 0, 1, g.date1904);
+  };
+  const cats = Array.from({ length: n }, (_, k) => slotSerial(k));
+  for (const s of sers) {
+    const own = s.cats && s.catsNumeric ? s.cats : ref.cats!;
+    const vals: (number | undefined)[] = new Array(n).fill(undefined);
+    s.vals.forEach((v, i) => {
+      const d = own[i];
+      if (typeof d !== 'number' || v === undefined) return;
+      const k = key(d) - lo;
+      if (k >= 0 && k < n) vals[k] = v;
+    });
+    s.vals = vals;
+    s.cats = cats;
+    s.catsNumeric = true;
+    s.catFmt ??= ref.catFmt;
+  }
+  return {
+    base, major: fl & 4 ? undefined : r.u16(4), majorUnit: Math.min(2, r.u16(6)),
+    minor: fl & 8 ? undefined : r.u16(8), minorUnit: Math.min(2, r.u16(10)),
+  };
+}
+
 function axisXml(g: XlsGlobals, _ctx: ChartContext, ax: Node | undefined, kind: 'cat' | 'val', id: number, cross: number, pos: string,
-  secondary: boolean, base: TextProps, titleNode: Node | undefined, fmt: string | undefined, between: boolean, xy: boolean): string {
+  secondary: boolean, base: TextProps, titleNode: Node | undefined, fmt: string | undefined, between: boolean, xy: boolean, date?: DateAxis): string {
   const tick = kid(ax, CT.TICK);
   const vr = kid(ax, CT.VALUERANGE);
   const cr = kid(ax, CT.CATSERRANGE);
-  const tag = kind === 'cat' ? 'c:catAx' : 'c:valAx';
+  const tag = kind === 'cat' ? (date ? 'c:dateAx' : 'c:catAx') : 'c:valAx';
   let reversed = false, scaling = '', crosses = secondary ? '<c:crosses val="max"/>' : '<c:crosses val="autoZero"/>', units = '';
   if (vr) {
     const r = vr.r;
@@ -668,7 +764,11 @@ function axisXml(g: XlsGlobals, _ctx: ChartContext, ax: Node | undefined, kind: 
   let x = `<${tag}><c:axId val="${id}"/><c:scaling>${scaling}</c:scaling><c:delete val="${ax ? 0 : 1}"/><c:axPos val="${pos}"/>${major}${minor}${title}${numFmt}`
     + `<c:majorTickMark val="${majorT}"/><c:minorTickMark val="${minorT}"/><c:tickLblPos val="${lblPos}"/>`
     + `<c:spPr><a:noFill/>${axisLine}</c:spPr>${txPr(tp, rot)}<c:crossAx val="${cross}"/>${crosses}`;
-  if (kind === 'cat') {
+  if (kind === 'cat' && date) {
+    x += `<c:auto val="0"/><c:lblOffset val="100"/><c:baseTimeUnit val="${TIME_UNIT[date.base]}"/>`
+      + `${date.major ? `<c:majorUnit val="${date.major}"/><c:majorTimeUnit val="${TIME_UNIT[date.majorUnit]}"/>` : ''}`
+      + `${date.minor ? `<c:minorUnit val="${date.minor}"/><c:minorTimeUnit val="${TIME_UNIT[date.minorUnit]}"/>` : ''}`;
+  } else if (kind === 'cat') {
     x += '<c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/>';
     if (cr && cr.r.u16(2) > 1) x += `<c:tickLblSkip val="${cr.r.u16(2)}"/>`;
     if (cr && cr.r.u16(4) > 1) x += `<c:tickMarkSkip val="${cr.r.u16(4)}"/>`;

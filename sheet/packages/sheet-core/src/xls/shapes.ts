@@ -45,6 +45,8 @@ export interface ShapeEnv {
   blipBytes(pib: number): Uint8Array | undefined;
   /** rId do gráfico do OBJ (gráfico dentro de grupo). */
   chartRel?(obj: ObjInfo): string | undefined;
+  /** Preenchimento de GRÁFICO (GELFRAME): ângulo do degradê na convenção do Excel. */
+  chart?: boolean;
 }
 
 /** OBJ que NÃO viram forma: notas, controles de formulário, setas de filtro/validação. */
@@ -249,10 +251,12 @@ function fillXml(env: ShapeEnv, s: XlsShape, on: boolean): string {
     }
     case 4: case 5: case 6: case 7: case 8: {
       if (type === 4 || type === 7 || type === 8) {
-        // [MS-ODRAW] fillAngle θ → ang = 90° − θ, θ ausente/0 valendo −180° (medido no Slides)
+        // [MS-ODRAW] fillAngle θ → ang = 90° − θ, θ ausente/0 valendo −180° (medido no Slides);
+        // no GELFRAME dos gráficos do Excel, ang = 270° − θ (o degradê do tema 2007 — escuro embaixo —
+        // vem com θ = 180° e foco 100: medido no oráculo, poi-WithTwoCharts/poi-48180)
         const raw = prop(s, 0x18b) === undefined ? 0 : fixed(prop(s, 0x18b));
         const theta = raw === 0 ? -180 : raw;
-        const ang = ((90 - theta) % 360 + 360) % 360;
+        const ang = env.chart ? ((270 - raw) % 360 + 360) % 360 : ((90 - theta) % 360 + 360) % 360;
         return `<a:gradFill flip="none" rotWithShape="1">${gradientStops(env, s, color, back, opacity, backOpacity, raw !== 0)}`
           + `<a:lin ang="${Math.round(ang * 60000) % 21600000}" scaled="${type === 7 ? 1 : 0}"/></a:gradFill>`;
       }
@@ -270,6 +274,20 @@ function fillXml(env: ShapeEnv, s: XlsShape, on: boolean): string {
     case 9: return '<a:noFill/>'; // fundo (msofillBackground): a célula aparece
     default: return solid;
   }
+}
+
+/**
+ * Preenchimento a partir de propriedades soltas do FOPT (GELFRAME dos
+ * gráficos): sólido, degradê (fillShadeColors/ângulo/foco) ou padrão; sem
+ * imagens. undefined = fFilled desligado.
+ */
+export function foptFillXml(g: XlsGlobals, props: Map<number, number>, complex: Map<number, Uint8Array>): string | undefined {
+  const s: XlsShape = { spid: 0, type: 1, flags: 0, props, complex, group: false };
+  const env: ShapeEnv = {
+    g, defaults: new Map(), objOf: () => undefined, nextId: () => 0, imageRel: () => undefined, blipBytes: () => undefined, chart: true,
+  };
+  if (!boolProp(s, 0x1bf, 4, true)) return undefined;
+  return fillXml(env, s, true);
 }
 
 // ───────────────────────────── contorno, sombra ─────────────────────────────

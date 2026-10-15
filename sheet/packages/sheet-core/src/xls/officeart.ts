@@ -359,6 +359,19 @@ function readSp(r: R, rec: OARec): XlsShape | undefined {
   return sh.flags & 0x8 ? undefined : sh; // fDeleted
 }
 
+/**
+ * Propriedades de uma sequência de registros FOPT/TertiaryFOPT soltos (ex.: o
+ * GELFRAME dos gráficos — o preenchimento do Office 2007 em OfficeArt).
+ */
+export function readFoptBlock(b: Uint8Array): { props: Map<number, number>; complex: Map<number, Uint8Array> } {
+  const r = new R(b);
+  const out = { props: new Map<number, number>(), complex: new Map<number, Uint8Array>() };
+  for (const c of recsIn(r, 0, b.length)) {
+    if (c.type === OA.FOPT || c.type === OA.SecondaryFOPT || c.type === OA.TertiaryFOPT) readFopt(r, c, out);
+  }
+  return out;
+}
+
 /** Todas as formas da árvore (grupos e filhos) em ordem do documento. */
 export function flattenShapes(shapes: readonly XlsShape[], out: XlsShape[] = []): XlsShape[] {
   for (const s of shapes) {
