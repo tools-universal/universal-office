@@ -552,7 +552,9 @@ register(
       else if (v === null) value = 0;
       else if (typeof v === 'string') value = parseNumberText(v, ctx.locale, ctx.date1904) ?? v;
       else value = v as number;
-      if (code === '') return typeof value === 'number' && value < 0 ? '-' : '';
+      // código vazio: número → "" ("-" se negativo); texto e booleano saem como estão
+      // (medido: TEXT("L0001";"") = "L0001", TEXT(VERDADEIRO;"") = "VERDADEIRO")
+      if (code === '') return typeof value === 'number' ? (value < 0 ? '-' : '') : value;
       const canon = translateFormatCode(code, ctx.locale);
       if (canon === undefined) return ERR.VALUE;
       const out = formatForText(value, canon, ctx.locale, ctx.date1904);

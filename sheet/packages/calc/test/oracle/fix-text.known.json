@@ -1,0 +1,3 @@
+{
+  "fix-text-756": "'\"de\":,0-' com 3,75: o Excel mostra só os literais (\"de:,0-\"), como se o \":\" sem dígito antes tornasse a seção de hora; com 1E-7 bate. Regra do \":\" nesse contexto não isolada (\":0\" → #VALUE!, \"0:\" numérico)"
+}

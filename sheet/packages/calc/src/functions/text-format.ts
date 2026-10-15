@@ -107,6 +107,9 @@ export function translateFormatCode(code: string, locale: ValueLocale): string |
   const yl = L.year.toLowerCase(), dl = L.day.toLowerCase(), ml = L.month.toLowerCase(), hl = L.hour.toLowerCase(), sl = L.second.toLowerCase(), mil = L.minute.toLowerCase();
   const gen = (locale.generalName ?? 'General').toLowerCase();
   const dateLetters = new Set([yl, dl, ml, hl, sl, mil, 'e', 'b', 'g']);
+  // "e+"/"e-" minúsculo só é científico onde as letras de data são as inglesas; no pt-BR
+  // o "e" é sempre o ano (medido: TEXT(x;"0e+0") → #VALUE!, TEXT(45000;"e+") = "2023+")
+  const lowerSci = yl === 'y';
   const out: string[] = [];
   for (const raw of secs) {
     // [$-F800]/[$-x-sysdate] (data longa do sistema) e [$-F400]/[$-x-systime] em
@@ -116,15 +119,20 @@ export function translateFormatCode(code: string, locale: ValueLocale): string |
     // seção de data: tem letra de data/hora fora de aspas/colchetes/escapes (ou AM/PM)
     const bare = raw.replace(/"[^"]*"?|\\.|_.|\*.|\[[^\]]*\]/g, '').replace(new RegExp(gen.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
     const elapsed = new RegExp(`\\[(${hl}+|${ml}+|${mil}+|${sl}+)\\]`, 'i').test(raw);
-    const date = elapsed || /am\/pm|a\/p/i.test(bare) || [...bare.toLowerCase()].some((c) => dateLetters.has(c) && !(c === 'e' && /e[+-]/i.test(bare)));
-    const r = translateSection({ raw, date }, locale, { yl, dl, ml, hl, sl, mil, gen });
+    const date = elapsed || /am\/pm|a\/p/i.test(bare) || [...bare].some((c, i) => dateLetters.has(c.toLowerCase()) && !sciAt(bare, i, lowerSci));
+    const r = translateSection({ raw, date }, locale, { yl, dl, ml, hl, sl, mil, gen, lowerSci });
     if (r === undefined) return undefined;
     out.push(r);
   }
   return out.join(';');
 }
 
-function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: string; dl: string; ml: string; hl: string; sl: string; mil: string; gen: string }): string | undefined {
+/** Expoente científico na posição i ("E+"/"E-"; "e+"/"e-" só com `lowerSci`). */
+function sciAt(s: string, i: number, lowerSci: boolean): boolean {
+  return (s[i] === 'E' || (lowerSci && s[i] === 'e')) && (s[i + 1] === '+' || s[i + 1] === '-');
+}
+
+function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: string; dl: string; ml: string; hl: string; sl: string; mil: string; gen: string; lowerSci: boolean }): string | undefined {
   const raw = sec.raw;
   const dec = locale.decimal, grp = locale.group;
   let s = '';
@@ -141,7 +149,7 @@ function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: strin
     if (c === '0' || c === '#' || c === '?') isDig[i] = true;
   }
   const digitIn = (a: number, b: number): boolean => { for (let q = Math.max(0, a); q < Math.min(b, raw.length); q++) if (isDig[q]) return true; return false; };
-  const expAt = (() => { for (let q = 0; q < raw.length - 1; q++) if ((raw[q] === 'E' || raw[q] === 'e') && (raw[q + 1] === '+' || raw[q + 1] === '-')) return q; return raw.length; })();
+  const expAt = (() => { for (let q = 0; q < raw.length - 1; q++) if (sciAt(raw, q, k.lowerSci)) return q; return raw.length; })();
   const firstDec = raw.indexOf(dec);
   const intEnd = Math.min(firstDec < 0 ? raw.length : firstDec, expAt);
   for (let i = 0; i < raw.length; i++) {
@@ -194,10 +202,13 @@ function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: strin
       let nj = i + 1; while (nj < raw.length && raw[nj] === grp) nj++;
       const prevDig = pj >= 0 && isDig[pj]!, nextDig = nj < raw.length && isDig[nj]!;
       if (sawDec && !sawExp) {
-        // depois do decimal, colado a dígito: some se ainda vêm dígitos ("#,##0.00" no pt-BR),
-        // senão escala ÷1000 ("00,00#." → "-00,123"); fora disso é literal ("?,R$.0,00")
-        if (prevDig && digitIn(i + 1, expAt)) continue;
+        // depois do decimal, colado a dígito ou ao próprio decimal: some se ainda vêm dígitos
+        // ("#,##0.00" no pt-BR, "0,.0" → "1,3"), senão escala ÷1000 ("00,00#." → "-00,123",
+        // "0,." c/ 1234567 → "1235,"); fora disso é literal ("?,R$.0,00") (medido)
+        const prevDecPt = pj >= 0 && pj === firstDec;
+        if ((prevDig || prevDecPt) && digitIn(i + 1, expAt)) continue;
         if (prevDig) { s += ','; continue; }
+        if (prevDecPt) { s = s.endsWith('.') ? s.slice(0, -1) + ',.' : s + ','; continue; }
         s += '\\' + ch; continue;
       }
       // antes do decimal: agrupa colado a dígito com dígitos dos dois lados; escala logo
@@ -207,7 +218,7 @@ function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: strin
       s += '\\' + ch; continue;
     }
     if (ch === '.' || ch === ',') { s += '\\' + ch; continue; } // separadores que não são do idioma
-    if ((ch === 'E' || ch === 'e') && (raw[i + 1] === '+' || raw[i + 1] === '-') && !sec.date) {
+    if (sciAt(raw, i, k.lowerSci) && !sec.date) {
       // expoente precisa de marcador de dígito antes e logo depois (medido: "E+%", "0E+R$" → #VALUE!)
       if (!digitIn(0, i) || !digitIn(i + 2, raw.length)) return undefined;
       s += 'E' + raw[i + 1]; i++; sawExp = true; continue;
@@ -219,7 +230,7 @@ function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: strin
       if (low === k.ml || low === k.mil) { s += 'm'; lastTime = 'm'; continue; }
       if (low === k.hl) { s += 'h'; lastTime = 'h'; continue; }
       if (low === k.sl) { s += 's'; lastTime = 's'; continue; }
-      if (ch === 'e') { s += 'e'; lastTime = 'y'; continue; }
+      if (ch === 'e') { s += 'e'; lastTime = 'y'; if (raw[i + 1] === '+' || raw[i + 1] === '-') s += '\\' + raw[++i]; continue; } // "e+" = ano + literal
       if (ch === 'b') { s += 'b'; lastTime = 'y'; continue; }
       if (low === 'g') { s += 'g'; continue; }
       s += '\\' + ch; continue; // letra sem significado no idioma = literal
@@ -227,8 +238,19 @@ function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: strin
     if (badAccented(ch)) return undefined;
     // em seção de data: "%" e "/" antes de qualquer parte de data → #VALUE! (medido)
     if (sec.date && (ch === '%' || (ch === '/' && !lastTime))) return undefined;
-    // fração: barra entre marcadores de dígito (denominador fixo vale) e sem ponto decimal (medido)
-    if (ch === '/' && !sec.date && (!digitIn(0, i) || !/[0-9#?]/.test(raw[i + 1] ?? '') || firstDec >= 0)) return undefined;
+    // fração: barra com marcador de dígito antes e depois (literais entre eles valem:
+    // "#\:#=/=#", "0/x#"; denominador fixo logo depois) e sem ponto decimal (medido)
+    if (ch === '/' && !sec.date && (!digitIn(0, i) || !(digitIn(i + 1, raw.length) || /[1-9]/.test(raw[i + 1] ?? '')) || firstDec >= 0)) return undefined;
+    if (ch === '/' && !sec.date) {
+      // milhar dentro do numerador → #VALUE! ("0.0/0", "0#.##0/00" no pt-BR; "#.##0 0/0" vale)
+      let j = i - 1;
+      while (j >= 0 && !isDig[j] && raw[j] !== grp) j--;
+      for (; j >= 0 && (isDig[j] || raw[j] === grp); j--) if (!isDig[j]) return undefined;
+    }
+    // ":" sem escape numa seção numérica: #VALUE! com marcador de dígito logo depois ou com
+    // dígitos dos dois lados ("0:0", ":0", "0:,0", "#:?/?"); vale no fim ("0:" → "1235:") e
+    // sem dígito antes ('"de":,0-') (medido)
+    if (ch === ':' && !sec.date && (/[0#?]/.test(raw[i + 1] ?? '') || (digitIn(0, i) && digitIn(i + 1, raw.length)))) return undefined;
     s += ch;
   }
   if (hasAt && hasDigit) return undefined;
