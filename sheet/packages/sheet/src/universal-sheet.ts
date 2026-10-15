@@ -136,10 +136,11 @@ export interface SheetView {
 
 /**
  * Substituto do Excel para família que não existe (nem no SO, nem embarcada):
- * a fonte padrão do Excel atual (Normal = Aptos Narrow) — a mesma ordem da
- * pilha fixa de antes do resolvedor único.
+ * a ARIAL — medido (lab e31: "Statis Sans", "Helvetica Neue" e um nome
+ * inventado têm as mesmas larguras da Arial no `@*.`; a altura da linha também,
+ * grid-metrics). Sem a Arial, o resolvedor cai na Liberation Sans (métrica igual).
  */
-const SHEET_FALLBACKS = ['Aptos Narrow'];
+const SHEET_FALLBACKS = ['Arial'];
 /** Texto de FORMA com família ausente: o motor de texto do Office (o mesmo do PowerPoint) cai na Calibri. */
 const SHAPE_FALLBACKS = ['Calibri', 'Aptos'];
 
@@ -275,8 +276,9 @@ export class UniversalSheetElement extends HTMLElement {
     this.chartTheme = cx.theme;
     // imagens/formas dos desenhos: leitor e pintor DrawingML do Slides (drawings.ts)
     this.drawingLayer = new SheetDrawings(pkg, themePath(pkg), cx.theme, () => this.paint());
-    // fontes do SO usadas pelos estilos, sob demanda (lógica do Universal Write)
-    void this.ensureSheetFonts();
+    // fontes do SO usadas pelos estilos, sob demanda (lógica do Universal Write);
+    // drawingsReady espera (a altura automática se refaz quando resolvem)
+    this.sheetFonts = this.ensureSheetFonts().catch(() => {});
     // geometria do grid pela fonte Normal (estilo 0), com as tabelas MEDIDAS no
     // Excel (sheet-core/grid-metrics): largura do dígito máximo e linha padrão
     const normal = this.styles.fonts[0];
@@ -453,18 +455,22 @@ export class UniversalSheetElement extends HTMLElement {
     // sobrescrito/subscrito somam ao auto-ajuste (medido: Arial 10 +2/+4,
     // Calibri 11 +3/+4, Arial 20 +4/+6 px) — aproximação pelo ppem
     const pxOf = (name: string | undefined, size: number | undefined, bold: boolean | undefined, va?: string): number => {
+      return excelRowPx(name ?? nf.name, size ?? nf.size, !!bold) + vaExtra(size, va);
+    };
+    const vaExtra = (size: number | undefined, va?: string): number => {
       const sz = size ?? nf.size;
-      const base = excelRowPx(name ?? nf.name, sz, !!bold);
-      if (va === 'superscript') return base + Math.round(ppemOf(sz) * 0.17);
-      if (va === 'subscript') return base + Math.round(ppemOf(sz) * 0.25);
-      return base;
+      return va === 'superscript' ? Math.round(ppemOf(sz) * 0.17) : va === 'subscript' ? Math.round(ppemOf(sz) * 0.25) : 0;
     };
     // células VAZIAS da linha também entram (medido): a de coluna com estilo
     // usa a fonte do estilo da coluna; as demais, a fonte Normal
-    // descent da fonte p/ a base compartilhada da linha (rowDescentPx, medido)
-    const descOf = (name: string | undefined, size: number | undefined, bold: boolean | undefined): number =>
-      rowDescentPx(name ?? nf.name, size ?? nf.size, !!bold);
-    const colStyled: { min: number; max: number; px: number; desc: number }[] = [];
+    // descent da fonte p/ a base compartilhada da linha (rowDescentPx, medido);
+    // o acréscimo de sobrescrito/subscrito conta abaixo da base (Arial 11
+    // sobrescrito + Normal Aptos Narrow 11 = 22 px, não 23 — corpus ibge)
+    const descOf = (name: string | undefined, size: number | undefined, bold: boolean | undefined, va?: string): number | undefined => {
+      const d = rowDescentPx(name ?? nf.name, size ?? nf.size, !!bold);
+      return d === undefined ? undefined : d + vaExtra(size, va);
+    };
+    const colStyled: { min: number; max: number; px: number; desc: number | undefined }[] = [];
     let normalCols = false;
     let next = 1;
     for (const cd of [...(ws.cols ?? [])].sort((a, b) => a.min - b.min)) {
@@ -472,7 +478,7 @@ export class UniversalSheetElement extends HTMLElement {
       if (cd.style === undefined) normalCols = true;
       else {
         const f = fonts[xfs[cd.style]?.fontId ?? 0];
-        colStyled.push({ min: cd.min, max: cd.max, px: pxOf(f?.name, f?.size, f?.bold, f?.vertAlign), desc: descOf(f?.name, f?.size, f?.bold) });
+        colStyled.push({ min: cd.min, max: cd.max, px: pxOf(f?.name, f?.size, f?.bold, f?.vertAlign), desc: descOf(f?.name, f?.size, f?.bold, f?.vertAlign) });
       }
       next = Math.max(next, cd.max + 1);
     }
@@ -485,12 +491,17 @@ export class UniversalSheetElement extends HTMLElement {
       // acima da base (R − descent; texto de n linhas: n·R − descent) + maior
       // descent (medido, lab e21/e27: Normal Calibri 11 + Arial 12 = 21 px;
       // + Arial 10 com 2 linhas = 2·17 + 1)
-      let above = 0, below = 0;
-      const add = (px: number, desc: number): void => { above = Math.max(above, px - desc); below = Math.max(below, desc); };
+      // (fonte sem descent conhecido — CJK sem a fonte aqui — volta ao máximo das alturas)
+      let above = 0, below = 0, maxPx = 0, known = true;
+      const add = (px: number, desc: number | undefined): void => {
+        maxPx = Math.max(maxPx, px);
+        if (desc === undefined) { known = false; return; }
+        above = Math.max(above, px - desc); below = Math.max(below, desc);
+      };
       if (row.style !== undefined) {
         // estilo de linha: vale para todas as células vazias da linha
         const f = fonts[xfs[row.style]?.fontId ?? 0];
-        add(pxOf(f?.name, f?.size, f?.bold, f?.vertAlign), descOf(f?.name, f?.size, f?.bold));
+        add(pxOf(f?.name, f?.size, f?.bold, f?.vertAlign), descOf(f?.name, f?.size, f?.bold, f?.vertAlign));
       } else {
         if (normalCols) add(this.normalRowPx, descOf(nf.name, nf.size, nf.bold));
         if (colStyled.length) {
@@ -510,13 +521,13 @@ export class UniversalSheetElement extends HTMLElement {
         const xf = xfs[c.style ?? row.style ?? 0];
         const f = fonts[xf?.fontId ?? 0];
         const lineH = pxOf(f?.name, f?.size, f?.bold, f?.vertAlign);
-        const desc = descOf(f?.name, f?.size, f?.bold);
+        const desc = descOf(f?.name, f?.size, f?.bold, f?.vertAlign);
         add(lineH, desc);
         const runs = this.cellRuns(c);
         if (runs) {
           for (const r of runs) {
             const rn = r.props?.font ?? f?.name, rs = r.props?.size ?? f?.size, rb = r.props?.bold ?? f?.bold;
-            add(pxOf(rn, rs, rb, r.props?.vertAlign ?? f?.vertAlign), descOf(rn, rs, rb));
+            add(pxOf(rn, rs, rb, r.props?.vertAlign ?? f?.vertAlign), descOf(rn, rs, rb, r.props?.vertAlign ?? f?.vertAlign));
           }
         }
         if (xf?.wrapText) {
@@ -539,7 +550,7 @@ export class UniversalSheetElement extends HTMLElement {
           add(this.countWrapLines(text, f, wrapW) * lineH, desc);
         }
       }
-      let h = above + below;
+      let h = known ? above + below : maxPx;
       // bordas grossas sinalizadas na linha: +1 px cada (medido)
       if (row.thickTop) h++;
       if (row.thickBot) h++;
@@ -1036,11 +1047,14 @@ export class UniversalSheetElement extends HTMLElement {
     this.unsubscribeFonts = null;
   }
 
+  /** Resolução das fontes dos estilos do workbook carregado (ensureSheetFonts). */
+  private sheetFonts: Promise<void> = Promise.resolve();
+
   /** Resolve já as fontes usadas pelos estilos do workbook (o aviso de
    *  onChange repinta quando chegarem). */
   private async ensureSheetFonts(): Promise<void> {
     const names = (this.styles?.fonts ?? []).map((f) => f?.name).filter((n): n is string => !!n);
-    await this.fontResolver.resolve(['Aptos Narrow', ...names]);
+    await this.fontResolver.resolve(['Aptos Narrow', 'Arial', ...names]);
   }
 
   /** Nota flutuante do comentário: autor em negrito + texto, junto ao cursor. */
@@ -1783,6 +1797,8 @@ export class UniversalSheetElement extends HTMLElement {
    * decodificadas e as fontes do texto resolvidas (captura/export/harness).
    */
   async drawingsReady(): Promise<void> {
+    // fontes das células resolvidas (larguras, quebra e altura automática finais)
+    await this.sheetFonts;
     const layer = this.drawingLayer;
     if (!layer) return;
     for (const v of this.views) if (v.drawings.length) this.prepareDrawings(layer, v.drawings);

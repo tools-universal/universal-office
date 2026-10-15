@@ -12,5 +12,7 @@ describe('descent da base compartilhada da linha (altura automática)', () => {
     expect(rowDescentPx('Segoe UI', 10, false)).toBe(4);
     // família desconhecida: como a Arial (mapeamento do Excel)
     expect(rowDescentPx('Fonte Inexistente', 10, false)).toBe(3);
+    // altura medida no Excel, mas sem a fonte no GDI daqui (CJK): desconhecido
+    expect(rowDescentPx('돋움', 10, false)).toBeUndefined();
   });
 });

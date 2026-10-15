@@ -154,10 +154,11 @@ export function drawCellText(ctx: CanvasRenderingContext2D, f: CellFont, s: stri
  * desce até o maior descent (fonte Normal das células vazias, demais células).
  * Ex.: Normal Calibri 11 (4) + célula Arial 10 (3) com 2 linhas = 2·17 + 1.
  * Fonte: tmDescent do GDI (row-descent-data); Aptos* e Segoe UI o Excel não
- * mede pelo GDI — valores medidos (lab e27/e28). Família desconhecida = Arial.
+ * mede pelo GDI — valores medidos (lab e27/e28). Família desconhecida = Arial;
+ * undefined = família medida sem descent conhecido (o chamador usa só R).
  * (Com fonte Normal muito grande — Calibri 36 — o modelo erra por 1 px; lab e29.)
  */
-export function rowDescentPx(name: string | undefined, sizePt: number, bold: boolean): number {
+export function rowDescentPx(name: string | undefined, sizePt: number, bold: boolean): number | undefined {
   const p = ppemOf(sizePt);
   const fam = (name ?? '').normalize('NFKC').trim().toLowerCase();
   const xl = EXCEL_DESC[fam.startsWith('aptos') ? 'aptos' : fam.startsWith('segoe ui') ? 'segoe ui' : ''];
@@ -167,8 +168,12 @@ export function rowDescentPx(name: string | undefined, sizePt: number, bold: boo
     for (let q = Math.max(8, p); q >= 8; q--) if (xl[q] !== undefined) return xl[q]!;
     return 2;
   }
-  const key = ROW_DESC[fam] !== undefined ? fam : (measuredFamily(name) ?? 'arial');
-  const s = (bold && ROW_DESC_BOLD[key]) || ROW_DESC[key] || ROW_DESC['arial']!;
+  const measured = measuredFamily(name);
+  const key = ROW_DESC[fam] !== undefined ? fam : (measured ?? 'arial');
+  // família com altura medida no Excel mas sem descent do GDI (CJK sem a fonte
+  // nesta máquina: o Excel usa outra por vinculação) → desconhecido
+  if (ROW_DESC[key] === undefined) return undefined;
+  const s = (bold && ROW_DESC_BOLD[key]) || ROW_DESC[key]!;
   if (p < DESC_PPEM_MIN) return 1;
   if (p > DESC_PPEM_MAX) return Math.round((VM_B62.indexOf(s[s.length - 1]!) * p) / DESC_PPEM_MAX);
   return VM_B62.indexOf(s[p - DESC_PPEM_MIN]!);
