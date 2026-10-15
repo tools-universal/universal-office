@@ -516,6 +516,20 @@ export class Engine implements EvalHost {
     return v === true || (typeof v === 'number' && v !== 0);
   }
 
+  /** Fórmulas que dependem (transitivamente) das dadas — para a UI (rastrear dependentes) e o harness. */
+  dependentsOf(seeds: readonly FormulaRec[]): Set<FormulaRec> {
+    const out = new Set<FormulaRec>();
+    const queue = seeds.map((f) => this.areaOf(f));
+    while (queue.length) {
+      for (const g of this.dependentsOfArea(queue.pop()!)) {
+        if (out.has(g)) continue;
+        out.add(g);
+        queue.push(this.areaOf(g));
+      }
+    }
+    return out;
+  }
+
   /** Todas as fórmulas (âncoras), na ordem da planilha. */
   allFormulas(): readonly FormulaRec[] {
     if (!this.ordered) {
@@ -753,7 +767,7 @@ export class Engine implements EvalHost {
     const seen = new Set<FormulaRec>();
     while (queue.length) {
       const a = queue.pop()!;
-      for (const f of this.dependentsOf(a)) {
+      for (const f of this.dependentsOfArea(a)) {
         if (seen.has(f)) continue;
         seen.add(f);
         if (f.kind === 'dataTable') continue;
@@ -763,7 +777,7 @@ export class Engine implements EvalHost {
     }
   }
 
-  private dependentsOf(a: Area): FormulaRec[] {
+  private dependentsOfArea(a: Area): FormulaRec[] {
     if (!this.rev) {
       this.rev = this.sheets.map(() => ({ byCol: new Map(), wide: [] }));
       for (const f of this.formulas) {

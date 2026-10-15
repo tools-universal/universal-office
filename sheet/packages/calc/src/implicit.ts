@@ -45,7 +45,11 @@ const OVERRIDES: Record<string, FnClassInfo> = {
 };
 
 function paramClass(info: FnClassInfo, i: number): ParamClass {
-  return info.params[Math.min(i, info.params.length - 1)] ?? 'V';
+  const ps = info.params, n = ps.length;
+  if (i < n) return ps[i] ?? 'V';
+  // pares que se repetem (COUNTIFS: intervalo R, critério V, …): continua o ciclo
+  if (n >= 4 && ps[n - 1] === ps[n - 3] && ps[n - 2] === ps[n - 4] && ps[n - 1] !== ps[n - 2]) return ps[n - 2 + ((i - n) % 2)]!;
+  return ps[n - 1] ?? 'V';
 }
 
 export interface LegacyOptions {
