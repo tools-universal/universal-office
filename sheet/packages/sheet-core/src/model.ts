@@ -245,6 +245,8 @@ export interface Worksheet {
   pane?: PaneInfo;
   /** `<sheetView showGridLines="0">` → false (oculta linhas de grade). */
   showGridLines?: boolean;
+  /** `<sheetView showZeros="0">` → false (células com valor zero ficam em branco). */
+  showZeros?: boolean;
   condFormats?: CondFormat[];
   /** Mapa top-left ref → range (conveniência para render). */
   mergedAreas?: Map<string, string>;

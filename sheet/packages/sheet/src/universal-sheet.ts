@@ -77,6 +77,8 @@ export interface SheetView {
   pane?: PaneInfo;
   condFormats: CondFormat[];
   showGridLines: boolean;
+  /** `showZeros="0"`: valores numéricos zero são exibidos em branco. */
+  showZeros: boolean;
   maxRow: number;
   maxCol: number;
   /** "col,row" -> comment (lookup O(1) por celula no paint). */
@@ -385,6 +387,7 @@ export class UniversalSheetElement extends HTMLElement {
         worksheet: ws, path: ref.target, colWidths, rowHeights, hiddenCols, hiddenRows, merges,
         pane: ws.pane, condFormats: ws.condFormats ?? [],
         showGridLines: ws.showGridLines !== false,
+        showZeros: ws.showZeros !== false,
         maxRow: extMaxRow,
         maxCol: extMaxCol,
         commentAt,
@@ -2409,6 +2412,8 @@ export class UniversalSheetElement extends HTMLElement {
     if (cell.type === 'str') return { text: cell.value }; // string de fórmula = texto cru
     const n = parseFloat(cell.value);
     if (Number.isNaN(n)) return { text: cell.value };
+    // "mostrar zero" desligado na aba: zero numérico (inclusive de fórmula) em branco
+    if (n === 0 && this.view?.showZeros === false) return { text: '' };
     // numérico/data: aplica o formatCode via motor fiel ao oráculo (sheet-core)
     const { numFmtId } = this.resolveStyle(cell);
     const code = this.styles.numFmts.get(numFmtId) ?? builtinFormatCode(numFmtId) ?? 'General';

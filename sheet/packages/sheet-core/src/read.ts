@@ -209,6 +209,7 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   let pane: PaneInfo | undefined;
   const sheetView = firstChild(firstChild(root, 'sheetViews') ?? root, 'sheetView');
   const showGridLines = sheetView?.attrs['showGridLines'] === '0' ? false : undefined;
+  const showZeros = sheetView?.attrs['showZeros'] === '0' ? false : undefined;
   const paneEl = sheetView ? firstChild(sheetView, 'pane') : undefined;
   if (paneEl) {
     pane = {
@@ -336,6 +337,7 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (cols.length > 0) ws.cols = cols;
   if (pane) ws.pane = pane;
   if (showGridLines === false) ws.showGridLines = false;
+  if (showZeros === false) ws.showZeros = false;
   if (condFormats.length > 0) ws.condFormats = condFormats;
   if (comments.length > 0) ws.comments = comments;
   if (charts.length > 0) ws.charts = charts;
