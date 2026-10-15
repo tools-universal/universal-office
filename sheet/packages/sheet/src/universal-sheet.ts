@@ -569,8 +569,10 @@ export class UniversalSheetElement extends HTMLElement {
     for (const r of v.worksheet.rows) for (const c of r.cells) {
       let col: number;
       try { col = refToRowCol(c.ref).col; } catch { continue; }
-      const m = this.mergeAt(col, r.r);
-      if (m && !m.isOrigin) { out.push({ ref: c.ref, display: '' }); continue; }
+      // origem de mescla: largura da mescla; célula coberta com valor: o Range.Text
+      // é o dela, na largura da própria coluna (medido)
+      const mm = this.mergeAt(col, r.r);
+      const m = mm?.isOrigin ? mm : null;
       let w = 0;
       for (let k = m ? m.firstCol : col; k <= (m ? m.lastCol : col); k++) {
         if (!v.hiddenCols.has(k)) w += v.colWidths.get(k) ?? v.defaultColW;
@@ -2381,7 +2383,8 @@ export class UniversalSheetElement extends HTMLElement {
   private cellLayout(cell: Cell | undefined, st: ResolvedStyle, colPx: number, zoom = this.zoom): { ct: CellText; f: CellFont; inp: CellTextInput } | null {
     const inp = this.cellTextInput(cell, st.numFmtCode);
     if (!inp) return null;
-    // recuo (só esquerda/direita/distribuído) tira largura útil
+    // recuo (só esquerda/direita/distribuído) tira largura útil do caber/preencher,
+    // não da contagem de "#"; o alinhamento em si não muda a largura (medido, e13)
     const level = st.indent;
     if (level > 0 && (st.align === 'left' || st.align === 'right' || st.align === 'distributed')) {
       inp.indentPx = level * this.indentUnitPx() * zoom;

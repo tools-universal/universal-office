@@ -100,8 +100,10 @@ export interface CellTextInput {
   /** `<sheetView showZeros="0">` → false. */
   showZeros?: boolean;
   locale?: FormatLocale;
-  /** Recuo total (px) — tira largura útil (medido: 1 nível = 9 px com a Normal Calibri 11). */
+  /** Recuo total (px) — tira largura útil para caber/preencher, não da contagem de "#". */
   indentPx?: number;
+  /** px a menos em tudo ("direita" explícita: 1, medido). */
+  edgePx?: number;
 }
 
 /** Pedaço a desenhar: texto a partir de x (px, relativo ao início do conteúdo). */
@@ -131,14 +133,16 @@ const EMPTY: CellText = { text: '', pieces: [], width: 0, hashes: false, filled:
  */
 export function layoutCellText(input: CellTextInput, m: FontMetrics, colPx: number): CellText {
   const loc = input.locale ?? PT_BR;
-  const avail = colPx - cellMarginPx(m.ppem) - (input.indentPx ?? 0);
+  // largura útil: a contagem de "#" usa a coluna toda; caber/preencher descontam o recuo
+  const full = colPx - cellMarginPx(m.ppem) - (input.edgePx ?? 0);
+  const avail = full - (input.indentPx ?? 0);
   switch (input.kind) {
     case 'bool':
     case 'error': {
       const s = input.str ?? '';
       if (s === '') return EMPTY;
       const w = textWidth(m, s, avail);
-      if (w > avail) return hashes(m, avail, false);
+      if (w > avail) return hashes(m, full, false);
       return { text: s, pieces: [{ s, x: 0 }], width: w, hashes: false, filled: false, overflows: false };
     }
     case 'text': {
@@ -147,21 +151,22 @@ export function layoutCellText(input: CellTextInput, m: FontMetrics, colPx: numb
       if (!input.code || /^general$/i.test(input.code)) return plain(s, m);
       // seção de texto do formato ("_ @_ ", "@*.", ";;;"…)
       const r = formatValueParts(s, input.code, { locale: loc });
-      if (r.parts.some((p) => p.t === 'fill')) return fit(r.parts, r.color, m, avail, loc, false);
+      // texto com *x: cabe pela coluna toda (o recuo só reduz o preenchimento; medido, e13)
+      if (r.parts.some((p) => p.t === 'fill')) return fit(r.parts, r.color, m, avail, full, loc, false, full);
       if (r.parts.length === 1 && r.parts[0]!.t === 'text' && r.parts[0]!.s === s) return plain(s, m, r.color);
       return plain(r.parts.map((p) => (p.t === 'text' ? p.s : p.t === 'skip' ? ' ' : '')).join(''), m, r.color, r.parts);
     }
     case 'number': {
       const v = input.num ?? 0;
       const r = formatValueParts(v, input.code, { locale: loc, date1904: input.date1904, showZeros: input.showZeros });
-      if (r.overflow) return { ...hashes(m, avail, false), color: r.color };
+      if (r.overflow) return { ...hashes(m, full, false), color: r.color };
       if (r.parts.length === 0) return r.color ? { ...EMPTY, color: r.color } : EMPTY;
       let parts = r.parts;
       let general = false;
       if (parts.length === 1 && parts[0]!.t === 'general') {
         general = true;
         const s = generalFit((parts[0] as { v: number }).v, m, avail, loc);
-        if (s === null) return { ...hashes(m, avail, true), color: r.color };
+        if (s === null) return { ...hashes(m, full, true), color: r.color };
         if (s.fallback) {
           // sem vaga nenhuma: o Excel ainda mostra o dígito arredondado (sem conferir a largura)
           const w = textWidth(m, s.text);
@@ -171,7 +176,7 @@ export function layoutCellText(input: CellTextInput, m: FontMetrics, colPx: numb
       } else {
         parts = parts.map((p) => (p.t === 'general' ? { t: 'text', s: formatGeneral(p.v, loc) } : p));
       }
-      return fit(parts, r.color, m, avail, loc, general);
+      return fit(parts, r.color, m, avail, full, loc, general);
     }
   }
 }
@@ -199,7 +204,7 @@ function hashes(m: FontMetrics, avail: number, general: boolean): CellText {
 }
 
 /** Número/texto com partes: confere se cabe (`_x` = espaço) e expande o `*x`. */
-function fit(parts: FmtPart[], color: string | undefined, m: FontMetrics, avail: number, loc: FormatLocale, general: boolean): CellText {
+function fit(parts: FmtPart[], color: string | undefined, m: FontMetrics, avail: number, full: number, loc: FormatLocale, general: boolean, fitAvail = avail): CellText {
   void loc;
   let rangeW = 0, paintW = 0;
   let fillCh: string | undefined;
@@ -208,7 +213,7 @@ function fit(parts: FmtPart[], color: string | undefined, m: FontMetrics, avail:
     else if (p.t === 'skip') { rangeW += m.adv(' '); paintW += m.adv(p.ch); }
     else if (p.t === 'fill') fillCh = p.ch;
   }
-  if (rangeW > avail) return { ...hashes(m, avail, general), color };
+  if (rangeW > fitAvail) return { ...hashes(m, full, general), color };
   const fw = fillCh !== undefined ? Math.max(1, m.adv(fillCh)) : 1;
   // o texto formatado do Excel tem no máximo 255 caracteres (medido: `@*.` numa
   // coluna de 1.500 px pára em 255)
