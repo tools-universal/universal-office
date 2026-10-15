@@ -102,6 +102,21 @@ export const EN_US: ValueLocale = {
   formatLetters: { year: 'y', month: 'm', day: 'd', hour: 'h', minute: 'm', second: 's' },
 };
 
+/**
+ * Locale de valores pt-BR (o Excel do oráculo nesta máquina: decimal ",", VERDADEIRO).
+ * Primeira versão — o agente LOCALE mantém a tabela de todos os idiomas.
+ */
+export const PT_BR: ValueLocale = {
+  id: 'pt-BR', decimal: ',', group: '.', trueText: 'VERDADEIRO', falseText: 'FALSO',
+  dateOrder: 'DMY', dateSep: '/', timeSep: ':', am: 'AM', pm: 'PM',
+  monthNames: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
+  monthAbbr: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'],
+  dayNames: ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'],
+  dayAbbr: ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'],
+  currency: 'R$', generalName: 'Geral',
+  formatLetters: { year: 'a', month: 'm', day: 'd', hour: 'h', minute: 'm', second: 's' },
+};
+
 /** O que o avaliador oferece às funções. */
 export interface FnContext {
   /** Aba/linha/coluna (0-based) da célula que está sendo calculada. */

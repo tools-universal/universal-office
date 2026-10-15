@@ -1,0 +1,12 @@
+[
+ {"id":"abs-num","fn":"ABS","args":[-3.5]},
+ {"id":"abs-text","fn":"ABS","args":["-2"]},
+ {"id":"abs-bool","fn":"ABS","args":[true]},
+ {"id":"abs-err","fn":"ABS","args":[{"e":"#N/A"}]},
+ {"id":"abs-arr","fn":"ABS","args":[{"arr":[[-1,2],[-3,"x"]]}]},
+ {"id":"abs-ref-spill","fn":"ABS","args":[{"ref":"A1:A2"}],"cells":{"A1":-5,"A2":6},"at":"C2"},
+ {"id":"abs-ref-legacy","fn":"ABS","args":[{"ref":"A1:A2"}],"cells":{"A1":-5,"A2":6},"at":"C2","legacy":true},
+ {"id":"abs-ref-legacy-miss","fn":"ABS","args":[{"ref":"A1:A2"}],"cells":{"A1":-5,"A2":6},"at":"C5","legacy":true},
+ {"id":"abs-blank","fn":"ABS","args":[{"ref":"A1"}]},
+ {"id":"abs-pt-text","fn":"ABS","args":["-2,5"]}
+]

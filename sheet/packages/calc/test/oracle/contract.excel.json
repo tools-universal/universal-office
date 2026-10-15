@@ -1,0 +1,86 @@
+[
+ {
+  "id": "abs-num",
+  "v": 3.5,
+  "text": "3,5",
+  "local": "=ABS(-3,5)"
+ },
+ {
+  "id": "abs-text",
+  "v": 2,
+  "text": "2",
+  "local": "=ABS(\"-2\")"
+ },
+ {
+  "id": "abs-bool",
+  "v": 1,
+  "text": "1",
+  "local": "=ABS(VERDADEIRO)"
+ },
+ {
+  "id": "abs-err",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=ABS(#N/D)"
+ },
+ {
+  "id": "abs-arr",
+  "v": 1,
+  "spill": [
+   [
+    1,
+    2
+   ],
+   [
+    3,
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "1",
+  "local": "=ABS({-1\\2;-3\\\"x\"})"
+ },
+ {
+  "id": "abs-ref-spill",
+  "v": 5,
+  "spill": [
+   [
+    5
+   ],
+   [
+    6
+   ]
+  ],
+  "text": "5",
+  "local": "=ABS(A1:A2)"
+ },
+ {
+  "id": "abs-ref-legacy",
+  "v": 6,
+  "text": "6",
+  "local": "=ABS(A1:A2)"
+ },
+ {
+  "id": "abs-ref-legacy-miss",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ABS(A1:A2)"
+ },
+ {
+  "id": "abs-blank",
+  "v": 0,
+  "text": "0",
+  "local": "=ABS(A1)"
+ },
+ {
+  "id": "abs-pt-text",
+  "v": 2.5,
+  "text": "2,5",
+  "local": "=ABS(\"-2,5\")"
+ }
+]

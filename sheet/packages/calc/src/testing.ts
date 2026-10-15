@@ -149,3 +149,111 @@ export function plain(v: Value): unknown {
   if (v instanceof LambdaValue) return 'LAMBDA';
   return v;
 }
+
+// ---------------------------------------------------------------------------
+// Casos do oráculo (Excel via _lab/calc/xl-calc.ps1). Formato JSON comum a
+// todos os bancos de teste: test/oracle/<área>.cases.json (entrada, escrita por
+// nós) + <área>.excel.json (saída do Excel, gerada pelo script).
+
+/** Valor de célula/argumento em JSON: {e} = erro, {s} = texto que parece número. */
+export type CaseScalar = number | string | boolean | null | { e: string } | { s: string };
+export type CaseArg = CaseScalar | { omit: true } | { ref: string } | { arr: CaseScalar[][] };
+
+export interface OracleCase {
+  readonly id: string;
+  /** Nome canônico da função (sem prefixo). */
+  readonly fn: string;
+  readonly args: readonly CaseArg[];
+  /** Células da aba 1 ("A1": valor). */
+  readonly cells?: Readonly<Record<string, CaseScalar>>;
+  /** Célula da fórmula (padrão Z100). */
+  readonly at?: string;
+  /** Fórmula legada (interseção implícita) em vez de matriz dinâmica. */
+  readonly legacy?: boolean;
+  readonly date1904?: boolean;
+}
+
+/** Resposta do Excel para um caso. */
+export interface OracleResult {
+  readonly id: string;
+  readonly v?: CaseScalar;
+  readonly spill?: CaseScalar[][];
+  readonly text?: string;
+  readonly f?: string;
+  readonly local?: string;
+  readonly err?: string;
+}
+
+function caseScalar(x: CaseScalar): Scalar {
+  if (x !== null && typeof x === 'object') return 'e' in x ? CalcError.of(x.e as never) : x.s;
+  return x;
+}
+
+function scalarLiteral(x: CaseScalar): string {
+  if (x === null) return '';
+  if (typeof x === 'number') return String(x).toUpperCase();
+  if (typeof x === 'boolean') return x ? 'TRUE' : 'FALSE';
+  if (typeof x === 'string') return `"${x.replace(/"/g, '""')}"`;
+  return 'e' in x ? x.e : `"${x.s.replace(/"/g, '""')}"`;
+}
+
+/** Fórmula canônica (en-US) do caso, para o Excel. */
+export function caseFormula(c: OracleCase): string {
+  const lit = (a: CaseArg): string => {
+    if (a !== null && typeof a === 'object') {
+      if ('omit' in a) return '';
+      if ('ref' in a) return a.ref;
+      if ('arr' in a) return `{${a.arr.map((row) => row.map(scalarLiteral).join(',')).join(';')}}`;
+    }
+    return scalarLiteral(a as CaseScalar);
+  };
+  return `=${c.fn}(${c.args.map(lit).join(',')})`;
+}
+
+/** Entrada do xl-calc.ps1 para uma lista de casos. */
+export function toOracleInput(cases: readonly OracleCase[]): unknown[] {
+  return cases.map((c) => ({ id: c.id, f: caseFormula(c), cells: c.cells, at: c.at, legacy: c.legacy, date1904: c.date1904 }));
+}
+
+/** Roda o caso no nosso motor (sem avaliador: callFn sobre um contexto de mentira). */
+export function runCase(c: OracleCase, locale: ValueLocale, extra: Partial<MockOptions> = {}): Value {
+  const cells: Record<string, Scalar> = {};
+  for (const [k, v] of Object.entries(c.cells ?? {})) cells[k] = caseScalar(v);
+  const ctx = mockContext({ sheets: { Sheet1: cells }, at: c.at ?? 'Z100', locale, date1904: c.date1904, ...extra });
+  const args: TestArg[] = c.args.map((a) => {
+    if (a !== null && typeof a === 'object') {
+      if ('omit' in a) return { omitted: true };
+      if ('ref' in a) return { ref: a.ref };
+      if ('arr' in a) return a.arr.map((row) => row.map(caseScalar));
+    }
+    return caseScalar(a as CaseScalar);
+  });
+  return callFn(c.fn, args, ctx, !c.legacy);
+}
+
+/** Números iguais como o Excel os mostra (15 dígitos significativos). */
+export function sameNumber(a: number, b: number): boolean {
+  if (a === b) return true;
+  return Number(a.toPrecision(15)) === Number(b.toPrecision(15));
+}
+
+function sameScalar(ours: Scalar, xl: CaseScalar): boolean {
+  const x = caseScalar(xl);
+  if (typeof ours === 'number' && typeof x === 'number') return sameNumber(ours, x);
+  if (ours === null) return x === null || x === 0;
+  return ours === x;
+}
+
+/**
+ * Nosso valor bate com o do Excel? Derramamento compara a matriz inteira; a
+ * célula vazia que o Excel mostra como 0 (=A1 vazio) conta como igual.
+ */
+export function matchesOracle(ours: Value, xl: OracleResult): boolean {
+  if (xl.spill) {
+    if (!(ours instanceof ArrayValue) || ours.rows !== xl.spill.length || ours.cols !== (xl.spill[0]?.length ?? 0)) return false;
+    return xl.spill.every((row, r) => row.every((v, c) => sameScalar(ours.get(r, c), v)));
+  }
+  const v = ours instanceof ArrayValue ? (ours.rows === 1 && ours.cols === 1 ? ours.get(0, 0) : undefined) : ours;
+  if (v === undefined || v instanceof RefValue || v instanceof LambdaValue) return false;
+  return sameScalar(v, xl.v ?? null);
+}
