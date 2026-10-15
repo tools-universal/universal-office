@@ -11,6 +11,7 @@
 import { Bytes, readChars, readXLString, RT, type BiffRecord, type FormatRun, type RichString } from './biff.js';
 import type { XlsGlobals } from './globals.js';
 import { colName, xmlText } from './xmlw.js';
+import { decompile, quoteSheet, type FormulaContext } from './formula.js';
 
 /** Tabela de strings compartilhada: SST + strings de LABEL/RSTRING (BIFF5). */
 export class StringTable {
@@ -165,7 +166,47 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
     : undefined;
   const drawing: Uint8Array[] = [];
   let drawingLen = 0;
-  let pendingFormula: { row: number; col: number; xf: number } | undefined;
+  let pendingFormula: { row: number; col: number; xf: number; fx: string; expKey?: string } | undefined;
+  // texto das fórmulas (<f>): diretas, compartilhadas (ptgExp → SHRFMLA) e matriciais (ARRAY);
+  // o SHRFMLA/ARRAY vem DEPOIS da 1ª célula — ela recebe o <f> quando ele chegar
+  const fctx: FormulaContext = {
+    sheetOf: (ixti) => {
+      const x = g.xti[ixti];
+      if (!x || !g.supbooks[x.book]) return undefined;
+      const s = g.sheets[x.tab];
+      return s ? quoteSheet(s.name) : undefined;
+    },
+    nameOf: (i) => g.names[i - 1],
+    externOf: (ixti, i) => { const x = g.xti[ixti]; return x ? g.externNames[x.book]?.[i - 1] : undefined; },
+    row: 0, col: 0,
+  };
+  const shared = new Map<string, { r1: number; r2: number; c1: number; c2: number; r: Bytes; off: number; cce: number; array: boolean }>();
+  const waiting = new Map<string, [number, number][]>();
+  const fXml = (row: number, col: number, expKey: string | undefined, r?: Bytes): string => {
+    if (!b8) return '';
+    let text: string | undefined;
+    if (expKey) {
+      const s = shared.get(expKey);
+      if (!s || row < s.r1 || row > s.r2 || col < s.c1 || col > s.c2) return '';
+      fctx.row = row; fctx.col = col;
+      text = decompile(s.r, s.off, s.cce, fctx);
+      if (s.array) return text !== undefined && row === s.r1 && col === s.c1 ? `<f t="array" ref="${colName(s.c1)}${s.r1 + 1}:${colName(s.c2)}${s.r2 + 1}">${xmlText(text)}</f>` : '';
+    } else if (r) {
+      fctx.row = row; fctx.col = col;
+      text = decompile(r, 22, r.u16(20), fctx);
+    }
+    return text !== undefined ? `<f>${xmlText(text)}</f>` : '';
+  };
+  /** Insere o <f> numa célula já gravada (a 1ª de uma fórmula compartilhada/matricial). */
+  const patchF = (row: number, col: number, fx: string): void => {
+    const acc = sh.cells.get(row);
+    if (!acc || !fx) return;
+    for (let i = acc.cols.length - 1; i >= 0; i--) {
+      if (acc.cols[i] !== col) continue;
+      if (!acc.xml[i]!.includes('<f')) acc.xml[i] = acc.xml[i]!.replace('><v>', `>${fx}<v>`);
+      return;
+    }
+  };
   let lastObj: ObjInfo | undefined;
   let lastLink: HyperlinkInfo | undefined;
   let lastNote5: NoteInfo | undefined;
@@ -199,10 +240,14 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
   };
   const flushFormula = (text: string | undefined): void => {
     if (!pendingFormula) return;
-    const { row, col, xf } = pendingFormula;
+    const { row, col, xf, expKey } = pendingFormula;
+    // compartilhada: o SHRFMLA pode ter chegado entre o FORMULA e o STRING
+    let fx = pendingFormula.fx;
+    if (!fx && expKey) { try { fx = fXml(row, col, expKey); } catch { fx = ''; } }
     pendingFormula = undefined;
     if (row >= MAX_ROW || col >= MAX_COL) return;
-    put(row, col, `<c r="${ref(row, col)}"${sAttr(xf)} t="str"><v>${xmlText(text ?? '')}</v></c>`, xf);
+    put(row, col, `<c r="${ref(row, col)}"${sAttr(xf)} t="str">${fx}<v>${xmlText(text ?? '')}</v></c>`, xf);
+    if (!fx && expKey) (waiting.get(expKey) ?? waiting.set(expKey, []).get(expKey)!).push([row, col]);
     if (text) keep?.(row, col, text, xf);
   };
 
@@ -277,15 +322,39 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
       }
       case RT.FORMULA: {
         const row = r.u16(0), col = r.u16(2), xf = r.u16(4);
+        if (row >= MAX_ROW || col >= MAX_COL) break;
+        const expKey = b8 && r.u8(22) === 0x01 ? `${r.u16(23)},${r.u16(25)}` : undefined;
+        let fx = '';
+        try { fx = fXml(row, col, expKey, r); } catch { fx = ''; }
+        const head = `<c r="${ref(row, col)}"${sAttr(xf)}`;
         if (r.u16(12) === 0xffff) {
           const kind = r.u8(6);
-          if (kind === 0) pendingFormula = { row, col, xf };
-          else if (row < MAX_ROW && col < MAX_COL) {
-            if (kind === 1) put(row, col, `<c r="${ref(row, col)}"${sAttr(xf)} t="b"><v>${r.u8(8) ? 1 : 0}</v></c>`, xf);
-            else if (kind === 2) put(row, col, `<c r="${ref(row, col)}"${sAttr(xf)} t="e"><v>${ERRORS[r.u8(8)] ?? '#N/A'}</v></c>`, xf);
-            else put(row, col, `<c r="${ref(row, col)}"${sAttr(xf)} t="str"><v></v></c>`, xf);
-          }
-        } else cellNum(row, col, xf, r.f64(6));
+          if (kind === 0) { pendingFormula = { row, col, xf, fx, expKey }; break; }
+          if (kind === 1) put(row, col, `${head} t="b">${fx}<v>${r.u8(8) ? 1 : 0}</v></c>`, xf);
+          else if (kind === 2) put(row, col, `${head} t="e">${fx}<v>${ERRORS[r.u8(8)] ?? '#N/A'}</v></c>`, xf);
+          else put(row, col, `${head} t="str">${fx}<v></v></c>`, xf);
+        } else {
+          const v = r.f64(6);
+          put(row, col, `${head}>${fx}<v>${num(v)}</v></c>`, xf);
+          keep?.(row, col, v, xf);
+        }
+        if (!fx && expKey) (waiting.get(expKey) ?? waiting.set(expKey, []).get(expKey)!).push([row, col]);
+        break;
+      }
+      case RT.SHRFMLA: case RT.ARRAY: {
+        if (!b8) break;
+        // RefU (rwFirst, rwLast u16; colFirst, colLast u8) + … + cce + rgce
+        const r1 = r.u16(0), r2 = r.u16(2), c1 = r.u8(4), c2 = r.u8(5);
+        const array = rec.type === RT.ARRAY;
+        const cceOff = array ? 12 : 8;
+        const key = `${r1},${c1}`;
+        shared.set(key, { r1, r2, c1, c2, r, off: cceOff + 2, cce: r.u16(cceOff), array });
+        for (const [wr, wc] of waiting.get(key) ?? []) {
+          let fx = '';
+          try { fx = fXml(wr, wc, key); } catch { fx = ''; }
+          patchF(wr, wc, fx);
+        }
+        waiting.delete(key);
         break;
       }
       case RT.STRING: {

@@ -399,6 +399,39 @@ describe('.xls — formas e caixas de texto (OfficeArt → xdr:sp)', () => {
   });
 });
 
+describe('.xls — texto das fórmulas (RPN do BIFF8 → <f>)', () => {
+  const REL = 0xc000; // coluna e linha relativas
+  const rgce = [
+    0x25, ...u16(0), ...u16(1), ...u16(0 | REL), ...u16(1 | REL), // A1:B2
+    0x22, 1, ...u16(4), // SUM(1 arg)
+    0x1e, ...u16(2), 0x05, // *2
+    0x24, ...u16(0), ...u16(2 | REL), 0x1e, ...u16(0), 0x0d, // C1>0
+    0x17, 1, 0, 0x78, 0x1e, ...u16(1), 0x13, // "x", -1
+    0x22, 3, ...u16(1), 0x03, // IF(3 args), +
+  ];
+  const formula = (row: number, col: number, toks: number[], v = 0): Rec =>
+    rec(RT.FORMULA, [...u16(row), ...u16(col), ...u16(15), ...f64(v), ...u16(0), ...u32(0), ...u16(toks.length), ...toks]);
+  const recs: Rec[] = [
+    formula(0, 0, rgce),
+    // compartilhada A2:A3 = (célula de cima)×10: ptgExp nas duas + SHRFMLA com ptgRefN (linha −1)
+    formula(1, 0, [0x01, ...u16(1), ...u16(0)]),
+    rec(0x04bc, [...u16(1), ...u16(2), 0, 0, 0, 2, ...u16(9), 0x2c, ...u16(0xffff), ...u16(0 | REL), 0x1e, ...u16(10), 0x05]),
+    formula(2, 0, [0x01, ...u16(1), ...u16(0)]),
+  ];
+  const pkg = openSpreadsheet(buildXls(defaultFormatting(), [{ name: 'F', recs }]));
+  const ws = readWorksheet(pkg, readWorkbook(pkg).sheets[0]!.target!);
+  const f = (ref: string) => ws.rows.flatMap((r) => r.cells).find((c) => c.ref === ref)?.formula;
+
+  it('operadores, funções (fixas e variáveis), texto, negação e referências relativas', () => {
+    expect(f('A1')).toBe('SUM(A1:B2)*2+IF(C1>0,"x",-1)');
+  });
+
+  it('fórmula compartilhada: SHRFMLA depois da 1ª célula, ptgRefN relativo a cada célula', () => {
+    expect(f('A2')).toBe('A1*10');
+    expect(f('A3')).toBe('A2*10');
+  });
+});
+
 describe('.xls — utilitários', () => {
   it('RK: inteiro, inteiro ÷100, double truncado', () => {
     expect(rkValue((100 << 2) | 2)).toBe(100);

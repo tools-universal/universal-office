@@ -4,7 +4,7 @@
  * modo de data, janela (aba ativa) e o grupo de desenhos (MSODRAWINGGROUP).
  */
 import { INDEXED_COLORS_DEFAULT } from '../theme.js';
-import { Bytes, Codepage, readXLString, readRichExtString, RT, type BiffRecord, type RichString } from './biff.js';
+import { Bytes, Codepage, readChars, readXLString, readRichExtString, RT, type BiffRecord, type RichString } from './biff.js';
 import { formulaAreas, type Area } from './formula.js';
 
 export interface XlsFont {
@@ -99,7 +99,17 @@ export interface XlsGlobals {
   xti: { book: number; tab: number }[];
   /** Nome embutido _FilterDatabase por aba (índice do BOUNDSHEET): área do autofiltro. */
   filterDb: Map<number, Area>;
+  /** Nomes definidos (NAME), na ordem do arquivo — ptgName aponta 1-based. */
+  names: string[];
+  /** EXTERNNAME por SUPBOOK (funções de suplemento: ptgNameX). */
+  externNames: string[][];
 }
+
+/** Nomes embutidos (Lbl.fBuiltin) pelo código de 1 caractere. */
+const BUILTIN_NAMES: Record<number, string> = {
+  0: 'Consolidate_Area', 1: 'Auto_Open', 2: 'Auto_Close', 3: 'Extract', 4: 'Database', 5: 'Criteria', 6: 'Print_Area',
+  7: 'Print_Titles', 8: 'Recorder', 9: 'Data_Form', 10: 'Auto_Activate', 11: 'Auto_Deactivate', 12: 'Sheet_Title', 13: '_FilterDatabase',
+};
 
 /** ifnt BIFF → posição em `fonts` (o índice 4 é omitido pelo formato). */
 export function fontIndex(ifnt: number): number {
@@ -121,7 +131,7 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
   const g: XlsGlobals = {
     biff, cp: new Codepage(biff === 8 ? 1200 : 1252), date1904: false,
     fonts: [], formats: new Map(), xfs: [], palette: [...INDEXED_COLORS_DEFAULT.slice(0, 64)],
-    sheets: [], sst: [], activeTab: 0, supbooks: [], xti: [], filterDb: new Map(),
+    sheets: [], sst: [], activeTab: 0, supbooks: [], xti: [], filterDb: new Map(), names: [], externNames: [],
   };
   const b8 = biff === 8;
   const dg: Uint8Array[] = [];
@@ -205,16 +215,24 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
         break;
       case RT.NAME: {
         // Lbl (BIFF8): grbit, chKey, cch, cce, reservado, itab (1-based), 4 reservados,
-        // nome (opções + chars), fórmula. Só o embutido 0x0D (_FilterDatabase).
-        if (!b8 || !(r.u16(0) & 0x20)) break;
+        // nome (opções + chars), fórmula. Embutidos: 1 caractere com o código (0x0D = _FilterDatabase).
+        if (!b8) { g.names.push(''); break; }
         const cch = r.u8(3), cce = r.u16(4), itab = r.u16(8);
         const high = (r.u8(14) & 1) !== 0;
-        const code = high ? r.u16(15) : r.u8(15);
-        if (code !== 0x0d || itab === 0) break;
-        const area = formulaAreas(r, 15 + cch * (high ? 2 : 1), cce)[0];
-        if (area) g.filterDb.set(itab - 1, area);
+        if (r.u16(0) & 0x20) {
+          const code = high ? r.u16(15) : r.u8(15);
+          g.names.push(BUILTIN_NAMES[code] ?? `_xlnm${code}`);
+          if (code === 0x0d && itab > 0) {
+            const area = formulaAreas(r, 15 + cch * (high ? 2 : 1), cce)[0];
+            if (area) g.filterDb.set(itab - 1, area);
+          }
+        } else g.names.push(readChars(r, 15, cch, high, []).text);
         break;
       }
+      case RT.EXTERNNAME:
+        // nome externo (funções de suplemento, nomes de outras pastas): o texto está no offset 6
+        if (b8) (g.externNames[g.supbooks.length - 1] ??= []).push(readXLString(r, 6, true, g.cp, 1).text);
+        break;
       case RT.EXTERNSHEET:
         if (b8) {
           const n = r.u16(0);
