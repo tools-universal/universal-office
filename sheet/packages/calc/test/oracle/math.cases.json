@@ -3494,5 +3494,21 @@
  {"id":"math-munit-8","fn":"MUNIT","args":[true]},
  {"id":"math-munit-9","fn":"MUNIT","args":["x"]},
  {"id":"math-munit-10","fn":"MUNIT","args":[{"e":"#N/A"}]},
- {"id":"math-munit-11","fn":"MUNIT","args":[0.5]}
+ {"id":"math-munit-11","fn":"MUNIT","args":[0.5]},
+ {"id":"math-roundbahtdown-1","fn":"ROUNDBAHTDOWN","args":[1.2]},
+ {"id":"math-roundbahtdown-2","fn":"ROUNDBAHTDOWN","args":[1.375]},
+ {"id":"math-roundbahtdown-3","fn":"ROUNDBAHTDOWN","args":[-1.3]},
+ {"id":"math-roundbahtdown-4","fn":"ROUNDBAHTDOWN","args":["x"]},
+ {"id":"math-roundbahtdown-5","fn":"ROUNDBAHTDOWN","args":[true]},
+ {"id":"math-roundbahtdown-6","fn":"ROUNDBAHTDOWN","args":[{"e":"#N/A"}]},
+ {"id":"math-roundbahtdown-7","fn":"ROUNDBAHTDOWN","args":[{"e":"#DIV/0!"}]},
+ {"id":"math-roundbahtdown-8","fn":"ROUNDBAHTDOWN","args":[{"arr":[[1,2]]}]},
+ {"id":"math-roundbahtup-1","fn":"ROUNDBAHTUP","args":[1.2]},
+ {"id":"math-roundbahtup-2","fn":"ROUNDBAHTUP","args":[1.375]},
+ {"id":"math-roundbahtup-3","fn":"ROUNDBAHTUP","args":[-1.3]},
+ {"id":"math-roundbahtup-4","fn":"ROUNDBAHTUP","args":["x"]},
+ {"id":"math-roundbahtup-5","fn":"ROUNDBAHTUP","args":[true]},
+ {"id":"math-roundbahtup-6","fn":"ROUNDBAHTUP","args":[{"e":"#N/A"}]},
+ {"id":"math-roundbahtup-7","fn":"ROUNDBAHTUP","args":[{"e":"#DIV/0!"}]},
+ {"id":"math-roundbahtup-8","fn":"ROUNDBAHTUP","args":[{"arr":[[1,2]]}]}
 ]

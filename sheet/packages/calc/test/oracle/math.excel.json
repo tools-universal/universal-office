@@ -24678,5 +24678,153 @@
   },
   "text": "#VALOR!",
   "local": "=MUNIT(0,5)"
+ },
+ {
+  "id": "math-roundbahtdown-1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTDOWN(1,2)"
+ },
+ {
+  "id": "math-roundbahtdown-2",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTDOWN(1,375)"
+ },
+ {
+  "id": "math-roundbahtdown-3",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTDOWN(-1,3)"
+ },
+ {
+  "id": "math-roundbahtdown-4",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTDOWN(\"x\")"
+ },
+ {
+  "id": "math-roundbahtdown-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTDOWN(VERDADEIRO)"
+ },
+ {
+  "id": "math-roundbahtdown-6",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=ROUNDBAHTDOWN(#N/D)"
+ },
+ {
+  "id": "math-roundbahtdown-7",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=ROUNDBAHTDOWN(#DIV/0!)"
+ },
+ {
+  "id": "math-roundbahtdown-8",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    },
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTDOWN({1\\2})"
+ },
+ {
+  "id": "math-roundbahtup-1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTUP(1,2)"
+ },
+ {
+  "id": "math-roundbahtup-2",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTUP(1,375)"
+ },
+ {
+  "id": "math-roundbahtup-3",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTUP(-1,3)"
+ },
+ {
+  "id": "math-roundbahtup-4",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTUP(\"x\")"
+ },
+ {
+  "id": "math-roundbahtup-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTUP(VERDADEIRO)"
+ },
+ {
+  "id": "math-roundbahtup-6",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=ROUNDBAHTUP(#N/D)"
+ },
+ {
+  "id": "math-roundbahtup-7",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=ROUNDBAHTUP(#DIV/0!)"
+ },
+ {
+  "id": "math-roundbahtup-8",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    },
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTUP({1\\2})"
  }
 ]

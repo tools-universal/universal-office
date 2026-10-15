@@ -631,7 +631,15 @@ const munit = numFn('MUNIT', 1, 1, ([x]) => {
 // MUNIT devolve matriz: não é levantada elemento a elemento
 const munitDef: FnDef = { ...munit, lift: false };
 
+/**
+ * ROUNDBAHTDOWN/ROUNDBAHTUP (arredondamento do baht tailandês). Medido: no Excel do
+ * oráculo (sem o recurso de idioma tailandês) dão sempre #VALUE! — erros dos
+ * argumentos propagam e matrizes são levantadas.
+ */
+const bahtFn = (name: string): FnDef => ({ name, minArgs: 1, maxArgs: 1, args: 'value', lift: true, call: () => ERR.VALUE });
+
 register(
+  bahtFn('ROUNDBAHTDOWN'), bahtFn('ROUNDBAHTUP'),
   sum, product, sumsq, sumproduct,
   pairSum('SUMX2MY2', (x, y) => x * x - y * y),
   pairSum('SUMX2PY2', (x, y) => x * x + y * y),
