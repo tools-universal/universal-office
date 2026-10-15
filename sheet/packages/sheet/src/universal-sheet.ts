@@ -19,7 +19,7 @@ import { paintCellFill, hasFill } from './fills.js';
 import { buildTableLayer, applyTableLayer, paintTableHandle, type TableCellFormat } from './table-styles.js';
 import { CfEngine, cellCfValue, todaySerial, paintDataBar, type CfResult, type CfSheetAccess } from './cond-format.js';
 import { paintCfIcon } from './cf-icons.js';
-import { openCalc, saveCalc, type CalcState } from './calc-io.js';
+import { saveCalc } from './calc-io.js';
 import { winningEdge, edgeExtent, paintHEdge, paintVEdge, paintDiagonals, NO_CORNER, type CornerInfo } from './borders.js';
 import {
   layoutCellText, isoToSerial, cellMarginPx, MAX_CELL_CHARS, autofitWrapWidthPx, looksLikeNumberPtBR,
@@ -188,10 +188,6 @@ export class UniversalSheetElement extends HTMLElement {
   private shared: SharedString[] = [];
   private styles: Styles = { numFmts: new Map(), cellXfs: [], fonts: [], fills: [], borders: [], dxfs: [] };
   private views: SheetView[] = [];
-  /** Motor de cálculo da pasta (recálculo ao abrir e atributos ao gravar — calc-io.ts). */
-  private calc: CalcState | undefined;
-  /** Caminho/nome do arquivo aberto (o hospedeiro informa antes de carregar): CELL("filename"), INFO("directory"). */
-  fileName: string | undefined;
   private sheetIndex = 0;
 
   private zoom = 1;
@@ -241,6 +237,10 @@ export class UniversalSheetElement extends HTMLElement {
    */
   get shouldRecalcOnOpen(): ((wb: Workbook) => boolean) | null { return this.calc.recalcOnOpen; }
   set shouldRecalcOnOpen(fn: ((wb: Workbook) => boolean) | null) { this.calc.recalcOnOpen = fn; }
+
+  /** Caminho/nome do arquivo (o hospedeiro informa antes de carregar): CELL("filename"), INFO("directory"). */
+  get fileName(): string | undefined { return this.calc.fileName; }
+  set fileName(name: string | undefined) { this.calc.fileName = name; }
 
   private calcHost(): ConstructorParameters<typeof SheetCalc>[0] {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -366,14 +366,10 @@ export class UniversalSheetElement extends HTMLElement {
     this.mdw = tableMdw ?? this.canvasMdw(this.normalFont);
     this.normalRowPx = excelRowPx(this.normalFont.name, this.normalFont.size, this.normalFont.bold);
 
-    // recálculo ao abrir como o Excel (calc-io.ts): os valores entram no modelo antes das views
-    const sheetWs = this.workbook.sheets.map((ref) => (ref.target ? readWorksheet(pkg, ref.target, cx) : undefined));
-    this.calc = openCalc(this.workbook, sheetWs, this.shared, { fileName: this.fileName });
-
     this.views = [];
-    for (const [si, ref] of this.workbook.sheets.entries()) {
+    for (const ref of this.workbook.sheets) {
       if (!ref.target) continue;
-      const ws = sheetWs[si]!;
+      const ws = readWorksheet(pkg, ref.target, cx);
       const colWidths = new Map<number, number>();
       const rowHeights = new Map<number, number>();
       const hiddenCols = new Set<number>();
@@ -690,7 +686,7 @@ export class UniversalSheetElement extends HTMLElement {
     if (this.editing) this.commitEdit();
     // atributos/partes de cálculo (calc-io.ts) + abas que o cálculo mudou
     const edited = new Set([...this.dirtySheets].map((i) => this.views[i]?.worksheet).filter((w): w is Worksheet => !!w));
-    const calcDirty = this.workbook ? saveCalc(this.pkg, this.workbook, this.calc, edited) : new Set<Worksheet>();
+    const calcDirty = this.workbook ? saveCalc(this.pkg, this.workbook, this.calc.engine, this.views, edited) : new Set<Worksheet>();
     for (const [i, view] of this.views.entries()) {
       if (!this.dirtySheets.has(i) && !calcDirty.has(view.worksheet)) continue;
       const original = this.pkg.getPartText(view.path);

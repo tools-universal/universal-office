@@ -54,6 +54,27 @@ describe('preparação para gravar', () => {
     expect(cC.formulaAttrs).toBeUndefined();
   });
 
+  it('fórmula digitada (dinâmica): legada quando dá o mesmo; senão t="array" + cm (sem metadados na pasta, cria)', () => {
+    const { b, ws } = book([{ ref: 'A1', value: '1' }, { ref: 'A2', value: '2' }]);
+    const e = new Engine(fromSheetCore(b));
+    // como o SheetCalc grava: texto de arquivo da semântica dinâmica, t/ref só se derramar
+    const typed: [string, string][] = [['D1', 'SUM(A1:A2)'], ['E1', '_xlfn.SEQUENCE(2)'], ['F1', 'SUM(A1:A2*2)'], ['G1', '_xlfn.SINGLE(A1:A2)']];
+    typed.forEach(([ref, text], i) => {
+      ws.rows[0]!.cells.push({ ref, formula: text });
+      e.setCell(0, 0, 3 + i, { f: { text, t: 'array', dynamic: true } });
+    });
+    e.calculate();
+    let made = 0;
+    prepareForSave(e, [ws], { dynamicCm: () => { made++; return 1; } });
+    const c = (ref: string) => ws.rows[0]!.cells.find((x) => x.ref === ref)!;
+    expect([c('D1').formula, c('D1').formulaAttrs, c('D1').cm]).toEqual(['SUM(A1:A2)', undefined, undefined]);
+    expect([c('E1').formula, c('E1').formulaAttrs, c('E1').cm]).toEqual(['_xlfn.SEQUENCE(2)', { t: 'array', ref: 'E1:E2' }, 1]);
+    expect([c('F1').formulaAttrs, c('F1').cm]).toEqual([{ t: 'array', ref: 'F1' }, 1]);
+    // @ legado: grava sem o @ (=@A1:A2 → <f>A1:A2</f>)
+    expect([c('G1').formula, c('G1').formulaAttrs]).toEqual(['A1:A2', undefined]);
+    expect(made).toBe(1);
+  });
+
   it('sem certeza: função de servidor, UDF, tabela de dados', () => {
     const { b, ws } = book([
       { ref: 'A1', formula: '_xlfn.WEBSERVICE("x")', value: '1' },

@@ -1,73 +1,49 @@
 /**
- * Cálculo na ABERTURA e na GRAVAÇÃO do .xlsx/.xls, como o Excel 365:
- * - abrir: monta o motor com os valores em cache do arquivo e recalcula o que o
- *   Excel recalcularia ao abrir (`shouldRecalcOnOpen`: completo com calcId
- *   antigo/ausente, fullCalcOnLoad, volátil sem ca; parcial nas fórmulas ca="1"
- *   e sem `<v>`; nada no modo manual) — os valores entram no modelo antes de a
- *   tela montar as linhas (o Excel nunca mostra o cache velho quando recalcula);
- * - gravar: ca/aca e `cm` (metadata XLDAPR) como o Excel grava, calcChain fora
- *   quando o `<sheetData>` é regenerado, `fullCalcOnLoad="1"` se há o que o
- *   motor não calcula igual (função de servidor/cubo, UDF, tabela de dados).
- * O componente só chama `openCalc`/`saveCalc` (ganchos em universal-sheet.ts).
+ * Cálculo na GRAVAÇÃO do .xlsx, como o Excel 365 (o recálculo ao abrir está em
+ * sheet-calc.ts → `shouldRecalcOnOpen` do motor):
+ * - fórmula digitada (semântica dinâmica) vai como fórmula comum quando a
+ *   semântica legada dá o mesmo, senão como matriz dinâmica `t="array"` + `cm`
+ *   (metadata XLDAPR criado se a pasta não tem — sem ele o Excel lê `{=…}` CSE);
+ * - ca/aca como o Excel grava (voláteis + dependentes; #SPILL!);
+ * - calcChain fora quando algum `<sheetData>` é regenerado (cadeia velha faz o
+ *   Excel reparar a pasta); `fullCalcOnLoad="1"` se há o que o motor não
+ *   calcula igual (função de servidor/cubo, UDF, tabela de dados).
  * Dono: agente CALC-IO.
  */
-import {
-  Engine, fromSheetCore, shouldRecalcOnOpen, applyOpenRecalc, writeValues, prepareForSave, PT_BR,
-  type OpenRecalcPlan, type ValueLocale, type SyncWorksheet,
-} from '@universal/sheet-calc';
+import { prepareForSave, type Engine, type SyncWorksheet } from '@universal/sheet-calc';
 import {
   ensureDynamicArrayCm, removeCalcChain, updateCalcPr,
-  type Workbook, type Worksheet, type SharedString, type XlsxPackage,
+  type Workbook, type Worksheet, type XlsxPackage,
 } from '@universal/sheet-core';
-
-export interface CalcState {
-  readonly engine: Engine;
-  readonly plan: OpenRecalcPlan;
-  /** Abas (na ordem do workbook) cujo modelo o cálculo mudou desde a última gravação. */
-  readonly worksheets: readonly (Worksheet | undefined)[];
-  readonly dirty: Set<Worksheet>;
-  /** O motor calculou algo nesta sessão (os valores gravados são nossos). */
-  computed: boolean;
-}
-
-/**
- * Abre o cálculo da pasta: motor + recálculo ao abrir (regra do Excel), com os
- * valores novos já gravados no modelo (`worksheets` na ordem de workbook.sheets).
- */
-export function openCalc(workbook: Workbook, worksheets: readonly (Worksheet | undefined)[], shared: readonly SharedString[],
-  o: { locale?: ValueLocale; fileName?: string } = {}): CalcState | undefined {
-  if (!worksheets.some((ws) => ws?.rows.some((r) => r.cells.some((c) => c.formula !== undefined)))) return undefined;
-  // CELL("filename") de pasta aberta de arquivo nunca é "": sem o caminho do hospedeiro,
-  // "[Pasta1.xlsx]Aba" — o idioma MID(CELL("filename");FIND("]";…)+1;…) dá o nome da aba
-  const engine = new Engine(fromSheetCore({ workbook, worksheets, sharedStrings: shared }), { locale: o.locale ?? PT_BR, fileName: o.fileName ?? 'Pasta1.xlsx' });
-  const plan = shouldRecalcOnOpen({ workbook, worksheets });
-  const changes = applyOpenRecalc(engine, plan);
-  const dirty = new Set<Worksheet>();
-  for (const s of writeValues(engine, worksheets as readonly (SyncWorksheet | undefined)[], changes)) {
-    const ws = worksheets[s];
-    if (ws) dirty.add(ws);
-  }
-  return { engine, plan, worksheets, dirty, computed: plan.mode !== 'none' && changes.length > 0 };
-}
 
 /**
  * Prepara a gravação: atributos de cálculo nas abas que vão ser regravadas
- * (`willWrite` + as que o cálculo sujou) e as partes da pasta (calcChain,
- * calcPr, metadata). Devolve as abas a regravar por causa do cálculo.
+ * (`willWrite`) e as partes da pasta (calcChain, calcPr, metadata). `views` na
+ * ordem do componente (abas com conteúdo, na ordem do workbook). Devolve as abas
+ * que o cálculo mudou e também precisam ser regravadas.
  */
-export function saveCalc(pkg: XlsxPackage, workbook: Workbook, state: CalcState | undefined, willWrite: ReadonlySet<Worksheet>): Set<Worksheet> {
-  const out = new Set<Worksheet>(state?.dirty ?? []);
-  if (state) {
+export function saveCalc(pkg: XlsxPackage, workbook: Workbook, engine: Engine | null,
+  views: readonly { readonly worksheet: Worksheet }[], willWrite: ReadonlySet<Worksheet>): Set<Worksheet> {
+  const out = new Set<Worksheet>();
+  if (engine) {
+    // aba do motor (= workbook.sheets) → worksheet do componente (mesma regra do SheetCalc)
+    const worksheets: (Worksheet | undefined)[] = [];
+    let k = 0;
+    for (const s of workbook.sheets) worksheets.push(s.target && views[k] ? views[k++]!.worksheet : undefined);
     const sheets = new Set<number>();
-    state.worksheets.forEach((ws, i) => { if (ws && (willWrite.has(ws) || out.has(ws))) sheets.add(i); });
-    const prep = prepareForSave(state.engine, state.worksheets as readonly (SyncWorksheet | undefined)[], {
+    worksheets.forEach((ws, i) => { if (ws && willWrite.has(ws)) sheets.add(i); });
+    const prep = prepareForSave(engine, worksheets as readonly (SyncWorksheet | undefined)[], {
       dynamicCms: workbook.dynamicArrayCm ?? [],
-      dynamicCm: () => ensureDynamicArrayCm(pkg),
+      dynamicCm: () => {
+        const cm = ensureDynamicArrayCm(pkg);
+        // a pasta passa a ter os metadados: as próximas fórmulas dinâmicas usam o mesmo cm
+        workbook.dynamicArrayCm = [...new Set([...(workbook.dynamicArrayCm ?? []), cm])];
+        return cm;
+      },
       sheets,
     });
-    for (const s of prep.touched) { const ws = state.worksheets[s]; if (ws) out.add(ws); }
-    if (!prep.sure && (state.computed || willWrite.size)) updateCalcPr(pkg, { fullCalcOnLoad: '1' });
-    state.dirty.clear();
+    for (const s of prep.touched) { const ws = worksheets[s]; if (ws) out.add(ws); }
+    if (!prep.sure && sheets.size) updateCalcPr(pkg, { fullCalcOnLoad: '1' });
   }
   // <sheetData> regenerado: a cadeia de cálculo pode ficar velha (o Excel repara) — sai
   if (out.size || willWrite.size) removeCalcChain(pkg);

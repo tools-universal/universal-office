@@ -14,7 +14,8 @@
 import { walk } from './ast.js';
 import type { Engine, FormulaRec } from './engine.js';
 import { lookupFn } from './fn.js';
-import { saveFlags } from './file-form.js';
+import { saveFlags, toFileFormula } from './file-form.js';
+import { areaToA1, cellToA1 } from './a1.js';
 import { printFormula } from './print.js';
 import { a1ToCell } from './a1.js';
 import type { SyncCell, SyncWorksheet } from './to-sheet-core.js';
@@ -55,6 +56,14 @@ export function unsureReasons(engine: Engine): string[] {
     });
   }
   return [...out];
+}
+
+/** O nome definido pode valer várias células (o Excel põe @ nele na legada)? Como o motor decide. */
+function nameIsMulti(engine: Engine, sheet: number, name: string): boolean {
+  const d = engine.definedName(name, sheet);
+  if (!d) return true;
+  const e = d.t === 'paren' ? d.e : d;
+  return !(e.t === 'cell' || e.t === 'num' || e.t === 'str' || e.t === 'bool' || e.t === 'err');
 }
 
 /** Índice (linha*16384+coluna → célula) de uma aba do modelo. */
@@ -102,10 +111,29 @@ export function prepareForSave(engine: Engine, worksheets: readonly (SyncWorkshe
         delete fa.t; delete fa.si; delete fa.ref;
         changed = true;
       }
+      if (f.dynamic && f.node) {
+        const fileDyn = c.cm !== undefined && dynCms.has(c.cm);
+        let dynamic = true;
+        if (!fileDyn) {
+          // digitada nesta sessão (semântica do 365): legada quando dá o mesmo, senão matriz dinâmica
+          const ff = toFileFormula(f.node, f.row, f.col, {
+            nameIsMulti: (n) => nameIsMulti(engine, f.sheet, n),
+            isName: (n) => !!engine.definedName(n, f.sheet) && !engine.table(n),
+          });
+          if (c.formula !== ff.text) { c.formula = ff.text; changed = true; }
+          dynamic = ff.dynamic;
+        }
+        if (dynamic) {
+          const ref = f.area ? areaToA1(f.area) : cellToA1(f.row, f.col);
+          if (fa.t !== 'array' || fa.ref !== ref) { fa.t = 'array'; fa.ref = ref; changed = true; }
+        } else if (fa.t === 'array') { delete fa.t; delete fa.ref; changed = true; }
+      }
+      const isDyn = fa.t === 'array' && f.dynamic;
       const fl = flags.get(f) ?? { ca: false, aca: false };
       if (!!fa.ca !== fl.ca) { if (fl.ca) fa.ca = true; else delete fa.ca; changed = true; }
-      if (!!fa.aca !== fl.aca) { if (fl.aca) fa.aca = true; else delete fa.aca; changed = true; }
-      if (f.dynamic) {
+      const aca = fl.aca && isDyn;
+      if (!!fa.aca !== aca) { if (aca) fa.aca = true; else delete fa.aca; changed = true; }
+      if (isDyn) {
         if (c.cm === undefined || !dynCms.has(c.cm)) {
           if (o.dynamicCm) { cm ??= o.dynamicCm(); c.cm = cm; dynCms.add(cm); changed = true; }
         }

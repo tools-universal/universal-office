@@ -6,8 +6,10 @@
  * pintura e a gravação continuarem lendo o modelo de sempre.
  *
  * - O motor nasce sob demanda (1ª edição, 1ª célula com fórmula/matriz
- *   selecionada) — abrir uma pasta não paga o custo; `recalcOnOpen` (gancho do
- *   CALC-IO) cria e recalcula na carga.
+ *   selecionada) — abrir uma pasta não paga o custo, salvo quando o Excel
+ *   recalcularia ao abrir: `shouldRecalcOnOpen` do motor (regra medida —
+ *   completo, só as ca="1"/sem `<v>`, ou nada); o gancho `recalcOnOpen` do
+ *   hospedeiro, se houver, decide no lugar dela (true = completo).
  * - Fórmula digitada = semântica do 365 (matriz dinâmica: derrama); a âncora
  *   bloqueada vira #DESPEJAR!; apagar a âncora limpa o intervalo.
  * - Barra de fórmulas: a fórmula no idioma (toLocal da forma da tela do Excel,
@@ -18,7 +20,8 @@
  */
 import {
   CalcError, Engine, areaToA1, cellValue, fromSheetCore, numberLiteral, toLocal,
-  localizeBool, localizeError, type Area, type CellInput, type ErrorCode, type FormulaRec, type Scalar,
+  localizeBool, localizeError, applyOpenRecalc, shouldRecalcOnOpen,
+  type Area, type CellInput, type ErrorCode, type FormulaRec, type Scalar,
 } from '@universal/sheet-calc';
 import {
   builtinFormatCode, refToRowCol, rowColToRef,
@@ -84,8 +87,10 @@ export class SheetCalc {
   private bridge: Bridge | null = null;
   private pool: XfPool | null = null;
   private readonly arrays = new Map<number, boolean>();
-  /** Gancho do CALC-IO: recalcular tudo ao abrir? (padrão: não — valores do arquivo). */
+  /** Gancho do hospedeiro: recalcular tudo ao abrir? Decide no lugar da regra do Excel (`shouldRecalcOnOpen` do motor). */
   recalcOnOpen: ((wb: Workbook) => boolean) | null = null;
+  /** Caminho/nome do arquivo (CELL("filename")); sem ele "[Pasta1.xlsx]Aba" — pasta aberta de arquivo nunca dá "". */
+  fileName: string | undefined;
 
   constructor(private readonly host: SheetCalcHost, public locale: FormulaLocale) {}
 
@@ -95,8 +100,16 @@ export class SheetCalc {
     this.pool = new XfPool(this.host.styles);
     this.arrays.clear();
     const wb = this.host.workbook;
-    if (wb && this.recalcOnOpen?.(wb)) return this.recalcAll();
-    return new Set();
+    if (!wb) return new Set();
+    if (this.recalcOnOpen) return this.recalcOnOpen(wb) ? this.recalcAll() : new Set();
+    // regra do Excel 365 (open-recalc.ts): completo, só ca="1"/sem <v>, ou nada
+    const worksheets: (Worksheet | undefined)[] = [];
+    let k = 0;
+    for (const s of wb.sheets) worksheets.push(s.target && this.host.views[k] ? this.host.views[k++]!.worksheet : undefined);
+    const plan = shouldRecalcOnOpen({ workbook: wb, worksheets });
+    if (plan.mode === 'none') return new Set();
+    if (plan.mode === 'full') return this.recalcAll();
+    return this.writeBack(applyOpenRecalc(this.ensure().engine, plan)).views;
   }
 
   /** O motor já existe (alguma célula foi editada ou consultada). */
@@ -113,7 +126,7 @@ export class SheetCalc {
       if (s.target && this.host.views[k]) { worksheets.push(this.host.views[k]!.worksheet); viewOfSheet[i] = k; sheetOfView[k] = i; k++; }
       else { worksheets.push(undefined); viewOfSheet[i] = -1; }
     });
-    const engine = new Engine(fromSheetCore({ workbook: wb, worksheets, sharedStrings: this.host.shared }), { locale: this.locale.values });
+    const engine = new Engine(fromSheetCore({ workbook: wb, worksheets, sharedStrings: this.host.shared }), { locale: this.locale.values, fileName: this.fileName ?? 'Pasta1.xlsx' });
     this.bridge = { engine, viewOfSheet, sheetOfView };
     return this.bridge;
   }

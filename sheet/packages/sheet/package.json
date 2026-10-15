@@ -13,7 +13,6 @@
   "dependencies": {
     "@universal/sheet-calc": "*",
     "@universal-material/web": "^3.9.4",
-    "@universal/sheet-calc": "*",
     "@universal/sheet-core": "*",
     "@universal/slides-core": "file:../../../slides/packages/slides-core",
     "@universal-office/fonts": "file:../../../shared/fonts"
