@@ -71,3 +71,24 @@ describe('dígitos decimais (15 significativos, metade p/ longe de zero)', () =>
     expect(decimalDigits(9.995, 2)).toEqual(['10', '00']);
   });
 });
+
+describe('negativo em seção só de literais e tempo decorrido (medido, Range.Text = TEXT)', () => {
+  const t = (v: number, code: string): string => formatValue(v, code, {}).text;
+  it('seção única só de literais ganha o "-"', () => {
+    expect(t(-5, '"x"')).toBe('-x');
+    expect(t(-0.5, 'x')).toBe('-x');
+    expect(t(-5, '""')).toBe('-');
+    expect(t(-5, '\-')).toBe('--');
+    expect(t(5, '"x"')).toBe('x');
+    expect(t(-5, '"x";"y"')).toBe('y');
+    expect(t(-5, 'x;')).toBe('');
+  });
+  it('um tempo decorrido sozinho aceita negativo; combinado, não', () => {
+    expect(t(-5, '[h]')).toBe('-120');
+    expect(t(-0.5, '[mm]')).toBe('-720');
+    expect(t(-1.25, '[s]')).toBe('-108000');
+    expect(t(-1.25, '[h] "x"')).toBe('-30 x');
+    expect(formatValueParts(-1.25, '[h]:mm').overflow).toBe(true);
+    expect(formatValueParts(-0.5, 'h:mm').overflow).toBe(true);
+  });
+});

@@ -267,16 +267,7 @@ function translateBracket(inner: string, locale: ValueLocale, k: { hl: string; m
  */
 export function formatForText(value: number | string, canonical: string, locale: ValueLocale, date1904: boolean): string | undefined {
   const loc = formatLocaleOf(locale);
-  if (typeof value === 'number' && value < 0) {
-    const secs = splitLocal(canonical) ?? [];
-    if (secs.length === 1) {
-      const bare = secs[0]!.replace(/"[^"]*"?|\\.|_.|\*.|\[\$[^\]]*\]|\[(color\s*\d+|[a-z]+)\]/gi, '');
-      // seção única só de literais: o Excel põe o "-" ("x" → "-x", "" → "-")
-      if (!/[0#?@]|general|[ymdhsebg]|\[/i.test(bare)) return '-' + (formatForText(-value, canonical, locale, date1904) ?? '');
-      // tempo decorrido sozinho aceita negativo ("[mm]" → "-1440")
-      if (/^\[(h+|m+|s+)\]$/i.test(secs[0]!.trim())) return '-' + (formatForText(-value, canonical, locale, date1904) ?? '');
-    }
-  }
+  // o "-" de seção só de literais e de tempo decorrido sozinho vem do motor compartilhado
   const r = formatValueParts(value, canonical, { locale: loc, date1904 });
   if (r.overflow) return undefined;
   let out = '';

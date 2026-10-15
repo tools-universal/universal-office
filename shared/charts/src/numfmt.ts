@@ -606,6 +606,8 @@ export function formatValueParts(value: number | string, code: string | undefine
   // sinal "-" no começo da seção inteira (antes dos literais): "-a5", "-  5"; some
   // quando o valor exibido arredondou a zero ("0.00" c/ −0,0001 → "0,00")
   if (neg && sec.kind === 'num' && nonzero) out.unshift({ t: 'text', s: '-' });
+  // seção ÚNICA só de literais também ganha o "-" ("x" → "-x", '""' → "-", "-" → "--"; medido)
+  if (neg && (sec.kind === 'lit' || sec.kind === 'empty')) out.unshift({ t: 'text', s: '-' });
   return { parts: mergeParts(lastFillOnly(out)), color: sec.color };
 }
 
@@ -926,7 +928,14 @@ function emitDate(sec0: Section, serial: number, loc0: FormatLocale, date1904: b
     sec = { ...parseSection(sys), color: sec.color };
   }
   const loc = localeFor(sec, loc0);
-  if (neg) return null;
+  if (neg) {
+    // negativo só com UM tempo decorrido sozinho ([h], [mm], [s] + literais):
+    // "-120" com [h] e −5; "[h]:mm", "h:mm"… → #### (medido, lab calc/lead)
+    const tt = sec.toks.filter((t) => t.k === 'dt' || t.k === 'el' || t.k === 'ampm' || t.k === 'subsec');
+    if (tt.length !== 1 || tt[0]!.k !== 'el') return null;
+    const r = emitDate(sec0, serial, loc0, date1904, false);
+    return r && [{ t: 'text', s: '-' }, ...r];
+  }
   // precisão: fração de segundo pedida (.0/.00/.000) ou segundo inteiro
   let sub = 0;
   for (const t of sec.toks) if (t.k === 'subsec') sub = Math.max(sub, Math.min(3, t.n));
