@@ -35,7 +35,8 @@ const MAX_COL_DEFAULT = 52;
 const COL_HEADER_BG = '#f6f6f6';
 const ROW_HEADER_BG = '#f6f6f6';
 const CORNER_BG = '#ececec';
-const GRID_LINE = '#e2e2e2';
+/** Linha de grade do Excel 365 (medida na imagem vinculada: #E0E0E0). */
+const GRID_LINE = '#e0e0e0';
 const HEADER_LINE = '#d3d3d3';
 const TEXT = '#1f1f1f';
 /** Cor de acento padrão (verde Office) usada como fallback quando o tema não
