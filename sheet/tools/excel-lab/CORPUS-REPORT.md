@@ -70,6 +70,21 @@ o `Range.Text`.
 | r4 (+3 passadas, zoom do oráculo) | 1.254 | 6,25 | 12,56 | 80,8% | 89 |
 | r5 (+leitor .xls e o que veio junto) | 1.252 | **5,40** | **11,39** | — | — |
 
+Rodadas completas com `.xls` (todas as abas com oráculo):
+
+| rodada | abas | mediana | média | p90 | texto |
+|---|---|---|---|---|---|
+| r5 (.xls) | 2.691 | 6,74 | 11,54 | 29,7 | 89,5% |
+| r6 (+desenhos) | 2.414* | 5,78 | 10,35 | 27,4 | 89,1% |
+| r7 (+tabelas/CF, oráculo 1:1) | 2.692 | **5,26** | **9,03** | **23,9** | **90,0%** |
+
+\* rodada concorrente com a reexportação do oráculo (renderizações perdidas).
+Em r7 por origem (mediana/média): gd 7,93/9,93 · gdx 6,60/12,52 ·
+lo 2,73/5,89 · poi 3,15/7,90 · web 10,39/14,34. Oráculo 1:1: o
+`Chart.Export` reservava 1 px de moldura e comprimia a imagem ~2 px; agora o
+gráfico e a imagem saem 1,5 pt maiores e recorta-se W×H (borda de 1 px fora
+da comparação).
+
 r5 com os `.xls`: **2.691 abas** em 1.677 pastas — mediana 6,74, média 11,54,
 texto exibido igual ao Excel em **89,5%** de 297 mil células. Por origem
 (mediana/média): gd 8,15/10,78 · gdx 8,95/14,37 · lo 4,57/10,04 · poi
