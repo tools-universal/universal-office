@@ -2,7 +2,7 @@ import { FontResolver, variantOf } from '@universal-office/fonts';
 import {
   XlsxPackage, openSpreadsheet, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
-  parseChart, paintChart, excelMdw, excelRowPx, colWidthToPx, defaultColPx, rowPtToPx, ppemOf,
+  parseChart, paintChart, excelMdw, excelRowPx, colWidthToPx, defaultColPx, rowPtToPx, ppemOf, measuredFamily,
   type ChartModel, type Theme,
   type Workbook, type Worksheet, type Cell, type SharedString, type Styles, type Font, type Fill,
   type Border, type BorderEdge, type PaneInfo, type CondFormat, type ColDef, type FormatResult,
@@ -249,6 +249,30 @@ export class UniversalSheetElement extends HTMLElement {
   private onFontsChanged(): void {
     this.cellFonts.clear();
     let refit = false;
+    // MDW medida no canvas antes da fonte Normal carregar (ex.: Lucida Sans
+    // Unicode 10: 7 com a substituta, 8 de fato — lo-tdf66668): refaz as larguras
+    const nr = this.mdwFromCanvas ? this.fontResolver.get(this.normalFont.name) : undefined;
+    if (nr && this.views.length) {
+      const m = nr.source === 'default'
+        ? excelMdw(this.normalFont.name, this.normalFont.size) ?? this.canvasMdw(this.normalFont)
+        : this.canvasMdw(this.normalFont);
+      if (m !== this.mdw) {
+        this.mdw = m;
+        for (const v of this.views) {
+          const ws = v.worksheet;
+          for (const cd of ws.cols ?? []) {
+            if (cd.width === undefined) continue;
+            for (let c = cd.min; c <= cd.max; c++) v.colWidths.set(c, colWidthToPx(cd.width, m));
+          }
+          v.defaultColW = defaultColPx(m, ws.sheetFormatPr?.defaultColWidth, ws.sheetFormatPr?.baseColWidth);
+          if (this.wrapFitViews.has(v)) this.fitRowHeights(v);
+        }
+        this.recalcGrid();
+        this.repositionEditor();
+        this.paint();
+        return;
+      }
+    }
     for (const v of this.views) if (this.wrapFitViews.has(v)) { this.fitRowHeights(v); refit = true; }
     if (refit) { this.recalcGrid(); this.repositionEditor(); }
     this.paint();
@@ -283,7 +307,12 @@ export class UniversalSheetElement extends HTMLElement {
     // Excel (sheet-core/grid-metrics): largura do dígito máximo e linha padrão
     const normal = this.styles.fonts[0];
     this.normalFont = { name: normal?.name ?? 'Calibri', size: normal?.size ?? 11, bold: !!normal?.bold };
-    this.mdw = excelMdw(this.normalFont.name, this.normalFont.size) ?? this.canvasMdw(this.normalFont);
+    const tableMdw = excelMdw(this.normalFont.name, this.normalFont.size);
+    // família fora da tabela medida: a tabela dá a da Arial (o Excel usa a Arial
+    // se a fonte FALTA); se o navegador tem a fonte (fonte do Windows não
+    // medida, ex.: Lucida Sans Unicode), mede no canvas quando ela chegar
+    this.mdwFromCanvas = tableMdw === undefined || measuredFamily(this.normalFont.name) === null;
+    this.mdw = tableMdw ?? this.canvasMdw(this.normalFont);
     this.normalRowPx = excelRowPx(this.normalFont.name, this.normalFont.size, this.normalFont.bold);
 
     this.views = [];
@@ -407,6 +436,8 @@ export class UniversalSheetElement extends HTMLElement {
   private normalFont: { name: string; size: number; bold: boolean } = { name: 'Calibri', size: 11, bold: false };
   /** Largura do dígito máximo (px) da fonte Normal, como o Excel a mede. */
   private mdw = 7;
+  /** A MDW veio do canvas (família fora da tabela medida): refeita quando a fonte chega. */
+  private mdwFromCanvas = false;
   /** Altura (px) da linha auto-ajustada só com a fonte Normal. */
   private normalRowPx = 20;
   /** Abas cuja altura automática mediu texto com quebra (refeita quando chega fonte). */
@@ -2429,14 +2460,15 @@ export class UniversalSheetElement extends HTMLElement {
     });
     switch (cell.type) {
       case 's': {
-        // texto rico fica cru (os runs são pintados como estão)
+        // texto rico também passa pela seção de texto do formato no Range.Text
+        // ("_ @_ " → " texto "; lo-tdf66668) — a pintura desenha os runs
         const ss = cell.value !== undefined ? this.shared[parseInt(cell.value, 10)] : undefined;
         const t = ss?.text;
-        return t ? { kind: 'text', str: cap(t), code: ss?.runs ? undefined : this.cellFormatCode(cell) } : null;
+        return t ? { kind: 'text', str: cap(t), code: this.cellFormatCode(cell) } : null;
       }
       case 'inlineStr': {
         const t = cell.inlineString?.text ?? cell.value;
-        return t ? { kind: 'text', str: cap(t), code: cell.inlineString?.runs ? undefined : this.cellFormatCode(cell) } : null;
+        return t ? { kind: 'text', str: cap(t), code: this.cellFormatCode(cell) } : null;
       }
       case 'str': return cell.value ? { kind: 'text', str: cap(cell.value), code: this.cellFormatCode(cell) } : null;
       case 'b': return cell.value === undefined ? null : { kind: 'bool', str: localizeBool(cell.value) };
