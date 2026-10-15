@@ -48,7 +48,7 @@ function scalarOf(v: Value, ctx: FnContext): Scalar {
 }
 
 const rowsOf = (a: ArrayValue): Scalar[][] => Array.from({ length: a.rows }, (_, r) => Array.from({ length: a.cols }, (_, c) => a.get(r, c)));
-const fromRows = (rows: Scalar[][], cols: number): ArrayValue | CalcError => (rows.length && cols ? ArrayValue.fill(rows.length, cols, (r, c) => rows[r]![c] ?? ERR.NA) : ERR.CALC);
+const fromRows = (rows: Scalar[][], cols: number): ArrayValue | CalcError => (rows.length && cols ? ArrayValue.fill(rows.length, cols, (r, c) => (c < rows[r]!.length ? rows[r]![c]! : ERR.NA)) : ERR.CALC);
 const transpose = (a: ArrayValue): ArrayValue => ArrayValue.fill(a.cols, a.rows, (r, c) => a.get(c, r));
 
 /** Ordem do SORT: número < texto < booleano < erro < vazio (texto pela colação). */
@@ -60,6 +60,12 @@ function sortCmp(a: Scalar, b: Scalar): number {
   if (ra === 1) return compareText(a as string, b as string);
   if (ra === 2) return a === b ? 0 : a ? 1 : -1;
   return 0;
+}
+
+/** Aplica a direção: vazio fica por último também no descendente (medido no SORT). */
+function sortDir(a: Scalar, b: Scalar, c: number, order: number): number {
+  if (order > 0 || a === null || b === null) return c;
+  return -c;
 }
 
 /** Igualdade de UNIQUE (colação para texto; número exato). */
@@ -100,7 +106,7 @@ function sumOf(v: Value, ctx: FnContext): number | CalcError {
   let s = 0;
   const xs = v instanceof RefValue ? v.areas.flatMap((_, k) => ctx.values(v, k).data) : v.data;
   for (const x of xs) {
-    if (x instanceof CalcError) return x;
+    if (x instanceof CalcError) return ERR.NUM; // medido: PERCENTOF(C1:C7 com #N/D; …) = #NUM!
     if (typeof x === 'number') s += x;
   }
   return s;
@@ -142,11 +148,50 @@ function headerMode(v: Value | undefined, vals: ArrayValue, ctx: FnContext): num
   if (v === undefined || v === null) {
     const first = vals.rows > 1 && vals.data.slice(0, vals.cols).every((x) => typeof x === 'string');
     const rest = vals.rows > 1 && typeof vals.get(1, 0) === 'number';
-    return first && rest ? 3 : 0;
+    return first && rest ? 1 : 0; // detectado: usa como cabeçalho mas não mostra (medido)
   }
   const n = intOr(v, 0, ctx);
   if (n instanceof CalcError) return n;
   return n >= 0 && n <= 3 ? n : ERR.VALUE;
+}
+
+/** Nomes gerados de cabeçalho (field_headers = 2) no idioma. */
+function genHeader(kind: 'row' | 'col' | 'val', i: number, ctx: FnContext): string {
+  const pt = ctx.locale.id.startsWith('pt');
+  if (kind === 'row') return pt ? `Campo de linha ${i}` : `Row Field ${i}`;
+  if (kind === 'col') return pt ? `Campo de coluna ${i}` : `Col Field ${i}`;
+  return pt ? `Valor ${i}` : `Value ${i}`;
+}
+
+/** Linhas que passam no filtro (filter_array booleano do tamanho dos dados). */
+function filterRows(rows: number[], flt: Value | undefined, n: number, ctx: FnContext): number[] | CalcError {
+  if (flt === undefined || flt === null) return rows;
+  const f = A(flt, ctx); if (f instanceof CalcError) return f;
+  if (f.data.length !== n) return ERR.VALUE;
+  const keep: number[] = [];
+  for (const r of rows) {
+    const x = f.data[r]!;
+    if (x instanceof CalcError) return x;
+    const b = toBool(x, ctx.locale);
+    if (b instanceof CalcError) return b;
+    if (b) keep.push(r);
+  }
+  return keep;
+}
+
+/** Ordem (sort_order): lista de colunas 1-based, negativa = descendente; padrão = todas as chaves. */
+function sortSpec(v: Value | undefined, nkeys: number, width: number, ctx: FnContext): number[] | CalcError {
+  if (v === undefined || v === null) return Array.from({ length: nkeys }, (_, i) => i + 1);
+  const so = A(v, ctx); if (so instanceof CalcError) return so;
+  const out: number[] = [];
+  for (const x of so.data) {
+    if (x instanceof CalcError) return x;
+    const n = toNumber(x, ctx.locale, ctx.date1904); if (n instanceof CalcError) return n;
+    const k = Math.trunc(n);
+    if (k === 0 || Math.abs(k) > width) return ERR.VALUE;
+    out.push(k);
+  }
+  return out;
 }
 
 function groupBy(args: readonly Value[], ctx: FnContext): Value {
@@ -157,57 +202,59 @@ function groupBy(args: readonly Value[], ctx: FnContext): Value {
   if (keys.rows !== vals.rows) return ERR.VALUE;
   const hm = headerMode(hv, vals, ctx); if (hm instanceof CalcError) return hm;
   const depth = intOr(tv, 1, ctx); if (depth instanceof CalcError) return depth;
+  if (Math.abs(depth) > keys.cols) return ERR.VALUE; // medido: 2 níveis com 1 chave → #VALUE!
   const rel = intOr(relv, 0, ctx); if (rel instanceof CalcError) return rel;
   if (rel !== 0 && rel !== 1) return ERR.VALUE;
   const hasHdr = hm === 1 || hm === 3;
-  let rows = Array.from({ length: keys.rows }, (_, i) => i).slice(hasHdr ? 1 : 0);
-  if (flt !== undefined && flt !== null) {
-    const f = A(flt, ctx); if (f instanceof CalcError) return f;
-    if (f.data.length !== keys.rows) return ERR.VALUE;
-    const keep: number[] = [];
-    for (const r of rows) {
-      const x = f.data[r]!;
-      if (x instanceof CalcError) return x;
-      const b = toBool(x, ctx.locale);
-      if (b instanceof CalcError) return b;
-      if (b) keep.push(r);
-    }
-    rows = keep;
-  }
+  const rows = filterRows(Array.from({ length: keys.rows }, (_, i) => i).slice(hasHdr ? 1 : 0), flt, keys.rows, ctx);
+  if (rows instanceof CalcError) return rows;
   if (!rows.length) return ERR.CALC;
+  const width = keys.cols + vals.cols;
+  const order = sortSpec(sv, keys.cols, width, ctx); if (order instanceof CalcError) return order;
   const groups = groupRows(keys, rows);
-  // ordem: por padrão a 1ª coluna (chaves) ascendente; índices negativos = descendente
-  const so = sv === undefined || sv === null ? new ArrayValue(1, 1, [1]) : A(sv, ctx);
-  if (so instanceof CalcError) return so;
-  const order: number[] = [];
-  for (const x of so.data) { const n = toNumber(x, ctx.locale, ctx.date1904); if (n instanceof CalcError) return n; if (n === 0 || Math.abs(n) > keys.cols + vals.cols) return ERR.VALUE; order.push(Math.trunc(n)); }
-  const lines: { key: Scalar[]; vals: Scalar[] }[] = groups.map((g) => ({ key: g.key, vals: Array.from({ length: vals.cols }, (_, c) => aggregate(fv, vals, g.rows, c, rows, ctx)) }));
+  const lines = groups.map((g) => ({ key: g.key, rows: g.rows, vals: Array.from({ length: vals.cols }, (_, c) => aggregate(fv, vals, g.rows, c, rows, ctx)) }));
   lines.sort((a, b) => {
     for (const o of order) {
       const i = Math.abs(o) - 1;
       const x = i < keys.cols ? a.key[i]! : a.vals[i - keys.cols]!, y = i < keys.cols ? b.key[i]! : b.vals[i - keys.cols]!;
       const c = sortCmp(x, y);
-      if (c) return o > 0 ? c : -c;
+      if (c) return sortDir(x, y, c, o);
     }
     return 0;
   });
   const out: Scalar[][] = [];
-  const width = keys.cols + vals.cols;
   if (hm === 2 || hm === 3) {
     const hdr: Scalar[] = [];
-    for (let c = 0; c < keys.cols; c++) hdr.push(hm === 3 ? keys.get(0, c) : `Linha ${c + 1}`);
-    for (let c = 0; c < vals.cols; c++) hdr.push(hm === 3 ? vals.get(0, c) : `Valor ${c + 1}`);
+    for (let c = 0; c < keys.cols; c++) hdr.push(hm === 3 ? keys.get(0, c) : genHeader('row', c + 1, ctx));
+    for (let c = 0; c < vals.cols; c++) hdr.push(hm === 3 ? vals.get(0, c) : genHeader('val', c + 1, ctx));
     out.push(hdr);
   }
-  const grand = (): Scalar[] => [totalText(), ...Array.from({ length: keys.cols - 1 }, () => '' as Scalar), ...Array.from({ length: vals.cols }, (_, c) => aggregate(fv, vals, rows, c, rows, ctx))];
+  const blanks = (n: number): Scalar[] => Array.from({ length: n }, () => '' as Scalar);
+  const totalLine = (rr: number[], label: Scalar[], fill: number): Scalar[] =>
+    [...label, ...blanks(fill), ...Array.from({ length: vals.cols }, (_, c) => aggregate(fv, vals, rr, c, rows, ctx))];
+  const grand = (): Scalar[] => totalLine(rows, [totalText()], keys.cols - 1);
   if (depth < 0) out.push(grand());
-  for (const l of lines) out.push([...l.key, ...l.vals]);
+  // subtotais (|depth| ≥ 2): por grupo do 1º nível, depois (ou antes) das suas linhas
+  const sub = Math.abs(depth) >= 2 && keys.cols >= 2;
+  let i = 0;
+  while (i < lines.length) {
+    if (!sub) { out.push([...lines[i]!.key, ...lines[i]!.vals]); i++; continue; }
+    const k0 = lines[i]!.key[0]!;
+    let j = i;
+    const rr: number[] = [];
+    while (j < lines.length && sameCell(lines[j]!.key[0]!, k0)) { rr.push(...lines[j]!.rows); j++; }
+    const st = totalLine(rr, [k0], keys.cols - 1);
+    if (depth < 0) out.push(st);
+    for (let q = i; q < j; q++) out.push([...lines[q]!.key, ...lines[q]!.vals]);
+    if (depth > 0) out.push(st);
+    i = j;
+  }
   if (depth > 0) out.push(grand());
   return fromRows(out, width);
 }
 
 function pivotBy(args: readonly Value[], ctx: FnContext): Value {
-  const [rf, cf, vf, fv, hv, rtv, rsv, ctv, csv, flt] = args;
+  const [rf, cf, vf, fv, hv, rtv, rsv, ctv, csv, flt, relv] = args;
   const rk = A(rf!, ctx); if (rk instanceof CalcError) return rk;
   const ck = A(cf!, ctx); if (ck instanceof CalcError) return ck;
   const vals = A(vf!, ctx); if (vals instanceof CalcError) return vals;
@@ -216,39 +263,55 @@ function pivotBy(args: readonly Value[], ctx: FnContext): Value {
   const hm = headerMode(hv, vals, ctx); if (hm instanceof CalcError) return hm;
   const rdepth = intOr(rtv, 1, ctx); if (rdepth instanceof CalcError) return rdepth;
   const cdepth = intOr(ctv, 1, ctx); if (cdepth instanceof CalcError) return cdepth;
-  const rso = intOr(rsv, 1, ctx); if (rso instanceof CalcError) return rso;
-  const cso = intOr(csv, 1, ctx); if (cso instanceof CalcError) return cso;
-  let rows = Array.from({ length: vals.rows }, (_, i) => i).slice(hm === 1 || hm === 3 ? 1 : 0);
-  if (flt !== undefined && flt !== null) {
-    const f = A(flt, ctx); if (f instanceof CalcError) return f;
-    const keep: number[] = [];
-    for (const r of rows) { const b = toBool(f.data[r] ?? false, ctx.locale); if (b instanceof CalcError) return b; if (b) keep.push(r); }
-    rows = keep;
-  }
+  if (Math.abs(rdepth) > rk.cols || Math.abs(cdepth) > ck.cols) return ERR.VALUE;
+  const rso = sortSpec(rsv, rk.cols, rk.cols, ctx); if (rso instanceof CalcError) return rso;
+  const cso = sortSpec(csv, ck.cols, ck.cols, ctx); if (cso instanceof CalcError) return cso;
+  const rel = intOr(relv, 0, ctx); if (rel instanceof CalcError) return rel;
+  if (rel < 0 || rel > 4) return ERR.VALUE;
+  const hasHdr = hm === 1 || hm === 3;
+  const rows = filterRows(Array.from({ length: vals.rows }, (_, i) => i).slice(hasHdr ? 1 : 0), flt, vals.rows, ctx);
+  if (rows instanceof CalcError) return rows;
   if (!rows.length) return ERR.CALC;
   const rg = groupRows(rk, rows), cg = groupRows(ck, rows);
-  const keyCmp = (a: Group, b: Group): number => { for (let i = 0; i < a.key.length; i++) { const c = sortCmp(a.key[i]!, b.key[i]!); if (c) return c; } return 0; };
-  rg.sort((a, b) => (rso < 0 ? -keyCmp(a, b) : keyCmp(a, b)));
-  cg.sort((a, b) => (cso < 0 ? -keyCmp(a, b) : keyCmp(a, b)));
-  const out: Scalar[][] = [];
+  const keyCmp = (spec: number[]) => (a: Group, b: Group): number => {
+    for (const o of spec) { const i = Math.abs(o) - 1; const c = sortCmp(a.key[i]!, b.key[i]!); if (c) return sortDir(a.key[i]!, b.key[i]!, c, o); }
+    return 0;
+  };
+  rg.sort(keyCmp(rso));
+  cg.sort(keyCmp(cso));
   const nv = vals.cols;
   const width = rk.cols + (cg.length + (cdepth !== 0 ? 1 : 0)) * nv;
-  // cabeçalho das colunas (um nível por coluna de chave)
+  const out: Scalar[][] = [];
+  const blanks = (n: number): Scalar[] => Array.from({ length: n }, () => '' as Scalar);
+  // cabeçalhos: nomes dos campos de coluna (modos 2/3), chaves de coluna, nomes de linha + valor (modos 2/3)
+  const showHdr = hm === 2 || hm === 3;
+  if (showHdr) for (let lvl = 0; lvl < ck.cols; lvl++) {
+    const name = hm === 3 ? ck.get(0, lvl) : genHeader('col', lvl + 1, ctx);
+    out.push([...blanks(rk.cols), name, ...blanks(width - rk.cols - 1)]);
+  }
   for (let lvl = 0; lvl < ck.cols; lvl++) {
-    const line: Scalar[] = Array.from({ length: rk.cols }, () => '' as Scalar);
+    const line: Scalar[] = blanks(rk.cols);
     for (const g of cg) for (let v = 0; v < nv; v++) line.push(g.key[lvl]!);
     if (cdepth !== 0) for (let v = 0; v < nv; v++) line.push(lvl === 0 ? totalText() : '');
     out.push(line);
   }
+  if (showHdr) {
+    const line: Scalar[] = [];
+    for (let c = 0; c < rk.cols; c++) line.push(hm === 3 ? rk.get(0, c) : genHeader('row', c + 1, ctx));
+    for (let k = 0; k < cg.length + (cdepth !== 0 ? 1 : 0); k++) for (let v = 0; v < nv; v++) line.push(hm === 3 ? vals.get(0, v) : genHeader('val', v + 1, ctx));
+    out.push(line);
+  }
+  // relative_to (PERCENTOF): 0 total da coluna, 1 total da linha, 2 total geral
+  const denom = (rr: number[], cc: number[] | null): number[] => (rel === 1 ? rr : rel === 2 || !cc ? rows : cc);
   const cell = (rr: number[], cc: number[], v: number): Scalar => {
     const both = rr.filter((r) => cc.includes(r));
-    return both.length ? aggregate(fv, vals, both, v, rows, ctx) : '';
+    return both.length ? aggregate(fv, vals, both, v, denom(rr, cc), ctx) : '';
   };
   const body = (g: Group | null): Scalar[] => {
     const rr = g ? g.rows : rows;
-    const line: Scalar[] = g ? [...g.key] : [totalText(), ...Array.from({ length: rk.cols - 1 }, () => '' as Scalar)];
+    const line: Scalar[] = g ? [...g.key] : [totalText(), ...blanks(rk.cols - 1)];
     for (const c of cg) for (let v = 0; v < nv; v++) line.push(cell(rr, c.rows, v));
-    if (cdepth !== 0) for (let v = 0; v < nv; v++) line.push(aggregate(fv, vals, rr, v, rows, ctx));
+    if (cdepth !== 0) for (let v = 0; v < nv; v++) line.push(aggregate(fv, vals, rr, v, denom(rr, null), ctx));
     return line;
   };
   if (rdepth < 0) out.push(body(null));
@@ -298,7 +361,7 @@ register(
       rows.sort((x, y) => {
         for (let k = 0; k < idx.length; k++) {
           const c = sortCmp(x.r[idx[k]!]!, y.r[idx[k]!]!);
-          if (c) return (ord[ord.length === 1 ? 0 : k]! < 0 ? -c : c);
+          if (c) return sortDir(x.r[idx[k]!]!, y.r[idx[k]!]!, c, ord[ord.length === 1 ? 0 : k]!);
         }
         return x.i - y.i;
       });
@@ -325,9 +388,8 @@ register(
       }
       const n = byCol ? a.cols : a.rows;
       const order = Array.from({ length: n }, (_, i) => i);
-      for (const { k } of keys) for (const x of k.data) if (x instanceof CalcError) return x;
       order.sort((x, y) => {
-        for (const { k, o } of keys) { const c = sortCmp(k.data[x]!, k.data[y]!); if (c) return o < 0 ? -c : c; }
+        for (const { k, o } of keys) { const c = sortCmp(k.data[x]!, k.data[y]!); if (c) return sortDir(k.data[x]!, k.data[y]!, c, o); }
         return x - y;
       });
       return byCol ? ArrayValue.fill(a.rows, a.cols, (r, c) => a.get(r, order[c]!)) : ArrayValue.fill(a.rows, a.cols, (r, c) => a.get(order[r]!, c));
@@ -361,7 +423,9 @@ register(
       const st = stv === undefined || stv === null ? 1 : toNumber(stv, ctx.locale, ctx.date1904); if (st instanceof CalcError) return st;
       if (r < 0 || c < 0) return ERR.VALUE;
       if (r === 0 || c === 0) return ERR.CALC;
-      if (r > MAX_ROW + 1 || c > MAX_COL + 1) return ERR.VALUE;
+      // medido: 1048577 linhas → #VALUE!; mais colunas que a planilha → #SPILL!
+      if (r > MAX_ROW + 1) return ERR.VALUE;
+      if (c > MAX_COL + 1) return ERR.SPILL;
       return ArrayValue.fill(r, c, (i, j) => s0 + (i * c + j) * st);
     },
   },
@@ -405,6 +469,7 @@ register(
       const c = intOr(cv, a.cols, ctx); if (c instanceof CalcError) return c;
       if (r < a.rows || c < a.cols) return ERR.VALUE;
       if (r > MAX_ROW + 1 || c > MAX_COL + 1) return ERR.NUM;
+      if (pv instanceof ArrayValue && (pv.rows > 1 || pv.cols > 1)) return ERR.VALUE; // medido
       const pad = pv === undefined ? ERR.NA : scalarOf(pv, ctx);
       return ArrayValue.fill(r, c, (i, j) => (i < a.rows && j < a.cols ? a.get(i, j) : pad));
     },
@@ -413,7 +478,7 @@ register(
     name, prefix: '_xlfn.', minArgs: 1, maxArgs: 254, args: any,
     call: (args: readonly Value[], ctx: FnContext): Value => {
       const parts: ArrayValue[] = [];
-      for (const v of args) { if (v === null) { parts.push(new ArrayValue(1, 1, [null])); continue; } const a = A(v, ctx); if (a instanceof CalcError) return a; parts.push(a); }
+      for (const v of args) { if (v === null) return ERR.VALUE; const a = A(v, ctx); if (a instanceof CalcError) return a; parts.push(a); }
       if (name === 'VSTACK') {
         const w = Math.max(...parts.map((p) => p.cols));
         const rows: Scalar[][] = [];
@@ -455,12 +520,15 @@ register(
       if (a.rows > 1 && a.cols > 1) return ERR.VALUE;
       const k = intOr(nv, 0, ctx); if (k instanceof CalcError) return k;
       if (k < 1) return ERR.NUM;
-      const pad = pv === undefined ? ERR.NA : scalarOf(pv, ctx);
       const xs = a.data;
-      const lines = Math.ceil(xs.length / k);
+      // pad_with matriz: o Excel levanta a função sobre ele (medido: cada resultado mostra o 1º elemento)
+      if (pv instanceof ArrayValue && (pv.rows > 1 || pv.cols > 1)) return ArrayValue.fill(pv.rows, pv.cols, () => xs[0]!);
+      const pad = pv === undefined ? ERR.NA : scalarOf(pv, ctx);
+      const w = Math.min(k, xs.length); // vetor menor que a quebra: sem preenchimento (medido)
+      const lines = Math.ceil(xs.length / w);
       return name === 'WRAPROWS'
-        ? ArrayValue.fill(lines, k, (r, c) => { const i = r * k + c; return i < xs.length ? xs[i]! : pad; })
-        : ArrayValue.fill(k, lines, (r, c) => { const i = c * k + r; return i < xs.length ? xs[i]! : pad; });
+        ? ArrayValue.fill(lines, w, (r, c) => { const i = r * w + c; return i < xs.length ? xs[i]! : pad; })
+        : ArrayValue.fill(w, lines, (r, c) => { const i = c * w + r; return i < xs.length ? xs[i]! : pad; });
     },
   })),
   ...(['CHOOSEROWS', 'CHOOSECOLS'] as const).map((name) => ({
@@ -488,7 +556,7 @@ register(
           if (v === null) return;
           minR = Math.min(minR, row); maxR = Math.max(maxR, row); minC = Math.min(minC, col); maxC = Math.max(maxC, col);
         });
-        if (maxR < 0) return new RefValue([{ sheet: a.sheet, r1: a.r1, r2: a.r1, c1: a.c1, c2: a.c1 }]);
+        if (maxR < 0) return ERR.REF; // tudo vazio (medido)
         const out: Area = {
           sheet: a.sheet,
           r1: r & 1 ? minR : a.r1, r2: r & 2 ? maxR : a.r2,
