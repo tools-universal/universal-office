@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { zipSync, strToU8 } from 'fflate';
 import {
   openSpreadsheet, xlsToXlsxPackage, XlsEncryptedError, XlsFormatError, isXlsBytes,
   readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, parseChart,
@@ -401,7 +402,7 @@ describe('.xls — formas e caixas de texto (OfficeArt → xdr:sp)', () => {
 
   it('retângulo com preenchimento RGB e linha da paleta (fSchemeIndex 64 = preto)', () => {
     expect(xml).toContain('<a:prstGeom prst="rect">');
-    expect(xml).toContain('<a:solidFill><a:srgbClr val="0000FF"></a:srgbClr></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/>');
+    expect(xml).toContain('<a:solidFill><a:srgbClr val="0000FF"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:prstDash val="solid"/>');
   });
 
   it('caixa de texto: sem preenchimento/linha, texto do TXO centrado com a fonte do run', () => {
@@ -409,6 +410,83 @@ describe('.xls — formas e caixas de texto (OfficeArt → xdr:sp)', () => {
     expect(xml).toContain('<a:noFill/><a:ln><a:noFill/></a:ln>');
     expect(xml).toContain('anchor="ctr"');
     expect(xml).toMatch(/<a:pPr algn="ctr"\/><a:r><a:rPr lang="pt-BR" sz="1200" b="1"[^>]*>.*<a:t>Olá<\/a:t>/);
+  });
+});
+
+describe('.xls — grupos, formas livres, formas ocultas e metroBlob', () => {
+  const anchor = (c1: number, r1: number, c2: number, r2: number): number[] =>
+    [...u16(0), ...u16(c1), ...u16(0), ...u16(r1), ...u16(0), ...u16(c2), ...u16(0), ...u16(r2), ...u16(0)];
+  const rect16 = (l: number, t: number, r: number, b: number): number[] => [...u32(l), ...u32(t), ...u32(r), ...u32(b)];
+  /** FOPT com propriedades simples e complexas (dados depois da tabela). */
+  const fopt = (simple: [number, number][], complex: [number, number[]][] = []): number[] => oa(0xf00b, simple.length + complex.length, 3, [
+    ...simple.flatMap(([id, v]) => [...u16(id), ...u32(v)]),
+    ...complex.flatMap(([id, d]) => [...u16(id | 0x8000), ...u32(d.length)]),
+    ...complex.flatMap(([, d]) => d),
+  ]);
+  const clientData = oa(0xf011, 0, 0, []);
+  const patriarch = oa(0xf004, 0, 0xf, [...oa(0xf009, 0, 1, new Array(16).fill(0)), ...oa(0xf00a, 0, 2, [...u32(1024), ...u32(0x5)])]);
+  // grupo (FSPGR 0..1000 × 0..500) com uma elipse e um triângulo livre (pVertices sem segmentos = polígono fechado)
+  const verts = [...u16(3), ...u16(3), ...u16(8), ...u32(0), ...u32(100), ...u32(50), ...u32(0), ...u32(100), ...u32(100)];
+  const group = oa(0xf003, 0, 0xf, [
+    ...oa(0xf004, 0, 0xf, [
+      ...oa(0xf009, 0, 1, rect16(0, 0, 1000, 500)), ...oa(0xf00a, 0, 2, [...u32(1025), ...u32(0x201)]),
+      ...oa(0xf010, 0, 0, anchor(1, 1, 5, 6)), ...clientData,
+    ]),
+    ...oa(0xf004, 0, 0xf, [
+      ...oa(0xf00a, 3, 2, [...u32(1026), ...u32(0xa02)]), ...fopt([[0x181, 0x0000ff00]]),
+      ...oa(0xf00f, 0, 0, rect16(0, 0, 500, 500)), ...clientData,
+    ]),
+    ...oa(0xf004, 0, 0xf, [
+      ...oa(0xf00a, 0, 2, [...u32(1027), ...u32(0xa02)]), ...fopt([[0x142, 100], [0x143, 100]], [[0x145, verts]]),
+      ...oa(0xf00f, 0, 0, rect16(500, 0, 1000, 500)), ...clientData,
+    ]),
+  ]);
+  // retângulo oculto (fHidden com fUsefHidden)
+  const hidden = oa(0xf004, 0, 0xf, [
+    ...oa(0xf00a, 1, 2, [...u32(1028), ...u32(0xa00)]), ...fopt([[0x3bf, 0x00020002]]), ...oa(0xf010, 0, 0, anchor(6, 1, 8, 3)), ...clientData,
+  ]);
+  // autoforma do Excel 2007+ com o XML original no metroBlob (âncora C8:E10 nos dois)
+  const shapexml = '<xdr:anchor xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"><xdr:twoCellAnchor>'
+    + '<xdr:from><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>7</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>4</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>9</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>'
+    + '<xdr:sp macro="" textlink=""><xdr:nvSpPr><xdr:cNvPr id="9" name="Elipse 8"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr><a:prstGeom xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" prst="ellipse"><a:avLst/></a:prstGeom></xdr:spPr>'
+    + '<xdr:style><a:fillRef xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" idx="1"><a:schemeClr val="accent2"/></a:fillRef></xdr:style></xdr:sp><xdr:clientData/></xdr:twoCellAnchor></xdr:anchor>';
+  const downrev = '<a:downRevStg xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:xlAnchor><a:from row="7" col="2" rowOffset="0" colOffset="0"/><a:to row="9" col="4" rowOffset="0" colOffset="0"/></a:xlAnchor></a:downRevStg>';
+  const blob = [...zipSync({ 'drs/shapexml.xml': strToU8(shapexml), 'drs/downrev.xml': strToU8(downrev) })];
+  const metro = oa(0xf004, 0, 0xf, [
+    ...oa(0xf00a, 1, 2, [...u32(1029), ...u32(0xa00)]), ...fopt([[0x181, 0x000000ff]], [[0x3a9, blob]]), ...oa(0xf010, 0, 0, anchor(2, 7, 4, 9)), ...clientData,
+  ]);
+  const dg = oa(0xf002, 1, 0xf, [...oa(0xf008, 5, 0, [...u32(6), ...u32(1029)]), ...oa(0xf003, 0, 0xf, [...patriarch, ...group, ...hidden, ...metro])]);
+  // o desenho é cortado depois de cada ClientData, com o OBJ da forma em seguida (como o Excel grava)
+  const recs: Rec[] = [];
+  const objFor = [0, 3, 2, 2, 0x1e];
+  let start = 0, k = 0;
+  for (let i = 0; i + 8 <= dg.length; i++) {
+    if (dg[i] === 0 && dg[i + 1] === 0 && dg[i + 2] === 0x11 && dg[i + 3] === 0xf0 && dg[i + 4] === 0 && dg[i + 5] === 0 && dg[i + 6] === 0 && dg[i + 7] === 0) {
+      recs.push(rec(RT.MSODRAWING, dg.slice(start, i + 8)));
+      recs.push(rec(RT.OBJ, [...u16(0x15), ...u16(0x12), ...u16(objFor[k++] ?? 2), ...u16(k), ...u16(0x6011), ...new Array(12).fill(0), ...u32(0)]));
+      start = i + 8;
+    }
+  }
+  const pkg = openSpreadsheet(buildXls([...defaultFormatting()], [{ name: 'Grupos', recs }]));
+  const xml = pkg.getPartText('xl/drawings/drawing1.xml') ?? '';
+
+  it('grupo: grpSp com chOff/chExt do FSPGR e filhos nas coordenadas da ChildAnchor', () => {
+    expect(xml).toContain('<xdr:grpSp>');
+    expect(xml).toContain('<a:chOff x="0" y="0"/><a:chExt cx="1000" cy="500"/>');
+    expect(xml).toMatch(/<a:off x="0" y="0"\/><a:ext cx="500" cy="500"\/><\/a:xfrm><a:prstGeom prst="ellipse">/);
+    expect(xml).toContain('<a:srgbClr val="00FF00"/>');
+  });
+
+  it('forma livre: pVertices → custGeom no espaço geoRight/geoBottom', () => {
+    expect(xml).toContain('<a:off x="500" y="0"/><a:ext cx="500" cy="500"/>');
+    expect(xml).toContain('<a:path w="100" h="100"><a:moveTo><a:pt x="0" y="100"/></a:moveTo><a:lnTo><a:pt x="50" y="0"/></a:lnTo><a:lnTo><a:pt x="100" y="100"/></a:lnTo><a:close/></a:path>');
+  });
+
+  it('forma oculta fica de fora; metroBlob com âncora igual vale no lugar do binário', () => {
+    expect(xml.match(/<xdr:twoCellAnchor/g)?.length).toBe(2);
+    expect(xml).toContain('<a:schemeClr val="accent2"/>');
+    expect(xml).not.toContain('FF0000');
+    expect(xml).toMatch(/<xdr:cNvPr id="\d+" name="Elipse 8"\/>/);
   });
 });
 

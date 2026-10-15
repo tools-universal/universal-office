@@ -11,11 +11,11 @@ import { colWidthToPx, defaultColPx, excelMdw, excelRowPx, rowPtToPx } from '../
 import { fontAt } from './styles-xml.js';
 import type { XlsGlobals } from './globals.js';
 import type { ObjInfo, XlsSheet } from './sheet.js';
-import { BlipStore, readShapes, type CellAnchor, type XlsShape } from './officeart.js';
-import { XML_HEAD, REL, relsXml, xmlText } from './xmlw.js';
+import { BlipStore, flattenShapes, readDrawingDefaults, readShapes, type CellAnchor, type XlsShape } from './officeart.js';
+import { XML_HEAD, REL, relsXml } from './xmlw.js';
 import { rowHeightPt } from './sheet-xml.js';
 import { chartSpaceXml, type ChartContext } from './chart.js';
-import { isShapeObj, shapeXml } from './shapes.js';
+import { isHiddenShape, objectXml, shapeKind, type ShapeEnv } from './shapes.js';
 
 export interface DrawingOut {
   parts: Map<string, Uint8Array>;
@@ -30,6 +30,8 @@ export interface MediaState {
   /** pib → caminho da mídia (uma imagem usada em várias planilhas sai uma vez). */
   byPib?: Map<number, string>;
   store?: BlipStore;
+  /** FOPT padrão do documento (DggContainer). */
+  defaults?: Map<number, number>;
   /** Acesso às células da pasta para as séries dos gráficos. */
   chartCtx?: ChartContext;
 }
@@ -81,18 +83,15 @@ function anchorXml(a: CellAnchor, m: ReturnType<typeof gridMetrics>): string {
     + `<xdr:to><xdr:col>${a.c2}</xdr:col><xdr:colOff>${dx2}</xdr:colOff><xdr:row>${a.r2}</xdr:row><xdr:rowOff>${dy2}</xdr:rowOff></xdr:to>`;
 }
 
-/** Forma oculta (fHidden do conjunto de booleanos de grupo 0x03BF)? */
-function isHidden(s: XlsShape): boolean {
-  const v = s.props.get(0x3bf);
-  return v !== undefined && (v & 0x2) !== 0 && ((v >>> 16) & 0x2) !== 0;
-}
-
-/** Recorte (16.16, fração da imagem) → `a:srcRect` em milésimos de ponto percentual. */
-function srcRect(s: XlsShape): string {
-  const v = (id: number): number => { const x = s.props.get(id); return x === undefined ? 0 : Math.round(((x | 0) / 65536) * 100000); };
-  const t = v(0x100), b = v(0x101), l = v(0x102), r = v(0x103);
-  if (!t && !b && !l && !r) return '';
-  return `<a:srcRect${l ? ` l="${l}"` : ''}${t ? ` t="${t}"` : ''}${r ? ` r="${r}"` : ''}${b ? ` b="${b}"` : ''}/>`;
+/** Tamanho em EMU da caixa da âncora (proporção para os ajustes das presets). */
+function anchorSize(a: CellAnchor, m: ReturnType<typeof gridMetrics>): { w: number; h: number } {
+  const span = (c1: number, d1: number, c2: number, d2: number, size: (i: number) => number, unit: number): number => {
+    if (c2 - c1 > 2000) return 0;
+    let px = 0;
+    for (let i = c1; i < c2; i++) px += size(i);
+    return (px - (Math.min(d1, unit) / unit) * size(c1) + (Math.min(d2, unit) / unit) * size(c2)) * EMU_PER_PX;
+  };
+  return { w: Math.max(0, span(a.c1, a.dx1, a.c2, a.dx2, m.colPx, 1024)), h: Math.max(0, span(a.r1, a.dy1, a.r2, a.dy2, m.rowPx, 256)) };
 }
 
 export function drawingParts(g: XlsGlobals, sh: XlsSheet, index: number, media: MediaState): DrawingOut | undefined {
@@ -104,17 +103,23 @@ export function drawingParts(g: XlsGlobals, sh: XlsSheet, index: number, media: 
   let id = 1;
   const enc = new TextEncoder();
 
-  const addChart = (obj: ObjInfo | undefined, records: XlsSheet['chartRecords'], anchor: string): void => {
+  /** Grava o gráfico (chartN.xml + rel); devolve o rId. */
+  const chartRel = (records: XlsSheet['chartRecords']): string | undefined => {
     let xml: string | undefined;
     try { xml = records && media.chartCtx ? chartSpaceXml(media.chartCtx, records) : undefined; } catch { xml = undefined; }
-    if (!xml) return;
+    if (!xml) return undefined;
     const n = ++media.charts;
     const rid = `rId${rels.length + 1}`;
     rels.push({ id: rid, type: `${REL}/chart`, target: `../charts/chart${n}.xml` });
     out.parts.set(`xl/charts/chart${n}.xml`, enc.encode(xml));
     out.overrides.push([`/xl/charts/chart${n}.xml`, 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml']);
+    return rid;
+  };
+  const addChart = (obj: ObjInfo | undefined, records: XlsSheet['chartRecords'], anchor: string): void => {
+    const rid = chartRel(records);
+    if (!rid) return;
     id++;
-    anchors += `<xdr:twoCellAnchor>${anchor}<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${id}" name="Gráfico ${obj?.id ?? n}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr>`
+    anchors += `<xdr:twoCellAnchor>${anchor}<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${id}" name="Gráfico ${obj?.id ?? media.charts}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr>`
       + '<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">'
       + `<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" r:id="${rid}"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>`;
   };
@@ -122,50 +127,56 @@ export function drawingParts(g: XlsGlobals, sh: XlsSheet, index: number, media: 
   if (sh.drawing) {
     let shapes: XlsShape[] = [];
     try { shapes = readShapes(sh.drawing); } catch { shapes = []; }
-    // liga forma → OBJ pelo offset (o OBJ vem logo depois do MSODRAWING da forma)
+    // liga forma → OBJ pelo offset (o OBJ vem logo depois do MSODRAWING da forma), grupos inclusive
     const objs = sh.objs;
+    const objOf = new Map<XlsShape, ObjInfo>();
     let j = 0;
-    const withObj = shapes
-      .filter((s) => s.clientDataAt !== undefined)
-      .sort((a, b) => a.clientDataAt! - b.clientDataAt!)
-      .map((s) => {
-        while (j < objs.length && objs[j]!.drawingAt <= s.clientDataAt!) j++;
-        return { s, obj: objs[j] };
-      });
+    for (const s of flattenShapes(shapes).filter((x) => x.clientDataAt !== undefined).sort((a, b) => a.clientDataAt! - b.clientDataAt!)) {
+      while (j < objs.length && objs[j]!.drawingAt <= s.clientDataAt!) j++;
+      const o = objs[j];
+      if (o) objOf.set(s, o);
+    }
     media.store ??= new BlipStore(g.drawingGroup);
-    for (const { s, obj } of withObj) {
-      if (!s.anchor || isHidden(s) || s.group) continue;
+    media.defaults ??= readDrawingDefaults(g.drawingGroup);
+    const store = media.store;
+    /** rId da imagem pib (mídia gravada uma vez por pasta, rel uma vez por desenho). */
+    const imageRels = new Map<number, string>();
+    const env: ShapeEnv = {
+      g, defaults: media.defaults,
+      objOf: (s) => objOf.get(s),
+      nextId: () => ++id,
+      blipBytes: (pib) => store.get(pib)?.bytes,
+      imageRel: (pib) => {
+        const hit = imageRels.get(pib);
+        if (hit) return hit;
+        let path = media.byPib?.get(pib);
+        if (!path) {
+          const blip = store.get(pib);
+          if (!blip) return undefined;
+          path = `xl/media/image${++media.n}.${blip.ext}`;
+          out.parts.set(path, blip.bytes);
+          out.defaults.push([blip.ext, MIME[blip.ext] ?? 'application/octet-stream']);
+          (media.byPib ??= new Map()).set(pib, path);
+        }
+        const rid = `rId${rels.length + 1}`;
+        rels.push({ id: rid, type: `${REL}/image`, target: `../media/${path.slice('xl/media/'.length)}` });
+        imageRels.set(pib, rid);
+        return rid;
+      },
+      chartRel: (obj) => chartRel(obj.chart),
+    };
+    for (const s of shapes) {
+      if (!s.anchor || isHiddenShape(s)) continue;
       const a = s.anchor;
       if (a.c1 > 16383 || a.r1 > 1048575 || a.c2 < a.c1 || a.r2 < a.r1) continue;
       const anchor = anchorXml(a, m);
-      if (obj?.ot === 5) { addChart(obj, obj.chart, anchor); continue; }
-      // imagem: pib (moldura de imagem) ou preenchimento de imagem (fillBlip + fillType 3)
-      let pib = s.props.get(0x104);
-      if (pib === undefined && s.props.get(0x180) === 3) pib = s.props.get(0x186);
-      if (pib === undefined) {
-        // forma/caixa de texto (o OBJ diz o que é; notas, controles e setas de filtro ficam de fora)
-        if (isShapeObj(s, obj)) {
-          id++;
-          anchors += `<xdr:twoCellAnchor>${anchor}${shapeXml(g, s, obj, id)}<xdr:clientData/></xdr:twoCellAnchor>`;
-        }
-        continue;
-      }
-      let path = media.byPib?.get(pib);
-      if (!path) {
-        const blip = media.store.get(pib);
-        if (!blip) continue;
-        path = `xl/media/image${++media.n}.${blip.ext}`;
-        out.parts.set(path, blip.bytes);
-        out.defaults.push([blip.ext, MIME[blip.ext] ?? 'application/octet-stream']);
-        (media.byPib ??= new Map()).set(pib, path);
-      }
-      const rid = `rId${rels.length + 1}`;
-      rels.push({ id: rid, type: `${REL}/image`, target: `../media/${path.slice('xl/media/'.length)}` });
-      id++;
-      anchors += `<xdr:twoCellAnchor editAs="oneCell">${anchor}<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${id}" name="${xmlText(`Imagem ${id - 1}`)}"/>`
-        + '<xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>'
-        + `<xdr:blipFill><a:blip r:embed="${rid}"/>${srcRect(s)}<a:stretch><a:fillRect/></a:stretch></xdr:blipFill>`
-        + '<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>';
+      const obj = objOf.get(s);
+      const kind = shapeKind(s, obj);
+      if (kind === 'chart') { addChart(obj, obj?.chart, anchor); continue; }
+      if (!kind) continue;
+      let xml = '';
+      try { xml = objectXml(env, s, anchorSize(a, m)); } catch { xml = ''; }
+      if (xml) anchors += `<xdr:twoCellAnchor${kind === 'pic' ? ' editAs="oneCell"' : ''}>${anchor}${xml}<xdr:clientData/></xdr:twoCellAnchor>`;
     }
   }
   // folha de gráfico: o gráfico ocupa a área visível inicial (sem âncora no arquivo)
@@ -181,3 +192,4 @@ export function drawingParts(g: XlsGlobals, sh: XlsSheet, index: number, media: 
   out.parts.set(`xl/drawings/_rels/drawing${index}.xml.rels`, enc.encode(relsXml(rels)));
   return out;
 }
+

@@ -6,7 +6,8 @@
  * ordem, ao registro OBJ que a segue).
  *
  * Mesmo formato de registro lido pelo .ppt do Slides (slides-core/src/ppt/
- * officeart.ts) — aqui só o necessário para imagens e âncoras de gráficos.
+ * officeart.ts) — aqui imagens, âncoras e a árvore de formas (grupos, FOPT com
+ * as propriedades complexas).
  */
 import { Unzlib, Inflate } from 'fflate';
 
@@ -209,22 +210,83 @@ export interface CellAnchor {
   c2: number; dx2: number; r2: number; dy2: number;
 }
 
-/** Forma de nível superior com o que interessa ao conversor. */
+/** Retângulo (FSPGR / ChildAnchor): coordenadas do espaço do grupo. */
+export interface OARect { l: number; t: number; r: number; b: number }
+
+/** Forma (ou grupo) do desenho da planilha. */
 export interface XlsShape {
   spid: number;
   /** Tipo msospt (FSP.recInstance): 75 = moldura de imagem, 201 = gráfico/controle… */
   type: number;
+  /** Flags do FSP (fGroup 0x1, fChild 0x2, fPatriarch 0x4, fDeleted 0x8, fFlipH 0x40, fFlipV 0x80…). */
   flags: number;
   /** Propriedades simples do FOPT (id → valor). */
   props: Map<number, number>;
+  /** Propriedades complexas (vértices, segmentos, nomes, metroBlob…): id → dados. */
+  complex: Map<number, Uint8Array>;
+  /** Âncora de célula (formas de nível superior). */
   anchor?: CellAnchor;
+  /** Âncora no espaço do grupo pai (formas dentro de grupo). */
+  childAnchor?: OARect;
+  /** Espaço de coordenadas dos filhos (FSPGR) — só grupos. */
+  groupRect?: OARect;
   /** Offset do ClientData no desenho concatenado (liga ao OBJ). */
   clientDataAt?: number;
-  /** Forma é um grupo (filhos ignorados). */
+  /** Forma é um grupo (`children` = filhos em ordem de desenho). */
   group: boolean;
+  children?: XlsShape[];
 }
 
-/** Lê as formas do DgContainer (desenho concatenado da planilha). */
+/** Propriedades complexas que são IMsoArray (nElems, nElemsAlloc, cbElem + dados). */
+const MSO_ARRAY_PROPS = new Set([0x145, 0x146, 0x151, 0x152, 0x153, 0x154, 0x155, 0x156, 0x157, 0x197, 0x1cf, 0x383, 0x3a0]);
+
+/**
+ * Propriedades de um FOPT (ou Secondary/Tertiary) para dentro da forma — como o
+ * leitor .ppt do Slides: IMsoArray com o tamanho declarado SEM os 6 bytes do
+ * cabeçalho (gravadores de terceiros) usa o tamanho do cabeçalho; conjunto
+ * BOOLEANO repetido (FOPT + terciário) só troca os bits com fUse no novo.
+ */
+function readFopt(r: R, c: OARec, sh: { props: Map<number, number>; complex: Map<number, Uint8Array> }): void {
+  const n = c.inst;
+  let complexOff = c.start + n * 6;
+  for (let i = 0; i < n; i++) {
+    const o = c.start + i * 6;
+    if (o + 6 > c.end) break;
+    const opid = r.u16(o);
+    const id = opid & 0x3fff;
+    const value = r.u32(o + 2);
+    if (opid & 0x8000) {
+      let size = value;
+      if (MSO_ARRAY_PROPS.has(id) && complexOff + 6 <= c.end) {
+        let cb = r.u16(complexOff + 4);
+        if (cb === 0xfff0) cb = 4;
+        const arrSize = 6 + r.u16(complexOff) * cb;
+        if (value === arrSize - 6 && complexOff + arrSize <= c.end) size = arrSize;
+      }
+      const len = Math.max(0, Math.min(size, c.end - complexOff));
+      sh.complex.set(id, r.b.subarray(complexOff, complexOff + len));
+      complexOff += len;
+      continue;
+    }
+    const prev = sh.props.get(id);
+    if (prev !== undefined && (id & 0x3f) === 0x3f && (value >>> 16) !== 0) {
+      const use = value >>> 16;
+      let v = prev;
+      for (let b = 0; b < 16; b++) if (use & (1 << b)) v = (v & ~(1 << b) & ~(1 << (b + 16))) | (value & (1 << b)) | (1 << (b + 16));
+      sh.props.set(id, v >>> 0);
+      continue;
+    }
+    sh.props.set(id, value);
+  }
+}
+
+/** Aninhamento máximo de grupos (arquivos corrompidos podem aninhar sem fim). */
+const MAX_GROUP_DEPTH = 32;
+
+/**
+ * Lê as formas do DgContainer (desenho concatenado da planilha): as de nível
+ * superior em ordem de desenho, grupos com os filhos (`children`).
+ */
 export function readShapes(dg: Uint8Array): XlsShape[] {
   const r = new R(dg);
   const out: XlsShape[] = [];
@@ -236,22 +298,34 @@ export function readShapes(dg: Uint8Array): XlsShape[] {
       const kids = recsIn(r, c.start, c.end);
       kids.forEach((k, i) => {
         if (i === 0 && k.type === OA.SpContainer) return; // o próprio grupo patriarca
-        if (k.type === OA.SpContainer) { const s = readSp(r, k); if (s) out.push(s); }
-        else if (k.type === OA.SpgrContainer) {
-          const first = recsIn(r, k.start, k.end)[0];
-          if (first && first.type === OA.SpContainer) {
-            const s = readSp(r, first);
-            if (s) { s.group = true; out.push(s); }
-          }
-        }
+        const s = k.type === OA.SpContainer ? readSp(r, k) : k.type === OA.SpgrContainer ? readGroup(r, k, 0) : undefined;
+        if (s) out.push(s);
       });
     }
   }
   return out;
 }
 
+/** SpgrContainer → grupo (o 1º SpContainer descreve o próprio grupo). */
+function readGroup(r: R, rec: OARec, depth: number): XlsShape | undefined {
+  const kids = recsIn(r, rec.start, rec.end);
+  const first = kids[0];
+  if (!first || first.type !== OA.SpContainer) return undefined;
+  const g = readSp(r, first);
+  if (!g) return undefined;
+  g.group = true;
+  g.children = [];
+  for (const k of kids.slice(1)) {
+    const s = k.type === OA.SpContainer ? readSp(r, k)
+      : k.type === OA.SpgrContainer && depth < MAX_GROUP_DEPTH ? readGroup(r, k, depth + 1) : undefined;
+    if (s) g.children.push(s);
+  }
+  return g;
+}
+
 function readSp(r: R, rec: OARec): XlsShape | undefined {
-  const sh: XlsShape = { spid: 0, type: 0, flags: 0, props: new Map(), group: false };
+  const sh: XlsShape = { spid: 0, type: 0, flags: 0, props: new Map(), complex: new Map(), group: false };
+  const rect = (o: number): OARect => ({ l: r.i32(o), t: r.i32(o + 4), r: r.i32(o + 8), b: r.i32(o + 12) });
   for (const c of recsIn(r, rec.start, rec.end)) {
     switch (c.type) {
       case OA.FSP:
@@ -259,17 +333,12 @@ function readSp(r: R, rec: OARec): XlsShape | undefined {
         sh.spid = r.u32(c.start);
         sh.flags = r.u32(c.start + 4);
         break;
-      case OA.FOPT: case OA.SecondaryFOPT: case OA.TertiaryFOPT: {
-        const n = c.inst;
-        for (let i = 0; i < n; i++) {
-          const o = c.start + i * 6;
-          if (o + 6 > c.end) break;
-          const opid = r.u16(o);
-          if (opid & 0x8000) continue; // complexas (nomes, vértices): não usadas aqui
-          sh.props.set(opid & 0x3fff, r.u32(o + 2));
-        }
+      case OA.FSPGR:
+        if (c.end - c.start >= 16) sh.groupRect = rect(c.start);
         break;
-      }
+      case OA.FOPT: case OA.SecondaryFOPT: case OA.TertiaryFOPT:
+        readFopt(r, c, sh);
+        break;
       case OA.ClientAnchor:
         if (c.end - c.start >= 18) {
           const o = c.start;
@@ -279,10 +348,40 @@ function readSp(r: R, rec: OARec): XlsShape | undefined {
           };
         }
         break;
+      case OA.ChildAnchor:
+        if (c.end - c.start >= 16) sh.childAnchor = rect(c.start);
+        break;
       case OA.ClientData:
         sh.clientDataAt = c.hdr;
         break;
     }
   }
   return sh.flags & 0x8 ? undefined : sh; // fDeleted
+}
+
+/** Todas as formas da árvore (grupos e filhos) em ordem do documento. */
+export function flattenShapes(shapes: readonly XlsShape[], out: XlsShape[] = []): XlsShape[] {
+  for (const s of shapes) {
+    out.push(s);
+    if (s.children) flattenShapes(s.children, out);
+  }
+  return out;
+}
+
+/**
+ * Propriedades PADRÃO do documento (FOPT do DggContainer no MSODRAWINGGROUP —
+ * o Excel grava fillColor 0x08000041 = fundo da janela e lineColor 0x08000040
+ * = texto da janela).
+ */
+export function readDrawingDefaults(dgg: Uint8Array | undefined): Map<number, number> {
+  const out = new Map<number, number>();
+  if (!dgg) return out;
+  const r = new R(dgg);
+  for (const top of recsIn(r, 0, dgg.length)) {
+    if (top.type !== OA.DggContainer) continue;
+    for (const c of recsIn(r, top.start, top.end)) {
+      if (c.type === OA.FOPT) readFopt(r, c, { props: out, complex: new Map() });
+    }
+  }
+  return out;
 }
