@@ -71,7 +71,6 @@ export function normArea(a: Area): Area {
 
 export const areaRows = (a: Area): number => a.r2 - a.r1 + 1;
 export const areaCols = (a: Area): number => a.c2 - a.c1 + 1;
-export const areaSize = (a: Area): number => areaRows(a) * areaCols(a);
 
 export function areaContains(a: Area, sheet: number, row: number, col: number): boolean {
   return a.sheet === sheet && row >= a.r1 && row <= a.r2 && col >= a.c1 && col <= a.c2;
