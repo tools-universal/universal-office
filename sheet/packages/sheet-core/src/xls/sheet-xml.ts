@@ -7,8 +7,6 @@
 import type { XlsGlobals } from './globals.js';
 import type { NoteInfo, XlsSheet } from './sheet.js';
 import { drawingParts, type MediaState } from './drawing.js';
-import { fontAt } from './styles-xml.js';
-import { standardRowHeight } from '../font-metrics.js';
 import { XML_HEAD, NS_MAIN, NS_R, REL, cellRef, rangeRef, xmlText } from './xmlw.js';
 
 export interface SheetParts {
@@ -31,50 +29,9 @@ export function rowHeightPt(tw: number): number {
   return Math.floor(tw / 15 + 0.1) * 0.75;
 }
 
-/** Alturas efetivas (pt) das linhas: padrão + por linha com ROW. */
-export interface RowHeights { def: number; rows: Map<number, number> }
-
-/**
- * Alturas como o Excel as mostra ao abrir o .xls. Linhas com altura manual
- * (fUnsynced) ficam como gravadas (ajustadas ao pixel). As "automáticas" o
- * Excel REAJUSTA à fonte quando a pasta foi gravada com outras métricas —
- * sinal: o DEFAULTROWHEIGHT gravado ≠ altura da fonte Normal medida aqui (ex.:
- * LibreOffice grava 0,4657 cm = 13,2 pt p/ Arial 10; o Excel usa 12,75). Aí a
- * altura vira o máximo das fontes das células da linha (inclusive vazias
- * formatadas); linhas com texto quebrado mantêm a gravada (multilinha).
- * Medido no corpus: 20 035 linhas iguais ao Excel × 18 253 mantendo as gravadas.
- */
-export function resolveRowHeights(g: XlsGlobals, sh: XlsSheet): RowHeights {
-  const f0 = fontAt(g, 0);
-  const expDef = standardRowHeight(f0.name, f0.height / 20);
-  const stored = rowHeightPt(sh.defRowHeight ?? 255);
-  const refit = !sh.defRowCustom && expDef !== undefined && Math.abs(expDef - stored) > 0.01;
-  const def = refit ? expDef! : stored;
-  const rows = new Map<number, number>();
-  for (const [r, info] of sh.rows) {
-    if (info.height === undefined) continue;
-    let h = rowHeightPt(info.height);
-    const acc = sh.cells.get(r);
-    if (refit && !info.custom && !acc?.wrap) {
-      let fit = 0;
-      let known = true;
-      for (const xf of acc?.xfs.length ? acc.xfs : [0]) {
-        const f = fontAt(g, g.xfs[xf]?.font ?? 0);
-        const fh = standardRowHeight(f.name, f.height / 20);
-        if (fh === undefined) { known = false; break; }
-        if (fh > fit) fit = fh;
-      }
-      if (known && fit > 0) h = fit;
-    }
-    rows.set(r, h);
-  }
-  return { def, rows };
-}
-
 export function worksheetXml(g: XlsGlobals, sh: XlsSheet, index: number, media: MediaState): SheetParts {
   const out: SheetParts = { xml: '', rels: [], parts: new Map(), overrides: [], defaults: [] };
   const rid = (): string => `rId${out.rels.length + 1}`;
-  const heights = resolveRowHeights(g, sh);
 
   // ── linhas: união das linhas com ROW e das linhas com células ──
   const rowIdx = new Set<number>(sh.rows.keys());
@@ -87,9 +44,12 @@ export function worksheetXml(g: XlsGlobals, sh: XlsSheet, index: number, media: 
     const acc = sh.cells.get(r);
     let attrs = `r="${r + 1}"`;
     if (info) {
-      const ht = heights.rows.get(r);
-      if (ht !== undefined) attrs += ` ht="${fmtNum(ht)}"`;
+      // altura gravada ajustada ao pixel; customHeight = fUnsynced (sem ele o
+      // renderizador refaz o auto-ajuste pela fonte, como o Excel ao abrir)
+      if (info.height !== undefined) attrs += ` ht="${fmtNum(rowHeightPt(info.height))}"`;
       if (info.custom) attrs += ' customHeight="1"';
+      if (info.thickTop) attrs += ' thickTop="1"';
+      if (info.thickBot) attrs += ' thickBot="1"';
       if (info.hidden) attrs += ' hidden="1"';
       if (info.xf !== undefined && info.xf > 0 && info.xf < g.xfs.length) attrs += ` s="${info.xf}" customFormat="1"`;
     }
@@ -146,7 +106,7 @@ export function worksheetXml(g: XlsGlobals, sh: XlsSheet, index: number, media: 
   // regra do Excel: base × MDW + 5 px, arredondado ao múltiplo de 8 px)
   const base = sh.defColWidth ?? 8;
   const defW = sh.stdWidth !== undefined ? ` defaultColWidth="${fmtNum(sh.stdWidth / 256)}"` : '';
-  x += `<sheetFormatPr baseColWidth="${base}"${defW} defaultRowHeight="${fmtNum(heights.def)}"`
+  x += `<sheetFormatPr baseColWidth="${base}"${defW} defaultRowHeight="${fmtNum(rowHeightPt(sh.defRowHeight ?? 255))}"`
     + `${sh.defRowCustom ? ' customHeight="1"' : ''}${sh.defRowHidden ? ' zeroHeight="1"' : ''}/>`;
 
   // ── colunas ──

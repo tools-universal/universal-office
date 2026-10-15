@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   openSpreadsheet, xlsToXlsxPackage, XlsEncryptedError, XlsFormatError, isXlsBytes,
-  readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, maxDigitWidth, parseChart,
+  readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, parseChart,
 } from '../src/index.js';
 import { rkValue } from '../src/xls/sheet.js';
 import { normalizeFormat } from '../src/xls/styles-xml.js';
@@ -188,6 +188,8 @@ describe('.xls (BIFF8) → pacote OOXML', () => {
     const r1 = ws.rows.find((r) => r.r === 1)!;
     expect(r1).toMatchObject({ height: 13.5, customHeight: true }); // 282 tw = 18,8 px → 18 px
     expect(ws.rows.find((r) => r.r === 4)!.hidden).toBe(true);
+    // linha sem altura manual (fUnsynced = 0): sem customHeight — o renderizador refaz o auto-ajuste
+    expect(ws.rows.find((r) => r.r === 4)!.customHeight).toBeUndefined();
     expect(ws.cols).toEqual([
       expect.objectContaining({ min: 1, max: 1, width: 18.28125 }),
       expect.objectContaining({ min: 5, max: 6, width: 9.140625, hidden: true }),
@@ -374,14 +376,6 @@ describe('.xls — utilitários', () => {
     expect(rowHeightPt(282)).toBe(13.5);
     expect(rowHeightPt(224)).toBe(11.25);
     expect(rowHeightPt(255)).toBe(12.75);
-  });
-
-  it('MaxDigitWidth da fonte Normal', () => {
-    expect(maxDigitWidth('Arial', 10)).toBe(7);
-    expect(maxDigitWidth('Calibri', 11)).toBe(7);
-    expect(maxDigitWidth('ＭＳ Ｐゴシック', 11)).toBe(8);
-    expect(maxDigitWidth('Arial', 12)).toBe(9);
-    expect(maxDigitWidth(undefined, undefined)).toBe(7);
   });
 
   it('uso dos helpers de escrita', () => {

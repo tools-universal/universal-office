@@ -7,13 +7,13 @@
  * em 1/1024 da largura da coluna e 1/256 da altura da linha — convertidos
  * aqui para EMU com as MESMAS larguras/alturas em px da grade.
  */
-import { colWidthToPx, maxDigitWidth } from '../font-metrics.js';
+import { colWidthToPx, defaultColPx, excelMdw, excelRowPx, rowPtToPx } from '../grid-metrics.js';
 import { fontAt } from './styles-xml.js';
 import type { XlsGlobals } from './globals.js';
 import type { ObjInfo, XlsSheet } from './sheet.js';
 import { BlipStore, readShapes, type CellAnchor, type XlsShape } from './officeart.js';
 import { XML_HEAD, REL, relsXml, xmlText } from './xmlw.js';
-import { resolveRowHeights } from './sheet-xml.js';
+import { rowHeightPt } from './sheet-xml.js';
 import { chartSpaceXml, type ChartContext } from './chart.js';
 
 export interface DrawingOut {
@@ -38,24 +38,34 @@ const MIME: Record<string, string> = {
   png: 'image/png', jpeg: 'image/jpeg', bmp: 'image/bmp', tiff: 'image/tiff', emf: 'image/x-emf', wmf: 'image/x-wmf', pict: 'image/pict',
 };
 
-/** Larguras/alturas em px da grade (mesmas regras do leitor/renderizador). */
+/**
+ * Larguras/alturas em px da grade pelas MESMAS regras do renderizador
+ * (grid-metrics: MDW da fonte Normal; linha sem altura manual = auto-ajuste
+ * pela maior fonte da linha — aqui sem as quebras de texto).
+ */
 export function gridMetrics(g: XlsGlobals, sh: XlsSheet): { colPx: (c: number) => number; rowPx: (r: number) => number } {
   const f0 = fontAt(g, 0);
-  const mdw = maxDigitWidth(f0.name, f0.height / 20);
-  const defCol = sh.stdWidth !== undefined
-    ? colWidthToPx(sh.stdWidth / 256, mdw)
-    : Math.ceil(((sh.defColWidth ?? 8) * mdw + 5) / 8) * 8;
-  const hts = resolveRowHeights(g, sh);
-  const defRow = Math.round(hts.def * 4 / 3);
+  const mdw = excelMdw(f0.name, f0.height / 20) ?? 7;
+  const defCol = defaultColPx(mdw, sh.stdWidth !== undefined ? sh.stdWidth / 256 : undefined, sh.defColWidth);
+  const fontPx = (ixf: number): number => {
+    const f = fontAt(g, g.xfs[ixf]?.font ?? 0);
+    return excelRowPx(f.name, f.height / 20, f.weight >= 600);
+  };
+  const normalPx = excelRowPx(f0.name, f0.height / 20, f0.weight >= 600);
+  const defRow = sh.defRowCustom ? rowPtToPx(rowHeightPt(sh.defRowHeight ?? 255)) : normalPx;
   return {
     colPx: (c: number): number => {
       for (const ci of sh.cols) if (c >= ci.first && c <= ci.last) return ci.hidden ? 0 : colWidthToPx(ci.width / 256, mdw);
       return defCol;
     },
     rowPx: (r: number): number => {
-      if (sh.rows.get(r)?.hidden) return 0;
-      const h = hts.rows.get(r);
-      return h !== undefined ? Math.round(h * 4 / 3) : defRow;
+      const info = sh.rows.get(r);
+      if (info?.hidden) return 0;
+      if (info?.custom && info.height !== undefined) return rowPtToPx(rowHeightPt(info.height));
+      if (!info) return defRow;
+      let h = normalPx;
+      for (const xf of sh.cells.get(r)?.xfs ?? []) h = Math.max(h, fontPx(xf));
+      return h;
     },
   };
 }

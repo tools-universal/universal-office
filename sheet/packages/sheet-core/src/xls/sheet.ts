@@ -46,6 +46,9 @@ export interface RowInfo {
   hidden: boolean;
   /** XF padrão da linha (fGhostDirty). */
   xf?: number;
+  /** fExAsc / fExDes: borda grossa em cima / embaixo (o auto-ajuste soma 1 px cada). */
+  thickTop?: boolean;
+  thickBot?: boolean;
 }
 
 export interface ColInfo { first: number; last: number; width: number; xf: number; hidden: boolean }
@@ -305,6 +308,8 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
         const h = miy & 0x7fff;
         if (!(miy & 0x8000) || h > 0) info.height = h;
         if (fl & 0x80) info.xf = (fl >>> 16) & 0xfff;
+        if (fl & 0x10000000) info.thickTop = true;
+        if (fl & 0x20000000) info.thickBot = true;
         if (rw < MAX_ROW) sh.rows.set(rw, info);
         break;
       }
