@@ -894,6 +894,7 @@ function paintBody(
       if (rule) ctx.fill(rule); else ctx.fill();
       ctx.globalCompositeOperation = ovl.blend === 'mult' ? 'multiply' : ovl.blend === 'screen' ? 'screen' : ovl.blend === 'darken' ? 'darken' : 'lighten';
     }
+    let facesShaded = false;
     // rotWithShape="0": o caminho já está girado; o preenchimento volta ao
     // referencial da página (desfaz só a rotação — com um espelho o sentido inverte)
     // e ocupa a caixa ALINHADA da forma girada (ladrilho ancorado nela, imagem
@@ -997,6 +998,30 @@ function paintBody(
       } else {
         ctx.fillStyle = sh.fill!.color;
         if (rule) ctx.fill(rule); else ctx.fill();
+      }
+      facesShaded = true;
+    }
+    // faces sombreadas sobre preenchimento NÃO sólido (degradê, imagem, padrão): a regra
+    // medida (RGB×(1+v) / v rumo ao branco) é preto/branco por cima com alfa |v|
+    // (poi-53446: moldura chanfrada com degradê)
+    if (!facesShaded) {
+      const cg = sh.custGeom;
+      const subs = cg ? cg.subs : undefined;
+      const lums: (number | null | undefined)[] | undefined = cg ? cg.lum : (() => { const d = presetPath(sh.geom, w, h, sh.adj, sh.adjNames); return d.kind === 'path' ? d.subLum : undefined; })();
+      const segs = subs ?? (() => { const d = presetPath(sh.geom, w, h, sh.adj, sh.adjNames); return d.kind === 'path' ? d.subs : undefined; })();
+      if (lums && segs) {
+        ctx.globalCompositeOperation = 'source-over';
+        for (let i = 0; i < segs.length; i++) {
+          const v = lums[i];
+          if (!v || cg?.noFill?.[i]) continue;
+          ctx.save();
+          ctx.globalAlpha *= Math.min(1, Math.abs(v));
+          ctx.fillStyle = v < 0 ? '#000000' : '#ffffff';
+          ctx.beginPath();
+          drawSegs(ctx, [segs[i]!], x, y, cg ? w / cg.w : 1, cg ? h / cg.h : 1);
+          ctx.fill();
+          ctx.restore();
+        }
       }
     }
     ctx.restore();
