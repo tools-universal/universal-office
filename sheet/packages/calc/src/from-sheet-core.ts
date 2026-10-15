@@ -114,12 +114,17 @@ export function fromSheetCore(src: SheetCoreBook): CalcWorkbook {
     const filtered: number[] = [];
     if (ws) {
       // linha filtrada = aba em modo de filtro (sheetPr filterMode) e linha oculta —
-      // inclusive as ocultas à mão (medido pelo FN-STAT com SUBTOTAL 1–11)
+      // inclusive as ocultas à mão (medido pelo FN-STAT com SUBTOTAL 1–11); sem o
+      // modo de filtro, as ocultas dentro de autofiltro com critério ativo (o da
+      // TABELA não marca filterMode na aba — medido no corpus: SUBTOTAL(9;Tabela[…]))
+      const filters = [ws.autoFilter, ...(ws.tables ?? []).map((t) => t.filter)]
+        .filter((f): f is { ref: string; active?: readonly number[] } => !!f && !!f.active?.length)
+        .map((f) => a1ToArea(f.ref, si)).filter((x) => !!x);
       for (const row of ws.rows) {
         const r = row.r - 1;
         if (row.hidden) {
           hidden.push(r);
-          if (ws.filterMode) filtered.push(r);
+          if (ws.filterMode || filters.some((x) => r > x!.r1 && r <= x!.r2)) filtered.push(r);
         }
         for (const c of row.cells) {
           const p = a1ToCell(c.ref);
