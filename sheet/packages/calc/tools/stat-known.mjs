@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import '../dist/index.js';
 import { matchesOracle, runCase } from '../dist/testing.js';
 import { PT_BR } from '../dist/fn.js';
-import { ArrayValue } from '../dist/values.js';
+import { ArrayValue, CalcError } from '../dist/values.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const area = process.argv[2];
@@ -31,12 +31,17 @@ for (const c of cases) {
     if (!(ours instanceof ArrayValue) || ours.rows !== r.spill.length || ours.cols !== r.spill[0].length) continue;
     r.spill.forEach((row, i) => row.forEach((v, j) => pairs.push([ours.get(i, j), v])));
   } else pairs.push([numOf(ours), r.v]);
-  let rel = 0, ok = true;
+  // diferença relativa à escala do resultado (maior |valor|): entradas ~0 de uma
+  // matriz (LINEST com ajuste perfeito) não explodem a conta
+  let rel = 0, ok = true, scale = 0;
+  for (const [, b] of pairs) if (typeof b === 'number') scale = Math.max(scale, Math.abs(b));
   for (const [a, b] of pairs) {
+    if (a instanceof CalcError && b && typeof b === 'object' && b.e === a.code) continue; // mesmo erro
     if (typeof a !== 'number' || typeof b !== 'number') { ok = false; break; }
     if (a === b) continue;
-    if (b === 0) { ok = false; break; }
-    rel = Math.max(rel, Math.abs(a - b) / Math.abs(b));
+    const ref = Math.max(Math.abs(b), pairs.length > 1 ? scale : 0);
+    if (ref === 0) { ok = false; break; }
+    rel = Math.max(rel, Math.abs(a - b) / ref);
   }
   if (!ok || !(rel < 1e-11)) continue;
   const digits = Math.floor(-Math.log10(rel));

@@ -659,3 +659,104 @@ const slug = (v) => JSON.stringify(v).replace(/-/g, 'n').replace(/\./g, 'd').rep
   add('chisq.test-arr', 'CHISQ.TEST', [arr([10, 20], [30, 40]), arr([12, 18], [28, 42])]);
   out('stat-dist', cases);
 }
+
+// ---------------------------------------------------------------------------
+// stat-reg: correlação e regressão
+{
+  const cases = [];
+  const add = (id, fn, args, extra = {}) => cases.push({ id: `stat-reg-${id}`, fn, args, ...extra });
+  const XS = [1.5, 2.25, 3.1, 4.8, 5.05, 6.6, 7.25, 8.9];
+  const YS = [2.1, 3.9, 6.2, 9.1, 9.8, 13.7, 14.2, 18.5];
+  const XY = merge(colA(XS), colA(YS, 'B'));
+  const XYmix = merge(colA([1, 'x', 3, 4, null, 6, true, 8]), colA([2, 4, 'y', 8, 10, 12, 14, 16], 'B'));
+  const XYerr = merge(colA([1, 2, E('#N/A'), 4]), colA([2, 4, 6, 8], 'B'));
+  const XYbig = merge(colA([1e9 + 1, 1e9 + 2, 1e9 + 3, 1e9 + 4.5]), colA([5, 7.1, 8.9, 12], 'B'));
+  const XYconst = merge(colA([3, 3, 3, 3]), colA([1, 2, 3, 4], 'B'));
+  const pairsFns = [['CORREL', 'xy'], ['PEARSON', 'xy'], ['RSQ', 'yx'], ['SLOPE', 'yx'], ['INTERCEPT', 'yx'], ['STEYX', 'yx'], ['COVAR', 'xy'], ['COVARIANCE.P', 'xy'], ['COVARIANCE.S', 'xy']];
+  for (const [f, ord] of pairsFns) {
+    const k = f.toLowerCase();
+    const A = (x, y) => (ord === 'xy' ? [x, y] : [y, x]);
+    add(`${k}-basic`, f, A(ref('A1:A8'), ref('B1:B8')), { cells: XY });
+    add(`${k}-mix`, f, A(ref('A1:A8'), ref('B1:B8')), { cells: XYmix });
+    add(`${k}-err`, f, A(ref('A1:A4'), ref('B1:B4')), { cells: XYerr });
+    add(`${k}-big`, f, A(ref('A1:A4'), ref('B1:B4')), { cells: XYbig });
+    add(`${k}-const`, f, A(ref('A1:A4'), ref('B1:B4')), { cells: XYconst });
+    add(`${k}-size`, f, A(ref('A1:A8'), ref('B1:B7')), { cells: XY });
+    add(`${k}-one`, f, A(ref('A1'), ref('B1')), { cells: XY });
+    add(`${k}-two`, f, A(ref('A1:A2'), ref('B1:B2')), { cells: XY });
+    add(`${k}-three`, f, A(ref('A1:A3'), ref('B1:B3')), { cells: XY });
+    add(`${k}-arr`, f, A(arr([1, 2, 3, 4]), arr([2, 4.5, 5.9, 8.2])));
+    add(`${k}-orient`, f, A(ref('A1:A4'), ref('D1:G1')), { cells: merge(XY, { D1: 2, E1: 4.5, F1: 5.9, G1: 8.2 }) });
+    add(`${k}-arrtext`, f, A(arr([1, 'a', 3, true]), arr([2, 4, 6, 9])));
+    add(`${k}-empty`, f, A(ref('D1:D3'), ref('E1:E3')));
+    add(`${k}-scalar`, f, A(3, 4));
+  }
+  for (const f of ['FORECAST', 'FORECAST.LINEAR']) {
+    const k = f.toLowerCase();
+    for (const x0 of [0, 4.4, 10, -3.3, S('5'), true, 'x', E('#N/A'), null])
+      add(`${k}-x${slug(x0)}`, f, [x0, ref('B1:B8'), ref('A1:A8')], { cells: XY });
+    add(`${k}-xarr`, f, [arr([1, 2, 3]), ref('B1:B8'), ref('A1:A8')], { cells: XY });
+    add(`${k}-mix`, f, [4, ref('B1:B8'), ref('A1:A8')], { cells: XYmix });
+    add(`${k}-const`, f, [4, ref('B1:B4'), ref('A1:A4')], { cells: XYconst });
+    add(`${k}-size`, f, [4, ref('B1:B8'), ref('A1:A7')], { cells: XY });
+    add(`${k}-err`, f, [4, ref('B1:B4'), ref('A1:A4')], { cells: XYerr });
+    add(`${k}-big`, f, [1e9 + 2.2, ref('B1:B4'), ref('A1:A4')], { cells: XYbig });
+  }
+  // LINEST / LOGEST / TREND / GROWTH
+  const M = merge(colA(XS), colA([0.5, 1.7, 0.2, 2.9, 3.3, 1.1, 4.2, 2.6], 'B'), colA([3, 1, 4, 1, 5, 9, 2, 6], 'C'), colA(YS, 'D'));
+  const MC = merge(M, colA(XS.map((x) => 2 * x + 1), 'E')); // E = 2A + 1 (colinear)
+  for (const f of ['LINEST', 'LOGEST']) {
+    const k = f.toLowerCase();
+    for (const [cst, st] of [[OMIT, OMIT], [true, false], [true, true], [false, false], [false, true]]) {
+      const tag = `${slug(cst)}_${slug(st)}`;
+      const tail = st === OMIT ? [] : [cst, st];
+      add(`${k}-simple-${tag}`, f, [ref('D1:D8'), ref('A1:A8'), ...tail], { cells: M });
+      add(`${k}-two-${tag}`, f, [ref('D1:D8'), ref('A1:B8'), ...tail], { cells: M });
+      add(`${k}-three-${tag}`, f, [ref('D1:D8'), ref('A1:C8'), ...tail], { cells: M });
+      add(`${k}-colin-${tag}`, f, [ref('D1:D8'), ref('(A1:A8)'), ...tail], { cells: MC });
+    }
+    add(`${k}-colin2`, f, [ref('D1:D8'), ref('A1:E8'), true, true], { cells: MC });
+    add(`${k}-colinAE`, f, [ref('D1:D8'), ref('D1:E8'), true, true], { cells: MC });
+    add(`${k}-nox`, f, [ref('D1:D8')], { cells: M });
+    add(`${k}-nox-stats`, f, [ref('D1:D8'), OMIT, true, true], { cells: M });
+    add(`${k}-row`, f, [ref('A10:H10'), ref('A11:H11'), true, true], { cells: Object.fromEntries([...XS.map((x, i) => [`${'ABCDEFGH'[i]}11`, x]), ...YS.map((y, i) => [`${'ABCDEFGH'[i]}10`, y])]) });
+    add(`${k}-text`, f, [ref('D1:D8'), ref('A1:A8')], { cells: merge(M, { D3: 'x' }) });
+    add(`${k}-blank`, f, [ref('D1:D8'), ref('A1:A8')], { cells: merge(M, { D3: null }) });
+    add(`${k}-size`, f, [ref('D1:D8'), ref('A1:A7')], { cells: M });
+    add(`${k}-err`, f, [ref('D1:D8'), ref('A1:A8')], { cells: merge(M, { A3: E('#N/A') }) });
+    add(`${k}-n2`, f, [ref('D1:D2'), ref('A1:A2'), true, true], { cells: M });
+    add(`${k}-n3two`, f, [ref('D1:D3'), ref('A1:B3'), true, true], { cells: M });
+    add(`${k}-perfect`, f, [arr([3], [5], [7], [9]), arr([1], [2], [3], [4]), true, true]);
+    add(`${k}-arr`, f, [arr([2.5, 3.1, 4.9, 6.2]), arr([1, 2, 3, 4]), true, true]);
+    add(`${k}-neg`, f, [arr([2.5, -3.1, 4.9, 6.2]), arr([1, 2, 3, 4])]);
+    add(`${k}-big`, f, [ref('B1:B4'), ref('A1:A4'), true, true], { cells: XYbig });
+  }
+  // colinearidade de verdade: G = x, H = 2x + 1, I = z, J = x + z, K = y
+  const BSv = [0.5, 1.7, 0.2, 2.9, 3.3, 1.1, 4.2, 2.6];
+  const COL = merge(colA(XS, 'G'), colA(XS.map((x) => 2 * x + 1), 'H'), colA(BSv, 'I'), colA(XS.map((x, i) => x + BSv[i]), 'J'), colA(YS, 'K'));
+  for (const f of ['LINEST', 'LOGEST']) {
+    const k = f.toLowerCase();
+    add(`${k}-col-GH`, f, [ref('K1:K8'), ref('G1:H8'), true, true], { cells: COL });
+    add(`${k}-col-GH-noconst`, f, [ref('K1:K8'), ref('G1:H8'), false, true], { cells: COL });
+    add(`${k}-col-GJ`, f, [ref('K1:K8'), ref('G1:J8'), true, true], { cells: COL });
+    add(`${k}-col-HJ`, f, [ref('K1:K8'), ref('H1:J8'), true, true], { cells: COL });
+    add(`${k}-col-GJ-noconst`, f, [ref('K1:K8'), ref('G1:J8'), false, true], { cells: COL });
+    add(`${k}-col-dup`, f, [ref('K1:K8'), ref('G1:G8'), true, true], { cells: COL });
+  }
+  add('trend-col', 'TREND', [ref('K1:K8'), ref('G1:J8'), arr([9, 19, 1, 10])], { cells: COL });
+  for (const f of ['TREND', 'GROWTH']) {
+    const k = f.toLowerCase();
+    add(`${k}-simple`, f, [ref('D1:D8'), ref('A1:A8')], { cells: M });
+    add(`${k}-new`, f, [ref('D1:D8'), ref('A1:A8'), arr([9], [10.5], [12])], { cells: M });
+    add(`${k}-newrow`, f, [ref('D1:D8'), ref('A1:A8'), arr([9, 10.5, 12])], { cells: M });
+    add(`${k}-const0`, f, [ref('D1:D8'), ref('A1:A8'), arr([9], [10.5]), false], { cells: M });
+    add(`${k}-two`, f, [ref('D1:D8'), ref('A1:B8'), arr([9, 1], [10, 2])], { cells: M });
+    add(`${k}-nox`, f, [ref('D1:D8')], { cells: M });
+    add(`${k}-nox-new`, f, [ref('D1:D8'), OMIT, arr([9], [10])], { cells: M });
+    add(`${k}-text`, f, [ref('D1:D8'), ref('A1:A8')], { cells: merge(M, { D3: 'x' }) });
+    add(`${k}-size`, f, [ref('D1:D8'), ref('A1:A7')], { cells: M });
+    add(`${k}-newbad`, f, [ref('D1:D8'), ref('A1:B8'), arr([9, 1, 3])], { cells: M });
+    add(`${k}-colin`, f, [ref('D1:D8'), ref('A1:E8'), arr([9, 1, 3, 5, 19])], { cells: MC });
+  }
+  out('stat-reg', cases);
+}

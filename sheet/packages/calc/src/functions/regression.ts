@@ -105,13 +105,12 @@ register(
 // ---------------------------------------------------------------------------
 // LINEST / LOGEST / TREND / GROWTH
 
-/** Dados numéricos de uma matriz (texto/vazio/booleano → #VALUE!; erro propaga). */
+/** Dados numéricos de uma matriz (texto/vazio/booleano e também erro → #VALUE!, medido). */
 function numericGrid(v: Value, ctx: FnContext): { rows: number; cols: number; data: number[] } | CalcError {
   const g = gridOf(v, ctx);
   if (g instanceof CalcError) return g;
   const data: number[] = [];
   for (const x of g.data) {
-    if (x instanceof CalcError) return x;
     if (typeof x !== 'number') return ERR.VALUE;
     data.push(x);
   }
@@ -147,15 +146,24 @@ function leastSquares(y: number[], Xcols: number[][], withConst: boolean): Fit |
   const R: number[][] = Array.from({ length: k }, () => new Array<number>(k).fill(0));
   const dropped = new Array<boolean>(k).fill(false);
   const order: number[] = [];
+  const origNorm = A.map((c) => Math.sqrt(c.reduce((t, v) => t + v * v, 0)));
+  const left = new Set<number>(Array.from({ length: k }, (_, j) => j));
   let row = 0;
-  for (let j = 0; j < k; j++) {
-    const col = A[j]!;
-    const orig = Math.sqrt(Xcols[j]!.reduce((s, v, i) => s + (v - means[j]!) ** 2, 0) || 0);
-    let norm = 0;
-    for (let i = row; i < n; i++) norm += col[i]! * col[i]!;
-    norm = Math.sqrt(norm);
-    if (row >= n || norm <= 1e-12 * orig || norm === 0) { dropped[j] = true; continue; }
-    // reflexão de Householder na linha `row`
+  // Householder com pivotamento de colunas (maior norma residual primeiro) — medido:
+  // de G e H = 2G+1 o Excel fica com H; coluna colinear (norma residual ~0) sai com β = 0
+  while (left.size && row < n) {
+    let best = -1, bestNorm = -1;
+    for (const j of left) {
+      let t = 0;
+      for (let i = row; i < n; i++) t += A[j]![i]! * A[j]![i]!;
+      // empate (dentro do arredondamento): fica a coluna mais à direita (medido: de I e
+      // J = G + I, com H já escolhida, o Excel fica com J)
+      if (t > bestNorm * (1 + 1e-9) || (best >= 0 && t >= bestNorm * (1 - 1e-9) && j > best)) { bestNorm = Math.max(t, bestNorm); best = j; }
+    }
+    const norm = Math.sqrt(bestNorm);
+    if (!(norm > 1e-12 * origNorm[best]!) || norm === 0) break;
+    left.delete(best);
+    const col = A[best]!;
     const alpha = col[row]! > 0 ? -norm : norm;
     const v = new Array<number>(n).fill(0);
     for (let i = row; i < n; i++) v[i] = col[i]!;
@@ -169,12 +177,14 @@ function leastSquares(y: number[], Xcols: number[][], withConst: boolean): Fit |
       const f = 2 * d / vv;
       for (let i = row; i < n; i++) c[i]! -= f * v[i]!;
     };
-    for (let jj = j; jj < k; jj++) apply(A[jj]!);
+    apply(col);
+    for (const j of left) apply(A[j]!);
     apply(r);
-    order.push(j);
-    for (let jj = j; jj < k; jj++) R[order.length - 1]![jj] = A[jj]![row]!;
+    order.push(best);
+    for (let jj = 0; jj < k; jj++) R[order.length - 1]![jj] = A[jj]![row]!;
     row++;
   }
+  for (const j of left) dropped[j] = true;
   const p = order.length;
   // resolve R β = Qᵀy (triangular, só colunas mantidas)
   const coef = new Array<number>(k).fill(0);
@@ -184,18 +194,19 @@ function leastSquares(y: number[], Xcols: number[][], withConst: boolean): Fit |
     for (let t = ii + 1; t < p; t++) s -= R[ii]![order[t]!]! * coef[order[t]!]!;
     coef[j] = s / R[ii]![j]!;
   }
+  // soma dos quadrados total (centrada com constante) e dos resíduos (cauda de Qᵀy);
+  // medido: ssreg = sstot − ssresid; ajuste perfeito → ssresid 0, erros 0, F #NUM!
+  let sstot = 0;
+  for (const v of y) sstot += (v - ym) * (v - ym);
   let ssresid = 0;
   for (let i = p; i < n; i++) ssresid += r[i]! * r[i]!;
-  // ajuste e somas de quadrados
-  const fitted = y.map((_, i) => Xcols.reduce((s, c, j) => s + coef[j]! * (c[i]! - means[j]!), 0));
-  let ssreg = 0;
-  if (withConst) for (const f of fitted) ssreg += f * f;
-  else for (const f of fitted) ssreg += f * f;
+  if (ssresid <= sstot * 1e-30) ssresid = 0;
+  const ssreg = sstot - ssresid;
   const b = withConst ? ym - coef.reduce((s, c, j) => s + c * means[j]!, 0) : 0;
   const df = n - p - (withConst ? 1 : 0);
-  const sey = df > 0 ? Math.sqrt(ssresid / df) : NaN;
-  const r2 = ssreg + ssresid === 0 ? NaN : ssreg / (ssreg + ssresid);
-  const F = df > 0 && p > 0 ? (ssreg / p) / (ssresid / df) : NaN;
+  const sey = df > 0 ? Math.sqrt(ssresid / df) : 0;
+  const r2 = sstot === 0 ? NaN : ssreg / sstot;
+  const F = df > 0 && p > 0 && ssresid > 0 ? (ssreg / p) / (ssresid / df) : NaN;
   // (RᵀR)⁻¹ das colunas mantidas: inversa de R (triangular)
   const Rinv: number[][] = Array.from({ length: p }, () => new Array<number>(p).fill(0));
   for (let i = p - 1; i >= 0; i--) {

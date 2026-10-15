@@ -466,7 +466,7 @@
  "stat-dist-confidence.t-0d999_2d5_10": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 13 dígitos (dif. rel. 2.6e-14)",
  "stat-dist-confidence.t-0d999_2d5_50d9": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 13 dígitos (dif. rel. 4.0e-14)",
  "stat-dist-z.test-3_null": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 14 dígitos (dif. rel. 5.8e-15)",
- "stat-dist-z.test-arr": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 14 dígitos (dif. rel. 5.8e-15)",
+ "stat-dist-z.test-arr": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 15 dígitos (dif. rel. 1.1e-16)",
  "stat-dist-t.test-1-1": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 15 dígitos (dif. rel. 1.9e-16)",
  "stat-dist-t.test-2-2": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 14 dígitos (dif. rel. 1.9e-15)",
  "stat-dist-t.test-2-3": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 14 dígitos (dif. rel. 2.5e-15)",
