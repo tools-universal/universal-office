@@ -331,7 +331,11 @@ export class CfEngine {
 
   private cfvoFormula(rc: RuleCtx, src: string | undefined): number | undefined {
     if (src === undefined) return undefined;
-    const x = evalFormula(src, this.fctx(rc, rc.base.col, rc.base.row));
+    // fórmula de cfvo: as referências RELATIVAS valem a partir de A1 (medido,
+    // t-cs2: "2*A1+2" num sqref em B3 lê uma célula vazia; "$A$1" lê A1)
+    const cx = this.fctx(rc, 1, 1);
+    cx.dc = 1 - rc.base.col; cx.dr = 1 - rc.base.row;
+    const x = evalFormula(src, cx);
     return typeof x === 'number' ? x : undefined;
   }
 
@@ -341,23 +345,33 @@ export class CfEngine {
     const st = this.stats(rc);
     const vals = stops.map((s, i) => this.cfvoValue(rc, s, i === stops.length - 1));
     if (vals.some((x) => x === undefined)) return undefined;
-    // pontos INTERMEDIÁRIOS são presos ao [min,max] dos valores (medido: mid
-    // `formula 50` num intervalo 1..10 vira 10 e o 3º trecho nunca aparece)
-    const pts = (vals as number[]).map((x, i) => (i > 0 && i < vals.length - 1 ? Math.max(st.min, Math.min(st.max, x)) : x));
-    if (v <= pts[0]!) return stops[0]!.color;
+    // pontos INTERMEDIÁRIOS presos ao [min,max] dos valores; preso por cima,
+    // o ponto final some (o do meio vira o fim); por baixo, some o inicial
+    // (medido, t-cs2: mid 5 em 1..3 → 3 fica amarelo; mid 0 → 1 fica amarelo)
+    let pts = vals as number[];
+    let cols = stops.map((s) => s.color);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const x = pts[i]!;
+      if (x > st.max) { pts = [...pts.slice(0, i), st.max]; cols = cols.slice(0, i + 1); break; }
+      if (x < st.min) { pts = [st.min, ...pts.slice(i + 1)]; cols = cols.slice(i); i = 0; }
+    }
+    // ordem do Excel (t-cs2): abaixo do 1º ponto (estrito) → 1ª cor; a partir
+    // do último → última cor (min = max pinta a do máximo); senão interpola
+    if (v < pts[0]!) return cols[0]!;
+    if (v >= pts[pts.length - 1]!) return cols[cols.length - 1]!;
     // posições relativas como o Excel (t global → t local do trecho)
     const lo = st.min, span = st.max - st.min || 1;
     const pos = (x: number): number => (x - lo) / span;
     const p = pos(v);
     for (let i = 0; i < pts.length - 1; i++) {
       const a = pts[i]!, b = pts[i + 1]!;
-      if (v <= b) {
+      if (v < b || i === pts.length - 2) {
         const pa = pos(a), pb = pos(b);
         const t = pb > pa ? Math.max(0, Math.min(1, (p - pa) / (pb - pa))) : 1;
-        return lerpTrunc(stops[i]!.color, stops[i + 1]!.color, t);
+        return lerpTrunc(cols[i]!, cols[i + 1]!, t);
       }
     }
-    return stops[stops.length - 1]!.color;
+    return cols[cols.length - 1]!;
   }
 
   private bar(rc: RuleCtx, v: number): BarPaint | undefined {

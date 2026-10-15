@@ -34,6 +34,9 @@ type Node =
   | { t: 'bin'; op: string; a: Node; b: Node } | { t: 'fn'; name: string; args: Node[] };
 
 const MAXR = 1048576, MAXC = 16384;
+/** Referência relativa deslocada para fora da planilha dá a volta, como no Excel. */
+const wrapC = (c: number): number => ((((c - 1) % MAXC) + MAXC) % MAXC) + 1;
+const wrapR = (r: number): number => ((((r - 1) % MAXR) + MAXR) % MAXR) + 1;
 const colNum = (s: string): number => { let n = 0; for (const ch of s.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64); return n; };
 
 // ───────────────────────── tokenização + parser ─────────────────────────
@@ -217,7 +220,7 @@ export function compare(a: FScalar, b: FScalar): number | FErr {
 }
 
 function rangeOf(n: Node & { t: 'rng' }, cx: FCtx): FRange {
-  const fix = (r: Node & { t: 'ref' }): [number, number] => [r.ac ? r.c : r.c + cx.dc, r.ar ? r.r : r.r + cx.dr];
+  const fix = (r: Node & { t: 'ref' }): [number, number] => [wrapC(r.ac ? r.c : r.c + cx.dc), wrapR(r.ar ? r.r : r.r + cx.dr)];
   const [c1, r1] = fix(n.a), [c2, r2] = fix(n.b);
   return { kind: 'range', sheet: n.sheet, c1: Math.min(c1, c2), r1: Math.min(r1, r2), c2: Math.max(c1, c2), r2: Math.max(r1, r2) };
 }
@@ -242,7 +245,7 @@ export function evalNode(n: Node, cx: FCtx): FVal {
     case 's': return n.v;
     case 'b': return n.v;
     case 'e': return new FErr(n.v);
-    case 'ref': return cx.cell(n.sheet, n.ac ? n.c : n.c + cx.dc, n.ar ? n.r : n.r + cx.dr);
+    case 'ref': return cx.cell(n.sheet, wrapC(n.ac ? n.c : n.c + cx.dc), wrapR(n.ar ? n.r : n.r + cx.dr));
     case 'rng': return rangeOf(n, cx);
     case 'un': { const x = toNum(scalar(evalNode(n.x, cx), cx)); return isErr(x) ? x : n.op === '-' ? -x : x; }
     case 'pct': { const x = toNum(scalar(evalNode(n.x, cx), cx)); return isErr(x) ? x : x / 100; }

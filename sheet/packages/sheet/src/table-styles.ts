@@ -240,6 +240,21 @@ export function buildTableLayer(ws: Worksheet, styles: Styles, cx: ColorContext)
         rowStripes: t.stripes, colStripes: !!t.colStripes, firstColumn: !!t.firstColumn, lastColumn: !!t.lastColumn,
       }, spec, tableFmt);
     }
+    // contorno da tabela (tableBorderDxfId) — por cima do estilo; medido em t-tbldxf
+    const ob = t.borderDxfId !== undefined ? styles.dxfs[t.borderDxfId]?.border : undefined;
+    if (ob) {
+      for (let r = rg.r1; r <= rg.r2; r++) for (let c = rg.c1; c <= rg.c2; c++) {
+        const sides: ['left' | 'right' | 'top' | 'bottom', boolean][] = [['left', c === rg.c1], ['right', c === rg.c2], ['top', r === rg.r1], ['bottom', r === rg.r2]];
+        for (const [side, edge] of sides) {
+          const e = ob[side];
+          if (!edge || !e) continue;
+          const key = `${c},${r}`;
+          const f = tableFmt.get(key) ?? {};
+          (f.border ??= {})[side] = e;
+          tableFmt.set(key, f);
+        }
+      }
+    }
     if (t.filter && t.headerRow) addFilterButtons(t.filter, filterAt);
   }
   if (ws.autoFilter) addFilterButtons(ws.autoFilter, filterAt);

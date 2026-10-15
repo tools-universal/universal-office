@@ -312,6 +312,8 @@ export interface TableInfo {
   lastColumn?: boolean;
   /** Detalhes do autofiltro (botões ocultos / colunas filtradas). */
   filter?: AutoFilterInfo;
+  /** tableBorderDxfId: contorno da tabela (o Excel o desenha; os dxf de cabeçalho/dados/total não). */
+  borderDxfId?: number;
 }
 
 /** Item de linha/coluna de tabela dinâmica (`<rowItems><i t r><x/>…</i>`). */

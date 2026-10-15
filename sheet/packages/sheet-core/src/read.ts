@@ -312,6 +312,7 @@ function readTablePart(pkg: XlsxPackage, tablePath: string): TableInfo | undefin
   if (on('showFirstColumn')) out.firstColumn = true;
   if (on('showLastColumn')) out.lastColumn = true;
   if (af) out.filter = readAutoFilter(af, ref);
+  if (root.attrs['tableBorderDxfId'] !== undefined) out.borderDxfId = parseInt(root.attrs['tableBorderDxfId'], 10);
   return out;
 }
 

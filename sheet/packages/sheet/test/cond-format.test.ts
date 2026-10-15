@@ -26,13 +26,27 @@ describe('escala de cor (medida no Excel, t-cf)', () => {
     expect(lerpTrunc('#FF0000', '#0000FF', 0.1)).toBe('#e60019');
     expect(lerpTrunc('#FF0000', '#0000FF', 0.3)).toBe('#b3004c');
   });
+  it('casos de borda medidos (t-cs2): meio preso, mín = máx, pontos invertidos', () => {
+    const sc = (vals: number[], stops: { type: string; value?: number; color: string }[]): (string | undefined)[] => {
+      const cells: Record<string, FScalar> = {};
+      vals.forEach((v, i) => { cells[`1,${i + 1}`] = v; });
+      const eng = new CfEngine([{ sqref: 'A1:A9', rules: [{ type: 'colorScale', priority: 1, stops }] }], sheet(cells));
+      return vals.map((_, i) => eng.at(1, i + 1)?.fill?.fgColor?.toLowerCase());
+    };
+    const R = '#ff0000', Y = '#ffff00', G = '#00ff00', B = '#0000ff';
+    expect(sc([1, 2, 2], [{ type: 'min', color: R }, { type: 'percentile', value: 50, color: Y }, { type: 'max', color: G }])).toEqual([R, G, G]);
+    expect(sc([1, 2, 3], [{ type: 'min', color: R }, { type: 'num', value: 5, color: Y }, { type: 'max', color: G }])).toEqual([R, '#ff7f00', Y]);
+    expect(sc([1, 2, 3], [{ type: 'min', color: R }, { type: 'num', value: 0, color: Y }, { type: 'max', color: G }])).toEqual([Y, '#80ff00', G]);
+    expect(sc([5, 5, 5], [{ type: 'min', color: R }, { type: 'max', color: B }])).toEqual([B, B, B]);
+    expect(sc([1, 2, 3, 4], [{ type: 'num', value: 3, color: R }, { type: 'num', value: 2, color: B }])).toEqual([R, R, B, B]);
+  });
   it('2 cores min→max sobre as células existentes da coluna inteira', () => {
     const cells: Record<string, FScalar> = {};
     for (let i = 0; i <= 10; i++) cells[`1,${i + 1}`] = i;
     const cf: CondFormat[] = [{ sqref: 'A1:A1048576', rules: [{ type: 'colorScale', priority: 1, stops: [{ type: 'min', color: '#FF0000' }, { type: 'max', color: '#0000FF' }] }] }];
     const eng = new CfEngine(cf, sheet(cells));
     expect(eng.at(1, 6)?.fill?.fgColor).toBe('#80007f');
-    expect(eng.at(1, 1)?.fill?.fgColor).toBe('#FF0000');
+    expect(eng.at(1, 1)?.fill?.fgColor?.toLowerCase()).toBe('#ff0000');
     expect(eng.at(1, 500)).toBeUndefined(); // vazia: escala não pinta
   });
 });
