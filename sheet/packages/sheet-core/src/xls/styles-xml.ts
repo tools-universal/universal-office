@@ -66,7 +66,9 @@ export function fontBody(f: XlsFont, palette: string[], run: boolean, colorOverr
   if (f.script === 1) x += '<vertAlign val="superscript"/>';
   else if (f.script === 2) x += '<vertAlign val="subscript"/>';
   x += `<sz val="${f.height / 20}"/>`;
-  x += colorEl('color', colorOverride, icvColor(f.color, palette, 'font'));
+  // no run, a cor automática é EXPLÍCITA (preto do texto da janela): o run não
+  // herda a cor da célula (medido: ".." brancos + texto automático = texto preto)
+  x += colorEl('color', colorOverride, icvColor(f.color, palette, 'font') ?? (run ? '#000000' : undefined));
   x += run ? `<rFont val="${xmlText(f.name)}"/>` : `<name val="${xmlText(f.name)}"/>`;
   if (f.family) x += `<family val="${f.family}"/>`;
   if (f.charset) x += `<charset val="${f.charset}"/>`;
