@@ -131,7 +131,7 @@ type Tok =
   | { readonly k: 'num'; readonly int: string; readonly frac?: string; readonly exp: string }
   | { readonly k: 'fn'; readonly canon?: string; readonly raw: string }
   | { readonly k: 'eta'; readonly canon: string; readonly raw: string }
-  | { readonly k: 'name'; readonly s: string; readonly pre?: 'pm' | 'op' }
+  | { readonly k: 'name'; readonly s: string; readonly pre?: 'pm' | 'op'; readonly quoted?: boolean }
   | { readonly k: 'bool'; readonly v: boolean }
   | { readonly k: 'err'; readonly code: ErrorCode }
   | { readonly k: 'sep'; readonly t: 'list' | 'col' | 'row' }
@@ -234,6 +234,8 @@ function parseStructured(inner: string, src: Dialect): SBody {
   return { form: 'simple', thisRow: false, items: [{ col: inner }] };
 }
 
+const PLAIN_NAME = /^[\p{L}_\\][\p{L}\p{N}_.\\]*$/u;
+
 /** Coluna que dispensa os colchetes internos na forma "@" (T[@Col] × T[@[Col A]]). */
 const SIMPLE_COL = /^[\p{L}_][\p{L}\p{N}_]*$/u;
 
@@ -276,7 +278,7 @@ function tokenize(text: string, src: Dialect, names?: ReadonlySet<string>): Tok[
       for (; j < n; j++) if (text[j] === "'") { if (text[j + 1] === "'") j++; else break; }
       const q = text.slice(i, j + 1);
       if (text[j + 1] === '!') { toks.push({ k: 'text', s: q + '!' }); i = j + 2; continue; }
-      toks.push({ k: 'name', s: q.slice(1, -1).replace(/''/g, "'") });
+      toks.push({ k: 'name', s: q.slice(1, -1).replace(/''/g, "'"), quoted: true });
       i = j + 1;
       continue;
     }
@@ -544,7 +546,9 @@ function render(toks: readonly Tok[], tgt: Dialect, o: RenderOpts): string {
       case 'name': {
         if (t.pre === 'op') { s += tgt.canonical && o.filePrefixes ? `_xlop.${t.s}` : `[${t.s}]`; break; }
         if (t.pre === 'pm' && tgt.canonical && o.filePrefixes) { s += `_xlpm.${t.s}`; break; }
-        s += boolF.includes(d.fold(t.s)) ? `'${t.s.replace(/'/g, "''")}'` : t.s;
+        // aspas: nome que coincide com o booleano do idioma ('TRUE' no pt-BR) ou que
+        // não é identificador simples ('Aba 1':'Aba 2'!A1 escrito em partes)
+        s += boolF.includes(d.fold(t.s)) || (t.quoted && !PLAIN_NAME.test(t.s)) ? `'${t.s.replace(/'/g, "''")}'` : t.s;
         break;
       }
       case 'r1c1': {

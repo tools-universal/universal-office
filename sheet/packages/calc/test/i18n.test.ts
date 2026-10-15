@@ -224,5 +224,10 @@ describe('tradutor: casos que o oráculo não cobre', () => {
   it('textos, nomes de aba e referências externas passam intactos', () => {
     expect(toLocal(`=SUM('Plan, 1'!A1,[1]Dados!B2,"SUM(1,2)")`, PT)).toBe(`=SOMA('Plan, 1'!A1;[1]Dados!B2;"SUM(1,2)")`);
     expect(toLocal('=IF(A1="#N/A",TRUE,#N/A)', PT)).toBe('=SE(A1="#N/A";VERDADEIRO;#N/D)');
+    // 3D com as duas abas entre aspas separadas (gravado pelo LibreOffice; achado no corpus)
+    expect(toLocal("=SUM('time (a)':'time (b)'!B1)", PT)).toBe("=SOMA('time (a)':'time (b)'!B1)");
+    // UDF que colide com função (arquivo _xludf.Sum): no pt-BR não é traduzida e volta marcada
+    expect(toLocal('=_xludf.Sum(B9:C42)', PT)).toBe('=Sum(B9:C42)');
+    expect(fromLocal('=Sum(B9:C42)', PT)).toBe('=_xludf.Sum(B9:C42)');
   });
 });
