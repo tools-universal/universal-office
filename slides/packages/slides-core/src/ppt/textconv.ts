@@ -207,7 +207,9 @@ export function rPrXml(tag: string, cf: TextCF, ctx: TextConvCtx, link?: RunLink
     u: cf.underline ? 'sng' : undefined,
     baseline: cf.position ? Math.round(cf.position * 1000) : undefined,
   };
-  if (tag === 'a:defRPr') delete a['lang'];
+  // o app grava kern="1200" nos estilos (mestre e defaultTextStyle) ao converter
+  // um .ppt: o texto do .ppt tem kerning a partir de 12 pt (oracle/ppt2pptx)
+  if (tag === 'a:defRPr') { delete a['lang']; a['kern'] = 1200; }
   let kids = '';
   const color = colorIndexHex(cf.color, ctx.scheme) ?? ctx.scheme[1];
   if (color) kids += el('a:solidFill', {}, el('a:srgbClr', { val: color }));

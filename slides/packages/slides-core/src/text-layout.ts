@@ -25,6 +25,8 @@ export interface LayoutFont {
   sizePt: number;
   bold: boolean;
   italic: boolean;
+  /** Kerning ligado: o run pede (`kern` > 0) e o tamanho alcança o limiar (medido, syn-b-e17). */
+  kern?: boolean;
 }
 
 /** Mede a largura de `text` em PONTOS na fonte dada (injetável). */
@@ -91,6 +93,8 @@ export interface LayoutTextOptions {
   defaultColor?: string;
   /** Âncora default quando o bodyPr não especifica (t). */
   defaultAnchor?: string;
+  /** Escala EXTRA e contínua dos tamanhos (ênfase "tamanho da fonte"), sobre a do autofit. */
+  sizeScale?: number;
 }
 
 // Defaults de bodyPr do PowerPoint: 0.1in lateral, 0.05in vertical.
@@ -101,6 +105,8 @@ const LINE_FACTOR = 1.2;
 const BASELINE_FACTOR = 0.8;
 /** Idem com entrelinha expandida (> 100 %) ou exata — medido em 8 fontes (syn-a-tbl8). */
 const EXP_BASELINE_FACTOR = 0.75;
+/** 1/8 pt em EMU: a grade de larguras do app de referência. */
+const EIGHTH_PT = EMU_PER_POINT / 8;
 
 /** Formata o número de um buAutoNum conforme o esquema (subconjunto comum). */
 export function formatAutoNum(scheme: string, n: number): string {
@@ -177,7 +183,7 @@ function displayRuns(runs: Run[], defaultSzPt: number): DisplayRun[] {
  * syn-a-tbl6 #6/#7 e syn-a-tbl8 #6: "SNSのアカウ|ントしかわ", latim segue por palavra).
  */
 const CJK_CHAR = '[\\u2E80-\\u2FFF\\u3000-\\u303F\\u3040-\\u30FF\\u3100-\\u312F\\u3190-\\u31FF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF\\uFE30-\\uFE4F\\uFF00-\\uFFEF]';
-const TOKEN_RE = new RegExp(`\\t|${CJK_CHAR}[^\\S\\t]*|(?:(?!${CJK_CHAR})[^\\s])+[^\\S\\t]*|[^\\S\\t]+`, 'g');
+const CJK_RE = new RegExp(CJK_CHAR);
 /**
  * Regras de início/fim de linha (kinsoku "padrão" do Office), valem com idioma do
  * Leste Asiático no run e `eaLnBrk` ≠ 0 (medido, syn-a-tbl9: com lang en-US ou
@@ -189,26 +195,77 @@ const KINSOKU_NO_END = new Set([...'$([\\{£¥‘“〈《「『【〔＄（［�
 const KINSOKU_HANG = new Set([...'、。，．､｡']);
 const EA_LANG = /^(ja|zh|ko)\b/i;
 
-/** Quebra os runs de um parágrafo em tokens (palavras + espaços; cada caractere CJK é um token), preservando o run de origem. */
-function tokenize(runs: Run[]): Word[] {
-  const out: Word[] = [];
-  for (const r of runs) {
-    if (r.text === '\n') { out.push({ text: '\n', run: r }); continue; }
-    // separa mantendo espaços colados à palavra anterior (quebra APÓS espaço)
-    // TAB é um token próprio (avança até a próxima parada)
-    const parts = r.text.match(TOKEN_RE) ?? [];
-    for (const p of parts) out.push({ text: p, run: r });
-  }
-  return out;
+/** Escalas do tamanho: a do autofit gravado (`fontScale`) e uma extra contínua (ênfase animada). */
+interface SizeScale { auto: number; extra: number }
+
+/** Tamanho efetivo: o autofit arredonda o tamanho escalado ao PONTO inteiro (medido, syn-b-e23: 46 × 90% → 41). */
+function scaledSz(sz: number, sc: SizeScale): number {
+  return (sc.auto !== 1 ? Math.max(1, Math.round(sz * sc.auto)) : sz) * sc.extra;
 }
 
-function fontOf(r: Run, fontScale: number, opts: Required<Pick<LayoutTextOptions, 'defaultSzPt' | 'defaultFont'>>): LayoutFont {
-  return {
-    family: r.font ?? opts.defaultFont,
-    sizePt: (r.sz ?? opts.defaultSzPt) * fontScale,
-    bold: !!r.bold,
-    italic: !!r.italic,
-  };
+function fontOf(r: Run, sc: SizeScale, opts: Required<Pick<LayoutTextOptions, 'defaultSzPt' | 'defaultFont'>>): LayoutFont {
+  const sizePt = scaledSz(r.sz ?? opts.defaultSzPt, sc);
+  const f: LayoutFont = { family: r.font ?? opts.defaultFont, sizePt, bold: !!r.bold, italic: !!r.italic };
+  // kern="1200": pares de kerning só a partir de 12 pt; sem kern (ou 0), nunca
+  if (r.kern !== undefined && r.kern > 0 && sizePt >= r.kern) f.kern = true;
+  return f;
+}
+
+/** Caracteres "visíveis" (grafemas: base + marcas combinantes juntas) — a quebra por caractere não os parte. */
+const segmenter = typeof Intl !== 'undefined' && 'Segmenter' in Intl
+  ? new (Intl as unknown as { Segmenter: new (l?: string, o?: { granularity: string }) => { segment(t: string): Iterable<{ segment: string }> } }).Segmenter(undefined, { granularity: 'grapheme' })
+  : undefined;
+function graphemes(t: string): string[] {
+  return segmenter ? Array.from(segmenter.segment(t), (s) => s.segment) : [...t];
+}
+
+/** Depois destes traços o app pode quebrar a linha (medido, syn-b-e19); ‐ ‑ e o hífen condicional, não. */
+const BREAK_AFTER = /[-–—]/;
+/** Espaço que hospeda quebra (não TAB nem espaço não separável). */
+const isSpace = (c: string): boolean => c !== '\t' && c !== '\u00a0' && /\s/.test(c);
+
+/**
+ * Unidades de quebra do parágrafo: pedaços (texto + run de origem) até a próxima
+ * oportunidade de quebra — depois de espaço(s) e depois de '-', '–' ou '—' (medido,
+ * syn-b-e19), e antes/depois de cada caractere CJK (syn-a-tbl6/8). A fronteira entre
+ * runs SEM espaço não quebra ("Management" + ":"). TAB e quebra de linha (`<a:br>`)
+ * são unidades próprias.
+ */
+function breakUnits(runs: Run[]): Word[][] {
+  const out: Word[][] = [];
+  let cur: Word[] = [];
+  let prev = '';
+  // a sequência de espaços em curso tem espaço NÃO separável: "ipsum.  dolor"
+  // não quebra em lugar nenhum (medido, syn-b-e23)
+  let nb = false;
+  const close = (): void => { if (cur.length) out.push(cur); cur = []; prev = ''; nb = false; };
+  for (const r of runs) {
+    if (r.text === '\n') { close(); out.push([{ text: '\n', run: r }]); continue; }
+    const t = r.text;
+    let start = 0;
+    for (let i = 0; i < t.length; i++) {
+      const c = t[i]!;
+      if (c === '\t') {
+        if (i > start) cur.push({ text: t.slice(start, i), run: r });
+        close();
+        out.push([{ text: '\t', run: r }]);
+        start = i + 1;
+        continue;
+      }
+      const p = i > start ? t[i - 1]! : prev;
+      if (p && !isSpace(c) && c !== '\u00a0' && ((isSpace(p) && !nb) || BREAK_AFTER.test(p)
+        || (p !== '\u00a0' && !isSpace(p) && (CJK_RE.test(c) || CJK_RE.test(p))))) {
+        if (i > start) cur.push({ text: t.slice(start, i), run: r });
+        close();
+        start = i;
+      }
+      if (c === '\u00a0') nb = true;
+      else if (!isSpace(c)) nb = false;
+    }
+    if (t.length > start) { cur.push({ text: t.slice(start), run: r }); prev = t[t.length - 1]!; }
+  }
+  close();
+  return out;
 }
 
 /**
@@ -225,7 +282,9 @@ export function layoutTextBody(
   const defaultSzPt = opts.defaultSzPt ?? 18;
   const defaultFont = opts.defaultFont ?? 'Calibri';
   const defaultColor = opts.defaultColor ?? '#000000';
-  const fontScale = tb.fontScale ?? 1;
+  const sc: SizeScale = { auto: tb.fontScale ?? 1, extra: opts.sizeScale ?? 1 };
+  /** Fator contínuo (espaçamento de caracteres, sobrescrito). */
+  const fontScale = sc.auto * sc.extra;
   const lineFactor = LINE_FACTOR * (1 - (tb.lnSpcReduction ?? 0));
   const usableW = Math.max(0, boxW - insL - insR);
   // colunas: quebra na LARGURA DA COLUNA e flui para a próxima quando a
@@ -237,11 +296,11 @@ export function layoutTextBody(
   const fOpts = { defaultSzPt, defaultFont };
 
   const measureEmu = (text: string, f: LayoutFont): number => measure(text, f) * EMU_PER_POINT;
-  /** Largura de um pedaço de run, com o espaçamento de caracteres (`spc`). */
+  /** Largura de um pedaço de run, com o espaçamento de caracteres (`spc`; o autofit NÃO o escala — medido, syn-b-e27). */
   const measureRun = (text: string, r: Run, f: LayoutFont): number =>
-    measureEmu(text, f) + (r.spc ? r.spc * EMU_PER_POINT * fontScale * [...text].length : 0);
+    measureEmu(text, f) + (r.spc ? r.spc * EMU_PER_POINT * sc.extra * [...text].length : 0);
 
-  interface ProtoLine { runs: { text: string; run: Run }[]; marL: number; align: string; bullet?: PlacedLine['bullet']; para: number; tabTo?: (xRel: number, seg?: [number, number]) => number; segOf?: (items: { text: string; run: Run }[], from: number) => [number, number] }
+  interface ProtoLine { runs: { text: string; run: Run }[]; marL: number; align: string; bullet?: PlacedLine['bullet']; para: number; tabTo?: (xRel: number, seg?: [number, number], first?: boolean) => number; segOf?: (items: { text: string; run: Run }[], from: number) => [number, number] }
   const proto: ProtoLine[] = [];
   const heights: number[] = [];
   /** Espaço EXTRA (EMU) antes de cada linha (spcBef/spcAft dos parágrafos). */
@@ -267,6 +326,8 @@ export function layoutTextBody(
     // bullet do parágrafo (só na primeira linha). Parágrafo VAZIO não mostra
     // marcador nem consome número (como o app de referência)
     let bullet: PlacedLine['bullet'] | undefined;
+    /** Início do texto da 1ª linha de um parágrafo COM marcador (EMU, relativo à caixa). */
+    let bulletTextX: number | undefined;
     if (p.bullet && runs.some((r) => r.text)) {
       // reinicia contadores de níveis mais profundos
       for (let l = level + 1; l < 9; l++) autoNumCounters[l] = 0;
@@ -280,14 +341,25 @@ export function layoutTextBody(
       // marcador: fonte/cor/tamanho próprios (buFont/buClr/buSz) ou os do 1º run;
       // fonte de símbolo → Unicode equivalente
       const first = runs.find((r) => r.text && r.text !== '\n') ?? runs[0]!;
-      const tf = fontOf(first, fontScale, fOpts);
-      let family = p.bulletFont ?? tf.family;
+      const tf = fontOf(first, sc, fOpts);
+      // numeração com buFont de SÍMBOLO (Wingdings): os algarismos saem na fonte do
+      // texto (oráculo, gd-183528 #11)
+      const numInText = p.bulletAutoNum !== undefined && isSymbolFont(p.bulletFont);
+      let family = numInText ? tf.family : p.bulletFont ?? tf.family;
       if (p.bulletAutoNum === undefined && isSymbolFont(p.bulletFont)) { btext = symbolText(p.bulletFont, btext); family = SYMBOL_FAMILY; }
       const sizePt = p.bulletSizePt !== undefined ? p.bulletSizePt * fontScale : tf.sizePt * (p.bulletSizePct ?? 1);
+      // marcador no MENOR entre marL e marL+indent, texto no maior (indent > 0 inverte:
+      // marcador em marL); à esquerda da caixa, a 1ª linha inteira desliza para dentro.
+      // O texto nunca começa antes do FIM do marcador — a largura do caractere no
+      // tamanho do MARCADOR (buSzPct/buSzPts; medido, syn-b-e20/e25/e26)
+      const lo = Math.min(marL, marL + indent), hi = Math.max(marL, marL + indent);
+      const shift = lo < 0 ? -lo : 0;
+      const rawBullet = p.bulletAutoNum === undefined ? (p.bulletChar ?? '•') : btext;
+      const bw = p.bulletImage ? 0 : measureEmu(rawBullet, { family: numInText ? tf.family : p.bulletFont ?? tf.family, sizePt, bold: tf.bold, italic: tf.italic });
+      bulletTextX = insL + Math.max(hi + shift, lo + shift + bw);
       bullet = {
         text: btext,
-        // hanging indent: bullet fica em marL+indent (indent tipicamente negativo)
-        x: insL + Math.max(0, marL + indent),
+        x: insL + lo + shift,
         font: { ...tf, family, sizePt },
         color: p.bulletColor ?? first.color ?? defaultColor,
       };
@@ -297,24 +369,19 @@ export function layoutTextBody(
     // indent de 1ª linha vale SÓ para a primeira linha do parágrafo;
     // continuações voltam para marL (hanging/first-line indent do PowerPoint)
     const contX = insL + marL;
-    let firstX = p.bullet ? contX : insL + Math.max(0, marL + indent);
-    // marcador que invade o início do texto (marL ≤ posição do marcador, ex. marL=0
-    // indent=0 dos .ppt antigos): o texto da 1ª linha começa logo depois dele (gd-082972)
-    // (só sem recuo deslocado: com indent < 0 o app mantém o texto em marL mesmo que o
-    // marcador encoste — gd-000165)
-    if (bullet && !bullet.image && bullet.x >= firstX) {
-      const bEnd = bullet.x + measureEmu(bullet.text, bullet.font);
-      if (bEnd > firstX) firstX = bEnd;
-    }
-    const words = tokenize(runs);
+    const firstX = bulletTextX ?? (p.bullet ? contX : insL + Math.max(0, marL + indent));
+    const units = breakUnits(runs);
+    const words = units.flat();
     // tabulação: próxima parada depois de xRel (EMU desde a margem esquerda da caixa)
     const defTab = p.defTabSz && p.defTabSz > 0 ? p.defTabSz : 914400;
     // recuo deslocado (indent < 0): antes da margem, o TAB para nela (como no app)
     // parada alinhada à direita/centro/decimal: o TRECHO seguinte (até o próximo TAB)
     // termina/centra/tem o separador decimal na parada — seg = [largura, largura antes do decimal]
-    const tabTo = (xRel: number, seg: [number, number] = [0, 0]): number => {
+    // o 1º TAB da linha para numa parada EXATAMENTE na posição atual (tabLst com
+    // pos=0 dos .ppt: "\t\t\tX" põe o X em 72 pt com paradas 0/36/72 — syn-b-e30)
+    const tabTo = (xRel: number, seg: [number, number] = [0, 0], first = false): number => {
       let next = (Math.floor(xRel / defTab) + 1) * defTab, algn = 'l';
-      for (const t of p.tabs ?? []) if (t.pos > xRel + 1) { next = t.pos; algn = t.algn; break; }
+      for (const t of p.tabs ?? []) if (t.pos > xRel + 1 || (first && t.pos >= xRel - 1)) { next = t.pos; algn = t.algn; break; }
       if (indent < 0 && xRel < marL - 1 && marL < next) return marL;
       if (algn === 'r') return Math.max(xRel, next - seg[0]);
       if (algn === 'ctr') return Math.max(xRel, next - seg[0] / 2);
@@ -327,7 +394,7 @@ export function layoutTextBody(
       for (let k = from; k < items.length; k++) {
         const it = items[k]!;
         if (it.text === '\t' || it.text === '\n') break;
-        const fo = fontOf(it.run, fontScale, fOpts);
+        const fo = fontOf(it.run, sc, fOpts);
         const ix = wDec < 0 ? it.text.search(/[.,]/) : -1;
         if (ix >= 0) wDec = wAll + measureRun(it.text.slice(0, ix), it.run, fo);
         wAll += measureRun(it.text, it.run, fo);
@@ -338,15 +405,17 @@ export function layoutTextBody(
     // agrupamento em linhas por largura
     let cur: ProtoLine = { runs: [], marL: firstX, align, bullet, para: pi, tabTo, segOf };
     let curW = 0;
+    /** Onde começa, em `cur.runs`, cada unidade da linha em curso (kinsoku desce a última). */
+    let uStarts: number[] = [];
     let firstLineOfPara = true;
-    const emptyPt = (runs[0]!.sz ?? defaultSzPt) * fontScale;
+    const emptyPt = scaledSz(runs[0]!.sz ?? defaultSzPt, sc);
     let lastMaxPt = emptyPt;
     // entrelinha do parágrafo: spcPct multiplica o single; spcPts é absoluto
     const paraFactor = p.lineSpacing ?? 1;
     const flush = (): void => {
       proto.push(cur);
       // altura da linha = maior sz presente (linha vazia usa o sz do parágrafo)
-      const maxPt = cur.runs.reduce((a, t) => Math.max(a, (t.run.sz ?? defaultSzPt) * fontScale), cur.runs.length ? 0 : emptyPt);
+      const maxPt = cur.runs.reduce((a, t) => Math.max(a, scaledSz(t.run.sz ?? defaultSzPt, sc)), cur.runs.length ? 0 : emptyPt);
       heights.push(p.lineSpacingPt !== undefined
         ? p.lineSpacingPt * EMU_PER_POINT
         : maxPt * EMU_PER_POINT * lineFactor * paraFactor);
@@ -367,70 +436,124 @@ export function layoutTextBody(
       firstLineOfPara = false;
       cur = { runs: [], marL: contX, align, para: pi, tabTo, segOf };
       curW = 0;
+      uStarts = [];
     };
-    for (let wi = 0; wi < words.length; wi++) {
-      const wd = words[wi]!;
+    // largura útil da linha em 1/8 pt ARREDONDADA PARA BAIXO: o app mede a linha nessa
+    // grade (medido, syn-b-e18: a caixa W+0,02 pt não cabe o que mede W+0,005)
+    const availOf = (x: number): number => Math.floor(Math.max(0, colW - (x - insL)) / EIGHTH_PT + 1e-6) * EIGHTH_PT;
+    /** Largura de uma unidade e a parte dela SEM os espaços finais (que "pendem" fora da linha). */
+    const unitW = (u: Word[]): { w: number; core: number } => {
+      let w = 0, trail = 0, trailing = true;
+      for (let k = u.length - 1; k >= 0; k--) {
+        const pc = u[k]!;
+        const f = fontOf(pc.run, sc, fOpts);
+        const full = measureRun(pc.text, pc.run, f);
+        w += full;
+        if (trailing) {
+          const core = pc.text.replace(/\s+$/, '');
+          trail += full - (core ? measureRun(core, pc.run, f) : 0);
+          if (core) trailing = false;
+        }
+      }
+      return { w, core: w - trail };
+    };
+    const pushUnit = (u: Word[]): void => {
+      uStarts.push(cur.runs.length);
+      for (const pc of u) cur.runs.push({ text: pc.text, run: pc.run });
+    };
+    let wi = 0; // índice do 1º pedaço da unidade em `words`
+    for (let ui = 0; ui < units.length; ui++) {
+      const u = units[ui]!;
+      const wd = u[0]!;
+      const at = wi;
+      wi += u.length;
       if (wd.text === '\n') { flush(); continue; }
       if (wd.text === '\t') {
         let xRel = cur.marL - insL + curW;
-        let target = tabTo(xRel, segOf(words, wi + 1));
-        // o TAB não é ponto de quebra: fica colado à palavra seguinte — se o par
-        // não cabe, os dois vão para a linha seguinte e o TAB vale lá (texto antigo
-        // "…making \tenvironments" recuado na 2ª linha — gd-082972)
-        const nw = words[wi + 1];
-        const nextW = nw && nw.text !== '\t' && nw.text !== '\n' ? measureRun(nw.text.replace(/\s+$/, ''), nw.run, fontOf(nw.run, fontScale, fOpts)) : 0;
-        if (wrap && cur.runs.length > 0 && target + nextW - (cur.marL - insL) > Math.max(0, colW - (cur.marL - insL))) {
+        let first = cur.runs.length === 0;
+        let target = tabTo(xRel, segOf(words, at + 1), first);
+        // o TAB não é ponto de quebra: fica colado à unidade seguinte — se o par não
+        // cabe, os dois descem e o TAB vale na linha nova (texto antigo "…making
+        // \tenvironments" recuado na 2ª linha — gd-082972)
+        const nu = units[ui + 1];
+        const nextW = nu && nu[0]!.text !== '\t' && nu[0]!.text !== '\n' ? unitW(nu).core : 0;
+        if (wrap && !first && target + nextW - (cur.marL - insL) > availOf(cur.marL)) {
           flush();
           xRel = cur.marL - insL + curW;
-          target = tabTo(xRel, segOf(words, wi + 1));
+          first = true;
+          target = tabTo(xRel, segOf(words, at + 1), first);
         }
+        uStarts.push(cur.runs.length);
         cur.runs.push({ text: '\t', run: wd.run });
         curW += target - xRel;
         continue;
       }
-      const f = fontOf(wd.run, fontScale, fOpts);
-      const wEmu = measureRun(wd.text, wd.run, f);
-      const availW = Math.max(0, colW - (cur.marL - insL));
-      const trimmed = wd.text.replace(/\s+$/, '');
-      if (wrap && curW + measureRun(trimmed, wd.run, f) > availW) {
-        if (cur.runs.length > 0) {
-          const ea = p.eaLnBrk !== false && EA_LANG.test(wd.run.lang ?? '');
-          const ch = [...trimmed][0] ?? '';
-          // 、。 penduradas além da margem
-          if (ea && p.hangingPunct !== false && KINSOKU_HANG.has(ch) && [...trimmed].length === 1) {
-            cur.runs.push({ text: wd.text, run: wd.run });
-            curW += wEmu;
-            continue;
-          }
-          const prev = cur.runs[cur.runs.length - 1]!;
-          const prevCh = [...prev.text.replace(/\s+$/, '')].pop() ?? '';
-          const prevEa = p.eaLnBrk !== false && EA_LANG.test(prev.run.lang ?? '');
-          if (cur.runs.length > 1 && ((ea && KINSOKU_NO_START.has(ch)) || (prevEa && KINSOKU_NO_END.has(prevCh)))) {
-            // o caractere anterior desce junto (não pode terminar a linha / o seguinte não pode começar)
-            cur.runs.pop();
-            flush();
-            cur.runs.push(prev);
-            curW = measureRun(prev.text, prev.run, fontOf(prev.run, fontScale, fOpts));
-          } else flush();
-        }
-        // palavra maior que a linha inteira: quebra entre caracteres (medido, syn-a-tbl2 #7)
-        const avail2 = Math.max(0, colW - (cur.marL - insL)) - curW;
-        if (cur.runs.length === 0 && measureRun(trimmed, wd.run, f) > avail2) {
-          const chars = [...wd.text];
-          let k = 1;
-          while (k < chars.length && measureRun(chars.slice(0, k + 1).join('').replace(/\s+$/, ''), wd.run, f) <= avail2) k++;
-          if (k < chars.length && chars.slice(k).join('').trim()) {
-            const head = chars.slice(0, k).join('');
-            cur.runs.push({ text: head, run: wd.run });
-            curW += measureRun(head, wd.run, f);
-            words.splice(wi + 1, 0, { text: chars.slice(k).join(''), run: wd.run });
-            flush();
-            continue;
+      const { w: wEmu, core: wCore } = unitW(u);
+      let availW = availOf(cur.marL);
+      // o app mede a LINHA inteira: o par de kerning na emenda com a unidade anterior
+      // (" A", " T" do Arial…) também conta
+      const prevPc = cur.runs[cur.runs.length - 1];
+      let kp = 0;
+      if (prevPc && prevPc.text !== '\t' && prevPc.text) {
+        const fb = fontOf(wd.run, sc, fOpts);
+        if (fb.kern) {
+          const fa = prevPc.run === wd.run ? fb : fontOf(prevPc.run, sc, fOpts);
+          if (fa.family === fb.family && fa.sizePt === fb.sizePt && fa.bold === fb.bold && fa.italic === fb.italic) {
+            const a = String.fromCodePoint(prevPc.text.codePointAt(prevPc.text.length - 1) ?? 32);
+            const b = String.fromCodePoint(wd.text.codePointAt(0) ?? 32);
+            if (a.length === 1 && b.length === 1) kp = measureEmu(a + b, fb) - measureEmu(a, fb) - measureEmu(b, fb);
           }
         }
       }
-      cur.runs.push({ text: wd.text, run: wd.run });
-      curW += wEmu;
+      // cabe se a largura até o último caractere visível não passa da linha (sem folga — medido, syn-b-e18)
+      if (wrap && cur.runs.length > 0 && curW + kp + wCore > availW) {
+        // kinsoku (idioma do Leste Asiático e eaLnBrk ≠ 0 — medido, syn-a-tbl9)
+        const chars = [...u.map((pc) => pc.text).join('').replace(/\s+$/, '')];
+        const ea = p.eaLnBrk !== false && EA_LANG.test(wd.run.lang ?? '');
+        // 、。 ficam penduradas além da margem
+        if (ea && p.hangingPunct !== false && chars.length === 1 && KINSOKU_HANG.has(chars[0]!)) {
+          pushUnit(u);
+          curW += kp + wEmu;
+          continue;
+        }
+        const lastStart = uStarts[uStarts.length - 1] ?? 0;
+        const prevU = cur.runs.slice(lastStart);
+        const prevCh = [...prevU.map((pc) => pc.text).join('').replace(/\s+$/, '')].pop() ?? '';
+        const prevEa = p.eaLnBrk !== false && EA_LANG.test(prevU[prevU.length - 1]?.run.lang ?? '');
+        kp = 0;
+        if (uStarts.length > 1 && prevU[0]?.text !== '\t' && ((ea && KINSOKU_NO_START.has(chars[0] ?? '')) || (prevEa && KINSOKU_NO_END.has(prevCh)))) {
+          // a unidade anterior desce junto (não pode terminar a linha / a seguinte não pode começar)
+          cur.runs.splice(lastStart);
+          uStarts.pop();
+          flush();
+          pushUnit(prevU);
+          curW = unitW(prevU).w;
+        } else flush();
+        availW = availOf(cur.marL);
+      }
+      if (wrap && cur.runs.length === 0 && wCore > availW) {
+        // palavra maior que a linha inteira: quebra por CARACTERE no maior prefixo
+        // que cabe, ao menos 1 por linha (medido, syn-b-e19: "Supercal|ifragilisti|c")
+        for (const pc of u) {
+          const f = fontOf(pc.run, sc, fOpts);
+          let buf = '';
+          for (const ch of graphemes(pc.text)) {
+            const cw = measureRun(ch, pc.run, f);
+            if (!/\s/.test(ch) && (cur.runs.length > 0 || buf) && curW + cw > availW) {
+              if (buf) pushUnit([{ text: buf, run: pc.run }]);
+              buf = '';
+              flush();
+              availW = availOf(cur.marL);
+            }
+            buf += ch;
+            curW += cw;
+          }
+          if (buf) pushUnit([{ text: buf, run: pc.run }]);
+        }
+        continue;
+      }
+      pushUnit(u);
+      curW += kp + wEmu;
     }
     flush();
     if (p.spaceAfterPt !== undefined) pendingSpacer += p.spaceAfterPt * EMU_PER_POINT;
@@ -485,10 +608,10 @@ export function layoutTextBody(
       const m = merged[mi]!;
       if (m.text === '\t') {
         const xRel = pl.marL - insL + w;
-        w += (pl.tabTo ? pl.tabTo(xRel, pl.segOf?.(merged, mi + 1)) : (Math.floor(xRel / 914400) + 1) * 914400) - xRel;
+        w += (pl.tabTo ? pl.tabTo(xRel, pl.segOf?.(merged, mi + 1), mi === 0) : (Math.floor(xRel / 914400) + 1) * 914400) - xRel;
         continue;
       }
-      const f = fontOf(m.run, fontScale, fOpts);
+      const f = fontOf(m.run, sc, fOpts);
       const mw = measureRun(m.text, m.run, f);
       const pr: PlacedRun = {
         text: m.text, x: pl.marL + w, w: mw, font: f,
@@ -497,7 +620,7 @@ export function layoutTextBody(
       const dr = m.run as DisplayRun;
       if (dr.rise) pr.rise = dr.rise * EMU_PER_POINT * fontScale;
       if (dr.strike) pr.strike = true;
-      if (dr.spc) pr.spc = dr.spc * EMU_PER_POINT * fontScale;
+      if (dr.spc) pr.spc = dr.spc * EMU_PER_POINT * sc.extra;
       if (m.run.hyperlink !== undefined) pr.hyperlink = m.run.hyperlink;
       if (m.run.shadow !== undefined) pr.shadow = m.run.shadow;
       if (m.run.outline) pr.outline = m.run.outline;

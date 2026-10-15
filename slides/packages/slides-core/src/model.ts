@@ -178,6 +178,8 @@ export interface Run {
   strike?: boolean;
   /** Espaçamento entre caracteres em pontos (`spc`, centésimos de pt no XML). */
   spc?: number;
+  /** Kerning a partir deste tamanho, em pontos (`kern`, centésimos de pt no XML; 0 = nunca). */
+  kern?: number;
   /** Texto com hiperlink: cor `hlink` do tema (desenhado sublinhado nessa cor). */
   linkColor?: string;
   /** Idioma do run (`<a:rPr lang>`): japonês/chinês/coreano ligam as regras de quebra do Leste Asiático. */

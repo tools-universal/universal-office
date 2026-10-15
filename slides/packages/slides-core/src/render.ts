@@ -218,6 +218,7 @@ export function paintSlideTo(
   const prev = fontStack, prevImgs = paintImages;
   fontStack = opts.fontStack ?? DEFAULT_FONT_STACK;
   paintImages = resources.images;
+  advCache.clear();
   try {
     paintSlide(ctx, slide, resources, scale, opts);
   } finally {
@@ -1553,17 +1554,15 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     ctx.translate(-cx, -cy);
   }
   const all = anim?.all;
-  // ênfase "tamanho da fonte": refaz o layout com a fonte escalada
+  // ênfase "tamanho da fonte": refaz o layout com a fonte escalada (contínua, por
+  // cima do fontScale do autofit, que arredonda ao ponto)
   const fsc = all?.fontScale !== undefined && all.fontScale !== 1 ? all.fontScale : 1;
-  const body = fsc !== 1 ? { ...tb, fontScale: (tb.fontScale ?? 1) * fsc } : tb;
   const isTitle = sh.phType === 'title' || sh.phType === 'ctrTitle';
-  const measure: MeasureText = (text, f) => {
-    ctx.font = layoutFontStr(f, 1);
-    return ctx.measureText(text).width;
-  };
-  const lopts = { defaultSzPt: isTitle ? DEFAULT_TITLE_PT : DEFAULT_BODY_PT, defaultAnchor: (isTitle ? 'ctr' : 't') as 't' | 'ctr' };
-  // normAutofit sem fontScale NÃO encolhe: o app usa só o valor gravado (medido, syn-autofit)
-  const layout = layoutTextBody(body, w / scale, h / scale, measure, lopts);
+  const measure = pptMeasure(ctx);
+  const lopts = { defaultSzPt: isTitle ? DEFAULT_TITLE_PT : DEFAULT_BODY_PT, defaultAnchor: (isTitle ? 'ctr' : 't') as 't' | 'ctr', sizeScale: fsc };
+  // normAutofit sem fontScale NÃO encolhe: o app usa só o valor gravado (medido,
+  // syn-autofit; de novo em syn-b-t652a: o corpo do gdx-652066 #8 transbordando, 26 pt)
+  const layout = layoutTextBody(tb, w / scale, h / scale, measure, lopts);
 
   const pxPerPt = EMU_PER_POINT * scale; // 1pt em px na escala atual
   // sobreposições de estilo animadas (forma inteira < parágrafo < unidade)
@@ -1582,9 +1581,19 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     // sobrescrito/subscrito: baseline deslocada; espaçamento de caracteres (spc)
     const by = r.rise ? by0 - r.rise * scale : by0;
     const ls = r.spc ? r.spc * scale : 0;
-    const lsCtx = ctx as unknown as { letterSpacing?: string };
+    const lsCtx = ctx as unknown as { letterSpacing?: string; fontKerning?: string };
     const prevLs = lsCtx.letterSpacing;
-    if (ls && prevLs !== undefined) lsCtx.letterSpacing = `${ls}px`;
+    // kerning do desenho = o do layout (o run liga ou não — `kern`)
+    const prevKern = lsCtx.fontKerning;
+    if (prevKern !== undefined) lsCtx.fontKerning = r.font.kern ? 'normal' : 'none';
+    // run inteiro: a diferença entre a largura natural do canvas e a do layout (avanços
+    // do app em 1/8 pt, sem ligaduras) se espalha pelos caracteres
+    let fit = 0;
+    if (!ls && text === r.text && prevLs !== undefined && !st) {
+      const n = [...text].length;
+      if (n > 1) { const d = r.w * scale - ctx.measureText(text).width; if (Math.abs(d) > 0.25) fit = d / n; }
+    }
+    if ((ls || fit) && prevLs !== undefined) lsCtx.letterSpacing = `${ls || fit}px`;
     const color = colorOf(r.color, st);
     ctx.fillStyle = color;
     // letras com padrão (WordArt): o padrão 8×8 ancorado no slide
@@ -1633,7 +1642,8 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
       const tw = text === r.text ? r.w * scale : ctx.measureText(text).width;
       ctx.beginPath(); ctx.moveTo(tx, sy); ctx.lineTo(tx + tw, sy); ctx.stroke();
     }
-    if (ls && prevLs !== undefined) lsCtx.letterSpacing = prevLs;
+    if ((ls || fit) && prevLs !== undefined) lsCtx.letterSpacing = prevLs;
+    if (prevKern !== undefined) lsCtx.fontKerning = prevKern;
   };
 
   // caixas por parágrafo (px) — geometria-base das animações por parágrafo
@@ -2002,6 +2012,64 @@ function layoutFontStr(f: LayoutFont, pxPerPt: number): string {
   return `${f.italic ? 'italic ' : ''}${f.bold ? '700 ' : '400 '}${f.sizePt * pxPerPt}px ${fontStack(f.family, f.bold, f.italic)}`;
 }
 
+/** Avanço (em) de cada caractere por fonte — vale durante UM paintSlideTo (as fontes podem chegar depois). */
+const advCache = new Map<string, Map<string, number>>();
+/** Escritas em que cada caractere tem largura própria (latim, grego, cirílico, símbolos, CJK). */
+const PER_CHAR = /^[\u0000-\u02FF\u0370-\u03FF\u0400-\u04FF\u1E00-\u1FFF\u2000-\u2BFF\u3000-\u30FF\u3400-\u4DBF\u4E00-\u9FFF\uAC00-\uD7AF\uF900-\uFAFF\uFF00-\uFFEF]*$/;
+const ADV_REF = 1000;
+
+/**
+ * Medidor do layout com as larguras do app de referência (medido, syn-b-e16/e17,
+ * 19 fontes, 10–44 pt: erro ≤ 0,02 pt na linha): cada caractere avança a largura
+ * da fonte ARREDONDADA a 1/8 pt — sem ligaduras nem formas contextuais — e os
+ * pares de kerning só entram quando o run os liga (`kern` ≤ tamanho). Escritas
+ * complexas (marcas combinantes, árabe, índicas…) medem a cadeia inteira.
+ */
+export function pptMeasure(ctx: CanvasRenderingContext2D): MeasureText {
+  const kc = ctx as unknown as { fontKerning?: string };
+  return (text, f) => {
+    if (!PER_CHAR.test(text)) {
+      ctx.font = layoutFontStr(f, 1);
+      const prevK = kc.fontKerning;
+      if (prevK !== undefined) kc.fontKerning = f.kern ? 'normal' : 'none';
+      const w = ctx.measureText(text).width;
+      if (prevK !== undefined) kc.fontKerning = prevK;
+      return w;
+    }
+    const ref = { ...f, sizePt: ADV_REF };
+    const key = layoutFontStr(ref, 1);
+    let adv = advCache.get(key);
+    if (!adv) { adv = new Map(); advCache.set(key, adv); }
+    let fontSet = false;
+    const setFont = (): void => { if (!fontSet) { ctx.font = key; fontSet = true; } };
+    let sum = 0;
+    for (const ch of text) {
+      let em = adv.get(ch);
+      if (em === undefined) {
+        setFont();
+        const prevK = kc.fontKerning;
+        if (prevK !== undefined) kc.fontKerning = 'none';
+        em = ctx.measureText(ch).width / ADV_REF;
+        if (prevK !== undefined) kc.fontKerning = prevK;
+        adv.set(ch, em);
+      }
+      sum += Math.round(em * f.sizePt * 8) / 8;
+    }
+    // kerning: o que os pares tiram/põem na cadeia (sem arredondar — medido)
+    if (f.kern && text.length > 1 && kc.fontKerning !== undefined) {
+      setFont();
+      const prevK = kc.fontKerning;
+      kc.fontKerning = 'none';
+      const w0 = ctx.measureText(text).width;
+      kc.fontKerning = 'normal';
+      const w1 = ctx.measureText(text).width;
+      kc.fontKerning = prevK;
+      sum += ((w1 - w0) / ADV_REF) * f.sizePt;
+    }
+    return sum;
+  };
+}
+
 /**
  * Corpo de texto de uma célula como o motor de texto o vê: margens e âncora do
  * tcPr (default do app: 0,1" nas laterais, 0,05" em cima/embaixo, âncora no
@@ -2043,7 +2111,7 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
   const sx = w / totalColEmu;
   // a linha CRESCE até caber o texto da célula mais alta (como o app de
   // referência: a tabela pode passar do quadro); alturas absolutas do XML
-  const measure: MeasureText = (text, f) => { ctx.font = layoutFontStr(f, 1); return ctx.measureText(text).width; };
+  const measure = pptMeasure(ctx);
   const needOf = (cell: TableCell, ci: number): number => {
     const span = cell.gridSpan ?? 1;
     let cwEmu = 0;

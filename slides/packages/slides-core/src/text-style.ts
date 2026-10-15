@@ -22,8 +22,8 @@ export type BlipResolver = (blip: XmlElement) => ImageRef | undefined;
  * exportadores (spec 05) se beneficiarem sem reimplementar a cascata.
  */
 
-/** baseline/cap/strike/spc de um rPr (ou defRPr). */
-export function readRunExtras(rPr: XmlElement, out: { baseline?: number; cap?: 'all' | 'small' | 'none'; strike?: boolean; spc?: number }): void {
+/** baseline/cap/strike/spc/kern de um rPr (ou defRPr). */
+export function readRunExtras(rPr: XmlElement, out: { baseline?: number; cap?: 'all' | 'small' | 'none'; strike?: boolean; spc?: number; kern?: number }): void {
   const bl = rPr.attrs['baseline'];
   if (bl !== undefined) out.baseline = parseInt(bl, 10) / 100000;
   const cap = rPr.attrs['cap'];
@@ -32,6 +32,8 @@ export function readRunExtras(rPr: XmlElement, out: { baseline?: number; cap?: '
   if (st !== undefined) out.strike = st === 'sngStrike' || st === 'dblStrike';
   const spc = rPr.attrs['spc'];
   if (spc !== undefined) out.spc = parseInt(spc, 10) / 100;
+  const kern = rPr.attrs['kern'];
+  if (kern !== undefined && /^\d+$/.test(kern)) out.kern = parseInt(kern, 10) / 100;
 }
 
 /** Propriedades efetivas de UM nível (lvl1pPr..lvl9pPr) já resolvidas. */
@@ -80,6 +82,8 @@ export interface TextStyleLevel {
   cap?: 'all' | 'small' | 'none';
   strike?: boolean;
   spc?: number;
+  /** Kerning a partir de N pt (`kern` do defRPr). */
+  kern?: number;
 }
 
 /** 9 níveis (índice 0 = lvl1pPr). */
@@ -227,6 +231,7 @@ export function mergeStyleLevels(...layers: TextStyleLevels[]): TextStyleLevels 
       if (src.cap !== undefined) dst.cap = src.cap;
       if (src.strike !== undefined) dst.strike = src.strike;
       if (src.spc !== undefined) dst.spc = src.spc;
+      if (src.kern !== undefined) dst.kern = src.kern;
       if (src.buChar !== undefined || src.buAutoNum !== undefined || src.buNone || src.buBlip !== undefined) {
         delete dst.buChar; delete dst.buAutoNum; delete dst.buNone; delete dst.buBlip;
         if (src.buBlip !== undefined) dst.buBlip = src.buBlip;
@@ -300,6 +305,7 @@ export function applyTextStyles(tb: TextBody, levels: TextStyleLevels, theme: Th
       if (r.cap === undefined && lvl.cap !== undefined) r.cap = lvl.cap;
       if (r.strike === undefined && lvl.strike !== undefined) r.strike = lvl.strike;
       if (r.spc === undefined && lvl.spc !== undefined) r.spc = lvl.spc;
+      if (r.kern === undefined && lvl.kern !== undefined) r.kern = lvl.kern;
       if (r.font === undefined && lvl.font !== undefined) {
         const f = resolveFontAlias(lvl.font, theme);
         if (f !== undefined) r.font = f;
