@@ -331,3 +331,20 @@ describe('linhas de tendência (medido no Excel, syn trend1)', async () => {
     expect(doc('mso2007').groups[0]!.series[0]!.trendlines[0]!.dispEq).toBeUndefined();
   });
 });
+
+describe('rótulo de ponto com campos, deslocamento e caixa', () => {
+  it('a:fld vira campo; c:layout e c15:layout guardados; linhas de chamada da extensão c15', () => {
+    const dl = '<c:dLbls><c:dLbl><c:idx val="0"/><c:layout><c:manualLayout><c:x val="0.1"/><c:y val="-0.05"/></c:manualLayout></c:layout>'
+      + '<c:tx><c:rich><a:bodyPr/><a:p><a:fld id="{1}" type="CATEGORYNAME"><a:rPr sz="2000"/><a:t>[CATEGORY NAME]</a:t></a:fld><a:r><a:t>: </a:t></a:r><a:fld id="{2}" type="VALUE"><a:t>[VALUE]</a:t></a:fld></a:p></c:rich></c:tx>'
+      + '<c:showCatName val="1"/><c:extLst><c:ext uri="x"><c15:layout><c:manualLayout><c:w val="0.2"/><c:h val="0.1"/></c:manualLayout></c15:layout></c:ext></c:extLst></c:dLbl>'
+      + '<c:showVal val="1"/><c:extLst><c:ext uri="y"><c15:showLeaderLines val="1"/><c15:leaderLines><c:spPr><a:ln w="38100"><a:solidFill><a:srgbClr val="7030A0"/></a:solidFill></a:ln></c:spPr></c15:leaderLines></c:ext></c:extLst></c:dLbls>';
+    const cs = parseChartSpace(xml(`<c:chartSpace xmlns:c="c" xmlns:a="a"><c:chart><c:plotArea><c:pieChart><c:ser><c:idx val="0"/><c:order val="0"/>${dl}</c:ser></c:pieChart></c:plotArea></c:chart></c:chartSpace>`), host);
+    const d = cs.groups[0]!.series[0]!.dLbls!;
+    const pd = d.points!.get(0)!;
+    expect(pd.parts).toEqual([{ text: '[CATEGORY NAME]', fld: 'CATEGORYNAME' }, { text: ': ' }, { text: '[VALUE]', fld: 'VALUE' }]);
+    expect(pd.runProps).toMatchObject({ sz: 20 });
+    expect(pd.layout).toMatchObject({ x: 0.1, y: -0.05 });
+    expect(pd.size).toEqual({ w: 0.2, h: 0.1 });
+    expect(d.leaderLines?.line).toMatchObject({ w: 3, paint: { kind: 'solid', color: '#7030A0' } });
+  });
+});

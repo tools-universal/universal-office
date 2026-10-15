@@ -101,7 +101,9 @@ export interface DLbls {
   txPr: TextProps;
   sp: ShapeProps;
   /** Rótulos de ponto (`c:dLbl idx`) — sobrepõem os da série. */
-  points?: Map<number, DLbls & { text?: string; layout?: ManualLayout }>;
+  points?: Map<number, DLbl>;
+  /** Linhas de chamada (pizza: do contorno da fatia ao rótulo deslocado). */
+  leaderLines?: ShapeProps;
 }
 
 /** `c:trendline`: tipo, estilo, extrapolação e o rótulo da equação/R². */
@@ -117,6 +119,20 @@ export interface Trendline {
   dispEq?: boolean;
   dispRSqr?: boolean;
   label?: { layout?: ManualLayout; numFmt?: NumFmt; txPr: TextProps; sp: ShapeProps };
+}
+
+/**
+ * Rótulo de um ponto: texto próprio (rico, com campos `a:fld` — [NOME DA
+ * CATEGORIA], [VALOR]… — trocados pelo valor do ponto), deslocamento manual
+ * (`c:layout`, frações do gráfico a partir da posição padrão) e tamanho da
+ * caixa (`c15:layout` w/h: o texto quebra nela).
+ */
+export interface DLbl extends DLbls {
+  text?: string;
+  parts?: { text: string; fld?: string }[];
+  runProps?: TextProps;
+  layout?: ManualLayout;
+  size?: { w: number; h: number };
 }
 
 export interface Marker { symbol?: string; size?: number; sp: ShapeProps }

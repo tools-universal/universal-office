@@ -5,7 +5,7 @@
  * rótulo↔eixo, passo da legenda, escala automática, cores automáticas.
  */
 import type {
-  ChartSpace, TextProps, Paint, LineProps, ShapeProps, Series, Group, Axis, DLbls, ManualLayout, RichPara, Marker, UserShape, UserText, Trendline,
+  ChartSpace, TextProps, Paint, LineProps, ShapeProps, Series, Group, Axis, DLbls, DLbl, ManualLayout, RichPara, Marker, UserShape, UserText, Trendline,
 } from './model.js';
 import { fitTrend, trendNum, type TrendFit } from './trend.js';
 import { autoScale, tickValues, frac, type Scale } from './scale.js';
@@ -2044,7 +2044,7 @@ class Renderer {
     if (!dl) return;
     for (const q of sl) {
       const pd = dl.points?.get(q.i);
-      const eff = pd ? { ...dl, ...stripUndef(pd) } : dl;
+      const eff = pd ? mergePointLabel(dl, pd) : dl;
       if (eff.delete || !this.showData(this.seriesIndex.get(s) ?? 0, q.i)) continue;
       const txt = pd?.text ?? this.labelText(eff, s, q.i, vals[q.i]! / total, 'pie');
       if (!txt) continue;
@@ -2347,7 +2347,7 @@ class Renderer {
     if (!dl) return;
     for (const L of labels) {
       const pd = dl.points?.get(L.i);
-      const eff = pd ? { ...dl, ...stripUndef(pd) } : dl;
+      const eff = pd ? mergePointLabel(dl, pd) : dl;
       if (eff.delete) continue;
       const txt = pd?.text ?? this.labelText(eff, s, L.i, vals[L.i]! / total, 'pie');
       if (!txt) continue;
@@ -2440,14 +2440,16 @@ class Renderer {
       const total = s.values.reduce<number>((a, v) => a + Math.max(0, v ?? 0), 0);
       for (const sl of slices.filter((x) => x.s === s)) {
         const pd = dl.points?.get(sl.i);
-        const eff = pd ? { ...dl, ...stripUndef(pd) } : dl;
+        const eff = pd ? mergePointLabel(dl, pd) : dl;
         if (eff.delete || !this.showData(this.seriesIndex.get(s) ?? 0, sl.i)) continue;
-        const txt = pd?.text ?? this.labelText(eff, s, sl.i, total ? Math.max(0, s.values[sl.i] ?? 0) / total : 0, 'pie');
+        const txt = this.pointLabel(eff, pd, s, sl.i, total ? Math.max(0, s.values[sl.i] ?? 0) / total : 0, 'pie');
         if (!txt) continue;
-        const t = this.text(dl.txPr, pd?.txPr);
+        const t = this.text(dl.txPr, pd?.txPr, pd?.runProps);
         const mid = (sl.a0 + sl.a1) / 2;
         const pos = eff.pos ?? (g.kind === 'doughnut' ? 'ctr' : 'bestFit');
-        const lines = txt.split('\n');
+        // caixa com tamanho (c15:layout): o texto quebra na largura dela
+        const boxW = pd?.size ? pd.size.w * this.area.w - 6 * this.S : 0;
+        const lines = boxW > 0 ? txt.split('\n').flatMap((l) => this.wrap(l, t, boxW)) : txt.split('\n');
         const tw = Math.max(...lines.map((l) => this.measure(l, t))), th = lines.length * this.lineH(t);
         let rr: number;
         let outside = pos === 'outEnd';
@@ -2460,7 +2462,15 @@ class Renderer {
           outside = arcLen < Math.max(tw, th) * 1.1;
           rr = outside ? sl.r1 + Math.max(tw, th) * 0.6 + 4 * this.S : sl.r1 * 0.62;
         }
-        const x = cx + sl.ox + Math.cos(mid) * rr, y = cy + sl.oy + Math.sin(mid) * rr * tilt;
+        const sh = this.labelShift(pd);
+        const x = cx + sl.ox + Math.cos(mid) * rr + sh.dx, y = cy + sl.oy + Math.sin(mid) * rr * tilt + sh.dy;
+        // rótulo deslocado: linha de chamada do contorno da fatia até a caixa
+        if (dl.leaderLines && (sh.dx || sh.dy)) {
+          const ex = cx + sl.ox + Math.cos(mid) * sl.r1 * 0.95, ey = cy + sl.oy + Math.sin(mid) * sl.r1 * tilt * 0.95;
+          const bx = Math.max(x - tw / 2 - 2, Math.min(x + tw / 2 + 2, ex)), by = Math.max(y - th / 2 - 1, Math.min(y + th / 2 + 1, ey));
+          const ll = mergeLine({ paint: { kind: 'solid', color: adjustLum(this.cs.tx1, 0.65) }, w: 0.75 }, dl.leaderLines.line);
+          if (ll && this.setLine(ll) && Math.hypot(bx - ex, by - ey) > 3 * this.S) { this.ctx.beginPath(); this.ctx.moveTo(ex, ey); this.ctx.lineTo(bx, by); this.ctx.stroke(); this.ctx.setLineDash([]); }
+        }
         this.shapeRect({ x: x - tw / 2 - 2, y: y - th / 2 - 1, w: tw + 4, h: th + 2 }, eff.sp);
         this.drawLines(lines, t, x, y, 'center');
         void outside;
@@ -2532,6 +2542,31 @@ class Renderer {
   }
 
   // ───────────── rótulos de dados ─────────────
+  /** Texto do rótulo do ponto: o próprio (com os campos a:fld trocados pelo valor do ponto) ou o montado pelos show*. */
+  private pointLabel(eff: DLbls, pd: DLbl | undefined, s: Series, i: number, pct: number | undefined, kind: 'pie' | 'other'): string {
+    if (pd?.parts) {
+      const fmt = pickFmt(eff.numFmt, s.ptFmts?.[i] ?? s.fmt);
+      const v = s.values[i];
+      return pd.parts.map((p) => {
+        switch (p.fld) {
+          case 'CATEGORYNAME': return s.cats?.[i] ?? this.catNumLabel(s, i);
+          case 'VALUE': case 'YVALUE': return v === null || v === undefined ? '' : formatValue(v, fmt, { locale: this.loc }).text;
+          case 'SERIESNAME': return s.name;
+          case 'PERCENTAGE': return pct === undefined ? p.text : formatValue(pct, '0%', { locale: this.loc }).text;
+          default: return p.text;
+        }
+      }).join('');
+    }
+    return pd?.text ?? this.labelText(eff, s, i, pct, kind);
+  }
+
+  /** Deslocamento manual do rótulo (c:layout em frações do gráfico a partir da posição padrão). */
+  private labelShift(pd: DLbl | undefined): { dx: number; dy: number } {
+    const L = pd?.layout;
+    if (!L || L.xMode === 'edge' || L.yMode === 'edge') return { dx: 0, dy: 0 };
+    return { dx: (L.x ?? 0) * this.area.w, dy: (L.y ?? 0) * this.area.h };
+  }
+
   private labelText(d: DLbls, s: Series, i: number, pct: number | undefined, kind: 'pie' | 'other', valOverride?: number): string {
     const parts: string[] = [];
     const v = valOverride ?? s.values[i];
@@ -2573,11 +2608,11 @@ class Renderer {
         } else if (g.grouping === 'stacked' && g.kind !== 'bar') { acc.pos[i] = acc.pos[i]! + v; v1 = acc.pos[i]!; v0 = v1 - v; }
         if (!dl || raw === null || raw === undefined) continue;
         const pd = dl.points?.get(i);
-        const eff = pd ? { ...dl, ...stripUndef(pd) } : dl;
+        const eff = pd ? mergePointLabel(dl, pd) : dl;
         if (eff.delete || !this.showData(sIdx, i)) continue;
-        const txt = pd?.text ?? this.labelText(eff, s, i, undefined, 'other');
+        const txt = this.pointLabel(eff, pd, s, i, undefined, 'other');
         if (!txt) continue;
-        const t = this.text(dl.txPr, pd?.txPr);
+        const t = this.text(dl.txPr, pd?.txPr, pd?.runProps);
         const lines = txt.split('\n');
         // chave da legenda antes do texto (showLegendKey; no 2010+ o ausente vale — medido, syn ff16 #5)
         const key = eff.showLegendKey ? t.sz * this.S * 0.52 : 0, keyGap = key ? t.sz * this.S * 0.3 : 0;
@@ -2612,6 +2647,7 @@ class Renderer {
           const p = this.pt(ci, vi, plot, i, g.grouping === 'standard' ? v : v1);
           ({ x, y } = g.kind === 'area' ? { x: p.x, y: (p.y + this.pt(ci, vi, plot, i, g.grouping === 'standard' ? 0 : v0).y) / 2 } : this.besideLabel(eff.pos ?? 'r', p, tw, th, gap));
         }
+        { const sh = this.labelShift(pd); x += sh.dx; y += sh.dy; }
         this.shapeRect({ x: x - tw / 2 - 2, y: y - th / 2 - 1, w: tw + 4, h: th + 2 }, eff.sp);
         if (key) {
           const kr = { x: x - tw / 2, y: y - th / 2 + this.lineH(t) / 2 - key / 2, w: key, h: key };
@@ -2721,6 +2757,11 @@ function mergeDLbls(a: DLbls | undefined, b: DLbls | undefined): DLbls | undefin
   if (!a) return b;
   if (!b) return a;
   return { ...a, ...stripUndef(b), txPr: { ...a.txPr, ...b.txPr }, sp: { ...a.sp, ...b.sp } };
+}
+
+/** Rótulo do ponto sobre o da série: campos definidos vencem; spPr/txPr se juntam (o ponto vazio não apaga a caixa da série). */
+function mergePointLabel(dl: DLbls, pd: DLbl): DLbls {
+  return { ...dl, ...stripUndef(pd), sp: { ...dl.sp, ...stripUndef(pd.sp) }, txPr: { ...dl.txPr, ...stripUndef(pd.txPr) } };
 }
 
 function stripUndef<T extends object>(o: T): Partial<T> {

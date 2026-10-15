@@ -5,7 +5,7 @@
  */
 import { childElements, firstChild, textContent, descend, node, valNum, valStr, type XmlNode } from './xml.js';
 import type {
-  ChartSpace, ChartTitle, TextProps, Paint, LineProps, ShapeProps, ManualLayout, RichPara, NumFmt, DLbls,
+  ChartSpace, ChartTitle, TextProps, Paint, LineProps, ShapeProps, ManualLayout, RichPara, NumFmt, DLbls, DLbl,
   Marker, DataPoint, Series, Group, GroupKind, Axis, Legend, GradStop, UserShape, UserText, Trendline,
 } from './model.js';
 import { parseChartEx } from './chartex.js';
@@ -296,11 +296,23 @@ class Parser {
     for (const p of childElements(el, 'c:dLbl')) {
       const idx = valNum(p, 'c:idx');
       if (idx === undefined) continue;
-      const pd = this.dLblCommon(p) as DLbls & { text?: string; layout?: ManualLayout };
+      const pd = this.dLblCommon(p) as DLbl;
       const rich = firstChild(firstChild(p, 'c:tx'), 'c:rich');
-      if (rich) pd.text = this.rich(rich).map((pp) => pp.runs.map((r) => r.text).join('')).join('\n');
+      if (rich) {
+        const paras = this.rich(rich);
+        pd.text = paras.map((pp) => pp.runs.map((r) => r.text).join('')).join('\n');
+        // campos (a:fld type=CATEGORYNAME/VALUE/…): trocados pelo valor do ponto na pintura
+        const flds = childElements(rich, 'a:p').flatMap((pp, k) => [...(k ? [{ text: '\n' } as { text: string; fld?: string }] : []), ...childElements(pp).filter((r) => r.name === 'a:r' || r.name === 'a:fld' || r.name === 'a:br').map((r) => (r.name === 'a:br' ? { text: '\n' } : { text: textContent(firstChild(r, 'a:t') ?? node('x')), ...(r.name === 'a:fld' && r.attrs['type'] ? { fld: r.attrs['type'] } : {}) }))]);
+        if (flds.some((f) => f.fld)) pd.parts = flds;
+        const rp = paras.flatMap((pp) => pp.runs).find((r) => r.text.trim())?.props;
+        if (rp && Object.keys(rp).length) pd.runProps = rp;
+      }
       const lay = this.layout(p);
       if (lay) pd.layout = lay;
+      const c15 = descend(firstChild(p, 'c:extLst'), 'c15:layout');
+      const ml = c15 ? firstChild(c15, 'c:manualLayout') : undefined;
+      const w = valNum(ml, 'c:w'), h = valNum(ml, 'c:h');
+      if (w !== undefined && h !== undefined && w > 0 && h > 0) pd.size = { w, h };
       (d.points ??= new Map()).set(idx, pd);
     }
     return d;
@@ -325,6 +337,10 @@ class Parser {
     if (sep) d.sep = textContent(sep);
     const nf = this.numFmt(el);
     if (nf) d.numFmt = nf;
+    // linhas de chamada: c:showLeaderLines ou a extensão c15 (2013+), com o estilo dela
+    const ext = firstChild(el, 'c:extLst');
+    const sll = this.bool(el, 'c:showLeaderLines') || !!descend(ext, 'c15:showLeaderLines') && descend(ext, 'c15:showLeaderLines')!.attrs['val'] !== '0';
+    if (sll) d.leaderLines = this.shape(firstChild(descend(ext, 'c15:leaderLines') ?? firstChild(el, 'c:leaderLines') ?? node('x'), 'c:spPr'));
     return d;
   }
 
