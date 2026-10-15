@@ -141,11 +141,12 @@ function cxList(args: readonly Value[], ctx: FnContext): Complex[] | CalcError {
     const a = args[i]!;
     if (a === null) { if (i === args.length - 1 && i > 0) continue; return ERR.NA; }
     if (a instanceof RefValue) {
+      // só as células existentes (colunas inteiras); vazias contam como 0
       for (const area of a.areas) {
-        for (let r = area.r1; r <= area.r2; r++) for (let c = area.c1; c <= area.c2; c++) {
-          const e = take(ctx.cell(area.sheet, r, c));
-          if (e) return e;
-        }
+        let err: CalcError | undefined, seen = 0;
+        ctx.forEachCell(area, (v) => { seen++; if (!err) err = take(v); });
+        if (err) return err;
+        if (seen < (area.r2 - area.r1 + 1) * (area.c2 - area.c1 + 1)) out.push({ re: 0, im: 0 });
       }
     } else if (a instanceof ArrayValue) {
       for (const v of a.data) { const e = take(v); if (e) return e; }
