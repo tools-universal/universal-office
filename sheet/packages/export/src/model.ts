@@ -7,7 +7,7 @@
  * Este módulo é PURO: sem fs/path/DOM. Entrada Uint8Array/modelo, saída dados.
  */
 import {
-  XlsxPackage, readWorkbook, readWorksheet, readSharedStrings, readStyles, colorContext,
+  XlsxPackage, openSpreadsheet, readWorkbook, readWorksheet, readSharedStrings, readStyles, colorContext,
   refToRowCol, formatValue, builtinFormatCode, PT_BR,
   type Workbook, type Worksheet, type Styles, type SharedString, type Cell,
   type SheetRef, type FormatLocale, type Fill,
@@ -31,10 +31,10 @@ export interface SheetExportOptions {
   locale?: FormatLocale;
 }
 
-/** Carrega o modelo a partir de bytes (ou devolve o modelo já lido). */
+/** Carrega o modelo a partir de bytes .xlsx/.xls (ou devolve o modelo já lido). */
 export function loadModel(input: SheetExportInput): SheetModel {
   if (input instanceof Uint8Array) {
-    const pkg = XlsxPackage.load(input);
+    const pkg = openSpreadsheet(input);
     const cx = colorContext(pkg);
     return {
       pkg,

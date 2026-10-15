@@ -1,12 +1,12 @@
 import { FontResolver, variantOf } from '@universal-office/fonts';
 import {
-  XlsxPackage, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, applyTint,
+  XlsxPackage, openSpreadsheet, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, applyTint,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
   parseChart, paintChart, excelMdw, excelRowPx, colWidthToPx, defaultColPx, rowPtToPx, ppemOf,
   type ChartModel, type Theme,
   type Workbook, type Worksheet, type Cell, type SharedString, type Styles, type Font, type Fill,
   type Border, type PaneInfo, type CondFormat, type ColDef, type ColorStop, type FormatResult,
-  type Comment, type DrawingChart, type Hyperlink, type RichRun, type RunProps,
+  type Comment, type DrawingChart, type DrawingPicture, type Hyperlink, type RichRun, type RunProps,
 } from '@universal/sheet-core';
 import {
   bisectLE, pxToIndex, indexScreenPos, boundaryAt, pxToColWidthChars, pxToRowHeightPt,
@@ -83,6 +83,8 @@ export interface SheetView {
   commentAt: Map<string, Comment>;
   /** Charts ancorados via drawings1.xml — pintados por cima do grid. */
   charts: DrawingChart[];
+  /** Imagens ancoradas (drawing) — `img` chega assíncrono (decodificação). */
+  pictures: SheetPicture[];
   /** "col,row" -> hyperlink (cursor pointer + clique navega). */
   hyperlinkAt: Map<string, Hyperlink>;
   /** Colunas congeladas à esquerda (pane state=frozen). 0 = sem freeze. */
@@ -104,6 +106,23 @@ export interface SheetView {
   /** Índice espacial das mesclas (lazy, ver mergeAt). */
   mergeIndex?: MergeIndex;
 }
+
+/** Imagem ancorada na grade, com o bitmap decodificado (quando o navegador decodifica o formato). */
+interface SheetPicture {
+  pic: DrawingPicture;
+  img?: ImageBitmap;
+}
+
+/** Valores de erro (gravados em inglês no arquivo) como o Excel pt-BR os exibe. */
+const ERRORS_PT_BR: Record<string, string> = {
+  '#N/A': '#N/D', '#VALUE!': '#VALOR!', '#NAME?': '#NOME?', '#NUM!': '#NÚM!', '#NULL!': '#NULO!',
+  '#GETTING_DATA': '#OBTENDO_DADOS',
+};
+
+/** Formatos raster que o navegador decodifica (EMF/WMF/TIFF ficam de fora). */
+const RASTER_MIME: Record<string, string> = {
+  png: 'image/png', jpeg: 'image/jpeg', jpg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp',
+};
 
 /** Decoração derivada do estilo da tabela para UMA célula. */
 interface TableDeco {
@@ -223,9 +242,13 @@ export class UniversalSheetElement extends HTMLElement {
     return this.views[this.sheetIndex] ?? null;
   }
 
-  /** Carrega bytes .xlsx e monta as views de planilha. */
+  /**
+   * Carrega bytes .xlsx — ou .xls (BIFF5/8, detectado pela assinatura do
+   * Compound File e convertido em memória para o pacote OOXML equivalente) —
+   * e monta as views de planilha.
+   */
   loadXlsx(bytes: Uint8Array): void {
-    const pkg = XlsxPackage.load(bytes);
+    const pkg = openSpreadsheet(bytes);
     this.pkg = pkg;
     this.workbook = readWorkbook(pkg);
     // contexto de cores compartilhado: theme1.xml + indexedColors (1 leitura)
@@ -237,7 +260,6 @@ export class UniversalSheetElement extends HTMLElement {
     this.chartTheme = cx.theme;
     // fontes do SO usadas pelos estilos, sob demanda (lógica do Universal Write)
     void this.ensureSheetFonts();
-
     // geometria do grid pela fonte Normal (estilo 0), com as tabelas MEDIDAS no
     // Excel (sheet-core/grid-metrics): largura do dígito máximo e linha padrão
     const normal = this.styles.fonts[0];
@@ -309,9 +331,18 @@ export class UniversalSheetElement extends HTMLElement {
       // expande maxRow/maxCol p/ caber CHARTS ancorados ate to.col/to.row
       let extMaxRow = Math.max(maxRow, 30);
       let extMaxCol = Math.max(maxCol, 26);
-      for (const ch of ws.charts ?? []) {
+      for (const ch of [...(ws.charts ?? []), ...(ws.pictures ?? [])]) {
         if (ch.anchor.to.col + 1 > extMaxCol) extMaxCol = ch.anchor.to.col + 1;
         if (ch.anchor.to.row + 1 > extMaxRow) extMaxRow = ch.anchor.to.row + 1;
+      }
+      // imagens: decodifica os formatos raster em segundo plano e repinta ao chegar
+      const pictures: SheetPicture[] = (ws.pictures ?? []).map((pic) => ({ pic }));
+      for (const sp of pictures) {
+        const mime = RASTER_MIME[sp.pic.ext];
+        if (!mime || typeof createImageBitmap !== 'function') continue;
+        createImageBitmap(new Blob([sp.pic.data as BlobPart], { type: mime }))
+          .then((img) => { sp.img = img; this.paint(); })
+          .catch(() => { /* imagem inválida: fica sem desenho */ });
       }
       // decoração de tabelas (ListObjects): header + bandas + setas de filtro
       const tableDeco = new Map<string, TableDeco>();
@@ -358,6 +389,7 @@ export class UniversalSheetElement extends HTMLElement {
         maxCol: extMaxCol,
         commentAt,
         charts: ws.charts ?? [],
+        pictures,
         hyperlinkAt,
         frozenCols,
         frozenRows,
@@ -1669,6 +1701,7 @@ export class UniversalSheetElement extends HTMLElement {
    * `xs[]/ys[]` da grade + 9525 EMU/px (default @96dpi).
    */
   private paintCharts(ctx: CanvasRenderingContext2D): void {
+    this.paintPictures(ctx);
     const v = this.view;
     if (!v || v.charts.length === 0) return;
     const EMU_PER_PX = 9525;
@@ -1685,6 +1718,31 @@ export class UniversalSheetElement extends HTMLElement {
       // px por pt: 96/72 na base, escalado pelo zoom (tipografia do chart).
       // Moldura: a cor das linhas default do gráfico (o Excel desenha; medido #898989).
       paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72);
+    }
+  }
+
+  /**
+   * Pinta as imagens ancoradas (drawing) do sheet ativo, já decodificadas,
+   * esticadas na caixa da âncora (com o recorte `a:srcRect`). Vêm antes dos
+   * charts (z-order aproximada: imagens embaixo).
+   */
+  private paintPictures(ctx: CanvasRenderingContext2D): void {
+    const v = this.view;
+    if (!v || v.pictures.length === 0) return;
+    const EMU_PER_PX = 9525;
+    for (const { pic, img } of v.pictures) {
+      if (!img) continue;
+      const a = pic.anchor;
+      const x = (this.xs[a.from.col] ?? 0) + a.from.colOff / EMU_PER_PX * this.zoom - this.scrollX;
+      const y = (this.ys[a.from.row] ?? 0) + a.from.rowOff / EMU_PER_PX * this.zoom - this.scrollY;
+      const r = (this.xs[a.to.col] ?? 0) + a.to.colOff / EMU_PER_PX * this.zoom - this.scrollX;
+      const b = (this.ys[a.to.row] ?? 0) + a.to.rowOff / EMU_PER_PX * this.zoom - this.scrollY;
+      if (r - x < 1 || b - y < 1) continue;
+      const c = pic.crop;
+      const sx = (c?.l ?? 0) * img.width, sy = (c?.t ?? 0) * img.height;
+      const sw = img.width * (1 - (c?.l ?? 0) - (c?.r ?? 0)), sh = img.height * (1 - (c?.t ?? 0) - (c?.b ?? 0));
+      if (sw <= 0 || sh <= 0) continue;
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, r - x, b - y);
     }
   }
 
@@ -2345,7 +2403,8 @@ export class UniversalSheetElement extends HTMLElement {
     if (cell.type === 'inlineStr') return { text: cell.inlineString?.text ?? '' };
     // booleano exibido localizado, como o app de referência pt-BR
     if (cell.type === 'b') return { text: cell.value === '1' ? 'VERDADEIRO' : 'FALSO' };
-    if (cell.type === 'e') return { text: cell.value ?? '' };
+    // erros exibidos localizados, como o app de referência pt-BR (#N/A → #N/D…)
+    if (cell.type === 'e') return { text: ERRORS_PT_BR[cell.value ?? ''] ?? cell.value ?? '' };
     if (cell.value === undefined) return { text: '' };
     if (cell.type === 'str') return { text: cell.value }; // string de fórmula = texto cru
     const n = parseFloat(cell.value);
