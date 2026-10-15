@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<!-- Harness de comparação 1:1 com o Excel: pinta a região A1..(nCols,nRows) de
+     cada aba em canvas de TAMANHO EXATO via <universal-sheet>
+     (renderRegionToCanvas — sem cabeçalhos/seleção). Usado pelo corpus-render. -->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>excel-lab harness</title>
+  <!-- fontes do SO copiadas por `npm run fonts:sync` (fora do git) -->
+  <link rel="stylesheet" href="/os-fonts.css" />
+  <style>
+    @font-face { font-family: 'Aptos Narrow'; font-weight: 400; font-style: normal; font-display: block; src: url('/packages/sheet/demo/fonts/aptos-narrow-regular.ttf') format('truetype'); }
+    @font-face { font-family: 'Aptos Narrow'; font-weight: 700; font-style: normal; font-display: block; src: url('/packages/sheet/demo/fonts/aptos-narrow-bold.ttf') format('truetype'); }
+    @font-face { font-family: 'Aptos Narrow'; font-weight: 400; font-style: italic; font-display: block; src: url('/packages/sheet/demo/fonts/aptos-narrow-italic.ttf') format('truetype'); }
+    @font-face { font-family: 'Aptos Narrow'; font-weight: 700; font-style: italic; font-display: block; src: url('/packages/sheet/demo/fonts/aptos-narrow-bolditalic.ttf') format('truetype'); }
+    body { margin: 0; background: #fff; } canvas { display: block; }
+  </style>
+</head>
+<body>
+  <universal-sheet id="us" style="position:absolute;left:-10000px;width:800px;height:450px"></universal-sheet>
+  <canvas id="cv"></canvas>
+  <script type="module" src="./harness.bundle.js"></script>
+</body>
+</html>

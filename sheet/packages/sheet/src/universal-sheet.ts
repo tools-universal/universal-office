@@ -1206,31 +1206,7 @@ export class UniversalSheetElement extends HTMLElement {
     const fw = this.frozenW();
     const fh = this.frozenH();
 
-    // índice de células por ref para acesso rápido — CACHEADO por aba
-    // (reconstruir 1M de entradas a cada frame custava ~75ms de paint na
-    // planilha gigante; invalidado em loadXlsx/selectSheet/setCellValue)
-    let rowMap = this.rowMapCache.get(this.sheetIndex);
-    if (!rowMap) {
-      rowMap = new Map<number, Map<number, Cell>>();
-      for (const r of v.worksheet.rows) {
-        const cm = new Map<number, Cell>();
-        for (const c of r.cells) cm.set(refToRowCol(c.ref).col, c);
-        rowMap.set(r.r, cm);
-      }
-      this.rowMapCache.set(this.sheetIndex, rowMap);
-    }
-    // cache numérico para cond. format (idem — só quando a aba tem regras)
-    if (v.condFormats.length > 0 && !this.condNumReady) {
-      this.condNumMap.clear();
-      for (const r of v.worksheet.rows) {
-        for (const c of r.cells) {
-          if (c.type === 's') continue;
-          const n = parseFloat(c.value ?? 'NaN');
-          if (!Number.isNaN(n)) this.condNumMap.set(`${refToRowCol(c.ref).col},${r.r}`, n);
-        }
-      }
-      this.condNumReady = true;
-    }
+    const rowMap = this.paintCaches(v);
 
     ctx.save();
     // área de dados transladada para baixo do/direita do cabeçalho
@@ -1294,6 +1270,83 @@ export class UniversalSheetElement extends HTMLElement {
     }
 
     this.paintScrollbars(ctx, W, H);
+  }
+
+  /**
+   * Índice de células por ref da aba ativa — CACHEADO por aba (reconstruir 1M
+   * de entradas a cada frame custava ~75ms de paint na planilha gigante;
+   * invalidado em loadXlsx/selectSheet/setCellValue) — e o cache numérico da
+   * formatação condicional (idem, só quando a aba tem regras).
+   */
+  private paintCaches(v: SheetView): Map<number, Map<number, Cell>> {
+    let rowMap = this.rowMapCache.get(this.sheetIndex);
+    if (!rowMap) {
+      rowMap = new Map<number, Map<number, Cell>>();
+      for (const r of v.worksheet.rows) {
+        const cm = new Map<number, Cell>();
+        for (const c of r.cells) cm.set(refToRowCol(c.ref).col, c);
+        rowMap.set(r.r, cm);
+      }
+      this.rowMapCache.set(this.sheetIndex, rowMap);
+    }
+    if (v.condFormats.length > 0 && !this.condNumReady) {
+      this.condNumMap.clear();
+      for (const r of v.worksheet.rows) {
+        for (const c of r.cells) {
+          if (c.type === 's') continue;
+          const n = parseFloat(c.value ?? 'NaN');
+          if (!Number.isNaN(n)) this.condNumMap.set(`${refToRowCol(c.ref).col},${r.r}`, n);
+        }
+      }
+      this.condNumReady = true;
+    }
+    return rowMap;
+  }
+
+  /**
+   * Pinta as colunas 1..nCols × linhas 1..nRows da aba `index` a 100%, sem
+   * cabeçalhos, seleção nem panes congelados, num canvas do tamanho EXATO da
+   * região — o que o Excel desenha numa imagem vinculada (câmera) do mesmo
+   * intervalo. Usado pelo lab de fidelidade e por exportações. Devolve o
+   * tamanho em px.
+   */
+  renderRegionToCanvas(index: number, canvas: HTMLCanvasElement, nCols: number, nRows: number): { w: number; h: number } {
+    const v = this.views[index];
+    if (!v) return { w: 0, h: 0 };
+    const keep = { sheet: this.sheetIndex, zoom: this.zoom, sx: this.scrollX, sy: this.scrollY, capture: this.capture };
+    if (index !== this.sheetIndex) { this.condNumReady = false; this.condNumMap.clear(); }
+    this.sheetIndex = index;
+    this.zoom = 1;
+    this.scrollX = 0;
+    this.scrollY = 0;
+    this.capture = true;
+    v.maxCol = Math.max(v.maxCol, nCols);
+    v.maxRow = Math.max(v.maxRow, nRows);
+    this.recalcGrid();
+    const w = Math.max(1, Math.round(this.xs[nCols] ?? 0));
+    const h = Math.max(1, Math.round(this.ys[nRows] ?? 0));
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const rowMap = this.paintCaches(v);
+      this.paintRegion(ctx, rowMap, 0, 0, w, h, 1, nCols, 1, nRows, 0, 0);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, w, h);
+      ctx.clip();
+      this.paintCharts(ctx);
+      ctx.restore();
+    }
+    if (keep.sheet !== index) { this.condNumReady = false; this.condNumMap.clear(); }
+    this.sheetIndex = keep.sheet;
+    this.zoom = keep.zoom;
+    this.scrollX = keep.sx;
+    this.scrollY = keep.sy;
+    this.capture = keep.capture;
+    this.recalcGrid();
+    return { w, h };
   }
 
   /**
