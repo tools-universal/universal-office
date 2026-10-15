@@ -66,10 +66,28 @@ o `Range.Text`.
 | rodada | abas .xlsx | mediana blk | média blk | texto | geometria diferente |
 |---|---|---|---|---|---|
 | r2 (antes) | 1.238 | 8,70 | 14,40 | 80,6% | 423 abas |
-| r3 (geometria) | 1.238 | **6,32** | **12,70** | 80,6% | **88** |
+| r3 (geometria) | 1.238 | 6,32 | 12,70 | 80,6% | 88 |
+| r4 (+3 passadas, zoom do oráculo) | 1.254 | 6,25 | 12,56 | 80,8% | 89 |
+| r5 (+leitor .xls e o que veio junto) | 1.252 | **5,40** | **11,39** | — | — |
 
-Por origem em r3: lo 4,73 / poi 4,17 / gdx 9,21 / web 11,09 (mediana).
-Os `.xls` (metade do corpus) ainda não abrem — leitor BIFF em andamento.
+r5 com os `.xls`: **2.691 abas** em 1.677 pastas — mediana 6,74, média 11,54,
+texto exibido igual ao Excel em **89,5%** de 297 mil células. Por origem
+(mediana/média): gd 8,15/10,78 · gdx 8,95/14,37 · lo 4,57/10,04 · poi
+4,44/9,76 · web 12,52/17,05.
+
+### Leitor `.xls` (BIFF8/BIFF5)
+
+`openSpreadsheet` reconhece o Compound File e converte em memória para o
+pacote OOXML equivalente (`sheet-core/src/xls/`), que segue pelo mesmo
+caminho do `.xlsx`: células, SST com CONTINUE e runs, FONT/FORMAT/XF/PALETTE/
+XFEXT (cores de tema), linhas/colunas/mesclas/janela, hiperlinks, comentários,
+imagens (PNG/JPEG/DIB), formas e caixas de texto (`xdr:sp`), gráficos (subfluxo
+BIFF8 → `c:chartSpace` do motor único), texto das fórmulas (96% descompilado),
+formatação condicional, validação, autofiltro. 1.026 de 1.051 abrem; os 25
+restantes (criptografados, fuzz, BIFF2–4) falham com mensagem amigável.
+Antes do leitor nenhum `.xls` abria; agora gd mediana 8,2. O pacote
+sintetizado, salvo como `.xlsx`, abre no Excel (40 de 40; texto da coluna A
+igual em 97,7%).
 
 ## Regras medidas (pastas sintéticas no oráculo)
 
