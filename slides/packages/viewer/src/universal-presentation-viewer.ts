@@ -59,10 +59,12 @@ function picDisplaySize(sh: Shape): { w: number; h: number } | undefined {
  * Substituto do PowerPoint para família que não existe em lugar nenhum (nem
  * embutida, nem no SO): medido no oráculo (interest-calculator: "Bellota Text"
  * e "Archivo" ausentes saem com as métricas da Calibri; Liberation Sans/Arial
- * quebra as linhas em outro lugar). Aptos antes: a família da Aptos Display,
- * padrão do Office atual. Sem Calibri na máquina, a Carlito (métrico-compatível).
+ * quebra as linhas em outro lugar). É a Calibri mesmo com o tema em Aptos
+ * (syn-b-e28: "Gill Sans"/"Bellota Text"/"Foo Bar Sans" medem 332,28 pt nos
+ * dois temas = Calibri; a Aptos mede 348,20). Sem Calibri na máquina, a Carlito
+ * (métrico-compatível); a Aptos só se nem essa houver.
  */
-const MISSING_FONT_FALLBACKS = ['Aptos', 'Calibri'];
+const MISSING_FONT_FALLBACKS = ['Calibri', 'Aptos'];
 
 /** Teclas do apresentador (as do app de referência). */
 const NEXT_KEYS = new Set(['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter', 'n', 'N']);
