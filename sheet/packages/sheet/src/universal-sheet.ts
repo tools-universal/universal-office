@@ -21,11 +21,15 @@ import { CfEngine, cellCfValue, todaySerial, paintDataBar, type CfResult, type C
 import { paintCfIcon } from './cf-icons.js';
 import { winningEdge, edgeExtent, paintHEdge, paintVEdge, paintDiagonals, NO_CORNER, type CornerInfo } from './borders.js';
 import {
-  layoutCellText, localizeError, localizeBool, isoToSerial, cellMarginPx, MAX_CELL_CHARS, autofitWrapWidthPx, looksLikeNumberPtBR,
+  layoutCellText, isoToSerial, cellMarginPx, MAX_CELL_CHARS, autofitWrapWidthPx, looksLikeNumberPtBR,
   type CellText, type CellTextInput,
 } from './cell-text.js';
 import { CellFonts, rowDescentPx, type CellFont } from './text-metrics.js';
 import { paintCellText, paintRichText, paintErrorMark, wrapLines, type RichRunStyle } from './cell-paint.js';
+import { SheetCalc, type BarText, type EditResult } from './sheet-calc.js';
+import { formulaLocale } from './formula-locale.js';
+import { FormulaAutocomplete } from './formula-autocomplete.js';
+import { paintSpillBorder } from './spill-border.js';
 
 /**
  * <universal-sheet> — webcomponent que renderiza uma pasta de trabalho .xlsx
@@ -205,6 +209,46 @@ export class UniversalSheetElement extends HTMLElement {
   private commentTipKey = '';
   /** Modo captura: suprime seleção/overlays para pixel-compare com o app de referência. */
   capture = false;
+  /**
+   * Motor de cálculo (sheet-calc.ts): edição → recálculo → valores no modelo;
+   * idioma das fórmulas pelo atributo `formula-locale` (padrão: navegador).
+   */
+  private readonly calc = new SheetCalc(this.calcHost(), formulaLocale(this.getAttribute('formula-locale')));
+  /** Autocompletar de funções do editor da célula. */
+  private readonly autocomplete = new FormulaAutocomplete(this.wrap, () => this.calc.locale);
+
+  static get observedAttributes(): string[] { return ['formula-locale']; }
+
+  attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
+    if (name === 'formula-locale') { this.formulaLocale = value; }
+  }
+
+  /** Idioma/região das fórmulas ("pt-BR", "en-US", …; null = do navegador). */
+  get formulaLocale(): string { return this.calc.locale.region; }
+  set formulaLocale(tag: string | null) {
+    this.calc.locale = formulaLocale(tag);
+    if (this.views.length) { this.emitSelection(); this.paint(); }
+  }
+
+  /**
+   * Gancho do carregamento (CALC-IO): recalcular a pasta inteira ao abrir?
+   * Sem ele os valores exibidos são os gravados no arquivo.
+   */
+  get shouldRecalcOnOpen(): ((wb: Workbook) => boolean) | null { return this.calc.recalcOnOpen; }
+  set shouldRecalcOnOpen(fn: ((wb: Workbook) => boolean) | null) { this.calc.recalcOnOpen = fn; }
+
+  private calcHost(): ConstructorParameters<typeof SheetCalc>[0] {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    return {
+      get workbook() { return self.workbook; },
+      get views() { return self.views; },
+      get shared() { return self.shared; },
+      get styles() { return self.styles; },
+      cellIndex: (view) => self.cellIndex(self.views[view]!, view),
+      touched: (view) => { self.cfEngines.delete(view); self.dirtySheets.add(view); },
+    };
+  }
 
   constructor() {
     super();
@@ -424,6 +468,9 @@ export class UniversalSheetElement extends HTMLElement {
     // caches de paint pertencem ao workbook anterior
     this.rowMapCache.clear();
     this.cfEngines.clear();
+    this.dirtySheets.clear();
+    // motor de cálculo da pasta nova (sob demanda; recalcula aqui se o gancho pedir)
+    this.calc.reset();
     // abre na aba ativa (activeTab); o `Math.min(0, …)` anterior fixava sempre 0
     this.sheetIndex = Math.max(0, Math.min(this.workbook.activeTab ?? 0, this.views.length - 1));
     this.scrollX = 0;
@@ -639,6 +686,12 @@ export class UniversalSheetElement extends HTMLElement {
       if (original === undefined) continue;
       this.pkg.setPartText(view.path, updateWorksheetXml(original, view.worksheet));
     }
+    // formatos aplicados pelas entradas (datas, %, moeda…): xfs novos no styles.xml
+    const styles = this.pkg.getPartText('xl/styles.xml');
+    if (styles !== undefined) {
+      const patched = this.calc.patchStyles(styles);
+      if (patched !== styles) this.pkg.setPartText('xl/styles.xml', patched);
+    }
     return this.pkg.save();
   }
 
@@ -749,13 +802,43 @@ export class UniversalSheetElement extends HTMLElement {
   /** Evento disparado quando a seleção muda: { ref, display, formula }. */
   onSelectionChange: ((ref: string, display: string, formula: string) => void) | null = null;
 
+  /**
+   * Seleção mudou: `us-selection` com { ref, display (texto exibido), formula
+   * (fórmula no idioma, "=…", ou ''), edit (o que a barra de fórmulas mostra:
+   * a fórmula ou o texto de edição da constante), ghost (célula derramada: a
+   * fórmula é a da âncora, em cinza) }.
+   */
   private emitSelection(): void {
     const ref = rowColToRef(this.sel.col, this.sel.row);
     const cell = this.findCell(this.sel.col, this.sel.row);
-    this.onSelectionChange?.(ref, this.displayText(cell), cell?.formula ?? '');
+    const bar = this.barText(this.sel.col, this.sel.row);
+    this.onSelectionChange?.(ref, this.displayText(cell), bar.formula);
     this.dispatchEvent(new CustomEvent('us-selection', {
-      detail: { ref, display: this.displayText(cell), formula: cell?.formula ?? '' },
+      detail: { ref, display: this.displayText(cell), formula: bar.formula, edit: bar.edit, ghost: bar.ghost },
     }));
+  }
+
+  /** Texto da barra de fórmulas da célula (fórmula no idioma ou texto de edição). */
+  private barText(col: number, row: number): BarText {
+    if (!this.view || this.view.worksheet.chartsheet) return { formula: '', edit: '', ghost: false };
+    try {
+      return this.calc.barText(this.sheetIndex, col, row);
+    } catch (e) {
+      // fórmula que o motor não entende não pode derrubar a seleção
+      console.warn('universal-sheet: barra de fórmulas', e);
+      const cell = this.findCell(col, row);
+      return { formula: cell?.formula ? '=' + cell.formula : '', edit: cell?.formula ? '=' + cell.formula : this.displayText(cell), ghost: false };
+    }
+  }
+
+  /** Texto da barra de fórmulas da célula ativa (para a barra externa). */
+  get activeCellEditText(): string { return this.barText(this.sel.col, this.sel.row).edit; }
+
+  /** Liga o autocompletar de funções a uma barra de fórmulas externa; devolve o desligar. */
+  attachFormulaBar(input: HTMLInputElement): () => void {
+    const ac = new FormulaAutocomplete(document.body, () => this.calc.locale);
+    ac.attach(input, true);
+    return () => ac.detach();
   }
 
   private findCell(col: number, row: number): Cell | undefined {
@@ -1259,9 +1342,8 @@ export class UniversalSheetElement extends HTMLElement {
     let text: string;
     if (initialText !== undefined) text = initialText;
     else if (keepCurrent) {
-      const cell = this.findCell(origin.col, origin.row);
-      // se for fórmula, edita a fórmula; senão o display
-      text = cell?.formula ? '=' + cell.formula : this.displayText(cell);
+      // fórmula no idioma ou o texto de edição da constante (data, %, 15 algarismos)
+      text = this.barText(origin.col, origin.row).edit;
     } else text = '';
 
     // posição em coords do canvas (CSS px relativas ao wrap)
@@ -1295,13 +1377,20 @@ export class UniversalSheetElement extends HTMLElement {
       // typing-into-cell: cursor no fim (texto já foi substituído)
       input.setSelectionRange(input.value.length, input.value.length);
     } else input.select();
+    // autocompletar de funções no idioma (lista sob o editor; Tab completa com "(")
+    this.autocomplete.attach(input);
 
     let suppressBlur = false;
     input.addEventListener('keydown', (ev) => {
+      if (this.autocomplete.handleKey(ev)) return;
+      if ((ev.key === 'Enter' || ev.key === 'Tab') && !this.commitEdit()) {
+        // entrada recusada (fórmula inválida): o Excel avisa e continua editando
+        ev.preventDefault();
+        return;
+      }
       if (ev.key === 'Enter') {
         ev.preventDefault();
         suppressBlur = true;
-        this.commitEdit();
         // Enter no Excel desce uma linha
         if (this.view && this.sel.row < this.view.maxRow) {
           this.sel = this.snapToMergeOrigin(this.sel.col, this.sel.row + 1);
@@ -1316,7 +1405,6 @@ export class UniversalSheetElement extends HTMLElement {
       } else if (ev.key === 'Tab') {
         ev.preventDefault();
         suppressBlur = true;
-        this.commitEdit();
         // Tab avança coluna
         const dir = ev.shiftKey ? -1 : 1;
         const next = Math.max(1, Math.min(this.view!.maxCol, this.sel.col + dir));
@@ -1326,117 +1414,105 @@ export class UniversalSheetElement extends HTMLElement {
       }
     });
     input.addEventListener('blur', () => {
-      if (suppressBlur || !this.editing) return;
+      if (suppressBlur || !this.editing || this.autocomplete.holdsFocus()) return;
       this.commitEdit();
     });
   }
 
-  /** Commita o conteúdo do editor para o modelo (worksheet.rows). */
-  commitEdit(): void {
-    if (!this.editor || !this.editing) return;
+  /**
+   * Commita o conteúdo do editor (entrada → motor → modelo). Entrada recusada
+   * (fórmula inválida, parte de matriz): avisa, continua editando e devolve false.
+   */
+  commitEdit(): boolean {
+    if (!this.editor || !this.editing) return true;
     const text = this.editor.value;
     const { col, row } = this.editing;
-    this.editor.remove();
+    const res = this.setCellValue(col, row, text);
+    if (!res.ok) {
+      this.showEntryError(res.message);
+      this.editor?.focus();
+      return false;
+    }
+    // solta o editor ANTES de removê-lo: a remoção dispara o blur (que commitaria de novo)
+    const ed = this.editor;
     this.editor = null;
     this.editing = null;
-    this.setCellValue(col, row, text);
+    this.autocomplete.detach();
+    ed?.remove();
     this.emitSelection();
     this.paint();
+    return true;
   }
 
   /** Descarta a edição em andamento sem alterar o modelo. */
   cancelEdit(): void {
     if (!this.editor) return;
-    this.editor.remove();
+    const ed = this.editor;
     this.editor = null;
     this.editing = null;
+    this.autocomplete.detach();
+    this.hideEntryError();
+    ed.remove();
     this.paint();
   }
 
   /**
-   * Escreve `text` na célula `(col,row)` do modelo. Detecta automaticamente:
-   *   - `""` → remove a célula (mesma semântica do Delete do Excel).
-   *   - `"=…"` → fórmula (Cell.formula = …, value = '' temporariamente).
-   *   - número puro → tipo "n" com `value` numérico.
-   *   - resto → `inlineString` (mais simples para round-trip futuro do que
-   *     mutar `sharedStrings.xml` — o app de referência aceita inlineStr).
-   * Reflete no `maxRow/maxCol` da view para o paint cobrir novas células.
+   * Escreve `text` — como digitado, no idioma das fórmulas — na célula
+   * `(col,row)` da aba ativa: "" apaga; "=…" fórmula; o resto vira constante
+   * tipada como o Excel (número, data, %, moeda, booleano, erro, texto) com o
+   * formato que a entrada aplica. O motor recalcula os dependentes (todas as
+   * abas) e os valores mudados vão para o modelo (sheet-calc.ts). Fórmula
+   * inválida é recusada (`ok: false` com a mensagem), como o Excel.
    */
-  setCellValue(col: number, row: number, text: string): void {
+  setCellValue(col: number, row: number, text: string): EditResult {
     const v = this.view;
-    if (!v) return;
-    const ws = v.worksheet;
-    const ref = rowColToRef(col, row);
-
-    // encontra/cria linha
-    let r = ws.rows.find((rr) => rr.r === row);
-    if (!r) {
-      r = { r: row, cells: [] };
-      // mantém ordem por número de linha (binary insertion poderia, mas N pequeno)
-      let i = ws.rows.findIndex((rr) => rr.r > row);
-      if (i < 0) i = ws.rows.length;
-      ws.rows.splice(i, 0, r);
+    if (!v) return { ok: false, message: '' };
+    const max = { c: v.maxCol, r: v.maxRow };
+    let res: EditResult;
+    try {
+      res = this.calc.edit(this.sheetIndex, col, row, text);
+    } catch (e) {
+      console.error('universal-sheet: edição', e);
+      return { ok: false, message: String(e) };
     }
-
-    // encontra/remove/cria célula
-    const ci = r.cells.findIndex((c) => refToRowCol(c.ref).col === col);
-    if (text === '') {
-      if (ci >= 0) {
-        r.cells.splice(ci, 1);
-        this.dirtySheets.add(this.sheetIndex);
-        this.rowMapCache.delete(this.sheetIndex);
-        this.cfEngines.delete(this.sheetIndex);
-      }
-      this.dispatchEvent(new CustomEvent('us-edit', { detail: { ref, text: '' } }));
-      return;
-    }
-    this.dirtySheets.add(this.sheetIndex);
-    // invalida caches de paint da aba (índice de células + cond. format)
-    this.rowMapCache.delete(this.sheetIndex);
-    this.cfEngines.delete(this.sheetIndex);
-
-    const cell: Cell = ci >= 0 ? r.cells[ci]! : { ref };
-    // limpa campos antes de re-aplicar
-    cell.formula = undefined;
-    cell.inlineString = undefined;
-    cell.value = undefined;
-    cell.type = undefined;
-
-    if (text.startsWith('=')) {
-      cell.formula = text.slice(1);
-      cell.type = 'str';
-      cell.value = ''; // até que uma engine de fórmula compute
-    } else {
-      // tenta número (respeitando vírgula como decimal no pt-BR)
-      const normalized = text.replace(',', '.');
-      const n = Number(normalized);
-      if (text.trim() !== '' && !Number.isNaN(n) && /^-?\d+([.,]\d+)?$/.test(text.trim())) {
-        cell.type = 'n';
-        cell.value = String(n);
-      } else {
-        cell.type = 'inlineStr';
-        cell.inlineString = { text };
-      }
-    }
-
-    if (ci < 0) {
-      // ordena por coluna
-      let i = r.cells.findIndex((c) => refToRowCol(c.ref).col > col);
-      if (i < 0) i = r.cells.length;
-      r.cells.splice(i, 0, cell);
-    }
-
-    // expande maxRow/maxCol se necessário
-    if (col > v.maxCol) { v.maxCol = col; this.recalcGrid(); }
-    if (row > v.maxRow) { v.maxRow = row; this.recalcGrid(); }
-    this.dispatchEvent(new CustomEvent('us-edit', { detail: { ref, text } }));
+    if (!res.ok) return res;
+    this.hideEntryError();
+    if (col > v.maxCol) v.maxCol = col;
+    if (row > v.maxRow) v.maxRow = row;
+    if (res.grew || v.maxCol !== max.c || v.maxRow !== max.r) this.recalcGrid();
+    this.dispatchEvent(new CustomEvent('us-edit', { detail: { ref: rowColToRef(col, row), text } }));
+    return res;
   }
 
   /** Disponível externamente (barra de fórmulas): commita o input externo. */
-  setActiveCellText(text: string): void {
-    this.setCellValue(this.sel.col, this.sel.row, text);
+  setActiveCellText(text: string): EditResult {
+    const res = this.setCellValue(this.sel.col, this.sel.row, text);
+    if (!res.ok) {
+      this.dispatchEvent(new CustomEvent('us-entry-error', { detail: { message: res.message } }));
+      return res;
+    }
     this.emitSelection();
     this.paint();
+    return res;
+  }
+
+  /** Aviso de entrada recusada (o Excel abre uma caixa; aqui, uma etiqueta sob o editor + evento). */
+  private entryError: HTMLDivElement | null = null;
+  private showEntryError(message: string): void {
+    this.dispatchEvent(new CustomEvent('us-entry-error', { detail: { message } }));
+    if (!message || !this.editor) return;
+    const tip = this.entryError ??= document.createElement('div');
+    tip.textContent = message;
+    tip.setAttribute('role', 'alert');
+    tip.style.cssText =
+      `position:absolute;left:${this.editor.offsetLeft}px;top:${this.editor.offsetTop + this.editor.offsetHeight + 2}px;` +
+      'z-index:7;background:#fdecea;color:#8a1c1c;border:1px solid #e0a3a3;border-radius:3px;' +
+      'padding:3px 8px;font:12px Segoe UI,Arial,sans-serif;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.15);';
+    if (!tip.isConnected) this.wrap.appendChild(tip);
+    this.editor.addEventListener('input', () => this.hideEntryError(), { once: true });
+  }
+  private hideEntryError(): void {
+    this.entryError?.remove();
   }
 
   /** Reposiciona o editor (chamado em scroll/zoom). Sem editor em curso: noop. */
@@ -2261,6 +2337,11 @@ export class UniversalSheetElement extends HTMLElement {
     }, layoutRichLines);
   }
 
+  /** Derramamento que contém a célula (só com o motor ativo ou aba com matrizes). */
+  private spillRangeAt(col: number, row: number): { c1: number; r1: number; c2: number; r2: number } | null {
+    try { return this.calc.spillRange(this.sheetIndex, col, row); } catch { return null; }
+  }
+
   private paintSelection(ctx: CanvasRenderingContext2D, vw: number, vh: number): void {
     if (this.capture) return; // modo captura: o app de referência não inclui seleção
     const v = this.view!;
@@ -2279,6 +2360,13 @@ export class UniversalSheetElement extends HTMLElement {
     ctx.beginPath();
     ctx.rect(clipX, clipY, vw - clipX, vh - clipY);
     ctx.clip();
+    // intervalo derramado da fórmula dinâmica que contém a seleção: borda azul fina
+    const spill = this.spillRangeAt(span.firstCol, span.firstRow);
+    if (spill) {
+      const sx = (c: number): number => (this.xs[c] ?? 0) - (c <= v.frozenCols ? 0 : this.scrollX);
+      const sy = (r: number): number => (this.ys[r] ?? 0) - (r <= v.frozenRows ? 0 : this.scrollY);
+      paintSpillBorder(ctx, sx(spill.c1 - 1), sy(spill.r1 - 1), sx(spill.c2), sy(spill.r2));
+    }
     // Célula única / mescla isolada: só borda, sem fill (como o app de referência).
     // O fill translúcido só faria sentido em range multi-célula (futuro).
     ctx.strokeStyle = accent;
@@ -2539,8 +2627,9 @@ export class UniversalSheetElement extends HTMLElement {
         return t ? { kind: 'text', str: cap(t), code: this.cellFormatCode(cell) } : null;
       }
       case 'str': return cell.value ? { kind: 'text', str: cap(cell.value), code: this.cellFormatCode(cell) } : null;
-      case 'b': return cell.value === undefined ? null : { kind: 'bool', str: localizeBool(cell.value) };
-      case 'e': return cell.value ? { kind: 'error', str: localizeError(cell.value) } : null;
+      // booleano/erro no idioma das fórmulas (o mesmo da barra e da entrada)
+      case 'b': return cell.value === undefined ? null : { kind: 'bool', str: this.calc.boolText(cell.value === '1' || cell.value === 'true') };
+      case 'e': return cell.value ? { kind: 'error', str: this.calc.errorText(cell.value) } : null;
       case 'd': {
         const n = isoToSerial(cell.value, !!this.workbook?.date1904);
         return n === undefined ? (cell.value ? { kind: 'text', str: cell.value } : null) : num(n);

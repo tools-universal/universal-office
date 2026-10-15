@@ -331,17 +331,31 @@ function renderTabs(): void {
 // ───────────────────────── barra de fórmulas ─────────────────────────
 const cellRef = $('cellRef') as HTMLInputElement;
 const fxInput = $('fxInput') as HTMLInputElement;
+let fxGhost = false;
+// a barra mostra a fórmula no idioma (ou o texto de edição da constante); célula
+// derramada mostra a fórmula da âncora em cinza, como o Excel
 us.addEventListener('us-selection', ((e: CustomEvent) => {
   cellRef.value = e.detail.ref;
-  fxInput.value = e.detail.formula || e.detail.display || '';
+  fxInput.value = e.detail.edit ?? e.detail.formula ?? '';
+  fxGhost = !!e.detail.ghost;
+  if (fxGhost) { fxInput.value = e.detail.formula; fxInput.style.color = '#9a9a9a'; }
+  else fxInput.style.color = '';
 }) as EventListener);
 cellRef.addEventListener('change', () => { try { us.goToRef(cellRef.value.trim().toUpperCase()); } catch { /* ref inválida */ } });
 // Barra de fórmulas: Enter commita o conteúdo na célula ativa (mesmo
-// comportamento do Excel). Escape descarta + recarrega o display atual.
+// comportamento do Excel; fórmula inválida é recusada com o aviso). Escape
+// descarta e recarrega o texto atual. Autocompletar de funções no idioma.
+us.attachFormulaBar(fxInput);
+// editar a célula derramada começa vazio (a fórmula cinza é a da âncora)
+fxInput.addEventListener('focus', () => { if (fxGhost) { fxInput.value = ''; fxGhost = false; } fxInput.style.color = ''; });
 fxInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); us.setActiveCellText(fxInput.value); us.focus(); }
-  else if (e.key === 'Escape') { e.preventDefault(); fxInput.value = (us as unknown as { lastDisplay?: string }).lastDisplay ?? ''; us.focus(); }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const r = us.setActiveCellText(fxInput.value);
+    if (r.ok) us.focus(); else flashStatus(`⚠ ${r.message}`);
+  } else if (e.key === 'Escape') { e.preventDefault(); fxInput.value = us.activeCellEditText; us.focus(); }
 });
+us.addEventListener('us-entry-error', ((e: CustomEvent) => flashStatus(`⚠ ${e.detail.message}`)) as EventListener);
 
 // ───────────────────────── zoom ─────────────────────────
 const zoomSlider = $('zoom') as HTMLInputElement;

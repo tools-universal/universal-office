@@ -10,6 +10,8 @@ import type { UniversalSheetElement } from '../../packages/sheet/src/universal-s
 FontResolver.shared().configure({ baseUrl: '/packages/sheet/demo/fonts' });
 
 const us = document.getElementById('us') as UniversalSheetElement;
+// o oráculo é o Excel pt-BR: erros/booleanos/fórmulas no idioma dele, qualquer que seja o navegador
+us.setAttribute('formula-locale', 'pt-BR');
 const cv = document.getElementById('cv') as HTMLCanvasElement;
 
 declare global {
