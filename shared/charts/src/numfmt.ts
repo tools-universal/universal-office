@@ -287,7 +287,13 @@ function extractColor(section: string): { color?: string; body: string } {
       if (/^(hh?|mm?|ss?)$/.test(low)) { body += section.slice(i, j + 1); i = j; continue; } // tempo decorrido: preserva
       if (COLOR_NAMES[low] && color === undefined) color = COLOR_NAMES[low];
       else if (/^color\s*\d+$/.test(low) && color === undefined) color = '#000000';
-      // condições [>x]/[$-409]/locale: descartadas (escolha de seção simplificada)
+      // moeda/locale [$sím-LCID]: o símbolo é exibido como literal ([$$-409] → "$",
+      // [$£-809] → "£"); [$-409] só troca o locale (nada a exibir)
+      else if (inner[0] === '$') {
+        const sym = inner.slice(1).split('-')[0]!;
+        if (sym) body += `"${sym.replace(/"/g, '')}"`;
+      }
+      // condições [>x]: descartadas (escolha de seção simplificada)
       i = j; continue;
     }
     body += ch;
@@ -297,9 +303,25 @@ function extractColor(section: string): { color?: string; body: string } {
 
 // ──────────────────────── Seção numérica ────────────────────────
 
+/** Posição da palavra (sem diferenciar caixa) FORA de aspas e escapes; −1 se ausente. */
+function unquotedIndexOf(section: string, word: string): number {
+  const low = section.toLowerCase();
+  for (let i = 0; i < section.length; i++) {
+    const ch = section[i]!;
+    if (ch === '"') { const e = section.indexOf('"', i + 1); if (e < 0) return -1; i = e; continue; }
+    if (ch === '\\' || ch === '_' || ch === '*') { i++; continue; }
+    if (low.startsWith(word, i)) return i;
+  }
+  return -1;
+}
+
 function formatNumberSection(a: number, section: string, loc: FormatLocale, opts: FormatOptions): string {
   // `@` numa seção numérica = valor como texto (representação General).
   if (section.includes('@')) return applyTextSection(section, formatGeneral(a, loc)).text;
+  // "General" dentro de uma seção (ex.: General;[Red]\-General): o número em
+  // General com os literais da seção em volta
+  const gen = unquotedIndexOf(section, 'general');
+  if (gen >= 0) return applyTextSection(section.slice(0, gen) + '@' + section.slice(gen + 7), formatGeneral(a, loc)).text;
   // Fração: "?/?" ou "0/0".
   if (/[?#0]+\s*\/\s*[?#0]+/.test(section) || /\/[?#0]/.test(section)) {
     return formatFraction(a, section, loc);

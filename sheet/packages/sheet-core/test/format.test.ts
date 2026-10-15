@@ -69,6 +69,27 @@ describe('builtins dependentes de locale + fixes do oráculo 2026-07-01', () => 
     expect(formatValue(1999.9, '"R$"\\ #.##000').text).toBe('R$ 1999,9000');
   });
 
+  // corpus .xls (Range.Text do Excel pt-BR, 2026-10)
+  it('builtins 37–40 no pt-BR: sem parênteses nem recuo', () => {
+    expect(formatValue(-142975, builtinFormatCode(37)!).text).toBe('-142.975');
+    expect(formatValue(45.21, builtinFormatCode(39)!).text).toBe('45,21');
+    expect(formatValue(1590, builtinFormatCode(37)!).text).toBe('1.590');
+  });
+
+  it('[$sím-LCID] exibe o símbolo; [$-409] não exibe nada', () => {
+    expect(formatValue(77733.21, '[$$-0409]#,##0').text).toBe('$77.733');
+    expect(formatValue(0, '[$£-809]#,##0.00').text).toBe('£0,00');
+    expect(formatValue(5, '[$-409]0').text).toBe('5');
+  });
+
+  it('"General" dentro de seções', () => {
+    expect(formatValue(20, 'General;[Red]\\-General').text).toBe('20');
+    const neg = formatValue(-2.5, 'General;[Red]\\-General');
+    expect(neg.text).toBe('-2,5');
+    expect(neg.color).toBe('#FF0000');
+    expect(formatValue(3, '"x"General').text).toBe('x3');
+  });
+
   it('científico com grupo na mantissa usa passo de engenharia (#,000E+00)', () => {
     // showcase TextoENumeros!B7: Excel mostra "123E+04"
     expect(formatValue(1234567, '#,000E+00').text).toBe('123E+04');
