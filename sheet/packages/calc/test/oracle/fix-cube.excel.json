@@ -1,0 +1,613 @@
+[
+ {
+  "id": "fix-cube-1",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(\"ThisWorkbookDataModel\",\"[Measures].[x]\")",
+  "local": "=MEMBROCUBO(\"ThisWorkbookDataModel\";\"[Measures].[x]\")"
+ },
+ {
+  "id": "fix-cube-2",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(\"x\",\"y\")",
+  "local": "=MEMBROCUBO(\"x\";\"y\")"
+ },
+ {
+  "id": "fix-cube-3",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(\"x\",\"y\",\"z\")",
+  "local": "=MEMBROCUBO(\"x\";\"y\";\"z\")"
+ },
+ {
+  "id": "fix-cube-4",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(1,2)",
+  "local": "=MEMBROCUBO(1;2)"
+ },
+ {
+  "id": "fix-cube-5",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(\"\",\"\")",
+  "local": "=MEMBROCUBO(\"\";\"\")"
+ },
+ {
+  "id": "fix-cube-6",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(#N/A,\"y\")",
+  "local": "=MEMBROCUBO(#N/D;\"y\")"
+ },
+ {
+  "id": "fix-cube-7",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(\"x\",#N/A)",
+  "local": "=MEMBROCUBO(\"x\";#N/D)"
+ },
+ {
+  "id": "fix-cube-8",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=CUBEMEMBER(\"x\",\"y\",#DIV/0!)",
+  "local": "=MEMBROCUBO(\"x\";\"y\";#DIV/0!)"
+ },
+ {
+  "id": "fix-cube-9",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=CUBEMEMBER(1/0,\"y\")",
+  "local": "=MEMBROCUBO(1/0;\"y\")"
+ },
+ {
+  "id": "fix-cube-10",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(A1,\"y\")",
+  "local": "=MEMBROCUBO(A1;\"y\")"
+ },
+ {
+  "id": "fix-cube-11",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(\"x\",A1)",
+  "local": "=MEMBROCUBO(\"x\";A1)"
+ },
+ {
+  "id": "fix-cube-12",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(TRUE,\"y\")",
+  "local": "=MEMBROCUBO(VERDADEIRO;\"y\")"
+ },
+ {
+  "id": "fix-cube-13",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEVALUE(\"x\")",
+  "local": "=VALORCUBO(\"x\")"
+ },
+ {
+  "id": "fix-cube-14",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEVALUE(\"x\",\"y\")",
+  "local": "=VALORCUBO(\"x\";\"y\")"
+ },
+ {
+  "id": "fix-cube-15",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEVALUE(\"x\",\"y\",\"z\")",
+  "local": "=VALORCUBO(\"x\";\"y\";\"z\")"
+ },
+ {
+  "id": "fix-cube-16",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEVALUE(#N/A)",
+  "local": "=VALORCUBO(#N/D)"
+ },
+ {
+  "id": "fix-cube-17",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEVALUE(\"x\",#N/A)",
+  "local": "=VALORCUBO(\"x\";#N/D)"
+ },
+ {
+  "id": "fix-cube-18",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEVALUE(\"\")",
+  "local": "=VALORCUBO(\"\")"
+ },
+ {
+  "id": "fix-cube-19",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEVALUE(1)",
+  "local": "=VALORCUBO(1)"
+ },
+ {
+  "id": "fix-cube-20",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEVALUE(A1)",
+  "local": "=VALORCUBO(A1)"
+ },
+ {
+  "id": "fix-cube-21",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBERPROPERTY(\"x\",\"y\",\"z\")",
+  "local": "=PROPRIEDADEMEMBROCUBO(\"x\";\"y\";\"z\")"
+ },
+ {
+  "id": "fix-cube-22",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBERPROPERTY(#N/A,\"y\",\"z\")",
+  "local": "=PROPRIEDADEMEMBROCUBO(#N/D;\"y\";\"z\")"
+ },
+ {
+  "id": "fix-cube-23",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBERPROPERTY(\"x\",\"y\",#N/A)",
+  "local": "=PROPRIEDADEMEMBROCUBO(\"x\";\"y\";#N/D)"
+ },
+ {
+  "id": "fix-cube-24",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBERANKEDMEMBER(\"x\",\"y\",1)",
+  "local": "=MEMBROCLASSIFICADOCUBO(\"x\";\"y\";1)"
+ },
+ {
+  "id": "fix-cube-25",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBERANKEDMEMBER(\"x\",\"y\",1,\"c\")",
+  "local": "=MEMBROCLASSIFICADOCUBO(\"x\";\"y\";1;\"c\")"
+ },
+ {
+  "id": "fix-cube-26",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBERANKEDMEMBER(\"x\",\"y\",0)",
+  "local": "=MEMBROCLASSIFICADOCUBO(\"x\";\"y\";0)"
+ },
+ {
+  "id": "fix-cube-27",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=CUBERANKEDMEMBER(\"x\",\"y\",\"a\")",
+  "local": "=MEMBROCLASSIFICADOCUBO(\"x\";\"y\";\"a\")"
+ },
+ {
+  "id": "fix-cube-28",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBERANKEDMEMBER(\"x\",\"y\",#N/A)",
+  "local": "=MEMBROCLASSIFICADOCUBO(\"x\";\"y\";#N/D)"
+ },
+ {
+  "id": "fix-cube-29",
+  "v": {
+   "e": "#REF!"
+  },
+  "text": "#REF!",
+  "f": "=CUBERANKEDMEMBER(#REF!,\"y\",1)",
+  "local": "=MEMBROCLASSIFICADOCUBO(#REF!;\"y\";1)"
+ },
+ {
+  "id": "fix-cube-30",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEKPIMEMBER(\"x\",\"y\",1)",
+  "local": "=MEMBROKPICUBO(\"x\";\"y\";1)"
+ },
+ {
+  "id": "fix-cube-31",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEKPIMEMBER(\"x\",\"y\",1,\"c\")",
+  "local": "=MEMBROKPICUBO(\"x\";\"y\";1;\"c\")"
+ },
+ {
+  "id": "fix-cube-32",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEKPIMEMBER(\"x\",\"y\",9)",
+  "local": "=MEMBROKPICUBO(\"x\";\"y\";9)"
+ },
+ {
+  "id": "fix-cube-33",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEKPIMEMBER(\"x\",\"y\",0)",
+  "local": "=MEMBROKPICUBO(\"x\";\"y\";0)"
+ },
+ {
+  "id": "fix-cube-34",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=CUBEKPIMEMBER(\"x\",\"y\",\"a\")",
+  "local": "=MEMBROKPICUBO(\"x\";\"y\";\"a\")"
+ },
+ {
+  "id": "fix-cube-35",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEKPIMEMBER(#N/A,\"y\",1)",
+  "local": "=MEMBROKPICUBO(#N/D;\"y\";1)"
+ },
+ {
+  "id": "fix-cube-36",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESET(\"x\",\"y\")",
+  "local": "=CONJUNTOCUBO(\"x\";\"y\")"
+ },
+ {
+  "id": "fix-cube-37",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESET(\"x\",\"y\",\"c\")",
+  "local": "=CONJUNTOCUBO(\"x\";\"y\";\"c\")"
+ },
+ {
+  "id": "fix-cube-38",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESET(\"x\",\"y\",\"c\",1)",
+  "local": "=CONJUNTOCUBO(\"x\";\"y\";\"c\";1)"
+ },
+ {
+  "id": "fix-cube-39",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESET(\"x\",\"y\",\"c\",1,\"s\")",
+  "local": "=CONJUNTOCUBO(\"x\";\"y\";\"c\";1;\"s\")"
+ },
+ {
+  "id": "fix-cube-40",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESET(\"x\",\"y\",\"c\",9)",
+  "local": "=CONJUNTOCUBO(\"x\";\"y\";\"c\";9)"
+ },
+ {
+  "id": "fix-cube-41",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESET(#N/A,\"y\")",
+  "local": "=CONJUNTOCUBO(#N/D;\"y\")"
+ },
+ {
+  "id": "fix-cube-42",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESET(\"x\",#N/A)",
+  "local": "=CONJUNTOCUBO(\"x\";#N/D)"
+ },
+ {
+  "id": "fix-cube-43",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESETCOUNT(\"x\")",
+  "local": "=CONTAGEMCONJUNTOCUBO(\"x\")"
+ },
+ {
+  "id": "fix-cube-44",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESETCOUNT(#N/A)",
+  "local": "=CONTAGEMCONJUNTOCUBO(#N/D)"
+ },
+ {
+  "id": "fix-cube-45",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESETCOUNT(1)",
+  "local": "=CONTAGEMCONJUNTOCUBO(1)"
+ },
+ {
+  "id": "fix-cube-46",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESETCOUNT(A1)",
+  "local": "=CONTAGEMCONJUNTOCUBO(A1)"
+ },
+ {
+  "id": "fix-cube-47",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESETCOUNT(CUBESET(\"x\",\"y\"))",
+  "local": "=CONTAGEMCONJUNTOCUBO(CONJUNTOCUBO(\"x\";\"y\"))"
+ },
+ {
+  "id": "fix-cube-48",
+  "v": true,
+  "text": "########",
+  "f": "=ISERROR(CUBEMEMBER(\"x\",\"y\"))",
+  "local": "=ÉERROS(MEMBROCUBO(\"x\";\"y\"))"
+ },
+ {
+  "id": "fix-cube-49",
+  "v": 7,
+  "text": "7",
+  "f": "=ERROR.TYPE(CUBEMEMBER(\"x\",\"y\"))",
+  "local": "=TIPO.ERRO(MEMBROCUBO(\"x\";\"y\"))"
+ },
+ {
+  "id": "fix-cube-50",
+  "v": {
+   "e": "#N/A"
+  },
+  "spill": [
+   [
+    {
+     "e": "#N/A"
+    },
+    {
+     "e": "#N/A"
+    }
+   ]
+  ],
+  "text": "#N/D",
+  "f": "=CUBEMEMBER({\"a\",\"b\"},\"y\")",
+  "local": "=MEMBROCUBO({\"a\"\\\"b\"};\"y\")"
+ },
+ {
+  "id": "fix-cube-51",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(\"x\",{\"a\";\"b\"})",
+  "local": "=MEMBROCUBO(\"x\";{\"a\";\"b\"})"
+ },
+ {
+  "id": "fix-cube-52",
+  "v": {
+   "e": "#N/A"
+  },
+  "spill": [
+   [
+    {
+     "e": "#N/A"
+    },
+    {
+     "e": "#N/A"
+    }
+   ]
+  ],
+  "text": "#N/D",
+  "f": "=CUBEVALUE({\"a\",\"b\"})",
+  "local": "=VALORCUBO({\"a\"\\\"b\"})"
+ },
+ {
+  "id": "fix-cube-53",
+  "v": {
+   "e": "#N/A"
+  },
+  "spill": [
+   [
+    {
+     "e": "#N/A"
+    },
+    {
+     "e": "#N/A"
+    }
+   ]
+  ],
+  "text": "#N/D",
+  "f": "=CUBESETCOUNT({\"a\",\"b\"})",
+  "local": "=CONTAGEMCONJUNTOCUBO({\"a\"\\\"b\"})"
+ },
+ {
+  "id": "fix-cube-54",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEMEMBER(A1,\"y\")",
+  "local": "=MEMBROCUBO(A1;\"y\")"
+ },
+ {
+  "id": "fix-cube-55",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBEVALUE(A1)",
+  "local": "=VALORCUBO(A1)"
+ },
+ {
+  "id": "fix-cube-56",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=CUBESETCOUNT(A1)",
+  "local": "=CONTAGEMCONJUNTOCUBO(A1)"
+ },
+ {
+  "id": "fix-cube-57",
+  "v": {
+   "e": "#BUSY!"
+  },
+  "text": "######",
+  "f": "=STOCKHISTORY(\"MSFT\",DATE(2020,1,2))",
+  "local": "=HISTÓRICODEAÇÕES(\"MSFT\";DATA(2020;1;2))"
+ },
+ {
+  "id": "fix-cube-58",
+  "v": {
+   "e": "#BUSY!"
+  },
+  "text": "######",
+  "f": "=STOCKHISTORY(\"MSFT\",DATE(2020,1,2),DATE(2020,1,10))",
+  "local": "=HISTÓRICODEAÇÕES(\"MSFT\";DATA(2020;1;2);DATA(2020;1;10))"
+ },
+ {
+  "id": "fix-cube-59",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=STOCKHISTORY(#N/A,1)",
+  "local": "=HISTÓRICODEAÇÕES(#N/D;1)"
+ },
+ {
+  "id": "fix-cube-60",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=STOCKHISTORY(\"MSFT\",#N/A)",
+  "local": "=HISTÓRICODEAÇÕES(\"MSFT\";#N/D)"
+ },
+ {
+  "id": "fix-cube-61",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=STOCKHISTORY(\"\",1)",
+  "local": "=HISTÓRICODEAÇÕES(\"\";1)"
+ },
+ {
+  "id": "fix-cube-62",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=STOCKHISTORY(\"MSFT\",\"x\")",
+  "local": "=HISTÓRICODEAÇÕES(\"MSFT\";\"x\")"
+ },
+ {
+  "id": "fix-cube-63",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=STOCKHISTORY(1,2)",
+  "local": "=HISTÓRICODEAÇÕES(1;2)"
+ },
+ {
+  "id": "fix-cube-64",
+  "v": {
+   "e": "#BUSY!"
+  },
+  "text": "######",
+  "f": "=ISERROR(STOCKHISTORY(\"MSFT\",DATE(2020,1,2)))",
+  "local": "=ÉERROS(HISTÓRICODEAÇÕES(\"MSFT\";DATA(2020;1;2)))"
+ },
+ {
+  "id": "fix-cube-65",
+  "v": {
+   "e": "#BUSY!"
+  },
+  "text": "######",
+  "f": "=ERROR.TYPE(STOCKHISTORY(\"MSFT\",DATE(2020,1,2)))",
+  "local": "=TIPO.ERRO(HISTÓRICODEAÇÕES(\"MSFT\";DATA(2020;1;2)))"
+ }
+]

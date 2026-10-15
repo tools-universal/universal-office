@@ -47,3 +47,4 @@ import './functions/lookup.js';
 import './functions/dynamic.js';
 import './functions/logical.js';
 import './functions/reference.js';
+import './functions/cube.js';

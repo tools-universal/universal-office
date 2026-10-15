@@ -647,7 +647,8 @@ register(
   pairSum('SUMX2PY2', (x, y) => x * x + y * y),
   pairSum('SUMXMY2', (x, y) => (x - y) * (x - y)),
   roundFn('ROUND', RoundMode.Half), roundFn('ROUNDUP', RoundMode.Up), roundFn('ROUNDDOWN', RoundMode.Down), roundFn('TRUNC', RoundMode.Down),
-  int, ceiling, floor, ceilingMath, floorMath,
+  // medido: ECMA.CEILING é o CEILING antigo (sinais, 0, texto, 1E300 c/ 3 → 9,99999999999999E+299)
+  int, ceiling, { ...ceiling, name: 'ECMA.CEILING' }, floor, ceilingMath, floorMath,
   precise('CEILING.PRECISE', true, X), precise('ISO.CEILING', true), precise('FLOOR.PRECISE', false, X),
   mround, even, odd, mod, power, quotient, sqrt, sqrtpi, exp, ln, log10, log, abs, sign,
   fact, factdouble, combin, combina, gcd, lcm, multinomial, seriessum,

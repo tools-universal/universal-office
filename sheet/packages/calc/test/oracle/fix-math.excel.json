@@ -990,5 +990,1669 @@
   "text": "5,7E+301",
   "f": "=DEGREES(1E+300)",
   "local": "=GRAUS(1E+300)"
+ },
+ {
+  "id": "fix-math-141",
+  "v": 3,
+  "text": "3",
+  "f": "=ECMA.CEILING(2.5,1)",
+  "local": "=ECMA.TETO(2,5;1)"
+ },
+ {
+  "id": "fix-math-142",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(2.5,-1)",
+  "local": "=ECMA.TETO(2,5;-1)"
+ },
+ {
+  "id": "fix-math-143",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(2.5,0)",
+  "local": "=ECMA.TETO(2,5;0)"
+ },
+ {
+  "id": "fix-math-144",
+  "v": 4,
+  "text": "4",
+  "f": "=ECMA.CEILING(2.5,2)",
+  "local": "=ECMA.TETO(2,5;2)"
+ },
+ {
+  "id": "fix-math-145",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(2.5,-2)",
+  "local": "=ECMA.TETO(2,5;-2)"
+ },
+ {
+  "id": "fix-math-146",
+  "v": 2.5,
+  "text": "2,5",
+  "f": "=ECMA.CEILING(2.5,0.5)",
+  "local": "=ECMA.TETO(2,5;0,5)"
+ },
+ {
+  "id": "fix-math-147",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(2.5,-0.5)",
+  "local": "=ECMA.TETO(2,5;-0,5)"
+ },
+ {
+  "id": "fix-math-148",
+  "v": 3,
+  "text": "3",
+  "f": "=ECMA.CEILING(2.5,3)",
+  "local": "=ECMA.TETO(2,5;3)"
+ },
+ {
+  "id": "fix-math-149",
+  "v": 2.5,
+  "text": "2,5",
+  "f": "=ECMA.CEILING(2.5,0.1)",
+  "local": "=ECMA.TETO(2,5;0,1)"
+ },
+ {
+  "id": "fix-math-150",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(2.5,FALSE)",
+  "local": "=ECMA.TETO(2,5;FALSO)"
+ },
+ {
+  "id": "fix-math-151",
+  "v": 4,
+  "text": "4",
+  "f": "=ECMA.CEILING(2.5,\"2\")",
+  "local": "=ECMA.TETO(2,5;\"2\")"
+ },
+ {
+  "id": "fix-math-152",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(2.5,\"x\")",
+  "local": "=ECMA.TETO(2,5;\"x\")"
+ },
+ {
+  "id": "fix-math-153",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(2.5,#DIV/0!)",
+  "local": "=ECMA.TETO(2,5;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-154",
+  "v": -2,
+  "text": "-2",
+  "f": "=ECMA.CEILING(-2.5,1)",
+  "local": "=ECMA.TETO(-2,5;1)"
+ },
+ {
+  "id": "fix-math-155",
+  "v": -3,
+  "text": "-3",
+  "f": "=ECMA.CEILING(-2.5,-1)",
+  "local": "=ECMA.TETO(-2,5;-1)"
+ },
+ {
+  "id": "fix-math-156",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-2.5,0)",
+  "local": "=ECMA.TETO(-2,5;0)"
+ },
+ {
+  "id": "fix-math-157",
+  "v": -2,
+  "text": "-2",
+  "f": "=ECMA.CEILING(-2.5,2)",
+  "local": "=ECMA.TETO(-2,5;2)"
+ },
+ {
+  "id": "fix-math-158",
+  "v": -4,
+  "text": "-4",
+  "f": "=ECMA.CEILING(-2.5,-2)",
+  "local": "=ECMA.TETO(-2,5;-2)"
+ },
+ {
+  "id": "fix-math-159",
+  "v": -2.5,
+  "text": "-2,5",
+  "f": "=ECMA.CEILING(-2.5,0.5)",
+  "local": "=ECMA.TETO(-2,5;0,5)"
+ },
+ {
+  "id": "fix-math-160",
+  "v": -2.5,
+  "text": "-2,5",
+  "f": "=ECMA.CEILING(-2.5,-0.5)",
+  "local": "=ECMA.TETO(-2,5;-0,5)"
+ },
+ {
+  "id": "fix-math-161",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-2.5,3)",
+  "local": "=ECMA.TETO(-2,5;3)"
+ },
+ {
+  "id": "fix-math-162",
+  "v": -2.5,
+  "text": "-2,5",
+  "f": "=ECMA.CEILING(-2.5,0.1)",
+  "local": "=ECMA.TETO(-2,5;0,1)"
+ },
+ {
+  "id": "fix-math-163",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-2.5,FALSE)",
+  "local": "=ECMA.TETO(-2,5;FALSO)"
+ },
+ {
+  "id": "fix-math-164",
+  "v": -2,
+  "text": "-2",
+  "f": "=ECMA.CEILING(-2.5,\"2\")",
+  "local": "=ECMA.TETO(-2,5;\"2\")"
+ },
+ {
+  "id": "fix-math-165",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(-2.5,\"x\")",
+  "local": "=ECMA.TETO(-2,5;\"x\")"
+ },
+ {
+  "id": "fix-math-166",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(-2.5,#DIV/0!)",
+  "local": "=ECMA.TETO(-2,5;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-167",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,1)",
+  "local": "=ECMA.TETO(0;1)"
+ },
+ {
+  "id": "fix-math-168",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,-1)",
+  "local": "=ECMA.TETO(0;-1)"
+ },
+ {
+  "id": "fix-math-169",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,0)",
+  "local": "=ECMA.TETO(0;0)"
+ },
+ {
+  "id": "fix-math-170",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,2)",
+  "local": "=ECMA.TETO(0;2)"
+ },
+ {
+  "id": "fix-math-171",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,-2)",
+  "local": "=ECMA.TETO(0;-2)"
+ },
+ {
+  "id": "fix-math-172",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,0.5)",
+  "local": "=ECMA.TETO(0;0,5)"
+ },
+ {
+  "id": "fix-math-173",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,-0.5)",
+  "local": "=ECMA.TETO(0;-0,5)"
+ },
+ {
+  "id": "fix-math-174",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,3)",
+  "local": "=ECMA.TETO(0;3)"
+ },
+ {
+  "id": "fix-math-175",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,0.1)",
+  "local": "=ECMA.TETO(0;0,1)"
+ },
+ {
+  "id": "fix-math-176",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,FALSE)",
+  "local": "=ECMA.TETO(0;FALSO)"
+ },
+ {
+  "id": "fix-math-177",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0,\"2\")",
+  "local": "=ECMA.TETO(0;\"2\")"
+ },
+ {
+  "id": "fix-math-178",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(0,\"x\")",
+  "local": "=ECMA.TETO(0;\"x\")"
+ },
+ {
+  "id": "fix-math-179",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(0,#DIV/0!)",
+  "local": "=ECMA.TETO(0;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-180",
+  "v": 2,
+  "text": "2",
+  "f": "=ECMA.CEILING(1.5,1)",
+  "local": "=ECMA.TETO(1,5;1)"
+ },
+ {
+  "id": "fix-math-181",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(1.5,-1)",
+  "local": "=ECMA.TETO(1,5;-1)"
+ },
+ {
+  "id": "fix-math-182",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(1.5,0)",
+  "local": "=ECMA.TETO(1,5;0)"
+ },
+ {
+  "id": "fix-math-183",
+  "v": 2,
+  "text": "2",
+  "f": "=ECMA.CEILING(1.5,2)",
+  "local": "=ECMA.TETO(1,5;2)"
+ },
+ {
+  "id": "fix-math-184",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(1.5,-2)",
+  "local": "=ECMA.TETO(1,5;-2)"
+ },
+ {
+  "id": "fix-math-185",
+  "v": 1.5,
+  "text": "1,5",
+  "f": "=ECMA.CEILING(1.5,0.5)",
+  "local": "=ECMA.TETO(1,5;0,5)"
+ },
+ {
+  "id": "fix-math-186",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(1.5,-0.5)",
+  "local": "=ECMA.TETO(1,5;-0,5)"
+ },
+ {
+  "id": "fix-math-187",
+  "v": 3,
+  "text": "3",
+  "f": "=ECMA.CEILING(1.5,3)",
+  "local": "=ECMA.TETO(1,5;3)"
+ },
+ {
+  "id": "fix-math-188",
+  "v": 1.5,
+  "text": "1,5",
+  "f": "=ECMA.CEILING(1.5,0.1)",
+  "local": "=ECMA.TETO(1,5;0,1)"
+ },
+ {
+  "id": "fix-math-189",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(1.5,FALSE)",
+  "local": "=ECMA.TETO(1,5;FALSO)"
+ },
+ {
+  "id": "fix-math-190",
+  "v": 2,
+  "text": "2",
+  "f": "=ECMA.CEILING(1.5,\"2\")",
+  "local": "=ECMA.TETO(1,5;\"2\")"
+ },
+ {
+  "id": "fix-math-191",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(1.5,\"x\")",
+  "local": "=ECMA.TETO(1,5;\"x\")"
+ },
+ {
+  "id": "fix-math-192",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(1.5,#DIV/0!)",
+  "local": "=ECMA.TETO(1,5;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-193",
+  "v": -1,
+  "text": "-1",
+  "f": "=ECMA.CEILING(-1.5,1)",
+  "local": "=ECMA.TETO(-1,5;1)"
+ },
+ {
+  "id": "fix-math-194",
+  "v": -2,
+  "text": "-2",
+  "f": "=ECMA.CEILING(-1.5,-1)",
+  "local": "=ECMA.TETO(-1,5;-1)"
+ },
+ {
+  "id": "fix-math-195",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-1.5,0)",
+  "local": "=ECMA.TETO(-1,5;0)"
+ },
+ {
+  "id": "fix-math-196",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-1.5,2)",
+  "local": "=ECMA.TETO(-1,5;2)"
+ },
+ {
+  "id": "fix-math-197",
+  "v": -2,
+  "text": "-2",
+  "f": "=ECMA.CEILING(-1.5,-2)",
+  "local": "=ECMA.TETO(-1,5;-2)"
+ },
+ {
+  "id": "fix-math-198",
+  "v": -1.5,
+  "text": "-1,5",
+  "f": "=ECMA.CEILING(-1.5,0.5)",
+  "local": "=ECMA.TETO(-1,5;0,5)"
+ },
+ {
+  "id": "fix-math-199",
+  "v": -1.5,
+  "text": "-1,5",
+  "f": "=ECMA.CEILING(-1.5,-0.5)",
+  "local": "=ECMA.TETO(-1,5;-0,5)"
+ },
+ {
+  "id": "fix-math-200",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-1.5,3)",
+  "local": "=ECMA.TETO(-1,5;3)"
+ },
+ {
+  "id": "fix-math-201",
+  "v": -1.5,
+  "text": "-1,5",
+  "f": "=ECMA.CEILING(-1.5,0.1)",
+  "local": "=ECMA.TETO(-1,5;0,1)"
+ },
+ {
+  "id": "fix-math-202",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-1.5,FALSE)",
+  "local": "=ECMA.TETO(-1,5;FALSO)"
+ },
+ {
+  "id": "fix-math-203",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-1.5,\"2\")",
+  "local": "=ECMA.TETO(-1,5;\"2\")"
+ },
+ {
+  "id": "fix-math-204",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(-1.5,\"x\")",
+  "local": "=ECMA.TETO(-1,5;\"x\")"
+ },
+ {
+  "id": "fix-math-205",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(-1.5,#DIV/0!)",
+  "local": "=ECMA.TETO(-1,5;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-206",
+  "v": 5,
+  "text": "5",
+  "f": "=ECMA.CEILING(4.3,1)",
+  "local": "=ECMA.TETO(4,3;1)"
+ },
+ {
+  "id": "fix-math-207",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(4.3,-1)",
+  "local": "=ECMA.TETO(4,3;-1)"
+ },
+ {
+  "id": "fix-math-208",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(4.3,0)",
+  "local": "=ECMA.TETO(4,3;0)"
+ },
+ {
+  "id": "fix-math-209",
+  "v": 6,
+  "text": "6",
+  "f": "=ECMA.CEILING(4.3,2)",
+  "local": "=ECMA.TETO(4,3;2)"
+ },
+ {
+  "id": "fix-math-210",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(4.3,-2)",
+  "local": "=ECMA.TETO(4,3;-2)"
+ },
+ {
+  "id": "fix-math-211",
+  "v": 4.5,
+  "text": "4,5",
+  "f": "=ECMA.CEILING(4.3,0.5)",
+  "local": "=ECMA.TETO(4,3;0,5)"
+ },
+ {
+  "id": "fix-math-212",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(4.3,-0.5)",
+  "local": "=ECMA.TETO(4,3;-0,5)"
+ },
+ {
+  "id": "fix-math-213",
+  "v": 6,
+  "text": "6",
+  "f": "=ECMA.CEILING(4.3,3)",
+  "local": "=ECMA.TETO(4,3;3)"
+ },
+ {
+  "id": "fix-math-214",
+  "v": 4.3,
+  "text": "4,3",
+  "f": "=ECMA.CEILING(4.3,0.1)",
+  "local": "=ECMA.TETO(4,3;0,1)"
+ },
+ {
+  "id": "fix-math-215",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(4.3,FALSE)",
+  "local": "=ECMA.TETO(4,3;FALSO)"
+ },
+ {
+  "id": "fix-math-216",
+  "v": 6,
+  "text": "6",
+  "f": "=ECMA.CEILING(4.3,\"2\")",
+  "local": "=ECMA.TETO(4,3;\"2\")"
+ },
+ {
+  "id": "fix-math-217",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(4.3,\"x\")",
+  "local": "=ECMA.TETO(4,3;\"x\")"
+ },
+ {
+  "id": "fix-math-218",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(4.3,#DIV/0!)",
+  "local": "=ECMA.TETO(4,3;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-219",
+  "v": -4,
+  "text": "-4",
+  "f": "=ECMA.CEILING(-4.3,1)",
+  "local": "=ECMA.TETO(-4,3;1)"
+ },
+ {
+  "id": "fix-math-220",
+  "v": -5,
+  "text": "-5",
+  "f": "=ECMA.CEILING(-4.3,-1)",
+  "local": "=ECMA.TETO(-4,3;-1)"
+ },
+ {
+  "id": "fix-math-221",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-4.3,0)",
+  "local": "=ECMA.TETO(-4,3;0)"
+ },
+ {
+  "id": "fix-math-222",
+  "v": -4,
+  "text": "-4",
+  "f": "=ECMA.CEILING(-4.3,2)",
+  "local": "=ECMA.TETO(-4,3;2)"
+ },
+ {
+  "id": "fix-math-223",
+  "v": -6,
+  "text": "-6",
+  "f": "=ECMA.CEILING(-4.3,-2)",
+  "local": "=ECMA.TETO(-4,3;-2)"
+ },
+ {
+  "id": "fix-math-224",
+  "v": -4,
+  "text": "-4",
+  "f": "=ECMA.CEILING(-4.3,0.5)",
+  "local": "=ECMA.TETO(-4,3;0,5)"
+ },
+ {
+  "id": "fix-math-225",
+  "v": -4.5,
+  "text": "-4,5",
+  "f": "=ECMA.CEILING(-4.3,-0.5)",
+  "local": "=ECMA.TETO(-4,3;-0,5)"
+ },
+ {
+  "id": "fix-math-226",
+  "v": -3,
+  "text": "-3",
+  "f": "=ECMA.CEILING(-4.3,3)",
+  "local": "=ECMA.TETO(-4,3;3)"
+ },
+ {
+  "id": "fix-math-227",
+  "v": -4.3,
+  "text": "-4,3",
+  "f": "=ECMA.CEILING(-4.3,0.1)",
+  "local": "=ECMA.TETO(-4,3;0,1)"
+ },
+ {
+  "id": "fix-math-228",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-4.3,FALSE)",
+  "local": "=ECMA.TETO(-4,3;FALSO)"
+ },
+ {
+  "id": "fix-math-229",
+  "v": -4,
+  "text": "-4",
+  "f": "=ECMA.CEILING(-4.3,\"2\")",
+  "local": "=ECMA.TETO(-4,3;\"2\")"
+ },
+ {
+  "id": "fix-math-230",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(-4.3,\"x\")",
+  "local": "=ECMA.TETO(-4,3;\"x\")"
+ },
+ {
+  "id": "fix-math-231",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(-4.3,#DIV/0!)",
+  "local": "=ECMA.TETO(-4,3;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-232",
+  "v": 10,
+  "text": "10",
+  "f": "=ECMA.CEILING(10,1)",
+  "local": "=ECMA.TETO(10;1)"
+ },
+ {
+  "id": "fix-math-233",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(10,-1)",
+  "local": "=ECMA.TETO(10;-1)"
+ },
+ {
+  "id": "fix-math-234",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(10,0)",
+  "local": "=ECMA.TETO(10;0)"
+ },
+ {
+  "id": "fix-math-235",
+  "v": 10,
+  "text": "10",
+  "f": "=ECMA.CEILING(10,2)",
+  "local": "=ECMA.TETO(10;2)"
+ },
+ {
+  "id": "fix-math-236",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(10,-2)",
+  "local": "=ECMA.TETO(10;-2)"
+ },
+ {
+  "id": "fix-math-237",
+  "v": 10,
+  "text": "10",
+  "f": "=ECMA.CEILING(10,0.5)",
+  "local": "=ECMA.TETO(10;0,5)"
+ },
+ {
+  "id": "fix-math-238",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(10,-0.5)",
+  "local": "=ECMA.TETO(10;-0,5)"
+ },
+ {
+  "id": "fix-math-239",
+  "v": 12,
+  "text": "12",
+  "f": "=ECMA.CEILING(10,3)",
+  "local": "=ECMA.TETO(10;3)"
+ },
+ {
+  "id": "fix-math-240",
+  "v": 10,
+  "text": "10",
+  "f": "=ECMA.CEILING(10,0.1)",
+  "local": "=ECMA.TETO(10;0,1)"
+ },
+ {
+  "id": "fix-math-241",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(10,FALSE)",
+  "local": "=ECMA.TETO(10;FALSO)"
+ },
+ {
+  "id": "fix-math-242",
+  "v": 10,
+  "text": "10",
+  "f": "=ECMA.CEILING(10,\"2\")",
+  "local": "=ECMA.TETO(10;\"2\")"
+ },
+ {
+  "id": "fix-math-243",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(10,\"x\")",
+  "local": "=ECMA.TETO(10;\"x\")"
+ },
+ {
+  "id": "fix-math-244",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(10,#DIV/0!)",
+  "local": "=ECMA.TETO(10;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-245",
+  "v": 1e+300,
+  "text": "1E+300",
+  "f": "=ECMA.CEILING(1E+300,1)",
+  "local": "=ECMA.TETO(1E+300;1)"
+ },
+ {
+  "id": "fix-math-246",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(1E+300,-1)",
+  "local": "=ECMA.TETO(1E+300;-1)"
+ },
+ {
+  "id": "fix-math-247",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(1E+300,0)",
+  "local": "=ECMA.TETO(1E+300;0)"
+ },
+ {
+  "id": "fix-math-248",
+  "v": 1e+300,
+  "text": "1E+300",
+  "f": "=ECMA.CEILING(1E+300,2)",
+  "local": "=ECMA.TETO(1E+300;2)"
+ },
+ {
+  "id": "fix-math-249",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(1E+300,-2)",
+  "local": "=ECMA.TETO(1E+300;-2)"
+ },
+ {
+  "id": "fix-math-250",
+  "v": 1e+300,
+  "text": "1E+300",
+  "f": "=ECMA.CEILING(1E+300,0.5)",
+  "local": "=ECMA.TETO(1E+300;0,5)"
+ },
+ {
+  "id": "fix-math-251",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(1E+300,-0.5)",
+  "local": "=ECMA.TETO(1E+300;-0,5)"
+ },
+ {
+  "id": "fix-math-252",
+  "v": 9.99999999999999e+299,
+  "text": "1E+300",
+  "f": "=ECMA.CEILING(1E+300,3)",
+  "local": "=ECMA.TETO(1E+300;3)"
+ },
+ {
+  "id": "fix-math-253",
+  "v": 1e+300,
+  "text": "1E+300",
+  "f": "=ECMA.CEILING(1E+300,0.1)",
+  "local": "=ECMA.TETO(1E+300;0,1)"
+ },
+ {
+  "id": "fix-math-254",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(1E+300,FALSE)",
+  "local": "=ECMA.TETO(1E+300;FALSO)"
+ },
+ {
+  "id": "fix-math-255",
+  "v": 1e+300,
+  "text": "1E+300",
+  "f": "=ECMA.CEILING(1E+300,\"2\")",
+  "local": "=ECMA.TETO(1E+300;\"2\")"
+ },
+ {
+  "id": "fix-math-256",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(1E+300,\"x\")",
+  "local": "=ECMA.TETO(1E+300;\"x\")"
+ },
+ {
+  "id": "fix-math-257",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(1E+300,#DIV/0!)",
+  "local": "=ECMA.TETO(1E+300;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-258",
+  "v": 1,
+  "text": "1",
+  "f": "=ECMA.CEILING(0.3,1)",
+  "local": "=ECMA.TETO(0,3;1)"
+ },
+ {
+  "id": "fix-math-259",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(0.3,-1)",
+  "local": "=ECMA.TETO(0,3;-1)"
+ },
+ {
+  "id": "fix-math-260",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0.3,0)",
+  "local": "=ECMA.TETO(0,3;0)"
+ },
+ {
+  "id": "fix-math-261",
+  "v": 2,
+  "text": "2",
+  "f": "=ECMA.CEILING(0.3,2)",
+  "local": "=ECMA.TETO(0,3;2)"
+ },
+ {
+  "id": "fix-math-262",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(0.3,-2)",
+  "local": "=ECMA.TETO(0,3;-2)"
+ },
+ {
+  "id": "fix-math-263",
+  "v": 0.5,
+  "text": "0,5",
+  "f": "=ECMA.CEILING(0.3,0.5)",
+  "local": "=ECMA.TETO(0,3;0,5)"
+ },
+ {
+  "id": "fix-math-264",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(0.3,-0.5)",
+  "local": "=ECMA.TETO(0,3;-0,5)"
+ },
+ {
+  "id": "fix-math-265",
+  "v": 3,
+  "text": "3",
+  "f": "=ECMA.CEILING(0.3,3)",
+  "local": "=ECMA.TETO(0,3;3)"
+ },
+ {
+  "id": "fix-math-266",
+  "v": 0.30000000000000004,
+  "text": "0,3",
+  "f": "=ECMA.CEILING(0.3,0.1)",
+  "local": "=ECMA.TETO(0,3;0,1)"
+ },
+ {
+  "id": "fix-math-267",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(0.3,FALSE)",
+  "local": "=ECMA.TETO(0,3;FALSO)"
+ },
+ {
+  "id": "fix-math-268",
+  "v": 2,
+  "text": "2",
+  "f": "=ECMA.CEILING(0.3,\"2\")",
+  "local": "=ECMA.TETO(0,3;\"2\")"
+ },
+ {
+  "id": "fix-math-269",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(0.3,\"x\")",
+  "local": "=ECMA.TETO(0,3;\"x\")"
+ },
+ {
+  "id": "fix-math-270",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(0.3,#DIV/0!)",
+  "local": "=ECMA.TETO(0,3;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-271",
+  "v": 7,
+  "text": "7",
+  "f": "=ECMA.CEILING(6.7,1)",
+  "local": "=ECMA.TETO(6,7;1)"
+ },
+ {
+  "id": "fix-math-272",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(6.7,-1)",
+  "local": "=ECMA.TETO(6,7;-1)"
+ },
+ {
+  "id": "fix-math-273",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(6.7,0)",
+  "local": "=ECMA.TETO(6,7;0)"
+ },
+ {
+  "id": "fix-math-274",
+  "v": 8,
+  "text": "8",
+  "f": "=ECMA.CEILING(6.7,2)",
+  "local": "=ECMA.TETO(6,7;2)"
+ },
+ {
+  "id": "fix-math-275",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(6.7,-2)",
+  "local": "=ECMA.TETO(6,7;-2)"
+ },
+ {
+  "id": "fix-math-276",
+  "v": 7,
+  "text": "7",
+  "f": "=ECMA.CEILING(6.7,0.5)",
+  "local": "=ECMA.TETO(6,7;0,5)"
+ },
+ {
+  "id": "fix-math-277",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(6.7,-0.5)",
+  "local": "=ECMA.TETO(6,7;-0,5)"
+ },
+ {
+  "id": "fix-math-278",
+  "v": 9,
+  "text": "9",
+  "f": "=ECMA.CEILING(6.7,3)",
+  "local": "=ECMA.TETO(6,7;3)"
+ },
+ {
+  "id": "fix-math-279",
+  "v": 6.7,
+  "text": "6,7",
+  "f": "=ECMA.CEILING(6.7,0.1)",
+  "local": "=ECMA.TETO(6,7;0,1)"
+ },
+ {
+  "id": "fix-math-280",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(6.7,FALSE)",
+  "local": "=ECMA.TETO(6,7;FALSO)"
+ },
+ {
+  "id": "fix-math-281",
+  "v": 8,
+  "text": "8",
+  "f": "=ECMA.CEILING(6.7,\"2\")",
+  "local": "=ECMA.TETO(6,7;\"2\")"
+ },
+ {
+  "id": "fix-math-282",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(6.7,\"x\")",
+  "local": "=ECMA.TETO(6,7;\"x\")"
+ },
+ {
+  "id": "fix-math-283",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(6.7,#DIV/0!)",
+  "local": "=ECMA.TETO(6,7;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-284",
+  "v": -6,
+  "text": "-6",
+  "f": "=ECMA.CEILING(-6.7,1)",
+  "local": "=ECMA.TETO(-6,7;1)"
+ },
+ {
+  "id": "fix-math-285",
+  "v": -7,
+  "text": "-7",
+  "f": "=ECMA.CEILING(-6.7,-1)",
+  "local": "=ECMA.TETO(-6,7;-1)"
+ },
+ {
+  "id": "fix-math-286",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-6.7,0)",
+  "local": "=ECMA.TETO(-6,7;0)"
+ },
+ {
+  "id": "fix-math-287",
+  "v": -6,
+  "text": "-6",
+  "f": "=ECMA.CEILING(-6.7,2)",
+  "local": "=ECMA.TETO(-6,7;2)"
+ },
+ {
+  "id": "fix-math-288",
+  "v": -8,
+  "text": "-8",
+  "f": "=ECMA.CEILING(-6.7,-2)",
+  "local": "=ECMA.TETO(-6,7;-2)"
+ },
+ {
+  "id": "fix-math-289",
+  "v": -6.5,
+  "text": "-6,5",
+  "f": "=ECMA.CEILING(-6.7,0.5)",
+  "local": "=ECMA.TETO(-6,7;0,5)"
+ },
+ {
+  "id": "fix-math-290",
+  "v": -7,
+  "text": "-7",
+  "f": "=ECMA.CEILING(-6.7,-0.5)",
+  "local": "=ECMA.TETO(-6,7;-0,5)"
+ },
+ {
+  "id": "fix-math-291",
+  "v": -6,
+  "text": "-6",
+  "f": "=ECMA.CEILING(-6.7,3)",
+  "local": "=ECMA.TETO(-6,7;3)"
+ },
+ {
+  "id": "fix-math-292",
+  "v": -6.7,
+  "text": "-6,7",
+  "f": "=ECMA.CEILING(-6.7,0.1)",
+  "local": "=ECMA.TETO(-6,7;0,1)"
+ },
+ {
+  "id": "fix-math-293",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(-6.7,FALSE)",
+  "local": "=ECMA.TETO(-6,7;FALSO)"
+ },
+ {
+  "id": "fix-math-294",
+  "v": -6,
+  "text": "-6",
+  "f": "=ECMA.CEILING(-6.7,\"2\")",
+  "local": "=ECMA.TETO(-6,7;\"2\")"
+ },
+ {
+  "id": "fix-math-295",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(-6.7,\"x\")",
+  "local": "=ECMA.TETO(-6,7;\"x\")"
+ },
+ {
+  "id": "fix-math-296",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(-6.7,#DIV/0!)",
+  "local": "=ECMA.TETO(-6,7;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-297",
+  "v": 1,
+  "text": "1",
+  "f": "=ECMA.CEILING(TRUE,1)",
+  "local": "=ECMA.TETO(VERDADEIRO;1)"
+ },
+ {
+  "id": "fix-math-298",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(TRUE,-1)",
+  "local": "=ECMA.TETO(VERDADEIRO;-1)"
+ },
+ {
+  "id": "fix-math-299",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(TRUE,0)",
+  "local": "=ECMA.TETO(VERDADEIRO;0)"
+ },
+ {
+  "id": "fix-math-300",
+  "v": 2,
+  "text": "2",
+  "f": "=ECMA.CEILING(TRUE,2)",
+  "local": "=ECMA.TETO(VERDADEIRO;2)"
+ },
+ {
+  "id": "fix-math-301",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(TRUE,-2)",
+  "local": "=ECMA.TETO(VERDADEIRO;-2)"
+ },
+ {
+  "id": "fix-math-302",
+  "v": 1,
+  "text": "1",
+  "f": "=ECMA.CEILING(TRUE,0.5)",
+  "local": "=ECMA.TETO(VERDADEIRO;0,5)"
+ },
+ {
+  "id": "fix-math-303",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(TRUE,-0.5)",
+  "local": "=ECMA.TETO(VERDADEIRO;-0,5)"
+ },
+ {
+  "id": "fix-math-304",
+  "v": 3,
+  "text": "3",
+  "f": "=ECMA.CEILING(TRUE,3)",
+  "local": "=ECMA.TETO(VERDADEIRO;3)"
+ },
+ {
+  "id": "fix-math-305",
+  "v": 1,
+  "text": "1",
+  "f": "=ECMA.CEILING(TRUE,0.1)",
+  "local": "=ECMA.TETO(VERDADEIRO;0,1)"
+ },
+ {
+  "id": "fix-math-306",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(TRUE,FALSE)",
+  "local": "=ECMA.TETO(VERDADEIRO;FALSO)"
+ },
+ {
+  "id": "fix-math-307",
+  "v": 2,
+  "text": "2",
+  "f": "=ECMA.CEILING(TRUE,\"2\")",
+  "local": "=ECMA.TETO(VERDADEIRO;\"2\")"
+ },
+ {
+  "id": "fix-math-308",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(TRUE,\"x\")",
+  "local": "=ECMA.TETO(VERDADEIRO;\"x\")"
+ },
+ {
+  "id": "fix-math-309",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(TRUE,#DIV/0!)",
+  "local": "=ECMA.TETO(VERDADEIRO;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-310",
+  "v": 3,
+  "text": "3",
+  "f": "=ECMA.CEILING(\"3\",1)",
+  "local": "=ECMA.TETO(\"3\";1)"
+ },
+ {
+  "id": "fix-math-311",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(\"3\",-1)",
+  "local": "=ECMA.TETO(\"3\";-1)"
+ },
+ {
+  "id": "fix-math-312",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(\"3\",0)",
+  "local": "=ECMA.TETO(\"3\";0)"
+ },
+ {
+  "id": "fix-math-313",
+  "v": 4,
+  "text": "4",
+  "f": "=ECMA.CEILING(\"3\",2)",
+  "local": "=ECMA.TETO(\"3\";2)"
+ },
+ {
+  "id": "fix-math-314",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(\"3\",-2)",
+  "local": "=ECMA.TETO(\"3\";-2)"
+ },
+ {
+  "id": "fix-math-315",
+  "v": 3,
+  "text": "3",
+  "f": "=ECMA.CEILING(\"3\",0.5)",
+  "local": "=ECMA.TETO(\"3\";0,5)"
+ },
+ {
+  "id": "fix-math-316",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=ECMA.CEILING(\"3\",-0.5)",
+  "local": "=ECMA.TETO(\"3\";-0,5)"
+ },
+ {
+  "id": "fix-math-317",
+  "v": 3,
+  "text": "3",
+  "f": "=ECMA.CEILING(\"3\",3)",
+  "local": "=ECMA.TETO(\"3\";3)"
+ },
+ {
+  "id": "fix-math-318",
+  "v": 3,
+  "text": "3",
+  "f": "=ECMA.CEILING(\"3\",0.1)",
+  "local": "=ECMA.TETO(\"3\";0,1)"
+ },
+ {
+  "id": "fix-math-319",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(\"3\",FALSE)",
+  "local": "=ECMA.TETO(\"3\";FALSO)"
+ },
+ {
+  "id": "fix-math-320",
+  "v": 4,
+  "text": "4",
+  "f": "=ECMA.CEILING(\"3\",\"2\")",
+  "local": "=ECMA.TETO(\"3\";\"2\")"
+ },
+ {
+  "id": "fix-math-321",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"3\",\"x\")",
+  "local": "=ECMA.TETO(\"3\";\"x\")"
+ },
+ {
+  "id": "fix-math-322",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=ECMA.CEILING(\"3\",#DIV/0!)",
+  "local": "=ECMA.TETO(\"3\";#DIV/0!)"
+ },
+ {
+  "id": "fix-math-323",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",1)",
+  "local": "=ECMA.TETO(\"x\";1)"
+ },
+ {
+  "id": "fix-math-324",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",-1)",
+  "local": "=ECMA.TETO(\"x\";-1)"
+ },
+ {
+  "id": "fix-math-325",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",0)",
+  "local": "=ECMA.TETO(\"x\";0)"
+ },
+ {
+  "id": "fix-math-326",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",2)",
+  "local": "=ECMA.TETO(\"x\";2)"
+ },
+ {
+  "id": "fix-math-327",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",-2)",
+  "local": "=ECMA.TETO(\"x\";-2)"
+ },
+ {
+  "id": "fix-math-328",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",0.5)",
+  "local": "=ECMA.TETO(\"x\";0,5)"
+ },
+ {
+  "id": "fix-math-329",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",-0.5)",
+  "local": "=ECMA.TETO(\"x\";-0,5)"
+ },
+ {
+  "id": "fix-math-330",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",3)",
+  "local": "=ECMA.TETO(\"x\";3)"
+ },
+ {
+  "id": "fix-math-331",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",0.1)",
+  "local": "=ECMA.TETO(\"x\";0,1)"
+ },
+ {
+  "id": "fix-math-332",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",FALSE)",
+  "local": "=ECMA.TETO(\"x\";FALSO)"
+ },
+ {
+  "id": "fix-math-333",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",\"2\")",
+  "local": "=ECMA.TETO(\"x\";\"2\")"
+ },
+ {
+  "id": "fix-math-334",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",\"x\")",
+  "local": "=ECMA.TETO(\"x\";\"x\")"
+ },
+ {
+  "id": "fix-math-335",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=ECMA.CEILING(\"x\",#DIV/0!)",
+  "local": "=ECMA.TETO(\"x\";#DIV/0!)"
+ },
+ {
+  "id": "fix-math-336",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,1)",
+  "local": "=ECMA.TETO(#N/D;1)"
+ },
+ {
+  "id": "fix-math-337",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,-1)",
+  "local": "=ECMA.TETO(#N/D;-1)"
+ },
+ {
+  "id": "fix-math-338",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,0)",
+  "local": "=ECMA.TETO(#N/D;0)"
+ },
+ {
+  "id": "fix-math-339",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,2)",
+  "local": "=ECMA.TETO(#N/D;2)"
+ },
+ {
+  "id": "fix-math-340",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,-2)",
+  "local": "=ECMA.TETO(#N/D;-2)"
+ },
+ {
+  "id": "fix-math-341",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,0.5)",
+  "local": "=ECMA.TETO(#N/D;0,5)"
+ },
+ {
+  "id": "fix-math-342",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,-0.5)",
+  "local": "=ECMA.TETO(#N/D;-0,5)"
+ },
+ {
+  "id": "fix-math-343",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,3)",
+  "local": "=ECMA.TETO(#N/D;3)"
+ },
+ {
+  "id": "fix-math-344",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,0.1)",
+  "local": "=ECMA.TETO(#N/D;0,1)"
+ },
+ {
+  "id": "fix-math-345",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,FALSE)",
+  "local": "=ECMA.TETO(#N/D;FALSO)"
+ },
+ {
+  "id": "fix-math-346",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,\"2\")",
+  "local": "=ECMA.TETO(#N/D;\"2\")"
+ },
+ {
+  "id": "fix-math-347",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,\"x\")",
+  "local": "=ECMA.TETO(#N/D;\"x\")"
+ },
+ {
+  "id": "fix-math-348",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=ECMA.CEILING(#N/A,#DIV/0!)",
+  "local": "=ECMA.TETO(#N/D;#DIV/0!)"
+ },
+ {
+  "id": "fix-math-349",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @105"
+ },
+ {
+  "id": "fix-math-350",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(2.5,)",
+  "local": "=ECMA.TETO(2,5;)"
+ },
+ {
+  "id": "fix-math-351",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(,2)",
+  "local": "=ECMA.TETO(;2)"
+ },
+ {
+  "id": "fix-math-352",
+  "v": 2,
+  "spill": [
+   [
+    2,
+    -2
+   ]
+  ],
+  "text": "2",
+  "f": "=ECMA.CEILING({1.5,-2.5},1)",
+  "local": "=ECMA.TETO({1,5\\-2,5};1)"
+ },
+ {
+  "id": "fix-math-353",
+  "v": 8,
+  "text": "8",
+  "f": "=ECMA.CEILING(A1,B1)",
+  "local": "=ECMA.TETO(A1;B1)"
+ },
+ {
+  "id": "fix-math-354",
+  "v": 0,
+  "text": "0",
+  "f": "=ECMA.CEILING(A1,B1)",
+  "local": "=ECMA.TETO(A1;B1)"
  }
 ]

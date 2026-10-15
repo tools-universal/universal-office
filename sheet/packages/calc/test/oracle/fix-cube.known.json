@@ -1,0 +1,4 @@
+{
+  "fix-cube-64": "#OCUPADO! do STOCKHISTORY é \"pendente\" no Excel: contamina a fórmula inteira (ISERROR(STOCKHISTORY(…)) = #OCUPADO!) até o serviço responder; o motor não tem cálculo assíncrono e trata como erro comum (VERDADEIRO)",
+  "fix-cube-65": "idem fix-cube-64: ERROR.TYPE de um STOCKHISTORY pendente fica #OCUPADO! no Excel; o motor dá 15"
+}
