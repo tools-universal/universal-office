@@ -97,3 +97,17 @@ describe('intervalos grandes', () => {
     expect(callFn('CONCAT', [{ ref: 'A:A' }], ctx)).toBe('aba');
   });
 });
+
+describe('RANDARRAY (propriedades, não valores)', () => {
+  it('tamanho, faixa e inteiros', () => {
+    const ctx = mockContext({ seed: 7 });
+    const a = plain(callFn('RANDARRAY', [3, 4, 5, 9, true], ctx)) as number[][];
+    expect(a.length).toBe(3);
+    expect(a[0]!.length).toBe(4);
+    for (const row of a) for (const x of row) { expect(Number.isInteger(x)).toBe(true); expect(x).toBeGreaterThanOrEqual(5); expect(x).toBeLessThanOrEqual(9); }
+    const b = plain(callFn('RANDARRAY', [2, 2, -1, 1], ctx)) as number[][];
+    for (const row of b) for (const x of row) { expect(x).toBeGreaterThanOrEqual(-1); expect(x).toBeLessThan(1); }
+    expect(plain(callFn('RANDARRAY', [1, 1, 5, 1], ctx))).toBe('#VALUE!');
+    expect(plain(callFn('RANDARRAY', [0], ctx))).toBe('#CALC!');
+  });
+});
