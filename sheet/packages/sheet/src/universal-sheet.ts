@@ -12,7 +12,7 @@ import {
 import { SheetDrawings, anchorRect, type Rect } from './drawings.js';
 import {
   bisectLE, pxToIndex, indexScreenPos, boundaryAt, pxToColWidthChars, pxToRowHeightPt,
-  layoutRichLines, MergeIndex, type RichSeg, type MergeRect,
+  layoutRichLines, MergeIndex, type MergeRect,
 } from './grid-layout.js';
 import { defaultXfMaps, xfIndexAt } from './cell-format.js';
 import { paintCellFill, hasFill } from './fills.js';
@@ -25,7 +25,7 @@ import {
   type CellText, type CellTextInput,
 } from './cell-text.js';
 import { CellFonts, type CellFont } from './text-metrics.js';
-import { paintCellText, wrapLines } from './cell-paint.js';
+import { paintCellText, paintRichText, wrapLines, type RichRunStyle } from './cell-paint.js';
 
 /**
  * <universal-sheet> — webcomponent que renderiza uma pasta de trabalho .xlsx
@@ -74,15 +74,6 @@ interface ResolvedStyle {
   numFmtCode?: string;
   /** Camada da formatação condicional (barra/ícone/ocultar valor). */
   cf?: CfResult;
-}
-
-/** Fonte efetiva de um run rico (props do run resolvidas sobre a da célula). */
-interface EffRunFont {
-  css: string;
-  sizePx: number;
-  color: string;
-  underline: boolean;
-  strike: boolean;
 }
 
 export interface SheetView {
@@ -156,6 +147,18 @@ const SHAPE_FALLBACKS = ['Calibri', 'Aptos'];
  *  numa pasta chinesa) vem antes, para a escrita que a fonte latina não cobre. */
 function fallbacksOf(font: Font | undefined): string[] {
   return font?.altName ? [font.altName, ...SHEET_FALLBACKS] : SHEET_FALLBACKS;
+}
+
+/** Sobrescrito/subscrito da célula inteira: o Excel desenha a fonte a ~2/3 do tamanho. */
+function scriptFont(font: Font | undefined): Font | undefined {
+  return font?.vertAlign ? { ...font, size: Math.max(1, Math.round((font.size ?? 11) * 2 / 3 * 2) / 2) } : font;
+}
+
+/** Deslocamento da linha de base (px, + = para baixo) do sobrescrito/subscrito da célula. */
+function scriptShift(font: Font | undefined, zoom: number): number {
+  if (!font?.vertAlign) return 0;
+  const ppem = (font.size ?? 11) * 96 / 72 * zoom;
+  return Math.round(font.vertAlign === 'superscript' ? -ppem * 0.33 : ppem * 0.14);
 }
 
 export class UniversalSheetElement extends HTMLElement {
@@ -990,6 +993,8 @@ export class UniversalSheetElement extends HTMLElement {
   private unsubscribeFonts: (() => void) | null = null;
   /** Fontes de célula medidas como o Excel (px inteiros por glifo, ppem inteiro). */
   private readonly cellFonts = new CellFonts();
+  /** Largura da região espelhada (aba RTL na captura) para posicionar desenhos; 0 = sem espelho. */
+  private mirrorW = 0;
 
   disconnectedCallback(): void {
     this.unsubscribeFonts?.();
@@ -1507,14 +1512,21 @@ export class UniversalSheetElement extends HTMLElement {
     canvas.height = h;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      // aba da direita para a esquerda (sheetView rightToLeft): a coluna A fica à
+      // direita — a grade é pintada espelhada (o texto se desespelha em
+      // drawCellText); imagens/gráficos vão para a caixa espelhada sem inverter
+      const rtl = !!v.worksheet.rightToLeft;
+      ctx.setTransform(rtl ? -1 : 1, 0, 0, 1, rtl ? w : 0, 0);
       const rowMap = this.paintCaches(v);
       this.paintRegion(ctx, rowMap, 0, 0, w, h, 1, nCols, 1, nRows, 0, 0);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, w, h);
       ctx.clip();
+      this.mirrorW = rtl ? w : 0;
       this.paintDrawings(ctx, 0, 0, { x: 0, y: 0, w, h });
+      this.mirrorW = 0;
       ctx.restore();
     }
     this.sheetIndex = keep.sheet;
@@ -1713,8 +1725,13 @@ export class UniversalSheetElement extends HTMLElement {
       // fora da área (folga p/ giro/sombra: a maior dimensão)
       const m = Math.max(r.w, r.h) + 40;
       if (x > view.x + view.w + m || y > view.y + view.h + m || x + r.w < view.x - m || y + r.h < view.y - m) continue;
+      // aba da direita para a esquerda (captura): o objeto vai para a caixa
+      // espelhada, sem inverter o conteúdo
+      const dx = this.mirrorW ? this.mirrorW - 2 * x - r.w : 0;
+      if (dx) { ctx.save(); ctx.translate(dx, 0); }
       if ('chartXml' in it) this.paintAnchoredChart(ctx, it.chartXml, { x, y, w: r.w, h: r.h });
       else layer?.paint(ctx, it, r, sx, sy, this.zoom, this.shapeFontStack, (xml, cr) => this.paintAnchoredChart(ctx, xml, cr));
+      if (dx) ctx.restore();
     }
   }
 
@@ -1981,20 +1998,31 @@ export class UniversalSheetElement extends HTMLElement {
     const lay = this.cellLayout(cell, st, cw);
     if (!lay || (lay.ct.pieces.length === 0 && !lay.ct.text)) return;
     const font = st.font;
+    let { f, ct } = lay;
+    // "reduzir para caber": o conteúdo inteiro (sem ####/menos casas) numa fonte menor
+    if (this.styles.cellXfs[cell?.style ?? 0]?.shrinkToFit && !st.wrap && !st.rotation) {
+      const wide = layoutCellText(lay.inp, f, 1e6);
+      const W = wide.width >= 0 ? wide.width : f.width(wide.text);
+      const boxW = cw - cellMarginPx(f.ppem);
+      if (W > boxW && W > 0 && boxW > 0) {
+        const base = scriptFont(font);
+        f = this.cellFont({ ...(base ?? {}), size: Math.max(1, (base?.size ?? 11) * boxW / W) });
+        ct = layoutCellText(lay.inp, f, cw);
+      }
+    }
     paintCellText({
-      ctx, f: lay.f, ct: lay.ct, kind: lay.inp.kind,
+      ctx, f, ct, kind: lay.inp.kind, baselineShift: scriptShift(font, this.zoom),
       left, top, w: cw, h,
       halign: st.align, valign: st.valign, wrap: st.wrap,
       indent: st.indent, indentPx: this.indentUnitPx() * this.zoom,
       rotation: st.rotation,
       // cor do numFmt (ex.: [Red] em negativos) tem prioridade sobre a da fonte
-      color: lay.ct.color ?? font?.color ?? TEXT,
+      color: ct.color ?? font?.color ?? TEXT,
       underline: font?.underline ? font.underlineStyle ?? 'single' : undefined,
       strike: !!font?.strike,
       lineH: excelRowPx(font?.name ?? this.normalFont.name, font?.size ?? this.normalFont.size, !!font?.bold) * this.zoom,
       merged,
       overflow: (dir, need) => this.overflowExtent(col, row, cells, dir, need),
-      rtl: this.view?.worksheet.rightToLeft,
     });
   }
 
@@ -2006,144 +2034,43 @@ export class UniversalSheetElement extends HTMLElement {
     return undefined;
   }
 
-  /** Fonte efetiva de um run: props do run sobrepõem a fonte da célula. */
-  private effRunFont(base: Font | undefined, p: RunProps | undefined): EffRunFont {
-    const bold = p?.bold ?? base?.bold ?? false;
-    const italic = p?.italic ?? base?.italic ?? false;
+  /** Estilo efetivo de um run rico: props do run sobrepõem a fonte da célula. */
+  private richRunStyle(base: Font | undefined, p: RunProps | undefined): RichRunStyle {
+    const font: Font = {
+      name: p?.font ?? base?.name ?? this.normalFont.name,
+      // rFont explícito do run usa o fallback do app; senão o da célula (altName)
+      ...(p?.font ? {} : base?.altName ? { altName: base.altName } : {}),
+      bold: p?.bold ?? base?.bold ?? false,
+      italic: p?.italic ?? base?.italic ?? false,
+      size: p?.size ?? base?.size ?? 11,
+      vertAlign: p?.vertAlign ?? base?.vertAlign,
+    };
     const underline = p?.underline ?? base?.underline ?? false;
-    const strike = p?.strike ?? base?.strike ?? false;
-    const sizePt = p?.size ?? base?.size ?? 11;
-    const sizePx = sizePt * 96 / 72 * this.zoom;
-    // rFont explícito do run tem prioridade; senão a convenção da célula
-    const family = this.fontResolver.cssStack(p?.font ?? base?.name ?? 'Aptos Narrow', p?.font ? SHEET_FALLBACKS : fallbacksOf(base), variantOf(bold, italic));
     return {
-      css: `${italic ? 'italic ' : ''}${bold ? '700 ' : '400 '}${sizePx}px ${family}`,
-      sizePx,
+      f: this.cellFont(scriptFont(font)),
       color: p?.color ?? base?.color ?? TEXT,
-      underline,
-      strike,
+      underline: underline ? base?.underlineStyle ?? 'single' : undefined,
+      strike: p?.strike ?? base?.strike ?? false,
+      shift: scriptShift(font, this.zoom),
+      lineH: excelRowPx(font.name, font.size ?? 11, !!font.bold) * this.zoom,
     };
   }
 
   /**
-   * Pinta uma célula de texto RICO: mede e desenha run a run (fonte, cor,
-   * sublinhado/tachado por run), respeitando alinhamento, wrap por segmentos
-   * e transbordo para vizinhas vazias.
+   * Pinta uma célula de texto RICO (cell-paint.paintRichText): run a run com a
+   * fonte, a cor, o sublinhado/tachado e o sobrescrito/subscrito de cada um.
    */
   private paintRichCell(
     ctx: CanvasRenderingContext2D, runs: RichRun[], st: ResolvedStyle,
     left: number, top: number, w: number, h: number,
     col: number, row: number, cells?: Map<number, Cell>, merged = false,
   ): void {
-    const pad = 3 * this.zoom;
-    const innerW = w - pad * 2;
-    const eff = runs.map((r) => this.effRunFont(st.font, r.props));
-    const measure = (text: string, run: number): number => {
-      ctx.font = eff[run]!.css;
-      return ctx.measureText(text).width;
-    };
-    let ta: CanvasTextAlign = 'left'; // strings em General alinham à esquerda
-    if (st.align === 'center') ta = 'center';
-    else if (st.align === 'right') ta = 'right';
-    ctx.textAlign = 'left'; // segmentos são desenhados manualmente esq→dir
-    ctx.textBaseline = 'alphabetic';
-
-    if (st.wrap) {
-      const lines = layoutRichLines(runs.map((r) => r.text), innerW, measure);
-      // altura por linha: maior fonte presente na linha (fallback: fonte da célula)
-      const cellSizePx = (st.font?.size ?? 11) * 96 / 72 * this.zoom;
-      const lineHs = lines.map((line) => {
-        let maxSz = 0;
-        for (const s of line) maxSz = Math.max(maxSz, eff[s.run]!.sizePx);
-        return (maxSz || cellSizePx) * 1.2;
-      });
-      const totalH = lineHs.reduce((a, b) => a + b, 0);
-      const va = st.valign ?? 'bottom';
-      let yTop: number;
-      if (va === 'top') yTop = top + pad;
-      else if (va === 'center' || va === 'middle') yTop = top + (h - totalH) / 2;
-      else yTop = top + h - pad - totalH;
-      ctx.save();
-      ctx.beginPath(); ctx.rect(left + 0.5, top + 0.5, w - 1, h - 1); ctx.clip();
-      let yy = yTop;
-      for (let i = 0; i < lines.length; i++) {
-        const lh = lineHs[i]!;
-        this.drawRichSegs(ctx, lines[i]!, eff, left, w, pad, ta, yy + (lh / 1.2) * 0.85, measure);
-        yy += lh;
-      }
-      ctx.restore();
-      return;
-    }
-
-    // linha única: mesmo transbordo p/ vizinhas vazias do texto simples
-    const segs: RichSeg[] = [];
-    runs.forEach((r, i) => { if (r.text !== '') segs.push({ text: r.text, run: i }); });
-    if (segs.length === 0) return;
-    let totalW = 0;
-    for (const s of segs) totalW += measure(s.text, s.run);
-    let clipLeft = left, clipW = w;
-    if (!merged && totalW > innerW) {
-      const overflow = totalW - innerW;
-      if (ta === 'left') clipW = w + this.overflowExtent(col, row, cells, 1, overflow);
-      else if (ta === 'right') {
-        const e = this.overflowExtent(col, row, cells, -1, overflow);
-        clipLeft = left - e; clipW = w + e;
-      } else {
-        const half = overflow / 2;
-        const er = this.overflowExtent(col, row, cells, 1, half);
-        const el = this.overflowExtent(col, row, cells, -1, half);
-        clipLeft = left - el; clipW = w + el + er;
-      }
-    }
-    // baseline: maior ascent/descent entre os runs (bottom default, ~2px)
-    let maxAsc = 0, maxDesc = 0;
-    for (const s of segs) {
-      ctx.font = eff[s.run]!.css;
-      const m = ctx.measureText(s.text);
-      maxAsc = Math.max(maxAsc, m.actualBoundingBoxAscent || eff[s.run]!.sizePx * 0.8);
-      maxDesc = Math.max(maxDesc, m.actualBoundingBoxDescent || eff[s.run]!.sizePx * 0.2);
-    }
-    const va = st.valign ?? 'bottom';
-    let baseline: number;
-    if (va === 'top') baseline = top + 2 * this.zoom + maxAsc;
-    else if (va === 'center' || va === 'middle') baseline = top + (h + maxAsc - maxDesc) / 2;
-    else baseline = top + h - 2 * this.zoom - maxDesc;
-
-    ctx.save();
-    ctx.beginPath(); ctx.rect(clipLeft + 0.5, top + 0.5, clipW - 1, h - 1); ctx.clip();
-    this.drawRichSegs(ctx, segs, eff, left, w, pad, ta, baseline, measure);
-    ctx.restore();
-  }
-
-  /** Desenha os segmentos de UMA linha rica com sublinhado/tachado por run. */
-  private drawRichSegs(
-    ctx: CanvasRenderingContext2D, segs: RichSeg[], eff: EffRunFont[],
-    left: number, w: number, pad: number, ta: CanvasTextAlign, baseline: number,
-    measure: (text: string, run: number) => number,
-  ): void {
-    let lineW = 0;
-    for (const s of segs) lineW += measure(s.text, s.run);
-    let x = ta === 'right' ? left + w - pad - lineW : ta === 'center' ? left + (w - lineW) / 2 : left + pad;
-    for (const s of segs) {
-      const f = eff[s.run]!;
-      ctx.font = f.css;
-      ctx.fillStyle = f.color;
-      const segW = ctx.measureText(s.text).width;
-      ctx.fillText(s.text, x, baseline);
-      if (f.underline || f.strike) {
-        ctx.strokeStyle = f.color;
-        ctx.lineWidth = Math.max(1, f.sizePx / 14);
-        if (f.underline) {
-          const uy = Math.round(baseline + f.sizePx * 0.12) + 0.5;
-          ctx.beginPath(); ctx.moveTo(x, uy); ctx.lineTo(x + segW, uy); ctx.stroke();
-        }
-        if (f.strike) {
-          const sy = Math.round(baseline - f.sizePx * 0.28) + 0.5;
-          ctx.beginPath(); ctx.moveTo(x, sy); ctx.lineTo(x + segW, sy); ctx.stroke();
-        }
-      }
-      x += segW;
-    }
+    paintRichText({
+      ctx, texts: runs.map((r) => r.text), styles: runs.map((r) => this.richRunStyle(st.font, r.props)),
+      left, top, w, h, halign: st.align, valign: st.valign, wrap: st.wrap,
+      indent: st.indent, indentPx: this.indentUnitPx() * this.zoom, merged,
+      overflow: (dir, need) => this.overflowExtent(col, row, cells, dir, need),
+    }, layoutRichLines);
   }
 
   private paintSelection(ctx: CanvasRenderingContext2D, vw: number, vh: number): void {
@@ -2459,7 +2386,7 @@ export class UniversalSheetElement extends HTMLElement {
     if (level > 0 && (st.align === 'left' || st.align === 'right' || st.align === 'distributed')) {
       inp.indentPx = level * this.indentUnitPx() * zoom;
     }
-    const f = this.cellFont(st.font, zoom);
+    const f = this.cellFont(scriptFont(st.font), zoom);
     return { ct: layoutCellText(inp, f, colPx), f, inp };
   }
 

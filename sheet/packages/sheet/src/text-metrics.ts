@@ -10,6 +10,26 @@ import type { FontMetrics } from './cell-text.js';
 /** Escritas que dependem de shaping/bidi: não dá para medir/desenhar glifo a glifo. */
 const COMPLEX = /[\u0590-\u08ff\u0900-\u0dff\u0e00-\u0eff\u0f00-\u109f\u1780-\u18af\ufb1d-\ufdff\ufe70-\ufeff]/;
 
+/**
+ * Linha de base do Excel por família (ppem 8..24): 2 caracteres base62 por ppem —
+ * A (alinhado ao topo: linha de base = topo + A + 1) e D (alinhado à base: linha
+ * de base = base da célula − D). Medido no Excel 365 ("H" em linhas de 50 px,
+ * lab e12); os saltos em ppem altos (Calibri 24, Tahoma 18, Cambria 17…) são do
+ * próprio Excel (troca de suavização).
+ */
+const VMETRICS: Record<string, string> = {
+  'calibri': '8494a4b4c5c5d5e5f5g6h6i6j7j8k8l8o6',
+  'arial': '8494a4b5b5c5d5e5f5g5h5i6i6j7k7n5o6',
+  'times new roman': '84a3a5a5b5c5d5e5f5g5h6h7i7j7m5n6o6',
+  'verdana': '849595a5b5c5d5e5f5g6g6h6j7l4m4n5o5',
+  'segoe ui': '858595a5b5d5e6f6g7g8i9i8n8o9o8p8q9',
+  'aptos narrow': '758595a5b5c5d5e6e6f7g7j5k5l6m6n7n8',
+  'tahoma': '758595a5b5c5d6d6e6f6i4j4k4l4m6m6n6',
+  'cambria': '758595a5b5c6c6d6e6h4i4j4k4l6l6m6n6',
+  'courier new': '758595a5b6b6c6d6g4h5i6i6j6k7l7l8m9',
+};
+const VM_B62 = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
 export interface CellFont extends FontMetrics {
   /** `ctx.font` no ppem. */
   css: string;
@@ -18,6 +38,9 @@ export interface CellFont extends FontMetrics {
   /** Ascendente/descendente da fonte (px, do canvas). */
   ascent: number;
   descent: number;
+  /** Linha de base como o Excel: topo + xlAscent (alinhado ao topo); base − xlDescent (à base). */
+  xlAscent: number;
+  xlDescent: number;
   /** Largura de uma string (soma das inteiras; escrita complexa = canvas). */
   width(s: string, limit?: number): number;
 }
@@ -77,7 +100,13 @@ export class CellFonts {
       for (const ch of s) { w += adv(ch); if (w > limit) return w; }
       return w;
     };
-    f = { css, bold, italic, ppem, ascent, descent, adv, width };
+    // linha de base do Excel: tabela medida; fora dela, as métricas do canvas
+    const vm = VMETRICS[metricFamily.trim().toLowerCase()];
+    const vi = (ppem - 8) * 2;
+    const inTable = !!vm && ppem >= 8 && vi + 1 < vm.length;
+    const xlAscent = inTable ? VM_B62.indexOf(vm[vi]!) + 1 : ascent + 1;
+    const xlDescent = inTable ? VM_B62.indexOf(vm[vi + 1]!) : descent + 2;
+    f = { css, bold, italic, ppem, ascent, descent, xlAscent, xlDescent, adv, width };
     this.cache.set(key, f);
     return f;
   }
@@ -91,6 +120,18 @@ export class CellFonts {
 export function drawCellText(ctx: CanvasRenderingContext2D, f: CellFont, s: string, x: number, y: number, minX = -Infinity, maxX = Infinity): number {
   ctx.font = f.css;
   ctx.textAlign = 'left';
+  if (ctx.getTransform().a < 0) {
+    // aba da direita para a esquerda: a grade é pintada espelhada; o texto não —
+    // desenha o pedaço inteiro "desespelhado" na caixa espelhada (ordem de leitura mantida)
+    const W = f.width(s);
+    ctx.save();
+    ctx.translate(x + W, 0);
+    ctx.scale(-1, 1);
+    if (COMPLEX.test(s)) ctx.fillText(s, 0, y);
+    else { let cx = 0; for (const ch of s) { if (ch !== ' ') ctx.fillText(ch, cx, y); cx += f.adv(ch); } }
+    ctx.restore();
+    return x + W;
+  }
   if (COMPLEX.test(s)) {
     ctx.fillText(s, x, y);
     return x + f.width(s);
