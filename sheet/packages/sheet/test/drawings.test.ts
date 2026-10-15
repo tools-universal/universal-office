@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseXml, type DrawingAnchor } from '@universal/sheet-core';
-import { PptxPackage, readDrawingElements, readTheme } from '@universal/slides-core';
+import { XlsxPackage, parseXml, type DrawingAnchor } from '@universal/sheet-core';
+import { readDrawingElements, readTheme } from '@universal/slides-core';
 import { anchorRect, placeElement, swapsBox, EMU_PER_PX } from '../src/drawings.js';
 
 // grade de colunas de 64 px e linhas de 20 px; a coluna 3 (0-based) oculta
@@ -42,7 +42,7 @@ describe('swapsBox (giro entre 45° e 135°/225°–315°: âncora = caixa girad
 });
 
 describe('placeElement + leitor do slides-core', () => {
-  const pkg = PptxPackage.fromParts(new Map());
+  const pkg = XlsxPackage.empty(); // o próprio pacote da planilha serve de fonte de partes
   const theme = readTheme(pkg, 'xl/theme/theme1.xml');
   const NS = 'xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"';
   const sp = (id: number, x: number, y: number, cx: number, cy: number, hidden = false): string =>

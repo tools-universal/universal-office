@@ -2,6 +2,12 @@ import { unzipSync, zipSync, type Zippable } from 'fflate';
 import { isCfb, convertPptToPptx } from './ppt/index.js';
 
 /**
+ * O que o leitor DrawingML usa de um pacote OPC: outro hospedeiro (a planilha,
+ * com o próprio pacote) entrega isto e não arrasta o conversor de .ppt.
+ */
+export type PartSource = Pick<PptxPackage, 'getPart' | 'getPartText' | 'resolveRelTarget'>;
+
+/**
  * Container OPC de um .pptx. REGRA DE OURO (igual ao sheet/write): round-trip
  * sem perdas — toda parte e preservada byte a byte; so regeneramos quando uma
  * edicao a modifica. A ordem das partes no ZIP e preservada (diffs limpos).
@@ -26,15 +32,6 @@ export class PptxPackage {
     return pkg;
   }
 
-  /**
-   * Partes de OUTRO pacote OPC (planilha: os desenhos de `xl/drawings/` usam o
-   * mesmo leitor DrawingML) — sem exigir `ppt/presentation.xml`. Os bytes são
-   * compartilhados, não copiados.
-   */
-  static fromParts(parts: Map<string, Uint8Array>): PptxPackage {
-    return new PptxPackage(parts);
-  }
-
   save(): Uint8Array {
     const zippable: Zippable = {};
     for (const [path, data] of this.parts) zippable[path] = data;
@@ -42,25 +39,14 @@ export class PptxPackage {
   }
 
   partNames(): string[] { return [...this.parts.keys()]; }
-  getPart(path: string): Uint8Array | undefined { return this.parts.get(path) ?? this.parts.get(this.caseless(path)); }
+  getPart(path: string): Uint8Array | undefined { return this.parts.get(path); }
   getPartText(path: string): string | undefined {
-    const d = this.getPart(path);
+    const d = this.parts.get(path);
     return d === undefined ? undefined : new TextDecoder().decode(d);
   }
-  setPartText(path: string, text: string): void { this.setPart(path, new TextEncoder().encode(text)); }
-  setPart(path: string, data: Uint8Array): void { this.parts.set(path, data); this.lower = null; }
-  removePart(path: string): void { this.parts.delete(path); this.lower = null; }
-
-  /** Índice minúsculo → nome real (sob demanda). */
-  private lower: Map<string, string> | null = null;
-  /** Nomes de parte OPC não diferenciam maiúsculas (rels apontando `Image1.PNG` para `image1.png`). */
-  private caseless(path: string): string {
-    if (!this.lower) {
-      this.lower = new Map();
-      for (const k of this.parts.keys()) if (!this.lower.has(k.toLowerCase())) this.lower.set(k.toLowerCase(), k);
-    }
-    return this.lower.get(path.toLowerCase()) ?? path;
-  }
+  setPartText(path: string, text: string): void { this.parts.set(path, new TextEncoder().encode(text)); }
+  setPart(path: string, data: Uint8Array): void { this.parts.set(path, data); }
+  removePart(path: string): void { this.parts.delete(path); }
 
   presentationXml(): string {
     const xml = this.getPartText('ppt/presentation.xml');

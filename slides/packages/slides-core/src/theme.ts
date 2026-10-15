@@ -6,7 +6,7 @@ import type { Theme } from './model.js';
 const STD_MAP: Record<string, string> = { tx1: 'dk1', bg1: 'lt1', tx2: 'dk2', bg2: 'lt2' };
 
 /** Le ppt/theme/themeN.xml -> mapa de cores do tema. */
-export function readTheme(pkg: PptxPackage, themePath: string): Theme {
+export function readTheme(pkg: Pick<PptxPackage, 'getPartText'>, themePath: string): Theme {
   const colors: Record<string, string> = {};
   const xml = pkg.getPartText(themePath);
   if (xml === undefined) return { colors };

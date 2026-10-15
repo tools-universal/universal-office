@@ -1,4 +1,4 @@
-export { PptxPackage } from './package.js';
+export { PptxPackage, type PartSource } from './package.js';
 export { parseXml, childElements, firstChild, descend, textContent, type XmlElement } from './xml.js';
 export { readPresentation, readSlide, readRels, readDrawingElements } from './read.js';
 export { tableImages } from './table-style.js';

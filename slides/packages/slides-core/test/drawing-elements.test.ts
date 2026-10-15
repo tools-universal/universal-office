@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PptxPackage, parseXml, readDrawingElements, readTheme, layoutTextBody } from '../src/index.js';
+import { parseXml, readDrawingElements, readTheme, layoutTextBody, type PartSource } from '../src/index.js';
 
 // desenhos de planilha (xdr:) lidos pelo MESMO leitor de formas do slide
 const NS = 'xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
@@ -10,7 +10,13 @@ describe('readDrawingElements (xdr → p:)', () => {
     ['xl/drawings/_rels/drawing1.xml.rels', enc('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/Image1.PNG"/></Relationships>')],
     ['xl/media/image1.png', new Uint8Array([0x89, 0x50, 0x4e, 0x47])],
   ]);
-  const pkg = PptxPackage.fromParts(parts);
+  // fonte de partes mínima (como a do pacote da planilha), sem diferenciar maiúsculas
+  const lower = new Map([...parts].map(([k, v]) => [k.toLowerCase(), v]));
+  const pkg: PartSource = {
+    getPart: (p) => lower.get(p.toLowerCase()),
+    getPartText: (p) => { const d = lower.get(p.toLowerCase()); return d && new TextDecoder().decode(d); },
+    resolveRelTarget: (from, t) => `${from.slice(0, from.lastIndexOf('/'))}/${t}`.replace(/[^/]+\/\.\.\//g, ''),
+  };
   const theme = readTheme(pkg, 'xl/theme/theme1.xml');
 
   it('forma com texto, imagem (rels com maiúsculas divergentes) e transbordo do bodyPr', () => {

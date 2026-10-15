@@ -12,9 +12,9 @@
  * Gráficos (`c:chart`) seguem no motor de gráficos do sheet (padrões do Excel).
  */
 import {
-  PptxPackage, readTheme as readDmlTheme, readDrawingElements, applyShapeTextCascade, paintShapesTo,
+  readTheme as readDmlTheme, readDrawingElements, applyShapeTextCascade, paintShapesTo,
   rasterizeSpecialImage, specialImageNeedsPrepare, prepareSpecialImage,
-  type Shape, type Theme as DmlTheme, type ImageRef, type PaintImage, type TextStyleContext, type TextStyleLevel,
+  type PartSource, type Shape, type Theme as DmlTheme, type ImageRef, type PaintImage, type TextStyleContext, type TextStyleLevel,
 } from '@universal/slides-core';
 import {
   firstChild, type XlsxPackage, type DrawingAnchor, type DrawingObject, type Theme as SheetTheme, type XmlElement,
@@ -103,7 +103,7 @@ const OFFICE_FONTS = { major: 'Calibri Light', minor: 'Calibri' };
  * planilha não há master; tx1/bg1 são dk1/lt1. Slots ausentes vêm do tema do
  * sheet-core (que já cai na paleta Office).
  */
-function drawingTheme(dml: PptxPackage, themePart: string, sheetTheme: SheetTheme | undefined): DmlTheme {
+function drawingTheme(dml: PartSource, themePart: string, sheetTheme: SheetTheme | undefined): DmlTheme {
   const t = readDmlTheme(dml, themePart);
   const colors: Record<string, string> = { ...t.colors };
   for (const [k, v] of Object.entries(sheetTheme?.byName ?? {})) if (!colors[k]) colors[k] = v;
@@ -191,7 +191,8 @@ function paintControl(ctx: CanvasRenderingContext2D, c: { type: string; checked?
  * decodifica as imagens e pinta. `onChange` = uma imagem ficou pronta (repintar).
  */
 export class SheetDrawings {
-  private readonly dml: PptxPackage;
+  /** O próprio pacote da planilha: o leitor DrawingML só lê partes por nome (sem maiúsculas). */
+  private readonly dml: PartSource;
   private readonly theme: DmlTheme;
   private readonly parsed = new WeakMap<DrawingObject, { key: string; shapes: Shape[] }>();
   private readonly images = new Map<string, { img: PaintImage; ready: boolean }>();
@@ -199,9 +200,7 @@ export class SheetDrawings {
   private readonly families = new Set<string>();
 
   constructor(pkg: XlsxPackage, themePart: string, sheetTheme: SheetTheme | undefined, private readonly onChange: () => void) {
-    const parts = new Map<string, Uint8Array>();
-    for (const p of pkg.partNames()) { const d = pkg.getPart(p); if (d) parts.set(p, d); }
-    this.dml = PptxPackage.fromParts(parts);
+    this.dml = pkg;
     this.theme = drawingTheme(this.dml, themePart, sheetTheme);
   }
 

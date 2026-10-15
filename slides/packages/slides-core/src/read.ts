@@ -10,7 +10,7 @@ import {
   parseTxStyleLevels, applyShapeTextCascade, applyTextStyles, mergeStyleLevels, readRunExtras, type BlipResolver,
   type TextStyleContext, type TextStyleLevel, type TextStyleLevels,
 } from './text-style.js';
-import type { PptxPackage } from './package.js';
+import type { PptxPackage, PartSource } from './package.js';
 import { parseSlideTiming, type CountTextUnits } from './timing.js';
 import type {
   Presentation, SlideRef, Slide, Shape, Xfrm, ImageRef, ImageFx, MediaRef, TextBody, Paragraph, Run, Theme,
@@ -730,7 +730,9 @@ function readShapes(spTree: XmlElement, theme: Theme, pkg: PptxPackage, rels: Ma
  * ocultas (`cNvPr hidden="1"`) ficam de fora, inclusive dentro de grupos.
  * Imagens/gráficos resolvem pelos rels de `ownerPart`.
  */
-export function readDrawingElements(pkg: PptxPackage, ownerPart: string, elements: XmlElement[], theme: Theme, prefix = 'xdr:'): Shape[][] {
+export function readDrawingElements(src: PartSource, ownerPart: string, elements: XmlElement[], theme: Theme, prefix = 'xdr:'): Shape[][] {
+  // o leitor só usa getPart/getPartText/resolveRelTarget (presentation.xml só em campos de slide, com reserva)
+  const pkg = src as PptxPackage;
   const rels = readRels(pkg, relsPathFor(ownerPart), ownerPart);
   return elements.map((el) => {
     const tree = { name: 'p:spTree', attrs: {}, children: [renamePrefix(el, prefix, 'p:')] };
