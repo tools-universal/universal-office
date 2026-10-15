@@ -14,10 +14,28 @@ export { applyTint };
  * indexedColors) — fallback para as paletas padrão quando ausentes.
  */
 
+export type UnderlineStyle = 'single' | 'double' | 'singleAccounting' | 'doubleAccounting';
+
+/** Booleano OOXML de elemento (<b/>, <b val="0"/>): ausente → undefined. */
+export function ooxmlFlag(el: XmlElement | undefined): boolean | undefined {
+  if (!el) return undefined;
+  const v = el.attrs['val'];
+  return v !== '0' && v !== 'false' && v !== 'none';
+}
+
+/** <u val> → tipo do sublinhado (none → undefined). */
+export function underlineOf(el: XmlElement | undefined): UnderlineStyle | undefined {
+  if (!el) return undefined;
+  const v = el.attrs['val'] ?? 'single';
+  return v === 'double' || v === 'singleAccounting' || v === 'doubleAccounting' ? v : v === 'none' ? undefined : 'single';
+}
+
 export interface Font {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  /** Tipo do sublinhado (<u val>): ausente = single. */
+  underlineStyle?: UnderlineStyle;
   strike?: boolean;
   size?: number; // pontos
   color?: string; // #RRGGBB (theme/rgb resolvido a rgb quando possível)
@@ -105,8 +123,12 @@ export interface CellXf {
   vertical?: string;
   wrapText?: boolean;
   indent?: number;
-  /** Rotação do texto: 1–90 anti-horário, 91–180 horário (−1…−90), 255 empilhado. */
+  /** Graus 0..90 (anti-horário), 91..180 (= −1..−90, horário) ou 255 (empilhado vertical). */
   textRotation?: number;
+  shrinkToFit?: boolean;
+  /** 0 = contexto, 1 = LTR, 2 = RTL. */
+  readingOrder?: number;
+  justifyLastLine?: boolean;
 }
 
 export interface Styles {
@@ -160,8 +182,8 @@ export function readStyles(pkg: XlsxPackage, cx?: ColorContext): Styles {
       const font: Font = {};
       if (boolEl(f, 'b')) font.bold = true;
       if (boolEl(f, 'i')) font.italic = true;
-      const u = firstChild(f, 'u');
-      if (u && u.attrs['val'] !== 'none') font.underline = true;
+      const u = underlineOf(firstChild(f, 'u'));
+      if (u) { font.underline = true; if (u !== 'single') font.underlineStyle = u; }
       if (boolEl(f, 'strike')) font.strike = true;
       const sz = firstChild(f, 'sz');
       if (sz?.attrs['val'] !== undefined) font.size = parseFloat(sz.attrs['val']);
@@ -256,10 +278,13 @@ export function readStyles(pkg: XlsxPackage, cx?: ColorContext): Styles {
       if (al) {
         if (al.attrs['horizontal'] !== undefined) rec.horizontal = al.attrs['horizontal'];
         if (al.attrs['vertical'] !== undefined) rec.vertical = al.attrs['vertical'];
-        if (al.attrs['wrapText'] === '1') rec.wrapText = true;
+        if (al.attrs['wrapText'] === '1' || al.attrs['wrapText'] === 'true') rec.wrapText = true;
         if (al.attrs['indent'] !== undefined) rec.indent = parseInt(al.attrs['indent'], 10);
         const rot = al.attrs['textRotation'] !== undefined ? parseInt(al.attrs['textRotation'], 10) : 0;
         if (rot > 0 && (rot <= 180 || rot === 255)) rec.textRotation = rot;
+        if (al.attrs['shrinkToFit'] === '1' || al.attrs['shrinkToFit'] === 'true') rec.shrinkToFit = true;
+        if (al.attrs['readingOrder'] !== undefined) rec.readingOrder = parseInt(al.attrs['readingOrder'], 10) || 0;
+        if (al.attrs['justifyLastLine'] === '1' || al.attrs['justifyLastLine'] === 'true') rec.justifyLastLine = true;
       }
       cellXfs.push(rec);
     }
@@ -274,10 +299,7 @@ export function readStyles(pkg: XlsxPackage, cx?: ColorContext): Styles {
 
 /** `<b/>`, `<b val="1"/>` → true; `<b val="0"/>`/ausente → false. */
 function boolEl(el: XmlElement, name: string): boolean {
-  const e = firstChild(el, name);
-  if (!e) return false;
-  const v = e.attrs['val'];
-  return v !== '0' && v !== 'false';
+  return ooxmlFlag(firstChild(el, name)) ?? false;
 }
 
 /** Lê um <border> (de célula ou de dxf — este pode trazer vertical/horizontal). */

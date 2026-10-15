@@ -13,7 +13,7 @@ export {
 export {
   excelRowPx, excelMdw, colWidthToPx, defaultColPx, rowPtToPx, measuredFamily, ppemOf,
 } from './grid-metrics.js';
-export { readStyles, readDxf, readBorder, applyTint, type Styles, type CellXf, type Font, type Fill, type GradientStop, type Border, type BorderEdge, type Dxf, type TableStyleDef, type TableStyleElementDef } from './styles.js';
+export { readStyles, readDxf, readBorder, applyTint, type Styles, type CellXf, type Font, type Fill, type GradientStop, type Border, type BorderEdge, type Dxf, type TableStyleDef, type TableStyleElementDef, type UnderlineStyle } from './styles.js';
 export {
   readTheme,
   themePath,
@@ -26,8 +26,11 @@ export {
   type Theme,
   type ColorContext,
 } from './theme.js';
+export { gdiGlyphFixes, hasGlyphTable } from './glyph-widths.js';
 export {
   formatValue,
+  formatValueParts,
+  decimalDigits,
   formatGeneral,
   serialToDate,
   BUILTIN_FORMATS,
@@ -36,6 +39,8 @@ export {
   type FormatResult,
   type FormatOptions,
   type FormatLocale,
+  type FmtPart,
+  type FormatParts,
 } from './format.js';
 export {
   refToRowCol,

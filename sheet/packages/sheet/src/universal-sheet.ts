@@ -20,6 +20,12 @@ import { buildTableLayer, applyTableLayer, paintTableHandle, type TableCellForma
 import { CfEngine, cellCfValue, todaySerial, paintDataBar, type CfResult, type CfSheetAccess } from './cond-format.js';
 import { paintCfIcon } from './cf-icons.js';
 import { winningEdge, edgeExtent, paintHEdge, paintVEdge, paintDiagonals, NO_CORNER, type CornerInfo } from './borders.js';
+import {
+  layoutCellText, localizeError, localizeBool, isoToSerial, cellMarginPx, MAX_CELL_CHARS,
+  type CellText, type CellTextInput,
+} from './cell-text.js';
+import { CellFonts, type CellFont } from './text-metrics.js';
+import { paintCellText, wrapLines } from './cell-paint.js';
 
 /**
  * <universal-sheet> — webcomponent que renderiza uma pasta de trabalho .xlsx
@@ -135,12 +141,6 @@ export interface SheetView {
   colXf: Map<number, number>;
 }
 
-/** Valores de erro (gravados em inglês no arquivo) como o Excel pt-BR os exibe. */
-const ERRORS_PT_BR: Record<string, string> = {
-  '#N/A': '#N/D', '#VALUE!': '#VALOR!', '#NAME?': '#NOME?', '#NUM!': '#NÚM!', '#NULL!': '#NULO!',
-  '#GETTING_DATA': '#OBTENDO_DADOS',
-};
-
 
 
 /**
@@ -227,13 +227,15 @@ export class UniversalSheetElement extends HTMLElement {
   }
 
   connectedCallback(): void {
-    this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.paint());
+    this.unsubscribeFonts ??= this.fontResolver.onChange(() => { this.cellFonts.clear(); this.paint(); });
     new ResizeObserver(() => { this.resize(); this.paint(); }).observe(this.canvas);
     this.resize();
     this.paint();
     // repinta quando as @font-face (Aptos Narrow) terminarem de carregar
-    (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready
-      .then(() => this.paint()).catch(() => {});
+    const fontSet = (document as unknown as { fonts?: { ready: Promise<unknown>; addEventListener?: (t: string, cb: () => void) => void } }).fonts;
+    fontSet?.ready.then(() => { this.cellFonts.clear(); this.paint(); }).catch(() => {});
+    // fonte que chega depois muda as larguras medidas: esquece o cache
+    fontSet?.addEventListener?.('loadingdone', () => this.cellFonts.clear());
   }
 
   private get view(): SheetView | null {
@@ -500,7 +502,7 @@ export class UniversalSheetElement extends HTMLElement {
               wrapW += v.colWidths.get(cc) ?? v.defaultColW;
             }
           }
-          const lines = this.countWrapLines(text, f, wrapW - 6);
+          const lines = this.countWrapLines(text, f, wrapW);
           h = Math.max(h, lines * lineH);
         }
       }
@@ -511,13 +513,11 @@ export class UniversalSheetElement extends HTMLElement {
     }
   }
 
-  /** Linhas de um texto com quebra na largura útil (px), na fonte da célula. */
-  private countWrapLines(text: string, font: Font | undefined, maxW: number): number {
-    const ctx = this.measureCtx ??= document.createElement('canvas').getContext('2d');
-    if (!ctx) return text.split('\n').length;
-    const sizePx = (font?.size ?? this.normalFont.size) * 96 / 72;
-    ctx.font = `${font?.italic ? 'italic ' : ''}${font?.bold ? '700 ' : '400 '}${sizePx}px ${this.fontResolver.cssStack(font?.name ?? this.normalFont.name, fallbacksOf(font), variantOf(!!font?.bold, !!font?.italic))}`;
-    return Math.max(1, this.wrapText(ctx, text, Math.max(1, maxW)).length);
+  /** Linhas de um texto com quebra numa coluna de `colPx` px, na fonte da célula
+   *  (mesma caixa útil e larguras do desenho — cell-paint). */
+  private countWrapLines(text: string, font: Font | undefined, colPx: number): number {
+    const f = this.cellFont(font, 1);
+    return Math.max(1, wrapLines(f, text, Math.max(1, colPx - cellMarginPx(f.ppem))).length);
   }
 
   /** Views com edições pendentes (célula/resize) a persistir no save. */
@@ -554,22 +554,30 @@ export class UniversalSheetElement extends HTMLElement {
     return { x: HEADER_W, y: HEADER_H, w: this.xs[lc] ?? 0, h: this.ys[lr] ?? 0 };
   }
 
-  /** DEBUG: texto exibido por célula da aba atual (para auditoria de paridade). */
+  /**
+   * DEBUG: texto exibido por célula da aba atual PARA A LARGURA da coluna (ou
+   * da mescla) a 100% — o mesmo que o Range.Text do Excel ("####", Geral
+   * reduzido, `*x` expandido; coluna oculta conta como largura 0).
+   */
   debugCellDisplays(): { ref: string; display: string }[] {
     const v = this.view;
     if (!v) return [];
     const out: { ref: string; display: string }[] = [];
-    for (const r of v.worksheet.rows) {
-      for (const c of r.cells) {
-        // como o Range.Text: com o formato da formatação condicional; showValue=0 esconde
-        let display: string;
-        if (v.condFormats.length > 0) {
-          const { col } = refToRowCol(c.ref);
-          const st = this.styleAt(c, col, r.r);
-          display = st.cf?.hideValue ? '' : this.formatCell(c, st.numFmtCode).text;
-        } else display = this.displayText(c);
-        out.push({ ref: c.ref, display });
+    for (const r of v.worksheet.rows) for (const c of r.cells) {
+      let col: number;
+      try { col = refToRowCol(c.ref).col; } catch { continue; }
+      const m = this.mergeAt(col, r.r);
+      if (m && !m.isOrigin) { out.push({ ref: c.ref, display: '' }); continue; }
+      let w = 0;
+      for (let k = m ? m.firstCol : col; k <= (m ? m.lastCol : col); k++) {
+        if (!v.hiddenCols.has(k)) w += v.colWidths.get(k) ?? v.defaultColW;
       }
+      // como o Range.Text: com o formato da formatação condicional; showValue=0 esconde
+      const st = v.condFormats.length > 0 ? this.styleAt(c, col, r.r) : this.resolveStyle(c, col, r.r);
+      if (st.cf?.hideValue) { out.push({ ref: c.ref, display: '' }); continue; }
+      // coluna oculta = largura 0: texto inteiro, Geral de 1 dígito ou "#", formatado ""
+      const lay = this.cellLayout(c, st, w, 1);
+      out.push({ ref: c.ref, display: lay?.ct.text ?? '' });
     }
     return out;
   }
@@ -980,6 +988,8 @@ export class UniversalSheetElement extends HTMLElement {
    *  Access, instaladas pelo nome, substitutas abertas, padrão. */
   private readonly fontResolver = FontResolver.shared();
   private unsubscribeFonts: (() => void) | null = null;
+  /** Fontes de célula medidas como o Excel (px inteiros por glifo, ppem inteiro). */
+  private readonly cellFonts = new CellFonts();
 
   disconnectedCallback(): void {
     this.unsubscribeFonts?.();
@@ -1828,59 +1838,6 @@ export class UniversalSheetElement extends HTMLElement {
   }
 
   /**
-   * Texto girado (textRotation) recortado na célula: 90 = de baixo para cima,
-   * 180 = de cima para baixo (horário), outros ângulos a partir do canto
-   * inferior esquerdo, 255 = letras empilhadas. O alinhamento vertical decide
-   * onde o texto começa ao longo da célula (fonte e cor já no contexto).
-   */
-  private paintRotatedText(ctx: CanvasRenderingContext2D, text: string, st: ResolvedStyle, left: number, top: number, w: number, h: number, size: number): void {
-    const pad = 3 * this.zoom;
-    const va = st.valign ?? 'bottom';
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(left + 0.5, top + 0.5, w - 1, h - 1);
-    ctx.clip();
-    const rot = st.rotation;
-    if (rot === 255) {
-      // empilhado: um caractere por linha, centrado na largura
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      const lineH = size * 1.1;
-      const chars = [...text];
-      const total = chars.length * lineH;
-      let y = va === 'top' ? top + pad + size * 0.9 : va === 'center' ? top + (h - total) / 2 + size * 0.9 : top + h - pad - total + size * 0.9;
-      for (const ch of chars) { ctx.fillText(ch, left + w / 2, y); y += lineH; }
-      ctx.restore();
-      return;
-    }
-    const ha = st.align ?? 'general';
-    if (rot === 90 || rot === 180) {
-      // vertical: centrado na largura (ou pelo alinhamento horizontal), começo pelo vertical
-      const cx = ha === 'left' ? left + pad + size / 2 : ha === 'right' ? left + w - pad - size / 2 : left + w / 2;
-      const up = rot === 90;
-      const start = up ? (va === 'top' ? 'right' : va === 'center' ? 'center' : 'left') : (va === 'top' ? 'left' : va === 'center' ? 'center' : 'right');
-      const cy = va === 'top' ? top + pad : va === 'center' ? top + h / 2 : top + h - pad;
-      ctx.translate(cx, cy);
-      ctx.rotate(up ? -Math.PI / 2 : Math.PI / 2);
-      ctx.textAlign = start as CanvasTextAlign;
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, 0, 0);
-      ctx.restore();
-      return;
-    }
-    // ângulo qualquer: 1–90 sobe para a direita, 91–180 desce para a direita
-    const deg = rot <= 90 ? -rot : rot - 90;
-    const ox = left + pad;
-    const oy = deg < 0 ? top + h - pad : top + pad + size;
-    ctx.translate(ox, oy);
-    ctx.rotate((deg * Math.PI) / 180);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText(text, 0, 0);
-    ctx.restore();
-  }
-
-  /**
    * "Centralizar na seleção" (centerContinuous): largura das células à direita
    * VAZIAS e com o mesmo alinhamento — o texto centra sobre o conjunto.
    */
@@ -2009,103 +1966,36 @@ export class UniversalSheetElement extends HTMLElement {
     st: ResolvedStyle, left: number, top: number, w: number, h: number,
     col = 0, row = 0, cells?: Map<number, Cell>, merged = false,
   ): void {
+    // formatação condicional com showValue=0: só a barra/ícone, sem o valor
     if (st.cf?.hideValue) return;
-    const fr = this.formatCell(cell, st.numFmtCode);
-    const display = fr.text;
-    if (display === '') return;
     // texto rico (runs): mede e desenha run a run (fonte/cor/sublinhado por run)
     const runs = this.cellRuns(cell);
     if (runs && runs.length > 0) {
+      if (this.formatCell(cell, st.numFmtCode).text === '') return;
       this.paintRichCell(ctx, runs, st, left, top, w, h, col, row, cells, merged);
       return;
     }
-    const font = st.font;
-    // sz do xlsx é em PONTOS → px@96dpi (11pt = 14.67px, NÃO 11px)
-    const size = (font?.size ?? 11) * 96 / 72 * this.zoom;
-    const style = font?.italic ? 'italic ' : '';
-    const weight = font?.bold ? '700 ' : '400 ';
-    ctx.font = `${style}${weight}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', fallbacksOf(font), variantOf(!!font?.bold, !!font?.italic))}`;
-    // cor do numFmt (ex.: [Red] em negativos) tem prioridade sobre a cor da fonte
-    ctx.fillStyle = fr.color ?? font?.color ?? TEXT;
-
-    const pad = 3 * this.zoom;          // margem horizontal interna do app de referência (~3px)
-    const numeric = this.isNumericCell(cell);
-    let ta: CanvasTextAlign = 'left';
-    if (st.align && st.align !== 'general') ta = st.align === 'center' || st.align === 'centerContinuous' ? 'center' : st.align === 'right' || st.align === 'fill' ? (st.align === 'fill' ? 'left' : 'right') : 'left';
-    else if (numeric) ta = 'right';    // General: números/datas à direita
-    ctx.textAlign = ta;
-    ctx.textBaseline = 'alphabetic';
-
-    if (st.rotation) {
-      this.paintRotatedText(ctx, display, st, left, top, w, h, size);
-      return;
-    }
-
-    // recuo (indent): ~12 px por nível com MDW 7 (medido no oráculo: 3 → 15 → 27 → 39 px)
-    const ind = ta !== 'center' && st.indent > 0 ? st.indent * Math.round(this.mdw * 12 / 7) * this.zoom : 0;
-    // "centralizar na seleção": o texto centra sobre a célula + vizinhas vazias à direita
-    // com o mesmo alinhamento (títulos de tabelas .xls)
+    // "centralizar na seleção": a célula + vizinhas vazias à direita com o mesmo
+    // alinhamento formam a largura onde o texto centra (títulos de tabelas .xls)
     const cw = st.align === 'centerContinuous' && !merged ? w + this.centerAcrossExtent(col, row, cells) : w;
-    const innerW = cw - pad * 2 - ind;
-    const textW = ctx.measureText(display).width;
-
-    // ── #### : número/data que não cabe na coluna (o app de referência nunca transborda número)
-    if (numeric && !merged && !st.wrap && textW > innerW) {
-      const hashW = ctx.measureText('#').width || pad;
-      const count = Math.max(1, Math.floor(innerW / hashW));
-      ctx.save();
-      ctx.beginPath(); ctx.rect(left + 0.5, top + 0.5, w - 1, h - 1); ctx.clip();
-      const y = this.baselineY(st, top, h, size, '#'.repeat(count), ctx);
-      ctx.fillText('#'.repeat(count), ta === 'right' ? left + w - pad : ta === 'center' ? left + w / 2 : left + pad, y);
-      ctx.restore();
-      return;
-    }
-
-    // ── transbordo de TEXTO p/ células vizinhas vazias (app de referência) ──
-    let clipLeft = left, clipW = cw;
-    if (!merged && !st.wrap && textW > innerW) {
-      const overflow = textW - innerW;
-      if (ta === 'left') clipW = w + this.overflowExtent(col, row, cells, 1, overflow);
-      else if (ta === 'right') { const e = this.overflowExtent(col, row, cells, -1, overflow); clipLeft = left - e; clipW = w + e; }
-      else if (ta === 'center') {
-        const half = overflow / 2;
-        const er = this.overflowExtent(col, row, cells, 1, half);
-        const el = this.overflowExtent(col, row, cells, -1, half);
-        clipLeft = left - el; clipW = w + el + er;
-      }
-    }
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(clipLeft + 0.5, top + 0.5, clipW - 1, h - 1);
-    ctx.clip();
-
-    if (st.wrap) {
-      const lines = this.wrapText(ctx, display, innerW);
-      // entrelinha = altura de linha da fonte no Excel (a linha auto-ajustada tem linhas × isso)
-      const lineH = excelRowPx(font?.name ?? this.normalFont.name, font?.size ?? this.normalFont.size, !!font?.bold) * this.zoom;
-      const totalH = lines.length * lineH;
-      let startY: number;
-      const va = st.valign ?? 'bottom';
-      if (va === 'top') startY = top + pad + size * 0.85;
-      else if (va === 'center') startY = top + (h - totalH) / 2 + size * 0.85;
-      else startY = top + h - pad - totalH + size * 0.85;
-      const x = ta === 'right' ? left + w - pad - ind : ta === 'center' ? left + cw / 2 : left + pad + ind;
-      for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i]!, x, startY + i * lineH);
-    } else {
-      const y = this.baselineY(st, top, h, size, display, ctx);
-      const x = ta === 'right' ? left + w - pad - ind : ta === 'center' ? left + cw / 2 : left + pad + ind;
-      ctx.fillText(display, x, y);
-      // sublinhado / tachado (modelados mas não desenhados antes)
-      if (font?.underline || font?.strike) {
-        const x0 = ta === 'right' ? left + w - pad - ind - textW : ta === 'center' ? left + cw / 2 - textW / 2 : left + pad + ind;
-        ctx.strokeStyle = ctx.fillStyle as string;
-        ctx.lineWidth = Math.max(1, size / 14);
-        if (font.underline) { const uy = Math.round(y + size * 0.12) + 0.5; ctx.beginPath(); ctx.moveTo(x0, uy); ctx.lineTo(x0 + textW, uy); ctx.stroke(); }
-        if (font.strike) { const sy = Math.round(y - size * 0.28) + 0.5; ctx.beginPath(); ctx.moveTo(x0, sy); ctx.lineTo(x0 + textW, sy); ctx.stroke(); }
-      }
-    }
-    ctx.restore();
+    const lay = this.cellLayout(cell, st, cw);
+    if (!lay || (lay.ct.pieces.length === 0 && !lay.ct.text)) return;
+    const font = st.font;
+    paintCellText({
+      ctx, f: lay.f, ct: lay.ct, kind: lay.inp.kind,
+      left, top, w: cw, h,
+      halign: st.align, valign: st.valign, wrap: st.wrap,
+      indent: st.indent, indentPx: this.indentUnitPx() * this.zoom,
+      rotation: st.rotation,
+      // cor do numFmt (ex.: [Red] em negativos) tem prioridade sobre a da fonte
+      color: lay.ct.color ?? font?.color ?? TEXT,
+      underline: font?.underline ? font.underlineStyle ?? 'single' : undefined,
+      strike: !!font?.strike,
+      lineH: excelRowPx(font?.name ?? this.normalFont.name, font?.size ?? this.normalFont.size, !!font?.bold) * this.zoom,
+      merged,
+      overflow: (dir, need) => this.overflowExtent(col, row, cells, dir, need),
+      rtl: this.view?.worksheet.rightToLeft,
+    });
   }
 
   /** Runs ricos da célula, se houver (shared string ou string inline). */
@@ -2254,39 +2144,6 @@ export class UniversalSheetElement extends HTMLElement {
       }
       x += segW;
     }
-  }
-
-  /** Baseline y respeitando alinhamento vertical (app de referência default = bottom, ~2px). */
-  private baselineY(st: ResolvedStyle, top: number, h: number, size: number, text: string, ctx: CanvasRenderingContext2D): number {
-    const m = ctx.measureText(text);
-    const asc = m.actualBoundingBoxAscent || size * 0.8;
-    const desc = m.actualBoundingBoxDescent || size * 0.2;
-    const va = st.valign ?? 'bottom';
-    if (va === 'top') return top + 2 * this.zoom + asc;
-    if (va === 'center' || va === 'middle') return top + (h + asc - desc) / 2;
-    return top + h - 2 * this.zoom - desc;
-  }
-
-  /** Quebra texto em linhas que cabem na largura disponível (word + char wrap). */
-  private wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
-    if (text.includes('\n')) return text.split('\n').flatMap((l) => this.wrapText(ctx, l, maxW));
-    const words = text.split(' ');
-    const lines: string[] = [];
-    let line = '';
-    for (const word of words) {
-      const test = line ? line + ' ' + word : word;
-      if (ctx.measureText(test).width <= maxW) { line = test; continue; }
-      if (line) { lines.push(line); line = ''; }
-      // palavra maior que a linha: quebra por caractere
-      let chunk = '';
-      for (const ch of word) {
-        if (ctx.measureText(chunk + ch).width <= maxW) chunk += ch;
-        else { if (chunk) lines.push(chunk); chunk = ch; }
-      }
-      line = chunk;
-    }
-    if (line) lines.push(line);
-    return lines.length ? lines : [''];
   }
 
   private paintSelection(ctx: CanvasRenderingContext2D, vw: number, vh: number): void {
@@ -2524,42 +2381,95 @@ export class UniversalSheetElement extends HTMLElement {
     return this.formatCell(cell).text;
   }
 
-  /** Texto + cor (numFmt pode pedir cor, ex.: `[Red]` em negativos). */
+  /**
+   * Texto + cor numa coluna "larga" (sem `####`, `*x` 1 vez) — o que a célula
+   * contém para edição, transbordo e seleção. O texto da LARGURA real é o do
+   * cellLayout (= Range.Text). `codeOverride`: formato da formatação condicional.
+   */
   private formatCell(cell: Cell | undefined, codeOverride?: string): FormatResult {
-    if (!cell) return { text: '' };
-    if (cell.type === 's' && cell.value !== undefined) {
-      const ss = this.shared[parseInt(cell.value, 10)];
-      return this.formatText(cell, ss?.text ?? '', !!ss?.runs);
-    }
-    if (cell.type === 'inlineStr') return this.formatText(cell, cell.inlineString?.text ?? '', !!cell.inlineString?.runs);
-    // booleano exibido localizado, como o app de referência pt-BR
-    if (cell.type === 'b') return { text: cell.value === '1' ? 'VERDADEIRO' : 'FALSO' };
-    // erros exibidos localizados, como o app de referência pt-BR (#N/A → #N/D…)
-    if (cell.type === 'e') return { text: ERRORS_PT_BR[cell.value ?? ''] ?? cell.value ?? '' };
-    if (cell.value === undefined) return { text: '' };
-    if (cell.type === 'str') return this.formatText(cell, cell.value, false); // string de fórmula
-    const n = parseFloat(cell.value);
-    if (Number.isNaN(n)) return { text: cell.value };
-    // "mostrar zero" desligado na aba: zero numérico (inclusive de fórmula) em branco
-    if (n === 0 && this.view?.showZeros === false) return { text: '' };
-    // numérico/data: aplica o formatCode via motor fiel ao oráculo (sheet-core)
-    const { numFmtId } = this.resolveStyle(cell);
-    const code = codeOverride ?? this.styles.numFmts.get(numFmtId) ?? builtinFormatCode(numFmtId) ?? 'General';
-    return formatValue(n, code, { date1904: this.workbook?.date1904 });
+    const inp = this.cellTextInput(cell, codeOverride);
+    if (!inp) return { text: '' };
+    if (inp.kind === 'number') return formatValue(inp.num!, inp.code, { date1904: inp.date1904, showZeros: inp.showZeros });
+    if (inp.kind === 'text') return inp.code ? formatValue(inp.str!, inp.code) : { text: inp.str! };
+    return { text: inp.str! };
+  }
+
+  /** formatCode da célula (numFmt do estilo resolvido; builtins pelo locale). */
+  private cellFormatCode(cell: Cell): string {
+    const id = this.resolveStyle(cell).numFmtId;
+    return this.styles.numFmts.get(id) ?? builtinFormatCode(id) ?? 'General';
   }
 
   /**
-   * Texto da célula com a seção de texto do formato (`@` com literais, ex.:
-   * `\ \ @"...."` = recuo + pontilhado). Texto rico fica cru (os runs são
-   * pintados como estão).
+   * Valor da célula classificado como o Excel exibe (tipo, valor, formato);
+   * null = vazia. `numCode`: formato da formatação condicional (só números).
    */
-  private formatText(cell: Cell, text: string, rich: boolean): FormatResult {
-    if (rich) return { text };
-    const { numFmtId } = this.resolveStyle(cell);
-    if (numFmtId === 0 || numFmtId === 49) return { text };
-    const code = this.styles.numFmts.get(numFmtId) ?? builtinFormatCode(numFmtId);
-    if (!code || !code.includes('@')) return { text };
-    return formatValue(text, code);
+  private cellTextInput(cell: Cell | undefined, numCode?: string): CellTextInput | null {
+    if (!cell) return null;
+    const cap = (s: string): string => (s.length > MAX_CELL_CHARS ? s.slice(0, MAX_CELL_CHARS) : s);
+    const num = (n: number): CellTextInput => ({
+      kind: 'number', num: n, code: numCode ?? this.cellFormatCode(cell),
+      date1904: this.workbook?.date1904, showZeros: this.view?.worksheet.showZeros !== false,
+    });
+    switch (cell.type) {
+      case 's': {
+        // texto rico fica cru (os runs são pintados como estão)
+        const ss = cell.value !== undefined ? this.shared[parseInt(cell.value, 10)] : undefined;
+        const t = ss?.text;
+        return t ? { kind: 'text', str: cap(t), code: ss?.runs ? undefined : this.cellFormatCode(cell) } : null;
+      }
+      case 'inlineStr': {
+        const t = cell.inlineString?.text ?? cell.value;
+        return t ? { kind: 'text', str: cap(t), code: cell.inlineString?.runs ? undefined : this.cellFormatCode(cell) } : null;
+      }
+      case 'str': return cell.value ? { kind: 'text', str: cap(cell.value), code: this.cellFormatCode(cell) } : null;
+      case 'b': return cell.value === undefined ? null : { kind: 'bool', str: localizeBool(cell.value) };
+      case 'e': return cell.value ? { kind: 'error', str: localizeError(cell.value) } : null;
+      case 'd': {
+        const n = isoToSerial(cell.value, !!this.workbook?.date1904);
+        return n === undefined ? (cell.value ? { kind: 'text', str: cell.value } : null) : num(n);
+      }
+      default: {
+        const v = cell.value?.trim();
+        if (!v) return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? num(n) : { kind: 'text', str: cap(v) };
+      }
+    }
+  }
+
+  /** Fonte da célula medida/desenhada como o Excel (ppem inteiro, larguras GDI). */
+  private cellFont(font: Font | undefined, zoom = this.zoom): CellFont {
+    const name = font?.name ?? this.normalFont.name;
+    const bold = !!font?.bold, italic = !!font?.italic;
+    const stack = this.fontResolver.cssStack(name, fallbacksOf(font), variantOf(bold, italic));
+    // família ausente no navegador (substituta padrão = Liberation Sans): o Excel
+    // também mede a ausente como Arial
+    const r = this.fontResolver.get(name);
+    const metric = r && r.source === 'default' ? 'arial' : name;
+    return this.cellFonts.get(stack, metric, font?.size ?? 11, bold, italic, zoom);
+  }
+
+  /** Texto exibido + layout para `colPx` (largura da coluna/mescla, px no zoom). */
+  private cellLayout(cell: Cell | undefined, st: ResolvedStyle, colPx: number, zoom = this.zoom): { ct: CellText; f: CellFont; inp: CellTextInput } | null {
+    const inp = this.cellTextInput(cell, st.numFmtCode);
+    if (!inp) return null;
+    // recuo (só esquerda/direita/distribuído) tira largura útil
+    const level = st.indent;
+    if (level > 0 && (st.align === 'left' || st.align === 'right' || st.align === 'distributed')) {
+      inp.indentPx = level * this.indentUnitPx() * zoom;
+    }
+    const f = this.cellFont(st.font, zoom);
+    return { ct: layoutCellText(inp, f, colPx), f, inp };
+  }
+
+  /**
+   * px de um nível de recuo a 100%: 3 espaços da fonte Normal (medido, e10:
+   * 9 px com a Normal Calibri 11, 12 px com a Normal Arial 10 — ambas MDW 7).
+   */
+  private indentUnitPx(): number {
+    const f = this.cellFont({ name: this.normalFont.name, size: this.normalFont.size, bold: this.normalFont.bold }, 1);
+    return 3 * f.adv(' ');
   }
 
   /** General: tipo numérico (n/date/currency/percent) → alinha à direita. */

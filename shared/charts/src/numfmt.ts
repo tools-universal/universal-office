@@ -45,12 +45,31 @@ export const PT_BR: FormatLocale = {
   daysShort: ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'],
   daysLong: ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'],
   ampm: ['AM', 'PM'],
-  // Oráculo COM 2026-07-01 (builtin-probe.xlsx): NumberFormatLocal por id —
-  // 14 dd/mm/aaaa · 15 dd/mmm/aa · 16 dd/mmm · 17 mmm/aa · 20 hh:mm ·
-  // 21 hh:mm:ss · 22 dd/mm/aaaa hh:mm (18/19 iguais ao en-US)
+  // numFmtId builtin SEM <numFmt> no arquivo → o formato do locale. Medido no
+  // Excel 365 pt-BR (NumberFormat + Range.Text de cada id 0..81, lab e9):
+  // moeda R$ com "-" (não parênteses), 37–40 com "-", contábeis 41–44 com R$,
+  // 23–36/50–58/71–81 datas/horas do locale, 59–70 = 1–13 (tailandês no en-US).
   builtins: {
+    5: '"R$ "#,##0;\\-"R$ "#,##0', 6: '"R$ "#,##0;[Red]\\-"R$ "#,##0',
+    7: '"R$ "#,##0.00;\\-"R$ "#,##0.00', 8: '"R$ "#,##0.00;[Red]\\-"R$ "#,##0.00',
     14: 'dd/mm/yyyy', 15: 'dd/mmm/yy', 16: 'dd/mmm', 17: 'mmm/yy',
     20: 'hh:mm', 21: 'hh:mm:ss', 22: 'dd/mm/yyyy hh:mm',
+    23: 'General', 24: 'General', 25: 'General', 26: 'General',
+    27: 'dd/mm/yyyy', 28: 'dd/mm/yyyy', 29: 'dd/mm/yyyy', 30: 'dd/mm/yyyy', 31: 'dd/mm/yyyy',
+    32: 'hh:mm:ss', 33: 'hh:mm:ss', 34: 'hh:mm:ss', 35: 'hh:mm:ss', 36: 'dd/mm/yyyy',
+    37: '#,##0;\\-#,##0', 38: '#,##0;[Red]\\-#,##0', 39: '#,##0.00;\\-#,##0.00', 40: '#,##0.00;[Red]\\-#,##0.00',
+    41: '_-* #,##0_-;\\-* #,##0_-;_-* "-"_-;_-@_-',
+    42: '_-"R$ "* #,##0_-;\\-"R$ "* #,##0_-;_-"R$ "* "-"_-;_-@_-',
+    43: '_-* #,##0.00_-;\\-* #,##0.00_-;_-* "-"??_-;_-@_-',
+    44: '_-"R$ "* #,##0.00_-;\\-"R$ "* #,##0.00_-;_-"R$ "* "-"??_-;_-@_-',
+    50: 'dd/mm/yyyy', 51: 'dd/mm/yyyy', 52: 'dd/mm/yyyy', 53: 'dd/mm/yyyy', 54: 'dd/mm/yyyy',
+    55: 'dd/mm/yyyy', 56: 'dd/mm/yyyy', 57: 'dd/mm/yyyy', 58: 'dd/mm/yyyy',
+    59: '0', 60: '0.00', 61: '#,##0', 62: '#,##0.00',
+    63: '"R$ "#,##0;\\-"R$ "#,##0', 64: '"R$ "#,##0;[Red]\\-"R$ "#,##0',
+    65: '"R$ "#,##0.00;\\-"R$ "#,##0.00', 66: '"R$ "#,##0.00;[Red]\\-"R$ "#,##0.00',
+    67: '0%', 68: '0.00%', 69: '# ?/?', 70: '# ??/??', 71: 'dd/mm/yyyy', 72: 'dd/mm/yyyy',
+    73: 'dd/mmm/yy', 74: 'dd/mmm', 75: 'mmm/yy', 76: 'hh:mm', 77: 'hh:mm:ss',
+    78: 'dd/mm/yyyy hh:mm', 79: 'mm:ss', 80: '[h]:mm:ss', 81: 'mm:ss.0',
   },
   // medido: [$-F800] → "quarta-feira, 1 de março de 2023"; [$-F400] → "18:00:00"
   sysDate: 'dddd, d" de "mmmm" de "yyyy',
@@ -248,7 +267,19 @@ function generalBody(a: number, loc: FormatLocale, budget: number): string {
     return sci !== '' ? sci : '0';
   }
   if (i.length > budget) return sciGeneral(a, loc, budget); // 9999…,5 → 1E+n
-  return (i || '0') + (frac ? loc.decimal + frac : '');
+  const dec = (i || '0') + (frac ? loc.decimal + frac : '');
+  if (a < 1) {
+    // coluna estreita: o científico vence se representa o valor MELHOR que o
+    // decimal arredondado (0,00009 em 6 vagas → "9E-05", não "0,0001"; medido)
+    const sci = sciGeneral(a, loc, budget);
+    if (sci) {
+      // empate: abaixo de 0,0001 o Excel fica com o científico (9,9E-05 em 6 vagas → "1E-04")
+      const err = (s: string): number => Math.abs(Number(s.replace(loc.decimal, '.')) - a);
+      const es = err(sci), ed = err(dec);
+      if (es < ed * (1 - 1e-9) || (a < 1e-4 && ed > a * 1e-12 && es <= ed * (1 + 1e-9))) return sci;
+    }
+  }
+  return dec;
 }
 
 function sciGeneral(a: number, loc: FormatLocale, budget: number): string {
@@ -771,7 +802,8 @@ function emitScientific(sec: Section, a: number, loc: FormatLocale, out: FmtPart
     else if (nInt === 1 && ip.length > 1) { e += 1; mant = a / Math.pow(10, e); }
   }
   const [intStr, fracStr] = decimalDigits(mant, sec.nFrac);
-  emitDigits(sec, intStr || (sec.nInt === 0 ? '0' : ''), fracStr, loc, out, expAt);
+  // zero: todos os placeholders inteiros viram 0 (medido: "##0.0E+0" c/ 0 → "000,0E+0")
+  emitDigits(sec, a > 0 ? intStr : '0'.repeat(Math.max(1, sec.nInt)), fracStr, loc, out, expAt);
   // E+ sempre com sinal; E- só quando o expoente é negativo ("0.0E-0" c/ 12345 → "1,2E4")
   out.push({ t: 'text', s: 'E' + (e < 0 ? '-' : plus ? '+' : '') });
   const expToks: Tok[] = toks.slice(expAt + 1);

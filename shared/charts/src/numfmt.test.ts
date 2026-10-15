@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { formatValue, formatValueParts, formatGeneral, decimalDigits } from './numfmt.js';
+import { formatValue, formatValueParts, formatGeneral, decimalDigits, builtinFormatCode } from './numfmt.js';
 
 /**
  * Pino 1:1 com o Range.Text do Excel 365 pt-BR: numfmt-oracle.json foi MEDIDO
@@ -17,7 +17,9 @@ describe('numfmt × Range.Text do Excel pt-BR (numfmt-oracle.json)', () => {
   it('tem casos', () => expect(cases.length).toBeGreaterThan(1000));
   for (const c of cases) {
     it(`${c.note} fmt=${JSON.stringify(c.fmt)} v=${JSON.stringify(c.v)} → ${JSON.stringify(c.text)}`, () => {
-      expect(formatValue(c.v, c.fmt).text).toBe(c.text);
+      // "builtin:N" = numFmtId N sem <numFmt> no arquivo (formato do locale pt-BR)
+      const fmt = c.fmt.startsWith('builtin:') ? builtinFormatCode(+c.fmt.slice(8)) : c.fmt;
+      expect(formatValue(c.v, fmt).text).toBe(c.text);
     });
   }
 });
