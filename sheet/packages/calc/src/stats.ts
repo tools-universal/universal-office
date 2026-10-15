@@ -62,8 +62,11 @@ export interface CollectOptions {
   readonly arrText?: 'skip' | 'zero';
   /** Booleano em matriz: ignora (padrão) ou conta 1/0. */
   readonly arrBool?: 'skip' | 'num';
-  /** Texto direto: converte (padrão; não numérico → #VALUE!) ou ignora (COUNT). */
-  readonly directText?: 'convert' | 'skip';
+  /**
+   * Texto direto: converte (padrão; não numérico → #VALUE!), ignora o não numérico
+   * (COUNT) ou ignora qualquer texto, mesmo o que parece número (MODE).
+   */
+  readonly directText?: 'convert' | 'skip' | 'ignore';
   /** Booleano direto: conta 1/0 (padrão) ou ignora. */
   readonly directBool?: 'num' | 'skip';
   /** Erros: propaga o 1º (padrão) ou ignora (COUNT, AGGREGATE com opção 2/3/6/7). */
@@ -123,6 +126,7 @@ export function collectInto(out: number[], a: Value, ctx: FnContext, o: CollectO
   if (typeof a === 'number') { out.push(a); return undefined; }
   if (typeof a === 'boolean') { if (o.directBool !== 'skip') out.push(a ? 1 : 0); return undefined; }
   if (a instanceof CalcError) return o.errors === 'skip' ? undefined : a;
+  if (o.directText === 'ignore') return undefined;
   const n = parseNumberText(a, ctx.locale);
   if (n !== undefined) out.push(n);
   else if (o.directText !== 'skip') return ERR.VALUE;

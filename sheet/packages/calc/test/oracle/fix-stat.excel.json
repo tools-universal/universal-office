@@ -1,0 +1,354 @@
+[
+ {
+  "id": "fix-stat-1",
+  "v": 0,
+  "spill": [
+   [
+    0
+   ],
+   [
+    0
+   ],
+   [
+    0
+   ]
+  ],
+  "text": "0",
+  "f": "=FREQUENCY(FALSE,{1;2})",
+  "local": "=FREQÜÊNCIA(FALSO;{1;2})"
+ },
+ {
+  "id": "fix-stat-2",
+  "v": 0,
+  "spill": [
+   [
+    0
+   ],
+   [
+    0
+   ],
+   [
+    0
+   ]
+  ],
+  "text": "0",
+  "f": "=FREQUENCY(TRUE,{1;2})",
+  "local": "=FREQÜÊNCIA(VERDADEIRO;{1;2})"
+ },
+ {
+  "id": "fix-stat-3",
+  "v": 1,
+  "spill": [
+   [
+    1
+   ],
+   [
+    1
+   ],
+   [
+    0
+   ]
+  ],
+  "text": "1",
+  "f": "=FREQUENCY({TRUE;1;FALSE;2},{1;2})",
+  "local": "=FREQÜÊNCIA({VERDADEIRO;1;FALSO;2};{1;2})"
+ },
+ {
+  "id": "fix-stat-4",
+  "v": 0,
+  "spill": [
+   [
+    0
+   ],
+   [
+    0
+   ],
+   [
+    0
+   ]
+  ],
+  "text": "0",
+  "f": "=FREQUENCY(\"1\",{1;2})",
+  "local": "=FREQÜÊNCIA(\"1\";{1;2})"
+ },
+ {
+  "id": "fix-stat-5",
+  "v": 1,
+  "spill": [
+   [
+    1
+   ],
+   [
+    0
+   ],
+   [
+    0
+   ]
+  ],
+  "text": "1",
+  "f": "=FREQUENCY({\"1\";1},{1;2})",
+  "local": "=FREQÜÊNCIA({\"1\";1};{1;2})"
+ },
+ {
+  "id": "fix-stat-6",
+  "v": 2,
+  "spill": [
+   [
+    2
+   ],
+   [
+    1
+   ]
+  ],
+  "text": "2",
+  "f": "=FREQUENCY({1;2;3},{TRUE;2})",
+  "local": "=FREQÜÊNCIA({1;2;3};{VERDADEIRO;2})"
+ },
+ {
+  "id": "fix-stat-7",
+  "v": 0,
+  "spill": [
+   [
+    0
+   ],
+   [
+    3
+   ]
+  ],
+  "text": "0",
+  "f": "=FREQUENCY({1;2;3},\"2\")",
+  "local": "=FREQÜÊNCIA({1;2;3};\"2\")"
+ },
+ {
+  "id": "fix-stat-8",
+  "v": 0,
+  "spill": [
+   [
+    0
+   ],
+   [
+    3
+   ]
+  ],
+  "text": "0",
+  "f": "=FREQUENCY({1;2;3},FALSE)",
+  "local": "=FREQÜÊNCIA({1;2;3};FALSO)"
+ },
+ {
+  "id": "fix-stat-9",
+  "v": 0,
+  "spill": [
+   [
+    0
+   ],
+   [
+    0
+   ],
+   [
+    0
+   ]
+  ],
+  "text": "0",
+  "f": "=FREQUENCY(\"\",{1;2})",
+  "local": "=FREQÜÊNCIA(\"\";{1;2})"
+ },
+ {
+  "id": "fix-stat-10",
+  "v": 0,
+  "spill": [
+   [
+    0
+   ],
+   [
+    0
+   ],
+   [
+    0
+   ]
+  ],
+  "text": "0",
+  "f": "=FREQUENCY(IFERROR(1/0,\"\"),{1;2})",
+  "local": "=FREQÜÊNCIA(SEERRO(1/0;\"\");{1;2})"
+ },
+ {
+  "id": "fix-stat-11",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(FREQUENCY(IF(FALSE,1),{1;2}))",
+  "local": "=SOMA(FREQÜÊNCIA(SE(FALSO;1);{1;2}))"
+ },
+ {
+  "id": "fix-stat-12",
+  "v": 1,
+  "spill": [
+   [
+    1
+   ],
+   [
+    1
+   ],
+   [
+    0
+   ]
+  ],
+  "text": "1",
+  "f": "=FREQUENCY(A1:A4,{1;2})",
+  "local": "=FREQÜÊNCIA(A1:A4;{1;2})"
+ },
+ {
+  "id": "fix-stat-13",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=MODE(1.1,\"1.1\",\"1\",1)",
+  "local": "=MODO(1,1;\"1.1\";\"1\";1)"
+ },
+ {
+  "id": "fix-stat-14",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "f": "=MODE(1,\"1\",2,3)",
+  "local": "=MODO(1;\"1\";2;3)"
+ },
+ {
+  "id": "fix-stat-15",
+  "v": 1,
+  "text": "1",
+  "f": "=MODE(1,\"1\",1)",
+  "local": "=MODO(1;\"1\";1)"
+ },
+ {
+  "id": "fix-stat-16",
+  "v": 1,
+  "text": "1",
+  "f": "=MODE(1,1,\"x\")",
+  "local": "=MODO(1;1;\"x\")"
+ },
+ {
+  "id": "fix-stat-17",
+  "v": 1,
+  "text": "1",
+  "f": "=MODE(1,TRUE,1)",
+  "local": "=MODO(1;VERDADEIRO;1)"
+ },
+ {
+  "id": "fix-stat-18",
+  "v": 1,
+  "text": "1",
+  "f": "=MODE(1,1,TRUE)",
+  "local": "=MODO(1;1;VERDADEIRO)"
+ },
+ {
+  "id": "fix-stat-19",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=MODE(2,2,A1)",
+  "local": "=MODO(2;2;A1)"
+ },
+ {
+  "id": "fix-stat-20",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=MODE(2,A1,2)",
+  "local": "=MODO(2;A1;2)"
+ },
+ {
+  "id": "fix-stat-21",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=MODE(A1,2,2)",
+  "local": "=MODO(A1;2;2)"
+ },
+ {
+  "id": "fix-stat-22",
+  "v": 2,
+  "text": "2",
+  "f": "=MODE(A1:A3)",
+  "local": "=MODO(A1:A3)"
+ },
+ {
+  "id": "fix-stat-23",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=MODE(A1,A2,A3)",
+  "local": "=MODO(A1;A2;A3)"
+ },
+ {
+  "id": "fix-stat-24",
+  "v": 2,
+  "text": "2",
+  "f": "=MODE(2,A1,A3)",
+  "local": "=MODO(2;A1;A3)"
+ },
+ {
+  "id": "fix-stat-25",
+  "v": 1,
+  "text": "1",
+  "f": "=MODE.SNGL(1,\"1\",1)",
+  "local": "=MODO.ÚNICO(1;\"1\";1)"
+ },
+ {
+  "id": "fix-stat-26",
+  "v": 1,
+  "text": "1",
+  "f": "=MODE.SNGL(1,1,\"x\")",
+  "local": "=MODO.ÚNICO(1;1;\"x\")"
+ },
+ {
+  "id": "fix-stat-27",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=MODE.SNGL(2,2,A1)",
+  "local": "=MODO.ÚNICO(2;2;A1)"
+ },
+ {
+  "id": "fix-stat-28",
+  "v": 1,
+  "text": "1",
+  "f": "=MODE.MULT(1,\"1\",1)",
+  "local": "=MODO.MULT(1;\"1\";1)"
+ },
+ {
+  "id": "fix-stat-29",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=MODE.MULT(2,2,A1)",
+  "local": "=MODO.MULT(2;2;A1)"
+ },
+ {
+  "id": "fix-stat-30",
+  "v": 1,
+  "text": "1",
+  "f": "=MODE(1,1,TRUE,TRUE)",
+  "local": "=MODO(1;1;VERDADEIRO;VERDADEIRO)"
+ },
+ {
+  "id": "fix-stat-31",
+  "v": 2,
+  "text": "2",
+  "f": "=MODE(A1,2,2)",
+  "local": "=MODO(A1;2;2)"
+ },
+ {
+  "id": "fix-stat-32",
+  "v": 2,
+  "text": "2",
+  "f": "=MODE(A1,2,2)",
+  "local": "=MODO(A1;2;2)"
+ }
+]

@@ -117,15 +117,23 @@ const aggHarmean: Agg = (xs) => {
 };
 
 /**
- * MODE*: texto direto não numérico é ignorado (=MODE("a";4;4) = 4); argumento
- * omitido e referência de várias áreas dão #VALUE! (medido).
+ * MODE*: texto direto é ignorado, mesmo o que parece número (=MODE("a";4;4) = 4;
+ * =MODE(1;"1";2;3) = #N/D); argumento omitido, referência de várias áreas e
+ * referência a UMA célula vazia dão #VALUE! (=MODE(2;2;A1) com A1 vazia; numa área
+ * maior a vazia é ignorada) (medido).
  */
 function modeFn(name: string, agg: Agg, prefix?: string): FnDef {
   return {
     name, prefix, minArgs: 1, maxArgs: maxArgsOf(prefix), args: 'any',
     call: (args, ctx) => {
-      for (const a of args as Value[]) if (a === null || (a instanceof RefValue && a.areas.length > 1)) return ERR.VALUE;
-      const xs = collectNumbers(args, ctx, { directText: 'skip' });
+      for (const a of args as Value[]) {
+        if (a === null || (a instanceof RefValue && a.areas.length > 1)) return ERR.VALUE;
+        if (a instanceof RefValue) {
+          const r = a.areas[0]!;
+          if (r.r1 === r.r2 && r.c1 === r.c2 && ctx.cell(r.sheet, r.r1, r.c1) === null) return ERR.VALUE;
+        }
+      }
+      const xs = collectNumbers(args, ctx, { directText: 'ignore' });
       return xs instanceof CalcError ? xs : agg(xs);
     },
   };
@@ -333,9 +341,12 @@ function trimmean(xs: number[] | CalcError, pRaw: Scalar, ctx: FnContext): Value
 
 /** FREQUENCY: contagem por faixa (≤ limite); limites na ordem dada; última = acima do maior. */
 function frequency(data: Value, bins: Value, ctx: FnContext): Value {
-  const xs = collectNumbers([data], ctx, PLAIN);
+  // escalar vale como matriz 1×1: só número conta (medido: FREQUENCY(FALSO;…), ("1";…), ("";…)
+  // dão tudo 0; limite "2" em texto é ignorado como FALSO → [0; 3])
+  const asArr = (v: Value): Value => (v instanceof RefValue || v instanceof ArrayValue || v instanceof CalcError ? v : ArrayValue.of([[v as Scalar]]));
+  const xs = collectNumbers([asArr(data)], ctx, PLAIN);
   if (xs instanceof CalcError) return xs;
-  const bsRaw = collectNumbers([bins], ctx, { errors: 'skip' });
+  const bsRaw = collectNumbers([asArr(bins)], ctx, { errors: 'skip' });
   if (bsRaw instanceof CalcError) return bsRaw;
   // limites: erros e textos ignorados; nenhum número → um limite 0 (medido)
   const bs = bsRaw.length ? bsRaw : [0];
