@@ -17188,5 +17188,2009 @@
   "v": 35.52430555555556,
   "text": "35,52431",
   "local": "=VALOR(\"852  :35\")"
+ },
+ {
+  "id": "text-text-2539",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"b\")"
+ },
+ {
+  "id": "text-text-2540",
+  "v": ": AM43 ",
+  "text": ": AM43 ",
+  "local": "=TEXTO(0,0000001;\": AM/PMb \")"
+ },
+ {
+  "id": "text-text-2541",
+  "v": "de:,0-",
+  "text": "de:,0-",
+  "local": "=TEXTO(0,0000001;\"\"\"de\"\":,0-\")"
+ },
+ {
+  "id": "text-text-2542",
+  "v": "2023",
+  "text": "2023",
+  "local": "=TEXTO(45000,123456;\"e\")"
+ },
+ {
+  "id": "text-text-2543",
+  "v": "-R$45000,12x3",
+  "text": "-R$45000,12x3",
+  "local": "=TEXTO(45000,123456;\"-R$0,00\"\"x\"\"?\")"
+ },
+ {
+  "id": "text-text-2544",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(1;\"-/\")"
+ },
+ {
+  "id": "text-text-2545",
+  "v": "-1235",
+  "text": "-1235",
+  "local": "=TEXTO(-1234,5678;\"#\")"
+ },
+ {
+  "id": "text-text-2546",
+  "v": "-1,xx",
+  "text": "-1,xx",
+  "local": "=TEXTO(-1;\",\"\"x\"\"#\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2547",
+  "v": ",",
+  "text": ",",
+  "local": "=TEXTO(0,0000001;\",;(0)\")"
+ },
+ {
+  "id": "text-text-2548",
+  "v": "45659,x",
+  "text": "45659,x",
+  "local": "=TEXTO(45658,75;\",\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2549",
+  "v": " 12x3",
+  "text": " 12x3",
+  "local": "=TEXTO(-123;\"[<0] #.##0#\"\"x\"\"#;(#.##0)\")"
+ },
+ {
+  "id": "text-text-2550",
+  "v": "--)23",
+  "text": "--)23",
+  "local": "=TEXTO(45000,123456;\"--)a\")"
+ },
+ {
+  "id": "text-text-2551",
+  "v": "0A043",
+  "text": "0A043",
+  "local": "=TEXTO(0,0001234;\"dA/Pdb\")"
+ },
+ {
+  "id": "text-text-2552",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(45658,75;\"[Cor3]0??%E+;-0,0)\")"
+ },
+ {
+  "id": "text-text-2553",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0;\",E+(\")"
+ },
+ {
+  "id": "text-text-2554",
+  "v": "P P ",
+  "text": "P P ",
+  "local": "=TEXTO(99,999;\"A/P A/P \")"
+ },
+ {
+  "id": "text-text-2555",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"a aa[mm]mmm\")"
+ },
+ {
+  "id": "text-text-2556",
+  "v": "0,",
+  "text": "0,",
+  "local": "=TEXTO(0,0000001;\"0,\")"
+ },
+ {
+  "id": "text-text-2557",
+  "v": "(,00012",
+  "text": "(,00012",
+  "local": "=TEXTO(0,0001234;\"(,##.##0\")"
+ },
+ {
+  "id": "text-text-2558",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,0000001;\"0#.##0/)00\")"
+ },
+ {
+  "id": "text-text-2559",
+  "v": ":",
+  "text": ":",
+  "local": "=TEXTO(0,0000001;\":\")"
+ },
+ {
+  "id": "text-text-2560",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-0,25;\",00[mm]mmmm/ss\")"
+ },
+ {
+  "id": "text-text-2561",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(123;\")E+;-0,0)\")"
+ },
+ {
+  "id": "text-text-2562",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1234,5678;\"ddddddd\")"
+ },
+ {
+  "id": "text-text-2563",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,0001234;\"E+E+\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2564",
+  "v": ":quarta-feira5",
+  "text": ":quarta-feira5",
+  "local": "=TEXTO(123;\":ddddm\")"
+ },
+ {
+  "id": "text-text-2565",
+  "v": "P720",
+  "text": "P720",
+  "local": "=TEXTO(0,5;\"A/P[mm]\")"
+ },
+ {
+  "id": "text-text-2566",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"mmmmmmma\")"
+ },
+ {
+  "id": "text-text-2567",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,0001234;\"0,00#0E+R$\")"
+ },
+ {
+  "id": "text-text-2568",
+  "v": ")00",
+  "text": ")00",
+  "local": "=TEXTO(0;\")#.##00\")"
+ },
+ {
+  "id": "text-text-2569",
+  "v": "0012",
+  "text": "0012",
+  "local": "=TEXTO(0,5;\"a[h]\")"
+ },
+ {
+  "id": "text-text-2570",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"? -E+.\")"
+ },
+ {
+  "id": "text-text-2571",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(1;\"\"\"x\"\"E+0,;-0\")"
+ },
+ {
+  "id": "text-text-2572",
+  "v": "-1",
+  "text": "-1",
+  "local": "=TEXTO(-1;\"0#;-#.##0\")"
+ },
+ {
+  "id": "text-text-2573",
+  "v": "1000000000-R$0",
+  "text": "1000000000-R$0",
+  "local": "=TEXTO(10000000000;\"#-R$?\")"
+ },
+ {
+  "id": "text-text-2574",
+  "v": "-1,0)",
+  "text": "-1,0)",
+  "local": "=TEXTO(-1;\"00#.##0;-0,0)\")"
+ },
+ {
+  "id": "text-text-2575",
+  "v": "-123 ,-",
+  "text": "-123 ,-",
+  "local": "=TEXTO(-123;\"0 ,#-\")"
+ },
+ {
+  "id": "text-text-2576",
+  "v": "-,x",
+  "text": "-,x",
+  "local": "=TEXTO(-0,25;\"-,\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2577",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0;\",00[h]mmmm\")"
+ },
+ {
+  "id": "text-text-2578",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"ddddddd/ssmm\")"
+ },
+ {
+  "id": "text-text-2579",
+  "v": "12 3",
+  "text": "12 3",
+  "local": "=TEXTO(123;\"0 #\")"
+ },
+ {
+  "id": "text-text-2580",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\",00m-hA/P\")"
+ },
+ {
+  "id": "text-text-2581",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1234,5678;\"a%\")"
+ },
+ {
+  "id": "text-text-2582",
+  "v": "10000xx%",
+  "text": "10000xx%",
+  "local": "=TEXTO(99,999;\"#\"\"x\"\"\"\"x\"\"%\")"
+ },
+ {
+  "id": "text-text-2583",
+  "v": "02",
+  "text": "02",
+  "local": "=TEXTO(45000,123456;\"hh\")"
+ },
+ {
+  "id": "text-text-2584",
+  "v": " 00PM",
+  "text": " 00PM",
+  "local": "=TEXTO(0,5;\" aAM/PM\")"
+ },
+ {
+  "id": "text-text-2585",
+  "v": "0",
+  "text": "0",
+  "local": "=TEXTO(0,0001234;\"0\")"
+ },
+ {
+  "id": "text-text-2586",
+  "v": "janeiro1900:",
+  "text": "janeiro1900:",
+  "local": "=TEXTO(2,5;\"mmmmaaaa:\")"
+ },
+ {
+  "id": "text-text-2587",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"[Azul]a#0\")"
+ },
+ {
+  "id": "text-text-2588",
+  "v": "(1)",
+  "text": "(1)",
+  "local": "=TEXTO(-1;\"[Azul]#.##0;(#.##0)\")"
+ },
+ {
+  "id": "text-text-2589",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"ddd\")"
+ },
+ {
+  "id": "text-text-2590",
+  "v": "0000",
+  "text": "0000",
+  "local": "=TEXTO(7;\"hha\")"
+ },
+ {
+  "id": "text-text-2591",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"mhddssm\")"
+ },
+ {
+  "id": "text-text-2592",
+  "v": "45.659,R$",
+  "text": "45.659,R$",
+  "local": "=TEXTO(45658,75;\"#.##0,R$\")"
+ },
+ {
+  "id": "text-text-2593",
+  "v": "sáb/",
+  "text": "sáb/",
+  "local": "=TEXTO(0,5;\"ddd/\")"
+ },
+ {
+  "id": "text-text-2594",
+  "v": "01",
+  "text": "01",
+  "local": "=TEXTO(0,5;\"00;(0\")"
+ },
+ {
+  "id": "text-text-2595",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"mm \")"
+ },
+ {
+  "id": "text-text-2596",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-0,25;\",0ddd/dd\")"
+ },
+ {
+  "id": "text-text-2597",
+  "v": "( 0.03",
+  "text": "( 0.03",
+  "local": "=TEXTO(2,5;\"( 00##.##0\")"
+ },
+ {
+  "id": "text-text-2598",
+  "v": "43:",
+  "text": "43:",
+  "local": "=TEXTO(99,999;\"b:\")"
+ },
+ {
+  "id": "text-text-2599",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1234,5678;\"ddddss,0/\")"
+ },
+ {
+  "id": "text-text-2600",
+  "v": "10000000000,",
+  "text": "10000000000,",
+  "local": "=TEXTO(10000000000;\"#,\")"
+ },
+ {
+  "id": "text-text-2601",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1234,5678;\"aaaah\")"
+ },
+ {
+  "id": "text-text-2602",
+  "v": ")99,999 ",
+  "text": ")99,999 ",
+  "local": "=TEXTO(99,999;\")0,00#?\")"
+ },
+ {
+  "id": "text-text-2603",
+  "v": "sábjaneiro-",
+  "text": "sábjaneiro-",
+  "local": "=TEXTO(0;\"dddmmmm-\")"
+ },
+ {
+  "id": "text-text-2604",
+  "v": "000,",
+  "text": "000,",
+  "local": "=TEXTO(0;\"[Vermelho]00#.##0,\")"
+ },
+ {
+  "id": "text-text-2605",
+  "v": "24",
+  "text": "24",
+  "local": "=TEXTO(1;\"[h]\")"
+ },
+ {
+  "id": "text-text-2606",
+  "v": "%.123457",
+  "text": "%.123457",
+  "local": "=TEXTO(1234,5678;\"%.00?\")"
+ },
+ {
+  "id": "text-text-2607",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(45658,75;\",0e\")"
+ },
+ {
+  "id": "text-text-2608",
+  "v": " ",
+  "text": " ",
+  "local": "=TEXTO(123;\"[Vermelho] \")"
+ },
+ {
+  "id": "text-text-2609",
+  "v": "-,25",
+  "text": "-,25",
+  "local": "=TEXTO(-0,25;\",00\")"
+ },
+ {
+  "id": "text-text-2610",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1234,5678;\"/\")"
+ },
+ {
+  "id": "text-text-2611",
+  "v": "(,)",
+  "text": "(,)",
+  "local": "=TEXTO(0,0000001;\"(#,)\")"
+ },
+ {
+  "id": "text-text-2612",
+  "v": "0(0",
+  "text": "0(0",
+  "local": "=TEXTO(0;\"0(0;(0,0)\")"
+ },
+ {
+  "id": "text-text-2613",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,0000001;\"#,00a\")"
+ },
+ {
+  "id": "text-text-2614",
+  "v": "25",
+  "text": "25",
+  "local": "=TEXTO(45658,75;\"a\")"
+ },
+ {
+  "id": "text-text-2615",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(45000,123456;\"E+, \")"
+ },
+ {
+  "id": "text-text-2616",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,0000001;\",00dd\")"
+ },
+ {
+  "id": "text-text-2617",
+  "v": "45000,12",
+  "text": "45000,12",
+  "local": "=TEXTO(45000,123456;\",#0\")"
+ },
+ {
+  "id": "text-text-2618",
+  "v": "-01",
+  "text": "-01",
+  "local": "=TEXTO(-1;\"[Vermelho]00\")"
+ },
+ {
+  "id": "text-text-2619",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"[h]A/Pss/\")"
+ },
+ {
+  "id": "text-text-2620",
+  "v": ")-",
+  "text": ")-",
+  "local": "=TEXTO(0;\")-\")"
+ },
+ {
+  "id": "text-text-2621",
+  "v": "1%. 00",
+  "text": "1%. 00",
+  "local": "=TEXTO(1;\"0%. 00\")"
+ },
+ {
+  "id": "text-text-2622",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(1234,5678;\"R$/,0,00\")"
+ },
+ {
+  "id": "text-text-2623",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(1234,5678;\"E+0?\")"
+ },
+ {
+  "id": "text-text-2624",
+  "v": "Pde ",
+  "text": "Pde ",
+  "local": "=TEXTO(45658,75;\"A/P\"\"de\"\" \")"
+ },
+ {
+  "id": "text-text-2625",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0;\"E+ \")"
+ },
+ {
+  "id": "text-text-2626",
+  "v": "segunda-feira/02",
+  "text": "segunda-feira/02",
+  "local": "=TEXTO(2,5;\"dddd/dd\")"
+ },
+ {
+  "id": "text-text-2627",
+  "v": "-1900PM/",
+  "text": "-1900PM/",
+  "local": "=TEXTO(99,999;\"-aaaaAM/PM/\")"
+ },
+ {
+  "id": "text-text-2628",
+  "v": "-(R$",
+  "text": "-(R$",
+  "local": "=TEXTO(-123;\"(R$\")"
+ },
+ {
+  "id": "text-text-2629",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"ddddb\")"
+ },
+ {
+  "id": "text-text-2630",
+  "v": "45658,75",
+  "text": "45658,75",
+  "local": "=TEXTO(45658,75;\"[<0],-.\")"
+ },
+ {
+  "id": "text-text-2631",
+  "v": " de",
+  "text": " de",
+  "local": "=TEXTO(0,0000001;\" \"\"de\"\"\")"
+ },
+ {
+  "id": "text-text-2632",
+  "v": "jan",
+  "text": "jan",
+  "local": "=TEXTO(45658,75;\"mmm\")"
+ },
+ {
+  "id": "text-text-2633",
+  "v": "43AM",
+  "text": "43AM",
+  "local": "=TEXTO(0;\"bAM/PM\")"
+ },
+ {
+  "id": "text-text-2634",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"%/0\")"
+ },
+ {
+  "id": "text-text-2635",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"-dd[h]\")"
+ },
+ {
+  "id": "text-text-2636",
+  "v": "dom",
+  "text": "dom",
+  "local": "=TEXTO(99,999;\"ddd\")"
+ },
+ {
+  "id": "text-text-2637",
+  "v": "123",
+  "text": "123",
+  "local": "=TEXTO(123;\"000\")"
+ },
+ {
+  "id": "text-text-2638",
+  "v": "45659,,",
+  "text": "45659,,",
+  "local": "=TEXTO(45658,75;\",,\")"
+ },
+ {
+  "id": "text-text-2639",
+  "v": "(",
+  "text": "(",
+  "local": "=TEXTO(45658,75;\"(\")"
+ },
+ {
+  "id": "text-text-2640",
+  "v": ",0)R$0",
+  "text": ",0)R$0",
+  "local": "=TEXTO(0;\",0)R$#.##0;(0,0\")"
+ },
+ {
+  "id": "text-text-2641",
+  "v": "001A",
+  "text": "001A",
+  "local": "=TEXTO(7;\"aamA/P\")"
+ },
+ {
+  "id": "text-text-2642",
+  "v": "121900",
+  "text": "121900",
+  "local": "=TEXTO(0,5;\"hhaaaa\")"
+ },
+ {
+  "id": "text-text-2643",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"hhehh\")"
+ },
+ {
+  "id": "text-text-2644",
+  "v": "66/Amarço",
+  "text": "66/Amarço",
+  "local": "=TEXTO(45000,123456;\"b/A/Pmmmm\")"
+ },
+ {
+  "id": "text-text-2645",
+  "v": "%456587500(%",
+  "text": "%456587500(%",
+  "local": "=TEXTO(45658,75;\"[Azul]%00(%;(0,0\")"
+ },
+ {
+  "id": "text-text-2646",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-0,25;\",00dddmdd\")"
+ },
+ {
+  "id": "text-text-2647",
+  "v": "47qua",
+  "text": "47qua",
+  "local": "=TEXTO(45000,123456;\"ssddd\")"
+ },
+ {
+  "id": "text-text-2648",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"/;(0)\")"
+ },
+ {
+  "id": "text-text-2649",
+  "v": "-123,0",
+  "text": "-123,0",
+  "local": "=TEXTO(-123;\"-?;-0,0\")"
+ },
+ {
+  "id": "text-text-2650",
+  "v": "R$",
+  "text": "R$",
+  "local": "=TEXTO(0;\"R$;(0,0)\")"
+ },
+ {
+  "id": "text-text-2651",
+  "v": ",5",
+  "text": ",5",
+  "local": "=TEXTO(0,5;\",0\")"
+ },
+ {
+  "id": "text-text-2652",
+  "v": "00,0",
+  "text": "00,0",
+  "local": "=TEXTO(1;\"aa,0\")"
+ },
+ {
+  "id": "text-text-2653",
+  "v": "x(x45659,",
+  "text": "x(x45659,",
+  "local": "=TEXTO(45658,75;\"\"\"x\"\"(\"\"x\"\",;(#.##0\")"
+ },
+ {
+  "id": "text-text-2654",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"aahh:e \")"
+ },
+ {
+  "id": "text-text-2655",
+  "v": "03",
+  "text": "03",
+  "local": "=TEXTO(1234,5678;\"aa\")"
+ },
+ {
+  "id": "text-text-2656",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"ddhh\")"
+ },
+ {
+  "id": "text-text-2657",
+  "v": "700,% 0(",
+  "text": "700,% 0(",
+  "local": "=TEXTO(7;\",% 0(\")"
+ },
+ {
+  "id": "text-text-2658",
+  "v": "00",
+  "text": "00",
+  "local": "=TEXTO(99,999;\"a\")"
+ },
+ {
+  "id": "text-text-2659",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\")a\")"
+ },
+ {
+  "id": "text-text-2660",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"hhbb\")"
+ },
+ {
+  "id": "text-text-2661",
+  "v": "(123,0)",
+  "text": "(123,0)",
+  "local": "=TEXTO(-123;\"%,0;(0,0)\")"
+ },
+ {
+  "id": "text-text-2662",
+  "v": "123",
+  "text": "123",
+  "local": "=TEXTO(123;\"#\")"
+ },
+ {
+  "id": "text-text-2663",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"0#R$/\")"
+ },
+ {
+  "id": "text-text-2664",
+  "v": "1235)",
+  "text": "1235)",
+  "local": "=TEXTO(1234,5678;\"?0#)\")"
+ },
+ {
+  "id": "text-text-2665",
+  "v": "Pquarta-feirajaneiro006",
+  "text": "Pquarta-feirajaneiro006",
+  "local": "=TEXTO(45658,75;\"A/Pddddmmmmssh\")"
+ },
+ {
+  "id": "text-text-2666",
+  "v": "-1234,57",
+  "text": "-1234,57",
+  "local": "=TEXTO(-1234,5678;\"0,00\")"
+ },
+ {
+  "id": "text-text-2667",
+  "v": ":4300:",
+  "text": ":4300:",
+  "local": "=TEXTO(1;\":bhh:\")"
+ },
+ {
+  "id": "text-text-2668",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,0001234;\"#)a\")"
+ },
+ {
+  "id": "text-text-2669",
+  "v": "00,00",
+  "text": "00,00",
+  "local": "=TEXTO(123;\"ss,00\")"
+ },
+ {
+  "id": "text-text-2670",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1234,5678;\"h,00[h]m\")"
+ },
+ {
+  "id": "text-text-2671",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"hhAM/PM\")"
+ },
+ {
+  "id": "text-text-2672",
+  "v": "abril34",
+  "text": "abril34",
+  "local": "=TEXTO(99,999;\"mmmmss\")"
+ },
+ {
+  "id": "text-text-2673",
+  "v": "00/",
+  "text": "00/",
+  "local": "=TEXTO(1;\"ss/\")"
+ },
+ {
+  "id": "text-text-2674",
+  "v": "1",
+  "text": "1",
+  "local": "=TEXTO(1;\"[<0]#.##0\")"
+ },
+ {
+  "id": "text-text-2675",
+  "v": "abr19005834",
+  "text": "abr19005834",
+  "local": "=TEXTO(99,999;\"mmmaaaamssss\")"
+ },
+ {
+  "id": "text-text-2676",
+  "v": "45659, ",
+  "text": "45659, ",
+  "local": "=TEXTO(45658,75;\", \")"
+ },
+ {
+  "id": "text-text-2677",
+  "v": "190001",
+  "text": "190001",
+  "local": "=TEXTO(0;\"aaamm\")"
+ },
+ {
+  "id": "text-text-2678",
+  "v": "(1",
+  "text": "(1",
+  "local": "=TEXTO(-1;\"0;(0\")"
+ },
+ {
+  "id": "text-text-2679",
+  "v": "(123,00",
+  "text": "(123,00",
+  "local": "=TEXTO(123;\"(,00;(#.##0\")"
+ },
+ {
+  "id": "text-text-2680",
+  "v": " sáb",
+  "text": " sáb",
+  "local": "=TEXTO(0,5;\" ddd\")"
+ },
+ {
+  "id": "text-text-2681",
+  "v": "7,-",
+  "text": "7,-",
+  "local": "=TEXTO(7;\",#-\")"
+ },
+ {
+  "id": "text-text-2682",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(45000,123456;\"a ,?#.##0\")"
+ },
+ {
+  "id": "text-text-2683",
+  "v": "43",
+  "text": "43",
+  "local": "=TEXTO(1;\"b\")"
+ },
+ {
+  "id": "text-text-2684",
+  "v": "123)",
+  "text": "123)",
+  "local": "=TEXTO(123;\"0)\")"
+ },
+ {
+  "id": "text-text-2685",
+  "v": "00",
+  "text": "00",
+  "local": "=TEXTO(-0,25;\"0#.##0\")"
+ },
+ {
+  "id": "text-text-2686",
+  "v": "-%12300",
+  "text": "-%12300",
+  "local": "=TEXTO(-123;\"%0\")"
+ },
+ {
+  "id": "text-text-2687",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,5;\"#0/ E+\")"
+ },
+ {
+  "id": "text-text-2688",
+  "v": "2023",
+  "text": "2023",
+  "local": "=TEXTO(45000,123456;\"e\")"
+ },
+ {
+  "id": "text-text-2689",
+  "v": "0",
+  "text": "0",
+  "local": "=TEXTO(0;\"[>100])\")"
+ },
+ {
+  "id": "text-text-2690",
+  "v": "(0",
+  "text": "(0",
+  "local": "=TEXTO(-0,25;\" 0;(0\")"
+ },
+ {
+  "id": "text-text-2691",
+  "v": "%700x",
+  "text": "%700x",
+  "local": "=TEXTO(7;\"[Vermelho]%#\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2692",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"[Cor3])#E+(\")"
+ },
+ {
+  "id": "text-text-2693",
+  "v": "-123,(-R$",
+  "text": "-123,(-R$",
+  "local": "=TEXTO(123;\"-,(-R$\")"
+ },
+ {
+  "id": "text-text-2694",
+  "v": "-%12300",
+  "text": "-%12300",
+  "local": "=TEXTO(-123;\"%00\")"
+ },
+ {
+  "id": "text-text-2695",
+  "v": "-x1R$R$",
+  "text": "-x1R$R$",
+  "local": "=TEXTO(-1;\"\"\"x\"\"#R$R$\")"
+ },
+ {
+  "id": "text-text-2696",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1234,5678;\"E+0000\"\"x\"\"0\")"
+ },
+ {
+  "id": "text-text-2697",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-0,25;\" 0R$E+\")"
+ },
+ {
+  "id": "text-text-2698",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"[<0])/#%0,00;(0,0\")"
+ },
+ {
+  "id": "text-text-2699",
+  "v": " 3",
+  "text": " 3",
+  "local": "=TEXTO(2,5;\"?0\")"
+ },
+ {
+  "id": "text-text-2700",
+  "v": "00",
+  "text": "00",
+  "local": "=TEXTO(0,0000001;\"[mm]\")"
+ },
+ {
+  "id": "text-text-2701",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"E+0,00,\"\"x\"\"00\")"
+ },
+ {
+  "id": "text-text-2702",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(123;\",0a\")"
+ },
+ {
+  "id": "text-text-2703",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"E+\")"
+ },
+ {
+  "id": "text-text-2704",
+  "v": "123",
+  "text": "123",
+  "local": "=TEXTO(123;\"[<0]? \")"
+ },
+ {
+  "id": "text-text-2705",
+  "v": "(1,0",
+  "text": "(1,0",
+  "local": "=TEXTO(-1;\"#-;(0,0\")"
+ },
+ {
+  "id": "text-text-2706",
+  "v": "00",
+  "text": "00",
+  "local": "=TEXTO(0;\"00\")"
+ },
+ {
+  "id": "text-text-2707",
+  "v": "x(",
+  "text": "x(",
+  "local": "=TEXTO(10000000000;\"\"\"x\"\"(;-0\")"
+ },
+ {
+  "id": "text-text-2708",
+  "v": "0007de00",
+  "text": "0007de00",
+  "local": "=TEXTO(7;\"add\"\"de\"\"hh\")"
+ },
+ {
+  "id": "text-text-2709",
+  "v": "183738",
+  "text": "183738",
+  "local": "=TEXTO(1234,5678;\"dmms\")"
+ },
+ {
+  "id": "text-text-2710",
+  "v": "(1235)",
+  "text": "(1235)",
+  "local": "=TEXTO(-1234,5678;\"(R$0-;(0)\")"
+ },
+ {
+  "id": "text-text-2711",
+  "v": "-1.235",
+  "text": "-1.235",
+  "local": "=TEXTO(-1234,5678;\"00#.##0;-#.##0\")"
+ },
+ {
+  "id": "text-text-2712",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0;\"\"\"de\"\",0//\")"
+ },
+ {
+  "id": "text-text-2713",
+  "v": "(",
+  "text": "(",
+  "local": "=TEXTO(10000000000;\"(;-#.##0)\")"
+ },
+ {
+  "id": "text-text-2714",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"ddd\")"
+ },
+ {
+  "id": "text-text-2715",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"aaah,00mmm\")"
+ },
+ {
+  "id": "text-text-2716",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\" 0a;(0)\")"
+ },
+ {
+  "id": "text-text-2717",
+  "v": "- ",
+  "text": "- ",
+  "local": "=TEXTO(0,0000001;\"- ;-#.##0\")"
+ },
+ {
+  "id": "text-text-2718",
+  "v": " ",
+  "text": " ",
+  "local": "=TEXTO(45000,123456;\" \")"
+ },
+ {
+  "id": "text-text-2719",
+  "v": "-25%(x",
+  "text": "-25%(x",
+  "local": "=TEXTO(-0,25;\"#%(\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2720",
+  "v": "xx%",
+  "text": "xx%",
+  "local": "=TEXTO(1234,5678;\"\"\"x\"\"\"\"x\"\"%\")"
+ },
+ {
+  "id": "text-text-2721",
+  "v": "0,0000001",
+  "text": "0,0000001",
+  "local": "=TEXTO(0,0000001;\"[<0].\")"
+ },
+ {
+  "id": "text-text-2722",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"ddmmm\")"
+ },
+ {
+  "id": "text-text-2723",
+  "v": "   x",
+  "text": "   x",
+  "local": "=TEXTO(-0,25;\"?#??\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2724",
+  "v": "0 7R$",
+  "text": "0 7R$",
+  "local": "=TEXTO(7;\"0 #.##0R$\")"
+ },
+ {
+  "id": "text-text-2725",
+  "v": "  ",
+  "text": "  ",
+  "local": "=TEXTO(0,0000001;\" ?;-0\")"
+ },
+ {
+  "id": "text-text-2726",
+  "v": "AM-00",
+  "text": "AM-00",
+  "local": "=TEXTO(0;\"AM/PM-ss\")"
+ },
+ {
+  "id": "text-text-2727",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(2,5;\"/?\")"
+ },
+ {
+  "id": "text-text-2728",
+  "v": "23dom",
+  "text": "23dom",
+  "local": "=TEXTO(99,999;\"hhddd\")"
+ },
+ {
+  "id": "text-text-2729",
+  "v": "x,",
+  "text": "x,",
+  "local": "=TEXTO(-0,25;\"\"\"x\"\",\")"
+ },
+ {
+  "id": "text-text-2730",
+  "v": "0",
+  "text": "0",
+  "local": "=TEXTO(0,0001234;\"[h]\")"
+ },
+ {
+  "id": "text-text-2731",
+  "v": "0sábadojaneiro00",
+  "text": "0sábadojaneiro00",
+  "local": "=TEXTO(0;\"[h]ddddmmmmssss\")"
+ },
+ {
+  "id": "text-text-2732",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(45000,123456;\"a0\")"
+ },
+ {
+  "id": "text-text-2733",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-0,25;\"hhsdddd\")"
+ },
+ {
+  "id": "text-text-2734",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\",00mmdddd\")"
+ },
+ {
+  "id": "text-text-2735",
+  "v": "-(-R$",
+  "text": "-(-R$",
+  "local": "=TEXTO(-1;\"(-R$\")"
+ },
+ {
+  "id": "text-text-2736",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(7;\"[>100]000E+\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2737",
+  "v": "-",
+  "text": "-",
+  "local": "=TEXTO(1234,5678;\"-\")"
+ },
+ {
+  "id": "text-text-2738",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(99,999;\"/00/;(0\")"
+ },
+ {
+  "id": "text-text-2739",
+  "v": "0.00,00",
+  "text": "0.00,00",
+  "local": "=TEXTO(0,0001234;\"0#.##0.#0,00\")"
+ },
+ {
+  "id": "text-text-2740",
+  "v": "01",
+  "text": "01",
+  "local": "=TEXTO(0,5;\"00;-0\")"
+ },
+ {
+  "id": "text-text-2741",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(7;\",#.##0,a\")"
+ },
+ {
+  "id": "text-text-2742",
+  "v": "-1.235",
+  "text": "-1.235",
+  "local": "=TEXTO(-1234,5678;\"000;-#.##0\")"
+ },
+ {
+  "id": "text-text-2743",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(45000,123456;\"0a0,000E+\")"
+ },
+ {
+  "id": "text-text-2744",
+  "v": "1sábadojaneiro/",
+  "text": "1sábadojaneiro/",
+  "local": "=TEXTO(0,0001234;\"mddddmmmm/\")"
+ },
+ {
+  "id": "text-text-2745",
+  "v": " ",
+  "text": " ",
+  "local": "=TEXTO(123;\"?.;-#.##0)\")"
+ },
+ {
+  "id": "text-text-2746",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"AM/PM[mm]\")"
+ },
+ {
+  "id": "text-text-2747",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(1;\"aE+0\")"
+ },
+ {
+  "id": "text-text-2748",
+  "v": "-)1235)",
+  "text": "-)1235)",
+  "local": "=TEXTO(-1234,5678;\")000?)\")"
+ },
+ {
+  "id": "text-text-2749",
+  "v": "-1235,",
+  "text": "-1235,",
+  "local": "=TEXTO(-1234,5678;\",\")"
+ },
+ {
+  "id": "text-text-2750",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"--[mm]ss\")"
+ },
+ {
+  "id": "text-text-2751",
+  "v": "0",
+  "text": "0",
+  "local": "=TEXTO(45658,75;\"s\")"
+ },
+ {
+  "id": "text-text-2752",
+  "v": "45000,",
+  "text": "45000,",
+  "local": "=TEXTO(45000,123456;\"#,\")"
+ },
+ {
+  "id": "text-text-2753",
+  "v": "0 ",
+  "text": "0 ",
+  "local": "=TEXTO(-0,25;\"#.##0#?\")"
+ },
+ {
+  "id": "text-text-2754",
+  "v": "%%",
+  "text": "%%",
+  "local": "=TEXTO(0,0001234;\"[Cor3]%%\")"
+ },
+ {
+  "id": "text-text-2755",
+  "v": "7(,,",
+  "text": "7(,,",
+  "local": "=TEXTO(7;\"[Azul]#(,,\")"
+ },
+ {
+  "id": "text-text-2756",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(1;\"/d\")"
+ },
+ {
+  "id": "text-text-2757",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(1;\"),E+-\")"
+ },
+ {
+  "id": "text-text-2758",
+  "v": "19000",
+  "text": "19000",
+  "local": "=TEXTO(0,0001234;\"aaaah\")"
+ },
+ {
+  "id": "text-text-2759",
+  "v": "0sábado",
+  "text": "0sábado",
+  "local": "=TEXTO(7;\"hdddd\")"
+ },
+ {
+  "id": "text-text-2760",
+  "v": "A43-",
+  "text": "A43-",
+  "local": "=TEXTO(0;\"A/Pb-\")"
+ },
+ {
+  "id": "text-text-2761",
+  "v": "%.12.300",
+  "text": "%.12.300",
+  "local": "=TEXTO(123;\"%.#.##0\")"
+ },
+ {
+  "id": "text-text-2762",
+  "v": "-0,25x",
+  "text": "-0,25x",
+  "local": "=TEXTO(-0,25;\"0,00\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2763",
+  "v": "-)-100%)",
+  "text": "-)-100%)",
+  "local": "=TEXTO(-1;\")-00%)\")"
+ },
+ {
+  "id": "text-text-2764",
+  "v": "7,",
+  "text": "7,",
+  "local": "=TEXTO(7;\",;(#.##0)\")"
+ },
+ {
+  "id": "text-text-2765",
+  "v": "1900//07",
+  "text": "1900//07",
+  "local": "=TEXTO(7;\"aaa//dd\")"
+ },
+ {
+  "id": "text-text-2766",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"mm\")"
+ },
+ {
+  "id": "text-text-2767",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"/smb\")"
+ },
+ {
+  "id": "text-text-2768",
+  "v": "- -,",
+  "text": "- -,",
+  "local": "=TEXTO(0;\"- -,\")"
+ },
+ {
+  "id": "text-text-2769",
+  "v": ", ",
+  "text": ", ",
+  "local": "=TEXTO(-0,25;\"#, \")"
+ },
+ {
+  "id": "text-text-2770",
+  "v": "-,",
+  "text": "-,",
+  "local": "=TEXTO(0,0001234;\"-,\")"
+ },
+ {
+  "id": "text-text-2771",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(7;\",00bdd\")"
+ },
+ {
+  "id": "text-text-2772",
+  "v": "-,0,01",
+  "text": "-,0,01",
+  "local": "=TEXTO(-1;\"#.,0,00\")"
+ },
+ {
+  "id": "text-text-2773",
+  "v": "(0.01.235",
+  "text": "(0.01.235",
+  "local": "=TEXTO(1234,5678;\"(00##.##0\")"
+ },
+ {
+  "id": "text-text-2774",
+  "v": " %000",
+  "text": " %000",
+  "local": "=TEXTO(0,0001234;\"?%000;-#.##0)\")"
+ },
+ {
+  "id": "text-text-2775",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,5;\",00dss[mm]\")"
+ },
+ {
+  "id": "text-text-2776",
+  "v": "R$-",
+  "text": "R$-",
+  "local": "=TEXTO(99,999;\"R$-;(0\")"
+ },
+ {
+  "id": "text-text-2777",
+  "v": ",",
+  "text": ",",
+  "local": "=TEXTO(0,0001234;\",;-#.##0\")"
+ },
+ {
+  "id": "text-text-2778",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,0001234;\"E+a,/;(0,0\")"
+ },
+ {
+  "id": "text-text-2779",
+  "v": "PM",
+  "text": "PM",
+  "local": "=TEXTO(0,5;\"AM/PM\")"
+ },
+ {
+  "id": "text-text-2780",
+  "v": "%(",
+  "text": "%(",
+  "local": "=TEXTO(1;\"%(\")"
+ },
+ {
+  "id": "text-text-2781",
+  "v": "%00x",
+  "text": "%00x",
+  "local": "=TEXTO(0,0000001;\"%00\"\"x\"\";-#.##0)\")"
+ },
+ {
+  "id": "text-text-2782",
+  "v": "00: janeiro43",
+  "text": "00: janeiro43",
+  "local": "=TEXTO(7;\"hh: mmmmb\")"
+ },
+ {
+  "id": "text-text-2783",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-0,25;\"sssA/P[mm]m\")"
+ },
+ {
+  "id": "text-text-2784",
+  "v": "03",
+  "text": "03",
+  "local": "=TEXTO(45000,123456;\"mm\")"
+ },
+ {
+  "id": "text-text-2785",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-0,25;\":--mmm\")"
+ },
+ {
+  "id": "text-text-2786",
+  "v": "00",
+  "text": "00",
+  "local": "=TEXTO(2,5;\"a\")"
+ },
+ {
+  "id": "text-text-2787",
+  "v": "(1",
+  "text": "(1",
+  "local": "=TEXTO(1;\"(?\")"
+ },
+ {
+  "id": "text-text-2788",
+  "v": "007",
+  "text": "007",
+  "local": "=TEXTO(7;\"00.0\")"
+ },
+ {
+  "id": "text-text-2789",
+  "v": "0.0)100",
+  "text": "0.0)100",
+  "local": "=TEXTO(99,999;\"00)#.##0?\")"
+ },
+ {
+  "id": "text-text-2790",
+  "v": "quarta-feira0257",
+  "text": "quarta-feira0257",
+  "local": "=TEXTO(45000,123456;\"ddddhhm\")"
+ },
+ {
+  "id": "text-text-2791",
+  "v": "99,999",
+  "text": "99,999",
+  "local": "=TEXTO(99,999;\"[>100]?\")"
+ },
+ {
+  "id": "text-text-2792",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1234,5678;\"hh\")"
+ },
+ {
+  "id": "text-text-2793",
+  "v": "(4565875,%",
+  "text": "(4565875,%",
+  "local": "=TEXTO(45658,75;\"(,%\")"
+ },
+ {
+  "id": "text-text-2794",
+  "v": "-(",
+  "text": "-(",
+  "local": "=TEXTO(-0,25;\"(\")"
+ },
+ {
+  "id": "text-text-2795",
+  "v": "--123456,%7,8000",
+  "text": "--123456,%7,8000",
+  "local": "=TEXTO(-1234,5678;\"-,%0,0000\")"
+ },
+ {
+  "id": "text-text-2796",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(7;\"E+0a00,;-0\")"
+ },
+ {
+  "id": "text-text-2797",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-0,25;\"(E+,-0\")"
+ },
+ {
+  "id": "text-text-2798",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(1234,5678;\"-##/\")"
+ },
+ {
+  "id": "text-text-2799",
+  "v": "001E+0x",
+  "text": "001E+0x",
+  "local": "=TEXTO(1;\"000E+?\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2800",
+  "v": "2962918",
+  "text": "2962918",
+  "local": "=TEXTO(1234,5678;\"[h]dd\")"
+ },
+ {
+  "id": "text-text-2801",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"a#R$#,\")"
+ },
+ {
+  "id": "text-text-2802",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,5;\" 00E+.\")"
+ },
+ {
+  "id": "text-text-2803",
+  "v": "00qua25202518",
+  "text": "00qua25202518",
+  "local": "=TEXTO(45658,75;\"ssdddaaehh\")"
+ },
+ {
+  "id": "text-text-2804",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"mms\")"
+ },
+ {
+  "id": "text-text-2805",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-0,25;\" /\")"
+ },
+ {
+  "id": "text-text-2806",
+  "v": "10000000000,",
+  "text": "10000000000,",
+  "local": "=TEXTO(10000000000;\"#,#\")"
+ },
+ {
+  "id": "text-text-2807",
+  "v": "45000,12,",
+  "text": "45000,12,",
+  "local": "=TEXTO(45000,123456;\"000,00,;-0\")"
+ },
+ {
+  "id": "text-text-2808",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(99,999;\",,/\"\"x\"\"%\")"
+ },
+ {
+  "id": "text-text-2809",
+  "v": "100000000000)0%",
+  "text": "100000000000)0%",
+  "local": "=TEXTO(10000000000;\"#)#%\")"
+ },
+ {
+  "id": "text-text-2810",
+  "v": "1235",
+  "text": "1235",
+  "local": "=TEXTO(1234,5678;\"?00\")"
+ },
+ {
+  "id": "text-text-2811",
+  "v": "99,9990R$ ",
+  "text": "99,9990R$ ",
+  "local": "=TEXTO(99,999;\"0,0000R$ \")"
+ },
+ {
+  "id": "text-text-2812",
+  "v": "0,00",
+  "text": "0,00",
+  "local": "=TEXTO(0,0000001;\"0,00\")"
+ },
+ {
+  "id": "text-text-2813",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(10000000000;\"mmmhh\")"
+ },
+ {
+  "id": "text-text-2814",
+  "v": "7,0,000 -",
+  "text": "7,0,000 -",
+  "local": "=TEXTO(7;\",0,000 -\")"
+ },
+ {
+  "id": "text-text-2815",
+  "v": "7,00)x ",
+  "text": "7,00)x ",
+  "local": "=TEXTO(7;\"0,00)\"\"x\"\"#?\")"
+ },
+ {
+  "id": "text-text-2816",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(45000,123456;\"\"\"x\"\"##E+\")"
+ },
+ {
+  "id": "text-text-2817",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"#0,00%E+\")"
+ },
+ {
+  "id": "text-text-2818",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-1;\"mmmmmmmmmmmmm\")"
+ },
+ {
+  "id": "text-text-2819",
+  "v": "-01",
+  "text": "-01",
+  "local": "=TEXTO(0,5;\"-00\")"
+ },
+ {
+  "id": "text-text-2820",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"hhssbs\")"
+ },
+ {
+  "id": "text-text-2821",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,0000001;\"E+0\")"
+ },
+ {
+  "id": "text-text-2822",
+  "v": "(-R$- ",
+  "text": "(-R$- ",
+  "local": "=TEXTO(0;\"(-R$- \")"
+ },
+ {
+  "id": "text-text-2823",
+  "v": "janeiro00,01",
+  "text": "janeiro00,01",
+  "local": "=TEXTO(1;\"mmmma,0d\")"
+ },
+ {
+  "id": "text-text-2824",
+  "v": "0,50,,",
+  "text": "0,50,,",
+  "local": "=TEXTO(0,5;\"0,00,,\")"
+ },
+ {
+  "id": "text-text-2825",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"[Azul]0a0%R$\")"
+ },
+ {
+  "id": "text-text-2826",
+  "v": "70000,%%",
+  "text": "70000,%%",
+  "local": "=TEXTO(7;\"[Vermelho],%%\")"
+ },
+ {
+  "id": "text-text-2827",
+  "v": "janeiroPMqua/PM",
+  "text": "janeiroPMqua/PM",
+  "local": "=TEXTO(45658,75;\"mmmmAM/PMddd/AM/PM\")"
+ },
+ {
+  "id": "text-text-2828",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(-123;\"h\")"
+ },
+ {
+  "id": "text-text-2829",
+  "v": ".)--",
+  "text": ".)--",
+  "local": "=TEXTO(0,5;\".)--\")"
+ },
+ {
+  "id": "text-text-2830",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(123;\"/[h]aas\")"
+ },
+ {
+  "id": "text-text-2831",
+  "v": ".",
+  "text": ".",
+  "local": "=TEXTO(45658,75;\".\")"
+ },
+ {
+  "id": "text-text-2832",
+  "v": "-x123, ",
+  "text": "-x123, ",
+  "local": "=TEXTO(-123;\"\"\"x\"\"#.##00, \")"
+ },
+ {
+  "id": "text-text-2833",
+  "v": "- (01",
+  "text": "- (01",
+  "local": "=TEXTO(-1;\" (00\")"
+ },
+ {
+  "id": "text-text-2834",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(1;\"00(a;(0,0)\")"
+ },
+ {
+  "id": "text-text-2835",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=TEXTO(0,5;\"00/)E+;-0\")"
+ },
+ {
+  "id": "text-text-2836",
+  "v": "100",
+  "text": "100",
+  "local": "=TEXTO(99,999;\"#\")"
+ },
+ {
+  "id": "text-text-2837",
+  "v": "x",
+  "text": "x",
+  "local": "=TEXTO(1;\"\"\"x\"\"\")"
+ },
+ {
+  "id": "text-text-2838",
+  "v": "215 472023",
+  "text": "215 472023",
+  "local": "=TEXTO(45000,123456;\"hd sse\")"
  }
 ]

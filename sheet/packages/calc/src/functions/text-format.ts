@@ -115,7 +115,8 @@ export function translateFormatCode(code: string, locale: ValueLocale): string |
     if (/\[\$[^\]]*-(f400|x-systime)\]/i.test(raw)) { out.push(sysFormat(locale, 'time')); continue; }
     // seção de data: tem letra de data/hora fora de aspas/colchetes/escapes (ou AM/PM)
     const bare = raw.replace(/"[^"]*"?|\\.|_.|\*.|\[[^\]]*\]/g, '').replace(new RegExp(gen.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
-    const date = /am\/pm|a\/p/i.test(bare) || [...bare.toLowerCase()].some((c) => dateLetters.has(c) && !(c === 'e' && /e[+-]/i.test(bare)));
+    const elapsed = new RegExp(`\\[(${hl}+|${ml}+|${mil}+|${sl}+)\\]`, 'i').test(raw);
+    const date = elapsed || /am\/pm|a\/p/i.test(bare) || [...bare.toLowerCase()].some((c) => dateLetters.has(c) && !(c === 'e' && /e[+-]/i.test(bare)));
     const r = translateSection({ raw, date }, locale, { yl, dl, ml, hl, sl, mil, gen });
     if (r === undefined) return undefined;
     out.push(r);
@@ -127,11 +128,26 @@ function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: strin
   const raw = sec.raw;
   const dec = locale.decimal, grp = locale.group;
   let s = '';
-  let hasDigit = false, hasAt = false, sawDec = false;
-  let lastTime = ''; // última letra de data/hora emitida (para ",0" depois dos segundos)
+  let hasDigit = false, hasAt = false, sawDec = false, sawExp = false;
+  let lastTime = ''; // última letra de data/hora emitida (para ",0" depois dela)
+  let subsec = false; // dentro dos dígitos da fração de segundo
+  // posições dos marcadores de dígito fora de aspas/escapes/colchetes (decidem milhar × literal)
+  const isDig = new Array<boolean>(raw.length).fill(false);
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i]!;
+    if (c === '"') { const e = raw.indexOf('"', i + 1); i = e < 0 ? raw.length : e; continue; }
+    if (c === '\\' || c === '_' || c === '*') { i++; continue; }
+    if (c === '[') { const e = raw.indexOf(']', i + 1); i = e < 0 ? raw.length : e; continue; }
+    if (c === '0' || c === '#' || c === '?') isDig[i] = true;
+  }
+  const digitIn = (a: number, b: number): boolean => { for (let q = Math.max(0, a); q < Math.min(b, raw.length); q++) if (isDig[q]) return true; return false; };
+  const expAt = (() => { for (let q = 0; q < raw.length - 1; q++) if ((raw[q] === 'E' || raw[q] === 'e') && (raw[q + 1] === '+' || raw[q + 1] === '-')) return q; return raw.length; })();
+  const firstDec = raw.indexOf(dec);
+  const intEnd = Math.min(firstDec < 0 ? raw.length : firstDec, expAt);
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i]!;
     const low = ch.toLowerCase();
+    if (subsec && ch !== '0') subsec = false;
     if (ch === '"') {
       const end = raw.indexOf('"', i + 1);
       const j = end < 0 ? raw.length : end;
@@ -145,6 +161,8 @@ function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: strin
       i = end;
       const b = translateBracket(inner, locale, k);
       if (b === undefined) return undefined;
+      const el = /^\[(h+|m+|s+)\]$/.exec(b);
+      if (el) lastTime = el[1]![0]!;
       s += b; continue;
     }
     if (raw.slice(i, i + k.gen.length).toLowerCase() === k.gen) { s += 'General'; i += k.gen.length - 1; continue; }
@@ -152,21 +170,48 @@ function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: strin
     if (/^a\/p/i.test(raw.slice(i, i + 3))) { s += raw.slice(i, i + 3); i += 2; lastTime = 'h'; continue; }
     if (ch === '0' || ch === '#' || ch === '?') {
       if (!sec.date) hasDigit = true;
+      else if (ch !== '0' || !subsec) return undefined; // dígito junto de data/hora (fora da fração de segundo) → #VALUE!
       s += ch; continue;
     }
     if (ch === '@') { hasAt = true; s += '@'; continue; }
     if (ch === dec || ch === grp) {
       if (sec.date) {
-        // ",0" depois dos segundos = fração de segundo; senão literal
-        if (ch === dec && lastTime === 's' && raw[i + 1] === '0') { s += '.'; continue; }
+        // ",0" depois de qualquer parte de data/hora = fração de segundo ("d,0" → "8,6");
+        // antes de qualquer uma → #VALUE! (",0mm"); senão literal (medido)
+        // (o motor compartilhado só tem fração de segundo depois de s/[s]; depois de outra parte sai literal)
+        if (ch === dec && raw[i + 1] === '0') { if (!lastTime) return undefined; s += lastTime === 's' ? '.' : '\\' + ch; subsec = true; continue; }
         s += '\\' + ch; continue;
       }
-      if (ch === grp && sawDec) continue; // milhar depois do decimal some ("#,##0.00" no pt-BR)
-      if (ch === dec) sawDec = true;
-      s += ch === dec ? '.' : ','; continue;
+      if (ch === dec) {
+        // só o 1º decimal é o ponto; os seguintes são literais ("0,00,,0" → "99,99,,9", medido)
+        if (sawDec || sawExp) { s += '\\' + ch; continue; }
+        // decimal sem nenhum marcador de dígito: a parte inteira sai logo antes ("," → "-123,", medido)
+        sawDec = true; s += digitIn(0, raw.length) ? '.' : '#.'; continue;
+      }
+      // milhar: entre dígitos da parte inteira agrupa; logo depois de dígito (sem dígito
+      // adiante) escala ÷1000; depois do decimal some se ainda vêm dígitos; senão literal
+      let pj = i - 1; while (pj >= 0 && raw[pj] === grp) pj--;
+      let nj = i + 1; while (nj < raw.length && raw[nj] === grp) nj++;
+      const prevDig = pj >= 0 && isDig[pj]!, nextDig = nj < raw.length && isDig[nj]!;
+      if (sawDec && !sawExp) {
+        // depois do decimal, colado a dígito: some se ainda vêm dígitos ("#,##0.00" no pt-BR),
+        // senão escala ÷1000 ("00,00#." → "-00,123"); fora disso é literal ("?,R$.0,00")
+        if (prevDig && digitIn(i + 1, expAt)) continue;
+        if (prevDig) { s += ','; continue; }
+        s += '\\' + ch; continue;
+      }
+      // antes do decimal: agrupa colado a dígito com dígitos dos dois lados; escala logo
+      // depois de dígito; senão literal ("0%. 00" → "1%. 00", medido)
+      if (i < intEnd && (prevDig || nextDig) && digitIn(0, i) && digitIn(i + 1, intEnd)) { s += ','; continue; }
+      if (prevDig && !nextDig) { s += ','; continue; }
+      s += '\\' + ch; continue;
     }
     if (ch === '.' || ch === ',') { s += '\\' + ch; continue; } // separadores que não são do idioma
-    if ((ch === 'E' || ch === 'e') && (raw[i + 1] === '+' || raw[i + 1] === '-') && !sec.date) { s += 'E' + raw[i + 1]; i++; sawDec = false; continue; }
+    if ((ch === 'E' || ch === 'e') && (raw[i + 1] === '+' || raw[i + 1] === '-') && !sec.date) {
+      // expoente precisa de marcador de dígito antes e logo depois (medido: "E+%", "0E+R$" → #VALUE!)
+      if (!digitIn(0, i) || !digitIn(i + 2, raw.length)) return undefined;
+      s += 'E' + raw[i + 1]; i++; sawExp = true; continue;
+    }
     if (/[a-z]/i.test(ch)) {
       if (low === 'n' || ch === 'B' || ch === 'E') return undefined;
       if (low === k.yl) { s += 'y'; lastTime = 'y'; continue; }
@@ -180,7 +225,10 @@ function translateSection(sec: LocalSection, locale: ValueLocale, k: { yl: strin
       s += '\\' + ch; continue; // letra sem significado no idioma = literal
     }
     if (badAccented(ch)) return undefined;
-    if (ch === '/' && !sec.date && hasDigit && !/[0-9#?]/.test(raw[i + 1] ?? '')) return undefined; // "0/"
+    // em seção de data: "%" e "/" antes de qualquer parte de data → #VALUE! (medido)
+    if (sec.date && (ch === '%' || (ch === '/' && !lastTime))) return undefined;
+    // fração: barra entre marcadores de dígito (denominador fixo vale) e sem ponto decimal (medido)
+    if (ch === '/' && !sec.date && (!digitIn(0, i) || !/[0-9#?]/.test(raw[i + 1] ?? '') || firstDec >= 0)) return undefined;
     s += ch;
   }
   if (hasAt && hasDigit) return undefined;
