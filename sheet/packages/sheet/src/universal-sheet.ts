@@ -190,6 +190,8 @@ export class UniversalSheetElement extends HTMLElement {
   private views: SheetView[] = [];
   /** Motor de cálculo da pasta (recálculo ao abrir e atributos ao gravar — calc-io.ts). */
   private calc: CalcState | undefined;
+  /** Caminho/nome do arquivo aberto (o hospedeiro informa antes de carregar): CELL("filename"), INFO("directory"). */
+  fileName: string | undefined;
   private sheetIndex = 0;
 
   private zoom = 1;
@@ -366,7 +368,7 @@ export class UniversalSheetElement extends HTMLElement {
 
     // recálculo ao abrir como o Excel (calc-io.ts): os valores entram no modelo antes das views
     const sheetWs = this.workbook.sheets.map((ref) => (ref.target ? readWorksheet(pkg, ref.target, cx) : undefined));
-    this.calc = openCalc(this.workbook, sheetWs, this.shared);
+    this.calc = openCalc(this.workbook, sheetWs, this.shared, { fileName: this.fileName });
 
     this.views = [];
     for (const [si, ref] of this.workbook.sheets.entries()) {

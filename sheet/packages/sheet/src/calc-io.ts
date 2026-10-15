@@ -35,9 +35,11 @@ export interface CalcState {
  * valores novos já gravados no modelo (`worksheets` na ordem de workbook.sheets).
  */
 export function openCalc(workbook: Workbook, worksheets: readonly (Worksheet | undefined)[], shared: readonly SharedString[],
-  locale: ValueLocale = PT_BR): CalcState | undefined {
+  o: { locale?: ValueLocale; fileName?: string } = {}): CalcState | undefined {
   if (!worksheets.some((ws) => ws?.rows.some((r) => r.cells.some((c) => c.formula !== undefined)))) return undefined;
-  const engine = new Engine(fromSheetCore({ workbook, worksheets, sharedStrings: shared }), { locale });
+  // CELL("filename") de pasta aberta de arquivo nunca é "": sem o caminho do hospedeiro,
+  // "[Pasta1.xlsx]Aba" — o idioma MID(CELL("filename");FIND("]";…)+1;…) dá o nome da aba
+  const engine = new Engine(fromSheetCore({ workbook, worksheets, sharedStrings: shared }), { locale: o.locale ?? PT_BR, fileName: o.fileName ?? 'Pasta1.xlsx' });
   const plan = shouldRecalcOnOpen({ workbook, worksheets });
   const changes = applyOpenRecalc(engine, plan);
   const dirty = new Set<Worksheet>();
