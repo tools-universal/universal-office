@@ -290,11 +290,9 @@ export function applyTableLayer<T extends { font: Font | undefined; fill: Fill |
     if (tf.strike) f.strike = true;
     out.font = f;
   }
-  if (tf.border) {
-    const b: Border = { ...(st.border ?? {}) };
-    for (const side of ['left', 'right', 'top', 'bottom'] as const) if (!b[side]?.style && tf.border[side]) b[side] = tf.border[side];
-    out.border = b;
-  }
+  // bordas da tabela NÃO se misturam às da célula: numa fronteira, qualquer
+  // borda explícita (de uma das duas células) vence a da tabela — medido em
+  // t-tblfill: hair vermelha própria aparece sobre a horizontal do Medium2
   return out;
 }
 

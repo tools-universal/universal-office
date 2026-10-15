@@ -155,7 +155,8 @@ export function paintDiagonals(ctx: CanvasRenderingContext2D, border: Border, x:
   const e = border.diagonal;
   if (!e?.style || (!border.diagonalUp && !border.diagonalDown)) return;
   const st = e.style;
-  const lw = st === 'thick' ? 3 : MEDIUMS.has(st) ? 2 : 1;
+  // o Excel traça a diagonal com caneta serrilhada: a média sai ~3 px na vertical
+  const lw = st === 'thick' ? 3.5 : MEDIUMS.has(st) ? 2.5 : 1;
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, w, h);
@@ -167,8 +168,11 @@ export function paintDiagonals(ctx: CanvasRenderingContext2D, border: Border, x:
     dashDotDot: [9, 3, 3, 3, 3, 3], mediumDashDotDot: [9, 3, 3, 3, 3, 3], mediumDashed: [9, 3], slantDashDot: [10, 2, 4, 2],
   };
   ctx.setLineDash(dash[st] ?? []);
+  // dupla: duas linhas finas deslocadas na perpendicular (±1,5 px)
   const line = (ax: number, ay: number, bx: number, by: number, off: number): void => {
-    ctx.beginPath(); ctx.moveTo(ax + off, ay); ctx.lineTo(bx + off, by); ctx.stroke();
+    const len = Math.hypot(bx - ax, by - ay) || 1;
+    const nx = (-(by - ay) / len) * off, ny = ((bx - ax) / len) * off;
+    ctx.beginPath(); ctx.moveTo(ax + nx, ay + ny); ctx.lineTo(bx + nx, by + ny); ctx.stroke();
   };
   const offs = st === 'double' ? [-1.5, 1.5] : [0];
   for (const o of offs) {

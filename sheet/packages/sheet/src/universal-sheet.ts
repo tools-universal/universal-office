@@ -1943,20 +1943,25 @@ export class UniversalSheetElement extends HTMLElement {
     const nc = c1 - c0 + 1, nr = r1 - r0 + 1;
     if (nc <= 0 || nr <= 0 || nc * nr > 4_000_000) return;
     const bd: (Border | undefined)[] = new Array(nc * nr);
+    const tb: (Border | undefined)[] = new Array(nc * nr);
     const filled: boolean[] = new Array(nc * nr);
     let any = false;
+    const has = (b: Border | undefined): boolean => !!b && !!(b.left || b.right || b.top || b.bottom);
     for (let r = r0; r <= r1; r++) {
       const cells = rowMap.get(r);
       for (let c = c0; c <= c1; c++) {
         const st = this.styleAt(cells?.get(c), c, r);
         const k = (r - r0) * nc + (c - c0);
         bd[k] = st.border;
+        tb[k] = st.tableBorder;
         filled[k] = st.filled;
-        if (st.border && (st.border.left || st.border.right || st.border.top || st.border.bottom)) any = true;
+        if (has(st.border) || has(st.tableBorder)) any = true;
       }
     }
     if (!any) return;
-    const B = (c: number, r: number): Border | undefined => (c < c0 || c > c1 || r < r0 || r > r1 ? undefined : bd[(r - r0) * nc + (c - c0)]);
+    const at = (arr: (Border | undefined)[], c: number, r: number): Border | undefined => (c < c0 || c > c1 || r < r0 || r > r1 ? undefined : arr[(r - r0) * nc + (c - c0)]);
+    const B = (c: number, r: number): Border | undefined => at(bd, c, r);
+    const T = (c: number, r: number): Border | undefined => at(tb, c, r);
     const F = (c: number, r: number): boolean => (c < c0 || c > c1 || r < r0 || r > r1 ? false : !!filled[(r - r0) * nc + (c - c0)]);
     const sameMerge = (ca: number, ra: number, cb: number, rb: number): boolean => {
       if (v.merges.size === 0) return false;
@@ -1964,10 +1969,13 @@ export class UniversalSheetElement extends HTMLElement {
       return !!m && cb >= m.firstCol && cb <= m.lastCol && rb >= m.firstRow && rb <= m.lastRow;
     };
     // fronteira horizontal no topo da linha r, coluna c; vertical à esquerda da coluna c, linha r
+    // borda explícita (célula/CF) de qualquer lado vence a do estilo de tabela
     const hEdge = (c: number, r: number): BorderEdge | undefined =>
-      sameMerge(c, r - 1, c, r) ? undefined : winningEdge(B(c, r - 1)?.bottom, B(c, r)?.top);
+      sameMerge(c, r - 1, c, r) ? undefined
+        : winningEdge(B(c, r - 1)?.bottom, B(c, r)?.top) ?? winningEdge(T(c, r - 1)?.bottom, T(c, r)?.top);
     const vEdge = (c: number, r: number): BorderEdge | undefined =>
-      sameMerge(c - 1, r, c, r) ? undefined : winningEdge(B(c - 1, r)?.right, B(c, r)?.left);
+      sameMerge(c - 1, r, c, r) ? undefined
+        : winningEdge(B(c - 1, r)?.right, B(c, r)?.left) ?? winningEdge(T(c - 1, r)?.right, T(c, r)?.left);
     const corner = (e1: BorderEdge | undefined, e2: BorderEdge | undefined): CornerInfo => {
       if (!e1 && !e2) return NO_CORNER;
       const a = edgeExtent(e1?.style), b = edgeExtent(e2?.style);
@@ -2432,14 +2440,15 @@ export class UniversalSheetElement extends HTMLElement {
    * Estilo EFETIVO de (col,row) para a pintura: o xf da célula (ou o padrão da
    * linha/coluna) + `filled` (tem fundo que cobre a linha de grade).
    */
-  private styleAt(cell: Cell | undefined, col: number, row: number): ResolvedStyle & { filled: boolean } {
+  private styleAt(cell: Cell | undefined, col: number, row: number): ResolvedStyle & { filled: boolean; tableBorder?: Border } {
     const st = this.resolveStyle(cell, col, row);
     const v = this.view;
     const tf = v && v.tableFmt.size > 0 ? v.tableFmt.get(`${col},${row}`) : undefined;
     let out = tf ? applyTableLayer(st, tf, this.styles.fonts[0]?.color) : st;
     const cf = v && v.condFormats.length > 0 ? this.cfEngine()?.at(col, row) : undefined;
     if (cf) out = applyCfLayer(out, cf, this.styles.numFmts);
-    return { ...out, filled: hasFill(out.fill) };
+    // borda da tabela à parte: só vale onde nenhuma das vizinhas tem borda explícita
+    return { ...out, filled: hasFill(out.fill), tableBorder: tf?.border };
   }
 
   /** Motor de formatação condicional da aba ativa (lazy; ver cond-format.ts). */
