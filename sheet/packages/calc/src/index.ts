@@ -10,6 +10,10 @@ export * from './criteria.js';
 export * from './dates.js';
 export * from './apply.js';
 export * from './i18n/index.js';
+// aritmética do Excel para os operadores (^ = POWER; +/− com o cancelamento do Excel) e
+// a fração de ano das bases 0–4 (YEARFRAC, títulos)
+export { excelPower, snapAdd, approx15, decimalRound, RoundMode } from './functions/math-util.js';
+export { yearFrac } from './functions/daycount.js';
 
 // bibliotecas de funções (registram no carregamento)
 import './functions/math.js';
