@@ -892,6 +892,7 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
         const xml = pkg.getPartText(target);
         if (xml) {
           shape.chartXml = xml;
+          shape.chartPart = target;
           shape.chartTheme = chartThemeFor(pkg, target, theme);
           const imgs = chartImagesFor(pkg, target, xml);
           if (imgs) shape.chartImages = imgs;

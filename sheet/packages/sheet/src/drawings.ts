@@ -297,7 +297,7 @@ export class SheetDrawings {
   paint(
     ctx: CanvasRenderingContext2D, obj: DrawingObject, r: Rect, sx: number, sy: number, zoom: number,
     fontStack: (family: string, bold?: boolean, italic?: boolean) => string,
-    chart?: (chartXml: string, r: Rect) => void,
+    chart?: (chartXml: string, r: Rect, part?: string) => void,
   ): void {
     if (!(r.w >= 0 && r.h >= 0)) return;
     // controle de formulário: o Excel desenha o controle; o rótulo vem da forma
@@ -318,7 +318,7 @@ export class SheetDrawings {
     for (const s of shapes) {
       if (chart && s.chartXml && s.xfrm) {
         flush();
-        chart(s.chartXml, { x: s.xfrm.x * k - sx, y: s.xfrm.y * k - sy, w: s.xfrm.cx * k, h: s.xfrm.cy * k });
+        chart(s.chartXml, { x: s.xfrm.x * k - sx, y: s.xfrm.y * k - sy, w: s.xfrm.cx * k, h: s.xfrm.cy * k }, s.chartPart);
       } else batch.push(s);
     }
     flush();

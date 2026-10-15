@@ -1849,7 +1849,7 @@ export class UniversalSheetElement extends HTMLElement {
       const dx = this.mirrorW ? this.mirrorW - 2 * x - r.w : 0;
       if (dx) { ctx.save(); ctx.translate(dx, 0); }
       if ('chartXml' in it) this.paintAnchoredChart(ctx, it, { x, y, w: r.w, h: r.h });
-      else layer?.paint(ctx, it, r, sx, sy, this.zoom, this.shapeFontStack, (xml, cr) => this.paintAnchoredChart(ctx, { chartXml: xml }, cr));
+      else layer?.paint(ctx, it, r, sx, sy, this.zoom, this.shapeFontStack, (xml, cr, part) => this.paintAnchoredChart(ctx, { chartXml: xml, ...(part ? { part } : {}) }, cr));
       if (dx) ctx.restore();
     }
   }

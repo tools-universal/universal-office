@@ -322,6 +322,8 @@ export interface Shape {
   alpha?: number;
   /** XML cru do chart (`ppt/charts/chartN.xml`) — engine parseia on-demand no paint. */
   chartXml?: string;
+  /** Parte do chart no pacote (rels dela: desenho do gráfico, imagens) — o Sheet repassa ao motor. */
+  chartPart?: string;
   /** Tema da apresentação: resolve cores (schemeClr) e fontes (+mn-lt) do gráfico. */
   chartTheme?: Theme;
   /** Imagens dos `a:blipFill` do gráfico (rels da parte do gráfico), por r:id. */
