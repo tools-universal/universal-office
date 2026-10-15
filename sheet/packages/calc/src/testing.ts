@@ -264,10 +264,29 @@ export function caseFormula(c: OracleCase): string {
 /** Entrada do xl-calc.ps1 para uma lista de casos. */
 export function toOracleInput(cases: readonly OracleCase[]): unknown[] {
   return cases.map((c) => {
-    let cells: Record<string, unknown> | undefined = c.cells ? { ...c.cells } : undefined;
+    let cells: Record<string, unknown> | undefined = c.cells ? exactCells(c.cells) : undefined;
     if (c.formulas) { cells ??= {}; for (const [k, f] of Object.entries(c.formulas)) cells[k] = { f }; }
-    return { id: c.id, f: caseFormula(c), cells, at: c.at, legacy: c.legacy, date1904: c.date1904, hiddenRows: c.hiddenRows, filteredRows: c.filteredRows, sheets: c.sheets, names: c.names, tables: c.tables };
+    const sheets = c.sheets ? Object.fromEntries(Object.entries(c.sheets).map(([n, cs]) => [n, exactCells(cs)])) : undefined;
+    return { id: c.id, f: caseFormula(c), cells, at: c.at, legacy: c.legacy, date1904: c.date1904, hiddenRows: c.hiddenRows, filteredRows: c.filteredRows, sheets, names: c.names, tables: c.tables };
   });
+}
+
+/**
+ * Número de célula com os bits exatos ({b: hex}) quando não é inteiro seguro: o
+ * ConvertFrom-Json do PowerShell lê "0.9857491472497435" como decimal e o converte em
+ * double errando 1 ulp (medido: 3 de 80 valores; e erra também em expoentes grandes) —
+ * xl-calc.ps1 monta o double pelos bits.
+ */
+function exactCells(cells: Readonly<Record<string, CaseCell>>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(cells)) {
+    if (typeof v === 'number' && Number.isFinite(v) && !(Number.isInteger(v) && Math.abs(v) <= Number.MAX_SAFE_INTEGER)) {
+      const dv = new DataView(new ArrayBuffer(8));
+      dv.setFloat64(0, v);
+      out[k] = { b: dv.getBigUint64(0).toString(16).padStart(16, '0') };
+    } else out[k] = v;
+  }
+  return out;
 }
 
 /** Roda o caso no nosso motor (sem avaliador: callFn sobre um contexto de mentira). */

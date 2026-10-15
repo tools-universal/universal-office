@@ -1,6 +1,7 @@
 # Oraculo de CALCULO do Excel: le um JSON de casos e devolve o que o Excel
 # calcula. Caso: { id, f: "=FORMULA canonica (en-US)", at?: "Z100",
-#   cells?: { "A1": 1 | "texto" | true | {"f":"=..."} | {"e":"#N/A"} | {"s":"1"} },
+#   cells?: { "A1": 1 | "texto" | true | {"f":"=..."} | {"e":"#N/A"} | {"s":"1"} | {"b":"3fe..."} },
+#   ({"b": hex} = double pelos bits exatos: o ConvertFrom-Json erra 1 ulp em alguns numeros)
 #   legacy?: true (Range.Formula = interseccao implicita; padrao Formula2 = matriz dinamica),
 #   date1904?: true, local?: "=FORMULA no idioma do Excel" (entra por FormulaLocal),
 #   hiddenRows?: [2, 3] (linhas 1-based ocultas a mao),
@@ -48,6 +49,7 @@ function SetCells($sh, $cells, [int]$pass) {
       if ($null -ne $v.f) { $cell.Formula2 = [string]$v.f }
       elseif ($null -ne $v.e) { $cell.Formula = [string]$v.e }
       elseif ($null -ne $v.s) { $cell.NumberFormat = '@'; $cell.Value2 = [string]$v.s }
+      elseif ($null -ne $v.b) { $cell.Value2 = [BitConverter]::Int64BitsToDouble([Convert]::ToInt64([string]$v.b, 16)) }
     } elseif ($v -is [string]) { $cell.NumberFormat = '@'; $cell.Value2 = [string]$v }
     elseif ($v -is [bool]) { $cell.Value2 = [bool]$v } elseif ($null -ne $v) { $cell.Value2 = [double]$v }
   }
