@@ -22,6 +22,11 @@ describe('anchorRect (âncora → px, medido no Excel com syn-d-anchor)', () => 
     const hid: DrawingAnchor = { from: at(3, 300000, 0, 0), to: at(5, 0, 1, 0) };
     expect(anchorRect(hid, edgeX, edgeY, 1).x).toBe(192);
   });
+  it('offset negativo vale como está (recua para as células anteriores — syn-d-neg)', () => {
+    const neg: DrawingAnchor = { from: at(4, -2 * 609600, 6, -3 * 190500), to: at(6, 0, 8, 0) };
+    // coluna E começa em 192 px (a D, oculta, tem 0): −128 px → 64
+    expect(anchorRect(neg, edgeX, edgeY, 1)).toEqual({ x: 64, y: 60, w: 256, h: 100 });
+  });
   it('oneCellAnchor (from + ext) e absoluteAnchor (pos + ext)', () => {
     const one: DrawingAnchor = { kind: 'oneCell', from: at(2, 0, 1, 0), to: at(2, 0, 1, 0), ext: { cx: 952500, cy: 190500 } };
     expect(anchorRect(one, edgeX, edgeY, 1)).toEqual({ x: 128, y: 20, w: 100, h: 20 });

@@ -27,8 +27,9 @@ export interface Rect { x: number; y: number; w: number; h: number }
 
 /**
  * Retângulo da âncora em px (zoom aplicado, sem scroll): `edgeX(i)`/`edgeY(i)`
- * = borda esquerda/superior da coluna/linha 0-based `i`. O offset dentro da
- * célula não passa do tamanho dela (coluna oculta = 0).
+ * = borda esquerda/superior da coluna/linha 0-based `i`. O offset não passa do
+ * tamanho da célula (coluna oculta = 0); NEGATIVO vale como está, recuando
+ * para as células anteriores (medido em syn-d-neg).
  */
 export function anchorRect(a: DrawingAnchor, edgeX: (i: number) => number, edgeY: (i: number) => number, zoom: number): Rect {
   const k = zoom / EMU_PER_PX;
@@ -37,7 +38,7 @@ export function anchorRect(a: DrawingAnchor, edgeX: (i: number) => number, edgeY
   }
   const at = (edge: (i: number) => number, i: number, off: number): number => {
     const s = edge(i);
-    return s + Math.min(Math.max(0, off) * k, Math.max(0, edge(i + 1) - s));
+    return s + Math.min(off * k, Math.max(0, edge(i + 1) - s));
   };
   const x = at(edgeX, a.from.col, a.from.colOff);
   const y = at(edgeY, a.from.row, a.from.rowOff);
