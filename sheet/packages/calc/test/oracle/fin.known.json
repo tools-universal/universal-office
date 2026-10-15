@@ -1,5 +1,4 @@
 {
- "fin-pv-11": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-23": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-24": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-64": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",

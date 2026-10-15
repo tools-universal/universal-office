@@ -26,14 +26,23 @@ const pw = (x: number, y: number): number => { const r = excelPower(x, y); retur
 export function fvOf(r: number, n: number, pmt: number, pv: number, t: number): number {
   if (r === 0) return -(pv + pmt * n);
   const q = pw(1 + r, n);
-  return -(pv * q + pmt * (1 + r * t) * ((q - 1) / r));
+  return -(pv * q + annuity(r, q, pmt, t));
 }
 export function pvOf(r: number, n: number, pmt: number, fv: number, t: number): number {
   if (r === 0) return -(fv + pmt * n);
   const q = pw(1 + r, n);
   if (q === 0) return NaN;
   if (!Number.isFinite(q)) return Infinity;
-  return (-fv - pmt * (1 + r * t) * ((q - 1) / r)) / q;
+  return (-fv - annuity(r, q, pmt, t)) / q;
+}
+/**
+ * pmt·(1+r·t)·(q−1)/r na ordem do Excel: k = (q−1)/r; vencimento no início = pmt·(k·(1+r))
+ * (medido bit a bit: 75/75 FV e 71/71 PV, inclusive FV(2,95;13;13000;−17406,78…;1) =
+ * 333891,23010253906, que com pmt·(1+r)·k erra no 10º dígito por cancelamento).
+ */
+function annuity(r: number, q: number, pmt: number, t: number): number {
+  const k = (q - 1) / r;
+  return t ? pmt * (k * (1 + r)) : pmt * k;
 }
 export function pmtOf(r: number, n: number, pv: number, fv: number, t: number): number {
   if (r === 0) return -(pv + fv) / n;
