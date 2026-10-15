@@ -106,7 +106,11 @@ function numberCore(s: string, locale: ValueLocale): number | undefined {
   }
   const m = re.exec(s);
   if (!m || (!m[1] && !m[2])) return undefined;
-  const int = (m[1] ?? '').split(locale.group).join('');
+  const groups = (m[1] ?? '').split(locale.group);
+  // com milhar, o 1º grupo não pode ser só zeros (medido: "0.001", "00.000", "-0.000",
+  // "0.000,5" → #VALUE!; "01.000" e "0001.000" = 1000)
+  if (groups.length > 1 && /^0+$/.test(groups[0]!)) return undefined;
+  const int = groups.join('');
   const n = Number(`${truncate15(int || '0', m[2] ?? '')}${m[3] !== undefined ? 'e' + m[3] : ''}`);
   if (!Number.isFinite(n) || n >= 1e308) return undefined;
   // abaixo do menor normal o Excel recusa ("1e-400" → #VALUE!)
