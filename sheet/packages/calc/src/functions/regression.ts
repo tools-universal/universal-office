@@ -97,12 +97,20 @@ function pairFn(name: string, f: PairFn, yFirst: boolean, minN: number, prefix?:
   };
 }
 
-const correl: PairFn = (m) => (m.sxx === 0 || m.syy === 0 ? ERR.DIV0 : num(m.sxy / Math.sqrt(m.sxx * m.syy)));
+/** CORREL/PEARSON = cov.P / (σx·σy) com as raízes separadas (medido: 36/36 bit a bit). */
+const correl: PairFn = (m) => (m.sxx === 0 || m.syy === 0 ? ERR.DIV0 : num((m.sxy / m.n) / (Math.sqrt(m.sxx / m.n) * Math.sqrt(m.syy / m.n))));
+/** RSQ = (cov.S / (sx·sy))² — com os divisores n − 1 (medido: 36/36 bit a bit). */
+const rsq: PairFn = (m) => {
+  if (m.sxx === 0 || m.syy === 0) return ERR.DIV0;
+  const d = m.n - 1;
+  const r = (m.sxy / d) / (Math.sqrt(m.sxx / d) * Math.sqrt(m.syy / d));
+  return num(r * r);
+};
 
 register(
   pairFn('CORREL', correl, false, 1),
   pairFn('PEARSON', correl, false, 1),
-  pairFn('RSQ', (m) => (m.sxx === 0 || m.syy === 0 ? ERR.DIV0 : num(m.sxy * m.sxy / (m.sxx * m.syy))), true, 1),
+  pairFn('RSQ', rsq, true, 1),
   pairFn('SLOPE', (m) => (m.sxx === 0 ? ERR.DIV0 : num(m.sxy / m.sxx)), true, 1),
   pairFn('INTERCEPT', (m) => (m.sxx === 0 ? ERR.DIV0 : num(m.my - m.sxy / m.sxx * m.mx)), true, 1),
   pairFn('STEYX', (m) => (m.n < 3 || m.sxx === 0 ? ERR.DIV0 : num(Math.sqrt((m.syy - m.sxy * m.sxy / m.sxx) / (m.n - 2)))), true, 1),

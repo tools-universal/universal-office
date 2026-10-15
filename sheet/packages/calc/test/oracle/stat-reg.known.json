@@ -1,8 +1,4 @@
 {
- "stat-reg-correl-big": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 15 dígitos (dif. rel. 1.1e-16)",
- "stat-reg-pearson-big": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 15 dígitos (dif. rel. 1.1e-16)",
- "stat-reg-rsq-basic": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 15 dígitos (dif. rel. 4.5e-16)",
- "stat-reg-rsq-orient": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 15 dígitos (dif. rel. 2.3e-16)",
  "stat-reg-linest-simple-qomitqtrue_qomitqtrue": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 15 dígitos (dif. rel. 8.2e-16)",
  "stat-reg-linest-two-qomitqtrue_qomitqtrue": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 15 dígitos (dif. rel. 8.4e-16)",
  "stat-reg-linest-three-qomitqtrue_qomitqtrue": "último dígito: o Excel usa outra sequência numérica (série/fração contínua/iteração); bate em 14 dígitos (dif. rel. 1.7e-15)",
