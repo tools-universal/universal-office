@@ -1872,6 +1872,22 @@ function readPic(pic: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<stri
     if (xfrm) shape.xfrm = parseXfrm(xfrm);
     const geom = firstChild(spPr, 'a:prstGeom');
     if (geom?.attrs['prst']) shape.geom = geom.attrs['prst'];
+    // ajustes do preset (recorte em forma de seta, círculo…) e geometria PERSONALIZADA
+    // (imagem recortada em triângulo — web-gh-hta-animated-carousel)
+    const pav = geom ? firstChild(geom, 'a:avLst') : undefined;
+    if (pav) {
+      const adj: number[] = [], names: string[] = [];
+      for (const gd of childElements(pav, 'a:gd')) {
+        const m = /val (-?\d+)/.exec(gd.attrs['fmla'] ?? '');
+        if (m) { adj.push(parseInt(m[1]!, 10)); names.push(gd.attrs['name'] ?? ''); }
+      }
+      if (adj.length) { shape.adj = adj; shape.adjNames = names; }
+    }
+    const pcust = firstChild(spPr, 'a:custGeom');
+    if (pcust) {
+      const cg = parseCustGeom(pcust, shape.xfrm?.cx, shape.xfrm?.cy);
+      if (cg) shape.custGeom = cg;
+    }
     // preenchimento ATRÁS da imagem (prévias OLE/WMF transparentes com fundo branco)
     const sf = firstChild(spPr, 'a:solidFill');
     const sc = sf ? solidFillColor(spPr, theme) : undefined;
