@@ -21,15 +21,19 @@ export interface Theme {
   fillStyles?: XmlElement[];
 }
 
-/** Paleta Office padrão — fallback quando o pacote não traz theme1.xml. */
+/**
+ * Paleta padrão — fallback quando o pacote não traz theme1.xml. O Excel atual
+ * usa o tema Office 2023+ nesse caso (medido: degradê até theme=4 de uma pasta
+ * sem tema termina em #156082, não no #4472C4 do tema 2013).
+ */
 export const DEFAULT_THEME_COLORS: readonly string[] = [
   '#FFFFFF', // 0 lt1 (background1)
   '#000000', // 1 dk1 (text1)
-  '#E7E6E6', // 2 lt2
-  '#44546A', // 3 dk2
-  '#4472C4', '#ED7D31', '#A5A5A5', '#FFC000', '#5B9BD5', '#70AD47', // 4-9 accent1-6
-  '#0563C1', // 10 hyperlink
-  '#954F72', // 11 followedHyperlink
+  '#E8E8E8', // 2 lt2
+  '#0E2841', // 3 dk2
+  '#156082', '#E97132', '#196B24', '#0F9ED5', '#A02B93', '#4EA72E', // 4-9 accent1-6
+  '#467886', // 10 hyperlink
+  '#96607D', // 11 followedHyperlink
 ];
 
 /** Ordem dos slots no <a:clrScheme> → índice do atributo theme="N". */
@@ -189,35 +193,62 @@ export function resolveColorEl(c: XmlElement, cx?: ColorContext): string | undef
 
 /**
  * Aplica `tint` (de -1 a 1) a uma cor, como o app de referência: clareia (>0) ou
- * escurece (<0) a LUMINOSIDADE em HSL. tint<0 → L·(1+tint); tint>0 →
- * L·(1−tint)+tint. (Fórmula validada no excel-lab, FINDINGS.md.)
+ * escurece (<0) a LUMINOSIDADE em HLS. tint<0 → L·(1+tint); tint>0 →
+ * L·(1−tint) + HLSMAX·tint.
+ *
+ * Medido no Excel (COM: as ~2.900 cores resolvidas dos 144 estilos de
+ * tabela/dinâmica built-in, 40 pares cor×tint distintos — 40/40 exatos): a
+ * conversão é a RGB↔HLS INTEIRA do Windows (KB Q29240, HLSMAX = 240 — a
+ * fórmula HSL em ponto flutuante erra até 3 níveis); o tint vale com 4 casas
+ * (o gravado 0.79998168889431442 age como 0.8); L' truncado; cinza (S = 0)
+ * volta arredondado: (L·255 + 120)/240. Ex.: accent1 #156082 + 0.8 ⇒ #C0E6F5.
  */
 export function applyTint(hex: string, tint: number): string {
   if (!tint) return hex;
   const m = /#?([0-9a-fA-F]{6})/.exec(hex);
   if (!m) return hex;
   const n = parseInt(m[1]!, 16);
-  const rf = ((n >> 16) & 255) / 255, gf = ((n >> 8) & 255) / 255, bf = (n & 255) / 255;
-  const max = Math.max(rf, gf, bf), min = Math.min(rf, gf, bf), d = max - min;
-  let hh = 0, s = 0; let l = (max + min) / 2;
-  if (d !== 0) {
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    if (max === rf) hh = ((gf - bf) / d) % 6;
-    else if (max === gf) hh = (bf - rf) / d + 2;
-    else hh = (rf - gf) / d + 4;
-    hh /= 6; if (hh < 0) hh += 1;
-  }
-  l = tint < 0 ? l * (1 + tint) : l * (1 - tint) + tint;
-  const hue2rgb = (p: number, q: number, t: number): number => {
-    if (t < 0) t += 1; if (t > 1) t -= 1;
-    if (t < 1 / 6) return p + (q - p) * 6 * t;
-    if (t < 1 / 2) return q;
-    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-    return p;
-  };
-  let R: number, G: number, B: number;
-  if (s === 0) { R = G = B = l; }
-  else { const q = l < 0.5 ? l * (1 + s) : l + s - l * s; const p = 2 * l - q; R = hue2rgb(p, q, hh + 1 / 3); G = hue2rgb(p, q, hh); B = hue2rgb(p, q, hh - 1 / 3); }
-  const to = (x: number): string => Math.round(Math.min(1, Math.max(0, x)) * 255).toString(16).padStart(2, '0');
-  return '#' + to(R) + to(G) + to(B);
+  const [h, l, s] = rgbToHls((n >> 16) & 255, (n >> 8) & 255, n & 255);
+  const t = Math.round(tint * 1e4) / 1e4;
+  const l2 = Math.floor(t < 0 ? l * (1 + t) : l * (1 - t) + (HLSMAX - HLSMAX * (1 - t)));
+  const [r, g, b] = hlsToRgb(h, Math.max(0, Math.min(HLSMAX, l2)), s);
+  const to = (x: number): string => Math.max(0, Math.min(255, x)).toString(16).padStart(2, '0');
+  return '#' + to(r) + to(g) + to(b);
+}
+
+const HLSMAX = 240;
+const RGBMAX = 255;
+const idiv = (a: number, b: number): number => Math.trunc(a / b);
+
+/** RGB → HLS inteiro (0..240) do Windows (KB Q29240). */
+function rgbToHls(R: number, G: number, B: number): [number, number, number] {
+  const cMax = Math.max(R, G, B), cMin = Math.min(R, G, B);
+  const L = idiv((cMax + cMin) * HLSMAX + RGBMAX, 2 * RGBMAX);
+  if (cMax === cMin) return [idiv(HLSMAX * 2, 3), L, 0];
+  const S = L <= HLSMAX / 2
+    ? idiv((cMax - cMin) * HLSMAX + idiv(cMax + cMin, 2), cMax + cMin)
+    : idiv((cMax - cMin) * HLSMAX + idiv(2 * RGBMAX - cMax - cMin, 2), 2 * RGBMAX - cMax - cMin);
+  const d = (X: number): number => idiv((cMax - X) * (HLSMAX / 6) + idiv(cMax - cMin, 2), cMax - cMin);
+  let H = R === cMax ? d(B) - d(G) : G === cMax ? HLSMAX / 3 + d(R) - d(B) : (2 * HLSMAX) / 3 + d(G) - d(R);
+  if (H < 0) H += HLSMAX;
+  if (H > HLSMAX) H -= HLSMAX;
+  return [H, L, S];
+}
+
+function hueToRgb(n1: number, n2: number, h: number): number {
+  if (h < 0) h += HLSMAX;
+  if (h > HLSMAX) h -= HLSMAX;
+  if (h < HLSMAX / 6) return n1 + idiv((n2 - n1) * h + HLSMAX / 12, HLSMAX / 6);
+  if (h < HLSMAX / 2) return n2;
+  if (h < (HLSMAX * 2) / 3) return n1 + idiv((n2 - n1) * ((HLSMAX * 2) / 3 - h) + HLSMAX / 12, HLSMAX / 6);
+  return n1;
+}
+
+/** HLS inteiro → RGB (KB Q29240; o cinza arredonda, como o Excel). */
+function hlsToRgb(H: number, L: number, S: number): [number, number, number] {
+  if (S === 0) { const v = idiv(L * RGBMAX + HLSMAX / 2, HLSMAX); return [v, v, v]; }
+  const m2 = L <= HLSMAX / 2 ? idiv(L * (HLSMAX + S) + HLSMAX / 2, HLSMAX) : L + S - idiv(L * S + HLSMAX / 2, HLSMAX);
+  const m1 = 2 * L - m2;
+  const ch = (h: number): number => idiv(hueToRgb(m1, m2, h) * RGBMAX + HLSMAX / 2, HLSMAX);
+  return [ch(H + HLSMAX / 3), ch(H), ch(H - HLSMAX / 3)];
 }

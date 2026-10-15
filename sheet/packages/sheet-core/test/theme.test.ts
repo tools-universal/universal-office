@@ -20,6 +20,22 @@ describe('applyTint (fórmula HSL validada no excel-lab)', () => {
     expect(applyTint('#FFFFFF', -0.15).toUpperCase()).toBe('#D9D9D9');
     expect(applyTint('#FFFFFF', -0.05).toUpperCase()).toBe('#F2F2F2');
   });
+  it('bate com as cores resolvidas pelo Excel (COM, estilos de tabela built-in)', () => {
+    // HLS inteiro do Windows (HLSMAX 240) — a fórmula HSL em float errava 1–3 níveis
+    const cases: [string, number, string][] = [
+      ['#156082', 0.79998168889431442, '#C0E6F5'],
+      ['#156082', -0.249977111117893, '#104861'],
+      ['#4EA72E', 0.79998168889431442, '#DAF2D0'],
+      ['#4EA72E', 0.39997558519241921, '#8ED973'],
+      ['#E97132', -0.249977111117893, '#BE5014'],
+      ['#E97132', 0.79998168889431442, '#FBE2D5'],
+      ['#0F9ED5', -0.249977111117893, '#0C769E'],
+      ['#000000', 0.499984740745262, '#808080'],
+      ['#000000', 0.449995422223579, '#737373'],
+      ['#FFFFFF', -0.34998626667073579, '#A6A6A6'],
+    ];
+    for (const [base, tint, want] of cases) expect(applyTint(base, tint).toUpperCase()).toBe(want);
+  });
   it('tint 0 é identidade; positivo clareia; negativo escurece', () => {
     expect(applyTint('#4472C4', 0)).toBe('#4472C4');
     const lighter = applyTint('#4472C4', 0.6);
@@ -38,7 +54,7 @@ describe('readTheme', () => {
     const pkg = XlsxPackage.empty();
     const theme = readTheme(pkg);
     expect(theme.colors).toEqual([...DEFAULT_THEME_COLORS]);
-    expect(theme.byName['accent1']).toBe('#4472C4');
+    expect(theme.byName['accent1']).toBe('#156082');
   });
 
   it('lê clrScheme com a troca lt1/dk1 do índice theme="N"', () => {
@@ -86,7 +102,7 @@ describe('readTheme', () => {
     const theme = readTheme(pkg);
     expect(theme.colors[1]).toBe('#222222');
     // slots ausentes mantêm o fallback Office
-    expect(theme.colors[4]).toBe('#4472C4');
+    expect(theme.colors[4]).toBe('#156082');
   });
 });
 
@@ -125,9 +141,9 @@ describe('resolveColorEl', () => {
   });
   it('theme + tint contra o contexto', () => {
     const cx = defaultColorContext();
-    expect(resolveColorEl(el('<color theme="4"/>'), cx)).toBe('#4472C4');
+    expect(resolveColorEl(el('<color theme="4"/>'), cx)).toBe('#156082');
     expect(resolveColorEl(el('<color theme="4" tint="0.6"/>'), cx))
-      .toBe(applyTint('#4472C4', 0.6));
+      .toBe(applyTint('#156082', 0.6));
   });
   it('indexed contra a tabela legada', () => {
     expect(resolveColorEl(el('<color indexed="17"/>'))).toBe('#008000');

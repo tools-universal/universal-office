@@ -205,7 +205,7 @@ describe('.xls (BIFF8) → pacote OOXML', () => {
   });
 
   it('autofiltro: AUTOFILTERINFO + nome _FilterDatabase', () => {
-    expect(ws.autoFilter).toBe('A1:G1');
+    expect(ws.autoFilter?.ref).toBe('A1:G1');
   });
 
   it('hyperlink e comentário (NOTE + OBJ + TXO)', () => {

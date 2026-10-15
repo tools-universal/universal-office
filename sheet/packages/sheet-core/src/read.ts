@@ -3,7 +3,7 @@ import { colorContext, resolveColorEl, type ColorContext } from './theme.js';
 import type {
   Workbook, SheetRef, Worksheet, Row, Cell, CellType, SharedString, RichRun, RunProps,
   ColDef, PaneInfo, CondFormat, CondRule, ColorStop, Comment,
-  Hyperlink, SheetFormatPr, TableInfo,
+  Hyperlink, SheetFormatPr, TableInfo, AutoFilterInfo,
 } from './model.js';
 import { refToRowCol, rowColToRef } from './model.js';
 import type { XlsxPackage } from './package.js';
@@ -349,9 +349,9 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (hyperlinks.length > 0) ws.hyperlinks = hyperlinks;
   if (sheetFormatPr) ws.sheetFormatPr = sheetFormatPr;
   if (tables.length > 0) ws.tables = tables;
-  const af = firstChild(root, 'autoFilter')?.attrs['ref'];
-  if (af) ws.autoFilter = af;
   if (listValidations.length > 0) ws.listValidations = listValidations;
+  const sheetAf = firstChild(root, 'autoFilter');
+  if (sheetAf?.attrs['ref']) ws.autoFilter = readAutoFilter(sheetAf, sheetAf.attrs['ref']);
   return ws;
 }
 
@@ -366,15 +366,33 @@ function readTablePart(pkg: XlsxPackage, tablePath: string): TableInfo | undefin
   const headerRow = root.attrs['headerRowCount'] !== '0';
   const totalsRow = root.attrs['totalsRowCount'] === '1';
   const styleInfo = firstChild(root, 'tableStyleInfo');
+  const on = (k: string): boolean => styleInfo?.attrs[k] === '1' || styleInfo?.attrs[k] === 'true';
+  const af = firstChild(root, 'autoFilter');
   const out: TableInfo = {
     ref,
     headerRow,
     totalsRow,
-    stripes: styleInfo?.attrs['showRowStripes'] === '1',
-    autoFilter: firstChild(root, 'autoFilter') !== undefined,
+    stripes: on('showRowStripes'),
+    autoFilter: af !== undefined,
   };
   if (styleInfo?.attrs['name']) out.styleName = styleInfo.attrs['name'];
+  if (on('showColumnStripes')) out.colStripes = true;
+  if (on('showFirstColumn')) out.firstColumn = true;
+  if (on('showLastColumn')) out.lastColumn = true;
+  if (af) out.filter = readAutoFilter(af, ref);
   return out;
+}
+
+/** `<autoFilter ref>` → botões ocultos e colunas com critério. */
+export function readAutoFilter(af: XmlElement, fallbackRef: string): AutoFilterInfo {
+  const info: AutoFilterInfo = { ref: af.attrs['ref'] ?? fallbackRef };
+  for (const fc of childElements(af, 'filterColumn')) {
+    const id = parseInt(fc.attrs['colId'] ?? '', 10);
+    if (!Number.isFinite(id)) continue;
+    if (fc.attrs['hiddenButton'] === '1' || fc.attrs['hiddenButton'] === 'true' || fc.attrs['showButton'] === '0' || fc.attrs['showButton'] === 'false') (info.hidden ??= []).push(id);
+    if (childElements(fc).length > 0) (info.active ??= []).push(id);
+  }
+  return info;
 }
 
 /** Procura no `.rels` de uma parte o primeiro relacionamento cujo Type termina em `typeSuffix`. */
@@ -441,9 +459,9 @@ function readRow(el: XmlElement, cx?: ColorContext, implicitR = 1): Row {
   if (el.attrs['customHeight'] === '1' || el.attrs['customHeight'] === 'true') row.customHeight = true;
   if (el.attrs['hidden'] === '1' || el.attrs['hidden'] === 'true') row.hidden = true;
   if (el.attrs['s'] !== undefined) row.style = parseInt(el.attrs['s'], 10);
+  if (el.attrs['customFormat'] === '1' || el.attrs['customFormat'] === 'true') row.customFormat = true;
   if (el.attrs['thickTop'] === '1' || el.attrs['thickTop'] === 'true') row.thickTop = true;
   if (el.attrs['thickBot'] === '1' || el.attrs['thickBot'] === 'true') row.thickBot = true;
-  if (el.attrs['customFormat'] === '1' || el.attrs['customFormat'] === 'true') row.customFormat = true;
   let nextCol = 1;
   for (const cEl of childElements(el, 'c')) {
     const cell = readCell(cEl, cx);

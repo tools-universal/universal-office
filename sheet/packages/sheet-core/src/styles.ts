@@ -48,8 +48,11 @@ export interface Fill {
   /** Cor de fundo atrás do padrão (bgColor do patternFill não-sólido). */
   bgColor?: string;
   pattern?: string; // none | solid | gray125 | darkGray | ...
-  /** Gradiente linear (<gradientFill>): ângulo em graus + stops. */
-  gradient?: { degree: number; stops: GradientStop[] };
+  /**
+   * Degradê (<gradientFill>): linear (`degree`) ou `path` (retângulo interno
+   * left/right/top/bottom em frações da célula → borda da célula) + stops.
+   */
+  gradient?: { degree: number; stops: GradientStop[]; type?: 'linear' | 'path'; left?: number; right?: number; top?: number; bottom?: number };
 }
 
 export interface BorderEdge {
@@ -62,6 +65,27 @@ export interface Border {
   top?: BorderEdge;
   bottom?: BorderEdge;
   diagonal?: BorderEdge;
+  /** Diagonal ascendente (canto inf-esq → sup-dir) / descendente. */
+  diagonalUp?: boolean;
+  diagonalDown?: boolean;
+  /** Linhas INTERNAS (só em dxf de estilo de tabela: entre colunas/linhas da região). */
+  vertical?: BorderEdge;
+  horizontal?: BorderEdge;
+}
+
+/** Elemento de um estilo de tabela/dinâmica (<tableStyleElement type dxfId size>). */
+export interface TableStyleElementDef {
+  type: string;
+  dxfId?: number;
+  /** Tamanho da faixa (só firstRowStripe/secondRowStripe/…ColumnStripe). */
+  size?: number;
+}
+/** Estilo de tabela/dinâmica CUSTOMIZADO de styles.xml (<tableStyles><tableStyle>). */
+export interface TableStyleDef {
+  name: string;
+  pivot: boolean;
+  table: boolean;
+  elements: TableStyleElementDef[];
 }
 
 export interface CellXf {
@@ -89,15 +113,32 @@ export interface Styles {
   fonts: Font[];
   fills: Fill[];
   borders: Border[];
-  /** Formatos diferenciais (formatação condicional tipo cellIs/expression). */
+  /** Formatos diferenciais (formatação condicional, estilos de tabela customizados). */
   dxfs: Dxf[];
+  /** Estilos de tabela/dinâmica customizados (<tableStyles>). */
+  tableStyles?: TableStyleDef[];
+  /** Estilo default de tabela/dinâmica (<tableStyles defaultTableStyle defaultPivotStyle>). */
+  defaultTableStyle?: string;
+  defaultPivotStyle?: string;
 }
 
+/**
+ * Formato diferencial (<dxf>): só as propriedades PRESENTES (o resto herda da
+ * célula). `fill` segue a semântica do fill de célula (solid ⇒ fgColor),
+ * já convertida do dxf — onde o sólido usa bgColor.
+ */
 export interface Dxf {
-  fillColor?: string;   // bgColor do patternFill
+  fillColor?: string;   // cor do sólido (bgColor do patternFill do dxf)
+  fill?: Fill;
   fontColor?: string;
   bold?: boolean;
   italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  border?: Border;
+  /** Formato numérico (<numFmt numFmtId formatCode>). */
+  numFmtId?: number;
+  numFmtCode?: string;
 }
 
 /**
@@ -115,10 +156,11 @@ export function readStyles(pkg: XlsxPackage, cx?: ColorContext): Styles {
   if (fontsEl) {
     for (const f of childElements(fontsEl, 'font')) {
       const font: Font = {};
-      if (firstChild(f, 'b')) font.bold = true;
-      if (firstChild(f, 'i')) font.italic = true;
-      if (firstChild(f, 'u')) font.underline = true;
-      if (firstChild(f, 'strike')) font.strike = true;
+      if (boolEl(f, 'b')) font.bold = true;
+      if (boolEl(f, 'i')) font.italic = true;
+      const u = firstChild(f, 'u');
+      if (u && u.attrs['val'] !== 'none') font.underline = true;
+      if (boolEl(f, 'strike')) font.strike = true;
       const sz = firstChild(f, 'sz');
       if (sz?.attrs['val'] !== undefined) font.size = parseFloat(sz.attrs['val']);
       font.color = readColor(f, ctx);
@@ -147,40 +189,36 @@ export function readStyles(pkg: XlsxPackage, cx?: ColorContext): Styles {
   const borders: Border[] = [];
   const bordersEl = firstChild(root, 'borders');
   if (bordersEl) {
-    for (const bd of childElements(bordersEl, 'border')) {
-      const border: Border = {};
-      for (const side of ['left', 'right', 'top', 'bottom', 'diagonal'] as const) {
-        const e = firstChild(bd, side);
-        if (e && e.attrs['style'] && e.attrs['style'] !== 'none') {
-          const colEl = firstChild(e, 'color');
-          (border[side] as BorderEdge | undefined) = {
-            style: e.attrs['style'],
-            color: colEl ? resolveColorEl(colEl, ctx) : '#000000',
-          };
-        }
-      }
-      borders.push(border);
-    }
+    for (const bd of childElements(bordersEl, 'border')) borders.push(readBorder(bd, ctx));
   }
 
-  // dxfs (formatação condicional)
+  // dxfs (formatação condicional, estilos de tabela customizados)
   const dxfs: Dxf[] = [];
   const dxfsEl = firstChild(root, 'dxfs');
   if (dxfsEl) {
-    for (const d of childElements(dxfsEl, 'dxf')) {
-      const dxf: Dxf = {};
-      const fill = firstChild(d, 'fill');
-      const pf = fill ? firstChild(fill, 'patternFill') : undefined;
-      const bg = pf ? firstChild(pf, 'bgColor') : undefined;
-      if (bg) dxf.fillColor = resolveColorEl(bg, ctx);
-      const font = firstChild(d, 'font');
-      if (font) {
-        if (firstChild(font, 'b')) dxf.bold = true;
-        if (firstChild(font, 'i')) dxf.italic = true;
-        const colEl = firstChild(font, 'color');
-        if (colEl) dxf.fontColor = resolveColorEl(colEl, ctx);
+    for (const d of childElements(dxfsEl, 'dxf')) dxfs.push(readDxf(d, ctx));
+  }
+
+  // estilos de tabela/dinâmica customizados
+  let tableStyles: TableStyleDef[] | undefined;
+  let defaultTableStyle: string | undefined, defaultPivotStyle: string | undefined;
+  const tsEl = firstChild(root, 'tableStyles');
+  if (tsEl) {
+    defaultTableStyle = tsEl.attrs['defaultTableStyle'];
+    defaultPivotStyle = tsEl.attrs['defaultPivotStyle'];
+    for (const t of childElements(tsEl, 'tableStyle')) {
+      const name = t.attrs['name'];
+      if (!name) continue;
+      const elements: TableStyleElementDef[] = [];
+      for (const e of childElements(t, 'tableStyleElement')) {
+        const type = e.attrs['type'];
+        if (!type) continue;
+        const el: TableStyleElementDef = { type };
+        if (e.attrs['dxfId'] !== undefined) el.dxfId = parseInt(e.attrs['dxfId'], 10);
+        if (e.attrs['size'] !== undefined) el.size = parseInt(e.attrs['size'], 10);
+        elements.push(el);
       }
-      dxfs.push(dxf);
+      (tableStyles ??= []).push({ name, pivot: t.attrs['pivot'] !== '0', table: t.attrs['table'] !== '0', elements });
     }
   }
 
@@ -224,7 +262,82 @@ export function readStyles(pkg: XlsxPackage, cx?: ColorContext): Styles {
     }
   }
 
-  return { numFmts, cellXfs, fonts, fills, borders, dxfs };
+  const out: Styles = { numFmts, cellXfs, fonts, fills, borders, dxfs };
+  if (tableStyles) out.tableStyles = tableStyles;
+  if (defaultTableStyle) out.defaultTableStyle = defaultTableStyle;
+  if (defaultPivotStyle) out.defaultPivotStyle = defaultPivotStyle;
+  return out;
+}
+
+/** `<b/>`, `<b val="1"/>` → true; `<b val="0"/>`/ausente → false. */
+function boolEl(el: XmlElement, name: string): boolean {
+  const e = firstChild(el, name);
+  if (!e) return false;
+  const v = e.attrs['val'];
+  return v !== '0' && v !== 'false';
+}
+
+/** Lê um <border> (de célula ou de dxf — este pode trazer vertical/horizontal). */
+export function readBorder(bd: XmlElement, ctx: ColorContext): Border {
+  const border: Border = {};
+  for (const side of ['left', 'right', 'top', 'bottom', 'diagonal', 'vertical', 'horizontal'] as const) {
+    // `start`/`end` são os nomes do schema estrito/ISO para left/right
+    const e = firstChild(bd, side) ?? (side === 'left' ? firstChild(bd, 'start') : side === 'right' ? firstChild(bd, 'end') : undefined);
+    if (e && e.attrs['style'] && e.attrs['style'] !== 'none') {
+      const colEl = firstChild(e, 'color');
+      border[side] = { style: e.attrs['style'], color: (colEl ? resolveColorEl(colEl, ctx) : undefined) ?? '#000000' };
+    }
+  }
+  if (bd.attrs['diagonalUp'] === '1' || bd.attrs['diagonalUp'] === 'true') border.diagonalUp = true;
+  if (bd.attrs['diagonalDown'] === '1' || bd.attrs['diagonalDown'] === 'true') border.diagonalDown = true;
+  return border;
+}
+
+/**
+ * Lê um <dxf> (formatação condicional / elementos de estilo de tabela). Só o
+ * que está presente entra. Fill do dxf: sem patternType (ou solid) é SÓLIDO e
+ * a cor vem do bgColor (fgColor como reserva); padrões guardam fg/bg.
+ */
+export function readDxf(d: XmlElement, ctx: ColorContext): Dxf {
+  const dxf: Dxf = {};
+  const fill = firstChild(d, 'fill');
+  const pf = fill ? firstChild(fill, 'patternFill') : undefined;
+  if (pf) {
+    const pt = pf.attrs['patternType'];
+    const fgEl = firstChild(pf, 'fgColor'), bgEl = firstChild(pf, 'bgColor');
+    const fg = fgEl ? resolveColorEl(fgEl, ctx) : undefined;
+    const bg = bgEl ? resolveColorEl(bgEl, ctx) : undefined;
+    if (pt === 'none') dxf.fill = { pattern: 'none' };
+    else if (pt === undefined || pt === 'solid') {
+      const c = bg ?? fg;
+      if (c !== undefined) { dxf.fillColor = c; dxf.fill = { pattern: 'solid', fgColor: c }; }
+    } else {
+      dxf.fill = { pattern: pt, ...(fg ? { fgColor: fg } : {}), ...(bg ? { bgColor: bg } : {}) };
+    }
+  } else if (fill && firstChild(fill, 'gradientFill')) {
+    dxf.fill = readFill(fill, ctx);
+  }
+  const font = firstChild(d, 'font');
+  if (font) {
+    for (const [tag, key] of [['b', 'bold'], ['i', 'italic'], ['strike', 'strike']] as const) {
+      if (firstChild(font, tag)) dxf[key] = boolEl(font, tag);
+    }
+    const u = firstChild(font, 'u');
+    if (u) dxf.underline = u.attrs['val'] !== 'none';
+    const colEl = firstChild(font, 'color');
+    if (colEl) dxf.fontColor = resolveColorEl(colEl, ctx);
+  }
+  const bd = firstChild(d, 'border');
+  if (bd) {
+    const b = readBorder(bd, ctx);
+    if (Object.keys(b).length) dxf.border = b;
+  }
+  const nf = firstChild(d, 'numFmt');
+  if (nf) {
+    if (nf.attrs['numFmtId'] !== undefined) dxf.numFmtId = parseInt(nf.attrs['numFmtId'], 10);
+    if (nf.attrs['formatCode'] !== undefined) dxf.numFmtCode = nf.attrs['formatCode'];
+  }
+  return dxf;
 }
 
 /**
@@ -241,11 +354,13 @@ function readFill(fl: XmlElement, ctx: ColorContext): Fill {
     fill.pattern = pf.attrs['patternType'];
     const fg = firstChild(pf, 'fgColor');
     const bg = firstChild(pf, 'bgColor');
+    // sem cor o Excel pinta o padrão em PRETO sobre BRANCO (automático; medido
+    // em t-fills: solid sem fgColor = preto, mediumGray sem cores = xadrez p/b)
     if (pf.attrs['patternType'] === 'solid') {
-      fill.fgColor = fg ? resolveColorEl(fg, ctx) : undefined;
+      fill.fgColor = (fg ? resolveColorEl(fg, ctx) : undefined) ?? '#000000';
     } else if (pf.attrs['patternType'] !== undefined && pf.attrs['patternType'] !== 'none') {
-      if (fg) fill.fgColor = resolveColorEl(fg, ctx);
-      if (bg) fill.bgColor = resolveColorEl(bg, ctx);
+      fill.fgColor = (fg ? resolveColorEl(fg, ctx) : undefined) ?? '#000000';
+      fill.bgColor = (bg ? resolveColorEl(bg, ctx) : undefined) ?? '#FFFFFF';
     }
     return fill;
   }
@@ -259,7 +374,13 @@ function readFill(fl: XmlElement, ctx: ColorContext): Fill {
         color: (colEl ? resolveColorEl(colEl, ctx) : undefined) ?? '#FFFFFF',
       });
     }
-    fill.gradient = { degree: parseFloat(gf.attrs['degree'] ?? '0'), stops };
+    const num = (k: string): number => { const v = parseFloat(gf.attrs[k] ?? '0'); return Number.isFinite(v) ? v : 0; };
+    fill.gradient = { degree: num('degree'), stops };
+    if (gf.attrs['type'] === 'path') {
+      fill.gradient.type = 'path';
+      fill.gradient.left = num('left'); fill.gradient.right = num('right');
+      fill.gradient.top = num('top'); fill.gradient.bottom = num('bottom');
+    }
   }
   return fill;
 }

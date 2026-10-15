@@ -98,11 +98,11 @@ export interface Row {
   hidden?: boolean;
   /** Estilo de linha (atributo s) — aplica a células sem estilo próprio. */
   style?: number;
+  /** customFormat=1: o estilo `s` vale para as células AUSENTES da linha (sem ele o Excel ignora `s` — medido). */
+  customFormat?: boolean;
   /** thickTop/thickBot: borda grossa em cima/embaixo — o auto-ajuste do Excel soma 1 px cada (medido). */
   thickTop?: boolean;
   thickBot?: boolean;
-  /** customFormat=1: o `s` da linha vale para as células sem `<c>` (formato da linha inteira). */
-  customFormat?: boolean;
   cells: Cell[];
 }
 
@@ -258,6 +258,25 @@ export interface TableInfo {
   styleName?: string;
   /** `<autoFilter>` presente (setas de filtro no header). */
   autoFilter: boolean;
+  /** `<tableStyleInfo>`: faixas de coluna, primeira/última coluna destacadas. */
+  colStripes?: boolean;
+  firstColumn?: boolean;
+  lastColumn?: boolean;
+  /** Detalhes do autofiltro (botões ocultos / colunas filtradas). */
+  filter?: AutoFilterInfo;
+}
+
+/**
+ * Autofiltro (`<autoFilter ref>` da tabela ou da planilha): o Excel desenha um
+ * botão em cada célula da 1ª linha do range, exceto `hiddenButton`; coluna
+ * com critério ativo mostra o ícone de funil.
+ */
+export interface AutoFilterInfo {
+  ref: string;
+  /** Deslocamentos (0 = 1ª coluna do range) com botão oculto. */
+  hidden?: number[];
+  /** Deslocamentos com filtro/ordenação ativos. */
+  active?: number[];
 }
 
 /** Planilha — conteúdo de xl/worksheets/sheetN.xml. */
@@ -286,8 +305,8 @@ export interface Worksheet {
   sheetFormatPr?: SheetFormatPr;
   /** Tabelas (ListObjects) ligadas via `<tableParts>`. */
   tables?: TableInfo[];
-  /** Autofiltro da planilha (`<autoFilter ref>`): setas na 1ª linha do range. */
-  autoFilter?: string;
+  /** Autofiltro da PLANILHA (`<autoFilter>` fora de tabela). */
+  autoFilter?: AutoFilterInfo;
   /** Ranges A1 com validação tipo LISTA (`<dataValidation type="list" sqref>`) —
    *  a célula selecionada dentro deles ganha a seta de dropdown. */
   listValidations?: string[];
