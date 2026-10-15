@@ -1,11 +1,11 @@
 import { FontResolver, variantOf } from '@universal-office/fonts';
 import {
-  XlsxPackage, openSpreadsheet, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, applyTint,
+  XlsxPackage, openSpreadsheet, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
   parseChart, paintChart, excelMdw, excelRowPx, colWidthToPx, defaultColPx, rowPtToPx, ppemOf,
   type ChartModel, type Theme,
   type Workbook, type Worksheet, type Cell, type SharedString, type Styles, type Font, type Fill,
-  type Border, type BorderEdge, type PaneInfo, type CondFormat, type ColDef, type ColorStop, type FormatResult,
+  type Border, type BorderEdge, type PaneInfo, type CondFormat, type ColDef, type FormatResult,
   type Comment, type DrawingChart, type DrawingObject, type Hyperlink, type RichRun, type RunProps,
   themePath,
 } from '@universal/sheet-core';
@@ -1469,17 +1469,7 @@ export class UniversalSheetElement extends HTMLElement {
    * formatação condicional (idem, só quando a aba tem regras).
    */
   private paintCaches(v: SheetView): Map<number, Map<number, Cell>> {
-    let rowMap = this.rowMapCache.get(this.sheetIndex);
-    if (!rowMap) {
-      rowMap = new Map<number, Map<number, Cell>>();
-      for (const r of v.worksheet.rows) {
-        const cm = new Map<number, Cell>();
-        for (const c of r.cells) cm.set(refToRowCol(c.ref).col, c);
-        rowMap.set(r.r, cm);
-      }
-      this.rowMapCache.set(this.sheetIndex, rowMap);
-    }
-    return rowMap;
+    return this.cellIndex(v, this.sheetIndex);
   }
 
   /**
