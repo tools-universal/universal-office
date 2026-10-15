@@ -76,9 +76,26 @@ Rodadas completas com `.xls` (todas as abas com oráculo):
 |---|---|---|---|---|---|
 | r5 (.xls) | 2.691 | 6,74 | 11,54 | 29,7 | 89,5% |
 | r6 (+desenhos) | 2.414* | 5,78 | 10,35 | 27,4 | 89,1% |
-| r7 (+tabelas/CF, oráculo 1:1) | 2.692 | **5,26** | **9,03** | **23,9** | **90,0%** |
+| r7 (+tabelas/CF, oráculo 1:1) | 2.692 | 5,26 | 9,03 | 23,9 | 90,0% |
+| r8 (+texto/formatos, gráficos, formas .xls) | 2.692 | **0,31** | **4,30** | **14,8** | **98,9%** |
 
 \* rodada concorrente com a reexportação do oráculo (renderizações perdidas).
+Em r8 por origem (mediana/média): gd 0,31/3,88 · gdx 0,63/6,76 · lo 0,22/2,66 ·
+poi 0,02/2,77 · web 2,72/9,34. Entraram: motor de formatação numérica
+tokenizado (1.709 casos do Excel, portado ao .NET), Range.Text pela largura da
+coluna com larguras GDI, posição do texto remedida no oráculo 1:1 (base
+compartilhada da linha), altura automática de linha com texto quebrado,
+triângulo de "número como texto"; gráficos com dados das células, chartex
+(Office 2016), linhas de tendência, pizza de pizza, rótulos com campos,
+userShapes, densidade de eixo do Excel; formas OfficeArt completas do .xls,
+CF12/CFEX, GELFRAME e eixo de datas nos gráficos do .xls.
+
+Pendente (r8): altura de linha `ht` sem customHeight — o Excel às vezes mantém
+a altura gravada (.xls: 91% das linhas; nosso re-ajuste acerta 96%, mas erra
+~480 linhas onde a gravada vale; nenhuma regra simples separa os casos — nem
+"fonte não medida", nem dyDescent/fileVersion no .xlsx); fontes CJK ausentes
+(kostat, 12843-1); combinados do Banco Mundial; rosca com rótulos externos;
+3D nos gráficos do .xls; barras de erro.
 Em r7 por origem (mediana/média): gd 7,93/9,93 · gdx 6,60/12,52 ·
 lo 2,73/5,89 · poi 3,15/7,90 · web 10,39/14,34. Oráculo 1:1: o
 `Chart.Export` reservava 1 px de moldura e comprimia a imagem ~2 px; agora o
