@@ -8,7 +8,7 @@ export * from './fn.js';
 export * from './coerce.js';
 export * from './collation.js';
 export * from './criteria.js';
-export * from './collate.js';
+export { textEquals } from './collate.js';
 export * from './stats.js';
 export * from './special-functions.js';
 export * from './dates.js';
