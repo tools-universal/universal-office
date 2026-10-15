@@ -1046,8 +1046,9 @@ function algSnake(n: PNode): void {
     let at = i % per;
     const inLine = Math.min(per, N - line * per);
     if (revDir && line % 2 === 1) at = per - 1 - at;
-    // linha incompleta centralizada (off="ctr")
-    const shift = p['off'] === 'off' ? 0 : ((per - inLine) * ((flowCol ? h : w) + gap)) / 2;
+    // linha incompleta centralizada só com off="ctr" (bList2); sem o parâmetro começa
+    // do lado em que a linha começa (process5: o 3º sob o 2º na volta; medido)
+    const shift = p['off'] !== 'ctr' ? 0 : ((per - inLine) * ((flowCol ? h : w) + gap)) / 2;
     let cx: number, cy: number;
     if (!flowCol) {
       cx = at * (w + gap) + (revDir && line % 2 === 1 ? -shift : shift);
