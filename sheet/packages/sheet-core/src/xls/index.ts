@@ -161,6 +161,8 @@ function convert(bytes: Uint8Array): XlsxPackage {
   wbRels.push({ id: `rId${++n}`, type: `${REL}/sharedStrings`, target: 'sharedStrings.xml' });
   wbRels.push({ id: `rId${++n}`, type: `${REL}/theme`, target: 'theme/theme1.xml' });
   put('xl/workbook.xml', `${XML_HEAD}<workbook xmlns="${NS_MAIN}" xmlns:r="${NS_R}">`
+    // RECALCID = gravada pelo Excel (o calcId diz se ele confia no cache); sem ele, recálculo ao abrir
+    + (g.recalcId ? '<fileVersion appName="xl"/>' : '')
     + (g.date1904 ? '<workbookPr date1904="1"/>' : '<workbookPr/>')
     + `<bookViews><workbookView activeTab="${activeOut}"/></bookViews>`
     + `<sheets>${sheetsXml}</sheets>${definedNamesXml(g, outIndex)}${calcPrXml(g, sheets.map((s) => s.sheet))}</workbook>`);

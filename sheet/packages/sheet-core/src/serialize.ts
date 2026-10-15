@@ -51,6 +51,12 @@ function formulaXml(c: Cell): string {
   return c.formula ? `<f${a}>${escXml(c.formula)}</f>` : a ? `<f${a}/>` : '<f></f>';
 }
 
+/**
+ * Erros que o `<v>` aceita. Os do 365 (#SPILL!, #CALC!, #FIELD!…) o Excel grava
+ * como #VALUE! + rich value (vm); escritos direto, ele NÃO abre a pasta (medido).
+ */
+const FILE_ERRORS = new Set(['#NULL!', '#DIV/0!', '#VALUE!', '#REF!', '#NAME?', '#NUM!', '#N/A', '#GETTING_DATA']);
+
 function cellXml(c: Cell): string {
   let attrs = ` r="${escAttr(c.ref)}"`;
   if (c.style !== undefined) attrs += ` s="${c.style}"`;
@@ -66,6 +72,8 @@ function cellXml(c: Cell): string {
   } else if (c.type === 'str' && c.value !== undefined) {
     // texto de fórmula/derramado: "" vai como <v></v> (o Excel grava <v/>; sem <v> ele calcula ao abrir)
     inner += `<v>${escXml(encodeXstring(c.value))}</v>`;
+  } else if (c.type === 'e' && c.value !== undefined && !FILE_ERRORS.has(c.value.trim().toUpperCase()) && c.vm === undefined) {
+    inner += '<v>#VALUE!</v>';
   } else if (c.value !== undefined && (c.value !== '' || c.formula === undefined)) {
     inner += `<v>${escXml(c.value)}</v>`;
   }

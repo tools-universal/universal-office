@@ -98,6 +98,8 @@ export function readWorkbook(pkg: XlsxPackage): Workbook {
     }
     if (names.length) wb.definedNames = names;
   }
+  const fv = firstChild(root, 'fileVersion');
+  if (fv?.attrs['appName'] !== undefined) wb.appName = fv.attrs['appName'];
   // opções de cálculo
   const cp = firstChild(root, 'calcPr');
   if (cp) {

@@ -28,6 +28,11 @@ export interface Workbook {
   definedNames?: DefinedName[];
   /** Opções de cálculo (<calcPr>). */
   calcPr?: CalcPr;
+  /**
+   * `<fileVersion appName>`: quem gravou ("xl" = Excel). Sem ele, ou de outro
+   * programa, o Excel recalcula a pasta inteira ao abrir (medido).
+   */
+  appName?: string;
   /** Links externos (<externalReferences> → xl/externalLinks/…): índice 0 = `[1]` nas fórmulas. */
   externalLinks?: ExternalLink[];
   /**

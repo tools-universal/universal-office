@@ -8,9 +8,9 @@ import { a1ToCell } from '../src/a1.js';
 type CalcPr = { calcId?: number; calcMode?: string; fullCalcOnLoad?: boolean; forceFullCalc?: boolean };
 
 /** Pasta de uma aba: A1=1, A2=2, B1=A1+A2 com cache errado (99) e as células extras. */
-function book(calcPr: CalcPr | undefined, extra: SheetCoreCell[] = []): SheetCoreBook & { workbook: { calcPr?: CalcPr } } {
+function book(calcPr: CalcPr | undefined, extra: SheetCoreCell[] = []): SheetCoreBook & { workbook: { calcPr?: CalcPr; appName?: string } } {
   return {
-    workbook: { sheets: [{ name: 'S' }], ...(calcPr ? { calcPr } : {}) },
+    workbook: { sheets: [{ name: 'S' }], appName: 'xl', ...(calcPr ? { calcPr } : {}) },
     worksheets: [{
       rows: [
         { r: 1, cells: [{ ref: 'A1', value: '1' }, { ref: 'B1', formula: 'A1+A2', value: '99' }] },
@@ -30,6 +30,15 @@ describe('recálculo ao abrir (regra medida no Excel 365)', () => {
     expect(shouldRecalcOnOpen(book({ calcId: 191027 })).mode).toBe('full');
     expect(shouldRecalcOnOpen(book({ calcId: 124519 })).reason).toBe('oldCalcId');
     for (const id of [191028, 191029, 191030, 999999]) expect(shouldRecalcOnOpen(book({ calcId: id })).mode).toBe('none');
+  });
+
+  it('pasta que não foi gravada pelo Excel (fileVersion appName ≠ "xl") → completo', () => {
+    const b = book(OK);
+    expect(shouldRecalcOnOpen(b).mode).toBe('none');
+    b.workbook.appName = 'Calc';
+    expect(shouldRecalcOnOpen(b).reason).toBe('notExcel');
+    delete b.workbook.appName;
+    expect(shouldRecalcOnOpen(b).reason).toBe('notExcel');
   });
 
   it('fullCalcOnLoad/forceFullCalc → completo; manual → nada (nem com fullCalcOnLoad)', () => {

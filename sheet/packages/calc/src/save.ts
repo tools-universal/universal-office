@@ -15,10 +15,13 @@ import { walk } from './ast.js';
 import type { Engine, FormulaRec } from './engine.js';
 import { lookupFn } from './fn.js';
 import { saveFlags, toFileFormula } from './file-form.js';
-import { areaToA1, cellToA1 } from './a1.js';
+import { a1ToCell, areaToA1, cellToA1 } from './a1.js';
 import { printFormula } from './print.js';
-import { a1ToCell } from './a1.js';
+import { CalcError } from './values.js';
 import type { SyncCell, SyncWorksheet } from './to-sheet-core.js';
+
+/** Erros que o `<v>` do arquivo aceita (os do 365 o Excel grava como #VALUE! + rich value). */
+const FILE_ERRORS = new Set(['#NULL!', '#DIV/0!', '#VALUE!', '#REF!', '#NAME?', '#NUM!', '#N/A', '#GETTING_DATA']);
 
 /** Funções cujo resultado vem de fora (servidor, cubo, pivô): o nosso valor não é o do Excel. */
 export const ENVIRONMENT_FUNCTIONS = new Set(['WEBSERVICE', 'RTD', 'CUBEVALUE', 'CUBEMEMBER', 'CUBEMEMBERPROPERTY', 'CUBERANKEDMEMBER',
@@ -129,7 +132,11 @@ export function prepareForSave(engine: Engine, worksheets: readonly (SyncWorkshe
         } else if (fa.t === 'array') { delete fa.t; delete fa.ref; changed = true; }
       }
       const isDyn = fa.t === 'array' && f.dynamic;
-      const fl = flags.get(f) ?? { ca: false, aca: false };
+      const fl0 = flags.get(f) ?? { ca: false, aca: false };
+      // erro do 365 (#CALC!, #FIELD!…) vai como #VALUE! no <v> (o Excel não abre o código novo):
+      // com ca o Excel o recalcula ao abrir e mostra o erro certo
+      const v = engine.getValue(f.sheet, f.row, f.col);
+      const fl = v instanceof CalcError && !FILE_ERRORS.has(v.code) ? { ca: true, aca: fl0.aca || isDyn } : fl0;
       if (!!fa.ca !== fl.ca) { if (fl.ca) fa.ca = true; else delete fa.ca; changed = true; }
       const aca = fl.aca && isDyn;
       if (!!fa.aca !== aca) { if (aca) fa.aca = true; else delete fa.aca; changed = true; }

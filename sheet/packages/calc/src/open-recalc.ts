@@ -8,6 +8,9 @@
  * - modo MANUAL (`calcPr calcMode="manual"`): nada é recalculado — nem com
  *   fullCalcOnLoad, nem com calcId antigo; fórmula sem `<v>` fica vazia;
  * - recálculo COMPLETO (todas as fórmulas) quando:
+ *   · a pasta não foi gravada pelo Excel: sem `<fileVersion appName="xl">`
+ *     (ausente, sem appName ou "Calc" do LibreOffice — lastEdited/rupBuild
+ *     antigos não importam);
  *   · não há `<calcPr>` ou ele não tem calcId; calcId < 191028 (191027
  *     recalcula; 191028, 191029 e maiores — 191030, 200000, 999999 — não);
  *   · `fullCalcOnLoad="1"` ou `forceFullCalc="1"`;
@@ -40,7 +43,7 @@ export const OPEN_VOLATILE = new Set(['RAND', 'RANDBETWEEN', 'RANDARRAY', 'NOW',
 const VOLATILE_HINT = /\b(?:RAND|RANDBETWEEN|RANDARRAY|NOW|TODAY|OFFSET|INDIRECT|CELL|INFO)\s*\(/i;
 
 export type OpenRecalcReason =
-  | 'manual' | 'noCalcId' | 'oldCalcId' | 'fullCalcOnLoad' | 'forceFullCalc' | 'volatileWithoutCa' | 'partial' | 'none';
+  | 'manual' | 'notExcel' | 'noCalcId' | 'oldCalcId' | 'fullCalcOnLoad' | 'forceFullCalc' | 'volatileWithoutCa' | 'partial' | 'none';
 
 export interface OpenRecalcPlan {
   /** full = recalcula todas as fórmulas; partial = só `cells`; none = mostra o cache. */
@@ -53,6 +56,8 @@ export interface OpenRecalcPlan {
 /** O que a decisão lê do modelo do sheet-core (tipado por estrutura). */
 export interface OpenRecalcBook {
   readonly workbook: {
+    /** `<fileVersion appName>` ("xl" = gravada pelo Excel). */
+    readonly appName?: string;
     readonly calcPr?: {
       readonly calcId?: number; readonly calcMode?: string;
       readonly fullCalcOnLoad?: boolean; readonly forceFullCalc?: boolean;
@@ -90,6 +95,7 @@ export function shouldRecalcOnOpen(book: OpenRecalcBook): OpenRecalcPlan {
   if (cp?.calcMode === 'manual') return { mode: 'none', reason: 'manual', cells: [] };
   if (cp?.fullCalcOnLoad) return { mode: 'full', reason: 'fullCalcOnLoad', cells: [] };
   if (cp?.forceFullCalc) return { mode: 'full', reason: 'forceFullCalc', cells: [] };
+  if (book.workbook.appName !== 'xl') return { mode: 'full', reason: 'notExcel', cells: [] };
   if (!cp || cp.calcId === undefined) return { mode: 'full', reason: 'noCalcId', cells: [] };
   if (!(cp.calcId >= TRUSTED_CALC_ID)) return { mode: 'full', reason: 'oldCalcId', cells: [] };
   const cells: [number, number, number][] = [];
