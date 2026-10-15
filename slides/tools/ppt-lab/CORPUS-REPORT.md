@@ -173,7 +173,45 @@ integração no main com testes + regress + subconjunto a cada passo). Rodada
   NÃO desenha com a fonte EMBUTIDA (nós desenhamos — web-intl-who diverge de
   propósito); PICT 0x542 não exibido pelo app (desenhamos).
 
+Fechamento do dia (7ª etapa, 2026-10-14). Rodada **r13**: mediana **1,44**,
+média **2,48** (r10 de manhã: 2,61/4,30; início do corpus: 14,6/24,3). Por
+origem, r10 → r13: gd 3,11 → 1,82, gdx 3,14 → 1,75, lo 0,56 → 0,22, poi
+2,19 → 1,21, web 2,04 → 1,23. Amostras do repo × PowerPoint 2,48% → 1,63%.
+
+- **Quebra de linha** como a do app: avanço de glifo arredondado a 1/8 pt,
+  kerning só com `kern` e tamanho ≥ kern/100, largura útil truncada a 1/8 pt,
+  quebra após espaço e -–—, TAB colado à palavra seguinte, palavra maior que
+  a linha quebra entre caracteres, fontScale arredonda ao ponto; fonte ausente
+  mede como Calibri. Censo de 11.592 parágrafos: mesmas quebras do app em
+  99,8% (era 98,3%).
+- **Tabelas**: o app ignora `tableStyles.xml` (usa a definição embutida pelo
+  GUID; 74 estilos regenerados), partes por região, grade de bordas (dono da
+  aresta, ordem, junções, tracejado/compostas), imagem na célula e na tabela,
+  sombra, CJK/kinsoku.
+- **SmartArt sem desenho**: motor de layout (`diagram-layout.ts`) que gera o
+  `dsp:spTree` como o app (lin/snake/composite/tx/sp/conn/hier/cycle/pyra,
+  regras, personalizações do usuário) — decks LibreOffice de SmartArt:
+  mediana 19,0 → 1,5.
+- Bevel/cubo/botões sombreados também sobre degradê/imagem; alfa do contorno;
+  `<p:pic>` com custGeom; marcador sem recuo deslocado; harness do lab com a
+  base das fontes substitutas (como o app).
+
 ### Ainda faltando (por impacto observado)
+
+- Modelo 3D (`am3d:model3d`, glTF): o app desenha o modelo; o fallback do
+  arquivo é um PNG vazio (web-gh-officecli-3d-model).
+- Gráficos 3D em perspectiva (área/barras com rAngAx=0) e pizza 3D com
+  perspective forte; máximo do eixo com linha suavizada (gdx-545393).
+- Texto 3D (`sp3d` no bodyPr), faces de trás com lon > 90°, presets de chanfro
+  raros (cross, artDeco…).
+- Kerning de fontes antigas (Gill Sans MT, Palatino, Rockwell itálico) difere
+  do Chromium; fonte CJK substituta mais larga (gdx-615065); marcador de imagem
+  do .ppt (PP9) com degradê (gd-014920).
+- EMF+: fundo branco do WMF aninhado em gd-134981 sem explicação.
+- Port .NET (`dotnet/src/OfficeNext.Pptx/TextLayout.cs`) ainda sem as regras
+  novas de quebra de linha (paridade só cobre md/html).
+
+### Ainda faltando — lista anterior
 
 - WordArt do .ppt: espaçamento entre linhas e sombra do texto (a escala comum já bate).
 - SmartArt sem desenho nos layouts ainda não medidos (arrow5, radial*,
