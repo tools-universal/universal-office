@@ -22,6 +22,14 @@ export interface Font {
   size?: number; // pontos
   color?: string; // #RRGGBB (theme/rgb resolvido a rgb quando possível)
   name?: string;
+  /**
+   * Nome gravado quando a fonte segue o TEMA (`<scheme val="minor|major">`):
+   * o Excel desenha e mede com a fonte do tema (`name` vira a latina do tema,
+   * medido) — o nome gravado (ex.: 宋体) fica como fallback para escrita CJK.
+   */
+  altName?: string;
+  /** Sobrescrito/subscrito da fonte inteira (<vertAlign val>). */
+  vertAlign?: 'superscript' | 'subscript';
 }
 
 /** Stop de gradiente (position 0..1 + cor resolvida). */
@@ -114,6 +122,14 @@ export function readStyles(pkg: XlsxPackage, cx?: ColorContext): Styles {
       font.color = readColor(f, ctx);
       const name = firstChild(f, 'name');
       if (name?.attrs['val'] !== undefined) font.name = name.attrs['val'];
+      const va = firstChild(f, 'vertAlign')?.attrs['val'];
+      if (va === 'superscript' || va === 'subscript') font.vertAlign = va;
+      const scheme = firstChild(f, 'scheme')?.attrs['val'];
+      const themed = scheme === 'minor' || scheme === 'major' ? ctx.theme.fonts?.[scheme] : undefined;
+      if (themed) {
+        if (font.name && font.name !== themed) font.altName = font.name;
+        font.name = themed;
+      }
       fonts.push(font);
     }
   }

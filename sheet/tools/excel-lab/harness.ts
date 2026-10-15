@@ -18,6 +18,7 @@ declare global {
       loadBook(url: string): Promise<string[]>;
       paintRegion(name: string, nCols: number, nRows: number): { w: number; h: number } | null;
       cellTexts(name: string): [string, string][];
+      gridEdges(name: string, nCols: number, nRows: number): { xs: number[]; ys: number[] };
     };
   }
 }
@@ -42,5 +43,10 @@ window.harness = {
     if (i < 0) return [];
     us.selectSheet(i);
     return us.debugCellDisplays().map((d) => [d.ref, d.display]);
+  },
+  /** Bordas das colunas/linhas (px a 100%) — geometria × Range.Width/Height do Excel. */
+  gridEdges(name: string, nCols: number, nRows: number): { xs: number[]; ys: number[] } {
+    const i = us.getSheetNames().indexOf(name);
+    return i < 0 ? { xs: [], ys: [] } : us.debugGridEdges(i, nCols, nRows);
   },
 };

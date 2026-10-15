@@ -2,7 +2,8 @@ import { FontResolver, variantOf } from '@universal-office/fonts';
 import {
   XlsxPackage, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, applyTint,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
-  parseChart, paintChart, type ChartModel, type Theme,
+  parseChart, paintChart, excelMdw, excelRowPx, colWidthToPx, defaultColPx, rowPtToPx, ppemOf,
+  type ChartModel, type Theme,
   type Workbook, type Worksheet, type Cell, type SharedString, type Styles, type Font, type Fill,
   type Border, type PaneInfo, type CondFormat, type ColDef, type ColorStop, type FormatResult,
   type Comment, type DrawingChart, type Hyperlink, type RichRun, type RunProps,
@@ -132,6 +133,12 @@ function tableStyleAccent(name: string | undefined, accents: string[]): string {
  */
 const SHEET_FALLBACKS = ['Aptos Narrow'];
 
+/** Fallbacks da fonte da célula: o nome gravado de uma fonte do TEMA (ex.: 宋体
+ *  numa pasta chinesa) vem antes, para a escrita que a fonte latina não cobre. */
+function fallbacksOf(font: Font | undefined): string[] {
+  return font?.altName ? [font.altName, ...SHEET_FALLBACKS] : SHEET_FALLBACKS;
+}
+
 export class UniversalSheetElement extends HTMLElement {
   private host = this.attachShadow({ mode: 'open' });
   private canvas = document.createElement('canvas');
@@ -228,6 +235,13 @@ export class UniversalSheetElement extends HTMLElement {
     // fontes do SO usadas pelos estilos, sob demanda (lógica do Universal Write)
     void this.ensureSheetFonts();
 
+    // geometria do grid pela fonte Normal (estilo 0), com as tabelas MEDIDAS no
+    // Excel (sheet-core/grid-metrics): largura do dígito máximo e linha padrão
+    const normal = this.styles.fonts[0];
+    this.normalFont = { name: normal?.name ?? 'Calibri', size: normal?.size ?? 11, bold: !!normal?.bold };
+    this.mdw = excelMdw(this.normalFont.name, this.normalFont.size) ?? this.canvasMdw(this.normalFont);
+    this.normalRowPx = excelRowPx(this.normalFont.name, this.normalFont.size, this.normalFont.bold);
+
     this.views = [];
     for (const ref of this.workbook.sheets) {
       if (!ref.target) continue;
@@ -238,19 +252,17 @@ export class UniversalSheetElement extends HTMLElement {
       const hiddenRows = new Set<number>();
       let maxRow = 0;
       let maxCol = 0;
-      // larguras de coluna: <cols> → chars convertido a px (aprox MaxDigitWidth=7).
-      // O app de referência aplica `width` mesmo SEM customWidth (customWidth só marca "ajuste
-      // manual" p/ o autofit); só ignoramos <col> que não traz width algum.
+      // larguras de coluna: <cols> → px pela MDW da fonte Normal. O app de
+      // referência aplica `width` mesmo SEM customWidth (customWidth só marca
+      // "ajuste manual" p/ o autofit); só ignoramos <col> que não traz width algum.
       for (const cd of ws.cols ?? []) {
         for (let c = cd.min; c <= cd.max; c++) {
           if (cd.hidden) hiddenCols.add(c);
-          if (cd.width !== undefined) colWidths.set(c, colWidthPx(cd.width));
+          if (cd.width !== undefined) colWidths.set(c, colWidthToPx(cd.width, this.mdw));
         }
       }
       for (const row of ws.rows) {
         if (row.hidden) hiddenRows.add(row.r);
-        // ht é a altura real usada pelo app de referência (presente tb em auto-fit, sem customHeight)
-        if (row.height !== undefined) rowHeights.set(row.r, Math.round(row.height * 96 / 72));
         if (row.r > maxRow) maxRow = row.r;
         for (const c of row.cells) {
           const { col } = refToRowCol(c.ref);
@@ -280,16 +292,17 @@ export class UniversalSheetElement extends HTMLElement {
       const frozen = ws.pane && (ws.pane.state === 'frozen' || ws.pane.state === 'frozenSplit');
       const frozenCols = frozen ? Math.max(0, Math.floor(ws.pane!.xSplit)) : 0;
       const frozenRows = frozen ? Math.max(0, Math.floor(ws.pane!.ySplit)) : 0;
-      // defaults do grid (<sheetFormatPr>) — F
+      // defaults do grid (<sheetFormatPr>), como o Excel (medido): sem o
+      // elemento a linha padrão é 15 pt; com customHeight vale defaultRowHeight;
+      // senão a linha da fonte Normal (defaultRowHeight é ignorado)
       const sfp = ws.sheetFormatPr;
-      const defaultColW = sfp?.defaultColWidth !== undefined
-        ? colWidthPx(sfp.defaultColWidth)
-        : sfp?.baseColWidth !== undefined
-          ? colWidthPx(sfp.baseColWidth + 5 / 7) // baseColWidth + padding (5px/MDW)
-          : DEFAULT_COL_W;
-      const defaultRowH = sfp?.defaultRowHeight !== undefined
-        ? Math.round(sfp.defaultRowHeight * 96 / 72)
-        : DEFAULT_ROW_H;
+      const defaultColW = defaultColPx(this.mdw, sfp?.defaultColWidth, sfp?.baseColWidth);
+      const sheetCustomH = !!sfp?.customHeight && sfp.defaultRowHeight !== undefined;
+      const defaultRowH = sfp?.zeroHeight
+        ? 0
+        : !sfp
+          ? DEFAULT_ROW_H
+          : sheetCustomH ? rowPtToPx(sfp.defaultRowHeight!) : this.normalRowPx;
       // expande maxRow/maxCol p/ caber CHARTS ancorados ate to.col/to.row
       let extMaxRow = Math.max(maxRow, 30);
       let extMaxCol = Math.max(maxCol, 26);
@@ -350,6 +363,7 @@ export class UniversalSheetElement extends HTMLElement {
         tableDeco,
         listValRanges,
       });
+      this.fitRowHeights(this.views[this.views.length - 1]!);
     }
     // caches de paint pertencem ao workbook anterior
     this.rowMapCache.clear();
@@ -363,6 +377,130 @@ export class UniversalSheetElement extends HTMLElement {
     this.recalcGrid();
     this.emitSelection();
     this.paint();
+  }
+
+  /** Fonte Normal da pasta (estilo 0) — base das larguras e da linha padrão. */
+  private normalFont: { name: string; size: number; bold: boolean } = { name: 'Calibri', size: 11, bold: false };
+  /** Largura do dígito máximo (px) da fonte Normal, como o Excel a mede. */
+  private mdw = 7;
+  /** Altura (px) da linha auto-ajustada só com a fonte Normal. */
+  private normalRowPx = 20;
+  /** Contexto 2D só para medir texto (auto-ajuste de linhas com quebra). */
+  private measureCtx: CanvasRenderingContext2D | null = null;
+
+  /** MDW estimada pelo canvas para fonte Normal não medida no Excel. */
+  private canvasMdw(f: { name: string; size: number; bold: boolean }): number {
+    const ctx = this.measureCtx ??= document.createElement('canvas').getContext('2d');
+    if (!ctx) return 7;
+    ctx.font = `${f.bold ? '700 ' : '400 '}${ppemOf(f.size)}px ${this.fontResolver.cssStack(f.name, SHEET_FALLBACKS, variantOf(f.bold, false))}`;
+    let w = 0;
+    for (const d of '0123456789') w = Math.max(w, ctx.measureText(d).width);
+    return Math.max(1, Math.round(w));
+  }
+
+  /**
+   * Alturas das linhas presentes no XML, como o Excel as calcula AO ABRIR
+   * (medido): customHeight → ht; senão o Excel refaz o auto-ajuste e ignora o
+   * `ht` gravado — a maior linha entre a fonte Normal e a fonte de cada célula
+   * (vazia com estilo também conta; runs de texto rico; texto com quebra =
+   * linhas × altura da fonte). Com <sheetFormatPr customHeight> e nenhuma linha
+   * com `ht` solto, as linhas sem `ht` ficam na altura padrão.
+   */
+  private fitRowHeights(v: SheetView): void {
+    const ws = v.worksheet;
+    const sfp = ws.sheetFormatPr;
+    const sheetCustom = !!sfp?.customHeight && sfp.defaultRowHeight !== undefined;
+    const looseHt = sheetCustom && ws.rows.some((r) => r.height !== undefined && !r.customHeight);
+    const fonts = this.styles.fonts;
+    const xfs = this.styles.cellXfs;
+    const nf = this.normalFont;
+    // células cobertas por mescla não entram no auto-ajuste de quebra
+    const mergedCells = new Set<string>();
+    for (const [tl, range] of v.merges) {
+      const [a, b] = range.split(':');
+      if (!a || !b) continue;
+      const s = refToRowCol(a), e = refToRowCol(b);
+      if (s.row === e.row && s.col === e.col) continue;
+      for (let r = s.row; r <= e.row; r++) for (let c = s.col; c <= e.col; c++) mergedCells.add(`${c},${r}`);
+      void tl;
+    }
+    // sobrescrito/subscrito somam ao auto-ajuste (medido: Arial 10 +2/+4,
+    // Calibri 11 +3/+4, Arial 20 +4/+6 px) — aproximação pelo ppem
+    const pxOf = (name: string | undefined, size: number | undefined, bold: boolean | undefined, va?: string): number => {
+      const sz = size ?? nf.size;
+      const base = excelRowPx(name ?? nf.name, sz, !!bold);
+      if (va === 'superscript') return base + Math.round(ppemOf(sz) * 0.17);
+      if (va === 'subscript') return base + Math.round(ppemOf(sz) * 0.25);
+      return base;
+    };
+    // células VAZIAS da linha também entram (medido): a de coluna com estilo
+    // usa a fonte do estilo da coluna; as demais, a fonte Normal
+    const colStyled: { min: number; max: number; px: number }[] = [];
+    let normalCols = false;
+    let next = 1;
+    for (const cd of [...(ws.cols ?? [])].sort((a, b) => a.min - b.min)) {
+      if (cd.min > next) normalCols = true;
+      if (cd.style === undefined) normalCols = true;
+      else {
+        const f = fonts[xfs[cd.style]?.fontId ?? 0];
+        colStyled.push({ min: cd.min, max: cd.max, px: pxOf(f?.name, f?.size, f?.bold, f?.vertAlign) });
+      }
+      next = Math.max(next, cd.max + 1);
+    }
+    if (next <= 16384) normalCols = true;
+    for (const row of ws.rows) {
+      if (row.customHeight && row.height !== undefined) { v.rowHeights.set(row.r, rowPtToPx(row.height)); continue; }
+      if (sheetCustom && !looseHt && row.height === undefined) { v.rowHeights.set(row.r, v.defaultRowH); continue; }
+      let h = 0;
+      if (row.style !== undefined) {
+        // estilo de linha: vale para todas as células vazias da linha
+        const f = fonts[xfs[row.style]?.fontId ?? 0];
+        h = pxOf(f?.name, f?.size, f?.bold, f?.vertAlign);
+      } else {
+        if (normalCols) h = this.normalRowPx;
+        if (colStyled.length) {
+          const filled = new Set(row.cells.map((c) => refToRowCol(c.ref).col));
+          for (const cs of colStyled) {
+            // faixa inteira preenchida por células próprias não conta
+            if (cs.max - cs.min < 64) {
+              let all = true;
+              for (let c = cs.min; c <= cs.max && all; c++) if (!filled.has(c)) all = false;
+              if (all) continue;
+            }
+            h = Math.max(h, cs.px);
+          }
+        }
+      }
+      for (const c of row.cells) {
+        const xf = xfs[c.style ?? row.style ?? 0];
+        const f = fonts[xf?.fontId ?? 0];
+        const lineH = pxOf(f?.name, f?.size, f?.bold, f?.vertAlign);
+        h = Math.max(h, lineH);
+        const runs = this.cellRuns(c);
+        if (runs) for (const r of runs) h = Math.max(h, pxOf(r.props?.font ?? f?.name, r.props?.size ?? f?.size, r.props?.bold ?? f?.bold, r.props?.vertAlign ?? f?.vertAlign));
+        if (xf?.wrapText) {
+          const { col } = refToRowCol(c.ref);
+          if (mergedCells.has(`${col},${row.r}`)) continue;
+          const text = this.displayText(c);
+          if (!text) continue;
+          const lines = this.countWrapLines(text, f, (v.colWidths.get(col) ?? v.defaultColW) - 6);
+          h = Math.max(h, lines * lineH);
+        }
+      }
+      // bordas grossas sinalizadas na linha: +1 px cada (medido)
+      if (row.thickTop) h++;
+      if (row.thickBot) h++;
+      v.rowHeights.set(row.r, h);
+    }
+  }
+
+  /** Linhas de um texto com quebra na largura útil (px), na fonte da célula. */
+  private countWrapLines(text: string, font: Font | undefined, maxW: number): number {
+    const ctx = this.measureCtx ??= document.createElement('canvas').getContext('2d');
+    if (!ctx) return text.split('\n').length;
+    const sizePx = (font?.size ?? this.normalFont.size) * 96 / 72;
+    ctx.font = `${font?.italic ? 'italic ' : ''}${font?.bold ? '700 ' : '400 '}${sizePx}px ${this.fontResolver.cssStack(font?.name ?? this.normalFont.name, fallbacksOf(font), variantOf(!!font?.bold, !!font?.italic))}`;
+    return Math.max(1, this.wrapText(ctx, text, Math.max(1, maxW)).length);
   }
 
   /** Views com edições pendentes (célula/resize) a persistir no save. */
@@ -405,6 +543,24 @@ export class UniversalSheetElement extends HTMLElement {
     if (!v) return [];
     const out: { ref: string; display: string }[] = [];
     for (const r of v.worksheet.rows) for (const c of r.cells) out.push({ ref: c.ref, display: this.displayText(c) });
+    return out;
+  }
+
+  /** DEBUG: bordas (px a 100%) das colunas 0..nCols e linhas 0..nRows da aba
+   *  `index` — para comparar a geometria com as larguras/alturas do Excel. */
+  debugGridEdges(index: number, nCols: number, nRows: number): { xs: number[]; ys: number[] } {
+    const v = this.views[index];
+    if (!v) return { xs: [], ys: [] };
+    const keep = { sheet: this.sheetIndex, zoom: this.zoom };
+    this.sheetIndex = index;
+    this.zoom = 1;
+    v.maxCol = Math.max(v.maxCol, nCols);
+    v.maxRow = Math.max(v.maxRow, nRows);
+    this.recalcGrid();
+    const out = { xs: Array.from(this.xs.subarray(0, nCols + 1)), ys: Array.from(this.ys.subarray(0, nRows + 1)) };
+    this.sheetIndex = keep.sheet;
+    this.zoom = keep.zoom;
+    this.recalcGrid();
     return out;
   }
 
@@ -653,7 +809,7 @@ export class UniversalSheetElement extends HTMLElement {
     const ws = v.worksheet;
     if (kind === 'col') {
       const px = v.colWidths.get(index) ?? v.defaultColW;
-      const width = pxToColWidthChars(px);
+      const width = pxToColWidthChars(px, this.mdw);
       const cols = ws.cols ?? (ws.cols = []);
       // recorta qualquer <col> que cubra o índice e insere a definição pontual
       for (let i = cols.length - 1; i >= 0; i--) {
@@ -696,7 +852,7 @@ export class UniversalSheetElement extends HTMLElement {
         if (!txt) continue;
         const font = this.resolveStyle(c).font;
         const size = (font?.size ?? 11) * 96 / 72; // px sem zoom
-        ctx.font = `${font?.italic ? 'italic ' : ''}${font?.bold ? '700 ' : '400 '}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', SHEET_FALLBACKS, variantOf(!!font?.bold, !!font?.italic))}`;
+        ctx.font = `${font?.italic ? 'italic ' : ''}${font?.bold ? '700 ' : '400 '}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', fallbacksOf(font), variantOf(!!font?.bold, !!font?.italic))}`;
         best = Math.max(best, ctx.measureText(txt).width);
       }
     }
@@ -1745,7 +1901,7 @@ export class UniversalSheetElement extends HTMLElement {
     const size = (font?.size ?? 11) * 96 / 72 * this.zoom;
     const style = font?.italic ? 'italic ' : '';
     const weight = font?.bold ? '700 ' : '400 ';
-    ctx.font = `${style}${weight}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', SHEET_FALLBACKS, variantOf(!!font?.bold, !!font?.italic))}`;
+    ctx.font = `${style}${weight}${size}px ${this.fontResolver.cssStack(font?.name ?? 'Aptos Narrow', fallbacksOf(font), variantOf(!!font?.bold, !!font?.italic))}`;
     // cor do numFmt (ex.: [Red] em negativos) tem prioridade sobre a cor da fonte
     ctx.fillStyle = fr.color ?? font?.color ?? TEXT;
 
@@ -1793,7 +1949,8 @@ export class UniversalSheetElement extends HTMLElement {
 
     if (st.wrap) {
       const lines = this.wrapText(ctx, display, innerW);
-      const lineH = size * 1.2;
+      // entrelinha = altura de linha da fonte no Excel (a linha auto-ajustada tem linhas × isso)
+      const lineH = excelRowPx(font?.name ?? this.normalFont.name, font?.size ?? this.normalFont.size, !!font?.bold) * this.zoom;
       const totalH = lines.length * lineH;
       let startY: number;
       const va = st.valign ?? 'bottom';
@@ -1835,7 +1992,7 @@ export class UniversalSheetElement extends HTMLElement {
     const sizePt = p?.size ?? base?.size ?? 11;
     const sizePx = sizePt * 96 / 72 * this.zoom;
     // rFont explícito do run tem prioridade; senão a convenção da célula
-    const family = this.fontResolver.cssStack(p?.font ?? 'Aptos Narrow', SHEET_FALLBACKS, variantOf(bold, italic));
+    const family = this.fontResolver.cssStack(p?.font ?? base?.name ?? 'Aptos Narrow', p?.font ? SHEET_FALLBACKS : fallbacksOf(base), variantOf(bold, italic));
     return {
       css: `${italic ? 'italic ' : ''}${bold ? '700 ' : '400 '}${sizePx}px ${family}`,
       sizePx,
@@ -2199,17 +2356,6 @@ function colLetters(col: number): string {
   let c = col;
   while (c > 0) { const r = (c - 1) % 26; s = String.fromCharCode(65 + r) + s; c = Math.floor((c - 1) / 26); }
   return s;
-}
-
-/**
- * Converte largura de coluna (unidades de caractere, atributo width do <col>)
- * → pixels @96dpi. Fórmula do OOXML com MaxDigitWidth=7 (Aptos Narrow 11):
- *   px = floor( ((256*w + floor(128/MDW)) / 256) * MDW )
- * (não é w*7+5 — aquela superestima em ~5px por coluna).
- */
-function colWidthPx(width: number): number {
-  const MDW = 7;
-  return Math.floor(((256 * width + Math.floor(128 / MDW)) / 256) * MDW);
 }
 
 /**

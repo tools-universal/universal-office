@@ -7,6 +7,9 @@ export {
   readSharedStrings,
   readWorksheet,
 } from './read.js';
+export {
+  excelRowPx, excelMdw, colWidthToPx, defaultColPx, rowPtToPx, measuredFamily, ppemOf,
+} from './grid-metrics.js';
 export { readStyles, applyTint, type Styles, type CellXf, type Font, type Fill, type GradientStop, type Border, type BorderEdge, type Dxf } from './styles.js';
 export {
   readTheme,

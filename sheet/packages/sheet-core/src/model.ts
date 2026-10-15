@@ -47,6 +47,8 @@ export interface RunProps {
   color?: string;
   /** Nome da fonte (<rFont val>). */
   font?: string;
+  /** Sobrescrito/subscrito (<vertAlign val>). */
+  vertAlign?: 'superscript' | 'subscript';
 }
 
 /** Run de texto rico dentro de um shared/inline string (<r><rPr/><t>). */
@@ -96,6 +98,9 @@ export interface Row {
   hidden?: boolean;
   /** Estilo de linha (atributo s) — aplica a células sem estilo próprio. */
   style?: number;
+  /** thickTop/thickBot: borda grossa em cima/embaixo — o auto-ajuste do Excel soma 1 px cada (medido). */
+  thickTop?: boolean;
+  thickBot?: boolean;
   cells: Cell[];
 }
 
@@ -146,6 +151,8 @@ export interface SheetFormatPr {
   defaultRowHeight?: number;
   /** customHeight=1: alturas não são auto-ajustadas. */
   customHeight?: boolean;
+  /** zeroHeight=1: linhas sem `<row>` próprio ficam ocultas. */
+  zeroHeight?: boolean;
 }
 
 /** Regra de formatação condicional (subconjunto suportado). */

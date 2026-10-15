@@ -98,6 +98,8 @@ function readRunProps(rPr: XmlElement, cx?: ColorContext): RunProps | undefined 
   if (colEl) props.color = resolveColorEl(colEl, cx);
   const rFont = firstChild(rPr, 'rFont');
   if (rFont?.attrs['val'] !== undefined) props.font = rFont.attrs['val'];
+  const va = firstChild(rPr, 'vertAlign')?.attrs['val'];
+  if (va === 'superscript' || va === 'subscript') props.vertAlign = va;
   return Object.keys(props).length ? props : undefined;
 }
 
@@ -173,7 +175,8 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
     if (sfp.attrs['baseColWidth'] !== undefined) sheetFormatPr.baseColWidth = parseFloat(sfp.attrs['baseColWidth']);
     if (sfp.attrs['defaultRowHeight'] !== undefined) sheetFormatPr.defaultRowHeight = parseFloat(sfp.attrs['defaultRowHeight']);
     if (sfp.attrs['customHeight'] === '1' || sfp.attrs['customHeight'] === 'true') sheetFormatPr.customHeight = true;
-    if (Object.keys(sheetFormatPr).length === 0) sheetFormatPr = undefined;
+    if (sfp.attrs['zeroHeight'] === '1' || sfp.attrs['zeroHeight'] === 'true') sheetFormatPr.zeroHeight = true;
+    // vazio também conta: SEM <sheetFormatPr> a linha padrão do Excel é 15 pt fixos
   }
 
   // <hyperlinks><hyperlink ref r:id location display tooltip/></hyperlinks>
@@ -486,6 +489,8 @@ function readRow(el: XmlElement, cx?: ColorContext): Row {
   if (el.attrs['customHeight'] === '1' || el.attrs['customHeight'] === 'true') row.customHeight = true;
   if (el.attrs['hidden'] === '1' || el.attrs['hidden'] === 'true') row.hidden = true;
   if (el.attrs['s'] !== undefined) row.style = parseInt(el.attrs['s'], 10);
+  if (el.attrs['thickTop'] === '1' || el.attrs['thickTop'] === 'true') row.thickTop = true;
+  if (el.attrs['thickBot'] === '1' || el.attrs['thickBot'] === 'true') row.thickBot = true;
   for (const cEl of childElements(el, 'c')) row.cells.push(readCell(cEl, cx));
   return row;
 }
