@@ -1,0 +1,47 @@
+[
+ {
+  "id": "fix-db-1",
+  "v": {
+   "e": "#NAME?"
+  },
+  "text": "#NOME?",
+  "f": "=DCOUNT(nope,2,A1:A2)",
+  "local": "=BDCONTAR(nope;2;A1:A2)"
+ },
+ {
+  "id": "fix-db-2",
+  "v": {
+   "e": "#NAME?"
+  },
+  "text": "#NOME?",
+  "f": "=DSUM(nope,1,A1:A2)",
+  "local": "=BDSOMA(nope;1;A1:A2)"
+ },
+ {
+  "id": "fix-db-3",
+  "v": {
+   "e": "#NAME?"
+  },
+  "text": "#NOME?",
+  "f": "=DCOUNT(A1:A3,nope,A1:A2)",
+  "local": "=BDCONTAR(A1:A3;nope;A1:A2)"
+ },
+ {
+  "id": "fix-db-4",
+  "v": {
+   "e": "#NAME?"
+  },
+  "text": "#NOME?",
+  "f": "=DCOUNT(A1:A3,1,nope)",
+  "local": "=BDCONTAR(A1:A3;1;nope)"
+ },
+ {
+  "id": "fix-db-5",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "f": "=DCOUNT(A1:A3,1/0,A1:A2)",
+  "local": "=BDCONTAR(A1:A3;1/0;A1:A2)"
+ }
+]

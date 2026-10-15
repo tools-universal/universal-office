@@ -98,6 +98,10 @@ function parseCriteria(cr: Area, db: Area, ctx: FnContext): Cond[][] | CalcError
 /** Valores do campo nos registros que casam (ordem das linhas), com o 1º erro dos critérios. */
 function matched(args: readonly unknown[], ctx: FnContext, fieldRequired: boolean): { vals: Scalar[] } | CalcError {
   const [dbRef, field, crRef] = args as [Value, Scalar, Value];
+  // erro na base ou nos critérios propaga (medido: DCOUNT(nome_indefinido;2;A1:A2) = #NOME?)
+  if (dbRef instanceof CalcError) return dbRef;
+  if (field instanceof CalcError) return field;
+  if (crRef instanceof CalcError) return crRef;
   if (!(dbRef instanceof RefValue) || dbRef.areas.length !== 1) return ERR.VALUE;
   if (!(crRef instanceof RefValue) || crRef.areas.length !== 1) return ERR.VALUE;
   const db = dbRef.areas[0]!, cr = crRef.areas[0]!;

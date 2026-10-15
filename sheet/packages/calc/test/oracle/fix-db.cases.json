@@ -1,0 +1,7 @@
+[
+ {"id":"fix-db-1","fn":"DCOUNT","args":[],"f":"=DCOUNT(nope,2,A1:A2)","cells":{"A1":"x","A2":1}},
+ {"id":"fix-db-2","fn":"DSUM","args":[],"f":"=DSUM(nope,1,A1:A2)","cells":{"A1":"x","A2":1}},
+ {"id":"fix-db-3","fn":"DCOUNT","args":[],"f":"=DCOUNT(A1:A3,nope,A1:A2)","cells":{"A1":"x","A2":1}},
+ {"id":"fix-db-4","fn":"DCOUNT","args":[],"f":"=DCOUNT(A1:A3,1,nope)","cells":{"A1":"x","A2":1}},
+ {"id":"fix-db-5","fn":"DCOUNT","args":[],"f":"=DCOUNT(A1:A3,1/0,A1:A2)","cells":{"A1":"x","A2":1}}
+]
