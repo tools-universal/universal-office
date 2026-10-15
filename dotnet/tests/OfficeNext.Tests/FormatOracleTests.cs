@@ -78,8 +78,47 @@ public class FormatOracleTests
         Assert.Equal("17/jun/26", Format.FormatValue(46190, Format.BuiltinFormatCode(15)!).Text);
         Assert.Equal("17/jun", Format.FormatValue(46190, Format.BuiltinFormatCode(16)!).Text);
         Assert.Equal("jun/26", Format.FormatValue(46190, Format.BuiltinFormatCode(17)!).Text);
-        Assert.Equal("14:30", Format.FormatValue(46190.604861, Format.BuiltinFormatCode(20)!).Text);
-        Assert.Equal("17/06/2026 14:30", Format.FormatValue(46190.604861, Format.BuiltinFormatCode(22)!).Text);
+        // ,604861 d = 14:30:59,99 → o Excel arredonda ao segundo antes de exibir (medido)
+        Assert.Equal("14:31", Format.FormatValue(46190.604861, Format.BuiltinFormatCode(20)!).Text);
+        Assert.Equal("17/06/2026 14:31", Format.FormatValue(46190.604861, Format.BuiltinFormatCode(22)!).Text);
+        Assert.Equal("14:29", Format.FormatValue(46190.6041, Format.BuiltinFormatCode(20)!).Text);
+    }
+
+    // ───────── oráculo MEDIDO (Range.Text, pastas sintéticas) — espelho de numfmt.test.ts ─────────
+
+    public static IEnumerable<object[]> MeasuredCases()
+    {
+        string path = Path.Combine(Fixtures.Dir, "numfmt-oracle.json");
+        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        foreach (var c in doc.RootElement.EnumerateArray())
+        {
+            var v = c.GetProperty("v");
+            object value = v.ValueKind == JsonValueKind.String ? v.GetString()! : v.GetDouble();
+            yield return [value, c.GetProperty("fmt").GetString()!, c.GetProperty("text").GetString()!];
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(MeasuredCases))]
+    public void FormatValue_ReproduzRangeTextMedido(object value, string fmt, string expected)
+    {
+        // "builtin:N" = numFmtId N sem <numFmt> no arquivo (formato do locale pt-BR)
+        string code = fmt.StartsWith("builtin:", StringComparison.Ordinal)
+            ? Format.BuiltinFormatCode(int.Parse(fmt[8..], System.Globalization.CultureInfo.InvariantCulture))!
+            : fmt;
+        string actual = value is string s ? Format.FormatValue(s, code).Text : Format.FormatValue((double)value, code).Text;
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void Partes_SkipFillGeral()
+    {
+        var r = Format.FormatValueParts(1234.5, "_(* #,##0.00_);_(* (#,##0.00);_(* \"-\"??_);_(@_)");
+        Assert.Equal<FmtPart>([new SkipPart("("), new FillPart(" "), new TextPart("1.234,50"), new SkipPart(")")], r.Parts);
+        Assert.True(Format.FormatValueParts(25, "[<10]\"a\"0;[<20]\"b\"0").Overflow);
+        Assert.Equal("7,3", Format.FormatGeneral(7.26126896, null, 3));
+        Assert.Equal("1E+06", Format.FormatGeneral(1234567.891, null, 6));
+        Assert.Equal("9E-05", Format.FormatGeneral(0.00009, null, 6));
     }
 
     [Fact]

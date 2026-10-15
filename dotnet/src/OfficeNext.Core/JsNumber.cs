@@ -172,6 +172,25 @@ public static class JsNumber
         return neg ? -result : result;
     }
 
+    /// <summary>
+    /// Dígitos de <c>x.toPrecision(p)</c> do JS para x finito &gt; 0: p algarismos
+    /// significativos (empate para cima, sobre a expansão EXATA) e a posição do
+    /// ponto — x ≈ 0.d1d2…dp × 10^Point.
+    /// </summary>
+    public static (string Digits, int Point) PrecisionDigits(double abs, int p)
+    {
+        (string digits, int e10) = ExactDigits(abs);
+        int point = digits.Length + e10;
+        string kept;
+        if (digits.Length <= p) kept = digits.PadRight(p, '0');
+        else
+        {
+            kept = RoundDigitsHalfUp(digits, p);
+            if (kept.Length > p) { point++; kept = kept[..p]; } // 999… arredondou para 1000…
+        }
+        return (kept, point);
+    }
+
     // ─────────────────────────── Math.round ───────────────────────────
 
     /// <summary>Math.round do JS: floor(x + 0.5) — metade vai para +∞.</summary>
