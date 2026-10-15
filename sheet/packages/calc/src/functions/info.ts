@@ -56,11 +56,11 @@ register(
   is('ISLOGICAL', (v) => typeof v === 'boolean'),
   {
     name: 'ISEVEN', minArgs: 1, maxArgs: 1, args: 'any',
-    call: (args, ctx) => liftAtp(args, ctx, ([v]) => { const p = parity(v!, ctx); return p instanceof CalcError ? p : p === 0; }),
+    call: (args, ctx) => liftAtp(args, ctx, ([v]) => { const p = parity(v as Scalar, ctx); return p instanceof CalcError ? p : p === 0; }),
   },
   {
     name: 'ISODD', minArgs: 1, maxArgs: 1, args: 'any',
-    call: (args, ctx) => liftAtp(args, ctx, ([v]) => { const p = parity(v!, ctx); return p instanceof CalcError ? p : p === 1; }),
+    call: (args, ctx) => liftAtp(args, ctx, ([v]) => { const p = parity(v as Scalar, ctx); return p instanceof CalcError ? p : p === 1; }),
   },
   {
     name: 'N', minArgs: 1, maxArgs: 1, args: 'any',

@@ -76,6 +76,8 @@ function basePrimary(ch: string): number {
   if (cp >= 0xa1 && cp <= 0xbf) return 40 + (cp - 0xa1) / 100; // pontuação Latin-1 restante
   if (cp >= 0x2010 && cp <= 0x2bff) return 90 + (cp - 0x2010) / 10000; // pontuação/símbolos gerais
   if (isCjk(cp)) return CJK + cp;
+  // katakana = hiragana no peso principal (SORT mantém a ordem de entrada: "ア", "あ")
+  if (lc >= 0x30a1 && lc <= 0x30f6) return OTHER + lc - 0x60;
   return OTHER + lc;
 }
 
@@ -86,7 +88,7 @@ function charElements(ch: string): { p: number[]; s: number[] } | null {
   if (hit !== undefined) return hit;
   let r: { p: number[]; s: number[] } | null;
   if (ch === '-' || ch === "'" || cp === 0xad || cp === 0x2010 || cp === 0x2011) r = null;
-  else if (cp < 128) r = { p: [basePrimary(ch)], s: [0] };
+  else if (cp < 128 || CURRENCY.includes(ch) || MATH.includes(ch) || MISC.includes(ch) || '¼½¾'.includes(ch)) r = { p: [basePrimary(ch)], s: [0] };
   else if (SPECIAL[ch]) {
     const [base, sec] = SPECIAL[ch]!;
     r = { p: [...base].map(basePrimary), s: [...base].map((_, i) => (i === 0 ? sec : 0)) };

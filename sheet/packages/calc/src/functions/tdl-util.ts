@@ -6,20 +6,26 @@ import type { FnContext } from '../fn.js';
 import { toNumber, toText } from '../coerce.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, RefValue, type Scalar, type Value } from '../values.js';
 
+/** Argumento omitido (=EDATE(A1;)) nas funções do Analysis ToolPak (≠ célula vazia). */
+export const OMITTED: unique symbol = Symbol('omitido');
+export type AtpArg = Scalar | typeof OMITTED;
+
 /**
  * Levantamento das funções herdadas do Analysis ToolPak (ISEVEN, EDATE,
  * EOMONTH, WORKDAY, NETWORKDAYS, WEEKNUM, YEARFRAC…), medido: referência de
  * VÁRIAS células → #VALUE! (sem interseção implícita, nem na fórmula
- * dinâmica); matriz → elemento a elemento (difusão 1×N com M×1; sobras #N/A);
- * 1º erro da esquerda para a direita. `pass` = posições que chegam cruas (não
- * levantadas: feriados de WORKDAY…).
+ * dinâmica); matriz → elemento a elemento (difusão 1×N com M×1; sobras #N/A).
+ * Os argumentos chegam crus a `f` (erros inclusive: a função valida em ordem,
+ * EDATE(-1;#DIV/0!) = #NUM!); omitido → OMITTED, célula vazia → null. `pass` =
+ * posições que chegam sem levantar (feriados de WORKDAY…).
  */
-export function liftAtp(args: readonly Value[], ctx: FnContext, f: (xs: Scalar[]) => Value, pass: (i: number) => boolean = () => false): Value {
-  const xs: (Scalar | ArrayValue)[] = [];
+export function liftAtp(args: readonly Value[], ctx: FnContext, f: (xs: AtpArg[]) => Value, pass: (i: number) => boolean = () => false): Value {
+  const xs: (AtpArg | ArrayValue)[] = [];
   const arrs: number[] = [];
   for (let i = 0; i < args.length; i++) {
     let v: Value = args[i]!;
     if (pass(i)) { xs.push(v as Scalar); continue; }
+    if (v === null) { xs.push(OMITTED); continue; }
     if (v instanceof RefValue) {
       const a = v.single;
       if (!a) return ERR.VALUE;
@@ -30,11 +36,7 @@ export function liftAtp(args: readonly Value[], ctx: FnContext, f: (xs: Scalar[]
     if (v instanceof ArrayValue) arrs.push(i);
     xs.push(v as Scalar | ArrayValue);
   }
-  const call = (ys: (Scalar | ArrayValue)[]): Value => {
-    for (let i = 0; i < ys.length; i++) if (!pass(i) && ys[i] instanceof CalcError) return ys[i] as CalcError;
-    return f(ys as Scalar[]);
-  };
-  if (!arrs.length) return call(xs);
+  if (!arrs.length) return f(xs as AtpArg[]);
   let rows = 1, cols = 1;
   for (const i of arrs) { const a = xs[i] as ArrayValue; rows = Math.max(rows, a.rows); cols = Math.max(cols, a.cols); }
   return ArrayValue.fill(rows, cols, (r, c) => {
@@ -44,9 +46,19 @@ export function liftAtp(args: readonly Value[], ctx: FnContext, f: (xs: Scalar[]
       const rr = a.rows === 1 ? 0 : r, cc = a.cols === 1 ? 0 : c;
       ys[i] = rr >= a.rows || cc >= a.cols ? ERR.NA : a.get(rr, cc);
     }
-    const out = call(ys);
+    const out = f(ys as AtpArg[]);
     return out instanceof ArrayValue ? out.get(0, 0) : out instanceof RefValue || out instanceof LambdaValue ? ERR.VALUE : out;
   });
+}
+
+/**
+ * Número de um argumento do Analysis ToolPak: booleano → #VALUE!, omitido →
+ * `def` (sem padrão → #N/A, medido: EDATE(x;) = #N/A), vazio = 0.
+ */
+export function atpNum(v: AtpArg | undefined, ctx: FnContext, def?: number): number | CalcError {
+  if (v === undefined || v === OMITTED) return def ?? ERR.NA;
+  if (typeof v === 'boolean') return ERR.VALUE;
+  return toNumber(v, ctx.locale, ctx.date1904);
 }
 
 /** Número do argumento (erro do Excel se não for). */

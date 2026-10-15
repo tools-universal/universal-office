@@ -1,0 +1,3 @@
+{
+ "date-second-390": "meio segundo exato (2,5/86400): o Excel dá 2 e arredonda 0,5→1, 1,5→2, 5,5→5, 11,5→11 — regra de arredondamento interna não reproduzida (nem produto exato, nem 15 algarismos); nós arredondamos o produto em double (3)"
+}
