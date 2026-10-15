@@ -71,6 +71,9 @@ export interface ObjInfo {
   drawingAt: number;
   /** Texto do TXO que segue o objeto (caixas de texto/notas). */
   text?: RichString;
+  /** TXO: alinhamento (grbit: bits 1–3 horizontal, 4–6 vertical) e rotação. */
+  txoAlign?: number;
+  txoRot?: number;
   /** Registros do subfluxo de gráfico embutido (BOF dt=0x20 … EOF) após o OBJ. */
   chart?: BiffRecord[];
 }
@@ -418,6 +421,8 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
           if (runs.length) rs.runs = runs;
         }
         lastObj.text = rs;
+        lastObj.txoAlign = r.u16(0);
+        lastObj.txoRot = r.u16(2);
         break;
       }
       case RT.AUTOFILTERINFO:

@@ -358,6 +358,47 @@ describe('.xls — gráfico embutido (subfluxo BIFF8 → c:chartSpace)', () => {
   });
 });
 
+describe('.xls — formas e caixas de texto (OfficeArt → xdr:sp)', () => {
+  const anchor = (c1: number, r1: number, c2: number, r2: number): number[] =>
+    [...u16(0), ...u16(c1), ...u16(0), ...u16(r1), ...u16(0), ...u16(c2), ...u16(0), ...u16(r2), ...u16(0)];
+  const sp = (spid: number, type: number, props: [number, number][], a: number[]): number[] => oa(0xf004, 0, 0xf, [
+    ...oa(0xf00a, type, 2, [...u32(spid), ...u32(0xa00)]),
+    ...oa(0xf00b, props.length, 3, props.flatMap(([id, v]) => [...u16(id), ...u32(v)])),
+    ...oa(0xf010, 0, 0, a), ...oa(0xf011, 0, 0, []),
+  ]);
+  const obj = (ot: number, id: number): Rec => rec(RT.OBJ, [...u16(0x15), ...u16(0x12), ...u16(ot), ...u16(id), ...u16(0x6011), ...new Array(12).fill(0), ...u32(0)]);
+  const patriarch = oa(0xf004, 0, 0xf, [...oa(0xf009, 0, 1, new Array(16).fill(0)), ...oa(0xf00a, 0, 2, [...u32(1024), ...u32(0x5)])]);
+  const rect = sp(1025, 1, [[0x181, 0x00ff0000], [0x1c0, 0x08000040]], anchor(1, 1, 3, 4));
+  const tbox = sp(1026, 202, [[0x1bf, 0x00100000], [0x1ff, 0x00080000]], anchor(4, 1, 6, 3));
+  // o 1º MSODRAWING abre o DgContainer com o patriarca + retângulo; o 2º traz a caixa de texto
+  const head = [...oa(0xf008, 2, 0, [...u32(3), ...u32(1026)])];
+  const grpBody = [...patriarch, ...rect, ...tbox];
+  const dgAll = oa(0xf002, 1, 0xf, [...head, ...oa(0xf003, 0, 0xf, grpBody)]);
+  const cut = dgAll.length - tbox.length;
+  const recs: Rec[] = [
+    rec(RT.MSODRAWING, dgAll.slice(0, cut)), obj(2, 1),
+    rec(RT.MSODRAWING, dgAll.slice(cut)), obj(6, 2),
+    rec(RT.TXO, [...u16(2 << 1 | 2 << 4), ...u16(0), ...new Array(6).fill(0), ...u16(3), ...u16(16), ...u16(0), ...u32(0)]),
+    rec(RT.CONTINUE, [0, ...chars('Olá', false)]),
+    rec(RT.CONTINUE, [...u16(0), ...u16(6), ...u32(0), ...u16(3), ...u16(0), ...u32(0)]),
+  ];
+  const globals = [...defaultFormatting(), font('Arial', { bold: true, height: 240 })];
+  const pkg = openSpreadsheet(buildXls(globals, [{ name: 'Formas', recs }]));
+  const xml = pkg.getPartText('xl/drawings/drawing1.xml') ?? '';
+
+  it('retângulo com preenchimento RGB e linha da paleta (fSchemeIndex 64 = preto)', () => {
+    expect(xml).toContain('<a:prstGeom prst="rect">');
+    expect(xml).toContain('<a:solidFill><a:srgbClr val="0000FF"></a:srgbClr></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="000000"/>');
+  });
+
+  it('caixa de texto: sem preenchimento/linha, texto do TXO centrado com a fonte do run', () => {
+    expect(xml).toContain('<xdr:cNvSpPr txBox="1"/>');
+    expect(xml).toContain('<a:noFill/><a:ln><a:noFill/></a:ln>');
+    expect(xml).toContain('anchor="ctr"');
+    expect(xml).toMatch(/<a:pPr algn="ctr"\/><a:r><a:rPr lang="pt-BR" sz="1200" b="1"[^>]*>.*<a:t>Olá<\/a:t>/);
+  });
+});
+
 describe('.xls — utilitários', () => {
   it('RK: inteiro, inteiro ÷100, double truncado', () => {
     expect(rkValue((100 << 2) | 2)).toBe(100);

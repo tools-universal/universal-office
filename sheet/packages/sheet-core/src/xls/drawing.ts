@@ -15,6 +15,7 @@ import { BlipStore, readShapes, type CellAnchor, type XlsShape } from './officea
 import { XML_HEAD, REL, relsXml, xmlText } from './xmlw.js';
 import { rowHeightPt } from './sheet-xml.js';
 import { chartSpaceXml, type ChartContext } from './chart.js';
+import { isShapeObj, shapeXml } from './shapes.js';
 
 export interface DrawingOut {
   parts: Map<string, Uint8Array>;
@@ -141,7 +142,14 @@ export function drawingParts(g: XlsGlobals, sh: XlsSheet, index: number, media: 
       // imagem: pib (moldura de imagem) ou preenchimento de imagem (fillBlip + fillType 3)
       let pib = s.props.get(0x104);
       if (pib === undefined && s.props.get(0x180) === 3) pib = s.props.get(0x186);
-      if (pib === undefined) continue;
+      if (pib === undefined) {
+        // forma/caixa de texto (o OBJ diz o que é; notas, controles e setas de filtro ficam de fora)
+        if (isShapeObj(s, obj)) {
+          id++;
+          anchors += `<xdr:twoCellAnchor>${anchor}${shapeXml(g, s, obj, id)}<xdr:clientData/></xdr:twoCellAnchor>`;
+        }
+        continue;
+      }
       let path = media.byPib?.get(pib);
       if (!path) {
         const blip = media.store.get(pib);
