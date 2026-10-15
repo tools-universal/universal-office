@@ -1,6 +1,6 @@
 export { PptxPackage } from './package.js';
 export { parseXml, childElements, firstChild, descend, textContent, type XmlElement } from './xml.js';
-export { readPresentation, readSlide, readRels } from './read.js';
+export { readPresentation, readSlide, readRels, readDrawingElements } from './read.js';
 export { tableImages } from './table-style.js';
 export {
   parseSlideTiming, parseSlideTransition, parseTimeNode, activeDur, simpleDur, beginOffset, AFTER_LINK_MS,
@@ -51,7 +51,7 @@ export {
   type MediaCommand, type MediaPlayState, type MediaClock,
 } from './media.js';
 export {
-  paintSlideTo, DEFAULT_TITLE_PT, DEFAULT_BODY_PT,
+  paintSlideTo, paintShapesTo, DEFAULT_TITLE_PT, DEFAULT_BODY_PT,
   type PaintImage, type PaintResources, type PaintSlideOptions,
 } from './render.js';
 export {

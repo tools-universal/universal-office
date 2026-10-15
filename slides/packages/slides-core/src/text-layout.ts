@@ -63,6 +63,8 @@ export interface PlacedRun {
 /** Linha final do layout. */
 export interface PlacedLine {
   runs: PlacedRun[];
+  /** Topo da linha em EMU relativo ao topo da caixa (baseline − parte acima). */
+  top?: number;
   /** Baseline em EMU relativo ao topo da caixa. */
   baseline: number;
   /** Altura da linha em EMU. */
@@ -675,7 +677,7 @@ export function layoutTextBody(
       for (const pr of placed) pr.x += colShift;
       if (pl.bullet) pl.bullet = { ...pl.bullet, x: pl.bullet.x + colShift };
     }
-    const line: PlacedLine = { runs: placed, baseline: y + h * (lineExp[i] || BASELINE_FACTOR), height: h, para: pl.para };
+    const line: PlacedLine = { runs: placed, top: y, baseline: y + h * (lineExp[i] || BASELINE_FACTOR), height: h, para: pl.para };
     if (pl.bullet) line.bullet = pl.bullet;
     lines.push(line);
     y += h;

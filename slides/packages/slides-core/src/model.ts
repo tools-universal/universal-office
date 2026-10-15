@@ -263,6 +263,9 @@ export interface TextBody {
   /** Colunas de texto (`<a:bodyPr numCol spcCol>`); spcCol em EMU. */
   numCol?: number;
   spcCol?: number;
+  /** Transbordo (`<a:bodyPr vertOverflow/horzOverflow>`): overflow (default) | ellipsis | clip. */
+  vertOverflow?: string;
+  horzOverflow?: string;
   /** `<a:lstStyle>` proprio do txBody, ja parseado por nivel (maior prioridade). */
   lstStyle?: import('./text-style.js').TextStyleLevel[];
 }

@@ -722,6 +722,37 @@ function readShapes(spTree: XmlElement, theme: Theme, pkg: PptxPackage, rels: Ma
 }
 
 /**
+ * Formas DrawingML de um contêiner que NÃO é PresentationML — desenho de
+ * planilha (`xl/drawings/drawingN.xml`: `xdr:sp/pic/cxnSp/grpSp/graphicFrame`):
+ * o MESMO leitor das formas do slide, com o prefixo do contêiner trocado por
+ * `p:`. Cada elemento vira a lista de formas que ele desenha (grupo achatado),
+ * nas coordenadas do próprio `a:xfrm`; quem chama posiciona (âncora). Formas
+ * ocultas (`cNvPr hidden="1"`) ficam de fora, inclusive dentro de grupos.
+ * Imagens/gráficos resolvem pelos rels de `ownerPart`.
+ */
+export function readDrawingElements(pkg: PptxPackage, ownerPart: string, elements: XmlElement[], theme: Theme, prefix = 'xdr:'): Shape[][] {
+  const rels = readRels(pkg, relsPathFor(ownerPart), ownerPart);
+  return elements.map((el) => {
+    const tree = { name: 'p:spTree', attrs: {}, children: [renamePrefix(el, prefix, 'p:')] };
+    pruneHidden(tree);
+    try { return readShapes(tree, theme, pkg, rels); } catch { return []; }
+  });
+}
+
+/** Tira da árvore as formas com `<p:cNvPr hidden="1">` (o app não as desenha). */
+function pruneHidden(el: XmlElement): void {
+  el.children = el.children.filter((c) => {
+    if (typeof c === 'string') return true;
+    const nv = childElements(c).find((k) => /^p:nv\w*Pr$/.test(k.name));
+    const cNvPr = nv ? firstChild(nv, 'p:cNvPr') : undefined;
+    const h = cNvPr?.attrs['hidden'];
+    if (h === '1' || h === 'true') return false;
+    if (c.name === 'p:grpSp' || c.name === 'mc:AlternateContent' || c.name === 'mc:Choice' || c.name === 'mc:Fallback') pruneHidden(c);
+    return true;
+  });
+}
+
+/**
  * Le `<p:grpSp>` ACHATANDO as coordenadas dos filhos para o espaco do pai
  * (spec 03, item E). A transformacao vem de `<p:grpSpPr><a:xfrm>`:
  *
@@ -1680,6 +1711,8 @@ function readTxBody(el: XmlElement, theme: Theme, rels?: Map<string, string>, pk
     // colunas de texto: numCol + espaçamento entre colunas (EMU)
     if (bodyPr.attrs['numCol'] !== undefined) tb.numCol = parseInt(bodyPr.attrs['numCol'], 10);
     if (bodyPr.attrs['spcCol'] !== undefined) tb.spcCol = parseInt(bodyPr.attrs['spcCol'], 10);
+    if (bodyPr.attrs['vertOverflow']) tb.vertOverflow = bodyPr.attrs['vertOverflow'];
+    if (bodyPr.attrs['horzOverflow']) tb.horzOverflow = bodyPr.attrs['horzOverflow'];
     // WordArt: <a:prstTxWarp prst="textArchUp"><a:avLst><a:gd fmla="val N"/>…
     const warp = firstChild(bodyPr, 'a:prstTxWarp');
     // 2007+ e legado (fromWordArt="1") deformam; o legado escala o texto até cobrir o

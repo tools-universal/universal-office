@@ -80,6 +80,11 @@ export interface PaintSlideOptions {
    * ser desenhada). Default: a família + fallbacks fixos.
    */
   fontStack?: (family: string, bold?: boolean, italic?: boolean) => string;
+  /**
+   * Respeitar `vertOverflow/horzOverflow="clip"` do bodyPr (o Excel respeita —
+   * medido; no PowerPoint não medido, fica desligado no Slides).
+   */
+  clipOverflow?: boolean;
 }
 
 /** Pilha CSS padrão (sem resolvedor: Node, testes, hosts sem componente). */
@@ -269,9 +274,54 @@ function paintSlide(
     } else if (bg) { const r = insetRect(slide.bgImage.fillRect, ox, oy, sw, sh); ctx.drawImage(bg, r.x, r.y, r.w, r.h); }
     ctx.restore();
   }
-  const m: SlidePx = { ox, oy, sw, sh };
-  for (let i = 0; i < slide.shapes.length; i++) {
-    const shp = slide.shapes[i]!;
+  paintShapeList(ctx, slide.shapes, resources, fit, { ox, oy, sw, sh }, opts);
+  ctx.restore();
+}
+
+/**
+ * Pinta só FORMAS (sem fundo nem recorte de slide) — desenhos DrawingML de
+ * outro hospedeiro (planilha: imagens/formas ancoradas nas células). Mesma
+ * pintura do slide: geometria em EMU, `scale` = px por EMU, `opts.ox/oy` =
+ * origem do espaço EMU no canvas. Estado do contexto preservado.
+ */
+export function paintShapesTo(
+  ctx: CanvasRenderingContext2D,
+  shapes: Shape[],
+  resources: PaintResources,
+  scale: number,
+  opts: PaintSlideOptions = {},
+): void {
+  const prev = fontStack, prevImgs = paintImages, prevClip = clipOverflow;
+  fontStack = opts.fontStack ?? DEFAULT_FONT_STACK;
+  paintImages = resources.images;
+  clipOverflow = !!opts.clipOverflow;
+  advCache.clear();
+  try {
+    const ox = opts.ox ?? 0, oy = opts.oy ?? 0;
+    paintShapeList(ctx, shapes, resources, { ox, oy, scale }, { ox, oy, sw: resources.slideW * scale, sh: resources.slideH * scale }, opts);
+  } finally {
+    fontStack = prev;
+    paintImages = prevImgs;
+    clipOverflow = prevClip;
+  }
+}
+
+/** `clipOverflow` do paint em curso (a pintura é síncrona). */
+let clipOverflow = false;
+
+/** Formas em z-order (cada uma protegida: dados inválidos pulam só ela). */
+function paintShapeList(
+  ctx: CanvasRenderingContext2D,
+  shapes: Shape[],
+  resources: PaintResources,
+  fit: Fit,
+  m: SlidePx,
+  opts: PaintSlideOptions,
+): void {
+  const { ox, oy } = m;
+  const scale = fit.scale;
+  for (let i = 0; i < shapes.length; i++) {
+    const shp = shapes[i]!;
     // uma forma com dados inválidos (raio negativo, NaN…) não derruba o slide:
     // pula ELA e a pilha save/restore volta ao nível de antes (sem vazar recorte)
     guarded(ctx, () => {
@@ -314,7 +364,6 @@ function paintSlide(
       ctx.restore();
     });
   }
-  ctx.restore();
 }
 
 /**
@@ -1676,7 +1725,20 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
   const plan = unitHook ? planUnits(tb, layout, unitHook.type, !!unitHook.words) : null;
 
   ctx.textBaseline = 'alphabetic';
-  for (const line of layout.lines) {
+  // transbordo recortado (Excel, medido — syn-d-clip): linha que não cabe INTEIRA
+  // acima do recuo inferior não sai (a 1ª sempre sai, cortada na caixa);
+  // horzOverflow="clip" corta na caixa
+  const vClip = clipOverflow && tb.vertOverflow === 'clip';
+  const hClip = clipOverflow && tb.horzOverflow === 'clip';
+  const clipBottom = vClip ? h / scale - (tb.insB ?? 45720) : Infinity;
+  if (vClip || hClip) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(hClip ? x : x - 1e5, vClip ? y : y - 1e5, hClip ? w : w + 2e5, vClip ? h : h + 2e5);
+    ctx.clip();
+  }
+  for (const [li, line] of layout.lines.entries()) {
+    if (li > 0 && line.top !== undefined && line.top + line.height > clipBottom + 1) continue;
     const by = y + line.baseline * scale;
     if (line.runs.some((r) => r.gradFill || r.fillImage)) {
       const l0 = Math.min(...line.runs.map((r) => r.x)), l1 = Math.max(...line.runs.map((r) => r.x + r.w));
@@ -1754,6 +1816,7 @@ function paintText(ctx: CanvasRenderingContext2D, sh: Shape, tb: TextBody, x: nu
     }
     ctx.restore();
   }
+  if (vClip || hClip) ctx.restore();
   if (unflip) ctx.restore();
 }
 
