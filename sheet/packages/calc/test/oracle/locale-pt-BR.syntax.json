@@ -1,0 +1,2086 @@
+{
+ "build": "16.0.20430",
+ "names": [
+  "Taxa"
+ ],
+ "cases": [
+  {
+   "id": "locale-num-dec",
+   "set": "f2",
+   "input": "=1.5",
+   "canonical": "=1.5",
+   "local": "=1,5",
+   "r1c1": "=1.5",
+   "r1c1Local": "=1,5",
+   "file": "=1.5"
+  },
+  {
+   "id": "locale-num-neg",
+   "set": "f2",
+   "input": "=-0.25",
+   "canonical": "=-0.25",
+   "local": "=-0,25",
+   "r1c1": "=-0.25",
+   "r1c1Local": "=-0,25",
+   "file": "=-0.25"
+  },
+  {
+   "id": "locale-num-exp",
+   "set": "f2",
+   "input": "=1E+30",
+   "canonical": "=1E+30",
+   "local": "=1E+30",
+   "r1c1": "=1E+30",
+   "r1c1Local": "=1E+30",
+   "file": "=1E+30"
+  },
+  {
+   "id": "locale-num-exp-neg",
+   "set": "f2",
+   "input": "=1.5E-10",
+   "canonical": "=0.00000000015",
+   "local": "=0,00000000015",
+   "r1c1": "=0.00000000015",
+   "r1c1Local": "=0,00000000015",
+   "file": "=0.00000000015"
+  },
+  {
+   "id": "locale-num-leading-dot",
+   "set": "f2",
+   "input": "=0.5+.5",
+   "canonical": "=0.5+0.5",
+   "local": "=0,5+0,5",
+   "r1c1": "=0.5+0.5",
+   "r1c1Local": "=0,5+0,5",
+   "file": "=0.5+0.5"
+  },
+  {
+   "id": "locale-num-big",
+   "set": "f2",
+   "input": "=1234567.89",
+   "canonical": "=1234567.89",
+   "local": "=1234567,89",
+   "r1c1": "=1234567.89",
+   "r1c1Local": "=1234567,89",
+   "file": "=1234567.89"
+  },
+  {
+   "id": "locale-num-pct",
+   "set": "f2",
+   "input": "=50%",
+   "canonical": "=50%",
+   "local": "=50%",
+   "r1c1": "=50%",
+   "r1c1Local": "=50%",
+   "file": "=50%"
+  },
+  {
+   "id": "locale-num-pct-dec",
+   "set": "f2",
+   "input": "=1.5%",
+   "canonical": "=1.5%",
+   "local": "=1,5%",
+   "r1c1": "=1.5%",
+   "r1c1Local": "=1,5%",
+   "file": "=1.5%"
+  },
+  {
+   "id": "locale-num-pow",
+   "set": "f2",
+   "input": "=2^0.5",
+   "canonical": "=2^0.5",
+   "local": "=2^0,5",
+   "r1c1": "=2^0.5",
+   "r1c1Local": "=2^0,5",
+   "file": "=2^0.5"
+  },
+  {
+   "id": "locale-num-int-big",
+   "set": "f2",
+   "input": "=123456789012345678",
+   "canonical": "=123456789012345000",
+   "local": "=123456789012345000",
+   "r1c1": "=123456789012345000",
+   "r1c1Local": "=123456789012345000",
+   "file": "=123456789012345000"
+  },
+  {
+   "id": "locale-num-exp15",
+   "set": "f2",
+   "input": "=1.23E+15",
+   "canonical": "=1230000000000000",
+   "local": "=1230000000000000",
+   "r1c1": "=1230000000000000",
+   "r1c1Local": "=1230000000000000",
+   "file": "=1230000000000000"
+  },
+  {
+   "id": "locale-num-in-fn",
+   "set": "f2",
+   "input": "=ROUND(2.675,2)",
+   "canonical": "=ROUND(2.675,2)",
+   "local": "=ARRED(2,675;2)",
+   "r1c1": "=ROUND(2.675,2)",
+   "r1c1Local": "=ARRED(2,675;2)",
+   "file": "=ROUND(2.675,2)"
+  },
+  {
+   "id": "locale-str-seps",
+   "set": "f2",
+   "input": "=\"a,b;c\"",
+   "canonical": "=\"a,b;c\"",
+   "local": "=\"a,b;c\"",
+   "r1c1": "=\"a,b;c\"",
+   "r1c1Local": "=\"a,b;c\"",
+   "file": "=\"a,b;c\""
+  },
+  {
+   "id": "locale-str-num",
+   "set": "f2",
+   "input": "=\"1.5\"",
+   "canonical": "=\"1.5\"",
+   "local": "=\"1.5\"",
+   "r1c1": "=\"1.5\"",
+   "r1c1Local": "=\"1.5\"",
+   "file": "=\"1.5\""
+  },
+  {
+   "id": "locale-str-quote",
+   "set": "f2",
+   "input": "=\"He said \"\"hi\"\"\"",
+   "canonical": "=\"He said \"\"hi\"\"\"",
+   "local": "=\"He said \"\"hi\"\"\"",
+   "r1c1": "=\"He said \"\"hi\"\"\"",
+   "r1c1Local": "=\"He said \"\"hi\"\"\"",
+   "file": "=\"He said \"\"hi\"\"\""
+  },
+  {
+   "id": "locale-str-err",
+   "set": "f2",
+   "input": "=\"#N/A\"",
+   "canonical": "=\"#N/A\"",
+   "local": "=\"#N/A\"",
+   "r1c1": "=\"#N/A\"",
+   "r1c1Local": "=\"#N/A\"",
+   "file": "=\"#N/A\""
+  },
+  {
+   "id": "locale-str-bool",
+   "set": "f2",
+   "input": "=\"TRUE\"",
+   "canonical": "=\"TRUE\"",
+   "local": "=\"TRUE\"",
+   "r1c1": "=\"TRUE\"",
+   "r1c1Local": "=\"TRUE\"",
+   "file": "=\"TRUE\""
+  },
+  {
+   "id": "locale-str-fn",
+   "set": "f2",
+   "input": "=\"SUM(1,2)\"",
+   "canonical": "=\"SUM(1,2)\"",
+   "local": "=\"SUM(1,2)\"",
+   "r1c1": "=\"SUM(1,2)\"",
+   "r1c1Local": "=\"SUM(1,2)\"",
+   "file": "=\"SUM(1,2)\""
+  },
+  {
+   "id": "locale-str-accent",
+   "set": "f2",
+   "input": "=\"ação\"",
+   "canonical": "=\"ação\"",
+   "local": "=\"ação\"",
+   "r1c1": "=\"ação\"",
+   "r1c1Local": "=\"ação\"",
+   "file": "=\"ação\""
+  },
+  {
+   "id": "locale-str-concat-num",
+   "set": "f2",
+   "input": "=\"\"&1.5",
+   "canonical": "=\"\"&1.5",
+   "local": "=\"\"&1,5",
+   "r1c1": "=\"\"&1.5",
+   "r1c1Local": "=\"\"&1,5",
+   "file": "=\"\"&1.5"
+  },
+  {
+   "id": "locale-str-braces",
+   "set": "f2",
+   "input": "=\"{1,2}\"",
+   "canonical": "=\"{1,2}\"",
+   "local": "=\"{1,2}\"",
+   "r1c1": "=\"{1,2}\"",
+   "r1c1Local": "=\"{1,2}\"",
+   "file": "=\"{1,2}\""
+  },
+  {
+   "id": "locale-str-apos",
+   "set": "f2",
+   "input": "=\"'x'\"",
+   "canonical": "=\"'x'\"",
+   "local": "=\"'x'\"",
+   "r1c1": "=\"'x'\"",
+   "r1c1Local": "=\"'x'\"",
+   "file": "=\"'x'\""
+  },
+  {
+   "id": "locale-bool-true",
+   "set": "f2",
+   "input": "=TRUE",
+   "canonical": "=TRUE",
+   "local": "=VERDADEIRO",
+   "r1c1": "=TRUE",
+   "r1c1Local": "=VERDADEIRO",
+   "file": "=TRUE"
+  },
+  {
+   "id": "locale-bool-false",
+   "set": "f2",
+   "input": "=FALSE",
+   "canonical": "=FALSE",
+   "local": "=FALSO",
+   "r1c1": "=FALSE",
+   "r1c1Local": "=FALSO",
+   "file": "=FALSE"
+  },
+  {
+   "id": "locale-bool-fn",
+   "set": "f2",
+   "input": "=TRUE()",
+   "canonical": "=TRUE()",
+   "local": "=VERDADEIRO()",
+   "r1c1": "=TRUE()",
+   "r1c1Local": "=VERDADEIRO()",
+   "file": "=TRUE()"
+  },
+  {
+   "id": "locale-bool-not",
+   "set": "f2",
+   "input": "=NOT(FALSE)",
+   "canonical": "=NOT(FALSE)",
+   "local": "=NÃO(FALSO)",
+   "r1c1": "=NOT(FALSE)",
+   "r1c1Local": "=NÃO(FALSO)",
+   "file": "=NOT(FALSE)"
+  },
+  {
+   "id": "locale-bool-if",
+   "set": "f2",
+   "input": "=IF(TRUE,1,0)",
+   "canonical": "=IF(TRUE,1,0)",
+   "local": "=SE(VERDADEIRO;1;0)",
+   "r1c1": "=IF(TRUE,1,0)",
+   "r1c1Local": "=SE(VERDADEIRO;1;0)",
+   "file": "=IF(TRUE,1,0)"
+  },
+  {
+   "id": "locale-bool-and",
+   "set": "f2",
+   "input": "=AND(TRUE,FALSE,1)",
+   "canonical": "=AND(TRUE,FALSE,1)",
+   "local": "=E(VERDADEIRO;FALSO;1)",
+   "r1c1": "=AND(TRUE,FALSE,1)",
+   "r1c1Local": "=E(VERDADEIRO;FALSO;1)",
+   "file": "=AND(TRUE,FALSE,1)"
+  },
+  {
+   "id": "locale-bool-lower",
+   "set": "f2",
+   "input": "=true",
+   "canonical": "=TRUE",
+   "local": "=VERDADEIRO",
+   "r1c1": "=TRUE",
+   "r1c1Local": "=VERDADEIRO",
+   "file": "=TRUE"
+  },
+  {
+   "id": "locale-bool-sum",
+   "set": "f2",
+   "input": "=TRUE+FALSE",
+   "canonical": "=TRUE+FALSE",
+   "local": "=VERDADEIRO+FALSO",
+   "r1c1": "=TRUE+FALSE",
+   "r1c1Local": "=VERDADEIRO+FALSO",
+   "file": "=TRUE+FALSE"
+  },
+  {
+   "id": "locale-bool-false-fn",
+   "set": "f2",
+   "input": "=FALSE()",
+   "canonical": "=FALSE()",
+   "local": "=FALSO()",
+   "r1c1": "=FALSE()",
+   "r1c1Local": "=FALSO()",
+   "file": "=FALSE()"
+  },
+  {
+   "id": "locale-err-na",
+   "set": "f2",
+   "input": "=#N/A",
+   "canonical": "=#N/A",
+   "local": "=#N/D",
+   "r1c1": "=#N/A",
+   "r1c1Local": "=#N/D",
+   "file": "=#N/A"
+  },
+  {
+   "id": "locale-err-div0",
+   "set": "f2",
+   "input": "=#DIV/0!",
+   "canonical": "=#DIV/0!",
+   "local": "=#DIV/0!",
+   "r1c1": "=#DIV/0!",
+   "r1c1Local": "=#DIV/0!",
+   "file": "=#DIV/0!"
+  },
+  {
+   "id": "locale-err-value",
+   "set": "f2",
+   "input": "=#VALUE!",
+   "canonical": "=#VALUE!",
+   "local": "=#VALOR!",
+   "r1c1": "=#VALUE!",
+   "r1c1Local": "=#VALOR!",
+   "file": "=#VALUE!"
+  },
+  {
+   "id": "locale-err-ref",
+   "set": "f2",
+   "input": "=#REF!",
+   "canonical": "=#REF!",
+   "local": "=#REF!",
+   "r1c1": "=#REF!",
+   "r1c1Local": "=#REF!",
+   "file": "=#REF!"
+  },
+  {
+   "id": "locale-err-name",
+   "set": "f2",
+   "input": "=#NAME?",
+   "canonical": "=#NAME?",
+   "local": "=#NOME?",
+   "r1c1": "=#NAME?",
+   "r1c1Local": "=#NOME?",
+   "file": "=#NAME?"
+  },
+  {
+   "id": "locale-err-num",
+   "set": "f2",
+   "input": "=#NUM!",
+   "canonical": "=#NUM!",
+   "local": "=#NÚM!",
+   "r1c1": "=#NUM!",
+   "r1c1Local": "=#NÚM!",
+   "file": "=#NUM!"
+  },
+  {
+   "id": "locale-err-null",
+   "set": "f2",
+   "input": "=#NULL!",
+   "canonical": "=#NULL!",
+   "local": "=#NULO!",
+   "r1c1": "=#NULL!",
+   "r1c1Local": "=#NULO!",
+   "file": "=#NULL!"
+  },
+  {
+   "id": "locale-err-getting",
+   "set": "f2",
+   "input": "=#GETTING_DATA",
+   "canonical": "=#GETTING_DATA",
+   "local": "=#OBTENDO_DADOS",
+   "r1c1": "=#GETTING_DATA",
+   "r1c1Local": "=#OBTENDO_DADOS",
+   "file": "=#GETTING_DATA"
+  },
+  {
+   "id": "locale-err-iferror",
+   "set": "f2",
+   "input": "=IFERROR(#N/A,1)",
+   "canonical": "=IFERROR(#N/A,1)",
+   "local": "=SEERRO(#N/D;1)",
+   "r1c1": "=IFERROR(#N/A,1)",
+   "r1c1Local": "=SEERRO(#N/D;1)",
+   "file": "=IFERROR(#N/A,1)"
+  },
+  {
+   "id": "locale-err-isna",
+   "set": "f2",
+   "input": "=ISNA(#N/A)",
+   "canonical": "=ISNA(#N/A)",
+   "local": "=É.NÃO.DISP(#N/D)",
+   "r1c1": "=ISNA(#N/A)",
+   "r1c1Local": "=É.NÃO.DISP(#N/D)",
+   "file": "=ISNA(#N/A)"
+  },
+  {
+   "id": "locale-err-nested",
+   "set": "f2",
+   "input": "=IF(ISERROR(1/0),#N/A,#VALUE!)",
+   "canonical": "=IF(ISERROR(1/0),#N/A,#VALUE!)",
+   "local": "=SE(ÉERROS(1/0);#N/D;#VALOR!)",
+   "r1c1": "=IF(ISERROR(1/0),#N/A,#VALUE!)",
+   "r1c1Local": "=SE(ÉERROS(1/0);#N/D;#VALOR!)",
+   "file": "=IF(ISERROR(1/0),#N/A,#VALUE!)"
+  },
+  {
+   "id": "locale-err-lower",
+   "set": "f2",
+   "input": "=#n/a",
+   "canonical": "=#N/A",
+   "local": "=#N/D",
+   "r1c1": "=#N/A",
+   "r1c1Local": "=#N/D",
+   "file": "=#N/A"
+  },
+  {
+   "id": "locale-err-type",
+   "set": "f2",
+   "input": "=ERROR.TYPE(#REF!)",
+   "canonical": "=ERROR.TYPE(#REF!)",
+   "local": "=TIPO.ERRO(#REF!)",
+   "r1c1": "=ERROR.TYPE(#REF!)",
+   "r1c1Local": "=TIPO.ERRO(#REF!)",
+   "file": "=ERROR.TYPE(#REF!)"
+  },
+  {
+   "id": "locale-err-sheet-ref",
+   "set": "f2",
+   "input": "=SUM(#REF!,1)",
+   "canonical": "=SUM(#REF!,1)",
+   "local": "=SOMA(#REF!;1)",
+   "r1c1": "=SUM(#REF!,1)",
+   "r1c1Local": "=SOMA(#REF!;1)",
+   "file": "=SUM(#REF!,1)"
+  },
+  {
+   "id": "locale-arr-2x2",
+   "set": "f2",
+   "input": "={1,2;3,4}",
+   "canonical": "={1,2;3,4}",
+   "local": "={1\\2;3\\4}",
+   "r1c1": "={1,2;3,4}",
+   "r1c1Local": "={1\\2;3\\4}",
+   "file": "={1,2;3,4}"
+  },
+  {
+   "id": "locale-arr-mixed",
+   "set": "f2",
+   "input": "={1.5,-2.5;\"a\",TRUE}",
+   "canonical": "={1.5,-2.5;\"a\",TRUE}",
+   "local": "={1,5\\-2,5;\"a\"\\VERDADEIRO}",
+   "r1c1": "={1.5,-2.5;\"a\",TRUE}",
+   "r1c1Local": "={1,5\\-2,5;\"a\"\\VERDADEIRO}",
+   "file": "={1.5,-2.5;\"a\",TRUE}"
+  },
+  {
+   "id": "locale-arr-err",
+   "set": "f2",
+   "input": "={#N/A,FALSE}",
+   "canonical": "={#N/A,FALSE}",
+   "local": "={#N/D\\FALSO}",
+   "r1c1": "={#N/A,FALSE}",
+   "r1c1Local": "={#N/D\\FALSO}",
+   "file": "={#N/A,FALSE}"
+  },
+  {
+   "id": "locale-arr-sum",
+   "set": "f2",
+   "input": "=SUM({1,2,3})",
+   "canonical": "=SUM({1,2,3})",
+   "local": "=SOMA({1\\2\\3})",
+   "r1c1": "=SUM({1,2,3})",
+   "r1c1Local": "=SOMA({1\\2\\3})",
+   "file": "=SUM({1,2,3})"
+  },
+  {
+   "id": "locale-arr-col",
+   "set": "f2",
+   "input": "={1;2;3}",
+   "canonical": "={1;2;3}",
+   "local": "={1;2;3}",
+   "r1c1": "={1;2;3}",
+   "r1c1Local": "={1;2;3}",
+   "file": "={1;2;3}"
+  },
+  {
+   "id": "locale-arr-index",
+   "set": "f2",
+   "input": "=INDEX({1,2;3,4},2,1)",
+   "canonical": "=INDEX({1,2;3,4},2,1)",
+   "local": "=ÍNDICE({1\\2;3\\4};2;1)",
+   "r1c1": "=INDEX({1,2;3,4},2,1)",
+   "r1c1Local": "=ÍNDICE({1\\2;3\\4};2;1)",
+   "file": "=INDEX({1,2;3,4},2,1)"
+  },
+  {
+   "id": "locale-arr-str-seps",
+   "set": "f2",
+   "input": "={\"a,b\",\"c;d\"}",
+   "canonical": "={\"a,b\",\"c;d\"}",
+   "local": "={\"a,b\"\\\"c;d\"}",
+   "r1c1": "={\"a,b\",\"c;d\"}",
+   "r1c1Local": "={\"a,b\"\\\"c;d\"}",
+   "file": "={\"a,b\",\"c;d\"}"
+  },
+  {
+   "id": "locale-arr-exp",
+   "set": "f2",
+   "input": "={1E+30,0.5}",
+   "canonical": "={1E+30,0.5}",
+   "local": "={1E+30\\0,5}",
+   "r1c1": "={1E+30,0.5}",
+   "r1c1Local": "={1E+30\\0,5}",
+   "file": "={1E+30,0.5}"
+  },
+  {
+   "id": "locale-arr-two",
+   "set": "f2",
+   "input": "=SUM({1,2},{3;4})",
+   "canonical": "=SUM({1,2},{3;4})",
+   "local": "=SOMA({1\\2};{3;4})",
+   "r1c1": "=SUM({1,2},{3;4})",
+   "r1c1Local": "=SOMA({1\\2};{3;4})",
+   "file": "=SUM({1,2},{3;4})"
+  },
+  {
+   "id": "locale-arr-neg",
+   "set": "f2",
+   "input": "={-1,2;-3,\"x\"}",
+   "canonical": "={-1,2;-3,\"x\"}",
+   "local": "={-1\\2;-3\\\"x\"}",
+   "r1c1": "={-1,2;-3,\"x\"}",
+   "r1c1Local": "={-1\\2;-3\\\"x\"}",
+   "file": "={-1,2;-3,\"x\"}"
+  },
+  {
+   "id": "locale-ref-a1",
+   "set": "f2",
+   "input": "=A1",
+   "canonical": "=A1",
+   "local": "=A1",
+   "r1c1": "=R[-155]C[-25]",
+   "r1c1Local": "=L[-155]C[-25]",
+   "file": "=A1"
+  },
+  {
+   "id": "locale-ref-abs",
+   "set": "f2",
+   "input": "=$A$1",
+   "canonical": "=$A$1",
+   "local": "=$A$1",
+   "r1c1": "=R1C1",
+   "r1c1Local": "=L1C1",
+   "file": "=$A$1"
+  },
+  {
+   "id": "locale-ref-mixed",
+   "set": "f2",
+   "input": "=SUM(A$1:$B2)",
+   "canonical": "=SUM(A$1:$B2)",
+   "local": "=SOMA(A$1:$B2)",
+   "r1c1": "=SUM(R1C[-25]:R[-156]C2)",
+   "r1c1Local": "=SOMA(L1C[-25]:L[-156]C2)",
+   "file": "=SUM(A$1:$B2)"
+  },
+  {
+   "id": "locale-ref-col",
+   "set": "f2",
+   "input": "=SUM(A:A)",
+   "canonical": "=SUM(A:A)",
+   "local": "=SOMA(A:A)",
+   "r1c1": "=SUM(C[-25])",
+   "r1c1Local": "=SOMA(C[-25])",
+   "file": "=SUM(A:A)"
+  },
+  {
+   "id": "locale-ref-row",
+   "set": "f2",
+   "input": "=SUM(1:1)",
+   "canonical": "=SUM(1:1)",
+   "local": "=SOMA(1:1)",
+   "r1c1": "=SUM(R[-159])",
+   "r1c1Local": "=SOMA(L[-159])",
+   "file": "=SUM(1:1)"
+  },
+  {
+   "id": "locale-ref-cols-abs",
+   "set": "f2",
+   "input": "=SUM($A:$C)",
+   "canonical": "=SUM($A:$C)",
+   "local": "=SOMA($A:$C)",
+   "r1c1": "=SUM(C1:C3)",
+   "r1c1Local": "=SOMA(C1:C3)",
+   "file": "=SUM($A:$C)"
+  },
+  {
+   "id": "locale-ref-sheet",
+   "set": "f2",
+   "input": "=Dados!A1",
+   "canonical": "=Dados!A1",
+   "local": "=Dados!A1",
+   "r1c1": "=Dados!R[-161]C[-25]",
+   "r1c1Local": "=Dados!L[-161]C[-25]",
+   "file": "=Dados!A1"
+  },
+  {
+   "id": "locale-ref-sheet-space",
+   "set": "f2",
+   "input": "='Outra Aba'!A1",
+   "canonical": "='Outra Aba'!A1",
+   "local": "='Outra Aba'!A1",
+   "r1c1": "='Outra Aba'!R[-162]C[-25]",
+   "r1c1Local": "='Outra Aba'!L[-162]C[-25]",
+   "file": "='Outra Aba'!A1"
+  },
+  {
+   "id": "locale-ref-sheet-apos",
+   "set": "f2",
+   "input": "='Plan''x'!A1",
+   "canonical": "='Plan''x'!A1",
+   "local": "='Plan''x'!A1",
+   "r1c1": "='Plan''x'!R[-163]C[-25]",
+   "r1c1Local": "='Plan''x'!L[-163]C[-25]",
+   "file": "='Plan''x'!A1"
+  },
+  {
+   "id": "locale-ref-3d",
+   "set": "f2",
+   "input": "=SUM(Dados:Dados2!A1)",
+   "canonical": "=SUM(Dados:Dados2!A1)",
+   "local": "=SOMA(Dados:Dados2!A1)",
+   "r1c1": "=SUM(Dados:Dados2!R[-164]C[-25])",
+   "r1c1Local": "=SOMA(Dados:Dados2!L[-164]C[-25])",
+   "file": "=SUM(Dados:Dados2!A1)"
+  },
+  {
+   "id": "locale-ref-spill",
+   "set": "f2",
+   "input": "=A1#",
+   "canonical": "=A1#",
+   "local": "=A1#",
+   "r1c1": "=R[-165]C[-25]#",
+   "r1c1Local": "=L[-165]C[-25]#",
+   "file": "=_xlfn.ANCHORARRAY(A1)"
+  },
+  {
+   "id": "locale-ref-at",
+   "set": "f2",
+   "input": "=@A1:A3",
+   "canonical": "=@A1:A3",
+   "local": "=@A1:A3",
+   "r1c1": "=@R[-166]C[-25]:R[-164]C[-25]",
+   "r1c1Local": "=@L[-166]C[-25]:L[-164]C[-25]",
+   "file": "=A1:A3"
+  },
+  {
+   "id": "locale-ref-union",
+   "set": "f2",
+   "input": "=SUM((A1,B1))",
+   "canonical": "=SUM((A1,B1))",
+   "local": "=SOMA((A1;B1))",
+   "r1c1": "=SUM((R[-167]C[-25],R[-167]C[-24]))",
+   "r1c1Local": "=SOMA((L[-167]C[-25];L[-167]C[-24]))",
+   "file": "=SUM((A1,B1))"
+  },
+  {
+   "id": "locale-ref-isect",
+   "set": "f2",
+   "input": "=SUM(A1:A3 A2:B2)",
+   "canonical": "=SUM(A1:A3 A2:B2)",
+   "local": "=SOMA(A1:A3 A2:B2)",
+   "r1c1": "=SUM(R[-168]C[-25]:R[-166]C[-25] R[-167]C[-25]:R[-167]C[-24])",
+   "r1c1Local": "=SOMA(L[-168]C[-25]:L[-166]C[-25] L[-167]C[-25]:L[-167]C[-24])",
+   "file": "=SUM(A1:A3 A2:B2)"
+  },
+  {
+   "id": "locale-ref-isect2",
+   "set": "f2",
+   "input": "=SUM(A1:B2 B1:C3)",
+   "canonical": "=SUM(A1:B2 B1:C3)",
+   "local": "=SOMA(A1:B2 B1:C3)",
+   "r1c1": "=SUM(R[-169]C[-25]:R[-168]C[-24] R[-169]C[-24]:R[-167]C[-23])",
+   "r1c1Local": "=SOMA(L[-169]C[-25]:L[-168]C[-24] L[-169]C[-24]:L[-167]C[-23])",
+   "file": "=SUM(A1:B2 B1:C3)"
+  },
+  {
+   "id": "locale-ref-name",
+   "set": "f2",
+   "input": "=Taxa*2",
+   "canonical": "=Taxa*2",
+   "local": "=Taxa*2",
+   "r1c1": "=Taxa*2",
+   "r1c1Local": "=Taxa*2",
+   "file": "=Taxa*2"
+  },
+  {
+   "id": "locale-ref-name-arg",
+   "set": "f2",
+   "input": "=SUM(A1:A3,Taxa)",
+   "canonical": "=SUM(A1:A3,Taxa)",
+   "local": "=SOMA(A1:A3;Taxa)",
+   "r1c1": "=SUM(R[-171]C[-25]:R[-169]C[-25],Taxa)",
+   "r1c1Local": "=SOMA(L[-171]C[-25]:L[-169]C[-25];Taxa)",
+   "file": "=SUM(A1:A3,Taxa)"
+  },
+  {
+   "id": "locale-ref-sheets-mix",
+   "set": "f2",
+   "input": "=SUM(Dados!A1:B2,'Outra Aba'!C3)",
+   "canonical": "=SUM(Dados!A1:B2,'Outra Aba'!C3)",
+   "local": "=SOMA(Dados!A1:B2;'Outra Aba'!C3)",
+   "r1c1": "=SUM(Dados!R[-172]C[-25]:R[-171]C[-24],'Outra Aba'!R[-170]C[-23])",
+   "r1c1Local": "=SOMA(Dados!L[-172]C[-25]:L[-171]C[-24];'Outra Aba'!L[-170]C[-23])",
+   "file": "=SUM(Dados!A1:B2,'Outra Aba'!C3)"
+  },
+  {
+   "id": "locale-ref-trim-trailing",
+   "set": "f2",
+   "input": "=SUM(A1:.A3)",
+   "canonical": "=SUM(A1:.A3)",
+   "local": "=SOMA(A1:.A3)",
+   "r1c1": "=SUM(R[-173]C[-25]:.R[-171]C[-25])",
+   "r1c1Local": "=SOMA(L[-173]C[-25]:.L[-171]C[-25])",
+   "file": "=SUM(_xlfn._TRO_TRAILING(A1:A3))"
+  },
+  {
+   "id": "locale-ref-trim-leading",
+   "set": "f2",
+   "input": "=SUM(A1.:A3)",
+   "canonical": "=SUM(A1.:A3)",
+   "local": "=SOMA(A1.:A3)",
+   "r1c1": "=SUM(R[-174]C[-25].:R[-172]C[-25])",
+   "r1c1Local": "=SOMA(L[-174]C[-25].:L[-172]C[-25])",
+   "file": "=SUM(_xlfn._TRO_LEADING(A1:A3))"
+  },
+  {
+   "id": "locale-ref-trim-all",
+   "set": "f2",
+   "input": "=SUM(A1.:.A3)",
+   "canonical": "=SUM(A1.:.A3)",
+   "local": "=SOMA(A1.:.A3)",
+   "r1c1": "=SUM(R[-175]C[-25].:.R[-173]C[-25])",
+   "r1c1Local": "=SOMA(L[-175]C[-25].:.L[-173]C[-25])",
+   "file": "=SUM(_xlfn._TRO_ALL(A1:A3))"
+  },
+  {
+   "id": "locale-ref-sheet-col",
+   "set": "f2",
+   "input": "=SUM(Dados!$A:$A)",
+   "canonical": "=SUM(Dados!$A:$A)",
+   "local": "=SOMA(Dados!$A:$A)",
+   "r1c1": "=SUM(Dados!C1)",
+   "r1c1Local": "=SOMA(Dados!C1)",
+   "file": "=SUM(Dados!$A:$A)"
+  },
+  {
+   "id": "locale-ref-sheet-row",
+   "set": "f2",
+   "input": "=ROW(Dados!3:3)",
+   "canonical": "=ROW(Dados!3:3)",
+   "local": "=LIN(Dados!3:3)",
+   "r1c1": "=ROW(Dados!R[-175])",
+   "r1c1Local": "=LIN(Dados!L[-175])",
+   "file": "=ROW(Dados!3:3)"
+  },
+  {
+   "id": "locale-ref-last",
+   "set": "f2",
+   "input": "=XFD1048576",
+   "canonical": "=XFD1048576",
+   "local": "=XFD1048576",
+   "r1c1": "=R[1048397]C[16358]",
+   "r1c1Local": "=L[1048397]C[16358]",
+   "file": "=XFD1048576"
+  },
+  {
+   "id": "locale-ref-space-arg",
+   "set": "f2",
+   "input": "=SUM(A1, B1)",
+   "canonical": "=SUM(A1, B1)",
+   "local": "=SOMA(A1; B1)",
+   "r1c1": "=SUM(R[-179]C[-25], R[-179]C[-24])",
+   "r1c1Local": "=SOMA(L[-179]C[-25]; L[-179]C[-24])",
+   "file": "=SUM(A1, B1)"
+  },
+  {
+   "id": "locale-ref-space-op",
+   "set": "f2",
+   "input": "=A1 + B1",
+   "canonical": "=A1 + B1",
+   "local": "=A1 + B1",
+   "r1c1": "=R[-180]C[-25] + R[-180]C[-24]",
+   "r1c1Local": "=L[-180]C[-25] + L[-180]C[-24]",
+   "file": "=A1 + B1"
+  },
+  {
+   "id": "locale-ref-neg",
+   "set": "f2",
+   "input": "=-A1",
+   "canonical": "=-A1",
+   "local": "=-A1",
+   "r1c1": "=-R[-181]C[-25]",
+   "r1c1Local": "=-L[-181]C[-25]",
+   "file": "=-A1"
+  },
+  {
+   "id": "locale-ref-pct",
+   "set": "f2",
+   "input": "=A1%",
+   "canonical": "=A1%",
+   "local": "=A1%",
+   "r1c1": "=R[-182]C[-25]%",
+   "r1c1Local": "=L[-182]C[-25]%",
+   "file": "=A1%"
+  },
+  {
+   "id": "locale-ref-fn-like",
+   "set": "f2",
+   "input": "=LOG10+1",
+   "canonical": "=LOG10+1",
+   "local": "=LOG10+1",
+   "r1c1": "=R[-174]C[8483]+1",
+   "r1c1Local": "=L[-174]C[8483]+1",
+   "file": "=LOG10+1"
+  },
+  {
+   "id": "locale-ref-eta-like",
+   "set": "f2",
+   "input": "=SUM(T1,N1)",
+   "canonical": "=SUM(T1,N1)",
+   "local": "=SOMA(T1;N1)",
+   "r1c1": "=SUM(R[-184]C[-6],R[-184]C[-12])",
+   "r1c1Local": "=SOMA(L[-184]C[-6];L[-184]C[-12])",
+   "file": "=SUM(T1,N1)"
+  },
+  {
+   "id": "locale-fn-nested",
+   "set": "f2",
+   "input": "=IF(A1>0,SUM(A1:A3),AVERAGE(B1:B3))",
+   "canonical": "=IF(A1>0,SUM(A1:A3),AVERAGE(B1:B3))",
+   "local": "=SE(A1>0;SOMA(A1:A3);MÉDIA(B1:B3))",
+   "r1c1": "=IF(R[-185]C[-25]>0,SUM(R[-185]C[-25]:R[-183]C[-25]),AVERAGE(R[-185]C[-24]:R[-183]C[-24]))",
+   "r1c1Local": "=SE(L[-185]C[-25]>0;SOMA(L[-185]C[-25]:L[-183]C[-25]);MÉDIA(L[-185]C[-24]:L[-183]C[-24]))",
+   "file": "=IF(A1>0,SUM(A1:A3),AVERAGE(B1:B3))"
+  },
+  {
+   "id": "locale-fn-vlookup",
+   "set": "f2",
+   "input": "=VLOOKUP(A1,Dados!A:B,2,FALSE)",
+   "canonical": "=VLOOKUP(A1,Dados!A:B,2,FALSE)",
+   "local": "=PROCV(A1;Dados!A:B;2;FALSO)",
+   "r1c1": "=VLOOKUP(R[-186]C[-25],Dados!C[-25]:C[-24],2,FALSE)",
+   "r1c1Local": "=PROCV(L[-186]C[-25];Dados!C[-25]:C[-24];2;FALSO)",
+   "file": "=VLOOKUP(A1,Dados!A:B,2,FALSE)"
+  },
+  {
+   "id": "locale-fn-xlookup",
+   "set": "f2",
+   "input": "=XLOOKUP(1,A1:A3,B1:B3,\"none\")",
+   "canonical": "=XLOOKUP(1,A1:A3,B1:B3,\"none\")",
+   "local": "=PROCX(1;A1:A3;B1:B3;\"none\")",
+   "r1c1": "=XLOOKUP(1,R[-187]C[-25]:R[-185]C[-25],R[-187]C[-24]:R[-185]C[-24],\"none\")",
+   "r1c1Local": "=PROCX(1;L[-187]C[-25]:L[-185]C[-25];L[-187]C[-24]:L[-185]C[-24];\"none\")",
+   "file": "=_xlfn.XLOOKUP(1,A1:A3,B1:B3,\"none\")"
+  },
+  {
+   "id": "locale-fn-let",
+   "set": "f2",
+   "input": "=LET(x,1.5,y,2,x*y)",
+   "canonical": "=LET(x,1.5,y,2,x*y)",
+   "local": "=LET(x;1,5;y;2;x*y)",
+   "r1c1": "=LET(x,1.5,y,2,x*y)",
+   "r1c1Local": "=LET(x;1,5;y;2;x*y)",
+   "file": "=_xlfn.LET(_xlpm.x,1.5,_xlpm.y,2,_xlpm.x*_xlpm.y)"
+  },
+  {
+   "id": "locale-fn-lambda",
+   "set": "f2",
+   "input": "=LAMBDA(a,b,a+b)(1,2)",
+   "canonical": "=LAMBDA(a,b,a+b)(1,2)",
+   "local": "=LAMBDA(a;b;a+b)(1;2)",
+   "r1c1": "=LAMBDA(a,b,a+b)(1,2)",
+   "r1c1Local": "=LAMBDA(a;b;a+b)(1;2)",
+   "file": "=_xlfn.LAMBDA(_xlpm.a,_xlpm.b,_xlpm.a+_xlpm.b)(1,2)"
+  },
+  {
+   "id": "locale-fn-map",
+   "set": "f2",
+   "input": "=MAP({1,2},LAMBDA(v,v*2))",
+   "canonical": "=MAP({1,2},LAMBDA(v,v*2))",
+   "local": "=MAP({1\\2};LAMBDA(v;v*2))",
+   "r1c1": "=MAP({1,2},LAMBDA(v,v*2))",
+   "r1c1Local": "=MAP({1\\2};LAMBDA(v;v*2))",
+   "file": "=_xlfn.MAP({1,2},_xlfn.LAMBDA(_xlpm.v,_xlpm.v*2))"
+  },
+  {
+   "id": "locale-fn-text",
+   "set": "f2",
+   "input": "=TEXT(A1,\"#,##0.00\")",
+   "canonical": "=TEXT(A1,\"#,##0.00\")",
+   "local": "=TEXTO(A1;\"#,##0.00\")",
+   "r1c1": "=TEXT(R[-191]C[-25],\"#,##0.00\")",
+   "r1c1Local": "=TEXTO(L[-191]C[-25];\"#,##0.00\")",
+   "file": "=TEXT(A1,\"#,##0.00\")"
+  },
+  {
+   "id": "locale-fn-concatenate",
+   "set": "f2",
+   "input": "=CONCATENATE(\"a\",\",\",\"b\")",
+   "canonical": "=CONCATENATE(\"a\",\",\",\"b\")",
+   "local": "=CONCATENAR(\"a\";\",\";\"b\")",
+   "r1c1": "=CONCATENATE(\"a\",\",\",\"b\")",
+   "r1c1Local": "=CONCATENAR(\"a\";\",\";\"b\")",
+   "file": "=CONCATENATE(\"a\",\",\",\"b\")"
+  },
+  {
+   "id": "locale-fn-sumifs",
+   "set": "f2",
+   "input": "=SUMIFS(A1:A3,B1:B3,\">1.5\")",
+   "canonical": "=SUMIFS(A1:A3,B1:B3,\">1.5\")",
+   "local": "=SOMASES(A1:A3;B1:B3;\">1.5\")",
+   "r1c1": "=SUMIFS(R[-193]C[-25]:R[-191]C[-25],R[-193]C[-24]:R[-191]C[-24],\">1.5\")",
+   "r1c1Local": "=SOMASES(L[-193]C[-25]:L[-191]C[-25];L[-193]C[-24]:L[-191]C[-24];\">1.5\")",
+   "file": "=SUMIFS(A1:A3,B1:B3,\">1.5\")"
+  },
+  {
+   "id": "locale-fn-sequence",
+   "set": "f2",
+   "input": "=SEQUENCE(2,2)",
+   "canonical": "=SEQUENCE(2,2)",
+   "local": "=SEQUÊNCIA(2;2)",
+   "r1c1": "=SEQUENCE(2,2)",
+   "r1c1Local": "=SEQUÊNCIA(2;2)",
+   "file": "=_xlfn.SEQUENCE(2,2)"
+  },
+  {
+   "id": "locale-fn-filter",
+   "set": "f2",
+   "input": "=FILTER(A1:A3,A1:A3>1,\"\")",
+   "canonical": "=FILTER(A1:A3,A1:A3>1,\"\")",
+   "local": "=FILTRO(A1:A3;A1:A3>1;\"\")",
+   "r1c1": "=FILTER(R[-195]C[-25]:R[-193]C[-25],R[-195]C[-25]:R[-193]C[-25]>1,\"\")",
+   "r1c1Local": "=FILTRO(L[-195]C[-25]:L[-193]C[-25];L[-195]C[-25]:L[-193]C[-25]>1;\"\")",
+   "file": "=_xlfn._xlws.FILTER(A1:A3,A1:A3>1,\"\")"
+  },
+  {
+   "id": "locale-fn-sort",
+   "set": "f2",
+   "input": "=SORT({3;1;2})",
+   "canonical": "=SORT({3;1;2})",
+   "local": "=CLASSIFICAR({3;1;2})",
+   "r1c1": "=SORT({3;1;2})",
+   "r1c1Local": "=CLASSIFICAR({3;1;2})",
+   "file": "=_xlfn._xlws.SORT({3;1;2})"
+  },
+  {
+   "id": "locale-fn-norm",
+   "set": "f2",
+   "input": "=NORM.S.DIST(1,TRUE)",
+   "canonical": "=NORM.S.DIST(1,TRUE)",
+   "local": "=DIST.NORMP.N(1;VERDADEIRO)",
+   "r1c1": "=NORM.S.DIST(1,TRUE)",
+   "r1c1Local": "=DIST.NORMP.N(1;VERDADEIRO)",
+   "file": "=_xlfn.NORM.S.DIST(1,TRUE)"
+  },
+  {
+   "id": "locale-fn-stdev",
+   "set": "f2",
+   "input": "=STDEV.S(1,2,3)",
+   "canonical": "=STDEV.S(1,2,3)",
+   "local": "=DESVPAD.A(1;2;3)",
+   "r1c1": "=STDEV.S(1,2,3)",
+   "r1c1Local": "=DESVPAD.A(1;2;3)",
+   "file": "=_xlfn.STDEV.S(1,2,3)"
+  },
+  {
+   "id": "locale-fn-ceiling",
+   "set": "f2",
+   "input": "=CEILING.MATH(1.5)",
+   "canonical": "=CEILING.MATH(1.5)",
+   "local": "=TETO.MAT(1,5)",
+   "r1c1": "=CEILING.MATH(1.5)",
+   "r1c1Local": "=TETO.MAT(1,5)",
+   "file": "=_xlfn.CEILING.MATH(1.5)"
+  },
+  {
+   "id": "locale-fn-textjoin",
+   "set": "f2",
+   "input": "=TEXTJOIN(\",\",TRUE,A1:A3)",
+   "canonical": "=TEXTJOIN(\",\",TRUE,A1:A3)",
+   "local": "=UNIRTEXTO(\",\";VERDADEIRO;A1:A3)",
+   "r1c1": "=TEXTJOIN(\",\",TRUE,R[-200]C[-25]:R[-198]C[-25])",
+   "r1c1Local": "=UNIRTEXTO(\",\";VERDADEIRO;L[-200]C[-25]:L[-198]C[-25])",
+   "file": "=_xlfn.TEXTJOIN(\",\",TRUE,A1:A3)"
+  },
+  {
+   "id": "locale-fn-ifs",
+   "set": "f2",
+   "input": "=IFS(A1>1,\"a\",TRUE,\"b\")",
+   "canonical": "=IFS(A1>1,\"a\",TRUE,\"b\")",
+   "local": "=SES(A1>1;\"a\";VERDADEIRO;\"b\")",
+   "r1c1": "=IFS(R[-201]C[-25]>1,\"a\",TRUE,\"b\")",
+   "r1c1Local": "=SES(L[-201]C[-25]>1;\"a\";VERDADEIRO;\"b\")",
+   "file": "=_xlfn.IFS(A1>1,\"a\",TRUE,\"b\")"
+  },
+  {
+   "id": "locale-fn-indirect",
+   "set": "f2",
+   "input": "=INDIRECT(\"A1\")",
+   "canonical": "=INDIRECT(\"A1\")",
+   "local": "=INDIRETO(\"A1\")",
+   "r1c1": "=INDIRECT(\"A1\")",
+   "r1c1Local": "=INDIRETO(\"A1\")",
+   "file": "=INDIRECT(\"A1\")"
+  },
+  {
+   "id": "locale-fn-offset",
+   "set": "f2",
+   "input": "=SUM(OFFSET(A1,1,1))",
+   "canonical": "=SUM(OFFSET(A1,1,1))",
+   "local": "=SOMA(DESLOC(A1;1;1))",
+   "r1c1": "=SUM(OFFSET(R[-203]C[-25],1,1))",
+   "r1c1Local": "=SOMA(DESLOC(L[-203]C[-25];1;1))",
+   "file": "=SUM(OFFSET(A1,1,1))"
+  },
+  {
+   "id": "locale-fn-row",
+   "set": "f2",
+   "input": "=ROW()",
+   "canonical": "=ROW()",
+   "local": "=LIN()",
+   "r1c1": "=ROW()",
+   "r1c1Local": "=LIN()",
+   "file": "=ROW()"
+  },
+  {
+   "id": "locale-fn-column",
+   "set": "f2",
+   "input": "=COLUMN(A1)",
+   "canonical": "=COLUMN(A1)",
+   "local": "=COL(A1)",
+   "r1c1": "=COLUMN(R[-205]C[-25])",
+   "r1c1Local": "=COL(L[-205]C[-25])",
+   "file": "=COLUMN(A1)"
+  },
+  {
+   "id": "locale-fn-ets",
+   "set": "f2",
+   "input": "=FORECAST.ETS(1,A1:A3,B1:B3)",
+   "canonical": "=FORECAST.ETS(1,A1:A3,B1:B3)",
+   "local": "=PREVISÃO.ETS(1;A1:A3;B1:B3)",
+   "r1c1": "=FORECAST.ETS(1,R[-206]C[-25]:R[-204]C[-25],R[-206]C[-24]:R[-204]C[-24])",
+   "r1c1Local": "=PREVISÃO.ETS(1;L[-206]C[-25]:L[-204]C[-25];L[-206]C[-24]:L[-204]C[-24])",
+   "file": "=_xlfn.FORECAST.ETS(1,A1:A3,B1:B3)"
+  },
+  {
+   "id": "locale-fn-regex",
+   "set": "f2",
+   "input": "=REGEXTEST(\"a\",\"a\")",
+   "canonical": "=REGEXTEST(\"a\",\"a\")",
+   "local": "=REGEX.TESTAR(\"a\";\"a\")",
+   "r1c1": "=REGEXTEST(\"a\",\"a\")",
+   "r1c1Local": "=REGEX.TESTAR(\"a\";\"a\")",
+   "file": "=_xlfn.REGEXTEST(\"a\",\"a\")"
+  },
+  {
+   "id": "locale-fn-eta",
+   "set": "f2",
+   "input": "=GROUPBY(A1:A3,B1:B3,SUM)",
+   "canonical": "=GROUPBY(A1:A3,B1:B3,SUM)",
+   "local": "=AGRUPARPOR(A1:A3;B1:B3;SOMA)",
+   "r1c1": "=GROUPBY(R[-208]C[-25]:R[-206]C[-25],R[-208]C[-24]:R[-206]C[-24],SUM)",
+   "r1c1Local": "=AGRUPARPOR(L[-208]C[-25]:L[-206]C[-25];L[-208]C[-24]:L[-206]C[-24];SOMA)",
+   "file": "=_xlfn.GROUPBY(A1:A3,B1:B3,_xleta.SUM)"
+  },
+  {
+   "id": "locale-fn-eta-byrow",
+   "set": "f2",
+   "input": "=BYROW(A1:B3,MAX)",
+   "canonical": "=BYROW(A1:B3,MAX)",
+   "local": "=BYROW(A1:B3;MÁXIMO)",
+   "r1c1": "=BYROW(R[-209]C[-25]:R[-207]C[-24],MAX)",
+   "r1c1Local": "=BYROW(L[-209]C[-25]:L[-207]C[-24];MÁXIMO)",
+   "file": "=_xlfn.BYROW(A1:B3,_xleta.MAX)"
+  },
+  {
+   "id": "locale-fn-eta-alone",
+   "set": "f2",
+   "input": "=SUM",
+   "canonical": "=SUM",
+   "local": "=SOMA",
+   "r1c1": "=SUM",
+   "r1c1Local": "=SOMA",
+   "file": "=_xleta.SUM"
+  },
+  {
+   "id": "locale-fn-map-let",
+   "set": "f2",
+   "input": "=MAP(A1:A3,LAMBDA(x,LET(y,x*2,y)))",
+   "canonical": "=MAP(A1:A3,LAMBDA(x,LET(y,x*2,y)))",
+   "local": "=MAP(A1:A3;LAMBDA(x;LET(y;x*2;y)))",
+   "r1c1": "=MAP(R[-211]C[-25]:R[-209]C[-25],LAMBDA(x,LET(y,x*2,y)))",
+   "r1c1Local": "=MAP(L[-211]C[-25]:L[-209]C[-25];LAMBDA(x;LET(y;x*2;y)))",
+   "file": "=_xlfn.MAP(A1:A3,_xlfn.LAMBDA(_xlpm.x,_xlfn.LET(_xlpm.y,_xlpm.x*2,_xlpm.y)))"
+  },
+  {
+   "id": "locale-fn-div",
+   "set": "f2",
+   "input": "=SUM(A1:A3)/COUNT(A1:A3)",
+   "canonical": "=SUM(A1:A3)/COUNT(A1:A3)",
+   "local": "=SOMA(A1:A3)/CONT.NÚM(A1:A3)",
+   "r1c1": "=SUM(R[-212]C[-25]:R[-210]C[-25])/COUNT(R[-212]C[-25]:R[-210]C[-25])",
+   "r1c1Local": "=SOMA(L[-212]C[-25]:L[-210]C[-25])/CONT.NÚM(L[-212]C[-25]:L[-210]C[-25])",
+   "file": "=SUM(A1:A3)/COUNT(A1:A3)"
+  },
+  {
+   "id": "locale-fn-prefix",
+   "set": "f2",
+   "input": "=_xlfn.XLOOKUP(1,A1:A3,B1:B3)",
+   "canonical": "=XLOOKUP(1,A1:A3,B1:B3)",
+   "local": "=PROCX(1;A1:A3;B1:B3)",
+   "r1c1": "=XLOOKUP(1,R[-213]C[-25]:R[-211]C[-25],R[-213]C[-24]:R[-211]C[-24])",
+   "r1c1Local": "=PROCX(1;L[-213]C[-25]:L[-211]C[-25];L[-213]C[-24]:L[-211]C[-24])",
+   "file": "=_xlfn.XLOOKUP(1,A1:A3,B1:B3)"
+  },
+  {
+   "id": "locale-fn-prefix-ws",
+   "set": "f2",
+   "input": "=_xlfn._xlws.SORT(A1:A3)",
+   "canonical": "=SORT(A1:A3)",
+   "local": "=CLASSIFICAR(A1:A3)",
+   "r1c1": "=SORT(R[-214]C[-25]:R[-212]C[-25])",
+   "r1c1Local": "=CLASSIFICAR(L[-214]C[-25]:L[-212]C[-25])",
+   "file": "=_xlfn._xlws.SORT(A1:A3)"
+  },
+  {
+   "id": "locale-fn-unknown",
+   "set": "f2",
+   "input": "=FOO(1,2)",
+   "canonical": "=FOO(1,2)",
+   "local": "=FOO(1;2)",
+   "r1c1": "=FOO(1,2)",
+   "r1c1Local": "=FOO(1;2)",
+   "file": "=FOO(1,2)"
+  },
+  {
+   "id": "locale-fn-unknown-prefix",
+   "set": "f2",
+   "input": "=_xlfn.FOO(1)",
+   "canonical": "=_xlfn.FOO(1)",
+   "local": "=_xlfn.FOO(1)",
+   "r1c1": "=_xlfn.FOO(1)",
+   "r1c1Local": "=_xlfn.FOO(1)",
+   "file": "=_xlfn.FOO(1)"
+  },
+  {
+   "id": "locale-fn-choose",
+   "set": "f2",
+   "input": "=CHOOSE(2,\"a\",\"b\")",
+   "canonical": "=CHOOSE(2,\"a\",\"b\")",
+   "local": "=ESCOLHER(2;\"a\";\"b\")",
+   "r1c1": "=CHOOSE(2,\"a\",\"b\")",
+   "r1c1Local": "=ESCOLHER(2;\"a\";\"b\")",
+   "file": "=CHOOSE(2,\"a\",\"b\")"
+  },
+  {
+   "id": "locale-fn-t-n",
+   "set": "f2",
+   "input": "=T(A1)+N(A1)",
+   "canonical": "=T(A1)+N(A1)",
+   "local": "=T(A1)+N(A1)",
+   "r1c1": "=T(R[-218]C[-25])+N(R[-218]C[-25])",
+   "r1c1Local": "=T(L[-218]C[-25])+N(L[-218]C[-25])",
+   "file": "=T(A1)+N(A1)"
+  },
+  {
+   "id": "locale-fn-log10",
+   "set": "f2",
+   "input": "=LOG10(100)",
+   "canonical": "=LOG10(100)",
+   "local": "=LOG10(100)",
+   "r1c1": "=LOG10(100)",
+   "r1c1Local": "=LOG10(100)",
+   "file": "=LOG10(100)"
+  },
+  {
+   "id": "locale-fn-atan2",
+   "set": "f2",
+   "input": "=ATAN2(1,1)",
+   "canonical": "=ATAN2(1,1)",
+   "local": "=ATAN2(1;1)",
+   "r1c1": "=ATAN2(1,1)",
+   "r1c1Local": "=ATAN2(1;1)",
+   "file": "=ATAN2(1,1)"
+  },
+  {
+   "id": "locale-fn-dec2bin",
+   "set": "f2",
+   "input": "=DEC2BIN(5)",
+   "canonical": "=DEC2BIN(5)",
+   "local": "=DECABIN(5)",
+   "r1c1": "=DEC2BIN(5)",
+   "r1c1Local": "=DECABIN(5)",
+   "file": "=DEC2BIN(5)"
+  },
+  {
+   "id": "locale-fn-tdist",
+   "set": "f2",
+   "input": "=T.DIST.2T(1,2)",
+   "canonical": "=T.DIST.2T(1,2)",
+   "local": "=DIST.T.BC(1;2)",
+   "r1c1": "=T.DIST.2T(1,2)",
+   "r1c1Local": "=DIST.T.BC(1;2)",
+   "file": "=_xlfn.T.DIST.2T(1,2)"
+  },
+  {
+   "id": "locale-fn-lower",
+   "set": "f2",
+   "input": "=sum(a1:a3)",
+   "canonical": "=SUM(A1:A3)",
+   "local": "=SOMA(A1:A3)",
+   "r1c1": "=SUM(R[-223]C[-25]:R[-221]C[-25])",
+   "r1c1Local": "=SOMA(L[-223]C[-25]:L[-221]C[-25])",
+   "file": "=SUM(A1:A3)"
+  },
+  {
+   "id": "locale-fn-single",
+   "set": "f2",
+   "input": "=SINGLE(A1:A3)",
+   "canonical": "=@A1:A3",
+   "local": "=@A1:A3",
+   "r1c1": "=@R[-224]C[-25]:R[-222]C[-25]",
+   "r1c1Local": "=@L[-224]C[-25]:L[-222]C[-25]",
+   "file": "=A1:A3"
+  },
+  {
+   "id": "locale-fn-single-expr",
+   "set": "f2",
+   "input": "=SINGLE(A1:A3+1)",
+   "canonical": "=@A1:A3+1",
+   "local": "=@A1:A3+1",
+   "r1c1": "=@R[-225]C[-25]:R[-223]C[-25]+1",
+   "r1c1Local": "=@L[-225]C[-25]:L[-223]C[-25]+1",
+   "file": "=_xlfn.SINGLE(A1:A3+1)"
+  },
+  {
+   "id": "locale-fn-single-fn",
+   "set": "f2",
+   "input": "=SINGLE(INDEX(A1:A3,1))",
+   "canonical": "=@INDEX(A1:A3,1)",
+   "local": "=@ÍNDICE(A1:A3;1)",
+   "r1c1": "=@INDEX(R[-226]C[-25]:R[-224]C[-25],1)",
+   "r1c1Local": "=@ÍNDICE(L[-226]C[-25]:L[-224]C[-25];1)",
+   "file": "=_xlfn.SINGLE(INDEX(A1:A3,1))"
+  },
+  {
+   "id": "locale-fn-isomitted",
+   "set": "f2",
+   "input": "=LAMBDA(a,[b],IF(ISOMITTED(b),a,b))(1)",
+   "canonical": "=LAMBDA(a,[b],IF(ISOMITTED(b),a,b))(1)",
+   "local": "=LAMBDA(a;[b];SE(ISOMITTED(b);a;b))(1)",
+   "r1c1": "=LAMBDA(a,[b],IF(ISOMITTED(b),a,b))(1)",
+   "r1c1Local": "=LAMBDA(a;[b];SE(ISOMITTED(b);a;b))(1)",
+   "file": "=_xlfn.LAMBDA(_xlpm.a,_xlop.b,IF(_xlfn.ISOMITTED(_xlpm.b),_xlpm.a,_xlpm.b))(1)"
+  },
+  {
+   "id": "locale-tbl-col",
+   "set": "f2",
+   "input": "=SUM(Vendas[B])",
+   "canonical": "=SUM(Vendas[B])",
+   "local": "=SOMA(Vendas[B])",
+   "r1c1": "=SUM(Vendas[B])",
+   "r1c1Local": "=SOMA(Vendas[B])",
+   "file": "=SUM(Vendas[B])"
+  },
+  {
+   "id": "locale-tbl-all-col",
+   "set": "f2",
+   "input": "=SUM(Vendas[[#All],[B]])",
+   "canonical": "=SUM(Vendas[[#All],[B]])",
+   "local": "=SOMA(Vendas[[#Tudo];[B]])",
+   "r1c1": "=SUM(Vendas[[#All],[B]])",
+   "r1c1Local": "=SOMA(Vendas[[#Tudo];[B]])",
+   "file": "=SUM(Vendas[[#All],[B]])"
+  },
+  {
+   "id": "locale-tbl-data-range",
+   "set": "f2",
+   "input": "=SUM(Vendas[[#Data],[Col A]:[B]])",
+   "canonical": "=SUM(Vendas[[#Data],[Col A]:[B]])",
+   "local": "=SOMA(Vendas[[#Dados];[Col A]:[B]])",
+   "r1c1": "=SUM(Vendas[[#Data],[Col A]:[B]])",
+   "r1c1Local": "=SOMA(Vendas[[#Dados];[Col A]:[B]])",
+   "file": "=SUM(Vendas[[#Data],[Col A]:[B]])"
+  },
+  {
+   "id": "locale-tbl-headers",
+   "set": "f2",
+   "input": "=ROWS(Vendas[#Headers])",
+   "canonical": "=ROWS(Vendas[#Headers])",
+   "local": "=LINS(Vendas[#Cabeçalhos])",
+   "r1c1": "=ROWS(Vendas[#Headers])",
+   "r1c1Local": "=LINS(Vendas[#Cabeçalhos])",
+   "file": "=ROWS(Vendas[#Headers])"
+  },
+  {
+   "id": "locale-tbl-totals",
+   "set": "f2",
+   "input": "=SUM(Vendas[#Totals])",
+   "canonical": "=SUM(Vendas[#Totals])",
+   "local": "=SOMA(Vendas[#Totais])",
+   "r1c1": "=SUM(Vendas[#Totals])",
+   "r1c1Local": "=SOMA(Vendas[#Totais])",
+   "file": "=SUM(Vendas[#Totals])"
+  },
+  {
+   "id": "locale-tbl-all",
+   "set": "f2",
+   "input": "=COUNTA(Vendas[#All])",
+   "canonical": "=COUNTA(Vendas[#All])",
+   "local": "=CONT.VALORES(Vendas[#Tudo])",
+   "r1c1": "=COUNTA(Vendas[#All])",
+   "r1c1Local": "=CONT.VALORES(Vendas[#Tudo])",
+   "file": "=COUNTA(Vendas[#All])"
+  },
+  {
+   "id": "locale-tbl-hdr-data",
+   "set": "f2",
+   "input": "=SUM(Vendas[[#Headers],[#Data],[B]])",
+   "canonical": "=SUM(Vendas[[#Headers],[#Data],[B]])",
+   "local": "=SOMA(Vendas[[#Cabeçalhos];[#Dados];[B]])",
+   "r1c1": "=SUM(Vendas[[#Headers],[#Data],[B]])",
+   "r1c1Local": "=SOMA(Vendas[[#Cabeçalhos];[#Dados];[B]])",
+   "file": "=SUM(Vendas[[#Headers],[#Data],[B]])"
+  },
+  {
+   "id": "locale-tbl-escape",
+   "set": "f2",
+   "input": "=SUM(Vendas[C'[1']])",
+   "canonical": "=SUM(Vendas[C'[1']])",
+   "local": "=SOMA(Vendas[C'[1']])",
+   "r1c1": "=SUM(Vendas[C'[1']])",
+   "r1c1Local": "=SOMA(Vendas[C'[1']])",
+   "file": "=SUM(Vendas[C'[1']])"
+  },
+  {
+   "id": "locale-tbl-empty",
+   "set": "f2",
+   "input": "=SUM(Vendas[])",
+   "canonical": "=SUM(Vendas)",
+   "local": "=SOMA(Vendas)",
+   "r1c1": "=SUM(Vendas)",
+   "r1c1Local": "=SOMA(Vendas)",
+   "file": "=SUM(Vendas[])"
+  },
+  {
+   "id": "locale-tbl-name",
+   "set": "f2",
+   "input": "=SUM(Vendas)",
+   "canonical": "=SUM(Vendas)",
+   "local": "=SOMA(Vendas)",
+   "r1c1": "=SUM(Vendas)",
+   "r1c1Local": "=SOMA(Vendas)",
+   "file": "=SUM(Vendas[])"
+  },
+  {
+   "id": "locale-tbl-data",
+   "set": "f2",
+   "input": "=ROWS(Vendas[#Data])",
+   "canonical": "=ROWS(Vendas[#Data])",
+   "local": "=LINS(Vendas[#Dados])",
+   "r1c1": "=ROWS(Vendas[#Data])",
+   "r1c1Local": "=LINS(Vendas[#Dados])",
+   "file": "=ROWS(Vendas[#Data])"
+  },
+  {
+   "id": "locale-tbl-data-totals",
+   "set": "f2",
+   "input": "=SUM(Vendas[[#Data],[#Totals],[B]])",
+   "canonical": "=SUM(Vendas[[#Data],[#Totals],[B]])",
+   "local": "=SOMA(Vendas[[#Dados];[#Totais];[B]])",
+   "r1c1": "=SUM(Vendas[[#Data],[#Totals],[B]])",
+   "r1c1Local": "=SOMA(Vendas[[#Dados];[#Totais];[B]])",
+   "file": "=SUM(Vendas[[#Data],[#Totals],[B]])"
+  },
+  {
+   "id": "locale-tbl-totals-col",
+   "set": "f2",
+   "input": "=Vendas[[#Totals],[B]]",
+   "canonical": "=Vendas[[#Totals],[B]]",
+   "local": "=Vendas[[#Totais];[B]]",
+   "r1c1": "=Vendas[[#Totals],[B]]",
+   "r1c1Local": "=Vendas[[#Totais];[B]]",
+   "file": "=Vendas[[#Totals],[B]]"
+  },
+  {
+   "id": "locale-tbl-range-escape",
+   "set": "f2",
+   "input": "=SUM(Vendas[[Col A]:[C'[1']]])",
+   "canonical": "=SUM(Vendas[[Col A]:[C'[1']]])",
+   "local": "=SOMA(Vendas[[Col A]:[C'[1']]])",
+   "r1c1": "=SUM(Vendas[[Col A]:[C'[1']]])",
+   "r1c1Local": "=SOMA(Vendas[[Col A]:[C'[1']]])",
+   "file": "=SUM(Vendas[[Col A]:[C'[1']]])"
+  },
+  {
+   "id": "locale-tbl-this-row",
+   "set": "f2",
+   "input": "=Vendas[@B]",
+   "at": "M2",
+   "canonical": "=Vendas[@B]",
+   "local": "=Vendas[@B]",
+   "r1c1": "=Vendas[@B]",
+   "r1c1Local": "=Vendas[@B]",
+   "file": "=Vendas[[#This Row],[B]]"
+  },
+  {
+   "id": "locale-tbl-this-row-kw",
+   "set": "f2",
+   "input": "=Vendas[[#This Row],[Col A]]",
+   "at": "M3",
+   "canonical": "=Vendas[@[Col A]]",
+   "local": "=Vendas[@[Col A]]",
+   "r1c1": "=Vendas[@[Col A]]",
+   "r1c1Local": "=Vendas[@[Col A]]",
+   "file": "=Vendas[[#This Row],[Col A]]"
+  },
+  {
+   "id": "locale-tbl-row-all",
+   "set": "f2",
+   "input": "=SUM(Vendas[@])",
+   "at": "M4",
+   "canonical": "=SUM(Vendas[@])",
+   "local": "=SOMA(Vendas[@])",
+   "r1c1": "=SUM(Vendas[@])",
+   "r1c1Local": "=SOMA(Vendas[@])",
+   "file": "=SUM(Vendas[#This Row])"
+  },
+  {
+   "id": "locale-tbl-in-at",
+   "set": "f2",
+   "input": "=[@B]*2",
+   "at": "K2",
+   "inTable": "Vendas",
+   "canonical": "=[@B]*2",
+   "local": "=[@B]*2",
+   "r1c1": "=[@B]*2",
+   "r1c1Local": "=[@B]*2"
+  },
+  {
+   "id": "locale-tbl-in-mixed",
+   "set": "f2",
+   "input": "=Vendas[@[Col A]]+[@B]",
+   "at": "K3",
+   "inTable": "Vendas",
+   "canonical": "=[@[Col A]]+[@B]",
+   "local": "=[@[Col A]]+[@B]",
+   "r1c1": "=[@[Col A]]+[@B]",
+   "r1c1Local": "=[@[Col A]]+[@B]"
+  },
+  {
+   "id": "locale-tbl-in-escape",
+   "set": "f2",
+   "input": "=[@[C'[1']]]",
+   "at": "K4",
+   "inTable": "Vendas",
+   "canonical": "=[@[C'[1']]]",
+   "local": "=[@[C'[1']]]",
+   "r1c1": "=[@[C'[1']]]",
+   "r1c1Local": "=[@[C'[1']]]"
+  },
+  {
+   "id": "locale-loc-sum",
+   "set": "f2Local",
+   "input": "=SOMA(1;2)",
+   "canonical": "=SUM(1,2)",
+   "local": "=SOMA(1;2)",
+   "r1c1": "=SUM(1,2)",
+   "r1c1Local": "=SOMA(1;2)",
+   "file": "=SUM(1,2)"
+  },
+  {
+   "id": "locale-loc-sum-lower",
+   "set": "f2Local",
+   "input": "=soma(1;2)",
+   "canonical": "=SUM(1,2)",
+   "local": "=SOMA(1;2)",
+   "r1c1": "=SUM(1,2)",
+   "r1c1Local": "=SOMA(1;2)",
+   "file": "=SUM(1,2)"
+  },
+  {
+   "id": "locale-loc-if",
+   "set": "f2Local",
+   "input": "=SE(VERDADEIRO;1;0)",
+   "canonical": "=IF(TRUE,1,0)",
+   "local": "=SE(VERDADEIRO;1;0)",
+   "r1c1": "=IF(TRUE,1,0)",
+   "r1c1Local": "=SE(VERDADEIRO;1;0)",
+   "file": "=IF(TRUE,1,0)"
+  },
+  {
+   "id": "locale-loc-bool-lower",
+   "set": "f2Local",
+   "input": "=verdadeiro",
+   "canonical": "=TRUE",
+   "local": "=VERDADEIRO",
+   "r1c1": "=TRUE",
+   "r1c1Local": "=VERDADEIRO",
+   "file": "=TRUE"
+  },
+  {
+   "id": "locale-loc-err-lower",
+   "set": "f2Local",
+   "input": "=#n/d",
+   "canonical": "=#N/A",
+   "local": "=#N/D",
+   "r1c1": "=#N/A",
+   "r1c1Local": "=#N/D",
+   "file": "=#N/A"
+  },
+  {
+   "id": "locale-loc-arr",
+   "set": "f2Local",
+   "input": "={1\\2;3\\4}",
+   "canonical": "={1,2;3,4}",
+   "local": "={1\\2;3\\4}",
+   "r1c1": "={1,2;3,4}",
+   "r1c1Local": "={1\\2;3\\4}",
+   "file": "={1,2;3,4}"
+  },
+  {
+   "id": "locale-loc-english",
+   "set": "f2Local",
+   "input": "=SUM(1;2)",
+   "canonical": "=_xludf.SUM(1,2)",
+   "local": "=SUM(1;2)",
+   "r1c1": "=_xludf.SUM(1,2)",
+   "r1c1Local": "=SUM(1;2)",
+   "file": "=_xludf.SUM(1,2)"
+  },
+  {
+   "id": "locale-loc-prefix-local",
+   "set": "f2Local",
+   "input": "=_xlfn.PROCX(1;A1:A3;B1:B3)",
+   "canonical": "=XLOOKUP(1,A1:A3,B1:B3)",
+   "local": "=PROCX(1;A1:A3;B1:B3)",
+   "r1c1": "=XLOOKUP(1,R[-255]C[-25]:R[-253]C[-25],R[-255]C[-24]:R[-253]C[-24])",
+   "r1c1Local": "=PROCX(1;L[-255]C[-25]:L[-253]C[-25];L[-255]C[-24]:L[-253]C[-24])",
+   "file": "=_xlfn.XLOOKUP(1,A1:A3,B1:B3)"
+  },
+  {
+   "id": "locale-loc-english-bool",
+   "set": "f2Local",
+   "input": "=TRUE",
+   "canonical": "='TRUE'",
+   "local": "=TRUE",
+   "r1c1": "='TRUE'",
+   "r1c1Local": "=TRUE",
+   "file": "='TRUE'"
+  },
+  {
+   "id": "locale-loc-vlookup",
+   "set": "f2Local",
+   "input": "=PROCV(A1;Dados!A:B;2;FALSO)",
+   "canonical": "=VLOOKUP(A1,Dados!A:B,2,FALSE)",
+   "local": "=PROCV(A1;Dados!A:B;2;FALSO)",
+   "r1c1": "=VLOOKUP(R[-257]C[-25],Dados!C[-25]:C[-24],2,FALSE)",
+   "r1c1Local": "=PROCV(L[-257]C[-25];Dados!C[-25]:C[-24];2;FALSO)",
+   "file": "=VLOOKUP(A1,Dados!A:B,2,FALSE)"
+  },
+  {
+   "id": "locale-loc-tbl-all",
+   "set": "f2Local",
+   "input": "=SOMA(Vendas[[#Tudo];[B]])",
+   "canonical": "=SUM(Vendas[[#All],[B]])",
+   "local": "=SOMA(Vendas[[#Tudo];[B]])",
+   "r1c1": "=SUM(Vendas[[#All],[B]])",
+   "r1c1Local": "=SOMA(Vendas[[#Tudo];[B]])",
+   "file": "=SUM(Vendas[[#All],[B]])"
+  },
+  {
+   "id": "locale-loc-tbl-data",
+   "set": "f2Local",
+   "input": "=SOMA(Vendas[[#Dados];[B]])",
+   "canonical": "=SUM(Vendas[[#Data],[B]])",
+   "local": "=SOMA(Vendas[[#Dados];[B]])",
+   "r1c1": "=SUM(Vendas[[#Data],[B]])",
+   "r1c1Local": "=SOMA(Vendas[[#Dados];[B]])",
+   "file": "=SUM(Vendas[[#Data],[B]])"
+  },
+  {
+   "id": "locale-loc-tbl-this-row",
+   "set": "f2Local",
+   "input": "=Vendas[[#Esta Linha];[B]]",
+   "at": "N2",
+   "canonical": "=Vendas[@B]",
+   "local": "=Vendas[@B]",
+   "r1c1": "=Vendas[@B]",
+   "r1c1Local": "=Vendas[@B]",
+   "file": "=Vendas[[#This Row],[B]]"
+  },
+  {
+   "id": "locale-loc-tbl-this-row-lc",
+   "set": "f2Local",
+   "input": "=Vendas[[#Esta linha];[B]]",
+   "at": "N3",
+   "canonical": "=Vendas[@B]",
+   "local": "=Vendas[@B]",
+   "r1c1": "=Vendas[@B]",
+   "r1c1Local": "=Vendas[@B]",
+   "file": "=Vendas[[#This Row],[B]]"
+  },
+  {
+   "id": "locale-loc-dec",
+   "set": "f2Local",
+   "input": "=1,5+0,5",
+   "canonical": "=1.5+0.5",
+   "local": "=1,5+0,5",
+   "r1c1": "=1.5+0.5",
+   "r1c1Local": "=1,5+0,5",
+   "file": "=1.5+0.5"
+  },
+  {
+   "id": "locale-loc-str",
+   "set": "f2Local",
+   "input": "=\"a;b\"",
+   "canonical": "=\"a;b\"",
+   "local": "=\"a;b\"",
+   "r1c1": "=\"a;b\"",
+   "r1c1Local": "=\"a;b\"",
+   "file": "=\"a;b\""
+  },
+  {
+   "id": "locale-loc-arr-dec",
+   "set": "f2Local",
+   "input": "={1,5\\2,5}",
+   "canonical": "={1.5,2.5}",
+   "local": "={1,5\\2,5}",
+   "r1c1": "={1.5,2.5}",
+   "r1c1Local": "={1,5\\2,5}",
+   "file": "={1.5,2.5}"
+  },
+  {
+   "id": "locale-loc-sum-args",
+   "set": "f2Local",
+   "input": "=SOMA(A1:A3;B1)",
+   "canonical": "=SUM(A1:A3,B1)",
+   "local": "=SOMA(A1:A3;B1)",
+   "r1c1": "=SUM(R[-265]C[-25]:R[-263]C[-25],R[-265]C[-24])",
+   "r1c1Local": "=SOMA(L[-265]C[-25]:L[-263]C[-25];L[-265]C[-24])",
+   "file": "=SUM(A1:A3,B1)"
+  },
+  {
+   "id": "locale-loc-union",
+   "set": "f2Local",
+   "input": "=SOMA((A1;B1))",
+   "canonical": "=SUM((A1,B1))",
+   "local": "=SOMA((A1;B1))",
+   "r1c1": "=SUM((R[-266]C[-25],R[-266]C[-24]))",
+   "r1c1Local": "=SOMA((L[-266]C[-25];L[-266]C[-24]))",
+   "file": "=SUM((A1,B1))"
+  },
+  {
+   "id": "locale-loc-index",
+   "set": "f2Local",
+   "input": "=ÍNDICE({1\\2;3\\4};2;1)",
+   "canonical": "=INDEX({1,2;3,4},2,1)",
+   "local": "=ÍNDICE({1\\2;3\\4};2;1)",
+   "r1c1": "=INDEX({1,2;3,4},2,1)",
+   "r1c1Local": "=ÍNDICE({1\\2;3\\4};2;1)",
+   "file": "=INDEX({1,2;3,4},2,1)"
+  },
+  {
+   "id": "locale-loc-index-lower",
+   "set": "f2Local",
+   "input": "=índice({1\\2;3\\4};2;1)",
+   "canonical": "=INDEX({1,2;3,4},2,1)",
+   "local": "=ÍNDICE({1\\2;3\\4};2;1)",
+   "r1c1": "=INDEX({1,2;3,4},2,1)",
+   "r1c1Local": "=ÍNDICE({1\\2;3\\4};2;1)",
+   "file": "=INDEX({1,2;3,4},2,1)"
+  },
+  {
+   "id": "locale-loc-tbl-headers",
+   "set": "f2Local",
+   "input": "=LINS(Vendas[#Cabeçalhos])",
+   "canonical": "=ROWS(Vendas[#Headers])",
+   "local": "=LINS(Vendas[#Cabeçalhos])",
+   "r1c1": "=ROWS(Vendas[#Headers])",
+   "r1c1Local": "=LINS(Vendas[#Cabeçalhos])",
+   "file": "=ROWS(Vendas[#Headers])"
+  },
+  {
+   "id": "locale-loc-tbl-totals",
+   "set": "f2Local",
+   "input": "=SOMA(Vendas[#Totais])",
+   "canonical": "=SUM(Vendas[#Totals])",
+   "local": "=SOMA(Vendas[#Totais])",
+   "r1c1": "=SUM(Vendas[#Totals])",
+   "r1c1Local": "=SOMA(Vendas[#Totais])",
+   "file": "=SUM(Vendas[#Totals])"
+  },
+  {
+   "id": "locale-loc-tbl-all-only",
+   "set": "f2Local",
+   "input": "=CONT.VALORES(Vendas[#Tudo])",
+   "canonical": "=COUNTA(Vendas[#All])",
+   "local": "=CONT.VALORES(Vendas[#Tudo])",
+   "r1c1": "=COUNTA(Vendas[#All])",
+   "r1c1Local": "=CONT.VALORES(Vendas[#Tudo])",
+   "file": "=COUNTA(Vendas[#All])"
+  },
+  {
+   "id": "locale-loc-eta",
+   "set": "f2Local",
+   "input": "=AGRUPARPOR(A1:A3;B1:B3;SOMA)",
+   "canonical": "=GROUPBY(A1:A3,B1:B3,SUM)",
+   "local": "=AGRUPARPOR(A1:A3;B1:B3;SOMA)",
+   "r1c1": "=GROUPBY(R[-272]C[-25]:R[-270]C[-25],R[-272]C[-24]:R[-270]C[-24],SUM)",
+   "r1c1Local": "=AGRUPARPOR(L[-272]C[-25]:L[-270]C[-25];L[-272]C[-24]:L[-270]C[-24];SOMA)",
+   "file": "=_xlfn.GROUPBY(A1:A3,B1:B3,_xleta.SUM)"
+  },
+  {
+   "id": "locale-loc-err-name",
+   "set": "f2Local",
+   "input": "=#NOME?",
+   "canonical": "=#NAME?",
+   "local": "=#NOME?",
+   "r1c1": "=#NAME?",
+   "r1c1Local": "=#NOME?",
+   "file": "=#NAME?"
+  },
+  {
+   "id": "locale-loc-err-null",
+   "set": "f2Local",
+   "input": "=#nulo!",
+   "canonical": "=#NULL!",
+   "local": "=#NULO!",
+   "r1c1": "=#NULL!",
+   "r1c1Local": "=#NULO!",
+   "file": "=#NULL!"
+  },
+  {
+   "id": "locale-loc-err-getting",
+   "set": "f2Local",
+   "input": "=#OBTENDO_DADOS",
+   "canonical": "=#GETTING_DATA",
+   "local": "=#OBTENDO_DADOS",
+   "r1c1": "=#GETTING_DATA",
+   "r1c1Local": "=#OBTENDO_DADOS",
+   "file": "=#GETTING_DATA"
+  },
+  {
+   "id": "locale-loc-isect",
+   "set": "f2Local",
+   "input": "=SOMA(A1:A3 A2:B2)",
+   "canonical": "=SUM(A1:A3 A2:B2)",
+   "local": "=SOMA(A1:A3 A2:B2)",
+   "r1c1": "=SUM(R[-276]C[-25]:R[-274]C[-25] R[-275]C[-25]:R[-275]C[-24])",
+   "r1c1Local": "=SOMA(L[-276]C[-25]:L[-274]C[-25] L[-275]C[-25]:L[-275]C[-24])",
+   "file": "=SUM(A1:A3 A2:B2)"
+  },
+  {
+   "id": "locale-loc-english-prefixed",
+   "set": "f2Local",
+   "input": "=XLOOKUP(1;A1:A3;B1:B3)",
+   "canonical": "=_xludf.XLOOKUP(1,A1:A3,B1:B3)",
+   "local": "=XLOOKUP(1;A1:A3;B1:B3)",
+   "r1c1": "=_xludf.XLOOKUP(1,R[-277]C[-25]:R[-275]C[-25],R[-277]C[-24]:R[-275]C[-24])",
+   "r1c1Local": "=XLOOKUP(1;L[-277]C[-25]:L[-275]C[-25];L[-277]C[-24]:L[-275]C[-24])",
+   "file": "=_xludf.XLOOKUP(1,A1:A3,B1:B3)"
+  },
+  {
+   "id": "locale-loc-false-fn",
+   "set": "f2Local",
+   "input": "=FALSO()",
+   "canonical": "=FALSE()",
+   "local": "=FALSO()",
+   "r1c1": "=FALSE()",
+   "r1c1Local": "=FALSO()",
+   "file": "=FALSE()"
+  },
+  {
+   "id": "locale-loc-english-xlfn",
+   "set": "f2Local",
+   "input": "=_xlfn.XLOOKUP(1;A1:A3;B1:B3)",
+   "canonical": "=_xludf._xlfn.XLOOKUP(1,A1:A3,B1:B3)",
+   "local": "=_xlfn.XLOOKUP(1;A1:A3;B1:B3)",
+   "r1c1": "=_xludf._xlfn.XLOOKUP(1,R[-279]C[-25]:R[-277]C[-25],R[-279]C[-24]:R[-277]C[-24])",
+   "r1c1Local": "=_xlfn.XLOOKUP(1;L[-279]C[-25]:L[-277]C[-25];L[-279]C[-24]:L[-277]C[-24])",
+   "file": "=_xludf._xlfn.XLOOKUP(1,A1:A3,B1:B3)"
+  },
+  {
+   "id": "locale-loc-unknown",
+   "set": "f2Local",
+   "input": "=MINHAFUNC(1;2)",
+   "canonical": "=MINHAFUNC(1,2)",
+   "local": "=MINHAFUNC(1;2)",
+   "r1c1": "=MINHAFUNC(1,2)",
+   "r1c1Local": "=MINHAFUNC(1;2)",
+   "file": "=MINHAFUNC(1,2)"
+  },
+  {
+   "id": "locale-loc-r1c1-in-a1",
+   "set": "f2Local",
+   "input": "=ABS(L1C1)",
+   "canonical": "=ABS($A$1)",
+   "local": "=ABS($A$1)",
+   "r1c1": "=ABS(R1C1)",
+   "r1c1Local": "=ABS(L1C1)",
+   "file": "=ABS($A$1)"
+  },
+  {
+   "id": "locale-r1c1-abs",
+   "set": "r1c1",
+   "input": "=R1C1",
+   "canonical": "=$A$1",
+   "local": "=$A$1",
+   "r1c1": "=R1C1",
+   "r1c1Local": "=L1C1",
+   "file": "=$A$1"
+  },
+  {
+   "id": "locale-r1c1-rel-col",
+   "set": "r1c1",
+   "input": "=RC[-1]",
+   "canonical": "=Y284",
+   "local": "=Y284",
+   "r1c1": "=RC[-1]",
+   "r1c1Local": "=LC[-1]",
+   "file": "=Y284"
+  },
+  {
+   "id": "locale-r1c1-rel-row",
+   "set": "r1c1",
+   "input": "=R[-1]C",
+   "canonical": "=Z284",
+   "local": "=Z284",
+   "r1c1": "=R[-1]C",
+   "r1c1Local": "=L[-1]C",
+   "file": "=Z284"
+  },
+  {
+   "id": "locale-r1c1-sum",
+   "set": "r1c1",
+   "input": "=SUM(R[-3]C:R[-1]C)",
+   "canonical": "=SUM(Z283:Z285)",
+   "local": "=SOMA(Z283:Z285)",
+   "r1c1": "=SUM(R[-3]C:R[-1]C)",
+   "r1c1Local": "=SOMA(L[-3]C:L[-1]C)",
+   "file": "=SUM(Z283:Z285)"
+  },
+  {
+   "id": "locale-r1c1-col",
+   "set": "r1c1",
+   "input": "=SUM(C[1])",
+   "canonical": "=SUM(AA:AA)",
+   "local": "=SOMA(AA:AA)",
+   "r1c1": "=SUM(C[1])",
+   "r1c1Local": "=SOMA(C[1])",
+   "file": "=SUM(AA:AA)"
+  },
+  {
+   "id": "locale-r1c1-row",
+   "set": "r1c1",
+   "input": "=SUM(R2)",
+   "canonical": "=SUM($2:$2)",
+   "local": "=SOMA($2:$2)",
+   "r1c1": "=SUM(R2)",
+   "r1c1Local": "=SOMA(L2)",
+   "file": "=SUM($2:$2)"
+  },
+  {
+   "id": "locale-r1c1-rows",
+   "set": "r1c1",
+   "input": "=SUM(R[1]:R[2])",
+   "canonical": "=SUM(290:291)",
+   "local": "=SOMA(290:291)",
+   "r1c1": "=SUM(R[1]:R[2])",
+   "r1c1Local": "=SOMA(L[1]:L[2])",
+   "file": "=SUM(290:291)"
+  },
+  {
+   "id": "locale-r1c1-range",
+   "set": "r1c1",
+   "input": "=SUM(R1C1:R2C2)",
+   "canonical": "=SUM($A$1:$B$2)",
+   "local": "=SOMA($A$1:$B$2)",
+   "r1c1": "=SUM(R1C1:R2C2)",
+   "r1c1Local": "=SOMA(L1C1:L2C2)",
+   "file": "=SUM($A$1:$B$2)"
+  },
+  {
+   "id": "locale-r1c1-sheet",
+   "set": "r1c1",
+   "input": "=Dados!R1C1",
+   "canonical": "=Dados!$A$1",
+   "local": "=Dados!$A$1",
+   "r1c1": "=Dados!R1C1",
+   "r1c1Local": "=Dados!L1C1",
+   "file": "=Dados!$A$1"
+  },
+  {
+   "id": "locale-r1c1-cols",
+   "set": "r1c1",
+   "input": "=SUM(C1:C3)",
+   "canonical": "=SUM($A:$C)",
+   "local": "=SOMA($A:$C)",
+   "r1c1": "=SUM(C1:C3)",
+   "r1c1Local": "=SOMA(C1:C3)",
+   "file": "=SUM($A:$C)"
+  },
+  {
+   "id": "locale-r1c1-self-row",
+   "set": "r1c1",
+   "input": "=SUM(R)",
+   "canonical": "=SUM(293:293)",
+   "local": "=SOMA(293:293)",
+   "r1c1": "=SUM(R)",
+   "r1c1Local": "=SOMA(L)",
+   "file": "=SUM(293:293)"
+  },
+  {
+   "id": "locale-r1c1-self-col",
+   "set": "r1c1",
+   "input": "=SUM(C)",
+   "canonical": "=SUM(Z:Z)",
+   "local": "=SOMA(Z:Z)",
+   "r1c1": "=SUM(C)",
+   "r1c1Local": "=SOMA(C)",
+   "file": "=SUM(Z:Z)"
+  },
+  {
+   "id": "locale-r1c1-log10",
+   "set": "r1c1",
+   "input": "=LOG10(R1C1)",
+   "canonical": "=LOG10($A$1)",
+   "local": "=LOG10($A$1)",
+   "r1c1": "=LOG10(R1C1)",
+   "r1c1Local": "=LOG10(L1C1)",
+   "file": "=LOG10($A$1)"
+  },
+  {
+   "id": "locale-r1c1-ln",
+   "set": "r1c1",
+   "input": "=LN(RC[-1])",
+   "canonical": "=LN(Y296)",
+   "local": "=LN(Y296)",
+   "r1c1": "=LN(RC[-1])",
+   "r1c1Local": "=LN(LC[-1])",
+   "file": "=LN(Y296)"
+  },
+  {
+   "id": "locale-r1c1-tbl",
+   "set": "r1c1",
+   "input": "=SUM(Vendas[B])",
+   "canonical": "=SUM(Vendas[B])",
+   "local": "=SOMA(Vendas[B])",
+   "r1c1": "=SUM(Vendas[B])",
+   "r1c1Local": "=SOMA(Vendas[B])",
+   "file": "=SUM(Vendas[B])"
+  },
+  {
+   "id": "locale-r1c1-arr",
+   "set": "r1c1",
+   "input": "=SUM({1.5,2;3,4})",
+   "canonical": "=SUM({1.5,2;3,4})",
+   "local": "=SOMA({1,5\\2;3\\4})",
+   "r1c1": "=SUM({1.5,2;3,4})",
+   "r1c1Local": "=SOMA({1,5\\2;3\\4})",
+   "file": "=SUM({1.5,2;3,4})"
+  },
+  {
+   "id": "locale-r1c1l-abs",
+   "set": "r1c1Local",
+   "input": "=L1C1",
+   "canonical": "=$A$1",
+   "local": "=$A$1",
+   "r1c1": "=R1C1",
+   "r1c1Local": "=L1C1",
+   "file": "=$A$1"
+  },
+  {
+   "id": "locale-r1c1l-rel",
+   "set": "r1c1Local",
+   "input": "=LC[-1]",
+   "canonical": "=Y300",
+   "local": "=Y300",
+   "r1c1": "=RC[-1]",
+   "r1c1Local": "=LC[-1]",
+   "file": "=Y300"
+  },
+  {
+   "id": "locale-r1c1l-sum",
+   "set": "r1c1Local",
+   "input": "=SOMA(L[-3]C:L[-1]C)",
+   "canonical": "=SUM(Z298:Z300)",
+   "local": "=SOMA(Z298:Z300)",
+   "r1c1": "=SUM(R[-3]C:R[-1]C)",
+   "r1c1Local": "=SOMA(L[-3]C:L[-1]C)",
+   "file": "=SUM(Z298:Z300)"
+  },
+  {
+   "id": "locale-r1c1l-lower",
+   "set": "r1c1Local",
+   "input": "=l1c1",
+   "canonical": "=$A$1",
+   "local": "=$A$1",
+   "r1c1": "=R1C1",
+   "r1c1Local": "=L1C1",
+   "file": "=$A$1"
+  },
+  {
+   "id": "locale-r1c1l-col",
+   "set": "r1c1Local",
+   "input": "=SOMA(C[1])",
+   "canonical": "=SUM(AA:AA)",
+   "local": "=SOMA(AA:AA)",
+   "r1c1": "=SUM(C[1])",
+   "r1c1Local": "=SOMA(C[1])",
+   "file": "=SUM(AA:AA)"
+  },
+  {
+   "id": "locale-r1c1l-row",
+   "set": "r1c1Local",
+   "input": "=SOMA(L2)",
+   "canonical": "=SUM($2:$2)",
+   "local": "=SOMA($2:$2)",
+   "r1c1": "=SUM(R2)",
+   "r1c1Local": "=SOMA(L2)",
+   "file": "=SUM($2:$2)"
+  },
+  {
+   "id": "locale-r1c1l-ln",
+   "set": "r1c1Local",
+   "input": "=LN(LC[-1])",
+   "canonical": "=LN(Y305)",
+   "local": "=LN(Y305)",
+   "r1c1": "=LN(RC[-1])",
+   "r1c1Local": "=LN(LC[-1])",
+   "file": "=LN(Y305)"
+  },
+  {
+   "id": "locale-r1c1l-self-row",
+   "set": "r1c1Local",
+   "input": "=SOMA(L)",
+   "canonical": "=SUM(306:306)",
+   "local": "=SOMA(306:306)",
+   "r1c1": "=SUM(R)",
+   "r1c1Local": "=SOMA(L)",
+   "file": "=SUM(306:306)"
+  },
+  {
+   "id": "locale-r1c1l-rel-both",
+   "set": "r1c1Local",
+   "input": "=L[1]C[1]*2",
+   "canonical": "=AA308*2",
+   "local": "=AA308*2",
+   "r1c1": "=R[1]C[1]*2",
+   "r1c1Local": "=L[1]C[1]*2",
+   "file": "=AA308*2"
+  }
+ ]
+}

@@ -1,0 +1,4 @@
+{
+ "file:locale-ref-at": "no arquivo a fórmula legada (sem t=\"array\") grava A1:A3 e a tela do Excel 365 mostra @A1:A3: o @ depende de a célula NÃO ser fórmula de matriz dinâmica e do argumento esperar escalar — análise semântica (CORE/serializador), não tradução de texto",
+ "file:locale-fn-single": "idem locale-ref-at: =SINGLE(A1:A3) vira A1:A3 legado no arquivo; a tela mostra @A1:A3"
+}

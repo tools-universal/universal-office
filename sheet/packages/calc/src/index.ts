@@ -9,6 +9,7 @@ export * from './coerce.js';
 export * from './criteria.js';
 export * from './dates.js';
 export * from './apply.js';
+export * from './i18n/index.js';
 
 // bibliotecas de funções (registram no carregamento)
 import './functions/math.js';
