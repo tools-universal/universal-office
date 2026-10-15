@@ -26,6 +26,8 @@ import { ArrayValue, CalcError, ERR, RefValue, type Scalar, type Value } from '.
 import { checkLen, fixedDigits, formatForText, translateFormatCode } from './text-format.js';
 import { asArray, num, scalarsOf, txt } from './tdl-util.js';
 import './regex.js';
+import './filterxml.js';
+import './regional.js';
 
 // ───────────────────────────── caracteres ─────────────────────────────
 

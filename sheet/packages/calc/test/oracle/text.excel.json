@@ -13888,5 +13888,545 @@
   },
   "text": "#VALOR!",
   "local": "=SERVIÇOWEB(\"http://localhost:1/\")"
+ },
+ {
+  "id": "text-filterxml-2045",
+  "v": 1,
+  "spill": [
+   [
+    1
+   ],
+   [
+    2
+   ]
+  ],
+  "text": "1",
+  "local": "=FILTROXML(\"<a><b>1</b><b>2</b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2046",
+  "v": "x",
+  "spill": [
+   [
+    "x"
+   ],
+   [
+    2
+   ]
+  ],
+  "text": "x",
+  "local": "=FILTROXML(\"<a><b>x</b><b>2</b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2047",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<a><b>1</b></a>\";\"//c\")"
+ },
+ {
+  "id": "text-filterxml-2048",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<a><b>1</b>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2049",
+  "v": 2,
+  "text": "2",
+  "local": "=FILTROXML(\"<a><b k=\"\"v\"\">1</b><b k=\"\"w\"\">2</b></a>\";\"//b[@k='w']\")"
+ },
+ {
+  "id": "text-filterxml-2050",
+  "v": "v",
+  "spill": [
+   [
+    "v"
+   ],
+   [
+    "w"
+   ]
+  ],
+  "text": "v",
+  "local": "=FILTROXML(\"<a><b k=\"\"v\"\">1</b><b k=\"\"w\"\">2</b></a>\";\"//b/@k\")"
+ },
+ {
+  "id": "text-filterxml-2051",
+  "v": 2,
+  "text": "2",
+  "local": "=FILTROXML(\"<a><b>1</b><b>2</b><b>3</b></a>\";\"//b[2]\")"
+ },
+ {
+  "id": "text-filterxml-2052",
+  "v": 3,
+  "text": "3",
+  "local": "=FILTROXML(\"<a><b>1</b><b>2</b><b>3</b></a>\";\"//b[last()]\")"
+ },
+ {
+  "id": "text-filterxml-2053",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<a><b>1</b><b>2</b><b>3</b></a>\";\"count(//b)\")"
+ },
+ {
+  "id": "text-filterxml-2054",
+  "v": 1.5,
+  "text": "1,5",
+  "local": "=FILTROXML(\"<a><b>1,5</b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2055",
+  "v": "1.5",
+  "text": "1.5",
+  "local": "=FILTROXML(\"<a><b>1.5</b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2056",
+  "v": "TRUE",
+  "text": "TRUE",
+  "local": "=FILTROXML(\"<a><b>TRUE</b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2057",
+  "v": 7,
+  "text": "7",
+  "local": "=FILTROXML(\"<a><b> 7 </b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2058",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<a><b></b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2059",
+  "v": "xz",
+  "text": "xz",
+  "local": "=FILTROXML(\"<a><b>x<c>y</c>z</b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2060",
+  "v": "y",
+  "text": "y",
+  "local": "=FILTROXML(\"<a><b>x<c>y</c>z</b></a>\";\"/a/b/c\")"
+ },
+ {
+  "id": "text-filterxml-2061",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<a><b>x</b></a>\";\"/a\")"
+ },
+ {
+  "id": "text-filterxml-2062",
+  "v": "a",
+  "spill": [
+   [
+    "a"
+   ],
+   [
+    "b"
+   ]
+  ],
+  "text": "a",
+  "local": "=FILTROXML(\"<t><s>a</s><s>b</s></t>\";\"//s\")"
+ },
+ {
+  "id": "text-filterxml-2063",
+  "v": 45301,
+  "text": "45301",
+  "local": "=FILTROXML(\"<t><s>10/01/2024</s></t>\";\"//s\")"
+ },
+ {
+  "id": "text-filterxml-2064",
+  "v": 1,
+  "text": "1",
+  "local": "=FILTROXML(\"<a xmlns=\"\"u\"\"><b>1</b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2065",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    1
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<a><b>1</b></a>\";\"//*\")"
+ },
+ {
+  "id": "text-filterxml-2066",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<a><b>1</b></a>\";\"//b/text()\")"
+ },
+ {
+  "id": "text-filterxml-2067",
+  "v": 1,
+  "spill": [
+   [
+    1
+   ],
+   [
+    2
+   ]
+  ],
+  "text": "1",
+  "local": "=FILTROXML(\"<a><b>1</b><c>2</c></a>\";\"//b|//c\")"
+ },
+ {
+  "id": "text-filterxml-2068",
+  "v": "&<",
+  "text": "&<",
+  "local": "=FILTROXML(\"<a><b>&amp;&lt;</b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2069",
+  "v": "<x>",
+  "text": "<x>",
+  "local": "=FILTROXML(\"<a><b><![CDATA[<x>]]></b></a>\";\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2070",
+  "v": 1,
+  "text": "1",
+  "local": "=FILTROXML(\"<a><b>1</b></a>\";\"//b[text()='1']\")"
+ },
+ {
+  "id": "text-filterxml-2071",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<a><b>1</b></a>\";\"sum(//b)\")"
+ },
+ {
+  "id": "text-filterxml-2072",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<a><b>1</b></a>\";\"[\")"
+ },
+ {
+  "id": "text-filterxml-2073",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(1;\"//b\")"
+ },
+ {
+  "id": "text-filterxml-2074",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<a><b>1</b></a>\";\"//B\")"
+ },
+ {
+  "id": "text-filterxml-2075",
+  "v": "b",
+  "spill": [
+   [
+    "b"
+   ],
+   [
+    "c"
+   ]
+  ],
+  "text": "b",
+  "local": "=FILTROXML(\"<t><s>a</s><s>b</s><s>c</s></t>\";\"//s[position()>1]\")"
+ },
+ {
+  "id": "text-filterxml-2076",
+  "v": 2,
+  "spill": [
+   [
+    2
+   ],
+   [
+    3
+   ]
+  ],
+  "text": "2",
+  "local": "=FILTROXML(\"<t><s>1</s><s>2</s><s>3</s></t>\";\"//s[.>1]\")"
+ },
+ {
+  "id": "text-filterxml-2077",
+  "v": 1,
+  "spill": [
+   [
+    1
+   ],
+   [
+    3
+   ]
+  ],
+  "text": "1",
+  "local": "=FILTROXML(\"<t><r><c>1</c><c>2</c></r><r><c>3</c></r></t>\";\"//r/c[1]\")"
+ },
+ {
+  "id": "text-filterxml-2078",
+  "v": "y",
+  "text": "y",
+  "local": "=FILTROXML(\"<t><r id=\"\"1\"\"><c>x</c></r><r id=\"\"2\"\"><c>y</c></r></t>\";\"//r[@id='2']/c\")"
+ },
+ {
+  "id": "text-filterxml-2079",
+  "v": "a",
+  "text": "a",
+  "local": "=FILTROXML(\"<t><s>a</s><s>b</s></t>\";\"/t/s[1]\")"
+ },
+ {
+  "id": "text-filterxml-2080",
+  "v": "a",
+  "text": "a",
+  "local": "=FILTROXML(\"<t><!-- c --><s>a</s></t>\";\"//s\")"
+ },
+ {
+  "id": "text-filterxml-2081",
+  "v": "a",
+  "text": "a",
+  "local": "=FILTROXML(\"<?xml version=\"\"1.0\"\"?><t><s>a</s></t>\";\"//s\")"
+ },
+ {
+  "id": "text-filterxml-2082",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<t><s>a</s></t>\";\"s\")"
+ },
+ {
+  "id": "text-filterxml-2083",
+  "v": "a",
+  "text": "a",
+  "local": "=FILTROXML(\"<t><s>a</s><s>b</s></t>\";\"//s[last()-1]\")"
+ },
+ {
+  "id": "text-filterxml-2084",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=FILTROXML(\"<t><p:s xmlns:p=\"\"u\"\">a</p:s></t>\";\"//s\")"
+ },
+ {
+  "id": "text-filterxml-2085",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=FILTROXML(#N/D;\"//s\")"
+ },
+ {
+  "id": "text-thaidigit-2086",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAIDIGIT(45658)"
+ },
+ {
+  "id": "text-thaidigit-2087",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAIDIGIT(\"abc\")"
+ },
+ {
+  "id": "text-thaiyear-2088",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAIYEAR(45658)"
+ },
+ {
+  "id": "text-thaiyear-2089",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAIYEAR(\"abc\")"
+ },
+ {
+  "id": "text-thaidayofweek-2090",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAIDAYOFWEEK(45658)"
+ },
+ {
+  "id": "text-thaidayofweek-2091",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAIDAYOFWEEK(\"abc\")"
+ },
+ {
+  "id": "text-thaimonthofyear-2092",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAIMONTHOFYEAR(45658)"
+ },
+ {
+  "id": "text-thaimonthofyear-2093",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAIMONTHOFYEAR(\"abc\")"
+ },
+ {
+  "id": "text-thainumsound-2094",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAINUMSOUND(45658)"
+ },
+ {
+  "id": "text-thainumsound-2095",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAINUMSOUND(\"abc\")"
+ },
+ {
+  "id": "text-thainumstring-2096",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAINUMSTRING(45658)"
+ },
+ {
+  "id": "text-thainumstring-2097",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAINUMSTRING(\"abc\")"
+ },
+ {
+  "id": "text-thaistringlength-2098",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAISTRINGLENGTH(45658)"
+ },
+ {
+  "id": "text-thaistringlength-2099",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=THAISTRINGLENGTH(\"abc\")"
+ },
+ {
+  "id": "text-isthaidigit-2100",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ISTHAIDIGIT(45658)"
+ },
+ {
+  "id": "text-isthaidigit-2101",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ISTHAIDIGIT(\"abc\")"
+ },
+ {
+  "id": "text-roundbahtdown-2102",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTDOWN(45658)"
+ },
+ {
+  "id": "text-roundbahtdown-2103",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTDOWN(\"abc\")"
+ },
+ {
+  "id": "text-roundbahtup-2104",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTUP(45658)"
+ },
+ {
+  "id": "text-roundbahtup-2105",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=ROUNDBAHTUP(\"abc\")"
+ },
+ {
+  "id": "text-numberstring-2106",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=SEQÜÊNCIA.NÚMERO(123;1)"
+ },
+ {
+  "id": "text-numberstring-2107",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=SEQÜÊNCIA.NÚMERO(\"x\";1)"
+ },
+ {
+  "id": "text-datestring-2108",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=DATA.SÉRIE(45658)"
+ },
+ {
+  "id": "text-datestring-2109",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=DATA.SÉRIE(\"x\")"
  }
 ]

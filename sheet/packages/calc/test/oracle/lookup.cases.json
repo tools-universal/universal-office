@@ -4596,5 +4596,11 @@
  {"id":"lookup-transpose-4595","fn":"TRANSPOSE","args":[{"ref":"A1:A3"}],"cells":{"A1":1,"B1":"x","B2":true,"A3":{"e":"#N/A"}},"legacy":true,"at":"C2"},
  {"id":"lookup-transpose-4596","fn":"TRANSPOSE","args":[{"ref":"A1"}],"cells":{"A1":1,"B1":"x","B2":true,"A3":{"e":"#N/A"}},"legacy":true},
  {"id":"lookup-transpose-4597","fn":"TRANSPOSE","args":[{"arr":[[1,2],[3,4]]}],"legacy":true},
- {"id":"lookup-transpose-4598","fn":"TRANSPOSE","args":[{"ref":"A1:A3"}],"cells":{"A1":1,"B1":"x","B2":true,"A3":{"e":"#N/A"}}}
+ {"id":"lookup-transpose-4598","fn":"TRANSPOSE","args":[{"ref":"A1:A3"}],"cells":{"A1":1,"B1":"x","B2":true,"A3":{"e":"#N/A"}}},
+ {"id":"lookup-image-4599","fn":"IMAGE","args":["x"]},
+ {"id":"lookup-image-4600","fn":"IMAGE","args":[{"e":"#N/A"}]},
+ {"id":"lookup-image-4601","fn":"IMAGE","args":[1]},
+ {"id":"lookup-fieldvalue-4602","fn":"FIELDVALUE","args":[1,"x"]},
+ {"id":"lookup-fieldvalue-4603","fn":"FIELDVALUE","args":["a","x"]},
+ {"id":"lookup-fieldvalue-4604","fn":"FIELDVALUE","args":[{"e":"#N/A"},"x"]}
 ]

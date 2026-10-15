@@ -537,5 +537,19 @@ register(
   // sem tabela dinâmica nem servidor RTD: como o Excel sem eles
   { name: 'GETPIVOTDATA', minArgs: 2, maxArgs: 254, args: 'any', call: () => ERR.REF },
   { name: 'RTD', minArgs: 3, maxArgs: 255, args: 'value', volatile: true, call: () => ERR.NA },
+  // sem rede/arquivos: IMAGE de URL e IMPORTCSV/IMPORTTEXT ficam #BUSY! no Excel até
+  // carregar; aqui não carregam → #CONNECT!; IMAGE de texto que não é URL → #VALUE! (medido)
+  {
+    name: 'IMAGE', prefix: '_xlfn.', minArgs: 1, maxArgs: 5, args: 'value', lift: true,
+    call: ([src], ctx) => {
+      const u = txt(src!, ctx);
+      if (u instanceof CalcError) return u;
+      return /^https?:\/\/\S+$/i.test(u) ? CalcError.of('#CONNECT!') : ERR.VALUE;
+    },
+  },
+  { name: 'IMPORTCSV', prefix: '_xlfn.', minArgs: 1, maxArgs: 5, args: 'any', call: () => CalcError.of('#CONNECT!') },
+  { name: 'IMPORTTEXT', prefix: '_xlfn.', minArgs: 1, maxArgs: 7, args: 'any', call: () => CalcError.of('#CONNECT!') },
+  // valores comuns não têm campos (tipo de dados vinculado) → #FIELD! (medido)
+  { name: 'FIELDVALUE', prefix: '_xlfn.', minArgs: 2, maxArgs: 2, args: 'value', lift: true, acceptsErrors: true, call: () => ERR.FIELD },
 );
 

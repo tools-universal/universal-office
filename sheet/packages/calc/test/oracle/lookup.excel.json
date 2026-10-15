@@ -32579,5 +32579,53 @@
   ],
   "text": "1",
   "local": "=TRANSPOR(A1:A3)"
+ },
+ {
+  "id": "lookup-image-4599",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=IMAGEM(\"x\")"
+ },
+ {
+  "id": "lookup-image-4600",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=IMAGEM(#N/D)"
+ },
+ {
+  "id": "lookup-image-4601",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=IMAGEM(1)"
+ },
+ {
+  "id": "lookup-fieldvalue-4602",
+  "v": {
+   "e": "#FIELD!"
+  },
+  "text": "#CAMPO!",
+  "local": "=VALORDOCAMPO(1;\"x\")"
+ },
+ {
+  "id": "lookup-fieldvalue-4603",
+  "v": {
+   "e": "#FIELD!"
+  },
+  "text": "#CAMPO!",
+  "local": "=VALORDOCAMPO(\"a\";\"x\")"
+ },
+ {
+  "id": "lookup-fieldvalue-4604",
+  "v": {
+   "e": "#FIELD!"
+  },
+  "text": "#CAMPO!",
+  "local": "=VALORDOCAMPO(#N/D;\"x\")"
  }
 ]
