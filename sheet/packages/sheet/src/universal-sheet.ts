@@ -52,6 +52,8 @@ interface ResolvedStyle {
   align: string | undefined;
   valign: string | undefined;
   wrap: boolean;
+  /** Níveis de recuo (alignment indent). */
+  indent: number;
 }
 
 /** Fonte efetiva de um run rico (props do run resolvidas sobre a da célula). */
@@ -1885,6 +1887,23 @@ export class UniversalSheetElement extends HTMLElement {
     return ext;
   }
 
+  /**
+   * "Centralizar na seleção" (centerContinuous): largura das células à direita
+   * VAZIAS e com o mesmo alinhamento — o texto centra sobre o conjunto.
+   */
+  private centerAcrossExtent(col: number, row: number, cells: Map<number, Cell> | undefined): number {
+    const v = this.view;
+    const maxCol = v?.maxCol ?? col;
+    let ext = 0;
+    for (let c = col + 1, guard = 0; c <= maxCol && guard < 200; c++, guard++) {
+      const cell = cells?.get(c);
+      if (!cell || this.cellHasContent(cells, c, row)) break;
+      if (this.resolveStyle(cell).align !== 'centerContinuous') break;
+      if (!v?.hiddenCols.has(c)) ext += this.colWidth(c);
+    }
+    return ext;
+  }
+
   /** Localiza a mescla que cobre (col,row), se houver. */
   private mergeAt(col: number, row: number): { firstCol: number; lastCol: number; firstRow: number; lastRow: number; isOrigin: boolean } | null {
     const v = this.view;
@@ -2001,12 +2020,17 @@ export class UniversalSheetElement extends HTMLElement {
     const pad = 3 * this.zoom;          // margem horizontal interna do app de referência (~3px)
     const numeric = this.isNumericCell(cell);
     let ta: CanvasTextAlign = 'left';
-    if (st.align && st.align !== 'general') ta = st.align === 'center' ? 'center' : st.align === 'right' || st.align === 'fill' ? (st.align === 'fill' ? 'left' : 'right') : 'left';
+    if (st.align && st.align !== 'general') ta = st.align === 'center' || st.align === 'centerContinuous' ? 'center' : st.align === 'right' || st.align === 'fill' ? (st.align === 'fill' ? 'left' : 'right') : 'left';
     else if (numeric) ta = 'right';    // General: números/datas à direita
     ctx.textAlign = ta;
     ctx.textBaseline = 'alphabetic';
 
-    const innerW = w - pad * 2;
+    // recuo (indent): ~12 px por nível com MDW 7 (medido no oráculo: 3 → 15 → 27 → 39 px)
+    const ind = ta !== 'center' && st.indent > 0 ? st.indent * Math.round(this.mdw * 12 / 7) * this.zoom : 0;
+    // "centralizar na seleção": o texto centra sobre a célula + vizinhas vazias à direita
+    // com o mesmo alinhamento (títulos de tabelas .xls)
+    const cw = st.align === 'centerContinuous' && !merged ? w + this.centerAcrossExtent(col, row, cells) : w;
+    const innerW = cw - pad * 2 - ind;
     const textW = ctx.measureText(display).width;
 
     // ── #### : número/data que não cabe na coluna (o app de referência nunca transborda número)
@@ -2022,7 +2046,7 @@ export class UniversalSheetElement extends HTMLElement {
     }
 
     // ── transbordo de TEXTO p/ células vizinhas vazias (app de referência) ──
-    let clipLeft = left, clipW = w;
+    let clipLeft = left, clipW = cw;
     if (!merged && !st.wrap && textW > innerW) {
       const overflow = textW - innerW;
       if (ta === 'left') clipW = w + this.overflowExtent(col, row, cells, 1, overflow);
@@ -2050,15 +2074,15 @@ export class UniversalSheetElement extends HTMLElement {
       if (va === 'top') startY = top + pad + size * 0.85;
       else if (va === 'center') startY = top + (h - totalH) / 2 + size * 0.85;
       else startY = top + h - pad - totalH + size * 0.85;
-      const x = ta === 'right' ? left + w - pad : ta === 'center' ? left + w / 2 : left + pad;
+      const x = ta === 'right' ? left + w - pad - ind : ta === 'center' ? left + cw / 2 : left + pad + ind;
       for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i]!, x, startY + i * lineH);
     } else {
       const y = this.baselineY(st, top, h, size, display, ctx);
-      const x = ta === 'right' ? left + w - pad : ta === 'center' ? left + w / 2 : left + pad;
+      const x = ta === 'right' ? left + w - pad - ind : ta === 'center' ? left + cw / 2 : left + pad + ind;
       ctx.fillText(display, x, y);
       // sublinhado / tachado (modelados mas não desenhados antes)
       if (font?.underline || font?.strike) {
-        const x0 = ta === 'right' ? left + w - pad - textW : ta === 'center' ? left + w / 2 - textW / 2 : left + pad;
+        const x0 = ta === 'right' ? left + w - pad - ind - textW : ta === 'center' ? left + cw / 2 - textW / 2 : left + pad + ind;
         ctx.strokeStyle = ctx.fillStyle as string;
         ctx.lineWidth = Math.max(1, size / 14);
         if (font.underline) { const uy = Math.round(y + size * 0.12) + 0.5; ctx.beginPath(); ctx.moveTo(x0, uy); ctx.lineTo(x0 + textW, uy); ctx.stroke(); }
@@ -2392,7 +2416,7 @@ export class UniversalSheetElement extends HTMLElement {
     const s = this.styles;
     const xfIdx = cell?.style ?? 0;
     const xf = s.cellXfs[xfIdx];
-    if (!xf) return { font: undefined, fill: undefined, border: undefined, numFmtId: 0, align: undefined, valign: undefined, wrap: false };
+    if (!xf) return { font: undefined, fill: undefined, border: undefined, numFmtId: 0, align: undefined, valign: undefined, wrap: false, indent: 0 };
     return {
       font: s.fonts[xf.fontId],
       fill: s.fills[xf.fillId],
@@ -2401,6 +2425,7 @@ export class UniversalSheetElement extends HTMLElement {
       align: xf.horizontal,
       valign: xf.vertical,
       wrap: !!xf.wrapText,
+      indent: xf.indent ?? 0,
     };
   }
 
