@@ -5,6 +5,7 @@ import type {
   ColDef, PaneInfo, CondFormat, CondRule, ColorStop, Comment,
   DrawingAnchor, DrawingChart, Hyperlink, SheetFormatPr, TableInfo,
 } from './model.js';
+import { refToRowCol, rowColToRef } from './model.js';
 import type { XlsxPackage } from './package.js';
 
 /** Mapa de relacionamentos rId → target, lido de um arquivo .rels do pacote. */
@@ -138,8 +139,12 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   const rows: Row[] = [];
   const sheetData = firstChild(root, 'sheetData');
   if (sheetData) {
+    // `r` é opcional em <row> e <c> (o Excel aceita): a posição é a seguinte à anterior
+    let nextRow = 1;
     for (const rowEl of childElements(sheetData, 'row')) {
-      rows.push(readRow(rowEl, ctx));
+      const row = readRow(rowEl, ctx, nextRow);
+      nextRow = row.r + 1;
+      rows.push(row);
     }
   }
 
@@ -479,9 +484,10 @@ function readComments(pkg: XlsxPackage, path: string): Comment[] {
   return out;
 }
 
-function readRow(el: XmlElement, cx?: ColorContext): Row {
+function readRow(el: XmlElement, cx?: ColorContext, implicitR = 1): Row {
+  const rAttr = parseInt(el.attrs['r'] ?? '', 10);
   const row: Row = {
-    r: parseInt(el.attrs['r'] ?? '0', 10),
+    r: Number.isFinite(rAttr) && rAttr > 0 ? rAttr : implicitR,
     cells: [],
   };
   if (el.attrs['spans'] !== undefined) row.spans = el.attrs['spans'];
@@ -491,7 +497,17 @@ function readRow(el: XmlElement, cx?: ColorContext): Row {
   if (el.attrs['s'] !== undefined) row.style = parseInt(el.attrs['s'], 10);
   if (el.attrs['thickTop'] === '1' || el.attrs['thickTop'] === 'true') row.thickTop = true;
   if (el.attrs['thickBot'] === '1' || el.attrs['thickBot'] === 'true') row.thickBot = true;
-  for (const cEl of childElements(el, 'c')) row.cells.push(readCell(cEl, cx));
+  let nextCol = 1;
+  for (const cEl of childElements(el, 'c')) {
+    const cell = readCell(cEl, cx);
+    let col = nextCol;
+    if (cell.ref) {
+      try { col = refToRowCol(cell.ref).col; } catch { cell.ref = ''; }
+    }
+    if (!cell.ref) cell.ref = rowColToRef(col, row.r);
+    nextCol = col + 1;
+    row.cells.push(cell);
+  }
   return row;
 }
 

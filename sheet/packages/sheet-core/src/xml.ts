@@ -1,7 +1,8 @@
 /**
  * Parser XML mínimo para OOXML (sem dependências, roda em browser e Node).
  * Não resolve namespaces — nomes prefixados ("c:row") são usados literalmente,
- * o que é estável dentro de um xlsx (prefixos fixos no root).
+ * o que é estável dentro de um xlsx (prefixos fixos no root); só o prefixo do
+ * namespace principal da SpreadsheetML (ex.: `x:` do OpenXML SDK) é removido.
  */
 
 export interface XmlElement {
@@ -112,7 +113,29 @@ export function parseXml(xml: string): XmlElement {
 
   skipMisc();
   const root = parseElement();
+  stripMainPrefix(root);
   return root;
+}
+
+/** Namespaces cujo prefixo é removido dos nomes (SpreadsheetML transitional/strict e
+ *  relacionamentos): pacotes do OpenXML SDK gravam `<x:sheets>`, `<x:row>`… e o Excel lê. */
+const MAIN_NS = new Set([
+  'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+  'http://purl.oclc.org/ooxml/spreadsheetml/main',
+  'http://schemas.openxmlformats.org/package/2006/relationships',
+]);
+
+function stripMainPrefix(root: XmlElement): void {
+  const prefixes: string[] = [];
+  for (const [k, v] of Object.entries(root.attrs)) {
+    if (k.startsWith('xmlns:') && MAIN_NS.has(v)) prefixes.push(k.slice(6) + ':');
+  }
+  if (!prefixes.length) return;
+  const walk = (el: XmlElement): void => {
+    for (const p of prefixes) if (el.name.startsWith(p)) { el.name = el.name.slice(p.length); break; }
+    for (const c of el.children) if (typeof c !== 'string') walk(c);
+  };
+  walk(root);
 }
 
 export function childElements(el: XmlElement, name?: string): XmlElement[] {
