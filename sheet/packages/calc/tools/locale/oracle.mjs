@@ -2,6 +2,7 @@
 // instância por vez) e guarda as saídas brutas no lab:
 //   node tools/locale/oracle.mjs catalog   EXCEL.EXE → candidatos → xl-fns.ps1 (catálogo + nomes locais)
 //   node tools/locale/oracle.mjs syntax    syntax-cases.mjs → xl-syntax.ps1 (separadores, erros, R1C1, tabelas…)
+//                                          + xl-corpus-local.ps1 na pasta salva (tela ao reabrir)
 // Depois: node tools/locale/generate.mjs (gera src/i18n/* e test/oracle/locale-*.json).
 // Lab: $LOCALE_LAB ou E:\UniversalSheetTest\_lab\calc\locale (fora do git).
 import { execFileSync } from 'node:child_process';
@@ -25,7 +26,11 @@ if (what === 'catalog') {
 } else {
   const { setup, cases } = await import('./syntax-cases.mjs');
   const input = join(LAB, 'syntax.in.json');
-  writeFileSync(input, JSON.stringify({ setup, cases: cases.map(({ id, set, text, at }) => ({ id, set, text, at })) }));
+  writeFileSync(input, JSON.stringify({ setup, cases: cases.map(({ id, set, text, at, noSave }) => ({ id, set, text, at, noSave })) }));
   ps('xl-syntax.ps1', ['-In', input, '-Out', join(LAB, 'syntax.out.jsonl'), '-Save', join(LAB, 'tmp', 'syntax.xlsx')]);
+  // o que a tela mostra ao REABRIR a pasta salva (forma de arquivo → tela), noutra instância
+  const list = join(LAB, 'tmp', 'syntax-reopen.in.json');
+  writeFileSync(list, JSON.stringify([{ id: 'syntax', path: join(LAB, 'tmp', 'syntax.xlsx') }]));
+  ps('xl-corpus-local.ps1', ['-In', list, '-Out', join(LAB, 'syntax.reopen.jsonl')]);
 }
 console.log(`ok → ${LAB}`, existsSync(LAB));

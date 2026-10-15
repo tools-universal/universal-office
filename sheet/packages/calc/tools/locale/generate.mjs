@@ -47,6 +47,9 @@ const syn = jsonl('syntax.out.jsonl');
 const synHead = syn.shift();
 const env = { intl: syn.shift(), errors: syn.shift().errors };
 const synFile = fileFormulas(join(LAB, 'tmp', 'syntax.xlsx')).get('S');
+// o que a tela mostra ao REABRIR a pasta salva (forma de arquivo → tela)
+const reCells = new Map((jsonl('syntax.reopen.jsonl')[0]?.cells ?? []).filter((c) => c[0] === 'S').map(([, at, f2, loc]) => [at, { f2, loc }]));
+const reopen = new Map(syn.filter((r) => r.at && reCells.has(r.at)).map((r) => [r.id, reCells.get(r.at)]));
 const allFile = [...synFile.values()].join('\n');
 
 const PREFIXES = ['', '_xlfn.', '_xlfn._xlws.'];
@@ -168,7 +171,7 @@ writeLangIndex(join(pkg, 'src', 'i18n', 'langs'));
 
 // ---------------------------------------------------------------- testes
 writeFileSync(join(pkg, 'test', 'oracle', 'locale-pt-BR.functions.json'), JSON.stringify({ build, fns: fnCases }, null, 1) + '\n');
-const { cases, setup } = await import('./syntax-cases.mjs');
+const { cases, setup, tableAt } = await import('./syntax-cases.mjs');
 const kindOf = new Map(cases.map((c) => [c.id, c.kind ?? 'syntax']));
 const synCases = [], valCases = [];
 for (const r of syn) {
@@ -184,10 +187,11 @@ for (const r of syn) {
     return text;
   };
   // fórmula dentro da tabela (a tela omite o nome da própria tabela em [@Col]);
-  // lá a coluna calculada regrava as vizinhas: a forma de arquivo salva não é a do caso
-  const inTable = c.at && /^[H-K][2-4]$/.test(c.at) ? setup.table.name : undefined;
+  // na Vendas a coluna calculada K regrava as vizinhas: a forma de arquivo e o
+  // que a tela mostra ao reabrir são os do último caso da coluna (coerentes)
+  const inTable = tableAt(c.at);
   synCases.push({ id: r.id, set: c.set, input: c.text, ...(c.at ? { at: c.at } : {}), ...(inTable ? { inTable } : {}), ...(r.err ? { err: r.err } : {
-    canonical: udf(r.f2), local: r.f2Local, r1c1: udf(r.r1c1), r1c1Local: r.r1c1Local, ...(file !== undefined && !inTable ? { file: '=' + file } : {}),
+    canonical: udf(r.f2), local: r.f2Local, r1c1: udf(r.r1c1), r1c1Local: r.r1c1Local, ...(file !== undefined && reopen.has(r.id) ? { file: '=' + file, fileShown: reopen.get(r.id).loc, fileShownCanonical: udf(reopen.get(r.id).f2) } : {}),
   }) });
 }
 writeFileSync(join(pkg, 'test', 'oracle', 'locale-pt-BR.syntax.json'), JSON.stringify({ build: `${synHead.version}.${synHead.build}`, names: setup.names.map((x) => x.name), cases: synCases }, null, 1) + '\n');

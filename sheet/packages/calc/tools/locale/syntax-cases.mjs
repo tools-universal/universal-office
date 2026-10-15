@@ -8,11 +8,33 @@ export const setup = {
   cells: { A1: 1, A2: 2, A3: 3, B1: 4, B2: 5, B3: 6, C1: 'x' },
   // Names.Add do COM lê a fórmula no idioma local (medido) — sem decimal aqui
   names: [{ name: 'Taxa', ref: '=S!$A$1' }],
-  table: {
-    range: 'H1:K4', name: 'Vendas', totals: true,
-    values: [['Col A', 'B', 'C[1]', 'Calc'], [1, 2, 3, null], [4, 5, 6, null], [7, 8, 9, null]],
-  },
+  tables: [
+    {
+      range: 'H1:K4', name: 'Vendas', totals: true,
+      values: [['Col A', 'B', 'C[1]', 'Calc'], [1, 2, 3, null], [4, 5, 6, null], [7, 8, 9, null]],
+    },
+    // uma coluna por caso: a coluna calculada regrava a coluna inteira, e a forma
+    // de arquivo de cada caso precisa sobreviver até o salvamento
+    {
+      range: 'P1:Y4', name: 'Itens',
+      values: [['Qtd', 'Valor', 'Total Geral', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'],
+        [1, 2, 3, null, null, null, null, null, null, null], [4, 5, 6, null, null, null, null, null, null, null],
+        [7, 8, 9, null, null, null, null, null, null, null]],
+    },
+  ],
 };
+
+/** Tabela que contém a célula (a tela omite o nome da própria tabela em [@Col]). */
+export function tableAt(at) {
+  const m = /^([A-Z]+)([0-9]+)$/.exec(at ?? '');
+  if (!m) return undefined;
+  const col = (s) => [...s].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
+  for (const t of setup.tables) {
+    const [a, b] = t.range.split(':').map((x) => /^([A-Z]+)([0-9]+)$/.exec(x));
+    if (+m[2] > +a[2] && +m[2] <= +b[2] && col(m[1]) >= col(a[1]) && col(m[1]) <= col(b[1])) return t.name;
+  }
+  return undefined;
+}
 
 // [id, set, texto, célula?]
 const raw = [
@@ -70,6 +92,11 @@ const raw = [
   ['tbl-totals-col', 'f2', '=Vendas[[#Totals],[B]]'], ['tbl-range-escape', 'f2', "=SUM(Vendas[[Col A]:[C'[1']]])"],
   ['tbl-this-row', 'f2', '=Vendas[@B]', 'M2'], ['tbl-this-row-kw', 'f2', '=Vendas[[#This Row],[Col A]]', 'M3'], ['tbl-row-all', 'f2', '=SUM(Vendas[@])', 'M4'],
   ['tbl-in-at', 'f2', '=[@B]*2', 'K2'], ['tbl-in-mixed', 'f2', '=Vendas[@[Col A]]+[@B]', 'K3'], ['tbl-in-escape', 'f2', "=[@[C'[1']]]", 'K4'],
+  // dentro da tabela Itens (P1:Y4), uma coluna por caso: quando a tela omite o nome da tabela
+  ['tbl2-single', 'f2', '=[@Qtd]*2', 'S2'], ['tbl2-single-named', 'f2', '=Itens[@Qtd]*2', 'T2'],
+  ['tbl2-range', 'f2', '=SUM(Itens[@[Qtd]:[Valor]])', 'U2'], ['tbl2-range-noname', 'f2', '=SUM([@[Qtd]:[Valor]])', 'V2'],
+  ['tbl2-space', 'f2', '=[@[Total Geral]]+1', 'W2'], ['tbl2-row', 'f2', '=COUNT(Itens[@])', 'X2'],
+  ['tbl2-kw', 'f2', '=Itens[[#This Row],[Valor]]', 'Y2'],
   // entradas no idioma (pt-BR)
   ['loc-sum', 'f2Local', '=SOMA(1;2)'], ['loc-sum-lower', 'f2Local', '=soma(1;2)'], ['loc-if', 'f2Local', '=SE(VERDADEIRO;1;0)'],
   ['loc-bool-lower', 'f2Local', '=verdadeiro'], ['loc-err-lower', 'f2Local', '=#n/d'], ['loc-arr', 'f2Local', '={1\\2;3\\4}'],
@@ -107,7 +134,11 @@ const values = [
 for (let m = 1; m <= 12; m++) values.push([`val-month-${m}`, `=TEXT(DATE(2024,${m},1),"mmmm|mmm|mmmmm")`]);
 for (let d = 0; d < 7; d++) values.push([`val-day-${d}`, `=TEXT(DATE(2024,1,${7 + d}),"dddd|ddd")`]);
 
+// o Excel grava =TRUE digitado no pt-BR (nome indefinido 'TRUE') num .xlsx que ele
+// mesmo não reabre ("Não é possível obter a propriedade Open"): fica fora do arquivo
+const NO_SAVE = new Set(['loc-english-bool']);
+
 export const cases = [
-  ...raw.map(([id, set, text, at]) => ({ id: `locale-${id}`, set, text, ...(at ? { at } : {}) })),
+  ...raw.map(([id, set, text, at]) => ({ id: `locale-${id}`, set, text, ...(at ? { at } : {}), ...(NO_SAVE.has(id) ? { noSave: true } : {}) })),
   ...values.map(([id, text]) => ({ id: `locale-${id}`, set: 'f2', text, kind: 'value' })),
 ];

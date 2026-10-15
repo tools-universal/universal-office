@@ -1,12 +1,14 @@
 # Oraculo da SINTAXE das formulas no idioma do Excel desta maquina.
 # Entrada (JSON UTF-8):
 #   { setup: { sheets: ["S", ...], cells: { "A1": 1 | "x" }, names: [{ name, ref }],
-#              table: { range, name, values: [[...]], totals } },
-#     cases: [{ id, at?, set: "f2"|"f2Local"|"r1c1"|"r1c1Local"|"f"|"fLocal", text }] }
+#              tables: [{ range, name, values: [[...]], totals }] },
+#     cases: [{ id, at?, set: "f2"|"f2Local"|"r1c1"|"r1c1Local"|"f"|"fLocal", text, noSave? }] }
 # Cada caso vai numa celula propria (padrao Z101, Z102...) da 1a aba e fica la;
 # le Formula2, Formula2Local, Formula2R1C1, Formula2R1C1Local, Formula,
 # FormulaLocal, Value2 e Text. No fim grava a pasta (.xlsx em -Save, pasta
-# temporaria do agente) para ler a forma de ARQUIVO de cada formula.
+# temporaria do agente) para ler a forma de ARQUIVO de cada formula; o que a
+# tela mostra ao reabrir vem do xl-corpus-local.ps1 sobre essa pasta (outra
+# instancia: Workbooks.Open falha na mesma instancia depois do Close).
 # Mede tambem: Application.International(1..45) e o nome local de cada erro
 # (valor de erro posto na celula pelo VARIANT VT_ERROR -> FormulaLocal).
 # Saida: JSON Lines UTF-8 ({ version, build }, { intl }, { errors }, casos...).
@@ -50,8 +52,8 @@ try {
   for ($i = 0; $i -lt $names.Count; $i++) { $wb.Worksheets.Item($i + 1).Name = [string]$names[$i] }
   $ws = $wb.Worksheets.Item(1)
   if ($su.cells) { foreach ($p in $su.cells.PSObject.Properties) { SetVal $ws.Range([string]$p.Name) $p.Value } }
-  if ($su.table) {
-    $tb = $su.table
+  foreach ($tb in @($su.tables)) {
+    if ($null -eq $tb) { continue }
     $rg = $ws.Range([string]$tb.range)
     $r0 = $rg.Row; $c0 = $rg.Column
     for ($i = 0; $i -lt $tb.values.Count; $i++) { $row = @($tb.values[$i]); for ($j = 0; $j -lt $row.Count; $j++) { SetVal $ws.Cells.Item($r0 + $i, $c0 + $j) $row[$j] } }
@@ -104,6 +106,9 @@ try {
     Emit $r
   }
   if ($Save) {
+    # casos que o Excel grava mas nao consegue reabrir (medido: nome indefinido 'TRUE') saem antes
+    $k = 0
+    foreach ($c in $inp.cases) { $k++; if ($c.noSave) { $at = if ($c.at) { [string]$c.at } else { 'Z' + (100 + $k) }; [void]$ws.Range($at).ClearContents() } }
     if (Test-Path $Save) { Remove-Item $Save }
     $wb.SaveAs($Save, 51)
   }

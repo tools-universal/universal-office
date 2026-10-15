@@ -506,13 +506,24 @@ function renderStructured(t: Extract<Tok, { k: 'sref' }>, tgt: Dialect, o: Rende
       const kw = `[${d.kwOut('thisRow')}]`;
       return table + (b.items.length ? `[${[kw, ...b.items.map(item)].join(tgt.list)}]` : `[${d.kwOut('thisRow')}]`);
     }
-    if (table && o.inTable && table.toUpperCase() === o.inTable.toUpperCase()) table = '';
+    // dentro da própria tabela (medido): coluna única sem o nome (=[@Qtd], mesmo
+    // digitado Itens[@Qtd]); intervalo de colunas COM o nome (=SOMA(Itens[@[Qtd]:[Valor]]),
+    // mesmo digitado sem); linha inteira como veio
+    if (o.inTable && (!table || table.toUpperCase() === o.inTable.toUpperCase())) {
+      const one = b.items.length === 1 ? b.items[0]! : undefined;
+      if (one && 'col' in one) table = '';
+      else if (one && 'range' in one) table = table || o.inTable;
+    }
     if (!b.items.length) return `${table}[@]`;
     const only = b.items[0]!;
     if (b.items.length === 1 && 'col' in only && SIMPLE_COL.test(only.col)) return `${table}[@${only.col}]`;
     return `${table}[@${b.items.map(item).join(tgt.list)}]`;
   }
   if (b.form === 'empty') return table ? (o.filePrefixes && tgt.canonical ? `${table}[]` : table) : '[]';
+  // coluna única da própria tabela (inclusive na linha de totais) sem o nome:
+  // arquivo SUBTOTAL(109,Tabela1[Qtd]) → tela =SUBTOTAL(109;[Qtd]) (medido no corpus)
+  if (!(o.filePrefixes && tgt.canonical) && o.inTable && table && table.toUpperCase() === o.inTable.toUpperCase()
+    && b.items.length === 1 && 'col' in b.items[0]!) table = '';
   if (b.form === 'simple') {
     const x = b.items[0]!;
     return `${table}[${'kw' in x ? d.kwOut(x.kw) : 'col' in x ? x.col : 'raw' in x ? x.raw : item(x)}]`;
@@ -526,7 +537,9 @@ function render(toks: readonly Tok[], tgt: Dialect, o: RenderOpts): string {
   let s = '';
   for (const t of toks) {
     switch (t.k) {
-      case 'text': case 'ws': s += t.s; break;
+      case 'text': s += t.s; break;
+      // a barra de fórmulas mostra quebra de linha como \n (o arquivo pode ter \r\n)
+      case 'ws': s += tgt.canonical ? t.s : t.s.replace(/\r\n?/g, '\n'); break;
       case 'open': s += '('; break;
       case 'close': s += ')'; break;
       case 'num': s += t.int + (t.frac !== undefined ? tgt.decimal + t.frac : '') + t.exp; break;

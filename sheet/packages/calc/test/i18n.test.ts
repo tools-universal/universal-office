@@ -58,12 +58,15 @@ describe('pt-BR × Excel: sintaxe', () => {
     }
     expect(bad).toEqual([]);
   });
-  it('forma do arquivo (OOXML) → tela no idioma', () => {
+  it('forma do arquivo (OOXML) → o que a tela mostra ao reabrir a pasta', () => {
     const bad: string[] = [];
     for (const c of ok) {
-      if (c.file === undefined || known[`file:${c.id}`]) continue;
-      const loc = toLocal(c.file, { ...PT, inTable: c.inTable, names });
-      if (loc !== c.local) bad.push(`${c.id}: ${c.file} → ${loc} × Excel ${c.local}`);
+      if (c.fileShown === undefined || known[`file:${c.id}`]) continue;
+      const o = { ...PT, inTable: c.inTable, names };
+      const loc = toLocal(c.file, o);
+      if (loc !== c.fileShown) bad.push(`${c.id}: ${c.file} → ${loc} × Excel ${c.fileShown}`);
+      const back = fromLocal(c.fileShown, o);
+      if (back !== c.fileShownCanonical) bad.push(`${c.id}: ${c.fileShown} → ${back} × Excel ${c.fileShownCanonical}`);
     }
     expect(bad).toEqual([]);
   });
