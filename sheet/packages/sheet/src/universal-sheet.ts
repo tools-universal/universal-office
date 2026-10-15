@@ -6,8 +6,10 @@ import {
   type ChartModel, type Theme,
   type Workbook, type Worksheet, type Cell, type SharedString, type Styles, type Font, type Fill,
   type Border, type PaneInfo, type CondFormat, type ColDef, type ColorStop, type FormatResult,
-  type Comment, type DrawingChart, type DrawingPicture, type Hyperlink, type RichRun, type RunProps,
+  type Comment, type DrawingChart, type DrawingObject, type Hyperlink, type RichRun, type RunProps,
+  themePath,
 } from '@universal/sheet-core';
+import { SheetDrawings, anchorRect, type Rect } from './drawings.js';
 import {
   bisectLE, pxToIndex, indexScreenPos, boundaryAt, pxToColWidthChars, pxToRowHeightPt,
   layoutRichLines, PATTERN_MASKS, MergeIndex, type RichSeg, type MergeRect,
@@ -89,8 +91,8 @@ export interface SheetView {
   commentAt: Map<string, Comment>;
   /** Charts ancorados via drawings1.xml — pintados por cima do grid. */
   charts: DrawingChart[];
-  /** Imagens ancoradas (drawing) — `img` chega assíncrono (decodificação). */
-  pictures: SheetPicture[];
+  /** Imagens/formas/grupos do mesmo desenho (z-order intercalado com os charts). */
+  drawings: DrawingObject[];
   /** "col,row" -> hyperlink (cursor pointer + clique navega). */
   hyperlinkAt: Map<string, Hyperlink>;
   /** Colunas congeladas à esquerda (pane state=frozen). 0 = sem freeze. */
@@ -117,21 +119,10 @@ export interface SheetView {
   colStyles: Map<number, number>;
 }
 
-/** Imagem ancorada na grade, com o bitmap decodificado (quando o navegador decodifica o formato). */
-interface SheetPicture {
-  pic: DrawingPicture;
-  img?: ImageBitmap;
-}
-
 /** Valores de erro (gravados em inglês no arquivo) como o Excel pt-BR os exibe. */
 const ERRORS_PT_BR: Record<string, string> = {
   '#N/A': '#N/D', '#VALUE!': '#VALOR!', '#NAME?': '#NOME?', '#NUM!': '#NÚM!', '#NULL!': '#NULO!',
   '#GETTING_DATA': '#OBTENDO_DADOS',
-};
-
-/** Formatos raster que o navegador decodifica (EMF/WMF/TIFF ficam de fora). */
-const RASTER_MIME: Record<string, string> = {
-  png: 'image/png', jpeg: 'image/jpeg', jpg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp', webp: 'image/webp',
 };
 
 /** Decoração derivada do estilo da tabela para UMA célula. */
@@ -164,6 +155,8 @@ function tableStyleAccent(name: string | undefined, accents: string[]): string {
  * pilha fixa de antes do resolvedor único.
  */
 const SHEET_FALLBACKS = ['Aptos Narrow'];
+/** Texto de FORMA com família ausente: o motor de texto do Office (o mesmo do PowerPoint) cai na Calibri. */
+const SHAPE_FALLBACKS = ['Calibri', 'Aptos'];
 
 /** Fallbacks da fonte da célula: o nome gravado de uma fonte do TEMA (ex.: 宋体
  *  numa pasta chinesa) vem antes, para a escrita que a fonte latina não cobre. */
@@ -268,6 +261,8 @@ export class UniversalSheetElement extends HTMLElement {
     // paleta default de charts = accents 1..6 do tema (índices 4..9)
     this.chartPalette = cx.theme.colors.slice(4, 10);
     this.chartTheme = cx.theme;
+    // imagens/formas dos desenhos: leitor e pintor DrawingML do Slides (drawings.ts)
+    this.drawingLayer = new SheetDrawings(pkg, themePath(pkg), cx.theme, () => this.paint());
     // fontes do SO usadas pelos estilos, sob demanda (lógica do Universal Write)
     void this.ensureSheetFonts();
     // geometria do grid pela fonte Normal (estilo 0), com as tabelas MEDIDAS no
@@ -346,18 +341,10 @@ export class UniversalSheetElement extends HTMLElement {
       // expande maxRow/maxCol p/ caber CHARTS ancorados ate to.col/to.row
       let extMaxRow = Math.max(maxRow, 30);
       let extMaxCol = Math.max(maxCol, 26);
-      for (const ch of [...(ws.charts ?? []), ...(ws.pictures ?? [])]) {
-        if (ch.anchor.to.col + 1 > extMaxCol) extMaxCol = ch.anchor.to.col + 1;
-        if (ch.anchor.to.row + 1 > extMaxRow) extMaxRow = ch.anchor.to.row + 1;
-      }
-      // imagens: decodifica os formatos raster em segundo plano e repinta ao chegar
-      const pictures: SheetPicture[] = (ws.pictures ?? []).map((pic) => ({ pic }));
-      for (const sp of pictures) {
-        const mime = RASTER_MIME[sp.pic.ext];
-        if (!mime || typeof createImageBitmap !== 'function') continue;
-        createImageBitmap(new Blob([sp.pic.data as BlobPart], { type: mime }))
-          .then((img) => { sp.img = img; this.paint(); })
-          .catch(() => { /* imagem inválida: fica sem desenho */ });
+      for (const d of [...(ws.charts ?? []), ...(ws.drawings ?? [])]) {
+        if (d.anchor.kind === 'absolute') continue;
+        if (d.anchor.to.col + 1 > extMaxCol) extMaxCol = d.anchor.to.col + 1;
+        if (d.anchor.to.row + 1 > extMaxRow) extMaxRow = d.anchor.to.row + 1;
       }
       // decoração de tabelas (ListObjects): header + bandas + setas de filtro
       const tableDeco = new Map<string, TableDeco>();
@@ -417,7 +404,7 @@ export class UniversalSheetElement extends HTMLElement {
         maxCol: extMaxCol,
         commentAt,
         charts: ws.charts ?? [],
-        pictures,
+        drawings: ws.drawings ?? [],
         hyperlinkAt,
         frozenCols,
         frozenRows,
@@ -1451,13 +1438,21 @@ export class UniversalSheetElement extends HTMLElement {
     if (fc > 0) this.paintRegion(ctx, rowMap, 0, fh, fw, vh - fh, 1, fc, fr + 1, v.maxRow, 0, this.scrollY);
     if (fc > 0 && fr > 0) this.paintRegion(ctx, rowMap, 0, 0, fw, fh, 1, fc, 1, fr, 0, 0);
 
-    // charts rolam com o quadrante principal (clip ao quadrante quando há freeze)
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(fw, fh, vw - fw, vh - fh);
-    ctx.clip();
-    this.paintCharts(ctx);
-    ctx.restore();
+    // desenhos (gráficos, imagens, formas) por quadrante, cada um com o próprio
+    // scroll: a parte de um objeto sob o painel congelado não rola (como no Excel)
+    const quads: [number, number, number, number, number, number][] = [[fw, fh, vw - fw, vh - fh, this.scrollX, this.scrollY]];
+    if (fr > 0) quads.push([fw, 0, vw - fw, fh, this.scrollX, 0]);
+    if (fc > 0) quads.push([0, fh, fw, vh - fh, 0, this.scrollY]);
+    if (fc > 0 && fr > 0) quads.push([0, 0, fw, fh, 0, 0]);
+    for (const [qx, qy, qw, qh, sx, sy] of quads) {
+      if (qw <= 0 || qh <= 0) continue;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(qx, qy, qw, qh);
+      ctx.clip();
+      this.paintDrawings(ctx, sx, sy, { x: qx, y: qy, w: qw, h: qh });
+      ctx.restore();
+    }
 
     this.paintSelection(ctx, vw, vh);
     // dropdown de validação de LISTA: botão à direita da célula SELECIONADA
@@ -1568,7 +1563,7 @@ export class UniversalSheetElement extends HTMLElement {
       ctx.beginPath();
       ctx.rect(0, 0, w, h);
       ctx.clip();
-      this.paintCharts(ctx);
+      this.paintDrawings(ctx, 0, 0, { x: 0, y: 0, w, h });
       ctx.restore();
     }
     if (keep.sheet !== index) { this.condNumReady = false; this.condNumMap.clear(); }
@@ -1738,55 +1733,77 @@ export class UniversalSheetElement extends HTMLElement {
   /** Tema do workbook: cores DrawingML e fontes dos gráficos. */
   private chartTheme: Theme | undefined;
 
+  /** Imagens/formas dos desenhos do workbook (leitor e pintor DrawingML do Slides). */
+  private drawingLayer: SheetDrawings | null = null;
+
+  /** Borda esquerda (px, zoom, sem scroll) da coluna 0-based `i` — além da grade, colunas padrão. */
+  private readonly edgeX = (i: number): number => {
+    const n = this.xs.length - 1;
+    if (i <= n) return this.xs[Math.max(0, i)] ?? 0;
+    return (this.xs[n] ?? 0) + (i - n) * (this.view?.defaultColW ?? DEFAULT_COL_W) * this.zoom;
+  };
+  /** Borda superior (px, zoom, sem scroll) da linha 0-based `i`. */
+  private readonly edgeY = (i: number): number => {
+    const n = this.ys.length - 1;
+    if (i <= n) return this.ys[Math.max(0, i)] ?? 0;
+    return (this.ys[n] ?? 0) + (i - n) * (this.view?.defaultRowH ?? DEFAULT_ROW_H) * this.zoom;
+  };
+
+  /** Pilha CSS do texto das formas (resolvedor único; família ausente → Calibri, como no Office). */
+  private readonly shapeFontStack = (family: string, bold = false, italic = false): string =>
+    this.fontResolver.cssStack(family, SHAPE_FALLBACKS, variantOf(bold, italic));
+
   /**
-   * Pinta todos os charts ancorados do sheet ativo. Converte cada
-   * `DrawingAnchor` (col/row + colOff/rowOff em EMU) para pixels usando o
-   * `xs[]/ys[]` da grade + 9525 EMU/px (default @96dpi).
+   * Pinta os desenhos do sheet ativo — gráficos, imagens, formas — na ordem
+   * do arquivo (z-order), por cima da grade. (sx, sy) = scroll efetivo do
+   * quadrante; `view` = área visível (px) para pular o que está fora.
    */
-  private paintCharts(ctx: CanvasRenderingContext2D): void {
-    this.paintPictures(ctx);
+  private paintDrawings(ctx: CanvasRenderingContext2D, sx: number, sy: number, view: Rect): void {
     const v = this.view;
-    if (!v || v.charts.length === 0) return;
-    const EMU_PER_PX = 9525;
-    for (const ch of v.charts) {
-      // localiza pixels de from/to. xs[i]/ys[i] = borda esq/sup da coluna/linha i+1.
-      const fl = (this.xs[ch.anchor.from.col] ?? 0) + ch.anchor.from.colOff / EMU_PER_PX * this.zoom - this.scrollX;
-      const ft = (this.ys[ch.anchor.from.row] ?? 0) + ch.anchor.from.rowOff / EMU_PER_PX * this.zoom - this.scrollY;
-      const tr = (this.xs[ch.anchor.to.col] ?? 0) + ch.anchor.to.colOff / EMU_PER_PX * this.zoom - this.scrollX;
-      const tb = (this.ys[ch.anchor.to.row] ?? 0) + ch.anchor.to.rowOff / EMU_PER_PX * this.zoom - this.scrollY;
-      const x = fl, y = ft, w = tr - fl, h = tb - ft;
-      if (w <= 0 || h <= 0) continue;
-      let model = this.chartCache.get(ch.chartXml);
-      if (!model) { model = parseChart(ch.chartXml, this.chartTheme); this.chartCache.set(ch.chartXml, model); }
-      // px por pt: 96/72 na base, escalado pelo zoom (tipografia do chart).
-      // Moldura: a cor das linhas default do gráfico (o Excel desenha; medido #898989).
-      paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72);
+    if (!v || (v.charts.length === 0 && v.drawings.length === 0)) return;
+    const layer = this.drawingLayer;
+    if (layer && v.drawings.length) this.prepareDrawings(layer, v.drawings);
+    const items: (DrawingChart | DrawingObject)[] = [...v.charts, ...v.drawings].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    for (const it of items) {
+      const r = anchorRect(it.anchor, this.edgeX, this.edgeY, this.zoom);
+      const x = r.x - sx, y = r.y - sy;
+      // fora da área (folga p/ giro/sombra: a maior dimensão)
+      const m = Math.max(r.w, r.h) + 40;
+      if (x > view.x + view.w + m || y > view.y + view.h + m || x + r.w < view.x - m || y + r.h < view.y - m) continue;
+      if ('chartXml' in it) this.paintAnchoredChart(ctx, it, { x, y, w: r.w, h: r.h });
+      else layer?.paint(ctx, it, r, sx, sy, this.zoom, this.shapeFontStack);
     }
   }
 
+  /** Lê os objetos (uma vez) e pede as fontes do texto deles ao resolvedor. */
+  private prepareDrawings(layer: SheetDrawings, objs: DrawingObject[]): void {
+    const before = layer.typefaces().length;
+    layer.prepare(objs);
+    const fams = layer.typefaces();
+    if (fams.length > before) void this.fontResolver.resolve(fams);
+  }
+
   /**
-   * Pinta as imagens ancoradas (drawing) do sheet ativo, já decodificadas,
-   * esticadas na caixa da âncora (com o recorte `a:srcRect`). Vêm antes dos
-   * charts (z-order aproximada: imagens embaixo).
+   * Resolve quando os desenhos de TODAS as abas foram lidos, as imagens
+   * decodificadas e as fontes do texto resolvidas (captura/export/harness).
    */
-  private paintPictures(ctx: CanvasRenderingContext2D): void {
-    const v = this.view;
-    if (!v || v.pictures.length === 0) return;
-    const EMU_PER_PX = 9525;
-    for (const { pic, img } of v.pictures) {
-      if (!img) continue;
-      const a = pic.anchor;
-      const x = (this.xs[a.from.col] ?? 0) + a.from.colOff / EMU_PER_PX * this.zoom - this.scrollX;
-      const y = (this.ys[a.from.row] ?? 0) + a.from.rowOff / EMU_PER_PX * this.zoom - this.scrollY;
-      const r = (this.xs[a.to.col] ?? 0) + a.to.colOff / EMU_PER_PX * this.zoom - this.scrollX;
-      const b = (this.ys[a.to.row] ?? 0) + a.to.rowOff / EMU_PER_PX * this.zoom - this.scrollY;
-      if (r - x < 1 || b - y < 1) continue;
-      const c = pic.crop;
-      const sx = (c?.l ?? 0) * img.width, sy = (c?.t ?? 0) * img.height;
-      const sw = img.width * (1 - (c?.l ?? 0) - (c?.r ?? 0)), sh = img.height * (1 - (c?.t ?? 0) - (c?.b ?? 0));
-      if (sw <= 0 || sh <= 0) continue;
-      ctx.drawImage(img, sx, sy, sw, sh, x, y, r - x, b - y);
-    }
+  async drawingsReady(): Promise<void> {
+    const layer = this.drawingLayer;
+    if (!layer) return;
+    for (const v of this.views) if (v.drawings.length) this.prepareDrawings(layer, v.drawings);
+    await this.fontResolver.resolve(layer.typefaces());
+    await layer.settled();
+  }
+
+  /** Um gráfico no retângulo da âncora (px no canvas). */
+  private paintAnchoredChart(ctx: CanvasRenderingContext2D, ch: DrawingChart, r: Rect): void {
+    const { x, y, w, h } = r;
+    if (w <= 0 || h <= 0) return;
+    let model = this.chartCache.get(ch.chartXml);
+    if (!model) { model = parseChart(ch.chartXml, this.chartTheme); this.chartCache.set(ch.chartXml, model); }
+    // px por pt: 96/72 na base, escalado pelo zoom (tipografia do chart).
+    // Moldura: a cor das linhas default do gráfico (o Excel desenha; medido #898989).
+    paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72);
   }
 
   /**

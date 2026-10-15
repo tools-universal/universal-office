@@ -29,6 +29,8 @@ window.harness = {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`fetch ${url}: ${res.status}`);
     us.loadXlsx(new Uint8Array(await res.arrayBuffer()));
+    // imagens dos desenhos decodificadas e fontes das formas resolvidas antes da 1ª pintura
+    await us.drawingsReady();
     return us.getSheetNames();
   },
   /** Pinta a região da aba (pelo nome) no canvas visível; null se não existe. */

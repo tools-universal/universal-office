@@ -4,6 +4,7 @@ export { openSpreadsheet } from './open.js';
 export { updateWorksheetXml, serializeSheetData, serializeCols } from './serialize.js';
 export { parseXml, childElements, firstChild, textContent, type XmlElement } from './xml.js';
 export { parseChart, paintChart, type ChartModel, type ChartSeries, type ChartType } from './chart.js';
+export { readDrawing, readAnchor, type DrawingContent } from './drawing.js';
 export {
   readWorkbook,
   readSharedStrings,
@@ -15,6 +16,7 @@ export {
 export { readStyles, applyTint, type Styles, type CellXf, type Font, type Fill, type GradientStop, type Border, type BorderEdge, type Dxf } from './styles.js';
 export {
   readTheme,
+  themePath,
   readIndexedColors,
   colorContext,
   defaultColorContext,
@@ -57,5 +59,5 @@ export {
   type Comment,
   type DrawingAnchor,
   type DrawingChart,
-  type DrawingPicture,
+  type DrawingObject,
 } from './model.js';

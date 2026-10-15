@@ -191,13 +191,22 @@ export interface Comment {
 }
 
 /**
- * Ancoragem de um drawing (chart/imagem) na grade da planilha, vinda de
- * `<xdr:twoCellAnchor>`. `from`/`to` definem o range de células com offsets em
- * EMU (914 400 EMU = 1 polegada).
+ * Ancoragem de um drawing (chart/imagem/forma) na grade da planilha. Default
+ * `<xdr:twoCellAnchor>`: `from`/`to` definem o range de células (col/row
+ * 0-based) com offsets em EMU (914 400 EMU = 1 polegada). `oneCellAnchor`:
+ * `from` + `ext`; `absoluteAnchor`: `pos` + `ext` (aí `from`/`to` = origem).
  */
 export interface DrawingAnchor {
   from: { col: number; row: number; colOff: number; rowOff: number };
   to: { col: number; row: number; colOff: number; rowOff: number };
+  /** Âncora de UMA célula (`oneCellAnchor`) ou absoluta (`absoluteAnchor`); ausente = duas células. */
+  kind?: 'oneCell' | 'absolute';
+  /** `editAs` do twoCellAnchor (twoCell|oneCell|absolute): só o comportamento na edição. */
+  editAs?: string;
+  /** Tamanho em EMU (`<xdr:ext cx cy>`) das âncoras oneCell/absolute. */
+  ext?: { cx: number; cy: number };
+  /** Posição em EMU (`<xdr:pos x y>`) da âncora absoluta. */
+  pos?: { x: number; y: number };
 }
 
 /** Chart embutido com sua âncora e XML cru (parseado on-demand pela engine). */
@@ -205,17 +214,24 @@ export interface DrawingChart {
   anchor: DrawingAnchor;
   /** XML de `xl/charts/chartN.xml`. */
   chartXml: string;
+  /** Posição na ordem do desenho (z-order, contando os demais objetos). */
+  order?: number;
 }
 
-/** Imagem ancorada (`<xdr:pic>` com `<a:blip r:embed>` → parte `xl/media/…`). */
-export interface DrawingPicture {
+/**
+ * Objeto de desenho que não é gráfico: imagem (`xdr:pic`), forma/caixa de
+ * texto (`xdr:sp`), conector (`xdr:cxnSp`), grupo (`xdr:grpSp`) ou quadro
+ * (`xdr:graphicFrame`, ex.: SmartArt). O elemento DrawingML fica cru — o
+ * componente o lê com o leitor de formas compartilhado com o Slides.
+ */
+export interface DrawingObject {
   anchor: DrawingAnchor;
-  /** Bytes do arquivo de imagem. */
-  data: Uint8Array;
-  /** Extensão da parte de mídia (png, jpeg, gif, bmp, emf, wmf…), minúscula. */
-  ext: string;
-  /** Recorte `a:srcRect` em frações da imagem (0..1) por lado. */
-  crop?: { l: number; t: number; r: number; b: number };
+  /** Posição na ordem do desenho (z-order, contando os gráficos). */
+  order: number;
+  /** Elemento `xdr:*` do objeto (prefixo normalizado para `xdr:`). */
+  el: import('./xml.js').XmlElement;
+  /** Parte do desenho (`xl/drawings/drawingN.xml`): as imagens resolvem pelos rels dela. */
+  part: string;
 }
 
 /**
@@ -256,8 +272,8 @@ export interface Worksheet {
   comments?: Comment[];
   /** Charts embutidos via `xl/drawings/drawingN.xml`. */
   charts?: DrawingChart[];
-  /** Imagens ancoradas via `xl/drawings/drawingN.xml` (em ordem de desenho). */
-  pictures?: DrawingPicture[];
+  /** Imagens/formas/grupos do mesmo desenho (intercalados com os charts por `order`). */
+  drawings?: DrawingObject[];
   /** Hyperlinks (<hyperlinks>) com targets externos resolvidos via rels. */
   hyperlinks?: Hyperlink[];
   /** Defaults de largura/altura do grid (<sheetFormatPr>). */

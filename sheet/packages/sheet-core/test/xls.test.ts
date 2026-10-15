@@ -214,10 +214,16 @@ describe('.xls (BIFF8) → pacote OOXML', () => {
   });
 
   it('imagem do BStore ancorada pela âncora de célula', () => {
-    expect(ws.pictures).toHaveLength(1);
-    const p = ws.pictures![0]!;
-    expect(p.ext).toBe('png');
-    expect([...p.data.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    // a imagem é um objeto do desenho (xdr:pic): o componente a lê/pinta com o motor DrawingML
+    const pics = (ws.drawings ?? []).filter((d) => d.el.name === 'xdr:pic');
+    expect(pics).toHaveLength(1);
+    const p = pics[0]!;
+    const rid = /"r:embed":"([^"]+)"/.exec(JSON.stringify(p.el))?.[1];
+    const rels = pkg.getPartText(p.part.replace(/([^/]+)$/, '_rels/$1.rels')) ?? '';
+    const target = new RegExp(`Id="${rid}"[^>]*Target="([^"]+)"|Target="([^"]+)"[^>]*Id="${rid}"`).exec(rels);
+    const media = pkg.resolveRelTarget(p.part, target?.[1] ?? target?.[2] ?? '');
+    expect(media.endsWith('.png')).toBe(true);
+    expect([...pkg.getPart(media)!.slice(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
     // dx 512/1024 da coluna B (64 px) e dy 128/256 da linha 3 (17 px)
     expect(p.anchor.from).toEqual({ col: 1, row: 2, colOff: 32 * 9525, rowOff: Math.round(8.5 * 9525) });
     expect(p.anchor.to).toEqual({ col: 3, row: 5, colOff: 0, rowOff: 0 });

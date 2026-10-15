@@ -94,20 +94,35 @@ export class XlsxPackage {
   }
 
   getPart(path: string): Uint8Array | undefined {
-    return this.parts.get(path);
+    return this.parts.get(path) ?? this.parts.get(this.caseless(path));
   }
 
   getPartText(path: string): string | undefined {
-    const data = this.parts.get(path);
+    const data = this.getPart(path);
     return data === undefined ? undefined : new TextDecoder().decode(data);
   }
 
   setPart(path: string, data: Uint8Array): void {
     this.parts.set(path, data);
+    this.lower = null;
   }
 
   setPartText(path: string, text: string): void {
-    this.parts.set(path, new TextEncoder().encode(text));
+    this.setPart(path, new TextEncoder().encode(text));
+  }
+
+  /** Índice minúsculo → nome real (montado sob demanda). */
+  private lower: Map<string, string> | null = null;
+  /**
+   * Nomes de parte OPC NÃO diferenciam maiúsculas: o Excel abre pacotes com
+   * `worksheets/Sheet1.xml` e `_rels/sheet1.xml.rels` (o desenho da aba vem desse rels).
+   */
+  private caseless(path: string): string {
+    if (!this.lower) {
+      this.lower = new Map();
+      for (const k of this.parts.keys()) if (!this.lower.has(k.toLowerCase())) this.lower.set(k.toLowerCase(), k);
+    }
+    return this.lower.get(path.toLowerCase()) ?? path;
   }
 
   /** Conteúdo principal (xl/workbook.xml). */

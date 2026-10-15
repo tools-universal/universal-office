@@ -92,7 +92,7 @@ export function readTheme(pkg: XlsxPackage): Theme {
 }
 
 /** Caminho da parte de tema (canônico ou via rels do workbook). */
-function themePath(pkg: XlsxPackage): string {
+export function themePath(pkg: XlsxPackage): string {
   if (pkg.getPart('xl/theme/theme1.xml')) return 'xl/theme/theme1.xml';
   const rels = pkg.getPartText('xl/_rels/workbook.xml.rels');
   if (rels !== undefined) {
