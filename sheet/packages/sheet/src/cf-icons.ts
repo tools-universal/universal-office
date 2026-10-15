@@ -72,12 +72,18 @@ export function paintCfIcon(ctx: CanvasRenderingContext2D, set: string, index: n
   switch (kind.k) {
     case 'arrow': {
       const p = new Path2D();
-      // seta para cima na caixa 16×16; gira em torno do centro
-      const pts: [number, number][] = [[8, 0.5], [15.5, 8], [11, 8], [11, 15.5], [5, 15.5], [5, 8], [0.5, 8]];
+      // seta "gorda" do Excel (medida pixel a pixel, t-cf): haste de 5 px,
+      // cabeça de 13 px com farpas em V e ponta arredondada; desenhada para
+      // CIMA na caixa 16×16 e girada em torno do centro
+      // (vértices nos CENTROS dos pixels: o contorno de 1 px fecha a forma exata)
+      const pts: [number, number][] = [
+        [5.5, 0.5], [9.5, 0.5], [13.5, 4.5], [13.5, 10.5], [10.5, 7.5], [9.5, 7.5], [9.5, 14.5],
+        [5.5, 14.5], [5.5, 7.5], [4.5, 7.5], [1.5, 10.5], [1.5, 4.5],
+      ];
       const a = (kind.dir * Math.PI) / 180, ca = Math.cos(a), sa = Math.sin(a);
       pts.forEach(([px, py], i) => {
-        const dx = px - 8, dy = py - 8;
-        const rx = 8 + dx * ca - dy * sa, ry = 8 + dx * sa + dy * ca;
+        const dx = px - 7.5, dy = py - 7.5;
+        const rx = 7.5 + dx * ca - dy * sa, ry = 7.5 + dx * sa + dy * ca;
         if (i === 0) p.moveTo(rx, ry); else p.lineTo(rx, ry);
       });
       p.closePath();
@@ -97,8 +103,9 @@ export function paintCfIcon(ctx: CanvasRenderingContext2D, set: string, index: n
       break;
     }
     case 'flag': {
-      ctx.fillStyle = '#727272'; ctx.fillRect(1, 1, 2, 15);
-      const p = new Path2D(); p.moveTo(3.5, 1.5); p.lineTo(13.5, 5); p.lineTo(3.5, 8.5); p.closePath();
+      // haste de 2 px em x=2 (altura toda) e bandeira de x=5 a 16 (medido)
+      ctx.fillStyle = '#727272'; ctx.fillRect(2, 0, 2, 15);
+      const p = new Path2D(); p.moveTo(5.5, 0.5); p.lineTo(15.5, 4.5); p.lineTo(5.5, 8.5); p.closePath();
       fillStroke(p, kind.c);
       break;
     }
