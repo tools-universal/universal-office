@@ -380,8 +380,10 @@ export interface Worksheet {
   pane?: PaneInfo;
   /** `<sheetView showGridLines="0">` → false (oculta linhas de grade). */
   showGridLines?: boolean;
-  /** `<sheetView showZeros="0">` → false (células com valor zero ficam em branco). */
+  /** `<sheetView showZeros="0">` → false: valores zero são exibidos vazios. */
   showZeros?: boolean;
+  /** `<sheetView rightToLeft="1">` → true: colunas da direita para a esquerda. */
+  rightToLeft?: boolean;
   condFormats?: CondFormat[];
   /** Mapa top-left ref → range (conveniência para render). */
   mergedAreas?: Map<string, string>;

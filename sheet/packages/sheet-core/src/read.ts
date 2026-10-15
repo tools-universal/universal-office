@@ -11,6 +11,16 @@ import { readDrawing, readOleObjects, readControls } from './drawing.js';
 import { readConditionalFormats } from './read-cf.js';
 import { readPivotTable } from './read-pivot.js';
 
+/**
+ * Escape `_xHHHH_` da OOXML (ST_Xstring): caractere UTF-16 HHHH (hex maiúsculo
+ * ou minúsculo). `_x005F_` escapa o próprio `_` — numa passada só,
+ * `_x005F_x000D_` vira o literal `_x000D_`. O Excel exibe `a_x000D_` + LF + `b`
+ * como "a\r\nb" (oráculo: lo-escape-unicode, poi-60289).
+ */
+export function decodeXstring(s: string): string {
+  return s.indexOf('_x') < 0 ? s : s.replace(/_x([0-9A-Fa-f]{4})_/g, (_, h: string) => String.fromCharCode(parseInt(h, 16)));
+}
+
 /** Mapa de relacionamentos rId → target, lido de um arquivo .rels do pacote. */
 function readRels(pkg: XlsxPackage, relsPart: string): Map<string, string> {
   const map = new Map<string, string>();
@@ -115,7 +125,7 @@ function readSharedStringEntry(el: XmlElement, cx?: ColorContext): SharedString 
       const rPr = firstChild(r, 'rPr');
       const rPrAttrs: Record<string, string> = {};
       if (rPr) for (const a of Object.keys(rPr.attrs)) rPrAttrs[a] = rPr.attrs[a]!;
-      const run: RichRun = { text: t ? textContent(t) : '' };
+      const run: RichRun = { text: t ? decodeXstring(textContent(t)) : '' };
       if (Object.keys(rPrAttrs).length) run.rPr = rPrAttrs;
       if (rPr) {
         const props = readRunProps(rPr, cx);
@@ -126,7 +136,7 @@ function readSharedStringEntry(el: XmlElement, cx?: ColorContext): SharedString 
     return { text: runs.map((r) => r.text).join(''), runs };
   }
   const t = firstChild(el, 't');
-  return { text: t ? textContent(t) : '' };
+  return { text: t ? decodeXstring(textContent(t)) : '' };
 }
 
 /** Lê uma planilha (path) → Worksheet. `cx` opcional: contexto de cores. */
@@ -212,7 +222,8 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   let pane: PaneInfo | undefined;
   const sheetView = firstChild(firstChild(root, 'sheetViews') ?? root, 'sheetView');
   const showGridLines = sheetView?.attrs['showGridLines'] === '0' ? false : undefined;
-  const showZeros = sheetView?.attrs['showZeros'] === '0' ? false : undefined;
+  const offAttr = (a: string): boolean => sheetView?.attrs[a] === '0' || sheetView?.attrs[a] === 'false';
+  const onAttr = (a: string): boolean => sheetView?.attrs[a] === '1' || sheetView?.attrs[a] === 'true';
   const paneEl = sheetView ? firstChild(sheetView, 'pane') : undefined;
   if (paneEl) {
     pane = {
@@ -272,7 +283,8 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (cols.length > 0) ws.cols = cols;
   if (pane) ws.pane = pane;
   if (showGridLines === false) ws.showGridLines = false;
-  if (showZeros === false) ws.showZeros = false;
+  if (offAttr('showZeros')) ws.showZeros = false;
+  if (onAttr('rightToLeft')) ws.rightToLeft = true;
   if (condFormats.length > 0) ws.condFormats = condFormats;
   if (comments.length > 0) ws.comments = comments;
   if (charts.length > 0) ws.charts = charts;
@@ -414,7 +426,7 @@ function readCell(el: XmlElement, cx?: ColorContext): Cell {
   if (el.attrs['t'] !== undefined) cell.type = el.attrs['t'] as CellType;
   if (el.attrs['s'] !== undefined) cell.style = parseInt(el.attrs['s'], 10);
   const v = firstChild(el, 'v');
-  if (v !== undefined) cell.value = textContent(v);
+  if (v !== undefined) cell.value = cell.type === 'str' ? decodeXstring(textContent(v)) : textContent(v);
   const f = firstChild(el, 'f');
   if (f !== undefined) cell.formula = textContent(f);
   const isEl = firstChild(el, 'is');

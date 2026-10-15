@@ -23,6 +23,20 @@ function decodeEntities(s: string): string {
   });
 }
 
+/**
+ * Fim de linha LITERAL (XML 1.0 §2.11): "\r\n" e "\r" sozinho viram "\n" — o
+ * Excel exibe "a\nb" para um `<t>` gravado com CRLF. A referência `&#13;` (e o
+ * escape `_x000D_` da OOXML) é preservada: só o CR literal é normalizado.
+ */
+function normalizeEol(s: string): string {
+  return s.indexOf('\r') < 0 ? s : s.replace(/\r\n?/g, '\n');
+}
+
+/** Valor de atributo (XML 1.0 §3.3.3): TAB/LF/CR literais (CRLF conta 1) viram espaço. */
+function normalizeAttr(s: string): string {
+  return /[\t\n\r]/.test(s) ? s.replace(/\r\n?|[\t\n]/g, ' ') : s;
+}
+
 export function parseXml(xml: string): XmlElement {
   let i = 0;
   const n = xml.length;
@@ -78,7 +92,7 @@ export function parseXml(xml: string): XmlElement {
       const vStart = i;
       i = xml.indexOf(q, i);
       if (i < 0) error('aspas não fechadas');
-      attrs[aName] = decodeEntities(xml.slice(vStart, i));
+      attrs[aName] = decodeEntities(normalizeAttr(xml.slice(vStart, i)));
       i++;
     }
     // conteúdo
@@ -96,7 +110,7 @@ export function parseXml(xml: string): XmlElement {
       }
       if (xml.startsWith('<![CDATA[', i)) {
         const end = xml.indexOf(']]>', i);
-        children.push(xml.slice(i + 9, end));
+        children.push(normalizeEol(xml.slice(i + 9, end)));
         i = end + 3;
         continue;
       }
@@ -106,7 +120,7 @@ export function parseXml(xml: string): XmlElement {
       }
       const tStart = i;
       while (i < n && xml[i] !== '<') i++;
-      const text = decodeEntities(xml.slice(tStart, i));
+      const text = decodeEntities(normalizeEol(xml.slice(tStart, i)));
       if (text.length > 0) children.push(text);
     }
   }
