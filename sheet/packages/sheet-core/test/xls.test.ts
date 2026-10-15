@@ -244,6 +244,13 @@ describe('.xls — BIFF5, data 1904 e erros amigáveis', () => {
     expect(ss[parseInt(ws.rows[0]!.cells[0]!.value!, 10)]!.text).toBe('Café €');
   });
 
+  it('COLINFO até a última coluna do BIFF (255/256) vale para a linha inteira (max 16384)', () => {
+    const ci = rec(RT.COLINFO, [...u16(2), ...u16(256), ...u16(2340), ...u16(15), ...u16(0), ...u16(0)]);
+    const pkg = openSpreadsheet(buildXls(defaultFormatting(), [{ name: 'C', recs: [ci] }]));
+    const ws = readWorksheet(pkg, readWorkbook(pkg).sheets[0]!.target!);
+    expect(ws.cols).toEqual([expect.objectContaining({ min: 3, max: 16384, style: 15 })]);
+  });
+
   it('DATEMODE 1904', () => {
     const pkg = openSpreadsheet(buildXls([rec(RT.DATEMODE, u16(1)), ...defaultFormatting()], [{ name: 'A', recs: [] }]));
     expect(readWorkbook(pkg).date1904).toBe(true);

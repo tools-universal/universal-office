@@ -118,7 +118,11 @@ export function worksheetXml(g: XlsGlobals, sh: XlsSheet, index: number, media: 
       const first = Math.max(c.first, lastMax + 1);
       if (first > c.last) continue;
       lastMax = c.last;
-      cx += `<col min="${first + 1}" max="${c.last + 1}" width="${fmtNum(c.width / 256)}" customWidth="1"`;
+      // até a última coluna do BIFF (IV = 255, ou 256 no registro "resto da linha"):
+      // vale para a linha inteira — o .xls aberto no Excel só tem 256 colunas, então
+      // não sobra coluna "sem formato" (o auto-ajuste não usa a fonte Normal como piso)
+      const max = c.last >= 255 ? 16384 : c.last + 1;
+      cx += `<col min="${first + 1}" max="${max}" width="${fmtNum(c.width / 256)}" customWidth="1"`;
       if (c.hidden) cx += ' hidden="1"';
       if (c.xf > 0 && c.xf < g.xfs.length) cx += ` style="${c.xf}"`;
       cx += '/>';
