@@ -377,11 +377,14 @@ function txBody(env: ShapeEnv, s: XlsShape, obj: ObjInfo | undefined): string {
   const al = obj.txoAlign ?? 0;
   const algn = H_ALIGN[(al >>> 1) & 7] ?? 'l';
   const anchor = V_ANCHOR[(al >>> 4) & 7] ?? 't';
-  const ins = (pid: number, def: number): number => sprop(s, pid) ?? def;
+  // fAutoTextMargin (textBool bit 3): margens automáticas — as que o Excel grava ao converter
+  // a caixa de texto legada para DrawingML (0,03" à esquerda, 0,025" em cima, 0 nos outros lados)
+  const auto = boolProp(s, 0xbf, 3, false);
+  const ins = (pid: number, def: number, autoV: number): number => (auto ? autoV : sprop(s, pid) ?? def);
   const rot = obj.txoRot ?? 0;
   const vert = rot === 1 ? ' vert="wordArtVert"' : rot === 2 ? ' vert="vert270"' : rot === 3 ? ' vert="vert"' : '';
   const wrap = (prop(s, 0x85) ?? 0) === 2 ? 'none' : 'square';
-  const body = `<a:bodyPr vertOverflow="clip" wrap="${wrap}" lIns="${ins(0x81, 91440)}" tIns="${ins(0x82, 45720)}" rIns="${ins(0x83, 91440)}" bIns="${ins(0x84, 45720)}" anchor="${anchor}"${vert}/>`;
+  const body = `<a:bodyPr vertOverflow="clip" wrap="${wrap}" lIns="${ins(0x81, 91440, 27432)}" tIns="${ins(0x82, 45720, 22860)}" rIns="${ins(0x83, 91440, 0)}" bIns="${ins(0x84, 45720, 0)}" anchor="${anchor}"${vert}/>`;
   // runs: [ich, ifnt] ordenados; antes do 1º run, a fonte 0
   const runs = [...(text.runs ?? [])].sort((a, b) => a.ich - b.ich);
   if (!runs.length || runs[0]!.ich > 0) runs.unshift({ ich: 0, ifnt: 0 });
