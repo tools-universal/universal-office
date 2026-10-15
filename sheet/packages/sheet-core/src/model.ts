@@ -101,6 +101,8 @@ export interface Row {
   /** thickTop/thickBot: borda grossa em cima/embaixo — o auto-ajuste do Excel soma 1 px cada (medido). */
   thickTop?: boolean;
   thickBot?: boolean;
+  /** customFormat=1: o `s` da linha vale para as células sem `<c>` (formato da linha inteira). */
+  customFormat?: boolean;
   cells: Cell[];
 }
 

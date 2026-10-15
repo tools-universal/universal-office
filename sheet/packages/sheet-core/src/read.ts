@@ -524,6 +524,7 @@ function readRow(el: XmlElement, cx?: ColorContext, implicitR = 1): Row {
   if (el.attrs['s'] !== undefined) row.style = parseInt(el.attrs['s'], 10);
   if (el.attrs['thickTop'] === '1' || el.attrs['thickTop'] === 'true') row.thickTop = true;
   if (el.attrs['thickBot'] === '1' || el.attrs['thickBot'] === 'true') row.thickBot = true;
+  if (el.attrs['customFormat'] === '1' || el.attrs['customFormat'] === 'true') row.customFormat = true;
   let nextCol = 1;
   for (const cEl of childElements(el, 'c')) {
     const cell = readCell(cEl, cx);

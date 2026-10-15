@@ -111,6 +111,10 @@ export interface SheetView {
   listValRanges: { c1: number; r1: number; c2: number; r2: number }[];
   /** Índice espacial das mesclas (lazy, ver mergeAt). */
   mergeIndex?: MergeIndex;
+  /** Formato da linha inteira (row s + customFormat) — células sem `<c>`. */
+  rowStyles: Map<number, number>;
+  /** Formato da coluna inteira (`<col style>`) — células sem `<c>` nem formato de linha. */
+  colStyles: Map<number, number>;
 }
 
 /** Imagem ancorada na grade, com o bitmap decodificado (quando o navegador decodifica o formato). */
@@ -286,14 +290,18 @@ export class UniversalSheetElement extends HTMLElement {
       // larguras de coluna: <cols> → px pela MDW da fonte Normal. O app de
       // referência aplica `width` mesmo SEM customWidth (customWidth só marca
       // "ajuste manual" p/ o autofit); só ignoramos <col> que não traz width algum.
+      const rowStyles = new Map<number, number>();
+      const colStyles = new Map<number, number>();
       for (const cd of ws.cols ?? []) {
         for (let c = cd.min; c <= cd.max; c++) {
           if (cd.hidden) hiddenCols.add(c);
           if (cd.width !== undefined) colWidths.set(c, colWidthToPx(cd.width, this.mdw));
+          if (cd.style) colStyles.set(c, cd.style);
         }
       }
       for (const row of ws.rows) {
         if (row.hidden) hiddenRows.add(row.r);
+        if (row.customFormat && row.style) rowStyles.set(row.r, row.style);
         if (row.r > maxRow) maxRow = row.r;
         for (const c of row.cells) {
           const { col } = refToRowCol(c.ref);
@@ -416,6 +424,8 @@ export class UniversalSheetElement extends HTMLElement {
         defaultRowH,
         tableDeco,
         listValRanges,
+        rowStyles,
+        colStyles,
       });
       this.fitRowHeights(this.views[this.views.length - 1]!);
     }
@@ -1642,7 +1652,9 @@ export class UniversalSheetElement extends HTMLElement {
 
         const cells = rowMap.get(drow);
         const cell = cells?.get(dcol);
-        let st = this.resolveStyle(cell);
+        // célula sem <c>: vale o formato da linha inteira e, sem ele, o da coluna
+        const lineXf = cell ? undefined : v.rowStyles.get(drow) ?? v.colStyles.get(dcol);
+        let st = this.resolveStyle(cell ?? (lineXf !== undefined ? { ref: '', style: lineXf } : undefined));
         const isEditingThis = this.editing && this.editing.col === dcol && this.editing.row === drow;
 
         // decoração de TABELA (ListObject): fill de header/banda como default
