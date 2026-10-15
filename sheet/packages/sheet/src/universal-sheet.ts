@@ -1985,9 +1985,30 @@ export class UniversalSheetElement extends HTMLElement {
     const edge = (e: Border['left'] | undefined, x1: number, y1: number, x2: number, y2: number, dash: number[]): void => {
       if (!e || !e.style) return;
       ctx.strokeStyle = e.color ?? '#000000';
-      const widths: Record<string, number> = { thin: 1, medium: 2, thick: 3 };
-      ctx.lineWidth = (widths[e.style] ?? 1) * this.zoom;
-      ctx.setLineDash(e.style === 'dashed' ? [4 * this.zoom, 2 * this.zoom] : e.style === 'dotted' ? [1, 2 * this.zoom] : dash);
+      const z = this.zoom;
+      const widths: Record<string, number> = { thin: 1, medium: 2, thick: 3, mediumDashed: 2, mediumDashDot: 2, mediumDashDotDot: 2, slantDashDot: 2 };
+      // padrões de traço do Excel a 100% (medidos no oráculo, lo-cell-borders: hair 1:1,
+      // dotted 2:2, dashed 3:1, traço-ponto 9-3-3-3)
+      const dashes: Record<string, number[]> = {
+        dashed: [3 * z, 1 * z], dotted: [2 * z, 2 * z], hair: [1 * z, 1 * z], mediumDashed: [9 * z, 3 * z],
+        dashDot: [9 * z, 3 * z, 3 * z, 3 * z], mediumDashDot: [9 * z, 3 * z, 3 * z, 3 * z],
+        dashDotDot: [9 * z, 3 * z, 3 * z, 3 * z, 3 * z, 3 * z], mediumDashDotDot: [9 * z, 3 * z, 3 * z, 3 * z, 3 * z, 3 * z],
+        slantDashDot: [11 * z, 1 * z, 5 * z, 1 * z],
+      };
+      if (e.style === 'double') {
+        // duas linhas finas com 1 px entre elas (3 px no total)
+        ctx.lineWidth = 1;
+        ctx.setLineDash(dash);
+        const vert = x1 === x2;
+        for (const d of [-z, z]) {
+          ctx.beginPath();
+          if (vert) { ctx.moveTo(x1 + d, y1); ctx.lineTo(x2 + d, y2); } else { ctx.moveTo(x1, y1 + d); ctx.lineTo(x2, y2 + d); }
+          ctx.stroke();
+        }
+        return;
+      }
+      ctx.lineWidth = (widths[e.style] ?? 1) * z;
+      ctx.setLineDash(dashes[e.style] ?? dash);
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     };
     const noDash: number[] = [];
