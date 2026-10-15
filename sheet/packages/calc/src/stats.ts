@@ -36,9 +36,13 @@ export function xlSum(xs: readonly number[]): number {
   return s;
 }
 
-/** Resultado numérico final: infinito/NaN viram #NUM!. */
+/**
+ * Resultado numérico final: infinito/NaN viram #NUM!; subnormal (|x| < 2,2E−308) vira 0
+ * — o Excel não guarda subnormais (medido: CHISQ.DIST.RT(1500;10) = 0).
+ */
 export function num(x: number): number | CalcError {
-  return Number.isFinite(x) ? x : ERR.NUM;
+  if (!Number.isFinite(x)) return ERR.NUM;
+  return Math.abs(x) < 2.2250738585072014e-308 ? 0 : x;
 }
 
 // ---------------------------------------------------------------------------

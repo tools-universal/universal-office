@@ -493,3 +493,169 @@ const slug = (v) => JSON.stringify(v).replace(/-/g, 'n').replace(/\./g, 'd').rep
   }
   out('db', cases);
 }
+
+// ---------------------------------------------------------------------------
+// stat-dist: distribuições e testes. Grade de parâmetros por função (centro,
+// caudas, bordas) + erros e tipos em cada argumento.
+{
+  const cases = [];
+  const add = (id, fn, args, extra = {}) => cases.push({ id: `stat-dist-${id}`, fn, args, ...extra });
+  /** Casos de uma função sobre o produto cartesiano das listas de valores. */
+  const grid = (fn, lists, tag = '') => {
+    const rec = (i, acc) => {
+      if (i === lists.length) { add(`${fn.toLowerCase()}${tag}-${acc.map(slug).join('_')}`, fn, acc); return; }
+      for (const v of lists[i]) rec(i + 1, [...acc, v]);
+    };
+    rec(0, []);
+  };
+  /** Varia um argumento por vez com valores ruins, a partir de uma base válida. */
+  const bad = (fn, base, values = [S('1'), 'x', true, E('#N/A'), null, -1, 0]) => {
+    base.forEach((_, i) => { for (const v of values) { const a = [...base]; a[i] = v; add(`${fn.toLowerCase()}-bad${i}-${slug(v)}`, fn, a); } });
+  };
+  const X = [-40, -37.6, -37.5, -30, -10, -5.5, -3, -1.96, -1, -0.5, -0.1, 0, 0.1, 0.5, 1, 1.645, 2.5, 4, 6, 9, 15];
+  grid('NORM.S.DIST', [X, [true, false]]);
+  grid('NORMSDIST', [X]);
+  grid('NORM.DIST', [[-3, 0, 1.5, 7, 42], [0, 2.5, -1], [0.5, 1, 3], [true, false]]);
+  grid('NORMDIST', [[-3, 1.5, 42], [2.5], [0.5, 3], [true, false]]);
+  bad('NORM.DIST', [1, 0, 1, true]);
+  const P = [1e-300, 1e-100, 1e-20, 1e-10, 1e-5, 0.001, 0.01, 0.025, 0.05, 0.1, 0.2, 0.25, 0.3, 0.4, 0.45, 0.49, 0.5, 0.51, 0.6, 0.7, 0.75, 0.8, 0.9, 0.95, 0.975, 0.99, 0.999, 0.99999, 0.9999999, 0, 1, -0.1, 1.1];
+  grid('NORM.S.INV', [P]);
+  grid('NORMSINV', [P]);
+  grid('NORM.INV', [[0.001, 0.3, 0.5, 0.9, 0.999999], [0, -2.5, 100], [0.5, 2]]);
+  grid('NORMINV', [[0.3, 0.9], [100], [2]]);
+  bad('NORM.INV', [0.5, 0, 1]);
+  grid('GAUSS', [[-40, -5, -1, -0.1, 0, 0.1, 0.5, 1, 2, 3, 10]]);
+  grid('PHI', [[-40, -5, -1, -0.1, 0, 0.1, 0.5, 1, 2, 3, 10]]);
+  grid('LOGNORM.DIST', [[0.001, 0.5, 1, 2.7, 10, 1000], [0, 1.2], [0.5, 2], [true, false]]);
+  grid('LOGNORMDIST', [[0.5, 2.7, 1000], [0, 1.2], [0.5, 2]]);
+  bad('LOGNORM.DIST', [1, 0, 1, true]);
+  grid('LOGNORM.INV', [[0.001, 0.3, 0.5, 0.9, 0.999], [0, 1.2], [0.5, 2]]);
+  grid('LOGINV', [[0.3, 0.9], [1.2], [0.5]]);
+  bad('LOGNORM.INV', [0.5, 0, 1]);
+  grid('EXPON.DIST', [[0, 1e-10, 0.001, 0.5, 1, 3, 20, 100, 800], [0.5, 1, 10], [true, false]]);
+  grid('EXPONDIST', [[0.5, 3], [1, 10], [true, false]]);
+  bad('EXPON.DIST', [1, 1, true]);
+  grid('WEIBULL.DIST', [[0, 0.001, 0.5, 1, 3, 20], [0.5, 1, 2.5], [1, 3.3], [true, false]]);
+  grid('WEIBULL', [[0.5, 3], [2.5], [3.3], [true, false]]);
+  bad('WEIBULL.DIST', [1, 1, 1, true]);
+  grid('GAMMA.DIST', [[0, 0.001, 0.5, 1, 3, 10, 50, 200], [0.3, 1, 2.5, 10, 100], [0.5, 2], [true, false]]);
+  grid('GAMMADIST', [[0.5, 10], [2.5], [2], [true, false]]);
+  bad('GAMMA.DIST', [1, 1, 1, true]);
+  grid('GAMMA.INV', [[0, 0.001, 0.05, 0.5, 0.95, 0.999999, 1], [0.3, 1, 2.5, 10, 100], [0.5, 2]]);
+  grid('GAMMAINV', [[0.05, 0.95], [2.5], [2]]);
+  bad('GAMMA.INV', [0.5, 1, 1]);
+  grid('GAMMALN', [[0.001, 0.1, 0.5, 0.9999, 1, 1.0001, 1.5, 2, 2.5, 3, 4.5, 7.3, 10, 11.5, 12, 12.5, 33.3, 100, 170.5, 1000, 1e5, 1e10, 1e300, 0, -1, -1.5]]);
+  grid('GAMMALN.PRECISE', [[0.001, 0.5, 1.5, 7.3, 100, 1e10, 0, -2.5]]);
+  grid('GAMMA', [[0.001, 0.1, 0.5, 0.9999, 1, 1.5, 2, 2.5, 3, 4.5, 7.3, 10, 10.1, 33.3, 100.5, 170.5, 171, 171.2, 171.7, 172, 0, -1, -0.5, -1.5, -2.5, -170.5, -171.5, -200.5]]);
+  const CX = [0, 0.001, 0.5, 1, 3.84, 10, 30, 100, 500, 1500];
+  grid('CHISQ.DIST', [CX, [1, 2, 3.7, 10, 100], [true, false]]);
+  grid('CHISQ.DIST.RT', [CX, [1, 2, 3.7, 10, 100]]);
+  grid('CHIDIST', [[0.5, 3.84, 30, 500], [1, 10]]);
+  bad('CHISQ.DIST', [1, 1, true]);
+  bad('CHISQ.DIST.RT', [1, 1]);
+  const CP = [0, 1e-10, 0.001, 0.05, 0.5, 0.95, 0.999, 1 - 1e-10, 1];
+  grid('CHISQ.INV', [CP, [1, 2, 3.7, 10, 100]]);
+  grid('CHISQ.INV.RT', [CP, [1, 2, 3.7, 10, 100]]);
+  grid('CHIINV', [[0.05, 0.5, 0.999], [1, 10]]);
+  bad('CHISQ.INV', [0.5, 1]);
+  bad('CHISQ.INV.RT', [0.5, 1]);
+  grid('BETA.DIST', [[0, 0.001, 0.2, 0.5, 0.8, 0.999, 1], [0.5, 1, 2.5, 30], [0.5, 2, 8], [true, false]]);
+  grid('BETA.DIST', [[2, 3.5, 5], [2], [3], [true, false], [2], [5]], '-ab');
+  grid('BETADIST', [[0.2, 0.8], [2.5], [2], [OMIT, 0], [OMIT, 1]]);
+  grid('BETADIST', [[3.5], [2], [3], [2], [5]], '-ab');
+  bad('BETA.DIST', [0.5, 1, 1, true]);
+  add('beta.dist-xbelow', 'BETA.DIST', [1.5, 2, 3, true, 2, 5]);
+  add('beta.dist-ab-eq', 'BETA.DIST', [2, 2, 3, true, 2, 2]);
+  grid('BETA.INV', [[0, 0.001, 0.05, 0.5, 0.95, 0.999, 1], [0.5, 1, 2.5, 30], [0.5, 2, 8]]);
+  grid('BETA.INV', [[0.3], [2], [3], [2], [5]], '-ab');
+  grid('BETAINV', [[0.05, 0.95], [2.5], [2]]);
+  bad('BETA.INV', [0.5, 1, 1]);
+  const TX = [-40, -10, -3, -1.5, -0.5, 0, 0.5, 1, 1.96, 2.5, 4, 10, 100, 1e5];
+  grid('T.DIST', [TX, [1, 2, 3.7, 10, 30, 1000], [true, false]]);
+  grid('T.DIST.RT', [TX, [1, 2, 10, 1000]]);
+  grid('T.DIST.2T', [TX, [1, 2, 10, 1000]]);
+  grid('TDIST', [[0, 0.5, 1.96, 4, 100, -1], [1, 10], [1, 2, 3, 1.5]]);
+  bad('T.DIST', [1, 1, true]);
+  bad('T.DIST.2T', [1, 1]);
+  const TP = [0, 1e-10, 0.001, 0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.975, 0.999, 1];
+  grid('T.INV', [TP, [1, 2, 3.7, 10, 30, 1000]]);
+  grid('T.INV.2T', [TP, [1, 2, 3.7, 10, 30, 1000]]);
+  grid('TINV', [[0.05, 0.5, 0.001, 1], [1, 10]]);
+  bad('T.INV', [0.5, 1]);
+  bad('T.INV.2T', [0.5, 1]);
+  const FX = [0, 0.001, 0.5, 1, 2.5, 10, 100, 1e4];
+  grid('F.DIST', [FX, [1, 3, 10.5], [1, 4, 50], [true, false]]);
+  grid('F.DIST.RT', [FX, [1, 3, 10.5], [1, 4, 50]]);
+  grid('FDIST', [[0.5, 2.5, 100], [3], [4, 50]]);
+  bad('F.DIST', [1, 1, 1, true]);
+  bad('F.DIST.RT', [1, 1, 1]);
+  const FP = [0, 1e-10, 0.001, 0.05, 0.5, 0.95, 0.999, 1];
+  grid('F.INV', [FP, [1, 3, 10.5], [1, 4, 50]]);
+  grid('F.INV.RT', [FP, [1, 3, 10.5], [1, 4, 50]]);
+  grid('FINV', [[0.05, 0.5], [3], [4]]);
+  bad('F.INV', [0.5, 1, 1]);
+  bad('F.INV.RT', [0.5, 1, 1]);
+  grid('BINOM.DIST', [[0, 1, 3, 5, 10, 2.7], [10, 10.9], [0, 0.01, 0.3, 0.5, 0.99, 1], [true, false]]);
+  grid('BINOM.DIST', [[0, 10, 150, 500, 900, 1000], [1000], [0.001, 0.3, 0.5], [true, false]], '-big');
+  grid('BINOMDIST', [[3, 7], [10], [0.3], [true, false]]);
+  bad('BINOM.DIST', [3, 10, 0.5, true]);
+  add('binom.dist-kgtn', 'BINOM.DIST', [11, 10, 0.5, true]);
+  grid('BINOM.DIST.RANGE', [[10, 100], [0.3, 0.5], [0, 3, 7], [OMIT, 5, 7, 10]]);
+  bad('BINOM.DIST.RANGE', [10, 0.5, 3, 5]);
+  grid('BINOM.INV', [[0, 1, 10, 100, 1000], [0, 0.3, 0.5, 1], [0, 0.001, 0.5, 0.95, 1]]);
+  grid('CRITBINOM', [[10, 100], [0.3], [0.5, 0.95]]);
+  bad('BINOM.INV', [10, 0.5, 0.5]);
+  grid('NEGBINOM.DIST', [[0, 1, 5, 20, 100], [1, 3, 10], [0.05, 0.3, 0.5, 0.9, 1], [true, false]]);
+  grid('NEGBINOMDIST', [[0, 5, 20], [3], [0.3, 0.9]]);
+  bad('NEGBINOM.DIST', [5, 3, 0.5, true]);
+  grid('HYPGEOM.DIST', [[0, 1, 2, 4, 5], [4, 5], [5, 12], [20, 40], [true, false]]);
+  grid('HYPGEOM.DIST', [[30, 50, 70], [100], [300], [600], [true, false]], '-big');
+  grid('HYPGEOMDIST', [[1, 2], [4], [12], [20]]);
+  bad('HYPGEOM.DIST', [1, 4, 5, 20, true]);
+  add('hypgeom.dist-n0', 'HYPGEOM.DIST', [0, 0, 5, 20, true]);
+  add('hypgeom.dist-low', 'HYPGEOM.DIST', [0, 18, 5, 20, false]);
+  grid('POISSON.DIST', [[0, 1, 2.9, 5, 20, 100, 1000], [0, 0.001, 1, 4.5, 50, 900], [true, false]]);
+  grid('POISSON', [[0, 3, 20], [4.5], [true, false]]);
+  bad('POISSON.DIST', [2, 1, true]);
+  grid('CONFIDENCE.NORM', [[0.001, 0.05, 0.5, 0.999], [0.5, 2.5], [1, 10, 50.9]]);
+  grid('CONFIDENCE', [[0.05], [2.5], [10]]);
+  grid('CONFIDENCE.T', [[0.001, 0.05, 0.5, 0.999], [0.5, 2.5], [1, 2, 10, 50.9]]);
+  bad('CONFIDENCE.NORM', [0.05, 1, 10]);
+  bad('CONFIDENCE.T', [0.05, 1, 10]);
+  // testes
+  const A1 = colA([3.1, 4.5, 2.2, 5.8, 4.4, 3.9, 6.1, 2.7]);
+  const B1 = colA([2.8, 5.1, 3.3, 6.2, 4.1, 4.8, 5.9, 3.0, 4.4, 5.2], 'B');
+  const AB = merge(A1, B1);
+  for (const [x, s] of [[4, null], [3, null], [5, 1.5], [10, 2], [-1, 0.5], [4, 0], [4, -1], [S('4'), null], ['x', null]])
+    add(`z.test-${slug([x, s])}`, 'Z.TEST', s === null ? [ref('A1:A8'), x] : [ref('A1:A8'), x, s], { cells: AB });
+  add('ztest-legacy', 'ZTEST', [ref('A1:A8'), 4], { cells: AB });
+  add('z.test-one', 'Z.TEST', [arr([5]), 4]);
+  add('z.test-empty', 'Z.TEST', [ref('D1:D3'), 4], { cells: AB });
+  add('z.test-arr', 'Z.TEST', [ref('A1:A8'), arr([3, 4, 5])], { cells: AB });
+  for (const tails of [1, 2, 3, 1.9]) for (const type of [1, 2, 3, 0, 4])
+    add(`t.test-${tails}-${type}`, 'T.TEST', [ref('A1:A8'), ref(type === 1 ? 'B1:B8' : 'B1:B10'), tails, type], { cells: AB });
+  add('ttest-legacy', 'TTEST', [ref('A1:A8'), ref('B1:B10'), 2, 3], { cells: AB });
+  add('t.test-pair-size', 'T.TEST', [ref('A1:A8'), ref('B1:B10'), 2, 1], { cells: AB });
+  add('t.test-text', 'T.TEST', [ref('A1:A8'), ref('B1:B10'), 2, 2], { cells: merge(AB, { A3: 'x', B4: true }) });
+  add('t.test-pair-text', 'T.TEST', [ref('A1:A8'), ref('B1:B8'), 2, 1], { cells: merge(AB, { A3: 'x' }) });
+  add('t.test-err', 'T.TEST', [ref('A1:A8'), ref('B1:B10'), 2, 2], { cells: merge(AB, { A3: E('#N/A') }) });
+  add('t.test-arr', 'T.TEST', [arr([1, 2, 3, 4]), arr([2, 3, 4, 6]), 2, 2]);
+  add('t.test-one', 'T.TEST', [arr([1]), arr([2, 3, 4, 6]), 2, 2]);
+  add('f.test', 'F.TEST', [ref('A1:A8'), ref('B1:B10')], { cells: AB });
+  add('f.test-rev', 'F.TEST', [ref('B1:B10'), ref('A1:A8')], { cells: AB });
+  add('ftest-legacy', 'FTEST', [ref('A1:A8'), ref('B1:B10')], { cells: AB });
+  add('f.test-const', 'F.TEST', [arr([1, 1, 1]), arr([2, 3, 4])]);
+  add('f.test-one', 'F.TEST', [arr([1]), arr([2, 3, 4])]);
+  add('f.test-text', 'F.TEST', [ref('A1:A8'), ref('B1:B10')], { cells: merge(AB, { A3: 'x' }) });
+  const CT = { A1: 58, B1: 35, A2: 11, B2: 25, A3: 10, B3: 23, D1: 45.35, E1: 47.65, D2: 17.56, E2: 18.44, D3: 16.09, E3: 16.91 };
+  add('chisq.test', 'CHISQ.TEST', [ref('A1:B3'), ref('D1:E3')], { cells: CT });
+  add('chitest', 'CHITEST', [ref('A1:B3'), ref('D1:E3')], { cells: CT });
+  add('chisq.test-row', 'CHISQ.TEST', [ref('A1:B1'), ref('D1:E1')], { cells: CT });
+  add('chisq.test-col', 'CHISQ.TEST', [ref('A1:A3'), ref('D1:D3')], { cells: CT });
+  add('chisq.test-size', 'CHISQ.TEST', [ref('A1:B3'), ref('D1:E2')], { cells: CT });
+  add('chisq.test-zero', 'CHISQ.TEST', [ref('A1:B3'), ref('D1:E3')], { cells: merge(CT, { D2: 0 }) });
+  add('chisq.test-text', 'CHISQ.TEST', [ref('A1:B3'), ref('D1:E3')], { cells: merge(CT, { A2: 'x' }) });
+  add('chisq.test-one', 'CHISQ.TEST', [ref('A1'), ref('D1')], { cells: CT });
+  add('chisq.test-arr', 'CHISQ.TEST', [arr([10, 20], [30, 40]), arr([12, 18], [28, 42])]);
+  out('stat-dist', cases);
+}
