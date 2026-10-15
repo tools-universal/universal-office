@@ -127,8 +127,10 @@ function convert(bytes: Uint8Array): XlsxPackage {
     byIndex[i] = sheet;
     const fa = sheet.hasAutoFilter ? g.filterDb.get(i) : undefined;
     if (fa) sheet.autoFilter = [fa.r1, fa.c1, fa.r2, fa.c2];
-    let name = info.name.trim() ? info.name : `Planilha${sheets.length + 1}`;
-    for (let k = 2; usedNames.has(name.toLowerCase()); k++) name = `${info.name} (${k})`;
+    // o Excel corta o nome da aba em 31 caracteres (gravadores de terceiros passam disso)
+    const base = (info.name.trim() ? info.name : `Planilha${sheets.length + 1}`).slice(0, 31);
+    let name = base;
+    for (let k = 2; usedNames.has(name.toLowerCase()); k++) name = `${base.slice(0, 31 - String(k).length - 3)} (${k})`;
     usedNames.add(name.toLowerCase());
     if (i === g.activeTab) activeOut = sheets.length;
     sheets.push({ name, state: info.state, sheet, chart: isChart });
