@@ -10,7 +10,7 @@ import {
 } from '@universal/sheet-core';
 import {
   bisectLE, pxToIndex, indexScreenPos, boundaryAt, pxToColWidthChars, pxToRowHeightPt,
-  layoutRichLines, PATTERN_MASKS, type RichSeg,
+  layoutRichLines, PATTERN_MASKS, MergeIndex, type RichSeg, type MergeRect,
 } from './grid-layout.js';
 
 /**
@@ -100,6 +100,8 @@ export interface SheetView {
   tableDeco: Map<string, TableDeco>;
   /** Ranges (1-based, inclusivos) com validação de LISTA — dropdown na seleção. */
   listValRanges: { c1: number; r1: number; c2: number; r2: number }[];
+  /** Índice espacial das mesclas (lazy, ver mergeAt). */
+  mergeIndex?: MergeIndex;
 }
 
 /** Decoração derivada do estilo da tabela para UMA célula. */
@@ -1802,16 +1804,22 @@ export class UniversalSheetElement extends HTMLElement {
   private mergeAt(col: number, row: number): { firstCol: number; lastCol: number; firstRow: number; lastRow: number; isOrigin: boolean } | null {
     const v = this.view;
     if (!v || v.merges.size === 0) return null;
-    for (const [, range] of v.merges) {
-      const [a, b] = range.split(':');
-      if (!a || !b) continue;
-      const s = refToRowCol(a);
-      const e = refToRowCol(b);
-      if (col >= s.col && col <= e.col && row >= s.row && row <= e.row) {
-        return { firstCol: s.col, lastCol: e.col, firstRow: s.row, lastRow: e.row, isOrigin: col === s.col && row === s.row };
+    // índice espacial construído na 1ª consulta (a busca linear travava com milhares de mesclas)
+    if (!v.mergeIndex) {
+      const rects: MergeRect[] = [];
+      for (const [, range] of v.merges) {
+        const [a, b] = range.split(':');
+        if (!a || !b) continue;
+        try {
+          const s = refToRowCol(a), e = refToRowCol(b);
+          rects.push({ c1: s.col, r1: s.row, c2: e.col, r2: e.row });
+        } catch { /* ref inválida: ignora a mescla */ }
       }
+      v.mergeIndex = new MergeIndex(rects);
     }
-    return null;
+    const m = v.mergeIndex.at(col, row);
+    if (!m) return null;
+    return { firstCol: m.c1, lastCol: m.c2, firstRow: m.r1, lastRow: m.r2, isOrigin: col === m.c1 && row === m.r1 };
   }
 
   private paintBorder(ctx: CanvasRenderingContext2D, border: Border, left: number, top: number, w: number, h: number): void {

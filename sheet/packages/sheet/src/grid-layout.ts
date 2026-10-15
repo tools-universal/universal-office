@@ -224,3 +224,36 @@ export function layoutRichLines(
   lines.push(line);
   return lines;
 }
+
+/** Retângulo de mescla (1-based, inclusivo). */
+export interface MergeRect { c1: number; r1: number; c2: number; r2: number }
+
+/**
+ * Índice espacial das mesclas: blocos de 64×64 células → mesclas que os tocam
+ * (mescla enorme vai para uma lista "grande", sempre consultada). A busca era
+ * linear por célula pintada — 50 mil mesclas travavam a pintura.
+ */
+export class MergeIndex {
+  private blocks = new Map<number, MergeRect[]>();
+  private big: MergeRect[] = [];
+  constructor(rects: MergeRect[]) {
+    for (const m of rects) {
+      const bc1 = (m.c1 - 1) >> 6, bc2 = (m.c2 - 1) >> 6, br1 = (m.r1 - 1) >> 6, br2 = (m.r2 - 1) >> 6;
+      if ((bc2 - bc1 + 1) * (br2 - br1 + 1) > 256) { this.big.push(m); continue; }
+      for (let br = br1; br <= br2; br++) {
+        for (let bc = bc1; bc <= bc2; bc++) {
+          const k = br * 1024 + bc;
+          const list = this.blocks.get(k);
+          if (list) list.push(m); else this.blocks.set(k, [m]);
+        }
+      }
+    }
+  }
+  /** Mescla que contém a célula (col,row), se houver. */
+  at(col: number, row: number): MergeRect | undefined {
+    const list = this.blocks.get(((row - 1) >> 6) * 1024 + ((col - 1) >> 6));
+    if (list) for (const m of list) if (col >= m.c1 && col <= m.c2 && row >= m.r1 && row <= m.r2) return m;
+    for (const m of this.big) if (col >= m.c1 && col <= m.c2 && row >= m.r1 && row <= m.r2) return m;
+    return undefined;
+  }
+}
