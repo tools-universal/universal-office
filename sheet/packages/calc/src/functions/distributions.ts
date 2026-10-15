@@ -206,9 +206,14 @@ register(
 // ---------------------------------------------------------------------------
 // Gama e qui-quadrado
 
-/** Densidade gama (forma a, escala b), como o dgamma do R (Poisson de Loader). */
+/**
+ * Densidade gama (forma a, escala b): x^(a−1)·e^(−x/b) / (b^a·Γ(a)) direto — é o que
+ * mais bate com o Excel (medido); se estourar, a forma de Loader (dgamma do R).
+ */
 function gammaPdf(x: number, a: number, b: number): number {
   if (x === 0) return a <= 1 ? NaN : 0; // medido: forma ≤ 1 em x = 0 → #NUM!
+  const direct = Math.pow(x, a - 1) * Math.exp(-x / b) / (Math.pow(b, a) * Math.exp(lgamma(a)));
+  if (Number.isFinite(direct) && direct > 1e-300) return direct;
   const y = x / b;
   if (a >= 1) return dpoisRaw(a - 1, y) / b;
   return dpoisRaw(a, y) * a / x;
@@ -532,8 +537,8 @@ function binomInv(a: readonly Scalar[], ctx: FnContext): Value {
 }
 
 function negbinomPmf(f: number, s: number, p: number): number {
-  // C(f+s−1, f) p^s (1−p)^f = s/(f+s) · dbinom(s, f+s, p)
-  return (s / (f + s)) * dbinomRaw(s, f + s, p, 1 - p);
+  // C(f+s−1, f) p^s (1−p)^f = p · dbinom(s−1; f+s−1, p) (medido: a forma que mais bate)
+  return p * dbinomRaw(s - 1, f + s - 1, p, 1 - p);
 }
 
 function negbinomDist(a: readonly Scalar[], ctx: FnContext, legacy: boolean): Value {
