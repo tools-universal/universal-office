@@ -90,7 +90,11 @@ function frexp(x: number): [number, number] {
   return [m, e];
 }
 
-/** GEOMEAN: produto das mantissas e soma dos expoentes (sem estouro), raiz n-ésima de cada parte. */
+/**
+ * GEOMEAN: produto das mantissas (frexp, em [0,5; 1)) e soma dos expoentes; o expoente
+ * é dividido em q·n + r e o resto entra na raiz: (m·2^r)^(1/n)·2^q (medido: 26/30 bit
+ * a bit, 30/30 nos 15 dígitos). A mantissa só é renormalizada se ficar minúscula.
+ */
 const aggGeomean: Agg = (xs) => {
   if (!xs.length) return ERR.NUM;
   let m = 1, e = 0;
@@ -98,11 +102,12 @@ const aggGeomean: Agg = (xs) => {
     if (x <= 0) return ERR.NUM;
     const [mm, ee] = frexp(x);
     m *= mm; e += ee;
-    const [m2, e2] = frexp(m);
-    m = m2; e += e2;
+    if (m < 1e-150) { const [m2, e2] = frexp(m); m = m2; e += e2; }
   }
   const n = xs.length;
-  return num(m ** (1 / n) * 2 ** (e / n));
+  const q = Math.floor(e / n), r = e - q * n;
+  if (r > 600 || m < 1e-150) return num(Math.pow(m, 1 / n) * 2 ** (e / n)); // n enorme: sem estouro
+  return num(Math.pow(m * 2 ** r, 1 / n) * 2 ** q);
 };
 const aggHarmean: Agg = (xs) => {
   if (!xs.length) return ERR.NA;
