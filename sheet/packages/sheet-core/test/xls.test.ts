@@ -482,6 +482,27 @@ describe('.xls — grupos, formas livres, formas ocultas e metroBlob', () => {
     expect(xml).toContain('<a:path w="100" h="100"><a:moveTo><a:pt x="0" y="100"/></a:moveTo><a:lnTo><a:pt x="50" y="0"/></a:lnTo><a:lnTo><a:pt x="100" y="100"/></a:lnTo><a:close/></a:path>');
   });
 
+  it('desenho continuado em CONTINUE depois do TXO (e do OBJ) não se perde', () => {
+    const box = oa(0xf004, 0, 0xf, [...oa(0xf00a, 202, 2, [...u32(1025), ...u32(0xa00)]), ...oa(0xf010, 0, 0, anchor(1, 1, 3, 3)), ...clientData]);
+    const tb = oa(0xf00d, 0, 0, []);
+    const rect = oa(0xf004, 0, 0xf, [...oa(0xf00a, 1, 2, [...u32(1026), ...u32(0xa00)]), ...fopt([[0x181, 0x000000ff]]), ...oa(0xf010, 0, 0, anchor(4, 1, 6, 3)), ...clientData]);
+    const all = oa(0xf002, 1, 0xf, [...oa(0xf008, 2, 0, [...u32(3), ...u32(1026)]), ...oa(0xf003, 0, 0xf, [...patriarch, ...box, ...tb, ...rect])]);
+    const cut1 = all.length - rect.length - tb.length;
+    const obj = (ot: number, n: number): Rec => rec(RT.OBJ, [...u16(0x15), ...u16(0x12), ...u16(ot), ...u16(n), ...u16(0x6011), ...new Array(12).fill(0), ...u32(0)]);
+    const recs2: Rec[] = [
+      rec(RT.MSODRAWING, all.slice(0, cut1)), obj(6, 1),
+      rec(RT.CONTINUE, tb), // ClientTextbox como CONTINUE do OBJ
+      rec(RT.TXO, [...u16(2 << 1), ...u16(0), ...new Array(6).fill(0), ...u16(2), ...u16(16), ...u16(0), ...u32(0)]),
+      rec(RT.CONTINUE, [0, ...chars('Oi', false)]),
+      rec(RT.CONTINUE, [...u16(0), ...u16(0), ...u32(0), ...u16(2), ...u16(0), ...u32(0)]),
+      rec(RT.CONTINUE, all.slice(cut1 + tb.length)), // a forma seguinte, como CONTINUE do TXO
+      obj(2, 2),
+    ];
+    const x = openSpreadsheet(buildXls([...defaultFormatting()], [{ name: 'C', recs: recs2 }])).getPartText('xl/drawings/drawing1.xml') ?? '';
+    expect(x).toContain('<a:t>Oi</a:t>');
+    expect(x).toContain('<a:srgbClr val="FF0000"/>');
+  });
+
   it('forma oculta fica de fora; metroBlob com âncora igual vale no lugar do binário', () => {
     expect(xml.match(/<xdr:twoCellAnchor/g)?.length).toBe(2);
     expect(xml).toContain('<a:schemeClr val="accent2"/>');

@@ -172,6 +172,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
     : undefined;
   const drawing: Uint8Array[] = [];
   let drawingLen = 0;
+  const addDrawing = (d: Uint8Array): void => { drawing.push(d); drawingLen += d.length; };
   let pendingFormula: { row: number; col: number; xf: number; fx: string; expKey?: string } | undefined;
   // texto das fórmulas (<f>): diretas, compartilhadas (ptgExp → SHRFMLA) e matriciais (ARRAY);
   // o SHRFMLA/ARRAY vem DEPOIS da 1ª célula — ela recebe o <f> quando ele chegar
@@ -479,28 +480,42 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
           lastObj = { ot: r.u16(4), id: r.u16(6), drawingAt: drawingLen };
           sh.objs.push(lastObj);
         }
+        // CONTINUE depois do OBJ = continuação do DESENHO (o Excel grava o
+        // MSODRAWING seguinte — ex.: o ClientTextbox — como CONTINUE)
+        if (rec.conts.length) addDrawing(rec.data.subarray(rec.conts[0]!));
         break;
       }
       case RT.TXO: {
-        if (!b8 || !lastObj || !rec.conts.length) break;
-        const cch = r.u16(10);
-        const c0 = rec.conts[0]!;
-        const t = readChars(r, c0 + 1, cch, (r.u8(c0) & 1) !== 0, rec.conts);
-        const rs: RichString = { text: t.text };
-        // runs (8 bytes: ich, ifnt, 4 reservados) no CONTINUE seguinte ao texto
-        const runStart = rec.conts.find((c) => c >= t.next);
-        if (runStart !== undefined) {
-          const runs: FormatRun[] = [];
-          for (let o = runStart; o + 8 <= r.length; o += 8) {
-            const ich = r.u16(o);
-            if (ich >= cch) break;
-            runs.push({ ich, ifnt: r.u16(o + 2) });
+        if (!b8) break;
+        const cch = r.u16(10), cbRuns = r.u16(12);
+        let end = rec.conts[0] ?? r.length; // fim do que é do TXO (texto + formatações)
+        if (cch && rec.conts.length) {
+          const c0 = rec.conts[0]!;
+          const t = readChars(r, c0 + 1, cch, (r.u8(c0) & 1) !== 0, rec.conts);
+          end = t.next;
+          const rs: RichString = { text: t.text };
+          // runs (8 bytes: ich, ifnt, 4 reservados) no CONTINUE seguinte ao texto
+          const runStart = rec.conts.find((c) => c >= t.next);
+          if (runStart !== undefined && cbRuns) {
+            const runEnd = Math.min(r.length, runStart + cbRuns);
+            end = runEnd;
+            const runs: FormatRun[] = [];
+            for (let o = runStart; o + 8 <= runEnd; o += 8) {
+              const ich = r.u16(o);
+              if (ich >= cch) break;
+              runs.push({ ich, ifnt: r.u16(o + 2) });
+            }
+            if (runs.length) rs.runs = runs;
           }
-          if (runs.length) rs.runs = runs;
+          if (lastObj) lastObj.text = rs;
         }
-        lastObj.text = rs;
-        lastObj.txoAlign = r.u16(0);
-        lastObj.txoRot = r.u16(2);
+        if (lastObj) {
+          lastObj.txoAlign = r.u16(0);
+          lastObj.txoRot = r.u16(2);
+        }
+        // CONTINUE além do texto e das formatações = continuação do DESENHO (forma seguinte)
+        const tail = rec.conts.find((c) => c >= end);
+        if (tail !== undefined) addDrawing(rec.data.subarray(tail));
         break;
       }
       case RT.CONDFMT: {
@@ -529,8 +544,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
         sh.hasAutoFilter = true;
         break;
       case RT.MSODRAWING:
-        drawing.push(rec.data);
-        drawingLen += rec.data.length;
+        addDrawing(rec.data);
         break;
     }
   }
