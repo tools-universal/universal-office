@@ -106,6 +106,7 @@ function numericGrid(v: Value, ctx: FnContext): { rows: number; cols: number; da
     if (typeof x !== 'number') return ERR.VALUE;
     data.push(x);
   }
+  if (!data.length) return ERR.VALUE;
   return { rows: g.rows, cols: g.cols, data };
 }
 
@@ -247,6 +248,7 @@ function design(yArg: Value, xArg: Value | null, ctx: FnContext, logY: boolean):
     if (xg.data.length !== n) return ERR.REF;
     cols.push(xg.data);
   }
+  if (!cols.length || cols.some((c) => c.length !== n)) return ERR.REF;
   return { y, cols, byRow };
 }
 
