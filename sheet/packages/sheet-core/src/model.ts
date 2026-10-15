@@ -260,10 +260,16 @@ export interface DrawingAnchor {
 /** Chart embutido com sua âncora e XML cru (parseado on-demand pela engine). */
 export interface DrawingChart {
   anchor: DrawingAnchor;
-  /** XML de `xl/charts/chartN.xml`. */
+  /** XML de `xl/charts/chartN.xml` (ou `chartExN.xml`). */
   chartXml: string;
   /** Posição na ordem do desenho (z-order, contando os demais objetos). */
   order?: number;
+  /** Nome do objeto (`xdr:cNvPr name`) — o `ChartObject.Name` do Excel. */
+  name?: string;
+  /** Caminho da parte do gráfico no pacote (rels: desenho do gráfico, imagens). */
+  part?: string;
+  /** `chartex` = `cx:chart` do Office 2016 (cascata, funil, histograma…). */
+  kind?: 'chart' | 'chartex';
 }
 
 /**
@@ -398,6 +404,8 @@ export interface Worksheet {
   charts?: DrawingChart[];
   /** Imagens/formas/grupos do mesmo desenho (intercalados com os charts por `order`). */
   drawings?: DrawingObject[];
+  /** Aba de GRÁFICO (`<chartsheet>`): zoom da vista e "ajustar à janela". */
+  chartsheet?: { zoom: number; zoomToFit: boolean };
   /** Hyperlinks (<hyperlinks>) com targets externos resolvidos via rels. */
   hyperlinks?: Hyperlink[];
   /** Defaults de largura/altura do grid (<sheetFormatPr>). */

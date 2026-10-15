@@ -38,14 +38,16 @@ describe('readDrawing (xl/drawings/drawingN.xml)', () => {
     expect(a!.part).toBe('xl/drawings/drawing1.xml');
   });
 
-  it('mc:AlternateContent: a14 usa o Choice; gráfico estendido (cx) não desenha nem o aviso do Fallback', () => {
+  it('mc:AlternateContent: a14 usa o Choice; gráfico estendido (cx) vira gráfico, sem o aviso do Fallback', () => {
     const pkg = pkgWith(
       `<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" Requires="a14"><xdr:twoCellAnchor>${cell('from', 0, 0, 0, 0)}${cell('to', 1, 0, 1, 0)}${sp('Controle')}<xdr:clientData/></xdr:twoCellAnchor></mc:Choice><mc:Fallback/></mc:AlternateContent>`
-      + `<xdr:twoCellAnchor>${cell('from', 0, 0, 0, 0)}${cell('to', 1, 0, 1, 0)}<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:cx1="http://schemas.microsoft.com/office/drawing/2015/9/8/chartex" Requires="cx1"><xdr:graphicFrame/></mc:Choice><mc:Fallback>${sp('Aviso')}</mc:Fallback></mc:AlternateContent><xdr:clientData/></xdr:twoCellAnchor>`,
+      + `<xdr:twoCellAnchor>${cell('from', 0, 0, 0, 0)}${cell('to', 1, 0, 1, 0)}<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:cx1="http://schemas.microsoft.com/office/drawing/2015/9/8/chartex" Requires="cx1"><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="4" name="Cascata"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/><a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/drawing/2014/chartex"><cx:chart xmlns:cx="http://schemas.microsoft.com/office/drawing/2014/chartex" r:id="rIdC"/></a:graphicData></a:graphic></xdr:graphicFrame></mc:Choice><mc:Fallback>${sp('Aviso')}</mc:Fallback></mc:AlternateContent><xdr:clientData/></xdr:twoCellAnchor>`,
     );
     const d = readDrawing(pkg, 'xl/drawings/drawing1.xml');
     expect(d.objects).toHaveLength(1);
     expect(d.objects[0]!.el.name).toBe('xdr:sp');
+    expect(d.charts).toHaveLength(1);
+    expect(d.charts[0]).toMatchObject({ kind: 'chartex', name: 'Cascata', part: 'xl/charts/chart1.xml' });
   });
 
   it('prefixo do SpreadsheetDrawing diferente de xdr: é normalizado', () => {

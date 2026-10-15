@@ -3,7 +3,7 @@ export { xlsToXlsxPackage, isXlsBytes, XlsFormatError, XlsEncryptedError } from 
 export { openSpreadsheet } from './open.js';
 export { updateWorksheetXml, serializeSheetData, serializeCols } from './serialize.js';
 export { parseXml, childElements, firstChild, textContent, type XmlElement } from './xml.js';
-export { parseChart, paintChart, type ChartModel, type ChartSeries, type ChartType } from './chart.js';
+export { parseChart, paintChart, chartFileFormat, chartModelFor, type ChartModel, type ChartSeries, type ChartType } from './chart.js';
 export { readDrawing, readAnchor, type DrawingContent } from './drawing.js';
 export {
   readWorkbook,

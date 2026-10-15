@@ -2,7 +2,7 @@ import { FontResolver, variantOf } from '@universal-office/fonts';
 import {
   XlsxPackage, openSpreadsheet, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
-  parseChart, paintChart, excelMdw, excelRowPx, colWidthToPx, defaultColPx, rowPtToPx, ppemOf, measuredFamily,
+  chartModelFor, paintChart, excelMdw, excelRowPx, colWidthToPx, defaultColPx, rowPtToPx, ppemOf, measuredFamily,
   type ChartModel, type Theme,
   type Workbook, type Worksheet, type Cell, type SharedString, type Styles, type Font, type Fill,
   type Border, type BorderEdge, type PaneInfo, type CondFormat, type ColDef, type FormatResult,
@@ -1502,6 +1502,7 @@ export class UniversalSheetElement extends HTMLElement {
       return;
     }
 
+    if (v.worksheet.chartsheet) { this.paintChartsheet(ctx, v, W, H); return; }
     this.status.textContent = rowColToRef(this.sel.col, this.sel.row);
 
     const vw = W - HEADER_W;
@@ -1837,8 +1838,8 @@ export class UniversalSheetElement extends HTMLElement {
       // espelhada, sem inverter o conteúdo
       const dx = this.mirrorW ? this.mirrorW - 2 * x - r.w : 0;
       if (dx) { ctx.save(); ctx.translate(dx, 0); }
-      if ('chartXml' in it) this.paintAnchoredChart(ctx, it.chartXml, { x, y, w: r.w, h: r.h });
-      else layer?.paint(ctx, it, r, sx, sy, this.zoom, this.shapeFontStack, (xml, cr) => this.paintAnchoredChart(ctx, xml, cr));
+      if ('chartXml' in it) this.paintAnchoredChart(ctx, it, { x, y, w: r.w, h: r.h });
+      else layer?.paint(ctx, it, r, sx, sy, this.zoom, this.shapeFontStack, (xml, cr) => this.paintAnchoredChart(ctx, { chartXml: xml }, cr));
       if (dx) ctx.restore();
     }
   }
@@ -1865,15 +1866,40 @@ export class UniversalSheetElement extends HTMLElement {
     await layer.settled();
   }
 
-  /** Um gráfico (XML de `chartN.xml`) no retângulo da âncora (px no canvas). */
-  private paintAnchoredChart(ctx: CanvasRenderingContext2D, chartXml: string, r: Rect): void {
+  /**
+   * Um gráfico (`chartN.xml`, ou `chartExN.xml`) no retângulo da âncora (px no
+   * canvas), com os dados das células e o desenho do gráfico (`part`).
+   */
+  private paintAnchoredChart(ctx: CanvasRenderingContext2D, ch: { chartXml: string; part?: string }, r: Rect): void {
+    const chartXml = ch.chartXml;
     const { x, y, w, h } = r;
     if (w <= 0 || h <= 0) return;
     let model = this.chartCache.get(chartXml);
-    if (!model) { model = parseChart(chartXml, this.chartTheme); this.chartCache.set(chartXml, model); }
+    if (!model) { model = chartModelFor(this.pkg!, ch, this.chartTheme); this.chartCache.set(chartXml, model); }
     // px por pt: 96/72 na base, escalado pelo zoom (tipografia do chart).
     // Moldura: a cor das linhas default do gráfico (o Excel desenha; medido #898989).
     paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72);
+  }
+
+  /**
+   * Aba de GRÁFICO (`<chartsheet>`): sem grade nem cabeçalhos, o gráfico da
+   * âncora absoluta na escala da vista — `zoomScale` (o Chart.Export do Excel
+   * sai nessa escala, medido: 84% → 0,84 × pt × 96/72) ou ajustado à janela.
+   */
+  private paintChartsheet(ctx: CanvasRenderingContext2D, v: SheetView, W: number, H: number): void {
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, W, H);
+    const cs = v.worksheet.chartsheet!;
+    for (const ch of v.charts) {
+      const ext = ch.anchor.ext;
+      if (!ext || ext.cx <= 0 || ext.cy <= 0) continue;
+      const px = (ch.anchor.pos?.x ?? 0) / 9525, py = (ch.anchor.pos?.y ?? 0) / 9525;
+      const pw = ext.cx / 9525, ph = ext.cy / 9525;
+      const k = cs.zoomToFit ? Math.min(W / (pw + 2 * px), H / (ph + 2 * py)) : cs.zoom / 100 * this.zoom;
+      let model = this.chartCache.get(ch.chartXml);
+      if (!model) { model = chartModelFor(this.pkg!, ch, this.chartTheme); this.chartCache.set(ch.chartXml, model); }
+      paintChart(ctx, model, px * k, py * k, pw * k, ph * k, k * 96 / 72);
+    }
   }
 
   /**

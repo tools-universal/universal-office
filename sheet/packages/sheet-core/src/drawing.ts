@@ -18,14 +18,17 @@ export interface DrawingContent {
 }
 
 /**
- * `mc:Choice` cujo conteúdo o Excel atual desenha e nós NÃO (gráficos
- * estendidos `cx:`, segmentações `sle15`, linhas do tempo `tsle`): o Fallback
+ * `mc:Choice` cujo conteúdo o Excel atual desenha e nós NÃO (segmentações
+ * `sle15`, linhas do tempo `tsle`): o Fallback
  * é só o aviso "não disponível nesta versão", que o Excel nunca mostra — o
  * objeto fica de fora.
  */
-const UNRENDERED_CHOICE = /^(cx\d*|sle15|tsle)$/;
-/** `mc:Choice` com extensões que o leitor DrawingML entende (o resto vai ao Fallback). */
-const KNOWN_CHOICE = /^(a14|a15|a16|x14|x15)$/;
+const UNRENDERED_CHOICE = /^(sle15|tsle)$/;
+/**
+ * `mc:Choice` com extensões que o leitor DrawingML entende (o resto vai ao
+ * Fallback); `cx` = gráficos do Office 2016 (chartex), desenhados pelo motor de gráficos.
+ */
+const KNOWN_CHOICE = /^(a14|a15|a16|x14|x15|cx\d*)$/;
 
 /** Ramo efetivo de um `mc:AlternateContent` (undefined = nada a desenhar). */
 function alternate(alt: XmlElement): XmlElement | undefined {
@@ -228,11 +231,15 @@ export function readDrawing(pkg: XlsxPackage, drawingPath: string): DrawingConte
     const idx = order++;
     if (obj.name === 'xdr:graphicFrame') {
       const data = firstChild(firstChild(obj, 'a:graphic') ?? obj, 'a:graphicData');
-      const chartEl = data ? firstChild(data, 'c:chart') : undefined;
+      const chartEl = data ? firstChild(data, 'c:chart') ?? firstChild(data, 'cx:chart') : undefined;
       if (chartEl) {
         const path = rels.get(chartEl.attrs['r:id'] ?? chartEl.attrs['id'] ?? '');
         const chartXml = path ? pkg.getPartText(path) : undefined;
-        if (chartXml) out.charts.push({ anchor, chartXml, order: idx });
+        if (path && chartXml) {
+          // nome (= ChartObject.Name do Excel) e parte (rels: desenho do gráfico); cx: = chartex
+          const name = firstChild(firstChild(obj, 'xdr:nvGraphicFramePr') ?? obj, 'xdr:cNvPr')?.attrs['name'];
+          out.charts.push({ anchor, chartXml, order: idx, part: path, ...(name ? { name } : {}), ...(chartEl.name === 'cx:chart' ? { kind: 'chartex' as const } : {}) });
+        }
         continue;
       }
     }

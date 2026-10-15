@@ -3,9 +3,10 @@
  * mesmo do Slides). Aqui só a ponte — XML pelo parser do sheet-core, cores
  * DrawingML pelo tema do workbook — e um resumo do modelo (tipo/título/séries).
  */
-import { parseChartSpace, parsePaint, paintChartSpace, dmlColor, type ChartSpace, type XmlNode } from '@universal-office/charts';
+import { parseChartSpace, parsePaint, paintChartSpace, dmlColor, canonicalNs, type ChartSpace, type XmlNode } from '@universal-office/charts';
 import { parseXml, type XmlElement } from './xml.js';
 import type { Theme } from './theme.js';
+import type { XlsxPackage } from './package.js';
 
 export type ChartType = 'bar-col' | 'bar-row' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'radar' | 'area' | 'unknown';
 
@@ -26,11 +27,16 @@ const FALLBACK: Record<string, string> = {
   hlink: '#0563C1', folHlink: '#954F72',
 };
 
-export function parseChart(xml: string, theme?: Theme): ChartModel {
+/**
+ * `fileFormat`: quem gravou a pasta (`chartFileFormat`) — muda o sentido de
+ * elementos ausentes (ver `ChartHost.fileFormat`).
+ */
+export function parseChart(xml: string, theme?: Theme, fileFormat?: 'mso2007' | 'modern'): ChartModel {
   let root: XmlElement;
-  try { root = parseXml(xml); } catch { root = { name: 'c:chartSpace', attrs: {}, children: [] }; }
+  try { root = canonicalNs(parseXml(xml) as XmlNode) as XmlElement; } catch { root = { name: 'c:chartSpace', attrs: {}, children: [] }; }
   const scheme = { ...FALLBACK, ...(theme?.byName ?? {}) };
   const space = parseChartSpace(root as XmlNode, {
+    ...(fileFormat ? { fileFormat } : {}),
     color: (el) => dmlColor(el, scheme),
     fonts: { ...(theme?.fonts?.minor ? { minor: theme.fonts.minor } : { minor: 'Calibri' }), ...(theme?.fonts?.major ? { major: theme.fonts.major } : {}) },
     fillStyle: (idx, ph) => {
@@ -55,6 +61,30 @@ export function parseChart(xml: string, theme?: Theme): ChartModel {
   }
   const title = space.title?.paras?.map((p) => p.runs.map((r) => r.text).join('')).join('\n') || space.title?.text;
   return { space, type, series, categories, ...(title ? { title } : {}) };
+}
+
+/** Modelo de um gráfico ancorado da pasta (o que o `<universal-sheet>` pinta). */
+export function chartModelFor(pkg: XlsxPackage, ch: { chartXml: string; part?: string }, theme?: Theme): ChartModel {
+  return parseChart(ch.chartXml, theme, chartFileFormat(pkg));
+}
+
+const formatCache = new WeakMap<XlsxPackage, 'mso2007' | 'modern'>();
+
+/**
+ * Pasta gravada pelo Excel 2007 (`docProps/app.xml`: Application "Microsoft…"
+ * e AppVersion 12.x) ou posterior/outro gerador — o Office lê os gráficos do
+ * 2007 com o sentido antigo de elementos ausentes e booleanos sem val.
+ */
+export function chartFileFormat(pkg: XlsxPackage): 'mso2007' | 'modern' {
+  let f = formatCache.get(pkg);
+  if (!f) {
+    const app = pkg.getPartText('docProps/app.xml') ?? '';
+    const name = /<Application>([^<]*)</.exec(app)?.[1]?.trim() ?? '';
+    const ver = /<AppVersion>([^<]*)</.exec(app)?.[1]?.trim() ?? '';
+    f = /^Microsoft/i.test(name) && /^12\./.test(ver) ? 'mso2007' : 'modern';
+    formatCache.set(pkg, f);
+  }
+  return f;
 }
 
 /**

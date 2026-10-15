@@ -307,6 +307,7 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (comments.length > 0) ws.comments = comments;
   if (charts.length > 0) ws.charts = charts;
   if (drawing.objects.length > 0) ws.drawings = drawing.objects;
+  if (root.name === 'chartsheet') ws.chartsheet = chartsheetView(root);
   if (hyperlinks.length > 0) ws.hyperlinks = hyperlinks;
   if (sheetFormatPr) ws.sheetFormatPr = sheetFormatPr;
   if (tables.length > 0) ws.tables = tables;
@@ -356,6 +357,14 @@ export function readAutoFilter(af: XmlElement, fallbackRef: string): AutoFilterI
     if (childElements(fc).length > 0) (info.active ??= []).push(id);
   }
   return info;
+}
+
+/** `<chartsheet>`: zoom da vista (`zoomScale`, %) e "ajustar à janela" (`zoomToFit`). */
+function chartsheetView(root: XmlElement): { zoom: number; zoomToFit: boolean } {
+  const sv = firstChild(firstChild(root, 'sheetViews') ?? root, 'sheetView');
+  const z = parseInt(sv?.attrs['zoomScale'] ?? '100', 10);
+  const fit = sv?.attrs['zoomToFit'];
+  return { zoom: Number.isFinite(z) && z >= 10 && z <= 400 ? z : 100, zoomToFit: fit === '1' || fit === 'true' };
 }
 
 /** Procura no `.rels` de uma parte o primeiro relacionamento cujo Type termina em `typeSuffix`. */
