@@ -24,6 +24,50 @@ export interface Workbook {
   activeTab?: number;
   /** Sistema de data 1904 (Mac legacy): desloca o epoch dos seriais em 1462 dias. */
   date1904?: boolean;
+  /** Nomes definidos (<definedNames>), na ordem do arquivo. */
+  definedNames?: DefinedName[];
+  /** Opções de cálculo (<calcPr>). */
+  calcPr?: CalcPr;
+  /** Links externos (<externalReferences> → xl/externalLinks/…): índice 0 = `[1]` nas fórmulas. */
+  externalLinks?: ExternalLink[];
+  /**
+   * Índices `cm` (1-based, `<cellMetadata>` de xl/metadata.xml) que marcam
+   * fórmula de MATRIZ DINÂMICA (XLDAPR fDynamic) — as que derramam.
+   */
+  dynamicArrayCm?: number[];
+}
+
+/** Nome definido (<definedName>). */
+export interface DefinedName {
+  name: string;
+  /** Fórmula canônica sem "=" (texto do elemento). */
+  formula: string;
+  /** Escopo: índice da aba (localSheetId); ausente = pasta. */
+  localSheetId?: number;
+  hidden?: boolean;
+}
+
+/** <calcPr> (só o que o cálculo usa; o resto do XML fica intacto no pacote). */
+export interface CalcPr {
+  calcId?: number;
+  /** auto | manual | autoNoTable. */
+  calcMode?: string;
+  fullCalcOnLoad?: boolean;
+  iterate?: boolean;
+  iterateCount?: number;
+  iterateDelta?: number;
+  /** A1 | R1C1. */
+  refMode?: string;
+}
+
+/** Cache de uma pasta externa (xl/externalLinks/externalLinkN.xml). */
+export interface ExternalLink {
+  /** Caminho/URL da pasta externa (rels, TargetMode=External). */
+  target?: string;
+  sheetNames: string[];
+  definedNames: { name: string; refersTo?: string; sheetId?: number }[];
+  /** Valores em cache por aba (`sheetId` = índice em sheetNames). */
+  sheetData: { sheetId: number; cells: { ref: string; t?: string; v?: string }[] }[];
 }
 
 /**
@@ -80,10 +124,39 @@ export interface Cell {
   style?: number;
   /** Valor bruto do <v>. String numérica (n/d), índice (s), booleano (b). */
   value?: string;
-  /** Fórmula <f> (texto, sem o "="). */
+  /** Fórmula <f> (texto, sem o "="). Vazia nas filhas de fórmula compartilhada. */
   formula?: string;
+  /** Atributos do <f> (t, ref, si, ca…), quando há algum. */
+  formulaAttrs?: FormulaAttrs;
+  /** Metadados da célula (`cm`, 1-based): matriz dinâmica quando em Workbook.dynamicArrayCm. */
+  cm?: number;
+  /** Metadados de valor (`vm`, 1-based: tipos de dados, imagem na célula…). */
+  vm?: number;
   /** String inline (t="inlineStr") — conteúdo de <is>. */
   inlineString?: SharedString;
+}
+
+/** Atributos do <f> além do texto (ECMA-376 CT_CellFormula). */
+export interface FormulaAttrs {
+  /** normal (ausente) | array | dataTable | shared. */
+  t?: 'normal' | 'array' | 'dataTable' | 'shared';
+  /** Intervalo da fórmula (array/shared/dataTable). */
+  ref?: string;
+  /** Índice da fórmula compartilhada. */
+  si?: number;
+  /** Matriz sempre calculada (aca). */
+  aca?: boolean;
+  /** Recalcular sempre (ca). */
+  ca?: boolean;
+  /** Atribuído a nome (bx). */
+  bx?: boolean;
+  /** Tabela de dados: duas entradas, entrada por linha, entradas apagadas, células de entrada. */
+  dt2D?: boolean;
+  dtr?: boolean;
+  del1?: boolean;
+  del2?: boolean;
+  r1?: string;
+  r2?: string;
 }
 
 /** Linha — elemento <row>. */
@@ -302,6 +375,14 @@ export interface DrawingObject {
 export interface TableInfo {
   /** Range A1 da tabela inteira (inclui header/totals). */
   ref: string;
+  /** `name` e `displayName` (o das fórmulas estruturadas é o displayName). */
+  name?: string;
+  displayName?: string;
+  /** headerRowCount (padrão 1) e totalsRowCount (padrão 0). */
+  headerRowCount?: number;
+  totalsRowCount?: number;
+  /** Colunas (<tableColumns>), na ordem. */
+  columns?: TableColumnInfo[];
   /** headerRowCount != 0 (default 1). */
   headerRow: boolean;
   /** totalsRowCount == 1. */
@@ -320,6 +401,17 @@ export interface TableInfo {
   filter?: AutoFilterInfo;
   /** tableBorderDxfId: contorno da tabela (o Excel o desenha; os dxf de cabeçalho/dados/total não). */
   borderDxfId?: number;
+}
+
+/** Coluna de tabela (<tableColumn>). */
+export interface TableColumnInfo {
+  name: string;
+  /** <calculatedColumnFormula> (sem "="). */
+  calculatedColumnFormula?: string;
+  totalsRowFunction?: string;
+  totalsRowLabel?: string;
+  /** <totalsRowFormula> (sem "="). */
+  totalsRowFormula?: string;
 }
 
 /** Item de linha/coluna de tabela dinâmica (`<rowItems><i t r><x/>…</i>`). */

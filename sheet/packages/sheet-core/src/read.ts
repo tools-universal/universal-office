@@ -4,6 +4,7 @@ import type {
   Workbook, SheetRef, Worksheet, Row, Cell, CellType, SharedString, RichRun, RunProps,
   ColDef, PaneInfo, CondFormat, Comment,
   Hyperlink, SheetFormatPr, TableInfo, AutoFilterInfo, PivotInfo,
+  DefinedName, CalcPr, ExternalLink, FormulaAttrs, TableColumnInfo,
 } from './model.js';
 import { refToRowCol, rowColToRef } from './model.js';
 import type { XlsxPackage } from './package.js';
@@ -82,7 +83,134 @@ export function readWorkbook(pkg: XlsxPackage): Workbook {
   // date1904: <workbookPr date1904="1"> desloca o epoch dos seriais em 1462 dias.
   const wbPr = firstChild(root, 'workbookPr');
   if (wbPr?.attrs['date1904'] === '1' || wbPr?.attrs['date1904'] === 'true') wb.date1904 = true;
+  // nomes definidos
+  const dns = firstChild(root, 'definedNames');
+  if (dns) {
+    const names: DefinedName[] = [];
+    for (const d of childElements(dns, 'definedName')) {
+      const name = d.attrs['name'];
+      if (!name) continue;
+      const dn: DefinedName = { name, formula: textContent(d) };
+      const ls = d.attrs['localSheetId'];
+      if (ls !== undefined && /^\d+$/.test(ls)) dn.localSheetId = parseInt(ls, 10);
+      if (isTrue(d.attrs['hidden'])) dn.hidden = true;
+      names.push(dn);
+    }
+    if (names.length) wb.definedNames = names;
+  }
+  // opções de cálculo
+  const cp = firstChild(root, 'calcPr');
+  if (cp) {
+    const c: CalcPr = {};
+    const num = (k: string): number | undefined => { const v = cp.attrs[k]; const n = v === undefined ? NaN : parseFloat(v); return Number.isFinite(n) ? n : undefined; };
+    if (num('calcId') !== undefined) c.calcId = num('calcId');
+    if (cp.attrs['calcMode']) c.calcMode = cp.attrs['calcMode'];
+    if (isTrue(cp.attrs['fullCalcOnLoad'])) c.fullCalcOnLoad = true;
+    if (isTrue(cp.attrs['iterate'])) c.iterate = true;
+    if (num('iterateCount') !== undefined) c.iterateCount = num('iterateCount');
+    if (num('iterateDelta') !== undefined) c.iterateDelta = num('iterateDelta');
+    if (cp.attrs['refMode']) c.refMode = cp.attrs['refMode'];
+    wb.calcPr = c;
+  }
+  // links externos: <externalReferences><externalReference r:id/></…> na ordem = [1], [2]…
+  const ers = firstChild(root, 'externalReferences');
+  if (ers) {
+    const links: ExternalLink[] = [];
+    for (const er of childElements(ers, 'externalReference')) {
+      const rId = er.attrs['r:id'];
+      const target = rId !== undefined ? rels.get(rId) : undefined;
+      const part = target !== undefined ? pkg.resolveRelTarget('xl/workbook.xml', target) : undefined;
+      links.push((part && readExternalLink(pkg, part)) || { sheetNames: [], definedNames: [], sheetData: [] });
+    }
+    if (links.length) wb.externalLinks = links;
+  }
+  // matrizes dinâmicas: metadados XLDAPR (xl/metadata.xml)
+  const relsXml = pkg.getPartText('xl/_rels/workbook.xml.rels');
+  let metaPart = 'xl/metadata.xml';
+  if (relsXml) {
+    for (const rel of childElements(parseXml(relsXml), 'Relationship')) {
+      if ((rel.attrs['Type'] ?? '').endsWith('/sheetMetadata') && rel.attrs['Target']) metaPart = pkg.resolveRelTarget('xl/workbook.xml', rel.attrs['Target']);
+    }
+  }
+  const dyn = readDynamicArrayCm(pkg, metaPart);
+  if (dyn.length) wb.dynamicArrayCm = dyn;
   return wb;
+}
+
+const isTrue = (v: string | undefined): boolean => v === '1' || v === 'true';
+
+/** xl/externalLinks/externalLinkN.xml → nomes de aba, nomes e valores em cache. */
+function readExternalLink(pkg: XlsxPackage, part: string): ExternalLink | undefined {
+  const xml = pkg.getPartText(part);
+  if (xml === undefined) return undefined;
+  let root: XmlElement;
+  try { root = parseXml(xml); } catch { return undefined; }
+  const book = firstChild(root, 'externalBook');
+  const link: ExternalLink = { sheetNames: [], definedNames: [], sheetData: [] };
+  if (!book) return link;
+  const rId = book.attrs['r:id'];
+  if (rId !== undefined) {
+    const t = readRels(pkg, relsPathFor(part)).get(rId);
+    if (t !== undefined) link.target = t;
+  }
+  for (const sn of childElements(firstChild(book, 'sheetNames') ?? book, 'sheetName')) link.sheetNames.push(sn.attrs['val'] ?? '');
+  for (const dn of childElements(firstChild(book, 'definedNames') ?? book, 'definedName')) {
+    const d: { name: string; refersTo?: string; sheetId?: number } = { name: dn.attrs['name'] ?? '' };
+    if (dn.attrs['refersTo'] !== undefined) d.refersTo = dn.attrs['refersTo'];
+    if (dn.attrs['sheetId'] !== undefined) d.sheetId = parseInt(dn.attrs['sheetId'], 10);
+    link.definedNames.push(d);
+  }
+  for (const sd of childElements(firstChild(book, 'sheetDataSet') ?? book, 'sheetData')) {
+    const cells: { ref: string; t?: string; v?: string }[] = [];
+    for (const row of childElements(sd, 'row')) {
+      for (const c of childElements(row, 'cell')) {
+        const ref = c.attrs['r'];
+        if (!ref) continue;
+        const cell: { ref: string; t?: string; v?: string } = { ref };
+        if (c.attrs['t'] !== undefined) cell.t = c.attrs['t'];
+        const v = firstChild(c, 'v');
+        if (v !== undefined) cell.v = decodeXstring(textContent(v));
+        cells.push(cell);
+      }
+    }
+    link.sheetData.push({ sheetId: parseInt(sd.attrs['sheetId'] ?? '0', 10), cells });
+  }
+  return link;
+}
+
+/**
+ * xl/metadata.xml: quais `cm` (1-based) são matriz dinâmica — o bloco de
+ * <cellMetadata> aponta (rc t,v) para um <futureMetadata name="XLDAPR"> cujo
+ * xda:dynamicArrayProperties tem fDynamic="1".
+ */
+function readDynamicArrayCm(pkg: XlsxPackage, part: string): number[] {
+  const xml = pkg.getPartText(part);
+  if (xml === undefined) return [];
+  let root: XmlElement;
+  try { root = parseXml(xml); } catch { return []; }
+  const types = childElements(firstChild(root, 'metadataTypes') ?? root, 'metadataType').map((t) => t.attrs['name'] ?? '');
+  const future = new Map<string, boolean[]>();
+  for (const fm of childElements(root, 'futureMetadata')) {
+    const flags = childElements(fm, 'bk').map((bk) => /fDynamic="(1|true)"/.test(serializeLoose(bk)));
+    future.set(fm.attrs['name'] ?? '', flags);
+  }
+  const out: number[] = [];
+  childElements(firstChild(root, 'cellMetadata') ?? root, 'bk').forEach((bk, i) => {
+    for (const rc of childElements(bk, 'rc')) {
+      const type = types[parseInt(rc.attrs['t'] ?? '0', 10) - 1];
+      if (type !== 'XLDAPR') continue;
+      const flags = future.get('XLDAPR');
+      if (flags?.[parseInt(rc.attrs['v'] ?? '0', 10)] ?? true) { out.push(i + 1); break; }
+    }
+  });
+  return out;
+}
+
+/** Atributos de todos os descendentes como texto (para achar fDynamic em extLst). */
+function serializeLoose(el: XmlElement): string {
+  let s = Object.entries(el.attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
+  for (const c of childElements(el)) s += ' ' + serializeLoose(c);
+  return s;
 }
 
 /**
@@ -338,6 +466,23 @@ function readTablePart(pkg: XlsxPackage, tablePath: string): TableInfo | undefin
     stripes: on('showRowStripes'),
     autoFilter: af !== undefined,
   };
+  if (root.attrs['name'] !== undefined) out.name = root.attrs['name'];
+  if (root.attrs['displayName'] !== undefined) out.displayName = root.attrs['displayName'];
+  if (root.attrs['headerRowCount'] !== undefined) out.headerRowCount = parseInt(root.attrs['headerRowCount'], 10);
+  if (root.attrs['totalsRowCount'] !== undefined) out.totalsRowCount = parseInt(root.attrs['totalsRowCount'], 10);
+  const tcs = firstChild(root, 'tableColumns');
+  if (tcs) {
+    out.columns = childElements(tcs, 'tableColumn').map((tc) => {
+      const col: TableColumnInfo = { name: decodeXstring(tc.attrs['name'] ?? '') };
+      const ccf = firstChild(tc, 'calculatedColumnFormula');
+      if (ccf) col.calculatedColumnFormula = textContent(ccf);
+      if (tc.attrs['totalsRowFunction'] !== undefined) col.totalsRowFunction = tc.attrs['totalsRowFunction'];
+      if (tc.attrs['totalsRowLabel'] !== undefined) col.totalsRowLabel = tc.attrs['totalsRowLabel'];
+      const trf = firstChild(tc, 'totalsRowFormula');
+      if (trf) col.totalsRowFormula = textContent(trf);
+      return col;
+    });
+  }
   if (styleInfo?.attrs['name']) out.styleName = styleInfo.attrs['name'];
   if (on('showColumnStripes')) out.colStripes = true;
   if (on('showFirstColumn')) out.firstColumn = true;
@@ -455,8 +600,30 @@ function readCell(el: XmlElement, cx?: ColorContext): Cell {
   const v = firstChild(el, 'v');
   if (v !== undefined) cell.value = cell.type === 'str' ? decodeXstring(textContent(v)) : textContent(v);
   const f = firstChild(el, 'f');
-  if (f !== undefined) cell.formula = textContent(f);
+  if (f !== undefined) {
+    cell.formula = textContent(f);
+    const fa = readFormulaAttrs(f);
+    if (fa) cell.formulaAttrs = fa;
+  }
+  const cm = el.attrs['cm'], vm = el.attrs['vm'];
+  if (cm !== undefined && /^\d+$/.test(cm)) cell.cm = parseInt(cm, 10);
+  if (vm !== undefined && /^\d+$/.test(vm)) cell.vm = parseInt(vm, 10);
   const isEl = firstChild(el, 'is');
   if (isEl !== undefined) cell.inlineString = readSharedStringEntry(isEl, cx);
   return cell;
+}
+
+/** Atributos do <f> (undefined = nenhum). */
+function readFormulaAttrs(f: XmlElement): FormulaAttrs | undefined {
+  const a = f.attrs;
+  if (!Object.keys(a).length) return undefined;
+  const out: FormulaAttrs = {};
+  const t = a['t'];
+  if (t === 'normal' || t === 'array' || t === 'dataTable' || t === 'shared') out.t = t;
+  if (a['ref'] !== undefined) out.ref = a['ref'];
+  if (a['si'] !== undefined && /^\d+$/.test(a['si'])) out.si = parseInt(a['si'], 10);
+  for (const k of ['aca', 'ca', 'bx', 'dt2D', 'dtr', 'del1', 'del2'] as const) if (isTrue(a[k])) out[k] = true;
+  if (a['r1'] !== undefined) out.r1 = a['r1'];
+  if (a['r2'] !== undefined) out.r2 = a['r2'];
+  return Object.keys(out).length ? out : undefined;
 }

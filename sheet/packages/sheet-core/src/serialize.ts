@@ -20,12 +20,35 @@ const escXml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const escAttr = (s: string): string => escXml(s).replace(/"/g, '&quot;');
 
+/** <f> com os atributos (t, ref, si, ca…); filha de compartilhada sem texto = <f …/>. */
+function formulaXml(c: Cell): string {
+  let a = '';
+  const fa = c.formulaAttrs;
+  if (fa) {
+    if (fa.t && fa.t !== 'normal') a += ` t="${fa.t}"`;
+    if (fa.ref !== undefined) a += ` ref="${escAttr(fa.ref)}"`;
+    if (fa.dt2D) a += ' dt2D="1"';
+    if (fa.dtr) a += ' dtr="1"';
+    if (fa.del1) a += ' del1="1"';
+    if (fa.del2) a += ' del2="1"';
+    if (fa.r1 !== undefined) a += ` r1="${escAttr(fa.r1)}"`;
+    if (fa.r2 !== undefined) a += ` r2="${escAttr(fa.r2)}"`;
+    if (fa.ca) a += ' ca="1"';
+    if (fa.si !== undefined) a += ` si="${fa.si}"`;
+    if (fa.aca) a += ' aca="1"';
+    if (fa.bx) a += ' bx="1"';
+  }
+  return c.formula ? `<f${a}>${escXml(c.formula)}</f>` : a ? `<f${a}/>` : '<f></f>';
+}
+
 function cellXml(c: Cell): string {
   let attrs = ` r="${escAttr(c.ref)}"`;
   if (c.style !== undefined) attrs += ` s="${c.style}"`;
   if (c.type) attrs += ` t="${c.type}"`;
+  if (c.cm !== undefined) attrs += ` cm="${c.cm}"`;
+  if (c.vm !== undefined) attrs += ` vm="${c.vm}"`;
   let inner = '';
-  if (c.formula !== undefined) inner += `<f>${escXml(c.formula)}</f>`;
+  if (c.formula !== undefined) inner += formulaXml(c);
   if (c.inlineString !== undefined) {
     const t = c.inlineString.text ?? c.inlineString.runs?.map((r) => r.text).join('') ?? '';
     const sp = /^\s|\s$/.test(t) ? ' xml:space="preserve"' : '';
