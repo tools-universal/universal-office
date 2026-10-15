@@ -104,3 +104,11 @@ describe('builtins dependentes de locale + fixes do oráculo 2026-07-01', () => 
     expect(formatValue(46190.604861, '##0.0E+0').text).toBe('46,2E+3');
   });
 });
+
+describe('vírgula de escala depois dos decimais', () => {
+  it('"0.0,,," divide por 1000 a cada vírgula (bilhões, medido no boletim-agro)', () => {
+    expect(formatValue(2015461033.6, '"R$ "0.0,,," Bi"').text).toBe('R$ 2,0 Bi');
+    expect(formatValue(2015461033.6, '#,##0.0,,').text).toBe('2.015,5');
+    expect(formatValue(1234567, '#,##0,').text).toBe('1.235');
+  });
+});
