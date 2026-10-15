@@ -423,7 +423,9 @@ const acoth = numFn('ACOTH', 1, 1, ([x]) => {
   const v = 0.5 * Math.log1p(2 / (ax - 1));
   return x! < 0 ? -v : v;
 }, { prefix: X });
-const radians = numFn('RADIANS', 1, 1, ([x]) => fin((x! * Math.PI) / 180));
+// medido: x·(π/180) — SIN(RADIANS(178)) = 0,03489949670250114 e RADIANS(1E10) = 174532925,19943297
+// (com (x·π)/180 o último bit difere e o seno perto de π herda o erro no 14º dígito)
+const radians = numFn('RADIANS', 1, 1, ([x]) => fin(x! * (Math.PI / 180)));
 const degrees = numFn('DEGREES', 1, 1, ([x]) => fin(x! * (180 / Math.PI)));
 
 // ---------------------------------------------------------------------------

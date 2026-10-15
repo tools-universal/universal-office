@@ -1,0 +1,994 @@
+[
+ {
+  "id": "fix-math-1",
+  "v": 0.03490658503988659,
+  "text": "0,034907",
+  "f": "=RADIANS(2)",
+  "local": "=RADIANOS(2)"
+ },
+ {
+  "id": "fix-math-2",
+  "v": 0.03489949670250097,
+  "text": "0,034899",
+  "f": "=SIN(RADIANS(2))",
+  "local": "=SEN(RADIANOS(2))"
+ },
+ {
+  "id": "fix-math-3",
+  "v": 0.9993908270190958,
+  "text": "0,999391",
+  "f": "=COS(RADIANS(2))",
+  "local": "=COS(RADIANOS(2))"
+ },
+ {
+  "id": "fix-math-4",
+  "v": 0.03492076949174773,
+  "text": "0,034921",
+  "f": "=TAN(RADIANS(2))",
+  "local": "=TAN(RADIANOS(2))"
+ },
+ {
+  "id": "fix-math-5",
+  "v": 1.5533430342749532,
+  "text": "1,553343",
+  "f": "=RADIANS(89)",
+  "local": "=RADIANOS(89)"
+ },
+ {
+  "id": "fix-math-6",
+  "v": 0.9998476951563913,
+  "text": "0,999848",
+  "f": "=SIN(RADIANS(89))",
+  "local": "=SEN(RADIANOS(89))"
+ },
+ {
+  "id": "fix-math-7",
+  "v": 0.0174524064372836,
+  "text": "0,017452",
+  "f": "=COS(RADIANS(89))",
+  "local": "=COS(RADIANOS(89))"
+ },
+ {
+  "id": "fix-math-8",
+  "v": 57.289961630759144,
+  "text": "57,28996",
+  "f": "=TAN(RADIANS(89))",
+  "local": "=TAN(RADIANOS(89))"
+ },
+ {
+  "id": "fix-math-9",
+  "v": 1.5882496193148399,
+  "text": "1,58825",
+  "f": "=RADIANS(91)",
+  "local": "=RADIANOS(91)"
+ },
+ {
+  "id": "fix-math-10",
+  "v": 0.9998476951563913,
+  "text": "0,999848",
+  "f": "=SIN(RADIANS(91))",
+  "local": "=SEN(RADIANOS(91))"
+ },
+ {
+  "id": "fix-math-11",
+  "v": -0.017452406437283477,
+  "text": "-0,01745",
+  "f": "=COS(RADIANS(91))",
+  "local": "=COS(RADIANOS(91))"
+ },
+ {
+  "id": "fix-math-12",
+  "v": -57.28996163075955,
+  "text": "-57,29",
+  "f": "=TAN(RADIANS(91))",
+  "local": "=TAN(RADIANOS(91))"
+ },
+ {
+  "id": "fix-math-13",
+  "v": 3.1066860685499065,
+  "text": "3,106686",
+  "f": "=RADIANS(178)",
+  "local": "=RADIANOS(178)"
+ },
+ {
+  "id": "fix-math-14",
+  "v": 0.03489949670250114,
+  "text": "0,034899",
+  "f": "=SIN(RADIANS(178))",
+  "local": "=SEN(RADIANOS(178))"
+ },
+ {
+  "id": "fix-math-15",
+  "v": -0.9993908270190958,
+  "text": "-0,99939",
+  "f": "=COS(RADIANS(178))",
+  "local": "=COS(RADIANOS(178))"
+ },
+ {
+  "id": "fix-math-16",
+  "v": -0.034920769491747904,
+  "text": "-0,03492",
+  "f": "=TAN(RADIANS(178))",
+  "local": "=TAN(RADIANOS(178))"
+ },
+ {
+  "id": "fix-math-17",
+  "v": 3.1590459461097367,
+  "text": "3,159046",
+  "f": "=RADIANS(181)",
+  "local": "=RADIANOS(181)"
+ },
+ {
+  "id": "fix-math-18",
+  "v": -0.017452406437283637,
+  "text": "-0,01745",
+  "f": "=SIN(RADIANS(181))",
+  "local": "=SEN(RADIANOS(181))"
+ },
+ {
+  "id": "fix-math-19",
+  "v": -0.9998476951563913,
+  "text": "-0,99985",
+  "f": "=COS(RADIANS(181))",
+  "local": "=COS(RADIANOS(181))"
+ },
+ {
+  "id": "fix-math-20",
+  "v": 0.01745506492821771,
+  "text": "0,017455",
+  "f": "=TAN(RADIANS(181))",
+  "local": "=TAN(RADIANOS(181))"
+ },
+ {
+  "id": "fix-math-21",
+  "v": 4.6774823953448035,
+  "text": "4,677482",
+  "f": "=RADIANS(268)",
+  "local": "=RADIANOS(268)"
+ },
+ {
+  "id": "fix-math-22",
+  "v": -0.9993908270190958,
+  "text": "-0,99939",
+  "f": "=SIN(RADIANS(268))",
+  "local": "=SEN(RADIANOS(268))"
+ },
+ {
+  "id": "fix-math-23",
+  "v": -0.03489949670250076,
+  "text": "-0,0349",
+  "f": "=COS(RADIANS(268))",
+  "local": "=COS(RADIANOS(268))"
+ },
+ {
+  "id": "fix-math-24",
+  "v": 28.636253282915778,
+  "text": "28,63625",
+  "f": "=TAN(RADIANS(268))",
+  "local": "=TAN(RADIANOS(268))"
+ },
+ {
+  "id": "fix-math-25",
+  "v": 4.747295565424577,
+  "text": "4,747296",
+  "f": "=RADIANS(272)",
+  "local": "=RADIANOS(272)"
+ },
+ {
+  "id": "fix-math-26",
+  "v": -0.9993908270190958,
+  "text": "-0,99939",
+  "f": "=SIN(RADIANS(272))",
+  "local": "=SEN(RADIANOS(272))"
+ },
+ {
+  "id": "fix-math-27",
+  "v": 0.03489949670250128,
+  "text": "0,034899",
+  "f": "=COS(RADIANS(272))",
+  "local": "=COS(RADIANOS(272))"
+ },
+ {
+  "id": "fix-math-28",
+  "v": -28.63625328291535,
+  "text": "-28,6363",
+  "f": "=TAN(RADIANS(272))",
+  "local": "=TAN(RADIANOS(272))"
+ },
+ {
+  "id": "fix-math-29",
+  "v": 6.213372137099813,
+  "text": "6,213372",
+  "f": "=RADIANS(356)",
+  "local": "=RADIANOS(356)"
+ },
+ {
+  "id": "fix-math-30",
+  "v": -0.06975647374412564,
+  "text": "-0,06976",
+  "f": "=SIN(RADIANS(356))",
+  "local": "=SEN(RADIANOS(356))"
+ },
+ {
+  "id": "fix-math-31",
+  "v": 0.9975640502598242,
+  "text": "0,997564",
+  "f": "=COS(RADIANS(356))",
+  "local": "=COS(RADIANOS(356))"
+ },
+ {
+  "id": "fix-math-32",
+  "v": -0.06992681194351076,
+  "text": "-0,06993",
+  "f": "=TAN(RADIANS(356))",
+  "local": "=TAN(RADIANOS(356))"
+ },
+ {
+  "id": "fix-math-33",
+  "v": 6.265732014659643,
+  "text": "6,265732",
+  "f": "=RADIANS(359)",
+  "local": "=RADIANOS(359)"
+ },
+ {
+  "id": "fix-math-34",
+  "v": -0.01745240643728356,
+  "text": "-0,01745",
+  "f": "=SIN(RADIANS(359))",
+  "local": "=SEN(RADIANOS(359))"
+ },
+ {
+  "id": "fix-math-35",
+  "v": 0.9998476951563913,
+  "text": "0,999848",
+  "f": "=COS(RADIANS(359))",
+  "local": "=COS(RADIANOS(359))"
+ },
+ {
+  "id": "fix-math-36",
+  "v": -0.017455064928217634,
+  "text": "-0,01746",
+  "f": "=TAN(RADIANS(359))",
+  "local": "=TAN(RADIANOS(359))"
+ },
+ {
+  "id": "fix-math-37",
+  "v": 6.318091892219473,
+  "text": "6,318092",
+  "f": "=RADIANS(362)",
+  "local": "=RADIANOS(362)"
+ },
+ {
+  "id": "fix-math-38",
+  "v": 0.03489949670250122,
+  "text": "0,034899",
+  "f": "=SIN(RADIANS(362))",
+  "local": "=SEN(RADIANOS(362))"
+ },
+ {
+  "id": "fix-math-39",
+  "v": 0.9993908270190958,
+  "text": "0,999391",
+  "f": "=COS(RADIANS(362))",
+  "local": "=COS(RADIANOS(362))"
+ },
+ {
+  "id": "fix-math-40",
+  "v": 0.03492076949174798,
+  "text": "0,034921",
+  "f": "=TAN(RADIANS(362))",
+  "local": "=TAN(RADIANOS(362))"
+ },
+ {
+  "id": "fix-math-41",
+  "v": 6.370451769779303,
+  "text": "6,370452",
+  "f": "=RADIANS(365)",
+  "local": "=RADIANOS(365)"
+ },
+ {
+  "id": "fix-math-42",
+  "v": 0.08715574274765783,
+  "text": "0,087156",
+  "f": "=SIN(RADIANS(365))",
+  "local": "=SEN(RADIANOS(365))"
+ },
+ {
+  "id": "fix-math-43",
+  "v": 0.9961946980917455,
+  "text": "0,996195",
+  "f": "=COS(RADIANS(365))",
+  "local": "=COS(RADIANOS(365))"
+ },
+ {
+  "id": "fix-math-44",
+  "v": 0.08748866352592366,
+  "text": "0,087489",
+  "f": "=TAN(RADIANS(365))",
+  "local": "=TAN(RADIANOS(365))"
+ },
+ {
+  "id": "fix-math-45",
+  "v": 7.766715171374766,
+  "text": "7,766715",
+  "f": "=RADIANS(445)",
+  "local": "=RADIANOS(445)"
+ },
+ {
+  "id": "fix-math-46",
+  "v": 0.9961946980917455,
+  "text": "0,996195",
+  "f": "=SIN(RADIANS(445))",
+  "local": "=SEN(RADIANOS(445))"
+ },
+ {
+  "id": "fix-math-47",
+  "v": 0.08715574274765837,
+  "text": "0,087156",
+  "f": "=COS(RADIANS(445))",
+  "local": "=COS(RADIANOS(445))"
+ },
+ {
+  "id": "fix-math-48",
+  "v": 11.430052302761316,
+  "text": "11,43005",
+  "f": "=TAN(RADIANS(445))",
+  "local": "=TAN(RADIANOS(445))"
+ },
+ {
+  "id": "fix-math-49",
+  "v": 7.8016217564146535,
+  "text": "7,801622",
+  "f": "=RADIANS(447)",
+  "local": "=RADIANOS(447)"
+ },
+ {
+  "id": "fix-math-50",
+  "v": 0.9986295347545739,
+  "text": "0,99863",
+  "f": "=SIN(RADIANS(447))",
+  "local": "=SEN(RADIANOS(447))"
+ },
+ {
+  "id": "fix-math-51",
+  "v": 0.05233595624294354,
+  "text": "0,052336",
+  "f": "=COS(RADIANS(447))",
+  "local": "=COS(RADIANOS(447))"
+ },
+ {
+  "id": "fix-math-52",
+  "v": 19.081136687728318,
+  "text": "19,08114",
+  "f": "=TAN(RADIANS(447))",
+  "local": "=TAN(RADIANOS(447))"
+ },
+ {
+  "id": "fix-math-53",
+  "v": 7.871434926494426,
+  "text": "7,871435",
+  "f": "=RADIANS(451)",
+  "local": "=RADIANOS(451)"
+ },
+ {
+  "id": "fix-math-54",
+  "v": 0.9998476951563913,
+  "text": "0,999848",
+  "f": "=SIN(RADIANS(451))",
+  "local": "=SEN(RADIANOS(451))"
+ },
+ {
+  "id": "fix-math-55",
+  "v": -0.01745240643728301,
+  "text": "-0,01745",
+  "f": "=COS(RADIANS(451))",
+  "local": "=COS(RADIANOS(451))"
+ },
+ {
+  "id": "fix-math-56",
+  "v": -57.28996163076108,
+  "text": "-57,29",
+  "f": "=TAN(RADIANS(451))",
+  "local": "=TAN(RADIANOS(451))"
+ },
+ {
+  "id": "fix-math-57",
+  "v": 7.88888821901437,
+  "text": "7,888888",
+  "f": "=RADIANS(452)",
+  "local": "=RADIANOS(452)"
+ },
+ {
+  "id": "fix-math-58",
+  "v": 0.9993908270190958,
+  "text": "0,999391",
+  "f": "=SIN(RADIANS(452))",
+  "local": "=SEN(RADIANOS(452))"
+ },
+ {
+  "id": "fix-math-59",
+  "v": -0.03489949670250116,
+  "text": "-0,0349",
+  "f": "=COS(RADIANS(452))",
+  "local": "=COS(RADIANOS(452))"
+ },
+ {
+  "id": "fix-math-60",
+  "v": -28.63625328291545,
+  "text": "-28,6363",
+  "f": "=TAN(RADIANS(452))",
+  "local": "=TAN(RADIANOS(452))"
+ },
+ {
+  "id": "fix-math-61",
+  "v": 7.923794804054256,
+  "text": "7,923795",
+  "f": "=RADIANS(454)",
+  "local": "=RADIANOS(454)"
+ },
+ {
+  "id": "fix-math-62",
+  "v": 0.9975640502598243,
+  "text": "0,997564",
+  "f": "=SIN(RADIANS(454))",
+  "local": "=SEN(RADIANOS(454))"
+ },
+ {
+  "id": "fix-math-63",
+  "v": -0.0697564737441251,
+  "text": "-0,06976",
+  "f": "=COS(RADIANS(454))",
+  "local": "=COS(RADIANOS(454))"
+ },
+ {
+  "id": "fix-math-64",
+  "v": -14.30066625671197,
+  "text": "-14,3007",
+  "f": "=TAN(RADIANS(454))",
+  "local": "=TAN(RADIANOS(454))"
+ },
+ {
+  "id": "fix-math-65",
+  "v": 8.011061266653973,
+  "text": "8,011061",
+  "f": "=RADIANS(459)",
+  "local": "=RADIANOS(459)"
+ },
+ {
+  "id": "fix-math-66",
+  "v": 0.9876883405951377,
+  "text": "0,987688",
+  "f": "=SIN(RADIANS(459))",
+  "local": "=SEN(RADIANOS(459))"
+ },
+ {
+  "id": "fix-math-67",
+  "v": -0.15643446504023142,
+  "text": "-0,15643",
+  "f": "=COS(RADIANS(459))",
+  "local": "=COS(RADIANOS(459))"
+ },
+ {
+  "id": "fix-math-68",
+  "v": -6.31375151467502,
+  "text": "-6,31375",
+  "f": "=TAN(RADIANS(459))",
+  "local": "=TAN(RADIANOS(459))"
+ },
+ {
+  "id": "fix-math-69",
+  "v": 9.26769832808989,
+  "text": "9,267698",
+  "f": "=RADIANS(531)",
+  "local": "=RADIANOS(531)"
+ },
+ {
+  "id": "fix-math-70",
+  "v": 0.15643446504023034,
+  "text": "0,156434",
+  "f": "=SIN(RADIANS(531))",
+  "local": "=SEN(RADIANOS(531))"
+ },
+ {
+  "id": "fix-math-71",
+  "v": -0.9876883405951378,
+  "text": "-0,98769",
+  "f": "=COS(RADIANS(531))",
+  "local": "=COS(RADIANOS(531))"
+ },
+ {
+  "id": "fix-math-72",
+  "v": -0.15838444032453575,
+  "text": "-0,15838",
+  "f": "=TAN(RADIANS(531))",
+  "local": "=TAN(RADIANOS(531))"
+ },
+ {
+  "id": "fix-math-73",
+  "v": 9.302604913129777,
+  "text": "9,302605",
+  "f": "=RADIANS(533)",
+  "local": "=RADIANOS(533)"
+ },
+ {
+  "id": "fix-math-74",
+  "v": 0.12186934340514735,
+  "text": "0,121869",
+  "f": "=SIN(RADIANS(533))",
+  "local": "=SEN(RADIANOS(533))"
+ },
+ {
+  "id": "fix-math-75",
+  "v": -0.9925461516413221,
+  "text": "-0,99255",
+  "f": "=COS(RADIANS(533))",
+  "local": "=COS(RADIANOS(533))"
+ },
+ {
+  "id": "fix-math-76",
+  "v": -0.12278456090290446,
+  "text": "-0,12278",
+  "f": "=TAN(RADIANS(533))",
+  "local": "=TAN(RADIANOS(533))"
+ },
+ {
+  "id": "fix-math-77",
+  "v": 9.354964790689607,
+  "text": "9,354965",
+  "f": "=RADIANS(536)",
+  "local": "=RADIANOS(536)"
+ },
+ {
+  "id": "fix-math-78",
+  "v": 0.06975647374412487,
+  "text": "0,069756",
+  "f": "=SIN(RADIANS(536))",
+  "local": "=SEN(RADIANOS(536))"
+ },
+ {
+  "id": "fix-math-79",
+  "v": -0.9975640502598243,
+  "text": "-0,99756",
+  "f": "=COS(RADIANS(536))",
+  "local": "=COS(RADIANOS(536))"
+ },
+ {
+  "id": "fix-math-80",
+  "v": -0.06992681194350998,
+  "text": "-0,06993",
+  "f": "=TAN(RADIANS(536))",
+  "local": "=TAN(RADIANOS(536))"
+ },
+ {
+  "id": "fix-math-81",
+  "v": 9.58185759344887,
+  "text": "9,581858",
+  "f": "=RADIANS(549)",
+  "local": "=RADIANOS(549)"
+ },
+ {
+  "id": "fix-math-82",
+  "v": -0.15643446504023137,
+  "text": "-0,15643",
+  "f": "=SIN(RADIANS(549))",
+  "local": "=SEN(RADIANOS(549))"
+ },
+ {
+  "id": "fix-math-83",
+  "v": -0.9876883405951377,
+  "text": "-0,98769",
+  "f": "=COS(RADIANS(549))",
+  "local": "=COS(RADIANOS(549))"
+ },
+ {
+  "id": "fix-math-84",
+  "v": 0.15838444032453683,
+  "text": "0,158384",
+  "f": "=TAN(RADIANS(549))",
+  "local": "=TAN(RADIANOS(549))"
+ },
+ {
+  "id": "fix-math-85",
+  "v": 10.925761117484504,
+  "text": "10,92576",
+  "f": "=RADIANS(626)",
+  "local": "=RADIANOS(626)"
+ },
+ {
+  "id": "fix-math-86",
+  "v": -0.9975640502598243,
+  "text": "-0,99756",
+  "f": "=SIN(RADIANS(626))",
+  "local": "=SEN(RADIANOS(626))"
+ },
+ {
+  "id": "fix-math-87",
+  "v": -0.06975647374412494,
+  "text": "-0,06976",
+  "f": "=COS(RADIANS(626))",
+  "local": "=COS(RADIANOS(626))"
+ },
+ {
+  "id": "fix-math-88",
+  "v": 14.300666256712002,
+  "text": "14,30067",
+  "f": "=TAN(RADIANS(626))",
+  "local": "=TAN(RADIANOS(626))"
+ },
+ {
+  "id": "fix-math-89",
+  "v": 10.96066770252439,
+  "text": "10,96067",
+  "f": "=RADIANS(628)",
+  "local": "=RADIANOS(628)"
+ },
+ {
+  "id": "fix-math-90",
+  "v": -0.9993908270190958,
+  "text": "-0,99939",
+  "f": "=SIN(RADIANS(628))",
+  "local": "=SEN(RADIANOS(628))"
+ },
+ {
+  "id": "fix-math-91",
+  "v": -0.034899496702501004,
+  "text": "-0,0349",
+  "f": "=COS(RADIANS(628))",
+  "local": "=COS(RADIANOS(628))"
+ },
+ {
+  "id": "fix-math-92",
+  "v": 28.636253282915575,
+  "text": "28,63625",
+  "f": "=TAN(RADIANS(628))",
+  "local": "=TAN(RADIANOS(628))"
+ },
+ {
+  "id": "fix-math-93",
+  "v": 10.978120995044334,
+  "text": "10,97812",
+  "f": "=RADIANS(629)",
+  "local": "=RADIANOS(629)"
+ },
+ {
+  "id": "fix-math-94",
+  "v": -0.9998476951563913,
+  "text": "-0,99985",
+  "f": "=SIN(RADIANS(629))",
+  "local": "=SEN(RADIANOS(629))"
+ },
+ {
+  "id": "fix-math-95",
+  "v": -0.017452406437282856,
+  "text": "-0,01745",
+  "f": "=COS(RADIANS(629))",
+  "local": "=COS(RADIANOS(629))"
+ },
+ {
+  "id": "fix-math-96",
+  "v": 57.28996163076158,
+  "text": "57,28996",
+  "f": "=TAN(RADIANS(629))",
+  "local": "=TAN(RADIANOS(629))"
+ },
+ {
+  "id": "fix-math-97",
+  "v": 11.152653920243766,
+  "text": "11,15265",
+  "f": "=RADIANS(639)",
+  "local": "=RADIANOS(639)"
+ },
+ {
+  "id": "fix-math-98",
+  "v": -0.9876883405951377,
+  "text": "-0,98769",
+  "f": "=SIN(RADIANS(639))",
+  "local": "=SEN(RADIANOS(639))"
+ },
+ {
+  "id": "fix-math-99",
+  "v": 0.1564344650402313,
+  "text": "0,156434",
+  "f": "=COS(RADIANS(639))",
+  "local": "=COS(RADIANOS(639))"
+ },
+ {
+  "id": "fix-math-100",
+  "v": -6.313751514675024,
+  "text": "-6,31375",
+  "f": "=TAN(RADIANS(639))",
+  "local": "=TAN(RADIANOS(639))"
+ },
+ {
+  "id": "fix-math-101",
+  "v": 12.409290981679684,
+  "text": "12,40929",
+  "f": "=RADIANS(711)",
+  "local": "=RADIANOS(711)"
+ },
+ {
+  "id": "fix-math-102",
+  "v": -0.15643446504023048,
+  "text": "-0,15643",
+  "f": "=SIN(RADIANS(711))",
+  "local": "=SEN(RADIANOS(711))"
+ },
+ {
+  "id": "fix-math-103",
+  "v": 0.9876883405951378,
+  "text": "0,987688",
+  "f": "=COS(RADIANS(711))",
+  "local": "=COS(RADIANOS(711))"
+ },
+ {
+  "id": "fix-math-104",
+  "v": -0.15838444032453589,
+  "text": "-0,15838",
+  "f": "=TAN(RADIANS(711))",
+  "local": "=TAN(RADIANOS(711))"
+ },
+ {
+  "id": "fix-math-105",
+  "v": 12.426744274199626,
+  "text": "12,42674",
+  "f": "=RADIANS(712)",
+  "local": "=RADIANOS(712)"
+ },
+ {
+  "id": "fix-math-106",
+  "v": -0.13917310096006613,
+  "text": "-0,13917",
+  "f": "=SIN(RADIANS(712))",
+  "local": "=SEN(RADIANOS(712))"
+ },
+ {
+  "id": "fix-math-107",
+  "v": 0.9902680687415703,
+  "text": "0,990268",
+  "f": "=COS(RADIANS(712))",
+  "local": "=COS(RADIANOS(712))"
+ },
+ {
+  "id": "fix-math-108",
+  "v": -0.14054083470239215,
+  "text": "-0,14054",
+  "f": "=TAN(RADIANS(712))",
+  "local": "=TAN(RADIANOS(712))"
+ },
+ {
+  "id": "fix-math-109",
+  "v": 12.479104151759456,
+  "text": "12,4791",
+  "f": "=RADIANS(715)",
+  "local": "=RADIANOS(715)"
+ },
+ {
+  "id": "fix-math-110",
+  "v": -0.08715574274765855,
+  "text": "-0,08716",
+  "f": "=SIN(RADIANS(715))",
+  "local": "=SEN(RADIANOS(715))"
+ },
+ {
+  "id": "fix-math-111",
+  "v": 0.9961946980917455,
+  "text": "0,996195",
+  "f": "=COS(RADIANS(715))",
+  "local": "=COS(RADIANOS(715))"
+ },
+ {
+  "id": "fix-math-112",
+  "v": -0.0874886635259244,
+  "text": "-0,08749",
+  "f": "=TAN(RADIANS(715))",
+  "local": "=TAN(RADIANOS(715))"
+ },
+ {
+  "id": "fix-math-113",
+  "v": 12.531464029319286,
+  "text": "12,53146",
+  "f": "=RADIANS(718)",
+  "local": "=RADIANOS(718)"
+ },
+ {
+  "id": "fix-math-114",
+  "v": -0.034899496702501066,
+  "text": "-0,0349",
+  "f": "=SIN(RADIANS(718))",
+  "local": "=SEN(RADIANOS(718))"
+ },
+ {
+  "id": "fix-math-115",
+  "v": 0.9993908270190958,
+  "text": "0,999391",
+  "f": "=COS(RADIANS(718))",
+  "local": "=COS(RADIANOS(718))"
+ },
+ {
+  "id": "fix-math-116",
+  "v": -0.03492076949174783,
+  "text": "-0,03492",
+  "f": "=TAN(RADIANS(718))",
+  "local": "=TAN(RADIANOS(718))"
+ },
+ {
+  "id": "fix-math-117",
+  "v": 174532925.19943297,
+  "text": "1,75E+08",
+  "f": "=RADIANS(10000000000)",
+  "local": "=RADIANOS(10000000000)"
+ },
+ {
+  "id": "fix-math-118",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=SIN(RADIANS(10000000000))",
+  "local": "=SEN(RADIANOS(10000000000))"
+ },
+ {
+  "id": "fix-math-119",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=COS(RADIANS(10000000000))",
+  "local": "=COS(RADIANOS(10000000000))"
+ },
+ {
+  "id": "fix-math-120",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=TAN(RADIANS(10000000000))",
+  "local": "=TAN(RADIANOS(10000000000))"
+ },
+ {
+  "id": "fix-math-121",
+  "v": -3.1066860685499065,
+  "text": "-3,10669",
+  "f": "=RADIANS(-178)",
+  "local": "=RADIANOS(-178)"
+ },
+ {
+  "id": "fix-math-122",
+  "v": -0.03489949670250114,
+  "text": "-0,0349",
+  "f": "=SIN(RADIANS(-178))",
+  "local": "=SEN(RADIANOS(-178))"
+ },
+ {
+  "id": "fix-math-123",
+  "v": -0.9993908270190958,
+  "text": "-0,99939",
+  "f": "=COS(RADIANS(-178))",
+  "local": "=COS(RADIANOS(-178))"
+ },
+ {
+  "id": "fix-math-124",
+  "v": 0.034920769491747904,
+  "text": "0,034921",
+  "f": "=TAN(RADIANS(-178))",
+  "local": "=TAN(RADIANOS(-178))"
+ },
+ {
+  "id": "fix-math-125",
+  "v": 0.008726646259971648,
+  "text": "0,008727",
+  "f": "=RADIANS(0.5)",
+  "local": "=RADIANOS(0,5)"
+ },
+ {
+  "id": "fix-math-126",
+  "v": 0.008726535498373935,
+  "text": "0,008727",
+  "f": "=SIN(RADIANS(0.5))",
+  "local": "=SEN(RADIANOS(0,5))"
+ },
+ {
+  "id": "fix-math-127",
+  "v": 0.9999619230641713,
+  "text": "0,999962",
+  "f": "=COS(RADIANS(0.5))",
+  "local": "=COS(RADIANOS(0,5))"
+ },
+ {
+  "id": "fix-math-128",
+  "v": 0.00872686779075879,
+  "text": "0,008727",
+  "f": "=TAN(RADIANS(0.5))",
+  "local": "=TAN(RADIANOS(0,5))"
+ },
+ {
+  "id": "fix-math-129",
+  "v": 0.9999999999999997,
+  "text": "1",
+  "f": "=RADIANS(57.2957795130823)",
+  "local": "=RADIANOS(57,2957795130823)"
+ },
+ {
+  "id": "fix-math-130",
+  "v": 0.8414709848078963,
+  "text": "0,841471",
+  "f": "=SIN(RADIANS(57.2957795130823))",
+  "local": "=SEN(RADIANOS(57,2957795130823))"
+ },
+ {
+  "id": "fix-math-131",
+  "v": 0.54030230586814,
+  "text": "0,540302",
+  "f": "=COS(RADIANS(57.2957795130823))",
+  "local": "=COS(RADIANOS(57,2957795130823))"
+ },
+ {
+  "id": "fix-math-132",
+  "v": 1.5574077246549012,
+  "text": "1,557408",
+  "f": "=TAN(RADIANS(57.2957795130823))",
+  "local": "=TAN(RADIANOS(57,2957795130823))"
+ },
+ {
+  "id": "fix-math-133",
+  "v": 1.7453292519943297e+298,
+  "text": "1,7E+298",
+  "f": "=RADIANS(1E+300)",
+  "local": "=RADIANOS(1E+300)"
+ },
+ {
+  "id": "fix-math-134",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=SIN(RADIANS(1E+300))",
+  "local": "=SEN(RADIANOS(1E+300))"
+ },
+ {
+  "id": "fix-math-135",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=COS(RADIANS(1E+300))",
+  "local": "=COS(RADIANOS(1E+300))"
+ },
+ {
+  "id": "fix-math-136",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "f": "=TAN(RADIANS(1E+300))",
+  "local": "=TAN(RADIANOS(1E+300))"
+ },
+ {
+  "id": "fix-math-137",
+  "v": 178.0000000000002,
+  "text": "178",
+  "f": "=DEGREES(3.10668606854991)",
+  "local": "=GRAUS(3,10668606854991)"
+ },
+ {
+  "id": "fix-math-138",
+  "v": 57.29577951308232,
+  "text": "57,29578",
+  "f": "=DEGREES(1)",
+  "local": "=GRAUS(1)"
+ },
+ {
+  "id": "fix-math-139",
+  "v": 1.0000000000000002,
+  "text": "1",
+  "f": "=DEGREES(0.0174532925199433)",
+  "local": "=GRAUS(0,0174532925199433)"
+ },
+ {
+  "id": "fix-math-140",
+  "v": 5.729577951308233e+301,
+  "text": "5,7E+301",
+  "f": "=DEGREES(1E+300)",
+  "local": "=GRAUS(1E+300)"
+ }
+]
