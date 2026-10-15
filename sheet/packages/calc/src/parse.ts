@@ -424,13 +424,13 @@ class Parser {
       case 'num': return { t: 'num', v: t.v, raw: t.raw };
       case 'str': return { t: 'str', v: t.v };
       case 'err': return { t: 'err', v: t.v };
-      case 'ref': return this.postfix(t.node);
-      case 'table': return this.postfix(t.node);
+      case 'ref': return this.postfix(at(t.node, t.p));
+      case 'table': return this.postfix(at(t.node, t.p));
       case 'sheet': {
         const n = this.take();
-        if (n.k === 'ref') return this.postfix(withSheet(n.node, t.spec));
+        if (n.k === 'ref') return this.postfix(at(withSheet(n.node, t.spec), t.p));
         if (n.k === 'err' && n.v === '#REF!') return { t: 'referr', sheet: t.spec };
-        if (n.k === 'ident') return this.postfix({ t: 'name', name: n.v, sheet: t.spec });
+        if (n.k === 'ident') return this.postfix(at({ t: 'name', name: n.v, sheet: t.spec }, t.p));
         if (n.k === 'func') return this.call({ t: 'fn', ...fnName(n.v), args: [] }, t.spec);
         if (n.k === 'num' && /^\d+$/.test(n.raw)) {
           // Plan1!1:3 sem lexer de linhas (já tratado) — número solto após aba é erro
@@ -446,12 +446,12 @@ class Parser {
         // parâmetro opcional de LAMBDA ([b] na tela) e função usada como valor
         if (/^_XLOP\./.test(u)) return { t: 'name', name: t.v.slice(6), param: true, optional: true };
         if (/^_XLETA\./.test(u)) return { t: 'name', name: t.v.slice(7).toUpperCase(), eta: true };
-        return this.postfix({ t: 'name', name: t.v });
+        return this.postfix(at({ t: 'name', name: t.v }, t.p));
       }
       case 'func':
         // _xlpm.f(…): chamada de LAMBDA guardada em nome de LET/LAMBDA
         if (/^_xlpm\./i.test(t.v)) return this.postfix({ t: 'call', fn: { t: 'name', name: t.v.slice(6), param: true }, args: this.args() });
-        return this.call({ t: 'fn', ...fnName(t.v), args: [] });
+        return this.call(at({ t: 'fn', ...fnName(t.v), args: [] as Node[] }, t.p));
       case 'op':
         switch (t.v) {
           case '-': case '+': return { t: 'unary', op: t.v, e: this.expr(PREC_UNARY, inParens) };
@@ -460,7 +460,7 @@ class Parser {
             const e = this.expr(0, true);
             this.skipWs();
             if (!this.isOp(this.take(), ')')) this.fail('falta ")"');
-            return this.postfix({ t: 'paren', e });
+            return this.postfix(at({ t: 'paren', e }, t.p));
           }
           case '{': return this.arrayConst();
         }
@@ -551,7 +551,19 @@ function withSheet(n: Node, sheet: SheetSpec): Node {
   return n;
 }
 
+/** Nó com a posição de início no texto. */
+function at<T extends Node>(n: T, pos: number): T {
+  return Object.assign(n, { pos }) as T;
+}
+const posOf = (n: Node): number | undefined => (n as { pos?: number }).pos;
+
 function makeBin(op: BinOp, a: Node, b: Node, hostCol = 0): Node {
+  const r = makeBin0(op, a, b, hostCol);
+  const p = posOf(a);
+  return p === undefined ? r : at(r, p);
+}
+
+function makeBin0(op: BinOp, a: Node, b: Node, hostCol = 0): Node {
   // A1:B2 (mesma aba) vira uma área só — é como o Excel grava e imprime
   if (op === ':' && a.t === 'cell' && b.t === 'cell' && (!b.sheet || sameSheet(a.sheet, b.sheet))) {
     return { t: 'area', ...(a.sheet ? { sheet: a.sheet } : {}), r1: a.row, c1: a.col, r2: b.row, c2: b.col };

@@ -329,7 +329,8 @@ export class Evaluator {
     if (v instanceof CalcError) return v;
     if (!(v instanceof RefValue)) return ERR.VALUE;
     const a = v.single;
-    if (!a) return ERR.REF;
+    // só de uma célula (medido: =_xlfn.ANCHORARRAY(F5:F7) → #REF!)
+    if (!a || a.r1 !== a.r2 || a.c1 !== a.c2) return ERR.REF;
     const sp = this.host.spillArea(a.sheet, a.r1, a.c1);
     return sp ? new RefValue([sp]) : ERR.REF;
   }

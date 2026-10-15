@@ -63,6 +63,13 @@ export type Node =
   | { readonly t: 'bin'; readonly op: BinOp; readonly a: Node; readonly b: Node }
   | { readonly t: 'paren'; readonly e: Node };
 
+/**
+ * Posição (índice no texto analisado) do início de referências, nomes,
+ * funções e parênteses — para pôr o "@" no texto original sem perder os
+ * espaços que o usuário digitou (FORMULATEXT mostra "=F5:F8 * 2").
+ */
+export type Positioned<T> = T & { readonly pos?: number };
+
 export type BinOp = '+' | '-' | '*' | '/' | '^' | '&' | '=' | '<>' | '<' | '<=' | '>' | '>=' | ':' | ' ' | ',';
 
 /** Visita todos os nós (pré-ordem). */

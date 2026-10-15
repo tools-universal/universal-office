@@ -20,7 +20,7 @@ import { CellCtx, Evaluator, type EvalHost, type TableDef } from './evaluate.js'
 import { EN_US, lookupFn, type ValueLocale } from './fn.js';
 import { parseFormula, FormulaSyntaxError } from './parse.js';
 import { printFormula } from './print.js';
-import { legacyToDynamic } from './implicit.js';
+import { implicitPositions, legacyToDynamic } from './implicit.js';
 import { setComputedCriterion } from './functions/database.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, MAX_COL, MAX_ROW, RefValue, type Area, type Scalar, type Value } from './values.js';
 import type { CalcWorkbook, CellInput, FormulaInput } from './workbook.js';
@@ -266,7 +266,8 @@ export class Engine implements EvalHost {
   }
 
   private load(st: SheetStore, r: number, c: number, inp: CellInput, shared: Map<string, { node: Node | undefined; text: string }>): void {
-    const f = inp.f;
+    // <f ca="1"/> sem texto (célula derramada de matriz volátil) não é fórmula; só a filha de compartilhada é
+    const f = inp.f && (inp.f.text || (inp.f.t === 'shared' && inp.f.si !== undefined)) ? inp.f : undefined;
     const existing = st.get(r, c);
     if (!f) {
       if (inp.v === null || inp.v === undefined) return;
@@ -433,7 +434,21 @@ export class Engine implements EvalHost {
     const rec = this.sheets[sheet]?.get(row, col);
     const f = rec?.f ?? (rec?.owner && !rec.owner.dynamic ? rec.owner : undefined);
     if (!f?.node) return f ? f.text || undefined : undefined;
-    return printFormula(f.exec ?? f.node, { row: f.row, col: f.col, ui: true });
+    return this.sourceText(f) ?? printFormula(f.exec ?? f.node, { row: f.row, col: f.col, ui: true });
+  }
+
+  /**
+   * Texto original da fórmula (com os espaços do usuário, forma do arquivo) com
+   * os "@" da conversão legada inseridos; undefined se não houver texto próprio.
+   */
+  private sourceText(f: FormulaRec): string | undefined {
+    if (!f.text) return undefined;
+    if (!f.exec || f.exec === f.node) return f.text;
+    const pos = implicitPositions(f.exec);
+    if (pos.some((p) => p < 0)) return undefined;
+    let t = f.text;
+    for (const p of [...new Set(pos)].sort((a, b) => b - a)) t = t.slice(0, p) + '@' + t.slice(p);
+    return t;
   }
 
   isSubtotalCell(sheet: number, row: number, col: number): boolean {
@@ -460,10 +475,14 @@ export class Engine implements EvalHost {
     return this.tables.find((t) => areaContains(t.area, sheet, row, col));
   }
 
+  /**
+   * A1#: área derramada da âncora; fórmula comum (não dinâmica) vale a própria
+   * célula (medido: =_xlfn.ANCHORARRAY(I95) com I95 =SUM(60) → 60); constante → #REF!.
+   */
   spillArea(sheet: number, row: number, col: number): Area | undefined {
     const rec = this.sheets[sheet]?.get(row, col);
     const f = rec?.f;
-    if (!f || !f.dynamic) return undefined;
+    if (!f) return undefined;
     if (this.computing && f.dirty && !this.stale.has(f)) throw new NeedCell(f);
     return f.area ?? { sheet, r1: row, c1: col, r2: row, c2: col };
   }

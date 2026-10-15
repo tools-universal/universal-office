@@ -37,7 +37,30 @@ export function fnClass(name: string): FnClassInfo {
   return { top: !!def.returnsRef, params: params.length ? params : ['V'] };
 }
 
-const SINGLE = (e: Node): Node => ({ t: 'fn', name: 'SINGLE', prefix: '_xlfn.', args: [e] });
+let inserted: number[] = [];
+/** @ inserido pela conversão (marcado, com a posição do texto original). */
+const SINGLE = (e: Node): Node => {
+  const pos = (e as { pos?: number }).pos;
+  inserted.push(pos ?? -1);
+  return { t: 'fn', name: 'SINGLE', prefix: '_xlfn.', args: [e], implicitAt: pos ?? -1 } as Node;
+};
+
+/** Posições do texto original onde a conversão pôs "@" (−1 = sem posição conhecida). */
+export function implicitPositions(n: Node): number[] {
+  const out: number[] = [];
+  const visit = (x: Node): void => {
+    const p = (x as { implicitAt?: number }).implicitAt;
+    if (x.t === 'fn' && p !== undefined) out.push(p);
+    switch (x.t) {
+      case 'fn': x.args.forEach(visit); break;
+      case 'call': visit(x.fn); x.args.forEach(visit); break;
+      case 'unary': case 'paren': visit(x.e); break;
+      case 'bin': visit(x.a); visit(x.b); break;
+    }
+  };
+  visit(n);
+  return out;
+}
 
 /** Parâmetros que a sonda com enchimento "1" não alcança (o 2º do CELL exige referência). */
 const OVERRIDES: Record<string, FnClassInfo> = {
@@ -65,9 +88,14 @@ let opts: LegacyOptions = {};
 
 /** Insere os @ de uma fórmula legada (contexto de valor no topo). */
 export function legacyToDynamic(n: Node, o: LegacyOptions = {}): Node {
-  const prev = opts;
+  const prev = opts, prevIns = inserted;
   opts = o;
-  try { return conv(n, 'V'); } finally { opts = prev; }
+  inserted = [];
+  try {
+    const r = conv(n, 'V');
+    // nada a inserir: a mesma árvore (o texto original vale como está)
+    return inserted.length ? r : n;
+  } finally { opts = prev; inserted = prevIns; }
 }
 
 function conv(n: Node, ctx: ParamClass): Node {
@@ -97,7 +125,8 @@ function conv(n: Node, ctx: ParamClass): Node {
       if (n.name === 'ANCHORARRAY' || n.name.startsWith('_TRO_')) return ctx === 'V' ? SINGLE(n) : n;
       const info = fnClass(n.name);
       const args = n.args.map((a, i) => {
-        const cls = paramClass(info, i);
+        // TYPE(A1#) fica sem @ (medido; TYPE(A1:A3) ganha)
+        const cls = n.name === 'TYPE' && a.t === 'fn' && a.name === 'ANCHORARRAY' ? 'R' : paramClass(info, i);
         // dentro de um argumento de classe matriz, os de valor e de referência também
         // avaliam como matriz (=SUMPRODUCT(SUM(A1:A3*1)) fica sem @), salvo IF/IFERROR/IFNA
         return conv(a, ctx === 'A' && cls !== 'A' && !NO_ARRAY_PROPAGATION.has(n.name) ? 'A' : cls);
@@ -163,6 +192,9 @@ function needsAt(name: string, args: readonly Node[], info: FnClassInfo): boolea
       return args.slice(1).some(multi);
     case 'OFFSET':
       return multi(args[0] ?? { t: 'missing' }) && args[0]?.t !== 'cell' || args.length > 3;
+    case 'ISFORMULA': case 'FORMULATEXT':
+      // levantam sobre a referência: @ só quando ela tem várias células
+      return !!args[0] && multi(args[0]);
     case 'ROW': case 'COLUMN':
       return !!args[0] && args[0].t !== 'cell' && args[0].t !== 'missing';
     case 'XLOOKUP': {
