@@ -23,6 +23,7 @@ export const RT = {
   ARRAY: 0x0221,
   CONDFMT: 0x01b0,
   CF: 0x01b1,
+  DV: 0x01be,
   AUTOFILTERINFO: 0x009d,
   SUPBOOK: 0x01ae,
   SIINDEX: 0x1065,

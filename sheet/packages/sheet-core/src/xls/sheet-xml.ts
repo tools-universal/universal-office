@@ -143,6 +143,8 @@ export function worksheetXml(g: XlsGlobals, sh: XlsSheet, index: number, media: 
     if (cf.rules.length) x += `<conditionalFormatting sqref="${cf.sqref}">${cf.rules.join('')}</conditionalFormatting>`;
   }
 
+  if (sh.dataValidations.length) x += `<dataValidations count="${sh.dataValidations.length}">${sh.dataValidations.join('')}</dataValidations>`;
+
   if (sh.hyperlinks.length) {
     let hx = '';
     for (const l of sh.hyperlinks) {

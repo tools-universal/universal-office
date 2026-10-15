@@ -446,6 +446,17 @@ describe('.xls — formatação condicional (CONDFMT + CF → cfRule + dxf)', ()
   const ws = readWorksheet(pkg, readWorkbook(pkg).sheets[0]!.target!);
   const st = readStyles(pkg);
 
+  it('validação de lista explícita (DV) → dataValidation com os itens', () => {
+    const empty = [...u16(1), 0, 0];
+    const list = [0x17, 3, 0, ...chars('a\0b', false)];
+    const dv = rec(0x01be, [...u32(3 | 0x80 | 0x100), ...empty, ...empty, ...empty, ...empty,
+      ...u16(list.length), ...u16(0), ...list, ...u16(0), ...u16(0), ...u16(1), ...u16(2), ...u16(4), ...u16(0), ...u16(0)]);
+    const p = openSpreadsheet(buildXls(defaultFormatting(), [{ name: 'DV', recs: [dv] }]));
+    const w = readWorksheet(p, readWorkbook(p).sheets[0]!.target!);
+    expect(w.listValidations).toEqual(['A3:A5']);
+    expect(p.getPartText('xl/worksheets/sheet1.xml')).toContain('<formula1>&quot;a,b&quot;</formula1>');
+  });
+
   it('regra cellIs com a constante descompilada e o dxf (cor de fundo = bgColor, fonte negrita vermelha)', () => {
     expect(ws.condFormats).toEqual([{ sqref: 'B1:B5', rules: [expect.objectContaining({ type: 'cellIs', operator: 'greaterThan', formula: ['10'], dxfId: 0 })] }]);
     expect(st.dxfs[0]).toMatchObject({ fillColor: '#FFFF00', fontColor: '#FF0000', bold: true });

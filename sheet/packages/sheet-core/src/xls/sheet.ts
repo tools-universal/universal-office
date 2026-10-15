@@ -13,6 +13,7 @@ import type { XlsGlobals } from './globals.js';
 import { colName, xmlText } from './xmlw.js';
 import { decompile, quoteSheet, type FormulaContext } from './formula.js';
 import { readCf, readCondFmt, type CondFormatOut } from './cf.js';
+import { readDv } from './dv.js';
 
 /** Tabela de strings compartilhada: SST + strings de LABEL/RSTRING (BIFF5). */
 export class StringTable {
@@ -108,6 +109,8 @@ export interface XlsSheet {
   hasAutoFilter?: boolean;
   /** Área do autofiltro (do nome _FilterDatabase da aba). */
   autoFilter?: Rect;
+  /** <dataValidation> já em XML. */
+  dataValidations: string[];
   /** Formatação condicional: sqref A1 + <cfRule> já em XML. */
   condFormats: CondFormatOut[];
   /** Valores das células referenciadas por gráficos (chave linha·16384 + coluna). */
@@ -158,7 +161,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
   const sh: XlsSheet = {
     cells: new Map(), rows: new Map(), cols: [], merges: [],
     showGrid: true, showZeros: true, showFormulas: false, rightToLeft: false, selected: false,
-    hyperlinks: [], notes: [], objs: [], condFormats: [],
+    hyperlinks: [], notes: [], objs: [], condFormats: [], dataValidations: [],
   };
   const keep = wanted?.length
     ? (row: number, col: number, v: number | string, xf: number): void => {
@@ -513,6 +516,13 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
         let rule: string | undefined;
         try { rule = readCf(g, r, g.dxfs, fctx, ++cfPriority); } catch { rule = undefined; }
         if (rule) curCf.rules.push(rule);
+        break;
+      }
+      case RT.DV: {
+        if (!b8) break;
+        let dv: string | undefined;
+        try { dv = readDv(r, g.cp, fctx); } catch { dv = undefined; }
+        if (dv) sh.dataValidations.push(dv);
         break;
       }
       case RT.AUTOFILTERINFO:
