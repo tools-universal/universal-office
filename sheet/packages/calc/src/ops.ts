@@ -31,7 +31,7 @@ export function addSub(a: number, b: number, sub: boolean): number | CalcError {
  * =1+7*2^-52-1 → 0 e =1+8*2^-52-1 → 1,78E-15; medido).
  */
 export function addSubTop(a: number, b: number, sub: boolean): number | CalcError {
-  // snapAdd (FN-MATH, medido): |r| < 2^(e−49), e = expoente do maior operando
+  // snapAdd (medido): |r| < 2^(e−49), e = expoente do operando da ESQUERDA
   return numResult(snapAdd(a, sub ? -b : b));
 }
 
