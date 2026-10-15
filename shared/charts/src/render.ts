@@ -2253,10 +2253,114 @@ class Renderer {
     }
   }
 
+  /**
+   * Pizza de pizza / barra de pizza (medido no Excel, lo-pieOfPieChart* e
+   * barOfPieChart*): a fatia "Outros" (soma do 2º gráfico) centrada às 3 h, as
+   * demais em sentido horário a partir dela; o 2º gráfico à direita com
+   * secondPieSize% do diâmetro (a barra com metade dessa largura, pontos de
+   * cima para baixo; a pizza começando no fim da fatia "Outros"), vão de
+   * 0,663 × a largura dele (gapWidth 150), o conjunto centrado na plotagem.
+   * Sem tipo de separação ("auto"): o último terço dos pontos vai ao 2º gráfico.
+   */
+  private paintOfPie(outer: Rect): void {
+    const c = this.ctx, cs = this.cs, g = cs.groups[0]!, s = g.series[0];
+    if (!s) return;
+    let r = outer;
+    const pl = cs.plotLayout;
+    if (pl && pl.w !== undefined && pl.h !== undefined) { const A = this.area; r = { x: A.x + (pl.x ?? 0) * A.w, y: A.y + (pl.y ?? 0) * A.h, w: pl.w * A.w, h: pl.h * A.h }; }
+    if (this.showBg()) this.shapeRect(r, cs.plotSp);
+    const vals = s.values.map((v) => Math.max(0, v ?? 0));
+    const n = vals.length, total = vals.reduce((a, b) => a + b, 0);
+    if (!(total > 0)) return;
+    const op = g.ofPie ?? { splitType: 'auto', secondPieSize: 75 };
+    let second: number[];
+    if (op.splitType === 'val') second = vals.map((_, i) => i).filter((i) => vals[i]! < (op.splitPos ?? 0));
+    else if (op.splitType === 'percent') second = vals.map((_, i) => i).filter((i) => vals[i]! / total * 100 < (op.splitPos ?? 0));
+    else if (op.splitType === 'cust') second = (op.custSplit ?? []).filter((i) => i < n);
+    else { const k = Math.max(1, Math.min(n - 1, op.splitType === 'pos' ? Math.round(op.splitPos ?? 1) : Math.round(n / 3))); second = Array.from({ length: k }, (_, j) => n - k + j); }
+    const inSecond = new Set(second);
+    const first = vals.map((_, i) => i).filter((i) => !inSecond.has(i));
+    const other = second.reduce((a, i) => a + vals[i]!, 0);
+    const bar = g.ofPieType === 'bar';
+    const s2 = Math.max(0.05, Math.min(2, op.secondPieSize / 100));
+    const w2f = bar ? s2 / 2 : s2;
+    // largura do conjunto no dimensionamento (empírico, gapWidth 150 e 75%: pizza 2,56 × D1, barra 1,88 × D1)
+    const D1 = Math.max(4, Math.min(r.h * 0.97, r.w * 0.97 / (1 + w2f + (bar ? 0.676 : 1.08) * s2 * (g.gapWidth / 150))));
+    const gap = 0.663 * w2f * D1 * (g.gapWidth / 150);
+    const x0 = r.x + (r.w - (D1 + gap + w2f * D1)) / 2, cy = r.y + r.h / 2;
+    const R1 = D1 / 2, cx1 = x0 + R1;
+    const fillOf = (i: number) => this.pointFill(g, s, i, n);
+    const paintSlice = (cx: number, cy2: number, R: number, a0: number, a1: number, fill: Paint, line: LineProps | undefined) => {
+      c.beginPath(); c.moveTo(cx, cy2); c.arc(cx, cy2, R, a0, a1); c.closePath();
+      if (this.setFill(fill, { x: cx - R, y: cy2 - R, w: 2 * R, h: 2 * R })) c.fill();
+      if (line && this.setLine(line)) { c.lineJoin = 'round'; c.stroke(); c.setLineDash([]); }
+    };
+    const lineOf = (i: number) => mergeLine(s.sp.line, s.dPts.get(i)?.sp.line);
+    const labels: { i: number; x: number; y: number }[] = [];
+    // 1º gráfico: "Outros" centrada em 0 rad, os demais em sentido horário depois dela
+    const thO = other / total * Math.PI * 2;
+    let a = thO / 2;
+    for (const i of first) {
+      const a1 = a + vals[i]! / total * Math.PI * 2;
+      if (this.showData(this.seriesIndex.get(s) ?? 0, i)) paintSlice(cx1, cy, R1, a, a1, fillOf(i), lineOf(i));
+      labels.push({ i, x: cx1 + Math.cos((a + a1) / 2) * R1 * 0.62, y: cy + Math.sin((a + a1) / 2) * R1 * 0.62 });
+      a = a1;
+    }
+    if (other > 0) paintSlice(cx1, cy, R1, -thO / 2, thO / 2, s.dPts.get(n)?.sp.fill ?? s.sp.fill ?? this.styleFill(this.autoColor(n, n + 1)), lineOf(n));
+    // 2º gráfico
+    const x2 = x0 + D1 + gap;
+    const H2 = s2 * D1;
+    let top = { x: x2, y: cy - H2 / 2 }, bot = { x: x2, y: cy + H2 / 2 };
+    if (bar) {
+      const bw = w2f * D1;
+      let y = cy - H2 / 2;
+      for (const i of second) {
+        const h = other > 0 ? vals[i]! / other * H2 : 0;
+        const rr = { x: x2, y, w: bw, h };
+        if (this.showData(this.seriesIndex.get(s) ?? 0, i)) { const f = fillOf(i); if (this.setFill(f, rr)) c.fillRect(rr.x, rr.y, rr.w, rr.h); const ln = lineOf(i); if (ln && this.setLine(ln)) { c.strokeRect(rr.x, rr.y, rr.w, rr.h); c.setLineDash([]); } }
+        labels.push({ i, x: x2 + bw / 2, y: y + h / 2 });
+        y += h;
+      }
+    } else {
+      const R2 = H2 / 2, cx2 = x2 + R2;
+      let b = thO / 2;
+      for (const i of second) {
+        const b1 = b + (other > 0 ? vals[i]! / other : 0) * Math.PI * 2;
+        if (this.showData(this.seriesIndex.get(s) ?? 0, i)) paintSlice(cx2, cy, R2, b, b1, fillOf(i), lineOf(i));
+        labels.push({ i, x: cx2 + Math.cos((b + b1) / 2) * R2 * 0.62, y: cy + Math.sin((b + b1) / 2) * R2 * 0.62 });
+        b = b1;
+      }
+      top = { x: cx2 - R2 * 0.17, y: cy - R2 * 0.985 }; bot = { x: cx2 - R2 * 0.17, y: cy + R2 * 0.985 };
+    }
+    // linhas de série: das pontas da fatia "Outros" ao topo/base do 2º gráfico
+    if (g.serLines && other > 0) {
+      const ln = mergeLine(this.defaultLine(), g.serLines.line);
+      if (ln && this.setLine(ln)) {
+        c.beginPath();
+        c.moveTo(cx1 + Math.cos(-thO / 2) * R1, cy + Math.sin(-thO / 2) * R1); c.lineTo(top.x, top.y);
+        c.moveTo(cx1 + Math.cos(thO / 2) * R1, cy + Math.sin(thO / 2) * R1); c.lineTo(bot.x, bot.y);
+        c.stroke(); c.setLineDash([]);
+      }
+    }
+    // rótulos (dentro, no centro de cada fatia/segmento)
+    const dl = mergeDLbls(g.dLbls, s.dLbls);
+    if (!dl) return;
+    for (const L of labels) {
+      const pd = dl.points?.get(L.i);
+      const eff = pd ? { ...dl, ...stripUndef(pd) } : dl;
+      if (eff.delete) continue;
+      const txt = pd?.text ?? this.labelText(eff, s, L.i, vals[L.i]! / total, 'pie');
+      if (!txt) continue;
+      const t = this.text(dl.txPr, pd?.txPr);
+      this.drawLines(txt.split('\n'), t, L.x, L.y, 'center');
+    }
+  }
+
   private paintPies(outer: Rect): void {
     const c = this.ctx;
     const cs = this.cs;
     if (cs.groups[0]?.threeD && cs.groups[0].kind === 'pie') { this.paintPie3D(outer); return; }
+    if (cs.groups[0]?.kind === 'ofPie' && !cs.groups[0].threeD) { this.paintOfPie(outer); return; }
     // área de plotagem: quadrado centrado (ou o layout manual)
     let r = outer;
     const pl = cs.plotLayout;

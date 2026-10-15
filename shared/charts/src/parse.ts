@@ -506,6 +506,11 @@ class Parser {
     if (sh) g.shape = sh;
     const opt = valStr(el, 'c:ofPieType');
     if (opt) g.ofPieType = opt;
+    if (kind === 'ofPie') {
+      const sp = valNum(el, 'c:splitPos');
+      const cust = childElements(firstChild(el, 'c:custSplit') ?? node('x'), 'c:secondPiePt').map((p) => parseInt(p.attrs['val'] ?? '-1', 10)).filter((v) => v >= 0);
+      g.ofPie = { splitType: valStr(el, 'c:splitType') ?? 'auto', secondPieSize: valNum(el, 'c:secondPieSize') ?? 75, ...(sp !== undefined ? { splitPos: sp } : {}), ...(cust.length ? { custSplit: cust } : {}) };
+    }
     g.series.sort((a, b) => a.order - b.order);
     return g;
   }

@@ -189,6 +189,8 @@ export interface Group {
   gapDepth?: number;
   shape?: string;
   ofPieType?: string;
+  /** Pizza/barra de pizza: como separar o 2º gráfico (pos/val/percent/cust/auto), limite, pontos e tamanho (%). */
+  ofPie?: { splitType: string; splitPos?: number; custSplit?: number[]; secondPieSize: number };
   /** Mapa de árvore/explosão solar: rótulo dos pais (overlapping/banner/none). */
   parentLabel?: string;
 }
