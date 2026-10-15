@@ -279,6 +279,8 @@ export interface Shape {
   custGeom?: { w: number; h: number; subs: import('./geometry.js').PathSeg[][]; noFill?: boolean[]; noStroke?: boolean[]; lum?: number[]; textRect?: { l: number; t: number; r: number; b: number } };
   fill?: Fill;
   lineColor?: string;
+  /** Alfa do contorno (`<a:ln><a:solidFill>…<a:alpha>`), 0..1. */
+  lineAlpha?: number;
   lineWidth?: number; // EMU
   /** `<a:ln><a:noFill/>`: SEM contorno explícito (bloqueia o fallback do lnRef). */
   lineNone?: boolean;

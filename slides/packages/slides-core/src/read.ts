@@ -1260,6 +1260,9 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
       if (firstChild(ln, 'a:noFill')) shape.lineNone = true; // SEM contorno explícito
       const lc = solidFillColor(ln, theme);
       if (lc) shape.lineColor = lc;
+      const lsf = firstChild(ln, 'a:solidFill');
+      const la = lsf ? fillAlphaEl(lsf)?.attrs['val'] : undefined;
+      if (la !== undefined) shape.lineAlpha = Math.max(0, Math.min(1, parseInt(la, 10) / 100000));
       if (ln.attrs['w']) shape.lineWidth = parseInt(ln.attrs['w'], 10);
       const dash = firstChild(ln, 'a:prstDash');
       if (dash?.attrs['val']) shape.lineDash = dash.attrs['val'];

@@ -1075,6 +1075,9 @@ function paintBody(
   // contorno (com prstDash opcional)
   const lineColor = ov.line ?? sh.lineColor;
   if (lineColor) {
+    // alfa do contorno (<a:ln><a:solidFill><a:alpha>): anéis translúcidos (gdx-218979)
+    const prevAlpha = ctx.globalAlpha;
+    if (sh.lineAlpha !== undefined && sh.lineAlpha < 1) ctx.globalAlpha = prevAlpha * sh.lineAlpha;
     ctx.strokeStyle = lineColor;
     // largura em EMU × (px por EMU) — antes dividia por 9525 e todo contorno saía com 1 px
     const lw = Math.max(1, (sh.lineWidth ?? 9525) * fit.scale);
@@ -1092,6 +1095,7 @@ function paintBody(
         if (sh.tailArrow) paintArrowhead(ctx, sh.tailArrow, ends.tx, ends.ty, ends.tAng, lw);
       }
     }
+    ctx.globalAlpha = prevAlpha;
   }
   return true;
 }
