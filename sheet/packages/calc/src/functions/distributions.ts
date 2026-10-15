@@ -11,7 +11,7 @@
  * dígitos de p pequeno); CONFIDENCE.NORM usa NORM.S.INV(1 − α/2).
  */
 import { register, type FnContext, type FnDef } from '../fn.js';
-import { argNumber, collectNumbers, mean, num, variance } from '../stats.js';
+import { argNumber, collectNumbers, mean, num, numericPairs, variance, zipCells } from '../stats.js';
 import {
   bd0, betaInc, dbinomRaw, dnorm, dpoisRaw, gamma, lbeta, lgamma, normCdfXl, pgamma, qnorm, stirlerr,
 } from '../special-functions.js';
@@ -658,32 +658,6 @@ function zTest(args: readonly unknown[], ctx: FnContext): Value {
   return num(normCdfXl(-(mean(xs) - x) / (s / Math.sqrt(xs.length))));
 }
 
-/** Valores de um argumento matriz/referência (uma área), na ordem. */
-function cellsOf(v: Value, ctx: FnContext): Scalar[] | CalcError {
-  if (v instanceof RefValue) {
-    if (v.areas.length !== 1) return ERR.VALUE;
-    return ctx.values(v).data as Scalar[];
-  }
-  if (v instanceof ArrayValue) return v.data as Scalar[];
-  return [v as Scalar];
-}
-
-/** Pares (x, y) das posições em que ambos são números (T.TEST pareado). */
-function pairedNums(a: Value, b: Value, ctx: FnContext): [number[], number[]] | CalcError {
-  const va = cellsOf(a, ctx), vb = cellsOf(b, ctx);
-  if (va instanceof CalcError) return va;
-  if (vb instanceof CalcError) return vb;
-  if (va.length !== vb.length) return ERR.NA;
-  const xs: number[] = [], ys: number[] = [];
-  for (let i = 0; i < va.length; i++) {
-    const x = va[i], y = vb[i];
-    if (x instanceof CalcError) return x;
-    if (y instanceof CalcError) return y;
-    if (typeof x === 'number' && typeof y === 'number') { xs.push(x); ys.push(y); }
-  }
-  return [xs, ys];
-}
-
 function tTest(args: readonly unknown[], ctx: FnContext): Value {
   const tailsN = argNumber(args[2] as Scalar, ctx);
   if (tailsN instanceof CalcError) return tailsN;
@@ -693,7 +667,7 @@ function tTest(args: readonly unknown[], ctx: FnContext): Value {
   if ((tails !== 1 && tails !== 2) || type < 1 || type > 3) return ERR.NUM;
   let t: number, df: number;
   if (type === 1) {
-    const pr = pairedNums(args[0] as Value, args[1] as Value, ctx);
+    const pr = numericPairs(args[0] as Value, args[1] as Value, ctx);
     if (pr instanceof CalcError) return pr;
     const d = pr[0].map((x, i) => x - pr[1][i]!);
     const n = d.length;
@@ -741,20 +715,18 @@ function fTest(args: readonly unknown[], ctx: FnContext): Value {
 function chisqTest(args: readonly unknown[], ctx: FnContext): Value {
   const a = args[0] as Value, e = args[1] as Value;
   const dims = (v: Value): [number, number] => v instanceof RefValue && v.single ? [v.single.r2 - v.single.r1 + 1, v.single.c2 - v.single.c1 + 1] : v instanceof ArrayValue ? [v.rows, v.cols] : [1, 1];
-  const va = cellsOf(a, ctx), ve = cellsOf(e, ctx);
-  if (va instanceof CalcError) return va;
-  if (ve instanceof CalcError) return ve;
+  if ((a instanceof RefValue && a.areas.length !== 1) || (e instanceof RefValue && e.areas.length !== 1)) return ERR.VALUE;
   const [r, c] = dims(a), [r2, c2] = dims(e);
   if (r !== r2 || c !== c2) return ERR.NA;
   let chi = 0;
-  for (let i = 0; i < va.length; i++) {
-    const x = va[i], y = ve[i];
+  const err = zipCells(a, e, ctx, (x, y) => {
     if (x instanceof CalcError) return x;
     if (y instanceof CalcError) return y;
-    if (typeof x !== 'number' || typeof y !== 'number') continue;
+    if (typeof x !== 'number' || typeof y !== 'number') return;
     if (y === 0) return ERR.DIV0;
     chi += (x - y) ** 2 / y;
-  }
+  });
+  if (err) return err;
   const df = r > 1 && c > 1 ? (r - 1) * (c - 1) : r * c - 1;
   if (df < 1) return ERR.NA;
   return num(pgamma(chi / 2, df / 2, false));

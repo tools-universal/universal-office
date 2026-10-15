@@ -10,60 +10,12 @@
  * centrados quando há constante; coluna colinear → coeficiente 0 e erro 0.
  */
 import { register, type FnContext } from '../fn.js';
-import { argNumber, num, xlAdd } from '../stats.js';
+import { argNumber, BIG_AREA, gridOf, num, numericPairs, xlAdd } from '../stats.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, RefValue, type Scalar, type Value } from '../values.js';
 
 const X = '_xlfn.';
 
-/** Matriz de valores de um argumento (referência de uma área, matriz ou escalar). */
-function gridOf(v: Value, ctx: FnContext): ArrayValue | CalcError {
-  if (v instanceof RefValue) {
-    if (v.areas.length !== 1) return ERR.VALUE;
-    return ctx.values(v);
-  }
-  if (v instanceof ArrayValue) return v;
-  if (v instanceof LambdaValue) return ERR.VALUE;
-  return new ArrayValue(1, 1, [v]);
-}
-
-/** Pares numéricos (x, y) na mesma posição; tamanhos diferentes → #N/A; erro propaga. */
-function pairs(xv: Value, yv: Value, ctx: FnContext): [number[], number[]] | CalcError {
-  // duas referências grandes (colunas inteiras): só as células existentes, na ordem
-  if (xv instanceof RefValue && yv instanceof RefValue && xv.single && yv.single) {
-    const ax = xv.single, ay = yv.single;
-    const size = (r: typeof ax): number => (r.r2 - r.r1 + 1) * (r.c2 - r.c1 + 1);
-    if (size(ax) > 65536 && size(ay) > 65536) {
-      if (size(ax) !== size(ay)) return ERR.NA;
-      const w = ax.c2 - ax.c1 + 1, wy = ay.c2 - ay.c1 + 1;
-      const xm = new Map<number, Scalar>();
-      let err: CalcError | undefined;
-      ctx.forEachCell(ax, (v, r, c) => { if (v !== null) xm.set((r - ax.r1) * w + (c - ax.c1), v); });
-      const ym = new Map<number, Scalar>();
-      ctx.forEachCell(ay, (v, r, c) => { if (v !== null) ym.set((r - ay.r1) * wy + (c - ay.c1), v); });
-      const keys = [...new Set([...xm.keys(), ...ym.keys()])].sort((p, q) => p - q);
-      const xs: number[] = [], ys: number[] = [];
-      for (const k of keys) {
-        const a2 = xm.get(k) ?? null, b2 = ym.get(k) ?? null;
-        if (a2 instanceof CalcError) { err = a2; break; }
-        if (b2 instanceof CalcError) { err = b2; break; }
-        if (typeof a2 === 'number' && typeof b2 === 'number') { xs.push(a2); ys.push(b2); }
-      }
-      return err ?? [xs, ys];
-    }
-  }
-  const gx = gridOf(xv, ctx), gy = gridOf(yv, ctx);
-  if (gx instanceof CalcError) return gx;
-  if (gy instanceof CalcError) return gy;
-  if (gx.data.length !== gy.data.length) return ERR.NA;
-  const xs: number[] = [], ys: number[] = [];
-  for (let i = 0; i < gx.data.length; i++) {
-    const a = gx.data[i]!, b = gy.data[i]!;
-    if (a instanceof CalcError) return a;
-    if (b instanceof CalcError) return b;
-    if (typeof a === 'number' && typeof b === 'number') { xs.push(a); ys.push(b); }
-  }
-  return [xs, ys];
-}
+const pairs = numericPairs;
 
 interface Moments { n: number; mx: number; my: number; sxx: number; syy: number; sxy: number }
 
@@ -138,6 +90,15 @@ register(
 
 /** Dados numéricos de uma matriz (texto/vazio/booleano e também erro → #VALUE!, medido). */
 function numericGrid(v: Value, ctx: FnContext): { rows: number; cols: number; data: number[] } | CalcError {
+  if (v instanceof RefValue && v.single) {
+    const a = v.single, size = (a.r2 - a.r1 + 1) * (a.c2 - a.c1 + 1);
+    if (size > BIG_AREA) {
+      // coluna inteira: tem vazios (→ #VALUE!) a menos que todas as células existam
+      let k = 0;
+      ctx.forEachCell(a, (x) => { if (x !== null) k++; });
+      if (k < size) return ERR.VALUE;
+    }
+  }
   const g = gridOf(v, ctx);
   if (g instanceof CalcError) return g;
   const data: number[] = [];

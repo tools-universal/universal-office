@@ -257,3 +257,66 @@ export function kurt(xs: readonly number[]): number | CalcError {
 export function sorted(xs: readonly number[]): number[] {
   return Array.from(Float64Array.from(xs).sort());
 }
+
+// ---------------------------------------------------------------------------
+// Pares de posições (CORREL, T.TEST pareado, PROB, CHISQ.TEST, FORECAST.ETS…)
+
+/** Área grande (coluna/linha inteira): percorrer só as células existentes. */
+export const BIG_AREA = 65536;
+
+/** Matriz de valores de um argumento (referência de uma área, matriz ou escalar). */
+export function gridOf(v: Value, ctx: FnContext): ArrayValue | CalcError {
+  if (v instanceof RefValue) {
+    if (v.areas.length !== 1) return ERR.VALUE;
+    return ctx.values(v);
+  }
+  if (v instanceof ArrayValue) return v;
+  if (v instanceof LambdaValue) return ERR.VALUE;
+  return new ArrayValue(1, 1, [v]);
+}
+
+/**
+ * Valores dos dois argumentos posição a posição (mesmo número de células, senão
+ * #N/A); referências grandes são percorridas só nas células existentes (as posições
+ * vazias nos dois lados não aparecem). `visit` recebe (a, b) na ordem linha a linha
+ * e pode devolver um erro para parar.
+ */
+export function zipCells(xv: Value, yv: Value, ctx: FnContext, visit: (a: Scalar, b: Scalar) => CalcError | void): CalcError | undefined {
+  if (xv instanceof RefValue && yv instanceof RefValue && xv.single && yv.single) {
+    const ax = xv.single, ay = yv.single;
+    const size = (r: Area): number => (r.r2 - r.r1 + 1) * (r.c2 - r.c1 + 1);
+    if (size(ax) > BIG_AREA && size(ay) > BIG_AREA) {
+      if (size(ax) !== size(ay)) return ERR.NA;
+      const wx = ax.c2 - ax.c1 + 1, wy = ay.c2 - ay.c1 + 1;
+      const xm = new Map<number, Scalar>(), ym = new Map<number, Scalar>();
+      ctx.forEachCell(ax, (v, r, c) => { if (v !== null) xm.set((r - ax.r1) * wx + (c - ax.c1), v); });
+      ctx.forEachCell(ay, (v, r, c) => { if (v !== null) ym.set((r - ay.r1) * wy + (c - ay.c1), v); });
+      const keys = [...new Set([...xm.keys(), ...ym.keys()])].sort((a, b) => a - b);
+      for (const k of keys) {
+        const e = visit(xm.get(k) ?? null, ym.get(k) ?? null);
+        if (e) return e;
+      }
+      return undefined;
+    }
+  }
+  const gx = gridOf(xv, ctx), gy = gridOf(yv, ctx);
+  if (gx instanceof CalcError) return gx;
+  if (gy instanceof CalcError) return gy;
+  if (gx.data.length !== gy.data.length) return ERR.NA;
+  for (let i = 0; i < gx.data.length; i++) {
+    const e = visit(gx.data[i]!, gy.data[i]!);
+    if (e) return e;
+  }
+  return undefined;
+}
+
+/** Pares numéricos (x, y) na mesma posição; tamanhos diferentes → #N/A; erro propaga. */
+export function numericPairs(xv: Value, yv: Value, ctx: FnContext): [number[], number[]] | CalcError {
+  const xs: number[] = [], ys: number[] = [];
+  const e = zipCells(xv, yv, ctx, (a, b) => {
+    if (a instanceof CalcError) return a;
+    if (b instanceof CalcError) return b;
+    if (typeof a === 'number' && typeof b === 'number') { xs.push(a); ys.push(b); }
+  });
+  return e ?? [xs, ys];
+}

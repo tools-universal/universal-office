@@ -12,7 +12,7 @@
 import { register, type FnContext, type FnDef } from '../fn.js';
 import { ArrayValue, CalcError, ERR, RefValue, type Scalar, type Value } from '../values.js';
 import {
-  argInt, argNumber, collectNumbers, devsq, kurt, mean, num, skew, skewP, sorted, variance, xlAdd, xlSum,
+  argInt, argNumber, collectNumbers, devsq, kurt, mean, num, numericPairs, skew, skewP, sorted, variance, xlAdd, xlSum,
   type CollectOptions,
 } from '../stats.js';
 
@@ -426,10 +426,9 @@ register(
   {
     name: 'PROB', minArgs: 3, maxArgs: 4, args: (i) => (i < 2 ? 'any' : 'value'), lift: true,
     call: ([xr, pr, lo, hi], ctx) => {
-      const xs = scalarsNumOrErr(xr, ctx), ps = scalarsNumOrErr(pr, ctx);
-      if (xs instanceof CalcError) return xs;
-      if (ps instanceof CalcError) return ps;
-      if (xs.length !== ps.length) return ERR.NA;
+      const pp = numericPairs(xr as Value, pr as Value, ctx);
+      if (pp instanceof CalcError) return pp;
+      const [xs, ps] = pp;
       const l = argNumber(lo, ctx);
       if (l instanceof CalcError) return l;
       let h = l;
@@ -438,8 +437,7 @@ register(
       // x texto tira o p da soma; p negativo ou > 1 é aceito)
       let total = 0, s = 0;
       for (let i = 0; i < xs.length; i++) {
-        const x = xs[i], p = ps[i];
-        if (typeof p !== 'number' || typeof x !== 'number') continue;
+        const x = xs[i]!, p = ps[i]!;
         total = xlAdd(total, p);
         if (x >= l && x <= h) s = xlAdd(s, p);
       }
@@ -449,17 +447,6 @@ register(
     },
   },
 );
-
-/** Valores de um argumento como números ou null (texto/booleano/vazio), erro propaga. */
-function scalarsNumOrErr(a: Value, ctx: FnContext): (number | null)[] | CalcError {
-  const out: (number | null)[] = [];
-  const vals: Scalar[] = a instanceof RefValue ? ctx.values(a).data as Scalar[] : a instanceof ArrayValue ? a.data as Scalar[] : [a as Scalar];
-  for (const v of vals) {
-    if (v instanceof CalcError) return v;
-    out.push(typeof v === 'number' ? v : null);
-  }
-  return out;
-}
 
 // --- SUBTOTAL e AGGREGATE ----------------------------------------------------
 

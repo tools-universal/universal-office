@@ -12,21 +12,11 @@
  * no Excel; parâmetros e erros de séries ruidosas diferem (ver stat-ets.known.json).
  */
 import { register, type FnContext } from '../fn.js';
-import { argNumber, num } from '../stats.js';
+import { argNumber, num, zipCells } from '../stats.js';
 import { qnorm } from '../special-functions.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, RefValue, type Scalar, type Value } from '../values.js';
 
 const X = '_xlfn.';
-
-function flat(v: Value, ctx: FnContext): Scalar[] | CalcError {
-  if (v instanceof RefValue) {
-    if (v.areas.length !== 1) return ERR.VALUE;
-    return [...ctx.values(v).data];
-  }
-  if (v instanceof ArrayValue) return [...v.data];
-  if (v instanceof LambdaValue) return ERR.VALUE;
-  return [v];
-}
 
 interface Series { y: number[]; t0: number; step: number }
 
@@ -41,20 +31,16 @@ const AGG: Record<number, (xs: number[]) => number> = {
 
 /** Série regular (passo constante) a partir de valores e linha do tempo. */
 function buildSeries(valuesV: Value, timelineV: Value, completion: number, aggregation: number, ctx: FnContext): Series | CalcError {
-  const vs = flat(valuesV, ctx), ts = flat(timelineV, ctx);
-  if (vs instanceof CalcError) return vs;
-  if (ts instanceof CalcError) return ts;
-  if (vs.length !== ts.length) return ERR.NA;
   const pts = new Map<number, number[]>();
-  for (let i = 0; i < ts.length; i++) {
-    const t = ts[i], v = vs[i];
+  const err = zipCells(timelineV, valuesV, ctx, (t, v) => {
     if (t instanceof CalcError) return t;
     if (v instanceof CalcError) return v;
     // medido: texto/vazio na linha do tempo ou nos valores = ponto que falta
-    if (typeof t !== 'number' || typeof v !== 'number') continue;
+    if (typeof t !== 'number' || typeof v !== 'number') return;
     const list = pts.get(t);
     if (list) list.push(v); else pts.set(t, [v]);
-  }
+  });
+  if (err) return err;
   const keys = [...pts.keys()].sort((a, b) => a - b);
   if (keys.length < 3) return ERR.NUM;
   // passo = a diferença mais frequente (medido: um ponto fora do passo não dá #NUM!)
