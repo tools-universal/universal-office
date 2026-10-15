@@ -26,9 +26,12 @@ const PLAIN: CollectOptions = {};
 /** Versões *A (AVERAGEA, MAXA, STDEVA…): texto 0 e booleano 1/0 em referência; matriz só números. */
 const A_OPTS: CollectOptions = { refText: 'zero', refBool: 'num' };
 
+/** Máximo de argumentos do Excel: 255 nas antigas, 254 nas de 2010+ (_xlfn., catálogo medido). */
+const maxArgsOf = (prefix?: string): number => (prefix ? 254 : 255);
+
 function aggregate(name: string, agg: Agg, opts: CollectOptions = PLAIN, prefix?: string): FnDef {
   return {
-    name, prefix, minArgs: 1, maxArgs: 255, args: 'any',
+    name, prefix, minArgs: 1, maxArgs: maxArgsOf(prefix), args: 'any',
     call: (args, ctx) => {
       const xs = collectNumbers(args, ctx, opts);
       return xs instanceof CalcError ? xs : agg(xs);
@@ -114,7 +117,7 @@ const aggHarmean: Agg = (xs) => {
  */
 function modeFn(name: string, agg: Agg, prefix?: string): FnDef {
   return {
-    name, prefix, minArgs: 1, maxArgs: 255, args: 'any',
+    name, prefix, minArgs: 1, maxArgs: maxArgsOf(prefix), args: 'any',
     call: (args, ctx) => {
       for (const a of args as Value[]) if (a === null || (a instanceof RefValue && a.areas.length > 1)) return ERR.VALUE;
       const xs = collectNumbers(args, ctx, { directText: 'skip' });
@@ -494,7 +497,7 @@ register(
     },
   },
   {
-    name: 'AGGREGATE', prefix: X, minArgs: 3, maxArgs: 255, args: (i) => (i < 2 ? 'value' : 'any'), lift: true,
+    name: 'AGGREGATE', prefix: X, minArgs: 3, maxArgs: 254, args: (i) => (i < 2 ? 'value' : 'any'), lift: true,
     call: (args, ctx) => {
       const fnum = argNumber(args[0] as Scalar, ctx);
       if (fnum instanceof CalcError) return fnum;

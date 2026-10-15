@@ -23,6 +23,7 @@ import { CalcError, type ErrorCode, type Scalar } from './values.js';
 import { EN_US, type ValueLocale } from './fn.js';
 import { parseNumberText } from './coerce.js';
 import { compareText, textEquals } from './collate.js';
+import { canonicalError } from './i18n/translate.js';
 
 /** Variações do critério. */
 export interface CriterionOptions {
@@ -64,18 +65,12 @@ export function hasWildcard(pattern: string): boolean {
   return false;
 }
 
-/** Nomes de erro do pt-BR (o critério em texto usa os nomes do idioma de quem calcula). */
-const PT_BR_ERRORS: Record<string, ErrorCode> = {
-  '#NULO!': '#NULL!', '#DIV/0!': '#DIV/0!', '#VALOR!': '#VALUE!', '#REF!': '#REF!',
-  '#NOME?': '#NAME?', '#NÚM!': '#NUM!', '#N/D': '#N/A',
-};
-const CANON_ERRORS: readonly ErrorCode[] = ['#NULL!', '#DIV/0!', '#VALUE!', '#REF!', '#NAME?', '#NUM!', '#N/A', '#GETTING_DATA', '#SPILL!', '#CALC!', '#FIELD!', '#BLOCKED!', '#CONNECT!', '#UNKNOWN!', '#BUSY!', '#PYTHON!'];
-
-/** Código canônico de um nome de erro escrito no idioma (ou undefined). */
+/**
+ * Código canônico de um nome de erro escrito no idioma de quem calcula (ou undefined):
+ * o critério usa os nomes do idioma — "#N/D" no pt-BR; "#N/A" lá é texto (medido).
+ */
 export function localeErrorCode(text: string, locale: ValueLocale): ErrorCode | undefined {
-  const u = text.trim().toUpperCase();
-  if (locale.id === 'pt-BR') return PT_BR_ERRORS[u];
-  return CANON_ERRORS.find((c) => c === u);
+  return canonicalError(text, locale.id);
 }
 
 function make(pred: (v: Scalar) => boolean, blank: boolean): Criterion {

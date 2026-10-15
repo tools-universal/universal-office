@@ -132,7 +132,8 @@ function ifFn(name: string, reduce: Reduce): FnDef {
 /** SUMIFS/AVERAGEIFS/MAXIFS/MINIFS: (soma, intervalo1, critério1, …). */
 function ifsFn(name: string, reduce: Reduce, prefix?: string): FnDef {
   return {
-    name, prefix, minArgs: 3, maxArgs: 255, args: (i) => (i > 0 && i % 2 === 0 ? 'value' : 'ref'), lift: true, acceptsErrors: true,
+    // máximo do catálogo medido: 255 (SUMIFS…), 253 nas de 2016 (MAXIFS/MINIFS)
+    name, prefix, minArgs: 3, maxArgs: prefix ? 253 : 255, args: (i) => (i > 0 && i % 2 === 0 ? 'value' : 'ref'), lift: true, acceptsErrors: true,
     call: (args, ctx) => {
       if (args.length % 2 === 0) return ERR.VALUE;
       const sum = singleArea(args[0] as Value);
