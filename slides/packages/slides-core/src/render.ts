@@ -2040,6 +2040,10 @@ export function pptMeasure(ctx: CanvasRenderingContext2D): MeasureText {
     const key = layoutFontStr(ref, 1);
     let adv = advCache.get(key);
     if (!adv) { adv = new Map(); advCache.set(key, adv); }
+    // o layout mede o mesmo pedaço várias vezes (unidade, sem espaços, emenda)
+    const memoKey = `${f.sizePt}|${f.kern ? 1 : 0}|${text}`;
+    const memo = adv.get(memoKey);
+    if (memo !== undefined && text.length > 1) return memo;
     let fontSet = false;
     const setFont = (): void => { if (!fontSet) { ctx.font = key; fontSet = true; } };
     let sum = 0;
@@ -2066,6 +2070,7 @@ export function pptMeasure(ctx: CanvasRenderingContext2D): MeasureText {
       kc.fontKerning = prevK;
       sum += ((w1 - w0) / ADV_REF) * f.sizePt;
     }
+    if (text.length > 1) adv.set(memoKey, sum);
     return sum;
   };
 }
