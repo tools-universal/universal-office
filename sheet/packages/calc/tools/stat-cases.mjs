@@ -230,6 +230,12 @@ const slug = (v) => JSON.stringify(v).replace(/-/g, 'n').replace(/\./g, 'd').rep
   add('subtotal-col109', 'SUBTOTAL', [109, ref('A:A')], { cells: colA([1, 2, 3, 4]), hiddenRows: [2] });
   add('subtotal-row109', 'SUBTOTAL', [109, ref('A1:E1')], { cells: { A1: 1, B1: 2, C1: 3, D1: 4, E1: 5 }, hiddenRows: [1] });
   add('subtotal-empty', 'SUBTOTAL', [1, ref('A1:A3')]);
+  add('subtotal-snap', 'SUBTOTAL', [9, ref('A1:A3')], { cells: colA([0.1, 0.2, -0.3]) });
+  add('subtotal-snap1', 'SUBTOTAL', [1, ref('A1:A3')], { cells: colA([0.1, 0.2, -0.3]) });
+  add('aggregate-snap', 'AGGREGATE', [9, 4, ref('A1:A3')], { cells: colA([0.1, 0.2, -0.3]) });
+  add('aggregate-snap1', 'AGGREGATE', [1, 4, ref('A1:A3')], { cells: colA([0.1, 0.2, -0.3]) });
+  add('averagea-snap', 'AVERAGEA', [ref('A1:A3')], { cells: colA([0.1, 0.2, -0.3]) });
+  add('devsq-snap', 'DEVSQ', [ref('A1:A3')], { cells: colA([0.1, 0.2, -0.3]) });
   add('subtotal-allhidden', 'SUBTOTAL', [101, ref('A1:A3')], { cells: colA([1, 2, 3]), hiddenRows: [1, 2, 3] });
 
   // AGGREGATE: todas as funções × opções sobre dados com erro, linha oculta e subtotal aninhado
@@ -260,4 +266,230 @@ const slug = (v) => JSON.stringify(v).replace(/-/g, 'n').replace(/\./g, 'd').rep
   add('aggregate-3-hiddenerr', 'AGGREGATE', [3, 3, ref('A1:A9')], { cells: AG, hiddenRows: [3], formulas: { A9: '=SUBTOTAL(9,A1:A2,A4:A8)' } });
 
   out('stat', cases);
+}
+
+// ---------------------------------------------------------------------------
+// stat-ifs: critérios (COUNTIF/SUMIF/…IFS). SUMIF com potências de 2 na coluna B
+// revela exatamente QUAIS linhas casaram.
+{
+  const cases = [];
+  const add = (id, fn, args, extra = {}) => cases.push({ id: `stat-ifs-${id}`, fn, args, ...extra });
+  const CRIT_COL = [
+    1, S('1'), true, false, 'TRUE', 'VERDADEIRO', null, '', 'abc', 'ABC',
+    'a*c', 'abd', 2.5, S('2,5'), -1, 0, E('#N/A'), E('#DIV/0!'), '#N/A', 45292,
+    S('01/01/2024'), ' 1', 'a?c', 'a~c', '1*', 100, 'b', '=', '<>', 0.5,
+  ];
+  const cells = {};
+  CRIT_COL.forEach((v, i) => { if (v !== null && v !== '') cells[`A${i + 1}`] = v; cells[`B${i + 1}`] = 2 ** i; });
+  const formulas = { A8: '=""' };
+  cells.A8 = '';
+  const crits = [
+    1, S('1'), '=1', '>0', '<1', '>=1', '<=1', '<>1', true, false, 'TRUE', 'VERDADEIRO', 'FALSO', '=TRUE', '=VERDADEIRO', '<>VERDADEIRO', '>FALSO',
+    '', '=', '<>', 'abc', 'ABC', 'a*', '*c', 'a?c', 'a~?c', 'a~*c', 'a~~c', '~', '*', '?', '??', '>a', '<b', '>=abc', '<>abc', '>=',
+    '#N/A', E('#N/A'), '=#N/A', '<>#N/A', '#DIV/0!', '#n/a', 2.5, '2,5', '2.5', '<2,5', '>1,5', '>=2,5', '01/01/2024', '>31/12/2023', '1/1/2024', '2024-01-01', '45292',
+    '50%', ' 1', '1 ', '=a*', '<>a*', '>1*', '*1*', '1*', '==1', '= 1', '<= 1', '>', '<', '<=', '=<1', '>-1', '<0,5', '0,5', '1E0', '+1', '(1)', 'R$ 1', '1.0', '=abc*', '<>*',
+    0, -1, 45292, '=0', '<>0', '*a*', 'a', 'b*', '?b', 'a**', '~~', '~a', '1,0', 'R$1', '$1', '=-1', '-1', '- 1',
+  ];
+  crits.forEach((c, i) => {
+    add(`sumif-${i}-${slug(c)}`, 'SUMIF', [ref('A1:A30'), c, ref('B1:B30')], { cells, formulas });
+    add(`countif-${i}-${slug(c)}`, 'COUNTIF', [ref('A1:A30'), c], { cells, formulas });
+  });
+  // critério vazio (célula de critério vazia) e critério em célula
+  add('countif-critcell-empty', 'COUNTIF', [ref('A1:A30'), ref('D1')], { cells, formulas });
+  add('sumif-critcell-empty', 'SUMIF', [ref('A1:A30'), ref('D1'), ref('B1:B30')], { cells, formulas });
+  add('countif-critcell-num', 'COUNTIF', [ref('A1:A30'), ref('D1')], { cells: merge(cells, { D1: 1 }), formulas });
+  add('sumif-critcell-text', 'SUMIF', [ref('A1:A30'), ref('D1'), ref('B1:B30')], { cells: merge(cells, { D1: S('1') }), formulas });
+  add('sumif-critcell-err', 'SUMIF', [ref('A1:A30'), ref('D1'), ref('B1:B30')], { cells: merge(cells, { D1: E('#N/A') }), formulas });
+  add('sumif-critcell-bool', 'SUMIF', [ref('A1:A30'), ref('D1'), ref('B1:B30')], { cells: merge(cells, { D1: true }), formulas });
+  add('sumif-critomit', 'SUMIF', [ref('A1:A30'), OMIT, ref('B1:B30')], { cells, formulas });
+  add('countif-critomit', 'COUNTIF', [ref('A1:A30'), OMIT], { cells, formulas });
+  add('countif-critarr', 'COUNTIF', [ref('A1:A30'), arr([1, 'abc', '>0'])], { cells, formulas });
+  add('sumif-critarr', 'SUMIF', [ref('A1:A30'), arr([1], ['a*']), ref('B1:B30')], { cells, formulas });
+  add('countif-critref', 'COUNTIF', [ref('A1:A30'), ref('D1:D3')], { cells: merge(cells, { D1: 1, D2: 'abc', D3: '>50' }), formulas });
+  add('countif-critref-legacy', 'COUNTIF', [ref('A1:A30'), ref('D1:D3')], { cells: merge(cells, { D1: 1, D2: 'abc', D3: '>50' }), formulas, at: 'Z2', legacy: true });
+  // colunas inteiras e vazios
+  add('countif-col-blank', 'COUNTIF', [ref('A:A'), ''], { cells: colA([1, 2, 'x']) });
+  add('countif-col-eq', 'COUNTIF', [ref('A:A'), '='], { cells: colA([1, 2, 'x']) });
+  add('countif-col-ne', 'COUNTIF', [ref('A:A'), '<>'], { cells: colA([1, 2, 'x']) });
+  add('countif-col-nex', 'COUNTIF', [ref('A:A'), '<>x'], { cells: colA([1, 2, 'x']) });
+  add('countif-col-num', 'COUNTIF', [ref('A:A'), '>1'], { cells: colA([1, 2, 'x']) });
+  const G = { A1: 1, B1: 2, C1: 3, A2: 4, B2: 'x', C2: 6, A3: true, C3: 9 };
+  add('countif-2d', 'COUNTIF', [ref('A1:C3'), '>2'], { cells: G });
+  add('countif-2d-blank', 'COUNTIF', [ref('A1:C3'), ''], { cells: G });
+  add('countif-rows', 'COUNTIF', [ref('2:3'), '>2'], { cells: G });
+  add('countif-union', 'COUNTIF', [ref('(A1:A3,C1:C3)'), '>2'], { cells: G });
+  // texto longo (> 255) no critério
+  const long = 'x'.repeat(300);
+  add('countif-long', 'COUNTIF', [ref('A1:A2'), long], { cells: { A1: long, A2: 'x' } });
+  add('countif-long255', 'COUNTIF', [ref('A1:A2'), 'x'.repeat(255)], { cells: { A1: 'x'.repeat(255), A2: 'x' } });
+  // SUMIF: intervalo de soma de outro tamanho/forma
+  const SR = merge(colA([1, 2, 3, 4, 5]), colA([10, 20, 30, 40, 50], 'B'), colA([100, 200], 'C'), { D1: 1000, E1: 2000, F1: 3000 });
+  const SRT = merge(colA([1, 2, 3, 4]), colA([10, 'x', true, S('5')], 'B'));
+  const SRE = merge(colA([1, 2, 3, 4]), colA([E('#N/A'), 1, 2, 3], 'B'));
+  add('sumif-sr-cell', 'SUMIF', [ref('A1:A5'), '>2', ref('B1')], { cells: SR });
+  add('sumif-sr-short', 'SUMIF', [ref('A1:A5'), '>2', ref('B1:B2')], { cells: SR });
+  add('sumif-sr-long', 'SUMIF', [ref('A1:A3'), '>1', ref('B1:B5')], { cells: SR });
+  add('sumif-sr-row', 'SUMIF', [ref('A1:A3'), '>1', ref('D1:F1')], { cells: SR });
+  add('sumif-sr-offset', 'SUMIF', [ref('A1:A5'), '>2', ref('C1')], { cells: SR });
+  add('sumif-nosr', 'SUMIF', [ref('A1:A5'), '>2'], { cells: SR });
+  add('sumif-nosr-mix', 'SUMIF', [ref('A1:A30'), '<>abc'], { cells, formulas });
+  add('sumif-srtext', 'SUMIF', [ref('A1:A4'), '>0', ref('B1:B4')], { cells: SRT });
+  add('sumif-srerr', 'SUMIF', [ref('A1:A4'), '>2', ref('B1:B4')], { cells: SRE });
+  add('sumif-srerr-hit', 'SUMIF', [ref('A1:A4'), '>0', ref('B1:B4')], { cells: SRE });
+  add('sumif-srarr', 'SUMIF', [ref('A1:A4'), '>0', arr([1], [2], [3], [4])], { cells: colA([1, 2, 3, 4]) });
+  add('sumif-snap', 'SUMIF', [ref('A1:A3'), '>0'], { cells: colA([0.1, 0.2, -0.3]) });
+  add('sumif-snap2', 'SUMIF', [ref('A1:A3'), '<>z'], { cells: colA([0.1, 0.2, -0.3]) });
+  add('averageif-snap2', 'AVERAGEIF', [ref('A1:A3'), '<>z'], { cells: colA([0.1, 0.2, -0.3]) });
+  add('sumif-snap3', 'SUMIF', [ref('A1:A3'), '<>z', ref('B1:B3')], { cells: merge(colA(['a', 'b', 'c']), colA([0.1, 0.2, -0.3], 'B')) });
+  add('countif-numeq', 'COUNTIF', [ref('A1:A2'), ref('D1')], { cells: { A1: 0.3, A2: 0.30000000000000004, D1: 0.30000000000000004 }, formulas: { A2: '=0.1+0.2', D1: '=0.1+0.2' } });
+  add('countif-numeq2', 'COUNTIF', [ref('A1:A2'), 0.3], { cells: { A1: 0.3, A2: 0.30000000000000004 }, formulas: { A2: '=0.1+0.2' } });
+  add('countif-numeq3', 'COUNTIF', [ref('A1:A2'), '>=0,3'], { cells: { A1: 0.3, A2: 0.30000000000000004 }, formulas: { A2: '=0.1+0.2' } });
+  // tolerância da igualdade numérica: célula 1+k·2^-52 (fórmula) contra o critério 1
+  for (const k of [1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 24, 32, 64, 128, 256, 1024]) {
+    const v = 1 + k * 2 ** -52, w = 1 - k * 2 ** -53;
+    add(`countif-tol-p${k}`, 'COUNTIF', [ref('A1'), 1], { cells: { A1: v }, formulas: { A1: `=1+${k}*2^-52` } });
+    add(`countif-tol-m${k}`, 'COUNTIF', [ref('A1'), 1], { cells: { A1: w }, formulas: { A1: `=1-${k}*2^-53` } });
+    add(`countif-tolge-m${k}`, 'COUNTIF', [ref('A1'), '>=1'], { cells: { A1: w }, formulas: { A1: `=1-${k}*2^-53` } });
+    add(`countif-tolne-p${k}`, 'COUNTIF', [ref('A1'), '<>1'], { cells: { A1: v }, formulas: { A1: `=1+${k}*2^-52` } });
+    add(`countif-toltxt-p${k}`, 'COUNTIF', [ref('A1'), ref('B1')], { cells: { A1: 1, B1: v }, formulas: { B1: `=1+${k}*2^-52` } });
+  }
+  add('countif-tol-big', 'COUNTIF', [ref('A1'), 123456789012345], { cells: { A1: 123456789012345.6 }, formulas: { A1: '=123456789012345+0.6' } });
+  add('countif-tol-big2', 'COUNTIF', [ref('A1'), 123456789012346], { cells: { A1: 123456789012345.6 }, formulas: { A1: '=123456789012345+0.6' } });
+  add('countif-wild-tilde', 'COUNTIF', [ref('A1:A4'), 'a~b*'], { cells: colA(['a~bc', 'abc', 'a~b', 'ab']) });
+  add('countif-wild-tilde2', 'COUNTIF', [ref('A1:A4'), '~a*'], { cells: colA(['a~bc', 'abc', '~abc', 'ab']) });
+  add('countif-wild-tilde3', 'COUNTIF', [ref('A1:A4'), '*~~*'], { cells: colA(['a~bc', 'abc', 'a~~b', 'ab']) });
+  add('countif-sz', 'COUNTIF', [ref('A1:A4'), 'straße'.replace('\u00df', 'ß')], { cells: colA(['strasse', 'straße', 'STRASSE', 'strase']) });
+  add('countif-accent', 'COUNTIF', [ref('A1:A4'), 'cafe'], { cells: colA(['café', 'cafe', 'CAFE', 'CAFÉ']) });
+  add('countif-accent-wild', 'COUNTIF', [ref('A1:A4'), 'caf?'], { cells: colA(['café', 'cafe', 'CAFE', 'CAFÉ']) });
+  add('countif-hyphen', 'COUNTIF', [ref('A1:A4'), 'coop'], { cells: colA(['co-op', 'coop', "co'op", 'CO-OP']) });
+  add('countif-hyphen-gt', 'COUNTIF', [ref('A1:A4'), '>coop'], { cells: colA(['co-op', 'coop', "co'op", 'cop']) });
+  add('countif-trail', 'COUNTIF', [ref('A1:A3'), 'abc'], { cells: colA(['abc ', ' abc', 'abc']) });
+  add('countif-long256', 'COUNTIF', [ref('A1:A2'), 'x'.repeat(256)], { cells: { A1: 'x'.repeat(256), A2: 'x' } });
+  add('sumifs-long', 'SUMIFS', [ref('B1:B2'), ref('A1:A2'), 'x'.repeat(256)], { cells: { A1: 'x'.repeat(256), A2: 'x', B1: 1, B2: 2 } });
+  add('countifs-union', 'COUNTIFS', [ref('(A1:A2,C1:C2)'), '>0'], { cells: { A1: 1, A2: 2, C1: 3, C2: 4 } });
+  add('countif-time', 'COUNTIF', [ref('A1:A3'), '12:00'], { cells: colA([0.5, 0.25, S('12:00')]) });
+  add('countif-time2', 'COUNTIF', [ref('A1:A3'), '>06:00'], { cells: colA([0.5, 0.25, S('12:00')]) });
+  // AVERAGEIF
+  add('averageif-basic', 'AVERAGEIF', [ref('A1:A5'), '>2', ref('B1:B5')], { cells: SR });
+  add('averageif-nosr', 'AVERAGEIF', [ref('A1:A5'), '>2'], { cells: SR });
+  add('averageif-none', 'AVERAGEIF', [ref('A1:A5'), '>20'], { cells: SR });
+  add('averageif-srtext', 'AVERAGEIF', [ref('A1:A4'), '>0', ref('B1:B4')], { cells: SRT });
+  add('averageif-sr-cell', 'AVERAGEIF', [ref('A1:A5'), '>2', ref('B1')], { cells: SR });
+  add('averageif-srerr', 'AVERAGEIF', [ref('A1:A4'), '>2', ref('B1:B4')], { cells: SRE });
+  add('averageif-mix', 'AVERAGEIF', [ref('A1:A30'), '<>abc'], { cells, formulas });
+  add('averageif-critarr', 'AVERAGEIF', [ref('A1:A5'), arr(['>1', '>3', '>9'])], { cells: SR });
+  // COUNTIFS / SUMIFS / AVERAGEIFS / MAXIFS / MINIFS
+  const T = merge(colA(['a', 'b', 'a', 'c', 'a', 'b', null, 'a']), colA([1, 5, 3, 7, 9, 2, 4, E('#N/A')], 'B'), colA([10, 20, 'x', 40, true, 60, 70, 80], 'C'));
+  add('countifs-1', 'COUNTIFS', [ref('A1:A8'), 'a'], { cells: T });
+  add('countifs-2', 'COUNTIFS', [ref('A1:A8'), 'a', ref('B1:B8'), '>2'], { cells: T });
+  add('countifs-3', 'COUNTIFS', [ref('A1:A8'), '<>b', ref('B1:B8'), '>2', ref('C1:C8'), '>0'], { cells: T });
+  add('countifs-size', 'COUNTIFS', [ref('A1:A8'), 'a', ref('B1:B7'), '>2'], { cells: T });
+  add('countifs-shape', 'COUNTIFS', [ref('A1:A2'), 'a', ref('B1:C1'), '>0'], { cells: T });
+  add('countifs-blank', 'COUNTIFS', [ref('A1:A8'), '', ref('B1:B8'), '>0'], { cells: T });
+  add('countifs-same', 'COUNTIFS', [ref('A1:A8'), 'a', ref('A1:A8'), '<>b'], { cells: T });
+  add('countifs-odd', 'COUNTIFS', [ref('A1:A8'), 'a', ref('B1:B8')], { cells: T });
+  add('countifs-arr', 'COUNTIFS', [ref('A1:A8'), arr(['a', 'b', 'c'])], { cells: T });
+  add('countifs-arr2', 'COUNTIFS', [ref('A1:A8'), arr(['a', 'b']), ref('B1:B8'), arr(['>2'], ['>0'])], { cells: T });
+  add('countifs-col', 'COUNTIFS', [ref('A:A'), '', ref('B:B'), '']);
+  add('countifs-col2', 'COUNTIFS', [ref('A:A'), 'a', ref('B:B'), '>2'], { cells: T });
+  add('countifs-colblank', 'COUNTIFS', [ref('A:A'), '', ref('B:B'), '>2'], { cells: T });
+  add('countifs-colblank2', 'COUNTIFS', [ref('A:A'), '', ref('C:C'), ''], { cells: T });
+  add('countifs-colne', 'COUNTIFS', [ref('A:A'), '<>a', ref('B:B'), '<>9'], { cells: T });
+  for (const f of ['SUMIFS', 'AVERAGEIFS', 'MAXIFS', 'MINIFS']) {
+    const k = f.toLowerCase();
+    add(`${k}-1`, f, [ref('B1:B8'), ref('A1:A8'), 'a'], { cells: T });
+    add(`${k}-2`, f, [ref('B1:B8'), ref('A1:A8'), 'a', ref('B1:B8'), '<9'], { cells: T });
+    add(`${k}-c`, f, [ref('C1:C8'), ref('A1:A8'), '<>c'], { cells: T });
+    add(`${k}-none`, f, [ref('B1:B8'), ref('A1:A8'), 'zz'], { cells: T });
+    add(`${k}-size`, f, [ref('B1:B7'), ref('A1:A8'), 'a'], { cells: T });
+    add(`${k}-size2`, f, [ref('B1:B8'), ref('A1:A8'), 'a', ref('C1:C7'), '>0'], { cells: T });
+    add(`${k}-odd`, f, [ref('B1:B8'), ref('A1:A8')], { cells: T });
+    add(`${k}-arr`, f, [ref('B1:B8'), ref('A1:A8'), arr(['a', 'b'])], { cells: T });
+    add(`${k}-sumarr`, f, [arr([1], [2], [3], [4], [5], [6], [7], [8]), ref('A1:A8'), 'a'], { cells: T });
+    add(`${k}-col`, f, [ref('B:B'), ref('A:A'), 'b'], { cells: T });
+    add(`${k}-colblank`, f, [ref('B:B'), ref('A:A'), ''], { cells: T });
+    add(`${k}-errhit`, f, [ref('B1:B8'), ref('A1:A8'), 'a', ref('C1:C8'), '>50'], { cells: T });
+    add(`${k}-neg`, f, [ref('B1:B3'), ref('A1:A3'), '<>z'], { cells: merge(colA(['a', 'b', 'c']), colA([-5, -2, -9], 'B')) });
+    add(`${k}-snap`, f, [ref('B1:B3'), ref('A1:A3'), '<>z'], { cells: merge(colA(['a', 'b', 'c']), colA([0.1, 0.2, -0.3], 'B')) });
+    add(`${k}-boolsr`, f, [ref('B1:B3'), ref('A1:A3'), '<>z'], { cells: merge(colA(['a', 'b', 'c']), colA([true, S('4'), 7], 'B')) });
+  }
+  out('stat-ifs', cases);
+}
+
+// ---------------------------------------------------------------------------
+// db: funções de banco de dados (DSUM…). Base em A1:D9; critérios a partir de F1.
+{
+  const cases = [];
+  const add = (id, fn, args, extra = {}) => cases.push({ id: `db-${id}`, fn, args, ...extra });
+  const DB = {};
+  const rows = [
+    ['Tree', 'Height', 'Age', 'Yield'],
+    ['Apple', 18, 20, 14],
+    ['Pear', 12, 12, 10],
+    ['Cherry', 13, 14, 9],
+    ['Apple', 14, 15, 10],
+    ['Pear', 9, 8, 8],
+    ['Apple', 8, 9, 6],
+    ['apple pie', 10, 'x', 7],
+    ['Applesauce', 11, true, 12],
+  ];
+  rows.forEach((r, i) => r.forEach((v, j) => { DB[`${'ABCD'[j]}${i + 1}`] = v; }));
+  /** Critérios: matriz de linhas (a 1ª é o cabeçalho) a partir de F1. */
+  const crit = (grid) => {
+    const c = {};
+    grid.forEach((r, i) => r.forEach((v, j) => { if (v !== null) c[`${'FGHIJ'[j]}${i + 1}`] = v; }));
+    return c;
+  };
+  const critRef = (grid) => `F1:${'FGHIJ'[grid[0].length - 1]}${grid.length}`;
+  const layouts = {
+    apple: [['Tree'], ['Apple']],
+    eqapple: [['Tree'], ['=Apple']],
+    applewild: [['Tree'], ['App*']],
+    apple_or_pear: [['Tree'], ['Apple'], ['Pear']],
+    apple_h10: [['Tree', 'Height'], ['Apple', '>10']],
+    range: [['Height', 'Height'], ['>10', '<16']],
+    or2: [['Tree', 'Height'], ['Apple', null], [null, '>12']],
+    emptyrow: [['Tree'], [null]],
+    headeronly: [['Tree']],
+    num: [['Height'], [12]],
+    numtext: [['Height'], ['12']],
+    ne: [['Tree'], ['<>Apple']],
+    lt: [['Tree'], ['<B']],
+    gtnum: [['Age'], ['>10']],
+    blankcrit: [['Age'], ['=']],
+    neblank: [['Age'], ['<>']],
+    caseHdr: [['tree'], ['apple']],
+    badHdr: [['Nope'], ['Apple']],
+    bool: [['Age'], [true]],
+    booltext: [['Age'], ['VERDADEIRO']],
+    multi: [['Tree', 'Age'], ['Apple', '>10'], ['Pear', '<10']],
+    emptyhdr: [[null], ['Apple']],
+    q: [['Tree'], ['?ear']],
+    x: [['Age'], ['x']],
+    eqx: [['Age'], ['=x']],
+  };
+  const fns = ['DSUM', 'DAVERAGE', 'DCOUNT', 'DCOUNTA', 'DGET', 'DMAX', 'DMIN', 'DPRODUCT', 'DSTDEV', 'DSTDEVP', 'DVAR', 'DVARP'];
+  for (const f of fns) {
+    const k = f.toLowerCase();
+    for (const [name, grid] of Object.entries(layouts)) {
+      add(`${k}-${name}`, f, [ref('A1:D9'), 'Yield', ref(critRef(grid))], { cells: merge(DB, crit(grid)) });
+    }
+    // campo: rótulo, número, fora, texto não encontrado, omitido, booleano, erro
+    for (const fld of ['Height', 'height', 2, 4, 2.7, 0, 5, 'Nope', S('2'), true, E('#N/A'), OMIT, 'Tree', 'Age', -1, null])
+      add(`${k}-field-${slug(fld)}`, f, [ref('A1:D9'), fld, ref('F1:F2')], { cells: merge(DB, crit(layouts.apple)) });
+    add(`${k}-dbcol`, f, [ref('A:D'), 'Yield', ref('F1:F2')], { cells: merge(DB, crit(layouts.apple)) });
+    add(`${k}-critcol`, f, [ref('A1:D9'), 'Yield', ref('F:F')], { cells: merge(DB, crit(layouts.apple)) });
+    add(`${k}-dbarr`, f, [arr(['Tree', 'Yield'], ['Apple', 5], ['Pear', 7]), 'Yield', ref('F1:F2')], { cells: crit(layouts.apple) });
+    add(`${k}-critarr`, f, [ref('A1:D9'), 'Yield', arr(['Tree'], ['Apple'])], { cells: DB });
+    add(`${k}-err`, f, [ref('A1:D9'), 'Yield', ref('F1:F2')], { cells: merge(DB, { D2: E('#N/A') }, crit(layouts.apple)) });
+    add(`${k}-errother`, f, [ref('A1:D9'), 'Yield', ref('F1:F2')], { cells: merge(DB, { D3: E('#N/A') }, crit(layouts.apple)) });
+    add(`${k}-errcrit`, f, [ref('A1:D9'), 'Yield', ref('F1:F2')], { cells: merge(DB, { B2: E('#N/A') }, crit([['Height'], ['>10']])) });
+    add(`${k}-heightfield`, f, [ref('A1:D9'), 'Height', ref('F1:F2')], { cells: merge(DB, crit([['Age'], ['>9']])) });
+    add(`${k}-agefield`, f, [ref('A1:D9'), 'Age', ref('F1:F2')], { cells: merge(DB, crit([['Height'], ['>9']])) });
+    add(`${k}-treefield`, f, [ref('A1:D9'), 'Tree', ref('F1:F2')], { cells: merge(DB, crit([['Height'], ['>12']])) });
+    add(`${k}-dup`, f, [ref('A1:D9'), 'Yield', ref('F1:F2')], { cells: merge(DB, { C1: 'Yield' }, crit([['Yield'], ['>9']])) });
+    add(`${k}-onerow`, f, [ref('A1:D1'), 'Yield', ref('F1:F2')], { cells: merge(DB, crit(layouts.apple)) });
+    add(`${k}-dec`, f, [ref('A1:B7'), 'Height', ref('F1:F2')], { cells: merge({ A1: 'K', B1: 'Height', A2: 'a', B2: 0.1, A3: 'a', B3: 0.7, A4: 'a', B4: 0.3, A5: 'b', B5: 9, A6: 'a', B6: 1.1, A7: 'a', B7: 2.2 }, crit([['K'], ['a']])) });
+  }
+  out('db', cases);
 }

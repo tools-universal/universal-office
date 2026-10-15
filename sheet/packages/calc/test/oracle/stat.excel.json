@@ -10060,6 +10060,42 @@
   "local": "=SUBTOTAL(1;A1:A3)"
  },
  {
+  "id": "stat-subtotal-snap",
+  "v": 0,
+  "text": "0",
+  "local": "=SUBTOTAL(9;A1:A3)"
+ },
+ {
+  "id": "stat-subtotal-snap1",
+  "v": 0,
+  "text": "0",
+  "local": "=SUBTOTAL(1;A1:A3)"
+ },
+ {
+  "id": "stat-aggregate-snap",
+  "v": 0,
+  "text": "0",
+  "local": "=AGREGAR(9;4;A1:A3)"
+ },
+ {
+  "id": "stat-aggregate-snap1",
+  "v": 0,
+  "text": "0",
+  "local": "=AGREGAR(1;4;A1:A3)"
+ },
+ {
+  "id": "stat-averagea-snap",
+  "v": 0,
+  "text": "0",
+  "local": "=MÉDIAA(A1:A3)"
+ },
+ {
+  "id": "stat-devsq-snap",
+  "v": 0.14,
+  "text": "0,14",
+  "local": "=DESVQ(A1:A3)"
+ },
+ {
   "id": "stat-subtotal-allhidden",
   "v": {
    "e": "#DIV/0!"

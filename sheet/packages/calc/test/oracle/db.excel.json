@@ -1,0 +1,4452 @@
+[
+ {
+  "id": "db-dsum-apple",
+  "v": 49,
+  "text": "49",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-eqapple",
+  "v": 30,
+  "text": "30",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-applewild",
+  "v": 49,
+  "text": "49",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-apple_or_pear",
+  "v": 67,
+  "text": "67",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dsum-apple_h10",
+  "v": 36,
+  "text": "36",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dsum-range",
+  "v": 41,
+  "text": "41",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dsum-or2",
+  "v": 58,
+  "text": "58",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dsum-emptyrow",
+  "v": 76,
+  "text": "76",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dsum-num",
+  "v": 10,
+  "text": "10",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-numtext",
+  "v": 10,
+  "text": "10",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-ne",
+  "v": 46,
+  "text": "46",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-lt",
+  "v": 49,
+  "text": "49",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-gtnum",
+  "v": 43,
+  "text": "43",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-blankcrit",
+  "v": 0,
+  "text": "0",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-neblank",
+  "v": 76,
+  "text": "76",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-caseHdr",
+  "v": 49,
+  "text": "49",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-badHdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-bool",
+  "v": 12,
+  "text": "12",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-booltext",
+  "v": 12,
+  "text": "12",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-multi",
+  "v": 32,
+  "text": "32",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dsum-emptyhdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-q",
+  "v": 18,
+  "text": "18",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-x",
+  "v": 7,
+  "text": "7",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-eqx",
+  "v": 7,
+  "text": "7",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-qHeightq",
+  "v": 61,
+  "text": "61",
+  "local": "=BDSOMA(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-qheightq",
+  "v": 61,
+  "text": "61",
+  "local": "=BDSOMA(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-2",
+  "v": 61,
+  "text": "61",
+  "local": "=BDSOMA(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-4",
+  "v": 49,
+  "text": "49",
+  "local": "=BDSOMA(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-2d7",
+  "v": 61,
+  "text": "61",
+  "local": "=BDSOMA(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDSOMA(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDSOMA(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDSOMA(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDSOMA(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-true",
+  "v": 0,
+  "text": "0",
+  "local": "=BDSOMA(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDSOMA(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-qomitqtrue",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDSOMA(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-qTreeq",
+  "v": 0,
+  "text": "0",
+  "local": "=BDSOMA(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-qAgeq",
+  "v": 44,
+  "text": "44",
+  "local": "=BDSOMA(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDSOMA(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dsum-field-null",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDSOMA(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dsum-dbcol",
+  "v": 49,
+  "text": "49",
+  "local": "=BDSOMA(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-critcol",
+  "v": 76,
+  "text": "76",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dsum-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dsum-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDSOMA(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dsum-err",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-errother",
+  "v": 49,
+  "text": "49",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-errcrit",
+  "v": 41,
+  "text": "41",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-heightfield",
+  "v": 57,
+  "text": "57",
+  "local": "=BDSOMA(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-agefield",
+  "v": 61,
+  "text": "61",
+  "local": "=BDSOMA(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-treefield",
+  "v": 0,
+  "text": "0",
+  "local": "=BDSOMA(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-dup",
+  "v": 61,
+  "text": "61",
+  "local": "=BDSOMA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDSOMA(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-dec",
+  "v": 4.4,
+  "text": "4,4",
+  "local": "=BDSOMA(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-apple",
+  "v": 9.8,
+  "text": "9,8",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-eqapple",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-applewild",
+  "v": 9.8,
+  "text": "9,8",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-apple_or_pear",
+  "v": 9.571428571428571,
+  "text": "9,571429",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-daverage-apple_h10",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-daverage-range",
+  "v": 10.25,
+  "text": "10,25",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-daverage-or2",
+  "v": 9.666666666666666,
+  "text": "9,666667",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-daverage-emptyrow",
+  "v": 9.5,
+  "text": "9,5",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-daverage-num",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-numtext",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-ne",
+  "v": 9.2,
+  "text": "9,2",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-lt",
+  "v": 9.8,
+  "text": "9,8",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-gtnum",
+  "v": 10.75,
+  "text": "10,75",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-blankcrit",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-neblank",
+  "v": 9.5,
+  "text": "9,5",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-caseHdr",
+  "v": 9.8,
+  "text": "9,8",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-badHdr",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-bool",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-booltext",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-multi",
+  "v": 10.666666666666666,
+  "text": "10,66667",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-daverage-emptyhdr",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-q",
+  "v": 9,
+  "text": "9",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-x",
+  "v": 7,
+  "text": "7",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-eqx",
+  "v": 7,
+  "text": "7",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-qHeightq",
+  "v": 12.2,
+  "text": "12,2",
+  "local": "=BDMÉDIA(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-qheightq",
+  "v": 12.2,
+  "text": "12,2",
+  "local": "=BDMÉDIA(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-2",
+  "v": 12.2,
+  "text": "12,2",
+  "local": "=BDMÉDIA(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-4",
+  "v": 9.8,
+  "text": "9,8",
+  "local": "=BDMÉDIA(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-2d7",
+  "v": 12.2,
+  "text": "12,2",
+  "local": "=BDMÉDIA(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÉDIA(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÉDIA(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÉDIA(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÉDIA(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-true",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDMÉDIA(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDMÉDIA(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-qomitqtrue",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÉDIA(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-qTreeq",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDMÉDIA(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-qAgeq",
+  "v": 14.666666666666666,
+  "text": "14,66667",
+  "local": "=BDMÉDIA(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÉDIA(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-daverage-field-null",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÉDIA(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-daverage-dbcol",
+  "v": 9.8,
+  "text": "9,8",
+  "local": "=BDMÉDIA(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-critcol",
+  "v": 9.5,
+  "text": "9,5",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-daverage-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-daverage-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-daverage-err",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-errother",
+  "v": 9.8,
+  "text": "9,8",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-errcrit",
+  "v": 10.25,
+  "text": "10,25",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-heightfield",
+  "v": 14.25,
+  "text": "14,25",
+  "local": "=BDMÉDIA(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-agefield",
+  "v": 15.25,
+  "text": "15,25",
+  "local": "=BDMÉDIA(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-treefield",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDMÉDIA(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-dup",
+  "v": 15.25,
+  "text": "15,25",
+  "local": "=BDMÉDIA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÉDIA(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-dec",
+  "v": 0.8800000000000001,
+  "text": "0,88",
+  "local": "=BDMÉDIA(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-apple",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-eqapple",
+  "v": 3,
+  "text": "3",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-applewild",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-apple_or_pear",
+  "v": 7,
+  "text": "7",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dcount-apple_h10",
+  "v": 3,
+  "text": "3",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dcount-range",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dcount-or2",
+  "v": 6,
+  "text": "6",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dcount-emptyrow",
+  "v": 8,
+  "text": "8",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dcount-num",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-numtext",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-ne",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-lt",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-gtnum",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-blankcrit",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-neblank",
+  "v": 8,
+  "text": "8",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-caseHdr",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-badHdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-bool",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-booltext",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-multi",
+  "v": 3,
+  "text": "3",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dcount-emptyhdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-q",
+  "v": 2,
+  "text": "2",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-x",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-eqx",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-qHeightq",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-qheightq",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-2",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-4",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-2d7",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTAR(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTAR(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTAR(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTAR(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-true",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTAR(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDCONTAR(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-qomitqtrue",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-qTreeq",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTAR(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-qAgeq",
+  "v": 3,
+  "text": "3",
+  "local": "=BDCONTAR(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTAR(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dcount-field-null",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dcount-dbcol",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-critcol",
+  "v": 8,
+  "text": "8",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dcount-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dcount-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dcount-err",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-errother",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-errcrit",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-heightfield",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTAR(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-agefield",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTAR(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-treefield",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTAR(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-dup",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTAR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTAR(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-dec",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTAR(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-apple",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-eqapple",
+  "v": 3,
+  "text": "3",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-applewild",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-apple_or_pear",
+  "v": 7,
+  "text": "7",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dcounta-apple_h10",
+  "v": 3,
+  "text": "3",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dcounta-range",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dcounta-or2",
+  "v": 6,
+  "text": "6",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dcounta-emptyrow",
+  "v": 8,
+  "text": "8",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dcounta-num",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-numtext",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-ne",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-lt",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-gtnum",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-blankcrit",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-neblank",
+  "v": 8,
+  "text": "8",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-caseHdr",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-badHdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-bool",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-booltext",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-multi",
+  "v": 3,
+  "text": "3",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dcounta-emptyhdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-q",
+  "v": 2,
+  "text": "2",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-x",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-eqx",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-qHeightq",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-qheightq",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-2",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-4",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-2d7",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTARA(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTARA(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTARA(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTARA(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-true",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDCONTARA(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-qomitqtrue",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-qTreeq",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-qAgeq",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTARA(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dcounta-field-null",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dcounta-dbcol",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-critcol",
+  "v": 8,
+  "text": "8",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dcounta-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dcounta-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dcounta-err",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-errother",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-errcrit",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-heightfield",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTARA(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-agefield",
+  "v": 6,
+  "text": "6",
+  "local": "=BDCONTARA(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-treefield",
+  "v": 3,
+  "text": "3",
+  "local": "=BDCONTARA(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-dup",
+  "v": 4,
+  "text": "4",
+  "local": "=BDCONTARA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDCONTARA(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-dec",
+  "v": 5,
+  "text": "5",
+  "local": "=BDCONTARA(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dget-apple",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-eqapple",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-applewild",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-apple_or_pear",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dget-apple_h10",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dget-range",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dget-or2",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dget-emptyrow",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dget-num",
+  "v": 10,
+  "text": "10",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-numtext",
+  "v": 10,
+  "text": "10",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-ne",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-lt",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-gtnum",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-blankcrit",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-neblank",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-caseHdr",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-badHdr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-bool",
+  "v": 12,
+  "text": "12",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-booltext",
+  "v": 12,
+  "text": "12",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-multi",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dget-emptyhdr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-q",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-x",
+  "v": 7,
+  "text": "7",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-eqx",
+  "v": 7,
+  "text": "7",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-field-qHeightq",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dget-field-qheightq",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dget-field-2",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dget-field-4",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dget-field-2d7",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dget-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dget-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dget-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dget-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dget-field-true",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dget-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDEXTRAIR(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dget-field-qomitqtrue",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dget-field-qTreeq",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dget-field-qAgeq",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dget-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dget-field-null",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dget-dbcol",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-critcol",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dget-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dget-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dget-err",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-errother",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-errcrit",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-heightfield",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dget-agefield",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dget-treefield",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dget-dup",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dget-dec",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-apple",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-eqapple",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-applewild",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-apple_or_pear",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dmax-apple_h10",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dmax-range",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dmax-or2",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dmax-emptyrow",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dmax-num",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-numtext",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-ne",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-lt",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-gtnum",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-blankcrit",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-neblank",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-caseHdr",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-badHdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-bool",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-booltext",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-multi",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dmax-emptyhdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-q",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-x",
+  "v": 7,
+  "text": "7",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-eqx",
+  "v": 7,
+  "text": "7",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-qHeightq",
+  "v": 18,
+  "text": "18",
+  "local": "=BDMÁX(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-qheightq",
+  "v": 18,
+  "text": "18",
+  "local": "=BDMÁX(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-2",
+  "v": 18,
+  "text": "18",
+  "local": "=BDMÁX(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-4",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-2d7",
+  "v": 18,
+  "text": "18",
+  "local": "=BDMÁX(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÁX(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÁX(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÁX(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÁX(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-true",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÁX(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDMÁX(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-qomitqtrue",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÁX(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-qTreeq",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÁX(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-qAgeq",
+  "v": 20,
+  "text": "20",
+  "local": "=BDMÁX(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÁX(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dmax-field-null",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÁX(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dmax-dbcol",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-critcol",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dmax-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dmax-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDMÁX(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dmax-err",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-errother",
+  "v": 14,
+  "text": "14",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-errcrit",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-heightfield",
+  "v": 18,
+  "text": "18",
+  "local": "=BDMÁX(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-agefield",
+  "v": 20,
+  "text": "20",
+  "local": "=BDMÁX(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-treefield",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÁX(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-dup",
+  "v": 20,
+  "text": "20",
+  "local": "=BDMÁX(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÁX(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-dec",
+  "v": 2.2,
+  "text": "2,2",
+  "local": "=BDMÁX(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-apple",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-eqapple",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-applewild",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-apple_or_pear",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dmin-apple_h10",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dmin-range",
+  "v": 9,
+  "text": "9",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dmin-or2",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dmin-emptyrow",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dmin-num",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-numtext",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-ne",
+  "v": 7,
+  "text": "7",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-lt",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-gtnum",
+  "v": 9,
+  "text": "9",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-blankcrit",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-neblank",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-caseHdr",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-badHdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-bool",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-booltext",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-multi",
+  "v": 8,
+  "text": "8",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dmin-emptyhdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-q",
+  "v": 8,
+  "text": "8",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-x",
+  "v": 7,
+  "text": "7",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-eqx",
+  "v": 7,
+  "text": "7",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-qHeightq",
+  "v": 8,
+  "text": "8",
+  "local": "=BDMÍN(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-qheightq",
+  "v": 8,
+  "text": "8",
+  "local": "=BDMÍN(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-2",
+  "v": 8,
+  "text": "8",
+  "local": "=BDMÍN(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-4",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-2d7",
+  "v": 8,
+  "text": "8",
+  "local": "=BDMÍN(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÍN(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÍN(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÍN(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÍN(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-true",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÍN(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDMÍN(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-qomitqtrue",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÍN(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-qTreeq",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÍN(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-qAgeq",
+  "v": 9,
+  "text": "9",
+  "local": "=BDMÍN(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÍN(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dmin-field-null",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÍN(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dmin-dbcol",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-critcol",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dmin-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dmin-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDMÍN(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dmin-err",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-errother",
+  "v": 6,
+  "text": "6",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-errcrit",
+  "v": 9,
+  "text": "9",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-heightfield",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÍN(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-agefield",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÍN(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-treefield",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÍN(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-dup",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMÍN(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMÍN(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-dec",
+  "v": 0.1,
+  "text": "0,1",
+  "local": "=BDMÍN(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-apple",
+  "v": 70560,
+  "text": "70560",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-eqapple",
+  "v": 840,
+  "text": "840",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-applewild",
+  "v": 70560,
+  "text": "70560",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-apple_or_pear",
+  "v": 5644800,
+  "text": "5644800",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dproduct-apple_h10",
+  "v": 1680,
+  "text": "1680",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dproduct-range",
+  "v": 10800,
+  "text": "10800",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dproduct-or2",
+  "v": 635040,
+  "text": "635040",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dproduct-emptyrow",
+  "v": 50803200,
+  "text": "50803200",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dproduct-num",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-numtext",
+  "v": 10,
+  "text": "10",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-ne",
+  "v": 60480,
+  "text": "60480",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-lt",
+  "v": 70560,
+  "text": "70560",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-gtnum",
+  "v": 12600,
+  "text": "12600",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-blankcrit",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-neblank",
+  "v": 50803200,
+  "text": "50803200",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-caseHdr",
+  "v": 70560,
+  "text": "70560",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-badHdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-bool",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-booltext",
+  "v": 12,
+  "text": "12",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-multi",
+  "v": 1120,
+  "text": "1120",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dproduct-emptyhdr",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-q",
+  "v": 80,
+  "text": "80",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-x",
+  "v": 7,
+  "text": "7",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-eqx",
+  "v": 7,
+  "text": "7",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-qHeightq",
+  "v": 221760,
+  "text": "221760",
+  "local": "=BDMULTIPL(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-qheightq",
+  "v": 221760,
+  "text": "221760",
+  "local": "=BDMULTIPL(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-2",
+  "v": 221760,
+  "text": "221760",
+  "local": "=BDMULTIPL(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-4",
+  "v": 70560,
+  "text": "70560",
+  "local": "=BDMULTIPL(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-2d7",
+  "v": 221760,
+  "text": "221760",
+  "local": "=BDMULTIPL(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMULTIPL(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMULTIPL(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMULTIPL(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMULTIPL(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-true",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMULTIPL(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDMULTIPL(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-qomitqtrue",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMULTIPL(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-qTreeq",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMULTIPL(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-qAgeq",
+  "v": 2700,
+  "text": "2700",
+  "local": "=BDMULTIPL(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMULTIPL(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dproduct-field-null",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMULTIPL(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dproduct-dbcol",
+  "v": 70560,
+  "text": "70560",
+  "local": "=BDMULTIPL(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-critcol",
+  "v": 50803200,
+  "text": "50803200",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dproduct-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dproduct-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dproduct-err",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-errother",
+  "v": 70560,
+  "text": "70560",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-errcrit",
+  "v": 10800,
+  "text": "10800",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-heightfield",
+  "v": 39312,
+  "text": "39312",
+  "local": "=BDMULTIPL(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-agefield",
+  "v": 50400,
+  "text": "50400",
+  "local": "=BDMULTIPL(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-treefield",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMULTIPL(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-dup",
+  "v": 50400,
+  "text": "50400",
+  "local": "=BDMULTIPL(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDMULTIPL(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-dec",
+  "v": 0.050820000000000004,
+  "text": "0,05082",
+  "local": "=BDMULTIPL(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-apple",
+  "v": 3.3466401061363027,
+  "text": "3,34664",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-eqapple",
+  "v": 4,
+  "text": "4",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-applewild",
+  "v": 3.3466401061363027,
+  "text": "3,34664",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-apple_or_pear",
+  "v": 2.8199966227605566,
+  "text": "2,819997",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dstdev-apple_h10",
+  "v": 2,
+  "text": "2",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dstdev-range",
+  "v": 1.2583057392117916,
+  "text": "1,258306",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dstdev-or2",
+  "v": 3.011090610836325,
+  "text": "3,011091",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dstdev-emptyrow",
+  "v": 2.6186146828319083,
+  "text": "2,618615",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dstdev-num",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-numtext",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-ne",
+  "v": 1.9235384061671352,
+  "text": "1,923538",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-lt",
+  "v": 3.3466401061363027,
+  "text": "3,34664",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-gtnum",
+  "v": 2.217355782608345,
+  "text": "2,217356",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-blankcrit",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-neblank",
+  "v": 2.6186146828319083,
+  "text": "2,618615",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-caseHdr",
+  "v": 3.3466401061363027,
+  "text": "3,34664",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-badHdr",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-bool",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-booltext",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-multi",
+  "v": 3.055050463303895,
+  "text": "3,05505",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dstdev-emptyhdr",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-q",
+  "v": 1.4142135623730951,
+  "text": "1,414214",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-x",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-eqx",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-qHeightq",
+  "v": 3.898717737923584,
+  "text": "3,898718",
+  "local": "=BDEST(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-qheightq",
+  "v": 3.898717737923584,
+  "text": "3,898718",
+  "local": "=BDEST(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-2",
+  "v": 3.898717737923584,
+  "text": "3,898718",
+  "local": "=BDEST(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-4",
+  "v": 3.3466401061363027,
+  "text": "3,34664",
+  "local": "=BDEST(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-2d7",
+  "v": 3.898717737923584,
+  "text": "3,898718",
+  "local": "=BDEST(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEST(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEST(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEST(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEST(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-true",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDEST(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-qomitqtrue",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEST(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-qTreeq",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-qAgeq",
+  "v": 5.5075705472861,
+  "text": "5,507571",
+  "local": "=BDEST(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEST(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dstdev-field-null",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEST(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dstdev-dbcol",
+  "v": 3.3466401061363027,
+  "text": "3,34664",
+  "local": "=BDEST(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-critcol",
+  "v": 2.6186146828319083,
+  "text": "2,618615",
+  "local": "=BDEST(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dstdev-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dstdev-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDEST(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dstdev-err",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-errother",
+  "v": 3.3466401061363027,
+  "text": "3,34664",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-errcrit",
+  "v": 1.2583057392117916,
+  "text": "1,258306",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-heightfield",
+  "v": 2.6299556396765835,
+  "text": "2,629956",
+  "local": "=BDEST(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-agefield",
+  "v": 3.4034296427770228,
+  "text": "3,40343",
+  "local": "=BDEST(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-treefield",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-dup",
+  "v": 3.4034296427770228,
+  "text": "3,40343",
+  "local": "=BDEST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEST(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-dec",
+  "v": 0.8318653737234168,
+  "text": "0,831865",
+  "local": "=BDEST(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-apple",
+  "v": 2.9933259094191533,
+  "text": "2,993326",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-eqapple",
+  "v": 3.265986323710904,
+  "text": "3,265986",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-applewild",
+  "v": 2.9933259094191533,
+  "text": "2,993326",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-apple_or_pear",
+  "v": 2.610809554642438,
+  "text": "2,61081",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dstdevp-apple_h10",
+  "v": 1.632993161855452,
+  "text": "1,632993",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dstdevp-range",
+  "v": 1.0897247358851685,
+  "text": "1,089725",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dstdevp-or2",
+  "v": 2.748737083745107,
+  "text": "2,748737",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dstdevp-emptyrow",
+  "v": 2.449489742783178,
+  "text": "2,44949",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dstdevp-num",
+  "v": 0,
+  "text": "0",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-numtext",
+  "v": 0,
+  "text": "0",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-ne",
+  "v": 1.7204650534085253,
+  "text": "1,720465",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-lt",
+  "v": 2.9933259094191533,
+  "text": "2,993326",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-gtnum",
+  "v": 1.920286436967152,
+  "text": "1,920286",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-blankcrit",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-neblank",
+  "v": 2.449489742783178,
+  "text": "2,44949",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-caseHdr",
+  "v": 2.9933259094191533,
+  "text": "2,993326",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-badHdr",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-bool",
+  "v": 0,
+  "text": "0",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-booltext",
+  "v": 0,
+  "text": "0",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-multi",
+  "v": 2.494438257849294,
+  "text": "2,494438",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dstdevp-emptyhdr",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-q",
+  "v": 1,
+  "text": "1",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-x",
+  "v": 0,
+  "text": "0",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-eqx",
+  "v": 0,
+  "text": "0",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-qHeightq",
+  "v": 3.4871191548325386,
+  "text": "3,487119",
+  "local": "=BDDESVPA(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-qheightq",
+  "v": 3.4871191548325386,
+  "text": "3,487119",
+  "local": "=BDDESVPA(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-2",
+  "v": 3.4871191548325386,
+  "text": "3,487119",
+  "local": "=BDDESVPA(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-4",
+  "v": 2.9933259094191533,
+  "text": "2,993326",
+  "local": "=BDDESVPA(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-2d7",
+  "v": 3.4871191548325386,
+  "text": "3,487119",
+  "local": "=BDDESVPA(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDDESVPA(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDDESVPA(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDDESVPA(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDDESVPA(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-true",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDDESVPA(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDDESVPA(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-qomitqtrue",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDDESVPA(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-qTreeq",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDDESVPA(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-qAgeq",
+  "v": 4.496912521077347,
+  "text": "4,496913",
+  "local": "=BDDESVPA(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDDESVPA(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-field-null",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDDESVPA(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-dbcol",
+  "v": 2.9933259094191533,
+  "text": "2,993326",
+  "local": "=BDDESVPA(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-critcol",
+  "v": 2.449489742783178,
+  "text": "2,44949",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dstdevp-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dstdevp-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dstdevp-err",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-errother",
+  "v": 2.9933259094191533,
+  "text": "2,993326",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-errcrit",
+  "v": 1.0897247358851685,
+  "text": "1,089725",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-heightfield",
+  "v": 2.277608394786075,
+  "text": "2,277608",
+  "local": "=BDDESVPA(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-agefield",
+  "v": 2.947456530637899,
+  "text": "2,947457",
+  "local": "=BDDESVPA(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-treefield",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDDESVPA(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-dup",
+  "v": 2.947456530637899,
+  "text": "2,947457",
+  "local": "=BDDESVPA(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDDESVPA(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dstdevp-dec",
+  "v": 0.744043009509531,
+  "text": "0,744043",
+  "local": "=BDDESVPA(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-apple",
+  "v": 11.200000000000003,
+  "text": "11,2",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-eqapple",
+  "v": 16,
+  "text": "16",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-applewild",
+  "v": 11.200000000000003,
+  "text": "11,2",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-apple_or_pear",
+  "v": 7.952380952380945,
+  "text": "7,952381",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dvar-apple_h10",
+  "v": 4,
+  "text": "4",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dvar-range",
+  "v": 1.5833333333333333,
+  "text": "1,583333",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dvar-or2",
+  "v": 9.066666666666674,
+  "text": "9,066667",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dvar-emptyrow",
+  "v": 6.857142857142857,
+  "text": "6,857143",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dvar-num",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-numtext",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-ne",
+  "v": 3.700000000000003,
+  "text": "3,7",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-lt",
+  "v": 11.200000000000003,
+  "text": "11,2",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-gtnum",
+  "v": 4.916666666666667,
+  "text": "4,916667",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-blankcrit",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-neblank",
+  "v": 6.857142857142857,
+  "text": "6,857143",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-caseHdr",
+  "v": 11.200000000000003,
+  "text": "11,2",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-badHdr",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-bool",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-booltext",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-multi",
+  "v": 9.333333333333343,
+  "text": "9,333333",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dvar-emptyhdr",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-q",
+  "v": 2,
+  "text": "2",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-x",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-eqx",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-qHeightq",
+  "v": 15.199999999999989,
+  "text": "15,2",
+  "local": "=BDVAREST(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-qheightq",
+  "v": 15.199999999999989,
+  "text": "15,2",
+  "local": "=BDVAREST(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-2",
+  "v": 15.199999999999989,
+  "text": "15,2",
+  "local": "=BDVAREST(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-4",
+  "v": 11.200000000000003,
+  "text": "11,2",
+  "local": "=BDVAREST(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-2d7",
+  "v": 15.199999999999989,
+  "text": "15,2",
+  "local": "=BDVAREST(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVAREST(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVAREST(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVAREST(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVAREST(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-true",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDVAREST(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-qomitqtrue",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVAREST(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-qTreeq",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-qAgeq",
+  "v": 30.333333333333314,
+  "text": "30,33333",
+  "local": "=BDVAREST(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVAREST(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dvar-field-null",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVAREST(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dvar-dbcol",
+  "v": 11.200000000000003,
+  "text": "11,2",
+  "local": "=BDVAREST(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-critcol",
+  "v": 6.857142857142857,
+  "text": "6,857143",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dvar-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dvar-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDVAREST(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dvar-err",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-errother",
+  "v": 11.200000000000003,
+  "text": "11,2",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-errcrit",
+  "v": 1.5833333333333333,
+  "text": "1,583333",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-heightfield",
+  "v": 6.916666666666667,
+  "text": "6,916667",
+  "local": "=BDVAREST(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-agefield",
+  "v": 11.583333333333334,
+  "text": "11,58333",
+  "local": "=BDVAREST(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-treefield",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-dup",
+  "v": 11.583333333333334,
+  "text": "11,58333",
+  "local": "=BDVAREST(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVAREST(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-dec",
+  "v": 0.692,
+  "text": "0,692",
+  "local": "=BDVAREST(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-apple",
+  "v": 8.96,
+  "text": "8,96",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-eqapple",
+  "v": 10.666666666666666,
+  "text": "10,66667",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-applewild",
+  "v": 8.96,
+  "text": "8,96",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-apple_or_pear",
+  "v": 6.816326530612245,
+  "text": "6,816327",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F3)"
+ },
+ {
+  "id": "db-dvarp-apple_h10",
+  "v": 2.6666666666666665,
+  "text": "2,666667",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dvarp-range",
+  "v": 1.1875,
+  "text": "1,1875",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:G2)"
+ },
+ {
+  "id": "db-dvarp-or2",
+  "v": 7.555555555555555,
+  "text": "7,555556",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dvarp-emptyrow",
+  "v": 6,
+  "text": "6",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-headeronly",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F1)"
+ },
+ {
+  "id": "db-dvarp-num",
+  "v": 0,
+  "text": "0",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-numtext",
+  "v": 0,
+  "text": "0",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-ne",
+  "v": 2.96,
+  "text": "2,96",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-lt",
+  "v": 8.96,
+  "text": "8,96",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-gtnum",
+  "v": 3.6875,
+  "text": "3,6875",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-blankcrit",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-neblank",
+  "v": 6,
+  "text": "6",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-caseHdr",
+  "v": 8.96,
+  "text": "8,96",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-badHdr",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-bool",
+  "v": 0,
+  "text": "0",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-booltext",
+  "v": 0,
+  "text": "0",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-multi",
+  "v": 6.222222222222222,
+  "text": "6,222222",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:G3)"
+ },
+ {
+  "id": "db-dvarp-emptyhdr",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-q",
+  "v": 1,
+  "text": "1",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-x",
+  "v": 0,
+  "text": "0",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-eqx",
+  "v": 0,
+  "text": "0",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-qHeightq",
+  "v": 12.16,
+  "text": "12,16",
+  "local": "=BDVARP(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-qheightq",
+  "v": 12.16,
+  "text": "12,16",
+  "local": "=BDVARP(A1:D9;\"height\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-2",
+  "v": 12.16,
+  "text": "12,16",
+  "local": "=BDVARP(A1:D9;2;F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-4",
+  "v": 8.96,
+  "text": "8,96",
+  "local": "=BDVARP(A1:D9;4;F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-2d7",
+  "v": 12.16,
+  "text": "12,16",
+  "local": "=BDVARP(A1:D9;2,7;F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-0",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVARP(A1:D9;0;F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVARP(A1:D9;5;F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-qNopeq",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVARP(A1:D9;\"Nope\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-qsqq2q",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVARP(A1:D9;\"2\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-true",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVARP(A1:D9;VERDADEIRO;F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-qeqqNAq",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDVARP(A1:D9;#N/D;F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-qomitqtrue",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVARP(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-qTreeq",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVARP(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-qAgeq",
+  "v": 20.22222222222222,
+  "text": "20,22222",
+  "local": "=BDVARP(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-n1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVARP(A1:D9;-1;F1:F2)"
+ },
+ {
+  "id": "db-dvarp-field-null",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVARP(A1:D9;;F1:F2)"
+ },
+ {
+  "id": "db-dvarp-dbcol",
+  "v": 8.96,
+  "text": "8,96",
+  "local": "=BDVARP(A:D;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-critcol",
+  "v": 6,
+  "text": "6",
+  "local": "=BDVARP(A1:D9;\"Yield\";F:F)"
+ },
+ {
+  "id": "db-dvarp-dbarr",
+  "v": null,
+  "err": "Exceção de HRESULT: 0x800A03EC @71"
+ },
+ {
+  "id": "db-dvarp-critarr",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "spill": [
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ],
+   [
+    {
+     "e": "#VALUE!"
+    }
+   ]
+  ],
+  "text": "#VALOR!",
+  "local": "=BDVARP(A1:D9;\"Yield\";{\"Tree\";\"Apple\"})"
+ },
+ {
+  "id": "db-dvarp-err",
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-errother",
+  "v": 8.96,
+  "text": "8,96",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-errcrit",
+  "v": 1.1875,
+  "text": "1,1875",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-heightfield",
+  "v": 5.1875,
+  "text": "5,1875",
+  "local": "=BDVARP(A1:D9;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-agefield",
+  "v": 8.6875,
+  "text": "8,6875",
+  "local": "=BDVARP(A1:D9;\"Age\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-treefield",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVARP(A1:D9;\"Tree\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-dup",
+  "v": 8.6875,
+  "text": "8,6875",
+  "local": "=BDVARP(A1:D9;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-onerow",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDVARP(A1:D1;\"Yield\";F1:F2)"
+ },
+ {
+  "id": "db-dvarp-dec",
+  "v": 0.5536,
+  "text": "0,5536",
+  "local": "=BDVARP(A1:B7;\"Height\";F1:F2)"
+ }
+]
