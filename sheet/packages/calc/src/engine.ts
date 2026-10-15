@@ -190,6 +190,8 @@ export class Engine implements EvalHost {
   private readonly iterate: { on: boolean; count: number; delta: number };
   private rev: { byCol: Map<number, { r1: number; r2: number; f: FormulaRec }[]>; wide: { a: Area; f: FormulaRec }[] }[] | undefined;
   private spillChanged: Area[] = [];
+  /** Células cujo valor mudou (aba → chaves), para a UI repintar/gravar. */
+  private readonly changes = new Map<number, Set<number>>();
 
   constructor(wb: CalcWorkbook, private readonly opts: EngineOptions = {}) {
     this.locale = opts.locale ?? EN_US;
@@ -454,6 +456,20 @@ export class Engine implements EvalHost {
     return this.sheets[sheet]?.get(row, col)?.owner;
   }
 
+  /** Texto da fórmula como a UI mostra ("=SUM(A1:A3)", "=@A1:A3", "=B1#"), ou undefined. */
+  formulaDisplay(sheet: number, row: number, col: number): string | undefined {
+    const f = this.getFormula(sheet, row, col);
+    if (!f) return undefined;
+    if (!f.node) return f.text ? `=${f.text}` : undefined;
+    return '=' + printFormula(f.node, { row, col, ui: true });
+  }
+
+  /** Área derramada pela âncora (sheet,row,col), se houver. */
+  spillOf(sheet: number, row: number, col: number): Area | undefined {
+    const f = this.getFormula(sheet, row, col);
+    return f?.dynamic ? f.area : undefined;
+  }
+
   /** Todas as fórmulas (âncoras), na ordem da planilha. */
   allFormulas(): readonly FormulaRec[] {
     if (!this.ordered) {
@@ -489,6 +505,7 @@ export class Engine implements EvalHost {
     }
     const owner = old?.owner;
     st.delete(row, col);
+    this.touch(sheet, row, col);
     if (inp?.f) {
       const node = this.parse(inp.f.text, row, col);
       const kind = inp.f.t === 'array' ? 'array' : 'normal';
@@ -749,15 +766,34 @@ export class Engine implements EvalHost {
       if (r === f.row && c === f.col) this.put(st, f, val);
       else {
         const rec = st.get(r, c);
-        if (rec && rec.owner === f) rec.v = val;
-        else if (!rec?.f) st.set(r, c, { v: val, owner: f });
+        if (rec && rec.owner === f) this.write(st, r, c, rec, val);
+        else if (!rec?.f) { st.set(r, c, { v: val, owner: f }); this.touch(st.index, r, c); }
       }
     }
   }
 
   private put(st: SheetStore, f: FormulaRec, v: Scalar): void {
     const rec = st.get(f.row, f.col);
-    if (rec) rec.v = v;
+    if (rec) this.write(st, f.row, f.col, rec, v);
+  }
+
+  /** Grava o valor numa célula existente, anotando a mudança. */
+  private write(st: SheetStore, r: number, c: number, rec: CellRec, v: Scalar): void {
+    if (rec.v !== v) { rec.v = v; this.touch(st.index, r, c); }
+  }
+
+  private touch(sheet: number, r: number, c: number): void {
+    let set = this.changes.get(sheet);
+    if (!set) { set = new Set(); this.changes.set(sheet, set); }
+    set.add(key(r, c));
+  }
+
+  /** Células cujo valor mudou desde a última chamada (recálculo, derramamento, edição). */
+  takeChanges(): { sheet: number; row: number; col: number }[] {
+    const out: { sheet: number; row: number; col: number }[] = [];
+    for (const [sheet, set] of this.changes) for (const k of set) out.push({ sheet, row: Math.floor(k / W), col: k % W });
+    this.changes.clear();
+    return out;
   }
 
   /** Derramamento da matriz dinâmica a partir da âncora. */
@@ -797,7 +833,7 @@ export class Engine implements EvalHost {
     // limpa o que sobrou do derramamento anterior
     if (old) {
       st.each(old, (r, c, rec) => {
-        if (rec.owner === f && !areaContains(target, f.sheet, r, c)) st.delete(r, c);
+        if (rec.owner === f && !areaContains(target, f.sheet, r, c)) { st.delete(r, c); this.touch(st.index, r, c); }
       });
     }
     for (let r = 0; r < arr.rows; r++) for (let c = 0; c < arr.cols; c++) {
@@ -805,8 +841,8 @@ export class Engine implements EvalHost {
       const val = x === null ? 0 : x;
       if (r === 0 && c === 0) { this.put(st, f, val); continue; }
       const rec = st.get(f.row + r, f.col + c);
-      if (rec && rec.owner === f) rec.v = val;
-      else st.set(f.row + r, f.col + c, { v: val, owner: f });
+      if (rec && rec.owner === f) this.write(st, f.row + r, f.col + c, rec, val);
+      else { st.set(f.row + r, f.col + c, { v: val, owner: f }); this.touch(st.index, f.row + r, f.col + c); }
     }
     f.area = target;
     if (!old || old.r2 !== target.r2 || old.c2 !== target.c2) {
@@ -821,7 +857,7 @@ export class Engine implements EvalHost {
     const a = f.area;
     if (!a) return;
     const st = this.sheets[f.sheet]!;
-    st.each(a, (r, c, rec) => { if (rec.owner === f) st.delete(r, c); });
+    st.each(a, (r, c, rec) => { if (rec.owner === f) { st.delete(r, c); this.touch(st.index, r, c); } });
     if (f.dynamic) f.area = undefined;
   }
 

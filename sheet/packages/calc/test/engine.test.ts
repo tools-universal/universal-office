@@ -72,9 +72,30 @@ describe('motor', () => {
     e.calculate();
     expect(val(e, 'C1')).toBe(22);
   });
-  it('referência circular', () => {
-    const e = book({ A1: '=B1+1', B1: '=A1+1' });
-    expect(e.circular.size).toBeGreaterThan(0);
+  it('referência circular: sem iterativo ficam os valores anteriores (0)', () => {
+    const e = book({ A1: '=B1+1', B1: '=A1+1', C1: '=A1*2' });
+    expect(e.circular.size).toBe(2);
+    expect([val(e, 'A1'), val(e, 'B1'), val(e, 'C1')]).toEqual([0, 0, 0]);
     void ERR;
+  });
+  it('ciclo só estático (ramo de IF não escolhido) não é circular', () => {
+    const e = book({ A1: '=IF(FALSE,B1,5)', B1: '=A1+1', C1: '=IF(B1>100,C1,7)' });
+    expect([val(e, 'A1'), val(e, 'B1'), val(e, 'C1')]).toEqual([5, 6, 7]);
+    expect(e.circular.size).toBe(0);
+  });
+  it('cálculo iterativo', () => {
+    const e = new Engine({ sheets: [{ name: 'S', cells: [[0, 0, { f: { text: 'B1/2+1' } }], [0, 1, { f: { text: 'A1' } }]] }], calc: { iterate: true, iterateCount: 100, iterateDelta: 1e-9 } });
+    e.recalc();
+    expect(e.getValue(0, 0, 0)).toBeCloseTo(2, 6);
+  });
+  it('mudanças para a UI e texto de tela', () => {
+    const e = book({ A1: 1, B1: '={1;2}*A1', C1: '=_xlfn.SINGLE(A1:A3)' });
+    e.takeChanges();
+    e.setCell(0, 0, 0, { v: 5 });
+    e.calculate();
+    const ch = e.takeChanges().map((c) => `${c.row},${c.col}`).sort();
+    expect(ch).toEqual(['0,0', '0,1', '0,2', '1,1']);
+    expect(e.formulaDisplay(0, 0, 2)).toBe('=@A1:A3');
+    expect(e.spillOf(0, 0, 1)).toEqual({ sheet: 0, r1: 0, c1: 1, r2: 1, c2: 1 });
   });
 });
