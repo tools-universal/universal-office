@@ -137,6 +137,56 @@ function picDisplaySize(sh: Shape): { w: number; h: number } | undefined {
 }
 
 /**
+ * Controle de formulário como o Excel 365 o desenha (medido em
+ * lo-checkbox-form-control / lo-button-form-control a 100%): caixa de seleção
+ * e botão de opção de 12 px a 4,6 px da esquerda, centrados na vertical,
+ * contorno #333 e o rótulo 18 px à direita; botão de comando #F0F0F0 com
+ * sombra de 2 px embaixo/à direita. `p` = retângulo no canvas; devolve o
+ * retângulo (coordenadas sem scroll, como `r`) onde vai o rótulo.
+ */
+function paintControl(ctx: CanvasRenderingContext2D, c: { type: string; checked?: string }, p: Rect, z: number, r: Rect): Rect {
+  ctx.save();
+  ctx.lineWidth = Math.max(1, z);
+  ctx.strokeStyle = '#333333';
+  const t = c.type;
+  if (t === 'CheckBox' || t === 'Radio') {
+    const s = 12 * z, bx = p.x + 4.6 * z, by = p.y + p.h / 2 - s / 2;
+    ctx.fillStyle = c.checked === 'Mixed' ? '#C0C0C0' : '#FFFFFF';
+    ctx.beginPath();
+    if (t === 'Radio') ctx.arc(bx + s / 2, by + s / 2, s / 2, 0, Math.PI * 2);
+    else ctx.rect(bx, by, s, s);
+    ctx.fill();
+    ctx.stroke();
+    if (c.checked === 'Checked') {
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.beginPath();
+      if (t === 'Radio') { ctx.arc(bx + s / 2, by + s / 2, s / 4, 0, Math.PI * 2); ctx.fill(); }
+      else {
+        ctx.lineWidth = 1.5 * z;
+        ctx.moveTo(bx + 0.22 * s, by + 0.5 * s); ctx.lineTo(bx + 0.42 * s, by + 0.72 * s); ctx.lineTo(bx + 0.8 * s, by + 0.26 * s);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    return { x: r.x + 18 * z, y: r.y, w: Math.max(0, r.w - 18 * z), h: r.h };
+  }
+  if (t === 'Button') {
+    const w = Math.max(0, p.w - z), h = Math.max(0, p.h - z);
+    ctx.fillStyle = '#F0F0F0';
+    ctx.fillRect(p.x, p.y, w, h);
+    ctx.fillStyle = '#C6C6C6';
+    ctx.fillRect(p.x + w - 2 * z, p.y, z, h); ctx.fillRect(p.x, p.y + h - 2 * z, w, z);
+    ctx.fillStyle = '#999999';
+    ctx.fillRect(p.x + w - z, p.y, z, h); ctx.fillRect(p.x, p.y + h - z, w, z);
+  } else if (t === 'GBox') {
+    ctx.strokeStyle = '#BFBFBF';
+    ctx.strokeRect(Math.round(p.x) + 0.5, Math.round(p.y + 7 * z) + 0.5, Math.max(0, Math.round(p.w) - 1), Math.max(0, Math.round(p.h - 7 * z) - 1));
+  }
+  ctx.restore();
+  return r;
+}
+
+/**
  * Desenhos de UMA pasta de trabalho: lê os objetos sob demanda (uma vez),
  * decodifica as imagens e pinta. `onChange` = uma imagem ficou pronta (repintar).
  */
@@ -244,8 +294,14 @@ export class SheetDrawings {
    * scroll); (sx, sy) = scroll do quadrante. As formas ficam em EMU da
    * planilha a 100% — espessuras e fontes escalam só com o zoom.
    */
-  paint(ctx: CanvasRenderingContext2D, obj: DrawingObject, r: Rect, sx: number, sy: number, zoom: number, fontStack: (family: string, bold?: boolean, italic?: boolean) => string): void {
+  paint(
+    ctx: CanvasRenderingContext2D, obj: DrawingObject, r: Rect, sx: number, sy: number, zoom: number,
+    fontStack: (family: string, bold?: boolean, italic?: boolean) => string,
+    chart?: (chartXml: string, r: Rect) => void,
+  ): void {
     if (!(r.w >= 0 && r.h >= 0)) return;
+    // controle de formulário: o Excel desenha o controle; o rótulo vem da forma
+    if (obj.control) r = paintControl(ctx, obj.control, { x: r.x - sx, y: r.y - sy, w: r.w, h: r.h }, zoom, r);
     const k = zoom / EMU_PER_PX;
     let T = { x: r.x / k, y: r.y / k, w: r.w / k, h: r.h / k };
     const rot = topRot(obj.el);
@@ -254,6 +310,17 @@ export class SheetDrawings {
     if (!shapes.length) return;
     const images = new Map<string, PaintImage>();
     for (const [part, e] of this.images) if (e.ready) images.set(part, e.img);
-    paintShapesTo(ctx, shapes, { slideW: 0, slideH: 0, images }, k, { ox: -sx, oy: -sy, fontStack, clipOverflow: true });
+    const opts = { ox: -sx, oy: -sy, fontStack, clipOverflow: true };
+    // gráfico dentro de grupo: o motor de gráficos do sheet (padrões do Excel:
+    // área branca com moldura), na mesma ordem das formas vizinhas
+    let batch: Shape[] = [];
+    const flush = (): void => { if (batch.length) paintShapesTo(ctx, batch, { slideW: 0, slideH: 0, images }, k, opts); batch = []; };
+    for (const s of shapes) {
+      if (chart && s.chartXml && s.xfrm) {
+        flush();
+        chart(s.chartXml, { x: s.xfrm.x * k - sx, y: s.xfrm.y * k - sy, w: s.xfrm.cx * k, h: s.xfrm.cy * k });
+      } else batch.push(s);
+    }
+    flush();
   }
 }

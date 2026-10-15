@@ -232,6 +232,12 @@ export interface DrawingObject {
   el: import('./xml.js').XmlElement;
   /** Parte do desenho (`xl/drawings/drawingN.xml`): as imagens resolvem pelos rels dela. */
   part: string;
+  /**
+   * Controle de formulário (`<controls>` + `ctrlPropN.xml`): `type` =
+   * objectType (CheckBox, Radio, Button, GBox, Label…), `checked` = Checked|Mixed.
+   * O elemento é a forma do rótulo; o controle em si o componente desenha.
+   */
+  control?: { type: string; checked?: string };
 }
 
 /**

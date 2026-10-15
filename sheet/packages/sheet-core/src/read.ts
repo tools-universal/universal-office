@@ -7,7 +7,7 @@ import type {
 } from './model.js';
 import { refToRowCol, rowColToRef } from './model.js';
 import type { XlsxPackage } from './package.js';
-import { readDrawing, readOleObjects } from './drawing.js';
+import { readDrawing, readOleObjects, readControls } from './drawing.js';
 
 /** Mapa de relacionamentos rId → target, lido de um arquivo .rels do pacote. */
 function readRels(pkg: XlsxPackage, relsPart: string): Map<string, string> {
@@ -310,8 +310,8 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
     ? readDrawing(pkg, pkg.resolveRelTarget(sheetPath, drawingTarget))
     : { charts: [], objects: [] };
   const charts = drawing.charts;
-  // objetos OLE (prévia em imagem) entram como imagens do desenho
-  drawing.objects.push(...readOleObjects(root, sheetPath, drawing.objects));
+  // objetos OLE (prévia em imagem) e controles de formulário entram como objetos do desenho
+  drawing.objects.push(...readOleObjects(root, sheetPath, drawing.objects), ...readControls(pkg, root, sheetPath, drawing.objects));
 
   // validações de dados tipo LISTA (dropdown na célula selecionada)
   const listValidations: string[] = [];

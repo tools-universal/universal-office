@@ -1770,8 +1770,8 @@ export class UniversalSheetElement extends HTMLElement {
       // fora da área (folga p/ giro/sombra: a maior dimensão)
       const m = Math.max(r.w, r.h) + 40;
       if (x > view.x + view.w + m || y > view.y + view.h + m || x + r.w < view.x - m || y + r.h < view.y - m) continue;
-      if ('chartXml' in it) this.paintAnchoredChart(ctx, it, { x, y, w: r.w, h: r.h });
-      else layer?.paint(ctx, it, r, sx, sy, this.zoom, this.shapeFontStack);
+      if ('chartXml' in it) this.paintAnchoredChart(ctx, it.chartXml, { x, y, w: r.w, h: r.h });
+      else layer?.paint(ctx, it, r, sx, sy, this.zoom, this.shapeFontStack, (xml, cr) => this.paintAnchoredChart(ctx, xml, cr));
     }
   }
 
@@ -1795,12 +1795,12 @@ export class UniversalSheetElement extends HTMLElement {
     await layer.settled();
   }
 
-  /** Um gráfico no retângulo da âncora (px no canvas). */
-  private paintAnchoredChart(ctx: CanvasRenderingContext2D, ch: DrawingChart, r: Rect): void {
+  /** Um gráfico (XML de `chartN.xml`) no retângulo da âncora (px no canvas). */
+  private paintAnchoredChart(ctx: CanvasRenderingContext2D, chartXml: string, r: Rect): void {
     const { x, y, w, h } = r;
     if (w <= 0 || h <= 0) return;
-    let model = this.chartCache.get(ch.chartXml);
-    if (!model) { model = parseChart(ch.chartXml, this.chartTheme); this.chartCache.set(ch.chartXml, model); }
+    let model = this.chartCache.get(chartXml);
+    if (!model) { model = parseChart(chartXml, this.chartTheme); this.chartCache.set(chartXml, model); }
     // px por pt: 96/72 na base, escalado pelo zoom (tipografia do chart).
     // Moldura: a cor das linhas default do gráfico (o Excel desenha; medido #898989).
     paintChart(ctx, model, x, y, w, h, this.zoom * 96 / 72);

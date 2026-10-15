@@ -127,7 +127,7 @@ const el = (name: string, attrs: Record<string, string> = {}, children: XmlEleme
  * própria aba (a imagem resolve pelos rels dela).
  */
 export function readOleObjects(sheetRoot: XmlElement, sheetPath: string, drawingObjects: readonly DrawingObject[]): DrawingObject[] {
-  const list = firstChild(sheetRoot, 'oleObjects');
+  const list = resolvedChildren(sheetRoot).find((c) => c.name === 'oleObjects');
   if (!list) return [];
   const out: DrawingObject[] = [];
   for (const ole of resolvedChildren(list)) {
@@ -145,6 +145,50 @@ export function readOleObjects(sheetRoot: XmlElement, sheetPath: string, drawing
       el('xdr:spPr', {}, [el('a:prstGeom', { prst: 'rect' }), ...oleFrame(host)]),
     ]);
     out.push({ anchor, order: host ? host.order + 0.5 : 1e6 + out.length, el: pic, part: sheetPath });
+  }
+  return out;
+}
+
+/** Cópia da árvore sem o `hidden="1"` dos `cNvPr`. */
+function unhide(e: XmlElement): XmlElement {
+  const { hidden: _h, ...attrs } = e.attrs;
+  return { name: e.name, attrs: e.name.endsWith(':cNvPr') ? attrs : e.attrs, children: e.children.map((c) => (typeof c === 'string' ? c : unhide(c))) };
+}
+
+/**
+ * Controles de formulário da aba (`<controls>`, Excel 2010+: `controlPr` com
+ * âncora; tipo/estado em `xl/ctrlProps/ctrlPropN.xml`). O desenho traz a
+ * forma OCULTA que os representa (texto/fonte do rótulo): ela volta visível
+ * com `control` marcado — o componente desenha o controle (caixa, botão…) e o
+ * rótulo por cima. Z-order = o dessa forma.
+ */
+export function readControls(pkg: XlsxPackage, sheetRoot: XmlElement, sheetPath: string, drawingObjects: readonly DrawingObject[]): DrawingObject[] {
+  const list = resolvedChildren(sheetRoot).find((c) => c.name === 'controls');
+  if (!list) return [];
+  const slash = sheetPath.lastIndexOf('/');
+  const rels = new Map<string, string>();
+  const relsXml = pkg.getPartText(`${sheetPath.slice(0, slash)}/_rels/${sheetPath.slice(slash + 1)}.rels`);
+  try {
+    if (relsXml !== undefined) for (const r of childElements(parseXml(relsXml), 'Relationship')) if (r.attrs['Id'] && r.attrs['Target']) rels.set(r.attrs['Id'], pkg.resolveRelTarget(sheetPath, r.attrs['Target']));
+  } catch { /* sem rels: controles sem tipo */ }
+  const out: DrawingObject[] = [];
+  for (const c of resolvedChildren(list)) {
+    if (c.name !== 'control') continue;
+    const anchorEl = firstChild(firstChild(c, 'controlPr') ?? c, 'anchor');
+    if (!anchorEl) continue;
+    const anchor: DrawingAnchor = { from: cellPos(firstChild(anchorEl, 'from')), to: cellPos(firstChild(anchorEl, 'to')) };
+    let props: XmlElement | undefined;
+    const propsPath = rels.get(c.attrs['r:id'] ?? '');
+    const propsXml = propsPath ? pkg.getPartText(propsPath) : undefined;
+    try { if (propsXml !== undefined) props = parseXml(propsXml); } catch { /* ilegível */ }
+    const type = props?.attrs['objectType'] ?? '';
+    const shapeId = c.attrs['shapeId'] ?? '';
+    const host = shapeId ? drawingObjects.find((o) => hasSpid(o.el, `_x0000_s${shapeId}`)) : undefined;
+    const sp = host ? unhide(host.el) : el('xdr:sp', {}, [el('xdr:nvSpPr', {}, [el('xdr:cNvPr', { id: shapeId, name: c.attrs['name'] ?? '' }), el('xdr:cNvSpPr')]), el('xdr:spPr')]);
+    out.push({
+      anchor, order: host ? host.order + 0.5 : 1e6 + out.length, el: sp, part: host?.part ?? sheetPath,
+      control: { type, ...(props?.attrs['checked'] ? { checked: props.attrs['checked'] } : {}) },
+    });
   }
   return out;
 }
