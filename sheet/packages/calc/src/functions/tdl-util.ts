@@ -83,6 +83,29 @@ export function scalarsOf(v: Value, ctx: FnContext): Scalar[] | CalcError {
   return [v];
 }
 
+/** Áreas maiores que isto são lidas só nas células existentes (colunas inteiras). */
+export const SPARSE_CELLS = 65536;
+
+/**
+ * Escalares NÃO vazios de um valor, em ordem (linha a linha), e quantas
+ * posições havia ao todo — sem materializar colunas inteiras (CONCAT,
+ * TEXTJOIN). Vazios de matrizes também são pulados.
+ */
+export function existingScalars(v: Value, ctx: FnContext): { xs: Scalar[]; total: number } | CalcError {
+  if (v instanceof RefValue) {
+    const xs: Scalar[] = [];
+    let total = 0;
+    for (const a of v.areas) {
+      total += (a.r2 - a.r1 + 1) * (a.c2 - a.c1 + 1);
+      ctx.forEachCell(a, (x) => { if (x !== null) xs.push(x); });
+    }
+    return { xs, total };
+  }
+  if (v instanceof ArrayValue) return { xs: v.data.filter((x) => x !== null), total: v.data.length };
+  if (v instanceof LambdaValue) return ERR.CALC;
+  return { xs: v === null ? [] : [v], total: 1 };
+}
+
 /** Valor → matriz (referência de UMA área → valores; escalar → 1×1). */
 export function asArray(v: Value, ctx: FnContext): ArrayValue | CalcError {
   if (v instanceof ArrayValue) return v;

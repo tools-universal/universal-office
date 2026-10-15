@@ -49,6 +49,31 @@ class Vec {
     return new Vec(xs.length, xs, [], []);
   }
 
+  /** Índice da igualdade exata (MATCH 0/VLOOKUP FALSO sem curinga): chave → 1º índice. */
+  private exactIndex?: Map<string, number>;
+
+  /** 1º índice igual a x (sem curinga), por índice em hash (montado na 1ª busca). */
+  exactFirst(x: Scalar): number {
+    const k = exactKey(x);
+    if (k === undefined) return -1;
+    if (!this.exactIndex) {
+      const m = new Map<string, number>();
+      this.scan(0, this.n - 1, (i, v) => { const kv = exactKey(v); if (kv !== undefined && !m.has(kv)) m.set(kv, i); });
+      this.exactIndex = m;
+    }
+    return this.exactIndex.get(k) ?? -1;
+  }
+
+  /** Vetor de uma área, memorizado no recálculo (ctx.cache) quando houver. */
+  static ofAreaCached(a: Area, ctx: FnContext): Vec {
+    const c = ctx.cache;
+    if (!c) return Vec.ofArea(a, ctx);
+    const key = `tdl:vec:${a.sheet}:${a.r1}:${a.c1}:${a.r2}:${a.c2}`;
+    let v = c.get(key) as Vec | undefined;
+    if (!v) { v = Vec.ofArea(a, ctx); c.set(key, v); }
+    return v;
+  }
+
   static ofArea(a: Area, ctx: FnContext): Vec {
     const horiz = a.r1 === a.r2 && a.c1 !== a.c2;
     const idx: number[] = [], val: Scalar[] = [];
@@ -114,7 +139,7 @@ function shapeOf(v: Value): Shape | CalcError {
 function lineOf(v: Value, ctx: FnContext, horizontal: boolean, k: number): Vec {
   if (v instanceof RefValue) {
     const a = v.single!;
-    return Vec.ofArea(horizontal ? { sheet: a.sheet, r1: a.r1 + k, r2: a.r1 + k, c1: a.c1, c2: a.c2 } : { sheet: a.sheet, r1: a.r1, r2: a.r2, c1: a.c1 + k, c2: a.c1 + k }, ctx);
+    return Vec.ofAreaCached(horizontal ? { sheet: a.sheet, r1: a.r1 + k, r2: a.r1 + k, c1: a.c1, c2: a.c2 } : { sheet: a.sheet, r1: a.r1, r2: a.r2, c1: a.c1 + k, c2: a.c1 + k }, ctx);
   }
   const arr = v instanceof ArrayValue ? v : new ArrayValue(1, 1, [v as Scalar]);
   return Vec.ofArray(horizontal ? Array.from({ length: arr.cols }, (_, c) => arr.get(k, c)) : Array.from({ length: arr.rows }, (_, r) => arr.get(r, k)));
@@ -178,7 +203,16 @@ function exactPred(x: Scalar, wildcard: boolean, collate = false): (v: Scalar) =
 // ───────────────────────────── buscas ─────────────────────────────
 
 /** MATCH 0 / VLOOKUP exato: 1º igual (índice 0-based ou -1). */
+/** Chave do índice exato (texto sem caixa, como sameTextCI); undefined = não indexável. */
+function exactKey(v: Scalar): string | undefined {
+  if (typeof v === 'number') return 'n' + v;
+  if (typeof v === 'string') return 's' + v.toLowerCase();
+  if (typeof v === 'boolean') return v ? 'bT' : 'bF';
+  return undefined;
+}
+
 function findExact(vec: Vec, x: Scalar, wildcard: boolean): number {
+  if (!(wildcard && typeof x === 'string' && /[*?~]/.test(x))) return vec.exactFirst(x);
   const p = exactPred(x, wildcard);
   let hit = -1;
   vec.scan(0, vec.n - 1, (i, v) => { if (p(v)) { hit = i; return true; } });

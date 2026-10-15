@@ -7,7 +7,7 @@
  * Excel (collation.ts: "ß" = "ss", "a" ≠ "á").
  */
 import { register, type FnContext } from '../fn.js';
-import { compareText } from '../collation.js';
+import { collationKey, compareText } from '../collation.js';
 import { toBool, toNumber } from '../coerce.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, MAX_COL, MAX_ROW, RefValue, type Area, type Scalar, type Value } from '../values.js';
 import { asArray } from './tdl-util.js';
@@ -135,12 +135,23 @@ function aggregate(fn: LambdaValue, vals: ArrayValue, rows: number[], col: numbe
 /** Agrupa linhas pela chave (ordem de primeira aparição). */
 function groupRows(keys: ArrayValue, rows: number[]): Group[] {
   const out: Group[] = [];
+  const seen = new Map<string, Group>();
   for (const r of rows) {
     const key = Array.from({ length: keys.cols }, (_, c) => keys.get(r, c));
-    const g = out.find((x) => x.key.every((k, i) => sameCell(k, key[i]!)));
-    if (g) g.rows.push(r); else out.push({ key, rows: [r] });
+    const k = key.map(cellKey).join('');
+    const g = seen.get(k);
+    if (g) g.rows.push(r); else { const ng = { key, rows: [r] }; seen.set(k, ng); out.push(ng); }
   }
   return out;
+}
+
+/** Chave de igualdade de UNIQUE/GROUPBY (texto pela colação; número exato; vazio ≠ ""). */
+function cellKey(v: Scalar): string {
+  if (v === null) return 'z';
+  if (typeof v === 'number') return 'n' + v;
+  if (typeof v === 'string') return 's' + collationKey(v);
+  if (typeof v === 'boolean') return v ? 'bT' : 'bF';
+  return 'e' + v.code;
 }
 
 /** Cabeçalhos: 0 não, 1 sim (oculto), 2 não (gerar), 3 sim (mostrar); omitido = detecta (1ª linha texto com números abaixo). */
@@ -402,15 +413,18 @@ register(
       const byCol = boolOr(bv, false, ctx); if (byCol instanceof CalcError) return byCol;
       const once = boolOr(ev, false, ctx); if (once instanceof CalcError) return once;
       const a = byCol ? transpose(a0) : a0;
-      const rows = rowsOf(a);
-      const groups: { row: Scalar[]; n: number }[] = [];
-      for (const r of rows) {
-        const g = groups.find((x) => x.row.every((v, i) => sameCell(v, r[i]!)));
-        if (g) g.n++; else groups.push({ row: r, n: 1 });
+      // agrupamento em hash pela chave de igualdade (colunas inteiras: 1 milhão de linhas)
+      const groups: { r: number; n: number }[] = [];
+      const seen = new Map<string, { r: number; n: number }>();
+      for (let r = 0; r < a.rows; r++) {
+        let key = '';
+        for (let c = 0; c < a.cols; c++) key += cellKey(a.get(r, c)) + '';
+        const g = seen.get(key);
+        if (g) g.n++; else { const ng = { r, n: 1 }; seen.set(key, ng); groups.push(ng); }
       }
-      const keep = once ? groups.filter((g) => g.n === 1) : groups;
+      const keep = (once ? groups.filter((g) => g.n === 1) : groups).map((g) => Array.from({ length: a.cols }, (_, c) => a.get(g.r, c)));
       if (!keep.length) return ERR.CALC;
-      const out = fromRows(keep.map((g) => g.row), a.cols);
+      const out = fromRows(keep, a.cols);
       return out instanceof CalcError ? out : byCol ? transpose(out) : out;
     },
   },

@@ -159,3 +159,9 @@ export function compareText(a: string, b: string): number {
 export function textCollateEqual(a: string, b: string): boolean {
   return compareText(a, b) === 0;
 }
+
+/** Chave textual da colação: chaves iguais ⇔ compareText(a, b) = 0 (UNIQUE/GROUPBY em hash). */
+export function collationKey(text: string): string {
+  const k = keyOf(text);
+  return `${k.p.join(',')}|${k.s.join(',')}|${k.sp.map((x) => x.join(':')).join(',')}`;
+}

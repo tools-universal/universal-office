@@ -72,3 +72,28 @@ describe('colação', () => {
     expect(compareScalars('a', 'á')).toBe(-1);
   });
 });
+
+describe('intervalos grandes', () => {
+  const N = 20000;
+  const cells: Record<string, number | string> = {};
+  for (let i = 1; i <= N; i++) { cells[`A${i}`] = i * 2; cells[`B${i}`] = `v${i}`; }
+  it('VLOOKUP/MATCH exatos em coluna inteira com memória do recálculo', () => {
+    const base = mockContext({ sheets: { S: cells } });
+    const ctx = { ...base, cache: new Map<string, unknown>() };
+    const t0 = Date.now();
+    for (let k = 1; k <= 2000; k++) {
+      const x = k * 10;
+      expect(callFn('VLOOKUP', [x, { ref: 'A:B' }, 2, false], ctx)).toBe(`v${x / 2}`);
+    }
+    expect(plain(callFn('MATCH', [39999, { ref: 'A:A' }, 0], ctx))).toBe('#N/A');
+    expect(plain(callFn('MATCH', [40000, { ref: 'A:A' }, 0], ctx))).toBe(20000);
+    expect(Date.now() - t0).toBeLessThan(5000);
+  });
+  it('binária em coluna inteira e TEXTJOIN/CONCAT/UNIQUE sem materializar vazios', () => {
+    const ctx = mockContext({ sheets: { S: { A1: 'a', A3: 'b', A5: 'a' } } });
+    expect(callFn('MATCH', [3, { ref: 'A:A' }, 1], mockContext({ sheets: { S: cells } }))).toBe(1);
+    expect(callFn('TEXTJOIN', [',', true, { ref: 'A:A' }], ctx)).toBe('a,b,a');
+    expect(plain(callFn('TEXTJOIN', [',', false, { ref: 'A:A' }], ctx))).toBe('#VALUE!'); // 1 milhão de vírgulas
+    expect(callFn('CONCAT', [{ ref: 'A:A' }], ctx)).toBe('aba');
+  });
+});

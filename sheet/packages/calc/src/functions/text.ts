@@ -24,7 +24,7 @@ import { register, type FnContext, type ValueLocale } from '../fn.js';
 import { numberToText, parseNumberText, toBool } from '../coerce.js';
 import { ArrayValue, CalcError, ERR, RefValue, type Scalar, type Value } from '../values.js';
 import { checkLen, fixedDigits, formatForText, translateFormatCode } from './text-format.js';
-import { asArray, num, scalarsOf, txt } from './tdl-util.js';
+import { asArray, existingScalars, num, scalarsOf, SPARSE_CELLS, txt } from './tdl-util.js';
 import './regex.js';
 import './filterxml.js';
 import './regional.js';
@@ -453,9 +453,10 @@ register(
     call: (args, ctx) => {
       let out = '';
       for (const a of args) {
-        const xs = scalarsOf(a, ctx);
-        if (xs instanceof CalcError) return xs;
-        for (const x of xs) { const t = txt(x, ctx); if (t instanceof CalcError) return t; out += t; }
+        // vazio não acrescenta nada: lê só as células existentes (CONCAT(A:A))
+        const e = existingScalars(a, ctx);
+        if (e instanceof CalcError) return e;
+        for (const x of e.xs) { const t = txt(x, ctx); if (t instanceof CalcError) return t; out += t; }
         if (out.length > 32767) return ERR.VALUE;
       }
       return out;
@@ -469,8 +470,19 @@ register(
       const ig = optBool(args[1], true, ctx);
       if (ig instanceof CalcError) return ig;
       const items: string[] = [];
+      const minDelim = ds.length ? Math.min(...ds.map((d) => d.length)) : 0;
       for (let i = 2; i < args.length; i++) {
-        const xs = scalarsOf(args[i], ctx);
+        const a = args[i];
+        if (a instanceof RefValue && a.areas.some((r) => (r.r2 - r.r1 + 1) * (r.c2 - r.c1 + 1) > SPARSE_CELLS)) {
+          // coluna inteira: os vazios só contam como itens se não forem ignorados
+          const e = existingScalars(a, ctx);
+          if (e instanceof CalcError) return e;
+          for (const x of e.xs) if (x instanceof CalcError) return x;
+          if (!ig && minDelim > 0 && e.total > 32767) return ERR.VALUE; // delimitadores já estouram o limite
+          for (const x of e.xs) { const t = txt(x, ctx); if (t instanceof CalcError) return t; if (!(ig && t === '')) items.push(t); }
+          continue;
+        }
+        const xs = scalarsOf(a, ctx);
         if (xs instanceof CalcError) return xs;
         for (const x of xs) {
           const t = txt(x, ctx);

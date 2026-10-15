@@ -160,6 +160,13 @@ export interface FnContext {
   parseRef(text: string, a1: boolean): RefValue | CalcError;
   /** Valor de um nome definido (para funções que recebem nome em texto, ex. EVALUATE). */
   resolveName?(name: string): Value;
+  /**
+   * Memória de UM recálculo (o avaliador cria um Map novo a cada recálculo e o
+   * descarta no fim). Funções guardam aqui estruturas caras derivadas de
+   * intervalos (índice de VLOOKUP/MATCH exatos…), com chave própria prefixada.
+   * Opcional: sem ele as funções só não memorizam.
+   */
+  readonly cache?: Map<string, unknown>;
 }
 
 const REGISTRY = new Map<string, FnDef>();
