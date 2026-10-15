@@ -491,7 +491,17 @@ function des(n: PNode, out: PNode[] = [], depth = 0): PNode[] {
 function select(owner: PNode, f: string, name: string | undefined, ptType: string | undefined): PNode[] {
   const base = f === 'ch' ? owner.kids : f === 'des' ? des(owner) : [owner];
   if (!name && !ptType) return base;
-  return base.filter((k) => (!name || k.name === name) && (!ptType || ptMatch(k.pt, ptType)));
+  return base.filter((k) => (!name || k.name === name) && (!ptType || ptMatch(k.pt, ptType) || presPtMatch(k, ptType)));
+}
+/**
+ * Nó criado fora de forEach (contexto = documento) que apresenta um ponto pelo
+ * presOf vale como esse ponto no filtro ptType (child1Text/quadrant1 do cycle4:
+ * primFontSz for="des" ptType="node" op="equ" os iguala; medido no oráculo).
+ */
+function presPtMatch(k: PNode, ptType: string): boolean {
+  if (!k.presOf || !FIT || k.pt.type !== 'doc') return false;
+  const p = presTexts(k, FIT.root)[0]?.pt;
+  return !!p && ptMatch(p, ptType);
 }
 
 /** Valor de um tipo no nó (derivados de posição a partir de l/t/w/h). */
@@ -857,6 +867,14 @@ function algLin(n: PNode, measuring = false, noScale = false): void {
       // com restrição: cresce se o conteúdo transborda
       const fw = getVal(k, 'w') === undefined, fh = getVal(k, 'h') === undefined;
       const w = fw ? nat.w : Math.max(z.w, nat.w), h = fh ? nat.h : Math.max(z.h, nat.h);
+      // no PRÓPRIO eixo o lin filho fica do tamanho do conteúdo, com o layout interno
+      // na caixa dada (linNode do vList5 só com o parentText: entre linhas cheias
+      // encosta à esquerda pelo nodeHorzAlign do pai; medido)
+      if (t === 'lin') {
+        const km = linMain(k);
+        if (km === 'w' && !fw && nat.w > 0 && nat.w < z.w - 1 && nat.h <= z.h + 1) return { w: nat.w, h, full: { w: z.w, h: z.h } };
+        if (km === 'h' && !fh && nat.h > 0 && nat.h < z.h - 1 && nat.w <= z.w + 1) return { w, h: nat.h, full: { w: z.w, h: z.h } };
+      }
       // (lin refeito na caixa do conteúdo cabe nela: sem "tamanho original")
       const grow = (!fw && nat.w > z.w + 1) || (!fh && nat.h > z.h + 1) ? { w, h } : undefined;
       return { w, h, ...(grow ? { grow } : {}) };
@@ -1194,7 +1212,19 @@ function layoutNode(n: PNode, depth: number): void {
 function layoutNodeAlg(n: PNode, depth: number): void {
   switch (n.preplaced ? 'pre' : algType(n)) {
     case 'pre': break;
-    case 'lin': algLin(n); break;
+    case 'lin': {
+      algLin(n);
+      // lin encolhido ao conteúdo (caixa interna = a dada): o conteúdo começa na caixa
+      if (n.cw) {
+        const km = linMain(n);
+        const ks = n.kids.filter((k) => k.rw !== undefined && k.rh !== undefined && (k.rw > 0 || k.rh > 0));
+        if (ks.length) {
+          const m = Math.min(...ks.map((k) => (km === 'w' ? k.rx ?? 0 : k.ry ?? 0)));
+          if (Number.isFinite(m) && m > 0) for (const k of n.kids) { if (km === 'w') k.rx = (k.rx ?? 0) - m; else k.ry = (k.ry ?? 0) - m; }
+        }
+      }
+      break;
+    }
     case 'snake': algSnake(n); break;
     case 'hierChild': case 'hierRoot': layoutHier(n, depth); return;
     case 'cycle': algCycle(n); break;
@@ -2215,7 +2245,9 @@ function emit(nodes: PNode[], root: PNode, model: Model, style: XmlElement | und
     const groups = new Map<string, PNode[]>();
     for (const job of jobs.values()) {
       // igualdade explícita (op="equ") ou regra de fonte de um ancestral que vale para todos os alvos
-      const g = job.tn.equ[key] ?? (key === 'primFontSz' ? rulesFor(job.tn).group : undefined);
+      // (o secundário segue a igualdade do primário: caixas só com texto de nível 1 do
+      // cycle4 com primFontSz equ ficam todas no menor tamanho)
+      const g = job.tn.equ[key] ?? (key === 'primFontSz' ? rulesFor(job.tn).group : job.tn.equ['primFontSz']);
       if (g && get(job.tn) !== undefined) (groups.get(g) ?? groups.set(g, []).get(g)!).push(job.tn);
     }
     for (const g of groups.values()) { const m = Math.min(...g.map((n) => get(n)!)); for (const n of g) set(n, m); }
@@ -2349,6 +2381,11 @@ function shapeXml(n: PNode, ty: string, hide: boolean, job: TextJob | undefined,
       spPrKids.push(mk('a:noFill'));
       const ends = lineEnds(params(n.alg));
       if (ends.length) spPrKids.push(mk('a:ln', {}, ends));
+    } else if (fillC && kids(fillC).some((m) => m.name === 'a:alpha' || m.name === 'a:alphaMod' || (m.name === 'a:alphaOff' && m.attrs['val'] !== '0'))) {
+      // cor com transparência (vennNode1 do radial3/venn: alpha 50%): o PowerPoint grava
+      // o preenchimento explícito no spPr — pelo fillRef o leitor perderia o alpha
+      const fr = st ? firstChild(st, 'a:fillRef') : undefined;
+      if ((fr?.attrs['idx'] ?? '1') === '1') spPrKids.push(mk('a:solidFill', {}, [clone(fillC)]));
     }
     // formatação do usuário (ponto de dados e ponto de apresentação) por cima do estilo
     for (const own of [n.pt.spPr, n.pres?.spPr]) {
