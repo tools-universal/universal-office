@@ -15,7 +15,7 @@ import { register, type FnContext, type FnDef } from '../fn.js';
 import { argNumber } from '../stats.js';
 import { ArrayValue, CalcError, ERR, RefValue, type Area, type Scalar, type Value } from '../values.js';
 import {
-  aggAverage, aggMax, aggMin, aggProduct, aggStdevP, aggStdevS, aggSum, aggVarP, aggVarS,
+  aggMax, aggMin, aggProduct, aggStdevP, aggStdevS, aggVarP, aggVarS,
 } from './statistical.js';
 
 /**
@@ -127,6 +127,12 @@ function matched(args: readonly unknown[], ctx: FnContext, fieldRequired: boolea
 
 type NumAgg = (xs: number[]) => Value;
 
+function plainSum(xs: readonly number[]): number | CalcError {
+  let t = 0;
+  for (const x of xs) t += x;
+  return Number.isFinite(t) ? t : ERR.NUM;
+}
+
 /** Critério que é matriz (não referência): #VALUE! em cada elemento (medido: derrama). */
 function withCritArray(f: (args: readonly unknown[], ctx: FnContext) => Value): (args: readonly unknown[], ctx: FnContext) => Value {
   return (args, ctx) => {
@@ -153,8 +159,9 @@ function dbNumeric(name: string, agg: NumAgg): FnDef {
 }
 
 register(
-  dbNumeric('DSUM', aggSum),
-  dbNumeric('DAVERAGE', aggAverage),
+  // medido: DSUM/DAVERAGE somam SEM o zero do Excel (0,1+0,2−0,3 = 5,55E−17), como SUMIF
+  dbNumeric('DSUM', (xs) => plainSum(xs)),
+  dbNumeric('DAVERAGE', (xs) => { if (!xs.length) return ERR.DIV0; const t = plainSum(xs); return t instanceof CalcError ? t : t / xs.length; }),
   dbNumeric('DMAX', aggMax),
   dbNumeric('DMIN', aggMin),
   dbNumeric('DPRODUCT', aggProduct),
@@ -186,7 +193,8 @@ register(
       if (m instanceof CalcError) return m;
       if (!m.vals.length) return ERR.VALUE;
       if (m.vals.length > 1) return ERR.NUM;
-      return m.vals[0]!;
+      // medido: o registro achado com o campo vazio dá #VALUE!
+      return m.vals[0] === null ? ERR.VALUE : m.vals[0]!;
     }),
   },
 );

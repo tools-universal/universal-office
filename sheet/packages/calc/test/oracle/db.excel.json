@@ -4448,5 +4448,269 @@
   "v": 0.5536,
   "text": "0,5536",
   "local": "=BDVARP(A1:B7;\"Height\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-snap",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "local": "=BDSOMA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-none",
+  "v": 0,
+  "text": "0",
+  "local": "=BDSOMA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-txt",
+  "v": 0,
+  "text": "0",
+  "local": "=BDSOMA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dsum-blank",
+  "v": 0,
+  "text": "0",
+  "local": "=BDSOMA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-snap",
+  "v": 1.850371707708594e-17,
+  "text": "1,85E-17",
+  "local": "=BDMÉDIA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-none",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDMÉDIA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-txt",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDMÉDIA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-daverage-blank",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDMÉDIA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-snap",
+  "v": -0.006000000000000001,
+  "text": "-0,006",
+  "local": "=BDMULTIPL(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-none",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMULTIPL(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-txt",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMULTIPL(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dproduct-blank",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMULTIPL(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-snap",
+  "v": 0.2,
+  "text": "0,2",
+  "local": "=BDMÁX(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-none",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÁX(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-txt",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÁX(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dmax-blank",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÁX(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-snap",
+  "v": -0.3,
+  "text": "-0,3",
+  "local": "=BDMÍN(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-none",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÍN(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-txt",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÍN(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dmin-blank",
+  "v": 0,
+  "text": "0",
+  "local": "=BDMÍN(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-snap",
+  "v": 3,
+  "text": "3",
+  "local": "=BDCONTAR(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-none",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTAR(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-txt",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTAR(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dcount-blank",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTAR(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-snap",
+  "v": 3,
+  "text": "3",
+  "local": "=BDCONTARA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-none",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTARA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-txt",
+  "v": 1,
+  "text": "1",
+  "local": "=BDCONTARA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dcounta-blank",
+  "v": 0,
+  "text": "0",
+  "local": "=BDCONTARA(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-snap",
+  "v": 0.2645751311064591,
+  "text": "0,264575",
+  "local": "=BDEST(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-none",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-txt",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dstdev-blank",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDEST(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-snap",
+  "v": 0.07,
+  "text": "0,07",
+  "local": "=BDVAREST(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-none",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-txt",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dvar-blank",
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=BDVAREST(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dget-snap",
+  "v": {
+   "e": "#NUM!"
+  },
+  "text": "#NÚM!",
+  "local": "=BDEXTRAIR(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dget-none",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dget-txt",
+  "v": "txt",
+  "text": "txt",
+  "local": "=BDEXTRAIR(A1:B6;\"V\";F1:F2)"
+ },
+ {
+  "id": "db-dget-blank",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=BDEXTRAIR(A1:B6;\"V\";F1:F2)"
  }
 ]

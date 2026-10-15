@@ -491,6 +491,15 @@ const slug = (v) => JSON.stringify(v).replace(/-/g, 'n').replace(/\./g, 'd').rep
     add(`${k}-onerow`, f, [ref('A1:D1'), 'Yield', ref('F1:F2')], { cells: merge(DB, crit(layouts.apple)) });
     add(`${k}-dec`, f, [ref('A1:B7'), 'Height', ref('F1:F2')], { cells: merge({ A1: 'K', B1: 'Height', A2: 'a', B2: 0.1, A3: 'a', B3: 0.7, A4: 'a', B4: 0.3, A5: 'b', B5: 9, A6: 'a', B6: 1.1, A7: 'a', B7: 2.2 }, crit([['K'], ['a']])) });
   }
+  // soma com o zero do Excel, DGET de texto/vazio, sem registros
+  const SN = { A1: 'K', B1: 'V', A2: 'a', B2: 0.1, A3: 'a', B3: 0.2, A4: 'a', B4: -0.3, A5: 'b', B5: 'txt', A6: 'c' };
+  for (const f of ['DSUM', 'DAVERAGE', 'DPRODUCT', 'DMAX', 'DMIN', 'DCOUNT', 'DCOUNTA', 'DSTDEV', 'DVAR', 'DGET']) {
+    const k = f.toLowerCase();
+    add(`${k}-snap`, f, [ref('A1:B6'), 'V', ref('F1:F2')], { cells: merge(SN, crit([['K'], ['a']])) });
+    add(`${k}-none`, f, [ref('A1:B6'), 'V', ref('F1:F2')], { cells: merge(SN, crit([['K'], ['z']])) });
+    add(`${k}-txt`, f, [ref('A1:B6'), 'V', ref('F1:F2')], { cells: merge(SN, crit([['K'], ['b']])) });
+    add(`${k}-blank`, f, [ref('A1:B6'), 'V', ref('F1:F2')], { cells: merge(SN, crit([['K'], ['c']])) });
+  }
   out('db', cases);
 }
 
