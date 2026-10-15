@@ -17,7 +17,7 @@ declare global {
     harness: {
       loadBook(url: string): Promise<string[]>;
       paintRegion(name: string, nCols: number, nRows: number): { w: number; h: number } | null;
-      cellTexts(name: string): [string, string][];
+      cellTexts(name: string, nCols?: number, nRows?: number): [string, string][];
       gridEdges(name: string, nCols: number, nRows: number): { xs: number[]; ys: number[] };
     };
   }
@@ -39,12 +39,13 @@ window.harness = {
     if (i < 0) return null;
     return us.renderRegionToCanvas(i, cv, nCols, nRows);
   },
-  /** Texto exibido por célula da aba (para comparar com o Range.Text do Excel). */
-  cellTexts(name: string): [string, string][] {
+  /** Texto exibido por célula da aba (para comparar com o Range.Text do Excel);
+   *  nCols/nRows limitam à região capturada (abas enormes). */
+  cellTexts(name: string, nCols?: number, nRows?: number): [string, string][] {
     const i = us.getSheetNames().indexOf(name);
     if (i < 0) return [];
     us.selectSheet(i);
-    return us.debugCellDisplays().map((d) => [d.ref, d.display]);
+    return us.debugCellDisplays(nCols, nRows).map((d) => [d.ref, d.display]);
   },
   /** Bordas das colunas/linhas (px a 100%) — geometria × Range.Width/Height do Excel. */
   gridEdges(name: string, nCols: number, nRows: number): { xs: number[]; ys: number[] } {

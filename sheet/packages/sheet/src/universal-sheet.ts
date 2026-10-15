@@ -603,15 +603,19 @@ export class UniversalSheetElement extends HTMLElement {
   /**
    * DEBUG: texto exibido por célula da aba atual PARA A LARGURA da coluna (ou
    * da mescla) a 100% — o mesmo que o Range.Text do Excel ("####", Geral
-   * reduzido, `*x` expandido; coluna oculta conta como largura 0).
+   * reduzido, `*x` expandido; coluna oculta conta como largura 0). `maxCol`/
+   * `maxRow`: só a região A1..(maxCol,maxRow) — abas enormes (2 milhões de
+   * células) estouram o tempo do lab sem ela.
    */
-  debugCellDisplays(): { ref: string; display: string }[] {
+  debugCellDisplays(maxCol = Infinity, maxRow = Infinity): { ref: string; display: string }[] {
     const v = this.view;
     if (!v) return [];
     const out: { ref: string; display: string }[] = [];
     for (const r of v.worksheet.rows) for (const c of r.cells) {
+      if (r.r > maxRow) break;
       let col: number;
       try { col = refToRowCol(c.ref).col; } catch { continue; }
+      if (col > maxCol) continue;
       // origem de mescla: largura da mescla; célula coberta com valor: o Range.Text
       // é o dela, na largura da própria coluna (medido)
       const mm = this.mergeAt(col, r.r);
