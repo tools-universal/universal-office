@@ -15,7 +15,7 @@ import { imageDpi, tilePattern } from '@universal-office/charts';
 import { layoutTextBody, type LayoutFont, type MeasureText, type PlacedRun, type PlacedLine } from './text-layout.js';
 import { presetPath } from './geometry.js';
 import { presetTextRect } from './preset-engine.js';
-import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type Run, type ImageRef, type ImageFx } from './model.js';
+import { EMU_PER_POINT, type Slide, type Shape, type TextBody, type Fill, type Table, type TableCell, type TableLine, type Run, type ImageRef, type ImageFx } from './model.js';
 import type { ShapeAnimHooks, PartState, AnimBase, UnitRef } from './anim-engine.js';
 import { applyReveal, applySoftReveal, softRevealFilter } from './reveal.js';
 import { patternRows } from './patterns.js';
@@ -746,7 +746,7 @@ function paintBody(
     const natH = sh.table.rows.reduce((a, r) => a + r.heightEmu, 0);
     const tw = natW > 0 ? natW * fit.scale : w;
     const th = natH > 0 ? natH * fit.scale : h;
-    paintTable(ctx, sh.table, x, y, tw, th, fit.scale);
+    paintTable(ctx, sh.table, x, y, tw, th, fit.scale, { x: fit.ox, y: fit.oy });
     return false;
   }
 
@@ -2003,39 +2003,39 @@ function layoutFontStr(f: LayoutFont, pxPerPt: number): string {
 }
 
 /**
- * Renderiza uma tabela `<a:tbl>` no rect `(x,y,w,h)`. Escala colunas/linhas
- * proporcionalmente para preencher exatamente o rect. Suporta gridSpan/rowSpan
- * via skip de células `hMerge`/`vMerge`. Pinta cell.fill, depois bordas, depois
- * texto conforme `cell.anchor` (default TOPO, como o app de referência) +
- * `pPr.algn`. `scale` = px por EMU (dimensiona texto e insets).
- */
-/**
  * Corpo de texto de uma célula como o motor de texto o vê: margens e âncora do
  * tcPr (default do app: 0,1" nas laterais, 0,05" em cima/embaixo, âncora no
  * TOPO) e cor/negrito default do ESTILO da tabela onde o run não define.
  */
 function cellBody(cell: Table['rows'][number]['cells'][number]): TextBody {
-  const { txColor, txBold } = cell;
+  const { txColor, txBold, txItalic } = cell;
   return {
     ...cell.txBody!,
     anchor: cell.anchor ?? 't',
     ...(cell.vert ? { vert: cell.vert } : {}),
     insL: cell.marL ?? 91440, insR: cell.marR ?? 91440,
     insT: cell.marT ?? 45720, insB: cell.marB ?? 45720,
-    paragraphs: txColor === undefined && txBold === undefined ? cell.txBody!.paragraphs
+    paragraphs: txColor === undefined && txBold === undefined && txItalic === undefined ? cell.txBody!.paragraphs
       : cell.txBody!.paragraphs.map((p) => ({
         ...p,
         runs: p.runs.map((r): Run => {
           const o: Run = { ...r };
           if (o.color === undefined && txColor !== undefined) o.color = txColor;
           if (o.bold === undefined && txBold !== undefined) o.bold = txBold;
+          if (o.italic === undefined && txItalic !== undefined) o.italic = txItalic;
           return o;
         }),
       })),
   };
 }
 
-function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: number, w: number, h: number, scale: number): void {
+/**
+ * Renderiza uma tabela `<a:tbl>` a partir de (x, y): colunas do tblGrid, linhas com a
+ * altura do XML que CRESCEM até caber o texto. Ordem: sombra, fundo da tabela,
+ * preenchimento das células (mescladas = a região toda), grade de bordas, texto.
+ * `scale` = px por EMU; `origin` = canto do slide (âncora dos padrões).
+ */
+function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: number, w: number, h: number, scale: number, origin: { x: number; y: number }): void {
   // Alturas: se TODAS forem 0 (XML sem atributo h em <a:tr>), distribui
   // igualmente; caso contrário, usa as proporções do XML.
   const allZeroRows = t.rows.every((r) => !r.heightEmu);
@@ -2044,21 +2044,35 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
   // a linha CRESCE até caber o texto da célula mais alta (como o app de
   // referência: a tabela pode passar do quadro); alturas absolutas do XML
   const measure: MeasureText = (text, f) => { ctx.font = layoutFontStr(f, 1); return ctx.measureText(text).width; };
+  const needOf = (cell: TableCell, ci: number): number => {
+    const span = cell.gridSpan ?? 1;
+    let cwEmu = 0;
+    for (let k = ci; k < ci + span; k++) cwEmu += t.colWidthsEmu[k] ?? 0;
+    const body = cellBody(cell);
+    const lay = layoutTextBody(body, cwEmu, 1e12, measure, { defaultSzPt: DEFAULT_BODY_PT, defaultAnchor: 't' });
+    return lay.totalH + (body.insT ?? 0) + (body.insB ?? 0);
+  };
   const rowHs = allZeroRows
     ? t.rows.map(() => 1)
     : t.rows.map((r) => {
       let need = Math.max(r.heightEmu, 1);
       r.cells.forEach((cell, ci) => {
         if (cell.hMerge || cell.vMerge || (cell.rowSpan ?? 1) > 1 || !cell.txBody || cell.vert) return;
-        const span = cell.gridSpan ?? 1;
-        let cwEmu = 0;
-        for (let k = ci; k < ci + span; k++) cwEmu += t.colWidthsEmu[k] ?? 0;
-        const body = cellBody(cell);
-        const lay = layoutTextBody(body, cwEmu, 1e12, measure, { defaultSzPt: DEFAULT_BODY_PT, defaultAnchor: 't' });
-        need = Math.max(need, lay.totalH + (body.insT ?? 0) + (body.insB ?? 0));
+        need = Math.max(need, needOf(cell, ci));
       });
       return need;
     });
+  // célula mesclada na vertical: a ÚLTIMA linha da mescla cresce o que faltar (medido, syn-a-tbl3 #7)
+  if (!allZeroRows) {
+    t.rows.forEach((r, ri) => r.cells.forEach((cell, ci) => {
+      const rs = Math.min(cell.rowSpan ?? 1, t.rows.length - ri);
+      if (cell.hMerge || cell.vMerge || rs <= 1 || !cell.txBody || cell.vert) return;
+      let have = 0;
+      for (let k = ri; k < ri + rs; k++) have += rowHs[k]!;
+      const need = needOf(cell, ci);
+      if (need > have) rowHs[ri + rs - 1]! += need - have;
+    }));
+  }
   const totalRowEmu = rowHs.reduce((a, b) => a + b, 0) || 1;
   const sy = allZeroRows ? h / totalRowEmu : scale;
   // posições acumuladas em px
@@ -2067,109 +2081,191 @@ function paintTable(ctx: CanvasRenderingContext2D, t: Table, x: number, y: numbe
   const rowY: number[] = [0];
   for (const rh of rowHs) rowY.push(rowY[rowY.length - 1]! + rh * sy);
 
-  // sem fundo forçado: tabela sem fill é TRANSPARENTE (templates translúcidos);
-  // o fundo do estilo (<a:tblBg>) vai atrás de todas as células
-  if (t.bg) {
-    ctx.save();
-    if (t.bg.alpha !== undefined) ctx.globalAlpha *= t.bg.alpha;
-    ctx.fillStyle = t.bg.color;
-    ctx.fillRect(x, y, colX[colX.length - 1]!, rowY[rowY.length - 1]!);
-    ctx.restore();
-  }
-
-  // primeira passada: fills das células
+  const tw = colX[colX.length - 1]!, th = rowY[rowY.length - 1]!;
+  // retângulos das células de ORIGEM (mesclas cobrem as vizinhas)
+  const cellsAt: { cell: TableCell; r: number; c: number; x: number; y: number; w: number; h: number }[] = [];
   for (let ri = 0; ri < t.rows.length; ri++) {
     const row = t.rows[ri]!;
     for (let ci = 0; ci < row.cells.length; ci++) {
       const cell = row.cells[ci]!;
-      if (cell.hMerge || cell.vMerge) continue;
+      if (cell.hMerge || cell.vMerge || ci >= colX.length - 1) continue;
       const span = cell.gridSpan ?? 1;
       const rspan = cell.rowSpan ?? 1;
-      const cx0 = x + colX[ci]!;
-      const cy0 = y + rowY[ri]!;
-      const cw = (colX[ci + span] ?? colX[colX.length - 1]!) - colX[ci]!;
-      const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]!) - rowY[ri]!;
-      if (cell.fill) {
-        ctx.save();
-        if (cell.fillAlpha !== undefined && cell.fillAlpha < 1) ctx.globalAlpha = ctx.globalAlpha * cell.fillAlpha;
-        ctx.fillStyle = cell.fill;
-        ctx.fillRect(cx0, cy0, cw, ch);
-        ctx.restore();
-      }
+      const cx0 = x + colX[ci]!, cy0 = y + rowY[ri]!;
+      cellsAt.push({ cell, r: ri, c: ci, x: cx0, y: cy0,
+        w: (colX[Math.min(ci + span, colX.length - 1)]!) - colX[ci]!, h: (rowY[Math.min(ri + rspan, rowY.length - 1)]!) - rowY[ri]! });
     }
   }
+  const cellPaint = (cell: TableCell): TablePaint | undefined =>
+    cell.fill ? { fill: { type: 'solid', color: cell.fill }, ...(cell.fillAlpha !== undefined ? { alpha: cell.fillAlpha } : {}) }
+      : cell.fillPaint ? { fill: cell.fillPaint } : cell.fillImage ? { image: cell.fillImage, ...(cell.fillTile ? { tile: true } : {}) } : undefined;
+  const bgPaint: TablePaint | undefined = t.bgPaint ?? (t.bg ? { fill: { type: 'solid', color: t.bg.color }, ...(t.bg.alpha !== undefined ? { alpha: t.bg.alpha } : {}) } : undefined);
 
-  // segunda passada: bordas (linhas finas por célula)
-  for (let ri = 0; ri < t.rows.length; ri++) {
-    const row = t.rows[ri]!;
-    for (let ci = 0; ci < row.cells.length; ci++) {
-      const cell = row.cells[ci]!;
-      if (cell.hMerge || cell.vMerge) continue;
-      const span = cell.gridSpan ?? 1;
-      const rspan = cell.rowSpan ?? 1;
-      const cx0 = x + colX[ci]!;
-      const cy0 = y + rowY[ri]!;
-      const cw = (colX[ci + span] ?? colX[colX.length - 1]!) - colX[ci]!;
-      const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]!) - rowY[ri]!;
-      // grade uniforme SÓ quando o estilo/célula define cor (o app de
-      // referência não desenha grade em tabela sem estilo)
-      if (cell.borderColor) {
-        const bw = (cell.borderWidth ?? 12700) * scale;
-        ctx.strokeStyle = cell.borderColor;
-        ctx.lineWidth = Math.max(0.5, bw);
-        // lado a lado: lados com borda própria (desenhada abaixo) ou noFill explícito ficam de fora
-        const skip = (k: 'l' | 'r' | 't' | 'b'): boolean => !!cell.borders?.[k] || !!cell.borderNone?.[k];
-        const sides: ['l' | 'r' | 't' | 'b', number, number, number, number][] = [
-          ['t', cx0, cy0 + 0.5, cx0 + cw, cy0 + 0.5], ['b', cx0, cy0 + ch - 0.5, cx0 + cw, cy0 + ch - 0.5],
-          ['l', cx0 + 0.5, cy0, cx0 + 0.5, cy0 + ch], ['r', cx0 + cw - 0.5, cy0, cx0 + cw - 0.5, cy0 + ch],
-        ];
-        ctx.beginPath();
-        for (const [k, x1, y1, x2, y2] of sides) if (!skip(k)) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
-        ctx.stroke();
-      }
-      // bordas POR LADO explícitas por cima da uniforme (só nos lados definidos)
-      if (cell.borders) {
-        const edges: [{ color: string; width: number; dash?: string } | undefined, number, number, number, number][] = [
-          [cell.borders.t, cx0, cy0, cx0 + cw, cy0],
-          [cell.borders.b, cx0, cy0 + ch, cx0 + cw, cy0 + ch],
-          [cell.borders.l, cx0, cy0, cx0, cy0 + ch],
-          [cell.borders.r, cx0 + cw, cy0, cx0 + cw, cy0 + ch],
-        ];
-        for (const [edge, x1, y1, x2, y2] of edges) {
-          if (!edge) continue;
-          ctx.strokeStyle = edge.color;
-          const elw = Math.max(1, edge.width * scale);
-          ctx.lineWidth = elw;
-          if (edge.dash) ctx.setLineDash(dashPattern(edge.dash, elw));
-          ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
-          ctx.stroke();
-          if (edge.dash) ctx.setLineDash([]);
-        }
+  // sombra da tabela: do que ela PINTA (fundo, células preenchidas e linhas da grade), sem o
+  // texto — sem nada disso, sem sombra (medido, syn-a-tbl4 #8–#10 e syn-a-tbl8 #7)
+  if (t.shadow) {
+    const rects: [number, number, number, number][] = bgPaint ? [[x, y, tw, th]]
+      : cellsAt.filter((e) => cellPaint(e.cell)).map((e) => [e.x, e.y, e.w, e.h]);
+    if (t.hLines && t.vLines) {
+      for (const s of tableLineSegs(t.hLines, t.vLines, colX.map((v) => x + v), rowY.map((v) => y + v), scale)) {
+        rects.push(s.vertical ? [s.x1 - s.w / 2, s.y1, s.w, s.y2 - s.y1] : [s.x1, s.y1 - s.w / 2, s.x2 - s.x1, s.w]);
       }
     }
+    if (rects.length) paintRectsShadow(ctx, rects, t.shadow, x, y, tw, th, scale);
   }
+  // fundo da tabela inteira (tblPr ou tblBg do estilo), atrás das células
+  if (bgPaint) paintTablePaint(ctx, bgPaint, x, y, tw, th, x, y, tw, th, scale, origin);
+  // preenchimento das células: esticado na célula; ladrilho a partir da ORIGEM DA TABELA
+  for (const e of cellsAt) {
+    const p = cellPaint(e.cell);
+    if (p) paintTablePaint(ctx, p, e.x, e.y, e.w, e.h, x, y, tw, th, scale, origin);
+  }
+  // bordas: a grade resolvida no read (estilo + explícitas)
+  if (t.hLines && t.vLines) paintTableLines(ctx, t.hLines, t.vLines, colX.map((v) => x + v), rowY.map((v) => y + v), scale);
 
-  // terceira passada: texto
-  for (let ri = 0; ri < t.rows.length; ri++) {
-    const row = t.rows[ri]!;
-    for (let ci = 0; ci < row.cells.length; ci++) {
-      const cell = row.cells[ci]!;
-      if (cell.hMerge || cell.vMerge) continue;
-      if (!cell.txBody) continue;
-      const span = cell.gridSpan ?? 1;
-      const rspan = cell.rowSpan ?? 1;
-      const cx0 = x + colX[ci]!;
-      const cy0 = y + rowY[ri]!;
-      const cw = (colX[ci + span] ?? colX[colX.length - 1]!) - colX[ci]!;
-      const ch = (rowY[ri + rspan] ?? rowY[rowY.length - 1]!) - rowY[ri]!;
-      // o MESMO motor de texto das formas (runs na mesma linha, quebra,
-      // sublinhado, espaçamentos); margens e âncora vêm do tcPr — default do
-      // app: 0,1" nas laterais, 0,05" em cima/embaixo, âncora no TOPO
-      paintText(ctx, TABLE_CELL, cellBody(cell), cx0, cy0, cw, ch, scale);
+  // texto: o MESMO motor das formas; margens e âncora do tcPr — default do app:
+  // 0,1" nas laterais, 0,05" em cima/embaixo, âncora no TOPO
+  for (const e of cellsAt) if (e.cell.txBody) paintText(ctx, TABLE_CELL, cellBody(e.cell), e.x, e.y, e.w, e.h, scale);
+}
+
+/** Preenchimento de tabela/célula resolvido. */
+type TablePaint = NonNullable<Table['bgPaint']>;
+
+/**
+ * Pinta um preenchimento no retângulo (rx, ry, rw, rh): sólido, degradê (na célula),
+ * padrão (ancorado no slide, como nas formas) ou imagem — esticada na célula e, em
+ * ladrilho, a partir da ORIGEM DA TABELA (tx, ty) (medido, syn-a-tbl4 #1/#4/#5 e a
+ * conversão do app de poi-119877: as células de uma tabela compartilham o ladrilho).
+ */
+function paintTablePaint(ctx: CanvasRenderingContext2D, p: TablePaint, rx: number, ry: number, rw: number, rh: number,
+  tx: number, ty: number, tw: number, th: number, scale: number, origin: { x: number; y: number }): void {
+  if (!(rw > 0) || !(rh > 0)) return;
+  ctx.save();
+  if (p.alpha !== undefined && p.alpha < 1) ctx.globalAlpha *= p.alpha;
+  const f = p.fill;
+  if (p.image) {
+    const raw = paintImages?.get(p.image.part);
+    if (raw) {
+      const img = fxImage(raw, p.image.fx);
+      if (p.image.fx?.alpha !== undefined) ctx.globalAlpha *= p.image.fx.alpha;
+      if (p.tile) {
+        const pat = imageTile(ctx, img, p.image, tx, ty, scale, tw, th);
+        if (pat) { ctx.fillStyle = pat; ctx.fillRect(rx, ry, rw, rh); }
+      } else {
+        ctx.beginPath(); ctx.rect(rx, ry, rw, rh); ctx.clip();
+        const r = insetRect(p.image.fillRect, rx, ry, rw, rh);
+        ctx.drawImage(img as CanvasImageSource, r.x, r.y, r.w, r.h);
+      }
+    }
+  } else if (f?.pattern) {
+    const pat = presetPattern(ctx, f.pattern, origin.x, origin.y, scale);
+    ctx.fillStyle = pat ?? f.color ?? '#000000';
+    ctx.fillRect(rx, ry, rw, rh);
+  } else if (f?.type === 'gradient' && f.stops && f.stops.length >= 2) {
+    ctx.fillStyle = makeLinearGradient(ctx, f, rx, ry, rw, rh);
+    ctx.fillRect(rx, ry, rw, rh);
+  } else if (f?.type === 'solid' && f.color) {
+    ctx.fillStyle = f.color;
+    ctx.fillRect(rx, ry, rw, rh);
+  }
+  ctx.restore();
+}
+
+/** Sombra externa de retângulos (união) — a cópia fica fora da tela e só a sombra volta. */
+function paintRectsShadow(ctx: CanvasRenderingContext2D, rects: [number, number, number, number][], sd: NonNullable<Table['shadow']>,
+  bx: number, by: number, bw: number, bh: number, scale: number): void {
+  const a = sd.dirDeg * Math.PI / 180;
+  const K = 20000;
+  ctx.save();
+  ctx.shadowColor = rgbaOf(sd.color, sd.alpha);
+  ctx.shadowBlur = sd.blurRad * scale * SHADOW_BLUR_K;
+  const m = ctx.getTransform();
+  ctx.shadowOffsetX = sd.dist * Math.cos(a) * scale + m.a * K;
+  ctx.shadowOffsetY = sd.dist * Math.sin(a) * scale + m.b * K;
+  ctx.translate(-K, 0);
+  if (sd.sx !== undefined || sd.sy !== undefined) {
+    const al = sd.algn ?? 'b';
+    const ax = bx + (al === 'tl' || al === 'l' || al === 'bl' ? 0 : al === 'tr' || al === 'r' || al === 'br' ? bw : bw / 2);
+    const ay = by + (/^t/.test(al) ? 0 : /^b/.test(al) ? bh : bh / 2);
+    ctx.translate(ax, ay);
+    ctx.scale(sd.sx ?? 1, sd.sy ?? 1);
+    ctx.translate(-ax, -ay);
+  }
+  ctx.fillStyle = '#000000';
+  ctx.beginPath();
+  for (const [rx, ry, rw, rh] of rects) ctx.rect(rx, ry, rw, rh);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Listras das linhas compostas (frações da espessura, de cima/esquerda) — medido, syn-a-tbl6 #3. */
+const CMPD_STRIPES: Record<string, [number, number][]> = {
+  dbl: [[0, 1 / 3], [2 / 3, 1]], thickThin: [[0, 0.6], [0.8, 1]], thinThick: [[0, 0.2], [0.4, 1]], tri: [[0, 1 / 6], [1 / 3, 2 / 3], [5 / 6, 1]],
+};
+
+/**
+ * Grade de bordas da tabela (medido, syn-a-tbl1 #18/#19 e syn-a-tbl6 #1–#3): cada
+ * linha CENTRADA na aresta; abaixo de 1,5 px vira 1 px; as verticais primeiro e as
+ * horizontais POR CIMA; cada ponta avança meia espessura da linha perpendicular que
+ * encontra (junção rente); tracejado por aresta; linha composta em listras.
+ */
+function paintTableLines(ctx: CanvasRenderingContext2D, hL: (TableLine | null)[][], vL: (TableLine | null)[][], xs: number[], ys: number[], scale: number): void {
+  for (const s of tableLineSegs(hL, vL, xs, ys, scale)) strokeTableLine(ctx, s);
+}
+
+/** Trecho reto da grade de bordas, já com as pontas avançadas e a espessura em px. */
+interface TableLineSeg { l: TableLine; w: number; x1: number; y1: number; x2: number; y2: number; vertical: boolean }
+
+/** Trechos da grade (verticais primeiro, depois horizontais), unindo arestas iguais em sequência. */
+function tableLineSegs(hL: (TableLine | null)[][], vL: (TableLine | null)[][], xs: number[], ys: number[], scale: number): TableLineSeg[] {
+  const out: TableLineSeg[] = [];
+  const nR = ys.length - 1, nC = xs.length - 1;
+  const px = (l: TableLine | null | undefined): number => (l ? Math.max(1, l.width * scale < 1.5 ? 1 : l.width * scale) : 0);
+  const same = (a: TableLine, b: TableLine | null | undefined): boolean =>
+    !!b && a.color === b.color && a.width === b.width && a.alpha === b.alpha && !a.dash && !b.dash && a.cmpd === b.cmpd;
+  // meia espessura das linhas que cruzam um nó (r, c)
+  const halfH = (r: number, c: number): number => Math.max(px(hL[r]?.[c - 1]), px(hL[r]?.[c])) / 2;
+  const halfV = (r: number, c: number): number => Math.max(px(vL[r - 1]?.[c]), px(vL[r]?.[c])) / 2;
+  for (let c = 0; c <= nC; c++) {
+    for (let r = 0; r < nR;) {
+      const l = vL[r]?.[c];
+      if (!l) { r++; continue; }
+      let r2 = r + 1;
+      while (r2 < nR && same(l, vL[r2]?.[c])) r2++;
+      out.push({ l, w: px(l), x1: xs[c]!, y1: ys[r]! - halfH(r, c), x2: xs[c]!, y2: ys[r2]! + halfH(r2, c), vertical: true });
+      r = r2;
     }
   }
+  for (let r = 0; r <= nR; r++) {
+    for (let c = 0; c < nC;) {
+      const l = hL[r]?.[c];
+      if (!l) { c++; continue; }
+      let c2 = c + 1;
+      while (c2 < nC && same(l, hL[r]?.[c2])) c2++;
+      out.push({ l, w: px(l), x1: xs[c]! - halfV(r, c), y1: ys[r]!, x2: xs[c2]! + halfV(r, c2), y2: ys[r]!, vertical: false });
+      c = c2;
+    }
+  }
+  return out;
+}
+
+/** Um trecho: tracejado e listras (linha composta) com pontas retas. */
+function strokeTableLine(ctx: CanvasRenderingContext2D, s: TableLineSeg): void {
+  const { l, w, x1, y1, x2, y2, vertical } = s;
+  ctx.save();
+  ctx.strokeStyle = l.alpha !== undefined ? rgbaOf(l.color, l.alpha) : l.color;
+  ctx.lineCap = 'butt';
+  const stripes = l.cmpd ? CMPD_STRIPES[l.cmpd] : undefined;
+  if (l.dash) ctx.setLineDash(dashPattern(l.dash, w));
+  for (const [a, b] of stripes ?? [[0, 1]]) {
+    const off = ((a + b) / 2 - 0.5) * w;
+    ctx.lineWidth = (b - a) * w;
+    ctx.beginPath();
+    if (vertical) { ctx.moveTo(x1 + off, y1); ctx.lineTo(x2 + off, y2); }
+    else { ctx.moveTo(x1, y1 + off); ctx.lineTo(x2, y2 + off); }
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 /** Forma "neutra" para o texto de células de tabela (sem sombra, espelho nem placeholder). */

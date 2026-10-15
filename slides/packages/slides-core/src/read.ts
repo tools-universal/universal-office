@@ -4,7 +4,7 @@ import { customGuides, arcToSeg } from './preset-engine.js';
 import { readTheme, colorFromDml, solidFillColor, applyClrMap, clrMapAttrs, textFillColor } from './theme.js';
 import { patternDensity } from './patterns.js';
 import { diagramFallbackShapes, type DgmStyle } from './diagram-fallback.js';
-import { readTblPr, readTableStyle, applyTableStyle } from './table-style.js';
+import { readTblPr, readTableStyle, applyTableStyle, cellLine, type CellPaint, type PaintResolver } from './table-style.js';
 import {
   parseTxStyleLevels, applyShapeTextCascade, applyTextStyles, mergeStyleLevels, readRunExtras, type BlipResolver,
   type TextStyleContext, type TextStyleLevel, type TextStyleLevels,
@@ -924,16 +924,56 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
   // tabela
   const tblEl = firstChild(data, 'a:tbl');
   if (tblEl) {
-    const table = readTable(tblEl, theme);
-    // estilo referenciado no <a:tblPr> (fills/cores/negrito default das células)
+    const paint: PaintResolver = (el) => cellPaintOf(el, theme, pkg, rels);
+    const table = readTable(tblEl, theme, paint);
+    // estilo do <a:tblPr> (só os predefinidos do app; sem estilo = grade simples) +
+    // preenchimento e sombra da TABELA (tblPr, ou o tblBg do estilo)
     const pr = readTblPr(tblEl);
-    if (pr.styleId) {
-      const style = readTableStyle(pkg, pr.styleId, theme);
-      if (style) applyTableStyle(table, style, pr.firstRow, pr.bandRow);
-    }
+    const tblPr = firstChild(tblEl, 'a:tblPr');
+    const bg = tblPr ? paint(tblPr) : undefined;
+    if (bg) table.bgPaint = bg;
+    const style = readTableStyle(pr.styleId, theme, paint);
+    applyTableStyle(table, style, pr);
+    const fx: Shape = { id: '', name: '' };
+    readEffects(tblPr, style?.tblBg?.effectEl, theme, fx);
+    if (fx.shadow) table.shadow = fx.shadow;
     shape.table = table;
   }
   return shape;
+}
+
+/**
+ * Preenchimento de tabela/célula/parte de estilo: `el` é o contêiner com
+ * EG_FillProperties (`<a:tcPr>`, `<a:tblPr>`, `<a:fill>`) ou um `<a:fillRef>` (estilo
+ * do tema com phClr). null = `<a:noFill/>`; undefined = nada definido.
+ */
+function cellPaintOf(el: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<string, string>): CellPaint | null | undefined {
+  if (el.name === 'a:fillRef') {
+    const st = themeStyleFill(el, theme, pkg);
+    if (st?.image) return { image: st.image, ...(st.tile ? { tile: true } : {}) };
+    if (st?.fill) return st.fill.type === 'none' ? null : { fill: st.fill };
+    const c = colorFromDml(childElements(el)[0], theme);
+    return c ? { fill: { type: 'solid', color: c } } : undefined;
+  }
+  if (firstChild(el, 'a:noFill')) return null;
+  const sf = firstChild(el, 'a:solidFill');
+  if (sf) {
+    const color = colorFromDml(childElements(sf)[0], theme);
+    if (!color) return undefined;
+    const a = fillAlphaEl(sf)?.attrs['val'];
+    return { fill: { type: 'solid', color }, ...(a !== undefined ? { alpha: parseInt(a, 10) / 100000 } : {}) };
+  }
+  const gf = firstChild(el, 'a:gradFill');
+  if (gf) { const g = parseGradFill(gf, theme); return g ? { fill: g } : undefined; }
+  const pf = firstChild(el, 'a:pattFill');
+  if (pf) { const p = parsePattFill(pf, theme); return p ? { fill: p } : undefined; }
+  const bf = firstChild(el, 'a:blipFill');
+  const blip = bf ? firstChild(bf, 'a:blip') : undefined;
+  if (blip && pkg && rels) {
+    const img = resolveBlip(blip, pkg, rels, theme);
+    if (img) return { image: img, ...(applyTile(img, bf) ? { tile: true } : {}) };
+  }
+  return undefined;
 }
 
 /**
@@ -1118,7 +1158,7 @@ function readDiagramShapes(pkg: PptxPackage, drawingPath: string, theme: Theme, 
 }
 
 /** Parse de `<a:tbl>` → modelo Table. */
-function readTable(tbl: XmlElement, theme: Theme): Table {
+function readTable(tbl: XmlElement, theme: Theme, paint: PaintResolver): Table {
   const gridEl = firstChild(tbl, 'a:tblGrid');
   const colWidthsEmu: number[] = [];
   if (gridEl) {
@@ -1148,18 +1188,19 @@ function readTable(tbl: XmlElement, theme: Theme): Table {
           const v = tcPr.attrs[k];
           if (v !== undefined && /^-?\d+$/.test(v)) cell[k] = parseInt(v, 10);
         }
-        const fill = solidFillColor(tcPr, theme);
-        if (fill) cell.fill = fill;
-        // alfa do fill da célula (tabelas translúcidas de template)
-        const sfEl = firstChild(tcPr, 'a:solidFill');
-        const aEl = sfEl ? fillAlphaEl(sfEl) : undefined;
-        if (aEl?.attrs['val']) cell.fillAlpha = parseInt(aEl.attrs['val'], 10) / 100000;
+        // preenchimento: sólido (com alfa), degradê/padrão ou imagem (ladrilho a partir da tabela)
+        const pt = paint(tcPr);
+        if (pt?.fill?.type === 'solid' && pt.fill.color) { cell.fill = pt.fill.color; if (pt.alpha !== undefined) cell.fillAlpha = pt.alpha; }
+        else if (pt?.fill && pt.fill.type !== 'none') cell.fillPaint = pt.fill;
+        else if (pt?.image) { cell.fillImage = pt.image; if (pt.tile) cell.fillTile = true; }
         // bordas POR LADO (o app de referência trata cada lado independente)
         const sides: [keyof NonNullable<TableCell['borders']>, string][] =
           [['l', 'a:lnL'], ['r', 'a:lnR'], ['t', 'a:lnT'], ['b', 'a:lnB']];
         for (const [key, name] of sides) {
           const ln = firstChild(tcPr, name);
           if (!ln) continue;
+          const tl = cellLine(ln, theme);
+          if (tl !== undefined) (cell.lines ??= {})[key] = tl;
           // lado com <a:noFill/> explícito: sem borda (vence o estilo)
           if (firstChild(ln, 'a:noFill')) { (cell.borderNone ??= {})[key] = true; continue; }
           const fillEl = firstChild(ln, 'a:solidFill');
@@ -1177,6 +1218,26 @@ function readTable(tbl: XmlElement, theme: Theme): Table {
     }
     rows.push({ heightEmu, cells });
   }
+  // mescla só vale sobre células cobertas que EXISTEM (hMerge/vMerge); linha com menos
+  // <a:tc> que a grade ganha células vazias (medido, poi-LIBRE_OFFICE-100610-0 #8: o app
+  // desenha "Vermelho" numa coluna só e duas células novas com a grade)
+  const nC = colWidthsEmu.length;
+  rows.forEach((row, r) => {
+    row.cells.forEach((cell, c) => {
+      if (cell.hMerge || cell.vMerge) return;
+      if ((cell.gridSpan ?? 1) > 1) {
+        let k = 1;
+        while (k < cell.gridSpan! && row.cells[c + k]?.hMerge) k++;
+        if (k > 1) cell.gridSpan = k; else delete cell.gridSpan;
+      }
+      if ((cell.rowSpan ?? 1) > 1) {
+        let k = 1;
+        while (k < cell.rowSpan! && rows[r + k]?.cells[c]?.vMerge) k++;
+        if (k > 1) cell.rowSpan = k; else delete cell.rowSpan;
+      }
+    });
+    while (row.cells.length < nC) row.cells.push({});
+  });
   return { colWidthsEmu, rows };
 }
 
@@ -1649,6 +1710,10 @@ function readParagraph(p: XmlElement, theme: Theme, rels?: Map<string, string>, 
     const tl = firstChild(pPr, 'a:tabLst');
     if (tl) para.tabs = childElements(tl, 'a:tab').map((t) => ({ pos: parseInt(t.attrs['pos'] ?? '0', 10), algn: t.attrs['algn'] ?? 'l' })).sort((a, b) => a.pos - b.pos);
     if (pPr.attrs['indent'] !== undefined) para.indent = parseInt(pPr.attrs['indent'], 10);
+    if (pPr.attrs['eaLnBrk'] === '0') para.eaLnBrk = false;
+    if (pPr.attrs['hangingPunct'] === '0') para.hangingPunct = false;
+    const fa = pPr.attrs['fontAlgn'];
+    if (fa === 't' || fa === 'ctr' || fa === 'b') para.fontAlgn = fa;
     // entrelinha e espaçamento antes/depois do parágrafo
     const lnSpc = firstChild(pPr, 'a:lnSpc');
     if (lnSpc) {
@@ -1721,6 +1786,7 @@ function readRun(r: XmlElement, theme: Theme, rels?: Map<string, string>, blip?:
   const rPr = firstChild(r, 'a:rPr');
   if (rPr) {
     if (rPr.attrs['sz']) run.sz = parseInt(rPr.attrs['sz'], 10) / 100;
+    if (rPr.attrs['lang']) run.lang = rPr.attrs['lang'];
     // b/i explicitos (inclusive "0", que BLOQUEIA heranca da cascata)
     if (rPr.attrs['b'] !== undefined) run.bold = rPr.attrs['b'] === '1';
     if (rPr.attrs['i'] !== undefined) run.italic = rPr.attrs['i'] === '1';

@@ -1,203 +1,291 @@
 /**
- * Estilos de tabela (`ppt/tableStyles.xml`) — o `<a:tblPr>` de cada `<a:tbl>`
- * referencia um `<a:tblStyle styleId="{GUID}">` cujas partes (wholeTbl,
- * band1H/band2H, firstRow, …) definem fill, cor/negrito de texto e bordas
- * default das células. O app de referência SEMPRE cria tabelas com um estilo
- * ("Estilo Médio 2 - Ênfase 1"); sem resolver isso a tabela sai branca.
+ * Estilos de tabela: o `<a:tblPr>` de cada `<a:tbl>` referencia um estilo pelo
+ * GUID (`<a:tableStyleId>`) e liga as partes (firstRow, lastRow, firstCol,
+ * lastCol, bandRow, bandCol). Regras medidas no app de referência (decks
+ * syn-a-tbl*):
+ *  - só valem as definições EMBUTIDAS do app, pelo GUID — o `ppt/tableStyles.xml`
+ *    é ignorado (estilo personalizado ou GUID desconhecido = sem estilo);
+ *  - sem estilo, a tabela sai como "Sem Estilo, Grade da Tabela" (grade de 1 pt tx1);
+ *  - cada parte vale numa REGIÃO (a tabela, uma linha/coluna de faixa, o cabeçalho…)
+ *    e as bordas da parte são as da região: left/right/top/bottom no contorno dela,
+ *    insideH/insideV entre as células dela; partes posteriores na precedência
+ *    sobrescrevem preenchimento, texto e bordas que definem.
  *
- * Resolução aplicada NO READ (cores já viram #RRGGBB via tema): as células
- * recebem defaults em `fill`/`txColor`/`txBold`/`borderColor`/`borderWidth`
- * apenas onde o XML da célula não especifica.
+ * O read resolve tudo para o modelo: preenchimento/cor/negrito por célula e a grade
+ * de bordas da tabela (`hLines`/`vLines`), já com as bordas explícitas das células.
  */
 import { parseXml, childElements, firstChild, lastChild, textContent, type XmlElement } from './xml.js';
 import { colorFromDml } from './theme.js';
-import type { PptxPackage } from './package.js';
-import { builtinTableStyleXml } from './table-styles-builtin.js';
-import type { Theme, Table } from './model.js';
+import { builtinTableStyleXml, TABLE_GRID_STYLE_ID } from './table-styles-builtin.js';
+import type { Theme, Table, TableCell, TableLine, Fill, ImageRef } from './model.js';
 
-/** Parte de estilo (wholeTbl/band1H/firstRow/…) com valores já resolvidos. */
-export interface TableStylePart {
-  fill?: string;
-  fillAlpha?: number;
-  txColor?: string;
-  txBold?: boolean;
-  borderColor?: string;
-  borderWidth?: number; // EMU
-  /** Bordas por lado do `<a:tcBdr>` (null = `<a:noFill/>` explícito). */
-  bdr?: Partial<Record<BdrSide, { color: string; width: number } | null>>;
-}
+/** Preenchimento resolvido (sólido/degradê/padrão em `fill`, imagem em `image`). */
+export interface CellPaint { fill?: Fill; alpha?: number; image?: ImageRef; tile?: boolean }
 
 type BdrSide = 'left' | 'right' | 'top' | 'bottom' | 'insideH' | 'insideV';
 const BDR_SIDES: BdrSide[] = ['left', 'right', 'top', 'bottom', 'insideH', 'insideV'];
 
+/** Parte de estilo (wholeTbl/band1H/firstRow/…) com valores já resolvidos. */
+export interface TableStylePart {
+  /** Preenchimento (`<a:fill>`/`<a:fillRef>`); null = `<a:noFill/>` explícito. */
+  paint?: CellPaint | null;
+  txColor?: string;
+  txBold?: boolean;
+  txItalic?: boolean;
+  /** Bordas do `<a:tcBdr>` (null = `<a:noFill/>` explícito). */
+  bdr?: Partial<Record<BdrSide, TableLine | null>>;
+}
+
+export type TablePartName = 'wholeTbl' | 'band1H' | 'band2H' | 'band1V' | 'band2V' | 'firstCol' | 'lastCol' | 'firstRow' | 'lastRow' | 'nwCell' | 'neCell' | 'swCell' | 'seCell';
+
+/** Ordem de aplicação (a última vence) — medida contra as 74 definições do app. */
+const PRECEDENCE: TablePartName[] = ['wholeTbl', 'band1V', 'band2V', 'band1H', 'band2H', 'firstCol', 'lastCol', 'firstRow', 'lastRow', 'nwCell', 'neCell', 'swCell', 'seCell'];
+
 export interface TableStyleDef {
-  tblBg?: { color: string; alpha?: number };
-  wholeTbl?: TableStylePart;
-  band1H?: TableStylePart;
-  band2H?: TableStylePart;
-  firstRow?: TableStylePart;
-  lastRow?: TableStylePart;
-  firstCol?: TableStylePart;
-  lastCol?: TableStylePart;
+  /** Fundo da tabela (`<a:tblBg>`): preenchimento e o elemento com o `<a:effectRef>`. */
+  tblBg?: { paint?: CellPaint; effectEl?: XmlElement };
+  parts: Partial<Record<TablePartName, TableStylePart>>;
 }
 
-const PART_NAMES: [Exclude<keyof TableStyleDef, 'tblBg'>, string][] = [
-  ['wholeTbl', 'a:wholeTbl'], ['band1H', 'a:band1H'], ['band2H', 'a:band2H'],
-  ['firstRow', 'a:firstRow'], ['lastRow', 'a:lastRow'],
-  ['firstCol', 'a:firstCol'], ['lastCol', 'a:lastCol'],
-];
+/** Opções ligadas no `<a:tblPr>`. */
+export interface TblFlags { firstRow: boolean; lastRow: boolean; firstCol: boolean; lastCol: boolean; bandRow: boolean; bandCol: boolean }
 
-/** Cor (e alfa) de um preenchimento: `<a:solidFill>` ou `<a:fillRef idx>` (estilo do tema com phClr; degradê = stop do meio). */
-function fillColor(parent: XmlElement, theme: Theme): { color: string; alpha?: number } | undefined {
-  const sf = firstChild(parent, 'a:solidFill');
-  if (sf) {
-    const c = childElements(sf)[0];
-    const color = colorFromDml(c, theme);
-    const a = c ? lastChild(c, 'a:alpha')?.attrs['val'] : undefined;
-    return color ? { color, ...(a ? { alpha: parseInt(a, 10) / 100000 } : {}) } : undefined;
+/** Resolve um preenchimento: `el` é o `<a:fill>` (ou contêiner com EG_FillProperties) ou o `<a:fillRef>`. */
+export type PaintResolver = (el: XmlElement) => CellPaint | null | undefined;
+
+/** Linha (`<a:ln>` ou `<a:lnRef idx>`) → TableLine; null = sem linha. */
+function lineOf(el: XmlElement, theme: Theme): TableLine | null | undefined {
+  if (el.name === 'a:lnRef') {
+    const col = colorFromDml(childElements(el)[0], theme);
+    if (!col) return undefined;
+    return { color: col, width: theme.lineWidths?.[parseInt(el.attrs['idx'] ?? '1', 10) - 1] ?? 9525 };
   }
-  const ref = firstChild(parent, 'a:fillRef');
-  if (!ref) return undefined;
-  const ph = colorFromDml(childElements(ref)[0], theme);
-  const st = theme.fillStyles?.[parseInt(ref.attrs['idx'] ?? '0', 10) - 1];
-  if (!st || !ph) return ph ? { color: ph } : undefined;
-  const t2: Theme = { ...theme, colors: { ...theme.colors, phClr: ph } };
-  if (st.name === 'a:solidFill') { const c = colorFromDml(childElements(st)[0], t2); return c ? { color: c } : undefined; }
-  if (st.name === 'a:gradFill') {
-    const gs = childElements(firstChild(st, 'a:gsLst') ?? st, 'a:gs');
-    const mid = gs[Math.floor(gs.length / 2)];
-    const c = mid ? colorFromDml(childElements(mid)[0], t2) : undefined;
-    return c ? { color: c } : undefined;
-  }
-  return { color: ph };
+  if (firstChild(el, 'a:noFill')) return null;
+  const sf = firstChild(el, 'a:solidFill');
+  const c = sf ? childElements(sf)[0] : undefined;
+  const color = c ? colorFromDml(c, theme) : undefined;
+  if (!color) return undefined;
+  const out: TableLine = { color, width: el.attrs['w'] !== undefined ? parseInt(el.attrs['w'], 10) : 12700 };
+  const a = c ? lastChild(c, 'a:alpha')?.attrs['val'] : undefined;
+  if (a !== undefined) out.alpha = parseInt(a, 10) / 100000;
+  const dash = firstChild(el, 'a:prstDash')?.attrs['val'];
+  if (dash && dash !== 'solid') out.dash = dash;
+  const cmpd = el.attrs['cmpd'];
+  if (cmpd && cmpd !== 'sng') out.cmpd = cmpd;
+  return out;
 }
 
-/** Parse de uma parte (`<a:wholeTbl>` etc.) -> valores resolvidos. */
-function parsePart(el: XmlElement, theme: Theme): TableStylePart {
+/** Borda de célula (`<a:lnL>`…): TableLine, null (noFill) ou undefined (sem cor). */
+export function cellLine(el: XmlElement, theme: Theme): TableLine | null | undefined {
+  return lineOf(el, theme);
+}
+
+/** Parse de uma parte (`<a:wholeTbl>` etc.) → valores resolvidos. */
+function parsePart(el: XmlElement, theme: Theme, paint: PaintResolver): TableStylePart {
   const out: TableStylePart = {};
   const tx = firstChild(el, 'a:tcTxStyle');
   if (tx) {
-    if (tx.attrs['b'] === 'on') out.txBold = true;
-    // cor do texto: primeiro filho de COR direto do tcTxStyle (fora do fontRef)
+    if (tx.attrs['b'] === 'on') out.txBold = true; else if (tx.attrs['b'] === 'off') out.txBold = false;
+    if (tx.attrs['i'] === 'on') out.txItalic = true; else if (tx.attrs['i'] === 'off') out.txItalic = false;
+    // cor do texto: o filho de COR direto do tcTxStyle (fora do fontRef/font)
     for (const c of childElements(tx)) {
-      if (c.name === 'a:fontRef') continue;
+      if (c.name === 'a:fontRef' || c.name === 'a:font') continue;
       const col = colorFromDml(c, theme);
       if (col) { out.txColor = col; break; }
     }
   }
   const tc = firstChild(el, 'a:tcStyle');
   if (tc) {
-    const fill = firstChild(tc, 'a:fill');
-    const fc = fill ? fillColor(fill, theme) : undefined;
-    if (fc) { out.fill = fc.color; if (fc.alpha !== undefined) out.fillAlpha = fc.alpha; }
-    // bordas: v1 usa uma cor/espessura uniforme — insideH > left > top
+    // <a:fill> e <a:fillRef> são irmãos dentro do tcStyle
+    const f = firstChild(tc, 'a:fill') ?? firstChild(tc, 'a:fillRef');
+    if (f) { const p = paint(f); if (p !== undefined) out.paint = p; }
     const bdr = firstChild(tc, 'a:tcBdr');
     if (bdr) {
       for (const side of BDR_SIDES) {
         const s = firstChild(bdr, 'a:' + side);
-        const ln = s ? firstChild(s, 'a:ln') : undefined;
-        if (!ln) {
-          // <a:lnRef idx>: estilo de linha do tema (largura) na cor da referência
-          const lr = s ? firstChild(s, 'a:lnRef') : undefined;
-          const col = lr ? colorFromDml(childElements(lr)[0], theme) : undefined;
-          if (col) (out.bdr ??= {})[side] = { color: col, width: theme.lineWidths?.[parseInt(lr!.attrs['idx'] ?? '1', 10) - 1] ?? 9525 };
-          continue;
-        }
-        if (firstChild(ln, 'a:noFill')) { (out.bdr ??= {})[side] = null; continue; }
-        const sf2 = firstChild(ln, 'a:solidFill');
-        const col = sf2 ? colorFromDml(childElements(sf2)[0], theme) : undefined;
-        if (col) (out.bdr ??= {})[side] = { color: col, width: ln.attrs['w'] ? parseInt(ln.attrs['w'], 10) : 12700 };
-      }
-      for (const side of ['a:insideH', 'a:insideV', 'a:left', 'a:top'] as const) {
-        const s = firstChild(bdr, side);
-        const ln = s ? firstChild(s, 'a:ln') : undefined;
+        const ln = s ? firstChild(s, 'a:ln') ?? firstChild(s, 'a:lnRef') : undefined;
         if (!ln) continue;
-        const sf2 = firstChild(ln, 'a:solidFill');
-        const col = sf2 ? colorFromDml(childElements(sf2)[0], theme) : undefined;
-        if (col) out.borderColor = col;
-        if (ln.attrs['w']) out.borderWidth = parseInt(ln.attrs['w'], 10);
-        if (out.borderColor) break;
+        const l = lineOf(ln, theme);
+        if (l !== undefined) (out.bdr ??= {})[side] = l;
       }
     }
   }
   return out;
 }
 
-/** Lê `ppt/tableStyles.xml` e devolve o estilo com o `styleId` dado. */
-export function readTableStyle(pkg: PptxPackage, styleId: string, theme: Theme): TableStyleDef | undefined {
-  const fromEl = (st: XmlElement): TableStyleDef => {
-    const def: TableStyleDef = {};
-    const bgEl = firstChild(st, 'a:tblBg');
-    const bg = bgEl ? fillColor(bgEl, theme) : undefined;
-    if (bg) def.tblBg = bg;
-    for (const [key, name] of PART_NAMES) {
-      const el = firstChild(st, name);
-      if (el) def[key] = parsePart(el, theme);
-    }
-    return def;
-  };
-  const xml = pkg.getPartText('ppt/tableStyles.xml');
-  if (xml) {
-    try {
-      for (const st of childElements(parseXml(xml), 'a:tblStyle')) if (st.attrs['styleId'] === styleId) return fromEl(st);
-    } catch { /* tableStyles.xml inválido: cai nos predefinidos */ }
-  }
-  // estilo PREDEFINIDO do app não gravado no arquivo
-  const body = builtinTableStyleXml(styleId);
+/** Estilo pelo GUID: SÓ as definições embutidas do app; desconhecido/ausente = grade simples. */
+export function readTableStyle(styleId: string | undefined, theme: Theme, paint: PaintResolver): TableStyleDef | undefined {
+  const body = (styleId ? builtinTableStyleXml(styleId) : undefined) ?? builtinTableStyleXml(TABLE_GRID_STYLE_ID);
   if (!body) return undefined;
-  try { return fromEl(parseXml(`<a:tblStyle xmlns:a="a">${body}</a:tblStyle>`)); } catch { return undefined; }
+  let st: XmlElement;
+  try { st = parseXml(`<a:tblStyle xmlns:a="a">${body}</a:tblStyle>`); } catch { return undefined; }
+  const def: TableStyleDef = { parts: {} };
+  const bgEl = firstChild(st, 'a:tblBg');
+  if (bgEl) {
+    const f = firstChild(bgEl, 'a:fill') ?? firstChild(bgEl, 'a:fillRef');
+    const p = f ? paint(f) : undefined;
+    def.tblBg = {};
+    if (p) def.tblBg.paint = p;
+    if (firstChild(bgEl, 'a:effectRef')) def.tblBg.effectEl = bgEl;
+  }
+  for (const name of PRECEDENCE) {
+    const el = firstChild(st, 'a:' + name);
+    if (el) def.parts[name] = parsePart(el, theme, paint);
+  }
+  return def;
 }
 
-/** Extrai styleId + flags do `<a:tblPr>` (firstRow/bandRow ativos por atributo). */
-export function readTblPr(tbl: XmlElement): { styleId?: string; firstRow: boolean; bandRow: boolean } {
+/** Extrai styleId + opções do `<a:tblPr>`. */
+export function readTblPr(tbl: XmlElement): TblFlags & { styleId?: string } {
   const pr = firstChild(tbl, 'a:tblPr');
-  const out: { styleId?: string; firstRow: boolean; bandRow: boolean } = {
-    firstRow: pr?.attrs['firstRow'] === '1',
-    bandRow: pr?.attrs['bandRow'] === '1',
+  const on = (k: string): boolean => pr?.attrs[k] === '1' || pr?.attrs[k] === 'true';
+  const out: TblFlags & { styleId?: string } = {
+    firstRow: on('firstRow'), lastRow: on('lastRow'), firstCol: on('firstCol'), lastCol: on('lastCol'), bandRow: on('bandRow'), bandCol: on('bandCol'),
   };
   const idEl = pr ? firstChild(pr, 'a:tableStyleId') : undefined;
   if (idEl) out.styleId = textContent(idEl).trim();
   return out;
 }
 
-/**
- * Aplica o estilo nas células como DEFAULTS (o que a célula define no XML
- * vence). Banding do app de referência: primeira linha de DADOS = band1H,
- * segunda = band2H (cai no wholeTbl quando a parte não define fill), etc.
- */
-export function applyTableStyle(t: Table, def: TableStyleDef, firstRowOn: boolean, bandRowOn: boolean): void {
-  const whole = def.wholeTbl;
-  if (def.tblBg && !t.bg) t.bg = def.tblBg;
-  for (let ri = 0; ri < t.rows.length; ri++) {
-    const isHeader = firstRowOn && ri === 0;
-    const dataIdx = ri - (firstRowOn ? 1 : 0);
-    for (const cell of t.rows[ri]!.cells) {
+/** Região (retângulo de grade inclusivo) de cada parte que vale na célula (r, c). */
+interface Region { part: TablePartName; r0: number; r1: number; c0: number; c1: number }
+
+/** Partes que valem na célula de grade (r, c), na ordem de precedência, com a região de cada uma. */
+function partsAt(r: number, c: number, nR: number, nC: number, f: TblFlags): Region[] {
+  const out: Region[] = [{ part: 'wholeTbl', r0: 0, r1: nR - 1, c0: 0, c1: nC - 1 }];
+  const fr = f.firstRow ? 1 : 0, lr = f.lastRow ? 1 : 0, fc = f.firstCol ? 1 : 0, lc = f.lastCol ? 1 : 0;
+  const isFR = f.firstRow && r === 0, isLR = f.lastRow && r === nR - 1 && nR > fr;
+  const isFC = f.firstCol && c === 0, isLC = f.lastCol && c === nC - 1 && nC > fc;
+  if (f.bandCol && !isFC && !isLC) {
+    const k = c - fc;
+    out.push({ part: k % 2 === 0 ? 'band1V' : 'band2V', r0: fr, r1: nR - 1 - lr, c0: c, c1: c });
+  }
+  if (f.bandRow && !isFR && !isLR) {
+    const k = r - fr;
+    out.push({ part: k % 2 === 0 ? 'band1H' : 'band2H', r0: r, r1: r, c0: fc, c1: nC - 1 - lc });
+  }
+  if (isFC) out.push({ part: 'firstCol', r0: 0, r1: nR - 1, c0: 0, c1: 0 });
+  if (isLC) out.push({ part: 'lastCol', r0: 0, r1: nR - 1, c0: nC - 1, c1: nC - 1 });
+  if (isFR) out.push({ part: 'firstRow', r0: 0, r1: 0, c0: 0, c1: nC - 1 });
+  if (isLR) out.push({ part: 'lastRow', r0: nR - 1, r1: nR - 1, c0: 0, c1: nC - 1 });
+  if (isFR && isFC) out.push({ part: 'nwCell', r0: 0, r1: 0, c0: 0, c1: 0 });
+  if (isFR && isLC) out.push({ part: 'neCell', r0: 0, r1: 0, c0: nC - 1, c1: nC - 1 });
+  if (isLR && isFC) out.push({ part: 'swCell', r0: nR - 1, r1: nR - 1, c0: 0, c1: 0 });
+  if (isLR && isLC) out.push({ part: 'seCell', r0: nR - 1, r1: nR - 1, c0: nC - 1, c1: nC - 1 });
+  out.sort((a, b) => PRECEDENCE.indexOf(a.part) - PRECEDENCE.indexOf(b.part));
+  return out;
+}
+
+/** Célula de origem que cobre a posição de grade (r, c) — mesclas gridSpan/rowSpan. */
+export function mergeOrigins(t: Table): { r: number; c: number }[][] {
+  const nR = t.rows.length, nC = t.colWidthsEmu.length;
+  const own: { r: number; c: number }[][] = Array.from({ length: nR }, (_, r) => Array.from({ length: nC }, (_, c) => ({ r, c })));
+  for (let r = 0; r < nR; r++) {
+    const cells = t.rows[r]!.cells;
+    for (let c = 0; c < Math.min(nC, cells.length); c++) {
+      const cell = cells[c]!;
       if (cell.hMerge || cell.vMerge) continue;
-      let part: TableStylePart | undefined;
-      if (isHeader) part = def.firstRow;
-      else if (bandRowOn && dataIdx >= 0 && dataIdx % 2 === 0) part = def.band1H;
-      else if (bandRowOn && dataIdx >= 0) part = def.band2H;
-      if (cell.fill === undefined && !cell.noFill) {
-        const src = part?.fill ? part : whole;
-        if (src?.fill) { cell.fill = src.fill; if (src.fillAlpha !== undefined && cell.fillAlpha === undefined) cell.fillAlpha = src.fillAlpha; }
-      }
-      if (cell.txColor === undefined) {
-        const c = part?.txColor ?? whole?.txColor;
-        if (c) cell.txColor = c;
-      }
-      if (cell.txBold === undefined && (part?.txBold ?? whole?.txBold)) cell.txBold = true;
-      // bordas POR LADO: externas (left/right/top/bottom) ou internas (insideH/V) conforme a
-      // posição da célula; a parte da região (cabeçalho/faixa) vence a da tabela inteira
-      const ci = t.rows[ri]!.cells.indexOf(cell), nc = t.rows[ri]!.cells.length, nr = t.rows.length;
-      const want: [keyof NonNullable<typeof cell.borders>, BdrSide][] = [
-        ['t', ri === 0 ? 'top' : 'insideH'], ['b', ri === nr - 1 ? 'bottom' : 'insideH'],
-        ['l', ci === 0 ? 'left' : 'insideV'], ['r', ci === nc - 1 ? 'right' : 'insideV'],
-      ];
-      for (const [k, side] of want) {
-        if (cell.borders?.[k] || cell.borderNone?.[k]) continue;
-        const pb = part?.bdr && side in part.bdr ? part.bdr[side] : whole?.bdr?.[side];
-        if (pb) (cell.borders ??= {})[k] = { color: pb.color, width: pb.width };
+      const gs = Math.max(1, cell.gridSpan ?? 1), rs = Math.max(1, cell.rowSpan ?? 1);
+      if (gs === 1 && rs === 1) continue;
+      for (let rr = r; rr < Math.min(nR, r + rs); rr++) for (let cc = c; cc < Math.min(nC, c + gs); cc++) if (rr !== r || cc !== c) own[rr]![cc] = { r, c };
+    }
+  }
+  return own;
+}
+
+/**
+ * Aplica o estilo e resolve a grade de bordas. Células: preenchimento/cor/negrito/itálico
+ * do estilo onde o XML da célula não define. Bordas (medido, syn-a-tbl1 #17/#18,
+ * syn-a-tbl3 #8): a aresta entre duas células é a da célula de CIMA/ESQUERDA (`lnB`/`lnR`);
+ * `lnT`/`lnL` só valem no contorno da tabela; sem borda explícita vale a do estilo.
+ * Célula coberta por mescla herda as bordas da origem só na linha/coluna da origem.
+ */
+export function applyTableStyle(t: Table, def: TableStyleDef | undefined, f: TblFlags): void {
+  const nR = t.rows.length, nC = t.colWidthsEmu.length;
+  if (!nR || !nC) return;
+  if (def?.tblBg?.paint && !t.bgPaint) t.bgPaint = def.tblBg.paint;
+  const hL: (TableLine | null)[][] = Array.from({ length: nR + 1 }, () => Array<TableLine | null>(nC).fill(null));
+  const vL: (TableLine | null)[][] = Array.from({ length: nR }, () => Array<TableLine | null>(nC + 1).fill(null));
+  const parts = def?.parts ?? {};
+  // valores do estilo por célula de origem (a parte de maior precedência que define vence)
+  const sty = new Map<TableCell, { paint?: CellPaint | null; tx?: string; b?: boolean; i?: boolean }>();
+  // parte a parte (as arestas são COMPARTILHADAS: a parte posterior vence nas duas células)
+  const regsAt = Array.from({ length: nR }, (_, r) => Array.from({ length: nC }, (_, c) => partsAt(r, c, nR, nC, f)));
+  for (const name of PRECEDENCE) {
+    const p = parts[name];
+    if (!p) continue;
+    for (let r = 0; r < nR; r++) for (let c = 0; c < nC; c++) {
+      const cell = t.rows[r]!.cells[c];
+      const origin = cell && !cell.hMerge && !cell.vMerge;
+      for (const reg of regsAt[r]![c]!) {
+        if (reg.part !== name) continue;
+        if (origin && cell) {
+          const s = sty.get(cell) ?? {};
+          if (p.paint !== undefined) s.paint = p.paint;
+          if (p.txColor !== undefined) s.tx = p.txColor;
+          if (p.txBold !== undefined) s.b = p.txBold;
+          if (p.txItalic !== undefined) s.i = p.txItalic;
+          sty.set(cell, s);
+        }
+        const b = p.bdr;
+        if (!b) continue;
+        const set = (k: BdrSide, put: (l: TableLine | null) => void): void => { if (b[k] !== undefined) put(b[k]!); };
+        set(r === reg.r0 ? 'top' : 'insideH', (l) => { hL[r]![c] = l; });
+        set(r === reg.r1 ? 'bottom' : 'insideH', (l) => { hL[r + 1]![c] = l; });
+        set(c === reg.c0 ? 'left' : 'insideV', (l) => { vL[r]![c] = l; });
+        set(c === reg.c1 ? 'right' : 'insideV', (l) => { vL[r]![c + 1] = l; });
       }
     }
   }
+  // estilo → célula (o XML da célula vence)
+  for (const [cell, s] of sty) {
+    const sp = s.paint;
+    if (sp && cell.fill === undefined && !cell.noFill && !cell.fillPaint && !cell.fillImage) {
+      if (sp.fill?.type === 'solid' && sp.fill.color) { cell.fill = sp.fill.color; if (sp.alpha !== undefined && cell.fillAlpha === undefined) cell.fillAlpha = sp.alpha; }
+      else if (sp.fill && sp.fill.type !== 'none') cell.fillPaint = sp.fill;
+      else if (sp.image) { cell.fillImage = sp.image; if (sp.tile) cell.fillTile = true; }
+    }
+    if (cell.txColor === undefined && s.tx !== undefined) cell.txColor = s.tx;
+    if (cell.txBold === undefined && s.b) cell.txBold = true;
+    if (cell.txItalic === undefined && s.i) cell.txItalic = true;
+  }
+  // bordas EXPLÍCITAS: a célula de cima/esquerda é dona da aresta; lnL/lnT só no contorno
+  const own = mergeOrigins(t);
+  for (let r = 0; r < nR; r++) {
+    for (let c = 0; c < nC; c++) {
+      const o = own[r]![c]!;
+      const src = o.r === r && o.c === c ? t.rows[r]!.cells[c]
+        : (o.r === r || o.c === c) ? t.rows[o.r]!.cells[o.c] : undefined;
+      const ex = src?.lines;
+      if (!ex) continue;
+      if (ex.r !== undefined) vL[r]![c + 1] = ex.r;
+      if (ex.b !== undefined) hL[r + 1]![c] = ex.b;
+      if (c === 0 && ex.l !== undefined) vL[r]![0] = ex.l;
+      if (r === 0 && ex.t !== undefined) hL[0]![c] = ex.t;
+    }
+  }
+  // arestas INTERNAS de uma mescla não aparecem
+  for (let r = 0; r < nR; r++) {
+    for (let c = 0; c < nC; c++) {
+      const o = own[r]![c]!;
+      if (c + 1 < nC) { const o2 = own[r]![c + 1]!; if (o2.r === o.r && o2.c === o.c) vL[r]![c + 1] = null; }
+      if (r + 1 < nR) { const o2 = own[r + 1]![c]!; if (o2.r === o.r && o2.c === o.c) hL[r + 1]![c] = null; }
+    }
+  }
+  t.hLines = hL;
+  t.vLines = vL;
+}
+
+/** Imagens da tabela (fundo, células, marcadores e letras do texto) — para pré-carregar. */
+export function tableImages(t: Table): ImageRef[] {
+  const out: ImageRef[] = [];
+  if (t.bgPaint?.image) out.push(t.bgPaint.image);
+  for (const row of t.rows) for (const cell of row.cells) {
+    if (cell.fillImage) out.push(cell.fillImage);
+    for (const p of cell.txBody?.paragraphs ?? []) {
+      if (p.bulletImage) out.push(p.bulletImage);
+      for (const r of p.runs) if (r.fillImage) out.push(r.fillImage);
+    }
+  }
+  return out;
 }

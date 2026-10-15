@@ -88,6 +88,11 @@ export interface PartCtx {
   texts: Map<number, string>;
   /** Id OOXML ORIGINAL (cNvPr do shapexml de round-trip) → spid emitido. */
   ooxmlIds: Map<number, number>;
+  /**
+   * Origem (espaço do grupo) do ladrilho das células de uma TABELA do .ppt: o app converte
+   * a tabela e as células compartilham o ladrilho a partir da origem dela (poi-119877).
+   */
+  tileOrigin?: { x: number; y: number };
 }
 
 /** Esquema de cores padrão do PowerPoint 97 (quando o .ppt não traz um). */

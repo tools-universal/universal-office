@@ -322,8 +322,11 @@ function fillXml(sh: OAShape, pc: PartCtx, isBackground = false): string {
       const recolor = boolProp(sh, 0x1bf, 6, false) && prop(sh, 0x183) === undefined && prop(sh, 0x188) === undefined;
       const dflt = pc.conv.doc.drawingDefaults;
       const duo = recolor ? el('a:duotone', {}, srgb(oaColor(prop(sh, 0x181) ?? (isBackground ? 0x08000000 : dflt.get(0x181)?.value ?? 0xffffff), sh, pc)) + srgb(oaColor(prop(sh, 0x183) ?? 0xffffff, sh, pc))) : '';
+      // célula de tabela: o ladrilho começa na origem da TABELA (deslocamento negativo da célula)
+      const a = sh.anchor, o = pc.tileOrigin;
+      const tx = o && a ? emu(o.x - Math.min(a.l, a.r)) : 0, ty = o && a ? emu(o.y - Math.min(a.t, a.b)) : 0;
       return el('a:blipFill', { dpi: 0, rotWithShape: 1 },
-        el('a:blip', { 'r:embed': rid }, duo) + '<a:srcRect/>' + (type === 2 ? '<a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"/>' : '<a:stretch><a:fillRect/></a:stretch>'));
+        el('a:blip', { 'r:embed': rid }, duo) + '<a:srcRect/>' + (type === 2 ? `<a:tile tx="${tx}" ty="${ty}" sx="100000" sy="100000" flip="none" algn="tl"/>` : '<a:stretch><a:fillRect/></a:stretch>'));
     }
     case 4: case 5: case 6: case 7: case 8: {
       if (type === 4 || type === 7 || type === 8) {
@@ -1140,10 +1143,15 @@ const WARPS = ['textPlain', 'textStop', 'textTriangle', 'textTriangleInverted', 
 
 /** Grupo: off/ext = âncora do grupo; chOff/chExt = FSPGR (mesma escala). */
 function groupXml(sh: OAShape, pc: PartCtx, opts: ShapeOpts): string {
+  const g = sh.groupRect;
+  // grupo que é uma TABELA (tableProperties 0x39F fIsTable / alturas das linhas 0x3A0)
+  const isTable = ((prop(sh, 0x39f) ?? 0) & 1) !== 0 || sh.props.has(0x3a0);
+  const prevTile = pc.tileOrigin;
+  if (isTable && g) pc.tileOrigin = { x: Math.min(g.l, g.r), y: Math.min(g.t, g.b) };
   const kids = (sh.children ?? []).map((c) => shapeXml(c, pc, { ...opts, inGroup: true })).join('');
+  pc.tileOrigin = prevTile;
   if (!kids) return '';
   const xf = anchorXf(sh);
-  const g = sh.groupRect;
   const id = shapeId(sh, pc);
   const name = shapeName(sh, 'Grupo');
   let xfrm = '<a:xfrm/>';

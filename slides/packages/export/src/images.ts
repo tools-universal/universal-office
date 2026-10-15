@@ -10,7 +10,7 @@
  * (`opts.decodeImage`) — sem ela em node, shapes de imagem ficam em branco.
  */
 import {
-  paintSlideTo, EMU_PER_PX, rasterizeSpecialImage, prepareSpecialImage,
+  paintSlideTo, EMU_PER_PX, rasterizeSpecialImage, prepareSpecialImage, tableImages,
   type Slide, type ImageRef, type PaintImage, type ChartModel,
 } from '@universal/slides-core';
 import { loadDeck } from './model.js';
@@ -134,6 +134,7 @@ function collectImageRefs(slides: Slide[], sizes?: Map<string, { w: number; h: n
         sizes.set(sh.image.part, { w: sh.xfrm.cx / EMU_PER_PX / fw, h: sh.xfrm.cy / EMU_PER_PX / fh });
       }
       if (sh.fillImage) map.set(sh.fillImage.part, sh.fillImage);
+      if (sh.table) for (const r of tableImages(sh.table)) map.set(r.part, r);
       for (const r of Object.values(sh.chartImages ?? {})) map.set(r.part, r);
       for (const p of sh.txBody?.paragraphs ?? []) {
         if (p.bulletImage) map.set(p.bulletImage.part, p.bulletImage);

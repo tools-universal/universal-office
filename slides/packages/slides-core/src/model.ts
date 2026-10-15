@@ -180,6 +180,8 @@ export interface Run {
   spc?: number;
   /** Texto com hiperlink: cor `hlink` do tema (desenhado sublinhado nessa cor). */
   linkColor?: string;
+  /** Idioma do run (`<a:rPr lang>`): japonês/chinês/coreano ligam as regras de quebra do Leste Asiático. */
+  lang?: string;
 }
 
 /** Paragrafo (<a:p>). */
@@ -223,6 +225,12 @@ export interface Paragraph {
   bulletImage?: ImageRef;
   /** Tamanho (pt) do fim de parágrafo (`<a:endParaRPr sz>`) — altura de parágrafo VAZIO. */
   endSz?: number;
+  /** `eaLnBrk="0"`: sem as regras de início/fim de linha (kinsoku) do Leste Asiático. */
+  eaLnBrk?: boolean;
+  /** `hangingPunct="0"`: 、。 não ficam pendurados além da margem. */
+  hangingPunct?: boolean;
+  /** `fontAlgn` (t/ctr/b; ausente = auto/base): posição da base na linha com entrelinha expandida. */
+  fontAlgn?: string;
 }
 
 /** Corpo de texto (<p:txBody>). */
@@ -418,6 +426,26 @@ export interface TableCell {
   txColor?: string;
   /** Negrito default vindo do estilo da tabela (firstRow etc.). */
   txBold?: boolean;
+  /** Itálico default vindo do estilo da tabela. */
+  txItalic?: boolean;
+  /** Preenchimento não sólido da célula (degradê/padrão): `<a:gradFill>`/`<a:pattFill>` ou do estilo. */
+  fillPaint?: Fill;
+  /** Imagem da célula (`<a:blipFill>`): esticada na célula ou em ladrilho a partir da ORIGEM DA TABELA. */
+  fillImage?: ImageRef;
+  fillTile?: boolean;
+  /** Bordas explícitas do tcPr por lado (`<a:lnL/R/T/B>`; null = `<a:noFill/>`), na forma usada pela grade. */
+  lines?: { l?: TableLine | null; r?: TableLine | null; t?: TableLine | null; b?: TableLine | null };
+}
+
+/** Linha (aresta) da grade de bordas de uma tabela. Largura em EMU. */
+export interface TableLine {
+  color: string;
+  width: number;
+  alpha?: number;
+  /** `<a:prstDash val>` (≠ solid). */
+  dash?: string;
+  /** `cmpd` (dbl, thickThin, thinThick, tri). */
+  cmpd?: string;
 }
 
 /** Linha de tabela (`<a:tr>`). */
@@ -433,7 +461,15 @@ export interface Table {
   colWidthsEmu: number[];
   /** Fundo da tabela inteira (`<a:tblBg>` do estilo), atrás das células. */
   bg?: { color: string; alpha?: number };
+  /** Fundo da tabela inteira resolvido: preenchimento do `<a:tblPr>` ou o `<a:tblBg>` do estilo. */
+  bgPaint?: { fill?: Fill; alpha?: number; image?: ImageRef; tile?: boolean };
+  /** Sombra externa da tabela (`<a:tblPr><a:effectLst>` ou o effectRef do tblBg do estilo). */
+  shadow?: Shape['shadow'];
   rows: TableRow[];
+  /** Grade de bordas resolvida: `hLines[r][c]` = aresta horizontal acima da linha r (r = nº de linhas: a de baixo). */
+  hLines?: (TableLine | null)[][];
+  /** `vLines[r][c]` = aresta vertical à esquerda da coluna c (c = nº de colunas: a da direita). */
+  vLines?: (TableLine | null)[][];
 }
 
 /**

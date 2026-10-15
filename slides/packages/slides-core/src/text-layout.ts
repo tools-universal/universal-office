@@ -99,6 +99,8 @@ const DEF_INS_L = 91440, DEF_INS_T = 45720, DEF_INS_R = 91440, DEF_INS_B = 45720
 const LINE_FACTOR = 1.2;
 /** Fração da altura da linha acima da baseline. */
 const BASELINE_FACTOR = 0.8;
+/** Idem com entrelinha expandida (> 100 %) ou exata — medido em 8 fontes (syn-a-tbl8). */
+const EXP_BASELINE_FACTOR = 0.75;
 
 /** Formata o número de um buAutoNum conforme o esquema (subconjunto comum). */
 export function formatAutoNum(scheme: string, n: number): string {
@@ -169,14 +171,32 @@ function displayRuns(runs: Run[], defaultSzPt: number): DisplayRun[] {
   return out;
 }
 
-/** Quebra os runs de um parágrafo em tokens (palavras + espaços), preservando o run de origem. */
+/**
+ * Ideogramas, kana, pontuação e formas de largura total (CJK, sem o hangul): o app
+ * quebra a linha entre QUAISQUER dois deles, sem precisar de espaço (medido,
+ * syn-a-tbl6 #6/#7 e syn-a-tbl8 #6: "SNSのアカウ|ントしかわ", latim segue por palavra).
+ */
+const CJK_CHAR = '[\\u2E80-\\u2FFF\\u3000-\\u303F\\u3040-\\u30FF\\u3100-\\u312F\\u3190-\\u31FF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF\\uFE30-\\uFE4F\\uFF00-\\uFFEF]';
+const TOKEN_RE = new RegExp(`\\t|${CJK_CHAR}[^\\S\\t]*|(?:(?!${CJK_CHAR})[^\\s])+[^\\S\\t]*|[^\\S\\t]+`, 'g');
+/**
+ * Regras de início/fim de linha (kinsoku "padrão" do Office), valem com idioma do
+ * Leste Asiático no run e `eaLnBrk` ≠ 0 (medido, syn-a-tbl9: com lang en-US ou
+ * eaLnBrk="0" o app não aplica): não começam linha (puxam o caractere anterior junto);
+ * não terminam linha (descem); 、。 ficam PENDURADOS além da margem (hangingPunct).
+ */
+const KINSOKU_NO_START = new Set([...'!%),.:;?]}¢°’”‰′″℃、。々〉》」』】〕ぁぃぅぇぉっゃゅょゎゕゖ゛゜ゝゞァィゥェォッャュョヮヵヶ・ーヽヾ！％），．：；？］｝｡｣､･ｧｨｩｪｫｬｭｮｯｰﾞﾟ￠']);
+const KINSOKU_NO_END = new Set([...'$([\\{£¥‘“〈《「『【〔＄（［｛｢￡￥']);
+const KINSOKU_HANG = new Set([...'、。，．､｡']);
+const EA_LANG = /^(ja|zh|ko)\b/i;
+
+/** Quebra os runs de um parágrafo em tokens (palavras + espaços; cada caractere CJK é um token), preservando o run de origem. */
 function tokenize(runs: Run[]): Word[] {
   const out: Word[] = [];
   for (const r of runs) {
     if (r.text === '\n') { out.push({ text: '\n', run: r }); continue; }
     // separa mantendo espaços colados à palavra anterior (quebra APÓS espaço)
     // TAB é um token próprio (avança até a próxima parada)
-    const parts = r.text.match(/\t|[^\s]+[^\S\t]*|[^\S\t]+/g) ?? [];
+    const parts = r.text.match(TOKEN_RE) ?? [];
     for (const p of parts) out.push({ text: p, run: r });
   }
   return out;
@@ -226,6 +246,9 @@ export function layoutTextBody(
   const heights: number[] = [];
   /** Espaço EXTRA (EMU) antes de cada linha (spcBef/spcAft dos parágrafos). */
   const spacers: number[] = [];
+  /** Por linha: fração da base com entrelinha expandida/exata (0 = normal) e o tamanho (EMU) da maior fonte. */
+  const lineExp: number[] = [];
+  const lineSz: number[] = [];
   let pendingSpacer = 0;
   // contador de numeração automática por nível (reinicia quando o nível "sobe")
   const autoNumCounters: number[] = Array.from({ length: 9 }, () => 0);
@@ -327,6 +350,11 @@ export function layoutTextBody(
       heights.push(p.lineSpacingPt !== undefined
         ? p.lineSpacingPt * EMU_PER_POINT
         : maxPt * EMU_PER_POINT * lineFactor * paraFactor);
+      // entrelinha EXPANDIDA (> 100 %) ou exata: base a 0,75 da linha (fontAlgn t/ctr/b
+      // deslocam — medido, syn-a-tbl10) e o pé da última sem escalar (ver abaixo)
+      const exp = p.lineSpacingPt !== undefined || lineFactor * paraFactor > LINE_FACTOR + 1e-9;
+      lineExp.push(exp ? (p.fontAlgn === 't' ? 0.84 : p.fontAlgn === 'ctr' ? 0.86 : p.fontAlgn === 'b' ? 0.68 : EXP_BASELINE_FACTOR) : 0);
+      lineSz.push(maxPt * EMU_PER_POINT);
       // spcBef entra antes da 1ª linha do parágrafo (+ spcAft pendente do anterior)
       // spcPct: fração da altura de UMA linha simples (sz × fator de linha) da 1ª linha
       const bef = p.spaceBeforePt !== undefined ? p.spaceBeforePt * EMU_PER_POINT
@@ -363,7 +391,44 @@ export function layoutTextBody(
       const f = fontOf(wd.run, fontScale, fOpts);
       const wEmu = measureRun(wd.text, wd.run, f);
       const availW = Math.max(0, colW - (cur.marL - insL));
-      if (wrap && cur.runs.length > 0 && curW + measureRun(wd.text.replace(/\s+$/, ''), wd.run, f) > availW) flush();
+      const trimmed = wd.text.replace(/\s+$/, '');
+      if (wrap && curW + measureRun(trimmed, wd.run, f) > availW) {
+        if (cur.runs.length > 0) {
+          const ea = p.eaLnBrk !== false && EA_LANG.test(wd.run.lang ?? '');
+          const ch = [...trimmed][0] ?? '';
+          // 、。 penduradas além da margem
+          if (ea && p.hangingPunct !== false && KINSOKU_HANG.has(ch) && [...trimmed].length === 1) {
+            cur.runs.push({ text: wd.text, run: wd.run });
+            curW += wEmu;
+            continue;
+          }
+          const prev = cur.runs[cur.runs.length - 1]!;
+          const prevCh = [...prev.text.replace(/\s+$/, '')].pop() ?? '';
+          const prevEa = p.eaLnBrk !== false && EA_LANG.test(prev.run.lang ?? '');
+          if (cur.runs.length > 1 && ((ea && KINSOKU_NO_START.has(ch)) || (prevEa && KINSOKU_NO_END.has(prevCh)))) {
+            // o caractere anterior desce junto (não pode terminar a linha / o seguinte não pode começar)
+            cur.runs.pop();
+            flush();
+            cur.runs.push(prev);
+            curW = measureRun(prev.text, prev.run, fontOf(prev.run, fontScale, fOpts));
+          } else flush();
+        }
+        // palavra maior que a linha inteira: quebra entre caracteres (medido, syn-a-tbl2 #7)
+        const avail2 = Math.max(0, colW - (cur.marL - insL)) - curW;
+        if (cur.runs.length === 0 && measureRun(trimmed, wd.run, f) > avail2) {
+          const chars = [...wd.text];
+          let k = 1;
+          while (k < chars.length && measureRun(chars.slice(0, k + 1).join('').replace(/\s+$/, ''), wd.run, f) <= avail2) k++;
+          if (k < chars.length && chars.slice(k).join('').trim()) {
+            const head = chars.slice(0, k).join('');
+            cur.runs.push({ text: head, run: wd.run });
+            curW += measureRun(head, wd.run, f);
+            words.splice(wi + 1, 0, { text: chars.slice(k).join(''), run: wd.run });
+            flush();
+            continue;
+          }
+        }
+      }
       cur.runs.push({ text: wd.text, run: wd.run });
       curW += wEmu;
     }
@@ -372,9 +437,14 @@ export function layoutTextBody(
     else if (p.spaceAfterPct !== undefined) pendingSpacer += p.spaceAfterPct * lastMaxPt * EMU_PER_POINT * lineFactor;
   }
 
+  // entrelinha expandida (> 100 %) ou exata (medido, syn-a-tbl6 #4/#5 e syn-a-tbl8, todas
+  // as fontes): a base fica a 0,75 da entrelinha a partir do topo da linha (não 0,8) e a
+  // ÚLTIMA linha termina 0,2 × (1,2 × tamanho) abaixo da base, sem escalar
+  const nL = heights.length;
+  const lastAdj = nL && lineExp[nL - 1] ? (1 - BASELINE_FACTOR) * lineSz[nL - 1]! * lineFactor - (1 - lineExp[nL - 1]!) * heights[nL - 1]! : 0;
   // âncora vertical (inclui espaçadores de parágrafo)
   // spcFirstLastPara: o spcAft do ÚLTIMO parágrafo também ocupa altura (âncora ctr/b)
-  const totalH = heights.reduce((a, b) => a + b, 0) + spacers.reduce((a, b) => a + b, 0) + (tb.spcFirstLastPara ? pendingSpacer : 0);
+  const totalH = heights.reduce((a, b) => a + b, 0) + spacers.reduce((a, b) => a + b, 0) + (tb.spcFirstLastPara ? pendingSpacer : 0) + lastAdj;
   const usableH = Math.max(0, boxH - insT - insB);
   const anchor = tb.anchor ?? opts.defaultAnchor ?? 't';
   let y = insT;
@@ -482,7 +552,7 @@ export function layoutTextBody(
       for (const pr of placed) pr.x += colShift;
       if (pl.bullet) pl.bullet = { ...pl.bullet, x: pl.bullet.x + colShift };
     }
-    const line: PlacedLine = { runs: placed, baseline: y + h * BASELINE_FACTOR, height: h, para: pl.para };
+    const line: PlacedLine = { runs: placed, baseline: y + h * (lineExp[i] || BASELINE_FACTOR), height: h, para: pl.para };
     if (pl.bullet) line.bullet = pl.bullet;
     lines.push(line);
     y += h;

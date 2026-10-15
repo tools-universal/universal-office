@@ -54,6 +54,39 @@ describe('tabela: sobreposições explícitas do tcPr', () => {
   });
 });
 
+describe('tabela: estilos e grade de bordas (medido, syn-a-tbl*)', () => {
+  const ln = (tag: string, hex: string | null, w = 12700): string => hex === null ? `<a:${tag} w="${w}"><a:noFill/></a:${tag}>` : `<a:${tag} w="${w}"><a:solidFill><a:srgbClr val="${hex}"/></a:solidFill></a:${tag}>`;
+  const tc = (tcPr = '', attrs = ''): string => `<a:tc${attrs}><a:txBody><a:bodyPr/><a:p><a:r><a:t>x</a:t></a:r></a:p></a:txBody><a:tcPr>${tcPr}</a:tcPr></a:tc>`;
+  const frame = (pr: string, rows: string[], nC: number): string => `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="2" name="T"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="0" y="0"/><a:ext cx="${nC * 1000000}" cy="800000"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl>${pr}<a:tblGrid>${'<a:gridCol w="1000000"/>'.repeat(nC)}</a:tblGrid>${rows.map((r) => `<a:tr h="400000">${r}</a:tr>`).join('')}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
+
+  it('sem estilo / estilo desconhecido = grade de 1 pt em todas as arestas', () => {
+    for (const pr of ['<a:tblPr/>', '<a:tblPr><a:tableStyleId>{DEADBEEF-0000-4000-8000-000000000000}</a:tableStyleId></a:tblPr>']) {
+      const t = deckWith(frame(pr, [tc() + tc(), tc() + tc()], 2)).shapes[0]!.table!;
+      expect(t.hLines!.flat().every((l) => l?.width === 12700)).toBe(true);
+      expect(t.vLines!.flat().every((l) => l?.width === 12700)).toBe(true);
+    }
+  });
+
+  it('a aresta é da célula de cima/esquerda; lnL/lnT só no contorno', () => {
+    const t = deckWith(frame('<a:tblPr><a:tableStyleId>{2D5ABB26-0587-4C30-8999-92F81FD0307C}</a:tableStyleId></a:tblPr>', [
+      tc(ln('lnR', 'FF0000', 50800) + ln('lnB', '00FF00')) + tc(ln('lnL', '0000FF')),
+      tc(ln('lnT', 'FF00FF') + ln('lnL', '123456')) + tc(),
+    ], 2)).shapes[0]!.table!;
+    expect(t.vLines![0]![1]).toEqual({ color: '#FF0000', width: 50800 });
+    expect(t.hLines![1]![0]!.color).toBe('#00FF00');
+    expect(t.vLines![1]![0]!.color).toBe('#123456'); // lnL da 1ª coluna = contorno
+    expect(t.hLines![1]![1]).toBeNull(); // sem estilo de grade, nada definido
+  });
+
+  it('mescla: aresta interna some; gridSpan sem hMerge vale só sobre as cobertas existentes', () => {
+    const t = deckWith(frame('<a:tblPr/>', [tc('', ' gridSpan="2"') + tc('', ' hMerge="1"') + tc(), tc('', ' gridSpan="3"')], 3)).shapes[0]!.table!;
+    expect(t.vLines![0]![1]).toBeNull();
+    expect(t.rows[1]!.cells.length).toBe(3);
+    expect(t.rows[1]!.cells[0]!.gridSpan).toBeUndefined();
+    expect(t.vLines![1]![1]!.width).toBe(12700);
+  });
+});
+
 describe('preenchimento de grupo (<a:grpFill/>)', () => {
   it('o filho herda o preenchimento (com alfa) do grupo, não o fillRef do estilo', () => {
     const s = deckWith(`<p:grpSp><p:nvGrpSpPr><p:cNvPr id="3" name="G"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="100" cy="100"/><a:chOff x="0" y="0"/><a:chExt cx="100" cy="100"/></a:xfrm><a:solidFill><a:srgbClr val="FFFFFF"><a:alpha val="7000"/></a:srgbClr></a:solidFill></p:grpSpPr>

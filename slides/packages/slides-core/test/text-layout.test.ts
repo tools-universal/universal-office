@@ -41,11 +41,31 @@ describe('layoutTextBody — word-wrap', () => {
     expect(r.lines[1]!.runs[0]!.text).toBe('bb');
   });
 
-  it('palavra maior que a caixa não entra em loop (uma palavra por linha)', () => {
+  it('palavra maior que a linha inteira quebra entre caracteres (medido, syn-a-tbl2 #7: "riverba|nk")', () => {
     const body = tb([{ runs: [{ text: 'aaaaaaaaaa bb', sz: 10 }] }]);
     const r = layoutTextBody(body, 10 * PT, 100 * PT, fake, noIns);
-    expect(r.lines.length).toBe(2);
-    expect(r.lines[0]!.runs[0]!.text).toBe('aaaaaaaaaa');
+    expect(r.lines.map((l) => l.runs.map((x) => x.text).join(''))).toEqual(['aa', 'aa', 'aa', 'aa', 'aa', 'bb']);
+  });
+
+  it('CJK quebra entre caracteres; kinsoku só com idioma do Leste Asiático (medido, syn-a-tbl9)', () => {
+    // 5 pt/char, caixa de 15 pt = 3 caracteres
+    const run = (lang: string) => [{ runs: [{ text: 'あいう）えお', sz: 10, lang }] }];
+    const lines = (lang: string) => layoutTextBody(tb(run(lang)), 15 * PT, 100 * PT, fake, noIns).lines.map((l) => l.runs.map((x) => x.text).join(''));
+    expect(lines('en-US')).toEqual(['あいう', '）えお']);
+    expect(lines('ja-JP')).toEqual(['あい', 'う）え', 'お']);
+    // 。 fica pendurado além da margem
+    const hang = layoutTextBody(tb([{ runs: [{ text: 'あいう。えお', sz: 10, lang: 'ja-JP' }] }]), 15 * PT, 100 * PT, fake, noIns);
+    expect(hang.lines.map((l) => l.runs.map((x) => x.text).join(''))).toEqual(['あいう。', 'えお']);
+  });
+
+  it('entrelinha expandida/exata: 1ª base a 0,75 da entrelinha e pé da última = 0,24 × sz (medido, syn-a-tbl6/8)', () => {
+    const body = tb([{ runs: [{ text: 'a', sz: 10 }], lineSpacing: 1.5 }]);
+    const r = layoutTextBody(body, 100 * PT, 100 * PT, fake, noIns);
+    // entrelinha 1,5 × 12 = 18 pt: base em 13,5 pt; altura = 13,5 + 2,4
+    expect(r.lines[0]!.baseline / PT).toBeCloseTo(13.5, 6);
+    expect(r.totalH / PT).toBeCloseTo(15.9, 6);
+    const exact = layoutTextBody(tb([{ runs: [{ text: 'a', sz: 10 }], lineSpacingPt: 20 }]), 100 * PT, 100 * PT, fake, noIns);
+    expect(exact.lines[0]!.baseline / PT).toBeCloseTo(15, 6);
   });
 });
 
