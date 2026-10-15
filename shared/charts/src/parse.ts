@@ -6,7 +6,7 @@
 import { childElements, firstChild, textContent, descend, node, valNum, valStr, type XmlNode } from './xml.js';
 import type {
   ChartSpace, ChartTitle, TextProps, Paint, LineProps, ShapeProps, ManualLayout, RichPara, NumFmt, DLbls,
-  Marker, DataPoint, Series, Group, GroupKind, Axis, Legend, GradStop, UserShape, UserText,
+  Marker, DataPoint, Series, Group, GroupKind, Axis, Legend, GradStop, UserShape, UserText, Trendline,
 } from './model.js';
 import { parseChartEx } from './chartex.js';
 
@@ -439,7 +439,22 @@ class Parser {
     const dl = this.dLbls(firstChild(ser, 'c:dLbls'));
     if (dl) s.dLbls = dl;
     for (const tl of childElements(ser, 'c:trendline')) {
-      s.trendlines.push({ kind: valStr(tl, 'c:trendlineType') ?? 'linear', sp: this.shape(firstChild(tl, 'c:spPr')), ...(valNum(tl, 'c:order') !== undefined ? { order: valNum(tl, 'c:order')! } : {}), ...(valNum(tl, 'c:period') !== undefined ? { period: valNum(tl, 'c:period')! } : {}) });
+      const t: Trendline = { kind: valStr(tl, 'c:trendlineType') ?? 'linear', sp: this.shape(firstChild(tl, 'c:spPr')) };
+      const nm = firstChild(tl, 'c:name');
+      if (nm) t.name = textContent(nm);
+      for (const k of ['order', 'period', 'forward', 'backward', 'intercept'] as const) { const v = valNum(tl, `c:${k}`); if (v !== undefined) t[k] = v; }
+      // 2010+: ausentes = mostra a equação e o R² (medido, syn trend2 e lo-trendline)
+      const de = this.bool(tl, 'c:dispEq') ?? this.modern, dr = this.bool(tl, 'c:dispRSqr') ?? this.modern;
+      if (de) t.dispEq = true;
+      if (dr) t.dispRSqr = true;
+      const lb = firstChild(tl, 'c:trendlineLbl');
+      if (lb) {
+        t.label = { txPr: this.textProps(firstChild(lb, 'c:txPr')), sp: this.shape(firstChild(lb, 'c:spPr')) };
+        const lay = this.layout(lb), nf = this.numFmt(lb);
+        if (lay) t.label.layout = lay;
+        if (nf) t.label.numFmt = nf;
+      }
+      s.trendlines.push(t);
     }
     return s;
   }

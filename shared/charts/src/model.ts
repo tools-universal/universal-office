@@ -104,6 +104,21 @@ export interface DLbls {
   points?: Map<number, DLbls & { text?: string; layout?: ManualLayout }>;
 }
 
+/** `c:trendline`: tipo, estilo, extrapolação e o rótulo da equação/R². */
+export interface Trendline {
+  kind: string;
+  sp: ShapeProps;
+  order?: number;
+  period?: number;
+  name?: string;
+  forward?: number;
+  backward?: number;
+  intercept?: number;
+  dispEq?: boolean;
+  dispRSqr?: boolean;
+  label?: { layout?: ManualLayout; numFmt?: NumFmt; txPr: TextProps; sp: ShapeProps };
+}
+
 export interface Marker { symbol?: string; size?: number; sp: ShapeProps }
 
 export interface DataPoint {
@@ -137,7 +152,7 @@ export interface Series {
   explosion?: number;
   dPts: Map<number, DataPoint>;
   dLbls?: DLbls;
-  trendlines: { kind: string; sp: ShapeProps; order?: number; period?: number }[];
+  trendlines: Trendline[];
   /** Caixa estreita (chartex): o que mostrar e o método dos quartis. */
   box?: { meanLine: boolean; meanMarker: boolean; outliers: boolean; nonoutliers: boolean; exclusive: boolean };
 }

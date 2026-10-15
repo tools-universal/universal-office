@@ -310,3 +310,24 @@ describe('chartex (Office 2016) convertido no modelo', () => {
     expect(s.catLevels).toEqual([['P', 'P', 'Q']]);
   });
 });
+
+describe('linhas de tendência (medido no Excel, syn trend1)', async () => {
+  const { fitTrend } = await import('./trend.js');
+  const X = [1, 2, 3, 5, 8, 10, 13], Y = [2.1, 3.9, 6.2, 9.8, 17.5, 21, 26.9];
+  const eq = (k: string, o = {}) => fitTrend(k, X, Y, o)!.eq!.map((p) => p.text).join('|');
+  it('equações com 4 casas e vírgula, como o rótulo do Excel', () => {
+    expect(eq('linear')).toBe('y = 2,1067x - 0,1543');
+    expect(fitTrend('linear', X, Y, {})!.r2!.toFixed(4)).toBe('0.9979');
+    expect(eq('log')).toBe('y = 9,6097ln(x) - 1,7204');
+    expect(eq('exp')).toBe('y = 2,7165e|0,2003x'); // expoente sobrescrito
+  });
+  it('média móvel: do período em diante', () => {
+    expect(fitTrend('movingAvg', [1, 2, 3, 4], [2, 4, 6, 8], { period: 2 })!.points).toEqual([{ x: 2, y: 3 }, { x: 3, y: 5 }, { x: 4, y: 7 }]);
+  });
+  it('2010+: equação e R² ausentes = mostrar', () => {
+    const tl = '<c:trendline><c:trendlineType val="linear"/></c:trendline>';
+    const doc = (ff: 'modern' | 'mso2007') => parseChartSpace(xml(`<c:chartSpace xmlns:c="c" xmlns:a="a"><c:chart><c:plotArea><c:lineChart><c:ser><c:idx val="0"/><c:order val="0"/>${tl}</c:ser></c:lineChart></c:plotArea></c:chart></c:chartSpace>`), { ...host, fileFormat: ff });
+    expect(doc('modern').groups[0]!.series[0]!.trendlines[0]).toMatchObject({ dispEq: true, dispRSqr: true });
+    expect(doc('mso2007').groups[0]!.series[0]!.trendlines[0]!.dispEq).toBeUndefined();
+  });
+});

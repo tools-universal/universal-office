@@ -5,8 +5,9 @@
  * rótulo↔eixo, passo da legenda, escala automática, cores automáticas.
  */
 import type {
-  ChartSpace, TextProps, Paint, LineProps, ShapeProps, Series, Group, Axis, DLbls, ManualLayout, RichPara, Marker, UserShape, UserText,
+  ChartSpace, TextProps, Paint, LineProps, ShapeProps, Series, Group, Axis, DLbls, ManualLayout, RichPara, Marker, UserShape, UserText, Trendline,
 } from './model.js';
+import { fitTrend, trendNum, type TrendFit } from './trend.js';
 import { autoScale, tickValues, frac, type Scale } from './scale.js';
 import { adjustLum, rgba, chartShadeTint, tintLinear } from './color.js';
 import { formatValue as fmtRaw, builtinFormatCode, PT_BR, type FormatLocale } from './numfmt.js';
@@ -608,8 +609,8 @@ class Renderer {
   }
 
   // ───────────── legenda ─────────────
-  private legendEntries(): { label: string; kind: 'box' | 'line'; s: Series; g: Group; pt?: number }[] {
-    const out: { label: string; kind: 'box' | 'line'; s: Series; g: Group; pt?: number }[] = [];
+  private legendEntries(): { label: string; kind: 'box' | 'line'; s: Series; g: Group; pt?: number; tl?: Trendline }[] {
+    const out: { label: string; kind: 'box' | 'line'; s: Series; g: Group; pt?: number; tl?: Trendline }[] = [];
     const cs = this.cs;
     for (const g of cs.groups) {
       const vary = g.varyColors && (isPieLike(g) || g.series.length === 1 && g.kind !== 'line' && g.kind !== 'scatter' && g.kind !== 'area');
@@ -619,6 +620,7 @@ class Renderer {
         for (let i = 0; i < n; i++) out.push({ label: s.cats?.[i] ?? this.catNumLabel(s, i), kind: 'box', s, g, pt: i });
       } else {
         for (const s of g.series) out.push({ label: s.name || `Série${(this.seriesIndex.get(s) ?? 0) + 1}`, kind: g.kind === 'line' || g.kind === 'scatter' || g.kind === 'radar' && g.radarStyle !== 'filled' ? 'line' : 'box', s, g });
+        for (const s of g.series) for (const tl of s.trendlines) out.push({ label: this.trendName(s, tl), kind: 'line', s, g, tl });
       }
     }
     const lg = cs.legend;
@@ -749,9 +751,9 @@ class Renderer {
       if (e.kind === 'line') {
         const kw = em * 1.9;
         const col = this.seriesColor(e.s, e.g);
-        const ln = mergeLine({ paint: { kind: 'solid', color: col }, w: e.g.kind === 'line' || e.g.kind === 'scatter' ? (this.cs.themeLn ? this.seriesLineW() : 2.25) : 0.75 }, e.s.sp.line);
+        const ln = e.tl ? this.trendLine(e.tl) : mergeLine({ paint: { kind: 'solid', color: col }, w: e.g.kind === 'line' || e.g.kind === 'scatter' ? (this.cs.themeLn ? this.seriesLineW() : 2.25) : 0.75 }, e.s.sp.line);
         if (this.setLine(ln!)) { c.beginPath(); c.moveTo(x, r.y); c.lineTo(x + kw, r.y); c.stroke(); c.setLineDash([]); }
-        const m = this.markerOf(e.g, e.s, -1);
+        const m = e.tl ? undefined : this.markerOf(e.g, e.s, -1);
         if (m) this.paintMarker(m, x + kw / 2, r.y, e.s, e.g, Math.min(m.size, 7));
         x += kw;
       } else {
@@ -891,6 +893,11 @@ class Renderer {
       else if (g.kind === 'bubble') this.paintBubbles(g, ci, vi, plot);
       else if (g.kind === 'box') this.paintBoxes(g, ci, vi, plot);
     }
+    for (const g of order) {
+      const a0 = this.axisById(g.axIds[0]), a1 = this.axisById(g.axIds[1]);
+      const ci = a0 ? infos.get(a0) : undefined, vi = a1 ? infos.get(a1) : undefined;
+      if (ci && vi && g.series.some((s) => s.trendlines.length)) this.paintTrendlines(g, ci, vi, plot);
+    }
     if (this.showBg()) { for (const inf of infos.values()) this.paintAxis(inf, plot); this.paintFloor3D(plot); if (this.dtab) this.paintDataTable(plot); }
     for (const g of order) {
       const a0 = this.axisById(g.axIds[0]), a1 = this.axisById(g.axIds[1]);
@@ -926,6 +933,8 @@ class Renderer {
         continue;
       }
       for (const s of g.series) for (const v of s.values) if (v !== null) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+      // a curva da tendência (com a extrapolação) também conta (medido, syn trend1: exponencial até 40)
+      for (const s of g.series) for (const t of s.trendlines) for (const p of this.trendCurve(g, s, t)?.pts ?? []) { lo = Math.min(lo, p.y); hi = Math.max(hi, p.y); }
     }
     if (!Number.isFinite(lo)) { lo = 0; hi = 1; }
     // 100% empilhado: só quando todos os grupos do eixo são (misturado, o app usa a escala dos outros)
@@ -1734,6 +1743,104 @@ class Renderer {
     const vv = vs.log ? v : Math.max(vs.lo - (vs.hi - vs.lo), Math.min(vs.hi + (vs.hi - vs.lo), v));
     const a = this.pos(ci, plot, i, true), b = this.pos(vi, plot, vv);
     return ci.dir === 'h' ? { x: a, y: b } : { x: b, y: a };
+  }
+
+  // ───────────── linhas de tendência ─────────────
+  /** Pontos (x, y) de uma série para o ajuste: x = valores X (dispersão/bolhas) ou 1..n (categorias, como o Excel). */
+  private trendData(g: Group, s: Series): { xs: number[]; ys: number[] } {
+    const xy = g.kind === 'scatter' || g.kind === 'bubble';
+    const xs: number[] = [], ys: number[] = [];
+    s.values.forEach((v, i) => {
+      const x = xy ? (s.xVals && s.xVals.length ? s.xVals[i] : i + 1) : i + 1;
+      if (v === null || v === undefined || x === null || x === undefined) return;
+      xs.push(x); ys.push(v);
+    });
+    return { xs, ys };
+  }
+
+  /** Curva de uma linha de tendência em coordenadas de dados (amostrada), com a extrapolação. */
+  private trendCurve(g: Group, s: Series, t: Trendline): { pts: { x: number; y: number }[]; fit: TrendFit } | undefined {
+    const { xs, ys } = this.trendData(g, s);
+    const fit = fitTrend(t.kind, xs, ys, t);
+    if (!fit) return undefined;
+    if (fit.points) return { pts: fit.points, fit };
+    const x0 = Math.min(...xs) - (t.backward ?? 0), x1 = Math.max(...xs) + (t.forward ?? 0);
+    const linear = t.kind === 'linear';
+    const N = linear ? 1 : 120;
+    const pts: { x: number; y: number }[] = [];
+    for (let k = 0; k <= N; k++) {
+      const x = x0 + (x1 - x0) * k / N;
+      const y = fit.f(x);
+      if (y !== undefined && Number.isFinite(y)) pts.push({ x, y });
+    }
+    return { pts, fit };
+  }
+
+  /** Nome da linha de tendência na legenda (pt-BR, como o Excel): "Linear (Série)", "2 per. Méd. Móv. (Série)". */
+  private trendName(s: Series, t: Trendline): string {
+    if (t.name) return t.name;
+    const NAMES: Record<string, string> = { linear: 'Linear', exp: 'Exponencial', log: 'Logaritmo', poly: 'Polinomial', power: 'Potência' };
+    const base = t.kind === 'movingAvg' ? `${Math.round(t.period ?? 2)} per. Méd. Móv.` : NAMES[t.kind] ?? 'Linear';
+    return `${base} (${s.name || `Série${(this.seriesIndex.get(s) ?? 0) + 1}`})`;
+  }
+
+  /** Linha default: tx1 fina (cinza tx1 75% no 2010+), sólida (medido, syn trend1). */
+  private trendLine(t: Trendline): LineProps {
+    return mergeLine({ ...this.defaultLine(), w: 0.75 }, t.sp.line)!;
+  }
+
+  private paintTrendlines(g: Group, ci: AxisInfo, vi: AxisInfo, plot: Rect): void {
+    const c = this.ctx, S = this.S;
+    const xy = g.kind === 'scatter' || g.kind === 'bubble';
+    const toPx = (x: number, y: number) => (xy ? (() => { const px = this.pos(ci, plot, x), py = this.pos(vi, plot, y); return ci.dir === 'h' ? { x: px, y: py } : { x: py, y: px }; })() : this.pt(ci, vi, plot, x - 1, y));
+    for (const s of g.series) {
+      for (const t of s.trendlines) {
+        const tc = this.trendCurve(g, s, t);
+        if (!tc || tc.pts.length < 2) continue;
+        const px = tc.pts.map((p) => toPx(p.x, p.y));
+        c.save();
+        c.beginPath(); c.rect(plot.x, plot.y, plot.w, plot.h); c.clip();
+        if (this.setLine(this.trendLine(t))) {
+          c.beginPath();
+          px.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
+          c.stroke(); c.setLineDash([]);
+        }
+        c.restore();
+        // rótulo da equação / R²: à esquerda do fim da linha, centrado na altura dele
+        if (!(t.dispEq || t.dispRSqr) || !this.showBg()) continue;
+        const parts: { text: string; sup?: boolean }[][] = [];
+        if (t.dispEq && tc.fit.eq) parts.push(tc.fit.eq);
+        if (t.dispRSqr && tc.fit.r2 !== undefined) parts.push([{ text: `R² = ${trendNum(tc.fit.r2)}` }]);
+        if (!parts.length) continue;
+        const tt = this.text(t.label?.txPr);
+        const sup = { ...tt, sz: tt.sz * 0.65 };
+        const lh = this.lineH(tt);
+        const widths = parts.map((ln) => ln.reduce((a, r) => a + this.measure(r.text, r.sup ? sup : tt), 0));
+        const end = px[px.length - 1]!;
+        const lay = t.label?.layout;
+        let right = end.x - tt.sz * S * 1.1, top = end.y - parts.length * lh / 2;
+        if (lay && lay.x !== undefined && lay.y !== undefined) {
+          // layout manual do rótulo: deslocamento (fração do gráfico) a partir da posição padrão
+          right += lay.x * this.area.w; top += lay.y * this.area.h;
+        }
+        const maxW = Math.max(...widths);
+        right = Math.max(plot.x + maxW, Math.min(plot.x + plot.w, right));
+        top = Math.max(plot.y, Math.min(plot.y + plot.h - parts.length * lh, top));
+        if (t.label) this.shapeRect({ x: right - maxW - 2, y: top - 1, w: maxW + 4, h: parts.length * lh + 2 }, t.label.sp);
+        parts.forEach((ln, k) => {
+          let x = right - widths[k]!;
+          const y = top + lh * (k + 0.5);
+          for (const r of ln) {
+            const rt = r.sup ? sup : tt;
+            c.font = this.font(rt);
+            c.fillStyle = rgba(rt.color, rt.alpha);
+            c.textAlign = 'left'; c.textBaseline = 'middle';
+            c.fillText(r.text, x, r.sup ? y - tt.sz * S * 0.3 : y);
+            x += this.measure(r.text, rt);
+          }
+        });
+      }
+    }
   }
 
   // ───────────── áreas ─────────────
