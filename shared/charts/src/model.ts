@@ -243,6 +243,8 @@ export interface Axis {
   dispUnits?: number;
   /** dateAx: unidade base (days/months/years). */
   baseTimeUnit?: string;
+  /** dateAx: unidade da marca principal (com majorUnit). */
+  majorTimeUnit?: string;
 }
 
 export interface Legend {

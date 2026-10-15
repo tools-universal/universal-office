@@ -588,6 +588,8 @@ class Parser {
     }
     const bt = valStr(el, 'c:baseTimeUnit');
     if (bt) a.baseTimeUnit = bt;
+    const mt = valStr(el, 'c:majorTimeUnit');
+    if (mt) a.majorTimeUnit = mt;
     return a;
   }
 

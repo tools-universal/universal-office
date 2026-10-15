@@ -116,6 +116,10 @@ interface AxisInfo {
   labelRot: number;
   labelLines: string[][];
   labelSkip: number;
+  /** Índices das categorias com rótulo (eixo de datas: só nas viradas de período); vence `labelSkip`. */
+  labelIdx?: number[];
+  /** Datas (seriais) das categorias de um eixo de datas. */
+  dates?: (number | null)[];
   secondary: boolean;
 }
 
@@ -982,10 +986,43 @@ class Renderer {
     inf.fmt = fmt;
     if (!cats) cats = Array.from({ length: inf.nCats }, (_, i) => (src?.catNums?.[i] !== undefined && src.catNums[i] !== null ? formatValue(src.catNums[i]!, fmt === 'General' && a.kind === 'date' ? 'dd/mm/yyyy' : fmt, { locale: this.loc }).text : String(i + 1)));
     inf.cats = cats;
+    if (a.kind === 'date' && src?.catNums?.some((v) => v !== null)) inf.dates = src.catNums;
     if (levels && !a.noMultiLvlLbl) inf.catLevels = levels;
     const cb = inf.cross?.crossBetween;
     // barras ocupam faixas: o Office ignora midCat quando há barras no eixo
     inf.onTicks = !inf.groups.some((g) => g.kind === 'bar') && (cb === 'midCat' || (cb === undefined && inf.groups.every((g) => g.kind === 'area' || g.kind === 'scatter')));
+  }
+
+  /**
+   * Rótulos de um eixo de datas automático: o menor período (1/2/7/14 dias;
+   * 1/2/3/6 meses; 1/2/5/10/20/50 anos) cujos rótulos — no 1º ponto de cada
+   * período, alinhados ao 1º dado — ficam a `need` px uns dos outros (medido,
+   * senado-ifi: diário de 35 anos → "jan/90, jan/92…"; mensal de 6 anos → trimestral).
+   */
+  private dateLabels(dates: (number | null)[], band: number, need: number, fixed?: [string, number]): number[] {
+    const ymd = (v: number) => { const d = new Date(Math.round((v - 25569) * 86400000)); return { y: d.getUTCFullYear(), m: d.getUTCMonth(), day: v }; };
+    const first = dates.find((v): v is number => v !== null);
+    if (first === undefined) return [0];
+    const f = ymd(first);
+    const keyFor = (unit: string, k: number) => (v: number) => {
+      const d = ymd(v);
+      if (unit === 'd') return Math.floor((v - first) / k);
+      if (unit === 'm') return Math.floor(((d.y - f.y) * 12 + d.m - f.m) / k);
+      return Math.floor((d.y - f.y) / k);
+    };
+    // unidade principal gravada (majorUnit + majorTimeUnit): só ela, sem rarear (medido, receita: mensal denso)
+    const cands: [string, number][] = fixed ? [fixed] : [['d', 1], ['d', 2], ['d', 7], ['d', 14], ['m', 1], ['m', 2], ['m', 3], ['m', 6], ['y', 1], ['y', 2], ['y', 5], ['y', 10], ['y', 20], ['y', 50]];
+    let last: number[] = [0];
+    for (const [u, k] of cands) {
+      const key = keyFor(u, k);
+      const out: number[] = [];
+      let prev: number | undefined;
+      dates.forEach((v, i) => { if (v === null) return; const kk = key(v); if (kk !== prev) { out.push(i); prev = kk; } });
+      last = out;
+      const minGap = Math.min(...out.slice(1).map((v, j) => (v - out[j]!) * band));
+      if (out.length <= 1 || minGap >= need * 0.999) return out;
+    }
+    return last;
   }
 
   /** Rótulos de um eixo de valores. */
@@ -1152,6 +1189,7 @@ class Renderer {
         const cats = inf.cats ?? [];
         const rot = t.rot;
         inf.labelSkip = a.tickLblSkip ?? 1;
+        delete inf.labelIdx;
         if (inf.dir === 'h') {
           const ws = cats.map((s) => this.measure(s, t));
           const maxW = Math.max(0, ...ws);
@@ -1160,6 +1198,12 @@ class Renderer {
             inf.labelLines = cats.map((s) => [s]);
             const rad = Math.abs(rot) * Math.PI / 180;
             ext = maxW * Math.sin(rad) + this.lineH(t) * Math.cos(rad) + off + em * this.catGap(a);
+            // girados que não cabem: o Office rareia (passo pela altura da linha; datas nas viradas de período)
+            if (a.tickLblSkip === undefined) {
+              const need = this.lineH(t) * 1.25 / Math.max(0.2, Math.sin(rad));
+              if (inf.dates) inf.labelIdx = this.dateLabels(inf.dates, band, need, a.majorUnit !== undefined ? [a.majorTimeUnit === 'years' ? 'y' : a.majorTimeUnit === 'days' ? 'd' : a.baseTimeUnit === 'days' && !a.majorTimeUnit ? 'd' : 'm', Math.max(1, Math.round(a.majorUnit))] : undefined);
+              else inf.labelSkip = Math.max(1, Math.ceil(need / Math.max(0.1, band)));
+            }
           } else if (maxW <= band * 0.98 || rot === 0) {
             inf.labelRot = 0;
             inf.labelLines = cats.map((s) => (rot === 0 && this.measure(s, t) > band ? this.wrap(s, t, band) : [s]));
@@ -1308,7 +1352,9 @@ class Renderer {
         const n = inf.nCats ?? 1;
         const skip = a.tickMarkSkip ?? 1;
         const k = inf.onTicks ? n : n + 1;
-        for (let i = 0; i < k; i += skip) tickPos.push(this.pos(inf, plot, i, false));
+        // eixo de datas rareado: tiques só nos rótulos (milhares de dias viravam uma faixa preta)
+        if (inf.labelIdx && a.tickMarkSkip === undefined) for (const i of inf.labelIdx) tickPos.push(this.pos(inf, plot, i, true));
+        else for (let i = 0; i < k; i += skip) tickPos.push(this.pos(inf, plot, i, false));
       }
       const tick = (p: number, out: number, inn: number) => {
         const pp = Math.round(p) + 0.5;
@@ -1457,7 +1503,8 @@ class Renderer {
     }
     const n = inf.nCats ?? 1;
     const lh = this.lineH(t);
-    for (let i = 0; i < n; i += inf.labelSkip) {
+    const idxs = inf.labelIdx ?? Array.from({ length: Math.ceil(n / inf.labelSkip) }, (_, k) => k * inf.labelSkip);
+    for (const i of idxs) {
       const lines = inf.labelLines[i] ?? [inf.cats?.[i] ?? ''];
       if (!lines.some((l) => l)) continue;
       const p = this.pos(inf, plot, i, true);
@@ -2543,10 +2590,11 @@ class Renderer {
 
   // ───────────── rótulos de dados ─────────────
   /** Texto do rótulo do ponto: o próprio (com os campos a:fld trocados pelo valor do ponto) ou o montado pelos show*. */
-  private pointLabel(eff: DLbls, pd: DLbl | undefined, s: Series, i: number, pct: number | undefined, kind: 'pie' | 'other'): string {
+  private pointLabel(eff: DLbls, pd: DLbl | undefined, s: Series, i: number, pct: number | undefined, kind: 'pie' | 'other', div = 1): string {
     if (pd?.parts) {
       const fmt = pickFmt(eff.numFmt, s.ptFmts?.[i] ?? s.fmt);
-      const v = s.values[i];
+      const v0 = s.values[i];
+      const v = v0 === null || v0 === undefined ? v0 : v0 / div;
       return pd.parts.map((p) => {
         switch (p.fld) {
           case 'CATEGORYNAME': return s.cats?.[i] ?? this.catNumLabel(s, i);
@@ -2557,7 +2605,8 @@ class Renderer {
         }
       }).join('');
     }
-    return pd?.text ?? this.labelText(eff, s, i, pct, kind);
+    const raw = s.values[i];
+    return pd?.text ?? this.labelText(eff, s, i, pct, kind, div !== 1 && raw !== null && raw !== undefined ? raw / div : undefined);
   }
 
   /** Deslocamento manual do rótulo (c:layout em frações do gráfico a partir da posição padrão). */
@@ -2610,7 +2659,8 @@ class Renderer {
         const pd = dl.points?.get(i);
         const eff = pd ? mergePointLabel(dl, pd) : dl;
         if (eff.delete || !this.showData(sIdx, i)) continue;
-        const txt = this.pointLabel(eff, pd, s, i, undefined, 'other');
+        // o valor sai na unidade de exibição do eixo (dispUnits), como o Excel (medido, senado-ifi #9: 30.250.122 → "30,25" em milhões)
+        const txt = this.pointLabel(eff, pd, s, i, undefined, 'other', vi.ax.dispUnits ?? 1);
         if (!txt) continue;
         const t = this.text(dl.txPr, pd?.txPr, pd?.runProps);
         const lines = txt.split('\n');
