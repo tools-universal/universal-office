@@ -21,6 +21,7 @@
  * - WEBSERVICE sem rede → #VALUE!; TRANSLATE/DETECTLANGUAGE (serviço online) → #CONNECT!.
  */
 import { register, type FnContext, type ValueLocale } from '../fn.js';
+import { getLanguage } from '../i18n/languages.js';
 import { numberToText, parseNumberText, toBool } from '../coerce.js';
 import { ArrayValue, CalcError, ERR, RefValue, type Scalar, type Value } from '../values.js';
 import { checkLen, fixedDigits, formatForText, translateFormatCode } from './text-format.js';
@@ -136,25 +137,19 @@ function searchRegExp(pattern: string): RegExp {
 
 // ───────────────────────────── idioma ─────────────────────────────
 
-/** Nomes de erro no idioma (VALUETOTEXT/ARRAYTOTEXT). Tabela da camada LOCALE quando houver. */
-const ERROR_NAMES: Record<string, Record<string, string>> = {
-  'pt-BR': {
-    '#NULL!': '#NULO!', '#VALUE!': '#VALOR!', '#NAME?': '#NOME?', '#NUM!': '#NÚM!', '#N/A': '#N/D',
-    '#GETTING_DATA': '#OBTENDO_DADOS', '#SPILL!': '#DESPEJAR!', '#BLOCKED!': '#BLOQUEADO!',
-    '#CONNECT!': '#CONECTAR!', '#UNKNOWN!': '#DESCONHECIDO!', '#FIELD!': '#CAMPO!', '#BUSY!': '#OCUPADO!',
-  },
-};
+/** Nome do erro no idioma (VALUETOTEXT/ARRAYTOTEXT: "#N/D" no pt-BR) — tabela da camada i18n. */
 export function errorText(e: CalcError, locale: ValueLocale): string {
-  return ERROR_NAMES[locale.id]?.[e.code] ?? e.code;
+  return getLanguage(locale.id)?.errors?.[e.code] ?? e.code;
 }
-/** Separador de lista do idioma (ARRAYTOTEXT conciso). */
+/** Separador de lista da região (ARRAYTOTEXT conciso: "1; 2" no pt-BR). */
 function listSep(locale: ValueLocale): string {
-  return locale.decimal === ',' ? ';' : ',';
+  return getLanguage(locale.id)?.regional?.list ?? (locale.decimal === ',' ? ';' : ',');
 }
-/** Separadores de coluna/linha das constantes matriciais no idioma ({1\2;3\4} no pt-BR). */
+/** Separadores de coluna/linha das constantes matriciais no idioma (contrabarra e ponto e vírgula no pt-BR). */
 function arraySeps(locale: ValueLocale): [string, string] {
-  if (locale.id === 'pt-BR') return ['\\', ';'];
-  return locale.decimal === ',' ? ['.', ';'] : [',', ';'];
+  const arr = getLanguage(locale.id)?.array;
+  const col = arr?.col ?? ',', row = arr?.row ?? ';';
+  return [col === locale.decimal && arr?.alt ? arr.alt : col, row];
 }
 
 /** Escalar → texto do VALUETOTEXT/ARRAYTOTEXT (strict: texto entre aspas). */

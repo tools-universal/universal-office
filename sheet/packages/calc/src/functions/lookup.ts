@@ -23,6 +23,7 @@
  *   VLOOKUP/HLOOKUP/LOOKUP devolvem o valor (célula vazia: ISBLANK = VERDADEIRO).
  */
 import { register, type FnContext, type ValueLocale } from '../fn.js';
+import { getLanguage } from '../i18n/languages.js';
 import { implicitIntersection } from '../apply.js';
 import { compareText } from '../collation.js';
 import { sameTextCI, toBool, toNumber, toText } from '../coerce.js';
@@ -398,13 +399,10 @@ function sliceAt(ret: Value, horizontal: boolean, i: number, ctx: FnContext): Va
 
 // ───────────────────────────── ADDRESS ─────────────────────────────
 
-/** Letras L/C do R1C1 no idioma (pt-BR: "L1C1"). Tabela da camada LOCALE quando houver. */
+/** Letras do R1C1 no idioma (pt-BR: "L1C1") — tabela da camada i18n. */
 function r1c1Letters(locale: ValueLocale): [string, string] {
-  if (locale.id.startsWith('pt')) return ['L', 'C'];
-  if (locale.id.startsWith('es')) return ['F', 'C'];
-  if (locale.id.startsWith('fr')) return ['L', 'C'];
-  if (locale.id.startsWith('de')) return ['Z', 'S'];
-  return ['R', 'C'];
+  const r = getLanguage(locale.id)?.r1c1;
+  return [r?.row ?? 'R', r?.col ?? 'C'];
 }
 
 function colNumber(s: string): number {
