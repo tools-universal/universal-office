@@ -22,6 +22,8 @@ $errMap = @{ 2000='#NULL!'; 2007='#DIV/0!'; 2015='#VALUE!'; 2023='#REF!'; 2029='
 function Conv($x) {
   if ($null -eq $x) { return $null }
   if ($x -is [int]) { $c = $x -band 0xFFFF; $n = $errMap[[int]$c]; if (-not $n) { $n = '#ERR' + $c }; return @{ e = $n } }
+  # NaN/infinito (ex.: ROUND(1,79E308;0)) nao cabem em JSON: vira marcador
+  if ($x -is [double] -and ([double]::IsNaN($x) -or [double]::IsInfinity($x))) { return @{ nan = [string]$x } }
   if ($x -is [double] -or $x -is [string] -or $x -is [bool]) { return $x }
   return [string]$x
 }
