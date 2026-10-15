@@ -17,6 +17,8 @@ import {
 import { defaultXfMaps, xfIndexAt } from './cell-format.js';
 import { paintCellFill, hasFill } from './fills.js';
 import { buildTableLayer, applyTableLayer, paintTableHandle, type TableCellFormat } from './table-styles.js';
+import { CfEngine, cellCfValue, todaySerial, paintDataBar, type CfResult, type CfSheetAccess } from './cond-format.js';
+import { paintCfIcon } from './cf-icons.js';
 import { winningEdge, edgeExtent, paintHEdge, paintVEdge, paintDiagonals, NO_CORNER, type CornerInfo } from './borders.js';
 
 /**
@@ -62,6 +64,10 @@ interface ResolvedStyle {
   indent: number;
   /** Rotação do texto (0 = horizontal; 1–90 anti-horário, 91–180 horário, 255 empilhado). */
   rotation: number;
+  /** Formato numérico vindo da formatação condicional (vence o do xf). */
+  numFmtCode?: string;
+  /** Camada da formatação condicional (barra/ícone/ocultar valor). */
+  cf?: CfResult;
 }
 
 /** Fonte efetiva de um run rico (props do run resolvidas sobre a da célula). */
@@ -181,10 +187,11 @@ export class UniversalSheetElement extends HTMLElement {
   /** Posição x acumulada por borda de coluna (0..maxCol+1), coords locais. */
   private xs: Float64Array = new Float64Array(0);
   private ys: Float64Array = new Float64Array(0);
-  /** Cache de valores numéricos por "col,row" para formatação condicional. */
-  private condNumMap = new Map<string, number>();
-  /** condNumMap já construído para a aba ativa (invalidado em troca/edição). */
-  private condNumReady = false;
+  /**
+   * Motor de formatação condicional por aba (regras + estatísticas das
+   * células existentes, cacheadas; invalidado em load/edição) — cond-format.ts.
+   */
+  private cfEngines = new Map<number, CfEngine | null>();
   /** Cache do índice célula-por-ref por aba (invalidado em load/edição). */
   private rowMapCache = new Map<number, Map<number, Map<number, Cell>>>();
   /** Tooltip de comentário (nota amarela) exibido no hover. */
@@ -366,8 +373,7 @@ export class UniversalSheetElement extends HTMLElement {
     }
     // caches de paint pertencem ao workbook anterior
     this.rowMapCache.clear();
-    this.condNumReady = false;
-    this.condNumMap.clear();
+    this.cfEngines.clear();
     // abre na aba ativa (activeTab); o `Math.min(0, …)` anterior fixava sempre 0
     this.sheetIndex = Math.max(0, Math.min(this.workbook.activeTab ?? 0, this.views.length - 1));
     this.scrollX = 0;
@@ -553,7 +559,18 @@ export class UniversalSheetElement extends HTMLElement {
     const v = this.view;
     if (!v) return [];
     const out: { ref: string; display: string }[] = [];
-    for (const r of v.worksheet.rows) for (const c of r.cells) out.push({ ref: c.ref, display: this.displayText(c) });
+    for (const r of v.worksheet.rows) {
+      for (const c of r.cells) {
+        // como o Range.Text: com o formato da formatação condicional; showValue=0 esconde
+        let display: string;
+        if (v.condFormats.length > 0) {
+          const { col } = refToRowCol(c.ref);
+          const st = this.styleAt(c, col, r.r);
+          display = st.cf?.hideValue ? '' : this.formatCell(c, st.numFmtCode).text;
+        } else display = this.displayText(c);
+        out.push({ ref: c.ref, display });
+      }
+    }
     return out;
   }
 
@@ -587,8 +604,6 @@ export class UniversalSheetElement extends HTMLElement {
     if (this.editing) this.commitEdit();
     this.hideCommentTip();
     this.sheetIndex = i;
-    this.condNumReady = false;
-    this.condNumMap.clear();
     this.scrollX = 0;
     this.scrollY = 0;
     this.sel = { col: 1, row: 1 };
@@ -1247,7 +1262,7 @@ export class UniversalSheetElement extends HTMLElement {
         r.cells.splice(ci, 1);
         this.dirtySheets.add(this.sheetIndex);
         this.rowMapCache.delete(this.sheetIndex);
-        this.condNumReady = false;
+        this.cfEngines.delete(this.sheetIndex);
       }
       this.dispatchEvent(new CustomEvent('us-edit', { detail: { ref, text: '' } }));
       return;
@@ -1255,7 +1270,7 @@ export class UniversalSheetElement extends HTMLElement {
     this.dirtySheets.add(this.sheetIndex);
     // invalida caches de paint da aba (índice de células + cond. format)
     this.rowMapCache.delete(this.sheetIndex);
-    this.condNumReady = false;
+    this.cfEngines.delete(this.sheetIndex);
 
     const cell: Cell = ci >= 0 ? r.cells[ci]! : { ref };
     // limpa campos antes de re-aplicar
@@ -1464,17 +1479,6 @@ export class UniversalSheetElement extends HTMLElement {
       }
       this.rowMapCache.set(this.sheetIndex, rowMap);
     }
-    if (v.condFormats.length > 0 && !this.condNumReady) {
-      this.condNumMap.clear();
-      for (const r of v.worksheet.rows) {
-        for (const c of r.cells) {
-          if (c.type === 's') continue;
-          const n = parseFloat(c.value ?? 'NaN');
-          if (!Number.isNaN(n)) this.condNumMap.set(`${refToRowCol(c.ref).col},${r.r}`, n);
-        }
-      }
-      this.condNumReady = true;
-    }
     return rowMap;
   }
 
@@ -1489,7 +1493,6 @@ export class UniversalSheetElement extends HTMLElement {
     const v = this.views[index];
     if (!v) return { w: 0, h: 0 };
     const keep = { sheet: this.sheetIndex, zoom: this.zoom, sx: this.scrollX, sy: this.scrollY, capture: this.capture };
-    if (index !== this.sheetIndex) { this.condNumReady = false; this.condNumMap.clear(); }
     this.sheetIndex = index;
     this.zoom = 1;
     this.scrollX = 0;
@@ -1514,7 +1517,6 @@ export class UniversalSheetElement extends HTMLElement {
       this.paintDrawings(ctx, 0, 0, { x: 0, y: 0, w, h });
       ctx.restore();
     }
-    if (keep.sheet !== index) { this.condNumReady = false; this.condNumMap.clear(); }
     this.sheetIndex = keep.sheet;
     this.zoom = keep.zoom;
     this.scrollX = keep.sx;
@@ -1624,15 +1626,18 @@ export class UniversalSheetElement extends HTMLElement {
           // preenchimento (sólido, padrão, degradê) na área da célula (inclui
           // as linhas de grade de cima/da esquerda); a grade da direita/de
           // baixo também some — vira fundo — se a vizinha não for preenchida
-          // (medido: t-colrow/t-fills; a fronteira é da célula de baixo/direita)
+          // (medido: t-colrow/t-fills; a fronteira é da célula de baixo/direita.
+          // As bordas EXTERNAS da imagem da câmera saem sempre sem cor — artefato
+          // do oráculo, não do Excel: ver lo-condFormat_cellis)
           paintCellFill(ctx, st.fill, left, top, drawW, drawH, -sx, -sy);
           if (st.filled && v.showGridLines !== false) {
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(Math.round(left + drawW), top, 1, drawH);
             ctx.fillRect(left, Math.round(top + drawH), drawW, 1);
           }
-          // formatação condicional (cor/barras/destaque)
-          this.paintCondFormat(ctx, cell, dcol, drow, left, top, drawW, drawH);
+          // formatação condicional: barra de dados e ícone (o fundo já veio no estilo)
+          if (st.cf?.bar) paintDataBar(ctx, st.cf.bar, left, top, drawW, drawH);
+          if (st.cf?.icon) paintCfIcon(ctx, st.cf.icon.set, st.cf.icon.index, Math.round(left) + 2 * this.zoom, Math.round(top + drawH) - 17 * this.zoom, 16 * this.zoom);
           continue;
         }
         if (phase === 1) {
@@ -1999,63 +2004,13 @@ export class UniversalSheetElement extends HTMLElement {
       }
     }
   }
-  /** Aplica formatação condicional (color scale / data bar / highlight). */
-  private paintCondFormat(ctx: CanvasRenderingContext2D, cell: Cell | undefined, col: number, row: number, left: number, top: number, w: number, h: number): void {
-    const v = this.view;
-    if (!v || v.condFormats.length === 0 || !cell) return;
-    const value = cell.type === 's' ? NaN : parseFloat(cell.value ?? 'NaN');
-    const vals = this.condNumMap;
-    for (const cf of v.condFormats) {
-      if (!sqrefContains(cf.sqref, col, row)) continue;
-      for (const rule of cf.rules) {
-        if (rule.type === 'colorScale' && rule.stops && !Number.isNaN(value)) {
-          const color = colorScaleColor(rule.stops, value, cf.sqref, vals);
-          if (color) { ctx.fillStyle = color; ctx.fillRect(left, top, w, h); }
-        } else if (rule.type === 'dataBar' && !Number.isNaN(value)) {
-          const { min, max } = rangeMinMax(cf.sqref, vals);
-          if (max > min) {
-            // comprimento: x14 (minLength/maxLength reais, ex. 0..100) quando
-            // presente; sem x14, defaults clássicos 10..90. Altura quase total,
-            // DEGRADÊ horizontal cor→branco; borda só se x14 border="1"
-            const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
-            const lo = (rule.barMinLen ?? 10) / 100;
-            const hi = (rule.barMaxLen ?? 90) / 100;
-            const frac = lo + (hi - lo) * t;
-            const color = rule.barColor ?? '#638EC6';
-            const bx = left + 1;
-            const by = top + 1.5 * this.zoom;
-            const bw2 = (w - 3) * frac;
-            const bh2 = h - 3 * this.zoom;
-            if (bw2 > 1) {
-              const g = ctx.createLinearGradient(bx, 0, bx + bw2, 0);
-              g.addColorStop(0, color);
-              g.addColorStop(1, lerpColor(color, '#FFFFFF', 0.85));
-              ctx.fillStyle = g;
-              ctx.fillRect(bx, by, bw2, bh2);
-              if (rule.barBorder) {
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 1;
-                ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, Math.round(bw2) - 1, Math.round(bh2) - 1);
-              }
-            }
-          }
-        } else if (rule.type === 'cellIs' && rule.dxfId !== undefined && !Number.isNaN(value)) {
-          const thr = parseFloat(rule.formula?.[0] ?? 'NaN');
-          const dxf = this.styles.dxfs[rule.dxfId];
-          if (dxf && !Number.isNaN(thr) && evalCellIs(rule.operator, value, thr)) {
-            if (dxf.fillColor) { ctx.fillStyle = dxf.fillColor; ctx.fillRect(left, top, w, h); }
-          }
-        }
-      }
-    }
-  }
-
   private paintCell(
     ctx: CanvasRenderingContext2D, cell: Cell | undefined,
     st: ResolvedStyle, left: number, top: number, w: number, h: number,
     col = 0, row = 0, cells?: Map<number, Cell>, merged = false,
   ): void {
-    const fr = this.formatCell(cell);
+    if (st.cf?.hideValue) return;
+    const fr = this.formatCell(cell, st.numFmtCode);
     const display = fr.text;
     if (display === '') return;
     // texto rico (runs): mede e desenha run a run (fonte/cor/sublinhado por run)
@@ -2481,8 +2436,59 @@ export class UniversalSheetElement extends HTMLElement {
     const st = this.resolveStyle(cell, col, row);
     const v = this.view;
     const tf = v && v.tableFmt.size > 0 ? v.tableFmt.get(`${col},${row}`) : undefined;
-    const out = tf ? applyTableLayer(st, tf, this.styles.fonts[0]?.color) : st;
+    let out = tf ? applyTableLayer(st, tf, this.styles.fonts[0]?.color) : st;
+    const cf = v && v.condFormats.length > 0 ? this.cfEngine()?.at(col, row) : undefined;
+    if (cf) out = applyCfLayer(out, cf, this.styles.numFmts);
     return { ...out, filled: hasFill(out.fill) };
+  }
+
+  /** Motor de formatação condicional da aba ativa (lazy; ver cond-format.ts). */
+  private cfEngine(): CfEngine | null {
+    const idx = this.sheetIndex;
+    const hit = this.cfEngines.get(idx);
+    if (hit !== undefined) return hit;
+    const v = this.views[idx];
+    if (!v || v.condFormats.length === 0) { this.cfEngines.set(idx, null); return null; }
+    const access = (view: SheetView, sheetIdx: number): Pick<CfSheetAccess, 'value' | 'each'> => {
+      const map = (): Map<number, Map<number, Cell>> => this.cellIndex(view, sheetIdx);
+      const shared = (i: number): string => this.shared[i]?.text ?? '';
+      return {
+        value: (c, r) => cellCfValue(map().get(r)?.get(c), shared),
+        each: (c1, r1, c2, r2, fn) => {
+          for (const row of view.worksheet.rows) {
+            if (row.r < r1 || row.r > r2) continue;
+            const cells = map().get(row.r);
+            if (!cells) continue;
+            for (const [c, cell] of cells) if (c >= c1 && c <= c2) fn(cellCfValue(cell, shared), c, row.r);
+          }
+        },
+      };
+    };
+    const names = this.workbook?.sheets.filter((r) => r.target).map((r) => r.name) ?? [];
+    const eng = new CfEngine(v.condFormats, {
+      ...access(v, idx),
+      other: (name) => { const k = names.findIndex((n) => n.toLowerCase() === name.toLowerCase()); const ov = this.views[k]; return ov ? access(ov, k) : undefined; },
+      dxfs: this.styles.dxfs,
+      today: todaySerial(this.workbook?.date1904),
+      date1904: this.workbook?.date1904,
+    });
+    this.cfEngines.set(idx, eng);
+    return eng;
+  }
+
+  /** Índice célula-por-(linha,coluna) de uma aba (o mesmo cache da pintura). */
+  private cellIndex(view: SheetView, idx: number): Map<number, Map<number, Cell>> {
+    let rowMap = this.rowMapCache.get(idx);
+    if (!rowMap) {
+      rowMap = new Map<number, Map<number, Cell>>();
+      for (const r of view.worksheet.rows) {
+        const cm = new Map<number, Cell>();
+        for (const c of r.cells) cm.set(refToRowCol(c.ref).col, c);
+        rowMap.set(r.r, cm);
+      }
+      this.rowMapCache.set(idx, rowMap);
+    }
+    return rowMap;
   }
 
   private resolveStyle(cell: Cell | undefined, col?: number, row?: number): ResolvedStyle {
@@ -2510,7 +2516,7 @@ export class UniversalSheetElement extends HTMLElement {
   }
 
   /** Texto + cor (numFmt pode pedir cor, ex.: `[Red]` em negativos). */
-  private formatCell(cell: Cell | undefined): FormatResult {
+  private formatCell(cell: Cell | undefined, codeOverride?: string): FormatResult {
     if (!cell) return { text: '' };
     if (cell.type === 's' && cell.value !== undefined) {
       const ss = this.shared[parseInt(cell.value, 10)];
@@ -2529,7 +2535,7 @@ export class UniversalSheetElement extends HTMLElement {
     if (n === 0 && this.view?.showZeros === false) return { text: '' };
     // numérico/data: aplica o formatCode via motor fiel ao oráculo (sheet-core)
     const { numFmtId } = this.resolveStyle(cell);
-    const code = this.styles.numFmts.get(numFmtId) ?? builtinFormatCode(numFmtId) ?? 'General';
+    const code = codeOverride ?? this.styles.numFmts.get(numFmtId) ?? builtinFormatCode(numFmtId) ?? 'General';
     return formatValue(n, code, { date1904: this.workbook?.date1904 });
   }
 
@@ -2577,84 +2583,6 @@ export function formatNumeric(value: number, code: string): string {
   return formatValue(value, code).text;
 }
 
-// ---- helpers de formatação condicional ----
-
-/** "A1:B3 C2" → a célula (col,row) está em algum dos ranges? */
-function sqrefContains(sqref: string, col: number, row: number): boolean {
-  for (const part of sqref.split(/\s+/)) {
-    if (!part) continue;
-    const [a, b] = part.split(':');
-    const s = refToRowCol(a!);
-    const e = b ? refToRowCol(b) : s;
-    if (col >= s.col && col <= e.col && row >= s.row && row <= e.row) return true;
-  }
-  return false;
-}
-
-/** Min/max dos valores numéricos de um sqref (para data bars e color scales). */
-function rangeMinMax(sqref: string, vals: Map<string, number>): { min: number; max: number } {
-  let min = Infinity, max = -Infinity;
-  for (const part of sqref.split(/\s+/)) {
-    if (!part) continue;
-    const [a, b] = part.split(':');
-    const s = refToRowCol(a!);
-    const e = b ? refToRowCol(b) : s;
-    for (let r = s.row; r <= e.row; r++) {
-      for (let c = s.col; c <= e.col; c++) {
-        const n = vals.get(`${c},${r}`);
-        if (n !== undefined && !Number.isNaN(n)) { if (n < min) min = n; if (n > max) max = n; }
-      }
-    }
-  }
-  if (min === Infinity) { min = 0; max = 0; }
-  return { min, max };
-}
-
-/** Interpola cor de uma colorScale (2-3 stops) para o valor dado. */
-/**
- * Cor da escala: cada cfvo resolve para um VALOR (min/max/num/formula/percent/
- * percentile) e a interpolação é por segmentos ENTRE esses valores. O app de
- * referência CLAMPA pontos intermediários ao [min,max] do range — um mid
- * `formula 50` num range 1..10 vira 10, e o 3º segmento nunca aparece
- * (verificado no oráculo: escala fica vermelho→amarelo, sem verde).
- */
-function colorScaleColor(stops: ColorStop[], value: number, sqref: string, vals: Map<string, number>): string | undefined {
-  if (stops.length < 2) return stops[0]?.color;
-  const { min, max } = rangeMinMax(sqref, vals);
-  if (max <= min) return stops[0]!.color;
-  const resolve = (s: ColorStop): number => {
-    switch (s.type) {
-      case 'min': return min;
-      case 'max': return max;
-      case 'num':
-      case 'formula': return s.value ?? min;
-      case 'percent': return min + ((s.value ?? 50) / 100) * (max - min);
-      case 'percentile': return min + ((s.value ?? 50) / 100) * (max - min); // aprox.
-      default: return min;
-    }
-  };
-  const pts = stops.map((s) => ({
-    v: Math.max(min, Math.min(max, resolve(s))),
-    color: s.color,
-  }));
-  if (value <= pts[0]!.v) return pts[0]!.color;
-  for (let i = 1; i < pts.length; i++) {
-    const a = pts[i - 1]!, b = pts[i]!;
-    if (value <= b.v) {
-      const span = b.v - a.v;
-      return span <= 0 ? b.color : lerpColor(a.color, b.color, (value - a.v) / span);
-    }
-  }
-  return pts[pts.length - 1]!.color;
-}
-
-function lerpColor(a: string, b: string, t: number): string {
-  const pa = hexRGB(a), pb = hexRGB(b);
-  const r = Math.round(pa[0] + (pb[0] - pa[0]) * t);
-  const g = Math.round(pa[1] + (pb[1] - pa[1]) * t);
-  const bl = Math.round(pa[2] + (pb[2] - pa[2]) * t);
-  return `rgb(${r},${g},${bl})`;
-}
 function hexRGB(c: string): [number, number, number] {
   if (!c) return [128, 128, 128];
   // rgb(r,g,b) / rgba(r,g,b,a)
@@ -2668,16 +2596,31 @@ function hexRGB(c: string): [number, number, number] {
   return [128, 128, 128];
 }
 
-function evalCellIs(op: string | undefined, v: number, t: number): boolean {
-  switch (op) {
-    case 'greaterThan': return v > t;
-    case 'lessThan': return v < t;
-    case 'equal': return v === t;
-    case 'notEqual': return v !== t;
-    case 'greaterThanOrEqual': return v >= t;
-    case 'lessThanOrEqual': return v <= t;
-    default: return false;
+/**
+ * Formatação condicional SOBRE o estilo da célula/tabela: o que a regra define
+ * vence (fundo, cor/negrito/itálico/sublinhado/tachado, cada lado da borda,
+ * formato numérico).
+ */
+function applyCfLayer<T extends ResolvedStyle>(st: T, cf: CfResult, numFmts: Map<number, string>): T {
+  const out: T = { ...st, cf };
+  if (cf.fill) out.fill = cf.fill;
+  if (cf.fontColor !== undefined || cf.bold !== undefined || cf.italic !== undefined || cf.underline !== undefined || cf.strike !== undefined) {
+    const f: Font = { ...(st.font ?? {}) };
+    if (cf.fontColor !== undefined) f.color = cf.fontColor;
+    if (cf.bold !== undefined) f.bold = cf.bold;
+    if (cf.italic !== undefined) f.italic = cf.italic;
+    if (cf.underline !== undefined) f.underline = cf.underline;
+    if (cf.strike !== undefined) f.strike = cf.strike;
+    out.font = f;
   }
+  if (cf.border) {
+    const b: Border = { ...(st.border ?? {}) };
+    for (const side of ['left', 'right', 'top', 'bottom'] as const) if (cf.border[side]) b[side] = cf.border[side];
+    out.border = b;
+  }
+  if (cf.numFmtCode !== undefined) out.numFmtCode = cf.numFmtCode;
+  else if (cf.numFmtId !== undefined) out.numFmtCode = numFmts.get(cf.numFmtId) ?? builtinFormatCode(cf.numFmtId) ?? undefined;
+  return out;
 }
 
 customElements.define('universal-sheet', UniversalSheetElement);

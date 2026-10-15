@@ -1,5 +1,6 @@
 import { applyTint, refToRowCol, type Styles, type Fill, type Font, type Border, type BorderEdge, type ColorContext, type Dxf, type Worksheet, type AutoFilterInfo } from '@universal/sheet-core';
 import { BUILTIN_TABLE_STYLES } from './table-styles-data.js';
+import { pivotCellFormats } from './pivot-styles.js';
 
 /**
  * Estilos de TABELA (ListObject) e de tabela dinâmica: definição por elemento
@@ -124,7 +125,7 @@ export interface TableLayout {
 }
 
 /** Aplica um elemento numa célula da sua região [ca..cb]×[ra..rb]. */
-function applyElement(
+export function applyElement(
   out: TableCellFormat, el: ElementFormat | undefined, c: number, r: number,
   ca: number, cb: number, ra: number, rb: number,
 ): void {
@@ -242,6 +243,12 @@ export function buildTableLayer(ws: Worksheet, styles: Styles, cx: ColorContext)
     if (t.filter && t.headerRow) addFilterButtons(t.filter, filterAt);
   }
   if (ws.autoFilter) addFilterButtons(ws.autoFilter, filterAt);
+  // tabelas dinâmicas: estilo de dinâmica sobre o range calculado + botões
+  for (const p of ws.pivots ?? []) {
+    const rg = parseRange(p.ref);
+    if (!rg) continue;
+    pivotCellFormats(p, rg, resolveTableStyle(p.styleName, styles, cx), tableFmt, filterAt, applyElement);
+  }
   return { tableFmt, filterAt, tableEnds };
 }
 
