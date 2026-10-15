@@ -275,6 +275,12 @@ interface PNode {
   desV: Record<string, number>;
   /** restrição que impôs cada valor de desV (o lin do pai encolhe os referidos a tamanho) */
   desC?: Record<string, Constr>;
+  /** dono da restrição de cada valor de desV */
+  desO?: Record<string, PNode>;
+  /** nó de referência de cada valor de desV */
+  desR?: Record<string, PNode>;
+  /** lin: escala vigente no eixo principal (os valores impostos de cima, abaixo dele, acompanham) */
+  ls?: { axis: 'w' | 'h'; s: number; all: boolean };
   /** valores decididos pelas REGRAS (fonte reduzida, altura crescida): vencem as restrições */
   ov: Record<string, number>;
   /** tipos com valor imposto por ancestral nesta avaliação */
@@ -283,6 +289,8 @@ interface PNode {
   hi?: Record<string, number>;
   /** tamanho crescido pelo conteúdo (o lin do pai mede e as restrições dos irmãos o veem) */
   gw?: Record<string, number>;
+  /** tamanho reduzido pela regra do lin pai (rule w for="ch" forName val=0 do hProcess3) */
+  shr?: Record<string, number>;
   /** tamanho dado pelo pai antes de encolher ao conteúdo (o layout interno usa este) */
   cw?: { w: number; h: number };
   /** tipo ligado a outro do próprio nó por igualdade: [tipo de referência, fator] */
@@ -544,6 +552,17 @@ function rangePair(owner: PNode, c: Constr): boolean {
   return owner.constrs.some((d) => d !== c && d.op === other && d.type === c.type && d.for === c.for && d.forName === c.forName && d.ptType === c.ptType);
 }
 
+/**
+ * Grupo de igualdade do valor: op="equ" e também a FONTE dada por um ancestral a
+ * todos os nós de um nome (primFontSz for="des" forName="txThree" val="65"): o app
+ * iguala a fonte deles (medido no hierarchy4 e no AlternatingHexagons).
+ */
+function markEqu(t: PNode, c: Constr, owner: PNode): void {
+  const key = `${owner.uid}:${c.type}:${c.forName ?? ''}:${c.ptType ?? ''}`;
+  if (c.op === 'equ') t.equ[c.type] = key;
+  else if (FONT.has(c.type) && c.for !== 'self' && c.forName && c.refType === 'none' && c.hasVal) t.equ[c.type] ??= key;
+}
+
 function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, onlySelf = false): void {
   for (const c of owner.constrs) {
     if (onlySelf && c.for !== 'self') continue;
@@ -559,12 +578,15 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
         continue;
       }
       // valor decidido pelas regras (fonte reduzida, altura crescida) vence a restrição
-      if (t.ov[c.type] !== undefined || t.gw?.[c.type] !== undefined) { if (c.op === 'equ') t.equ[c.type] = `${owner.uid}:${c.type}:${c.forName ?? ''}:${c.ptType ?? ''}`; continue; }
+      if (t.ov[c.type] !== undefined || t.gw?.[c.type] !== undefined || t.shr?.[c.type] !== undefined) { markEqu(t, c, owner); continue; }
       let value: number | undefined;
       let ref: PNode | undefined;
       if (c.refType !== 'none') {
         ref = refNode(owner, c, t);
-        const rv = ref ? getVal(ref, c.refType) : undefined;
+        let rv = ref ? getVal(ref, c.refType) : undefined;
+        // referência a um nó que não existe (sibSpaceOne com um só topo no hierarchy4):
+        // vale o que a restrição do dono daria a ele (medido: o vão dos filhos aparece)
+        if (rv === undefined && !ref && c.refForName) { rv = virtualVal(owner, c); if (rv !== undefined) ref = owner; }
         if (rv === undefined) continue;
         value = rv * (Number.isFinite(c.fact) ? c.fact : 1);
         // comprimento referido a um tamanho de fonte: o número vale em mm (hList1: h = 1,22 × fonte)
@@ -606,13 +628,25 @@ function applyConstrs(owner: PNode, scale?: (c: Constr, ref: PNode) => number, o
         if (ref === owner && (c.refType === 'w' || c.refType === 'h')) value *= scale(c, owner);
         else if (c.refType === 'none' && LEN.has(c.type)) value *= scale(c, owner);
       }
-      if (c.op === 'equ') t.equ[c.type] = `${owner.uid}:${c.type}:${c.forName ?? ''}:${c.ptType ?? ''}`;
+      markEqu(t, c, owner);
       t.v[c.type] = value;
-      if (c.for === 'des') { t.desV[c.type] = value; (t.desC ??= {})[c.type] = c; }
+      if (c.for === 'des') {
+        t.desV[c.type] = value; (t.desC ??= {})[c.type] = c; (t.desO ??= {})[c.type] = owner;
+        if (ref) (t.desR ??= {})[c.type] = ref; else if (t.desR) delete t.desR[c.type];
+      }
       // valor ligado a outro do MESMO nó com igualdade (h = w): tetos mantêm a proporção
       if (c.op === 'equ' && ref === t && LEN.has(c.refType)) (t.link ??= {})[c.type] = [c.refType, Number.isFinite(c.fact) ? c.fact : 1];
     }
   }
+}
+/** Valor que a restrição do dono daria ao nó `refForName` ausente (só restrições diretas do dono). */
+function virtualVal(owner: PNode, c: Constr): number | undefined {
+  const d = owner.constrs.find((x) => x.forName === c.refForName && x.type === c.refType && x.op !== 'lte' && x.op !== 'gte' && x !== c);
+  if (!d) return undefined;
+  if (d.refType === 'none') return d.hasVal ? (LEN.has(d.type) ? d.val * EMU_MM : d.val) : undefined;
+  if (d.refFor && d.refFor !== 'self') return undefined;
+  const v = getVal(owner, d.refType);
+  return v === undefined ? undefined : v * (Number.isFinite(d.fact) ? d.fact : 1);
 }
 function refNode(owner: PNode, c: Constr, target: PNode): PNode | undefined {
   if (c.refFor === 'self') return owner;
@@ -621,17 +655,35 @@ function refNode(owner: PNode, c: Constr, target: PNode): PNode | undefined {
   return cands[0];
 }
 
+const X_KEYS = new Set(['w', 'l', 'r', 'ctrX', 'lOff', 'rOff', 'ctrXOff', 'wOff']);
+const Y_KEYS = new Set(['h', 't', 'b', 'ctrY', 'tOff', 'bOff', 'ctrYOff', 'hOff']);
+/** Eixo de um valor: o do tipo (w, l, ctrY…) ou, sem eixo próprio (sp, userH…), o da referência. */
+const axisOf = (key: string, ref: string): 'w' | 'h' => (X_KEYS.has(key) ? 'w' : Y_KEYS.has(key) ? 'h' : ref === 'w' ? 'w' : 'h');
+
 /** Restrições do dono + as "self" de cada filho (tamanho ideal dos filhos). */
 function evalKids(n: PNode, scale?: (c: Constr, ref: PNode) => number): void {
   // valores impostos de cima (for="des" de ancestrais) continuam valendo
   for (const k of n.kids) {
-    k.v = { ...k.desV, ...k.ov, ...k.gw }; k.lte = { ...k.desLte }; k.hi = undefined; k.link = undefined; k.fromParent = new Set(Object.keys(k.desV));
+    k.v = { ...k.desV, ...k.ov, ...k.shr, ...k.gw }; k.lte = { ...k.desLte }; k.hi = undefined; k.link = undefined; k.fromParent = new Set(Object.keys(k.desV));
     // tamanho imposto por ancestral (h do childNode = h do compChildNode no lProcess2)
-    // encolhe com o lin como os do próprio dono (medido: 3 filhos de 0,65 h → × 0,3022)
-    if (scale && k.desC) {
+    // encolhe com os lin entre o dono da restrição e o nó, no eixo do valor (medido:
+    // 3 filhos de 0,65 h → × 0,3022; hierarchy4: h dos txTwo e o parTrans seguem a
+    // escala vertical do vertOne, as larguras a horizontal da raiz)
+    if (k.desC) {
       for (const [key, c] of Object.entries(k.desC)) {
-        if (!LEN.has(key) || k.ov[key] !== undefined || k.gw?.[key] !== undefined || k.desV[key] === undefined) continue;
-        if (c.refType === 'w' || c.refType === 'h') k.v[key] = k.desV[key]! * scale(c, n);
+        if (!(LEN.has(key) || key.startsWith('user')) || MARG.has(key)) continue;
+        if (k.ov[key] !== undefined || k.gw?.[key] !== undefined || k.shr?.[key] !== undefined || k.desV[key] === undefined) continue;
+        if (c.refType !== 'w' && c.refType !== 'h') continue;
+        const ax = axisOf(key, c.refType);
+        const O = k.desO?.[key], R = k.desR?.[key];
+        // só se o valor vem do tamanho do dono ou de um nó que um lin do mesmo eixo
+        // encolhe (userH do hierarchy4 → o txOne, num vertOne; o userT do hProcess3,
+        // referido ao "dummy" fora de qualquer lin, não encolhe)
+        let scaledRef = R === O;
+        for (let p: PNode | undefined = R?.parent, d = 0; !scaledRef && p && p !== O && d < MAX_DEPTH; p = p.parent, d++) if (p.ls && (p.ls.all || p.ls.axis === ax)) scaledRef = true;
+        let f = 1;
+        if (scaledRef) for (let q: PNode | undefined = n, d = 0; q && q !== O && d < MAX_DEPTH; q = q.parent, d++) if (q.ls && (q.ls.all || q.ls.axis === ax)) f *= q.ls.s;
+        if (f !== 1) k.v[key] = k.desV[key]! * f;
       }
     }
   }
@@ -689,11 +741,18 @@ function algComposite(n: PNode): void {
 }
 
 /** Tamanho natural (caixa envolvente dos filhos) de um contêiner posto numa caixa w×h. */
-function naturalSize(k: PNode, w: number, h: number): { w: number; h: number } {
+function naturalSize(k: PNode, w: number, h: number, along?: 'w' | 'h'): { w: number; h: number } {
   const keep = { x: k.x, y: k.y, w: k.w, h: k.h, v: k.v };
   const t = algType(k);
   k.x = 0; k.y = 0; k.w = w; k.h = h; k.v = { ...k.v, w, h };
-  if (t === 'lin') algLin(k); else if (t === 'snake') algSnake(k); else algComposite(k);
+  // lin perpendicular ao eixo que o pai mede: a escala própria dele só mexe no eixo
+  // dele, que ele mesmo encaixa na caixa — mede-se sem a busca (lin aninhado em 7
+  // níveis do hierarchy4 custava segundos) e esse eixo vale no máximo o dado
+  const km = t === 'lin' ? linMain(k) : undefined;
+  const flat = !!along && !!km && km !== along;
+  // medindo: o eixo secundário que transborda NÃO é cortado — o pai precisa ver a
+  // largura real (vertOne do hierarchy4 com a fileira de filhos mais larga)
+  if (t === 'lin') algLin(k, true, flat); else if (t === 'snake') algSnake(k); else algComposite(k);
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const c of k.kids) {
     if (c.rw === undefined || c.rh === undefined || !Number.isFinite(c.rw) || !Number.isFinite(c.rh)) continue;
@@ -701,8 +760,15 @@ function naturalSize(k: PNode, w: number, h: number): { w: number; h: number } {
     x1 = Math.max(x1, (c.rx ?? 0) + c.rw); y1 = Math.max(y1, (c.ry ?? 0) + c.rh);
   }
   Object.assign(k, keep);
-  return x0 === Infinity ? { w: 0, h: 0 } : { w: x1 - x0, h: y1 - y0 };
+  if (x0 === Infinity) return { w: 0, h: 0 };
+  const out = { w: x1 - x0, h: y1 - y0 };
+  // (o que cresce no próprio eixo — horzOne com w INF — não se encaixa: vale o conteúdo)
+  const grows = k.rules.some((r) => r.for === 'self' && !r.forName && r.type === km && r.val === Infinity);
+  if (flat && !grows && km === 'w' && Number.isFinite(w)) out.w = Math.min(out.w, w);
+  if (flat && !grows && km === 'h' && Number.isFinite(h)) out.h = Math.min(out.h, h);
+  return out;
 }
+const linMain = (n: PNode): 'w' | 'h' => { const d = params(n.alg)['linDir'] ?? 'fromL'; return d === 'fromL' || d === 'fromR' ? 'w' : 'h'; };
 
 /** Extensão do conteúdo de um composto posto numa caixa w×h (só conteúdo ancorado na origem). */
 function contentExtent(k: PNode, w: number, h: number): { w: number; h: number } {
@@ -734,15 +800,29 @@ function place(k: PNode, x: number, y: number, w: number, h: number): void {
  * de passos: lin aninhado não explode (entrada hostil).
  */
 let SCALE_BUDGET = 0;
-function bestScale(fits: (s: number) => boolean): number {
+/** contadores para diagnóstico (refazimentos de lin / do layout todo) */
+const STATS = { runs: 0, full: 0 };
+export const __dgmStats = STATS;
+function bestScale(fits: (s: number) => boolean, len?: (s: number) => number, L?: number): number {
   if (fits(1)) return 1;
   if (--SCALE_BUDGET < 0) return 1e-6;
+  // atalho: extensão linear na escala (o caso comum) — estima pelo par s = 1 e 1/2 e
+  // confere que é o mesmo múltiplo de 1/4096 da bissecção; lin aninhado (hierarchy4,
+  // 4 níveis) cairia de 13⁴ para ~5⁴ refazimentos
+  if (len && L !== undefined && Number.isFinite(L)) {
+    const l1 = len(1), lh = len(0.5);
+    const a = (l1 - lh) * 2, b = l1 - a;
+    if (a > 0 && Number.isFinite(a) && Number.isFinite(b)) {
+      const q = Math.floor(Math.min(1, Math.max(0, (L - b) / a)) * 4096) / 4096;
+      if (q > 0 && q < 1 && fits(q) && !fits(q + 1 / 4096)) return q;
+    }
+  }
   let lo = 0, hi = 1;
   for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (fits(m)) lo = m; else hi = m; }
   return lo || 1e-6;
 }
 
-function algLin(n: PNode): void {
+function algLin(n: PNode, measuring = false, noScale = false): void {
   const p = params(n.alg);
   const dir = p['linDir'] ?? 'fromL';
   const horiz = dir === 'fromL' || dir === 'fromR';
@@ -765,14 +845,14 @@ function algLin(n: PNode): void {
     }
     // tamanho infinito (h="INF" do list1): o natural do conteúdo
     if (!Number.isFinite(z.w) || !Number.isFinite(z.h)) {
-      const nat = naturalSize(k, Number.isFinite(z.w) ? z.w : W, Number.isFinite(z.h) ? z.h : H);
+      const nat = naturalSize(k, Number.isFinite(z.w) ? z.w : W, Number.isFinite(z.h) ? z.h : H, main);
       return { w: Number.isFinite(z.w) ? z.w : nat.w, h: Number.isFinite(z.h) ? z.h : nat.h };
     }
     const t = algType(k);
     if (t === 'lin' || t === 'snake') {
       // lin/snake filho: o conteúdo manda — sem tamanho no eixo secundário vale o
       // natural (vertFlow do hList9); transbordando a caixa, cresce (hierarchy4)
-      const nat = naturalSize(k, z.w, z.h);
+      const nat = naturalSize(k, z.w, z.h, main);
       // sem restrição num eixo: o natural (vazio = 0, não o tamanho do pai);
       // com restrição: cresce se o conteúdo transborda
       const fw = getVal(k, 'w') === undefined, fh = getVal(k, 'h') === undefined;
@@ -789,14 +869,34 @@ function algLin(n: PNode): void {
     }
     return z;
   };
+  // refazer com os MESMOS parâmetros da última vez não muda nada: devolve o resultado
+  // (fits(1) repetido pela regra de encolher, pela busca e pela passada final — em lin
+  // aninhado em 7 níveis cada repetição multiplica o custo)
+  let lastKey = '', lastRes: { len: number; sec: number; lo: number } | undefined;
   const run = (s: number): { len: number; sec: number; lo: number } => {
+    const key = `${s}|${mode}|${order.map((k) => k.shr?.[main] ?? '').join(',')}`;
+    if (lastRes && key === lastKey) return lastRes;
+    lastRes = runNow(s);
+    lastKey = key;
+    return lastRes;
+  };
+  const runNow = (s: number): { len: number; sec: number; lo: number } => {
+    STATS.runs++;
     for (const k of order) k.gw = undefined;
-    const scale = (c: Constr) => (c.refType === main || (mode === 'all' && (c.refType === 'w' || c.refType === 'h')) ? s : 1);
+    n.ls = { axis: main, s, all: mode === 'all' };
+    // o valor encolhe se for do eixo principal (o h do parTransOne do hierarchy4,
+    // referido à largura da raiz, segue só a escala vertical)
+    // — inclusive comprimento absoluto no eixo (sp do chevron2: h = −14,88 mm × escala),
+    // mas não o de igualdade (space do chevron1: w = −6 mm equ fica −6 mm; medidos)
+    const scale = (c: Constr) => ((c.refType === 'w' || c.refType === 'h') && (mode === 'all' || axisOf(c.type, c.refType) === main)) ||
+      (mode === 'main' && c.refType === 'none' && c.op !== 'equ' && LEN.has(c.type) && !MARG.has(c.type) && axisOf(c.type, 'none') === main && (X_KEYS.has(c.type) || Y_KEYS.has(c.type))) ? s : 1;
     evalKids(n, scale);
     sizes = order.map(sizeOf);
     // filho que cresceu: as restrições dos irmãos que o referem (w ≥ linha dos
     // filhos no hierarchy4) veem o tamanho crescido
-    if (sizes.some((z) => z.grow)) {
+    // (medindo, a caixa envolvente já inclui o filho crescido: a 2ª passada só serve
+    // para pôr os irmãos que o referem — dobrava o custo a cada nível aninhado)
+    if (!measuring && sizes.some((z) => z.grow)) {
       order.forEach((k, i) => { const g = sizes[i]!.grow; if (g) k.gw = { w: g.w, h: g.h }; });
       evalKids(n, scale);
       sizes = order.map(sizeOf);
@@ -819,15 +919,40 @@ function algLin(n: PNode): void {
   // só o eixo PRINCIPAL decide a escala; o secundário que transborda é cortado no
   // espaço disponível (process1 num quadro baixo: largura igual, altura = a do quadro)
   const availS = horiz ? H : W;
-  const fits = (s: number): boolean => run(s).len <= (horiz ? W : H) * 1.0001;
+  const lim = (horiz ? W : H) * 1.0001;
+  const fits = (s: number): boolean => run(s).len <= lim;
+  const lenAt = (s: number): number => run(s).len;
   // regra de crescer no eixo principal (horzOne do hierarchy4: w INF): não encolhe, cresce
   const growPrim = n.rules.some((r) => r.for === 'self' && !r.forName && r.type === main && r.val === Infinity);
-  let s = growPrim ? 1 : bestScale(fits);
-  if (s <= 1e-5) { mode = 'all'; s = bestScale(fits); }
+  // regra de ENCOLHER filhos no eixo principal (rule w for="ch" forName="linV" val="0"
+  // do hProcess3): o app reduz só esses filhos até caber, sem escalar o resto (a seta
+  // de fundo fica com a largura toda; medido)
+  for (const k of order) k.shr = undefined;
+  if (!growPrim && !noScale && !fits(1)) {
+    for (const r of n.rules) {
+      if (r.for !== 'ch' || !r.forName || r.type !== main || !Number.isFinite(r.val)) continue;
+      const tg = order.filter((k) => k.name === r.forName);
+      if (!tg.length) continue;
+      const cur = Math.max(...tg.map((k) => (horiz ? sizes[order.indexOf(k)]?.w : sizes[order.indexOf(k)]?.h) ?? 0));
+      const lo = Math.max(0, r.val * EMU_MM);
+      if (!(cur > lo)) continue;
+      const set = (x: number) => { for (const k of tg) k.shr = { [main]: x }; };
+      set(lo);
+      if (!fits(1)) continue; // nem no mínimo: fica no mínimo e a escala resolve o resto
+      let a = lo, b = cur;
+      // 12 passos como a escala (o resultado é múltiplo de 1/4096 da faixa)
+      for (let i = 0; i < 12; i++) { const m = (a + b) / 2; set(m); if (fits(1)) a = m; else b = m; }
+      set(a);
+      break;
+    }
+  }
+  let s = growPrim || noScale ? 1 : bestScale(fits, lenAt, lim);
+  if (s <= 1e-5) { mode = 'all'; s = bestScale(fits, lenAt, lim); }
+  if ((globalThis as { __dgmLin?: boolean }).__dgmLin && !measuring) console.log('lin', n.name, main, 'lim', Math.round(lim), 's', s, mode, 'len1', Math.round(lenAt(1)), 'budget', SCALE_BUDGET);
   // nem encolhendo cabe (tamanhos absolutos): fica como está e transborda
   if (s <= 1e-5) { mode = 'main'; s = 1; }
   let { len, sec, lo } = run(s);
-  if (Number.isFinite(availS) && sec > availS * 1.0001) {
+  if (!measuring && Number.isFinite(availS) && sec > availS * 1.0001) {
     // a escala do usuário (custScale) fica fora do corte: o tamanho dado é que é cortado
     sizes = sizes.map((z, i) => {
       const cs = custScale(order[i]!, horiz ? 'Y' : 'X');
@@ -1595,9 +1720,13 @@ export function layoutDiagram(inp: DiagramLayoutInput): XmlElement | undefined {
   SCALE_BUDGET = 20000;
   try {
     const run = () => {
-      for (const n of b.nodes) { n.v = { ...n.ov }; n.desV = {}; n.desC = undefined; n.desLte = undefined; n.margF = {}; n.equ = {}; n.lte = {}; n.fromParent = undefined; n.conn = undefined; n.cyc = undefined; n.preplaced = undefined; n.adjOv = undefined; n.rot = 0; n.rx = n.ry = n.rw = n.rh = undefined; }
+      for (const n of b.nodes) { n.v = { ...n.ov }; n.desV = {}; n.desC = undefined; n.desO = undefined; n.desR = undefined; n.ls = undefined; n.shr = undefined; n.desLte = undefined; n.margF = {}; n.equ = {}; n.lte = {}; n.fromParent = undefined; n.conn = undefined; n.cyc = undefined; n.preplaced = undefined; n.adjOv = undefined; n.rot = 0; n.rx = n.ry = n.rw = n.rh = undefined; }
       root.x = 0; root.y = 0; root.w = inp.cx; root.h = inp.cy;
+      STATS.full++;
       FRAME = { w: inp.cx, h: inp.cy };
+      // orçamento de buscas de escala POR refazimento (as regras refazem o layout
+      // várias vezes; lin aninhado em 4 níveis gasta milhares por vez)
+      SCALE_BUDGET = 20000;
       layoutNode(root, 0);
     };
     run();
@@ -1756,10 +1885,27 @@ function textHeight(paras: TextPara[], prim: number, sec: number, width: number,
         if (cur > 0 && cur + ww > avail + 1) { lines++; cur = ww; } else cur += ww;
       }
     }
-    hgt += lines * sz * EMU_PT * lineK * 0.9;
-    if (pi < paras.length - 1) hgt += sz * EMU_PT * 1.2 * (tp.level === 0 ? 0.35 : 0.15);
+    // espaçamentos do usuário (pPr dos dados) valem como no desenho gravado
+    const ln = userSpacing(tp.p, 'a:lnSpc');
+    hgt += lines * (ln?.pts !== undefined ? ln.pts * EMU_PT : sz * EMU_PT * lineK * (ln?.pct ?? 0.9));
+    if (pi < paras.length - 1) {
+      const aft = userSpacing(tp.p, 'a:spcAft'), bef = userSpacing(paras[pi + 1]!.p, 'a:spcBef');
+      const nsz = paras[pi + 1]!.csz ?? (paras[pi + 1]!.level === 0 ? prim : sec);
+      hgt += aft ? (aft.pts !== undefined ? aft.pts * EMU_PT : sz * EMU_PT * 1.2 * (aft.pct ?? 0)) : sz * EMU_PT * 1.2 * (tp.level === 0 ? 0.35 : 0.15);
+      if (bef) hgt += bef.pts !== undefined ? bef.pts * EMU_PT : nsz * EMU_PT * 1.2 * (bef.pct ?? 0);
+    }
   }
   return hgt;
+}
+/** Espaçamento gravado no pPr do parágrafo dos dados: fração (spcPct) ou pontos (spcPts). */
+function userSpacing(p: XmlElement, name: string): { pct?: number; pts?: number } | undefined {
+  const ppr = firstChild(p, 'a:pPr');
+  const e = ppr ? firstChild(ppr, name) : undefined;
+  if (!e) return undefined;
+  const pc = firstChild(e, 'a:spcPct'), pt = firstChild(e, 'a:spcPts');
+  const v = parseInt((pc ?? pt)?.attrs['val'] ?? '', 10);
+  if (!Number.isFinite(v) || v < 0 || v > 1e7) return undefined;
+  return pc ? { pct: v / 100000 } : pt ? { pts: v / 100 } : undefined;
 }
 const bulletIndent = (szPt: number): number => szPt * EMU_PT * 0.5;
 
@@ -2253,15 +2399,26 @@ function textXml(job: TextJob, shapeRot: number): XmlElement[] {
     const lvl = Math.min(8, level);
     const bu = bullets && level >= stBullet;
     const ind = bu ? bulletMarL(size) : 0;
+    // propriedades do parágrafo gravadas nos dados (o usuário centralizou, tirou o
+    // espaçamento…) vencem as do layout — gdx-265011: algn="ctr" no parentText do list1
+    const user = firstChild(src, 'a:pPr');
+    const uk = (names: string[]) => user ? kids(user).filter((c) => names.includes(c.name)).map(clone) : [];
+    const one = (name: string, dflt: XmlElement): XmlElement => { const u = user ? firstChild(user, name) : undefined; return u ? clone(u) : dflt; };
+    const ubu = uk(['a:buNone', 'a:buAutoNum', 'a:buChar', 'a:buBlip']);
+    const { lvl: _ul, ...uattrs } = user?.attrs ?? {};
+    void _ul;
     const pPr = mk('a:pPr', {
       marL: String(ind * Math.max(1, level - stBullet + 1) * (bu ? 1 : 0)), lvl: String(lvl), indent: String(-ind),
       algn: level ? (chAlgn === 'r' ? 'r' : chAlgn === 'ctr' ? 'ctr' : 'l') : (parAlgn === 'l' ? 'l' : parAlgn === 'r' ? 'r' : 'ctr'),
       defTabSz: String(Math.round(size * 3.5 * EMU_PT)),
+      ...uattrs,
     }, [
-      mk('a:lnSpc', {}, [mk('a:spcPct', { val: '90000' })]),
-      mk('a:spcBef', {}, [mk('a:spcPct', { val: '0' })]),
-      mk('a:spcAft', {}, [mk('a:spcPct', { val: level ? '15000' : '35000' })]),
-      bu ? mk('a:buChar', { char: '•' }) : mk('a:buNone'),
+      one('a:lnSpc', mk('a:lnSpc', {}, [mk('a:spcPct', { val: '90000' })])),
+      one('a:spcBef', mk('a:spcBef', {}, [mk('a:spcPct', { val: '0' })])),
+      one('a:spcAft', mk('a:spcAft', {}, [mk('a:spcPct', { val: level ? '15000' : '35000' })])),
+      ...uk(['a:buClrTx', 'a:buClr', 'a:buSzTx', 'a:buSzPct', 'a:buSzPts', 'a:buFontTx', 'a:buFont']),
+      ...(ubu.length ? ubu.slice(0, 1) : [bu ? mk('a:buChar', { char: '•' }) : mk('a:buNone')]),
+      ...uk(['a:tabLst', 'a:defRPr']),
     ]);
     const runs: XmlElement[] = [];
     let endRPr: XmlElement | undefined;
