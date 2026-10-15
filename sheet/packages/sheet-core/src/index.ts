@@ -1,7 +1,8 @@
 export { XlsxPackage } from './package.js';
 export { xlsToXlsxPackage, isXlsBytes, XlsFormatError, XlsEncryptedError } from './xls/index.js';
 export { openSpreadsheet } from './open.js';
-export { updateWorksheetXml, serializeSheetData, serializeCols } from './serialize.js';
+export { updateWorksheetXml, serializeSheetData, serializeCols, encodeXstring } from './serialize.js';
+export { removeCalcChain, updateCalcPr, ensureDynamicArrayCm, updateDefinedNames } from './save-calc.js';
 export { parseXml, childElements, firstChild, textContent, type XmlElement } from './xml.js';
 export { parseChart, paintChart, chartFileFormat, chartModelFor, type ChartModel, type ChartSeries, type ChartType } from './chart.js';
 export { readDrawing, readAnchor, type DrawingContent } from './drawing.js';

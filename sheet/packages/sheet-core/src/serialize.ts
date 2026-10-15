@@ -20,6 +20,16 @@ const escXml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const escAttr = (s: string): string => escXml(s).replace(/"/g, '&quot;');
 
+/**
+ * Texto ST_Xstring (valor `t="str"`, string inline): caractere de controle que
+ * o XML não aceita vira `_xHHHH_` e um `_xHHHH_` literal ganha o escape
+ * `_x005F_` — o inverso do decodeXstring da leitura (o Excel faz igual).
+ */
+export function encodeXstring(s: string): string {
+  return s.replace(/_x[0-9A-Fa-f]{4}_/g, '_x005F$&')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, (ch) => `_x${ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}_`);
+}
+
 /** <f> com os atributos (t, ref, si, ca…); filha de compartilhada sem texto = <f …/>. */
 function formulaXml(c: Cell): string {
   let a = '';
@@ -52,7 +62,10 @@ function cellXml(c: Cell): string {
   if (c.inlineString !== undefined) {
     const t = c.inlineString.text ?? c.inlineString.runs?.map((r) => r.text).join('') ?? '';
     const sp = /^\s|\s$/.test(t) ? ' xml:space="preserve"' : '';
-    inner += `<is><t${sp}>${escXml(t)}</t></is>`;
+    inner += `<is><t${sp}>${escXml(encodeXstring(t))}</t></is>`;
+  } else if (c.type === 'str' && c.value !== undefined) {
+    // texto de fórmula/derramado: "" vai como <v></v> (o Excel grava <v/>; sem <v> ele calcula ao abrir)
+    inner += `<v>${escXml(encodeXstring(c.value))}</v>`;
   } else if (c.value !== undefined && (c.value !== '' || c.formula === undefined)) {
     inner += `<v>${escXml(c.value)}</v>`;
   }

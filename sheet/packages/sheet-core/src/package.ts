@@ -111,6 +111,14 @@ export class XlsxPackage {
     this.setPart(path, new TextEncoder().encode(text));
   }
 
+  /** Remove a parte (nome sem diferenciar maiúsculas). Devolve se existia. */
+  deletePart(path: string): boolean {
+    const real = this.parts.has(path) ? path : this.caseless(path);
+    const had = this.parts.delete(real);
+    if (had) this.lower = null;
+    return had;
+  }
+
   /** Índice minúsculo → nome real (montado sob demanda). */
   private lower: Map<string, string> | null = null;
   /**
