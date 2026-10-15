@@ -12,7 +12,7 @@ import { Bytes, readChars, readXLString, RT, type BiffRecord, type FormatRun, ty
 import type { XlsGlobals } from './globals.js';
 import { colName, xmlText } from './xmlw.js';
 import { decompile, quoteSheet, type FormulaContext } from './formula.js';
-import { readCf, readCondFmt, type CondFormatOut } from './cf.js';
+import { applyCfEx, readCf, readCf12, readCondFmt, type CondFormatOut, type CondRuleOut } from './cf.js';
 import { readDv } from './dv.js';
 
 /** Tabela de strings compartilhada: SST + strings de LABEL/RSTRING (BIFF5). */
@@ -216,6 +216,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
   };
   let lastObj: ObjInfo | undefined;
   let curCf: CondFormatOut | undefined;
+  const cfByNid = new Map<number, CondFormatOut>();
   let cfBase: [number, number] = [0, 0];
   let cfPriority = 0;
   let lastLink: HyperlinkInfo | undefined;
@@ -518,21 +519,37 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
         if (tail !== undefined) addDrawing(rec.data.subarray(tail));
         break;
       }
-      case RT.CONDFMT: {
+      case RT.CONDFMT: case RT.CONDFMT12: {
         if (!b8) break;
-        const cf = readCondFmt(r);
-        curCf = cf.sqref ? { sqref: cf.sqref, rules: [] } : undefined;
-        if (curCf) { sh.condFormats.push(curCf); cfBase = [cf.top, cf.left]; }
+        const cf = readCondFmt(r, rec.type === RT.CONDFMT12 ? 12 : 0);
+        curCf = cf.sqref ? { sqref: cf.sqref, rules: [], nid: cf.nid, byIcf: [] } : undefined;
+        if (curCf) {
+          sh.condFormats.push(curCf); cfBase = [cf.top, cf.left];
+          if (rec.type === RT.CONDFMT) cfByNid.set(cf.nid, curCf);
+        }
         break;
       }
       case RT.CF: {
         if (!b8 || !curCf) break;
         fctx.row = cfBase[0]; fctx.col = cfBase[1];
-        let rule: string | undefined;
+        let rule: CondRuleOut | undefined;
         try { rule = readCf(g, r, g.dxfs, fctx, ++cfPriority); } catch { rule = undefined; }
+        curCf.byIcf?.push(rule);
         if (rule) curCf.rules.push(rule);
         break;
       }
+      case RT.CF12: {
+        if (!b8 || !curCf) break;
+        fctx.row = cfBase[0]; fctx.col = cfBase[1];
+        let rule: CondRuleOut | undefined;
+        try { rule = readCf12(g, r, g.dxfs, fctx); } catch { rule = undefined; }
+        if (rule) curCf.rules.push(rule);
+        break;
+      }
+      case RT.CFEX:
+        if (!b8) break;
+        try { applyCfEx(g, r, g.dxfs, cfByNid); } catch { /* extensão ilegível: a regra CF fica como está */ }
+        break;
       case RT.DV: {
         if (!b8) break;
         let dv: string | undefined;

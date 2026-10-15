@@ -575,6 +575,45 @@ describe('.xls — formatação condicional (CONDFMT + CF → cfRule + dxf)', ()
   });
 });
 
+describe('.xls — formatação condicional do Excel 2007+ (CONDFMT12 + CF12, CFEX)', () => {
+  const ref8 = (r1: number, r2: number, c1: number, c2: number): number[] => [...u16(r1), ...u16(r2), ...u16(c1), ...u16(c2)];
+  const condfmt12 = (nid: number, c: number): Rec => rec(0x0879, [...u16(0x0879), ...u16(1), ...ref8(0, 4, c, c),
+    ...u16(1), ...u16(nid << 1), ...ref8(0, 4, c, c), ...u16(1), ...ref8(0, 4, c, c)]);
+  /** CF12 sem fórmulas nem dxf: ct, prioridade, modelo e o rgbCT. */
+  const cf12 = (ct: number, prio: number, tpl: number, rgbCT: number[]): Rec => rec(0x087a, [...u16(0x087a), ...u16(0), ...new Array(8).fill(0),
+    ct, 0, ...u16(0), ...u16(0), ...u32(0), ...u16(0), ...u16(0), 0, ...u16(prio), ...u16(tpl), 16, ...new Array(16).fill(0), ...rgbCT]);
+  const cfvoMin = [2, ...u16(0)], cfvoMax = [3, ...u16(0)];
+  const cfvoPct = (v: number): number[] => [4, ...u16(0), ...f64(v)];
+  const rgb = (r: number, g: number, b: number): number[] => [...u32(2), r, g, b, 0xff, ...f64(0)];
+  const scale = cf12(3, 2, 2, [...u16(0), 0, 2, 2, 3, ...cfvoMin, ...f64(0), ...cfvoMax, ...f64(1), ...f64(0), ...rgb(0xf8, 0x69, 0x6b), ...f64(1), ...rgb(0x63, 0xbe, 0x7b)]);
+  const bar = cf12(4, 3, 3, [...u16(0), 0, 0, 0, 100, ...rgb(0x63, 0x8e, 0xc6), ...cfvoMin, ...cfvoMax]);
+  const icons = cf12(6, 4, 4, [...u16(0), 0, 3, 5, 4, ...cfvoPct(0), 1, ...u32(0), ...cfvoPct(33), 1, ...u32(0), ...cfvoPct(67), 0, ...u32(0)]);
+  // CF clássico (expressão TRUE) estendido pelo CFEX: prioridade 1, parar-se-verdadeiro
+  const condfmt = rec(0x01b0, [...u16(1), ...u16(5 << 1), ...ref8(0, 4, 3, 3), ...u16(1), ...ref8(0, 4, 3, 3)]);
+  const cf = rec(0x01b1, [2, 0, ...u16(2), ...u16(0), ...u32(0), ...u16(0), 0x1d, 1]);
+  const cfex = rec(0x087b, [...u16(0x087b), ...u16(1), ...ref8(0, 4, 3, 3), ...u32(0), ...u16(5), ...u16(0), 0, 1, ...u16(1), 0x03, 0, 16, ...new Array(16).fill(0)]);
+  const pkg = openSpreadsheet(buildXls(defaultFormatting(), [{ name: 'CF12', recs: [condfmt12(1, 0), scale, condfmt12(2, 1), bar, condfmt12(3, 2), icons, condfmt, cf, cfex] }]));
+  const ws = readWorksheet(pkg, readWorkbook(pkg).sheets[0]!.target!);
+  const rule = (sqref: string) => ws.condFormats.find((c) => c.sqref === sqref)?.rules[0];
+
+  it('escala de cor: cfvo mín/máx e as cores RGB do CFColor', () => {
+    expect(rule('A1:A5')).toMatchObject({ type: 'colorScale', priority: 2, stops: [{ type: 'min', color: '#F8696B' }, { type: 'max', color: '#63BE7B' }] });
+  });
+
+  it('barra de dados: comprimentos 0–100 %, cor e cfvo', () => {
+    expect(rule('B1:B5')).toMatchObject({ type: 'dataBar', priority: 3, barColor: '#638EC6', barMinLen: 0, barMaxLen: 100 });
+  });
+
+  it('conjunto de ícones: nome pelo iIconSet, percentuais e fEqual = 0 → gte="0"', () => {
+    expect(rule('C1:C5')).toMatchObject({ type: 'iconSet', priority: 4, iconSet: '3Signs' });
+    expect(rule('C1:C5')?.cfvos?.map((c) => [c.type, c.val, c.gte])).toEqual([['percent', '0', undefined], ['percent', '33', undefined], ['percent', '67', false]]);
+  });
+
+  it('CFEX: prioridade e parar-se-verdadeiro da regra CF clássica', () => {
+    expect(rule('D1:D5')).toMatchObject({ type: 'expression', priority: 1, stopIfTrue: true, formula: ['TRUE'] });
+  });
+});
+
 describe('.xls — utilitários', () => {
   it('RK: inteiro, inteiro ÷100, double truncado', () => {
     expect(rkValue((100 << 2) | 2)).toBe(100);

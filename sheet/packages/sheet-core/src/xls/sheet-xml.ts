@@ -7,6 +7,7 @@
 import type { XlsGlobals } from './globals.js';
 import type { NoteInfo, XlsSheet } from './sheet.js';
 import { drawingParts, type MediaState } from './drawing.js';
+import { ruleXml } from './cf.js';
 import { XML_HEAD, NS_MAIN, NS_R, REL, cellRef, rangeRef, xmlText } from './xmlw.js';
 
 export interface SheetParts {
@@ -144,7 +145,8 @@ export function worksheetXml(g: XlsGlobals, sh: XlsSheet, index: number, media: 
   }
 
   for (const cf of sh.condFormats) {
-    if (cf.rules.length) x += `<conditionalFormatting sqref="${cf.sqref}">${cf.rules.join('')}</conditionalFormatting>`;
+    const rules = cf.rules.filter((r) => r.type); // CFEX com fActive = 0 desliga a regra
+    if (rules.length) x += `<conditionalFormatting sqref="${cf.sqref}">${rules.map(ruleXml).join('')}</conditionalFormatting>`;
   }
 
   if (sh.dataValidations.length) x += `<dataValidations count="${sh.dataValidations.length}">${sh.dataValidations.join('')}</dataValidations>`;
