@@ -169,6 +169,11 @@ export interface EngineOptions {
   readonly ignoreCache?: boolean;
   /** Formatação da célula para CELL("format"/"color"/"parentheses"/"prefix"/"protect"/"width"). */
   readonly cellInfo?: (sheet: number, row: number, col: number, what: string) => Scalar | undefined;
+  /**
+   * Caminho completo do arquivo da pasta (CELL("filename") → "dir\[pasta.xlsx]Aba",
+   * CELL("address") de outra aba, INFO("directory")). Ausente = pasta não salva ("").
+   */
+  readonly fileName?: string;
 }
 
 /** Serial do Excel do instante atual no fuso local. */
@@ -488,7 +493,18 @@ export class Engine implements EvalHost {
   }
 
   cellInfo(sheet: number, row: number, col: number, what: string): Scalar | undefined {
-    return this.opts.cellInfo?.(sheet, row, col, what);
+    const own = this.opts.cellInfo?.(sheet, row, col, what);
+    if (own !== undefined) return own;
+    const fn = this.opts.fileName;
+    if (!fn) return undefined;
+    const cut = Math.max(fn.lastIndexOf('\\'), fn.lastIndexOf('/'));
+    const dir = fn.slice(0, cut + 1), base = fn.slice(cut + 1);
+    switch (what) {
+      case 'filename': return `${dir}[${base}]${this.sheetName(sheet)}`;
+      case 'bookname': return base;
+      case 'directory': return dir;
+      default: return undefined;
+    }
   }
 
   // ---------------------------------------------------------------- leitura pública

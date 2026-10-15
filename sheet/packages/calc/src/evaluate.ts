@@ -230,7 +230,7 @@ export class Evaluator {
 
   /** Abas de um prefixo (3D = várias). */
   sheetsOf(spec: SheetSpec | undefined, ctx: CellCtx): number[] | CalcError {
-    if (!spec) return [ctx.sheet];
+    if (!spec || (!spec.sheet && !spec.ext)) return [ctx.sheet];
     if (spec.ext !== undefined && spec.ext !== 0) {
       const i = this.host.externalSheet(spec.ext, spec.sheet);
       return i === undefined ? ERR.REF : [i];

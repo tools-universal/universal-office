@@ -46,9 +46,10 @@ const ERROR_CODES: readonly ErrorCode[] = [
   '#CALC!', '#FIELD!', '#BLOCKED!', '#CONNECT!', '#UNKNOWN!', '#BUSY!', '#PYTHON!',
 ];
 
-const IDENT_START = /[\p{L}_\\]/u;
-const IDENT_RE = /[\p{L}_\\][\p{L}\p{N}_.\\?]*/uy;
-const IDENT_CHAR = /[\p{L}\p{N}_.\\?]/u;
+// nomes aceitam também símbolos não ASCII (medido: nomes "“" e "”" valem no Excel)
+const IDENT_START = /[\p{L}_\\]|[^\x00-\x7f\s\u00a0\u3000]/u;
+const IDENT_RE = /(?:[\p{L}_\\]|[^\x00-\x7f\s\u00a0\u3000])(?:[\p{L}\p{N}_.\\?]|[^\x00-\x7f\s\u00a0\u3000])*/uy;
+const IDENT_CHAR = /[\p{L}\p{N}_.\\?]|[^\x00-\x7f\s\u00a0\u3000]/u;
 /** Caracteres de nome de aba sem aspas. */
 const SHEET_RE = /(\[(\d+)\])?(?:([^\s'"!:;,(){}[\]+\-*/^&=<>%@#]+)(?::([^\s'"!:;,(){}[\]+\-*/^&=<>%@#]+))?)?!/uy;
 const NUM_RE = /(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/y;
@@ -463,6 +464,14 @@ class Parser {
             return this.postfix(at({ t: 'paren', e }, t.p));
           }
           case '{': return this.arrayConst();
+          case '!': {
+            // !A1 = a aba onde a fórmula (ou o nome) é avaliada
+            const n = this.take();
+            const spec: SheetSpec = { sheet: '' };
+            if (n.k === 'ref') return this.postfix(at(withSheet(n.node, spec), t.p));
+            if (n.k === 'ident') return this.postfix(at({ t: 'name', name: n.v, sheet: spec }, t.p));
+            this.fail('referência inválida após "!"', n);
+          }
         }
     }
     this.fail('operando esperado', t);
