@@ -64,15 +64,16 @@ export function exponentOf(x: number): number {
 
 /**
  * Soma de dois números com o cancelamento do Excel: sinais opostos e resultado
- * menor que 2^(e−49), e = expoente binário do maior operando, viram 0 exato
- * (medido: 1 − 0,99999999999999833 = 0; 1 − 0,99999999999999822 = 1,78E-15).
+ * menor que 2^(e−49), e = expoente binário do operando da ESQUERDA (o
+ * acumulador), viram 0 exato (medido: 1 − 0,99999999999999833 = 0;
+ * 1 − 0,99999999999999822 = 1,78E-15; com a = 1−2^−50: a+(−1) = −8,88E-16 mas
+ * (−1)+a = 0, no SUM e no operador +).
  * O SUM aplica isto só à ÚLTIMA adição (SUM(0,1;0,2;−0,3;1E-20) = 5,55E-17).
  */
 export function snapAdd(a: number, b: number): number {
   const r = a + b;
   if (r === 0 || !Number.isFinite(r) || (a > 0) === (b > 0) || a === 0 || b === 0) return r;
-  const m = Math.max(Math.abs(a), Math.abs(b));
-  return Math.abs(r) < Math.pow(2, exponentOf(m) - 49) ? 0 : r;
+  return Math.abs(r) < Math.pow(2, exponentOf(a) - 49) ? 0 : r;
 }
 
 /** Modo de arredondamento decimal. */

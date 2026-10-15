@@ -46,3 +46,13 @@ describe('contrato', () => {
     expect(wildcardRegExp('~*').test('*')).toBe(true);
   });
 });
+
+describe('cancelamento do Excel (medido)', () => {
+  // a = 1 − 2^−50: Excel dá SUM(a;−1) = A1+A2 = −8,88E-16 e SUM(−1;a) = A2+A1 = 0
+  const a = 1 - 2 ** -50;
+  it('expoente do acumulador, não do maior operando', () => {
+    expect(callFn('SUM', [a, -1])).toBe(-(2 ** -50));
+    expect(callFn('SUM', [-1, a])).toBe(0);
+    expect(callFn('SUM', [0, a, -1])).toBe(-(2 ** -50));
+  });
+});
