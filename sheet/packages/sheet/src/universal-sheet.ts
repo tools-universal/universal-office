@@ -1644,9 +1644,11 @@ export class UniversalSheetElement extends HTMLElement {
           this.paintCommentIndicator(ctx, left, top, drawW);
         }
         // botão de autofiltro (cabeçalho de tabela / autofiltro da planilha)
-        if (v.filterAt.size > 0) {
-          const fa = v.filterAt.get(`${dcol},${drow}`);
+        {
+          // + botão de campo de tabela dinâmica marcado no xf (pivotButton="1")
+          const fa = v.filterAt.size > 0 ? v.filterAt.get(`${dcol},${drow}`) : undefined;
           if (fa !== undefined) this.paintFilterArrow(ctx, left, top, drawW, drawH, fa);
+          else if (cell?.style !== undefined && this.styles.cellXfs[cell.style]?.pivotButton) this.paintFilterArrow(ctx, left, top, drawW, drawH, false);
         }
         if (v.tableEnds.size > 0 && v.tableEnds.has(`${dcol},${drow}`)) paintTableHandle(ctx, left + drawW, top + drawH);
       }

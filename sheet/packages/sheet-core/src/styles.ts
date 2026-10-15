@@ -99,6 +99,8 @@ export interface CellXf {
   applyFill?: boolean;
   applyBorder?: boolean;
   applyAlignment?: boolean;
+  /** pivotButton="1": o Excel desenha o botão de campo da tabela dinâmica na célula. */
+  pivotButton?: boolean;
   horizontal?: string;
   vertical?: string;
   wrapText?: boolean;
@@ -249,6 +251,7 @@ export function readStyles(pkg: XlsxPackage, cx?: ColorContext): Styles {
       if (a['applyFill'] === '1') rec.applyFill = true;
       if (a['applyBorder'] === '1') rec.applyBorder = true;
       if (a['applyAlignment'] === '1') rec.applyAlignment = true;
+      if (a['pivotButton'] === '1' || a['pivotButton'] === 'true') rec.pivotButton = true;
       const al = firstChild(xf, 'alignment');
       if (al) {
         if (al.attrs['horizontal'] !== undefined) rec.horizontal = al.attrs['horizontal'];
