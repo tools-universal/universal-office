@@ -89,19 +89,25 @@ export interface ResolvedSyntax {
 }
 
 /**
- * Padrões: decimal regional típico do idioma; lista ";" se o decimal for ","
- * (senão ","); separador de coluna da matriz do idioma — se coincidir com o
- * decimal, o alternativo do idioma (xlAlternateArraySeparator); en-US sem
+ * Padrões: decimal regional típico do idioma (idioma sem tabela — Excel com
+ * nomes em inglês —: o do Intl para o id pedido); lista ";" se o decimal for
+ * "," (senão ","); separador de coluna da matriz do idioma — se coincidir com
+ * o decimal, o alternativo do idioma (xlAlternateArraySeparator); en-US sem
  * alternativo medido usa "\".
  */
 export function resolveSyntax(opts: SyntaxOptions = {}): ResolvedSyntax {
   const lang = resolveLanguage(opts.lang);
-  const decimal = opts.decimal ?? lang.regional?.decimal ?? '.';
-  const list = opts.list ?? (opts.decimal === undefined ? lang.regional?.list : undefined) ?? (decimal === ',' ? ';' : ',');
+  const intlDecimal = typeof opts.lang === 'string' && !getLanguage(opts.lang) ? regionalDecimal(opts.lang) : undefined;
+  const decimal = opts.decimal ?? intlDecimal ?? lang.regional?.decimal ?? '.';
+  const list = opts.list ?? (opts.decimal === undefined && intlDecimal === undefined ? lang.regional?.list : undefined) ?? (decimal === ',' ? ';' : ',');
   let arrayCol = opts.arrayCol ?? lang.array?.col ?? ',';
   if (opts.arrayCol === undefined && arrayCol === decimal) arrayCol = lang.array?.alt ?? '\\';
   const arrayRow = opts.arrayRow ?? lang.array?.row ?? ';';
   return { lang, decimal, list, arrayCol, arrayRow, r1c1: !!opts.r1c1 };
+}
+
+function regionalDecimal(id: string): string | undefined {
+  try { return new Intl.NumberFormat(id).formatToParts(1.5).find((p) => p.type === 'decimal')?.value; } catch { return undefined; }
 }
 
 const CANONICAL: ResolvedSyntax = { lang: EN_US_LANG, decimal: '.', list: ',', arrayCol: ',', arrayRow: ';', r1c1: false };

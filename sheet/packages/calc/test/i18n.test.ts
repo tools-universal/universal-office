@@ -200,7 +200,9 @@ describe('idiomas', () => {
   });
   it('idioma sem tabela usa os nomes em inglês com os separadores regionais', () => {
     expect(toLocal('=SUM(1.5,{1,2;3,4})', { lang: 'xx-YY', decimal: ',' })).toBe('=SUM(1,5;{1\\2;3\\4})');
-    expect(toLocal('=SUM(1.5,2)', { lang: 'de-DE' })).toBe('=SUM(1.5,2)');
+    // de-DE ainda sem tabela: nomes em inglês, separadores da região alemã (Intl)
+    expect(toLocal('=SUM(1.5,2)', { lang: 'de-DE' })).toBe('=SUM(1,5;2)');
+    expect(toLocal('=SUM(1.5,2)', { lang: 'ja-JP' })).toBe('=SUM(1.5,2)');
   });
   it('ValueLocale derivado do Intl para outro idioma', () => {
     const de = deriveValueLocale('de-DE');
