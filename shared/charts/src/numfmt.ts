@@ -303,7 +303,7 @@ type CondOp = '<' | '>' | '=' | '<=' | '>=' | '<>';
 interface Cond { op: CondOp; v: number }
 
 type Tok =
-  | { k: 'lit'; s: string }
+  | { k: 'lit'; s: string; den?: boolean }  // den: denominador fixo ("?/10")
   | { k: 'dig'; c: '0' | '#' | '?' }
   | { k: 'pt' } | { k: 'comma' } | { k: 'pct' } | { k: 'slash' } | { k: 'at' } | { k: 'gen' }
   | { k: 'exp'; plus: boolean }
@@ -375,6 +375,7 @@ function parseSection(raw: string): Section {
   // seção de data: o ".000" depois dos segundos é fração de segundo, não placeholder
   const dateLike = /[ymdhs]|am\/pm|a\/p/i.test(bare.replace(/general/gi, '').replace(/e[+-]/gi, ''));
   const hasDigit = /[0#?]/.test(dateLike ? bare.replace(/\.0+/g, '') : bare);
+  let afterSlash = false; // depois da barra, antes do denominador
   const lit = (s: string): void => {
     const last = toks[toks.length - 1];
     if (last && last.k === 'lit') last.s += s; else toks.push({ k: 'lit', s });
@@ -408,7 +409,7 @@ function parseSection(raw: string): Section {
       continue; // [DBNum1], [natural]… ignorados
     }
     if ((ch === 'E' || ch === 'e') && (raw[i + 1] === '+' || raw[i + 1] === '-') && hasDigit) { toks.push({ k: 'exp', plus: raw[i + 1] === '+' }); i++; continue; }
-    if (ch === '0' || ch === '#' || ch === '?') { toks.push({ k: 'dig', c: ch }); continue; }
+    if (ch === '0' || ch === '#' || ch === '?') { toks.push({ k: 'dig', c: ch }); afterSlash = false; continue; }
     if (ch === '.') {
       // .0/.00/.000 logo após segundos = fração de segundo
       const prev = toks[toks.length - 1];
@@ -420,9 +421,14 @@ function parseSection(raw: string): Section {
     if (ch === '%') { toks.push({ k: 'pct' }); continue; }
     if (ch === '/') {
       toks.push({ k: 'slash' });
-      // denominador fixo ("# ?/10"): os algarismos viram um literal só
-      const m = /^[1-9][0-9]*/.exec(raw.slice(i + 1));
-      if (m && hasDigit) { toks.push({ k: 'lit', s: m[0] }); i += m[0].length; }
+      afterSlash = hasDigit;
+      continue;
+    }
+    // denominador fixo ("# ?/10", também depois de literais: '0/"x"10' → "38/x10", medido):
+    // os algarismos viram um literal só
+    if (afterSlash && /[1-9]/.test(ch)) {
+      const m = /^[1-9][0-9]*/.exec(raw.slice(i))!;
+      toks.push({ k: 'lit', s: m[0], den: true }); i += m[0].length - 1; afterSlash = false;
       continue;
     }
     if (ch === '@') { toks.push({ k: 'at' }); continue; }
@@ -501,11 +507,18 @@ function analyzeNumber(sec: Section): void {
   // fração: placeholders / placeholders|número
   const slashAt = !sec.exp && ptAt < 0 ? toks.findIndex((t) => t.k === 'slash') : -1;
   if (slashAt > 0) {
+    // numerador: o grupo contíguo de placeholders mais perto da barra; literais, "_x" e "%"
+    // podem ficar entre ele e a barra, e entre a barra e o denominador (medido no pt-BR:
+    // "#\:#=/=#" c/ 23,75 → "23:3=/=4", "#_#/#" c/ 3,75 → "15 /4", "0/x#" → "3/x4")
+    const isGap = (t: Tok): boolean => (t.k === 'lit' && !t.den) || t.k === 'skip' || t.k === 'pct';
     const numIdx: number[] = [];
-    for (let j = slashAt - 1; j >= 0 && toks[j]!.k === 'dig'; j--) numIdx.unshift(j);
+    let q = slashAt - 1;
+    while (q >= 0 && isGap(toks[q]!)) q--;
+    for (; q >= 0 && toks[q]!.k === 'dig'; q--) numIdx.unshift(q);
     const denIdx: number[] = [];
     let fixedDen = 0;
     let j = slashAt + 1;
+    while (j < toks.length && isGap(toks[j]!)) j++;
     for (; j < toks.length && toks[j]!.k === 'dig'; j++) denIdx.push(j);
     if (!denIdx.length && toks[j]?.k === 'lit') {
       const m = /^\d+/.exec((toks[j] as { s: string }).s);
@@ -792,7 +805,10 @@ function emitScientific(sec: Section, a: number, loc: FormatLocale, out: FmtPart
   const toks = sec.toks;
   const expAt = toks.findIndex((t) => t.k === 'exp');
   const plus = (toks[expAt] as { plus: boolean }).plus;
-  const nInt = Math.max(1, sec.nInt);
+  // com separador de milhar a mantissa tem no mínimo 4 posições inteiras ("#,#" = "#,###"):
+  // passo de engenharia 4 e zero "0,000" (medido no pt-BR: "#.#E+#" c/ 0,0000123456789 →
+  // "1.235E-8", c/ 0 → "0.000E+0"; "#.##E+0" c/ 123456,789 → "12E+4")
+  const nInt = Math.max(1, sec.group ? Math.max(4, sec.nInt) : sec.nInt);
   let e = 0, mant = 0;
   if (a > 0) {
     e = Math.floor(Math.log10(a));
@@ -805,19 +821,39 @@ function emitScientific(sec: Section, a: number, loc: FormatLocale, out: FmtPart
   }
   const [intStr, fracStr] = decimalDigits(mant, sec.nFrac);
   // zero: todos os placeholders inteiros viram 0 (medido: "##0.0E+0" c/ 0 → "000,0E+0")
-  emitDigits(sec, a > 0 ? intStr : '0'.repeat(Math.max(1, sec.nInt)), fracStr, loc, out, expAt);
-  // E+ sempre com sinal; E- só quando o expoente é negativo ("0.0E-0" c/ 12345 → "1,2E4")
-  out.push({ t: 'text', s: 'E' + (e < 0 ? '-' : plus ? '+' : '') });
+  emitDigits(sec, a > 0 ? intStr : '0'.repeat(nInt), fracStr, loc, out, expAt);
+  // E+ sempre com sinal; E- só quando o expoente é negativo ("0.0E-0" c/ 12345 → "1,2E4");
+  // o sinal vai colado aos dígitos do expoente, depois de literais entre eles
+  // (medido: '0E+"x"0' → "1Ex+5", "0E+|0" → "1E|+5")
+  out.push({ t: 'text', s: 'E' });
+  const sign = e < 0 ? '-' : plus ? '+' : '';
   const expToks: Tok[] = toks.slice(expAt + 1);
   const minExp = expToks.filter((t) => t.k === 'dig' && t.c === '0').length;
   const es = String(Math.abs(e)).padStart(minExp, '0');
   let done = false;
   for (const t of expToks) {
-    if (t.k === 'dig') { if (!done) { out.push({ t: 'text', s: es }); done = true; } continue; }
+    if (t.k === 'dig') { if (!done) { out.push({ t: 'text', s: sign + es }); done = true; } continue; }
     pushDecor(t, out);
   }
+  if (!done && sign) out.push({ t: 'text', s: sign });
 }
 
+/**
+ * Fração ("# ?/?", "0/x#", "#\:? ?=/=#"…). Regras medidas no Excel pt-BR (TEXT):
+ * - parte inteira = placeholders antes do numerador (literais entre eles saem no lugar);
+ *   "separador" = literais entre o último placeholder inteiro e o numerador;
+ * - inteiro 0: '0' → "0", '?' → espaço, '#' → nada; o separador sai se o último
+ *   placeholder inteiro mostra um algarismo; senão vira espaços quando o último
+ *   inteiro ou o 1º do numerador é '?', e some nos outros casos ("# #/#" c/ 0,75 → "3/4");
+ * - numerador 0 (número inteiro): se o numerador tem '0', a fração sai ("2 0/1", "# 0/#"
+ *   c/ 0 → "0/1"); senão some do separador ao denominador — vira espaços (um por
+ *   caractere, numerador e denominador como se mostrassem 0 e 1) quando há '?' no último
+ *   inteiro, no numerador ou no denominador ("# #?/#" c/ 0 → "0    "), e some se não
+ *   ("# #/#" c/ 2 → "2"); com valor 0 o último inteiro mostra "0";
+ * - numerador alinhado à direita; denominador: os algarismos ocupam os '?' (da esquerda)
+ *   e, faltando, os placeholders não-'?' mais à direita; os demais: '0' → "0", '?' →
+ *   espaço, '#' → nada ("?00" c/ 16 → "106", "000" c/ 4 → "004", "??" c/ 4 → "4 ").
+ */
 function emitFraction(sec: Section, a: number, loc: FormatLocale, out: FmtPart[]): boolean {
   const f = sec.frac!;
   const toks = sec.toks;
@@ -829,68 +865,106 @@ function emitFraction(sec: Section, a: number, loc: FormatLocale, out: FmtPart[]
   let bestN = 0, bestD = 1;
   if (f.fixedDen) { bestD = f.fixedDen; bestN = Math.round(frac * f.fixedDen); }
   else {
-    let bestErr = Infinity;
-    let lo: [number, number] = [0, 1], hi: [number, number] = [1, 0];
-    // Stern–Brocot sobre a fração (frações impróprias quando não há inteiro)
-    const target = frac;
-    for (const cand of [[Math.floor(target), 1], [Math.ceil(target), 1]] as [number, number][]) {
-      const err = Math.abs(cand[0] / cand[1] - target);
-      if (err < bestErr) { bestErr = err; bestN = cand[0]; bestD = cand[1]; }
+    // último CONVERGENTE da fração contínua (em double) com denominador ≤ máximo — sem
+    // semiconvergentes (medido: 0,1 c/ "?/?" → 0; 0,3 → 2/7, porque 1/0,333… = 2,999… em
+    // double; 3,14159265 c/ "??" → 1/7; 0,123 c/ "???" → 23/187); sem parte inteira a
+    // fração é imprópria (3,75 c/ "#/#" → 15/4)
+    const a0 = Math.floor(frac);
+    let h0 = 1, k0 = 0, h1 = a0, k1 = 1;
+    let r = frac - a0;
+    for (let it = 0; it < 64 && r > 0; it++) {
+      const y = 1 / r;
+      const an = Math.floor(y);
+      r = y - an;
+      const h2 = an * h1 + h0, k2 = an * k1 + k0;
+      if (!Number.isFinite(k2) || k2 > maxDen) break;
+      h0 = h1; k0 = k1; h1 = h2; k1 = k2;
     }
-    lo = [Math.floor(target), 1]; hi = [Math.floor(target) + 1, 1];
-    for (let it = 0; it < 200; it++) {
-      const med: [number, number] = [lo[0] + hi[0], lo[1] + hi[1]];
-      if (med[1] > maxDen) break;
-      const val = med[0] / med[1];
-      const err = Math.abs(val - target);
-      if (err < bestErr - 1e-15) { bestErr = err; bestN = med[0]; bestD = med[1]; }
-      if (val < target) lo = med; else if (val > target) hi = med; else break;
-    }
+    bestN = h1; bestD = k1;
   }
   if (hasInt && bestN >= bestD && bestD > 0) { whole += Math.floor(bestN / bestD); bestN %= bestD; }
-  const zeroFrac = bestN === 0;
-  const intStr = whole > 0 ? String(whole) : '';
-  const numStr = String(bestN), denStr = String(f.fixedDen || bestD);
-  // parte "fração": dos literais depois do último placeholder inteiro até o denominador
-  const lastInt = f.intIdx.length ? f.intIdx[f.intIdx.length - 1]! : -1;
-  const fracFrom = Math.min(lastInt + 1, f.numIdx[0]!);
-  const fracTo = f.denIdx[f.denIdx.length - 1]!;
+  const ph = (i: number): '0' | '#' | '?' => (toks[i] as { c: '0' | '#' | '?' }).c;
   const pad = (c: string): string => (c === '0' ? '0' : c === '?' ? ' ' : '');
+  const intPh = f.intIdx.map(ph), numPh = f.numIdx.map(ph), denPh = f.fixedDen ? [] : f.denIdx.map(ph);
+  const zeroNum = bestN === 0;
+  const lastIntQ = hasInt && intPh[intPh.length - 1] === '?';
+  // fração some (numerador 0 sem placeholder '0'); espaços em vez de nada quando há '?'
+  const suppress = hasInt && zeroNum && !numPh.includes('0');
+  // espaços: '?' no último inteiro, em qualquer lugar do numerador ou no 1º do denominador;
+  // senão só os '?' do denominador viram espaço ("# #/0?" c/ 2 → "2 ")
+  const spaced = lastIntQ || numPh.includes('?') || denPh[0] === '?';
+  // algarismos alinhados à direita nos placeholders (sobra no 1º)
+  const rightAlign = (digits: string, p: readonly string[]): string[] => {
+    const n = p.length, len = digits.length;
+    return p.map((c, j) => {
+      if (j === 0 && len > n) return digits.slice(0, len - n + 1);
+      const k = len - n + j;
+      return k >= 0 ? digits[k]! : pad(c);
+    });
+  };
+  // parte inteira
+  let intOut: string[] = [];
+  if (hasInt) {
+    if (whole > 0) intOut = rightAlign(String(whole), intPh);
+    else {
+      intOut = intPh.map(pad);
+      const last = intOut.length - 1;
+      // valor 0: o "0" aparece no último inteiro (exceto quando o numerador começa por '0'
+      // e o inteiro é '#': o "0" do numerador basta — "# 0/#" c/ 0 → "0/1")
+      if (zeroNum && (suppress || lastIntQ || numPh[0] !== '0') && !/\d/.test(intOut[last]!)) intOut[last] = '0';
+    }
+  }
+  const intShowsDigit = hasInt && /\d/.test(intOut[intOut.length - 1]!);
+  // denominador: algarismos nos '?' da esquerda e, faltando, nos não-'?' mais à direita
+  const denOf = (d: string): string[] => {
+    const n = denPh.length;
+    const slots = new Set<number>();
+    for (let j = 0; j < n && slots.size < d.length; j++) if (denPh[j] === '?') slots.add(j);
+    for (let j = n - 1; j >= 0 && slots.size < d.length; j--) if (denPh[j] !== '?') slots.add(j);
+    const order = [...slots].sort((x, y) => x - y);
+    const res = denPh.map(pad);
+    order.forEach((j, q) => { res[j] = q === order.length - 1 ? d.slice(q) : d[q]!; });
+    return res;
+  };
+  const lastInt = hasInt ? f.intIdx[f.intIdx.length - 1]! : -1;
+  const numFrom = f.numIdx[0]!;
+  const fracTo = f.denIdx[f.denIdx.length - 1]!;
+  const numOut = rightAlign(String(bestN), numPh);
+  const denOut = f.fixedDen ? [] : denOf(String(bestD));
+  // na supressão, numerador e denominador ocupam a largura de "0" e "1"
+  const numZero = suppress ? rightAlign('0', numPh) : numOut;
+  const denOne = suppress && !f.fixedDen ? denOf('1') : denOut;
   for (let i = 0; i < toks.length; i++) {
     const t = toks[i]!;
-    if (zeroFrac && hasInt && i >= fracFrom && i <= fracTo) {
-      // inteiro sem fração: "?/?" e o espaço antes viram espaços da mesma largura
-      // ("# ??/??" c/ 3 → "3      ")
-      if (t.k === 'dig' || t.k === 'slash') out.push({ t: 'text', s: ' ' });
-      else if (t.k === 'lit') out.push({ t: 'text', s: ' '.repeat(f.fixedDen && f.denIdx.includes(i) ? denStr.length : t.s.length) });
-      else pushDecor(t, out);
+    if (suppress && i > lastInt && i <= fracTo) {
+      if (!spaced) { if (t.k === 'dig' && t.c === '?' && f.denIdx.includes(i)) out.push({ t: 'text', s: ' ' }); continue; }
+      let s = '';
+      if (t.k === 'dig') {
+        const ni = f.numIdx.indexOf(i), di = f.denIdx.indexOf(i);
+        s = ni >= 0 ? numZero[ni]! : di >= 0 ? denOne[di]! : pad(t.c);
+      } else if (t.k === 'slash') s = '/';
+      else if (t.k === 'lit') s = f.fixedDen && f.denIdx.includes(i) ? String(f.fixedDen) : t.s;
+      else if (t.k === 'skip') s = ' ';
+      else { pushDecor(t, out); continue; }
+      out.push({ t: 'text', s: ' '.repeat(s.length) });
       continue;
     }
-    if (t.k === 'dig' && f.intIdx.includes(i)) {
-      const j = f.intIdx.indexOf(i), n = f.intIdx.length, len = intStr.length;
-      let s: string;
-      if (j === 0 && len > n) s = intStr.slice(0, len - n + 1);
-      else { const k = len - n + j; s = k >= 0 ? intStr[k]! : pad(t.c); }
-      if (zeroFrac && whole === 0 && j === n - 1 && s === '') s = '0'; // "# ?/?" c/ 0 → "0    "
-      out.push({ t: 'text', s });
+    if (hasInt && i > lastInt && i < numFrom) {
+      // separador entre o inteiro e o numerador
+      if (intShowsDigit) pushDecor(t, out);
+      else if (lastIntQ || numPh[0] === '?') {
+        if (t.k === 'lit') out.push({ t: 'text', s: ' '.repeat(t.s.length) });
+        else if (t.k === 'skip' || t.k === 'dig') out.push({ t: 'text', s: ' ' });
+        else pushDecor(t, out);
+      }
       continue;
     }
-    if (t.k === 'dig' && f.numIdx.includes(i)) {
-      // numerador alinhado à direita
-      const j = f.numIdx.indexOf(i), n = f.numIdx.length, len = numStr.length;
-      let s: string;
-      if (j === 0 && len > n) s = numStr.slice(0, len - n + 1);
-      else { const k = len - n + j; s = k >= 0 ? numStr[k]! : pad(t.c); }
-      out.push({ t: 'text', s });
-      continue;
-    }
+    if (t.k === 'dig' && f.intIdx.includes(i)) { out.push({ t: 'text', s: intOut[f.intIdx.indexOf(i)]! }); continue; }
+    if (t.k === 'dig' && f.numIdx.includes(i)) { out.push({ t: 'text', s: numOut[f.numIdx.indexOf(i)]! }); continue; }
     if (t.k === 'slash') { out.push({ t: 'text', s: '/' }); continue; }
     if (f.denIdx.includes(i)) {
-      if (f.fixedDen) { out.push({ t: 'text', s: denStr }); continue; }
-      // denominador alinhado à esquerda
-      const j = f.denIdx.indexOf(i), n = f.denIdx.length;
-      const s = j === n - 1 ? denStr.slice(j) || pad((t as { c: string }).c) : denStr[j] ?? pad((t as { c: string }).c);
-      out.push({ t: 'text', s });
+      if (f.fixedDen) { out.push({ t: 'text', s: String(f.fixedDen) }); continue; }
+      out.push({ t: 'text', s: denOut[f.denIdx.indexOf(i)]! });
       continue;
     }
     if (t.k === 'pct') { out.push({ t: 'text', s: '%' }); continue; }

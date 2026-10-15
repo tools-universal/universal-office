@@ -92,3 +92,49 @@ describe('negativo em seção só de literais e tempo decorrido (medido, Range.T
     expect(formatValueParts(-0.5, 'h:mm').overflow).toBe(true);
   });
 });
+
+/**
+ * Científico e frações com literais, medidos no Excel 365 pt-BR via TEXT (banco
+ * fix-text do sheet/calc; códigos já canônicos en-US, saída pt-BR).
+ */
+describe('científico e frações (TEXT no Excel pt-BR)', () => {
+  const t = (v: number, f: string): string => formatValue(v, f).text;
+  const table: [string, number, string][] = [
+    // milhar na mantissa: mínimo 4 posições inteiras (passo 4, zero "0.000")
+    ['#,#E+#', 123456.789, '12E+4'],
+    ['#,#E+#', 0.0000123456789, '1.235E-8'],
+    ['#,#E+#', 0, '0.000E+0'],
+    ['#,#E-#', 0, '0.000E0'],
+    ['#,##E+0', 123456.789, '12E+4'],
+    // sinal do expoente colado aos dígitos, depois dos literais
+    ['#,#|E+|#', 123456.789, '12|E|+4'],
+    ['0E+"x"0', 123456.789, '1Ex+5'],
+    ['0E+"x"0', 0, '0Ex+0'],
+    // frações: separador, supressão, denominadores
+    ['# #/#', 0.75, '3/4'],
+    ['# #/#', 2, '2'],
+    ['# #/#', -0.75, '-3/4'],
+    ['# 0/#', 0, '0/1'],
+    ['# 0/#', 2, '2 0/1'],
+    ['# #?/#', 0, '0    '],
+    ['# #/0?', 2, '2 '],
+    ['# #/?0', 2, '2     '],
+    ['# #/000', 0.75, '3/004'],
+    ['# #/?00', 0.6875, '11/106'],
+    ['# #/??', 0.75, '3/4 '],
+    ['# ?0#/000', 0, '0  00/001'],
+    ['# ?0#/000', 23.75, '23  03/004'],
+    ['#\\:? ?=/=#', 23.75, '2:3 3=/=4'],
+    ['#\\:? ?=/=#', 0.75, ':  3=/=4'],
+    ['#_#/#', 3.75, '15 /4'],
+    ['0/\\x#', 12.5, '25/x2'],
+    ['0/"x"10', 3.75, '38/x10'],
+    // convergentes da fração contínua (sem semiconvergentes)
+    ['# ?/?', 0.1, '0    '],
+    ['# ?/?', 0.3, ' 2/7'],
+    ['# ?/??', 3.14159265, '3 1/7 '],
+    ['# ?/???', 0.123, ' 23/187'],
+    ['# ?/???', 0.333, ' 1/3  '],
+  ];
+  for (const [f, v, want] of table) it(`${JSON.stringify(f)} c/ ${v} → ${JSON.stringify(want)}`, () => expect(t(v, f)).toBe(want));
+});
