@@ -30,6 +30,8 @@ export * from './engine.js';
 export * from './from-sheet-core.js';
 export * from './implicit.js';
 export * from './open-recalc.js';
+export * from './to-sheet-core.js';
+export * from './file-form.js';
 
 // bibliotecas de funções (registram no carregamento)
 import './functions/math.js';

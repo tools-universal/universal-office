@@ -50,6 +50,11 @@ export interface FormulaRec {
   /** CSE: área fixa; dinâmica: área derramada atual (undefined = uma célula). */
   area?: Area;
   volatile: boolean;
+  /**
+   * O TEXTO chama função volátil (ou nome definido volátil) — sem contar o `ca`
+   * do arquivo. Ao gravar, o Excel põe ca="1" nessas e nos dependentes delas.
+   */
+  volatileFn?: boolean;
   hasSubtotal: boolean;
   dirty: boolean;
   onStack: boolean;
@@ -329,10 +334,10 @@ export class Engine implements EvalHost {
       rec.exec = ex;
     }
     walk(node, (n) => {
-      if (n.t === 'name' && !n.param && !n.eta && this.nameVolatile(n.name, rec.sheet)) rec.volatile = true;
+      if (n.t === 'name' && !n.param && !n.eta && this.nameVolatile(n.name, rec.sheet)) rec.volatile = rec.volatileFn = true;
       if (n.t !== 'fn') return;
       if (n.name === 'SUBTOTAL' || n.name === 'AGGREGATE') rec.hasSubtotal = true;
-      if (lookupFn(n.name)?.volatile) rec.volatile = true;
+      if (lookupFn(n.name)?.volatile) rec.volatile = rec.volatileFn = true;
     });
   }
 
@@ -949,7 +954,8 @@ export class Engine implements EvalHost {
     if (!(arr instanceof ArrayValue)) {
       this.clearArea(f);
       this.put(st, f, arr === null ? 0 : arr);
-      if (old) this.spillChanged.push(old);
+      // a área derramada da âncora mudou: ela entra nas mudanças (ref do <f> no arquivo)
+      if (old) { this.spillChanged.push(old); this.touch(st.index, f.row, f.col); }
       return;
     }
     const target: Area = { sheet: f.sheet, r1: f.row, c1: f.col, r2: f.row + arr.rows - 1, c2: f.col + arr.cols - 1 };
@@ -966,7 +972,7 @@ export class Engine implements EvalHost {
     if (blocked) {
       this.clearArea(f);
       this.put(st, f, ERR.SPILL);
-      if (old) this.spillChanged.push(old);
+      if (old) { this.spillChanged.push(old); this.touch(st.index, f.row, f.col); }
       return;
     }
     // limpa o que sobrou do derramamento anterior
@@ -987,6 +993,7 @@ export class Engine implements EvalHost {
     if (!old || old.r2 !== target.r2 || old.c2 !== target.c2) {
       this.spillChanged.push(target);
       if (old) this.spillChanged.push(old);
+      this.touch(st.index, f.row, f.col);
     }
     void ctx;
   }

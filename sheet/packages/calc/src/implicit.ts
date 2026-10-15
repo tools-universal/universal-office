@@ -67,7 +67,8 @@ const OVERRIDES: Record<string, FnClassInfo> = {
   CELL: { top: true, params: ['V', 'R'] },
 };
 
-function paramClass(info: FnClassInfo, i: number): ParamClass {
+/** Classe do i-ésimo parâmetro (os pares que se repetem continuam o ciclo). */
+export function paramClass(info: FnClassInfo, i: number): ParamClass {
   const ps = info.params, n = ps.length;
   if (i < n) return ps[i] ?? 'V';
   // pares que se repetem (COUNTIFS: intervalo R, critério V, …): continua o ciclo
