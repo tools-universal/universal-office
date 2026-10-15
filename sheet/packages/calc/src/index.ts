@@ -18,6 +18,15 @@ export * from './i18n/index.js';
 // a fração de ano das bases 0–4 (YEARFRAC, títulos)
 export { excelPower, snapAdd, approx15, decimalRound, RoundMode } from './functions/math-util.js';
 export { yearFrac } from './functions/daycount.js';
+export * from './a1.js';
+export * from './ast.js';
+export * from './parse.js';
+export * from './print.js';
+export * from './ops.js';
+export * from './collate.js';
+export * from './evaluate.js';
+export * from './workbook.js';
+export * from './engine.js';
 
 // bibliotecas de funções (registram no carregamento)
 import './functions/math.js';

@@ -88,6 +88,11 @@ export interface ValueLocale {
    * pt-BR): o TEXT interpreta o código no idioma de quem calcula, não no do arquivo.
    */
   readonly formatLetters?: { readonly year: string; readonly month: string; readonly day: string; readonly hour: string; readonly minute: string; readonly second: string };
+  /**
+   * Letras de linha/coluna do R1C1 no idioma (INDIRECT(…;FALSO) no Excel pt-BR
+   * aceita "L1C1" e recusa "R1C1"; medido). Ausente = tabela interna por `id`.
+   */
+  readonly r1c1?: { readonly row: string; readonly col: string };
 }
 
 /** Locale de valores en-US (padrão dos testes e do arquivo). */
@@ -167,6 +172,13 @@ export interface FnContext {
    * Opcional: sem ele as funções só não memorizam.
    */
   readonly cache?: Map<string, unknown>;
+  /** Área derramada pela âncora (sheet,row,col) — ANCHORARRAY (A1#); undefined = não é âncora. */
+  spillRange?(sheet: number, row: number, col: number): Area | undefined;
+  /**
+   * Informação de formatação/estilo da célula para CELL ("format", "color",
+   * "parentheses", "prefix", "protect", "width") — gancho do hospedeiro.
+   */
+  cellInfo?(sheet: number, row: number, col: number, what: string): Scalar | undefined;
 }
 
 const REGISTRY = new Map<string, FnDef>();

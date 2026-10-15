@@ -20,6 +20,6 @@ writeFileSync(input, JSON.stringify(toOracleInput(cases)));
 execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(here, 'xl-calc.ps1'), '-In', input, '-Out', output],
   { stdio: ['ignore', 'inherit', 'inherit'], windowsHide: true, timeout: 30 * 60 * 1000 });
 const out = JSON.parse(readFileSync(output, 'utf8').replace(/^﻿/, ''));
-const res = (Array.isArray(out) ? out : [out]).map(({ id, v, spill, text, local, err }) => ({ id, v: v ?? null, ...(spill ? { spill } : {}), text, local, ...(err ? { err } : {}) }));
+const res = (Array.isArray(out) ? out : [out]).map(({ id, v, spill, text, f, local, err }) => ({ id, v: v ?? null, ...(spill ? { spill } : {}), text, f, local, ...(err ? { err } : {}) }));
 writeFileSync(join(here, '..', 'test', 'oracle', `${area}.excel.json`), JSON.stringify(res, null, 1) + '\n');
 console.log(`${res.length} casos → test/oracle/${area}.excel.json`);

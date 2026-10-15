@@ -6,6 +6,8 @@
 import { applyFn, implicitIntersection, type RawArg } from './apply.js';
 import { EN_US, lookupFn, type FnContext, type Thunk, type ValueLocale } from './fn.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, MAX_COL, MAX_ROW, RefValue, type Area, type Scalar, type Value } from './values.js';
+import { Engine } from './engine.js';
+import type { CellInput, NameInput, TableInput } from './workbook.js';
 
 /** "A1", "$B$2", "C" → índices 0-based. */
 export function parseA1Cell(s: string): { row: number; col: number } | undefined {
@@ -178,14 +180,31 @@ export function plain(v: Value): unknown {
 /** Valor de célula/argumento em JSON: {e} = erro, {s} = texto que parece número. */
 export type CaseScalar = number | string | boolean | null | { e: string } | { s: string };
 export type CaseArg = CaseScalar | { omit: true } | { ref: string } | { arr: CaseScalar[][] } | { lambda: string };
+/** Conteúdo de célula num caso: escalar ou fórmula canônica ({f:"=A1*2"}, matriz dinâmica). */
+export type CaseCell = CaseScalar | { f: string };
 
 export interface OracleCase {
   readonly id: string;
-  /** Nome canônico da função (sem prefixo). */
+  /** Nome canônico da função (sem prefixo). Com `f`, só informativo (função principal do caso). */
   readonly fn: string;
+  /** Argumentos (ignorados quando há `f`: use []). */
   readonly args: readonly CaseArg[];
-  /** Células da aba 1 ("A1": valor). */
-  readonly cells?: Readonly<Record<string, CaseScalar>>;
+  /**
+   * Fórmula canônica INTEIRA ("=IF(A1>1,SUM(B1:B3),\"x\")"): avaliada pelo parser +
+   * avaliador + motor (runCase) em vez de `fn(args)`.
+   */
+  readonly f?: string;
+  /** Células da aba 1 ("A1": valor ou {f:"=…"}). */
+  readonly cells?: Readonly<Record<string, CaseCell>>;
+  /**
+   * Abas extras ("Nome": células). Com elas, a aba 1 se chama "Sheet1" também no
+   * Excel (sem elas, o Excel pt-BR a chama "Planilha1").
+   */
+  readonly sheets?: Readonly<Record<string, Readonly<Record<string, CaseCell>>>>;
+  /** Nomes definidos da pasta ("Nome": "=Sheet1!$A$1"). */
+  readonly names?: Readonly<Record<string, string>>;
+  /** Tabelas na aba 1: intervalo A1 com cabeçalho (os nomes das colunas vêm das células). */
+  readonly tables?: readonly { readonly name: string; readonly ref: string; readonly totals?: boolean }[];
   /** Célula da fórmula (padrão Z100). */
   readonly at?: string;
   /** Fórmula legada (interseção implícita) em vez de matriz dinâmica. */
@@ -228,6 +247,7 @@ function scalarLiteral(x: CaseScalar): string {
 
 /** Fórmula canônica (en-US) do caso, para o Excel. */
 export function caseFormula(c: OracleCase): string {
+  if (c.f !== undefined) return c.f.startsWith('=') ? c.f : `=${c.f}`;
   const lit = (a: CaseArg): string => {
     if (a !== null && typeof a === 'object') {
       if ('omit' in a) return '';
@@ -245,14 +265,15 @@ export function toOracleInput(cases: readonly OracleCase[]): unknown[] {
   return cases.map((c) => {
     let cells: Record<string, unknown> | undefined = c.cells ? { ...c.cells } : undefined;
     if (c.formulas) { cells ??= {}; for (const [k, f] of Object.entries(c.formulas)) cells[k] = { f }; }
-    return { id: c.id, f: caseFormula(c), cells, at: c.at, legacy: c.legacy, date1904: c.date1904, hiddenRows: c.hiddenRows, filteredRows: c.filteredRows };
+    return { id: c.id, f: caseFormula(c), cells, at: c.at, legacy: c.legacy, date1904: c.date1904, hiddenRows: c.hiddenRows, filteredRows: c.filteredRows, sheets: c.sheets, names: c.names, tables: c.tables };
   });
 }
 
 /** Roda o caso no nosso motor (sem avaliador: callFn sobre um contexto de mentira). */
 export function runCase(c: OracleCase, locale: ValueLocale, extra: Partial<MockOptions> = {}): Value {
+  if (c.f !== undefined || c.sheets || c.names || c.tables || Object.values(c.cells ?? {}).some(isFormulaCell)) return runFormulaCase(c, locale, extra);
   const cells: Record<string, Scalar> = {};
-  for (const [k, v] of Object.entries(c.cells ?? {})) cells[k] = caseScalar(v);
+  for (const [k, v] of Object.entries(c.cells ?? {})) cells[k] = caseScalar(v as CaseScalar);
   const formulas: Record<string, string> = {};
   for (const [k, f] of Object.entries(c.formulas ?? {})) formulas[k] = f.replace(/^=/, '');
   const ctx = mockContext({
@@ -288,6 +309,49 @@ export function runCase(c: OracleCase, locale: ValueLocale, extra: Partial<MockO
   // fórmula legada com matriz como resultado: a célula mostra o canto superior esquerdo
   if (c.legacy && v instanceof ArrayValue) return v.rows && v.cols ? v.get(0, 0) : ERR.VALUE;
   return v;
+}
+
+const isFormulaCell = (x: CaseCell): x is { f: string } => x !== null && typeof x === 'object' && 'f' in x;
+
+function cellInputs(cells: Readonly<Record<string, CaseCell>>): [number, number, CellInput][] {
+  const out: [number, number, CellInput][] = [];
+  for (const [k, v] of Object.entries(cells)) {
+    const p = parseA1Cell(k);
+    if (!p) continue;
+    if (isFormulaCell(v)) out.push([p.row, p.col, { f: { text: v.f.replace(/^=/, ''), t: 'array', dynamic: true } }]);
+    else out.push([p.row, p.col, { v: caseScalar(v) }]);
+  }
+  return out;
+}
+
+/**
+ * Caso com fórmula inteira: monta a pasta (aba 1 + extras, nomes, tabelas),
+ * recalcula com o motor e devolve o valor da célula da fórmula (a matriz
+ * inteira quando derrama).
+ */
+export function runFormulaCase(c: OracleCase, locale: ValueLocale, extra: Partial<MockOptions> = {}): Value {
+  const at = parseA1Cell(c.at ?? 'Z100')!;
+  const main = cellInputs(c.cells ?? {});
+  const text = caseFormula(c).slice(1);
+  main.push([at.row, at.col, { f: c.legacy ? { text } : { text, t: 'array', dynamic: true } }]);
+  const sheets = [{ name: c.sheets ? 'Sheet1' : 'Planilha1', cells: main }];
+  for (const [name, cells] of Object.entries(c.sheets ?? {})) sheets.push({ name, cells: cellInputs(cells) });
+  const names: NameInput[] = Object.entries(c.names ?? {}).map(([name, f]) => ({ name, formula: f.replace(/^=/, '') }));
+  const tables: TableInput[] = (c.tables ?? []).map((t) => {
+    const a = parseA1Area(t.ref);
+    const columns: string[] = [];
+    for (let col = a.c1; col <= a.c2; col++) {
+      const k = Object.keys(c.cells ?? {}).find((x) => { const p = parseA1Cell(x); return p && p.row === a.r1 && p.col === col; });
+      const v = k !== undefined ? (c.cells ?? {})[k] : undefined;
+      columns.push(v === undefined || v === null ? `Coluna${col - a.c1 + 1}` : typeof v === 'object' ? ('s' in v ? v.s : '') : String(v));
+    }
+    return { name: t.name, sheet: 0, ref: t.ref, headerRowCount: 1, totalsRowCount: t.totals ? 1 : 0, columns };
+  });
+  const eng = new Engine({ sheets, names, tables, date1904: c.date1904 }, { locale, now: () => extra.now ?? 45658.5, random: () => 0.5 });
+  eng.recalc();
+  const f = eng.getFormula(0, at.row, at.col);
+  if (f?.area && f.dynamic) return eng.values(f.area);
+  return eng.getValue(0, at.row, at.col);
 }
 
 /** Números iguais como o Excel os mostra (15 dígitos significativos). */

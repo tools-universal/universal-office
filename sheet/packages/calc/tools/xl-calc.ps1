@@ -4,7 +4,9 @@
 #   legacy?: true (Range.Formula = interseccao implicita; padrao Formula2 = matriz dinamica),
 #   date1904?: true, local?: "=FORMULA no idioma do Excel" (entra por FormulaLocal),
 #   hiddenRows?: [2, 3] (linhas 1-based ocultas a mao),
-#   filteredRows?: [4] (linhas 1-based ocultas por um AutoFiltro numa coluna auxiliar AZ) }
+#   filteredRows?: [4] (linhas 1-based ocultas por um AutoFiltro numa coluna auxiliar AZ),
+#   sheets?: { "Nome": { "A1": ... } } (abas extras; a aba 1 vira "Sheet1"),
+#   names?: { "Nome": "=Sheet1!$A$1" } (nomes da pasta), tables?: [{ name, ref, totals? }] (aba 1, com cabecalho) }
 # Saida (JSON UTF-8): [{ id, v, spill?, text, f, local, r1c1Local, err? }]
 #   v = numero | texto | booleano | {"e":"#N/A"} | null ; spill = matriz 2D quando derrama.
 # Valores de TEXTO convertidos seguem o idioma do Excel desta maquina (pt-BR:
@@ -35,28 +37,58 @@ $excel.Visible = $false; $excel.DisplayAlerts = $false; $excel.ScreenUpdating = 
 $excel.EnableEvents = $false; $excel.AutomationSecurity = 3
 $xpid = [uint32]0; [void][XlWin2]::GetWindowThreadProcessId([IntPtr]$excel.Hwnd, [ref]$xpid)
 [Console]::Error.WriteLine("PID $xpid")
+# celulas de uma aba: pass 0 = valores, pass 1 = formulas (depois de todas as abas terem valores)
+function SetCells($sh, $cells, [int]$pass) {
+  if (-not $cells) { return }
+  foreach ($p in $cells.PSObject.Properties) {
+    $cell = $sh.Range([string]$p.Name); $v = $p.Value
+    $isF = ($v -is [System.Management.Automation.PSCustomObject]) -and ($null -ne $v.f)
+    if (($pass -eq 1) -ne $isF) { continue }
+    if ($v -is [System.Management.Automation.PSCustomObject]) {
+      if ($null -ne $v.f) { $cell.Formula2 = [string]$v.f }
+      elseif ($null -ne $v.e) { $cell.Formula = [string]$v.e }
+      elseif ($null -ne $v.s) { $cell.NumberFormat = '@'; $cell.Value2 = [string]$v.s }
+    } elseif ($v -is [string]) { $cell.NumberFormat = '@'; $cell.Value2 = [string]$v }
+    elseif ($v -is [bool]) { $cell.Value2 = [bool]$v } elseif ($null -ne $v) { $cell.Value2 = [double]$v }
+  }
+}
 $res = New-Object System.Collections.ArrayList
 try {
   $wb = $excel.Workbooks.Add()
   $ws = $wb.Worksheets.Item(1)
+  $firstName = [string]$ws.Name
   foreach ($c in $cases) {
     $r = [ordered]@{ id = $c.id }
+    $extra = @(); $tabs = @()
     try {
       if ($ws.AutoFilterMode) { $ws.AutoFilterMode = $false }
       [void]$ws.Cells.Clear()
       $ws.Cells.EntireRow.Hidden = $false
       $wb.Date1904 = [bool]$c.date1904
-      if ($c.cells) {
-        foreach ($p in $c.cells.PSObject.Properties) {
-          $cell = $ws.Range([string]$p.Name); $v = $p.Value
-          if ($v -is [System.Management.Automation.PSCustomObject]) {
-            if ($null -ne $v.f) { $cell.Formula2 = [string]$v.f }
-            elseif ($null -ne $v.e) { $cell.Formula = [string]$v.e }
-            elseif ($null -ne $v.s) { $cell.NumberFormat = '@'; $cell.Value2 = [string]$v.s }
-          } elseif ($v -is [string]) { $cell.NumberFormat = '@'; $cell.Value2 = [string]$v }
-          elseif ($v -is [bool]) { $cell.Value2 = [bool]$v } elseif ($null -ne $v) { $cell.Value2 = [double]$v }
+      if ($c.sheets) {
+        $ws.Name = 'Sheet1'
+        foreach ($p in $c.sheets.PSObject.Properties) {
+          $sh = $wb.Worksheets.Add([Type]::Missing, $wb.Worksheets.Item($wb.Worksheets.Count)); $sh.Name = [string]$p.Name; $extra += $sh
+        }
+        foreach ($p in $c.sheets.PSObject.Properties) { SetCells $wb.Worksheets.Item([string]$p.Name) $p.Value 0 }
+      }
+      SetCells $ws $c.cells 0
+      # Names.Add interpreta RefersTo no idioma local (pt-BR: ";"): traduz por uma celula de rascunho
+      if ($c.names) {
+        foreach ($p in $c.names.PSObject.Properties) {
+          $tmp = $ws.Range('XFD1048576'); $tmp.Formula2 = [string]$p.Value; $loc = [string]$tmp.FormulaLocal; [void]$tmp.Clear()
+          [void]$wb.Names.Add([string]$p.Name, $loc)
         }
       }
+      if ($c.tables) {
+        foreach ($tb in $c.tables) {
+          $lo = $ws.ListObjects.Add(1, $ws.Range([string]$tb.ref), $null, 1); $lo.Name = [string]$tb.name
+          if ($tb.totals) { $lo.ShowTotals = $true }
+          $tabs += $lo
+        }
+      }
+      if ($c.sheets) { foreach ($p in $c.sheets.PSObject.Properties) { SetCells $wb.Worksheets.Item([string]$p.Name) $p.Value 1 } }
+      SetCells $ws $c.cells 1
       if ($c.filteredRows) {
         # AutoFiltro numa coluna auxiliar (AZ): 1 = visivel, 0 = filtrada
         $fr = @($c.filteredRows | ForEach-Object { [int]$_ })
@@ -86,6 +118,12 @@ try {
         $r.spill = $rows
       }
     } catch { $r.err = [string]$_.Exception.Message + " @" + $_.InvocationInfo.ScriptLineNumber }
+    try {
+      foreach ($lo in $tabs) { $lo.Unlist() }
+      foreach ($sh in $extra) { $sh.Delete() }
+      if ($c.names) { foreach ($p in $c.names.PSObject.Properties) { $wb.Names.Item([string]$p.Name).Delete() } }
+      if ($c.sheets) { $ws.Name = $firstName }
+    } catch { $r.err = [string]$r.err + ' cleanup: ' + [string]$_.Exception.Message }
     [void]$res.Add($r)
   }
   $wb.Close($false)
