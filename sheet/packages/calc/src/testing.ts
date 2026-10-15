@@ -160,7 +160,8 @@ export function callFn(name: string, args: readonly TestArg[], ctx: FnContext = 
     }
     return r;
   });
-  return applyFn(def, raw, ctx, { arrayContext });
+  const omitted = args.flatMap((a, i) => (a !== null && typeof a === 'object' && 'omitted' in a ? [i] : []));
+  return applyFn(def, raw, ctx, omitted.length ? { arrayContext, omitted } : { arrayContext });
 }
 
 /** Valor → forma comparável em testes (matriz vira Scalar[][], erro vira o código). */

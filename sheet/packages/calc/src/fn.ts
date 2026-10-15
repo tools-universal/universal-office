@@ -27,7 +27,15 @@ export type ArgMode = 'value' | 'array' | 'ref' | 'any' | 'lazy';
 /** Argumento preguiçoso. `omitted` = vírgula sem nada (=IF(A1,,2)). */
 export interface Thunk { (): Value; readonly omitted: boolean }
 
-/** Argumento omitido (=ROUND(1.5,)) chega como `null` nos modos value/array/any. */
+/**
+ * Argumento omitido (=ROUND(1.5,)) chega como `null` nos modos value/array/any —
+ * igual a célula vazia. Para distinguir (o Excel distingue: CEILING.MATH(2,5;) = 3
+ * mas CEILING.MATH(2,5;A1 vazia) = 0), use `isOmitted(args, i)`: o avaliador marca
+ * as posições omitidas no próprio vetor de argumentos.
+ */
+export function isOmitted(args: readonly unknown[], i: number): boolean {
+  return !!(args as { omitted?: readonly number[] }).omitted?.includes(i);
+}
 
 export interface FnDef {
   /** Nome canônico em MAIÚSCULAS, sem prefixo (ex.: "XLOOKUP", "NORM.S.DIST", "SUM"). */

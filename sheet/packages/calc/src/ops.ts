@@ -6,6 +6,7 @@
  */
 import { toNumber, toText } from './coerce.js';
 import { compareNumbers, compareText } from './collate.js';
+import { excelPower, snapAdd } from './functions/math-util.js';
 import type { ValueLocale } from './fn.js';
 import { ArrayValue, CalcError, ERR, type Scalar } from './values.js';
 
@@ -30,30 +31,17 @@ export function addSub(a: number, b: number, sub: boolean): number | CalcError {
  * =1+7*2^-52-1 → 0 e =1+8*2^-52-1 → 1,78E-15; medido).
  */
 export function addSubTop(a: number, b: number, sub: boolean): number | CalcError {
-  const r = sub ? a - b : a + b;
-  if (r !== 0 && Math.abs(r) < Math.min(Math.abs(a), Math.abs(b)) * NEAR_ZERO) return 0;
-  return numResult(r);
+  // snapAdd (FN-MATH, medido): |r| < 2^(e−49), e = expoente do maior operando
+  return numResult(snapAdd(a, sub ? -b : b));
 }
-/** Fração relativa abaixo da qual a última soma da fórmula vira 0 (2^-49, medido). */
-export const NEAR_ZERO = Math.pow(2, -49);
 
 export type ArithOp = '+' | '-' | '*' | '/' | '^';
 export type CmpOp = '=' | '<>' | '<' | '<=' | '>' | '>=';
 
-/** Potência com os casos do Excel (0^0 e base negativa com expoente fracionário → #NUM!; 0^-n → #DIV/0!). */
+/** Potência = POWER do Excel (excelPower do FN-MATH: quadrados repetidos, base 10 exata, raiz ímpar de negativo a 15 dígitos, subnormal → 0). */
 export function power(a: number, b: number): number | CalcError {
-  if (a === 0) {
-    if (b === 0) return ERR.NUM;
-    if (b < 0) return ERR.DIV0;
-    return 0;
-  }
-  if (a < 0 && !Number.isInteger(b)) {
-    // raiz ímpar de negativo: o Excel aceita 1/n com n ímpar (=(-8)^(1/3) → -2)
-    const inv = 1 / b;
-    if (Math.abs(inv - Math.round(inv)) < 1e-10 && Math.round(inv) % 2 !== 0) return numResult(-Math.pow(-a, b));
-    return ERR.NUM;
-  }
-  return numResult(Math.pow(a, b));
+  const r = excelPower(a, b);
+  return r instanceof CalcError ? r : numResult(r);
 }
 
 export function arith(op: ArithOp, x: Scalar, y: Scalar, locale: ValueLocale, top = false): Scalar {

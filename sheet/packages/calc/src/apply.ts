@@ -14,6 +14,8 @@ export interface ApplyOptions {
    * Falso = fórmula "legada": interseção implícita com a linha/coluna da célula.
    */
   readonly arrayContext: boolean;
+  /** Posições omitidas na fórmula (=F(1;;3) → [1]); a função lê com `isOmitted`. */
+  readonly omitted?: readonly number[];
 }
 
 /** Argumento cru vindo do avaliador: valor ou, nos modos `lazy`, um thunk. */
@@ -79,6 +81,7 @@ export function applyFn(def: FnDef, raw: readonly RawArg[], ctx: FnContext, opts
     }
   }
   const call = (xs: readonly unknown[]): Value => {
+    if (opts.omitted?.length) Object.defineProperty(xs, 'omitted', { value: opts.omitted, enumerable: false });
     if (!def.acceptsErrors) {
       for (let i = 0; i < xs.length; i++) {
         if (argMode(def, i) === 'value' && xs[i] instanceof CalcError) return xs[i] as CalcError;

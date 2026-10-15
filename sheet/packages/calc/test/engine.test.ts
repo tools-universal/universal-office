@@ -5,6 +5,9 @@ import { plain } from '../src/testing.js';
 import { a1ToCell } from '../src/a1.js';
 import type { CellInput } from '../src/workbook.js';
 import { ERR, type Scalar } from '../src/values.js';
+import { applyFn } from '../src/apply.js';
+import { isOmitted, type FnDef } from '../src/fn.js';
+import { mockContext } from '../src/testing.js';
 
 /** Pasta de uma aba a partir de {"A1": valor | "=fórmula"}. */
 function book(cells: Record<string, Scalar>, more: Record<string, Record<string, Scalar>> = {}, legacy = false): Engine {
@@ -21,6 +24,11 @@ function book(cells: Record<string, Scalar>, more: Record<string, Record<string,
 const val = (e: Engine, ref: string, sheet = 0): unknown => { const p = a1ToCell(ref)!; return plain(e.getValue(sheet, p.row, p.col)); };
 
 describe('motor', () => {
+  it('argumento omitido ≠ célula vazia (isOmitted)', () => {
+    const def: FnDef = { name: 'T_OMIT', minArgs: 0, maxArgs: 3, args: 'value', lift: true, call: (a) => a.map((_, i) => (isOmitted(a, i) ? 'o' : '-')).join('') };
+    expect(applyFn(def, [1, null, null], mockContext(), { arrayContext: true, omitted: [1] })).toBe('-o-');
+    expect(plain(applyFn(def, [[1, 2] as never, null], mockContext(), { arrayContext: true, omitted: [1] }))).toBe('-o');
+  });
   it('aritmética e precedência', () => {
     const e = book({ A1: 2, A2: 3, B1: '=A1+A2*2', B2: '=-A1^2', B3: '=2^3^2', B4: '=(A1+A2)%', B5: '="x"&A1&TRUE', B6: '=1/0', B7: '=A9', B8: '="a"="A"', B9: '=1<"a"' });
     expect([val(e, 'B1'), val(e, 'B2'), val(e, 'B3'), val(e, 'B4'), val(e, 'B5'), val(e, 'B6'), val(e, 'B7'), val(e, 'B8'), val(e, 'B9')])

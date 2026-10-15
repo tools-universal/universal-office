@@ -385,6 +385,7 @@ export class Evaluator {
 
   private apply(def: FnDef, argNodes: readonly Node[], s: Scope): Value {
     const raw: RawArg[] = new Array(argNodes.length);
+    let omitted: number[] | undefined;
     for (let i = 0; i < argNodes.length; i++) {
       const a = argNodes[i]!;
       const mode = argMode(def, i);
@@ -395,12 +396,12 @@ export class Evaluator {
         raw[i] = t;
         continue;
       }
-      if (a.t === 'missing') { raw[i] = null; continue; }
+      if (a.t === 'missing') { raw[i] = null; (omitted ??= []).push(i); continue; }
       // legado: argumento de classe matriz avalia a subexpressão como matriz
       const sub = mode === 'array' && !s.arr ? { ...s, arr: true, ctx: s.ctx.withArray(true) } : s;
       raw[i] = this.evalNode(a, sub);
     }
-    return applyFn(def, raw, s.ctx, { arrayContext: s.arr });
+    return applyFn(def, raw, s.ctx, omitted ? { arrayContext: s.arr, omitted } : { arrayContext: s.arr });
   }
 
   private let(args: readonly Node[], s: Scope): Value {
