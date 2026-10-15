@@ -186,6 +186,7 @@ export function stylesXml(g: XlsGlobals): StylesOut {
   x += '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>';
   x += `<cellXfs count="${xfXml.length}">${xfXml.join('')}</cellXfs>`;
   x += '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>';
+  if (g.dxfs.length) x += `<dxfs count="${g.dxfs.length}">${g.dxfs.join('')}</dxfs>`;
   x += '</styleSheet>';
   return { xml: x };
 }

@@ -21,6 +21,8 @@ export const RT = {
   EXTERNNAME: 0x0023,
   SHRFMLA: 0x04bc,
   ARRAY: 0x0221,
+  CONDFMT: 0x01b0,
+  CF: 0x01b1,
   AUTOFILTERINFO: 0x009d,
   SUPBOOK: 0x01ae,
   SIINDEX: 0x1065,

@@ -432,6 +432,26 @@ describe('.xls — texto das fórmulas (RPN do BIFF8 → <f>)', () => {
   });
 });
 
+describe('.xls — formatação condicional (CONDFMT + CF → cfRule + dxf)', () => {
+  // CF: valor da célula > 10 com fonte negrita vermelha (icv 10) e fundo amarelo (icv 13)
+  const dxfn = [
+    ...u32((1 << 26) | (1 << 29) | (1 << 16) | (1 << 17)), ...u16(0), // fonte + padrão; fls/icvFore "ninch"
+    ...new Array(68).fill(0), ...u32(0), ...u16(700), ...new Array(6).fill(0), ...u32(10), ...new Array(4).fill(0),
+    ...u32(0), ...u32(0), ...u32(0), ...u32(0), ...new Array(4).fill(0), ...u32(0), ...u32(0), ...u16(0), // resto do DXFFntD (118)
+    ...u16(1 << 10), ...u16(13 << 7), // DXFPat: fls sólido, icvBackground 13
+  ];
+  const cf = rec(0x01b1, [1, 5, ...u16(3), ...u16(0), ...dxfn, 0x1e, ...u16(10)]);
+  const condfmt = rec(0x01b0, [...u16(1), ...u16(0), ...u16(0), ...u16(4), ...u16(1), ...u16(1), ...u16(1), ...u16(0), ...u16(4), ...u16(1), ...u16(1)]);
+  const pkg = openSpreadsheet(buildXls(defaultFormatting(), [{ name: 'CF', recs: [condfmt, cf] }]));
+  const ws = readWorksheet(pkg, readWorkbook(pkg).sheets[0]!.target!);
+  const st = readStyles(pkg);
+
+  it('regra cellIs com a constante descompilada e o dxf (cor de fundo = bgColor, fonte negrita vermelha)', () => {
+    expect(ws.condFormats).toEqual([{ sqref: 'B1:B5', rules: [expect.objectContaining({ type: 'cellIs', operator: 'greaterThan', formula: ['10'], dxfId: 0 })] }]);
+    expect(st.dxfs[0]).toMatchObject({ fillColor: '#FFFF00', fontColor: '#FF0000', bold: true });
+  });
+});
+
 describe('.xls — utilitários', () => {
   it('RK: inteiro, inteiro ÷100, double truncado', () => {
     expect(rkValue((100 << 2) | 2)).toBe(100);

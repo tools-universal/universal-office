@@ -103,6 +103,8 @@ export interface XlsGlobals {
   names: string[];
   /** EXTERNNAME por SUPBOOK (funções de suplemento: ptgNameX). */
   externNames: string[][];
+  /** <dxf> das regras de formatação condicional (preenchido ao ler as planilhas). */
+  dxfs: string[];
 }
 
 /** Nomes embutidos (Lbl.fBuiltin) pelo código de 1 caractere. */
@@ -131,7 +133,7 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
   const g: XlsGlobals = {
     biff, cp: new Codepage(biff === 8 ? 1200 : 1252), date1904: false,
     fonts: [], formats: new Map(), xfs: [], palette: [...INDEXED_COLORS_DEFAULT.slice(0, 64)],
-    sheets: [], sst: [], activeTab: 0, supbooks: [], xti: [], filterDb: new Map(), names: [], externNames: [],
+    sheets: [], sst: [], activeTab: 0, supbooks: [], xti: [], filterDb: new Map(), names: [], externNames: [], dxfs: [],
   };
   const b8 = biff === 8;
   const dg: Uint8Array[] = [];

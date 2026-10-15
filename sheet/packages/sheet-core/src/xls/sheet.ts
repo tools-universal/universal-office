@@ -12,6 +12,7 @@ import { Bytes, readChars, readXLString, RT, type BiffRecord, type FormatRun, ty
 import type { XlsGlobals } from './globals.js';
 import { colName, xmlText } from './xmlw.js';
 import { decompile, quoteSheet, type FormulaContext } from './formula.js';
+import { readCf, readCondFmt, type CondFormatOut } from './cf.js';
 
 /** Tabela de strings compartilhada: SST + strings de LABEL/RSTRING (BIFF5). */
 export class StringTable {
@@ -107,6 +108,8 @@ export interface XlsSheet {
   hasAutoFilter?: boolean;
   /** Área do autofiltro (do nome _FilterDatabase da aba). */
   autoFilter?: Rect;
+  /** Formatação condicional: sqref A1 + <cfRule> já em XML. */
+  condFormats: CondFormatOut[];
   /** Valores das células referenciadas por gráficos (chave linha·16384 + coluna). */
   values?: Map<number, CellValue>;
 }
@@ -155,7 +158,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
   const sh: XlsSheet = {
     cells: new Map(), rows: new Map(), cols: [], merges: [],
     showGrid: true, showZeros: true, showFormulas: false, rightToLeft: false, selected: false,
-    hyperlinks: [], notes: [], objs: [],
+    hyperlinks: [], notes: [], objs: [], condFormats: [],
   };
   const keep = wanted?.length
     ? (row: number, col: number, v: number | string, xf: number): void => {
@@ -208,6 +211,9 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
     }
   };
   let lastObj: ObjInfo | undefined;
+  let curCf: CondFormatOut | undefined;
+  let cfBase: [number, number] = [0, 0];
+  let cfPriority = 0;
   let lastLink: HyperlinkInfo | undefined;
   let lastNote5: NoteInfo | undefined;
   const chartRecs: BiffRecord[] | undefined = isChart ? [] : undefined;
@@ -492,6 +498,21 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
         lastObj.text = rs;
         lastObj.txoAlign = r.u16(0);
         lastObj.txoRot = r.u16(2);
+        break;
+      }
+      case RT.CONDFMT: {
+        if (!b8) break;
+        const cf = readCondFmt(r);
+        curCf = cf.sqref ? { sqref: cf.sqref, rules: [] } : undefined;
+        if (curCf) { sh.condFormats.push(curCf); cfBase = [cf.top, cf.left]; }
+        break;
+      }
+      case RT.CF: {
+        if (!b8 || !curCf) break;
+        fctx.row = cfBase[0]; fctx.col = cfBase[1];
+        let rule: string | undefined;
+        try { rule = readCf(g, r, g.dxfs, fctx, ++cfPriority); } catch { rule = undefined; }
+        if (rule) curCf.rules.push(rule);
         break;
       }
       case RT.AUTOFILTERINFO:

@@ -139,6 +139,10 @@ export function worksheetXml(g: XlsGlobals, sh: XlsSheet, index: number, media: 
     x += '</mergeCells>';
   }
 
+  for (const cf of sh.condFormats) {
+    if (cf.rules.length) x += `<conditionalFormatting sqref="${cf.sqref}">${cf.rules.join('')}</conditionalFormatting>`;
+  }
+
   if (sh.hyperlinks.length) {
     let hx = '';
     for (const l of sh.hyperlinks) {
