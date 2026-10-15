@@ -205,6 +205,17 @@ export interface DrawingChart {
   chartXml: string;
 }
 
+/** Imagem ancorada (`<xdr:pic>` com `<a:blip r:embed>` → parte `xl/media/…`). */
+export interface DrawingPicture {
+  anchor: DrawingAnchor;
+  /** Bytes do arquivo de imagem. */
+  data: Uint8Array;
+  /** Extensão da parte de mídia (png, jpeg, gif, bmp, emf, wmf…), minúscula. */
+  ext: string;
+  /** Recorte `a:srcRect` em frações da imagem (0..1) por lado. */
+  crop?: { l: number; t: number; r: number; b: number };
+}
+
 /**
  * Tabela (ListObject, `xl/tables/tableN.xml`). Os ESTILOS built-in
  * (TableStyleMedium2 etc.) não são gravados no pacote — o app de referência os
@@ -241,6 +252,8 @@ export interface Worksheet {
   comments?: Comment[];
   /** Charts embutidos via `xl/drawings/drawingN.xml`. */
   charts?: DrawingChart[];
+  /** Imagens ancoradas via `xl/drawings/drawingN.xml` (em ordem de desenho). */
+  pictures?: DrawingPicture[];
   /** Hyperlinks (<hyperlinks>) com targets externos resolvidos via rels. */
   hyperlinks?: Hyperlink[];
   /** Defaults de largura/altura do grid (<sheetFormatPr>). */

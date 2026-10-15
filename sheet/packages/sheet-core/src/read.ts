@@ -3,7 +3,7 @@ import { colorContext, resolveColorEl, type ColorContext } from './theme.js';
 import type {
   Workbook, SheetRef, Worksheet, Row, Cell, CellType, SharedString, RichRun, RunProps,
   ColDef, PaneInfo, CondFormat, CondRule, ColorStop, Comment,
-  DrawingAnchor, DrawingChart, Hyperlink, SheetFormatPr, TableInfo,
+  DrawingAnchor, DrawingChart, DrawingPicture, Hyperlink, SheetFormatPr, TableInfo,
 } from './model.js';
 import { refToRowCol, rowColToRef } from './model.js';
 import type { XlsxPackage } from './package.js';
@@ -302,11 +302,11 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   // comentários da planilha (rels de tipo .../relationships/comments)
   const commentsPath = findRelByType(pkg, relsPath, '/comments');
   const comments = commentsPath ? readComments(pkg, pkg.resolveRelTarget(sheetPath, commentsPath)) : [];
-  // charts ancorados (drawing1.xml) — só descobre o caminho aqui; parse abaixo
+  // charts e imagens ancorados (drawing1.xml) — só descobre o caminho aqui; parse abaixo
   const drawingTarget = findRelByType(pkg, relsPath, '/drawing');
-  const charts = drawingTarget
-    ? readDrawingCharts(pkg, pkg.resolveRelTarget(sheetPath, drawingTarget))
-    : [];
+  const { charts, pictures } = drawingTarget
+    ? readDrawing(pkg, pkg.resolveRelTarget(sheetPath, drawingTarget))
+    : { charts: [], pictures: [] };
 
   // validações de dados tipo LISTA (dropdown na célula selecionada)
   const listValidations: string[] = [];
@@ -339,6 +339,7 @@ export function readWorksheet(pkg: XlsxPackage, sheetPath: string, cx?: ColorCon
   if (condFormats.length > 0) ws.condFormats = condFormats;
   if (comments.length > 0) ws.comments = comments;
   if (charts.length > 0) ws.charts = charts;
+  if (pictures.length > 0) ws.pictures = pictures;
   if (hyperlinks.length > 0) ws.hyperlinks = hyperlinks;
   if (sheetFormatPr) ws.sheetFormatPr = sheetFormatPr;
   if (tables.length > 0) ws.tables = tables;
@@ -369,15 +370,17 @@ function readTablePart(pkg: XlsxPackage, tablePath: string): TableInfo | undefin
 }
 
 /**
- * Lê `xl/drawings/drawingN.xml` + seu `_rels` → lista de charts ancorados.
+ * Lê `xl/drawings/drawingN.xml` + seu `_rels` → charts e imagens ancorados.
  * Cada `<xdr:twoCellAnchor>` define from/to em (col,row) + offsets EMU;
- * cada `<xdr:graphicFrame>` com `<c:chart r:id>` resolve para um `chartN.xml`.
- * Imagens/tabelas via drawing são pendentes (futuras iterações).
+ * cada `<xdr:graphicFrame>` com `<c:chart r:id>` resolve para um `chartN.xml`
+ * e cada `<xdr:pic>` com `<a:blip r:embed>` para a parte de mídia.
+ * Formas e caixas de texto via drawing são pendentes (futuras iterações).
  */
-function readDrawingCharts(pkg: XlsxPackage, drawingPath: string): DrawingChart[] {
+function readDrawing(pkg: XlsxPackage, drawingPath: string): { charts: DrawingChart[]; pictures: DrawingPicture[] } {
   const out: DrawingChart[] = [];
+  const pictures: DrawingPicture[] = [];
   const xml = pkg.getPartText(drawingPath);
-  if (xml === undefined) return out;
+  if (xml === undefined) return { charts: out, pictures };
   const root = parseXml(xml);
   // rels do próprio drawing (para resolver rId -> chartN.xml)
   const drelsPath = relsPathFor(drawingPath);
@@ -397,6 +400,40 @@ function readDrawingCharts(pkg: XlsxPackage, drawingPath: string): DrawingChart[
     const from = firstChild(anchor, 'xdr:from');
     const to = firstChild(anchor, 'xdr:to');
     if (!from || !to) continue;
+    const anchorAt = (): DrawingAnchor => ({
+      from: {
+        col: parseInt0(textContent(firstChild(from, 'xdr:col') ?? makeStub())),
+        row: parseInt0(textContent(firstChild(from, 'xdr:row') ?? makeStub())),
+        colOff: parseInt0(textContent(firstChild(from, 'xdr:colOff') ?? makeStub())),
+        rowOff: parseInt0(textContent(firstChild(from, 'xdr:rowOff') ?? makeStub())),
+      },
+      to: {
+        col: parseInt0(textContent(firstChild(to, 'xdr:col') ?? makeStub())),
+        row: parseInt0(textContent(firstChild(to, 'xdr:row') ?? makeStub())),
+        colOff: parseInt0(textContent(firstChild(to, 'xdr:colOff') ?? makeStub())),
+        rowOff: parseInt0(textContent(firstChild(to, 'xdr:rowOff') ?? makeStub())),
+      },
+    });
+    // imagem: <xdr:pic><xdr:blipFill><a:blip r:embed/><a:srcRect/></xdr:blipFill>
+    const pic = firstChild(anchor, 'xdr:pic');
+    if (pic) {
+      const fill = firstChild(pic, 'xdr:blipFill');
+      const blip = fill ? firstChild(fill, 'a:blip') : undefined;
+      const rid = blip?.attrs['r:embed'];
+      const path = rid ? drelsMap.get(rid) : undefined;
+      const bytes = path ? pkg.getPart(path) : undefined;
+      if (path && bytes) {
+        const p: DrawingPicture = { anchor: anchorAt(), data: bytes, ext: path.slice(path.lastIndexOf('.') + 1).toLowerCase() };
+        const sr = fill ? firstChild(fill, 'a:srcRect') : undefined;
+        if (sr) {
+          const f = (k: string): number => (sr.attrs[k] !== undefined ? parseInt(sr.attrs[k]!, 10) / 100000 : 0);
+          const crop = { l: f('l'), t: f('t'), r: f('r'), b: f('b') };
+          if (crop.l || crop.t || crop.r || crop.b) p.crop = crop;
+        }
+        pictures.push(p);
+      }
+      continue;
+    }
     const gframe = firstChild(anchor, 'xdr:graphicFrame');
     if (!gframe) continue;
     const graphic = firstChild(gframe, 'a:graphic');
@@ -410,23 +447,9 @@ function readDrawingCharts(pkg: XlsxPackage, drawingPath: string): DrawingChart[
     if (!chartPath) continue;
     const chartXml = pkg.getPartText(chartPath);
     if (!chartXml) continue;
-    const anchorData: DrawingAnchor = {
-      from: {
-        col: parseInt0(textContent(firstChild(from, 'xdr:col') ?? makeStub())),
-        row: parseInt0(textContent(firstChild(from, 'xdr:row') ?? makeStub())),
-        colOff: parseInt0(textContent(firstChild(from, 'xdr:colOff') ?? makeStub())),
-        rowOff: parseInt0(textContent(firstChild(from, 'xdr:rowOff') ?? makeStub())),
-      },
-      to: {
-        col: parseInt0(textContent(firstChild(to, 'xdr:col') ?? makeStub())),
-        row: parseInt0(textContent(firstChild(to, 'xdr:row') ?? makeStub())),
-        colOff: parseInt0(textContent(firstChild(to, 'xdr:colOff') ?? makeStub())),
-        rowOff: parseInt0(textContent(firstChild(to, 'xdr:rowOff') ?? makeStub())),
-      },
-    };
-    out.push({ anchor: anchorData, chartXml });
+    out.push({ anchor: anchorAt(), chartXml });
   }
-  return out;
+  return { charts: out, pictures };
 }
 
 function makeStub(): XmlElement { return { name: '', attrs: {}, children: ['0'] }; }
