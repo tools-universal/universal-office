@@ -329,10 +329,30 @@ export class Engine implements EvalHost {
       rec.exec = ex;
     }
     walk(node, (n) => {
+      if (n.t === 'name' && !n.param && !n.eta && this.nameVolatile(n.name, rec.sheet)) rec.volatile = true;
       if (n.t !== 'fn') return;
       if (n.name === 'SUBTOTAL' || n.name === 'AGGREGATE') rec.hasSubtotal = true;
       if (lookupFn(n.name)?.volatile) rec.volatile = true;
     });
+  }
+
+  private readonly volatileNames = new Map<string, boolean>();
+  /** O nome definido usa função volátil (direta ou por outro nome)? Ex.: X = SUM(OFFSET(…)). */
+  private nameVolatile(name: string, sheet: number, depth = 0): boolean {
+    const k = `${sheet}|${name.toUpperCase()}`;
+    const hit = this.volatileNames.get(k);
+    if (hit !== undefined) return hit;
+    this.volatileNames.set(k, false);
+    const d = this.definedName(name, sheet);
+    let v = false;
+    if (d && depth < 20) {
+      walk(d, (n) => {
+        if (n.t === 'fn' && lookupFn(n.name)?.volatile) v = true;
+        else if (n.t === 'name' && !n.param && this.nameVolatile(n.name, sheet, depth + 1)) v = true;
+      });
+    }
+    this.volatileNames.set(k, v);
+    return v;
   }
 
   private addFormula(rec: FormulaRec): void {
