@@ -150,11 +150,11 @@ const floorMath = numFn('FLOOR.MATH', 1, 3, ([x, s, mode]) => {
   if (sig === 0 || x === 0) return 0;
   return stepRound(x!, sig, x! < 0 && mode !== 0);
 }, { prefix: X, defaults: [1, 0], emptyIsDefault: true });
-const precise = (name: string, up: boolean): FnDef => numFn(name, 1, 2, ([x, s]) => {
+const precise = (name: string, up: boolean, prefix?: string): FnDef => numFn(name, 1, 2, ([x, s]) => {
   const sig = Math.abs(s!);
   if (sig === 0 || x === 0) return 0;
   return stepRound(x!, sig, up);
-}, { prefix: X, defaults: [1], emptyIsDefault: true });
+}, { prefix, defaults: [1], emptyIsDefault: true });
 
 const mround = atpFn('MROUND', 2, 2, ([x, m]) => {
   if (m === 0 || x === 0) return 0;
@@ -638,7 +638,7 @@ register(
   pairSum('SUMXMY2', (x, y) => (x - y) * (x - y)),
   roundFn('ROUND', RoundMode.Half), roundFn('ROUNDUP', RoundMode.Up), roundFn('ROUNDDOWN', RoundMode.Down), roundFn('TRUNC', RoundMode.Down),
   int, ceiling, floor, ceilingMath, floorMath,
-  precise('CEILING.PRECISE', true), precise('ISO.CEILING', true), precise('FLOOR.PRECISE', false),
+  precise('CEILING.PRECISE', true, X), precise('ISO.CEILING', true), precise('FLOOR.PRECISE', false, X),
   mround, even, odd, mod, power, quotient, sqrt, sqrtpi, exp, ln, log10, log, abs, sign,
   fact, factdouble, combin, combina, gcd, lcm, multinomial, seriessum,
   pi, rand, randbetween,
