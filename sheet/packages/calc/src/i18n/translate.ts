@@ -46,6 +46,15 @@ interface LangData {
 
 const LANG_CACHE = new WeakMap<FormulaLanguage, LangData>();
 
+/** Tira os diacríticos (Á → A, Ü → U, Ç → C). */
+const stripMarks = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
+
+/** Função digitada no idioma → canônico: nome exato, ou com os acentos ignorados. */
+function fnLookup(d: LangData, word: string): string | undefined {
+  const f = d.fold(word);
+  return d.fnIn.get(f) ?? d.fnIn.get(stripMarks(f));
+}
+
 function langData(lang: FormulaLanguage): LangData {
   let d = LANG_CACHE.get(lang);
   if (d) return d;
@@ -54,6 +63,13 @@ function langData(lang: FormulaLanguage): LangData {
   // funções sem tradução primeiro: a tradução explícita ganha em colisão
   for (const e of catalog()) if (!lang.functions[e.name]) fnIn.set(fold(e.name), e.name);
   for (const [canon, local] of Object.entries(lang.functions)) fnIn.set(fold(local), canon);
+  // nome digitado SEM os acentos também vale (medido no Excel pt-BR, Formula2Local:
+  // =MAXIMO → MÁXIMO, =CONT.NUM → CONT.NÚM, =SOMASEQUENCIA → SOMASEQÜÊNCIA); sem
+  // colisão entre nomes do pt-BR. A forma acentuada exata continua ganhando.
+  for (const [k, canon] of [...fnIn]) {
+    const bare = stripMarks(k);
+    if (bare !== k && !fnIn.has(bare)) fnIn.set(bare, canon);
+  }
   const errOut = (code: ErrorCode): string => lang.errors?.[code] ?? code;
   const errIn = ERROR_CODES.map((c) => [fold(errOut(c)), c] as const).sort((a, b) => b[0].length - a[0].length);
   const table = { ...EN_US_LANG.table, ...lang.table } as TableKeywords;
@@ -344,7 +360,7 @@ function tokenize(text: string, src: Dialect, names?: ReadonlySet<string>): Tok[
           else toks.push({ k: 'fn', raw: word });
         } else {
           // o Excel tira _xlfn. e procura o nome LOCAL (_xlfn.PROCX → XLOOKUP)
-          const canon = d.fnIn.get(d.fold(preU === '_xlfn.' || preU === '_xlfn._xlws.' || preU === '_xlws.' ? rest : word));
+          const canon = fnLookup(d, preU === '_xlfn.' || preU === '_xlfn._xlws.' || preU === '_xlws.' ? rest : word);
           toks.push(canon ? { k: 'fn', canon, raw: word } : { k: 'fn', raw: word });
         }
         i = j;
@@ -382,7 +398,7 @@ function tokenize(text: string, src: Dialect, names?: ReadonlySet<string>): Tok[
       // função como valor (eta: =GROUPBY(...;SOMA), =SUM)
       const prev = prevSignificant();
       if (!inRange && !isA1Cell(word) && !(prev?.k === 'text' && prev.s.endsWith('!')) && !names?.has(f)) {
-        const canon = src.canonical ? (catalogEntry(word) ? stripFilePrefix(word) : undefined) : d.fnIn.get(f);
+        const canon = src.canonical ? (catalogEntry(word) ? stripFilePrefix(word) : undefined) : fnLookup(d, word);
         if (canon) { toks.push({ k: 'eta', canon, raw: word }); i = j; continue; }
       }
       toks.push({ k: 'name', s: word });
@@ -635,7 +651,7 @@ export function localFunctionName(canonical: string, lang?: string | FormulaLang
 /** Nome canônico de uma função digitada no idioma (undefined = desconhecida nesse idioma). */
 export function canonicalFunctionName(local: string, lang?: string | FormulaLanguage): string | undefined {
   const d = langData(resolveLanguage(lang));
-  return d.fnIn.get(d.fold(local));
+  return fnLookup(d, local);
 }
 
 /** Erro no idioma (#N/A → #N/D). */

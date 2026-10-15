@@ -235,4 +235,14 @@ describe('tradutor: casos que o oráculo não cobre', () => {
     expect(toLocal('=_xludf.Sum(B9:C42)', PT)).toBe('=Sum(B9:C42)');
     expect(fromLocal('=Sum(B9:C42)', PT)).toBe('=_xludf.Sum(B9:C42)');
   });
+  it('nome de função digitado sem acentos (medido no Excel pt-BR via Formula2Local)', () => {
+    // _lab/calc/ui/entry2: =MAXIMO(1;2) → =MÁXIMO(1;2), =MEDIA → MÉDIA, =CONT.NUM → CONT.NÚM,
+    // =SOMASEQUENCIA e =SOMASEQUÊNCIA → SOMASEQÜÊNCIA, =SEQUENCIA(3) → SEQUÊNCIA
+    expect(fromLocal('=MAXIMO(1;2)', PT)).toBe('=MAX(1,2)');
+    expect(fromLocal('=media(1;2)', PT)).toBe('=AVERAGE(1,2)');
+    expect(fromLocal('=CONT.NUM(1)', PT)).toBe('=COUNT(1)');
+    expect(fromLocal('=SOMASEQUENCIA(1;1;1;1)+SOMASEQUÊNCIA(1;1;1;1)', PT)).toBe('=SERIESSUM(1,1,1,1)+SERIESSUM(1,1,1,1)');
+    expect(fromLocal('=SEQUENCIA(3)', PT)).toBe('=SEQUENCE(3)');
+    expect(canonicalFunctionName('maximo', 'pt-BR')).toBe('MAX');
+  });
 });
