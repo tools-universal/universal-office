@@ -210,6 +210,11 @@ function compile(pattern: string, ci: boolean): Compiled | null {
   return r;
 }
 
+/** RegExp (flag g) do padrão PCRE, ou null se inválido (XLOOKUP/XMATCH modo 3). */
+export function compilePcre(pattern: string, ci: boolean): RegExp | null {
+  return compile(pattern, ci)?.re ?? null;
+}
+
 /** Todas as ocorrências (como o PCRE: depois de uma vazia, avança um caractere). */
 function allMatches(c: Compiled, text: string): RegExpExecArray[] {
   const out: RegExpExecArray[] = [];
