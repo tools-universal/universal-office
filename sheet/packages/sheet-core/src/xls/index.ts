@@ -8,7 +8,9 @@ import { XlsxPackage } from '../package.js';
 import { isCfbBytes, readCfb, type CfbFile } from './cfb.js';
 import { OLD_BOFS, records, RT } from './biff.js';
 import { readGlobals, XlsEncryptedError, type XlsGlobals } from './globals.js';
+import type { Rect } from './sheet.js';
 import { readSheet, StringTable, type XlsSheet } from './sheet.js';
+import { chartRefs } from './chart.js';
 import { stylesXml, richXml } from './styles-xml.js';
 import { worksheetXml, commentsXml, type SheetParts } from './sheet-xml.js';
 import { themeXml } from './theme-xml.js';
@@ -34,17 +36,23 @@ export function isXlsBytes(bytes: Uint8Array): boolean {
 /** Substream de nível 0 (BOF … EOF). */
 interface Substream { start: number; end: number; dt: number }
 
-/** Varre os cabeçalhos (sem copiar dados) e acha os subfluxos de nível 0. */
-function scanSubstreams(buf: Uint8Array): Substream[] {
+/**
+ * Varre os cabeçalhos (sem copiar dados) e acha os subfluxos de nível 0;
+ * `charts` = há algum gráfico (BOF dt=0x20, inclusive embutido numa planilha).
+ */
+function scanSubstreams(buf: Uint8Array): { subs: Substream[]; charts: boolean } {
   const out: Substream[] = [];
   let off = 0;
   let depth = 0;
+  let charts = false;
   let cur: Substream | undefined;
   while (off + 4 <= buf.length) {
     const type = buf[off]! | (buf[off + 1]! << 8);
     const len = buf[off + 2]! | (buf[off + 3]! << 8);
     if (type === RT.BOF) {
-      if (depth === 0) { cur = { start: off, end: buf.length, dt: buf[off + 6]! | (buf[off + 7]! << 8) }; out.push(cur); }
+      const dt = buf[off + 6]! | (buf[off + 7]! << 8);
+      if (dt === 0x20) charts = true;
+      if (depth === 0) { cur = { start: off, end: buf.length, dt }; out.push(cur); }
       depth++;
     } else if (type === RT.EOF && depth > 0) {
       depth--;
@@ -52,7 +60,7 @@ function scanSubstreams(buf: Uint8Array): Substream[] {
     }
     off += 4 + len;
   }
-  return out;
+  return { subs: out, charts };
 }
 
 /** Stream da pasta: "Workbook" (BIFF8) ou "Book" (BIFF5/7). */
@@ -92,10 +100,13 @@ function convert(bytes: Uint8Array): XlsxPackage {
   const vers = buf[4]! | (buf[5]! << 8);
   const biff: 5 | 8 = vers === 0x0600 ? 8 : vers === 0x0500 ? 5 : cfb.has('Workbook') ? 8 : 5;
 
-  const subs = scanSubstreams(buf);
+  const { subs, charts } = scanSubstreams(buf);
   const globalsSub = subs[0]!;
   const g = readGlobals(records(buf, globalsSub.start, globalsSub.end), biff);
   const strings = new StringTable(g.sst);
+  // áreas referenciadas por séries de gráficos (os valores dessas células ficam guardados)
+  const wanted = charts ? chartRefs(buf, g) : new Map<number, Rect[]>();
+  const byIndex: (XlsSheet | undefined)[] = [];
 
   // subfluxos das planilhas: pelo lbPlyPos do BOUNDSHEET; se não bater, pela ordem
   const byPos = new Map(subs.map((s) => [s.start, s]));
@@ -111,8 +122,9 @@ function convert(bytes: Uint8Array): XlsxPackage {
     if (sub) {
       const it = records(buf, sub.start, sub.end);
       it.next(); // BOF
-      sheet = readSheet(it, g, strings, isChart);
+      sheet = readSheet(it, g, strings, isChart, wanted.get(i));
     } else sheet = readSheet([][Symbol.iterator](), g, strings, isChart);
+    byIndex[i] = sheet;
     let name = info.name.trim() ? info.name : `Planilha${sheets.length + 1}`;
     for (let k = 2; usedNames.has(name.toLowerCase()); k++) name = `${info.name} (${k})`;
     usedNames.add(name.toLowerCase());
@@ -148,7 +160,10 @@ function convert(bytes: Uint8Array): XlsxPackage {
   overrides.push(['/xl/workbook.xml', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml']);
 
   // planilhas (+ comentários, hyperlinks, desenhos)
-  const media: MediaState = { n: 0, charts: 0 };
+  const media: MediaState = {
+    n: 0, charts: 0,
+    chartCtx: { g, sheetNames: g.sheets.map((s) => s.name), cell: (s, r, c) => byIndex[s]?.values?.get(r * 16384 + c) },
+  };
   sheets.forEach((s, i) => {
     const sp: SheetParts = worksheetXml(g, s.sheet, i + 1, media);
     put(`xl/worksheets/sheet${i + 1}.xml`, sp.xml);

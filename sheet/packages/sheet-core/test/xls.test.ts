@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   openSpreadsheet, xlsToXlsxPackage, XlsEncryptedError, XlsFormatError, isXlsBytes,
-  readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, maxDigitWidth,
+  readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext, maxDigitWidth, parseChart,
 } from '../src/index.js';
 import { rkValue } from '../src/xls/sheet.js';
 import { normalizeFormat } from '../src/xls/styles-xml.js';
@@ -275,6 +275,77 @@ describe('.xls — BIFF5, data 1904 e erros amigáveis', () => {
       }
     }
     expect(Date.now() - t0).toBeLessThan(20000);
+  });
+});
+
+describe('.xls — gráfico embutido (subfluxo BIFF8 → c:chartSpace)', () => {
+  const C = {
+    CHART: 0x1002, SERIES: 0x1003, DATAFORMAT: 0x1006, LINEFORMAT: 0x1007, AREAFORMAT: 0x100a, SERIESTEXT: 0x100d,
+    CHARTFORMAT: 0x1014, LEGEND: 0x1015, BAR: 0x1017, AXIS: 0x101d, TICK: 0x101e, VALUERANGE: 0x101f, CATSERRANGE: 0x1020,
+    AXISLINEFORMAT: 0x1021, FRAME: 0x1032, BEGIN: 0x1033, END: 0x1034, PLOTAREA: 0x1035, AXISPARENT: 0x1041,
+    SERTOCRT: 0x1045, AI: 0x1051,
+  };
+  const B = rec(C.BEGIN), E = rec(C.END);
+  const area3d = (r1: number, r2: number, c: number): number[] => [0x3b, ...u16(0), ...u16(r1), ...u16(r2), ...u16(c), ...u16(c)];
+  const ai = (id: number, rt: number, f: number[] = []): Rec => rec(C.AI, [id, rt, ...u16(0), ...u16(0), ...u16(f.length), ...f]);
+  const line = (icv: number, auto = false): Rec => rec(C.LINEFORMAT, [0, 0, 0, 0, ...u16(0), ...i16(0), ...u16(auto ? 1 : 0), ...u16(icv)]);
+  const areaFmt = (icv: number, auto = false): Rec => rec(C.AREAFORMAT, [0, 0, 0, 0, 0, 0, 0, 0, ...u16(1), ...u16(auto ? 1 : 0), ...u16(icv), ...u16(9)]);
+  const chartStream: Rec[] = [
+    rec(RT.BOF, [...u16(0x0600), ...u16(0x20), ...u16(0), ...u16(0), ...u32(0), ...u32(6)]),
+    rec(C.CHART, [...u32(0), ...u32(0), ...u32(300 << 16), ...u32(200 << 16)]), B,
+    rec(C.SERIES, [...u16(3), ...u16(1), ...u16(3), ...u16(3), ...u16(1), ...u16(0)]), B,
+    ai(0, 1), rec(C.SERIESTEXT, [...u16(0), ...str8('Série')]),
+    ai(1, 2, area3d(0, 2, 1)), ai(2, 2, area3d(0, 2, 0)), ai(3, 1),
+    rec(C.DATAFORMAT, [...u16(0xffff), ...u16(0), ...u16(0), ...u16(0)]), B, line(0, true), areaFmt(0x4e, true), E,
+    rec(C.SERTOCRT, u16(0)), E,
+    rec(C.AXISPARENT, [...u16(0), ...u32(400), ...u32(300), ...u32(3200), ...u32(3200)]), B,
+    rec(C.AXIS, [...u16(0), ...new Array(16).fill(0)]), B, rec(C.CATSERRANGE, [...u16(1), ...u16(1), ...u16(1), ...u16(1)]),
+    rec(C.TICK, [2, 0, 3, 1, 0, 0, 0, 0, ...new Array(16).fill(0), ...u16(1), ...u16(0x4d), ...u16(0)]), E,
+    rec(C.AXIS, [...u16(1), ...new Array(16).fill(0)]), B,
+    rec(C.VALUERANGE, [...f64(0), ...f64(0), ...f64(0), ...f64(0), ...f64(0), ...u16(0x1f)]),
+    rec(C.TICK, [2, 0, 3, 1, 0, 0, 0, 0, ...new Array(16).fill(0), ...u16(1), ...u16(0x4d), ...u16(0)]),
+    rec(C.AXISLINEFORMAT, u16(1)), line(8), E,
+    rec(C.PLOTAREA), rec(C.FRAME, [...u16(0), ...u16(3)]), B, line(23), areaFmt(22), E,
+    rec(C.CHARTFORMAT, [...new Array(16).fill(0), ...u16(0), ...u16(0)]), B,
+    rec(C.BAR, [...i16(0), ...u16(150), ...u16(0)]),
+    rec(C.LEGEND, [...u32(3400), ...u32(1600), ...u32(500), ...u32(400), 3, 1, ...u16(0x1f)]), E,
+    E, E,
+    rec(RT.EOF),
+  ];
+  const anchor = [...u16(0), ...u16(3), ...u16(0), ...u16(0), ...u16(0), ...u16(9), ...u16(0), ...u16(15), ...u16(0)];
+  const shape = oa(0xf004, 0, 0xf, [...oa(0xf00a, 201, 2, [...u32(1026), ...u32(0xa00)]), ...oa(0xf010, 0, 0, anchor), ...oa(0xf011, 0, 0, [])]);
+  const patriarch = oa(0xf004, 0, 0xf, [...oa(0xf009, 0, 1, new Array(16).fill(0)), ...oa(0xf00a, 0, 2, [...u32(1024), ...u32(0x5)])]);
+  const dg = oa(0xf002, 1, 0xf, [...oa(0xf008, 1, 0, [...u32(2), ...u32(1026)]), ...oa(0xf003, 0, 0xf, [...patriarch, ...shape])]);
+  const sheetRecs: Rec[] = [
+    ...['a', 'b', 'c'].map((s, i) => rec(RT.LABEL, [...u16(i), ...u16(0), ...u16(15), ...str16(s)])),
+    ...[1, 2, 3].map((v, i) => rec(RT.NUMBER, [...u16(i), ...u16(1), ...u16(15), ...f64(v)])),
+    rec(RT.MSODRAWING, dg),
+    rec(RT.OBJ, [...u16(0x15), ...u16(0x12), ...u16(5), ...u16(1), ...u16(0x6011), ...new Array(12).fill(0), ...u32(0)]),
+    ...chartStream,
+  ];
+  const globals: Rec[] = [
+    ...defaultFormatting(),
+    rec(0x01ae, [...u16(1), ...u16(0x0401)]), // SUPBOOK da própria pasta
+    rec(0x0017, [...u16(1), ...u16(0), ...i16(0), ...i16(0)]), // EXTERNSHEET: ixti 0 → aba 0
+  ];
+  const pkg = openSpreadsheet(buildXls(globals, [{ name: 'Dados', recs: sheetRecs }]));
+  const ws = readWorksheet(pkg, readWorkbook(pkg).sheets[0]!.target!);
+
+  it('âncora do OBJ do gráfico e séries resolvidas pelas referências das células', () => {
+    expect(ws.charts).toHaveLength(1);
+    const ch = ws.charts![0]!;
+    expect(ch.anchor.from).toMatchObject({ col: 3, row: 0 });
+    expect(ch.anchor.to).toMatchObject({ col: 9, row: 15 });
+    const m = parseChart(ch.chartXml);
+    expect(m.type).toBe('bar-col');
+    expect(m.series).toEqual([expect.objectContaining({ name: 'Série', values: [1, 2, 3], color: '#9999FF' })]);
+    expect(m.categories).toEqual(['a', 'b', 'c']);
+    expect(ch.chartXml).toContain("<c:f>Dados!$B$1:$B$3</c:f>");
+    // área de plotagem cinza (paleta 22) com layout do AXISPARENT, grade principal, legenda à direita
+    expect(ch.chartXml).toContain('<c:x val="0.1"/><c:y val="0.075"/><c:w val="0.8"/><c:h val="0.8"/>');
+    expect(ch.chartXml).toContain('<c:majorGridlines>');
+    expect(ch.chartXml).toContain('<c:legendPos val="r"/>');
+    expect(m.space.plotSp.fill).toMatchObject({ kind: 'solid', color: '#C0C0C0' });
   });
 });
 

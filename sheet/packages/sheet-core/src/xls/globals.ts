@@ -92,6 +92,10 @@ export interface XlsGlobals {
   drawingGroup?: Uint8Array;
   /** Tema da pasta (registro THEME, Excel 2007+): pacote zip do tema. */
   themeZip?: Uint8Array;
+  /** SUPBOOK: true = a própria pasta (referências internas). */
+  supbooks: boolean[];
+  /** EXTERNSHEET (BIFF8): ixti → { pasta, 1ª aba }. */
+  xti: { book: number; tab: number }[];
 }
 
 /** ifnt BIFF → posição em `fonts` (o índice 4 é omitido pelo formato). */
@@ -114,7 +118,7 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
   const g: XlsGlobals = {
     biff, cp: new Codepage(biff === 8 ? 1200 : 1252), date1904: false,
     fonts: [], formats: new Map(), xfs: [], palette: [...INDEXED_COLORS_DEFAULT.slice(0, 64)],
-    sheets: [], sst: [], activeTab: 0,
+    sheets: [], sst: [], activeTab: 0, supbooks: [], xti: [],
   };
   const b8 = biff === 8;
   const dg: Uint8Array[] = [];
@@ -191,6 +195,16 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
         break;
       case RT.MSODRAWINGGROUP:
         dg.push(rec.data);
+        break;
+      case RT.SUPBOOK:
+        // cch = 0x0401: referências à própria pasta
+        g.supbooks.push(r.u16(2) === 0x0401);
+        break;
+      case RT.EXTERNSHEET:
+        if (b8) {
+          const n = r.u16(0);
+          for (let i = 0, o = 2; i < n && o + 6 <= r.length; i++, o += 6) g.xti.push({ book: r.u16(o), tab: r.i16(o + 2) });
+        }
         break;
       case RT.THEME: {
         // FrtHeader (12 bytes) + dwThemeVersion: 0 = tema PERSONALIZADO (pacote

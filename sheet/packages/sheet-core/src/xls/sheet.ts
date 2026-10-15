@@ -96,7 +96,15 @@ export interface XlsSheet {
   drawing?: Uint8Array;
   /** Registros do próprio subfluxo quando ele é uma folha de gráfico. */
   chartRecords?: BiffRecord[];
+  /** Valores das células referenciadas por gráficos (chave linha·16384 + coluna). */
+  values?: Map<number, CellValue>;
 }
+
+/** Valor de célula guardado para os gráficos (os .xls raramente trazem o cache das séries). */
+export interface CellValue { v: number | string; xf: number }
+
+/** Retângulo 0-based inclusivo [r1, c1, r2, c2]. */
+export type Rect = [number, number, number, number];
 
 const ERRORS: Record<number, string> = {
   0x00: '#NULL!', 0x07: '#DIV/0!', 0x0f: '#VALUE!', 0x17: '#REF!', 0x1d: '#NAME?', 0x24: '#NUM!', 0x2a: '#N/A', 0x2b: '#GETTING_DATA',
@@ -128,14 +136,23 @@ function num(v: number): string {
 /**
  * Lê o subfluxo de uma planilha (a partir do registro APÓS o BOF). `isChart`:
  * folha de gráfico (os registros vão crus para o conversor de gráficos).
+ * `wanted`: áreas referenciadas por séries de gráficos — os valores dessas
+ * células ficam em `values`.
  */
-export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: StringTable, isChart: boolean): XlsSheet {
+export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: StringTable, isChart: boolean, wanted?: Rect[]): XlsSheet {
   const b8 = g.biff === 8;
   const sh: XlsSheet = {
     cells: new Map(), rows: new Map(), cols: [], merges: [],
     showGrid: true, showZeros: true, showFormulas: false, rightToLeft: false, selected: false,
     hyperlinks: [], notes: [], objs: [],
   };
+  const keep = wanted?.length
+    ? (row: number, col: number, v: number | string, xf: number): void => {
+      for (const [r1, c1, r2, c2] of wanted) {
+        if (row >= r1 && row <= r2 && col >= c1 && col <= c2) { (sh.values ??= new Map()).set(row * 16384 + col, { v, xf }); return; }
+      }
+    }
+    : undefined;
   const drawing: Uint8Array[] = [];
   let drawingLen = 0;
   let pendingFormula: { row: number; col: number; xf: number } | undefined;
@@ -159,10 +176,12 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
   const cellNum = (row: number, col: number, xf: number, v: number): void => {
     if (row >= MAX_ROW || col >= MAX_COL) return;
     put(row, col, `<c r="${ref(row, col)}"${sAttr(xf)}><v>${num(v)}</v></c>`, xf);
+    keep?.(row, col, v, xf);
   };
   const cellStr = (row: number, col: number, xf: number, s: RichString): void => {
     if (row >= MAX_ROW || col >= MAX_COL) return;
     put(row, col, `<c r="${ref(row, col)}"${sAttr(xf)} t="s"><v>${strings.add(s)}</v></c>`, xf);
+    keep?.(row, col, s.text, xf);
   };
   const cellBlank = (row: number, col: number, xf: number): void => {
     if (row >= MAX_ROW || col >= MAX_COL) return;
@@ -174,6 +193,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
     pendingFormula = undefined;
     if (row >= MAX_ROW || col >= MAX_COL) return;
     put(row, col, `<c r="${ref(row, col)}"${sAttr(xf)} t="str"><v>${xmlText(text ?? '')}</v></c>`, xf);
+    if (text) keep?.(row, col, text, xf);
   };
 
   let depth = 0;
@@ -214,6 +234,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
         const i = r.u32(6);
         if (row >= MAX_ROW || col >= MAX_COL) break;
         put(row, col, `<c r="${ref(row, col)}"${sAttr(xf)} t="s"><v>${i < strings.items.length ? i : strings.add({ text: '' })}</v></c>`, xf);
+        keep?.(row, col, strings.items[i]?.text ?? '', xf);
         break;
       }
       case RT.LABEL: {

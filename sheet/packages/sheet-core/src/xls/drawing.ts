@@ -14,7 +14,7 @@ import type { ObjInfo, XlsSheet } from './sheet.js';
 import { BlipStore, readShapes, type CellAnchor, type XlsShape } from './officeart.js';
 import { XML_HEAD, REL, relsXml, xmlText } from './xmlw.js';
 import { resolveRowHeights } from './sheet-xml.js';
-import { chartSpaceXml } from './chart.js';
+import { chartSpaceXml, type ChartContext } from './chart.js';
 
 export interface DrawingOut {
   parts: Map<string, Uint8Array>;
@@ -29,6 +29,8 @@ export interface MediaState {
   /** pib → caminho da mídia (uma imagem usada em várias planilhas sai uma vez). */
   byPib?: Map<number, string>;
   store?: BlipStore;
+  /** Acesso às células da pasta para as séries dos gráficos. */
+  chartCtx?: ChartContext;
 }
 
 const EMU_PER_PX = 9525;
@@ -92,7 +94,8 @@ export function drawingParts(g: XlsGlobals, sh: XlsSheet, index: number, media: 
   const enc = new TextEncoder();
 
   const addChart = (obj: ObjInfo | undefined, records: XlsSheet['chartRecords'], anchor: string): void => {
-    const xml = records ? chartSpaceXml(g, records) : undefined;
+    let xml: string | undefined;
+    try { xml = records && media.chartCtx ? chartSpaceXml(media.chartCtx, records) : undefined; } catch { xml = undefined; }
     if (!xml) return;
     const n = ++media.charts;
     const rid = `rId${rels.length + 1}`;
