@@ -151,7 +151,7 @@ export function areaSize(a: Area): number {
  * texto convertido no idioma, booleano 1/0, vazio 0.
  */
 export function argNumber(v: Scalar, ctx: FnContext): number | CalcError {
-  if (typeof v === 'number') return v;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : ERR.NUM;
   if (v === null) return 0;
   if (typeof v === 'boolean') return v ? 1 : 0;
   if (v instanceof CalcError) return v;

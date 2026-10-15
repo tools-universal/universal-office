@@ -342,9 +342,10 @@ function frequency(data: Value, bins: Value, ctx: FnContext): Value {
   const order = bs.map((b, i) => [b, i] as const).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   const counts = new Array<number>(bs.length + 1).fill(0);
   for (const x of xs) {
-    let j = 0;
-    while (j < order.length && x > order[j]![0]) j++;
-    counts[j < order.length ? order[j]![1] : bs.length]!++;
+    // 1º limite (em ordem) com x ≤ limite — busca binária
+    let lo = 0, hi = order.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (x > order[mid]![0]) lo = mid + 1; else hi = mid; }
+    counts[lo < order.length ? order[lo]![1] : bs.length]!++;
   }
   return ArrayValue.of(counts.map((c) => [c]));
 }
@@ -409,7 +410,7 @@ register(
       if (a < 0 || b < 0 || a < b) return ERR.NUM;
       // produto crescente (n−k+1)·…·n — PERMUT(170;170) bate até o último dígito (medido)
       let p = 1;
-      for (let i = a - b + 1; i <= a; i++) p *= i;
+      for (let i = a - b + 1; i <= a && Number.isFinite(p); i++) p *= i;
       return num(p);
     },
   },

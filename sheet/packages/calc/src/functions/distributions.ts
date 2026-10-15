@@ -508,7 +508,15 @@ register(
 // Discretas: binomial, binomial negativa, hipergeométrica, Poisson
 
 const binomPmf = (k: number, n: number, p: number): number => dbinomRaw(k, n, p, 1 - p);
+/** Medido: BINOM.*, HYPGEOM com n (ou população) ≥ 2^31 − 1 → #NUM!. */
+const MAX_N = 2147483647;
+
+/** Termos somados até aqui; acima disso, a beta incompleta (n enorme não trava). */
+const MAX_TERMS = 5000;
+
 function binomCdf(k: number, n: number, p: number): number {
+  if (k >= n) return 1;
+  if (k > MAX_TERMS) return betaInc(1 - p, n - k, k + 1).p;
   let s = 0;
   for (let i = 0; i <= k; i++) s += binomPmf(i, n, p);
   return Math.min(s, 1);
@@ -520,7 +528,7 @@ function binomDist(a: readonly Scalar[], ctx: FnContext): Value {
   const cum = logical(a[3], ctx);
   if (cum instanceof CalcError) return cum;
   const k = Math.trunc(v[0]!), n = Math.trunc(v[1]!), p = v[2]!;
-  if (k < 0 || k > n || p < 0 || p > 1) return ERR.NUM;
+  if (k < 0 || k > n || p < 0 || p > 1 || n >= MAX_N) return ERR.NUM;
   if (!cum && k === 0 && p === 1 && n > 0) return ERR.NUM; // medido: n·ln(1−p) com p = 1
   return num(cum ? binomCdf(k, n, p) : binomPmf(k, n, p));
 }
@@ -530,7 +538,13 @@ function binomInv(a: readonly Scalar[], ctx: FnContext): Value {
   const v = nums(a, ctx, 3);
   if (v instanceof CalcError) return v;
   const n = Math.trunc(v[0]!), p = v[1]!, al = v[2]!;
-  if (n < 0 || p <= 0 || p >= 1 || al <= 0 || al >= 1) return ERR.NUM;
+  if (n < 0 || p <= 0 || p >= 1 || al <= 0 || al >= 1 || n >= MAX_N) return ERR.NUM;
+  if (n > MAX_TERMS) {
+    // busca binária na cumulativa (beta incompleta)
+    let lo = 0, hi = n;
+    while (lo < hi) { const mid = Math.floor((lo + hi) / 2); if (binomCdf(mid, n, p) > al) hi = mid; else lo = mid + 1; }
+    return lo;
+  }
   let s = 0;
   for (let k = 0; k <= n; k++) { s += binomPmf(k, n, p); if (s > al) return k; }
   return n;
@@ -550,6 +564,7 @@ function negbinomDist(a: readonly Scalar[], ctx: FnContext, legacy: boolean): Va
   if (f < 0 || s < 1 || p <= 0 || p >= 1) return ERR.NUM;
   if (!cum) return num(negbinomPmf(f, s, p));
   let t = 0;
+  if (f > MAX_TERMS) return num(betaInc(p, s, f + 1).p);
   for (let i = 0; i <= f; i++) t += negbinomPmf(i, s, p);
   return num(Math.min(t, 1));
 }
@@ -569,10 +584,12 @@ function hypgeomDist(a: readonly Scalar[], ctx: FnContext, legacy: boolean): Val
   if (!legacy) { const c = logical(a[4], ctx); if (c instanceof CalcError) return c; cum = c; }
   const x = Math.trunc(v[0]!), n = Math.trunc(v[1]!), M = Math.trunc(v[2]!), N = Math.trunc(v[3]!);
   // medido: amostra/sucessos zerados e x fora do possível não são erro (densidade 0)
-  if (x < 0 || n < 0 || M < 0 || N <= 0 || n > N || M > N) return ERR.NUM;
+  if (x < 0 || n < 0 || M < 0 || N <= 0 || n > N || M > N || N >= MAX_N) return ERR.NUM;
   if (!cum) return num(hypgeomPmf(x, n, M, N));
   let t = 0;
-  for (let i = Math.max(0, n - N + M); i <= Math.min(x, n, M); i++) t += hypgeomPmf(i, n, M, N);
+  const lo = Math.max(0, n - N + M), hi = Math.min(x, n, M);
+  if (hi - lo > 1e6) return ERR.NUM;
+  for (let i = lo; i <= hi; i++) t += hypgeomPmf(i, n, M, N);
   return num(Math.min(t, 1));
 }
 
@@ -596,8 +613,9 @@ register(
     const n = Math.trunc(v[0]!), p = v[1]!, s = Math.trunc(v[2]!);
     const s2r = optNum(a[3], c, s); if (s2r instanceof CalcError) return s2r;
     const s2 = Math.trunc(s2r);
-    if (n < 0 || p < 0 || p > 1 || s < 0 || s > n || s2 < s || s2 > n) return ERR.NUM;
+    if (n < 0 || p < 0 || p > 1 || s < 0 || s > n || s2 < s || s2 > n || n >= MAX_N) return ERR.NUM;
     let t = 0;
+    if (s2 - s > MAX_TERMS) return num(binomCdf(s2, n, p) - (s > 0 ? binomCdf(s - 1, n, p) : 0));
     for (let k = s; k <= s2; k++) t += binomPmf(k, n, p);
     return num(t);
   }, X),
