@@ -1,13 +1,4 @@
 {
-  "core-op-27": "coerce.ts (dono TDL): parseNumberText aceita \"1.5\" como data 1/5 no pt-BR; o Excel pt-BR dá #VALOR!",
-  "core-concat-77": "coerce.ts (dono TDL): numberToText — o Excel escreve 123456789012345000 (sem notação científica até 1E+20) e só 15 algarismos",
-  "core-concat-79": "coerce.ts (dono TDL): numberToText — 1E-10 vira \"0,0000000001\" no Excel",
-  "core-concat-81": "coerce.ts (dono TDL): numberToText — 1234567890123450 sem notação científica",
-  "core-concat-82": "o Excel truncou o literal digitado a 15 algarismos (F2 mostra 0.123456789012345): efeito da digitação, não do cálculo",
-  "core-concat-85": "coerce.ts (dono TDL): numberToText — 2^52 vira 4503599627370500",
-  "core-concat-87": "coerce.ts (dono TDL): numberToText — 1E+15 vira 1000000000000000",
   "core-sheets-679": "CELL(\"address\") de outra aba inclui o nome da pasta do oráculo (\"[Pasta3]\"); o motor só o tem com EngineOptions.cellInfo('bookname')",
-  "core-sheets-680": "idem: nome da pasta do oráculo",
-  "core-fmt-724": "usa SUM (FN-MATH): fora desta branch; confere na integração",
-  "core-fmt-728": "usa ISNUMBER como valor (FN-TDL): fora desta branch; confere na integração"
+  "core-sheets-680": "idem: nome da pasta do oráculo"
 }

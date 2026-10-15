@@ -44,12 +44,12 @@ export function power(a: number, b: number): number | CalcError {
   return r instanceof CalcError ? r : numResult(r);
 }
 
-export function arith(op: ArithOp, x: Scalar, y: Scalar, locale: ValueLocale, top = false): Scalar {
+export function arith(op: ArithOp, x: Scalar, y: Scalar, locale: ValueLocale, top = false, date1904 = false): Scalar {
   if (x instanceof CalcError) return x;
-  const a = toNumber(x, locale);
+  const a = toNumber(x, locale, date1904);
   if (a instanceof CalcError) return a;
   if (y instanceof CalcError) return y;
-  const b = toNumber(y, locale);
+  const b = toNumber(y, locale, date1904);
   if (b instanceof CalcError) return b;
   switch (op) {
     case '+': return top ? addSubTop(a, b, false) : addSub(a, b, false);
@@ -102,16 +102,16 @@ export function concat(x: Scalar, y: Scalar, locale: ValueLocale): Scalar {
   return s.length > 32767 ? ERR.VALUE : s;
 }
 
-export function negate(x: Scalar, locale: ValueLocale): Scalar {
+export function negate(x: Scalar, locale: ValueLocale, date1904 = false): Scalar {
   if (x instanceof CalcError) return x;
-  const a = toNumber(x, locale);
+  const a = toNumber(x, locale, date1904);
   if (a instanceof CalcError) return a;
   return a === 0 ? 0 : -a;
 }
 
-export function percent(x: Scalar, locale: ValueLocale): Scalar {
+export function percent(x: Scalar, locale: ValueLocale, date1904 = false): Scalar {
   if (x instanceof CalcError) return x;
-  const a = toNumber(x, locale);
+  const a = toNumber(x, locale, date1904);
   if (a instanceof CalcError) return a;
   return numResult(a / 100);
 }

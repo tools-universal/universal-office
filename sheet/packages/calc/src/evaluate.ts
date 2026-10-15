@@ -171,7 +171,8 @@ export class Evaluator {
         if (n.op === '+') return v;
         const x = this.operand(v, s);
         const loc = this.host.locale;
-        return n.op === '-' ? map1(x, (a) => negate(a, loc)) : map1(x, (a) => percent(a, loc));
+        const d1904 = this.host.date1904;
+        return n.op === '-' ? map1(x, (a) => negate(a, loc, d1904)) : map1(x, (a) => percent(a, loc, d1904));
       }
       case 'bin': return this.bin(n.op, n.a, n.b, s);
     }
@@ -215,7 +216,7 @@ export class Evaluator {
     const loc = this.host.locale;
     switch (op) {
       case '+': case '-': case '*': case '/': case '^':
-        return broadcast2(x, y, (a, b) => arith(op as ArithOp, a, b, loc, top));
+        return broadcast2(x, y, (a, b) => arith(op as ArithOp, a, b, loc, top, this.host.date1904));
       case '&': return broadcast2(x, y, (a, b) => concat(a, b, loc));
       default: return broadcast2(x, y, (a, b) => compare(op as CmpOp, a, b));
     }
