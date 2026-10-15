@@ -13,6 +13,7 @@
  * - Resultado subnormal (< 2^-1022) de POWER vira 0.
  */
 import { toNumber } from '../coerce.js';
+import { crLog, xlCos, xlExp, xlSin, xlTan } from './libm.js';
 import type { ArgMode, FnContext, FnDef } from '../fn.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, RefValue, type Scalar, type Value } from '../values.js';
 
@@ -212,72 +213,15 @@ export function def(name: string, min: number, max: number, args: ArgMode | ((i:
 // π exato: COS(PI()/2) = 6,1257422745431E-17 (e não 6,1232E-17), SIN(1E8) =
 // 0,931639027110306 (o π exato dá …09726). |x| ≥ 2^27 = #NUM!.
 
-const PI_EXT = 0xC90FDAA22168C235n; // π·2^62, arredondado (x87)
-const RED_S = 115n; // escala: |x|·2^115 é inteiro para |x| ≥ π/4
-const HALF_PI_S = PI_EXT << (RED_S - 63n); // (π_ext/2)·2^115
-const TWO_S = 2 ** 115;
-const QUARTER_PI = 0.7853981633974483;
 export const TRIG_LIMIT = 134217728; // 2^27
 
-/** Mantissa inteira e expoente: |x| = m·2^e. */
-function decompose(x: number): { m: bigint; e: number } {
-  F64[0] = x;
-  const hi = U32[1]!, lo = U32[0]!;
-  const be = (hi >>> 20) & 0x7ff;
-  let m = (BigInt(hi & 0xfffff) << 32n) | BigInt(lo);
-  if (be) m |= 1n << 52n;
-  return { m, e: (be || 1) - 1075 };
-}
-
-/** x = k·(π_ext/2) + r, |r| ≤ π_ext/4 (k módulo 4, já com o sinal de x). */
-function reduceExt(x: number): { k: number; r: number } {
-  const ax = Math.abs(x);
-  if (ax <= QUARTER_PI) return { k: 0, r: x };
-  const { m, e } = decompose(ax);
-  const X = m << BigInt(e + Number(RED_S));
-  let k = X / HALF_PI_S;
-  let r = X - k * HALF_PI_S;
-  if (r * 2n > HALF_PI_S) { k += 1n; r -= HALF_PI_S; }
-  let rd = Number(r) / TWO_S;
-  let kq = Number(k & 3n);
-  if (x < 0) { rd = -rd; kq = (4 - kq) & 3; }
-  return { k: kq, r: rd };
-}
-
-/** ulp de x (para comparar o valor direto com o reduzido). */
-function ulp(x: number): number {
-  const e = exponentOf(x);
-  return Math.pow(2, Math.max(e - 52, -1074));
-}
-
 /**
- * Escolhe entre a função direta (correta até ~1 ulp, que é o que o Excel dá para
- * argumentos pequenos) e a reduzida pelo π do x87 (que o Excel dá quando a
- * diferença aparece: perto dos zeros, argumentos grandes).
+ * SIN/COS/TAN do Excel: valor exato do argumento reduzido pelo π do x87 (64 bits),
+ * arredondado a double — ver libm.ts (medido bit a bit: 600/600 valores, |x| até 1000).
  */
-function pick(direct: number, reduced: number): number {
-  return Math.abs(direct - reduced) <= 2 * ulp(direct) ? direct : reduced;
-}
-
-export function sinExt(x: number): number {
-  if (Math.abs(x) <= QUARTER_PI) return Math.sin(x);
-  const { k, r } = reduceExt(x);
-  let v: number;
-  switch (k) { case 0: v = Math.sin(r); break; case 1: v = Math.cos(r); break; case 2: v = -Math.sin(r); break; default: v = -Math.cos(r); }
-  return pick(Math.sin(x), v);
-}
-export function cosExt(x: number): number {
-  if (Math.abs(x) <= QUARTER_PI) return Math.cos(x);
-  const { k, r } = reduceExt(x);
-  let v: number;
-  switch (k) { case 0: v = Math.cos(r); break; case 1: v = -Math.sin(r); break; case 2: v = -Math.cos(r); break; default: v = Math.sin(r); }
-  return pick(Math.cos(x), v);
-}
-export function tanExt(x: number): number {
-  if (Math.abs(x) <= QUARTER_PI) return Math.tan(x);
-  const { k, r } = reduceExt(x);
-  return pick(Math.tan(x), k & 1 ? -1 / Math.tan(r) : Math.tan(r));
-}
+export const sinExt = xlSin;
+export const cosExt = xlCos;
+export const tanExt = xlTan;
 
 // ---------------------------------------------------------------------------
 // Potência. Medido: expoente inteiro com |y| < 2^32 é calculado por quadrados
@@ -325,7 +269,10 @@ export function excelPower(x: number, y: number): Num {
  * POWER(8;1/3) = 1,9999999999999998), exceto y = 0,5, que é a raiz exata.
  */
 function powReal(x: number, y: number): number {
-  return y === 0.5 ? Math.sqrt(x) : Math.exp(y * Math.log(x));
+  // medido (bits exatos, 150/150): y < 0 → 1/x^(−y) (POWER(2;−0,5) = 1/√2); EXP do x87 e
+  // ln correto (libm.ts)
+  if (y < 0) return 1 / powReal(x, -y);
+  return y === 0.5 ? Math.sqrt(x) : xlExp(y * crLog(x));
 }
 
 // ---------------------------------------------------------------------------

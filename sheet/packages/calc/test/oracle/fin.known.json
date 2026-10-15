@@ -2,11 +2,9 @@
  "fin-pv-11": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-23": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-24": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
- "fin-fv-60": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-64": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-65": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-67": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
- "fin-pv-68": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-69": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-86": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
  "fin-pmt-91": "diferença de 1–4 ulps na forma da conta (o PMT do Excel usa e^(−n·ln(1+r)) e expm1; ajustado para bater bit a bit na maioria) caindo na fronteira do arredondamento em 15 dígitos, ou taxa extrema (−0,99; 2; 1E-10)",
@@ -173,5 +171,6 @@
  "fin-oddfyield-47": "iterativa: o Excel para antes da convergência total com um algoritmo próprio não identificado (Newton/secante testados); concorda em 11–14 dígitos — o nosso converge até a precisão de máquina",
  "fin-oddfyield-48": "iterativa: o Excel para antes da convergência total com um algoritmo próprio não identificado (Newton/secante testados); concorda em 11–14 dígitos — o nosso converge até a precisão de máquina",
  "fin-oddfyield-49": "iterativa: o Excel para antes da convergência total com um algoritmo próprio não identificado (Newton/secante testados); concorda em 11–14 dígitos — o nosso converge até a precisão de máquina",
- "fin-oddfyield-50": "iterativa: o Excel para antes da convergência total com um algoritmo próprio não identificado (Newton/secante testados); concorda em 11–14 dígitos — o nosso converge até a precisão de máquina"
+ "fin-oddfyield-50": "iterativa: o Excel para antes da convergência total com um algoritmo próprio não identificado (Newton/secante testados); concorda em 11–14 dígitos — o nosso converge até a precisão de máquina",
+ "fin-yield-9": "iterativa: o Excel para antes da convergência total com um algoritmo próprio não identificado (Newton/secante testados: ≤17 de 61 casos); o resultado depende do último bit do PRICE interno — bateu por acaso até o POWER passar a usar o EXP do x87"
 }

@@ -51,8 +51,6 @@
  "eng-bessely-66": "diferença de 1–3 ulps (exp/cos/cosh do CRT do Excel × V8) caindo na fronteira do arredondamento em 15 dígitos",
  "eng-besselk-76": "diferença de 1–3 ulps (exp/cos/cosh do CRT do Excel × V8) caindo na fronteira do arredondamento em 15 dígitos",
  "eng-imlog2-22": "diferença de 1–3 ulps (exp/cos/cosh do CRT do Excel × V8) caindo na fronteira do arredondamento em 15 dígitos",
- "eng-imsin-12": "diferença de 1–3 ulps (exp/cos/cosh do CRT do Excel × V8) caindo na fronteira do arredondamento em 15 dígitos",
- "eng-imsin-26": "mesmo 1 ulp do SIN(2,5) (0,59847214410395655 no Excel; o correto é …644) — o 16º dígito cai na fronteira do arredondamento em 15",
  "eng-imsin-44": "cancelamento (cosh 2y − cos 2x ou e^y − e^−y com y pequeno): o resultado depende do último bit do exp/cos do CRT do Excel; difere a partir do 11º–13º dígito",
  "eng-imcos-44": "cancelamento (cosh 2y − cos 2x ou e^y − e^−y com y pequeno): o resultado depende do último bit do exp/cos do CRT do Excel; difere a partir do 11º–13º dígito",
  "eng-imtan-15": "diferença de 1–3 ulps (exp/cos/cosh do CRT do Excel × V8) caindo na fronteira do arredondamento em 15 dígitos",

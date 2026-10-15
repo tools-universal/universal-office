@@ -15,6 +15,7 @@
  */
 import { register, type FnContext, type FnDef } from '../fn.js';
 import { toText } from '../coerce.js';
+import { crAtan, crExpm1, crLog, crLog10, xlExp } from './libm.js';
 import { ArrayValue, CalcError, ERR, RefValue, type Scalar, type Value } from '../values.js';
 import {
   approx15, asMatrix, atpFn, atpList, atpNum, atpRaw, cosExt, decimalRound, def, eachNumber, excelPower, fin, num, numFn,
@@ -201,15 +202,17 @@ const quotient = atpFn('QUOTIENT', 2, 2, ([n, d]) => {
 
 const sqrt = numFn('SQRT', 1, 1, ([x]) => (x! < 0 ? ERR.NUM : Math.sqrt(x!)));
 const sqrtpi = atpFn('SQRTPI', 1, 1, ([x]) => (x! < 0 ? ERR.NUM : Math.sqrt(x! * Math.PI)));
-const exp = numFn('EXP', 1, 1, ([x]) => fin(Math.exp(x!)));
-const ln = numFn('LN', 1, 1, ([x]) => (x! <= 0 ? ERR.NUM : Math.log(x!)));
-const log10 = numFn('LOG10', 1, 1, ([x]) => (x! <= 0 ? ERR.NUM : Math.log10(x!)));
+// medido (entradas com bits exatos): LN e LOG10 = corretamente arredondados; EXP = x87
+// (2^(x·log2 e em 64 bits)) — libm.ts
+const exp = numFn('EXP', 1, 1, ([x]) => fin(xlExp(x!)));
+const ln = numFn('LN', 1, 1, ([x]) => (x! <= 0 ? ERR.NUM : crLog(x!)));
+const log10 = numFn('LOG10', 1, 1, ([x]) => (x! <= 0 ? ERR.NUM : crLog10(x!)));
 const log: FnDef = numFn('LOG', 1, 2, ([x, b]) => {
   if (x! <= 0) return ERR.NUM;
-  if (b === undefined) return Math.log10(x!);
+  if (b === undefined) return crLog10(x!);
   if (b <= 0) return ERR.NUM;
   if (b === 1) return ERR.DIV0;
-  return Math.log(x!) / Math.log(b);
+  return crLog(x!) / crLog(b);
 });
 
 const abs = numFn('ABS', 1, 1, ([x]) => Math.abs(x!));
@@ -385,37 +388,48 @@ const cot = trig('COT', (x) => (x === 0 ? ERR.DIV0 : fin(1 / tanExt(x))), X);
 const sec = trig('SEC', (x) => fin(1 / cosExt(x)), X);
 const csc = trig('CSC', (x) => (x === 0 ? ERR.DIV0 : fin(1 / sinExt(x))), X);
 
-const asin = numFn('ASIN', 1, 1, ([x]) => (Math.abs(x!) > 1 ? ERR.NUM : Math.asin(x!)));
-const acos = numFn('ACOS', 1, 1, ([x]) => (Math.abs(x!) > 1 ? ERR.NUM : Math.PI / 2 - Math.asin(x!))); // medido: π/2 − asin
-const atan = numFn('ATAN', 1, 1, ([x]) => Math.atan(x!));
+// Medido bit a bit (entradas exatas, 150–350 valores por função): ASIN = atan(x/√((1−x)(1+x)))
+// em double com atan correto; ACOS = π/2 − ASIN; ATAN2(x;y) = atan(y/x) ± π em double;
+// ACOT = atan(1/x) (+π se x < 0); ASINH/ACOSH/ATANH pelas fórmulas com ln correto.
+const asinX = (x: number): number => crAtan(x / Math.sqrt((1 - x) * (1 + x)));
+const asin = numFn('ASIN', 1, 1, ([x]) => (Math.abs(x!) > 1 ? ERR.NUM : asinX(x!)));
+const acos = numFn('ACOS', 1, 1, ([x]) => (Math.abs(x!) > 1 ? ERR.NUM : Math.PI / 2 - asinX(x!)));
+const atan = numFn('ATAN', 1, 1, ([x]) => crAtan(x!)); // corretamente arredondado (200/200)
 const atan2 = numFn('ATAN2', 2, 2, ([x, y]) => {
-  if (x === 0) return y === 0 ? ERR.DIV0 : Math.atan2(y!, 0);
-  if (!Number.isFinite(y! / x!)) return ERR.NUM; // medido: ATAN2(1E-200;1E200) = #NUM!
-  return Math.atan2(y!, x!);
+  if (x === 0) return y === 0 ? ERR.DIV0 : y! > 0 ? Math.PI / 2 : -Math.PI / 2;
+  const q = y! / x!;
+  if (!Number.isFinite(q)) return ERR.NUM; // medido: ATAN2(1E-200;1E200) = #NUM!
+  const t = crAtan(q);
+  return x! > 0 ? t : y! >= 0 ? t + Math.PI : t - Math.PI;
 });
-const acot = numFn('ACOT', 1, 1, ([x]) => (x === 0 ? Math.PI / 2 : x! > 0 ? Math.atan(1 / x!) : Math.PI + Math.atan(1 / x!)), { prefix: X });
-// Hiperbólicas (medido bit a bit contra o Excel): SINH = seno hiperbólico preciso
-// (#NUM! quando e^|x| estoura); COSH = (e^x + e^−x)/2; TANH = SINH/COSH; COTH =
-// 1/TANH; CSCH = 1/SINH; SECH = 1/COSH. ASINH/ACOSH/ATANH pelas fórmulas com ln.
+const acot = numFn('ACOT', 1, 1, ([x]) => (x === 0 ? Math.PI / 2 : x! > 0 ? crAtan(1 / x!) : Math.PI + crAtan(1 / x!)), { prefix: X });
+// Hiperbólicas (medido bit a bit contra o Excel): COSH = (e^x + e^−x)/2 com o EXP do x87
+// (150/150); SINH e TANH idem para |x| ≥ 1 ((e^x − e^−x)/2, (e^x − e^−x)/(e^x + e^−x):
+// 139/139); com |x| < 1 o Excel usa outra conta (não identificada: aqui pelo expm1,
+// ~75%); COTH = 1/TANH; CSCH = 1/SINH; SECH = 1/COSH; #NUM! quando e^|x| estoura.
 const EXP_MAX = 709.782712893384;
-function coshX(x: number): number { return (Math.exp(x) + Math.exp(-x)) / 2; }
+function coshX(x: number): number { return (xlExp(x) + xlExp(-x)) / 2; }
+function sinhX(x: number): number {
+  return Math.abs(x) >= 1 ? (xlExp(x) - xlExp(-x)) / 2 : (crExpm1(x) - crExpm1(-x)) / 2;
+}
 function tanhX(x: number): number {
   if (Math.abs(x) > EXP_MAX) return x > 0 ? 1 : -1;
-  return Math.sinh(x) / coshX(x);
+  if (Math.abs(x) >= 1) { const a = xlExp(x), b = xlExp(-x); return (a - b) / (a + b); }
+  return sinhX(x) / coshX(x);
 }
-const sinh = numFn('SINH', 1, 1, ([x]) => (Math.abs(x!) > EXP_MAX ? ERR.NUM : Math.sinh(x!)));
+const sinh = numFn('SINH', 1, 1, ([x]) => (Math.abs(x!) > EXP_MAX ? ERR.NUM : fin(sinhX(x!))));
 const cosh = numFn('COSH', 1, 1, ([x]) => (Math.abs(x!) > EXP_MAX ? ERR.NUM : fin(coshX(x!))));
 const tanh = numFn('TANH', 1, 1, ([x]) => tanhX(x!));
 const coth = numFn('COTH', 1, 1, ([x]) => (x === 0 ? ERR.DIV0 : fin(1 / tanhX(x!))), { prefix: X });
 const sech = numFn('SECH', 1, 1, ([x]) => (Math.abs(x!) > EXP_MAX ? 0 : fin(1 / coshX(x!))), { prefix: X });
-const csch = numFn('CSCH', 1, 1, ([x]) => (x === 0 ? ERR.DIV0 : Math.abs(x!) > EXP_MAX ? 0 : fin(1 / Math.sinh(x!))), { prefix: X });
-const asinh = numFn('ASINH', 1, 1, ([x]) => { const ax = Math.abs(x!); const v = Math.log(ax + Math.sqrt(ax * ax + 1)); return fin(x! < 0 ? -v : v); });
-const acosh = numFn('ACOSH', 1, 1, ([x]) => (x! < 1 ? ERR.NUM : fin(Math.log(x! + Math.sqrt(x! * x! - 1)))));
+const csch = numFn('CSCH', 1, 1, ([x]) => (x === 0 ? ERR.DIV0 : Math.abs(x!) > EXP_MAX ? 0 : fin(1 / sinhX(x!))), { prefix: X });
+const asinh = numFn('ASINH', 1, 1, ([x]) => { const ax = Math.abs(x!); const v = crLog(ax + Math.sqrt(ax * ax + 1)); return fin(x! < 0 ? -v : v); });
+const acosh = numFn('ACOSH', 1, 1, ([x]) => (x! < 1 ? ERR.NUM : fin(crLog(x! + Math.sqrt(x! * x! - 1)))));
 const atanh = numFn('ATANH', 1, 1, ([x]) => {
   const a = Math.abs(x!);
   if (a >= 1) return ERR.NUM;
   // medido: perto de 0 o Excel é preciso (ATANH(1E-10) = 1E-10); a partir de ~1E-3, ln((1+x)/(1−x))
-  return a <= 1e-4 ? Math.atanh(x!) : 0.5 * Math.log((1 + x!) / (1 - x!));
+  return a <= 1e-4 ? Math.atanh(x!) : 0.5 * crLog((1 + x!) / (1 - x!));
 });
 const acoth = numFn('ACOTH', 1, 1, ([x]) => {
   const ax = Math.abs(x!);

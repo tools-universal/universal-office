@@ -10,8 +10,5 @@
  "math-multinomial-10": "o MULTINOMIAL do Excel é inexato (Γ interno desconhecido: MULTINOMIAL(10) = 0,99999999999999933); o nosso é o produto exato — difere do 13º ao 16º dígito",
  "math-multinomial-13": "o MULTINOMIAL do Excel é inexato (Γ interno desconhecido: MULTINOMIAL(10) = 0,99999999999999933); o nosso é o produto exato — difere do 13º ao 16º dígito",
  "math-multinomial-25": "o MULTINOMIAL do Excel é inexato (Γ interno desconhecido: MULTINOMIAL(10) = 0,99999999999999933); o nosso é o produto exato — difere do 13º ao 16º dígito",
- "math-sin-6": "1 ulp: o Excel dá 0,59847214410395655 (o seno correto é …644); o 16º dígito cai na fronteira do arredondamento em 15 dígitos",
- "math-sin-7": "1 ulp: o Excel dá 0,59847214410395655 (o seno correto é …644); o 16º dígito cai na fronteira do arredondamento em 15 dígitos",
- "math-minverse-13": "matriz mal condicionada: 4 elementos diferem no 15º dígito (LU com pivotamento parcial; a ordem exata das operações do Excel não foi achada)",
- "math-power-78": "expoente não inteiro: o Excel bate com exp(y·ln x) em 22 de 23 casos medidos (inclusive 1,1^700,5, onde difere do pow exato); aqui difere no 13º dígito (algoritmo exato não identificado)"
+ "math-minverse-13": "matriz mal condicionada: 4 elementos diferem no 15º dígito (LU com pivotamento parcial; a ordem exata das operações do Excel não foi achada)"
 }
