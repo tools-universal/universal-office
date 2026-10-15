@@ -31115,198 +31115,275 @@
  },
  {
   "id": "lookup-vlookup-4398",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": 2,
+  "text": "2",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};1;FALSO)"
  },
  {
   "id": "lookup-vlookup-4399",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;FALSO)"
  },
  {
   "id": "lookup-vlookup-4400",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": false,
+  "text": "FALSO",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};3;FALSO)"
  },
  {
   "id": "lookup-vlookup-4401",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#REF!"
+  },
+  "text": "#REF!",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};4;FALSO)"
  },
  {
   "id": "lookup-vlookup-4402",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};0;FALSO)"
  },
  {
   "id": "lookup-vlookup-4403",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};-1;FALSO)"
  },
  {
   "id": "lookup-vlookup-4404",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": 2,
+  "text": "2",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};1,9;FALSO)"
  },
  {
   "id": "lookup-vlookup-4405",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};\"2\";FALSO)"
  },
  {
   "id": "lookup-vlookup-4406",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};\"x\";FALSO)"
  },
  {
   "id": "lookup-vlookup-4407",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": 2,
+  "text": "2",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};VERDADEIRO;FALSO)"
  },
  {
   "id": "lookup-vlookup-4408",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};;FALSO)"
  },
  {
   "id": "lookup-vlookup-4409",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};#N/D;FALSO)"
  },
  {
   "id": "lookup-vlookup-4410",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;VERDADEIRO)"
  },
  {
   "id": "lookup-vlookup-4411",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;VERDADEIRO)"
  },
  {
   "id": "lookup-vlookup-4412",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;FALSO)"
  },
  {
   "id": "lookup-vlookup-4413",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;FALSO)"
  },
  {
   "id": "lookup-vlookup-4414",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;1)"
  },
  {
   "id": "lookup-vlookup-4415",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;1)"
  },
  {
   "id": "lookup-vlookup-4416",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;0)"
  },
  {
   "id": "lookup-vlookup-4417",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;0)"
  },
  {
   "id": "lookup-vlookup-4418",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;2)"
  },
  {
   "id": "lookup-vlookup-4419",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;2)"
  },
  {
   "id": "lookup-vlookup-4420",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;-1)"
  },
  {
   "id": "lookup-vlookup-4421",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;-1)"
  },
  {
   "id": "lookup-vlookup-4422",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;\"x\")"
  },
  {
   "id": "lookup-vlookup-4423",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;\"x\")"
  },
  {
   "id": "lookup-vlookup-4424",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;\"1\")"
  },
  {
   "id": "lookup-vlookup-4425",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;\"1\")"
  },
  {
   "id": "lookup-vlookup-4426",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;\"VERDADEIRO\")"
  },
  {
   "id": "lookup-vlookup-4427",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;\"VERDADEIRO\")"
  },
  {
   "id": "lookup-vlookup-4428",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;)"
  },
  {
   "id": "lookup-vlookup-4429",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;)"
  },
  {
   "id": "lookup-vlookup-4430",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "b",
+  "text": "b",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;)"
  },
  {
   "id": "lookup-vlookup-4431",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;)"
  },
  {
   "id": "lookup-vlookup-4432",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;#DIV/0!)"
  },
  {
   "id": "lookup-vlookup-4433",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#DIV/0!"
+  },
+  "text": "#DIV/0!",
+  "local": "=PROCV(2,5;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;#DIV/0!)"
  },
  {
   "id": "lookup-vlookup-4434",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=PROCV(9;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};4;FALSO)"
  },
  {
   "id": "lookup-vlookup-4435",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=PROCV(9;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};0;FALSO)"
  },
  {
   "id": "lookup-vlookup-4436",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": {
+   "e": "#N/A"
+  },
+  "text": "#N/D",
+  "local": "=PROCV(#N/D;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};9;FALSO)"
  },
  {
   "id": "lookup-vlookup-4437",
@@ -31334,13 +31411,35 @@
  },
  {
   "id": "lookup-vlookup-4440",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": "a",
+  "spill": [
+   [
+    "a"
+   ],
+   [
+    "c"
+   ],
+   [
+    {
+     "e": "#N/A"
+    }
+   ]
+  ],
+  "text": "a",
+  "local": "=PROCV({1;3;9};{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};2;FALSO)"
  },
  {
   "id": "lookup-vlookup-4441",
-  "v": null,
-  "err": "Exceção de HRESULT: 0x800A03EC @58"
+  "v": 2,
+  "spill": [
+   [
+    2,
+    "b",
+    false
+   ]
+  ],
+  "text": "2",
+  "local": "=PROCV(2;{1\\\"a\"\\VERDADEIRO;2\\\"b\"\\FALSO;3\\\"c\"\\\"\"};{1\\2\\3};FALSO)"
  },
  {
   "id": "lookup-vlookup-4442",
@@ -32452,7 +32551,7 @@
   "id": "lookup-transpose-4595",
   "v": 0,
   "text": "0",
-  "local": "=TRANSPOR(A1:B2)"
+  "local": "=TRANSPOR(A1:A3)"
  },
  {
   "id": "lookup-transpose-4596",

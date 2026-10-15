@@ -416,7 +416,6 @@ register(
       const hol = holidaySet(h as Value | undefined, ctx); if (hol instanceof CalcError) return hol;
       return networkDays(s, e, mask, hol, ctx);
     }, (i) => i === 3),
-    prefix: '_xlfn.',
   },
   atp('WORKDAY', 2, 3, ([a, n, h], ctx) => {
     const s = atpDate(a, ctx); if (s instanceof CalcError) return s;
@@ -437,7 +436,6 @@ register(
       const hol = holidaySet(h as Value | undefined, ctx); if (hol instanceof CalcError) return hol;
       return workday(s, days, mask, hol, ctx);
     }, (i) => i === 3),
-    prefix: '_xlfn.',
   },
   {
     name: 'DATEDIF', minArgs: 3, maxArgs: 3, ...lift,

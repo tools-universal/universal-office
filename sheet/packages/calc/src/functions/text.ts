@@ -447,7 +447,7 @@ register(
     },
   },
   {
-    name: 'CONCAT', prefix: '_xlfn.', minArgs: 1, maxArgs: 253, args: 'any',
+    name: 'CONCAT', prefix: '_xlfn.', minArgs: 1, maxArgs: 254, args: 'any',
     call: (args, ctx) => {
       let out = '';
       for (const a of args) {
@@ -460,7 +460,7 @@ register(
     },
   },
   {
-    name: 'TEXTJOIN', prefix: '_xlfn.', minArgs: 3, maxArgs: 252, args: (i) => (i === 1 ? 'value' : 'any'),
+    name: 'TEXTJOIN', prefix: '_xlfn.', minArgs: 3, maxArgs: 254, args: (i) => (i === 1 ? 'value' : 'any'),
     call: (args, ctx) => {
       const ds = delimList(args[0], ctx);
       if (ds instanceof CalcError) return ds;
@@ -720,11 +720,11 @@ register(
     call: ([v], ctx) => { const s = txt(v, ctx); return s instanceof CalcError ? s : isDbcs(ctx.locale) ? toHalfWidth(s) : s; },
   },
   {
-    name: 'DBCS', prefix: '_xlfn.', minArgs: 1, maxArgs: 1, ...lift,
+    name: 'DBCS', minArgs: 1, maxArgs: 1, ...lift,
     call: ([v], ctx) => { const s = txt(v, ctx); return s instanceof CalcError ? s : isDbcs(ctx.locale) ? toFullWidth(s) : s; },
   },
   {
-    name: 'BAHTTEXT', prefix: '_xlfn.', minArgs: 1, maxArgs: 1, ...lift,
+    name: 'BAHTTEXT', minArgs: 1, maxArgs: 1, ...lift,
     call: ([v], ctx) => { const x = num(v, ctx); return x instanceof CalcError ? x : bahtText(x); },
   },
   {

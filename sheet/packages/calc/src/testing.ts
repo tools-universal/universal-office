@@ -3,7 +3,7 @@
  * mentira sobre um mapa de células e `callFn`, que aplica os modos de
  * argumento como o avaliador (via `applyFn`). Não é usado em produção.
  */
-import { applyFn, type RawArg } from './apply.js';
+import { applyFn, implicitIntersection, type RawArg } from './apply.js';
 import { EN_US, lookupFn, type FnContext, type Thunk, type ValueLocale } from './fn.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, MAX_COL, MAX_ROW, RefValue, type Area, type Scalar, type Value } from './values.js';
 
@@ -269,11 +269,25 @@ export function runCase(c: OracleCase, locale: ValueLocale, extra: Partial<MockO
       if ('ref' in a) return { ref: a.ref };
       if ('arr' in a) return a.arr.map((row) => row.map(caseScalar));
       // nome de função como LAMBDA (eta: GROUPBY(...; SUM)) → chama a função registrada
-      if ('lambda' in a) { const fn = a.lambda; return jsLambda([], (...xs) => callFn(fn, xs as readonly Value[] as TestArg[], ctx)); }
+      if ('lambda' in a) {
+        // parâmetros = argumentos obrigatórios da função (GROUPBY passa o total a PERCENTOF)
+        const fn = a.lambda, n = lookupFn(fn)?.minArgs ?? 1;
+        return jsLambda(Array.from({ length: n }, (_, i) => `p${i + 1}`), (...xs) => callFn(fn, xs as readonly Value[] as TestArg[], ctx));
+      }
     }
     return caseScalar(a as CaseScalar);
   });
-  return callFn(c.fn, args, ctx, !c.legacy);
+  const v = callFn(c.fn, args, ctx, !c.legacy);
+  // referência como resultado (XLOOKUP, INDEX…): a célula mostra o valor, como o avaliador faz
+  if (v instanceof RefValue) {
+    const a = v.single;
+    if (!a) return ERR.VALUE;
+    if (a.r1 === a.r2 && a.c1 === a.c2) return ctx.cell(a.sheet, a.r1, a.c1);
+    return c.legacy ? implicitIntersection(v, ctx) : ctx.values(v);
+  }
+  // fórmula legada com matriz como resultado: a célula mostra o canto superior esquerdo
+  if (c.legacy && v instanceof ArrayValue) return v.rows && v.cols ? v.get(0, 0) : ERR.VALUE;
+  return v;
 }
 
 /** Números iguais como o Excel os mostra (15 dígitos significativos). */

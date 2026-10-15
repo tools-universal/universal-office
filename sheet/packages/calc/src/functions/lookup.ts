@@ -25,7 +25,7 @@
 import { register, type FnContext, type ValueLocale } from '../fn.js';
 import { implicitIntersection } from '../apply.js';
 import { compareText } from '../collation.js';
-import { sameTextCI, toBool, toNumber } from '../coerce.js';
+import { sameTextCI, toBool, toNumber, toText } from '../coerce.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, MAX_COL, MAX_ROW, RefValue, type Area, type Scalar, type Value } from '../values.js';
 import { asArray, txt } from './tdl-util.js';
 import { compilePcre } from './regex.js';
@@ -160,10 +160,14 @@ export function lookupRegExp(pattern: string): RegExp {
   return new RegExp(`^${src}$`, 'i');
 }
 
-/** Predicado de igualdade exata (com curingas quando pedido e o texto os tem). */
-function exactPred(x: Scalar, wildcard: boolean): (v: Scalar) => boolean {
+/**
+ * Predicado de igualdade exata (com curingas quando pedido e o texto os tem).
+ * MATCH/VLOOKUP: "ß" ≠ "ss"; XLOOKUP/XMATCH (collate): igualdade da colação ("ß" = "ss").
+ */
+function exactPred(x: Scalar, wildcard: boolean, collate = false): (v: Scalar) => boolean {
   if (typeof x === 'string') {
     if (wildcard && /[*?~]/.test(x)) { const re = lookupRegExp(x); return (v) => typeof v === 'string' && re.test(v); }
+    if (collate) return (v) => typeof v === 'string' && compareText(v, x) === 0;
     return (v) => typeof v === 'string' && sameTextCI(v, x);
   }
   if (typeof x === 'number') return (v) => v === x;
@@ -219,7 +223,7 @@ function findDesc(vec: Vec, x: Scalar): number {
 }
 
 /** XLOOKUP/XMATCH: índice 0-based ou -1 (#N/A); undefined = combinação inválida (#VALUE!). */
-function xfind(vec: Vec, x: Scalar, mm: number, sm: number): number | undefined {
+function xfind(vec: Vec, x: Scalar, mm: number, sm: number, ctx: FnContext): number | undefined {
   if (Math.abs(sm) === 2) {
     if (mm === 2 || mm === 3) return undefined;
     return sm === 2 ? xbinAsc(vec, x, mm) : xbinDesc(vec, x, mm);
@@ -230,17 +234,22 @@ function xfind(vec: Vec, x: Scalar, mm: number, sm: number): number | undefined 
     if (mm === 0 || mm === 2 || mm === 3) return vec.blank(rev);
   }
   if (mm === 0 || mm === 2) {
-    const p = exactPred(x, mm === 2);
+    const p = exactPred(x, mm === 2, true);
     let hit = -1;
     vec.scan(0, vec.n - 1, (i, v) => { if (p(v)) { hit = i; return true; } }, rev);
     return hit;
   }
   if (mm === 3) {
-    const pat = typeof x === 'string' ? x : x === null ? '' : String(x);
+    const pat = typeof x === 'string' ? x : x === null ? '' : toText(x, ctx.locale) as string;
     const re = compilePcre(pat, false);
     if (!re) return undefined;
     let hit = -1;
-    vec.scan(0, vec.n - 1, (i, v) => { if (typeof v === 'string' && (re.lastIndex = 0, re.test(v))) { hit = i; return true; } }, rev);
+    vec.scan(0, vec.n - 1, (i, v) => {
+      if (v instanceof CalcError) return;
+      const t = typeof v === 'string' ? v : toText(v, ctx.locale) as string;
+      re.lastIndex = 0;
+      if (re.test(t)) { hit = i; return true; }
+    }, rev);
     return hit;
   }
   // aproximado linear: exato no 1º encontrado; senão o melhor (empate: o 1º encontrado)
@@ -288,12 +297,11 @@ function xbinDesc(vec: Vec, x: Scalar, mm: number): number {
 /** Valor procurado de MATCH/VLOOKUP/HLOOKUP/LOOKUP: vazio = 0. */
 const lookupValue = (v: Scalar): Scalar => (v === null ? 0 : v);
 
-/** range_lookup do VLOOKUP/HLOOKUP: ausente = VERDADEIRO, omitido (;) = FALSO, texto → #VALUE!. */
+/** range_lookup do VLOOKUP/HLOOKUP: ausente = VERDADEIRO, omitido (;) = FALSO; texto só "VERDADEIRO"/"FALSO" ("1" → #VALUE!). */
 function rangeLookup(args: readonly Scalar[], i: number, ctx: FnContext): boolean | CalcError {
   if (args.length <= i) return true;
   const v = args[i]!;
   if (v === null) return false;
-  if (typeof v === 'string') return ERR.VALUE;
   return toBool(v, ctx.locale);
 }
 
@@ -312,13 +320,15 @@ function vhlookup(horizontal: boolean, args: readonly any[], ctx: FnContext): Va
   const k = intArg(colv, ctx);
   if (k instanceof CalcError) return k;
   if (table instanceof CalcError) return table;
+  if (!(table instanceof RefValue || table instanceof ArrayValue)) return ERR.NA; // tabela escalar (medido)
   const sh = shapeOf(table);
-  if (sh instanceof CalcError) return table instanceof RefValue ? ERR.REF : sh;
-  if (k < 1) return ERR.VALUE;
-  if (k > (horizontal ? sh.rows : sh.cols)) return ERR.REF;
+  if (sh instanceof CalcError) return ERR.REF;
+  // a busca vem antes da validação da coluna (medido: não achou → #N/A mesmo com coluna 0 ou além)
   const key = lineOf(table, ctx, horizontal, 0);
   const i = approx ? findApprox(key, x) : findExact(key, x, true);
   if (i < 0) return ERR.NA;
+  if (k < 1) return ERR.VALUE;
+  if (k > (horizontal ? sh.rows : sh.cols)) return ERR.REF;
   return horizontal ? cellOf(table, ctx, k - 1, i) : cellOf(table, ctx, i, k - 1);
 }
 
@@ -363,6 +373,12 @@ function r1c1Letters(locale: ValueLocale): [string, string] {
   return ['R', 'C'];
 }
 
+function colNumber(s: string): number {
+  let n = 0;
+  for (const ch of s.toUpperCase()) n = n * 26 + ch.charCodeAt(0) - 64;
+  return n;
+}
+
 function colName(c: number): string {
   let s = '';
   for (let n = c; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
@@ -370,11 +386,16 @@ function colName(c: number): string {
 }
 
 /** Nome de aba como o Excel escreve numa referência (aspas quando precisa). */
-export function sheetPrefix(name: string): string {
+export function sheetPrefix(name: string, locale?: ValueLocale): string {
   if (name === '') return '!';
   const m = /^(\[[^\]]+\])(.*)$/.exec(name);
   const book = m ? m[1]! : '', base = m ? m[2]! : name;
-  const plain = /^[\p{L}_][\p{L}\p{N}_.]*$/u.test(base) && !/^[A-Za-z]{1,3}\d+$/.test(base) && !/^[RrLl]\d*[Cc]\d*$/.test(base);
+  // parece referência A1 válida (até XFD1048576) ou booleano do idioma → aspas (medido: "XFE1" sem aspas, "VERDADEIRO" com)
+  const a1 = /^([A-Za-z]{1,3})(\d+)$/.exec(base);
+  const isCell = !!a1 && colNumber(a1[1]!) <= MAX_COL + 1 && +a1[2]! >= 1 && +a1[2]! <= MAX_ROW + 1;
+  const up = base.toUpperCase();
+  const isBool = up === 'TRUE' || up === 'FALSE' || (!!locale && (up === locale.trueText.toUpperCase() || up === locale.falseText.toUpperCase()));
+  const plain = /^[\p{L}_][\p{L}\p{N}_.]*$/u.test(base) && !isCell && !isBool && !/^[RrLl]\d*[Cc]\d*$/.test(base);
   return plain ? `${book}${base}!` : `'${(book + base).replace(/'/g, "''")}'!`;
 }
 
@@ -395,6 +416,7 @@ register(
       const x = lookupValue(xv);
       let type = 1;
       if (tv !== undefined) { const n = toNumber(tv, ctx.locale, ctx.date1904); if (n instanceof CalcError) return n; type = Math.sign(Math.trunc(n)) || (n > 0 ? 1 : n < 0 ? -1 : 0); }
+      if (!(arr instanceof RefValue || arr instanceof ArrayValue)) return arr instanceof CalcError ? arr : ERR.NA; // escalar (medido)
       const v = vector1d(arr, ctx);
       if (v instanceof CalcError) return v;
       if (!v) return ERR.NA;
@@ -451,7 +473,7 @@ register(
       const rs = shapeOf(ra);
       if (rs instanceof CalcError) return rs;
       if ((v.horizontal ? rs.cols : rs.rows) !== v.vec.n) return ERR.VALUE;
-      const i = xfind(v.vec, x as Scalar, mm, sm);
+      const i = xfind(v.vec, x as Scalar, mm, sm, ctx);
       if (i === undefined) return ERR.VALUE;
       if (i < 0) return nf === undefined || nf === null ? ERR.NA : nf;
       return sliceAt(ra, v.horizontal, i, ctx);
@@ -467,7 +489,7 @@ register(
       const v = vector1d(la, ctx);
       if (v instanceof CalcError) return v;
       if (!v) return ERR.VALUE;
-      const i = xfind(v.vec, x as Scalar, mm, sm);
+      const i = xfind(v.vec, x as Scalar, mm, sm, ctx);
       if (i === undefined) return ERR.VALUE;
       return i < 0 ? ERR.NA : i + 1;
     },
@@ -481,7 +503,6 @@ register(
       if (args.length > 2 && args[2] !== null) { const n = intArg(args[2]!, ctx); if (n instanceof CalcError) return n; abs = n; }
       let a1 = true;
       if (args.length > 3 && args[3] !== null) {
-        if (typeof args[3] === 'string') return ERR.VALUE;
         const b = toBool(args[3]!, ctx.locale); if (b instanceof CalcError) return b; a1 = b;
       }
       let sheet: string | undefined;
@@ -494,7 +515,7 @@ register(
         const [R, C] = r1c1Letters(ctx.locale);
         ref = `${R}${absRow ? r : `[${r}]`}${C}${absCol ? c : `[${c}]`}`;
       }
-      return sheet === undefined ? ref : sheetPrefix(sheet) + ref;
+      return sheet === undefined ? ref : sheetPrefix(sheet, ctx.locale) + ref;
     },
   },
   {
