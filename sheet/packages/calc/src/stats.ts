@@ -7,6 +7,7 @@
  */
 import type { FnContext } from './fn.js';
 import { parseNumberText } from './coerce.js';
+import { snapAdd } from './functions/math-util.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, RefValue, type Area, type Scalar, type Value } from './values.js';
 
 // ---------------------------------------------------------------------------
@@ -29,11 +30,19 @@ export function xlAdd(a: number, b: number): number {
   return r;
 }
 
-/** Soma da esquerda para a direita com `xlAdd`. */
+/**
+ * Soma como o SUM do Excel: da esquerda para a direita, com o cancelamento só na
+ * ÚLTIMA adição (snapAdd). Medido: AVERAGE, AVERAGEA, SUBTOTAL(1/9) e AGGREGATE(9)
+ * somam assim (AVERAGE(0,1;0,2;−0,3;1E-20) = 1,388E-17, não 2,5E-21; SUM(1E15;0,3;
+ * −1E15) = 0); SUMPRODUCT, SUMIF(S), AVERAGEIF, MMULT, SERIESSUM e TRIMMEAN somam sem
+ * cancelamento nenhum.
+ */
 export function xlSum(xs: readonly number[]): number {
+  const n = xs.length;
+  if (n === 0) return 0;
   let s = 0;
-  for (let i = 0; i < xs.length; i++) s = xlAdd(s, xs[i]!);
-  return s;
+  for (let i = 0; i < n - 1; i++) s += xs[i]!;
+  return snapAdd(s, xs[n - 1]!);
 }
 
 /**

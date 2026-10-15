@@ -318,14 +318,17 @@ function rankFn(xRaw: Scalar, ref: Value, orderRaw: Scalar, ctx: FnContext, avg:
   return avg ? better + (same + 1) / 2 : better + 1;
 }
 
-/** TRIMMEAN: tira ⌊n·p/2⌋ de cada ponta; soma os que ficam na ordem ORIGINAL (medido). */
+/**
+ * TRIMMEAN: tira ⌊n·p/2⌋ de cada ponta; soma os que ficam na ordem ORIGINAL, sem o
+ * cancelamento do SUM (medido: TRIMMEAN({1E15;0,3;−1E15};0) = 0,0833…).
+ */
 function trimmean(xs: number[] | CalcError, pRaw: Scalar, ctx: FnContext): Value {
   if (xs instanceof CalcError) return xs;
   const p = argNumber(pRaw, ctx);
   if (p instanceof CalcError) return p;
   if (p < 0 || p >= 1 || !xs.length) return ERR.NUM;
   const n = xs.length, k = Math.floor(n * p / 2);
-  if (!k) return num(xlSum(xs) / n);
+  if (!k) { let t = 0; for (const x of xs) t += x; return num(t / n); }
   const s = sorted(xs);
   // quantas cópias de cada valor saem (as k menores e as k maiores)
   const drop = new Map<number, number>();
@@ -334,7 +337,7 @@ function trimmean(xs: number[] | CalcError, pRaw: Scalar, ctx: FnContext): Value
   for (const x of xs) {
     const d = drop.get(x);
     if (d) { drop.set(x, d - 1); continue; }
-    sum = xlAdd(sum, x);
+    sum += x;
   }
   return num(sum / (n - 2 * k));
 }

@@ -1,0 +1,2060 @@
+[
+ {
+  "id": "fix-sum-1",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(A1:A3)",
+  "local": "=SOMA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-2",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)*3",
+  "local": "=MÉDIA(A1:A3)*3"
+ },
+ {
+  "id": "fix-sum-3",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)",
+  "local": "=MÉDIA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-4",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(9,A1:A3)",
+  "local": "=SUBTOTAL(9;A1:A3)"
+ },
+ {
+  "id": "fix-sum-5",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(1,A1:A3)",
+  "local": "=SUBTOTAL(1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-6",
+  "v": 0,
+  "text": "0",
+  "f": "=AGGREGATE(9,6,A1:A3)",
+  "local": "=AGREGAR(9;6;A1:A3)"
+ },
+ {
+  "id": "fix-sum-7",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMPRODUCT(A1:A3)",
+  "local": "=SOMARPRODUTO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-8",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMIF(A1:A3,\"<>x\")",
+  "local": "=SOMASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-9",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMIFS(A1:A3,A1:A3,\"<>x\")",
+  "local": "=SOMASES(A1:A3;A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-10",
+  "v": 0.14,
+  "text": "0,14",
+  "f": "=DEVSQ(A1:A3)",
+  "local": "=DESVQ(A1:A3)"
+ },
+ {
+  "id": "fix-sum-11",
+  "v": 0.04666666666666667,
+  "text": "0,046667",
+  "f": "=VAR.P(A1:A3)",
+  "local": "=VAR.P(A1:A3)"
+ },
+ {
+  "id": "fix-sum-12",
+  "v": 0.2645751311064591,
+  "text": "0,264575",
+  "f": "=STDEV.S(A1:A3)",
+  "local": "=DESVPAD.A(A1:A3)"
+ },
+ {
+  "id": "fix-sum-13",
+  "v": 0.20000000000000004,
+  "text": "0,2",
+  "f": "=AVEDEV(A1:A3)",
+  "local": "=DESV.MÉDIO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-14",
+  "v": 0.14,
+  "text": "0,14",
+  "f": "=SUMSQ(A1:A3)",
+  "local": "=SOMAQUAD(A1:A3)"
+ },
+ {
+  "id": "fix-sum-15",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=MMULT(TRANSPOSE(A1:A3),A1:A3^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A3);A1:A3^0)"
+ },
+ {
+  "id": "fix-sum-16",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(0.1,0.2,-0.3)",
+  "local": "=SOMA(0,1;0,2;-0,3)"
+ },
+ {
+  "id": "fix-sum-17",
+  "v": 0,
+  "text": "0",
+  "f": "=0.1+0.2-0.3",
+  "local": "=0,1+0,2-0,3"
+ },
+ {
+  "id": "fix-sum-18",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEA(A1:A3)",
+  "local": "=MÉDIAA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-19",
+  "v": 1.850371707708594e-17,
+  "text": "1,85E-17",
+  "f": "=AVERAGEIF(A1:A3,\"<>x\")",
+  "local": "=MÉDIASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-20",
+  "v": 1.850371707708594e-17,
+  "text": "1,85E-17",
+  "f": "=TRIMMEAN(A1:A3,0)",
+  "local": "=MÉDIA.INTERNA(A1:A3;0)"
+ },
+ {
+  "id": "fix-sum-21",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SERIESSUM(1,0,1,A1:A3)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-22",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUM(A1:A4)",
+  "local": "=SOMA(A1:A4)"
+ },
+ {
+  "id": "fix-sum-23",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=AVERAGE(A1:A4)*4",
+  "local": "=MÉDIA(A1:A4)*4"
+ },
+ {
+  "id": "fix-sum-24",
+  "v": 1.3880287807814457e-17,
+  "text": "1,39E-17",
+  "f": "=AVERAGE(A1:A4)",
+  "local": "=MÉDIA(A1:A4)"
+ },
+ {
+  "id": "fix-sum-25",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUBTOTAL(9,A1:A4)",
+  "local": "=SUBTOTAL(9;A1:A4)"
+ },
+ {
+  "id": "fix-sum-26",
+  "v": 1.3880287807814457e-17,
+  "text": "1,39E-17",
+  "f": "=SUBTOTAL(1,A1:A4)",
+  "local": "=SUBTOTAL(1;A1:A4)"
+ },
+ {
+  "id": "fix-sum-27",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=AGGREGATE(9,6,A1:A4)",
+  "local": "=AGREGAR(9;6;A1:A4)"
+ },
+ {
+  "id": "fix-sum-28",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMPRODUCT(A1:A4)",
+  "local": "=SOMARPRODUTO(A1:A4)"
+ },
+ {
+  "id": "fix-sum-29",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMIF(A1:A4,\"<>x\")",
+  "local": "=SOMASE(A1:A4;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-30",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMIFS(A1:A4,A1:A4,\"<>x\")",
+  "local": "=SOMASES(A1:A4;A1:A4;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-31",
+  "v": 0.14,
+  "text": "0,14",
+  "f": "=DEVSQ(A1:A4)",
+  "local": "=DESVQ(A1:A4)"
+ },
+ {
+  "id": "fix-sum-32",
+  "v": 0.035,
+  "text": "0,035",
+  "f": "=VAR.P(A1:A4)",
+  "local": "=VAR.P(A1:A4)"
+ },
+ {
+  "id": "fix-sum-33",
+  "v": 0.21602468994692867,
+  "text": "0,216025",
+  "f": "=STDEV.S(A1:A4)",
+  "local": "=DESVPAD.A(A1:A4)"
+ },
+ {
+  "id": "fix-sum-34",
+  "v": 0.15,
+  "text": "0,15",
+  "f": "=AVEDEV(A1:A4)",
+  "local": "=DESV.MÉDIO(A1:A4)"
+ },
+ {
+  "id": "fix-sum-35",
+  "v": 0.14,
+  "text": "0,14",
+  "f": "=SUMSQ(A1:A4)",
+  "local": "=SOMAQUAD(A1:A4)"
+ },
+ {
+  "id": "fix-sum-36",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=MMULT(TRANSPOSE(A1:A4),A1:A4^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A4);A1:A4^0)"
+ },
+ {
+  "id": "fix-sum-37",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUM(0.1,0.2,-0.3,1E-20)",
+  "local": "=SOMA(0,1;0,2;-0,3;1E-20)"
+ },
+ {
+  "id": "fix-sum-38",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=0.1+0.2-0.3+1E-20",
+  "local": "=0,1+0,2-0,3+1E-20"
+ },
+ {
+  "id": "fix-sum-39",
+  "v": 1.3880287807814457e-17,
+  "text": "1,39E-17",
+  "f": "=AVERAGEA(A1:A4)",
+  "local": "=MÉDIAA(A1:A4)"
+ },
+ {
+  "id": "fix-sum-40",
+  "v": 1.3880287807814457e-17,
+  "text": "1,39E-17",
+  "f": "=AVERAGEIF(A1:A4,\"<>x\")",
+  "local": "=MÉDIASE(A1:A4;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-41",
+  "v": 1.3880287807814457e-17,
+  "text": "1,39E-17",
+  "f": "=TRIMMEAN(A1:A4,0)",
+  "local": "=MÉDIA.INTERNA(A1:A4;0)"
+ },
+ {
+  "id": "fix-sum-42",
+  "v": 5.552115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SERIESSUM(1,0,1,A1:A4)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A4)"
+ },
+ {
+  "id": "fix-sum-43",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(A1:A4)",
+  "local": "=SOMA(A1:A4)"
+ },
+ {
+  "id": "fix-sum-44",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A4)*4",
+  "local": "=MÉDIA(A1:A4)*4"
+ },
+ {
+  "id": "fix-sum-45",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A4)",
+  "local": "=MÉDIA(A1:A4)"
+ },
+ {
+  "id": "fix-sum-46",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(9,A1:A4)",
+  "local": "=SUBTOTAL(9;A1:A4)"
+ },
+ {
+  "id": "fix-sum-47",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(1,A1:A4)",
+  "local": "=SUBTOTAL(1;A1:A4)"
+ },
+ {
+  "id": "fix-sum-48",
+  "v": 0,
+  "text": "0",
+  "f": "=AGGREGATE(9,6,A1:A4)",
+  "local": "=AGREGAR(9;6;A1:A4)"
+ },
+ {
+  "id": "fix-sum-49",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMPRODUCT(A1:A4)",
+  "local": "=SOMARPRODUTO(A1:A4)"
+ },
+ {
+  "id": "fix-sum-50",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMIF(A1:A4,\"<>x\")",
+  "local": "=SOMASE(A1:A4;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-51",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMIFS(A1:A4,A1:A4,\"<>x\")",
+  "local": "=SOMASES(A1:A4;A1:A4;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-52",
+  "v": 0.14,
+  "text": "0,14",
+  "f": "=DEVSQ(A1:A4)",
+  "local": "=DESVQ(A1:A4)"
+ },
+ {
+  "id": "fix-sum-53",
+  "v": 0.035,
+  "text": "0,035",
+  "f": "=VAR.P(A1:A4)",
+  "local": "=VAR.P(A1:A4)"
+ },
+ {
+  "id": "fix-sum-54",
+  "v": 0.21602468994692867,
+  "text": "0,216025",
+  "f": "=STDEV.S(A1:A4)",
+  "local": "=DESVPAD.A(A1:A4)"
+ },
+ {
+  "id": "fix-sum-55",
+  "v": 0.15000000000000002,
+  "text": "0,15",
+  "f": "=AVEDEV(A1:A4)",
+  "local": "=DESV.MÉDIO(A1:A4)"
+ },
+ {
+  "id": "fix-sum-56",
+  "v": 0.14,
+  "text": "0,14",
+  "f": "=SUMSQ(A1:A4)",
+  "local": "=SOMAQUAD(A1:A4)"
+ },
+ {
+  "id": "fix-sum-57",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=MMULT(TRANSPOSE(A1:A4),A1:A4^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A4);A1:A4^0)"
+ },
+ {
+  "id": "fix-sum-58",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(1E-20,0.1,0.2,-0.3)",
+  "local": "=SOMA(1E-20;0,1;0,2;-0,3)"
+ },
+ {
+  "id": "fix-sum-59",
+  "v": 0,
+  "text": "0",
+  "f": "=1E-20+0.1+0.2-0.3",
+  "local": "=1E-20+0,1+0,2-0,3"
+ },
+ {
+  "id": "fix-sum-60",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEA(A1:A4)",
+  "local": "=MÉDIAA(A1:A4)"
+ },
+ {
+  "id": "fix-sum-61",
+  "v": 1.3877787807814457e-17,
+  "text": "1,39E-17",
+  "f": "=AVERAGEIF(A1:A4,\"<>x\")",
+  "local": "=MÉDIASE(A1:A4;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-62",
+  "v": 1.3877787807814457e-17,
+  "text": "1,39E-17",
+  "f": "=TRIMMEAN(A1:A4,0)",
+  "local": "=MÉDIA.INTERNA(A1:A4;0)"
+ },
+ {
+  "id": "fix-sum-63",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SERIESSUM(1,0,1,A1:A4)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A4)"
+ },
+ {
+  "id": "fix-sum-64",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(A1:A3)",
+  "local": "=SOMA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-65",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)*3",
+  "local": "=MÉDIA(A1:A3)*3"
+ },
+ {
+  "id": "fix-sum-66",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)",
+  "local": "=MÉDIA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-67",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(9,A1:A3)",
+  "local": "=SUBTOTAL(9;A1:A3)"
+ },
+ {
+  "id": "fix-sum-68",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(1,A1:A3)",
+  "local": "=SUBTOTAL(1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-69",
+  "v": 0,
+  "text": "0",
+  "f": "=AGGREGATE(9,6,A1:A3)",
+  "local": "=AGREGAR(9;6;A1:A3)"
+ },
+ {
+  "id": "fix-sum-70",
+  "v": 2.7755575615628914e-17,
+  "text": "2,78E-17",
+  "f": "=SUMPRODUCT(A1:A3)",
+  "local": "=SOMARPRODUTO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-71",
+  "v": 2.7755575615628914e-17,
+  "text": "2,78E-17",
+  "f": "=SUMIF(A1:A3,\"<>x\")",
+  "local": "=SOMASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-72",
+  "v": 2.7755575615628914e-17,
+  "text": "2,78E-17",
+  "f": "=SUMIFS(A1:A3,A1:A3,\"<>x\")",
+  "local": "=SOMASES(A1:A3;A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-73",
+  "v": 0.14,
+  "text": "0,14",
+  "f": "=DEVSQ(A1:A3)",
+  "local": "=DESVQ(A1:A3)"
+ },
+ {
+  "id": "fix-sum-74",
+  "v": 0.04666666666666667,
+  "text": "0,046667",
+  "f": "=VAR.P(A1:A3)",
+  "local": "=VAR.P(A1:A3)"
+ },
+ {
+  "id": "fix-sum-75",
+  "v": 0.2645751311064591,
+  "text": "0,264575",
+  "f": "=STDEV.S(A1:A3)",
+  "local": "=DESVPAD.A(A1:A3)"
+ },
+ {
+  "id": "fix-sum-76",
+  "v": 0.20000000000000004,
+  "text": "0,2",
+  "f": "=AVEDEV(A1:A3)",
+  "local": "=DESV.MÉDIO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-77",
+  "v": 0.14,
+  "text": "0,14",
+  "f": "=SUMSQ(A1:A3)",
+  "local": "=SOMAQUAD(A1:A3)"
+ },
+ {
+  "id": "fix-sum-78",
+  "v": 2.7755575615628914e-17,
+  "text": "2,78E-17",
+  "f": "=MMULT(TRANSPOSE(A1:A3),A1:A3^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A3);A1:A3^0)"
+ },
+ {
+  "id": "fix-sum-79",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(-0.3,0.1,0.2)",
+  "local": "=SOMA(-0,3;0,1;0,2)"
+ },
+ {
+  "id": "fix-sum-80",
+  "v": 0,
+  "text": "0",
+  "f": "=-0.3+0.1+0.2",
+  "local": "=-0,3+0,1+0,2"
+ },
+ {
+  "id": "fix-sum-81",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEA(A1:A3)",
+  "local": "=MÉDIAA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-82",
+  "v": 9.25185853854297e-18,
+  "text": "9,25E-18",
+  "f": "=AVERAGEIF(A1:A3,\"<>x\")",
+  "local": "=MÉDIASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-83",
+  "v": 9.25185853854297e-18,
+  "text": "9,25E-18",
+  "f": "=TRIMMEAN(A1:A3,0)",
+  "local": "=MÉDIA.INTERNA(A1:A3;0)"
+ },
+ {
+  "id": "fix-sum-84",
+  "v": 2.7755575615628914e-17,
+  "text": "2,78E-17",
+  "f": "=SERIESSUM(1,0,1,A1:A3)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-85",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(A1:A3)",
+  "local": "=SOMA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-86",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)*3",
+  "local": "=MÉDIA(A1:A3)*3"
+ },
+ {
+  "id": "fix-sum-87",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)",
+  "local": "=MÉDIA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-88",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(9,A1:A3)",
+  "local": "=SUBTOTAL(9;A1:A3)"
+ },
+ {
+  "id": "fix-sum-89",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(1,A1:A3)",
+  "local": "=SUBTOTAL(1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-90",
+  "v": 0,
+  "text": "0",
+  "f": "=AGGREGATE(9,6,A1:A3)",
+  "local": "=AGREGAR(9;6;A1:A3)"
+ },
+ {
+  "id": "fix-sum-91",
+  "v": 2.7755575615628914e-17,
+  "text": "2,78E-17",
+  "f": "=SUMPRODUCT(A1:A3)",
+  "local": "=SOMARPRODUTO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-92",
+  "v": 2.7755575615628914e-17,
+  "text": "2,78E-17",
+  "f": "=SUMIF(A1:A3,\"<>x\")",
+  "local": "=SOMASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-93",
+  "v": 2.7755575615628914e-17,
+  "text": "2,78E-17",
+  "f": "=SUMIFS(A1:A3,A1:A3,\"<>x\")",
+  "local": "=SOMASES(A1:A3;A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-94",
+  "v": 0.14,
+  "text": "0,14",
+  "f": "=DEVSQ(A1:A3)",
+  "local": "=DESVQ(A1:A3)"
+ },
+ {
+  "id": "fix-sum-95",
+  "v": 0.04666666666666667,
+  "text": "0,046667",
+  "f": "=VAR.P(A1:A3)",
+  "local": "=VAR.P(A1:A3)"
+ },
+ {
+  "id": "fix-sum-96",
+  "v": 0.2645751311064591,
+  "text": "0,264575",
+  "f": "=STDEV.S(A1:A3)",
+  "local": "=DESVPAD.A(A1:A3)"
+ },
+ {
+  "id": "fix-sum-97",
+  "v": 0.19999999999999998,
+  "text": "0,2",
+  "f": "=AVEDEV(A1:A3)",
+  "local": "=DESV.MÉDIO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-98",
+  "v": 0.14,
+  "text": "0,14",
+  "f": "=SUMSQ(A1:A3)",
+  "local": "=SOMAQUAD(A1:A3)"
+ },
+ {
+  "id": "fix-sum-99",
+  "v": 2.7755575615628914e-17,
+  "text": "2,78E-17",
+  "f": "=MMULT(TRANSPOSE(A1:A3),A1:A3^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A3);A1:A3^0)"
+ },
+ {
+  "id": "fix-sum-100",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(0.2,-0.3,0.1)",
+  "local": "=SOMA(0,2;-0,3;0,1)"
+ },
+ {
+  "id": "fix-sum-101",
+  "v": 0,
+  "text": "0",
+  "f": "=0.2-0.3+0.1",
+  "local": "=0,2-0,3+0,1"
+ },
+ {
+  "id": "fix-sum-102",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEA(A1:A3)",
+  "local": "=MÉDIAA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-103",
+  "v": 9.25185853854297e-18,
+  "text": "9,25E-18",
+  "f": "=AVERAGEIF(A1:A3,\"<>x\")",
+  "local": "=MÉDIASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-104",
+  "v": 9.25185853854297e-18,
+  "text": "9,25E-18",
+  "f": "=TRIMMEAN(A1:A3,0)",
+  "local": "=MÉDIA.INTERNA(A1:A3;0)"
+ },
+ {
+  "id": "fix-sum-105",
+  "v": 2.7755575615628914e-17,
+  "text": "2,78E-17",
+  "f": "=SERIESSUM(1,0,1,A1:A3)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-106",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUM(A1:A2)",
+  "local": "=SOMA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-107",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=AVERAGE(A1:A2)*2",
+  "local": "=MÉDIA(A1:A2)*2"
+ },
+ {
+  "id": "fix-sum-108",
+  "v": 9.992007221626409e-16,
+  "text": "9,99E-16",
+  "f": "=AVERAGE(A1:A2)",
+  "local": "=MÉDIA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-109",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUBTOTAL(9,A1:A2)",
+  "local": "=SUBTOTAL(9;A1:A2)"
+ },
+ {
+  "id": "fix-sum-110",
+  "v": 9.992007221626409e-16,
+  "text": "9,99E-16",
+  "f": "=SUBTOTAL(1,A1:A2)",
+  "local": "=SUBTOTAL(1;A1:A2)"
+ },
+ {
+  "id": "fix-sum-111",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=AGGREGATE(9,6,A1:A2)",
+  "local": "=AGREGAR(9;6;A1:A2)"
+ },
+ {
+  "id": "fix-sum-112",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUMPRODUCT(A1:A2)",
+  "local": "=SOMARPRODUTO(A1:A2)"
+ },
+ {
+  "id": "fix-sum-113",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUMIF(A1:A2,\"<>x\")",
+  "local": "=SOMASE(A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-114",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUMIFS(A1:A2,A1:A2,\"<>x\")",
+  "local": "=SOMASES(A1:A2;A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-115",
+  "v": 1.999999999999996,
+  "text": "2",
+  "f": "=DEVSQ(A1:A2)",
+  "local": "=DESVQ(A1:A2)"
+ },
+ {
+  "id": "fix-sum-116",
+  "v": 0.999999999999998,
+  "text": "1",
+  "f": "=VAR.P(A1:A2)",
+  "local": "=VAR.P(A1:A2)"
+ },
+ {
+  "id": "fix-sum-117",
+  "v": 1.4142135623730936,
+  "text": "1,414214",
+  "f": "=STDEV.S(A1:A2)",
+  "local": "=DESVPAD.A(A1:A2)"
+ },
+ {
+  "id": "fix-sum-118",
+  "v": 0.999999999999999,
+  "text": "1",
+  "f": "=AVEDEV(A1:A2)",
+  "local": "=DESV.MÉDIO(A1:A2)"
+ },
+ {
+  "id": "fix-sum-119",
+  "v": 1.999999999999996,
+  "text": "2",
+  "f": "=SUMSQ(A1:A2)",
+  "local": "=SOMAQUAD(A1:A2)"
+ },
+ {
+  "id": "fix-sum-120",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=MMULT(TRANSPOSE(A1:A2),A1:A2^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A2);A1:A2^0)"
+ },
+ {
+  "id": "fix-sum-121",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUM(1,-0.999999999999998)",
+  "local": "=SOMA(1;-0,999999999999998)"
+ },
+ {
+  "id": "fix-sum-122",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=1-0.999999999999998",
+  "local": "=1-0,999999999999998"
+ },
+ {
+  "id": "fix-sum-123",
+  "v": 9.992007221626409e-16,
+  "text": "9,99E-16",
+  "f": "=AVERAGEA(A1:A2)",
+  "local": "=MÉDIAA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-124",
+  "v": 9.992007221626409e-16,
+  "text": "9,99E-16",
+  "f": "=AVERAGEIF(A1:A2,\"<>x\")",
+  "local": "=MÉDIASE(A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-125",
+  "v": 9.992007221626409e-16,
+  "text": "9,99E-16",
+  "f": "=TRIMMEAN(A1:A2,0)",
+  "local": "=MÉDIA.INTERNA(A1:A2;0)"
+ },
+ {
+  "id": "fix-sum-126",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SERIESSUM(1,0,1,A1:A2)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A2)"
+ },
+ {
+  "id": "fix-sum-127",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUM(A1:A2)",
+  "local": "=SOMA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-128",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=AVERAGE(A1:A2)*2",
+  "local": "=MÉDIA(A1:A2)*2"
+ },
+ {
+  "id": "fix-sum-129",
+  "v": 9.992007221626409e-16,
+  "text": "9,99E-16",
+  "f": "=AVERAGE(A1:A2)",
+  "local": "=MÉDIA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-130",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUBTOTAL(9,A1:A2)",
+  "local": "=SUBTOTAL(9;A1:A2)"
+ },
+ {
+  "id": "fix-sum-131",
+  "v": 9.992007221626409e-16,
+  "text": "9,99E-16",
+  "f": "=SUBTOTAL(1,A1:A2)",
+  "local": "=SUBTOTAL(1;A1:A2)"
+ },
+ {
+  "id": "fix-sum-132",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=AGGREGATE(9,6,A1:A2)",
+  "local": "=AGREGAR(9;6;A1:A2)"
+ },
+ {
+  "id": "fix-sum-133",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUMPRODUCT(A1:A2)",
+  "local": "=SOMARPRODUTO(A1:A2)"
+ },
+ {
+  "id": "fix-sum-134",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUMIF(A1:A2,\"<>x\")",
+  "local": "=SOMASE(A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-135",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUMIFS(A1:A2,A1:A2,\"<>x\")",
+  "local": "=SOMASES(A1:A2;A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-136",
+  "v": 1.999999999999996,
+  "text": "2",
+  "f": "=DEVSQ(A1:A2)",
+  "local": "=DESVQ(A1:A2)"
+ },
+ {
+  "id": "fix-sum-137",
+  "v": 0.999999999999998,
+  "text": "1",
+  "f": "=VAR.P(A1:A2)",
+  "local": "=VAR.P(A1:A2)"
+ },
+ {
+  "id": "fix-sum-138",
+  "v": 1.4142135623730936,
+  "text": "1,414214",
+  "f": "=STDEV.S(A1:A2)",
+  "local": "=DESVPAD.A(A1:A2)"
+ },
+ {
+  "id": "fix-sum-139",
+  "v": 0.999999999999999,
+  "text": "1",
+  "f": "=AVEDEV(A1:A2)",
+  "local": "=DESV.MÉDIO(A1:A2)"
+ },
+ {
+  "id": "fix-sum-140",
+  "v": 1.999999999999996,
+  "text": "2",
+  "f": "=SUMSQ(A1:A2)",
+  "local": "=SOMAQUAD(A1:A2)"
+ },
+ {
+  "id": "fix-sum-141",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=MMULT(TRANSPOSE(A1:A2),A1:A2^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A2);A1:A2^0)"
+ },
+ {
+  "id": "fix-sum-142",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SUM(1,-0.999999999999998)",
+  "local": "=SOMA(1;-0,999999999999998)"
+ },
+ {
+  "id": "fix-sum-143",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=1-0.999999999999998",
+  "local": "=1-0,999999999999998"
+ },
+ {
+  "id": "fix-sum-144",
+  "v": 9.992007221626409e-16,
+  "text": "9,99E-16",
+  "f": "=AVERAGEA(A1:A2)",
+  "local": "=MÉDIAA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-145",
+  "v": 9.992007221626409e-16,
+  "text": "9,99E-16",
+  "f": "=AVERAGEIF(A1:A2,\"<>x\")",
+  "local": "=MÉDIASE(A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-146",
+  "v": 9.992007221626409e-16,
+  "text": "9,99E-16",
+  "f": "=TRIMMEAN(A1:A2,0)",
+  "local": "=MÉDIA.INTERNA(A1:A2;0)"
+ },
+ {
+  "id": "fix-sum-147",
+  "v": 1.9984014443252818e-15,
+  "text": "2E-15",
+  "f": "=SERIESSUM(1,0,1,A1:A2)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A2)"
+ },
+ {
+  "id": "fix-sum-148",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(A1:A2)",
+  "local": "=SOMA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-149",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A2)*2",
+  "local": "=MÉDIA(A1:A2)*2"
+ },
+ {
+  "id": "fix-sum-150",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A2)",
+  "local": "=MÉDIA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-151",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(9,A1:A2)",
+  "local": "=SUBTOTAL(9;A1:A2)"
+ },
+ {
+  "id": "fix-sum-152",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(1,A1:A2)",
+  "local": "=SUBTOTAL(1;A1:A2)"
+ },
+ {
+  "id": "fix-sum-153",
+  "v": 0,
+  "text": "0",
+  "f": "=AGGREGATE(9,6,A1:A2)",
+  "local": "=AGREGAR(9;6;A1:A2)"
+ },
+ {
+  "id": "fix-sum-154",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SUMPRODUCT(A1:A2)",
+  "local": "=SOMARPRODUTO(A1:A2)"
+ },
+ {
+  "id": "fix-sum-155",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SUMIF(A1:A2,\"<>x\")",
+  "local": "=SOMASE(A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-156",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SUMIFS(A1:A2,A1:A2,\"<>x\")",
+  "local": "=SOMASES(A1:A2;A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-157",
+  "v": 1.9999999999999982,
+  "text": "2",
+  "f": "=DEVSQ(A1:A2)",
+  "local": "=DESVQ(A1:A2)"
+ },
+ {
+  "id": "fix-sum-158",
+  "v": 0.9999999999999991,
+  "text": "1",
+  "f": "=VAR.P(A1:A2)",
+  "local": "=VAR.P(A1:A2)"
+ },
+ {
+  "id": "fix-sum-159",
+  "v": 1.4142135623730945,
+  "text": "1,414214",
+  "f": "=STDEV.S(A1:A2)",
+  "local": "=DESVPAD.A(A1:A2)"
+ },
+ {
+  "id": "fix-sum-160",
+  "v": 0.9999999999999996,
+  "text": "1",
+  "f": "=AVEDEV(A1:A2)",
+  "local": "=DESV.MÉDIO(A1:A2)"
+ },
+ {
+  "id": "fix-sum-161",
+  "v": 1.9999999999999982,
+  "text": "2",
+  "f": "=SUMSQ(A1:A2)",
+  "local": "=SOMAQUAD(A1:A2)"
+ },
+ {
+  "id": "fix-sum-162",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=MMULT(TRANSPOSE(A1:A2),A1:A2^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A2);A1:A2^0)"
+ },
+ {
+  "id": "fix-sum-163",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(-1,1-8*2^-53)",
+  "local": "=SOMA(-1;1-8*2^-53)"
+ },
+ {
+  "id": "fix-sum-164",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=-1+1-8*2^-53",
+  "local": "=-1+1-8*2^-53"
+ },
+ {
+  "id": "fix-sum-165",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEA(A1:A2)",
+  "local": "=MÉDIAA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-166",
+  "v": -4.440892098500626e-16,
+  "text": "-4,4E-16",
+  "f": "=AVERAGEIF(A1:A2,\"<>x\")",
+  "local": "=MÉDIASE(A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-167",
+  "v": -4.440892098500626e-16,
+  "text": "-4,4E-16",
+  "f": "=TRIMMEAN(A1:A2,0)",
+  "local": "=MÉDIA.INTERNA(A1:A2;0)"
+ },
+ {
+  "id": "fix-sum-168",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SERIESSUM(1,0,1,A1:A2)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A2)"
+ },
+ {
+  "id": "fix-sum-169",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SUM(A1:A2)",
+  "local": "=SOMA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-170",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=AVERAGE(A1:A2)*2",
+  "local": "=MÉDIA(A1:A2)*2"
+ },
+ {
+  "id": "fix-sum-171",
+  "v": -4.440892098500626e-16,
+  "text": "-4,4E-16",
+  "f": "=AVERAGE(A1:A2)",
+  "local": "=MÉDIA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-172",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SUBTOTAL(9,A1:A2)",
+  "local": "=SUBTOTAL(9;A1:A2)"
+ },
+ {
+  "id": "fix-sum-173",
+  "v": -4.440892098500626e-16,
+  "text": "-4,4E-16",
+  "f": "=SUBTOTAL(1,A1:A2)",
+  "local": "=SUBTOTAL(1;A1:A2)"
+ },
+ {
+  "id": "fix-sum-174",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=AGGREGATE(9,6,A1:A2)",
+  "local": "=AGREGAR(9;6;A1:A2)"
+ },
+ {
+  "id": "fix-sum-175",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SUMPRODUCT(A1:A2)",
+  "local": "=SOMARPRODUTO(A1:A2)"
+ },
+ {
+  "id": "fix-sum-176",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SUMIF(A1:A2,\"<>x\")",
+  "local": "=SOMASE(A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-177",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SUMIFS(A1:A2,A1:A2,\"<>x\")",
+  "local": "=SOMASES(A1:A2;A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-178",
+  "v": 1.9999999999999982,
+  "text": "2",
+  "f": "=DEVSQ(A1:A2)",
+  "local": "=DESVQ(A1:A2)"
+ },
+ {
+  "id": "fix-sum-179",
+  "v": 0.9999999999999991,
+  "text": "1",
+  "f": "=VAR.P(A1:A2)",
+  "local": "=VAR.P(A1:A2)"
+ },
+ {
+  "id": "fix-sum-180",
+  "v": 1.4142135623730945,
+  "text": "1,414214",
+  "f": "=STDEV.S(A1:A2)",
+  "local": "=DESVPAD.A(A1:A2)"
+ },
+ {
+  "id": "fix-sum-181",
+  "v": 0.9999999999999996,
+  "text": "1",
+  "f": "=AVEDEV(A1:A2)",
+  "local": "=DESV.MÉDIO(A1:A2)"
+ },
+ {
+  "id": "fix-sum-182",
+  "v": 1.9999999999999982,
+  "text": "2",
+  "f": "=SUMSQ(A1:A2)",
+  "local": "=SOMAQUAD(A1:A2)"
+ },
+ {
+  "id": "fix-sum-183",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=MMULT(TRANSPOSE(A1:A2),A1:A2^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A2);A1:A2^0)"
+ },
+ {
+  "id": "fix-sum-184",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SUM(1-8*2^-53,-1)",
+  "local": "=SOMA(1-8*2^-53;-1)"
+ },
+ {
+  "id": "fix-sum-185",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=1-8*2^-53-1",
+  "local": "=1-8*2^-53-1"
+ },
+ {
+  "id": "fix-sum-186",
+  "v": -4.440892098500626e-16,
+  "text": "-4,4E-16",
+  "f": "=AVERAGEA(A1:A2)",
+  "local": "=MÉDIAA(A1:A2)"
+ },
+ {
+  "id": "fix-sum-187",
+  "v": -4.440892098500626e-16,
+  "text": "-4,4E-16",
+  "f": "=AVERAGEIF(A1:A2,\"<>x\")",
+  "local": "=MÉDIASE(A1:A2;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-188",
+  "v": -4.440892098500626e-16,
+  "text": "-4,4E-16",
+  "f": "=TRIMMEAN(A1:A2,0)",
+  "local": "=MÉDIA.INTERNA(A1:A2;0)"
+ },
+ {
+  "id": "fix-sum-189",
+  "v": -8.881784197001252e-16,
+  "text": "-8,9E-16",
+  "f": "=SERIESSUM(1,0,1,A1:A2)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A2)"
+ },
+ {
+  "id": "fix-sum-190",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(A1:A3)",
+  "local": "=SOMA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-191",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)*3",
+  "local": "=MÉDIA(A1:A3)*3"
+ },
+ {
+  "id": "fix-sum-192",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)",
+  "local": "=MÉDIA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-193",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(9,A1:A3)",
+  "local": "=SUBTOTAL(9;A1:A3)"
+ },
+ {
+  "id": "fix-sum-194",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(1,A1:A3)",
+  "local": "=SUBTOTAL(1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-195",
+  "v": 0,
+  "text": "0",
+  "f": "=AGGREGATE(9,6,A1:A3)",
+  "local": "=AGREGAR(9;6;A1:A3)"
+ },
+ {
+  "id": "fix-sum-196",
+  "v": 0,
+  "text": "0",
+  "f": "=SUMPRODUCT(A1:A3)",
+  "local": "=SOMARPRODUTO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-197",
+  "v": 0,
+  "text": "0",
+  "f": "=SUMIF(A1:A3,\"<>x\")",
+  "local": "=SOMASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-198",
+  "v": 0,
+  "text": "0",
+  "f": "=SUMIFS(A1:A3,A1:A3,\"<>x\")",
+  "local": "=SOMASES(A1:A3;A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-199",
+  "v": 2,
+  "text": "2",
+  "f": "=DEVSQ(A1:A3)",
+  "local": "=DESVQ(A1:A3)"
+ },
+ {
+  "id": "fix-sum-200",
+  "v": 0.6666666666666666,
+  "text": "0,666667",
+  "f": "=VAR.P(A1:A3)",
+  "local": "=VAR.P(A1:A3)"
+ },
+ {
+  "id": "fix-sum-201",
+  "v": 1,
+  "text": "1",
+  "f": "=STDEV.S(A1:A3)",
+  "local": "=DESVPAD.A(A1:A3)"
+ },
+ {
+  "id": "fix-sum-202",
+  "v": 0.6666666666666666,
+  "text": "0,666667",
+  "f": "=AVEDEV(A1:A3)",
+  "local": "=DESV.MÉDIO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-203",
+  "v": 2,
+  "text": "2",
+  "f": "=SUMSQ(A1:A3)",
+  "local": "=SOMAQUAD(A1:A3)"
+ },
+ {
+  "id": "fix-sum-204",
+  "v": 0,
+  "text": "0",
+  "f": "=MMULT(TRANSPOSE(A1:A3),A1:A3^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A3);A1:A3^0)"
+ },
+ {
+  "id": "fix-sum-205",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(1,0.0000000000000001,-1)",
+  "local": "=SOMA(1;0,0000000000000001;-1)"
+ },
+ {
+  "id": "fix-sum-206",
+  "v": 0,
+  "text": "0",
+  "f": "=1+0.0000000000000001-1",
+  "local": "=1+0,0000000000000001-1"
+ },
+ {
+  "id": "fix-sum-207",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEA(A1:A3)",
+  "local": "=MÉDIAA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-208",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEIF(A1:A3,\"<>x\")",
+  "local": "=MÉDIASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-209",
+  "v": 0,
+  "text": "0",
+  "f": "=TRIMMEAN(A1:A3,0)",
+  "local": "=MÉDIA.INTERNA(A1:A3;0)"
+ },
+ {
+  "id": "fix-sum-210",
+  "v": 0,
+  "text": "0",
+  "f": "=SERIESSUM(1,0,1,A1:A3)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-211",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=SUM(A1:A3)",
+  "local": "=SOMA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-212",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=AVERAGE(A1:A3)*3",
+  "local": "=MÉDIA(A1:A3)*3"
+ },
+ {
+  "id": "fix-sum-213",
+  "v": 3.3333333333333335e-17,
+  "text": "3,33E-17",
+  "f": "=AVERAGE(A1:A3)",
+  "local": "=MÉDIA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-214",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=SUBTOTAL(9,A1:A3)",
+  "local": "=SUBTOTAL(9;A1:A3)"
+ },
+ {
+  "id": "fix-sum-215",
+  "v": 3.3333333333333335e-17,
+  "text": "3,33E-17",
+  "f": "=SUBTOTAL(1,A1:A3)",
+  "local": "=SUBTOTAL(1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-216",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=AGGREGATE(9,6,A1:A3)",
+  "local": "=AGREGAR(9;6;A1:A3)"
+ },
+ {
+  "id": "fix-sum-217",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=SUMPRODUCT(A1:A3)",
+  "local": "=SOMARPRODUTO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-218",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=SUMIF(A1:A3,\"<>x\")",
+  "local": "=SOMASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-219",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=SUMIFS(A1:A3,A1:A3,\"<>x\")",
+  "local": "=SOMASES(A1:A3;A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-220",
+  "v": 2,
+  "text": "2",
+  "f": "=DEVSQ(A1:A3)",
+  "local": "=DESVQ(A1:A3)"
+ },
+ {
+  "id": "fix-sum-221",
+  "v": 0.6666666666666666,
+  "text": "0,666667",
+  "f": "=VAR.P(A1:A3)",
+  "local": "=VAR.P(A1:A3)"
+ },
+ {
+  "id": "fix-sum-222",
+  "v": 1,
+  "text": "1",
+  "f": "=STDEV.S(A1:A3)",
+  "local": "=DESVPAD.A(A1:A3)"
+ },
+ {
+  "id": "fix-sum-223",
+  "v": 0.6666666666666666,
+  "text": "0,666667",
+  "f": "=AVEDEV(A1:A3)",
+  "local": "=DESV.MÉDIO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-224",
+  "v": 2,
+  "text": "2",
+  "f": "=SUMSQ(A1:A3)",
+  "local": "=SOMAQUAD(A1:A3)"
+ },
+ {
+  "id": "fix-sum-225",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=MMULT(TRANSPOSE(A1:A3),A1:A3^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A3);A1:A3^0)"
+ },
+ {
+  "id": "fix-sum-226",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=SUM(1,-1,0.0000000000000001)",
+  "local": "=SOMA(1;-1;0,0000000000000001)"
+ },
+ {
+  "id": "fix-sum-227",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=1-1+0.0000000000000001",
+  "local": "=1-1+0,0000000000000001"
+ },
+ {
+  "id": "fix-sum-228",
+  "v": 3.3333333333333335e-17,
+  "text": "3,33E-17",
+  "f": "=AVERAGEA(A1:A3)",
+  "local": "=MÉDIAA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-229",
+  "v": 3.3333333333333335e-17,
+  "text": "3,33E-17",
+  "f": "=AVERAGEIF(A1:A3,\"<>x\")",
+  "local": "=MÉDIASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-230",
+  "v": 3.3333333333333335e-17,
+  "text": "3,33E-17",
+  "f": "=TRIMMEAN(A1:A3,0)",
+  "local": "=MÉDIA.INTERNA(A1:A3;0)"
+ },
+ {
+  "id": "fix-sum-231",
+  "v": 1e-16,
+  "text": "1E-16",
+  "f": "=SERIESSUM(1,0,1,A1:A3)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-232",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(A1:A6)",
+  "local": "=SOMA(A1:A6)"
+ },
+ {
+  "id": "fix-sum-233",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A6)*6",
+  "local": "=MÉDIA(A1:A6)*6"
+ },
+ {
+  "id": "fix-sum-234",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A6)",
+  "local": "=MÉDIA(A1:A6)"
+ },
+ {
+  "id": "fix-sum-235",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(9,A1:A6)",
+  "local": "=SUBTOTAL(9;A1:A6)"
+ },
+ {
+  "id": "fix-sum-236",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(1,A1:A6)",
+  "local": "=SUBTOTAL(1;A1:A6)"
+ },
+ {
+  "id": "fix-sum-237",
+  "v": 0,
+  "text": "0",
+  "f": "=AGGREGATE(9,6,A1:A6)",
+  "local": "=AGREGAR(9;6;A1:A6)"
+ },
+ {
+  "id": "fix-sum-238",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMPRODUCT(A1:A6)",
+  "local": "=SOMARPRODUTO(A1:A6)"
+ },
+ {
+  "id": "fix-sum-239",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMIF(A1:A6,\"<>x\")",
+  "local": "=SOMASE(A1:A6;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-240",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SUMIFS(A1:A6,A1:A6,\"<>x\")",
+  "local": "=SOMASES(A1:A6;A1:A6;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-241",
+  "v": 0.28,
+  "text": "0,28",
+  "f": "=DEVSQ(A1:A6)",
+  "local": "=DESVQ(A1:A6)"
+ },
+ {
+  "id": "fix-sum-242",
+  "v": 0.04666666666666667,
+  "text": "0,046667",
+  "f": "=VAR.P(A1:A6)",
+  "local": "=VAR.P(A1:A6)"
+ },
+ {
+  "id": "fix-sum-243",
+  "v": 0.23664319132398465,
+  "text": "0,236643",
+  "f": "=STDEV.S(A1:A6)",
+  "local": "=DESVPAD.A(A1:A6)"
+ },
+ {
+  "id": "fix-sum-244",
+  "v": 0.20000000000000004,
+  "text": "0,2",
+  "f": "=AVEDEV(A1:A6)",
+  "local": "=DESV.MÉDIO(A1:A6)"
+ },
+ {
+  "id": "fix-sum-245",
+  "v": 0.28,
+  "text": "0,28",
+  "f": "=SUMSQ(A1:A6)",
+  "local": "=SOMAQUAD(A1:A6)"
+ },
+ {
+  "id": "fix-sum-246",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=MMULT(TRANSPOSE(A1:A6),A1:A6^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A6);A1:A6^0)"
+ },
+ {
+  "id": "fix-sum-247",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(0.1,0.2,-0.3,0.1,0.2,-0.3)",
+  "local": "=SOMA(0,1;0,2;-0,3;0,1;0,2;-0,3)"
+ },
+ {
+  "id": "fix-sum-248",
+  "v": 0,
+  "text": "0",
+  "f": "=0.1+0.2-0.3+0.1+0.2-0.3",
+  "local": "=0,1+0,2-0,3+0,1+0,2-0,3"
+ },
+ {
+  "id": "fix-sum-249",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEA(A1:A6)",
+  "local": "=MÉDIAA(A1:A6)"
+ },
+ {
+  "id": "fix-sum-250",
+  "v": 9.25185853854297e-18,
+  "text": "9,25E-18",
+  "f": "=AVERAGEIF(A1:A6,\"<>x\")",
+  "local": "=MÉDIASE(A1:A6;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-251",
+  "v": 9.25185853854297e-18,
+  "text": "9,25E-18",
+  "f": "=TRIMMEAN(A1:A6,0)",
+  "local": "=MÉDIA.INTERNA(A1:A6;0)"
+ },
+ {
+  "id": "fix-sum-252",
+  "v": 5.551115123125783e-17,
+  "text": "5,55E-17",
+  "f": "=SERIESSUM(1,0,1,A1:A6)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A6)"
+ },
+ {
+  "id": "fix-sum-253",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(A1:A3)",
+  "local": "=SOMA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-254",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)*3",
+  "local": "=MÉDIA(A1:A3)*3"
+ },
+ {
+  "id": "fix-sum-255",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)",
+  "local": "=MÉDIA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-256",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(9,A1:A3)",
+  "local": "=SUBTOTAL(9;A1:A3)"
+ },
+ {
+  "id": "fix-sum-257",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(1,A1:A3)",
+  "local": "=SUBTOTAL(1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-258",
+  "v": 0,
+  "text": "0",
+  "f": "=AGGREGATE(9,6,A1:A3)",
+  "local": "=AGREGAR(9;6;A1:A3)"
+ },
+ {
+  "id": "fix-sum-259",
+  "v": 0.25,
+  "text": "0,25",
+  "f": "=SUMPRODUCT(A1:A3)",
+  "local": "=SOMARPRODUTO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-260",
+  "v": 0.25,
+  "text": "0,25",
+  "f": "=SUMIF(A1:A3,\"<>x\")",
+  "local": "=SOMASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-261",
+  "v": 0.25,
+  "text": "0,25",
+  "f": "=SUMIFS(A1:A3,A1:A3,\"<>x\")",
+  "local": "=SOMASES(A1:A3;A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-262",
+  "v": 2e+30,
+  "text": "2E+30",
+  "f": "=DEVSQ(A1:A3)",
+  "local": "=DESVQ(A1:A3)"
+ },
+ {
+  "id": "fix-sum-263",
+  "v": 6.666666666666668e+29,
+  "text": "6,67E+29",
+  "f": "=VAR.P(A1:A3)",
+  "local": "=VAR.P(A1:A3)"
+ },
+ {
+  "id": "fix-sum-264",
+  "v": 1000000000000000,
+  "text": "1E+15",
+  "f": "=STDEV.S(A1:A3)",
+  "local": "=DESVPAD.A(A1:A3)"
+ },
+ {
+  "id": "fix-sum-265",
+  "v": 666666666666666.8,
+  "text": "6,67E+14",
+  "f": "=AVEDEV(A1:A3)",
+  "local": "=DESV.MÉDIO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-266",
+  "v": 2e+30,
+  "text": "2E+30",
+  "f": "=SUMSQ(A1:A3)",
+  "local": "=SOMAQUAD(A1:A3)"
+ },
+ {
+  "id": "fix-sum-267",
+  "v": 0.25,
+  "text": "0,25",
+  "f": "=MMULT(TRANSPOSE(A1:A3),A1:A3^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A3);A1:A3^0)"
+ },
+ {
+  "id": "fix-sum-268",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(1000000000000000,0.3,-1000000000000000)",
+  "local": "=SOMA(1000000000000000;0,3;-1000000000000000)"
+ },
+ {
+  "id": "fix-sum-269",
+  "v": 0,
+  "text": "0",
+  "f": "=1000000000000000+0.3-1000000000000000",
+  "local": "=1000000000000000+0,3-1000000000000000"
+ },
+ {
+  "id": "fix-sum-270",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEA(A1:A3)",
+  "local": "=MÉDIAA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-271",
+  "v": 0.08333333333333333,
+  "text": "0,083333",
+  "f": "=AVERAGEIF(A1:A3,\"<>x\")",
+  "local": "=MÉDIASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-272",
+  "v": 0.08333333333333333,
+  "text": "0,083333",
+  "f": "=TRIMMEAN(A1:A3,0)",
+  "local": "=MÉDIA.INTERNA(A1:A3;0)"
+ },
+ {
+  "id": "fix-sum-273",
+  "v": 0.25,
+  "text": "0,25",
+  "f": "=SERIESSUM(1,0,1,A1:A3)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-274",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(A1:A3)",
+  "local": "=SOMA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-275",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)*3",
+  "local": "=MÉDIA(A1:A3)*3"
+ },
+ {
+  "id": "fix-sum-276",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGE(A1:A3)",
+  "local": "=MÉDIA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-277",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(9,A1:A3)",
+  "local": "=SUBTOTAL(9;A1:A3)"
+ },
+ {
+  "id": "fix-sum-278",
+  "v": 0,
+  "text": "0",
+  "f": "=SUBTOTAL(1,A1:A3)",
+  "local": "=SUBTOTAL(1;A1:A3)"
+ },
+ {
+  "id": "fix-sum-279",
+  "v": 0,
+  "text": "0",
+  "f": "=AGGREGATE(9,6,A1:A3)",
+  "local": "=AGREGAR(9;6;A1:A3)"
+ },
+ {
+  "id": "fix-sum-280",
+  "v": 0,
+  "text": "0",
+  "f": "=SUMPRODUCT(A1:A3)",
+  "local": "=SOMARPRODUTO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-281",
+  "v": 0,
+  "text": "0",
+  "f": "=SUMIF(A1:A3,\"<>x\")",
+  "local": "=SOMASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-282",
+  "v": 0,
+  "text": "0",
+  "f": "=SUMIFS(A1:A3,A1:A3,\"<>x\")",
+  "local": "=SOMASES(A1:A3;A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-283",
+  "v": 18.62,
+  "text": "18,62",
+  "f": "=DEVSQ(A1:A3)",
+  "local": "=DESVQ(A1:A3)"
+ },
+ {
+  "id": "fix-sum-284",
+  "v": 6.206666666666667,
+  "text": "6,206667",
+  "f": "=VAR.P(A1:A3)",
+  "local": "=VAR.P(A1:A3)"
+ },
+ {
+  "id": "fix-sum-285",
+  "v": 3.0512292604784714,
+  "text": "3,051229",
+  "f": "=STDEV.S(A1:A3)",
+  "local": "=DESVPAD.A(A1:A3)"
+ },
+ {
+  "id": "fix-sum-286",
+  "v": 2.066666666666667,
+  "text": "2,066667",
+  "f": "=AVEDEV(A1:A3)",
+  "local": "=DESV.MÉDIO(A1:A3)"
+ },
+ {
+  "id": "fix-sum-287",
+  "v": 18.62,
+  "text": "18,62",
+  "f": "=SUMSQ(A1:A3)",
+  "local": "=SOMAQUAD(A1:A3)"
+ },
+ {
+  "id": "fix-sum-288",
+  "v": 0,
+  "text": "0",
+  "f": "=MMULT(TRANSPOSE(A1:A3),A1:A3^0)",
+  "local": "=MATRIZ.MULT(TRANSPOR(A1:A3);A1:A3^0)"
+ },
+ {
+  "id": "fix-sum-289",
+  "v": 0,
+  "text": "0",
+  "f": "=SUM(3,0.1,-3.1)",
+  "local": "=SOMA(3;0,1;-3,1)"
+ },
+ {
+  "id": "fix-sum-290",
+  "v": 0,
+  "text": "0",
+  "f": "=3+0.1-3.1",
+  "local": "=3+0,1-3,1"
+ },
+ {
+  "id": "fix-sum-291",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEA(A1:A3)",
+  "local": "=MÉDIAA(A1:A3)"
+ },
+ {
+  "id": "fix-sum-292",
+  "v": 0,
+  "text": "0",
+  "f": "=AVERAGEIF(A1:A3,\"<>x\")",
+  "local": "=MÉDIASE(A1:A3;\"<>x\")"
+ },
+ {
+  "id": "fix-sum-293",
+  "v": 0,
+  "text": "0",
+  "f": "=TRIMMEAN(A1:A3,0)",
+  "local": "=MÉDIA.INTERNA(A1:A3;0)"
+ },
+ {
+  "id": "fix-sum-294",
+  "v": 0,
+  "text": "0",
+  "f": "=SERIESSUM(1,0,1,A1:A3)",
+  "local": "=SOMASEQÜÊNCIA(1;0;1;A1:A3)"
+ }
+]
