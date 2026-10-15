@@ -1,0 +1,12 @@
+{
+ "fix-elapsed-572": "borda do arredondamento dos segundos (x·86400 a 1E-6 s de ,5): o Excel decide com uma precisão própria (entre 1E-5 e 1E-6 s com \"s\", entre 1E-9 e 1E-10 s com \"ss,00\"), não identificada; os casos longe da borda batem",
+ "fix-elapsed-574": "borda do arredondamento dos segundos (x·86400 a 1E-6 s de ,5): o Excel decide com uma precisão própria (entre 1E-5 e 1E-6 s com \"s\", entre 1E-9 e 1E-10 s com \"ss,00\"), não identificada; os casos longe da borda batem",
+ "fix-elapsed-576": "borda do arredondamento dos segundos (x·86400 a 1E-6 s de ,5): o Excel decide com uma precisão própria (entre 1E-5 e 1E-6 s com \"s\", entre 1E-9 e 1E-10 s com \"ss,00\"), não identificada; os casos longe da borda batem",
+ "fix-elapsed-578": "borda do arredondamento dos segundos (x·86400 a 1E-6 s de ,5): o Excel decide com uma precisão própria (entre 1E-5 e 1E-6 s com \"s\", entre 1E-9 e 1E-10 s com \"ss,00\"), não identificada; os casos longe da borda batem",
+ "fix-elapsed-580": "borda do arredondamento dos segundos (x·86400 a 1E-6 s de ,5): o Excel decide com uma precisão própria (entre 1E-5 e 1E-6 s com \"s\", entre 1E-9 e 1E-10 s com \"ss,00\"), não identificada; os casos longe da borda batem",
+ "fix-elapsed-581": "borda do arredondamento dos segundos (x·86400 a 1E-6 s de ,5): o Excel decide com uma precisão própria (entre 1E-5 e 1E-6 s com \"s\", entre 1E-9 e 1E-10 s com \"ss,00\"), não identificada; os casos longe da borda batem",
+ "fix-elapsed-582": "borda do arredondamento dos segundos (x·86400 a 1E-6 s de ,5): o Excel decide com uma precisão própria (entre 1E-5 e 1E-6 s com \"s\", entre 1E-9 e 1E-10 s com \"ss,00\"), não identificada; os casos longe da borda batem",
+ "fix-elapsed-583": "borda do arredondamento dos segundos (x·86400 a 1E-6 s de ,5): o Excel decide com uma precisão própria (entre 1E-5 e 1E-6 s com \"s\", entre 1E-9 e 1E-10 s com \"ss,00\"), não identificada; os casos longe da borda batem",
+ "fix-elapsed-584": "borda do arredondamento dos segundos (x·86400 a 1E-6 s de ,5): o Excel decide com uma precisão própria (entre 1E-5 e 1E-6 s com \"s\", entre 1E-9 e 1E-10 s com \"ss,00\"), não identificada; os casos longe da borda batem",
+ "fix-elapsed-585": "borda do arredondamento dos segundos (x·86400 a 1E-6 s de ,5): o Excel decide com uma precisão própria (entre 1E-5 e 1E-6 s com \"s\", entre 1E-9 e 1E-10 s com \"ss,00\"), não identificada; os casos longe da borda batem"
+}

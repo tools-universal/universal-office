@@ -138,3 +138,27 @@ describe('científico e frações (TEXT no Excel pt-BR)', () => {
   ];
   for (const [f, v, want] of table) it(`${JSON.stringify(f)} c/ ${v} → ${JSON.stringify(want)}`, () => expect(t(v, f)).toBe(want));
 });
+
+describe('tempo decorrido: unidade maior, registrador e 1904 (TEXT no Excel pt-BR)', () => {
+  const t = (v: number, f: string, date1904 = false): string => formatValue(v, f, { date1904 }).text;
+  it('partes da unidade decorrida saem como total; as menores, comuns', () => {
+    expect(t(3.14159, '[h] h')).toBe('75 75');
+    expect(t(3.14159, '[s] ss')).toBe('271433 271433');
+    expect(t(0.123456, '[h] s')).toBe('2 47');
+    expect(t(1.75, '[m] mm:ss')).toBe('2520 01:00'); // m logo depois de [m] = mês
+  });
+  it('depois de uma parte comum o registrador vira o resto dos segundos', () => {
+    expect(t(3.14159, 's:m" @ hour "[hh]')).toBe('53:23 @ hour 1293');
+    expect(t(0.123456, '[s] m')).toBe('47 67821');
+    expect(t(0.123456, '[h]:mm h')).toBe('2:57 1130');
+    expect(t(0.123456, 'ss.00 [h]')).toBe('46,60 1448');
+  });
+  it('inválidos e negativos', () => {
+    expect(formatValueParts(1, 'h [m]').overflow).toBe(true);
+    expect(formatValueParts(1, '[h] [m]').overflow).toBe(true);
+    expect(t(-0.5, '[h] "x" h')).toBe('-12 x 12');
+    expect(formatValueParts(-0.5, '[h]:mm').overflow).toBe(true);
+    expect(t(-0.08546296296296296, 'dd/mm/yyyy', true)).toBe('-01/01/1904');
+    expect(t(-0.08546296296296296, 's [h]', true)).toBe('-4 108');
+  });
+});

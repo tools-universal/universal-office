@@ -471,12 +471,18 @@ function parseSection(raw: string): Section {
 }
 
 /** `m`/`mm` depois de h (ou [h]) ou antes de s = minuto (c='m'); senão mês (c='M'). */
+/**
+ * `m`/`mm` depois de h (ou [h]), depois de s (ou [s]) ou antes de s = minuto (c='m');
+ * senão mês (c='M'). Logo depois de [m] é sempre mês (medido no TEXT pt-BR: "s:m" c/
+ * 3,14159 → "53:23"; "[m] mm:ss" c/ 1,75 → "2520 01:00").
+ */
 function resolveMinutes(toks: Tok[]): void {
-  let afterH = false;
+  let afterH = false, afterS = false, afterElM = false;
   for (let i = 0; i < toks.length; i++) {
     const t = toks[i]!;
-    if (t.k === 'dt' && t.c === 'h') { afterH = true; continue; }
-    if (t.k === 'el' && t.c === 'h') { afterH = true; continue; }
+    if ((t.k === 'dt' && t.c === 'h') || (t.k === 'el' && t.c === 'h')) { afterH = true; afterS = false; afterElM = false; continue; }
+    if ((t.k === 'dt' && t.c === 's') || (t.k === 'el' && t.c === 's')) { afterS = true; afterH = false; afterElM = false; continue; }
+    if (t.k === 'el' && t.c === 'm') { afterElM = true; afterH = false; afterS = false; continue; }
     if (t.k === 'dt' && t.c === 'M') {
       let beforeS = false;
       for (let j = i + 1; j < toks.length; j++) {
@@ -485,10 +491,11 @@ function resolveMinutes(toks: Tok[]): void {
         beforeS = (u.k === 'dt' && u.c === 's') || (u.k === 'el' && u.c === 's');
         break;
       }
-      if ((afterH || beforeS) && t.n <= 2) { t.c = 'm'; afterH = false; }
+      if (!afterElM && (afterH || afterS || beforeS) && t.n <= 2) t.c = 'm';
+      afterH = false; afterS = false; afterElM = false;
       continue;
     }
-    if (t.k === 'dt' || t.k === 'ampm') afterH = false;
+    if (t.k === 'dt' || t.k === 'ampm') { afterH = false; afterS = false; afterElM = false; }
   }
 }
 
@@ -1002,11 +1009,34 @@ function emitDate(sec0: Section, serial: number, loc0: FormatLocale, date1904: b
     sec = { ...parseSection(sys), color: sec.color };
   }
   const loc = localeFor(sec, loc0);
+  // Tempo decorrido (medido no TEXT pt-BR, lab calc/fix): no máximo um [h]/[m]/[s] por
+  // seção, sem h comum antes dele ("h [m]", "[h] [m]" → #VALUE!). A unidade decorrida U é a
+  // MAIOR unidade de tempo da seção (h > minuto > s, com ou sem colchete): as partes de U
+  // (o colchete e também h/m/s comuns) saem como total de um registrador R; as menores
+  // (inclusive um colchete menor: "[s] m" → [s] = segundo do minuto) saem comuns. R começa
+  // no valor e, depois de qualquer parte comum de data/hora, vira o resto do arredondamento
+  // dos segundos — (x·86400 + 0,5) mod 60 dias, ou (x·86400·10^n + 0,5) mod 10^n com n
+  // casas de fração de segundo ("s [h]" c/ 0,123456 → "47 1130"; "[h]:mm h" → "2:57 1130").
+  const els = sec.toks.filter((t) => t.k === 'el') as { k: 'el'; c: 'h' | 'm' | 's'; n: number }[];
+  let U: 'h' | 'm' | 's' | undefined;
+  if (els.length) {
+    if (els.length > 1) return null;
+    const rank = { h: 3, m: 2, s: 1 } as const;
+    let u: 'h' | 'm' | 's' = els[0]!.c;
+    for (const t of sec.toks) if (t.k === 'dt' && (t.c === 'h' || t.c === 'm' || t.c === 's') && rank[t.c] > rank[u]) u = t.c;
+    U = u;
+    // h comum ou parte comum da própria unidade antes do colchete → inválido ("h [m]", "s [s]")
+    const at = sec.toks.indexOf(els[0]!);
+    if (sec.toks.slice(0, at).some((t) => t.k === 'dt' && (t.c === 'h' || t.c === u))) return null;
+  }
   if (neg) {
-    // negativo só com UM tempo decorrido sozinho ([h], [mm], [s] + literais):
-    // "-120" com [h] e −5; "[h]:mm", "h:mm"… → #### (medido, lab calc/lead)
-    const tt = sec.toks.filter((t) => t.k === 'dt' || t.k === 'el' || t.k === 'ampm' || t.k === 'subsec');
-    if (tt.length !== 1 || tt[0]!.k !== 'el') return null;
+    // negativo: no sistema 1904 qualquer data/hora sai com "-" (medido: "dd/mm/aaaa" c/
+    // −0,085 → "-01/01/1904"); no 1900 só se toda parte de data/hora é da unidade decorrida
+    // ("[h] h" c/ −0,5 → "-12 12"; "[h]:mm" → #VALUE!)
+    if (!date1904) {
+      const ok = U !== undefined && sec.toks.every((t) => (t.k !== 'dt' && t.k !== 'ampm' && t.k !== 'subsec' && t.k !== 'el') || ((t.k === 'dt' || t.k === 'el') && t.c === U));
+      if (!ok) return null;
+    }
     const r = emitDate(sec0, serial, loc0, date1904, false);
     return r && [{ t: 'text', s: '-' }, ...r];
   }
@@ -1039,8 +1069,23 @@ function emitDate(sec0: Section, serial: number, loc0: FormatLocale, date1904: b
   const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
   const totalSec = Math.floor(ticks / unit);
   const pad = (v: number, n: number): string => String(v).padStart(n, '0');
+  // registrador do tempo decorrido: o valor, ou o resto do arredondamento dos segundos
+  let fromValue = true;
+  // (sobre 15 algarismos, como o arredondamento dos segundos: −0,0854629… → "s [h]" = "-4 108")
+  const secs15 = Number((serial * 86400 * unit).toPrecision(15));
+  const rest = (secs15 + 0.5) % (sub ? unit : 60);
+  const elapsed = (c: 'h' | 'm' | 's'): number => {
+    if (fromValue) return c === 'h' ? Math.floor(totalSec / 3600) : c === 'm' ? Math.floor(totalSec / 60) : totalSec;
+    return Math.floor(rest * (c === 'h' ? 24 : c === 'm' ? 1440 : 86400));
+  };
   const out: FmtPart[] = [];
-  for (const t of sec.toks) {
+  for (const t0 of sec.toks) {
+    let t = t0;
+    if (U !== undefined && (t.k === 'dt' || t.k === 'el') && (t.c === 'h' || t.c === 'm' || t.c === 's')) {
+      if (t.c === U) { out.push({ t: 'text', s: pad(elapsed(U), t.k === 'el' ? t.n : t.n >= 2 ? 2 : 1) }); continue; }
+      if (t.k === 'el') t = { k: 'dt', c: t.c, n: t.n }; // colchete de unidade menor = parte comum
+    }
+    if (t.k === 'dt' || t.k === 'subsec' || t.k === 'ampm') fromValue = false;
     switch (t.k) {
       case 'dt': {
         const n = t.n;

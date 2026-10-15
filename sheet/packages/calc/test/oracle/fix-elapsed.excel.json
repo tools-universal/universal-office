@@ -1,0 +1,4617 @@
+[
+ {
+  "id": "fix-elapsed-1",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"[h]:mm\")",
+  "local": "=TEXTO(-0,5;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-2",
+  "v": "-720",
+  "text": "-720",
+  "f": "=TEXT(-0.5,\"[mm]\")",
+  "local": "=TEXTO(-0,5;\"[mm]\")"
+ },
+ {
+  "id": "fix-elapsed-3",
+  "v": "-12 x 12",
+  "text": "-12 x 12",
+  "f": "=TEXT(-0.5,\"[h] \"\"x\"\" h\")",
+  "local": "=TEXTO(-0,5;\"[h] \"\"x\"\" h\")"
+ },
+ {
+  "id": "fix-elapsed-4",
+  "v": "-108000",
+  "text": "-108000",
+  "f": "=TEXT(-1.25,\"[ss]\")",
+  "local": "=TEXTO(-1,25;\"[ss]\")"
+ },
+ {
+  "id": "fix-elapsed-5",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"mm:ss [h]\")",
+  "local": "=TEXTO(-0,5;\"mm:ss [h]\")"
+ },
+ {
+  "id": "fix-elapsed-6",
+  "v": "-a12",
+  "text": "-a12",
+  "f": "=TEXT(-0.5,\"\"\"a\"\"[h]\")",
+  "local": "=TEXTO(-0,5;\"\"\"a\"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-7",
+  "v": "720",
+  "text": "720",
+  "f": "=TEXT(-0.5,\"[h];[m]\")",
+  "local": "=TEXTO(-0,5;\"[h];[m]\")"
+ },
+ {
+  "id": "fix-elapsed-8",
+  "v": "neg",
+  "text": "neg",
+  "f": "=TEXT(-0.5,\"[h];\"\"neg\"\"\")",
+  "local": "=TEXTO(-0,5;\"[h];\"\"neg\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-9",
+  "v": "75",
+  "text": "75",
+  "f": "=TEXT(3.14159,\"[hh]\")",
+  "local": "=TEXTO(3,14159;\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-10",
+  "v": "53:23 @ hour 1293",
+  "text": "53:23 @ hour 1293",
+  "f": "=TEXT(3.14159,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(3,14159;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-11",
+  "v": "4523",
+  "text": "4523",
+  "f": "=TEXT(3.14159,\"[m]\")",
+  "local": "=TEXTO(3,14159;\"[m]\")"
+ },
+ {
+  "id": "fix-elapsed-12",
+  "v": "53 77581",
+  "text": "53 77581",
+  "f": "=TEXT(3.14159,\"s [m]\")",
+  "local": "=TEXTO(3,14159;\"s [m]\")"
+ },
+ {
+  "id": "fix-elapsed-13",
+  "v": "4523",
+  "text": "4523",
+  "f": "=TEXT(3.14159,\"[mm]\")",
+  "local": "=TEXTO(3,14159;\"[mm]\")"
+ },
+ {
+  "id": "fix-elapsed-14",
+  "v": "00",
+  "text": "00",
+  "f": "=TEXT(0,\"[hh]\")",
+  "local": "=TEXTO(0;\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-15",
+  "v": "0",
+  "text": "0",
+  "f": "=TEXT(0,\"[m]\")",
+  "local": "=TEXTO(0;\"[m]\")"
+ },
+ {
+  "id": "fix-elapsed-16",
+  "v": "0 720",
+  "text": "0 720",
+  "f": "=TEXT(0,\"s [m]\")",
+  "local": "=TEXTO(0;\"s [m]\")"
+ },
+ {
+  "id": "fix-elapsed-17",
+  "v": "53:23 1293",
+  "text": "53:23 1293",
+  "f": "=TEXT(3.14159,\"s:m [hh]\")",
+  "local": "=TEXTO(3,14159;\"s:m [hh]\")"
+ },
+ {
+  "id": "fix-elapsed-18",
+  "v": "53 1293",
+  "text": "53 1293",
+  "f": "=TEXT(3.14159,\"s [hh]\")",
+  "local": "=TEXTO(3,14159;\"s [hh]\")"
+ },
+ {
+  "id": "fix-elapsed-19",
+  "v": "1 1293",
+  "text": "1 1293",
+  "f": "=TEXT(3.14159,\"m [hh]\")",
+  "local": "=TEXTO(3,14159;\"m [hh]\")"
+ },
+ {
+  "id": "fix-elapsed-20",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(3.14159,\"h [hh]\")",
+  "local": "=TEXTO(3,14159;\"h [hh]\")"
+ },
+ {
+  "id": "fix-elapsed-21",
+  "v": "75 53",
+  "text": "75 53",
+  "f": "=TEXT(3.14159,\"[hh] s\")",
+  "local": "=TEXTO(3,14159;\"[hh] s\")"
+ },
+ {
+  "id": "fix-elapsed-22",
+  "v": "53 1293",
+  "text": "53 1293",
+  "f": "=TEXT(3.14159,\"s [h]\")",
+  "local": "=TEXTO(3,14159;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-23",
+  "v": "53 77581",
+  "text": "53 77581",
+  "f": "=TEXT(3.14159,\"s [mm]\")",
+  "local": "=TEXTO(3,14159;\"s [mm]\")"
+ },
+ {
+  "id": "fix-elapsed-24",
+  "v": "53 77581",
+  "text": "53 77581",
+  "f": "=TEXT(3.14159,\"ss [m]\")",
+  "local": "=TEXTO(3,14159;\"ss [m]\")"
+ },
+ {
+  "id": "fix-elapsed-25",
+  "v": "75 75",
+  "text": "75 75",
+  "f": "=TEXT(3.14159,\"[h] h\")",
+  "local": "=TEXTO(3,14159;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-26",
+  "v": "271433 271433",
+  "text": "271433 271433",
+  "f": "=TEXT(3.14159,\"[s] ss\")",
+  "local": "=TEXTO(3,14159;\"[s] ss\")"
+ },
+ {
+  "id": "fix-elapsed-27",
+  "v": "4523 1",
+  "text": "4523 1",
+  "f": "=TEXT(3.14159,\"[m] m\")",
+  "local": "=TEXTO(3,14159;\"[m] m\")"
+ },
+ {
+  "id": "fix-elapsed-28",
+  "v": "4523 01",
+  "text": "4523 01",
+  "f": "=TEXT(3.14159,\"[m] mm\")",
+  "local": "=TEXTO(3,14159;\"[m] mm\")"
+ },
+ {
+  "id": "fix-elapsed-29",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(3.14159,\"h [m]\")",
+  "local": "=TEXTO(3,14159;\"h [m]\")"
+ },
+ {
+  "id": "fix-elapsed-30",
+  "v": "0 12",
+  "text": "0 12",
+  "f": "=TEXT(1.75,\"s [h]\")",
+  "local": "=TEXTO(1,75;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-31",
+  "v": "47 1130",
+  "text": "47 1130",
+  "f": "=TEXT(0.123456,\"s [h]\")",
+  "local": "=TEXTO(0,123456;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-32",
+  "v": "0 12",
+  "text": "0 12",
+  "f": "=TEXT(10.9,\"s [h]\")",
+  "local": "=TEXTO(10,9;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-33",
+  "v": "1 35",
+  "text": "1 35",
+  "f": "=TEXT(0.000011574,\"s [h]\")",
+  "local": "=TEXTO(0,000011574;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-34",
+  "v": "0 9",
+  "text": "0 9",
+  "f": "=TEXT(0.500693287037037,\"s [h]\")",
+  "local": "=TEXTO(0,500693287037037;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-35",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"s [h]\")",
+  "local": "=TEXTO(-0,123456;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-36",
+  "v": "0 720",
+  "text": "0 720",
+  "f": "=TEXT(1.75,\"s [m]\")",
+  "local": "=TEXTO(1,75;\"s [m]\")"
+ },
+ {
+  "id": "fix-elapsed-37",
+  "v": "47 67821",
+  "text": "47 67821",
+  "f": "=TEXT(0.123456,\"s [m]\")",
+  "local": "=TEXTO(0,123456;\"s [m]\")"
+ },
+ {
+  "id": "fix-elapsed-38",
+  "v": "0 720",
+  "text": "0 720",
+  "f": "=TEXT(10.9,\"s [m]\")",
+  "local": "=TEXTO(10,9;\"s [m]\")"
+ },
+ {
+  "id": "fix-elapsed-39",
+  "v": "1 2159",
+  "text": "1 2159",
+  "f": "=TEXT(0.000011574,\"s [m]\")",
+  "local": "=TEXTO(0,000011574;\"s [m]\")"
+ },
+ {
+  "id": "fix-elapsed-40",
+  "v": "0 576",
+  "text": "0 576",
+  "f": "=TEXT(0.500693287037037,\"s [m]\")",
+  "local": "=TEXTO(0,500693287037037;\"s [m]\")"
+ },
+ {
+  "id": "fix-elapsed-41",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"s [m]\")",
+  "local": "=TEXTO(-0,123456;\"s [m]\")"
+ },
+ {
+  "id": "fix-elapsed-42",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(1.75,\"s [s]\")",
+  "local": "=TEXTO(1,75;\"s [s]\")"
+ },
+ {
+  "id": "fix-elapsed-43",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.123456,\"s [s]\")",
+  "local": "=TEXTO(0,123456;\"s [s]\")"
+ },
+ {
+  "id": "fix-elapsed-44",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(10.9,\"s [s]\")",
+  "local": "=TEXTO(10,9;\"s [s]\")"
+ },
+ {
+  "id": "fix-elapsed-45",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.000011574,\"s [s]\")",
+  "local": "=TEXTO(0,000011574;\"s [s]\")"
+ },
+ {
+  "id": "fix-elapsed-46",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.500693287037037,\"s [s]\")",
+  "local": "=TEXTO(0,500693287037037;\"s [s]\")"
+ },
+ {
+  "id": "fix-elapsed-47",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"s [s]\")",
+  "local": "=TEXTO(-0,123456;\"s [s]\")"
+ },
+ {
+  "id": "fix-elapsed-48",
+  "v": "1 12",
+  "text": "1 12",
+  "f": "=TEXT(1.75,\"m [h]\")",
+  "local": "=TEXTO(1,75;\"m [h]\")"
+ },
+ {
+  "id": "fix-elapsed-49",
+  "v": "1 1130",
+  "text": "1 1130",
+  "f": "=TEXT(0.123456,\"m [h]\")",
+  "local": "=TEXTO(0,123456;\"m [h]\")"
+ },
+ {
+  "id": "fix-elapsed-50",
+  "v": "1 12",
+  "text": "1 12",
+  "f": "=TEXT(10.9,\"m [h]\")",
+  "local": "=TEXTO(10,9;\"m [h]\")"
+ },
+ {
+  "id": "fix-elapsed-51",
+  "v": "1 35",
+  "text": "1 35",
+  "f": "=TEXT(0.000011574,\"m [h]\")",
+  "local": "=TEXTO(0,000011574;\"m [h]\")"
+ },
+ {
+  "id": "fix-elapsed-52",
+  "v": "1 9",
+  "text": "1 9",
+  "f": "=TEXT(0.500693287037037,\"m [h]\")",
+  "local": "=TEXTO(0,500693287037037;\"m [h]\")"
+ },
+ {
+  "id": "fix-elapsed-53",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"m [h]\")",
+  "local": "=TEXTO(-0,123456;\"m [h]\")"
+ },
+ {
+  "id": "fix-elapsed-54",
+  "v": "1 12",
+  "text": "1 12",
+  "f": "=TEXT(1.75,\"d [h]\")",
+  "local": "=TEXTO(1,75;\"d [h]\")"
+ },
+ {
+  "id": "fix-elapsed-55",
+  "v": "0 1130",
+  "text": "0 1130",
+  "f": "=TEXT(0.123456,\"d [h]\")",
+  "local": "=TEXTO(0,123456;\"d [h]\")"
+ },
+ {
+  "id": "fix-elapsed-56",
+  "v": "10 12",
+  "text": "10 12",
+  "f": "=TEXT(10.9,\"d [h]\")",
+  "local": "=TEXTO(10,9;\"d [h]\")"
+ },
+ {
+  "id": "fix-elapsed-57",
+  "v": "0 35",
+  "text": "0 35",
+  "f": "=TEXT(0.000011574,\"d [h]\")",
+  "local": "=TEXTO(0,000011574;\"d [h]\")"
+ },
+ {
+  "id": "fix-elapsed-58",
+  "v": "0 9",
+  "text": "0 9",
+  "f": "=TEXT(0.500693287037037,\"d [h]\")",
+  "local": "=TEXTO(0,500693287037037;\"d [h]\")"
+ },
+ {
+  "id": "fix-elapsed-59",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"d [h]\")",
+  "local": "=TEXTO(-0,123456;\"d [h]\")"
+ },
+ {
+  "id": "fix-elapsed-60",
+  "v": "00 12",
+  "text": "00 12",
+  "f": "=TEXT(1.75,\"aa [h]\")",
+  "local": "=TEXTO(1,75;\"aa [h]\")"
+ },
+ {
+  "id": "fix-elapsed-61",
+  "v": "00 1130",
+  "text": "00 1130",
+  "f": "=TEXT(0.123456,\"aa [h]\")",
+  "local": "=TEXTO(0,123456;\"aa [h]\")"
+ },
+ {
+  "id": "fix-elapsed-62",
+  "v": "00 12",
+  "text": "00 12",
+  "f": "=TEXT(10.9,\"aa [h]\")",
+  "local": "=TEXTO(10,9;\"aa [h]\")"
+ },
+ {
+  "id": "fix-elapsed-63",
+  "v": "00 35",
+  "text": "00 35",
+  "f": "=TEXT(0.000011574,\"aa [h]\")",
+  "local": "=TEXTO(0,000011574;\"aa [h]\")"
+ },
+ {
+  "id": "fix-elapsed-64",
+  "v": "00 9",
+  "text": "00 9",
+  "f": "=TEXT(0.500693287037037,\"aa [h]\")",
+  "local": "=TEXTO(0,500693287037037;\"aa [h]\")"
+ },
+ {
+  "id": "fix-elapsed-65",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"aa [h]\")",
+  "local": "=TEXTO(-0,123456;\"aa [h]\")"
+ },
+ {
+  "id": "fix-elapsed-66",
+  "v": "0 12:00",
+  "text": "0 12:00",
+  "f": "=TEXT(1.75,\"s [hh]:mm\")",
+  "local": "=TEXTO(1,75;\"s [hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-67",
+  "v": "47 1130:57",
+  "text": "47 1130:57",
+  "f": "=TEXT(0.123456,\"s [hh]:mm\")",
+  "local": "=TEXTO(0,123456;\"s [hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-68",
+  "v": "0 12:36",
+  "text": "0 12:36",
+  "f": "=TEXT(10.9,\"s [hh]:mm\")",
+  "local": "=TEXTO(10,9;\"s [hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-69",
+  "v": "1 35:00",
+  "text": "1 35:00",
+  "f": "=TEXT(0.000011574,\"s [hh]:mm\")",
+  "local": "=TEXTO(0,000011574;\"s [hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-70",
+  "v": "0 09:01",
+  "text": "0 09:01",
+  "f": "=TEXT(0.500693287037037,\"s [hh]:mm\")",
+  "local": "=TEXTO(0,500693287037037;\"s [hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-71",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"s [hh]:mm\")",
+  "local": "=TEXTO(-0,123456;\"s [hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-72",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(1.75,\"[h] s [h]\")",
+  "local": "=TEXTO(1,75;\"[h] s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-73",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.123456,\"[h] s [h]\")",
+  "local": "=TEXTO(0,123456;\"[h] s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-74",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(10.9,\"[h] s [h]\")",
+  "local": "=TEXTO(10,9;\"[h] s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-75",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.000011574,\"[h] s [h]\")",
+  "local": "=TEXTO(0,000011574;\"[h] s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-76",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.500693287037037,\"[h] s [h]\")",
+  "local": "=TEXTO(0,500693287037037;\"[h] s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-77",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h] s [h]\")",
+  "local": "=TEXTO(-0,123456;\"[h] s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-78",
+  "v": "42 42",
+  "text": "42 42",
+  "f": "=TEXT(1.75,\"[h] hh\")",
+  "local": "=TEXTO(1,75;\"[h] hh\")"
+ },
+ {
+  "id": "fix-elapsed-79",
+  "v": "2 02",
+  "text": "2 02",
+  "f": "=TEXT(0.123456,\"[h] hh\")",
+  "local": "=TEXTO(0,123456;\"[h] hh\")"
+ },
+ {
+  "id": "fix-elapsed-80",
+  "v": "261 261",
+  "text": "261 261",
+  "f": "=TEXT(10.9,\"[h] hh\")",
+  "local": "=TEXTO(10,9;\"[h] hh\")"
+ },
+ {
+  "id": "fix-elapsed-81",
+  "v": "0 00",
+  "text": "0 00",
+  "f": "=TEXT(0.000011574,\"[h] hh\")",
+  "local": "=TEXTO(0,000011574;\"[h] hh\")"
+ },
+ {
+  "id": "fix-elapsed-82",
+  "v": "12 12",
+  "text": "12 12",
+  "f": "=TEXT(0.500693287037037,\"[h] hh\")",
+  "local": "=TEXTO(0,500693287037037;\"[h] hh\")"
+ },
+ {
+  "id": "fix-elapsed-83",
+  "v": "-2 02",
+  "text": "-2 02",
+  "f": "=TEXT(-0.123456,\"[h] hh\")",
+  "local": "=TEXTO(-0,123456;\"[h] hh\")"
+ },
+ {
+  "id": "fix-elapsed-84",
+  "v": "151200 151200",
+  "text": "151200 151200",
+  "f": "=TEXT(1.75,\"[s] s\")",
+  "local": "=TEXTO(1,75;\"[s] s\")"
+ },
+ {
+  "id": "fix-elapsed-85",
+  "v": "10667 10667",
+  "text": "10667 10667",
+  "f": "=TEXT(0.123456,\"[s] s\")",
+  "local": "=TEXTO(0,123456;\"[s] s\")"
+ },
+ {
+  "id": "fix-elapsed-86",
+  "v": "941760 941760",
+  "text": "941760 941760",
+  "f": "=TEXT(10.9,\"[s] s\")",
+  "local": "=TEXTO(10,9;\"[s] s\")"
+ },
+ {
+  "id": "fix-elapsed-87",
+  "v": "1 1",
+  "text": "1 1",
+  "f": "=TEXT(0.000011574,\"[s] s\")",
+  "local": "=TEXTO(0,000011574;\"[s] s\")"
+ },
+ {
+  "id": "fix-elapsed-88",
+  "v": "43260 43260",
+  "text": "43260 43260",
+  "f": "=TEXT(0.500693287037037,\"[s] s\")",
+  "local": "=TEXTO(0,500693287037037;\"[s] s\")"
+ },
+ {
+  "id": "fix-elapsed-89",
+  "v": "-10667 10667",
+  "text": "-10667 10667",
+  "f": "=TEXT(-0.123456,\"[s] s\")",
+  "local": "=TEXTO(-0,123456;\"[s] s\")"
+ },
+ {
+  "id": "fix-elapsed-90",
+  "v": "2520 01:00",
+  "text": "2520 01:00",
+  "f": "=TEXT(1.75,\"[m] mm:ss\")",
+  "local": "=TEXTO(1,75;\"[m] mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-91",
+  "v": "177 01:47",
+  "text": "177 01:47",
+  "f": "=TEXT(0.123456,\"[m] mm:ss\")",
+  "local": "=TEXTO(0,123456;\"[m] mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-92",
+  "v": "15696 01:00",
+  "text": "15696 01:00",
+  "f": "=TEXT(10.9,\"[m] mm:ss\")",
+  "local": "=TEXTO(10,9;\"[m] mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-93",
+  "v": "0 01:01",
+  "text": "0 01:01",
+  "f": "=TEXT(0.000011574,\"[m] mm:ss\")",
+  "local": "=TEXTO(0,000011574;\"[m] mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-94",
+  "v": "721 01:00",
+  "text": "721 01:00",
+  "f": "=TEXT(0.500693287037037,\"[m] mm:ss\")",
+  "local": "=TEXTO(0,500693287037037;\"[m] mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-95",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[m] mm:ss\")",
+  "local": "=TEXTO(-0,123456;\"[m] mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-96",
+  "v": "00,00 12",
+  "text": "00,00 12",
+  "f": "=TEXT(1.75,\"ss,00 [h]\")",
+  "local": "=TEXTO(1,75;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-97",
+  "v": "46,60 1448",
+  "text": "46,60 1448",
+  "f": "=TEXT(0.123456,\"ss,00 [h]\")",
+  "local": "=TEXTO(0,123456;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-98",
+  "v": "00,00 12",
+  "text": "00,00 12",
+  "f": "=TEXT(10.9,\"ss,00 [h]\")",
+  "local": "=TEXTO(10,9;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-99",
+  "v": "01,00 11",
+  "text": "01,00 11",
+  "f": "=TEXT(0.000011574,\"ss,00 [h]\")",
+  "local": "=TEXTO(0,000011574;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-100",
+  "v": "59,90 2172",
+  "text": "59,90 2172",
+  "f": "=TEXT(0.500693287037037,\"ss,00 [h]\")",
+  "local": "=TEXTO(0,500693287037037;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-101",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"ss,00 [h]\")",
+  "local": "=TEXTO(-0,123456;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-102",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(1.75,\"h:mm [h]\")",
+  "local": "=TEXTO(1,75;\"h:mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-103",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.123456,\"h:mm [h]\")",
+  "local": "=TEXTO(0,123456;\"h:mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-104",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(10.9,\"h:mm [h]\")",
+  "local": "=TEXTO(10,9;\"h:mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-105",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.000011574,\"h:mm [h]\")",
+  "local": "=TEXTO(0,000011574;\"h:mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-106",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.500693287037037,\"h:mm [h]\")",
+  "local": "=TEXTO(0,500693287037037;\"h:mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-107",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"h:mm [h]\")",
+  "local": "=TEXTO(-0,123456;\"h:mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-108",
+  "v": "01 12",
+  "text": "01 12",
+  "f": "=TEXT(1.75,\"mm [h]\")",
+  "local": "=TEXTO(1,75;\"mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-109",
+  "v": "01 1130",
+  "text": "01 1130",
+  "f": "=TEXT(0.123456,\"mm [h]\")",
+  "local": "=TEXTO(0,123456;\"mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-110",
+  "v": "01 12",
+  "text": "01 12",
+  "f": "=TEXT(10.9,\"mm [h]\")",
+  "local": "=TEXTO(10,9;\"mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-111",
+  "v": "01 35",
+  "text": "01 35",
+  "f": "=TEXT(0.000011574,\"mm [h]\")",
+  "local": "=TEXTO(0,000011574;\"mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-112",
+  "v": "01 9",
+  "text": "01 9",
+  "f": "=TEXT(0.500693287037037,\"mm [h]\")",
+  "local": "=TEXTO(0,500693287037037;\"mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-113",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"mm [h]\")",
+  "local": "=TEXTO(-0,123456;\"mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-114",
+  "v": "42:00 12",
+  "text": "42:00 12",
+  "f": "=TEXT(1.75,\"[h]:mm h\")",
+  "local": "=TEXTO(1,75;\"[h]:mm h\")"
+ },
+ {
+  "id": "fix-elapsed-115",
+  "v": "2:57 1130",
+  "text": "2:57 1130",
+  "f": "=TEXT(0.123456,\"[h]:mm h\")",
+  "local": "=TEXTO(0,123456;\"[h]:mm h\")"
+ },
+ {
+  "id": "fix-elapsed-116",
+  "v": "261:36 12",
+  "text": "261:36 12",
+  "f": "=TEXT(10.9,\"[h]:mm h\")",
+  "local": "=TEXTO(10,9;\"[h]:mm h\")"
+ },
+ {
+  "id": "fix-elapsed-117",
+  "v": "0:00 35",
+  "text": "0:00 35",
+  "f": "=TEXT(0.000011574,\"[h]:mm h\")",
+  "local": "=TEXTO(0,000011574;\"[h]:mm h\")"
+ },
+ {
+  "id": "fix-elapsed-118",
+  "v": "12:01 9",
+  "text": "12:01 9",
+  "f": "=TEXT(0.500693287037037,\"[h]:mm h\")",
+  "local": "=TEXTO(0,500693287037037;\"[h]:mm h\")"
+ },
+ {
+  "id": "fix-elapsed-119",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h]:mm h\")",
+  "local": "=TEXTO(-0,123456;\"[h]:mm h\")"
+ },
+ {
+  "id": "fix-elapsed-120",
+  "v": "00 12",
+  "text": "00 12",
+  "f": "=TEXT(1.75,\"[mm] h\")",
+  "local": "=TEXTO(1,75;\"[mm] h\")"
+ },
+ {
+  "id": "fix-elapsed-121",
+  "v": "57 1130",
+  "text": "57 1130",
+  "f": "=TEXT(0.123456,\"[mm] h\")",
+  "local": "=TEXTO(0,123456;\"[mm] h\")"
+ },
+ {
+  "id": "fix-elapsed-122",
+  "v": "36 12",
+  "text": "36 12",
+  "f": "=TEXT(10.9,\"[mm] h\")",
+  "local": "=TEXTO(10,9;\"[mm] h\")"
+ },
+ {
+  "id": "fix-elapsed-123",
+  "v": "00 35",
+  "text": "00 35",
+  "f": "=TEXT(0.000011574,\"[mm] h\")",
+  "local": "=TEXTO(0,000011574;\"[mm] h\")"
+ },
+ {
+  "id": "fix-elapsed-124",
+  "v": "01 9",
+  "text": "01 9",
+  "f": "=TEXT(0.500693287037037,\"[mm] h\")",
+  "local": "=TEXTO(0,500693287037037;\"[mm] h\")"
+ },
+ {
+  "id": "fix-elapsed-125",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[mm] h\")",
+  "local": "=TEXTO(-0,123456;\"[mm] h\")"
+ },
+ {
+  "id": "fix-elapsed-126",
+  "v": "42 0",
+  "text": "42 0",
+  "f": "=TEXT(1.75,\"[h] m\")",
+  "local": "=TEXTO(1,75;\"[h] m\")"
+ },
+ {
+  "id": "fix-elapsed-127",
+  "v": "2 57",
+  "text": "2 57",
+  "f": "=TEXT(0.123456,\"[h] m\")",
+  "local": "=TEXTO(0,123456;\"[h] m\")"
+ },
+ {
+  "id": "fix-elapsed-128",
+  "v": "261 36",
+  "text": "261 36",
+  "f": "=TEXT(10.9,\"[h] m\")",
+  "local": "=TEXTO(10,9;\"[h] m\")"
+ },
+ {
+  "id": "fix-elapsed-129",
+  "v": "0 0",
+  "text": "0 0",
+  "f": "=TEXT(0.000011574,\"[h] m\")",
+  "local": "=TEXTO(0,000011574;\"[h] m\")"
+ },
+ {
+  "id": "fix-elapsed-130",
+  "v": "12 1",
+  "text": "12 1",
+  "f": "=TEXT(0.500693287037037,\"[h] m\")",
+  "local": "=TEXTO(0,500693287037037;\"[h] m\")"
+ },
+ {
+  "id": "fix-elapsed-131",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h] m\")",
+  "local": "=TEXTO(-0,123456;\"[h] m\")"
+ },
+ {
+  "id": "fix-elapsed-132",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(1.75,\"d h [h]\")",
+  "local": "=TEXTO(1,75;\"d h [h]\")"
+ },
+ {
+  "id": "fix-elapsed-133",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.123456,\"d h [h]\")",
+  "local": "=TEXTO(0,123456;\"d h [h]\")"
+ },
+ {
+  "id": "fix-elapsed-134",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(10.9,\"d h [h]\")",
+  "local": "=TEXTO(10,9;\"d h [h]\")"
+ },
+ {
+  "id": "fix-elapsed-135",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.000011574,\"d h [h]\")",
+  "local": "=TEXTO(0,000011574;\"d h [h]\")"
+ },
+ {
+  "id": "fix-elapsed-136",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.500693287037037,\"d h [h]\")",
+  "local": "=TEXTO(0,500693287037037;\"d h [h]\")"
+ },
+ {
+  "id": "fix-elapsed-137",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"d h [h]\")",
+  "local": "=TEXTO(-0,123456;\"d h [h]\")"
+ },
+ {
+  "id": "fix-elapsed-138",
+  "v": "42:00",
+  "text": "42:00",
+  "f": "=TEXT(1.75,\"[h]:mm\")",
+  "local": "=TEXTO(1,75;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-139",
+  "v": "2:57",
+  "text": "2:57",
+  "f": "=TEXT(0.123456,\"[h]:mm\")",
+  "local": "=TEXTO(0,123456;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-140",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h]:mm\")",
+  "local": "=TEXTO(-1,75;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-141",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h]:mm\")",
+  "local": "=TEXTO(-0,123456;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-142",
+  "v": "12:00",
+  "text": "12:00",
+  "f": "=TEXT(0.5004,\"[h]:mm\")",
+  "local": "=TEXTO(0,5004;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-143",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h]:mm h\")",
+  "local": "=TEXTO(-1,75;\"[h]:mm h\")"
+ },
+ {
+  "id": "fix-elapsed-144",
+  "v": "12:00 841",
+  "text": "12:00 841",
+  "f": "=TEXT(0.5004,\"[h]:mm h\")",
+  "local": "=TEXTO(0,5004;\"[h]:mm h\")"
+ },
+ {
+  "id": "fix-elapsed-145",
+  "v": "42 42",
+  "text": "42 42",
+  "f": "=TEXT(1.75,\"[h] h\")",
+  "local": "=TEXTO(1,75;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-146",
+  "v": "2 2",
+  "text": "2 2",
+  "f": "=TEXT(0.123456,\"[h] h\")",
+  "local": "=TEXTO(0,123456;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-147",
+  "v": "-42 42",
+  "text": "-42 42",
+  "f": "=TEXT(-1.75,\"[h] h\")",
+  "local": "=TEXTO(-1,75;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-148",
+  "v": "-2 2",
+  "text": "-2 2",
+  "f": "=TEXT(-0.123456,\"[h] h\")",
+  "local": "=TEXTO(-0,123456;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-149",
+  "v": "12 12",
+  "text": "12 12",
+  "f": "=TEXT(0.5004,\"[h] h\")",
+  "local": "=TEXTO(0,5004;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-150",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h] m\")",
+  "local": "=TEXTO(-1,75;\"[h] m\")"
+ },
+ {
+  "id": "fix-elapsed-151",
+  "v": "12 0",
+  "text": "12 0",
+  "f": "=TEXT(0.5004,\"[h] m\")",
+  "local": "=TEXTO(0,5004;\"[h] m\")"
+ },
+ {
+  "id": "fix-elapsed-152",
+  "v": "42 0",
+  "text": "42 0",
+  "f": "=TEXT(1.75,\"[h] s\")",
+  "local": "=TEXTO(1,75;\"[h] s\")"
+ },
+ {
+  "id": "fix-elapsed-153",
+  "v": "2 47",
+  "text": "2 47",
+  "f": "=TEXT(0.123456,\"[h] s\")",
+  "local": "=TEXTO(0,123456;\"[h] s\")"
+ },
+ {
+  "id": "fix-elapsed-154",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h] s\")",
+  "local": "=TEXTO(-1,75;\"[h] s\")"
+ },
+ {
+  "id": "fix-elapsed-155",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h] s\")",
+  "local": "=TEXTO(-0,123456;\"[h] s\")"
+ },
+ {
+  "id": "fix-elapsed-156",
+  "v": "12 35",
+  "text": "12 35",
+  "f": "=TEXT(0.5004,\"[h] s\")",
+  "local": "=TEXTO(0,5004;\"[h] s\")"
+ },
+ {
+  "id": "fix-elapsed-157",
+  "v": "42:00:00",
+  "text": "42:00:00",
+  "f": "=TEXT(1.75,\"[h]:mm:ss\")",
+  "local": "=TEXTO(1,75;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-158",
+  "v": "2:57:47",
+  "text": "2:57:47",
+  "f": "=TEXT(0.123456,\"[h]:mm:ss\")",
+  "local": "=TEXTO(0,123456;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-159",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-1,75;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-160",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-0,123456;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-161",
+  "v": "12:00:35",
+  "text": "12:00:35",
+  "f": "=TEXT(0.5004,\"[h]:mm:ss\")",
+  "local": "=TEXTO(0,5004;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-162",
+  "v": "2520:00",
+  "text": "2520:00",
+  "f": "=TEXT(1.75,\"[mm]:ss\")",
+  "local": "=TEXTO(1,75;\"[mm]:ss\")"
+ },
+ {
+  "id": "fix-elapsed-163",
+  "v": "177:47",
+  "text": "177:47",
+  "f": "=TEXT(0.123456,\"[mm]:ss\")",
+  "local": "=TEXTO(0,123456;\"[mm]:ss\")"
+ },
+ {
+  "id": "fix-elapsed-164",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[mm]:ss\")",
+  "local": "=TEXTO(-1,75;\"[mm]:ss\")"
+ },
+ {
+  "id": "fix-elapsed-165",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[mm]:ss\")",
+  "local": "=TEXTO(-0,123456;\"[mm]:ss\")"
+ },
+ {
+  "id": "fix-elapsed-166",
+  "v": "720:35",
+  "text": "720:35",
+  "f": "=TEXT(0.5004,\"[mm]:ss\")",
+  "local": "=TEXTO(0,5004;\"[mm]:ss\")"
+ },
+ {
+  "id": "fix-elapsed-167",
+  "v": "151200",
+  "text": "151200",
+  "f": "=TEXT(1.75,\"[ss]\")",
+  "local": "=TEXTO(1,75;\"[ss]\")"
+ },
+ {
+  "id": "fix-elapsed-168",
+  "v": "10667",
+  "text": "10667",
+  "f": "=TEXT(0.123456,\"[ss]\")",
+  "local": "=TEXTO(0,123456;\"[ss]\")"
+ },
+ {
+  "id": "fix-elapsed-169",
+  "v": "-151200",
+  "text": "-151200",
+  "f": "=TEXT(-1.75,\"[ss]\")",
+  "local": "=TEXTO(-1,75;\"[ss]\")"
+ },
+ {
+  "id": "fix-elapsed-170",
+  "v": "-10667",
+  "text": "-10667",
+  "f": "=TEXT(-0.123456,\"[ss]\")",
+  "local": "=TEXTO(-0,123456;\"[ss]\")"
+ },
+ {
+  "id": "fix-elapsed-171",
+  "v": "43235",
+  "text": "43235",
+  "f": "=TEXT(0.5004,\"[ss]\")",
+  "local": "=TEXTO(0,5004;\"[ss]\")"
+ },
+ {
+  "id": "fix-elapsed-172",
+  "v": "42 1",
+  "text": "42 1",
+  "f": "=TEXT(1.75,\"[h] d\")",
+  "local": "=TEXTO(1,75;\"[h] d\")"
+ },
+ {
+  "id": "fix-elapsed-173",
+  "v": "2 0",
+  "text": "2 0",
+  "f": "=TEXT(0.123456,\"[h] d\")",
+  "local": "=TEXTO(0,123456;\"[h] d\")"
+ },
+ {
+  "id": "fix-elapsed-174",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h] d\")",
+  "local": "=TEXTO(-1,75;\"[h] d\")"
+ },
+ {
+  "id": "fix-elapsed-175",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h] d\")",
+  "local": "=TEXTO(-0,123456;\"[h] d\")"
+ },
+ {
+  "id": "fix-elapsed-176",
+  "v": "12 0",
+  "text": "12 0",
+  "f": "=TEXT(0.5004,\"[h] d\")",
+  "local": "=TEXTO(0,5004;\"[h] d\")"
+ },
+ {
+  "id": "fix-elapsed-177",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"d [h]\")",
+  "local": "=TEXTO(-1,75;\"d [h]\")"
+ },
+ {
+  "id": "fix-elapsed-178",
+  "v": "0 841",
+  "text": "0 841",
+  "f": "=TEXT(0.5004,\"d [h]\")",
+  "local": "=TEXTO(0,5004;\"d [h]\")"
+ },
+ {
+  "id": "fix-elapsed-179",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s [h]\")",
+  "local": "=TEXTO(-1,75;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-180",
+  "v": "35 841",
+  "text": "35 841",
+  "f": "=TEXT(0.5004,\"s [h]\")",
+  "local": "=TEXTO(0,5004;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-181",
+  "v": "2520 0",
+  "text": "2520 0",
+  "f": "=TEXT(1.75,\"[m] s\")",
+  "local": "=TEXTO(1,75;\"[m] s\")"
+ },
+ {
+  "id": "fix-elapsed-182",
+  "v": "177 47",
+  "text": "177 47",
+  "f": "=TEXT(0.123456,\"[m] s\")",
+  "local": "=TEXTO(0,123456;\"[m] s\")"
+ },
+ {
+  "id": "fix-elapsed-183",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[m] s\")",
+  "local": "=TEXTO(-1,75;\"[m] s\")"
+ },
+ {
+  "id": "fix-elapsed-184",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[m] s\")",
+  "local": "=TEXTO(-0,123456;\"[m] s\")"
+ },
+ {
+  "id": "fix-elapsed-185",
+  "v": "720 35",
+  "text": "720 35",
+  "f": "=TEXT(0.5004,\"[m] s\")",
+  "local": "=TEXTO(0,5004;\"[m] s\")"
+ },
+ {
+  "id": "fix-elapsed-186",
+  "v": "42:00:00 12",
+  "text": "42:00:00 12",
+  "f": "=TEXT(1.75,\"[h]:mm:ss h\")",
+  "local": "=TEXTO(1,75;\"[h]:mm:ss h\")"
+ },
+ {
+  "id": "fix-elapsed-187",
+  "v": "2:57:47 1130",
+  "text": "2:57:47 1130",
+  "f": "=TEXT(0.123456,\"[h]:mm:ss h\")",
+  "local": "=TEXTO(0,123456;\"[h]:mm:ss h\")"
+ },
+ {
+  "id": "fix-elapsed-188",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h]:mm:ss h\")",
+  "local": "=TEXTO(-1,75;\"[h]:mm:ss h\")"
+ },
+ {
+  "id": "fix-elapsed-189",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h]:mm:ss h\")",
+  "local": "=TEXTO(-0,123456;\"[h]:mm:ss h\")"
+ },
+ {
+  "id": "fix-elapsed-190",
+  "v": "12:00:35 841",
+  "text": "12:00:35 841",
+  "f": "=TEXT(0.5004,\"[h]:mm:ss h\")",
+  "local": "=TEXTO(0,5004;\"[h]:mm:ss h\")"
+ },
+ {
+  "id": "fix-elapsed-191",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"mm [h]\")",
+  "local": "=TEXTO(-1,75;\"mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-192",
+  "v": "01 841",
+  "text": "01 841",
+  "f": "=TEXT(0.5004,\"mm [h]\")",
+  "local": "=TEXTO(0,5004;\"mm [h]\")"
+ },
+ {
+  "id": "fix-elapsed-193",
+  "v": "151200 151200",
+  "text": "151200 151200",
+  "f": "=TEXT(1.75,\"[s] ss\")",
+  "local": "=TEXTO(1,75;\"[s] ss\")"
+ },
+ {
+  "id": "fix-elapsed-194",
+  "v": "10667 10667",
+  "text": "10667 10667",
+  "f": "=TEXT(0.123456,\"[s] ss\")",
+  "local": "=TEXTO(0,123456;\"[s] ss\")"
+ },
+ {
+  "id": "fix-elapsed-195",
+  "v": "-151200 151200",
+  "text": "-151200 151200",
+  "f": "=TEXT(-1.75,\"[s] ss\")",
+  "local": "=TEXTO(-1,75;\"[s] ss\")"
+ },
+ {
+  "id": "fix-elapsed-196",
+  "v": "-10667 10667",
+  "text": "-10667 10667",
+  "f": "=TEXT(-0.123456,\"[s] ss\")",
+  "local": "=TEXTO(-0,123456;\"[s] ss\")"
+ },
+ {
+  "id": "fix-elapsed-197",
+  "v": "43235 43235",
+  "text": "43235 43235",
+  "f": "=TEXT(0.5004,\"[s] ss\")",
+  "local": "=TEXTO(0,5004;\"[s] ss\")"
+ },
+ {
+  "id": "fix-elapsed-198",
+  "v": "-151200 151200",
+  "text": "-151200 151200",
+  "f": "=TEXT(-1.75,\"[s] s\")",
+  "local": "=TEXTO(-1,75;\"[s] s\")"
+ },
+ {
+  "id": "fix-elapsed-199",
+  "v": "43235 43235",
+  "text": "43235 43235",
+  "f": "=TEXT(0.5004,\"[s] s\")",
+  "local": "=TEXTO(0,5004;\"[s] s\")"
+ },
+ {
+  "id": "fix-elapsed-200",
+  "v": "0 720",
+  "text": "0 720",
+  "f": "=TEXT(1.75,\"[s] m\")",
+  "local": "=TEXTO(1,75;\"[s] m\")"
+ },
+ {
+  "id": "fix-elapsed-201",
+  "v": "47 67821",
+  "text": "47 67821",
+  "f": "=TEXT(0.123456,\"[s] m\")",
+  "local": "=TEXTO(0,123456;\"[s] m\")"
+ },
+ {
+  "id": "fix-elapsed-202",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[s] m\")",
+  "local": "=TEXTO(-1,75;\"[s] m\")"
+ },
+ {
+  "id": "fix-elapsed-203",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[s] m\")",
+  "local": "=TEXTO(-0,123456;\"[s] m\")"
+ },
+ {
+  "id": "fix-elapsed-204",
+  "v": "35 50486",
+  "text": "35 50486",
+  "f": "=TEXT(0.5004,\"[s] m\")",
+  "local": "=TEXTO(0,5004;\"[s] m\")"
+ },
+ {
+  "id": "fix-elapsed-205",
+  "v": "0 12",
+  "text": "0 12",
+  "f": "=TEXT(1.75,\"[s] h\")",
+  "local": "=TEXTO(1,75;\"[s] h\")"
+ },
+ {
+  "id": "fix-elapsed-206",
+  "v": "47 1130",
+  "text": "47 1130",
+  "f": "=TEXT(0.123456,\"[s] h\")",
+  "local": "=TEXTO(0,123456;\"[s] h\")"
+ },
+ {
+  "id": "fix-elapsed-207",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[s] h\")",
+  "local": "=TEXTO(-1,75;\"[s] h\")"
+ },
+ {
+  "id": "fix-elapsed-208",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[s] h\")",
+  "local": "=TEXTO(-0,123456;\"[s] h\")"
+ },
+ {
+  "id": "fix-elapsed-209",
+  "v": "35 841",
+  "text": "35 841",
+  "f": "=TEXT(0.5004,\"[s] h\")",
+  "local": "=TEXTO(0,5004;\"[s] h\")"
+ },
+ {
+  "id": "fix-elapsed-210",
+  "v": "0 12",
+  "text": "0 12",
+  "f": "=TEXT(1.75,\"[m] h\")",
+  "local": "=TEXTO(1,75;\"[m] h\")"
+ },
+ {
+  "id": "fix-elapsed-211",
+  "v": "57 1130",
+  "text": "57 1130",
+  "f": "=TEXT(0.123456,\"[m] h\")",
+  "local": "=TEXTO(0,123456;\"[m] h\")"
+ },
+ {
+  "id": "fix-elapsed-212",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[m] h\")",
+  "local": "=TEXTO(-1,75;\"[m] h\")"
+ },
+ {
+  "id": "fix-elapsed-213",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[m] h\")",
+  "local": "=TEXTO(-0,123456;\"[m] h\")"
+ },
+ {
+  "id": "fix-elapsed-214",
+  "v": "0 841",
+  "text": "0 841",
+  "f": "=TEXT(0.5004,\"[m] h\")",
+  "local": "=TEXTO(0,5004;\"[m] h\")"
+ },
+ {
+  "id": "fix-elapsed-215",
+  "v": "42 00",
+  "text": "42 00",
+  "f": "=TEXT(1.75,\"[h] mm\")",
+  "local": "=TEXTO(1,75;\"[h] mm\")"
+ },
+ {
+  "id": "fix-elapsed-216",
+  "v": "2 57",
+  "text": "2 57",
+  "f": "=TEXT(0.123456,\"[h] mm\")",
+  "local": "=TEXTO(0,123456;\"[h] mm\")"
+ },
+ {
+  "id": "fix-elapsed-217",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h] mm\")",
+  "local": "=TEXTO(-1,75;\"[h] mm\")"
+ },
+ {
+  "id": "fix-elapsed-218",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h] mm\")",
+  "local": "=TEXTO(-0,123456;\"[h] mm\")"
+ },
+ {
+  "id": "fix-elapsed-219",
+  "v": "12 00",
+  "text": "12 00",
+  "f": "=TEXT(0.5004,\"[h] mm\")",
+  "local": "=TEXTO(0,5004;\"[h] mm\")"
+ },
+ {
+  "id": "fix-elapsed-220",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(1.75,\"[h] [m]\")",
+  "local": "=TEXTO(1,75;\"[h] [m]\")"
+ },
+ {
+  "id": "fix-elapsed-221",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.123456,\"[h] [m]\")",
+  "local": "=TEXTO(0,123456;\"[h] [m]\")"
+ },
+ {
+  "id": "fix-elapsed-222",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h] [m]\")",
+  "local": "=TEXTO(-1,75;\"[h] [m]\")"
+ },
+ {
+  "id": "fix-elapsed-223",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h] [m]\")",
+  "local": "=TEXTO(-0,123456;\"[h] [m]\")"
+ },
+ {
+  "id": "fix-elapsed-224",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.5004,\"[h] [m]\")",
+  "local": "=TEXTO(0,5004;\"[h] [m]\")"
+ },
+ {
+  "id": "fix-elapsed-225",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(1.75,\"[m] [s]\")",
+  "local": "=TEXTO(1,75;\"[m] [s]\")"
+ },
+ {
+  "id": "fix-elapsed-226",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.123456,\"[m] [s]\")",
+  "local": "=TEXTO(0,123456;\"[m] [s]\")"
+ },
+ {
+  "id": "fix-elapsed-227",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[m] [s]\")",
+  "local": "=TEXTO(-1,75;\"[m] [s]\")"
+ },
+ {
+  "id": "fix-elapsed-228",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[m] [s]\")",
+  "local": "=TEXTO(-0,123456;\"[m] [s]\")"
+ },
+ {
+  "id": "fix-elapsed-229",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(0.5004,\"[m] [s]\")",
+  "local": "=TEXTO(0,5004;\"[m] [s]\")"
+ },
+ {
+  "id": "fix-elapsed-230",
+  "v": "42 00",
+  "text": "42 00",
+  "f": "=TEXT(1.75,\"[h] aa\")",
+  "local": "=TEXTO(1,75;\"[h] aa\")"
+ },
+ {
+  "id": "fix-elapsed-231",
+  "v": "2 00",
+  "text": "2 00",
+  "f": "=TEXT(0.123456,\"[h] aa\")",
+  "local": "=TEXTO(0,123456;\"[h] aa\")"
+ },
+ {
+  "id": "fix-elapsed-232",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h] aa\")",
+  "local": "=TEXTO(-1,75;\"[h] aa\")"
+ },
+ {
+  "id": "fix-elapsed-233",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h] aa\")",
+  "local": "=TEXTO(-0,123456;\"[h] aa\")"
+ },
+ {
+  "id": "fix-elapsed-234",
+  "v": "12 00",
+  "text": "12 00",
+  "f": "=TEXT(0.5004,\"[h] aa\")",
+  "local": "=TEXTO(0,5004;\"[h] aa\")"
+ },
+ {
+  "id": "fix-elapsed-235",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"aa [h]\")",
+  "local": "=TEXTO(-1,75;\"aa [h]\")"
+ },
+ {
+  "id": "fix-elapsed-236",
+  "v": "00 841",
+  "text": "00 841",
+  "f": "=TEXT(0.5004,\"aa [h]\")",
+  "local": "=TEXTO(0,5004;\"aa [h]\")"
+ },
+ {
+  "id": "fix-elapsed-237",
+  "v": "42 00,00",
+  "text": "42 00,00",
+  "f": "=TEXT(1.75,\"[h] ss,00\")",
+  "local": "=TEXTO(1,75;\"[h] ss,00\")"
+ },
+ {
+  "id": "fix-elapsed-238",
+  "v": "2 46,60",
+  "text": "2 46,60",
+  "f": "=TEXT(0.123456,\"[h] ss,00\")",
+  "local": "=TEXTO(0,123456;\"[h] ss,00\")"
+ },
+ {
+  "id": "fix-elapsed-239",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h] ss,00\")",
+  "local": "=TEXTO(-1,75;\"[h] ss,00\")"
+ },
+ {
+  "id": "fix-elapsed-240",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h] ss,00\")",
+  "local": "=TEXTO(-0,123456;\"[h] ss,00\")"
+ },
+ {
+  "id": "fix-elapsed-241",
+  "v": "12 34,56",
+  "text": "12 34,56",
+  "f": "=TEXT(0.5004,\"[h] ss,00\")",
+  "local": "=TEXTO(0,5004;\"[h] ss,00\")"
+ },
+ {
+  "id": "fix-elapsed-242",
+  "v": "0,00 720",
+  "text": "0,00 720",
+  "f": "=TEXT(1.75,\"s,00 [m]\")",
+  "local": "=TEXTO(1,75;\"s,00 [m]\")"
+ },
+ {
+  "id": "fix-elapsed-243",
+  "v": "46,60 86889",
+  "text": "46,60 86889",
+  "f": "=TEXT(0.123456,\"s,00 [m]\")",
+  "local": "=TEXTO(0,123456;\"s,00 [m]\")"
+ },
+ {
+  "id": "fix-elapsed-244",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s,00 [m]\")",
+  "local": "=TEXTO(-1,75;\"s,00 [m]\")"
+ },
+ {
+  "id": "fix-elapsed-245",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"s,00 [m]\")",
+  "local": "=TEXTO(-0,123456;\"s,00 [m]\")"
+ },
+ {
+  "id": "fix-elapsed-246",
+  "v": "34,56 81360",
+  "text": "34,56 81360",
+  "f": "=TEXT(0.5004,\"s,00 [m]\")",
+  "local": "=TEXTO(0,5004;\"s,00 [m]\")"
+ },
+ {
+  "id": "fix-elapsed-247",
+  "v": "18:00",
+  "text": "18:00",
+  "f": "=TEXT(1.75,\"h:mm\")",
+  "local": "=TEXTO(1,75;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-248",
+  "v": "2:57",
+  "text": "2:57",
+  "f": "=TEXT(0.123456,\"h:mm\")",
+  "local": "=TEXTO(0,123456;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-249",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"h:mm\")",
+  "local": "=TEXTO(-1,75;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-250",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"h:mm\")",
+  "local": "=TEXTO(-0,123456;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-251",
+  "v": "12:00",
+  "text": "12:00",
+  "f": "=TEXT(0.5004,\"h:mm\")",
+  "local": "=TEXTO(0,5004;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-252",
+  "v": "42:00",
+  "text": "42:00",
+  "f": "=TEXT(1.75,\"[hh]:mm\")",
+  "local": "=TEXTO(1,75;\"[hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-253",
+  "v": "02:57",
+  "text": "02:57",
+  "f": "=TEXT(0.123456,\"[hh]:mm\")",
+  "local": "=TEXTO(0,123456;\"[hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-254",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[hh]:mm\")",
+  "local": "=TEXTO(-1,75;\"[hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-255",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[hh]:mm\")",
+  "local": "=TEXTO(-0,123456;\"[hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-256",
+  "v": "12:00",
+  "text": "12:00",
+  "f": "=TEXT(0.5004,\"[hh]:mm\")",
+  "local": "=TEXTO(0,5004;\"[hh]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-257",
+  "v": "x42",
+  "text": "x42",
+  "f": "=TEXT(1.75,\"\"\"x\"\"[h]\")",
+  "local": "=TEXTO(1,75;\"\"\"x\"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-258",
+  "v": "x2",
+  "text": "x2",
+  "f": "=TEXT(0.123456,\"\"\"x\"\"[h]\")",
+  "local": "=TEXTO(0,123456;\"\"\"x\"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-259",
+  "v": "-x42",
+  "text": "-x42",
+  "f": "=TEXT(-1.75,\"\"\"x\"\"[h]\")",
+  "local": "=TEXTO(-1,75;\"\"\"x\"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-260",
+  "v": "-x2",
+  "text": "-x2",
+  "f": "=TEXT(-0.123456,\"\"\"x\"\"[h]\")",
+  "local": "=TEXTO(-0,123456;\"\"\"x\"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-261",
+  "v": "x12",
+  "text": "x12",
+  "f": "=TEXT(0.5004,\"\"\"x\"\"[h]\")",
+  "local": "=TEXTO(0,5004;\"\"\"x\"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-262",
+  "v": "42x",
+  "text": "42x",
+  "f": "=TEXT(1.75,\"[h]\"\"x\"\"\")",
+  "local": "=TEXTO(1,75;\"[h]\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-263",
+  "v": "2x",
+  "text": "2x",
+  "f": "=TEXT(0.123456,\"[h]\"\"x\"\"\")",
+  "local": "=TEXTO(0,123456;\"[h]\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-264",
+  "v": "-42x",
+  "text": "-42x",
+  "f": "=TEXT(-1.75,\"[h]\"\"x\"\"\")",
+  "local": "=TEXTO(-1,75;\"[h]\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-265",
+  "v": "-2x",
+  "text": "-2x",
+  "f": "=TEXT(-0.123456,\"[h]\"\"x\"\"\")",
+  "local": "=TEXTO(-0,123456;\"[h]\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-266",
+  "v": "12x",
+  "text": "12x",
+  "f": "=TEXT(0.5004,\"[h]\"\"x\"\"\")",
+  "local": "=TEXTO(0,5004;\"[h]\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-267",
+  "v": "42 42:00",
+  "text": "42 42:00",
+  "f": "=TEXT(1.75,\"[h] h:mm\")",
+  "local": "=TEXTO(1,75;\"[h] h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-268",
+  "v": "2 2:57",
+  "text": "2 2:57",
+  "f": "=TEXT(0.123456,\"[h] h:mm\")",
+  "local": "=TEXTO(0,123456;\"[h] h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-269",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h] h:mm\")",
+  "local": "=TEXTO(-1,75;\"[h] h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-270",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h] h:mm\")",
+  "local": "=TEXTO(-0,123456;\"[h] h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-271",
+  "v": "12 12:00",
+  "text": "12 12:00",
+  "f": "=TEXT(0.5004,\"[h] h:mm\")",
+  "local": "=TEXTO(0,5004;\"[h] h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-272",
+  "v": "00:00 12",
+  "text": "00:00 12",
+  "f": "=TEXT(1.75,\"mm:ss [h]\")",
+  "local": "=TEXTO(1,75;\"mm:ss [h]\")"
+ },
+ {
+  "id": "fix-elapsed-273",
+  "v": "57:47 1130",
+  "text": "57:47 1130",
+  "f": "=TEXT(0.123456,\"mm:ss [h]\")",
+  "local": "=TEXTO(0,123456;\"mm:ss [h]\")"
+ },
+ {
+  "id": "fix-elapsed-274",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"mm:ss [h]\")",
+  "local": "=TEXTO(-1,75;\"mm:ss [h]\")"
+ },
+ {
+  "id": "fix-elapsed-275",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"mm:ss [h]\")",
+  "local": "=TEXTO(-0,123456;\"mm:ss [h]\")"
+ },
+ {
+  "id": "fix-elapsed-276",
+  "v": "00:35 841",
+  "text": "00:35 841",
+  "f": "=TEXT(0.5004,\"mm:ss [h]\")",
+  "local": "=TEXTO(0,5004;\"mm:ss [h]\")"
+ },
+ {
+  "id": "fix-elapsed-277",
+  "v": "0:0",
+  "text": "0:0",
+  "f": "=TEXT(1.75,\"s:m\")",
+  "local": "=TEXTO(1,75;\"s:m\")"
+ },
+ {
+  "id": "fix-elapsed-278",
+  "v": "47:57",
+  "text": "47:57",
+  "f": "=TEXT(0.123456,\"s:m\")",
+  "local": "=TEXTO(0,123456;\"s:m\")"
+ },
+ {
+  "id": "fix-elapsed-279",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s:m\")",
+  "local": "=TEXTO(-1,75;\"s:m\")"
+ },
+ {
+  "id": "fix-elapsed-280",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"s:m\")",
+  "local": "=TEXTO(-0,123456;\"s:m\")"
+ },
+ {
+  "id": "fix-elapsed-281",
+  "v": "35:0",
+  "text": "35:0",
+  "f": "=TEXT(0.5004,\"s:m\")",
+  "local": "=TEXTO(0,5004;\"s:m\")"
+ },
+ {
+  "id": "fix-elapsed-282",
+  "v": "0 0",
+  "text": "0 0",
+  "f": "=TEXT(1.75,\"s m\")",
+  "local": "=TEXTO(1,75;\"s m\")"
+ },
+ {
+  "id": "fix-elapsed-283",
+  "v": "47 57",
+  "text": "47 57",
+  "f": "=TEXT(0.123456,\"s m\")",
+  "local": "=TEXTO(0,123456;\"s m\")"
+ },
+ {
+  "id": "fix-elapsed-284",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s m\")",
+  "local": "=TEXTO(-1,75;\"s m\")"
+ },
+ {
+  "id": "fix-elapsed-285",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"s m\")",
+  "local": "=TEXTO(-0,123456;\"s m\")"
+ },
+ {
+  "id": "fix-elapsed-286",
+  "v": "35 0",
+  "text": "35 0",
+  "f": "=TEXT(0.5004,\"s m\")",
+  "local": "=TEXTO(0,5004;\"s m\")"
+ },
+ {
+  "id": "fix-elapsed-287",
+  "v": "0:0",
+  "text": "0:0",
+  "f": "=TEXT(1.75,\"m:s\")",
+  "local": "=TEXTO(1,75;\"m:s\")"
+ },
+ {
+  "id": "fix-elapsed-288",
+  "v": "57:47",
+  "text": "57:47",
+  "f": "=TEXT(0.123456,\"m:s\")",
+  "local": "=TEXTO(0,123456;\"m:s\")"
+ },
+ {
+  "id": "fix-elapsed-289",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"m:s\")",
+  "local": "=TEXTO(-1,75;\"m:s\")"
+ },
+ {
+  "id": "fix-elapsed-290",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"m:s\")",
+  "local": "=TEXTO(-0,123456;\"m:s\")"
+ },
+ {
+  "id": "fix-elapsed-291",
+  "v": "0:35",
+  "text": "0:35",
+  "f": "=TEXT(0.5004,\"m:s\")",
+  "local": "=TEXTO(0,5004;\"m:s\")"
+ },
+ {
+  "id": "fix-elapsed-292",
+  "v": "18 0 0",
+  "text": "18 0 0",
+  "f": "=TEXT(1.75,\"h m s\")",
+  "local": "=TEXTO(1,75;\"h m s\")"
+ },
+ {
+  "id": "fix-elapsed-293",
+  "v": "2 57 47",
+  "text": "2 57 47",
+  "f": "=TEXT(0.123456,\"h m s\")",
+  "local": "=TEXTO(0,123456;\"h m s\")"
+ },
+ {
+  "id": "fix-elapsed-294",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"h m s\")",
+  "local": "=TEXTO(-1,75;\"h m s\")"
+ },
+ {
+  "id": "fix-elapsed-295",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"h m s\")",
+  "local": "=TEXTO(-0,123456;\"h m s\")"
+ },
+ {
+  "id": "fix-elapsed-296",
+  "v": "12 0 35",
+  "text": "12 0 35",
+  "f": "=TEXT(0.5004,\"h m s\")",
+  "local": "=TEXTO(0,5004;\"h m s\")"
+ },
+ {
+  "id": "fix-elapsed-297",
+  "v": "0 0",
+  "text": "0 0",
+  "f": "=TEXT(1.75,\"m s\")",
+  "local": "=TEXTO(1,75;\"m s\")"
+ },
+ {
+  "id": "fix-elapsed-298",
+  "v": "57 47",
+  "text": "57 47",
+  "f": "=TEXT(0.123456,\"m s\")",
+  "local": "=TEXTO(0,123456;\"m s\")"
+ },
+ {
+  "id": "fix-elapsed-299",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"m s\")",
+  "local": "=TEXTO(-1,75;\"m s\")"
+ },
+ {
+  "id": "fix-elapsed-300",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"m s\")",
+  "local": "=TEXTO(-0,123456;\"m s\")"
+ },
+ {
+  "id": "fix-elapsed-301",
+  "v": "0 35",
+  "text": "0 35",
+  "f": "=TEXT(0.5004,\"m s\")",
+  "local": "=TEXTO(0,5004;\"m s\")"
+ },
+ {
+  "id": "fix-elapsed-302",
+  "v": "0x0",
+  "text": "0x0",
+  "f": "=TEXT(1.75,\"s\"\"x\"\"m\")",
+  "local": "=TEXTO(1,75;\"s\"\"x\"\"m\")"
+ },
+ {
+  "id": "fix-elapsed-303",
+  "v": "47x57",
+  "text": "47x57",
+  "f": "=TEXT(0.123456,\"s\"\"x\"\"m\")",
+  "local": "=TEXTO(0,123456;\"s\"\"x\"\"m\")"
+ },
+ {
+  "id": "fix-elapsed-304",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s\"\"x\"\"m\")",
+  "local": "=TEXTO(-1,75;\"s\"\"x\"\"m\")"
+ },
+ {
+  "id": "fix-elapsed-305",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"s\"\"x\"\"m\")",
+  "local": "=TEXTO(-0,123456;\"s\"\"x\"\"m\")"
+ },
+ {
+  "id": "fix-elapsed-306",
+  "v": "35x0",
+  "text": "35x0",
+  "f": "=TEXT(0.5004,\"s\"\"x\"\"m\")",
+  "local": "=TEXTO(0,5004;\"s\"\"x\"\"m\")"
+ },
+ {
+  "id": "fix-elapsed-307",
+  "v": "0 720:0",
+  "text": "0 720:0",
+  "f": "=TEXT(1.75,\"[s] m:s\")",
+  "local": "=TEXTO(1,75;\"[s] m:s\")"
+ },
+ {
+  "id": "fix-elapsed-308",
+  "v": "47 67821:47",
+  "text": "47 67821:47",
+  "f": "=TEXT(0.123456,\"[s] m:s\")",
+  "local": "=TEXTO(0,123456;\"[s] m:s\")"
+ },
+ {
+  "id": "fix-elapsed-309",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[s] m:s\")",
+  "local": "=TEXTO(-1,75;\"[s] m:s\")"
+ },
+ {
+  "id": "fix-elapsed-310",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[s] m:s\")",
+  "local": "=TEXTO(-0,123456;\"[s] m:s\")"
+ },
+ {
+  "id": "fix-elapsed-311",
+  "v": "35 50486:35",
+  "text": "35 50486:35",
+  "f": "=TEXT(0.5004,\"[s] m:s\")",
+  "local": "=TEXTO(0,5004;\"[s] m:s\")"
+ },
+ {
+  "id": "fix-elapsed-312",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[mm] h\")",
+  "local": "=TEXTO(-1,75;\"[mm] h\")"
+ },
+ {
+  "id": "fix-elapsed-313",
+  "v": "00 841",
+  "text": "00 841",
+  "f": "=TEXT(0.5004,\"[mm] h\")",
+  "local": "=TEXTO(0,5004;\"[mm] h\")"
+ },
+ {
+  "id": "fix-elapsed-314",
+  "v": "00 12:00",
+  "text": "00 12:00",
+  "f": "=TEXT(1.75,\"[mm] h:ss\")",
+  "local": "=TEXTO(1,75;\"[mm] h:ss\")"
+ },
+ {
+  "id": "fix-elapsed-315",
+  "v": "57 1130:47",
+  "text": "57 1130:47",
+  "f": "=TEXT(0.123456,\"[mm] h:ss\")",
+  "local": "=TEXTO(0,123456;\"[mm] h:ss\")"
+ },
+ {
+  "id": "fix-elapsed-316",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[mm] h:ss\")",
+  "local": "=TEXTO(-1,75;\"[mm] h:ss\")"
+ },
+ {
+  "id": "fix-elapsed-317",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[mm] h:ss\")",
+  "local": "=TEXTO(-0,123456;\"[mm] h:ss\")"
+ },
+ {
+  "id": "fix-elapsed-318",
+  "v": "00 841:35",
+  "text": "00 841:35",
+  "f": "=TEXT(0.5004,\"[mm] h:ss\")",
+  "local": "=TEXTO(0,5004;\"[mm] h:ss\")"
+ },
+ {
+  "id": "fix-elapsed-319",
+  "v": "1 18",
+  "text": "1 18",
+  "f": "=TEXT(1.75,\"d h\")",
+  "local": "=TEXTO(1,75;\"d h\")"
+ },
+ {
+  "id": "fix-elapsed-320",
+  "v": "0 2",
+  "text": "0 2",
+  "f": "=TEXT(0.123456,\"d h\")",
+  "local": "=TEXTO(0,123456;\"d h\")"
+ },
+ {
+  "id": "fix-elapsed-321",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"d h\")",
+  "local": "=TEXTO(-1,75;\"d h\")"
+ },
+ {
+  "id": "fix-elapsed-322",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"d h\")",
+  "local": "=TEXTO(-0,123456;\"d h\")"
+ },
+ {
+  "id": "fix-elapsed-323",
+  "v": "0 12",
+  "text": "0 12",
+  "f": "=TEXT(0.5004,\"d h\")",
+  "local": "=TEXTO(0,5004;\"d h\")"
+ },
+ {
+  "id": "fix-elapsed-324",
+  "v": "42 a 00 b 12",
+  "text": "42 a 00 b 12",
+  "f": "=TEXT(1.75,\"[h] \"\"a\"\" mm \"\"b\"\" h\")",
+  "local": "=TEXTO(1,75;\"[h] \"\"a\"\" mm \"\"b\"\" h\")"
+ },
+ {
+  "id": "fix-elapsed-325",
+  "v": "2 a 57 b 1130",
+  "text": "2 a 57 b 1130",
+  "f": "=TEXT(0.123456,\"[h] \"\"a\"\" mm \"\"b\"\" h\")",
+  "local": "=TEXTO(0,123456;\"[h] \"\"a\"\" mm \"\"b\"\" h\")"
+ },
+ {
+  "id": "fix-elapsed-326",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h] \"\"a\"\" mm \"\"b\"\" h\")",
+  "local": "=TEXTO(-1,75;\"[h] \"\"a\"\" mm \"\"b\"\" h\")"
+ },
+ {
+  "id": "fix-elapsed-327",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"[h] \"\"a\"\" mm \"\"b\"\" h\")",
+  "local": "=TEXTO(-0,123456;\"[h] \"\"a\"\" mm \"\"b\"\" h\")"
+ },
+ {
+  "id": "fix-elapsed-328",
+  "v": "12 a 00 b 841",
+  "text": "12 a 00 b 841",
+  "f": "=TEXT(0.5004,\"[h] \"\"a\"\" mm \"\"b\"\" h\")",
+  "local": "=TEXTO(0,5004;\"[h] \"\"a\"\" mm \"\"b\"\" h\")"
+ },
+ {
+  "id": "fix-elapsed-329",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"[h]:mm\"\"x\"\"\")",
+  "local": "=TEXTO(-0,5;\"[h]:mm\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-330",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h]:mm\"\"x\"\"\")",
+  "local": "=TEXTO(-1,75;\"[h]:mm\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-331",
+  "v": "2:57x",
+  "text": "2:57x",
+  "f": "=TEXT(0.123456,\"[h]:mm\"\"x\"\"\")",
+  "local": "=TEXTO(0,123456;\"[h]:mm\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-332",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"\"\"x\"\"[h]:mm\")",
+  "local": "=TEXTO(-0,5;\"\"\"x\"\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-333",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"\"\"x\"\"[h]:mm\")",
+  "local": "=TEXTO(-1,75;\"\"\"x\"\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-334",
+  "v": "x2:57",
+  "text": "x2:57",
+  "f": "=TEXT(0.123456,\"\"\"x\"\"[h]:mm\")",
+  "local": "=TEXTO(0,123456;\"\"\"x\"\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-335",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"[h]\"\" \"\"mm\")",
+  "local": "=TEXTO(-0,5;\"[h]\"\" \"\"mm\")"
+ },
+ {
+  "id": "fix-elapsed-336",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h]\"\" \"\"mm\")",
+  "local": "=TEXTO(-1,75;\"[h]\"\" \"\"mm\")"
+ },
+ {
+  "id": "fix-elapsed-337",
+  "v": "2 57",
+  "text": "2 57",
+  "f": "=TEXT(0.123456,\"[h]\"\" \"\"mm\")",
+  "local": "=TEXTO(0,123456;\"[h]\"\" \"\"mm\")"
+ },
+ {
+  "id": "fix-elapsed-338",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"[h] mm\")",
+  "local": "=TEXTO(-0,5;\"[h] mm\")"
+ },
+ {
+  "id": "fix-elapsed-339",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"s\"\" \"\"[h]\")",
+  "local": "=TEXTO(-0,5;\"s\"\" \"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-340",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s\"\" \"\"[h]\")",
+  "local": "=TEXTO(-1,75;\"s\"\" \"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-341",
+  "v": "47 1130",
+  "text": "47 1130",
+  "f": "=TEXT(0.123456,\"s\"\" \"\"[h]\")",
+  "local": "=TEXTO(0,123456;\"s\"\" \"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-342",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"s\"\"x\"\"[h]\")",
+  "local": "=TEXTO(-0,5;\"s\"\"x\"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-343",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s\"\"x\"\"[h]\")",
+  "local": "=TEXTO(-1,75;\"s\"\"x\"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-344",
+  "v": "47x1130",
+  "text": "47x1130",
+  "f": "=TEXT(0.123456,\"s\"\"x\"\"[h]\")",
+  "local": "=TEXTO(0,123456;\"s\"\"x\"\"[h]\")"
+ },
+ {
+  "id": "fix-elapsed-345",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"h:mm\"\"x\"\"\")",
+  "local": "=TEXTO(-0,5;\"h:mm\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-346",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"h:mm\"\"x\"\"\")",
+  "local": "=TEXTO(-1,75;\"h:mm\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-347",
+  "v": "2:57x",
+  "text": "2:57x",
+  "f": "=TEXT(0.123456,\"h:mm\"\"x\"\"\")",
+  "local": "=TEXTO(0,123456;\"h:mm\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-348",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"\"\"x\"\"h:mm\")",
+  "local": "=TEXTO(-0,5;\"\"\"x\"\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-349",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"\"\"x\"\"h:mm\")",
+  "local": "=TEXTO(-1,75;\"\"\"x\"\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-350",
+  "v": "x2:57",
+  "text": "x2:57",
+  "f": "=TEXT(0.123456,\"\"\"x\"\"h:mm\")",
+  "local": "=TEXTO(0,123456;\"\"\"x\"\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-351",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"d\"\"x\"\"\")",
+  "local": "=TEXTO(-0,5;\"d\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-352",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"d\"\"x\"\"\")",
+  "local": "=TEXTO(-1,75;\"d\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-353",
+  "v": "0x",
+  "text": "0x",
+  "f": "=TEXT(0.123456,\"d\"\"x\"\"\")",
+  "local": "=TEXTO(0,123456;\"d\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-354",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"\"\"x\"\"d\")",
+  "local": "=TEXTO(-0,5;\"\"\"x\"\"d\")"
+ },
+ {
+  "id": "fix-elapsed-355",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"\"\"x\"\"d\")",
+  "local": "=TEXTO(-1,75;\"\"\"x\"\"d\")"
+ },
+ {
+  "id": "fix-elapsed-356",
+  "v": "x0",
+  "text": "x0",
+  "f": "=TEXT(0.123456,\"\"\"x\"\"d\")",
+  "local": "=TEXTO(0,123456;\"\"\"x\"\"d\")"
+ },
+ {
+  "id": "fix-elapsed-357",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"[h]\\:mm\")",
+  "local": "=TEXTO(-0,5;\"[h]\\:mm\")"
+ },
+ {
+  "id": "fix-elapsed-358",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h]\\:mm\")",
+  "local": "=TEXTO(-1,75;\"[h]\\:mm\")"
+ },
+ {
+  "id": "fix-elapsed-359",
+  "v": "2:57",
+  "text": "2:57",
+  "f": "=TEXT(0.123456,\"[h]\\:mm\")",
+  "local": "=TEXTO(0,123456;\"[h]\\:mm\")"
+ },
+ {
+  "id": "fix-elapsed-360",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"[h]\\ mm\")",
+  "local": "=TEXTO(-0,5;\"[h]\\ mm\")"
+ },
+ {
+  "id": "fix-elapsed-361",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h]\\ mm\")",
+  "local": "=TEXTO(-1,75;\"[h]\\ mm\")"
+ },
+ {
+  "id": "fix-elapsed-362",
+  "v": "2 57",
+  "text": "2 57",
+  "f": "=TEXT(0.123456,\"[h]\\ mm\")",
+  "local": "=TEXTO(0,123456;\"[h]\\ mm\")"
+ },
+ {
+  "id": "fix-elapsed-363",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"s\\ [h]\")",
+  "local": "=TEXTO(-0,5;\"s\\ [h]\")"
+ },
+ {
+  "id": "fix-elapsed-364",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s\\ [h]\")",
+  "local": "=TEXTO(-1,75;\"s\\ [h]\")"
+ },
+ {
+  "id": "fix-elapsed-365",
+  "v": "47 1130",
+  "text": "47 1130",
+  "f": "=TEXT(0.123456,\"s\\ [h]\")",
+  "local": "=TEXTO(0,123456;\"s\\ [h]\")"
+ },
+ {
+  "id": "fix-elapsed-366",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"h:mm\\x\")",
+  "local": "=TEXTO(-0,5;\"h:mm\\x\")"
+ },
+ {
+  "id": "fix-elapsed-367",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"h:mm\\x\")",
+  "local": "=TEXTO(-1,75;\"h:mm\\x\")"
+ },
+ {
+  "id": "fix-elapsed-368",
+  "v": "2:57x",
+  "text": "2:57x",
+  "f": "=TEXT(0.123456,\"h:mm\\x\")",
+  "local": "=TEXTO(0,123456;\"h:mm\\x\")"
+ },
+ {
+  "id": "fix-elapsed-369",
+  "v": "-x",
+  "text": "-x",
+  "f": "=TEXT(-0.5,\"\"\"x\"\"\")",
+  "local": "=TEXTO(-0,5;\"\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-370",
+  "v": "-x",
+  "text": "-x",
+  "f": "=TEXT(-1.75,\"\"\"x\"\"\")",
+  "local": "=TEXTO(-1,75;\"\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-371",
+  "v": "x",
+  "text": "x",
+  "f": "=TEXT(0.123456,\"\"\"x\"\"\")",
+  "local": "=TEXTO(0,123456;\"\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-372",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"h\"\"x\"\"\")",
+  "local": "=TEXTO(-0,5;\"h\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-373",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"h\"\"x\"\"\")",
+  "local": "=TEXTO(-1,75;\"h\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-374",
+  "v": "2x",
+  "text": "2x",
+  "f": "=TEXT(0.123456,\"h\"\"x\"\"\")",
+  "local": "=TEXTO(0,123456;\"h\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-375",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"\"\"ab\"\"s\")",
+  "local": "=TEXTO(-0,5;\"\"\"ab\"\"s\")"
+ },
+ {
+  "id": "fix-elapsed-376",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"\"\"ab\"\"s\")",
+  "local": "=TEXTO(-1,75;\"\"\"ab\"\"s\")"
+ },
+ {
+  "id": "fix-elapsed-377",
+  "v": "ab47",
+  "text": "ab47",
+  "f": "=TEXT(0.123456,\"\"\"ab\"\"s\")",
+  "local": "=TEXTO(0,123456;\"\"\"ab\"\"s\")"
+ },
+ {
+  "id": "fix-elapsed-378",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"dd/mm/aaaa \"\"x\"\"\")",
+  "local": "=TEXTO(-0,5;\"dd/mm/aaaa \"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-379",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"dd/mm/aaaa \"\"x\"\"\")",
+  "local": "=TEXTO(-1,75;\"dd/mm/aaaa \"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-380",
+  "v": "00/01/1900 x",
+  "text": "00/01/1900 x",
+  "f": "=TEXT(0.123456,\"dd/mm/aaaa \"\"x\"\"\")",
+  "local": "=TEXTO(0,123456;\"dd/mm/aaaa \"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-381",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"\"\"x\"\" dd/mm/aaaa\")",
+  "local": "=TEXTO(-0,5;\"\"\"x\"\" dd/mm/aaaa\")"
+ },
+ {
+  "id": "fix-elapsed-382",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"\"\"x\"\" dd/mm/aaaa\")",
+  "local": "=TEXTO(-1,75;\"\"\"x\"\" dd/mm/aaaa\")"
+ },
+ {
+  "id": "fix-elapsed-383",
+  "v": "x 00/01/1900",
+  "text": "x 00/01/1900",
+  "f": "=TEXT(0.123456,\"\"\"x\"\" dd/mm/aaaa\")",
+  "local": "=TEXTO(0,123456;\"\"\"x\"\" dd/mm/aaaa\")"
+ },
+ {
+  "id": "fix-elapsed-384",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"mm:ss\"\"x\"\"\")",
+  "local": "=TEXTO(-0,5;\"mm:ss\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-385",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"mm:ss\"\"x\"\"\")",
+  "local": "=TEXTO(-1,75;\"mm:ss\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-386",
+  "v": "57:47x",
+  "text": "57:47x",
+  "f": "=TEXT(0.123456,\"mm:ss\"\"x\"\"\")",
+  "local": "=TEXTO(0,123456;\"mm:ss\"\"x\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-387",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"\"\"x\"\"mm:ss\")",
+  "local": "=TEXTO(-0,5;\"\"\"x\"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-388",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"\"\"x\"\"mm:ss\")",
+  "local": "=TEXTO(-1,75;\"\"\"x\"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-389",
+  "v": "x57:47",
+  "text": "x57:47",
+  "f": "=TEXT(0.123456,\"\"\"x\"\"mm:ss\")",
+  "local": "=TEXTO(0,123456;\"\"\"x\"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-390",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-0,5;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-391",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-1,75;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-392",
+  "v": "It was 2 [yes, 2] hours and 57:47",
+  "text": "It was 2 [yes, 2] hours and 57:47",
+  "f": "=TEXT(0.123456,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(0,123456;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-393",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-0,5;\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-394",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-1,75;\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-395",
+  "v": "2 [yes, 2] hours and 57:47",
+  "text": "2 [yes, 2] hours and 57:47",
+  "f": "=TEXT(0.123456,\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(0,123456;\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-396",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"\"\"It was \"\"[h]\"\" hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-0,5;\"\"\"It was \"\"[h]\"\" hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-397",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"\"\"It was \"\"[h]\"\" hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-1,75;\"\"\"It was \"\"[h]\"\" hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-398",
+  "v": "It was 2 hours and 57:47",
+  "text": "It was 2 hours and 57:47",
+  "f": "=TEXT(0.123456,\"\"\"It was \"\"[h]\"\" hours and \"\"mm:ss\")",
+  "local": "=TEXTO(0,123456;\"\"\"It was \"\"[h]\"\" hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-399",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"[h] h mm:ss\")",
+  "local": "=TEXTO(-0,5;\"[h] h mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-400",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"[h] h mm:ss\")",
+  "local": "=TEXTO(-1,75;\"[h] h mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-401",
+  "v": "2 2 57:47",
+  "text": "2 2 57:47",
+  "f": "=TEXT(0.123456,\"[h] h mm:ss\")",
+  "local": "=TEXTO(0,123456;\"[h] h mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-402",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"\"\"q\"\"[h]:mm:ss\")",
+  "local": "=TEXTO(-0,5;\"\"\"q\"\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-403",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"\"\"q\"\"[h]:mm:ss\")",
+  "local": "=TEXTO(-1,75;\"\"\"q\"\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-404",
+  "v": "q2:57:47",
+  "text": "q2:57:47",
+  "f": "=TEXT(0.123456,\"\"\"q\"\"[h]:mm:ss\")",
+  "local": "=TEXTO(0,123456;\"\"\"q\"\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-405",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"h \"\"q\"\"\")",
+  "local": "=TEXTO(-0,5;\"h \"\"q\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-406",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"h \"\"q\"\"\")",
+  "local": "=TEXTO(-1,75;\"h \"\"q\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-407",
+  "v": "2 q",
+  "text": "2 q",
+  "f": "=TEXT(0.123456,\"h \"\"q\"\"\")",
+  "local": "=TEXTO(0,123456;\"h \"\"q\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-408",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"\"\"q\"\" h\")",
+  "local": "=TEXTO(-0,5;\"\"\"q\"\" h\")"
+ },
+ {
+  "id": "fix-elapsed-409",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"\"\"q\"\" h\")",
+  "local": "=TEXTO(-1,75;\"\"\"q\"\" h\")"
+ },
+ {
+  "id": "fix-elapsed-410",
+  "v": "q 2",
+  "text": "q 2",
+  "f": "=TEXT(0.123456,\"\"\"q\"\" h\")",
+  "local": "=TEXTO(0,123456;\"\"\"q\"\" h\")"
+ },
+ {
+  "id": "fix-elapsed-411",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"s\"\"q\"\"\")",
+  "local": "=TEXTO(-0,5;\"s\"\"q\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-412",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s\"\"q\"\"\")",
+  "local": "=TEXTO(-1,75;\"s\"\"q\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-413",
+  "v": "47q",
+  "text": "47q",
+  "f": "=TEXT(0.123456,\"s\"\"q\"\"\")",
+  "local": "=TEXTO(0,123456;\"s\"\"q\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-414",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"a\"\"q\"\"\")",
+  "local": "=TEXTO(-0,5;\"a\"\"q\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-415",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"a\"\"q\"\"\")",
+  "local": "=TEXTO(-1,75;\"a\"\"q\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-416",
+  "v": "00q",
+  "text": "00q",
+  "f": "=TEXT(0.123456,\"a\"\"q\"\"\")",
+  "local": "=TEXTO(0,123456;\"a\"\"q\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-417",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0854629629629629,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-0,0854629629629629;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-418",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.14159,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-3,14159;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-419",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-0,5;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-420",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-1,75;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-421",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-0,123456;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-422",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-1;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-423",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.25,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-0,25;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-424",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-2.5,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-2,5;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-425",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0001,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-0,0001;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-426",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.08,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-0,08;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-427",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.09,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-0,09;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-428",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-3;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-429",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.2,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-3,2;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-430",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.3,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(-0,3;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-431",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0854629629629629,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-0,0854629629629629;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-432",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.14159,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-3,14159;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-433",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-0,5;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-434",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1.75,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-1,75;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-435",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-0,123456;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-436",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-1;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-437",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.25,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-0,25;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-438",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-2.5,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-2,5;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-439",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0001,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-0,0001;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-440",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.08,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-0,08;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-441",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.09,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-0,09;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-442",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-3;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-443",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.2,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-3,2;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-444",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.3,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(-0,3;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-445",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0854629629629629,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-0,0854629629629629;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-446",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.14159,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-3,14159;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-447",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.123456,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-0,123456;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-448",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-1;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-449",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.25,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-0,25;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-450",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-2.5,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-2,5;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-451",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0001,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-0,0001;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-452",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.08,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-0,08;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-453",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.09,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-0,09;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-454",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-3;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-455",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.2,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-3,2;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-456",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.3,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(-0,3;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-457",
+  "v": "-7384 [yes, 7384] seconds",
+  "text": "-7384 [yes, 7384] seconds",
+  "f": "=TEXT(-0.0854629629629629,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-0,0854629629629629;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-458",
+  "v": "-271433 [yes, 271433] seconds",
+  "text": "-271433 [yes, 271433] seconds",
+  "f": "=TEXT(-3.14159,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-3,14159;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-459",
+  "v": "-43200 [yes, 43200] seconds",
+  "text": "-43200 [yes, 43200] seconds",
+  "f": "=TEXT(-0.5,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-0,5;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-460",
+  "v": "-151200 [yes, 151200] seconds",
+  "text": "-151200 [yes, 151200] seconds",
+  "f": "=TEXT(-1.75,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-1,75;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-461",
+  "v": "-10667 [yes, 10667] seconds",
+  "text": "-10667 [yes, 10667] seconds",
+  "f": "=TEXT(-0.123456,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-0,123456;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-462",
+  "v": "-86400 [yes, 86400] seconds",
+  "text": "-86400 [yes, 86400] seconds",
+  "f": "=TEXT(-1,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-1;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-463",
+  "v": "-21600 [yes, 21600] seconds",
+  "text": "-21600 [yes, 21600] seconds",
+  "f": "=TEXT(-0.25,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-0,25;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-464",
+  "v": "-216000 [yes, 216000] seconds",
+  "text": "-216000 [yes, 216000] seconds",
+  "f": "=TEXT(-2.5,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-2,5;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-465",
+  "v": "-9 [yes, 09] seconds",
+  "text": "-9 [yes, 09] seconds",
+  "f": "=TEXT(-0.0001,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-0,0001;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-466",
+  "v": "-6912 [yes, 6912] seconds",
+  "text": "-6912 [yes, 6912] seconds",
+  "f": "=TEXT(-0.08,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-0,08;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-467",
+  "v": "-7776 [yes, 7776] seconds",
+  "text": "-7776 [yes, 7776] seconds",
+  "f": "=TEXT(-0.09,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-0,09;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-468",
+  "v": "-259200 [yes, 259200] seconds",
+  "text": "-259200 [yes, 259200] seconds",
+  "f": "=TEXT(-3,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-3;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-469",
+  "v": "-276480 [yes, 276480] seconds",
+  "text": "-276480 [yes, 276480] seconds",
+  "f": "=TEXT(-3.2,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-3,2;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-470",
+  "v": "-25920 [yes, 25920] seconds",
+  "text": "-25920 [yes, 25920] seconds",
+  "f": "=TEXT(-0.3,\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")",
+  "local": "=TEXTO(-0,3;\"[s]\"\" [yes, \"\"ss\"\"] seconds\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-471",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0854629629629629,\"s [h]\")",
+  "local": "=TEXTO(-0,0854629629629629;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-472",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.14159,\"s [h]\")",
+  "local": "=TEXTO(-3,14159;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-473",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"s [h]\")",
+  "local": "=TEXTO(-0,5;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-474",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1,\"s [h]\")",
+  "local": "=TEXTO(-1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-475",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.25,\"s [h]\")",
+  "local": "=TEXTO(-0,25;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-476",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-2.5,\"s [h]\")",
+  "local": "=TEXTO(-2,5;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-477",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0001,\"s [h]\")",
+  "local": "=TEXTO(-0,0001;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-478",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.08,\"s [h]\")",
+  "local": "=TEXTO(-0,08;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-479",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.09,\"s [h]\")",
+  "local": "=TEXTO(-0,09;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-480",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3,\"s [h]\")",
+  "local": "=TEXTO(-3;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-481",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.2,\"s [h]\")",
+  "local": "=TEXTO(-3,2;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-482",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.3,\"s [h]\")",
+  "local": "=TEXTO(-0,3;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-483",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0854629629629629,\"[h]:mm\")",
+  "local": "=TEXTO(-0,0854629629629629;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-484",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.14159,\"[h]:mm\")",
+  "local": "=TEXTO(-3,14159;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-485",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1,\"[h]:mm\")",
+  "local": "=TEXTO(-1;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-486",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.25,\"[h]:mm\")",
+  "local": "=TEXTO(-0,25;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-487",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-2.5,\"[h]:mm\")",
+  "local": "=TEXTO(-2,5;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-488",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0001,\"[h]:mm\")",
+  "local": "=TEXTO(-0,0001;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-489",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.08,\"[h]:mm\")",
+  "local": "=TEXTO(-0,08;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-490",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.09,\"[h]:mm\")",
+  "local": "=TEXTO(-0,09;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-491",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3,\"[h]:mm\")",
+  "local": "=TEXTO(-3;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-492",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.2,\"[h]:mm\")",
+  "local": "=TEXTO(-3,2;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-493",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.3,\"[h]:mm\")",
+  "local": "=TEXTO(-0,3;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-494",
+  "v": "-2 2",
+  "text": "-2 2",
+  "f": "=TEXT(-0.0854629629629629,\"[h] h\")",
+  "local": "=TEXTO(-0,0854629629629629;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-495",
+  "v": "-75 75",
+  "text": "-75 75",
+  "f": "=TEXT(-3.14159,\"[h] h\")",
+  "local": "=TEXTO(-3,14159;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-496",
+  "v": "-12 12",
+  "text": "-12 12",
+  "f": "=TEXT(-0.5,\"[h] h\")",
+  "local": "=TEXTO(-0,5;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-497",
+  "v": "-24 24",
+  "text": "-24 24",
+  "f": "=TEXT(-1,\"[h] h\")",
+  "local": "=TEXTO(-1;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-498",
+  "v": "-6 6",
+  "text": "-6 6",
+  "f": "=TEXT(-0.25,\"[h] h\")",
+  "local": "=TEXTO(-0,25;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-499",
+  "v": "-60 60",
+  "text": "-60 60",
+  "f": "=TEXT(-2.5,\"[h] h\")",
+  "local": "=TEXTO(-2,5;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-500",
+  "v": "-0 0",
+  "text": "-0 0",
+  "f": "=TEXT(-0.0001,\"[h] h\")",
+  "local": "=TEXTO(-0,0001;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-501",
+  "v": "-1 1",
+  "text": "-1 1",
+  "f": "=TEXT(-0.08,\"[h] h\")",
+  "local": "=TEXTO(-0,08;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-502",
+  "v": "-2 2",
+  "text": "-2 2",
+  "f": "=TEXT(-0.09,\"[h] h\")",
+  "local": "=TEXTO(-0,09;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-503",
+  "v": "-72 72",
+  "text": "-72 72",
+  "f": "=TEXT(-3,\"[h] h\")",
+  "local": "=TEXTO(-3;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-504",
+  "v": "-76 76",
+  "text": "-76 76",
+  "f": "=TEXT(-3.2,\"[h] h\")",
+  "local": "=TEXTO(-3,2;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-505",
+  "v": "-7 7",
+  "text": "-7 7",
+  "f": "=TEXT(-0.3,\"[h] h\")",
+  "local": "=TEXTO(-0,3;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-506",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0854629629629629,\"h:mm\")",
+  "local": "=TEXTO(-0,0854629629629629;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-507",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.14159,\"h:mm\")",
+  "local": "=TEXTO(-3,14159;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-508",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"h:mm\")",
+  "local": "=TEXTO(-0,5;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-509",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1,\"h:mm\")",
+  "local": "=TEXTO(-1;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-510",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.25,\"h:mm\")",
+  "local": "=TEXTO(-0,25;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-511",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-2.5,\"h:mm\")",
+  "local": "=TEXTO(-2,5;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-512",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0001,\"h:mm\")",
+  "local": "=TEXTO(-0,0001;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-513",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.08,\"h:mm\")",
+  "local": "=TEXTO(-0,08;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-514",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.09,\"h:mm\")",
+  "local": "=TEXTO(-0,09;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-515",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3,\"h:mm\")",
+  "local": "=TEXTO(-3;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-516",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.2,\"h:mm\")",
+  "local": "=TEXTO(-3,2;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-517",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.3,\"h:mm\")",
+  "local": "=TEXTO(-0,3;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-518",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0854629629629629,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-0,0854629629629629;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-519",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.14159,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-3,14159;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-520",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.5,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-0,5;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-521",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-1,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-1;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-522",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.25,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-0,25;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-523",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-2.5,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-2,5;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-524",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.0001,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-0,0001;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-525",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.08,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-0,08;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-526",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.09,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-0,09;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-527",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-3;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-528",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-3.2,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-3,2;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-529",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(-0.3,\"[h]:mm:ss\")",
+  "local": "=TEXTO(-0,3;\"[h]:mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-530",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(C1,B1)",
+  "local": "=TEXTO(C1;B1)"
+ },
+ {
+  "id": "fix-elapsed-531",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(C1,B1)",
+  "local": "=TEXTO(C1;B1)"
+ },
+ {
+  "id": "fix-elapsed-532",
+  "v": {
+   "e": "#VALUE!"
+  },
+  "text": "#VALOR!",
+  "f": "=TEXT(C1,B1)",
+  "local": "=TEXTO(C1;B1)"
+ },
+ {
+  "id": "fix-elapsed-533",
+  "v": "-7384 [yes, 7384] seconds",
+  "text": "-7384 [yes, 7384] seconds",
+  "f": "=TEXT(C1,B1)",
+  "local": "=TEXTO(C1;B1)"
+ },
+ {
+  "id": "fix-elapsed-534",
+  "v": "0:0 @ hour 12",
+  "text": "0:0 @ hour 12",
+  "f": "=TEXT(0.5,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(0,5;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-535",
+  "v": "0:0 @ hour 12",
+  "text": "0:0 @ hour 12",
+  "f": "=TEXT(1,\"s:m\"\" @ hour \"\"[hh]\")",
+  "local": "=TEXTO(1;\"s:m\"\" @ hour \"\"[hh]\")"
+ },
+ {
+  "id": "fix-elapsed-536",
+  "v": "0 secs and 720 mins",
+  "text": "0 secs and 720 mins",
+  "f": "=TEXT(0.5,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(0,5;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-537",
+  "v": "0 secs and 720 mins",
+  "text": "0 secs and 720 mins",
+  "f": "=TEXT(1,\"s\"\" secs and \"\"[m]\"\" mins\"\"\")",
+  "local": "=TEXTO(1;\"s\"\" secs and \"\"[m]\"\" mins\"\"\")"
+ },
+ {
+  "id": "fix-elapsed-538",
+  "v": "It was 12 [yes, 12] hours and 00:00",
+  "text": "It was 12 [yes, 12] hours and 00:00",
+  "f": "=TEXT(0.5,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(0,5;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-539",
+  "v": "It was 24 [yes, 24] hours and 00:00",
+  "text": "It was 24 [yes, 24] hours and 00:00",
+  "f": "=TEXT(1,\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")",
+  "local": "=TEXTO(1;\"\"\"It was \"\"[h]\"\" [yes, \"\"h\"\"] hours and \"\"mm:ss\")"
+ },
+ {
+  "id": "fix-elapsed-540",
+  "v": "12:00",
+  "text": "12:00",
+  "f": "=TEXT(0.5,\"[h]:mm\")",
+  "local": "=TEXTO(0,5;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-541",
+  "v": "24:00",
+  "text": "24:00",
+  "f": "=TEXT(1,\"[h]:mm\")",
+  "local": "=TEXTO(1;\"[h]:mm\")"
+ },
+ {
+  "id": "fix-elapsed-542",
+  "v": "12:00",
+  "text": "12:00",
+  "f": "=TEXT(0.5,\"h:mm\")",
+  "local": "=TEXTO(0,5;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-543",
+  "v": "0:00",
+  "text": "0:00",
+  "f": "=TEXT(1,\"h:mm\")",
+  "local": "=TEXTO(1;\"h:mm\")"
+ },
+ {
+  "id": "fix-elapsed-544",
+  "v": "-01/01/1904",
+  "text": "-01/01/1904",
+  "f": "=TEXT(-0.0854629629629629,\"dd/mm/aaaa\")",
+  "local": "=TEXTO(-0,0854629629629629;\"dd/mm/aaaa\")"
+ },
+ {
+  "id": "fix-elapsed-545",
+  "v": "-04/01/1904",
+  "text": "-04/01/1904",
+  "f": "=TEXT(-3.14159,\"dd/mm/aaaa\")",
+  "local": "=TEXTO(-3,14159;\"dd/mm/aaaa\")"
+ },
+ {
+  "id": "fix-elapsed-546",
+  "v": "-02/01/1904",
+  "text": "-02/01/1904",
+  "f": "=TEXT(-1.75,\"dd/mm/aaaa\")",
+  "local": "=TEXTO(-1,75;\"dd/mm/aaaa\")"
+ },
+ {
+  "id": "fix-elapsed-547",
+  "v": "01/01/1904",
+  "text": "01/01/1904",
+  "f": "=TEXT(0.5,\"dd/mm/aaaa\")",
+  "local": "=TEXTO(0,5;\"dd/mm/aaaa\")"
+ },
+ {
+  "id": "fix-elapsed-548",
+  "v": "02/01/1904",
+  "text": "02/01/1904",
+  "f": "=TEXT(1,\"dd/mm/aaaa\")",
+  "local": "=TEXTO(1;\"dd/mm/aaaa\")"
+ },
+ {
+  "id": "fix-elapsed-549",
+  "v": "0 12",
+  "text": "0 12",
+  "f": "=TEXT(0.5,\"s [h]\")",
+  "local": "=TEXTO(0,5;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-550",
+  "v": "0 12",
+  "text": "0 12",
+  "f": "=TEXT(1,\"s [h]\")",
+  "local": "=TEXTO(1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-551",
+  "v": "12 12",
+  "text": "12 12",
+  "f": "=TEXT(0.5,\"[h] h\")",
+  "local": "=TEXTO(0,5;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-552",
+  "v": "24 24",
+  "text": "24 24",
+  "f": "=TEXT(1,\"[h] h\")",
+  "local": "=TEXTO(1;\"[h] h\")"
+ },
+ {
+  "id": "fix-elapsed-553",
+  "v": "0",
+  "text": "0",
+  "f": "=TEXT(-0.0854629629629629,\"0\")",
+  "local": "=TEXTO(-0,0854629629629629;\"0\")"
+ },
+ {
+  "id": "fix-elapsed-554",
+  "v": "-3",
+  "text": "-3",
+  "f": "=TEXT(-3.14159,\"0\")",
+  "local": "=TEXTO(-3,14159;\"0\")"
+ },
+ {
+  "id": "fix-elapsed-555",
+  "v": "-2",
+  "text": "-2",
+  "f": "=TEXT(-1.75,\"0\")",
+  "local": "=TEXTO(-1,75;\"0\")"
+ },
+ {
+  "id": "fix-elapsed-556",
+  "v": "1",
+  "text": "1",
+  "f": "=TEXT(0.5,\"0\")",
+  "local": "=TEXTO(0,5;\"0\")"
+ },
+ {
+  "id": "fix-elapsed-557",
+  "v": "1",
+  "text": "1",
+  "f": "=TEXT(1,\"0\")",
+  "local": "=TEXTO(1;\"0\")"
+ },
+ {
+  "id": "fix-elapsed-558",
+  "v": "-1",
+  "text": "-1",
+  "f": "=TEXT(-0.0854629629629629,\"d\")",
+  "local": "=TEXTO(-0,0854629629629629;\"d\")"
+ },
+ {
+  "id": "fix-elapsed-559",
+  "v": "-4",
+  "text": "-4",
+  "f": "=TEXT(-3.14159,\"d\")",
+  "local": "=TEXTO(-3,14159;\"d\")"
+ },
+ {
+  "id": "fix-elapsed-560",
+  "v": "-2",
+  "text": "-2",
+  "f": "=TEXT(-1.75,\"d\")",
+  "local": "=TEXTO(-1,75;\"d\")"
+ },
+ {
+  "id": "fix-elapsed-561",
+  "v": "1",
+  "text": "1",
+  "f": "=TEXT(0.5,\"d\")",
+  "local": "=TEXTO(0,5;\"d\")"
+ },
+ {
+  "id": "fix-elapsed-562",
+  "v": "2",
+  "text": "2",
+  "f": "=TEXT(1,\"d\")",
+  "local": "=TEXTO(1;\"d\")"
+ },
+ {
+  "id": "fix-elapsed-563",
+  "v": "-jan",
+  "text": "-jan",
+  "f": "=TEXT(-0.0854629629629629,\"mmm\")",
+  "local": "=TEXTO(-0,0854629629629629;\"mmm\")"
+ },
+ {
+  "id": "fix-elapsed-564",
+  "v": "-jan",
+  "text": "-jan",
+  "f": "=TEXT(-3.14159,\"mmm\")",
+  "local": "=TEXTO(-3,14159;\"mmm\")"
+ },
+ {
+  "id": "fix-elapsed-565",
+  "v": "-jan",
+  "text": "-jan",
+  "f": "=TEXT(-1.75,\"mmm\")",
+  "local": "=TEXTO(-1,75;\"mmm\")"
+ },
+ {
+  "id": "fix-elapsed-566",
+  "v": "jan",
+  "text": "jan",
+  "f": "=TEXT(0.5,\"mmm\")",
+  "local": "=TEXTO(0,5;\"mmm\")"
+ },
+ {
+  "id": "fix-elapsed-567",
+  "v": "jan",
+  "text": "jan",
+  "f": "=TEXT(1,\"mmm\")",
+  "local": "=TEXTO(1;\"mmm\")"
+ },
+ {
+  "id": "fix-elapsed-568",
+  "v": "3 95",
+  "text": "3 95",
+  "f": "=TEXT(A1,\"s [h]\")",
+  "local": "=TEXTO(A1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-569",
+  "v": "03,99 2399",
+  "text": "03,99 2399",
+  "f": "=TEXT(A1,\"ss,00 [h]\")",
+  "local": "=TEXTO(A1;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-570",
+  "v": "3 95",
+  "text": "3 95",
+  "f": "=TEXT(A1,\"s [h]\")",
+  "local": "=TEXTO(A1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-571",
+  "v": "03,99 2399",
+  "text": "03,99 2399",
+  "f": "=TEXT(A1,\"ss,00 [h]\")",
+  "local": "=TEXTO(A1;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-572",
+  "v": "3 96",
+  "text": "3 96",
+  "f": "=TEXT(A1,\"s [h]\")",
+  "local": "=TEXTO(A1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-573",
+  "v": "03,99 2399",
+  "text": "03,99 2399",
+  "f": "=TEXT(A1,\"ss,00 [h]\")",
+  "local": "=TEXTO(A1;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-574",
+  "v": "3 96",
+  "text": "3 96",
+  "f": "=TEXT(A1,\"s [h]\")",
+  "local": "=TEXTO(A1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-575",
+  "v": "03,99 2399",
+  "text": "03,99 2399",
+  "f": "=TEXT(A1,\"ss,00 [h]\")",
+  "local": "=TEXTO(A1;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-576",
+  "v": "3 96",
+  "text": "3 96",
+  "f": "=TEXT(A1,\"s [h]\")",
+  "local": "=TEXTO(A1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-577",
+  "v": "03,99 2399",
+  "text": "03,99 2399",
+  "f": "=TEXT(A1,\"ss,00 [h]\")",
+  "local": "=TEXTO(A1;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-578",
+  "v": "3 96",
+  "text": "3 96",
+  "f": "=TEXT(A1,\"s [h]\")",
+  "local": "=TEXTO(A1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-579",
+  "v": "03,99 2399",
+  "text": "03,99 2399",
+  "f": "=TEXT(A1,\"ss,00 [h]\")",
+  "local": "=TEXTO(A1;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-580",
+  "v": "3 96",
+  "text": "3 96",
+  "f": "=TEXT(A1,\"s [h]\")",
+  "local": "=TEXTO(A1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-581",
+  "v": "03,99 2400",
+  "text": "03,99 2400",
+  "f": "=TEXT(A1,\"ss,00 [h]\")",
+  "local": "=TEXTO(A1;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-582",
+  "v": "3 96",
+  "text": "3 96",
+  "f": "=TEXT(A1,\"s [h]\")",
+  "local": "=TEXTO(A1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-583",
+  "v": "03,99 2400",
+  "text": "03,99 2400",
+  "f": "=TEXT(A1,\"ss,00 [h]\")",
+  "local": "=TEXTO(A1;\"ss,00 [h]\")"
+ },
+ {
+  "id": "fix-elapsed-584",
+  "v": "3 96",
+  "text": "3 96",
+  "f": "=TEXT(A1,\"s [h]\")",
+  "local": "=TEXTO(A1;\"s [h]\")"
+ },
+ {
+  "id": "fix-elapsed-585",
+  "v": "03,99 2400",
+  "text": "03,99 2400",
+  "f": "=TEXT(A1,\"ss,00 [h]\")",
+  "local": "=TEXTO(A1;\"ss,00 [h]\")"
+ }
+]
