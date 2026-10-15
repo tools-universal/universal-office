@@ -502,7 +502,8 @@ export class UniversalSheetElement extends HTMLElement {
     if (next <= 16384) normalCols = true;
     for (const row of ws.rows) {
       if (row.customHeight && row.height !== undefined) { v.rowHeights.set(row.r, rowPtToPx(row.height)); continue; }
-      if (sheetCustom && !looseHt && row.height === undefined) { v.rowHeights.set(row.r, v.defaultRowH); continue; }
+      // zeroHeight: a altura padrão (0) é só das linhas AUSENTES; as listadas se auto-ajustam (medido)
+      if (sheetCustom && !looseHt && row.height === undefined && !sfp?.zeroHeight) { v.rowHeights.set(row.r, v.defaultRowH); continue; }
       let h = 0;
       if (row.style !== undefined) {
         // estilo de linha: vale para todas as células vazias da linha
