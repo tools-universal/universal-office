@@ -28,6 +28,29 @@ function gridOf(v: Value, ctx: FnContext): ArrayValue | CalcError {
 
 /** Pares numéricos (x, y) na mesma posição; tamanhos diferentes → #N/A; erro propaga. */
 function pairs(xv: Value, yv: Value, ctx: FnContext): [number[], number[]] | CalcError {
+  // duas referências grandes (colunas inteiras): só as células existentes, na ordem
+  if (xv instanceof RefValue && yv instanceof RefValue && xv.single && yv.single) {
+    const ax = xv.single, ay = yv.single;
+    const size = (r: typeof ax): number => (r.r2 - r.r1 + 1) * (r.c2 - r.c1 + 1);
+    if (size(ax) > 65536 && size(ay) > 65536) {
+      if (size(ax) !== size(ay)) return ERR.NA;
+      const w = ax.c2 - ax.c1 + 1, wy = ay.c2 - ay.c1 + 1;
+      const xm = new Map<number, Scalar>();
+      let err: CalcError | undefined;
+      ctx.forEachCell(ax, (v, r, c) => { if (v !== null) xm.set((r - ax.r1) * w + (c - ax.c1), v); });
+      const ym = new Map<number, Scalar>();
+      ctx.forEachCell(ay, (v, r, c) => { if (v !== null) ym.set((r - ay.r1) * wy + (c - ay.c1), v); });
+      const keys = [...new Set([...xm.keys(), ...ym.keys()])].sort((p, q) => p - q);
+      const xs: number[] = [], ys: number[] = [];
+      for (const k of keys) {
+        const a2 = xm.get(k) ?? null, b2 = ym.get(k) ?? null;
+        if (a2 instanceof CalcError) { err = a2; break; }
+        if (b2 instanceof CalcError) { err = b2; break; }
+        if (typeof a2 === 'number' && typeof b2 === 'number') { xs.push(a2); ys.push(b2); }
+      }
+      return err ?? [xs, ys];
+    }
+  }
   const gx = gridOf(xv, ctx), gy = gridOf(yv, ctx);
   if (gx instanceof CalcError) return gx;
   if (gy instanceof CalcError) return gy;
