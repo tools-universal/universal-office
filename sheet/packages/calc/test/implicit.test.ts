@@ -20,7 +20,7 @@ describe('fórmula legada → @ do Excel 365', () => {
     ];
     for (const [f, f2] of cases) expect(conv(f), f).toBe(f2);
   });
-  it('todas as sondas do catálogo (4,5 mil pares medidos)', () => {
+  it('todas as sondas do catálogo (4,6 mil pares medidos)', () => {
     const { pares } = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'oracle', 'implicit.f2.json'), 'utf8')) as { pares: [string, string][] };
     const norm = (x: string): string => x.replace(/^=/, '').replace(/_xlfn.|_xlws./g, '');
     const bad = pares.filter(([f, f2]) => norm(conv(f)) !== norm(f2)).map(([f, f2]) => `${f} → ${conv(f)} × Excel ${f2}`);

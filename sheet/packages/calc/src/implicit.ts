@@ -98,23 +98,40 @@ export function legacyToDynamic(n: Node, o: LegacyOptions = {}): Node {
   } finally { opts = prev; inserted = prevIns; }
 }
 
-function conv(n: Node, ctx: ParamClass): Node {
+/**
+ * Contexto da conversão: V = valor a partir do topo; VR = valor dentro de um
+ * argumento de referência (SUM(ABS(…))): intervalo ainda ganha @, mas função que
+ * devolve MATRIZ (FREQUENCY, MMULT, SORT, SEQUENCE…) não (medido:
+ * =SUM(SIGN(FREQUENCY(…))) sem @, =SIGN(@FREQUENCY(…)) com); R = referência; A = matriz.
+ */
+type Ctx = ParamClass | 'VR';
+
+/** Funções de resultado matricial: sem @ no contexto VR (medido com =SUM(ABS(F(…)))). */
+const ARRAY_RESULT = new Set<string>([
+  'STOCKHISTORY', 'IFS', 'SWITCH', 'CHOOSECOLS', 'CHOOSEROWS', 'DROP', 'EXPAND', 'FILTER', 'HSTACK', 'SORT', 'SORTBY', 'TAKE', 'TOCOL', 'TOROW',
+  'TRANSPOSE', 'UNIQUE', 'VSTACK', 'WRAPCOLS', 'WRAPROWS', 'GROUPBY', 'PIVOTBY', 'MINVERSE', 'MMULT', 'MUNIT', 'RANDARRAY', 'SEQUENCE',
+  'FREQUENCY', 'GROWTH', 'LINEST', 'LOGEST', 'MODE.MULT', 'TREND', 'TEXTSPLIT', 'REGEXEXTRACT',
+]);
+
+const isValue = (c: Ctx): boolean => c === 'V' || c === 'VR';
+
+function conv(n: Node, ctx: Ctx): Node {
   switch (n.t) {
     case 'area':
-      return ctx === 'V' ? SINGLE(n) : n;
+      return isValue(ctx) ? SINGLE(n) : n;
     case 'name':
-      return ctx === 'V' && !n.param && !n.eta && (opts.nameIsMulti?.(n.name) ?? true) ? SINGLE(n) : n;
+      return isValue(ctx) && !n.param && !n.eta && (opts.nameIsMulti?.(n.name) ?? true) ? SINGLE(n) : n;
     case 'table':
-      return ctx === 'V' ? SINGLE(n) : n;
+      return isValue(ctx) ? SINGLE(n) : n;
     case 'unary':
-      return { ...n, e: conv(n.e, ctx === 'A' ? 'A' : 'V') };
+      return { ...n, e: conv(n.e, ctx === 'A' ? 'A' : ctx === 'V' ? 'V' : 'VR') };
     case 'bin': {
       if (n.op === ':' || n.op === ' ' || n.op === ',') {
         const r: Node = { ...n, a: conv(n.a, 'R'), b: conv(n.b, 'R') };
         // união fica sem @ (medido: =(A1:A3;B1) continua igual)
-        return ctx === 'V' && n.op !== ',' ? SINGLE(r) : r;
+        return isValue(ctx) && n.op !== ',' ? SINGLE(r) : r;
       }
-      const sub: ParamClass = ctx === 'A' ? 'A' : 'V';
+      const sub: Ctx = ctx === 'A' ? 'A' : ctx === 'V' ? 'V' : 'VR';
       return { ...n, a: conv(n.a, sub), b: conv(n.b, sub) };
     }
     case 'paren':
@@ -122,17 +139,24 @@ function conv(n: Node, ctx: ParamClass): Node {
     case 'fn': {
       if (n.name === 'SINGLE') return n;
       // A1# devolve referência: como valor ganha @ (medido: FORMULATEXT → "=@F4#")
-      if (n.name === 'ANCHORARRAY' || n.name.startsWith('_TRO_')) return ctx === 'V' ? SINGLE(n) : n;
+      if (n.name === 'ANCHORARRAY' || n.name.startsWith('_TRO_')) return isValue(ctx) ? SINGLE(n) : n;
       const info = fnClass(n.name);
+      // IF com A1# na condição: a condição vira matriz e o @ vai no IF (medido: =@IF(A1#>1;1;2))
+      const ifAnchor = n.name === 'IF' && !!n.args[0] && hasAnchor(n.args[0]);
       const args = n.args.map((a, i) => {
+        if (ifAnchor && i === 0) return conv(a, 'A');
         // TYPE(A1#) fica sem @ (medido; TYPE(A1:A3) ganha)
         const cls = n.name === 'TYPE' && a.t === 'fn' && a.name === 'ANCHORARRAY' ? 'R' : paramClass(info, i);
         // dentro de um argumento de classe matriz, os de valor e de referência também
         // avaliam como matriz (=SUMPRODUCT(SUM(A1:A3*1)) fica sem @), salvo IF/IFERROR/IFNA
-        return conv(a, ctx === 'A' && cls !== 'A' && !NO_ARRAY_PROPAGATION.has(n.name) ? 'A' : cls);
+        if (ctx === 'A' && cls !== 'A' && !NO_ARRAY_PROPAGATION.has(n.name)) return conv(a, 'A');
+        // valor dentro de referência continua "VR"
+        if ((ctx === 'R' || ctx === 'VR') && cls === 'V') return conv(a, 'VR');
+        return conv(a, cls);
       });
       const f: Node = { ...n, args };
-      return ctx === 'V' && needsAt(n.name, n.args, info) ? SINGLE(f) : f;
+      const at = ifAnchor ? isValue(ctx) : ctx === 'V' ? needsAt(n.name, n.args, info) : ctx === 'VR' ? !ARRAY_RESULT.has(n.name) && needsAt(n.name, n.args, info) : false;
+      return at ? SINGLE(f) : f;
     }
     default:
       return n;
@@ -158,6 +182,16 @@ function multi(n: Node): boolean {
   }
 }
 const nonZeroLiteral = (n: Node | undefined): boolean => !!n && n.t === 'num' && n.v !== 0;
+
+/** A expressão contém A1# (ANCHORARRAY)? */
+function hasAnchor(n: Node): boolean {
+  switch (n.t) {
+    case 'fn': return n.name === 'ANCHORARRAY' || n.args.some(hasAnchor);
+    case 'unary': case 'paren': return hasAnchor(n.e);
+    case 'bin': return hasAnchor(n.a) || hasAnchor(n.b);
+    default: return false;
+  }
+}
 
 /** Alguma referência de várias células dentro da expressão. */
 function hasRange(n: Node): boolean {
