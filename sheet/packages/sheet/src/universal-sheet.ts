@@ -1551,6 +1551,10 @@ export class UniversalSheetElement extends HTMLElement {
       ctx.stroke();
     }
 
+    // 3 passadas, como o Excel: fundos de TODAS as células, depois os textos
+    // (o transbordo passa por cima do preenchimento da vizinha vazia), por fim
+    // bordas e marcadores
+    for (let phase = 0; phase < 3; phase++) {
     // origens de mescla fora deste quadrante já desenhadas aqui (1× por região)
     const crossMergeDrawn = new Set<string>();
     for (let row = firstRow; row <= lastRow; row++) {
@@ -1596,7 +1600,7 @@ export class UniversalSheetElement extends HTMLElement {
         if (deco) {
           const ownFill = !!st.fill &&
             (st.fill.gradient !== undefined || (st.fill.pattern !== undefined && st.fill.pattern !== 'none'));
-          if (deco.fill && !ownFill) {
+          if (phase === 0 && deco.fill && !ownFill) {
             ctx.fillStyle = deco.fill;
             ctx.fillRect(left, top, drawW, drawH);
           }
@@ -1610,24 +1614,30 @@ export class UniversalSheetElement extends HTMLElement {
           }
         }
 
-        // área mesclada COBRE as linhas de grade internas (como o app de
-        // referência) — fundo branco antes do fill/texto
-        if (m) {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(left, top, drawW, drawH);
+        if (phase === 0) {
+          // área mesclada COBRE as linhas de grade internas (como o app de
+          // referência) — fundo branco antes do fill/texto
+          if (m) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(left, top, drawW, drawH);
+          }
+          // preenchimento: sólido, padrão legado ou gradiente
+          this.paintFill(ctx, st.fill, left, top, drawW, drawH);
+          // formatação condicional (cor/barras/destaque)
+          this.paintCondFormat(ctx, cell, dcol, drow, left, top, drawW, drawH);
+          continue;
         }
-        // preenchimento: sólido, padrão legado ou gradiente
-        this.paintFill(ctx, st.fill, left, top, drawW, drawH);
-        // formatação condicional (cor/barras/destaque)
-        this.paintCondFormat(ctx, cell, dcol, drow, left, top, drawW, drawH);
-        // texto (com transbordo p/ vizinhas vazias e #### quando não cabe).
-        // Suprime o texto da célula em edição — o input flutuante já o exibe.
-        if (!isEditingThis) {
-          this.paintCell(ctx, cell, st, left, top, drawW, drawH, dcol, drow, cells, !!m);
-        } else {
-          // pinta um fundo branco para sobrepor preenchimento/cond format atrás do input
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(left, top, drawW, drawH);
+        if (phase === 1) {
+          // texto (com transbordo p/ vizinhas vazias e #### quando não cabe).
+          // Suprime o texto da célula em edição — o input flutuante já o exibe.
+          if (!isEditingThis) {
+            this.paintCell(ctx, cell, st, left, top, drawW, drawH, dcol, drow, cells, !!m);
+          } else {
+            // pinta um fundo branco para sobrepor preenchimento/cond format atrás do input
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(left, top, drawW, drawH);
+          }
+          continue;
         }
         // bordas
         if (st.border) this.paintBorder(ctx, st.border, left, top, drawW, drawH);
@@ -1639,6 +1649,7 @@ export class UniversalSheetElement extends HTMLElement {
         // seta de autofiltro (header de tabela)
         if (deco?.arrow) this.paintFilterArrow(ctx, left, top, drawW, drawH);
       }
+    }
     }
     ctx.restore();
   }
