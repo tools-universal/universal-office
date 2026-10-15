@@ -31,6 +31,9 @@ export const METRIC_SUBSTITUTES: Readonly<Record<string, string>> = {
   cambria: 'Caladea',
   arial: 'Liberation Sans',
   'arial mt': 'Liberation Sans',
+  // ausente, o PowerPoint a desenha com as métricas da Arial (oráculo syn-b-e29:
+  // "Arial Unicode MS" mede 354,01 pt = Arial; família desconhecida = Calibri)
+  'arial unicode ms': 'Liberation Sans',
   helvetica: 'Liberation Sans',
   arimo: 'Liberation Sans',
   'times new roman': 'Liberation Serif',

@@ -78,6 +78,14 @@ describe('FontResolver — ordem de resolução', () => {
     ]);
   });
 
+  it('"Arial Unicode MS" ausente usa as métricas da Arial (Liberation Sans), não o substituto de família desconhecida', async () => {
+    const r = new FontResolver(fakeEnv({ files: ALL_BUNDLED }).env);
+    r.configure({ baseUrl: '/f' });
+    const [x] = await r.resolve(['Arial Unicode MS']);
+    expect(x).toMatchObject({ source: 'substitute', cssFamily: 'Liberation Sans' });
+    expect(r.cssStack('Arial Unicode MS', ['Calibri', 'Aptos'])).toBe('"Liberation Sans", sans-serif');
+  });
+
   it('sem base das embarcadas: substituta indisponível cai no padrão (sem bytes)', async () => {
     const r = new FontResolver(fakeEnv().env);
     const [x] = await r.resolve(['Calibri']);
