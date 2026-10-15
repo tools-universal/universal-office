@@ -1,0 +1,25 @@
+/**
+ * @universal/sheet-calc — motor de cálculo de fórmulas do Universal Sheet.
+ * Por dentro tudo é canônico (nomes em inglês, "," e "." como no arquivo); a
+ * tradução para o idioma do usuário fica na camada i18n.
+ */
+export * from './values.js';
+export * from './fn.js';
+export * from './coerce.js';
+export * from './criteria.js';
+export * from './dates.js';
+export * from './apply.js';
+
+// bibliotecas de funções (registram no carregamento)
+import './functions/math.js';
+import './functions/engineering.js';
+import './functions/financial.js';
+import './functions/statistical.js';
+import './functions/database.js';
+import './functions/text.js';
+import './functions/datetime.js';
+import './functions/info.js';
+import './functions/lookup.js';
+import './functions/dynamic.js';
+import './functions/logical.js';
+import './functions/reference.js';

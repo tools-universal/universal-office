@@ -1,0 +1,7 @@
+/**
+ * Data e hora (DATE, TIME, DATEVALUE, TIMEVALUE, NOW, TODAY, YEAR…SECOND, WEEKDAY, WEEKNUM, ISOWEEKNUM, EDATE, EOMONTH, NETWORKDAYS*, WORKDAY*, DATEDIF, DAYS, DAYS360, YEARFRAC).
+ * Dono: agente FN-TEXT-DATE-LOOKUP.
+ */
+import { register } from '../fn.js';
+
+register();
