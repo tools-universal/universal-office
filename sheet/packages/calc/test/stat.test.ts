@@ -59,3 +59,33 @@ describe('ordem de textos do Excel', () => {
     expect(compareText('a', 'á')).toBe(-1);
   });
 });
+
+describe('nenhuma função estatística lança exceção', () => {
+  it('argumentos variados (números extremos, texto, erro, matrizes, referências)', async () => {
+    const { lookupFn } = await import('../src/fn.js');
+    const { CalcError } = await import('../src/values.js');
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const names = new Set<string>();
+    for (const f of ['statistical', 'conditional', 'distributions', 'regression', 'ets', 'database']) {
+      const src = readFileSync(fileURLToPath(new URL(`../src/functions/${f}.ts`, import.meta.url)), 'utf8');
+      for (const m of src.matchAll(/'([A-Z][A-Z0-9.]+)'/g)) if (lookupFn(m[1]!)) names.add(m[1]!);
+    }
+    const ctx = mockContext({ sheets: { S: { A1: 1, A2: 'x', A3: true, A5: -2.5, A6: CalcError.of('#N/A'), A7: 1e308, A8: 0, B1: 'h', B2: 3, B3: 'a', C1: 'h', C2: '>1' } } });
+    const vals: unknown[] = [0, 1, -1, 0.5, 2.5, 1e300, -1e300, 1e-300, 'x', '1', '', true, false, null, CalcError.of('#N/A'),
+      [[1, 2], [3, 'a']], { ref: 'A1:A8' }, { ref: 'A1' }, { ref: 'B1:C3' }, { omitted: true }];
+    let seed = 7;
+    const rnd = (): number => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    const bad: string[] = [];
+    for (const name of names) {
+      const def = lookupFn(name)!;
+      for (let t = 0; t < 25; t++) {
+        const n = def.minArgs + Math.floor(rnd() * Math.min(4, def.maxArgs - def.minArgs + 1));
+        const args = Array.from({ length: n }, () => vals[Math.floor(rnd() * vals.length)]);
+        try { callFn(name, args as never, ctx); } catch (e) { bad.push(`${name}: ${(e as Error).message}`); }
+      }
+    }
+    expect(names.size).toBeGreaterThan(150);
+    expect(bad).toEqual([]);
+  }, 120000);
+});
