@@ -1015,24 +1015,30 @@ function algSnake(n: PNode): void {
   const ideal = items.map((k) => kidSize(k, n));
   const iw = Math.max(...ideal.map((z) => z.w)), ih = Math.max(...ideal.map((z) => z.h));
   const isp = n.v['sp'] ?? 0;
+  // no fluxo, o vão entre itens é o espaçador da transição (sibTrans w = 0,08 × nó do
+  // bList2); entre linhas, o sp (0,16 × nó) — medidos
+  const trans = n.kids.find((k) => isTrans(k) && algType(k) === 'sp');
+  const gapOf = (sp: number): number => { if (!trans) return sp; const z = kidSize(trans, n); const g = flowCol ? z.h : z.w; return Number.isFinite(g) && g > 0 && getVal(trans, flowCol ? 'h' : 'w') !== undefined ? g : sp; };
+  const igap = gapOf(isp);
   let best = { c: N, s: 0 };
   const fixed = p['bkpt'] === 'fixed' ? parseInt(p['bkPtFixedVal'] ?? '', 10) : NaN;
   for (let c = 1; c <= N; c++) {
     if (Number.isFinite(fixed) && fixed > 0 && c !== Math.min(N, fixed)) continue;
     const r = Math.ceil(N / c);
     const cols = flowCol ? r : c, rows = flowCol ? c : r;
-    const tw = cols * iw + (cols - 1) * isp, th = rows * ih + (rows - 1) * isp;
+    const tw = cols * iw + (cols - 1) * (flowCol ? isp : igap), th = rows * ih + (rows - 1) * (flowCol ? igap : isp);
     const s = Math.min(tw > 0 ? W / tw : Infinity, th > 0 ? H / th : Infinity);
-    if (s > best.s * 1.000001) best = { c, s };
+    // empate na escala: mais itens por linha (bList2 com 5: 4 + 1, medido)
+    if (s >= best.s * 0.999999) best = { c, s };
   }
   const s = Math.min(1, best.s);
   evalKids(n, () => s);
   const sizes = items.map((k) => kidSize(k, n));
   const w = Math.max(...sizes.map((z) => z.w)), h = Math.max(...sizes.map((z) => z.h));
-  const sp = n.v['sp'] ?? 0;
+  const sp = n.v['sp'] ?? 0, gap = gapOf(sp);
   const per = best.c, lines = Math.ceil(N / per);
   const cols = flowCol ? lines : per, rows = flowCol ? per : lines;
-  const tw = cols * w + (cols - 1) * sp, th = rows * h + (rows - 1) * sp;
+  const tw = cols * w + (cols - 1) * (flowCol ? sp : gap), th = rows * h + (rows - 1) * (flowCol ? gap : sp);
   const ox = (W - tw) / 2, oy = (H - th) / 2;
   const fromR = grDir === 'tR' || grDir === 'bR', fromB = grDir === 'bL' || grDir === 'bR';
   items.forEach((k, i) => {
@@ -1041,13 +1047,13 @@ function algSnake(n: PNode): void {
     const inLine = Math.min(per, N - line * per);
     if (revDir && line % 2 === 1) at = per - 1 - at;
     // linha incompleta centralizada (off="ctr")
-    const shift = p['off'] === 'off' ? 0 : ((per - inLine) * ((flowCol ? h : w) + sp)) / 2;
+    const shift = p['off'] === 'off' ? 0 : ((per - inLine) * ((flowCol ? h : w) + gap)) / 2;
     let cx: number, cy: number;
     if (!flowCol) {
-      cx = at * (w + sp) + (revDir && line % 2 === 1 ? -shift : shift);
+      cx = at * (w + gap) + (revDir && line % 2 === 1 ? -shift : shift);
       cy = line * (h + sp);
     } else {
-      cy = at * (h + sp) + (revDir && line % 2 === 1 ? -shift : shift);
+      cy = at * (h + gap) + (revDir && line % 2 === 1 ? -shift : shift);
       cx = line * (w + sp);
     }
     if (fromR) cx = tw - cx - w;
