@@ -79,6 +79,8 @@ export interface CellXf {
   vertical?: string;
   wrapText?: boolean;
   indent?: number;
+  /** Rotação do texto: 1–90 anti-horário, 91–180 horário (−1…−90), 255 empilhado. */
+  textRotation?: number;
 }
 
 export interface Styles {
@@ -215,6 +217,8 @@ export function readStyles(pkg: XlsxPackage, cx?: ColorContext): Styles {
         if (al.attrs['vertical'] !== undefined) rec.vertical = al.attrs['vertical'];
         if (al.attrs['wrapText'] === '1') rec.wrapText = true;
         if (al.attrs['indent'] !== undefined) rec.indent = parseInt(al.attrs['indent'], 10);
+        const rot = al.attrs['textRotation'] !== undefined ? parseInt(al.attrs['textRotation'], 10) : 0;
+        if (rot > 0 && (rot <= 180 || rot === 255)) rec.textRotation = rot;
       }
       cellXfs.push(rec);
     }

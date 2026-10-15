@@ -54,6 +54,8 @@ interface ResolvedStyle {
   wrap: boolean;
   /** Níveis de recuo (alignment indent). */
   indent: number;
+  /** Rotação do texto (0 = horizontal; 1–90 anti-horário, 91–180 horário, 255 empilhado). */
+  rotation: number;
 }
 
 /** Fonte efetiva de um run rico (props do run resolvidas sobre a da célula). */
@@ -1888,6 +1890,59 @@ export class UniversalSheetElement extends HTMLElement {
   }
 
   /**
+   * Texto girado (textRotation) recortado na célula: 90 = de baixo para cima,
+   * 180 = de cima para baixo (horário), outros ângulos a partir do canto
+   * inferior esquerdo, 255 = letras empilhadas. O alinhamento vertical decide
+   * onde o texto começa ao longo da célula (fonte e cor já no contexto).
+   */
+  private paintRotatedText(ctx: CanvasRenderingContext2D, text: string, st: ResolvedStyle, left: number, top: number, w: number, h: number, size: number): void {
+    const pad = 3 * this.zoom;
+    const va = st.valign ?? 'bottom';
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(left + 0.5, top + 0.5, w - 1, h - 1);
+    ctx.clip();
+    const rot = st.rotation;
+    if (rot === 255) {
+      // empilhado: um caractere por linha, centrado na largura
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      const lineH = size * 1.1;
+      const chars = [...text];
+      const total = chars.length * lineH;
+      let y = va === 'top' ? top + pad + size * 0.9 : va === 'center' ? top + (h - total) / 2 + size * 0.9 : top + h - pad - total + size * 0.9;
+      for (const ch of chars) { ctx.fillText(ch, left + w / 2, y); y += lineH; }
+      ctx.restore();
+      return;
+    }
+    const ha = st.align ?? 'general';
+    if (rot === 90 || rot === 180) {
+      // vertical: centrado na largura (ou pelo alinhamento horizontal), começo pelo vertical
+      const cx = ha === 'left' ? left + pad + size / 2 : ha === 'right' ? left + w - pad - size / 2 : left + w / 2;
+      const up = rot === 90;
+      const start = up ? (va === 'top' ? 'right' : va === 'center' ? 'center' : 'left') : (va === 'top' ? 'left' : va === 'center' ? 'center' : 'right');
+      const cy = va === 'top' ? top + pad : va === 'center' ? top + h / 2 : top + h - pad;
+      ctx.translate(cx, cy);
+      ctx.rotate(up ? -Math.PI / 2 : Math.PI / 2);
+      ctx.textAlign = start as CanvasTextAlign;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+      return;
+    }
+    // ângulo qualquer: 1–90 sobe para a direita, 91–180 desce para a direita
+    const deg = rot <= 90 ? -rot : rot - 90;
+    const ox = left + pad;
+    const oy = deg < 0 ? top + h - pad : top + pad + size;
+    ctx.translate(ox, oy);
+    ctx.rotate((deg * Math.PI) / 180);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+  }
+
+  /**
    * "Centralizar na seleção" (centerContinuous): largura das células à direita
    * VAZIAS e com o mesmo alinhamento — o texto centra sobre o conjunto.
    */
@@ -2024,6 +2079,11 @@ export class UniversalSheetElement extends HTMLElement {
     else if (numeric) ta = 'right';    // General: números/datas à direita
     ctx.textAlign = ta;
     ctx.textBaseline = 'alphabetic';
+
+    if (st.rotation) {
+      this.paintRotatedText(ctx, display, st, left, top, w, h, size);
+      return;
+    }
 
     // recuo (indent): ~12 px por nível com MDW 7 (medido no oráculo: 3 → 15 → 27 → 39 px)
     const ind = ta !== 'center' && st.indent > 0 ? st.indent * Math.round(this.mdw * 12 / 7) * this.zoom : 0;
@@ -2416,7 +2476,7 @@ export class UniversalSheetElement extends HTMLElement {
     const s = this.styles;
     const xfIdx = cell?.style ?? 0;
     const xf = s.cellXfs[xfIdx];
-    if (!xf) return { font: undefined, fill: undefined, border: undefined, numFmtId: 0, align: undefined, valign: undefined, wrap: false, indent: 0 };
+    if (!xf) return { font: undefined, fill: undefined, border: undefined, numFmtId: 0, align: undefined, valign: undefined, wrap: false, indent: 0, rotation: 0 };
     return {
       font: s.fonts[xf.fontId],
       fill: s.fills[xf.fillId],
@@ -2426,6 +2486,7 @@ export class UniversalSheetElement extends HTMLElement {
       valign: xf.vertical,
       wrap: !!xf.wrapText,
       indent: xf.indent ?? 0,
+      rotation: xf.textRotation ?? 0,
     };
   }
 
