@@ -16,6 +16,7 @@ import { register, type FnContext } from '../fn.js';
 import { parseDateTimeParts } from '../coerce.js';
 import { daysInMonth, excelDate, isLeap, maxSerial, serialToYmd, splitSerial, weekday, ymdToSerial } from '../dates.js';
 import { ArrayValue, CalcError, ERR, RefValue, type Scalar, type Value } from '../values.js';
+import { yearFrac } from './daycount.js';
 import { atpNum, liftAtp, num, OMITTED, txt, type AtpArg } from './tdl-util.js';
 
 const lift = { args: 'value' as const, lift: true };
@@ -210,51 +211,6 @@ function days360(a: number, b: number, european: boolean, ctx: FnContext): numbe
     }
   }
   return (e.y - s.y) * 360 + (e.m - s.m) * 30 + ed - sd;
-}
-
-function yearfrac(a: number, b: number, basis: number, ctx: FnContext): number | CalcError {
-  if (a === b) return 0;
-  if (a > b) [a, b] = [b, a];
-  const s = ymd(a, ctx), e = ymd(b, ctx);
-  switch (basis) {
-    case 0: {
-      let sd = s.d, ed = e.d;
-      if (sd === 31 && ed === 31) { sd = 30; ed = 30; }
-      else if (sd === 31) sd = 30;
-      else if (sd === 30 && ed === 31) ed = 30;
-      else if (lastOfFeb(s, ctx) && lastOfFeb(e, ctx)) { sd = 30; ed = 30; }
-      else if (lastOfFeb(s, ctx)) sd = 30;
-      return ((e.y - s.y) * 360 + (e.m - s.m) * 30 + ed - sd) / 360;
-    }
-    case 1: {
-      const within = s.y === e.y || (e.y === s.y + 1 && (s.m > e.m || (s.m === e.m && s.d >= e.d)));
-      if (within) {
-        let len = 365;
-        if (s.y === e.y && isLeap(s.y)) len = 366;
-        else if (feb29Between(s, e, a, b, ctx) || (e.m === 2 && e.d === 29 && isLeap(e.y))) len = 366;
-        return (b - a) / len;
-      }
-      let days = 0;
-      for (let y = s.y; y <= e.y; y++) days += isLeap(y) ? 366 : 365;
-      return (b - a) / (days / (e.y - s.y + 1));
-    }
-    case 2: return (b - a) / 360;
-    case 3: return (b - a) / 365;
-    case 4: {
-      const sd = Math.min(s.d, 30), ed = Math.min(e.d, 30);
-      return ((e.y - s.y) * 360 + (e.m - s.m) * 30 + ed - sd) / 360;
-    }
-  }
-  return ERR.NUM;
-}
-
-function feb29Between(s: { y: number }, e: { y: number }, a: number, b: number, ctx: FnContext): boolean {
-  for (let y = s.y; y <= e.y; y++) {
-    if (!isLeap(y)) continue;
-    const f = serial(y, 2, 29, ctx);
-    if (f >= a && f <= b) return true;
-  }
-  return false;
 }
 
 // ───────────────────────────── registro ─────────────────────────────
@@ -474,6 +430,6 @@ register(
     const n = atpNum(bs, ctx, 0); if (n instanceof CalcError) return n;
     const basis = Math.trunc(n);
     if (basis < 0 || basis > 4) return ERR.NUM;
-    return yearfrac(s, e, basis, ctx);
+    return yearFrac(s, e, basis, ctx.date1904); // o mesmo do FN-MATH (daycount.ts, GetYearFrac do ATP)
   }),
 );

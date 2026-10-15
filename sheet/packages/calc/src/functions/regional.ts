@@ -1,7 +1,7 @@
 /**
  * Funções regionais do Excel (tailandês e CJK): THAIDIGIT, THAIYEAR,
  * THAIDAYOFWEEK, THAIMONTHOFYEAR, THAINUMSOUND, THAINUMSTRING,
- * THAISTRINGLENGTH, ISTHAIDIGIT, ROUNDBAHTDOWN, ROUNDBAHTUP, NUMBERSTRING,
+ * THAISTRINGLENGTH, ISTHAIDIGIT, NUMBERSTRING (ROUNDBAHTDOWN/UP são do FN-MATH),
  * DATESTRING. Dono: agente FN-TEXT-DATE-LOOKUP.
  *
  * Medido no Excel 365 pt-BR: as THAI* dão #VALUE! e NUMBERSTRING/DATESTRING
@@ -90,8 +90,6 @@ register(
   thai('THAINUMSTRING', (v, ctx) => { const n = num(v, ctx); return n instanceof CalcError ? n : (n < 0 ? 'ลบ' : '') + thaiWords(Math.abs(n)); }),
   thai('THAISTRINGLENGTH', (v, ctx) => { const s = txt(v, ctx); return s instanceof CalcError ? s : [...s].filter((c) => !/[ัิ-ฺ็-๎]/.test(c)).length; }),
   thai('ISTHAIDIGIT', (v, ctx) => { const s = txt(v, ctx); return s instanceof CalcError ? s : s !== '' && [...s].every((c) => TH_DIGITS.includes(c)); }),
-  thai('ROUNDBAHTDOWN', (v, ctx) => { const n = num(v, ctx); return n instanceof CalcError ? n : Math.floor(n * 4) / 4; }),
-  thai('ROUNDBAHTUP', (v, ctx) => { const n = num(v, ctx); return n instanceof CalcError ? n : Math.ceil(n * 4) / 4; }),
   {
     name: 'NUMBERSTRING', minArgs: 2, maxArgs: 2, ...lift,
     call: ([v, t], ctx) => {
