@@ -5,15 +5,19 @@ import {
   parseChart, paintChart, excelMdw, excelRowPx, colWidthToPx, defaultColPx, rowPtToPx, ppemOf,
   type ChartModel, type Theme,
   type Workbook, type Worksheet, type Cell, type SharedString, type Styles, type Font, type Fill,
-  type Border, type PaneInfo, type CondFormat, type ColDef, type ColorStop, type FormatResult,
+  type Border, type BorderEdge, type PaneInfo, type CondFormat, type ColDef, type ColorStop, type FormatResult,
   type Comment, type DrawingChart, type DrawingObject, type Hyperlink, type RichRun, type RunProps,
   themePath,
 } from '@universal/sheet-core';
 import { SheetDrawings, anchorRect, type Rect } from './drawings.js';
 import {
   bisectLE, pxToIndex, indexScreenPos, boundaryAt, pxToColWidthChars, pxToRowHeightPt,
-  layoutRichLines, PATTERN_MASKS, MergeIndex, type RichSeg, type MergeRect,
+  layoutRichLines, MergeIndex, type RichSeg, type MergeRect,
 } from './grid-layout.js';
+import { defaultXfMaps, xfIndexAt } from './cell-format.js';
+import { paintCellFill, hasFill } from './fills.js';
+import { buildTableLayer, applyTableLayer, paintTableHandle, type TableCellFormat } from './table-styles.js';
+import { winningEdge, edgeExtent, paintHEdge, paintVEdge, paintDiagonals, NO_CORNER, type CornerInfo } from './borders.js';
 
 /**
  * <universal-sheet> — webcomponent que renderiza uma pasta de trabalho .xlsx
@@ -104,19 +108,25 @@ export interface SheetView {
   /** Altura default de linha em px (sheetFormatPr ou constante). */
   defaultRowH: number;
   /**
-   * Decoração de TABELA (ListObject) por célula ("col,row"): fill de header/
-   * banda, cor/negrito do texto do header e seta de autofiltro. Os estilos
-   * built-in não vêm no pacote — replicamos a família Medium por accent.
+   * Camada de estilo de TABELA (ListObject) e de tabela dinâmica por célula
+   * ("col,row"), abaixo da formatação direta — ver table-styles.ts.
    */
-  tableDeco: Map<string, TableDeco>;
+  tableFmt: Map<string, TableCellFormat>;
+  /** Botões de autofiltro ("col,row" → filtro ativo?) de tabelas e da planilha. */
+  filterAt: Map<string, boolean>;
+  /** Última célula de cada tabela ("col,row"): alça de redimensionar. */
+  tableEnds: Set<string>;
   /** Ranges (1-based, inclusivos) com validação de LISTA — dropdown na seleção. */
   listValRanges: { c1: number; r1: number; c2: number; r2: number }[];
   /** Índice espacial das mesclas (lazy, ver mergeAt). */
   mergeIndex?: MergeIndex;
-  /** Formato da linha inteira (row s + customFormat) — células sem `<c>`. */
-  rowStyles: Map<number, number>;
-  /** Formato da coluna inteira (`<col style>`) — células sem `<c>` nem formato de linha. */
-  colStyles: Map<number, number>;
+  /**
+   * Estilos-padrão das células AUSENTES do XML (medido no Excel): o da linha
+   * (`<row s customFormat="1">`) vence o da coluna (`<col style>`); célula
+   * presente sem `s` usa o estilo 0.
+   */
+  rowXf: Map<number, number>;
+  colXf: Map<number, number>;
 }
 
 /** Valores de erro (gravados em inglês no arquivo) como o Excel pt-BR os exibe. */
@@ -125,28 +135,6 @@ const ERRORS_PT_BR: Record<string, string> = {
   '#GETTING_DATA': '#OBTENDO_DADOS',
 };
 
-/** Decoração derivada do estilo da tabela para UMA célula. */
-interface TableDeco {
-  fill?: string;
-  fontColor?: string;
-  bold?: boolean;
-  /** Desenha a seta de autofiltro (célula de header). */
-  arrow?: boolean;
-}
-
-/**
- * Accent do estilo built-in `TableStyle{Light,Medium,Dark}N`: N=1 → cinza,
- * N=2..7 → accent1..6 (ciclo). O app de referência não grava os estilos
- * built-in no pacote — só o nome.
- */
-function tableStyleAccent(name: string | undefined, accents: string[]): string {
-  const fallback = accents[0] ?? '#4472C4';
-  const m = /(\d+)$/.exec(name ?? '');
-  if (!m) return fallback;
-  const n = parseInt(m[1]!, 10);
-  if (n <= 1) return '#808080';
-  return accents[(n - 2) % 6] ?? fallback;
-}
 
 
 /**
@@ -285,19 +273,15 @@ export class UniversalSheetElement extends HTMLElement {
       // larguras de coluna: <cols> → px pela MDW da fonte Normal. O app de
       // referência aplica `width` mesmo SEM customWidth (customWidth só marca
       // "ajuste manual" p/ o autofit); só ignoramos <col> que não traz width algum.
-      const rowStyles = new Map<number, number>();
-      const colStyles = new Map<number, number>();
       for (const cd of ws.cols ?? []) {
         for (let c = cd.min; c <= cd.max; c++) {
           if (cd.hidden) hiddenCols.add(c);
           if (cd.width !== undefined) colWidths.set(c, colWidthToPx(cd.width, this.mdw));
-          if (cd.style) colStyles.set(c, cd.style);
         }
       }
       for (const row of ws.rows) {
         if (row.hidden) hiddenRows.add(row.r);
         // customFormat sem `s` = estilo 0: a linha formatada vence o estilo da coluna
-        if (row.customFormat) rowStyles.set(row.r, row.style ?? 0);
         if (row.r > maxRow) maxRow = row.r;
         for (const c of row.cells) {
           const { col } = refToRowCol(c.ref);
@@ -346,46 +330,8 @@ export class UniversalSheetElement extends HTMLElement {
         if (d.anchor.to.col + 1 > extMaxCol) extMaxCol = d.anchor.to.col + 1;
         if (d.anchor.to.row + 1 > extMaxRow) extMaxRow = d.anchor.to.row + 1;
       }
-      // decoração de tabelas (ListObjects): header + bandas + setas de filtro
-      const tableDeco = new Map<string, TableDeco>();
-      for (const t of ws.tables ?? []) {
-        const [tlRef, brRef] = t.ref.split(':');
-        if (!tlRef || !brRef) continue;
-        const tl = refToRowCol(tlRef);
-        const br = refToRowCol(brRef);
-        // banda = accent com tint HSL 0.8 do app de referência (L' = L·0.2 + 0.8)
-        // — medido no oráculo: accent1 #156082 → banda #C0E6F5
-        const accent = tableStyleAccent(t.styleName, this.chartPalette);
-        const stripe = applyTint(accent, 0.8);
-        for (let row = tl.row; row <= br.row; row++) {
-          const isHeader = t.headerRow && row === tl.row;
-          const dataIdx = row - tl.row - (t.headerRow ? 1 : 0);
-          for (let col = tl.col; col <= br.col; col++) {
-            const deco: TableDeco = {};
-            if (isHeader) {
-              deco.fill = accent;
-              deco.fontColor = '#FFFFFF';
-              deco.bold = true;
-              if (t.autoFilter) deco.arrow = true;
-            } else if (t.stripes && dataIdx >= 0 && dataIdx % 2 === 0) {
-              deco.fill = stripe;
-            }
-            if (deco.fill || deco.arrow) tableDeco.set(`${col},${row}`, deco);
-          }
-        }
-      }
-      // autofiltro da planilha: seta em cada célula da 1ª linha do range
-      if (ws.autoFilter) {
-        try {
-          const [a, b] = ws.autoFilter.split(':');
-          const tl = refToRowCol(a!);
-          const br = b ? refToRowCol(b) : tl;
-          for (let col = tl.col; col <= br.col; col++) {
-            const key = `${col},${tl.row}`;
-            tableDeco.set(key, { ...(tableDeco.get(key) ?? {}), arrow: true });
-          }
-        } catch { /* ref inválida: sem setas */ }
-      }
+      // tabelas (ListObjects): camada do estilo + botões de autofiltro
+      const { tableFmt, filterAt, tableEnds } = buildTableLayer(ws, this.styles, cx);
       // ranges de validação de lista (dropdown ao selecionar)
       const listValRanges: { c1: number; r1: number; c2: number; r2: number }[] = [];
       for (const sq of ws.listValidations ?? []) {
@@ -410,10 +356,11 @@ export class UniversalSheetElement extends HTMLElement {
         frozenRows,
         defaultColW,
         defaultRowH,
-        tableDeco,
+        tableFmt,
+        filterAt,
+        tableEnds,
         listValRanges,
-        rowStyles,
-        colStyles,
+        ...defaultXfMaps(ws),
       });
       this.fitRowHeights(this.views[this.views.length - 1]!);
     }
@@ -1624,6 +1571,9 @@ export class UniversalSheetElement extends HTMLElement {
     // (o transbordo passa por cima do preenchimento da vizinha vazia), por fim
     // bordas e marcadores
     for (let phase = 0; phase < 3; phase++) {
+    // bordas: por FRONTEIRA (conflito entre vizinhas e cantos como o Excel),
+    // depois dos textos e antes dos marcadores
+    if (phase === 2) this.paintGridBorders(ctx, rowMap, firstCol, lastCol, firstRow, lastRow, sx, sy);
     // origens de mescla fora deste quadrante já desenhadas aqui (1× por região)
     const crossMergeDrawn = new Set<string>();
     for (let row = firstRow; row <= lastRow; row++) {
@@ -1660,40 +1610,27 @@ export class UniversalSheetElement extends HTMLElement {
 
         const cells = rowMap.get(drow);
         const cell = cells?.get(dcol);
-        // célula sem <c>: vale o formato da linha inteira e, sem ele, o da coluna
-        const lineXf = cell ? undefined : v.rowStyles.get(drow) ?? v.colStyles.get(dcol);
-        let st = this.resolveStyle(cell ?? (lineXf !== undefined ? { ref: '', style: lineXf } : undefined));
+        // estilo efetivo: formatação direta sobre a camada da tabela (e CF)
+        const st = this.styleAt(cell, dcol, drow);
         const isEditingThis = this.editing && this.editing.col === dcol && this.editing.row === drow;
 
-        // decoração de TABELA (ListObject): fill de header/banda como default
-        // (formatação explícita da célula vence a camada do estilo da tabela)
-        const deco = v.tableDeco.size > 0 ? v.tableDeco.get(`${dcol},${drow}`) : undefined;
-        if (deco) {
-          const ownFill = !!st.fill &&
-            (st.fill.gradient !== undefined || (st.fill.pattern !== undefined && st.fill.pattern !== 'none'));
-          if (phase === 0 && deco.fill && !ownFill) {
-            ctx.fillStyle = deco.fill;
-            ctx.fillRect(left, top, drawW, drawH);
-          }
-          // fonte: a camada da tabela vale quando a célula usa a fonte DEFAULT
-          const ownFont = (this.styles?.cellXfs[cell?.style ?? 0]?.fontId ?? 0) !== 0;
-          if (!ownFont && (deco.fontColor !== undefined || deco.bold)) {
-            const f = { ...(st.font ?? {}) };
-            if (deco.fontColor !== undefined) f.color = deco.fontColor;
-            if (deco.bold) f.bold = true;
-            st = { ...st, font: f };
-          }
-        }
-
         if (phase === 0) {
-          // área mesclada COBRE as linhas de grade internas (como o app de
-          // referência) — fundo branco antes do fill/texto
+          // área mesclada COBRE as linhas de grade INTERNAS (as do contorno
+          // continuam) — fundo branco antes do fill/texto
           if (m) {
             ctx.fillStyle = '#ffffff';
-            ctx.fillRect(left, top, drawW, drawH);
+            ctx.fillRect(left + 1, top + 1, drawW - 1, drawH - 1);
           }
-          // preenchimento: sólido, padrão legado ou gradiente
-          this.paintFill(ctx, st.fill, left, top, drawW, drawH);
+          // preenchimento (sólido, padrão, degradê) na área da célula (inclui
+          // as linhas de grade de cima/da esquerda); a grade da direita/de
+          // baixo também some — vira fundo — se a vizinha não for preenchida
+          // (medido: t-colrow/t-fills; a fronteira é da célula de baixo/direita)
+          paintCellFill(ctx, st.fill, left, top, drawW, drawH, -sx, -sy);
+          if (st.filled && v.showGridLines !== false) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(Math.round(left + drawW), top, 1, drawH);
+            ctx.fillRect(left, Math.round(top + drawH), drawW, 1);
+          }
           // formatação condicional (cor/barras/destaque)
           this.paintCondFormat(ctx, cell, dcol, drow, left, top, drawW, drawH);
           continue;
@@ -1710,15 +1647,19 @@ export class UniversalSheetElement extends HTMLElement {
           }
           continue;
         }
-        // bordas
-        if (st.border) this.paintBorder(ctx, st.border, left, top, drawW, drawH);
+        // diagonais (as bordas laterais vão na passada de grade, abaixo)
+        if (st.border && (st.border.diagonalUp || st.border.diagonalDown)) paintDiagonals(ctx, st.border, left, top, drawW, drawH);
         // indicador de comentario: triangulo vermelho no canto superior direito
         // (5px de lado @zoom=1) — IDENTICO a representacao do app de referencia.
         if (v.commentAt.size > 0 && v.commentAt.has(`${dcol},${drow}`)) {
           this.paintCommentIndicator(ctx, left, top, drawW);
         }
-        // seta de autofiltro (header de tabela)
-        if (deco?.arrow) this.paintFilterArrow(ctx, left, top, drawW, drawH);
+        // botão de autofiltro (cabeçalho de tabela / autofiltro da planilha)
+        if (v.filterAt.size > 0) {
+          const fa = v.filterAt.get(`${dcol},${drow}`);
+          if (fa !== undefined) this.paintFilterArrow(ctx, left, top, drawW, drawH, fa);
+        }
+        if (v.tableEnds.size > 0 && v.tableEnds.has(`${dcol},${drow}`)) paintTableHandle(ctx, left + drawW, top + drawH);
       }
     }
     }
@@ -1808,29 +1749,46 @@ export class UniversalSheetElement extends HTMLElement {
   }
 
   /**
-   * Botão de autofiltro no canto direito da célula de header: quadrado com
-   * borda cinza e triângulo ▼ — como o app de referência desenha na tabela.
+   * Botão de autofiltro como o Excel o desenha (medido no oráculo a 100%):
+   * 17×17 px no canto inferior direito da célula (encostado na direita, 1 px
+   * acima da base), laterais #A6ACB3, fundo em degradê #FEFEFE→#EFF2F7, base
+   * com "lábio" #A6ACB3/#91969D/#DDE1E7 e triângulo cinza de 7·5·3·1 px.
+   * Filtro ativo: funil no lugar do triângulo.
    */
-  private paintFilterArrow(ctx: CanvasRenderingContext2D, left: number, top: number, w: number, h: number): void {
-    const size = Math.min(h - 4, Math.round(13 * this.zoom));
-    if (size < 7) return;
-    const bx = left + w - size - 2;
-    const by = top + (h - size) / 2;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(bx, by, size, size);
-    ctx.strokeStyle = '#ACACAC';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(Math.round(bx) + 0.5, Math.round(by) + 0.5, size - 1, size - 1);
-    ctx.fillStyle = '#444444';
-    const cx = bx + size / 2;
-    const cy = by + size / 2;
-    const tw = size * 0.5;
-    ctx.beginPath();
-    ctx.moveTo(cx - tw / 2, cy - tw * 0.28);
-    ctx.lineTo(cx + tw / 2, cy - tw * 0.28);
-    ctx.lineTo(cx, cy + tw * 0.36);
-    ctx.closePath();
-    ctx.fill();
+  private paintFilterArrow(ctx: CanvasRenderingContext2D, left: number, top: number, w: number, h: number, active = false): void {
+    const z = this.zoom;
+    const S = Math.max(9, Math.round(17 * z));
+    if (h < 8 || w < 8) return;
+    const size = Math.min(S, Math.round(h) - 2, Math.round(w));
+    const x0 = Math.round(left + w) - size, y0 = Math.round(top + h) - 1 - size;
+    ctx.save();
+    const g = ctx.createLinearGradient(0, y0, 0, y0 + size - 3);
+    g.addColorStop(0, '#FEFEFE');
+    g.addColorStop(1, '#EFF2F7');
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, y0, size, size - 2);
+    ctx.fillStyle = '#A6ACB3';
+    ctx.fillRect(x0, y0, 1, size - 2);
+    ctx.fillRect(x0 + size - 1, y0, 1, size - 2);
+    ctx.fillRect(x0, y0 + size - 3, size, 1);
+    ctx.fillStyle = '#91969D';
+    ctx.fillRect(x0, y0 + size - 2, size, 1);
+    ctx.fillRect(x0, y0 + size - 1, 1, 1);
+    ctx.fillRect(x0 + size - 1, y0 + size - 1, 1, 1);
+    ctx.fillStyle = '#DDE1E7';
+    ctx.fillRect(x0 + 1, y0 + size - 1, size - 2, 1);
+    const cx = x0 + Math.floor(size / 2);
+    const ty = y0 + Math.round(5 * size / 17);
+    ctx.fillStyle = '#6F7174';
+    if (!active) {
+      for (let k = 0; k < 4; k++) ctx.fillRect(cx - 3 + k, ty + k, 7 - 2 * k, 1);
+    } else {
+      // funil (filtro aplicado) + seta pequena
+      for (let k = 0; k < 3; k++) ctx.fillRect(cx - 4 + k, ty - 1 + k, 7 - 2 * k, 1);
+      ctx.fillRect(cx - 1, ty + 2, 1, 4);
+      for (let k = 0; k < 3; k++) ctx.fillRect(cx + 2 + k, ty + 3 + k, 5 - 2 * k, 1);
+    }
+    ctx.restore();
   }
 
   /** Pequeno triangulo (lado ~5px) vermelho no canto superior direito da celula. */
@@ -1847,65 +1805,6 @@ export class UniversalSheetElement extends HTMLElement {
     ctx.closePath();
     ctx.fill();
     ctx.restore();
-  }
-
-  // ---- Fills: sólido, padrões legados e gradiente ----
-
-  /** Cache de CanvasPattern por "nome|fg" (tiles 8×8 são caros de recriar). */
-  private patternCache = new Map<string, CanvasPattern | null>();
-
-  /**
-   * Pinta o fundo da célula: sólido (fgColor), padrão legado (gray125,
-   * darkTrellis, …) via ctx.createPattern de um tile 8×8, ou gradiente linear
-   * de 2+ stops via createLinearGradient.
-   */
-  private paintFill(ctx: CanvasRenderingContext2D, fill: Fill | undefined, left: number, top: number, w: number, h: number): void {
-    if (!fill) return;
-    if (fill.gradient && fill.gradient.stops.length >= 2) {
-      const g = fill.gradient;
-      const rad = (g.degree % 360) * Math.PI / 180;
-      const cx = left + w / 2, cy = top + h / 2;
-      const dx = Math.cos(rad), dy = Math.sin(rad);
-      const half = Math.abs(dx) * w / 2 + Math.abs(dy) * h / 2;
-      const gr = ctx.createLinearGradient(cx - dx * half, cy - dy * half, cx + dx * half, cy + dy * half);
-      for (const s of g.stops) gr.addColorStop(Math.min(1, Math.max(0, s.position)), s.color);
-      ctx.fillStyle = gr;
-      ctx.fillRect(left, top, w, h);
-      return;
-    }
-    const p = fill.pattern;
-    if (!p || p === 'none') return;
-    if (p === 'solid') {
-      if (fill.fgColor) { ctx.fillStyle = fill.fgColor; ctx.fillRect(left, top, w, h); }
-      return;
-    }
-    // padrão legado: bgColor atrás, tile do padrão (fgColor) por cima
-    if (fill.bgColor) { ctx.fillStyle = fill.bgColor; ctx.fillRect(left, top, w, h); }
-    const pat = this.patternFor(ctx, p, fill.fgColor ?? '#000000');
-    if (pat) { ctx.fillStyle = pat; ctx.fillRect(left, top, w, h); }
-  }
-
-  /** Constrói (com cache) o CanvasPattern de um padrão legado na cor dada. */
-  private patternFor(ctx: CanvasRenderingContext2D, name: string, fg: string): CanvasPattern | null {
-    const key = `${name}|${fg}`;
-    const cached = this.patternCache.get(key);
-    if (cached !== undefined) return cached;
-    const mask = PATTERN_MASKS[name];
-    if (!mask) { this.patternCache.set(key, null); return null; }
-    const tile = document.createElement('canvas');
-    tile.width = 8;
-    tile.height = mask.length;
-    const tctx = tile.getContext('2d');
-    if (!tctx) return null;
-    tctx.fillStyle = fg;
-    for (let y = 0; y < mask.length; y++) {
-      for (let x = 0; x < 8; x++) {
-        if (mask[y]! & (1 << (7 - x))) tctx.fillRect(x, y, 1, 1);
-      }
-    }
-    const pat = ctx.createPattern(tile, 'repeat');
-    this.patternCache.set(key, pat);
-    return pat;
   }
 
   /** Há conteúdo exibível em (col,row)? (bloqueia transbordo de texto). */
@@ -2023,44 +1922,83 @@ export class UniversalSheetElement extends HTMLElement {
     return { firstCol: m.c1, lastCol: m.c2, firstRow: m.r1, lastRow: m.r2, isOrigin: col === m.c1 && row === m.r1 };
   }
 
-  private paintBorder(ctx: CanvasRenderingContext2D, border: Border, left: number, top: number, w: number, h: number): void {
-    const edge = (e: Border['left'] | undefined, x1: number, y1: number, x2: number, y2: number, dash: number[]): void => {
-      if (!e || !e.style) return;
-      ctx.strokeStyle = e.color ?? '#000000';
-      const z = this.zoom;
-      const widths: Record<string, number> = { thin: 1, medium: 2, thick: 3, mediumDashed: 2, mediumDashDot: 2, mediumDashDotDot: 2, slantDashDot: 2 };
-      // padrões de traço do Excel a 100% (medidos no oráculo, lo-cell-borders: hair 1:1,
-      // dotted 2:2, dashed 3:1, traço-ponto 9-3-3-3)
-      const dashes: Record<string, number[]> = {
-        dashed: [3 * z, 1 * z], dotted: [2 * z, 2 * z], hair: [1 * z, 1 * z], mediumDashed: [9 * z, 3 * z],
-        dashDot: [9 * z, 3 * z, 3 * z, 3 * z], mediumDashDot: [9 * z, 3 * z, 3 * z, 3 * z],
-        dashDotDot: [9 * z, 3 * z, 3 * z, 3 * z, 3 * z, 3 * z], mediumDashDotDot: [9 * z, 3 * z, 3 * z, 3 * z, 3 * z, 3 * z],
-        slantDashDot: [11 * z, 1 * z, 5 * z, 1 * z],
-      };
-      if (e.style === 'double') {
-        // duas linhas finas com 1 px entre elas (3 px no total)
-        ctx.lineWidth = 1;
-        ctx.setLineDash(dash);
-        const vert = x1 === x2;
-        for (const d of [-z, z]) {
-          ctx.beginPath();
-          if (vert) { ctx.moveTo(x1 + d, y1); ctx.lineTo(x2 + d, y2); } else { ctx.moveTo(x1, y1 + d); ctx.lineTo(x2, y2 + d); }
-          ctx.stroke();
-        }
-        return;
+  /**
+   * Bordas da região por FRONTEIRA, como o Excel (ver borders.ts): em cada
+   * segmento vence a borda mais forte entre as duas células vizinhas; cantos
+   * estendidos pelas perpendiculares; fronteiras internas de mescla ficam sem
+   * borda. Vãos de tracejado apagam a linha de grade quando ela aparece ali.
+   */
+  private paintGridBorders(
+    ctx: CanvasRenderingContext2D, rowMap: Map<number, Map<number, Cell>>,
+    firstCol: number, lastCol: number, firstRow: number, lastRow: number, sx: number, sy: number,
+  ): void {
+    const v = this.view!;
+    const c0 = Math.max(1, firstCol - 1), c1 = lastCol + 1;
+    const r0 = Math.max(1, firstRow - 1), r1 = lastRow + 1;
+    const nc = c1 - c0 + 1, nr = r1 - r0 + 1;
+    if (nc <= 0 || nr <= 0 || nc * nr > 4_000_000) return;
+    const bd: (Border | undefined)[] = new Array(nc * nr);
+    const filled: boolean[] = new Array(nc * nr);
+    let any = false;
+    for (let r = r0; r <= r1; r++) {
+      const cells = rowMap.get(r);
+      for (let c = c0; c <= c1; c++) {
+        const st = this.styleAt(cells?.get(c), c, r);
+        const k = (r - r0) * nc + (c - c0);
+        bd[k] = st.border;
+        filled[k] = st.filled;
+        if (st.border && (st.border.left || st.border.right || st.border.top || st.border.bottom)) any = true;
       }
-      ctx.lineWidth = (widths[e.style] ?? 1) * z;
-      ctx.setLineDash(dashes[e.style] ?? dash);
-      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    if (!any) return;
+    const B = (c: number, r: number): Border | undefined => (c < c0 || c > c1 || r < r0 || r > r1 ? undefined : bd[(r - r0) * nc + (c - c0)]);
+    const F = (c: number, r: number): boolean => (c < c0 || c > c1 || r < r0 || r > r1 ? false : !!filled[(r - r0) * nc + (c - c0)]);
+    const sameMerge = (ca: number, ra: number, cb: number, rb: number): boolean => {
+      if (v.merges.size === 0) return false;
+      const m = this.mergeAt(ca, ra);
+      return !!m && cb >= m.firstCol && cb <= m.lastCol && rb >= m.firstRow && rb <= m.lastRow;
     };
-    const noDash: number[] = [];
-    edge(border.left, Math.round(left) + 0.5, top, Math.round(left) + 0.5, top + h, noDash);
-    edge(border.right, Math.round(left + w) + 0.5, top, Math.round(left + w) + 0.5, top + h, noDash);
-    edge(border.top, left, Math.round(top) + 0.5, left + w, Math.round(top) + 0.5, noDash);
-    edge(border.bottom, left, Math.round(top + h) + 0.5, left + w, Math.round(top + h) + 0.5, noDash);
-    ctx.setLineDash([]);
+    // fronteira horizontal no topo da linha r, coluna c; vertical à esquerda da coluna c, linha r
+    const hEdge = (c: number, r: number): BorderEdge | undefined =>
+      sameMerge(c, r - 1, c, r) ? undefined : winningEdge(B(c, r - 1)?.bottom, B(c, r)?.top);
+    const vEdge = (c: number, r: number): BorderEdge | undefined =>
+      sameMerge(c - 1, r, c, r) ? undefined : winningEdge(B(c - 1, r)?.right, B(c, r)?.left);
+    const corner = (e1: BorderEdge | undefined, e2: BorderEdge | undefined): CornerInfo => {
+      if (!e1 && !e2) return NO_CORNER;
+      const a = edgeExtent(e1?.style), b = edgeExtent(e2?.style);
+      return { before: Math.max(a[0], b[0]), after: Math.max(a[1], b[1]), doubleBefore: e1?.style === 'double', doubleAfter: e2?.style === 'double' };
+    };
+    const px = (c: number): number => Math.round((this.xs[c - 1] ?? 0) - sx);
+    const py = (r: number): number => Math.round((this.ys[r - 1] ?? 0) - sy);
+    const grid = v.showGridLines !== false;
+    // verticais primeiro: nos cantos a horizontal passa por cima (caixa medida)
+    for (let r = firstRow; r <= lastRow; r++) {
+      const y0 = py(r), y1 = py(r + 1);
+      if (y1 <= y0) continue;
+      for (let c = firstCol; c <= lastCol + 1; c++) {
+        const e = vEdge(c, r);
+        if (!e) continue;
+        const x = px(c);
+        const top = corner(hEdge(c - 1, r), hEdge(c, r));
+        const bot = corner(hEdge(c - 1, r + 1), hEdge(c, r + 1));
+        const erase = grid && !F(c - 1, r) && !F(c, r) ? '#ffffff' : null;
+        paintVEdge(ctx, e, y0, y1, x, top, bot, Math.round(sy), erase);
+      }
+    }
+    for (let r = firstRow; r <= lastRow + 1; r++) {
+      const y = py(r);
+      for (let c = firstCol; c <= lastCol; c++) {
+        const e = hEdge(c, r);
+        if (!e) continue;
+        const x0 = px(c), x1 = px(c + 1);
+        if (x1 <= x0) continue;
+        const left = corner(vEdge(c, r - 1), vEdge(c, r));
+        const right = corner(vEdge(c + 1, r - 1), vEdge(c + 1, r));
+        const erase = grid && !F(c, r - 1) && !F(c, r) ? '#ffffff' : null;
+        paintHEdge(ctx, e, x0, x1, y, left, right, Math.round(sx), erase);
+      }
+    }
   }
-
   /** Aplica formatação condicional (color scale / data bar / highlight). */
   private paintCondFormat(ctx: CanvasRenderingContext2D, cell: Cell | undefined, col: number, row: number, left: number, top: number, w: number, h: number): void {
     const v = this.view;
@@ -2535,9 +2473,22 @@ export class UniversalSheetElement extends HTMLElement {
 
   // ---- Resolução de valor/estilo ----
 
-  private resolveStyle(cell: Cell | undefined): ResolvedStyle {
+  /**
+   * Estilo EFETIVO de (col,row) para a pintura: o xf da célula (ou o padrão da
+   * linha/coluna) + `filled` (tem fundo que cobre a linha de grade).
+   */
+  private styleAt(cell: Cell | undefined, col: number, row: number): ResolvedStyle & { filled: boolean } {
+    const st = this.resolveStyle(cell, col, row);
+    const v = this.view;
+    const tf = v && v.tableFmt.size > 0 ? v.tableFmt.get(`${col},${row}`) : undefined;
+    const out = tf ? applyTableLayer(st, tf, this.styles.fonts[0]?.color) : st;
+    return { ...out, filled: hasFill(out.fill) };
+  }
+
+  private resolveStyle(cell: Cell | undefined, col?: number, row?: number): ResolvedStyle {
     const s = this.styles;
-    const xfIdx = cell?.style ?? 0;
+    const v = this.view;
+    const xfIdx = col !== undefined && row !== undefined && v ? xfIndexAt(v, cell, col, row) : cell?.style ?? 0;
     const xf = s.cellXfs[xfIdx];
     if (!xf) return { font: undefined, fill: undefined, border: undefined, numFmtId: 0, align: undefined, valign: undefined, wrap: false, indent: 0, rotation: 0 };
     return {

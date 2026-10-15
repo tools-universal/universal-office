@@ -104,11 +104,11 @@ export function pxToRowHeightPt(px: number): number {
 /**
  * Máscaras 8×8 dos pattern fills legados (gray125, darkTrellis, …).
  * Cada linha é um byte; bit mais significativo = pixel x=0. Bit ligado = pixel
- * na cor do padrão (fgColor). Densidades seguem o app de referência
- * (gray125 = 12,5% de pixels ligados, mediumGray = 50%, etc.).
+ * na cor do padrão (fgColor). Pixel a pixel como o Excel (medido no oráculo,
+ * pasta sintética t-fills), em coordenadas ABSOLUTAS da planilha mod 8 (A1 =
+ * 0,0): o mesmo padrão em colunas vizinhas continua em fase.
  */
 export const PATTERN_MASKS: Record<string, number[]> = (() => {
-  const mod = (a: number, b: number): number => ((a % b) + b) % b;
   const rows = (fn: (x: number, y: number) => boolean): number[] => {
     const out: number[] = [];
     for (let y = 0; y < 8; y++) {
@@ -118,25 +118,26 @@ export const PATTERN_MASKS: Record<string, number[]> = (() => {
     }
     return out;
   };
-  const lightGray = (x: number, y: number): boolean => y % 2 === 0 && mod(x + y, 4) < 2;
+  const lightGray = (x: number, y: number): boolean => (y % 2 === 0 ? x % 4 === 0 : x % 4 === 2);
+  const gridU = (v: number): boolean => (v + 1) % 4 < 2;
   return {
-    gray0625: rows((x, y) => y % 4 === 0 && mod(x + y / 2, 4) === 0),
-    gray125: rows((x, y) => y % 2 === 0 && mod(x + y, 4) === 0),
+    gray0625: rows((x, y) => (y % 4 === 0 && x % 8 === 0) || (y % 4 === 2 && x % 8 === 4)),
+    gray125: rows((x, y) => (y % 4 === 0 && x % 4 === 0) || (y % 4 === 2 && x % 4 === 2)),
     lightGray: rows(lightGray),
     mediumGray: rows((x, y) => (x + y) % 2 === 0),
-    darkGray: rows((x, y) => !lightGray(x, y)),
+    darkGray: rows((x, y) => !(y % 2 === 0 ? x % 4 === 3 : x % 4 === 1)),
     darkHorizontal: rows((_x, y) => y % 4 < 2),
     lightHorizontal: rows((_x, y) => y % 4 === 0),
     darkVertical: rows((x) => x % 4 < 2),
     lightVertical: rows((x) => x % 4 === 0),
-    darkDown: rows((x, y) => mod(x - y, 4) < 2),
-    lightDown: rows((x, y) => mod(x - y, 4) === 0),
-    darkUp: rows((x, y) => mod(x + y, 4) < 2),
-    lightUp: rows((x, y) => mod(x + y, 4) === 0),
-    darkGrid: rows((x, y) => ((x >> 1) + (y >> 1)) % 2 === 0),
+    darkDown: rows((x, y) => (x - y + 8) % 4 < 2),
+    lightDown: rows((x, y) => (x - y + 8) % 4 === 0),
+    darkUp: rows((x, y) => (x + y) % 4 >= 2),
+    lightUp: rows((x, y) => (x + y) % 4 === 3),
+    darkGrid: rows((x, y) => gridU(x) === gridU(y)),
     lightGrid: rows((x, y) => x % 4 === 0 || y % 4 === 0),
-    darkTrellis: rows((x, y) => mod(x - y, 4) < 2 || mod(x + y, 4) < 2),
-    lightTrellis: rows((x, y) => mod(x - y, 4) === 0 || mod(x + y, 4) === 0),
+    darkTrellis: rows((x, y) => y % 2 === 0 || (y % 4 === 1 ? x % 4 === 1 || x % 4 === 2 : x % 4 === 0 || x % 4 === 3)),
+    lightTrellis: rows((x, y) => (y % 2 === 1 && x % 2 === 1) || (y % 4 === 0 && x % 4 === 0) || (y % 4 === 2 && x % 4 === 2)),
   };
 })();
 
