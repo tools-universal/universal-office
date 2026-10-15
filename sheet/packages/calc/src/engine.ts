@@ -675,6 +675,20 @@ export class Engine implements EvalHost {
     this.run();
   }
 
+  /**
+   * Calcula SÓ as fórmulas dadas ([aba, linha, coluna], âncoras) e os
+   * precedentes delas ainda sujos, SEM sujar os dependentes — o recálculo
+   * parcial do Excel ao abrir (fórmulas com `ca="1"` e sem valor em cache;
+   * ver open-recalc.ts). Os demais valores ficam os do arquivo.
+   */
+  calculateCells(cells: Iterable<readonly [number, number, number]>): void {
+    for (const [s, r, c] of cells) {
+      const f = this.getFormula(s, r, c);
+      if (f && f.kind !== 'dataTable') this.setDirty(f, true);
+    }
+    this.run();
+  }
+
   private areaOf(f: FormulaRec): Area {
     return f.area ?? { sheet: f.sheet, r1: f.row, c1: f.col, r2: f.row, c2: f.col };
   }

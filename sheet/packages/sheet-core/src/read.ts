@@ -106,6 +106,7 @@ export function readWorkbook(pkg: XlsxPackage): Workbook {
     if (num('calcId') !== undefined) c.calcId = num('calcId');
     if (cp.attrs['calcMode']) c.calcMode = cp.attrs['calcMode'];
     if (isTrue(cp.attrs['fullCalcOnLoad'])) c.fullCalcOnLoad = true;
+    if (isTrue(cp.attrs['forceFullCalc'])) c.forceFullCalc = true;
     if (isTrue(cp.attrs['iterate'])) c.iterate = true;
     if (num('iterateCount') !== undefined) c.iterateCount = num('iterateCount');
     if (num('iterateDelta') !== undefined) c.iterateDelta = num('iterateDelta');

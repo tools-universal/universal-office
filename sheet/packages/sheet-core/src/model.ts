@@ -53,6 +53,8 @@ export interface CalcPr {
   /** auto | manual | autoNoTable. */
   calcMode?: string;
   fullCalcOnLoad?: boolean;
+  /** Recálculo completo SEMPRE (forceFullCalc) — o Excel também recalcula tudo ao abrir. */
+  forceFullCalc?: boolean;
   iterate?: boolean;
   iterateCount?: number;
   iterateDelta?: number;

@@ -29,6 +29,7 @@ export * from './workbook.js';
 export * from './engine.js';
 export * from './from-sheet-core.js';
 export * from './implicit.js';
+export * from './open-recalc.js';
 
 // bibliotecas de funções (registram no carregamento)
 import './functions/math.js';
