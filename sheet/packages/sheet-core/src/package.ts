@@ -62,6 +62,13 @@ export class XlsxPackage {
     return new XlsxPackage(parts);
   }
 
+  /** Pacote a partir de partes já montadas em memória (conversor de .xls). */
+  static fromParts(parts: Map<string, Uint8Array>): XlsxPackage {
+    const pkg = new XlsxPackage(new Map(parts));
+    if (!pkg.getPart('xl/workbook.xml')) throw new Error('Pacote sem xl/workbook.xml');
+    return pkg;
+  }
+
   static load(bytes: Uint8Array): XlsxPackage {
     let unzipped: ReturnType<typeof unzipSync>;
     try {

@@ -1,4 +1,7 @@
 export { XlsxPackage } from './package.js';
+export { xlsToXlsxPackage, isXlsBytes, XlsFormatError, XlsEncryptedError } from './xls/index.js';
+export { openSpreadsheet } from './open.js';
+export { maxDigitWidth } from './font-metrics.js';
 export { updateWorksheetXml, serializeSheetData, serializeCols } from './serialize.js';
 export { parseXml, childElements, firstChild, textContent, type XmlElement } from './xml.js';
 export { parseChart, paintChart, type ChartModel, type ChartSeries, type ChartType } from './chart.js';
@@ -55,4 +58,5 @@ export {
   type Comment,
   type DrawingAnchor,
   type DrawingChart,
+  type DrawingPicture,
 } from './model.js';
