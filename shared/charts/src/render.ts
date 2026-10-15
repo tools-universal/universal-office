@@ -29,7 +29,11 @@ export interface RenderOptions {
   pxPerPt: number;
   /** Preenchimento da área do gráfico sem `spPr`: o PowerPoint deixa transparente, o Excel pinta bg1. */
   defaultAreaFill?: 'none' | 'bg1';
-  /** Moldura sem `spPr/a:ln` (o Excel desenha — 'auto' = cor das linhas default; o PowerPoint não). */
+  /**
+   * Moldura sem `spPr/a:ln` (o Excel desenha; o PowerPoint não): 'auto' = cor das
+   * linhas default do gráfico; 'auto2010' = a do Office 2010+ (tx1 75%) mesmo sem
+   * c14:style — o Excel desenha assim (medido, syn basic1: #898989 com grade preta).
+   */
   defaultAreaLine?: string;
   /** Família CSS para um nome de fonte (o hospedeiro sabe as substitutas). */
   cssFont?: (family: string, bold?: boolean, italic?: boolean) => string;
@@ -100,6 +104,8 @@ interface AxisInfo {
   showLabels: boolean;
   /** Espaço reservado pelos rótulos+título (px), calculado no layout. */
   extent: number;
+  /** Parte de `extent` que é do título do eixo. */
+  titleExtent?: number;
   labelRot: number;
   labelLines: string[][];
   labelSkip: number;
@@ -397,7 +403,7 @@ class Renderer {
         // estilos 33–40: área branca com moldura; 41–48: área tx1 (escura)
         const row = this.styleRow();
         const defFill: Paint | undefined = row === 5 ? { kind: 'solid', color: this.cs.tx1 } : this.o.defaultAreaFill === 'bg1' || row === 4 ? { kind: 'solid', color: cs.bg1 } : undefined;
-        const defLine: LineProps | undefined = this.o.defaultAreaLine ? (this.o.defaultAreaLine === 'auto' ? this.defaultLine() : { paint: { kind: 'solid', color: this.o.defaultAreaLine }, w: 0.75 }) : row === 4 ? { paint: { kind: 'solid', color: adjustLum(cs.tx1, 0.7) }, w: 0.75 } : undefined;
+        const defLine: LineProps | undefined = this.o.defaultAreaLine ? (this.o.defaultAreaLine === 'auto' ? this.defaultLine() : this.o.defaultAreaLine === 'auto2010' ? { paint: { kind: 'solid', color: tintLinear(cs.tx1, 0.75) }, w: 0.75 } : { paint: { kind: 'solid', color: this.o.defaultAreaLine }, w: 0.75 }) : row === 4 ? { paint: { kind: 'solid', color: adjustLum(cs.tx1, 0.7) }, w: 0.75 } : undefined;
         this.shapeRect(A, cs.sp, defFill, defLine, cs.roundedCorners ? 6 * this.o.pxPerPt : 0);
       }
       const S = this.S;
@@ -888,13 +894,32 @@ class Renderer {
       const x = pl.xMode === 'factor' ? outer.x + (pl.x ?? 0) * A.w : A.x + (pl.x ?? 0) * A.w;
       const y = pl.yMode === 'factor' ? outer.y + (pl.y ?? 0) * A.h : A.y + (pl.y ?? 0) * A.h;
       r = { x, y, w: pl.w * A.w, h: pl.h * A.h };
-      if (pl.target !== 'outer') { for (const inf of infos) this.measureAxis(inf, r); return r; }
+      // layoutTarget ausente = "outer" (o default do schema; medido no Excel, syn
+      // layout1: x=0/w=1 sem alvo deixa os rótulos do eixo dentro). "inner" é o
+      // retângulo da plotagem, mas os rótulos não saem da área do gráfico: o
+      // lado que não comporta o eixo encosta nele (medido: inner x=0 → plotagem
+      // a partir da largura dos rótulos, borda direita mantida)
+      if (pl.target === 'inner') {
+        for (const inf of infos) this.measureAxis(inf, r);
+        // só os rótulos de VALORES (largura exata; os de categoria o Office ainda quebra/gira), sem o título
+        const ext = { l: 0, r: 0, t: 0, b: 0 };
+        for (const inf of infos) if (inf.scale && !this.crossesInside(inf, infos)) { const s = this.axisSide(inf); ext[s] = Math.max(ext[s], inf.extent - (inf.titleExtent ?? 0)); }
+        const x0 = Math.max(r.x, A.x + ext.l), y0 = Math.max(r.y, A.y + ext.t);
+        const x1 = Math.min(r.x + r.w, A.x + A.w - ext.r), y1 = Math.min(r.y + r.h, A.y + A.h - ext.b);
+        if (x1 - x0 > 10 && y1 - y0 > 10 && (x0 !== r.x || y0 !== r.y || x1 !== r.x + r.w || y1 !== r.y + r.h)) {
+          r = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+          for (const inf of infos) this.measureAxis(inf, r);
+        }
+        return r;
+      }
     }
     let plot = { ...r };
     // nada à direita (legenda embaixo/em cima/sem legenda): a plotagem para
     // 3,75 pt antes (medido: 11,25 pt da borda do gráfico com texto de 10 e 18 pt)
     const lg = this.cs.legend;
-    const padR = lg && !lg.overlay && (lg.pos === 'r' || lg.pos === 'tr') ? 0 : PLOT_PAD_R * S;
+    // (layout manual "outer": a caixa dada já é o limite — medido, syn layout1: grade até a borda)
+    const manual = !!(pl && pl.w !== undefined && pl.h !== undefined);
+    const padR = manual || lg && !lg.overlay && (lg.pos === 'r' || lg.pos === 'tr') ? 0 : PLOT_PAD_R * S;
     for (let it = 0; it < 3; it++) {
       const ext = { l: 0, r: 0, t: 0, b: 0 };
       for (const inf of infos) this.measureAxis(inf, plot);
@@ -1010,8 +1035,9 @@ class Renderer {
     if (a.title) {
       const tt = this.text({ sz: this.base.sz, b: true }, a.title.txPr);
       const vertical = inf.dir === 'v' && (a.title.txPr.rot === undefined ? true : Math.abs(a.title.txPr.rot) === 90);
-      ext += (vertical ? this.lineH(tt) : this.lineH(tt)) + 5 * S;
-    }
+      inf.titleExtent = (vertical ? this.lineH(tt) : this.lineH(tt)) + 5 * S;
+      ext += inf.titleExtent;
+    } else inf.titleExtent = 0;
     inf.extent = ext;
   }
 

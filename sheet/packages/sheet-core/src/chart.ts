@@ -89,14 +89,14 @@ export function chartFileFormat(pkg: XlsxPackage): 'mso2007' | 'modern' {
 
 /**
  * Desenha o gráfico: o Excel pinta a área do gráfico sem `spPr` de branco com
- * moldura na cor das linhas default (#898989 medido no 2010+).
+ * moldura #898989 (tx1 75%) — mesmo sem c14:style, com a grade preta (medido).
  */
 export function paintChart(ctx: CanvasRenderingContext2D, chart: ChartModel, x: number, y: number, w: number, h: number, pxPerPt: number, frameBorder?: string, cssFont?: (family: string, bold?: boolean, italic?: boolean) => string): void {
   paintChartSpace(ctx, chart.space, x, y, w, h, {
     pxPerPt,
     defaultAreaFill: 'bg1',
     // moldura do Excel: a cor das linhas default do gráfico ('auto'), ou a pedida
-    defaultAreaLine: frameBorder ?? 'auto',
+    defaultAreaLine: frameBorder ?? 'auto2010',
     cssFont: cssFont ?? ((f) => `'${f}', Calibri, 'Liberation Sans', Arial, sans-serif`),
   });
 }
