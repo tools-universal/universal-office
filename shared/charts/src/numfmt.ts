@@ -41,9 +41,12 @@ export const PT_BR: FormatLocale = {
   // Oráculo COM 2026-07-01 (builtin-probe.xlsx): NumberFormatLocal por id —
   // 14 dd/mm/aaaa · 15 dd/mmm/aa · 16 dd/mmm · 17 mmm/aa · 20 hh:mm ·
   // 21 hh:mm:ss · 22 dd/mm/aaaa hh:mm (18/19 iguais ao en-US)
+  // Corpus .xls (Range.Text, 2026-10): 37–40 em pt-BR são sem parênteses e sem
+  // o recuo `_)` — 37 com −142975 exibe "-142.975"; 39 com 45,21 exibe "45,21"
   builtins: {
     14: 'dd/mm/yyyy', 15: 'dd/mmm/yy', 16: 'dd/mmm', 17: 'mmm/yy',
     20: 'hh:mm', 21: 'hh:mm:ss', 22: 'dd/mm/yyyy hh:mm',
+    37: '#,##0;-#,##0', 38: '#,##0;[Red]-#,##0', 39: '#,##0.00;-#,##0.00', 40: '#,##0.00;[Red]-#,##0.00',
   },
 };
 
