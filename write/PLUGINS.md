@@ -6,7 +6,7 @@ usar dois editores com conjuntos de extensões diferentes na mesma página.
 ## Mention pronta
 
 ```ts
-import { UniversalWriteElement, createMentionPlugin } from '@universal-office/write';
+import { UniversalWriteElement, createMentionPlugin } from '@universal-office-pro/write';
 
 const editor = document.querySelector('universal-write') as UniversalWriteElement;
 editor.use(createMentionPlugin());
@@ -27,7 +27,7 @@ ela não precisa conhecer OOXML nem o canvas do editor.
 ## Plugin customizado
 
 ```ts
-import type { UniversalWritePlugin } from '@universal-office/write';
+import type { UniversalWritePlugin } from '@universal-office-pro/write';
 
 const chips: UniversalWritePlugin = {
   id: 'acme.chips',

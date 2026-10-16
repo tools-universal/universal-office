@@ -50,7 +50,7 @@ await build({
   },
   bundle: true, format: 'esm', outfile: join(work, 'bundle.js'), logLevel: 'warning',
   alias: {
-    '@universal/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
+    '@universal-office/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
     '@universal-office/charts': join(slidesRoot, '..', 'shared', 'charts', 'src', 'index.ts'),
   },
 });

@@ -1,6 +1,6 @@
 /**
  * Ponte entre o componente (<universal-sheet>) e o motor de cálculo
- * (@universal/sheet-calc): cria o Engine a partir do modelo do sheet-core,
+ * (@universal-office/sheet-calc): cria o Engine a partir do modelo do sheet-core,
  * aplica as edições (entry.ts), recalcula e grava de volta no modelo
  * (worksheet.rows) SÓ as células cujo valor mudou — em qualquer aba —, para a
  * pintura e a gravação continuarem lendo o modelo de sempre.
@@ -22,11 +22,11 @@ import {
   CalcError, Engine, areaToA1, cellValue, fromSheetCore, numberLiteral, toLocal,
   localizeBool, localizeError, applyOpenRecalc, shouldRecalcOnOpen,
   type Area, type CellInput, type ErrorCode, type FormulaRec, type Scalar,
-} from '@universal/sheet-calc';
+} from '@universal-office/sheet-calc';
 import {
   builtinFormatCode, refToRowCol, rowColToRef,
   type Cell, type CellXf, type Row, type SharedString, type Styles, type Workbook, type Worksheet,
-} from '@universal/sheet-core';
+} from '@universal-office/sheet-core';
 import { xfIndexAt } from './cell-format.js';
 import { editText } from './edit-text.js';
 import { parseEntry } from './entry.js';

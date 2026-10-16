@@ -1,9 +1,9 @@
 /**
- * Parser mínimo de fontes TrueType (SFNT) — só o que o @wordnext/pdf pede via
+ * Parser mínimo de fontes TrueType (SFNT) — só o que o @universal-office/pdf pede via
  * a interface estrutural `FontProgram`: unitsPerEm, cmap (formats 4 e 12),
  * hmtx (advance por glifo), bbox/ascender/descender/italicAngle p/ o
  * FontDescriptor. Sem GPOS/kerning. (Mesma implementação do
- * @universal/sheet-export — copiada para manter os pacotes independentes.)
+ * @universal-office/sheet-export — copiada para manter os pacotes independentes.)
  */
 
 interface CmapRange {

@@ -1,5 +1,5 @@
 /**
- * @universal/slides-export — exportadores do slides (spec 05, SEM vídeo):
+ * @universal-office/slides-export — exportadores do slides (spec 05, SEM vídeo):
  * .pptx (bytes) → Markdown, HTML estático, PDF vetorial e PNGs por slide.
  * Browser + node (sem fs/DOM obrigatórios; canvas injetável no node).
  */

@@ -1,5 +1,5 @@
 {
-  "name": "@universal-office/export",
+  "name": "@universal-office/docx-export",
   "version": "0.0.1",
   "type": "module",
   "sideEffects": false,

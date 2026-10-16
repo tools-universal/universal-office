@@ -1,6 +1,6 @@
 // Build da página de teste do viewer: bundle (esbuild, slides-core pelo
 // src) + lista das amostras do repositório (samples.json).
-// Uso: npm run build:demo -w @universal/presentation-viewer  (ou node demo/build.mjs)
+// Uso: npm run build:demo -w @universal-office/presentation-viewer  (ou node demo/build.mjs)
 // Servir a raiz `slides/` (ex.: python -m http.server 8097) e abrir
 // http://localhost:8097/packages/viewer/demo/
 import { build } from 'esbuild';
@@ -17,7 +17,7 @@ await build({
   format: 'esm',
   outfile: join(here, 'bundle.js'),
   alias: {
-    '@universal/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
+    '@universal-office/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
     '@universal-office/fonts': join(slidesRoot, '..', 'shared', 'fonts', 'src', 'index.ts'),
     '@universal-office/charts': join(slidesRoot, '..', 'shared', 'charts', 'src', 'index.ts'),
   },

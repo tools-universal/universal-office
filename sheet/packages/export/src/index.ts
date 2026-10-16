@@ -1,5 +1,5 @@
 /**
- * @universal/sheet-export — exportadores do sheet: CSV, TSV, Markdown, HTML e
+ * @universal-office/sheet-export — exportadores do sheet: CSV, TSV, Markdown, HTML e
  * PDF a partir de bytes .xlsx ou de um modelo já lido. Browser+Node (sem
  * fs/path/DOM); valores exibidos sempre via formatValue com PT_BR por default.
  */

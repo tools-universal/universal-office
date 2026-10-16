@@ -1,5 +1,5 @@
 {
-  "name": "@universal/slides-app-electron",
+  "name": "@universal-office/slides-app-electron",
   "version": "0.0.1",
   "private": true,
   "description": "Shell Electron embarcando o <universal-slides>",
@@ -8,7 +8,7 @@
     "start": "electron ."
   },
   "dependencies": {
-    "@universal/slides": "*"
+    "@universal-office-pro/slides": "*"
   },
   "devDependencies": {
     "electron": "^42.4.0"

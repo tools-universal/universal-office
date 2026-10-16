@@ -1,5 +1,5 @@
 {
-  "name": "@universal/sheet-calc",
+  "name": "@universal-office/sheet-calc",
   "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",

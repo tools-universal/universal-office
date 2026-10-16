@@ -1,5 +1,5 @@
 {
-  "name": "@universal/slides-export",
+  "name": "@universal-office/slides-export",
   "version": "0.0.1",
   "type": "module",
   "sideEffects": false,
@@ -15,8 +15,8 @@
     "@tools-universal/docs-processing": "file:../../../vendor/office-converter/vendor/docs-processing/packages/processing",
     "@tools-universal/sheets-processing": "file:../../../vendor/office-converter/vendor/sheets-processing/packages/processing",
     "@tools-universal/slides-processing": "file:../../../vendor/office-converter/vendor/slides-processing/packages/processing",
-    "@universal/slides-core": "*",
-    "@wordnext/pdf": "file:../../../write/packages/pdf",
+    "@universal-office/slides-core": "*",
+    "@universal-office/pdf": "file:../../../write/packages/pdf",
     "fflate": "^0.8.2"
   }
 }

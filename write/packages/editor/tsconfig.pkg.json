@@ -7,7 +7,7 @@
       "@universal-office/pdf": ["../pdf/src/index.ts"],
       "@universal-office/docx-layout": ["../docx-layout/src/index.ts"],
       "@universal-office/fonts": ["../../../shared/fonts/src/index.ts"],
-      "@universal-office/export": ["../export/src/index.ts"],
+      "@universal-office/docx-export": ["../export/src/index.ts"],
       "@universal-office/odf": ["../odf/src/index.ts"],
       "@universal-office/compare": ["../compare/src/index.ts"]
     }

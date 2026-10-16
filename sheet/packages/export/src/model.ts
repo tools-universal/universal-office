@@ -11,7 +11,7 @@ import {
   refToRowCol, formatValue, builtinFormatCode, PT_BR,
   type Workbook, type Worksheet, type Styles, type SharedString, type Cell,
   type SheetRef, type FormatLocale, type Fill,
-} from '@universal/sheet-core';
+} from '@universal-office/sheet-core';
 
 /** Modelo já lido (alternativa aos bytes crus como entrada). */
 export interface SheetModel {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { XlsxPackage, parseXml, type DrawingAnchor } from '@universal/sheet-core';
-import { readDrawingElements, readTheme } from '@universal/slides-core';
+import { XlsxPackage, parseXml, type DrawingAnchor } from '@universal-office/sheet-core';
+import { readDrawingElements, readTheme } from '@universal-office/slides-core';
 import { anchorRect, placeElement, swapsBox, EMU_PER_PX } from '../src/drawings.js';
 
 // grade de colunas de 64 px e linhas de 20 px; a coluna 3 (0-based) oculta

@@ -9,7 +9,7 @@
  * Fórmulas NÃO são emitidas (SpreadsheetML usa R1C1; converter A1→R1C1 fica
  * fora do v1) — vai o valor cacheado, como no CSV.
  */
-import { refToRowCol, PT_BR } from '@universal/sheet-core';
+import { refToRowCol, PT_BR } from '@universal-office/sheet-core';
 import {
   loadModel, selectSheets, colWidthPx,
   type SheetExportInput, type SheetExportOptions,

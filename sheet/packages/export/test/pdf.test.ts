@@ -78,7 +78,7 @@ describe('xlsxToPdf', () => {
     // O Buffer do readFileSync é uma VIEW num pool compartilhado (byteOffset≠0);
     // o subset já saiu corrompido por isso (loca longo com head marcando curto
     // → todos os glifos viravam tofu). Fixa o formato do head no subset.
-    const { subsetTrueType } = await import('@wordnext/pdf');
+    const { subsetTrueType } = await import('@universal-office/pdf');
     const { TtfProgram } = await import('../src/sfnt.js');
     const bytes = readFileSync(join(fontsDir, `${face}-regular.ttf`)); // Buffer!
     const p = new TtfProgram(bytes);

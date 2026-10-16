@@ -4,7 +4,7 @@
  * (todas as abas), idioma, derramamento, formatos aplicados e styles.xml.
  */
 import { describe, expect, it } from 'vitest';
-import { refToRowCol, type Cell, type Row, type Styles, type Workbook, type Worksheet } from '@universal/sheet-core';
+import { refToRowCol, type Cell, type Row, type Styles, type Workbook, type Worksheet } from '@universal-office/sheet-core';
 import { SheetCalc, XfPool, type CalcView, type SheetCalcHost } from '../src/sheet-calc.js';
 import { formulaLocale } from '../src/formula-locale.js';
 

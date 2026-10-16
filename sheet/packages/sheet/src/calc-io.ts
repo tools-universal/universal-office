@@ -10,11 +10,11 @@
  *   calcula igual (função de servidor/cubo, UDF, tabela de dados).
  * Dono: agente CALC-IO.
  */
-import { prepareForSave, type Engine, type SyncWorksheet } from '@universal/sheet-calc';
+import { prepareForSave, type Engine, type SyncWorksheet } from '@universal-office/sheet-calc';
 import {
   ensureDynamicArrayCm, removeCalcChain, updateCalcPr,
   type Workbook, type Worksheet, type XlsxPackage,
-} from '@universal/sheet-core';
+} from '@universal-office/sheet-core';
 
 /**
  * Prepara a gravação: atributos de cálculo nas abas que vão ser regravadas

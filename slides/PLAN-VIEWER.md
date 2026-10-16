@@ -12,9 +12,9 @@ funcionando (verificado hoje) e render headless Playwright.
 
 ## Decisões
 
-1. **Novo pacote `packages/viewer` → npm `@universal/presentation-viewer`**,
+1. **Novo pacote `packages/viewer` → npm `@universal-office/presentation-viewer`**,
    elemento `<universal-presentation-viewer>` (classe
-   `UniversalPresentationViewerElement`). Depende só de `@universal/slides-core`.
+   `UniversalPresentationViewerElement`). Depende só de `@universal-office/slides-core`.
    É o artefato de visualização embarcável (site, electron, terceiros) sem
    arrastar código de edição.
 2. **`<universal-slides>` passa a HERDAR do viewer** (subclasse registra outra

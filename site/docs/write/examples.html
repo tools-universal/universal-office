@@ -63,10 +63,10 @@
       <h1>Examples</h1>
       <p class="lead-doc">
         End-to-end, copy-paste examples. Each one assumes the package is installed
-        (<code>npm install @universal-office/write</code>) and imported once so the custom
+        (<code>npm install @universal-office-pro/write</code>) and imported once so the custom
         elements register themselves:
       </p>
-      <pre><code>import '@universal-office/write';</code></pre>
+      <pre><code>import '@universal-office-pro/write';</code></pre>
       <div class="callout">
         <p>
           Snippets reference an <code>editor</code> obtained with
@@ -103,8 +103,8 @@
       </div>
       <details>
         <summary>Show source</summary>
-        <pre><code>import '@universal-office/write';
-import { createMentionPlugin } from '@universal-office/write';
+        <pre><code>import '@universal-office-pro/write';
+import { createMentionPlugin } from '@universal-office-pro/write';
 
 // The toolbar + status bar are built in — just set the attributes:
 //   &lt;universal-write topbar bottombar&gt;&lt;/universal-write&gt;
@@ -144,7 +144,7 @@ ed.addEventListener('uw-ready', async () =&gt; {
       </div>
       <details>
         <summary>Show source</summary>
-        <pre><code>import '@universal-office/write';
+        <pre><code>import '@universal-office-pro/write';
 
 const wd = document.getElementById('wd');
 const bytes = async (u) =&gt; new Uint8Array(await (await fetch(u)).arrayBuffer());
@@ -183,7 +183,7 @@ viewButtons.forEach(btn =&gt; btn.onclick = () =&gt; { wd.view = btn.dataset.vie
       <h3 id="minimal">Minimal editor</h3>
       <p>The smallest working setup: a tag, an import, and a sample document loaded on ready.</p>
       <pre><code>&lt;universal-write id="editor" fonts="/fonts" style="height:100vh"&gt;&lt;/universal-write&gt;</code></pre>
-      <pre><code>import '@universal-office/write';
+      <pre><code>import '@universal-office-pro/write';
 
 const editor = document.getElementById('editor');
 
@@ -208,7 +208,7 @@ editor.addEventListener('uw-ready', async () =&gt; {
   &lt;select id="size"&gt;&lt;option&gt;11&lt;/option&gt;&lt;option&gt;14&lt;/option&gt;&lt;option&gt;18&lt;/option&gt;&lt;/select&gt;
 &lt;/div&gt;
 &lt;universal-write id="editor" fonts="/fonts"&gt;&lt;/universal-write&gt;</code></pre>
-      <pre><code>import '@universal-office/write';
+      <pre><code>import '@universal-office-pro/write';
 
 const editor = document.getElementById('editor');
 
@@ -352,7 +352,7 @@ editor.addEventListener('uw-comment-click', (e) =&gt; {
         component makes no network request. Ideal for desktop shells and air-gapped apps.
       </p>
       <pre><code>&lt;universal-write id="editor" manual-init&gt;&lt;/universal-write&gt;</code></pre>
-      <pre><code>import '@universal-office/write';
+      <pre><code>import '@universal-office-pro/write';
 
 const editor = document.getElementById('editor');
 
@@ -372,7 +372,7 @@ await editor.initialize({
 
       <h3 id="mentions">Mentions</h3>
       <p>Type <code>@</code> to open a suggestions popover backed by your API.</p>
-      <pre><code>import { createMentionPlugin } from '@universal-office/write';
+      <pre><code>import { createMentionPlugin } from '@universal-office-pro/write';
 
 editor.use(createMentionPlugin({
   prefix: '@',
@@ -413,7 +413,7 @@ insertChipBtn.onclick = () =&gt; editor.insertCustomInline('chip', { name: 'Prop
       <pre><code>&lt;input type="file" id="a" accept=".docx"&gt;
 &lt;input type="file" id="b" accept=".docx"&gt;
 &lt;universal-write-diff id="wd" view="all" left-label="Original" right-label="Modified"&gt;&lt;/universal-write-diff&gt;</code></pre>
-      <pre><code>import '@universal-office/write';
+      <pre><code>import '@universal-office-pro/write';
 
 const wd = document.getElementById('wd');
 const bytesOf = async (input) =&gt; new Uint8Array(await input.files[0].arrayBuffer());
@@ -453,7 +453,7 @@ wd.addEventListener('close-request', () =&gt; {
 
       <h3 id="diff-programmatic">Programmatic diff (report / CI)</h3>
       <p>Skip the UI and compute the diff directly — useful for change reports or gating a pipeline.</p>
-      <pre><code>import { diffDocuments, DocxPackage, readFullDocument } from '@universal-office/write';
+      <pre><code>import { diffDocuments, DocxPackage, readFullDocument } from '@universal-office-pro/write';
 
 const a = readFullDocument(DocxPackage.load(aBytes));
 const b = readFullDocument(DocxPackage.load(bBytes));

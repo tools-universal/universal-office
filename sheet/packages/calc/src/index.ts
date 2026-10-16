@@ -1,5 +1,5 @@
 /**
- * @universal/sheet-calc — motor de cálculo de fórmulas do Universal Sheet.
+ * @universal-office/sheet-calc — motor de cálculo de fórmulas do Universal Sheet.
  * Por dentro tudo é canônico (nomes em inglês, "," e "." como no arquivo); a
  * tradução para o idioma do usuário fica na camada i18n.
  */

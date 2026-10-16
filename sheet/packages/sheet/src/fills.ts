@@ -1,4 +1,4 @@
-import type { Fill } from '@universal/sheet-core';
+import type { Fill } from '@universal-office/sheet-core';
 import { PATTERN_MASKS } from './grid-layout.js';
 
 /**

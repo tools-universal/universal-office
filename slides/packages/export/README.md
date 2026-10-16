@@ -1,11 +1,11 @@
-# @universal/slides-export
+# @universal-office/slides-export
 
 Exportadores do slides (spec 05): `.pptx` (bytes) → **Markdown**, **HTML
 estático**, **PDF vetorial** e **imagens PNG por slide**. Browser + node, sem
 `fs`/DOM obrigatórios. **SEM vídeo** (fora de escopo).
 
 ```ts
-import { pptxToMarkdown, pptxToHtml, pptxToPdf, pptxToImages } from '@universal/slides-export';
+import { pptxToMarkdown, pptxToHtml, pptxToPdf, pptxToImages } from '@universal-office/slides-export';
 
 pptxToMarkdown(bytes, { images: 'data' | 'omit' });   // string
 pptxToHtml(bytes, { images: 'data' | 'omit', fullDocument: true }); // string
@@ -30,7 +30,7 @@ HTML, fundo do slide. Estático — sem animações/transições.
 
 ## PDF (vetorial)
 
-Reusa `@wordnext/pdf`: 1 página por slide (EMU→pt); fundo, presets da spec 03
+Reusa `@universal-office/pdf`: 1 página por slide (EMU→pt); fundo, presets da spec 03
 como paths (bezier p/ elipse/roundRect/pie), texto via `layoutTextBody` com
 métricas TTF (parser SFNT próprio), tabelas e imagens.
 

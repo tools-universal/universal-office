@@ -89,7 +89,7 @@ public readonly record struct PathCmd(PathOp Op, double X, double Y, double X1, 
 public readonly record struct PathStroke(PdfColor Color, double WidthPt, IReadOnlyList<double>? Dash = null);
 
 /// <summary>
-/// Página PDF — porta de @wordnext/pdf document.ts. As coordenadas de entrada
+/// Página PDF — porta de @universal-office/pdf document.ts. As coordenadas de entrada
 /// usam origem no canto SUPERIOR esquerdo (y cresce para baixo, como no canvas);
 /// a conversão para o sistema do PDF (origem inferior esquerda) é feita aqui.
 /// </summary>

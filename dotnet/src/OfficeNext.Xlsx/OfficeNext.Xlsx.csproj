@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Modelo + readers .xlsx (paridade com @universal/sheet-core) +
+  <!-- Modelo + readers .xlsx (paridade com @universal-office/sheet-core) +
        FormatValue pt-BR (porta fiel de format.ts) + serialização cirúrgica. -->
   <ItemGroup>
     <ProjectReference Include="..\OfficeNext.Core\OfficeNext.Core.csproj" />

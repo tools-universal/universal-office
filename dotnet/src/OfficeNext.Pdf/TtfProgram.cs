@@ -4,7 +4,7 @@ namespace OfficeNext.Pdf;
 
 /// <summary>
 /// O mínimo que o gerador de PDF precisa saber de um programa de fonte
-/// TrueType — porta da interface FontProgram de @wordnext/pdf font.ts.
+/// TrueType — porta da interface FontProgram de @universal-office/pdf font.ts.
 /// </summary>
 public interface IFontProgram
 {

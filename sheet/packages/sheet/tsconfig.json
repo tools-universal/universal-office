@@ -4,7 +4,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "paths": { "@universal/sheet-calc": ["../calc/dist/index.d.ts"] }
+    "paths": { "@universal-office/sheet-calc": ["../calc/dist/index.d.ts"] }
   },
   "include": ["src"]
 }

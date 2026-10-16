@@ -1,4 +1,4 @@
-import { formatGeneral, formatValue } from '@universal/sheet-core';
+import { formatGeneral, formatValue } from '@universal-office/sheet-core';
 
 /**
  * Avaliador de fórmulas MÍNIMO para a formatação condicional (cellIs,

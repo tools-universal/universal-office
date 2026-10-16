@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Modelo + reader .docx (paridade com @wordnext/docx-core readFullDocument)
+  <!-- Modelo + reader .docx (paridade com @universal-office/docx-core readFullDocument)
        + manipulação básica + serialização do document.xml (subset). -->
   <ItemGroup>
     <ProjectReference Include="..\OfficeNext.Core\OfficeNext.Core.csproj" />

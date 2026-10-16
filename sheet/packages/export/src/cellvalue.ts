@@ -6,7 +6,7 @@
 import {
   serialToDate, builtinFormatCode, PT_BR,
   type Cell, type FormatLocale,
-} from '@universal/sheet-core';
+} from '@universal-office/sheet-core';
 import type { SheetModel } from './model.js';
 
 export type TypedKind = 'number' | 'date' | 'time' | 'boolean' | 'string' | 'error' | 'empty';

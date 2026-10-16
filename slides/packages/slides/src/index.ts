@@ -1,2 +1,2 @@
 export { UniversalSlidesElement } from './universal-slides.js';
-export { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
+export { UniversalPresentationViewerElement } from '@universal-office/presentation-viewer';

@@ -1,5 +1,5 @@
 {
-  "name": "@universal/sheet",
+  "name": "@universal-office-pro/sheet",
   "version": "0.0.1",
   "type": "module",
   "description": "Webcomponent <universal-sheet> com renderização do grid em canvas",
@@ -7,14 +7,14 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal/sheet-core=../sheet-core/src/index.ts --alias:@universal/sheet-calc=../calc/src/index.ts --alias:@universal/sheet-export=../export/src/index.ts --alias:@universal-office/fonts=../../../shared/fonts/src/index.ts --alias:@universal-office/charts=../../../shared/charts/src/index.ts --alias:@universal/slides-core=../../../slides/packages/slides-core/src/index.ts",
+    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal-office/sheet-core=../sheet-core/src/index.ts --alias:@universal-office/sheet-calc=../calc/src/index.ts --alias:@universal-office/sheet-export=../export/src/index.ts --alias:@universal-office/fonts=../../../shared/fonts/src/index.ts --alias:@universal-office/charts=../../../shared/charts/src/index.ts --alias:@universal-office/slides-core=../../../slides/packages/slides-core/src/index.ts",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@universal/sheet-calc": "*",
+    "@universal-office/sheet-calc": "*",
     "@universal-material/web": "^3.9.4",
-    "@universal/sheet-core": "*",
-    "@universal/slides-core": "file:../../../slides/packages/slides-core",
+    "@universal-office/sheet-core": "*",
+    "@universal-office/slides-core": "file:../../../slides/packages/slides-core",
     "@universal-office/fonts": "file:../../../shared/fonts"
   }
 }

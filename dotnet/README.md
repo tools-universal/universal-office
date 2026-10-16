@@ -18,7 +18,7 @@ formatos textuais e paridade estrutural nos PDFs. Sem dependências NuGet em
 | `OfficeNext.Xlsx` | Modelo + readers (styles/theme/worksheet), **`Format.FormatValue` pt-BR** (porta fiel de format.ts, 74 casos do oráculo Excel + fuzz 20k vs JS), cirurgia `UpdateWorksheetXml` |
 | `OfficeNext.Pptx` | Modelo + reader (cascata de estilos de texto, grupos achatados), `LayoutTextBody`, `SetRunText` |
 | `OfficeNext.Export` | Docx→MD/HTML · Xlsx→CSV/TSV/MD/HTML/ODS/XML2003 · Pptx→MD/HTML · **PDF dos três** |
-| `OfficeNext.Pdf` | Gerador PDF próprio (porta do @wordnext/pdf): subset TrueType, Type0/Identity-H, JPEG (gray/RGB/CMYK) e RGBA com /SMask, caminhos, recortes, transformações, opacidade (ExtGState), glifos com escala/negrito/itálico sintéticos |
+| `OfficeNext.Pdf` | Gerador PDF próprio (porta do @universal-office/pdf): subset TrueType, Type0/Identity-H, JPEG (gray/RGB/CMYK) e RGBA com /SMask, caminhos, recortes, transformações, opacidade (ExtGState), glifos com escala/negrito/itálico sintéticos |
 | `OfficeNext.DocBinary` | Conversor Word 97-2003 (.doc binário) → .docx (porta de write/packages/docx-core/src/doc): partes idênticas às do JS |
 | `OfficeNext.Benchmarks` | Console Stopwatch — compara com `node tools/bench-export-pdf.mjs` |
 

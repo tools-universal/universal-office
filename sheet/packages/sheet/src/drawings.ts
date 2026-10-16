@@ -1,7 +1,7 @@
 /**
  * Desenhos da planilha — imagens, formas, caixas de texto, conectores, grupos
  * e SmartArt de `xl/drawings/drawingN.xml`. NÃO é um segundo motor DrawingML:
- * leitura e pintura são as do Slides (`@universal/slides-core`, fidelidade
+ * leitura e pintura são as do Slides (`@universal-office/slides-core`, fidelidade
  * medida no PowerPoint). Aqui fica só a ponte com a grade:
  *   - âncora (twoCell/oneCell/absolute + offsets EMU) → retângulo em px;
  *   - forma lida no espaço do próprio `a:xfrm` → reposicionada na âncora;
@@ -15,10 +15,10 @@ import {
   readTheme as readDmlTheme, readDrawingElements, applyShapeTextCascade, paintShapesTo,
   rasterizeSpecialImage, specialImageNeedsPrepare, prepareSpecialImage,
   type PartSource, type Shape, type Theme as DmlTheme, type ImageRef, type PaintImage, type TextStyleContext, type TextStyleLevel,
-} from '@universal/slides-core';
+} from '@universal-office/slides-core';
 import {
   firstChild, type XlsxPackage, type DrawingAnchor, type DrawingObject, type Theme as SheetTheme, type XmlElement,
-} from '@universal/sheet-core';
+} from '@universal-office/sheet-core';
 
 /** EMU por px a 96 dpi (zoom 100%). */
 export const EMU_PER_PX = 9525;

@@ -1,4 +1,4 @@
-import { applyTint, refToRowCol, type Styles, type Fill, type Font, type Border, type BorderEdge, type ColorContext, type Dxf, type Worksheet, type AutoFilterInfo } from '@universal/sheet-core';
+import { applyTint, refToRowCol, type Styles, type Fill, type Font, type Border, type BorderEdge, type ColorContext, type Dxf, type Worksheet, type AutoFilterInfo } from '@universal-office/sheet-core';
 import { BUILTIN_TABLE_STYLES } from './table-styles-data.js';
 import { pivotCellFormats } from './pivot-styles.js';
 

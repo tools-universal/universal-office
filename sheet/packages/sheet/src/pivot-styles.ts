@@ -1,4 +1,4 @@
-import type { PivotInfo } from '@universal/sheet-core';
+import type { PivotInfo } from '@universal-office/sheet-core';
 import type { StyleSpec, ElementFormat, TableCellFormat } from './table-styles.js';
 
 /**

@@ -1,4 +1,4 @@
-import type { Worksheet, Cell } from '@universal/sheet-core';
+import type { Worksheet, Cell } from '@universal-office/sheet-core';
 
 /**
  * Estilo das células AUSENTES do XML, como o Excel (medido, pasta sintética

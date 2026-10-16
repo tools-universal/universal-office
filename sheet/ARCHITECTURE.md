@@ -52,15 +52,15 @@ rasterizadores.
 
 | Pacote | npm | Propósito |
 |---|---|---|
-| **sheet-core** | `@universal/sheet-core` | Modelo + parse/serialize OOXML. `XlsxPackage` (container lossless), `parseXml`, leitura de workbook/worksheets/sharedStrings/styles/theme, `formatValue` pt-BR (oráculo 1:1). |
-| **sheet** | `@universal/sheet` | O webcomponent `<universal-sheet>`. Renderiza o grid em canvas: células, estilos, merges, panes congeladas (4 quadrantes), rich text, charts, hyperlinks, edição inline. |
-| **export** | `@universal/sheet-export` | Exportadores puros (browser+node): CSV/TSV (`;`, RFC 4180, CRLF), Markdown (GFM), HTML (estilos inline), PDF (via `@wordnext/pdf`), ODS (OpenDocument) e SpreadsheetML 2003. Valores exibidos via `formatValue` pt-BR. |
-| _sheet-layout_ (futuro) | `@universal/sheet-layout` | Motor de grid extraído (hoje o layout vive no webcomponent; funções puras em `grid-layout.ts`). |
+| **sheet-core** | `@universal-office/sheet-core` | Modelo + parse/serialize OOXML. `XlsxPackage` (container lossless), `parseXml`, leitura de workbook/worksheets/sharedStrings/styles/theme, `formatValue` pt-BR (oráculo 1:1). |
+| **sheet** | `@universal-office-pro/sheet` | O webcomponent `<universal-sheet>`. Renderiza o grid em canvas: células, estilos, merges, panes congeladas (4 quadrantes), rich text, charts, hyperlinks, edição inline. |
+| **export** | `@universal-office/sheet-export` | Exportadores puros (browser+node): CSV/TSV (`;`, RFC 4180, CRLF), Markdown (GFM), HTML (estilos inline), PDF (via `@universal-office/pdf`), ODS (OpenDocument) e SpreadsheetML 2003. Valores exibidos via `formatValue` pt-BR. |
+| _sheet-layout_ (futuro) | `@universal-office/sheet-layout` | Motor de grid extraído (hoje o layout vive no webcomponent; funções puras em `grid-layout.ts`). |
 
-> **Build cross-workspace**: `@universal/sheet-export` depende de
-> `@wordnext/pdf` via `file:../../../write/packages/pdf` (symlink npm) e dos
+> **Build cross-workspace**: `@universal-office/sheet-export` depende de
+> `@universal-office/pdf` via `file:../../../write/packages/pdf` (symlink npm) e dos
 > **`dist/` do write** — rode `npm run build` no `write/` antes do build do
-> sheet num checkout limpo (senão TS2307 "Cannot find module '@wordnext/pdf'").
+> sheet num checkout limpo (senão TS2307 "Cannot find module '@universal-office/pdf'").
 
 ## Stack
 

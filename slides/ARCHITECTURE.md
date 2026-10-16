@@ -39,9 +39,9 @@ automação COM (`New-Object -ComObject PowerPoint.Application`).
 
 | Pacote | npm | Propósito |
 |---|---|---|
-| **slides-core** | `@universal/slides-core` | Modelo + parse OOXML. `PptxPackage` (container lossless), `parseXml`, `readPresentation`/`readSlide`, resolução de tema/cor (DrawingML), herança de geometria de placeholder (layout/master). |
-| **slides** | `@universal/slides` | Webcomponent `<universal-slides>` — renderiza cada slide em canvas (fundo, formas, preenchimento, contorno, texto com âncora/alinhamento/fonte). |
-| **export** | `@universal/slides-export` | Exportadores `.pptx bytes → saída` (browser+node, SEM vídeo): `pptxToMarkdown` (headings/bullets/tabelas GFM/notas), `pptxToHtml` (sections estáticos, shapes em %), `pptxToPdf` (vetorial, 1 página/slide, fontes TTF obrigatórias via `@wordnext/pdf`), `pptxToImages` (1 PNG/slide via `paintSlideTo`; em node exige factory de canvas injetada). |
+| **slides-core** | `@universal-office/slides-core` | Modelo + parse OOXML. `PptxPackage` (container lossless), `parseXml`, `readPresentation`/`readSlide`, resolução de tema/cor (DrawingML), herança de geometria de placeholder (layout/master). |
+| **slides** | `@universal-office-pro/slides` | Webcomponent `<universal-slides>` — renderiza cada slide em canvas (fundo, formas, preenchimento, contorno, texto com âncora/alinhamento/fonte). |
+| **export** | `@universal-office/slides-export` | Exportadores `.pptx bytes → saída` (browser+node, SEM vídeo): `pptxToMarkdown` (headings/bullets/tabelas GFM/notas), `pptxToHtml` (sections estáticos, shapes em %), `pptxToPdf` (vetorial, 1 página/slide, fontes TTF obrigatórias via `@universal-office/pdf`), `pptxToImages` (1 PNG/slide via `paintSlideTo`; em node exige factory de canvas injetada). |
 
 A pintura de slide é a função PURA `paintSlideTo(ctx, slide, resources, scale)`
 (`slides-core/src/render.ts`): recebe imagens JÁ decodificadas via

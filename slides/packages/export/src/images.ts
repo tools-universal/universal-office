@@ -12,7 +12,7 @@
 import {
   paintSlideTo, EMU_PER_PX, rasterizeSpecialImage, prepareSpecialImage, tableImages,
   type Slide, type ImageRef, type PaintImage, type ChartModel,
-} from '@universal/slides-core';
+} from '@universal-office/slides-core';
 import { loadDeck } from './model.js';
 
 /**

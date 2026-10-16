@@ -1,4 +1,4 @@
-import type { CondFormat, CondRule, Cfvo, Dxf, Fill, Border, Cell } from '@universal/sheet-core';
+import type { CondFormat, CondRule, Cfvo, Dxf, Fill, Border, Cell } from '@universal-office/sheet-core';
 import { FErr, evalFormula, compare, toStr, serialOf, dateOf, type FCtx, type FScalar } from './cf-formula.js';
 
 /**

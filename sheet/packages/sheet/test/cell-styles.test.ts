@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultColorContext, type Styles, type Worksheet } from '@universal/sheet-core';
+import { defaultColorContext, type Styles, type Worksheet } from '@universal-office/sheet-core';
 import { winningEdge, edgeExtent, BORDER_RANK } from '../src/borders.js';
 import { defaultXfMaps, xfIndexAt } from '../src/cell-format.js';
 import { resolveTableStyle, tableCellFormats, applyTableLayer, type TableCellFormat } from '../src/table-styles.js';

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>&lt;universal-write-diff&gt; — document comparison</title>
-  <meta name="description" content="The <universal-write-diff> web component: side-by-side comparison of .docx documents, and the programmatic diff API of @universal-office/write." />
+  <meta name="description" content="The <universal-write-diff> web component: side-by-side comparison of .docx documents, and the programmatic diff API of @universal-office-pro/write." />
   <link rel="icon" type="image/svg+xml" href="../../assets/icons/universal-office.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -63,14 +63,14 @@
       <h1>&lt;universal-write-diff&gt;</h1>
       <p class="lead-doc">
         A web component for comparing <code>.docx</code> documents side by side, part of the
-        <code>@universal-office/write</code> package. It aligns blocks with Myers/histogram,
+        <code>@universal-office-pro/write</code> package. It aligns blocks with Myers/histogram,
         refines changes word by word within a paragraph, and distinguishes content changes
         from format-only changes.
       </p>
 
       <h2 id="usage">Usage</h2>
       <pre><code>&lt;universal-write-diff id="wd" view="all" left-label="Original" right-label="Modified"&gt;&lt;/universal-write-diff&gt;</code></pre>
-      <pre><code>import '@universal-office/write';
+      <pre><code>import '@universal-office-pro/write';
 
 const wd = document.getElementById('wd');
 
@@ -78,7 +78,7 @@ const wd = document.getElementById('wd');
 wd.loadPair(aBytes, bBytes, { leftLabel: 'v1.docx', rightLabel: 'v2.docx' });
 
 // Or from documents already parsed by the document core:
-import { DocxPackage, readFullDocument } from '@universal-office/write';
+import { DocxPackage, readFullDocument } from '@universal-office-pro/write';
 const aDoc = readFullDocument(DocxPackage.load(aBytes));
 const bDoc = readFullDocument(DocxPackage.load(bBytes));
 wd.loadDocuments(aDoc, bDoc, { leftLabel: 'v1', rightLabel: 'v2' });</code></pre>
@@ -149,10 +149,10 @@ wd.addEventListener('close-request', () =&gt; {
 
       <h2 id="api">Programmatic API</h2>
       <p>
-        Besides the web component, <code>@universal-office/write</code> exports the diff engine
+        Besides the web component, <code>@universal-office-pro/write</code> exports the diff engine
         for direct use (reports, pipelines, CI):
       </p>
-      <pre><code>import { diffDocuments, DocxPackage, readFullDocument } from '@universal-office/write';
+      <pre><code>import { diffDocuments, DocxPackage, readFullDocument } from '@universal-office-pro/write';
 
 const a = readFullDocument(DocxPackage.load(aBytes));
 const b = readFullDocument(DocxPackage.load(bBytes));

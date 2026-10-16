@@ -5,7 +5,7 @@
 // transbordo para vizinhas vazias, rotação (1..180 e 255 = empilhado),
 // sublinhados (simples/duplo/contábil), tachado — glifo a glifo nas posições
 // inteiras (drawCellText).
-import type { UnderlineStyle } from '@universal/sheet-core';
+import type { UnderlineStyle } from '@universal-office/sheet-core';
 import { cellMarginPx, textWidth, type CellKind, type CellText } from './cell-text.js';
 import { drawCellText, type CellFont } from './text-metrics.js';
 

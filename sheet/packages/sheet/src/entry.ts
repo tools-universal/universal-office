@@ -31,7 +31,7 @@ import {
   CalcError, acceptsArgCount, catalogEntry, fromLocal, functionKind, localizeError, localizeBool,
   numberLiteralValue, parseDateTimeParts, parseFormula, printFormula, walk, FormulaSyntaxError,
   type ErrorCode, type Node, type Scalar,
-} from '@universal/sheet-calc';
+} from '@universal-office/sheet-calc';
 import { FMT, currencyHint, type FmtCategory, type NumFmtHint } from './entry-format.js';
 import type { FormulaLocale } from './formula-locale.js';
 

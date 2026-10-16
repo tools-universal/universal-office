@@ -10,7 +10,7 @@
  *   formula-locale="de-DE" → nomes em inglês com a região alemã: =SUM(A1;1,5)
  * Sem o atributo vale o idioma do navegador (pt* → pt-BR; senão en-US).
  */
-import { EN_US, PT_BR, valueLocaleFor, type SyntaxOptions, type ValueLocale } from '@universal/sheet-calc';
+import { EN_US, PT_BR, valueLocaleFor, type SyntaxOptions, type ValueLocale } from '@universal-office/sheet-calc';
 
 export type FormulaLang = 'pt-BR' | 'en-US';
 

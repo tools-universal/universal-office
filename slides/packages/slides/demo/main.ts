@@ -1,8 +1,8 @@
 import '../src/universal-slides';
 import type { UniversalSlidesElement } from '../src/universal-slides';
-import type { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
+import type { UniversalPresentationViewerElement } from '@universal-office/presentation-viewer';
 import { FontResolver, openFontEmbeddingDialog, describeFontEmbedding, type HostFontProvider } from '@universal-office/fonts';
-import { isCfb, convertPptToPptx } from '@universal/slides-core';
+import { isCfb, convertPptToPptx } from '@universal-office/slides-core';
 
 // Electron: fontes do SO por família vêm do processo principal (Windows\Fonts +
 // usuário + cache CloudFonts do Office, que o queryLocalFonts não enxerga) —

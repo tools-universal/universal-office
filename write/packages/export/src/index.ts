@@ -1,4 +1,4 @@
-// @universal-office/export — exportadores do modelo Write para formatos legíveis.
+// @universal-office/docx-export — exportadores do modelo Write para formatos legíveis.
 // HTML e Markdown trabalham direto sobre o modelo (não paginados, "melhores que
 // o app de referência" para a web). A exportação paginada (PDF/XPS) reaproveita o layout do
 // editor e vive no componente <universal-write>.

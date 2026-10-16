@@ -4,7 +4,7 @@
 // glifo desenhado na posição inteira acumulada, sem kerning. Escritas com
 // shaping (árabe, hebraico, índicas, tailandês…) são medidas e desenhadas como
 // string inteira pelo canvas.
-import { excelRowPx, gdiGlyphFixes, measuredFamily, ppemOf } from '@universal/sheet-core';
+import { excelRowPx, gdiGlyphFixes, measuredFamily, ppemOf } from '@universal-office/sheet-core';
 import type { FontMetrics } from './cell-text.js';
 import { DESC_PPEM_MAX, DESC_PPEM_MIN, ROW_DESC, ROW_DESC_BOLD } from './row-descent-data.js';
 

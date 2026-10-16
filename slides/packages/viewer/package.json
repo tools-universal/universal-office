@@ -1,5 +1,5 @@
 {
-  "name": "@universal/presentation-viewer",
+  "name": "@universal-office/presentation-viewer",
   "version": "0.0.1",
   "type": "module",
   "description": "Webcomponent <universal-presentation-viewer> — visualizacao pura de .pptx (sem edicao)",
@@ -11,7 +11,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@universal/slides-core": "*",
+    "@universal-office/slides-core": "*",
     "@universal-office/fonts": "file:../../../shared/fonts"
   }
 }

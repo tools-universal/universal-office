@@ -9,7 +9,7 @@
 import {
   PptxPackage, readPresentation, readSlide, parseXml, childElements, firstChild, descend, textContent,
   type Presentation, type Slide, type Shape, type TextBody, type Paragraph, type ImageRef, type XmlElement,
-} from '@universal/slides-core';
+} from '@universal-office/slides-core';
 
 /** Slide carregado + notas do apresentador (parágrafos; vazio quando não há). */
 export interface DeckSlide {

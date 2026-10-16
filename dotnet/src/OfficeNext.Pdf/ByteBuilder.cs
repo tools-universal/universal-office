@@ -1,7 +1,7 @@
 namespace OfficeNext.Pdf;
 
 /// <summary>
-/// Acumulador de bytes para montar um PDF — porta de @wordnext/pdf bytes.ts.
+/// Acumulador de bytes para montar um PDF — porta de @universal-office/pdf bytes.ts.
 /// A estrutura do arquivo é ASCII/latin1, mas streams (fontes, imagens,
 /// conteúdo comprimido) são binários; esta classe intercala texto (latin1)
 /// e bytes crus num buffer único que cresce por duplicação.

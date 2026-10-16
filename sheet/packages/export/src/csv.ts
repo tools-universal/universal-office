@@ -4,7 +4,7 @@
  * CRLF entre linhas, quoting RFC 4180 (aspas quando contém delimitador, aspas,
  * \r ou \n; aspas duplicadas). TSV usa o MESMO esquema de quoting com tab.
  */
-import { PT_BR } from '@universal/sheet-core';
+import { PT_BR } from '@universal-office/sheet-core';
 import {
   loadModel, selectSheets, buildGrid,
   type SheetExportInput, type SheetExportOptions,

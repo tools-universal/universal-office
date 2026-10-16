@@ -5,6 +5,6 @@ import { fileURLToPath } from 'node:url';
 // do link do workspace nem do dist
 export default defineConfig({
   resolve: {
-    alias: { '@universal/sheet-calc': fileURLToPath(new URL('../calc/src/index.ts', import.meta.url)) },
+    alias: { '@universal-office/sheet-calc': fileURLToPath(new URL('../calc/src/index.ts', import.meta.url)) },
   },
 });

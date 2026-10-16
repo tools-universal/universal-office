@@ -3,7 +3,7 @@ using System.IO.Compression;
 namespace OfficeNext.Pdf;
 
 /// <summary>
-/// Writer PDF de baixo nível — porta de @wordnext/pdf writer.ts: aloca objetos
+/// Writer PDF de baixo nível — porta de @universal-office/pdf writer.ts: aloca objetos
 /// indiretos, serializa dicionários e streams, monta a tabela xref clássica e o
 /// trailer. Sem conhecimento de fontes ou layout — só a mecânica do formato
 /// (PDF 1.7, ISO 32000-1).

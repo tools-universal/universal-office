@@ -1,4 +1,4 @@
-import type { Border, BorderEdge } from '@universal/sheet-core';
+import type { Border, BorderEdge } from '@universal-office/sheet-core';
 
 /**
  * Bordas de célula como o Excel as pinta na tela (medido no oráculo com as

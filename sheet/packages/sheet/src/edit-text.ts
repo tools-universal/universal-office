@@ -10,7 +10,7 @@
  *   um dia) — a barra mostra a data/porcentagem, não o serial;
  * - booleanos e erros no idioma; texto como está (com o apóstrofo do prefixo).
  */
-import { CalcError, localizeBool, localizeError, serialToYmd, serialToHms, type Scalar } from '@universal/sheet-calc';
+import { CalcError, localizeBool, localizeError, serialToYmd, serialToHms, type Scalar } from '@universal-office/sheet-calc';
 import type { FmtCategory } from './entry-format.js';
 import type { FormulaLocale } from './formula-locale.js';
 

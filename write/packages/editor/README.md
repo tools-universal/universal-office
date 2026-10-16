@@ -1,4 +1,4 @@
-# @universal-office/write
+# @universal-office-pro/write
 
 The `<universal-write>` web component — a **.docx** editor that renders to a
 **canvas** with layout faithful to Microsoft Word (real font metrics, identical
@@ -14,7 +14,7 @@ Obtain the package from **PrivJS** and follow the setup instructions there.
 ## Usage
 
 ```js
-import '@universal-office/write';
+import '@universal-office-pro/write';
 ```
 
 ```html

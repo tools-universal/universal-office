@@ -1,5 +1,5 @@
-import { UniversalPresentationViewerElement } from '@universal/presentation-viewer';
-import { PptxPackage, collectDeckTypefaces, type Paragraph, type Run } from '@universal/slides-core';
+import { UniversalPresentationViewerElement } from '@universal-office/presentation-viewer';
+import { PptxPackage, collectDeckTypefaces, type Paragraph, type Run } from '@universal-office/slides-core';
 import {
   DEFAULT_EMBEDDING, planFontEmbedding, readPptxEmbedding, writePptxEmbedding,
   type EmbeddingPlan, type FontEmbeddingSettings, type FontUsage,

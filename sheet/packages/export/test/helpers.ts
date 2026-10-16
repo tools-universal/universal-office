@@ -2,7 +2,7 @@
  * Fábrica de .xlsx sintéticos para os testes (esparsidade, escaping, merges) —
  * montados com o próprio XlsxPackage (fflate por baixo), sem fixtures binárias.
  */
-import { XlsxPackage } from '@universal/sheet-core';
+import { XlsxPackage } from '@universal-office/sheet-core';
 
 export interface SynthSheet {
   name: string;

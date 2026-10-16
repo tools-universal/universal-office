@@ -6,7 +6,7 @@
  * uma função, uma dica mostra o nome dela — só o nome: o catálogo não tem os
  * nomes dos argumentos e eles não são inventados aqui.
  */
-import { functionNames, type FunctionName } from '@universal/sheet-calc';
+import { functionNames, type FunctionName } from '@universal-office/sheet-calc';
 import type { FormulaLocale } from './formula-locale.js';
 
 const ID_CHAR = /[\p{L}\p{N}_.\\]/u;

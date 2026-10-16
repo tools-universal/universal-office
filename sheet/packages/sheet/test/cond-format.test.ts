@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CondFormat, Dxf } from '@universal/sheet-core';
+import type { CondFormat, Dxf } from '@universal-office/sheet-core';
 import { CfEngine, lerpTrunc, parseSqref, type CfSheetAccess } from '../src/cond-format.js';
 import { evalFormula, FErr, type FCtx, type FScalar } from '../src/cf-formula.js';
 

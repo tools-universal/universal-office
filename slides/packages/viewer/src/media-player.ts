@@ -1,7 +1,7 @@
 import {
   mediaStateAt, mediaFadeAlpha, gifFrameAt,
   type Slide, type Shape, type PaintImage, type PlaybackSlide, type MediaClock, type SlideMediaInfo,
-} from '@universal/slides-core';
+} from '@universal-office/slides-core';
 
 /** Quadro de mídia com opacidade (esmaecer sobre a capa). */
 export type MediaFrame = PaintImage | { image: PaintImage; alpha: number };

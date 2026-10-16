@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { CalcError, parseFormula } from '@universal/sheet-calc';
+import { CalcError, parseFormula } from '@universal-office/sheet-calc';
 import { parseEntry, autoClose } from '../src/entry.js';
 import { formatCategory, inferFormulaFormat, shouldApplyFormat, type FmtCategory } from '../src/entry-format.js';
 import { editText, numberEditText } from '../src/edit-text.js';

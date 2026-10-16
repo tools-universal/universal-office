@@ -37,7 +37,7 @@ await build({
     '@universal-office/pdf': join(ed, 'pdf', 'src', 'index.ts'),
     '@universal-office/docx-layout': join(ed, 'docx-layout', 'src', 'index.ts'),
     '@universal-office/fonts': join(repoRoot, 'shared', 'fonts', 'src', 'index.ts'),
-    '@universal-office/export': join(ed, 'export', 'src', 'index.ts'),
+    '@universal-office/docx-export': join(ed, 'export', 'src', 'index.ts'),
     '@universal-office/odf': join(ed, 'odf', 'src', 'index.ts'),
     '@universal-office/compare': join(ed, 'compare', 'src', 'index.ts'),
   },

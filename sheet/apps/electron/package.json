@@ -1,5 +1,5 @@
 {
-  "name": "@universal/sheet-app-electron",
+  "name": "@universal-office/sheet-app-electron",
   "version": "0.0.1",
   "private": true,
   "description": "Shell Electron embarcando o <universal-sheet>",
@@ -8,7 +8,7 @@
     "start": "electron ."
   },
   "dependencies": {
-    "@universal/sheet": "*"
+    "@universal-office-pro/sheet": "*"
   },
   "devDependencies": {
     "electron": "^42.4.0"

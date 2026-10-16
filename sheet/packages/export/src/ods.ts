@@ -13,7 +13,7 @@
  * padrão do write/packages/odf.
  */
 import { zipSync, strToU8, type Zippable } from 'fflate';
-import { formatValue, refToRowCol, PT_BR } from '@universal/sheet-core';
+import { formatValue, refToRowCol, PT_BR } from '@universal-office/sheet-core';
 import {
   loadModel, selectSheets, colWidthPx,
   type SheetExportInput, type SheetExportOptions, type SheetModel, type SelectedSheet,

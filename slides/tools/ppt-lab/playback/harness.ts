@@ -3,7 +3,7 @@
 // sob relógio virtual (page.clock) — cada quadro é função pura do tempo.
 import '../../../packages/viewer/src/universal-presentation-viewer';
 import type { UniversalPresentationViewerElement } from '../../../packages/viewer/src/universal-presentation-viewer';
-import { playbackStateAt, type PlaybackTimeline } from '@universal/slides-core';
+import { playbackStateAt, type PlaybackTimeline } from '@universal-office/slides-core';
 
 const pv = document.getElementById('pv') as UniversalPresentationViewerElement;
 

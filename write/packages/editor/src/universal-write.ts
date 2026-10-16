@@ -63,7 +63,7 @@ import {
   type EmbeddedFont,
   type PlacedGlyph,
 } from '@universal-office/pdf';
-import { toHtml, toMarkdown, type ExportDoc } from '@universal-office/export';
+import { toHtml, toMarkdown, type ExportDoc } from '@universal-office/docx-export';
 import {
   layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages,
   type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,

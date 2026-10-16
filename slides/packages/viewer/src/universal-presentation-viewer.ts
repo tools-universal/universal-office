@@ -7,7 +7,7 @@ import {
   type ChartModel, type PaintImage, type PaintSlideOptions,
   type Presentation, type Slide, type Shape, type ImageRef,
   type PlaybackOptions, type PlaybackTimeline, type PlaybackSlide, type SlideShowAction, type SlideTimingModel,
-} from '@universal/slides-core';
+} from '@universal-office/slides-core';
 import { MediaPlayer } from './media-player.js';
 
 /** Opções de `play()` — reprodução automática. */

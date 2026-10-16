@@ -8,7 +8,7 @@ import {
   type Border, type BorderEdge, type PaneInfo, type CondFormat, type ColDef, type FormatResult,
   type Comment, type DrawingChart, type DrawingObject, type Hyperlink, type RichRun, type RunProps,
   themePath,
-} from '@universal/sheet-core';
+} from '@universal-office/sheet-core';
 import { SheetDrawings, anchorRect, type Rect } from './drawings.js';
 import {
   bisectLE, pxToIndex, indexScreenPos, boundaryAt, pxToColWidthChars, pxToRowHeightPt,

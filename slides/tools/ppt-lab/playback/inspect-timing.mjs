@@ -3,7 +3,7 @@
 // vai tocar. Útil p/ conferir contra o ppt-manifest.json do oráculo.
 //
 // Uso: node tools/ppt-lab/playback/inspect-timing.mjs <deck.pptx> [defaultSlideMs=3000] [--json]
-// (requer slides-core compilado: npm run build -w @universal/slides-core)
+// (requer slides-core compilado: npm run build -w @universal-office/slides-core)
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';

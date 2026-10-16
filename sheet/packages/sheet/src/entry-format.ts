@@ -17,7 +17,7 @@
  *   moeda, científico, fração, data, hora) — nunca pelo de milhar; número (0,00),
  *   milhar e moeda nunca mudam; Texto (@) guarda tudo como texto, até "=…".
  */
-import type { Node } from '@universal/sheet-calc';
+import type { Node } from '@universal-office/sheet-calc';
 
 export type FmtCategory = 'general' | 'number' | 'currency' | 'percent' | 'scientific' | 'fraction' | 'date' | 'time' | 'text';
 

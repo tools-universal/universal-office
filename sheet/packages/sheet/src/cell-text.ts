@@ -14,7 +14,7 @@
 //    com esse orçamento); ainda assim mais largo que a coluna → ####; sem vaga,
 //    positivo ≥ 0,0001 que arredonda a um dígito ainda aparece ("7", "0", "1").
 // As larguras são as do Excel (px inteiros por glifo — ver FontMetrics).
-import { formatValueParts, formatGeneral, decimalDigits, PT_BR, type FmtPart, type FormatLocale } from '@universal/sheet-core';
+import { formatValueParts, formatGeneral, decimalDigits, PT_BR, type FmtPart, type FormatLocale } from '@universal-office/sheet-core';
 
 /** Limite de caracteres de uma célula no Excel. */
 export const MAX_CELL_CHARS = 32767;
