@@ -66,3 +66,15 @@ o motor faz layout, escala e pintura em canvas. Fatos medidos no oráculo
 transparente no PowerPoint; linha sem `c:smooth` sai SUAVE; série além da 6ª e
 estilos monocromáticos variam em RGB linear; data curta "m/d/yyyy" segue o
 locale.
+
+## Controles dos viewers: um lugar só
+
+A barra de controles dos viewers (`<universal-presentation-viewer>`,
+`<universal-document-viewer>`) fica em `shared/viewer-controls`
+(`@universal-office/viewer-controls`): botões, progresso, contador,
+auto-ocultar, ícones SVG e o CSS. Cada viewer declara só os próprios itens.
+Modelo combinado com o usuário: visível por padrão; `nocontrols` desliga tudo;
+um atributo booleano por item (`nodownload`, `nofullscreen`…) — sem
+`controlslist`. Variáveis `--upv-*`/`--udv-*` com recuo nas comuns `--uo-*`;
+`::part()` para o resto. O canvas das páginas do Write também é um só:
+`paintItems` em `docx-layout/src/canvas.ts` (editor e viewer).

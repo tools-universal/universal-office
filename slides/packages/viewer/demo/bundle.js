@@ -30667,65 +30667,241 @@ async function seekTo(el2, time, timeoutMs) {
   if (el2.readyState < 2) await wait("loadeddata");
 }
 
-// src/controls.ts
-var CONTROL_ITEMS = ["nav", "counter", "play", "mute", "thumbnails", "notes", "download", "present", "fullscreen", "progress"];
+// ../../../shared/viewer-controls/src/index.ts
 var SVG_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 var ICONS = {
-  prev: '<path d="M5 5v14"/><path d="M19 5v14L8 12z" fill="currentColor"/>',
-  next: '<path d="M19 5v14"/><path d="M5 5v14l11-7z" fill="currentColor"/>',
+  // navegação
+  "skip-prev": '<path d="M5 5v14"/><path d="M19 5v14L8 12z" fill="currentColor"/>',
+  "skip-next": '<path d="M19 5v14"/><path d="M5 5v14l11-7z" fill="currentColor"/>',
+  "chevron-up": '<path d="M6 15l6-6 6 6"/>',
+  "chevron-down": '<path d="M6 9l6 6 6-6"/>',
+  // reprodução e som
   play: '<path d="M7 4v16l13-8z" fill="currentColor"/>',
   pause: '<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/>',
   volume: '<path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>',
   muted: '<path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>',
-  thumbnails: '<rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/>',
+  // painéis
+  grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/>',
+  sidebar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   notes: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  // zoom
+  "zoom-out": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M20 20l-4.8-4.8"/>',
+  "zoom-in": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M10.5 7.5v6M20 20l-4.8-4.8"/>',
+  // arquivo
   download: '<path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/>',
+  print: '<path d="M7 9V4h10v5"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v6H7z"/>',
+  // apresentação e tela cheia
   present: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/><path d="M10.5 7.5v5l4-2.5z" fill="currentColor"/>',
   unpresent: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M12 16v4M8 20h8"/><path d="M10 8l4 4M14 8l-4 4"/>',
   fullscreen: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   unfullscreen: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>'
 };
-var icon = (name) => `<svg ${SVG_ATTRS}>${ICONS[name]}</svg>`;
-var CSS = `
+var icon = (name) => `<svg ${SVG_ATTRS}>${ICONS[name] ?? ""}</svg>`;
+var cssVar = (prefix, name, def) => `var(--${prefix}-${name}, var(--uo-${name}, ${def}))`;
+function controlsCss(prefix) {
+  const v = (name, def) => cssVar(prefix, name, def);
+  return `
 :host {
-  --_c: var(--upv-controls-color, #fff);
-  --_s: var(--upv-controls-size, 22px);
+  --uoc-c: ${v("controls-color", "#fff")};
+  --uoc-s: ${v("controls-size", "22px")};
+  --uoc-hover: ${v("controls-hover-bg", "rgba(255,255,255,.16)")};
+  --uoc-progress: ${v("progress-color", "#fff")};
 }
-.upv-ui [hidden], .upv-notes[hidden] { display: none !important; }
-.upv-ui { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; }
-.upv-notes-open .upv-ui { bottom: var(--upv-notes-height, 28%); }
-.upv-notes-open > canvas { height: calc(100% - var(--upv-notes-height, 28%)) !important; }
-.upv-bar {
+.uoc-ui [hidden] { display: none !important; }
+.uoc-ui { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; overflow: hidden; }
+.uoc-bar {
   position: absolute; left: 0; right: 0; bottom: 0; pointer-events: auto;
   display: flex; align-items: center; gap: 2px;
-  padding: calc(var(--_s) * 1.9) 10px 6px;
-  background: var(--upv-controls-bg, linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8)));
-  color: var(--_c); font: 400 calc(var(--_s) * .6)/1 system-ui, "Segoe UI", sans-serif;
+  padding: calc(var(--uoc-s) * 1.9) 10px 6px;
+  background: ${v("controls-bg", "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8))")};
+  color: var(--uoc-c); font: 400 calc(var(--uoc-s) * .6)/1 system-ui, "Segoe UI", sans-serif;
   transition: opacity .25s, visibility .25s;
 }
-.upv-hidden .upv-bar, .upv-hidden .upv-thumbs { opacity: 0; visibility: hidden; }
-.upv-hidden.upv-presenting { cursor: none; }
-.upv-btn {
+.uoc-hidden .uoc-bar { opacity: 0; visibility: hidden; }
+.uoc-btn {
   all: unset; box-sizing: border-box; flex: none; cursor: pointer; color: inherit;
-  width: calc(var(--_s) * 1.8); height: calc(var(--_s) * 1.8);
+  width: calc(var(--uoc-s) * 1.8); height: calc(var(--uoc-s) * 1.8);
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: calc(var(--_s) * .35); opacity: .9;
+  border-radius: calc(var(--uoc-s) * .35); opacity: .9;
 }
-.upv-btn:hover, .upv-btn[aria-pressed="true"] { background: var(--upv-controls-hover-bg, rgba(255,255,255,.16)); opacity: 1; }
-.upv-btn:focus-visible { outline: 2px solid var(--_c); outline-offset: -2px; }
-.upv-btn svg { width: var(--_s); height: var(--_s); display: block; }
-.upv-counter { padding: 0 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.upv-spacer { flex: 1; }
-.upv-progress {
-  position: absolute; left: 12px; right: 12px; top: calc(var(--_s) * 1.9 - 10px);
+.uoc-btn:hover, .uoc-btn[aria-pressed="true"], .uoc-btn[aria-expanded="true"] { background: var(--uoc-hover); opacity: 1; }
+.uoc-btn:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: -2px; }
+.uoc-btn svg { width: var(--uoc-s); height: var(--uoc-s); display: block; }
+.uoc-counter { padding: 0 8px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.uoc-spacer { flex: 1; }
+.uoc-progress {
+  position: absolute; left: 12px; right: 12px; top: calc(var(--uoc-s) * 1.9 - 10px);
   height: 14px; cursor: pointer; display: flex; align-items: center;
 }
-.upv-track { position: relative; width: 100%; height: var(--upv-progress-height, 3px); background: var(--upv-progress-track, rgba(255,255,255,.28)); transition: height .1s; }
-.upv-progress:hover .upv-track { height: calc(var(--upv-progress-height, 3px) + 2px); }
-.upv-value { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--upv-progress-color, #fff); }
+.uoc-track { position: relative; width: 100%; height: ${v("progress-height", "3px")}; background: ${v("progress-track", "rgba(255,255,255,.28)")}; transition: height .1s; }
+.uoc-progress:hover .uoc-track { height: calc(${v("progress-height", "3px")} + 2px); }
+.uoc-value { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--uoc-progress); }
+`;
+}
+var IDLE_MS = 2500;
+var ControlBar = class {
+  constructor(o) {
+    this.o = o;
+    this.ui.className = "uoc-ui";
+    this.bar.className = "uoc-bar";
+    this.bar.setAttribute("part", "controls");
+    this.bar.setAttribute("role", "toolbar");
+    this.progress.className = "uoc-progress";
+    this.progress.setAttribute("part", "progress");
+    this.progress.setAttribute("role", "slider");
+    this.progress.dataset["item"] = o.progressItem;
+    const track = document.createElement("div");
+    track.className = "uoc-track";
+    this.value.className = "uoc-value";
+    this.value.setAttribute("part", "progress-value");
+    track.appendChild(this.value);
+    this.progress.appendChild(track);
+    this.progress.addEventListener("click", (e) => {
+      const r = this.progress.getBoundingClientRect();
+      o.onSeek(Math.max(0, Math.min(1, (e.clientX - r.left) / (r.width || 1))));
+      this.wake();
+    });
+    this.bar.appendChild(this.progress);
+    this.counter.className = "uoc-counter";
+    this.counter.setAttribute("part", "counter");
+    this.counter.dataset["item"] = o.counterItem;
+    for (const s of o.start) this.bar.appendChild(s === "counter" ? this.counter : this.button(s));
+    const spacer = document.createElement("span");
+    spacer.className = "uoc-spacer";
+    this.bar.appendChild(spacer);
+    for (const s of o.end) this.bar.appendChild(this.button(s));
+    this.ui.appendChild(this.bar);
+    this.bar.addEventListener("click", (e) => e.stopPropagation());
+    this.bar.addEventListener("pointerdown", (e) => e.stopPropagation());
+    this.bar.addEventListener("pointerenter", () => {
+      this.pointerInBar = true;
+      this.wake();
+    });
+    this.bar.addEventListener("pointerleave", () => {
+      this.pointerInBar = false;
+      this.wake();
+    });
+    this.bar.addEventListener("focusin", () => this.wake());
+  }
+  o;
+  ui = document.createElement("div");
+  bar = document.createElement("div");
+  progress = document.createElement("div");
+  value = document.createElement("div");
+  counter = document.createElement("span");
+  buttons = /* @__PURE__ */ new Map();
+  removed = /* @__PURE__ */ new Set();
+  enabledFlag = false;
+  hideTimer = 0;
+  pointerInBar = false;
+  button(s) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = s.className ? `uoc-btn ${s.className}` : "uoc-btn";
+    b.setAttribute("part", `button button-${s.name}`);
+    b.dataset["item"] = s.item;
+    if (s.icon) {
+      b.innerHTML = icon(s.icon);
+      b.dataset["icon"] = s.icon;
+    }
+    b.addEventListener("click", () => {
+      s.run();
+      this.wake();
+    });
+    this.buttons.set(s.name, b);
+    return b;
+  }
+  get enabled() {
+    return this.enabledFlag;
+  }
+  /** Liga/desliga a barra e guarda os itens tirados (`no<item>`). Devolve true se mudou de ligada↔desligada. */
+  configure(enabled, removed) {
+    this.removed = new Set(removed);
+    if (enabled === this.enabledFlag && enabled === this.ui.isConnected) return false;
+    this.enabledFlag = enabled;
+    if (enabled) {
+      this.o.wrap.appendChild(this.ui);
+      this.wake();
+    } else {
+      clearTimeout(this.hideTimer);
+      this.ui.remove();
+    }
+    return true;
+  }
+  isRemoved(item) {
+    return this.removed.has(item);
+  }
+  /** Atividade do usuário: mostra a barra e reagenda o sumiço. */
+  wake = () => {
+    if (!this.enabledFlag) return;
+    this.o.wrap.classList.remove("uoc-hidden");
+    clearTimeout(this.hideTimer);
+    this.hideTimer = window.setTimeout(this.idle, IDLE_MS);
+  };
+  /** O ponteiro saiu do viewer: some já (se nada prende a barra). */
+  leave = () => {
+    if (this.enabledFlag) this.idle();
+  };
+  idle = () => {
+    clearTimeout(this.hideTimer);
+    if (this.pointerInBar || this.o.keepVisible?.() || this.bar.contains(this.o.root.activeElement)) return;
+    this.o.wrap.classList.add("uoc-hidden");
+  };
+  /**
+   * Visibilidade dos itens: o atributo `no<item>` tira; `available(item)`
+   * esconde o que não se aplica agora (sem mídia, sem anotações, deck vazio…).
+   */
+  applyVisibility(available) {
+    for (const el2 of this.bar.querySelectorAll("[data-item]")) {
+      const it = el2.dataset["item"];
+      el2.hidden = this.removed.has(it) || !available(it);
+    }
+  }
+  setProgress(fraction, aria) {
+    this.value.style.width = `${(Math.max(0, Math.min(1, fraction)) * 100).toFixed(2)}%`;
+    this.progress.setAttribute("aria-label", aria.label);
+    this.progress.setAttribute("aria-valuemin", String(aria.min));
+    this.progress.setAttribute("aria-valuemax", String(aria.max));
+    this.progress.setAttribute("aria-valuenow", String(aria.now));
+  }
+  setCounter(text) {
+    this.counter.textContent = text;
+  }
+  setButton(name, st) {
+    const b = this.buttons.get(name);
+    if (!b) return;
+    b.setAttribute("aria-label", st.label);
+    b.title = st.label;
+    if (st.icon && b.dataset["icon"] !== st.icon) {
+      b.innerHTML = icon(st.icon);
+      b.dataset["icon"] = st.icon;
+    }
+    if (st.text !== void 0) b.textContent = st.text;
+    if (st.pressed !== void 0) b.setAttribute("aria-pressed", String(st.pressed));
+    if (st.expanded !== void 0) b.setAttribute("aria-expanded", String(st.expanded));
+  }
+  buttonEl(name) {
+    return this.buttons.get(name);
+  }
+  dispose() {
+    clearTimeout(this.hideTimer);
+  }
+};
+function pickLabels(lang, labels) {
+  return /^en\b/i.test(lang) ? labels.en : labels.pt;
+}
+
+// src/controls.ts
+var CONTROL_ITEMS = ["nav", "counter", "play", "mute", "thumbnails", "notes", "download", "present", "fullscreen", "progress"];
+var CSS = controlsCss("upv") + `
+.upv-notes[hidden] { display: none !important; }
+.upv-notes-open .uoc-ui { bottom: var(--upv-notes-height, 28%); }
+.upv-notes-open > canvas { height: calc(100% - var(--upv-notes-height, 28%)) !important; }
+.uoc-hidden .upv-thumbs { opacity: 0; visibility: hidden; }
+.uoc-hidden.upv-presenting { cursor: none; }
 .upv-thumbs {
   position: absolute; left: 0; right: 0; pointer-events: auto;
-  bottom: calc(var(--_s) * 3.9 + 6px);
+  bottom: calc(var(--uoc-s) * 3.9 + 6px);
   display: flex; gap: 8px; padding: 8px 12px; overflow-x: auto; scrollbar-width: thin;
   background: var(--upv-thumbnails-bg, rgba(0,0,0,.6));
   transition: opacity .25s, visibility .25s;
@@ -30735,8 +30911,8 @@ var CSS = `
   outline: 2px solid transparent; outline-offset: 1px; background: #444;
 }
 .upv-thumb canvas { display: block; width: 100%; height: 100%; border-radius: 3px; }
-.upv-thumb[aria-current="true"] { outline-color: var(--upv-progress-color, #fff); }
-.upv-thumb:focus-visible { outline-color: var(--_c); }
+.upv-thumb[aria-current="true"] { outline-color: ${cssVar("upv", "progress-color", "#fff")}; }
+.upv-thumb:focus-visible { outline-color: var(--uoc-c); }
 .upv-thumb span {
   position: absolute; left: 4px; bottom: 3px; padding: 0 4px; border-radius: 3px;
   background: rgba(0,0,0,.6); color: #fff; font: 11px/1.4 system-ui, sans-serif;
@@ -30787,51 +30963,44 @@ var LABELS = {
     noNotes: "No notes on this slide."
   }
 };
-var IDLE_MS = 2500;
 var ViewerControls = class {
   constructor(host, root, wrap) {
     this.host = host;
     this.root = root;
     this.wrap = wrap;
     this.style.textContent = CSS;
-    this.ui.className = "upv-ui";
-    this.bar.className = "upv-bar";
-    this.bar.setAttribute("part", "controls");
-    this.bar.setAttribute("role", "toolbar");
-    this.progress.className = "upv-progress";
-    this.progress.setAttribute("part", "progress");
-    this.progress.setAttribute("role", "slider");
-    this.progress.tabIndex = -1;
-    const track = document.createElement("div");
-    track.className = "upv-track";
-    this.value.className = "upv-value";
-    this.value.setAttribute("part", "progress-value");
-    track.appendChild(this.value);
-    this.progress.appendChild(track);
-    this.progress.addEventListener("click", this.onProgressClick);
-    this.bar.appendChild(this.progress);
-    this.counter.className = "upv-counter";
-    this.counter.setAttribute("part", "counter");
-    const left = [
-      ["prev", "nav", () => host.prev()],
-      ["play", "play", () => host.togglePlay()],
-      ["next", "nav", () => host.next()],
-      ["mute", "mute", () => host.setMuted(!host.isMuted())]
-    ];
-    const right = [
-      ["thumbnails", "thumbnails", () => this.setThumbsOpen(!this.thumbsOpen)],
-      ["notes", "notes", () => this.setNotesOpen(!this.notesOpen)],
-      ["download", "download", () => host.download()],
-      ["present", "present", () => host.togglePresent()],
-      ["fullscreen", "fullscreen", () => host.toggleFullscreen()]
-    ];
-    for (const [name, item, run] of left) this.bar.appendChild(this.button(name, item, run));
-    this.counter.dataset["item"] = "counter";
-    this.bar.appendChild(this.counter);
-    const spacer = document.createElement("span");
-    spacer.className = "upv-spacer";
-    this.bar.appendChild(spacer);
-    for (const [name, item, run] of right) this.bar.appendChild(this.button(name, item, run));
+    const r = (f) => () => {
+      f();
+      this.sync();
+    };
+    this.bar = new ControlBar({
+      root,
+      wrap,
+      counterItem: "counter",
+      progressItem: "progress",
+      start: [
+        { name: "prev", item: "nav", icon: "skip-prev", run: r(() => host.prev()) },
+        { name: "play", item: "play", icon: "play", run: r(() => host.togglePlay()) },
+        { name: "next", item: "nav", icon: "skip-next", run: r(() => host.next()) },
+        { name: "mute", item: "mute", icon: "volume", run: r(() => host.setMuted(!host.isMuted())) },
+        "counter"
+      ],
+      end: [
+        { name: "thumbnails", item: "thumbnails", icon: "grid", run: r(() => this.setThumbsOpen(!this.thumbsOpen)) },
+        { name: "notes", item: "notes", icon: "notes", run: r(() => this.setNotesOpen(!this.notesOpen)) },
+        { name: "download", item: "download", icon: "download", run: r(() => host.download()) },
+        { name: "present", item: "present", icon: "present", run: r(() => host.togglePresent()) },
+        { name: "fullscreen", item: "fullscreen", icon: "fullscreen", run: r(() => host.toggleFullscreen()) }
+      ],
+      onSeek: (f) => {
+        if (host.isPlaying()) host.playFrom(f);
+        else {
+          const n = host.count();
+          if (n) host.goTo(Math.min(n - 1, Math.floor(f * n)));
+        }
+      },
+      keepVisible: () => this.thumbsOpen
+    });
     this.thumbs.className = "upv-thumbs";
     this.thumbs.setAttribute("part", "thumbnails");
     this.thumbs.hidden = true;
@@ -30843,97 +31012,45 @@ var ViewerControls = class {
     this.notesEl.setAttribute("part", "notes");
     this.notesEl.setAttribute("role", "note");
     this.notesEl.hidden = true;
-    this.ui.append(this.thumbs, this.bar);
-    for (const el2 of [this.bar, this.thumbs, this.notesEl]) {
+    this.bar.ui.insertBefore(this.thumbs, this.bar.bar);
+    for (const el2 of [this.thumbs, this.notesEl]) {
       el2.addEventListener("click", (e) => e.stopPropagation());
       el2.addEventListener("pointerdown", (e) => e.stopPropagation());
     }
-    this.bar.addEventListener("pointerenter", () => {
-      this.pointerInBar = true;
-      this.wake();
-    });
-    this.bar.addEventListener("pointerleave", () => {
-      this.pointerInBar = false;
-      this.wake();
-    });
-    this.bar.addEventListener("focusin", () => this.wake());
   }
   host;
   root;
   wrap;
-  ui = document.createElement("div");
-  bar = document.createElement("div");
-  progress = document.createElement("div");
-  value = document.createElement("div");
-  counter = document.createElement("span");
+  bar;
   thumbs = document.createElement("div");
   notesEl = document.createElement("div");
-  buttons = /* @__PURE__ */ new Map();
   style = document.createElement("style");
-  hidden = /* @__PURE__ */ new Set();
-  enabled = true;
   thumbsOpen = false;
   notesOpen = false;
-  hideTimer = 0;
-  pointerInBar = false;
   labels = LABELS.pt;
   /** Último estado aplicado (evita mexer no DOM a cada quadro da reprodução). */
   last = "";
   thumbsKey = "";
-  button(name, item, run) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "upv-btn";
-    b.setAttribute("part", `button button-${name}`);
-    b.dataset["item"] = item;
-    b.innerHTML = icon(name);
-    b.addEventListener("click", () => {
-      run();
-      this.wake();
-      this.sync();
-    });
-    this.buttons.set(name, b);
-    return b;
-  }
   /** Monta (ou desmonta) a barra conforme `nocontrols` e os `no<item>`. */
   configure(enabled, removed, lang) {
-    this.labels = /^en\b/i.test(lang) ? LABELS.en : LABELS.pt;
+    this.labels = pickLabels(lang, LABELS);
     this.notesEl.dataset["empty"] = this.labels.noNotes;
-    this.hidden = new Set(removed);
-    if (enabled !== this.enabled || !this.ui.isConnected) {
-      this.enabled = enabled;
-      if (enabled) {
-        if (!this.style.isConnected) this.root.appendChild(this.style);
-        this.wrap.append(this.ui, this.notesEl);
-        this.wake();
-      } else {
-        this.setThumbsOpen(false);
-        this.setNotesOpen(false);
-        this.ui.remove();
-        this.notesEl.remove();
-      }
+    if (enabled && !this.style.isConnected) this.root.appendChild(this.style);
+    if (!enabled) {
+      this.setThumbsOpen(false);
+      this.setNotesOpen(false);
     }
-    if (this.hidden.has("thumbnails")) this.setThumbsOpen(false);
-    if (this.hidden.has("notes")) this.setNotesOpen(false);
+    if (this.bar.configure(enabled, removed)) {
+      if (enabled) this.wrap.appendChild(this.notesEl);
+      else this.notesEl.remove();
+    }
+    if (this.bar.isRemoved("thumbnails")) this.setThumbsOpen(false);
+    if (this.bar.isRemoved("notes")) this.setNotesOpen(false);
     this.last = "";
     this.sync();
   }
-  /** Atividade do usuário: mostra a barra e reagenda o sumiço. */
-  wake = () => {
-    if (!this.enabled) return;
-    this.wrap.classList.remove("upv-hidden");
-    clearTimeout(this.hideTimer);
-    this.hideTimer = window.setTimeout(this.idle, IDLE_MS);
-  };
-  /** Ponteiro saiu do viewer: some já (se nada prende a barra). */
-  leave = () => {
-    if (this.enabled) this.idle();
-  };
-  idle = () => {
-    clearTimeout(this.hideTimer);
-    if (this.pointerInBar || this.thumbsOpen || this.bar.contains(this.root.activeElement)) return;
-    this.wrap.classList.add("upv-hidden");
-  };
+  wake = () => this.bar.wake();
+  leave = () => this.bar.leave();
   setThumbsOpen(open) {
     this.thumbsOpen = open;
     this.thumbs.hidden = !open;
@@ -30982,74 +31099,55 @@ var ViewerControls = class {
     this.last = "";
     this.sync();
   }
-  onProgressClick = (e) => {
-    const r = this.progress.getBoundingClientRect();
-    const f = Math.max(0, Math.min(1, (e.clientX - r.left) / (r.width || 1)));
-    if (this.host.isPlaying()) this.host.playFrom(f);
-    else {
-      const n = this.host.count();
-      if (n) this.host.goTo(Math.min(n - 1, Math.floor(f * n)));
-    }
-    this.wake();
-  };
   /** Reflete o estado do viewer (chamado a cada pintura; só mexe no DOM quando muda). */
   sync() {
-    if (!this.enabled) return;
-    const h = this.host, L = this.labels;
+    if (!this.bar.enabled) return;
+    const h = this.host, L = this.labels, b = this.bar;
     const n = h.count(), i2 = h.index();
     const playing2 = h.isPlaying(), presenting = h.isPresenting(), full = h.isFullscreen();
     const frac3 = h.playbackFraction();
-    const pct2 = n ? (frac3 ?? (i2 + 1) / n) * 100 : 0;
-    this.value.style.width = `${pct2.toFixed(2)}%`;
+    b.setProgress(n ? frac3 ?? (i2 + 1) / n : 0, { label: L.progress, min: 1, max: n, now: i2 + 1 });
     const muted = h.isMuted(), media = h.hasMedia(), notes = h.hasNotes();
-    const state = [n, i2, playing2, presenting, full, muted, media, notes, this.thumbsOpen, this.notesOpen, [...this.hidden].join()].join("|");
+    const state = [
+      n,
+      i2,
+      playing2,
+      presenting,
+      full,
+      muted,
+      media,
+      notes,
+      this.thumbsOpen,
+      this.notesOpen,
+      CONTROL_ITEMS.filter((it) => b.isRemoved(it)).join()
+    ].join("|");
     if (state === this.last) return;
     this.last = state;
-    const show = (item, extra = true) => !this.hidden.has(item) && extra && n > 0;
-    for (const b of this.bar.querySelectorAll("[data-item]")) {
-      const it = b.dataset["item"];
-      b.hidden = !show(it, it === "mute" ? media : it === "notes" ? notes : true);
-    }
-    this.progress.hidden = !show("progress");
-    this.progress.setAttribute("aria-label", L.progress);
-    this.progress.setAttribute("aria-valuemin", "1");
-    this.progress.setAttribute("aria-valuemax", String(n));
-    this.progress.setAttribute("aria-valuenow", String(i2 + 1));
-    this.counter.textContent = n ? `${i2 + 1} / ${n}` : "";
-    const set = (name, label, ico, pressed) => {
-      const b = this.buttons.get(name);
-      b.setAttribute("aria-label", label);
-      b.title = label;
-      if (ico && b.dataset["icon"] !== ico) {
-        b.innerHTML = icon(ico);
-        b.dataset["icon"] = ico;
-      }
-      if (pressed === void 0) b.removeAttribute("aria-pressed");
-      else b.setAttribute("aria-pressed", String(pressed));
-    };
-    set("prev", L.prev);
-    set("next", L.next);
-    set("play", playing2 ? L.pause : L.play, playing2 ? "pause" : "play");
-    set("mute", muted ? L.unmute : L.mute, muted ? "muted" : "volume");
-    set("thumbnails", L.thumbnails, void 0, this.thumbsOpen);
-    set("notes", L.notes, void 0, this.notesOpen);
-    set("download", L.download);
-    set("present", presenting ? L.unpresent : L.present, presenting ? "unpresent" : "present");
-    set("fullscreen", full ? L.unfullscreen : L.fullscreen, full ? "unfullscreen" : "fullscreen");
+    b.applyVisibility((it) => n > 0 && (it === "mute" ? media : it === "notes" ? notes : true));
+    b.setCounter(n ? `${i2 + 1} / ${n}` : "");
+    b.setButton("prev", { label: L.prev });
+    b.setButton("next", { label: L.next });
+    b.setButton("play", { label: playing2 ? L.pause : L.play, icon: playing2 ? "pause" : "play" });
+    b.setButton("mute", { label: muted ? L.unmute : L.mute, icon: muted ? "muted" : "volume" });
+    b.setButton("thumbnails", { label: L.thumbnails, pressed: this.thumbsOpen });
+    b.setButton("notes", { label: L.notes, pressed: this.notesOpen });
+    b.setButton("download", { label: L.download });
+    b.setButton("present", { label: presenting ? L.unpresent : L.present, icon: presenting ? "unpresent" : "present" });
+    b.setButton("fullscreen", { label: full ? L.unfullscreen : L.fullscreen, icon: full ? "unfullscreen" : "fullscreen" });
     this.wrap.classList.toggle("upv-presenting", presenting);
     if (this.notesOpen) this.notesEl.textContent = h.notes(i2);
     for (const t of this.thumbs.children) {
       const cur = Number(t.dataset["i"]) === i2;
       t.setAttribute("aria-current", String(cur));
       if (cur && this.thumbsOpen) {
-        const s = this.thumbs, l = t.offsetLeft, r = l + t.offsetWidth;
+        const s = this.thumbs, l = t.offsetLeft, rr = l + t.offsetWidth;
         if (l < s.scrollLeft) s.scrollLeft = l - 12;
-        else if (r > s.scrollLeft + s.clientWidth) s.scrollLeft = r - s.clientWidth + 12;
+        else if (rr > s.scrollLeft + s.clientWidth) s.scrollLeft = rr - s.clientWidth + 12;
       }
     }
   }
   dispose() {
-    clearTimeout(this.hideTimer);
+    this.bar.dispose();
   }
 };
 
@@ -31135,7 +31233,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.canvas.addEventListener("mousemove", this.onMouseMove);
     if (this.controlsBuiltIn()) {
       this.badge.style.display = "none";
-      this.canvas.style.background = "var(--upv-background, #000)";
+      this.canvas.style.background = "var(--upv-background, var(--uo-background, #000))";
       this.controls = new ViewerControls(this.controlsHost(), this.host, this.wrap);
       this.wrap.addEventListener("pointermove", () => this.controls?.wake());
       this.wrap.addEventListener("pointerdown", () => this.controls?.wake());

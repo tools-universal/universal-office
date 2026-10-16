@@ -180,7 +180,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     if (this.controlsBuiltIn()) {
       this.badge.style.display = 'none';
       // player: o slide encosta nas bordas; o que sobra (letterbox) é o fundo do elemento
-      this.canvas.style.background = 'var(--upv-background, #000)';
+      this.canvas.style.background = 'var(--upv-background, var(--uo-background, #000))';
       this.controls = new ViewerControls(this.controlsHost(), this.host, this.wrap);
       this.wrap.addEventListener('pointermove', () => this.controls?.wake());
       this.wrap.addEventListener('pointerdown', () => this.controls?.wake());

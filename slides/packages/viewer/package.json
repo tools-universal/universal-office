@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@universal-office/slides-core": "*",
-    "@universal-office/fonts": "file:../../../shared/fonts"
+    "@universal-office/fonts": "file:../../../shared/fonts",
+    "@universal-office/viewer-controls": "file:../../../shared/viewer-controls"
   }
 }
