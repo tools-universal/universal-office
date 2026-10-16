@@ -1,0 +1,20 @@
+{
+  "name": "@universal-office/document-viewer",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Webcomponent <universal-document-viewer> — visualização pura de .docx/.doc com a paginação e a pintura do motor do Write (sem edição)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal-office/docx-core=../docx-core/src/index.ts --alias:@universal-office/layout=../layout/src/index.ts --alias:@universal-office/pdf=../pdf/src/index.ts --alias:@universal-office/docx-layout=../docx-layout/src/index.ts --alias:@universal-office/fonts=../../../shared/fonts/src/index.ts --alias:@universal-office/viewer-controls=../../../shared/viewer-controls/src/index.ts",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@universal-office/docx-core": "*",
+    "@universal-office/docx-layout": "*",
+    "@universal-office/layout": "*",
+    "@universal-office/fonts": "file:../../../shared/fonts",
+    "@universal-office/viewer-controls": "file:../../../shared/viewer-controls"
+  }
+}
