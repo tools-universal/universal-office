@@ -22,6 +22,7 @@ import { parseFormula, FormulaSyntaxError } from './parse.js';
 import { printFormula } from './print.js';
 import { implicitPositions, legacyToDynamic } from './implicit.js';
 import { setComputedCriterion } from './functions/database.js';
+import { resolveAddinCalls } from './addin.js';
 import { ArrayValue, CalcError, ERR, LambdaValue, MAX_COL, MAX_ROW, RefValue, type Area, type Scalar, type Value } from './values.js';
 import type { CalcWorkbook, CellInput, FormulaInput } from './workbook.js';
 
@@ -272,7 +273,11 @@ export class Engine implements EvalHost {
   }
 
   private parse(text: string, row: number, col: number): Node | undefined {
-    try { return parseFormula(text, { row, col }); } catch (e) { if (e instanceof FormulaSyntaxError) return undefined; throw e; }
+    try {
+      const n = parseFormula(text, { row, col });
+      // função do ATP chamada como suplemento (.xls): resolvida pelo nome no idioma (addin.ts)
+      return /_xll\./i.test(text) ? resolveAddinCalls(n, this.locale.id) : n;
+    } catch (e) { if (e instanceof FormulaSyntaxError) return undefined; throw e; }
   }
 
   private load(st: SheetStore, r: number, c: number, inp: CellInput, shared: Map<string, { node: Node | undefined; text: string }>): void {
@@ -292,6 +297,8 @@ export class Engine implements EvalHost {
       node = text ? this.parse(text, r, c) : m?.node;
       if (!text) text = '';
     } else node = this.parse(text, r, c);
+    // suplemento resolvido: o texto passa a ser o da função nativa (barra de fórmulas, gravação)
+    if (node && text && /_xll\./i.test(text)) text = printFormula(node, { row: r, col: c });
     const kind = f.t === 'array' ? 'array' : f.t === 'dataTable' ? 'dataTable' : 'normal';
     const rec: FormulaRec = {
       sheet: st.index, row: r, col: c, node, text, kind, dynamic: kind === 'array' && !!f.dynamic,
@@ -323,14 +330,19 @@ export class Engine implements EvalHost {
   private nameIsMulti(sheet: number, name: string): boolean {
     const d = this.definedName(name, sheet);
     if (!d) return true;
-    const e = d.t === 'paren' ? d.e : d;
+    let e = d;
+    // constante escalar, inclusive com sinal/parênteses (irr_guess = -0.05 → sem @; corpus .xls)
+    while (e.t === 'paren' || (e.t === 'unary' && e.op !== '%' && e.e.t !== 'cell')) e = e.e;
     return !(e.t === 'cell' || e.t === 'num' || e.t === 'str' || e.t === 'bool' || e.t === 'err');
   }
 
   private analyze(rec: FormulaRec, node: Node): void {
     if (rec.kind === 'normal') {
       let ex = this.execCache.get(node);
-      if (!ex) { ex = legacyToDynamic(node, { nameIsMulti: (nm) => this.nameIsMulti(rec.sheet, nm) }); this.execCache.set(node, ex); }
+      if (!ex) {
+        ex = legacyToDynamic(node, { nameIsMulti: (nm) => this.nameIsMulti(rec.sheet, nm), isName: (nm) => this.definedName(nm, rec.sheet) !== undefined });
+        this.execCache.set(node, ex);
+      }
       rec.exec = ex;
     }
     walk(node, (n) => {

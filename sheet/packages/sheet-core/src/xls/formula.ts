@@ -141,15 +141,33 @@ function areaText(r1f: number, r2f: number, c1f: number, c2f: number, rel: boole
   const a = pos(r1f, c1f), b = pos(r2f, c2f);
   const col = (x: typeof a): string => `${x.cAbs ? '$' : ''}${colLetters(x.c)}`;
   const row = (x: typeof a): string => `${x.rAbs ? '$' : ''}${x.r + 1}`;
-  if (a.r === 0 && b.r === 0xffff) return `${col(a)}:${col(b)}`;
+  // aba inteira (A1:IV65536): o Excel escreve as LINHAS ($1:$65536)
   if (a.c === 0 && b.c === 0xff) return `${row(a)}:${row(b)}`;
+  if (a.r === 0 && b.r === 0xffff) return `${col(a)}:${col(b)}`;
   return `${col(a)}${row(a)}:${col(b)}${row(b)}`;
 }
 
-/** Número como o Excel o escreve na fórmula ("1E-07" → "1E-7"; o parser aceita os dois). */
-function numText(v: number): string {
-  const s = String(v);
-  return s.includes('e') ? s.replace('e', 'E') : s;
+/**
+ * Número como o Excel o escreve na fórmula (medido com Formula2): 15 algarismos
+ * significativos; decimal quando cabe em 21 caracteres (1E-19 → 0.0000000000000000001,
+ * 1E+20 → 100000000000000000000, 3.7E-8 → 0.000000037), senão científico
+ * (1E-20, 1E+21, 1.23456789012345E-10, 1.5E+300).
+ */
+export function numText(v: number): string {
+  if (!Number.isFinite(v)) return '0';
+  if (v === 0) return '0';
+  const neg = v < 0;
+  const [m, e] = Math.abs(v).toExponential(14).split('e') as [string, string];
+  const digits = m.replace('.', '').replace(/0+$/, '') || '0';
+  const exp = parseInt(e, 10);
+  let dec: string;
+  if (exp >= 0) {
+    const int = digits.slice(0, exp + 1).padEnd(exp + 1, '0');
+    const frac = digits.slice(exp + 1);
+    dec = frac ? `${int}.${frac}` : int;
+  } else dec = `0.${'0'.repeat(-exp - 1)}${digits}`;
+  const out = dec.length <= 21 ? dec : `${digits[0]}${digits.length > 1 ? '.' + digits.slice(1) : ''}E${exp < 0 ? '-' : '+'}${Math.abs(exp)}`;
+  return neg ? '-' + out : out;
 }
 
 /** Constante de matriz (PtgExtraArray, BIFF8) a partir de `p`: texto `{…}` e o fim. */
@@ -325,8 +343,16 @@ export function workbookFormulaContext(g: XlsGlobals): FormulaContext {
       const both = `${a.name}:${b.name}`;
       return quoteSheet(a.name) === a.name && quoteSheet(b.name) === b.name ? both : `'${both.replace(/'/g, "''")}'`;
     },
-    nameOf: (i) => g.names[i - 1],
-    externOf: (ixti, i) => { const x = g.xti[ixti]; return x ? g.externNames[x.book]?.[i - 1] : undefined; },
+    // nome de função de macro (UDF do VBA/XLM, fFunc): chamada a função do usuário — o Excel
+    // mostra =@Sum(…) mesmo com o nome de uma nativa (medido: lo-user_defined_function)
+    nameOf: (i) => { const d = g.nameDefs[i - 1]; const nm = g.names[i - 1]; return d?.macro && nm && !d.builtin ? `_xludf.${nm}` : nm; },
+    // função de suplemento (SUPBOOK de add-in): o Excel 365 não a resolve — mostra
+    // =@ISEVEN(A1) e dá #NAME? (medido no corpus: YEARFRAC, ISEVEN, CONVERT, XNPV…)
+    externOf: (ixti, i) => {
+      const x = g.xti[ixti];
+      const nm = x ? g.externNames[x.book]?.[i - 1] : undefined;
+      return nm !== undefined && x && g.addinBooks.has(x.book) && !/^_xl/i.test(nm) ? `_xll.${nm}` : nm;
+    },
     row: 0, col: 0,
   };
 }

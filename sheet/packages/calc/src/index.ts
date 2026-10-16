@@ -33,6 +33,7 @@ export * from './open-recalc.js';
 export * from './to-sheet-core.js';
 export * from './file-form.js';
 export * from './save.js';
+export * from './addin.js';
 
 // bibliotecas de funções (registram no carregamento)
 import './functions/math.js';

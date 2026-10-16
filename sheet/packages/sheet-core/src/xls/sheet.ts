@@ -263,7 +263,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
     pendingFormula = undefined;
     if (row >= MAX_ROW || col >= MAX_COL) return;
     put(row, col, `<c r="${ref(row, col)}"${sAttr(xf)} t="str">${fx}<v>${xmlText(text ?? '')}</v></c>`, xf);
-    if (!fx && expKey) (waiting.get(expKey) ?? waiting.set(expKey, []).get(expKey)!).push([row, col]);
+    if (!fx && expKey && !shared.has(expKey)) (waiting.get(expKey) ?? waiting.set(expKey, []).get(expKey)!).push([row, col]);
     if (text) keep?.(row, col, text, xf);
   };
 
@@ -358,7 +358,7 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
           put(row, col, `${head}>${fx}<v>${num(v)}</v></c>`, xf);
           keep?.(row, col, v, xf);
         }
-        if (!fx && expKey) (waiting.get(expKey) ?? waiting.set(expKey, []).get(expKey)!).push([row, col]);
+        if (!fx && expKey && !shared.has(expKey)) (waiting.get(expKey) ?? waiting.set(expKey, []).get(expKey)!).push([row, col]);
         break;
       }
       case RT.CALCMODE: (sh.calc ??= {}).mode = r.i16(0); break;
@@ -598,6 +598,8 @@ export function readSheet(recs: Iterator<BiffRecord>, g: XlsGlobals, strings: St
     }
   }
   if (pendingFormula) flushFormula('');
+  // ptgExp cuja fórmula-mestra (SHRFMLA/ARRAY/TABLE) nunca veio: o Excel mostra =#REF! (medido: lo-tdf100582)
+  for (const cells of waiting.values()) for (const [wr, wc] of cells) patchF(wr, wc, '<f>#REF!</f>');
   if (drawing.length) {
     const out = new Uint8Array(drawingLen);
     let o = 0;

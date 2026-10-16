@@ -76,7 +76,8 @@ export function unsureReasons(engine: Engine): string[] {
 function nameIsMulti(engine: Engine, sheet: number, name: string): boolean {
   const d = engine.definedName(name, sheet);
   if (!d) return true;
-  const e = d.t === 'paren' ? d.e : d;
+  let e = d;
+  while (e.t === 'paren' || (e.t === 'unary' && e.op !== '%' && e.e.t !== 'cell')) e = e.e;
   return !(e.t === 'cell' || e.t === 'num' || e.t === 'str' || e.t === 'bool' || e.t === 'err');
 }
 

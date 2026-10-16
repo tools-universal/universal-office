@@ -95,6 +95,8 @@ export interface XlsGlobals {
   themeZip?: Uint8Array;
   /** SUPBOOK: true = a própria pasta (referências internas). */
   supbooks: boolean[];
+  /** SUPBOOK de suplemento (cch = 0x3A01): funções de add-in (ATP do Excel 97–2003…). */
+  addinBooks: Set<number>;
   /** EXTERNSHEET (BIFF8): ixti → { pasta, 1ª e última aba } (−1/−2: aba apagada/inválida). */
   xti: { book: number; tab: number; last: number }[];
   /** Nome embutido _FilterDatabase por aba (índice do BOUNDSHEET): área do autofiltro. */
@@ -151,7 +153,7 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
   const g: XlsGlobals = {
     biff, cp: new Codepage(biff === 8 ? 1200 : 1252), date1904: false,
     fonts: [], formats: new Map(), xfs: [], palette: [...INDEXED_COLORS_DEFAULT.slice(0, 64)],
-    sheets: [], sst: [], activeTab: 0, supbooks: [], xti: [], filterDb: new Map(), names: [], nameDefs: [], externNames: [], dxfs: [],
+    sheets: [], sst: [], activeTab: 0, supbooks: [], addinBooks: new Set(), xti: [], filterDb: new Map(), names: [], nameDefs: [], externNames: [], dxfs: [],
   };
   const b8 = biff === 8;
   const dg: Uint8Array[] = [];
@@ -231,6 +233,7 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
         break;
       case RT.SUPBOOK:
         // cch = 0x0401: referências à própria pasta
+        if (r.u16(2) === 0x3a01) g.addinBooks.add(g.supbooks.length);
         g.supbooks.push(r.u16(2) === 0x0401);
         break;
       case RT.NAME: {
@@ -248,7 +251,7 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
             const area = formulaAreas(r, fOff, cce)[0];
             if (area) g.filterDb.set(itab - 1, area);
           }
-        } else name = readChars(r, 15, cch, high, []).text;
+        } else name = cellLikeName(readChars(r, 15, cch, high, []).text);
         g.names.push(name);
         g.nameDefs.push({ name, sheet: itab - 1, hidden: (grbit & 1) !== 0, builtin: (grbit & 0x20) !== 0, macro: (grbit & 0x0e) !== 0, r, off: fOff, cce });
         break;
@@ -264,8 +267,8 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
         }
         break;
       case RECALCID:
-        // FrtHeaderOld (rt u16 + grbitFrt u16) + dwBuild u32
-        if (r.length >= 8) g.recalcId = r.u32(4);
+        // FrtHeaderOld (rt u16 = 0x01C1 + grbitFrt u16) + dwBuild u32 (lixo de outros gravadores: ignora)
+        if (r.length >= 8 && r.u16(0) === RECALCID && r.u32(4) > 0 && r.u32(4) < 1000000) g.recalcId = r.u32(4);
         break;
       case RT.THEME: {
         // FrtHeader (12 bytes) + dwThemeVersion: 0 = tema PERSONALIZADO (pacote
@@ -283,6 +286,21 @@ export function readGlobals(recs: Iterable<BiffRecord>, biff: 5 | 8): XlsGlobals
   if (dg.length) g.drawingGroup = concat(dg);
   if (theme) g.themeZip = concat(theme);
   return g;
+}
+
+/**
+ * Nome do .xls que no grid do .xlsx (XFD1048576) vira referência de célula
+ * ("SHH20") ou R1C1: o Excel o grava com "_" na frente (medido: SHH20 → _SHH20,
+ * nos nomes e nas fórmulas) — senão a fórmula leria a célula.
+ */
+function cellLikeName(name: string): string {
+  const m = /^([A-Za-z]{1,3})(\d+)$/.exec(name);
+  if (m) {
+    const col = [...m[1]!.toUpperCase()].reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0);
+    const row = parseInt(m[2]!, 10);
+    if (col <= 16384 && row >= 1 && row <= 1048576) return '_' + name;
+  }
+  return /^[Rr]\d*[Cc]\d*$/.test(name) || /^[RrCc]$/.test(name) ? '_' + name : name;
 }
 
 /** RecalcId (0x01C1): build do motor de cálculo do último recálculo completo. */

@@ -13,6 +13,7 @@
  */
 import type { Node } from './ast.js';
 import { argMode, lookupFn } from './fn.js';
+import { catalogEntry } from './i18n/catalog.js';
 import { IMPLICIT_CLASSES } from './implicit-classes.js';
 
 export type ParamClass = 'V' | 'R' | 'A';
@@ -62,6 +63,8 @@ export function implicitPositions(n: Node): number[] {
   return out;
 }
 
+const UDF_CLASS: FnClassInfo = { top: true, params: ['R'] };
+
 /** Parâmetros que a sonda com enchimento "1" não alcança (o 2º do CELL exige referência). */
 const OVERRIDES: Record<string, FnClassInfo> = {
   CELL: { top: true, params: ['V', 'R'] },
@@ -83,6 +86,8 @@ export interface LegacyOptions {
    * Ausente = sim (no valor tanto faz).
    */
   readonly nameIsMulti?: (name: string) => boolean;
+  /** O nome de função é um nome definido (chamada de LAMBDA guardada em nome — não é UDF). */
+  readonly isName?: (name: string) => boolean;
 }
 
 let opts: LegacyOptions = {};
@@ -141,7 +146,11 @@ function conv(n: Node, ctx: Ctx): Node {
       if (n.name === 'SINGLE') return n;
       // A1# devolve referência: como valor ganha @ (medido: FORMULATEXT → "=@F4#")
       if (n.name === 'ANCHORARRAY' || n.name.startsWith('_TRO_')) return isValue(ctx) ? SINGLE(n) : n;
-      const info = fnClass(n.name);
+      // função definida pelo usuário / de suplemento (_xludf., _xll., nome desconhecido):
+      // pode devolver matriz — ganha @ no topo e os argumentos passam como referência
+      // (medido: .xls com ISEVEN de suplemento → Formula2 "=@ISEVEN(A1)")
+      const udf = /^_xludf\.|^_xll\./i.test(n.prefix ?? '') || (!lookupFn(n.name) && !catalogEntry(n.name) && !(opts.isName?.(n.name) ?? false));
+      const info = udf ? UDF_CLASS : fnClass(n.name);
       // IF com A1# na condição: a condição vira matriz e o @ vai no IF (medido: =@IF(A1#>1;1;2))
       const ifAnchor = n.name === 'IF' && !!n.args[0] && hasAnchor(n.args[0]);
       const args = n.args.map((a, i) => {
