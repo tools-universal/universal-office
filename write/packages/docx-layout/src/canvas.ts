@@ -1,8 +1,10 @@
 import type { InlineImage } from '@universal-office/docx-core';
-import type { PageItem, GlyphRunItem, ShapeItem, FontFace as EngineFontFace } from '@universal-office/docx-layout';
+import type { PageItem, GlyphRunItem, ShapeItem } from './tree.js';
+import type { FontFace as EngineFontFace } from './fonts.js';
 
 /**
- * Pintor de canvas da árvore de layout do motor (@universal-office/docx-layout).
+ * Pintor de canvas da árvore de layout do motor — usado pelo editor
+ * (<universal-write>) e pelo viewer (<universal-document-viewer>).
  * Espelha EXATAMENTE a semântica de docx-layout/src/pdf.ts (o pintor de
  * referência): glifos um a um no x/baseline do motor, retângulos com alfa,
  * linhas tracejadas, formas (rect/roundRect/elipse/linha, rotação, espelho,
@@ -11,7 +13,7 @@ import type { PageItem, GlyphRunItem, ShapeItem, FontFace as EngineFontFace } fr
  * TWIPS (o chamador fixa a escala twip → pixel do buffer).
  */
 
-/** O que o editor fornece ao pintor (fontes carregadas, imagens, cores). */
+/** O que o hospedeiro (editor/viewer) fornece ao pintor (fontes carregadas, imagens, cores). */
 export interface EnginePaintEnv {
   /** família CSS (já entre aspas, com fallback) + peso/estilo da face. */
   fontOf(face: EngineFontFace): { family: string; weight: 400 | 700; italic: boolean };

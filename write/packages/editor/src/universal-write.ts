@@ -71,7 +71,7 @@ import {
 } from '@universal-office/docx-layout';
 import { readOdt, writeOdt } from '@universal-office/odf';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
-import { paintItems, type EnginePaintEnv } from './engine-paint.js';
+import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
 import { guardRuns } from './edit-guard.js';
 import {
   buildEngineDoc, locateRef, resolveCell, cellBlocks, sameHops, caretXIn, offsetAtX, reconcileBlocks,

@@ -9,3 +9,4 @@ export type {
   PathItem, PathCmdTw, XformItem, PlacedObject,
 } from './tree.js';
 export { documentHyphenationLanguages } from './hyphenate.js';
+export { paintItems, type EnginePaintEnv } from './canvas.js';
