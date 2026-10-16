@@ -603,7 +603,8 @@ function readCell(el: XmlElement, cx?: ColorContext): Cell {
   if (el.attrs['t'] !== undefined) cell.type = el.attrs['t'] as CellType;
   if (el.attrs['s'] !== undefined) cell.style = parseInt(el.attrs['s'], 10);
   const v = firstChild(el, 'v');
-  if (v !== undefined) cell.value = cell.type === 'str' ? decodeXstring(textContent(v)) : textContent(v);
+  // texto de fórmula: sem xml:space="preserve" o Excel apara as pontas (como no <t>)
+  if (v !== undefined) cell.value = cell.type === 'str' ? tText(v) : textContent(v);
   const f = firstChild(el, 'f');
   if (f !== undefined) {
     cell.formula = textContent(f);

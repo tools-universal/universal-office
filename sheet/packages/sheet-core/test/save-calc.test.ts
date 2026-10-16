@@ -80,6 +80,8 @@ describe('partes de cálculo na gravação', () => {
     expect(encodeXstring('a\u0001b_x0041_')).toBe('a_x0001_b_x005F_x0041_');
     const xml = serializeSheetData([{ r: 1, cells: [{ ref: 'A1', formula: '""', type: 'str', value: '' }, { ref: 'B1', formula: 'A1', value: '' }] }]);
     expect(xml).toContain('<c r="A1" t="str"><f>""</f><v></v></c><c r="B1"><f>A1</f></c>');
+    // espaço nas pontas: xml:space="preserve" (o Excel apara sem ele — medido: " " virava "")
+    expect(serializeSheetData([{ r: 1, cells: [{ ref: 'A1', formula: '" "', type: 'str', value: ' ' }] }])).toContain('<v xml:space="preserve"> </v>');
     // erro do 365 no <v>: o Excel não abre — vai #VALUE! (a fórmula ganha ca no prepareForSave)
     expect(serializeSheetData([{ r: 1, cells: [{ ref: 'A1', formula: 'X', type: 'e', value: '#CALC!' }, { ref: 'B1', type: 'e', value: '#N/A' }] }]))
       .toContain('<c r="A1" t="e"><f>X</f><v>#VALUE!</v></c><c r="B1" t="e"><v>#N/A</v></c>');

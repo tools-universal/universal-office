@@ -70,8 +70,10 @@ function cellXml(c: Cell): string {
     const sp = /^\s|\s$/.test(t) ? ' xml:space="preserve"' : '';
     inner += `<is><t${sp}>${escXml(encodeXstring(t))}</t></is>`;
   } else if (c.type === 'str' && c.value !== undefined) {
-    // texto de fórmula/derramado: "" vai como <v></v> (o Excel grava <v/>; sem <v> ele calcula ao abrir)
-    inner += `<v>${escXml(encodeXstring(c.value))}</v>`;
+    // texto de fórmula/derramado: "" vai como <v></v> (o Excel grava <v/>; sem <v> ele calcula ao abrir);
+    // espaço nas pontas só sobrevive com xml:space="preserve" (o Excel grava assim e apara sem ele)
+    const sp = /^[ \t\n\r]|[ \t\n\r]$/.test(c.value) ? ' xml:space="preserve"' : '';
+    inner += `<v${sp}>${escXml(encodeXstring(c.value))}</v>`;
   } else if (c.type === 'e' && c.value !== undefined && !FILE_ERRORS.has(c.value.trim().toUpperCase())) {
     // (com vm, o rich value guarda o tipo do erro; o <v> é sempre #VALUE!)
     inner += '<v>#VALUE!</v>';
