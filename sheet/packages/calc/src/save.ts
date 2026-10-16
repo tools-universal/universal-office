@@ -11,7 +11,7 @@
  *     para o Excel recalcular ao abrir em vez de mostrar o nosso cache.
  * Tipado por estrutura (sem importar o sheet-core). Dono: agente CALC-IO.
  */
-import { walk } from './ast.js';
+import { walk, type Node } from './ast.js';
 import type { Engine, FormulaRec } from './engine.js';
 import { lookupFn } from './fn.js';
 import { saveFlags, toFileFormula } from './file-form.js';
@@ -49,14 +49,25 @@ export interface SavePrep {
 export function unsureReasons(engine: Engine): string[] {
   const out = new Set<string>();
   if (engine.internalErrors.length) out.add('erro interno');
+  const seenNames = new Set<string>();
+  const visit = (node: Node, sheet: number, depth: number): void => walk(node, (n) => {
+    // nome definido usado: a fórmula dele também (ex.: PrevSheet = GET.WORKBOOK(…) da XLM)
+    if (n.t === 'name' && !n.param && depth < 20) {
+      const k = `${sheet}|${n.name.toUpperCase()}`;
+      if (seenNames.has(k)) return;
+      seenNames.add(k);
+      const d = engine.definedName(n.name, sheet);
+      if (d) visit(d, sheet, depth + 1);
+      return;
+    }
+    if (n.t !== 'fn') return;
+    if (ENVIRONMENT_FUNCTIONS.has(n.name)) out.add(n.name);
+    else if (!lookupFn(n.name) && n.name !== 'ANCHORARRAY' && !n.name.startsWith('_TRO_') && !engine.definedName(n.name, sheet)) out.add(`desconhecida ${n.name}`);
+  });
   for (const f of engine.allFormulas()) {
     if (f.kind === 'dataTable') { out.add('tabela de dados'); continue; }
     if (!f.node) { out.add('fórmula não analisada'); continue; }
-    walk(f.node, (n) => {
-      if (n.t !== 'fn') return;
-      if (ENVIRONMENT_FUNCTIONS.has(n.name)) out.add(n.name);
-      else if (!lookupFn(n.name) && n.name !== 'ANCHORARRAY' && !n.name.startsWith('_TRO_') && !engine.definedName(n.name, f.sheet)) out.add(`desconhecida ${n.name}`);
-    });
+    visit(f.node, f.sheet, 0);
   }
   return [...out];
 }
@@ -137,6 +148,8 @@ export function prepareForSave(engine: Engine, worksheets: readonly (SyncWorkshe
       // com ca o Excel o recalcula ao abrir e mostra o erro certo
       const v = engine.getValue(f.sheet, f.row, f.col);
       const fl = v instanceof CalcError && !FILE_ERRORS.has(v.code) ? { ca: true, aca: fl0.aca || isDyn } : fl0;
+      // vm de rich value de ERRO (#SPILL!/#CALC! em cache) numa fórmula que agora dá valor comum: sai
+      if (c.vm !== undefined && !(v instanceof CalcError)) { delete c.vm; changed = true; }
       if (!!fa.ca !== fl.ca) { if (fl.ca) fa.ca = true; else delete fa.ca; changed = true; }
       const aca = fl.aca && isDyn;
       if (!!fa.aca !== aca) { if (aca) fa.aca = true; else delete fa.aca; changed = true; }

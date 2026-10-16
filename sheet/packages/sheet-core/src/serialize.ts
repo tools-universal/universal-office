@@ -72,7 +72,8 @@ function cellXml(c: Cell): string {
   } else if (c.type === 'str' && c.value !== undefined) {
     // texto de fórmula/derramado: "" vai como <v></v> (o Excel grava <v/>; sem <v> ele calcula ao abrir)
     inner += `<v>${escXml(encodeXstring(c.value))}</v>`;
-  } else if (c.type === 'e' && c.value !== undefined && !FILE_ERRORS.has(c.value.trim().toUpperCase()) && c.vm === undefined) {
+  } else if (c.type === 'e' && c.value !== undefined && !FILE_ERRORS.has(c.value.trim().toUpperCase())) {
+    // (com vm, o rich value guarda o tipo do erro; o <v> é sempre #VALUE!)
     inner += '<v>#VALUE!</v>';
   } else if (c.value !== undefined && (c.value !== '' || c.formula === undefined)) {
     inner += `<v>${escXml(c.value)}</v>`;
