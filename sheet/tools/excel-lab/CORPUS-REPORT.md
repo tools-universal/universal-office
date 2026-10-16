@@ -77,7 +77,13 @@ Rodadas completas com `.xls` (todas as abas com oráculo):
 | r5 (.xls) | 2.691 | 6,74 | 11,54 | 29,7 | 89,5% |
 | r6 (+desenhos) | 2.414* | 5,78 | 10,35 | 27,4 | 89,1% |
 | r7 (+tabelas/CF, oráculo 1:1) | 2.692 | 5,26 | 9,03 | 23,9 | 90,0% |
-| r8 (+texto/formatos, gráficos, formas .xls) | 2.692 | **0,31** | **4,30** | **14,8** | **98,9%** |
+| r8 (+texto/formatos, gráficos, formas .xls) | 2.692 | 0,31 | 4,30 | 14,8 | 98,9% |
+| r9 (+motor de cálculo: recálculo ao abrir, TEXT/frações) | 2.692 | **0,29** | **4,15** | **14,6** | **99,4%** |
+
+r9 por origem (mediana/média): gd 0,31/3,85 · gdx 0,63/6,76 · lo 0,17/2,27 ·
+poi 0,02/2,67 · web 2,66/9,32. O texto exibido sobe porque agora a tela mostra
+o que o Excel mostra ao abrir — ele recalcula a pasta em vários casos (regra
+medida abaixo) e o cache gravado no arquivo fica velho.
 
 \* rodada concorrente com a reexportação do oráculo (renderizações perdidas).
 Em r8 por origem (mediana/média): gd 0,31/3,88 · gdx 0,63/6,76 · lo 0,22/2,66 ·
@@ -144,18 +150,39 @@ Geometria do grid (`sheet-core/src/grid-metrics.ts`, tabelas em
 Robustez: `<row>`/`<c>` sem `r` (posição implícita) e o prefixo `x:` do
 OpenXML SDK; mesclas com índice espacial (50 mil mesclas: 13 s → 2,6 s).
 
-## Em andamento (agentes em paralelo)
+## Motor de cálculo (`sheet/packages/calc`)
 
-- `.xls` BIFF8/BIFF5 → pacote OOXML em memória (mesmo caminho do .xlsx).
-- Desenhos: imagens, formas, caixas de texto, conectores, grupos (reuso do
-  motor DrawingML do Slides).
-- Tabelas (estilos internos completos), tabela dinâmica, formatação
-  condicional (barras, escalas, ícones), estilos de coluna/linha, bordas e
-  padrões ao pixel.
-- Texto exibido e desenhado: formatos numéricos (espaço/`?`/`*`/seções
-  condicionais), erros em pt-BR, `showZeros`, General que encolhe e `####`,
-  alinhamentos, rotação, RTL.
-- Gráficos do Excel (tipos ausentes, linhas de tendência, folhas de gráfico).
+Motor próprio de fórmulas, canônico por dentro (nomes em inglês, "," e "."
+como no arquivo) com a camada de idioma à parte (`src/i18n`: pt-BR medido no
+Excel, en-US; outros idiomas ficam para depois). Todas as 535 funções de
+planilha do catálogo do Excel 365 registradas; parser/serializador do texto
+OOXML (`_xlfn.`, `_xlpm.`, `@`/SINGLE, `#`/ANCHORARRAY, `:.`…), matrizes
+dinâmicas e derramamento, LET/LAMBDA, nomes, tabelas, links externos (cache),
+grafo de dependências com recálculo incremental, voláteis, ciclos/iterativo e
+o `@` legado medido em 508 funções.
+
+| medida (oráculo: Excel 365 pt-BR via COM) | resultado |
+|---|---|
+| bancos de casos por função (`test/oracle/*.cases.json`) | 35.299 casos; divergências aceitas só com motivo medido (`*.known.json`) |
+| corpus .xlsx: células com fórmula iguais ao recálculo completo do Excel | **99,90%** (65.464/65.531, 237 pastas) |
+| corpus .xls: texto da fórmula = `Formula2` / valor = Excel | 98,8% / 99,7% (380 pastas, 40 mil fórmulas) |
+| ida e volta .xlsx (ler → recalcular → gravar → Excel abre) | 237/237 sem reparo; `Formula2` 99,999% |
+| incremental × recálculo completo | 0 diferenças em 62.526 células |
+| idioma pt-BR (FormulaLocal ↔ canônico) | 100% das 609 funções; 99,995% de 19.576 fórmulas do corpus |
+
+Regra medida de recálculo ao abrir (Excel 16, CalculationVersion 191029):
+modo manual não recalcula; recálculo completo sem `fileVersion appName="xl"`,
+sem `calcId` ou com `calcId` < 191028, com `fullCalcOnLoad`/`forceFullCalc`,
+ou com função volátil no texto de uma fórmula sem `ca="1"`; senão só as
+fórmulas com `ca="1"` ou sem `<v>`. Na tela: o que o Excel mostra ao abrir
+bate com o cache gravado em 92,8% das células com fórmula e com o nosso
+plano em 99,65%.
+
+Pendente: FORECAST.ETS (otimizador do Excel não identificado; 66 células de
+uma pasta), últimos dígitos de RATE/IRR/XIRR/YIELD, algumas inversas de
+distribuição; fórmulas BIFF5; exportadores CSV/HTML/PDF e o port .NET ainda
+usam o cache; copiar/colar/preencher/inserir linhas (ajuste de referências)
+quando a UI tiver.
 
 ## Reproduzir
 
