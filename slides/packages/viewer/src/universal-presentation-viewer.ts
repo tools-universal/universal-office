@@ -9,7 +9,7 @@ import {
   type PlaybackOptions, type PlaybackTimeline, type PlaybackSlide, type SlideShowAction, type SlideTimingModel,
 } from '@universal-office/slides-core';
 import { MediaPlayer } from './media-player.js';
-import { ViewerControls, type ControlsHost } from './controls.js';
+import { ViewerControls, CONTROL_ITEMS, type ControlsHost } from './controls.js';
 
 /** Opções de `play()` — reprodução automática. */
 export interface PlayOptions extends PlaybackOptions {
@@ -90,10 +90,11 @@ const PREV_KEYS = new Set(['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace', 'p', '
  *    quiosque).
  *
  * Controles (como os do <video>): visíveis por padrão; `nocontrols` desliga
- * todos, `controlslist="nodownload nofullscreen …"` tira um a um (ver
+ * todos e um atributo booleano por item tira só ele (`nodownload`,
+ * `nofullscreen`, `nothumbnails`… — ver
  * controls.ts: variáveis CSS `--upv-*` e `::part()`).
  *
- * API: atributos `src`, `fonts`, `nocontrols`, `controlslist`; `loadPptx(bytes)`, `fontsReady()`,
+ * API: atributos `src`, `fonts`, `nocontrols`, `no<item>`; `loadPptx(bytes)`, `fontsReady()`,
  * `getSlideCount/getSlideIndex`, `selectSlide/next/prev`,
  * `present(from?, opts?)`/`stopPresentation()`/`isPresenting()`,
  * `play(opts?)`/`stopPlayback()`/`isPlaying()`, `renderThumbnail(i, canvas)`,
@@ -142,7 +143,9 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   /** Vídeo/áudio/GIF da reprodução automática. */
   protected media = new MediaPlayer(() => this.paint());
 
-  static get observedAttributes(): string[] { return ['src', 'nocontrols', 'controlslist', 'lang']; }
+  static get observedAttributes(): string[] {
+    return ['src', 'nocontrols', ...CONTROL_ITEMS.map((it) => `no${it}`), 'lang'];
+  }
 
   /**
    * Barra de controles embutida. O editor (subclasse) tem a própria interface:
@@ -189,7 +192,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   /** Liga a barra conforme os atributos — no connect e quando eles mudam. */
   private configureControls(): void {
     const lang = (this.closest('[lang]') as HTMLElement | null)?.lang || navigator.language;
-    this.controls?.configure(!this.hasAttribute('nocontrols'), this.getAttribute('controlslist'), lang);
+    this.controls?.configure(!this.hasAttribute('nocontrols'), CONTROL_ITEMS.filter((it) => this.hasAttribute(`no${it}`)), lang);
   }
 
   /** Ponte da barra de controles com a API pública do viewer. */

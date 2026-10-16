@@ -32,9 +32,12 @@ pv.addEventListener('us-download', (e) => {
 
 function apply(): void {
   const no = $<HTMLInputElement>('nocontrols').checked;
-  const off = [...list.querySelectorAll<HTMLInputElement>('input:checked')].map((i) => `no${i.dataset['t']}`).join(' ');
   pv.toggleAttribute('nocontrols', no);
-  if (off) pv.setAttribute('controlslist', off); else pv.removeAttribute('controlslist');
+  let off = '';
+  for (const i of list.querySelectorAll<HTMLInputElement>('input')) {
+    pv.toggleAttribute(`no${i.dataset['t']}`, i.checked);
+    if (i.checked) off += ` no${i.dataset['t']}`;
+  }
 
   const color = $<HTMLInputElement>('vColor').value, prog = $<HTMLInputElement>('vProgress').value;
   const hover = $<HTMLInputElement>('vHover').value, size = $<HTMLInputElement>('vSize').value, ph = $<HTMLInputElement>('vPh').value;
@@ -53,7 +56,7 @@ function apply(): void {
       + `universal-presentation-viewer::part(progress) { border-radius: 999px; }\n`;
   }
   $('userCss').textContent = css;
-  const attrs = `${no ? ' nocontrols' : ''}${!no && off ? ` controlslist="${off}"` : ''}`;
+  const attrs = no ? ' nocontrols' : off;
   $('markup').textContent = (css ? `<style>\n${css}</style>\n` : '') + `<universal-presentation-viewer src="deck.pptx"${attrs}></universal-presentation-viewer>`;
 }
 document.querySelector('aside')!.addEventListener('input', apply);

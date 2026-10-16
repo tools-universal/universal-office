@@ -1,7 +1,8 @@
 /**
  * Barra de controles do <universal-presentation-viewer> — o equivalente aos
  * controles nativos do <video>: aparece por padrão, `nocontrols` desliga tudo
- * e `controlslist="nodownload nofullscreen …"` tira botões um a um.
+ * e um atributo booleano por item tira só ele: `nodownload`, `nofullscreen`,
+ * `nothumbnails`… (`no` + nome do item, ver CONTROL_ITEMS).
  *
  * Personalização pelo host, sem tocar no shadow DOM:
  *  - variáveis CSS (herdam pela fronteira do shadow): `--upv-controls-color`,
@@ -15,7 +16,7 @@
  * Os ícones são SVG com `currentColor`: a cor e o tamanho vêm só das variáveis.
  */
 
-/** Itens que `controlslist` pode tirar (o token é `no` + nome). */
+/** Itens da barra; o atributo booleano `no` + nome tira o item (`nodownload`…). */
 export const CONTROL_ITEMS = ['nav', 'counter', 'play', 'mute', 'thumbnails', 'notes', 'download', 'present', 'fullscreen', 'progress'] as const;
 export type ControlItem = typeof CONTROL_ITEMS[number];
 
@@ -250,11 +251,11 @@ export class ViewerControls {
     return b;
   }
 
-  /** Monta (ou desmonta) a barra conforme `nocontrols`/`controlslist`. */
-  configure(enabled: boolean, controlsList: string | null, lang: string): void {
+  /** Monta (ou desmonta) a barra conforme `nocontrols` e os `no<item>`. */
+  configure(enabled: boolean, removed: readonly ControlItem[], lang: string): void {
     this.labels = /^en\b/i.test(lang) ? LABELS.en : LABELS.pt;
     this.notesEl.dataset['empty'] = this.labels.noNotes;
-    this.hidden = new Set(CONTROL_ITEMS.filter((it) => (controlsList ?? '').toLowerCase().split(/\s+/).includes(`no${it}`)));
+    this.hidden = new Set(removed);
     if (enabled !== this.enabled || !this.ui.isConnected) {
       this.enabled = enabled;
       if (enabled) {

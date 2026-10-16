@@ -30895,11 +30895,11 @@ var ViewerControls = class {
     this.buttons.set(name, b);
     return b;
   }
-  /** Monta (ou desmonta) a barra conforme `nocontrols`/`controlslist`. */
-  configure(enabled, controlsList, lang) {
+  /** Monta (ou desmonta) a barra conforme `nocontrols` e os `no<item>`. */
+  configure(enabled, removed, lang) {
     this.labels = /^en\b/i.test(lang) ? LABELS.en : LABELS.pt;
     this.notesEl.dataset["empty"] = this.labels.noNotes;
-    this.hidden = new Set(CONTROL_ITEMS.filter((it) => (controlsList ?? "").toLowerCase().split(/\s+/).includes(`no${it}`)));
+    this.hidden = new Set(removed);
     if (enabled !== this.enabled || !this.ui.isConnected) {
       this.enabled = enabled;
       if (enabled) {
@@ -31105,7 +31105,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   /** Vídeo/áudio/GIF da reprodução automática. */
   media = new MediaPlayer(() => this.paint());
   static get observedAttributes() {
-    return ["src", "nocontrols", "controlslist", "lang"];
+    return ["src", "nocontrols", ...CONTROL_ITEMS.map((it) => `no${it}`), "lang"];
   }
   /**
    * Barra de controles embutida. O editor (subclasse) tem a própria interface:
@@ -31148,7 +31148,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   /** Liga a barra conforme os atributos — no connect e quando eles mudam. */
   configureControls() {
     const lang = this.closest("[lang]")?.lang || navigator.language;
-    this.controls?.configure(!this.hasAttribute("nocontrols"), this.getAttribute("controlslist"), lang);
+    this.controls?.configure(!this.hasAttribute("nocontrols"), CONTROL_ITEMS.filter((it) => this.hasAttribute(`no${it}`)), lang);
   }
   /** Ponte da barra de controles com a API pública do viewer. */
   controlsHost() {
@@ -32210,10 +32210,12 @@ pv.addEventListener("us-download", (e) => {
 });
 function apply2() {
   const no = $("nocontrols").checked;
-  const off = [...list.querySelectorAll("input:checked")].map((i2) => `no${i2.dataset["t"]}`).join(" ");
   pv.toggleAttribute("nocontrols", no);
-  if (off) pv.setAttribute("controlslist", off);
-  else pv.removeAttribute("controlslist");
+  let off = "";
+  for (const i2 of list.querySelectorAll("input")) {
+    pv.toggleAttribute(`no${i2.dataset["t"]}`, i2.checked);
+    if (i2.checked) off += ` no${i2.dataset["t"]}`;
+  }
   const color = $("vColor").value, prog = $("vProgress").value;
   const hover = $("vHover").value, size = $("vSize").value, ph = $("vPh").value;
   const outs = document.querySelectorAll(".var output");
@@ -32240,7 +32242,7 @@ universal-presentation-viewer::part(progress) { border-radius: 999px; }
 `;
   }
   $("userCss").textContent = css4;
-  const attrs2 = `${no ? " nocontrols" : ""}${!no && off ? ` controlslist="${off}"` : ""}`;
+  const attrs2 = no ? " nocontrols" : off;
   $("markup").textContent = (css4 ? `<style>
 ${css4}</style>
 ` : "") + `<universal-presentation-viewer src="deck.pptx"${attrs2}></universal-presentation-viewer>`;
