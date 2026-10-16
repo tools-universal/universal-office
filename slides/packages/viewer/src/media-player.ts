@@ -49,6 +49,8 @@ export class MediaPlayer {
   clock: MediaClock = {};
   /** Vídeo em TELA CHEIA tocando no quadro em curso (a pintura cobre o slide com ele). */
   fullScreen: HTMLVideoElement | null = null;
+  /** Mudo geral (botão de som dos controles): vale por cima do volume gravado no arquivo. */
+  muted = false;
 
   constructor(private readonly repaint: () => void) {}
 
@@ -201,7 +203,7 @@ export class MediaPlayer {
       const w = this.wanted.get(el);
       if (!w) { if (!el.paused) el.pause(); continue; }
       el.volume = Math.max(0, Math.min(1, w.volume));
-      el.muted = w.muted || this.forcedMute.has(el);
+      el.muted = this.muted || w.muted || this.forcedMute.has(el);
       if (w.playing) {
         if (this.starting.has(el)) continue; // aguardando o play(): sem busca a cada quadro
         if (this.blocked.has(el)) {
@@ -217,6 +219,12 @@ export class MediaPlayer {
       }
     }
     this.wanted.clear();
+  }
+
+  /** Liga/desliga o mudo geral já (o desmudo volta no próximo quadro, com o volume do arquivo). */
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+    if (muted) for (const [, el] of this.els) el.muted = true;
   }
 
   /** Esquece as posições pedidas (antes de recalcular um quadro). */

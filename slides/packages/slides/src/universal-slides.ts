@@ -79,6 +79,9 @@ export class UniversalSlidesElement extends UniversalPresentationViewerElement {
     return pkg.save();
   }
 
+  /** O editor tem a própria interface: sem a barra de controles do viewer. */
+  protected override controlsBuiltIn(): boolean { return false; }
+
   protected override isEditing(): boolean { return this.editingShape !== null; }
 
   protected override suppressTextIdx(): number | undefined {

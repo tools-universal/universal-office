@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<!-- Demo dos CONTROLES do <universal-presentation-viewer> embutido numa página:
+     nocontrols, controlslist, variáveis --upv-* e ::part().
+     Build: npm run build:demo -w @universal-office/presentation-viewer
+     Abrir: http://localhost:8097/packages/viewer/demo/controls.html -->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Viewer — controles</title>
+  <link rel="stylesheet" href="../../slides/demo/fonts/os-fonts.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 14px/1.5 system-ui, "Segoe UI", sans-serif; color: #1f2328; background: #f6f7f9; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 24px; padding: 24px; max-width: 1400px; margin: 0 auto; }
+    h1 { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+    .player { aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; }
+    universal-presentation-viewer { display: block; width: 100%; height: 100%; }
+    #log { margin-top: 10px; font: 12px/1.5 Consolas, monospace; color: #57606a; min-height: 1.5em; }
+    aside { background: #fff; border: 1px solid #d0d7de; border-radius: 10px; padding: 16px; align-self: start; }
+    aside h2 { font-size: 13px; font-weight: 600; margin: 16px 0 8px; color: #57606a; }
+    aside h2:first-child { margin-top: 0; }
+    label { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; }
+    .var { display: grid; grid-template-columns: 170px 1fr 44px; align-items: center; gap: 8px; margin: 6px 0; font: 12px Consolas, monospace; }
+    .var output { text-align: right; }
+    select { font: inherit; width: 100%; padding: 4px; }
+    pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 10px; font: 12px/1.5 Consolas, monospace; white-space: pre-wrap; word-break: break-all; margin: 8px 0 0; }
+  </style>
+  <style id="userCss"></style>
+</head>
+<body>
+  <main>
+    <section>
+      <h1>&lt;universal-presentation-viewer&gt;</h1>
+      <div class="player">
+        <universal-presentation-viewer id="pv" src="../../../samples/showcase_animado.pptx"></universal-presentation-viewer>
+      </div>
+      <div id="log"></div>
+      <pre id="markup"></pre>
+    </section>
+    <aside>
+      <h2>Deck</h2>
+      <select id="samples"></select>
+
+      <h2>Atributos</h2>
+      <label><input type="checkbox" id="nocontrols" /> nocontrols</label>
+      <div class="grid" id="list"></div>
+      <label style="margin-top:8px"><input type="checkbox" id="cancelDl" /> cancelar us-download (host trata)</label>
+
+      <h2>Variáveis CSS</h2>
+      <div class="var"><span>--upv-controls-color</span><input type="color" id="vColor" value="#ffffff" /><output></output></div>
+      <div class="var"><span>--upv-progress-color</span><input type="color" id="vProgress" value="#ffffff" /><output></output></div>
+      <div class="var"><span>--upv-controls-hover-bg</span><input type="range" id="vHover" min="0" max="50" value="16" /><output></output></div>
+      <div class="var"><span>--upv-controls-size</span><input type="range" id="vSize" min="14" max="36" value="22" /><output></output></div>
+      <div class="var"><span>--upv-progress-height</span><input type="range" id="vPh" min="1" max="10" value="3" /><output></output></div>
+
+      <h2>::part()</h2>
+      <label><input type="checkbox" id="partDemo" /> pílula no Apresentar + progresso arredondado</label>
+    </aside>
+  </main>
+  <script type="module" src="./controls-bundle.js"></script>
+</body>
+</html>

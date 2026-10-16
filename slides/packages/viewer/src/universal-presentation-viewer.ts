@@ -1,7 +1,7 @@
 import { FontResolver, variantOf } from '@universal-office/fonts';
 import {
   PptxPackage, readPresentation, readSlide, paintSlideTo,
-  readEmbeddedFonts, collectDeckTypefaces,
+  readEmbeddedFonts, collectDeckTypefaces, readSlideNotes,
   buildPlaybackTimeline, playbackStateAt, shapeAnimHooks, paintTransition, SlideShow, rasterizeSpecialImage,
   specialImageNeedsPrepare, prepareSpecialImage, tableImages,
   type ChartModel, type PaintImage, type PaintSlideOptions,
@@ -9,6 +9,7 @@ import {
   type PlaybackOptions, type PlaybackTimeline, type PlaybackSlide, type SlideShowAction, type SlideTimingModel,
 } from '@universal-office/slides-core';
 import { MediaPlayer } from './media-player.js';
+import { ViewerControls, type ControlsHost } from './controls.js';
 
 /** Opções de `play()` — reprodução automática. */
 export interface PlayOptions extends PlaybackOptions {
@@ -88,13 +89,17 @@ const PREV_KEYS = new Set(['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace', 'p', '
  *  - REPRODUÇÃO AUTOMÁTICA (`play()`): tudo anda sozinho (export de vídeo /
  *    quiosque).
  *
- * API: atributos `src` e `fonts`; `loadPptx(bytes)`, `fontsReady()`,
+ * Controles (como os do <video>): visíveis por padrão; `nocontrols` desliga
+ * todos, `controlslist="nodownload nofullscreen …"` tira um a um (ver
+ * controls.ts: variáveis CSS `--upv-*` e `::part()`).
+ *
+ * API: atributos `src`, `fonts`, `nocontrols`, `controlslist`; `loadPptx(bytes)`, `fontsReady()`,
  * `getSlideCount/getSlideIndex`, `selectSlide/next/prev`,
  * `present(from?, opts?)`/`stopPresentation()`/`isPresenting()`,
  * `play(opts?)`/`stopPlayback()`/`isPlaying()`, `renderThumbnail(i, canvas)`,
  * `renderSlideToCanvas(i, canvas, pxWidth)`.
  * Eventos: `us-loaded`, `us-slide`, `us-step`, `us-image`, `us-present-end`,
- * `us-playback-end`.
+ * `us-playback-end`, `us-download` (cancelável: o host entrega o arquivo).
  */
 export class UniversalPresentationViewerElement extends HTMLElement {
   protected host = this.attachShadow({ mode: 'open' });
@@ -137,7 +142,20 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   /** Vídeo/áudio/GIF da reprodução automática. */
   protected media = new MediaPlayer(() => this.paint());
 
-  static get observedAttributes(): string[] { return ['src']; }
+  static get observedAttributes(): string[] { return ['src', 'nocontrols', 'controlslist', 'lang']; }
+
+  /**
+   * Barra de controles embutida. O editor (subclasse) tem a própria interface:
+   * desliga, e mantém o selo "n / N" no lugar dela.
+   */
+  protected controlsBuiltIn(): boolean { return true; }
+  protected controls: ViewerControls | null = null;
+  /** Bytes do arquivo carregado (botão de download). */
+  protected fileBytes: Uint8Array | null = null;
+  /** Caminho da parte de cada slide (anotações) e anotações já lidas. */
+  private slidePaths: string[] = [];
+  private notesCache: (string | undefined)[] = [];
+  private anyNotes: boolean | null = null;
 
   constructor() {
     super();
@@ -156,7 +174,107 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     // apresentação, avança (fora de hyperlink).
     this.canvas.addEventListener('click', this.onClick);
     this.canvas.addEventListener('mousemove', this.onMouseMove);
+    if (this.controlsBuiltIn()) {
+      this.badge.style.display = 'none';
+      // player: o slide encosta nas bordas; o que sobra (letterbox) é o fundo do elemento
+      this.canvas.style.background = 'var(--upv-background, #000)';
+      this.controls = new ViewerControls(this.controlsHost(), this.host, this.wrap);
+      this.wrap.addEventListener('pointermove', () => this.controls?.wake());
+      this.wrap.addEventListener('pointerdown', () => this.controls?.wake());
+      this.wrap.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') this.controls?.leave(); });
+      this.addEventListener('us-image', () => this.controls?.renderThumbs());
+    }
   }
+
+  /** Liga a barra conforme os atributos — no connect e quando eles mudam. */
+  private configureControls(): void {
+    const lang = (this.closest('[lang]') as HTMLElement | null)?.lang || navigator.language;
+    this.controls?.configure(!this.hasAttribute('nocontrols'), this.getAttribute('controlslist'), lang);
+  }
+
+  /** Ponte da barra de controles com a API pública do viewer. */
+  private controlsHost(): ControlsHost {
+    return {
+      count: () => this.slides.length,
+      index: () => this.index,
+      goTo: (i) => this.selectSlide(i),
+      next: () => this.next(),
+      prev: () => this.prev(),
+      isPlaying: () => this.isPlaying(),
+      playbackFraction: () => {
+        const a = this.auto;
+        if (!a || a.ended || a.tl.durationMs <= 0) return null;
+        return Math.max(0, Math.min(1, (this.now() - a.t0) / a.tl.durationMs));
+      },
+      togglePlay: () => {
+        if (this.isPlaying()) { this.stopPlayback(); return; }
+        this.play({ from: this.index >= this.slides.length - 1 ? 0 : this.index });
+      },
+      playFrom: (f) => {
+        const a = this.auto;
+        if (!a || a.ended) return;
+        // o quadro é função pura do tempo: buscar = mover a origem do relógio
+        a.t0 = this.now() - f * a.tl.durationMs;
+        a.pos = -1;
+        this.fromKey = '';
+      },
+      hasMedia: () => this.slides.some((s) => s.shapes.some((sh) => sh.media)),
+      isMuted: () => this.media.muted,
+      setMuted: (m) => { this.media.setMuted(m); this.paint(); },
+      notes: (i) => this.slideNotes(i),
+      hasNotes: () => (this.anyNotes ??= this.slides.some((_, i) => this.slideNotes(i) !== '')),
+      download: () => this.downloadFile(),
+      isPresenting: () => this.isPresenting(),
+      togglePresent: () => (this.show ? this.stopPresentation() : this.present(this.index)),
+      isFullscreen: () => this.host.fullscreenElement === this.wrap,
+      toggleFullscreen: () => this.toggleFullscreen(),
+      renderThumbnail: (i, c) => this.renderThumbnail(i, c),
+      slideAspect: () => (this.pres ? this.pres.slideW / this.pres.slideH : 16 / 9),
+    };
+  }
+
+  /** Anotações do orador do slide `i` (texto puro; lidas sob demanda). */
+  getSlideNotes(i: number): string { return this.slideNotes(i); }
+
+  private slideNotes(i: number): string {
+    let t = this.notesCache[i];
+    if (t === undefined) {
+      const path = this.slidePaths[i];
+      try { t = this.pkg && path ? readSlideNotes(this.pkg, path) : ''; } catch { t = ''; }
+      this.notesCache[i] = t;
+    }
+    return t;
+  }
+
+  /** Tela cheia do viewer (sem apresentar). Na apresentação, sair dela a encerra. */
+  toggleFullscreen(): void {
+    if (this.host.fullscreenElement === this.wrap) document.exitFullscreen().catch(() => {});
+    else if (document.fullscreenEnabled && this.wrap.requestFullscreen) this.wrap.requestFullscreen().catch(() => {});
+  }
+
+  /**
+   * Botão de download: emite `us-download` (cancelável, com os bytes e o
+   * nome); se ninguém cancelar, baixa o arquivo original.
+   */
+  private downloadFile(): void {
+    const bytes = this.fileBytes;
+    if (!bytes) return;
+    const ole = bytes[0] === 0xd0 && bytes[1] === 0xcf; // .ppt (binário)
+    const src = this.getAttribute('src');
+    let name = '';
+    try { name = src ? decodeURIComponent(src.split(/[?#]/)[0]!.split('/').pop() ?? '') : ''; } catch { /* nome ilegível */ }
+    if (!/\.(pptx|pptm|ppsx|ppsm|potx|ppt|pps)$/i.test(name)) name = `apresentacao.${ole ? 'ppt' : 'pptx'}`;
+    const ev = new CustomEvent('us-download', { cancelable: true, detail: { bytes, filename: name } });
+    if (!this.dispatchEvent(ev)) return;
+    const type = ole ? 'application/vnd.ms-powerpoint' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  private onAnyFullscreenChange = (): void => { this.controls?.wake(); this.paint(); };
 
   private resizeObs: ResizeObserver | null = null;
   /** Mudança de devicePixelRatio (janela levada a outro monitor): o tamanho CSS não muda, o backing store sim. */
@@ -172,6 +290,8 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.watchDpr();
     this.restoreParkedFonts();
     this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.paint());
+    this.configureControls();
+    document.addEventListener('fullscreenchange', this.onAnyFullscreenChange);
     this.resize(); this.paint();
     (document as unknown as { fonts?: { ready: Promise<unknown> } }).fonts?.ready.then(() => this.paint()).catch(() => {});
     const src = this.getAttribute('src');
@@ -186,6 +306,8 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   disconnectedCallback(): void {
     this.resizeObs?.disconnect();
     this.unwatchDpr();
+    document.removeEventListener('fullscreenchange', this.onAnyFullscreenChange);
+    this.controls?.dispose();
     this.stopPresentation();
     this.stopPlayback();
     this.media.dispose();
@@ -196,6 +318,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
 
   attributeChangedCallback(name: string, oldV: string | null, newV: string | null): void {
     if (name === 'src' && newV && newV !== oldV && this.isConnected && newV !== this.srcUrl) void this.loadSrc(newV);
+    else if (name !== 'src' && this.isConnected) this.configureControls();
   }
 
   /**
@@ -360,8 +483,10 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     const pkg = PptxPackage.load(bytes);
     const pres = readPresentation(pkg);
     const slides: Slide[] = [];
+    const paths: string[] = [];
     for (const ref of pres.slides) {
       if (!ref.target) continue;
+      paths.push(ref.target);
       try { slides.push(readSlide(pkg, ref.target)); }
       catch { slides.push({ shapes: [] }); }
     }
@@ -377,6 +502,10 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.pkg = pkg;
     this.pres = pres;
     this.slides = slides;
+    this.slidePaths = paths;
+    this.notesCache = [];
+    this.anyNotes = null;
+    this.fileBytes = bytes;
     // fontes: default embarcada + embutidas no arquivo + SO sob demanda
     void this.installDefaultFonts();
     // fontes embutidas DEPOIS da 1ª pintura: decodificar EOT/MTX custa ~0,2 s
@@ -406,6 +535,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.index = 0;
     this.resize();
     this.paint();
+    this.controls?.renderThumbs();
     this.dispatchEvent(new CustomEvent('us-loaded', { detail: { count: this.slides.length } }));
   }
 
@@ -475,7 +605,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     if (!keepFullscreen && this.host.fullscreenElement === this.wrap) document.exitFullscreen().catch(() => {});
     this.media.stop();
-    this.badge.style.display = '';
+    if (!this.controls) this.badge.style.display = '';
     this.paint();
     this.dispatchEvent(new CustomEvent('us-present-end', { detail: { index: this.index } }));
   }
@@ -696,7 +826,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     if (this.auto.rafId) cancelAnimationFrame(this.auto.rafId);
     this.auto = null;
     this.media.stop();
-    this.badge.style.display = '';
+    if (!this.controls) this.badge.style.display = '';
     this.paint();
   }
 
@@ -933,6 +1063,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
       return;
     }
     if (this.auto && e.key === 'Escape') { this.stopPlayback(); e.preventDefault(); return; }
+    if ((e.key === 'f' || e.key === 'F') && !e.ctrlKey && !e.metaKey && !e.altKey) { this.toggleFullscreen(); e.preventDefault(); return; }
     if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { this.next(); e.preventDefault(); }
     else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { this.prev(); e.preventDefault(); }
     else if (e.key === 'Home') { this.selectSlide(0); e.preventDefault(); }
@@ -1000,7 +1131,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   protected fit(): { ox: number; oy: number; scale: number; sw: number; sh: number } | null {
     if (!this.pres) return null;
     const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
-    const margin = this.auto || this.show ? 0 : 16;
+    const margin = this.auto || this.show || this.controlsBuiltIn() ? 0 : 16;
     const aw = W - margin * 2, ah = H - margin * 2;
     if (aw <= 0 || ah <= 0) return null; // sem área (oculto/desmontado): nada a pintar
     const scale = Math.min(aw / this.pres.slideW, ah / this.pres.slideH);
@@ -1009,6 +1140,11 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   }
 
   protected paint(): void {
+    this.paintFrame();
+    this.controls?.sync();
+  }
+
+  private paintFrame(): void {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) return;
     if (this.auto) { this.paintPlayback(ctx); return; }
@@ -1017,7 +1153,9 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const W = this.canvas.clientWidth, H = this.canvas.clientHeight;
-    ctx.fillStyle = '#3c3c3c'; ctx.fillRect(0, 0, W, H);
+    // editor: moldura cinza com o slide destacado; viewer: fundo do elemento (--upv-background)
+    if (this.controlsBuiltIn()) ctx.clearRect(0, 0, W, H);
+    else { ctx.fillStyle = '#3c3c3c'; ctx.fillRect(0, 0, W, H); }
 
     const fit = this.fit();
     const slide = this.slides[this.index];
@@ -1037,9 +1175,11 @@ export class UniversalPresentationViewerElement extends HTMLElement {
       images: this.readyImages(slide), charts: this.chartCache,
     }, fit.scale, paintOpts);
 
-    // sombra/borda do slide
-    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
-    ctx.strokeRect(fit.ox + 0.5, fit.oy + 0.5, fit.sw - 1, fit.sh - 1);
+    // sombra/borda do slide (só na moldura do editor)
+    if (!this.controlsBuiltIn()) {
+      ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
+      ctx.strokeRect(fit.ox + 0.5, fit.oy + 0.5, fit.sw - 1, fit.sh - 1);
+    }
 
     this.badge.textContent = `${this.index + 1} / ${this.slides.length}`;
   }

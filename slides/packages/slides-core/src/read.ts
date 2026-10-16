@@ -138,6 +138,30 @@ function findRelTarget(pkg: PptxPackage, part: string, typeSuffix: string): stri
   return undefined;
 }
 
+/**
+ * Anotações do orador de um slide (texto puro, um parágrafo por linha): o
+ * placeholder `body` do notesSlide ligado ao slide. Sem anotações → ''.
+ * (O .ppt chega aqui já convertido, com os notesSlide gravados.)
+ */
+export function readSlideNotes(pkg: PptxPackage, slidePath: string): string {
+  const notesPath = findRelTarget(pkg, slidePath, 'notesSlide');
+  const xml = notesPath ? pkg.getPartText(notesPath) : undefined;
+  if (!xml) return '';
+  const tree = descend(parseXml(xml), 'p:spTree');
+  if (!tree) return '';
+  for (const sp of childElements(tree, 'p:sp')) {
+    const nvPr = descend(sp, 'p:nvPr');
+    const ph = nvPr ? firstChild(nvPr, 'p:ph') : undefined;
+    if (ph?.attrs['type'] !== 'body') continue;
+    const body = firstChild(sp, 'p:txBody');
+    if (!body) continue;
+    return childElements(body, 'a:p')
+      .map((p) => p.children.map((c) => (typeof c === 'string' ? '' : c.name === 'a:br' ? '\n' : c.name === 'a:r' || c.name === 'a:fld' ? textContent(firstChild(c, 'a:t') ?? c) : '')).join(''))
+      .join('\n').trim();
+  }
+  return '';
+}
+
 /** Le um slide -> Slide, herdando geometria de placeholder do layout/master. */
 export function readSlide(pkg: PptxPackage, slidePath: string): Slide {
   const xml = pkg.getPartText(slidePath);

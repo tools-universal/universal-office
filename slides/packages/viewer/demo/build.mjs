@@ -11,18 +11,22 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const slidesRoot = join(here, '..', '..', '..');
 
-await build({
-  entryPoints: [join(here, 'main.ts')],
-  bundle: true,
-  format: 'esm',
-  outfile: join(here, 'bundle.js'),
-  alias: {
-    '@universal-office/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
-    '@universal-office/fonts': join(slidesRoot, '..', 'shared', 'fonts', 'src', 'index.ts'),
-    '@universal-office/charts': join(slidesRoot, '..', 'shared', 'charts', 'src', 'index.ts'),
-  },
-  logLevel: 'warning',
-});
+const alias = {
+  '@universal-office/slides-core': join(slidesRoot, 'packages', 'slides-core', 'src', 'index.ts'),
+  '@universal-office/fonts': join(slidesRoot, '..', 'shared', 'fonts', 'src', 'index.ts'),
+  '@universal-office/charts': join(slidesRoot, '..', 'shared', 'charts', 'src', 'index.ts'),
+};
+// index.html (página de teste) e controls.html (demo dos controles embutidos)
+for (const [entry, out] of [['main.ts', 'bundle.js'], ['controls.ts', 'controls-bundle.js']]) {
+  await build({
+    entryPoints: [join(here, entry)],
+    bundle: true,
+    format: 'esm',
+    outfile: join(here, out),
+    alias,
+    logLevel: 'warning',
+  });
+}
 
 // amostras: servidas pelo mesmo servidor estático (raiz = slides/)
 const list = [];
@@ -34,4 +38,4 @@ for (const dir of ['samples', 'samples/legacy', 'samples/playback']) {
   }
 }
 writeFileSync(join(here, 'samples.json'), JSON.stringify(list, null, 1) + '\n');
-console.log(`demo/bundle.js + samples.json (${list.length} amostras)`);
+console.log(`demo/bundle.js + controls-bundle.js + samples.json (${list.length} amostras)`);

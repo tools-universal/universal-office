@@ -1,6 +1,6 @@
 export { PptxPackage, type PartSource } from './package.js';
 export { parseXml, childElements, firstChild, descend, textContent, type XmlElement } from './xml.js';
-export { readPresentation, readSlide, readRels, readDrawingElements } from './read.js';
+export { readPresentation, readSlide, readSlideNotes, readRels, readDrawingElements } from './read.js';
 export { tableImages } from './table-style.js';
 export {
   parseSlideTiming, parseSlideTransition, parseTimeNode, activeDur, simpleDur, beginOffset, AFTER_LINK_MS,
