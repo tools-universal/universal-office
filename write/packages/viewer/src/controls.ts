@@ -1,47 +1,51 @@
 import {
   ControlBar, controlsCss, cssVar, pickLabels,
 } from '@universal-office/viewer-controls';
+import { VIEW_MODES, type ViewMode } from './views.js';
 
 /**
  * Controles do <universal-document-viewer> sobre a barra ÚNICA dos viewers
  * (shared/viewer-controls) — o mesmo modelo do <universal-presentation-viewer>:
  * aparecem por padrão, `nocontrols` desliga tudo e um atributo booleano por
- * item tira só ele (`nodownload`, `noprint`, `nozoom`… — `no` + nome do item,
- * ver CONTROL_ITEMS). Aqui ficam só os itens de documento (páginas, zoom com
- * menu, imprimir).
+ * item tira só ele (`nodownload`, `noprint`, `nozoom`, `noview`… — `no` + nome
+ * do item, ver CONTROL_ITEMS). Aqui ficam só os itens de documento (páginas,
+ * índice, comentários, zoom e modo de exibição com menu, imprimir).
  *
  * Personalização pelo host, sem tocar no shadow DOM:
  *  - variáveis CSS `--udv-*` (ou as comuns `--uo-*`, que valem para os dois
  *    viewers): `controls-color`, `controls-size`, `controls-bg`,
  *    `controls-hover-bg`, `progress-color`, `progress-track`,
  *    `progress-height`, `background` (atrás das páginas); e as do documento:
- *    `--udv-panel-bg`, `--udv-comment-highlight`, `--udv-page-gap`;
+ *    `--udv-panel-bg`, `--udv-comment-highlight`, `--udv-selection`, `--udv-page-gap`;
  *  - `::part()`: `controls`, `progress`, `progress-value`, `counter`, `button`,
  *    `button-<nome>` (prev, next, outline, thumbnails, comments, zoom-out,
- *    zoom-level, zoom-in, download, print, fullscreen), `zoom-menu`,
- *    `zoom-option`, `nav-panel`, `nav-tab`, `outline`, `outline-item`,
+ *    zoom-level, zoom-in, view, download, print, fullscreen), `menu`,
+ *    `menu-option`, `nav-panel`, `nav-tab`, `outline`, `outline-item`,
  *    `thumbnails`, `thumbnail`, `comments`, `comment`, `pages`, `page`.
  */
 
-export const CONTROL_ITEMS = ['nav', 'counter', 'outline', 'thumbnails', 'comments', 'zoom', 'download', 'print', 'fullscreen', 'progress'] as const;
+export const CONTROL_ITEMS = ['nav', 'counter', 'outline', 'thumbnails', 'comments', 'zoom', 'view', 'download', 'print', 'fullscreen', 'progress'] as const;
 export type ControlItem = typeof CONTROL_ITEMS[number];
 
 /** Zoom: largura da página, página inteira ou fator (1 = 100%). */
 export type ZoomSpec = 'page-width' | 'page-fit' | number;
 
 export interface ControlsHost {
+  /** o item faz sentido agora (ex.: sem títulos não há índice; no Layout da Web não há páginas) */
+  available(item: ControlItem): boolean;
   count(): number;
-  index(): number;
-  goTo(i: number): void;
-  scrollFraction(): number;
-  scrollToFraction(f: number): void;
+  counter(): string;
+  prev(): void;
+  next(): void;
+  progress(): number;
+  seek(f: number): void;
   zoom(): { spec: ZoomSpec; factor: number };
   setZoom(z: ZoomSpec): void;
+  view(): ViewMode;
+  setView(v: ViewMode): void;
   /** aba aberta do painel de navegação (índice ou páginas); null = fechado */
   navTab(): 'outline' | 'pages' | null;
   toggleNav(tab: 'outline' | 'pages'): void;
-  hasHeadings(): boolean;
-  hasComments(): boolean;
   commentsOpen(): boolean;
   toggleComments(): void;
   download(): void;
@@ -50,7 +54,7 @@ export interface ControlsHost {
   toggleFullscreen(): void;
 }
 
-/** CSS da barra + o menu de zoom (o resto do viewer está em universal-document-viewer.ts). */
+/** CSS da barra + o menu (zoom, modo de exibição). */
 export const CONTROLS_CSS = controlsCss('udv') + `
 .udv-level { width: auto; min-width: calc(var(--uoc-s) * 2.6); padding: 0 6px; font-variant-numeric: tabular-nums; }
 .udv-menu {
@@ -70,16 +74,18 @@ export const PROGRESS_COLOR = cssVar('udv', 'progress-color', '#fff');
 const LABELS = {
   pt: {
     prev: 'Página anterior', next: 'Próxima página', thumbnails: 'Miniaturas', outline: 'Índice', pages: 'Páginas',
-    comments: 'Comentários', noHeadings: 'O documento não tem títulos.', noComments: 'Sem comentários.', zoomOut: 'Diminuir zoom',
-    zoomIn: 'Aumentar zoom', zoom: 'Zoom', pageWidth: 'Largura da página', pageFit: 'Página inteira',
-    download: 'Baixar', print: 'Imprimir', fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia',
+    comments: 'Comentários', noHeadings: 'O documento não tem títulos.', noComments: 'Sem comentários.',
+    zoomOut: 'Diminuir zoom', zoomIn: 'Aumentar zoom', zoom: 'Zoom', pageWidth: 'Largura da página', pageFit: 'Página inteira',
+    view: 'Modo de exibição', read: 'Modo de Leitura', print: 'Layout de Impressão', web: 'Layout da Web',
+    download: 'Baixar', printDoc: 'Imprimir', fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia',
     progress: 'Posição no documento', page: 'Página',
   },
   en: {
     prev: 'Previous page', next: 'Next page', thumbnails: 'Thumbnails', outline: 'Outline', pages: 'Pages',
-    comments: 'Comments', noHeadings: 'This document has no headings.', noComments: 'No comments.', zoomOut: 'Zoom out',
-    zoomIn: 'Zoom in', zoom: 'Zoom', pageWidth: 'Page width', pageFit: 'Whole page',
-    download: 'Download', print: 'Print', fullscreen: 'Full screen', unfullscreen: 'Exit full screen',
+    comments: 'Comments', noHeadings: 'This document has no headings.', noComments: 'No comments.',
+    zoomOut: 'Zoom out', zoomIn: 'Zoom in', zoom: 'Zoom', pageWidth: 'Page width', pageFit: 'Whole page',
+    view: 'View', read: 'Read Mode', print: 'Print Layout', web: 'Web Layout',
+    download: 'Download', printDoc: 'Print', fullscreen: 'Full screen', unfullscreen: 'Exit full screen',
     progress: 'Position in document', page: 'Page',
   },
 };
@@ -88,9 +94,13 @@ export const labelsFor = (lang: string): Labels => pickLabels(lang, LABELS);
 
 const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 
+interface MenuOption { value: string; label: string; checked: boolean }
+
 export class DocumentControls {
   private readonly bar: ControlBar<ControlItem>;
   private readonly menu = document.createElement('div');
+  /** botão que abriu o menu (zoom-level | view) e o que fazer na escolha */
+  private menuFor: { button: string; pick: (v: string) => void } | null = null;
   private labels: Labels = LABELS.pt;
   private last = '';
 
@@ -101,8 +111,8 @@ export class DocumentControls {
       counterItem: 'counter',
       progressItem: 'progress',
       start: [
-        { name: 'prev', item: 'nav', icon: 'chevron-up', run: r(() => host.goTo(host.index() - 1)) },
-        { name: 'next', item: 'nav', icon: 'chevron-down', run: r(() => host.goTo(host.index() + 1)) },
+        { name: 'prev', item: 'nav', icon: 'chevron-up', run: r(() => host.prev()) },
+        { name: 'next', item: 'nav', icon: 'chevron-down', run: r(() => host.next()) },
         'counter',
       ],
       end: [
@@ -110,27 +120,28 @@ export class DocumentControls {
         { name: 'thumbnails', item: 'thumbnails', icon: 'sidebar', run: r(() => host.toggleNav('pages')) },
         { name: 'comments', item: 'comments', icon: 'comment', run: r(() => host.toggleComments()) },
         { name: 'zoom-out', item: 'zoom', icon: 'zoom-out', run: r(() => this.step(-1)) },
-        { name: 'zoom-level', item: 'zoom', className: 'udv-level', run: r(() => this.toggleMenu()) },
+        { name: 'zoom-level', item: 'zoom', className: 'udv-level', run: r(() => this.toggleZoomMenu()) },
         { name: 'zoom-in', item: 'zoom', icon: 'zoom-in', run: r(() => this.step(1)) },
+        { name: 'view', item: 'view', icon: 'view-print', run: r(() => this.toggleViewMenu()) },
         { name: 'download', item: 'download', icon: 'download', run: r(() => host.download()) },
         { name: 'print', item: 'print', icon: 'print', run: r(() => host.print()) },
         { name: 'fullscreen', item: 'fullscreen', icon: 'fullscreen', run: r(() => host.toggleFullscreen()) },
       ],
-      onSeek: (f) => host.scrollToFraction(f),
+      onSeek: (f) => host.seek(f),
       keepVisible: () => !this.menu.hidden,
     });
-    this.bar.buttonEl('zoom-level')!.setAttribute('aria-haspopup', 'menu');
+    for (const b of ['zoom-level', 'view']) this.bar.buttonEl(b)!.setAttribute('aria-haspopup', 'menu');
 
     this.menu.className = 'udv-menu';
-    this.menu.setAttribute('part', 'zoom-menu');
+    this.menu.setAttribute('part', 'menu');
     this.menu.setAttribute('role', 'menu');
     this.menu.hidden = true;
     this.menu.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('button');
-      if (!b) return;
-      const v = b.dataset['zoom']!;
-      host.setZoom(v === 'page-width' || v === 'page-fit' ? v : Number(v));
+      if (!b || !this.menuFor) return;
+      const pick = this.menuFor.pick;
       this.closeMenu();
+      pick(b.dataset['value']!);
       this.sync();
     });
     this.bar.bar.appendChild(this.menu);
@@ -144,26 +155,44 @@ export class DocumentControls {
     if (next) this.host.setZoom(next);
   }
 
-  private toggleMenu(): void {
-    if (!this.menu.hidden) { this.closeMenu(); return; }
+  private toggleZoomMenu(): void {
     const L = this.labels, cur = this.host.zoom();
-    const opts: [string, string][] = [['page-width', L.pageWidth], ['page-fit', L.pageFit],
-      ...[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => [String(z), `${Math.round(z * 100)}%`] as [string, string])];
+    const paged = this.host.view() === 'print';
+    this.toggleMenu('zoom-level', [
+      ...(paged ? [{ value: 'page-width', label: L.pageWidth }, { value: 'page-fit', label: L.pageFit }] : []),
+      ...[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => ({ value: String(z), label: `${Math.round(z * 100)}%` })),
+    ].map((o) => ({ ...o, checked: String(cur.spec) === o.value || (!paged && Math.abs(cur.factor - Number(o.value)) < 0.001) })),
+    (v) => this.host.setZoom(v === 'page-width' || v === 'page-fit' ? v : Number(v)));
+  }
+
+  private toggleViewMenu(): void {
+    const L = this.labels, cur = this.host.view();
+    this.toggleMenu('view', VIEW_MODES.map((v) => ({ value: v, label: L[v], checked: v === cur })),
+      (v) => this.host.setView(v as ViewMode));
+  }
+
+  private toggleMenu(button: string, options: MenuOption[], pick: (v: string) => void): void {
+    if (!this.menu.hidden) {
+      const same = this.menuFor?.button === button;
+      this.closeMenu();
+      if (same) return;
+    }
     this.menu.textContent = '';
-    for (const [v, label] of opts) {
+    for (const o of options) {
       const b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('role', 'menuitemradio');
-      b.setAttribute('part', 'zoom-option');
-      b.dataset['zoom'] = v;
-      b.textContent = label;
-      b.setAttribute('aria-checked', String(String(cur.spec) === v));
+      b.setAttribute('part', 'menu-option');
+      b.dataset['value'] = o.value;
+      b.textContent = o.label;
+      b.setAttribute('aria-checked', String(o.checked));
       this.menu.appendChild(b);
     }
-    const lvl = this.bar.buttonEl('zoom-level')!;
+    const btn = this.bar.buttonEl(button)!;
+    this.menuFor = { button, pick };
     this.menu.hidden = false;
     // alinha o menu ao botão, sem sair da barra
-    const br = this.bar.bar.getBoundingClientRect(), lr = lvl.getBoundingClientRect();
+    const br = this.bar.bar.getBoundingClientRect(), lr = btn.getBoundingClientRect();
     const left = Math.max(8, Math.min(br.width - this.menu.offsetWidth - 8, lr.left - br.left + lr.width / 2 - this.menu.offsetWidth / 2));
     this.menu.style.left = `${left}px`;
     this.last = '';
@@ -172,6 +201,7 @@ export class DocumentControls {
 
   private closeMenu(): void {
     this.menu.hidden = true;
+    this.menuFor = null;
     this.last = '';
   }
 
@@ -179,7 +209,7 @@ export class DocumentControls {
     this.labels = labelsFor(lang);
     if (!enabled) this.closeMenu();
     this.bar.configure(enabled, removed);
-    if (this.bar.isRemoved('zoom')) this.closeMenu();
+    if (this.menuFor && this.bar.isRemoved(this.menuFor.button === 'view' ? 'view' : 'zoom')) this.closeMenu();
     this.last = '';
     this.sync();
   }
@@ -191,18 +221,19 @@ export class DocumentControls {
   sync(): void {
     if (!this.bar.enabled) return;
     const h = this.host, L = this.labels, b = this.bar;
-    const n = h.count(), i = h.index();
-    const frac = h.scrollFraction();
+    const n = h.count();
+    const frac = h.progress();
     b.setProgress(frac, { label: L.progress, min: 0, max: 100, now: Math.round(frac * 100) });
-    const z = h.zoom(), full = h.isFullscreen(), tab = h.navTab();
-    const heads = h.hasHeadings(), cms = h.hasComments(), cmOpen = h.commentsOpen();
-    const state = [n, i, z.spec, z.factor.toFixed(3), full, tab, heads, cms, cmOpen, !this.menu.hidden,
+    const z = h.zoom(), full = h.isFullscreen(), tab = h.navTab(), cmOpen = h.commentsOpen(), view = h.view();
+    const avail = CONTROL_ITEMS.map((it) => (h.available(it) ? 1 : 0)).join('');
+    const counter = h.counter();
+    const state = [n, counter, z.spec, z.factor.toFixed(3), full, tab, cmOpen, view, avail, this.menuFor?.button,
       CONTROL_ITEMS.filter((it) => b.isRemoved(it)).join()].join('|');
     if (state === this.last) return;
     this.last = state;
 
-    b.applyVisibility((it) => n > 0 && (it === 'outline' ? heads : it === 'comments' ? cms : true));
-    b.setCounter(n ? `${i + 1} / ${n}` : '');
+    b.applyVisibility((it) => n > 0 && h.available(it));
+    b.setCounter(counter);
     const pct = `${Math.round(z.factor * 100)}%`;
     b.setButton('prev', { label: L.prev });
     b.setButton('next', { label: L.next });
@@ -210,10 +241,11 @@ export class DocumentControls {
     b.setButton('thumbnails', { label: L.thumbnails, pressed: tab === 'pages' });
     b.setButton('comments', { label: L.comments, pressed: cmOpen });
     b.setButton('zoom-out', { label: L.zoomOut });
-    b.setButton('zoom-level', { label: `${L.zoom}: ${pct}`, text: pct, expanded: !this.menu.hidden });
+    b.setButton('zoom-level', { label: `${L.zoom}: ${pct}`, text: pct, expanded: this.menuFor?.button === 'zoom-level' });
     b.setButton('zoom-in', { label: L.zoomIn });
+    b.setButton('view', { label: `${L.view}: ${L[view]}`, icon: `view-${view}`, expanded: this.menuFor?.button === 'view' });
     b.setButton('download', { label: L.download });
-    b.setButton('print', { label: L.print });
+    b.setButton('print', { label: L.printDoc });
     b.setButton('fullscreen', { label: full ? L.unfullscreen : L.fullscreen, icon: full ? 'unfullscreen' : 'fullscreen' });
   }
 

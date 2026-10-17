@@ -54,6 +54,7 @@ dv.addEventListener('udv-heading', (e) => {
   log(`udv-heading { index: ${d.index}${d.text ? `, text: ${JSON.stringify(d.text)}` : ''} }`);
 });
 dv.addEventListener('udv-comment', (e) => { const d = (e as CustomEvent).detail; log(`udv-comment { id: ${d.id}, author: ${JSON.stringify(d.author)} }`); });
+dv.addEventListener('udv-view', (e) => { const v = (e as CustomEvent).detail.view; $<HTMLSelectElement>('view').value = v; log(`udv-view { view: ${JSON.stringify(v)} }`); });
 dv.addEventListener('udv-page', (e) => log(`udv-page { index: ${(e as CustomEvent).detail.index} }`));
 dv.addEventListener('udv-zoom', (e) => { const d = (e as CustomEvent).detail; log(`udv-zoom { zoom: ${JSON.stringify(d.zoom)}, factor: ${d.factor.toFixed(2)} }`); });
 dv.addEventListener('udv-error', (e) => log(`udv-error ${String((e as CustomEvent).detail.error)}`));
@@ -69,6 +70,10 @@ for (const name of ['udv-download', 'udv-print']) {
 function apply(): void {
   const no = $<HTMLInputElement>('nocontrols').checked;
   dv.toggleAttribute('nocontrols', no);
+  const view = $<HTMLSelectElement>('view').value;
+  if (view === 'print') dv.removeAttribute('view'); else dv.setAttribute('view', view);
+  const noselect = $<HTMLInputElement>('noselect').checked;
+  dv.toggleAttribute('noselect', noselect);
   let off = '';
   for (const i of list.querySelectorAll<HTMLInputElement>('input')) {
     dv.toggleAttribute(`no${i.dataset['t']}`, i.checked);
@@ -87,7 +92,7 @@ function apply(): void {
   const css = vars.length ? `universal-document-viewer {\n${vars.join('\n')}\n}\n` : '';
   $('userCss').textContent = css;
   $('markup').textContent = (css ? `<style>\n${css}</style>\n` : '')
-    + `<universal-document-viewer src="contrato.docx"${no ? ' nocontrols' : off}></universal-document-viewer>`;
+    + `<universal-document-viewer src="contrato.docx"${view !== 'print' ? ` view="${view}"` : ''}${noselect ? ' noselect' : ''}${no ? ' nocontrols' : off}></universal-document-viewer>`;
 }
 document.querySelector('aside')!.addEventListener('input', apply);
 apply();

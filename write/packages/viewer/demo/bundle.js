@@ -17020,7 +17020,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const floorW = nw && prefOf(tcW0) === "dxa" ? tcW0.w : 0;
       const tdir = resolved.get(s)?.tcPr.textDirection;
       const vertical = tdir === "btLr" || tdir === "tbRl" || tdir === "tbRlV";
-      const measure = () => {
+      const measure2 = () => {
         if (vertical) {
           const rr = resolved.get(s);
           const c = ctx.pure(() => layoutCell(s.cell, 0, 31680, { tablePPr: rr.pPr, tableRPr: rr.rPr }, `${ref}/r${s.row}/c${s.col}`));
@@ -17034,7 +17034,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
         const min = noWrap && fits() ? mm.max : Math.max(mm.min, floorW);
         return { min: min + ex, max: Math.max(mm.max, min) + ex };
       };
-      return { col: s.col, span: s.span, ...tcW ? { tcW } : {}, measure, ...floorW ? { floor: true } : {}, pad: padOf(s) + ex };
+      return { col: s.col, span: s.span, ...tcW ? { tcW } : {}, measure: measure2, ...floorW ? { floor: true } : {}, pad: padOf(s) + ex };
     });
     const tr = table.rows[ri]?.trPr;
     if (tr?.gridBefore && tr.wBefore?.type === "dxa" && tr.wBefore.w > 0) out.unshift({ col: 0, span: tr.gridBefore, tcW: tr.wBefore, measure: () => ({ min: 0, max: 0 }) });
@@ -22402,6 +22402,10 @@ var ICONS = {
   notes: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
   outline: '<path d="M9 6h11M12 12h8M12 18h8"/><circle cx="5" cy="6" r="1.2" fill="currentColor"/><circle cx="8" cy="12" r="1.2" fill="currentColor"/><circle cx="8" cy="18" r="1.2" fill="currentColor"/>',
   comment: '<path d="M4 5h16v11H10l-4.5 3.5V16H4z"/><path d="M8 9h8M8 12.5h5"/>',
+  // modos de exibição (documento)
+  "view-read": '<path d="M3 5.5c3-1 6-1 9 1.2 3-2.2 6-2.2 9-1.2v13c-3-1-6-1-9 1.2-3-2.2-6-2.2-9-1.2z"/><path d="M12 6.7v13.2"/>',
+  "view-print": '<path d="M6 3h8.5L19 7.5V21H6z"/><path d="M14 3v5h5M9 12h7M9 15.5h7"/>',
+  "view-web": '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.6 2.6 14.4 0 17M12 3.5c-2.6 2.6-2.6 14.4 0 17"/>',
   // zoom
   "zoom-out": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M20 20l-4.8-4.8"/>',
   "zoom-in": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M10.5 7.5v6M20 20l-4.8-4.8"/>',
@@ -22872,8 +22876,124 @@ function collectAnnotations(full, layout) {
   return { comments, headings };
 }
 
+// src/text-layer.ts
+var measureCtx = null;
+var measure = (text, font) => {
+  measureCtx ??= document.createElement("canvas").getContext("2d");
+  if (!measureCtx) return 0;
+  measureCtx.font = font;
+  return measureCtx.measureText(text).width;
+};
+function fillTextLayer(target, lines, para, pxPerTw, topTw) {
+  const texts = /* @__PURE__ */ new Map();
+  const frag = document.createDocumentFragment();
+  for (const line of lines) {
+    const p = para(line.ref);
+    const chars = line.chars;
+    if (!p || !chars?.length) continue;
+    let text = texts.get(p);
+    if (text === void 0) {
+      text = p.runs.map((r) => r.text).join("");
+      texts.set(p, text);
+    }
+    const h = line.height * pxPerTw;
+    if (!(h > 0.5)) continue;
+    const font = `${h}px sans-serif`;
+    const top = (line.y - topTw) * pxPerTw;
+    let word = "", x0 = 0, x1 = 0, open = false;
+    const flush = () => {
+      if (!open || !word) {
+        open = false;
+        word = "";
+        return;
+      }
+      const span = document.createElement("span");
+      span.textContent = word;
+      const w = (x1 - x0) * pxPerTw;
+      span.style.left = `${x0 * pxPerTw}px`;
+      span.style.top = `${top}px`;
+      span.style.fontSize = `${h}px`;
+      const natural = measure(word, font);
+      if (natural > 0 && w > 0) span.style.transform = `scaleX(${w / natural})`;
+      frag.appendChild(span);
+      open = false;
+      word = "";
+    };
+    for (const c of chars) {
+      const ch = text[c.o];
+      if (ch === void 0) continue;
+      if (!open) {
+        open = true;
+        x0 = c.x;
+      }
+      word += ch === "	" ? " " : ch;
+      x1 = c.x + c.w;
+      if (ch === " " || ch === "	" || ch === " ") flush();
+    }
+    flush();
+    frag.appendChild(document.createElement("br"));
+  }
+  target.textContent = "";
+  target.appendChild(frag);
+}
+var TEXT_LAYER_CSS = `
+.udv-text { position: absolute; left: 0; top: 0; right: 0; bottom: 0; line-height: 1; overflow: hidden; font-size: 1px; color: transparent; }
+.udv-text span {
+  position: absolute; white-space: pre; color: transparent; transform-origin: 0 0;
+  cursor: text; font-family: sans-serif;
+}
+.udv-text ::selection { background: var(--udv-selection, rgba(0, 95, 255, .28)); color: transparent; }
+.udv-noselect .udv-text { display: none; }
+.udv-noselect .udv-page { user-select: none; -webkit-user-select: none; }
+`;
+
+// src/views.ts
+var VIEW_MODES = ["read", "print", "web"];
+var WEB_MARGIN = 288;
+var WEB_PAGE_H = 31680 * 20;
+function webDocument(full, widthTw2) {
+  const w = Math.max(2880, Math.round(widthTw2));
+  return {
+    ...full,
+    sections: full.sections.map((s) => {
+      const { cols: _cols, ...sp } = s.sectPr;
+      return {
+        ...s,
+        sectPr: {
+          ...sp,
+          pageWidthTwips: w,
+          pageHeightTwips: WEB_PAGE_H,
+          marginLeftTwips: WEB_MARGIN,
+          marginRightTwips: WEB_MARGIN,
+          marginTopTwips: WEB_MARGIN,
+          marginBottomTwips: WEB_MARGIN,
+          titlePg: false
+        },
+        ...s.sect ? { sect: { type: "continuous" } } : {},
+        headerBlocks: {},
+        footerBlocks: {},
+        headers: {},
+        footers: {}
+      };
+    })
+  };
+}
+function webPageHeight(p) {
+  let bottom = 0;
+  for (const l of p.lines) if (/^b\d/.test(l.ref)) bottom = Math.max(bottom, l.y + l.height);
+  const limit = bottom + 14400;
+  for (const it of p.items) {
+    const b = it.t === "rect" || it.t === "image" || it.t === "shape" ? it.y + it.h : it.t === "line" ? Math.max(it.y1, it.y2) : it.t === "glyphs" ? it.y : 0;
+    if (b <= limit) bottom = Math.max(bottom, b);
+  }
+  return Math.min(p.heightTw, Math.max(1440, bottom + WEB_MARGIN));
+}
+function readPagesPerView(widthPx) {
+  return Math.max(1, Math.round(widthPx / 880));
+}
+
 // src/controls.ts
-var CONTROL_ITEMS = ["nav", "counter", "outline", "thumbnails", "comments", "zoom", "download", "print", "fullscreen", "progress"];
+var CONTROL_ITEMS = ["nav", "counter", "outline", "thumbnails", "comments", "zoom", "view", "download", "print", "fullscreen", "progress"];
 var CONTROLS_CSS = controlsCss("udv") + `
 .udv-level { width: auto; min-width: calc(var(--uoc-s) * 2.6); padding: 0 6px; font-variant-numeric: tabular-nums; }
 .udv-menu {
@@ -22902,8 +23022,12 @@ var LABELS = {
     zoom: "Zoom",
     pageWidth: "Largura da p\xE1gina",
     pageFit: "P\xE1gina inteira",
+    view: "Modo de exibi\xE7\xE3o",
+    read: "Modo de Leitura",
+    print: "Layout de Impress\xE3o",
+    web: "Layout da Web",
     download: "Baixar",
-    print: "Imprimir",
+    printDoc: "Imprimir",
     fullscreen: "Tela cheia",
     unfullscreen: "Sair da tela cheia",
     progress: "Posi\xE7\xE3o no documento",
@@ -22923,8 +23047,12 @@ var LABELS = {
     zoom: "Zoom",
     pageWidth: "Page width",
     pageFit: "Whole page",
+    view: "View",
+    read: "Read Mode",
+    print: "Print Layout",
+    web: "Web Layout",
     download: "Download",
-    print: "Print",
+    printDoc: "Print",
     fullscreen: "Full screen",
     unfullscreen: "Exit full screen",
     progress: "Position in document",
@@ -22946,8 +23074,8 @@ var DocumentControls = class {
       counterItem: "counter",
       progressItem: "progress",
       start: [
-        { name: "prev", item: "nav", icon: "chevron-up", run: r(() => host.goTo(host.index() - 1)) },
-        { name: "next", item: "nav", icon: "chevron-down", run: r(() => host.goTo(host.index() + 1)) },
+        { name: "prev", item: "nav", icon: "chevron-up", run: r(() => host.prev()) },
+        { name: "next", item: "nav", icon: "chevron-down", run: r(() => host.next()) },
         "counter"
       ],
       end: [
@@ -22955,26 +23083,27 @@ var DocumentControls = class {
         { name: "thumbnails", item: "thumbnails", icon: "sidebar", run: r(() => host.toggleNav("pages")) },
         { name: "comments", item: "comments", icon: "comment", run: r(() => host.toggleComments()) },
         { name: "zoom-out", item: "zoom", icon: "zoom-out", run: r(() => this.step(-1)) },
-        { name: "zoom-level", item: "zoom", className: "udv-level", run: r(() => this.toggleMenu()) },
+        { name: "zoom-level", item: "zoom", className: "udv-level", run: r(() => this.toggleZoomMenu()) },
         { name: "zoom-in", item: "zoom", icon: "zoom-in", run: r(() => this.step(1)) },
+        { name: "view", item: "view", icon: "view-print", run: r(() => this.toggleViewMenu()) },
         { name: "download", item: "download", icon: "download", run: r(() => host.download()) },
         { name: "print", item: "print", icon: "print", run: r(() => host.print()) },
         { name: "fullscreen", item: "fullscreen", icon: "fullscreen", run: r(() => host.toggleFullscreen()) }
       ],
-      onSeek: (f) => host.scrollToFraction(f),
+      onSeek: (f) => host.seek(f),
       keepVisible: () => !this.menu.hidden
     });
-    this.bar.buttonEl("zoom-level").setAttribute("aria-haspopup", "menu");
+    for (const b of ["zoom-level", "view"]) this.bar.buttonEl(b).setAttribute("aria-haspopup", "menu");
     this.menu.className = "udv-menu";
-    this.menu.setAttribute("part", "zoom-menu");
+    this.menu.setAttribute("part", "menu");
     this.menu.setAttribute("role", "menu");
     this.menu.hidden = true;
     this.menu.addEventListener("click", (e) => {
       const b = e.target.closest("button");
-      if (!b) return;
-      const v = b.dataset["zoom"];
-      host.setZoom(v === "page-width" || v === "page-fit" ? v : Number(v));
+      if (!b || !this.menuFor) return;
+      const pick = this.menuFor.pick;
       this.closeMenu();
+      pick(b.dataset["value"]);
       this.sync();
     });
     this.bar.bar.appendChild(this.menu);
@@ -22988,6 +23117,8 @@ var DocumentControls = class {
   host;
   bar;
   menu = document.createElement("div");
+  /** botão que abriu o menu (zoom-level | view) e o que fazer na escolha */
+  menuFor = null;
   labels = LABELS.pt;
   last = "";
   /** Próximo degrau de zoom (a partir do fator atual). */
@@ -22996,31 +23127,47 @@ var DocumentControls = class {
     const next = dir > 0 ? ZOOM_STEPS.find((z) => z > f + 1e-3) : [...ZOOM_STEPS].reverse().find((z) => z < f - 1e-3);
     if (next) this.host.setZoom(next);
   }
-  toggleMenu() {
-    if (!this.menu.hidden) {
-      this.closeMenu();
-      return;
-    }
+  toggleZoomMenu() {
     const L = this.labels, cur = this.host.zoom();
-    const opts = [
-      ["page-width", L.pageWidth],
-      ["page-fit", L.pageFit],
-      ...[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => [String(z), `${Math.round(z * 100)}%`])
-    ];
+    const paged = this.host.view() === "print";
+    this.toggleMenu(
+      "zoom-level",
+      [
+        ...paged ? [{ value: "page-width", label: L.pageWidth }, { value: "page-fit", label: L.pageFit }] : [],
+        ...[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => ({ value: String(z), label: `${Math.round(z * 100)}%` }))
+      ].map((o) => ({ ...o, checked: String(cur.spec) === o.value || !paged && Math.abs(cur.factor - Number(o.value)) < 1e-3 })),
+      (v) => this.host.setZoom(v === "page-width" || v === "page-fit" ? v : Number(v))
+    );
+  }
+  toggleViewMenu() {
+    const L = this.labels, cur = this.host.view();
+    this.toggleMenu(
+      "view",
+      VIEW_MODES.map((v) => ({ value: v, label: L[v], checked: v === cur })),
+      (v) => this.host.setView(v)
+    );
+  }
+  toggleMenu(button, options, pick) {
+    if (!this.menu.hidden) {
+      const same = this.menuFor?.button === button;
+      this.closeMenu();
+      if (same) return;
+    }
     this.menu.textContent = "";
-    for (const [v, label] of opts) {
+    for (const o of options) {
       const b = document.createElement("button");
       b.type = "button";
       b.setAttribute("role", "menuitemradio");
-      b.setAttribute("part", "zoom-option");
-      b.dataset["zoom"] = v;
-      b.textContent = label;
-      b.setAttribute("aria-checked", String(String(cur.spec) === v));
+      b.setAttribute("part", "menu-option");
+      b.dataset["value"] = o.value;
+      b.textContent = o.label;
+      b.setAttribute("aria-checked", String(o.checked));
       this.menu.appendChild(b);
     }
-    const lvl = this.bar.buttonEl("zoom-level");
+    const btn = this.bar.buttonEl(button);
+    this.menuFor = { button, pick };
     this.menu.hidden = false;
-    const br = this.bar.bar.getBoundingClientRect(), lr = lvl.getBoundingClientRect();
+    const br = this.bar.bar.getBoundingClientRect(), lr = btn.getBoundingClientRect();
     const left = Math.max(8, Math.min(br.width - this.menu.offsetWidth - 8, lr.left - br.left + lr.width / 2 - this.menu.offsetWidth / 2));
     this.menu.style.left = `${left}px`;
     this.last = "";
@@ -23028,13 +23175,14 @@ var DocumentControls = class {
   }
   closeMenu() {
     this.menu.hidden = true;
+    this.menuFor = null;
     this.last = "";
   }
   configure(enabled, removed, lang) {
     this.labels = labelsFor(lang);
     if (!enabled) this.closeMenu();
     this.bar.configure(enabled, removed);
-    if (this.bar.isRemoved("zoom")) this.closeMenu();
+    if (this.menuFor && this.bar.isRemoved(this.menuFor.button === "view" ? "view" : "zoom")) this.closeMenu();
     this.last = "";
     this.sync();
   }
@@ -23044,28 +23192,29 @@ var DocumentControls = class {
   sync() {
     if (!this.bar.enabled) return;
     const h = this.host, L = this.labels, b = this.bar;
-    const n = h.count(), i2 = h.index();
-    const frac = h.scrollFraction();
+    const n = h.count();
+    const frac = h.progress();
     b.setProgress(frac, { label: L.progress, min: 0, max: 100, now: Math.round(frac * 100) });
-    const z = h.zoom(), full = h.isFullscreen(), tab = h.navTab();
-    const heads = h.hasHeadings(), cms = h.hasComments(), cmOpen = h.commentsOpen();
+    const z = h.zoom(), full = h.isFullscreen(), tab = h.navTab(), cmOpen = h.commentsOpen(), view = h.view();
+    const avail = CONTROL_ITEMS.map((it) => h.available(it) ? 1 : 0).join("");
+    const counter = h.counter();
     const state = [
       n,
-      i2,
+      counter,
       z.spec,
       z.factor.toFixed(3),
       full,
       tab,
-      heads,
-      cms,
       cmOpen,
-      !this.menu.hidden,
+      view,
+      avail,
+      this.menuFor?.button,
       CONTROL_ITEMS.filter((it) => b.isRemoved(it)).join()
     ].join("|");
     if (state === this.last) return;
     this.last = state;
-    b.applyVisibility((it) => n > 0 && (it === "outline" ? heads : it === "comments" ? cms : true));
-    b.setCounter(n ? `${i2 + 1} / ${n}` : "");
+    b.applyVisibility((it) => n > 0 && h.available(it));
+    b.setCounter(counter);
     const pct = `${Math.round(z.factor * 100)}%`;
     b.setButton("prev", { label: L.prev });
     b.setButton("next", { label: L.next });
@@ -23073,10 +23222,11 @@ var DocumentControls = class {
     b.setButton("thumbnails", { label: L.thumbnails, pressed: tab === "pages" });
     b.setButton("comments", { label: L.comments, pressed: cmOpen });
     b.setButton("zoom-out", { label: L.zoomOut });
-    b.setButton("zoom-level", { label: `${L.zoom}: ${pct}`, text: pct, expanded: !this.menu.hidden });
+    b.setButton("zoom-level", { label: `${L.zoom}: ${pct}`, text: pct, expanded: this.menuFor?.button === "zoom-level" });
     b.setButton("zoom-in", { label: L.zoomIn });
+    b.setButton("view", { label: `${L.view}: ${L[view]}`, icon: `view-${view}`, expanded: this.menuFor?.button === "view" });
     b.setButton("download", { label: L.download });
-    b.setButton("print", { label: L.print });
+    b.setButton("print", { label: L.printDoc });
     b.setButton("fullscreen", { label: full ? L.unfullscreen : L.fullscreen, icon: full ? "unfullscreen" : "fullscreen" });
   }
   dispose() {
@@ -23094,15 +23244,18 @@ var hyphenationLangs = (full) => documentHyphenationLanguages(full).filter((l) =
   });
 });
 var PX_PER_TWIP = 96 / 1440;
+var TILE_PX = 2048;
 var NAV_W = 232;
 var COMMENTS_W = 300;
 var MIN_PAGES_W = 360;
+var READ_GAP = 24;
 var PANEL_BG = "var(--udv-panel-bg, rgba(20,20,20,.94))";
 var HIGHLIGHT3 = "rgba(255, 187, 0, 0.28)";
 var HIGHLIGHT_ACTIVE = "rgba(255, 170, 0, 0.55)";
 var CSS = `
 :host { display: block; position: relative; contain: content; }
 .udv-wrap { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--udv-background, var(--uo-background, #2b2b2b)); }
+.udv-wrap.udv-web { background: var(--udv-web-background, #fff); }
 .udv-scroll {
   position: absolute; inset: 0; overflow: auto; outline: none; scrollbar-width: thin;
   padding: var(--udv-page-gap, 16px) 0 calc(var(--uoc-s) * 3.9);
@@ -23112,7 +23265,13 @@ var CSS = `
   position: relative; margin: 0 auto var(--udv-page-gap, 16px); background: #fff;
   box-shadow: 0 1px 3px rgba(0,0,0,.45);
 }
-.udv-page canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.udv-tile { position: absolute; left: 0; right: 0; overflow: hidden; }
+.udv-tile canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+.udv-web .udv-scroll { padding: 0 0 calc(var(--uoc-s) * 3.9); }
+.udv-web .udv-page { margin: 0 auto; box-shadow: none; }
+.udv-read .udv-scroll { display: flex; align-items: center; justify-content: center; gap: ${READ_GAP}px; overflow: hidden; padding: 12px; }
+.udv-read .udv-page { margin: 0; flex: none; }
+.udv-page[data-off] { display: none; }
 .udv-nav, .udv-comments {
   position: absolute; top: 0; bottom: 0; box-sizing: border-box; background: ${PANEL_BG};
   color: #e6e6e6; font: 13px/1.4 system-ui, "Segoe UI", sans-serif;
@@ -23156,7 +23315,7 @@ var CSS = `
 .udv-thumb:focus-visible { outline-color: var(--uoc-c); }
 .udv-thumb + span { display: block; text-align: center; color: #ddd; font: 11px/1.4 system-ui, sans-serif; margin: 0 0 10px; }
 .udv-msg { position: absolute; inset: 0; display: grid; place-items: center; color: #bbb; font: 14px system-ui, sans-serif; pointer-events: none; }
-` + CONTROLS_CSS;
+` + TEXT_LAYER_CSS + CONTROLS_CSS;
 var UniversalDocumentViewerElement = class extends HTMLElement {
   root = this.attachShadow({ mode: "open" });
   wrap = document.createElement("div");
@@ -23173,21 +23332,35 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   fileBytes = null;
   full = null;
   pkg = null;
+  embedded = [];
+  /** layout em exibição (o do modo atual) e o de impressão (PDF/impressão em qualquer modo) */
   layout = null;
+  printLayoutCache = null;
   layoutVersion = 0;
   pageEls = [];
+  tiles = [];
   thumbEls = [];
+  /** chave do que cada faixa ("página:faixa") tem pintado / com texto */
   painted = /* @__PURE__ */ new Map();
+  texted = /* @__PURE__ */ new Map();
   thumbPainted = /* @__PURE__ */ new Map();
+  paraCache = /* @__PURE__ */ new Map();
+  view = "print";
   zoomSpec = "page-width";
   zoomFactor = 1;
   index = 0;
+  /** Modo de Leitura: 1ª página do bloco em cena */
+  readFirst = 0;
+  /** Layout da Web: largura (twips) com que o layout atual foi feito */
+  webWidthTw = 0;
   navTab = null;
   commentsOpen = false;
   activeComment = null;
   notes = { comments: [], headings: [] };
   outlineEls = [];
   currentHeading = -1;
+  /** Último título anunciado em `udv-heading`. */
+  headingIndex = -1;
   loadSeq = 0;
   srcUrl = null;
   rafId = 0;
@@ -23195,8 +23368,9 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   resizeObs = null;
   unsubscribeFonts = null;
   relayoutTimer = 0;
+  wheelLock = 0;
   static get observedAttributes() {
-    return ["src", "zoom", "nocontrols", ...CONTROL_ITEMS.map((it) => `no${it}`), "lang"];
+    return ["src", "zoom", "view", "noselect", "nocontrols", ...CONTROL_ITEMS.map((it) => `no${it}`), "lang"];
   }
   constructor() {
     super();
@@ -23271,6 +23445,8 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.unsubscribeFonts ??= this.fonts.resolver.onChange(() => this.queueRelayout());
     document.addEventListener("fullscreenchange", this.onFullscreenChange);
     this.readZoomAttr();
+    this.readViewAttr();
+    this.wrap.classList.toggle("udv-noselect", this.hasAttribute("noselect"));
     this.configureControls();
     const src = this.getAttribute("src");
     if (src && src !== this.srcUrl) void this.loadSrc(src);
@@ -23283,6 +23459,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     document.removeEventListener("fullscreenchange", this.onFullscreenChange);
     cancelAnimationFrame(this.rafId);
     this.rafId = 0;
+    clearTimeout(this.relayoutTimer);
     this.controls.dispose();
   }
   attributeChangedCallback(name, oldV, newV) {
@@ -23292,6 +23469,11 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     } else if (name === "zoom") {
       this.readZoomAttr();
       this.applyZoom();
+    } else if (name === "view") this.readViewAttr();
+    else if (name === "noselect") {
+      this.wrap.classList.toggle("udv-noselect", newV !== null);
+      this.texted.clear();
+      this.schedule();
     } else this.configureControls();
   }
   configureControls() {
@@ -23309,6 +23491,10 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     const z = (this.getAttribute("zoom") ?? "").trim().toLowerCase();
     if (z === "page-fit" || z === "page-width") this.zoomSpec = z;
     else if (/^\d+(\.\d+)?%?$/.test(z)) this.zoomSpec = Math.max(0.1, Math.min(8, parseFloat(z) / 100));
+  }
+  readViewAttr() {
+    const v = (this.getAttribute("view") ?? "").trim().toLowerCase();
+    this.setView(VIEW_MODES.includes(v) ? v : "print");
   }
   // ───────────────────────── carga e layout ─────────────────────────
   async loadSrc(url) {
@@ -23335,55 +23521,85 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.fileBytes = bytes;
     this.pkg = pkg;
     this.full = full;
+    this.embedded = [];
+    try {
+      this.embedded = readEmbeddedFonts(pkg);
+    } catch {
+    }
+    this.printLayoutCache = null;
+    this.layout = null;
     this.index = 0;
+    this.readFirst = 0;
     this.scroller.scrollTop = 0;
     await this.relayout(seq);
     if (seq !== this.loadSeq) return;
     this.dispatchEvent(new CustomEvent("udv-loaded", { detail: { pages: this.getPageCount() } }));
   }
+  /** O documento que o motor diagrama no modo atual. */
+  docForView() {
+    if (this.view !== "web") return this.full;
+    this.webWidthTw = this.webTargetTw();
+    return webDocument(this.full, this.webWidthTw);
+  }
+  /** Layout da Web: a largura do texto acompanha a do viewer (no zoom atual). */
+  webTargetTw() {
+    const z = typeof this.zoomSpec === "number" ? this.zoomSpec : 1;
+    return this.availWidth() / (PX_PER_TWIP * z);
+  }
   /** Diagrama o documento atual; repete enquanto o motor pede fontes que chegam. */
   async relayout(seq = this.loadSeq) {
-    const full = this.full, pkg = this.pkg;
-    if (!full || !pkg) return;
+    const full = this.full;
+    if (!full) return;
     await this.fonts.loadAssets(this.getAttribute("fonts"));
     try {
       await loadHyphenation(hyphenationLangs(full));
     } catch {
     }
-    let embedded = [];
-    try {
-      embedded = readEmbeddedFonts(pkg);
-    } catch {
-    }
     for (let pass = 0; pass < 4; pass++) {
-      if (seq !== this.loadSeq) return;
-      const prov = withEmbeddedFonts(this.fonts.provider(), embedded, (b) => new SfntFont(b));
-      this.setLayout(layoutDocument(full, prov, LAYOUT_OPTS));
+      if (seq !== this.loadSeq || this.full !== full) return;
+      const res = layoutDocument(this.docForView(), this.provider(), LAYOUT_OPTS);
+      if (this.view !== "web") this.printLayoutCache = res;
+      this.setLayout(res);
       if (!await this.fonts.loadMissing()) break;
+      this.printLayoutCache = null;
     }
   }
-  queueRelayout() {
+  provider() {
+    return withEmbeddedFonts(this.fonts.provider(), this.embedded, (b) => new SfntFont(b));
+  }
+  queueRelayout(delay = 50) {
     clearTimeout(this.relayoutTimer);
     this.relayoutTimer = window.setTimeout(() => {
       void this.relayout();
-    }, 50);
+    }, delay);
+  }
+  /** Layout de impressão (PDF/impressão em qualquer modo de exibição). */
+  printLayout() {
+    if (!this.full) return null;
+    if (this.view !== "web" && this.layout) return this.layout;
+    return this.printLayoutCache ??= layoutDocument(this.full, this.provider(), LAYOUT_OPTS);
   }
   setLayout(res) {
-    const keepFrac = this.layout ? this.scrollFraction() : 0;
+    const keepFrac = this.layout && this.view !== "read" ? this.scrollFraction() : 0;
     this.layout = res;
     this.layoutVersion++;
     this.painted.clear();
+    this.texted.clear();
     this.thumbPainted.clear();
+    this.paraCache.clear();
     this.msg.textContent = "";
     const n = res.pages.length;
-    while (this.pageEls.length > n) this.pageEls.pop().remove();
+    while (this.pageEls.length > n) {
+      this.pageEls.pop().remove();
+      this.tiles.pop();
+    }
     while (this.pageEls.length < n) {
       const d = document.createElement("div");
       d.className = "udv-page";
       d.setAttribute("part", "page");
-      d.appendChild(document.createElement("canvas"));
       this.scroller.appendChild(d);
       this.pageEls.push(d);
+      this.tiles.push([]);
     }
     this.headingIndex = -2;
     this.notes = this.full ? collectAnnotations(this.full, res) : { comments: [], headings: [] };
@@ -23392,23 +23608,74 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.buildOutline();
     this.buildComments();
     if (this.navTab === "outline" && !this.notes.headings.length) this.setNav(null);
+    if (this.navTab === "pages" && this.view === "web") this.setNav(null);
     if (this.commentsOpen && !this.notes.comments.length) this.setComments(false);
     this.applyZoom(false);
     if (keepFrac) this.scrollToFraction(keepFrac);
   }
+  // ───────────────────────── modos de exibição ─────────────────────────
+  getView() {
+    return this.view;
+  }
+  /** Layout de Impressão, Modo de Leitura ou Layout da Web (mantém a página atual). */
+  setView(v) {
+    if (v === this.view) return;
+    const prev = this.view;
+    const page = this.index;
+    this.view = v;
+    this.wrap.classList.toggle("udv-read", v === "read");
+    this.wrap.classList.toggle("udv-web", v === "web");
+    if (v === "web" && this.navTab === "pages") this.setNav(null);
+    this.dispatchEvent(new CustomEvent("udv-view", { detail: { view: v } }));
+    if (!this.full) return;
+    if (v === "web" || prev === "web") {
+      if (v !== "web" && this.printLayoutCache) {
+        this.setLayout(this.printLayoutCache);
+        this.goToPage(page, false);
+      } else {
+        this.layout = null;
+        void this.relayout();
+      }
+    } else {
+      this.readFirst = page;
+      this.applyZoom(false);
+      if (v === "print") this.goToPage(page, false);
+    }
+    this.controls.sync();
+  }
   // ───────────────────────── zoom e geometria ─────────────────────────
+  /** Altura EXIBIDA da página (twips): no Layout da Web, até o fim do texto. */
+  pageHeightTw(i2) {
+    const p = this.layout.pages[i2];
+    return this.view === "web" ? webPageHeight(p) : p.heightTw;
+  }
   maxPageWidthTw() {
     return Math.max(1, ...this.layout?.pages.map((p) => p.widthTw) ?? [12240]);
   }
-  computeZoom() {
-    if (typeof this.zoomSpec === "number") return this.zoomSpec;
-    const gap = 16;
+  /** Largura (px) disponível para as páginas, sem os painéis ao lado e as margens. */
+  availWidth() {
     const { left, right } = this.reserved();
-    const availW = this.scroller.clientWidth - left - right - gap * 2;
-    const wFit = availW / (this.maxPageWidthTw() * PX_PER_TWIP);
+    const pad2 = this.view === "web" ? 0 : this.view === "read" ? 24 : 32;
+    return Math.max(200, this.scroller.clientWidth - left - right - pad2);
+  }
+  /** Páginas por bloco no Modo de Leitura. */
+  readN() {
+    return readPagesPerView(this.availWidth());
+  }
+  computeZoom() {
+    if (this.view === "web") return typeof this.zoomSpec === "number" ? this.zoomSpec : 1;
+    const avail = this.availWidth();
+    if (this.view === "read") {
+      const n = this.readN();
+      const pw = this.maxPageWidthTw() * PX_PER_TWIP;
+      const ph = Math.max(1, ...this.layout?.pages.map((p2) => p2.heightTw) ?? [15840]) * PX_PER_TWIP;
+      return Math.max(0.1, Math.min((avail - READ_GAP * (n - 1)) / (n * pw), (this.scroller.clientHeight - 24) / ph));
+    }
+    if (typeof this.zoomSpec === "number") return this.zoomSpec;
+    const wFit = avail / (this.maxPageWidthTw() * PX_PER_TWIP);
     if (this.zoomSpec === "page-width") return Math.max(0.1, wFit);
     const p = this.layout?.pages[this.index] ?? this.layout?.pages[0];
-    const hFit = p ? (this.scroller.clientHeight - gap * 2) / (p.heightTw * PX_PER_TWIP) : wFit;
+    const hFit = p ? (this.scroller.clientHeight - 32) / (p.heightTw * PX_PER_TWIP) : wFit;
     return Math.max(0.1, Math.min(wFit, hFit));
   }
   /** Painéis ao lado das páginas (reservam largura) ou, sem espaço, flutuando sobre elas. */
@@ -23420,25 +23687,55 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   narrow() {
     return this.wrap.clientWidth < NAV_W + COMMENTS_W + MIN_PAGES_W;
   }
-  /** Recalcula o fator e o tamanho das páginas, mantendo a página atual em vista. */
+  /** Recalcula o fator e o tamanho das páginas (e o bloco do Modo de Leitura), mantendo a posição. */
   applyZoom(keep = true) {
     if (!this.layout) return;
-    const anchor = keep ? this.anchor() : null;
+    const anchor = keep && this.view !== "read" ? this.anchor() : null;
     const { left, right } = this.reserved();
     this.scroller.style.paddingLeft = left ? `${left}px` : "";
     this.scroller.style.paddingRight = right ? `${right}px` : "";
+    if (this.view === "web" && Math.abs(this.webTargetTw() - this.webWidthTw) > 60) this.queueRelayout(120);
     const z = this.computeZoom();
     const changed = Math.abs(z - this.zoomFactor) > 1e-4;
     this.zoomFactor = z;
+    const n = this.readN(), total = this.layout.pages.length;
+    if (this.view === "read") this.readFirst = Math.max(0, Math.min(this.readFirst, total - 1));
     this.layout.pages.forEach((p, i2) => {
       const el2 = this.pageEls[i2];
-      el2.style.width = `${Math.round(p.widthTw * PX_PER_TWIP * z)}px`;
-      el2.style.height = `${Math.round(p.heightTw * PX_PER_TWIP * z)}px`;
-      if (p.background) el2.style.background = `#${p.background}`;
+      const w = Math.round(p.widthTw * PX_PER_TWIP * z), h = Math.round(this.pageHeightTw(i2) * PX_PER_TWIP * z);
+      el2.style.width = `${w}px`;
+      el2.style.height = `${h}px`;
+      el2.style.background = p.background ? `#${p.background}` : "";
+      const off = this.view === "read" && (i2 < this.readFirst || i2 >= this.readFirst + n);
+      if (off) el2.setAttribute("data-off", "");
+      else el2.removeAttribute("data-off");
+      this.layoutTiles(i2, h);
     });
     if (anchor) this.restoreAnchor(anchor);
     if (changed) this.dispatchEvent(new CustomEvent("udv-zoom", { detail: { zoom: this.zoomSpec, factor: z } }));
     this.schedule();
+  }
+  /** Faixas da página `i` para a altura `h` (px CSS). */
+  layoutTiles(i2, h) {
+    const el2 = this.pageEls[i2], list2 = this.tiles[i2];
+    const count = Math.max(1, Math.ceil(h / TILE_PX));
+    while (list2.length > count) list2.pop().div.remove();
+    while (list2.length < count) {
+      const div = document.createElement("div");
+      div.className = "udv-tile";
+      const canvas = document.createElement("canvas");
+      const text = document.createElement("div");
+      text.className = "udv-text";
+      div.append(canvas, text);
+      el2.appendChild(div);
+      list2.push({ div, canvas, text, top: 0, h: 0 });
+    }
+    list2.forEach((t, k) => {
+      t.top = k * TILE_PX;
+      t.h = Math.min(TILE_PX, h - t.top);
+      t.div.style.top = `${t.top}px`;
+      t.div.style.height = `${t.h}px`;
+    });
   }
   /** Página + posição relativa nela (para o zoom não "pular"). */
   anchor() {
@@ -23450,7 +23747,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     const el2 = this.pageEls[a.i];
     if (el2) this.scroller.scrollTop = el2.offsetTop + a.f * el2.offsetHeight;
   }
-  /** Redimensionou: os painéis podem passar a caber (ou não) ao lado das páginas. */
+  /** Redimensionou: painéis, bloco de leitura e a largura do Layout da Web se reajustam. */
   onResize() {
     this.applyZoom();
   }
@@ -23474,15 +23771,26 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       color: (hex2) => `#${hex2}`
     };
   }
+  para = (ref) => {
+    let p = this.paraCache.get(ref);
+    if (p === void 0) {
+      p = this.full && /^b\d/.test(ref) ? paragraphAtPath(this.full.blocks, ref.split("/")) : null;
+      this.paraCache.set(ref, p);
+    }
+    return p;
+  };
   update() {
     const res = this.layout;
     if (!res) return;
     const s = this.scroller;
     const top = s.scrollTop, bottom = top + s.clientHeight;
     let cur = 0;
-    for (let i2 = 0; i2 < this.pageEls.length; i2++) {
-      if (this.pageEls[i2].offsetTop <= top + s.clientHeight / 3) cur = i2;
-      else break;
+    if (this.view === "read") cur = this.readFirst;
+    else {
+      for (let i2 = 0; i2 < this.pageEls.length; i2++) {
+        if (this.pageEls[i2].offsetTop <= top + s.clientHeight / 3) cur = i2;
+        else break;
+      }
     }
     if (cur !== this.index) {
       this.index = cur;
@@ -23490,31 +23798,61 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     }
     const dpr = window.devicePixelRatio || 1;
     const key = `${this.layoutVersion}|${this.zoomFactor.toFixed(4)}|${dpr}|${this.commentsOpen ? this.activeComment ?? "c" : ""}`;
+    const textKey = `${this.layoutVersion}|${this.zoomFactor.toFixed(4)}`;
+    const selectable = !this.hasAttribute("noselect");
     const margin = s.clientHeight;
     for (let i2 = 0; i2 < this.pageEls.length; i2++) {
       const el2 = this.pageEls[i2];
-      const visible = el2.offsetTop + el2.offsetHeight >= top - margin && el2.offsetTop <= bottom + margin;
-      const cv = el2.firstElementChild;
-      if (!visible) {
-        if (this.painted.has(i2)) {
-          cv.width = cv.height = 0;
-          this.painted.delete(i2);
+      const shown = !el2.hasAttribute("data-off");
+      for (let k = 0; k < this.tiles[i2].length; k++) {
+        const t = this.tiles[i2][k];
+        const id = `${i2}:${k}`;
+        const y0 = el2.offsetTop + t.top;
+        const visible = shown && (this.view === "read" || y0 + t.h >= top - margin && y0 <= bottom + margin);
+        if (!visible) {
+          if (this.painted.has(id)) {
+            t.canvas.width = t.canvas.height = 0;
+            this.painted.delete(id);
+          }
+          if (this.texted.has(id)) {
+            t.text.textContent = "";
+            this.texted.delete(id);
+          }
+          continue;
         }
-        continue;
+        if (this.painted.get(id) !== key) {
+          this.paintTile(i2, t, dpr);
+          this.painted.set(id, key);
+        }
+        if (selectable && this.texted.get(id) !== textKey) {
+          this.fillText(i2, t);
+          this.texted.set(id, textKey);
+        }
       }
-      if (this.painted.get(i2) === key) continue;
-      this.paintPage(i2, cv, this.zoomFactor * dpr);
-      this.painted.set(i2, key);
     }
     if (this.navTab === "pages") this.updateThumbs();
     this.syncThumbCurrent();
     this.syncHeadingCurrent();
     this.controls.sync();
   }
-  /** Pinta a página `i` num canvas, na escala px/(px CSS a 100%). */
-  paintPage(i2, cv, k, highlights = true) {
+  /** px CSS por twip da página `i` no zoom atual. */
+  pxPerTw(i2) {
     const p = this.layout.pages[i2];
-    const w = Math.max(1, Math.round(p.widthTw * PX_PER_TWIP * k)), h = Math.max(1, Math.round(p.heightTw * PX_PER_TWIP * k));
+    return Math.round(p.widthTw * PX_PER_TWIP * this.zoomFactor) / p.widthTw;
+  }
+  /** Pinta uma faixa da página (fundo + itens do motor + trechos comentados). */
+  paintTile(i2, t, dpr) {
+    const p = this.layout.pages[i2];
+    const k = this.pxPerTw(i2);
+    const w = Math.max(1, Math.round(p.widthTw * k * dpr)), h = Math.max(1, Math.round(t.h * dpr));
+    this.drawPage(i2, t.canvas, w, h, w / p.widthTw, t.top / k, true);
+  }
+  /**
+   * Desenha a página `i` num canvas `w×h` (px do dispositivo), escala `sc`
+   * (px/twip) e começando em `topTw` (a faixa).
+   */
+  drawPage(i2, cv, w, h, sc, topTw, highlights) {
+    const p = this.layout.pages[i2];
     if (cv.width !== w) cv.width = w;
     if (cv.height !== h) cv.height = h;
     const ctx = cv.getContext("2d");
@@ -23524,8 +23862,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     ctx.imageSmoothingQuality = "high";
     ctx.fillStyle = p.background ? `#${p.background}` : "#ffffff";
     ctx.fillRect(0, 0, w, h);
-    const sc = w / p.widthTw;
-    ctx.setTransform(sc, 0, 0, sc, 0, 0);
+    ctx.setTransform(sc, 0, 0, sc, 0, -topTw * sc);
     try {
       paintItems(ctx, p.items, this.paintEnv());
     } catch {
@@ -23536,6 +23873,13 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
         for (const r of c.rects) if (r.page === i2) ctx.fillRect(r.x, r.y, r.w, r.h);
       }
     }
+  }
+  /** Camada de texto selecionável da faixa: as linhas que começam nela. */
+  fillText(i2, t) {
+    const p = this.layout.pages[i2];
+    const k = this.pxPerTw(i2);
+    const top = t.top / k, bottom = (t.top + t.h) / k;
+    fillTextLayer(t.text, p.lines.filter((l) => l.y >= top && l.y < bottom), this.para, k, top);
   }
   /** Imagem decodificada (o vetor SVG, como o Word, quando houver). */
   bitmapFor(img) {
@@ -23578,7 +23922,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   }
   // ───────────────────────── miniaturas ─────────────────────────
   buildThumbs() {
-    const n = this.layout?.pages.length ?? 0;
+    const n = this.view === "web" ? 0 : this.layout?.pages.length ?? 0;
     this.thumbs.textContent = "";
     this.thumbEls = [];
     for (let i2 = 0; i2 < n; i2++) {
@@ -23620,16 +23964,18 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       if (el2.offsetTop + el2.offsetHeight < top - 200 || el2.offsetTop > bottom + 200) continue;
       if (this.thumbPainted.get(i2) === key) continue;
       const p = this.layout.pages[i2];
-      this.paintPage(i2, el2.firstElementChild, el2.offsetWidth / (p.widthTw * PX_PER_TWIP) * dpr, false);
+      const w = Math.max(1, Math.round(el2.offsetWidth * dpr)), h = Math.max(1, Math.round(el2.offsetHeight * dpr));
+      this.drawPage(i2, el2.firstElementChild, w, h, w / p.widthTw, 0, false);
       this.thumbPainted.set(i2, key);
     }
   }
   syncThumbCurrent() {
+    const n = this.view === "read" ? this.readN() : 1;
     this.thumbEls.forEach((t, i2) => {
-      const cur = i2 === this.index;
+      const cur = i2 >= this.index && i2 < this.index + n;
       if (t.getAttribute("aria-current") === "true" === cur) return;
       t.setAttribute("aria-current", String(cur));
-      if (cur && this.navTab === "pages") {
+      if (cur && i2 === this.index && this.navTab === "pages") {
         const s = this.thumbs;
         if (t.offsetTop < s.scrollTop) s.scrollTop = t.offsetTop - 12;
         else if (t.offsetTop + t.offsetHeight > s.scrollTop + s.clientHeight) s.scrollTop = t.offsetTop + t.offsetHeight - s.clientHeight + 40;
@@ -23644,9 +23990,8 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.navTab = tab;
     this.nav.hidden = !tab;
     this.wrap.classList.toggle("udv-nav-open", !!tab);
-    const noOutline = this.hasAttribute("nooutline") || !this.notes.headings.length;
-    this.tabOutline.hidden = noOutline;
-    this.tabPages.hidden = this.hasAttribute("nothumbnails");
+    this.tabOutline.hidden = this.hasAttribute("nooutline") || !this.notes.headings.length;
+    this.tabPages.hidden = this.hasAttribute("nothumbnails") || this.view === "web";
     this.tabOutline.setAttribute("aria-selected", String(tab === "outline"));
     this.tabPages.setAttribute("aria-selected", String(tab === "pages"));
     this.outlineEl.hidden = tab !== "outline";
@@ -23695,20 +24040,33 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   /** Posição (px no rolador) de um ponto da página. */
   pageY(page, yTw) {
     const el2 = this.pageEls[page];
-    const p = this.layout?.pages[page];
-    if (!el2 || !p) return 0;
-    return el2.offsetTop + yTw * (el2.offsetHeight / p.heightTw);
+    if (!el2 || !this.layout?.pages[page]) return 0;
+    return el2.offsetTop + yTw * (el2.offsetHeight / this.pageHeightTw(page));
   }
-  /** Vai ao título `i` do índice. */
+  /** Leva um ponto da página à vista (no Modo de Leitura, o bloco que contém a página). */
+  reveal(page, yTw, offsetPx) {
+    if (this.view === "read") {
+      this.goToPage(page);
+      return;
+    }
+    this.scroller.scrollTo({ top: Math.max(0, this.pageY(page, yTw) - offsetPx), behavior: "smooth" });
+  }
+  /** Vai ao título `i` do índice (posição em `getHeadings()`). */
   goToHeading(i2) {
     const h = this.notes.headings[i2];
-    if (!h) return;
-    this.scroller.scrollTo({ top: Math.max(0, this.pageY(h.page, h.y) - 24), behavior: "smooth" });
+    if (h) this.reveal(h.page, h.y, 24);
   }
   /** Índice do título atual (o último que passou do 1º terço da janela); −1 = antes do 1º / sem títulos. */
   getHeadingIndex() {
-    const mark = this.scroller.scrollTop + this.scroller.clientHeight / 3;
     let cur = -1;
+    if (this.view === "read") {
+      const last = this.readFirst + this.readN() - 1;
+      this.notes.headings.forEach((h, i2) => {
+        if (h.page <= last && (h.page <= this.readFirst || cur < 0)) cur = i2;
+      });
+      return cur;
+    }
+    const mark = this.scroller.scrollTop + this.scroller.clientHeight / 3;
     this.notes.headings.forEach((h, i2) => {
       if (this.pageY(h.page, h.y) <= mark) cur = i2;
     });
@@ -23733,8 +24091,6 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     if (b.offsetTop < s.scrollTop) s.scrollTop = b.offsetTop - 12;
     else if (b.offsetTop + b.offsetHeight > s.scrollTop + s.clientHeight) s.scrollTop = b.offsetTop + b.offsetHeight - s.clientHeight + 40;
   }
-  /** Último título anunciado em `udv-heading`. */
-  headingIndex = -1;
   // ───────────────────────── comentários ─────────────────────────
   buildComments() {
     const L = this.labels();
@@ -23763,7 +24119,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       const t = document.createElement("span");
       t.textContent = c.text;
       b.appendChild(t);
-      if (c.rects[0]) {
+      if (c.rects[0] && this.view !== "web") {
         const sm = document.createElement("small");
         sm.textContent = `${L.page} ${c.rects[0].page + 1}`;
         b.appendChild(sm);
@@ -23788,19 +24144,21 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       }
     }
     const r = c.rects[0];
-    if (scroll && r) this.scroller.scrollTo({ top: Math.max(0, this.pageY(r.page, r.y) - this.scroller.clientHeight / 3), behavior: "smooth" });
+    if (scroll && r) this.reveal(r.page, r.y, this.scroller.clientHeight / 3);
     this.dispatchEvent(new CustomEvent("udv-comment", { detail: { id, author: c.author, text: c.text } }));
     this.repaintAll();
   }
   /** Clique no trecho comentado (painel aberto): seleciona o comentário. */
   onPageClick = (e) => {
     if (!this.commentsOpen) return;
+    const sel2 = this.root.getSelection?.() ?? document.getSelection();
+    if (sel2 && !sel2.isCollapsed) return;
     const el2 = e.target.closest(".udv-page");
     const page = el2 ? this.pageEls.indexOf(el2) : -1;
     const p = this.layout?.pages[page];
     if (!el2 || !p) return;
     const rect = el2.getBoundingClientRect();
-    const x2 = (e.clientX - rect.left) / rect.width * p.widthTw, y = (e.clientY - rect.top) / rect.height * p.heightTw;
+    const x2 = (e.clientX - rect.left) / rect.width * p.widthTw, y = (e.clientY - rect.top) / rect.height * this.pageHeightTw(page);
     for (const c of this.notes.comments) {
       if (c.rects.some((r) => r.page === page && x2 >= r.x && x2 <= r.x + r.w && y >= r.y && y <= r.y + r.h)) {
         this.selectComment(c.id);
@@ -23812,7 +24170,10 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   getPageCount() {
     return this.layout?.pages.length ?? 0;
   }
-  /** Títulos do documento (nível 1–9, texto, página). */
+  getPageIndex() {
+    return this.index;
+  }
+  /** Títulos do documento (nível 1–9, texto, página no modo atual); a posição é o `i` de goToHeading. */
   getHeadings() {
     return this.notes.headings.map((h) => ({ level: h.level, text: h.text, page: h.page }));
   }
@@ -23820,15 +24181,24 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   getComments() {
     return this.notes.comments.map((c) => ({ id: c.id, ...c.author ? { author: c.author } : {}, text: c.text, page: c.rects[0]?.page ?? null }));
   }
-  getPageIndex() {
-    return this.index;
+  /** Vai à página `i` (no Modo de Leitura, ao bloco que a contém). */
+  goToPage(i2, smooth = true) {
+    const n = this.getPageCount();
+    if (!n) return;
+    const page = Math.max(0, Math.min(n - 1, i2));
+    if (this.view === "read") {
+      const per = this.readN();
+      const first = Math.floor(page / per) * per;
+      if (first !== this.readFirst) {
+        this.readFirst = first;
+        this.applyZoom(false);
+      }
+      return;
+    }
+    const el2 = this.pageEls[page];
+    if (el2) this.scroller.scrollTo({ top: el2.offsetTop - 16, behavior: smooth ? "smooth" : "auto" });
   }
-  goToPage(i2) {
-    const el2 = this.pageEls[Math.max(0, Math.min(this.pageEls.length - 1, i2))];
-    if (!el2) return;
-    this.scroller.scrollTo({ top: el2.offsetTop - 16, behavior: "smooth" });
-  }
-  /** `page-width`, `page-fit` ou fator (1 = 100%). */
+  /** `page-width`, `page-fit` ou fator (1 = 100%). No Modo de Leitura o ajuste é sempre à tela. */
   setZoom(z) {
     this.zoomSpec = typeof z === "number" ? Math.max(0.1, Math.min(8, z)) : z;
     this.applyZoom();
@@ -23837,14 +24207,15 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   getZoom() {
     return { spec: this.zoomSpec, factor: this.zoomFactor };
   }
-  /** PDF do MESMO layout da tela (o pintor de referência do motor). */
+  /** PDF do layout de IMPRESSÃO (o pintor de referência do motor), em qualquer modo de exibição. */
   exportPdf() {
-    if (!this.layout) throw new Error("document not loaded");
-    return renderPdf(this.layout);
+    const lay = this.printLayout();
+    if (!lay) throw new Error("document not loaded");
+    return renderPdf(lay);
   }
   /** Imprime pelo PDF do motor (não pelo que está na tela): `udv-print` cancelável. */
   print() {
-    if (!this.layout) return;
+    if (!this.full) return;
     const pdf = this.exportPdf();
     if (!this.dispatchEvent(new CustomEvent("udv-print", { cancelable: true, detail: { pdf } }))) return;
     const url = URL.createObjectURL(new Blob([new Uint8Array(pdf)], { type: "application/pdf" }));
@@ -23904,19 +24275,45 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     const s = this.scroller;
     s.scrollTop = f * (s.scrollHeight - s.clientHeight);
   }
+  /** Modo de Leitura: bloco anterior/seguinte. */
+  nudgeRead(dir) {
+    const n = this.readN(), total = this.getPageCount();
+    const next = this.readFirst + dir * n;
+    if (next >= total || next + n <= 0) return;
+    this.readFirst = Math.max(0, next);
+    this.applyZoom(false);
+  }
   controlsHost() {
     return {
+      available: (it) => {
+        if (it === "nav" || it === "counter" || it === "thumbnails") return this.view !== "web";
+        if (it === "zoom") return this.view !== "read";
+        if (it === "outline") return this.notes.headings.length > 0;
+        if (it === "comments") return this.notes.comments.length > 0;
+        return true;
+      },
       count: () => this.getPageCount(),
-      index: () => this.index,
-      goTo: (i2) => this.goToPage(i2),
-      scrollFraction: () => this.scrollFraction(),
-      scrollToFraction: (f) => this.scrollToFraction(f),
+      counter: () => {
+        const total = this.getPageCount();
+        if (!total || this.view === "web") return "";
+        if (this.view !== "read") return `${this.index + 1} / ${total}`;
+        const last = Math.min(total, this.readFirst + this.readN());
+        return last > this.readFirst + 1 ? `${this.readFirst + 1}\u2013${last} / ${total}` : `${this.readFirst + 1} / ${total}`;
+      },
+      prev: () => this.view === "read" ? this.nudgeRead(-1) : this.goToPage(this.index - 1),
+      next: () => this.view === "read" ? this.nudgeRead(1) : this.goToPage(this.index + 1),
+      progress: () => {
+        if (this.view !== "read") return this.scrollFraction();
+        const total = this.getPageCount();
+        return total ? Math.min(1, (this.readFirst + this.readN()) / total) : 0;
+      },
+      seek: (f) => this.view === "read" ? this.goToPage(Math.floor(f * this.getPageCount())) : this.scrollToFraction(f),
       zoom: () => this.getZoom(),
       setZoom: (z) => this.setZoom(z),
+      view: () => this.view,
+      setView: (v) => this.setView(v),
       navTab: () => this.navTab,
       toggleNav: (tab) => this.setNav(this.navTab === tab ? null : tab),
-      hasHeadings: () => this.notes.headings.length > 0,
-      hasComments: () => this.notes.comments.length > 0,
       commentsOpen: () => this.commentsOpen,
       toggleComments: () => this.setComments(!this.commentsOpen),
       download: () => this.download(),
@@ -23925,9 +24322,19 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       toggleFullscreen: () => this.toggleFullscreen()
     };
   }
-  /** Ctrl +/−/0: zoom do viewer (não o do navegador) com o foco nele. */
+  /** Ctrl +/−/0: zoom do viewer (não o do navegador); no Modo de Leitura, ← → e companhia. */
   onKeyDown = (e) => {
-    if (!(e.ctrlKey || e.metaKey) || this.hasAttribute("nozoom")) return;
+    if (this.view === "read" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const k = e.key;
+      if (k === "ArrowRight" || k === "PageDown" || k === " " || k === "ArrowDown") this.nudgeRead(1);
+      else if (k === "ArrowLeft" || k === "PageUp" || k === "ArrowUp") this.nudgeRead(-1);
+      else if (k === "Home") this.goToPage(0);
+      else if (k === "End") this.goToPage(this.getPageCount() - 1);
+      else return;
+      e.preventDefault();
+      return;
+    }
+    if (!(e.ctrlKey || e.metaKey) || this.hasAttribute("nozoom") || this.view === "read") return;
     if (e.key === "+" || e.key === "=") {
       this.setZoom(this.zoomFactor * 1.25);
       e.preventDefault();
@@ -23935,13 +24342,23 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       this.setZoom(this.zoomFactor / 1.25);
       e.preventDefault();
     } else if (e.key === "0") {
-      this.setZoom("page-width");
+      this.setZoom(this.view === "web" ? 1 : "page-width");
       e.preventDefault();
     }
   };
-  /** Ctrl + roda: zoom do viewer. */
+  /** Ctrl + roda: zoom do viewer; no Modo de Leitura a roda vira o bloco. */
   onWheel = (e) => {
-    if (!(e.ctrlKey || e.metaKey) || this.hasAttribute("nozoom") || !this.layout) return;
+    if (!this.layout) return;
+    if (this.view === "read" && !e.ctrlKey && !e.metaKey) {
+      if (e.target.closest(".udv-nav, .udv-comments, .uoc-bar")) return;
+      e.preventDefault();
+      const now = performance.now();
+      if (now < this.wheelLock || Math.abs(e.deltaY) < 4) return;
+      this.wheelLock = now + 350;
+      this.nudgeRead(e.deltaY > 0 ? 1 : -1);
+      return;
+    }
+    if (!(e.ctrlKey || e.metaKey) || this.hasAttribute("nozoom") || this.view === "read") return;
     e.preventDefault();
     this.setZoom(this.zoomFactor * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
   };
@@ -24010,6 +24427,11 @@ dv.addEventListener("udv-comment", (e) => {
   const d = e.detail;
   log(`udv-comment { id: ${d.id}, author: ${JSON.stringify(d.author)} }`);
 });
+dv.addEventListener("udv-view", (e) => {
+  const v = e.detail.view;
+  $("view").value = v;
+  log(`udv-view { view: ${JSON.stringify(v)} }`);
+});
 dv.addEventListener("udv-page", (e) => log(`udv-page { index: ${e.detail.index} }`));
 dv.addEventListener("udv-zoom", (e) => {
   const d = e.detail;
@@ -24029,6 +24451,11 @@ for (const name of ["udv-download", "udv-print"]) {
 function apply() {
   const no = $("nocontrols").checked;
   dv.toggleAttribute("nocontrols", no);
+  const view = $("view").value;
+  if (view === "print") dv.removeAttribute("view");
+  else dv.setAttribute("view", view);
+  const noselect = $("noselect").checked;
+  dv.toggleAttribute("noselect", noselect);
   let off = "";
   for (const i2 of list.querySelectorAll("input")) {
     dv.toggleAttribute(`no${i2.dataset["t"]}`, i2.checked);
@@ -24052,7 +24479,7 @@ ${vars.join("\n")}
   $("userCss").textContent = css2;
   $("markup").textContent = (css2 ? `<style>
 ${css2}</style>
-` : "") + `<universal-document-viewer src="contrato.docx"${no ? " nocontrols" : off}></universal-document-viewer>`;
+` : "") + `<universal-document-viewer src="contrato.docx"${view !== "print" ? ` view="${view}"` : ""}${noselect ? " noselect" : ""}${no ? " nocontrols" : off}></universal-document-viewer>`;
 }
 document.querySelector("aside").addEventListener("input", apply);
 apply();

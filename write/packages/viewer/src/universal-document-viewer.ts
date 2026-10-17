@@ -1,19 +1,21 @@
 import {
   DocxPackage, readFullDocument, readEmbeddedFonts, isWordBinary, convertDocToDocx,
-  type FullDocument, type InlineImage,
+  type FullDocument, type InlineImage, type Paragraph,
 } from '@universal-office/docx-core';
 import { FontResolver } from '@universal-office/fonts';
 import { SfntFont, loadHyphenation } from '@universal-office/layout';
 import {
-  layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, paintItems,
+  layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, paintItems, paragraphAtPath,
   type LayoutOptions, type LayoutResult, type EnginePaintEnv,
 } from '@universal-office/docx-layout';
 import { langOf } from '@universal-office/viewer-controls';
 import { ViewerFonts } from './fonts.js';
 import { collectAnnotations, type Annotations } from './annotations.js';
+import { fillTextLayer, TEXT_LAYER_CSS } from './text-layer.js';
+import { webDocument, webPageHeight, readPagesPerView, VIEW_MODES, type ViewMode } from './views.js';
 import {
   DocumentControls, CONTROL_ITEMS, CONTROLS_CSS, PROGRESS_COLOR, labelsFor,
-  type ControlsHost, type ZoomSpec, type Labels,
+  type ControlsHost, type ControlItem, type ZoomSpec, type Labels,
 } from './controls.js';
 
 /** Mesmas opções de layout do editor (ENGINE_LAYOUT_OPTS em universal-write.ts). */
@@ -26,11 +28,16 @@ const hyphenationLangs = (full: FullDocument): string[] =>
 
 /** px CSS por twip (96 dpi). */
 const PX_PER_TWIP = 96 / 1440;
+/** Altura máxima (px CSS) de cada faixa de pintura: o canvas tem limite de tamanho
+ *  e a folha do Layout da Web pode ter dezenas de milhares de px. */
+const TILE_PX = 2048;
 /** Larguras dos painéis: navegação (índice/páginas) à esquerda, comentários à direita. */
 const NAV_W = 232;
 const COMMENTS_W = 300;
 /** Largura mínima que sobra para as páginas com os painéis ao lado; abaixo disso eles flutuam sobre elas. */
 const MIN_PAGES_W = 360;
+/** Espaço entre as páginas lado a lado no Modo de Leitura (px). */
+const READ_GAP = 24;
 const PANEL_BG = 'var(--udv-panel-bg, rgba(20,20,20,.94))';
 const HIGHLIGHT = 'rgba(255, 187, 0, 0.28)';
 const HIGHLIGHT_ACTIVE = 'rgba(255, 170, 0, 0.55)';
@@ -38,6 +45,7 @@ const HIGHLIGHT_ACTIVE = 'rgba(255, 170, 0, 0.55)';
 const CSS = `
 :host { display: block; position: relative; contain: content; }
 .udv-wrap { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--udv-background, var(--uo-background, #2b2b2b)); }
+.udv-wrap.udv-web { background: var(--udv-web-background, #fff); }
 .udv-scroll {
   position: absolute; inset: 0; overflow: auto; outline: none; scrollbar-width: thin;
   padding: var(--udv-page-gap, 16px) 0 calc(var(--uoc-s) * 3.9);
@@ -47,7 +55,13 @@ const CSS = `
   position: relative; margin: 0 auto var(--udv-page-gap, 16px); background: #fff;
   box-shadow: 0 1px 3px rgba(0,0,0,.45);
 }
-.udv-page canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.udv-tile { position: absolute; left: 0; right: 0; overflow: hidden; }
+.udv-tile canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+.udv-web .udv-scroll { padding: 0 0 calc(var(--uoc-s) * 3.9); }
+.udv-web .udv-page { margin: 0 auto; box-shadow: none; }
+.udv-read .udv-scroll { display: flex; align-items: center; justify-content: center; gap: ${READ_GAP}px; overflow: hidden; padding: 12px; }
+.udv-read .udv-page { margin: 0; flex: none; }
+.udv-page[data-off] { display: none; }
 .udv-nav, .udv-comments {
   position: absolute; top: 0; bottom: 0; box-sizing: border-box; background: ${PANEL_BG};
   color: #e6e6e6; font: 13px/1.4 system-ui, "Segoe UI", sans-serif;
@@ -91,32 +105,43 @@ const CSS = `
 .udv-thumb:focus-visible { outline-color: var(--uoc-c); }
 .udv-thumb + span { display: block; text-align: center; color: #ddd; font: 11px/1.4 system-ui, sans-serif; margin: 0 0 10px; }
 .udv-msg { position: absolute; inset: 0; display: grid; place-items: center; color: #bbb; font: 14px system-ui, sans-serif; pointer-events: none; }
-` + CONTROLS_CSS;
+` + TEXT_LAYER_CSS + CONTROLS_CSS;
+
+/** Faixa de uma página: canvas + camada de texto, de [top, top+h) px CSS. */
+interface Tile { div: HTMLDivElement; canvas: HTMLCanvasElement; text: HTMLDivElement; top: number; h: number }
 
 /**
  * <universal-document-viewer> — visualização pura de .docx (e .doc), com a
  * MESMA paginação e pintura do editor e do PDF: o motor @universal-office/docx-layout
- * diagrama, `paintItems` pinta cada página num canvas (só as visíveis).
+ * diagrama, `paintItems` pinta cada página em faixas de canvas (só as visíveis).
+ *
+ * Modos de exibição (atributo `view`, como no Word): `print` (Layout de
+ * Impressão, padrão), `read` (Modo de Leitura: páginas lado a lado, ← →) e
+ * `web` (Layout da Web: o texto refeito na largura do viewer, sem folhas).
+ *
+ * Texto selecionável por padrão (camada de texto invisível sobre o canvas:
+ * selecionar, copiar, Ctrl+F); `noselect` desliga.
  *
  * Controles no mesmo modelo do <universal-presentation-viewer>: visíveis por
- * padrão, `nocontrols` desliga todos, `nonav`/`nocounter`/`nooutline`/
- * `nothumbnails`/`nocomments`/`nozoom`/`nodownload`/`noprint`/
- * `nofullscreen`/`noprogress` tiram um a um.
+ * padrão, `nocontrols` desliga todos, `no<item>` tira um a um (nav, counter,
+ * outline, thumbnails, comments, zoom, view, download, print, fullscreen,
+ * progress).
  *
  * Painéis: navegação à esquerda (abas Índice — os títulos do documento, pelo
  * nível de estrutura — e Páginas) e Comentários à direita (o trecho comentado
  * fica destacado na página enquanto o painel está aberto; clicar nele ou no
  * cartão seleciona o comentário).
  *
- * API: atributos `src`, `fonts` (base dos arquivos de fonte), `zoom`
- * (`page-width` | `page-fit` | percentual), `nocontrols`, `no<item>`;
+ * API: atributos `src`, `fonts` (base dos arquivos de fonte), `view`, `zoom`
+ * (`page-width` | `page-fit` | percentual), `noselect`, `nocontrols`, `no<item>`;
  * `loadDocx(bytes)`, `getPageCount()`, `getPageIndex()`, `goToPage(i)`,
- * `setZoom(z)`, `print()`, `download()`, `toggleFullscreen()`, `exportPdf()`,
- * `getHeadings()` (índice: nível, texto, página), `goToHeading(i)`,
- * `getHeadingIndex()`, `getComments()`, `selectComment(id)`.
- * Eventos: `udv-loaded`, `udv-page`, `udv-heading` (título atual), `udv-zoom`,
- * `udv-comment`, `udv-error`,
- * `udv-download` e `udv-print` (canceláveis: o host trata).
+ * `getView()`, `setView(v)`, `setZoom(z)`, `getZoom()`, `print()`, `download()`,
+ * `toggleFullscreen()`, `exportPdf()`, `getHeadings()` (índice: nível, texto,
+ * página), `goToHeading(i)`, `getHeadingIndex()`, `getComments()`,
+ * `selectComment(id)`.
+ * Eventos: `udv-loaded`, `udv-page`, `udv-view`, `udv-heading` (título atual),
+ * `udv-zoom`, `udv-comment`, `udv-error`, `udv-download` e `udv-print`
+ * (canceláveis: o host trata).
  */
 export class UniversalDocumentViewerElement extends HTMLElement {
   private readonly root = this.attachShadow({ mode: 'open' });
@@ -135,21 +160,35 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   private fileBytes: Uint8Array | null = null;
   private full: FullDocument | null = null;
   private pkg: DocxPackage | null = null;
+  private embedded: ReturnType<typeof readEmbeddedFonts> = [];
+  /** layout em exibição (o do modo atual) e o de impressão (PDF/impressão em qualquer modo) */
   private layout: LayoutResult | null = null;
+  private printLayoutCache: LayoutResult | null = null;
   private layoutVersion = 0;
   private pageEls: HTMLDivElement[] = [];
+  private tiles: Tile[][] = [];
   private thumbEls: HTMLButtonElement[] = [];
-  private painted = new Map<number, string>();
+  /** chave do que cada faixa ("página:faixa") tem pintado / com texto */
+  private painted = new Map<string, string>();
+  private texted = new Map<string, string>();
   private thumbPainted = new Map<number, string>();
+  private paraCache = new Map<string, Paragraph | null>();
+  private view: ViewMode = 'print';
   private zoomSpec: ZoomSpec = 'page-width';
   private zoomFactor = 1;
   private index = 0;
+  /** Modo de Leitura: 1ª página do bloco em cena */
+  private readFirst = 0;
+  /** Layout da Web: largura (twips) com que o layout atual foi feito */
+  private webWidthTw = 0;
   private navTab: 'outline' | 'pages' | null = null;
   private commentsOpen = false;
   private activeComment: number | null = null;
   private notes: Annotations = { comments: [], headings: [] };
   private outlineEls: HTMLButtonElement[] = [];
   private currentHeading = -1;
+  /** Último título anunciado em `udv-heading`. */
+  private headingIndex = -1;
   private loadSeq = 0;
   private srcUrl: string | null = null;
   private rafId = 0;
@@ -157,9 +196,10 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   private resizeObs: ResizeObserver | null = null;
   private unsubscribeFonts: (() => void) | null = null;
   private relayoutTimer = 0;
+  private wheelLock = 0;
 
   static get observedAttributes(): string[] {
-    return ['src', 'zoom', 'nocontrols', ...CONTROL_ITEMS.map((it) => `no${it}`), 'lang'];
+    return ['src', 'zoom', 'view', 'noselect', 'nocontrols', ...CONTROL_ITEMS.map((it) => `no${it}`), 'lang'];
   }
 
   constructor() {
@@ -229,6 +269,8 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.unsubscribeFonts ??= this.fonts.resolver.onChange(() => this.queueRelayout());
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
     this.readZoomAttr();
+    this.readViewAttr();
+    this.wrap.classList.toggle('udv-noselect', this.hasAttribute('noselect'));
     this.configureControls();
     const src = this.getAttribute('src');
     if (src && src !== this.srcUrl) void this.loadSrc(src);
@@ -242,6 +284,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     cancelAnimationFrame(this.rafId);
     this.rafId = 0;
+    clearTimeout(this.relayoutTimer);
     this.controls.dispose();
   }
 
@@ -249,7 +292,12 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     if (!this.isConnected) return;
     if (name === 'src') { if (newV && newV !== oldV && newV !== this.srcUrl) void this.loadSrc(newV); }
     else if (name === 'zoom') { this.readZoomAttr(); this.applyZoom(); }
-    else this.configureControls();
+    else if (name === 'view') this.readViewAttr();
+    else if (name === 'noselect') {
+      this.wrap.classList.toggle('udv-noselect', newV !== null);
+      this.texted.clear();
+      this.schedule();
+    } else this.configureControls();
   }
 
   private configureControls(): void {
@@ -268,6 +316,11 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     const z = (this.getAttribute('zoom') ?? '').trim().toLowerCase();
     if (z === 'page-fit' || z === 'page-width') this.zoomSpec = z;
     else if (/^\d+(\.\d+)?%?$/.test(z)) this.zoomSpec = Math.max(0.1, Math.min(8, parseFloat(z) / 100));
+  }
+
+  private readViewAttr(): void {
+    const v = (this.getAttribute('view') ?? '').trim().toLowerCase();
+    this.setView((VIEW_MODES as readonly string[]).includes(v) ? v as ViewMode : 'print');
   }
 
   // ───────────────────────── carga e layout ─────────────────────────
@@ -297,50 +350,81 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.fileBytes = bytes;
     this.pkg = pkg;
     this.full = full;
+    this.embedded = [];
+    try { this.embedded = readEmbeddedFonts(pkg); } catch { /* fontes embutidas ilegíveis */ }
+    this.printLayoutCache = null;
+    this.layout = null;
     this.index = 0;
+    this.readFirst = 0;
     this.scroller.scrollTop = 0;
     await this.relayout(seq);
     if (seq !== this.loadSeq) return;
     this.dispatchEvent(new CustomEvent('udv-loaded', { detail: { pages: this.getPageCount() } }));
   }
 
+  /** O documento que o motor diagrama no modo atual. */
+  private docForView(): FullDocument {
+    if (this.view !== 'web') return this.full!;
+    this.webWidthTw = this.webTargetTw();
+    return webDocument(this.full!, this.webWidthTw);
+  }
+
+  /** Layout da Web: a largura do texto acompanha a do viewer (no zoom atual). */
+  private webTargetTw(): number {
+    const z = typeof this.zoomSpec === 'number' ? this.zoomSpec : 1;
+    return this.availWidth() / (PX_PER_TWIP * z);
+  }
+
   /** Diagrama o documento atual; repete enquanto o motor pede fontes que chegam. */
   private async relayout(seq = this.loadSeq): Promise<void> {
-    const full = this.full, pkg = this.pkg;
-    if (!full || !pkg) return;
+    const full = this.full;
+    if (!full) return;
     await this.fonts.loadAssets(this.getAttribute('fonts'));
     try { await loadHyphenation(hyphenationLangs(full)); } catch { /* sem padrões: sem hifenização */ }
-    let embedded: ReturnType<typeof readEmbeddedFonts> = [];
-    try { embedded = readEmbeddedFonts(pkg); } catch { /* fontes embutidas ilegíveis */ }
     for (let pass = 0; pass < 4; pass++) {
-      if (seq !== this.loadSeq) return;
-      const prov = withEmbeddedFonts(this.fonts.provider(), embedded, (b) => new SfntFont(b));
-      this.setLayout(layoutDocument(full, prov, LAYOUT_OPTS));
+      if (seq !== this.loadSeq || this.full !== full) return;
+      const res = layoutDocument(this.docForView(), this.provider(), LAYOUT_OPTS);
+      if (this.view !== 'web') this.printLayoutCache = res;
+      this.setLayout(res);
       if (!(await this.fonts.loadMissing())) break;
+      this.printLayoutCache = null; // chegaram fontes: o de impressão também muda
     }
   }
 
-  private queueRelayout(): void {
+  private provider(): ReturnType<typeof withEmbeddedFonts> {
+    return withEmbeddedFonts(this.fonts.provider(), this.embedded, (b) => new SfntFont(b));
+  }
+
+  private queueRelayout(delay = 50): void {
     clearTimeout(this.relayoutTimer);
-    this.relayoutTimer = window.setTimeout(() => { void this.relayout(); }, 50);
+    this.relayoutTimer = window.setTimeout(() => { void this.relayout(); }, delay);
+  }
+
+  /** Layout de impressão (PDF/impressão em qualquer modo de exibição). */
+  private printLayout(): LayoutResult | null {
+    if (!this.full) return null;
+    if (this.view !== 'web' && this.layout) return this.layout;
+    return (this.printLayoutCache ??= layoutDocument(this.full, this.provider(), LAYOUT_OPTS));
   }
 
   private setLayout(res: LayoutResult): void {
-    const keepFrac = this.layout ? this.scrollFraction() : 0;
+    const keepFrac = this.layout && this.view !== 'read' ? this.scrollFraction() : 0;
     this.layout = res;
     this.layoutVersion++;
     this.painted.clear();
+    this.texted.clear();
     this.thumbPainted.clear();
+    this.paraCache.clear();
     this.msg.textContent = '';
     const n = res.pages.length;
-    while (this.pageEls.length > n) this.pageEls.pop()!.remove();
+    while (this.pageEls.length > n) { this.pageEls.pop()!.remove(); this.tiles.pop(); }
     while (this.pageEls.length < n) {
       const d = document.createElement('div');
       d.className = 'udv-page';
       d.setAttribute('part', 'page');
-      d.appendChild(document.createElement('canvas'));
       this.scroller.appendChild(d);
       this.pageEls.push(d);
+      this.tiles.push([]);
     }
     this.headingIndex = -2; // anuncia de novo o título atual no documento novo
     this.notes = this.full ? collectAnnotations(this.full, res) : { comments: [], headings: [] };
@@ -349,26 +433,81 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.buildOutline();
     this.buildComments();
     if (this.navTab === 'outline' && !this.notes.headings.length) this.setNav(null);
+    if (this.navTab === 'pages' && this.view === 'web') this.setNav(null);
     if (this.commentsOpen && !this.notes.comments.length) this.setComments(false);
     this.applyZoom(false);
     if (keepFrac) this.scrollToFraction(keepFrac);
   }
 
+  // ───────────────────────── modos de exibição ─────────────────────────
+
+  getView(): ViewMode { return this.view; }
+
+  /** Layout de Impressão, Modo de Leitura ou Layout da Web (mantém a página atual). */
+  setView(v: ViewMode): void {
+    if (v === this.view) return;
+    const prev = this.view;
+    const page = this.index;
+    this.view = v;
+    this.wrap.classList.toggle('udv-read', v === 'read');
+    this.wrap.classList.toggle('udv-web', v === 'web');
+    if (v === 'web' && this.navTab === 'pages') this.setNav(null);
+    this.dispatchEvent(new CustomEvent('udv-view', { detail: { view: v } }));
+    if (!this.full) return;
+    if (v === 'web' || prev === 'web') {
+      // outro layout: o de impressão volta do cache; o da Web é refeito na largura atual
+      if (v !== 'web' && this.printLayoutCache) {
+        this.setLayout(this.printLayoutCache);
+        this.goToPage(page, false);
+      } else {
+        this.layout = null;
+        void this.relayout();
+      }
+    } else {
+      this.readFirst = page;
+      this.applyZoom(false);
+      if (v === 'print') this.goToPage(page, false);
+    }
+    this.controls.sync();
+  }
+
   // ───────────────────────── zoom e geometria ─────────────────────────
+
+  /** Altura EXIBIDA da página (twips): no Layout da Web, até o fim do texto. */
+  private pageHeightTw(i: number): number {
+    const p = this.layout!.pages[i]!;
+    return this.view === 'web' ? webPageHeight(p) : p.heightTw;
+  }
 
   private maxPageWidthTw(): number {
     return Math.max(1, ...(this.layout?.pages.map((p) => p.widthTw) ?? [12240]));
   }
 
-  private computeZoom(): number {
-    if (typeof this.zoomSpec === 'number') return this.zoomSpec;
-    const gap = 16;
+  /** Largura (px) disponível para as páginas, sem os painéis ao lado e as margens. */
+  private availWidth(): number {
     const { left, right } = this.reserved();
-    const availW = this.scroller.clientWidth - left - right - gap * 2;
-    const wFit = availW / (this.maxPageWidthTw() * PX_PER_TWIP);
+    const pad = this.view === 'web' ? 0 : this.view === 'read' ? 24 : 32;
+    return Math.max(200, this.scroller.clientWidth - left - right - pad);
+  }
+
+  /** Páginas por bloco no Modo de Leitura. */
+  private readN(): number { return readPagesPerView(this.availWidth()); }
+
+  private computeZoom(): number {
+    if (this.view === 'web') return typeof this.zoomSpec === 'number' ? this.zoomSpec : 1;
+    const avail = this.availWidth();
+    if (this.view === 'read') {
+      // o bloco inteiro cabe na tela (como o modo Leitura do editor)
+      const n = this.readN();
+      const pw = this.maxPageWidthTw() * PX_PER_TWIP;
+      const ph = Math.max(1, ...(this.layout?.pages.map((p) => p.heightTw) ?? [15840])) * PX_PER_TWIP;
+      return Math.max(0.1, Math.min((avail - READ_GAP * (n - 1)) / (n * pw), (this.scroller.clientHeight - 24) / ph));
+    }
+    if (typeof this.zoomSpec === 'number') return this.zoomSpec;
+    const wFit = avail / (this.maxPageWidthTw() * PX_PER_TWIP);
     if (this.zoomSpec === 'page-width') return Math.max(0.1, wFit);
     const p = this.layout?.pages[this.index] ?? this.layout?.pages[0];
-    const hFit = p ? (this.scroller.clientHeight - gap * 2) / (p.heightTw * PX_PER_TWIP) : wFit;
+    const hFit = p ? (this.scroller.clientHeight - 32) / (p.heightTw * PX_PER_TWIP) : wFit;
     return Math.max(0.1, Math.min(wFit, hFit));
   }
 
@@ -381,25 +520,56 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   /** Viewer estreito: só cabe um painel por vez (abrir um fecha o outro). */
   private narrow(): boolean { return this.wrap.clientWidth < NAV_W + COMMENTS_W + MIN_PAGES_W; }
 
-  /** Recalcula o fator e o tamanho das páginas, mantendo a página atual em vista. */
+  /** Recalcula o fator e o tamanho das páginas (e o bloco do Modo de Leitura), mantendo a posição. */
   private applyZoom(keep = true): void {
     if (!this.layout) return;
-    const anchor = keep ? this.anchor() : null;
+    const anchor = keep && this.view !== 'read' ? this.anchor() : null;
     const { left, right } = this.reserved();
     this.scroller.style.paddingLeft = left ? `${left}px` : '';
     this.scroller.style.paddingRight = right ? `${right}px` : '';
+    // Layout da Web: largura mudou (painéis, janela, zoom) → refaz o texto nela
+    if (this.view === 'web' && Math.abs(this.webTargetTw() - this.webWidthTw) > 60) this.queueRelayout(120);
     const z = this.computeZoom();
     const changed = Math.abs(z - this.zoomFactor) > 1e-4;
     this.zoomFactor = z;
+    const n = this.readN(), total = this.layout.pages.length;
+    if (this.view === 'read') this.readFirst = Math.max(0, Math.min(this.readFirst, total - 1));
     this.layout.pages.forEach((p, i) => {
       const el = this.pageEls[i]!;
-      el.style.width = `${Math.round(p.widthTw * PX_PER_TWIP * z)}px`;
-      el.style.height = `${Math.round(p.heightTw * PX_PER_TWIP * z)}px`;
-      if (p.background) el.style.background = `#${p.background}`;
+      const w = Math.round(p.widthTw * PX_PER_TWIP * z), h = Math.round(this.pageHeightTw(i) * PX_PER_TWIP * z);
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+      el.style.background = p.background ? `#${p.background}` : '';
+      const off = this.view === 'read' && (i < this.readFirst || i >= this.readFirst + n);
+      if (off) el.setAttribute('data-off', ''); else el.removeAttribute('data-off');
+      this.layoutTiles(i, h);
     });
     if (anchor) this.restoreAnchor(anchor);
     if (changed) this.dispatchEvent(new CustomEvent('udv-zoom', { detail: { zoom: this.zoomSpec, factor: z } }));
     this.schedule();
+  }
+
+  /** Faixas da página `i` para a altura `h` (px CSS). */
+  private layoutTiles(i: number, h: number): void {
+    const el = this.pageEls[i]!, list = this.tiles[i]!;
+    const count = Math.max(1, Math.ceil(h / TILE_PX));
+    while (list.length > count) list.pop()!.div.remove();
+    while (list.length < count) {
+      const div = document.createElement('div');
+      div.className = 'udv-tile';
+      const canvas = document.createElement('canvas');
+      const text = document.createElement('div');
+      text.className = 'udv-text';
+      div.append(canvas, text);
+      el.appendChild(div);
+      list.push({ div, canvas, text, top: 0, h: 0 });
+    }
+    list.forEach((t, k) => {
+      t.top = k * TILE_PX;
+      t.h = Math.min(TILE_PX, h - t.top);
+      t.div.style.top = `${t.top}px`;
+      t.div.style.height = `${t.h}px`;
+    });
   }
 
   /** Página + posição relativa nela (para o zoom não "pular"). */
@@ -414,7 +584,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     if (el) this.scroller.scrollTop = el.offsetTop + a.f * el.offsetHeight;
   }
 
-  /** Redimensionou: os painéis podem passar a caber (ou não) ao lado das páginas. */
+  /** Redimensionou: painéis, bloco de leitura e a largura do Layout da Web se reajustam. */
   private onResize(): void { this.applyZoom(); }
 
   // ───────────────────────── pintura (só o visível) ─────────────────────────
@@ -438,15 +608,27 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     };
   }
 
+  private para = (ref: string): Paragraph | null => {
+    let p = this.paraCache.get(ref);
+    if (p === undefined) {
+      p = this.full && /^b\d/.test(ref) ? paragraphAtPath(this.full.blocks, ref.split('/')) : null;
+      this.paraCache.set(ref, p);
+    }
+    return p;
+  };
+
   private update(): void {
     const res = this.layout;
     if (!res) return;
     const s = this.scroller;
     const top = s.scrollTop, bottom = top + s.clientHeight;
-    // página atual: a última cujo topo passou do 1º terço da janela
+    // página atual: no Modo de Leitura, a 1ª do bloco; senão a última cujo topo passou do 1º terço
     let cur = 0;
-    for (let i = 0; i < this.pageEls.length; i++) {
-      if (this.pageEls[i]!.offsetTop <= top + s.clientHeight / 3) cur = i; else break;
+    if (this.view === 'read') cur = this.readFirst;
+    else {
+      for (let i = 0; i < this.pageEls.length; i++) {
+        if (this.pageEls[i]!.offsetTop <= top + s.clientHeight / 3) cur = i; else break;
+      }
     }
     if (cur !== this.index) {
       this.index = cur;
@@ -454,18 +636,25 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     }
     const dpr = window.devicePixelRatio || 1;
     const key = `${this.layoutVersion}|${this.zoomFactor.toFixed(4)}|${dpr}|${this.commentsOpen ? this.activeComment ?? 'c' : ''}`;
+    const textKey = `${this.layoutVersion}|${this.zoomFactor.toFixed(4)}`;
+    const selectable = !this.hasAttribute('noselect');
     const margin = s.clientHeight;
     for (let i = 0; i < this.pageEls.length; i++) {
       const el = this.pageEls[i]!;
-      const visible = el.offsetTop + el.offsetHeight >= top - margin && el.offsetTop <= bottom + margin;
-      const cv = el.firstElementChild as HTMLCanvasElement;
-      if (!visible) {
-        if (this.painted.has(i)) { cv.width = cv.height = 0; this.painted.delete(i); }
-        continue;
+      const shown = !el.hasAttribute('data-off');
+      for (let k = 0; k < this.tiles[i]!.length; k++) {
+        const t = this.tiles[i]![k]!;
+        const id = `${i}:${k}`;
+        const y0 = el.offsetTop + t.top;
+        const visible = shown && (this.view === 'read' || (y0 + t.h >= top - margin && y0 <= bottom + margin));
+        if (!visible) {
+          if (this.painted.has(id)) { t.canvas.width = t.canvas.height = 0; this.painted.delete(id); }
+          if (this.texted.has(id)) { t.text.textContent = ''; this.texted.delete(id); }
+          continue;
+        }
+        if (this.painted.get(id) !== key) { this.paintTile(i, t, dpr); this.painted.set(id, key); }
+        if (selectable && this.texted.get(id) !== textKey) { this.fillText(i, t); this.texted.set(id, textKey); }
       }
-      if (this.painted.get(i) === key) continue;
-      this.paintPage(i, cv, this.zoomFactor * dpr);
-      this.painted.set(i, key);
     }
     if (this.navTab === 'pages') this.updateThumbs();
     this.syncThumbCurrent();
@@ -473,10 +662,26 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.controls.sync();
   }
 
-  /** Pinta a página `i` num canvas, na escala px/(px CSS a 100%). */
-  private paintPage(i: number, cv: HTMLCanvasElement, k: number, highlights = true): void {
+  /** px CSS por twip da página `i` no zoom atual. */
+  private pxPerTw(i: number): number {
     const p = this.layout!.pages[i]!;
-    const w = Math.max(1, Math.round(p.widthTw * PX_PER_TWIP * k)), h = Math.max(1, Math.round(p.heightTw * PX_PER_TWIP * k));
+    return Math.round(p.widthTw * PX_PER_TWIP * this.zoomFactor) / p.widthTw;
+  }
+
+  /** Pinta uma faixa da página (fundo + itens do motor + trechos comentados). */
+  private paintTile(i: number, t: Tile, dpr: number): void {
+    const p = this.layout!.pages[i]!;
+    const k = this.pxPerTw(i);
+    const w = Math.max(1, Math.round(p.widthTw * k * dpr)), h = Math.max(1, Math.round(t.h * dpr));
+    this.drawPage(i, t.canvas, w, h, (w / p.widthTw), t.top / k, true);
+  }
+
+  /**
+   * Desenha a página `i` num canvas `w×h` (px do dispositivo), escala `sc`
+   * (px/twip) e começando em `topTw` (a faixa).
+   */
+  private drawPage(i: number, cv: HTMLCanvasElement, w: number, h: number, sc: number, topTw: number, highlights: boolean): void {
+    const p = this.layout!.pages[i]!;
     if (cv.width !== w) cv.width = w;
     if (cv.height !== h) cv.height = h;
     const ctx = cv.getContext('2d');
@@ -486,8 +691,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     ctx.imageSmoothingQuality = 'high';
     ctx.fillStyle = p.background ? `#${p.background}` : '#ffffff';
     ctx.fillRect(0, 0, w, h);
-    const sc = (w / p.widthTw);
-    ctx.setTransform(sc, 0, 0, sc, 0, 0);
+    ctx.setTransform(sc, 0, 0, sc, 0, -topTw * sc);
     try { paintItems(ctx, p.items, this.paintEnv()); } catch { /* item que o pintor não conhece: o resto fica */ }
     // trechos comentados (só com o painel de comentários aberto — a página impressa não os tem)
     if (highlights && this.commentsOpen) {
@@ -496,6 +700,14 @@ export class UniversalDocumentViewerElement extends HTMLElement {
         for (const r of c.rects) if (r.page === i) ctx.fillRect(r.x, r.y, r.w, r.h);
       }
     }
+  }
+
+  /** Camada de texto selecionável da faixa: as linhas que começam nela. */
+  private fillText(i: number, t: Tile): void {
+    const p = this.layout!.pages[i]!;
+    const k = this.pxPerTw(i);
+    const top = t.top / k, bottom = (t.top + t.h) / k;
+    fillTextLayer(t.text, p.lines.filter((l) => l.y >= top && l.y < bottom), this.para, k, top);
   }
 
   /** Imagem decodificada (o vetor SVG, como o Word, quando houver). */
@@ -533,7 +745,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   // ───────────────────────── miniaturas ─────────────────────────
 
   private buildThumbs(): void {
-    const n = this.layout?.pages.length ?? 0;
+    const n = this.view === 'web' ? 0 : this.layout?.pages.length ?? 0;
     this.thumbs.textContent = '';
     this.thumbEls = [];
     for (let i = 0; i < n; i++) {
@@ -575,17 +787,19 @@ export class UniversalDocumentViewerElement extends HTMLElement {
       if (el.offsetTop + el.offsetHeight < top - 200 || el.offsetTop > bottom + 200) continue;
       if (this.thumbPainted.get(i) === key) continue;
       const p = this.layout!.pages[i]!;
-      this.paintPage(i, el.firstElementChild as HTMLCanvasElement, (el.offsetWidth / (p.widthTw * PX_PER_TWIP)) * dpr, false);
+      const w = Math.max(1, Math.round(el.offsetWidth * dpr)), h = Math.max(1, Math.round(el.offsetHeight * dpr));
+      this.drawPage(i, el.firstElementChild as HTMLCanvasElement, w, h, w / p.widthTw, 0, false);
       this.thumbPainted.set(i, key);
     }
   }
 
   private syncThumbCurrent(): void {
+    const n = this.view === 'read' ? this.readN() : 1;
     this.thumbEls.forEach((t, i) => {
-      const cur = i === this.index;
+      const cur = i >= this.index && i < this.index + n;
       if ((t.getAttribute('aria-current') === 'true') === cur) return;
       t.setAttribute('aria-current', String(cur));
-      if (cur && this.navTab === 'pages') {
+      if (cur && i === this.index && this.navTab === 'pages') {
         const s = this.thumbs;
         if (t.offsetTop < s.scrollTop) s.scrollTop = t.offsetTop - 12;
         else if (t.offsetTop + t.offsetHeight > s.scrollTop + s.clientHeight) s.scrollTop = t.offsetTop + t.offsetHeight - s.clientHeight + 40;
@@ -601,9 +815,8 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.navTab = tab;
     this.nav.hidden = !tab;
     this.wrap.classList.toggle('udv-nav-open', !!tab);
-    const noOutline = this.hasAttribute('nooutline') || !this.notes.headings.length;
-    this.tabOutline.hidden = noOutline;
-    this.tabPages.hidden = this.hasAttribute('nothumbnails');
+    this.tabOutline.hidden = this.hasAttribute('nooutline') || !this.notes.headings.length;
+    this.tabPages.hidden = this.hasAttribute('nothumbnails') || this.view === 'web';
     this.tabOutline.setAttribute('aria-selected', String(tab === 'outline'));
     this.tabPages.setAttribute('aria-selected', String(tab === 'pages'));
     this.outlineEl.hidden = tab !== 'outline';
@@ -655,22 +868,31 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   /** Posição (px no rolador) de um ponto da página. */
   private pageY(page: number, yTw: number): number {
     const el = this.pageEls[page];
-    const p = this.layout?.pages[page];
-    if (!el || !p) return 0;
-    return el.offsetTop + yTw * (el.offsetHeight / p.heightTw);
+    if (!el || !this.layout?.pages[page]) return 0;
+    return el.offsetTop + yTw * (el.offsetHeight / this.pageHeightTw(page));
   }
 
-  /** Vai ao título `i` do índice. */
+  /** Leva um ponto da página à vista (no Modo de Leitura, o bloco que contém a página). */
+  private reveal(page: number, yTw: number, offsetPx: number): void {
+    if (this.view === 'read') { this.goToPage(page); return; }
+    this.scroller.scrollTo({ top: Math.max(0, this.pageY(page, yTw) - offsetPx), behavior: 'smooth' });
+  }
+
+  /** Vai ao título `i` do índice (posição em `getHeadings()`). */
   goToHeading(i: number): void {
     const h = this.notes.headings[i];
-    if (!h) return;
-    this.scroller.scrollTo({ top: Math.max(0, this.pageY(h.page, h.y) - 24), behavior: 'smooth' });
+    if (h) this.reveal(h.page, h.y, 24);
   }
 
   /** Índice do título atual (o último que passou do 1º terço da janela); −1 = antes do 1º / sem títulos. */
   getHeadingIndex(): number {
-    const mark = this.scroller.scrollTop + this.scroller.clientHeight / 3;
     let cur = -1;
+    if (this.view === 'read') {
+      const last = this.readFirst + this.readN() - 1;
+      this.notes.headings.forEach((h, i) => { if (h.page <= last && (h.page <= this.readFirst || cur < 0)) cur = i; });
+      return cur;
+    }
+    const mark = this.scroller.scrollTop + this.scroller.clientHeight / 3;
     this.notes.headings.forEach((h, i) => { if (this.pageY(h.page, h.y) <= mark) cur = i; });
     return cur;
   }
@@ -694,8 +916,6 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     if (b.offsetTop < s.scrollTop) s.scrollTop = b.offsetTop - 12;
     else if (b.offsetTop + b.offsetHeight > s.scrollTop + s.clientHeight) s.scrollTop = b.offsetTop + b.offsetHeight - s.clientHeight + 40;
   }
-  /** Último título anunciado em `udv-heading`. */
-  private headingIndex = -1;
 
   // ───────────────────────── comentários ─────────────────────────
 
@@ -722,7 +942,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
       const t = document.createElement('span');
       t.textContent = c.text;
       b.appendChild(t);
-      if (c.rects[0]) { const sm = document.createElement('small'); sm.textContent = `${L.page} ${c.rects[0].page + 1}`; b.appendChild(sm); }
+      if (c.rects[0] && this.view !== 'web') { const sm = document.createElement('small'); sm.textContent = `${L.page} ${c.rects[0].page + 1}`; b.appendChild(sm); }
       if (c.id === this.activeComment) b.setAttribute('aria-current', 'true');
       this.commentsEl.appendChild(b);
     }
@@ -743,7 +963,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
       }
     }
     const r = c.rects[0];
-    if (scroll && r) this.scroller.scrollTo({ top: Math.max(0, this.pageY(r.page, r.y) - this.scroller.clientHeight / 3), behavior: 'smooth' });
+    if (scroll && r) this.reveal(r.page, r.y, this.scroller.clientHeight / 3);
     this.dispatchEvent(new CustomEvent('udv-comment', { detail: { id, author: c.author, text: c.text } }));
     this.repaintAll();
   }
@@ -751,12 +971,14 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   /** Clique no trecho comentado (painel aberto): seleciona o comentário. */
   private onPageClick = (e: MouseEvent): void => {
     if (!this.commentsOpen) return;
+    const sel = (this.root as unknown as { getSelection?: () => Selection | null }).getSelection?.() ?? document.getSelection();
+    if (sel && !sel.isCollapsed) return; // terminou uma seleção de texto: não é clique
     const el = (e.target as HTMLElement).closest<HTMLElement>('.udv-page');
     const page = el ? this.pageEls.indexOf(el as HTMLDivElement) : -1;
     const p = this.layout?.pages[page];
     if (!el || !p) return;
     const rect = el.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width * p.widthTw, y = (e.clientY - rect.top) / rect.height * p.heightTw;
+    const x = (e.clientX - rect.left) / rect.width * p.widthTw, y = (e.clientY - rect.top) / rect.height * this.pageHeightTw(page);
     for (const c of this.notes.comments) {
       if (c.rects.some((r) => r.page === page && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h)) { this.selectComment(c.id); return; }
     }
@@ -765,8 +987,9 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   // ───────────────────────── API ─────────────────────────
 
   getPageCount(): number { return this.layout?.pages.length ?? 0; }
+  getPageIndex(): number { return this.index; }
 
-  /** Títulos do documento (nível 1–9, texto, página). */
+  /** Títulos do documento (nível 1–9, texto, página no modo atual); a posição é o `i` de goToHeading. */
   getHeadings(): { level: number; text: string; page: number }[] {
     return this.notes.headings.map((h) => ({ level: h.level, text: h.text, page: h.page }));
   }
@@ -775,15 +998,23 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   getComments(): { id: number; author?: string; text: string; page: number | null }[] {
     return this.notes.comments.map((c) => ({ id: c.id, ...(c.author ? { author: c.author } : {}), text: c.text, page: c.rects[0]?.page ?? null }));
   }
-  getPageIndex(): number { return this.index; }
 
-  goToPage(i: number): void {
-    const el = this.pageEls[Math.max(0, Math.min(this.pageEls.length - 1, i))];
-    if (!el) return;
-    this.scroller.scrollTo({ top: el.offsetTop - 16, behavior: 'smooth' });
+  /** Vai à página `i` (no Modo de Leitura, ao bloco que a contém). */
+  goToPage(i: number, smooth = true): void {
+    const n = this.getPageCount();
+    if (!n) return;
+    const page = Math.max(0, Math.min(n - 1, i));
+    if (this.view === 'read') {
+      const per = this.readN();
+      const first = Math.floor(page / per) * per;
+      if (first !== this.readFirst) { this.readFirst = first; this.applyZoom(false); }
+      return;
+    }
+    const el = this.pageEls[page];
+    if (el) this.scroller.scrollTo({ top: el.offsetTop - 16, behavior: smooth ? 'smooth' : 'auto' });
   }
 
-  /** `page-width`, `page-fit` ou fator (1 = 100%). */
+  /** `page-width`, `page-fit` ou fator (1 = 100%). No Modo de Leitura o ajuste é sempre à tela. */
   setZoom(z: ZoomSpec): void {
     this.zoomSpec = typeof z === 'number' ? Math.max(0.1, Math.min(8, z)) : z;
     this.applyZoom();
@@ -792,15 +1023,16 @@ export class UniversalDocumentViewerElement extends HTMLElement {
 
   getZoom(): { spec: ZoomSpec; factor: number } { return { spec: this.zoomSpec, factor: this.zoomFactor }; }
 
-  /** PDF do MESMO layout da tela (o pintor de referência do motor). */
+  /** PDF do layout de IMPRESSÃO (o pintor de referência do motor), em qualquer modo de exibição. */
   exportPdf(): Uint8Array {
-    if (!this.layout) throw new Error('document not loaded');
-    return renderPdf(this.layout);
+    const lay = this.printLayout();
+    if (!lay) throw new Error('document not loaded');
+    return renderPdf(lay);
   }
 
   /** Imprime pelo PDF do motor (não pelo que está na tela): `udv-print` cancelável. */
   print(): void {
-    if (!this.layout) return;
+    if (!this.full) return;
     const pdf = this.exportPdf();
     if (!this.dispatchEvent(new CustomEvent('udv-print', { cancelable: true, detail: { pdf } }))) return;
     const url = URL.createObjectURL(new Blob([new Uint8Array(pdf)], { type: 'application/pdf' }));
@@ -850,19 +1082,46 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     s.scrollTop = f * (s.scrollHeight - s.clientHeight);
   }
 
+  /** Modo de Leitura: bloco anterior/seguinte. */
+  private nudgeRead(dir: 1 | -1): void {
+    const n = this.readN(), total = this.getPageCount();
+    const next = this.readFirst + dir * n;
+    if (next >= total || next + n <= 0) return;
+    this.readFirst = Math.max(0, next);
+    this.applyZoom(false);
+  }
+
   private controlsHost(): ControlsHost {
     return {
+      available: (it: ControlItem) => {
+        if (it === 'nav' || it === 'counter' || it === 'thumbnails') return this.view !== 'web';
+        if (it === 'zoom') return this.view !== 'read';
+        if (it === 'outline') return this.notes.headings.length > 0;
+        if (it === 'comments') return this.notes.comments.length > 0;
+        return true;
+      },
       count: () => this.getPageCount(),
-      index: () => this.index,
-      goTo: (i) => this.goToPage(i),
-      scrollFraction: () => this.scrollFraction(),
-      scrollToFraction: (f) => this.scrollToFraction(f),
+      counter: () => {
+        const total = this.getPageCount();
+        if (!total || this.view === 'web') return '';
+        if (this.view !== 'read') return `${this.index + 1} / ${total}`;
+        const last = Math.min(total, this.readFirst + this.readN());
+        return last > this.readFirst + 1 ? `${this.readFirst + 1}–${last} / ${total}` : `${this.readFirst + 1} / ${total}`;
+      },
+      prev: () => (this.view === 'read' ? this.nudgeRead(-1) : this.goToPage(this.index - 1)),
+      next: () => (this.view === 'read' ? this.nudgeRead(1) : this.goToPage(this.index + 1)),
+      progress: () => {
+        if (this.view !== 'read') return this.scrollFraction();
+        const total = this.getPageCount();
+        return total ? Math.min(1, (this.readFirst + this.readN()) / total) : 0;
+      },
+      seek: (f) => (this.view === 'read' ? this.goToPage(Math.floor(f * this.getPageCount())) : this.scrollToFraction(f)),
       zoom: () => this.getZoom(),
       setZoom: (z) => this.setZoom(z),
+      view: () => this.view,
+      setView: (v) => this.setView(v),
       navTab: () => this.navTab,
       toggleNav: (tab) => this.setNav(this.navTab === tab ? null : tab),
-      hasHeadings: () => this.notes.headings.length > 0,
-      hasComments: () => this.notes.comments.length > 0,
       commentsOpen: () => this.commentsOpen,
       toggleComments: () => this.setComments(!this.commentsOpen),
       download: () => this.download(),
@@ -872,17 +1131,37 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     };
   }
 
-  /** Ctrl +/−/0: zoom do viewer (não o do navegador) com o foco nele. */
+  /** Ctrl +/−/0: zoom do viewer (não o do navegador); no Modo de Leitura, ← → e companhia. */
   private onKeyDown = (e: KeyboardEvent): void => {
-    if (!(e.ctrlKey || e.metaKey) || this.hasAttribute('nozoom')) return;
+    if (this.view === 'read' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const k = e.key;
+      if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'ArrowDown') this.nudgeRead(1);
+      else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'ArrowUp') this.nudgeRead(-1);
+      else if (k === 'Home') this.goToPage(0);
+      else if (k === 'End') this.goToPage(this.getPageCount() - 1);
+      else return;
+      e.preventDefault();
+      return;
+    }
+    if (!(e.ctrlKey || e.metaKey) || this.hasAttribute('nozoom') || this.view === 'read') return;
     if (e.key === '+' || e.key === '=') { this.setZoom(this.zoomFactor * 1.25); e.preventDefault(); }
     else if (e.key === '-') { this.setZoom(this.zoomFactor / 1.25); e.preventDefault(); }
-    else if (e.key === '0') { this.setZoom('page-width'); e.preventDefault(); }
+    else if (e.key === '0') { this.setZoom(this.view === 'web' ? 1 : 'page-width'); e.preventDefault(); }
   };
 
-  /** Ctrl + roda: zoom do viewer. */
+  /** Ctrl + roda: zoom do viewer; no Modo de Leitura a roda vira o bloco. */
   private onWheel = (e: WheelEvent): void => {
-    if (!(e.ctrlKey || e.metaKey) || this.hasAttribute('nozoom') || !this.layout) return;
+    if (!this.layout) return;
+    if (this.view === 'read' && !e.ctrlKey && !e.metaKey) {
+      if ((e.target as HTMLElement).closest('.udv-nav, .udv-comments, .uoc-bar')) return; // painéis rolam
+      e.preventDefault();
+      const now = performance.now();
+      if (now < this.wheelLock || Math.abs(e.deltaY) < 4) return;
+      this.wheelLock = now + 350;
+      this.nudgeRead(e.deltaY > 0 ? 1 : -1);
+      return;
+    }
+    if (!(e.ctrlKey || e.metaKey) || this.hasAttribute('nozoom') || this.view === 'read') return;
     e.preventDefault();
     this.setZoom(this.zoomFactor * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
   };
