@@ -16,6 +16,7 @@ for (const it of CONTROL_ITEMS) {
 
 const FIXTURES = ['caracteres', 'cp1252', 'degrades', 'estilos', 'formas', 'imagens', 'listas', 'notas-campos', 'paragrafos', 'secoes', 'tabelas'];
 const sel = $<HTMLSelectElement>('samples');
+sel.add(new Option('amostra-indice-comentarios.docx', './amostra-indice-comentarios.docx', true, true));
 for (const f of FIXTURES) {
   const url = `../../docx-core/test/fixtures/doc/${f}.word.docx`;
   sel.add(new Option(`${f}.docx`, url, false, url === dv.getAttribute('src')));
@@ -32,7 +33,27 @@ $<HTMLInputElement>('file').addEventListener('change', async (e) => {
   try { await dv.loadDocx(new Uint8Array(await f.arrayBuffer())); } catch (err) { log(`erro: ${String(err)}`); }
 });
 
-dv.addEventListener('udv-loaded', (e) => log(`udv-loaded { pages: ${(e as CustomEvent).detail.pages} }`));
+// índice montado pela API pública: getHeadings() + goToHeading(i); udv-heading marca o atual
+const api = $('api');
+const renderApi = (): void => {
+  api.textContent = '';
+  const hs = dv.getHeadings();
+  if (!hs.length) { api.textContent = '(sem títulos)'; return; }
+  hs.forEach((h, i) => {
+    const b = document.createElement('button');
+    b.style.paddingLeft = `${(h.level - 1) * 14}px`;
+    b.textContent = `${h.text} — p. ${h.page + 1}`;
+    b.addEventListener('click', () => dv.goToHeading(i));
+    api.appendChild(b);
+  });
+};
+dv.addEventListener('udv-loaded', (e) => { renderApi(); log(`udv-loaded { pages: ${(e as CustomEvent).detail.pages}, headings: ${dv.getHeadings().length}, comments: ${dv.getComments().length} }`); });
+dv.addEventListener('udv-heading', (e) => {
+  const d = (e as CustomEvent).detail as { index: number; text?: string };
+  api.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-current', String(i === d.index)));
+  log(`udv-heading { index: ${d.index}${d.text ? `, text: ${JSON.stringify(d.text)}` : ''} }`);
+});
+dv.addEventListener('udv-comment', (e) => { const d = (e as CustomEvent).detail; log(`udv-comment { id: ${d.id}, author: ${JSON.stringify(d.author)} }`); });
 dv.addEventListener('udv-page', (e) => log(`udv-page { index: ${(e as CustomEvent).detail.index} }`));
 dv.addEventListener('udv-zoom', (e) => { const d = (e as CustomEvent).detail; log(`udv-zoom { zoom: ${JSON.stringify(d.zoom)}, factor: ${d.factor.toFixed(2)} }`); });
 dv.addEventListener('udv-error', (e) => log(`udv-error ${String((e as CustomEvent).detail.error)}`));

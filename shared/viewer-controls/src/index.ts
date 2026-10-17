@@ -34,6 +34,8 @@ export const ICONS: Record<string, string> = {
   grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/>',
   sidebar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   notes: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  outline: '<path d="M9 6h11M12 12h8M12 18h8"/><circle cx="5" cy="6" r="1.2" fill="currentColor"/><circle cx="8" cy="12" r="1.2" fill="currentColor"/><circle cx="8" cy="18" r="1.2" fill="currentColor"/>',
+  comment: '<path d="M4 5h16v11H10l-4.5 3.5V16H4z"/><path d="M8 9h8M8 12.5h5"/>',
   // zoom
   'zoom-out': '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M20 20l-4.8-4.8"/>',
   'zoom-in': '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M10.5 7.5v6M20 20l-4.8-4.8"/>',

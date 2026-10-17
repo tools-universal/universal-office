@@ -25,6 +25,8 @@
     .var output { text-align: right; }
     select, button { font: inherit; }
     select { width: 100%; padding: 4px; }
+    #api button { all: unset; display: block; cursor: pointer; padding: 2px 0; color: #0969da; }
+    #api button[aria-current="true"] { font-weight: 600; }
     pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 10px; font: 12px/1.5 Consolas, monospace; white-space: pre-wrap; word-break: break-all; margin: 8px 0 0; }
   </style>
   <style id="userCss"></style>
@@ -35,7 +37,7 @@
       <h1>&lt;universal-document-viewer&gt;</h1>
       <div class="player">
         <universal-document-viewer id="dv" fonts="../../editor/demo/fonts"
-          src="../../docx-core/test/fixtures/doc/imagens.word.docx"></universal-document-viewer>
+          src="./amostra-indice-comentarios.docx"></universal-document-viewer>
       </div>
       <div id="log"></div>
       <pre id="markup"></pre>
@@ -44,6 +46,9 @@
       <h2>Documento</h2>
       <select id="samples"></select>
       <p style="margin:8px 0 0"><button id="open">Abrir .docx / .doc…</button><input id="file" type="file" accept=".docx,.doc,.docm,.dotx" hidden /></p>
+
+      <h2>Índice pela API</h2>
+      <div id="api" style="font-size:13px"></div>
 
       <h2>Atributos</h2>
       <label><input type="checkbox" id="nocontrols" /> nocontrols</label>

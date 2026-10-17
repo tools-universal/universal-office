@@ -22353,6 +22353,36 @@ function shapePath(geom, x2, y, w, h, line, flipH = false, flipV = false) {
   return [{ op: "M", x: x2, y }, { op: "L", x: x2 + w, y }, { op: "L", x: x2 + w, y: y + h }, { op: "L", x: x2, y: y + h }, { op: "Z" }];
 }
 
+// ../docx-layout/src/refs.ts
+function cellAtGrid(t, r, c) {
+  const row = t.rows[r];
+  if (!row) return null;
+  let col = row.trPr?.gridBefore ?? 0;
+  for (const cell of row.cells) {
+    if (col === c) return cell;
+    col += Math.max(1, cell.tcPr?.gridSpan ?? cell.gridSpan ?? 1);
+  }
+  return null;
+}
+function cellBlocks(cell) {
+  return cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
+}
+function paragraphAtPath(blocks, path) {
+  let list2 = blocks;
+  for (let i2 = 0; i2 < path.length; i2 += 3) {
+    const b = /^b(\d+)$/.exec(path[i2] ?? "");
+    const blk = b ? list2[+b[1]] : void 0;
+    if (!blk) return null;
+    if (i2 + 1 >= path.length) return blk.type === "paragraph" ? blk.paragraph : null;
+    const r = /^r(\d+)$/.exec(path[i2 + 1] ?? ""), c = /^c(\d+)$/.exec(path[i2 + 2] ?? "");
+    if (blk.type !== "table" || !r || !c) return null;
+    const cell = cellAtGrid(blk, +r[1], +c[1]);
+    if (!cell) return null;
+    list2 = cellBlocks(cell);
+  }
+  return null;
+}
+
 // ../../../shared/viewer-controls/src/index.ts
 var SVG_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 var ICONS = {
@@ -22370,6 +22400,8 @@ var ICONS = {
   grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/>',
   sidebar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   notes: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  outline: '<path d="M9 6h11M12 12h8M12 18h8"/><circle cx="5" cy="6" r="1.2" fill="currentColor"/><circle cx="8" cy="12" r="1.2" fill="currentColor"/><circle cx="8" cy="18" r="1.2" fill="currentColor"/>',
+  comment: '<path d="M4 5h16v11H10l-4.5 3.5V16H4z"/><path d="M8 9h8M8 12.5h5"/>',
   // zoom
   "zoom-out": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M20 20l-4.8-4.8"/>',
   "zoom-in": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M10.5 7.5v6M20 20l-4.8-4.8"/>',
@@ -22764,8 +22796,84 @@ var ViewerFonts = class {
   }
 };
 
+// src/annotations.ts
+function outlineLevel(p, styles) {
+  let lvl = p.ppr?.outlineLvl;
+  if (lvl === void 0 && styles) lvl = styles.paraStyle(p.ppr?.pStyle ?? p.props.styleId).pPr.outlineLvl;
+  if (lvl !== void 0) return lvl >= 0 && lvl <= 8 ? lvl + 1 : void 0;
+  const m = (p.ppr?.pStyle ?? p.props.styleId)?.match(/^(?:heading|t[íi]?tulo)\s*(\d)$/i);
+  return m ? Number(m[1]) : void 0;
+}
+function collectAnnotations(full, layout) {
+  const styles = full.formatting ? new StyleResolver2(full.formatting) : null;
+  const paraCache = /* @__PURE__ */ new Map();
+  const para = (ref) => {
+    let p = paraCache.get(ref);
+    if (p === void 0) {
+      p = /^b\d/.test(ref) ? paragraphAtPath(full.blocks, ref.split("/")) : null;
+      paraCache.set(ref, p);
+    }
+    return p;
+  };
+  const rects = /* @__PURE__ */ new Map();
+  const headings = [];
+  const seenHeading = /* @__PURE__ */ new Set();
+  const levelCache = /* @__PURE__ */ new Map();
+  layout.pages.forEach((page, pi) => {
+    for (const line of page.lines) {
+      const p = para(line.ref);
+      if (!p) continue;
+      if (!seenHeading.has(p)) {
+        if (!levelCache.has(p)) levelCache.set(p, outlineLevel(p, styles));
+        const level = levelCache.get(p);
+        if (level !== void 0) {
+          seenHeading.add(p);
+          const text = p.runs.map((r) => r.text).join("").replace(/\s+/g, " ").trim();
+          if (text) headings.push({ level, text, page: pi, y: line.y });
+        }
+      }
+      let acc = 0;
+      for (const run of p.runs) {
+        const a = acc;
+        acc += run.text.length;
+        const ids = run.props.commentIds;
+        if (!ids?.length || acc <= line.start || a >= line.end) continue;
+        let x1 = Infinity, x2 = -Infinity;
+        for (const c of line.chars ?? []) {
+          if (c.o < a || c.o >= acc) continue;
+          x1 = Math.min(x1, c.x);
+          x2 = Math.max(x2, c.x + c.w);
+        }
+        if (!(x2 > x1)) continue;
+        for (const id of ids) {
+          let list2 = rects.get(id);
+          if (!list2) rects.set(id, list2 = []);
+          const last = list2[list2.length - 1];
+          if (last && last.page === pi && last.y === line.y && Math.abs(last.x + last.w - x1) < 1) last.w = x2 - last.x;
+          else list2.push({ page: pi, x: x1, y: line.y, w: x2 - x1, h: line.height });
+        }
+      }
+    }
+  });
+  const comments = full.comments.map((c) => ({
+    id: c.id,
+    ...c.author ? { author: c.author } : {},
+    text: c.text,
+    rects: rects.get(c.id) ?? []
+  }));
+  const key = (c) => {
+    const r = c.rects[0];
+    return r ? [r.page, r.y, r.x] : [1e9, 0, 0];
+  };
+  comments.sort((a, b) => {
+    const ka = key(a), kb = key(b);
+    return ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2];
+  });
+  return { comments, headings };
+}
+
 // src/controls.ts
-var CONTROL_ITEMS = ["nav", "counter", "thumbnails", "zoom", "download", "print", "fullscreen", "progress"];
+var CONTROL_ITEMS = ["nav", "counter", "outline", "thumbnails", "comments", "zoom", "download", "print", "fullscreen", "progress"];
 var CONTROLS_CSS = controlsCss("udv") + `
 .udv-level { width: auto; min-width: calc(var(--uoc-s) * 2.6); padding: 0 6px; font-variant-numeric: tabular-nums; }
 .udv-menu {
@@ -22784,6 +22892,11 @@ var LABELS = {
     prev: "P\xE1gina anterior",
     next: "Pr\xF3xima p\xE1gina",
     thumbnails: "Miniaturas",
+    outline: "\xCDndice",
+    pages: "P\xE1ginas",
+    comments: "Coment\xE1rios",
+    noHeadings: "O documento n\xE3o tem t\xEDtulos.",
+    noComments: "Sem coment\xE1rios.",
     zoomOut: "Diminuir zoom",
     zoomIn: "Aumentar zoom",
     zoom: "Zoom",
@@ -22800,6 +22913,11 @@ var LABELS = {
     prev: "Previous page",
     next: "Next page",
     thumbnails: "Thumbnails",
+    outline: "Outline",
+    pages: "Pages",
+    comments: "Comments",
+    noHeadings: "This document has no headings.",
+    noComments: "No comments.",
     zoomOut: "Zoom out",
     zoomIn: "Zoom in",
     zoom: "Zoom",
@@ -22833,7 +22951,9 @@ var DocumentControls = class {
         "counter"
       ],
       end: [
-        { name: "thumbnails", item: "thumbnails", icon: "sidebar", run: r(() => host.toggleThumbnails()) },
+        { name: "outline", item: "outline", icon: "outline", run: r(() => host.toggleNav("outline")) },
+        { name: "thumbnails", item: "thumbnails", icon: "sidebar", run: r(() => host.toggleNav("pages")) },
+        { name: "comments", item: "comments", icon: "comment", run: r(() => host.toggleComments()) },
         { name: "zoom-out", item: "zoom", icon: "zoom-out", run: r(() => this.step(-1)) },
         { name: "zoom-level", item: "zoom", className: "udv-level", run: r(() => this.toggleMenu()) },
         { name: "zoom-in", item: "zoom", icon: "zoom-in", run: r(() => this.step(1)) },
@@ -22927,25 +23047,31 @@ var DocumentControls = class {
     const n = h.count(), i2 = h.index();
     const frac = h.scrollFraction();
     b.setProgress(frac, { label: L.progress, min: 0, max: 100, now: Math.round(frac * 100) });
-    const z = h.zoom(), full = h.isFullscreen(), thumbs = h.thumbnailsOpen();
+    const z = h.zoom(), full = h.isFullscreen(), tab = h.navTab();
+    const heads = h.hasHeadings(), cms = h.hasComments(), cmOpen = h.commentsOpen();
     const state = [
       n,
       i2,
       z.spec,
       z.factor.toFixed(3),
       full,
-      thumbs,
+      tab,
+      heads,
+      cms,
+      cmOpen,
       !this.menu.hidden,
       CONTROL_ITEMS.filter((it) => b.isRemoved(it)).join()
     ].join("|");
     if (state === this.last) return;
     this.last = state;
-    b.applyVisibility(() => n > 0);
+    b.applyVisibility((it) => n > 0 && (it === "outline" ? heads : it === "comments" ? cms : true));
     b.setCounter(n ? `${i2 + 1} / ${n}` : "");
     const pct = `${Math.round(z.factor * 100)}%`;
     b.setButton("prev", { label: L.prev });
     b.setButton("next", { label: L.next });
-    b.setButton("thumbnails", { label: L.thumbnails, pressed: thumbs });
+    b.setButton("outline", { label: L.outline, pressed: tab === "outline" });
+    b.setButton("thumbnails", { label: L.thumbnails, pressed: tab === "pages" });
+    b.setButton("comments", { label: L.comments, pressed: cmOpen });
     b.setButton("zoom-out", { label: L.zoomOut });
     b.setButton("zoom-level", { label: `${L.zoom}: ${pct}`, text: pct, expanded: !this.menu.hidden });
     b.setButton("zoom-in", { label: L.zoomIn });
@@ -22968,7 +23094,12 @@ var hyphenationLangs = (full) => documentHyphenationLanguages(full).filter((l) =
   });
 });
 var PX_PER_TWIP = 96 / 1440;
-var THUMBS_W = 132;
+var NAV_W = 232;
+var COMMENTS_W = 300;
+var MIN_PAGES_W = 360;
+var PANEL_BG = "var(--udv-panel-bg, rgba(20,20,20,.94))";
+var HIGHLIGHT3 = "rgba(255, 187, 0, 0.28)";
+var HIGHLIGHT_ACTIVE = "rgba(255, 170, 0, 0.55)";
 var CSS = `
 :host { display: block; position: relative; contain: content; }
 .udv-wrap { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--udv-background, var(--uo-background, #2b2b2b)); }
@@ -22977,18 +23108,45 @@ var CSS = `
   padding: var(--udv-page-gap, 16px) 0 calc(var(--uoc-s) * 3.9);
   box-sizing: border-box;
 }
-.udv-thumbs-open .udv-scroll { padding-left: ${THUMBS_W}px; }
 .udv-page {
   position: relative; margin: 0 auto var(--udv-page-gap, 16px); background: #fff;
   box-shadow: 0 1px 3px rgba(0,0,0,.45);
 }
 .udv-page canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.udv-thumbs {
-  position: absolute; left: 0; top: 0; bottom: 0; width: ${THUMBS_W}px; box-sizing: border-box;
-  overflow: auto; padding: 12px 0 calc(var(--uoc-s) * 3.9); scrollbar-width: thin;
-  background: var(--udv-thumbnails-bg, rgba(0,0,0,.72));
+.udv-nav, .udv-comments {
+  position: absolute; top: 0; bottom: 0; box-sizing: border-box; background: ${PANEL_BG};
+  color: #e6e6e6; font: 13px/1.4 system-ui, "Segoe UI", sans-serif;
 }
-.udv-thumbs[hidden] { display: none; }
+.udv-nav { left: 0; width: ${NAV_W}px; display: flex; flex-direction: column; }
+.udv-nav[hidden], .udv-comments[hidden], .udv-nav [hidden] { display: none; }
+.udv-tabs { display: flex; gap: 2px; padding: 8px 8px 0; border-bottom: 1px solid rgba(255,255,255,.12); flex: none; }
+.udv-tab { all: unset; cursor: pointer; padding: 6px 10px; color: #b5b5b5; border-bottom: 2px solid transparent; }
+.udv-tab:hover { color: #fff; }
+.udv-tab[aria-selected="true"] { color: #fff; border-bottom-color: ${PROGRESS_COLOR}; }
+.udv-tab:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: -2px; }
+.udv-thumbs, .udv-outline { position: relative; flex: 1; overflow: auto; padding: 12px 0 calc(var(--uoc-s) * 3.9); scrollbar-width: thin; }
+.udv-outline button {
+  all: unset; box-sizing: border-box; display: block; width: calc(100% - 12px); margin: 0 6px; cursor: pointer;
+  padding: 5px 10px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #d6d6d6;
+}
+.udv-outline button[data-level="1"] { font-weight: 600; color: #f2f2f2; }
+.udv-outline button:hover { background: rgba(255,255,255,.08); }
+.udv-outline button[aria-current="true"] { background: rgba(255,255,255,.16); color: #fff; }
+.udv-outline button:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: -2px; }
+.udv-empty { color: #9a9a9a; padding: 8px 14px; }
+.udv-comments { right: 0; width: ${COMMENTS_W}px; overflow: auto; padding: 12px 12px calc(var(--uoc-s) * 3.9); scrollbar-width: thin; }
+.udv-comments h2 { font: 600 13px/1.4 system-ui, "Segoe UI", sans-serif; margin: 0 2px 10px; color: #fff; }
+.udv-comment {
+  all: unset; display: block; box-sizing: border-box; width: 100%; cursor: pointer; margin: 0 0 8px;
+  padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,.06);
+  border-left: 3px solid var(--udv-comment-highlight, #f5b400);
+}
+.udv-comment:hover { background: rgba(255,255,255,.1); }
+.udv-comment[aria-current="true"] { background: rgba(255,255,255,.17); }
+.udv-comment:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: 1px; }
+.udv-comment strong { display: block; font-weight: 600; margin-bottom: 3px; color: #fff; }
+.udv-comment span { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.udv-comment small { display: block; margin-top: 6px; color: #9a9a9a; }
 .udv-thumb {
   all: unset; display: block; position: relative; margin: 0 auto 4px; cursor: pointer; background: #fff;
   outline: 2px solid transparent; outline-offset: 2px;
@@ -23003,7 +23161,12 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   root = this.attachShadow({ mode: "open" });
   wrap = document.createElement("div");
   scroller = document.createElement("div");
+  nav = document.createElement("div");
+  tabOutline = document.createElement("button");
+  tabPages = document.createElement("button");
+  outlineEl = document.createElement("div");
   thumbs = document.createElement("div");
+  commentsEl = document.createElement("div");
   msg = document.createElement("div");
   controls;
   fonts = new ViewerFonts(FontResolver.shared(), () => this.repaintAll());
@@ -23019,7 +23182,12 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   zoomSpec = "page-width";
   zoomFactor = 1;
   index = 0;
-  thumbsOpen = false;
+  navTab = null;
+  commentsOpen = false;
+  activeComment = null;
+  notes = { comments: [], headings: [] };
+  outlineEls = [];
+  currentHeading = -1;
   loadSeq = 0;
   srcUrl = null;
   rafId = 0;
@@ -23039,11 +23207,36 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.scroller.className = "udv-scroll";
     this.scroller.setAttribute("part", "pages");
     this.scroller.tabIndex = 0;
+    this.nav.className = "udv-nav";
+    this.nav.setAttribute("part", "nav-panel");
+    this.nav.hidden = true;
+    const tabs = document.createElement("div");
+    tabs.className = "udv-tabs";
+    tabs.setAttribute("role", "tablist");
+    for (const [t, tab] of [[this.tabOutline, "outline"], [this.tabPages, "pages"]]) {
+      t.type = "button";
+      t.className = "udv-tab";
+      t.setAttribute("role", "tab");
+      t.setAttribute("part", "nav-tab");
+      t.addEventListener("click", () => {
+        this.setNav(tab);
+        this.controls.sync();
+      });
+      tabs.appendChild(t);
+    }
+    this.outlineEl.className = "udv-outline";
+    this.outlineEl.setAttribute("part", "outline");
+    this.outlineEl.setAttribute("role", "tabpanel");
     this.thumbs.className = "udv-thumbs";
     this.thumbs.setAttribute("part", "thumbnails");
-    this.thumbs.hidden = true;
+    this.thumbs.setAttribute("role", "tabpanel");
+    this.nav.append(tabs, this.outlineEl, this.thumbs);
+    this.commentsEl.className = "udv-comments";
+    this.commentsEl.setAttribute("part", "comments");
+    this.commentsEl.setAttribute("role", "complementary");
+    this.commentsEl.hidden = true;
     this.msg.className = "udv-msg";
-    this.wrap.append(this.scroller, this.thumbs, this.msg);
+    this.wrap.append(this.scroller, this.nav, this.commentsEl, this.msg);
     this.root.append(style, this.wrap);
     this.controls = new DocumentControls(this.controlsHost(), this.root, this.wrap);
     this.scroller.addEventListener("scroll", () => {
@@ -23055,6 +23248,15 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       const b = e.target.closest(".udv-thumb");
       if (b) this.goToPage(Number(b.dataset["i"]));
     });
+    this.outlineEl.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-h]");
+      if (b) this.goToHeading(Number(b.dataset["h"]));
+    });
+    this.commentsEl.addEventListener("click", (e) => {
+      const b = e.target.closest(".udv-comment");
+      if (b) this.selectComment(Number(b.dataset["id"]), true);
+    });
+    this.scroller.addEventListener("click", this.onPageClick);
     this.wrap.addEventListener("pointermove", () => this.controls.wake());
     this.wrap.addEventListener("pointerdown", () => this.controls.wake());
     this.wrap.addEventListener("pointerleave", (e) => {
@@ -23095,8 +23297,13 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   configureControls() {
     const lang = langOf2(this);
     this.controls.configure(!this.hasAttribute("nocontrols"), CONTROL_ITEMS.filter((it) => this.hasAttribute(`no${it}`)), lang);
-    if (this.hasAttribute("nothumbnails") || this.hasAttribute("nocontrols")) this.setThumbs(false);
-    this.labelThumbs(lang);
+    const off = (it) => this.hasAttribute("nocontrols") || this.hasAttribute(`no${it}`);
+    if (this.navTab && off(this.navTab === "pages" ? "thumbnails" : "outline")) {
+      const other = this.navTab === "pages" ? "outline" : "pages";
+      this.setNav(!off(other === "pages" ? "thumbnails" : "outline") && (other === "pages" || this.notes.headings.length) ? other : null);
+    }
+    if (off("comments")) this.setComments(false);
+    this.labelPanels(lang);
   }
   readZoomAttr() {
     const z = (this.getAttribute("zoom") ?? "").trim().toLowerCase();
@@ -23178,7 +23385,14 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       this.scroller.appendChild(d);
       this.pageEls.push(d);
     }
+    this.headingIndex = -2;
+    this.notes = this.full ? collectAnnotations(this.full, res) : { comments: [], headings: [] };
+    if (this.activeComment !== null && !this.notes.comments.some((c) => c.id === this.activeComment)) this.activeComment = null;
     this.buildThumbs();
+    this.buildOutline();
+    this.buildComments();
+    if (this.navTab === "outline" && !this.notes.headings.length) this.setNav(null);
+    if (this.commentsOpen && !this.notes.comments.length) this.setComments(false);
     this.applyZoom(false);
     if (keepFrac) this.scrollToFraction(keepFrac);
   }
@@ -23189,17 +23403,30 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   computeZoom() {
     if (typeof this.zoomSpec === "number") return this.zoomSpec;
     const gap = 16;
-    const availW = this.scroller.clientWidth - (this.thumbsOpen ? THUMBS_W : 0) - gap * 2;
+    const { left, right } = this.reserved();
+    const availW = this.scroller.clientWidth - left - right - gap * 2;
     const wFit = availW / (this.maxPageWidthTw() * PX_PER_TWIP);
     if (this.zoomSpec === "page-width") return Math.max(0.1, wFit);
     const p = this.layout?.pages[this.index] ?? this.layout?.pages[0];
     const hFit = p ? (this.scroller.clientHeight - gap * 2) / (p.heightTw * PX_PER_TWIP) : wFit;
     return Math.max(0.1, Math.min(wFit, hFit));
   }
+  /** Painéis ao lado das páginas (reservam largura) ou, sem espaço, flutuando sobre elas. */
+  reserved() {
+    const left = this.navTab ? NAV_W : 0, right = this.commentsOpen ? COMMENTS_W : 0;
+    return this.wrap.clientWidth - left - right >= MIN_PAGES_W ? { left, right } : { left: 0, right: 0 };
+  }
+  /** Viewer estreito: só cabe um painel por vez (abrir um fecha o outro). */
+  narrow() {
+    return this.wrap.clientWidth < NAV_W + COMMENTS_W + MIN_PAGES_W;
+  }
   /** Recalcula o fator e o tamanho das páginas, mantendo a página atual em vista. */
   applyZoom(keep = true) {
     if (!this.layout) return;
     const anchor = keep ? this.anchor() : null;
+    const { left, right } = this.reserved();
+    this.scroller.style.paddingLeft = left ? `${left}px` : "";
+    this.scroller.style.paddingRight = right ? `${right}px` : "";
     const z = this.computeZoom();
     const changed = Math.abs(z - this.zoomFactor) > 1e-4;
     this.zoomFactor = z;
@@ -23223,9 +23450,9 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     const el2 = this.pageEls[a.i];
     if (el2) this.scroller.scrollTop = el2.offsetTop + a.f * el2.offsetHeight;
   }
+  /** Redimensionou: os painéis podem passar a caber (ou não) ao lado das páginas. */
   onResize() {
-    if (typeof this.zoomSpec !== "number") this.applyZoom();
-    else this.schedule();
+    this.applyZoom();
   }
   // ───────────────────────── pintura (só o visível) ─────────────────────────
   schedule() {
@@ -23262,7 +23489,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       this.dispatchEvent(new CustomEvent("udv-page", { detail: { index: cur } }));
     }
     const dpr = window.devicePixelRatio || 1;
-    const key = `${this.layoutVersion}|${this.zoomFactor.toFixed(4)}|${dpr}`;
+    const key = `${this.layoutVersion}|${this.zoomFactor.toFixed(4)}|${dpr}|${this.commentsOpen ? this.activeComment ?? "c" : ""}`;
     const margin = s.clientHeight;
     for (let i2 = 0; i2 < this.pageEls.length; i2++) {
       const el2 = this.pageEls[i2];
@@ -23279,12 +23506,13 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       this.paintPage(i2, cv, this.zoomFactor * dpr);
       this.painted.set(i2, key);
     }
-    if (this.thumbsOpen) this.updateThumbs();
+    if (this.navTab === "pages") this.updateThumbs();
     this.syncThumbCurrent();
+    this.syncHeadingCurrent();
     this.controls.sync();
   }
   /** Pinta a página `i` num canvas, na escala px/(px CSS a 100%). */
-  paintPage(i2, cv, k) {
+  paintPage(i2, cv, k, highlights = true) {
     const p = this.layout.pages[i2];
     const w = Math.max(1, Math.round(p.widthTw * PX_PER_TWIP * k)), h = Math.max(1, Math.round(p.heightTw * PX_PER_TWIP * k));
     if (cv.width !== w) cv.width = w;
@@ -23301,6 +23529,12 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     try {
       paintItems(ctx, p.items, this.paintEnv());
     } catch {
+    }
+    if (highlights && this.commentsOpen) {
+      for (const c of this.notes.comments) {
+        ctx.fillStyle = c.id === this.activeComment ? HIGHLIGHT_ACTIVE : HIGHLIGHT3;
+        for (const r of c.rects) if (r.page === i2) ctx.fillRect(r.x, r.y, r.w, r.h);
+      }
     }
   }
   /** Imagem decodificada (o vetor SVG, como o Word, quando houver). */
@@ -23363,11 +23597,19 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       this.thumbs.append(b, num);
       this.thumbEls.push(b);
     }
-    this.labelThumbs();
+    this.labelPanels();
   }
-  labelThumbs(lang) {
-    const L = labelsFor(lang ?? langOf2(this));
+  labels(lang) {
+    return labelsFor(lang ?? langOf2(this));
+  }
+  /** Rótulos dos painéis no idioma atual (abas, miniaturas, vazios). */
+  labelPanels(lang) {
+    const L = this.labels(lang);
+    this.tabOutline.textContent = L.outline;
+    this.tabPages.textContent = L.pages;
     this.thumbEls.forEach((b, i2) => b.setAttribute("aria-label", `${L.page} ${i2 + 1}`));
+    this.buildOutline();
+    this.buildComments();
   }
   updateThumbs() {
     const s = this.thumbs, top = s.scrollTop, bottom = top + s.clientHeight;
@@ -23378,7 +23620,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       if (el2.offsetTop + el2.offsetHeight < top - 200 || el2.offsetTop > bottom + 200) continue;
       if (this.thumbPainted.get(i2) === key) continue;
       const p = this.layout.pages[i2];
-      this.paintPage(i2, el2.firstElementChild, el2.offsetWidth / (p.widthTw * PX_PER_TWIP) * dpr);
+      this.paintPage(i2, el2.firstElementChild, el2.offsetWidth / (p.widthTw * PX_PER_TWIP) * dpr, false);
       this.thumbPainted.set(i2, key);
     }
   }
@@ -23387,24 +23629,196 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       const cur = i2 === this.index;
       if (t.getAttribute("aria-current") === "true" === cur) return;
       t.setAttribute("aria-current", String(cur));
-      if (cur && this.thumbsOpen) {
+      if (cur && this.navTab === "pages") {
         const s = this.thumbs;
         if (t.offsetTop < s.scrollTop) s.scrollTop = t.offsetTop - 12;
         else if (t.offsetTop + t.offsetHeight > s.scrollTop + s.clientHeight) s.scrollTop = t.offsetTop + t.offsetHeight - s.clientHeight + 40;
       }
     });
   }
-  setThumbs(open) {
-    if (open === this.thumbsOpen) return;
-    this.thumbsOpen = open;
-    this.thumbs.hidden = !open;
-    this.wrap.classList.toggle("udv-thumbs-open", open);
+  /** Abre o painel de navegação numa aba (índice ou páginas) ou fecha (null). */
+  setNav(tab) {
+    if (tab === this.navTab) return;
+    const widthChanged = !tab !== !this.navTab;
+    if (tab && !this.navTab && this.commentsOpen && this.narrow()) this.setComments(false);
+    this.navTab = tab;
+    this.nav.hidden = !tab;
+    this.wrap.classList.toggle("udv-nav-open", !!tab);
+    const noOutline = this.hasAttribute("nooutline") || !this.notes.headings.length;
+    this.tabOutline.hidden = noOutline;
+    this.tabPages.hidden = this.hasAttribute("nothumbnails");
+    this.tabOutline.setAttribute("aria-selected", String(tab === "outline"));
+    this.tabPages.setAttribute("aria-selected", String(tab === "pages"));
+    this.outlineEl.hidden = tab !== "outline";
+    this.thumbs.hidden = tab !== "pages";
     for (const t of this.thumbEls) t.removeAttribute("aria-current");
-    this.applyZoom();
+    this.currentHeading = -1;
+    if (widthChanged) this.applyZoom();
+    else this.schedule();
   }
+  setComments(open) {
+    if (open === this.commentsOpen) return;
+    if (open && this.navTab && this.narrow()) this.setNav(null);
+    this.commentsOpen = open;
+    this.commentsEl.hidden = !open;
+    this.wrap.classList.toggle("udv-comments-open", open);
+    this.applyZoom();
+    this.repaintAll();
+  }
+  // ───────────────────────── índice (títulos) ─────────────────────────
+  buildOutline() {
+    const L = this.labels();
+    this.outlineEl.textContent = "";
+    this.outlineEls = [];
+    this.currentHeading = -1;
+    if (!this.notes.headings.length) {
+      const p = document.createElement("div");
+      p.className = "udv-empty";
+      p.textContent = L.noHeadings;
+      this.outlineEl.appendChild(p);
+      return;
+    }
+    const minLevel = Math.min(...this.notes.headings.map((h) => h.level));
+    this.notes.headings.forEach((h, i2) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("part", "outline-item");
+      b.dataset["h"] = String(i2);
+      b.dataset["level"] = String(h.level - minLevel + 1);
+      b.style.paddingLeft = `${10 + (h.level - minLevel) * 14}px`;
+      b.textContent = h.text;
+      b.title = h.text;
+      this.outlineEl.appendChild(b);
+      this.outlineEls.push(b);
+    });
+  }
+  /** Posição (px no rolador) de um ponto da página. */
+  pageY(page, yTw) {
+    const el2 = this.pageEls[page];
+    const p = this.layout?.pages[page];
+    if (!el2 || !p) return 0;
+    return el2.offsetTop + yTw * (el2.offsetHeight / p.heightTw);
+  }
+  /** Vai ao título `i` do índice. */
+  goToHeading(i2) {
+    const h = this.notes.headings[i2];
+    if (!h) return;
+    this.scroller.scrollTo({ top: Math.max(0, this.pageY(h.page, h.y) - 24), behavior: "smooth" });
+  }
+  /** Índice do título atual (o último que passou do 1º terço da janela); −1 = antes do 1º / sem títulos. */
+  getHeadingIndex() {
+    const mark = this.scroller.scrollTop + this.scroller.clientHeight / 3;
+    let cur = -1;
+    this.notes.headings.forEach((h, i2) => {
+      if (this.pageY(h.page, h.y) <= mark) cur = i2;
+    });
+    return cur;
+  }
+  /** Título atual: evento `udv-heading` (com ou sem painel) e destaque no índice. */
+  syncHeadingCurrent() {
+    const cur = this.getHeadingIndex();
+    if (cur !== this.headingIndex) {
+      this.headingIndex = cur;
+      const h = this.notes.headings[cur];
+      this.dispatchEvent(new CustomEvent("udv-heading", { detail: { index: cur, ...h ? { level: h.level, text: h.text, page: h.page } : {} } }));
+    }
+    if (this.navTab !== "outline" || !this.outlineEls.length) return;
+    const shown = Math.max(0, cur);
+    if (shown === this.currentHeading) return;
+    this.outlineEls[this.currentHeading]?.removeAttribute("aria-current");
+    this.currentHeading = shown;
+    const b = this.outlineEls[shown];
+    b.setAttribute("aria-current", "true");
+    const s = this.outlineEl;
+    if (b.offsetTop < s.scrollTop) s.scrollTop = b.offsetTop - 12;
+    else if (b.offsetTop + b.offsetHeight > s.scrollTop + s.clientHeight) s.scrollTop = b.offsetTop + b.offsetHeight - s.clientHeight + 40;
+  }
+  /** Último título anunciado em `udv-heading`. */
+  headingIndex = -1;
+  // ───────────────────────── comentários ─────────────────────────
+  buildComments() {
+    const L = this.labels();
+    this.commentsEl.textContent = "";
+    const h = document.createElement("h2");
+    h.textContent = L.comments;
+    this.commentsEl.appendChild(h);
+    if (!this.notes.comments.length) {
+      const p = document.createElement("div");
+      p.className = "udv-empty";
+      p.textContent = L.noComments;
+      this.commentsEl.appendChild(p);
+      return;
+    }
+    for (const c of this.notes.comments) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "udv-comment";
+      b.setAttribute("part", "comment");
+      b.dataset["id"] = String(c.id);
+      if (c.author) {
+        const a = document.createElement("strong");
+        a.textContent = c.author;
+        b.appendChild(a);
+      }
+      const t = document.createElement("span");
+      t.textContent = c.text;
+      b.appendChild(t);
+      if (c.rects[0]) {
+        const sm = document.createElement("small");
+        sm.textContent = `${L.page} ${c.rects[0].page + 1}`;
+        b.appendChild(sm);
+      }
+      if (c.id === this.activeComment) b.setAttribute("aria-current", "true");
+      this.commentsEl.appendChild(b);
+    }
+  }
+  /** Destaca o comentário (no painel e na página); `scroll` = leva a página até o trecho. */
+  selectComment(id, scroll = false) {
+    const c = this.notes.comments.find((x2) => x2.id === id);
+    if (!c) return;
+    if (!this.commentsOpen) this.setComments(true);
+    this.activeComment = id;
+    for (const el2 of this.commentsEl.querySelectorAll(".udv-comment")) {
+      const cur = Number(el2.dataset["id"]) === id;
+      if (cur) el2.setAttribute("aria-current", "true");
+      else el2.removeAttribute("aria-current");
+      if (cur && !scroll) {
+        const s = this.commentsEl;
+        if (el2.offsetTop < s.scrollTop || el2.offsetTop + el2.offsetHeight > s.scrollTop + s.clientHeight) s.scrollTop = el2.offsetTop - 40;
+      }
+    }
+    const r = c.rects[0];
+    if (scroll && r) this.scroller.scrollTo({ top: Math.max(0, this.pageY(r.page, r.y) - this.scroller.clientHeight / 3), behavior: "smooth" });
+    this.dispatchEvent(new CustomEvent("udv-comment", { detail: { id, author: c.author, text: c.text } }));
+    this.repaintAll();
+  }
+  /** Clique no trecho comentado (painel aberto): seleciona o comentário. */
+  onPageClick = (e) => {
+    if (!this.commentsOpen) return;
+    const el2 = e.target.closest(".udv-page");
+    const page = el2 ? this.pageEls.indexOf(el2) : -1;
+    const p = this.layout?.pages[page];
+    if (!el2 || !p) return;
+    const rect = el2.getBoundingClientRect();
+    const x2 = (e.clientX - rect.left) / rect.width * p.widthTw, y = (e.clientY - rect.top) / rect.height * p.heightTw;
+    for (const c of this.notes.comments) {
+      if (c.rects.some((r) => r.page === page && x2 >= r.x && x2 <= r.x + r.w && y >= r.y && y <= r.y + r.h)) {
+        this.selectComment(c.id);
+        return;
+      }
+    }
+  };
   // ───────────────────────── API ─────────────────────────
   getPageCount() {
     return this.layout?.pages.length ?? 0;
+  }
+  /** Títulos do documento (nível 1–9, texto, página). */
+  getHeadings() {
+    return this.notes.headings.map((h) => ({ level: h.level, text: h.text, page: h.page }));
+  }
+  /** Comentários na ordem de leitura (autor, texto, página do trecho; null = sem âncora visível). */
+  getComments() {
+    return this.notes.comments.map((c) => ({ id: c.id, ...c.author ? { author: c.author } : {}, text: c.text, page: c.rects[0]?.page ?? null }));
   }
   getPageIndex() {
     return this.index;
@@ -23499,8 +23913,12 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       scrollToFraction: (f) => this.scrollToFraction(f),
       zoom: () => this.getZoom(),
       setZoom: (z) => this.setZoom(z),
-      thumbnailsOpen: () => this.thumbsOpen,
-      toggleThumbnails: () => this.setThumbs(!this.thumbsOpen),
+      navTab: () => this.navTab,
+      toggleNav: (tab) => this.setNav(this.navTab === tab ? null : tab),
+      hasHeadings: () => this.notes.headings.length > 0,
+      hasComments: () => this.notes.comments.length > 0,
+      commentsOpen: () => this.commentsOpen,
+      toggleComments: () => this.setComments(!this.commentsOpen),
       download: () => this.download(),
       print: () => this.print(),
       isFullscreen: () => this.root.fullscreenElement === this.wrap,
@@ -23544,6 +23962,7 @@ for (const it of CONTROL_ITEMS) {
 }
 var FIXTURES = ["caracteres", "cp1252", "degrades", "estilos", "formas", "imagens", "listas", "notas-campos", "paragrafos", "secoes", "tabelas"];
 var sel = $("samples");
+sel.add(new Option("amostra-indice-comentarios.docx", "./amostra-indice-comentarios.docx", true, true));
 for (const f of FIXTURES) {
   const url = `../../docx-core/test/fixtures/doc/${f}.word.docx`;
   sel.add(new Option(`${f}.docx`, url, false, url === dv.getAttribute("src")));
@@ -23562,7 +23981,35 @@ $("file").addEventListener("change", async (e) => {
     log(`erro: ${String(err2)}`);
   }
 });
-dv.addEventListener("udv-loaded", (e) => log(`udv-loaded { pages: ${e.detail.pages} }`));
+var api = $("api");
+var renderApi = () => {
+  api.textContent = "";
+  const hs = dv.getHeadings();
+  if (!hs.length) {
+    api.textContent = "(sem t\xEDtulos)";
+    return;
+  }
+  hs.forEach((h, i2) => {
+    const b = document.createElement("button");
+    b.style.paddingLeft = `${(h.level - 1) * 14}px`;
+    b.textContent = `${h.text} \u2014 p. ${h.page + 1}`;
+    b.addEventListener("click", () => dv.goToHeading(i2));
+    api.appendChild(b);
+  });
+};
+dv.addEventListener("udv-loaded", (e) => {
+  renderApi();
+  log(`udv-loaded { pages: ${e.detail.pages}, headings: ${dv.getHeadings().length}, comments: ${dv.getComments().length} }`);
+});
+dv.addEventListener("udv-heading", (e) => {
+  const d = e.detail;
+  api.querySelectorAll("button").forEach((b, i2) => b.setAttribute("aria-current", String(i2 === d.index)));
+  log(`udv-heading { index: ${d.index}${d.text ? `, text: ${JSON.stringify(d.text)}` : ""} }`);
+});
+dv.addEventListener("udv-comment", (e) => {
+  const d = e.detail;
+  log(`udv-comment { id: ${d.id}, author: ${JSON.stringify(d.author)} }`);
+});
 dv.addEventListener("udv-page", (e) => log(`udv-page { index: ${e.detail.index} }`));
 dv.addEventListener("udv-zoom", (e) => {
   const d = e.detail;

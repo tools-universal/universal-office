@@ -15,14 +15,15 @@ import {
  *    viewers): `controls-color`, `controls-size`, `controls-bg`,
  *    `controls-hover-bg`, `progress-color`, `progress-track`,
  *    `progress-height`, `background` (atrás das páginas); e as do documento:
- *    `--udv-thumbnails-bg`, `--udv-page-gap`;
+ *    `--udv-panel-bg`, `--udv-comment-highlight`, `--udv-page-gap`;
  *  - `::part()`: `controls`, `progress`, `progress-value`, `counter`, `button`,
- *    `button-<nome>` (prev, next, thumbnails, zoom-out, zoom-level, zoom-in,
- *    download, print, fullscreen), `zoom-menu`, `zoom-option`, `thumbnails`,
- *    `thumbnail`, `pages`, `page`.
+ *    `button-<nome>` (prev, next, outline, thumbnails, comments, zoom-out,
+ *    zoom-level, zoom-in, download, print, fullscreen), `zoom-menu`,
+ *    `zoom-option`, `nav-panel`, `nav-tab`, `outline`, `outline-item`,
+ *    `thumbnails`, `thumbnail`, `comments`, `comment`, `pages`, `page`.
  */
 
-export const CONTROL_ITEMS = ['nav', 'counter', 'thumbnails', 'zoom', 'download', 'print', 'fullscreen', 'progress'] as const;
+export const CONTROL_ITEMS = ['nav', 'counter', 'outline', 'thumbnails', 'comments', 'zoom', 'download', 'print', 'fullscreen', 'progress'] as const;
 export type ControlItem = typeof CONTROL_ITEMS[number];
 
 /** Zoom: largura da página, página inteira ou fator (1 = 100%). */
@@ -36,8 +37,13 @@ export interface ControlsHost {
   scrollToFraction(f: number): void;
   zoom(): { spec: ZoomSpec; factor: number };
   setZoom(z: ZoomSpec): void;
-  thumbnailsOpen(): boolean;
-  toggleThumbnails(): void;
+  /** aba aberta do painel de navegação (índice ou páginas); null = fechado */
+  navTab(): 'outline' | 'pages' | null;
+  toggleNav(tab: 'outline' | 'pages'): void;
+  hasHeadings(): boolean;
+  hasComments(): boolean;
+  commentsOpen(): boolean;
+  toggleComments(): void;
   download(): void;
   print(): void;
   isFullscreen(): boolean;
@@ -63,13 +69,15 @@ export const PROGRESS_COLOR = cssVar('udv', 'progress-color', '#fff');
 
 const LABELS = {
   pt: {
-    prev: 'Página anterior', next: 'Próxima página', thumbnails: 'Miniaturas', zoomOut: 'Diminuir zoom',
+    prev: 'Página anterior', next: 'Próxima página', thumbnails: 'Miniaturas', outline: 'Índice', pages: 'Páginas',
+    comments: 'Comentários', noHeadings: 'O documento não tem títulos.', noComments: 'Sem comentários.', zoomOut: 'Diminuir zoom',
     zoomIn: 'Aumentar zoom', zoom: 'Zoom', pageWidth: 'Largura da página', pageFit: 'Página inteira',
     download: 'Baixar', print: 'Imprimir', fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia',
     progress: 'Posição no documento', page: 'Página',
   },
   en: {
-    prev: 'Previous page', next: 'Next page', thumbnails: 'Thumbnails', zoomOut: 'Zoom out',
+    prev: 'Previous page', next: 'Next page', thumbnails: 'Thumbnails', outline: 'Outline', pages: 'Pages',
+    comments: 'Comments', noHeadings: 'This document has no headings.', noComments: 'No comments.', zoomOut: 'Zoom out',
     zoomIn: 'Zoom in', zoom: 'Zoom', pageWidth: 'Page width', pageFit: 'Whole page',
     download: 'Download', print: 'Print', fullscreen: 'Full screen', unfullscreen: 'Exit full screen',
     progress: 'Position in document', page: 'Page',
@@ -98,7 +106,9 @@ export class DocumentControls {
         'counter',
       ],
       end: [
-        { name: 'thumbnails', item: 'thumbnails', icon: 'sidebar', run: r(() => host.toggleThumbnails()) },
+        { name: 'outline', item: 'outline', icon: 'outline', run: r(() => host.toggleNav('outline')) },
+        { name: 'thumbnails', item: 'thumbnails', icon: 'sidebar', run: r(() => host.toggleNav('pages')) },
+        { name: 'comments', item: 'comments', icon: 'comment', run: r(() => host.toggleComments()) },
         { name: 'zoom-out', item: 'zoom', icon: 'zoom-out', run: r(() => this.step(-1)) },
         { name: 'zoom-level', item: 'zoom', className: 'udv-level', run: r(() => this.toggleMenu()) },
         { name: 'zoom-in', item: 'zoom', icon: 'zoom-in', run: r(() => this.step(1)) },
@@ -184,18 +194,21 @@ export class DocumentControls {
     const n = h.count(), i = h.index();
     const frac = h.scrollFraction();
     b.setProgress(frac, { label: L.progress, min: 0, max: 100, now: Math.round(frac * 100) });
-    const z = h.zoom(), full = h.isFullscreen(), thumbs = h.thumbnailsOpen();
-    const state = [n, i, z.spec, z.factor.toFixed(3), full, thumbs, !this.menu.hidden,
+    const z = h.zoom(), full = h.isFullscreen(), tab = h.navTab();
+    const heads = h.hasHeadings(), cms = h.hasComments(), cmOpen = h.commentsOpen();
+    const state = [n, i, z.spec, z.factor.toFixed(3), full, tab, heads, cms, cmOpen, !this.menu.hidden,
       CONTROL_ITEMS.filter((it) => b.isRemoved(it)).join()].join('|');
     if (state === this.last) return;
     this.last = state;
 
-    b.applyVisibility(() => n > 0);
+    b.applyVisibility((it) => n > 0 && (it === 'outline' ? heads : it === 'comments' ? cms : true));
     b.setCounter(n ? `${i + 1} / ${n}` : '');
     const pct = `${Math.round(z.factor * 100)}%`;
     b.setButton('prev', { label: L.prev });
     b.setButton('next', { label: L.next });
-    b.setButton('thumbnails', { label: L.thumbnails, pressed: thumbs });
+    b.setButton('outline', { label: L.outline, pressed: tab === 'outline' });
+    b.setButton('thumbnails', { label: L.thumbnails, pressed: tab === 'pages' });
+    b.setButton('comments', { label: L.comments, pressed: cmOpen });
     b.setButton('zoom-out', { label: L.zoomOut });
     b.setButton('zoom-level', { label: `${L.zoom}: ${pct}`, text: pct, expanded: !this.menu.hidden });
     b.setButton('zoom-in', { label: L.zoomIn });

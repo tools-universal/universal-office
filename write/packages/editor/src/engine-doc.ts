@@ -1,7 +1,10 @@
 import type {
   Block, FullDocument, Paragraph, Section, SectPr, TableBlock, TableCell,
 } from '@universal-office/docx-core';
-import type { LaidOutLine } from '@universal-office/docx-layout';
+import { cellAtGrid, cellBlocks, paragraphAtPath, type LaidOutLine } from '@universal-office/docx-layout';
+
+// navegação pelas referências do motor: mora no docx-layout (o viewer usa também)
+export { cellAtGrid, cellBlocks, paragraphAtPath };
 
 /**
  * Ponte entre o estado de EDIÇÃO do <universal-write> e o motor de layout:
@@ -271,23 +274,6 @@ export function locateRef(ref: string, origins: readonly BlockOrigin[]): LineLoc
   return { kind: 'cell', anchor: o.anchor, hops, block };
 }
 
-/** Célula da linha `r` que começa na coluna `c` da grade (gridBefore + spans). */
-export function cellAtGrid(t: TableBlock, r: number, c: number): TableCell | null {
-  const row = t.rows[r];
-  if (!row) return null;
-  let col = row.trPr?.gridBefore ?? 0;
-  for (const cell of row.cells) {
-    if (col === c) return cell;
-    col += Math.max(1, cell.tcPr?.gridSpan ?? cell.gridSpan ?? 1);
-  }
-  return null;
-}
-
-/** Blocos de uma célula na ordem (como o motor os lê). */
-export function cellBlocks(cell: TableCell): Block[] {
-  return cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: 'paragraph', paragraph }));
-}
-
 /** Resolve o caminho de células a partir da tabela âncora. */
 export function resolveCell(t: TableBlock, hops: readonly CellHop[]): TableCell | null {
   let table: TableBlock = t;
@@ -316,23 +302,6 @@ export function hfBlocksFor(
     const set = which === 'hdr' ? s.headerBlocks : s.footerBlocks;
     const own = set?.[part];
     if (own) return { blocks: own, definer: i };
-  }
-  return null;
-}
-
-/** Parágrafo no caminho "b<i>[/r<r>/c<c>/b<k>…]" de uma lista de blocos. */
-export function paragraphAtPath(blocks: readonly Block[], path: readonly string[]): Paragraph | null {
-  let list: readonly Block[] = blocks;
-  for (let i = 0; i < path.length; i += 3) {
-    const b = /^b(\d+)$/.exec(path[i] ?? '');
-    const blk = b ? list[+b[1]!] : undefined;
-    if (!blk) return null;
-    if (i + 1 >= path.length) return blk.type === 'paragraph' ? blk.paragraph : null;
-    const r = /^r(\d+)$/.exec(path[i + 1] ?? ''), c = /^c(\d+)$/.exec(path[i + 2] ?? '');
-    if (blk.type !== 'table' || !r || !c) return null;
-    const cell = cellAtGrid(blk, +r[1]!, +c[1]!);
-    if (!cell) return null;
-    list = cellBlocks(cell);
   }
   return null;
 }
