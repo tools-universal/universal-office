@@ -84,9 +84,10 @@ export function controlsCss(prefix: string): string {
   padding: calc(var(--uoc-s) * 1.9) 10px 6px;
   background: ${v('controls-bg', 'linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8))')};
   color: var(--uoc-c); font: 400 calc(var(--uoc-s) * .6)/1 system-ui, "Segoe UI", sans-serif;
-  transition: opacity .25s, visibility .25s;
+  /* aparecer: visível JÁ (o Tab precisa achar os botões no mesmo instante); sumir: esmaece e só então esconde */
+  transition: opacity .25s, visibility 0s;
 }
-.uoc-hidden .uoc-bar { opacity: 0; visibility: hidden; }
+.uoc-hidden .uoc-bar { opacity: 0; visibility: hidden; transition: opacity .25s, visibility 0s .25s; }
 .uoc-btn {
   all: unset; box-sizing: border-box; flex: none; cursor: pointer; color: inherit;
   width: calc(var(--uoc-s) * 1.8); height: calc(var(--uoc-s) * 1.8);
@@ -104,6 +105,7 @@ export function controlsCss(prefix: string): string {
 }
 .uoc-track { position: relative; width: 100%; height: ${v('progress-height', '3px')}; background: ${v('progress-track', 'rgba(255,255,255,.28)')}; transition: height .1s; }
 .uoc-progress:hover .uoc-track { height: calc(${v('progress-height', '3px')} + 2px); }
+.uoc-progress:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: 2px; border-radius: 2px; }
 .uoc-value { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--uoc-progress); }
 `;
 }
@@ -142,8 +144,38 @@ export interface ControlBarOptions<Item extends string> {
   progressItem: Item;
   /** clique no progresso: fração 0–1 */
   onSeek: (fraction: number) => void;
+  /** teclado no progresso (slider): passo, página, início/fim */
+  onStep?: (step: ProgressStep) => void;
   /** algo do viewer prende a barra visível (menu ou painel aberto) */
   keepVisible?: () => boolean;
+}
+
+/** Teclas do slider de progresso (padrão ARIA de slider). */
+export type ProgressStep = 'prev' | 'next' | 'pageprev' | 'pagenext' | 'home' | 'end';
+
+/** Visualmente oculto, mas na árvore de acessibilidade (leitores de tela). */
+export const SR_ONLY = 'position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;';
+
+/**
+ * Região viva (aria-live) para os anúncios do viewer: troca de slide/página,
+ * de modo, de zoom… Fica no viewer mesmo com `nocontrols`.
+ */
+export class LiveRegion {
+  readonly el = document.createElement('div');
+  private timer = 0;
+  constructor() {
+    this.el.setAttribute('role', 'status');
+    this.el.setAttribute('aria-live', 'polite');
+    this.el.setAttribute('aria-atomic', 'true');
+    this.el.setAttribute('part', 'live');
+    this.el.style.cssText = SR_ONLY;
+  }
+  /** Anuncia `text` (o mesmo texto de novo também é anunciado). */
+  announce(text: string): void {
+    clearTimeout(this.timer);
+    this.el.textContent = '';
+    this.timer = window.setTimeout(() => { this.el.textContent = text; }, 60);
+  }
 }
 
 /** Tempo parado até a barra sumir (ms). */
@@ -171,7 +203,20 @@ export class ControlBar<Item extends string> {
     this.progress.className = 'uoc-progress';
     this.progress.setAttribute('part', 'progress');
     this.progress.setAttribute('role', 'slider');
+    this.progress.setAttribute('aria-orientation', 'horizontal');
+    this.progress.tabIndex = 0;
     this.progress.dataset['item'] = o.progressItem;
+    this.progress.addEventListener('keydown', (e) => {
+      const step: ProgressStep | undefined = ({
+        ArrowRight: 'next', ArrowUp: 'next', ArrowLeft: 'prev', ArrowDown: 'prev',
+        PageUp: 'pagenext', PageDown: 'pageprev', Home: 'home', End: 'end',
+      } as Record<string, ProgressStep>)[e.key];
+      if (!step || !o.onStep) return;
+      e.preventDefault();
+      e.stopPropagation();
+      o.onStep(step);
+      this.wake();
+    });
     const track = document.createElement('div');
     track.className = 'uoc-track';
     this.value.className = 'uoc-value';
@@ -202,6 +247,10 @@ export class ControlBar<Item extends string> {
     this.bar.addEventListener('pointerenter', () => { this.pointerInBar = true; this.wake(); });
     this.bar.addEventListener('pointerleave', () => { this.pointerInBar = false; this.wake(); });
     this.bar.addEventListener('focusin', () => this.wake());
+    // teclado: o Tab precisa achar a barra VISÍVEL (escondida, o navegador pula os
+    // botões) — mostra antes do foco andar; e mostra quando o foco entra no viewer
+    o.wrap.addEventListener('keydown', (e) => { if (e.key === 'Tab' || e.key === 'F6') this.wake(); }, true);
+    o.wrap.addEventListener('focusin', () => this.wake());
   }
 
   private button(s: ButtonSpec<Item>): HTMLButtonElement {
@@ -258,12 +307,16 @@ export class ControlBar<Item extends string> {
     }
   }
 
-  setProgress(fraction: number, aria: { label: string; min: number; max: number; now: number }): void {
+  /** Nome da barra (role=toolbar) para o leitor de tela. */
+  setLabel(label: string): void { this.bar.setAttribute('aria-label', label); }
+
+  setProgress(fraction: number, aria: { label: string; min: number; max: number; now: number; text?: string }): void {
     this.value.style.width = `${(Math.max(0, Math.min(1, fraction)) * 100).toFixed(2)}%`;
     this.progress.setAttribute('aria-label', aria.label);
     this.progress.setAttribute('aria-valuemin', String(aria.min));
     this.progress.setAttribute('aria-valuemax', String(aria.max));
     this.progress.setAttribute('aria-valuenow', String(aria.now));
+    if (aria.text) this.progress.setAttribute('aria-valuetext', aria.text); else this.progress.removeAttribute('aria-valuetext');
   }
 
   setCounter(text: string): void { this.counter.textContent = text; }

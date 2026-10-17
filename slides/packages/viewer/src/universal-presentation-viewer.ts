@@ -10,6 +10,8 @@ import {
 } from '@universal-office/slides-core';
 import { MediaPlayer } from './media-player.js';
 import { ViewerControls, CONTROL_ITEMS, type ControlsHost } from './controls.js';
+import { SlideA11y } from './a11y.js';
+import { langOf } from '@universal-office/viewer-controls';
 
 /** Opções de `play()` — reprodução automática. */
 export interface PlayOptions extends PlaybackOptions {
@@ -153,6 +155,8 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    */
   protected controlsBuiltIn(): boolean { return true; }
   protected controls: ViewerControls | null = null;
+  /** Texto acessível do slide em cena + anúncios (leitores de tela). */
+  protected a11y: SlideA11y | null = null;
   /** Bytes do arquivo carregado (botão de download). */
   protected fileBytes: Uint8Array | null = null;
   /** Caminho da parte de cada slide (anotações) e anotações já lidas. */
@@ -182,6 +186,12 @@ export class UniversalPresentationViewerElement extends HTMLElement {
       // player: o slide encosta nas bordas; o que sobra (letterbox) é o fundo do elemento
       this.canvas.style.background = 'var(--upv-background, var(--uo-background, #000))';
       this.controls = new ViewerControls(this.controlsHost(), this.host, this.wrap);
+      this.a11y = new SlideA11y(this.canvas, this.wrap);
+      // foco visível no canvas (só pelo teclado)
+      this.canvas.style.outline = '';
+      const focusCss = document.createElement('style');
+      focusCss.textContent = 'canvas:focus-visible { outline: 2px solid var(--upv-focus-color, var(--uo-focus-color, #4ea1ff)); outline-offset: -3px; }';
+      this.host.appendChild(focusCss);
       this.wrap.addEventListener('pointermove', () => this.controls?.wake());
       this.wrap.addEventListener('pointerdown', () => this.controls?.wake());
       this.wrap.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') this.controls?.leave(); });
@@ -191,7 +201,9 @@ export class UniversalPresentationViewerElement extends HTMLElement {
 
   /** Liga a barra conforme os atributos — no connect e quando eles mudam. */
   private configureControls(): void {
-    const lang = (this.closest('[lang]') as HTMLElement | null)?.lang || navigator.language;
+    const lang = langOf(this);
+    this.a11y?.setLang(lang);
+    this.a11y?.setName(this.fileName());
     this.controls?.configure(!this.hasAttribute('nocontrols'), CONTROL_ITEMS.filter((it) => this.hasAttribute(`no${it}`)), lang);
   }
 
@@ -539,6 +551,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.resize();
     this.paint();
     this.controls?.renderThumbs();
+    this.a11y?.setName(this.fileName());
     this.dispatchEvent(new CustomEvent('us-loaded', { detail: { count: this.slides.length } }));
   }
 
@@ -1145,6 +1158,13 @@ export class UniversalPresentationViewerElement extends HTMLElement {
   protected paint(): void {
     this.paintFrame();
     this.controls?.sync();
+    this.a11y?.show(this.slides, this.index, true);
+  }
+
+  /** Nome do arquivo (do `src`), para o leitor de tela e o download. */
+  private fileName(): string | null {
+    const src = this.getAttribute('src');
+    try { return src ? decodeURIComponent(src.split(/[?#]/)[0]!.split('/').pop() ?? '') || null : null; } catch { return null; }
   }
 
   private paintFrame(): void {

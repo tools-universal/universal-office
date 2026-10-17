@@ -22437,9 +22437,10 @@ function controlsCss(prefix) {
   padding: calc(var(--uoc-s) * 1.9) 10px 6px;
   background: ${v("controls-bg", "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8))")};
   color: var(--uoc-c); font: 400 calc(var(--uoc-s) * .6)/1 system-ui, "Segoe UI", sans-serif;
-  transition: opacity .25s, visibility .25s;
+  /* aparecer: vis\xEDvel J\xC1 (o Tab precisa achar os bot\xF5es no mesmo instante); sumir: esmaece e s\xF3 ent\xE3o esconde */
+  transition: opacity .25s, visibility 0s;
 }
-.uoc-hidden .uoc-bar { opacity: 0; visibility: hidden; }
+.uoc-hidden .uoc-bar { opacity: 0; visibility: hidden; transition: opacity .25s, visibility 0s .25s; }
 .uoc-btn {
   all: unset; box-sizing: border-box; flex: none; cursor: pointer; color: inherit;
   width: calc(var(--uoc-s) * 1.8); height: calc(var(--uoc-s) * 1.8);
@@ -22457,9 +22458,30 @@ function controlsCss(prefix) {
 }
 .uoc-track { position: relative; width: 100%; height: ${v("progress-height", "3px")}; background: ${v("progress-track", "rgba(255,255,255,.28)")}; transition: height .1s; }
 .uoc-progress:hover .uoc-track { height: calc(${v("progress-height", "3px")} + 2px); }
+.uoc-progress:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: 2px; border-radius: 2px; }
 .uoc-value { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--uoc-progress); }
 `;
 }
+var SR_ONLY = "position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;";
+var LiveRegion = class {
+  el = document.createElement("div");
+  timer = 0;
+  constructor() {
+    this.el.setAttribute("role", "status");
+    this.el.setAttribute("aria-live", "polite");
+    this.el.setAttribute("aria-atomic", "true");
+    this.el.setAttribute("part", "live");
+    this.el.style.cssText = SR_ONLY;
+  }
+  /** Anuncia `text` (o mesmo texto de novo também é anunciado). */
+  announce(text) {
+    clearTimeout(this.timer);
+    this.el.textContent = "";
+    this.timer = window.setTimeout(() => {
+      this.el.textContent = text;
+    }, 60);
+  }
+};
 var IDLE_MS = 2500;
 var ControlBar = class {
   constructor(o) {
@@ -22471,7 +22493,26 @@ var ControlBar = class {
     this.progress.className = "uoc-progress";
     this.progress.setAttribute("part", "progress");
     this.progress.setAttribute("role", "slider");
+    this.progress.setAttribute("aria-orientation", "horizontal");
+    this.progress.tabIndex = 0;
     this.progress.dataset["item"] = o.progressItem;
+    this.progress.addEventListener("keydown", (e) => {
+      const step = {
+        ArrowRight: "next",
+        ArrowUp: "next",
+        ArrowLeft: "prev",
+        ArrowDown: "prev",
+        PageUp: "pagenext",
+        PageDown: "pageprev",
+        Home: "home",
+        End: "end"
+      }[e.key];
+      if (!step || !o.onStep) return;
+      e.preventDefault();
+      e.stopPropagation();
+      o.onStep(step);
+      this.wake();
+    });
     const track = document.createElement("div");
     track.className = "uoc-track";
     this.value.className = "uoc-value";
@@ -22504,6 +22545,10 @@ var ControlBar = class {
       this.wake();
     });
     this.bar.addEventListener("focusin", () => this.wake());
+    o.wrap.addEventListener("keydown", (e) => {
+      if (e.key === "Tab" || e.key === "F6") this.wake();
+    }, true);
+    o.wrap.addEventListener("focusin", () => this.wake());
   }
   o;
   ui = document.createElement("div");
@@ -22579,12 +22624,18 @@ var ControlBar = class {
       el2.hidden = this.removed.has(it) || !available(it);
     }
   }
+  /** Nome da barra (role=toolbar) para o leitor de tela. */
+  setLabel(label) {
+    this.bar.setAttribute("aria-label", label);
+  }
   setProgress(fraction, aria) {
     this.value.style.width = `${(Math.max(0, Math.min(1, fraction)) * 100).toFixed(2)}%`;
     this.progress.setAttribute("aria-label", aria.label);
     this.progress.setAttribute("aria-valuemin", String(aria.min));
     this.progress.setAttribute("aria-valuemax", String(aria.max));
     this.progress.setAttribute("aria-valuenow", String(aria.now));
+    if (aria.text) this.progress.setAttribute("aria-valuetext", aria.text);
+    else this.progress.removeAttribute("aria-valuetext");
   }
   setCounter(text) {
     this.counter.textContent = text;
@@ -22808,8 +22859,16 @@ function outlineLevel(p, styles) {
   const m = (p.ppr?.pStyle ?? p.props.styleId)?.match(/^(?:heading|t[íi]?tulo)\s*(\d)$/i);
   return m ? Number(m[1]) : void 0;
 }
-function collectAnnotations(full, layout) {
+function levelResolver(full) {
   const styles = full.formatting ? new StyleResolver2(full.formatting) : null;
+  const cache = /* @__PURE__ */ new Map();
+  return (p) => {
+    if (!cache.has(p)) cache.set(p, outlineLevel(p, styles));
+    return cache.get(p);
+  };
+}
+function collectAnnotations(full, layout) {
+  const levelOf = levelResolver(full);
   const paraCache = /* @__PURE__ */ new Map();
   const para = (ref) => {
     let p = paraCache.get(ref);
@@ -22822,14 +22881,12 @@ function collectAnnotations(full, layout) {
   const rects = /* @__PURE__ */ new Map();
   const headings = [];
   const seenHeading = /* @__PURE__ */ new Set();
-  const levelCache = /* @__PURE__ */ new Map();
   layout.pages.forEach((page, pi) => {
     for (const line of page.lines) {
       const p = para(line.ref);
       if (!p) continue;
       if (!seenHeading.has(p)) {
-        if (!levelCache.has(p)) levelCache.set(p, outlineLevel(p, styles));
-        const level = levelCache.get(p);
+        const level = levelOf(p);
         if (level !== void 0) {
           seenHeading.add(p);
           const text = p.runs.map((r) => r.text).join("").replace(/\s+/g, " ").trim();
@@ -22884,9 +22941,18 @@ var measure = (text, font) => {
   measureCtx.font = font;
   return measureCtx.measureText(text).width;
 };
-function fillTextLayer(target, lines, para, pxPerTw, topTw) {
+function blockFor(level) {
+  if (level === void 0) return document.createElement("p");
+  if (level <= 6) return document.createElement(`h${level}`);
+  const d = document.createElement("div");
+  d.setAttribute("role", "heading");
+  d.setAttribute("aria-level", String(level));
+  return d;
+}
+function fillTextLayer(target, lines, para, levelOf, pxPerTw, topTw, detailed) {
   const texts = /* @__PURE__ */ new Map();
   const frag = document.createDocumentFragment();
+  let block = null, blockPara = null;
   for (const line of lines) {
     const p = para(line.ref);
     const chars = line.chars;
@@ -22898,9 +22964,27 @@ function fillTextLayer(target, lines, para, pxPerTw, topTw) {
     }
     const h = line.height * pxPerTw;
     if (!(h > 0.5)) continue;
-    const font = `${h}px sans-serif`;
     const top = (line.y - topTw) * pxPerTw;
+    if (p !== blockPara || !block) {
+      block = blockFor(levelOf(p));
+      blockPara = p;
+      frag.appendChild(block);
+      if (!detailed) {
+        block.className = "udv-simple";
+        block.style.left = `${line.x * pxPerTw}px`;
+        block.style.top = `${top}px`;
+        block.style.width = `${Math.max(1, line.width * pxPerTw)}px`;
+        block.style.height = `${h}px`;
+      }
+    }
+    if (!detailed) {
+      const seg = text.slice(line.start, line.end);
+      block.textContent = (block.textContent ?? "") + (block.textContent ? " " : "") + seg.replace(/\s+/g, " ").trim();
+      continue;
+    }
+    const font = `${h}px sans-serif`;
     let word = "", x0 = 0, x1 = 0, open = false;
+    const b = block;
     const flush = () => {
       if (!open || !word) {
         open = false;
@@ -22915,7 +22999,7 @@ function fillTextLayer(target, lines, para, pxPerTw, topTw) {
       span.style.fontSize = `${h}px`;
       const natural = measure(word, font);
       if (natural > 0 && w > 0) span.style.transform = `scaleX(${w / natural})`;
-      frag.appendChild(span);
+      b.appendChild(span);
       open = false;
       word = "";
     };
@@ -22931,20 +23015,21 @@ function fillTextLayer(target, lines, para, pxPerTw, topTw) {
       if (ch === " " || ch === "	" || ch === " ") flush();
     }
     flush();
-    frag.appendChild(document.createElement("br"));
+    b.appendChild(document.createElement("br"));
   }
   target.textContent = "";
   target.appendChild(frag);
 }
 var TEXT_LAYER_CSS = `
 .udv-text { position: absolute; left: 0; top: 0; right: 0; bottom: 0; line-height: 1; overflow: hidden; font-size: 1px; color: transparent; }
+.udv-text > * { position: absolute; left: 0; top: 0; margin: 0; padding: 0; font: inherit; color: transparent; }
+.udv-text > .udv-simple { overflow: hidden; white-space: nowrap; user-select: none; -webkit-user-select: none; }
 .udv-text span {
   position: absolute; white-space: pre; color: transparent; transform-origin: 0 0;
-  cursor: text; font-family: sans-serif;
+  cursor: text; font-family: sans-serif; font-weight: normal;
 }
 .udv-text ::selection { background: var(--udv-selection, rgba(0, 95, 255, .28)); color: transparent; }
-.udv-noselect .udv-text { display: none; }
-.udv-noselect .udv-page { user-select: none; -webkit-user-select: none; }
+.udv-noselect .udv-text, .udv-noselect .udv-text * { user-select: none; -webkit-user-select: none; cursor: default; }
 `;
 
 // src/views.ts
@@ -23031,7 +23116,12 @@ var LABELS = {
     fullscreen: "Tela cheia",
     unfullscreen: "Sair da tela cheia",
     progress: "Posi\xE7\xE3o no documento",
-    page: "P\xE1gina"
+    page: "P\xE1gina",
+    document: "Documento",
+    pagesArea: "P\xE1ginas do documento",
+    toolbar: "Controles do documento",
+    pageOf: (n, m) => `P\xE1gina ${n} de ${m}`,
+    pagesOf: (a, b, m) => `P\xE1ginas ${a} a ${b} de ${m}`
   },
   en: {
     prev: "Previous page",
@@ -23056,7 +23146,12 @@ var LABELS = {
     fullscreen: "Full screen",
     unfullscreen: "Exit full screen",
     progress: "Position in document",
-    page: "Page"
+    page: "Page",
+    document: "Document",
+    pagesArea: "Document pages",
+    toolbar: "Document controls",
+    pageOf: (n, m) => `Page ${n} of ${m}`,
+    pagesOf: (a, b, m) => `Pages ${a} to ${b} of ${m}`
   }
 };
 var labelsFor = (lang) => pickLabels(lang, LABELS);
@@ -23091,6 +23186,10 @@ var DocumentControls = class {
         { name: "fullscreen", item: "fullscreen", icon: "fullscreen", run: r(() => host.toggleFullscreen()) }
       ],
       onSeek: (f) => host.seek(f),
+      onStep: (st) => {
+        host.step(st);
+        this.sync();
+      },
       keepVisible: () => !this.menu.hidden
     });
     for (const b of ["zoom-level", "view"]) this.bar.buttonEl(b).setAttribute("aria-haspopup", "menu");
@@ -23102,16 +23201,29 @@ var DocumentControls = class {
       const b = e.target.closest("button");
       if (!b || !this.menuFor) return;
       const pick = this.menuFor.pick;
-      this.closeMenu();
+      this.closeMenu(true);
       pick(b.dataset["value"]);
       this.sync();
     });
     this.bar.bar.appendChild(this.menu);
     this.bar.bar.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !this.menu.hidden) {
-        this.closeMenu();
+        this.closeMenu(true);
         e.stopPropagation();
       }
+    });
+    this.menu.addEventListener("keydown", (e) => {
+      const items = [...this.menu.querySelectorAll("button")];
+      const cur = items.indexOf(this.menu.getRootNode().activeElement);
+      const go = (i2) => {
+        e.preventDefault();
+        items[(i2 + items.length) % items.length]?.focus();
+      };
+      if (e.key === "ArrowDown") go(cur + 1);
+      else if (e.key === "ArrowUp") go(cur - 1);
+      else if (e.key === "Home") go(0);
+      else if (e.key === "End") go(items.length - 1);
+      else if (e.key === "Tab") this.closeMenu();
     });
   }
   host;
@@ -23125,7 +23237,10 @@ var DocumentControls = class {
   step(dir) {
     const f = this.host.zoom().factor;
     const next = dir > 0 ? ZOOM_STEPS.find((z) => z > f + 1e-3) : [...ZOOM_STEPS].reverse().find((z) => z < f - 1e-3);
-    if (next) this.host.setZoom(next);
+    if (next) {
+      this.host.setZoom(next);
+      this.host.announce(`${this.labels.zoom} ${Math.round(next * 100)}%`);
+    }
   }
   toggleZoomMenu() {
     const L = this.labels, cur = this.host.zoom();
@@ -23136,7 +23251,10 @@ var DocumentControls = class {
         ...paged ? [{ value: "page-width", label: L.pageWidth }, { value: "page-fit", label: L.pageFit }] : [],
         ...[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => ({ value: String(z), label: `${Math.round(z * 100)}%` }))
       ].map((o) => ({ ...o, checked: String(cur.spec) === o.value || !paged && Math.abs(cur.factor - Number(o.value)) < 1e-3 })),
-      (v) => this.host.setZoom(v === "page-width" || v === "page-fit" ? v : Number(v))
+      (v) => {
+        this.host.setZoom(v === "page-width" || v === "page-fit" ? v : Number(v));
+        this.host.announce(`${L.zoom} ${Math.round(this.host.zoom().factor * 100)}%`);
+      }
     );
   }
   toggleViewMenu() {
@@ -23173,13 +23291,17 @@ var DocumentControls = class {
     this.last = "";
     (this.menu.querySelector('[aria-checked="true"]') ?? this.menu.firstElementChild)?.focus();
   }
-  closeMenu() {
+  /** Fecha o menu; `refocus` = o foco volta ao botão que o abriu (Esc). */
+  closeMenu(refocus = false) {
+    const btn = this.menuFor ? this.bar.buttonEl(this.menuFor.button) : void 0;
     this.menu.hidden = true;
     this.menuFor = null;
     this.last = "";
+    if (refocus) btn?.focus();
   }
   configure(enabled, removed, lang) {
     this.labels = labelsFor(lang);
+    this.bar.setLabel(this.labels.toolbar);
     if (!enabled) this.closeMenu();
     this.bar.configure(enabled, removed);
     if (this.menuFor && this.bar.isRemoved(this.menuFor.button === "view" ? "view" : "zoom")) this.closeMenu();
@@ -23194,7 +23316,7 @@ var DocumentControls = class {
     const h = this.host, L = this.labels, b = this.bar;
     const n = h.count();
     const frac = h.progress();
-    b.setProgress(frac, { label: L.progress, min: 0, max: 100, now: Math.round(frac * 100) });
+    b.setProgress(frac, { label: L.progress, min: 0, max: 100, now: Math.round(frac * 100), text: h.positionText() });
     const z = h.zoom(), full = h.isFullscreen(), tab = h.navTab(), cmOpen = h.commentsOpen(), view = h.view();
     const avail = CONTROL_ITEMS.map((it) => h.available(it) ? 1 : 0).join("");
     const counter = h.counter();
@@ -23314,6 +23436,7 @@ var CSS = `
 .udv-thumb[aria-current="true"] { outline-color: ${PROGRESS_COLOR}; }
 .udv-thumb:focus-visible { outline-color: var(--uoc-c); }
 .udv-thumb + span { display: block; text-align: center; color: #ddd; font: 11px/1.4 system-ui, sans-serif; margin: 0 0 10px; }
+.udv-scroll:focus-visible { outline: 2px solid var(--udv-focus-color, var(--uo-focus-color, #4ea1ff)); outline-offset: -3px; }
 .udv-msg { position: absolute; inset: 0; display: grid; place-items: center; color: #bbb; font: 14px system-ui, sans-serif; pointer-events: none; }
 ` + TEXT_LAYER_CSS + CONTROLS_CSS;
 var UniversalDocumentViewerElement = class extends HTMLElement {
@@ -23328,6 +23451,9 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   commentsEl = document.createElement("div");
   msg = document.createElement("div");
   controls;
+  /** anúncios para leitores de tela (página, modo, zoom, título) */
+  live = new LiveRegion();
+  levelOf = () => void 0;
   fonts = new ViewerFonts(FontResolver.shared(), () => this.repaintAll());
   fileBytes = null;
   full = null;
@@ -23398,19 +23524,38 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       });
       tabs.appendChild(t);
     }
+    tabs.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
+      const all = [this.tabOutline, this.tabPages].filter((t) => !t.hidden);
+      const at = all.indexOf(this.root.activeElement);
+      const next = e.key === "Home" ? all[0] : e.key === "End" ? all[all.length - 1] : all[(at + (e.key === "ArrowRight" ? 1 : -1) + all.length) % all.length];
+      if (!next) return;
+      e.preventDefault();
+      next.focus();
+      next.click();
+    });
+    this.tabOutline.id = "udv-tab-outline";
+    this.tabPages.id = "udv-tab-pages";
+    this.tabOutline.setAttribute("aria-controls", "udv-panel-outline");
+    this.tabPages.setAttribute("aria-controls", "udv-panel-pages");
     this.outlineEl.className = "udv-outline";
+    this.outlineEl.id = "udv-panel-outline";
     this.outlineEl.setAttribute("part", "outline");
     this.outlineEl.setAttribute("role", "tabpanel");
+    this.outlineEl.setAttribute("aria-labelledby", "udv-tab-outline");
     this.thumbs.className = "udv-thumbs";
+    this.thumbs.id = "udv-panel-pages";
     this.thumbs.setAttribute("part", "thumbnails");
     this.thumbs.setAttribute("role", "tabpanel");
+    this.thumbs.setAttribute("aria-labelledby", "udv-tab-pages");
     this.nav.append(tabs, this.outlineEl, this.thumbs);
     this.commentsEl.className = "udv-comments";
     this.commentsEl.setAttribute("part", "comments");
     this.commentsEl.setAttribute("role", "complementary");
     this.commentsEl.hidden = true;
     this.msg.className = "udv-msg";
-    this.wrap.append(this.scroller, this.nav, this.commentsEl, this.msg);
+    this.wrap.setAttribute("role", "region");
+    this.wrap.append(this.scroller, this.nav, this.commentsEl, this.msg, this.live.el);
     this.root.append(style, this.wrap);
     this.controls = new DocumentControls(this.controlsHost(), this.root, this.wrap);
     this.scroller.addEventListener("scroll", () => {
@@ -23420,7 +23565,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.thumbs.addEventListener("scroll", () => this.schedule(), { passive: true });
     this.thumbs.addEventListener("click", (e) => {
       const b = e.target.closest(".udv-thumb");
-      if (b) this.goToPage(Number(b.dataset["i"]));
+      if (b) this.stepTo(Number(b.dataset["i"]));
     });
     this.outlineEl.addEventListener("click", (e) => {
       const b = e.target.closest("button[data-h]");
@@ -23486,6 +23631,44 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     }
     if (off("comments")) this.setComments(false);
     this.labelPanels(lang);
+    this.nameRegion();
+  }
+  /** Nome da região do viewer (o arquivo) e de cada página, para o leitor de tela. */
+  nameRegion() {
+    const L = this.labels();
+    const file = this.fileName();
+    this.wrap.setAttribute("aria-label", file ? `${L.document}: ${file}` : L.document);
+    this.scroller.setAttribute("role", "region");
+    this.scroller.setAttribute("aria-label", L.pagesArea);
+    const n = this.pageEls.length;
+    this.pageEls.forEach((el2, i2) => {
+      el2.setAttribute("role", "group");
+      el2.setAttribute("aria-label", this.view === "web" ? L.document : L.pageOf(i2 + 1, n));
+    });
+  }
+  fileName() {
+    const src = this.getAttribute("src");
+    try {
+      return src ? decodeURIComponent(src.split(/[?#]/)[0].split("/").pop() ?? "") || null : null;
+    } catch {
+      return null;
+    }
+  }
+  announce(text) {
+    this.live.announce(text);
+  }
+  /** "Página 3 de 12" / "Páginas 1–2 de 12" / "40%" — a posição para o leitor de tela. */
+  positionText() {
+    const L = this.labels(), total = this.getPageCount();
+    if (!total) return "";
+    if (this.view === "web") return `${Math.round(this.scrollFraction() * 100)}%`;
+    if (this.view === "read") return this.positionTextAt(this.readFirst);
+    return L.pageOf(this.index + 1, total);
+  }
+  positionTextAt(page) {
+    const L = this.labels(), total = this.getPageCount(), per = this.readN();
+    const first = Math.floor(page / per) * per, last = Math.min(total, first + per);
+    return last > first + 1 ? L.pagesOf(first + 1, last, total) : L.pageOf(first + 1, total);
   }
   readZoomAttr() {
     const z = (this.getAttribute("zoom") ?? "").trim().toLowerCase();
@@ -23603,6 +23786,8 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     }
     this.headingIndex = -2;
     this.notes = this.full ? collectAnnotations(this.full, res) : { comments: [], headings: [] };
+    this.levelOf = this.full ? levelResolver(this.full) : () => void 0;
+    this.nameRegion();
     if (this.activeComment !== null && !this.notes.comments.some((c) => c.id === this.activeComment)) this.activeComment = null;
     this.buildThumbs();
     this.buildOutline();
@@ -23627,11 +23812,12 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.wrap.classList.toggle("udv-web", v === "web");
     if (v === "web" && this.navTab === "pages") this.setNav(null);
     this.dispatchEvent(new CustomEvent("udv-view", { detail: { view: v } }));
+    this.announce(this.labels()[v]);
     if (!this.full) return;
     if (v === "web" || prev === "web") {
       if (v !== "web" && this.printLayoutCache) {
         this.setLayout(this.printLayoutCache);
-        this.goToPage(page, false);
+        this.goToPage(page, false, false);
       } else {
         this.layout = null;
         void this.relayout();
@@ -23639,7 +23825,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     } else {
       this.readFirst = page;
       this.applyZoom(false);
-      if (v === "print") this.goToPage(page, false);
+      if (v === "print") this.goToPage(page, false, false);
     }
     this.controls.sync();
   }
@@ -23724,6 +23910,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
       const div = document.createElement("div");
       div.className = "udv-tile";
       const canvas = document.createElement("canvas");
+      canvas.setAttribute("aria-hidden", "true");
       const text = document.createElement("div");
       text.className = "udv-text";
       div.append(canvas, text);
@@ -23809,14 +23996,15 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
         const id = `${i2}:${k}`;
         const y0 = el2.offsetTop + t.top;
         const visible = shown && (this.view === "read" || y0 + t.h >= top - margin && y0 <= bottom + margin);
+        const simple = `${textKey}|s`, detailed = `${textKey}|${selectable ? "d" : "s"}`;
         if (!visible) {
           if (this.painted.has(id)) {
             t.canvas.width = t.canvas.height = 0;
             this.painted.delete(id);
           }
-          if (this.texted.has(id)) {
-            t.text.textContent = "";
-            this.texted.delete(id);
+          if (shown && this.texted.get(id) !== simple) {
+            this.fillText(i2, t, false);
+            this.texted.set(id, simple);
           }
           continue;
         }
@@ -23824,9 +24012,9 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
           this.paintTile(i2, t, dpr);
           this.painted.set(id, key);
         }
-        if (selectable && this.texted.get(id) !== textKey) {
-          this.fillText(i2, t);
-          this.texted.set(id, textKey);
+        if (this.texted.get(id) !== detailed) {
+          this.fillText(i2, t, selectable);
+          this.texted.set(id, detailed);
         }
       }
     }
@@ -23875,11 +24063,11 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     }
   }
   /** Camada de texto selecionável da faixa: as linhas que começam nela. */
-  fillText(i2, t) {
+  fillText(i2, t, detailed) {
     const p = this.layout.pages[i2];
     const k = this.pxPerTw(i2);
     const top = t.top / k, bottom = (t.top + t.h) / k;
-    fillTextLayer(t.text, p.lines.filter((l) => l.y >= top && l.y < bottom), this.para, k, top);
+    fillTextLayer(t.text, p.lines.filter((l) => l.y >= top && l.y < bottom), this.para, this.levelOf, k, top, detailed);
   }
   /** Imagem decodificada (o vetor SVG, como o Word, quando houver). */
   bitmapFor(img) {
@@ -23994,6 +24182,8 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.tabPages.hidden = this.hasAttribute("nothumbnails") || this.view === "web";
     this.tabOutline.setAttribute("aria-selected", String(tab === "outline"));
     this.tabPages.setAttribute("aria-selected", String(tab === "pages"));
+    this.tabOutline.tabIndex = tab === "outline" ? 0 : -1;
+    this.tabPages.tabIndex = tab === "pages" ? 0 : -1;
     this.outlineEl.hidden = tab !== "outline";
     this.thumbs.hidden = tab !== "pages";
     for (const t of this.thumbEls) t.removeAttribute("aria-current");
@@ -24046,7 +24236,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   /** Leva um ponto da página à vista (no Modo de Leitura, o bloco que contém a página). */
   reveal(page, yTw, offsetPx) {
     if (this.view === "read") {
-      this.goToPage(page);
+      this.goToPage(page, true, false);
       return;
     }
     this.scroller.scrollTo({ top: Math.max(0, this.pageY(page, yTw) - offsetPx), behavior: "smooth" });
@@ -24054,7 +24244,9 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   /** Vai ao título `i` do índice (posição em `getHeadings()`). */
   goToHeading(i2) {
     const h = this.notes.headings[i2];
-    if (h) this.reveal(h.page, h.y, 24);
+    if (!h) return;
+    this.reveal(h.page, h.y, 24);
+    this.announce(this.view === "web" ? h.text : `${h.text} \u2014 ${this.labels().pageOf(h.page + 1, this.getPageCount())}`);
   }
   /** Índice do título atual (o último que passou do 1º terço da janela); −1 = antes do 1º / sem títulos. */
   getHeadingIndex() {
@@ -24181,11 +24373,12 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   getComments() {
     return this.notes.comments.map((c) => ({ id: c.id, ...c.author ? { author: c.author } : {}, text: c.text, page: c.rects[0]?.page ?? null }));
   }
-  /** Vai à página `i` (no Modo de Leitura, ao bloco que a contém). */
-  goToPage(i2, smooth = true) {
+  /** Vai à página `i` (no Modo de Leitura, ao bloco que a contém) e anuncia o destino. */
+  goToPage(i2, smooth = true, announce = true) {
     const n = this.getPageCount();
     if (!n) return;
     const page = Math.max(0, Math.min(n - 1, i2));
+    if (announce && this.view !== "web") this.announce(this.view === "read" ? this.positionTextAt(page) : this.labels().pageOf(page + 1, n));
     if (this.view === "read") {
       const per = this.readN();
       const first = Math.floor(page / per) * per;
@@ -24282,6 +24475,28 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     if (next >= total || next + n <= 0) return;
     this.readFirst = Math.max(0, next);
     this.applyZoom(false);
+    this.announce(this.positionTextAt(this.readFirst));
+  }
+  /** Navegação pela barra/teclado: anda e anuncia a página de destino. */
+  stepTo(page) {
+    const total = this.getPageCount();
+    if (!total) return;
+    this.goToPage(Math.max(0, Math.min(total - 1, page)));
+  }
+  /** Teclado no slider de progresso. */
+  progressStep(st) {
+    if (this.view === "web") {
+      const d = st === "next" ? 0.05 : st === "prev" ? -0.05 : st === "pagenext" ? 0.2 : st === "pageprev" ? -0.2 : 0;
+      this.scrollToFraction(st === "home" ? 0 : st === "end" ? 1 : Math.max(0, Math.min(1, this.scrollFraction() + d)));
+      this.announce(`${Math.round(this.scrollFraction() * 100)}%`);
+      return;
+    }
+    if (this.view === "read" && (st === "next" || st === "prev")) {
+      this.nudgeRead(st === "next" ? 1 : -1);
+      return;
+    }
+    const i2 = this.index, total = this.getPageCount();
+    this.stepTo(st === "home" ? 0 : st === "end" ? total - 1 : st === "next" ? i2 + 1 : st === "prev" ? i2 - 1 : st === "pagenext" ? i2 + 5 : i2 - 5);
   }
   controlsHost() {
     return {
@@ -24300,8 +24515,11 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
         const last = Math.min(total, this.readFirst + this.readN());
         return last > this.readFirst + 1 ? `${this.readFirst + 1}\u2013${last} / ${total}` : `${this.readFirst + 1} / ${total}`;
       },
-      prev: () => this.view === "read" ? this.nudgeRead(-1) : this.goToPage(this.index - 1),
-      next: () => this.view === "read" ? this.nudgeRead(1) : this.goToPage(this.index + 1),
+      prev: () => this.view === "read" ? this.nudgeRead(-1) : this.stepTo(this.index - 1),
+      next: () => this.view === "read" ? this.nudgeRead(1) : this.stepTo(this.index + 1),
+      step: (st) => this.progressStep(st),
+      positionText: () => this.positionText(),
+      announce: (text) => this.announce(text),
       progress: () => {
         if (this.view !== "read") return this.scrollFraction();
         const total = this.getPageCount();

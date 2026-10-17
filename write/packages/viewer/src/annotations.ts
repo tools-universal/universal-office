@@ -41,8 +41,18 @@ function outlineLevel(p: Paragraph, styles: StyleResolver | null): number | unde
   return m ? Number(m[1]) : undefined;
 }
 
-export function collectAnnotations(full: FullDocument, layout: LayoutResult): Annotations {
+/** Nível de título (1–9) de cada parágrafo do documento; undefined = texto comum. */
+export function levelResolver(full: FullDocument): (p: Paragraph) => number | undefined {
   const styles = full.formatting ? new StyleResolver(full.formatting) : null;
+  const cache = new Map<Paragraph, number | undefined>();
+  return (p) => {
+    if (!cache.has(p)) cache.set(p, outlineLevel(p, styles));
+    return cache.get(p);
+  };
+}
+
+export function collectAnnotations(full: FullDocument, layout: LayoutResult): Annotations {
+  const levelOf = levelResolver(full);
   const paraCache = new Map<string, Paragraph | null>();
   const para = (ref: string): Paragraph | null => {
     let p = paraCache.get(ref);
@@ -55,7 +65,6 @@ export function collectAnnotations(full: FullDocument, layout: LayoutResult): An
   const rects = new Map<number, Rect[]>();
   const headings: HeadingEntry[] = [];
   const seenHeading = new Set<Paragraph>();
-  const levelCache = new Map<Paragraph, number | undefined>();
 
   layout.pages.forEach((page, pi) => {
     for (const line of page.lines) {
@@ -63,8 +72,7 @@ export function collectAnnotations(full: FullDocument, layout: LayoutResult): An
       if (!p) continue;
       // título: a 1ª linha do parágrafo
       if (!seenHeading.has(p)) {
-        if (!levelCache.has(p)) levelCache.set(p, outlineLevel(p, styles));
-        const level = levelCache.get(p);
+        const level = levelOf(p);
         if (level !== undefined) {
           seenHeading.add(p);
           const text = p.runs.map((r) => r.text).join('').replace(/\s+/g, ' ').trim();

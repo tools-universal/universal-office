@@ -275,6 +275,8 @@ export interface TextBody {
 export interface Shape {
   id: string;
   name: string;
+  /** Texto alternativo (cNvPr/@descr) — o que o leitor de tela lê de imagens/formas. */
+  descr?: string;
   /** Placeholder (<p:ph type idx>) — herda geometria do layout/master. */
   phType?: string;
   phIdx?: string;

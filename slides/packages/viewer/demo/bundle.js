@@ -16047,7 +16047,8 @@ function readGraphicFrame(gf, pkg, rels, theme) {
   const cNvPr = nvPr ? firstChild(nvPr, "p:cNvPr") : void 0;
   const shape = {
     id: cNvPr?.attrs["id"] ?? "",
-    name: cNvPr?.attrs["name"] ?? ""
+    name: cNvPr?.attrs["name"] ?? "",
+    ...cNvPr?.attrs["descr"] ? { descr: cNvPr.attrs["descr"] } : {}
   };
   const xfrm = firstChild(gf, "p:xfrm") ?? firstChild(gf, "a:xfrm");
   if (xfrm) shape.xfrm = parseXfrm(xfrm);
@@ -16439,7 +16440,8 @@ function readShape(sp, theme, pkg, rels) {
   const spPr = firstChild(sp, "p:spPr");
   const shape = {
     id: cNvPr?.attrs["id"] ?? "",
-    name: cNvPr?.attrs["name"] ?? ""
+    name: cNvPr?.attrs["name"] ?? "",
+    ...cNvPr?.attrs["descr"] ? { descr: cNvPr.attrs["descr"] } : {}
   };
   if (cNvSpPr?.attrs["txBox"] === "1") shape.isTextBox = true;
   if (ph) {
@@ -17043,7 +17045,8 @@ function readPic(pic, theme, pkg, rels) {
   const spPr = firstChild(pic, "p:spPr");
   const shape = {
     id: cNvPr?.attrs["id"] ?? "",
-    name: cNvPr?.attrs["name"] ?? ""
+    name: cNvPr?.attrs["name"] ?? "",
+    ...cNvPr?.attrs["descr"] ? { descr: cNvPr.attrs["descr"] } : {}
   };
   const nvPr = nvPicPr ? firstChild(nvPicPr, "p:nvPr") : void 0;
   const ph = nvPr ? firstChild(nvPr, "p:ph") : void 0;
@@ -30684,6 +30687,12 @@ var ICONS = {
   grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/>',
   sidebar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   notes: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  outline: '<path d="M9 6h11M12 12h8M12 18h8"/><circle cx="5" cy="6" r="1.2" fill="currentColor"/><circle cx="8" cy="12" r="1.2" fill="currentColor"/><circle cx="8" cy="18" r="1.2" fill="currentColor"/>',
+  comment: '<path d="M4 5h16v11H10l-4.5 3.5V16H4z"/><path d="M8 9h8M8 12.5h5"/>',
+  // modos de exibição (documento)
+  "view-read": '<path d="M3 5.5c3-1 6-1 9 1.2 3-2.2 6-2.2 9-1.2v13c-3-1-6-1-9 1.2-3-2.2-6-2.2-9-1.2z"/><path d="M12 6.7v13.2"/>',
+  "view-print": '<path d="M6 3h8.5L19 7.5V21H6z"/><path d="M14 3v5h5M9 12h7M9 15.5h7"/>',
+  "view-web": '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.6 2.6 14.4 0 17M12 3.5c-2.6 2.6-2.6 14.4 0 17"/>',
   // zoom
   "zoom-out": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M20 20l-4.8-4.8"/>',
   "zoom-in": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M7.5 10.5h6M10.5 7.5v6M20 20l-4.8-4.8"/>',
@@ -30715,9 +30724,10 @@ function controlsCss(prefix) {
   padding: calc(var(--uoc-s) * 1.9) 10px 6px;
   background: ${v("controls-bg", "linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.35) 40%, rgba(0,0,0,.8))")};
   color: var(--uoc-c); font: 400 calc(var(--uoc-s) * .6)/1 system-ui, "Segoe UI", sans-serif;
-  transition: opacity .25s, visibility .25s;
+  /* aparecer: vis\xEDvel J\xC1 (o Tab precisa achar os bot\xF5es no mesmo instante); sumir: esmaece e s\xF3 ent\xE3o esconde */
+  transition: opacity .25s, visibility 0s;
 }
-.uoc-hidden .uoc-bar { opacity: 0; visibility: hidden; }
+.uoc-hidden .uoc-bar { opacity: 0; visibility: hidden; transition: opacity .25s, visibility 0s .25s; }
 .uoc-btn {
   all: unset; box-sizing: border-box; flex: none; cursor: pointer; color: inherit;
   width: calc(var(--uoc-s) * 1.8); height: calc(var(--uoc-s) * 1.8);
@@ -30735,9 +30745,30 @@ function controlsCss(prefix) {
 }
 .uoc-track { position: relative; width: 100%; height: ${v("progress-height", "3px")}; background: ${v("progress-track", "rgba(255,255,255,.28)")}; transition: height .1s; }
 .uoc-progress:hover .uoc-track { height: calc(${v("progress-height", "3px")} + 2px); }
+.uoc-progress:focus-visible { outline: 2px solid var(--uoc-c); outline-offset: 2px; border-radius: 2px; }
 .uoc-value { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--uoc-progress); }
 `;
 }
+var SR_ONLY = "position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;";
+var LiveRegion = class {
+  el = document.createElement("div");
+  timer = 0;
+  constructor() {
+    this.el.setAttribute("role", "status");
+    this.el.setAttribute("aria-live", "polite");
+    this.el.setAttribute("aria-atomic", "true");
+    this.el.setAttribute("part", "live");
+    this.el.style.cssText = SR_ONLY;
+  }
+  /** Anuncia `text` (o mesmo texto de novo também é anunciado). */
+  announce(text) {
+    clearTimeout(this.timer);
+    this.el.textContent = "";
+    this.timer = window.setTimeout(() => {
+      this.el.textContent = text;
+    }, 60);
+  }
+};
 var IDLE_MS = 2500;
 var ControlBar = class {
   constructor(o) {
@@ -30749,7 +30780,26 @@ var ControlBar = class {
     this.progress.className = "uoc-progress";
     this.progress.setAttribute("part", "progress");
     this.progress.setAttribute("role", "slider");
+    this.progress.setAttribute("aria-orientation", "horizontal");
+    this.progress.tabIndex = 0;
     this.progress.dataset["item"] = o.progressItem;
+    this.progress.addEventListener("keydown", (e) => {
+      const step = {
+        ArrowRight: "next",
+        ArrowUp: "next",
+        ArrowLeft: "prev",
+        ArrowDown: "prev",
+        PageUp: "pagenext",
+        PageDown: "pageprev",
+        Home: "home",
+        End: "end"
+      }[e.key];
+      if (!step || !o.onStep) return;
+      e.preventDefault();
+      e.stopPropagation();
+      o.onStep(step);
+      this.wake();
+    });
     const track = document.createElement("div");
     track.className = "uoc-track";
     this.value.className = "uoc-value";
@@ -30782,6 +30832,10 @@ var ControlBar = class {
       this.wake();
     });
     this.bar.addEventListener("focusin", () => this.wake());
+    o.wrap.addEventListener("keydown", (e) => {
+      if (e.key === "Tab" || e.key === "F6") this.wake();
+    }, true);
+    o.wrap.addEventListener("focusin", () => this.wake());
   }
   o;
   ui = document.createElement("div");
@@ -30857,12 +30911,18 @@ var ControlBar = class {
       el2.hidden = this.removed.has(it) || !available(it);
     }
   }
+  /** Nome da barra (role=toolbar) para o leitor de tela. */
+  setLabel(label) {
+    this.bar.setAttribute("aria-label", label);
+  }
   setProgress(fraction, aria) {
     this.value.style.width = `${(Math.max(0, Math.min(1, fraction)) * 100).toFixed(2)}%`;
     this.progress.setAttribute("aria-label", aria.label);
     this.progress.setAttribute("aria-valuemin", String(aria.min));
     this.progress.setAttribute("aria-valuemax", String(aria.max));
     this.progress.setAttribute("aria-valuenow", String(aria.now));
+    if (aria.text) this.progress.setAttribute("aria-valuetext", aria.text);
+    else this.progress.removeAttribute("aria-valuetext");
   }
   setCounter(text) {
     this.counter.textContent = text;
@@ -30890,6 +30950,9 @@ var ControlBar = class {
 function pickLabels(lang, labels) {
   return /^en\b/i.test(lang) ? labels.en : labels.pt;
 }
+function langOf(el2) {
+  return el2.closest("[lang]")?.lang || navigator.language;
+}
 
 // src/controls.ts
 var CONTROL_ITEMS = ["nav", "counter", "play", "mute", "thumbnails", "notes", "download", "present", "fullscreen", "progress"];
@@ -30897,14 +30960,14 @@ var CSS = controlsCss("upv") + `
 .upv-notes[hidden] { display: none !important; }
 .upv-notes-open .uoc-ui { bottom: var(--upv-notes-height, 28%); }
 .upv-notes-open > canvas { height: calc(100% - var(--upv-notes-height, 28%)) !important; }
-.uoc-hidden .upv-thumbs { opacity: 0; visibility: hidden; }
+.uoc-hidden .upv-thumbs { opacity: 0; visibility: hidden; transition: opacity .25s, visibility 0s .25s; }
 .uoc-hidden.upv-presenting { cursor: none; }
 .upv-thumbs {
   position: absolute; left: 0; right: 0; pointer-events: auto;
   bottom: calc(var(--uoc-s) * 3.9 + 6px);
   display: flex; gap: 8px; padding: 8px 12px; overflow-x: auto; scrollbar-width: thin;
   background: var(--upv-thumbnails-bg, rgba(0,0,0,.6));
-  transition: opacity .25s, visibility .25s;
+  transition: opacity .25s, visibility 0s;
 }
 .upv-thumb {
   all: unset; flex: none; cursor: pointer; position: relative; border-radius: 3px;
@@ -30942,7 +31005,9 @@ var LABELS = {
     unfullscreen: "Sair da tela cheia",
     progress: "Progresso",
     slide: "Slide",
-    noNotes: "Sem anota\xE7\xF5es neste slide."
+    noNotes: "Sem anota\xE7\xF5es neste slide.",
+    toolbar: "Controles da apresenta\xE7\xE3o",
+    slideOf: (n, m) => `Slide ${n} de ${m}`
   },
   en: {
     prev: "Previous slide",
@@ -30960,7 +31025,9 @@ var LABELS = {
     unfullscreen: "Exit full screen",
     progress: "Progress",
     slide: "Slide",
-    noNotes: "No notes on this slide."
+    noNotes: "No notes on this slide.",
+    toolbar: "Presentation controls",
+    slideOf: (n, m) => `Slide ${n} of ${m}`
   }
 };
 var ViewerControls = class {
@@ -30992,6 +31059,12 @@ var ViewerControls = class {
         { name: "present", item: "present", icon: "present", run: r(() => host.togglePresent()) },
         { name: "fullscreen", item: "fullscreen", icon: "fullscreen", run: r(() => host.toggleFullscreen()) }
       ],
+      onStep: (st) => {
+        const n = host.count(), i2 = host.index();
+        const to = st === "home" ? 0 : st === "end" ? n - 1 : st === "next" ? i2 + 1 : st === "prev" ? i2 - 1 : st === "pagenext" ? i2 + 5 : i2 - 5;
+        if (n) host.goTo(Math.max(0, Math.min(n - 1, to)));
+        this.sync();
+      },
       onSeek: (f) => {
         if (host.isPlaying()) host.playFrom(f);
         else {
@@ -31034,6 +31107,7 @@ var ViewerControls = class {
   /** Monta (ou desmonta) a barra conforme `nocontrols` e os `no<item>`. */
   configure(enabled, removed, lang) {
     this.labels = pickLabels(lang, LABELS);
+    this.bar.setLabel(this.labels.toolbar);
     this.notesEl.dataset["empty"] = this.labels.noNotes;
     if (enabled && !this.style.isConnected) this.root.appendChild(this.style);
     if (!enabled) {
@@ -31106,7 +31180,7 @@ var ViewerControls = class {
     const n = h.count(), i2 = h.index();
     const playing2 = h.isPlaying(), presenting = h.isPresenting(), full = h.isFullscreen();
     const frac3 = h.playbackFraction();
-    b.setProgress(n ? frac3 ?? (i2 + 1) / n : 0, { label: L.progress, min: 1, max: n, now: i2 + 1 });
+    b.setProgress(n ? frac3 ?? (i2 + 1) / n : 0, { label: L.progress, min: 1, max: n, now: i2 + 1, text: n ? L.slideOf(i2 + 1, n) : "" });
     const muted = h.isMuted(), media = h.hasMedia(), notes = h.hasNotes();
     const state = [
       n,
@@ -31148,6 +31222,133 @@ var ViewerControls = class {
   }
   dispose() {
     this.bar.dispose();
+  }
+};
+
+// src/a11y.ts
+var LABELS2 = {
+  pt: {
+    slide: (n, m) => `Slide ${n} de ${m}`,
+    untitled: "Sem t\xEDtulo",
+    presentation: "Apresenta\xE7\xE3o",
+    content: "Conte\xFAdo do slide",
+    roledesc: "slide",
+    image: "Imagem"
+  },
+  en: {
+    slide: (n, m) => `Slide ${n} of ${m}`,
+    untitled: "Untitled",
+    presentation: "Presentation",
+    content: "Slide content",
+    roledesc: "slide",
+    image: "Image"
+  }
+};
+var TITLE_PH = /* @__PURE__ */ new Set(["title", "ctrTitle"]);
+var SKIP_PH = /* @__PURE__ */ new Set(["sldNum", "dt", "ftr", "hdr"]);
+var usefulAlt = (d) => d && !/^[\w .()-]+\.(png|jpe?g|gif|svg|emf|wmf|bmp|tiff?|webp)$/i.test(d.trim()) ? d.trim() : void 0;
+var paraText2 = (p) => p.runs.map((r) => r.text).join("").replace(/\s+/g, " ").trim();
+function slideTitle(slide) {
+  if (!slide) return "";
+  const own = slide.shapes.filter((s) => !s.inherited);
+  const t = own.find((s) => s.phType && TITLE_PH.has(s.phType) && s.txBody);
+  const text = t?.txBody?.paragraphs.map(paraText2).filter(Boolean).join(" ");
+  if (text) return text;
+  for (const s of own) for (const p of s.txBody?.paragraphs ?? []) {
+    const x2 = paraText2(p);
+    if (x2) return x2;
+  }
+  return "";
+}
+var SlideA11y = class {
+  constructor(canvas, wrap) {
+    this.canvas = canvas;
+    this.wrap = wrap;
+    this.content.style.cssText = SR_ONLY;
+    this.content.setAttribute("role", "group");
+    this.content.setAttribute("part", "slide-text");
+    canvas.setAttribute("role", "img");
+    wrap.setAttribute("role", "region");
+    wrap.append(this.content, this.live.el);
+  }
+  canvas;
+  wrap;
+  /** conteúdo do slide em cena (oculto, na árvore de acessibilidade) */
+  content = document.createElement("div");
+  live = new LiveRegion();
+  labels = LABELS2.pt;
+  shown = -1;
+  skipText = null;
+  count = 0;
+  setLang(lang) {
+    this.labels = pickLabels(lang, LABELS2);
+    this.canvas.setAttribute("aria-roledescription", this.labels.roledesc);
+    this.shown = -1;
+  }
+  /** Nome da região do viewer (o arquivo, quando houver). */
+  setName(fileName2) {
+    this.wrap.setAttribute("aria-label", fileName2 ? `${this.labels.presentation}: ${fileName2}` : this.labels.presentation);
+  }
+  /** Slide em cena mudou (ou o deck): refaz o texto e, se `announce`, anuncia. */
+  show(slides, index, announce) {
+    if (index === this.shown && slides.length === this.count) return;
+    const first = this.shown < 0;
+    this.shown = index;
+    this.count = slides.length;
+    const L = this.labels;
+    const slide = slides[index];
+    if (!slide) {
+      this.canvas.setAttribute("aria-label", L.presentation);
+      this.content.textContent = "";
+      return;
+    }
+    const title = slideTitle(slide);
+    const where = L.slide(index + 1, slides.length);
+    const label = `${where}: ${title || L.untitled}`;
+    this.canvas.setAttribute("aria-label", label);
+    this.content.setAttribute("aria-label", `${L.content} \u2014 ${where}`);
+    this.content.textContent = "";
+    const h = document.createElement("h2");
+    h.textContent = label;
+    this.content.appendChild(h);
+    this.skipText = slide.shapes.some((s) => !s.inherited && s.phType && TITLE_PH.has(s.phType) && s.txBody) ? null : title;
+    for (const s of slide.shapes) this.appendShape(s);
+    if (announce && !first) this.live.announce(label);
+  }
+  appendShape(s) {
+    if (s.inherited || s.phType && (SKIP_PH.has(s.phType) || TITLE_PH.has(s.phType))) return;
+    const alt = usefulAlt(s.descr);
+    if (alt && (s.image || s.media || !s.txBody?.paragraphs.some((p) => paraText2(p)))) {
+      const img = document.createElement("div");
+      img.setAttribute("role", "img");
+      img.setAttribute("aria-label", alt);
+      this.content.appendChild(img);
+    }
+    for (const p of s.txBody?.paragraphs ?? []) {
+      const t = paraText2(p);
+      if (!t) continue;
+      if (t === this.skipText) {
+        this.skipText = null;
+        continue;
+      }
+      const el2 = document.createElement("p");
+      el2.textContent = t;
+      this.content.appendChild(el2);
+    }
+    if (s.table) {
+      const table2 = document.createElement("table");
+      for (const row of s.table.rows) {
+        const tr = document.createElement("tr");
+        for (const cell of row.cells) {
+          if (cell.hMerge || cell.vMerge) continue;
+          const td2 = document.createElement("td");
+          td2.textContent = (cell.txBody?.paragraphs ?? []).map(paraText2).filter(Boolean).join(" ");
+          tr.appendChild(td2);
+        }
+        table2.appendChild(tr);
+      }
+      this.content.appendChild(table2);
+    }
   }
 };
 
@@ -31213,6 +31414,8 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     return true;
   }
   controls = null;
+  /** Texto acessível do slide em cena + anúncios (leitores de tela). */
+  a11y = null;
   /** Bytes do arquivo carregado (botão de download). */
   fileBytes = null;
   /** Caminho da parte de cada slide (anotações) e anotações já lidas. */
@@ -31235,6 +31438,11 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
       this.badge.style.display = "none";
       this.canvas.style.background = "var(--upv-background, var(--uo-background, #000))";
       this.controls = new ViewerControls(this.controlsHost(), this.host, this.wrap);
+      this.a11y = new SlideA11y(this.canvas, this.wrap);
+      this.canvas.style.outline = "";
+      const focusCss = document.createElement("style");
+      focusCss.textContent = "canvas:focus-visible { outline: 2px solid var(--upv-focus-color, var(--uo-focus-color, #4ea1ff)); outline-offset: -3px; }";
+      this.host.appendChild(focusCss);
       this.wrap.addEventListener("pointermove", () => this.controls?.wake());
       this.wrap.addEventListener("pointerdown", () => this.controls?.wake());
       this.wrap.addEventListener("pointerleave", (e) => {
@@ -31245,7 +31453,9 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   }
   /** Liga a barra conforme os atributos — no connect e quando eles mudam. */
   configureControls() {
-    const lang = this.closest("[lang]")?.lang || navigator.language;
+    const lang = langOf(this);
+    this.a11y?.setLang(lang);
+    this.a11y?.setName(this.fileName());
     this.controls?.configure(!this.hasAttribute("nocontrols"), CONTROL_ITEMS.filter((it) => this.hasAttribute(`no${it}`)), lang);
   }
   /** Ponte da barra de controles com a API pública do viewer. */
@@ -31594,6 +31804,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.resize();
     this.paint();
     this.controls?.renderThumbs();
+    this.a11y?.setName(this.fileName());
     this.dispatchEvent(new CustomEvent("us-loaded", { detail: { count: this.slides.length } }));
   }
   // ───────────────────────── APRESENTAÇÃO ─────────────────────────
@@ -32229,6 +32440,16 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   paint() {
     this.paintFrame();
     this.controls?.sync();
+    this.a11y?.show(this.slides, this.index, true);
+  }
+  /** Nome do arquivo (do `src`), para o leitor de tela e o download. */
+  fileName() {
+    const src = this.getAttribute("src");
+    try {
+      return src ? decodeURIComponent(src.split(/[?#]/)[0].split("/").pop() ?? "") || null : null;
+    } catch {
+      return null;
+    }
   }
   paintFrame() {
     const ctx = this.canvas.getContext("2d");

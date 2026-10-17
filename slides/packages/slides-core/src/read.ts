@@ -900,6 +900,7 @@ function readGraphicFrame(gf: XmlElement, pkg: PptxPackage, rels: Map<string, st
   const shape: Shape = {
     id: cNvPr?.attrs['id'] ?? '',
     name: cNvPr?.attrs['name'] ?? '',
+    ...(cNvPr?.attrs['descr'] ? { descr: cNvPr.attrs['descr'] } : {}),
   };
   const xfrm = firstChild(gf, 'p:xfrm') ?? firstChild(gf, 'a:xfrm');
   if (xfrm) shape.xfrm = parseXfrm(xfrm);
@@ -1318,6 +1319,7 @@ function readShape(sp: XmlElement, theme: Theme, pkg?: PptxPackage, rels?: Map<s
   const shape: Shape = {
     id: cNvPr?.attrs['id'] ?? '',
     name: cNvPr?.attrs['name'] ?? '',
+    ...(cNvPr?.attrs['descr'] ? { descr: cNvPr.attrs['descr'] } : {}),
   };
   if (cNvSpPr?.attrs['txBox'] === '1') shape.isTextBox = true;
   if (ph) { if (ph.attrs['type']) shape.phType = ph.attrs['type']; if (ph.attrs['idx']) shape.phIdx = ph.attrs['idx']; }
@@ -1971,6 +1973,7 @@ function readPic(pic: XmlElement, theme: Theme, pkg: PptxPackage, rels: Map<stri
   const shape: Shape = {
     id: cNvPr?.attrs['id'] ?? '',
     name: cNvPr?.attrs['name'] ?? '',
+    ...(cNvPr?.attrs['descr'] ? { descr: cNvPr.attrs['descr'] } : {}),
   };
 
   // imagem DENTRO de placeholder (`<p:ph type="pic" idx>`, templates modernos):

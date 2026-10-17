@@ -56,14 +56,14 @@ const CSS = controlsCss('upv') + `
 .upv-notes[hidden] { display: none !important; }
 .upv-notes-open .uoc-ui { bottom: var(--upv-notes-height, 28%); }
 .upv-notes-open > canvas { height: calc(100% - var(--upv-notes-height, 28%)) !important; }
-.uoc-hidden .upv-thumbs { opacity: 0; visibility: hidden; }
+.uoc-hidden .upv-thumbs { opacity: 0; visibility: hidden; transition: opacity .25s, visibility 0s .25s; }
 .uoc-hidden.upv-presenting { cursor: none; }
 .upv-thumbs {
   position: absolute; left: 0; right: 0; pointer-events: auto;
   bottom: calc(var(--uoc-s) * 3.9 + 6px);
   display: flex; gap: 8px; padding: 8px 12px; overflow-x: auto; scrollbar-width: thin;
   background: var(--upv-thumbnails-bg, rgba(0,0,0,.6));
-  transition: opacity .25s, visibility .25s;
+  transition: opacity .25s, visibility 0s;
 }
 .upv-thumb {
   all: unset; flex: none; cursor: pointer; position: relative; border-radius: 3px;
@@ -91,14 +91,16 @@ const LABELS = {
     mute: 'Desativar som', unmute: 'Ativar som', thumbnails: 'Miniaturas', notes: 'Anotações',
     download: 'Baixar', present: 'Apresentar', unpresent: 'Encerrar apresentação',
     fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia', progress: 'Progresso',
-    slide: 'Slide', noNotes: 'Sem anotações neste slide.',
+    slide: 'Slide', noNotes: 'Sem anotações neste slide.', toolbar: 'Controles da apresentação',
+    slideOf: (n: number, m: number) => `Slide ${n} de ${m}`,
   },
   en: {
     prev: 'Previous slide', next: 'Next slide', play: 'Play', pause: 'Pause',
     mute: 'Mute', unmute: 'Unmute', thumbnails: 'Thumbnails', notes: 'Notes',
     download: 'Download', present: 'Present', unpresent: 'End presentation',
     fullscreen: 'Full screen', unfullscreen: 'Exit full screen', progress: 'Progress',
-    slide: 'Slide', noNotes: 'No notes on this slide.',
+    slide: 'Slide', noNotes: 'No notes on this slide.', toolbar: 'Presentation controls',
+    slideOf: (n: number, m: number) => `Slide ${n} of ${m}`,
   },
 };
 type Labels = typeof LABELS.pt;
@@ -136,6 +138,12 @@ export class ViewerControls {
         { name: 'present', item: 'present', icon: 'present', run: r(() => host.togglePresent()) },
         { name: 'fullscreen', item: 'fullscreen', icon: 'fullscreen', run: r(() => host.toggleFullscreen()) },
       ],
+      onStep: (st) => {
+        const n = host.count(), i = host.index();
+        const to = st === 'home' ? 0 : st === 'end' ? n - 1 : st === 'next' ? i + 1 : st === 'prev' ? i - 1 : st === 'pagenext' ? i + 5 : i - 5;
+        if (n) host.goTo(Math.max(0, Math.min(n - 1, to)));
+        this.sync();
+      },
       onSeek: (f) => {
         if (host.isPlaying()) host.playFrom(f);
         else {
@@ -170,6 +178,7 @@ export class ViewerControls {
   /** Monta (ou desmonta) a barra conforme `nocontrols` e os `no<item>`. */
   configure(enabled: boolean, removed: readonly ControlItem[], lang: string): void {
     this.labels = pickLabels(lang, LABELS);
+    this.bar.setLabel(this.labels.toolbar);
     this.notesEl.dataset['empty'] = this.labels.noNotes;
     if (enabled && !this.style.isConnected) this.root.appendChild(this.style);
     if (!enabled) { this.setThumbsOpen(false); this.setNotesOpen(false); }
@@ -239,7 +248,7 @@ export class ViewerControls {
     const n = h.count(), i = h.index();
     const playing = h.isPlaying(), presenting = h.isPresenting(), full = h.isFullscreen();
     const frac = h.playbackFraction();
-    b.setProgress(n ? (frac ?? (i + 1) / n) : 0, { label: L.progress, min: 1, max: n, now: i + 1 });
+    b.setProgress(n ? (frac ?? (i + 1) / n) : 0, { label: L.progress, min: 1, max: n, now: i + 1, text: n ? L.slideOf(i + 1, n) : '' });
     const muted = h.isMuted(), media = h.hasMedia(), notes = h.hasNotes();
     const state = [n, i, playing, presenting, full, muted, media, notes, this.thumbsOpen, this.notesOpen,
       CONTROL_ITEMS.filter((it) => b.isRemoved(it)).join()].join('|');

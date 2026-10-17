@@ -1,5 +1,5 @@
 import {
-  ControlBar, controlsCss, cssVar, pickLabels,
+  ControlBar, controlsCss, cssVar, pickLabels, type ProgressStep,
 } from '@universal-office/viewer-controls';
 import { VIEW_MODES, type ViewMode } from './views.js';
 
@@ -39,6 +39,11 @@ export interface ControlsHost {
   next(): void;
   progress(): number;
   seek(f: number): void;
+  /** teclado no slider de progresso */
+  step(st: ProgressStep): void;
+  /** posição para o leitor de tela ("Página 3 de 12") */
+  positionText(): string;
+  announce(text: string): void;
   zoom(): { spec: ZoomSpec; factor: number };
   setZoom(z: ZoomSpec): void;
   view(): ViewMode;
@@ -78,7 +83,10 @@ const LABELS = {
     zoomOut: 'Diminuir zoom', zoomIn: 'Aumentar zoom', zoom: 'Zoom', pageWidth: 'Largura da página', pageFit: 'Página inteira',
     view: 'Modo de exibição', read: 'Modo de Leitura', print: 'Layout de Impressão', web: 'Layout da Web',
     download: 'Baixar', printDoc: 'Imprimir', fullscreen: 'Tela cheia', unfullscreen: 'Sair da tela cheia',
-    progress: 'Posição no documento', page: 'Página',
+    progress: 'Posição no documento', page: 'Página', document: 'Documento', pagesArea: 'Páginas do documento',
+    toolbar: 'Controles do documento',
+    pageOf: (n: number, m: number) => `Página ${n} de ${m}`,
+    pagesOf: (a: number, b: number, m: number) => `Páginas ${a} a ${b} de ${m}`,
   },
   en: {
     prev: 'Previous page', next: 'Next page', thumbnails: 'Thumbnails', outline: 'Outline', pages: 'Pages',
@@ -86,7 +94,10 @@ const LABELS = {
     zoomOut: 'Zoom out', zoomIn: 'Zoom in', zoom: 'Zoom', pageWidth: 'Page width', pageFit: 'Whole page',
     view: 'View', read: 'Read Mode', print: 'Print Layout', web: 'Web Layout',
     download: 'Download', printDoc: 'Print', fullscreen: 'Full screen', unfullscreen: 'Exit full screen',
-    progress: 'Position in document', page: 'Page',
+    progress: 'Position in document', page: 'Page', document: 'Document', pagesArea: 'Document pages',
+    toolbar: 'Document controls',
+    pageOf: (n: number, m: number) => `Page ${n} of ${m}`,
+    pagesOf: (a: number, b: number, m: number) => `Pages ${a} to ${b} of ${m}`,
   },
 };
 export type Labels = typeof LABELS.pt;
@@ -128,6 +139,7 @@ export class DocumentControls {
         { name: 'fullscreen', item: 'fullscreen', icon: 'fullscreen', run: r(() => host.toggleFullscreen()) },
       ],
       onSeek: (f) => host.seek(f),
+      onStep: (st) => { host.step(st); this.sync(); },
       keepVisible: () => !this.menu.hidden,
     });
     for (const b of ['zoom-level', 'view']) this.bar.buttonEl(b)!.setAttribute('aria-haspopup', 'menu');
@@ -140,19 +152,30 @@ export class DocumentControls {
       const b = (e.target as HTMLElement).closest<HTMLElement>('button');
       if (!b || !this.menuFor) return;
       const pick = this.menuFor.pick;
-      this.closeMenu();
+      this.closeMenu(true);
       pick(b.dataset['value']!);
       this.sync();
     });
     this.bar.bar.appendChild(this.menu);
-    this.bar.bar.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !this.menu.hidden) { this.closeMenu(); e.stopPropagation(); } });
+    this.bar.bar.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !this.menu.hidden) { this.closeMenu(true); e.stopPropagation(); } });
+    // padrão ARIA de menu: ↑ ↓ Home End movem entre as opções; Tab fecha
+    this.menu.addEventListener('keydown', (e) => {
+      const items = [...this.menu.querySelectorAll<HTMLElement>('button')];
+      const cur = items.indexOf((this.menu.getRootNode() as ShadowRoot).activeElement as HTMLElement);
+      const go = (i: number): void => { e.preventDefault(); items[(i + items.length) % items.length]?.focus(); };
+      if (e.key === 'ArrowDown') go(cur + 1);
+      else if (e.key === 'ArrowUp') go(cur - 1);
+      else if (e.key === 'Home') go(0);
+      else if (e.key === 'End') go(items.length - 1);
+      else if (e.key === 'Tab') this.closeMenu();
+    });
   }
 
   /** Próximo degrau de zoom (a partir do fator atual). */
   private step(dir: 1 | -1): void {
     const f = this.host.zoom().factor;
     const next = dir > 0 ? ZOOM_STEPS.find((z) => z > f + 0.001) : [...ZOOM_STEPS].reverse().find((z) => z < f - 0.001);
-    if (next) this.host.setZoom(next);
+    if (next) { this.host.setZoom(next); this.host.announce(`${this.labels.zoom} ${Math.round(next * 100)}%`); }
   }
 
   private toggleZoomMenu(): void {
@@ -162,7 +185,10 @@ export class DocumentControls {
       ...(paged ? [{ value: 'page-width', label: L.pageWidth }, { value: 'page-fit', label: L.pageFit }] : []),
       ...[0.5, 0.75, 1, 1.25, 1.5, 2].map((z) => ({ value: String(z), label: `${Math.round(z * 100)}%` })),
     ].map((o) => ({ ...o, checked: String(cur.spec) === o.value || (!paged && Math.abs(cur.factor - Number(o.value)) < 0.001) })),
-    (v) => this.host.setZoom(v === 'page-width' || v === 'page-fit' ? v : Number(v)));
+    (v) => {
+      this.host.setZoom(v === 'page-width' || v === 'page-fit' ? v : Number(v));
+      this.host.announce(`${L.zoom} ${Math.round(this.host.zoom().factor * 100)}%`);
+    });
   }
 
   private toggleViewMenu(): void {
@@ -199,14 +225,18 @@ export class DocumentControls {
     (this.menu.querySelector('[aria-checked="true"]') as HTMLElement | null ?? this.menu.firstElementChild as HTMLElement)?.focus();
   }
 
-  private closeMenu(): void {
+  /** Fecha o menu; `refocus` = o foco volta ao botão que o abriu (Esc). */
+  private closeMenu(refocus = false): void {
+    const btn = this.menuFor ? this.bar.buttonEl(this.menuFor.button) : undefined;
     this.menu.hidden = true;
     this.menuFor = null;
     this.last = '';
+    if (refocus) btn?.focus();
   }
 
   configure(enabled: boolean, removed: readonly ControlItem[], lang: string): void {
     this.labels = labelsFor(lang);
+    this.bar.setLabel(this.labels.toolbar);
     if (!enabled) this.closeMenu();
     this.bar.configure(enabled, removed);
     if (this.menuFor && this.bar.isRemoved(this.menuFor.button === 'view' ? 'view' : 'zoom')) this.closeMenu();
@@ -223,7 +253,7 @@ export class DocumentControls {
     const h = this.host, L = this.labels, b = this.bar;
     const n = h.count();
     const frac = h.progress();
-    b.setProgress(frac, { label: L.progress, min: 0, max: 100, now: Math.round(frac * 100) });
+    b.setProgress(frac, { label: L.progress, min: 0, max: 100, now: Math.round(frac * 100), text: h.positionText() });
     const z = h.zoom(), full = h.isFullscreen(), tab = h.navTab(), cmOpen = h.commentsOpen(), view = h.view();
     const avail = CONTROL_ITEMS.map((it) => (h.available(it) ? 1 : 0)).join('');
     const counter = h.counter();

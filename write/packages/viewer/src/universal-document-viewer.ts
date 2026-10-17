@@ -8,9 +8,9 @@ import {
   layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, paintItems, paragraphAtPath,
   type LayoutOptions, type LayoutResult, type EnginePaintEnv,
 } from '@universal-office/docx-layout';
-import { langOf } from '@universal-office/viewer-controls';
+import { langOf, LiveRegion, type ProgressStep } from '@universal-office/viewer-controls';
 import { ViewerFonts } from './fonts.js';
-import { collectAnnotations, type Annotations } from './annotations.js';
+import { collectAnnotations, levelResolver, type Annotations } from './annotations.js';
 import { fillTextLayer, TEXT_LAYER_CSS } from './text-layer.js';
 import { webDocument, webPageHeight, readPagesPerView, VIEW_MODES, type ViewMode } from './views.js';
 import {
@@ -104,6 +104,7 @@ const CSS = `
 .udv-thumb[aria-current="true"] { outline-color: ${PROGRESS_COLOR}; }
 .udv-thumb:focus-visible { outline-color: var(--uoc-c); }
 .udv-thumb + span { display: block; text-align: center; color: #ddd; font: 11px/1.4 system-ui, sans-serif; margin: 0 0 10px; }
+.udv-scroll:focus-visible { outline: 2px solid var(--udv-focus-color, var(--uo-focus-color, #4ea1ff)); outline-offset: -3px; }
 .udv-msg { position: absolute; inset: 0; display: grid; place-items: center; color: #bbb; font: 14px system-ui, sans-serif; pointer-events: none; }
 ` + TEXT_LAYER_CSS + CONTROLS_CSS;
 
@@ -155,6 +156,9 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   private readonly commentsEl = document.createElement('div');
   private readonly msg = document.createElement('div');
   private readonly controls: DocumentControls;
+  /** anúncios para leitores de tela (página, modo, zoom, título) */
+  private readonly live = new LiveRegion();
+  private levelOf: (p: Paragraph) => number | undefined = () => undefined;
   private readonly fonts = new ViewerFonts(FontResolver.shared(), () => this.repaintAll());
 
   private fileBytes: Uint8Array | null = null;
@@ -225,19 +229,40 @@ export class UniversalDocumentViewerElement extends HTMLElement {
       t.addEventListener('click', () => { this.setNav(tab); this.controls.sync(); });
       tabs.appendChild(t);
     }
+    // abas (padrão ARIA): ← → trocam de aba; cada aba aponta o seu painel
+    tabs.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
+      const all = [this.tabOutline, this.tabPages].filter((t) => !t.hidden);
+      const at = all.indexOf(this.root.activeElement as HTMLButtonElement);
+      const next = e.key === 'Home' ? all[0] : e.key === 'End' ? all[all.length - 1]
+        : all[(at + (e.key === 'ArrowRight' ? 1 : -1) + all.length) % all.length];
+      if (!next) return;
+      e.preventDefault();
+      next.focus();
+      next.click();
+    });
+    this.tabOutline.id = 'udv-tab-outline';
+    this.tabPages.id = 'udv-tab-pages';
+    this.tabOutline.setAttribute('aria-controls', 'udv-panel-outline');
+    this.tabPages.setAttribute('aria-controls', 'udv-panel-pages');
     this.outlineEl.className = 'udv-outline';
+    this.outlineEl.id = 'udv-panel-outline';
     this.outlineEl.setAttribute('part', 'outline');
     this.outlineEl.setAttribute('role', 'tabpanel');
+    this.outlineEl.setAttribute('aria-labelledby', 'udv-tab-outline');
     this.thumbs.className = 'udv-thumbs';
+    this.thumbs.id = 'udv-panel-pages';
     this.thumbs.setAttribute('part', 'thumbnails');
     this.thumbs.setAttribute('role', 'tabpanel');
+    this.thumbs.setAttribute('aria-labelledby', 'udv-tab-pages');
     this.nav.append(tabs, this.outlineEl, this.thumbs);
     this.commentsEl.className = 'udv-comments';
     this.commentsEl.setAttribute('part', 'comments');
     this.commentsEl.setAttribute('role', 'complementary');
     this.commentsEl.hidden = true;
     this.msg.className = 'udv-msg';
-    this.wrap.append(this.scroller, this.nav, this.commentsEl, this.msg);
+    this.wrap.setAttribute('role', 'region');
+    this.wrap.append(this.scroller, this.nav, this.commentsEl, this.msg, this.live.el);
     this.root.append(style, this.wrap);
     this.controls = new DocumentControls(this.controlsHost(), this.root, this.wrap);
 
@@ -245,7 +270,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.thumbs.addEventListener('scroll', () => this.schedule(), { passive: true });
     this.thumbs.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('.udv-thumb');
-      if (b) this.goToPage(Number(b.dataset['i']));
+      if (b) this.stepTo(Number(b.dataset['i']));
     });
     this.outlineEl.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('button[data-h]');
@@ -310,6 +335,43 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     }
     if (off('comments')) this.setComments(false);
     this.labelPanels(lang);
+    this.nameRegion();
+  }
+
+  /** Nome da região do viewer (o arquivo) e de cada página, para o leitor de tela. */
+  private nameRegion(): void {
+    const L = this.labels();
+    const file = this.fileName();
+    this.wrap.setAttribute('aria-label', file ? `${L.document}: ${file}` : L.document);
+    this.scroller.setAttribute('role', 'region');
+    this.scroller.setAttribute('aria-label', L.pagesArea);
+    const n = this.pageEls.length;
+    this.pageEls.forEach((el, i) => {
+      el.setAttribute('role', 'group');
+      el.setAttribute('aria-label', this.view === 'web' ? L.document : L.pageOf(i + 1, n));
+    });
+  }
+
+  private fileName(): string | null {
+    const src = this.getAttribute('src');
+    try { return src ? decodeURIComponent(src.split(/[?#]/)[0]!.split('/').pop() ?? '') || null : null; } catch { return null; }
+  }
+
+  private announce(text: string): void { this.live.announce(text); }
+
+  /** "Página 3 de 12" / "Páginas 1–2 de 12" / "40%" — a posição para o leitor de tela. */
+  private positionText(): string {
+    const L = this.labels(), total = this.getPageCount();
+    if (!total) return '';
+    if (this.view === 'web') return `${Math.round(this.scrollFraction() * 100)}%`;
+    if (this.view === 'read') return this.positionTextAt(this.readFirst);
+    return L.pageOf(this.index + 1, total);
+  }
+
+  private positionTextAt(page: number): string {
+    const L = this.labels(), total = this.getPageCount(), per = this.readN();
+    const first = Math.floor(page / per) * per, last = Math.min(total, first + per);
+    return last > first + 1 ? L.pagesOf(first + 1, last, total) : L.pageOf(first + 1, total);
   }
 
   private readZoomAttr(): void {
@@ -428,6 +490,8 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     }
     this.headingIndex = -2; // anuncia de novo o título atual no documento novo
     this.notes = this.full ? collectAnnotations(this.full, res) : { comments: [], headings: [] };
+    this.levelOf = this.full ? levelResolver(this.full) : () => undefined;
+    this.nameRegion();
     if (this.activeComment !== null && !this.notes.comments.some((c) => c.id === this.activeComment)) this.activeComment = null;
     this.buildThumbs();
     this.buildOutline();
@@ -453,12 +517,13 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.wrap.classList.toggle('udv-web', v === 'web');
     if (v === 'web' && this.navTab === 'pages') this.setNav(null);
     this.dispatchEvent(new CustomEvent('udv-view', { detail: { view: v } }));
+    this.announce(this.labels()[v]);
     if (!this.full) return;
     if (v === 'web' || prev === 'web') {
       // outro layout: o de impressão volta do cache; o da Web é refeito na largura atual
       if (v !== 'web' && this.printLayoutCache) {
         this.setLayout(this.printLayoutCache);
-        this.goToPage(page, false);
+        this.goToPage(page, false, false);
       } else {
         this.layout = null;
         void this.relayout();
@@ -466,7 +531,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     } else {
       this.readFirst = page;
       this.applyZoom(false);
-      if (v === 'print') this.goToPage(page, false);
+      if (v === 'print') this.goToPage(page, false, false);
     }
     this.controls.sync();
   }
@@ -558,6 +623,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
       const div = document.createElement('div');
       div.className = 'udv-tile';
       const canvas = document.createElement('canvas');
+      canvas.setAttribute('aria-hidden', 'true'); // o desenho; o conteúdo vem da camada de texto
       const text = document.createElement('div');
       text.className = 'udv-text';
       div.append(canvas, text);
@@ -647,13 +713,15 @@ export class UniversalDocumentViewerElement extends HTMLElement {
         const id = `${i}:${k}`;
         const y0 = el.offsetTop + t.top;
         const visible = shown && (this.view === 'read' || (y0 + t.h >= top - margin && y0 <= bottom + margin));
+        const simple = `${textKey}|s`, detailed = `${textKey}|${selectable ? 'd' : 's'}`;
         if (!visible) {
           if (this.painted.has(id)) { t.canvas.width = t.canvas.height = 0; this.painted.delete(id); }
-          if (this.texted.has(id)) { t.text.textContent = ''; this.texted.delete(id); }
+          // fora de cena: o texto continua (simples) para o leitor de tela ler o documento todo
+          if (shown && this.texted.get(id) !== simple) { this.fillText(i, t, false); this.texted.set(id, simple); }
           continue;
         }
         if (this.painted.get(id) !== key) { this.paintTile(i, t, dpr); this.painted.set(id, key); }
-        if (selectable && this.texted.get(id) !== textKey) { this.fillText(i, t); this.texted.set(id, textKey); }
+        if (this.texted.get(id) !== detailed) { this.fillText(i, t, selectable); this.texted.set(id, detailed); }
       }
     }
     if (this.navTab === 'pages') this.updateThumbs();
@@ -703,11 +771,11 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   }
 
   /** Camada de texto selecionável da faixa: as linhas que começam nela. */
-  private fillText(i: number, t: Tile): void {
+  private fillText(i: number, t: Tile, detailed: boolean): void {
     const p = this.layout!.pages[i]!;
     const k = this.pxPerTw(i);
     const top = t.top / k, bottom = (t.top + t.h) / k;
-    fillTextLayer(t.text, p.lines.filter((l) => l.y >= top && l.y < bottom), this.para, k, top);
+    fillTextLayer(t.text, p.lines.filter((l) => l.y >= top && l.y < bottom), this.para, this.levelOf, k, top, detailed);
   }
 
   /** Imagem decodificada (o vetor SVG, como o Word, quando houver). */
@@ -819,6 +887,9 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.tabPages.hidden = this.hasAttribute('nothumbnails') || this.view === 'web';
     this.tabOutline.setAttribute('aria-selected', String(tab === 'outline'));
     this.tabPages.setAttribute('aria-selected', String(tab === 'pages'));
+    // só a aba selecionada entra no Tab; as setas andam entre elas
+    this.tabOutline.tabIndex = tab === 'outline' ? 0 : -1;
+    this.tabPages.tabIndex = tab === 'pages' ? 0 : -1;
     this.outlineEl.hidden = tab !== 'outline';
     this.thumbs.hidden = tab !== 'pages';
     for (const t of this.thumbEls) t.removeAttribute('aria-current');
@@ -874,14 +945,16 @@ export class UniversalDocumentViewerElement extends HTMLElement {
 
   /** Leva um ponto da página à vista (no Modo de Leitura, o bloco que contém a página). */
   private reveal(page: number, yTw: number, offsetPx: number): void {
-    if (this.view === 'read') { this.goToPage(page); return; }
+    if (this.view === 'read') { this.goToPage(page, true, false); return; }
     this.scroller.scrollTo({ top: Math.max(0, this.pageY(page, yTw) - offsetPx), behavior: 'smooth' });
   }
 
   /** Vai ao título `i` do índice (posição em `getHeadings()`). */
   goToHeading(i: number): void {
     const h = this.notes.headings[i];
-    if (h) this.reveal(h.page, h.y, 24);
+    if (!h) return;
+    this.reveal(h.page, h.y, 24);
+    this.announce(this.view === 'web' ? h.text : `${h.text} — ${this.labels().pageOf(h.page + 1, this.getPageCount())}`);
   }
 
   /** Índice do título atual (o último que passou do 1º terço da janela); −1 = antes do 1º / sem títulos. */
@@ -999,11 +1072,12 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     return this.notes.comments.map((c) => ({ id: c.id, ...(c.author ? { author: c.author } : {}), text: c.text, page: c.rects[0]?.page ?? null }));
   }
 
-  /** Vai à página `i` (no Modo de Leitura, ao bloco que a contém). */
-  goToPage(i: number, smooth = true): void {
+  /** Vai à página `i` (no Modo de Leitura, ao bloco que a contém) e anuncia o destino. */
+  goToPage(i: number, smooth = true, announce = true): void {
     const n = this.getPageCount();
     if (!n) return;
     const page = Math.max(0, Math.min(n - 1, i));
+    if (announce && this.view !== 'web') this.announce(this.view === 'read' ? this.positionTextAt(page) : this.labels().pageOf(page + 1, n));
     if (this.view === 'read') {
       const per = this.readN();
       const first = Math.floor(page / per) * per;
@@ -1089,6 +1163,27 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     if (next >= total || next + n <= 0) return;
     this.readFirst = Math.max(0, next);
     this.applyZoom(false);
+    this.announce(this.positionTextAt(this.readFirst));
+  }
+
+  /** Navegação pela barra/teclado: anda e anuncia a página de destino. */
+  private stepTo(page: number): void {
+    const total = this.getPageCount();
+    if (!total) return;
+    this.goToPage(Math.max(0, Math.min(total - 1, page)));
+  }
+
+  /** Teclado no slider de progresso. */
+  private progressStep(st: ProgressStep): void {
+    if (this.view === 'web') {
+      const d = st === 'next' ? 0.05 : st === 'prev' ? -0.05 : st === 'pagenext' ? 0.2 : st === 'pageprev' ? -0.2 : 0;
+      this.scrollToFraction(st === 'home' ? 0 : st === 'end' ? 1 : Math.max(0, Math.min(1, this.scrollFraction() + d)));
+      this.announce(`${Math.round(this.scrollFraction() * 100)}%`);
+      return;
+    }
+    if (this.view === 'read' && (st === 'next' || st === 'prev')) { this.nudgeRead(st === 'next' ? 1 : -1); return; }
+    const i = this.index, total = this.getPageCount();
+    this.stepTo(st === 'home' ? 0 : st === 'end' ? total - 1 : st === 'next' ? i + 1 : st === 'prev' ? i - 1 : st === 'pagenext' ? i + 5 : i - 5);
   }
 
   private controlsHost(): ControlsHost {
@@ -1108,8 +1203,11 @@ export class UniversalDocumentViewerElement extends HTMLElement {
         const last = Math.min(total, this.readFirst + this.readN());
         return last > this.readFirst + 1 ? `${this.readFirst + 1}–${last} / ${total}` : `${this.readFirst + 1} / ${total}`;
       },
-      prev: () => (this.view === 'read' ? this.nudgeRead(-1) : this.goToPage(this.index - 1)),
-      next: () => (this.view === 'read' ? this.nudgeRead(1) : this.goToPage(this.index + 1)),
+      prev: () => (this.view === 'read' ? this.nudgeRead(-1) : this.stepTo(this.index - 1)),
+      next: () => (this.view === 'read' ? this.nudgeRead(1) : this.stepTo(this.index + 1)),
+      step: (st) => this.progressStep(st),
+      positionText: () => this.positionText(),
+      announce: (text) => this.announce(text),
       progress: () => {
         if (this.view !== 'read') return this.scrollFraction();
         const total = this.getPageCount();
