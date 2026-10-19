@@ -22,6 +22,8 @@
     "build:sheet": "npm run build --prefix sheet",
     "build:slides": "npm run build --prefix slides",
     "build:pkg": "node tools/build-pkg.mjs",
+    "docs:gifs": "node tools/gifs/record.mjs",
+    "docs:site": "node tools/site/gen-docs.mjs",
     "test": "npm run test:fonts && npm run test:charts && npm run test:ui && npm run test:write && npm run test:sheet && npm run test:slides",
     "test:fonts": "npm run test --prefix shared/fonts",
     "test:charts": "npm run test --prefix shared/charts",

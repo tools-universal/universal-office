@@ -42,19 +42,21 @@
           <li><a href="events.html">Events</a></li>
           <li><a href="plugins.html">Plugins</a></li>
           <li><a href="compatibility.html">Compatibility</a></li>
-        </ul>
-      </div>
-      <div class="group">
-        <p class="title">Comparison</p>
-        <ul>
+          <li><a href="../document-viewer/index.html">&lt;universal-document-viewer&gt;</a></li>
           <li><a href="../universal-write-diff/index.html">&lt;universal-write-diff&gt;</a></li>
         </ul>
       </div>
       <div class="group">
-        <p class="title">Suite</p>
+        <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/sheet.svg" alt="" />Universal Sheet</p>
         <ul>
-          <li><span class="soon-item"><img class="nav-ico" src="../../assets/icons/sheet.svg" alt="" />Universal Sheet <span class="soon-tag">soon</span></span></li>
-          <li><span class="soon-item"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides <span class="soon-tag">soon</span></span></li>
+          <li><a href="../sheet/index.html">&lt;universal-sheet&gt;</a></li>
+        </ul>
+      </div>
+      <div class="group">
+        <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides</p>
+        <ul>
+          <li><a href="../slides/index.html">&lt;universal-slides&gt;</a></li>
+          <li><a href="../presentation-viewer/index.html">&lt;universal-presentation-viewer&gt;</a></li>
         </ul>
       </div>
     </aside>
@@ -95,10 +97,14 @@ editor.bottombar = true;  // boolean</code></pre>
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>load(bytes, format?, opts?)</code></td><td>Loads a document. <code>format</code>: <code>'auto'</code> (default — detects <code>.docx</code> vs <code>.odt</code> from the bytes), <code>'docx'</code>, or <code>'odt'</code>. <code>opts.protected</code> (default <code>true</code>) opens in Protected View.</td></tr>
+          <tr><td><code>load(bytes, format?, opts?)</code></td><td>Loads a document. <code>format</code>: <code>'auto'</code> (default — detects <code>.docx</code> vs <code>.odt</code> from the bytes; Word 97–2003 <code>.doc</code> is detected and converted), <code>'docx'</code>, or <code>'odt'</code>. <code>opts.protected</code> (default <code>true</code>) opens in Protected View.</td></tr>
           <tr><td><code>save(format?, opts?): Promise&lt;Uint8Array | string&gt;</code></td><td>Saves/exports the document. <code>format</code>: <code>'auto'</code> (default — the format it was loaded as), <code>'docx'</code>, <code>'odt'</code>, <code>'pdf'</code>, <code>'html'</code>, <code>'markdown'</code>, <code>'xps'</code>. Returns bytes for binary formats and a string for <code>html</code>/<code>markdown</code>. <code>opts</code>: <code>{ images?: boolean, title? }</code>.</td></tr>
           <tr><td><code>newDocument()</code></td><td>Creates an empty, editable document.</td></tr>
-          <tr><td><code>initialize(options)</code></td><td>Manual initialization with fonts/document as bytes (offline mode; requires the <code>manual-init</code> attribute). Returns <code>Promise&lt;void&gt;</code>.</td></tr>
+          <tr><td><code>initialize(options)</code></td><td>Initializes with fonts/document as bytes (offline mode). Called automatically on connect unless <code>manual-init</code> is set; calling it again does nothing. Returns <code>Promise&lt;void&gt;</code>.</td></tr>
+          <tr><td><code>getFontEmbedding() · setFontEmbedding(settings)</code></td><td>Fonts in the saved <code>.docx</code>: <code>{ embed, subset, skipCommonFonts }</code>. Default: off. <code>uw-font-embedding</code> reports what was embedded.</td></tr>
+          <tr><td><code>requestSystemFonts(): Promise&lt;boolean&gt;</code></td><td>Asks for Local Font Access (Chromium) so installed fonts can be measured and embedded. Call from a user gesture.</td></tr>
+          <tr><td><code>listAvailableFonts(): Promise&lt;string[]&gt; · knownFontFamilies()</code></td><td>Font families the editor can use / has loaded (for a font picker).</td></tr>
+          <tr><td><code>exportPdf() · exportXps() · exportHtml(title?, opts?) · exportMarkdown(title?, opts?) · exportOdt(opts?)</code></td><td>Lower-level exporters behind <code>save()</code>.</td></tr>
           <tr><td><code>print()</code></td><td>Opens the print dialog with pages in Print mode.</td></tr>
         </tbody>
       </table>
@@ -221,8 +227,8 @@ editor.bottombar = true;  // boolean</code></pre>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td><code>updateToc(): boolean</code></td><td>Updates the table of contents from headings; <code>true</code> if the document had a TOC.</td></tr>
-          <tr><td><code>navigateTo(link): boolean</code></td><td>Navigates to a bookmark; <code>true</code> if found.</td></tr>
-          <tr><td><code>setPageSetup(opts)</code></td><td><code>{ orientation?: 'portrait' | 'landscape', size?: 'A4' | 'Letter', margins?: 'normal' | 'narrow' | 'wide' }</code>.</td></tr>
+          <tr><td><code>navigateTo(link): boolean</code></td><td>Navigates to <code>'#bookmarkName'</code> or <code>'#para:N'</code>; <code>true</code> if found.</td></tr>
+          <tr><td><code>setPageSetup(opts)</code></td><td><code>{ orientation?: 'portrait' | 'landscape', size?: 'A4' | 'Letter', margins?: 'normal' | 'narrow' | 'wide', customMargins?: { top, right, bottom, left } }</code> (custom margins in twips).</td></tr>
         </tbody>
       </table>
 

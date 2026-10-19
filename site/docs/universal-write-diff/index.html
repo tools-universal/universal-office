@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>&lt;universal-write-diff&gt; — document comparison</title>
-  <meta name="description" content="The <universal-write-diff> web component: side-by-side comparison of .docx documents, and the programmatic diff API of @universal-office-pro/write." />
+  <meta name="description" content="The <universal-write-diff> web component: side-by-side comparison of .docx documents, and the programmatic diff API of @universal-office/compare." />
   <link rel="icon" type="image/svg+xml" href="../../assets/icons/universal-office.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -42,19 +42,21 @@
           <li><a href="../write/events.html">Events</a></li>
           <li><a href="../write/plugins.html">Plugins</a></li>
           <li><a href="../write/compatibility.html">Compatibility</a></li>
-        </ul>
-      </div>
-      <div class="group">
-        <p class="title">Comparison</p>
-        <ul>
+          <li><a href="../document-viewer/index.html">&lt;universal-document-viewer&gt;</a></li>
           <li><a href="index.html" class="active">&lt;universal-write-diff&gt;</a></li>
         </ul>
       </div>
       <div class="group">
-        <p class="title">Suite</p>
+        <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/sheet.svg" alt="" />Universal Sheet</p>
         <ul>
-          <li><span class="soon-item"><img class="nav-ico" src="../../assets/icons/sheet.svg" alt="" />Universal Sheet <span class="soon-tag">soon</span></span></li>
-          <li><span class="soon-item"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides <span class="soon-tag">soon</span></span></li>
+          <li><a href="../sheet/index.html">&lt;universal-sheet&gt;</a></li>
+        </ul>
+      </div>
+      <div class="group">
+        <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides</p>
+        <ul>
+          <li><a href="../slides/index.html">&lt;universal-slides&gt;</a></li>
+          <li><a href="../presentation-viewer/index.html">&lt;universal-presentation-viewer&gt;</a></li>
         </ul>
       </div>
     </aside>
@@ -62,15 +64,17 @@
     <main class="content">
       <h1>&lt;universal-write-diff&gt;</h1>
       <p class="lead-doc">
-        A web component for comparing <code>.docx</code> documents side by side, part of the
-        <code>@universal-office-pro/write</code> package. It aligns blocks with Myers/histogram,
+        A web component for comparing <code>.docx</code> documents side by side, in the self-contained
+        <code>@universal-office/compare</code> package (no dependencies, no fonts needed). It aligns blocks with Myers/histogram,
         refines changes word by word within a paragraph, and distinguishes content changes
         from format-only changes.
       </p>
 
+      <img class="doc-demo" src="../../assets/gifs/compare.gif" alt="Comparing two versions of a report" loading="lazy" />
+
       <h2 id="usage">Usage</h2>
       <pre><code>&lt;universal-write-diff id="wd" view="all" left-label="Original" right-label="Modified"&gt;&lt;/universal-write-diff&gt;</code></pre>
-      <pre><code>import '@universal-office-pro/write';
+      <pre><code>import '@universal-office/compare';
 
 const wd = document.getElementById('wd');
 
@@ -78,7 +82,7 @@ const wd = document.getElementById('wd');
 wd.loadPair(aBytes, bBytes, { leftLabel: 'v1.docx', rightLabel: 'v2.docx' });
 
 // Or from documents already parsed by the document core:
-import { DocxPackage, readFullDocument } from '@universal-office-pro/write';
+import { DocxPackage, readFullDocument } from '@universal-office/compare';
 const aDoc = readFullDocument(DocxPackage.load(aBytes));
 const bDoc = readFullDocument(DocxPackage.load(bBytes));
 wd.loadDocuments(aDoc, bDoc, { leftLabel: 'v1', rightLabel: 'v2' });</code></pre>
@@ -87,9 +91,10 @@ wd.loadDocuments(aDoc, bDoc, { leftLabel: 'v1', rightLabel: 'v2' });</code></pre
       <table>
         <thead><tr><th>Attribute</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>view</code></td><td><code>'all'</code> (default): all blocks, with equal ranges collapsed into clickable bands. <code>'diffs'</code>: only the changed blocks.</td></tr>
+          <tr><td><code>view</code></td><td><code>'all'</code> (default): every block. <code>'diffs'</code>: unchanged runs collapse into clickable "… N unchanged blocks …" bands. The <em>Only changes</em> button toggles it.</td></tr>
           <tr><td><code>left-label</code></td><td>Label for the left pane (default: "Original").</td></tr>
           <tr><td><code>right-label</code></td><td>Label for the right pane (default: "Modified").</td></tr>
+          <tr><td><code>lang</code></td><td>UI language: <code>en</code> or <code>pt</code>. Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
         </tbody>
       </table>
 
@@ -149,10 +154,10 @@ wd.addEventListener('close-request', () =&gt; {
 
       <h2 id="api">Programmatic API</h2>
       <p>
-        Besides the web component, <code>@universal-office-pro/write</code> exports the diff engine
+        Besides the web component, <code>@universal-office/compare</code> exports the diff engine
         for direct use (reports, pipelines, CI):
       </p>
-      <pre><code>import { diffDocuments, DocxPackage, readFullDocument } from '@universal-office-pro/write';
+      <pre><code>import { diffDocuments, DocxPackage, readFullDocument } from '@universal-office/compare';
 
 const a = readFullDocument(DocxPackage.load(aBytes));
 const b = readFullDocument(DocxPackage.load(bBytes));

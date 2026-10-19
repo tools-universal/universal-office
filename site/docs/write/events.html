@@ -42,19 +42,21 @@
           <li><a href="events.html" class="active">Events</a></li>
           <li><a href="plugins.html">Plugins</a></li>
           <li><a href="compatibility.html">Compatibility</a></li>
-        </ul>
-      </div>
-      <div class="group">
-        <p class="title">Comparison</p>
-        <ul>
+          <li><a href="../document-viewer/index.html">&lt;universal-document-viewer&gt;</a></li>
           <li><a href="../universal-write-diff/index.html">&lt;universal-write-diff&gt;</a></li>
         </ul>
       </div>
       <div class="group">
-        <p class="title">Suite</p>
+        <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/sheet.svg" alt="" />Universal Sheet</p>
         <ul>
-          <li><span class="soon-item"><img class="nav-ico" src="../../assets/icons/sheet.svg" alt="" />Universal Sheet <span class="soon-tag">soon</span></span></li>
-          <li><span class="soon-item"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides <span class="soon-tag">soon</span></span></li>
+          <li><a href="../sheet/index.html">&lt;universal-sheet&gt;</a></li>
+        </ul>
+      </div>
+      <div class="group">
+        <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides</p>
+        <ul>
+          <li><a href="../slides/index.html">&lt;universal-slides&gt;</a></li>
+          <li><a href="../presentation-viewer/index.html">&lt;universal-presentation-viewer&gt;</a></li>
         </ul>
       </div>
     </aside>
@@ -76,9 +78,10 @@
         <thead><tr><th>Event</th><th><code>detail</code></th><th>Fires when</th></tr></thead>
         <tbody>
           <tr><td><code>uw-ready</code></td><td><code>{ offline: boolean, plugins: string[] }</code></td><td>Component initialized: fonts loaded and document ready.</td></tr>
-          <tr><td><code>uw-change</code></td><td>—</td><td>The document was edited. Use for dirty tracking and autosave.</td></tr>
+          <tr><td><code>uw-change</code></td><td>—</td><td>The document is about to change — it fires before the edit is applied, so read the new state on the next frame (e.g. <code>requestAnimationFrame</code>). Use for dirty tracking and autosave.</td></tr>
           <tr><td><code>uw-protected</code></td><td><code>{ active: boolean, hasFields: boolean }</code></td><td>Protected View turned on/off.</td></tr>
-          <tr><td><code>uw-blocked</code></td><td><code>{ reason: string }</code></td><td>An action was blocked (e.g. an attempt to edit a protected document).</td></tr>
+          <tr><td><code>uw-blocked</code></td><td><code>{ reason: 'protected' }</code></td><td>Header/footer editing was refused because the document is in Protected View.</td></tr>
+          <tr><td><code>uw-font-embedding</code></td><td><code>{ embedded: string[], skipped: { family, reason }[] }</code></td><td>After saving a <code>.docx</code> with font embedding on; <code>reason</code> is <code>'common'</code>, <code>'license'</code> or <code>'unavailable'</code>.</td></tr>
         </tbody>
       </table>
 
@@ -89,6 +92,8 @@
           <tr><td><code>uw-zoom</code></td><td><code>{ zoom: number }</code></td><td>The zoom changed (shortcut, gesture, or <code>setZoom</code>).</td></tr>
           <tr><td><code>uw-hfmode</code></td><td><code>{ active: boolean, kind?: 'header' | 'footer' }</code></td><td>Entered/left header or footer editing.</td></tr>
           <tr><td><code>uw-hfhover</code></td><td><code>{ kind?: 'header' | 'footer', x?: number, y?: number }</code></td><td>Mouse over the header/footer region (to show a hint).</td></tr>
+          <tr><td><code>uw-tbmode</code></td><td><code>{ active: boolean }</code></td><td>Entered/left text-box editing.</td></tr>
+          <tr><td><code>uw-cellmode</code></td><td><code>{ active: boolean }</code></td><td>Entered/left table-cell editing.</td></tr>
         </tbody>
       </table>
 

@@ -42,19 +42,21 @@
           <li><a href="events.html">Events</a></li>
           <li><a href="plugins.html">Plugins</a></li>
           <li><a href="compatibility.html">Compatibility</a></li>
-        </ul>
-      </div>
-      <div class="group">
-        <p class="title">Comparison</p>
-        <ul>
+          <li><a href="../document-viewer/index.html">&lt;universal-document-viewer&gt;</a></li>
           <li><a href="../universal-write-diff/index.html">&lt;universal-write-diff&gt;</a></li>
         </ul>
       </div>
       <div class="group">
-        <p class="title">Suite</p>
+        <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/sheet.svg" alt="" />Universal Sheet</p>
         <ul>
-          <li><span class="soon-item"><img class="nav-ico" src="../../assets/icons/sheet.svg" alt="" />Universal Sheet <span class="soon-tag">soon</span></span></li>
-          <li><span class="soon-item"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides <span class="soon-tag">soon</span></span></li>
+          <li><a href="../sheet/index.html">&lt;universal-sheet&gt;</a></li>
+        </ul>
+      </div>
+      <div class="group">
+        <p class="title with-ico"><img class="nav-ico" src="../../assets/icons/slides.svg" alt="" />Universal Slides</p>
+        <ul>
+          <li><a href="../slides/index.html">&lt;universal-slides&gt;</a></li>
+          <li><a href="../presentation-viewer/index.html">&lt;universal-presentation-viewer&gt;</a></li>
         </ul>
       </div>
     </aside>
@@ -85,8 +87,8 @@
         is the same pagination and the same line breaks as the reference application.
       </p>
       <p>
-        Everything ships in a single npm package, <code>@universal-office-pro/write</code>,
-        which internally is organized into modules:
+        Everything ships in a single self-contained package, <code>@universal-office-pro/write</code>
+        (no dependencies), which internally is organized into modules:
       </p>
       <table>
         <thead><tr><th>Module</th><th>Role</th></tr></thead>
@@ -94,10 +96,16 @@
           <tr><td>Document core</td><td>Document model + OOXML parse/serialize. Lossless round-trip: parts not yet modeled are preserved byte for byte.</td></tr>
           <tr><td>Layout engine</td><td>Absolute-position tree (pages → lines → glyph runs).</td></tr>
           <tr><td>Editor (<code>&lt;universal-write&gt;</code>)</td><td>The web component: its own caret, selection, IME, and clipboard.</td></tr>
-          <tr><td>Compare (<code>&lt;universal-write-diff&gt;</code>)</td><td>Document diffing + the <a href="../universal-write-diff/index.html"><code>&lt;universal-write-diff&gt;</code></a> web component.</td></tr>
           <tr><td>Exporters</td><td>HTML, Markdown, PDF, XPS, and ODT.</td></tr>
         </tbody>
       </table>
+
+      <img class="doc-demo" src="../../assets/gifs/write.gif" alt="The editor: typing, formatting, toolbar and status bar" loading="lazy" />
+      <p>
+        Two related components ship as their own packages:
+        <a href="../document-viewer/index.html"><code>&lt;universal-document-viewer&gt;</code></a> (read-only viewer) and
+        <a href="../universal-write-diff/index.html"><code>&lt;universal-write-diff&gt;</code></a> (document comparison).
+      </p>
 
       <h2 id="install">Install</h2>
       <p>
@@ -109,15 +117,23 @@
         <!-- TODO: replace with the package's PrivJS URL -->
         <a class="btn primary" href="https://www.privjs.com/" target="_blank" rel="noopener">Get it on PrivJS →</a>
       </p>
-      <p>Once installed, import the bundle so the custom element registers itself, then place the tag on the page:</p>
+      <p>
+        Serve the package's <code>chunks/</code> folder (parts loaded on demand) and <code>fonts/</code>
+        folder (open fonts, including the required Liberation Sans) next to <code>index.js</code>.
+        Then import the bundle so the custom element registers itself, and place the tag on the page:
+      </p>
       <pre><code>import '@universal-office-pro/write';</code></pre>
-      <pre><code>&lt;universal-write id="editor" fonts="/fonts" src="/document.docx"&gt;&lt;/universal-write&gt;</code></pre>
+      <pre><code>&lt;universal-write id="editor" fonts="/office/fonts" src="/document.docx" topbar bottombar&gt;&lt;/universal-write&gt;</code></pre>
       <p>Observed attributes:</p>
       <table>
         <thead><tr><th>Attribute</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td><code>src</code></td><td>URL of a <code>.docx</code> to load automatically when connected to the DOM.</td></tr>
-          <tr><td><code>fonts</code></td><td>Base path for the fonts (Aptos and Calibri, in the regular/bold/italic/boldItalic variants).</td></tr>
+          <tr><td><code>fonts</code></td><td>Folder with the font files — the package's <code>fonts/</code>. <strong>Liberation Sans</strong> (<code>liberationsans-regular.ttf</code>, <code>-bold</code>, <code>-italic</code>, <code>-bolditalic</code>) is required; the other open fonts are metric-compatible substitutes for Calibri, Cambria, Arial, Times New Roman and Courier New. Aptos and Calibri files are used if you add them.</td></tr>
+          <tr><td><code>topbar</code></td><td>Built-in two-row toolbar.</td></tr>
+          <tr><td><code>bottombar</code></td><td>Built-in status bar: page and word count, view buttons, zoom.</td></tr>
+          <tr><td><code>lang</code></td><td>UI language of the bars and popups: <code>en</code> or <code>pt</code>. Without it: Portuguese if the browser prefers it, otherwise English.</td></tr>
+          <tr><td><code>layout</code></td><td><code>legacy</code> uses the previous canvas layout instead of the Word-fidelity engine (the editor also falls back to it on its own if the engine fails on a document).</td></tr>
           <tr><td><code>manual-init</code></td><td>If present, the component does not initialize on its own — it waits for a call to <code>initialize()</code>. Use this to run fully offline, with no backend.</td></tr>
         </tbody>
       </table>
@@ -191,10 +207,11 @@ download(await editor.save('docx'), 'document.docx',
       <pre><code>&lt;universal-write id="editor" manual-init&gt;&lt;/universal-write&gt;</code></pre>
       <pre><code>await editor.initialize({
   fonts: [
-    { family: 'Aptos', variant: 'regular',    data: aptosRegular },
-    { family: 'Aptos', variant: 'bold',       data: aptosBold },
-    { family: 'Aptos', variant: 'italic',     data: aptosItalic },
-    { family: 'Aptos', variant: 'boldItalic', data: aptosBoldItalic },
+    // Liberation Sans is required (the default font and last-resort substitute)
+    { family: 'Liberation Sans', variant: 'regular',    data: regular },
+    { family: 'Liberation Sans', variant: 'bold',       data: bold },
+    { family: 'Liberation Sans', variant: 'italic',     data: italic },
+    { family: 'Liberation Sans', variant: 'boldItalic', data: boldItalic },
   ],
   document: { bytes: docxBytes, format: 'docx', protected: false },
 });</code></pre>

@@ -60,7 +60,7 @@ export class UniversalSlidesElement extends UniversalPresentationViewerElement {
    * ficou de fora vai no evento `us-font-embedding`.
    */
   async savePptx(): Promise<Uint8Array> {
-    if (!this.pkg) throw new Error('nenhuma apresentação carregada');
+    if (!this.pkg) throw new Error('No presentation loaded');
     const pkg = PptxPackage.load(this.pkg.save());
     const settings = this.fontEmbedding;
     let plan: EmbeddingPlan = { faces: [], skipped: [] };

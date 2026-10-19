@@ -23,3 +23,5 @@ export {
   type BlockToken,
 } from './tokens.js';
 export { UniversalWriteDiffElement } from './universal-write-diff.js';
+// leitura do .docx para loadDocuments() (o mesmo modelo que o diff usa)
+export { DocxPackage, readFullDocument, type FullDocument } from '@universal-office/docx-core';

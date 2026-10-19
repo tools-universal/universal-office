@@ -76,18 +76,18 @@ componente não chama `fetch()`.
 const editor = document.querySelector('universal-write') as UniversalWriteElement;
 await editor.initialize({
   fonts: [
-    { family: 'Aptos', variant: 'regular', data: aptosRegularBytes, advances },
-    { family: 'Aptos', variant: 'bold', data: aptosBoldBytes },
-    { family: 'Aptos', variant: 'italic', data: aptosItalicBytes },
-    { family: 'Aptos', variant: 'boldItalic', data: aptosBoldItalicBytes },
+    { family: 'Liberation Sans', variant: 'regular', data: regularBytes, advances },
+    { family: 'Liberation Sans', variant: 'bold', data: boldBytes },
+    { family: 'Liberation Sans', variant: 'italic', data: italicBytes },
+    { family: 'Liberation Sans', variant: 'boldItalic', data: boldItalicBytes },
   ],
   document: { bytes: docxBytes, format: 'docx', protected: false },
 });
 ```
 
-As quatro variantes da Aptos são obrigatórias porque ela é o fallback métrico
-do motor 1:1. Calibri e tabelas de advances são opcionais, mas recomendadas
-para documentos que as usam.
+As quatro variantes da Liberation Sans são obrigatórias: ela é a fonte padrão
+e a substituta de último recurso. Aptos, Calibri e tabelas de advances são
+opcionais, mas recomendadas para documentos que as usam.
 
 O smoke demo `packages/editor/demo/offline.html` embute fontes/tabelas no
 bundle, substitui `fetch` por uma função que sempre lança erro e só mostra

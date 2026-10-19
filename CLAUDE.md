@@ -117,3 +117,12 @@ Publicar de dentro de `publish/`. Os 8 internos são `private` e nunca são
 publicados. O `dist/` é outra coisa: saída do tsc que os pacotes do monorepo
 consomem entre si (ordem de build: write → slides → sheet; o Sheet usa o
 `dist/` do slides-core).
+
+Documentação dos produtos: o README de cada produto é a fonte ÚNICA. O site
+(`site/docs/<produto>/`) é gerado dele por `npm run docs:site`
+(`tools/site/gen-docs.mjs`, que também mantém a barra lateral de todas as
+páginas de docs); só as páginas do `<universal-write>` e do diff são escritas
+à mão. Os GIFs moram uma vez só em `site/assets/gifs/` e são regravados por
+`npm run docs:gifs` (`tools/gifs/record.mjs`: Chromium headless sobre os
+pacotes de `publish/`, documentos de exemplo em inglês gerados na hora); o
+`build:pkg` copia cada GIF para `publish/media/` do pacote.

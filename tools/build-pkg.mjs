@@ -10,6 +10,8 @@
  *   - chunks/: o que o código já importa sob demanda (padrões de hifenização,
  *     barra do editor, conversões raras) — baixado só quando usado;
  *   - index.d.ts: tipos num arquivo só (os dos pacotes internos embutidos);
+ *   - fonts/: as fontes ABERTAS (Liberation, Carlito, Caladea — OFL) que o
+ *     resolvedor usa como substitutas; o host serve a pasta e aponta para ela;
  *   - package.json publicável (sem dependencies) + README.md.
  *
  * Os pacotes internos (fonts, charts, ui, docx-core, docx-layout, sheet-core,
@@ -21,7 +23,7 @@
  */
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -87,7 +89,23 @@ async function buildProduct(id) {
     rmSync(tsconfig, { force: true });
   }
 
-  // 3. Manifesto publicável: sem dependências (tudo está no bundle)
+  // 3. Fontes ABERTAS (OFL) junto do pacote: o host serve `fonts/` e aponta o
+  //    atributo `fonts` / FontResolver.shared().configure({ baseUrl }) para ela.
+  //    Baixadas só quando o documento pede. O compare (DOM puro) não precisa.
+  const withFonts = id !== 'compare';
+  if (withFonts) {
+    const fontsDir = path.join(dist, 'fonts');
+    mkdirSync(fontsDir, { recursive: true });
+    const OPEN = [p('shared/fonts/files'), p('write/packages/editor/demo/fonts')];
+    for (const dir of OPEN) {
+      for (const f of readdirSync(dir)) {
+        const open = /^(liberation(sans|serif|mono)|carlito|caladea)-[a-z]+\.ttf$/.test(f) || /^LICENSE-(liberation|carlito|caladea)\.txt$/.test(f);
+        if (open && !existsSync(path.join(fontsDir, f))) copyFileSync(path.join(dir, f), path.join(fontsDir, f));
+      }
+    }
+  }
+
+  // 4. Manifesto publicável: sem dependências (tudo está no bundle)
   const manifest = {
     name: src.name,
     version: src.version,
@@ -99,13 +117,24 @@ async function buildProduct(id) {
     exports: { '.': { types: './index.d.ts', import: './index.js' } },
     // o componente se auto-registra (customElements.define) ao importar
     sideEffects: true,
-    files: ['index.js', 'index.d.ts', 'chunks', '*.LEGAL.txt', 'README.md'],
+    files: ['index.js', 'index.d.ts', 'chunks', ...(withFonts ? ['fonts'] : []), '*.LEGAL.txt', 'media', 'README.md'],
     ...(publish.keywords ? { keywords: publish.keywords } : {}),
     ...(publish.license ? { license: publish.license } : {}),
   };
   writeFileSync(path.join(dist, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
+  // README: os GIFs moram uma vez só em site/assets/gifs (o link relativo vale no
+  // repositório); no pacote eles vão para media/ e os links entre READMEs viram texto
   const readme = path.join(pkgDir, 'README.md');
-  if (existsSync(readme)) copyFileSync(readme, path.join(dist, 'README.md'));
+  if (existsSync(readme)) {
+    let md = readFileSync(readme, 'utf8');
+    md = md.replace(/\]\((?:\.\.\/)+site\/assets\/gifs\/([\w.-]+\.gif)\)/g, (_, gif) => {
+      mkdirSync(path.join(dist, 'media'), { recursive: true });
+      copyFileSync(p('site/assets/gifs', gif), path.join(dist, 'media', gif));
+      return `](media/${gif})`;
+    });
+    md = md.replace(/\[([^\]]+)\]\(\.\.\/[^)]*README\.md[^)]*\)/g, '$1');
+    writeFileSync(path.join(dist, 'README.md'), md);
+  }
   console.log(`build-pkg: ${src.name}@${src.version} → ${path.relative(ROOT, dist)}`);
 }
 
