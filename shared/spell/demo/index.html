@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>@universal-office/spell — demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 860px; padding: 0 1rem; color: #222; }
+    h1 { font-size: 1.3rem; margin: 0 0 .25rem; }
+    .row { display: flex; gap: .5rem; align-items: center; margin: .75rem 0; flex-wrap: wrap; }
+    textarea { width: 100%; box-sizing: border-box; min-height: 7rem; font: inherit; padding: .5rem; }
+    #out { border: 1px solid #ccc; border-radius: 6px; padding: .75rem; min-height: 4rem; white-space: pre-wrap; }
+    .err { text-decoration: underline wavy #d00; text-decoration-skip-ink: none; text-underline-offset: 3px; cursor: pointer; }
+    .err.sel { background: #fde2e2; }
+    #panel { border: 1px solid #ccc; border-radius: 6px; padding: .5rem .75rem; margin-top: .75rem; display: none; }
+    #panel button.sug { margin: .15rem; }
+    #status { color: #555; font-size: 13px; }
+    code { background: #f3f3f3; padding: 0 .25rem; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>Revisão ortográfica — Hunspell (WASM) em Worker</h1>
+  <p id="status">carregando…</p>
+  <div class="row">
+    <label>Idioma (BCP 47) <select id="lang">
+      <option>pt-BR</option><option>en-US</option><option>en-GB</option><option>pt-PT</option><option>de-DE</option>
+    </select></label>
+    <button id="check">Revisar</button>
+    <label><input type="checkbox" id="upper" checked> ignorar MAIÚSCULAS</label>
+  </div>
+  <textarea id="text">Ontem o comptador da empresa nao conseguiu abrir o arquivo C:\Docs\relatório.docx nem o site https://exmplo.com.br; a excessão aconteceu às 14h30 com 1.500 usuários. Mande-me um e-mail em fulano@empresa.com.br. O guarda-chuva ficou no carro e vou dar-lhe outro. A ABNT publicou a norma.</textarea>
+  <div id="out"></div>
+  <div id="panel">
+    <div><b id="pword"></b> — sugestões:</div>
+    <div id="sugs"></div>
+    <div class="row"><button id="add">Adicionar ao dicionário</button><button id="ignore">Ignorar tudo</button></div>
+  </div>
+  <script type="module" src="./build/main.js"></script>
+</body>
+</html>

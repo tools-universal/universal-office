@@ -14,7 +14,7 @@
  *     resolvedor usa como substitutas; o host serve a pasta e aponta para ela;
  *   - package.json publicável (sem dependencies) + README.md.
  *
- * Os pacotes internos (fonts, charts, ui, docx-core, docx-layout, sheet-core,
+ * Os pacotes internos (fonts, charts, ui, spell, docx-core, docx-layout, sheet-core,
  * sheet-calc, slides-core) são `private` e NUNCA são publicados: só existem
  * dentro desses bundles. O bloco `publish` do package.json de cada produto dá
  * a descrição/palavras-chave/licença do manifesto publicado.
@@ -45,6 +45,7 @@ const INTERNAL = {
   '@universal-office/fonts': 'shared/fonts/src/index.ts',
   '@universal-office/charts': 'shared/charts/src/index.ts',
   '@universal-office/ui': 'shared/ui/src/index.ts',
+  '@universal-office/spell': 'shared/spell/src/index.ts',
   '@universal-office/docx-core': 'write/packages/docx-core/src/index.ts',
   '@universal-office/docx-layout': 'write/packages/docx-layout/src/index.ts',
   '@universal-office/compare': 'write/packages/compare/src/index.ts',

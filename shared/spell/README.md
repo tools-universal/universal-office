@@ -1,0 +1,141 @@
+# @universal-office/spell
+
+Revisão ortográfica **única** dos apps (Write, Sheet, Slides) — pacote interno
+(`private`), embutido nos produtos pelo `tools/build-pkg.mjs`. É um motor usado
+por mais de um app (regra de pacotes do CLAUDE.md): não reimplementar nos apps.
+
+- **Hunspell 1.7.2 em WebAssembly**, num **Worker** (a interface não trava);
+  sem Worker (CSP sem `blob:`, Node), o MESMO código roda no thread.
+- Só Hunspell, também no Electron: o shell desliga o corretor do Chromium e usa
+  este motor (decisão do usuário) — o resultado é igual em todo lugar.
+- Dicionários abertos do LibreOffice: **pt-BR** (VERO) e **en-US** (SCOWL),
+  carregados **sob demanda**: cada um é um `import()` → um arquivo em `chunks/`
+  no pacote publicado; o motor WASM também. Nada pesa até a primeira revisão.
+- Idioma por etiqueta **BCP 47** (no Write, o `w:lang` do run).
+- Dicionário do usuário guardado pelo hospedeiro (padrão: `localStorage`).
+
+## Escolha do motor (medido em 2026-10-19)
+
+`npm run bench` (`bench/bench.mjs`): cada motor num processo separado, Node 24,
+Windows 11. Corpus: palavras reais dos `.md` do repositório (pt: CLAUDE.md,
+REVIEW-*, FINDINGS…; en: READMEs dos produtos) + 400 erros sintéticos de 1
+edição. A referência de aderência é o próprio Hunspell 1.7.2.
+
+| motor | idioma | bundle (KB, min) | carga (ms) | heap JS (MB) | WASM/ArrayBuffer (MB) | check (µs/palavra) | suggest mediana / p95 (ms) | check = Hunspell | 1ª sugestão = Hunspell |
+|---|---|---|---|---|---|---|---|---|---|
+| **hunspell-wasm 0.3.0** (Hunspell 1.7.2) | pt-BR | 847 | 286 | 0,7 | 35,6 | 7,6 | 76 / 263 | 100% | 100% |
+| hunspell-asm 4.0.2 (Hunspell 1.7.0) | pt-BR | 728 | 246 | 2,5 | 44,0 | 6,0 | 117 / 635 | 100% | 95% |
+| nspell 2.1.5 (JS puro) | pt-BR | 10 | **> 300 s, não terminou** (> 1 GB de heap) | | | | | | |
+| **hunspell-wasm 0.3.0** | en-US | 847 | 38 | 0,7 | 19,1 | 3,7 | 8 / 17 | 100% | 100% |
+| hunspell-asm 4.0.2 | en-US | 728 | 64 | 2,5 | 18,2 | 2,6 | 11 / 21 | 100% | 98% |
+| nspell 2.1.5 | en-US | 10 | 91 | 12,4 | 0,6 | 0,5 | 1,3 / 25 | 97,95% | 72% |
+
+**Decisão: Hunspell 1.7.2 em WASM (binário do `hunspell-wasm`).**
+
+- O **nspell** não serve para o pt-BR: o `.aff` do VERO (25.770 regras SFX, 162
+  PFX, 1.056 REP, 65 BREAK) expande na carga e não terminou em 5 min, com mais
+  de 1 GB de memória. No en-US, onde carrega, recusa compostos com hífen (não
+  implementa BREAK: "built-in", "read-only", "state-of-the-art") e acerta só 72%
+  da 1ª sugestão do Hunspell.
+- Entre os dois ports, o check é igual (100%). O `hunspell-wasm` traz o
+  Hunspell mais novo (1.7.2), sugere mais rápido no pt-BR (p95 de 263 ms contra
+  635 ms) e não tem dependências. O `hunspell-asm` (1.7.0, de 2019) diverge em
+  5% da 1ª sugestão.
+- Usamos só o **binário** (`hunspell.js` + `hunspell.wasm`): o wrapper é nosso
+  (`src/engine.ts`, ~150 linhas sobre a API C do Hunspell). Assim o motor roda
+  igual no Worker e no thread, e o build não depende de loader de `.wasm`.
+
+Tamanho no pacote (esbuild `--minify`, como o build-pkg):
+
+| parte | quando baixa | bruto | gzip | brotli |
+|---|---|---|---|---|
+| API (`index` do app) | sempre | 10 KB | 4 KB | 4 KB |
+| motor WASM (`chunks/wasm-*.js`) | 1ª revisão | 1,1 MB | 438 KB | 359 KB |
+| dicionário pt-BR (`chunks/pt-BR-*.js`) | 1º texto pt | 5,5 MB | 1,3 MB | 1,1 MB |
+| dicionário en-US (`chunks/en-US-*.js`) | 1º texto en | 542 KB | 188 KB | 163 KB |
+
+No navegador (Chromium, demo): carga do motor + pt-BR + revisão do 1º parágrafo
+em ~0,5 s, dentro do Worker; en-US depois em ~26 ms; suggest típico de 2 a 80 ms.
+
+## API
+
+```ts
+import { SpellChecker } from '@universal-office/spell';
+
+const spell = SpellChecker.shared();             // um motor por página, para todos os apps
+
+await spell.load('pt-BR');                       // opcional: pré-carrega (senão, no 1º check)
+await spell.check('comptador', 'pt-BR');         // false
+await spell.checkWords(['casa', 'cassa'], 'pt-BR'); // [true, true] — uma mensagem só
+await spell.checkText('O comptador nao veio.', 'pt-BR');
+// → [{ word: 'comptador', start: 2, end: 11 }, { word: 'nao', start: 12, end: 15 }]
+await spell.suggest('nao', 'pt-BR');             // ['não'] (ordem do Hunspell, até 8)
+spell.cached('nao', 'pt-BR');                    // false — síncrono, para a pintura (undefined = ainda não revisada)
+
+await spell.add('Kono');                         // "Adicionar ao dicionário": todos os idiomas, persistido
+await spell.remove('Kono');
+spell.ignore('Fulano');                          // "Ignorar tudo": só nesta sessão
+spell.onChange(({ kind, words }) => repintar()); // add | remove | ignore | load
+
+spell.resolve('en-GB');                          // { id: 'en-US', exact: false }
+spell.resolve('de-DE');                          // undefined → sem revisão (tudo passa)
+spell.mode;                                      // 'worker' | 'thread' | undefined
+```
+
+Opções (`new SpellChecker(opts)`):
+
+- `worker` (padrão `true`): `false` roda o motor no thread;
+- `store`: onde mora o dicionário do usuário, `{ load(): string[] | Promise, save(words) }`.
+  O padrão é `localStorageStore()`; `null` = só memória. O shell Electron passa um store em disco;
+- `dictionaries`: `{ 'es-ES': () => Promise<{ aff, dic }> }` acrescenta ou troca dicionários
+  (o Electron pode servir os do disco). O id vira idioma resolvível.
+
+Tokenização (`tokenize(text, opts)` / `checkText`), como o Word com os padrões dele:
+
+- palavra = letras unidas por hífen ou apóstrofo internos ("guarda-chuva",
+  "dar-lhe", "don't"); o ’ tipográfico vira ' em `word`;
+- ignora números, palavras com dígitos (`ignoreWithNumbers`), MAIÚSCULAS
+  (`ignoreUppercase`), URLs, e-mails e caminhos de arquivo (`ignoreInternet`).
+  Os três ficam ligados por padrão;
+- `start`/`end` apontam para o texto ORIGINAL (o hífen de sílaba U+00AD e os
+  caracteres de largura zero saem só de `word`).
+
+Idioma: a etiqueta exata casa o dicionário; senão vale outra variante da mesma
+língua (`pt-PT` → pt-BR, `en-GB` → en-US, com `exact: false`, e o hospedeiro
+decide). `zxx`/`x-none`, ou língua sem dicionário, ficam sem revisão.
+
+## Integração (próximo passo — não feita aqui)
+
+Para o Write (Sheet e Slides seguem o mesmo contrato):
+
+1. **Sublinhado ondulado** em `paintItems` (`docx-layout/src/canvas.ts`): por
+   parágrafo visível, `spell.checkText(textoDoParágrafo, wLang)` em segundo
+   plano (agrupar runs do mesmo `w:lang`; pular runs com `w:noProof`). Guardar
+   os intervalos por parágrafo e repintar quando a promessa voltar. A pintura é
+   síncrona: usa só o resultado guardado (ou `spell.cached`). Revisar de novo o
+   parágrafo editado (debounce) e tudo em `onChange`.
+2. **Menu de contexto** sobre um erro: `spell.suggest(word, lang)` (até 5 no topo,
+   como o Word), "Ignorar tudo" → `spell.ignore(word)`, "Adicionar ao dicionário"
+   → `spell.add(word)`.
+3. **Diálogo Ortografia e gramática** (F7): percorrer `checkText` parágrafo a
+   parágrafo a partir do cursor; "Alterar"/"Alterar todas" substituem no modelo;
+   "Ignorar uma vez" é estado do diálogo.
+4. **Electron**: `webPreferences.spellcheck: false` (desliga o corretor do
+   Chromium) e um `store` que grava o dicionário do usuário em disco pelo
+   preload; opcionalmente `dictionaries` com outros idiomas do disco.
+5. **build-pkg**: `@universal-office/spell` já está no mapa `INTERNAL`; motor e
+   dicionários saem em `chunks/` sem configuração extra.
+
+## Desenvolvimento
+
+- `npm test`: Vitest (motor no thread, pelo mesmo `engine.ts` do Worker);
+- `npm run build`: tsc → `dist/`;
+- `npm run demo`: bundle esbuild com splitting em `demo/build/`. Servir com o
+  `launch.json` "spell-demo" (`http://localhost:8095`);
+- `npm run gen`: regenera `src/dicts/*.ts` e `src/hunspell/wasm.ts` (ver
+  [src/dicts/README.md](src/dicts/README.md));
+- `npm run bench`: refaz a tabela acima (os candidatos que perderam precisam de
+  `npm i --no-save nspell@2.1.5 hunspell-asm@4.0.2`).
+
+Licenças: Hunspell (MPL 1.1 / GPL 2 / LGPL 2.1, em `src/hunspell/COPYING*`);
+dicionários em [src/dicts/README.md](src/dicts/README.md).
