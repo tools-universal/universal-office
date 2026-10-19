@@ -11494,6 +11494,39 @@ function buildSfnt(sfntVersion, tables) {
   return out;
 }
 
+// ../../../shared/i18n/src/index.ts
+var DEFAULT_UI_LANG = "en";
+function matchUiLang(tag2) {
+  if (!tag2) return null;
+  if (/^pt\b/i.test(tag2)) return "pt";
+  if (/^en\b/i.test(tag2)) return "en";
+  return null;
+}
+function browserUiLang() {
+  const nav = typeof navigator !== "undefined" ? navigator : void 0;
+  const prefs = nav?.languages?.length ? nav.languages : nav?.language ? [nav.language] : [];
+  for (const tag2 of prefs) {
+    const m = matchUiLang(tag2);
+    if (m) return m;
+  }
+  return DEFAULT_UI_LANG;
+}
+function uiLang(el2) {
+  const forced = el2?.getAttribute("lang");
+  if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
+  return browserUiLang();
+}
+function pickLabels(lang, labels) {
+  const l = typeof lang === "string" ? lang : uiLang(lang);
+  return labels[l] ?? labels[DEFAULT_UI_LANG];
+}
+function onBrowserLangChange(cb) {
+  if (typeof window === "undefined") return () => {
+  };
+  window.addEventListener("languagechange", cb);
+  return () => window.removeEventListener("languagechange", cb);
+}
+
 // ../layout/src/font/gpos.ts
 var kernKey = (g1, g2) => g1 * 65536 + g2;
 function gposKernInLatin(view, gposOffset) {
@@ -22660,12 +22693,6 @@ var ControlBar = class {
     clearTimeout(this.hideTimer);
   }
 };
-function pickLabels(lang, labels) {
-  return /^en\b/i.test(lang) ? labels.en : labels.pt;
-}
-function langOf2(el2) {
-  return el2.closest("[lang]")?.lang || navigator.language;
-}
 
 // src/fonts.ts
 var ASSET_FILES = [
@@ -23231,7 +23258,7 @@ var DocumentControls = class {
   menu = document.createElement("div");
   /** botão que abriu o menu (zoom-level | view) e o que fazer na escolha */
   menuFor = null;
-  labels = LABELS.pt;
+  labels = LABELS.en;
   last = "";
   /** Próximo degrau de zoom (a partir do fator atual). */
   step(dir) {
@@ -23493,6 +23520,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
   bitmaps = /* @__PURE__ */ new WeakMap();
   resizeObs = null;
   unsubscribeFonts = null;
+  unsubscribeLang = null;
   relayoutTimer = 0;
   wheelLock = 0;
   static get observedAttributes() {
@@ -23588,6 +23616,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.resizeObs ??= new ResizeObserver(() => this.onResize());
     this.resizeObs.observe(this.wrap);
     this.unsubscribeFonts ??= this.fonts.resolver.onChange(() => this.queueRelayout());
+    this.unsubscribeLang ??= onBrowserLangChange(() => this.configureControls());
     document.addEventListener("fullscreenchange", this.onFullscreenChange);
     this.readZoomAttr();
     this.readViewAttr();
@@ -23601,6 +23630,8 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.resizeObs?.disconnect();
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
+    this.unsubscribeLang?.();
+    this.unsubscribeLang = null;
     document.removeEventListener("fullscreenchange", this.onFullscreenChange);
     cancelAnimationFrame(this.rafId);
     this.rafId = 0;
@@ -23622,7 +23653,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     } else this.configureControls();
   }
   configureControls() {
-    const lang = langOf2(this);
+    const lang = uiLang(this);
     this.controls.configure(!this.hasAttribute("nocontrols"), CONTROL_ITEMS.filter((it) => this.hasAttribute(`no${it}`)), lang);
     const off = (it) => this.hasAttribute("nocontrols") || this.hasAttribute(`no${it}`);
     if (this.navTab && off(this.navTab === "pages" ? "thumbnails" : "outline")) {
@@ -24132,7 +24163,7 @@ var UniversalDocumentViewerElement = class extends HTMLElement {
     this.labelPanels();
   }
   labels(lang) {
-    return labelsFor(lang ?? langOf2(this));
+    return labelsFor(lang ?? uiLang(this));
   }
   /** Rótulos dos painéis no idioma atual (abas, miniaturas, vazios). */
   labelPanels(lang) {

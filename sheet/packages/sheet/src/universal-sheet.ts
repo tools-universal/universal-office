@@ -1,4 +1,5 @@
 import { FontResolver, variantOf } from '@universal-office/fonts';
+import { onBrowserLangChange, pickLabels } from '@universal-office/i18n';
 import {
   XlsxPackage, openSpreadsheet, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
@@ -43,6 +44,12 @@ import { paintSpillBorder } from './spill-border.js';
  *   - fonte Normal: "Aptos Narrow 11" (extração real é trabalho futuro,
  *     como no Write; por ora cai no fallback do sistema).
  */
+
+/** Textos da interface (idioma: `lang` do elemento ou do navegador). */
+const UI_TEXT = {
+  en: { empty: 'No .xlsx loaded' },
+  pt: { empty: 'Nenhum .xlsx carregado' },
+};
 
 const HEADER_W = 46;
 const HEADER_H = 22;
@@ -218,11 +225,21 @@ export class UniversalSheetElement extends HTMLElement {
   /** Autocompletar de funções do editor da célula. */
   private readonly autocomplete = new FormulaAutocomplete(this.wrap, () => this.calc.locale);
 
-  static get observedAttributes(): string[] { return ['formula-locale']; }
+  /**
+   * `lang`: idioma da INTERFACE (textos do componente); sem ele, o do navegador
+   * — inglês por padrão (@universal-office/i18n). Independe de `formula-locale`
+   * (idioma das fórmulas e região dos números).
+   */
+  static get observedAttributes(): string[] { return ['formula-locale', 'lang']; }
 
   attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
     if (name === 'formula-locale') { this.formulaLocale = value; }
+    else if (name === 'lang') this.paint();
   }
+
+  /** Textos da interface no idioma atual. */
+  private get uiText(): typeof UI_TEXT.en { return pickLabels(this, UI_TEXT); }
+  private unsubscribeLang: (() => void) | null = null;
 
   /** Idioma/região das fórmulas ("pt-BR", "en-US", …; null = do navegador). */
   get formulaLocale(): string { return this.calc.locale.region; }
@@ -283,6 +300,7 @@ export class UniversalSheetElement extends HTMLElement {
 
   connectedCallback(): void {
     this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.onFontsChanged());
+    this.unsubscribeLang ??= onBrowserLangChange(() => this.paint());
     new ResizeObserver(() => { this.resize(); this.paint(); }).observe(this.canvas);
     this.resize();
     this.paint();
@@ -682,7 +700,7 @@ export class UniversalSheetElement extends HTMLElement {
    * (cirurgia no XML original — ver sheet-core/serialize.ts).
    */
   saveXlsx(): Uint8Array {
-    if (!this.pkg) throw new Error('Nenhuma pasta de trabalho carregada');
+    if (!this.pkg) throw new Error('No workbook loaded');
     if (this.editing) this.commitEdit();
     // atributos/partes de cálculo (calc-io.ts) + abas que o cálculo mudou
     const edited = new Set([...this.dirtySheets].map((i) => this.views[i]?.worksheet).filter((w): w is Worksheet => !!w));
@@ -1194,6 +1212,8 @@ export class UniversalSheetElement extends HTMLElement {
   disconnectedCallback(): void {
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
+    this.unsubscribeLang?.();
+    this.unsubscribeLang = null;
   }
 
   /** Resolução das fontes dos estilos do workbook carregado (ensureSheetFonts). */
@@ -1583,7 +1603,7 @@ export class UniversalSheetElement extends HTMLElement {
     if (!v) {
       ctx.fillStyle = '#888';
       ctx.font = '14px Segoe UI, Arial';
-      ctx.fillText('Nenhum .xlsx carregado', 20, 30);
+      ctx.fillText(this.uiText.empty, 20, 30);
       return;
     }
 

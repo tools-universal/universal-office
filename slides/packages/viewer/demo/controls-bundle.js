@@ -836,6 +836,39 @@ var FontResolver = class _FontResolver {
   }
 };
 
+// ../../../shared/i18n/src/index.ts
+var DEFAULT_UI_LANG = "en";
+function matchUiLang(tag2) {
+  if (!tag2) return null;
+  if (/^pt\b/i.test(tag2)) return "pt";
+  if (/^en\b/i.test(tag2)) return "en";
+  return null;
+}
+function browserUiLang() {
+  const nav = typeof navigator !== "undefined" ? navigator : void 0;
+  const prefs = nav?.languages?.length ? nav.languages : nav?.language ? [nav.language] : [];
+  for (const tag2 of prefs) {
+    const m = matchUiLang(tag2);
+    if (m) return m;
+  }
+  return DEFAULT_UI_LANG;
+}
+function uiLang(el2) {
+  const forced = el2?.getAttribute("lang");
+  if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
+  return browserUiLang();
+}
+function pickLabels(lang, labels) {
+  const l = typeof lang === "string" ? lang : uiLang(lang);
+  return labels[l] ?? labels[DEFAULT_UI_LANG];
+}
+function onBrowserLangChange(cb) {
+  if (typeof window === "undefined") return () => {
+  };
+  window.addEventListener("languagechange", cb);
+  return () => window.removeEventListener("languagechange", cb);
+}
+
 // ../../node_modules/fflate/esm/browser.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -30947,12 +30980,6 @@ var ControlBar = class {
     clearTimeout(this.hideTimer);
   }
 };
-function pickLabels(lang, labels) {
-  return /^en\b/i.test(lang) ? labels.en : labels.pt;
-}
-function langOf(el2) {
-  return el2.closest("[lang]")?.lang || navigator.language;
-}
 
 // src/controls.ts
 var CONTROL_ITEMS = ["nav", "counter", "play", "mute", "thumbnails", "notes", "download", "present", "fullscreen", "progress"];
@@ -31100,7 +31127,7 @@ var ViewerControls = class {
   style = document.createElement("style");
   thumbsOpen = false;
   notesOpen = false;
-  labels = LABELS.pt;
+  labels = LABELS.en;
   /** Último estado aplicado (evita mexer no DOM a cada quadro da reprodução). */
   last = "";
   thumbsKey = "";
@@ -31276,7 +31303,7 @@ var SlideA11y = class {
   /** conteúdo do slide em cena (oculto, na árvore de acessibilidade) */
   content = document.createElement("div");
   live = new LiveRegion();
-  labels = LABELS2.pt;
+  labels = LABELS2.en;
   shown = -1;
   skipText = null;
   count = 0;
@@ -31353,6 +31380,10 @@ var SlideA11y = class {
 };
 
 // src/universal-presentation-viewer.ts
+var TEXT = {
+  en: { endOfShow: "End of slide show, click to exit.", empty: "No .pptx loaded" },
+  pt: { endOfShow: "Fim da apresenta\xE7\xE3o de slides. Clique para sair.", empty: "Nenhum .pptx carregado" }
+};
 var NO_TIMING2 = { steps: [], interactive: [], hidden: false };
 function picDisplaySize(sh) {
   const x2 = sh.xfrm;
@@ -31395,8 +31426,10 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
    * apresentação.
    */
   show = null;
-  /** Texto da tela de fim da apresentação (o do app de referência em pt-BR). */
-  endOfShowText = "Fim da apresenta\xE7\xE3o de slides. Clique para sair.";
+  /** Texto da tela de fim da apresentação (o do PowerPoint, no idioma da interface). */
+  get endOfShowText() {
+    return pickLabels(this, TEXT).endOfShow;
+  }
   /** Canvases de trabalho da transição (origem/destino) na reprodução automática. */
   fromCanvas = null;
   toCanvas = null;
@@ -31453,7 +31486,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
   }
   /** Liga a barra conforme os atributos — no connect e quando eles mudam. */
   configureControls() {
-    const lang = langOf(this);
+    const lang = uiLang(this);
     this.a11y?.setLang(lang);
     this.a11y?.setName(this.fileName());
     this.controls?.configure(!this.hasAttribute("nocontrols"), CONTROL_ITEMS.filter((it) => this.hasAttribute(`no${it}`)), lang);
@@ -31572,6 +31605,10 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.watchDpr();
     this.restoreParkedFonts();
     this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.paint());
+    this.unsubscribeLang ??= onBrowserLangChange(() => {
+      this.configureControls();
+      this.paint();
+    });
     this.configureControls();
     document.addEventListener("fullscreenchange", this.onAnyFullscreenChange);
     this.resize();
@@ -31597,10 +31634,15 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     this.parkFonts();
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
+    this.unsubscribeLang?.();
+    this.unsubscribeLang = null;
   }
   attributeChangedCallback(name, oldV, newV) {
     if (name === "src" && newV && newV !== oldV && this.isConnected && newV !== this.srcUrl) void this.loadSrc(newV);
-    else if (name !== "src" && this.isConnected) this.configureControls();
+    else if (name !== "src" && this.isConnected) {
+      this.configureControls();
+      if (name === "lang") this.paint();
+    }
   }
   /**
    * Carrega um .pptx por URL (mesma origem ou CORS liberado). Só a carga MAIS
@@ -31712,6 +31754,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
    *  Access, instaladas pelo nome, substitutas abertas, padrão. */
   fontResolver = FontResolver.shared();
   unsubscribeFonts = null;
+  unsubscribeLang = null;
   /** Pilha CSS de uma família do texto: a EMBUTIDA no deck, se houver;
    *  senão a que o resolvedor escolheu (vai em `PaintSlideOptions.fontStack`). */
   fontStackFor = (family, bold = false, italic = false) => this.embeddedFamilies.has(family) ? `"${family.replace(/["\\]/g, "\\$&")}", "Liberation Sans", sans-serif` : this.fontResolver.cssStack(family, MISSING_FONT_FALLBACKS, variantOf(bold, italic));
@@ -32475,7 +32518,7 @@ var UniversalPresentationViewerElement = class extends HTMLElement {
     if (!fit || !slide) {
       ctx.fillStyle = "#bbb";
       ctx.font = "14px Segoe UI, Arial";
-      ctx.fillText("Nenhum .pptx carregado", 20, 30);
+      ctx.fillText(pickLabels(this, TEXT).empty, 20, 30);
       this.badge.textContent = "";
       return;
     }

@@ -1,6 +1,7 @@
 import {
-  ControlBar, controlsCss, cssVar, pickLabels, type ProgressStep,
+  ControlBar, controlsCss, cssVar, type ProgressStep,
 } from '@universal-office/viewer-controls';
+import { pickLabels, type UiLang } from '@universal-office/i18n';
 import { VIEW_MODES, type ViewMode } from './views.js';
 
 /**
@@ -100,8 +101,8 @@ const LABELS = {
     pagesOf: (a: number, b: number, m: number) => `Pages ${a} to ${b} of ${m}`,
   },
 };
-export type Labels = typeof LABELS.pt;
-export const labelsFor = (lang: string): Labels => pickLabels(lang, LABELS);
+export type Labels = typeof LABELS.en;
+export const labelsFor = (lang: UiLang): Labels => pickLabels(lang, LABELS);
 
 const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4];
 
@@ -112,7 +113,7 @@ export class DocumentControls {
   private readonly menu = document.createElement('div');
   /** botão que abriu o menu (zoom-level | view) e o que fazer na escolha */
   private menuFor: { button: string; pick: (v: string) => void } | null = null;
-  private labels: Labels = LABELS.pt;
+  private labels: Labels = LABELS.en;
   private last = '';
 
   constructor(private readonly host: ControlsHost, root: ShadowRoot, wrap: HTMLElement) {
@@ -234,7 +235,7 @@ export class DocumentControls {
     if (refocus) btn?.focus();
   }
 
-  configure(enabled: boolean, removed: readonly ControlItem[], lang: string): void {
+  configure(enabled: boolean, removed: readonly ControlItem[], lang: UiLang): void {
     this.labels = labelsFor(lang);
     this.bar.setLabel(this.labels.toolbar);
     if (!enabled) this.closeMenu();

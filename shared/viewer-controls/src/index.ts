@@ -336,13 +336,3 @@ export class ControlBar<Item extends string> {
 
   dispose(): void { clearTimeout(this.hideTimer); }
 }
-
-/** pt-BR por padrão; inglês quando o `lang` (do elemento ou do navegador) começa com `en`. */
-export function pickLabels<T>(lang: string, labels: { pt: T; en: T }): T {
-  return /^en\b/i.test(lang) ? labels.en : labels.pt;
-}
-
-/** Idioma efetivo do viewer: o `lang` mais próximo no DOM, senão o do navegador. */
-export function langOf(el: Element): string {
-  return (el.closest('[lang]') as HTMLElement | null)?.lang || navigator.language;
-}

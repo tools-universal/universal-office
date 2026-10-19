@@ -8,6 +8,53 @@ import '@universal-material/web/button/icon-button.js';
 import { ThemeBuilder } from '@universal-material/web/theme/index.js';
 import { ICON } from './chrome-icons.js';
 import type { UniversalWriteElement } from './universal-write.js';
+import { pickLabels, type UiLang } from '@universal-office/i18n';
+
+// Textos da barra no idioma da interface (`lang` do <universal-write> ou o do
+// navegador; inglês por padrão — ver @universal-office/i18n). Em pt, os nomes
+// do Word pt-BR.
+const LABELS = {
+  en: {
+    new: 'New document', open: 'Open .docx', save: 'Save .docx', cut: 'Cut', copy: 'Copy', paste: 'Paste',
+    painter: 'Clone formatting', clear: 'Clear direct formatting', undo: 'Undo', redo: 'Redo',
+    find: 'Find & replace', image: 'Insert image', pagebreak: 'Insert page break', comment: 'Insert comment',
+    toc: 'Update table of contents', marks: 'Formatting marks', style: 'Paragraph style', font: 'Font',
+    shrink: 'Decrease font size', size: 'Font size', grow: 'Increase font size', bold: 'Bold', italic: 'Italic',
+    underline: 'Underline', strike: 'Strikethrough', sup: 'Superscript', sub: 'Subscript', color: 'Font color',
+    hl: 'Highlight color', alignLeft: 'Align left', alignCenter: 'Align center', alignRight: 'Align right',
+    justify: 'Justify', spacing: 'Line spacing', bullets: 'Bulleted list', numbered: 'Numbered list',
+    outdent: 'Decrease indent', indent: 'Increase indent', print: 'Print layout', web: 'Web layout',
+    read: 'Read mode', zoomOut: 'Zoom out', zoomIn: 'Zoom in',
+    heading: (n: number) => `Heading ${n}`, title: 'Title',
+    noHighlight: 'No highlight', yellow: 'Yellow', green: 'Green', cyan: 'Cyan', magenta: 'Magenta',
+    decimal: '.', fileName: 'document.docx',
+    findPrompt: 'Find:', replacePrompt: 'Replace with (blank = just find next):', noMatches: 'No matches',
+    commentPrompt: 'Comment:',
+    status: (page: number, pages: number, words: number) =>
+      `Page ${page} of ${pages} · ${words} word${words === 1 ? '' : 's'}`,
+  },
+  pt: {
+    new: 'Novo documento', open: 'Abrir .docx', save: 'Salvar .docx', cut: 'Recortar', copy: 'Copiar', paste: 'Colar',
+    painter: 'Pincel de formatação', clear: 'Limpar formatação direta', undo: 'Desfazer', redo: 'Refazer',
+    find: 'Localizar e substituir', image: 'Inserir imagem', pagebreak: 'Inserir quebra de página',
+    comment: 'Inserir comentário', toc: 'Atualizar sumário', marks: 'Marcas de formatação',
+    style: 'Estilo de parágrafo', font: 'Fonte', shrink: 'Diminuir fonte', size: 'Tamanho da fonte',
+    grow: 'Aumentar fonte', bold: 'Negrito', italic: 'Itálico', underline: 'Sublinhado', strike: 'Tachado',
+    sup: 'Sobrescrito', sub: 'Subscrito', color: 'Cor da fonte', hl: 'Cor do realce do texto',
+    alignLeft: 'Alinhar à esquerda', alignCenter: 'Centralizar', alignRight: 'Alinhar à direita',
+    justify: 'Justificar', spacing: 'Espaçamento entre linhas', bullets: 'Marcadores', numbered: 'Numeração',
+    outdent: 'Diminuir recuo', indent: 'Aumentar recuo', print: 'Layout de impressão', web: 'Layout da Web',
+    read: 'Modo de leitura', zoomOut: 'Diminuir zoom', zoomIn: 'Aumentar zoom',
+    heading: (n: number) => `Título ${n}`, title: 'Título',
+    noHighlight: 'Sem realce', yellow: 'Amarelo', green: 'Verde', cyan: 'Turquesa', magenta: 'Rosa',
+    decimal: ',', fileName: 'documento.docx',
+    findPrompt: 'Localizar:', replacePrompt: 'Substituir por (em branco = só localizar a próxima):',
+    noMatches: 'Nenhuma ocorrência', commentPrompt: 'Comentário:',
+    status: (page: number, pages: number, words: number) =>
+      `Página ${page} de ${pages} · ${words} palavra${words === 1 ? '' : 's'}`,
+  },
+};
+type Labels = typeof LABELS.en;
 
 const svg = (name: string): string =>
   `<svg class="uw-ic" viewBox="0 -960 960 960" aria-hidden="true">${ICON[name] ?? ''}</svg>`;
@@ -75,69 +122,69 @@ function download(data: Uint8Array | string, name: string, type: string): void {
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-const STYLE_OPTS = `<option value="">Normal</option><option value="Heading1">Heading 1</option>`
-  + `<option value="Heading2">Heading 2</option><option value="Heading3">Heading 3</option>`
-  + `<option value="Title">Title</option>`;
+const styleOpts = (L: Labels): string => `<option value="">Normal</option>`
+  + [1, 2, 3].map((n) => `<option value="Heading${n}">${L.heading(n)}</option>`).join('')
+  + `<option value="Title">${L.title}</option>`;
 const FONT_OPTS = `<option>Aptos</option><option>Calibri</option>`;
-const HL_OPTS = `<option value="">No highlight</option><option value="yellow">Yellow</option>`
-  + `<option value="green">Green</option><option value="cyan">Cyan</option><option value="magenta">Magenta</option>`;
-const SPACING_OPTS = `<option value="240">1.0</option><option value="276">1.15</option>`
-  + `<option value="360">1.5</option><option value="480">2.0</option>`;
+const hlOpts = (L: Labels): string => `<option value="">${L.noHighlight}</option>`
+  + (['yellow', 'green', 'cyan', 'magenta'] as const).map((c) => `<option value="${c}">${L[c]}</option>`).join('');
+const spacingOpts = (L: Labels): string => ([[240, '1.0'], [276, '1.15'], [360, '1.5'], [480, '2.0']] as const)
+  .map(([v, t]) => `<option value="${v}">${t.replace('.', L.decimal)}</option>`).join('');
 
 // ── Top toolbar (two rows: Standard + Formatting) ─────────────────────────
-function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => void {
+function buildToolbar(el: HTMLElement, editor: UniversalWriteElement, L: Labels): () => void {
   el.innerHTML = `<div class="uw-bar">
-    ${iconBtn('new', 'note_add', 'New document')}
-    ${iconBtn('open', 'folder_open', 'Open .docx')}
-    ${iconBtn('save', 'save', 'Save .docx')}
+    ${iconBtn('new', 'note_add', L.new)}
+    ${iconBtn('open', 'folder_open', L.open)}
+    ${iconBtn('save', 'save', L.save)}
     ${SEP}
-    ${iconBtn('cut', 'content_cut', 'Cut')}
-    ${iconBtn('copy', 'content_copy', 'Copy')}
-    ${iconBtn('paste', 'content_paste', 'Paste')}
-    ${iconBtn('painter', 'format_paint', 'Clone formatting')}
-    ${iconBtn('clear', 'format_clear', 'Clear direct formatting')}
+    ${iconBtn('cut', 'content_cut', L.cut)}
+    ${iconBtn('copy', 'content_copy', L.copy)}
+    ${iconBtn('paste', 'content_paste', L.paste)}
+    ${iconBtn('painter', 'format_paint', L.painter)}
+    ${iconBtn('clear', 'format_clear', L.clear)}
     ${SEP}
-    ${iconBtn('undo', 'undo', 'Undo')}
-    ${iconBtn('redo', 'redo', 'Redo')}
+    ${iconBtn('undo', 'undo', L.undo)}
+    ${iconBtn('redo', 'redo', L.redo)}
     ${SEP}
-    ${iconBtn('find', 'find_replace', 'Find & replace')}
+    ${iconBtn('find', 'find_replace', L.find)}
     ${SEP}
-    ${iconBtn('image', 'image', 'Insert image')}
-    ${iconBtn('pagebreak', 'insert_page_break', 'Insert page break')}
-    ${iconBtn('comment', 'add_comment', 'Insert comment')}
-    ${iconBtn('toc', 'toc', 'Update table of contents')}
+    ${iconBtn('image', 'image', L.image)}
+    ${iconBtn('pagebreak', 'insert_page_break', L.pagebreak)}
+    ${iconBtn('comment', 'add_comment', L.comment)}
+    ${iconBtn('toc', 'toc', L.toc)}
     ${SEP}
-    ${textBtn('marks', '&para;', 'Formatting marks')}
+    ${textBtn('marks', '&para;', L.marks)}
     <input type="file" data-a="file-docx" accept=".docx,.doc,.odt" hidden />
     <input type="file" data-a="file-img" accept="image/*" hidden />
   </div>
   <div class="uw-bar">
-    ${sel('style', 'Paragraph style', STYLE_OPTS)}
-    ${sel('font', 'Font', FONT_OPTS)}
-    ${textBtn('shrink', 'A&minus;', 'Decrease font size')}
-    <input type="number" class="uw-size" data-a="size" min="1" max="400" title="Font size" />
-    ${textBtn('grow', 'A+', 'Increase font size')}
+    ${sel('style', L.style, styleOpts(L))}
+    ${sel('font', L.font, FONT_OPTS)}
+    ${textBtn('shrink', 'A&minus;', L.shrink)}
+    <input type="number" class="uw-size" data-a="size" min="1" max="400" title="${L.size}" />
+    ${textBtn('grow', 'A+', L.grow)}
     ${SEP}
-    ${iconBtn('bold', 'format_bold', 'Bold')}
-    ${iconBtn('italic', 'format_italic', 'Italic')}
-    ${iconBtn('underline', 'format_underlined', 'Underline')}
-    ${iconBtn('strike', 'format_strikethrough', 'Strikethrough')}
-    ${iconBtn('sup', 'superscript', 'Superscript')}
-    ${iconBtn('sub', 'subscript', 'Subscript')}
+    ${iconBtn('bold', 'format_bold', L.bold)}
+    ${iconBtn('italic', 'format_italic', L.italic)}
+    ${iconBtn('underline', 'format_underlined', L.underline)}
+    ${iconBtn('strike', 'format_strikethrough', L.strike)}
+    ${iconBtn('sup', 'superscript', L.sup)}
+    ${iconBtn('sub', 'subscript', L.sub)}
     ${SEP}
-    <input type="color" class="uw-color" data-a="color" title="Font color" value="#000000" />
-    ${sel('hl', 'Highlight color', HL_OPTS)}
+    <input type="color" class="uw-color" data-a="color" title="${L.color}" value="#000000" />
+    ${sel('hl', L.hl, hlOpts(L))}
     ${SEP}
-    ${iconBtn('align:left', 'format_align_left', 'Align left')}
-    ${iconBtn('align:center', 'format_align_center', 'Align center')}
-    ${iconBtn('align:right', 'format_align_right', 'Align right')}
-    ${iconBtn('align:both', 'format_align_justify', 'Justify')}
+    ${iconBtn('align:left', 'format_align_left', L.alignLeft)}
+    ${iconBtn('align:center', 'format_align_center', L.alignCenter)}
+    ${iconBtn('align:right', 'format_align_right', L.alignRight)}
+    ${iconBtn('align:both', 'format_align_justify', L.justify)}
     ${SEP}
-    ${sel('spacing', 'Line spacing', SPACING_OPTS)}
-    ${iconBtn('list:bullet', 'format_list_bulleted', 'Bulleted list')}
-    ${iconBtn('list:decimal', 'format_list_numbered', 'Numbered list')}
-    ${iconBtn('outdent', 'format_indent_decrease', 'Decrease indent')}
-    ${iconBtn('indent', 'format_indent_increase', 'Increase indent')}
+    ${sel('spacing', L.spacing, spacingOpts(L))}
+    ${iconBtn('list:bullet', 'format_list_bulleted', L.bullets)}
+    ${iconBtn('list:decimal', 'format_list_numbered', L.numbered)}
+    ${iconBtn('outdent', 'format_indent_decrease', L.outdent)}
+    ${iconBtn('indent', 'format_indent_increase', L.indent)}
   </div>`;
 
   const fileDocx = el.querySelector<HTMLInputElement>('[data-a="file-docx"]')!;
@@ -146,7 +193,7 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
   const act: Record<string, () => void> = {
     new: () => editor.newDocument(),
     open: () => fileDocx.click(),
-    save: () => void editor.save('docx').then((d) => download(d as Uint8Array, 'document.docx', DOCX_MIME)),
+    save: () => void editor.save('docx').then((d) => download(d as Uint8Array, L.fileName, DOCX_MIME)),
     cut: () => void editor.cut(),
     copy: () => void editor.copy(),
     paste: () => void editor.paste(),
@@ -155,15 +202,15 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
     undo: () => editor.undo(),
     redo: () => editor.redo(),
     find: () => {
-      const q = prompt('Find:');
+      const q = prompt(L.findPrompt);
       if (!q) return;
-      const r = prompt('Replace with (blank = just find next):');
-      if (r) { const n = editor.replaceAll(q, r); if (n === 0) alert('No matches'); }
+      const r = prompt(L.replacePrompt);
+      if (r) { const n = editor.replaceAll(q, r); if (n === 0) alert(L.noMatches); }
       else editor.findNext(q);
     },
     image: () => fileImg.click(),
     pagebreak: () => editor.insertPageBreak(),
-    comment: () => { const t = prompt('Comment:'); if (t) editor.addComment(t); },
+    comment: () => { const t = prompt(L.commentPrompt); if (t) editor.addComment(t); },
     toc: () => editor.updateToc(),
     marks: () => editor.toggleMarks(),
     bold: () => editor.toggleRunProp('bold'),
@@ -322,19 +369,19 @@ function buildToolbar(el: HTMLElement, editor: UniversalWriteElement): () => voi
 }
 
 // ── Bottom status bar ─────────────────────────────────────────────────────
-function buildBottomBar(el: HTMLElement, editor: UniversalWriteElement): () => void {
+function buildBottomBar(el: HTMLElement, editor: UniversalWriteElement, L: Labels): () => void {
   el.innerHTML = `<div class="uw-bar">
     <span class="uw-status" data-a="status"></span>
     <span class="uw-spacer"></span>
     <span class="uw-view">
-      ${iconBtn('view:print', 'article', 'Print layout')}
-      ${iconBtn('view:web', 'language', 'Web layout')}
-      ${iconBtn('view:read', 'menu_book', 'Read mode')}
+      ${iconBtn('view:print', 'article', L.print)}
+      ${iconBtn('view:web', 'language', L.web)}
+      ${iconBtn('view:read', 'menu_book', L.read)}
     </span>
     <span class="uw-sep"></span>
-    ${iconBtn('zoomout', 'zoom_out', 'Zoom out')}
+    ${iconBtn('zoomout', 'zoom_out', L.zoomOut)}
     <span class="uw-status" data-a="zoom" style="min-width:44px;text-align:center"></span>
-    ${iconBtn('zoomin', 'zoom_in', 'Zoom in')}
+    ${iconBtn('zoomin', 'zoom_in', L.zoomIn)}
   </div>`;
 
   const act: Record<string, () => void> = {
@@ -353,7 +400,7 @@ function buildBottomBar(el: HTMLElement, editor: UniversalWriteElement): () => v
   const zoomEl = el.querySelector<HTMLElement>('[data-a="zoom"]')!;
   return () => {
     const s = editor.stats();
-    statusEl.textContent = `Page ${s.page} of ${s.pages} · ${s.words} word${s.words === 1 ? '' : 's'}`;
+    statusEl.textContent = L.status(s.page, s.pages, s.words);
     zoomEl.textContent = `${Math.round(editor.getZoom() * 100)}%`;
     const view = editor.getView();
     for (const v of ['print', 'web', 'read'] as const) {
@@ -366,7 +413,7 @@ export function setupChrome(
   editor: UniversalWriteElement,
   topbarEl: HTMLElement,
   bottombarEl: HTMLElement,
-  opts: { topbar: boolean; bottombar: boolean },
+  opts: { topbar: boolean; bottombar: boolean; lang: UiLang },
 ): ChromeHandle {
   ensureTheme();
 
@@ -381,9 +428,10 @@ export function setupChrome(
 
   const syncers: Array<() => void> = [];
   topbarEl.replaceChildren();
-  if (opts.topbar) syncers.push(buildToolbar(topbarEl, editor));
+  const L = pickLabels(opts.lang, LABELS);
+  if (opts.topbar) syncers.push(buildToolbar(topbarEl, editor, L));
   bottombarEl.replaceChildren();
-  if (opts.bottombar) syncers.push(buildBottomBar(bottombarEl, editor));
+  if (opts.bottombar) syncers.push(buildBottomBar(bottombarEl, editor, L));
 
   const sync = (): void => { for (const fn of syncers) fn(); };
   sync();

@@ -1,6 +1,8 @@
 // Diálogo ÚNICO da opção "fontes no arquivo" (Write e Slides; o Sheet não tem:
 // o .xlsx não guarda fontes). DOM puro (<dialog>), herda a fonte e o
-// color-scheme da página.
+// color-scheme da página. Idioma: `lang` (ou o elemento do app, que decide pelo
+// próprio atributo `lang`); sem ele, o do navegador — inglês por padrão.
+import { pickLabels, type UiLang } from '@universal-office/i18n';
 import { COMMON_FONTS, type EmbeddingApp, type EmbeddingSkipReason, type FontEmbeddingSettings } from './embedding.js';
 
 export interface FontEmbeddingDialogOptions {
@@ -8,35 +10,64 @@ export interface FontEmbeddingDialogOptions {
   settings: FontEmbeddingSettings;
   /** Onde pendurar o <dialog> (padrão: document.body). */
   parent?: HTMLElement;
+  /** Idioma da interface, ou o elemento do app cujo idioma seguir (padrão: o do navegador). */
+  lang?: UiLang | Element;
 }
 
-const join = (xs: readonly string[]): string =>
-  xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`;
+const LABELS = {
+  en: {
+    and: 'and', title: 'Fonts in the file', embed: 'Embed fonts in the file',
+    subset: 'Embed only the characters used',
+    subsetNote: '(smaller file; editing with other characters on another computer uses another font)',
+    skipCommon: 'Do not embed common system fonts',
+    neverEmbedded: (common: string) => `${common} are never embedded, as in PowerPoint.`,
+    note: 'Only fonts whose file is available and whose license allows embedding are included; the ones left out are reported when saving.',
+    cancel: 'Cancel', ok: 'OK',
+    reasons: { common: 'common system font', license: 'the license does not allow it', unavailable: 'font file unavailable' },
+    embedded: 'Fonts embedded', notEmbedded: 'not embedded',
+  },
+  pt: {
+    and: 'e', title: 'Fontes no arquivo', embed: 'Incorporar fontes no arquivo',
+    subset: 'Incorporar só os caracteres usados',
+    subsetNote: '(arquivo menor; editar com outros caracteres em outra máquina usa outra fonte)',
+    skipCommon: 'Não incorporar fontes comuns do sistema',
+    neverEmbedded: (common: string) => `${common} nunca são incorporadas, como no PowerPoint.`,
+    note: 'Só entram fontes cujo arquivo está disponível e cuja licença permite incorporar; as que ficarem de fora são avisadas ao salvar.',
+    cancel: 'Cancelar', ok: 'OK',
+    reasons: { common: 'fonte comum do sistema', license: 'a licença não permite', unavailable: 'arquivo da fonte indisponível' },
+    embedded: 'Fontes incorporadas', notEmbedded: 'não incorporadas',
+  },
+};
+type Labels = typeof LABELS.en;
+
+const join = (xs: readonly string[], L: Labels): string =>
+  xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} ${L.and} ${xs[xs.length - 1]}`;
 
 /** Abre o diálogo; resolve com as novas opções (OK) ou null (Cancelar/Esc). */
 export function openFontEmbeddingDialog(opts: FontEmbeddingDialogOptions): Promise<FontEmbeddingSettings | null> {
   const { app, settings } = opts;
+  const L = pickLabels(opts.lang, LABELS);
   const dlg = document.createElement('dialog');
   dlg.className = 'uo-font-embedding';
   dlg.style.cssText = 'max-width:460px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);' +
     'border-radius:12px;padding:20px 22px;font:inherit;color:inherit;background:Canvas;';
-  const common = join(COMMON_FONTS[app]);
+  const common = join(COMMON_FONTS[app], L);
   dlg.innerHTML = `
     <form method="dialog" style="display:flex;flex-direction:column;gap:12px;margin:0">
-      <strong style="font-size:1.1em">Fontes no arquivo</strong>
-      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>Incorporar fontes no arquivo</span></label>
+      <strong style="font-size:1.1em">${L.title}</strong>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>${L.embed}</span></label>
       <div data-sub style="display:flex;flex-direction:column;gap:10px;margin-left:26px">
         <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="subset">
-          <span>Incorporar só os caracteres usados <small style="opacity:.7">(arquivo menor; editar com outros caracteres em outra máquina usa outra fonte)</small></span></label>
+          <span>${L.subset} <small style="opacity:.7">${L.subsetNote}</small></span></label>
         ${app === 'write'
           ? `<label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="skipCommon">
-               <span>Não incorporar fontes comuns do sistema <small style="opacity:.7">(${common})</small></span></label>`
-          : `<small style="opacity:.7">${common} nunca são incorporadas, como no PowerPoint.</small>`}
+               <span>${L.skipCommon} <small style="opacity:.7">(${common})</small></span></label>`
+          : `<small style="opacity:.7">${L.neverEmbedded(common)}</small>`}
       </div>
-      <small style="opacity:.7">Só entram fontes cujo arquivo está disponível e cuja licença permite incorporar; as que ficarem de fora são avisadas ao salvar.</small>
+      <small style="opacity:.7">${L.note}</small>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
-        <button value="cancel" type="submit">Cancelar</button>
-        <button value="ok" type="submit">OK</button>
+        <button value="cancel" type="submit">${L.cancel}</button>
+        <button value="ok" type="submit">${L.ok}</button>
       </div>
     </form>`;
   const box = (n: string) => dlg.querySelector<HTMLInputElement>(`input[name="${n}"]`);
@@ -65,25 +96,20 @@ export function openFontEmbeddingDialog(opts: FontEmbeddingDialogOptions): Promi
   });
 }
 
-const REASONS: Record<Exclude<EmbeddingSkipReason, 'already-embedded'>, string> = {
-  common: 'fonte comum do sistema',
-  license: 'a licença não permite',
-  unavailable: 'arquivo da fonte indisponível',
-};
-
 /** Resumo para a barra de status depois de salvar. Vazio se não houve o que dizer. */
 export function describeFontEmbedding(detail: {
   embedded: readonly string[];
   skipped: readonly { family: string; reason: EmbeddingSkipReason }[];
-}): string {
+}, lang?: UiLang | Element): string {
+  const L = pickLabels(lang, LABELS);
   const parts: string[] = [];
-  if (detail.embedded.length) parts.push(`Fontes incorporadas: ${join(detail.embedded)}`);
+  if (detail.embedded.length) parts.push(`${L.embedded}: ${join(detail.embedded, L)}`);
   const by = new Map<string, string[]>();
   for (const s of detail.skipped) {
     if (s.reason === 'already-embedded') continue;
-    const r = REASONS[s.reason];
+    const r = L.reasons[s.reason];
     by.set(r, [...(by.get(r) ?? []), s.family]);
   }
-  if (by.size) parts.push(`não incorporadas: ${[...by].map(([r, fs]) => `${join(fs)} (${r})`).join('; ')}`);
+  if (by.size) parts.push(`${L.notEmbedded}: ${[...by].map(([r, fs]) => `${join(fs, L)} (${r})`).join('; ')}`);
   return parts.join(' · ');
 }

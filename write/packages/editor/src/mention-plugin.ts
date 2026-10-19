@@ -3,6 +3,12 @@ import type {
   UniversalWritePlugin,
   UniversalWritePluginHost,
 } from './plugins.js';
+import { pickLabels } from '@universal-office/i18n';
+
+const LABELS = {
+  en: { menu: 'Mention suggestions', choose: 'Choose a person', empty: 'No mentions found' },
+  pt: { menu: 'Sugestões de menção', choose: 'Escolha uma pessoa', empty: 'Nenhuma menção encontrada' },
+};
 
 export interface MentionData {
   id: string;
@@ -16,6 +22,7 @@ export interface MentionPluginOptions {
   /** Fonte local ou remota de sugestões. Ausente mantém o plugin apenas como renderer. */
   source?: (query: string) => readonly MentionData[] | Promise<readonly MentionData[]>;
   maxSuggestions?: number;
+  /** Texto da lista vazia; ausente usa o do idioma da interface (`lang` do editor ou navegador). */
   emptyLabel?: string;
 }
 
@@ -53,7 +60,8 @@ function setupMentionAutocomplete(
   popup.hidden = true;
   popup.className = 'wordnext-mention-menu';
   popup.setAttribute('role', 'listbox');
-  popup.setAttribute('aria-label', 'Mention suggestions');
+  const labels = () => pickLabels(editor instanceof Element ? editor : null, LABELS);
+  popup.setAttribute('aria-label', labels().menu);
   Object.assign(popup.style, {
     position: 'fixed',
     zIndex: '2147483647',
@@ -94,9 +102,11 @@ function setupMentionAutocomplete(
     popup.replaceChildren();
     popup.hidden = !active;
     if (!active) return;
+    const L = labels();
+    popup.setAttribute('aria-label', L.menu);
 
     const heading = document.createElement('div');
-    heading.textContent = query ? `${prefix}${query}` : 'Escolha uma pessoa';
+    heading.textContent = query ? `${prefix}${query}` : L.choose;
     Object.assign(heading.style, {
       padding: '6px 10px 8px',
       color: '#5f6368',
@@ -107,7 +117,7 @@ function setupMentionAutocomplete(
 
     if (items.length === 0) {
       const empty = document.createElement('div');
-      empty.textContent = options.emptyLabel ?? 'No mentions found';
+      empty.textContent = options.emptyLabel ?? L.empty;
       Object.assign(empty.style, { padding: '10px', color: '#6b7280' });
       popup.append(empty);
       return;

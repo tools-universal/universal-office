@@ -16,6 +16,7 @@ const alias = {
   '@universal-office/fonts': join(slidesRoot, '..', 'shared', 'fonts', 'src', 'index.ts'),
   '@universal-office/charts': join(slidesRoot, '..', 'shared', 'charts', 'src', 'index.ts'),
   '@universal-office/viewer-controls': join(slidesRoot, '..', 'shared', 'viewer-controls', 'src', 'index.ts'),
+  '@universal-office/i18n': join(slidesRoot, '..', 'shared', 'i18n', 'src', 'index.ts'),
 };
 // index.html (página de teste) e controls.html (demo dos controles embutidos)
 for (const [entry, out] of [['main.ts', 'bundle.js'], ['controls.ts', 'controls-bundle.js']]) {

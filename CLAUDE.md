@@ -78,3 +78,17 @@ um atributo booleano por item (`nodownload`, `nofullscreen`…) — sem
 `controlslist`. Variáveis `--upv-*`/`--udv-*` com recuo nas comuns `--uo-*`;
 `::part()` para o resto. O canvas das páginas do Write também é um só:
 `paintItems` em `docx-layout/src/canvas.ts` (editor e viewer).
+
+## Idioma da interface: um lugar só
+
+Os textos da INTERFACE de todos os web components (`<universal-write>`,
+`<universal-sheet>`, `<universal-slides>`, os dois viewers,
+`<universal-write-diff>`, o diálogo de fontes e o plugin de menções) escolhem
+o idioma em `shared/i18n` (`@universal-office/i18n`) — não reimplementar nos
+apps. Regra combinada com o usuário: inglês por padrão; português quando o
+navegador prefere pt (`navigator.languages`); o atributo `lang` no PRÓPRIO
+elemento força (`lang` de ancestral, como `<html lang>`, não conta; idioma sem
+tradução cai no inglês). Cada componente guarda a própria tabela `{ en, pt }`
+e usa `pickLabels`/`uiLang`. Isso é só a interface: números, datas e nomes de
+função do Sheet seguem `formula-locale` (as mensagens de erro de fórmula
+também, como no Excel), e a fidelidade dos dados continua pt-BR.

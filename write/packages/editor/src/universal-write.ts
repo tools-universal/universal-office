@@ -39,6 +39,7 @@ import {
   FontResolver, METRIC_SUBSTITUTES, DEFAULT_EMBEDDING, planFontEmbedding, readDocxEmbedding, writeDocxEmbedding,
   type ResolvedFont, type FontEmbeddingSettings, type FontUsage, type EmbeddingPlan,
 } from '@universal-office/fonts';
+import { onBrowserLangChange, uiLang } from '@universal-office/i18n';
 import {
   SfntFont,
   type LayoutFont,
@@ -580,11 +581,12 @@ export class UniversalWriteElement extends HTMLElement {
   // ─────────────────────── chrome (barras) ───────────────────────
 
   static get observedAttributes(): string[] {
-    return ['topbar', 'bottombar', 'layout'];
+    return ['topbar', 'bottombar', 'layout', 'lang'];
   }
 
   attributeChangedCallback(name: string): void {
-    if ((name === 'topbar' || name === 'bottombar') && this.initialized) void this.updateChrome();
+    // lang: idioma da interface (barras); sem ele, o do navegador — inglês por padrão
+    if ((name === 'topbar' || name === 'bottombar' || name === 'lang') && this.initialized) void this.updateChrome();
     // layout="legacy": volta ao layout antigo do canvas (o motor é o padrão)
     if (name === 'layout' && this.model) {
       if (this.legacyRequested() && this.cellEdit) this.exitCell();
@@ -605,6 +607,7 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   private chromeReq = 0;
+  private unsubscribeLang: (() => void) | null = null;
   private chromeListenersBound = false;
   /** (Re)constrói as barras conforme os atributos topbar/bottombar. */
   private async updateChrome(): Promise<void> {
@@ -619,7 +622,7 @@ export class UniversalWriteElement extends HTMLElement {
     const req = ++this.chromeReq;
     const { setupChrome } = await import('./chrome.js');
     if (req !== this.chromeReq) return; // superado por outra mudança
-    const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar });
+    const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
     if (!this.chromeListenersBound) {
       const relay = (): void => this.chromeSync?.();
@@ -635,6 +638,7 @@ export class UniversalWriteElement extends HTMLElement {
     window.addEventListener('resize', this.handleWindowResize);
     this.fontResolver.suggestBaseUrl(this.getAttribute('fonts'));
     this.unsubscribeFonts ??= this.fontResolver.onChange((families) => this.onFontsResolved(families));
+    this.unsubscribeLang ??= onBrowserLangChange(() => { if (this.initialized && !this.hasAttribute('lang')) void this.updateChrome(); });
     if (this.initialized) this.startCaret();
     if (!this.hasAttribute('manual-init')) await this.initialize();
   }
@@ -642,6 +646,8 @@ export class UniversalWriteElement extends HTMLElement {
   disconnectedCallback(): void {
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
+    this.unsubscribeLang?.();
+    this.unsubscribeLang = null;
     window.removeEventListener('resize', this.handleWindowResize);
     window.clearInterval(this.caretTimer);
     this.caretTimer = 0;
@@ -2718,7 +2724,7 @@ export class UniversalWriteElement extends HTMLElement {
         bmp.close?.();
         const dataUri: string = await new Promise((resolve, reject) => {
           canvas.toBlob((b) => {
-            if (!b) { reject(new Error('toBlob retornou null')); return; }
+            if (!b) { reject(new Error('canvas.toBlob returned null')); return; }
             const fr = new FileReader();
             fr.onload = () => resolve(fr.result as string);
             fr.onerror = () => reject(fr.error);

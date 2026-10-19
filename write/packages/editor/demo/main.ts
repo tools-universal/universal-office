@@ -337,7 +337,7 @@ async function actionSave(saveAs: boolean): Promise<boolean> {
 // ───── fontes no arquivo (opção única dos apps — shared/fonts) ─────
 // o salvar .docx avisa o que foi incorporado e o que ficou de fora
 let fontNote = '';
-wn.addEventListener('uw-font-embedding', ((e: CustomEvent) => { fontNote = describeFontEmbedding(e.detail); }) as EventListener);
+wn.addEventListener('uw-font-embedding', ((e: CustomEvent) => { fontNote = describeFontEmbedding(e.detail, wn); }) as EventListener);
 function takeFontNote(): string {
   const n = fontNote ? ` · ${fontNote}` : '';
   fontNote = '';
@@ -345,7 +345,7 @@ function takeFontNote(): string {
 }
 $('actFontEmbedding').addEventListener('click', () => {
   closeMenus();
-  void openFontEmbeddingDialog({ app: 'write', settings: wn.getFontEmbedding() })
+  void openFontEmbeddingDialog({ app: 'write', settings: wn.getFontEmbedding(), lang: wn })
     .then((s) => { if (s) wn.setFontEmbedding(s); });
 });
 

@@ -1,6 +1,7 @@
 import {
-  ControlBar, controlsCss, cssVar, pickLabels,
+  ControlBar, controlsCss, cssVar,
 } from '@universal-office/viewer-controls';
+import { pickLabels, type UiLang } from '@universal-office/i18n';
 
 /**
  * Controles do <universal-presentation-viewer> sobre a barra ÚNICA dos viewers
@@ -103,7 +104,7 @@ const LABELS = {
     slideOf: (n: number, m: number) => `Slide ${n} of ${m}`,
   },
 };
-type Labels = typeof LABELS.pt;
+type Labels = typeof LABELS.en;
 
 export class ViewerControls {
   private readonly bar: ControlBar<ControlItem>;
@@ -112,7 +113,7 @@ export class ViewerControls {
   private readonly style = document.createElement('style');
   private thumbsOpen = false;
   private notesOpen = false;
-  private labels: Labels = LABELS.pt;
+  private labels: Labels = LABELS.en;
   /** Último estado aplicado (evita mexer no DOM a cada quadro da reprodução). */
   private last = '';
   private thumbsKey = '';
@@ -176,7 +177,7 @@ export class ViewerControls {
   }
 
   /** Monta (ou desmonta) a barra conforme `nocontrols` e os `no<item>`. */
-  configure(enabled: boolean, removed: readonly ControlItem[], lang: string): void {
+  configure(enabled: boolean, removed: readonly ControlItem[], lang: UiLang): void {
     this.labels = pickLabels(lang, LABELS);
     this.bar.setLabel(this.labels.toolbar);
     this.notesEl.dataset['empty'] = this.labels.noNotes;

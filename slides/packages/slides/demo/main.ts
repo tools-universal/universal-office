@@ -108,7 +108,7 @@ async function actionSave(saveAs = false): Promise<void> {
   let bytes: Uint8Array = savedBytes;
   let note = '';
   if (fontOptionTouched || us.getFontEmbedding().embed) {
-    const onReport = ((e: CustomEvent) => { note = describeFontEmbedding(e.detail); }) as EventListener;
+    const onReport = ((e: CustomEvent) => { note = describeFontEmbedding(e.detail, us); }) as EventListener;
     us.addEventListener('us-font-embedding', onReport, { once: true });
     try { bytes = await us.savePptx(); }
     catch (e) { setStatus(`⚠ Não salvou: ${e instanceof Error ? e.message : String(e)}`); return; }
@@ -122,7 +122,7 @@ async function actionSave(saveAs = false): Promise<void> {
 let fontOptionTouched = false;
 $('actFontEmbedding').addEventListener('click', () => {
   closeMenus();
-  void openFontEmbeddingDialog({ app: 'slides', settings: us.getFontEmbedding() }).then((s) => {
+  void openFontEmbeddingDialog({ app: 'slides', settings: us.getFontEmbedding(), lang: us }).then((s) => {
     if (!s) return;
     us.setFontEmbedding(s);
     fontOptionTouched = true;

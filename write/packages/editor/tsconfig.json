@@ -10,7 +10,8 @@
       "@universal-office/layout": ["../layout/src/index.ts"],
       "@universal-office/pdf": ["../pdf/src/index.ts"],
       "@universal-office/docx-layout": ["../docx-layout/src/index.ts"],
-      "@universal-office/fonts": ["../../../shared/fonts/src/index.ts"]
+      "@universal-office/fonts": ["../../../shared/fonts/src/index.ts"],
+      "@universal-office/i18n": ["../../../shared/i18n/src/index.ts"]
     }
   },
   "include": ["src", "demo"]

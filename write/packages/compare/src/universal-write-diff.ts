@@ -26,6 +26,29 @@ import {
   type TableBlock,
 } from '@universal-office/docx-core';
 import { diffDocuments, type DocDiff, type DocEdit, type DocIntraEdit, type TableRowEdit } from './diff.js';
+import { onBrowserLangChange, pickLabels } from '@universal-office/i18n';
+
+// Textos da interface: `lang` no elemento força; sem ele, o idioma do
+// navegador (inglês por padrão — ver @universal-office/i18n).
+const s_ = (n: number): string => (n === 1 ? '' : 's');
+const LABELS = {
+  en: {
+    noComparison: 'No comparison loaded — call loadPair(aBytes, bBytes).', empty: 'Empty documents.',
+    left: 'Original', right: 'Modified', identical: 'Identical documents', onlyChanges: 'Only changes',
+    close: 'Close comparison', formatting: 'formatting',
+    inserted: (n: number) => `${n} inserted`, deleted: (n: number) => `${n} deleted`,
+    changed: (n: number) => `${n} changed`, formatOnly: (n: number) => `${n} formatting`,
+    unchanged: (n: number) => `… ${n} unchanged block${s_(n)} …`,
+  },
+  pt: {
+    noComparison: 'Nenhuma comparação carregada — chame loadPair(aBytes, bBytes).', empty: 'Documentos vazios.',
+    left: 'Original', right: 'Revisado', identical: 'Documentos idênticos', onlyChanges: 'Só as alterações',
+    close: 'Fechar comparação', formatting: 'formatação',
+    inserted: (n: number) => `${n} inserido${s_(n)}`, deleted: (n: number) => `${n} excluído${s_(n)}`,
+    changed: (n: number) => `${n} alterado${s_(n)}`, formatOnly: (n: number) => `${n} de formatação`,
+    unchanged: (n: number) => `… ${n} bloco${s_(n)} sem alteração …`,
+  },
+};
 
 // Em Node (testes da engine) não há DOM; uma base vazia mantém o módulo
 // importável — o elemento só é registrado quando customElements existe.
@@ -211,7 +234,7 @@ interface LoadOpts {
 
 export class UniversalWriteDiffElement extends Base {
   static get observedAttributes(): string[] {
-    return ['view', 'left-label', 'right-label'];
+    return ['view', 'left-label', 'right-label', 'lang'];
   }
 
   private _shadow: ShadowRoot;
@@ -221,6 +244,7 @@ export class UniversalWriteDiffElement extends Base {
   private _blobUrls: string[] = [];
   private _expandedBands = new Set<number>();
   private _renderScheduled = false;
+  private _unsubscribeLang: (() => void) | null = null;
 
   constructor() {
     super();
@@ -235,11 +259,17 @@ export class UniversalWriteDiffElement extends Base {
     // Reanexado: os blob URLs foram revogados no disconnect — re-renderiza
     // para regenerá-los (e cobre loadPair chamado com o elemento fora do DOM).
     if (this._diff) this._schedule();
+    this._unsubscribeLang ??= onBrowserLangChange(() => this._schedule());
   }
 
   disconnectedCallback(): void {
     this._revokeBlobs();
+    this._unsubscribeLang?.();
+    this._unsubscribeLang = null;
   }
+
+  /** Textos no idioma da interface. */
+  private get _L(): typeof LABELS.en { return pickLabels(this, LABELS); }
 
   get view(): 'all' | 'diffs' {
     return this.getAttribute('view') === 'diffs' ? 'diffs' : 'all';
@@ -308,7 +338,7 @@ export class UniversalWriteDiffElement extends Base {
     if (!this._diff || !this._aDoc || !this._bDoc) {
       const empty = doc.createElement('div');
       empty.className = 'uwd-empty';
-      empty.textContent = 'No comparison loaded — call loadPair(aBytes, bBytes).';
+      empty.textContent = this._L.noComparison;
       root.append(empty);
       this._shadow.replaceChildren(style, root);
       return;
@@ -324,10 +354,10 @@ export class UniversalWriteDiffElement extends Base {
     // Cabeçalhos das panes (sticky).
     const headA = doc.createElement('div');
     headA.className = 'uwd-pane-header';
-    headA.textContent = this.getAttribute('left-label') ?? 'Original';
+    headA.textContent = this.getAttribute('left-label') ?? this._L.left;
     const headB = doc.createElement('div');
     headB.className = 'uwd-pane-header';
-    headB.textContent = this.getAttribute('right-label') ?? 'Modified';
+    headB.textContent = this.getAttribute('right-label') ?? this._L.right;
     grid.append(headA, headB);
 
     const rows = this._buildRows();
@@ -352,7 +382,7 @@ export class UniversalWriteDiffElement extends Base {
       const empty = doc.createElement('div');
       empty.className = 'uwd-empty';
       empty.style.gridColumn = '1 / -1';
-      empty.textContent = 'Empty documents.';
+      empty.textContent = this._L.empty;
       grid.append(empty);
     }
 
@@ -368,20 +398,21 @@ export class UniversalWriteDiffElement extends Base {
 
     const statsBox = doc.createElement('div');
     statsBox.className = 'uwd-stats';
-    const stat = (cls: string, label: string, n: number) => {
+    const L = this._L;
+    const stat = (cls: string, label: (n: number) => string, n: number) => {
       if (n === 0) return;
       const s = doc.createElement('span');
       s.className = `uwd-stat uwd-stat--${cls}`;
-      s.textContent = `${n} ${label}`;
+      s.textContent = label(n);
       statsBox.append(s);
     };
-    stat('ins', 'inserted', stats.inserted);
-    stat('del', 'deleted', stats.deleted);
-    stat('chg', 'changed', stats.changed);
-    stat('fmt', 'formatting', stats.formatOnly);
+    stat('ins', L.inserted, stats.inserted);
+    stat('del', L.deleted, stats.deleted);
+    stat('chg', L.changed, stats.changed);
+    stat('fmt', L.formatOnly, stats.formatOnly);
     if (statsBox.childElementCount === 0) {
       const s = doc.createElement('span');
-      s.textContent = 'Identical documents';
+      s.textContent = L.identical;
       statsBox.append(s);
     }
     header.append(statsBox);
@@ -391,7 +422,7 @@ export class UniversalWriteDiffElement extends Base {
     header.append(spacer);
 
     const toggle = doc.createElement('button');
-    toggle.textContent = 'Only changes';
+    toggle.textContent = L.onlyChanges;
     toggle.dataset['on'] = this.view === 'diffs' ? '1' : '0';
     toggle.addEventListener('click', () => {
       this.view = this.view === 'diffs' ? 'all' : 'diffs';
@@ -400,7 +431,8 @@ export class UniversalWriteDiffElement extends Base {
 
     const close = doc.createElement('button');
     close.className = 'uwd-close';
-    close.title = 'Close comparison';
+    close.title = L.close;
+    close.setAttribute('aria-label', L.close);
     close.textContent = '✕';
     close.addEventListener('click', () => {
       this.dispatchEvent(new CustomEvent('close-request', { bubbles: true, composed: true }));
@@ -433,7 +465,7 @@ export class UniversalWriteDiffElement extends Base {
   private _renderBand(doc: Document, editIndex: number, count: number): HTMLElement {
     const band = doc.createElement('div');
     band.className = 'uwd-band';
-    band.textContent = `… ${count} unchanged block${count === 1 ? '' : 's'} …`;
+    band.textContent = this._L.unchanged(count);
     band.addEventListener('click', () => {
       this._expandedBands.add(editIndex);
       this._schedule();
@@ -485,7 +517,7 @@ export class UniversalWriteDiffElement extends Base {
       if (row.kind === 'format') {
         const badge = doc.createElement('span');
         badge.className = 'uwd-badge';
-        badge.textContent = 'formatting';
+        badge.textContent = this._L.formatting;
         cell.append(badge);
       }
     } else {

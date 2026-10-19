@@ -11,7 +11,13 @@ import {
 import { MediaPlayer } from './media-player.js';
 import { ViewerControls, CONTROL_ITEMS, type ControlsHost } from './controls.js';
 import { SlideA11y } from './a11y.js';
-import { langOf } from '@universal-office/viewer-controls';
+import { onBrowserLangChange, pickLabels, uiLang } from '@universal-office/i18n';
+
+/** Textos da interface desenhados no canvas (o fim da apresentação é o do PowerPoint em cada idioma). */
+const TEXT = {
+  en: { endOfShow: 'End of slide show, click to exit.', empty: 'No .pptx loaded' },
+  pt: { endOfShow: 'Fim da apresentação de slides. Clique para sair.', empty: 'Nenhum .pptx carregado' },
+};
 
 /** Opções de `play()` — reprodução automática. */
 export interface PlayOptions extends PlaybackOptions {
@@ -136,8 +142,8 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    * apresentação.
    */
   protected show: { ss: SlideShow; rafId: number; timer: number; fullscreen: boolean; kiosk: boolean } | null = null;
-  /** Texto da tela de fim da apresentação (o do app de referência em pt-BR). */
-  protected endOfShowText = 'Fim da apresentação de slides. Clique para sair.';
+  /** Texto da tela de fim da apresentação (o do PowerPoint, no idioma da interface). */
+  protected get endOfShowText(): string { return pickLabels(this, TEXT).endOfShow; }
   /** Canvases de trabalho da transição (origem/destino) na reprodução automática. */
   private fromCanvas: HTMLCanvasElement | null = null;
   private toCanvas: HTMLCanvasElement | null = null;
@@ -201,7 +207,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
 
   /** Liga a barra conforme os atributos — no connect e quando eles mudam. */
   private configureControls(): void {
-    const lang = langOf(this);
+    const lang = uiLang(this);
     this.a11y?.setLang(lang);
     this.a11y?.setName(this.fileName());
     this.controls?.configure(!this.hasAttribute('nocontrols'), CONTROL_ITEMS.filter((it) => this.hasAttribute(`no${it}`)), lang);
@@ -305,6 +311,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.watchDpr();
     this.restoreParkedFonts();
     this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.paint());
+    this.unsubscribeLang ??= onBrowserLangChange(() => { this.configureControls(); this.paint(); });
     this.configureControls();
     document.addEventListener('fullscreenchange', this.onAnyFullscreenChange);
     this.resize(); this.paint();
@@ -329,11 +336,16 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     this.parkFonts();
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
+    this.unsubscribeLang?.();
+    this.unsubscribeLang = null;
   }
 
   attributeChangedCallback(name: string, oldV: string | null, newV: string | null): void {
     if (name === 'src' && newV && newV !== oldV && this.isConnected && newV !== this.srcUrl) void this.loadSrc(newV);
-    else if (name !== 'src' && this.isConnected) this.configureControls();
+    else if (name !== 'src' && this.isConnected) {
+      this.configureControls();
+      if (name === 'lang') this.paint();
+    }
   }
 
   /**
@@ -454,6 +466,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
    *  Access, instaladas pelo nome, substitutas abertas, padrão. */
   protected readonly fontResolver = FontResolver.shared();
   private unsubscribeFonts: (() => void) | null = null;
+  private unsubscribeLang: (() => void) | null = null;
 
   /** Pilha CSS de uma família do texto: a EMBUTIDA no deck, se houver;
    *  senão a que o resolvedor escolheu (vai em `PaintSlideOptions.fontStack`). */
@@ -1184,7 +1197,7 @@ export class UniversalPresentationViewerElement extends HTMLElement {
     const slide = this.slides[this.index];
     if (!fit || !slide) {
       ctx.fillStyle = '#bbb'; ctx.font = '14px Segoe UI, Arial';
-      ctx.fillText('Nenhum .pptx carregado', 20, 30);
+      ctx.fillText(pickLabels(this, TEXT).empty, 20, 30);
       this.badge.textContent = '';
       return;
     }

@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal-office/sheet-core=../sheet-core/src/index.ts --alias:@universal-office/sheet-calc=../calc/src/index.ts --alias:@universal-office/sheet-export=../export/src/index.ts --alias:@universal-office/fonts=../../../shared/fonts/src/index.ts --alias:@universal-office/charts=../../../shared/charts/src/index.ts --alias:@universal-office/slides-core=../../../slides/packages/slides-core/src/index.ts",
+    "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal-office/sheet-core=../sheet-core/src/index.ts --alias:@universal-office/sheet-calc=../calc/src/index.ts --alias:@universal-office/sheet-export=../export/src/index.ts --alias:@universal-office/fonts=../../../shared/fonts/src/index.ts --alias:@universal-office/charts=../../../shared/charts/src/index.ts --alias:@universal-office/slides-core=../../../slides/packages/slides-core/src/index.ts --alias:@universal-office/i18n=../../../shared/i18n/src/index.ts",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
@@ -15,6 +15,7 @@
     "@universal-material/web": "^3.9.4",
     "@universal-office/sheet-core": "*",
     "@universal-office/slides-core": "file:../../../slides/packages/slides-core",
-    "@universal-office/fonts": "file:../../../shared/fonts"
+    "@universal-office/fonts": "file:../../../shared/fonts",
+    "@universal-office/i18n": "file:../../../shared/i18n"
   }
 }

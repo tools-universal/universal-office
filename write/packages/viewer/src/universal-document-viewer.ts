@@ -8,7 +8,8 @@ import {
   layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, paintItems, paragraphAtPath,
   type LayoutOptions, type LayoutResult, type EnginePaintEnv,
 } from '@universal-office/docx-layout';
-import { langOf, LiveRegion, type ProgressStep } from '@universal-office/viewer-controls';
+import { LiveRegion, type ProgressStep } from '@universal-office/viewer-controls';
+import { onBrowserLangChange, uiLang, type UiLang } from '@universal-office/i18n';
 import { ViewerFonts } from './fonts.js';
 import { collectAnnotations, levelResolver, type Annotations } from './annotations.js';
 import { fillTextLayer, TEXT_LAYER_CSS } from './text-layer.js';
@@ -199,6 +200,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   private bitmaps = new WeakMap<object, ImageBitmap | HTMLCanvasElement | 'loading' | null>();
   private resizeObs: ResizeObserver | null = null;
   private unsubscribeFonts: (() => void) | null = null;
+  private unsubscribeLang: (() => void) | null = null;
   private relayoutTimer = 0;
   private wheelLock = 0;
 
@@ -292,6 +294,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.resizeObs ??= new ResizeObserver(() => this.onResize());
     this.resizeObs.observe(this.wrap);
     this.unsubscribeFonts ??= this.fonts.resolver.onChange(() => this.queueRelayout());
+    this.unsubscribeLang ??= onBrowserLangChange(() => this.configureControls());
     document.addEventListener('fullscreenchange', this.onFullscreenChange);
     this.readZoomAttr();
     this.readViewAttr();
@@ -306,6 +309,8 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.resizeObs?.disconnect();
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
+    this.unsubscribeLang?.();
+    this.unsubscribeLang = null;
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     cancelAnimationFrame(this.rafId);
     this.rafId = 0;
@@ -326,7 +331,7 @@ export class UniversalDocumentViewerElement extends HTMLElement {
   }
 
   private configureControls(): void {
-    const lang = langOf(this);
+    const lang = uiLang(this);
     this.controls.configure(!this.hasAttribute('nocontrols'), CONTROL_ITEMS.filter((it) => this.hasAttribute(`no${it}`)), lang);
     const off = (it: string): boolean => this.hasAttribute('nocontrols') || this.hasAttribute(`no${it}`);
     if (this.navTab && off(this.navTab === 'pages' ? 'thumbnails' : 'outline')) {
@@ -834,10 +839,10 @@ export class UniversalDocumentViewerElement extends HTMLElement {
     this.labelPanels();
   }
 
-  private labels(lang?: string): Labels { return labelsFor(lang ?? langOf(this)); }
+  private labels(lang?: UiLang): Labels { return labelsFor(lang ?? uiLang(this)); }
 
   /** Rótulos dos painéis no idioma atual (abas, miniaturas, vazios). */
-  private labelPanels(lang?: string): void {
+  private labelPanels(lang?: UiLang): void {
     const L = this.labels(lang);
     this.tabOutline.textContent = L.outline;
     this.tabPages.textContent = L.pages;

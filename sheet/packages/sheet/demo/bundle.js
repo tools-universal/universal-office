@@ -32557,6 +32557,39 @@ var FontResolver = class _FontResolver {
   }
 };
 
+// ../../../shared/i18n/src/index.ts
+var DEFAULT_UI_LANG = "en";
+function matchUiLang(tag2) {
+  if (!tag2) return null;
+  if (/^pt\b/i.test(tag2)) return "pt";
+  if (/^en\b/i.test(tag2)) return "en";
+  return null;
+}
+function browserUiLang() {
+  const nav = typeof navigator !== "undefined" ? navigator : void 0;
+  const prefs = nav?.languages?.length ? nav.languages : nav?.language ? [nav.language] : [];
+  for (const tag2 of prefs) {
+    const m2 = matchUiLang(tag2);
+    if (m2) return m2;
+  }
+  return DEFAULT_UI_LANG;
+}
+function uiLang(el3) {
+  const forced = el3?.getAttribute("lang");
+  if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
+  return browserUiLang();
+}
+function pickLabels(lang, labels) {
+  const l3 = typeof lang === "string" ? lang : uiLang(lang);
+  return labels[l3] ?? labels[DEFAULT_UI_LANG];
+}
+function onBrowserLangChange(cb) {
+  if (typeof window === "undefined") return () => {
+  };
+  window.addEventListener("languagechange", cb);
+  return () => window.removeEventListener("languagechange", cb);
+}
+
 // ../../node_modules/fflate/esm/browser.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -57203,7 +57236,8 @@ function readGraphicFrame(gf, pkg, rels, theme) {
   const cNvPr = nvPr ? firstChild3(nvPr, "p:cNvPr") : void 0;
   const shape = {
     id: cNvPr?.attrs["id"] ?? "",
-    name: cNvPr?.attrs["name"] ?? ""
+    name: cNvPr?.attrs["name"] ?? "",
+    ...cNvPr?.attrs["descr"] ? { descr: cNvPr.attrs["descr"] } : {}
   };
   const xfrm = firstChild3(gf, "p:xfrm") ?? firstChild3(gf, "a:xfrm");
   if (xfrm) shape.xfrm = parseXfrm(xfrm);
@@ -57590,7 +57624,8 @@ function readShape(sp, theme, pkg, rels) {
   const spPr = firstChild3(sp, "p:spPr");
   const shape = {
     id: cNvPr?.attrs["id"] ?? "",
-    name: cNvPr?.attrs["name"] ?? ""
+    name: cNvPr?.attrs["name"] ?? "",
+    ...cNvPr?.attrs["descr"] ? { descr: cNvPr.attrs["descr"] } : {}
   };
   if (cNvSpPr?.attrs["txBox"] === "1") shape.isTextBox = true;
   if (ph) {
@@ -58194,7 +58229,8 @@ function readPic(pic, theme, pkg, rels) {
   const spPr = firstChild3(pic, "p:spPr");
   const shape = {
     id: cNvPr?.attrs["id"] ?? "",
-    name: cNvPr?.attrs["name"] ?? ""
+    name: cNvPr?.attrs["name"] ?? "",
+    ...cNvPr?.attrs["descr"] ? { descr: cNvPr.attrs["descr"] } : {}
   };
   const nvPr = nvPicPr ? firstChild3(nvPicPr, "p:nvPr") : void 0;
   const ph = nvPr ? firstChild3(nvPr, "p:ph") : void 0;
@@ -86252,6 +86288,10 @@ function paintSpillBorder(ctx, x1, y1, x22, y22) {
 }
 
 // src/universal-sheet.ts
+var UI_TEXT = {
+  en: { empty: "No .xlsx loaded" },
+  pt: { empty: "Nenhum .xlsx carregado" }
+};
 var HEADER_W = 46;
 var HEADER_H = 22;
 var DEFAULT_COL_W = 64;
@@ -86323,14 +86363,24 @@ var UniversalSheetElement = class extends HTMLElement {
   calc = new SheetCalc(this.calcHost(), formulaLocale(this.getAttribute("formula-locale")));
   /** Autocompletar de funções do editor da célula. */
   autocomplete = new FormulaAutocomplete(this.wrap, () => this.calc.locale);
+  /**
+   * `lang`: idioma da INTERFACE (textos do componente); sem ele, o do navegador
+   * — inglês por padrão (@universal-office/i18n). Independe de `formula-locale`
+   * (idioma das fórmulas e região dos números).
+   */
   static get observedAttributes() {
-    return ["formula-locale"];
+    return ["formula-locale", "lang"];
   }
   attributeChangedCallback(name, _old, value) {
     if (name === "formula-locale") {
       this.formulaLocale = value;
-    }
+    } else if (name === "lang") this.paint();
   }
+  /** Textos da interface no idioma atual. */
+  get uiText() {
+    return pickLabels(this, UI_TEXT);
+  }
+  unsubscribeLang = null;
   /** Idioma/região das fórmulas ("pt-BR", "en-US", …; null = do navegador). */
   get formulaLocale() {
     return this.calc.locale.region;
@@ -86403,6 +86453,7 @@ var UniversalSheetElement = class extends HTMLElement {
   }
   connectedCallback() {
     this.unsubscribeFonts ??= this.fontResolver.onChange(() => this.onFontsChanged());
+    this.unsubscribeLang ??= onBrowserLangChange(() => this.paint());
     new ResizeObserver(() => {
       this.resize();
       this.paint();
@@ -86769,7 +86820,7 @@ var UniversalSheetElement = class extends HTMLElement {
    * (cirurgia no XML original — ver sheet-core/serialize.ts).
    */
   saveXlsx() {
-    if (!this.pkg) throw new Error("Nenhuma pasta de trabalho carregada");
+    if (!this.pkg) throw new Error("No workbook loaded");
     if (this.editing) this.commitEdit();
     const edited = new Set([...this.dirtySheets].map((i9) => this.views[i9]?.worksheet).filter((w2) => !!w2));
     const calcDirty = this.workbook ? saveCalc(this.pkg, this.workbook, this.calc.engine, this.views, edited) : /* @__PURE__ */ new Set();
@@ -87246,6 +87297,8 @@ var UniversalSheetElement = class extends HTMLElement {
   disconnectedCallback() {
     this.unsubscribeFonts?.();
     this.unsubscribeFonts = null;
+    this.unsubscribeLang?.();
+    this.unsubscribeLang = null;
   }
   /** Resolução das fontes dos estilos do workbook carregado (ensureSheetFonts). */
   sheetFonts = Promise.resolve();
@@ -87609,7 +87662,7 @@ var UniversalSheetElement = class extends HTMLElement {
     if (!v2) {
       ctx.fillStyle = "#888";
       ctx.font = "14px Segoe UI, Arial";
-      ctx.fillText("Nenhum .xlsx carregado", 20, 30);
+      ctx.fillText(this.uiText.empty, 20, 30);
       return;
     }
     if (v2.worksheet.chartsheet) {

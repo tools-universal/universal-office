@@ -1,5 +1,6 @@
 import type { Slide, Shape } from '@universal-office/slides-core';
-import { LiveRegion, SR_ONLY, pickLabels } from '@universal-office/viewer-controls';
+import { LiveRegion, SR_ONLY } from '@universal-office/viewer-controls';
+import { pickLabels, type UiLang } from '@universal-office/i18n';
 
 /**
  * Acessibilidade do <universal-presentation-viewer>: o slide é desenhado num
@@ -20,7 +21,7 @@ const LABELS = {
     presentation: 'Presentation', content: 'Slide content', roledesc: 'slide', image: 'Image',
   },
 };
-type Labels = typeof LABELS.pt;
+type Labels = typeof LABELS.en;
 
 const TITLE_PH = new Set(['title', 'ctrTitle']);
 /** Placeholders de rodapé (data, número do slide, rodapé): o leitor não precisa deles a cada slide. */
@@ -47,7 +48,7 @@ export class SlideA11y {
   /** conteúdo do slide em cena (oculto, na árvore de acessibilidade) */
   readonly content = document.createElement('div');
   readonly live = new LiveRegion();
-  private labels: Labels = LABELS.pt;
+  private labels: Labels = LABELS.en;
   private shown = -1;
   private skipText: string | null = null;
   private count = 0;
@@ -61,7 +62,7 @@ export class SlideA11y {
     wrap.append(this.content, this.live.el);
   }
 
-  setLang(lang: string): void {
+  setLang(lang: UiLang): void {
     this.labels = pickLabels(lang, LABELS);
     this.canvas.setAttribute('aria-roledescription', this.labels.roledesc);
     this.shown = -1;
