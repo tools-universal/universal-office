@@ -1,5 +1,5 @@
 import type { DocFormatting, RPr, PPr, Paragraph, Run } from '@universal-office/docx-core';
-import { runPropsFromRPr, paraPropsFromPPr } from '@universal-office/docx-core';
+import { editBaseProps, paraPropsFromPPr } from '@universal-office/docx-core';
 import { StyleResolver, fontOfSlot } from './resolve.js';
 import { FaceResolver, type FontProvider } from './fonts.js';
 import { NumberingState } from './numbering.js';
@@ -142,14 +142,9 @@ const eq = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 export function directRPr(run: Run): RPr {
   const base: RPr = run.rpr ? { ...run.rpr } : {};
   const p = run.props;
-  const orig = runPropsFromRPr(run.rpr);
-  if (p.link && orig.underline === false) {
-    // hyperlink: o leitor força sublinhado/cor nas props de edição — não é rPr. O
-    // w:hyperlink em si não formata nada: só o estilo/rPr do run (w:u="none" vale;
-    // run sem rPr fica sem cor e sem sublinhado) — oráculo hlink
-    orig.underline = true;
-    orig.color ??= '0563C1';
-  }
+  // o que o leitor força nas props sem ser formatação (hyperlink, marca de nota,
+  // w:sym) não conta como edição — mesma regra do salvar (editBaseProps)
+  const orig = editBaseProps(run, run.rpr);
   if (!run.rpr) {
     // run criado pela edição (sem rPr original): as props são a formatação direta
     if (p.bold) base.b = true;
@@ -160,11 +155,11 @@ export function directRPr(run: Run): RPr {
     if (p.doubleStrike) base.dstrike = true;
     if (p.allCaps) base.caps = true;
     if (p.smallCaps) base.smallCaps = true;
-    if (p.vertAlign) base.vertAlign = p.vertAlign;
+    if (p.vertAlign && p.vertAlign !== orig.vertAlign) base.vertAlign = p.vertAlign;
     if (p.szHalfPt !== undefined) base.sz = p.szHalfPt;
     if (p.color && !(p.link && p.color === '0563C1')) base.color = { val: p.color };
     if (p.highlight) base.highlight = p.highlight;
-    if (p.fontAscii) base.rFonts = { ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii };
+    if (p.fontAscii && p.fontAscii !== orig.fontAscii) base.rFonts = { ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii };
     if (p.charSpacingTwips) base.spacing = p.charSpacingTwips;
     return base;
   }

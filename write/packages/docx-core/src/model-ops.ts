@@ -59,6 +59,8 @@ const sameProps = (a: RunProps, b: RunProps): boolean =>
   a.vertAlign === b.vertAlign && a.szHalfPt === b.szHalfPt &&
   a.color === b.color && a.highlight === b.highlight && a.fontAscii === b.fontAscii &&
   a.allCaps === b.allCaps && a.smallCaps === b.smallCaps &&
+  // runs de elementos de origem diferentes (dentro × fora de um sdt/hyperlink…) não se fundem
+  a.src === b.src &&
   sameComments(a.commentIds, b.commentIds);
 
 const sameComments = (a?: number[], b?: number[]): boolean => {
@@ -162,6 +164,10 @@ export function splitParagraph(model: DocumentModel, pos: DocPosition): DocPosit
   // app de referência: o parágrafo NOVO fica com a primeira metade (¶ novo inserido);
   // o original desce com a segunda. Props de parágrafo são copiadas.
   const tail: Paragraph = { runs: tailRuns, props: { ...p.props } };
+  // o pPr tipado vai junto (o motor lê dele o que as props não representam);
+  // a quebra de seção é da marca de parágrafo final — só a segunda metade a leva
+  if (p.ppr) tail.ppr = p.ppr;
+  if (p.props.sectionBreak) { p.props = { ...p.props }; delete p.props.sectionBreak; }
   model.paragraphs.splice(pos.para + 1, 0, tail);
   normalizeParagraph(p);
   normalizeParagraph(tail);
@@ -183,6 +189,7 @@ export function deleteRange(model: DocumentModel, range: DocRange): DocPosition 
   // herda props do ÚLTIMO parágrafo (identidade na marca ¶ final — FINDINGS 009)
   first.runs = [...first.runs, ...last.runs];
   first.props = { ...last.props };
+  if (last.ppr) first.ppr = last.ppr; else delete first.ppr;
   model.paragraphs.splice(start.para + 1, end.para - start.para);
   normalizeParagraph(first);
   return start;
@@ -217,6 +224,7 @@ export function mergeWithPrevious(model: DocumentModel, para: number): DocPositi
   prev.runs = [...prev.runs, ...cur.runs];
   // sobrevive a identidade do SEGUNDO (FINDINGS 009)
   prev.props = { ...cur.props };
+  if (cur.ppr) prev.ppr = cur.ppr; else delete prev.ppr;
   model.paragraphs.splice(para, 1);
   normalizeParagraph(prev);
   return { para: para - 1, offset };

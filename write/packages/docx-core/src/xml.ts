@@ -15,6 +15,17 @@ export interface XmlElement {
    *  precisamos reemitir byte-a-byte, ex.: w:drawing — formas/caixas de texto
    *  que não reconstruímos). Ver RAW_CAPTURE. */
   raw?: string;
+  /** Posições no fonte (só com `positions`): início da tag, início/fim do
+   *  conteúdo e fim do elemento — base do salvamento sem perdas (source.ts). */
+  s?: number;
+  cs?: number;
+  ce?: number;
+  e?: number;
+}
+
+export interface ParseOptions {
+  /** Grava s/cs/ce/e em cada elemento (fatias cruas do fonte). */
+  positions?: boolean;
 }
 
 /** Nomes de elementos cujo XML cru preservamos para reemissão fiel. */
@@ -64,7 +75,8 @@ function decodeEntities(s: string): string {
   });
 }
 
-export function parseXml(xml: string): XmlElement {
+export function parseXml(xml: string, opts: ParseOptions = {}): XmlElement {
+  const pos = opts.positions === true;
   let i = 0;
   const n = xml.length;
 
@@ -129,6 +141,7 @@ export function parseXml(xml: string): XmlElement {
         scope();
         const el: XmlElement = { name, attrs, children: [] };
         if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i);
+        if (pos) { el.s = elStart; el.cs = i; el.ce = i; el.e = i; }
         return el;
       }
       if (xml[i] === '>') { i++; scope(); break; }
@@ -150,14 +163,17 @@ export function parseXml(xml: string): XmlElement {
       i++;
     }
     // conteúdo
+    const contentStart = i;
     const children: (XmlElement | string)[] = [];
     for (;;) {
       if (i >= n) error(`</${name}> ausente`);
       if (xml.startsWith('</', i)) {
+        const contentEnd = i;
         const close = xml.indexOf('>', i);
         i = close + 1;
         const el: XmlElement = { name, attrs, children };
         if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i);
+        if (pos) { el.s = elStart; el.cs = contentStart; el.ce = contentEnd; el.e = i; }
         return el;
       }
       if (xml.startsWith('<!--', i)) {

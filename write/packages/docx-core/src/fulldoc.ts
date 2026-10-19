@@ -13,6 +13,7 @@ import {
 import { readStyles, type StylesMap } from './styles.js';
 import { readTblPr, readTrPr, readTcPr, readBorder, type TblPr, type TrPr, type TcPr, type BorderSpec } from './ooxml/props.js';
 import { readDocFormatting, type DocFormatting } from './ooxml/parts.js';
+import { SourceStore, type StoryGroup, type StorySource, type TableSource } from './source.js';
 
 /**
  * Modelo completo do documento: blocos (parágrafos E tabelas), seções
@@ -61,6 +62,8 @@ export interface TableBlock {
   borders?: TableBorders;
   /** w:tblPr completo (tri-estado) — motor de layout. */
   tblPr?: TblPr;
+  /** Id da fonte XML original (source.ts) — salvamento sem perdas. */
+  src?: number;
 }
 
 export interface ParagraphBlock {
@@ -126,6 +129,8 @@ export interface FullDocument {
   coreProps?: { created?: string; modified?: string; lastPrinted?: string };
   /** w:background (cor da página): hex e/ou cor do tema com tom/sombra. */
   background?: { color?: string; themeColor?: string; themeTint?: string; themeShade?: string };
+  /** XML original (salvamento sem perdas) — ver source.ts. */
+  sources?: SourceStore;
 }
 
 /** w:sectPr além da geometria básica do SectPr. */
@@ -200,6 +205,10 @@ export function readBlocksOf(container: XmlElement, ctx: ReadContext): Block[] {
 }
 
 function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
+  const xml = ctx.sources && tblEl.s !== undefined ? ctx.sourceXml : undefined;
+  const slice = (el: XmlElement | undefined): string | undefined => (el && xml !== undefined ? xml.slice(el.s, el.e) : undefined);
+  const openOf = (el: XmlElement): string => xml!.slice(el.s, el.cs === el.e ? el.e : el.cs).replace(/\s*\/>$/, '>');
+  const srcRows: TableSource['rows'] = [];
   const grid = firstChild(tblEl, 'w:tblGrid');
   const gridColsTwips = grid
     ? childElements(grid, 'w:gridCol').map((c) => parseInt(c.attrs['w:w'] ?? '0', 10) || 0)
@@ -209,7 +218,12 @@ function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
   const rows: TableRow[] = [];
   for (const trEl of unwrap(tblEl, 'w:tr')) {
     const cells: TableCell[] = [];
+    const srcCells: TableSource['rows'][number]['cells'] = [];
     for (const tcEl of unwrap(trEl, 'w:tc')) {
+      if (xml !== undefined) {
+        const tcPrRaw = slice(firstChild(tcEl, 'w:tcPr'));
+        srcCells.push({ open: openOf(tcEl), ...(tcPrRaw ? { tcPr: tcPrRaw } : {}) });
+      }
       const tcPrEl = firstChild(tcEl, 'w:tcPr');
       const tcPr = readTcPr(tcPrEl);
       const shd = tcPrEl && firstChild(tcPrEl, 'w:shd')?.attrs['w:fill'];
@@ -233,6 +247,11 @@ function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
       cells.push(cell);
     }
     if (cells.length > 0) {
+      if (xml !== undefined) {
+        const trPrRaw = slice(firstChild(trEl, 'w:trPr'));
+        const exRaw = slice(firstChild(trEl, 'w:tblPrEx'));
+        srcRows.push({ open: openOf(trEl), cells: srcCells, ...(trPrRaw ? { trPr: trPrRaw } : {}), ...(exRaw ? { tblPrEx: exRaw } : {}) });
+      }
       const row: TableRow = { cells };
       const trPr = readTrPr(firstChild(trEl, 'w:trPr'));
       if (trPr) row.trPr = trPr;
@@ -244,17 +263,93 @@ function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
   const table: TableBlock = { type: 'table', rows, gridColsTwips, borders: tblBorders };
   const tblPr = readTblPr(tblPrEl);
   if (tblPr) table.tblPr = tblPr;
+  if (xml !== undefined) {
+    const tblPrRaw = slice(tblPrEl);
+    const gridRaw = slice(grid);
+    ctx.sources!.addTable(table, {
+      raw: xml.slice(tblEl.s, tblEl.e),
+      at: tblEl.s,
+      open: openOf(tblEl),
+      rows: srcRows,
+      ...(tblPrRaw ? { tblPr: tblPrRaw } : {}),
+      ...(gridRaw ? { tblGrid: gridRaw } : {}),
+    });
+  }
   return table;
 }
 
-function readHeaderFooterPart(pkg: DocxPackage, path: string): { paras: Paragraph[]; blocks: Block[] } | undefined {
+/**
+ * Marca o ÚLTIMO parágrafo de cada seção (menos a final) com `props.sectionBreak`
+ * — é por ele que o salvar grava as quebras de seção (geometria, orientação,
+ * refs de cabeçalho/rodapé). Seção que termina numa tabela: o último parágrafo
+ * antes dela.
+ */
+export function markSectionBreaks(full: FullDocument): void {
+  for (let si = 0; si < full.sections.length - 1; si++) {
+    const s = full.sections[si]!;
+    let b = Math.min(s.blockEnd, full.blocks.length - 1);
+    while (b >= 0 && full.blocks[b]!.type !== 'paragraph') b--;
+    const block = full.blocks[b];
+    if (block?.type !== 'paragraph') continue;
+    block.paragraph.props.sectionBreak = {
+      sectPr: s.sectPr,
+      headerRefs: s.headerRefs.map((r) => ({ kind: 'header' as const, type: r.type, rid: r.rid })),
+      footerRefs: s.footerRefs.map((r) => ({ kind: 'footer' as const, type: r.type, rid: r.rid })),
+    };
+  }
+}
+
+/** id de origem de um bloco (parágrafo: props.src; tabela: src). */
+export function blockSrc(b: Block): number | undefined {
+  return b.type === 'paragraph' ? b.paragraph.props.src : b.src;
+}
+
+/** Abre a captura de uma parte: container cujos filhos de topo viram grupos. */
+function storyOf(xml: string, container: XmlElement): StorySource {
+  return { open: xml.slice(0, container.cs), close: xml.slice(container.ce), groups: [] };
+}
+
+/** Grupo de um filho de topo: os blocos que ele produziu (e o envoltório sdt/customXml). */
+function groupOf(xml: string, child: XmlElement, produced: Block[], store: SourceStore): StoryGroup {
+  const ids = produced.map((b) => blockSrc(b) ?? 0);
+  const g: StoryGroup = { raw: xml.slice(child.s, child.e), blocks: ids };
+  const content = child.name === 'w:sdt' ? firstChild(child, 'w:sdtContent') : child.name === 'w:customXml' ? child : undefined;
+  if (content && content.cs !== undefined && content.cs !== content.e) {
+    // o envoltório vai até o conteúdo (w:customXmlPr fica nele)
+    let start = content.cs;
+    if (content === child) for (const k of childElements(child)) { if (k.name.endsWith('Pr')) start = k.e!; else break; }
+    g.wrapOpen = xml.slice(child.s, start);
+    g.wrapClose = xml.slice(content.ce, child.e);
+    // filhos do conteúdo: cada um com os blocos que estão dentro dele
+    g.inner = childElements(content).filter((k) => !k.name.endsWith('Pr')).map((k) => {
+      const inside = produced.filter((b, i) => { const at = store.atOf(ids[i]!); return at !== undefined && at >= k.s! && at < k.e!; });
+      return groupOf(xml, k, inside, store);
+    });
+  }
+  return g;
+}
+
+function readHeaderFooterPart(pkg: DocxPackage, path: string, store?: SourceStore): { paras: Paragraph[]; blocks: Block[] } | undefined {
   const xml = pkg.getPartText(path);
   if (!xml) return undefined;
-  const root = parseXml(xml);
+  const root = parseXml(xml, { positions: !!store });
   const partName = path.split('/').pop()!;
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
-  const blocks = readBlocksOf(root, ctx);
+  let blocks: Block[];
+  if (!store) blocks = readBlocksOf(root, ctx);
+  else {
+    ctx.sources = store;
+    ctx.sourceXml = xml;
+    const story = storyOf(xml, root);
+    blocks = [];
+    for (const c of childElements(root)) {
+      const produced = readBlocksOf({ name: root.name, attrs: {}, children: [c] }, ctx);
+      story.groups.push(groupOf(xml, c, produced, store));
+      blocks.push(...produced);
+    }
+    store.stories.set(path, story);
+  }
   // modelo de edição (achatado): parágrafos do topo + os das células
   const paras: Paragraph[] = [];
   const walk = (bs: Block[]) => {
@@ -305,12 +400,20 @@ function readComments(pkg: DocxPackage): CommentInfo[] {
   }));
 }
 
-export function readFullDocument(pkg: DocxPackage): FullDocument {
-  const root = parseXml(pkg.documentXml());
+export function readFullDocument(pkg: DocxPackage, opts: { sources?: boolean } = {}): FullDocument {
+  const docXml = pkg.documentXml();
+  const store = opts.sources ? new SourceStore() : undefined;
+  const root = parseXml(docXml, { positions: !!store });
   const body = firstChild(root, 'w:body');
   if (!body) throw new Error('w:document sem w:body');
   const ctx = buildReadContext(pkg, 'word/_rels/document.xml.rels');
   ctx.readBlocks = readBlocksOf;
+  const story = store ? storyOf(docXml, body) : undefined;
+  if (store) {
+    ctx.sources = store;
+    ctx.sourceXml = docXml;
+    store.stories.set('word/document.xml', story!);
+  }
 
   // rels do documento p/ resolver headers/footers por r:id
   const relsXml = pkg.getPartText('word/_rels/document.xml.rels');
@@ -337,7 +440,7 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
       const type = (ref.attrs['w:type'] ?? 'default') as keyof HeaderFooterSet;
       const target = rid && relTargets.get(rid);
       if (target && rid) {
-        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target));
+        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target, store));
         const part = hfCache.get(target);
         if (part) {
           set[type] = part.paras;
@@ -392,7 +495,9 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
     return out;
   };
 
-  for (const child of childElements(body)) {
+  const bodyKids = childElements(body);
+  for (const child of bodyKids) {
+    const before = blocks.length;
     if (child.name === 'w:p') {
       const para = readParagraph(child, ctx);
       blocks.push({ type: 'paragraph', paragraph: para });
@@ -413,12 +518,21 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
         }
       }
     }
+    if (story) {
+      if (child.name === 'w:sectPr' && child === bodyKids[bodyKids.length - 1]) story.sectPr = docXml.slice(child.s, child.e);
+      else story.groups.push(groupOf(docXml, child, blocks.slice(before), store!));
+    }
   }
   if (sections.length === 0) {
     closeSection(firstChild(body, 'w:sectPr') ?? { name: 'w:sectPr', attrs: {}, children: [] }, blocks.length - 1);
   }
   if (blocks.length === 0) blocks.push({ type: 'paragraph', paragraph: { runs: [], props: {} } });
 
+  const comments = readComments(pkg);
+  if (store) {
+    for (const c of comments) store.commentIds.add(c.id);
+    store.commentsSig = JSON.stringify(comments);
+  }
   const footnoteBlocks = new Map<number, Block[]>();
   const endnoteBlocks = new Map<number, Block[]>();
   return {
@@ -426,7 +540,7 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
     sections,
     footnotes: readNotesPart(pkg, 'word/footnotes.xml', 'w:footnote', footnoteBlocks),
     endnotes: readNotesPart(pkg, 'word/endnotes.xml', 'w:endnote', endnoteBlocks),
-    comments: readComments(pkg),
+    comments,
     styles: readStyles(pkg),
     bookmarks,
     bookmarkOffsets,
@@ -435,6 +549,7 @@ export function readFullDocument(pkg: DocxPackage): FullDocument {
     endnoteBlocks,
     ...readCoreProps(pkg),
     ...readBackground(root),
+    ...(store ? { sources: store } : {}),
   };
 }
 

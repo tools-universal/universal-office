@@ -7,7 +7,7 @@ paridade total ainda não está concluída.
 
 | Área | Estado | Evidência atual | Gap restante |
 |---|---:|---|---|
-| Abrir/salvar DOCX | 🟡 | `roundtrip.test.ts`, catálogo real | `document.xml` ainda é regenerado; elementos OOXML desconhecidos podem ser perdidos após edição |
+| Abrir/salvar DOCX | ✅ | gravação sem perdas (`source.ts`/`lossless.ts`, `lossless.test.ts`); corpus real: 867/868 salvam sem editar byte a byte e, editados, sem perder hyperlinks/indicadores/campos/notas/sdt/equações/desenhos; Word abre os 777 editados sem reparo | tabela editada perde marcadores no nível de linha/célula; campo que atravessa parágrafos (sumário) editado à mão volta ao cru |
 | Abrir .doc (binário) | 🟡 | `docx-core/src/doc` (convertDocToDocx) + testes .NET DocBinary; corpus real | salvar continua em .docx; recursos raros do formato binário |
 | Texto, Enter, Backspace | ✅ | word-lab 001/003/009 + `editing.test.ts` | — |
 | Undo/redo | 🟡 | implementação no editor | faltam testes de integração para tabelas, notas e inlines customizados |
@@ -29,7 +29,7 @@ paridade total ainda não está concluída.
 | Equações | ❌ | apenas fallback textual | OMML 1:1, edição e layout matemático |
 | Shapes/WordArt/SmartArt/gráficos | ❌ | não modelados | parser, layout, edição e round-trip |
 | Track changes | ❌ | não modelado | `w:ins`, `w:del`, propriedades e UI de revisão |
-| Content controls comuns | 🟡 | leitura genérica; `w:sdt` de plugins | dropdown/date/checkbox/repeating section do Word |
+| Content controls comuns | 🟡 | leitura genérica; `w:sdt` de plugins; envoltório preservado na edição | dropdown/date/checkbox/repeating section do Word; controle com `w:dataBinding` editado não atualiza o XML ligado (o Word repõe o valor ao abrir) |
 | Plugins/custom inline | ✅ | API por instância, mention, `custom-inline.test.ts`, Word real | ampliar para blocos de nível de parágrafo/tabela |
 | Web Component sem backend | ✅ | `offline.html`: `fetch` bloqueado, fontes embutidas, canvas pronto | reduzir tamanho do bundle autocontido (atual: ~8,8 MB) |
 | Lifecycle do Web Component | ✅ | cleanup de `resize` e timer do caret; reconexão suportada | ampliar smoke automatizado de mount/unmount |
@@ -57,6 +57,18 @@ Gaps conhecidos do corpus: documentos em modo de compatibilidade 11 com
 `useFELayout` (largura de linha menor no Word), quadros de ODT, cor de fundo
 da página (`w:background`) e alguns objetos ancorados em posições
 fracionárias.
+
+## Gravação sem perdas (2026-10-19)
+
+O leitor guarda as fatias cruas de cada parágrafo, run, tabela e filho de topo
+de cada parte (`readFullDocument(pkg, { sources: true })`); o modelo só leva ids
+(`props.src`, `TableBlock.src`), que sobrevivem ao undo e às cópias das props.
+Ao salvar, o que está igual à linha de base sai byte a byte; o que mudou aplica
+só as diferenças sobre o w:rPr/w:pPr/w:sectPr original (a regra de
+`directRPr`/`directPPr` do motor), reembrulha sdt/hyperlink/revisões e mantém
+indicadores/comentários na posição relativa. Verificação:
+`node tools/corpus-lab/lossless-check.mjs [--out dir]` e
+`tools/corpus-lab/word-open-check.ps1 -Dir dir` (Word via COM, invisível).
 
 ## Gates de conclusão
 

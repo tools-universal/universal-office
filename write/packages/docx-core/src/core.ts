@@ -24,6 +24,7 @@ export {
   type DrawingGroup,
   type ImageEffects,
   runPropsFromRPr,
+  editBaseProps,
   paraPropsFromPPr,
 } from './document.js';
 export * from './ooxml/props.js';
@@ -45,7 +46,10 @@ export {
   type SectionProps,
   readBlocksOf,
   readSectionProps,
+  blockSrc,
+  markSectionBreaks,
 } from './fulldoc.js';
+export { SourceStore, runSig, type ParaSource, type RunSource, type TableSource, type StorySource, type StoryGroup, type SegSource } from './source.js';
 export {
   insertText,
   insertRun,

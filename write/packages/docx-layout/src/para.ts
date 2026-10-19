@@ -224,7 +224,8 @@ function faceFor(ctx: DocContext, rpr: RPr, cp: number, style: RunStyle, symFont
   const theme = ctx.fmt.theme;
   let family: string | undefined;
   let bold = style.bold, italic = style.italic;
-  if (symFont && cp >= 0xf000 && cp <= 0xf0ff) family = symFont;
+  // w:sym: a fonte do símbolo (a área F0xx sempre; fora dela, menos CJK, que segue o eastAsia)
+  if (symFont && ((cp >= 0xf000 && cp <= 0xf0ff) || !CJK(cp))) family = symFont;
   else if (CJK(cp)) family = fontOfSlot(rpr.rFonts, 'eastAsia', theme) ?? fontOfSlot(rpr.rFonts, 'ascii', theme);
   else if (CS(cp) || rpr.cs || rpr.rtl) {
     family = fontOfSlot(rpr.rFonts, 'cs', theme) ?? fontOfSlot(rpr.rFonts, 'ascii', theme);
@@ -805,10 +806,9 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
   };
 
   for (const { run, idx, offset } of displayRuns(para, env)) {
+    // (referência de nota: o sobrescrito que o leitor põe nas props não é
+    // formatação — editBaseProps; vale o estilo/rPr do documento, oráculo fnrefsup)
     const direct = directRPr(run);
-    // referência de nota: o leitor põe sobrescrito nas props (editor); no layout vale a
-    // formatação do documento — estilo do caractere ou rPr direto (oráculo fnrefsup)
-    if (run.noteRef && run.rpr?.vertAlign === undefined) delete direct.vertAlign;
     // entradas de sumário (TOC): o Word não aplica o estilo Hyperlink
     if (run.inToc && direct.rStyle && isHyperlinkStyle(ctx, direct.rStyle)) delete direct.rStyle;
     const rpr = runRPr(direct);

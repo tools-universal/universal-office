@@ -1487,7 +1487,7 @@ function openFontEmbeddingDialog(opts) {
   const dlg = document.createElement("dialog");
   dlg.className = "uo-font-embedding";
   dlg.style.cssText = "max-width:460px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:12px;padding:20px 22px;font:inherit;color:inherit;background:Canvas;";
-  const common = join(COMMON_FONTS[app], L2);
+  const common = join2(COMMON_FONTS[app], L2);
   dlg.innerHTML = `
     <form method="dialog" style="display:flex;flex-direction:column;gap:12px;margin:0">
       <strong style="font-size:1.1em">${L2.title}</strong>
@@ -1532,17 +1532,17 @@ function openFontEmbeddingDialog(opts) {
 function describeFontEmbedding(detail, lang) {
   const L2 = pickLabels(lang, LABELS);
   const parts = [];
-  if (detail.embedded.length) parts.push(`${L2.embedded}: ${join(detail.embedded, L2)}`);
+  if (detail.embedded.length) parts.push(`${L2.embedded}: ${join2(detail.embedded, L2)}`);
   const by = /* @__PURE__ */ new Map();
   for (const s4 of detail.skipped) {
     if (s4.reason === "already-embedded") continue;
     const r6 = L2.reasons[s4.reason];
     by.set(r6, [...by.get(r6) ?? [], s4.family]);
   }
-  if (by.size) parts.push(`${L2.notEmbedded}: ${[...by].map(([r6, fs]) => `${join(fs, L2)} (${r6})`).join("; ")}`);
+  if (by.size) parts.push(`${L2.notEmbedded}: ${[...by].map(([r6, fs]) => `${join2(fs, L2)} (${r6})`).join("; ")}`);
   return parts.join(" \xB7 ");
 }
-var LABELS, join;
+var LABELS, join2;
 var init_font_embedding_dialog = __esm({
   "../../../shared/ui/src/font-embedding-dialog.ts"() {
     "use strict";
@@ -1580,7 +1580,7 @@ var init_font_embedding_dialog = __esm({
         notEmbedded: "n\xE3o incorporadas"
       }
     };
-    join = (xs, L2) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${L2.and} ${xs[xs.length - 1]}`;
+    join2 = (xs, L2) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${L2.and} ${xs[xs.length - 1]}`;
   }
 });
 
@@ -8990,7 +8990,8 @@ function decodeEntities(s4) {
     return (Object.hasOwn(ENTITIES, e8) ? ENTITIES[e8] : void 0) ?? `&${e8};`;
   });
 }
-function parseXml(xml2) {
+function parseXml(xml2, opts = {}) {
+  const pos = opts.positions === true;
   let i7 = 0;
   const n5 = xml2.length;
   function error(msg) {
@@ -9051,6 +9052,12 @@ function parseXml(xml2) {
         scope();
         const el2 = { name, attrs: attrs2, children: [] };
         if (RAW_CAPTURE.has(name)) el2.raw = xml2.slice(elStart, i7);
+        if (pos) {
+          el2.s = elStart;
+          el2.cs = i7;
+          el2.ce = i7;
+          el2.e = i7;
+        }
         return el2;
       }
       if (xml2[i7] === ">") {
@@ -9075,14 +9082,22 @@ function parseXml(xml2) {
       if (aName.startsWith("xmlns:")) declares = true;
       i7++;
     }
+    const contentStart = i7;
     const children2 = [];
     for (; ; ) {
       if (i7 >= n5) error(`</${name}> ausente`);
       if (xml2.startsWith("</", i7)) {
+        const contentEnd = i7;
         const close = xml2.indexOf(">", i7);
         i7 = close + 1;
         const el2 = { name, attrs: attrs2, children: children2 };
         if (RAW_CAPTURE.has(name)) el2.raw = xml2.slice(elStart, i7);
+        if (pos) {
+          el2.s = elStart;
+          el2.cs = contentStart;
+          el2.ce = contentEnd;
+          el2.e = i7;
+        }
         return el2;
       }
       if (xml2.startsWith("<!--", i7)) {
@@ -10357,6 +10372,17 @@ function runPropsFromRPr(rpr) {
   if (rpr.spacing !== void 0 && rpr.spacing !== 0) p3.charSpacingTwips = rpr.spacing;
   return p3;
 }
+function editBaseProps(run, rpr) {
+  const base = runPropsFromRPr(rpr);
+  const p3 = run.props;
+  if (p3.link && base.underline === false) {
+    base.underline = true;
+    base.color ??= "0563C1";
+  }
+  if (run.noteRef && base.vertAlign === void 0) base.vertAlign = "superscript";
+  if (run.symFont) base.fontAscii = run.symFont;
+  return base;
+}
 function paraPropsFromPPr(ppr) {
   const props = {};
   if (!ppr) return props;
@@ -10417,6 +10443,18 @@ function findDeep2(el2, name) {
   }
   return void 0;
 }
+var RPR_EL = /* @__PURE__ */ Symbol("docx-rpr-el");
+var rPrElOf = (r6) => r6?.[RPR_EL];
+var setRPrEl = (r6, el2) => {
+  if (el2) r6[RPR_EL] = el2;
+};
+var OBJ_EL = /* @__PURE__ */ Symbol("docx-obj-el");
+var objElOf = (r6) => r6[OBJ_EL];
+function tagObjectRuns(list, from, el2) {
+  if (!list) return;
+  for (let i7 = from; i7 < list.length; i7++) list[i7][OBJ_EL] = i7 === from ? el2 : true;
+}
+var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:ins", "w:moveTo", "w:dir", "w:bdo"]);
 var OBJ = "\uFFFC";
 function readPic(pic, ctx, wTw, hTw) {
   const blip = findDeep2(pic, "a:blip");
@@ -10932,6 +10970,7 @@ function closeField(ctx, runs) {
   };
   const rpr = f3.ff ? f3.rpr : first?.rpr ?? f3.rpr;
   if (rpr) run.rpr = rpr;
+  setRPrEl(run, f3.ff ? f3.rPrEl : rPrElOf(first) ?? f3.rPrEl);
   if (f3.ff) run.formField = f3.ff;
   if (f3.runs.length) run.fieldResult = f3.runs;
   runTarget(ctx, runs)?.push(run);
@@ -10972,6 +11011,7 @@ function readRunsInto(runs, container, ctx, inherit) {
           field: instr
         };
         if (first?.rpr) run.rpr = first.rpr;
+        setRPrEl(run, rPrElOf(first));
         if (inner.length) run.fieldResult = inner;
         runTarget(ctx, runs)?.push(run);
         break;
@@ -11101,7 +11141,8 @@ function collectMathText(el2) {
   return out;
 }
 function readSingleRun(runs, rEl, ctx, inherit) {
-  const rpr = readRPr(firstChild(rEl, "w:rPr"));
+  const rPrEl = firstChild(rEl, "w:rPr");
+  const rpr = readRPr(rPrEl);
   const rProps = runPropsFromRPr(rpr);
   if (inherit?.link) {
     rProps.link = inherit.link;
@@ -11115,6 +11156,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
     if (ctx.activeComments?.size) props.commentIds = [...ctx.activeComments];
     const run = { text: text3, props, ...inherit?.field ? { field: inherit.field } : {}, ...extra };
     if (rpr) run.rpr = rpr;
+    setRPrEl(run, rPrEl);
     if (stack.some((f3) => f3.phase === "result" && /^\s*TOC\b/i.test(f3.instr))) run.inToc = true;
     return run;
   };
@@ -11136,6 +11178,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       if (type === "begin") {
         const frame2 = { instr: "", phase: "instr", runs: [], crossed: false, props: { ...rProps } };
         if (rpr) frame2.rpr = rpr;
+        if (rPrEl) frame2.rPrEl = rPrEl;
         const ff = firstChild(child, "w:ffData");
         if (ff) {
           const cb = firstChild(ff, "w:checkBox");
@@ -11232,17 +11275,24 @@ function readSingleRun(runs, rEl, ctx, inherit) {
         pushRun({ text: "", field: " PAGE " });
         break;
       case "w:drawing": {
+        flush();
+        const tgt = runTarget(ctx, runs), k2 = tgt?.length ?? 0;
         const r6 = readDrawingRun(child, ctx);
         if (r6) pushRun(r6);
+        tagObjectRuns(tgt, k2, child);
         break;
       }
       case "w:pict":
-        for (const r6 of readVmlRuns(child, ctx, false)) pushRun(r6);
+      case "w:object": {
+        flush();
+        const tgt = runTarget(ctx, runs), k2 = tgt?.length ?? 0;
+        for (const r6 of readVmlRuns(child, ctx, child.name === "w:object")) pushRun(r6);
+        tagObjectRuns(tgt, k2, child);
         break;
-      case "w:object":
-        for (const r6 of readVmlRuns(child, ctx, true)) pushRun(r6);
-        break;
+      }
       case "mc:AlternateContent": {
+        flush();
+        const tgt = runTarget(ctx, runs), k2 = tgt?.length ?? 0;
         const choice = firstChild(child, "mc:Choice");
         const drawing = choice && findDeep2(choice, "w:drawing");
         const r6 = drawing && readDrawingRun(drawing, ctx);
@@ -11252,6 +11302,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
           const pict = fb && (findDeep2(fb, "w:pict") ?? findDeep2(fb, "w:object"));
           if (pict) for (const v2 of readVmlRuns(pict, ctx, pict.name === "w:object")) pushRun(v2);
         }
+        tagObjectRuns(tgt, k2, child);
         break;
       }
       case "w:ruby": {
@@ -11267,10 +11318,48 @@ function readSingleRun(runs, rEl, ctx, inherit) {
   flush();
 }
 function readParagraph(pEl, ctx) {
-  const ppr = readPPr(firstChild(pEl, "w:pPr"));
+  const pPrEl = firstChild(pEl, "w:pPr");
+  const ppr = readPPr(pPrEl);
   const props = paraPropsFromPPr(ppr);
   const runs = [];
-  readRunsInto(runs, pEl, ctx);
+  const capture = ctx.sources !== void 0 && ctx.sourceXml !== void 0 && pEl.s !== void 0;
+  const segs = [];
+  if (!capture) readRunsInto(runs, pEl, ctx);
+  else {
+    const xml2 = ctx.sourceXml;
+    const openHere = () => (ctx.fieldStack ?? []).some((f3) => !f3.crossed);
+    let cur = null;
+    for (const child of childElements(pEl)) {
+      if (child.name === "w:pPr") continue;
+      const raw = xml2.slice(child.s, child.e);
+      const before = runs.length;
+      const joining = cur !== null && openHere();
+      readRunsInto(runs, { name: pEl.name, attrs: {}, children: [child] }, ctx);
+      if (joining) {
+        cur.seg.raw += raw;
+        cur.to = runs.length;
+        delete cur.seg.wrapOpen;
+        delete cur.seg.wrapClose;
+      } else {
+        cur = { seg: { raw, sids: [] }, from: before, to: runs.length };
+        if (INLINE_WRAPPERS.has(child.name) && child.cs !== child.e && !openHere()) {
+          const content = child.name === "w:sdt" ? firstChild(child, "w:sdtContent") : child;
+          if (content && content.cs !== content.e) {
+            let start = content.cs;
+            if (content === child) {
+              for (const k2 of childElements(child)) {
+                if (k2.name.endsWith("Pr")) start = k2.e;
+                else break;
+              }
+            }
+            cur.seg.wrapOpen = xml2.slice(child.s, start);
+            cur.seg.wrapClose = xml2.slice(content.ce, child.e);
+          }
+        }
+        segs.push(cur);
+      }
+    }
+  }
   const stack = ctx.fieldStack ?? [];
   for (let i7 = stack.length - 1; i7 >= 0; i7--) {
     const f3 = stack[i7];
@@ -11295,7 +11384,40 @@ function readParagraph(pEl, ctx) {
   if (/\bTOC\b/.test(instr)) props.tocInstr = instr.trim();
   const para = { runs, props };
   if (ppr) para.ppr = ppr;
+  if (capture) captureParagraph(para, pEl, pPrEl, segs, ctx.sources, ctx.sourceXml);
   return para;
+}
+function captureParagraph(para, pEl, pPrEl, segs, store, xml2) {
+  const last = segs[segs.length - 1];
+  if (last && last.to < para.runs.length) {
+    last.to = para.runs.length;
+    last.seg.open = true;
+  }
+  let objHead = 0;
+  for (const { seg, from, to } of segs) {
+    if (seg.wrapOpen !== void 0 && seg.raw.startsWith("<w:hyperlink")) seg.link = para.runs[from]?.props.link ?? "";
+    for (let i7 = from; i7 < to; i7++) {
+      const run = para.runs[i7];
+      const sid = store.id();
+      const el2 = rPrElOf(run);
+      const obj = objElOf(run);
+      store.runs.set(sid, {
+        ...el2 ? { rPr: xml2.slice(el2.s, el2.e) } : {},
+        ...obj === true ? { objHead } : obj ? { obj: xml2.slice(obj.s, obj.e) } : {}
+      });
+      if (obj && obj !== true) objHead = sid;
+      run.props.src = sid;
+      seg.sids.push(sid);
+    }
+  }
+  const selfClosing = pEl.cs === pEl.e;
+  store.addPara(para, {
+    raw: xml2.slice(pEl.s, pEl.e),
+    at: pEl.s,
+    open: selfClosing ? xml2.slice(pEl.s, pEl.e).replace(/\s*\/>$/, ">") : xml2.slice(pEl.s, pEl.cs),
+    ...pPrEl ? { pPr: xml2.slice(pPrEl.s, pPrEl.e) } : {},
+    segs: segs.map((x3) => x3.seg)
+  });
 }
 function collectInstrText(el2) {
   let out = "";
@@ -11819,6 +11941,115 @@ function readStyles(pkg) {
   return out;
 }
 
+// ../docx-core/src/source.ts
+function runSig(run) {
+  return sigHash(JSON.stringify(run, sigReplacer));
+}
+function propsSig(p3) {
+  return sigHash(JSON.stringify(p3.props, sigReplacer));
+}
+function sigHash(s4) {
+  let h1 = 3735928559, h22 = 1103547991;
+  for (let i7 = 0; i7 < s4.length; i7++) {
+    const c4 = s4.charCodeAt(i7);
+    h1 = Math.imul(h1 ^ c4, 2654435761);
+    h22 = Math.imul(h22 ^ c4, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ h1 >>> 16, 2246822507) ^ Math.imul(h22 ^ h22 >>> 13, 3266489909);
+  h22 = Math.imul(h22 ^ h22 >>> 16, 2246822507) ^ Math.imul(h1 ^ h1 >>> 13, 3266489909);
+  return 4294967296 * (2097151 & h22) + (h1 >>> 0);
+}
+function sigReplacer(_k, v2) {
+  return v2 instanceof Uint8Array ? `#bytes:${v2.length}` : v2;
+}
+var SourceStore = class {
+  next = 1;
+  paras = /* @__PURE__ */ new Map();
+  runs = /* @__PURE__ */ new Map();
+  tables = /* @__PURE__ */ new Map();
+  /** Por caminho da parte (word/document.xml, word/header1.xml…). */
+  stories = /* @__PURE__ */ new Map();
+  /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
+  commentIds = /* @__PURE__ */ new Set();
+  /** comments.xml original, para regravar só se a lista mudar. */
+  commentsSig;
+  /** numIds livres escolhidos (no 1º salvar) para as listas que o editor cria. */
+  genNumIds;
+  /** Parágrafos e tabelas lidos — a linha de base é tirada deles. */
+  paraRefs = [];
+  tableRefs = [];
+  /** Resultado de pristine/tablePristine por objeto durante UM salvamento. */
+  memo = /* @__PURE__ */ new WeakMap();
+  id() {
+    return this.next++;
+  }
+  /** Começo de um salvamento: o modelo pode ter mudado desde o anterior. */
+  beginSave() {
+    this.memo = /* @__PURE__ */ new WeakMap();
+  }
+  /** Posição de origem de um bloco (parágrafo ou tabela) pelo id. */
+  atOf(id) {
+    return this.paras.get(id)?.at ?? this.tables.get(id)?.at;
+  }
+  addPara(p3, src) {
+    const id = this.id();
+    this.paras.set(id, src);
+    p3.props.src = id;
+    this.paraRefs.push(p3);
+    return id;
+  }
+  addTable(t5, src) {
+    const id = this.id();
+    this.tables.set(id, src);
+    t5.src = id;
+    this.tableRefs.push(t5);
+    return id;
+  }
+  /** Linha de base: chamada pelo hospedeiro DEPOIS de instalar o documento
+   *  (o editor ajusta runs ao instalar — texto de campos, quebras de seção). */
+  baseline() {
+    for (const p3 of this.paraRefs) {
+      const id = p3.props.src;
+      const src = id !== void 0 ? this.paras.get(id) : void 0;
+      if (!src) continue;
+      src.sig = { props: propsSig(p3), sids: p3.runs.map((r6) => r6.props.src ?? 0), runs: p3.runs.map(runSig) };
+    }
+    for (const t5 of this.tableRefs) {
+      const src = t5.src !== void 0 ? this.tables.get(t5.src) : void 0;
+      if (src) src.sig = tableSig(t5);
+    }
+    this.paraRefs = [];
+    this.tableRefs = [];
+  }
+  /** Parágrafo igual à linha de base (mesmos runs, mesmas props). */
+  pristine(p3) {
+    let v2 = this.memo.get(p3);
+    if (v2 === void 0) this.memo.set(p3, v2 = this.computePristine(p3));
+    return v2;
+  }
+  computePristine(p3) {
+    const id = p3.props.src;
+    const s4 = id !== void 0 ? this.paras.get(id)?.sig : void 0;
+    if (!s4 || p3.runs.length !== s4.sids.length) return false;
+    for (let i7 = 0; i7 < p3.runs.length; i7++) {
+      const r6 = p3.runs[i7];
+      if (r6.props.src !== s4.sids[i7] || runSig(r6) !== s4.runs[i7]) return false;
+    }
+    return propsSig(p3) === s4.props;
+  }
+  tablePristine(t5) {
+    let v2 = this.memo.get(t5);
+    if (v2 === void 0) {
+      const s4 = t5.src !== void 0 ? this.tables.get(t5.src)?.sig : void 0;
+      this.memo.set(t5, v2 = s4 !== void 0 && tableSig(t5) === s4);
+    }
+    return v2;
+  }
+};
+function tableSig(t5) {
+  return sigHash(JSON.stringify(t5, sigReplacer));
+}
+
 // ../docx-core/src/fulldoc.ts
 function readBorderSet(el2, inside) {
   if (!el2) return void 0;
@@ -11858,6 +12089,10 @@ function readBlocksOf(container, ctx) {
   return out;
 }
 function readTable(tblEl, ctx) {
+  const xml2 = ctx.sources && tblEl.s !== void 0 ? ctx.sourceXml : void 0;
+  const slice = (el2) => el2 && xml2 !== void 0 ? xml2.slice(el2.s, el2.e) : void 0;
+  const openOf = (el2) => xml2.slice(el2.s, el2.cs === el2.e ? el2.e : el2.cs).replace(/\s*\/>$/, ">");
+  const srcRows = [];
   const grid = firstChild(tblEl, "w:tblGrid");
   const gridColsTwips = grid ? childElements(grid, "w:gridCol").map((c4) => parseInt(c4.attrs["w:w"] ?? "0", 10) || 0) : [];
   const tblPrEl = firstChild(tblEl, "w:tblPr");
@@ -11865,7 +12100,12 @@ function readTable(tblEl, ctx) {
   const rows = [];
   for (const trEl of unwrap(tblEl, "w:tr")) {
     const cells = [];
+    const srcCells = [];
     for (const tcEl of unwrap(trEl, "w:tc")) {
+      if (xml2 !== void 0) {
+        const tcPrRaw = slice(firstChild(tcEl, "w:tcPr"));
+        srcCells.push({ open: openOf(tcEl), ...tcPrRaw ? { tcPr: tcPrRaw } : {} });
+      }
       const tcPrEl = firstChild(tcEl, "w:tcPr");
       const tcPr = readTcPr(tcPrEl);
       const shd = tcPrEl && firstChild(tcPrEl, "w:shd")?.attrs["w:fill"];
@@ -11888,6 +12128,11 @@ function readTable(tblEl, ctx) {
       cells.push(cell);
     }
     if (cells.length > 0) {
+      if (xml2 !== void 0) {
+        const trPrRaw = slice(firstChild(trEl, "w:trPr"));
+        const exRaw = slice(firstChild(trEl, "w:tblPrEx"));
+        srcRows.push({ open: openOf(trEl), cells: srcCells, ...trPrRaw ? { trPr: trPrRaw } : {}, ...exRaw ? { tblPrEx: exRaw } : {} });
+      }
       const row = { cells };
       const trPr = readTrPr(firstChild(trEl, "w:trPr"));
       if (trPr) row.trPr = trPr;
@@ -11899,16 +12144,83 @@ function readTable(tblEl, ctx) {
   const table = { type: "table", rows, gridColsTwips, borders: tblBorders };
   const tblPr = readTblPr(tblPrEl);
   if (tblPr) table.tblPr = tblPr;
+  if (xml2 !== void 0) {
+    const tblPrRaw = slice(tblPrEl);
+    const gridRaw = slice(grid);
+    ctx.sources.addTable(table, {
+      raw: xml2.slice(tblEl.s, tblEl.e),
+      at: tblEl.s,
+      open: openOf(tblEl),
+      rows: srcRows,
+      ...tblPrRaw ? { tblPr: tblPrRaw } : {},
+      ...gridRaw ? { tblGrid: gridRaw } : {}
+    });
+  }
   return table;
 }
-function readHeaderFooterPart(pkg, path) {
+function markSectionBreaks(full) {
+  for (let si = 0; si < full.sections.length - 1; si++) {
+    const s4 = full.sections[si];
+    let b5 = Math.min(s4.blockEnd, full.blocks.length - 1);
+    while (b5 >= 0 && full.blocks[b5].type !== "paragraph") b5--;
+    const block = full.blocks[b5];
+    if (block?.type !== "paragraph") continue;
+    block.paragraph.props.sectionBreak = {
+      sectPr: s4.sectPr,
+      headerRefs: s4.headerRefs.map((r6) => ({ kind: "header", type: r6.type, rid: r6.rid })),
+      footerRefs: s4.footerRefs.map((r6) => ({ kind: "footer", type: r6.type, rid: r6.rid }))
+    };
+  }
+}
+function blockSrc(b5) {
+  return b5.type === "paragraph" ? b5.paragraph.props.src : b5.src;
+}
+function storyOf(xml2, container) {
+  return { open: xml2.slice(0, container.cs), close: xml2.slice(container.ce), groups: [] };
+}
+function groupOf(xml2, child, produced, store) {
+  const ids = produced.map((b5) => blockSrc(b5) ?? 0);
+  const g2 = { raw: xml2.slice(child.s, child.e), blocks: ids };
+  const content = child.name === "w:sdt" ? firstChild(child, "w:sdtContent") : child.name === "w:customXml" ? child : void 0;
+  if (content && content.cs !== void 0 && content.cs !== content.e) {
+    let start = content.cs;
+    if (content === child) for (const k2 of childElements(child)) {
+      if (k2.name.endsWith("Pr")) start = k2.e;
+      else break;
+    }
+    g2.wrapOpen = xml2.slice(child.s, start);
+    g2.wrapClose = xml2.slice(content.ce, child.e);
+    g2.inner = childElements(content).filter((k2) => !k2.name.endsWith("Pr")).map((k2) => {
+      const inside = produced.filter((b5, i7) => {
+        const at = store.atOf(ids[i7]);
+        return at !== void 0 && at >= k2.s && at < k2.e;
+      });
+      return groupOf(xml2, k2, inside, store);
+    });
+  }
+  return g2;
+}
+function readHeaderFooterPart(pkg, path, store) {
   const xml2 = pkg.getPartText(path);
   if (!xml2) return void 0;
-  const root = parseXml(xml2);
+  const root = parseXml(xml2, { positions: !!store });
   const partName = path.split("/").pop();
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
-  const blocks = readBlocksOf(root, ctx);
+  let blocks;
+  if (!store) blocks = readBlocksOf(root, ctx);
+  else {
+    ctx.sources = store;
+    ctx.sourceXml = xml2;
+    const story = storyOf(xml2, root);
+    blocks = [];
+    for (const c4 of childElements(root)) {
+      const produced = readBlocksOf({ name: root.name, attrs: {}, children: [c4] }, ctx);
+      story.groups.push(groupOf(xml2, c4, produced, store));
+      blocks.push(...produced);
+    }
+    store.stories.set(path, story);
+  }
   const paras = [];
   const walk = (bs) => {
     for (const bl of bs) {
@@ -11948,12 +12260,20 @@ function readComments(pkg) {
     text: childElements(c4, "w:p").map((p3) => readParagraph(p3, ctx).runs.map((r6) => r6.text).join("")).join("\n")
   }));
 }
-function readFullDocument(pkg) {
-  const root = parseXml(pkg.documentXml());
+function readFullDocument(pkg, opts = {}) {
+  const docXml = pkg.documentXml();
+  const store = opts.sources ? new SourceStore() : void 0;
+  const root = parseXml(docXml, { positions: !!store });
   const body = firstChild(root, "w:body");
   if (!body) throw new Error("w:document sem w:body");
   const ctx = buildReadContext(pkg, "word/_rels/document.xml.rels");
   ctx.readBlocks = readBlocksOf;
+  const story = store ? storyOf(docXml, body) : void 0;
+  if (store) {
+    ctx.sources = store;
+    ctx.sourceXml = docXml;
+    store.stories.set("word/document.xml", story);
+  }
   const relsXml = pkg.getPartText("word/_rels/document.xml.rels");
   const relTargets = /* @__PURE__ */ new Map();
   if (relsXml) {
@@ -11973,7 +12293,7 @@ function readFullDocument(pkg) {
       const type = ref.attrs["w:type"] ?? "default";
       const target = rid && relTargets.get(rid);
       if (target && rid) {
-        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target));
+        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target, store));
         const part = hfCache.get(target);
         if (part) {
           set[type] = part.paras;
@@ -12027,7 +12347,9 @@ function readFullDocument(pkg) {
     }
     return out;
   };
-  for (const child of childElements(body)) {
+  const bodyKids = childElements(body);
+  for (const child of bodyKids) {
+    const before = blocks.length;
     if (child.name === "w:p") {
       const para = readParagraph(child, ctx);
       blocks.push({ type: "paragraph", paragraph: para });
@@ -12047,11 +12369,20 @@ function readFullDocument(pkg) {
         }
       }
     }
+    if (story) {
+      if (child.name === "w:sectPr" && child === bodyKids[bodyKids.length - 1]) story.sectPr = docXml.slice(child.s, child.e);
+      else story.groups.push(groupOf(docXml, child, blocks.slice(before), store));
+    }
   }
   if (sections.length === 0) {
     closeSection(firstChild(body, "w:sectPr") ?? { name: "w:sectPr", attrs: {}, children: [] }, blocks.length - 1);
   }
   if (blocks.length === 0) blocks.push({ type: "paragraph", paragraph: { runs: [], props: {} } });
+  const comments = readComments(pkg);
+  if (store) {
+    for (const c4 of comments) store.commentIds.add(c4.id);
+    store.commentsSig = JSON.stringify(comments);
+  }
   const footnoteBlocks = /* @__PURE__ */ new Map();
   const endnoteBlocks = /* @__PURE__ */ new Map();
   return {
@@ -12059,7 +12390,7 @@ function readFullDocument(pkg) {
     sections,
     footnotes: readNotesPart(pkg, "word/footnotes.xml", "w:footnote", footnoteBlocks),
     endnotes: readNotesPart(pkg, "word/endnotes.xml", "w:endnote", endnoteBlocks),
-    comments: readComments(pkg),
+    comments,
     styles: readStyles(pkg),
     bookmarks,
     bookmarkOffsets,
@@ -12067,7 +12398,8 @@ function readFullDocument(pkg) {
     footnoteBlocks,
     endnoteBlocks,
     ...readCoreProps(pkg),
-    ...readBackground(root)
+    ...readBackground(root),
+    ...store ? { sources: store } : {}
   };
 }
 function readBackground(root) {
@@ -12100,8 +12432,8 @@ function readSectionProps(sectEl) {
   if (gutter) out.gutter = parseInt(gutter, 10) || 0;
   const cols = firstChild(sectEl, "w:cols");
   if (cols) {
-    const eq2 = cols.attrs["w:equalWidth"];
-    if (eq2 !== void 0) out.equalWidth = !(eq2 === "0" || eq2 === "false");
+    const eq3 = cols.attrs["w:equalWidth"];
+    if (eq3 !== void 0) out.equalWidth = !(eq3 === "0" || eq3 === "false");
     const defs = childElements(cols, "w:col").map((c4) => ({ w: parseInt(c4.attrs["w:w"] ?? "0", 10) || 0, space: parseInt(c4.attrs["w:space"] ?? "0", 10) || 0 }));
     if (defs.length) out.colDefs = defs;
   }
@@ -12158,7 +12490,8 @@ var textExtras = (run) => ({
   ...run.symFont ? { symFont: run.symFont } : {},
   ...run.inToc ? { inToc: run.inToc } : {}
 });
-var sameProps = (a3, b5) => a3.bold === b5.bold && a3.italic === b5.italic && a3.underline === b5.underline && a3.underlineStyle === b5.underlineStyle && a3.underlineColor === b5.underlineColor && a3.strike === b5.strike && a3.doubleStrike === b5.doubleStrike && a3.vertAlign === b5.vertAlign && a3.szHalfPt === b5.szHalfPt && a3.color === b5.color && a3.highlight === b5.highlight && a3.fontAscii === b5.fontAscii && a3.allCaps === b5.allCaps && a3.smallCaps === b5.smallCaps && sameComments(a3.commentIds, b5.commentIds);
+var sameProps = (a3, b5) => a3.bold === b5.bold && a3.italic === b5.italic && a3.underline === b5.underline && a3.underlineStyle === b5.underlineStyle && a3.underlineColor === b5.underlineColor && a3.strike === b5.strike && a3.doubleStrike === b5.doubleStrike && a3.vertAlign === b5.vertAlign && a3.szHalfPt === b5.szHalfPt && a3.color === b5.color && a3.highlight === b5.highlight && a3.fontAscii === b5.fontAscii && a3.allCaps === b5.allCaps && a3.smallCaps === b5.smallCaps && // runs de elementos de origem diferentes (dentro × fora de um sdt/hyperlink…) não se fundem
+a3.src === b5.src && sameComments(a3.commentIds, b5.commentIds);
 var sameComments = (a3, b5) => {
   if (a3 === b5) return true;
   if (!a3 || !b5 || a3.length !== b5.length) return false;
@@ -12237,6 +12570,11 @@ function splitParagraph(model, pos) {
   const tailRuns = p3.runs.slice(idx);
   p3.runs = p3.runs.slice(0, idx);
   const tail = { runs: tailRuns, props: { ...p3.props } };
+  if (p3.ppr) tail.ppr = p3.ppr;
+  if (p3.props.sectionBreak) {
+    p3.props = { ...p3.props };
+    delete p3.props.sectionBreak;
+  }
   model.paragraphs.splice(pos.para + 1, 0, tail);
   normalizeParagraph(p3);
   normalizeParagraph(tail);
@@ -12256,6 +12594,8 @@ function deleteRange(model, range) {
   rebuildDelete(last, 0, end.offset);
   first.runs = [...first.runs, ...last.runs];
   first.props = { ...last.props };
+  if (last.ppr) first.ppr = last.ppr;
+  else delete first.ppr;
   model.paragraphs.splice(start.para + 1, end.para - start.para);
   normalizeParagraph(first);
   return start;
@@ -12283,6 +12623,8 @@ function mergeWithPrevious(model, para) {
   const offset = paraLength(prev);
   prev.runs = [...prev.runs, ...cur.runs];
   prev.props = { ...cur.props };
+  if (cur.ppr) prev.ppr = cur.ppr;
+  else delete prev.ppr;
   model.paragraphs.splice(para, 1);
   normalizeParagraph(prev);
   return { para: para - 1, offset };
@@ -12314,11 +12656,403 @@ function applyParaProps(model, range, patch) {
   }
 }
 
+// ../docx-core/src/lossless.ts
+var esc = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var RPR_ORDER = [
+  "w:rStyle",
+  "w:rFonts",
+  "w:b",
+  "w:bCs",
+  "w:i",
+  "w:iCs",
+  "w:caps",
+  "w:smallCaps",
+  "w:strike",
+  "w:dstrike",
+  "w:outline",
+  "w:shadow",
+  "w:emboss",
+  "w:imprint",
+  "w:noProof",
+  "w:snapToGrid",
+  "w:vanish",
+  "w:webHidden",
+  "w:color",
+  "w:spacing",
+  "w:w",
+  "w:kern",
+  "w:position",
+  "w:sz",
+  "w:szCs",
+  "w:highlight",
+  "w:u",
+  "w:effect",
+  "w:bdr",
+  "w:shd",
+  "w:fitText",
+  "w:vertAlign",
+  "w:rtl",
+  "w:cs",
+  "w:em",
+  "w:lang",
+  "w:eastAsianLayout",
+  "w:specVanish",
+  "w:oMath",
+  "w:rPrChange"
+];
+var PPR_ORDER = [
+  "w:pStyle",
+  "w:keepNext",
+  "w:keepLines",
+  "w:pageBreakBefore",
+  "w:framePr",
+  "w:widowControl",
+  "w:numPr",
+  "w:suppressLineNumbers",
+  "w:pBdr",
+  "w:shd",
+  "w:tabs",
+  "w:suppressAutoHyphens",
+  "w:kinsoku",
+  "w:wordWrap",
+  "w:overflowPunct",
+  "w:topLinePunct",
+  "w:autoSpaceDE",
+  "w:autoSpaceDN",
+  "w:bidi",
+  "w:adjustRightInd",
+  "w:snapToGrid",
+  "w:spacing",
+  "w:ind",
+  "w:contextualSpacing",
+  "w:mirrorIndents",
+  "w:suppressOverlap",
+  "w:jc",
+  "w:textDirection",
+  "w:textAlignment",
+  "w:textboxTightWrap",
+  "w:outlineLvl",
+  "w:divId",
+  "w:cnfStyle",
+  "w:rPr",
+  "w:sectPr",
+  "w:pPrChange"
+];
+var SECT_ORDER = [
+  "w:headerReference",
+  "w:footerReference",
+  "w:footnotePr",
+  "w:endnotePr",
+  "w:type",
+  "w:pgSz",
+  "w:pgMar",
+  "w:paperSrc",
+  "w:pgBorders",
+  "w:lnNumType",
+  "w:pgNumType",
+  "w:cols",
+  "w:formProt",
+  "w:vAlign",
+  "w:noEndnote",
+  "w:titlePg",
+  "w:textDirection",
+  "w:bidi",
+  "w:rtlGutter",
+  "w:docGrid",
+  "w:printerSettings",
+  "w:sectPrChange"
+];
+function splitElement(raw) {
+  const el2 = parseXml(raw, { positions: true });
+  if (el2.cs === el2.e) {
+    const open = raw.replace(/\s*\/>\s*$/, ">");
+    return { open, close: `</${el2.name}>`, kids: [], el: el2 };
+  }
+  const kids = childElements(el2).map((k2) => ({ name: k2.name, raw: raw.slice(k2.s, k2.e), el: k2 }));
+  return { open: raw.slice(0, el2.cs), close: raw.slice(el2.ce), kids, el: el2 };
+}
+function setKid(kids, order, name, xml2) {
+  const at = kids.findIndex((k2) => k2.name === name);
+  for (let i7 = kids.length - 1; i7 >= 0; i7--) if (kids[i7].name === name && i7 !== at) kids.splice(i7, 1);
+  if (at >= 0) {
+    if (xml2 === null) kids.splice(at, 1);
+    else kids[at] = { name, raw: xml2, el: kids[at].el };
+    return;
+  }
+  if (xml2 === null) return;
+  const rank = order.indexOf(name);
+  let pos = kids.length;
+  for (let i7 = 0; i7 < kids.length; i7++) {
+    const r6 = order.indexOf(kids[i7].name);
+    if (r6 > rank) {
+      pos = i7;
+      break;
+    }
+  }
+  kids.splice(pos, 0, { name, raw: xml2, el: { name, attrs: {}, children: [] } });
+}
+function withAttrs(raw, name, changes) {
+  if (!raw) {
+    const attrs3 = Object.entries(changes).filter(([, v2]) => v2 !== void 0).map(([k2, v2]) => ` ${k2}="${esc(String(v2))}"`).join("");
+    return `<${name}${attrs3}/>`;
+  }
+  const m2 = /^<([^\s/>]+)([^>]*?)(\/?)>/.exec(raw);
+  let attrs2 = m2[2];
+  for (const [k2, v2] of Object.entries(changes)) {
+    const re = new RegExp(`\\s${k2.replace(":", "\\:")}\\s*=\\s*("[^"]*"|'[^']*')`);
+    if (v2 === void 0) attrs2 = attrs2.replace(re, "");
+    else if (re.test(attrs2)) attrs2 = attrs2.replace(re, () => ` ${k2}="${esc(String(v2))}"`);
+    else attrs2 += ` ${k2}="${esc(String(v2))}"`;
+  }
+  return `<${m2[1]}${attrs2}${m2[3]}>${raw.slice(m2[0].length)}`;
+}
+var kidRaw = (kids, name) => kids.find((k2) => k2.name === name)?.raw ?? "";
+var onOff2 = (name, v2) => v2 ? `<${name}/>` : `<${name} w:val="0"/>`;
+var join = (open, kids, close) => kids.length ? open + kids.map((k2) => k2.raw).join("") + close : "";
+function rPrFromProps(p3, linkAware = true) {
+  const rpr = [];
+  if (p3.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc(p3.fontAscii)}" w:hAnsi="${esc(p3.fontAscii)}" w:cs="${esc(p3.fontAscii)}"/>`);
+  if (p3.bold) rpr.push("<w:b/>");
+  if (p3.italic) rpr.push("<w:i/>");
+  if (p3.allCaps) rpr.push("<w:caps/>");
+  if (p3.smallCaps) rpr.push("<w:smallCaps/>");
+  if (p3.strike) rpr.push("<w:strike/>");
+  if (p3.doubleStrike) rpr.push("<w:dstrike/>");
+  const linkLook = linkAware && !!p3.link && !p3.underlineStyle && !p3.underlineColor;
+  if (p3.color && !(linkAware && p3.link && p3.color === "0563C1")) rpr.push(`<w:color w:val="${esc(p3.color)}"/>`);
+  if (p3.charSpacingTwips) rpr.push(`<w:spacing w:val="${p3.charSpacingTwips}"/>`);
+  if (p3.szHalfPt !== void 0) rpr.push(`<w:sz w:val="${p3.szHalfPt}"/><w:szCs w:val="${p3.szHalfPt}"/>`);
+  if (p3.highlight) rpr.push(`<w:highlight w:val="${esc(p3.highlight)}"/>`);
+  if (p3.underline && !linkLook) {
+    rpr.push(`<w:u w:val="${p3.underlineStyle ?? "single"}"${p3.underlineColor ? ` w:color="${esc(p3.underlineColor)}"` : ""}/>`);
+  }
+  if (p3.vertAlign) rpr.push(`<w:vertAlign w:val="${p3.vertAlign}"/>`);
+  return rpr.length ? `<w:rPr>${rpr.join("")}</w:rPr>` : "";
+}
+function patchRPr(raw, run) {
+  const p3 = run.props;
+  if (raw === void 0) return rPrFromProps(p3);
+  const { open, close, kids, el: el2 } = splitElement(raw);
+  const base = editBaseProps(run, readRPr(el2));
+  let changed = false;
+  const set = (name, xml2) => {
+    changed = true;
+    setKid(kids, RPR_ORDER, name, xml2);
+  };
+  if (p3.bold !== base.bold) {
+    set("w:b", onOff2("w:b", p3.bold));
+    set("w:bCs", onOff2("w:bCs", p3.bold));
+  }
+  if (p3.italic !== base.italic) {
+    set("w:i", onOff2("w:i", p3.italic));
+    set("w:iCs", onOff2("w:iCs", p3.italic));
+  }
+  if (p3.underline !== base.underline || p3.underlineStyle !== base.underlineStyle || p3.underlineColor !== base.underlineColor) {
+    set("w:u", p3.underline ? `<w:u w:val="${p3.underlineStyle ?? "single"}"${p3.underlineColor ? ` w:color="${esc(p3.underlineColor)}"` : ""}/>` : '<w:u w:val="none"/>');
+  }
+  if (p3.strike !== base.strike) set("w:strike", onOff2("w:strike", p3.strike));
+  if (!!p3.doubleStrike !== !!base.doubleStrike) set("w:dstrike", onOff2("w:dstrike", !!p3.doubleStrike));
+  if (p3.allCaps !== base.allCaps) set("w:caps", onOff2("w:caps", p3.allCaps));
+  if (p3.smallCaps !== base.smallCaps) set("w:smallCaps", onOff2("w:smallCaps", p3.smallCaps));
+  if (p3.vertAlign !== base.vertAlign) set("w:vertAlign", `<w:vertAlign w:val="${p3.vertAlign ?? "baseline"}"/>`);
+  if (p3.szHalfPt !== base.szHalfPt) {
+    set("w:sz", p3.szHalfPt === void 0 ? null : `<w:sz w:val="${p3.szHalfPt}"/>`);
+    set("w:szCs", p3.szHalfPt === void 0 ? null : `<w:szCs w:val="${p3.szHalfPt}"/>`);
+  }
+  if (p3.color !== base.color) set("w:color", p3.color === void 0 ? null : `<w:color w:val="${esc(p3.color)}"/>`);
+  if (p3.highlight !== base.highlight) set("w:highlight", p3.highlight === void 0 ? null : `<w:highlight w:val="${esc(p3.highlight)}"/>`);
+  if (p3.fontAscii !== base.fontAscii) {
+    set("w:rFonts", p3.fontAscii === void 0 ? null : withAttrs(kidRaw(kids, "w:rFonts"), "w:rFonts", {
+      "w:ascii": p3.fontAscii,
+      "w:hAnsi": p3.fontAscii,
+      "w:cs": p3.fontAscii,
+      "w:asciiTheme": void 0,
+      "w:hAnsiTheme": void 0,
+      "w:cstheme": void 0
+    }));
+  }
+  if ((p3.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
+    set("w:spacing", p3.charSpacingTwips ? `<w:spacing w:val="${p3.charSpacingTwips}"/>` : null);
+  }
+  return changed ? join(open, kids, close) : raw;
+}
+var eq = (a3, b5) => JSON.stringify(a3 ?? null) === JSON.stringify(b5 ?? null);
+var DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
+function pprBits(pp, ids) {
+  const out = {};
+  out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc(pp.styleId)}"/>` : null;
+  out["w:pageBreakBefore"] = pp.pageBreakBefore ? "<w:pageBreakBefore/>" : null;
+  out["w:tabs"] = pp.tabStops?.length ? "<w:tabs>" + pp.tabStops.map((t5) => `<w:tab w:val="${t5.align}"${t5.leader ? ` w:leader="${t5.leader}"` : ""} w:pos="${t5.posTwips}"/>`).join("") + "</w:tabs>" : null;
+  out["w:numPr"] = pp.numbering ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === "decimal" ? ids.decimal : ids.bullet}"/></w:numPr>` : null;
+  if (pp.borders) {
+    let inner = "";
+    for (const side of ["top", "left", "bottom", "right"]) {
+      const e8 = pp.borders[side];
+      if (e8) inner += `<w:${side} w:val="${esc(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="${e8.spacePt}" w:color="${e8.color ? esc(e8.color) : "auto"}"/>`;
+    }
+    out["w:pBdr"] = inner ? `<w:pBdr>${inner}</w:pBdr>` : null;
+  } else if (pp.boxBorder) {
+    const b5 = (side) => `<w:${side} w:val="single" w:sz="4" w:space="1" w:color="auto"/>`;
+    out["w:pBdr"] = `<w:pBdr>${b5("top")}${b5("left")}${b5("bottom")}${b5("right")}</w:pBdr>`;
+  } else out["w:pBdr"] = null;
+  out["w:shd"] = pp.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${esc(pp.shadingHex)}"/>` : null;
+  return out;
+}
+function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
+  const bits2 = pprBits(pp, ids);
+  const ppr = [];
+  const add = (name) => {
+    const x3 = bits2[name];
+    if (x3) ppr.push(x3);
+  };
+  add("w:pStyle");
+  add("w:pageBreakBefore");
+  add("w:numPr");
+  add("w:pBdr");
+  add("w:shd");
+  add("w:tabs");
+  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
+    const line = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
+    const before = pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "";
+    const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
+    ppr.push(`<w:spacing${before}${after}${line}/>`);
+  }
+  if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
+    let attrs2 = "";
+    if (pp.indentLeftTwips) attrs2 += ` w:left="${pp.indentLeftTwips}"`;
+    if (pp.indentRightTwips) attrs2 += ` w:right="${pp.indentRightTwips}"`;
+    if (pp.indentFirstLineTwips) {
+      attrs2 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
+    }
+    ppr.push(`<w:ind${attrs2}/>`);
+  }
+  if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  if (sectPrXml) ppr.push(sectPrXml);
+  return { xml: ppr.length ? `<w:pPr>${ppr.join("")}</w:pPr>` : "", genNumbering: !!pp.numbering };
+}
+function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
+  const p3 = para.props;
+  if (raw === void 0) return pPrFromProps(p3, sect ?? "", ids);
+  const { open, close, kids, el: el2 } = splitElement(raw);
+  const base = paraPropsFromPPr(readPPr(el2));
+  let changed = false;
+  let genNumbering = false;
+  const set = (name, xml2) => {
+    changed = true;
+    setKid(kids, PPR_ORDER, name, xml2);
+  };
+  const bits2 = pprBits(p3, ids);
+  if (p3.styleId !== base.styleId) set("w:pStyle", bits2["w:pStyle"]);
+  if (!!p3.pageBreakBefore !== !!base.pageBreakBefore) set("w:pageBreakBefore", p3.pageBreakBefore ? "<w:pageBreakBefore/>" : '<w:pageBreakBefore w:val="0"/>');
+  if (!eq(p3.tabStops, base.tabStops)) set("w:tabs", bits2["w:tabs"]);
+  if (!eq(p3.borders, base.borders) || !!p3.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
+  if (p3.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
+  if (!eq(p3.numbering, base.numbering)) {
+    const numPr = el2.children.find((c4) => typeof c4 !== "string" && c4.name === "w:numPr");
+    const numId = numPr && childElements(numPr, "w:numId")[0]?.attrs["w:val"];
+    if (!p3.numbering) set("w:numPr", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>');
+    else if (numId && numId !== "0" && base.numbering && base.numbering.kind === p3.numbering.kind) {
+      set("w:numPr", `<w:numPr><w:ilvl w:val="${p3.numbering.ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
+    } else {
+      set("w:numPr", bits2["w:numPr"]);
+      genNumbering = true;
+    }
+  }
+  if (p3.indentLeftTwips !== base.indentLeftTwips || p3.indentRightTwips !== base.indentRightTwips || p3.indentFirstLineTwips !== base.indentFirstLineTwips) {
+    const f3 = p3.indentFirstLineTwips;
+    set("w:ind", withAttrs(kidRaw(kids, "w:ind"), "w:ind", {
+      "w:left": p3.indentLeftTwips,
+      "w:start": void 0,
+      "w:right": p3.indentRightTwips,
+      "w:end": void 0,
+      "w:firstLine": f3 !== void 0 && f3 >= 0 ? f3 : void 0,
+      "w:hanging": f3 !== void 0 && f3 < 0 ? -f3 : void 0,
+      "w:firstLineChars": void 0,
+      "w:hangingChars": void 0,
+      "w:leftChars": void 0,
+      "w:rightChars": void 0
+    }));
+  }
+  if (p3.lineTwentieths !== base.lineTwentieths || p3.spaceAfterTwips !== base.spaceAfterTwips || p3.spaceBeforeTwips !== base.spaceBeforeTwips) {
+    const ch = {};
+    if (p3.lineTwentieths !== base.lineTwentieths) {
+      ch["w:line"] = p3.lineTwentieths;
+      ch["w:lineRule"] = p3.lineTwentieths !== void 0 ? "auto" : void 0;
+    }
+    if (p3.spaceAfterTwips !== base.spaceAfterTwips) {
+      ch["w:after"] = p3.spaceAfterTwips;
+      ch["w:afterLines"] = void 0;
+      ch["w:afterAutospacing"] = void 0;
+    }
+    if (p3.spaceBeforeTwips !== base.spaceBeforeTwips) {
+      ch["w:before"] = p3.spaceBeforeTwips;
+      ch["w:beforeLines"] = void 0;
+      ch["w:beforeAutospacing"] = void 0;
+    }
+    set("w:spacing", withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch));
+  }
+  if (p3.alignment !== base.alignment) set("w:jc", p3.alignment ? `<w:jc w:val="${p3.alignment}"/>` : null);
+  if (sect !== void 0) {
+    const cur = kidRaw(kids, "w:sectPr");
+    if ((sect ?? "") !== cur) set("w:sectPr", sect);
+  }
+  return { xml: changed ? join(open, kids, close) : raw, genNumbering };
+}
+function patchSectPr(raw, cur, refs) {
+  const { open, close, kids, el: el2 } = splitElement(raw);
+  const base = readSectPr(el2);
+  let changed = false;
+  const set = (name, xml2) => {
+    changed = true;
+    setKid(kids, SECT_ORDER, name, xml2);
+  };
+  if (refs) {
+    const now = kids.filter((k2) => k2.name === "w:headerReference" || k2.name === "w:footerReference").map((k2) => `${k2.name}|${k2.el.attrs["w:type"] ?? "default"}|${k2.el.attrs["r:id"]}`).sort().join(",");
+    const want = refs.map((r6) => `w:${r6.kind}Reference|${r6.type}|${r6.rid}`).sort().join(",");
+    if (now !== want) {
+      changed = true;
+      for (let i7 = kids.length - 1; i7 >= 0; i7--) if (kids[i7].name === "w:headerReference" || kids[i7].name === "w:footerReference") kids.splice(i7, 1);
+      kids.unshift(...refs.map((r6) => {
+        const x3 = `<w:${r6.kind}Reference w:type="${r6.type}" r:id="${r6.rid}"/>`;
+        return { name: `w:${r6.kind}Reference`, raw: x3, el: { name: "", attrs: {}, children: [] } };
+      }));
+    }
+  }
+  if (cur.pageWidthTwips !== base.pageWidthTwips || cur.pageHeightTwips !== base.pageHeightTwips) {
+    set("w:pgSz", withAttrs(kidRaw(kids, "w:pgSz"), "w:pgSz", {
+      "w:w": cur.pageWidthTwips,
+      "w:h": cur.pageHeightTwips,
+      "w:orient": cur.pageWidthTwips > cur.pageHeightTwips ? "landscape" : void 0
+    }));
+  }
+  if (cur.marginTopTwips !== base.marginTopTwips || cur.marginBottomTwips !== base.marginBottomTwips || cur.marginLeftTwips !== base.marginLeftTwips || cur.marginRightTwips !== base.marginRightTwips || (cur.headerDistanceTwips ?? 720) !== base.headerDistanceTwips || (cur.footerDistanceTwips ?? 720) !== base.footerDistanceTwips) {
+    const pgMar = kidRaw(kids, "w:pgMar");
+    set("w:pgMar", withAttrs(pgMar, "w:pgMar", {
+      "w:top": cur.marginTopTwips,
+      "w:right": cur.marginRightTwips,
+      "w:bottom": cur.marginBottomTwips,
+      "w:left": cur.marginLeftTwips,
+      "w:header": cur.headerDistanceTwips ?? 720,
+      "w:footer": cur.footerDistanceTwips ?? 720,
+      ...pgMar ? {} : { "w:gutter": 0 }
+    }));
+  }
+  if (!eq(cur.cols, base.cols)) {
+    set("w:cols", cur.cols ? withAttrs(kidRaw(kids, "w:cols"), "w:cols", { "w:num": cur.cols.count, "w:space": cur.cols.spaceTwips, "w:sep": cur.cols.sep ? "true" : void 0 }) : withAttrs(kidRaw(kids, "w:cols"), "w:cols", { "w:num": void 0 }));
+  }
+  if (!!cur.titlePg !== !!base.titlePg) set("w:titlePg", cur.titlePg ? "<w:titlePg/>" : null);
+  if (cur.pgNumStart !== base.pgNumStart) {
+    set("w:pgNumType", withAttrs(kidRaw(kids, "w:pgNumType"), "w:pgNumType", { "w:start": cur.pgNumStart }));
+  }
+  return changed ? join(open, kids, close) || `${open}${close}` : raw;
+}
+
 // ../docx-core/src/serialize.ts
-var esc = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-var escAttr = (s4) => esc(s4).replace(/"/g, "&quot;");
+var esc2 = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+var escAttr = (s4) => esc2(s4).replace(/"/g, "&quot;");
 var mediaOut = [];
 var drawingId = 0;
+var active = null;
 function drawingXml(run) {
   const img = run.image;
   const n5 = ++drawingId;
@@ -12342,12 +13076,82 @@ function patchDrawingGeometry(raw, obj) {
   }
   return out;
 }
-function drawingWithParas(rawDrawingXml, paras) {
-  const inner = paras.map(paraXml).join("");
+function drawingWithParas(rawDrawingXml, paras, blocks) {
+  const inner = blocks?.length ? blocks.map(blockXml).join("") : paras.map(paraXml).join("");
   return rawDrawingXml.replace(
     /<w:txbxContent\b[^>]*>[\s\S]*?<\/w:txbxContent>/g,
     (m2) => `${/^<w:txbxContent\b[^>]*>/.exec(m2)[0]}${inner}</w:txbxContent>`
   );
+}
+var isObjectRun2 = (r6) => !!(r6.image || r6.textbox || r6.shape || r6.group);
+function objectXml(run) {
+  const lossless = active;
+  const sid = run.props.src;
+  const src = sid !== void 0 ? lossless.store.runs.get(sid) : void 0;
+  const headSid = src?.obj !== void 0 ? sid : src?.objHead;
+  const head = headSid !== void 0 ? lossless.store.runs.get(headSid) : void 0;
+  const rpr = rPrXml(run);
+  if (!head?.obj) {
+    if (run.image?.rawDrawingXml) return `<w:r>${rpr}${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
+    if (run.image) return `<w:r>${drawingXml(run)}</w:r>`;
+    if (run.textbox?.rawDrawingXml) {
+      return `<w:r>${rpr}${drawingWithParas(patchDrawingGeometry(run.textbox.rawDrawingXml, run.textbox), run.textbox.paras, run.textbox.blocks)}</w:r>`;
+    }
+    return run.textbox ? "" : void 0;
+  }
+  const runs = lossless.paraRuns;
+  const idx = runs.indexOf(run);
+  const isMember = (r6) => isObjectRun2(r6) && r6.props.src !== void 0 && lossless.store.runs.get(r6.props.src)?.objHead === headSid;
+  if (idx >= 0 && src?.objHead !== void 0) {
+    let k2 = idx - 1;
+    while (k2 >= 0 && isMember(runs[k2])) k2--;
+    if (k2 >= 0 && runs[k2].props.src === headSid && isObjectRun2(runs[k2])) return "";
+    if (k2 !== idx - 1) return "";
+  }
+  const members = [run];
+  for (let k2 = idx + 1; idx >= 0 && k2 < runs.length && isMember(runs[k2]); k2++) members.push(runs[k2]);
+  let xml2 = head.obj;
+  const boxes = members.flatMap((r6) => r6.textbox ? [r6.textbox] : (r6.group?.items ?? []).flatMap((it) => it.run.textbox ? [it.run.textbox] : []));
+  if (boxes.length) {
+    const inners = boxes.map((b5) => (b5.blocks?.length ? b5.blocks.map(blockXml) : b5.paras.map(paraXml)).join(""));
+    const total = (xml2.match(/<w:txbxContent\b/g) ?? []).length;
+    const pick = boxes.length === 1 ? () => 0 : total === boxes.length || total === 2 * boxes.length ? (k2) => k2 % boxes.length : null;
+    if (pick) {
+      let k2 = 0;
+      xml2 = xml2.replace(/<w:txbxContent\b[^>]*>[\s\S]*?<\/w:txbxContent>/g, (m2) => `${/^<w:txbxContent\b[^>]*>/.exec(m2)[0]}${inners[pick(k2++)]}</w:txbxContent>`);
+    }
+  }
+  const geo = members.length <= 1 ? run.image ?? run.textbox : void 0;
+  if (geo) xml2 = patchDrawingGeometry(xml2, geo);
+  if (lossless.emittedObj.has(headSid)) xml2 = freshDrawingIds(xml2);
+  lossless.emittedObj.add(headSid);
+  return `<w:r>${rpr}${xml2}</w:r>`;
+}
+var freshId = 0;
+function freshDrawingIds(xml2) {
+  return xml2.replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/g, (_m, a3) => `${a3}${9e5 + ++freshId}"`).replace(/\s(?:wp14:anchorId|wp14:editId|o:spid)="[^"]*"/g, "");
+}
+function rPrXml(run) {
+  const sid = run.props.src;
+  const src = active && sid !== void 0 ? active.store.runs.get(sid) : void 0;
+  return src ? patchRPr(src.rPr, run) : rPrFromProps(run.props, active !== null);
+}
+function textXml(text2) {
+  const parts = [];
+  for (const seg of text2.split(/(\t|\n|\f|\u000B|\u2011|\u00AD|\u2028)/)) {
+    if (seg === "	") parts.push("<w:tab/>");
+    else if (seg === "\n") parts.push("<w:br/>");
+    else if (seg === "\f") parts.push('<w:br w:type="page"/>');
+    else if (seg === "\v") parts.push('<w:br w:type="column"/>');
+    else if (seg === "\u2011") parts.push("<w:noBreakHyphen/>");
+    else if (seg === "\xAD") parts.push("<w:softHyphen/>");
+    else if (seg === "\u2028") parts.push('<w:br w:clear="all"/>');
+    else if (seg.length > 0) {
+      const space = seg !== seg.trim() ? ' xml:space="preserve"' : "";
+      parts.push(`<w:t${space}>${esc2(seg)}</w:t>`);
+    }
+  }
+  return parts.join("");
 }
 function runXml(run) {
   if (run.custom) {
@@ -12364,6 +13168,10 @@ function runXml(run) {
     };
     return `<w:sdt><w:sdtPr><w:alias w:val="${escAttr(run.custom.fallbackText)}"/><w:tag w:val="${escAttr(tag2)}"/><w:lock w:val="sdtLocked"/></w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`;
   }
+  if (active && (run.image || run.textbox || run.shape || run.group)) {
+    const x3 = objectXml(run);
+    if (x3 !== void 0) return x3;
+  }
   if (run.image) {
     if (run.image.rawDrawingXml) {
       return `<w:r>${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
@@ -12377,70 +13185,228 @@ function runXml(run) {
     }
     return "";
   }
-  const p3 = run.props;
-  const rpr = [];
-  if (p3.fontAscii) {
-    rpr.push(`<w:rFonts w:ascii="${escAttr(p3.fontAscii)}" w:hAnsi="${escAttr(p3.fontAscii)}" w:cs="${escAttr(p3.fontAscii)}"/>`);
+  const rpr = rPrXml(run);
+  if (active && run.noteRef) {
+    const tag2 = run.noteRef.kind === "footnote" ? "w:footnoteReference" : "w:endnoteReference";
+    const r6 = rpr || '<w:rPr><w:vertAlign w:val="superscript"/></w:rPr>';
+    return `<w:r>${r6}<${tag2} w:id="${run.noteRef.id}"/></w:r>`;
   }
-  if (p3.bold) rpr.push("<w:b/>");
-  if (p3.italic) rpr.push("<w:i/>");
-  if (p3.allCaps) rpr.push("<w:caps/>");
-  if (p3.smallCaps) rpr.push("<w:smallCaps/>");
-  if (p3.strike) rpr.push("<w:strike/>");
-  if (p3.doubleStrike) rpr.push("<w:dstrike/>");
-  if (p3.color) rpr.push(`<w:color w:val="${escAttr(p3.color)}"/>`);
-  if (p3.charSpacingTwips !== void 0 && p3.charSpacingTwips !== 0) {
-    rpr.push(`<w:spacing w:val="${p3.charSpacingTwips}"/>`);
+  if (active && run.field && run.text === "" && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(run.field)) {
+    return `<w:r>${rpr}<w:${run.field.includes("FOOTNOTE") ? "footnoteRef" : "endnoteRef"}/></w:r>`;
   }
-  if (p3.szHalfPt !== void 0) {
-    rpr.push(`<w:sz w:val="${p3.szHalfPt}"/><w:szCs w:val="${p3.szHalfPt}"/>`);
+  if (active && run.ptab) {
+    const t5 = run.ptab;
+    return `<w:r>${rpr}<w:ptab w:relativeTo="${escAttr(t5.relativeTo)}" w:alignment="${escAttr(t5.alignment)}"${t5.leader ? ` w:leader="${escAttr(t5.leader)}"` : ""}/></w:r>`;
   }
-  if (p3.highlight) rpr.push(`<w:highlight w:val="${escAttr(p3.highlight)}"/>`);
-  if (p3.underline) {
-    const uColor = p3.underlineColor ? ` w:color="${escAttr(p3.underlineColor)}"` : "";
-    rpr.push(`<w:u w:val="${p3.underlineStyle ?? "single"}"${uColor}/>`);
+  if (active && run.symFont && run.text.length === 1) {
+    const code = run.text.charCodeAt(0);
+    const hex2 = (code >= 61440 && code <= 61695 ? code & 255 : code).toString(16).toUpperCase().padStart(4, "0");
+    return `<w:r>${rpr}<w:sym w:font="${escAttr(run.symFont)}" w:char="${hex2}"/></w:r>`;
   }
-  if (p3.vertAlign) rpr.push(`<w:vertAlign w:val="${p3.vertAlign}"/>`);
-  const parts = [];
-  if (rpr.length) parts.push(`<w:rPr>${rpr.join("")}</w:rPr>`);
-  const segments = run.text.split(/(\t|\n|\f|\u000B|\u2011|\u00AD)/);
-  for (const seg of segments) {
-    if (seg === "	") parts.push("<w:tab/>");
-    else if (seg === "\n") parts.push("<w:br/>");
-    else if (seg === "\f") parts.push('<w:br w:type="page"/>');
-    else if (seg === "\v") parts.push('<w:br w:type="column"/>');
-    else if (seg === "\u2011") parts.push("<w:noBreakHyphen/>");
-    else if (seg === "\xAD") parts.push("<w:softHyphen/>");
-    else if (seg.length > 0) {
-      const space = seg !== seg.trim() ? ' xml:space="preserve"' : "";
-      parts.push(`<w:t${space}>${esc(seg)}</w:t>`);
+  if (active && (run.math || run.props.isMath)) {
+    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc2(run.text)}</m:t></m:r></m:oMath>`;
+  }
+  return `<w:r>${rpr}${textXml(run.text)}</w:r>`;
+}
+function fieldOrRunXml(r6) {
+  return r6.field && !(active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r6.field)) ? `<w:fldSimple w:instr="${escAttr(r6.field)}">${runXml(r6)}</w:fldSimple>` : runXml(r6);
+}
+function linkRelId(url) {
+  if (!active) return void 0;
+  const { pkg, relsPath } = active;
+  let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  for (const m2 of rels.matchAll(/<Relationship\b[^>]*>/g)) {
+    const tag2 = m2[0];
+    if (/TargetMode="External"/.test(tag2) && /\/hyperlink"/.test(tag2) && tag2.includes(`Target="${escAttr(url)}"`)) {
+      return /\bId="([^"]+)"/.exec(tag2)?.[1];
     }
   }
-  return `<w:r>${parts.join("")}</w:r>`;
+  let n5 = 1;
+  while (rels.includes(`Id="rIdWnLink${n5}"`)) n5++;
+  const id = `rIdWnLink${n5}`;
+  rels = rels.replace(
+    "</Relationships>",
+    `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escAttr(url)}" TargetMode="External"/></Relationships>`
+  );
+  pkg.setPartText(relsPath, rels);
+  return id;
 }
-function paraXml(para) {
+function genRuns(items, inWrapper = false) {
+  const out = [];
+  let i7 = 0;
+  while (i7 < items.length) {
+    const link = active && !inWrapper ? items[i7].run.props.link : void 0;
+    if (!link) {
+      const it = items[i7++];
+      out.push(it.before + fieldOrRunXml(it.run) + it.after);
+      continue;
+    }
+    let j = i7;
+    let inner = "";
+    while (j < items.length && items[j].run.props.link === link) {
+      const it = items[j++];
+      inner += it.before + fieldOrRunXml(it.run) + it.after;
+    }
+    const attr = link.startsWith("#") ? ` w:anchor="${escAttr(link.slice(1))}"` : (() => {
+      const id = linkRelId(link);
+      return id ? ` r:id="${id}"` : "";
+    })();
+    out.push(attr ? `<w:hyperlink${attr} w:history="1">${inner}</w:hyperlink>` : inner);
+    i7 = j;
+  }
+  return out.join("");
+}
+function commentMarks(runs, skip) {
   const firstOf = /* @__PURE__ */ new Map();
   const lastOf = /* @__PURE__ */ new Map();
-  para.runs.forEach((r6, i7) => {
+  runs.forEach((r6, i7) => {
     for (const id of r6.props.commentIds ?? []) {
+      if (skip?.has(id)) continue;
       if (!firstOf.has(id)) firstOf.set(id, i7);
       lastOf.set(id, i7);
     }
   });
-  const runParts = [];
-  para.runs.forEach((r6, i7) => {
-    for (const [id, fi] of firstOf) if (fi === i7) runParts.push(`<w:commentRangeStart w:id="${id}"/>`);
-    if (r6.field) {
-      runParts.push(`<w:fldSimple w:instr="${escAttr(r6.field)}">${runXml(r6)}</w:fldSimple>`);
-    } else runParts.push(runXml(r6));
-    for (const [id, li] of lastOf) {
-      if (li === i7) {
-        runParts.push(`<w:commentRangeEnd w:id="${id}"/>`);
-        runParts.push(`<w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:commentReference w:id="${id}"/></w:r>`);
+  const before = runs.map(() => "");
+  const after = runs.map(() => "");
+  for (const [id, i7] of firstOf) before[i7] += `<w:commentRangeStart w:id="${id}"/>`;
+  for (const [id, i7] of lastOf) {
+    after[i7] += `<w:commentRangeEnd w:id="${id}"/><w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:commentReference w:id="${id}"/></w:r>`;
+  }
+  return { before, after };
+}
+var isAtomic = (r6) => !!(r6.shape || r6.group || r6.math || r6.props.isMath || r6.formField || r6.image && !r6.image.rawDrawingXml);
+function runsLossless(para, src, pid, last) {
+  const lossless = active;
+  const store = lossless.store;
+  const segs = src.segs;
+  const cur = para.runs;
+  const where = /* @__PURE__ */ new Map();
+  segs.forEach((g2, gi) => g2.sids.forEach((sid, k2) => where.set(sid, [gi, k2])));
+  const base = /* @__PURE__ */ new Map();
+  src.sig?.sids.forEach((sid, i7) => base.set(sid, src.sig.runs[i7]));
+  const orig = /* @__PURE__ */ new Map();
+  for (const r6 of cur) {
+    const sid = r6.props.src;
+    if (sid !== void 0 && !orig.has(sid) && base.get(sid) === runSig(r6)) orig.set(sid, r6);
+  }
+  const intact = (r6) => r6.props.src !== void 0 && orig.get(r6.props.src) === r6;
+  const segKey = (gi) => `${pid}:${gi}`;
+  const taken = (gi) => lossless.claimedSegs.has(segKey(gi));
+  const take = (gi) => {
+    lossless.claimedSegs.add(segKey(gi));
+  };
+  const marks = commentMarks(cur, store.commentIds);
+  let out = "";
+  let pending2 = [];
+  const flushGen = () => {
+    if (pending2.length) {
+      out += genRuns(pending2);
+      pending2 = [];
+    }
+  };
+  let zp = 0;
+  const flushZero = (upTo) => {
+    for (; zp < upTo; zp++) {
+      const g2 = segs[zp];
+      if (g2.sids.length === 0 && !taken(zp)) {
+        take(zp);
+        flushGen();
+        out += g2.raw;
       }
     }
-  });
-  return paraXmlInner(para, runParts.join(""));
+  };
+  const firstAtomic = /* @__PURE__ */ new Map();
+  for (const r6 of cur) if (r6.props.src !== void 0 && isAtomic(r6) && !firstAtomic.has(r6.props.src)) firstAtomic.set(r6.props.src, r6);
+  const markObjects = (g2) => {
+    for (const sid of g2.sids) if (store.runs.get(sid)?.obj !== void 0) lossless.emittedObj.add(sid);
+  };
+  for (let i7 = 0; i7 < cur.length; ) {
+    const r6 = cur[i7];
+    const loc = r6.props.src !== void 0 ? where.get(r6.props.src) : void 0;
+    if (loc && segs[loc[0]].open) {
+      if (!taken(loc[0])) {
+        flushZero(loc[0]);
+        flushGen();
+        out += marks.before[i7] + segs[loc[0]].raw;
+        take(loc[0]);
+        zp = Math.max(zp, loc[0] + 1);
+      }
+      i7++;
+      continue;
+    }
+    if (loc && loc[0] >= zp && !taken(loc[0])) {
+      const g2 = segs[loc[0]];
+      let ok = loc[1] === 0 && i7 + g2.sids.length <= cur.length;
+      for (let k2 = 0; ok && k2 < g2.sids.length; k2++) ok = cur[i7 + k2].props.src === g2.sids[k2] && intact(cur[i7 + k2]);
+      const fallback = !ok && g2.sids.length === 1 && isAtomic(r6) && firstAtomic.get(r6.props.src) === r6 && !(isObjectRun2(r6) && store.runs.get(r6.props.src)?.obj !== void 0);
+      if (ok || fallback) {
+        flushZero(loc[0]);
+        flushGen();
+        const n5 = g2.sids.length;
+        out += marks.before[i7] + g2.raw + marks.after[i7 + n5 - 1];
+        markObjects(g2);
+        take(loc[0]);
+        zp = loc[0] + 1;
+        i7 += n5;
+        continue;
+      }
+      flushZero(loc[0]);
+      if (g2.wrapOpen !== void 0 && (g2.link === void 0 || r6.props.link === g2.link)) {
+        const own4 = new Set(g2.sids);
+        let j = i7;
+        while (j < cur.length && cur[j].props.src !== void 0 && own4.has(cur[j].props.src) && (g2.link === void 0 || cur[j].props.link === g2.link)) j++;
+        flushGen();
+        out += g2.wrapOpen + genRuns(cur.slice(i7, j).map((run, k2) => ({ run, before: marks.before[i7 + k2], after: marks.after[i7 + k2] })), true) + g2.wrapClose;
+        take(loc[0]);
+        zp = loc[0] + 1;
+        i7 = j;
+        continue;
+      }
+    }
+    pending2.push({ run: r6, before: marks.before[i7], after: marks.after[i7] });
+    i7++;
+  }
+  flushGen();
+  if (last) flushZero(segs.length);
+  return out;
+}
+function paraSectPr(para, rawPPr) {
+  const rawSect = rawPPr ? splitElement(rawPPr).kids.find((k2) => k2.name === "w:sectPr")?.raw : void 0;
+  const sb = para.props.sectionBreak;
+  if (!sb) return rawSect ? null : void 0;
+  const refs = [...sb.headerRefs, ...sb.footerRefs];
+  return rawSect ? patchSectPr(rawSect, sb.sectPr, refs) : `<w:sectPr>${sectPrInner(sb.sectPr, refs)}</w:sectPr>`;
+}
+function paraXml(para) {
+  if (!active) return paraXmlRuns(para);
+  const prev = active.paraRuns;
+  active.paraRuns = para.runs;
+  try {
+    return paraXmlRuns(para);
+  } finally {
+    active.paraRuns = prev;
+  }
+}
+function paraXmlRuns(para) {
+  const src = active && para.props.src !== void 0 ? active.store.paras.get(para.props.src) : void 0;
+  if (!active || !src) {
+    const marks = commentMarks(para.runs, active?.store.commentIds);
+    const items = para.runs.map((run, i7) => ({ run, before: marks.before[i7], after: marks.after[i7] }));
+    if (!active) return paraXmlInner(para, items.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join(""));
+    const ppr2 = pPrFromProps(para.props, para.props.sectionBreak ? `<w:sectPr>${sectPrInner(para.props.sectionBreak.sectPr, [...para.props.sectionBreak.headerRefs, ...para.props.sectionBreak.footerRefs])}</w:sectPr>` : "", active.numIds);
+    if (ppr2.genNumbering) active.genNumbering = true;
+    return `<w:p>${ppr2.xml}${genRuns(items)}</w:p>`;
+  }
+  const id = para.props.src;
+  const first = !active.claimed.has(id);
+  active.claimed.add(id);
+  const left = (active.remaining.get(id) ?? 1) - 1;
+  active.remaining.set(id, left);
+  const last = left <= 0;
+  if (first && last && active.store.pristine(para)) return src.raw;
+  const ppr = patchPPr(src.pPr, para, paraSectPr(para, src.pPr), active.numIds);
+  if (ppr.genNumbering) active.genNumbering = true;
+  return `${first ? src.open : "<w:p>"}${ppr.xml}${runsLossless(para, src, id, last)}</w:p>`;
 }
 function paraXmlInner(para, runsXml) {
   const pp = para.props;
@@ -12518,24 +13484,130 @@ function borderSetXml(wrap, b5, sides) {
 }
 var TBL_SIDES = ["top", "left", "bottom", "right", "insideH", "insideV"];
 var CELL_SIDES = ["top", "left", "bottom", "right"];
+function cellBodyXml(cell) {
+  if (cell.blocks?.length) return cell.blocks.map(blockXml).join("");
+  return cell.paragraphs.length ? cell.paragraphs.map(paraXml).join("") + cell.tables.map(tableXml).join("") : "<w:p/>";
+}
 function tableXml(t5) {
-  const total = t5.gridColsTwips.reduce((a3, b5) => a3 + b5, 0) || void 0;
-  const tblPr = "<w:tblPr>" + (total ? `<w:tblW w:w="${total}" w:type="dxa"/>` : "") + (t5.borders ? borderSetXml("tblBorders", t5.borders, TBL_SIDES) : "") + "</w:tblPr>";
-  const grid = `<w:tblGrid>${t5.gridColsTwips.map((w2) => `<w:gridCol w:w="${w2}"/>`).join("")}</w:tblGrid>`;
-  const rows = t5.rows.map((row) => {
-    const cells = row.cells.map((cell) => {
-      const tcPr = "<w:tcPr>" + (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : "") + (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : "") + (cell.borders ? borderSetXml("tcBorders", cell.borders, CELL_SIDES) : "") + (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr(cell.shadingHex)}"/>` : "") + "</w:tcPr>";
-      const body = cell.paragraphs.length ? cell.paragraphs.map(paraXml).join("") + cell.tables.map(tableXml).join("") : "<w:p/>";
-      return `<w:tc>${tcPr}${body}</w:tc>`;
+  const src = active && t5.src !== void 0 ? active.store.tables.get(t5.src) : void 0;
+  if (active && src) {
+    const owner = !active.claimed.has(t5.src);
+    active.claimed.add(t5.src);
+    if (owner && active.store.tablePristine(t5)) return src.raw;
+    const sameGrid = src.tblGrid !== void 0 && gridOf(src.tblGrid) === t5.gridColsTwips.join(",");
+    const rows2 = t5.rows.map((row, ri) => {
+      const sr = src.rows[ri];
+      const sameShape = sr !== void 0 && sr.cells.length === row.cells.length;
+      const cells = row.cells.map((cell, ci) => {
+        const sc = sameShape ? sr.cells[ci] : void 0;
+        return sc ? `${sc.open}${sc.tcPr ?? ""}${cellBodyXml(cell)}</w:tc>` : `<w:tc>${tcPrXml(cell)}${cellBodyXml(cell)}</w:tc>`;
+      }).join("");
+      return sameShape ? `${sr.open}${sr.tblPrEx ?? ""}${sr.trPr ?? ""}${cells}</w:tr>` : `<w:tr>${cells}</w:tr>`;
     }).join("");
+    return `${src.open}${src.tblPr ?? tblPrXml(t5)}${sameGrid ? src.tblGrid : gridXml(t5)}${rows2}</w:tbl>`;
+  }
+  const rows = t5.rows.map((row) => {
+    const cells = row.cells.map((cell) => `<w:tc>${tcPrXml(cell)}${cellBodyXml(cell)}</w:tc>`).join("");
     return `<w:tr>${cells}</w:tr>`;
   }).join("");
-  return `<w:tbl>${tblPr}${grid}${rows}</w:tbl>`;
+  return `<w:tbl>${tblPrXml(t5)}${gridXml(t5)}${rows}</w:tbl>`;
+}
+var gridOf = (raw) => [...raw.matchAll(/<w:gridCol\b[^>]*w:w="(\d+)"/g)].map((m2) => m2[1]).join(",");
+function tblPrXml(t5) {
+  const total = t5.gridColsTwips.reduce((a3, b5) => a3 + b5, 0) || void 0;
+  return "<w:tblPr>" + (total ? `<w:tblW w:w="${total}" w:type="dxa"/>` : "") + (t5.borders ? borderSetXml("tblBorders", t5.borders, TBL_SIDES) : "") + "</w:tblPr>";
+}
+var gridXml = (t5) => `<w:tblGrid>${t5.gridColsTwips.map((w2) => `<w:gridCol w:w="${w2}"/>`).join("")}</w:tblGrid>`;
+function tcPrXml(cell) {
+  return "<w:tcPr>" + (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : "") + (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : "") + (cell.borders ? borderSetXml("tcBorders", cell.borders, CELL_SIDES) : "") + (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr(cell.shadingHex)}"/>` : "") + "</w:tcPr>";
+}
+var blockXml = (b5) => b5.type === "table" ? tableXml(b5) : paraXml(b5.paragraph);
+var blockId = (b5) => b5.type === "table" ? b5.src : b5.paragraph.props.src;
+function storyBlocksXml(story, blocks, store) {
+  countCopies(blocks, active.remaining);
+  return groupsXml(story.groups, blocks, store);
+}
+function groupsXml(groups, blocks, store) {
+  const groupOf2 = /* @__PURE__ */ new Map();
+  groups.forEach((g2, gi) => g2.blocks.forEach((id) => {
+    if (id) groupOf2.set(id, gi);
+  }));
+  const seen = /* @__PURE__ */ new Set();
+  const dup = /* @__PURE__ */ new Set();
+  for (const b5 of blocks) {
+    const id = blockId(b5);
+    if (id === void 0) continue;
+    if (seen.has(id)) dup.add(id);
+    else seen.add(id);
+  }
+  const pristine = (b5) => {
+    const id = blockId(b5);
+    if (id === void 0 || dup.has(id)) return false;
+    return b5.type === "table" ? store.tablePristine(b5) : store.pristine(b5.paragraph);
+  };
+  let out = "";
+  let zp = 0;
+  const flushZero = (upTo) => {
+    for (; zp < upTo; zp++) if (groups[zp].blocks.length === 0) out += groups[zp].raw;
+  };
+  for (let i7 = 0; i7 < blocks.length; ) {
+    const b5 = blocks[i7];
+    const id = blockId(b5);
+    const gi = id !== void 0 ? groupOf2.get(id) : void 0;
+    if (gi !== void 0 && gi >= zp) {
+      const g2 = groups[gi];
+      let ok = g2.blocks[0] === id && i7 + g2.blocks.length <= blocks.length;
+      for (let k2 = 0; ok && k2 < g2.blocks.length; k2++) ok = blockId(blocks[i7 + k2]) === g2.blocks[k2] && pristine(blocks[i7 + k2]);
+      flushZero(gi);
+      if (ok) {
+        for (const bid of g2.blocks) active.claimed.add(bid);
+        out += g2.raw;
+        zp = gi + 1;
+        i7 += g2.blocks.length;
+        continue;
+      }
+      if (g2.wrapOpen !== void 0 && g2.blocks[0] === id) {
+        let j = i7;
+        while (j < blocks.length && (() => {
+          const x3 = blockId(blocks[j]);
+          return x3 !== void 0 && groupOf2.get(x3) === gi;
+        })()) j++;
+        const inner = blocks.slice(i7, j);
+        out += g2.wrapOpen + (g2.inner ? groupsXml(g2.inner, inner, store) : inner.map(blockXml).join("")) + g2.wrapClose;
+        zp = gi + 1;
+        i7 = j;
+        continue;
+      }
+    }
+    out += blockXml(b5);
+    i7++;
+  }
+  flushZero(groups.length);
+  return out;
+}
+function countCopies(blocks, out) {
+  const para = (p3) => {
+    if (p3.props.src !== void 0) out.set(p3.props.src, (out.get(p3.props.src) ?? 0) + 1);
+    for (const r6 of p3.runs) {
+      for (const tb of r6.textbox ? [r6.textbox] : (r6.group?.items ?? []).map((it) => it.run.textbox)) {
+        if (!tb) continue;
+        if (tb.blocks?.length) countCopies(tb.blocks, out);
+        else tb.paras.forEach(para);
+      }
+    }
+  };
+  for (const b5 of blocks) {
+    if (b5.type === "paragraph") para(b5.paragraph);
+    else for (const row of b5.rows) for (const c4 of row.cells) {
+      if (c4.blocks?.length) countCopies(c4.blocks, out);
+      else c4.paragraphs.forEach(para);
+    }
+  }
 }
 function serializeBlocks(blocks, sectPr, hfRefs = []) {
   const bodyRefs = hfRefs.map((h3) => ({ kind: h3.kind, type: h3.type, rid: h3.rid }));
   const sect = `<w:sectPr>${sectPrInner(sectPr, bodyRefs)}</w:sectPr>`;
-  const body = blocks.map((b5) => b5.type === "table" ? tableXml(b5) : paraXml(b5.paragraph)).join("");
+  const body = blocks.map(blockXml).join("");
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W_NS}><w:body>${body}${sect}</w:body></w:document>`;
 }
 function serializeDocument(model, hfRefs = []) {
@@ -12543,29 +13615,122 @@ function serializeDocument(model, hfRefs = []) {
   const sect = `<w:sectPr>${sectPrInner(model.sectPr, bodyRefs)}</w:sectPr>`;
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W_NS}><w:body>` + model.paragraphs.map(paraXml).join("") + sect + "</w:body></w:document>";
 }
-function numberingXml() {
+function withNamespaces(open, rootName) {
+  const at = open.indexOf(`<${rootName}`);
+  if (at < 0) return open;
+  const end = open.indexOf(">", at);
+  let tag2 = open.slice(at, end);
+  const need = [
+    ["w", "http://schemas.openxmlformats.org/wordprocessingml/2006/main"],
+    ["r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"],
+    ["wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"]
+  ];
+  for (const [pfx, uri] of need) if (!new RegExp(`\\sxmlns:${pfx}=`).test(tag2)) tag2 += ` xmlns:${pfx}="${uri}"`;
+  return open.slice(0, at) + tag2 + open.slice(end);
+}
+function dropCommentMarks(xml2, gone) {
+  if (gone.size === 0) return xml2;
+  const ids = [...gone].join("|");
+  return xml2.replace(new RegExp(`<w:commentRange(?:Start|End)\\b[^>]*\\bw:id="(?:${ids})"[^>]*/>`, "g"), "").replace(new RegExp(`<w:r\\b[^>]*>(?:(?!</w:r>)[\\s\\S])*?<w:commentReference\\b[^>]*\\bw:id="(?:${ids})"[^>]*/>(?:(?!</w:r>)[\\s\\S])*?</w:r>`, "g"), "");
+}
+function numberingXml(ids) {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering ${W_NS}>${numberingAbstracts(ids)}${numberingNums(ids)}</w:numbering>`;
+}
+function freeNumIds(xml2) {
+  const used = new Set([...(xml2 ?? "").matchAll(/w:(?:abstractNumId|numId)(?: w:val)?="(\d+)"/g)].map((m2) => Number(m2[1])));
+  let n5 = 1001;
+  while (used.has(n5) || used.has(n5 + 1)) n5 += 2;
+  return { bullet: n5, decimal: n5 + 1 };
+}
+function numberingAbstracts(ids) {
   const bulletLvls = Array.from(
     { length: 3 },
-    (_2, i7) => `<w:lvl w:ilvl="${i7}"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="${["\uF0B7", "o", "\uF0A7"][i7]}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="${720 * (i7 + 1)}" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="${["Symbol", "Courier New", "Wingdings"][i7]}" w:hAnsi="${["Symbol", "Courier New", "Wingdings"][i7]}" w:hint="default"/></w:rPr></w:lvl>`
+    (_2, i7) => `<w:lvl w:ilvl="${i7}"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="${["", "o", ""][i7]}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="${720 * (i7 + 1)}" w:hanging="360"/></w:pPr><w:rPr><w:rFonts w:ascii="${["Symbol", "Courier New", "Wingdings"][i7]}" w:hAnsi="${["Symbol", "Courier New", "Wingdings"][i7]}" w:hint="default"/></w:rPr></w:lvl>`
   ).join("");
   const decimalLvls = Array.from(
     { length: 3 },
     (_2, i7) => `<w:lvl w:ilvl="${i7}"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%${i7 + 1}."/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="${720 * (i7 + 1)}" w:hanging="360"/></w:pPr></w:lvl>`
   ).join("");
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering ${W_NS}><w:abstractNum w:abstractNumId="1001">${bulletLvls}</w:abstractNum><w:abstractNum w:abstractNumId="1002">${decimalLvls}</w:abstractNum><w:num w:numId="1001"><w:abstractNumId w:val="1001"/></w:num><w:num w:numId="1002"><w:abstractNumId w:val="1002"/></w:num></w:numbering>`;
+  return `<w:abstractNum w:abstractNumId="${ids.bullet}">${bulletLvls}</w:abstractNum><w:abstractNum w:abstractNumId="${ids.decimal}">${decimalLvls}</w:abstractNum>`;
+}
+var numberingNums = (ids) => `<w:num w:numId="${ids.bullet}"><w:abstractNumId w:val="${ids.bullet}"/></w:num><w:num w:numId="${ids.decimal}"><w:abstractNumId w:val="${ids.decimal}"/></w:num>`;
+function mergeNumbering(xml2, ids) {
+  if (new RegExp(`<w:num w:numId="${ids.bullet}">`).test(xml2)) return xml2;
+  const firstNum = xml2.search(/<w:num\b/);
+  const withAbs = firstNum >= 0 ? xml2.slice(0, firstNum) + numberingAbstracts(ids) + xml2.slice(firstNum) : xml2.replace(/<\/w:numbering>\s*$/, `${numberingAbstracts(ids)}</w:numbering>`);
+  const tail = withAbs.search(/<w:numIdMacAtCleanup\b|<\/w:numbering>\s*$/);
+  return withAbs.slice(0, tail) + numberingNums(ids) + withAbs.slice(tail);
 }
 var W_NS_HF = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 function serializeHfPart(kind, paragraphs) {
   const tag2 = kind === "header" ? "w:hdr" : "w:ftr";
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><${tag2} ${W_NS_HF}>` + paragraphs.map(paraXml).join("") + `</${tag2}>`;
 }
+var commentXml = (c4) => `<w:comment w:id="${c4.id}" w:author="${escAttr(c4.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc2(c4.text)}</w:t></w:r></w:p></w:comment>`;
+function patchComments(pkg, comments) {
+  const xml2 = pkg.getPartText("word/comments.xml");
+  const want = new Map(comments.map((c4) => [c4.id, c4]));
+  const have = /* @__PURE__ */ new Set();
+  const goneParaIds = [];
+  let out = xml2.replace(/<w:comment\b[^>]*?\bw:id="(-?\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/w:comment>)/g, (m2, id) => {
+    const n5 = parseInt(id, 10);
+    if (want.has(n5)) {
+      have.add(n5);
+      return m2;
+    }
+    for (const p3 of m2.matchAll(/w14:paraId="([0-9A-Fa-f]+)"/g)) goneParaIds.push(p3[1]);
+    return "";
+  });
+  const added = comments.filter((c4) => !have.has(c4.id)).map(commentXml).join("");
+  if (added) out = out.replace(/<\/w:comments>\s*$/, `${added}</w:comments>`);
+  if (out !== xml2) pkg.setPartText("word/comments.xml", out);
+  if (!goneParaIds.length) return;
+  const ids = goneParaIds.join("|");
+  const durable = [];
+  const cids = pkg.getPartText("word/commentsIds.xml");
+  if (cids) {
+    pkg.setPartText("word/commentsIds.xml", cids.replace(new RegExp(`<w16cid:commentId\\b[^>]*w16cid:paraId="(?:${ids})"[^>]*/>`, "g"), (m2) => {
+      const d3 = /w16cid:durableId="([^"]+)"/.exec(m2)?.[1];
+      if (d3) durable.push(d3);
+      return "";
+    }));
+  }
+  const ext = pkg.getPartText("word/commentsExtended.xml");
+  if (ext) pkg.setPartText("word/commentsExtended.xml", ext.replace(new RegExp(`<w15:commentEx\\b[^>]*w15:paraId="(?:${ids})"[^>]*/>`, "g"), ""));
+  const exb = pkg.getPartText("word/commentsExtensible.xml");
+  if (exb && durable.length) {
+    pkg.setPartText("word/commentsExtensible.xml", exb.replace(
+      new RegExp(`<w16cex:commentExtensible\\b[^>]*w16cex:durableId="(?:${durable.join("|")})"[^>]*?(?:/>|>[\\s\\S]*?</w16cex:commentExtensible>)`, "g"),
+      ""
+    ));
+  }
+}
 function writeDocument(pkg, model, hfParts = [], opts = {}) {
   mediaOut = [];
   drawingId = 0;
-  if (opts.comments && opts.comments.length > 0) {
-    const body = opts.comments.map(
-      (c4) => `<w:comment w:id="${c4.id}" w:author="${escAttr(c4.author ?? "Write")}" w:initials="WN"><w:p><w:r><w:t xml:space="preserve">${esc(c4.text)}</w:t></w:r></w:p></w:comment>`
-    ).join("");
+  const store = opts.sources;
+  if (store) {
+    store.beginSave();
+    store.genNumIds ??= freeNumIds(pkg.getPartText("word/numbering.xml"));
+  }
+  active = store ? { store, pkg, relsPath: "word/_rels/document.xml.rels", claimed: /* @__PURE__ */ new Set(), genNumbering: false, claimedSegs: /* @__PURE__ */ new Set(), remaining: /* @__PURE__ */ new Map(), paraRuns: [], emittedObj: /* @__PURE__ */ new Set(), numIds: store.genNumIds } : null;
+  try {
+    writeParts(pkg, model, hfParts, opts, store);
+  } finally {
+    active = null;
+  }
+}
+function writeParts(pkg, model, hfParts, opts, store) {
+  const gone = /* @__PURE__ */ new Set();
+  if (store) {
+    const now = new Set((opts.comments ?? []).map((c4) => c4.id));
+    for (const id of store.commentIds) if (!now.has(id)) gone.add(id);
+  }
+  const commentsUnchanged = store !== void 0 && store.commentsSig === JSON.stringify(opts.comments ?? []);
+  if (store && !commentsUnchanged && pkg.getPart("word/comments.xml")) {
+    patchComments(pkg, opts.comments ?? []);
+  } else if (!commentsUnchanged && opts.comments && opts.comments.length > 0) {
+    const body = opts.comments.map(commentXml).join("");
     pkg.setPartText(
       "word/comments.xml",
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments ${W_NS_HF}>${body}</w:comments>`
@@ -12594,7 +13759,16 @@ function writeDocument(pkg, model, hfParts = [], opts = {}) {
     let ct2 = pkg.getPartText("[Content_Types].xml") ?? "";
     for (const hf of hfParts) {
       if (hf.dirty || !pkg.getPart(hf.path)) {
-        pkg.setPartText(hf.path, serializeHfPart(hf.kind, hf.paragraphs));
+        const story2 = store?.stories.get(hf.path);
+        if (active && story2) {
+          active.relsPath = `word/_rels/${hf.path.split("/").pop()}.rels`;
+          const blocks = hf.blocks ?? hf.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
+          const xml2 = withNamespaces(story2.open, hf.kind === "header" ? "w:hdr" : "w:ftr") + storyBlocksXml(story2, blocks, store) + story2.close;
+          pkg.setPartText(hf.path, dropCommentMarks(xml2, gone));
+          active.relsPath = relsPath2;
+        } else {
+          pkg.setPartText(hf.path, serializeHfPart(hf.kind, hf.paragraphs));
+        }
       }
       const relTarget = hf.path.replace(/^word\//, "");
       if (!rels2.includes(`Id="${hf.rid}"`)) {
@@ -12619,10 +13793,28 @@ function writeDocument(pkg, model, hfParts = [], opts = {}) {
     paragraphs: [],
     dirty: false
   })) : hfParts;
-  pkg.setPartText(
-    "word/document.xml",
-    opts.blocks ? serializeBlocks(opts.blocks, model.sectPr, bodyRefs) : serializeDocument(model, bodyRefs)
-  );
+  const story = store?.stories.get("word/document.xml");
+  if (active && story) {
+    active.relsPath = "word/_rels/document.xml.rels";
+    const blocks = opts.blocks ?? model.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
+    const refs = bodyRefs.map((h3) => ({ kind: h3.kind, type: h3.type, rid: h3.rid }));
+    const sect = story.sectPr ? patchSectPr(story.sectPr, model.sectPr, refs) : `<w:sectPr>${sectPrInner(model.sectPr, refs)}</w:sectPr>`;
+    const xml2 = withNamespaces(story.open, "w:document") + storyBlocksXml(story, blocks, store) + sect + story.close;
+    pkg.setPartText("word/document.xml", dropCommentMarks(xml2, gone));
+  } else {
+    pkg.setPartText(
+      "word/document.xml",
+      opts.blocks ? serializeBlocks(opts.blocks, model.sectPr, bodyRefs) : serializeDocument(model, bodyRefs)
+    );
+  }
+  if (gone.size) {
+    for (const part of pkg.partNames()) {
+      if (!/^word\/(?:header\d*|footer\d*|footnotes|endnotes)\.xml$/.test(part)) continue;
+      const x3 = pkg.getPartText(part);
+      const y3 = dropCommentMarks(x3, gone);
+      if (y3 !== x3) pkg.setPartText(part, y3);
+    }
+  }
   if (mediaOut.length > 0) {
     const relsPath2 = "word/_rels/document.xml.rels";
     let rels2 = pkg.getPartText(relsPath2) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
@@ -12659,9 +13851,11 @@ function writeDocument(pkg, model, hfParts = [], opts = {}) {
     pkg.setPartText(relsPath2, rels2);
     if (ct2) pkg.setPartText("[Content_Types].xml", ct2);
   }
-  const hasLists = model.paragraphs.some((p3) => p3.props.numbering);
+  const hasLists = active ? active.genNumbering : model.paragraphs.some((p3) => p3.props.numbering);
   if (!hasLists) return;
-  pkg.setPartText("word/numbering.xml", numberingXml());
+  const existing = pkg.getPartText("word/numbering.xml");
+  const ids = active?.numIds ?? DEFAULT_NUM_IDS;
+  pkg.setPartText("word/numbering.xml", existing ? mergeNumbering(existing, ids) : numberingXml(ids));
   const relsPath = "word/_rels/document.xml.rels";
   let rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
   if (!rels.includes("numbering.xml")) {
@@ -15931,7 +17125,7 @@ function fontName(ctx, ftc) {
   if (ftc === void 0) return void 0;
   return ctx.fonts[ftc]?.name;
 }
-var onOff2 = (name, v2) => v2 === void 0 ? "" : v2 ? `<${name}/>` : `<${name} w:val="0"/>`;
+var onOff3 = (name, v2) => v2 === void 0 ? "" : v2 ? `<${name}/>` : `<${name} w:val="0"/>`;
 function rPrInner(chp, touched, ctx, withStyle = true) {
   const t5 = (k2) => touched.has(k2);
   let x3 = "";
@@ -15948,21 +17142,21 @@ function rPrInner(chp, touched, ctx, withStyle = true) {
       "w:hint": t5("idctHint") ? chp.idctHint === 1 ? "eastAsia" : chp.idctHint === 2 ? "cs" : void 0 : void 0
     });
   }
-  if (t5("bold")) x3 += onOff2("w:b", chp.bold);
-  if (t5("boldBi")) x3 += onOff2("w:bCs", chp.boldBi);
-  if (t5("italic")) x3 += onOff2("w:i", chp.italic);
-  if (t5("italicBi")) x3 += onOff2("w:iCs", chp.italicBi);
-  if (t5("caps")) x3 += onOff2("w:caps", chp.caps);
-  if (t5("smallCaps")) x3 += onOff2("w:smallCaps", chp.smallCaps);
-  if (t5("strike")) x3 += onOff2("w:strike", chp.strike);
-  if (t5("dstrike")) x3 += onOff2("w:dstrike", chp.dstrike);
-  if (t5("outline")) x3 += onOff2("w:outline", chp.outline);
-  if (t5("shadow")) x3 += onOff2("w:shadow", chp.shadow);
-  if (t5("emboss")) x3 += onOff2("w:emboss", chp.emboss);
-  if (t5("imprint")) x3 += onOff2("w:imprint", chp.imprint);
-  if (t5("noProof")) x3 += onOff2("w:noProof", chp.noProof);
-  if (t5("vanish")) x3 += onOff2("w:vanish", chp.vanish);
-  if (t5("webHidden")) x3 += onOff2("w:webHidden", chp.webHidden);
+  if (t5("bold")) x3 += onOff3("w:b", chp.bold);
+  if (t5("boldBi")) x3 += onOff3("w:bCs", chp.boldBi);
+  if (t5("italic")) x3 += onOff3("w:i", chp.italic);
+  if (t5("italicBi")) x3 += onOff3("w:iCs", chp.italicBi);
+  if (t5("caps")) x3 += onOff3("w:caps", chp.caps);
+  if (t5("smallCaps")) x3 += onOff3("w:smallCaps", chp.smallCaps);
+  if (t5("strike")) x3 += onOff3("w:strike", chp.strike);
+  if (t5("dstrike")) x3 += onOff3("w:dstrike", chp.dstrike);
+  if (t5("outline")) x3 += onOff3("w:outline", chp.outline);
+  if (t5("shadow")) x3 += onOff3("w:shadow", chp.shadow);
+  if (t5("emboss")) x3 += onOff3("w:emboss", chp.emboss);
+  if (t5("imprint")) x3 += onOff3("w:imprint", chp.imprint);
+  if (t5("noProof")) x3 += onOff3("w:noProof", chp.noProof);
+  if (t5("vanish")) x3 += onOff3("w:vanish", chp.vanish);
+  if (t5("webHidden")) x3 += onOff3("w:webHidden", chp.webHidden);
   if (t5("cv") || t5("ico")) {
     const c4 = t5("cv") && chp.cv !== void 0 ? chp.cv : icoColor(chp.ico ?? 0);
     x3 += el("w:color", { "w:val": hex(c4) });
@@ -15982,8 +17176,8 @@ function rPrInner(chp, touched, ctx, withStyle = true) {
   if (t5("brc")) x3 += brcXml("w:bdr", chp.brc);
   if (t5("shd")) x3 += shdXml(chp.shd);
   if (t5("iss")) x3 += el("w:vertAlign", { "w:val": chp.iss === 1 ? "superscript" : chp.iss === 2 ? "subscript" : "baseline" });
-  if (t5("rtl")) x3 += onOff2("w:rtl", chp.rtl);
-  if (t5("cs")) x3 += onOff2("w:cs", chp.cs);
+  if (t5("rtl")) x3 += onOff3("w:rtl", chp.rtl);
+  if (t5("cs")) x3 += onOff3("w:cs", chp.cs);
   if (t5("kcd")) x3 += el("w:em", { "w:val": ["none", "dot", "comma", "circle", "underDot"][chp.kcd ?? 0] ?? "none" });
   if (t5("lid") || t5("lidFE") || t5("lidBi")) {
     const a3 = {
@@ -15993,7 +17187,7 @@ function rPrInner(chp, touched, ctx, withStyle = true) {
     };
     if (a3["w:val"] || a3["w:eastAsia"] || a3["w:bidi"]) x3 += el("w:lang", a3);
   }
-  if (t5("specVanish")) x3 += onOff2("w:specVanish", chp.specVanish);
+  if (t5("specVanish")) x3 += onOff3("w:specVanish", chp.specVanish);
   return x3;
 }
 var JC = ["left", "center", "right", "both", "distribute", "mediumKashida", "both", "highKashida", "lowKashida", "thaiDistribute"];
@@ -16023,11 +17217,11 @@ function pPrInner(pap, touched, ctx, o8 = {}) {
     const id = ctx.styleId(pap.istd);
     if (id) x3 += el("w:pStyle", { "w:val": id });
   }
-  if (t5("keepFollow")) x3 += onOff2("w:keepNext", pap.keepFollow);
-  if (t5("keep")) x3 += onOff2("w:keepLines", pap.keep);
-  if (t5("pageBreakBefore")) x3 += onOff2("w:pageBreakBefore", pap.pageBreakBefore);
+  if (t5("keepFollow")) x3 += onOff3("w:keepNext", pap.keepFollow);
+  if (t5("keep")) x3 += onOff3("w:keepLines", pap.keep);
+  if (t5("pageBreakBefore")) x3 += onOff3("w:pageBreakBefore", pap.pageBreakBefore);
   x3 += framePrXml(pap, touched);
-  if (t5("widowControl")) x3 += onOff2("w:widowControl", pap.widowControl);
+  if (t5("widowControl")) x3 += onOff3("w:widowControl", pap.widowControl);
   if (t5("ilfo") || t5("ilvl")) {
     const ilfo = pap.ilfo ?? 0;
     const numId = ilfo === 0 || ilfo === -2047 ? 0 : o8.numId ? o8.numId(Math.abs(ilfo)) : Math.abs(ilfo);
@@ -16036,21 +17230,21 @@ function pPrInner(pap, touched, ctx, o8 = {}) {
     n5 += el("w:numId", { "w:val": numId });
     x3 += `<w:numPr>${n5}</w:numPr>`;
   }
-  if (t5("noLineNumb")) x3 += onOff2("w:suppressLineNumbers", pap.noLineNumb);
+  if (t5("noLineNumb")) x3 += onOff3("w:suppressLineNumbers", pap.noLineNumb);
   const bdr = ["brcTop", "brcLeft", "brcBottom", "brcRight", "brcBetween", "brcBar"].filter((k2) => t5(k2)).map((k2) => brcXml(`w:${{ brcTop: "top", brcLeft: "left", brcBottom: "bottom", brcRight: "right", brcBetween: "between", brcBar: "bar" }[k2]}`, pap[k2])).join("");
   if (bdr) x3 += `<w:pBdr>${bdr}</w:pBdr>`;
   if (t5("shd")) x3 += shdXml(pap.shd);
   if (t5("tabs")) x3 += tabsXml(o8.baseTabs, pap.tabs, pap.tabsCleared);
-  if (t5("noAutoHyph")) x3 += onOff2("w:suppressAutoHyphens", pap.noAutoHyph);
-  if (t5("kinsoku")) x3 += onOff2("w:kinsoku", pap.kinsoku);
-  if (t5("wordWrap")) x3 += onOff2("w:wordWrap", pap.wordWrap);
-  if (t5("overflowPunct")) x3 += onOff2("w:overflowPunct", pap.overflowPunct);
-  if (t5("topLinePunct")) x3 += onOff2("w:topLinePunct", pap.topLinePunct);
-  if (t5("autoSpaceDE")) x3 += onOff2("w:autoSpaceDE", pap.autoSpaceDE);
-  if (t5("autoSpaceDN")) x3 += onOff2("w:autoSpaceDN", pap.autoSpaceDN);
-  if (t5("bidi")) x3 += onOff2("w:bidi", pap.bidi);
-  if (t5("adjustRight")) x3 += onOff2("w:adjustRightInd", pap.adjustRight);
-  if (t5("usePgsuSettings")) x3 += onOff2("w:snapToGrid", pap.usePgsuSettings);
+  if (t5("noAutoHyph")) x3 += onOff3("w:suppressAutoHyphens", pap.noAutoHyph);
+  if (t5("kinsoku")) x3 += onOff3("w:kinsoku", pap.kinsoku);
+  if (t5("wordWrap")) x3 += onOff3("w:wordWrap", pap.wordWrap);
+  if (t5("overflowPunct")) x3 += onOff3("w:overflowPunct", pap.overflowPunct);
+  if (t5("topLinePunct")) x3 += onOff3("w:topLinePunct", pap.topLinePunct);
+  if (t5("autoSpaceDE")) x3 += onOff3("w:autoSpaceDE", pap.autoSpaceDE);
+  if (t5("autoSpaceDN")) x3 += onOff3("w:autoSpaceDN", pap.autoSpaceDN);
+  if (t5("bidi")) x3 += onOff3("w:bidi", pap.bidi);
+  if (t5("adjustRight")) x3 += onOff3("w:adjustRightInd", pap.adjustRight);
+  if (t5("usePgsuSettings")) x3 += onOff3("w:snapToGrid", pap.usePgsuSettings);
   if (t5("dyaBefore") || t5("dyaAfter") || t5("lineSpacing") || t5("beforeAuto") || t5("afterAuto") || t5("dylBefore") || t5("dylAfter")) {
     const ls = pap.lineSpacing;
     x3 += el("w:spacing", {
@@ -16082,8 +17276,8 @@ function pPrInner(pap, touched, ctx, o8 = {}) {
     }
     x3 += el("w:ind", a3);
   }
-  if (t5("contextualSpacing")) x3 += onOff2("w:contextualSpacing", pap.contextualSpacing);
-  if (t5("mirrorIndents")) x3 += onOff2("w:mirrorIndents", pap.mirrorIndents);
+  if (t5("contextualSpacing")) x3 += onOff3("w:contextualSpacing", pap.contextualSpacing);
+  if (t5("mirrorIndents")) x3 += onOff3("w:mirrorIndents", pap.mirrorIndents);
   if (t5("jc")) x3 += el("w:jc", { "w:val": jcVal(pap.jc) });
   if (t5("wAlignFont")) x3 += el("w:textAlignment", { "w:val": ["top", "center", "baseline", "bottom", "auto"][pap.wAlignFont ?? 4] ?? "auto" });
   if (t5("outLvl") && pap.outLvl !== void 0 && pap.outLvl <= 9) x3 += el("w:outlineLvl", { "w:val": pap.outLvl });
@@ -22986,15 +24180,11 @@ function emptyFormatting() {
     fontTable: {}
   };
 }
-var eq = (a3, b5) => JSON.stringify(a3) === JSON.stringify(b5);
+var eq2 = (a3, b5) => JSON.stringify(a3) === JSON.stringify(b5);
 function directRPr(run) {
   const base = run.rpr ? { ...run.rpr } : {};
   const p3 = run.props;
-  const orig = runPropsFromRPr(run.rpr);
-  if (p3.link && orig.underline === false) {
-    orig.underline = true;
-    orig.color ??= "0563C1";
-  }
+  const orig = editBaseProps(run, run.rpr);
   if (!run.rpr) {
     if (p3.bold) base.b = true;
     if (p3.italic) base.i = true;
@@ -23003,11 +24193,11 @@ function directRPr(run) {
     if (p3.doubleStrike) base.dstrike = true;
     if (p3.allCaps) base.caps = true;
     if (p3.smallCaps) base.smallCaps = true;
-    if (p3.vertAlign) base.vertAlign = p3.vertAlign;
+    if (p3.vertAlign && p3.vertAlign !== orig.vertAlign) base.vertAlign = p3.vertAlign;
     if (p3.szHalfPt !== void 0) base.sz = p3.szHalfPt;
     if (p3.color && !(p3.link && p3.color === "0563C1")) base.color = { val: p3.color };
     if (p3.highlight) base.highlight = p3.highlight;
-    if (p3.fontAscii) base.rFonts = { ascii: p3.fontAscii, hAnsi: p3.fontAscii, cs: p3.fontAscii };
+    if (p3.fontAscii && p3.fontAscii !== orig.fontAscii) base.rFonts = { ascii: p3.fontAscii, hAnsi: p3.fontAscii, cs: p3.fontAscii };
     if (p3.charSpacingTwips) base.spacing = p3.charSpacingTwips;
     return base;
   }
@@ -23047,7 +24237,7 @@ function directPPr(para) {
   const base = para.ppr ? { ...para.ppr } : {};
   const p3 = para.props;
   const orig = paraPropsFromPPr(para.ppr);
-  if (!eq(p3.alignment, orig.alignment)) {
+  if (!eq2(p3.alignment, orig.alignment)) {
     if (p3.alignment) base.jc = p3.alignment;
     else delete base.jc;
   }
@@ -23055,7 +24245,7 @@ function directPPr(para) {
     if (p3.styleId) base.pStyle = p3.styleId;
     else delete base.pStyle;
   }
-  if (!eq(p3.numbering, orig.numbering)) {
+  if (!eq2(p3.numbering, orig.numbering)) {
     if (!p3.numbering) base.numPr = { numId: 0 };
     else if (para.ppr?.numPr?.numId) base.numPr = { ...para.ppr.numPr, ilvl: p3.numbering.ilvl };
     else base.numPr = { numId: p3.numbering.kind === "decimal" ? 1002 : 1001, ilvl: p3.numbering.ilvl };
@@ -23099,7 +24289,7 @@ function directPPr(para) {
     if (p3.shadingHex) base.shd = { val: "clear", fill: p3.shadingHex };
     else delete base.shd;
   }
-  if (!eq(p3.borders, orig.borders)) {
+  if (!eq2(p3.borders, orig.borders)) {
     if (!p3.borders) delete base.pBdr;
     else {
       base.pBdr = {};
@@ -23109,7 +24299,7 @@ function directPPr(para) {
       }
     }
   }
-  if (!eq(p3.tabStops, orig.tabStops)) {
+  if (!eq2(p3.tabStops, orig.tabStops)) {
     base.tabs = (p3.tabStops ?? []).map((t5) => ({ val: t5.align, pos: t5.posTwips, ...t5.leader ? { leader: t5.leader } : {} }));
   }
   if (!!p3.pageBreakBefore !== !!orig.pageBreakBefore) base.pageBreakBefore = !!p3.pageBreakBefore;
@@ -23566,7 +24756,7 @@ function faceFor(ctx, rpr, cp, style, symFont) {
   const theme = ctx.fmt.theme;
   let family;
   let bold = style.bold, italic = style.italic;
-  if (symFont && cp >= 61440 && cp <= 61695) family = symFont;
+  if (symFont && (cp >= 61440 && cp <= 61695 || !CJK(cp))) family = symFont;
   else if (CJK(cp)) family = fontOfSlot(rpr.rFonts, "eastAsia", theme) ?? fontOfSlot(rpr.rFonts, "ascii", theme);
   else if (CS(cp) || rpr.cs || rpr.rtl) {
     family = fontOfSlot(rpr.rFonts, "cs", theme) ?? fontOfSlot(rpr.rFonts, "ascii", theme);
@@ -24033,7 +25223,6 @@ function prepareParagraph(ctx, para, env0) {
   };
   for (const { run, idx, offset } of displayRuns(para, env)) {
     const direct = directRPr(run);
-    if (run.noteRef && run.rpr?.vertAlign === void 0) delete direct.vertAlign;
     if (run.inToc && direct.rStyle && isHyperlinkStyle(ctx, direct.rStyle)) delete direct.rStyle;
     const rpr = runRPr(direct);
     const style = resolveRunStyle(ctx, rpr, env, run.props.link);
@@ -28237,7 +29426,7 @@ var Engine = class {
         }
       }
     }
-    let join2 = null;
+    let join3 = null;
     let delRuns = null;
     const paras = /* @__PURE__ */ new Map();
     const nest = [];
@@ -28257,21 +29446,21 @@ var Engine = class {
           }
           return;
         }
-        if (b5.paragraph.ppr?.markDeleted && !join2 && bi < n5 - 1 && blocks[bi + 1].type === "paragraph") {
+        if (b5.paragraph.ppr?.markDeleted && !join3 && bi < n5 - 1 && blocks[bi + 1].type === "paragraph") {
           delRuns = [...delRuns ?? [], ...b5.paragraph.runs];
           return;
         }
-        if (b5.paragraph.ppr?.markDeleted && !b5.paragraph.runs.length && !join2 && !delRuns) return;
+        if (b5.paragraph.ppr?.markDeleted && !b5.paragraph.runs.length && !join3 && !delRuns) return;
         const merged = delRuns ? { ...b5.paragraph, runs: [...delRuns, ...b5.paragraph.runs] } : b5.paragraph;
         delRuns = null;
-        const para = join2 ? this.joinHidden(join2, merged, env) : merged;
-        const p3 = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...join2 ? { numbering: false } : {} });
-        if (join2) p3.marker = join2.marker;
-        join2 = null;
+        const para = join3 ? this.joinHidden(join3, merged, env) : merged;
+        const p3 = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...join3 ? { numbering: false } : {} });
+        if (join3) p3.marker = join3.marker;
+        join3 = null;
         if (p3.markStyle.hidden && bi < n5 - 1) {
           if (!p3.glyphs.length) return;
           if (blocks[bi + 1].type === "paragraph") {
-            join2 = { para, marker: p3.marker };
+            join3 = { para, marker: p3.marker };
             return;
           }
         }
@@ -28675,13 +29864,13 @@ var Engine = class {
    * (recuos, alinhamento…) do 1º e a marca do seguinte; o número que aparece é o
    * do 1º, mas o do seguinte também é consumido (oráculo numbering3, hidmark-*).
    */
-  joinHidden(join2, next, env) {
+  joinHidden(join3, next, env) {
     const n5 = resolvePPr(this.ctx, next, env).ppr.numPr;
     if (n5?.numId && env.numbering !== false) this.ctx.numbering.next(n5.numId, n5.ilvl ?? 0);
-    const ppr = { ...join2.para.ppr };
+    const ppr = { ...join3.para.ppr };
     if (next.ppr?.rPr) ppr.rPr = next.ppr.rPr;
     else delete ppr.rPr;
-    return { ...join2.para, ppr, runs: [...join2.para.runs, ...next.runs] };
+    return { ...join3.para, ppr, runs: [...join3.para.runs, ...next.runs] };
   }
   placeParagraph(para0, ref, blockIdx, g2) {
     if (FRAME_SKIP.has(para0)) {
@@ -28697,14 +29886,14 @@ var Engine = class {
       return;
     }
     if (para0.ppr?.markDeleted && !para0.runs.length && !this.pendingJoin && !this.pendingDel) return;
-    const join2 = this.pendingJoin;
+    const join3 = this.pendingJoin;
     this.pendingJoin = null;
     const env = { field: this.fieldValue(this.cur) };
     const merged = this.pendingDel ? { ...para0, runs: [...this.pendingDel, ...para0.runs] } : para0;
     this.pendingDel = null;
-    const para = join2 ? this.joinHidden(join2, merged, env) : merged;
-    const p3 = prepareParagraph(this.ctx, para, join2 ? { ...env, numbering: false } : env);
-    if (join2) p3.marker = join2.marker;
+    const para = join3 ? this.joinHidden(join3, merged, env) : merged;
+    const p3 = prepareParagraph(this.ctx, para, join3 ? { ...env, numbering: false } : env);
+    if (join3) p3.marker = join3.marker;
     if (p3.markStyle.hidden && blockIdx < g2.blocks[1]) {
       if (!p3.glyphs.length) return;
       if (this.full.blocks[blockIdx + 1]?.type === "paragraph") {
@@ -32580,7 +33769,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.pkg = DocxPackage.load(bytes);
     this.loadedBytes = bytes;
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write, ...readDocxEmbedding(this.pkg).settings };
-    this.fullDoc = readFullDocument(this.pkg);
+    this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.loadedFormat = "docx";
     this.installFullDoc();
     void this.registerEmbeddedFonts(this.pkg);
@@ -32750,26 +33939,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       return { startPara, section };
     });
-    const blockToPara = (blockIdx) => {
-      let n5 = -1;
-      for (let b5 = 0; b5 <= blockIdx && b5 < this.fullDoc.blocks.length; b5++) {
-        if (this.fullDoc.blocks[b5].type === "paragraph") n5++;
-      }
-      return n5;
-    };
-    const refMap = (refs, kind) => refs.map((r6) => ({ kind, type: r6.type, rid: r6.rid }));
-    for (let si = 0; si < this.fullDoc.sections.length - 1; si++) {
-      const section = this.fullDoc.sections[si];
-      const lastPara = blockToPara(section.blockEnd);
-      const p3 = paragraphs[lastPara];
-      if (p3) {
-        p3.props.sectionBreak = {
-          sectPr: section.sectPr,
-          headerRefs: refMap(section.headerRefs, "header"),
-          footerRefs: refMap(section.footerRefs, "footer")
-        };
-      }
-    }
+    markSectionBreaks(this.fullDoc);
     this.floatImages = [];
     paragraphs.forEach((p3, pi) => {
       for (const run of p3.runs) {
@@ -32799,6 +33969,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.undoStack = [];
     this.redoStack = [];
     this.editsSinceLoad = 0;
+    this.fullDoc.sources?.baseline();
     this.refresh();
     this.dispatchEvent(new CustomEvent("uw-protected", {
       detail: { active: this.protectedMode, hasFields: this.hasExternalFields() }
@@ -34237,9 +35408,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const hfParts = [];
     const seenPath = /* @__PURE__ */ new Set();
     for (const section of this.fullDoc?.sections ?? []) {
-      for (const [kind, refs, set] of [
-        ["header", section.headerRefs, section.headers],
-        ["footer", section.footerRefs, section.footers]
+      for (const [kind, refs, set, blockSet] of [
+        ["header", section.headerRefs, section.headers, section.headerBlocks],
+        ["footer", section.footerRefs, section.footers, section.footerBlocks]
       ]) {
         for (const ref of refs) {
           if (seenPath.has(ref.path)) continue;
@@ -34252,7 +35423,9 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             rid: ref.rid,
             path: ref.path,
             paragraphs,
-            dirty: this.dirtyHf.has(ref.path)
+            dirty: this.dirtyHf.has(ref.path),
+            // tabelas do cabeçalho: os blocos alinhados aos parágrafos editados
+            blocks: reconcileBlocks(blockSet?.[ref.type], paragraphs, true)
           });
         }
       }
@@ -34273,7 +35446,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     writeDocument(pkg, saveModel, hfParts, {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : void 0,
       bodySectRefs: bodyParts.map((h3) => ({ kind: h3.kind, type: h3.type, rid: h3.rid })),
-      blocks: this.tableAnchors.length ? blocks : void 0
+      blocks: this.tableAnchors.length || this.fullDoc?.sources ? blocks : void 0,
+      sources: this.fullDoc?.sources
     });
     return pkg.save();
   }
@@ -35655,11 +36829,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       const lineY = band ? kind === "header" ? band.bottom : band.top : kind === "header" ? sp.marginTopTwips : sp.pageHeightTwips - sp.marginBottomTwips;
       const bandTop = kind === "header" ? 0 : lineY;
       const bandBot = kind === "header" ? lineY : sp.pageHeightTwips;
-      const active = kind === activeKind;
+      const active2 = kind === activeKind;
       ctx.save();
-      ctx.fillStyle = active ? this.pageDark ? "rgba(80,130,200,0.16)" : "rgba(43,87,154,0.09)" : this.pageDark ? "rgba(120,120,120,0.10)" : "rgba(120,120,120,0.06)";
+      ctx.fillStyle = active2 ? this.pageDark ? "rgba(80,130,200,0.16)" : "rgba(43,87,154,0.09)" : this.pageDark ? "rgba(120,120,120,0.10)" : "rgba(120,120,120,0.06)";
       ctx.fillRect(0, bandTop * scale, sp.pageWidthTwips * scale, (bandBot - bandTop) * scale);
-      ctx.strokeStyle = active ? this.pageDark ? "#5b8def" : "#2b579a" : this.pageDark ? "#777" : "#9aa0a6";
+      ctx.strokeStyle = active2 ? this.pageDark ? "#5b8def" : "#2b579a" : this.pageDark ? "#777" : "#9aa0a6";
       ctx.setLineDash([6, 4]);
       ctx.lineWidth = Math.max(1, dpr);
       ctx.beginPath();
@@ -35668,7 +36842,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.font = `600 ${9 * TWIPS_PER_PT * scale}px ${DEFAULT_FONT_CSS}`;
-      ctx.fillStyle = active ? this.pageDark ? "#9bc0ff" : "#2b579a" : this.pageDark ? "#9aa0a6" : "#9aa0a6";
+      ctx.fillStyle = active2 ? this.pageDark ? "#9bc0ff" : "#2b579a" : this.pageDark ? "#9aa0a6" : "#9aa0a6";
       const label = kind === "header" ? "Header" : "Footer";
       const ly = (kind === "header" ? lineY - 60 : lineY + 190) * scale;
       ctx.fillText(label, sp.marginLeftTwips * scale, ly);
@@ -37087,13 +38261,13 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const sp = synth.pages[0];
     if (sp.lines.length !== els.length) return null;
     const dx = els[0].line.x - sp.lines[0].x, dy = els[0].line.y - sp.lines[0].y;
-    const eq2 = (a3, b5) => Math.abs(a3 - b5) < 0.01;
+    const eq3 = (a3, b5) => Math.abs(a3 - b5) < 0.01;
     const tail = (ref) => ref.slice(ref.indexOf("/"));
     for (let i7 = 0; i7 < els.length; i7++) {
       const a3 = els[i7].line, b5 = sp.lines[i7];
-      if (tail(a3.ref) !== tail(b5.ref) || a3.start !== b5.start || a3.end !== b5.end || !eq2(a3.height, b5.height) || !eq2(a3.x, b5.x + dx) || !eq2(a3.y, b5.y + dy)) return null;
+      if (tail(a3.ref) !== tail(b5.ref) || a3.start !== b5.start || a3.end !== b5.end || !eq3(a3.height, b5.height) || !eq3(a3.x, b5.x + dx) || !eq3(a3.y, b5.y + dy)) return null;
       const ca = a3.chars ?? [], cb = b5.chars ?? [];
-      if (ca.length !== cb.length || ca.some((c4, k2) => c4.o !== cb[k2].o || !eq2(c4.x, cb[k2].x + dx) || !eq2(c4.w, cb[k2].w))) return null;
+      if (ca.length !== cb.length || ca.some((c4, k2) => c4.o !== cb[k2].o || !eq3(c4.x, cb[k2].x + dx) || !eq3(c4.w, cb[k2].w))) return null;
     }
     const want = sp.items.map((it) => shiftPageItem(it, dx, dy));
     const start = findItems(page.items, want, eng.hfItems[pg] ?? 0);
@@ -37187,12 +38361,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const sp = synth.pages[0];
     if (sp.lines.length !== ls.length) return null;
     const dx = first.x - sp.lines[0].x, dy = first.y - sp.lines[0].y;
-    const eq2 = (a3, b5) => Math.abs(a3 - b5) < 0.01;
+    const eq3 = (a3, b5) => Math.abs(a3 - b5) < 0.01;
     for (let i7 = 0; i7 < ls.length; i7++) {
       const a3 = ls[i7].eng, b5 = sp.lines[i7];
-      if (a3.start !== b5.start || a3.end !== b5.end || !eq2(a3.height, b5.height) || !eq2(a3.x, b5.x + dx) || !eq2(a3.y, b5.y + dy)) return null;
+      if (a3.start !== b5.start || a3.end !== b5.end || !eq3(a3.height, b5.height) || !eq3(a3.x, b5.x + dx) || !eq3(a3.y, b5.y + dy)) return null;
       const ca = a3.chars ?? [], cb = b5.chars ?? [];
-      if (ca.length !== cb.length || ca.some((c4, k2) => c4.o !== cb[k2].o || !eq2(c4.x, cb[k2].x + dx) || !eq2(c4.w, cb[k2].w))) return null;
+      if (ca.length !== cb.length || ca.some((c4, k2) => c4.o !== cb[k2].o || !eq3(c4.x, cb[k2].x + dx) || !eq3(c4.w, cb[k2].w))) return null;
     }
     const want = sp.items.map((it) => shiftPageItem(it, dx, dy));
     const start = want.length ? findItems(page.items, want, eng.hfItems[pg] ?? 0) : this.emptyParaSlot(pi, pg);
@@ -37461,7 +38635,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Pinta as páginas do motor + adornos de tela (seleção, campos, comentários,
    *  alças de objeto, caret). */
-  paintEngine(active) {
+  paintEngine(active2) {
     const eng = this.eng;
     const t0 = performance.now();
     const dpr = window.devicePixelRatio || 1;
@@ -37470,7 +38644,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const scales = [];
     const ctxs = this.canvases.map((c4, i7) => {
       const page = eng.result.pages[i7];
-      if (!active.has(i7) || c4.width <= 1 || !page) {
+      if (!active2.has(i7) || c4.width <= 1 || !page) {
         scales.push(0);
         return null;
       }
@@ -37491,7 +38665,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
       return ctx;
     });
-    for (const k2 of [...this.engPageCache.keys()]) if (!this.allocatedPages.has(k2) && !active.has(k2)) this.engPageCache.delete(k2);
+    for (const k2 of [...this.engPageCache.keys()]) if (!this.allocatedPages.has(k2) && !active2.has(k2)) this.engPageCache.delete(k2);
     const hp = this.hfActivePage;
     if (this.hfEdit && !this.printRender && ctxs[hp]) {
       const sp = this.sectionOfPage(hp)?.sectPr ?? this.bodyState().model.sectPr;
@@ -38049,10 +39223,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   paint(filter) {
     if (!this.model || this.canvases.length === 0) return;
     const dpr = window.devicePixelRatio || 1;
-    const active = filter ?? this.allocatedPages;
-    if (active.size === 0) return;
+    const active2 = filter ?? this.allocatedPages;
+    if (active2.size === 0) return;
     if (this.eng) {
-      this.paintEngine(active);
+      this.paintEngine(active2);
       return;
     }
     const sel2 = normalizeRange(this.range());
@@ -38060,7 +39234,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     const pageBg = this.pageDark ? "#1e1e1e" : "#ffffff";
     const scales = [];
     const ctxs = this.canvases.map((c4, i7) => {
-      if (!active.has(i7) || c4.width <= 1) {
+      if (!active2.has(i7) || c4.width <= 1) {
         scales.push(0);
         return null;
       }
@@ -39375,7 +40549,7 @@ init_src();
 init_src2();
 
 // ../compare/src/myers.ts
-function myersDiff(n5, m2, eq2) {
+function myersDiff(n5, m2, eq3) {
   if (n5 === 0 && m2 === 0) return [];
   if (n5 === 0) {
     const out = [];
@@ -39410,7 +40584,7 @@ function myersDiff(n5, m2, eq2) {
         x4 = down > right ? down : right;
       }
       let y4 = x4 - k2;
-      while (x4 < n5 && y4 < m2 && eq2(x4, y4)) {
+      while (x4 < n5 && y4 < m2 && eq3(x4, y4)) {
         x4++;
         y4++;
       }
@@ -39460,7 +40634,7 @@ function myersDiff(n5, m2, eq2) {
 }
 
 // ../compare/src/histogram.ts
-function histogramDiff(n5, m2, eq2, getKeyA, getKeyB) {
+function histogramDiff(n5, m2, eq3, getKeyA, getKeyB) {
   if (n5 === 0 && m2 === 0) return [];
   if (n5 === 0) {
     const out = [];
@@ -39477,10 +40651,10 @@ function histogramDiff(n5, m2, eq2, getKeyA, getKeyB) {
     return out;
   }
   const ops = [];
-  recurse(0, n5, 0, m2, eq2, getKeyA, getKeyB, ops);
+  recurse(0, n5, 0, m2, eq3, getKeyA, getKeyB, ops);
   return ops;
 }
-function recurse(a0, a1, b0, b1, eq2, getKeyA, getKeyB, out) {
+function recurse(a0, a1, b0, b1, eq3, getKeyA, getKeyB, out) {
   if (a0 >= a1 && b0 >= b1) return;
   if (a0 >= a1) {
     for (let j = b0; j < b1; j++) {
@@ -39516,16 +40690,16 @@ function recurse(a0, a1, b0, b1, eq2, getKeyA, getKeyB, out) {
     if (!bucket) continue;
     const count = bucket.length;
     for (const aIdx of bucket) {
-      if (!eq2(aIdx, j)) continue;
+      if (!eq3(aIdx, j)) continue;
       let aL = aIdx;
       let bL = j;
-      while (aL > a0 && bL > b0 && eq2(aL - 1, bL - 1)) {
+      while (aL > a0 && bL > b0 && eq3(aL - 1, bL - 1)) {
         aL--;
         bL--;
       }
       let aR = aIdx + 1;
       let bR = j + 1;
-      while (aR < a1 && bR < b1 && eq2(aR, bR)) {
+      while (aR < a1 && bR < b1 && eq3(aR, bR)) {
         aR++;
         bR++;
       }
@@ -39560,7 +40734,7 @@ function recurse(a0, a1, b0, b1, eq2, getKeyA, getKeyB, out) {
     }
   }
   if (bestAL === -1) {
-    const subOps = myersDiff(a1 - a0, b1 - b0, (i7, j) => eq2(a0 + i7, b0 + j));
+    const subOps = myersDiff(a1 - a0, b1 - b0, (i7, j) => eq3(a0 + i7, b0 + j));
     for (const op of subOps) {
       out.push({
         op: op.op,
@@ -39571,11 +40745,11 @@ function recurse(a0, a1, b0, b1, eq2, getKeyA, getKeyB, out) {
     return;
   }
   const bRight = bestBL + (bestAR - bestAL);
-  recurse(a0, bestAL, b0, bestBL, eq2, getKeyA, getKeyB, out);
+  recurse(a0, bestAL, b0, bestBL, eq3, getKeyA, getKeyB, out);
   for (let off = 0; off < bestAR - bestAL; off++) {
     out.push({ op: "equal", aIndex: bestAL + off, bIndex: bestBL + off });
   }
-  recurse(bestAR, a1, bRight, b1, eq2, getKeyA, getKeyB, out);
+  recurse(bestAR, a1, bRight, b1, eq3, getKeyA, getKeyB, out);
 }
 
 // ../compare/src/tokens.ts
@@ -39956,11 +41130,11 @@ function diffBlocks(aBlocks, bBlocks, opts = {}) {
   const o8 = { ...DEFAULT_DOC_DIFF_OPTIONS, ...opts };
   const aTokens = tokenizeBlocks(aBlocks);
   const bTokens = tokenizeBlocks(bBlocks);
-  const eq2 = (i7, j) => tokensEqual(aTokens[i7], bTokens[j]);
-  const ops = o8.algorithm === "myers" ? myersDiff(aTokens.length, bTokens.length, eq2) : histogramDiff(
+  const eq3 = (i7, j) => tokensEqual(aTokens[i7], bTokens[j]);
+  const ops = o8.algorithm === "myers" ? myersDiff(aTokens.length, bTokens.length, eq3) : histogramDiff(
     aTokens.length,
     bTokens.length,
-    eq2,
+    eq3,
     (i7) => aTokens[i7].contentKey,
     (j) => bTokens[j].contentKey
   );
@@ -40647,7 +41821,7 @@ function setupMentionAutocomplete(editor, options, prefix) {
     font: "14px/1.35 system-ui, sans-serif"
   });
   document.body.append(popup);
-  let active = false;
+  let active2 = false;
   let query = "";
   let items = [];
   let selected = 0;
@@ -40666,8 +41840,8 @@ function setupMentionAutocomplete(editor, options, prefix) {
   };
   const render = () => {
     popup.replaceChildren();
-    popup.hidden = !active;
-    if (!active) return;
+    popup.hidden = !active2;
+    if (!active2) return;
     const L2 = labels();
     popup.setAttribute("aria-label", L2.menu);
     const heading = document.createElement("div");
@@ -40723,13 +41897,13 @@ function setupMentionAutocomplete(editor, options, prefix) {
     } catch {
       result = [];
     }
-    if (!active || current2 !== request) return;
+    if (!active2 || current2 !== request) return;
     items = result.slice(0, maxSuggestions);
     selected = Math.min(selected, Math.max(0, items.length - 1));
     render();
   };
   function open() {
-    active = true;
+    active2 = true;
     query = "";
     items = [];
     selected = 0;
@@ -40738,7 +41912,7 @@ function setupMentionAutocomplete(editor, options, prefix) {
     void refresh();
   }
   function close() {
-    active = false;
+    active2 = false;
     query = "";
     items = [];
     request++;
@@ -40749,7 +41923,7 @@ function setupMentionAutocomplete(editor, options, prefix) {
   const onBeforeInput = (raw) => {
     const event = raw;
     const text2 = event.detail?.text ?? "";
-    if (!active) {
+    if (!active2) {
       if (text2 === prefix) {
         event.preventDefault();
         open();
@@ -40766,7 +41940,7 @@ function setupMentionAutocomplete(editor, options, prefix) {
     void refresh();
   };
   const onKeyDown = (event) => {
-    if (!active) return;
+    if (!active2) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -40802,10 +41976,10 @@ function setupMentionAutocomplete(editor, options, prefix) {
     }
   };
   const onPointerDown = (event) => {
-    if (active && event.target !== editor && !popup.contains(event.target)) close();
+    if (active2 && event.target !== editor && !popup.contains(event.target)) close();
   };
   const onLayout = () => {
-    if (active) position();
+    if (active2) position();
   };
   editor.addEventListener("uw-before-input", onBeforeInput);
   editor.addEventListener("keydown", onKeyDown, true);
@@ -44521,9 +45695,9 @@ $2("dismissFields").addEventListener("click", () => {
 });
 var inlineComments = localStorage.getItem("uw-inline-comments") === "1";
 document.body.classList.toggle("inline-comments", inlineComments);
-function buildCard(c4, active) {
+function buildCard(c4, active2) {
   const card = document.createElement("div");
-  card.className = "comment-card" + (active ? " active" : "");
+  card.className = "comment-card" + (active2 ? " active" : "");
   card.dataset.commentId = String(c4.id);
   const del = document.createElement("button");
   del.className = "del";
@@ -44709,7 +45883,7 @@ document.addEventListener("keydown", (e8) => {
 });
 var syncToolbar = () => {
   const st = wn.getSelectionState();
-  const set = (id, active) => $2(id).classList.toggle("active", active);
+  const set = (id, active2) => $2(id).classList.toggle("active", active2);
   set("bold", st.run.bold);
   set("italic", st.run.italic);
   set("underline", st.run.underline);

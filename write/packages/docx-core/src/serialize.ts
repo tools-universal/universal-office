@@ -1,18 +1,26 @@
 import { DocxPackage } from './package.js';
 import { EMU_PER_TWIP, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge } from './document.js';
 import type { TableBlock, TableBorders, Block } from './fulldoc.js';
+import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource } from './source.js';
+import { patchRPr, patchPPr, patchSectPr, pPrFromProps, rPrFromProps, splitElement, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
 
 /**
- * Serializa o DocumentModel de volta para word/document.xml, seguindo a
- * ordem canônica de elementos observada no word-lab (FINDINGS.md):
- *   rPr: rFonts → b → i → caps → smallCaps → strike → color → sz →
- *        highlight → u → vertAlign
- *   pPr: pStyle → numPr → spacing → ind → jc
- * Gera word/numbering.xml (numId 1001 bullet / 1002 decimal) se houver listas.
+ * Grava o modelo em word/document.xml (e cabeçalhos/rodapés, numbering,
+ * comentários, mídia, rels).
  *
- * NOTA round-trip: partes não relacionadas ficam intactas. document.xml é
- * regenerado — a fase atual perde elementos que o modelo ainda não representa
- * (bookmarks, campos...). TODO: mutação incremental da árvore XML original.
+ * Duas formas:
+ *  - SEM a fonte original (documento novo, .odt): tudo é gerado das props, na
+ *    ordem canônica de elementos observada no word-lab (FINDINGS.md):
+ *      rPr: rFonts → b → i → caps → smallCaps → strike → color → sz →
+ *           highlight → u → vertAlign
+ *      pPr: pStyle → numPr → spacing → ind → jc
+ *  - COM a fonte (`WriteOptions.sources`, ver source.ts): o que não mudou sai
+ *    byte a byte do arquivo original (parágrafos, tabelas, filhos de topo do
+ *    corpo e dos parágrafos — indicadores, campos, hyperlinks, sdt, equações,
+ *    formas…); o que mudou é regenerado aplicando só as diferenças sobre o
+ *    w:rPr/w:pPr/w:sectPr original (lossless.ts).
+ * Listas novas usam numId 1001 (marcador) / 1002 (decimal) — com a fonte, o
+ * primeiro par livre do numbering.xml original —, acrescentados a ele.
  */
 
 const esc = (s: string): string =>
@@ -23,6 +31,29 @@ const escAttr = (s: string): string => esc(s).replace(/"/g, '&quot;');
 interface MediaOut { rid: string; path: string; data: Uint8Array; ext: string }
 let mediaOut: MediaOut[] = [];
 let drawingId = 0;
+
+/** Estado da gravação sem perdas (uma parte por vez). */
+interface Lossless {
+  store: SourceStore;
+  pkg: DocxPackage;
+  /** rels da parte em serialização (hyperlinks novos). */
+  relsPath: string;
+  /** ids de bloco já emitidos — a 1ª cópia de um parágrafo dividido é a dona. */
+  claimed: Set<number>;
+  /** algum numPr gerado aponta para as listas novas. */
+  genNumbering: boolean;
+  /** numIds das listas novas (livres no numbering.xml original). */
+  numIds: GenNumIds;
+  /** segmentos crus já emitidos ("parágrafo:segmento"). */
+  claimedSegs: Set<string>;
+  /** cópias ainda por emitir de cada parágrafo de origem (a última leva os marcadores). */
+  remaining: Map<number, number>;
+  /** runs do parágrafo em serialização (membros de um mesmo objeto). */
+  paraRuns: Run[];
+  /** objetos de origem já emitidos (uma cópia colada sai com ids novos). */
+  emittedObj: Set<number>;
+}
+let active: Lossless | null = null;
 
 function drawingXml(run: Run): string {
   const img = run.image!;
@@ -74,12 +105,107 @@ function patchDrawingGeometry(
 /** Reemite o <w:drawing> CRU trocando o conteúdo de CADA <w:txbxContent> pelos
  *  parágrafos (possivelmente editados). Preserva shape/âncora/fill do original;
  *  campos (PAGE/NUMPAGES) voltam como fldSimple via paraXml. */
-function drawingWithParas(rawDrawingXml: string, paras: Paragraph[]): string {
-  const inner = paras.map(paraXml).join('');
+function drawingWithParas(rawDrawingXml: string, paras: Paragraph[], blocks?: Block[]): string {
+  const inner = blocks?.length ? blocks.map(blockXml).join('') : paras.map(paraXml).join('');
   return rawDrawingXml.replace(
     /<w:txbxContent\b[^>]*>[\s\S]*?<\/w:txbxContent>/g,
     (m) => `${/^<w:txbxContent\b[^>]*>/.exec(m)![0]}${inner}</w:txbxContent>`,
   );
+}
+
+const isObjectRun = (r: Run): boolean => !!(r.image || r.textbox || r.shape || r.group);
+
+/**
+ * Objeto lido (imagem, caixa de texto, forma, grupo, VML, mc:AlternateContent):
+ * sai o elemento de origem inteiro, com o rPr do run. Um objeto que virou
+ * vários runs (grupo VML com caixas de texto…) sai uma vez, pelo 1º run
+ * presente, com o texto de CADA caixa no seu w:txbxContent; um membro apagado
+ * não é representável no objeto e o resto do grupo continua. Cópia colada sai
+ * com ids de desenho novos. undefined = sem objeto de origem (gerador antigo).
+ */
+function objectXml(run: Run): string | undefined {
+  const lossless = active!;
+  const sid = run.props.src;
+  const src = sid !== undefined ? lossless.store.runs.get(sid) : undefined;
+  const headSid = src?.obj !== undefined ? sid! : src?.objHead;
+  const head = headSid !== undefined ? lossless.store.runs.get(headSid) : undefined;
+  const rpr = rPrXml(run);
+  if (!head?.obj) {
+    if (run.image?.rawDrawingXml) return `<w:r>${rpr}${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
+    if (run.image) return `<w:r>${drawingXml(run)}</w:r>`;
+    if (run.textbox?.rawDrawingXml) {
+      return `<w:r>${rpr}${drawingWithParas(patchDrawingGeometry(run.textbox.rawDrawingXml, run.textbox), run.textbox.paras, run.textbox.blocks)}</w:r>`;
+    }
+    return run.textbox ? '' : undefined;
+  }
+  // membros do objeto: o run que o leva e os seguintes do mesmo objeto, juntos.
+  // Um membro logo depois do seu run-cabeça já saiu com ele; sem a cabeça
+  // (apagada), o 1º membro da sequência emite o objeto. Uma cópia colada do
+  // run-cabeça é outra ocorrência (sai com ids novos).
+  const runs = lossless.paraRuns;
+  const idx = runs.indexOf(run);
+  const isMember = (r: Run): boolean => isObjectRun(r) && r.props.src !== undefined
+    && lossless.store.runs.get(r.props.src)?.objHead === headSid;
+  if (idx >= 0 && src?.objHead !== undefined) {
+    let k = idx - 1;
+    while (k >= 0 && isMember(runs[k]!)) k--;
+    if (k >= 0 && runs[k]!.props.src === headSid && isObjectRun(runs[k]!)) return '';
+    if (k !== idx - 1) return '';
+  }
+  const members = [run];
+  for (let k = idx + 1; idx >= 0 && k < runs.length && isMember(runs[k]!); k++) members.push(runs[k]!);
+  let xml = head.obj;
+  // caixas de texto do objeto na ordem do XML: runs-caixa e itens de grupo
+  const boxes = members.flatMap((r) => (r.textbox ? [r.textbox] : (r.group?.items ?? []).flatMap((it) => (it.run.textbox ? [it.run.textbox] : []))));
+  if (boxes.length) {
+    const inners = boxes.map((b) => (b.blocks?.length ? b.blocks.map(blockXml) : b.paras.map(paraXml)).join(''));
+    const total = (xml.match(/<w:txbxContent\b/g) ?? []).length;
+    // 1 caixa: todas as ocorrências (mc:Choice + VML de reserva); n caixas: na ordem
+    // (e de novo na reserva); contagem que não fecha: o texto fica como estava
+    const pick = boxes.length === 1 ? () => 0 : total === boxes.length || total === 2 * boxes.length ? (k: number) => k % boxes.length : null;
+    if (pick) {
+      let k = 0;
+      xml = xml.replace(/<w:txbxContent\b[^>]*>[\s\S]*?<\/w:txbxContent>/g, (m) => `${/^<w:txbxContent\b[^>]*>/.exec(m)![0]}${inners[pick(k++)]}</w:txbxContent>`);
+    }
+  }
+  const geo = members.length <= 1 ? run.image ?? run.textbox : undefined;
+  if (geo) xml = patchDrawingGeometry(xml, geo);
+  if (lossless.emittedObj.has(headSid!)) xml = freshDrawingIds(xml);
+  lossless.emittedObj.add(headSid!);
+  return `<w:r>${rpr}${xml}</w:r>`;
+}
+
+let freshId = 0;
+/** Cópia de um objeto: ids de desenho novos (docPr único) e sem âncoras/ids de forma repetidos. */
+function freshDrawingIds(xml: string): string {
+  return xml
+    .replace(/(<wp:docPr\b[^>]*?\bid=")\d+"/g, (_m, a: string) => `${a}${900000 + ++freshId}"`)
+    .replace(/\s(?:wp14:anchorId|wp14:editId|o:spid)="[^"]*"/g, '');
+}
+
+/** w:rPr do run: o cru de origem com as diferenças (sem perdas) ou gerado das props. */
+function rPrXml(run: Run): string {
+  const sid = run.props.src;
+  const src = active && sid !== undefined ? active.store.runs.get(sid) : undefined;
+  return src ? patchRPr(src.rPr, run) : rPrFromProps(run.props, active !== null);
+}
+
+function textXml(text: string): string {
+  const parts: string[] = [];
+  for (const seg of text.split(/(\t|\n|\f|\u000B|\u2011|\u00AD|\u2028)/)) {
+    if (seg === '\t') parts.push('<w:tab/>');
+    else if (seg === '\n') parts.push('<w:br/>');
+    else if (seg === '\f') parts.push('<w:br w:type="page"/>');
+    else if (seg === '\u000B') parts.push('<w:br w:type="column"/>');
+    else if (seg === '\u2011') parts.push('<w:noBreakHyphen/>');
+    else if (seg === '\u00AD') parts.push('<w:softHyphen/>');
+    else if (seg === '\u2028') parts.push('<w:br w:clear="all"/>');
+    else if (seg.length > 0) {
+      const space = seg !== seg.trim() ? ' xml:space="preserve"' : '';
+      parts.push(`<w:t${space}>${esc(seg)}</w:t>`);
+    }
+  }
+  return parts.join('');
 }
 
 function runXml(run: Run): string {
@@ -103,6 +229,10 @@ function runXml(run: Run): string {
       `</w:sdtPr><w:sdtContent>${runXml(fallbackRun)}</w:sdtContent></w:sdt>`
     );
   }
+  if (active && (run.image || run.textbox || run.shape || run.group)) {
+    const x = objectXml(run);
+    if (x !== undefined) return x;
+  }
   if (run.image) {
     // imagem original: reemite o <w:drawing> CRU (preserva âncora/flutuante e
     // reusa a mídia/rels existentes), com a geometria atual (mover/redimensionar).
@@ -122,75 +252,251 @@ function runXml(run: Run): string {
     }
     return '';
   }
-  const p = run.props;
-  const rpr: string[] = [];
-  if (p.fontAscii) {
-    rpr.push(`<w:rFonts w:ascii="${escAttr(p.fontAscii)}" w:hAnsi="${escAttr(p.fontAscii)}" w:cs="${escAttr(p.fontAscii)}"/>`);
+  const rpr = rPrXml(run);
+  if (active && run.noteRef) {
+    const tag = run.noteRef.kind === 'footnote' ? 'w:footnoteReference' : 'w:endnoteReference';
+    const r = rpr || '<w:rPr><w:vertAlign w:val="superscript"/></w:rPr>';
+    return `<w:r>${r}<${tag} w:id="${run.noteRef.id}"/></w:r>`;
   }
-  if (p.bold) rpr.push('<w:b/>');
-  if (p.italic) rpr.push('<w:i/>');
-  if (p.allCaps) rpr.push('<w:caps/>');
-  if (p.smallCaps) rpr.push('<w:smallCaps/>');
-  if (p.strike) rpr.push('<w:strike/>');
-  if (p.doubleStrike) rpr.push('<w:dstrike/>');
-  if (p.color) rpr.push(`<w:color w:val="${escAttr(p.color)}"/>`);
-  if (p.charSpacingTwips !== undefined && p.charSpacingTwips !== 0) {
-    rpr.push(`<w:spacing w:val="${p.charSpacingTwips}"/>`);
+  if (active && run.field && run.text === '' && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(run.field)) {
+    return `<w:r>${rpr}<w:${run.field.includes('FOOTNOTE') ? 'footnoteRef' : 'endnoteRef'}/></w:r>`;
   }
-  if (p.szHalfPt !== undefined) {
-    rpr.push(`<w:sz w:val="${p.szHalfPt}"/><w:szCs w:val="${p.szHalfPt}"/>`);
+  if (active && run.ptab) {
+    const t = run.ptab;
+    return `<w:r>${rpr}<w:ptab w:relativeTo="${escAttr(t.relativeTo)}" w:alignment="${escAttr(t.alignment)}"` +
+      `${t.leader ? ` w:leader="${escAttr(t.leader)}"` : ''}/></w:r>`;
   }
-  if (p.highlight) rpr.push(`<w:highlight w:val="${escAttr(p.highlight)}"/>`);
-  if (p.underline) {
-    const uColor = p.underlineColor ? ` w:color="${escAttr(p.underlineColor)}"` : '';
-    rpr.push(`<w:u w:val="${p.underlineStyle ?? 'single'}"${uColor}/>`);
+  if (active && run.symFont && run.text.length === 1) {
+    const code = run.text.charCodeAt(0);
+    const hex = (code >= 0xf000 && code <= 0xf0ff ? code & 0xff : code).toString(16).toUpperCase().padStart(4, '0');
+    return `<w:r>${rpr}<w:sym w:font="${escAttr(run.symFont)}" w:char="${hex}"/></w:r>`;
   }
-  if (p.vertAlign) rpr.push(`<w:vertAlign w:val="${p.vertAlign}"/>`);
-
-  const parts: string[] = [];
-  if (rpr.length) parts.push(`<w:rPr>${rpr.join('')}</w:rPr>`);
-  const segments = run.text.split(/(\t|\n|\f|\u000B|\u2011|\u00AD)/);
-  for (const seg of segments) {
-    if (seg === '\t') parts.push('<w:tab/>');
-    else if (seg === '\n') parts.push('<w:br/>');
-    else if (seg === '\f') parts.push('<w:br w:type="page"/>');
-    else if (seg === '\u000B') parts.push('<w:br w:type="column"/>');
-    else if (seg === '\u2011') parts.push('<w:noBreakHyphen/>');
-    else if (seg === '\u00AD') parts.push('<w:softHyphen/>');
-    else if (seg.length > 0) {
-      const space = seg !== seg.trim() ? ' xml:space="preserve"' : '';
-      parts.push(`<w:t${space}>${esc(seg)}</w:t>`);
-    }
+  if (active && (run.math || run.props.isMath)) {
+    return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc(run.text)}</m:t></m:r></m:oMath>`;
   }
-  return `<w:r>${parts.join('')}</w:r>`;
+  return `<w:r>${rpr}${textXml(run.text)}</w:r>`;
 }
 
-function paraXml(para: Paragraph): string {
-  // intervalos de comentário: Start antes do primeiro run com o id,
-  // End + reference depois do último
+/** Campo: fldSimple com o resultado atual (o Word o atualiza sozinho). */
+function fieldOrRunXml(r: Run): string {
+  return r.field && !(active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field))
+    ? `<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>`
+    : runXml(r);
+}
+
+/** Rel de hyperlink externo na parte atual (reusa o existente com o mesmo alvo). */
+function linkRelId(url: string): string | undefined {
+  if (!active) return undefined;
+  const { pkg, relsPath } = active;
+  let rels = pkg.getPartText(relsPath) ??
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  for (const m of rels.matchAll(/<Relationship\b[^>]*>/g)) {
+    const tag = m[0];
+    if (/TargetMode="External"/.test(tag) && /\/hyperlink"/.test(tag) && tag.includes(`Target="${escAttr(url)}"`)) {
+      return /\bId="([^"]+)"/.exec(tag)?.[1];
+    }
+  }
+  let n = 1;
+  while (rels.includes(`Id="rIdWnLink${n}"`)) n++;
+  const id = `rIdWnLink${n}`;
+  rels = rels.replace('</Relationships>',
+    `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escAttr(url)}" TargetMode="External"/></Relationships>`);
+  pkg.setPartText(relsPath, rels);
+  return id;
+}
+
+/** Runs gerados com marcadores de comentário em volta (before/after) e
+ *  hyperlinks reagrupados (só na gravação sem perdas — o caminho antigo nunca
+ *  emitiu w:hyperlink). */
+function genRuns(items: { run: Run; before: string; after: string }[], inWrapper = false): string {
+  const out: string[] = [];
+  let i = 0;
+  while (i < items.length) {
+    const link = active && !inWrapper ? items[i]!.run.props.link : undefined;
+    if (!link) { const it = items[i++]!; out.push(it.before + fieldOrRunXml(it.run) + it.after); continue; }
+    let j = i;
+    let inner = '';
+    while (j < items.length && items[j]!.run.props.link === link) {
+      const it = items[j++]!;
+      inner += it.before + fieldOrRunXml(it.run) + it.after;
+    }
+    const attr = link.startsWith('#') ? ` w:anchor="${escAttr(link.slice(1))}"` : (() => {
+      const id = linkRelId(link);
+      return id ? ` r:id="${id}"` : '';
+    })();
+    out.push(attr ? `<w:hyperlink${attr} w:history="1">${inner}</w:hyperlink>` : inner);
+    i = j;
+  }
+  return out.join('');
+}
+
+/** Marcadores de comentário: começo antes do 1º run com o id, fim + referência
+ *  depois do último. `skip`: ids cujos marcadores já estão no XML cru. */
+function commentMarks(runs: Run[], skip?: ReadonlySet<number>): { before: string[]; after: string[] } {
   const firstOf = new Map<number, number>();
   const lastOf = new Map<number, number>();
-  para.runs.forEach((r, i) => {
+  runs.forEach((r, i) => {
     for (const id of r.props.commentIds ?? []) {
+      if (skip?.has(id)) continue;
       if (!firstOf.has(id)) firstOf.set(id, i);
       lastOf.set(id, i);
     }
   });
-  const runParts: string[] = [];
-  para.runs.forEach((r, i) => {
-    for (const [id, fi] of firstOf) if (fi === i) runParts.push(`<w:commentRangeStart w:id="${id}"/>`);
-    // run de CAMPO: emite fldSimple (o app de referência atualiza sozinho) com o cache atual
-    if (r.field) {
-      runParts.push(`<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>`);
-    } else runParts.push(runXml(r));
-    for (const [id, li] of lastOf) {
-      if (li === i) {
-        runParts.push(`<w:commentRangeEnd w:id="${id}"/>`);
-        runParts.push(`<w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:commentReference w:id="${id}"/></w:r>`);
+  const before = runs.map(() => '');
+  const after = runs.map(() => '');
+  for (const [id, i] of firstOf) before[i] += `<w:commentRangeStart w:id="${id}"/>`;
+  for (const [id, i] of lastOf) {
+    after[i] += `<w:commentRangeEnd w:id="${id}"/>` +
+      `<w:r><w:rPr><w:rStyle w:val="CommentReference"/></w:rPr><w:commentReference w:id="${id}"/></w:r>`;
+  }
+  return { before, after };
+}
+
+/** Objetos sem gerador próprio: se mudaram, o XML cru de origem ainda é a melhor saída. */
+const isAtomic = (r: Run): boolean => !!(r.shape || r.group || r.math || r.props.isMath || r.formField || (r.image && !r.image.rawDrawingXml));
+
+/** Runs de um parágrafo com fonte original: segmentos intactos saem crus,
+ *  marcadores (indicadores, comentários, proofErr…) ficam na posição relativa,
+ *  o resto é gerado. Um parágrafo dividido tem várias cópias com a mesma fonte:
+ *  cada segmento sai uma vez só (`claimedSegs`), e os marcadores que nenhuma
+ *  cópia alcançou saem na última (`last`). */
+function runsLossless(para: Paragraph, src: ParaSource, pid: number, last: boolean): string {
+  const lossless = active!;
+  const store = lossless.store;
+  const segs = src.segs;
+  const cur = para.runs;
+  const where = new Map<number, [number, number]>();
+  segs.forEach((g, gi) => g.sids.forEach((sid, k) => where.set(sid, [gi, k])));
+  const base = new Map<number, number>();
+  src.sig?.sids.forEach((sid, i) => base.set(sid, src.sig!.runs[i]!));
+  // o run ORIGINAL de cada id é o 1º igual à linha de base (texto digitado ao
+  // lado herda as props — e o id — do vizinho, mas é outro run)
+  const orig = new Map<number, Run>();
+  for (const r of cur) {
+    const sid = r.props.src;
+    if (sid !== undefined && !orig.has(sid) && base.get(sid) === runSig(r)) orig.set(sid, r);
+  }
+  const intact = (r: Run): boolean => r.props.src !== undefined && orig.get(r.props.src) === r;
+  const segKey = (gi: number): string => `${pid}:${gi}`;
+  const taken = (gi: number): boolean => lossless.claimedSegs.has(segKey(gi));
+  const take = (gi: number): void => { lossless.claimedSegs.add(segKey(gi)); };
+  const marks = commentMarks(cur, store.commentIds);
+  let out = '';
+  let pending: { run: Run; before: string; after: string }[] = [];
+  const flushGen = (): void => { if (pending.length) { out += genRuns(pending); pending = []; } };
+  let zp = 0;
+  const flushZero = (upTo: number): void => {
+    for (; zp < upTo; zp++) {
+      const g = segs[zp]!;
+      if (g.sids.length === 0 && !taken(zp)) { take(zp); flushGen(); out += g.raw; }
+    }
+  };
+  // 1º run atômico de cada id (equação, forma…): é ele que leva o cru de volta
+  const firstAtomic = new Map<number, Run>();
+  for (const r of cur) if (r.props.src !== undefined && isAtomic(r) && !firstAtomic.has(r.props.src)) firstAtomic.set(r.props.src, r);
+  const markObjects = (g: SegSource): void => {
+    for (const sid of g.sids) if (store.runs.get(sid)?.obj !== undefined) lossless.emittedObj.add(sid);
+  };
+  for (let i = 0; i < cur.length;) {
+    const r = cur[i]!;
+    const loc = r.props.src !== undefined ? where.get(r.props.src) : undefined;
+    if (loc && segs[loc[0]]!.open) {
+      // campo que só fecha num parágrafo seguinte (sumário): o fim dele está cru
+      // lá, então o começo sai cru aqui — uma vez — e os pedaços editados ficam de
+      // fora (o Word refaz o resultado ao atualizar o campo)
+      if (!taken(loc[0])) {
+        flushZero(loc[0]);
+        flushGen();
+        out += marks.before[i]! + segs[loc[0]]!.raw;
+        take(loc[0]);
+        zp = Math.max(zp, loc[0] + 1);
+      }
+      i++;
+      continue;
+    }
+    if (loc && loc[0] >= zp && !taken(loc[0])) {
+      const g = segs[loc[0]]!;
+      let ok = loc[1] === 0 && i + g.sids.length <= cur.length;
+      for (let k = 0; ok && k < g.sids.length; k++) ok = cur[i + k]!.props.src === g.sids[k] && intact(cur[i + k]!);
+      // objeto sem gerador (equação, forma, campo de formulário): o cru, mesmo mudado
+      // (objeto com o XML de origem guardado é refeito por objectXml, com o texto atual)
+      const fallback = !ok && g.sids.length === 1 && isAtomic(r) && firstAtomic.get(r.props.src!) === r
+        && !(isObjectRun(r) && store.runs.get(r.props.src!)?.obj !== undefined);
+      if (ok || fallback) {
+        flushZero(loc[0]);
+        flushGen();
+        const n = g.sids.length;
+        out += marks.before[i]! + g.raw + marks.after[i + n - 1]!;
+        markObjects(g);
+        take(loc[0]);
+        zp = loc[0] + 1;
+        i += n;
+        continue;
+      }
+      flushZero(loc[0]);
+      if (g.wrapOpen !== undefined && (g.link === undefined || r.props.link === g.link)) {
+        // contêiner (sdt, hyperlink, revisão…) com conteúdo mudado: reembrulha os
+        // runs dele que seguem juntos
+        const own = new Set(g.sids);
+        let j = i;
+        while (j < cur.length && cur[j]!.props.src !== undefined && own.has(cur[j]!.props.src!)
+          && (g.link === undefined || cur[j]!.props.link === g.link)) j++;
+        flushGen();
+        out += g.wrapOpen + genRuns(cur.slice(i, j).map((run, k) => ({ run, before: marks.before[i + k]!, after: marks.after[i + k]! })), true) + g.wrapClose;
+        take(loc[0]);
+        zp = loc[0] + 1;
+        i = j;
+        continue;
       }
     }
-  });
-  return paraXmlInner(para, runParts.join(''));
+    pending.push({ run: r, before: marks.before[i]!, after: marks.after[i]! });
+    i++;
+  }
+  flushGen();
+  if (last) flushZero(segs.length);
+  return out;
+}
+
+/** w:sectPr que um parágrafo deve levar (null = nenhum; undefined = o do cru). */
+function paraSectPr(para: Paragraph, rawPPr: string | undefined): string | null | undefined {
+  const rawSect = rawPPr ? splitElement(rawPPr).kids.find((k) => k.name === 'w:sectPr')?.raw : undefined;
+  const sb = para.props.sectionBreak;
+  if (!sb) return rawSect ? null : undefined;
+  const refs = [...sb.headerRefs, ...sb.footerRefs];
+  return rawSect ? patchSectPr(rawSect, sb.sectPr, refs) : `<w:sectPr>${sectPrInner(sb.sectPr, refs)}</w:sectPr>`;
+}
+
+function paraXml(para: Paragraph): string {
+  if (!active) return paraXmlRuns(para);
+  const prev = active.paraRuns;
+  active.paraRuns = para.runs;
+  try { return paraXmlRuns(para); } finally { active.paraRuns = prev; }
+}
+
+function paraXmlRuns(para: Paragraph): string {
+  const src = active && para.props.src !== undefined ? active.store.paras.get(para.props.src) : undefined;
+  if (!active || !src) {
+    const marks = commentMarks(para.runs, active?.store.commentIds);
+    const items = para.runs.map((run, i) => ({ run, before: marks.before[i]!, after: marks.after[i]! }));
+    if (!active) return paraXmlInner(para, items.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join(''));
+    const ppr = pPrFromProps(para.props, para.props.sectionBreak
+      ? `<w:sectPr>${sectPrInner(para.props.sectionBreak.sectPr, [...para.props.sectionBreak.headerRefs, ...para.props.sectionBreak.footerRefs])}</w:sectPr>`
+      : '', active.numIds);
+    if (ppr.genNumbering) active.genNumbering = true;
+    return `<w:p>${ppr.xml}${genRuns(items)}</w:p>`;
+  }
+  const id = para.props.src!;
+  const first = !active.claimed.has(id);
+  active.claimed.add(id);
+  const left = (active.remaining.get(id) ?? 1) - 1;
+  active.remaining.set(id, left);
+  const last = left <= 0;
+  if (first && last && active.store.pristine(para)) return src.raw;
+  const ppr = patchPPr(src.pPr, para, paraSectPr(para, src.pPr), active.numIds);
+  if (ppr.genNumbering) active.genNumbering = true;
+  // a 1ª cópia de um parágrafo dividido leva a abertura original (w14:paraId é único)
+  return `${first ? src.open : '<w:p>'}${ppr.xml}${runsLossless(para, src, id, last)}</w:p>`;
 }
 
 function paraXmlInner(para: Paragraph, runsXml: string): string {
@@ -270,6 +576,8 @@ export interface HfPartInfo {
   rid: string;
   path: string;
   paragraphs: Paragraph[];
+  /** Conteúdo como blocos (tabelas incluídas) — gravação sem perdas. */
+  blocks?: Block[];
   /** Só partes sujas são reescritas (preserva imagens/campos não suportados). */
   dirty: boolean;
 }
@@ -314,38 +622,156 @@ function borderSetXml(wrap: string, b: TableBorders, sides: readonly string[]): 
 const TBL_SIDES = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'] as const;
 const CELL_SIDES = ['top', 'left', 'bottom', 'right'] as const;
 
+/** Conteúdo de uma célula na ordem (blocos) ou, sem eles, parágrafos + tabelas. */
+function cellBodyXml(cell: TableBlock['rows'][number]['cells'][number]): string {
+  if (cell.blocks?.length) return cell.blocks.map(blockXml).join('');
+  return cell.paragraphs.length
+    ? cell.paragraphs.map(paraXml).join('') + cell.tables.map(tableXml).join('')
+    : '<w:p/>';
+}
+
 export function tableXml(t: TableBlock): string {
+  const src = active && t.src !== undefined ? active.store.tables.get(t.src) : undefined;
+  if (active && src) {
+    const owner = !active.claimed.has(t.src!);
+    active.claimed.add(t.src!);
+    if (owner && active.store.tablePristine(t)) return src.raw;
+    // conteúdo mudou: a estrutura e as propriedades cruas continuam (onde a forma bate)
+    const sameGrid = src.tblGrid !== undefined && gridOf(src.tblGrid) === t.gridColsTwips.join(',');
+    const rows = t.rows.map((row, ri) => {
+      const sr = src.rows[ri];
+      const sameShape = sr !== undefined && sr.cells.length === row.cells.length;
+      const cells = row.cells.map((cell, ci) => {
+        const sc = sameShape ? sr.cells[ci] : undefined;
+        return sc ? `${sc.open}${sc.tcPr ?? ''}${cellBodyXml(cell)}</w:tc>` : `<w:tc>${tcPrXml(cell)}${cellBodyXml(cell)}</w:tc>`;
+      }).join('');
+      return sameShape ? `${sr.open}${sr.tblPrEx ?? ''}${sr.trPr ?? ''}${cells}</w:tr>` : `<w:tr>${cells}</w:tr>`;
+    }).join('');
+    return `${src.open}${src.tblPr ?? tblPrXml(t)}${sameGrid ? src.tblGrid : gridXml(t)}${rows}</w:tbl>`;
+  }
+  const rows = t.rows.map((row) => {
+    const cells = row.cells.map((cell) => `<w:tc>${tcPrXml(cell)}${cellBodyXml(cell)}</w:tc>`).join('');
+    return `<w:tr>${cells}</w:tr>`;
+  }).join('');
+  return `<w:tbl>${tblPrXml(t)}${gridXml(t)}${rows}</w:tbl>`;
+}
+
+const gridOf = (raw: string): string => [...raw.matchAll(/<w:gridCol\b[^>]*w:w="(\d+)"/g)].map((m) => m[1]).join(',');
+
+function tblPrXml(t: TableBlock): string {
   const total = t.gridColsTwips.reduce((a, b) => a + b, 0) || undefined;
-  const tblPr =
-    '<w:tblPr>' +
+  return '<w:tblPr>' +
     (total ? `<w:tblW w:w="${total}" w:type="dxa"/>` : '') +
     (t.borders ? borderSetXml('tblBorders', t.borders, TBL_SIDES) : '') +
     '</w:tblPr>';
-  const grid = `<w:tblGrid>${t.gridColsTwips.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`;
-  const rows = t.rows.map((row) => {
-    const cells = row.cells.map((cell) => {
-      const tcPr =
-        '<w:tcPr>' +
-        (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : '') +
-        (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : '') +
-        (cell.borders ? borderSetXml('tcBorders', cell.borders, CELL_SIDES) : '') +
-        (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr(cell.shadingHex)}"/>` : '') +
-        '</w:tcPr>';
-      const body = cell.paragraphs.length
-        ? cell.paragraphs.map(paraXml).join('') + cell.tables.map(tableXml).join('')
-        : '<w:p/>';
-      return `<w:tc>${tcPr}${body}</w:tc>`;
-    }).join('');
-    return `<w:tr>${cells}</w:tr>`;
-  }).join('');
-  return `<w:tbl>${tblPr}${grid}${rows}</w:tbl>`;
+}
+
+const gridXml = (t: TableBlock): string =>
+  `<w:tblGrid>${t.gridColsTwips.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`;
+
+function tcPrXml(cell: TableBlock['rows'][number]['cells'][number]): string {
+  return '<w:tcPr>' +
+    (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : '') +
+    (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : '') +
+    (cell.borders ? borderSetXml('tcBorders', cell.borders, CELL_SIDES) : '') +
+    (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr(cell.shadingHex)}"/>` : '') +
+    '</w:tcPr>';
+}
+
+const blockXml = (b: Block): string => (b.type === 'table' ? tableXml(b) : paraXml(b.paragraph));
+const blockId = (b: Block): number | undefined => (b.type === 'table' ? b.src : b.paragraph.props.src);
+
+/**
+ * Blocos de uma parte com a fonte original: cada filho de topo intacto (todos
+ * os seus blocos presentes, em ordem e sem mudança) sai cru; os filhos sem
+ * blocos (indicadores entre parágrafos…) ficam na posição relativa; sdt com
+ * blocos editados é reembrulhado.
+ */
+function storyBlocksXml(story: StorySource, blocks: Block[], store: SourceStore): string {
+  countCopies(blocks, active!.remaining);
+  return groupsXml(story.groups, blocks, store);
+}
+
+function groupsXml(groups: StoryGroup[], blocks: Block[], store: SourceStore): string {
+  const groupOf = new Map<number, number>();
+  groups.forEach((g, gi) => g.blocks.forEach((id) => { if (id) groupOf.set(id, gi); }));
+  const seen = new Set<number>();
+  const dup = new Set<number>();
+  for (const b of blocks) {
+    const id = blockId(b);
+    if (id === undefined) continue;
+    if (seen.has(id)) dup.add(id); else seen.add(id);
+  }
+  const pristine = (b: Block): boolean => {
+    const id = blockId(b);
+    if (id === undefined || dup.has(id)) return false;
+    return b.type === 'table' ? store.tablePristine(b) : store.pristine(b.paragraph);
+  };
+  let out = '';
+  let zp = 0;
+  const flushZero = (upTo: number): void => {
+    for (; zp < upTo; zp++) if (groups[zp]!.blocks.length === 0) out += groups[zp]!.raw;
+  };
+  for (let i = 0; i < blocks.length;) {
+    const b = blocks[i]!;
+    const id = blockId(b);
+    const gi = id !== undefined ? groupOf.get(id) : undefined;
+    if (gi !== undefined && gi >= zp) {
+      const g = groups[gi]!;
+      let ok = g.blocks[0] === id && i + g.blocks.length <= blocks.length;
+      for (let k = 0; ok && k < g.blocks.length; k++) ok = blockId(blocks[i + k]!) === g.blocks[k] && pristine(blocks[i + k]!);
+      flushZero(gi);
+      if (ok) {
+        for (const bid of g.blocks) active!.claimed.add(bid);
+        out += g.raw;
+        zp = gi + 1;
+        i += g.blocks.length;
+        continue;
+      }
+      if (g.wrapOpen !== undefined && g.blocks[0] === id) {
+        // sdt/customXml com blocos editados: reembrulha os blocos que seguem do
+        // grupo, com os filhos de dentro (sdt aninhado…) tratados do mesmo jeito
+        let j = i;
+        while (j < blocks.length && (() => { const x = blockId(blocks[j]!); return x !== undefined && groupOf.get(x) === gi; })()) j++;
+        const inner = blocks.slice(i, j);
+        out += g.wrapOpen + (g.inner ? groupsXml(g.inner, inner, store) : inner.map(blockXml).join('')) + g.wrapClose;
+        zp = gi + 1;
+        i = j;
+        continue;
+      }
+    }
+    out += blockXml(b);
+    i++;
+  }
+  flushZero(groups.length);
+  return out;
+}
+
+/** Quantas cópias de cada parágrafo de origem há na parte (incl. células e caixas de texto). */
+function countCopies(blocks: Block[], out: Map<number, number>): void {
+  const para = (p: Paragraph): void => {
+    if (p.props.src !== undefined) out.set(p.props.src, (out.get(p.props.src) ?? 0) + 1);
+    for (const r of p.runs) {
+      for (const tb of r.textbox ? [r.textbox] : (r.group?.items ?? []).map((it) => it.run.textbox)) {
+        if (!tb) continue;
+        if (tb.blocks?.length) countCopies(tb.blocks, out);
+        else tb.paras.forEach(para);
+      }
+    }
+  };
+  for (const b of blocks) {
+    if (b.type === 'paragraph') para(b.paragraph);
+    else for (const row of b.rows) for (const c of row.cells) {
+      if (c.blocks?.length) countCopies(c.blocks, out); else c.paragraphs.forEach(para);
+    }
+  }
 }
 
 /** Serializa o corpo a partir de uma lista de blocos (parágrafos E tabelas). */
 export function serializeBlocks(blocks: Block[], sectPr: SectPr, hfRefs: HfPartInfo[] = []): string {
   const bodyRefs: HfRefXml[] = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(sectPr, bodyRefs)}</w:sectPr>`;
-  const body = blocks.map((b) => (b.type === 'table' ? tableXml(b) : paraXml(b.paragraph))).join('');
+  const body = blocks.map(blockXml).join('');
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     `<w:document ${W_NS}><w:body>${body}${sect}</w:body></w:document>`
@@ -364,10 +790,49 @@ export function serializeDocument(model: DocumentModel, hfRefs: HfPartInfo[] = [
   );
 }
 
-function numberingXml(): string {
+/** Garante na tag raiz as declarações que o XML gerado usa (w, r, wp). */
+function withNamespaces(open: string, rootName: string): string {
+  const at = open.indexOf(`<${rootName}`);
+  if (at < 0) return open;
+  const end = open.indexOf('>', at);
+  let tag = open.slice(at, end);
+  const need: [string, string][] = [
+    ['w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'],
+    ['r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'],
+    ['wp', 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'],
+  ];
+  for (const [pfx, uri] of need) if (!new RegExp(`\\sxmlns:${pfx}=`).test(tag)) tag += ` xmlns:${pfx}="${uri}"`;
+  return open.slice(0, at) + tag + open.slice(end);
+}
+
+/** Comentários apagados: tira os marcadores crus que ficaram órfãos. */
+function dropCommentMarks(xml: string, gone: ReadonlySet<number>): string {
+  if (gone.size === 0) return xml;
+  const ids = [...gone].join('|');
+  return xml
+    .replace(new RegExp(`<w:commentRange(?:Start|End)\\b[^>]*\\bw:id="(?:${ids})"[^>]*/>`, 'g'), '')
+    .replace(new RegExp(`<w:r\\b[^>]*>(?:(?!</w:r>)[\\s\\S])*?<w:commentReference\\b[^>]*\\bw:id="(?:${ids})"[^>]*/>(?:(?!</w:r>)[\\s\\S])*?</w:r>`, 'g'), '');
+}
+
+function numberingXml(ids: GenNumIds): string {
+  return (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    `<w:numbering ${W_NS}>${numberingAbstracts(ids)}${numberingNums(ids)}</w:numbering>`
+  );
+}
+
+/** Primeiro par de numIds/abstractNumIds (a partir de 1001) que o numbering.xml não usa. */
+function freeNumIds(xml: string | undefined): GenNumIds {
+  const used = new Set([...(xml ?? '').matchAll(/w:(?:abstractNumId|numId)(?: w:val)?="(\d+)"/g)].map((m) => Number(m[1])));
+  let n = 1001;
+  while (used.has(n) || used.has(n + 1)) n += 2;
+  return { bullet: n, decimal: n + 1 };
+}
+
+function numberingAbstracts(ids: GenNumIds): string {
   const bulletLvls = Array.from({ length: 3 }, (_, i) =>
     `<w:lvl w:ilvl="${i}"><w:start w:val="1"/><w:numFmt w:val="bullet"/>` +
-    `<w:lvlText w:val="${['', 'o', ''][i]}"/><w:lvlJc w:val="left"/>` +
+    `<w:lvlText w:val="${['', 'o', ''][i]}"/><w:lvlJc w:val="left"/>` +
     `<w:pPr><w:ind w:left="${720 * (i + 1)}" w:hanging="360"/></w:pPr>` +
     `<w:rPr><w:rFonts w:ascii="${['Symbol', 'Courier New', 'Wingdings'][i]}" w:hAnsi="${['Symbol', 'Courier New', 'Wingdings'][i]}" w:hint="default"/></w:rPr></w:lvl>`,
   ).join('');
@@ -376,15 +841,24 @@ function numberingXml(): string {
     `<w:lvlText w:val="%${i + 1}."/><w:lvlJc w:val="left"/>` +
     `<w:pPr><w:ind w:left="${720 * (i + 1)}" w:hanging="360"/></w:pPr></w:lvl>`,
   ).join('');
-  return (
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    `<w:numbering ${W_NS}>` +
-    `<w:abstractNum w:abstractNumId="1001">${bulletLvls}</w:abstractNum>` +
-    `<w:abstractNum w:abstractNumId="1002">${decimalLvls}</w:abstractNum>` +
-    '<w:num w:numId="1001"><w:abstractNumId w:val="1001"/></w:num>' +
-    '<w:num w:numId="1002"><w:abstractNumId w:val="1002"/></w:num>' +
-    '</w:numbering>'
-  );
+  return `<w:abstractNum w:abstractNumId="${ids.bullet}">${bulletLvls}</w:abstractNum>` +
+    `<w:abstractNum w:abstractNumId="${ids.decimal}">${decimalLvls}</w:abstractNum>`;
+}
+
+const numberingNums = (ids: GenNumIds): string =>
+  `<w:num w:numId="${ids.bullet}"><w:abstractNumId w:val="${ids.bullet}"/></w:num>` +
+  `<w:num w:numId="${ids.decimal}"><w:abstractNumId w:val="${ids.decimal}"/></w:num>`;
+
+/** Acrescenta as listas novas ao numbering.xml existente (todo w:abstractNum
+ *  vem antes dos w:num no schema); idempotente entre salvamentos. */
+function mergeNumbering(xml: string, ids: GenNumIds): string {
+  if (new RegExp(`<w:num w:numId="${ids.bullet}">`).test(xml)) return xml;
+  const firstNum = xml.search(/<w:num\b/);
+  const withAbs = firstNum >= 0
+    ? xml.slice(0, firstNum) + numberingAbstracts(ids) + xml.slice(firstNum)
+    : xml.replace(/<\/w:numbering>\s*$/, `${numberingAbstracts(ids)}</w:numbering>`);
+  const tail = withAbs.search(/<w:numIdMacAtCleanup\b|<\/w:numbering>\s*$/);
+  return withAbs.slice(0, tail) + numberingNums(ids) + withAbs.slice(tail);
 }
 
 const W_NS_HF =
@@ -418,6 +892,49 @@ export interface WriteOptions {
   bodySectRefs?: { kind: 'header' | 'footer'; type: string; rid: string }[];
   /** corpo como blocos (parágrafos E tabelas) — preserva tabelas no save. */
   blocks?: Block[];
+  /** XML original lido (readFullDocument com `sources`) — gravação sem perdas. */
+  sources?: SourceStore;
+}
+
+const commentXml = (c: CommentOut): string =>
+  `<w:comment w:id="${c.id}" w:author="${escAttr(c.author ?? 'Write')}" w:initials="WN">` +
+  `<w:p><w:r><w:t xml:space="preserve">${esc(c.text)}</w:t></w:r></w:p></w:comment>`;
+
+/** comments.xml existente: tira os apagados, acrescenta os novos (o resto —
+ *  respostas, formatação, paraIds — fica como está). Limpa as partes
+ *  commentsExtended/Ids/Extensible dos apagados. */
+function patchComments(pkg: DocxPackage, comments: CommentOut[]): void {
+  const xml = pkg.getPartText('word/comments.xml')!;
+  const want = new Map(comments.map((c) => [c.id, c]));
+  const have = new Set<number>();
+  const goneParaIds: string[] = [];
+  let out = xml.replace(/<w:comment\b[^>]*?\bw:id="(-?\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/w:comment>)/g, (m, id: string) => {
+    const n = parseInt(id, 10);
+    if (want.has(n)) { have.add(n); return m; }
+    for (const p of m.matchAll(/w14:paraId="([0-9A-Fa-f]+)"/g)) goneParaIds.push(p[1]!);
+    return '';
+  });
+  const added = comments.filter((c) => !have.has(c.id)).map(commentXml).join('');
+  if (added) out = out.replace(/<\/w:comments>\s*$/, `${added}</w:comments>`);
+  if (out !== xml) pkg.setPartText('word/comments.xml', out);
+  if (!goneParaIds.length) return;
+  const ids = goneParaIds.join('|');
+  const durable: string[] = [];
+  const cids = pkg.getPartText('word/commentsIds.xml');
+  if (cids) {
+    pkg.setPartText('word/commentsIds.xml', cids.replace(new RegExp(`<w16cid:commentId\\b[^>]*w16cid:paraId="(?:${ids})"[^>]*/>`, 'g'), (m) => {
+      const d = /w16cid:durableId="([^"]+)"/.exec(m)?.[1];
+      if (d) durable.push(d);
+      return '';
+    }));
+  }
+  const ext = pkg.getPartText('word/commentsExtended.xml');
+  if (ext) pkg.setPartText('word/commentsExtended.xml', ext.replace(new RegExp(`<w15:commentEx\\b[^>]*w15:paraId="(?:${ids})"[^>]*/>`, 'g'), ''));
+  const exb = pkg.getPartText('word/commentsExtensible.xml');
+  if (exb && durable.length) {
+    pkg.setPartText('word/commentsExtensible.xml', exb.replace(
+      new RegExp(`<w16cex:commentExtensible\\b[^>]*w16cex:durableId="(?:${durable.join('|')})"[^>]*?(?:/>|>[\\s\\S]*?</w16cex:commentExtensible>)`, 'g'), ''));
+  }
 }
 
 export function writeDocument(
@@ -428,13 +945,39 @@ export function writeDocument(
 ): void {
   mediaOut = [];
   drawingId = 0;
+  const store = opts.sources;
+  if (store) {
+    store.beginSave();
+    store.genNumIds ??= freeNumIds(pkg.getPartText('word/numbering.xml'));
+  }
+  active = store ? { store, pkg, relsPath: 'word/_rels/document.xml.rels', claimed: new Set(), genNumbering: false, claimedSegs: new Set(), remaining: new Map(), paraRuns: [], emittedObj: new Set(), numIds: store.genNumIds! } : null;
+  try {
+    writeParts(pkg, model, hfParts, opts, store);
+  } finally {
+    active = null;
+  }
+}
+
+function writeParts(
+  pkg: DocxPackage,
+  model: DocumentModel,
+  hfParts: HfPartInfo[],
+  opts: WriteOptions,
+  store: SourceStore | undefined,
+): void {
+  // comentários apagados desde a abertura: marcadores crus a retirar
+  const gone = new Set<number>();
+  if (store) {
+    const now = new Set((opts.comments ?? []).map((c) => c.id));
+    for (const id of store.commentIds) if (!now.has(id)) gone.add(id);
+  }
 
   // comentários: regrava word/comments.xml + rel + content-type
-  if (opts.comments && opts.comments.length > 0) {
-    const body = opts.comments.map((c) =>
-      `<w:comment w:id="${c.id}" w:author="${escAttr(c.author ?? 'Write')}" w:initials="WN">` +
-      `<w:p><w:r><w:t xml:space="preserve">${esc(c.text)}</w:t></w:r></w:p></w:comment>`,
-    ).join('');
+  const commentsUnchanged = store !== undefined && store.commentsSig === JSON.stringify(opts.comments ?? []);
+  if (store && !commentsUnchanged && pkg.getPart('word/comments.xml')) {
+    patchComments(pkg, opts.comments ?? []);
+  } else if (!commentsUnchanged && opts.comments && opts.comments.length > 0) {
+    const body = opts.comments.map(commentXml).join('');
     pkg.setPartText('word/comments.xml',
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       `<w:comments ${W_NS_HF}>${body}</w:comments>`);
@@ -464,7 +1007,17 @@ export function writeDocument(
     let ct = pkg.getPartText('[Content_Types].xml') ?? '';
     for (const hf of hfParts) {
       if (hf.dirty || !pkg.getPart(hf.path)) {
-        pkg.setPartText(hf.path, serializeHfPart(hf.kind, hf.paragraphs));
+        const story = store?.stories.get(hf.path);
+        if (active && story) {
+          active.relsPath = `word/_rels/${hf.path.split('/').pop()}.rels`;
+          const blocks = hf.blocks ?? hf.paragraphs.map((paragraph) => ({ type: 'paragraph' as const, paragraph }));
+          const xml = withNamespaces(story.open, hf.kind === 'header' ? 'w:hdr' : 'w:ftr') +
+            storyBlocksXml(story, blocks, store!) + story.close;
+          pkg.setPartText(hf.path, dropCommentMarks(xml, gone));
+          active.relsPath = relsPath;
+        } else {
+          pkg.setPartText(hf.path, serializeHfPart(hf.kind, hf.paragraphs));
+        }
       }
       const relTarget = hf.path.replace(/^word\//, '');
       if (!rels.includes(`Id="${hf.rid}"`)) {
@@ -489,10 +1042,33 @@ export function writeDocument(
         path: '', paragraphs: [], dirty: false,
       }))
     : hfParts;
-  pkg.setPartText('word/document.xml',
-    opts.blocks
-      ? serializeBlocks(opts.blocks, model.sectPr, bodyRefs)
-      : serializeDocument(model, bodyRefs));
+  const story = store?.stories.get('word/document.xml');
+  if (active && story) {
+    active.relsPath = 'word/_rels/document.xml.rels';
+    const blocks = opts.blocks ?? model.paragraphs.map((paragraph) => ({ type: 'paragraph' as const, paragraph }));
+    const refs: HfRefXml[] = bodyRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
+    const sect = story.sectPr
+      ? patchSectPr(story.sectPr, model.sectPr, refs)
+      : `<w:sectPr>${sectPrInner(model.sectPr, refs)}</w:sectPr>`;
+    const xml = withNamespaces(story.open, 'w:document') + storyBlocksXml(story, blocks, store!) + sect + story.close;
+    pkg.setPartText('word/document.xml', dropCommentMarks(xml, gone));
+  } else {
+    pkg.setPartText('word/document.xml',
+      opts.blocks
+        ? serializeBlocks(opts.blocks, model.sectPr, bodyRefs)
+        : serializeDocument(model, bodyRefs));
+  }
+
+  // comentários apagados: os marcadores também saem dos cabeçalhos/rodapés que não
+  // foram regravados e das notas
+  if (gone.size) {
+    for (const part of pkg.partNames()) {
+      if (!/^word\/(?:header\d*|footer\d*|footnotes|endnotes)\.xml$/.test(part)) continue;
+      const x = pkg.getPartText(part)!;
+      const y = dropCommentMarks(x, gone);
+      if (y !== x) pkg.setPartText(part, y);
+    }
+  }
 
   if (mediaOut.length > 0) {
     const relsPath = 'word/_rels/document.xml.rels';
@@ -534,10 +1110,12 @@ export function writeDocument(
     if (ct) pkg.setPartText('[Content_Types].xml', ct);
   }
 
-  const hasLists = model.paragraphs.some((p) => p.props.numbering);
+  const hasLists = active ? active.genNumbering : model.paragraphs.some((p) => p.props.numbering);
   if (!hasLists) return;
 
-  pkg.setPartText('word/numbering.xml', numberingXml());
+  const existing = pkg.getPartText('word/numbering.xml');
+  const ids = active?.numIds ?? DEFAULT_NUM_IDS;
+  pkg.setPartText('word/numbering.xml', existing ? mergeNumbering(existing, ids) : numberingXml(ids));
 
   const relsPath = 'word/_rels/document.xml.rels';
   let rels = pkg.getPartText(relsPath) ??

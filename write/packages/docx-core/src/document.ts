@@ -1,6 +1,7 @@
 import { DocxPackage } from './package.js';
 import { parseXml, childElements, firstChild, type XmlElement } from './xml.js';
 import { readRPr, readPPr, type RPr, type PPr } from './ooxml/props.js';
+import type { SourceStore, SegSource } from './source.js';
 import {
   readWpAnchor, readSpPr, parseVmlStyle, vmlAnchor, vmlLenTwips, vmlShapeStyle,
   type DrawingAnchor, type ShapeStyle,
@@ -42,6 +43,8 @@ export interface RunProps {
   isMath?: boolean;
   /** Comentários cujo intervalo cobre este run. */
   commentIds?: number[];
+  /** Id da fonte XML original do run (source.ts) — salvamento sem perdas. */
+  src?: number;
 }
 
 export const DEFAULT_RUN_PROPS: RunProps = {
@@ -328,6 +331,8 @@ export interface ParaProps {
   pageBreakBefore?: boolean;
   /** w:framePr w:dropCap — letra capitular sobreposta ao parágrafo seguinte. */
   dropCap?: boolean;
+  /** Id da fonte XML original do parágrafo (source.ts) — salvamento sem perdas. */
+  src?: number;
   /** Quebra de seção: este parágrafo encerra uma seção (w:pPr/w:sectPr).
    *  Preserva geometria/orientação e refs de header/footer da seção. */
   sectionBreak?: {
@@ -434,6 +439,23 @@ export function runPropsFromRPr(rpr: RPr | undefined): RunProps {
   return p;
 }
 
+/**
+ * Base contra a qual a EDIÇÃO de um run é medida: as props que o rPr implica
+ * mais o que o leitor força nas props sem ser formatação — sublinhado/cor de
+ * hyperlink (o w:hyperlink não formata nada; oráculo hlink), sobrescrito da
+ * marca de nota (vale o estilo/rPr do documento; oráculo fnrefsup) e a fonte do
+ * w:sym. Uma prop que difere desta base foi editada. Regra única do canvas
+ * (directRPr, docx-layout) e do salvar (patchRPr).
+ */
+export function editBaseProps(run: Run, rpr: RPr | undefined): RunProps {
+  const base = runPropsFromRPr(rpr);
+  const p = run.props;
+  if (p.link && base.underline === false) { base.underline = true; base.color ??= '0563C1'; }
+  if (run.noteRef && base.vertAlign === undefined) base.vertAlign = 'superscript';
+  if (run.symFont) base.fontAscii = run.symFont;
+  return base;
+}
+
 /** Props de parágrafo de EDIÇÃO derivadas do w:pPr tipado (ver runPropsFromRPr). */
 export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
   const props: ParaProps = {};
@@ -514,7 +536,29 @@ interface FieldFrame {
   crossed: boolean;
   props: RunProps;
   rpr?: RPr;
+  /** w:rPr cru do run do fldChar begin. */
+  rPrEl?: XmlElement;
 }
+
+/** w:rPr de origem de um run recém-lido (fora do JSON) — vira RunSource. */
+const RPR_EL = Symbol('docx-rpr-el');
+type WithRPrEl = Run & { [RPR_EL]?: XmlElement };
+const rPrElOf = (r: Run | undefined): XmlElement | undefined => (r as WithRPrEl | undefined)?.[RPR_EL];
+const setRPrEl = (r: Run, el: XmlElement | undefined): void => { if (el) (r as WithRPrEl)[RPR_EL] = el; };
+
+/** Elemento de objeto de origem (w:drawing/w:pict/w:object/mc:AlternateContent):
+ *  o 1º run que ele produziu leva o elemento; os demais, `true` (já incluídos). */
+const OBJ_EL = Symbol('docx-obj-el');
+type WithObjEl = Run & { [OBJ_EL]?: XmlElement | true };
+const objElOf = (r: Run): XmlElement | true | undefined => (r as WithObjEl)[OBJ_EL];
+function tagObjectRuns(list: Run[] | null, from: number, el: XmlElement): void {
+  if (!list) return;
+  for (let i = from; i < list.length; i++) (list[i] as WithObjEl)[OBJ_EL] = i === from ? el : true;
+}
+
+/** Contêineres inline cujo envoltório (sdt, hyperlink, revisão…) o salvar
+ *  reaproveita quando o conteúdo muda. */
+const INLINE_WRAPPERS = new Set(['w:sdt', 'w:hyperlink', 'w:smartTag', 'w:customXml', 'w:ins', 'w:moveTo', 'w:dir', 'w:bdo']);
 
 export interface ReadContext {
   resolveImage: ImageResolver;
@@ -531,6 +575,10 @@ export interface ReadContext {
   /** Lê os blocos (parágrafos + tabelas) de um container (w:txbxContent) —
    *  injetado pelo leitor do documento completo (fulldoc). */
   readBlocks?: (container: XmlElement, ctx: ReadContext) => import('./fulldoc.js').Block[];
+  /** Salvamento sem perdas: onde guardar as fatias cruas e o XML da parte
+   *  (lido com `positions`). */
+  sources?: SourceStore;
+  sourceXml?: string;
 }
 
 const OBJ = '\uFFFC';
@@ -1069,6 +1117,7 @@ function closeField(ctx: ReadContext, runs: Run[]): void {
   // campo de formulário: a formatação é a do run do fldChar begin
   const rpr = f.ff ? f.rpr : (first?.rpr ?? f.rpr);
   if (rpr) run.rpr = rpr;
+  setRPrEl(run, f.ff ? f.rPrEl : (rPrElOf(first) ?? f.rPrEl));
   if (f.ff) run.formField = f.ff;
   if (f.runs.length) run.fieldResult = f.runs;
   runTarget(ctx, runs)?.push(run);
@@ -1116,6 +1165,7 @@ function readRunsInto(
           field: instr,
         };
         if (first?.rpr) run.rpr = first.rpr;
+        setRPrEl(run, rPrElOf(first));
         if (inner.length) run.fieldResult = inner;
         runTarget(ctx, runs)?.push(run);
         break;
@@ -1258,7 +1308,8 @@ function readSingleRun(
   ctx: ReadContext,
   inherit?: { link?: string; field?: string },
 ): void {
-  const rpr = readRPr(firstChild(rEl, 'w:rPr'));
+  const rPrEl = firstChild(rEl, 'w:rPr');
+  const rpr = readRPr(rPrEl);
   const rProps = runPropsFromRPr(rpr);
   if (inherit?.link) {
     rProps.link = inherit.link;
@@ -1272,6 +1323,7 @@ function readSingleRun(
     if (ctx.activeComments?.size) props.commentIds = [...ctx.activeComments];
     const run: Run = { text, props, ...(inherit?.field ? { field: inherit.field } : {}), ...extra };
     if (rpr) run.rpr = rpr;
+    setRPrEl(run, rPrEl);
     if (stack.some((f) => f.phase === 'result' && /^\s*TOC\b/i.test(f.instr))) run.inToc = true;
     return run;
   };
@@ -1294,6 +1346,7 @@ function readSingleRun(
       if (type === 'begin') {
         const frame: FieldFrame = { instr: '', phase: 'instr', runs: [], crossed: false, props: { ...rProps } };
         if (rpr) frame.rpr = rpr;
+        if (rPrEl) frame.rPrEl = rPrEl;
         const ff = firstChild(child, 'w:ffData');
         if (ff) {
           const cb = firstChild(ff, 'w:checkBox');
@@ -1403,17 +1456,24 @@ function readSingleRun(
         pushRun({ text: '', field: ' PAGE ' });
         break;
       case 'w:drawing': {
+        flush();
+        const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
         const r = readDrawingRun(child, ctx);
         if (r) pushRun(r);
+        tagObjectRuns(tgt, k, child);
         break;
       }
       case 'w:pict':
-        for (const r of readVmlRuns(child, ctx, false)) pushRun(r);
+      case 'w:object': {
+        flush();
+        const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
+        for (const r of readVmlRuns(child, ctx, child.name === 'w:object')) pushRun(r);
+        tagObjectRuns(tgt, k, child);
         break;
-      case 'w:object':
-        for (const r of readVmlRuns(child, ctx, true)) pushRun(r);
-        break;
+      }
       case 'mc:AlternateContent': {
+        flush();
+        const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
         // formas/caixas de texto de DrawingML: o w:drawing moderno fica em
         // mc:Choice (Requires="wps"); o mc:Fallback é VML.
         const choice = firstChild(child, 'mc:Choice');
@@ -1425,6 +1485,7 @@ function readSingleRun(
           const pict = fb && (findDeep(fb, 'w:pict') ?? findDeep(fb, 'w:object'));
           if (pict) for (const v of readVmlRuns(pict, ctx, pict.name === 'w:object')) pushRun(v);
         }
+        tagObjectRuns(tgt, k, child);
         break;
       }
       case 'w:ruby': {
@@ -1438,10 +1499,43 @@ function readSingleRun(
 }
 
 export function readParagraph(pEl: XmlElement, ctx: ReadContext): Paragraph {
-  const ppr = readPPr(firstChild(pEl, 'w:pPr'));
+  const pPrEl = firstChild(pEl, 'w:pPr');
+  const ppr = readPPr(pPrEl);
   const props = paraPropsFromPPr(ppr);
   const runs: Run[] = [];
-  readRunsInto(runs, pEl, ctx);
+  const capture = ctx.sources !== undefined && ctx.sourceXml !== undefined && pEl.s !== undefined;
+  const segs: { seg: SegSource; from: number; to: number }[] = [];
+  if (!capture) readRunsInto(runs, pEl, ctx);
+  else {
+    // um segmento por filho de topo; um campo aberto aqui funde os filhos até o fim dele
+    const xml = ctx.sourceXml!;
+    const openHere = (): boolean => (ctx.fieldStack ?? []).some((f) => !f.crossed);
+    let cur: { seg: SegSource; from: number; to: number } | null = null;
+    for (const child of childElements(pEl)) {
+      if (child.name === 'w:pPr') continue;
+      const raw = xml.slice(child.s, child.e);
+      const before = runs.length;
+      const joining = cur !== null && openHere();
+      readRunsInto(runs, { name: pEl.name, attrs: {}, children: [child] }, ctx);
+      if (joining) { cur!.seg.raw += raw; cur!.to = runs.length; delete cur!.seg.wrapOpen; delete cur!.seg.wrapClose; }
+      else {
+        cur = { seg: { raw, sids: [] }, from: before, to: runs.length };
+        if (INLINE_WRAPPERS.has(child.name) && child.cs !== child.e && !openHere()) {
+          // envoltório: até o conteúdo (sdtContent / depois das *Pr iniciais) e o fecho
+          const content = child.name === 'w:sdt' ? firstChild(child, 'w:sdtContent') : child;
+          if (content && content.cs !== content.e) {
+            let start = content.cs!;
+            if (content === child) {
+              for (const k of childElements(child)) { if (k.name.endsWith('Pr')) start = k.e!; else break; }
+            }
+            cur.seg.wrapOpen = xml.slice(child.s, start);
+            cur.seg.wrapClose = xml.slice(content.ce, child.e);
+          }
+        }
+        segs.push(cur);
+      }
+    }
+  }
   // campo cujo resultado atravessa o fim do parágrafo (ex.: TOC): o pedaço
   // deste parágrafo vira o run do campo; o resto segue como runs normais
   const stack = ctx.fieldStack ?? [];
@@ -1469,7 +1563,47 @@ export function readParagraph(pEl: XmlElement, ctx: ReadContext): Paragraph {
   if (/\bTOC\b/.test(instr)) props.tocInstr = instr.trim();
   const para: Paragraph = { runs, props };
   if (ppr) para.ppr = ppr;
+  if (capture) captureParagraph(para, pEl, pPrEl, segs, ctx.sources!, ctx.sourceXml!);
   return para;
+}
+
+/** Registra a fonte crua do parágrafo e dá um id a cada run de topo. */
+function captureParagraph(
+  para: Paragraph,
+  pEl: XmlElement,
+  pPrEl: XmlElement | undefined,
+  segs: { seg: SegSource; from: number; to: number }[],
+  store: SourceStore,
+  xml: string,
+): void {
+  // runs que o fim do parágrafo emitiu (campo que continua no próximo) são do último segmento
+  const last = segs[segs.length - 1];
+  if (last && last.to < para.runs.length) { last.to = para.runs.length; last.seg.open = true; }
+  let objHead = 0;
+  for (const { seg, from, to } of segs) {
+    if (seg.wrapOpen !== undefined && seg.raw.startsWith('<w:hyperlink')) seg.link = para.runs[from]?.props.link ?? '';
+    for (let i = from; i < to; i++) {
+      const run = para.runs[i]!;
+      const sid = store.id();
+      const el = rPrElOf(run);
+      const obj = objElOf(run);
+      store.runs.set(sid, {
+        ...(el ? { rPr: xml.slice(el.s, el.e) } : {}),
+        ...(obj === true ? { objHead } : obj ? { obj: xml.slice(obj.s, obj.e) } : {}),
+      });
+      if (obj && obj !== true) objHead = sid;
+      run.props.src = sid;
+      seg.sids.push(sid);
+    }
+  }
+  const selfClosing = pEl.cs === pEl.e;
+  store.addPara(para, {
+    raw: xml.slice(pEl.s, pEl.e),
+    at: pEl.s,
+    open: selfClosing ? xml.slice(pEl.s, pEl.e).replace(/\s*\/>$/, '>') : xml.slice(pEl.s, pEl.cs),
+    ...(pPrEl ? { pPr: xml.slice(pPrEl.s, pPrEl.e) } : {}),
+    segs: segs.map((x) => x.seg),
+  });
 }
 
 function collectInstrText(el: XmlElement): string {

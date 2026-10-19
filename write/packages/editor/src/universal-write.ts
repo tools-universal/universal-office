@@ -23,6 +23,7 @@ import {
   type Paragraph,
   type SectPr,
   readFullDocument,
+  markSectionBreaks,
   readEmbeddedFonts,
   isWordBinary,
   convertDocToDocx,
@@ -902,7 +903,8 @@ export class UniversalWriteElement extends HTMLElement {
     this.pkg = DocxPackage.load(bytes);
     this.loadedBytes = bytes;
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write, ...readDocxEmbedding(this.pkg).settings };
-    this.fullDoc = readFullDocument(this.pkg);
+    // com a fonte XML original: o salvar devolve cru tudo o que não for editado
+    this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.loadedFormat = 'docx';
     this.installFullDoc();
     void this.registerEmbeddedFonts(this.pkg); // fontes embedadas → FontFace + métricas
@@ -1073,29 +1075,9 @@ export class UniversalWriteElement extends HTMLElement {
       return { startPara, section };
     });
 
-    // marca o ÚLTIMO parágrafo de cada seção (exceto a final) com sectionBreak,
-    // para que o salvar preserve as 3 seções + orientação + refs de header/footer
-    const blockToPara = (blockIdx: number): number => {
-      let n = -1;
-      for (let b = 0; b <= blockIdx && b < this.fullDoc!.blocks.length; b++) {
-        if (this.fullDoc!.blocks[b]!.type === 'paragraph') n++;
-      }
-      return n;
-    };
-    const refMap = (refs: typeof this.fullDoc.sections[0]['headerRefs'], kind: 'header' | 'footer') =>
-      refs.map((r) => ({ kind, type: r.type, rid: r.rid }));
-    for (let si = 0; si < this.fullDoc.sections.length - 1; si++) {
-      const section = this.fullDoc.sections[si]!;
-      const lastPara = blockToPara(section.blockEnd);
-      const p = paragraphs[lastPara];
-      if (p) {
-        p.props.sectionBreak = {
-          sectPr: section.sectPr,
-          headerRefs: refMap(section.headerRefs, 'header') as never,
-          footerRefs: refMap(section.footerRefs, 'footer') as never,
-        };
-      }
-    }
+    // o ÚLTIMO parágrafo de cada seção (exceto a final) leva sectionBreak, para
+    // que o salvar preserve as seções + orientação + refs de header/footer
+    markSectionBreaks(this.fullDoc);
 
     // pré-processa runs: campos DATE viram texto; noteRef ganha o número;
     // imagens flutuantes saem do fluxo
@@ -1126,6 +1108,8 @@ export class UniversalWriteElement extends HTMLElement {
     this.undoStack = [];
     this.redoStack = [];
     this.editsSinceLoad = 0;
+    // linha de base do salvamento sem perdas: o documento como instalado
+    this.fullDoc.sources?.baseline();
     this.refresh();
     this.dispatchEvent(new CustomEvent('uw-protected', {
       detail: { active: this.protectedMode, hasFields: this.hasExternalFields() },
@@ -2612,9 +2596,9 @@ export class UniversalWriteElement extends HTMLElement {
     const hfParts: HfPartInfo[] = [];
     const seenPath = new Set<string>();
     for (const section of this.fullDoc?.sections ?? []) {
-      for (const [kind, refs, set] of [
-        ['header', section.headerRefs, section.headers],
-        ['footer', section.footerRefs, section.footers],
+      for (const [kind, refs, set, blockSet] of [
+        ['header', section.headerRefs, section.headers, section.headerBlocks],
+        ['footer', section.footerRefs, section.footers, section.footerBlocks],
       ] as const) {
         for (const ref of refs) {
           if (seenPath.has(ref.path)) continue;
@@ -2624,6 +2608,8 @@ export class UniversalWriteElement extends HTMLElement {
           hfParts.push({
             kind, type: ref.type, rid: ref.rid, path: ref.path,
             paragraphs, dirty: this.dirtyHf.has(ref.path),
+            // tabelas do cabeçalho: os blocos alinhados aos parágrafos editados
+            blocks: reconcileBlocks(blockSet?.[ref.type], paragraphs, true),
           });
         }
       }
@@ -2655,7 +2641,8 @@ export class UniversalWriteElement extends HTMLElement {
     writeDocument(pkg, saveModel, hfParts, {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : undefined,
       bodySectRefs: bodyParts.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid })),
-      blocks: this.tableAnchors.length ? blocks : undefined,
+      blocks: this.tableAnchors.length || this.fullDoc?.sources ? blocks : undefined,
+      sources: this.fullDoc?.sources,
     });
     return pkg.save();
   }
