@@ -33,7 +33,7 @@ edição. A referência de aderência é o próprio Hunspell 1.7.2.
 **Decisão: Hunspell 1.7.2 em WASM (binário do `hunspell-wasm`).**
 
 - O **nspell** não serve para o pt-BR: o `.aff` do VERO (25.770 regras SFX, 162
-  PFX, 1.056 REP, 65 BREAK) expande na carga e não terminou em 5 min, com mais
+  PFX, 1.056 REP, 65 BREAK) expande na carga e não terminou em 5 min (numa sonda isolada, nem em 15 min), com mais
   de 1 GB de memória. No en-US, onde carrega, recusa compostos com hífen (não
   implementa BREAK: "built-in", "read-only", "state-of-the-art") e acerta só 72%
   da 1ª sugestão do Hunspell.
