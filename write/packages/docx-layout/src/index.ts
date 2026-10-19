@@ -1,3 +1,8 @@
+// Base tipográfica (fontes TTF/OTF, quebra de linha, hifenização, layout antigo
+// do canvas) e o gerador de PDF fazem parte do motor — antes eram os pacotes
+// @universal-office/layout e @universal-office/pdf.
+export * from './typography/index.js';
+export * from './pdf-writer/index.js';
 export { layoutDocument } from './engine.js';
 export { DocContext, emptyFormatting, directRPr, directPPr, type LayoutOptions } from './context.js';
 export { FaceResolver, faceMetrics, deviceEmPt, parsePostScriptName, withEmbeddedFonts, type FontFace, type FontProvider, type FaceMetrics, type EmbeddedFace } from './fonts.js';

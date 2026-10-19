@@ -14,7 +14,7 @@ public sealed class DocxHtmlOptions
 }
 
 /// <summary>Exporta o modelo Write para HTML semântico e fluido —
-/// porta de write/packages/export/src/html.ts.</summary>
+/// porta de write/packages/docx-core/src/export/html.ts.</summary>
 public static class DocxHtml
 {
     private sealed class NoteOut

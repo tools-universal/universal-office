@@ -5,7 +5,7 @@ namespace OfficeNext.Export;
 
 /// <summary>
 /// Base compartilhada pelos exportadores de sheet — porta de
-/// sheet/packages/export/src/model.ts: modelo, seleção de planilhas, grade
+/// sheet/packages/sheet-core/src/export/model.ts: modelo, seleção de planilhas, grade
 /// densa com valores FORMATADOS (FormatValue + PT_BR) e métrica MDW.
 /// </summary>
 public sealed class SheetModel

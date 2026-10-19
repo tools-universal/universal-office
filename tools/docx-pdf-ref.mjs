@@ -7,7 +7,7 @@
 const root = new URL('..', import.meta.url).href;
 const { DocxPackage, readFullDocument, readEmbeddedFonts, isWordBinary, convertDocToDocx } = await import(new URL('write/packages/docx-core/dist/index.js', root).href);
 const { layoutDocument, renderPdf, withEmbeddedFonts } = await import(new URL('write/packages/docx-layout/dist/index.js', root).href);
-const { SfntFont } = await import(new URL('write/packages/layout/dist/index.js', root).href);
+const { SfntFont } = await import(new URL('write/packages/docx-layout/dist/index.js', root).href);
 
 /** Provedor de fontes fixas: { bytes, bold?, italic?, name? }[] → FontProvider. */
 export function fixedFontProvider(fonts) {

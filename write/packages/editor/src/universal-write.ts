@@ -39,7 +39,7 @@ import {
   FontResolver, METRIC_SUBSTITUTES, DEFAULT_EMBEDDING, planFontEmbedding, readDocxEmbedding, writeDocxEmbedding,
   type ResolvedFont, type FontEmbeddingSettings, type FontUsage, type EmbeddingPlan,
 } from '@universal-office/fonts';
-import { onBrowserLangChange, uiLang } from '@universal-office/i18n';
+import { onBrowserLangChange, uiLang } from '@universal-office/ui';
 import {
   SfntFont,
   type LayoutFont,
@@ -54,7 +54,7 @@ import {
   loadHyphenation,
   hyphenatorFor,
   hyphenationPatternId,
-} from '@universal-office/layout';
+} from '@universal-office/docx-layout';
 import {
   PdfDocument,
   hexColor,
@@ -63,14 +63,14 @@ import {
   type PdfImage,
   type EmbeddedFont,
   type PlacedGlyph,
-} from '@universal-office/pdf';
-import { toHtml, toMarkdown, type ExportDoc } from '@universal-office/docx-export';
+} from '@universal-office/docx-layout';
+import { toHtml, toMarkdown, type ExportDoc } from '@universal-office/docx-core';
 import {
   layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages,
   type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,
   type LayoutResult, type LayoutPage, type LaidOutLine, type LayoutOptions,
 } from '@universal-office/docx-layout';
-import { readOdt, writeOdt } from '@universal-office/odf';
+import { readOdt, writeOdt } from '@universal-office/docx-core';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
 import { guardRuns } from './edit-guard.js';
@@ -2775,7 +2775,7 @@ export class UniversalWriteElement extends HTMLElement {
   /**
    * Exporta ODT (OpenDocument Text) p/ LibreOffice/OpenOffice. Reconstrói um
    * FullDocument leve a partir do estado VIVO do editor (model + tableAnchors)
-   * — passa pelo writeOdt do @universal-office/odf.
+   * — passa pelo writeOdt do docx-core (src/odf).
    */
   exportOdt(opts: { images?: 'embed' | 'omit' } = {}): Uint8Array {
     if (!this.model) throw new Error('document not loaded');

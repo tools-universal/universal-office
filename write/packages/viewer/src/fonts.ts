@@ -1,5 +1,5 @@
 import { FontResolver, METRIC_SUBSTITUTES, type FontVariant } from '@universal-office/fonts';
-import { SfntFont } from '@universal-office/layout';
+import { SfntFont } from '@universal-office/docx-layout';
 import type { FontProvider, FontFace as EngineFontFace } from '@universal-office/docx-layout';
 
 /**

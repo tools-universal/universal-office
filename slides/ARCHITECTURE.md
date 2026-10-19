@@ -41,7 +41,8 @@ automação COM (`New-Object -ComObject PowerPoint.Application`).
 |---|---|---|
 | **slides-core** | `@universal-office/slides-core` | Modelo + parse OOXML. `PptxPackage` (container lossless), `parseXml`, `readPresentation`/`readSlide`, resolução de tema/cor (DrawingML), herança de geometria de placeholder (layout/master). |
 | **slides** | `@universal-office-pro/slides` | Webcomponent `<universal-slides>` — renderiza cada slide em canvas (fundo, formas, preenchimento, contorno, texto com âncora/alinhamento/fonte). |
-| **export** | `@universal-office/slides-export` | Exportadores `.pptx bytes → saída` (browser+node, SEM vídeo): `pptxToMarkdown` (headings/bullets/tabelas GFM/notas), `pptxToHtml` (sections estáticos, shapes em %), `pptxToPdf` (vetorial, 1 página/slide, fontes TTF obrigatórias via `@universal-office/pdf`), `pptxToImages` (1 PNG/slide via `paintSlideTo`; em node exige factory de canvas injetada). |
+| **slides-core/export** | (dentro de `@universal-office/slides-core`) | Exportadores `.pptx bytes → saída` em `slides-core/src/export` (browser+node, SEM vídeo): `pptxToMarkdown` (headings/bullets/tabelas GFM/notas), `pptxToHtml` (sections estáticos, shapes em %), `pptxToPdf` (vetorial, 1 página/slide, fontes TTF obrigatórias, via office-converter em `vendor/`), `pptxToImages` (1 PNG/slide via `paintSlideTo`; em node exige factory de canvas injetada). |
+| **viewer** | `@universal-office/presentation-viewer` | Webcomponent `<universal-presentation-viewer>` (só leitura, com controles); o `<universal-slides>` estende ele. |
 
 A pintura de slide é a função PURA `paintSlideTo(ctx, slide, resources, scale)`
 (`slides-core/src/render.ts`): recebe imagens JÁ decodificadas via

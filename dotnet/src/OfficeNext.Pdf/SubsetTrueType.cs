@@ -4,7 +4,7 @@ namespace OfficeNext.Pdf;
 
 /// <summary>
 /// Subset de fonte TrueType mantendo os glyph ids (CID = GID, como usamos em
-/// Identity-H) — porta de @universal-office/pdf subset.ts: preserva apenas os glifos
+/// Identity-H) — porta de write/packages/docx-layout/src/pdf-writer/subset.ts: preserva apenas os glifos
 /// usados (e os componentes de glifos compostos), esvaziando os demais, e
 /// descarta tabelas de layout pesadas (GPOS/GSUB/GDEF/kern…). `numGlyphs`,
 /// `hmtx` e `cmap` ficam intactos, então os índices continuam válidos sem

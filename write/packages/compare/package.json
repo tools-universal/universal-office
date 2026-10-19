@@ -7,11 +7,11 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "build:demo": "esbuild src/index.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal-office/docx-core=../docx-core/src/index.ts --alias:@universal-office/i18n=../../../shared/i18n/src/index.ts",
+    "build:demo": "esbuild src/index.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal-office/docx-core=../docx-core/src/index.ts",
     "test": "vitest run"
   },
   "dependencies": {
     "@universal-office/docx-core": "*",
-    "@universal-office/i18n": "file:../../../shared/i18n"
+    "@universal-office/ui": "file:../../../shared/ui"
   }
 }

@@ -12,7 +12,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { DocxPackage, readFullDocument, readEmbeddedFonts } from '@universal-office/docx-core';
 import { layoutDocument, withEmbeddedFonts } from '../src/index.js';
-import { loadHyphenation, HYPHENATION_PATTERN_IDS, SfntFont } from '@universal-office/layout';
+import { loadHyphenation, HYPHENATION_PATTERN_IDS, SfntFont } from '../src/typography/index.js';
 import { engineLines, compareLines, type OracleDoc } from './oracle-compare.js';
 
 const oracleDir = join(__dirname, 'oracle');

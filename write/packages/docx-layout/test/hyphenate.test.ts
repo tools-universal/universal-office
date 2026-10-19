@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DocxPackage, readFullDocument } from '@universal-office/docx-core';
-import { SfntFont, loadHyphenation } from '@universal-office/layout';
+import { SfntFont, loadHyphenation } from '../src/typography/index.js';
 import { layoutDocument, documentHyphenationLanguages, type FontFace, type FontProvider, type GlyphRunItem, type LayoutResult } from '../src/index.js';
 // @ts-expect-error módulos JS das ferramentas do oráculo (sem tipos)
 import { buildDocx, docDefaults, p, r } from '../../../tools/layout-oracle/docx-builder.mjs';

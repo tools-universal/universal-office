@@ -1,4 +1,4 @@
-import type { FontVariant } from '@universal-office/layout';
+import type { FontVariant } from '@universal-office/docx-layout';
 import type { RunProps } from '@universal-office/docx-core';
 
 export interface UniversalWriteFontAsset {

@@ -6,7 +6,7 @@ namespace OfficeNext.Export;
 
 /// <summary>
 /// Classificação de valor de célula para exportadores TIPADOS (ODS/XML 2003) —
-/// porta de sheet/packages/export/src/cellvalue.ts.
+/// porta de sheet/packages/sheet-core/src/export/cellvalue.ts.
 /// </summary>
 public sealed class TypedValue
 {

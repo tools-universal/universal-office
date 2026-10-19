@@ -6,7 +6,7 @@ using OfficeNext.Xlsx;
 namespace OfficeNext.Export;
 
 /// <summary>
-/// Export OpenDocument Spreadsheet (.ods) — porta de sheet/packages/export/src/ods.ts.
+/// Export OpenDocument Spreadsheet (.ods) — porta de sheet/packages/sheet-core/src/export/ods.ts.
 /// content.xml com valores TIPADOS + texto exibido (FormatValue pt-BR); estilos
 /// básicos por célula; larguras/alturas; merges. ZIP: "mimetype" PRIMEIRA e STORED.
 /// </summary>

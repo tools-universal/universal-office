@@ -1,4 +1,4 @@
-import { PdfDocument, hexColor, type EmbeddedFont, type PdfImage, type PdfPage, type PathCmd, type PdfShading } from '@universal-office/pdf';
+import { PdfDocument, hexColor, type EmbeddedFont, type PdfImage, type PdfPage, type PathCmd, type PdfShading } from './pdf-writer/index.js';
 import type { InlineImage } from '@universal-office/docx-core';
 import type { LayoutResult, PageItem, PathCmdTw } from './tree.js';
 import { OPEN_PRESETS, custPaths, gradientGeometry, gradientSamples, pathBounds, presetPath, type GradGeom } from './geometry.js';

@@ -14,7 +14,7 @@ public sealed class DecodedPng
 
 /// <summary>
 /// Decodificação mínima de rasters para o export PDF — porta de
-/// slides/packages/export/src/raster.ts:
+/// slides/packages/slides-core/src/export/raster.ts:
 /// - DecodePng: PNG → RGBA cru (inflate dos IDAT + unfilter das scanlines).
 ///   Suporta bit depth 8 nos color types 0/2/3(+tRNS)/4/6, sem entrelaçamento
 ///   (Adam7 → null, vira placeholder no PDF).

@@ -1,9 +1,8 @@
-// Smoke test do @universal-office/pdf: layout real (breakRich) → PDF, com o MESMO
+// Smoke test do gerador de PDF (docx-layout/src/pdf-writer): layout real (breakRich) → PDF, com o MESMO
 // algoritmo de posicionamento por glifo do editor (snap de 1/600", baseline).
 // Gera temp/smoke.pdf para rasterizar com tools/word-lab/rasterize-pdf.ps1.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { SfntFont, breakRich, deviceEmPt } from '../packages/layout/dist/index.js';
-import { PdfDocument, hexColor } from '../packages/pdf/dist/index.js';
+import { SfntFont, breakRich, deviceEmPt, PdfDocument, hexColor } from '../packages/docx-layout/dist/index.js';
 
 const FONTS = 'tools/word-lab/fonts';
 const TWIPS_PER_PT = 20;

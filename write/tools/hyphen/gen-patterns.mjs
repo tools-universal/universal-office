@@ -4,7 +4,7 @@
 //
 //   node tools/hyphen/gen-patterns.mjs <pasta com hyph-*.tex> [--json <pasta>]
 //
-// Saída: packages/layout/src/hyphen/patterns/<id>.ts (um módulo por idioma,
+// Saída: packages/docx-layout/src/typography/hyphen/patterns/<id>.ts (um módulo por idioma,
 // carregado sob demanda) e THIRD-PARTY-NOTICES.md com origem e licença de cada
 // arquivo. Com --json, grava também <id>.json com os MESMOS dados (para o port
 // .NET embutir como recurso). Os .tex baixados não entram no repositório: só os
@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const outDir = join(here, '..', '..', 'packages', 'layout', 'src', 'hyphen', 'patterns');
+const outDir = join(here, '..', '..', 'packages', 'docx-layout', 'src', 'typography', 'hyphen', 'patterns');
 const argv = process.argv.slice(2);
 const src = argv[0];
 if (!src) { console.error('uso: gen-patterns.mjs <pasta hyph-*.tex> [--json <pasta>]'); process.exit(1); }

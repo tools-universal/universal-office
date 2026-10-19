@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { zlibSync } from 'fflate';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SfntFont } from '@universal-office/layout';
+import { SfntFont } from '../src/typography/index.js';
 import { DocxPackage, readFullDocument } from '@universal-office/docx-core';
 import { decodeBmp, decodeGif, decodePng, decodeTiff, jpegInfo } from '../src/images.js';
 import { layoutDocument, renderPdf, type FontProvider } from '../src/index.js';

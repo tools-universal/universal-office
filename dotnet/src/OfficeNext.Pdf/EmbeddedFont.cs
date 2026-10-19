@@ -2,7 +2,7 @@ namespace OfficeNext.Pdf;
 
 /// <summary>
 /// Fonte TrueType embutida como Type0/CIDFontType2 com encoding Identity-H
-/// (CID = GID) — porta de @universal-office/pdf font.ts. Rastreia os glifos usados para
+/// (CID = GID) — porta de write/packages/docx-layout/src/pdf-writer/font.ts. Rastreia os glifos usados para
 /// emitir /W e o CMap ToUnicode (texto pesquisável/copiável). Os outlines vêm
 /// do FontFile2 embutido (com SUBSET dos glifos usados).
 /// </summary>

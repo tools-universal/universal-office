@@ -13,8 +13,8 @@ import { createNodeFontProvider } from './node-fonts.mjs';
 
 const core = await import(new URL('../../packages/docx-core/dist/index.js', import.meta.url).href);
 const eng = await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href);
-const layout = await import(new URL('../../packages/layout/dist/index.js', import.meta.url).href);
-const odf = await import(new URL('../../packages/odf/dist/index.js', import.meta.url).href);
+const layout = await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href);
+const odf = await import(new URL('../../packages/docx-core/dist/index.js', import.meta.url).href);
 
 const argv = process.argv.slice(2);
 const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : d; };

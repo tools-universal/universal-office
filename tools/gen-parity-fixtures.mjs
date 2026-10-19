@@ -20,11 +20,11 @@ mkdirSync(expectedDir, { recursive: true });
 const { DocxPackage, writeDocument } = await import(
   new URL('../write/packages/docx-core/dist/index.js', import.meta.url).href);
 const { docxToMarkdown, docxToHtml } = await import(
-  new URL('../write/packages/export/dist/index.js', import.meta.url).href);
+  new URL('../write/packages/docx-core/dist/index.js', import.meta.url).href);
 const sheetExport = await import(
-  new URL('../sheet/packages/export/dist/index.js', import.meta.url).href);
+  new URL('../sheet/packages/sheet-core/dist/index.js', import.meta.url).href);
 const slidesExport = await import(
-  new URL('../slides/packages/export/dist/index.js', import.meta.url).href);
+  new URL('../slides/packages/slides-core/dist/index.js', import.meta.url).href);
 const { unzipSync } = await import(
   new URL('../sheet/node_modules/fflate/esm/index.mjs', import.meta.url).href);
 

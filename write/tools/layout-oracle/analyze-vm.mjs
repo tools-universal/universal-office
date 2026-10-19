@@ -9,7 +9,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const writeRoot = join(here, '..', '..');
 const require = createRequire(import.meta.url);
 const { resolveFonts } = require(join(writeRoot, '..', 'shared', 'fonts', 'node', 'system-fonts.cjs'));
-const { SfntFont } = await import(new URL('../../packages/layout/dist/index.js', import.meta.url).href);
+const { SfntFont } = await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href);
 
 const FONTS = ['Arial', 'Calibri', 'Times New Roman', 'Verdana', 'Segoe UI', 'Aptos', 'Century Gothic', 'Tahoma',
   'Georgia', 'Courier New', 'Calibri Light', 'Cambria', 'Trebuchet MS', 'Open Sans', 'Arial Nova Light', 'Arial Narrow', 'Garamond', 'Lato'];

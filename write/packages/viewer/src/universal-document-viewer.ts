@@ -3,13 +3,13 @@ import {
   type FullDocument, type InlineImage, type Paragraph,
 } from '@universal-office/docx-core';
 import { FontResolver } from '@universal-office/fonts';
-import { SfntFont, loadHyphenation } from '@universal-office/layout';
+import { SfntFont, loadHyphenation } from '@universal-office/docx-layout';
 import {
   layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, paintItems, paragraphAtPath,
   type LayoutOptions, type LayoutResult, type EnginePaintEnv,
 } from '@universal-office/docx-layout';
-import { LiveRegion, type ProgressStep } from '@universal-office/viewer-controls';
-import { onBrowserLangChange, uiLang, type UiLang } from '@universal-office/i18n';
+import { LiveRegion, type ProgressStep } from '@universal-office/ui';
+import { onBrowserLangChange, uiLang, type UiLang } from '@universal-office/ui';
 import { ViewerFonts } from './fonts.js';
 import { collectAnnotations, levelResolver, type Annotations } from './annotations.js';
 import { fillTextLayer, TEXT_LAYER_CSS } from './text-layer.js';

@@ -1,12 +1,12 @@
 // Confere as notas do apresentador do .ppt convertido contra o .pptx gêmeo,
-// usando o próprio leitor do exportador (packages/export: readNotes).
+// usando o próprio leitor do exportador (packages/slides-core/src/export: readNotes).
 //
 // Uso: node tools/ppt-lab/ppt-binary/run-ts.mjs tools/ppt-lab/ppt-binary/check-notes.ts [deck…]
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { convertPptToPptx } from '../../../packages/slides-core/src/ppt/index.js';
 import { PptxPackage, readPresentation } from '../../../packages/slides-core/src/index.js';
-import { readNotes } from '../../../packages/export/src/model.js';
+import { readNotes } from '../../../packages/slides-core/src/export/model.js';
 
 const lab = process.env['LAB_DIR']!;
 const root = join(lab, '..', '..', '..', 'samples');

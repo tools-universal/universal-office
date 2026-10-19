@@ -114,7 +114,7 @@ function ttcFace(buf, index) {
  */
 export async function createNodeFontProvider(opts = {}) {
   const missing = new Set((opts.missing ?? []).map((f) => f.toLowerCase()));
-  ({ SfntFont } = await import(new URL('../../packages/layout/dist/index.js', import.meta.url).href));
+  ({ SfntFont } = await import(new URL('../../packages/docx-layout/dist/index.js', import.meta.url).href));
   const index = new Map(); // family(lc) → faces (nome RIBBI)
   const typoIndex = new Map(); // nome tipográfico (ID 16)
   for (const r of roots()) {

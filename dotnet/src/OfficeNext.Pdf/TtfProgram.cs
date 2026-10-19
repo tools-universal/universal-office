@@ -4,7 +4,7 @@ namespace OfficeNext.Pdf;
 
 /// <summary>
 /// O mínimo que o gerador de PDF precisa saber de um programa de fonte
-/// TrueType — porta da interface FontProgram de @universal-office/pdf font.ts.
+/// TrueType — porta da interface FontProgram de write/packages/docx-layout/src/pdf-writer/font.ts.
 /// </summary>
 public interface IFontProgram
 {
@@ -25,7 +25,7 @@ public interface IFontProgram
 
 /// <summary>
 /// Parser mínimo de fontes TrueType (SFNT) — porta de
-/// sheet/packages/export/src/sfnt.ts: unitsPerEm, cmap (formats 4 e 12),
+/// vendor/office-converter/packages/office-converter/src/xlsx/sfnt.ts: unitsPerEm, cmap (formats 4 e 12),
 /// hmtx (advance por glifo), bbox/ascender/descender/italicAngle p/ o
 /// FontDescriptor. Extra da fase 2: tabela `kern` legada (formato 0) para o
 /// DocxToPdf ("kerning se trivial" — GPOS fica fora do escopo).

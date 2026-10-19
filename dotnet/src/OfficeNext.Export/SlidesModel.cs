@@ -7,7 +7,7 @@ namespace OfficeNext.Export;
 
 /// <summary>
 /// Base compartilhada pelos exportadores de slides — porta de
-/// slides/packages/export/src/model.ts (deck, notas, título, base64).
+/// slides/packages/slides-core/src/export/model.ts (deck, notas, título, base64).
 /// </summary>
 public sealed class DeckSlide
 {

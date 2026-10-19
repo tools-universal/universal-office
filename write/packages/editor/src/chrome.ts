@@ -8,10 +8,10 @@ import '@universal-material/web/button/icon-button.js';
 import { ThemeBuilder } from '@universal-material/web/theme/index.js';
 import { ICON } from './chrome-icons.js';
 import type { UniversalWriteElement } from './universal-write.js';
-import { pickLabels, type UiLang } from '@universal-office/i18n';
+import { pickLabels, type UiLang } from '@universal-office/ui';
 
 // Textos da barra no idioma da interface (`lang` do <universal-write> ou o do
-// navegador; inglês por padrão — ver @universal-office/i18n). Em pt, os nomes
+// navegador; inglês por padrão — ver @universal-office/ui). Em pt, os nomes
 // do Word pt-BR.
 const LABELS = {
   en: {

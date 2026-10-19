@@ -3,13 +3,9 @@
   "compilerOptions": {
     "paths": {
       "@universal-office/docx-core": ["../docx-core/src/index.ts"],
-      "@universal-office/layout": ["../layout/src/index.ts"],
-      "@universal-office/pdf": ["../pdf/src/index.ts"],
       "@universal-office/docx-layout": ["../docx-layout/src/index.ts"],
       "@universal-office/fonts": ["../../../shared/fonts/src/index.ts"],
-      "@universal-office/i18n": ["../../../shared/i18n/src/index.ts"],
-      "@universal-office/docx-export": ["../export/src/index.ts"],
-      "@universal-office/odf": ["../odf/src/index.ts"],
+      "@universal-office/ui": ["../../../shared/ui/src/index.ts"],
       "@universal-office/compare": ["../compare/src/index.ts"]
     }
   },

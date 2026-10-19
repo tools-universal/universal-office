@@ -1,8 +1,7 @@
 import '../src/universal-write.js';
 import type { UniversalWriteElement, ViewMode } from '../src/universal-write.js';
-import {
-  FontResolver, openFontEmbeddingDialog, describeFontEmbedding, type HostFontProvider,
-} from '@universal-office/fonts';
+import { FontResolver, type HostFontProvider } from '@universal-office/fonts';
+import { openFontEmbeddingDialog, describeFontEmbedding } from '@universal-office/ui';
 import '@universal-office/compare';
 import type { UniversalWriteDiffElement } from '@universal-office/compare';
 import { createMentionPlugin } from '../src/mention-plugin.js';
@@ -11,7 +10,7 @@ import { openMenu, menuOpen, type MenuItem } from './menu.js';
 import { openContextMenu, type CtxItem } from './context-menu.js';
 import { rippleAll } from './ripple.js';
 import { applyGeneratedTheme } from './theme.js';
-import { isOdt } from '@universal-office/odf';
+import { isOdt } from '@universal-office/docx-core';
 import '@universal-material/web/button/button.js';
 import '@universal-material/web/button/icon-button.js';
 import '@universal-material/web/dialog/dialog.js';

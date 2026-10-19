@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- PdfWriter próprio (porta do @universal-office/pdf): objetos/streams/xref,
+  <!-- PdfWriter próprio (porta de write/packages/docx-layout/src/pdf-writer): objetos/streams/xref,
        FlateDecode via ZLibStream, PdfDocument/PdfPage, EmbeddedFont
        (Type0/Identity-H) com subset TrueType, parser SFNT (TtfProgram,
        cmap 4/12 + hmtx + kern) e raster mínimo (PNG decode + JPEG size).

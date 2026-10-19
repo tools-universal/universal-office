@@ -6,7 +6,7 @@ namespace OfficeNext.Export;
 
 /// <summary>
 /// Tipos de entrada + helpers compartilhados pelos exportadores de docx —
-/// porta de write/packages/export/src/model.ts.
+/// porta de write/packages/docx-core/src/export/model.ts.
 /// </summary>
 public sealed class ExportDoc
 {

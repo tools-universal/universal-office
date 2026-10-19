@@ -7,7 +7,7 @@ using static OfficeNext.Export.SlidesModelOps;
 namespace OfficeNext.Export;
 
 /// <summary>
-/// Export HTML estático de .pptx — porta de slides/packages/export/src/html.ts:
+/// Export HTML estático de .pptx — porta de slides/packages/slides-core/src/export/html.ts:
 /// um &lt;section class="slide"&gt; por slide, shapes absolutas (EMU→%), fills/
 /// bordas/texto inline, imagens data URI, tabelas HTML.
 /// </summary>

@@ -5,7 +5,7 @@ using static OfficeNext.Export.SlidesModelOps;
 namespace OfficeNext.Export;
 
 /// <summary>
-/// Export Markdown de .pptx — porta de slides/packages/export/src/markdown.ts:
+/// Export Markdown de .pptx — porta de slides/packages/slides-core/src/export/markdown.ts:
 /// `## Slide N — título` por slide, bullets/numeração por nível, tabelas GFM,
 /// imagens como `[imagem]` (default) ou data URI, notas como blockquote.
 /// </summary>

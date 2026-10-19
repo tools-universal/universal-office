@@ -5,7 +5,7 @@ namespace OfficeNext.Export;
 
 /// <summary>
 /// Export CSV/TSV — paridade com "Salvar como CSV" do Excel pt-BR (porta de
-/// sheet/packages/export/src/csv.ts): valor FORMATADO, delimitador `;`,
+/// sheet/packages/sheet-core/src/export/csv.ts): valor FORMATADO, delimitador `;`,
 /// CRLF entre linhas + CRLF final, quoting RFC 4180.
 /// </summary>
 public static class XlsxCsv

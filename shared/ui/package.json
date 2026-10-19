@@ -1,0 +1,24 @@
+{
+  "name": "@universal-office/ui",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Interface compartilhada dos web components (Write, Sheet, Slides, viewers) — idioma da interface (inglês por padrão, pt pelo navegador, lang força), barra de controles dos viewers e diálogo de fontes no arquivo",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "@universal-office/fonts": "file:../fonts"
+  }
+}

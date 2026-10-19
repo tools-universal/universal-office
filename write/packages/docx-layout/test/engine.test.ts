@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DocxPackage, readFullDocument } from '@universal-office/docx-core';
-import { SfntFont } from '@universal-office/layout';
+import { SfntFont } from '../src/typography/index.js';
 import { layoutDocument, type FontFace, type FontProvider, type GlyphRunItem, type LayoutResult } from '../src/index.js';
 import { directPPr } from '../src/context.js';
 // @ts-expect-error módulo JS das ferramentas do lab (sem tipos)

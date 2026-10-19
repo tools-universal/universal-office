@@ -5,7 +5,7 @@ using OfficeNext.Xlsx;
 namespace OfficeNext.Export;
 
 /// <summary>
-/// Export SpreadsheetML 2003 (.xml) — porta de sheet/packages/export/src/xml2003.ts.
+/// Export SpreadsheetML 2003 (.xml) — porta de sheet/packages/sheet-core/src/export/xml2003.ts.
 /// Valores tipados (ss:Type), ss:Format com o formatCode OOXML, estilos básicos,
 /// larguras/alturas em pontos, merges. Fórmulas NÃO são emitidas (R1C1 fora do v1).
 /// </summary>

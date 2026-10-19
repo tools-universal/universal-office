@@ -12,9 +12,9 @@ import { docxToPdfRef } from './docx-pdf-ref.mjs';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const sheetExport = await import(
-  new URL('../sheet/packages/export/dist/index.js', import.meta.url).href);
+  new URL('../sheet/packages/sheet-core/dist/index.js', import.meta.url).href);
 const slidesExport = await import(
-  new URL('../slides/packages/export/dist/index.js', import.meta.url).href);
+  new URL('../slides/packages/slides-core/dist/index.js', import.meta.url).href);
 
 const font = (p, opts = {}) => ({ bytes: new Uint8Array(readFileSync(join(root, p))), ...opts });
 const narrowFonts = [

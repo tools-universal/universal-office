@@ -26,10 +26,10 @@ import {
   type TableBlock,
 } from '@universal-office/docx-core';
 import { diffDocuments, type DocDiff, type DocEdit, type DocIntraEdit, type TableRowEdit } from './diff.js';
-import { onBrowserLangChange, pickLabels } from '@universal-office/i18n';
+import { onBrowserLangChange, pickLabels } from '@universal-office/ui';
 
 // Textos da interface: `lang` no elemento força; sem ele, o idioma do
-// navegador (inglês por padrão — ver @universal-office/i18n).
+// navegador (inglês por padrão — ver @universal-office/ui).
 const s_ = (n: number): string => (n === 1 ? '' : 's');
 const LABELS = {
   en: {

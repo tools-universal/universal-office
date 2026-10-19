@@ -11,14 +11,14 @@ formatos textuais e paridade estrutural nos PDFs. Sem dependências NuGet em
 |---|---|
 | `OfficeNext.Core` | `OpcPackage` (ZIP lossless por parte, ordem preservada), `MiniXml` (porta do parser xml.ts), `JsNumber` (semântica numérica ECMAScript: toString/toFixed/round — a chave da paridade), unidades |
 | `OfficeNext.Docx` | Modelo + `ReadFullDocument` (paridade com docx-core: props OOXML tipadas `Ooxml/Props.cs`, partes de formatação `Ooxml/Parts.cs` — estilos/numeração/tema/settings/fontTable —, DrawingML/VML `Drawing.cs`, campos/resultado de campo/caixas/formas/grupos), fontes embutidas (`EmbeddedFonts`), `ModelOps` (insert/delete/props), serialização subset |
-| `OfficeNext.Layout` | Porta do `@universal-office/layout` (fontes): `SfntFont` (cmap/hmtx/OS2/post, kerning GPOS + `kern` legado) e `SystemFontIndex` — índice das fontes INSTALADAS (Windows\Fonts, fontes do usuário, cache CloudFonts do Office), porta de `write/tools/corpus-lab/node-fonts.mjs` |
+| `OfficeNext.Layout` | Porta da base tipográfica do `@universal-office/docx-layout` (`src/typography`, fontes): `SfntFont` (cmap/hmtx/OS2/post, kerning GPOS + `kern` legado) e `SystemFontIndex` — índice das fontes INSTALADAS (Windows\Fonts, fontes do usuário, cache CloudFonts do Office), porta de `write/tools/corpus-lab/node-fonts.mjs` |
 | `OfficeNext.DocxLayout` | **Motor de layout do Write** — porta de `@universal-office/docx-layout`, um arquivo por módulo TS (`Resolve`, `Fonts`, `Numbering`, `Context`, `Para`, `Lines`, `Paint`, `Table`, `Engine`, `Tree`, `Images`, `Emf`, `Pdf`): cascata OOXML, paginação, tabelas, cabeçalhos/rodapés, notas, flutuantes, campos; árvore de páginas em twips + renderizador PDF. `SystemFontProvider` (fontes da máquina), `DocxLayoutPipeline` (.docx → layout → PDF), `LayoutDump` (dump normalizado da paridade) |
 | `OfficeNext.DocBinary` | Conversor .doc (Word 97-2003) → .docx, paridade parte a parte com o JS |
 | `OfficeNext.CorpusLab` | Console do corpus lab (porta de `run-engine.mjs`): grava `LAB_DIR/<tag>/<id>/net.pdf` + `info.json` para o `compare.py --source net` |
 | `OfficeNext.Xlsx` | Modelo + readers (styles/theme/worksheet), **`Format.FormatValue` pt-BR** (porta fiel de format.ts, 74 casos do oráculo Excel + fuzz 20k vs JS), cirurgia `UpdateWorksheetXml` |
 | `OfficeNext.Pptx` | Modelo + reader (cascata de estilos de texto, grupos achatados), `LayoutTextBody`, `SetRunText` |
 | `OfficeNext.Export` | Docx→MD/HTML · Xlsx→CSV/TSV/MD/HTML/ODS/XML2003 · Pptx→MD/HTML · **PDF dos três** |
-| `OfficeNext.Pdf` | Gerador PDF próprio (porta do @universal-office/pdf): subset TrueType, Type0/Identity-H, JPEG (gray/RGB/CMYK) e RGBA com /SMask, caminhos, recortes, transformações, opacidade (ExtGState), glifos com escala/negrito/itálico sintéticos |
+| `OfficeNext.Pdf` | Gerador PDF próprio (porta de `docx-layout/src/pdf-writer`): subset TrueType, Type0/Identity-H, JPEG (gray/RGB/CMYK) e RGBA com /SMask, caminhos, recortes, transformações, opacidade (ExtGState), glifos com escala/negrito/itálico sintéticos |
 | `OfficeNext.DocBinary` | Conversor Word 97-2003 (.doc binário) → .docx (porta de write/packages/docx-core/src/doc): partes idênticas às do JS |
 | `OfficeNext.Benchmarks` | Console Stopwatch — compara com `node tools/bench-export-pdf.mjs` |
 

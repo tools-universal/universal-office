@@ -1335,135 +1335,6 @@ function writePptxEmbedding(pkg, plan, settings) {
   pkg.setPartText(PPTX_MAIN, xml);
 }
 
-// ../../../shared/i18n/src/index.ts
-var DEFAULT_UI_LANG = "en";
-function matchUiLang(tag2) {
-  if (!tag2) return null;
-  if (/^pt\b/i.test(tag2)) return "pt";
-  if (/^en\b/i.test(tag2)) return "en";
-  return null;
-}
-function browserUiLang() {
-  const nav = typeof navigator !== "undefined" ? navigator : void 0;
-  const prefs = nav?.languages?.length ? nav.languages : nav?.language ? [nav.language] : [];
-  for (const tag2 of prefs) {
-    const m = matchUiLang(tag2);
-    if (m) return m;
-  }
-  return DEFAULT_UI_LANG;
-}
-function uiLang(el2) {
-  const forced = el2?.getAttribute("lang");
-  if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
-  return browserUiLang();
-}
-function pickLabels(lang, labels) {
-  const l = typeof lang === "string" ? lang : uiLang(lang);
-  return labels[l] ?? labels[DEFAULT_UI_LANG];
-}
-function onBrowserLangChange(cb) {
-  if (typeof window === "undefined") return () => {
-  };
-  window.addEventListener("languagechange", cb);
-  return () => window.removeEventListener("languagechange", cb);
-}
-
-// ../../../shared/fonts/src/dialog.ts
-var LABELS = {
-  en: {
-    and: "and",
-    title: "Fonts in the file",
-    embed: "Embed fonts in the file",
-    subset: "Embed only the characters used",
-    subsetNote: "(smaller file; editing with other characters on another computer uses another font)",
-    skipCommon: "Do not embed common system fonts",
-    neverEmbedded: (common) => `${common} are never embedded, as in PowerPoint.`,
-    note: "Only fonts whose file is available and whose license allows embedding are included; the ones left out are reported when saving.",
-    cancel: "Cancel",
-    ok: "OK",
-    reasons: { common: "common system font", license: "the license does not allow it", unavailable: "font file unavailable" },
-    embedded: "Fonts embedded",
-    notEmbedded: "not embedded"
-  },
-  pt: {
-    and: "e",
-    title: "Fontes no arquivo",
-    embed: "Incorporar fontes no arquivo",
-    subset: "Incorporar s\xF3 os caracteres usados",
-    subsetNote: "(arquivo menor; editar com outros caracteres em outra m\xE1quina usa outra fonte)",
-    skipCommon: "N\xE3o incorporar fontes comuns do sistema",
-    neverEmbedded: (common) => `${common} nunca s\xE3o incorporadas, como no PowerPoint.`,
-    note: "S\xF3 entram fontes cujo arquivo est\xE1 dispon\xEDvel e cuja licen\xE7a permite incorporar; as que ficarem de fora s\xE3o avisadas ao salvar.",
-    cancel: "Cancelar",
-    ok: "OK",
-    reasons: { common: "fonte comum do sistema", license: "a licen\xE7a n\xE3o permite", unavailable: "arquivo da fonte indispon\xEDvel" },
-    embedded: "Fontes incorporadas",
-    notEmbedded: "n\xE3o incorporadas"
-  }
-};
-var join = (xs, L) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${L.and} ${xs[xs.length - 1]}`;
-function openFontEmbeddingDialog(opts) {
-  const { app, settings } = opts;
-  const L = pickLabels(opts.lang, LABELS);
-  const dlg = document.createElement("dialog");
-  dlg.className = "uo-font-embedding";
-  dlg.style.cssText = "max-width:460px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:12px;padding:20px 22px;font:inherit;color:inherit;background:Canvas;";
-  const common = join(COMMON_FONTS[app], L);
-  dlg.innerHTML = `
-    <form method="dialog" style="display:flex;flex-direction:column;gap:12px;margin:0">
-      <strong style="font-size:1.1em">${L.title}</strong>
-      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>${L.embed}</span></label>
-      <div data-sub style="display:flex;flex-direction:column;gap:10px;margin-left:26px">
-        <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="subset">
-          <span>${L.subset} <small style="opacity:.7">${L.subsetNote}</small></span></label>
-        ${app === "write" ? `<label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="skipCommon">
-               <span>${L.skipCommon} <small style="opacity:.7">(${common})</small></span></label>` : `<small style="opacity:.7">${L.neverEmbedded(common)}</small>`}
-      </div>
-      <small style="opacity:.7">${L.note}</small>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
-        <button value="cancel" type="submit">${L.cancel}</button>
-        <button value="ok" type="submit">${L.ok}</button>
-      </div>
-    </form>`;
-  const box = (n) => dlg.querySelector(`input[name="${n}"]`);
-  const embed = box("embed"), subset = box("subset"), skipCommon = box("skipCommon");
-  embed.checked = settings.embed;
-  subset.checked = settings.subset;
-  if (skipCommon) skipCommon.checked = settings.skipCommonFonts;
-  const sync = () => {
-    for (const el2 of dlg.querySelectorAll("[data-sub] input")) el2.disabled = !embed.checked;
-    dlg.querySelector("[data-sub]").style.opacity = embed.checked ? "1" : ".5";
-  };
-  embed.addEventListener("change", sync);
-  sync();
-  (opts.parent ?? document.body).append(dlg);
-  return new Promise((resolve) => {
-    dlg.addEventListener("close", () => {
-      const ok = dlg.returnValue === "ok";
-      dlg.remove();
-      resolve(ok ? {
-        embed: embed.checked,
-        subset: subset.checked,
-        skipCommonFonts: skipCommon ? skipCommon.checked : settings.skipCommonFonts
-      } : null);
-    }, { once: true });
-    dlg.showModal();
-  });
-}
-function describeFontEmbedding(detail, lang) {
-  const L = pickLabels(lang, LABELS);
-  const parts = [];
-  if (detail.embedded.length) parts.push(`${L.embedded}: ${join(detail.embedded, L)}`);
-  const by = /* @__PURE__ */ new Map();
-  for (const s of detail.skipped) {
-    if (s.reason === "already-embedded") continue;
-    const r = L.reasons[s.reason];
-    by.set(r, [...by.get(r) ?? [], s.family]);
-  }
-  if (by.size) parts.push(`${L.notEmbedded}: ${[...by].map(([r, fs]) => `${join(fs, L)} (${r})`).join("; ")}`);
-  return parts.join(" \xB7 ");
-}
-
 // ../../node_modules/fflate/esm/browser.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -31298,7 +31169,40 @@ async function seekTo(el2, time, timeoutMs) {
   if (el2.readyState < 2) await wait("loadeddata");
 }
 
-// ../../../shared/viewer-controls/src/index.ts
+// ../../../shared/ui/src/i18n.ts
+var DEFAULT_UI_LANG = "en";
+function matchUiLang(tag2) {
+  if (!tag2) return null;
+  if (/^pt\b/i.test(tag2)) return "pt";
+  if (/^en\b/i.test(tag2)) return "en";
+  return null;
+}
+function browserUiLang() {
+  const nav = typeof navigator !== "undefined" ? navigator : void 0;
+  const prefs = nav?.languages?.length ? nav.languages : nav?.language ? [nav.language] : [];
+  for (const tag2 of prefs) {
+    const m = matchUiLang(tag2);
+    if (m) return m;
+  }
+  return DEFAULT_UI_LANG;
+}
+function uiLang(el2) {
+  const forced = el2?.getAttribute("lang");
+  if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
+  return browserUiLang();
+}
+function pickLabels(lang, labels) {
+  const l = typeof lang === "string" ? lang : uiLang(lang);
+  return labels[l] ?? labels[DEFAULT_UI_LANG];
+}
+function onBrowserLangChange(cb) {
+  if (typeof window === "undefined") return () => {
+  };
+  window.addEventListener("languagechange", cb);
+  return () => window.removeEventListener("languagechange", cb);
+}
+
+// ../../../shared/ui/src/viewer-controls.ts
 var SVG_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 var ICONS = {
   // navegação
@@ -31575,6 +31479,102 @@ var ControlBar = class {
     clearTimeout(this.hideTimer);
   }
 };
+
+// ../../../shared/ui/src/font-embedding-dialog.ts
+var LABELS = {
+  en: {
+    and: "and",
+    title: "Fonts in the file",
+    embed: "Embed fonts in the file",
+    subset: "Embed only the characters used",
+    subsetNote: "(smaller file; editing with other characters on another computer uses another font)",
+    skipCommon: "Do not embed common system fonts",
+    neverEmbedded: (common) => `${common} are never embedded, as in PowerPoint.`,
+    note: "Only fonts whose file is available and whose license allows embedding are included; the ones left out are reported when saving.",
+    cancel: "Cancel",
+    ok: "OK",
+    reasons: { common: "common system font", license: "the license does not allow it", unavailable: "font file unavailable" },
+    embedded: "Fonts embedded",
+    notEmbedded: "not embedded"
+  },
+  pt: {
+    and: "e",
+    title: "Fontes no arquivo",
+    embed: "Incorporar fontes no arquivo",
+    subset: "Incorporar s\xF3 os caracteres usados",
+    subsetNote: "(arquivo menor; editar com outros caracteres em outra m\xE1quina usa outra fonte)",
+    skipCommon: "N\xE3o incorporar fontes comuns do sistema",
+    neverEmbedded: (common) => `${common} nunca s\xE3o incorporadas, como no PowerPoint.`,
+    note: "S\xF3 entram fontes cujo arquivo est\xE1 dispon\xEDvel e cuja licen\xE7a permite incorporar; as que ficarem de fora s\xE3o avisadas ao salvar.",
+    cancel: "Cancelar",
+    ok: "OK",
+    reasons: { common: "fonte comum do sistema", license: "a licen\xE7a n\xE3o permite", unavailable: "arquivo da fonte indispon\xEDvel" },
+    embedded: "Fontes incorporadas",
+    notEmbedded: "n\xE3o incorporadas"
+  }
+};
+var join = (xs, L) => xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${L.and} ${xs[xs.length - 1]}`;
+function openFontEmbeddingDialog(opts) {
+  const { app, settings } = opts;
+  const L = pickLabels(opts.lang, LABELS);
+  const dlg = document.createElement("dialog");
+  dlg.className = "uo-font-embedding";
+  dlg.style.cssText = "max-width:460px;border:1px solid color-mix(in srgb,currentColor 25%,transparent);border-radius:12px;padding:20px 22px;font:inherit;color:inherit;background:Canvas;";
+  const common = join(COMMON_FONTS[app], L);
+  dlg.innerHTML = `
+    <form method="dialog" style="display:flex;flex-direction:column;gap:12px;margin:0">
+      <strong style="font-size:1.1em">${L.title}</strong>
+      <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="embed"> <span>${L.embed}</span></label>
+      <div data-sub style="display:flex;flex-direction:column;gap:10px;margin-left:26px">
+        <label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="subset">
+          <span>${L.subset} <small style="opacity:.7">${L.subsetNote}</small></span></label>
+        ${app === "write" ? `<label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="skipCommon">
+               <span>${L.skipCommon} <small style="opacity:.7">(${common})</small></span></label>` : `<small style="opacity:.7">${L.neverEmbedded(common)}</small>`}
+      </div>
+      <small style="opacity:.7">${L.note}</small>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+        <button value="cancel" type="submit">${L.cancel}</button>
+        <button value="ok" type="submit">${L.ok}</button>
+      </div>
+    </form>`;
+  const box = (n) => dlg.querySelector(`input[name="${n}"]`);
+  const embed = box("embed"), subset = box("subset"), skipCommon = box("skipCommon");
+  embed.checked = settings.embed;
+  subset.checked = settings.subset;
+  if (skipCommon) skipCommon.checked = settings.skipCommonFonts;
+  const sync = () => {
+    for (const el2 of dlg.querySelectorAll("[data-sub] input")) el2.disabled = !embed.checked;
+    dlg.querySelector("[data-sub]").style.opacity = embed.checked ? "1" : ".5";
+  };
+  embed.addEventListener("change", sync);
+  sync();
+  (opts.parent ?? document.body).append(dlg);
+  return new Promise((resolve) => {
+    dlg.addEventListener("close", () => {
+      const ok = dlg.returnValue === "ok";
+      dlg.remove();
+      resolve(ok ? {
+        embed: embed.checked,
+        subset: subset.checked,
+        skipCommonFonts: skipCommon ? skipCommon.checked : settings.skipCommonFonts
+      } : null);
+    }, { once: true });
+    dlg.showModal();
+  });
+}
+function describeFontEmbedding(detail, lang) {
+  const L = pickLabels(lang, LABELS);
+  const parts = [];
+  if (detail.embedded.length) parts.push(`${L.embedded}: ${join(detail.embedded, L)}`);
+  const by = /* @__PURE__ */ new Map();
+  for (const s of detail.skipped) {
+    if (s.reason === "already-embedded") continue;
+    const r = L.reasons[s.reason];
+    by.set(r, [...by.get(r) ?? [], s.family]);
+  }
+  if (by.size) parts.push(`${L.notEmbedded}: ${[...by].map(([r, fs]) => `${join(fs, L)} (${r})`).join("; ")}`);
+  return parts.join(" \xB7 ");
+}
 
 // ../viewer/src/controls.ts
 var CONTROL_ITEMS = ["nav", "counter", "play", "mute", "thumbnails", "notes", "download", "present", "fullscreen", "progress"];

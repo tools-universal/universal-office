@@ -3,7 +3,7 @@ import type { UniversalSheetElement } from '../src/universal-sheet';
 import { FontResolver, type HostFontProvider } from '@universal-office/fonts';
 import {
   xlsxToCsv, xlsxToTsv, xlsxToMarkdown, xlsxToHtml, xlsxToPdf, xlsxToOds, xlsxToXml2003,
-} from '@universal-office/sheet-export';
+} from '@universal-office/sheet-core';
 import { openMenu, type MenuItem } from './menu.js';
 import { rippleAll } from './ripple.js';
 import { applyGeneratedTheme } from './theme.js';

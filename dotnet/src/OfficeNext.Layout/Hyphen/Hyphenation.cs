@@ -7,7 +7,7 @@ namespace OfficeNext.Layout;
 /// Hifenização automática: padrões de Liang por idioma, gerados de hyph-utf8 (ver
 /// Hyphen/patterns/THIRD-PARTY-NOTICES.md) e embutidos como recurso — carregados na
 /// 1ª vez que um idioma é pedido (o JS carrega sob demanda com import dinâmico antes
-/// de diagramar; aqui a leitura é síncrona). Porta de write/packages/layout/src/hyphen/index.ts.
+/// de diagramar; aqui a leitura é síncrona). Porta de write/packages/docx-layout/src/typography/hyphen/index.ts.
 /// </summary>
 public static class Hyphenation
 {

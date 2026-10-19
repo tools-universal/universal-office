@@ -13,7 +13,7 @@ public sealed class DocxMarkdownOptions
 }
 
 /// <summary>Exporta o modelo Write para Markdown (GFM) —
-/// porta de write/packages/export/src/markdown.ts.</summary>
+/// porta de write/packages/docx-core/src/export/markdown.ts.</summary>
 public static class DocxMarkdown
 {
     private sealed class Ctx

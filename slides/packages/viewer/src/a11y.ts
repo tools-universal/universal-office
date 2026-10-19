@@ -1,6 +1,6 @@
 import type { Slide, Shape } from '@universal-office/slides-core';
-import { LiveRegion, SR_ONLY } from '@universal-office/viewer-controls';
-import { pickLabels, type UiLang } from '@universal-office/i18n';
+import { LiveRegion, SR_ONLY } from '@universal-office/ui';
+import { pickLabels, type UiLang } from '@universal-office/ui';
 
 /**
  * Acessibilidade do <universal-presentation-viewer>: o slide é desenhado num

@@ -1,5 +1,5 @@
 import { FontResolver, variantOf } from '@universal-office/fonts';
-import { onBrowserLangChange, pickLabels } from '@universal-office/i18n';
+import { onBrowserLangChange, pickLabels } from '@universal-office/ui';
 import {
   XlsxPackage, openSpreadsheet, readWorkbook, readSharedStrings, readWorksheet, readStyles, colorContext,
   refToRowCol, rowColToRef, formatValue, builtinFormatCode, updateWorksheetXml,
@@ -227,7 +227,7 @@ export class UniversalSheetElement extends HTMLElement {
 
   /**
    * `lang`: idioma da INTERFACE (textos do componente); sem ele, o do navegador
-   * — inglês por padrão (@universal-office/i18n). Independe de `formula-locale`
+   * — inglês por padrão (@universal-office/ui). Independe de `formula-locale`
    * (idioma das fórmulas e região dos números).
    */
   static get observedAttributes(): string[] { return ['formula-locale', 'lang']; }

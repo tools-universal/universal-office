@@ -1,12 +1,12 @@
 import {
   ControlBar, controlsCss, cssVar, type ProgressStep,
-} from '@universal-office/viewer-controls';
-import { pickLabels, type UiLang } from '@universal-office/i18n';
+} from '@universal-office/ui';
+import { pickLabels, type UiLang } from '@universal-office/ui';
 import { VIEW_MODES, type ViewMode } from './views.js';
 
 /**
  * Controles do <universal-document-viewer> sobre a barra ÚNICA dos viewers
- * (shared/viewer-controls) — o mesmo modelo do <universal-presentation-viewer>:
+ * (shared/ui) — o mesmo modelo do <universal-presentation-viewer>:
  * aparecem por padrão, `nocontrols` desliga tudo e um atributo booleano por
  * item tira só ele (`nodownload`, `noprint`, `nozoom`, `noview`… — `no` + nome
  * do item, ver CONTROL_ITEMS). Aqui ficam só os itens de documento (páginas,

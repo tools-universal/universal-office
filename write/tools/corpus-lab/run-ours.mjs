@@ -43,12 +43,9 @@ await build({
   outfile: join(buildDir, 'harness.bundle.js'),
   alias: {
     '@universal-office/docx-core': join(ed, 'docx-core', 'src', 'index.ts'),
-    '@universal-office/layout': join(ed, 'layout', 'src', 'index.ts'),
-    '@universal-office/pdf': join(ed, 'pdf', 'src', 'index.ts'),
     '@universal-office/docx-layout': join(ed, 'docx-layout', 'src', 'index.ts'),
     '@universal-office/fonts': join(repoRoot, 'shared', 'fonts', 'src', 'index.ts'),
-    '@universal-office/docx-export': join(ed, 'export', 'src', 'index.ts'),
-    '@universal-office/odf': join(ed, 'odf', 'src', 'index.ts'),
+    '@universal-office/ui': join(repoRoot, 'shared', 'ui', 'src', 'index.ts'),
     '@universal-office/compare': join(ed, 'compare', 'src', 'index.ts'),
   },
 });

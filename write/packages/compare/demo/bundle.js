@@ -620,9 +620,9 @@ var dflt = function(dat, lvl, plvl, pre, post, st) {
         }
         if (d) {
           syms[li++] = 268435456 | revfl[l] << 18 | revfd[d];
-          var lin2 = revfl[l] & 31, din = revfd[d] & 31;
-          eb += fleb[lin2] + fdeb[din];
-          ++lf[257 + lin2];
+          var lin = revfl[l] & 31, din = revfd[d] & 31;
+          eb += fleb[lin] + fdeb[din];
+          ++lf[257 + lin];
           ++df[din];
           wi = i2 + l;
           ++lc_1;
@@ -1115,15 +1115,15 @@ function parseXml(xml) {
     const nameStart = i2;
     while (i2 < n && !/[\s/>]/.test(xml[i2])) i2++;
     let name = xml.slice(nameStart, i2);
-    let attrs2 = {};
+    let attrs = {};
     let ren = parentRen;
     let declares = false;
     const scope = () => {
       let own2 = null;
-      for (const k in declares ? attrs2 : {}) {
+      for (const k in declares ? attrs : {}) {
         if (!k.startsWith("xmlns:")) continue;
         const pfx = k.slice(6);
-        const uri = attrs2[k];
+        const uri = attrs[k];
         const canon = Object.hasOwn(CANONICAL_PREFIX, uri) ? CANONICAL_PREFIX[uri] : void 0;
         if ((canon === void 0 || canon === pfx) && !ren.has(pfx)) continue;
         own2 ??= new Map(ren);
@@ -1134,8 +1134,8 @@ function parseXml(xml) {
       if (ren.size === 0) return;
       name = renamed(name, ren);
       const out = {};
-      for (const k in attrs2) out[k.startsWith("xmlns:") ? k : renamed(k, ren)] = attrs2[k];
-      attrs2 = out;
+      for (const k in attrs) out[k.startsWith("xmlns:") ? k : renamed(k, ren)] = attrs[k];
+      attrs = out;
     };
     for (; ; ) {
       while (i2 < n && /\s/.test(xml[i2])) i2++;
@@ -1143,9 +1143,9 @@ function parseXml(xml) {
         if (xml[i2 + 1] !== ">") error("esperava />");
         i2 += 2;
         scope();
-        const el2 = { name, attrs: attrs2, children: [] };
-        if (RAW_CAPTURE.has(name)) el2.raw = xml.slice(elStart, i2);
-        return el2;
+        const el = { name, attrs, children: [] };
+        if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i2);
+        return el;
       }
       if (xml[i2] === ">") {
         i2++;
@@ -1165,19 +1165,19 @@ function parseXml(xml) {
       const vStart = i2;
       i2 = xml.indexOf(q, i2);
       if (i2 < 0) error("aspas n\xE3o fechadas");
-      attrs2[aName] = decodeEntities(xml.slice(vStart, i2));
+      attrs[aName] = decodeEntities(xml.slice(vStart, i2));
       if (aName.startsWith("xmlns:")) declares = true;
       i2++;
     }
-    const children2 = [];
+    const children = [];
     for (; ; ) {
       if (i2 >= n) error(`</${name}> ausente`);
       if (xml.startsWith("</", i2)) {
         const close = xml.indexOf(">", i2);
         i2 = close + 1;
-        const el2 = { name, attrs: attrs2, children: children2 };
-        if (RAW_CAPTURE.has(name)) el2.raw = xml.slice(elStart, i2);
-        return el2;
+        const el = { name, attrs, children };
+        if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i2);
+        return el;
       }
       if (xml.startsWith("<!--", i2)) {
         i2 = xml.indexOf("-->", i2) + 3;
@@ -1185,31 +1185,31 @@ function parseXml(xml) {
       }
       if (xml.startsWith("<![CDATA[", i2)) {
         const end = xml.indexOf("]]>", i2);
-        children2.push(xml.slice(i2 + 9, end));
+        children.push(xml.slice(i2 + 9, end));
         i2 = end + 3;
         continue;
       }
       if (xml[i2] === "<") {
-        children2.push(parseElement(ren));
+        children.push(parseElement(ren));
         continue;
       }
       const tStart = i2;
       while (i2 < n && xml[i2] !== "<") i2++;
       const text = decodeEntities(xml.slice(tStart, i2));
-      if (text.length > 0) children2.push(text);
+      if (text.length > 0) children.push(text);
     }
   }
   skipMisc();
   const root = parseElement(NO_RENAMES);
   return root;
 }
-function childElements(el2, name) {
-  return el2.children.filter(
+function childElements(el, name) {
+  return el.children.filter(
     (c) => typeof c !== "string" && (name === void 0 || c.name === name)
   );
 }
-function firstChild(el2, name) {
-  return childElements(el2, name)[0];
+function firstChild(el, name) {
+  return childElements(el, name)[0];
 }
 
 // ../docx-core/src/ooxml/props.ts
@@ -1239,47 +1239,47 @@ function measureTwips(v) {
       return Math.round(n);
   }
 }
-function onOffVal(el2) {
-  const v = el2.attrs["w:val"];
+function onOffVal(el) {
+  const v = el.attrs["w:val"];
   return !(v === "0" || v === "false" || v === "off" || v === "none");
 }
-function colorOf(el2) {
+function colorOf(el) {
   const c = {};
-  if (el2.attrs["w:val"] !== void 0) c.val = el2.attrs["w:val"];
-  if (el2.attrs["w:themeColor"]) c.themeColor = el2.attrs["w:themeColor"];
-  if (el2.attrs["w:themeTint"]) c.themeTint = el2.attrs["w:themeTint"];
-  if (el2.attrs["w:themeShade"]) c.themeShade = el2.attrs["w:themeShade"];
+  if (el.attrs["w:val"] !== void 0) c.val = el.attrs["w:val"];
+  if (el.attrs["w:themeColor"]) c.themeColor = el.attrs["w:themeColor"];
+  if (el.attrs["w:themeTint"]) c.themeTint = el.attrs["w:themeTint"];
+  if (el.attrs["w:themeShade"]) c.themeShade = el.attrs["w:themeShade"];
   return c;
 }
-function readBorder(el2) {
-  if (!el2) return void 0;
-  const b = { val: el2.attrs["w:val"] ?? "single" };
-  const sz = int(el2.attrs["w:sz"]);
+function readBorder(el) {
+  if (!el) return void 0;
+  const b = { val: el.attrs["w:val"] ?? "single" };
+  const sz = int(el.attrs["w:sz"]);
   if (sz !== void 0) b.sz = sz;
-  const space = int(el2.attrs["w:space"]);
+  const space = int(el.attrs["w:space"]);
   if (space !== void 0) b.space = space;
-  if (el2.attrs["w:color"]) b.color = el2.attrs["w:color"];
-  if (el2.attrs["w:themeColor"]) b.themeColor = el2.attrs["w:themeColor"];
-  if (el2.attrs["w:themeTint"]) b.themeTint = el2.attrs["w:themeTint"];
-  if (el2.attrs["w:themeShade"]) b.themeShade = el2.attrs["w:themeShade"];
-  if (el2.attrs["w:shadow"] !== void 0) b.shadow = onOffAttr(el2.attrs["w:shadow"]);
-  if (el2.attrs["w:frame"] !== void 0) b.frame = onOffAttr(el2.attrs["w:frame"]);
+  if (el.attrs["w:color"]) b.color = el.attrs["w:color"];
+  if (el.attrs["w:themeColor"]) b.themeColor = el.attrs["w:themeColor"];
+  if (el.attrs["w:themeTint"]) b.themeTint = el.attrs["w:themeTint"];
+  if (el.attrs["w:themeShade"]) b.themeShade = el.attrs["w:themeShade"];
+  if (el.attrs["w:shadow"] !== void 0) b.shadow = onOffAttr(el.attrs["w:shadow"]);
+  if (el.attrs["w:frame"] !== void 0) b.frame = onOffAttr(el.attrs["w:frame"]);
   return b;
 }
 var onOffAttr = (v) => !(v === "0" || v === "false" || v === "off");
-function readShading(el2) {
-  if (!el2) return void 0;
+function readShading(el) {
+  if (!el) return void 0;
   const s = {};
   for (const k of ["val", "color", "fill", "themeFill", "themeFillTint", "themeFillShade", "themeColor"]) {
-    const v = el2.attrs[`w:${k}`];
+    const v = el.attrs[`w:${k}`];
     if (v !== void 0) s[k] = v;
   }
   return s;
 }
-function readWidth(el2) {
-  if (!el2) return void 0;
-  const type = el2.attrs["w:type"] ?? "dxa";
-  const raw = el2.attrs["w:w"] ?? "0";
+function readWidth(el) {
+  if (!el) return void 0;
+  const type = el.attrs["w:type"] ?? "dxa";
+  const raw = el.attrs["w:w"] ?? "0";
   let w;
   if (raw.endsWith("%")) w = Math.round(parseFloat(raw) * 50);
   else w = type === "dxa" ? measureTwips(raw) ?? 0 : int(raw) ?? 0;
@@ -1288,83 +1288,83 @@ function readWidth(el2) {
 function readRPr(rPr) {
   if (!rPr) return void 0;
   const p = {};
-  for (const el2 of childElements(rPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el of childElements(rPr)) {
+    const val = el.attrs["w:val"];
+    switch (el.name) {
       case "w:rStyle":
         if (val) p.rStyle = val;
         break;
       case "w:rFonts": {
         const f = {};
         for (const k of ["ascii", "hAnsi", "eastAsia", "cs", "asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme", "hint"]) {
-          const v = el2.attrs[`w:${k}`];
+          const v = el.attrs[`w:${k}`];
           if (v !== void 0) f[k] = v;
         }
         p.rFonts = f;
         break;
       }
       case "w:b":
-        p.b = onOffVal(el2);
+        p.b = onOffVal(el);
         break;
       case "w:bCs":
-        p.bCs = onOffVal(el2);
+        p.bCs = onOffVal(el);
         break;
       case "w:i":
-        p.i = onOffVal(el2);
+        p.i = onOffVal(el);
         break;
       case "w:iCs":
-        p.iCs = onOffVal(el2);
+        p.iCs = onOffVal(el);
         break;
       case "w:caps":
-        p.caps = onOffVal(el2);
+        p.caps = onOffVal(el);
         break;
       case "w:smallCaps":
-        p.smallCaps = onOffVal(el2);
+        p.smallCaps = onOffVal(el);
         break;
       case "w:strike":
-        p.strike = onOffVal(el2);
+        p.strike = onOffVal(el);
         break;
       case "w:dstrike":
-        p.dstrike = onOffVal(el2);
+        p.dstrike = onOffVal(el);
         break;
       case "w:outline":
-        p.outline = onOffVal(el2);
+        p.outline = onOffVal(el);
         break;
       case "w:shadow":
-        p.shadow = onOffVal(el2);
+        p.shadow = onOffVal(el);
         break;
       case "w:emboss":
-        p.emboss = onOffVal(el2);
+        p.emboss = onOffVal(el);
         break;
       case "w:imprint":
-        p.imprint = onOffVal(el2);
+        p.imprint = onOffVal(el);
         break;
       case "w:vanish":
-        p.vanish = onOffVal(el2);
+        p.vanish = onOffVal(el);
         break;
       case "w:specVanish":
-        p.specVanish = onOffVal(el2);
+        p.specVanish = onOffVal(el);
         break;
       case "w:webHidden":
-        p.webHidden = onOffVal(el2);
+        p.webHidden = onOffVal(el);
         break;
       case "w:noProof":
-        p.noProof = onOffVal(el2);
+        p.noProof = onOffVal(el);
         break;
       case "w:snapToGrid":
-        p.snapToGrid = onOffVal(el2);
+        p.snapToGrid = onOffVal(el);
         break;
       case "w:rtl":
-        p.rtl = onOffVal(el2);
+        p.rtl = onOffVal(el);
         break;
       case "w:cs":
-        p.cs = onOffVal(el2);
+        p.cs = onOffVal(el);
         break;
       case "w:color":
-        p.color = colorOf(el2);
+        p.color = colorOf(el);
         break;
       case "w14:textFill": {
-        const solid = firstChild(el2, "w14:solidFill");
+        const solid = firstChild(el, "w14:solidFill");
         const clr = solid && (firstChild(solid, "w14:srgbClr") ?? firstChild(solid, "w14:schemeClr"));
         if (clr) {
           const tf = {};
@@ -1374,19 +1374,19 @@ function readRPr(rPr) {
           const a = firstChild(clr, "w14:alpha")?.attrs["w14:val"];
           if (a !== void 0) tf.alpha = Math.max(0, 1 - (parseInt(a, 10) || 0) / 1e5);
           p.textFill = tf;
-        } else if (firstChild(el2, "w14:noFill")) p.textFill = { alpha: 0 };
+        } else if (firstChild(el, "w14:noFill")) p.textFill = { alpha: 0 };
         break;
       }
       case "w14:ligatures":
-        p.ligatures = el2.attrs["w14:val"] ?? "standard";
+        p.ligatures = el.attrs["w14:val"] ?? "standard";
         break;
       case "w14:shadow": {
-        const emu = (k) => (parseInt(el2.attrs[k] ?? "0", 10) || 0) / 12700;
-        p.textShadow = { blur: emu("w14:blurRad"), dist: emu("w14:dist"), dir: (parseInt(el2.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
+        const emu = (k) => (parseInt(el.attrs[k] ?? "0", 10) || 0) / 12700;
+        p.textShadow = { blur: emu("w14:blurRad"), dist: emu("w14:dist"), dir: (parseInt(el.attrs["w14:dir"] ?? "0", 10) || 0) / 6e4 };
         break;
       }
       case "w14:textOutline":
-        p.textOutline = !firstChild(el2, "w14:noFill") && !!(firstChild(el2, "w14:solidFill") ?? firstChild(el2, "w14:gradFill"));
+        p.textOutline = !firstChild(el, "w14:noFill") && !!(firstChild(el, "w14:solidFill") ?? firstChild(el, "w14:gradFill"));
         break;
       case "w:spacing": {
         const n = measureTwips(val);
@@ -1423,8 +1423,8 @@ function readRPr(rPr) {
         break;
       case "w:u": {
         const u = { val: val ?? "single" };
-        if (el2.attrs["w:color"]) u.color = el2.attrs["w:color"];
-        if (el2.attrs["w:themeColor"]) u.themeColor = el2.attrs["w:themeColor"];
+        if (el.attrs["w:color"]) u.color = el.attrs["w:color"];
+        if (el.attrs["w:themeColor"]) u.themeColor = el.attrs["w:themeColor"];
         p.u = u;
         break;
       }
@@ -1432,10 +1432,10 @@ function readRPr(rPr) {
         if (val) p.effect = val;
         break;
       case "w:bdr":
-        p.bdr = readBorder(el2);
+        p.bdr = readBorder(el);
         break;
       case "w:shd":
-        p.shd = readShading(el2);
+        p.shd = readShading(el);
         break;
       case "w:vertAlign":
         if (val === "superscript" || val === "subscript" || val === "baseline") p.vertAlign = val;
@@ -1445,9 +1445,9 @@ function readRPr(rPr) {
         break;
       case "w:lang": {
         const l = {};
-        if (el2.attrs["w:val"]) l.val = el2.attrs["w:val"];
-        if (el2.attrs["w:eastAsia"]) l.eastAsia = el2.attrs["w:eastAsia"];
-        if (el2.attrs["w:bidi"]) l.bidi = el2.attrs["w:bidi"];
+        if (el.attrs["w:val"]) l.val = el.attrs["w:val"];
+        if (el.attrs["w:eastAsia"]) l.eastAsia = el.attrs["w:eastAsia"];
+        if (el.attrs["w:bidi"]) l.bidi = el.attrs["w:bidi"];
         p.lang = l;
         break;
       }
@@ -1455,11 +1455,11 @@ function readRPr(rPr) {
   }
   return p;
 }
-function readPBdr(el2) {
-  if (!el2) return void 0;
+function readPBdr(el) {
+  if (!el) return void 0;
   const b = {};
   for (const side of ["top", "left", "bottom", "right", "between", "bar"]) {
-    const e = readBorder(firstChild(el2, `w:${side}`) ?? (side === "left" ? firstChild(el2, "w:start") : side === "right" ? firstChild(el2, "w:end") : void 0));
+    const e = readBorder(firstChild(el, `w:${side}`) ?? (side === "left" ? firstChild(el, "w:start") : side === "right" ? firstChild(el, "w:end") : void 0));
     if (e) b[side] = e;
   }
   return b;
@@ -1469,62 +1469,62 @@ var LEADERS = /* @__PURE__ */ new Set(["none", "dot", "hyphen", "underscore", "h
 function readPPr(pPr) {
   if (!pPr) return void 0;
   const p = {};
-  for (const el2 of childElements(pPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el of childElements(pPr)) {
+    const val = el.attrs["w:val"];
+    switch (el.name) {
       case "w:pStyle":
         if (val) p.pStyle = val;
         break;
       case "w:keepNext":
-        p.keepNext = onOffVal(el2);
+        p.keepNext = onOffVal(el);
         break;
       case "w:keepLines":
-        p.keepLines = onOffVal(el2);
+        p.keepLines = onOffVal(el);
         break;
       case "w:pageBreakBefore":
-        p.pageBreakBefore = onOffVal(el2);
+        p.pageBreakBefore = onOffVal(el);
         break;
       case "w:widowControl":
-        p.widowControl = onOffVal(el2);
+        p.widowControl = onOffVal(el);
         break;
       case "w:suppressLineNumbers":
-        p.suppressLineNumbers = onOffVal(el2);
+        p.suppressLineNumbers = onOffVal(el);
         break;
       case "w:suppressAutoHyphens":
-        p.suppressAutoHyphens = onOffVal(el2);
+        p.suppressAutoHyphens = onOffVal(el);
         break;
       case "w:kinsoku":
-        p.kinsoku = onOffVal(el2);
+        p.kinsoku = onOffVal(el);
         break;
       case "w:wordWrap":
-        p.wordWrap = onOffVal(el2);
+        p.wordWrap = onOffVal(el);
         break;
       case "w:overflowPunct":
-        p.overflowPunct = onOffVal(el2);
+        p.overflowPunct = onOffVal(el);
         break;
       case "w:autoSpaceDE":
-        p.autoSpaceDE = onOffVal(el2);
+        p.autoSpaceDE = onOffVal(el);
         break;
       case "w:autoSpaceDN":
-        p.autoSpaceDN = onOffVal(el2);
+        p.autoSpaceDN = onOffVal(el);
         break;
       case "w:bidi":
-        p.bidi = onOffVal(el2);
+        p.bidi = onOffVal(el);
         break;
       case "w:adjustRightInd":
-        p.adjustRightInd = onOffVal(el2);
+        p.adjustRightInd = onOffVal(el);
         break;
       case "w:snapToGrid":
-        p.snapToGrid = onOffVal(el2);
+        p.snapToGrid = onOffVal(el);
         break;
       case "w:contextualSpacing":
-        p.contextualSpacing = onOffVal(el2);
+        p.contextualSpacing = onOffVal(el);
         break;
       case "w:mirrorIndents":
-        p.mirrorIndents = onOffVal(el2);
+        p.mirrorIndents = onOffVal(el);
         break;
       case "w:suppressOverlap":
-        p.suppressOverlap = onOffVal(el2);
+        p.suppressOverlap = onOffVal(el);
         break;
       case "w:jc":
         if (val) p.jc = val;
@@ -1539,22 +1539,22 @@ function readPPr(pPr) {
       }
       case "w:numPr": {
         const numPr = {};
-        const numId = int(firstChild(el2, "w:numId")?.attrs["w:val"]);
-        const ilvl = int(firstChild(el2, "w:ilvl")?.attrs["w:val"]);
+        const numId = int(firstChild(el, "w:numId")?.attrs["w:val"]);
+        const ilvl = int(firstChild(el, "w:ilvl")?.attrs["w:val"]);
         if (numId !== void 0) numPr.numId = numId;
         if (ilvl !== void 0) numPr.ilvl = ilvl;
         p.numPr = numPr;
         break;
       }
       case "w:pBdr":
-        p.pBdr = readPBdr(el2);
+        p.pBdr = readPBdr(el);
         break;
       case "w:shd":
-        p.shd = readShading(el2);
+        p.shd = readShading(el);
         break;
       case "w:tabs": {
         const tabs = [];
-        for (const t of childElements(el2, "w:tab")) {
+        for (const t of childElements(el, "w:tab")) {
           let v = t.attrs["w:val"] ?? "left";
           if (v === "start") v = "left";
           if (v === "end") v = "right";
@@ -1571,7 +1571,7 @@ function readPPr(pPr) {
       }
       case "w:spacing": {
         const s = {};
-        const a = el2.attrs;
+        const a = el.attrs;
         const before = measureTwips(a["w:before"]);
         if (before !== void 0) s.before = before;
         const after = measureTwips(a["w:after"]);
@@ -1591,7 +1591,7 @@ function readPPr(pPr) {
       }
       case "w:ind": {
         const s = {};
-        const a = el2.attrs;
+        const a = el.attrs;
         const left = measureTwips(a["w:left"] ?? a["w:start"]);
         if (left !== void 0) s.left = left;
         const right = measureTwips(a["w:right"] ?? a["w:end"]);
@@ -1608,7 +1608,7 @@ function readPPr(pPr) {
         break;
       }
       case "w:framePr": {
-        const a = el2.attrs;
+        const a = el.attrs;
         const f = {};
         const dc = a["w:dropCap"];
         if (dc === "none" || dc === "drop" || dc === "margin") f.dropCap = dc;
@@ -1626,15 +1626,15 @@ function readPPr(pPr) {
         break;
       }
       case "w:rPr":
-        p.rPr = readRPr(el2);
-        if (childElements(el2).some((c) => c.name === "w:del" || c.name === "w:moveFrom")) p.markDeleted = true;
+        p.rPr = readRPr(el);
+        if (childElements(el).some((c) => c.name === "w:del" || c.name === "w:moveFrom")) p.markDeleted = true;
         break;
     }
   }
   return p;
 }
-function readBorders(el2) {
-  if (!el2) return void 0;
+function readBorders(el) {
+  if (!el) return void 0;
   const b = {};
   const map = [
     ["top", ["w:top"]],
@@ -1648,7 +1648,7 @@ function readBorders(el2) {
   ];
   for (const [k, names] of map) {
     for (const n of names) {
-      const e = readBorder(firstChild(el2, n));
+      const e = readBorder(firstChild(el, n));
       if (e) {
         b[k] = e;
         break;
@@ -1657,30 +1657,30 @@ function readBorders(el2) {
   }
   return b;
 }
-function readCellMar(el2) {
-  if (!el2) return void 0;
+function readCellMar(el) {
+  if (!el) return void 0;
   const m = {};
-  const t = readWidth(firstChild(el2, "w:top"));
+  const t = readWidth(firstChild(el, "w:top"));
   if (t) m.top = t;
-  const l = readWidth(firstChild(el2, "w:left") ?? firstChild(el2, "w:start"));
+  const l = readWidth(firstChild(el, "w:left") ?? firstChild(el, "w:start"));
   if (l) m.left = l;
-  const b = readWidth(firstChild(el2, "w:bottom"));
+  const b = readWidth(firstChild(el, "w:bottom"));
   if (b) m.bottom = b;
-  const r = readWidth(firstChild(el2, "w:right") ?? firstChild(el2, "w:end"));
+  const r = readWidth(firstChild(el, "w:right") ?? firstChild(el, "w:end"));
   if (r) m.right = r;
   return m;
 }
 function readTblPr(tblPr) {
   if (!tblPr) return void 0;
   const p = {};
-  for (const el2 of childElements(tblPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el of childElements(tblPr)) {
+    const val = el.attrs["w:val"];
+    switch (el.name) {
       case "w:tblStyle":
         if (val) p.tblStyle = val;
         break;
       case "w:tblpPr": {
-        const a = el2.attrs;
+        const a = el.attrs;
         const t = {};
         for (const k of ["leftFromText", "rightFromText", "topFromText", "bottomFromText", "tblpX", "tblpY"]) {
           const n = measureTwips(a[`w:${k}`]);
@@ -1699,7 +1699,7 @@ function readTblPr(tblPr) {
         if (val) p.tblOverlap = val;
         break;
       case "w:bidiVisual":
-        p.bidiVisual = onOffVal(el2);
+        p.bidiVisual = onOffVal(el);
         break;
       case "w:tblStyleRowBandSize": {
         const n = int(val);
@@ -1712,40 +1712,40 @@ function readTblPr(tblPr) {
         break;
       }
       case "w:tblW":
-        p.tblW = readWidth(el2);
+        p.tblW = readWidth(el);
         break;
       case "w:jc":
         if (val) p.jc = val;
         break;
       case "w:tblCellSpacing":
-        p.tblCellSpacing = readWidth(el2);
+        p.tblCellSpacing = readWidth(el);
         break;
       case "w:tblInd":
-        p.tblInd = readWidth(el2);
+        p.tblInd = readWidth(el);
         break;
       case "w:tblBorders":
-        p.tblBorders = readBorders(el2);
+        p.tblBorders = readBorders(el);
         break;
       case "w:shd":
-        p.shd = readShading(el2);
+        p.shd = readShading(el);
         break;
       case "w:tblLayout":
-        p.tblLayout = el2.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
+        p.tblLayout = el.attrs["w:type"] === "fixed" ? "fixed" : "autofit";
         break;
       case "w:tblCellMar":
-        p.tblCellMar = readCellMar(el2);
+        p.tblCellMar = readCellMar(el);
         break;
       case "w:tblLook": {
-        const a = el2.attrs;
+        const a = el.attrs;
         const look = {};
-        const hex2 = parseInt(a["w:val"] ?? "", 16);
-        if (Number.isFinite(hex2)) {
-          look.firstRow = (hex2 & 32) !== 0;
-          look.lastRow = (hex2 & 64) !== 0;
-          look.firstColumn = (hex2 & 128) !== 0;
-          look.lastColumn = (hex2 & 256) !== 0;
-          look.noHBand = (hex2 & 512) !== 0;
-          look.noVBand = (hex2 & 1024) !== 0;
+        const hex = parseInt(a["w:val"] ?? "", 16);
+        if (Number.isFinite(hex)) {
+          look.firstRow = (hex & 32) !== 0;
+          look.lastRow = (hex & 64) !== 0;
+          look.firstColumn = (hex & 128) !== 0;
+          look.lastColumn = (hex & 256) !== 0;
+          look.noHBand = (hex & 512) !== 0;
+          look.noVBand = (hex & 1024) !== 0;
         }
         for (const k of ["firstRow", "lastRow", "firstColumn", "lastColumn", "noHBand", "noVBand"]) {
           if (a[`w:${k}`] !== void 0) look[k] = onOffAttr(a[`w:${k}`]);
@@ -1760,9 +1760,9 @@ function readTblPr(tblPr) {
 function readTrPr(trPr) {
   if (!trPr) return void 0;
   const p = {};
-  for (const el2 of childElements(trPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el of childElements(trPr)) {
+    const val = el.attrs["w:val"];
+    switch (el.name) {
       case "w:cnfStyle":
         if (val) p.cnfStyle = val;
         break;
@@ -1777,31 +1777,31 @@ function readTrPr(trPr) {
         break;
       }
       case "w:wBefore":
-        p.wBefore = readWidth(el2);
+        p.wBefore = readWidth(el);
         break;
       case "w:wAfter":
-        p.wAfter = readWidth(el2);
+        p.wAfter = readWidth(el);
         break;
       case "w:cantSplit":
-        p.cantSplit = onOffVal(el2);
+        p.cantSplit = onOffVal(el);
         break;
       case "w:trHeight": {
         const v = measureTwips(val) ?? 0;
-        const r = el2.attrs["w:hRule"];
+        const r = el.attrs["w:hRule"];
         p.trHeight = { val: v, hRule: r === "exact" || r === "auto" ? r : "atLeast" };
         break;
       }
       case "w:tblHeader":
-        p.tblHeader = onOffVal(el2);
+        p.tblHeader = onOffVal(el);
         break;
       case "w:tblCellSpacing":
-        p.tblCellSpacing = readWidth(el2);
+        p.tblCellSpacing = readWidth(el);
         break;
       case "w:jc":
         if (val) p.jc = val;
         break;
       case "w:hidden":
-        p.hidden = onOffVal(el2);
+        p.hidden = onOffVal(el);
         break;
     }
   }
@@ -1810,14 +1810,14 @@ function readTrPr(trPr) {
 function readTcPr(tcPr) {
   if (!tcPr) return void 0;
   const p = {};
-  for (const el2 of childElements(tcPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el of childElements(tcPr)) {
+    const val = el.attrs["w:val"];
+    switch (el.name) {
       case "w:cnfStyle":
         if (val) p.cnfStyle = val;
         break;
       case "w:tcW":
-        p.tcW = readWidth(el2);
+        p.tcW = readWidth(el);
         break;
       case "w:gridSpan": {
         const n = int(val);
@@ -1831,28 +1831,28 @@ function readTcPr(tcPr) {
         p.vMerge = val === "restart" ? "restart" : "continue";
         break;
       case "w:tcBorders":
-        p.tcBorders = readBorders(el2);
+        p.tcBorders = readBorders(el);
         break;
       case "w:shd":
-        p.shd = readShading(el2);
+        p.shd = readShading(el);
         break;
       case "w:noWrap":
-        p.noWrap = onOffVal(el2);
+        p.noWrap = onOffVal(el);
         break;
       case "w:tcMar":
-        p.tcMar = readCellMar(el2);
+        p.tcMar = readCellMar(el);
         break;
       case "w:textDirection":
         if (val) p.textDirection = val;
         break;
       case "w:tcFitText":
-        p.tcFitText = onOffVal(el2);
+        p.tcFitText = onOffVal(el);
         break;
       case "w:vAlign":
         if (val === "top" || val === "center" || val === "bottom" || val === "both") p.vAlign = val;
         break;
       case "w:hideMark":
-        p.hideMark = onOffVal(el2);
+        p.hideMark = onOffVal(el);
         break;
     }
   }
@@ -1866,27 +1866,27 @@ var emuTw = (v) => {
   const n = parseInt(v, 10);
   return Number.isFinite(n) ? n / EMU_PER_TWIP_D : void 0;
 };
-function findDeep(el2, name) {
-  for (const c of childElements(el2)) {
+function findDeep(el, name) {
+  for (const c of childElements(el)) {
     if (c.name === name) return c;
     const f = findDeep(c, name);
     if (f) return f;
   }
   return void 0;
 }
-function textOf(el2) {
+function textOf(el) {
   let s = "";
-  for (const c of el2.children) s += typeof c === "string" ? c : textOf(c);
+  for (const c of el.children) s += typeof c === "string" ? c : textOf(c);
   return s;
 }
-function readPos(el2, defFrom) {
-  const pos = { relativeFrom: el2?.attrs["relativeFrom"] ?? defFrom };
-  if (!el2) return pos;
-  const align = firstChild(el2, "wp:align");
+function readPos(el, defFrom) {
+  const pos = { relativeFrom: el?.attrs["relativeFrom"] ?? defFrom };
+  if (!el) return pos;
+  const align = firstChild(el, "wp:align");
   if (align) pos.align = textOf(align).trim();
-  const off = firstChild(el2, "wp:posOffset");
+  const off = firstChild(el, "wp:posOffset");
   if (off) pos.offset = (parseInt(textOf(off).trim(), 10) || 0) / EMU_PER_TWIP_D;
-  const pct = firstChild(el2, "wp14:pctPosHOffset") ?? firstChild(el2, "wp14:pctPosVOffset");
+  const pct = firstChild(el, "wp14:pctPosHOffset") ?? firstChild(el, "wp14:pctPosVOffset");
   if (pct) pos.pct = parseInt(textOf(pct).trim(), 10) || 0;
   return pos;
 }
@@ -1959,24 +1959,24 @@ function readWpAnchor(anchor) {
   return out;
 }
 var own = (rec, k) => rec && k !== void 0 && Object.hasOwn(rec, k) ? rec[k] : void 0;
-function srgbOf(el2, theme) {
-  if (!el2) return void 0;
-  const c = firstChild(el2, "a:srgbClr") ?? firstChild(el2, "a:schemeClr") ?? firstChild(el2, "a:sysClr") ?? firstChild(el2, "a:prstClr");
+function srgbOf(el, theme) {
+  if (!el) return void 0;
+  const c = firstChild(el, "a:srgbClr") ?? firstChild(el, "a:schemeClr") ?? firstChild(el, "a:sysClr") ?? firstChild(el, "a:prstClr");
   if (!c) return void 0;
-  let hex2;
-  if (c.name === "a:srgbClr") hex2 = c.attrs["val"];
-  else if (c.name === "a:sysClr") hex2 = c.attrs["lastClr"] ?? (c.attrs["val"] === "window" ? "FFFFFF" : "000000");
+  let hex;
+  if (c.name === "a:srgbClr") hex = c.attrs["val"];
+  else if (c.name === "a:sysClr") hex = c.attrs["lastClr"] ?? (c.attrs["val"] === "window" ? "FFFFFF" : "000000");
   else if (c.name === "a:schemeClr") {
     const key = c.attrs["val"] ?? "";
     const map = { tx1: "dk1", bg1: "lt1", tx2: "dk2", bg2: "lt2" };
-    hex2 = own(theme, own(map, key) ?? key) ?? `@${key}`;
+    hex = own(theme, own(map, key) ?? key) ?? `@${key}`;
   } else if (c.name === "a:prstClr") {
     const named = { black: "000000", white: "FFFFFF", red: "FF0000", green: "00FF00", blue: "0000FF", yellow: "FFFF00", gray: "808080" };
-    hex2 = own(named, c.attrs["val"] ?? "") ?? "000000";
+    hex = own(named, c.attrs["val"] ?? "") ?? "000000";
   }
-  if (!hex2) return void 0;
+  if (!hex) return void 0;
   const alphaEl = firstChild(c, "a:alpha");
-  const out = { hex: hex2.startsWith("@") ? hex2 : hex2.toUpperCase() };
+  const out = { hex: hex.startsWith("@") ? hex : hex.toUpperCase() };
   if (alphaEl) out.alpha = (parseInt(alphaEl.attrs["val"] ?? "100000", 10) || 0) / 1e5;
   const mods = childElements(c).filter((m) => m.name !== "a:alpha").map((m) => `${m.name.slice(2)}=${m.attrs["val"]}`);
   if (mods.length) out.hex = `${out.hex}|${mods.join(",")}`;
@@ -2020,12 +2020,12 @@ function readSpPr(spPr, styleEl) {
     const from = srgbOf(stops[0]);
     const to = srgbOf(stops[stops.length - 1]);
     const gf = firstChild(spPr, "a:gradFill");
-    const lin2 = findDeep(gf, "a:lin");
+    const lin = findDeep(gf, "a:lin");
     if (from && to) {
-      st.gradient = { from: from.hex, to: to.hex, angleDeg: (parseInt(lin2?.attrs["ang"] ?? "0", 10) || 0) / 6e4 };
+      st.gradient = { from: from.hex, to: to.hex, angleDeg: (parseInt(lin?.attrs["ang"] ?? "0", 10) || 0) / 6e4 };
       const g = st.gradient;
       g.stops = stops.map((s) => ({ pos: (parseInt(s.attrs["pos"] ?? "0", 10) || 0) / 1e5, color: srgbOf(s)?.hex ?? "000000" })).sort((a, b) => a.pos - b.pos);
-      if (lin2 && lin2.attrs["scaled"] !== void 0) g.scaled = lin2.attrs["scaled"] === "1" || lin2.attrs["scaled"] === "true";
+      if (lin && lin.attrs["scaled"] !== void 0) g.scaled = lin.attrs["scaled"] === "1" || lin.attrs["scaled"] === "true";
       if (gf.attrs["rotWithShape"] !== void 0) g.rotWithShape = gf.attrs["rotWithShape"] === "1" || gf.attrs["rotWithShape"] === "true";
       const path = firstChild(gf, "a:path");
       if (path) {
@@ -2178,11 +2178,11 @@ function vmlColor(v) {
   }
   return own(VML_COLORS, s);
 }
-function vmlShapeStyle(el2, geom) {
+function vmlShapeStyle(el, geom) {
   const st = { geom };
-  const a = el2.attrs;
-  const fillEl = firstChild(el2, "v:fill");
-  const strokeEl = firstChild(el2, "v:stroke");
+  const a = el.attrs;
+  const fillEl = firstChild(el, "v:fill");
+  const strokeEl = firstChild(el, "v:stroke");
   const filled = a["filled"] ?? fillEl?.attrs["on"];
   if (filled !== "f" && filled !== "false") {
     const fc = vmlColor(fillEl?.attrs["color"] ?? a["fillcolor"]) ?? (a["fillcolor"] === void 0 && !fillEl ? "FFFFFF" : void 0);
@@ -2280,8 +2280,8 @@ function readCustGeom(cg, cx, cy) {
     }
   };
   for (const lst of ["a:avLst", "a:gdLst"]) {
-    const el2 = firstChild(cg, lst);
-    for (const gd of el2 ? childElements(el2, "a:gd") : []) {
+    const el = firstChild(cg, lst);
+    for (const gd of el ? childElements(el, "a:gd") : []) {
       const name = gd.attrs["name"];
       if (name) v[name] = evalGd(gd.attrs["fmla"] ?? "val 0");
     }
@@ -2296,7 +2296,7 @@ function readCustGeom(cg, cx, cy) {
       stroke: p.attrs["stroke"] !== "0" && p.attrs["stroke"] !== "false",
       cmds: []
     };
-    const pts = (el2) => childElements(el2, "a:pt").map((q) => [num(q.attrs["x"]), num(q.attrs["y"])]);
+    const pts = (el) => childElements(el, "a:pt").map((q) => [num(q.attrs["x"]), num(q.attrs["y"])]);
     for (const c of childElements(p)) {
       switch (c.name) {
         case "a:moveTo":
@@ -2338,8 +2338,8 @@ function vmlFixed(v) {
   const n = v.endsWith("f") ? parseInt(v, 10) / 65536 : parseFloat(v);
   return Number.isFinite(n) ? n : void 0;
 }
-function vmlImageEffects(el2) {
-  const a = el2.attrs;
+function vmlImageEffects(el) {
+  const a = el.attrs;
   const fx = {};
   const gain = vmlFixed(a["gain"]), bl = vmlFixed(a["blacklevel"]);
   if (gain !== void 0 && gain !== 1) fx.gain = gain;
@@ -2364,16 +2364,16 @@ function blipImageEffects(blip) {
   return Object.keys(fx).length ? fx : void 0;
 }
 var EMU_PER_TWIP = 635;
-function readBorderEdge(el2) {
-  if (!el2) return void 0;
-  const style = el2.attrs["w:val"];
+function readBorderEdge(el) {
+  if (!el) return void 0;
+  const style = el.attrs["w:val"];
   if (!style || style === "none" || style === "nil") return void 0;
-  const color = el2.attrs["w:color"];
+  const color = el.attrs["w:color"];
   return {
     style,
-    sizeEighthPt: parseInt(el2.attrs["w:sz"] ?? "4", 10),
+    sizeEighthPt: parseInt(el.attrs["w:sz"] ?? "4", 10),
     color: color && color !== "auto" ? color : void 0,
-    spacePt: parseInt(el2.attrs["w:space"] ?? "0", 10)
+    spacePt: parseInt(el.attrs["w:space"] ?? "0", 10)
   };
 }
 function runPropsFromRPr(rpr) {
@@ -2451,8 +2451,8 @@ function paraPropsFromPPr(ppr) {
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== "none") props.dropCap = true;
   return props;
 }
-function findDeep2(el2, name) {
-  for (const c of childElements(el2)) {
+function findDeep2(el, name) {
+  for (const c of childElements(el)) {
     if (c.name === name) return c;
     const found = findDeep2(c, name);
     if (found) return found;
@@ -2550,7 +2550,7 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
   if (obj.name === "wpg:wgp" || obj.name === "wpg:grpSp" || obj.name === "wpc:wpc") {
     const grpSpPr = firstChild(obj, "wpg:grpSpPr");
     const xfrm = grpSpPr && firstChild(grpSpPr, "a:xfrm");
-    const n = (el2, k) => parseInt(el2?.attrs[k] ?? "0", 10) || 0;
+    const n = (el, k) => parseInt(el?.attrs[k] ?? "0", 10) || 0;
     const chOff = xfrm && firstChild(xfrm, "a:chOff");
     const chExt = xfrm && firstChild(xfrm, "a:chExt");
     const ext = xfrm && firstChild(xfrm, "a:ext");
@@ -2582,8 +2582,8 @@ function readGraphicObject(obj, ctx, wTw, hTw) {
   }
   return void 0;
 }
-function dmlRunColor(el2) {
-  const c = el2 && (firstChild(el2, "a:srgbClr") ?? firstChild(el2, "a:sysClr") ?? firstChild(el2, "a:schemeClr") ?? firstChild(el2, "a:prstClr"));
+function dmlRunColor(el) {
+  const c = el && (firstChild(el, "a:srgbClr") ?? firstChild(el, "a:sysClr") ?? firstChild(el, "a:schemeClr") ?? firstChild(el, "a:prstClr"));
   if (!c) return void 0;
   if (c.name === "a:srgbClr") return { val: (c.attrs["val"] ?? "000000").toUpperCase() };
   if (c.name === "a:sysClr") return { val: (c.attrs["lastClr"] ?? (c.attrs["val"] === "window" ? "FFFFFF" : "000000")).toUpperCase() };
@@ -2633,7 +2633,7 @@ function dmlParagraphs(body, styleEl, txFill) {
       ...u && u !== "none" ? { u: { val: u === "dbl" ? "double" : "single" } } : {}
     };
   };
-  const num = (el2) => parseInt(el2?.attrs["val"] ?? "0", 10) || 0;
+  const num = (el) => parseInt(el?.attrs["val"] ?? "0", 10) || 0;
   const edges = /^(1|true)$/.test(firstChild(body, "a:bodyPr")?.attrs["spcFirstLastPara"] ?? "");
   const aps = childElements(body, "a:p");
   const out = [];
@@ -2698,7 +2698,7 @@ function readDiagram(gd, ctx, wTw, hTw) {
     const c = fills.attrs["meth"] === "cycle" ? cs[i2 % cs.length] : cs[Math.min(i2, cs.length - 1)];
     txFill.set(pt.attrs["modelId"], dmlRunColor({ name: "x", attrs: {}, children: [c] }));
   }
-  const n = (el2, k) => (parseInt(el2?.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP;
+  const n = (el, k) => (parseInt(el?.attrs[k] ?? "0", 10) || 0) / EMU_PER_TWIP;
   const rect = (xf) => {
     const off = firstChild(xf, "a:off"), e = firstChild(xf, "a:ext");
     return { x: n(off, "x"), y: n(off, "y"), w: n(e, "cx"), h: n(e, "cy") };
@@ -2783,23 +2783,23 @@ function readDrawingRun(drawing, ctx) {
 }
 function readVmlRuns(container, ctx, inline) {
   const out = [];
-  const shapeOf = (el2, inGroup) => {
-    const st = parseVmlStyle(el2.attrs["style"]);
+  const shapeOf = (el, inGroup) => {
+    const st = parseVmlStyle(el.attrs["style"]);
     if (st["visibility"] === "hidden" || st["display"] === "none") return void 0;
     let w = vmlLenTwips(st["width"]) ?? 0;
     let h = vmlLenTwips(st["height"]) ?? 0;
-    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep2(el2, "w10:wrap"));
+    let anchor = inGroup ? void 0 : vmlAnchor(st, findDeep2(el, "w10:wrap"));
     if (inGroup) {
       w = (parseFloat(st["width"] ?? "0") || 0) * inGroup.sx;
       h = (parseFloat(st["height"] ?? "0") || 0) * inGroup.sy;
     }
-    const textpath = findDeep2(el2, "v:textpath");
+    const textpath = findDeep2(el, "v:textpath");
     if (textpath) {
       const text = textpath.attrs["string"] ?? "";
       if (!text.trim()) return void 0;
       const tps = parseVmlStyle(textpath.attrs["style"]);
       const famRaw = (tps["font-family"] ?? "").replace(/^["']|["']$/g, "").trim();
-      const sh = vmlShapeStyle(el2, "rect");
+      const sh = vmlShapeStyle(el, "rect");
       let color = sh.fill ?? "000000";
       const a = sh.fillAlpha;
       if (a !== void 0 && a < 1) {
@@ -2830,7 +2830,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       return run2;
     }
-    const imagedata = firstChild(el2, "v:imagedata");
+    const imagedata = firstChild(el, "v:imagedata");
     const rid = imagedata?.attrs["r:id"] ?? imagedata?.attrs["r:pict"];
     let run;
     if (rid) {
@@ -2848,7 +2848,7 @@ function readVmlRuns(container, ctx, inline) {
       if (fx) image.effects = fx;
       run = { text: OBJ, image };
     } else {
-      const txb = firstChild(el2, "v:textbox");
+      const txb = firstChild(el, "v:textbox");
       const content = txb && firstChild(txb, "w:txbxContent");
       if (content) {
         const tb = { paras: [], widthTwips: w, heightTwips: h, vml: true };
@@ -2858,26 +2858,26 @@ function readVmlRuns(container, ctx, inline) {
         tb.insets = { l: ins(0, 144), t: ins(1, 72), r: ins(2, 144), b: ins(3, 72) };
         const tbStyle = parseVmlStyle(txb.attrs["style"]);
         if (tbStyle["mso-fit-shape-to-text"] === "t") tb.autoFit = true;
-        if (parseVmlStyle(el2.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
-        const sh = vmlShapeStyle(el2, "rect");
+        if (parseVmlStyle(el.attrs["style"])["mso-wrap-style"] === "none") tb.noWrap = true;
+        const sh = vmlShapeStyle(el, "rect");
         if (sh.fill || sh.line) tb.shape = sh;
         run = { text: OBJ, textbox: tb };
       } else {
-        const tag = el2.name.replace(/^v:/, "");
-        const type = el2.attrs["type"] ?? "";
-        const declared = el2.attrs["fillcolor"] || el2.attrs["strokecolor"] || el2.attrs["filled"] || el2.attrs["stroked"] || firstChild(el2, "v:fill") || firstChild(el2, "v:stroke");
+        const tag = el.name.replace(/^v:/, "");
+        const type = el.attrs["type"] ?? "";
+        const declared = el.attrs["fillcolor"] || el.attrs["strokecolor"] || el.attrs["filled"] || el.attrs["stroked"] || firstChild(el, "v:fill") || firstChild(el, "v:stroke");
         if (tag === "shape" && (type.includes("_x0000_t75") || !declared)) {
           return void 0;
         }
         const geom = tag === "oval" ? "ellipse" : tag === "roundrect" ? "roundRect" : tag === "line" || type.includes("_x0000_t32") ? "line" : "rect";
-        const style = vmlShapeStyle(el2, geom);
+        const style = vmlShapeStyle(el, geom);
         if (geom === "line") delete style.fill;
         const shape = { style, widthTwips: w, heightTwips: h };
-        if (el2.attrs["o:hr"] === "t") shape.hr = true;
+        if (el.attrs["o:hr"] === "t") shape.hr = true;
         if (tag === "line") {
           const pt = (s) => (s ?? "0,0").split(",").map((v) => vmlLenTwips(v.trim()) ?? 0);
-          const [x1 = 0, y1 = 0] = pt(el2.attrs["from"]);
-          const [x2 = 0, y2 = 0] = pt(el2.attrs["to"]);
+          const [x1 = 0, y1 = 0] = pt(el.attrs["from"]);
+          const [x2 = 0, y2 = 0] = pt(el.attrs["to"]);
           shape.line = { x1, y1, x2, y2 };
           shape.widthTwips = Math.abs(x2 - x1);
           shape.heightTwips = Math.abs(y2 - y1);
@@ -2901,17 +2901,17 @@ function readVmlRuns(container, ctx, inline) {
     }
     return run;
   };
-  for (const el2 of childElements(container)) {
-    if (el2.name === "v:shapetype" || el2.name.startsWith("o:") || el2.name.startsWith("w10:")) continue;
-    if (el2.name === "v:group") {
-      const st = parseVmlStyle(el2.attrs["style"]);
+  for (const el of childElements(container)) {
+    if (el.name === "v:shapetype" || el.name.startsWith("o:") || el.name.startsWith("w10:")) continue;
+    if (el.name === "v:group") {
+      const st = parseVmlStyle(el.attrs["style"]);
       const w = vmlLenTwips(st["width"]) ?? 0;
       const h = vmlLenTwips(st["height"]) ?? 0;
-      const cs = (el2.attrs["coordsize"] ?? "1000,1000").split(",").map((v) => parseFloat(v) || 1e3);
-      const co = (el2.attrs["coordorigin"] ?? "0,0").split(",").map((v) => parseFloat(v) || 0);
+      const cs = (el.attrs["coordsize"] ?? "1000,1000").split(",").map((v) => parseFloat(v) || 1e3);
+      const co = (el.attrs["coordorigin"] ?? "0,0").split(",").map((v) => parseFloat(v) || 0);
       const sx = w / (cs[0] || 1), sy = h / (cs[1] || 1);
       const items = [];
-      for (const c of childElements(el2)) {
+      for (const c of childElements(el)) {
         if (!c.name.startsWith("v:") || c.name === "v:shapetype") continue;
         const cst = parseVmlStyle(c.attrs["style"]);
         const r = shapeOf(c, { sx, sy });
@@ -2923,7 +2923,7 @@ function readVmlRuns(container, ctx, inline) {
       }
       if (!items.length) continue;
       const group = { widthTwips: w, heightTwips: h, items };
-      const anchor = vmlAnchor(st, findDeep2(el2, "w10:wrap"));
+      const anchor = vmlAnchor(st, findDeep2(el, "w10:wrap"));
       if (anchor) {
         group.floating = true;
         group.anchor = anchor;
@@ -2931,8 +2931,8 @@ function readVmlRuns(container, ctx, inline) {
       out.push({ text: OBJ, group });
       continue;
     }
-    if (el2.name.startsWith("v:")) {
-      const r = shapeOf(el2);
+    if (el.name.startsWith("v:")) {
+      const r = shapeOf(el);
       if (r) {
         if (inline && r.image) {
           delete r.image.floating;
@@ -2944,9 +2944,9 @@ function readVmlRuns(container, ctx, inline) {
   }
   return out;
 }
-function textContentOf(el2) {
+function textContentOf(el) {
   let out = "";
-  for (const c of el2.children) out += typeof c === "string" ? c : textContentOf(c);
+  for (const c of el.children) out += typeof c === "string" ? c : textContentOf(c);
   return out;
 }
 function runTarget(ctx, runs) {
@@ -3081,8 +3081,8 @@ function parseCustomInlineTag(tag) {
     return void 0;
   }
 }
-function readMathNodes(el2, out = []) {
-  for (const c of childElements(el2)) {
+function readMathNodes(el, out = []) {
+  for (const c of childElements(el)) {
     switch (c.name) {
       case "m:r":
       case "w:r": {
@@ -3133,9 +3133,9 @@ function readMathNodes(el2, out = []) {
   }
   return out;
 }
-function collectMathText(el2) {
+function collectMathText(el) {
   let out = "";
-  for (const c of el2.children) {
+  for (const c of el.children) {
     if (typeof c === "string") continue;
     if (c.name === "m:t") out += textContentOf(c);
     else out += collectMathText(c);
@@ -3246,8 +3246,8 @@ function readSingleRun(runs, rEl, ctx, inherit) {
         text += "\xAD";
         break;
       case "w:sym": {
-        const hex2 = child.attrs["w:char"] ?? "F0B7";
-        let code = parseInt(hex2, 16);
+        const hex = child.attrs["w:char"] ?? "F0B7";
+        let code = parseInt(hex, 16);
         if (code <= 255) code |= 61440;
         const font = child.attrs["w:font"];
         flush();
@@ -3339,9 +3339,9 @@ function readParagraph(pEl, ctx) {
   if (ppr) para.ppr = ppr;
   return para;
 }
-function collectInstrText(el2) {
+function collectInstrText(el) {
   let out = "";
-  for (const c of el2.children) {
+  for (const c of el.children) {
     if (typeof c === "string") continue;
     if (c.name === "w:instrText") out += textContentOf(c);
     else out += collectInstrText(c);
@@ -3388,8 +3388,8 @@ function buildReadContext(pkg, relsPath) {
     }
   };
 }
-var tw = (el2, attr, fallback) => {
-  const v = el2?.attrs[attr];
+var tw = (el, attr, fallback) => {
+  const v = el?.attrs[attr];
   return v === void 0 ? fallback : parseInt(v, 10);
 };
 function readSectPr(sectEl) {
@@ -3488,24 +3488,24 @@ function readStyleSheet(xml) {
   }
   return sheet;
 }
-function readLevel(el2) {
-  const ilvl = parseInt(el2.attrs["w:ilvl"] ?? "0", 10) || 0;
+function readLevel(el) {
+  const ilvl = parseInt(el.attrs["w:ilvl"] ?? "0", 10) || 0;
   const lvl = { ilvl };
-  const v = (n) => firstChild(el2, n)?.attrs["w:val"];
+  const v = (n) => firstChild(el, n)?.attrs["w:val"];
   const start = v("w:start");
   if (start !== void 0) lvl.start = parseInt(start, 10);
-  const fmtEl = firstChild(el2, "w:numFmt");
+  const fmtEl = firstChild(el, "w:numFmt");
   if (fmtEl?.attrs["w:val"]) lvl.numFmt = fmtEl.attrs["w:val"];
   if (fmtEl?.attrs["w:format"]) lvl.numFmtCustom = fmtEl.attrs["w:format"];
   const restart = v("w:lvlRestart");
   if (restart !== void 0) lvl.lvlRestart = parseInt(restart, 10);
   const ps = v("w:pStyle");
   if (ps) lvl.pStyle = ps;
-  const isLgl = firstChild(el2, "w:isLgl");
+  const isLgl = firstChild(el, "w:isLgl");
   if (isLgl) lvl.isLgl = onOffVal(isLgl);
   const suff = v("w:suff");
   if (suff === "tab" || suff === "space" || suff === "nothing") lvl.suff = suff;
-  const lt = firstChild(el2, "w:lvlText");
+  const lt = firstChild(el, "w:lvlText");
   if (lt) {
     if (lt.attrs["w:val"] !== void 0) lvl.lvlText = lt.attrs["w:val"];
     if (lt.attrs["w:null"] === "1" || lt.attrs["w:null"] === "true") lvl.lvlTextNull = true;
@@ -3514,9 +3514,9 @@ function readLevel(el2) {
   if (pic !== void 0) lvl.lvlPicBulletId = parseInt(pic, 10);
   const jc = v("w:lvlJc");
   if (jc) lvl.lvlJc = jc;
-  const pPr = readPPr(firstChild(el2, "w:pPr"));
+  const pPr = readPPr(firstChild(el, "w:pPr"));
   if (pPr) lvl.pPr = pPr;
-  const rPr = readRPr(firstChild(el2, "w:rPr"));
+  const rPr = readRPr(firstChild(el, "w:rPr"));
   if (rPr) lvl.rPr = rPr;
   return lvl;
 }
@@ -3593,16 +3593,16 @@ function readTheme(xml) {
   };
   const fontScheme = find(root, "a:fontScheme");
   for (const [key, tag] of [["major", "a:majorFont"], ["minor", "a:minorFont"]]) {
-    const el2 = fontScheme && firstChild(fontScheme, tag);
-    if (!el2) continue;
+    const el = fontScheme && firstChild(fontScheme, tag);
+    if (!el) continue;
     const set = theme[key];
-    const latin = firstChild(el2, "a:latin")?.attrs["typeface"];
+    const latin = firstChild(el, "a:latin")?.attrs["typeface"];
     if (latin) set.latin = latin;
-    const ea = firstChild(el2, "a:ea")?.attrs["typeface"];
+    const ea = firstChild(el, "a:ea")?.attrs["typeface"];
     if (ea) set.ea = ea;
-    const cs = firstChild(el2, "a:cs")?.attrs["typeface"];
+    const cs = firstChild(el, "a:cs")?.attrs["typeface"];
     if (cs) set.cs = cs;
-    for (const f of childElements(el2, "a:font")) {
+    for (const f of childElements(el, "a:font")) {
       if (f.attrs["script"] && f.attrs["typeface"]) set.scripts[f.attrs["script"]] = f.attrs["typeface"];
     }
   }
@@ -3743,31 +3743,31 @@ function readDocFormatting(pkg) {
 }
 
 // ../docx-core/src/styles.ts
-var onOff = (el2) => {
-  if (!el2) return void 0;
-  const v = el2.attrs["w:val"];
+var onOff = (el) => {
+  if (!el) return void 0;
+  const v = el.attrs["w:val"];
   return v !== "0" && v !== "false" && v !== "none";
 };
 function readStyleRunProps(rPr) {
   const p = {};
   if (!rPr) return p;
-  for (const el2 of childElements(rPr)) {
-    const val = el2.attrs["w:val"];
-    switch (el2.name) {
+  for (const el of childElements(rPr)) {
+    const val = el.attrs["w:val"];
+    switch (el.name) {
       case "w:b":
-        p.bold = onOff(el2);
+        p.bold = onOff(el);
         break;
       case "w:i":
-        p.italic = onOff(el2);
+        p.italic = onOff(el);
         break;
       case "w:caps":
-        p.allCaps = onOff(el2);
+        p.allCaps = onOff(el);
         break;
       case "w:smallCaps":
-        p.smallCaps = onOff(el2);
+        p.smallCaps = onOff(el);
         break;
       case "w:strike":
-        p.strike = onOff(el2);
+        p.strike = onOff(el);
         break;
       case "w:sz":
         if (val) p.szHalfPt = parseInt(val, 10);
@@ -3776,7 +3776,7 @@ function readStyleRunProps(rPr) {
         if (val && val !== "auto") p.color = val;
         break;
       case "w:rFonts":
-        if (el2.attrs["w:ascii"]) p.fontAscii = el2.attrs["w:ascii"];
+        if (el.attrs["w:ascii"]) p.fontAscii = el.attrs["w:ascii"];
         break;
       case "w:u":
         p.underline = val !== "none";
@@ -3862,13 +3862,13 @@ function readStyles(pkg) {
 }
 
 // ../docx-core/src/fulldoc.ts
-function readBorderSet(el2, inside) {
-  if (!el2) return void 0;
+function readBorderSet(el, inside) {
+  if (!el) return void 0;
   const out = {};
   const sides = inside ? ["top", "left", "bottom", "right", "insideH", "insideV"] : ["top", "left", "bottom", "right"];
   let any = false;
   for (const side of sides) {
-    const edge = readBorderEdge(firstChild(el2, `w:${side}`));
+    const edge = readBorderEdge(firstChild(el, `w:${side}`));
     if (edge) {
       out[side] = edge;
       any = true;
@@ -3876,9 +3876,9 @@ function readBorderSet(el2, inside) {
   }
   return any ? out : void 0;
 }
-function unwrap(el2, name) {
+function unwrap(el, name) {
   const out = [];
-  for (const c of childElements(el2)) {
+  for (const c of childElements(el)) {
     if (c.name === name) out.push(c);
     else if (c.name === "w:sdt") {
       const content = firstChild(c, "w:sdtContent");
@@ -4186,476 +4186,6 @@ function readSectionProps(sectEl) {
 
 // ../docx-core/src/model-ops.ts
 var paraText = (p) => p.runs.map((r) => r.text).join("");
-
-// ../docx-core/src/doc/fkp.ts
-var EMPTY = new Uint8Array(0);
-
-// ../docx-core/src/doc/officeart.ts
-var MAX_BLIP = 64 * 1024 * 1024;
-
-// ../docx-core/src/doc/xmlw.ts
-function stripInvalid(s) {
-  let out = "";
-  for (let i2 = 0; i2 < s.length; i2++) {
-    const c = s.charCodeAt(i2);
-    if (c < 32 && c !== 9 && c !== 10 && c !== 13 || c === 65534 || c === 65535) continue;
-    if (c >= 55296 && c <= 56319) {
-      const n = s.charCodeAt(i2 + 1);
-      if (n >= 56320 && n <= 57343) {
-        out += s[i2] + s[i2 + 1];
-        i2++;
-      }
-      continue;
-    }
-    if (c >= 56320 && c <= 57343) continue;
-    out += s[i2];
-  }
-  return out;
-}
-function escText(s) {
-  return stripInvalid(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function escAttr(s) {
-  return escText(s).replace(/"/g, "&quot;");
-}
-function attrs(obj) {
-  let out = "";
-  for (const [k, v] of Object.entries(obj)) {
-    if (v === void 0 || v === null || v === false) continue;
-    out += ` ${k}="${escAttr(v === true ? "1" : String(v))}"`;
-  }
-  return out;
-}
-var NS = {
-  w: "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
-  r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-  wp: "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
-  a: "http://schemas.openxmlformats.org/drawingml/2006/main",
-  pic: "http://schemas.openxmlformats.org/drawingml/2006/picture",
-  wps: "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
-  wpg: "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
-  mc: "http://schemas.openxmlformats.org/markup-compatibility/2006",
-  w14: "http://schemas.microsoft.com/office/word/2010/wordml",
-  wp14: "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
-  v: "urn:schemas-microsoft-com:vml",
-  o: "urn:schemas-microsoft-com:office:office",
-  w10: "urn:schemas-microsoft-com:office:word",
-  m: "http://schemas.openxmlformats.org/officeDocument/2006/math",
-  rel: "http://schemas.openxmlformats.org/package/2006/relationships",
-  ct: "http://schemas.openxmlformats.org/package/2006/content-types",
-  relType: "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-};
-var CONTENT_NS = attrs({
-  "xmlns:wpc": "http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas",
-  "xmlns:mc": NS.mc,
-  "xmlns:o": NS.o,
-  "xmlns:r": NS.r,
-  "xmlns:m": NS.m,
-  "xmlns:v": NS.v,
-  "xmlns:wp14": NS.wp14,
-  "xmlns:wp": NS.wp,
-  "xmlns:w10": NS.w10,
-  "xmlns:w": NS.w,
-  "xmlns:w14": NS.w14,
-  "xmlns:wpg": NS.wpg,
-  "xmlns:wps": NS.wps,
-  "xmlns:a": NS.a,
-  "xmlns:pic": NS.pic,
-  "mc:Ignorable": "w14 wp14"
-});
-
-// ../docx-core/src/doc/styles-xml.ts
-var STI_NAMES = [
-  "Normal",
-  "heading 1",
-  "heading 2",
-  "heading 3",
-  "heading 4",
-  "heading 5",
-  "heading 6",
-  "heading 7",
-  "heading 8",
-  "heading 9",
-  "index 1",
-  "index 2",
-  "index 3",
-  "index 4",
-  "index 5",
-  "index 6",
-  "index 7",
-  "index 8",
-  "index 9",
-  "toc 1",
-  "toc 2",
-  "toc 3",
-  "toc 4",
-  "toc 5",
-  "toc 6",
-  "toc 7",
-  "toc 8",
-  "toc 9",
-  "Normal Indent",
-  "footnote text",
-  "annotation text",
-  "header",
-  "footer",
-  "index heading",
-  "caption",
-  "table of figures",
-  "envelope address",
-  "envelope return",
-  "footnote reference",
-  "annotation reference",
-  "line number",
-  "page number",
-  "endnote reference",
-  "endnote text",
-  "table of authorities",
-  "macro",
-  "toa heading",
-  "List",
-  "List Bullet",
-  "List Number",
-  "List 2",
-  "List 3",
-  "List 4",
-  "List 5",
-  "List Bullet 2",
-  "List Bullet 3",
-  "List Bullet 4",
-  "List Bullet 5",
-  "List Number 2",
-  "List Number 3",
-  "List Number 4",
-  "List Number 5",
-  "Title",
-  "Closing",
-  "Signature",
-  "Default Paragraph Font",
-  "Body Text",
-  "Body Text Indent",
-  "List Continue",
-  "List Continue 2",
-  "List Continue 3",
-  "List Continue 4",
-  "List Continue 5",
-  "Message Header",
-  "Subtitle",
-  "Salutation",
-  "Date",
-  "Body Text First Indent",
-  "Body Text First Indent 2",
-  "Note Heading",
-  "Body Text 2",
-  "Body Text 3",
-  "Body Text Indent 2",
-  "Body Text Indent 3",
-  "Block Text",
-  "Hyperlink",
-  "FollowedHyperlink",
-  "Strong",
-  "Emphasis",
-  "Document Map",
-  "Plain Text",
-  "E-mail Signature",
-  "HTML Top of Form",
-  "HTML Bottom of Form",
-  "Normal (Web)",
-  "HTML Acronym",
-  "HTML Address",
-  "HTML Cite",
-  "HTML Code",
-  "HTML Definition",
-  "HTML Keyboard",
-  "HTML Preformatted",
-  "HTML Sample",
-  "HTML Typewriter",
-  "HTML Variable",
-  "Normal Table",
-  "annotation subject",
-  "No List",
-  "Outline List 1",
-  "Outline List 2",
-  "Outline List 3",
-  "Table Simple 1",
-  "Table Simple 2",
-  "Table Simple 3",
-  "Table Classic 1",
-  "Table Classic 2",
-  "Table Classic 3",
-  "Table Classic 4",
-  "Table Colorful 1",
-  "Table Colorful 2",
-  "Table Colorful 3",
-  "Table Columns 1",
-  "Table Columns 2",
-  "Table Columns 3",
-  "Table Columns 4",
-  "Table Columns 5",
-  "Table Grid 1",
-  "Table Grid 2",
-  "Table Grid 3",
-  "Table Grid 4",
-  "Table Grid 5",
-  "Table Grid 6",
-  "Table Grid 7",
-  "Table Grid 8",
-  "Table List 1",
-  "Table List 2",
-  "Table List 3",
-  "Table List 4",
-  "Table List 5",
-  "Table List 6",
-  "Table List 7",
-  "Table List 8",
-  "Table 3D effects 1",
-  "Table 3D effects 2",
-  "Table 3D effects 3",
-  "Table Contemporary",
-  "Table Elegant",
-  "Table Professional",
-  "Table Subtle 1",
-  "Table Subtle 2",
-  "Table Web 1",
-  "Table Web 2",
-  "Table Web 3",
-  "Balloon Text",
-  "Table Grid",
-  "Table Theme",
-  // Word 2007+ (sti 156-266; ordem conferida contra o .docx do Word)
-  "Placeholder Text",
-  "No Spacing",
-  "Light Shading",
-  "Light List",
-  "Light Grid",
-  "Medium Shading 1",
-  "Medium Shading 2",
-  "Medium List 1",
-  "Medium List 2",
-  "Medium Grid 1",
-  "Medium Grid 2",
-  "Medium Grid 3",
-  "Dark List",
-  "Colorful Shading",
-  "Colorful List",
-  "Colorful Grid",
-  ...accent(1, 0, 6),
-  "Revision",
-  "List Paragraph",
-  "Quote",
-  "Intense Quote",
-  ...accent(1, 6, 14),
-  ...accent(2),
-  ...accent(3),
-  ...accent(4),
-  ...accent(5),
-  ...accent(6),
-  "Subtle Emphasis",
-  "Intense Emphasis",
-  "Subtle Reference",
-  "Intense Reference",
-  "Book Title",
-  "Bibliography",
-  "TOC Heading"
-];
-function accent(n, from = 0, to = 14) {
-  const base = [
-    "Light Shading",
-    "Light List",
-    "Light Grid",
-    "Medium Shading 1",
-    "Medium Shading 2",
-    "Medium List 1",
-    "Medium List 2",
-    "Medium Grid 1",
-    "Medium Grid 2",
-    "Medium Grid 3",
-    "Dark List",
-    "Colorful Shading",
-    "Colorful List",
-    "Colorful Grid"
-  ];
-  return base.slice(from, to).map((b) => `${b} Accent ${n}`);
-}
-
-// ../docx-core/src/doc/preset-map.ts
-var K = 1e5 / 21600;
-var ratio = (w, h, horiz) => {
-  const ss = Math.min(w, h) || 1;
-  return (horiz ? w : h) / ss;
-};
-var lin = (i2) => (a) => [a[i2] === void 0 ? void 0 : a[i2] * K];
-var offW = (a, w, h) => [a[0] === void 0 ? void 0 : a[0] * K * ratio(w, h, true)];
-var tipW = (a, w, h) => [a[0] === void 0 ? void 0 : (21600 - a[0]) * K * ratio(w, h, true)];
-var seal = (a) => [a[0] === void 0 ? void 0 : (10800 - a[0]) / 10800 * 5e4];
-var arrowH = (headAtStart) => (a, w, h) => [
-  a[1] === void 0 ? void 0 : (21600 - 2 * a[1]) / 21600 * 1e5,
-  a[0] === void 0 ? void 0 : (headAtStart ? a[0] : 21600 - a[0]) * K * ratio(w, h, true)
-];
-var arrowV = (headAtStart) => (a, w, h) => [
-  a[1] === void 0 ? void 0 : (21600 - 2 * a[1]) / 21600 * 1e5,
-  a[0] === void 0 ? void 0 : (headAtStart ? a[0] : 21600 - a[0]) * K * ratio(w, h, false)
-];
-var wedge = (a) => [
-  a[0] === void 0 ? void 0 : (a[0] - 10800) * K,
-  a[1] === void 0 ? void 0 : (a[1] - 10800) * K
-];
-var P = {
-  1: { prst: "rect" },
-  2: { prst: "roundRect", adj: lin(0) },
-  3: { prst: "ellipse" },
-  4: { prst: "diamond" },
-  5: { prst: "triangle", adj: lin(0) },
-  6: { prst: "rtTriangle" },
-  7: { prst: "parallelogram", adj: offW },
-  8: { prst: "trapezoid", adj: offW, flipV: true },
-  9: { prst: "hexagon", adj: offW },
-  10: { prst: "octagon", adj: lin(0) },
-  11: { prst: "plus", adj: lin(0) },
-  12: { prst: "star5" },
-  13: { prst: "rightArrow", adj: arrowH(false) },
-  14: { prst: "rightArrow", adj: arrowH(false) },
-  15: { prst: "homePlate", adj: tipW },
-  16: { prst: "cube", adj: lin(0) },
-  17: { prst: "wedgeRoundRectCallout", adj: wedge, binDefaults: [1350, 25920] },
-  18: { prst: "star16", adj: seal },
-  19: { prst: "arc" },
-  20: { prst: "line" },
-  21: { prst: "plaque", adj: lin(0) },
-  22: { prst: "can", adj: (a, w, h) => [a[0] === void 0 ? void 0 : a[0] * K * ratio(w, h, false)] },
-  23: { prst: "donut", adj: lin(0) },
-  32: { prst: "straightConnector1" },
-  33: { prst: "bentConnector2" },
-  34: { prst: "bentConnector3" },
-  35: { prst: "bentConnector4" },
-  36: { prst: "bentConnector5" },
-  37: { prst: "curvedConnector2" },
-  38: { prst: "curvedConnector3" },
-  39: { prst: "curvedConnector4" },
-  40: { prst: "curvedConnector5" },
-  41: { prst: "callout1" },
-  42: { prst: "callout2" },
-  43: { prst: "callout3" },
-  44: { prst: "accentCallout1" },
-  45: { prst: "accentCallout2" },
-  46: { prst: "accentCallout3" },
-  47: { prst: "borderCallout1" },
-  48: { prst: "borderCallout2" },
-  49: { prst: "borderCallout3" },
-  50: { prst: "accentBorderCallout1" },
-  51: { prst: "accentBorderCallout2" },
-  52: { prst: "accentBorderCallout3" },
-  53: { prst: "ribbon" },
-  54: { prst: "ribbon2" },
-  55: { prst: "chevron", adj: tipW },
-  56: { prst: "pentagon" },
-  57: { prst: "noSmoking" },
-  58: { prst: "star8", adj: seal },
-  59: { prst: "star16", adj: seal },
-  60: { prst: "star32", adj: seal },
-  61: { prst: "wedgeRectCallout", adj: wedge, binDefaults: [1350, 25920] },
-  62: { prst: "wedgeRoundRectCallout", adj: wedge, binDefaults: [1350, 25920] },
-  63: { prst: "wedgeEllipseCallout", adj: wedge, binDefaults: [1350, 25920] },
-  64: { prst: "wave" },
-  65: { prst: "foldedCorner" },
-  66: { prst: "leftArrow", adj: arrowH(true) },
-  67: { prst: "downArrow", adj: arrowV(false) },
-  68: { prst: "upArrow", adj: arrowV(true) },
-  69: { prst: "leftRightArrow", adj: arrowH(true) },
-  70: { prst: "upDownArrow", adj: arrowV(true) },
-  71: { prst: "irregularSeal1" },
-  72: { prst: "irregularSeal2" },
-  73: { prst: "lightningBolt" },
-  74: { prst: "heart" },
-  75: { prst: "rect" },
-  76: { prst: "quadArrow" },
-  77: { prst: "leftArrowCallout" },
-  78: { prst: "rightArrowCallout" },
-  79: { prst: "upArrowCallout" },
-  80: { prst: "downArrowCallout" },
-  81: { prst: "leftRightArrowCallout" },
-  82: { prst: "upDownArrowCallout" },
-  83: { prst: "quadArrowCallout" },
-  84: { prst: "bevel", adj: lin(0) },
-  85: { prst: "leftBracket", adj: (a, w, h) => [a[0] === void 0 ? void 0 : a[0] * K * ratio(w, h, false)] },
-  86: { prst: "rightBracket", adj: (a, w, h) => [a[0] === void 0 ? void 0 : a[0] * K * ratio(w, h, false)] },
-  87: { prst: "leftBrace", adj: (a, w, h) => [a[0] === void 0 ? void 0 : a[0] * K * ratio(w, h, false), a[1] === void 0 ? void 0 : a[1] * K] },
-  88: { prst: "rightBrace", adj: (a, w, h) => [a[0] === void 0 ? void 0 : a[0] * K * ratio(w, h, false), a[1] === void 0 ? void 0 : a[1] * K] },
-  89: { prst: "leftUpArrow" },
-  90: { prst: "bentUpArrow" },
-  91: { prst: "bentArrow" },
-  92: { prst: "star24", adj: seal },
-  93: { prst: "stripedRightArrow", adj: arrowH(false) },
-  94: { prst: "notchedRightArrow", adj: arrowH(false) },
-  95: { prst: "blockArc" },
-  96: { prst: "smileyFace", adj: (a) => [a[0] === void 0 ? void 0 : (a[0] - 16515) / (17520 - 16515) * 4653] },
-  97: { prst: "verticalScroll" },
-  98: { prst: "horizontalScroll" },
-  99: { prst: "circularArrow" },
-  100: { prst: "circularArrow" },
-  101: { prst: "uturnArrow" },
-  102: { prst: "curvedRightArrow" },
-  103: { prst: "curvedLeftArrow" },
-  104: { prst: "curvedUpArrow" },
-  105: { prst: "curvedDownArrow" },
-  106: { prst: "cloudCallout", adj: wedge, binDefaults: [1350, 25920] },
-  107: { prst: "ellipseRibbon" },
-  108: { prst: "ellipseRibbon2" },
-  109: { prst: "flowChartProcess" },
-  110: { prst: "flowChartDecision" },
-  111: { prst: "flowChartInputOutput" },
-  112: { prst: "flowChartPredefinedProcess" },
-  113: { prst: "flowChartInternalStorage" },
-  114: { prst: "flowChartDocument" },
-  115: { prst: "flowChartMultidocument" },
-  116: { prst: "flowChartTerminator" },
-  117: { prst: "flowChartPreparation" },
-  118: { prst: "flowChartManualInput" },
-  119: { prst: "flowChartManualOperation" },
-  120: { prst: "flowChartConnector" },
-  121: { prst: "flowChartPunchedCard" },
-  122: { prst: "flowChartPunchedTape" },
-  123: { prst: "flowChartSummingJunction" },
-  124: { prst: "flowChartOr" },
-  125: { prst: "flowChartCollate" },
-  126: { prst: "flowChartSort" },
-  127: { prst: "flowChartExtract" },
-  128: { prst: "flowChartMerge" },
-  129: { prst: "flowChartOfflineStorage" },
-  130: { prst: "flowChartOnlineStorage" },
-  131: { prst: "flowChartMagneticTape" },
-  132: { prst: "flowChartMagneticDisk" },
-  133: { prst: "flowChartMagneticDrum" },
-  134: { prst: "flowChartDisplay" },
-  135: { prst: "flowChartDelay" },
-  176: { prst: "flowChartAlternateProcess" },
-  177: { prst: "flowChartOffpageConnector" },
-  178: { prst: "callout1" },
-  179: { prst: "accentCallout1" },
-  180: { prst: "borderCallout1" },
-  181: { prst: "accentBorderCallout1" },
-  182: { prst: "leftRightUpArrow" },
-  183: { prst: "sun", adj: lin(0) },
-  184: { prst: "moon", adj: lin(0) },
-  185: { prst: "bracketPair" },
-  186: { prst: "bracePair" },
-  187: { prst: "star4", adj: seal },
-  188: { prst: "doubleWave" },
-  189: { prst: "actionButtonBlank" },
-  190: { prst: "actionButtonHome" },
-  191: { prst: "actionButtonHelp" },
-  192: { prst: "actionButtonInformation" },
-  193: { prst: "actionButtonForwardNext" },
-  194: { prst: "actionButtonBackPrevious" },
-  195: { prst: "actionButtonEnd" },
-  196: { prst: "actionButtonBeginning" },
-  197: { prst: "actionButtonReturn" },
-  198: { prst: "actionButtonDocument" },
-  199: { prst: "actionButtonSound" },
-  200: { prst: "actionButtonMovie" },
-  201: { prst: "rect" },
-  202: { prst: "rect" }
-};
 
 // src/myers.ts
 function myersDiff(n, m, eq) {
@@ -5285,12 +4815,15 @@ function diffDocuments(a, b, opts = {}) {
   return diffBlocks(a.blocks, b.blocks, opts);
 }
 
-// ../../../shared/i18n/src/index.ts
+// ../../../shared/ui/dist/i18n.js
 var DEFAULT_UI_LANG = "en";
 function matchUiLang(tag) {
-  if (!tag) return null;
-  if (/^pt\b/i.test(tag)) return "pt";
-  if (/^en\b/i.test(tag)) return "en";
+  if (!tag)
+    return null;
+  if (/^pt\b/i.test(tag))
+    return "pt";
+  if (/^en\b/i.test(tag))
+    return "en";
   return null;
 }
 function browserUiLang() {
@@ -5298,13 +4831,15 @@ function browserUiLang() {
   const prefs = nav?.languages?.length ? nav.languages : nav?.language ? [nav.language] : [];
   for (const tag of prefs) {
     const m = matchUiLang(tag);
-    if (m) return m;
+    if (m)
+      return m;
   }
   return DEFAULT_UI_LANG;
 }
-function uiLang(el2) {
-  const forced = el2?.getAttribute("lang");
-  if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
+function uiLang(el) {
+  const forced = el?.getAttribute("lang");
+  if (forced)
+    return matchUiLang(forced) ?? DEFAULT_UI_LANG;
   return browserUiLang();
 }
 function pickLabels(lang, labels) {
@@ -5312,8 +4847,9 @@ function pickLabels(lang, labels) {
   return labels[l] ?? labels[DEFAULT_UI_LANG];
 }
 function onBrowserLangChange(cb) {
-  if (typeof window === "undefined") return () => {
-  };
+  if (typeof window === "undefined")
+    return () => {
+    };
   window.addEventListener("languagechange", cb);
   return () => window.removeEventListener("languagechange", cb);
 }
@@ -5780,24 +5316,24 @@ var UniversalWriteDiffElement = class extends Base {
   }
   // ─────────────── blocos ───────────────
   _renderParagraph(doc, p, marks) {
-    const el2 = doc.createElement("div");
-    el2.className = "uwd-para";
+    const el = doc.createElement("div");
+    el.className = "uwd-para";
     const pr = p.props;
     if (pr.alignment && pr.alignment !== "left") {
-      el2.style.textAlign = pr.alignment === "both" ? "justify" : pr.alignment;
+      el.style.textAlign = pr.alignment === "both" ? "justify" : pr.alignment;
     }
-    if (pr.indentLeftTwips) el2.style.paddingLeft = `${pr.indentLeftTwips / 20}pt`;
-    if (pr.indentRightTwips) el2.style.paddingRight = `${pr.indentRightTwips / 20}pt`;
-    if (pr.indentFirstLineTwips) el2.style.textIndent = `${pr.indentFirstLineTwips / 20}pt`;
-    if (pr.spaceBeforeTwips) el2.style.marginTop = `${pr.spaceBeforeTwips / 20}pt`;
-    if (pr.spaceAfterTwips) el2.style.marginBottom = `${pr.spaceAfterTwips / 20}pt`;
+    if (pr.indentLeftTwips) el.style.paddingLeft = `${pr.indentLeftTwips / 20}pt`;
+    if (pr.indentRightTwips) el.style.paddingRight = `${pr.indentRightTwips / 20}pt`;
+    if (pr.indentFirstLineTwips) el.style.textIndent = `${pr.indentFirstLineTwips / 20}pt`;
+    if (pr.spaceBeforeTwips) el.style.marginTop = `${pr.spaceBeforeTwips / 20}pt`;
+    if (pr.spaceAfterTwips) el.style.marginBottom = `${pr.spaceAfterTwips / 20}pt`;
     const shd = hex6(pr.shadingHex);
-    if (shd) el2.style.background = shd;
+    if (shd) el.style.background = shd;
     if (pr.numbering) {
       const marker = doc.createElement("span");
       marker.textContent = pr.numbering.kind === "bullet" ? "\u2022 " : "# ";
       marker.style.paddingLeft = `${pr.numbering.ilvl * 18}pt`;
-      el2.append(marker);
+      el.append(marker);
     }
     let offset = 0;
     for (const r of p.runs) {
@@ -5807,10 +5343,10 @@ var UniversalWriteDiffElement = class extends Base {
         end: Math.min(len, m.endCh - offset),
         kind: m.kind
       })).sort((x2, y) => x2.start - y.start);
-      el2.append(...this._renderRun(doc, r, runMarks));
+      el.append(...this._renderRun(doc, r, runMarks));
       offset += len;
     }
-    return el2;
+    return el;
   }
   _renderRun(doc, r, marks) {
     if (r.image) {
@@ -5893,8 +5429,8 @@ var UniversalWriteDiffElement = class extends Base {
         }
       }
     }
-    const el2 = doc.createElement("table");
-    el2.className = "uwd-table";
+    const el = doc.createElement("table");
+    el.className = "uwd-table";
     for (let ri = 0; ri < t.rows.length; ri++) {
       const tr = doc.createElement("tr");
       const kind = rowKind.get(ri);
@@ -5908,9 +5444,9 @@ var UniversalWriteDiffElement = class extends Base {
         for (const nested of c.tables) td2.append(this._renderTable(doc, nested, side, null));
         tr.append(td2);
       }
-      el2.append(tr);
+      el.append(tr);
     }
-    return el2;
+    return el;
   }
 };
 if (typeof customElements !== "undefined" && !customElements.get("universal-write-diff")) {

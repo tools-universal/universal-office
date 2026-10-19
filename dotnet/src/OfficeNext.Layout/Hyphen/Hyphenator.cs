@@ -21,7 +21,7 @@ public sealed class HyphenationPatterns
 /// Hifenização pelo algoritmo de Frank Liang (padrões do TeX — "Word Hy-phen-a-tion
 /// by Com-put-er", 1983): para cada trecho da palavra (entre pontos ".") que casa
 /// com um padrão, o maior número entre duas letras vale; ímpar = pode quebrar.
-/// Porta de write/packages/layout/src/hyphen/liang.ts.
+/// Porta de write/packages/docx-layout/src/typography/hyphen/liang.ts.
 /// </summary>
 public sealed class Hyphenator
 {

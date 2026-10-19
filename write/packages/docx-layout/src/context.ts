@@ -24,7 +24,7 @@ export interface LayoutOptions {
   /** diagnóstico (laboratório): cada decisão "a palavra cabe na linha?" */
   onWordFit?: (info: WordFitInfo) => void;
   /** hifenização automática (w:autoHyphenation) com os padrões já carregados em
-   *  @universal-office/layout (`loadHyphenation`) — padrão: ligada */
+   *  base tipográfica (`loadHyphenation`) — padrão: ligada */
   hyphenation?: boolean;
   /** só hifeniza estes idiomas (etiquetas BCP 47 ou prefixos: 'pt-BR', 'en'…): o Word
    *  só hifeniza os idiomas com revisores instalados — padrão: todos com padrões */

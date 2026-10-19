@@ -22,7 +22,7 @@ public sealed class SheetPdfOptions : SheetExportOptions
 }
 
 /// <summary>
-/// Export PDF do xlsx — porta de sheet/packages/export/src/pdf.ts: grid da
+/// Export PDF do xlsx — porta de sheet/packages/sheet-core/src/export/pdf.ts: grid da
 /// planilha paginado em A4 (retrato/paisagem automático), larguras de coluna
 /// pela fórmula MDW→pt, alturas de linha em pt, texto com alinhamento General,
 /// fills sólidos e bordas retas. Quebra de página por LINHAS; linhas/colunas

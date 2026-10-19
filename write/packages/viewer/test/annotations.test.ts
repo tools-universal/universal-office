@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DocxPackage, readFullDocument } from '@universal-office/docx-core';
-import { SfntFont } from '@universal-office/layout';
+import { SfntFont } from '@universal-office/docx-layout';
 import { layoutDocument, type FontProvider } from '@universal-office/docx-layout';
 import { collectAnnotations } from '../src/annotations.js';
 

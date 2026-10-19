@@ -4,7 +4,7 @@ using OfficeNext.Xlsx;
 namespace OfficeNext.Export;
 
 /// <summary>
-/// Export Markdown (GFM) — porta de sheet/packages/export/src/markdown.ts:
+/// Export Markdown (GFM) — porta de sheet/packages/sheet-core/src/export/markdown.ts:
 /// `## nome` + tabela por planilha, primeira linha usada = header, coluna com
 /// maioria numérica alinha à direita, `|` escapado e quebras viram &lt;br&gt;.
 /// </summary>

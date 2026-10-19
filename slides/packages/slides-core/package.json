@@ -11,6 +11,10 @@
   },
   "dependencies": {
     "fflate": "^0.8.2",
-    "@universal-office/charts": "file:../../../shared/charts"
+    "@universal-office/charts": "file:../../../shared/charts",
+    "@tools-universal/office-converter": "file:../../../vendor/office-converter/packages/office-converter",
+    "@tools-universal/docs-processing": "file:../../../vendor/office-converter/vendor/docs-processing/packages/processing",
+    "@tools-universal/sheets-processing": "file:../../../vendor/office-converter/vendor/sheets-processing/packages/processing",
+    "@tools-universal/slides-processing": "file:../../../vendor/office-converter/vendor/slides-processing/packages/processing"
   }
 }

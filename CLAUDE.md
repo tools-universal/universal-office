@@ -47,7 +47,8 @@ Electron (`node/system-fonts.cjs`) e as substitutas ABERTAS (`files/`:
 Carlito, Caladea, Liberation Serif/Mono — `npm run fonts:sync` copia para os
 demos/site). Fontes embutidas no documento continuam com cada componente.
 A opção "fontes no arquivo" também é única (`embedding.ts` decide o que
-entra, `ooxml.ts` grava .docx/.pptx, `dialog.ts` é o diálogo dos dois apps);
+entra, `ooxml.ts` grava .docx/.pptx; o diálogo dos dois apps é
+`shared/ui/src/font-embedding-dialog.ts`);
 o Sheet não tem — o .xlsx não guarda fontes (o Excel não oferece).
 Fatos medidos que guiam o desenho: `document.fonts.check` devolve `true` para
 qualquer família (não serve para saber se a fonte existe); nenhum navegador
@@ -70,8 +71,8 @@ locale.
 ## Controles dos viewers: um lugar só
 
 A barra de controles dos viewers (`<universal-presentation-viewer>`,
-`<universal-document-viewer>`) fica em `shared/viewer-controls`
-(`@universal-office/viewer-controls`): botões, progresso, contador,
+`<universal-document-viewer>`) fica em `shared/ui`
+(`@universal-office/ui`, `viewer-controls.ts`): botões, progresso, contador,
 auto-ocultar, ícones SVG e o CSS. Cada viewer declara só os próprios itens.
 Modelo combinado com o usuário: visível por padrão; `nocontrols` desliga tudo;
 um atributo booleano por item (`nodownload`, `nofullscreen`…) — sem
@@ -84,7 +85,7 @@ um atributo booleano por item (`nodownload`, `nofullscreen`…) — sem
 Os textos da INTERFACE de todos os web components (`<universal-write>`,
 `<universal-sheet>`, `<universal-slides>`, os dois viewers,
 `<universal-write-diff>`, o diálogo de fontes e o plugin de menções) escolhem
-o idioma em `shared/i18n` (`@universal-office/i18n`) — não reimplementar nos
+o idioma em `shared/ui` (`@universal-office/ui`, `i18n.ts`) — não reimplementar nos
 apps. Regra combinada com o usuário: inglês por padrão; português quando o
 navegador prefere pt (`navigator.languages`); o atributo `lang` no PRÓPRIO
 elemento força (`lang` de ancestral, como `<html lang>`, não conta; idioma sem
@@ -92,3 +93,17 @@ tradução cai no inglês). Cada componente guarda a própria tabela `{ en, pt }
 e usa `pickLabels`/`uiLang`. Isso é só a interface: números, datas e nomes de
 função do Sheet seguem `formula-locale` (as mensagens de erro de fórmula
 também, como no Excel), e a fidelidade dos dados continua pt-BR.
+
+## Pacotes: fronteira só com motivo
+
+São 14 pacotes (consolidados em 2026-10-19 a partir de 21). Pacote novo só
+entra com um motivo real: (1) é um PRODUTO separado — um web component com
+licença própria (gratuito × `-pro`); ou (2) é um motor usado por mais de um
+app ou sem DOM fora dos apps (`fonts`, `charts`, `ui`, `sheet-calc`). O resto
+fica como pasta dentro do pacote dono: conversões de formato em
+`<app>-core/src/export` (e `docx-core/src/odf`), base tipográfica e PDF do
+Write em `docx-layout/src/typography` e `src/pdf-writer`. Módulos movidos para
+dentro de um core importam de `../core.js` (não do `index.ts`), para não criar
+ciclo. Código que só delega ao office-converter (`vendor/`) não justifica
+pacote nem cópia local — e os cores têm `sideEffects: false` para o conversor
+não entrar nos bundles de quem não o usa.

@@ -25,45 +25,39 @@ const p = (...seg) => path.join(ROOT, ...seg);
  */
 export const PACKAGES = [
   {
-    name: '@universal-office/docx-export',
+    name: '@universal-office/docx-core (export)',
     id: 'write-export',
     project: 'write',
-    entry: p('write', 'packages', 'export', 'src', 'index.ts'),
-    aliases: { '@universal-office/docx-core': p('write', 'packages', 'docx-core', 'src', 'index.ts') },
-  },
-  {
-    name: '@universal-office/pdf',
-    id: 'write-pdf',
-    project: 'write',
-    entry: p('write', 'packages', 'pdf', 'src', 'index.ts'),
+    entry: p('write', 'packages', 'docx-core', 'src', 'export', 'index.ts'),
     aliases: {},
   },
   {
-    name: '@universal-office/odf',
+    name: '@universal-office/docx-layout (pdf-writer)',
+    id: 'write-pdf',
+    project: 'write',
+    entry: p('write', 'packages', 'docx-layout', 'src', 'pdf-writer', 'index.ts'),
+    aliases: {},
+  },
+  {
+    name: '@universal-office/docx-core (odf)',
     id: 'write-odf',
     project: 'write',
-    entry: p('write', 'packages', 'odf', 'src', 'index.ts'),
-    aliases: { '@universal-office/docx-core': p('write', 'packages', 'docx-core', 'src', 'index.ts') },
+    entry: p('write', 'packages', 'docx-core', 'src', 'odf', 'index.ts'),
+    aliases: {},
   },
   {
-    name: '@universal-office/sheet-export',
+    name: '@universal-office/sheet-core (export)',
     id: 'sheet-export',
     project: 'sheet',
-    entry: p('sheet', 'packages', 'export', 'src', 'index.ts'),
-    aliases: {
-      '@universal-office/sheet-core': p('sheet', 'packages', 'sheet-core', 'src', 'index.ts'),
-      '@universal-office/pdf': p('write', 'packages', 'pdf', 'src', 'index.ts'),
-    },
+    entry: p('sheet', 'packages', 'sheet-core', 'src', 'export', 'index.ts'),
+    aliases: {},
   },
   {
-    name: '@universal-office/slides-export',
+    name: '@universal-office/slides-core (export)',
     id: 'slides-export',
     project: 'slides',
-    entry: p('slides', 'packages', 'export', 'src', 'index.ts'),
-    aliases: {
-      '@universal-office/slides-core': p('slides', 'packages', 'slides-core', 'src', 'index.ts'),
-      '@universal-office/pdf': p('write', 'packages', 'pdf', 'src', 'index.ts'),
-    },
+    entry: p('slides', 'packages', 'slides-core', 'src', 'export', 'index.ts'),
+    aliases: {},
   },
   {
     name: '@universal-office/slides-core',

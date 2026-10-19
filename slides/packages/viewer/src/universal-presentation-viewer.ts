@@ -11,7 +11,7 @@ import {
 import { MediaPlayer } from './media-player.js';
 import { ViewerControls, CONTROL_ITEMS, type ControlsHost } from './controls.js';
 import { SlideA11y } from './a11y.js';
-import { onBrowserLangChange, pickLabels, uiLang } from '@universal-office/i18n';
+import { onBrowserLangChange, pickLabels, uiLang } from '@universal-office/ui';
 
 /** Textos da interface desenhados no canvas (o fim da apresentação é o do PowerPoint em cada idioma). */
 const TEXT = {

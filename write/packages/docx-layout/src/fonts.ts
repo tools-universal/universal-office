@@ -1,4 +1,6 @@
-import type { LayoutFont } from '@universal-office/layout';
+import { deviceEmPt, type LayoutFont } from './typography/index.js';
+
+export { deviceEmPt };
 
 /**
  * Fontes do motor: o HOST resolve família+variante → face (métricas + bytes
@@ -143,10 +145,6 @@ export function superscriptRaisePt(m: FaceMetrics, base: number, sup: number): n
  *  da área privada (F020…) — Symbol, Wingdings, Webdings, MT Extra… */
 export function isSymbolFont(font: LayoutFont): boolean {
   return ((font.metrics as { codePageRange1?: number }).codePageRange1 ?? 0) >>> 31 === 1 || font.glyphId(0xf020) !== 0;
-}
-
-export function deviceEmPt(sizePt: number): number {
-  return (Math.round((sizePt * 600) / 72) * 72) / 600;
 }
 
 // ───────────────────────── substituição de fontes ─────────────────────────

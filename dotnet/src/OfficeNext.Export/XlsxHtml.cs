@@ -5,7 +5,7 @@ using OfficeNext.Xlsx;
 namespace OfficeNext.Export;
 
 /// <summary>
-/// Export HTML — porta de sheet/packages/export/src/html.ts: uma &lt;table&gt;
+/// Export HTML — porta de sheet/packages/sheet-core/src/export/html.ts: uma &lt;table&gt;
 /// por planilha com estilos inline (fills, bordas, fonte, alinhamento, merges
 /// via colspan/rowspan, larguras MDW).
 /// </summary>

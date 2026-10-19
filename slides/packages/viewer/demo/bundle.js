@@ -836,39 +836,6 @@ var FontResolver = class _FontResolver {
   }
 };
 
-// ../../../shared/i18n/src/index.ts
-var DEFAULT_UI_LANG = "en";
-function matchUiLang(tag2) {
-  if (!tag2) return null;
-  if (/^pt\b/i.test(tag2)) return "pt";
-  if (/^en\b/i.test(tag2)) return "en";
-  return null;
-}
-function browserUiLang() {
-  const nav = typeof navigator !== "undefined" ? navigator : void 0;
-  const prefs = nav?.languages?.length ? nav.languages : nav?.language ? [nav.language] : [];
-  for (const tag2 of prefs) {
-    const m = matchUiLang(tag2);
-    if (m) return m;
-  }
-  return DEFAULT_UI_LANG;
-}
-function uiLang(el2) {
-  const forced = el2?.getAttribute("lang");
-  if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
-  return browserUiLang();
-}
-function pickLabels(lang, labels) {
-  const l = typeof lang === "string" ? lang : uiLang(lang);
-  return labels[l] ?? labels[DEFAULT_UI_LANG];
-}
-function onBrowserLangChange(cb) {
-  if (typeof window === "undefined") return () => {
-  };
-  window.addEventListener("languagechange", cb);
-  return () => window.removeEventListener("languagechange", cb);
-}
-
 // ../../node_modules/fflate/esm/browser.js
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -30703,7 +30670,40 @@ async function seekTo(el2, time, timeoutMs) {
   if (el2.readyState < 2) await wait("loadeddata");
 }
 
-// ../../../shared/viewer-controls/src/index.ts
+// ../../../shared/ui/src/i18n.ts
+var DEFAULT_UI_LANG = "en";
+function matchUiLang(tag2) {
+  if (!tag2) return null;
+  if (/^pt\b/i.test(tag2)) return "pt";
+  if (/^en\b/i.test(tag2)) return "en";
+  return null;
+}
+function browserUiLang() {
+  const nav = typeof navigator !== "undefined" ? navigator : void 0;
+  const prefs = nav?.languages?.length ? nav.languages : nav?.language ? [nav.language] : [];
+  for (const tag2 of prefs) {
+    const m = matchUiLang(tag2);
+    if (m) return m;
+  }
+  return DEFAULT_UI_LANG;
+}
+function uiLang(el2) {
+  const forced = el2?.getAttribute("lang");
+  if (forced) return matchUiLang(forced) ?? DEFAULT_UI_LANG;
+  return browserUiLang();
+}
+function pickLabels(lang, labels) {
+  const l = typeof lang === "string" ? lang : uiLang(lang);
+  return labels[l] ?? labels[DEFAULT_UI_LANG];
+}
+function onBrowserLangChange(cb) {
+  if (typeof window === "undefined") return () => {
+  };
+  window.addEventListener("languagechange", cb);
+  return () => window.removeEventListener("languagechange", cb);
+}
+
+// ../../../shared/ui/src/viewer-controls.ts
 var SVG_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 var ICONS = {
   // navegação

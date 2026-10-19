@@ -10,7 +10,7 @@ public sealed class SlidesPdfOptions
 }
 
 /// <summary>
-/// Export PDF vetorial do pptx — porta de slides/packages/export/src/pdf.ts:
+/// Export PDF vetorial do pptx — porta de slides/packages/slides-core/src/export/pdf.ts:
 /// 1 página por slide no tamanho do slide (EMU→pt). Desenha fundo, shapes
 /// (presets como paths bezier/poligonais), linhas/bordas, tabelas e texto
 /// posicionado com a MESMA lógica de layout do canvas (LayoutTextBody puro) —

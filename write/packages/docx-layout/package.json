@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "sideEffects": false,
-  "description": "Motor de layout do Write (sem DOM): cascata OOXML completa, paginação, tabelas, cabeçalhos/rodapés e objetos — mesma saída para canvas, PDF e o port .NET",
+  "description": "Motor de layout do Write (sem DOM): base tipográfica (TTF/OTF, quebra de linha, hifenização), cascata OOXML completa, paginação, tabelas, cabeçalhos/rodapés e objetos, e o gerador de PDF — mesma saída para canvas, PDF e o port .NET",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -12,8 +12,7 @@
   },
   "dependencies": {
     "@universal-office/docx-core": "*",
-    "@universal-office/layout": "*",
-    "@universal-office/pdf": "*",
-    "fflate": "^0.8.2"
+    "fflate": "^0.8.2",
+    "@universal-office/fonts": "file:../../../shared/fonts"
   }
 }

@@ -3,7 +3,7 @@ import type {
   UniversalWritePlugin,
   UniversalWritePluginHost,
 } from './plugins.js';
-import { pickLabels } from '@universal-office/i18n';
+import { pickLabels } from '@universal-office/ui';
 
 const LABELS = {
   en: { menu: 'Mention suggestions', choose: 'Choose a person', empty: 'No mentions found' },

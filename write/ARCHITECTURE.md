@@ -42,8 +42,14 @@ packages/
                Cada regra do Word é MEDIDA no oráculo sintético
                (`tools/layout-oracle`) e vira caso em `test/oracle/<grupo>`.
                Ver packages/docx-layout/README.md.
-  layout/      Base tipográfica: parse de TTF/OTF/TTC (cmap, hmtx, kern, GPOS),
-               métricas e o layout ANTIGO do canvas (layout="legacy").
+               Inclui `src/typography` (base tipográfica: parse de TTF/OTF/TTC
+               — cmap, hmtx, kern, GPOS —, métricas, hifenização e o layout
+               ANTIGO do canvas, layout="legacy") e `src/pdf-writer` (gerador
+               de PDF: writer, subset TrueType, Type0/Identity-H).
+               docx-core também traz as conversões sem DOM: `src/export`
+               (HTML/Markdown) e `src/odf` (ler/gravar .odt).
+  viewer/      Webcomponent <universal-document-viewer> (só leitura), mesmo
+               motor e mesmo `paintItems` do editor.
   editor/      Webcomponent <universal-write>. Pinta a árvore do docx-layout em
                canvas (caret, seleção e IME próprios — contenteditable NÃO
                consegue reproduzir o layout do app de referência); edição de

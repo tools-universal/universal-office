@@ -54,13 +54,14 @@ rasterizadores.
 |---|---|---|
 | **sheet-core** | `@universal-office/sheet-core` | Modelo + parse/serialize OOXML. `XlsxPackage` (container lossless), `parseXml`, leitura de workbook/worksheets/sharedStrings/styles/theme, `formatValue` pt-BR (oráculo 1:1). |
 | **sheet** | `@universal-office-pro/sheet` | O webcomponent `<universal-sheet>`. Renderiza o grid em canvas: células, estilos, merges, panes congeladas (4 quadrantes), rich text, charts, hyperlinks, edição inline. |
-| **export** | `@universal-office/sheet-export` | Exportadores puros (browser+node): CSV/TSV (`;`, RFC 4180, CRLF), Markdown (GFM), HTML (estilos inline), PDF (via `@universal-office/pdf`), ODS (OpenDocument) e SpreadsheetML 2003. Valores exibidos via `formatValue` pt-BR. |
+| **sheet-core/export** | (dentro de `@universal-office/sheet-core`) | Exportadores puros (browser+node) em `sheet-core/src/export`: CSV/TSV (`;`, RFC 4180, CRLF), Markdown (GFM), HTML (estilos inline), PDF e Markdown via office-converter (`vendor/`), ODS (OpenDocument) e SpreadsheetML 2003. Valores exibidos via `formatValue` pt-BR. |
+| **calc** | `@universal-office/sheet-calc` | Motor de cálculo (fórmulas, funções, recálculo) — ver `calc/`. |
 | _sheet-layout_ (futuro) | `@universal-office/sheet-layout` | Motor de grid extraído (hoje o layout vive no webcomponent; funções puras em `grid-layout.ts`). |
 
-> **Build cross-workspace**: `@universal-office/sheet-export` depende de
-> `@universal-office/pdf` via `file:../../../write/packages/pdf` (symlink npm) e dos
-> **`dist/` do write** — rode `npm run build` no `write/` antes do build do
-> sheet num checkout limpo (senão TS2307 "Cannot find module '@universal-office/pdf'").
+> **Build**: os exportadores de `sheet-core` (PDF e Markdown) usam o
+> office-converter de `vendor/` pelo `dist/` dele — num checkout limpo rode
+> `npm run install:converter` na raiz antes do build do sheet. O Sheet não
+> depende mais de nenhum pacote do `write/`.
 
 ## Stack
 

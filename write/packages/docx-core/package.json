@@ -2,6 +2,7 @@
   "name": "@universal-office/docx-core",
   "version": "0.0.1",
   "type": "module",
+  "sideEffects": false,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -9,6 +10,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "fflate": "^0.8.2"
-  }
+    "fflate": "^0.8.2",
+    "@tools-universal/office-converter": "file:../../../vendor/office-converter/packages/office-converter",
+    "@tools-universal/docs-processing": "file:../../../vendor/office-converter/vendor/docs-processing/packages/processing",
+    "@tools-universal/sheets-processing": "file:../../../vendor/office-converter/vendor/sheets-processing/packages/processing",
+    "@tools-universal/slides-processing": "file:../../../vendor/office-converter/vendor/slides-processing/packages/processing"
+  },
+  "description": "Modelo do documento do Write: leitura/gravação OOXML sem perdas, .doc binário, e conversões sem DOM (HTML, Markdown, .odt)"
 }

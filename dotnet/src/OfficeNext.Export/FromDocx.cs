@@ -3,7 +3,7 @@ using OfficeNext.Docx;
 namespace OfficeNext.Export;
 
 /// <summary>Caminho standalone: bytes .docx → ExportDoc → Markdown/HTML —
-/// porta de write/packages/export/src/from-docx.ts.</summary>
+/// porta de write/packages/docx-core/src/export/from-docx.ts.</summary>
 public static class FromDocx
 {
     /// <summary>Converte o FullDocument para a entrada dos exportadores (tabelas

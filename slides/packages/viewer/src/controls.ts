@@ -1,11 +1,11 @@
 import {
   ControlBar, controlsCss, cssVar,
-} from '@universal-office/viewer-controls';
-import { pickLabels, type UiLang } from '@universal-office/i18n';
+} from '@universal-office/ui';
+import { pickLabels, type UiLang } from '@universal-office/ui';
 
 /**
  * Controles do <universal-presentation-viewer> sobre a barra ÚNICA dos viewers
- * (shared/viewer-controls): aparecem por padrão, `nocontrols` desliga tudo e
+ * (shared/ui): aparecem por padrão, `nocontrols` desliga tudo e
  * um atributo booleano por item tira só ele: `nodownload`, `nofullscreen`,
  * `nothumbnails`… (`no` + nome do item, ver CONTROL_ITEMS).
  *

@@ -17,4 +17,3 @@ export {
 export {
   obfuscateOdttf, readDocxEmbedding, readPptxEmbedding, writeDocxEmbedding, writePptxEmbedding, type OpcPackage,
 } from './ooxml.js';
-export { openFontEmbeddingDialog, describeFontEmbedding, type FontEmbeddingDialogOptions } from './dialog.js';

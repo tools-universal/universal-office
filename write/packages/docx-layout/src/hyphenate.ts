@@ -1,5 +1,5 @@
 import type { FullDocument, PPr } from '@universal-office/docx-core';
-import { hyphenatorFor } from '@universal-office/layout';
+import { hyphenatorFor } from './typography/index.js';
 import type { DocContext } from './context.js';
 import type { Glyph } from './para.js';
 import { advanceTwips } from './para.js';
