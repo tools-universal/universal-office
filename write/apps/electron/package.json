@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "build:icon": "node build/gen-icon.mjs",
-    "dist": "electron-builder --publish never"
+    "dist": "electron-builder --publish never",
+    "smoke": "node build/smoke.mjs"
   },
   "devDependencies": {
     "electron": "^42.4.0",
@@ -40,6 +41,35 @@
       {
         "from": "../../../shared/fonts/node/system-fonts.cjs",
         "to": "system-fonts.cjs"
+      }
+    ],
+    "fileAssociations": [
+      {
+        "ext": "docx",
+        "name": "UniversalWrite.docx",
+        "description": "Documento do Word",
+        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "role": "Editor",
+        "rank": "Default",
+        "icon": "file-docx"
+      },
+      {
+        "ext": "doc",
+        "name": "UniversalWrite.doc",
+        "description": "Documento do Word 97-2003",
+        "mimeType": "application/msword",
+        "role": "Editor",
+        "rank": "Alternate",
+        "icon": "file-doc"
+      },
+      {
+        "ext": "odt",
+        "name": "UniversalWrite.odt",
+        "description": "Texto OpenDocument",
+        "mimeType": "application/vnd.oasis.opendocument.text",
+        "role": "Editor",
+        "rank": "Alternate",
+        "icon": "file-odt"
       }
     ],
     "win": {
