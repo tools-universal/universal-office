@@ -138,7 +138,14 @@ SCENES.write = async (pg, film) => {
   await pg.keyboard.press('Home'); await pg.keyboard.press('Shift+End'); await film.hold(600);
   await pg.locator('universal-write [data-a="bold"]').click(); await film.hold(500);
   await pg.locator('universal-write [data-a="italic"]').click(); await film.hold(700);
-  await pg.locator('universal-write [data-a="align:center"]').click(); await film.hold(900);
+  // a barra compacta recolhe o grupo Parágrafo em 960 px: abre o gatilho dele (ou o "⋮")
+  const center = pg.locator('universal-write [data-a="align:center"]');
+  if (!(await center.isVisible())) {
+    const trig = pg.locator('universal-write .uo-trig[data-g="para"]');
+    await ((await trig.count()) ? trig : pg.locator('universal-write [data-a="more"]')).click();
+    await film.hold(600);
+  }
+  await center.click(); await film.hold(900);
   await pg.keyboard.press('End');
   await pg.locator('universal-write [data-a="zoomout"]').click(); await film.hold(300);
   await pg.locator('universal-write [data-a="zoomout"]').click(); await film.hold(300);

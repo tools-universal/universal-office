@@ -1,0 +1,194 @@
+// Comandos do Write sobre a API PÚBLICA do <universal-write>. Comando cuja API
+// ainda não existe fica oculto (supports = typeof editor[m] === 'function'):
+// as frentes futuras (tabelas, controle de alterações, notas, ortografia…) só
+// precisam implementar o método — o botão/menu aparece sozinho.
+import { HIGHLIGHT_COLORS, type CommandRegistry, type Command } from '@universal-office/ui';
+import type { UniversalWriteElement, ViewMode } from './universal-write.js';
+import type { WriteApp } from './chrome-app.js';
+
+type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
+
+/** O que a barra montada oferece aos comandos (diálogos, painéis, modo). */
+export interface ChromeCtl {
+  state(): SelState;
+  find(replace: boolean): void;
+  comment(): void;
+  link(): void;
+  image(): void;
+  fontDialog(): void;
+  paragraphDialog(): void;
+  pageDialog(): void;
+  wordCount(): void;
+  shortcuts(): void;
+  about(): void;
+  compare(): void;
+  focusMode(): void;
+  inFocusMode(): boolean;
+  toolbarMode(): 'compact' | 'ribbon';
+  setToolbarMode(m: 'compact' | 'ribbon'): void;
+  toggleComments(): void;
+  requestFonts(): void;
+  flash(msg: string): void;
+  /** destaque/modo mudaram em app.accent/app.mode */
+  applyTheme(): void;
+}
+
+export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
+
+export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteElement, app: WriteApp, ctl: ChromeCtl): void {
+  const api = ed as unknown as Record<string, unknown>;
+  const has = (m: string) => (): boolean => typeof api[m] === 'function';
+  const call = (m: string, ...args: unknown[]): unknown => (api[m] as (...a: unknown[]) => unknown).apply(ed, args);
+  const canEdit = (): boolean => !app.comparing && !ed.isProtected();
+  const notComparing = (): boolean => !app.comparing;
+  const run = (): SelState['run'] => ctl.state().run;
+  const para = (): SelState['para'] => ctl.state().para;
+  const L = app.ui!.L;
+
+  const edit = (c: Omit<Command, 'isEnabled'> & { isEnabled?: () => boolean }): Command =>
+    ({ ...c, isEnabled: c.isEnabled ? () => canEdit() && c.isEnabled!() : canEdit });
+
+  const cmds: Command[] = [
+    // ── Arquivo ──
+    { id: 'new', label: { en: 'New', pt: 'Novo' }, tip: { en: 'New document', pt: 'Novo documento' }, icon: 'note_add', run: () => app.newDocument(), isEnabled: notComparing },
+    { id: 'open', label: { en: 'Open…', pt: 'Abrir…' }, icon: 'folder_open', shortcut: 'Ctrl+O', run: () => app.open(), isEnabled: notComparing },
+    { id: 'save', label: { en: 'Save', pt: 'Salvar' }, icon: 'save', shortcut: 'Ctrl+S', run: () => app.save(false), isEnabled: notComparing },
+    { id: 'saveAs', label: { en: 'Save as…', pt: 'Salvar como…' }, icon: 'save_as', shortcut: 'Ctrl+Shift+S', run: () => app.save(true), isEnabled: notComparing },
+    { id: 'fontsInFile', label: { en: 'Fonts in the file…', pt: 'Fontes no arquivo…' }, icon: 'font_download', run: () => app.fontEmbedding() },
+    { id: 'export:pdf', label: { en: 'PDF document (.pdf)', pt: 'Documento PDF (.pdf)' }, icon: 'picture_as_pdf', run: () => app.export('pdf') },
+    { id: 'export:odt', label: { en: 'OpenDocument (.odt)', pt: 'OpenDocument (.odt)' }, icon: 'description', run: () => app.export('odt') },
+    { id: 'export:html', label: { en: 'Web page (.html)', pt: 'Página da Web (.html)' }, icon: 'html', run: () => app.export('html') },
+    { id: 'export:md', label: { en: 'Markdown (.md)', pt: 'Markdown (.md)' }, icon: 'markdown', run: () => app.export('md') },
+    { id: 'export:xps', label: { en: 'XPS document (.xps)', pt: 'Documento XPS (.xps)' }, icon: 'draft', run: () => app.export('xps') },
+    { id: 'print', label: { en: 'Print', pt: 'Imprimir' }, icon: 'print', shortcut: 'Ctrl+P', run: () => ed.print(), isEnabled: notComparing },
+    { id: 'compare', label: { en: 'Compare with…', pt: 'Comparar com…' }, tip: { en: 'Compare the current document with another .docx', pt: 'Compara o documento atual com outro .docx' }, icon: 'compare', run: () => ctl.compare(), isEnabled: notComparing },
+
+    // ── Editar ──
+    edit({ id: 'undo', label: { en: 'Undo', pt: 'Desfazer' }, icon: 'undo', shortcut: 'Ctrl+Z', run: () => ed.undo() }),
+    edit({ id: 'redo', label: { en: 'Redo', pt: 'Refazer' }, icon: 'redo', shortcut: 'Ctrl+Y', run: () => ed.redo() }),
+    edit({ id: 'cut', label: { en: 'Cut', pt: 'Recortar' }, icon: 'content_cut', shortcut: 'Ctrl+X', run: () => ed.cut(), isEnabled: () => ed.selectedText().length > 0 }),
+    { id: 'copy', label: { en: 'Copy', pt: 'Copiar' }, icon: 'content_copy', shortcut: 'Ctrl+C', run: () => ed.copy(), isEnabled: () => notComparing() && ed.selectedText().length > 0 },
+    edit({ id: 'paste', label: { en: 'Paste', pt: 'Colar' }, icon: 'content_paste', shortcut: 'Ctrl+V', run: () => ed.paste() }),
+    edit({ id: 'pastePlain', label: { en: 'Paste without formatting', pt: 'Colar sem formatação' }, icon: 'content_paste_go', shortcut: 'Ctrl+Shift+V', run: () => ed.pastePlain() }),
+    { id: 'selectAll', label: { en: 'Select all', pt: 'Selecionar tudo' }, icon: 'select_all', shortcut: 'Ctrl+A', run: () => ed.selectAll(), isEnabled: notComparing },
+    { id: 'find', label: { en: 'Find', pt: 'Localizar' }, icon: 'search', shortcut: 'Ctrl+F', run: () => ctl.find(false), isEnabled: notComparing },
+    { id: 'replace', label: { en: 'Replace', pt: 'Substituir' }, icon: 'find_replace', shortcut: 'Ctrl+H', run: () => ctl.find(true), isEnabled: canEdit },
+    edit({ id: 'painter', label: { en: 'Format Painter', pt: 'Pincel de Formatação' }, icon: 'format_paint', run: () => ed.copyFormat(), isChecked: () => ed.painterActive() }),
+
+    // ── Exibir ──
+    ...(['print', 'web', 'read'] as ViewMode[]).map((v): Command => ({
+      id: `view:${v}`,
+      label: { print: { en: 'Print Layout', pt: 'Layout de Impressão' }, web: { en: 'Web Layout', pt: 'Layout da Web' }, read: { en: 'Read Mode', pt: 'Modo de Leitura' } }[v as 'print']!,
+      icon: { print: 'article', web: 'language', read: 'menu_book' }[v as 'print'],
+      run: () => ed.setView(v), isChecked: () => ed.getView() === v, isEnabled: notComparing,
+    })),
+    { id: 'focus', label: { en: 'Focus', pt: 'Foco' }, tip: { en: 'Focus mode — full screen (Esc to exit)', pt: 'Modo foco — tela inteira (Esc para sair)' }, icon: 'center_focus_strong', run: () => ctl.focusMode(), isChecked: () => ctl.inFocusMode() },
+    { id: 'marks', label: { en: 'Formatting marks', pt: 'Mostrar tudo' }, tip: { en: 'Show paragraph marks and other formatting symbols', pt: 'Mostrar marcas de parágrafo e outros símbolos de formatação' }, icon: 'format_paragraph', shortcut: 'Ctrl+Shift+8', run: () => ed.toggleMarks(), isChecked: () => ctl.state().marks },
+    { id: 'comments', label: { en: 'Show comments', pt: 'Mostrar comentários' }, icon: 'comment', run: () => ctl.toggleComments(), isChecked: () => app.commentsVisible, supports: () => true },
+    { id: 'zoomin', label: { en: 'Zoom in', pt: 'Ampliar' }, icon: 'zoom_in', run: () => ed.setZoom(Math.min(5, Math.round(ed.getZoom() * 110) / 100)) },
+    { id: 'zoomout', label: { en: 'Zoom out', pt: 'Reduzir' }, icon: 'zoom_out', run: () => ed.setZoom(Math.max(0.1, Math.round(ed.getZoom() / 1.1 * 100) / 100)) },
+    { id: 'zoom100', label: { en: '100%', pt: '100%' }, tip: { en: 'Zoom to 100%', pt: 'Zoom em 100%' }, icon: 'search', run: () => ed.setZoom(1) },
+    { id: 'toolbar:ribbon', label: { en: 'Ribbon (Word style)', pt: 'Faixa de opções (estilo Word)' }, icon: 'view_compact_alt', run: () => ctl.setToolbarMode('ribbon'), isChecked: () => ctl.toolbarMode() === 'ribbon' },
+    { id: 'toolbar:compact', label: { en: 'Compact toolbar (Docs style)', pt: 'Barra compacta (estilo Docs)' }, icon: 'toolbar', run: () => ctl.setToolbarMode('compact'), isChecked: () => ctl.toolbarMode() === 'compact' },
+    { id: 'statusbar', label: { en: 'Status bar', pt: 'Barra de status' }, icon: 'call_to_action', run: () => { ed.bottombar = !ed.bottombar; }, isChecked: () => ed.bottombar },
+
+    // ── Inserir ──
+    edit({ id: 'image', label: { en: 'Image…', pt: 'Imagem…' }, tip: { en: 'Insert image', pt: 'Inserir imagem' }, icon: 'image', run: () => ctl.image() }),
+    edit({ id: 'link', label: { en: 'Link…', pt: 'Link…' }, tip: { en: 'Insert link', pt: 'Inserir link' }, icon: 'link', shortcut: 'Ctrl+K', run: () => ctl.link(), isChecked: () => !!run().link }),
+    edit({ id: 'comment', label: { en: 'Comment', pt: 'Comentário' }, tip: { en: 'New comment', pt: 'Novo comentário' }, icon: 'add_comment', shortcut: 'Ctrl+Alt+M', run: () => ctl.comment() }),
+    edit({ id: 'pagebreak', label: { en: 'Page break', pt: 'Quebra de página' }, icon: 'insert_page_break', shortcut: 'Ctrl+Enter', run: () => ed.insertPageBreak() }),
+    edit({ id: 'field:page', label: { en: 'Page number', pt: 'Número da página' }, icon: 'numbers', run: () => ed.insertField('PAGE') }),
+    edit({ id: 'field:numpages', label: { en: 'Page count', pt: 'Número de páginas' }, icon: 'filter_none', run: () => ed.insertField('NUMPAGES') }),
+    edit({ id: 'field:date', label: { en: 'Date', pt: 'Data' }, tip: { en: 'Insert date field', pt: 'Inserir campo de data' }, icon: 'calendar_today', run: () => ed.insertField('DATE') }),
+    edit({ id: 'header', label: { en: 'Header', pt: 'Cabeçalho' }, icon: 'vertical_align_top', run: () => ed.enterHeaderFooter('header') }),
+    edit({ id: 'footer', label: { en: 'Footer', pt: 'Rodapé' }, icon: 'vertical_align_bottom', run: () => ed.enterHeaderFooter('footer') }),
+    { id: 'hf:close', label: { en: 'Close Header and Footer', pt: 'Fechar Cabeçalho e Rodapé' }, icon: 'close', run: () => ed.exitHeaderFooter() },
+    edit({ id: 'toc', label: { en: 'Update table of contents', pt: 'Atualizar sumário' }, icon: 'toc', run: () => ctl.flash(ed.updateToc() ? L.tocUpdated : L.noToc) }),
+    // frentes futuras: aparecem quando o método existir
+    edit({ id: 'table', label: { en: 'Table', pt: 'Tabela' }, tip: { en: 'Insert table', pt: 'Inserir tabela' }, icon: 'table', supports: has('insertTable'), run: () => call('insertTable', 3, 3) }),
+    edit({ id: 'footnote', label: { en: 'Footnote', pt: 'Nota de rodapé' }, tip: { en: 'Insert footnote', pt: 'Inserir nota de rodapé' }, icon: 'notes', shortcut: 'Ctrl+Alt+F', supports: has('insertFootnote'), run: () => call('insertFootnote') }),
+    edit({ id: 'endnote', label: { en: 'Endnote', pt: 'Nota de fim' }, tip: { en: 'Insert endnote', pt: 'Inserir nota de fim' }, icon: 'short_text', shortcut: 'Ctrl+Alt+D', supports: has('insertEndnote'), run: () => call('insertEndnote') }),
+    edit({ id: 'bookmark', label: { en: 'Bookmark', pt: 'Indicador' }, icon: 'bookmark', supports: has('insertBookmark'), run: () => call('insertBookmark') }),
+    edit({ id: 'textbox', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', supports: has('insertTextbox'), run: () => call('insertTextbox') }),
+    edit({ id: 'sectionbreak', label: { en: 'Section break (next page)', pt: 'Quebra de seção (próxima página)' }, icon: 'insert_page_break', supports: has('insertSectionBreak'), run: () => call('insertSectionBreak', 'nextPage') }),
+    edit({ id: 'columnbreak', label: { en: 'Column break', pt: 'Quebra de coluna' }, icon: 'view_column', supports: has('insertColumnBreak'), run: () => call('insertColumnBreak') }),
+
+    // ── Formatar: fonte ──
+    edit({ id: 'bold', label: { en: 'Bold', pt: 'Negrito' }, icon: 'format_bold', shortcut: 'Ctrl+B', run: () => ed.toggleRunProp('bold'), isChecked: () => !!run().bold }),
+    edit({ id: 'italic', label: { en: 'Italic', pt: 'Itálico' }, icon: 'format_italic', shortcut: 'Ctrl+I', run: () => ed.toggleRunProp('italic'), isChecked: () => !!run().italic }),
+    edit({ id: 'underline', label: { en: 'Underline', pt: 'Sublinhado' }, icon: 'format_underlined', shortcut: 'Ctrl+U', run: () => ed.toggleRunProp('underline'), isChecked: () => !!run().underline }),
+    edit({ id: 'strike', label: { en: 'Strikethrough', pt: 'Tachado' }, icon: 'format_strikethrough', run: () => ed.toggleRunProp('strike'), isChecked: () => !!run().strike }),
+    edit({ id: 'sup', label: { en: 'Superscript', pt: 'Sobrescrito' }, icon: 'superscript', shortcut: 'Ctrl+Shift+=', run: () => ed.toggleVertAlign('superscript'), isChecked: () => run().vertAlign === 'superscript' }),
+    edit({ id: 'sub', label: { en: 'Subscript', pt: 'Subscrito' }, icon: 'subscript', shortcut: 'Ctrl+=', run: () => ed.toggleVertAlign('subscript'), isChecked: () => run().vertAlign === 'subscript' }),
+    edit({ id: 'allCaps', label: { en: 'All caps', pt: 'Todas em maiúsculas' }, icon: 'uppercase', run: () => ed.toggleRunProp('allCaps'), isChecked: () => !!run().allCaps }),
+    edit({ id: 'smallCaps', label: { en: 'Small caps', pt: 'Versalete' }, icon: 'match_case', run: () => ed.toggleRunProp('smallCaps'), isChecked: () => !!run().smallCaps }),
+    edit({ id: 'case:upper', label: { en: 'UPPERCASE', pt: 'MAIÚSCULAS' }, run: () => ed.changeCase('upper') }),
+    edit({ id: 'case:lower', label: { en: 'lowercase', pt: 'minúsculas' }, run: () => ed.changeCase('lower') }),
+    edit({ id: 'grow', label: { en: 'Increase font size', pt: 'Aumentar Fonte' }, icon: 'text_increase', shortcut: 'Ctrl+]', run: () => ed.growFont(1) }),
+    edit({ id: 'shrink', label: { en: 'Decrease font size', pt: 'Diminuir Fonte' }, icon: 'text_decrease', shortcut: 'Ctrl+[', run: () => ed.growFont(-1) }),
+    edit({ id: 'color', label: { en: 'Font color', pt: 'Cor da Fonte' }, icon: 'format_color_text', run: () => ed.setColor(app.lastColor), color: () => `#${app.lastColor}` }),
+    edit({ id: 'highlight', label: { en: 'Text highlight color', pt: 'Cor do Realce do Texto' }, icon: 'format_ink_highlighter', run: () => ed.setHighlight(app.lastHighlight), color: () => HL_CSS[app.lastHighlight] }),
+    edit({ id: 'clear', label: { en: 'Clear formatting', pt: 'Limpar Toda a Formatação' }, icon: 'format_clear', shortcut: 'Ctrl+Space', run: () => ed.clearFormatting() }),
+    edit({ id: 'dlg:font', label: { en: 'Font…', pt: 'Fonte…' }, tip: { en: 'Font settings', pt: 'Configurações de fonte' }, icon: 'text_format', shortcut: 'Ctrl+D', run: () => ctl.fontDialog() }),
+
+    // ── Formatar: parágrafo ──
+    ...([['left', 'Align left', 'Alinhar à Esquerda', 'Ctrl+L'], ['center', 'Center', 'Centralizar', 'Ctrl+E'],
+      ['right', 'Align right', 'Alinhar à Direita', 'Ctrl+R'], ['both', 'Justify', 'Justificar', 'Ctrl+J']] as const).map(([a, en, pt, sc]) =>
+      edit({
+        id: `align:${a}`, label: { en, pt }, icon: a === 'both' ? 'format_align_justify' : `format_align_${a}`, shortcut: sc,
+        run: () => ed.setAlignment(a), isChecked: () => (para().alignment ?? 'left') === a,
+      })),
+    edit({ id: 'list:bullet', label: { en: 'Bullets', pt: 'Marcadores' }, icon: 'format_list_bulleted', run: () => ed.toggleList('bullet'), isChecked: () => para().numbering?.kind === 'bullet' }),
+    edit({ id: 'list:decimal', label: { en: 'Numbering', pt: 'Numeração' }, icon: 'format_list_numbered', run: () => ed.toggleList('decimal'), isChecked: () => para().numbering?.kind === 'decimal' }),
+    edit({ id: 'outdent', label: { en: 'Decrease indent', pt: 'Diminuir Recuo' }, icon: 'format_indent_decrease', run: () => ed.indent(-1) }),
+    edit({ id: 'indent', label: { en: 'Increase indent', pt: 'Aumentar Recuo' }, icon: 'format_indent_increase', run: () => ed.indent(1) }),
+    edit({ id: 'shading', label: { en: 'Shading', pt: 'Sombreamento' }, icon: 'format_color_fill', run: () => ed.setShading(app.lastShading), color: () => `#${app.lastShading}` }),
+    edit({ id: 'borders', label: { en: 'Borders', pt: 'Bordas' }, icon: 'border_outer', run: () => ed.toggleBorder(), isChecked: () => !!para().boxBorder }),
+    edit({ id: 'dlg:paragraph', label: { en: 'Paragraph…', pt: 'Parágrafo…' }, tip: { en: 'Paragraph settings', pt: 'Configurações de parágrafo' }, icon: 'format_textdirection_l_to_r', run: () => ctl.paragraphDialog() }),
+    edit({ id: 'dlg:page', label: { en: 'Page setup…', pt: 'Configurar página…' }, icon: 'settings', run: () => ctl.pageDialog() }),
+    edit({ id: 'pageColor', label: { en: 'Page Color', pt: 'Cor da Página' }, icon: 'format_color_fill', supports: has('setPageColor'), run: () => call('setPageColor') }),
+    edit({ id: 'watermark', label: { en: 'Watermark', pt: 'Marca d’Água' }, icon: 'branding_watermark', supports: has('setWatermark'), run: () => call('setWatermark') }),
+    edit({ id: 'hyphenation', label: { en: 'Hyphenation', pt: 'Hifenização' }, icon: 'horizontal_rule', supports: has('setHyphenation'), run: () => call('setHyphenation') }),
+
+    // ── Revisão ──
+    { id: 'comment:prev', label: { en: 'Previous', pt: 'Anterior' }, tip: { en: 'Previous comment', pt: 'Comentário anterior' }, icon: 'navigate_before', run: () => stepComment(-1), isEnabled: () => ed.getComments().length > 0 },
+    { id: 'comment:next', label: { en: 'Next', pt: 'Próximo' }, tip: { en: 'Next comment', pt: 'Próximo comentário' }, icon: 'navigate_next', run: () => stepComment(1), isEnabled: () => ed.getComments().length > 0 },
+    edit({ id: 'comment:delete', label: { en: 'Delete', pt: 'Excluir' }, tip: { en: 'Delete comment', pt: 'Excluir comentário' }, icon: 'delete', run: () => { for (const id of app.activeCommentIds) ed.removeComment(id); app.activeCommentIds = []; }, isEnabled: () => app.activeCommentIds.length > 0 }),
+    edit({ id: 'comment:deleteAll', label: { en: 'Delete all comments', pt: 'Excluir todos os comentários' }, icon: 'delete_sweep', run: () => { for (const c of ed.getComments()) ed.removeComment(c.id); }, isEnabled: () => ed.getComments().length > 0 }),
+    { id: 'enableEditing', label: { en: 'Enable Editing', pt: 'Habilitar Edição' }, icon: 'edit_document', run: () => app.enableEditing(), isEnabled: () => ed.isProtected(), supports: () => true },
+    { id: 'wordCount', label: { en: 'Word count', pt: 'Contar Palavras' }, icon: 'numbers', shortcut: 'Ctrl+Shift+G', run: () => ctl.wordCount() },
+    { id: 'spelling', label: { en: 'Spelling & grammar', pt: 'Ortografia e gramática' }, icon: 'spellcheck', shortcut: 'F7', supports: has('toggleSpellCheck'), run: () => call('toggleSpellCheck'), isChecked: () => typeof api['spellCheckEnabled'] === 'function' && !!call('spellCheckEnabled') },
+    edit({ id: 'trackChanges', label: { en: 'Track changes', pt: 'Controlar alterações' }, icon: 'track_changes', shortcut: 'Ctrl+Shift+E', supports: has('toggleTrackChanges'), run: () => call('toggleTrackChanges'), isChecked: () => typeof api['isTrackingChanges'] === 'function' && !!call('isTrackingChanges') }),
+    edit({ id: 'change:accept', label: { en: 'Accept', pt: 'Aceitar' }, icon: 'check_circle', supports: has('acceptChange'), run: () => call('acceptChange') }),
+    edit({ id: 'change:reject', label: { en: 'Reject', pt: 'Rejeitar' }, icon: 'cancel', supports: has('rejectChange'), run: () => call('rejectChange') }),
+    edit({ id: 'change:acceptAll', label: { en: 'Accept all changes', pt: 'Aceitar todas as alterações' }, icon: 'done_all', supports: has('acceptAllChanges'), run: () => call('acceptAllChanges') }),
+    edit({ id: 'change:rejectAll', label: { en: 'Reject all changes', pt: 'Rejeitar todas as alterações' }, icon: 'remove_done', supports: has('rejectAllChanges'), run: () => call('rejectAllChanges') }),
+    edit({ id: 'mailmerge', label: { en: 'Start Mail Merge', pt: 'Iniciar Mala Direta' }, icon: 'mail', supports: has('startMailMerge'), run: () => call('startMailMerge') }),
+    edit({ id: 'mergefield', label: { en: 'Insert Merge Field', pt: 'Inserir Campo de Mesclagem' }, icon: 'data_object', supports: has('insertMergeField'), run: () => call('insertMergeField') }),
+    // tabela (guia contextual)
+    ...([['row:above', 'Insert above', 'Inserir acima', 'insertRowAbove', 'add_row_above'], ['row:below', 'Insert below', 'Inserir abaixo', 'insertRowBelow', 'add_row_below'],
+      ['col:left', 'Insert left', 'Inserir à esquerda', 'insertColumnLeft', 'add_column_left'], ['col:right', 'Insert right', 'Inserir à direita', 'insertColumnRight', 'add_column_right'],
+      ['row:delete', 'Delete row', 'Excluir linha', 'deleteRow', 'delete'], ['col:delete', 'Delete column', 'Excluir coluna', 'deleteColumn', 'delete'],
+      ['table:delete', 'Delete table', 'Excluir tabela', 'deleteTable', 'delete_forever'], ['cells:merge', 'Merge cells', 'Mesclar células', 'mergeCells', 'cell_merge'],
+      ['cells:split', 'Split cells', 'Dividir células', 'splitCell', 'splitscreen_vertical_add']] as const).map(([id, en, pt, m, icon]) =>
+      edit({ id, label: { en, pt }, icon, supports: has(m), run: () => call(m) })),
+    edit({ id: 'image:delete', label: { en: 'Delete image', pt: 'Excluir imagem' }, icon: 'delete', supports: has('deleteSelectedImage'), run: () => call('deleteSelectedImage') }),
+
+    // ── Ferramentas / Ajuda ──
+    { id: 'fontAccess', label: { en: 'Use installed fonts…', pt: 'Usar as fontes instaladas…' }, icon: 'font_download', run: () => ctl.requestFonts(), supports: () => !ed.hasHostSystemFonts() && typeof (window as unknown as { queryLocalFonts?: unknown }).queryLocalFonts === 'function' },
+    { id: 'shortcuts', label: { en: 'Keyboard shortcuts', pt: 'Atalhos de teclado' }, icon: 'keyboard', shortcut: 'Ctrl+/', run: () => ctl.shortcuts() },
+    { id: 'about', label: { en: 'About Universal Write', pt: 'Sobre o Universal Write' }, icon: 'info', run: () => ctl.about() },
+  ];
+  reg.add(...cmds);
+
+  function stepComment(dir: 1 | -1): void {
+    const cs = ed.getComments();
+    if (!cs.length) return;
+    const cur = cs.findIndex((c) => app.activeCommentIds.includes(c.id));
+    const next = cs[(cur < 0 ? (dir > 0 ? 0 : cs.length - 1) : (cur + dir + cs.length) % cs.length)]!;
+    app.activeCommentIds = [next.id];
+    ed.goToComment(next.id);
+  }
+}
+
+export const HL_CSS: Record<string, string> = Object.fromEntries(HIGHLIGHT_COLORS.map((h) => [h.value, h.css]));

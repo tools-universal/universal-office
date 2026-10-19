@@ -582,12 +582,13 @@ export class UniversalWriteElement extends HTMLElement {
   // ─────────────────────── chrome (barras) ───────────────────────
 
   static get observedAttributes(): string[] {
-    return ['topbar', 'bottombar', 'layout', 'lang'];
+    return ['topbar', 'bottombar', 'toolbar', 'layout', 'lang'];
   }
 
   attributeChangedCallback(name: string): void {
     // lang: idioma da interface (barras); sem ele, o do navegador — inglês por padrão
-    if ((name === 'topbar' || name === 'bottombar' || name === 'lang') && this.initialized) void this.updateChrome();
+    // toolbar="compact|ribbon": estilo da barra superior (compacta é o padrão)
+    if ((name === 'topbar' || name === 'bottombar' || name === 'toolbar' || name === 'lang') && this.initialized) void this.updateChrome();
     // layout="legacy": volta ao layout antigo do canvas (o motor é o padrão)
     if (name === 'layout' && this.model) {
       if (this.legacyRequested() && this.cellEdit) this.exitCell();
