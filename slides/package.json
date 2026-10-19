@@ -8,7 +8,7 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w @universal-office/slides-core && npm run build -w @universal-office/presentation-viewer && npm run build -w @universal-office-pro/slides",
     "test": "npm run test --workspaces --if-present",
     "lab": "powershell -ExecutionPolicy Bypass -File tools/ppt-lab/gen-reference.ps1",
     "electron": "npm start --prefix apps/electron"

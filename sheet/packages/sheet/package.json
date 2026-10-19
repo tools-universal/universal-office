@@ -8,7 +8,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "build:demo": "esbuild demo/main.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal-office/sheet-core=../sheet-core/src/index.ts --alias:@universal-office/sheet-calc=../calc/src/index.ts --alias:@universal-office/fonts=../../../shared/fonts/src/index.ts --alias:@universal-office/ui=../../../shared/ui/src/index.ts --alias:@universal-office/charts=../../../shared/charts/src/index.ts --alias:@universal-office/slides-core=../../../slides/packages/slides-core/src/index.ts",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "build:pkg": "node ../../../tools/build-pkg.mjs sheet"
   },
   "dependencies": {
     "@universal-office/sheet-calc": "*",
@@ -17,5 +18,20 @@
     "@universal-office/slides-core": "file:../../../slides/packages/slides-core",
     "@universal-office/fonts": "file:../../../shared/fonts",
     "@universal-office/ui": "file:../../../shared/ui"
+  },
+  "publish": {
+    "description": "Universal Sheet — the <universal-sheet> web component: an .xlsx editor with a canvas grid faithful to Microsoft Excel.",
+    "keywords": [
+      "xlsx",
+      "xls",
+      "excel",
+      "spreadsheet",
+      "editor",
+      "web-component",
+      "custom-element",
+      "canvas",
+      "universal-office"
+    ],
+    "license": "paid"
   }
 }

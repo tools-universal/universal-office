@@ -107,3 +107,13 @@ dentro de um core importam de `../core.js` (não do `index.ts`), para não criar
 ciclo. Código que só delega ao office-converter (`vendor/`) não justifica
 pacote nem cópia local — e os cores têm `sideEffects: false` para o conversor
 não entrar nos bundles de quem não o usa.
+
+Publicação: só os 6 PRODUTOS vão para o registro (`write`, `document-viewer`,
+`compare`, `sheet`, `presentation-viewer`, `slides`), cada um AUTOSSUFICIENTE
+— `npm run build:pkg` (`tools/build-pkg.mjs`) gera `<pacote>/publish/` (fora
+do git) com tudo dentro: pacotes internos pelo src, dependências npm, partes
+sob demanda em `chunks/`, `index.d.ts` único e package.json sem dependências.
+Publicar de dentro de `publish/`. Os 8 internos são `private` e nunca são
+publicados. O `dist/` é outra coisa: saída do tsc que os pacotes do monorepo
+consomem entre si (ordem de build: write → slides → sheet; o Sheet usa o
+`dist/` do slides-core).

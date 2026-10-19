@@ -69,3 +69,6 @@ site/assets/fonts/liberationserif-*.ttf
 site/assets/fonts/liberationmono-*.ttf
 site/assets/fonts/LICENSE-carlito.txt
 site/assets/fonts/LICENSE-caladea.txt
+
+# Build de publicação dos produtos (tools/build-pkg.mjs) — publicar de dentro dela
+**/packages/*/publish/

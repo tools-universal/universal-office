@@ -1,6 +1,7 @@
 {
   "name": "@universal-office/docx-layout",
   "version": "0.0.1",
+  "private": true,
   "type": "module",
   "sideEffects": false,
   "description": "Motor de layout do Write (sem DOM): base tipográfica (TTF/OTF, quebra de linha, hifenização), cascata OOXML completa, paginação, tabelas, cabeçalhos/rodapés e objetos, e o gerador de PDF — mesma saída para canvas, PDF e o port .NET",

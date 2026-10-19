@@ -8,10 +8,23 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "build:demo": "esbuild src/index.ts --bundle --format=esm --outfile=demo/bundle.js --alias:@universal-office/docx-core=../docx-core/src/index.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:pkg": "node ../../../tools/build-pkg.mjs compare"
   },
   "dependencies": {
     "@universal-office/docx-core": "*",
     "@universal-office/ui": "file:../../../shared/ui"
+  },
+  "publish": {
+    "description": "Universal Office — document comparison for .docx: the diff engine and the <universal-write-diff> web component.",
+    "keywords": [
+      "docx",
+      "word",
+      "diff",
+      "compare",
+      "web-component",
+      "custom-element",
+      "universal-office"
+    ]
   }
 }

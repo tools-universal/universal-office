@@ -1,0 +1,118 @@
+#!/usr/bin/env node
+/**
+ * build-pkg — build de PUBLICAÇÃO dos produtos (os web components): cada um sai
+ * AUTOSSUFICIENTE em `<pacote>/publish/` (fora do git), sem dependência nenhuma
+ * no registro. Publicar = `npm publish` DENTRO dessa pasta. O `dist/` continua
+ * sendo a saída do tsc que os pacotes do monorepo consomem entre si.
+ *
+ *   - index.js: ESM minificado com TUDO dentro — os pacotes internos
+ *     (@universal-office/* pelo src) e as dependências npm (Material, fflate…);
+ *   - chunks/: o que o código já importa sob demanda (padrões de hifenização,
+ *     barra do editor, conversões raras) — baixado só quando usado;
+ *   - index.d.ts: tipos num arquivo só (os dos pacotes internos embutidos);
+ *   - package.json publicável (sem dependencies) + README.md.
+ *
+ * Os pacotes internos (fonts, charts, ui, docx-core, docx-layout, sheet-core,
+ * sheet-calc, slides-core) são `private` e NUNCA são publicados: só existem
+ * dentro desses bundles. O bloco `publish` do package.json de cada produto dá
+ * a descrição/palavras-chave/licença do manifesto publicado.
+ *
+ * Uso: node tools/build-pkg.mjs [produto…]   (sem argumentos: todos)
+ */
+import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
+import { copyFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const p = (...s) => path.join(ROOT, ...s);
+
+/** Produtos publicados: pasta → workspace dono (de onde vêm esbuild e node_modules). */
+export const PRODUCTS = {
+  write: { dir: 'write/packages/editor', project: 'write' },
+  'document-viewer': { dir: 'write/packages/viewer', project: 'write' },
+  compare: { dir: 'write/packages/compare', project: 'write' },
+  sheet: { dir: 'sheet/packages/sheet', project: 'sheet' },
+  'presentation-viewer': { dir: 'slides/packages/viewer', project: 'slides' },
+  slides: { dir: 'slides/packages/slides', project: 'slides' },
+};
+
+/** Pacotes internos → src (embutidos em todo bundle que os usa). */
+const INTERNAL = {
+  '@universal-office/fonts': 'shared/fonts/src/index.ts',
+  '@universal-office/charts': 'shared/charts/src/index.ts',
+  '@universal-office/ui': 'shared/ui/src/index.ts',
+  '@universal-office/docx-core': 'write/packages/docx-core/src/index.ts',
+  '@universal-office/docx-layout': 'write/packages/docx-layout/src/index.ts',
+  '@universal-office/compare': 'write/packages/compare/src/index.ts',
+  '@universal-office/sheet-core': 'sheet/packages/sheet-core/src/index.ts',
+  '@universal-office/sheet-calc': 'sheet/packages/calc/src/index.ts',
+  '@universal-office/slides-core': 'slides/packages/slides-core/src/index.ts',
+  '@universal-office/presentation-viewer': 'slides/packages/viewer/src/index.ts',
+};
+
+async function buildProduct(id) {
+  const { dir, project } = PRODUCTS[id];
+  const pkgDir = p(dir);
+  const src = JSON.parse(readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
+  const publish = src.publish ?? {};
+  const req = createRequire(p(project, 'package.json'));
+  const esbuild = req('esbuild');
+  const dist = path.join(pkgDir, 'publish');
+  rmSync(dist, { recursive: true, force: true }); // publish/ só tem arquivos gerados (sem junções)
+
+  // 1. JS: tudo dentro, partes sob demanda em chunks/
+  const alias = Object.fromEntries(Object.entries(INTERNAL).filter(([n]) => n !== src.name).map(([n, f]) => [n, p(f)]));
+  await esbuild.build({
+    entryPoints: { index: path.join(pkgDir, 'src', 'index.ts') },
+    outdir: dist, bundle: true, format: 'esm', platform: 'browser', target: 'es2022',
+    minify: true, splitting: true, chunkNames: 'chunks/[name]-[hash]', legalComments: 'linked',
+    alias, absWorkingDir: pkgDir, nodePaths: [p(project, 'node_modules')], logLevel: 'warning',
+  });
+
+  // 2. Tipos num arquivo só: tsconfig temporário com os internos pelo src
+  const tsconfig = path.join(pkgDir, '.tsconfig.pkg.json');
+  const rel = (f) => path.relative(pkgDir, p(f)).replace(/\\/g, '/');
+  writeFileSync(tsconfig, JSON.stringify({
+    extends: './tsconfig.json',
+    // rootDir na raiz: os fontes dos pacotes internos entram no programa
+    compilerOptions: { noEmit: false, rootDir: path.relative(pkgDir, ROOT).replace(/\\/g, '/') || '.', baseUrl: '.', paths: Object.fromEntries(Object.entries(INTERNAL).map(([n, f]) => [n, [rel(f)]])) },
+    include: ['src'],
+  }, null, 2));
+  try {
+    const dts = req.resolve('dts-bundle-generator/dist/bin/dts-bundle-generator.js', { paths: [p('write')] });
+    execFileSync(process.execPath, [dts, '--project', tsconfig, '--no-check', '--silent', '-o', path.join(dist, 'index.d.ts'), path.join(pkgDir, 'src', 'index.ts')], { cwd: pkgDir, stdio: 'inherit' });
+  } finally {
+    rmSync(tsconfig, { force: true });
+  }
+
+  // 3. Manifesto publicável: sem dependências (tudo está no bundle)
+  const manifest = {
+    name: src.name,
+    version: src.version,
+    description: publish.description ?? src.description,
+    type: 'module',
+    main: './index.js',
+    module: './index.js',
+    types: './index.d.ts',
+    exports: { '.': { types: './index.d.ts', import: './index.js' } },
+    // o componente se auto-registra (customElements.define) ao importar
+    sideEffects: true,
+    files: ['index.js', 'index.d.ts', 'chunks', '*.LEGAL.txt', 'README.md'],
+    ...(publish.keywords ? { keywords: publish.keywords } : {}),
+    ...(publish.license ? { license: publish.license } : {}),
+  };
+  writeFileSync(path.join(dist, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
+  const readme = path.join(pkgDir, 'README.md');
+  if (existsSync(readme)) copyFileSync(readme, path.join(dist, 'README.md'));
+  console.log(`build-pkg: ${src.name}@${src.version} → ${path.relative(ROOT, dist)}`);
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const ids = process.argv.slice(2);
+  for (const id of ids.length ? ids : Object.keys(PRODUCTS)) {
+    if (!PRODUCTS[id]) { console.error(`build-pkg: produto desconhecido "${id}" (${Object.keys(PRODUCTS).join(', ')})`); process.exit(1); }
+    await buildProduct(id);
+  }
+}
