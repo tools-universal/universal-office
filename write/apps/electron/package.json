@@ -9,6 +9,7 @@
   "scripts": {
     "start": "electron .",
     "build:icon": "node build/gen-icon.mjs",
+    "predist": "npm run build:icon",
     "dist": "electron-builder --publish never",
     "smoke": "node build/smoke.mjs"
   },

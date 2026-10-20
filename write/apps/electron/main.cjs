@@ -6,7 +6,7 @@
 // comando / associação de arquivo / open-file (macOS), recentes do SO e Jump
 // List, Salvar/Salvar como/Exportar nativos e impressão com o diálogo do
 // sistema. A superfície exposta ao renderer está documentada em preload.cjs.
-const { app, BrowserWindow, ipcMain, dialog, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeImage, session } = require('electron');
 const http = require('node:http');
 const {
   createReadStream, statSync, readFileSync, writeFileSync, existsSync,
@@ -14,17 +14,21 @@ const {
 } = require('node:fs');
 const { join, normalize, extname, basename, dirname, resolve } = require('node:path');
 const { tmpdir } = require('node:os');
+const { pathToFileURL } = require('node:url');
 
 const APP_ID = 'com.tools-universal.universal-write'; // = build.appId (package.json)
 
-// ── Modo de teste (smoke) ──
+// ── Modo de teste (smoke) — só fora do app empacotado ──
 // WN_USER_DATA isola o perfil (e com ele o lock de instância única) do app do
 // usuário; WN_SMOKE_LOG grava os eventos em JSON por linha, as janelas não
 // aparecem (nada de roubar o foco) e os recentes/Jump List do SO não são
 // tocados; WN_SMOKE_RENDERER é um script injetado em cada janela depois de
 // carregar (console.log '[smoke] …' do renderer vai para o log).
-if (process.env.WN_USER_DATA) app.setPath('userData', process.env.WN_USER_DATA);
-const SMOKE_LOG = process.env.WN_SMOKE_LOG || '';
+const DEV = !app.isPackaged;
+const devEnv = (name) => (DEV ? process.env[name] || '' : '');
+if (devEnv('WN_USER_DATA')) app.setPath('userData', devEnv('WN_USER_DATA'));
+const SMOKE_LOG = devEnv('WN_SMOKE_LOG');
+const SMOKE_RENDERER = devEnv('WN_SMOKE_RENDERER');
 const SMOKE = !!SMOKE_LOG;
 function smokeLog(event, data = {}) {
   if (!SMOKE) return;
@@ -56,6 +60,23 @@ function docPathsFromArgv(argv, cwd) {
 }
 const wantsNewWindow = (argv) => argv.includes('--new-window');
 
+// ── Origem do app e guarda do IPC ──
+// O renderer é servido em http://127.0.0.1:<porta>; só frames dessa origem
+// falam com o main (um iframe/pop-up de outra origem não chega à ponte).
+let port = 0;
+const appOrigin = () => `http://127.0.0.1:${port}`;
+const isAppUrl = (url) => port !== 0 && typeof url === 'string' && url.startsWith(appOrigin() + '/');
+const fromApp = (e) => isAppUrl(e.senderFrame?.url);
+function handle(channel, fn) {
+  ipcMain.handle(channel, (e, ...args) => {
+    if (!fromApp(e)) throw new Error(`IPC ${channel} recusado: origem ${e.senderFrame?.url ?? '?'}`);
+    return fn(e, ...args);
+  });
+}
+function on(channel, fn) {
+  ipcMain.on(channel, (e, ...args) => { if (fromApp(e)) fn(e, ...args); });
+}
+
 // Mark-of-the-Web: stream alternativo NTFS "Zone.Identifier" com ZoneId>=3
 // (Internet/Untrusted) — exatamente o critério do Word p/ Modo Protegido.
 function hasMarkOfTheWeb(filePath) {
@@ -85,30 +106,38 @@ function readDocument(filePath) {
 const { warmFontIndex, listFontFamilies, resolveFonts } = require(app.isPackaged
   ? join(process.resourcesPath, 'system-fonts.cjs')
   : '../../../shared/fonts/node/system-fonts.cjs');
-ipcMain.handle('wn:resolve-fonts', (_e, families) => resolveFonts(families));
-ipcMain.handle('wn:list-fonts', () => listFontFamilies());
+handle('wn:resolve-fonts', (_e, families) => resolveFonts(families));
+handle('wn:list-fonts', () => listFontFamilies());
 
 // ── Estado do documento por janela ──
 // docPath: arquivo atual (Salvar grava nele); known: caminhos que o main
-// entregou a esta janela — o renderer só grava sem diálogo num deles;
-// ready/queue: arquivos abertos pelo SO esperam o renderer assinar onOpenFile.
+// entregou a esta janela — o renderer só grava sem diálogo num deles.
+// Arquivos abertos pelo SO: queue (esperando o renderer assinar onOpenFile,
+// ready) → inflight (enviados, esperando o renderer confirmar que carregou,
+// wn:file-opened) → só então a janela vira dona do arquivo (adoptPath).
 const docState = new WeakMap();
 const docStateOf = (win) => {
   let st = docState.get(win);
-  if (!st) docState.set(win, (st = { docPath: null, known: new Set(), ready: false, queue: [], exports: new Map() }));
+  if (!st) {
+    docState.set(win, (st = {
+      docPath: null, known: new Set(), ready: false, queue: [], inflight: new Map(), exports: new Map(),
+    }));
+  }
   return st;
 };
 const pathKey = (p) => (process.platform === 'win32' ? resolve(p).toLowerCase() : resolve(p));
 
 /** Recentes do SO: lista "Recentes" do Windows (e a categoria da Jump List),
- *  menu Abrir Recente / Dock do macOS. */
+ *  menu Abrir Recente / Dock do macOS. Em dev não polui a lista do electron.exe. */
 function addRecent(filePath) {
-  if (SMOKE) { smokeLog('recent', { path: filePath }); return; }
+  smokeLog('recent', { path: filePath });
+  if (!app.isPackaged) return;
   try { app.addRecentDocument(filePath); } catch (err) { console.warn('[wn] addRecentDocument:', err?.message); }
 }
 
-/** Associa o arquivo à janela: Salvar passa a gravar nele, entra nos recentes. */
+/** A janela passa a ser dona do arquivo: Salvar grava nele, entra nos recentes. */
 function adoptPath(win, filePath) {
+  if (!win || win.isDestroyed()) return;
   const st = docStateOf(win);
   st.docPath = filePath;
   st.known.add(pathKey(filePath));
@@ -116,7 +145,21 @@ function adoptPath(win, filePath) {
   addRecent(filePath);
 }
 
-ipcMain.handle('wn:open-docx', async (e) => {
+/** Página nova (reload, navegação) ou renderer morto: a página que carregou o
+ *  documento acabou. O que foi enviado e não confirmado volta para a fila e
+ *  espera um novo onOpenFile; a janela deixa de ser dona do arquivo. */
+function resetPage(win, why) {
+  const st = docStateOf(win);
+  st.ready = false;
+  st.queue.unshift(...st.inflight.values());
+  st.inflight.clear();
+  st.docPath = null;
+  st.known.clear();
+  st.exports.clear();
+  smokeLog('page-reset', { window: win.id, why, queued: st.queue.length });
+}
+
+handle('wn:open-docx', async (e) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   const result = await dialog.showOpenDialog(win, {
     title: 'Abrir documento',
@@ -125,13 +168,13 @@ ipcMain.handle('wn:open-docx', async (e) => {
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   const doc = readDocument(result.filePaths[0]);
-  if (win) adoptPath(win, doc.path);
+  adoptPath(win, doc.path); // o renderer pediu o arquivo: abrir é a resposta
   return doc;
 });
 
 // Segundo documento para a comparação ("Comparar com…"). Sem MOTW: o diff é
 // somente leitura, não passa pelo Modo Protegido.
-ipcMain.handle('wn:open-docx-compare', async (e, title) => {
+handle('wn:open-docx-compare', async (e, title) => {
   const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), {
     title: title || 'Comparar com…',
     filters: [{ name: 'Documento do Word', extensions: ['docx'] }],
@@ -147,28 +190,42 @@ ipcMain.handle('wn:open-docx-compare', async (e, title) => {
 });
 
 // ── Arquivos abertos pelo SO (argv, 2ª instância, open-file do macOS) ──
+let deliverySeq = 0;
 function flushOpenQueue(win) {
   const st = docStateOf(win);
   if (!st.ready || win.isDestroyed()) return;
   for (const doc of st.queue.splice(0)) {
+    st.inflight.set(doc.id, doc);
     win.webContents.send('wn:open-file', doc);
-    smokeLog('open-file-sent', { window: win.id, name: doc.name, path: doc.path, size: doc.bytes.byteLength, motw: doc.motw });
+    smokeLog('open-file-sent', { window: win.id, id: doc.id, name: doc.name, path: doc.path, size: doc.bytes.byteLength, motw: doc.motw });
   }
 }
 // O renderer assinou onOpenFile: entrega o que chegou antes dele.
-ipcMain.on('wn:open-file-ready', (e) => {
+on('wn:open-file-ready', (e) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   if (!win) return;
   docStateOf(win).ready = true;
   flushOpenQueue(win);
 });
+// O renderer carregou (ok) ou recusou o documento entregue.
+on('wn:file-opened', (e, id, ok) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (!win) return;
+  const st = docStateOf(win);
+  const doc = st.inflight.get(id);
+  if (!doc) return; // ack repetido (mais de um assinante) ou de outra página
+  st.inflight.delete(id);
+  smokeLog('file-opened', { window: win.id, id, ok: !!ok, path: doc.path });
+  if (ok) adoptPath(win, doc.path);
+});
 
-/** Pode receber um documento no lugar: sem arquivo, sem alterações e sem
- *  nada na fila (o "Documento1" intocado que o Word substitui). */
+/** Pode receber um documento no lugar: renderer pronto, sem arquivo, sem
+ *  alterações e nada em trânsito (o "Documento1" intocado que o Word
+ *  substitui). Janela sem assinante de onOpenFile não é reaproveitada. */
 function isReusable(win) {
   if (!win || win.isDestroyed()) return false;
   const st = docStateOf(win);
-  return !st.docPath && st.queue.length === 0 && !closeStateOf(win).dirty;
+  return st.ready && !st.docPath && st.queue.length === 0 && st.inflight.size === 0 && !closeStateOf(win).dirty;
 }
 
 function deliverPath(win, filePath) {
@@ -177,10 +234,9 @@ function deliverPath(win, filePath) {
     dialog.showErrorBox('Universal Write', `Não foi possível abrir "${filePath}".\n${err?.message ?? err}`);
     return;
   }
-  const st = docStateOf(win);
-  adoptPath(win, filePath);
-  st.queue.push(doc);
-  smokeLog('open-file-queued', { window: win.id, path: filePath });
+  doc.id = ++deliverySeq;
+  docStateOf(win).queue.push(doc);
+  smokeLog('open-file-queued', { window: win.id, id: doc.id, path: filePath });
   flushOpenQueue(win);
 }
 
@@ -251,11 +307,24 @@ function toBuffer(bytes) {
 }
 
 /** Grava num temporário ao lado e renomeia por cima: uma falha no meio não
- *  deixa o documento truncado. */
+ *  deixa o documento truncado. O Mark-of-the-Web (ADS Zone.Identifier) do
+ *  original é copiado para o novo — baixado da internet continua marcado.
+ *  Arquivo com hard links (nlink > 1) é gravado no lugar, para não separar os
+ *  links. Limite conhecido: o rename troca o arquivo, então ACL explícita do
+ *  original não passa (o novo herda a da pasta), nem outros ADS além do MOTW. */
 function writeFileAtomic(target, buf) {
+  let st = null;
+  try { st = statSync(target); } catch { /* arquivo novo */ }
+  if (st && st.nlink > 1) { writeFileSync(target, buf); return; }
   const tmp = join(dirname(target), `~$${basename(target)}.${process.pid}.tmp`);
   try {
     writeFileSync(tmp, buf);
+    if (st && process.platform === 'win32') {
+      // (copyFileSync para um ADS dá EINVAL; ler + gravar o stream funciona)
+      let zone = null;
+      try { zone = readFileSync(target + ':Zone.Identifier'); } catch { /* sem MOTW */ }
+      if (zone) writeFileSync(tmp + ':Zone.Identifier', zone);
+    }
     renameSync(tmp, target);
   } catch (err) {
     try { unlinkSync(tmp); } catch { /* não chegou a existir */ }
@@ -269,7 +338,7 @@ const defaultDir = (win) => {
   return p ? dirname(p) : app.getPath('documents');
 };
 
-ipcMain.handle('wn:save-file', async (e, opts = {}) => {
+handle('wn:save-file', async (e, opts = {}) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   const st = docStateOf(win);
   const buf = toBuffer(opts.bytes);
@@ -285,14 +354,12 @@ ipcMain.handle('wn:save-file', async (e, opts = {}) => {
   }
   if (!target) {
     const base = opts.path ? join(dirname(String(opts.path)), suggestedName) : join(defaultDir(win), suggestedName);
-    const r = await dialog.showSaveDialog(win, {
+    target = await pickSavePath(win, {
       title: opts.title || 'Salvar como',
       defaultPath: base,
-      filters: [FORMATS[fmt]],
-      properties: ['showOverwriteConfirmation', 'createDirectory'],
+      formats: [fmt],
     });
-    if (r.canceled || !r.filePath) return null;
-    target = r.filePath;
+    if (!target) return null;
   }
   writeFileAtomic(target, buf);
   adoptPath(win, target);
@@ -300,34 +367,58 @@ ipcMain.handle('wn:save-file', async (e, opts = {}) => {
   return { path: target, name: basename(target) };
 });
 
+/** Diálogo Salvar com a extensão garantida. Se o nome digitado não tem uma
+ *  extensão dos filtros, o SO confirmou a sobrescrita de OUTRO nome: com a
+ *  extensão acrescentada e o arquivo existente, confirma de novo (Não →
+ *  reabre o diálogo). Nunca sobrescreve em silêncio. */
+async function pickSavePath(win, { title, defaultPath, formats }) {
+  for (;;) {
+    const r = await dialog.showSaveDialog(win, {
+      title, defaultPath,
+      filters: formats.map((f) => FORMATS[f]),
+      properties: ['showOverwriteConfirmation', 'createDirectory'],
+    });
+    if (r.canceled || !r.filePath) return null;
+    const fmt = formatOfPath(r.filePath);
+    if (fmt && formats.includes(fmt)) return r.filePath;
+    const filePath = `${r.filePath}.${FORMATS[formats[0]].extensions[0]}`;
+    if (!existsSync(filePath)) return filePath;
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'warning',
+      title,
+      message: `"${basename(filePath)}" já existe. Deseja substituí-lo?`,
+      buttons: ['Substituir', 'Não'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    });
+    if (response === 0) return filePath;
+    defaultPath = filePath;
+  }
+}
+
 // ── Exportar (PDF/HTML/ODT/XPS) ──
 // Em duas etapas: o usuário escolhe destino e formato; só então o renderer
 // gera os bytes daquele formato. O token amarra a gravação ao destino escolhido.
 let exportSeq = 0;
-ipcMain.handle('wn:export-pick', async (e, opts = {}) => {
+handle('wn:export-pick', async (e, opts = {}) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   const formats = (Array.isArray(opts.formats) && opts.formats.length ? opts.formats : EXPORT_FORMATS)
     .map((f) => String(f).toLowerCase()).filter((f) => FORMATS[f]);
   if (!formats.length) throw new Error('nenhum formato de exportação válido');
   const stem = basename(String(opts.suggestedName || 'Documento')).replace(/\.[^.]+$/, '');
-  const r = await dialog.showSaveDialog(win, {
+  const filePath = await pickSavePath(win, {
     title: opts.title || 'Exportar',
     defaultPath: join(defaultDir(win), `${stem}.${FORMATS[formats[0]].extensions[0]}`),
-    filters: formats.map((f) => FORMATS[f]),
-    properties: ['showOverwriteConfirmation', 'createDirectory'],
+    formats,
   });
-  if (r.canceled || !r.filePath) return null;
-  let filePath = r.filePath;
-  let format = formatOfPath(filePath);
-  if (!format || !formats.includes(format)) { // extensão fora da lista → 1º formato
-    format = formats[0];
-    filePath += `.${FORMATS[format].extensions[0]}`;
-  }
+  if (!filePath) return null;
+  const format = formatOfPath(filePath);
   const token = `x${++exportSeq}`;
   docStateOf(win).exports.set(token, { path: filePath, format });
   return { token, path: filePath, name: basename(filePath), format };
 });
-ipcMain.handle('wn:export-write', (e, token, bytes) => {
+handle('wn:export-write', (e, token, bytes) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   const st = docStateOf(win);
   const pick = st.exports.get(token);
@@ -342,11 +433,12 @@ ipcMain.handle('wn:export-write', (e, token, bytes) => {
 
 // ── Imprimir com o diálogo do sistema ──
 // Sem conteúdo, imprime a própria página; com `html` ou `pages` (imagens das
-// páginas "como impressas"), imprime-o numa janela oculta. O diálogo do SO dá
-// impressora, cópias e intervalo; as opções só pré-preenchem (ou, com
-// silent, imprimem direto).
-const PRINT_KEYS = ['silent', 'deviceName', 'copies', 'pageRanges', 'landscape', 'color', 'collate',
-  'duplexMode', 'pageSize', 'margins', 'scaleFactor', 'pagesPerSheet', 'dpi', 'header', 'footer'];
+// páginas "como impressas"), imprime-o numa janela oculta. Sempre com o
+// diálogo do SO (impressora, cópias, intervalo); as opções só pré-preenchem.
+// silent/deviceName só existem no smoke (imprimir sem o usuário ver, não).
+const PRINT_KEYS = ['copies', 'pageRanges', 'landscape', 'color', 'collate',
+  'duplexMode', 'pageSize', 'margins', 'scaleFactor', 'pagesPerSheet', 'dpi', 'header', 'footer',
+  ...(SMOKE ? ['silent', 'deviceName'] : [])];
 function printContents(wc, opts) {
   return new Promise((done) => {
     wc.print(opts, (success, failureReason) => done({ success, failureReason: success ? undefined : failureReason }));
@@ -359,34 +451,53 @@ function pagesHtml(pages, title) {
     + '<style>@page{margin:0}html,body{margin:0}img{display:block;width:100%;break-after:page}</style>'
     + `<body>${imgs}</body>`;
 }
-ipcMain.handle('wn:print', async (e, opts = {}) => {
+// Sessão própria da janela de impressão: o HTML vem do renderer e vai para um
+// arquivo temporário (data: URL tem limite de ~2 MB e páginas em PNG passam
+// disso). Fora o próprio arquivo, nada de file:// nem rede — só data:/blob:.
+const printFiles = new Set();
+let printSession = null;
+function getPrintSession() {
+  if (printSession) return printSession;
+  printSession = session.fromPartition('uw-print'); // sem "persist:": só em memória
+  printSession.webRequest.onBeforeRequest((details, cb) => {
+    const u = details.url;
+    const ok = u.startsWith('data:') || u.startsWith('blob:') || u === 'about:blank' || printFiles.has(u);
+    if (!ok) smokeLog('print-blocked', { url: u });
+    cb({ cancel: !ok });
+  });
+  return printSession;
+}
+handle('wn:print', async (e, opts = {}) => {
   const win = BrowserWindow.fromWebContents(e.sender);
-  const printOpts = { silent: false, printBackground: true };
+  const printOpts = { printBackground: true };
   for (const k of PRINT_KEYS) if (opts[k] !== undefined) printOpts[k] = opts[k];
+  printOpts.silent = SMOKE ? !!opts.silent : false;
   const html = typeof opts.html === 'string' ? opts.html
-    : Array.isArray(opts.pages) ? pagesHtml(opts.pages, opts.title) : null;
+    : Array.isArray(opts.pages) ? pagesHtml(opts.pages.map(String), opts.title) : null;
   if (html == null) return printContents(e.sender, printOpts);
-  // arquivo temporário: data: URL tem limite de ~2 MB e páginas em PNG passam disso
   const dir = mkdtempSync(join(tmpdir(), 'uw-print-'));
   const file = join(dir, 'print.html');
+  const fileUrl = pathToFileURL(file).href;
   writeFileSync(file, html);
+  printFiles.add(fileUrl);
   const pw = new BrowserWindow({
     show: false, parent: win ?? undefined,
-    webPreferences: { javascript: false, sandbox: true },
+    webPreferences: { javascript: false, sandbox: true, session: getPrintSession() },
   });
   try {
-    await pw.loadFile(file); // resolve no load: imagens já decodificadas
+    await pw.loadURL(fileUrl); // resolve no load: imagens já decodificadas
     const r = await printContents(pw.webContents, printOpts);
     smokeLog('printed', { window: win?.id, ...r });
     return r;
   } finally {
+    printFiles.delete(fileUrl);
     pw.destroy();
     rmSync(dir, { recursive: true, force: true });
   }
 });
-ipcMain.handle('wn:list-printers', (e) => e.sender.getPrintersAsync());
+handle('wn:list-printers', (e) => e.sender.getPrintersAsync());
 
-ipcMain.on('wn:clear-recents', () => { if (!SMOKE) app.clearRecentDocuments(); });
+on('wn:clear-recents', () => { if (app.isPackaged) app.clearRecentDocuments(); });
 
 // ── Confirmação ao fechar com alterações não salvas (como o Word) ──
 // O renderer informa o estado (wn:set-dirty). No 'close' da janela, se houver
@@ -399,7 +510,7 @@ const closeStateOf = (win) => {
   if (!st) closeState.set(win, (st = { dirty: false, name: '', allowClose: false, asking: false }));
   return st;
 };
-ipcMain.on('wn:set-dirty', (e, dirty, name) => {
+on('wn:set-dirty', (e, dirty, name) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   if (!win) return;
   const st = closeStateOf(win);
@@ -407,7 +518,7 @@ ipcMain.on('wn:set-dirty', (e, dirty, name) => {
   st.name = String(name || '');
   if (process.platform === 'darwin') win.setDocumentEdited(st.dirty);
 });
-ipcMain.on('wn:close-window', (e) => {
+on('wn:close-window', (e) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   if (!win) return;
   closeStateOf(win).allowClose = true;
@@ -440,7 +551,7 @@ function confirmCloseWhenDirty(win) {
 
 // Mantém os controles de janela do SO (titleBarOverlay) em sintonia com o tema
 // do app, para a barra de título "mesclar" também no modo escuro.
-ipcMain.handle('wn:title-theme', (e, dark) => {
+handle('wn:title-theme', (e, dark) => {
   const win = BrowserWindow.fromWebContents(e.sender);
   if (!win) return;
   win.setTitleBarOverlay({
@@ -449,6 +560,23 @@ ipcMain.handle('wn:title-theme', (e, dark) => {
     height: 48,
   });
   win.setBackgroundColor(dark ? '#131314' : '#FCFCFC');
+});
+
+// ── Navegação e pop-ups ──
+// Nenhum conteúdo navega para fora da origem do app. Pop-up só da própria
+// origem ou about:blank (a janela de impressão do demo: window.open('')).
+app.on('web-contents-created', (_e, contents) => {
+  contents.on('will-navigate', (ev, url) => {
+    const target = typeof url === 'string' ? url : ev.url;
+    if (!isAppUrl(target)) { ev.preventDefault(); smokeLog('navigation-blocked', { url: target }); }
+  });
+  contents.setWindowOpenHandler(({ url }) => {
+    if (url === 'about:blank' || url === '' || isAppUrl(url)) {
+      return { action: 'allow', overrideBrowserWindowOptions: { webPreferences: { sandbox: true, contextIsolation: true } } };
+    }
+    smokeLog('window-open-blocked', { url });
+    return { action: 'deny' };
+  });
 });
 
 // Em dev serve a raiz do repo; empacotado serve os assets copiados para
@@ -507,7 +635,6 @@ function serve() {
   });
 }
 
-let port = 0;
 let iconPath;
 
 async function createWindow() {
@@ -530,22 +657,32 @@ async function createWindow() {
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
+      sandbox: true,
     },
   });
   win.removeMenu();
   confirmCloseWhenDirty(win);
   docStateOf(win);
+  win.webContents.on('did-start-navigation', (ev, _url, isInPlace, isMainFrame) => {
+    const main = ev?.isMainFrame ?? isMainFrame;
+    const sameDoc = ev?.isSameDocument ?? isInPlace;
+    if (main && !sameDoc) resetPage(win, 'navigation');
+  });
+  win.webContents.on('render-process-gone', (_ev, details) => resetPage(win, `render-process-gone:${details?.reason}`));
   if (SMOKE) {
     win.webContents.on('console-message', (ev) => {
       const msg = ev.message;
       if (typeof msg === 'string' && msg.startsWith('[smoke]')) smokeLog('renderer', { window: win.id, msg: msg.slice(8) });
     });
+    if (SMOKE_RENDERER) {
+      // reinjeta a cada carga (o smoke testa reload)
+      win.webContents.on('did-finish-load', () => {
+        win.webContents.executeJavaScript(readFileSync(SMOKE_RENDERER, 'utf8')).catch((err) => smokeLog('probe-error', { msg: String(err) }));
+      });
+    }
   }
   smokeLog('window-created', { window: win.id });
-  await win.loadURL(`http://127.0.0.1:${port}/packages/editor/demo/index.html`);
-  if (process.env.WN_SMOKE_RENDERER) {
-    await win.webContents.executeJavaScript(readFileSync(process.env.WN_SMOKE_RENDERER, 'utf8'));
-  }
+  await win.loadURL(`${appOrigin()}/packages/editor/demo/index.html`);
   return win;
 }
 

@@ -8,11 +8,14 @@
 // Arquivos
 //   openDocx(): Promise<OpenedDoc | null>
 //       Diálogo Abrir nativo (.docx/.doc/.odt). null = cancelado.
-//   onOpenFile(cb: (doc: OpenedDoc) => void): () => void
+//   onOpenFile(cb: (doc: OpenedDoc & { id }) => void | boolean | Promise<void | boolean>): () => void
 //       Documentos abertos pelo SO: argumento da linha de comando, duplo
 //       clique (associação de arquivo), 2ª instância, open-file do macOS.
 //       Os que chegam antes da assinatura ficam na fila e são entregues ao
-//       assinar. Retorna a função que cancela a assinatura.
+//       assinar; depois de um reload a fila espera um novo onOpenFile. Quando
+//       o cb termina sem lançar e sem devolver false, a janela vira dona do
+//       arquivo (saveFile aceita o path, entra nos recentes); senão o arquivo
+//       é descartado. Retorna a função que cancela a assinatura.
 //   openDocxForCompare(title?): Promise<{ name, bytes } | null>
 //       Outro lado da comparação (somente leitura, sem MOTW).
 //   saveFile({ suggestedName, bytes, path?, title? }): Promise<{ path, name } | null>
@@ -31,14 +34,15 @@
 //
 // Impressão
 //   print(opts?): Promise<{ success: boolean, failureReason?: string }>
-//       Diálogo de impressão do SISTEMA (impressora, cópias, intervalo).
-//       opts.pages: string[] (URLs/dataURLs das páginas "como impressas", uma
-//       por folha) ou opts.html: string — impressos numa janela oculta; sem
-//       nenhum dos dois imprime a própria página. opts.title nomeia o
-//       trabalho. Repassa a webContents.print: silent, deviceName, copies,
-//       pageRanges [{ from, to }] (base 0), landscape, color, collate,
-//       duplexMode, pageSize, margins, scaleFactor, pagesPerSheet, dpi,
-//       header, footer.
+//       Diálogo de impressão do SISTEMA (impressora, cópias, intervalo) —
+//       sempre; não há impressão silenciosa. opts.pages: string[] (dataURLs
+//       das páginas "como impressas", uma por folha) ou opts.html: string —
+//       impressos numa janela oculta sem JS, sem rede e sem file:// (só
+//       data:/blob:); sem nenhum dos dois imprime a própria página.
+//       opts.title nomeia o trabalho. Pré-preenchem o diálogo (repassadas a
+//       webContents.print): copies, pageRanges [{ from, to }] (base 0),
+//       landscape, color, collate, duplexMode, pageSize, margins,
+//       scaleFactor, pagesPerSheet, dpi, header, footer.
 //   listPrinters(): Promise<Electron.PrinterInfo[]>
 //
 // Fontes do SO
@@ -56,6 +60,9 @@
 //   setTitleTheme(dark: boolean): Promise<void>
 //       Cor dos controles de janela (titleBarOverlay) em sintonia com o tema.
 //
+// O main só atende frames da origem do app (http://127.0.0.1:<porta>);
+// navegação e pop-ups para fora dela são bloqueados.
+//
 // Os nomes acima são contrato com o demo e com a interface de host do
 // <universal-write>: renomear quebra os dois.
 const { contextBridge, ipcRenderer } = require('electron');
@@ -65,7 +72,13 @@ const isBytes = (b) => b instanceof ArrayBuffer || ArrayBuffer.isView(b);
 contextBridge.exposeInMainWorld('wordnext', {
   openDocx: () => ipcRenderer.invoke('wn:open-docx'),
   onOpenFile: (cb) => {
-    const listener = (_e, doc) => cb(doc);
+    // ack: a janela só vira dona do arquivo (Salvar, recentes) se o cb não
+    // lançar nem devolver false
+    const listener = async (_e, doc) => {
+      let ok = false;
+      try { ok = (await cb(doc)) !== false; } catch (err) { console.error('[wordnext] onOpenFile:', err); }
+      ipcRenderer.send('wn:file-opened', doc.id, ok);
+    };
     ipcRenderer.on('wn:open-file', listener);
     ipcRenderer.send('wn:open-file-ready');
     return () => { ipcRenderer.removeListener('wn:open-file', listener); };
