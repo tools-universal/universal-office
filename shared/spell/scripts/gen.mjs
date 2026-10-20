@@ -80,8 +80,11 @@ function genWasm() {
   const wasm = readFileSync(require.resolve('hunspell-wasm/wasm/hunspell.wasm'));
   const out = `/*! @license
  * Hunspell 1.7.2 compilado para WebAssembly (pacote npm hunspell-wasm ${pkgJson.version}, Rotem Dan —
- * https://github.com/rotemdan/hunspell-wasm). Hunspell: Copyright (C) 2002-2022 Németh László e
- * colaboradores — licença tripla MPL 1.1 / GPL 2.0 / LGPL 2.1 (COPYING.MPL, COPYING, COPYING.LESSER).
+ * https://github.com/rotemdan/hunspell-wasm; fonte do Hunspell: https://github.com/hunspell/hunspell
+ * tag v1.7.2). Hunspell: Copyright (C) 2002-2022 Németh László e colaboradores — licença
+ * LGPL-2.0 OR GPL-2.0 OR MPL-1.1, usada aqui sob a MPL 1.1 (COPYING.MPL; os outros textos ao lado).
+ * O runtime do emscripten embutido no glue: MIT ou University of Illinois/NCSA, usado sob a MIT
+ * (LICENSE-emscripten.txt).
  *   hunspell.js   sha256 ${sha256(Buffer.from(glue))}
  *   hunspell.wasm sha256 ${sha256(wasm)}
  */

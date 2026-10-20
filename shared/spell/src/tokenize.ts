@@ -5,7 +5,8 @@
  *
  * Palavra = letras (com marcas combinantes) unidas por hífen ou apóstrofo
  * INTERNOS: "guarda-chuva", "dar-lhe", "don't", "d'água". O apóstrofo tipográfico
- * (’) sai normalizado para ' em `word` (os .aff do LibreOffice usam '); hífen e
+ * (’) sai normalizado para ' e os hífens Unicode (U+2010; U+2011, que é o
+ * w:noBreakHyphen do Word) para - em `word` (os .aff do LibreOffice usam ' e -); hífen e
  * apóstrofo nas pontas ficam de fora ('aspas', -traço). Hífen de sílaba
  * (U+00AD) e caracteres de largura zero dentro da palavra são removidos de `word`,
  * mas `start`/`end` apontam para o texto original.
@@ -70,7 +71,7 @@ export function tokenize(text: string, opts: TokenizeOptions = {}): WordToken[] 
     const end = start + m[0].length;
     while (si < skip.length && skip[si]![1] <= start) si++;
     if (si < skip.length && skip[si]![0] < end) continue; // dentro de um endereço
-    const word = m[0].replace(INVISIBLE_RE, '').replace(/’/g, "'");
+    const word = m[0].replace(INVISIBLE_RE, '').replace(/’/g, "'").replace(/[\u2010\u2011]/g, '-');
     if (!word || !/\p{L}/u.test(word)) continue; // número puro
     if (ignoreWithNumbers && /\p{N}/u.test(word)) continue;
     if (ignoreUppercase && word.length > 1 && word === word.toUpperCase() && word !== word.toLowerCase()) continue;

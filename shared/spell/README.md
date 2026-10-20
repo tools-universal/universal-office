@@ -6,8 +6,9 @@ por mais de um app (regra de pacotes do CLAUDE.md): não reimplementar nos apps.
 
 - **Hunspell 1.7.2 em WebAssembly**, num **Worker** (a interface não trava);
   sem Worker (CSP sem `blob:`, Node), o MESMO código roda no thread.
-- Só Hunspell, também no Electron: o shell desliga o corretor do Chromium e usa
-  este motor (decisão do usuário) — o resultado é igual em todo lugar.
+- Só Hunspell, também no Electron (decisão do usuário): quando a integração
+  chegar, o shell vai desligar o corretor do Chromium e usar este motor — o
+  resultado será igual em todo lugar. (Hoje o Electron ainda não desliga.)
 - Dicionários abertos do LibreOffice: **pt-BR** (VERO) e **en-US** (SCOWL),
   carregados **sob demanda**: cada um é um `import()` → um arquivo em `chunks/`
   no pacote publicado; o motor WASM também. Nada pesa até a primeira revisão.
@@ -80,6 +81,9 @@ spell.onChange(({ kind, words }) => repintar()); // add | remove | ignore | load
 spell.resolve('en-GB');                          // { id: 'en-US', exact: false }
 spell.resolve('de-DE');                          // undefined → sem revisão (tudo passa)
 spell.mode;                                      // 'worker' | 'thread' | undefined
+
+await spell.unload('en-US');                     // libera a memória do dicionário (o próximo uso recarrega)
+spell.dispose();                                 // em shared(): solta só a referência de quem chamou
 ```
 
 Opções (`new SpellChecker(opts)`):
@@ -88,12 +92,19 @@ Opções (`new SpellChecker(opts)`):
 - `store`: onde mora o dicionário do usuário, `{ load(): string[] | Promise, save(words) }`.
   O padrão é `localStorageStore()`; `null` = só memória. O shell Electron passa um store em disco;
 - `dictionaries`: `{ 'es-ES': () => Promise<{ aff, dic }> }` acrescenta ou troca dicionários
-  (o Electron pode servir os do disco). O id vira idioma resolvível.
+  (o Electron pode servir os do disco). O id vira idioma resolvível. `aff`/`dic`
+  em texto valem para dicionários UTF-8 ou ISO8859-1 (a linha `SET` do .aff
+  decide a conversão para bytes); outra codificação é recusada — converter o
+  dicionário para UTF-8. Em `Uint8Array` os bytes vão ao Hunspell como estão.
+
+`SpellChecker.shared()` conta referências: cada app que pega a instância chama
+o próprio `dispose()`, e o motor só cai com o último.
 
 Tokenização (`tokenize(text, opts)` / `checkText`), como o Word com os padrões dele:
 
 - palavra = letras unidas por hífen ou apóstrofo internos ("guarda-chuva",
-  "dar-lhe", "don't"); o ’ tipográfico vira ' em `word`;
+  "dar-lhe", "don't"); o ’ tipográfico vira ' e os hífens U+2010/U+2011 (o
+  `w:noBreakHyphen` do Word) viram - em `word`;
 - ignora números, palavras com dígitos (`ignoreWithNumbers`), MAIÚSCULAS
   (`ignoreUppercase`), URLs, e-mails e caminhos de arquivo (`ignoreInternet`).
   Os três ficam ligados por padrão;
@@ -120,22 +131,37 @@ Para o Write (Sheet e Slides seguem o mesmo contrato):
 3. **Diálogo Ortografia e gramática** (F7): percorrer `checkText` parágrafo a
    parágrafo a partir do cursor; "Alterar"/"Alterar todas" substituem no modelo;
    "Ignorar uma vez" é estado do diálogo.
-4. **Electron**: `webPreferences.spellcheck: false` (desliga o corretor do
+4. **Electron** (ainda não feito): `webPreferences.spellcheck: false` (desliga o corretor do
    Chromium) e um `store` que grava o dicionário do usuário em disco pelo
    preload; opcionalmente `dictionaries` com outros idiomas do disco.
 5. **build-pkg**: `@universal-office/spell` já está no mapa `INTERNAL`; motor e
-   dicionários saem em `chunks/` sem configuração extra.
+   dicionários saem em `chunks/` sem configuração extra, e os textos de
+   `licenseFiles` (package.json) vão para `publish/licenses/spell/` quando o
+   pacote entra no bundle.
 
 ## Desenvolvimento
 
 - `npm test`: Vitest (motor no thread, pelo mesmo `engine.ts` do Worker);
 - `npm run build`: tsc → `dist/`;
-- `npm run demo`: bundle esbuild com splitting em `demo/build/`. Servir com o
-  `launch.json` "spell-demo" (`http://localhost:8095`);
+- `npm run demo`: bundle esbuild com splitting em `demo/build/`; servir a pasta
+  `demo/` (ex.: `python -m http.server 8095` dentro dela);
 - `npm run gen`: regenera `src/dicts/*.ts` e `src/hunspell/wasm.ts` (ver
   [src/dicts/README.md](src/dicts/README.md));
 - `npm run bench`: refaz a tabela acima (os candidatos que perderam precisam de
   `npm i --no-save nspell@2.1.5 hunspell-asm@4.0.2`).
 
-Licenças: Hunspell (MPL 1.1 / GPL 2 / LGPL 2.1, em `src/hunspell/COPYING*`);
-dicionários em [src/dicts/README.md](src/dicts/README.md).
+## Licenças e código-fonte
+
+- **Hunspell 1.7.2** (LGPL-2.0 OR GPL-2.0 OR MPL-1.1, usado sob a MPL 1.1):
+  textos em `src/hunspell/COPYING*`. O binário vem do pacote npm
+  [hunspell-wasm 0.3.0](https://github.com/rotemdan/hunspell-wasm) (Rotem Dan);
+  o código-fonte do Hunspell está em https://github.com/hunspell/hunspell (tag
+  `v1.7.2`), e o da compilação para WASM, nesse repositório do hunspell-wasm —
+  é onde se obtém a forma de código-fonte (MPL 1.1 §3.6). Sem modificações nossas
+  ao Hunspell.
+- **Runtime do emscripten** no glue (MIT ou UIUC/NCSA, usado sob a MIT):
+  `src/hunspell/LICENSE-emscripten.txt`.
+- **Dicionários**: [src/dicts/README.md](src/dicts/README.md) (VERO sob MPL 1.1;
+  SCOWL com o aviso em README_en_US.txt).
+- No pacote publicado, todos esses textos vão para `licenses/spell/` (campo
+  `licenseFiles` do package.json, copiado pelo `tools/build-pkg.mjs`).

@@ -35,13 +35,6 @@
       "runtimeArgs": ["tools/ppt-lab/playback/serve.mjs", "8126"],
       "cwd": "slides",
       "port": 8126
-    },
-    {
-      "name": "spell-demo",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8095"],
-      "cwd": "shared/spell/demo",
-      "port": 8095
     }
   ]
 }

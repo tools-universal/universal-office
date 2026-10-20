@@ -2,7 +2,7 @@
  * Demo mínima do @universal-office/spell: revisa a caixa de texto, sublinha os
  * erros e mostra sugestões / Adicionar / Ignorar. `npm run demo` (esbuild com
  * splitting, como o tools/build-pkg.mjs: dicionários e motor viram chunks) e
- * servir a pasta demo/ (launch.json "spell-demo").
+ * servir a pasta demo/ (ex.: python -m http.server 8095).
  */
 import { SpellChecker, localStorageStore, type Misspelling } from '../src/index.js';
 

@@ -12,10 +12,14 @@ import { BUILTIN_DICTIONARIES, resolveLanguage, type ResolvedLanguage } from './
 import { tokenize, type TokenizeOptions, type WordToken } from './tokenize.js';
 import { localStorageStore, memoryStore, type UserDictionaryStore } from './user-dictionary.js';
 
-/** Conteúdo de um dicionário Hunspell (.aff e .dic como texto). */
+/**
+ * Conteúdo de um dicionário Hunspell. Texto (string) só para dicionários UTF-8
+ * ou ISO8859-1 (a linha SET do .aff decide a conversão); outra codificação não é
+ * suportada — converter para UTF-8. Bytes (Uint8Array) vão ao Hunspell como estão.
+ */
 export interface DictionaryData {
-  aff: string;
-  dic: string;
+  aff: string | Uint8Array;
+  dic: string | Uint8Array;
 }
 
 export type DictionaryLoader = () => Promise<DictionaryData>;
@@ -44,8 +48,11 @@ export interface Misspelling extends WordToken {}
 export type SpellChangeListener = (ev: { kind: 'add' | 'remove' | 'ignore' | 'load'; words: string[]; dict?: string }) => void;
 
 const CACHE_MAX = 50_000;
+/** Worker que não responde ao init nesse prazo (script bloqueado sem evento de erro) → thread. */
+const WORKER_INIT_TIMEOUT_MS = 15_000;
 
-interface Transport {
+/** @internal — canal com o motor (Worker ou thread); exportado só para os testes. */
+export interface Transport {
   kind: 'worker' | 'thread';
   post(req: EngineRequest): void;
   onResponse: (res: EngineResponse) => void;
@@ -88,15 +95,29 @@ function workerTransport(): Transport | undefined {
   return t;
 }
 
+/** @internal — opções só dos testes (Worker falso). */
+export interface SpellCheckerInternalOptions extends SpellCheckerOptions {
+  workerFactory?: () => Transport | undefined;
+}
+
 export class SpellChecker {
   private static instance: SpellChecker | undefined;
 
-  /** Instância única da página (um motor e um dicionário do usuário para todos os apps). */
+  /**
+   * Instância única da página (um motor e um dicionário do usuário para todos os
+   * apps). Cada chamada conta uma referência: o `dispose()` de quem pegou só
+   * encerra o motor quando o último usuário soltar.
+   */
   static shared(): SpellChecker {
-    return (SpellChecker.instance ??= new SpellChecker());
+    const sc = (SpellChecker.instance ??= new SpellChecker());
+    sc.refs++;
+    return sc;
   }
 
-  private readonly opts: SpellCheckerOptions;
+  private refs = 0;
+  /** muda a cada add/remove: resultado de check pedido antes não entra no cache */
+  private generation = 0;
+  private readonly opts: SpellCheckerInternalOptions;
   private readonly loaders: Record<string, DictionaryLoader>;
   private readonly store: UserDictionaryStore;
   private transport: Transport | undefined;
@@ -164,6 +185,20 @@ export class SpellChecker {
     return r.id;
   }
 
+  /** Descarrega o dicionário do idioma (libera a memória no motor; o próximo uso recarrega). */
+  async unload(lang: string): Promise<void> {
+    const r = this.resolve(lang);
+    if (!r) return;
+    const p = this.loading.get(r.id);
+    if (!p) return;
+    this.loading.delete(r.id);
+    this.loaded.delete(r.id);
+    this.cache.delete(r.id);
+    await p.catch(() => {});
+    // recarregado enquanto esperava: fica
+    if (this.transport && !this.loading.has(r.id)) await this.send({ op: 'unload', dict: r.id });
+  }
+
   // ── revisão ────────────────────────────────────────────────────────────
 
   /** A palavra está correta? (true também quando não há dicionário para o idioma.) */
@@ -177,12 +212,18 @@ export class SpellChecker {
     if (!id) return words.map(() => true);
     const cache = this.cacheFor(id);
     const todo = [...new Set(words.filter((w) => !this.ignored.has(w) && !cache.has(w)))];
+    const fresh = new Map<string, boolean>();
     if (todo.length) {
+      const gen = this.generation;
       const res = (await this.call({ op: 'check', dict: id, words: todo })) as boolean[];
-      if (cache.size + todo.length > CACHE_MAX) cache.clear();
-      todo.forEach((w, i) => cache.set(w, res[i]!));
+      // add/remove no meio do caminho: a resposta pode ser velha — pergunta de novo
+      if (gen !== this.generation) return this.checkWords(words, lang);
+      todo.forEach((w, i) => fresh.set(w, res[i]!));
+      const live = this.cacheFor(id); // unload no meio do caminho troca o mapa
+      if (live.size + todo.length > CACHE_MAX) live.clear();
+      for (const [w, ok] of fresh) live.set(w, ok);
     }
-    return words.map((w) => this.ignored.has(w) || cache.get(w) !== false);
+    return words.map((w) => this.ignored.has(w) || (fresh.get(w) ?? cache.get(w)) !== false);
   }
 
   /**
@@ -221,21 +262,25 @@ export class SpellChecker {
 
   /** "Adicionar ao dicionário": vale em todos os idiomas e fica guardado. */
   async add(word: string): Promise<void> {
+    this.generation++; // já: check em voo agora pode estar velho
     const user = await this.userWords();
     if (user.has(word)) return;
     user.add(word);
     await this.store.save([...user].sort());
     if (this.engineReady) await this.call({ op: 'add', words: [word] });
+    this.generation++; // e de novo: check que saiu antes do motor aplicar
     this.forget(word);
     this.emit({ kind: 'add', words: [word] });
   }
 
   /** Tira a palavra do dicionário do usuário. */
   async remove(word: string): Promise<void> {
+    this.generation++;
     const user = await this.userWords();
     if (!user.delete(word)) return;
     await this.store.save([...user].sort());
     if (this.engineReady) await this.call({ op: 'remove', words: [word] });
+    this.generation++; // e de novo: check que saiu antes do motor aplicar
     this.forget(word);
     this.emit({ kind: 'remove', words: [word] });
   }
@@ -257,8 +302,12 @@ export class SpellChecker {
     return () => this.listeners.delete(listener);
   }
 
-  /** Encerra o Worker (o próximo uso cria outro). */
+  /**
+   * Encerra o Worker (o próximo uso cria outro). Na instância `shared()`, só
+   * solta a referência de quem chamou; o motor cai com a última.
+   */
   dispose(): void {
+    if (SpellChecker.instance === this && --this.refs > 0) return;
     this.transport?.dispose();
     this.transport = undefined;
     this.engineReady = undefined;
@@ -289,31 +338,60 @@ export class SpellChecker {
   }
 
   private engine(): Promise<void> {
-    return (this.engineReady ??= (async () => {
-      const wasm = await import('./hunspell/wasm.js');
-      const useWorker = this.opts.worker !== false;
-      this.transport = (useWorker && workerTransport()) || localTransport();
-      this.attach(this.transport);
-      try {
-        await this.send({ op: 'init', glue: wasm.glue, wasmBase64: wasm.wasmBase64 });
-      } catch (err) {
-        if (!useWorker) throw err;
-        // Worker não sobe (CSP, módulo blob: bloqueado): mesmo motor no thread
-        this.transport.dispose();
-        this.transport = localTransport();
-        this.attach(this.transport);
-        await this.send({ op: 'init', glue: wasm.glue, wasmBase64: wasm.wasmBase64 });
-      }
-    })());
+    if (this.engineReady) return this.engineReady;
+    const p = this.startEngine();
+    this.engineReady = p;
+    p.catch(() => { if (this.engineReady === p) this.engineReady = undefined; });
+    return p;
   }
+
+  private async startEngine(): Promise<void> {
+    const wasm = await import('./hunspell/wasm.js');
+    const init = { op: 'init', glue: wasm.glue, wasmBase64: wasm.wasmBase64 } as const;
+    if (this.opts.worker !== false) {
+      const wt = (this.opts.workerFactory ?? workerTransport)();
+      if (wt) {
+        try {
+          await this.initOn(wt, init, WORKER_INIT_TIMEOUT_MS);
+          return;
+        } catch {
+          // Worker não sobe (CSP, módulo blob: bloqueado): mesmo motor no thread
+          wt.dispose();
+        }
+      }
+    }
+    await this.initOn(localTransport(), init);
+  }
+
+  /** Liga o transporte e espera o init; falha (ou estoura o prazo) → rejeita. */
+  private async initOn(t: Transport, init: DistributiveOmit<EngineRequest, 'id'>, timeoutMs?: number): Promise<void> {
+    this.transport = t;
+    this.attach(t);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const sent = this.send(init);
+      if (timeoutMs === undefined) await sent;
+      else await Promise.race([sent, new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('Worker de revisão não respondeu')), timeoutMs); })]);
+      this.live.add(t);
+    } catch (err) {
+      if (this.transport === t) this.transport = undefined;
+      throw err;
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  }
+
+  /** transportes que já passaram do init (erro neles = motor morreu) */
+  private readonly live = new WeakSet<Transport>();
 
   private attach(t: Transport): void {
     t.onResponse = (res) => this.receive(res);
     t.onError = (err) => {
       for (const p of this.pending.values()) p.reject(err);
       this.pending.clear();
-      // o motor morreu: o próximo pedido sobe outro (e recarrega os dicionários)
-      if (this.transport === t) {
+      // o motor morreu depois do init: o próximo pedido sobe outro (e recarrega
+      // os dicionários). Durante o init quem decide é startEngine (cai no thread).
+      if (this.transport === t && this.live.has(t)) {
         t.dispose();
         this.transport = undefined;
         this.engineReady = undefined;

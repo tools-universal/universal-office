@@ -1,7 +1,10 @@
 /*! @license
  * Hunspell 1.7.2 compilado para WebAssembly (pacote npm hunspell-wasm 0.3.0, Rotem Dan —
- * https://github.com/rotemdan/hunspell-wasm). Hunspell: Copyright (C) 2002-2022 Németh László e
- * colaboradores — licença tripla MPL 1.1 / GPL 2.0 / LGPL 2.1 (COPYING.MPL, COPYING, COPYING.LESSER).
+ * https://github.com/rotemdan/hunspell-wasm; fonte do Hunspell: https://github.com/hunspell/hunspell
+ * tag v1.7.2). Hunspell: Copyright (C) 2002-2022 Németh László e colaboradores — licença
+ * LGPL-2.0 OR GPL-2.0 OR MPL-1.1, usada aqui sob a MPL 1.1 (COPYING.MPL; os outros textos ao lado).
+ * O runtime do emscripten embutido no glue: MIT ou University of Illinois/NCSA, usado sob a MIT
+ * (LICENSE-emscripten.txt).
  *   hunspell.js   sha256 709ab4c8c1b37921b9c6ec4bf9452f3dae65a298a0fce56c5e4a987bb3311833
  *   hunspell.wasm sha256 72152324049c9215da17abceb12555b3ef9094c0524327e660f8145aaa9c68e0
  */

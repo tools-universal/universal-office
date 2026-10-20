@@ -101,7 +101,8 @@ A revisão ortográfica de todos os apps fica em `shared/spell`
 abertos do LibreOffice (pt-BR VERO, en-US SCOWL) carregados sob demanda
 (chunks), idioma por etiqueta BCP 47 (`w:lang`) e dicionário do usuário
 guardado pelo hospedeiro. Regra combinada com o usuário: SÓ Hunspell, também no
-Electron (o shell desliga o corretor do Chromium e usa este motor). Medido: o
+Electron — quando a integração entrar, o shell desliga o corretor do Chromium e
+usa este motor (hoje ainda não desliga). Medido: o
 nspell não carrega o .aff do VERO (mais de 5 min e mais de 1 GB); a escolha e os
 números estão no README do pacote.
 

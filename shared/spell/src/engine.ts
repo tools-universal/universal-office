@@ -11,7 +11,7 @@
 /** Pedido do cliente para o motor. `id` casa a resposta. */
 export type EngineRequest =
   | { id: number; op: 'init'; glue: string; wasmBase64: string }
-  | { id: number; op: 'load'; dict: string; aff: string; dic: string; words: string[] }
+  | { id: number; op: 'load'; dict: string; aff: string | Uint8Array; dic: string | Uint8Array; words: string[] }
   | { id: number; op: 'check'; dict: string; words: string[] }
   | { id: number; op: 'suggest'; dict: string; word: string; limit: number }
   | { id: number; op: 'add' | 'remove'; words: string[] }
@@ -28,12 +28,14 @@ export interface EngineScope {
 export function spellEngineMain(scope: EngineScope): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mod: any = null;
-  const handles = new Map<string, { h: number; latin1: boolean }>();
+  /** h = instância Hunspell; added = palavras do usuário que entraram nela */
+  type Entry = { h: number; latin1: boolean; added: Set<string> };
+  const handles = new Map<string, Entry>();
   const enc = new TextEncoder();
   const userWords = new Set<string>();
 
   // Strings: o Hunspell recebe na codificação do dicionário (UTF-8 nos nossos;
-  // ISO8859-1 suportado para dicionários do host).
+  // ISO8859-1 para dicionários do host — ver encodingOf).
   const toBytes = (s: string, latin1: boolean): Uint8Array => {
     if (!latin1) return enc.encode(s);
     const b = new Uint8Array(s.length);
@@ -71,19 +73,33 @@ export function spellEngineMain(scope: EngineScope): void {
     mod = await factory({ wasmBinary: bin, locateFile: (p: string) => p, print: () => {}, printErr: () => {} });
   }
 
-  function load(dict: string, aff: string, dic: string, words: string[]): boolean {
+  // Codificação do dicionário pela linha SET do .aff (sem SET o Hunspell assume
+  // ISO8859-1). Só UTF-8 e ISO8859-1 têm conversão de texto; outra codificação
+  // precisa vir em BYTES (Uint8Array) e, mesmo assim, as palavras saem em UTF-8 —
+  // por isso é recusada: converter o dicionário para UTF-8 antes.
+  const encodingOf = (aff: string | Uint8Array): 'utf8' | 'latin1' => {
+    const head = typeof aff === 'string' ? aff.slice(0, 65536) : new TextDecoder('latin1').decode(aff.subarray(0, 65536));
+    const m = /^\s*SET\s+(\S+)/m.exec(head);
+    const name = (m ? m[1]! : 'ISO8859-1').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (name === 'UTF8') return 'utf8';
+    if (name === 'ISO88591') return 'latin1';
+    throw new Error(`codificação de dicionário não suportada: ${m ? m[1] : '?'} (use UTF-8 ou ISO8859-1)`);
+  };
+  const fileBytes = (s: string | Uint8Array, latin1: boolean): Uint8Array => (typeof s === 'string' ? toBytes(s, latin1) : s);
+
+  function load(dict: string, aff: string | Uint8Array, dic: string | Uint8Array, words: string[]): boolean {
+    const latin1 = encodingOf(aff) === 'latin1';
     unload(dict);
     const name = dict.replace(/[^\w-]/g, '_');
-    mod.FS.writeFile(`/${name}.aff`, aff);
-    mod.FS.writeFile(`/${name}.dic`, dic);
+    mod.FS.writeFile(`/${name}.aff`, fileBytes(aff, latin1));
+    mod.FS.writeFile(`/${name}.dic`, fileBytes(dic, latin1));
     const pa = cstr(`/${name}.aff`, false);
     const pd = cstr(`/${name}.dic`, false);
     const h: number = mod._Hunspell_create(pa, pd);
     mod._free(pa); mod._free(pd);
     mod.FS.unlink(`/${name}.aff`); mod.FS.unlink(`/${name}.dic`);
     if (!h) throw new Error(`Hunspell_create falhou para ${dict}`);
-    const encName = readCstr(mod._Hunspell_get_dic_encoding(h), false).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const entry = { h, latin1: encName === 'ISO88591' };
+    const entry: Entry = { h, latin1, added: new Set() };
     handles.set(dict, entry);
     for (const w of words) userWords.add(w);
     for (const w of userWords) addTo(entry, w);
@@ -97,13 +113,32 @@ export function spellEngineMain(scope: EngineScope): void {
     handles.delete(dict);
   }
 
-  function addTo(e: { h: number; latin1: boolean }, w: string): void {
+  const spell = (e: Entry, w: string): boolean => {
+    const p = cstr(w, e.latin1);
+    const ok = mod._Hunspell_spell(e.h, p) !== 0;
+    mod._free(p);
+    return ok;
+  };
+
+  // O Hunspell_remove põe FORBIDDENWORD na entrada — inclusive na do dicionário
+  // base. Por isso só entra no Hunspell (e só sai dele) a palavra que o base NÃO
+  // aceitava: `added` lembra quais foram.
+  function addTo(e: Entry, w: string): void {
+    if (e.added.has(w) || spell(e, w)) return;
     const p = cstr(w, e.latin1);
     mod._Hunspell_add(e.h, p);
     mod._free(p);
+    e.added.add(w);
   }
 
-  function get(dict: string): { h: number; latin1: boolean } {
+  function removeFrom(e: Entry, w: string): void {
+    if (!e.added.delete(w)) return;
+    const p = cstr(w, e.latin1);
+    mod._Hunspell_remove(e.h, p);
+    mod._free(p);
+  }
+
+  function get(dict: string): Entry {
     const e = handles.get(dict);
     if (!e) throw new Error(`dicionário não carregado: ${dict}`);
     return e;
@@ -111,12 +146,7 @@ export function spellEngineMain(scope: EngineScope): void {
 
   function check(dict: string, words: string[]): boolean[] {
     const e = get(dict);
-    return words.map((w) => {
-      const p = cstr(w, e.latin1);
-      const ok = mod._Hunspell_spell(e.h, p) !== 0;
-      mod._free(p);
-      return ok;
-    });
+    return words.map((w) => spell(e, w));
   }
 
   function suggest(dict: string, word: string, limit: number): string[] {
@@ -147,10 +177,7 @@ export function spellEngineMain(scope: EngineScope): void {
           for (const w of req.words) { userWords.add(w); for (const e of handles.values()) addTo(e, w); }
           break;
         case 'remove':
-          for (const w of req.words) {
-            userWords.delete(w);
-            for (const e of handles.values()) { const p = cstr(w, e.latin1); mod._Hunspell_remove(e.h, p); mod._free(p); }
-          }
+          for (const w of req.words) { userWords.delete(w); for (const e of handles.values()) removeFrom(e, w); }
           break;
         case 'unload': unload(req.dict); break;
       }

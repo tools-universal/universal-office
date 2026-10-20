@@ -10,6 +10,16 @@
   "files": [
     "dist"
   ],
+  "licenseFiles": [
+    "src/hunspell/COPYING.MPL",
+    "src/hunspell/COPYING",
+    "src/hunspell/COPYING.LESSER",
+    "src/hunspell/LICENSE-emscripten.txt",
+    "src/dicts/README.md",
+    "src/dicts/LICENSE-MPL-1.1.txt",
+    "src/dicts/README_pt_BR.txt",
+    "src/dicts/README_en_US.txt"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
