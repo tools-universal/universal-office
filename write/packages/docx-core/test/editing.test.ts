@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   DocxPackage, readDocument, writeDocument,
@@ -9,6 +9,9 @@ import {
 } from '../src/index.js';
 
 const labDir = join(__dirname, '../../../tools/word-lab');
+// o word-lab é ignorado pelo git (worktrees não o têm): os testes que leem dele pulam
+const labDoc = join(labDir, 'results/001-type-text/after.docx');
+const itLab = existsSync(labDoc) ? it : it.skip;
 
 function blankModel(): DocumentModel {
   return {
@@ -61,7 +64,7 @@ describe('operações de edição (espelham FINDINGS do app de referência)', ()
     expect(paraText(m.paragraphs[0]!)).toBe('aY');
   });
 
-  it('round-trip de edição: ler docx do app de referência, editar, serializar, reler', () => {
+  itLab('round-trip de edição: ler docx do app de referência, editar, serializar, reler', () => {
     const src = join(labDir, 'results/001-type-text/after.docx');
     const pkg = DocxPackage.load(new Uint8Array(readFileSync(src)));
     const model = readDocument(pkg);
@@ -89,7 +92,7 @@ describe('operações de edição (espelham FINDINGS do app de referência)', ()
     writeFileSync(join(outDir, 'edited.docx'), bytes);
   });
 
-  it('listas geram numbering.xml + rels + content-type', () => {
+  itLab('listas geram numbering.xml + rels + content-type', () => {
     const src = join(labDir, 'results/001-type-text/after.docx');
     const pkg = DocxPackage.load(new Uint8Array(readFileSync(src)));
     const model = readDocument(pkg);
