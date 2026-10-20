@@ -137,6 +137,21 @@ public class LayoutOracleTests
             var ob = res.Pages[0].Items.OfType<RectItem>().Select(it => Band(it.Y / 20, (it.Y + it.H) / 20)).Distinct().OrderBy(s => s, StringComparer.Ordinal).ToList();
             Assert.True(wb.SequenceEqual(ob), $"faixas preenchidas (pt): Word [{string.Join(", ", wb)}], motor [{string.Join(", ", ob)}]");
         }
+        if (g == "hfgroup")
+        {
+            // ordem de pintura: a caixa (caminho preenchido) sai depois da imagem da faixa
+            // no Word (objs na ordem do PDF)? A nossa tem de ser a mesma (igual ao oracle.test.ts)
+            var objs = word.Pages[0].Objs;
+            int wImg = objs.FindIndex(o => o.T == "image" && o.Y0 < 0.5 && o.Y1 > 93);
+            int wBox = objs.FindIndex(o => o.T == "path");
+            if (wImg >= 0 && wBox >= 0)
+            {
+                var items = res.Pages[0].Items;
+                int oImg = items.FindIndex(it => it is ImageItem im && im.Y < 10 && im.H > 1870);
+                int oBox = items.FindIndex(it => it is ShapeItem);
+                Assert.True((oBox > oImg) == (wBox > wImg), "caixa na frente da faixa");
+            }
+        }
         if (g == "kern")
         {
             // linhas aos pares (com kern, sem kern): a soma dos ajustes de cada linha
