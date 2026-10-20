@@ -59,6 +59,9 @@ export interface Glyph {
   runIdx: number;
   /** quebra possível DEPOIS deste glifo */
   breakAfter: boolean;
+  /** colado ao anterior: a palavra maior que a linha não quebra antes dele (PAGE no
+   *  cabeçalho/rodapé — oráculo hfgroup) */
+  glue?: boolean;
   /** quebra de linha com w:clear: a linha seguinte desce para baixo dos flutuantes */
   clear?: boolean;
   /** objeto inline (imagem/forma/grupo/caixa) */
@@ -146,7 +149,13 @@ export interface ParaEnv {
   darkBackground?: boolean;
   /** fluxo sem paginação (célula, cabeçalho/rodapé, caixa): quebras de página/coluna não quebram */
   noPageBreaks?: boolean;
+  /** dentro do cabeçalho/rodapé (inclusive caixas e células dele) */
+  hf?: boolean;
 }
+
+/** resultado do PAGE no cabeçalho/rodapé: o Word não o parte por caractere numa
+ *  caixa mais estreita que ele (no corpo parte — oráculo hfgroup, hn-field-*) */
+const GLUED_FIELD = new WeakSet<Run>();
 
 const CJK = (cp: number) => (cp >= 0x2e80 && cp <= 0x9fff) || (cp >= 0xac00 && cp <= 0xd7af) || (cp >= 0xf900 && cp <= 0xfaff) || (cp >= 0xff00 && cp <= 0xffef) || (cp >= 0x3000 && cp <= 0x303f);
 /** Depois de hífen/travessão NÃO há quebra se vem espaço (quebra no espaço), NBSP
@@ -490,7 +499,9 @@ function fieldRuns(run: Run, env: ParaEnv): Run[] | null {
     const v = env.field?.(name, instr);
     if (v !== undefined) {
       const base = run.fieldResult?.find((r) => !r.image && !r.textbox) ?? run;
-      return [{ ...base, text: v, field: undefined, fieldResult: undefined }];
+      const out: Run = { ...base, text: v, field: undefined, fieldResult: undefined };
+      if (env.hf && name === 'PAGE') GLUED_FIELD.add(out);
+      return [out];
     }
   }
   if (run.fieldResult?.length) {
@@ -873,7 +884,9 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
       continue;
     }
     if (run.math) { pushMath(run, idx, offset); continue; }
+    const before = glyphs.length;
     pushChars(run.text, run, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para.runs[idx]?.field ?? ''));
+    if (GLUED_FIELD.has(run)) for (let k = before + 1; k < glyphs.length; k++) glyphs[k]!.glue = true;
   }
   // objeto inline (imagem, forma…) colado ao texto: pode quebrar ANTES dele (o
   // objeto desce sozinho), salvo depois de NBSP (oráculo imgbreak)

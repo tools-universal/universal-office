@@ -6,10 +6,10 @@
       "section": 0,
       "number": 1,
       "items": [
-        {"t":"image","x":8301,"y":820,"w":2600,"h":400,"ext":"png","bytes":82,"crop":null,"rot":0,"flipH":false,"flipV":false},
         {"t":"image","x":3201.29,"y":500,"w":3200,"h":800,"ext":"png","bytes":82,"crop":null,"rot":0,"flipH":false,"flipV":false},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1300,"scaleX":1,"text":"TextodepoisHxg","g":[[84,6451.3],[101,6561.25],[120,6661.36],[116,6751.36],[111,6801.37],[100,6951.49],[101,7051.6],[112,7151.7],[111,7251.81],[105,7351.92],[115,7391.91],[72,7531.92],[120,7661.91],[103,7751.91]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":1506.98,"scaleX":1,"text":"CabfimHxg","g":[[67,1701],[97,1830.99],[98,1931.1],[102,2081.21],[105,2131.22],[109,2171.21],[72,2371.17],[120,2501.16],[103,2591.16]]},
+        {"t":"image","x":8301,"y":820,"w":2600,"h":400,"ext":"png","bytes":82,"crop":null,"rot":0,"flipH":false,"flipV":false},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":9,"color":"000000","y":2568.84,"scaleX":1,"text":"CorpoHxg","g":[[67,1701],[111,1830.99],[114,1931.1],[112,1991.04],[111,2091.15],[72,2241.26],[120,2371.25],[103,2461.25]]}
       ],
       "lines": [

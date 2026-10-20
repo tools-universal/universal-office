@@ -491,8 +491,9 @@ export class LineBreaker {
           pendTab = null;
           break;
         }
-        // palavra maior que a linha: quebra por caractere (o glifo atual desce)
-        break;
+        // palavra maior que a linha: quebra por caractere (o glifo atual desce) —
+        // salvo o glifo colado ao anterior, que fica na linha e transborda (hfgroup)
+        if (!g.glue) break;
       }
       // hífen opcional: só vira quebra (com hífen) pela hifenização acima
       if (g.kind === 'shy') {

@@ -821,7 +821,7 @@ internal sealed class Engine
         bool even = settings.EvenAndOddHeaders && ps.Page.Number % 2 == 0;
         string kind = first ? "first" : even ? "even" : "default";
         List<Block>? Pick(HfBlocks set) => first ? set.First : even ? set.Even : set.Default;
-        var env = new ParaEnv { Field = FieldValue(ps) };
+        var env = new ParaEnv { Field = FieldValue(ps), Hf = true };
         double width = g.PageW - g.MarL - g.MarR;
         // numeração em cabeçalho/rodapé: própria, não avança a lista do corpo (oráculo numbering3, hdr-list)
         var savedNum = _ctx.Numbering;
@@ -1291,6 +1291,7 @@ internal sealed class Engine
         var blocks = cell.Blocks ?? cell.Paragraphs.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
         var penv = new ParaEnv { TablePPr = env.TablePPr, TableRPr = env.TableRPr, DarkBackground = env.DarkBackground };
         if (ps is not null) penv.Field = FieldValue(ps);
+        if (_inHf) penv.Hf = true;
         _cellNb.TryGetValue(cell, out var nb);
         var c = LayoutStatic(blocks, x, width, penv, reference, ps, 0, nb);
         // hideMark: a marca da célula vazia não conta na altura da linha (vale a
@@ -3145,9 +3146,19 @@ internal sealed class Engine
         var floats = (ps ?? _cur).Floats;
         if (floats.Count == 0) return frame;
         double left = frame.Left, right = frame.Right;
+        // recuos que se cruzam (direita antes da esquerda: o Word põe um caractere por
+        // linha): a linha não tem largura própria e o vão é medido na coluna inteira —
+        // a faixa do cabeçalho e a caixa ao lado empurram a linha (oráculo hfgroup)
+        bool crossed = right < left;
+        double tl = left, tr = right;
+        if (crossed)
+        {
+            var c0 = ColFrame();
+            if (Math.Abs(frameX - c0.X) < 0.5) { tl = Math.Min(left, 0); tr = Math.Max(left, c0.W); } else tr = left;
+        }
         double? skipTo = null;
         // intervalos livres da linha: o quadro menos a faixa de cada flutuante que a cruza
-        var free = new List<(double A, double B)> { (left, right) };
+        var free = new List<(double A, double B)> { (tl, tr) };
         bool hit = false;
         double minBottom = double.PositiveInfinity;
         foreach (var f in floats)
@@ -3159,7 +3170,7 @@ internal sealed class Engine
             // 1 twip (moldura com y=1, oráculo frames) e 0,15pt desviam)
             if (y + lineH <= top + 0.5 || y >= bottom - 0.5) continue;
             double fl = f.X - f.DistL - frameX, frr = f.X + f.W + f.DistR - frameX;
-            if (frr <= left || fl >= right) continue;
+            if (frr <= tl || fl >= tr) continue;
             if (f.Wrap == "topAndBottom") { skipTo = Math.Max(skipTo ?? 0, bottom); continue; }
             hit = true;
             minBottom = Math.Min(minBottom, bottom);
@@ -3169,7 +3180,7 @@ internal sealed class Engine
             string side = f.Side ?? "bothSides";
             if (side == "left") bh = double.PositiveInfinity;
             else if (side == "right") bl = double.NegativeInfinity;
-            else if (side == "largest") { if (fl - left >= right - frr) bh = double.PositiveInfinity; else bl = double.NegativeInfinity; }
+            else if (side == "largest") { if (fl - tl >= tr - frr) bh = double.PositiveInfinity; else bl = double.NegativeInfinity; }
             var next = new List<(double A, double B)>();
             foreach (var (a, b) in free)
             {
@@ -3189,14 +3200,14 @@ internal sealed class Engine
             var col = ColFrame();
             double cR = Math.Abs(frameX - col.X) < 0.5 ? col.W : double.PositiveInfinity, cL = double.IsPositiveInfinity(cR) ? double.NegativeInfinity : 0;
             // (o vão conta até a margem da coluna: o recuo do parágrafo não o estreita — oráculo gapind)
-            (double, double) Ext(double a, double b) => double.IsPositiveInfinity(cR) ? (a, b) : (a <= left + 0.5 ? Math.Min(a, cL) : a, b >= right - 0.5 ? Math.Max(b, cR) : b);
+            (double, double) Ext(double a, double b) => double.IsPositiveInfinity(cR) ? (a, b) : (a <= tl + 0.5 ? Math.Min(a, cL) : a, b >= tr - 0.5 ? Math.Max(b, cR) : b);
             free = free.Where(iv => { var (ea, eb) = Ext(iv.A, iv.B); return Math.Min(eb, cR) - Math.Max(ea, cL) >= MinGap; }).ToList();
             (double A, double B)? best = null;
             foreach (var iv in free) if (best is null || iv.B - iv.A > best.Value.B - best.Value.A) best = iv;
             // sem espaço útil ao lado: a linha desce até o fim do 1º objeto que a bloqueia
             if (best is null) skipTo = Math.Max(skipTo ?? 0, minBottom);
             // objeto no meio: o texto ocupa os vãos da esquerda para a direita (wrapsides)
-            else if (skipTo is null) return new LineFrame(best.Value.A, best.Value.B) { Gap = true, Segs = free.Count > 1 ? free : null };
+            else if (skipTo is null) return crossed ? new LineFrame(left, right) : new LineFrame(best.Value.A, best.Value.B) { Gap = true, Segs = free.Count > 1 ? free : null };
         }
         if (skipTo is not null) { var r = frame; r.SkipTo = skipTo; return r; }
         return new LineFrame(left, right);
@@ -3324,7 +3335,11 @@ internal sealed class Engine
         var anchor = run.Image?.Anchor ?? run.Shape?.Anchor ?? run.Group?.Anchor ?? run.Textbox?.Anchor;
         double w = run.Image?.WidthTwips ?? run.Shape?.WidthTwips ?? run.Group?.WidthTwips ?? run.Textbox?.WidthTwips ?? 0;
         double h = run.Image?.HeightTwips ?? run.Shape?.HeightTwips ?? run.Group?.HeightTwips ?? run.Textbox?.HeightTwips ?? 0;
-        bool behind = anchor?.BehindDoc == true || run.Image?.BehindDoc == true || run.Textbox?.BehindDoc == true;
+        // modo 15: "atrás do texto" só sem contorno; com contorno (quadrado, justo,
+        // através, em cima e embaixo) o objeto fica na camada da frente, na ordem do
+        // relativeHeight — no corpo e no cabeçalho. Modos ≤ 14: o behindDoc vale sempre (oráculo hfgroup)
+        bool wrapsText = anchor is not null && anchor.Wrap != "none";
+        bool behind = !(wrapsText && _ctx.Fmt.Settings.CompatibilityMode >= 15) && (anchor?.BehindDoc == true || run.Image?.BehindDoc == true || run.Textbox?.BehindDoc == true);
         // conteúdo da caixa de texto (altura automática)
         CellContent? tbContent = null;
         // diagramação final do conteúdo da caixa já no lugar: flutuantes DENTRO dela
@@ -3335,7 +3350,7 @@ internal sealed class Engine
             var tb = run.Textbox;
             var ins = TbInsets(tb, _ctx.Fmt.Theme, w, h);
             var blocks = tb.Blocks ?? tb.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
-            var env = new ParaEnv { Field = FieldValue(ps), DarkBackground = IsDark(Resolve.ResolveDrawingColor(tb.Shape?.Fill, _ctx.Fmt.Theme)) };
+            var env = new ParaEnv { Field = FieldValue(ps), DarkBackground = IsDark(Resolve.ResolveDrawingColor(tb.Shape?.Fill, _ctx.Fmt.Theme)), Hf = _inHf };
             double inner = w - ins.L - ins.R;
             var fi = Frames.InfoOf(tb);
             if (fi?.AutoWidth == true)
@@ -3637,7 +3652,8 @@ internal sealed class Engine
                 {
                     var ins = TbInsets(r.Textbox, _ctx.Fmt.Theme, iw, ih);
                     var blocks = r.Textbox.Blocks ?? r.Textbox.Paras.Select(p => (Block)new ParagraphBlock { Paragraph = p }).ToList();
-                    tc = LayoutStatic(blocks, 0, Math.Max(1, iw - ins.L - ins.R), new ParaEnv { DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)) }, "grp", ps);
+                    // campos (PAGE…) da caixa do grupo valem por página, como na caixa solta (oráculo hfgroup)
+                    tc = LayoutStatic(blocks, 0, Math.Max(1, iw - ins.L - ins.R), new ParaEnv { Field = FieldValue(ps ?? _cur), DarkBackground = IsDark(Resolve.ResolveDrawingColor(r.Textbox.Shape?.Fill, _ctx.Fmt.Theme)), Hf = _inHf }, "grp", ps);
                 }
                 outp.AddRange(PaintObject(r, ix, iy, iw, ih, tc, ps, true));
             }

@@ -671,7 +671,7 @@ class Engine {
     const even = settings.evenAndOddHeaders && ps.page.number % 2 === 0;
     const kind = first ? 'first' : even ? 'even' : 'default';
     const pick = (set: SectGeom['headers']) => first ? set.first : even ? set.even : set.default;
-    const env: ParaEnv = { field: this.fieldValue(ps) };
+    const env: ParaEnv = { field: this.fieldValue(ps), hf: true };
     const width = g.pageW - g.marL - g.marR;
     // numeração em cabeçalho/rodapé: própria, não avança a lista do corpo (oráculo numbering3, hdr-list)
     const savedNum = this.ctx.numbering;
@@ -1057,6 +1057,7 @@ class Engine {
     const blocks: Block[] = cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: 'paragraph', paragraph }));
     const penv: ParaEnv = { ...(env.tablePPr ? { tablePPr: env.tablePPr } : {}), ...(env.tableRPr ? { tableRPr: env.tableRPr } : {}), ...(env.darkBackground ? { darkBackground: true } : {}) };
     if (ps) penv.field = this.fieldValue(ps);
+    if (this.inHf) penv.hf = true;
     const c = this.layoutStatic(blocks, x, width, penv, ref, ps, 0, this.cellNb.get(cell));
     // hideMark: a marca da célula vazia não conta na altura da linha (vale a
     // altura mínima da linha) — oráculo hidden
@@ -2479,9 +2480,18 @@ class Engine {
     const floats = ps.floats;
     if (!floats.length) return frame;
     const { left, right } = frame;
+    // recuos que se cruzam (direita antes da esquerda: o Word põe um caractere por
+    // linha): a linha não tem largura própria e o vão é medido na coluna inteira —
+    // a faixa do cabeçalho e a caixa ao lado empurram a linha (oráculo hfgroup)
+    const crossed = right < left;
+    let tl = left, tr = right;
+    if (crossed) {
+      const col = this.colFrame();
+      if (Math.abs(frameX - col.x) < 0.5) { tl = Math.min(left, 0); tr = Math.max(left, col.w); } else tr = left;
+    }
     let skipTo: number | undefined;
     // intervalos livres da linha: o quadro menos a faixa de cada flutuante que a cruza
-    let free: [number, number][] = [[left, right]];
+    let free: [number, number][] = [[tl, tr]];
     let hit = false;
     let minBottom = Infinity;
     for (const f of floats) {
@@ -2492,7 +2502,7 @@ class Engine {
       // 1 twip (moldura com y=1, oráculo frames) e 0,15pt desviam)
       if (y + lineH <= top + 0.5 || y >= bottom - 0.5) continue;
       const fl = f.x - f.distL - frameX, fr = f.x + f.w + f.distR - frameX;
-      if (fr <= left || fl >= right) continue;
+      if (fr <= tl || fl >= tr) continue;
       if (f.wrap === 'topAndBottom') { skipTo = Math.max(skipTo ?? 0, bottom); continue; }
       hit = true;
       minBottom = Math.min(minBottom, bottom);
@@ -2502,7 +2512,7 @@ class Engine {
       const side = f.side ?? 'bothSides';
       if (side === 'left') bh = Infinity;
       else if (side === 'right') bl = -Infinity;
-      else if (side === 'largest') { if (fl - left >= right - fr) bh = Infinity; else bl = -Infinity; }
+      else if (side === 'largest') { if (fl - tl >= tr - fr) bh = Infinity; else bl = -Infinity; }
       const next: [number, number][] = [];
       for (const [a, b] of free) {
         if (bh <= a || bl >= b) { next.push([a, b]); continue; }
@@ -2520,14 +2530,14 @@ class Engine {
       const col = this.colFrame();
       const cR = Math.abs(frameX - col.x) < 0.5 ? col.w : Infinity, cL = cR === Infinity ? -Infinity : 0;
       // (o vão conta até a margem da coluna: o recuo do parágrafo não o estreita — oráculo gapind)
-      const ext = (a: number, b: number): [number, number] => cR === Infinity ? [a, b] : [a <= left + 0.5 ? Math.min(a, cL) : a, b >= right - 0.5 ? Math.max(b, cR) : b];
+      const ext = (a: number, b: number): [number, number] => cR === Infinity ? [a, b] : [a <= tl + 0.5 ? Math.min(a, cL) : a, b >= tr - 0.5 ? Math.max(b, cR) : b];
       free = free.filter(([a, b]) => { const [ea, eb] = ext(a, b); return Math.min(eb, cR) - Math.max(ea, cL) >= MIN_GAP; });
       let best: [number, number] | undefined;
       for (const iv of free) if (!best || iv[1] - iv[0] > best[1] - best[0]) best = iv;
       // sem espaço útil ao lado: a linha desce até o fim do 1º objeto que a bloqueia
       if (!best) skipTo = Math.max(skipTo ?? 0, minBottom);
       // objeto no meio: o texto ocupa os vãos da esquerda para a direita (wrapsides)
-      else if (skipTo === undefined) return { left: best[0], right: best[1], gap: true, ...(free.length > 1 ? { segs: free } : {}) };
+      else if (skipTo === undefined) return crossed ? { left, right } : { left: best[0], right: best[1], gap: true, ...(free.length > 1 ? { segs: free } : {}) };
     }
     if (skipTo !== undefined) return { ...frame, skipTo };
     return { left, right };
@@ -2584,7 +2594,11 @@ class Engine {
     const anchor: DrawingAnchor | undefined = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
     let w = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
     let h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
-    const behind = !!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc;
+    // modo 15: "atrás do texto" só sem contorno; com contorno (quadrado, justo,
+    // através, em cima e embaixo) o objeto fica na camada da frente, na ordem do
+    // relativeHeight — no corpo e no cabeçalho. Modos ≤ 14: o behindDoc vale sempre (oráculo hfgroup)
+    const wrapsText = !!anchor && anchor.wrap !== 'none';
+    const behind = !(wrapsText && this.ctx.fmt.settings.compatibilityMode >= 15) && (!!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc);
     // conteúdo da caixa de texto (altura automática)
     let tbContent: CellContent | null = null;
     /** diagramação final do conteúdo da caixa já no lugar: flutuantes DENTRO dela
@@ -2594,7 +2608,7 @@ class Engine {
       const tb = run.textbox;
       const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
       const blocks: Block[] = tb.blocks ?? tb.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
-      const env: ParaEnv = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)) };
+      const env: ParaEnv = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)), ...(this.inHf ? { hf: true } : {}) };
       let inner = w - ins.l - ins.r;
       const fi = FRAME_INFO.get(tb);
       if (fi?.autoWidth) {
@@ -2873,7 +2887,8 @@ class Engine {
         if (r.textbox) {
           const ins = tbInsets(r.textbox, this.ctx.fmt.theme, iw, ih);
           const blocks: Block[] = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: 'paragraph', paragraph }));
-          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, 'grp', ps);
+          // campos (PAGE…) da caixa do grupo valem por página, como na caixa solta (oráculo hfgroup)
+          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)), ...(this.inHf ? { hf: true } : {}) }, 'grp', ps);
         }
         out.push(...this.paintObject(r, ix, iy, iw, ih, tc, ps, true));
       }

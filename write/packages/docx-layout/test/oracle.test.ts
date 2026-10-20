@@ -86,6 +86,19 @@ for (const g of groups) {
           const ob = [...new Set(res.pages[0]!.items.filter((it) => it.t === 'rect').map((it) => band(it.y / 20, (it.y + it.h) / 20)))].sort();
           expect(ob, 'faixas preenchidas (pt)').toEqual(wb);
         }
+        if (g === 'hfgroup') {
+          // ordem de pintura: a caixa (caminho preenchido) sai depois da imagem da
+          // faixa no Word (objs na ordem do PDF)? A nossa tem de ser a mesma
+          const objs = (word.pages[0] as { objs?: { t: string; y0: number; y1: number }[] }).objs ?? [];
+          const wImg = objs.findIndex((o) => o.t === 'image' && o.y0 < 0.5 && o.y1 > 93);
+          const wBox = objs.findIndex((o) => o.t === 'path');
+          if (wImg >= 0 && wBox >= 0) {
+            const items = res.pages[0]!.items;
+            const oImg = items.findIndex((it) => it.t === 'image' && it.y < 10 && it.h > 1870);
+            const oBox = items.findIndex((it) => it.t === 'shape');
+            expect(oBox > oImg, 'caixa na frente da faixa').toBe(wBox > wImg);
+          }
+        }
         if (g === 'kern') {
           // linhas aos pares (com kern, sem kern): a soma dos ajustes de cada
           // linha = x1(sem) − x1(com) tem de bater com a do Word (±0,15 pt ou 0,6%:
