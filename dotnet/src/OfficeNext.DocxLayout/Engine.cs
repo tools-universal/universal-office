@@ -464,24 +464,9 @@ internal sealed class Engine
                 BlockStart = 0, BlockEnd = full.Blocks.Count - 1,
             }, 0));
         }
-        // PDF do Word aberto e exportado direto: os parágrafos formatados na abertura
-        // guardam o número; depois deles, as listas com startOverride recomeçam
-        // (oráculo numbering3, pg2-*). Na abertura a 1ª página vai até o bloco que
-        // transborda para a 2ª — e sem descontar o cabeçalho que empurra o corpo:
-        // cabe mais essa altura (pg2-header).
-        int numReopen = 0; // 0: 1ª página; 1: na 2ª, até o limite da abertura; 2: esquecer; 3: feito
-        double openLimit = 0;
-        void ToPage2()
-        {
-            var p1 = _pages[0];
-            var p2 = _pages[1];
-            openLimit = p2.BodyTop + Math.Max(0, p1.BodyTop - p1.Geom.MarT);
-            numReopen = 1;
-        }
-        void PastOpen()
-        {
-            if (numReopen == 1 && (!ReferenceEquals(_cur, _pages[1]) || _y >= openLimit)) numReopen = 2;
-        }
+        // (até o Word 16.0.19xxx, o PDF exportado direto recomeçava as listas com
+        // startOverride depois do bloco que abre a 2ª página; o Word 16.0.20430,
+        // de 2026-10-18, numera em sequência — oráculo numbering3, pg2-*)
         foreach (var g in _geoms)
         {
             if (g.Index == 0 || g.Type != "continuous")
@@ -496,13 +481,8 @@ internal sealed class Engine
             for (int b = g.Blocks.Start; b <= g.Blocks.End && b < full.Blocks.Count; b++)
             {
                 var block = full.Blocks[b];
-                // quebra de seção: a 2ª página começa neste bloco
-                if (numReopen == 0 && _pages.Count >= 2) { ToPage2(); PastOpen(); }
-                if (numReopen == 2) { _ctx.Numbering.ForgetFirstUse(); numReopen = 3; }
                 if (block is ParagraphBlock pb) PlaceParagraph(pb.Paragraph, $"b{b}", b, g);
                 else PlaceTable((TableBlock)block, $"b{b}", b);
-                if (numReopen == 0 && _pages.Count >= 2) ToPage2();
-                PastOpen();
             }
         }
         // tabela flutuante dividida no fim do documento: as linhas restantes ganham páginas

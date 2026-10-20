@@ -230,7 +230,7 @@ if (isMain) {
   const dist = (p) => import(new URL(`../write/packages/${p}/dist/index.js`, import.meta.url).href);
   const core = await dist('docx-core');
   const eng = await dist('docx-layout');
-  const layout = await dist('layout');
+  const layout = eng; // base tipográfica dentro do docx-layout (src/typography) desde a consolidação
   const { createNodeFontProvider } = await import(
     new URL('../write/tools/corpus-lab/node-fonts.mjs', import.meta.url).href);
   const provider = await createNodeFontProvider();

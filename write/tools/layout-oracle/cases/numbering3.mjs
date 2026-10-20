@@ -1,8 +1,8 @@
 // Numeração que depende do motor (não só do NumberingState):
-//  - pg2-*: PDF do Word aberto e exportado direto (sem repaginar): a lista com
-//    startOverride RECOMEÇA no 1º parágrafo dela depois do bloco que abre a
-//    2ª página (os formatados na abertura guardam o número; com Repaginate()
-//    antes da exportação não acontece). Sem override, nada muda.
+//  - pg2-*: lista com startOverride que atravessa a 2ª página. Até o Word
+//    16.0.19xxx, o PDF exportado direto (sem repaginar) RECOMEÇAVA a lista no
+//    1º parágrafo dela depois do bloco que abre a 2ª página; o Word
+//    16.0.20430 (2026-10-18) numera em sequência, como com Repaginate().
 //  - hidmark-*: parágrafo numerado com marca oculta e texto visível junta-se
 //    ao seguinte — o número que aparece é o dele.
 //  - hdr-*: lista no cabeçalho.

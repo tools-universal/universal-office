@@ -387,21 +387,9 @@ class Engine {
         blockStart: 0, blockEnd: full.blocks.length - 1, headers: {}, footers: {}, headerRefs: [], footerRefs: [],
       } as Section, 0));
     }
-    // PDF do Word aberto e exportado direto: os parágrafos formatados na abertura
-    // guardam o número; depois deles, as listas com startOverride recomeçam
-    // (oráculo numbering3, pg2-*). Na abertura a 1ª página vai até o bloco que
-    // transborda para a 2ª — e sem descontar o cabeçalho que empurra o corpo:
-    // cabe mais essa altura (pg2-header).
-    let numReopen = 0; // 0: 1ª página; 1: na 2ª, até o limite da abertura; 2: esquecer; 3: feito
-    let openLimit = 0;
-    const toPage2 = (): void => {
-      const p1 = this.pages[0]!, p2 = this.pages[1]!;
-      openLimit = p2.bodyTop + Math.max(0, p1.bodyTop - p1.geom.marT);
-      numReopen = 1;
-    };
-    const pastOpen = (): void => {
-      if (numReopen === 1 && (this.cur !== this.pages[1] || this.y >= openLimit)) numReopen = 2;
-    };
+    // (até o Word 16.0.19xxx, o PDF exportado direto recomeçava as listas com
+    // startOverride depois do bloco que abre a 2ª página; o Word 16.0.20430,
+    // de 2026-10-18, numera em sequência — oráculo numbering3, pg2-*)
     for (const g of this.geoms) {
       if (g.index === 0 || g.type !== 'continuous') {
         const lastAfter = this.prev ? this.prev.after : 0;
@@ -412,13 +400,8 @@ class Engine {
       } else this.continuousSection(g);
       for (let b = g.blocks[0]; b <= g.blocks[1] && b < full.blocks.length; b++) {
         const block = full.blocks[b]!;
-        // quebra de seção: a 2ª página começa neste bloco
-        if (numReopen === 0 && this.pages.length >= 2) { toPage2(); pastOpen(); }
-        if (numReopen === 2) { this.ctx.numbering.forgetFirstUse(); numReopen = 3; }
         if (block.type === 'paragraph') this.placeParagraph(block.paragraph, `b${b}`, b, g);
         else this.placeTable(block, `b${b}`, b);
-        if (numReopen === 0 && this.pages.length >= 2) toPage2();
-        pastOpen();
       }
     }
     // tabela flutuante dividida no fim do documento: as linhas restantes ganham páginas

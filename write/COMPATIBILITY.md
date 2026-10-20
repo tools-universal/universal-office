@@ -38,25 +38,48 @@ paridade total ainda não está concluída.
 | Acessibilidade | ❌ | textarea proxy básica | árvore semântica, leitura por screen reader e navegação avançada |
 | Colaboração em tempo real | ❌ | fora do núcleo atual | modelo de operações/CRDT e presença |
 
-## Corpus real (2026-10-11)
+## Corpus real (2026-10-19)
 
-995 documentos de um sistema real (.docx/.doc/.odt — fora do repositório),
+993 documentos de um sistema real (.docx/.doc/.odt — fora do repositório),
 diagramados pelo motor e comparados com os PDFs gerados pelo próprio Word
 (`tools/corpus-lab`). O canvas do editor, o `exportPdf` do navegador e o
 port .NET dão o mesmo resultado (mesma árvore de layout).
 
-| Métrica | Layout antigo do canvas | 1ª versão do motor | Motor hoje |
-|---|---:|---:|---:|
-| mesmo nº de páginas | — | 816 / 995 | **950 / 995** |
-| linhas idênticas (média / mediana) | ≈ 0,49 (mediana) | — | **0,973 / 1,000** |
-| documentos com ≥ 99% das linhas idênticas | — | 465 | **680** |
-| sobreposição de pixels com o Word (F1 média / mediana) | 0,16 / 0,14 (amostra de 40) | — / 0,833 | **0,875 / 0,988** |
-| desvio vertical das linhas (mediana) | — | — | **0,08 pt** |
+Referências refeitas em 2026-10-19 com o Word 16.0.20430 (atualizado em
+2026-10-18), uma sessão nova do Word por documento
+(`tools/corpus-lab/word-pdfs.mjs`). Um documento (.doc com IRM) nem o Word
+abre sem credencial: as métricas valem para os outros 992.
 
-Gaps conhecidos do corpus: documentos em modo de compatibilidade 11 com
-`useFELayout` (largura de linha menor no Word), quadros de ODT, cor de fundo
-da página (`w:background`) e alguns objetos ancorados em posições
-fracionárias.
+| Métrica | Layout antigo do canvas | 1ª versão do motor | 2026-10-11 | Motor hoje |
+|---|---:|---:|---:|---:|
+| mesmo nº de páginas | — | 816 / 995 | 950 / 995 | **992 / 992** |
+| quebras de linha idênticas em todas as páginas | — | — | — | **989 / 992** |
+| linhas idênticas (média / mediana) | ≈ 0,49 (mediana) | — | 0,973 / 1,000 | **0,999 / 1,000** |
+| documentos com ≥ 99% das linhas idênticas | — | 465 | 680 | **981** |
+| sobreposição de pixels com o Word (F1 média / mediana) | 0,16 / 0,14 (amostra de 40) | — / 0,833 | 0,875 / 0,988 | **0,996 / 0,999** |
+| desvio vertical das linhas (mediana) | — | — | 0,08 pt | **0,06 pt** |
+
+O número de páginas já batia em todos desde a rodada 6 de paginação (o
+995/995 nas referências antigas); a medição de 2026-10-11 era anterior a ela.
+A atualização do Word mudou uma regra medida: a lista com `startOverride`
+que atravessa a 2ª página não recomeça mais (oráculo `numbering3`, `pg2-*`).
+O oráculo inteiro foi refeito no Word novo; só essa regra mudou.
+
+Novas regras medidas nesta rodada (oráculos `tblshd`, `brfirst`,
+`tblsqueeze`): o `w:shd` da tabela (`w:tblPr`, direto, do estilo ou do
+condicional) não pinta as células, só o da célula — com espaçamento entre
+células, pinta o vão em volta delas; no parágrafo que começa com quebra de
+coluna, a linha na coluna seguinte leva o recuo da 1ª linha e o número da
+lista; tabela cujas palavras inquebráveis passam da largura disponível, com
+largura pedida em pct (até 100%) ou em twips abaixo da disponível, vai à
+largura disponível e é espremida como a automática (em twips ≥ disponível,
+cresce).
+
+Restantes (mesmo número de páginas): grupo de cabeçalho com contorno que
+empurra o corpo e caixa de texto que não aparece no cabeçalho (t205-ea65ae51),
+autoajuste de tabela com imagens (t88-253bff00), pixels de pequenas diferenças
+de desenho (t44-7e4f6e89, t70-2b7e4e40) e um rótulo partido em dois só na
+extração do texto (t205-423aa591).
 
 ## Gravação sem perdas (2026-10-19)
 

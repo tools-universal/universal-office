@@ -148,14 +148,6 @@ public sealed class NumberingState
         return c;
     }
 
-    /// <summary>
-    /// Esquece quais w:num já foram usados: o próximo parágrafo de um w:num com
-    /// startOverride reinicia de novo. Artefato do PDF do Word aberto e exportado
-    /// direto (sem repaginar): os parágrafos formatados na abertura guardam o
-    /// número; o seguinte de uma lista com override recomeça. Chamado pelo motor.
-    /// </summary>
-    public void ForgetFirstUse() => _seenNums.Clear();
-
     /// <summary>abstractNum efetivo (segue numStyleLink → estilo de numeração → numId).</summary>
     /// <summary>Lista (abstractNum efetivo) de um w:num — espaçamento automático entre itens.</summary>
     public string? ListKey(double numId)

@@ -102,18 +102,6 @@ export class NumberingState {
     return c;
   }
 
-  /**
-   * Esquece quais w:num já foram usados: o próximo parágrafo de um w:num com
-   * startOverride reinicia de novo. Artefato do PDF do Word aberto e exportado
-   * direto (sem repaginar): os parágrafos formatados na abertura (1ª página e
-   * o bloco que transborda para a 2ª) guardam o número; o seguinte de uma lista
-   * com override recomeça. Chamado pelo motor após esse bloco (oráculo
-   * numbering3, pg2-*).
-   */
-  forgetFirstUse(): void {
-    this.seenNums.clear();
-  }
-
   /** Lista (abstractNum efetivo) de um w:num — espaçamento automático entre itens. */
   listKey(numId: number): string | undefined {
     const a = numId ? this.abstractFor(numId) : null;

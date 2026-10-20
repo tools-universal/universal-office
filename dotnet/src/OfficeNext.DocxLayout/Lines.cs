@@ -193,6 +193,11 @@ public sealed class LineBreaker
     /// <summary>settings.compat[name] do JS (flag de compatibilidade ligada)</summary>
     private bool CompatOn(string name) => _ctx.Fmt.Settings.Compat.TryGetValue(name, out var on) && on;
 
+    /// <summary>Linha com o recuo da 1ª linha e o número da lista: a 1ª — ou, no parágrafo que
+    /// COMEÇA com quebra de coluna, a que vem depois dela, na coluna seguinte (a linha da
+    /// quebra fica sem os dois — oráculo brfirst, corpus t70).</summary>
+    private bool IndentFirst() => LineIdx == (P.Glyphs.Count > 1 && P.Glyphs[0].Kind == GlyphKind.Cb ? 1 : 0);
+
     /// <summary>Estado antes de uma linha (para refazê-la noutro quadro).</summary>
     public (int Pos, int LineIdx, bool TrailingBreak, int HyphenRun) Mark() => (Pos, LineIdx, _trailingBreak, _hyphenRun);
 
@@ -218,7 +223,7 @@ public sealed class LineBreaker
             w += q.Kind == GlyphKind.Shy ? 0 : q.Adv;
             if (q.BreakAfter) break;
         }
-        return w + (LineIdx == 0 ? Math.Max(0, P.FirstLine) : 0);
+        return w + (IndentFirst() ? Math.Max(0, P.FirstLine) : 0);
     }
 
 
@@ -249,23 +254,23 @@ public sealed class LineBreaker
     {
         var p = P;
         var gs = p.Glyphs;
-        bool first = LineIdx == 0;
+        bool indFirst = IndentFirst();
         int start = Pos;
-        double xStart = frame.Left + (first ? p.FirstLine : 0);
+        double xStart = frame.Left + (indFirst ? p.FirstLine : 0);
         double right = frame.Right;
         // limite do "cabe na linha" na unidade interna do Word (1/4096 pt): largura da
         // coluna/célula e recuos direito, esquerdo e da 1ª linha convertidos CADA UM com
         // arredondamento (oráculo emwidth)
-        double rightQ = FitRight(frame, xStart, first);
+        double rightQ = FitRight(frame, xStart, indFirst);
         var placed = new List<PlacedGlyph>();
         double x = xStart;
         List<PlacedGlyph>? markerPlaced = null;
         double defaultTab = _ctx.Fmt.Settings.DefaultTabStop;
         // recuo deslocado = parada implícita (1ª linha)
-        double? hangingStop = first && p.FirstLine < 0 ? frame.Left : null;
+        double? hangingStop = indFirst && p.FirstLine < 0 ? frame.Left : null;
 
         // marcador de numeração (só na 1ª linha)
-        if (first && p.Marker is not null)
+        if (indFirst && p.Marker is not null)
         {
             var mk = p.Marker;
             double mx = xStart;
@@ -432,7 +437,7 @@ public sealed class LineBreaker
                         spanned = true;
                         x = fnx.Left;
                         right = fnx.Right;
-                        rightQ = FitRight(new LineFrame(frame.Left, right), xStart, first);
+                        rightQ = FitRight(new LineFrame(frame.Left, right), xStart, indFirst);
                         (pos, tab) = nxv;
                     }
                     else if (i > start) { gapTab = "break"; break; }
