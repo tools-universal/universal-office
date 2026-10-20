@@ -1,9 +1,14 @@
 // Corpus de documentos REAIS (fora do repositório) × PDFs exportados pelo Word.
 //
 // Layout esperado em CORPUS_ROOT (padrão E:\UniversalWriteTest):
-//   Extraction/<tenant>/word/docx/<nome>.docx|.doc   — documentos
+//   Documents/<tenant>/word/docx/<nome>.docx|.doc    — documentos (o layout
+//                                                      antigo, Extraction/,
+//                                                      também vale)
 //   WordPdf/<tenant>/<nome>.pdf                      — o MESMO documento salvo
 //                                                      como PDF pelo Word
+//                                                      (word-pdfs.mjs gera)
+// O id (t<tenant>-sha1 do caminho relativo à pasta dos documentos) é o mesmo
+// nos dois layouts.
 // Os documentos são de terceiros: NADA deles (nem texto extraído, nem imagens
 // das páginas) entra no git. Toda saída vai para LAB_DIR (padrão
 // CORPUS_ROOT/_lab). Regressões viram fixtures SINTÉTICAS que reproduzem o
@@ -14,6 +19,11 @@ import { createHash } from 'node:crypto';
 
 export const CORPUS_ROOT = process.env.CORPUS_ROOT ?? 'E:/UniversalWriteTest';
 export const LAB_DIR = process.env.LAB_DIR ?? join(CORPUS_ROOT, '_lab');
+/** Pasta dos documentos: Documents/ (layout novo) ou Extraction/ (antigo). */
+export const DOCS_DIR = process.env.CORPUS_DOCS
+  ?? ['Documents', 'Extraction'].map((d) => join(CORPUS_ROOT, d)).find((d) => existsSync(d))
+  ?? join(CORPUS_ROOT, 'Documents');
+export const WORD_PDF_DIR = join(CORPUS_ROOT, 'WordPdf');
 
 function walk(dir, out = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -37,8 +47,8 @@ function magic(path) {
 
 /** Monta (e grava em LAB_DIR/manifest.json) a lista de documentos do corpus. */
 export function buildManifest() {
-  const extraction = join(CORPUS_ROOT, 'Extraction');
-  const wordPdf = join(CORPUS_ROOT, 'WordPdf');
+  const extraction = DOCS_DIR;
+  const wordPdf = WORD_PDF_DIR;
   const docs = [];
   for (const tenant of readdirSync(extraction).sort()) {
     const tdir = join(extraction, tenant);
