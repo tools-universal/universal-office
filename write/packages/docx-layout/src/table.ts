@@ -488,9 +488,10 @@ function columnWidthsExact(cells: GeoCell[][], nCols: number, docGrid: number[],
     const si = inner.reduce((a, b) => a + b, 0), cut = S1 - avail;
     return g1.map((x, j) => x - (si > 0 ? (cut * inner[j]!) / si : cut / nCols));
   }
-  // nem os mínimos cabem: com tblW a tabela cresce; automática, espreme (d9) — se a
-  // grade gravada já tem essa largura, ela é o aperto que o próprio Word calculou
-  if (explicit) return g3.map((x, j) => (isPct[j] ? p[j]! : x));
+  // nem os mínimos cabem: com tblW a tabela cresce (f6) — mas não além da largura
+  // disponível: aí espreme como a automática (oráculo tblsqueeze); automática, espreme
+  // (d9) — se a grade gravada já tem essa largura, ela é o aperto que o próprio Word calculou
+  if (explicit && !(S1 > avail + 0.5 && T <= avail + 0.5)) return g3.map((x, j) => (isPct[j] ? p[j]! : x));
   const sg = docGrid.reduce((a, b) => a + b, 0);
   if (!isPct.some(Boolean) && Math.abs(sg - T) <= Math.max(20, 0.005 * T)) return docGrid.map((x) => (x * T!) / sg);
   return g1.map((x, j) => (isPct[j] ? p[j]! : S1 > 0 ? (x * R) / S1 : x));
@@ -936,7 +937,7 @@ export function layoutTable(
       const x0 = !separated ? x0r : spTbl > 0 ? x0r + wl : x0r + Math.max(wl - marL, wl / 2);
       const x1 = !separated ? x1r : spTbl > 0 ? x1r - wr : x1r - Math.max(wr - marR, wr / 2);
       // fundo escuro na célula: texto de cor automática vira branco
-      const env = { tablePPr: pPr, tableRPr: rPr, ...(isDark(cellFill(ctx, tcPr, tblPr, theme)) ? { darkBackground: true } : {}) };
+      const env = { tablePPr: pPr, tableRPr: rPr, ...(isDark(cellFill(tcPr, theme)) ? { darkBackground: true } : {}) };
       const vertical = tcPr.textDirection === 'btLr' || tcPr.textDirection === 'tbRl' || tcPr.textDirection === 'tbRlV' ? tcPr.textDirection : undefined;
       const info: (typeof cellInfos)[number] = { slot: s, tcPr, x0, x1, bx0, bx1, marT, marB, marL, marR, env, ...(vertical ? { vertical } : {}) };
       if (!s.merged) {
@@ -1027,7 +1028,7 @@ export function layoutTable(
         for (const ci of cellInfos) {
           const s = ci.slot;
           if (s.merged) continue;
-          const fill = cellFill(ctx, ci.tcPr, tblPr, theme);
+          const fill = cellFill(ci.tcPr, theme);
           const content = contents.get(s);
           if (fill) its.push({ t: 'rect', x: x + ci.bx0, y: cy0, w: ci.bx1 - ci.bx0, h: cy1 - cy0, fill });
           if (s.rowSpan > 1) mergeAt.push({ col: s.col, at: its.length, endRow: ri + s.rowSpan - 1 });
@@ -1058,7 +1059,7 @@ export function layoutTable(
       let ownBand = 0;
       for (const ci of cellInfos) {
         const s = ci.slot;
-        const fill = cellFill(ctx, ci.tcPr, tblPr, theme);
+        const fill = cellFill(ci.tcPr, theme);
         const content = contents.get(s);
         if (!s.merged && s.rowSpan > 1) mergeAt.push({ col: s.col, at: its.length, endRow: ri + s.rowSpan - 1 });
         if (!s.merged && s.rowSpan === 1) {
@@ -1170,7 +1171,7 @@ export function layoutTable(
     const h = rowHeights.slice(m.startRow, endRow + 1).reduce((a, b) => a + b, 0) - bandTopOf(m.startRow) - bandBottomOf(endRow);
     const first = rows[m.startRow]!;
     const target = rows[endRow] ?? first;
-    const fill = cellFill(ctx, m.tcPr, tblPr, theme);
+    const fill = cellFill(m.tcPr, theme);
     if (fill) {
       const item = { t: 'rect' as const, x: x + m.x0, y: 0, w: m.x1 - m.x0, h, fill };
       first.items.unshift(item);
@@ -1194,14 +1195,15 @@ export function layoutTable(
   return { x, width, rows, borderLeft, ...(legacy ? { effR } : {}), ...(tblPr.tblpPr ? { tblpPr: tblPr.tblpPr } : {}) };
 }
 
-function cellFill(ctx: DocContext, tcPr: TcPr, tblPr: TblPr, theme: DocContext['fmt']['theme']): string | undefined {
-  const shd = tcPr.shd ?? tblPr.shd;
+/** Preenchimento da célula: só o w:shd da CÉLULA (direto ou do w:tcPr do estilo);
+ *  o w:shd da tabela (w:tblPr, direto ou do estilo) o Word não pinta (oráculo tblshd). */
+function cellFill(tcPr: TcPr, theme: DocContext['fmt']['theme']): string | undefined {
+  const shd = tcPr.shd;
   if (!shd) return undefined;
   if (shd.val === 'solid') return resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? '000000';
   const fill = shd.themeFill
     ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, theme)
     : shd.fill && shd.fill !== 'auto' ? shd.fill.toUpperCase() : undefined;
-  void ctx;
   if (shd.val && /^pct(\d+)$/.test(shd.val)) {
     // padrão percentual: mistura a cor do padrão sobre o preenchimento
     const pct = parseInt(shd.val.slice(3), 10) / 100;

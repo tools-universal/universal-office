@@ -167,7 +167,13 @@ export class LineBreaker {
       w += q.kind === 'shy' ? 0 : q.adv;
       if (q.breakAfter) break;
     }
-    return w + (this.lineIdx === 0 ? Math.max(0, this.p.firstLine) : 0);
+    return w + (this.indentFirst() ? Math.max(0, this.p.firstLine) : 0);
+  }
+
+  /** Linha com o recuo da 1ª linha: a 1ª — ou, no parágrafo que COMEÇA com quebra de
+   *  coluna, a que vem depois dela, na coluna seguinte (oráculo brfirst, corpus t70). */
+  private indentFirst(): boolean {
+    return this.lineIdx === 0 || (this.lineIdx === 1 && this.p.glyphs[0]?.kind === 'cb');
   }
 
   mark(): { pos: number; lineIdx: number; trailingBreak: boolean; hyphenRun: number } {
@@ -195,19 +201,20 @@ export class LineBreaker {
     const p = this.p;
     const gs = p.glyphs;
     const first = this.lineIdx === 0;
+    const indFirst = this.indentFirst();
     const start = this.pos;
-    const xStart = frame.left + (first ? p.firstLine : 0);
+    const xStart = frame.left + (indFirst ? p.firstLine : 0);
     let right = frame.right;
     // limite do "cabe na linha" na unidade interna do Word (1/4096 pt): largura da
     // coluna/célula e recuos direito, esquerdo e da 1ª linha convertidos CADA UM com
     // arredondamento (oráculo emwidth)
-    let rightQ = this.fitRight(frame, xStart, first);
+    let rightQ = this.fitRight(frame, xStart, indFirst);
     const placed: PlacedGlyph[] = [];
     let x = xStart;
     let markerPlaced: PlacedGlyph[] | undefined;
     const defaultTab = this.ctx.fmt.settings.defaultTabStop;
     // recuo deslocado = parada implícita (1ª linha)
-    const hangingStop = first && p.firstLine < 0 ? frame.left : undefined;
+    const hangingStop = indFirst && p.firstLine < 0 ? frame.left : undefined;
 
     // marcador de numeração (só na 1ª linha)
     if (first && p.marker) {
@@ -346,7 +353,7 @@ export class LineBreaker {
             spanned = true;
             x = frame.next.left;
             right = frame.next.right;
-            rightQ = this.fitRight({ left: frame.left, right }, xStart, first);
+            rightQ = this.fitRight({ left: frame.left, right }, xStart, indFirst);
             ({ pos, tab } = nx);
           } else if (i > start) { gapTab = 'break'; break; } else gapTab = 'start';
         }

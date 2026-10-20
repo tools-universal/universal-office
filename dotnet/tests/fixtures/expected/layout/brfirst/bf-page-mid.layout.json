@@ -1,0 +1,35 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1604.6,"scaleX":1,"text":"PrimeiracolunaHxg","g":[[80,1701],[114,1834.4],[105,1901],[109,1945.43],[101,2112.04],[105,2223.27],[114,2267.7],[97,2334.3],[99,2501.1],[111,2601.1],[108,2712.33],[117,2756.76],[110,2867.99],[97,2979.22],[72,3146.02],[120,3290.45],[103,3390.45]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1834.58,"scaleX":1,"text":"OutralinhaHxg","g":[[79,1701],[117,1856.57],[116,1967.8],[114,2023.36],[97,2089.96],[108,2256.76],[105,2301.2],[110,2345.63],[104,2456.86],[97,2568.09],[72,2734.89],[120,2879.32],[103,2979.32]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":2064.56,"scaleX":1,"text":"AntesHxg","g":[[65,2421],[110,2554.4],[116,2665.63],[101,2721.2],[115,2832.43],[72,2987.99],[120,3132.43],[103,3232.43]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":19,"x":1701,"y":1417,"height":229.98,"baseline":1604.6,"width":1800.68},
+        {"ref":"b1","start":0,"end":15,"x":1701,"y":1646.98,"height":229.98,"baseline":1834.58,"width":1389.55},
+        {"ref":"b2","start":0,"end":10,"x":2421,"y":1876.96,"height":229.98,"baseline":2064.56,"width":922.66}
+      ]
+    },
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 2,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1604.6,"scaleX":1,"text":"DepoisHxg","g":[[68,1701],[101,1845.43],[112,1956.66],[111,2067.89],[105,2179.13],[115,2223.56],[72,2379.13],[120,2523.56],[103,2623.56]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1834.58,"scaleX":1,"text":"SeguinteHxg","g":[[83,2421],[101,2554.4],[103,2665.63],[117,2776.86],[105,2888.09],[110,2932.52],[116,3043.75],[101,3099.32],[72,3266.12],[120,3410.55],[103,3510.55]]}
+      ],
+      "lines": [
+        {"ref":"b2","start":10,"end":20,"x":1701,"y":1417,"height":229.98,"baseline":1604.6,"width":1033.79},
+        {"ref":"b3","start":0,"end":12,"x":2421,"y":1646.98,"height":229.98,"baseline":1834.58,"width":1200.78}
+      ]
+    }
+  ],
+  "warnings": []
+}

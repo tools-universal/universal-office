@@ -1,0 +1,24 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1604.6,"scaleX":1,"text":"PrimeiracolunaHxg","g":[[80,1701],[114,1834.4],[105,1901],[109,1945.43],[101,2112.04],[105,2223.27],[114,2267.7],[97,2334.3],[99,2501.1],[111,2601.1],[108,2712.33],[117,2756.76],[110,2867.99],[97,2979.22],[72,3146.02],[120,3290.45],[103,3390.45]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1834.58,"scaleX":1,"text":"OutralinhaHxg","g":[[79,1701],[117,1856.57],[116,1967.8],[114,2023.36],[97,2089.96],[108,2256.76],[105,2301.2],[110,2345.63],[104,2456.86],[97,2568.09],[72,2734.89],[120,2879.32],[103,2979.32]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1604.6,"scaleX":1,"text":"DepoisHxg","g":[[68,7027],[101,7171.43],[112,7282.66],[111,7393.89],[105,7505.13],[115,7549.56],[72,7705.13],[120,7849.56],[103,7949.56]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":10,"color":"000000","y":1834.58,"scaleX":1,"text":"SeguinteHxg","g":[[83,7027],[101,7160.4],[103,7271.63],[117,7382.86],[105,7494.09],[110,7538.52],[116,7649.75],[101,7705.32],[72,7872.12],[120,8016.55],[103,8116.55]]}
+      ],
+      "lines": [
+        {"ref":"b0","start":0,"end":19,"x":1701,"y":1417,"height":229.98,"baseline":1604.6,"width":1800.68},
+        {"ref":"b1","start":0,"end":15,"x":1701,"y":1646.98,"height":229.98,"baseline":1834.58,"width":1389.55},
+        {"ref":"b2","start":0,"end":1,"x":2421,"y":1876.96,"height":229.98,"baseline":2064.56,"width":0},
+        {"ref":"b2","start":1,"end":11,"x":7027,"y":1417,"height":229.98,"baseline":1604.6,"width":1033.79},
+        {"ref":"b3","start":0,"end":12,"x":7027,"y":1646.98,"height":229.98,"baseline":1834.58,"width":1200.78}
+      ]
+    }
+  ],
+  "warnings": []
+}

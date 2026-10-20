@@ -631,9 +631,10 @@ public static class TableEngine
             double si = inner.Aggregate(0.0, (a, b) => a + b), cut = S1 - avail;
             return g1.Select((xv, j) => xv - (si > 0 ? (cut * inner[j]) / si : cut / nCols)).ToList();
         }
-        // nem os mínimos cabem: com tblW a tabela cresce; automática, espreme (d9) — se a
-        // grade gravada já tem essa largura, ela é o aperto que o próprio Word calculou
-        if (isExplicit) return g3.Select((x, j) => isPct[j] ? p[j] : x).ToList();
+        // nem os mínimos cabem: com tblW a tabela cresce (f6) — mas não além da largura
+        // disponível: aí espreme como a automática (oráculo tblsqueeze); automática, espreme
+        // (d9) — se a grade gravada já tem essa largura, ela é o aperto que o próprio Word calculou
+        if (isExplicit && !(S1 > avail + 0.5 && Tt <= avail + 0.5)) return g3.Select((x, j) => isPct[j] ? p[j] : x).ToList();
         double sg = docGrid.Sum();
         if (!isPct.Any(x => x) && Math.Abs(sg - Tt) <= Math.Max(20, 0.005 * Tt)) return docGrid.Select(x => (x * Tt) / sg).ToList();
         return g1.Select((x, j) => isPct[j] ? p[j] : S1 > 0 ? (x * R) / S1 : x).ToList();
@@ -1181,7 +1182,7 @@ public static class TableEngine
                 double x0 = !separated ? x0r : spTbl > 0 ? x0r + wl : x0r + Math.Max(wl - marL, wl / 2);
                 double x1 = !separated ? x1r : spTbl > 0 ? x1r - wr : x1r - Math.Max(wr - marR, wr / 2);
                 // fundo escuro na célula: texto de cor automática vira branco
-                var env = new CellEnv { TablePPr = rs.PPr, TableRPr = rs.RPr, DarkBackground = Para.IsDark(CellFill(ctx, rs.TcPr, tblPr, theme)) };
+                var env = new CellEnv { TablePPr = rs.PPr, TableRPr = rs.RPr, DarkBackground = Para.IsDark(CellFill(rs.TcPr, theme)) };
                 string? td = rs.TcPr.TextDirection;
                 string? vertical = td is "btLr" or "tbRl" or "tbRlV" ? td : null;
                 var info = new CellInfo { Slot = s, TcPr = rs.TcPr, X0 = x0, X1 = x1, Bx0 = bx0, Bx1 = bx1, MarT = marT, MarB = marB, MarL = marL, MarR = marR, Env = env, Vertical = vertical };
@@ -1286,7 +1287,7 @@ public static class TableEngine
                     {
                         var s = ci.Slot;
                         if (s.Merged) continue;
-                        string? fill = CellFill(ctx, ci.TcPr, tblPr, theme);
+                        string? fill = CellFill(ci.TcPr, theme);
                         contents.TryGetValue(s, out var content);
                         if (fill is not null) its.Add(new RectItem { X = x + ci.Bx0, Y = cy0, W = ci.Bx1 - ci.Bx0, H = cy1 - cy0, Fill = fill });
                         if (s.RowSpan > 1) mergeAt.Add(new MergeAtInfo { Col = s.Col, At = its.Count, EndRow = riC + s.RowSpan - 1 });
@@ -1320,7 +1321,7 @@ public static class TableEngine
                 foreach (var ci in cellInfos)
                 {
                     var s = ci.Slot;
-                    string? fill = CellFill(ctx, ci.TcPr, tblPr, theme);
+                    string? fill = CellFill(ci.TcPr, theme);
                     contents.TryGetValue(s, out var content);
                     if (!s.Merged && s.RowSpan > 1) mergeAt.Add(new MergeAtInfo { Col = s.Col, At = its.Count, EndRow = riC + s.RowSpan - 1 });
                     if (!s.Merged && s.RowSpan == 1)
@@ -1451,7 +1452,7 @@ public static class TableEngine
             double h = rowHeights.Skip(m.StartRow).Take(endRow + 1 - m.StartRow).Aggregate(0.0, (a, b) => a + b) - BandTopOf(m.StartRow) - BandBottomOf(endRow);
             var first = rows[m.StartRow];
             var target = endRow >= 0 && endRow < rows.Count ? rows[endRow] : first;
-            string? fill = CellFill(ctx, m.TcPr, tblPr, theme);
+            string? fill = CellFill(m.TcPr, theme);
             if (fill is not null)
             {
                 var fillItem = new RectItem { X = x + m.X0, Y = 0, W = m.X1 - m.X0, H = h, Fill = fill };
@@ -1488,9 +1489,11 @@ public static class TableEngine
 
     private static readonly Regex PctRe = new(@"^pct(\d+)\z", RegexOptions.CultureInvariant);
 
-    private static string? CellFill(DocContext ctx, TcPr tcPr, TblPr tblPr, Theme theme)
+    /// <summary>Preenchimento da célula: só o w:shd da CÉLULA (direto ou do w:tcPr do estilo);
+    /// o w:shd da tabela (w:tblPr, direto ou do estilo) o Word não pinta (oráculo tblshd).</summary>
+    private static string? CellFill(TcPr tcPr, Theme theme)
     {
-        var shd = tcPr.Shd ?? tblPr.Shd;
+        var shd = tcPr.Shd;
         if (shd is null) return null;
         if (shd.Val == "solid") return Resolve.ResolveColor(shd.Color, shd.ThemeColor, null, null, theme) ?? "000000";
         string? fill = Js.Truthy(shd.ThemeFill)
