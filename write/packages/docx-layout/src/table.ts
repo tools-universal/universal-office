@@ -462,7 +462,7 @@ function columnWidthsExact(cells: GeoCell[][], nCols: number, docGrid: number[],
     const sp = sumOf(p, () => true);
     return sp > 0 && T > sp + 0.5 ? p.map((x) => (x * T!) / sp) : p;
   }
-  const R = T - sumOf(p, () => true);
+  let R = T - sumOf(p, () => true);
   const g3 = g3of(T), g4 = g4of(T);
   const S1 = sumOf(g1, np), S3 = sumOf(g3, np), S4 = sumOf(g4, np);
   const lerp = (a: number[], b: number[], t: number) => a.map((x, j) => (isPct[j] ? p[j]! : x + (b[j]! - x) * t));
@@ -488,10 +488,16 @@ function columnWidthsExact(cells: GeoCell[][], nCols: number, docGrid: number[],
     const si = inner.reduce((a, b) => a + b, 0), cut = S1 - avail;
     return g1.map((x, j) => x - (si > 0 ? (cut * inner[j]!) / si : cut / nCols));
   }
-  // nem os mínimos cabem: com tblW a tabela cresce (f6) — mas não além da largura
-  // disponível: aí espreme como a automática (oráculo tblsqueeze); automática, espreme
-  // (d9) — se a grade gravada já tem essa largura, ela é o aperto que o próprio Word calculou
-  if (explicit && !(S1 > avail + 0.5 && T <= avail + 0.5)) return g3.map((x, j) => (isPct[j] ? p[j]! : x));
+  // nem os mínimos cabem: com tblW a tabela cresce (f6) — mas se eles passam da largura
+  // disponível e o pedido é pct até 100% ou twips abaixo dela, a tabela vai à
+  // largura disponível e espreme como a automática; twips ≥ disponível, cresce (oráculo
+  // tblsqueeze); automática, espreme (d9) — se a grade gravada já tem essa largura, ela
+  // é o aperto que o próprio Word calculou
+  if (explicit) {
+    if (!(S1 > avail + 0.5 && (tw === 'pct' ? T <= avail + 0.5 : T < avail - 0.5))) return g3.map((x, j) => (isPct[j] ? p[j]! : x));
+    R += avail - T;
+    T = avail;
+  }
   const sg = docGrid.reduce((a, b) => a + b, 0);
   if (!isPct.some(Boolean) && Math.abs(sg - T) <= Math.max(20, 0.005 * T)) return docGrid.map((x) => (x * T!) / sg);
   return g1.map((x, j) => (isPct[j] ? p[j]! : S1 > 0 ? (x * R) / S1 : x));
@@ -1025,6 +1031,17 @@ export function layoutTable(
       if (separated) {
         // cada célula: fundo e as próprias bordas dentro da caixa; depois a borda externa
         const cy0 = bTop - sepWT[ri]!, cy1 = bTop + ch + (bBottom > 0 ? sepWB[ri]! : 0);
+        // o w:shd da TABELA pinta só o espaçamento em volta das células (oráculo tblshd, ts-cellsp)
+        const tblFill = shdFill(tblPr.shd, theme);
+        if (tblFill) {
+          const xl = x + g0, xr = x + gn;
+          const strip = (x0: number, y0: number, x1: number, y1: number) => { if (x1 - x0 > 0.01 && y1 - y0 > 0.01) its.push({ t: 'rect', x: x0, y: y0, w: x1 - x0, h: y1 - y0, fill: tblFill }); };
+          strip(xl, 0, xr, cy0);
+          strip(xl, cy1, xr, rh);
+          let cx = xl;
+          for (const ci of [...cellInfos].sort((a, b) => a.bx0 - b.bx0)) { strip(cx, cy0, x + ci.bx0, cy1); cx = Math.max(cx, x + ci.bx1); }
+          strip(cx, cy0, xr, cy1);
+        }
         for (const ci of cellInfos) {
           const s = ci.slot;
           if (s.merged) continue;
@@ -1195,10 +1212,15 @@ export function layoutTable(
   return { x, width, rows, borderLeft, ...(legacy ? { effR } : {}), ...(tblPr.tblpPr ? { tblpPr: tblPr.tblpPr } : {}) };
 }
 
-/** Preenchimento da célula: só o w:shd da CÉLULA (direto ou do w:tcPr do estilo);
- *  o w:shd da tabela (w:tblPr, direto ou do estilo) o Word não pinta (oráculo tblshd). */
+/** Preenchimento da célula: só o w:shd da CÉLULA (direto ou do w:tcPr do estilo,
+ *  inclusive o condicional); o w:shd da tabela (w:tblPr, direto, do estilo ou do
+ *  w:tblStylePr) não pinta a célula — com espaçamento entre células, pinta o vão
+ *  (oráculo tblshd). */
 function cellFill(tcPr: TcPr, theme: DocContext['fmt']['theme']): string | undefined {
-  const shd = tcPr.shd;
+  return shdFill(tcPr.shd, theme);
+}
+
+function shdFill(shd: TcPr['shd'], theme: DocContext['fmt']['theme']): string | undefined {
   if (!shd) return undefined;
   if (shd.val === 'solid') return resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? '000000';
   const fill = shd.themeFill

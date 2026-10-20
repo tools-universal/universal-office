@@ -1,7 +1,8 @@
 // Tabela de ajuste automático cujas palavras "inquebráveis" (traços de
 // sublinhado para preencher à mão, corpus t44) somam mais que a largura
 // disponível: o Word estoura a margem ou parte as palavras dentro das células?
-// Largura da tabela 100% (pct) × automática; grade gravada como no documento.
+// Largura da tabela 100% (pct) × automática × em twips (abaixo, igual e acima da
+// largura útil); grade gravada como no documento.
 import { buildDocx, docDefaults, p, r } from '../docx-builder.mjs';
 
 const U = (n) => '_'.repeat(n);
@@ -23,6 +24,12 @@ export const cases = [
   { name: 'to-auto', docx: D(tbl(AUTO)) },
   // letras em vez de traços (palavra comprida comum)
   { name: 'to-pct-letters', docx: D(tbl(PCT, ROW.map((t) => t.replace(/_/g, 'm')))) },
+  // largura em twips: abaixo da útil, igual a ela e acima dela
+  { name: 'to-dxa-9000', docx: D(tbl('<w:tblW w:w="9000" w:type="dxa"/>')) },
+  { name: 'to-dxa-9864', docx: D(tbl('<w:tblW w:w="9864" w:type="dxa"/>')) },
+  { name: 'to-dxa-12000', docx: D(tbl('<w:tblW w:w="12000" w:type="dxa"/>')) },
+  // pct abaixo de 100%
+  { name: 'to-pct-80', docx: D(tbl('<w:tblW w:w="4000" w:type="pct"/>')) },
   // a mesma tabela com conteúdo que CABE (controle: só a grade/autoajuste)
   { name: 'to-pct-fits', docx: D(tbl(PCT, ROW.map((t) => t.slice(0, 8)))) },
 ];

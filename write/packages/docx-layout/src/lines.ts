@@ -170,10 +170,11 @@ export class LineBreaker {
     return w + (this.indentFirst() ? Math.max(0, this.p.firstLine) : 0);
   }
 
-  /** Linha com o recuo da 1ª linha: a 1ª — ou, no parágrafo que COMEÇA com quebra de
-   *  coluna, a que vem depois dela, na coluna seguinte (oráculo brfirst, corpus t70). */
+  /** Linha com o recuo da 1ª linha e o número da lista: a 1ª — ou, no parágrafo que
+   *  COMEÇA com quebra de coluna, a que vem depois dela, na coluna seguinte (a linha da
+   *  quebra fica sem os dois — oráculo brfirst, corpus t70). */
   private indentFirst(): boolean {
-    return this.lineIdx === 0 || (this.lineIdx === 1 && this.p.glyphs[0]?.kind === 'cb');
+    return this.lineIdx === (this.p.glyphs[0]?.kind === 'cb' && this.p.glyphs.length > 1 ? 1 : 0);
   }
 
   mark(): { pos: number; lineIdx: number; trailingBreak: boolean; hyphenRun: number } {
@@ -200,7 +201,6 @@ export class LineBreaker {
   next(frame: LineFrame): Line {
     const p = this.p;
     const gs = p.glyphs;
-    const first = this.lineIdx === 0;
     const indFirst = this.indentFirst();
     const start = this.pos;
     const xStart = frame.left + (indFirst ? p.firstLine : 0);
@@ -217,7 +217,7 @@ export class LineBreaker {
     const hangingStop = indFirst && p.firstLine < 0 ? frame.left : undefined;
 
     // marcador de numeração (só na 1ª linha)
-    if (first && p.marker) {
+    if (indFirst && p.marker) {
       const mk = p.marker;
       let mx = xStart;
       if (mk.jc === 'right') mx -= mk.width;

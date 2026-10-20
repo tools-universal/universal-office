@@ -4,9 +4,14 @@
 //   Documents/<tenant>/word/docx/<nome>.docx|.doc    — documentos (o layout
 //                                                      antigo, Extraction/,
 //                                                      também vale)
-//   WordPdf/<tenant>/<nome>.pdf                      — o MESMO documento salvo
+//   WordPdf/<tenant>/word/docx/<nome>.docx.pdf       — o MESMO documento salvo
 //                                                      como PDF pelo Word
-//                                                      (word-pdfs.mjs gera)
+//                                                      (word-pdfs.mjs gera). A
+//                                                      chave é o caminho relativo
+//                                                      COM a extensão: x.doc e
+//                                                      x.docx não colidem. O
+//                                                      antigo WordPdf/<tenant>/<nome>.pdf
+//                                                      vale se o nome for único.
 // O id (t<tenant>-sha1 do caminho relativo à pasta dos documentos) é o mesmo
 // nos dois layouts.
 // Os documentos são de terceiros: NADA deles (nem texto extraído, nem imagens
@@ -14,7 +19,7 @@
 // CORPUS_ROOT/_lab). Regressões viram fixtures SINTÉTICAS que reproduzem o
 // padrão encontrado.
 import { readdirSync, statSync, existsSync, readFileSync, writeFileSync, mkdirSync, openSync, readSync, closeSync } from 'node:fs';
-import { join, extname, basename } from 'node:path';
+import { join, extname, basename, relative, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 
 export const CORPUS_ROOT = process.env.CORPUS_ROOT ?? 'E:/UniversalWriteTest';
@@ -45,26 +50,45 @@ function magic(path) {
   } finally { closeSync(fd); }
 }
 
+/** OOXML criptografado dentro de um contêiner CFB: 'irm' (gestão de direitos — o Word
+ *  pede credencial e pode abrir janela), 'password' (senha) ou null. */
+function encryption(path) {
+  const b = readFileSync(path);
+  const has = (name) => b.includes(Buffer.from(name, 'utf16le'));
+  if (!has('EncryptedPackage')) return null;
+  return has('DRMEncryptedDataSpace') || has('DRMEncryptedTransform') ? 'irm' : 'password';
+}
+
+/** PDF de referência do Word de um documento (rel: caminho relativo à pasta dos documentos). */
+export function wordPdfPath(rel) {
+  return join(WORD_PDF_DIR, `${rel}.pdf`);
+}
+
 /** Monta (e grava em LAB_DIR/manifest.json) a lista de documentos do corpus. */
 export function buildManifest() {
-  const extraction = DOCS_DIR;
-  const wordPdf = WORD_PDF_DIR;
+  const extraction = resolve(DOCS_DIR);
   const docs = [];
   for (const tenant of readdirSync(extraction).sort()) {
     const tdir = join(extraction, tenant);
     if (!statSync(tdir).isDirectory()) continue;
-    for (const file of walk(tdir).sort()) {
+    const files = walk(tdir).sort().filter((f) => ['.docx', '.doc'].includes(extname(f).toLowerCase()));
+    const stems = files.map((f) => basename(f, extname(f)).toLowerCase());
+    for (const file of files) {
       const ext = extname(file).toLowerCase();
-      if (ext !== '.docx' && ext !== '.doc') continue;
       const stem = basename(file, extname(file));
-      const pdf = join(wordPdf, tenant, `${stem}.pdf`);
-      const rel = file.slice(extraction.length + 1).replace(/\\/g, '/');
+      const rel = relative(extraction, file).split(/[\\/]/).join('/');
+      // layout antigo (WordPdf/<tenant>/<nome>.pdf): só se o nome sem extensão for único
+      const legacy = join(WORD_PDF_DIR, tenant, `${stem}.pdf`);
+      const unique = stems.filter((s) => s === stem.toLowerCase()).length === 1;
+      const pdf = existsSync(wordPdfPath(rel)) ? wordPdfPath(rel) : unique && existsSync(legacy) ? legacy : null;
       const id = `t${tenant}-${createHash('sha1').update(rel).digest('hex').slice(0, 8)}`;
+      const container = magic(file); // 'zip' = docx (mesmo com extensão .doc), 'cfb' = Word 97-2003
+      const enc = container === 'cfb' ? encryption(file) : null;
       docs.push({
-        id, tenant, rel, path: file, ext,
-        container: magic(file), // 'zip' = docx (mesmo com extensão .doc), 'cfb' = Word 97-2003
+        id, tenant, rel, path: file, ext, container,
         bytes: statSync(file).size,
-        pdf: existsSync(pdf) ? pdf : null,
+        pdf,
+        ...(enc ? { encrypted: enc } : {}),
       });
     }
   }

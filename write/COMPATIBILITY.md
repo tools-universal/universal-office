@@ -66,11 +66,14 @@ que atravessa a 2ª página não recomeça mais (oráculo `numbering3`, `pg2-*`)
 O oráculo inteiro foi refeito no Word novo; só essa regra mudou.
 
 Novas regras medidas nesta rodada (oráculos `tblshd`, `brfirst`,
-`tblsqueeze`): o `w:shd` da tabela (`w:tblPr`, direto ou do estilo) não é
-pintado, só o da célula; no parágrafo que começa com quebra de coluna, a linha
-na coluna seguinte leva o recuo da 1ª linha; tabela com largura pedida cujas
-palavras inquebráveis passam da largura disponível é espremida como a
-automática.
+`tblsqueeze`): o `w:shd` da tabela (`w:tblPr`, direto, do estilo ou do
+condicional) não pinta as células, só o da célula — com espaçamento entre
+células, pinta o vão em volta delas; no parágrafo que começa com quebra de
+coluna, a linha na coluna seguinte leva o recuo da 1ª linha e o número da
+lista; tabela cujas palavras inquebráveis passam da largura disponível, com
+largura pedida em pct (até 100%) ou em twips abaixo da disponível, vai à
+largura disponível e é espremida como a automática (em twips ≥ disponível,
+cresce).
 
 Restantes (mesmo número de páginas): grupo de cabeçalho com contorno que
 empurra o corpo e caixa de texto que não aparece no cabeçalho (t205-ea65ae51),

@@ -631,10 +631,17 @@ public static class TableEngine
             double si = inner.Aggregate(0.0, (a, b) => a + b), cut = S1 - avail;
             return g1.Select((xv, j) => xv - (si > 0 ? (cut * inner[j]) / si : cut / nCols)).ToList();
         }
-        // nem os mínimos cabem: com tblW a tabela cresce (f6) — mas não além da largura
-        // disponível: aí espreme como a automática (oráculo tblsqueeze); automática, espreme
-        // (d9) — se a grade gravada já tem essa largura, ela é o aperto que o próprio Word calculou
-        if (isExplicit && !(S1 > avail + 0.5 && Tt <= avail + 0.5)) return g3.Select((x, j) => isPct[j] ? p[j] : x).ToList();
+        // nem os mínimos cabem: com tblW a tabela cresce (f6) — mas se eles passam da largura
+        // disponível e o pedido é pct até 100% ou twips abaixo dela, a tabela vai à
+        // largura disponível e espreme como a automática; twips ≥ disponível, cresce (oráculo
+        // tblsqueeze); automática, espreme (d9) — se a grade gravada já tem essa largura, ela
+        // é o aperto que o próprio Word calculou
+        if (isExplicit)
+        {
+            if (!(S1 > avail + 0.5 && (tw == "pct" ? Tt <= avail + 0.5 : Tt < avail - 0.5))) return g3.Select((x, j) => isPct[j] ? p[j] : x).ToList();
+            R += avail - Tt;
+            Tt = avail;
+        }
         double sg = docGrid.Sum();
         if (!isPct.Any(x => x) && Math.Abs(sg - Tt) <= Math.Max(20, 0.005 * Tt)) return docGrid.Select(x => (x * Tt) / sg).ToList();
         return g1.Select((x, j) => isPct[j] ? p[j] : S1 > 0 ? (x * R) / S1 : x).ToList();
@@ -1283,6 +1290,21 @@ public static class TableEngine
                 {
                     // cada célula: fundo e as próprias bordas dentro da caixa; depois a borda externa
                     double cy0 = bTop - sepWT[riC], cy1 = bTop + ch + (bBottom > 0 ? sepWB[riC] : 0);
+                    // o w:shd da TABELA pinta só o espaçamento em volta das células (oráculo tblshd, ts-cellsp)
+                    string? tblFill = ShdFill(tblPr.Shd, theme);
+                    if (tblFill is not null)
+                    {
+                        double sxl = x + g0, sxr = x + gn;
+                        void Strip(double x0, double y0, double x1, double y1)
+                        {
+                            if (x1 - x0 > 0.01 && y1 - y0 > 0.01) its.Add(new RectItem { X = x0, Y = y0, W = x1 - x0, H = y1 - y0, Fill = tblFill });
+                        }
+                        Strip(sxl, 0, sxr, cy0);
+                        Strip(sxl, cy1, sxr, rh);
+                        double cx = sxl;
+                        foreach (var ci in cellInfos.OrderBy(c => c.Bx0)) { Strip(cx, cy0, x + ci.Bx0, cy1); cx = Math.Max(cx, x + ci.Bx1); }
+                        Strip(cx, cy0, sxr, cy1);
+                    }
                     foreach (var ci in cellInfos)
                     {
                         var s = ci.Slot;
@@ -1489,11 +1511,14 @@ public static class TableEngine
 
     private static readonly Regex PctRe = new(@"^pct(\d+)\z", RegexOptions.CultureInvariant);
 
-    /// <summary>Preenchimento da célula: só o w:shd da CÉLULA (direto ou do w:tcPr do estilo);
-    /// o w:shd da tabela (w:tblPr, direto ou do estilo) o Word não pinta (oráculo tblshd).</summary>
-    private static string? CellFill(TcPr tcPr, Theme theme)
+    /// <summary>Preenchimento da célula: só o w:shd da CÉLULA (direto ou do w:tcPr do estilo,
+    /// inclusive o condicional); o w:shd da tabela (w:tblPr, direto, do estilo ou do
+    /// w:tblStylePr) não pinta a célula — com espaçamento entre células, pinta o vão
+    /// (oráculo tblshd).</summary>
+    private static string? CellFill(TcPr tcPr, Theme theme) => ShdFill(tcPr.Shd, theme);
+
+    private static string? ShdFill(ShadingSpec? shd, Theme theme)
     {
-        var shd = tcPr.Shd;
         if (shd is null) return null;
         if (shd.Val == "solid") return Resolve.ResolveColor(shd.Color, shd.ThemeColor, null, null, theme) ?? "000000";
         string? fill = Js.Truthy(shd.ThemeFill)

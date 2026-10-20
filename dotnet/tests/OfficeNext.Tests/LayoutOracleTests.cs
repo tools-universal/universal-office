@@ -85,7 +85,7 @@ public class LayoutOracleTests
     /// não grava no PDF: fora da página, sem preenchimento, curvas…).</summary>
     private static readonly HashSet<string> Strict = new(StringComparer.Ordinal) { "hidetext", "emfrop", "txbxscale" };
     /// <summary>Grupos em que a posição horizontal é o que se mede (x da 1ª letra, ±pt).</summary>
-    private static readonly Dictionary<string, double> DxTol = new(StringComparer.Ordinal) { ["tblpct"] = 0.6, ["tblw"] = 0.6, ["formtext"] = 0.6, ["spacerun"] = 0.6, ["numtabind"] = 0.6, ["tallwrap"] = 0.6, ["numstyind"] = 0.6, ["tblsp"] = 0.6, ["nowrap"] = 0.6, ["tblvert"] = 0.6, ["tblnum"] = 0.6, ["fejust"] = 0.6, ["tblpctmin"] = 0.6, ["tblindctr"] = 0.6, ["txbxctr"] = 0.6, ["txbxln"] = 0.6, ["tbinset"] = 0.3, ["ftcellmar"] = 0.3, ["omath"] = 0.6, ["tblbdmin"] = 0.6, ["sckmix"] = 0.6, ["rowjc"] = 0.6, ["wmftext"] = 0.6, ["cellwrap"] = 0.3, ["txrect"] = 0.3, ["tblmincol"] = 0.6, ["felead"] = 0.6, ["feknown"] = 0.6, ["fehangcomp"] = 0.6, ["glyphfb"] = 0.6, ["anctrail"] = 0.3, ["cellout"] = 0.3 };
+    private static readonly Dictionary<string, double> DxTol = new(StringComparer.Ordinal) { ["tblpct"] = 0.6, ["tblw"] = 0.6, ["formtext"] = 0.6, ["spacerun"] = 0.6, ["numtabind"] = 0.6, ["tallwrap"] = 0.6, ["numstyind"] = 0.6, ["tblsp"] = 0.6, ["nowrap"] = 0.6, ["tblvert"] = 0.6, ["tblnum"] = 0.6, ["fejust"] = 0.6, ["tblpctmin"] = 0.6, ["tblindctr"] = 0.6, ["txbxctr"] = 0.6, ["txbxln"] = 0.6, ["tbinset"] = 0.3, ["ftcellmar"] = 0.3, ["omath"] = 0.6, ["tblbdmin"] = 0.6, ["sckmix"] = 0.6, ["rowjc"] = 0.6, ["wmftext"] = 0.6, ["cellwrap"] = 0.3, ["txrect"] = 0.3, ["tblmincol"] = 0.6, ["felead"] = 0.6, ["feknown"] = 0.6, ["fehangcomp"] = 0.6, ["glyphfb"] = 0.6, ["anctrail"] = 0.3, ["cellout"] = 0.3, ["brfirst"] = 0.6 };
     /// <summary>Grupos em que a contagem de pontos do preenchimento de tab é comparada exata.</summary>
     private static readonly HashSet<string> ExactLeaders = new(StringComparer.Ordinal) { "tdhalfpx", "tdend" };
 
@@ -128,6 +128,15 @@ public class LayoutOracleTests
                 Assert.True(Math.Abs((o.X + o.Width) / 20 - wl[k].X1) < 2, $"largura de \"{wl[k].Text}\"");
             }
         }
+        if (g == "tblshd")
+        {
+            // tabelas sem bordas: cada preenchimento do Word é um caminho (o PDF do
+            // Word grava 2 por célula); as faixas verticais pintadas têm de ser as mesmas
+            static string Band(double y0, double y1) => $"{Math.Floor(y0 + 0.5).ToString(CultureInfo.InvariantCulture)}-{Math.Floor(y1 + 0.5).ToString(CultureInfo.InvariantCulture)}";
+            var wb = word.Pages[0].Objs.Where(o => o.T == "path").Select(o => Band(o.Y0, o.Y1)).Distinct().OrderBy(s => s, StringComparer.Ordinal).ToList();
+            var ob = res.Pages[0].Items.OfType<RectItem>().Select(it => Band(it.Y / 20, (it.Y + it.H) / 20)).Distinct().OrderBy(s => s, StringComparer.Ordinal).ToList();
+            Assert.True(wb.SequenceEqual(ob), $"faixas preenchidas (pt): Word [{string.Join(", ", wb)}], motor [{string.Join(", ", ob)}]");
+        }
         if (g == "kern")
         {
             // linhas aos pares (com kern, sem kern): a soma dos ajustes de cada linha
@@ -149,7 +158,8 @@ public class LayoutOracleTests
 internal static class OracleCompare
 {
     public sealed class OLine { public double Y, X0, X1, Size; public string Text = ""; }
-    public sealed class OPage { public double W, H; public List<OLine> Lines = new(); }
+    public sealed class OObj { public string T = ""; public double X0, Y0, X1, Y1; }
+    public sealed class OPage { public double W, H; public List<OLine> Lines = new(); public List<OObj> Objs = new(); }
     public sealed class ODoc { public List<OPage> Pages = new(); }
 
     public static ODoc ReadOracle(string path)
@@ -165,6 +175,13 @@ internal static class OracleCompare
                     Y = l.GetProperty("y").GetDouble(), X0 = l.GetProperty("x0").GetDouble(), X1 = l.GetProperty("x1").GetDouble(),
                     Size = l.GetProperty("size").GetDouble(), Text = l.GetProperty("text").GetString() ?? "",
                 });
+            if (p.TryGetProperty("objs", out var objs))
+                foreach (var o in objs.EnumerateArray())
+                    op.Objs.Add(new OObj
+                    {
+                        T = o.GetProperty("t").GetString() ?? "", X0 = o.GetProperty("x0").GetDouble(), Y0 = o.GetProperty("y0").GetDouble(),
+                        X1 = o.GetProperty("x1").GetDouble(), Y1 = o.GetProperty("y1").GetDouble(),
+                    });
             outp.Pages.Add(op);
         }
         return outp;

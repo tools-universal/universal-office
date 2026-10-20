@@ -1,5 +1,6 @@
 // Gera as referências do corpus: o PDF que o PRÓPRIO Word exporta de cada
-// documento, em CORPUS_ROOT/WordPdf/<tenant>/<nome>.pdf (fora do git).
+// documento, em CORPUS_ROOT/WordPdf/<caminho relativo do documento>.pdf
+// (fora do git; ver wordPdfPath em corpus.mjs).
 //
 //   node tools/corpus-lab/word-pdfs.mjs [--workers 3] [--per-session 1] [--timeout 180]
 //        [--force] [--only id,id] [--tenant N] [--limit N]
@@ -8,7 +9,12 @@
 // - uma sessão NOVA do Word por documento (--per-session agrupa): a
 //   substituição de fonte ausente fica memorizada na sessão COM;
 // - vigia: sem resposta em --timeout s, encerra SÓ a instância do Word que o
-//   trabalhador criou (PID informado pelo .ps1) e segue;
+//   trabalhador criou (PID … PID-END informados pelo .ps1; travou antes de
+//   informar o PID: o WINWORD que surgiu depois do BEFORE) e segue;
+// - ABORT de um trabalhador (instância do Word não era nova) encerra os
+//   PowerShell e os Word de TODOS antes de sair;
+// - documentos criptografados (IRM: o Word pede credencial e pode abrir
+//   janela; senha) são pulados — status skipped-irm / skipped-password;
 // - fontes de NUVEM do Office baixadas durante a exportação (cache CloudFonts)
 //   chegam tarde para o documento que as pediu — o Word desenha com a
 //   substituta. Ao fim, os documentos exportados perto do download de uma
@@ -16,10 +22,10 @@
 // Estado: LAB_DIR/word-pdf/status.json (id → { status, pages, t0, t1 }).
 import { spawn, execFileSync } from 'node:child_process';
 import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, statSync, appendFileSync } from 'node:fs';
-import { join, dirname, basename, extname } from 'node:path';
+import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
-import { buildManifest, selectDocs, LAB_DIR, WORD_PDF_DIR } from './corpus.mjs';
+import { buildManifest, selectDocs, wordPdfPath, LAB_DIR, WORD_PDF_DIR } from './corpus.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -34,7 +40,7 @@ const status = existsSync(statusFile) ? JSON.parse(readFileSync(statusFile, 'utf
 const save = () => writeFileSync(statusFile, JSON.stringify(status, null, 1));
 const log = (s) => { appendFileSync(join(work, 'run.log'), s + '\n'); };
 
-const pdfOf = (d) => join(WORD_PDF_DIR, d.tenant, `${basename(d.path, extname(d.path))}.pdf`);
+const pdfOf = (d) => wordPdfPath(d.rel);
 const docs = selectDocs(buildManifest(), argv);
 const cloudDir = join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'Microsoft/FontCache/4/CloudFonts');
 const cloudFonts = () => {
@@ -44,6 +50,21 @@ const cloudFonts = () => {
   return out;
 };
 
+/** Trabalhadores vivos: o PowerShell e o Word de cada um (vigia e ABORT). */
+const lanes = new Map();
+const killPid = (pid) => { try { execFileSync('taskkill', ['/PID', String(pid), '/F'], { windowsHide: true, stdio: 'ignore' }); } catch { /* já saiu */ } };
+const wordPids = () => {
+  try {
+    return execFileSync('tasklist', ['/FI', 'IMAGENAME eq WINWORD.EXE', '/FO', 'CSV', '/NH'], { windowsHide: true, encoding: 'utf8' })
+      .split(/\r?\n/).map((l) => Number(l.split('","')[1])).filter((n) => n > 0);
+  } catch { return []; }
+};
+function abortAll(why) {
+  console.error(why);
+  for (const w of lanes.values()) { if (w.pid) killPid(w.pid); w.ps?.kill(); }
+  process.exit(3);
+}
+
 /** Um trabalhador: um PowerShell com a lista; recomeça depois do documento que travou. */
 async function runWorker(k, items) {
   let pending = items;
@@ -51,17 +72,27 @@ async function runWorker(k, items) {
     const list = join(work, `list-${k}.txt`);
     writeFileSync(list, '﻿' + pending.map((d) => `${d.id}|${d.path}|${pdfOf(d)}`).join('\r\n'), 'utf8');
     const seen = new Set();
-    let pid = null, current = pending[0], timedOut = false;
+    let current = pending[0], timedOut = false;
+    // pid: Word da sessão atual (entre PID e PID-END); before: os WINWORD que já
+    // existiam quando a criação começou (o mutex do .ps1 deixa um criando por vez)
+    const w = { ps: null, pid: null, before: null };
+    lanes.set(k, w);
     await new Promise((resolve) => {
-      const ps = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      const ps = w.ps = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
         '-File', join(here, 'word-pdf.ps1'), '-List', list, '-PerSession', String(PER_SESSION)], { windowsHide: true });
       let timer;
       const arm = () => {
         clearTimeout(timer);
         timer = setTimeout(() => {
           timedOut = true;
-          log(`[${k}] vigia: ${current?.id} sem resposta em ${TIMEOUT / 1000}s — encerrando Word ${pid}`);
-          if (pid) try { execFileSync('taskkill', ['/PID', String(pid), '/F'], { windowsHide: true, stdio: 'ignore' }); } catch { /* já saiu */ }
+          let victims = w.pid ? [w.pid] : [];
+          if (!w.pid && w.before) {
+            // travou na criação, antes de informar o PID: o Word que surgiu depois
+            const others = new Set([...lanes.values()].map((o) => o.pid).filter(Boolean));
+            victims = wordPids().filter((p) => !w.before.includes(p) && !others.has(p));
+          }
+          log(`[${k}] vigia: ${current?.id} sem resposta em ${TIMEOUT / 1000}s — encerrando Word ${victims.join(',') || '-'}`);
+          for (const p of victims) killPid(p);
           ps.kill();
         }, TIMEOUT);
       };
@@ -77,8 +108,10 @@ async function runWorker(k, items) {
           arm();
           log(`[${k}] ${line}`);
           let m;
-          if ((m = /^PID (\d+)/.exec(line))) { pid = Number(m[1]); continue; }
-          if (line.startsWith('ABORT')) { console.error(line); process.exit(3); }
+          if ((m = /^BEFORE ?([\d,]*)/.exec(line))) { w.before = m[1].split(',').filter(Boolean).map(Number); continue; }
+          if ((m = /^PID (\d+)/.exec(line))) { w.pid = Number(m[1]); w.before = null; continue; }
+          if (line.startsWith('PID-END')) { w.pid = null; continue; }
+          if (line.startsWith('ABORT')) abortAll(line);
           if ((m = /^(OK|ERR) (\S+) ?(.*)$/.exec(line))) {
             const id = m[2];
             seen.add(id);
@@ -92,8 +125,9 @@ async function runWorker(k, items) {
         }
       });
       ps.stderr.on('data', (c) => log(`[${k}] STDERR ${c.toString('utf8').trim()}`));
-      ps.on('close', () => { clearTimeout(timer); resolve(); });
+      ps.on('close', () => { clearTimeout(timer); w.ps = null; resolve(); });
     });
+    lanes.delete(k);
     const rest = pending.filter((d) => !seen.has(d.id));
     if (rest.length && (timedOut || rest.length === pending.length)) {
       status[rest[0].id] = { status: 'timeout', t0: Date.now(), t1: Date.now() };
@@ -104,12 +138,15 @@ async function runWorker(k, items) {
 }
 
 async function exportAll(list) {
-  const lanes = Array.from({ length: Math.min(WORKERS, list.length) }, () => []);
-  list.forEach((d, i) => lanes[i % lanes.length].push(d));
-  await Promise.all(lanes.map((l, k) => runWorker(k, l)));
+  const groups = Array.from({ length: Math.min(WORKERS, list.length) }, () => []);
+  list.forEach((d, i) => groups[i % groups.length].push(d));
+  await Promise.all(groups.map((l, k) => runWorker(k, l)));
 }
 
-let todo = docs.filter((d) => argv.includes('--force') || !(status[d.id]?.status === 'ok' && existsSync(pdfOf(d))));
+// criptografados: pulados (IRM pede credencial e pode abrir janela; senha, não temos)
+for (const d of docs) if (d.encrypted) status[d.id] = { status: `skipped-${d.encrypted}` };
+save();
+let todo = docs.filter((d) => !d.encrypted && (argv.includes('--force') || !(status[d.id]?.status === 'ok' && existsSync(pdfOf(d)))));
 console.log(`${todo.length} de ${docs.length} documentos para o Word (${WORKERS} trabalhadores, ${PER_SESSION} doc/sessão)`);
 for (let round = 0; todo.length && round < 4; round++) {
   const before = cloudFonts();

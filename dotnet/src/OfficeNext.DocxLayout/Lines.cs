@@ -193,11 +193,12 @@ public sealed class LineBreaker
     /// <summary>settings.compat[name] do JS (flag de compatibilidade ligada)</summary>
     private bool CompatOn(string name) => _ctx.Fmt.Settings.Compat.TryGetValue(name, out var on) && on;
 
-    /// <summary>Estado antes de uma linha (para refazê-la noutro quadro).</summary>
-    /// <summary>Linha com o recuo da 1ª linha: a 1ª — ou, no parágrafo que COMEÇA com quebra de
-    /// coluna, a que vem depois dela, na coluna seguinte (oráculo brfirst, corpus t70).</summary>
-    private bool IndentFirst() => LineIdx == 0 || (LineIdx == 1 && P.Glyphs.Count > 0 && P.Glyphs[0].Kind == GlyphKind.Cb);
+    /// <summary>Linha com o recuo da 1ª linha e o número da lista: a 1ª — ou, no parágrafo que
+    /// COMEÇA com quebra de coluna, a que vem depois dela, na coluna seguinte (a linha da
+    /// quebra fica sem os dois — oráculo brfirst, corpus t70).</summary>
+    private bool IndentFirst() => LineIdx == (P.Glyphs.Count > 1 && P.Glyphs[0].Kind == GlyphKind.Cb ? 1 : 0);
 
+    /// <summary>Estado antes de uma linha (para refazê-la noutro quadro).</summary>
     public (int Pos, int LineIdx, bool TrailingBreak, int HyphenRun) Mark() => (Pos, LineIdx, _trailingBreak, _hyphenRun);
 
     public void Reset((int Pos, int LineIdx, bool TrailingBreak, int HyphenRun) m)
@@ -253,7 +254,6 @@ public sealed class LineBreaker
     {
         var p = P;
         var gs = p.Glyphs;
-        bool first = LineIdx == 0;
         bool indFirst = IndentFirst();
         int start = Pos;
         double xStart = frame.Left + (indFirst ? p.FirstLine : 0);
@@ -270,7 +270,7 @@ public sealed class LineBreaker
         double? hangingStop = indFirst && p.FirstLine < 0 ? frame.Left : null;
 
         // marcador de numeração (só na 1ª linha)
-        if (first && p.Marker is not null)
+        if (indFirst && p.Marker is not null)
         {
             var mk = p.Marker;
             double mx = xStart;
