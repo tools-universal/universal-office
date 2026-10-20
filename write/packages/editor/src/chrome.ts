@@ -1,413 +1,604 @@
-// Built-in chrome for <universal-write>: an optional top toolbar and bottom
-// status bar, toggled via the boolean `topbar` and `bottombar` attributes.
-// Loaded on demand (dynamic import) so the default (no bars) never pulls in
-// Material. The toolbar has two rows, modeled on a word processor's Standard +
-// Formatting toolbars.
-import '@universal-material/web/button/button.js';
-import '@universal-material/web/button/icon-button.js';
-import { ThemeBuilder } from '@universal-material/web/theme/index.js';
-import { ICON } from './chrome-icons.js';
+// Barras do <universal-write> (atributos `topbar`, `bottombar` e
+// `toolbar="compact|ribbon"`): carregadas sob demanda (import dinâmico), então
+// o componente sem barras não puxa nada disto. A barra superior é declarada
+// sobre o framework de @universal-office/ui (comandos + layout): COMPACTA, no
+// estilo Google Docs (padrão), ou RIBBON, no estilo Word. Junto vêm os
+// recursos de aplicativo que antes moravam no demo: abrir/salvar, recentes,
+// salvamento automático, Modo Protegido, comparar, localizar, comentários ao
+// lado da página, tema, arrastar e soltar, foco/leitura e menu de contexto.
+// O que depende do app hospedeiro (Electron) entra pela interface opcional
+// `element.host` (chrome-host.ts), com o caminho web como recuo.
+import '@universal-material/web/ripple/ripple.js';
+import {
+  CommandRegistry, createCompactBar, createRibbon, ensureBarStyles, isMenuOpen, closeMenus, closePopover, closeDialogs, openMenu,
+  pickLabels, showToast, type BarContext, type BarHandle, type MenuEntry, type UiLang,
+} from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
-import { pickLabels, type UiLang } from '@universal-office/ui';
+import { appFor, type WriteApp } from './chrome-app.js';
+import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
+import { aboutDialog, commentDialog, fontDialog, linkDialog, pageDialog, paragraphDialog, shortcutsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
+import { bindHostFonts, hostOf } from './chrome-host.js';
+import { LABELS } from './chrome-labels.js';
+import { compactLayout, ribbonLayout } from './chrome-layout.js';
+import { CommentCards, FindPanel, StatusBar } from './chrome-panels.js';
+import { applyTheme, isDark } from './chrome-theme.js';
+import type { WidgetEnv } from './chrome-widgets.js';
 
-// Textos da barra no idioma da interface (`lang` do <universal-write> ou o do
-// navegador; inglês por padrão — ver @universal-office/ui). Em pt, os nomes
-// do Word pt-BR.
-const LABELS = {
-  en: {
-    new: 'New document', open: 'Open .docx', save: 'Save .docx', cut: 'Cut', copy: 'Copy', paste: 'Paste',
-    painter: 'Clone formatting', clear: 'Clear direct formatting', undo: 'Undo', redo: 'Redo',
-    find: 'Find & replace', image: 'Insert image', pagebreak: 'Insert page break', comment: 'Insert comment',
-    toc: 'Update table of contents', marks: 'Formatting marks', style: 'Paragraph style', font: 'Font',
-    shrink: 'Decrease font size', size: 'Font size', grow: 'Increase font size', bold: 'Bold', italic: 'Italic',
-    underline: 'Underline', strike: 'Strikethrough', sup: 'Superscript', sub: 'Subscript', color: 'Font color',
-    hl: 'Highlight color', alignLeft: 'Align left', alignCenter: 'Align center', alignRight: 'Align right',
-    justify: 'Justify', spacing: 'Line spacing', bullets: 'Bulleted list', numbered: 'Numbered list',
-    outdent: 'Decrease indent', indent: 'Increase indent', print: 'Print layout', web: 'Web layout',
-    read: 'Read mode', zoomOut: 'Zoom out', zoomIn: 'Zoom in',
-    heading: (n: number) => `Heading ${n}`, title: 'Title',
-    noHighlight: 'No highlight', yellow: 'Yellow', green: 'Green', cyan: 'Cyan', magenta: 'Magenta',
-    decimal: '.', fileName: 'document.docx',
-    findPrompt: 'Find:', replacePrompt: 'Replace with (blank = just find next):', noMatches: 'No matches',
-    commentPrompt: 'Comment:',
-    status: (page: number, pages: number, words: number) =>
-      `Page ${page} of ${pages} · ${words} word${words === 1 ? '' : 's'}`,
-  },
-  pt: {
-    new: 'Novo documento', open: 'Abrir .docx', save: 'Salvar .docx', cut: 'Recortar', copy: 'Copiar', paste: 'Colar',
-    painter: 'Pincel de formatação', clear: 'Limpar formatação direta', undo: 'Desfazer', redo: 'Refazer',
-    find: 'Localizar e substituir', image: 'Inserir imagem', pagebreak: 'Inserir quebra de página',
-    comment: 'Inserir comentário', toc: 'Atualizar sumário', marks: 'Marcas de formatação',
-    style: 'Estilo de parágrafo', font: 'Fonte', shrink: 'Diminuir fonte', size: 'Tamanho da fonte',
-    grow: 'Aumentar fonte', bold: 'Negrito', italic: 'Itálico', underline: 'Sublinhado', strike: 'Tachado',
-    sup: 'Sobrescrito', sub: 'Subscrito', color: 'Cor da fonte', hl: 'Cor do realce do texto',
-    alignLeft: 'Alinhar à esquerda', alignCenter: 'Centralizar', alignRight: 'Alinhar à direita',
-    justify: 'Justificar', spacing: 'Espaçamento entre linhas', bullets: 'Marcadores', numbered: 'Numeração',
-    outdent: 'Diminuir recuo', indent: 'Aumentar recuo', print: 'Layout de impressão', web: 'Layout da Web',
-    read: 'Modo de leitura', zoomOut: 'Diminuir zoom', zoomIn: 'Aumentar zoom',
-    heading: (n: number) => `Título ${n}`, title: 'Título',
-    noHighlight: 'Sem realce', yellow: 'Amarelo', green: 'Verde', cyan: 'Turquesa', magenta: 'Rosa',
-    decimal: ',', fileName: 'documento.docx',
-    findPrompt: 'Localizar:', replacePrompt: 'Substituir por (em branco = só localizar a próxima):',
-    noMatches: 'Nenhuma ocorrência', commentPrompt: 'Comentário:',
-    status: (page: number, pages: number, words: number) =>
-      `Página ${page} de ${pages} · ${words} palavra${words === 1 ? '' : 's'}`,
-  },
-};
-type Labels = typeof LABELS.en;
+export type { UniversalWriteHost, UniversalWriteHostFile } from './chrome-host.js';
 
-const svg = (name: string): string =>
-  `<svg class="uw-ic" viewBox="0 -960 960 960" aria-hidden="true">${ICON[name] ?? ''}</svg>`;
+export const CHROME_CSS = /* css */ `
+:host { --uo-font: var(--uw-font, "Segoe UI", system-ui, -apple-system, sans-serif); }
+/* "mesa" atrás das páginas no tom do tema (claro/escuro) */
+:host { background: var(--uw-desk, var(--u-color-surface-container-high, #e8e8e8)); }
+.uw-topbar { background: var(--uo-bar-bg, var(--u-color-surface, #fdfbff)) !important; border-bottom: 0 !important; }
+.uw-bottombar { background: var(--uo-bar-bg, var(--u-color-surface-container, #eef0f4)) !important; }
+:host(.view-read) .uo-toolrow, :host(.view-read) .uo-ribbon-body, :host(.view-read) .uw-protbar { display: none !important; }
+:host(.uw-focus) .uw-topbar, :host(.uw-focus) .uw-bottombar { display: none !important; }
+:host(.uw-comparing) .pages { display: none !important; }
+:host(.uw-has-comments) .pages { padding-right: 300px; }
 
-const iconBtn = (id: string, name: string, title: string): string =>
-  `<u-icon-button shape="square" variant="standard" data-a="${id}" title="${title}">${svg(name)}</u-icon-button>`;
+/* camada flutuante (menus, popovers, diálogos, localizar, avisos) */
+.uw-layer { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 60; }
 
-const textBtn = (id: string, text: string, title: string): string =>
-  `<u-icon-button shape="square" variant="standard" data-a="${id}" title="${title}"><span class="uw-glyph">${text}</span></u-icon-button>`;
+/* barra de Modo Protegido (Word: faixa amarela sob a faixa de opções) */
+.uw-protbar {
+  display: flex; align-items: center; gap: 12px; padding: 6px 16px; font-size: 13px;
+  font-family: var(--uo-font);
+  background: var(--u-color-warning-container, #ffdea8); color: var(--u-color-on-warning-container, #271900);
+}
+.uw-protbar[hidden] { display: none; }
+.uw-protbar .uo-ic { width: 20px; height: 20px; flex: none; }
+.uw-protbar span { flex: 1 1 auto; min-width: 0; }
+.uw-protbar .uo-pill { flex: none; height: 30px; background: var(--u-color-warning, #7c5800); color: var(--u-color-on-warning, #fff); border: 0; }
+@keyframes uwPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(232,181,0,0); } 30% { box-shadow: 0 0 0 5px rgba(232,181,0,.9); } }
+.uw-pulse { animation: uwPulse .5s ease-out 2; }
 
-const sel = (id: string, title: string, options: string, cls = 'uw-sel'): string =>
-  `<select class="${cls}" data-a="${id}" title="${title}">${options}</select>`;
+/* barra de status */
+.uw-status-bar {
+  display: flex; align-items: center; gap: 4px; padding: 2px 12px; min-height: 30px;
+  font-family: var(--uo-font); font-size: 12.5px; color: var(--u-color-on-surface-variant, #44474f);
+}
+.uw-status { font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uw-views { display: inline-flex; gap: 1px; margin-right: 6px; }
+.uw-status-bar .uo-btn { height: 26px; min-width: 26px; }
+.uw-status-bar .uo-ic { width: 18px; height: 18px; }
+.uw-zoom-slider { width: 120px; accent-color: var(--u-color-primary, #005bc0); }
+.uw-zoom-pct { min-width: 46px !important; font-variant-numeric: tabular-nums; font-size: 12.5px !important; }
+@media (max-width: 560px) { .uw-zoom-slider { display: none; } }
 
-const SEP = '<span class="uw-sep"></span>';
+/* localizar e substituir (flutuante, não modal) */
+.uw-find {
+  position: fixed; right: 20px; z-index: 950; width: 340px; max-width: calc(100vw - 24px);
+  display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px;
+  background: var(--u-color-surface-container-high, #e9e7ec); color: var(--u-color-on-surface, #1b1b1f);
+  border: 1px solid var(--u-color-outline-variant, #c4c6d0); border-radius: 16px;
+  box-shadow: 0 12px 32px light-dark(rgba(0,0,0,.16), rgba(0,0,0,.5)); font-family: var(--uo-font); font-size: 14px;
+}
+.uw-find[hidden] { display: none; }
+.uw-find-head { display: flex; align-items: center; justify-content: space-between; }
+.uw-find input {
+  height: 36px; border: 1px solid var(--u-color-outline, #74777f); border-radius: 8px; padding: 0 10px;
+  background: var(--u-color-surface-container-lowest, #fff); color: inherit; font: inherit;
+}
+.uw-find input:focus { outline: 2px solid var(--u-color-primary, #005bc0); outline-offset: -1px; }
+.uw-find input.uw-miss { outline: 2px solid var(--u-color-error, #ba1a1a); outline-offset: -1px; }
+.uw-find-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.uw-find-actions .uo-pill { height: 32px; padding: 0 12px; font-size: 13px; }
+.uw-find-msg { flex: 1 1 auto; font-size: 12.5px; color: var(--u-color-on-surface-variant, #44474f); }
 
-let themeStyle: HTMLStyleElement | null = null;
-function ensureTheme(): void {
-  if (themeStyle) return;
-  themeStyle = document.createElement('style');
-  themeStyle.id = 'uw-theme';
-  themeStyle.textContent = ThemeBuilder.create('#1A73E8').build();
-  document.head.appendChild(themeStyle);
-  if (!document.documentElement.style.colorScheme) {
-    document.documentElement.style.colorScheme = 'light dark';
+/* comentários ao lado da página */
+.uw-comments { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 5; }
+.uw-card {
+  position: absolute; width: 240px; padding: 8px 10px; border-radius: 10px; cursor: pointer;
+  background: var(--u-color-surface-container-low, #f6f4f8); color: var(--u-color-on-surface, #1b1b1f);
+  border: 1px solid var(--u-color-outline-variant, #c4c6d0); box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  font-family: var(--uo-font); font-size: 13px; line-height: 1.4; transition: top 120ms ease-out;
+}
+.uw-card::before { content: ""; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: rgba(255,187,0,.6); }
+.uw-card.anchored::after {
+  content: ""; position: absolute; right: 100%; top: 18px; width: 24px; margin-right: 12px;
+  border-top: 1px dotted rgba(255,187,0,.7); pointer-events: none;
+}
+.uw-card.active { border-color: var(--u-color-primary, #005bc0); box-shadow: 0 0 0 2px var(--u-color-primary, #005bc0); }
+.uw-card-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin: -2px -4px 2px 0; }
+.uw-card .who { font-weight: 600; font-size: 12px; }
+.uw-card .uo-btn { height: 24px; min-width: 24px; }
+.uw-card .uo-ic { width: 16px; height: 16px; }
+.uw-card .txt { white-space: pre-wrap; word-break: break-word; }
+
+/* comparar */
+.uw-compare { display: none; }
+:host(.uw-comparing) .uw-compare { display: flex; flex-direction: column; }
+
+/* arrastar e soltar */
+.uw-drop {
+  position: fixed; inset: 12px; z-index: 1200; display: grid; place-items: center; pointer-events: none;
+  border: 3px dashed var(--u-color-primary, #005bc0); border-radius: 14px;
+  background: color-mix(in srgb, var(--u-color-primary, #005bc0) 12%, transparent);
+  color: var(--u-color-primary, #005bc0); font-family: var(--uo-font); font-size: 22px;
+}
+.uw-drop[hidden] { display: none; }
+`;
+
+interface ChromeHandle { sync: () => void }
+
+type Mode = 'compact' | 'ribbon';
+
+/** Atalhos que o próprio editor já trata (não roubar). */
+const EDITOR_KEYS = new Set(['Ctrl+C', 'Ctrl+X', 'Ctrl+V', 'Ctrl+Shift+V', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Ctrl+B', 'Ctrl+I', 'Ctrl+U', 'Ctrl+E', 'Ctrl+L', 'Ctrl+R', 'Ctrl+J', 'Ctrl+Enter']);
+
+/** Atalhos de APLICATIVO (valem até com o foco fora do documento). */
+const APP_SHORTCUTS = new Set(['open', 'save', 'saveAs', 'print', 'find', 'replace']);
+
+/** Último <universal-write> com foco (atalhos de app com o foco no corpo da página). */
+let lastFocused: WeakRef<UniversalWriteElement> | null = null;
+
+function isField(t: EventTarget | undefined): boolean {
+  if (!(t instanceof HTMLElement)) return false;
+  if (t.isContentEditable) return true;
+  // a textarea "proxy" é a entrada do próprio editor — não conta como campo
+  return /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && !t.classList.contains('proxy');
+}
+
+function comboOf(e: KeyboardEvent): string {
+  const code = e.code;
+  let k = code.startsWith('Key') ? code.slice(3)
+    : code.startsWith('Digit') ? code.slice(5)
+      : ({ Equal: '=', Minus: '-', BracketLeft: '[', BracketRight: ']', Slash: '/', Space: 'Space', Enter: 'Enter', IntlRo: '/' } as Record<string, string>)[code] ?? e.key;
+  if (/^F\d+$/.test(e.key)) k = e.key;
+  return `${e.ctrlKey || e.metaKey ? 'Ctrl+' : ''}${e.altKey ? 'Alt+' : ''}${e.shiftKey ? 'Shift+' : ''}${k}`;
+}
+
+class WriteChrome {
+  private readonly ac = new AbortController();
+  private readonly root: ShadowRoot;
+  private readonly app: WriteApp;
+  private readonly reg: CommandRegistry;
+  private readonly ctx: BarContext;
+  private readonly layer: HTMLElement;
+  private readonly L: typeof LABELS.en;
+  private readonly lang: UiLang;
+  private bar: BarHandle | null = null;
+  private status: StatusBar | null = null;
+  private cards: CommentCards | null = null;
+  private find: FindPanel | null = null;
+  private protbar: HTMLElement | null = null;
+  private stateCache: ReturnType<UniversalWriteElement['getSelectionState']> | null = null;
+  private families: string[] = [];
+  private fontAsked = false;
+
+  constructor(
+    private readonly ed: UniversalWriteElement,
+    private readonly topEl: HTMLElement,
+    private readonly bottomEl: HTMLElement,
+    opts: { topbar: boolean; bottombar: boolean; lang: UiLang },
+  ) {
+    this.root = topEl.getRootNode() as ShadowRoot;
+    this.lang = opts.lang;
+    this.L = pickLabels(opts.lang, LABELS);
+    ensureBarStyles(this.root);
+    if (!this.root.querySelector('style[data-uw-chrome]')) {
+      const s = document.createElement('style');
+      s.dataset['uwChrome'] = '';
+      s.textContent = CHROME_CSS;
+      this.root.appendChild(s);
+    }
+    this.layer = this.root.querySelector<HTMLElement>('.uw-layer') ?? this.makeLayer();
+    this.layer.replaceChildren();
+
+    const app = this.app = appFor(ed);
+    app.ui = {
+      L: this.L, layer: this.layer,
+      flash: (m) => this.flash(m),
+      sync: () => this.sync(),
+      protectedChanged: () => this.sync(),
+      pulseEnable: () => {
+        const b = this.protbar?.querySelector<HTMLElement>('.uo-pill');
+        if (!b) return;
+        b.classList.remove('uw-pulse');
+        void b.offsetWidth;
+        b.classList.add('uw-pulse');
+      },
+    };
+    if (!app.title) app.title = this.L.untitled;
+    app.attach();
+    app.bindHost();
+    bindHostFonts(hostOf(ed));
+    this.applyTheme();
+
+    this.reg = new CommandRegistry(opts.lang);
+    this.reg.afterRun = () => this.after();
+    this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after() };
+    registerWriteCommands(this.reg, ed, app, this.ctl());
+
+    const env: WidgetEnv = { ed, app, ctl: this.ctl(), root: this.root };
+    topEl.replaceChildren();
+    bottomEl.replaceChildren();
+    if (opts.topbar) {
+      this.bar = this.mode() === 'ribbon'
+        ? createRibbon(topEl, ribbonLayout(env, this.ctx), this.ctx)
+        : createCompactBar(topEl, compactLayout(env, this.ctx), this.ctx);
+      this.protbar = this.makeProtectedBar();
+      topEl.appendChild(this.protbar);
+      this.cards = new CommentCards(ed, app, this.root, () => this.after());
+      this.bindDocumentFeatures();
+    }
+    if (opts.bottombar) this.status = new StatusBar(ed, app, bottomEl, this.ctx);
+    this.bindEvents();
+    // tirar topbar e bottombar não reimporta este módulo: desmonta sozinho;
+    // `theme`/`accent` mudados pelo hospedeiro reaplicam o tema
+    const mo = new MutationObserver((recs) => {
+      if (!ed.hasAttribute('topbar') && !ed.hasAttribute('bottombar')) { teardownChrome(ed); return; }
+      if (recs.some((r) => r.attributeName === 'theme' || r.attributeName === 'accent')) { this.applyTheme(); this.sync(); }
+    });
+    mo.observe(ed, { attributes: true, attributeFilter: ['topbar', 'bottombar', 'theme', 'accent'] });
+    // "Automático": a troca claro/escuro do SO chega aos controles da janela (Electron)
+    if (typeof matchMedia !== 'undefined') {
+      matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        const m = this.app.mode;
+        if (m === 'auto' || m === null) hostOf(ed)?.setTitleTheme?.(isDark(m));
+      }, { signal: this.ac.signal });
+    }
+    this.ac.signal.addEventListener('abort', () => mo.disconnect());
+    void ed.listAvailableFonts().then((f) => { this.families = f; });
+    this.sync();
+    this.cards?.schedule();
+  }
+
+  private makeLayer(): HTMLElement {
+    const l = document.createElement('div');
+    l.className = 'uw-layer';
+    // o editor escuta mousedown/teclas no host: o que acontece na camada é da barra
+    for (const t of ['mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu', 'keydown', 'keyup', 'keypress', 'wheel', 'input', 'paste', 'copy', 'cut'] as const) {
+      l.addEventListener(t, (e) => e.stopPropagation(), { passive: t === 'wheel' });
+    }
+    this.root.appendChild(l);
+    return l;
+  }
+
+  private mode(): Mode {
+    const a = this.ed.getAttribute('toolbar');
+    if (a === 'ribbon' || a === 'compact') return a;
+    // escolha no menu Ver gravada só POR INSTÂNCIA (storage-key/id); o atributo sempre manda
+    return this.app.prefs.get('toolbar') === 'ribbon' ? 'ribbon' : 'compact';
+  }
+
+  private ctl(): ChromeCtl {
+    const d = (): DialogEnv => ({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, state: () => this.state() });
+    return {
+      state: () => this.state(),
+      find: (replace) => this.openFind(replace),
+      comment: () => { void commentDialog(d()).then(() => this.after()); },
+      link: () => { void linkDialog(d()).then(() => this.after()); },
+      image: () => this.pickImage(),
+      fontDialog: () => { void fontDialog(d(), this.families).then(() => this.after()); },
+      paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
+      pageDialog: () => { void pageDialog(d()).then(() => this.after()); },
+      wordCount: () => wordCountDialog(d()),
+      shortcuts: () => shortcutsDialog(d()),
+      about: () => aboutDialog(d()),
+      compare: () => { void this.compare(); },
+      focusMode: () => this.toggleFocus(),
+      inFocusMode: () => this.ed.classList.contains('uw-focus'),
+      toolbarMode: () => this.mode(),
+      setToolbarMode: (m) => {
+        this.app.prefs.set('toolbar', m);
+        this.ed.setAttribute('toolbar', m);
+      },
+      toggleComments: () => {
+        this.app.commentsVisible = !this.app.commentsVisible;
+        this.app.prefs.set('comments', this.app.commentsVisible ? '1' : '0');
+        this.cards?.render();
+      },
+      requestFonts: () => this.requestFonts(),
+      flash: (m) => this.flash(m),
+      applyTheme: () => this.applyTheme(),
+    };
+  }
+
+  state(): ReturnType<UniversalWriteElement['getSelectionState']> {
+    return (this.stateCache ??= this.ed.getSelectionState());
+  }
+
+  /** Tema só quando pedido (atributo `theme` ou escolha no menu); senão herda a página. */
+  private applyTheme(): void {
+    const mode = this.app.mode;
+    applyTheme(this.ed, this.root, this.app.accent, mode);
+    hostOf(this.ed)?.setTitleTheme?.(isDark(mode));
+  }
+
+  /** Depois de qualquer ação: foco de volta ao documento (se não abriu painel) e sincroniza. */
+  private after(): void {
+    if (this.ac.signal.aborted) return;
+    const a = this.root.activeElement;
+    const inLayer = !!a && this.layer.contains(a);
+    const inBar = !!a && this.topEl.contains(a) && (a.tagName === 'INPUT');
+    if (!isMenuOpen()) closePopover(); // grupo recolhido: fecha depois da ação, como no Word
+    if (!inLayer && !inBar && !isMenuOpen()) this.ed.focusEditor();
+    this.sync();
+  }
+
+  /** Um sync por quadro, venha de onde vier (seleção, eventos, ações). */
+  sync(): void {
+    if (this.raf || this.ac.signal.aborted) return;
+    this.raf = requestAnimationFrame(() => { this.raf = 0; this.syncNow(); });
+  }
+
+  private raf = 0;
+
+  private syncNow(): void {
+    this.stateCache = null;
+    this.app.bindHost();
+    this.topEl.classList.toggle('uo-wco', !!hostOf(this.ed)?.windowControlsOverlay);
+    if (this.protbar) this.protbar.hidden = !this.ed.isProtected();
+    this.bar?.sync();
+    this.status?.sync();
+  }
+
+  flash(msg: string): void {
+    if (this.status) this.status.flash(msg);
+    else if (msg) showToast(this.layer, msg);
+  }
+
+  destroy(): void {
+    this.ac.abort();
+    cancelAnimationFrame(this.raf);
+    closeMenus();
+    closePopover();
+    // diálogos abertos resolvem como cancelados ANTES de a camada sumir
+    closeDialogs(this.layer);
+    this.bar?.destroy();
+    this.cards?.destroy();
+    this.layer.replaceChildren();
+    this.root.querySelector('.uw-compare')?.remove();
+    this.topEl.classList.remove('uo-wco');
+    this.topEl.replaceChildren();
+    this.bottomEl.replaceChildren();
+    this.ed.classList.remove('uw-comparing', 'uw-focus');
+    if (this.app.ui?.layer === this.layer) this.app.detach();
+  }
+
+  // ───── Modo Protegido ─────
+  private makeProtectedBar(): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'uw-protbar';
+    el.setAttribute('part', 'protected-bar');
+    el.setAttribute('role', 'alert');
+    el.innerHTML = `<svg class="uo-ic" viewBox="0 -960 960 960" aria-hidden="true"><path d="M480-81q-7 0-13-1t-12-3q-135-45-215-166.5T160-516v-189q0-25 14.5-45t37.5-29l240-90q14-5 28-5t28 5l240 90q23 9 37.5 29t14.5 45v189q0 143-80 264.5T505-85q-6 2-12 3t-13 1Z"/></svg>
+      <span><b></b> — </span><button type="button" class="uo-pill" data-a="enableEditing"></button>`;
+    el.querySelector('b')!.textContent = this.L.protectedTitle;
+    el.querySelector('span')!.append(this.L.protectedText);
+    const b = el.querySelector('button')!;
+    b.textContent = this.L.enableEditing;
+    b.addEventListener('click', () => { this.app.enableEditing(); this.after(); });
+    el.hidden = true;
+    return el;
+  }
+
+  // ───── localizar ─────
+  private openFind(replace: boolean): void {
+    this.find ??= new FindPanel(this.ed, this.app, this.layer);
+    if (!this.find.el.isConnected) this.layer.appendChild(this.find.el);
+    const r = this.topEl.getBoundingClientRect();
+    this.find.open(replace, Math.max(r.bottom, this.ed.getBoundingClientRect().top) + 8);
+  }
+
+  // ───── imagem ─────
+  private pickImage(): void {
+    const input = Object.assign(document.createElement('input'), { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp,image/bmp' });
+    input.addEventListener('change', async () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      const ext = ({ 'image/jpeg': 'jpeg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/bmp': 'bmp' } as Record<string, string>)[f.type] ?? 'png';
+      await this.ed.insertImage(new Uint8Array(await f.arrayBuffer()), ext);
+      this.after();
+    });
+    input.click();
+  }
+
+  // ───── fontes instaladas (Local Font Access, Chromium) ─────
+  private requestFonts(): void {
+    if (this.fontAsked || this.ed.hasHostSystemFonts()) return;
+    this.fontAsked = true;
+    void this.ed.requestSystemFonts().then(async (ok) => {
+      this.families = await this.ed.listAvailableFonts();
+      if (!ok) return;
+      this.flash(this.L.fontAccessOk(this.families.length));
+    });
+  }
+
+  // ───── foco ─────
+  private toggleFocus(): void {
+    const ed = this.ed;
+    if (ed.classList.contains('uw-focus')) {
+      ed.classList.remove('uw-focus');
+      if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
+    } else {
+      ed.classList.add('uw-focus');
+      void ed.requestFullscreen?.().catch(() => { /* bloqueado (iframe) — fica só sem as barras */ });
+    }
+    this.after();
+  }
+
+  // ───── comparar ─────
+  private closeCompare: (() => void) | null = null;
+
+  private async compare(): Promise<void> {
+    const other = await this.app.pickForCompare();
+    if (!other) return;
+    let current: Uint8Array;
+    try { current = this.ed.saveDocx(); } catch { this.flash(`⚠ ${this.L.stillLoading}`); return; }
+    await import('@universal-office/compare');
+    let box = this.root.querySelector<HTMLElement>('.uw-compare');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'uw-compare';
+      box.setAttribute('part', 'compare');
+      for (const t of ['mousedown', 'dblclick', 'contextmenu', 'keydown', 'wheel'] as const) {
+        box.addEventListener(t, (e) => e.stopPropagation(), { passive: t === 'wheel' });
+      }
+      // Esc fecha a comparação também com o foco dentro do diff
+      box.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !e.defaultPrevented && !isMenuOpen()) { e.preventDefault(); this.closeCompare?.(); }
+      });
+      const wd = document.createElement('universal-write-diff');
+      wd.setAttribute('lang', this.lang);
+      wd.style.cssText = 'flex:1;min-height:0;display:flex';
+      box.appendChild(wd);
+      // logo depois das páginas: ocupa o lugar delas entre as barras
+      this.root.querySelector('.pages')?.after(box);
+    }
+    const wd = box.firstElementChild as HTMLElement & {
+      loadPair(a: Uint8Array, b: Uint8Array, o: { leftLabel: string; rightLabel: string }): void;
+    };
+    const fit = (): void => {
+      const h = this.ed.clientHeight - this.topEl.offsetHeight - this.bottomEl.offsetHeight;
+      box!.style.height = `${Math.max(200, h)}px`;
+    };
+    const close = (): void => {
+      this.closeCompare = null;
+      this.app.comparing = false;
+      this.ed.classList.remove('uw-comparing');
+      ro.disconnect();
+      this.after();
+    };
+    this.closeCompare = close;
+    const ro = new ResizeObserver(fit);
+    this.ac.signal.addEventListener('abort', () => ro.disconnect());
+    try {
+      wd.loadPair(current, other.bytes, { leftLabel: this.L.compareCurrent(this.app.docName), rightLabel: other.name });
+    } catch {
+      this.flash(`⚠ ${this.L.notValidDocx(other.name)}`);
+      return;
+    }
+    wd.addEventListener('close-request', close, { once: true, signal: this.ac.signal });
+    wd.addEventListener('ready', (e) => {
+      this.flash(this.L.compareStats((e as CustomEvent<{ stats: { inserted: number; deleted: number; changed: number; formatOnly: number } }>).detail.stats));
+    }, { once: true, signal: this.ac.signal });
+    this.app.comparing = true;
+    this.ed.classList.add('uw-comparing');
+    this.ed.scrollTop = 0;
+    ro.observe(this.ed);
+    fit();
+    this.sync();
+  }
+
+  // ───── eventos ─────
+  private bindEvents(): void {
+    const { ed } = this;
+    const signal = this.ac.signal;
+    const resync = (): void => this.sync();
+    // uw-zoom e uw-change o próprio elemento já repassa (chromeSync)
+    for (const t of ['uw-hfmode', 'uw-cellmode', 'uw-tbmode', 'uw-protected', 'uw-ready']) {
+      ed.addEventListener(t, resync, { signal });
+    }
+    // página atual enquanto rola
+    let tick = false;
+    ed.addEventListener('scroll', () => {
+      if (tick || !this.status) return;
+      tick = true;
+      setTimeout(() => { tick = false; this.status?.sync(); }, 150);
+    }, { signal, passive: true });
+    if (this.cards) {
+      const cards = this.cards;
+      // uw-protected sai a cada carga de documento
+      for (const t of ['uw-comments-changed', 'uw-change', 'uw-zoom', 'uw-ready', 'uw-protected']) ed.addEventListener(t, () => cards.schedule(), { signal });
+      const cro = new ResizeObserver(() => cards.schedule());
+      cro.observe(ed);
+      signal.addEventListener('abort', () => cro.disconnect());
+      ed.addEventListener('uw-comment-click', ((e: CustomEvent<{ ids: number[] }>) => {
+        this.app.activeCommentIds = e.detail.ids;
+        cards.render();
+        this.sync();
+      }) as EventListener, { signal });
+    }
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && ed.classList.contains('uw-focus')) { ed.classList.remove('uw-focus'); this.sync(); }
+    }, { signal });
+  }
+
+  /** Recursos de documento só com a barra superior: atalhos, contexto, arrastar e soltar. */
+  private bindDocumentFeatures(): void {
+    const { ed } = this;
+    const signal = this.ac.signal;
+    const byShortcut = new Map<string, string>();
+    for (const id of this.reg.ids()) {
+      const sc = this.reg.get(id)!.shortcut;
+      if (sc && !EDITOR_KEYS.has(sc)) byShortcut.set(sc, id);
+    }
+    const run = (e: KeyboardEvent, id: string): void => {
+      e.preventDefault();
+      e.stopPropagation();
+      void this.reg.run(id);
+    };
+    ed.addEventListener('keydown', (e) => {
+      if (e.defaultPrevented) return;
+      if (e.key === 'Escape' && this.app.comparing) { e.preventDefault(); this.closeCompare?.(); return; }
+      const id = byShortcut.get(comboOf(e));
+      if (!id || !this.reg.supported(id)) return;
+      // num campo da própria barra (título, tamanho da fonte) só os atalhos de app
+      if (isField(e.composedPath()[0]) && !APP_SHORTCUTS.has(id)) return;
+      run(e, id);
+    }, { signal });
+    ed.addEventListener('focusin', () => { lastFocused = new WeakRef(ed); }, { signal });
+    // atalhos de APP com o foco fora do elemento (corpo da página): só se este é
+    // o último <universal-write> focado (ou o único com topbar), e nunca em
+    // campos de outros elementos
+    document.addEventListener('keydown', (e) => {
+      if (e.defaultPrevented) return;
+      const path = e.composedPath();
+      if (path.some((n) => n instanceof HTMLElement && n.localName === 'universal-write')) return;
+      if (isField(path[0])) return;
+      const id = byShortcut.get(comboOf(e));
+      if (!id || !APP_SHORTCUTS.has(id) || !this.reg.supported(id)) return;
+      const last = lastFocused?.deref();
+      const mine = last?.isConnected ? last === ed : document.querySelectorAll('universal-write[topbar]').length === 1;
+      if (mine) run(e, id);
+    }, { signal });
+
+    // menu de contexto
+    ed.addEventListener('contextmenu', (e) => {
+      if (e.composedPath().some((n) => n === this.topEl || n === this.bottomEl || n === this.layer)) return;
+      if (this.app.comparing) return;
+      e.preventDefault();
+      const items: MenuEntry[] = ['cut', 'copy', 'paste', 'pastePlain', '-', 'bold', 'italic', 'underline', '-',
+        'link', 'comment', '-', 'list:bullet', 'list:decimal', '-', 'find', 'selectAll'];
+      openMenu(items, { x: e.clientX, y: e.clientY }, {
+        lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after(),
+      });
+    }, { signal });
+
+    // arrastar e soltar um .docx/.odt para abrir
+    const overlay = document.createElement('div');
+    overlay.className = 'uw-drop';
+    overlay.hidden = true;
+    overlay.textContent = this.L.dropHere;
+    this.layer.appendChild(overlay);
+    let depth = 0;
+    const hasFiles = (e: DragEvent): boolean => !!e.dataTransfer?.types?.includes('Files');
+    ed.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; overlay.hidden = false; }, { signal });
+    ed.addEventListener('dragleave', (e) => { if (!hasFiles(e)) return; if (--depth <= 0) { depth = 0; overlay.hidden = true; } }, { signal });
+    ed.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); }, { signal });
+    ed.addEventListener('drop', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      overlay.hidden = true;
+      const f = e.dataTransfer?.files?.[0];
+      if (!f) return;
+      void (async () => {
+        const bytes = new Uint8Array(await f.arrayBuffer());
+        // .docx/.odt/.doc pela extensão ou pelo conteúdo (ZIP "PK" / OLE)
+        const ok = /\.(docx|odt|doc)$/i.test(f.name) || (bytes[0] === 0x50 && bytes[1] === 0x4b) || (bytes[0] === 0xd0 && bytes[1] === 0xcf);
+        if (!ok) { this.flash(`⚠ ${this.L.notDoc(f.name)}`); return; }
+        await this.app.openFile(f);
+        this.sync();
+      })();
+    }, { signal });
   }
 }
 
-export const CHROME_CSS = /* css */ `
-.uw-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 10px;
-  font-family: system-ui, sans-serif; box-sizing: border-box; width: 100%; }
-.uw-topbar .uw-bar { gap: 2px; padding: 4px 8px; }
-.uw-topbar .uw-bar + .uw-bar { padding-top: 0; }
-.uw-ic { width: 20px; height: 20px; display: inline-block; fill: currentColor; pointer-events: none; }
-.uw-glyph { font-size: 17px; line-height: 1; pointer-events: none; }
-.uw-sep { width: 1px; align-self: stretch; margin: 4px 4px; background: var(--u-color-outline-variant, #ccc); }
-.uw-spacer { flex: 1 1 auto; }
-.uw-topbar u-icon-button, .uw-topbar u-button, .uw-bottombar u-icon-button { vertical-align: middle; }
-.uw-sel, .uw-size {
-  font: inherit; font-size: 12.5px; height: 30px;
-  border: 1px solid var(--u-color-outline-variant, #ccc); border-radius: 6px;
-  background: var(--u-color-surface, #fff); color: var(--u-color-on-surface, #1b1b1f);
-}
-.uw-sel { padding: 0 4px; max-width: 132px; }
-.uw-size { width: 46px; text-align: center; padding: 0 4px; }
-.uw-color {
-  width: 32px; height: 30px; padding: 2px; cursor: pointer;
-  border: 1px solid var(--u-color-outline-variant, #ccc); border-radius: 6px;
-  background: var(--u-color-surface, #fff);
-}
-.uw-status { font-size: 12.5px; color: var(--u-color-on-surface-variant, #555);
-  font-variant-numeric: tabular-nums; padding: 0 4px; }
-.uw-bottombar .uw-bar { padding: 4px 12px; }
-.uw-view { display: inline-flex; gap: 2px; }
-`;
-
-interface ChromeHandle { sync: () => void; }
-
-function download(data: Uint8Array | string, name: string, type: string): void {
-  const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
-  const a = Object.assign(document.createElement('a'), { href: url, download: name });
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-
-const styleOpts = (L: Labels): string => `<option value="">Normal</option>`
-  + [1, 2, 3].map((n) => `<option value="Heading${n}">${L.heading(n)}</option>`).join('')
-  + `<option value="Title">${L.title}</option>`;
-const FONT_OPTS = `<option>Aptos</option><option>Calibri</option>`;
-const hlOpts = (L: Labels): string => `<option value="">${L.noHighlight}</option>`
-  + (['yellow', 'green', 'cyan', 'magenta'] as const).map((c) => `<option value="${c}">${L[c]}</option>`).join('');
-const spacingOpts = (L: Labels): string => ([[240, '1.0'], [276, '1.15'], [360, '1.5'], [480, '2.0']] as const)
-  .map(([v, t]) => `<option value="${v}">${t.replace('.', L.decimal)}</option>`).join('');
-
-// ── Top toolbar (two rows: Standard + Formatting) ─────────────────────────
-function buildToolbar(el: HTMLElement, editor: UniversalWriteElement, L: Labels): () => void {
-  el.innerHTML = `<div class="uw-bar">
-    ${iconBtn('new', 'note_add', L.new)}
-    ${iconBtn('open', 'folder_open', L.open)}
-    ${iconBtn('save', 'save', L.save)}
-    ${SEP}
-    ${iconBtn('cut', 'content_cut', L.cut)}
-    ${iconBtn('copy', 'content_copy', L.copy)}
-    ${iconBtn('paste', 'content_paste', L.paste)}
-    ${iconBtn('painter', 'format_paint', L.painter)}
-    ${iconBtn('clear', 'format_clear', L.clear)}
-    ${SEP}
-    ${iconBtn('undo', 'undo', L.undo)}
-    ${iconBtn('redo', 'redo', L.redo)}
-    ${SEP}
-    ${iconBtn('find', 'find_replace', L.find)}
-    ${SEP}
-    ${iconBtn('image', 'image', L.image)}
-    ${iconBtn('pagebreak', 'insert_page_break', L.pagebreak)}
-    ${iconBtn('comment', 'add_comment', L.comment)}
-    ${iconBtn('toc', 'toc', L.toc)}
-    ${SEP}
-    ${textBtn('marks', '&para;', L.marks)}
-    <input type="file" data-a="file-docx" accept=".docx,.doc,.odt" hidden />
-    <input type="file" data-a="file-img" accept="image/*" hidden />
-  </div>
-  <div class="uw-bar">
-    ${sel('style', L.style, styleOpts(L))}
-    ${sel('font', L.font, FONT_OPTS)}
-    ${textBtn('shrink', 'A&minus;', L.shrink)}
-    <input type="number" class="uw-size" data-a="size" min="1" max="400" title="${L.size}" />
-    ${textBtn('grow', 'A+', L.grow)}
-    ${SEP}
-    ${iconBtn('bold', 'format_bold', L.bold)}
-    ${iconBtn('italic', 'format_italic', L.italic)}
-    ${iconBtn('underline', 'format_underlined', L.underline)}
-    ${iconBtn('strike', 'format_strikethrough', L.strike)}
-    ${iconBtn('sup', 'superscript', L.sup)}
-    ${iconBtn('sub', 'subscript', L.sub)}
-    ${SEP}
-    <input type="color" class="uw-color" data-a="color" title="${L.color}" value="#000000" />
-    ${sel('hl', L.hl, hlOpts(L))}
-    ${SEP}
-    ${iconBtn('align:left', 'format_align_left', L.alignLeft)}
-    ${iconBtn('align:center', 'format_align_center', L.alignCenter)}
-    ${iconBtn('align:right', 'format_align_right', L.alignRight)}
-    ${iconBtn('align:both', 'format_align_justify', L.justify)}
-    ${SEP}
-    ${sel('spacing', L.spacing, spacingOpts(L))}
-    ${iconBtn('list:bullet', 'format_list_bulleted', L.bullets)}
-    ${iconBtn('list:decimal', 'format_list_numbered', L.numbered)}
-    ${iconBtn('outdent', 'format_indent_decrease', L.outdent)}
-    ${iconBtn('indent', 'format_indent_increase', L.indent)}
-  </div>`;
-
-  const fileDocx = el.querySelector<HTMLInputElement>('[data-a="file-docx"]')!;
-  const fileImg = el.querySelector<HTMLInputElement>('[data-a="file-img"]')!;
-
-  const act: Record<string, () => void> = {
-    new: () => editor.newDocument(),
-    open: () => fileDocx.click(),
-    save: () => void editor.save('docx').then((d) => download(d as Uint8Array, L.fileName, DOCX_MIME)),
-    cut: () => void editor.cut(),
-    copy: () => void editor.copy(),
-    paste: () => void editor.paste(),
-    painter: () => editor.copyFormat(),
-    clear: () => editor.clearFormatting(),
-    undo: () => editor.undo(),
-    redo: () => editor.redo(),
-    find: () => {
-      const q = prompt(L.findPrompt);
-      if (!q) return;
-      const r = prompt(L.replacePrompt);
-      if (r) { const n = editor.replaceAll(q, r); if (n === 0) alert(L.noMatches); }
-      else editor.findNext(q);
-    },
-    image: () => fileImg.click(),
-    pagebreak: () => editor.insertPageBreak(),
-    comment: () => { const t = prompt(L.commentPrompt); if (t) editor.addComment(t); },
-    toc: () => editor.updateToc(),
-    marks: () => editor.toggleMarks(),
-    bold: () => editor.toggleRunProp('bold'),
-    italic: () => editor.toggleRunProp('italic'),
-    underline: () => editor.toggleRunProp('underline'),
-    strike: () => editor.toggleRunProp('strike'),
-    sup: () => editor.toggleVertAlign('superscript'),
-    sub: () => editor.toggleVertAlign('subscript'),
-    grow: () => editor.growFont(1),
-    shrink: () => editor.growFont(-1),
-    'align:left': () => editor.setAlignment('left'),
-    'align:center': () => editor.setAlignment('center'),
-    'align:right': () => editor.setAlignment('right'),
-    'align:both': () => editor.setAlignment('both'),
-    'list:bullet': () => editor.toggleList('bullet'),
-    'list:decimal': () => editor.toggleList('decimal'),
-    outdent: () => editor.indent(-1),
-    indent: () => editor.indent(1),
-  };
-
-  el.querySelectorAll<HTMLElement>('u-icon-button[data-a], u-button[data-a]').forEach((b) => {
-    const key = b.dataset['a']!;
-    b.addEventListener('click', () => { act[key]?.(); editor.focusEditor(); });
-  });
-
-  fileDocx.addEventListener('change', async () => {
-    const f = fileDocx.files?.[0];
-    if (!f) return;
-    editor.load(new Uint8Array(await f.arrayBuffer()), 'auto', { protected: false });
-    editor.focusEditor();
-    fileDocx.value = '';
-  });
-  fileImg.addEventListener('change', async () => {
-    const f = fileImg.files?.[0];
-    if (!f) return;
-    const ext = f.type.replace('image/', '') || 'png';
-    await editor.insertImage(new Uint8Array(await f.arrayBuffer()), ext);
-    editor.focusEditor();
-    fileImg.value = '';
-  });
-
-  const styleSel = el.querySelector<HTMLSelectElement>('[data-a="style"]')!;
-  // O dropdown de estilos reflete os estilos de PARÁGRAFO REAIS do documento.
-  // A barra é montada antes de qualquer documento carregar, então repovoamos
-  // quando a lista muda (chamado no sync). Os hardcoded (Heading1/Title) só
-  // valem para documentos novos sem styles.xml.
-  let styleSig = '';
-  const syncStyleOptions = (): void => {
-    const ds = editor.paragraphStyles();
-    if (!ds.length) return;
-    const sig = ds.map((s) => s.id).join('|');
-    if (sig === styleSig) return;
-    styleSig = sig;
-    styleSel.replaceChildren();
-    for (const s of ds) {
-      const o = document.createElement('option');
-      o.value = s.id;
-      o.textContent = s.name;
-      styleSel.appendChild(o);
-    }
-  };
-  const fontSel = el.querySelector<HTMLSelectElement>('[data-a="font"]')!;
-  const sizeInp = el.querySelector<HTMLInputElement>('[data-a="size"]')!;
-  const colorInp = el.querySelector<HTMLInputElement>('[data-a="color"]')!;
-  const hlSel = el.querySelector<HTMLSelectElement>('[data-a="hl"]')!;
-  const spacingSel = el.querySelector<HTMLSelectElement>('[data-a="spacing"]')!;
-
-  styleSel.addEventListener('change', () => { editor.applyStyle(styleSel.value || undefined); editor.focusEditor(); });
-  fontSel.addEventListener('change', () => { editor.setFontFamily(fontSel.value); editor.focusEditor(); });
-
-  // seletor de fonte: o que o resolvedor de fontes enxerga (Electron: todas as
-  // do SO; navegador: as instaladas descobertas pelo nome + abertas embarcadas)
-  // + as carregadas do documento. No Chromium, o 1º gesto no seletor pede a
-  // Local Font Access (queryLocalFonts exige interação) e a lista completa.
-  const escOpt = (s: string): string =>
-    s.replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c] ?? c));
-  const fillFonts = (families: string[]): void => {
-    const cur = fontSel.value;
-    // a fonte no cursor fora da lista segue como opção dinâmica (ver sync)
-    const dyn = cur && !families.includes(cur) ? `<option data-dyn="1">${escOpt(cur)}</option>` : '';
-    fontSel.innerHTML = dyn + families.map((f) => `<option>${escOpt(f)}</option>`).join('');
-    fontSel.value = cur;
-  };
-  fillFonts(editor.knownFontFamilies());
-  const listFonts = (): void => { void editor.listAvailableFonts().then(fillFonts); };
-  listFonts();
-  let accessAsked = false;
-  const askFontAccess = (): void => {
-    if (accessAsked || editor.hasHostSystemFonts()) return;
-    accessAsked = true;
-    void editor.requestSystemFonts().then((ok) => { if (ok) listFonts(); });
-  };
-  fontSel.addEventListener('mousedown', askFontAccess);
-  fontSel.addEventListener('focus', askFontAccess);
-  sizeInp.addEventListener('change', () => { const v = Number(sizeInp.value); if (v > 0) editor.setFontSize(v); editor.focusEditor(); });
-  colorInp.addEventListener('change', () => { editor.setColor(colorInp.value.slice(1).toUpperCase()); editor.focusEditor(); });
-  hlSel.addEventListener('change', () => { editor.setHighlight(hlSel.value || undefined); editor.focusEditor(); });
-  spacingSel.addEventListener('change', () => { editor.setLineSpacing(Number(spacingSel.value)); editor.focusEditor(); });
-
-  const setActive = (key: string, on: boolean): void => {
-    el.querySelector(`[data-a="${key}"]`)?.toggleAttribute('selected', on);
-  };
-  let lastFontCount = 0;
-  return () => {
-    syncStyleOptions();
-    // re-popula o seletor conforme novas famílias carregam (embedadas do doc);
-    // a lista do resolvedor é cacheada (o host pode ser ligado depois de o
-    // elemento montar a barra — a próxima sincronização já o enxerga)
-    const known = editor.knownFontFamilies();
-    if (known.length !== lastFontCount && document.activeElement !== fontSel) {
-      lastFontCount = known.length;
-      listFonts();
-    }
-    const st = editor.getSelectionState();
-    const run = st.run as unknown as Record<string, unknown>;
-    const para = st.para as unknown as Record<string, unknown>;
-    setActive('bold', !!run['bold']);
-    setActive('italic', !!run['italic']);
-    setActive('underline', !!run['underline']);
-    setActive('strike', !!run['strike']);
-    setActive('sup', run['vertAlign'] === 'superscript');
-    setActive('sub', run['vertAlign'] === 'subscript');
-    setActive('painter', editor.painterActive());
-    setActive('marks', !!st.marks);
-    const a = para['alignment'];
-    setActive('align:left', a === 'left' || a === undefined);
-    setActive('align:center', a === 'center');
-    setActive('align:right', a === 'right');
-    setActive('align:both', a === 'both');
-    const list = (para['numbering'] as { kind?: string } | undefined)?.kind;
-    setActive('list:bullet', list === 'bullet');
-    setActive('list:decimal', list === 'decimal');
-    // reflect current values in the selects/inputs
-    // parágrafo sem w:pStyle (ou com estilo fora da lista) usa 'Normal'
-    const curStyle = (para['styleId'] as string) || 'Normal';
-    styleSel.value = curStyle;
-    if (styleSel.value !== curStyle && styleSel.querySelector('option[value="Normal"]')) {
-      styleSel.value = 'Normal';
-    }
-    // the font may not be one of our options (docs use any font) — inject it so
-    // the dropdown always shows the real font at the caret.
-    const font = (run['fontAscii'] as string) ?? '';
-    fontSel.querySelector('option[data-dyn]')?.remove();
-    const hasOpt = !!font && [...fontSel.options].some((o) => o.value === font || o.textContent === font);
-    if (font && !hasOpt) {
-      const opt = document.createElement('option');
-      opt.value = font; opt.textContent = font; opt.dataset['dyn'] = '1';
-      fontSel.insertBefore(opt, fontSel.firstChild);
-    }
-    fontSel.value = font;
-    const half = run['szHalfPt'] as number | undefined;
-    if (half) sizeInp.value = String(half / 2);
-    const color = run['color'] as string | undefined;
-    if (color && /^[0-9a-fA-F]{6}$/.test(color)) colorInp.value = `#${color}`;
-  };
-}
-
-// ── Bottom status bar ─────────────────────────────────────────────────────
-function buildBottomBar(el: HTMLElement, editor: UniversalWriteElement, L: Labels): () => void {
-  el.innerHTML = `<div class="uw-bar">
-    <span class="uw-status" data-a="status"></span>
-    <span class="uw-spacer"></span>
-    <span class="uw-view">
-      ${iconBtn('view:print', 'article', L.print)}
-      ${iconBtn('view:web', 'language', L.web)}
-      ${iconBtn('view:read', 'menu_book', L.read)}
-    </span>
-    <span class="uw-sep"></span>
-    ${iconBtn('zoomout', 'zoom_out', L.zoomOut)}
-    <span class="uw-status" data-a="zoom" style="min-width:44px;text-align:center"></span>
-    ${iconBtn('zoomin', 'zoom_in', L.zoomIn)}
-  </div>`;
-
-  const act: Record<string, () => void> = {
-    'view:print': () => editor.setView('print'),
-    'view:web': () => editor.setView('web'),
-    'view:read': () => editor.setView('read'),
-    zoomout: () => editor.setZoom(Math.max(0.2, editor.getZoom() - 0.1)),
-    zoomin: () => editor.setZoom(Math.min(5, editor.getZoom() + 0.1)),
-  };
-  el.querySelectorAll<HTMLElement>('[data-a]').forEach((b) => {
-    const key = b.dataset['a']!;
-    if (act[key]) b.addEventListener('click', () => { act[key]!(); editor.focusEditor(); });
-  });
-
-  const statusEl = el.querySelector<HTMLElement>('[data-a="status"]')!;
-  const zoomEl = el.querySelector<HTMLElement>('[data-a="zoom"]')!;
-  return () => {
-    const s = editor.stats();
-    statusEl.textContent = L.status(s.page, s.pages, s.words);
-    zoomEl.textContent = `${Math.round(editor.getZoom() * 100)}%`;
-    const view = editor.getView();
-    for (const v of ['print', 'web', 'read'] as const) {
-      el.querySelector(`[data-a="view:${v}"]`)?.toggleAttribute('selected', view === v);
-    }
-  };
-}
+const chromes = new WeakMap<UniversalWriteElement, WriteChrome>();
 
 export function setupChrome(
   editor: UniversalWriteElement,
@@ -415,25 +606,14 @@ export function setupChrome(
   bottombarEl: HTMLElement,
   opts: { topbar: boolean; bottombar: boolean; lang: UiLang },
 ): ChromeHandle {
-  ensureTheme();
+  chromes.get(editor)?.destroy();
+  const c = new WriteChrome(editor, topbarEl, bottombarEl, opts);
+  chromes.set(editor, c);
+  return { sync: () => c.sync() };
+}
 
-  // inject chrome CSS into the shadow root once
-  const root = topbarEl.getRootNode() as ShadowRoot;
-  if (!root.querySelector('#uw-chrome-style')) {
-    const s = document.createElement('style');
-    s.id = 'uw-chrome-style';
-    s.textContent = CHROME_CSS;
-    root.appendChild(s);
-  }
-
-  const syncers: Array<() => void> = [];
-  topbarEl.replaceChildren();
-  const L = pickLabels(opts.lang, LABELS);
-  if (opts.topbar) syncers.push(buildToolbar(topbarEl, editor, L));
-  bottombarEl.replaceChildren();
-  if (opts.bottombar) syncers.push(buildBottomBar(bottombarEl, editor, L));
-
-  const sync = (): void => { for (const fn of syncers) fn(); };
-  sync();
-  return { sync };
+/** Desmonta as barras (usado quando topbar e bottombar saem). */
+export function teardownChrome(editor: UniversalWriteElement): void {
+  chromes.get(editor)?.destroy();
+  chromes.delete(editor);
 }

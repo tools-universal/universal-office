@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
-  "description": "Interface compartilhada dos web components (Write, Sheet, Slides, viewers) — idioma da interface (inglês por padrão, pt pelo navegador, lang força), barra de controles dos viewers e diálogo de fontes no arquivo",
+  "description": "Interface compartilhada dos web components (Write, Sheet, Slides, viewers) — idioma da interface (inglês por padrão, pt pelo navegador, lang força), barra de controles dos viewers, diálogo de fontes no arquivo e framework das barras dos editores (compacta e ribbon)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

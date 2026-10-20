@@ -77,17 +77,37 @@
       <table>
         <thead><tr><th>Attribute / property</th><th>Type</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>topbar</code></td><td>boolean attribute</td><td>Two-row toolbar — a <strong>Standard</strong> row (new/open/save, clipboard, undo/redo, find, insert image/page break/comment/TOC, ¶ marks) and a <strong>Formatting</strong> row (paragraph style, font, size, bold/italic/underline/strike/super/subscript, color &amp; highlight, alignment, line spacing, lists, indent).</td></tr>
+          <tr><td><code>topbar</code></td><td>boolean attribute</td><td>Top bar with menus, find &amp; replace, comments beside the page, open/save (File System Access or the host), autosave, recent files, Protected View, compare, theme, focus/read modes, context menu and drag &amp; drop.</td></tr>
+          <tr><td><code>toolbar</code></td><td><code>compact</code> · <code>ribbon</code></td><td>Style of the top bar: <strong>compact</strong> (default — File/Edit/View/Insert/Format/Tools/Help menus plus one toolbar row that collapses by priority, like Google Docs) or <strong>ribbon</strong> (tabs, groups with dialog launchers and contextual tabs, like Word).</td></tr>
+          <tr><td><code>theme</code> · <code>accent</code></td><td><code>auto</code> · <code>light</code> · <code>dark</code> · <code>black</code></td><td>Opt-in Material theme scoped to the element. Without it (and without a choice in View › Theme) the bars inherit <code>color-scheme</code> and <code>--u-color-*</code> from the page.</td></tr>
+          <tr><td><code>storage-key</code></td><td>string</td><td>Remembers this instance's bar choices (toolbar style, theme, comments, autosave) in <code>localStorage</code>; falls back to <code>id</code>, otherwise session-only.</td></tr>
+          <tr><td><code>noautosave</code> · <code>nounloadprompt</code></td><td>boolean attributes</td><td>Turn off autosave / the leave-page prompt. Handling the cancelable <code>uw-save-request</code> / <code>uw-open-request</code> events (<code>preventDefault()</code>) hands saving and opening to the host.</td></tr>
           <tr><td><code>bottombar</code></td><td>boolean attribute</td><td>Bottom status bar: page/word count, view switch, zoom.</td></tr>
         </tbody>
       </table>
-      <pre><code>&lt;universal-write topbar bottombar&gt;&lt;/universal-write&gt;</code></pre>
+      <pre><code>&lt;universal-write topbar bottombar&gt;&lt;/universal-write&gt;
+&lt;universal-write topbar toolbar="ribbon" bottombar&gt;&lt;/universal-write&gt;</code></pre>
       <pre><code>// or at runtime, via properties
 editor.topbar = true;     // boolean
-editor.bottombar = true;  // boolean</code></pre>
+editor.bottombar = true;  // boolean
+editor.setAttribute('toolbar', 'ribbon');
+
+// optional: what only the host app can do (e.g. an Electron shell)
+editor.host = {
+  openFile: () =&gt; bridge.open(),                 // { name, bytes, motw? } | null
+  saveFile: (bytes, { name, format, saveAs }) =&gt; bridge.save(bytes, name),
+  setDirty: (dirty, name) =&gt; bridge.setDirty(dirty, name),
+  windowControlsOverlay: true,                   // frameless window
+};</code></pre>
+      <p>
+        Commands whose editor API does not exist yet stay hidden, so new editor features
+        appear in the bars as soon as their method exists.
+      </p>
       <div class="callout">
         <p>
-          The bars are themed with Material Design 3 and follow the page's light/dark mode,
+          The bars are themed with Material Design 3 (theme and accent color are scoped to
+          the element; tune them with <code>--uw-font</code>, <code>--uw-desk</code>, the
+          <code>--uo-*</code> variables or <code>::part()</code>) and follow light/dark mode,
           and their controls reflect the current selection (active buttons, current style,
           font, size, and color).
         </p>

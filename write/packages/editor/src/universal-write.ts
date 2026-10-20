@@ -582,12 +582,13 @@ export class UniversalWriteElement extends HTMLElement {
   // ─────────────────────── chrome (barras) ───────────────────────
 
   static get observedAttributes(): string[] {
-    return ['topbar', 'bottombar', 'layout', 'lang'];
+    return ['topbar', 'bottombar', 'toolbar', 'layout', 'lang'];
   }
 
   attributeChangedCallback(name: string): void {
     // lang: idioma da interface (barras); sem ele, o do navegador — inglês por padrão
-    if ((name === 'topbar' || name === 'bottombar' || name === 'lang') && this.initialized) void this.updateChrome();
+    // toolbar="compact|ribbon": estilo da barra superior (compacta é o padrão)
+    if ((name === 'topbar' || name === 'bottombar' || name === 'toolbar' || name === 'lang') && this.initialized) void this.updateChrome();
     // layout="legacy": volta ao layout antigo do canvas (o motor é o padrão)
     if (name === 'layout' && this.model) {
       if (this.legacyRequested() && this.cellEdit) this.exitCell();
@@ -641,6 +642,8 @@ export class UniversalWriteElement extends HTMLElement {
     this.unsubscribeFonts ??= this.fontResolver.onChange((families) => this.onFontsResolved(families));
     this.unsubscribeLang ??= onBrowserLangChange(() => { if (this.initialized && !this.hasAttribute('lang')) void this.updateChrome(); });
     if (this.initialized) this.startCaret();
+    // reconectado: as barras voltam (no disconnect elas se desmontam inteiras)
+    if (this.initialized && !this.chromeSync && (this.topbar || this.bottombar)) void this.updateChrome();
     if (!this.hasAttribute('manual-init')) await this.initialize();
   }
 
@@ -652,6 +655,11 @@ export class UniversalWriteElement extends HTMLElement {
     window.removeEventListener('resize', this.handleWindowResize);
     window.clearInterval(this.caretTimer);
     this.caretTimer = 0;
+    // barras: tira intervalos e ouvintes em document/window (o elemento pode ser coletado)
+    if (this.chromeSync) {
+      this.chromeSync = null;
+      void import('./chrome.js').then((m) => { if (!this.isConnected) m.teardownChrome(this); });
+    }
   }
 
   /**

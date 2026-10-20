@@ -80,6 +80,24 @@ um atributo booleano por item (`nodownload`, `nofullscreen`…) — sem
 `::part()` para o resto. O canvas das páginas do Write também é um só:
 `paintItems` em `docx-layout/src/canvas.ts` (editor e viewer).
 
+## Barras dos editores: um lugar só
+
+O framework das barras dos editores fica em `shared/ui/src/toolbar`
+(`@universal-office/ui`): registro de comandos (rótulo `{ en, pt }`, ícone,
+atalho, `supports`/`isEnabled`/`isChecked`/`run`), barra COMPACTA estilo Google
+Docs (menus + linha que recolhe por prioridade — `data-prio`, gatilhos, "⋮",
+"☰") e RIBBON estilo Word (guias, grupos com iniciador, guias contextuais),
+menus/submenus (o motor único — não copiar menu.ts/context-menu.ts nos demos),
+diálogo sobre `<dialog>` nativo (o u-dialog trava no fechar sem relógio de
+animação), avisos e os Material Symbols como SVG (`symbols.ts`, gerado por
+`shared/ui/tools/extract-symbols.py`). Tudo funciona dentro de shadow root
+(clique fora por `composedPath()`). O app só DECLARA comandos sobre a própria
+API e os layouts: o Write em `editor/src/chrome-*.ts` (`toolbar="compact|ribbon"`,
+compacta por padrão). Comando cuja API ainda não existe fica oculto
+(`supports = typeof editor[m] === 'function'`) — frente nova só implementa o
+método. O que depende do app hospedeiro (Electron) entra pelo `element.host`
+opcional, com o caminho web como recuo; o demo só hospeda o componente.
+
 ## Idioma da interface: um lugar só
 
 Os textos da INTERFACE de todos os web components (`<universal-write>`,
