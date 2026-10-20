@@ -20,7 +20,7 @@ paridade total ainda não está concluída.
 | Estilos | 🟡 | styles.xml real + `styles-pagebreak-hf.test.ts` | criação/edição completa da galeria de estilos |
 | Listas | 🟡 | word-lab 007 + numbering.xml | formatos multinível/arbitrários e reinício de numeração |
 | Tabelas | 🟡 | oráculo `tables`/`keeptbl`/`ftable` (bandas de borda, células verticais, tabelas flutuantes divididas entre páginas) + `table-serialize.test.ts` | edição estrutural; autofit de conteúdo em casos extremos |
-| Imagens inline/flutuantes | 🟡 | oráculo `objects`/`selffloat`/`hffloat` (contorno, subir até a margem × descer o parágrafo, modo 14) + corpus | contorno "tight" pelo polígono; edição de âncora/wrap pela UI |
+| Imagens inline/flutuantes | 🟡 | oráculo `objects`/`selffloat`/`hffloat`/`hfgroup` (contorno, subir até a margem × descer o parágrafo, modo 14) + corpus | contorno "tight" pelo polígono; edição de âncora/wrap pela UI |
 | Seções/colunas/orientação | 🟡 | `sections.test.ts`, catálogo | todos os tipos de section break e balanceamento contínuo |
 | Cabeçalhos/rodapés/campos | 🟡 | oráculo `hf`/`hffloat`/`fields` (herança entre seções, PAGE/NUMPAGES/PAGEREF/SEQ/REF) + edição de HF pelo motor | campos complexos raros |
 | Footnotes/endnotes | 🟡 | parser e catálogo | edição, numeração/reinício e layout de casos longos |
@@ -72,11 +72,23 @@ na coluna seguinte leva o recuo da 1ª linha; tabela com largura pedida cujas
 palavras inquebráveis passam da largura disponível é espremida como a
 automática.
 
-Restantes (mesmo número de páginas): grupo de cabeçalho com contorno que
-empurra o corpo e caixa de texto que não aparece no cabeçalho (t205-ea65ae51),
-autoajuste de tabela com imagens (t88-253bff00), pixels de pequenas diferenças
-de desenho (t44-7e4f6e89, t70-2b7e4e40) e um rótulo partido em dois só na
-extração do texto (t205-423aa591).
+Faixa do cabeçalho (oráculo `hfgroup`, corpus t205-ea65ae51): parágrafo com
+recuos que se cruzam (direita antes da esquerda: um caractere por linha) não
+tem largura própria — o vão ao lado dos flutuantes é medido na coluna inteira,
+então a linha desce para baixo da faixa e o cabeçalho empurra o corpo. No modo
+15, `behindDoc` só vale sem contorno: com contorno (quadrado, justo, através,
+em cima e embaixo) o objeto fica na frente, na ordem do `relativeHeight`, no
+corpo e no cabeçalho; nos modos ≤ 14 o `behindDoc` vale sempre. Campo PAGE em
+caixa de texto dentro de grupo é recalculado em cada página e, no
+cabeçalho/rodapé, não é partido por caractere numa caixa mais estreita que ele
+(no corpo é). t205-ea65ae51 foi de 82 para 6 linhas diferentes (pixels 0,82 →
+0,999); sobra o recuo de um item de lista na última página.
+
+Restantes (mesmo número de páginas): recuo do item de lista na última página de
+t205-ea65ae51, autoajuste de tabela com imagens
+(t88-253bff00), pixels de pequenas diferenças de desenho (t44-7e4f6e89,
+t70-2b7e4e40) e um rótulo partido em dois só na extração do texto
+(t205-423aa591).
 
 ## Gravação sem perdas (2026-10-19)
 

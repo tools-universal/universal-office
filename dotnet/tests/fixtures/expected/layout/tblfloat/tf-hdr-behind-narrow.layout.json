@@ -6,8 +6,8 @@
       "section": 0,
       "number": 1,
       "items": [
-        {"t":"image","x":7805,"y":8,"w":2400,"h":2200,"ext":"png","bytes":82,"crop":null,"rot":0,"flipH":false,"flipV":false},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":914.36,"scaleX":1,"text":"CabHxg","g":[[67,1701],[97,1859.88],[98,1982.23],[72,2165.71],[120,2324.58],[103,2434.58]]},
+        {"t":"image","x":7805,"y":8,"w":2400,"h":2200,"ext":"png","bytes":82,"crop":null,"rot":0,"flipH":false,"flipV":false},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1633.36,"scaleX":1,"text":"Linha1Hxg","g":[[76,1814],[105,1936.35],[110,1985.23],[104,2107.58],[97,2229.94],[49,2413.41],[72,2596.89],[120,2755.77],[103,2865.77]]},
         {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":1633.36,"scaleX":1,"text":"CelulaHxg","g":[[67,3814],[101,3972.88],[108,4095.23],[117,4144.11],[108,4266.46],[97,4315.34],[72,4498.81],[120,4657.69],[103,4767.69]]},
         {"t":"rect","x":1706,"y":1417.2,"w":2000,"h":9.6,"fill":"000000","alpha":null},

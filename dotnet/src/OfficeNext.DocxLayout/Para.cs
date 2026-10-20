@@ -69,6 +69,9 @@ public sealed class Glyph
     public int RunIdx;
     /// <summary>quebra possível DEPOIS deste glifo</summary>
     public bool BreakAfter;
+    /// <summary>colado ao anterior: a palavra maior que a linha não quebra antes dele (PAGE no
+    /// cabeçalho/rodapé — oráculo hfgroup)</summary>
+    public bool Glue;
     /// <summary>objeto inline (imagem/forma/grupo/caixa)</summary>
     public Run? Obj;
     /// <summary>w:ptab</summary>
@@ -162,6 +165,8 @@ public sealed class ParaEnv
     public bool DarkBackground;
     /// <summary>fluxo sem paginação (célula, cabeçalho/rodapé, caixa): quebras de página/coluna não quebram</summary>
     public bool NoPageBreaks;
+    /// <summary>dentro do cabeçalho/rodapé (inclusive caixas e células dele)</summary>
+    public bool Hf;
 
     public ParaEnv Clone() => (ParaEnv)MemberwiseClone();
 }
@@ -608,6 +613,10 @@ public static class Para
     private static readonly Regex WsRe = new(@"\s+", RegexOptions.CultureInvariant);
     private static readonly Regex FormTextRe = new(@"^\s*FORMTEXT(?![A-Za-z0-9_])", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
+    /// <summary>resultado do PAGE no cabeçalho/rodapé: o Word não o parte por caractere numa
+    /// caixa mais estreita que ele (no corpo parte — oráculo hfgroup, hn-field-*)</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Run, Run> GluedField = new();
+
     /// <summary>Texto exibido de um campo (resultado em cache ou valor dinâmico).</summary>
     private static List<Run>? FieldRuns(Run run, ParaEnv env)
     {
@@ -624,6 +633,7 @@ public static class Para
                 c.Text = v;
                 c.Field = null;
                 c.FieldResult = null;
+                if (env.Hf && name == "PAGE") GluedField.Add(c, c);
                 return new List<Run> { c };
             }
         }
@@ -1032,7 +1042,9 @@ public static class Para
                 continue;
             }
             if (run.Math is not null) { PushMath(run, idx, offset); continue; }
+            int before0 = glyphs.Count;
             PushChars(run.Text, run, rpr, style, offset, idx, idx >= 0 && idx < para.Runs.Count && FormTextRe.IsMatch(para.Runs[idx].Field ?? ""));
+            if (GluedField.TryGetValue(run, out _)) for (int k = before0 + 1; k < glyphs.Count; k++) glyphs[k].Glue = true;
         }
         // objeto inline (imagem, forma…) colado ao texto: pode quebrar ANTES dele (o
         // objeto desce sozinho), salvo depois de NBSP (oráculo imgbreak)

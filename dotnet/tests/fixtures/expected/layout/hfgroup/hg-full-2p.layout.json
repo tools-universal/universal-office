@@ -1,0 +1,37 @@
+{
+  "pages": [
+    {
+      "w": 11906,
+      "h": 16838,
+      "section": 0,
+      "number": 1,
+      "items": [
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2354.36,"scaleX":1,"text":"Cab2Hxg","g":[[67,1701],[97,1859.88],[98,1982.23],[50,2104.58],[72,2288.06],[120,2446.94],[103,2556.94]]},
+        {"t":"image","x":0,"y":0,"w":11900,"h":1875,"ext":"png","bytes":82,"crop":null,"rot":0,"flipH":false,"flipV":false},
+        {"t":"clip","op":"push","x":780,"y":443.45,"w":9294,"h":546.13},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":14,"color":"FFFFFF","y":706.09,"scaleX":1,"text":"FaixaHxg","g":[[70,780],[97,951.04],[105,1106.76],[120,1168.96],[97,1308.96],[72,1542.48],[120,1744.69],[103,1884.69]]},
+        {"t":"clip","op":"pop"},
+        {"t":"clip","op":"push","x":1441,"y":738,"w":9790,"h":512},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":14,"color":"FFFFFF","y":1000.64,"scaleX":1,"text":"TituloHxg","g":[[84,1441],[105,1612.04],[116,1674.24],[117,1752.04],[108,1907.76],[111,1969.96],[72,2203.48],[120,2405.69],[103,2545.69]]},
+        {"t":"clip","op":"pop"},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2627.37,"scaleX":1,"text":"Corpo1Hxg","g":[[67,1701],[111,1859.88],[114,1982.23],[112,2055.49],[111,2177.85],[49,2361.32],[72,2544.8],[120,2703.68],[103,2813.68]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":2880.35,"scaleX":1,"text":"Corpo2Hxg","g":[[67,1701],[111,1859.88],[114,1982.23],[112,2055.49],[111,2177.85],[50,2361.32],[72,2544.8],[120,2703.68],[103,2813.68]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":3133.33,"scaleX":1,"text":"Corpo3Hxg","g":[[67,1701],[111,1859.88],[114,1982.23],[112,2055.49],[111,2177.85],[51,2361.32],[72,2544.8],[120,2703.68],[103,2813.68]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":3386.3,"scaleX":1,"text":"Corpo4Hxg","g":[[67,1701],[111,1859.88],[114,1982.23],[112,2055.49],[111,2177.85],[52,2361.32],[72,2544.8],[120,2703.68],[103,2813.68]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":3639.28,"scaleX":1,"text":"Corpo5Hxg","g":[[67,1701],[111,1859.88],[114,1982.23],[112,2055.49],[111,2177.85],[53,2361.32],[72,2544.8],[120,2703.68],[103,2813.68]]},
+        {"t":"glyphs","family":"Arial","bold":false,"italic":false,"synthBold":false,"synthItalic":false,"size":11,"color":"000000","y":3892.26,"scaleX":1,"text":"Corpo6Hxg","g":[[67,1701],[111,1859.88],[114,1982.23],[112,2055.49],[111,2177.85],[54,2361.32],[72,2544.8],[120,2703.68],[103,2813.68]]}
+      ],
+      "lines": [
+        {"ref":"hdr:default/b0","start":0,"end":2,"x":990,"y":1875,"height":273.01,"baseline":2081.36,"width":0},
+        {"ref":"hdr:default/b1","start":0,"end":8,"x":1701,"y":2148.01,"height":273.01,"baseline":2354.36,"width":978.29},
+        {"ref":"b0","start":0,"end":11,"x":1701,"y":2421.01,"height":252.98,"baseline":2627.37,"width":1235.03},
+        {"ref":"b1","start":0,"end":11,"x":1701,"y":2673.99,"height":252.98,"baseline":2880.35,"width":1235.03},
+        {"ref":"b2","start":0,"end":11,"x":1701,"y":2926.97,"height":252.98,"baseline":3133.33,"width":1235.03},
+        {"ref":"b3","start":0,"end":11,"x":1701,"y":3179.95,"height":252.98,"baseline":3386.3,"width":1235.03},
+        {"ref":"b4","start":0,"end":11,"x":1701,"y":3432.93,"height":252.98,"baseline":3639.28,"width":1235.03},
+        {"ref":"b5","start":0,"end":11,"x":1701,"y":3685.9,"height":252.98,"baseline":3892.26,"width":1235.03}
+      ]
+    }
+  ],
+  "warnings": []
+}
