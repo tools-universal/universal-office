@@ -16,7 +16,7 @@ function menus(env: WidgetEnv, ctx: BarContext) {
   const sub = (label: { en: string; pt: string }, icon: string | undefined, items: () => MenuEntry[], id?: string): MenuItem =>
     ({ id, label, icon, submenu: items });
   const autosave = (): MenuItem[] => ([[0, 'Off', 'Desligado'], [1, '1 min', '1 min'], [5, '5 min', '5 min'],
-    [10, '10 min (Word)', '10 min (Word)'], [30, '30 min', '30 min']] as const).map(([n, en, pt]) => ({
+    [10, '10 min', '10 min'], [30, '30 min', '30 min']] as const).map(([n, en, pt]) => ({
     id: `autosave:${n}`, label: { en, pt }, checked: env.app.autosaveMinutes === n,
     onClick: () => { env.app.autosaveMinutes = n; },
   }));
@@ -135,7 +135,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           ] },
           { id: 'font', label: L('Font', 'Fonte'), icon: 'text_format', prio: 8, launcher: 'dlg:font', cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, 'dropdown'), 'grow', 'shrink', { menu: caseMenu, id: 'case', label: L('Change case', 'Maiúsculas e minúsculas'), icon: 'match_case' }, 'clear'],
+              [fontWidget(env, 140), sizeWidget(env, 'dropdown'), 'grow', 'shrink', { menu: caseMenu, id: 'case', label: L('Change case', 'Maiúsculas e minúsculas'), icon: 'match_case' }],
               ['bold', 'italic', 'underline', 'strike', 'sub', 'sup', { split: 'color', menu: () => colorMenu(env, ctx) }, { split: 'highlight', menu: () => highlightMenu(env, ctx) }],
             ] },
           ] },
@@ -148,7 +148,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
             ] },
           ] },
           { id: 'styles', label: L('Styles', 'Estilos'), icon: 'style', prio: 5, cells: [
-            { rows: [[styleWidget(env, 150)]] },
+            { rows: [[styleWidget(env, 150)], [{ cmd: 'clear', label: true }]] },
           ] },
           { id: 'editing', label: L('Editing', 'Edição'), icon: 'search', prio: 4, cells: [
             { rows: [[{ cmd: 'find', label: true }], [{ cmd: 'replace', label: true }], [{ cmd: 'selectAll', label: true }]] },
@@ -157,11 +157,12 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
       },
       {
         id: 'insert', label: L('Insert', 'Inserir'), groups: [
-          { id: 'pages', label: L('Pages', 'Páginas'), icon: 'insert_page_break', prio: 4, cells: [large('pagebreak')] },
-          { id: 'tables', label: L('Tables', 'Tabelas'), icon: 'table', prio: 6, cells: [{ menu: () => tableMenu(env, ctx), id: 'table:menu', label: L('Table', 'Tabela'), icon: 'table', size: 'large', supports: has('insertTable') }] },
-          { id: 'illustrations', label: L('Illustrations', 'Ilustrações'), icon: 'image', prio: 6, cells: [large('image')] },
-          { id: 'links', label: L('Links', 'Links'), icon: 'link', prio: 5, cells: [large('link'), { rows: [['bookmark']] }] },
-          { id: 'comments', label: L('Comments', 'Comentários'), icon: 'add_comment', prio: 5, cells: [large('comment')] },
+          { id: 'pages', label: L('Pages', 'Páginas'), icon: 'insert_page_break', prio: 4, cells: [large('pagebreak'), { rows: [['columnbreak'], ['sectionbreak']] }] },
+          { id: 'objects', label: L('Illustrations', 'Ilustrações'), icon: 'image', prio: 6, cells: [
+            { menu: () => tableMenu(env, ctx), id: 'table:menu', label: L('Table', 'Tabela'), icon: 'table', size: 'large', supports: has('insertTable') },
+            large('image'),
+          ] },
+          { id: 'links', label: L('Links & Comments', 'Links e Comentários'), icon: 'link', prio: 5, cells: [large('link'), large('comment'), { rows: [['bookmark']] }] },
           { id: 'hf', label: L('Header & Footer', 'Cabeçalho e Rodapé'), icon: 'call_to_action', prio: 4, cells: [
             large('header'), large('footer'),
             { menu: fieldsMenu, id: 'fields', label: L('Page Number', 'Número de Página'), icon: 'numbers', size: 'large' },
@@ -170,16 +171,8 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
             large('textbox'),
             { rows: [[{ cmd: 'field:date', label: true }], [{ menu: () => symbolMenu(env, ctx), id: 'symbols', label: L('Symbol', 'Símbolo'), icon: 'special_character', showLabel: true }]] },
           ] },
-          { id: 'notes', label: L('Notes', 'Notas'), icon: 'notes', prio: 2, cells: [large('footnote'), large('endnote')] },
-        ],
-      },
-      {
-        id: 'design', label: L('Design', 'Design'), groups: [
-          { id: 'formatting', label: L('Document Formatting', 'Formatação do Documento'), icon: 'style', prio: 5, cells: [
-            { menu: () => paragraphSpacingMenu(env, ctx), id: 'pspacing', label: L('Paragraph Spacing', 'Espaçamento entre Parágrafos'), icon: 'format_line_spacing', size: 'large' },
-          ] },
-          { id: 'background', label: L('Page Background', 'Plano de Fundo da Página'), icon: 'format_color_fill', prio: 4, cells: [
-            { cmd: 'pageColor', size: 'large' }, { cmd: 'watermark', size: 'large' },
+          { id: 'references', label: L('References', 'Referências'), icon: 'toc', prio: 2, cells: [
+            large('toc'), { rows: [[{ cmd: 'footnote', label: true }], [{ cmd: 'endnote', label: true }]] },
           ] },
         ],
       },
@@ -193,18 +186,16 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
             { rows: [['hyphenation']] },
           ] },
           { id: 'paragraph', label: L('Paragraph', 'Parágrafo'), icon: 'format_indent_increase', prio: 5, launcher: 'dlg:paragraph', cells: [
+            { menu: () => paragraphSpacingMenu(env, ctx), id: 'pspacing', label: L('Paragraph Spacing', 'Espaçamento entre Parágrafos'), icon: 'format_line_spacing', size: 'large' },
             { rows: [
               [{ cmd: 'outdent', label: true }, { cmd: 'indent', label: true }],
               [{ menu: () => specialIndentMenu(env, ctx), id: 'specialIndent', label: L('Special indent', 'Recuo especial'), icon: 'format_indent_increase', showLabel: true }],
               [{ menu: () => lineSpacingMenu(env, ctx), id: 'spacing', label: L('Spacing', 'Espaçamento'), icon: 'format_line_spacing', showLabel: true }],
             ] },
           ] },
-        ],
-      },
-      {
-        id: 'references', label: L('References', 'Referências'), groups: [
-          { id: 'toc', label: L('Table of Contents', 'Sumário'), icon: 'toc', prio: 5, cells: [large('toc')] },
-          { id: 'footnotes', label: L('Footnotes', 'Notas de Rodapé'), icon: 'notes', prio: 4, cells: [large('footnote'), { rows: [['endnote']] }] },
+          { id: 'background', label: L('Page Background', 'Plano de Fundo da Página'), icon: 'format_color_fill', prio: 4, cells: [
+            { cmd: 'pageColor', size: 'large' }, { cmd: 'watermark', size: 'large' },
+          ] },
         ],
       },
       {
@@ -214,22 +205,19 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
       },
       {
         id: 'review', label: L('Review', 'Revisão'), groups: [
-          { id: 'proofing', label: L('Proofing', 'Revisão de Texto'), icon: 'spellcheck', prio: 5, cells: [large('spelling'), { rows: [[{ cmd: 'wordCount', label: true }]] }] },
+          { id: 'proofing', label: L('Proofing', 'Revisão de Texto'), icon: 'spellcheck', prio: 5, cells: [large('spelling'), { rows: [[{ cmd: 'spellAsYouType', label: true }], [{ cmd: 'wordCount', label: true }]] }] },
           { id: 'comments', label: L('Comments', 'Comentários'), icon: 'comment', prio: 6, cells: [
             large('comment'),
             { rows: [[{ cmd: 'comment:delete', label: true }], [{ cmd: 'comment:prev', label: true }], [{ cmd: 'comment:next', label: true }]] },
             { cmd: 'comments', size: 'large' },
           ] },
-          { id: 'tracking', label: L('Tracking', 'Controle'), icon: 'track_changes', prio: 4, cells: [large('trackChanges')] },
-          { id: 'changes', label: L('Changes', 'Alterações'), icon: 'check_circle', prio: 3, cells: [large('change:accept'), large('change:reject')] },
-          { id: 'compare', label: L('Compare', 'Comparar'), icon: 'compare', prio: 3, cells: [large('compare')] },
-          { id: 'protect', label: L('Protect', 'Proteger'), icon: 'edit_document', prio: 2, cells: [large('enableEditing')] },
+          { id: 'changes', label: L('Changes', 'Alterações'), icon: 'track_changes', prio: 4, cells: [large('trackChanges'), large('change:accept'), large('change:reject')] },
+          { id: 'document', label: L('Compare & Protect', 'Comparar e Proteger'), icon: 'compare', prio: 3, cells: [large('compare'), large('enableEditing')] },
         ],
       },
       {
         id: 'view', label: L('View', 'Exibir'), groups: [
-          { id: 'views', label: L('Views', 'Modos de Exibição'), icon: 'article', prio: 6, cells: [large('view:read'), large('view:print'), large('view:web')] },
-          { id: 'immersive', label: L('Immersive', 'Imersivo'), icon: 'center_focus_strong', prio: 4, cells: [large('focus')] },
+          { id: 'views', label: L('Views', 'Modos de Exibição'), icon: 'article', prio: 6, cells: [large('view:read'), large('view:print'), large('view:web'), large('focus')] },
           { id: 'show', label: L('Show', 'Mostrar'), icon: 'visibility', prio: 3, cells: [{ rows: [[{ cmd: 'marks', label: true }], [{ cmd: 'comments', label: true }], [{ cmd: 'statusbar', label: true }]] }] },
           { id: 'zoom', label: L('Zoom', 'Zoom'), icon: 'zoom_in', prio: 5, cells: [
             { menu: m.zoomItems, id: 'zoom', label: L('Zoom', 'Zoom'), icon: 'zoom_in', size: 'large' },

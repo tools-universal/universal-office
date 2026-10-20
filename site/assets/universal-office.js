@@ -13,7 +13,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../../../../../../write/node_modules/fflate/esm/browser.js
+// ../../node_modules/fflate/esm/browser.js
 function deflateSync(data8, opts) {
   return dopt(data8, opts || {}, 0, 0);
 }
@@ -165,7 +165,7 @@ function unzipSync(data8, opts) {
 }
 var u8, u16, i32, fleb, fdeb, clim, freb, _a, fl, revfl, _b, fd, revfd, rev, x, i, hMap, flt, i, i, i, i, fdt, i, flm, flrm, fdm, fdrm, max, bits, bits16, shft, slc, ec, err, inflt, wbits, wbits16, hTree, ln, lc, clen, wfblk, wblk, deo, et, dflt, crct, crc, adler, dopt, mrg, b2, b4, b8, wbytes, zlh, zls, Inflate, Unzlib, fltn, te, td, tds, dutf8, slzh, zh, z64hs, exfl, wzh, wzf;
 var init_browser = __esm({
-  "../../../../../../write/node_modules/fflate/esm/browser.js"() {
+  "../../node_modules/fflate/esm/browser.js"() {
     u8 = Uint8Array;
     u16 = Uint16Array;
     i32 = Int32Array;
@@ -15767,7 +15767,7 @@ var init_font_embedding_dialog = __esm({
         subset: "Embed only the characters used",
         subsetNote: "(smaller file; editing with other characters on another computer uses another font)",
         skipCommon: "Do not embed common system fonts",
-        neverEmbedded: (common) => `${common} are never embedded, as in PowerPoint.`,
+        neverEmbedded: (common) => `${common} are never embedded.`,
         note: "Only fonts whose file is available and whose license allows embedding are included; the ones left out are reported when saving.",
         cancel: "Cancel",
         ok: "OK",
@@ -15782,7 +15782,7 @@ var init_font_embedding_dialog = __esm({
         subset: "Incorporar s\xF3 os caracteres usados",
         subsetNote: "(arquivo menor; editar com outros caracteres em outra m\xE1quina usa outra fonte)",
         skipCommon: "N\xE3o incorporar fontes comuns do sistema",
-        neverEmbedded: (common) => `${common} nunca s\xE3o incorporadas, como no PowerPoint.`,
+        neverEmbedded: (common) => `${common} nunca s\xE3o incorporadas.`,
         note: "S\xF3 entram fontes cujo arquivo est\xE1 dispon\xEDvel e cuja licen\xE7a permite incorporar; as que ficarem de fora s\xE3o avisadas ao salvar.",
         cancel: "Cancelar",
         ok: "OK",
@@ -17724,7 +17724,7 @@ var init_nl = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/tslib/tslib.es6.mjs
+// ../../node_modules/tslib/tslib.es6.mjs
 function __decorate(decorators, target, key, desc) {
   var c5 = arguments.length, r6 = c5 < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d3;
   if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r6 = Reflect.decorate(decorators, target, key, desc);
@@ -17732,14 +17732,14 @@ function __decorate(decorators, target, key, desc) {
   return c5 > 3 && r6 && Object.defineProperty(target, key, r6), r6;
 }
 var init_tslib_es6 = __esm({
-  "../../../../../../write/node_modules/tslib/tslib.es6.mjs"() {
+  "../../node_modules/tslib/tslib.es6.mjs"() {
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/css-tag.js
+// ../../node_modules/@lit/reactive-element/css-tag.js
 var t, e, s, o, n, r, i2, S, c2;
 var init_css_tag = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/css-tag.js"() {
+  "../../node_modules/@lit/reactive-element/css-tag.js"() {
     t = globalThis;
     e = t.ShadowRoot && (void 0 === t.ShadyCSS || t.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
     s = /* @__PURE__ */ Symbol();
@@ -17786,10 +17786,10 @@ var init_css_tag = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/reactive-element.js
+// ../../node_modules/@lit/reactive-element/reactive-element.js
 var i3, e2, h, r2, o2, n2, a, c3, l, p, d, u, f, b, y;
 var init_reactive_element = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/reactive-element.js"() {
+  "../../node_modules/@lit/reactive-element/reactive-element.js"() {
     init_css_tag();
     init_css_tag();
     ({ is: i3, defineProperty: e2, getOwnPropertyDescriptor: h, getOwnPropertyNames: r2, getOwnPropertySymbols: o2, getPrototypeOf: n2 } = Object);
@@ -18015,7 +18015,7 @@ var init_reactive_element = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/lit-html/lit-html.js
+// ../../node_modules/lit-html/lit-html.js
 function V(t6, i7) {
   if (!u2(t6) || !t6.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return void 0 !== e3 ? e3.createHTML(i7) : i7;
@@ -18028,7 +18028,7 @@ function M(t6, i7, s4 = t6, e8) {
 }
 var t2, i4, s2, e3, h2, o3, n3, r3, l2, c4, a2, u2, d2, f2, v, _, m, p2, g, $, y2, x2, b3, w, T2, E, A, C, P2, N, S2, R, k, H, I, L, z, Z, B, D;
 var init_lit_html = __esm({
-  "../../../../../../write/node_modules/lit-html/lit-html.js"() {
+  "../../node_modules/lit-html/lit-html.js"() {
     t2 = globalThis;
     i4 = (t6) => t6;
     s2 = t2.trustedTypes;
@@ -18274,10 +18274,10 @@ var init_lit_html = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/lit-element/lit-element.js
+// ../../node_modules/lit-element/lit-element.js
 var s3, i5, o4;
 var init_lit_element = __esm({
-  "../../../../../../write/node_modules/lit-element/lit-element.js"() {
+  "../../node_modules/lit-element/lit-element.js"() {
     init_reactive_element();
     init_reactive_element();
     init_lit_html();
@@ -18312,15 +18312,15 @@ var init_lit_element = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/lit-html/is-server.js
+// ../../node_modules/lit-html/is-server.js
 var init_is_server = __esm({
-  "../../../../../../write/node_modules/lit-html/is-server.js"() {
+  "../../node_modules/lit-html/is-server.js"() {
   }
 });
 
-// ../../../../../../write/node_modules/lit/index.js
+// ../../node_modules/lit/index.js
 var init_lit = __esm({
-  "../../../../../../write/node_modules/lit/index.js"() {
+  "../../node_modules/lit/index.js"() {
     init_reactive_element();
     init_lit_html();
     init_lit_element();
@@ -18328,10 +18328,10 @@ var init_lit = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/custom-element.js
+// ../../node_modules/@lit/reactive-element/decorators/custom-element.js
 var t3;
 var init_custom_element = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/custom-element.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/custom-element.js"() {
     t3 = (t6) => (e8, o7) => {
       void 0 !== o7 ? o7.addInitializer(() => {
         customElements.define(t6, e8);
@@ -18340,7 +18340,7 @@ var init_custom_element = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/property.js
+// ../../node_modules/@lit/reactive-element/decorators/property.js
 function n4(t6) {
   return (e8, o7) => "object" == typeof o7 ? r4(t6, e8, o7) : ((t7, e9, o8) => {
     const r6 = e9.hasOwnProperty(o8);
@@ -18349,7 +18349,7 @@ function n4(t6) {
 }
 var o5, r4;
 var init_property = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/property.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/property.js"() {
     init_reactive_element();
     o5 = { attribute: true, type: String, converter: u, reflect: false, hasChanged: f };
     r4 = (t6 = o5, e8, r6) => {
@@ -18376,31 +18376,31 @@ var init_property = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/state.js
+// ../../node_modules/@lit/reactive-element/decorators/state.js
 function r5(r6) {
   return n4({ ...r6, state: true, attribute: false });
 }
 var init_state = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/state.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/state.js"() {
     init_property();
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/event-options.js
+// ../../node_modules/@lit/reactive-element/decorators/event-options.js
 var init_event_options = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/event-options.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/event-options.js"() {
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/base.js
+// ../../node_modules/@lit/reactive-element/decorators/base.js
 var e4;
 var init_base = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/base.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/base.js"() {
     e4 = (e8, t6, c5) => (c5.configurable = true, c5.enumerable = true, Reflect.decorate && "object" != typeof t6 && Object.defineProperty(e8, t6, c5), c5);
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/query.js
+// ../../node_modules/@lit/reactive-element/decorators/query.js
 function e5(e8, r6) {
   return (n5, s4, i7) => {
     const o7 = (t6) => t6.renderRoot?.querySelector(e8) ?? null;
@@ -18424,42 +18424,42 @@ function e5(e8, r6) {
   };
 }
 var init_query = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/query.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/query.js"() {
     init_base();
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/query-all.js
+// ../../node_modules/@lit/reactive-element/decorators/query-all.js
 var init_query_all = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/query-all.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/query-all.js"() {
     init_base();
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/query-async.js
+// ../../node_modules/@lit/reactive-element/decorators/query-async.js
 var init_query_async = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/query-async.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/query-async.js"() {
     init_base();
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/query-assigned-elements.js
+// ../../node_modules/@lit/reactive-element/decorators/query-assigned-elements.js
 var init_query_assigned_elements = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/query-assigned-elements.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/query-assigned-elements.js"() {
     init_base();
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js
+// ../../node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js
 var init_query_assigned_nodes = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js"() {
     init_base();
   }
 });
 
-// ../../../../../../write/node_modules/lit/decorators.js
+// ../../node_modules/lit/decorators.js
 var init_decorators = __esm({
-  "../../../../../../write/node_modules/lit/decorators.js"() {
+  "../../node_modules/lit/decorators.js"() {
     init_custom_element();
     init_property();
     init_state();
@@ -18472,10 +18472,10 @@ var init_decorators = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/ripple/ripple.styles.js
+// ../../node_modules/@universal-material/web/ripple/ripple.styles.js
 var styles;
 var init_ripple_styles = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/ripple/ripple.styles.js"() {
+  "../../node_modules/@universal-material/web/ripple/ripple.styles.js"() {
     init_lit();
     styles = i2`
   :host,
@@ -18552,10 +18552,10 @@ var init_ripple_styles = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/ripple/ripple.js
+// ../../node_modules/@universal-material/web/ripple/ripple.js
 var Ripple_1, Ripple;
 var init_ripple = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/ripple/ripple.js"() {
+  "../../node_modules/@universal-material/web/ripple/ripple.js"() {
     init_tslib_es6();
     init_lit();
     init_decorators();
@@ -18771,7 +18771,7 @@ var init_chrome_recents = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/utils/math_utils.js
+// ../../node_modules/@material/material-color-utilities/utils/math_utils.js
 function signum(num) {
   if (num < 0) {
     return -1;
@@ -18824,11 +18824,11 @@ function matrixMultiply(row, matrix) {
   return [a3, b5, c5];
 }
 var init_math_utils = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/utils/math_utils.js"() {
+  "../../node_modules/@material/material-color-utilities/utils/math_utils.js"() {
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/utils/color_utils.js
+// ../../node_modules/@material/material-color-utilities/utils/color_utils.js
 function argbFromRgb(red, green, blue) {
   return (255 << 24 | (red & 255) << 16 | (green & 255) << 8 | blue & 255) >>> 0;
 }
@@ -18920,7 +18920,7 @@ function labInvf(ft) {
 }
 var SRGB_TO_XYZ, XYZ_TO_SRGB, WHITE_POINT_D65;
 var init_color_utils = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/utils/color_utils.js"() {
+  "../../node_modules/@material/material-color-utilities/utils/color_utils.js"() {
     init_math_utils();
     SRGB_TO_XYZ = [
       [0.41233895, 0.35762064, 0.18051042],
@@ -18948,10 +18948,10 @@ var init_color_utils = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/hct/viewing_conditions.js
+// ../../node_modules/@material/material-color-utilities/hct/viewing_conditions.js
 var ViewingConditions;
 var init_viewing_conditions = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/hct/viewing_conditions.js"() {
+  "../../node_modules/@material/material-color-utilities/hct/viewing_conditions.js"() {
     init_color_utils();
     init_math_utils();
     ViewingConditions = class _ViewingConditions {
@@ -19037,10 +19037,10 @@ var init_viewing_conditions = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/hct/cam16.js
+// ../../node_modules/@material/material-color-utilities/hct/cam16.js
 var Cam16;
 var init_cam16 = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/hct/cam16.js"() {
+  "../../node_modules/@material/material-color-utilities/hct/cam16.js"() {
     init_color_utils();
     init_math_utils();
     init_viewing_conditions();
@@ -19328,10 +19328,10 @@ var init_cam16 = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/hct/hct_solver.js
+// ../../node_modules/@material/material-color-utilities/hct/hct_solver.js
 var HctSolver;
 var init_hct_solver = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/hct/hct_solver.js"() {
+  "../../node_modules/@material/material-color-utilities/hct/hct_solver.js"() {
     init_color_utils();
     init_math_utils();
     init_cam16();
@@ -19968,10 +19968,10 @@ var init_hct_solver = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/hct/hct.js
+// ../../node_modules/@material/material-color-utilities/hct/hct.js
 var Hct;
 var init_hct = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/hct/hct.js"() {
+  "../../node_modules/@material/material-color-utilities/hct/hct.js"() {
     init_color_utils();
     init_cam16();
     init_hct_solver();
@@ -20068,9 +20068,9 @@ var init_hct = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/blend/blend.js
+// ../../node_modules/@material/material-color-utilities/blend/blend.js
 var init_blend = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/blend/blend.js"() {
+  "../../node_modules/@material/material-color-utilities/blend/blend.js"() {
     init_cam16();
     init_hct();
     init_color_utils();
@@ -20078,10 +20078,10 @@ var init_blend = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/contrast/contrast.js
+// ../../node_modules/@material/material-color-utilities/contrast/contrast.js
 var Contrast;
 var init_contrast = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/contrast/contrast.js"() {
+  "../../node_modules/@material/material-color-utilities/contrast/contrast.js"() {
     init_color_utils();
     init_math_utils();
     Contrast = class _Contrast {
@@ -20195,10 +20195,10 @@ var init_contrast = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js
+// ../../node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js
 var DislikeAnalyzer;
 var init_dislike_analyzer = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js"() {
+  "../../node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js"() {
     init_hct();
     DislikeAnalyzer = class _DislikeAnalyzer {
       /**
@@ -20232,10 +20232,10 @@ var init_dislike_analyzer = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js
 var DynamicColor;
 var init_dynamic_color = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js"() {
     init_contrast();
     init_math_utils();
     DynamicColor = class _DynamicColor {
@@ -20503,10 +20503,10 @@ var init_dynamic_color = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/palettes/tonal_palette.js
+// ../../node_modules/@material/material-color-utilities/palettes/tonal_palette.js
 var TonalPalette, KeyColor;
 var init_tonal_palette = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/palettes/tonal_palette.js"() {
+  "../../node_modules/@material/material-color-utilities/palettes/tonal_palette.js"() {
     init_hct();
     TonalPalette = class _TonalPalette {
       /**
@@ -20615,10 +20615,10 @@ var init_tonal_palette = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js
 var ContrastCurve;
 var init_contrast_curve = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js"() {
     init_math_utils();
     ContrastCurve = class {
       /**
@@ -20659,10 +20659,10 @@ var init_contrast_curve = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js
 var ToneDeltaPair;
 var init_tone_delta_pair = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js"() {
     ToneDeltaPair = class {
       /**
        * Documents a constraint in tone distance between two DynamicColors.
@@ -20698,10 +20698,10 @@ var init_tone_delta_pair = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/variant.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/variant.js
 var Variant;
 var init_variant = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/variant.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/variant.js"() {
     (function(Variant2) {
       Variant2[Variant2["MONOCHROME"] = 0] = "MONOCHROME";
       Variant2[Variant2["NEUTRAL"] = 1] = "NEUTRAL";
@@ -20716,7 +20716,7 @@ var init_variant = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js
 function isFidelity(scheme) {
   return scheme.variant === Variant.FIDELITY || scheme.variant === Variant.CONTENT;
 }
@@ -20749,7 +20749,7 @@ function findDesiredChromaByTone(hue, chroma, tone, byDecreasingTone) {
 }
 var MaterialDynamicColors;
 var init_material_dynamic_colors = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js"() {
     init_dislike_analyzer();
     init_hct();
     init_contrast_curve();
@@ -21231,10 +21231,10 @@ var init_material_dynamic_colors = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js
 var DynamicScheme;
 var init_dynamic_scheme = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js"() {
     init_hct();
     init_tonal_palette();
     init_math_utils();
@@ -21453,10 +21453,10 @@ var init_dynamic_scheme = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/palettes/core_palette.js
+// ../../node_modules/@material/material-color-utilities/palettes/core_palette.js
 var CorePalette;
 var init_core_palette = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/palettes/core_palette.js"() {
+  "../../node_modules/@material/material-color-utilities/palettes/core_palette.js"() {
     init_hct();
     init_tonal_palette();
     CorePalette = class _CorePalette {
@@ -21531,69 +21531,69 @@ var init_core_palette = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/quantize/lab_point_provider.js
+// ../../node_modules/@material/material-color-utilities/quantize/lab_point_provider.js
 var init_lab_point_provider = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/quantize/lab_point_provider.js"() {
+  "../../node_modules/@material/material-color-utilities/quantize/lab_point_provider.js"() {
     init_color_utils();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_wsmeans.js
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_wsmeans.js
 var init_quantizer_wsmeans = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_wsmeans.js"() {
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_wsmeans.js"() {
     init_lab_point_provider();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_map.js
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_map.js
 var init_quantizer_map = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_map.js"() {
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_map.js"() {
     init_color_utils();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_wu.js
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_wu.js
 var init_quantizer_wu = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_wu.js"() {
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_wu.js"() {
     init_color_utils();
     init_quantizer_map();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_celebi.js
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_celebi.js
 var init_quantizer_celebi = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_celebi.js"() {
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_celebi.js"() {
     init_quantizer_wsmeans();
     init_quantizer_wu();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme.js
 var init_scheme = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme.js"() {
     init_core_palette();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_android.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_android.js
 var init_scheme_android = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_android.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_android.js"() {
     init_core_palette();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/temperature/temperature_cache.js
+// ../../node_modules/@material/material-color-utilities/temperature/temperature_cache.js
 var init_temperature_cache = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/temperature/temperature_cache.js"() {
+  "../../node_modules/@material/material-color-utilities/temperature/temperature_cache.js"() {
     init_hct();
     init_color_utils();
     init_math_utils();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_content.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_content.js
 var init_scheme_content = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_content.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_content.js"() {
     init_dislike_analyzer();
     init_dynamic_scheme();
     init_variant();
@@ -21602,10 +21602,10 @@ var init_scheme_content = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_expressive.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_expressive.js
 var SchemeExpressive;
 var init_scheme_expressive = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_expressive.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_expressive.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
@@ -21661,9 +21661,9 @@ var init_scheme_expressive = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_fidelity.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_fidelity.js
 var init_scheme_fidelity = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_fidelity.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_fidelity.js"() {
     init_dislike_analyzer();
     init_dynamic_scheme();
     init_variant();
@@ -21672,9 +21672,9 @@ var init_scheme_fidelity = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_fruit_salad.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_fruit_salad.js
 var init_scheme_fruit_salad = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_fruit_salad.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_fruit_salad.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
@@ -21682,27 +21682,27 @@ var init_scheme_fruit_salad = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_monochrome.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_monochrome.js
 var init_scheme_monochrome = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_monochrome.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_monochrome.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_neutral.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_neutral.js
 var init_scheme_neutral = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_neutral.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_neutral.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_rainbow.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_rainbow.js
 var init_scheme_rainbow = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_rainbow.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_rainbow.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
@@ -21710,9 +21710,9 @@ var init_scheme_rainbow = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_tonal_spot.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_tonal_spot.js
 var init_scheme_tonal_spot = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_tonal_spot.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_tonal_spot.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
@@ -21720,10 +21720,10 @@ var init_scheme_tonal_spot = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js
 var SchemeVibrant;
 var init_scheme_vibrant = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
@@ -21778,7 +21778,7 @@ var init_scheme_vibrant = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/score/score.js
+// ../../node_modules/@material/material-color-utilities/score/score.js
 function compare(a3, b5) {
   if (a3.score > b5.score) {
     return -1;
@@ -21789,7 +21789,7 @@ function compare(a3, b5) {
 }
 var SCORE_OPTION_DEFAULTS, Score;
 var init_score = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/score/score.js"() {
+  "../../node_modules/@material/material-color-utilities/score/score.js"() {
     init_hct();
     init_math_utils();
     SCORE_OPTION_DEFAULTS = {
@@ -21883,7 +21883,7 @@ var init_score = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/utils/string_utils.js
+// ../../node_modules/@material/material-color-utilities/utils/string_utils.js
 function hexFromArgb(argb) {
   const r6 = redFromArgb(argb);
   const g2 = greenFromArgb(argb);
@@ -21926,23 +21926,23 @@ function parseIntHex(value) {
   return parseInt(value, 16);
 }
 var init_string_utils = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/utils/string_utils.js"() {
+  "../../node_modules/@material/material-color-utilities/utils/string_utils.js"() {
     init_color_utils();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/utils/image_utils.js
+// ../../node_modules/@material/material-color-utilities/utils/image_utils.js
 var init_image_utils = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/utils/image_utils.js"() {
+  "../../node_modules/@material/material-color-utilities/utils/image_utils.js"() {
     init_quantizer_celebi();
     init_score();
     init_color_utils();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/utils/theme_utils.js
+// ../../node_modules/@material/material-color-utilities/utils/theme_utils.js
 var init_theme_utils = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/utils/theme_utils.js"() {
+  "../../node_modules/@material/material-color-utilities/utils/theme_utils.js"() {
     init_blend();
     init_core_palette();
     init_scheme();
@@ -21951,9 +21951,9 @@ var init_theme_utils = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/index.js
+// ../../node_modules/@material/material-color-utilities/index.js
 var init_material_color_utilities = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/index.js"() {
+  "../../node_modules/@material/material-color-utilities/index.js"() {
     init_blend();
     init_contrast();
     init_dislike_analyzer();
@@ -21990,10 +21990,10 @@ var init_material_color_utilities = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/theme/css-var-builder.js
+// ../../node_modules/@universal-material/web/theme/css-var-builder.js
 var CssVarBuilder;
 var init_css_var_builder = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/theme/css-var-builder.js"() {
+  "../../node_modules/@universal-material/web/theme/css-var-builder.js"() {
     init_material_color_utilities();
     CssVarBuilder = class _CssVarBuilder {
       constructor() {
@@ -22023,10 +22023,10 @@ var init_css_var_builder = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/theme/neutral-colors.js
+// ../../node_modules/@universal-material/web/theme/neutral-colors.js
 var neutralColors, neutralVariantColors;
 var init_neutral_colors = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/theme/neutral-colors.js"() {
+  "../../node_modules/@universal-material/web/theme/neutral-colors.js"() {
     neutralColors = [
       { name: "surface", lightTone: 98, darkTone: 6 },
       { name: "surface-bright", lightTone: 98, darkTone: 24 },
@@ -22053,10 +22053,10 @@ var init_neutral_colors = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/theme/theme-builder.js
+// ../../node_modules/@universal-material/web/theme/theme-builder.js
 var getCss, ThemeBuilder;
 var init_theme_builder = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/theme/theme-builder.js"() {
+  "../../node_modules/@universal-material/web/theme/theme-builder.js"() {
     init_material_color_utilities();
     init_css_var_builder();
     init_neutral_colors();
@@ -22193,9 +22193,9 @@ ${content}}`;
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/theme/index.js
+// ../../node_modules/@universal-material/web/theme/index.js
 var init_theme = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/theme/index.js"() {
+  "../../node_modules/@universal-material/web/theme/index.js"() {
     init_theme_builder();
   }
 });
@@ -22346,6 +22346,8 @@ var init_chrome_app = __esm({
       lastHighlight = "yellow";
       lastShading = "FFFF00";
       fileHandle = null;
+      /** onde o host guarda o documento aberto/salvo por ele (Electron: caminho) */
+      hostPath = null;
       changeSeq = 0;
       lastAutosave = Date.now();
       trustKey = null;
@@ -22483,6 +22485,7 @@ var init_chrome_app = __esm({
       // ───── abrir ─────
       newDocument() {
         this.fileHandle = null;
+        this.hostPath = null;
         this.ed.newDocument();
         this.format = "docx";
         this.setDirty(false);
@@ -22508,6 +22511,7 @@ var init_chrome_app = __esm({
         this.format = odt ? "odt" : "docx";
         this.trustKey = key;
         this.fileHandle = handle;
+        this.hostPath = sec.path ?? null;
         this.changeSeq++;
         this.setDirty(false);
         this.setTitle(name);
@@ -22535,7 +22539,7 @@ var init_chrome_app = __esm({
           }
           if (r6) {
             const bytes = r6.bytes instanceof Uint8Array ? r6.bytes : new Uint8Array(r6.bytes);
-            this.openBytes(bytes, r6.name, null, { motw: r6.motw, trustKey: `${r6.name}|${bytes.byteLength}` });
+            this.openBytes(bytes, r6.name, null, { motw: r6.motw, trustKey: `${r6.name}|${bytes.byteLength}`, ...r6.path ? { path: r6.path } : {} });
           }
           return;
         }
@@ -22589,8 +22593,15 @@ var init_chrome_app = __esm({
         const seq = this.changeSeq;
         if (host?.saveFile) {
           try {
-            const name = await host.saveFile(await this.bytesFor(fmt2), { name: `${this.docName}.${fmt2}`, format: fmt2, saveAs });
-            if (!name) return false;
+            const saved = await host.saveFile(await this.bytesFor(fmt2), {
+              name: `${this.docName}.${fmt2}`,
+              format: fmt2,
+              saveAs,
+              ...!saveAs && this.hostPath ? { path: this.hostPath } : {}
+            });
+            if (!saved) return false;
+            const name = typeof saved === "string" ? saved : saved.name;
+            if (typeof saved !== "string" && saved.path) this.hostPath = saved.path;
             if (/\.odt$/i.test(name) !== (fmt2 === "odt")) fmt2 = /\.odt$/i.test(name) ? "odt" : "docx";
             this.format = fmt2;
             this.setTitle(name);
@@ -22607,7 +22618,7 @@ var init_chrome_app = __esm({
           try {
             if (!this.fileHandle || saveAs) {
               const types = [
-                { description: "Word document", accept: { [MIME2.docx]: [".docx"] } },
+                { description: "DOCX document", accept: { [MIME2.docx]: [".docx"] } },
                 { description: "OpenDocument Text", accept: { [MIME2.odt]: [".odt"] } }
               ];
               if (fmt2 === "odt") types.reverse();
@@ -22676,6 +22687,31 @@ var init_chrome_app = __esm({
       // ───── exportar ─────
       async export(kind, slim = false) {
         const n5 = this.docName, suf = slim ? "-slim" : "";
+        const host = hostOf(this.ed);
+        if (host?.exportFile) {
+          const data8 = async () => {
+            switch (kind) {
+              case "pdf":
+                return this.ed.exportPdf();
+              case "html":
+                return this.ed.exportHtml(n5, slim ? { images: "omit" } : {});
+              case "md":
+                return this.ed.exportMarkdown(n5, slim ? { images: "omit" } : {});
+              case "odt":
+                return this.ed.exportOdt();
+              case "xps":
+                return this.ed.exportXps();
+            }
+          };
+          try {
+            if (!await host.exportFile(kind, `${n5}${suf}.${kind}`, data8)) return;
+          } catch {
+            this.ui?.flash(`\u26A0 ${this.ui.L.readFailed}`);
+            return;
+          }
+          this.ui?.flash(this.ui.L.exported(kind.toUpperCase()));
+          return;
+        }
         switch (kind) {
           case "pdf":
             download(await this.ed.exportPdf(), `${n5}.pdf`, "application/pdf");
@@ -22744,7 +22780,7 @@ var init_chrome_app = __esm({
         const p3 = picker();
         if (p3.showOpenFilePicker) {
           try {
-            const [h3] = await p3.showOpenFilePicker({ types: [{ description: "Word document", accept: { [MIME2.docx]: [".docx"] } }] });
+            const [h3] = await p3.showOpenFilePicker({ types: [{ description: "DOCX document", accept: { [MIME2.docx]: [".docx"] } }] });
             const f3 = await h3.getFile();
             return { name: f3.name, bytes: new Uint8Array(await f3.arrayBuffer()) };
           } catch {
@@ -22820,8 +22856,8 @@ function registerWriteCommands(reg, ed, app, ctl) {
     { id: "zoomin", label: { en: "Zoom in", pt: "Ampliar" }, icon: "zoom_in", run: () => ed.setZoom(Math.min(5, Math.round(ed.getZoom() * 110) / 100)) },
     { id: "zoomout", label: { en: "Zoom out", pt: "Reduzir" }, icon: "zoom_out", run: () => ed.setZoom(Math.max(0.1, Math.round(ed.getZoom() / 1.1 * 100) / 100)) },
     { id: "zoom100", label: { en: "100%", pt: "100%" }, tip: { en: "Zoom to 100%", pt: "Zoom em 100%" }, icon: "search", run: () => ed.setZoom(1) },
-    { id: "toolbar:ribbon", label: { en: "Ribbon (Word style)", pt: "Faixa de op\xE7\xF5es (estilo Word)" }, icon: "view_compact_alt", run: () => ctl.setToolbarMode("ribbon"), isChecked: () => ctl.toolbarMode() === "ribbon" },
-    { id: "toolbar:compact", label: { en: "Compact toolbar (Docs style)", pt: "Barra compacta (estilo Docs)" }, icon: "toolbar", run: () => ctl.setToolbarMode("compact"), isChecked: () => ctl.toolbarMode() === "compact" },
+    { id: "toolbar:ribbon", label: { en: "Ribbon", pt: "Faixa de op\xE7\xF5es" }, icon: "view_compact_alt", run: () => ctl.setToolbarMode("ribbon"), isChecked: () => ctl.toolbarMode() === "ribbon" },
+    { id: "toolbar:compact", label: { en: "Compact toolbar", pt: "Barra compacta" }, icon: "toolbar", run: () => ctl.setToolbarMode("compact"), isChecked: () => ctl.toolbarMode() === "compact" },
     { id: "statusbar", label: { en: "Status bar", pt: "Barra de status" }, icon: "call_to_action", run: () => {
       ed.bottombar = !ed.bottombar;
     }, isChecked: () => ed.bottombar },
@@ -22899,7 +22935,8 @@ function registerWriteCommands(reg, ed, app, ctl) {
     }, isEnabled: () => ed.getComments().length > 0 }),
     { id: "enableEditing", label: { en: "Enable Editing", pt: "Habilitar Edi\xE7\xE3o" }, icon: "edit_document", run: () => app.enableEditing(), isEnabled: () => ed.isProtected(), supports: () => true },
     { id: "wordCount", label: { en: "Word count", pt: "Contar Palavras" }, icon: "numbers", shortcut: "Ctrl+Shift+G", run: () => ctl.wordCount() },
-    { id: "spelling", label: { en: "Spelling & grammar", pt: "Ortografia e gram\xE1tica" }, icon: "spellcheck", shortcut: "F7", supports: has("toggleSpellCheck"), run: () => call("toggleSpellCheck"), isChecked: () => typeof api["spellCheckEnabled"] === "function" && !!call("spellCheckEnabled") },
+    { id: "spelling", label: { en: "Spelling & grammar", pt: "Ortografia e gram\xE1tica" }, icon: "spellcheck", shortcut: "F7", supports: has("nextMisspelling"), run: () => ctl.spelling(), isEnabled: canEdit2 },
+    { id: "spellAsYouType", label: { en: "Check spelling as you type", pt: "Verificar ortografia ao digitar" }, icon: "spellcheck", supports: has("toggleSpellCheck"), run: () => call("toggleSpellCheck"), isChecked: () => typeof api["spellCheckEnabled"] === "function" && !!call("spellCheckEnabled") },
     edit({ id: "trackChanges", label: { en: "Track changes", pt: "Controlar altera\xE7\xF5es" }, icon: "track_changes", shortcut: "Ctrl+Shift+E", supports: has("toggleTrackChanges"), run: () => call("toggleTrackChanges"), isChecked: () => typeof api["isTrackingChanges"] === "function" && !!call("isTrackingChanges") }),
     edit({ id: "change:accept", label: { en: "Accept", pt: "Aceitar" }, icon: "check_circle", supports: has("acceptChange"), run: () => call("acceptChange") }),
     edit({ id: "change:reject", label: { en: "Reject", pt: "Rejeitar" }, icon: "cancel", supports: has("rejectChange"), run: () => call("rejectChange") }),
@@ -23150,6 +23187,85 @@ function aboutDialog(env) {
   const L3 = env.app.ui.L;
   openDialog({ title: L3.aboutTitle, icon: "info", body: L3.aboutText, layer: env.layer, lang: env.lang, width: 400 });
 }
+async function spellingDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const done = tr(lang, "The spelling check is complete.", "A verifica\xE7\xE3o ortogr\xE1fica foi conclu\xEDda.");
+  const skip = /* @__PURE__ */ new Set();
+  const always = /* @__PURE__ */ new Map();
+  let cur = await ed.nextMisspelling(skip);
+  if (!cur) {
+    env.app.ui.flash(done);
+    return;
+  }
+  const word = el2("div", { style: "font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px" });
+  const info = el2("div", { style: "opacity:.7;font-size:12px;margin-bottom:10px" });
+  const list = el2("select", { size: 6, style: "width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px" });
+  const show = async (m2) => {
+    word.textContent = m2.word;
+    info.textContent = tr(lang, `Not in dictionary (${m2.lang})`, `N\xE3o consta no dicion\xE1rio (${m2.lang})`);
+    const sug = await ed.spellingSuggestions(m2, 8);
+    list.replaceChildren(...sug.length ? sug.map((x3) => el2("option", { value: x3, textContent: x3 })) : [el2("option", { value: "", disabled: true, textContent: tr(lang, "(no suggestions)", "(sem sugest\xF5es)") })]);
+    list.selectedIndex = sug.length ? 0 : -1;
+  };
+  await show(cur);
+  const body = el2("div", {}, word, info, el2("div", { style: "font-size:12px;margin-bottom:4px" }, tr(lang, "Suggestions", "Sugest\xF5es")), list);
+  const next = async () => {
+    cur = await ed.nextMisspelling(skip);
+    while (cur && always.has(cur.word)) {
+      if (!ed.replaceSpelling(cur, always.get(cur.word))) skip.add(`${cur.para}:${cur.start}:${cur.word}`);
+      cur = await ed.nextMisspelling(skip);
+    }
+    if (!cur) {
+      h3.close();
+      env.app.ui.flash(done);
+      return;
+    }
+    await show(cur);
+  };
+  let busy = false;
+  const step = async (id) => {
+    if (!cur || busy) return;
+    busy = true;
+    try {
+      const choice = list.value;
+      if (id === "ignore") skip.add(`${cur.para}:${cur.start}:${cur.word}`);
+      else if (id === "ignoreAll") ed.ignoreSpelling(cur.word);
+      else if (id === "add") await ed.addToDictionary(cur.word);
+      else if (id === "change" || id === "changeAll") {
+        if (!choice) return;
+        if (id === "changeAll") always.set(cur.word, choice);
+        if (!ed.replaceSpelling(cur, choice)) skip.add(`${cur.para}:${cur.start}:${cur.word}`);
+      }
+      await next();
+    } finally {
+      busy = false;
+    }
+  };
+  list.addEventListener("dblclick", () => {
+    void step("change");
+  });
+  const h3 = openDialog({
+    title: tr(lang, "Spelling", "Ortografia"),
+    icon: "spellcheck",
+    body,
+    layer: env.layer,
+    lang,
+    width: 400,
+    modal: false,
+    actions: [
+      { id: "ignore", label: { en: "Ignore Once", pt: "Ignorar uma vez" } },
+      { id: "ignoreAll", label: { en: "Ignore All", pt: "Ignorar tudo" } },
+      { id: "add", label: { en: "Add to Dictionary", pt: "Adicionar ao dicion\xE1rio" } },
+      { id: "changeAll", label: { en: "Change All", pt: "Alterar todas" } },
+      { id: "change", label: { en: "Change", pt: "Alterar" }, primary: true }
+    ],
+    onAction: (id) => {
+      void step(id);
+      return false;
+    }
+  });
+  await h3.result;
+}
 var el2, select, check, tr, SHORTCUTS;
 var init_chrome_dialogs = __esm({
   "src/chrome-dialogs.ts"() {
@@ -23262,7 +23378,7 @@ var init_chrome_labels = __esm({
         chars: "Characters (with spaces)",
         shortcutsTitle: "Keyboard shortcuts",
         aboutTitle: "About",
-        aboutText: "Universal Write \u2014 a .docx editor web component with canvas rendering faithful to Microsoft Word.",
+        aboutText: "Universal Write \u2014 a .docx editor web component with high-fidelity canvas rendering.",
         fontDlg: "Font",
         paraDlg: "Paragraph",
         pageDlg: "Page Setup",
@@ -23348,7 +23464,7 @@ var init_chrome_labels = __esm({
         chars: "Caracteres (com espa\xE7os)",
         shortcutsTitle: "Atalhos de teclado",
         aboutTitle: "Sobre",
-        aboutText: "Universal Write \u2014 web component de edi\xE7\xE3o de .docx com renderiza\xE7\xE3o em canvas fiel ao Microsoft Word.",
+        aboutText: "Universal Write \u2014 web component de edi\xE7\xE3o de .docx com renderiza\xE7\xE3o em canvas de alta fidelidade.",
         fontDlg: "Fonte",
         paraDlg: "Par\xE1grafo",
         pageDlg: "Configurar P\xE1gina",
@@ -23905,7 +24021,7 @@ function menus(env, ctx) {
     [0, "Off", "Desligado"],
     [1, "1 min", "1 min"],
     [5, "5 min", "5 min"],
-    [10, "10 min (Word)", "10 min (Word)"],
+    [10, "10 min", "10 min"],
     [30, "30 min", "30 min"]
   ].map(([n5, en, pt]) => ({
     id: `autosave:${n5}`,
@@ -23996,7 +24112,7 @@ function compactLayout(env, ctx) {
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "focus", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
       { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", "table", "link", "comment", "-", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", "bookmark", "textbox", m2.symbols] },
       { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", m2.charSpacing, "-", m2.page, "-", "dlg:font", "dlg:paragraph", "-", "clear"] },
-      { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "wordCount", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
+      { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
     ],
     groups: [
@@ -24060,7 +24176,7 @@ function ribbonLayout(env, ctx) {
           ] },
           { id: "font", label: L2("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L2("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
+              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L2("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }],
               ["bold", "italic", "underline", "strike", "sub", "sup", { split: "color", menu: () => colorMenu(env, ctx) }, { split: "highlight", menu: () => highlightMenu(env, ctx) }]
             ] }
           ] },
@@ -24079,7 +24195,7 @@ function ribbonLayout(env, ctx) {
             ] }
           ] },
           { id: "styles", label: L2("Styles", "Estilos"), icon: "style", prio: 5, cells: [
-            { rows: [[styleWidget(env, 150)]] }
+            { rows: [[styleWidget(env, 150)], [{ cmd: "clear", label: true }]] }
           ] },
           { id: "editing", label: L2("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
             { rows: [[{ cmd: "find", label: true }], [{ cmd: "replace", label: true }], [{ cmd: "selectAll", label: true }]] }
@@ -24090,11 +24206,12 @@ function ribbonLayout(env, ctx) {
         id: "insert",
         label: L2("Insert", "Inserir"),
         groups: [
-          { id: "pages", label: L2("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [large("pagebreak")] },
-          { id: "tables", label: L2("Tables", "Tabelas"), icon: "table", prio: 6, cells: [{ menu: () => tableMenu(env, ctx), id: "table:menu", label: L2("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") }] },
-          { id: "illustrations", label: L2("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [large("image")] },
-          { id: "links", label: L2("Links", "Links"), icon: "link", prio: 5, cells: [large("link"), { rows: [["bookmark"]] }] },
-          { id: "comments", label: L2("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 5, cells: [large("comment")] },
+          { id: "pages", label: L2("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [large("pagebreak"), { rows: [["columnbreak"], ["sectionbreak"]] }] },
+          { id: "objects", label: L2("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
+            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L2("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
+            large("image")
+          ] },
+          { id: "links", label: L2("Links & Comments", "Links e Coment\xE1rios"), icon: "link", prio: 5, cells: [large("link"), large("comment"), { rows: [["bookmark"]] }] },
           { id: "hf", label: L2("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
             large("header"),
             large("footer"),
@@ -24104,19 +24221,9 @@ function ribbonLayout(env, ctx) {
             large("textbox"),
             { rows: [[{ cmd: "field:date", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L2("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
           ] },
-          { id: "notes", label: L2("Notes", "Notas"), icon: "notes", prio: 2, cells: [large("footnote"), large("endnote")] }
-        ]
-      },
-      {
-        id: "design",
-        label: L2("Design", "Design"),
-        groups: [
-          { id: "formatting", label: L2("Document Formatting", "Formata\xE7\xE3o do Documento"), icon: "style", prio: 5, cells: [
-            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L2("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" }
-          ] },
-          { id: "background", label: L2("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
-            { cmd: "pageColor", size: "large" },
-            { cmd: "watermark", size: "large" }
+          { id: "references", label: L2("References", "Refer\xEAncias"), icon: "toc", prio: 2, cells: [
+            large("toc"),
+            { rows: [[{ cmd: "footnote", label: true }], [{ cmd: "endnote", label: true }]] }
           ] }
         ]
       },
@@ -24132,20 +24239,17 @@ function ribbonLayout(env, ctx) {
             { rows: [["hyphenation"]] }
           ] },
           { id: "paragraph", label: L2("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
+            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L2("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
             { rows: [
               [{ cmd: "outdent", label: true }, { cmd: "indent", label: true }],
               [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L2("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
               [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L2("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
             ] }
+          ] },
+          { id: "background", label: L2("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
+            { cmd: "pageColor", size: "large" },
+            { cmd: "watermark", size: "large" }
           ] }
-        ]
-      },
-      {
-        id: "references",
-        label: L2("References", "Refer\xEAncias"),
-        groups: [
-          { id: "toc", label: L2("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 5, cells: [large("toc")] },
-          { id: "footnotes", label: L2("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 4, cells: [large("footnote"), { rows: [["endnote"]] }] }
         ]
       },
       {
@@ -24159,24 +24263,21 @@ function ribbonLayout(env, ctx) {
         id: "review",
         label: L2("Review", "Revis\xE3o"),
         groups: [
-          { id: "proofing", label: L2("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large("spelling"), { rows: [[{ cmd: "wordCount", label: true }]] }] },
+          { id: "proofing", label: L2("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
           { id: "comments", label: L2("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
             large("comment"),
             { rows: [[{ cmd: "comment:delete", label: true }], [{ cmd: "comment:prev", label: true }], [{ cmd: "comment:next", label: true }]] },
             { cmd: "comments", size: "large" }
           ] },
-          { id: "tracking", label: L2("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [large("trackChanges")] },
-          { id: "changes", label: L2("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 3, cells: [large("change:accept"), large("change:reject")] },
-          { id: "compare", label: L2("Compare", "Comparar"), icon: "compare", prio: 3, cells: [large("compare")] },
-          { id: "protect", label: L2("Protect", "Proteger"), icon: "edit_document", prio: 2, cells: [large("enableEditing")] }
+          { id: "changes", label: L2("Changes", "Altera\xE7\xF5es"), icon: "track_changes", prio: 4, cells: [large("trackChanges"), large("change:accept"), large("change:reject")] },
+          { id: "document", label: L2("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large("compare"), large("enableEditing")] }
         ]
       },
       {
         id: "view",
         label: L2("View", "Exibir"),
         groups: [
-          { id: "views", label: L2("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [large("view:read"), large("view:print"), large("view:web")] },
-          { id: "immersive", label: L2("Immersive", "Imersivo"), icon: "center_focus_strong", prio: 4, cells: [large("focus")] },
+          { id: "views", label: L2("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [large("view:read"), large("view:print"), large("view:web"), large("focus")] },
           { id: "show", label: L2("Show", "Mostrar"), icon: "visibility", prio: 3, cells: [{ rows: [[{ cmd: "marks", label: true }], [{ cmd: "comments", label: true }], [{ cmd: "statusbar", label: true }]] }] },
           { id: "zoom", label: L2("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
             { menu: m2.zoomItems, id: "zoom", label: L2("Zoom", "Zoom"), icon: "zoom_in", size: "large" },
@@ -26093,6 +26194,9 @@ var init_chrome = __esm({
             void pageDialog(d3()).then(() => this.after());
           },
           wordCount: () => wordCountDialog(d3()),
+          spelling: () => {
+            void spellingDialog(d3()).then(() => this.after());
+          },
           shortcuts: () => shortcutsDialog(d3()),
           about: () => aboutDialog(d3()),
           compare: () => {
@@ -26378,6 +26482,7 @@ var init_chrome = __esm({
           if (e8.composedPath().some((n5) => n5 === this.topEl || n5 === this.bottomEl || n5 === this.layer)) return;
           if (this.app.comparing) return;
           e8.preventDefault();
+          const at = { x: e8.clientX, y: e8.clientY };
           const items = [
             "cut",
             "copy",
@@ -26397,12 +26502,29 @@ var init_chrome = __esm({
             "find",
             "selectAll"
           ];
-          openMenu(items, { x: e8.clientX, y: e8.clientY }, {
-            lang: this.lang,
-            registry: this.reg,
-            layer: this.layer,
-            onClose: () => this.after()
-          });
+          const open2 = (pre) => {
+            openMenu([...pre, ...items], at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
+          };
+          const m2 = ed.spellingAtCaret();
+          if (!m2) {
+            open2([]);
+            return;
+          }
+          void ed.spellingSuggestions(m2).then((sug) => {
+            const pre = sug.length ? sug.map((s4) => ({ label: s4, onClick: () => {
+              ed.replaceSpelling(m2, s4);
+              this.after();
+            } })) : [{ label: { en: "(no suggestions)", pt: "(sem sugest\xF5es)" }, disabled: true }];
+            open2([
+              ...pre,
+              "-",
+              { icon: "visibility_off", label: { en: "Ignore All", pt: "Ignorar tudo" }, onClick: () => ed.ignoreSpelling(m2.word) },
+              { icon: "library_add", label: { en: "Add to Dictionary", pt: "Adicionar ao dicion\xE1rio" }, onClick: () => {
+                void ed.addToDictionary(m2.word);
+              } },
+              "-"
+            ]);
+          }, () => open2([]));
         }, { signal });
         const overlay = document.createElement("div");
         overlay.className = "uw-drop";
@@ -28827,17 +28949,6 @@ var NumberingState = class _NumberingState {
     for (const d3 of this.deferred) c5.deferred.add(d3);
     return c5;
   }
-  /**
-   * Esquece quais w:num já foram usados: o próximo parágrafo de um w:num com
-   * startOverride reinicia de novo. Artefato do PDF do Word aberto e exportado
-   * direto (sem repaginar): os parágrafos formatados na abertura (1ª página e
-   * o bloco que transborda para a 2ª) guardam o número; o seguinte de uma lista
-   * com override recomeça. Chamado pelo motor após esse bloco (oráculo
-   * numbering3, pg2-*).
-   */
-  forgetFirstUse() {
-    this.seenNums.clear();
-  }
   /** Lista (abstractNum efetivo) de um w:num — espaçamento automático entre itens. */
   listKey(numId) {
     const a3 = numId ? this.abstractFor(numId) : null;
@@ -29538,6 +29649,7 @@ function chooseHyphenation(ctx, gs, u3) {
 }
 
 // ../docx-layout/src/para.ts
+var GLUED_FIELD = /* @__PURE__ */ new WeakSet();
 var CJK = (cp) => cp >= 11904 && cp <= 40959 || cp >= 44032 && cp <= 55215 || cp >= 63744 && cp <= 64255 || cp >= 65280 && cp <= 65519 || cp >= 12288 && cp <= 12351;
 var NO_BREAK_AFTER_DASH = /^[\s\u00a0\u202f\u2000-\u200b\u3000\ufeff\u00ad]$/u;
 var CS = (cp) => cp >= 1424 && cp <= 2303 || cp >= 64285 && cp <= 65023 || cp >= 65136 && cp <= 65279;
@@ -29736,7 +29848,7 @@ function ligFeatures(v2) {
   return out;
 }
 function applyLigatures2(ctx, glyphs) {
-  const keyOf2 = (g2) => {
+  const keyOf3 = (g2) => {
     const r6 = g2.style.rpr;
     return `${r6.lang?.val ?? ""}|${r6.w ?? 100}|${g2.style.shift}|${r6.ligatures ?? ""}|${r6.spacing ?? 0}`;
   };
@@ -29749,11 +29861,11 @@ function applyLigatures2(ctx, glyphs) {
       k2++;
       continue;
     }
-    const key = keyOf2(g0);
+    const key = keyOf3(g0);
     let e8 = k2 + 1;
     while (e8 < glyphs.length) {
       const q = glyphs[e8];
-      if (q.kind !== "char" || q.face !== g0.face || q.sizePt !== g0.sizePt || q.runIdx !== g0.runIdx && keyOf2(q) !== key) break;
+      if (q.kind !== "char" || q.face !== g0.face || q.sizePt !== g0.sizePt || q.runIdx !== g0.runIdx && keyOf3(q) !== key) break;
       e8++;
     }
     if (e8 - k2 >= 2) {
@@ -29810,7 +29922,9 @@ function fieldRuns(run, env) {
     const v2 = env.field?.(name, instr);
     if (v2 !== void 0) {
       const base = run.fieldResult?.find((r6) => !r6.image && !r6.textbox) ?? run;
-      return [{ ...base, text: v2, field: void 0, fieldResult: void 0 }];
+      const out = { ...base, text: v2, field: void 0, fieldResult: void 0 };
+      if (env.hf && name === "PAGE") GLUED_FIELD.add(out);
+      return [out];
     }
   }
   if (run.fieldResult?.length) {
@@ -30132,16 +30246,18 @@ function prepareParagraph(ctx, para, env0) {
     }
     if (run.noteRef && !run.text) {
       const num = run.noteRef.kind === "footnote" ? ctx.footnoteNumber(run.noteRef.id) : ctx.endnoteNumber(run.noteRef.id);
-      const before = glyphs.length;
+      const before2 = glyphs.length;
       pushChars(String(num), run, rpr, style, offset, idx);
-      if (run.noteRef.kind === "footnote") for (let k2 = before; k2 < glyphs.length; k2++) glyphs[k2].noteId = run.noteRef.id;
+      if (run.noteRef.kind === "footnote") for (let k2 = before2; k2 < glyphs.length; k2++) glyphs[k2].noteId = run.noteRef.id;
       continue;
     }
     if (run.math) {
       pushMath(run, idx, offset);
       continue;
     }
+    const before = glyphs.length;
     pushChars(run.text, run, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para.runs[idx]?.field ?? ""));
+    if (GLUED_FIELD.has(run)) for (let k2 = before + 1; k2 < glyphs.length; k2++) glyphs[k2].glue = true;
   }
   for (let k2 = 1; k2 < glyphs.length; k2++) {
     if (glyphs[k2].kind !== "obj" || glyphs[k2].adv <= 0) continue;
@@ -30366,7 +30482,13 @@ var LineBreaker = class {
       w2 += q.kind === "shy" ? 0 : q.adv;
       if (q.breakAfter) break;
     }
-    return w2 + (this.lineIdx === 0 ? Math.max(0, this.p.firstLine) : 0);
+    return w2 + (this.indentFirst() ? Math.max(0, this.p.firstLine) : 0);
+  }
+  /** Linha com o recuo da 1ª linha e o número da lista: a 1ª — ou, no parágrafo que
+   *  COMEÇA com quebra de coluna, a que vem depois dela, na coluna seguinte (a linha da
+   *  quebra fica sem os dois — oráculo brfirst, corpus t70). */
+  indentFirst() {
+    return this.lineIdx === (this.p.glyphs[0]?.kind === "cb" && this.p.glyphs.length > 1 ? 1 : 0);
   }
   mark() {
     return { pos: this.pos, lineIdx: this.lineIdx, trailingBreak: this.trailingBreak, hyphenRun: this.hyphenRun };
@@ -30389,17 +30511,17 @@ var LineBreaker = class {
   next(frame2) {
     const p3 = this.p;
     const gs = p3.glyphs;
-    const first = this.lineIdx === 0;
+    const indFirst = this.indentFirst();
     const start = this.pos;
-    const xStart = frame2.left + (first ? p3.firstLine : 0);
+    const xStart = frame2.left + (indFirst ? p3.firstLine : 0);
     let right = frame2.right;
-    let rightQ = this.fitRight(frame2, xStart, first);
+    let rightQ = this.fitRight(frame2, xStart, indFirst);
     const placed = [];
     let x3 = xStart;
     let markerPlaced;
     const defaultTab = this.ctx.fmt.settings.defaultTabStop;
-    const hangingStop = first && p3.firstLine < 0 ? frame2.left : void 0;
-    if (first && p3.marker) {
+    const hangingStop = indFirst && p3.firstLine < 0 ? frame2.left : void 0;
+    if (indFirst && p3.marker) {
       const mk = p3.marker;
       let mx = xStart;
       if (mk.jc === "right") mx -= mk.width;
@@ -30510,7 +30632,7 @@ var LineBreaker = class {
             spanned = true;
             x3 = frame2.next.left;
             right = frame2.next.right;
-            rightQ = this.fitRight({ left: frame2.left, right }, xStart, first);
+            rightQ = this.fitRight({ left: frame2.left, right }, xStart, indFirst);
             ({ pos, tab } = nx);
           } else if (i7 > start) {
             gapTab = "break";
@@ -30639,7 +30761,7 @@ var LineBreaker = class {
           pendTab = null;
           break;
         }
-        break;
+        if (!g2.glue) break;
       }
       if (g2.kind === "shy") {
         placed.push({ g: g2, x: x3, w: 0 });
@@ -32484,7 +32606,7 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     const sp = sumOf(p3, () => true);
     return sp > 0 && T3 > sp + 0.5 ? p3.map((x3) => x3 * T3 / sp) : p3;
   }
-  const R2 = T3 - sumOf(p3, () => true);
+  let R2 = T3 - sumOf(p3, () => true);
   const g3 = g3of(T3), g4 = g4of(T3);
   const S1 = sumOf(g1, np), S3 = sumOf(g3, np), S4 = sumOf(g4, np);
   const lerp2 = (a3, b5, t6) => a3.map((x3, j) => isPct[j] ? p3[j] : x3 + (b5[j] - x3) * t6);
@@ -32505,7 +32627,11 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     const si = inner.reduce((a3, b5) => a3 + b5, 0), cut = S1 - avail;
     return g1.map((x3, j) => x3 - (si > 0 ? cut * inner[j] / si : cut / nCols));
   }
-  if (explicit) return g3.map((x3, j) => isPct[j] ? p3[j] : x3);
+  if (explicit) {
+    if (!(S1 > avail + 0.5 && (tw2 === "pct" ? T3 <= avail + 0.5 : T3 < avail - 0.5))) return g3.map((x3, j) => isPct[j] ? p3[j] : x3);
+    R2 += avail - T3;
+    T3 = avail;
+  }
   const sg = docGrid.reduce((a3, b5) => a3 + b5, 0);
   if (!isPct.some(Boolean) && Math.abs(sg - T3) <= Math.max(20, 5e-3 * T3)) return docGrid.map((x3) => x3 * T3 / sg);
   return g1.map((x3, j) => isPct[j] ? p3[j] : S1 > 0 ? x3 * R2 / S1 : x3);
@@ -32846,7 +32972,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const wl = separated ? borderWidth(edge(s4, "left")) : 0, wr = separated ? borderWidth(edge(s4, "right")) : 0;
       const x0 = !separated ? x0r : spTbl > 0 ? x0r + wl : x0r + Math.max(wl - marL, wl / 2);
       const x1 = !separated ? x1r : spTbl > 0 ? x1r - wr : x1r - Math.max(wr - marR, wr / 2);
-      const env = { tablePPr: pPr, tableRPr: rPr, ...isDark(cellFill(ctx, tcPr, tblPr, theme)) ? { darkBackground: true } : {} };
+      const env = { tablePPr: pPr, tableRPr: rPr, ...isDark(cellFill(tcPr, theme)) ? { darkBackground: true } : {} };
       const vertical = tcPr.textDirection === "btLr" || tcPr.textDirection === "tbRl" || tcPr.textDirection === "tbRlV" ? tcPr.textDirection : void 0;
       const info = { slot: s4, tcPr, x0, x1, bx0, bx1, marT, marB, marL, marR, env, ...vertical ? { vertical } : {} };
       if (!s4.merged) {
@@ -32920,10 +33046,25 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const mergeAt = [];
       if (separated) {
         const cy0 = bTop - sepWT[ri], cy1 = bTop + ch + (bBottom > 0 ? sepWB[ri] : 0);
+        const tblFill = shdFill(tblPr.shd, theme);
+        if (tblFill) {
+          const xl2 = x3 + g0, xr2 = x3 + gn;
+          const strip = (x0, y0, x1, y1) => {
+            if (x1 - x0 > 0.01 && y1 - y0 > 0.01) its.push({ t: "rect", x: x0, y: y0, w: x1 - x0, h: y1 - y0, fill: tblFill });
+          };
+          strip(xl2, 0, xr2, cy0);
+          strip(xl2, cy1, xr2, rh);
+          let cx = xl2;
+          for (const ci of [...cellInfos].sort((a3, b5) => a3.bx0 - b5.bx0)) {
+            strip(cx, cy0, x3 + ci.bx0, cy1);
+            cx = Math.max(cx, x3 + ci.bx1);
+          }
+          strip(cx, cy0, xr2, cy1);
+        }
         for (const ci of cellInfos) {
           const s4 = ci.slot;
           if (s4.merged) continue;
-          const fill = cellFill(ctx, ci.tcPr, tblPr, theme);
+          const fill = cellFill(ci.tcPr, theme);
           const content = contents.get(s4);
           if (fill) its.push({ t: "rect", x: x3 + ci.bx0, y: cy0, w: ci.bx1 - ci.bx0, h: cy1 - cy0, fill });
           if (s4.rowSpan > 1) mergeAt.push({ col: s4.col, at: its.length, endRow: ri + s4.rowSpan - 1 });
@@ -32960,7 +33101,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       let ownBand = 0;
       for (const ci of cellInfos) {
         const s4 = ci.slot;
-        const fill = cellFill(ctx, ci.tcPr, tblPr, theme);
+        const fill = cellFill(ci.tcPr, theme);
         const content = contents.get(s4);
         if (!s4.merged && s4.rowSpan > 1) mergeAt.push({ col: s4.col, at: its.length, endRow: ri + s4.rowSpan - 1 });
         if (!s4.merged && s4.rowSpan === 1) {
@@ -33065,7 +33206,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     const h3 = rowHeights.slice(m2.startRow, endRow + 1).reduce((a3, b5) => a3 + b5, 0) - bandTopOf(m2.startRow) - bandBottomOf(endRow);
     const first = rows[m2.startRow];
     const target = rows[endRow] ?? first;
-    const fill = cellFill(ctx, m2.tcPr, tblPr, theme);
+    const fill = cellFill(m2.tcPr, theme);
     if (fill) {
       const item = { t: "rect", x: x3 + m2.x0, y: 0, w: m2.x1 - m2.x0, h: h3, fill };
       first.items.unshift(item);
@@ -33086,12 +33227,13 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const borderLeft = slots[0]?.[0] ? borderWidth(edge(slots[0][0], "left")) : 0;
   return { x: x3, width, rows, borderLeft, ...legacy ? { effR } : {}, ...tblPr.tblpPr ? { tblpPr: tblPr.tblpPr } : {} };
 }
-function cellFill(ctx, tcPr, tblPr, theme) {
-  const shd = tcPr.shd ?? tblPr.shd;
+function cellFill(tcPr, theme) {
+  return shdFill(tcPr.shd, theme);
+}
+function shdFill(shd, theme) {
   if (!shd) return void 0;
   if (shd.val === "solid") return resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
   const fill = shd.themeFill ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, theme) : shd.fill && shd.fill !== "auto" ? shd.fill.toUpperCase() : void 0;
-  void ctx;
   if (shd.val && /^pct(\d+)$/.test(shd.val)) {
     const pct = parseInt(shd.val.slice(3), 10) / 100;
     const fg = resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
@@ -33886,16 +34028,6 @@ var Engine = class {
         footerRefs: []
       }, 0));
     }
-    let numReopen = 0;
-    let openLimit = 0;
-    const toPage2 = () => {
-      const p1 = this.pages[0], p22 = this.pages[1];
-      openLimit = p22.bodyTop + Math.max(0, p1.bodyTop - p1.geom.marT);
-      numReopen = 1;
-    };
-    const pastOpen = () => {
-      if (numReopen === 1 && (this.cur !== this.pages[1] || this.y >= openLimit)) numReopen = 2;
-    };
     for (const g2 of this.geoms) {
       if (g2.index === 0 || g2.type !== "continuous") {
         const lastAfter = this.prev ? this.prev.after : 0;
@@ -33904,18 +34036,8 @@ var Engine = class {
       } else this.continuousSection(g2);
       for (let b5 = g2.blocks[0]; b5 <= g2.blocks[1] && b5 < full.blocks.length; b5++) {
         const block = full.blocks[b5];
-        if (numReopen === 0 && this.pages.length >= 2) {
-          toPage2();
-          pastOpen();
-        }
-        if (numReopen === 2) {
-          this.ctx.numbering.forgetFirstUse();
-          numReopen = 3;
-        }
         if (block.type === "paragraph") this.placeParagraph(block.paragraph, `b${b5}`, b5, g2);
         else this.placeTable(block, `b${b5}`, b5);
-        if (numReopen === 0 && this.pages.length >= 2) toPage2();
-        pastOpen();
       }
     }
     for (let k2 = 0; k2 < 100 && this.floatCarry.length && this.cur; k2++) this.newPage(this.cur.geom);
@@ -34188,7 +34310,7 @@ var Engine = class {
     const even = settings.evenAndOddHeaders && ps.page.number % 2 === 0;
     const kind = first ? "first" : even ? "even" : "default";
     const pick = (set) => first ? set.first : even ? set.even : set.default;
-    const env = { field: this.fieldValue(ps) };
+    const env = { field: this.fieldValue(ps), hf: true };
     const width = g2.pageW - g2.marL - g2.marR;
     const savedNum = this.ctx.numbering;
     this.ctx.numbering = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
@@ -34551,6 +34673,7 @@ var Engine = class {
     const blocks = cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
     const penv = { ...env.tablePPr ? { tablePPr: env.tablePPr } : {}, ...env.tableRPr ? { tableRPr: env.tableRPr } : {}, ...env.darkBackground ? { darkBackground: true } : {} };
     if (ps) penv.field = this.fieldValue(ps);
+    if (this.inHf) penv.hf = true;
     const c5 = this.layoutStatic(blocks, x3, width, penv, ref, ps, 0, this.cellNb.get(cell));
     if (cell.tcPr?.hideMark && blocks.every((b5) => b5.type === "paragraph" && !paraVisibility(this.ctx, b5.paragraph, penv).visible)) return { ...c5, height: 0 };
     const lastB = blocks[blocks.length - 1];
@@ -35786,8 +35909,17 @@ var Engine = class {
     const floats = ps.floats;
     if (!floats.length) return frame2;
     const { left, right } = frame2;
+    const crossed = right < left;
+    let tl = left, tr2 = right;
+    if (crossed) {
+      const col = this.colFrame();
+      if (Math.abs(frameX - col.x) < 0.5) {
+        tl = Math.min(left, 0);
+        tr2 = Math.max(left, col.w);
+      } else tr2 = left;
+    }
     let skipTo;
-    let free = [[left, right]];
+    let free = [[tl, tr2]];
     let hit = false;
     let minBottom = Infinity;
     for (const f3 of floats) {
@@ -35796,7 +35928,7 @@ var Engine = class {
       const top = f3.y - f3.distT, bottom = f3.y + f3.h + f3.distB;
       if (y3 + lineH <= top + 0.5 || y3 >= bottom - 0.5) continue;
       const fl2 = f3.x - f3.distL - frameX, fr = f3.x + f3.w + f3.distR - frameX;
-      if (fr <= left || fl2 >= right) continue;
+      if (fr <= tl || fl2 >= tr2) continue;
       if (f3.wrap === "topAndBottom") {
         skipTo = Math.max(skipTo ?? 0, bottom);
         continue;
@@ -35808,7 +35940,7 @@ var Engine = class {
       if (side === "left") bh = Infinity;
       else if (side === "right") bl = -Infinity;
       else if (side === "largest") {
-        if (fl2 - left >= right - fr) bh = Infinity;
+        if (fl2 - tl >= tr2 - fr) bh = Infinity;
         else bl = -Infinity;
       }
       const next = [];
@@ -35825,7 +35957,7 @@ var Engine = class {
     if (hit) {
       const col = this.colFrame();
       const cR = Math.abs(frameX - col.x) < 0.5 ? col.w : Infinity, cL = cR === Infinity ? -Infinity : 0;
-      const ext = (a3, b5) => cR === Infinity ? [a3, b5] : [a3 <= left + 0.5 ? Math.min(a3, cL) : a3, b5 >= right - 0.5 ? Math.max(b5, cR) : b5];
+      const ext = (a3, b5) => cR === Infinity ? [a3, b5] : [a3 <= tl + 0.5 ? Math.min(a3, cL) : a3, b5 >= tr2 - 0.5 ? Math.max(b5, cR) : b5];
       free = free.filter(([a3, b5]) => {
         const [ea, eb] = ext(a3, b5);
         return Math.min(eb, cR) - Math.max(ea, cL) >= MIN_GAP;
@@ -35833,7 +35965,7 @@ var Engine = class {
       let best;
       for (const iv of free) if (!best || iv[1] - iv[0] > best[1] - best[0]) best = iv;
       if (!best) skipTo = Math.max(skipTo ?? 0, minBottom);
-      else if (skipTo === void 0) return { left: best[0], right: best[1], gap: true, ...free.length > 1 ? { segs: free } : {} };
+      else if (skipTo === void 0) return crossed ? { left, right } : { left: best[0], right: best[1], gap: true, ...free.length > 1 ? { segs: free } : {} };
     }
     if (skipTo !== void 0) return { ...frame2, skipTo };
     return { left, right };
@@ -35881,14 +36013,15 @@ var Engine = class {
     const anchor = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
     let w2 = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
     let h3 = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
-    const behind = !!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc;
+    const wrapsText = !!anchor && anchor.wrap !== "none";
+    const behind = !(wrapsText && this.ctx.fmt.settings.compatibilityMode >= 15) && (!!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc);
     let tbContent = null;
     let tbFinal = null;
     if (run.textbox) {
       const tb = run.textbox;
       const ins = tbInsets(tb, this.ctx.fmt.theme, w2, h3);
       const blocks = tb.blocks ?? tb.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-      const env = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)) };
+      const env = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} };
       let inner = w2 - ins.l - ins.r;
       const fi = FRAME_INFO.get(tb);
       if (fi?.autoWidth) {
@@ -36134,7 +36267,7 @@ var Engine = class {
         if (r6.textbox) {
           const ins = tbInsets(r6.textbox, this.ctx.fmt.theme, iw, ih);
           const blocks = r6.textbox.blocks ?? r6.textbox.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r6.textbox.shape?.fill, this.ctx.fmt.theme)) }, "grp", ps);
+          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(r6.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} }, "grp", ps);
         }
         out.push(...this.paintObject(r6, ix, iy, iw, ih, tc, ps, true));
       }
@@ -37699,6 +37832,174 @@ function restore(p3, orig) {
   }
 }
 
+// src/spell.ts
+var DEFAULT_SPELL_LANG = "pt-BR";
+var LangResolver = class {
+  constructor(sheet, fallback = DEFAULT_SPELL_LANG) {
+    this.sheet = sheet;
+    this.fallback = fallback;
+  }
+  sheet;
+  fallback;
+  styleCache = /* @__PURE__ */ new Map();
+  style(id, seen = /* @__PURE__ */ new Set()) {
+    if (!id || !this.sheet) return {};
+    const hit = this.styleCache.get(id);
+    if (hit) return hit;
+    const def = this.sheet.styles[id];
+    let out = {};
+    if (def && !seen.has(id)) {
+      seen.add(id);
+      const base = this.style(def.basedOn, seen);
+      out = { lang: def.rPr?.lang?.val ?? base.lang, noProof: def.rPr?.noProof ?? base.noProof };
+    }
+    this.styleCache.set(id, out);
+    return out;
+  }
+  run(run, para) {
+    const rpr = run.rpr;
+    const ch = this.style(rpr?.rStyle);
+    const ps = this.style(para.props.styleId ?? para.ppr?.pStyle ?? this.sheet?.defaults.paragraph);
+    const dd = this.sheet?.docDefaults.rPr;
+    return {
+      lang: rpr?.lang?.val ?? ch.lang ?? ps.lang ?? dd?.lang?.val ?? this.fallback,
+      noProof: rpr?.noProof ?? ch.noProof ?? ps.noProof ?? dd?.noProof ?? false
+    };
+  }
+};
+var skipRun = (r6) => !!(r6.field || r6.fieldResult || r6.noteRef || r6.custom || r6.image || r6.textbox || r6.shape || r6.group || r6.math || r6.props.isMath || r6.formField);
+function spellSpans(para, langs) {
+  const full = para.runs.map((r6) => r6.text).join("");
+  if (!/\p{L}/u.test(full)) return [];
+  const byLang = /* @__PURE__ */ new Map();
+  let at = 0;
+  for (const r6 of para.runs) {
+    const n5 = r6.text.length;
+    const { lang, noProof } = langs.run(r6, para);
+    if (!skipRun(r6) && !noProof) {
+      let arr = byLang.get(lang);
+      if (!arr) {
+        arr = Array.from({ length: full.length }, () => " ");
+        byLang.set(lang, arr);
+      }
+      for (let k2 = 0; k2 < n5; k2++) arr[at + k2] = r6.text[k2];
+    }
+    at += n5;
+  }
+  return [...byLang].map(([lang, chars]) => ({ lang, text: chars.join("") }));
+}
+var keyOf2 = (spans) => spans.map((s4) => `${s4.lang}${s4.text}`).join("");
+var ParagraphSpell = class {
+  constructor(engine, langs, onUpdate, delay = 120) {
+    this.engine = engine;
+    this.langs = langs;
+    this.onUpdate = onUpdate;
+    this.delay = delay;
+    this.offChange = engine.onChange(() => this.invalidate());
+  }
+  engine;
+  langs;
+  onUpdate;
+  delay;
+  byPara = /* @__PURE__ */ new WeakMap();
+  /** mesmo texto em outro objeto (desfazer recria os parágrafos): sem revisar de novo */
+  byKey = /* @__PURE__ */ new Map();
+  queue = /* @__PURE__ */ new Map();
+  timer = null;
+  generation = 0;
+  offChange;
+  invalidate() {
+    this.generation++;
+    this.byPara = /* @__PURE__ */ new WeakMap();
+    this.byKey.clear();
+    this.onUpdate();
+  }
+  dispose() {
+    this.offChange();
+    if (this.timer) clearTimeout(this.timer);
+    this.queue.clear();
+  }
+  /** Erros do parágrafo, ou undefined se ainda não revisado. */
+  get(para) {
+    const spans = spellSpans(para, this.langs());
+    if (!spans.length) return [];
+    const key = keyOf2(spans);
+    const hit = this.byPara.get(para);
+    if (hit?.key === key) return hit.list;
+    const known = this.byKey.get(key);
+    if (known) {
+      this.byPara.set(para, { key, list: known });
+      return known;
+    }
+    this.queue.set(para, spans);
+    this.schedule();
+    return hit?.list;
+  }
+  /** Revisão imediata (diálogo F7): espera o motor. */
+  async check(para) {
+    const spans = spellSpans(para, this.langs());
+    if (!spans.length) return [];
+    const key = keyOf2(spans);
+    const hit = this.byPara.get(para);
+    if (hit?.key === key) return hit.list;
+    const list = await this.run(spans);
+    this.store(para, key, list);
+    return list;
+  }
+  schedule() {
+    if (this.timer) return;
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.flush();
+    }, this.delay);
+  }
+  async flush() {
+    const batch = [...this.queue];
+    this.queue.clear();
+    const gen = this.generation;
+    let changed = false;
+    for (const [para, spans] of batch) {
+      let list;
+      try {
+        list = await this.run(spans);
+      } catch {
+        continue;
+      }
+      if (gen !== this.generation) return;
+      this.store(para, keyOf2(spans), list);
+      changed = true;
+    }
+    if (changed) this.onUpdate();
+  }
+  store(para, key, list) {
+    this.byPara.set(para, { key, list });
+    if (this.byKey.size > 4e3) this.byKey.clear();
+    this.byKey.set(key, list);
+  }
+  async run(spans) {
+    const out = [];
+    for (const s4 of spans) {
+      const dict = this.engine.resolve(s4.lang);
+      if (!dict) continue;
+      for (const m2 of await this.engine.checkText(s4.text, dict.id)) out.push({ ...m2, lang: dict.id });
+    }
+    return out.sort((a3, b5) => a3.start - b5.start);
+  }
+};
+function misspellingAt(list, offset) {
+  return list?.find((m2) => offset >= m2.start && offset <= m2.end);
+}
+function wavePath(ctx, x1, x22, y3, amp = 18, period = 60) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y3);
+  let up = true;
+  for (let x3 = x1; x3 < x22; x3 += period / 2) {
+    const nx = Math.min(x22, x3 + period / 2);
+    ctx.quadraticCurveTo((x3 + nx) / 2, y3 + (up ? -amp : amp), nx, y3);
+    up = !up;
+  }
+}
+
 // src/engine-doc.ts
 function buildEngineDoc(input) {
   const { fullDoc, paragraphs, tableAnchors } = input;
@@ -38203,6 +38504,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   engVersion = 0;
   /** o motor lançou exceção neste documento: legado até a próxima carga */
   engineFailed = false;
+  /** Revisão ortográfica: motor compartilhado (carregado na 1ª pintura) e o
+   *  cache dos erros por parágrafo. `spellOff` = desligada no menu (sessão). */
+  spell = null;
+  spellEngine = null;
+  spellLoading = false;
+  spellOff = false;
+  spellLangs = null;
+  spellRepaint = 0;
   /** pintura das páginas do motor em cache (o caret pisca sem repintar glifos) */
   engPageCache = /* @__PURE__ */ new Map();
   /** imagens decodificadas desde a última pintura (invalida o cache) */
@@ -38315,10 +38624,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   // ─────────────────────── chrome (barras) ───────────────────────
   static get observedAttributes() {
-    return ["topbar", "bottombar", "toolbar", "layout", "lang"];
+    return ["topbar", "bottombar", "toolbar", "layout", "lang", "nospellcheck"];
   }
   attributeChangedCallback(name) {
     if ((name === "topbar" || name === "bottombar" || name === "toolbar" || name === "lang") && this.initialized) void this.updateChrome();
+    if (name === "nospellcheck" && this.model) this.paint();
     if (name === "layout" && this.model) {
       if (this.legacyRequested() && this.cellEdit) this.exitCell();
       this.refresh();
@@ -38385,6 +38695,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     window.removeEventListener("resize", this.handleWindowResize);
     window.clearInterval(this.caretTimer);
     this.caretTimer = 0;
+    this.spell?.dispose();
+    this.spell = null;
+    this.spellEngine?.dispose();
+    this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
       void Promise.resolve().then(() => (init_chrome(), chrome_exports)).then((m2) => {
@@ -40495,6 +40809,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Imprime: abre janela com as páginas como imagens (visão de impressão). */
   async print() {
+    const host = this.host;
+    if (host?.print) {
+      await host.print({ pages: await this.printPages(), title: this.title || "Write" });
+      return;
+    }
     const win = window.open("", "_blank");
     if (!win) return;
     const wasView = this.view;
@@ -40506,6 +40825,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     win.document.close();
     win.focus();
     setTimeout(() => win.print(), 200);
+  }
+  /** Páginas "como impressas" (dataURLs PNG), uma por folha. */
+  async printPages() {
+    const wasView = this.view;
+    if (wasView !== "print") this.setView("print");
+    await this.ensureImagesDecoded();
+    const pages = this.canvases.map((_2, i7) => this.pageImageForPrint(i7));
+    if (wasView !== "print") this.setView(wasView);
+    return pages;
   }
   /** PNG (dataURL) da página `i` "como impressa" (sem adornos de tela) a
    *  96 dpi × devicePixelRatio. Aloca o buffer só durante a captura. */
@@ -43511,6 +43839,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         ctx.save();
         ctx.setTransform(scale, 0, 0, scale, 0, 0);
         this.paintEngineMarks(ctx, i7);
+        this.paintEngineSpelling(ctx, i7);
         if (hasSel) this.paintEngineSelection(ctx, i7, sel);
         ctx.restore();
       }
@@ -43575,6 +43904,139 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         ctx.fillRect(x1, el3.line.y, x22 - x1, el3.line.height);
       }
     }
+  }
+  // ───────────────────────── revisão ortográfica ─────────────────────────
+  /** A revisão vale agora? (atributo nospellcheck, menu, Modo Protegido, leitura) */
+  spellActive() {
+    return !this.spellOff && !this.hasAttribute("nospellcheck") && !this.protectedMode && this.view !== "read";
+  }
+  /** Idioma/noProof efetivos: os estilos do documento aberto (refeito a cada documento). */
+  spellLangResolver() {
+    const sheet = this.fullDoc?.formatting?.styles;
+    if (!this.spellLangs || this.spellLangs.sheet !== sheet) this.spellLangs = new LangResolver(sheet);
+    return this.spellLangs;
+  }
+  /** O motor sob demanda: o import (chunk) só acontece na 1ª pintura com texto. */
+  ensureSpell() {
+    if (this.spell || this.spellLoading) return this.spell;
+    this.spellLoading = true;
+    void import("@universal-office/spell").then(({ SpellChecker }) => {
+      if (!this.isConnected) return;
+      const engine = SpellChecker.shared();
+      this.spellEngine = engine;
+      this.spell = new ParagraphSpell(engine, () => this.spellLangResolver(), () => this.queueSpellRepaint());
+      this.queueSpellRepaint();
+    }).catch(() => {
+    }).finally(() => {
+      this.spellLoading = false;
+    });
+    return null;
+  }
+  queueSpellRepaint() {
+    if (this.spellRepaint) return;
+    this.spellRepaint = requestAnimationFrame(() => {
+      this.spellRepaint = 0;
+      if (this.eng && this.isConnected) this.paint();
+    });
+  }
+  /** Sublinhado ondulado vermelho nas palavras erradas (adorno de tela: não vai
+   *  para o PDF, a impressão nem o viewer). */
+  paintEngineSpelling(ctx, pg) {
+    if (!this.spellActive()) return;
+    const spell = this.ensureSpell();
+    if (!spell) return;
+    ctx.save();
+    ctx.strokeStyle = this.pageDark ? "#ff6b6b" : "#e81123";
+    ctx.lineWidth = 11;
+    for (const el3 of this.eng.lines) {
+      if (el3.page !== pg || el3.loc.kind === "other" || !el3.para) continue;
+      const list = spell.get(el3.para);
+      if (!list?.length) continue;
+      const chars = el3.line.chars ?? [];
+      for (const m2 of list) {
+        let x1 = Infinity, x22 = -Infinity;
+        for (const c5 of chars) {
+          if (c5.o < m2.start || c5.o >= m2.end) continue;
+          x1 = Math.min(x1, c5.x);
+          x22 = Math.max(x22, c5.x + c5.w);
+        }
+        if (!(x22 > x1)) continue;
+        wavePath(ctx, x1, x22, el3.line.baseline + 50);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  /** A revisão ortográfica está ligada (menu "Verificar ortografia ao digitar"). */
+  spellCheckEnabled() {
+    return !this.spellOff && !this.hasAttribute("nospellcheck");
+  }
+  /** Liga/desliga a revisão nesta sessão (o atributo nospellcheck desliga de vez). */
+  toggleSpellCheck(on) {
+    this.spellOff = on === void 0 ? !this.spellOff : !on;
+    this.paint();
+    this.chromeSync?.();
+  }
+  /** Palavra errada no cursor (do que já foi revisado; null = nenhuma / ainda não revisado). */
+  spellingAtCaret() {
+    if (!this.model || !this.spellActive()) return null;
+    const pos = this.selection.focus;
+    const para = this.model.paragraphs[pos.para];
+    const m2 = para && misspellingAt(this.ensureSpell()?.get(para), pos.offset);
+    return m2 ? { ...m2, para: pos.para } : null;
+  }
+  /** Sugestões do Hunspell para a palavra (até `limit`, como o menu do Word). */
+  async spellingSuggestions(m2, limit = 5) {
+    if (!this.spellEngine) return [];
+    return (await this.spellEngine.suggest(m2.word, m2.lang)).slice(0, limit);
+  }
+  /** Troca a palavra errada (se ela ainda está lá) — desfazível. */
+  replaceSpelling(m2, text) {
+    if (!this.model || this.locked()) return false;
+    const para = this.model.paragraphs[m2.para];
+    if (!para || paraText(para).slice(m2.start, m2.end) !== m2.word) return false;
+    this.snapshot();
+    const pos = deleteRange2(this.model, { start: { para: m2.para, offset: m2.start }, end: { para: m2.para, offset: m2.end } });
+    const end = insertText2(this.model, pos, text);
+    this.selection = { anchor: end, focus: end };
+    this.refresh();
+    return true;
+  }
+  /** "Ignorar tudo" (nesta sessão, em todos os documentos). */
+  ignoreSpelling(word) {
+    this.spellEngine?.ignore(word);
+  }
+  /** "Adicionar ao dicionário" do usuário (persistido pelo motor). */
+  async addToDictionary(word) {
+    await this.spellEngine?.add(word);
+  }
+  /**
+   * Próxima palavra errada a partir do cursor (diálogo Ortografia): revisa os
+   * parágrafos na hora, seleciona a palavra e a traz para a vista. `skip`: as
+   * "ignorar uma vez" do diálogo. null = nada mais (dá a volta no documento).
+   */
+  async nextMisspelling(skip = /* @__PURE__ */ new Set()) {
+    if (!this.model) return null;
+    this.ensureSpell();
+    for (let i7 = 0; i7 < 100 && !this.spell; i7++) await new Promise((r6) => setTimeout(r6, 30));
+    const spell = this.spell;
+    if (!spell) return null;
+    const paras = this.model.paragraphs;
+    const startP = Math.min(this.selection.focus.para, paras.length - 1);
+    const startO = normalizeRange(this.range()).end.offset;
+    for (let k2 = 0; k2 <= paras.length; k2++) {
+      const pi = (startP + k2) % paras.length;
+      const list = await spell.check(paras[pi]);
+      if (this.model?.paragraphs !== paras) return null;
+      const m2 = list.find((x3) => (k2 > 0 || pi !== startP || x3.start >= startO) && !skip.has(`${pi}:${x3.start}:${x3.word}`));
+      if (m2) {
+        this.selection = { anchor: { para: pi, offset: m2.start }, focus: { para: pi, offset: m2.end } };
+        this.refreshSelection();
+        this.scrollCaretIntoView();
+        return { ...m2, para: pi };
+      }
+    }
+    return null;
   }
   /** Inlines de plugin com desenho próprio: na caixa do texto de reserva que o
    *  motor diagramou (o motor não conhece a medida do plugin). */
@@ -45644,15 +46106,15 @@ function drawMention(context, options) {
 init_src4();
 init_src();
 
-// ../../../../../../write/node_modules/@universal-material/web/button/button.js
+// ../../node_modules/@universal-material/web/button/button.js
 init_tslib_es6();
 init_lit();
 init_decorators();
 
-// ../../../../../../write/node_modules/lit-html/directives/class-map.js
+// ../../node_modules/lit-html/directives/class-map.js
 init_lit_html();
 
-// ../../../../../../write/node_modules/lit-html/directive.js
+// ../../node_modules/lit-html/directive.js
 var t5 = { ATTRIBUTE: 1, CHILD: 2, PROPERTY: 3, BOOLEAN_ATTRIBUTE: 4, EVENT: 5, ELEMENT: 6 };
 var e6 = (t6) => (...e8) => ({ _$litDirective$: t6, values: e8 });
 var i6 = class {
@@ -45672,7 +46134,7 @@ var i6 = class {
   }
 };
 
-// ../../../../../../write/node_modules/lit-html/directives/class-map.js
+// ../../node_modules/lit-html/directives/class-map.js
 var e7 = e6(class extends i6 {
   constructor(t6) {
     if (super(t6), t6.type !== t5.ATTRIBUTE || "class" !== t6.name || t6.strings?.length > 2) throw Error("`classMap()` can only be used in the `class` attribute and must be the only part in the attribute.");
@@ -45696,7 +46158,7 @@ var e7 = e6(class extends i6 {
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/button/button.styles.js
+// ../../node_modules/@universal-material/web/button/button.styles.js
 init_lit();
 var styles2 = i2`
   :host {
@@ -45917,24 +46379,24 @@ var styles2 = i2`
   }
 `;
 
-// ../../../../../../write/node_modules/@universal-material/web/button/toggle-button.js
+// ../../node_modules/@universal-material/web/button/toggle-button.js
 init_tslib_es6();
 init_decorators();
 
-// ../../../../../../write/node_modules/@universal-material/web/button/button-base.js
+// ../../node_modules/@universal-material/web/button/button-base.js
 init_tslib_es6();
 init_decorators();
 
-// ../../../../../../write/node_modules/@universal-material/web/shared/button-wrapper.js
+// ../../node_modules/@universal-material/web/shared/button-wrapper.js
 init_tslib_es6();
 init_lit();
 init_decorators();
 
-// ../../../../../../write/node_modules/lit-html/directives/if-defined.js
+// ../../node_modules/lit-html/directives/if-defined.js
 init_lit_html();
 var o6 = (o7) => o7 ?? A;
 
-// ../../../../../../write/node_modules/@universal-material/web/shared/base.styles.js
+// ../../node_modules/@universal-material/web/shared/base.styles.js
 init_lit();
 var styles3 = i2`
   :host,
@@ -45967,7 +46429,7 @@ var styles3 = i2`
   }
 `;
 
-// ../../../../../../write/node_modules/@universal-material/web/shared/button-wrapper.styles.js
+// ../../node_modules/@universal-material/web/shared/button-wrapper.styles.js
 init_lit();
 var styles4 = i2`
   :host {
@@ -46033,7 +46495,7 @@ var styles4 = i2`
   }
 `;
 
-// ../../../../../../write/node_modules/@universal-material/web/shared/events/redispatch-event.js
+// ../../node_modules/@universal-material/web/shared/events/redispatch-event.js
 var redispatchEvent = (element, event, newType = null) => {
   if (event.bubbles && (!element.shadowRoot || event.composed)) {
     event.stopPropagation();
@@ -46046,12 +46508,12 @@ var redispatchEvent = (element, event, newType = null) => {
   return dispatched;
 };
 
-// ../../../../../../write/node_modules/@universal-material/web/elevation/elevation.js
+// ../../node_modules/@universal-material/web/elevation/elevation.js
 init_tslib_es6();
 init_lit();
 init_decorators();
 
-// ../../../../../../write/node_modules/@universal-material/web/elevation/elevation.styles.js
+// ../../node_modules/@universal-material/web/elevation/elevation.styles.js
 init_lit();
 var styles5 = i2`
   :host {
@@ -46080,7 +46542,7 @@ var styles5 = i2`
   }
 `;
 
-// ../../../../../../write/node_modules/@universal-material/web/elevation/elevation.js
+// ../../node_modules/@universal-material/web/elevation/elevation.js
 var Elevation = class Elevation2 extends i5 {
   static {
     this.styles = styles5;
@@ -46094,7 +46556,7 @@ Elevation = __decorate([
   t3("u-elevation")
 ], Elevation);
 
-// ../../../../../../write/node_modules/@universal-material/web/shared/button-wrapper.js
+// ../../node_modules/@universal-material/web/shared/button-wrapper.js
 init_ripple();
 var ButtonWrapper = class extends i5 {
   constructor() {
@@ -46215,7 +46677,7 @@ __decorate([
   e5("u-ripple")
 ], ButtonWrapper.prototype, "_ripple", void 0);
 
-// ../../../../../../write/node_modules/@universal-material/web/button/button-base.styles.js
+// ../../node_modules/@universal-material/web/button/button-base.styles.js
 init_lit();
 var styles6 = i2`
   :host {
@@ -46240,7 +46702,7 @@ var styles6 = i2`
   }
 `;
 
-// ../../../../../../write/node_modules/@universal-material/web/button/button-base.js
+// ../../node_modules/@universal-material/web/button/button-base.js
 var ButtonBase = class extends ButtonWrapper {
   static {
     this.formAssociated = true;
@@ -46287,7 +46749,7 @@ __decorate([
   n4({ reflect: true })
 ], ButtonBase.prototype, "value", void 0);
 
-// ../../../../../../write/node_modules/@universal-material/web/button/toggle-button.styles.js
+// ../../node_modules/@universal-material/web/button/toggle-button.styles.js
 init_lit();
 var styles7 = i2`
   :host {
@@ -46385,7 +46847,7 @@ var styles7 = i2`
   }
 `;
 
-// ../../../../../../write/node_modules/@universal-material/web/button/toggle-button.js
+// ../../node_modules/@universal-material/web/button/toggle-button.js
 var ToggleButton = class extends ButtonBase {
   constructor() {
     super(...arguments);
@@ -46448,7 +46910,7 @@ __decorate([
   r5()
 ], ToggleButton.prototype, "_hasSelectionIcon", void 0);
 
-// ../../../../../../write/node_modules/@universal-material/web/button/button.js
+// ../../node_modules/@universal-material/web/button/button.js
 init_ripple();
 var Button = class Button2 extends ToggleButton {
   constructor() {
@@ -46548,12 +47010,12 @@ Button = __decorate([
   t3("u-button")
 ], Button);
 
-// ../../../../../../write/node_modules/@universal-material/web/button/icon-button.js
+// ../../node_modules/@universal-material/web/button/icon-button.js
 init_tslib_es6();
 init_lit();
 init_decorators();
 
-// ../../../../../../write/node_modules/@universal-material/web/button/icon-button.styles.js
+// ../../node_modules/@universal-material/web/button/icon-button.styles.js
 init_lit();
 var styles8 = i2`
   :host {
@@ -46669,7 +47131,7 @@ var styles8 = i2`
   }
 `;
 
-// ../../../../../../write/node_modules/@universal-material/web/button/icon-button.js
+// ../../node_modules/@universal-material/web/button/icon-button.js
 var IconButton = class IconButton2 extends ToggleButton {
   constructor() {
     super(...arguments);

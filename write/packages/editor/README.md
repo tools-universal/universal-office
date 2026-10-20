@@ -12,8 +12,8 @@ it does not model are saved back byte for byte.
   headers and footers, fields, table of contents, comments
 - Print, Web, Read, Draft and Outline views; zoom; formatting marks
 - Opens .docx, .doc and .odt; saves .docx, .odt, PDF, XPS, HTML and Markdown
-- Optional built-in bars: a compact toolbar in the style of Google Docs (default)
-  or a Word-style ribbon, plus a status bar; English and Portuguese UI
+- Optional built-in bars: a compact toolbar (default)
+  or a ribbon with tabs, plus a status bar; English and Portuguese UI
 - Plugins for custom inline content (e.g. @mentions)
 
 ## Installation

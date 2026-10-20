@@ -24,7 +24,7 @@ import {
   showToast,
   symbol,
   toggleMenu
-} from "./chunk-E4J7TX2A.js";
+} from "./chunk-ZZIX4OLI.js";
 import "./chunk-2OGOPGPS.js";
 import {
   pickLabels
@@ -895,8 +895,8 @@ function registerWriteCommands(reg, ed, app, ctl) {
     { id: "zoomin", label: { en: "Zoom in", pt: "Ampliar" }, icon: "zoom_in", run: () => ed.setZoom(Math.min(5, Math.round(ed.getZoom() * 110) / 100)) },
     { id: "zoomout", label: { en: "Zoom out", pt: "Reduzir" }, icon: "zoom_out", run: () => ed.setZoom(Math.max(0.1, Math.round(ed.getZoom() / 1.1 * 100) / 100)) },
     { id: "zoom100", label: { en: "100%", pt: "100%" }, tip: { en: "Zoom to 100%", pt: "Zoom em 100%" }, icon: "search", run: () => ed.setZoom(1) },
-    { id: "toolbar:ribbon", label: { en: "Ribbon (Word style)", pt: "Faixa de op\xE7\xF5es (estilo Word)" }, icon: "view_compact_alt", run: () => ctl.setToolbarMode("ribbon"), isChecked: () => ctl.toolbarMode() === "ribbon" },
-    { id: "toolbar:compact", label: { en: "Compact toolbar (Docs style)", pt: "Barra compacta (estilo Docs)" }, icon: "toolbar", run: () => ctl.setToolbarMode("compact"), isChecked: () => ctl.toolbarMode() === "compact" },
+    { id: "toolbar:ribbon", label: { en: "Ribbon", pt: "Faixa de op\xE7\xF5es" }, icon: "view_compact_alt", run: () => ctl.setToolbarMode("ribbon"), isChecked: () => ctl.toolbarMode() === "ribbon" },
+    { id: "toolbar:compact", label: { en: "Compact toolbar", pt: "Barra compacta" }, icon: "toolbar", run: () => ctl.setToolbarMode("compact"), isChecked: () => ctl.toolbarMode() === "compact" },
     { id: "statusbar", label: { en: "Status bar", pt: "Barra de status" }, icon: "call_to_action", run: () => {
       ed.bottombar = !ed.bottombar;
     }, isChecked: () => ed.bottombar },
@@ -1398,7 +1398,7 @@ var LABELS = {
     chars: "Characters (with spaces)",
     shortcutsTitle: "Keyboard shortcuts",
     aboutTitle: "About",
-    aboutText: "Universal Write \u2014 a .docx editor web component with canvas rendering faithful to Microsoft Word.",
+    aboutText: "Universal Write \u2014 a .docx editor web component with high-fidelity canvas rendering.",
     fontDlg: "Font",
     paraDlg: "Paragraph",
     pageDlg: "Page Setup",
@@ -1484,7 +1484,7 @@ var LABELS = {
     chars: "Caracteres (com espa\xE7os)",
     shortcutsTitle: "Atalhos de teclado",
     aboutTitle: "Sobre",
-    aboutText: "Universal Write \u2014 web component de edi\xE7\xE3o de .docx com renderiza\xE7\xE3o em canvas fiel ao Microsoft Word.",
+    aboutText: "Universal Write \u2014 web component de edi\xE7\xE3o de .docx com renderiza\xE7\xE3o em canvas de alta fidelidade.",
     fontDlg: "Fonte",
     paraDlg: "Par\xE1grafo",
     pageDlg: "Configurar P\xE1gina",
@@ -2030,7 +2030,7 @@ function menus(env, ctx) {
     [0, "Off", "Desligado"],
     [1, "1 min", "1 min"],
     [5, "5 min", "5 min"],
-    [10, "10 min (Word)", "10 min (Word)"],
+    [10, "10 min", "10 min"],
     [30, "30 min", "30 min"]
   ].map(([n5, en, pt]) => ({
     id: `autosave:${n5}`,
@@ -2203,7 +2203,7 @@ function ribbonLayout(env, ctx) {
           ] },
           { id: "font", label: L2("Font", "Fonte"), icon: "text_format", prio: 8, launcher: "dlg:font", cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L2("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }, "clear"],
+              [fontWidget(env, 140), sizeWidget(env, "dropdown"), "grow", "shrink", { menu: caseMenu, id: "case", label: L2("Change case", "Mai\xFAsculas e min\xFAsculas"), icon: "match_case" }],
               ["bold", "italic", "underline", "strike", "sub", "sup", { split: "color", menu: () => colorMenu(env, ctx) }, { split: "highlight", menu: () => highlightMenu(env, ctx) }]
             ] }
           ] },
@@ -2222,7 +2222,7 @@ function ribbonLayout(env, ctx) {
             ] }
           ] },
           { id: "styles", label: L2("Styles", "Estilos"), icon: "style", prio: 5, cells: [
-            { rows: [[styleWidget(env, 150)]] }
+            { rows: [[styleWidget(env, 150)], [{ cmd: "clear", label: true }]] }
           ] },
           { id: "editing", label: L2("Editing", "Edi\xE7\xE3o"), icon: "search", prio: 4, cells: [
             { rows: [[{ cmd: "find", label: true }], [{ cmd: "replace", label: true }], [{ cmd: "selectAll", label: true }]] }
@@ -2233,11 +2233,12 @@ function ribbonLayout(env, ctx) {
         id: "insert",
         label: L2("Insert", "Inserir"),
         groups: [
-          { id: "pages", label: L2("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [large("pagebreak")] },
-          { id: "tables", label: L2("Tables", "Tabelas"), icon: "table", prio: 6, cells: [{ menu: () => tableMenu(env, ctx), id: "table:menu", label: L2("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") }] },
-          { id: "illustrations", label: L2("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [large("image")] },
-          { id: "links", label: L2("Links", "Links"), icon: "link", prio: 5, cells: [large("link"), { rows: [["bookmark"]] }] },
-          { id: "comments", label: L2("Comments", "Coment\xE1rios"), icon: "add_comment", prio: 5, cells: [large("comment")] },
+          { id: "pages", label: L2("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [large("pagebreak"), { rows: [["columnbreak"], ["sectionbreak"]] }] },
+          { id: "objects", label: L2("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
+            { menu: () => tableMenu(env, ctx), id: "table:menu", label: L2("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
+            large("image")
+          ] },
+          { id: "links", label: L2("Links & Comments", "Links e Coment\xE1rios"), icon: "link", prio: 5, cells: [large("link"), large("comment"), { rows: [["bookmark"]] }] },
           { id: "hf", label: L2("Header & Footer", "Cabe\xE7alho e Rodap\xE9"), icon: "call_to_action", prio: 4, cells: [
             large("header"),
             large("footer"),
@@ -2247,19 +2248,9 @@ function ribbonLayout(env, ctx) {
             large("textbox"),
             { rows: [[{ cmd: "field:date", label: true }], [{ menu: () => symbolMenu(env, ctx), id: "symbols", label: L2("Symbol", "S\xEDmbolo"), icon: "special_character", showLabel: true }]] }
           ] },
-          { id: "notes", label: L2("Notes", "Notas"), icon: "notes", prio: 2, cells: [large("footnote"), large("endnote")] }
-        ]
-      },
-      {
-        id: "design",
-        label: L2("Design", "Design"),
-        groups: [
-          { id: "formatting", label: L2("Document Formatting", "Formata\xE7\xE3o do Documento"), icon: "style", prio: 5, cells: [
-            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L2("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" }
-          ] },
-          { id: "background", label: L2("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
-            { cmd: "pageColor", size: "large" },
-            { cmd: "watermark", size: "large" }
+          { id: "references", label: L2("References", "Refer\xEAncias"), icon: "toc", prio: 2, cells: [
+            large("toc"),
+            { rows: [[{ cmd: "footnote", label: true }], [{ cmd: "endnote", label: true }]] }
           ] }
         ]
       },
@@ -2275,20 +2266,17 @@ function ribbonLayout(env, ctx) {
             { rows: [["hyphenation"]] }
           ] },
           { id: "paragraph", label: L2("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
+            { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L2("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
             { rows: [
               [{ cmd: "outdent", label: true }, { cmd: "indent", label: true }],
               [{ menu: () => specialIndentMenu(env, ctx), id: "specialIndent", label: L2("Special indent", "Recuo especial"), icon: "format_indent_increase", showLabel: true }],
               [{ menu: () => lineSpacingMenu(env, ctx), id: "spacing", label: L2("Spacing", "Espa\xE7amento"), icon: "format_line_spacing", showLabel: true }]
             ] }
+          ] },
+          { id: "background", label: L2("Page Background", "Plano de Fundo da P\xE1gina"), icon: "format_color_fill", prio: 4, cells: [
+            { cmd: "pageColor", size: "large" },
+            { cmd: "watermark", size: "large" }
           ] }
-        ]
-      },
-      {
-        id: "references",
-        label: L2("References", "Refer\xEAncias"),
-        groups: [
-          { id: "toc", label: L2("Table of Contents", "Sum\xE1rio"), icon: "toc", prio: 5, cells: [large("toc")] },
-          { id: "footnotes", label: L2("Footnotes", "Notas de Rodap\xE9"), icon: "notes", prio: 4, cells: [large("footnote"), { rows: [["endnote"]] }] }
         ]
       },
       {
@@ -2302,24 +2290,21 @@ function ribbonLayout(env, ctx) {
         id: "review",
         label: L2("Review", "Revis\xE3o"),
         groups: [
-          { id: "proofing", label: L2("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large("spelling"), { rows: [[{ cmd: "wordCount", label: true }]] }] },
+          { id: "proofing", label: L2("Proofing", "Revis\xE3o de Texto"), icon: "spellcheck", prio: 5, cells: [large("spelling"), { rows: [[{ cmd: "spellAsYouType", label: true }], [{ cmd: "wordCount", label: true }]] }] },
           { id: "comments", label: L2("Comments", "Coment\xE1rios"), icon: "comment", prio: 6, cells: [
             large("comment"),
             { rows: [[{ cmd: "comment:delete", label: true }], [{ cmd: "comment:prev", label: true }], [{ cmd: "comment:next", label: true }]] },
             { cmd: "comments", size: "large" }
           ] },
-          { id: "tracking", label: L2("Tracking", "Controle"), icon: "track_changes", prio: 4, cells: [large("trackChanges")] },
-          { id: "changes", label: L2("Changes", "Altera\xE7\xF5es"), icon: "check_circle", prio: 3, cells: [large("change:accept"), large("change:reject")] },
-          { id: "compare", label: L2("Compare", "Comparar"), icon: "compare", prio: 3, cells: [large("compare")] },
-          { id: "protect", label: L2("Protect", "Proteger"), icon: "edit_document", prio: 2, cells: [large("enableEditing")] }
+          { id: "changes", label: L2("Changes", "Altera\xE7\xF5es"), icon: "track_changes", prio: 4, cells: [large("trackChanges"), large("change:accept"), large("change:reject")] },
+          { id: "document", label: L2("Compare & Protect", "Comparar e Proteger"), icon: "compare", prio: 3, cells: [large("compare"), large("enableEditing")] }
         ]
       },
       {
         id: "view",
         label: L2("View", "Exibir"),
         groups: [
-          { id: "views", label: L2("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [large("view:read"), large("view:print"), large("view:web")] },
-          { id: "immersive", label: L2("Immersive", "Imersivo"), icon: "center_focus_strong", prio: 4, cells: [large("focus")] },
+          { id: "views", label: L2("Views", "Modos de Exibi\xE7\xE3o"), icon: "article", prio: 6, cells: [large("view:read"), large("view:print"), large("view:web"), large("focus")] },
           { id: "show", label: L2("Show", "Mostrar"), icon: "visibility", prio: 3, cells: [{ rows: [[{ cmd: "marks", label: true }], [{ cmd: "comments", label: true }], [{ cmd: "statusbar", label: true }]] }] },
           { id: "zoom", label: L2("Zoom", "Zoom"), icon: "zoom_in", prio: 5, cells: [
             { menu: m2.zoomItems, id: "zoom", label: L2("Zoom", "Zoom"), icon: "zoom_in", size: "large" },

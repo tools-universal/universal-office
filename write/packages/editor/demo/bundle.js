@@ -3508,6 +3508,7 @@ function chooseHyphenation(ctx, gs, u) {
 }
 
 // ../docx-layout/src/para.ts
+var GLUED_FIELD = /* @__PURE__ */ new WeakSet();
 var CJK = (cp) => cp >= 11904 && cp <= 40959 || cp >= 44032 && cp <= 55215 || cp >= 63744 && cp <= 64255 || cp >= 65280 && cp <= 65519 || cp >= 12288 && cp <= 12351;
 var NO_BREAK_AFTER_DASH = /^[\s\u00a0\u202f\u2000-\u200b\u3000\ufeff\u00ad]$/u;
 var CS = (cp) => cp >= 1424 && cp <= 2303 || cp >= 64285 && cp <= 65023 || cp >= 65136 && cp <= 65279;
@@ -3780,7 +3781,9 @@ function fieldRuns(run, env) {
     const v = env.field?.(name, instr);
     if (v !== void 0) {
       const base = run.fieldResult?.find((r) => !r.image && !r.textbox) ?? run;
-      return [{ ...base, text: v, field: void 0, fieldResult: void 0 }];
+      const out = { ...base, text: v, field: void 0, fieldResult: void 0 };
+      if (env.hf && name === "PAGE") GLUED_FIELD.add(out);
+      return [out];
     }
   }
   if (run.fieldResult?.length) {
@@ -4102,16 +4105,18 @@ function prepareParagraph(ctx, para, env0) {
     }
     if (run.noteRef && !run.text) {
       const num = run.noteRef.kind === "footnote" ? ctx.footnoteNumber(run.noteRef.id) : ctx.endnoteNumber(run.noteRef.id);
-      const before = glyphs.length;
+      const before2 = glyphs.length;
       pushChars(String(num), run, rpr, style, offset, idx);
-      if (run.noteRef.kind === "footnote") for (let k = before; k < glyphs.length; k++) glyphs[k].noteId = run.noteRef.id;
+      if (run.noteRef.kind === "footnote") for (let k = before2; k < glyphs.length; k++) glyphs[k].noteId = run.noteRef.id;
       continue;
     }
     if (run.math) {
       pushMath(run, idx, offset);
       continue;
     }
+    const before = glyphs.length;
     pushChars(run.text, run, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para.runs[idx]?.field ?? ""));
+    if (GLUED_FIELD.has(run)) for (let k = before + 1; k < glyphs.length; k++) glyphs[k].glue = true;
   }
   for (let k = 1; k < glyphs.length; k++) {
     if (glyphs[k].kind !== "obj" || glyphs[k].adv <= 0) continue;
@@ -4615,7 +4620,7 @@ var LineBreaker = class {
           pendTab = null;
           break;
         }
-        break;
+        if (!g.glue) break;
       }
       if (g.kind === "shy") {
         placed.push({ g, x, w: 0 });
@@ -8163,7 +8168,7 @@ var Engine = class {
     const even = settings.evenAndOddHeaders && ps.page.number % 2 === 0;
     const kind = first ? "first" : even ? "even" : "default";
     const pick = (set) => first ? set.first : even ? set.even : set.default;
-    const env = { field: this.fieldValue(ps) };
+    const env = { field: this.fieldValue(ps), hf: true };
     const width = g.pageW - g.marL - g.marR;
     const savedNum = this.ctx.numbering;
     this.ctx.numbering = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
@@ -8526,6 +8531,7 @@ var Engine = class {
     const blocks = cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
     const penv = { ...env.tablePPr ? { tablePPr: env.tablePPr } : {}, ...env.tableRPr ? { tableRPr: env.tableRPr } : {}, ...env.darkBackground ? { darkBackground: true } : {} };
     if (ps) penv.field = this.fieldValue(ps);
+    if (this.inHf) penv.hf = true;
     const c = this.layoutStatic(blocks, x, width, penv, ref, ps, 0, this.cellNb.get(cell));
     if (cell.tcPr?.hideMark && blocks.every((b) => b.type === "paragraph" && !paraVisibility(this.ctx, b.paragraph, penv).visible)) return { ...c, height: 0 };
     const lastB = blocks[blocks.length - 1];
@@ -9761,8 +9767,17 @@ var Engine = class {
     const floats = ps.floats;
     if (!floats.length) return frame;
     const { left, right } = frame;
+    const crossed = right < left;
+    let tl = left, tr = right;
+    if (crossed) {
+      const col = this.colFrame();
+      if (Math.abs(frameX - col.x) < 0.5) {
+        tl = Math.min(left, 0);
+        tr = Math.max(left, col.w);
+      } else tr = left;
+    }
     let skipTo;
-    let free = [[left, right]];
+    let free = [[tl, tr]];
     let hit = false;
     let minBottom = Infinity;
     for (const f of floats) {
@@ -9771,7 +9786,7 @@ var Engine = class {
       const top = f.y - f.distT, bottom = f.y + f.h + f.distB;
       if (y + lineH <= top + 0.5 || y >= bottom - 0.5) continue;
       const fl = f.x - f.distL - frameX, fr = f.x + f.w + f.distR - frameX;
-      if (fr <= left || fl >= right) continue;
+      if (fr <= tl || fl >= tr) continue;
       if (f.wrap === "topAndBottom") {
         skipTo = Math.max(skipTo ?? 0, bottom);
         continue;
@@ -9783,7 +9798,7 @@ var Engine = class {
       if (side === "left") bh = Infinity;
       else if (side === "right") bl = -Infinity;
       else if (side === "largest") {
-        if (fl - left >= right - fr) bh = Infinity;
+        if (fl - tl >= tr - fr) bh = Infinity;
         else bl = -Infinity;
       }
       const next = [];
@@ -9800,7 +9815,7 @@ var Engine = class {
     if (hit) {
       const col = this.colFrame();
       const cR = Math.abs(frameX - col.x) < 0.5 ? col.w : Infinity, cL = cR === Infinity ? -Infinity : 0;
-      const ext = (a, b) => cR === Infinity ? [a, b] : [a <= left + 0.5 ? Math.min(a, cL) : a, b >= right - 0.5 ? Math.max(b, cR) : b];
+      const ext = (a, b) => cR === Infinity ? [a, b] : [a <= tl + 0.5 ? Math.min(a, cL) : a, b >= tr - 0.5 ? Math.max(b, cR) : b];
       free = free.filter(([a, b]) => {
         const [ea, eb] = ext(a, b);
         return Math.min(eb, cR) - Math.max(ea, cL) >= MIN_GAP;
@@ -9808,7 +9823,7 @@ var Engine = class {
       let best;
       for (const iv of free) if (!best || iv[1] - iv[0] > best[1] - best[0]) best = iv;
       if (!best) skipTo = Math.max(skipTo ?? 0, minBottom);
-      else if (skipTo === void 0) return { left: best[0], right: best[1], gap: true, ...free.length > 1 ? { segs: free } : {} };
+      else if (skipTo === void 0) return crossed ? { left, right } : { left: best[0], right: best[1], gap: true, ...free.length > 1 ? { segs: free } : {} };
     }
     if (skipTo !== void 0) return { ...frame, skipTo };
     return { left, right };
@@ -9856,14 +9871,15 @@ var Engine = class {
     const anchor = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
     let w = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
     let h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
-    const behind = !!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc;
+    const wrapsText = !!anchor && anchor.wrap !== "none";
+    const behind = !(wrapsText && this.ctx.fmt.settings.compatibilityMode >= 15) && (!!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc);
     let tbContent = null;
     let tbFinal = null;
     if (run.textbox) {
       const tb = run.textbox;
       const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
       const blocks = tb.blocks ?? tb.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-      const env = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)) };
+      const env = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} };
       let inner = w - ins.l - ins.r;
       const fi = FRAME_INFO.get(tb);
       if (fi?.autoWidth) {
@@ -10109,7 +10125,7 @@ var Engine = class {
         if (r.textbox) {
           const ins = tbInsets(r.textbox, this.ctx.fmt.theme, iw, ih);
           const blocks = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, "grp", ps);
+          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} }, "grp", ps);
         }
         out.push(...this.paintObject(r, ix, iy, iw, ih, tc, ps, true));
       }
@@ -12500,7 +12516,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-OCQ63N34.js");
+    const { setupChrome } = await import("./chunks/chrome-IC5RAF47.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -12537,7 +12553,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-OCQ63N34.js").then((m) => {
+      void import("./chunks/chrome-IC5RAF47.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -19939,7 +19955,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-D6BC7ODT.js");
+  const { appFor } = await import("./chunks/chrome-app-GEQXQXK4.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

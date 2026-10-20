@@ -215,7 +215,7 @@ interface SaveFormat {
   make: () => Promise<Uint8Array | string>;
 }
 const SAVE_FORMATS: SaveFormat[] = [
-  { label: 'Pasta de trabalho (.xlsx)', ext: 'xlsx', filterName: 'Planilha Excel',
+  { label: 'Pasta de trabalho (.xlsx)', ext: 'xlsx', filterName: 'Pasta de trabalho',
     mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     make: async () => us.saveXlsx() },
   { label: 'PDF (.pdf)', ext: 'pdf', filterName: 'PDF', mime: 'application/pdf',

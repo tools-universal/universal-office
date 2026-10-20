@@ -31489,7 +31489,7 @@ var LABELS = {
     subset: "Embed only the characters used",
     subsetNote: "(smaller file; editing with other characters on another computer uses another font)",
     skipCommon: "Do not embed common system fonts",
-    neverEmbedded: (common) => `${common} are never embedded, as in PowerPoint.`,
+    neverEmbedded: (common) => `${common} are never embedded.`,
     note: "Only fonts whose file is available and whose license allows embedding are included; the ones left out are reported when saving.",
     cancel: "Cancel",
     ok: "OK",
@@ -31504,7 +31504,7 @@ var LABELS = {
     subset: "Incorporar s\xF3 os caracteres usados",
     subsetNote: "(arquivo menor; editar com outros caracteres em outra m\xE1quina usa outra fonte)",
     skipCommon: "N\xE3o incorporar fontes comuns do sistema",
-    neverEmbedded: (common) => `${common} nunca s\xE3o incorporadas, como no PowerPoint.`,
+    neverEmbedded: (common) => `${common} nunca s\xE3o incorporadas.`,
     note: "S\xF3 entram fontes cujo arquivo est\xE1 dispon\xEDvel e cuja licen\xE7a permite incorporar; as que ficarem de fora s\xE3o avisadas ao salvar.",
     cancel: "Cancelar",
     ok: "OK",
@@ -33171,7 +33171,7 @@ var UniversalSlidesElement = class extends UniversalPresentationViewerElement {
    * ficou de fora vai no evento `us-font-embedding`.
    */
   async savePptx() {
-    if (!this.pkg) throw new Error("nenhuma apresenta\xE7\xE3o carregada");
+    if (!this.pkg) throw new Error("No presentation loaded");
     const pkg = PptxPackage.load(this.pkg.save());
     const settings = this.fontEmbedding;
     let plan = { faces: [], skipped: [] };

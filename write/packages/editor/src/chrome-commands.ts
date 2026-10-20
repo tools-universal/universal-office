@@ -90,8 +90,8 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     { id: 'zoomin', label: { en: 'Zoom in', pt: 'Ampliar' }, icon: 'zoom_in', run: () => ed.setZoom(Math.min(5, Math.round(ed.getZoom() * 110) / 100)) },
     { id: 'zoomout', label: { en: 'Zoom out', pt: 'Reduzir' }, icon: 'zoom_out', run: () => ed.setZoom(Math.max(0.1, Math.round(ed.getZoom() / 1.1 * 100) / 100)) },
     { id: 'zoom100', label: { en: '100%', pt: '100%' }, tip: { en: 'Zoom to 100%', pt: 'Zoom em 100%' }, icon: 'search', run: () => ed.setZoom(1) },
-    { id: 'toolbar:ribbon', label: { en: 'Ribbon (Word style)', pt: 'Faixa de opções (estilo Word)' }, icon: 'view_compact_alt', run: () => ctl.setToolbarMode('ribbon'), isChecked: () => ctl.toolbarMode() === 'ribbon' },
-    { id: 'toolbar:compact', label: { en: 'Compact toolbar (Docs style)', pt: 'Barra compacta (estilo Docs)' }, icon: 'toolbar', run: () => ctl.setToolbarMode('compact'), isChecked: () => ctl.toolbarMode() === 'compact' },
+    { id: 'toolbar:ribbon', label: { en: 'Ribbon', pt: 'Faixa de opções' }, icon: 'view_compact_alt', run: () => ctl.setToolbarMode('ribbon'), isChecked: () => ctl.toolbarMode() === 'ribbon' },
+    { id: 'toolbar:compact', label: { en: 'Compact toolbar', pt: 'Barra compacta' }, icon: 'toolbar', run: () => ctl.setToolbarMode('compact'), isChecked: () => ctl.toolbarMode() === 'compact' },
     { id: 'statusbar', label: { en: 'Status bar', pt: 'Barra de status' }, icon: 'call_to_action', run: () => { ed.bottombar = !ed.bottombar; }, isChecked: () => ed.bottombar },
 
     // ── Inserir ──

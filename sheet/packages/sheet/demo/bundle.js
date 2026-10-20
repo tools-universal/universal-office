@@ -102945,7 +102945,7 @@ var SAVE_FORMATS = [
   {
     label: "Pasta de trabalho (.xlsx)",
     ext: "xlsx",
-    filterName: "Planilha Excel",
+    filterName: "Pasta de trabalho",
     mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     make: async () => us.saveXlsx()
   },

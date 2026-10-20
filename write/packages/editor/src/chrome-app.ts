@@ -329,7 +329,7 @@ export class WriteApp {
       try {
         if (!this.fileHandle || saveAs) {
           const types = [
-            { description: 'Word document', accept: { [MIME.docx]: ['.docx'] } },
+            { description: 'DOCX document', accept: { [MIME.docx]: ['.docx'] } },
             { description: 'OpenDocument Text', accept: { [MIME.odt]: ['.odt'] } },
           ];
           if (fmt === 'odt') types.reverse();
@@ -461,7 +461,7 @@ export class WriteApp {
     const p = picker();
     if (p.showOpenFilePicker) {
       try {
-        const [h] = await p.showOpenFilePicker({ types: [{ description: 'Word document', accept: { [MIME.docx]: ['.docx'] } }] });
+        const [h] = await p.showOpenFilePicker({ types: [{ description: 'DOCX document', accept: { [MIME.docx]: ['.docx'] } }] });
         const f = await h!.getFile();
         return { name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) };
       } catch { return null; }
