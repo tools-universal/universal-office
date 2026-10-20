@@ -2850,6 +2850,13 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Imprime: abre janela com as páginas como imagens (visão de impressão). */
   async print(): Promise<void> {
+    // host (Electron): diálogo de impressão do sistema com as páginas prontas —
+    // o shell bloqueia janelas novas
+    const host = (this as { host?: import('./chrome-host.js').UniversalWriteHost | null }).host;
+    if (host?.print) {
+      await host.print({ pages: await this.printPages(), title: this.title || 'Write' });
+      return;
+    }
     // a janela abre ANTES de qualquer await (bloqueador de pop-up exige o gesto)
     const win = window.open('', '_blank');
     if (!win) return;
@@ -2863,6 +2870,16 @@ export class UniversalWriteElement extends HTMLElement {
     win.document.close();
     win.focus();
     setTimeout(() => win.print(), 200);
+  }
+
+  /** Páginas "como impressas" (dataURLs PNG), uma por folha. */
+  async printPages(): Promise<string[]> {
+    const wasView = this.view;
+    if (wasView !== 'print') this.setView('print');
+    await this.ensureImagesDecoded();
+    const pages = this.canvases.map((_, i) => this.pageImageForPrint(i));
+    if (wasView !== 'print') this.setView(wasView);
+    return pages;
   }
 
   /** PNG (dataURL) da página `i` "como impressa" (sem adornos de tela) a

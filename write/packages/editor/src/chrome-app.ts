@@ -6,7 +6,7 @@
 import { isOdt } from '@universal-office/docx-core';
 import { describeFontEmbedding, openDialog, openFontEmbeddingDialog, showToast, uiLang, type UiLang } from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
-import { hostOf, type UniversalWriteHostFile } from './chrome-host.js';
+import { hostOf, type UniversalWriteHostFile, type UniversalWriteHostSaved } from './chrome-host.js';
 import type { ChromeLabels } from './chrome-labels.js';
 import { listRecents, recentsSupported, rememberRecent, ensureReadable, forgetRecent, type RecentFile } from './chrome-recents.js';
 import { isColorMode, type ColorMode } from './chrome-theme.js';
@@ -63,6 +63,8 @@ export class WriteApp {
   lastHighlight = 'yellow';
   lastShading = 'FFFF00';
   private fileHandle: FileSystemFileHandle | null = null;
+  /** onde o host guarda o documento aberto/salvo por ele (Electron: caminho) */
+  private hostPath: string | null = null;
   private changeSeq = 0;
   private lastAutosave = Date.now();
   private trustKey: string | null = null;
@@ -202,6 +204,7 @@ export class WriteApp {
   // ───── abrir ─────
   newDocument(): void {
     this.fileHandle = null;
+    this.hostPath = null;
     this.ed.newDocument();
     this.format = 'docx';
     this.setDirty(false);
@@ -213,7 +216,7 @@ export class WriteApp {
    * Carrega bytes. Critério do Word para o Modo Protegido: o Mark-of-the-Web
    * manda (host); no navegador, só os Documentos Confiáveis abrem editáveis.
    */
-  openBytes(bytes: Uint8Array, name: string, handle: FileSystemFileHandle | null, sec: { motw?: boolean; trustKey?: string } = {}): boolean {
+  openBytes(bytes: Uint8Array, name: string, handle: FileSystemFileHandle | null, sec: { motw?: boolean; trustKey?: string; path?: string } = {}): boolean {
     const key = sec.trustKey ?? null;
     const isTrusted = key !== null && this.trusted.has(key);
     const prot = sec.motw !== undefined ? sec.motw && !isTrusted : !isTrusted;
@@ -228,6 +231,8 @@ export class WriteApp {
     this.format = odt ? 'odt' : 'docx';
     this.trustKey = key;
     this.fileHandle = handle;
+    // todo documento carregado troca o destino do "Salvar": só o que veio do host tem path
+    this.hostPath = sec.path ?? null;
     this.changeSeq++;
     this.setDirty(false);
     this.setTitle(name);
@@ -249,7 +254,7 @@ export class WriteApp {
       try { r = await host.openFile(); } catch { this.ui?.flash(`⚠ ${this.ui.L.readFailed}`); return; }
       if (r) {
         const bytes = r.bytes instanceof Uint8Array ? r.bytes : new Uint8Array(r.bytes);
-        this.openBytes(bytes, r.name, null, { motw: r.motw, trustKey: `${r.name}|${bytes.byteLength}` });
+        this.openBytes(bytes, r.name, null, { motw: r.motw, trustKey: `${r.name}|${bytes.byteLength}`, ...(r.path ? { path: r.path } : {}) });
       }
       return;
     }
@@ -303,8 +308,13 @@ export class WriteApp {
     const seq = this.changeSeq;
     if (host?.saveFile) {
       try {
-        const name = await host.saveFile(await this.bytesFor(fmt), { name: `${this.docName}.${fmt}`, format: fmt, saveAs });
-        if (!name) return false;
+        const saved: UniversalWriteHostSaved | null = await host.saveFile(await this.bytesFor(fmt), {
+          name: `${this.docName}.${fmt}`, format: fmt, saveAs,
+          ...(!saveAs && this.hostPath ? { path: this.hostPath } : {}),
+        });
+        if (!saved) return false;
+        const name = typeof saved === 'string' ? saved : saved.name;
+        if (typeof saved !== 'string' && saved.path) this.hostPath = saved.path;
         if (/\.odt$/i.test(name) !== (fmt === 'odt')) fmt = /\.odt$/i.test(name) ? 'odt' : 'docx';
         this.format = fmt;
         this.setTitle(name);
@@ -383,6 +393,23 @@ export class WriteApp {
   // ───── exportar ─────
   async export(kind: 'pdf' | 'html' | 'md' | 'odt' | 'xps', slim = false): Promise<void> {
     const n = this.docName, suf = slim ? '-slim' : '';
+    const host = hostOf(this.ed);
+    if (host?.exportFile) {
+      const data = async (): Promise<Uint8Array | string> => {
+        switch (kind) {
+          case 'pdf': return this.ed.exportPdf();
+          case 'html': return this.ed.exportHtml(n, slim ? { images: 'omit' } : {});
+          case 'md': return this.ed.exportMarkdown(n, slim ? { images: 'omit' } : {});
+          case 'odt': return this.ed.exportOdt();
+          case 'xps': return this.ed.exportXps();
+        }
+      };
+      try {
+        if (!(await host.exportFile(kind, `${n}${suf}.${kind}`, data))) return;
+      } catch { this.ui?.flash(`⚠ ${this.ui.L.readFailed}`); return; }
+      this.ui?.flash(this.ui.L.exported(kind.toUpperCase()));
+      return;
+    }
     switch (kind) {
       case 'pdf': download(await this.ed.exportPdf() as BlobPart, `${n}.pdf`, 'application/pdf'); break;
       case 'html': download(await this.ed.exportHtml(n, slim ? { images: 'omit' } : {}), `${n}${suf}.html`, 'text/html;charset=utf-8'); break;

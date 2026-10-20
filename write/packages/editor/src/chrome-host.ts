@@ -12,15 +12,29 @@ export interface UniversalWriteHostFile {
   bytes: ArrayBuffer | Uint8Array;
   /** o arquivo veio da Internet (Mark-of-the-Web) → abre no Modo Protegido */
   motw?: boolean;
+  /** Onde o host guarda o arquivo (opaco; Electron: caminho absoluto). Volta no
+   *  saveFile para "Salvar" gravar no mesmo lugar sem perguntar. */
+  path?: string;
 }
+
+/** Resultado do saveFile: o nome gravado (e onde, para o próximo "Salvar"). */
+export type UniversalWriteHostSaved = string | { name: string; path?: string };
 
 export interface UniversalWriteHost {
   /** Diálogo de abrir do host; null = cancelado. */
   openFile?(): Promise<UniversalWriteHostFile | null>;
   /** Escolhe o outro lado de "Comparar com…". */
   openFileForCompare?(title: string): Promise<UniversalWriteHostFile | null>;
-  /** Grava; devolve o nome gravado ou null (cancelado). Sem ele: File System Access / download. */
-  saveFile?(data: Uint8Array, opts: { name: string; format: 'docx' | 'odt'; saveAs: boolean }): Promise<string | null>;
+  /** Grava; devolve o nome gravado (ou { name, path }) ou null (cancelado). `path`: de
+   *  onde o documento veio/foi salvo — ausente em documento novo e em Salvar como.
+   *  Sem ele: File System Access / download. */
+  saveFile?(data: Uint8Array, opts: { name: string; format: 'docx' | 'odt'; saveAs: boolean; path?: string }): Promise<UniversalWriteHostSaved | null>;
+  /** Exportar pelo host (diálogo nativo): `data` gera os bytes do formato só depois
+   *  da escolha do destino. Devolve o nome gravado ou null (cancelado). Sem ele: download. */
+  exportFile?(kind: 'pdf' | 'html' | 'md' | 'odt' | 'xps', name: string, data: () => Promise<Uint8Array | string>): Promise<string | null>;
+  /** Imprimir pelo host (diálogo do sistema), com as páginas "como impressas"
+   *  (dataURLs, uma por folha). Sem ele: janela de impressão do navegador. */
+  print?(opts: { pages: string[]; title: string }): Promise<void>;
   /** Fontes do SO (famílias / bytes) — viram o host do resolvedor de fontes. */
   listFonts?: HostFontProvider['list'];
   resolveFonts?: HostFontProvider['resolve'];

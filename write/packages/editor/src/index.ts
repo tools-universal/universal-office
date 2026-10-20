@@ -13,7 +13,7 @@ export async function openDocument(
   el: UniversalWriteElement,
   bytes: Uint8Array,
   name: string,
-  opts: { motw?: boolean; trustKey?: string } = {},
+  opts: { motw?: boolean; trustKey?: string; path?: string } = {},
 ): Promise<boolean> {
   const { appFor } = await import('./chrome-app.js');
   return appFor(el).openBytes(bytes, name, null, opts);

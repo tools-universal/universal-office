@@ -13,7 +13,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// ../../../../../../write/node_modules/fflate/esm/browser.js
+// ../../node_modules/fflate/esm/browser.js
 function deflateSync(data8, opts) {
   return dopt(data8, opts || {}, 0, 0);
 }
@@ -165,7 +165,7 @@ function unzipSync(data8, opts) {
 }
 var u8, u16, i32, fleb, fdeb, clim, freb, _a, fl, revfl, _b, fd, revfd, rev, x, i, hMap, flt, i, i, i, i, fdt, i, flm, flrm, fdm, fdrm, max, bits, bits16, shft, slc, ec, err, inflt, wbits, wbits16, hTree, ln, lc, clen, wfblk, wblk, deo, et, dflt, crct, crc, adler, dopt, mrg, b2, b4, b8, wbytes, zlh, zls, Inflate, Unzlib, fltn, te, td, tds, dutf8, slzh, zh, z64hs, exfl, wzh, wzf;
 var init_browser = __esm({
-  "../../../../../../write/node_modules/fflate/esm/browser.js"() {
+  "../../node_modules/fflate/esm/browser.js"() {
     u8 = Uint8Array;
     u16 = Uint16Array;
     i32 = Int32Array;
@@ -17724,7 +17724,7 @@ var init_nl = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/tslib/tslib.es6.mjs
+// ../../node_modules/tslib/tslib.es6.mjs
 function __decorate(decorators, target, key, desc) {
   var c5 = arguments.length, r5 = c5 < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d3;
   if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r5 = Reflect.decorate(decorators, target, key, desc);
@@ -17732,14 +17732,14 @@ function __decorate(decorators, target, key, desc) {
   return c5 > 3 && r5 && Object.defineProperty(target, key, r5), r5;
 }
 var init_tslib_es6 = __esm({
-  "../../../../../../write/node_modules/tslib/tslib.es6.mjs"() {
+  "../../node_modules/tslib/tslib.es6.mjs"() {
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/css-tag.js
+// ../../node_modules/@lit/reactive-element/css-tag.js
 var t, e, s, o, n, r, i2, S, c2;
 var init_css_tag = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/css-tag.js"() {
+  "../../node_modules/@lit/reactive-element/css-tag.js"() {
     t = globalThis;
     e = t.ShadowRoot && (void 0 === t.ShadyCSS || t.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
     s = /* @__PURE__ */ Symbol();
@@ -17786,10 +17786,10 @@ var init_css_tag = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/reactive-element.js
+// ../../node_modules/@lit/reactive-element/reactive-element.js
 var i3, e2, h, r2, o2, n2, a, c3, l, p, d, u, f, b, y;
 var init_reactive_element = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/reactive-element.js"() {
+  "../../node_modules/@lit/reactive-element/reactive-element.js"() {
     init_css_tag();
     init_css_tag();
     ({ is: i3, defineProperty: e2, getOwnPropertyDescriptor: h, getOwnPropertyNames: r2, getOwnPropertySymbols: o2, getPrototypeOf: n2 } = Object);
@@ -18015,7 +18015,7 @@ var init_reactive_element = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/lit-html/lit-html.js
+// ../../node_modules/lit-html/lit-html.js
 function V(t5, i6) {
   if (!u2(t5) || !t5.hasOwnProperty("raw")) throw Error("invalid template strings array");
   return void 0 !== e3 ? e3.createHTML(i6) : i6;
@@ -18028,7 +18028,7 @@ function M(t5, i6, s4 = t5, e6) {
 }
 var t2, i4, s2, e3, h2, o3, n3, r3, l2, c4, a2, u2, d2, f2, v, _, m, p2, g, $, y2, x2, b3, w, T2, E, A, C, P2, N, S2, R, k, H, I, L, z, Z, B, D;
 var init_lit_html = __esm({
-  "../../../../../../write/node_modules/lit-html/lit-html.js"() {
+  "../../node_modules/lit-html/lit-html.js"() {
     t2 = globalThis;
     i4 = (t5) => t5;
     s2 = t2.trustedTypes;
@@ -18274,10 +18274,10 @@ var init_lit_html = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/lit-element/lit-element.js
+// ../../node_modules/lit-element/lit-element.js
 var s3, i5, o4;
 var init_lit_element = __esm({
-  "../../../../../../write/node_modules/lit-element/lit-element.js"() {
+  "../../node_modules/lit-element/lit-element.js"() {
     init_reactive_element();
     init_reactive_element();
     init_lit_html();
@@ -18312,15 +18312,15 @@ var init_lit_element = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/lit-html/is-server.js
+// ../../node_modules/lit-html/is-server.js
 var init_is_server = __esm({
-  "../../../../../../write/node_modules/lit-html/is-server.js"() {
+  "../../node_modules/lit-html/is-server.js"() {
   }
 });
 
-// ../../../../../../write/node_modules/lit/index.js
+// ../../node_modules/lit/index.js
 var init_lit = __esm({
-  "../../../../../../write/node_modules/lit/index.js"() {
+  "../../node_modules/lit/index.js"() {
     init_reactive_element();
     init_lit_html();
     init_lit_element();
@@ -18328,10 +18328,10 @@ var init_lit = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/custom-element.js
+// ../../node_modules/@lit/reactive-element/decorators/custom-element.js
 var t3;
 var init_custom_element = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/custom-element.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/custom-element.js"() {
     t3 = (t5) => (e6, o6) => {
       void 0 !== o6 ? o6.addInitializer(() => {
         customElements.define(t5, e6);
@@ -18340,7 +18340,7 @@ var init_custom_element = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/property.js
+// ../../node_modules/@lit/reactive-element/decorators/property.js
 function n4(t5) {
   return (e6, o6) => "object" == typeof o6 ? r4(t5, e6, o6) : ((t6, e7, o7) => {
     const r5 = e7.hasOwnProperty(o7);
@@ -18349,7 +18349,7 @@ function n4(t5) {
 }
 var o5, r4;
 var init_property = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/property.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/property.js"() {
     init_reactive_element();
     o5 = { attribute: true, type: String, converter: u, reflect: false, hasChanged: f };
     r4 = (t5 = o5, e6, r5) => {
@@ -18376,28 +18376,28 @@ var init_property = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/state.js
+// ../../node_modules/@lit/reactive-element/decorators/state.js
 var init_state = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/state.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/state.js"() {
     init_property();
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/event-options.js
+// ../../node_modules/@lit/reactive-element/decorators/event-options.js
 var init_event_options = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/event-options.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/event-options.js"() {
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/base.js
+// ../../node_modules/@lit/reactive-element/decorators/base.js
 var e4;
 var init_base = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/base.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/base.js"() {
     e4 = (e6, t5, c5) => (c5.configurable = true, c5.enumerable = true, Reflect.decorate && "object" != typeof t5 && Object.defineProperty(e6, t5, c5), c5);
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/query.js
+// ../../node_modules/@lit/reactive-element/decorators/query.js
 function e5(e6, r5) {
   return (n5, s4, i6) => {
     const o6 = (t5) => t5.renderRoot?.querySelector(e6) ?? null;
@@ -18421,42 +18421,42 @@ function e5(e6, r5) {
   };
 }
 var init_query = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/query.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/query.js"() {
     init_base();
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/query-all.js
+// ../../node_modules/@lit/reactive-element/decorators/query-all.js
 var init_query_all = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/query-all.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/query-all.js"() {
     init_base();
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/query-async.js
+// ../../node_modules/@lit/reactive-element/decorators/query-async.js
 var init_query_async = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/query-async.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/query-async.js"() {
     init_base();
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/query-assigned-elements.js
+// ../../node_modules/@lit/reactive-element/decorators/query-assigned-elements.js
 var init_query_assigned_elements = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/query-assigned-elements.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/query-assigned-elements.js"() {
     init_base();
   }
 });
 
-// ../../../../../../write/node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js
+// ../../node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js
 var init_query_assigned_nodes = __esm({
-  "../../../../../../write/node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js"() {
+  "../../node_modules/@lit/reactive-element/decorators/query-assigned-nodes.js"() {
     init_base();
   }
 });
 
-// ../../../../../../write/node_modules/lit/decorators.js
+// ../../node_modules/lit/decorators.js
 var init_decorators = __esm({
-  "../../../../../../write/node_modules/lit/decorators.js"() {
+  "../../node_modules/lit/decorators.js"() {
     init_custom_element();
     init_property();
     init_state();
@@ -18469,10 +18469,10 @@ var init_decorators = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/ripple/ripple.styles.js
+// ../../node_modules/@universal-material/web/ripple/ripple.styles.js
 var styles;
 var init_ripple_styles = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/ripple/ripple.styles.js"() {
+  "../../node_modules/@universal-material/web/ripple/ripple.styles.js"() {
     init_lit();
     styles = i2`
   :host,
@@ -18549,10 +18549,10 @@ var init_ripple_styles = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/ripple/ripple.js
+// ../../node_modules/@universal-material/web/ripple/ripple.js
 var Ripple_1, Ripple;
 var init_ripple = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/ripple/ripple.js"() {
+  "../../node_modules/@universal-material/web/ripple/ripple.js"() {
     init_tslib_es6();
     init_lit();
     init_decorators();
@@ -18768,7 +18768,7 @@ var init_chrome_recents = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/utils/math_utils.js
+// ../../node_modules/@material/material-color-utilities/utils/math_utils.js
 function signum(num) {
   if (num < 0) {
     return -1;
@@ -18821,11 +18821,11 @@ function matrixMultiply(row, matrix) {
   return [a3, b5, c5];
 }
 var init_math_utils = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/utils/math_utils.js"() {
+  "../../node_modules/@material/material-color-utilities/utils/math_utils.js"() {
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/utils/color_utils.js
+// ../../node_modules/@material/material-color-utilities/utils/color_utils.js
 function argbFromRgb(red, green, blue) {
   return (255 << 24 | (red & 255) << 16 | (green & 255) << 8 | blue & 255) >>> 0;
 }
@@ -18917,7 +18917,7 @@ function labInvf(ft) {
 }
 var SRGB_TO_XYZ, XYZ_TO_SRGB, WHITE_POINT_D65;
 var init_color_utils = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/utils/color_utils.js"() {
+  "../../node_modules/@material/material-color-utilities/utils/color_utils.js"() {
     init_math_utils();
     SRGB_TO_XYZ = [
       [0.41233895, 0.35762064, 0.18051042],
@@ -18945,10 +18945,10 @@ var init_color_utils = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/hct/viewing_conditions.js
+// ../../node_modules/@material/material-color-utilities/hct/viewing_conditions.js
 var ViewingConditions;
 var init_viewing_conditions = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/hct/viewing_conditions.js"() {
+  "../../node_modules/@material/material-color-utilities/hct/viewing_conditions.js"() {
     init_color_utils();
     init_math_utils();
     ViewingConditions = class _ViewingConditions {
@@ -19034,10 +19034,10 @@ var init_viewing_conditions = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/hct/cam16.js
+// ../../node_modules/@material/material-color-utilities/hct/cam16.js
 var Cam16;
 var init_cam16 = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/hct/cam16.js"() {
+  "../../node_modules/@material/material-color-utilities/hct/cam16.js"() {
     init_color_utils();
     init_math_utils();
     init_viewing_conditions();
@@ -19325,10 +19325,10 @@ var init_cam16 = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/hct/hct_solver.js
+// ../../node_modules/@material/material-color-utilities/hct/hct_solver.js
 var HctSolver;
 var init_hct_solver = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/hct/hct_solver.js"() {
+  "../../node_modules/@material/material-color-utilities/hct/hct_solver.js"() {
     init_color_utils();
     init_math_utils();
     init_cam16();
@@ -19965,10 +19965,10 @@ var init_hct_solver = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/hct/hct.js
+// ../../node_modules/@material/material-color-utilities/hct/hct.js
 var Hct;
 var init_hct = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/hct/hct.js"() {
+  "../../node_modules/@material/material-color-utilities/hct/hct.js"() {
     init_color_utils();
     init_cam16();
     init_hct_solver();
@@ -20065,9 +20065,9 @@ var init_hct = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/blend/blend.js
+// ../../node_modules/@material/material-color-utilities/blend/blend.js
 var init_blend = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/blend/blend.js"() {
+  "../../node_modules/@material/material-color-utilities/blend/blend.js"() {
     init_cam16();
     init_hct();
     init_color_utils();
@@ -20075,10 +20075,10 @@ var init_blend = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/contrast/contrast.js
+// ../../node_modules/@material/material-color-utilities/contrast/contrast.js
 var Contrast;
 var init_contrast = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/contrast/contrast.js"() {
+  "../../node_modules/@material/material-color-utilities/contrast/contrast.js"() {
     init_color_utils();
     init_math_utils();
     Contrast = class _Contrast {
@@ -20192,10 +20192,10 @@ var init_contrast = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js
+// ../../node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js
 var DislikeAnalyzer;
 var init_dislike_analyzer = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js"() {
+  "../../node_modules/@material/material-color-utilities/dislike/dislike_analyzer.js"() {
     init_hct();
     DislikeAnalyzer = class _DislikeAnalyzer {
       /**
@@ -20229,10 +20229,10 @@ var init_dislike_analyzer = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js
 var DynamicColor;
 var init_dynamic_color = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_color.js"() {
     init_contrast();
     init_math_utils();
     DynamicColor = class _DynamicColor {
@@ -20500,10 +20500,10 @@ var init_dynamic_color = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/palettes/tonal_palette.js
+// ../../node_modules/@material/material-color-utilities/palettes/tonal_palette.js
 var TonalPalette, KeyColor;
 var init_tonal_palette = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/palettes/tonal_palette.js"() {
+  "../../node_modules/@material/material-color-utilities/palettes/tonal_palette.js"() {
     init_hct();
     TonalPalette = class _TonalPalette {
       /**
@@ -20612,10 +20612,10 @@ var init_tonal_palette = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js
 var ContrastCurve;
 var init_contrast_curve = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/contrast_curve.js"() {
     init_math_utils();
     ContrastCurve = class {
       /**
@@ -20656,10 +20656,10 @@ var init_contrast_curve = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js
 var ToneDeltaPair;
 var init_tone_delta_pair = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/tone_delta_pair.js"() {
     ToneDeltaPair = class {
       /**
        * Documents a constraint in tone distance between two DynamicColors.
@@ -20695,10 +20695,10 @@ var init_tone_delta_pair = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/variant.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/variant.js
 var Variant;
 var init_variant = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/variant.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/variant.js"() {
     (function(Variant2) {
       Variant2[Variant2["MONOCHROME"] = 0] = "MONOCHROME";
       Variant2[Variant2["NEUTRAL"] = 1] = "NEUTRAL";
@@ -20713,7 +20713,7 @@ var init_variant = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js
 function isFidelity(scheme) {
   return scheme.variant === Variant.FIDELITY || scheme.variant === Variant.CONTENT;
 }
@@ -20746,7 +20746,7 @@ function findDesiredChromaByTone(hue, chroma, tone, byDecreasingTone) {
 }
 var MaterialDynamicColors;
 var init_material_dynamic_colors = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/material_dynamic_colors.js"() {
     init_dislike_analyzer();
     init_hct();
     init_contrast_curve();
@@ -21228,10 +21228,10 @@ var init_material_dynamic_colors = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js
+// ../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js
 var DynamicScheme;
 var init_dynamic_scheme = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js"() {
+  "../../node_modules/@material/material-color-utilities/dynamiccolor/dynamic_scheme.js"() {
     init_hct();
     init_tonal_palette();
     init_math_utils();
@@ -21450,10 +21450,10 @@ var init_dynamic_scheme = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/palettes/core_palette.js
+// ../../node_modules/@material/material-color-utilities/palettes/core_palette.js
 var CorePalette;
 var init_core_palette = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/palettes/core_palette.js"() {
+  "../../node_modules/@material/material-color-utilities/palettes/core_palette.js"() {
     init_hct();
     init_tonal_palette();
     CorePalette = class _CorePalette {
@@ -21528,69 +21528,69 @@ var init_core_palette = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/quantize/lab_point_provider.js
+// ../../node_modules/@material/material-color-utilities/quantize/lab_point_provider.js
 var init_lab_point_provider = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/quantize/lab_point_provider.js"() {
+  "../../node_modules/@material/material-color-utilities/quantize/lab_point_provider.js"() {
     init_color_utils();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_wsmeans.js
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_wsmeans.js
 var init_quantizer_wsmeans = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_wsmeans.js"() {
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_wsmeans.js"() {
     init_lab_point_provider();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_map.js
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_map.js
 var init_quantizer_map = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_map.js"() {
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_map.js"() {
     init_color_utils();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_wu.js
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_wu.js
 var init_quantizer_wu = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_wu.js"() {
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_wu.js"() {
     init_color_utils();
     init_quantizer_map();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_celebi.js
+// ../../node_modules/@material/material-color-utilities/quantize/quantizer_celebi.js
 var init_quantizer_celebi = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/quantize/quantizer_celebi.js"() {
+  "../../node_modules/@material/material-color-utilities/quantize/quantizer_celebi.js"() {
     init_quantizer_wsmeans();
     init_quantizer_wu();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme.js
 var init_scheme = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme.js"() {
     init_core_palette();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_android.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_android.js
 var init_scheme_android = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_android.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_android.js"() {
     init_core_palette();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/temperature/temperature_cache.js
+// ../../node_modules/@material/material-color-utilities/temperature/temperature_cache.js
 var init_temperature_cache = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/temperature/temperature_cache.js"() {
+  "../../node_modules/@material/material-color-utilities/temperature/temperature_cache.js"() {
     init_hct();
     init_color_utils();
     init_math_utils();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_content.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_content.js
 var init_scheme_content = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_content.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_content.js"() {
     init_dislike_analyzer();
     init_dynamic_scheme();
     init_variant();
@@ -21599,10 +21599,10 @@ var init_scheme_content = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_expressive.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_expressive.js
 var SchemeExpressive;
 var init_scheme_expressive = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_expressive.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_expressive.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
@@ -21658,9 +21658,9 @@ var init_scheme_expressive = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_fidelity.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_fidelity.js
 var init_scheme_fidelity = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_fidelity.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_fidelity.js"() {
     init_dislike_analyzer();
     init_dynamic_scheme();
     init_variant();
@@ -21669,9 +21669,9 @@ var init_scheme_fidelity = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_fruit_salad.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_fruit_salad.js
 var init_scheme_fruit_salad = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_fruit_salad.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_fruit_salad.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
@@ -21679,27 +21679,27 @@ var init_scheme_fruit_salad = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_monochrome.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_monochrome.js
 var init_scheme_monochrome = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_monochrome.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_monochrome.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_neutral.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_neutral.js
 var init_scheme_neutral = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_neutral.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_neutral.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_rainbow.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_rainbow.js
 var init_scheme_rainbow = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_rainbow.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_rainbow.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
@@ -21707,9 +21707,9 @@ var init_scheme_rainbow = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_tonal_spot.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_tonal_spot.js
 var init_scheme_tonal_spot = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_tonal_spot.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_tonal_spot.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
@@ -21717,10 +21717,10 @@ var init_scheme_tonal_spot = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js
+// ../../node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js
 var SchemeVibrant;
 var init_scheme_vibrant = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js"() {
+  "../../node_modules/@material/material-color-utilities/scheme/scheme_vibrant.js"() {
     init_dynamic_scheme();
     init_variant();
     init_tonal_palette();
@@ -21775,7 +21775,7 @@ var init_scheme_vibrant = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/score/score.js
+// ../../node_modules/@material/material-color-utilities/score/score.js
 function compare(a3, b5) {
   if (a3.score > b5.score) {
     return -1;
@@ -21786,7 +21786,7 @@ function compare(a3, b5) {
 }
 var SCORE_OPTION_DEFAULTS, Score;
 var init_score = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/score/score.js"() {
+  "../../node_modules/@material/material-color-utilities/score/score.js"() {
     init_hct();
     init_math_utils();
     SCORE_OPTION_DEFAULTS = {
@@ -21880,7 +21880,7 @@ var init_score = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/utils/string_utils.js
+// ../../node_modules/@material/material-color-utilities/utils/string_utils.js
 function hexFromArgb(argb) {
   const r5 = redFromArgb(argb);
   const g2 = greenFromArgb(argb);
@@ -21923,23 +21923,23 @@ function parseIntHex(value) {
   return parseInt(value, 16);
 }
 var init_string_utils = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/utils/string_utils.js"() {
+  "../../node_modules/@material/material-color-utilities/utils/string_utils.js"() {
     init_color_utils();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/utils/image_utils.js
+// ../../node_modules/@material/material-color-utilities/utils/image_utils.js
 var init_image_utils = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/utils/image_utils.js"() {
+  "../../node_modules/@material/material-color-utilities/utils/image_utils.js"() {
     init_quantizer_celebi();
     init_score();
     init_color_utils();
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/utils/theme_utils.js
+// ../../node_modules/@material/material-color-utilities/utils/theme_utils.js
 var init_theme_utils = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/utils/theme_utils.js"() {
+  "../../node_modules/@material/material-color-utilities/utils/theme_utils.js"() {
     init_blend();
     init_core_palette();
     init_scheme();
@@ -21948,9 +21948,9 @@ var init_theme_utils = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@material/material-color-utilities/index.js
+// ../../node_modules/@material/material-color-utilities/index.js
 var init_material_color_utilities = __esm({
-  "../../../../../../write/node_modules/@material/material-color-utilities/index.js"() {
+  "../../node_modules/@material/material-color-utilities/index.js"() {
     init_blend();
     init_contrast();
     init_dislike_analyzer();
@@ -21987,10 +21987,10 @@ var init_material_color_utilities = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/theme/css-var-builder.js
+// ../../node_modules/@universal-material/web/theme/css-var-builder.js
 var CssVarBuilder;
 var init_css_var_builder = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/theme/css-var-builder.js"() {
+  "../../node_modules/@universal-material/web/theme/css-var-builder.js"() {
     init_material_color_utilities();
     CssVarBuilder = class _CssVarBuilder {
       constructor() {
@@ -22020,10 +22020,10 @@ var init_css_var_builder = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/theme/neutral-colors.js
+// ../../node_modules/@universal-material/web/theme/neutral-colors.js
 var neutralColors, neutralVariantColors;
 var init_neutral_colors = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/theme/neutral-colors.js"() {
+  "../../node_modules/@universal-material/web/theme/neutral-colors.js"() {
     neutralColors = [
       { name: "surface", lightTone: 98, darkTone: 6 },
       { name: "surface-bright", lightTone: 98, darkTone: 24 },
@@ -22050,10 +22050,10 @@ var init_neutral_colors = __esm({
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/theme/theme-builder.js
+// ../../node_modules/@universal-material/web/theme/theme-builder.js
 var getCss, ThemeBuilder;
 var init_theme_builder = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/theme/theme-builder.js"() {
+  "../../node_modules/@universal-material/web/theme/theme-builder.js"() {
     init_material_color_utilities();
     init_css_var_builder();
     init_neutral_colors();
@@ -22190,9 +22190,9 @@ ${content}}`;
   }
 });
 
-// ../../../../../../write/node_modules/@universal-material/web/theme/index.js
+// ../../node_modules/@universal-material/web/theme/index.js
 var init_theme = __esm({
-  "../../../../../../write/node_modules/@universal-material/web/theme/index.js"() {
+  "../../node_modules/@universal-material/web/theme/index.js"() {
     init_theme_builder();
   }
 });
@@ -22349,6 +22349,8 @@ var init_chrome_app = __esm({
       lastHighlight = "yellow";
       lastShading = "FFFF00";
       fileHandle = null;
+      /** onde o host guarda o documento aberto/salvo por ele (Electron: caminho) */
+      hostPath = null;
       changeSeq = 0;
       lastAutosave = Date.now();
       trustKey = null;
@@ -22486,6 +22488,7 @@ var init_chrome_app = __esm({
       // ───── abrir ─────
       newDocument() {
         this.fileHandle = null;
+        this.hostPath = null;
         this.ed.newDocument();
         this.format = "docx";
         this.setDirty(false);
@@ -22511,6 +22514,7 @@ var init_chrome_app = __esm({
         this.format = odt ? "odt" : "docx";
         this.trustKey = key;
         this.fileHandle = handle;
+        this.hostPath = sec.path ?? null;
         this.changeSeq++;
         this.setDirty(false);
         this.setTitle(name);
@@ -22538,7 +22542,7 @@ var init_chrome_app = __esm({
           }
           if (r5) {
             const bytes = r5.bytes instanceof Uint8Array ? r5.bytes : new Uint8Array(r5.bytes);
-            this.openBytes(bytes, r5.name, null, { motw: r5.motw, trustKey: `${r5.name}|${bytes.byteLength}` });
+            this.openBytes(bytes, r5.name, null, { motw: r5.motw, trustKey: `${r5.name}|${bytes.byteLength}`, ...r5.path ? { path: r5.path } : {} });
           }
           return;
         }
@@ -22592,8 +22596,15 @@ var init_chrome_app = __esm({
         const seq = this.changeSeq;
         if (host?.saveFile) {
           try {
-            const name = await host.saveFile(await this.bytesFor(fmt2), { name: `${this.docName}.${fmt2}`, format: fmt2, saveAs });
-            if (!name) return false;
+            const saved = await host.saveFile(await this.bytesFor(fmt2), {
+              name: `${this.docName}.${fmt2}`,
+              format: fmt2,
+              saveAs,
+              ...!saveAs && this.hostPath ? { path: this.hostPath } : {}
+            });
+            if (!saved) return false;
+            const name = typeof saved === "string" ? saved : saved.name;
+            if (typeof saved !== "string" && saved.path) this.hostPath = saved.path;
             if (/\.odt$/i.test(name) !== (fmt2 === "odt")) fmt2 = /\.odt$/i.test(name) ? "odt" : "docx";
             this.format = fmt2;
             this.setTitle(name);
@@ -22679,6 +22690,31 @@ var init_chrome_app = __esm({
       // ───── exportar ─────
       async export(kind, slim = false) {
         const n5 = this.docName, suf = slim ? "-slim" : "";
+        const host = hostOf(this.ed);
+        if (host?.exportFile) {
+          const data8 = async () => {
+            switch (kind) {
+              case "pdf":
+                return this.ed.exportPdf();
+              case "html":
+                return this.ed.exportHtml(n5, slim ? { images: "omit" } : {});
+              case "md":
+                return this.ed.exportMarkdown(n5, slim ? { images: "omit" } : {});
+              case "odt":
+                return this.ed.exportOdt();
+              case "xps":
+                return this.ed.exportXps();
+            }
+          };
+          try {
+            if (!await host.exportFile(kind, `${n5}${suf}.${kind}`, data8)) return;
+          } catch {
+            this.ui?.flash(`\u26A0 ${this.ui.L.readFailed}`);
+            return;
+          }
+          this.ui?.flash(this.ui.L.exported(kind.toUpperCase()));
+          return;
+        }
         switch (kind) {
           case "pdf":
             download(await this.ed.exportPdf(), `${n5}.pdf`, "application/pdf");
@@ -28830,17 +28866,6 @@ var NumberingState = class _NumberingState {
     for (const d3 of this.deferred) c5.deferred.add(d3);
     return c5;
   }
-  /**
-   * Esquece quais w:num já foram usados: o próximo parágrafo de um w:num com
-   * startOverride reinicia de novo. Artefato do PDF do Word aberto e exportado
-   * direto (sem repaginar): os parágrafos formatados na abertura (1ª página e
-   * o bloco que transborda para a 2ª) guardam o número; o seguinte de uma lista
-   * com override recomeça. Chamado pelo motor após esse bloco (oráculo
-   * numbering3, pg2-*).
-   */
-  forgetFirstUse() {
-    this.seenNums.clear();
-  }
   /** Lista (abstractNum efetivo) de um w:num — espaçamento automático entre itens. */
   listKey(numId) {
     const a3 = numId ? this.abstractFor(numId) : null;
@@ -30369,7 +30394,13 @@ var LineBreaker = class {
       w2 += q.kind === "shy" ? 0 : q.adv;
       if (q.breakAfter) break;
     }
-    return w2 + (this.lineIdx === 0 ? Math.max(0, this.p.firstLine) : 0);
+    return w2 + (this.indentFirst() ? Math.max(0, this.p.firstLine) : 0);
+  }
+  /** Linha com o recuo da 1ª linha e o número da lista: a 1ª — ou, no parágrafo que
+   *  COMEÇA com quebra de coluna, a que vem depois dela, na coluna seguinte (a linha da
+   *  quebra fica sem os dois — oráculo brfirst, corpus t70). */
+  indentFirst() {
+    return this.lineIdx === (this.p.glyphs[0]?.kind === "cb" && this.p.glyphs.length > 1 ? 1 : 0);
   }
   mark() {
     return { pos: this.pos, lineIdx: this.lineIdx, trailingBreak: this.trailingBreak, hyphenRun: this.hyphenRun };
@@ -30392,17 +30423,17 @@ var LineBreaker = class {
   next(frame2) {
     const p3 = this.p;
     const gs = p3.glyphs;
-    const first = this.lineIdx === 0;
+    const indFirst = this.indentFirst();
     const start = this.pos;
-    const xStart = frame2.left + (first ? p3.firstLine : 0);
+    const xStart = frame2.left + (indFirst ? p3.firstLine : 0);
     let right = frame2.right;
-    let rightQ = this.fitRight(frame2, xStart, first);
+    let rightQ = this.fitRight(frame2, xStart, indFirst);
     const placed = [];
     let x3 = xStart;
     let markerPlaced;
     const defaultTab = this.ctx.fmt.settings.defaultTabStop;
-    const hangingStop = first && p3.firstLine < 0 ? frame2.left : void 0;
-    if (first && p3.marker) {
+    const hangingStop = indFirst && p3.firstLine < 0 ? frame2.left : void 0;
+    if (indFirst && p3.marker) {
       const mk = p3.marker;
       let mx = xStart;
       if (mk.jc === "right") mx -= mk.width;
@@ -30513,7 +30544,7 @@ var LineBreaker = class {
             spanned = true;
             x3 = frame2.next.left;
             right = frame2.next.right;
-            rightQ = this.fitRight({ left: frame2.left, right }, xStart, first);
+            rightQ = this.fitRight({ left: frame2.left, right }, xStart, indFirst);
             ({ pos, tab } = nx);
           } else if (i6 > start) {
             gapTab = "break";
@@ -32487,7 +32518,7 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     const sp = sumOf(p3, () => true);
     return sp > 0 && T3 > sp + 0.5 ? p3.map((x3) => x3 * T3 / sp) : p3;
   }
-  const R2 = T3 - sumOf(p3, () => true);
+  let R2 = T3 - sumOf(p3, () => true);
   const g3 = g3of(T3), g4 = g4of(T3);
   const S1 = sumOf(g1, np), S3 = sumOf(g3, np), S4 = sumOf(g4, np);
   const lerp2 = (a3, b5, t5) => a3.map((x3, j) => isPct[j] ? p3[j] : x3 + (b5[j] - x3) * t5);
@@ -32508,7 +32539,11 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     const si = inner.reduce((a3, b5) => a3 + b5, 0), cut = S1 - avail;
     return g1.map((x3, j) => x3 - (si > 0 ? cut * inner[j] / si : cut / nCols));
   }
-  if (explicit) return g3.map((x3, j) => isPct[j] ? p3[j] : x3);
+  if (explicit) {
+    if (!(S1 > avail + 0.5 && (tw2 === "pct" ? T3 <= avail + 0.5 : T3 < avail - 0.5))) return g3.map((x3, j) => isPct[j] ? p3[j] : x3);
+    R2 += avail - T3;
+    T3 = avail;
+  }
   const sg = docGrid.reduce((a3, b5) => a3 + b5, 0);
   if (!isPct.some(Boolean) && Math.abs(sg - T3) <= Math.max(20, 5e-3 * T3)) return docGrid.map((x3) => x3 * T3 / sg);
   return g1.map((x3, j) => isPct[j] ? p3[j] : S1 > 0 ? x3 * R2 / S1 : x3);
@@ -32849,7 +32884,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const wl = separated ? borderWidth(edge(s4, "left")) : 0, wr = separated ? borderWidth(edge(s4, "right")) : 0;
       const x0 = !separated ? x0r : spTbl > 0 ? x0r + wl : x0r + Math.max(wl - marL, wl / 2);
       const x1 = !separated ? x1r : spTbl > 0 ? x1r - wr : x1r - Math.max(wr - marR, wr / 2);
-      const env = { tablePPr: pPr, tableRPr: rPr, ...isDark(cellFill(ctx, tcPr, tblPr, theme)) ? { darkBackground: true } : {} };
+      const env = { tablePPr: pPr, tableRPr: rPr, ...isDark(cellFill(tcPr, theme)) ? { darkBackground: true } : {} };
       const vertical = tcPr.textDirection === "btLr" || tcPr.textDirection === "tbRl" || tcPr.textDirection === "tbRlV" ? tcPr.textDirection : void 0;
       const info = { slot: s4, tcPr, x0, x1, bx0, bx1, marT, marB, marL, marR, env, ...vertical ? { vertical } : {} };
       if (!s4.merged) {
@@ -32923,10 +32958,25 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const mergeAt = [];
       if (separated) {
         const cy0 = bTop - sepWT[ri], cy1 = bTop + ch + (bBottom > 0 ? sepWB[ri] : 0);
+        const tblFill = shdFill(tblPr.shd, theme);
+        if (tblFill) {
+          const xl2 = x3 + g0, xr2 = x3 + gn;
+          const strip = (x0, y0, x1, y1) => {
+            if (x1 - x0 > 0.01 && y1 - y0 > 0.01) its.push({ t: "rect", x: x0, y: y0, w: x1 - x0, h: y1 - y0, fill: tblFill });
+          };
+          strip(xl2, 0, xr2, cy0);
+          strip(xl2, cy1, xr2, rh);
+          let cx = xl2;
+          for (const ci of [...cellInfos].sort((a3, b5) => a3.bx0 - b5.bx0)) {
+            strip(cx, cy0, x3 + ci.bx0, cy1);
+            cx = Math.max(cx, x3 + ci.bx1);
+          }
+          strip(cx, cy0, xr2, cy1);
+        }
         for (const ci of cellInfos) {
           const s4 = ci.slot;
           if (s4.merged) continue;
-          const fill = cellFill(ctx, ci.tcPr, tblPr, theme);
+          const fill = cellFill(ci.tcPr, theme);
           const content = contents.get(s4);
           if (fill) its.push({ t: "rect", x: x3 + ci.bx0, y: cy0, w: ci.bx1 - ci.bx0, h: cy1 - cy0, fill });
           if (s4.rowSpan > 1) mergeAt.push({ col: s4.col, at: its.length, endRow: ri + s4.rowSpan - 1 });
@@ -32963,7 +33013,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       let ownBand = 0;
       for (const ci of cellInfos) {
         const s4 = ci.slot;
-        const fill = cellFill(ctx, ci.tcPr, tblPr, theme);
+        const fill = cellFill(ci.tcPr, theme);
         const content = contents.get(s4);
         if (!s4.merged && s4.rowSpan > 1) mergeAt.push({ col: s4.col, at: its.length, endRow: ri + s4.rowSpan - 1 });
         if (!s4.merged && s4.rowSpan === 1) {
@@ -33068,7 +33118,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     const h3 = rowHeights.slice(m2.startRow, endRow + 1).reduce((a3, b5) => a3 + b5, 0) - bandTopOf(m2.startRow) - bandBottomOf(endRow);
     const first = rows[m2.startRow];
     const target = rows[endRow] ?? first;
-    const fill = cellFill(ctx, m2.tcPr, tblPr, theme);
+    const fill = cellFill(m2.tcPr, theme);
     if (fill) {
       const item = { t: "rect", x: x3 + m2.x0, y: 0, w: m2.x1 - m2.x0, h: h3, fill };
       first.items.unshift(item);
@@ -33089,12 +33139,13 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const borderLeft = slots[0]?.[0] ? borderWidth(edge(slots[0][0], "left")) : 0;
   return { x: x3, width, rows, borderLeft, ...legacy ? { effR } : {}, ...tblPr.tblpPr ? { tblpPr: tblPr.tblpPr } : {} };
 }
-function cellFill(ctx, tcPr, tblPr, theme) {
-  const shd = tcPr.shd ?? tblPr.shd;
+function cellFill(tcPr, theme) {
+  return shdFill(tcPr.shd, theme);
+}
+function shdFill(shd, theme) {
   if (!shd) return void 0;
   if (shd.val === "solid") return resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
   const fill = shd.themeFill ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, theme) : shd.fill && shd.fill !== "auto" ? shd.fill.toUpperCase() : void 0;
-  void ctx;
   if (shd.val && /^pct(\d+)$/.test(shd.val)) {
     const pct = parseInt(shd.val.slice(3), 10) / 100;
     const fg = resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
@@ -33889,16 +33940,6 @@ var Engine = class {
         footerRefs: []
       }, 0));
     }
-    let numReopen = 0;
-    let openLimit = 0;
-    const toPage2 = () => {
-      const p1 = this.pages[0], p22 = this.pages[1];
-      openLimit = p22.bodyTop + Math.max(0, p1.bodyTop - p1.geom.marT);
-      numReopen = 1;
-    };
-    const pastOpen = () => {
-      if (numReopen === 1 && (this.cur !== this.pages[1] || this.y >= openLimit)) numReopen = 2;
-    };
     for (const g2 of this.geoms) {
       if (g2.index === 0 || g2.type !== "continuous") {
         const lastAfter = this.prev ? this.prev.after : 0;
@@ -33907,18 +33948,8 @@ var Engine = class {
       } else this.continuousSection(g2);
       for (let b5 = g2.blocks[0]; b5 <= g2.blocks[1] && b5 < full.blocks.length; b5++) {
         const block = full.blocks[b5];
-        if (numReopen === 0 && this.pages.length >= 2) {
-          toPage2();
-          pastOpen();
-        }
-        if (numReopen === 2) {
-          this.ctx.numbering.forgetFirstUse();
-          numReopen = 3;
-        }
         if (block.type === "paragraph") this.placeParagraph(block.paragraph, `b${b5}`, b5, g2);
         else this.placeTable(block, `b${b5}`, b5);
-        if (numReopen === 0 && this.pages.length >= 2) toPage2();
-        pastOpen();
       }
     }
     for (let k2 = 0; k2 < 100 && this.floatCarry.length && this.cur; k2++) this.newPage(this.cur.geom);
@@ -40498,6 +40529,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   /** Imprime: abre janela com as páginas como imagens (visão de impressão). */
   async print() {
+    const host = this.host;
+    if (host?.print) {
+      await host.print({ pages: await this.printPages(), title: this.title || "Write" });
+      return;
+    }
     const win = window.open("", "_blank");
     if (!win) return;
     const wasView = this.view;
@@ -40509,6 +40545,15 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     win.document.close();
     win.focus();
     setTimeout(() => win.print(), 200);
+  }
+  /** Páginas "como impressas" (dataURLs PNG), uma por folha. */
+  async printPages() {
+    const wasView = this.view;
+    if (wasView !== "print") this.setView("print");
+    await this.ensureImagesDecoded();
+    const pages = this.canvases.map((_2, i6) => this.pageImageForPrint(i6));
+    if (wasView !== "print") this.setView(wasView);
+    return pages;
   }
   /** PNG (dataURL) da página `i` "como impressa" (sem adornos de tela) a
    *  96 dpi × devicePixelRatio. Aloca o buffer só durante a captura. */
@@ -45661,6 +45706,24 @@ wn.use(createMentionPlugin());
 if (bridge) {
   const host = {
     openFile: () => bridge.openDocx(),
+    // salvar/exportar/imprimir nativos: o shell grava direto no caminho já
+    // conhecido, pergunta só no Salvar como, e imprime pelo diálogo do sistema
+    saveFile: bridge.saveFile ? (data8, o6) => bridge.saveFile({ suggestedName: o6.name, bytes: data8, ...o6.path ? { path: o6.path } : {} }) : void 0,
+    exportFile: bridge.exportFile ? async (kind, name, data8) => {
+      const enc2 = new TextEncoder();
+      const r5 = await bridge.exportFile({
+        suggestedName: name.replace(/\.[^.]+$/, ""),
+        formats: [kind],
+        bytes: async () => {
+          const d3 = await data8();
+          return typeof d3 === "string" ? enc2.encode(d3) : d3;
+        }
+      });
+      return r5?.name ?? null;
+    } : void 0,
+    print: bridge.print ? async (o6) => {
+      await bridge.print(o6);
+    } : void 0,
     openFileForCompare: bridge.openDocxForCompare ? (t5) => bridge.openDocxForCompare(t5) : void 0,
     setTitleTheme: bridge.setTitleTheme ? (d3) => bridge.setTitleTheme(d3) : void 0,
     setDirty: bridge.setDirty ? (d3, n5) => bridge.setDirty(d3, n5) : void 0,
@@ -45679,6 +45742,15 @@ if (bridge) {
   } };
 }
 wn.addEventListener("uw-ready", async () => {
+  let fromOs = false;
+  if (bridge?.onOpenFile) {
+    bridge.onOpenFile(async (doc) => {
+      fromOs = true;
+      return openDocument(wn, new Uint8Array(doc.bytes), doc.name, { motw: doc.motw, path: doc.path });
+    });
+    await new Promise((r5) => setTimeout(r5, 150));
+    if (fromOs) return;
+  }
   try {
     const resp = await fetch("/samples/Catalogo-Recursos-Word.docx");
     if (resp.ok) {
