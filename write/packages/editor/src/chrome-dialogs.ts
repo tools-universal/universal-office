@@ -2,11 +2,11 @@
 // Fonte, Parágrafo, Configurar Página, link, comentário, contar palavras,
 // atalhos e sobre. Todos sobre o openDialog de @universal-office/ui (<dialog>
 // nativo — sem a trava de animação do u-dialog).
-import { openDialog, promptDialog } from '@universal-office/ui';
+import { openDialog, pickLabels, promptDialog, type UiLang } from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
 
-type Env = { ed: UniversalWriteElement; app: WriteApp; layer: HTMLElement; lang: 'en' | 'pt'; state: () => ReturnType<UniversalWriteElement['getSelectionState']> };
+type Env = { ed: UniversalWriteElement; app: WriteApp; layer: HTMLElement; lang: UiLang; state: () => ReturnType<UniversalWriteElement['getSelectionState']> };
 
 type Props<K extends keyof HTMLElementTagNameMap> = Partial<Omit<HTMLElementTagNameMap[K], 'style'>> & { style?: string };
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Props<K> = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] => {
@@ -26,7 +26,8 @@ const check = (name: string, label: string, on: boolean): HTMLLabelElement => {
   const i = el('input', { type: 'checkbox', name, checked: on });
   return el('label', { className: 'uo-check' }, i, label);
 };
-const tr = (lang: 'en' | 'pt', en: string, pt: string): string => (lang === 'pt' ? pt : en);
+// textos curtos dos diálogos: tabela { en, pt } escolhida por pickLabels (regra única de i18n)
+const tr = (lang: UiLang, en: string, pt: string): string => pickLabels(lang, { en, pt });
 
 export async function linkDialog(env: Env): Promise<void> {
   const L = env.app.ui!.L;
@@ -97,7 +98,7 @@ export async function paragraphDialog(env: Env): Promise<void> {
   const pt = (tw: number | undefined): string => String(Math.round((tw ?? 0) / 2) / 10);
   const before = el('input', { type: 'number', name: 'before', min: '0', step: '6', value: pt(p.spaceBeforeTwips as number | undefined) });
   const after = el('input', { type: 'number', name: 'after', min: '0', step: '6', value: pt(p.spaceAfterTwips as number | undefined) });
-  const dec = lang === 'pt' ? ',' : '.';
+  const dec = tr(lang, '.', ',');
   const line = select('line', [['240', `1${dec}0`], ['259', `1${dec}08`], ['276', `1${dec}15`], ['360', `1${dec}5`], ['480', `2${dec}0`]],
     String((p.lineTwentieths as number | undefined) ?? 259));
   const grid = el('div', { className: 'uo-dialog-grid' },
@@ -143,7 +144,7 @@ export async function pageDialog(env: Env): Promise<void> {
 export function wordCountDialog(env: Env): void {
   const L = env.app.ui!.L;
   const s = env.ed.stats();
-  const fmt = (n: number): string => n.toLocaleString(env.lang === 'pt' ? 'pt-BR' : 'en-US');
+  const fmt = (n: number): string => n.toLocaleString(tr(env.lang, 'en-US', 'pt-BR'));
   const grid = el('div', { className: 'uo-dialog-grid' },
     el('span', {}, L.pages), el('strong', {}, fmt(s.pages)),
     el('span', {}, L.words), el('strong', {}, fmt(s.words)),

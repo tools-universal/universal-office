@@ -63,6 +63,11 @@ Give the element a size with CSS — it fills its box and scrolls inside.
 | `topbar` | boolean | Built-in top bar with menus, find/replace, comments beside the page, open/save, autosave, Protected View and drag and drop (see [Built-in bars](#built-in-bars)). |
 | `toolbar` | `compact` · `ribbon` | Style of the top bar: `compact` (default — menu bar + one toolbar row that collapses by priority, like Google Docs) or `ribbon` (tabs and groups, like Word). |
 | `bottombar` | boolean | Built-in status bar: page/word count, view buttons, zoom. |
+| `theme` | `auto` · `light` · `dark` · `black` | Opt-in Material theme for the bars, scoped to the element (`black` also darkens the page). Without it — and without a choice in View › Theme — the element inherits `color-scheme` and the `--u-color-*` tokens from the page. |
+| `accent` | `blue` · `teal` · `green` · `amber` · `red` · `purple` · `neutral` | Accent color of the opt-in theme. |
+| `storage-key` | string | Remembers this instance's bar choices (toolbar style, theme, comments, autosave interval) in `localStorage`. Falls back to `id`; with neither, choices last only for the session. |
+| `noautosave` | boolean | No autosave and no "autosave pending" notice. |
+| `nounloadprompt` | boolean | No browser "leave page?" prompt for unsaved changes. |
 | `lang` | `en` · `pt` | UI language of the bars and popups. Without it: Portuguese if the browser prefers it, otherwise English. |
 | `manual-init` | boolean | Do not initialize on connect; call `initialize()` yourself (offline use). |
 | `layout` | `legacy` | Use the previous canvas layout instead of the Word-fidelity engine. The editor also falls back to it on its own if the engine fails on a document. |
@@ -119,6 +124,18 @@ editor.host = {
 `openDocument(editor, bytes, name, { motw })` (exported) opens a document the
 way File › Open does: title, recent files and Word's Protected View rule.
 
+When the page saves and opens documents itself, handle the cancelable
+`uw-save-request` (`detail: { saveAs, format }`) and `uw-open-request` events
+and call `preventDefault()`: the bars then do nothing for those actions (menu,
+button, Ctrl+S / Ctrl+O), and after the first handled save request they also
+drop autosave and the leave-page prompt — saving belongs to the host.
+
+App shortcuts (Ctrl+O, S, Shift+S, P, F, H) also work while focus is on the
+page body, for the last focused `<universal-write topbar>` (or the only one),
+never while typing in another element's field. Removing the element from the
+document tears the bars down completely (timers and window/document
+listeners); putting it back rebuilds them.
+
 ## Loading and saving
 
 | Method | Description |
@@ -160,6 +177,8 @@ way File › Open does: title, recent files and Word's Protected View rule.
 | `uw-comments-changed` | — | A comment was added or removed. |
 | `uw-comment-click` | `{ ids }` | Commented text was clicked. |
 | `uw-font-embedding` | `{ embedded, skipped }` | After saving a .docx with font embedding on. |
+| `uw-save-request` | `{ saveAs, format }` | The bars are about to save. **Cancelable** — `preventDefault()` = the host saves. |
+| `uw-open-request` | — | The bars are about to show an open dialog. **Cancelable** — `preventDefault()` = the host opens. |
 | `uw-plugin-added` · `uw-plugin-removed` | `{ id }` | Plugin lifecycle. |
 | `uw-custom-inline-inserted` | `{ type, data, fallbackText }` | A plugin inline was inserted. |
 

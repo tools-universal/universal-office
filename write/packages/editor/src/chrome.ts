@@ -10,7 +10,7 @@
 // `element.host` (chrome-host.ts), com o caminho web como recuo.
 import '@universal-material/web/ripple/ripple.js';
 import {
-  CommandRegistry, createCompactBar, createRibbon, ensureBarStyles, isMenuOpen, closeMenus, closePopover, openMenu,
+  CommandRegistry, createCompactBar, createRibbon, ensureBarStyles, isMenuOpen, closeMenus, closePopover, closeDialogs, openMenu,
   pickLabels, showToast, type BarContext, type BarHandle, type MenuEntry, type UiLang,
 } from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
@@ -127,6 +127,19 @@ type Mode = 'compact' | 'ribbon';
 /** Atalhos que o próprio editor já trata (não roubar). */
 const EDITOR_KEYS = new Set(['Ctrl+C', 'Ctrl+X', 'Ctrl+V', 'Ctrl+Shift+V', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Ctrl+B', 'Ctrl+I', 'Ctrl+U', 'Ctrl+E', 'Ctrl+L', 'Ctrl+R', 'Ctrl+J', 'Ctrl+Enter']);
 
+/** Atalhos de APLICATIVO (valem até com o foco fora do documento). */
+const APP_SHORTCUTS = new Set(['open', 'save', 'saveAs', 'print', 'find', 'replace']);
+
+/** Último <universal-write> com foco (atalhos de app com o foco no corpo da página). */
+let lastFocused: WeakRef<UniversalWriteElement> | null = null;
+
+function isField(t: EventTarget | undefined): boolean {
+  if (!(t instanceof HTMLElement)) return false;
+  if (t.isContentEditable) return true;
+  // a textarea "proxy" é a entrada do próprio editor — não conta como campo
+  return /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && !t.classList.contains('proxy');
+}
+
 function comboOf(e: KeyboardEvent): string {
   const code = e.code;
   let k = code.startsWith('Key') ? code.slice(3)
@@ -164,13 +177,13 @@ class WriteChrome {
     this.lang = opts.lang;
     this.L = pickLabels(opts.lang, LABELS);
     ensureBarStyles(this.root);
-    if (!this.root.querySelector(':scope > style[data-uw-chrome]')) {
+    if (!this.root.querySelector('style[data-uw-chrome]')) {
       const s = document.createElement('style');
       s.dataset['uwChrome'] = '';
       s.textContent = CHROME_CSS;
       this.root.appendChild(s);
     }
-    this.layer = this.root.querySelector<HTMLElement>(':scope > .uw-layer') ?? this.makeLayer();
+    this.layer = this.root.querySelector<HTMLElement>('.uw-layer') ?? this.makeLayer();
     this.layer.replaceChildren();
 
     const app = this.app = appFor(ed);
@@ -188,9 +201,10 @@ class WriteChrome {
       },
     };
     if (!app.title) app.title = this.L.untitled;
+    app.attach();
     app.bindHost();
     bindHostFonts(hostOf(ed));
-    this.applyTheme(false);
+    this.applyTheme();
 
     this.reg = new CommandRegistry(opts.lang);
     this.reg.afterRun = () => this.after();
@@ -211,11 +225,20 @@ class WriteChrome {
     }
     if (opts.bottombar) this.status = new StatusBar(ed, app, bottomEl, this.ctx);
     this.bindEvents();
-    // tirar topbar e bottombar não reimporta este módulo: desmonta sozinho
-    const mo = new MutationObserver(() => {
-      if (!ed.hasAttribute('topbar') && !ed.hasAttribute('bottombar')) teardownChrome(ed);
+    // tirar topbar e bottombar não reimporta este módulo: desmonta sozinho;
+    // `theme`/`accent` mudados pelo hospedeiro reaplicam o tema
+    const mo = new MutationObserver((recs) => {
+      if (!ed.hasAttribute('topbar') && !ed.hasAttribute('bottombar')) { teardownChrome(ed); return; }
+      if (recs.some((r) => r.attributeName === 'theme' || r.attributeName === 'accent')) { this.applyTheme(); this.sync(); }
     });
-    mo.observe(ed, { attributes: true, attributeFilter: ['topbar', 'bottombar'] });
+    mo.observe(ed, { attributes: true, attributeFilter: ['topbar', 'bottombar', 'theme', 'accent'] });
+    // "Automático": a troca claro/escuro do SO chega aos controles da janela (Electron)
+    if (typeof matchMedia !== 'undefined') {
+      matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        const m = this.app.mode;
+        if (m === 'auto' || m === null) hostOf(ed)?.setTitleTheme?.(isDark(m));
+      }, { signal: this.ac.signal });
+    }
     this.ac.signal.addEventListener('abort', () => mo.disconnect());
     void ed.listAvailableFonts().then((f) => { this.families = f; });
     this.sync();
@@ -236,7 +259,8 @@ class WriteChrome {
   private mode(): Mode {
     const a = this.ed.getAttribute('toolbar');
     if (a === 'ribbon' || a === 'compact') return a;
-    try { return localStorage.getItem('uw-toolbar') === 'ribbon' ? 'ribbon' : 'compact'; } catch { return 'compact'; }
+    // escolha no menu Ver gravada só POR INSTÂNCIA (storage-key/id); o atributo sempre manda
+    return this.app.prefs.get('toolbar') === 'ribbon' ? 'ribbon' : 'compact';
   }
 
   private ctl(): ChromeCtl {
@@ -258,17 +282,17 @@ class WriteChrome {
       inFocusMode: () => this.ed.classList.contains('uw-focus'),
       toolbarMode: () => this.mode(),
       setToolbarMode: (m) => {
-        try { localStorage.setItem('uw-toolbar', m); } catch { /* privado */ }
+        this.app.prefs.set('toolbar', m);
         this.ed.setAttribute('toolbar', m);
       },
       toggleComments: () => {
         this.app.commentsVisible = !this.app.commentsVisible;
-        try { localStorage.setItem('uw-inline-comments', this.app.commentsVisible ? '1' : '0'); } catch { /* privado */ }
+        this.app.prefs.set('comments', this.app.commentsVisible ? '1' : '0');
         this.cards?.render();
       },
       requestFonts: () => this.requestFonts(),
       flash: (m) => this.flash(m),
-      applyTheme: () => this.applyTheme(true),
+      applyTheme: () => this.applyTheme(),
     };
   }
 
@@ -276,13 +300,16 @@ class WriteChrome {
     return (this.stateCache ??= this.ed.getSelectionState());
   }
 
-  private applyTheme(persist: boolean): void {
-    applyTheme(this.ed, this.root, this.app.accent, this.app.mode, persist);
-    hostOf(this.ed)?.setTitleTheme?.(isDark(this.app.mode));
+  /** Tema só quando pedido (atributo `theme` ou escolha no menu); senão herda a página. */
+  private applyTheme(): void {
+    const mode = this.app.mode;
+    applyTheme(this.ed, this.root, this.app.accent, mode);
+    hostOf(this.ed)?.setTitleTheme?.(isDark(mode));
   }
 
   /** Depois de qualquer ação: foco de volta ao documento (se não abriu painel) e sincroniza. */
   private after(): void {
+    if (this.ac.signal.aborted) return;
     const a = this.root.activeElement;
     const inLayer = !!a && this.layer.contains(a);
     const inBar = !!a && this.topEl.contains(a) && (a.tagName === 'INPUT');
@@ -291,7 +318,15 @@ class WriteChrome {
     this.sync();
   }
 
+  /** Um sync por quadro, venha de onde vier (seleção, eventos, ações). */
   sync(): void {
+    if (this.raf || this.ac.signal.aborted) return;
+    this.raf = requestAnimationFrame(() => { this.raf = 0; this.syncNow(); });
+  }
+
+  private raf = 0;
+
+  private syncNow(): void {
     this.stateCache = null;
     this.app.bindHost();
     this.topEl.classList.toggle('uo-wco', !!hostOf(this.ed)?.windowControlsOverlay);
@@ -307,14 +342,20 @@ class WriteChrome {
 
   destroy(): void {
     this.ac.abort();
+    cancelAnimationFrame(this.raf);
     closeMenus();
+    closePopover();
+    // diálogos abertos resolvem como cancelados ANTES de a camada sumir
+    closeDialogs(this.layer);
     this.bar?.destroy();
     this.cards?.destroy();
     this.layer.replaceChildren();
-    this.root.querySelector(':scope > .uw-compare')?.remove();
+    this.root.querySelector('.uw-compare')?.remove();
     this.topEl.classList.remove('uo-wco');
+    this.topEl.replaceChildren();
+    this.bottomEl.replaceChildren();
     this.ed.classList.remove('uw-comparing', 'uw-focus');
-    if (this.app.ui?.layer === this.layer) this.app.ui = null;
+    if (this.app.ui?.layer === this.layer) this.app.detach();
   }
 
   // ───── Modo Protegido ─────
@@ -380,13 +421,15 @@ class WriteChrome {
   }
 
   // ───── comparar ─────
+  private closeCompare: (() => void) | null = null;
+
   private async compare(): Promise<void> {
     const other = await this.app.pickForCompare();
     if (!other) return;
     let current: Uint8Array;
     try { current = this.ed.saveDocx(); } catch { this.flash(`⚠ ${this.L.stillLoading}`); return; }
     await import('@universal-office/compare');
-    let box = this.root.querySelector<HTMLElement>(':scope > .uw-compare');
+    let box = this.root.querySelector<HTMLElement>('.uw-compare');
     if (!box) {
       box = document.createElement('div');
       box.className = 'uw-compare';
@@ -394,6 +437,10 @@ class WriteChrome {
       for (const t of ['mousedown', 'dblclick', 'contextmenu', 'keydown', 'wheel'] as const) {
         box.addEventListener(t, (e) => e.stopPropagation(), { passive: t === 'wheel' });
       }
+      // Esc fecha a comparação também com o foco dentro do diff
+      box.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !e.defaultPrevented && !isMenuOpen()) { e.preventDefault(); this.closeCompare?.(); }
+      });
       const wd = document.createElement('universal-write-diff');
       wd.setAttribute('lang', this.lang);
       wd.style.cssText = 'flex:1;min-height:0;display:flex';
@@ -409,11 +456,13 @@ class WriteChrome {
       box!.style.height = `${Math.max(200, h)}px`;
     };
     const close = (): void => {
+      this.closeCompare = null;
       this.app.comparing = false;
       this.ed.classList.remove('uw-comparing');
       ro.disconnect();
       this.after();
     };
+    this.closeCompare = close;
     const ro = new ResizeObserver(fit);
     this.ac.signal.addEventListener('abort', () => ro.disconnect());
     try {
@@ -439,7 +488,8 @@ class WriteChrome {
     const { ed } = this;
     const signal = this.ac.signal;
     const resync = (): void => this.sync();
-    for (const t of ['uw-zoom', 'uw-change', 'uw-hfmode', 'uw-cellmode', 'uw-tbmode', 'uw-protected', 'uw-ready']) {
+    // uw-zoom e uw-change o próprio elemento já repassa (chromeSync)
+    for (const t of ['uw-hfmode', 'uw-cellmode', 'uw-tbmode', 'uw-protected', 'uw-ready']) {
       ed.addEventListener(t, resync, { signal });
     }
     // página atual enquanto rola
@@ -476,14 +526,34 @@ class WriteChrome {
       const sc = this.reg.get(id)!.shortcut;
       if (sc && !EDITOR_KEYS.has(sc)) byShortcut.set(sc, id);
     }
-    ed.addEventListener('keydown', (e) => {
-      if (e.defaultPrevented) return;
-      if (e.key === 'Escape' && this.app.comparing) { e.preventDefault(); this.root.querySelector<HTMLElement & { dispatchEvent(e: Event): boolean }>('universal-write-diff')?.dispatchEvent(new CustomEvent('close-request')); return; }
-      const id = byShortcut.get(comboOf(e));
-      if (!id || !this.reg.supported(id)) return;
+    const run = (e: KeyboardEvent, id: string): void => {
       e.preventDefault();
       e.stopPropagation();
       void this.reg.run(id);
+    };
+    ed.addEventListener('keydown', (e) => {
+      if (e.defaultPrevented) return;
+      if (e.key === 'Escape' && this.app.comparing) { e.preventDefault(); this.closeCompare?.(); return; }
+      const id = byShortcut.get(comboOf(e));
+      if (!id || !this.reg.supported(id)) return;
+      // num campo da própria barra (título, tamanho da fonte) só os atalhos de app
+      if (isField(e.composedPath()[0]) && !APP_SHORTCUTS.has(id)) return;
+      run(e, id);
+    }, { signal });
+    ed.addEventListener('focusin', () => { lastFocused = new WeakRef(ed); }, { signal });
+    // atalhos de APP com o foco fora do elemento (corpo da página): só se este é
+    // o último <universal-write> focado (ou o único com topbar), e nunca em
+    // campos de outros elementos
+    document.addEventListener('keydown', (e) => {
+      if (e.defaultPrevented) return;
+      const path = e.composedPath();
+      if (path.some((n) => n instanceof HTMLElement && n.localName === 'universal-write')) return;
+      if (isField(path[0])) return;
+      const id = byShortcut.get(comboOf(e));
+      if (!id || !APP_SHORTCUTS.has(id) || !this.reg.supported(id)) return;
+      const last = lastFocused?.deref();
+      const mine = last?.isConnected ? last === ed : document.querySelectorAll('universal-write[topbar]').length === 1;
+      if (mine) run(e, id);
     }, { signal });
 
     // menu de contexto

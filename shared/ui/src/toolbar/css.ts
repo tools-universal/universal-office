@@ -259,7 +259,7 @@ export const BAR_CSS = /* css */ `
 /** Injeta o CSS das barras num shadow root (ou no documento) uma vez. */
 export function ensureBarStyles(root: ShadowRoot | Document = document): void {
   const host = root instanceof Document ? root.head : root;
-  if (host.querySelector(':scope > style[data-uo-bar]')) return;
+  if (host.querySelector('style[data-uo-bar]')) return;
   const s = document.createElement('style');
   s.dataset['uoBar'] = '';
   s.textContent = BAR_CSS;

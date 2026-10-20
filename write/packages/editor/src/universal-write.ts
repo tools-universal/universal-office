@@ -642,6 +642,8 @@ export class UniversalWriteElement extends HTMLElement {
     this.unsubscribeFonts ??= this.fontResolver.onChange((families) => this.onFontsResolved(families));
     this.unsubscribeLang ??= onBrowserLangChange(() => { if (this.initialized && !this.hasAttribute('lang')) void this.updateChrome(); });
     if (this.initialized) this.startCaret();
+    // reconectado: as barras voltam (no disconnect elas se desmontam inteiras)
+    if (this.initialized && !this.chromeSync && (this.topbar || this.bottombar)) void this.updateChrome();
     if (!this.hasAttribute('manual-init')) await this.initialize();
   }
 
@@ -653,6 +655,11 @@ export class UniversalWriteElement extends HTMLElement {
     window.removeEventListener('resize', this.handleWindowResize);
     window.clearInterval(this.caretTimer);
     this.caretTimer = 0;
+    // barras: tira intervalos e ouvintes em document/window (o elemento pode ser coletado)
+    if (this.chromeSync) {
+      this.chromeSync = null;
+      void import('./chrome.js').then((m) => { if (!this.isConnected) m.teardownChrome(this); });
+    }
   }
 
   /**

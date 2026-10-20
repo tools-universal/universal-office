@@ -40,6 +40,18 @@ export interface DialogHandle {
   result: Promise<string | null>;
 }
 
+/** Diálogos abertos (para quem desmonta a interface fechá-los como cancelados). */
+const open = new Set<DialogHandle>();
+
+/**
+ * Fecha como CANCELADOS (a promessa resolve null) os diálogos abertos dentro
+ * de `layer` (ou todos) — também os <dialog> nativos de terceiros ali dentro.
+ */
+export function closeDialogs(layer?: HTMLElement): void {
+  for (const h of [...open]) if (!layer || layer.contains(h.el)) h.close(null);
+  for (const d of layer?.querySelectorAll('dialog') ?? []) if (d.open) d.close();
+}
+
 const txt = (l: Lbl, lang: UiLang): string => (typeof l === 'string' ? l : pickLabels(lang, l));
 
 export function openDialog(opts: DialogOptions): DialogHandle {
@@ -87,6 +99,7 @@ export function openDialog(opts: DialogOptions): DialogHandle {
     close(value = null) {
       if (done) return;
       done = true;
+      open.delete(handle);
       if (dlg.open) dlg.close();
       dlg.remove();
       resolve(value);
@@ -108,6 +121,7 @@ export function openDialog(opts: DialogOptions): DialogHandle {
     if (p) { e.preventDefault(); p.click(); }
   });
   (opts.layer ?? document.body).appendChild(dlg);
+  open.add(handle);
   if (opts.modal === false) dlg.show(); else dlg.showModal();
   const first = body.querySelector<HTMLElement>('input, select, textarea');
   if (first) { first.focus(); if (first instanceof HTMLInputElement) first.select(); }

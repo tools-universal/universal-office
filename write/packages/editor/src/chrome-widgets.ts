@@ -379,17 +379,27 @@ export const tableMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
   },
 }];
 
-// ── tema ──
-export const themeMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] =>
-  ([['auto', 'Automatic', 'Automático', 'brightness_auto'], ['light', 'Light', 'Claro', 'light_mode'],
+// ── tema ── (opt-in: sem atributo `theme` nem escolha, o componente segue a página)
+export const themeMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [
+  {
+    id: 'theme:page', label: { en: 'Follow the page', pt: 'Seguir a página' }, icon: 'web_asset',
+    checked: env.app.mode === null, onClick: () => { setMode(env, null); ctx.after(); },
+  },
+  '-',
+  ...([['auto', 'Automatic', 'Automático', 'brightness_auto'], ['light', 'Light', 'Claro', 'light_mode'],
     ['dark', 'Dark', 'Escuro', 'dark_mode'], ['black', 'Black (dark page)', 'Escuro total (página escura)', 'bedtime']] as const)
     .map(([m, en, pt, icon]): MenuItem => ({
       id: `theme:${m}`, label: { en, pt }, icon, checked: env.app.mode === m,
       onClick: () => { setMode(env, m); ctx.after(); },
-    }));
+    })),
+];
 
-export function setMode(env: WidgetEnv, m: ColorMode): void {
-  env.app.mode = m;
+/** Escolha EXPLÍCITA no menu: vale para esta instância; o atributo `theme`, se houver, acompanha. */
+export function setMode(env: WidgetEnv, m: ColorMode | null): void {
+  env.app.chosenMode = m;
+  env.app.prefs.set('mode', m ?? '');
+  if (m === null) env.ed.removeAttribute('theme');
+  else if (env.ed.hasAttribute('theme')) env.ed.setAttribute('theme', m);
   env.ctl.applyTheme();
 }
 
@@ -397,6 +407,13 @@ export const accentMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
   content: (close) => colorGrid({
     colors: ACCENTS.map((a) => ({ value: a.id, css: a.id === 'neutral' ? 'linear-gradient(135deg,#111 0 50%,#fff 50% 100%)' : a.seed, title: ctx.registry.text(a.label) })),
     columns: 7, selected: env.app.accent, close,
-    onPick: (id) => { env.app.accent = id; env.ctl.applyTheme(); ctx.after(); },
+    onPick: (id) => {
+      // escolher um destaque é pedir o tema do componente (modo automático, se nenhum)
+      env.app.chosenAccent = id;
+      env.app.prefs.set('accent', id);
+      if (env.ed.hasAttribute('accent')) env.ed.setAttribute('accent', id);
+      if (env.app.mode === null) setMode(env, 'auto'); else env.ctl.applyTheme();
+      ctx.after();
+    },
   }),
 }];

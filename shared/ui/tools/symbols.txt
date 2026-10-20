@@ -129,5 +129,6 @@ vertical_align_top
 view_column
 view_compact_alt
 visibility
+web_asset
 zoom_in
 zoom_out

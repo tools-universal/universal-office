@@ -1,8 +1,9 @@
 // Tema das barras: paleta Material 3 gerada pelo ThemeBuilder do
 // @universal-material a partir da cor de destaque, ESCOPADA ao componente
 // (:host — não vaza para a página) e modos de cor. "Escuro total" também
-// escurece a folha (setDarkPage). Preferências no localStorage (as mesmas
-// chaves do demo antigo).
+// escurece a folha (setDarkPage). OPT-IN: só com o atributo `theme`
+// (auto|light|dark|black) ou a escolha explícita no menu; sem isso o
+// componente herda `color-scheme` e `--u-color-*` da página hospedeira.
 import { ThemeBuilder } from '@universal-material/web/theme/index.js';
 
 export type ColorMode = 'auto' | 'light' | 'dark' | 'black';
@@ -28,21 +29,26 @@ function themeCss(seed: string): string {
   return css;
 }
 
-const store = {
-  get: (k: string): string | null => { try { return localStorage.getItem(k); } catch { return null; } },
-  set: (k: string, v: string): void => { try { localStorage.setItem(k, v); } catch { /* privado */ } },
-};
-
-export const savedMode = (): ColorMode => (store.get('uw-mode') as ColorMode | null) ?? 'auto';
-export const savedAccent = (): string => store.get('uw-accent-v2') ?? 'blue';
-
 const prefersDark = (): boolean => typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches;
-export const isDark = (m: ColorMode): boolean => m === 'dark' || m === 'black' || (m === 'auto' && prefersDark());
+export const isDark = (m: ColorMode | null): boolean =>
+  m === 'dark' || m === 'black' || ((m === 'auto' || m === null) && prefersDark());
 
-/** Aplica destaque + modo ao componente (CSS no shadow root, color-scheme no host). */
-export function applyTheme(host: HTMLElement & { setDarkPage(d: boolean): void }, root: ShadowRoot, accent: string, mode: ColorMode, persist = false): void {
+export const isColorMode = (v: string | null): v is ColorMode => v === 'auto' || v === 'light' || v === 'dark' || v === 'black';
+
+/**
+ * Aplica destaque + modo ao componente (CSS no shadow root, color-scheme no
+ * host). `mode` null = não impõe nada: desfaz o que este módulo aplicou.
+ */
+export function applyTheme(host: HTMLElement & { setDarkPage(d: boolean): void }, root: ShadowRoot, accent: string, mode: ColorMode | null): void {
+  let s = root.querySelector<HTMLStyleElement>('style[data-uw-theme]');
+  if (mode === null) {
+    if (!s) return;
+    s.remove();
+    host.style.removeProperty('color-scheme');
+    if (s.dataset['black']) host.setDarkPage(false);
+    return;
+  }
   const seed = (ACCENTS.find((a) => a.id === accent) ?? ACCENTS[0]!).seed;
-  let s = root.querySelector<HTMLStyleElement>(':scope > style[data-uw-theme]');
   if (!s) {
     s = document.createElement('style');
     s.dataset['uwTheme'] = '';
@@ -50,6 +56,7 @@ export function applyTheme(host: HTMLElement & { setDarkPage(d: boolean): void }
   }
   s.textContent = themeCss(seed);
   host.style.colorScheme = mode === 'auto' ? 'light dark' : mode === 'light' ? 'light' : 'dark';
-  host.setDarkPage(mode === 'black');
-  if (persist) { store.set('uw-mode', mode); store.set('uw-accent-v2', accent); }
+  const black = mode === 'black';
+  if (black || s.dataset['black']) host.setDarkPage(black);
+  if (black) s.dataset['black'] = '1'; else delete s.dataset['black'];
 }

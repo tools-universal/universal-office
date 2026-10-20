@@ -2392,7 +2392,7 @@ function vmlShapeStyle(el3, geom) {
   return st;
 }
 function readCustGeom(cg, cx, cy) {
-  const w2 = cx || 1, h3 = cy || 1, ss = Math.min(w2, h3), ls = Math.max(w2, h3);
+  const w2 = cx || 1, h3 = cy || 1, ss = Math.min(w2, h3), ls2 = Math.max(w2, h3);
   const v2 = {
     w: w2,
     h: h3,
@@ -2403,7 +2403,7 @@ function readCustGeom(cg, cx, cy) {
     hc: w2 / 2,
     vc: h3 / 2,
     ss,
-    ls,
+    ls: ls2,
     cd2: 108e5,
     cd4: 54e5,
     cd8: 27e5,
@@ -3614,7 +3614,7 @@ function readParagraph(pEl, ctx) {
   if (capture) captureParagraph(para, pEl, pPrEl, segs, ctx.sources, ctx.sourceXml);
   return para;
 }
-function captureParagraph(para, pEl, pPrEl, segs, store3, xml) {
+function captureParagraph(para, pEl, pPrEl, segs, store, xml) {
   const last = segs[segs.length - 1];
   if (last && last.to < para.runs.length) {
     last.to = para.runs.length;
@@ -3625,10 +3625,10 @@ function captureParagraph(para, pEl, pPrEl, segs, store3, xml) {
     if (seg.wrapOpen !== void 0 && seg.raw.startsWith("<w:hyperlink")) seg.link = para.runs[from]?.props.link ?? "";
     for (let i6 = from; i6 < to; i6++) {
       const run = para.runs[i6];
-      const sid = store3.id();
+      const sid = store.id();
       const el3 = rPrElOf(run);
       const obj = objElOf(run);
-      store3.runs.set(sid, {
+      store.runs.set(sid, {
         ...el3 ? { rPr: xml.slice(el3.s, el3.e) } : {},
         ...obj === true ? { objHead } : obj ? { obj: xml.slice(obj.s, obj.e) } : {}
       });
@@ -3638,7 +3638,7 @@ function captureParagraph(para, pEl, pPrEl, segs, store3, xml) {
     }
   }
   const selfClosing = pEl.cs === pEl.e;
-  store3.addPara(para, {
+  store.addPara(para, {
     raw: xml.slice(pEl.s, pEl.e),
     at: pEl.s,
     open: selfClosing ? xml.slice(pEl.s, pEl.e).replace(/\s*\/>$/, ">") : xml.slice(pEl.s, pEl.cs),
@@ -4456,7 +4456,7 @@ function blockSrc(b5) {
 function storyOf(xml, container) {
   return { open: xml.slice(0, container.cs), close: xml.slice(container.ce), groups: [] };
 }
-function groupOf(xml, child, produced, store3) {
+function groupOf(xml, child, produced, store) {
   const ids = produced.map((b5) => blockSrc(b5) ?? 0);
   const g2 = { raw: xml.slice(child.s, child.e), blocks: ids };
   const content = child.name === "w:sdt" ? firstChild(child, "w:sdtContent") : child.name === "w:customXml" ? child : void 0;
@@ -4470,34 +4470,34 @@ function groupOf(xml, child, produced, store3) {
     g2.wrapClose = xml.slice(content.ce, child.e);
     g2.inner = childElements(content).filter((k2) => !k2.name.endsWith("Pr")).map((k2) => {
       const inside = produced.filter((b5, i6) => {
-        const at = store3.atOf(ids[i6]);
+        const at = store.atOf(ids[i6]);
         return at !== void 0 && at >= k2.s && at < k2.e;
       });
-      return groupOf(xml, k2, inside, store3);
+      return groupOf(xml, k2, inside, store);
     });
   }
   return g2;
 }
-function readHeaderFooterPart(pkg, path, store3) {
+function readHeaderFooterPart(pkg, path, store) {
   const xml = pkg.getPartText(path);
   if (!xml) return void 0;
-  const root = parseXml(xml, { positions: !!store3 });
+  const root = parseXml(xml, { positions: !!store });
   const partName = path.split("/").pop();
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
   let blocks;
-  if (!store3) blocks = readBlocksOf(root, ctx);
+  if (!store) blocks = readBlocksOf(root, ctx);
   else {
-    ctx.sources = store3;
+    ctx.sources = store;
     ctx.sourceXml = xml;
     const story = storyOf(xml, root);
     blocks = [];
     for (const c5 of childElements(root)) {
       const produced = readBlocksOf({ name: root.name, attrs: {}, children: [c5] }, ctx);
-      story.groups.push(groupOf(xml, c5, produced, store3));
+      story.groups.push(groupOf(xml, c5, produced, store));
       blocks.push(...produced);
     }
-    store3.stories.set(path, story);
+    store.stories.set(path, story);
   }
   const paras = [];
   const walk = (bs) => {
@@ -4540,17 +4540,17 @@ function readComments(pkg) {
 }
 function readFullDocument(pkg, opts = {}) {
   const docXml = pkg.documentXml();
-  const store3 = opts.sources ? new SourceStore() : void 0;
-  const root = parseXml(docXml, { positions: !!store3 });
+  const store = opts.sources ? new SourceStore() : void 0;
+  const root = parseXml(docXml, { positions: !!store });
   const body = firstChild(root, "w:body");
   if (!body) throw new Error("w:document sem w:body");
   const ctx = buildReadContext(pkg, "word/_rels/document.xml.rels");
   ctx.readBlocks = readBlocksOf;
-  const story = store3 ? storyOf(docXml, body) : void 0;
-  if (store3) {
-    ctx.sources = store3;
+  const story = store ? storyOf(docXml, body) : void 0;
+  if (store) {
+    ctx.sources = store;
     ctx.sourceXml = docXml;
-    store3.stories.set("word/document.xml", story);
+    store.stories.set("word/document.xml", story);
   }
   const relsXml = pkg.getPartText("word/_rels/document.xml.rels");
   const relTargets = /* @__PURE__ */ new Map();
@@ -4571,7 +4571,7 @@ function readFullDocument(pkg, opts = {}) {
       const type = ref.attrs["w:type"] ?? "default";
       const target = rid && relTargets.get(rid);
       if (target && rid) {
-        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target, store3));
+        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target, store));
         const part = hfCache.get(target);
         if (part) {
           set[type] = part.paras;
@@ -4649,7 +4649,7 @@ function readFullDocument(pkg, opts = {}) {
     }
     if (story) {
       if (child.name === "w:sectPr" && child === bodyKids[bodyKids.length - 1]) story.sectPr = docXml.slice(child.s, child.e);
-      else story.groups.push(groupOf(docXml, child, blocks.slice(before), store3));
+      else story.groups.push(groupOf(docXml, child, blocks.slice(before), store));
     }
   }
   if (sections.length === 0) {
@@ -4657,9 +4657,9 @@ function readFullDocument(pkg, opts = {}) {
   }
   if (blocks.length === 0) blocks.push({ type: "paragraph", paragraph: { runs: [], props: {} } });
   const comments = readComments(pkg);
-  if (store3) {
-    for (const c5 of comments) store3.commentIds.add(c5.id);
-    store3.commentsSig = JSON.stringify(comments);
+  if (store) {
+    for (const c5 of comments) store.commentIds.add(c5.id);
+    store.commentsSig = JSON.stringify(comments);
   }
   const footnoteBlocks = /* @__PURE__ */ new Map();
   const endnoteBlocks = /* @__PURE__ */ new Map();
@@ -4677,7 +4677,7 @@ function readFullDocument(pkg, opts = {}) {
     endnoteBlocks,
     ...readCoreProps(pkg),
     ...readBackground(root),
-    ...store3 ? { sources: store3 } : {}
+    ...store ? { sources: store } : {}
   };
 }
 function readBackground(root) {
@@ -4956,8 +4956,8 @@ var init_model_ops = __esm({
 function splitElement(raw) {
   const el3 = parseXml(raw, { positions: true });
   if (el3.cs === el3.e) {
-    const open = raw.replace(/\s*\/>\s*$/, ">");
-    return { open, close: `</${el3.name}>`, kids: [], el: el3 };
+    const open2 = raw.replace(/\s*\/>\s*$/, ">");
+    return { open: open2, close: `</${el3.name}>`, kids: [], el: el3 };
   }
   const kids = childElements(el3).map((k2) => ({ name: k2.name, raw: raw.slice(k2.s, k2.e), el: k2 }));
   return { open: raw.slice(0, el3.cs), close: raw.slice(el3.ce), kids, el: el3 };
@@ -5020,7 +5020,7 @@ function rPrFromProps(p3, linkAware = true) {
 function patchRPr(raw, run) {
   const p3 = run.props;
   if (raw === void 0) return rPrFromProps(p3);
-  const { open, close, kids, el: el3 } = splitElement(raw);
+  const { open: open2, close, kids, el: el3 } = splitElement(raw);
   const base = editBaseProps(run, readRPr(el3));
   let changed = false;
   const set = (name, xml) => {
@@ -5062,7 +5062,7 @@ function patchRPr(raw, run) {
   if ((p3.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
     set("w:spacing", p3.charSpacingTwips ? `<w:spacing w:val="${p3.charSpacingTwips}"/>` : null);
   }
-  return changed ? join(open, kids, close) : raw;
+  return changed ? join(open2, kids, close) : raw;
 }
 function pprBits(pp, ids) {
   const out = {};
@@ -5119,7 +5119,7 @@ function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
 function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
   const p3 = para.props;
   if (raw === void 0) return pPrFromProps(p3, sect ?? "", ids);
-  const { open, close, kids, el: el3 } = splitElement(raw);
+  const { open: open2, close, kids, el: el3 } = splitElement(raw);
   const base = paraPropsFromPPr(readPPr(el3));
   let changed = false;
   let genNumbering = false;
@@ -5182,10 +5182,10 @@ function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
     const cur = kidRaw(kids, "w:sectPr");
     if ((sect ?? "") !== cur) set("w:sectPr", sect);
   }
-  return { xml: changed ? join(open, kids, close) : raw, genNumbering };
+  return { xml: changed ? join(open2, kids, close) : raw, genNumbering };
 }
 function patchSectPr(raw, cur, refs) {
-  const { open, close, kids, el: el3 } = splitElement(raw);
+  const { open: open2, close, kids, el: el3 } = splitElement(raw);
   const base = readSectPr(el3);
   let changed = false;
   const set = (name, xml) => {
@@ -5230,7 +5230,7 @@ function patchSectPr(raw, cur, refs) {
   if (cur.pgNumStart !== base.pgNumStart) {
     set("w:pgNumType", withAttrs(kidRaw(kids, "w:pgNumType"), "w:pgNumType", { "w:start": cur.pgNumStart }));
   }
-  return changed ? join(open, kids, close) || `${open}${close}` : raw;
+  return changed ? join(open2, kids, close) || `${open2}${close}` : raw;
 }
 var esc, RPR_ORDER, PPR_ORDER, SECT_ORDER, kidRaw, onOff2, join, eq, DEFAULT_NUM_IDS;
 var init_lossless = __esm({
@@ -5346,7 +5346,7 @@ var init_lossless = __esm({
     ];
     kidRaw = (kids, name) => kids.find((k2) => k2.name === name)?.raw ?? "";
     onOff2 = (name, v2) => v2 ? `<${name}/>` : `<${name} w:val="0"/>`;
-    join = (open, kids, close) => kids.length ? open + kids.map((k2) => k2.raw).join("") + close : "";
+    join = (open2, kids, close) => kids.length ? open2 + kids.map((k2) => k2.raw).join("") + close : "";
     eq = (a3, b5) => JSON.stringify(a3 ?? null) === JSON.stringify(b5 ?? null);
     DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
   }
@@ -5574,7 +5574,7 @@ function commentMarks(runs, skip) {
 }
 function runsLossless(para, src, pid, last) {
   const lossless = active;
-  const store3 = lossless.store;
+  const store = lossless.store;
   const segs = src.segs;
   const cur = para.runs;
   const where = /* @__PURE__ */ new Map();
@@ -5592,7 +5592,7 @@ function runsLossless(para, src, pid, last) {
   const take = (gi) => {
     lossless.claimedSegs.add(segKey(gi));
   };
-  const marks = commentMarks(cur, store3.commentIds);
+  const marks = commentMarks(cur, store.commentIds);
   let out = "";
   let pending2 = [];
   const flushGen = () => {
@@ -5615,7 +5615,7 @@ function runsLossless(para, src, pid, last) {
   const firstAtomic = /* @__PURE__ */ new Map();
   for (const r5 of cur) if (r5.props.src !== void 0 && isAtomic(r5) && !firstAtomic.has(r5.props.src)) firstAtomic.set(r5.props.src, r5);
   const markObjects = (g2) => {
-    for (const sid of g2.sids) if (store3.runs.get(sid)?.obj !== void 0) lossless.emittedObj.add(sid);
+    for (const sid of g2.sids) if (store.runs.get(sid)?.obj !== void 0) lossless.emittedObj.add(sid);
   };
   for (let i6 = 0; i6 < cur.length; ) {
     const r5 = cur[i6];
@@ -5635,7 +5635,7 @@ function runsLossless(para, src, pid, last) {
       const g2 = segs[loc[0]];
       let ok = loc[1] === 0 && i6 + g2.sids.length <= cur.length;
       for (let k2 = 0; ok && k2 < g2.sids.length; k2++) ok = cur[i6 + k2].props.src === g2.sids[k2] && intact(cur[i6 + k2]);
-      const fallback = !ok && g2.sids.length === 1 && isAtomic(r5) && firstAtomic.get(r5.props.src) === r5 && !(isObjectRun2(r5) && store3.runs.get(r5.props.src)?.obj !== void 0);
+      const fallback = !ok && g2.sids.length === 1 && isAtomic(r5) && firstAtomic.get(r5.props.src) === r5 && !(isObjectRun2(r5) && store.runs.get(r5.props.src)?.obj !== void 0);
       if (ok || fallback) {
         flushZero(loc[0]);
         flushGen();
@@ -5813,11 +5813,11 @@ function tblPrXml(t5) {
 function tcPrXml(cell) {
   return "<w:tcPr>" + (cell.widthTwips ? `<w:tcW w:w="${cell.widthTwips}" w:type="dxa"/>` : "") + (cell.gridSpan > 1 ? `<w:gridSpan w:val="${cell.gridSpan}"/>` : "") + (cell.borders ? borderSetXml("tcBorders", cell.borders, CELL_SIDES) : "") + (cell.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${escAttr(cell.shadingHex)}"/>` : "") + "</w:tcPr>";
 }
-function storyBlocksXml(story, blocks, store3) {
+function storyBlocksXml(story, blocks, store) {
   countCopies(blocks, active.remaining);
-  return groupsXml(story.groups, blocks, store3);
+  return groupsXml(story.groups, blocks, store);
 }
-function groupsXml(groups, blocks, store3) {
+function groupsXml(groups, blocks, store) {
   const groupOf2 = /* @__PURE__ */ new Map();
   groups.forEach((g2, gi) => g2.blocks.forEach((id) => {
     if (id) groupOf2.set(id, gi);
@@ -5833,7 +5833,7 @@ function groupsXml(groups, blocks, store3) {
   const pristine = (b5) => {
     const id = blockId(b5);
     if (id === void 0 || dup.has(id)) return false;
-    return b5.type === "table" ? store3.tablePristine(b5) : store3.pristine(b5.paragraph);
+    return b5.type === "table" ? store.tablePristine(b5) : store.pristine(b5.paragraph);
   };
   let out = "";
   let zp = 0;
@@ -5863,7 +5863,7 @@ function groupsXml(groups, blocks, store3) {
           return x3 !== void 0 && groupOf2.get(x3) === gi;
         })()) j++;
         const inner = blocks.slice(i6, j);
-        out += g2.wrapOpen + (g2.inner ? groupsXml(g2.inner, inner, store3) : inner.map(blockXml).join("")) + g2.wrapClose;
+        out += g2.wrapOpen + (g2.inner ? groupsXml(g2.inner, inner, store) : inner.map(blockXml).join("")) + g2.wrapClose;
         zp = gi + 1;
         i6 = j;
         continue;
@@ -5905,18 +5905,18 @@ function serializeDocument(model, hfRefs = []) {
   const sect = `<w:sectPr>${sectPrInner(model.sectPr, bodyRefs)}</w:sectPr>`;
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W_NS}><w:body>` + model.paragraphs.map(paraXml).join("") + sect + "</w:body></w:document>";
 }
-function withNamespaces(open, rootName) {
-  const at = open.indexOf(`<${rootName}`);
-  if (at < 0) return open;
-  const end = open.indexOf(">", at);
-  let tag2 = open.slice(at, end);
+function withNamespaces(open2, rootName) {
+  const at = open2.indexOf(`<${rootName}`);
+  if (at < 0) return open2;
+  const end = open2.indexOf(">", at);
+  let tag2 = open2.slice(at, end);
   const need = [
     ["w", "http://schemas.openxmlformats.org/wordprocessingml/2006/main"],
     ["r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"],
     ["wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"]
   ];
   for (const [pfx, uri] of need) if (!new RegExp(`\\sxmlns:${pfx}=`).test(tag2)) tag2 += ` xmlns:${pfx}="${uri}"`;
-  return open.slice(0, at) + tag2 + open.slice(end);
+  return open2.slice(0, at) + tag2 + open2.slice(end);
 }
 function dropCommentMarks(xml, gone) {
   if (gone.size === 0) return xml;
@@ -5995,26 +5995,26 @@ function patchComments(pkg, comments) {
 function writeDocument(pkg, model, hfParts = [], opts = {}) {
   mediaOut = [];
   drawingId = 0;
-  const store3 = opts.sources;
-  if (store3) {
-    store3.beginSave();
-    store3.genNumIds ??= freeNumIds(pkg.getPartText("word/numbering.xml"));
+  const store = opts.sources;
+  if (store) {
+    store.beginSave();
+    store.genNumIds ??= freeNumIds(pkg.getPartText("word/numbering.xml"));
   }
-  active = store3 ? { store: store3, pkg, relsPath: "word/_rels/document.xml.rels", claimed: /* @__PURE__ */ new Set(), genNumbering: false, claimedSegs: /* @__PURE__ */ new Set(), remaining: /* @__PURE__ */ new Map(), paraRuns: [], emittedObj: /* @__PURE__ */ new Set(), numIds: store3.genNumIds } : null;
+  active = store ? { store, pkg, relsPath: "word/_rels/document.xml.rels", claimed: /* @__PURE__ */ new Set(), genNumbering: false, claimedSegs: /* @__PURE__ */ new Set(), remaining: /* @__PURE__ */ new Map(), paraRuns: [], emittedObj: /* @__PURE__ */ new Set(), numIds: store.genNumIds } : null;
   try {
-    writeParts(pkg, model, hfParts, opts, store3);
+    writeParts(pkg, model, hfParts, opts, store);
   } finally {
     active = null;
   }
 }
-function writeParts(pkg, model, hfParts, opts, store3) {
+function writeParts(pkg, model, hfParts, opts, store) {
   const gone = /* @__PURE__ */ new Set();
-  if (store3) {
+  if (store) {
     const now = new Set((opts.comments ?? []).map((c5) => c5.id));
-    for (const id of store3.commentIds) if (!now.has(id)) gone.add(id);
+    for (const id of store.commentIds) if (!now.has(id)) gone.add(id);
   }
-  const commentsUnchanged = store3 !== void 0 && store3.commentsSig === JSON.stringify(opts.comments ?? []);
-  if (store3 && !commentsUnchanged && pkg.getPart("word/comments.xml")) {
+  const commentsUnchanged = store !== void 0 && store.commentsSig === JSON.stringify(opts.comments ?? []);
+  if (store && !commentsUnchanged && pkg.getPart("word/comments.xml")) {
     patchComments(pkg, opts.comments ?? []);
   } else if (!commentsUnchanged && opts.comments && opts.comments.length > 0) {
     const body = opts.comments.map(commentXml).join("");
@@ -6046,11 +6046,11 @@ function writeParts(pkg, model, hfParts, opts, store3) {
     let ct2 = pkg.getPartText("[Content_Types].xml") ?? "";
     for (const hf of hfParts) {
       if (hf.dirty || !pkg.getPart(hf.path)) {
-        const story2 = store3?.stories.get(hf.path);
+        const story2 = store?.stories.get(hf.path);
         if (active && story2) {
           active.relsPath = `word/_rels/${hf.path.split("/").pop()}.rels`;
           const blocks = hf.blocks ?? hf.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
-          const xml = withNamespaces(story2.open, hf.kind === "header" ? "w:hdr" : "w:ftr") + storyBlocksXml(story2, blocks, store3) + story2.close;
+          const xml = withNamespaces(story2.open, hf.kind === "header" ? "w:hdr" : "w:ftr") + storyBlocksXml(story2, blocks, store) + story2.close;
           pkg.setPartText(hf.path, dropCommentMarks(xml, gone));
           active.relsPath = relsPath2;
         } else {
@@ -6080,13 +6080,13 @@ function writeParts(pkg, model, hfParts, opts, store3) {
     paragraphs: [],
     dirty: false
   })) : hfParts;
-  const story = store3?.stories.get("word/document.xml");
+  const story = store?.stories.get("word/document.xml");
   if (active && story) {
     active.relsPath = "word/_rels/document.xml.rels";
     const blocks = opts.blocks ?? model.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
     const refs = bodyRefs.map((h3) => ({ kind: h3.kind, type: h3.type, rid: h3.rid }));
     const sect = story.sectPr ? patchSectPr(story.sectPr, model.sectPr, refs) : `<w:sectPr>${sectPrInner(model.sectPr, refs)}</w:sectPr>`;
-    const xml = withNamespaces(story.open, "w:document") + storyBlocksXml(story, blocks, store3) + sect + story.close;
+    const xml = withNamespaces(story.open, "w:document") + storyBlocksXml(story, blocks, store) + sect + story.close;
     pkg.setPartText("word/document.xml", dropCommentMarks(xml, gone));
   } else {
     pkg.setPartText(
@@ -9472,7 +9472,7 @@ function pPrInner(pap, touched, ctx, o6 = {}) {
   if (t5("adjustRight")) x3 += onOff3("w:adjustRightInd", pap.adjustRight);
   if (t5("usePgsuSettings")) x3 += onOff3("w:snapToGrid", pap.usePgsuSettings);
   if (t5("dyaBefore") || t5("dyaAfter") || t5("lineSpacing") || t5("beforeAuto") || t5("afterAuto") || t5("dylBefore") || t5("dylAfter")) {
-    const ls = pap.lineSpacing;
+    const ls2 = pap.lineSpacing;
     x3 += el("w:spacing", {
       "w:before": t5("dyaBefore") ? pap.dyaBefore : void 0,
       "w:beforeLines": t5("dylBefore") ? pap.dylBefore : void 0,
@@ -9480,8 +9480,8 @@ function pPrInner(pap, touched, ctx, o6 = {}) {
       "w:after": t5("dyaAfter") ? pap.dyaAfter : void 0,
       "w:afterLines": t5("dylAfter") ? pap.dylAfter : void 0,
       "w:afterAutospacing": t5("afterAuto") ? pap.afterAuto ? "1" : "0" : void 0,
-      "w:line": t5("lineSpacing") && ls ? Math.abs(ls.line) : void 0,
-      "w:lineRule": t5("lineSpacing") && ls ? ls.mult ? "auto" : ls.line < 0 ? "exact" : "atLeast" : void 0
+      "w:line": t5("lineSpacing") && ls2 ? Math.abs(ls2.line) : void 0,
+      "w:lineRule": t5("lineSpacing") && ls2 ? ls2.mult ? "auto" : ls2.line < 0 ? "exact" : "atLeast" : void 0
     });
   }
   if (t5("dxaLeft") || t5("dxaRight") || t5("dxaLeft1") || t5("dxcLeft") || t5("dxcRight") || t5("dxcLeft1")) {
@@ -12982,9 +12982,9 @@ function readRawStyle(st) {
     graphic: firstChild(st, "style:graphic-properties")
   };
 }
-function readListStyle(ls) {
+function readListStyle(ls2) {
   const levels = /* @__PURE__ */ new Map();
-  for (const lvl of childElements(ls)) {
+  for (const lvl of childElements(ls2)) {
     const level = parseInt(lvl.attrs["text:level"] ?? "1", 10);
     if (lvl.name === "text:list-level-style-bullet") {
       levels.set(level, "bullet");
@@ -16091,6 +16091,7 @@ var init_symbols = __esm({
       "view_column": "M121-280V-680Q121-713 144.5-736.5Q168-760 201-760H760Q793-760 816.5-736.5Q840-713 840-680V-280Q840-247 816.5-223.5Q793-200 760-200H201Q168-200 144.5-223.5Q121-247 121-280ZM200-280H333Q333-280 333-280Q333-280 333-280V-680Q333-680 333-680Q333-680 333-680H200Q200-680 200-680Q200-680 200-680V-280Q200-280 200-280Q200-280 200-280ZM413-280H546Q546-280 546-280Q546-280 546-280V-680Q546-680 546-680Q546-680 546-680H413Q413-680 413-680Q413-680 413-680V-280Q413-280 413-280Q413-280 413-280ZM626-280H759Q759-280 759-280Q759-280 759-280V-680Q759-680 759-680Q759-680 759-680H626Q626-680 626-680Q626-680 626-680V-280Q626-280 626-280Q626-280 626-280Z",
       "view_compact_alt": "M340-300H420Q437-300 448.5-311.5Q460-323 460-340V-420Q460-437 448.5-448.5Q437-460 420-460H340Q323-460 311.5-448.5Q300-437 300-420V-340Q300-323 311.5-311.5Q323-300 340-300ZM340-500H420Q437-500 448.5-511.5Q460-523 460-540V-620Q460-637 448.5-648.5Q437-660 420-660H340Q323-660 311.5-648.5Q300-637 300-620V-540Q300-523 311.5-511.5Q323-500 340-500ZM540-300H620Q637-300 648.5-311.5Q660-323 660-340V-420Q660-437 648.5-448.5Q637-460 620-460H540Q523-460 511.5-448.5Q500-437 500-420V-340Q500-323 511.5-311.5Q523-300 540-300ZM540-500H620Q637-500 648.5-511.5Q660-523 660-540V-620Q660-637 648.5-648.5Q637-660 620-660H540Q523-660 511.5-648.5Q500-637 500-620V-540Q500-523 511.5-511.5Q523-500 540-500ZM160-160Q127-160 103.5-183.5Q80-207 80-240V-720Q80-753 103.5-776.5Q127-800 160-800H800Q833-800 856.5-776.5Q880-753 880-720V-240Q880-207 856.5-183.5Q833-160 800-160ZM160-240H800Q800-240 800-240Q800-240 800-240V-720Q800-720 800-720Q800-720 800-720H160Q160-720 160-720Q160-720 160-720V-240Q160-240 160-240Q160-240 160-240ZM160-240Q160-240 160-240Q160-240 160-240V-720Q160-720 160-720Q160-720 160-720Q160-720 160-720Q160-720 160-720V-240Q160-240 160-240Q160-240 160-240Z",
       "visibility": "M480-320Q555-320 607.5-372.5Q660-425 660-500Q660-575 607.5-627.5Q555-680 480-680Q405-680 352.5-627.5Q300-575 300-500Q300-425 352.5-372.5Q405-320 480-320ZM480-392Q435-392 403.5-423.5Q372-455 372-500Q372-545 403.5-576.5Q435-608 480-608Q525-608 556.5-576.5Q588-545 588-500Q588-455 556.5-423.5Q525-392 480-392ZM61-462Q56-471 53.5-480.5Q51-490 51-500Q51-510 53.5-519.5Q56-529 61-538Q125-656 235.5-728Q346-800 480-800Q614-800 724.5-728Q835-656 899-538Q904-529 906.5-519.5Q909-510 909-500Q909-490 906.5-480.5Q904-471 899-462Q835-344 724.5-272Q614-200 480-200Q346-200 235.5-272Q125-344 61-462ZM480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500ZM832-500Q782-601 687.5-660.5Q593-720 480-720Q367-720 272.5-660.5Q178-601 128-500Q178-399 272.5-339.5Q367-280 480-280Q593-280 687.5-339.5Q782-399 832-500Z",
+      "web_asset": "M160-160Q127-160 103.5-183.5Q80-207 80-240V-720Q80-753 103.5-776.5Q127-800 160-800H800Q833-800 856.5-776.5Q880-753 880-720V-240Q880-207 856.5-183.5Q833-160 800-160ZM160-240H800Q800-240 800-240Q800-240 800-240V-640H160V-240Q160-240 160-240Q160-240 160-240Z",
       "zoom_in": "M340-540H300Q283-540 271.5-551.5Q260-563 260-580Q260-597 271.5-608.5Q283-620 300-620H340V-660Q340-677 351.5-688.5Q363-700 380-700Q397-700 408.5-688.5Q420-677 420-660V-620H460Q477-620 488.5-608.5Q500-597 500-580Q500-563 488.5-551.5Q477-540 460-540H420V-500Q420-483 408.5-471.5Q397-460 380-460Q363-460 351.5-471.5Q340-483 340-500ZM380-320Q271-320 195.5-395.5Q120-471 120-580Q120-689 195.5-764.5Q271-840 380-840Q489-840 564.5-764.5Q640-689 640-580Q640-536 626-497Q612-458 588-428L812-204Q823-193 823-176Q823-159 812-148Q801-137 784-137Q767-137 756-148L532-372Q502-348 463-334Q424-320 380-320ZM380-400Q455-400 507.5-452.5Q560-505 560-580Q560-655 507.5-707.5Q455-760 380-760Q305-760 252.5-707.5Q200-655 200-580Q200-505 252.5-452.5Q305-400 380-400Z",
       "zoom_out": "M320-540Q303-540 291.5-551.5Q280-563 280-580Q280-597 291.5-608.5Q303-620 320-620H440Q457-620 468.5-608.5Q480-597 480-580Q480-563 468.5-551.5Q457-540 440-540ZM380-320Q271-320 195.5-395.5Q120-471 120-580Q120-689 195.5-764.5Q271-840 380-840Q489-840 564.5-764.5Q640-689 640-580Q640-536 626-497Q612-458 588-428L812-204Q823-193 823-176Q823-159 812-148Q801-137 784-137Q767-137 756-148L532-372Q502-348 463-334Q424-320 380-320ZM380-400Q455-400 507.5-452.5Q560-505 560-580Q560-655 507.5-707.5Q455-760 380-760Q305-760 252.5-707.5Q200-655 200-580Q200-505 252.5-452.5Q305-400 380-400Z"
     };
@@ -16308,8 +16309,8 @@ function openMenu(src, at, opts = {}) {
         break;
       case "ArrowRight": {
         handled();
-        const open = items2[i6]?._openSub;
-        if (open) open(true);
+        const open2 = items2[i6]?._openSub;
+        if (open2) open2(true);
         else rootOpts?.onNavigate?.(1);
         break;
       }
@@ -16368,6 +16369,10 @@ var init_menu = __esm({
 });
 
 // ../../../shared/ui/src/toolbar/dialog.ts
+function closeDialogs(layer) {
+  for (const h3 of [...open]) if (!layer || layer.contains(h3.el)) h3.close(null);
+  for (const d3 of layer?.querySelectorAll("dialog") ?? []) if (d3.open) d3.close();
+}
 function openDialog(opts) {
   const lang = opts.lang ?? DEFAULT_UI_LANG;
   const L3 = pickLabels(lang, LABELS2);
@@ -16413,6 +16418,7 @@ function openDialog(opts) {
     close(value = null) {
       if (done) return;
       done = true;
+      open.delete(handle);
       if (dlg.open) dlg.close();
       dlg.remove();
       resolve(value);
@@ -16438,6 +16444,7 @@ function openDialog(opts) {
     }
   });
   (opts.layer ?? document.body).appendChild(dlg);
+  open.add(handle);
   if (opts.modal === false) dlg.show();
   else dlg.showModal();
   const first = body.querySelector("input, select, textarea");
@@ -16479,7 +16486,7 @@ function showToast(layer, message, ms = 2600) {
   layer.appendChild(t5);
   window.setTimeout(() => t5.remove(), ms);
 }
-var LABELS2, txt;
+var LABELS2, open, txt;
 var init_dialog = __esm({
   "../../../shared/ui/src/toolbar/dialog.ts"() {
     "use strict";
@@ -16489,6 +16496,7 @@ var init_dialog = __esm({
       en: { ok: "OK", cancel: "Cancel", close: "Close" },
       pt: { ok: "OK", cancel: "Cancelar", close: "Fechar" }
     };
+    open = /* @__PURE__ */ new Set();
     txt = (l3, lang) => typeof l3 === "string" ? l3 : pickLabels(lang, l3);
   }
 });
@@ -17324,7 +17332,7 @@ var init_colors = __esm({
 // ../../../shared/ui/src/toolbar/css.ts
 function ensureBarStyles(root = document) {
   const host = root instanceof Document ? root.head : root;
-  if (host.querySelector(":scope > style[data-uo-bar]")) return;
+  if (host.querySelector("style[data-uo-bar]")) return;
   const s4 = document.createElement("style");
   s4.dataset["uoBar"] = "";
   s4.textContent = BAR_CSS;
@@ -22198,9 +22206,16 @@ function themeCss(seed) {
   }
   return css2;
 }
-function applyTheme(host, root, accent2, mode, persist = false) {
+function applyTheme(host, root, accent2, mode) {
+  let s4 = root.querySelector("style[data-uw-theme]");
+  if (mode === null) {
+    if (!s4) return;
+    s4.remove();
+    host.style.removeProperty("color-scheme");
+    if (s4.dataset["black"]) host.setDarkPage(false);
+    return;
+  }
   const seed = (ACCENTS.find((a3) => a3.id === accent2) ?? ACCENTS[0]).seed;
-  let s4 = root.querySelector(":scope > style[data-uw-theme]");
   if (!s4) {
     s4 = document.createElement("style");
     s4.dataset["uwTheme"] = "";
@@ -22208,13 +22223,12 @@ function applyTheme(host, root, accent2, mode, persist = false) {
   }
   s4.textContent = themeCss(seed);
   host.style.colorScheme = mode === "auto" ? "light dark" : mode === "light" ? "light" : "dark";
-  host.setDarkPage(mode === "black");
-  if (persist) {
-    store.set("uw-mode", mode);
-    store.set("uw-accent-v2", accent2);
-  }
+  const black = mode === "black";
+  if (black || s4.dataset["black"]) host.setDarkPage(black);
+  if (black) s4.dataset["black"] = "1";
+  else delete s4.dataset["black"];
 }
-var ACCENTS, cache, store, savedMode, savedAccent, prefersDark, isDark2;
+var ACCENTS, cache, prefersDark, isDark2, isColorMode;
 var init_chrome_theme = __esm({
   "src/chrome-theme.ts"() {
     "use strict";
@@ -22229,7 +22243,31 @@ var init_chrome_theme = __esm({
       { id: "neutral", seed: "#5F6368", label: { en: "Neutral", pt: "Neutro" } }
     ];
     cache = /* @__PURE__ */ new Map();
-    store = {
+    prefersDark = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches;
+    isDark2 = (m2) => m2 === "dark" || m2 === "black" || (m2 === "auto" || m2 === null) && prefersDark();
+    isColorMode = (v2) => v2 === "auto" || v2 === "light" || v2 === "dark" || v2 === "black";
+  }
+});
+
+// src/chrome-store.ts
+function instanceStore(el3) {
+  const key = () => el3.getAttribute("storage-key") || el3.id || null;
+  return {
+    get: (name) => {
+      const k2 = key();
+      return k2 ? ls.get(`uw:${k2}:${name}`) : null;
+    },
+    set: (name, v2) => {
+      const k2 = key();
+      if (k2) ls.set(`uw:${k2}:${name}`, v2);
+    }
+  };
+}
+var ls, originStore;
+var init_chrome_store = __esm({
+  "src/chrome-store.ts"() {
+    "use strict";
+    ls = {
       get: (k2) => {
         try {
           return localStorage.getItem(k2);
@@ -22244,10 +22282,7 @@ var init_chrome_theme = __esm({
         }
       }
     };
-    savedMode = () => store.get("uw-mode") ?? "auto";
-    savedAccent = () => store.get("uw-accent-v2") ?? "blue";
-    prefersDark = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches;
-    isDark2 = (m2) => m2 === "dark" || m2 === "black" || m2 === "auto" && prefersDark();
+    originStore = ls;
   }
 });
 
@@ -22273,7 +22308,7 @@ function appFor(ed) {
   }
   return a3;
 }
-var MIME2, picker, store2, WriteApp, apps;
+var MIME2, picker, WriteApp, apps;
 var init_chrome_app = __esm({
   "src/chrome-app.ts"() {
     "use strict";
@@ -22282,41 +22317,81 @@ var init_chrome_app = __esm({
     init_chrome_host();
     init_chrome_recents();
     init_chrome_theme();
+    init_chrome_store();
     MIME2 = {
       docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       odt: "application/vnd.oasis.opendocument.text"
     };
     picker = () => typeof window !== "undefined" ? window : {};
-    store2 = {
-      get: (k2) => {
-        try {
-          return localStorage.getItem(k2);
-        } catch {
-          return null;
-        }
-      },
-      set: (k2, v2) => {
-        try {
-          localStorage.setItem(k2, v2);
-        } catch {
-        }
-      }
-    };
     WriteApp = class _WriteApp {
       constructor(ed) {
         this.ed = ed;
+        this.prefs = instanceStore(ed);
+        const m2 = this.prefs.get("mode");
+        this.chosenMode = isColorMode(m2) ? m2 : null;
+        this.chosenAccent = this.prefs.get("accent");
+        this.commentsVisible = this.prefs.get("comments") !== "0";
+      }
+      ed;
+      ui = null;
+      title = "";
+      format = "docx";
+      dirty = false;
+      comparing = false;
+      recents = [];
+      /** modo de cor ESCOLHIDO no menu (null = não escolhido; vale o atributo `theme`) */
+      chosenMode;
+      chosenAccent;
+      commentsVisible;
+      prefs;
+      activeCommentIds = [];
+      lastColor = "C00000";
+      lastHighlight = "yellow";
+      lastShading = "FFFF00";
+      fileHandle = null;
+      changeSeq = 0;
+      lastAutosave = Date.now();
+      trustKey = null;
+      trusted = new Set(JSON.parse(originStore.get("uw-trusted") ?? "[]"));
+      wasProtected = false;
+      enabledByUser = false;
+      fontNote = "";
+      boundHost = void 0;
+      detachFn = null;
+      /** o hospedeiro tratou um uw-save-request: ele é dono do salvar (sem autosave nem aviso ao sair) */
+      hostOwnsSave = false;
+      /** Modo efetivo: o atributo `theme` manda; senão a escolha no menu; senão nenhum (herda a página). */
+      get mode() {
+        const a3 = this.ed.getAttribute("theme");
+        return isColorMode(a3) ? a3 : this.chosenMode;
+      }
+      get accent() {
+        return this.ed.getAttribute("accent") || this.chosenAccent || "blue";
+      }
+      /**
+       * Liga os ouvintes de aplicativo (barra montada e elemento no documento).
+       * detach() tira TODOS — intervalo, beforeunload e eventos — para o elemento
+       * (e este objeto, no WeakMap) poder ser coletado ao sair da página.
+       */
+      attach() {
+        if (this.detachFn) return;
+        const ed = this.ed;
+        const ac = new AbortController();
+        const signal = ac.signal;
+        let autosaveTimer = 0;
         ed.addEventListener("uw-change", () => {
           this.changeSeq++;
           this.setDirty(true);
-          window.setTimeout(() => this.checkAutosave(), 800);
-        });
-        window.setInterval(() => this.checkAutosave(), 15e3);
+          window.clearTimeout(autosaveTimer);
+          autosaveTimer = window.setTimeout(() => this.checkAutosave(), 800);
+        }, { signal });
+        const interval = window.setInterval(() => this.checkAutosave(), 15e3);
         window.addEventListener("beforeunload", (e6) => {
-          if (this.dirty && !hostOf(ed)?.setDirty && this.ui) e6.preventDefault();
-        });
+          if (this.wantsUnloadPrompt()) e6.preventDefault();
+        }, { signal });
         ed.addEventListener("uw-font-embedding", ((e6) => {
           this.fontNote = describeFontEmbedding(e6.detail, ed);
-        }));
+        }), { signal });
         ed.addEventListener("uw-protected", ((e6) => {
           this.ui?.protectedChanged(e6.detail.active);
           if (this.enabledByUser && e6.detail.hasFields) void this.askUpdateFields();
@@ -22329,47 +22404,55 @@ var init_chrome_app = __esm({
             }
           }
           this.wasProtected = e6.detail.active;
-        }));
+        }), { signal });
         ed.addEventListener("uw-blocked", () => {
           this.ui?.pulseEnable();
           this.ui?.flash(this.ui.L.blocked);
-        });
+        }, { signal });
         void listRecents().then((r5) => {
-          this.recents = r5;
-          this.ui?.sync();
+          if (!signal.aborted) {
+            this.recents = r5;
+            this.ui?.sync();
+          }
         });
+        this.detachFn = () => {
+          ac.abort();
+          window.clearInterval(interval);
+          window.clearTimeout(autosaveTimer);
+        };
       }
-      ed;
-      ui = null;
-      title = "";
-      format = "docx";
-      dirty = false;
-      comparing = false;
-      recents = [];
-      mode = savedMode();
-      accent = savedAccent();
-      commentsVisible = store2.get("uw-inline-comments") !== "0";
-      activeCommentIds = [];
-      lastColor = "C00000";
-      lastHighlight = "yellow";
-      lastShading = "FFFF00";
-      fileHandle = null;
-      changeSeq = 0;
-      lastAutosave = Date.now();
-      trustKey = null;
-      trusted = new Set(JSON.parse(store2.get("uw-trusted") ?? "[]"));
-      wasProtected = false;
-      enabledByUser = false;
-      fontNote = "";
-      boundHost = void 0;
+      detach() {
+        this.detachFn?.();
+        this.detachFn = null;
+        this.ui = null;
+      }
+      get attached() {
+        return this.detachFn !== null;
+      }
+      /** Aviso do navegador ao sair com alterações: só quando ninguém mais cuida disso. */
+      wantsUnloadPrompt() {
+        return this.dirty && !!this.ui && !this.ed.hasAttribute("nounloadprompt") && !hostOf(this.ed)?.setDirty && !this.hostOwnsSave;
+      }
+      /**
+       * Pergunta ao hospedeiro se ELE trata a ação (evento cancelável
+       * `uw-save-request` / `uw-open-request`). Tratou → a barra não faz nada.
+       */
+      requestFromHost(kind, detail = {}) {
+        const ev = new CustomEvent(`uw-${kind}-request`, { detail, cancelable: true, bubbles: true, composed: true });
+        this.ed.dispatchEvent(ev);
+        if (ev.defaultPrevented && kind === "save") this.hostOwnsSave = true;
+        return ev.defaultPrevented;
+      }
       /** Liga o host (pode ser atribuído depois de a barra montar). */
       bindHost() {
         const host = hostOf(this.ed);
         if (host === this.boundHost) return;
         this.boundHost = host;
+        const ref = new WeakRef(this);
         host?.onSaveBeforeClose?.(() => {
-          void this.save(false).then((ok) => {
-            if (ok && !this.dirty) hostOf(this.ed)?.closeWindow?.();
+          const app = ref.deref();
+          void app?.save(false).then((ok) => {
+            if (ok && !app.dirty) hostOf(app.ed)?.closeWindow?.();
           });
         });
         this.syncDirty();
@@ -22395,7 +22478,7 @@ var init_chrome_app = __esm({
       rememberTrust(key) {
         if (!key) return;
         this.trusted.add(key);
-        store2.set("uw-trusted", JSON.stringify([...this.trusted]));
+        originStore.set("uw-trusted", JSON.stringify([...this.trusted]));
       }
       static keyOf(f3) {
         return `${f3.name}|${f3.size}|${f3.lastModified}`;
@@ -22443,6 +22526,7 @@ var init_chrome_app = __esm({
         return this.openBytes(bytes, file.name, handle, { trustKey: _WriteApp.keyOf(file) });
       }
       async open() {
+        if (this.requestFromHost("open")) return;
         const host = hostOf(this.ed);
         if (host?.openFile) {
           let r5 = null;
@@ -22501,6 +22585,7 @@ var init_chrome_app = __esm({
       }
       /** Salva; true = gravado (cancelado/falhou: false, segue pendente). */
       async save(saveAs) {
+        if (this.requestFromHost("save", { saveAs, format: this.format })) return true;
         const L3 = this.ui?.L;
         let fmt2 = this.format;
         const host = hostOf(this.ed);
@@ -22562,15 +22647,21 @@ var init_chrome_app = __esm({
         return true;
       }
       get autosaveMinutes() {
-        return parseFloat(store2.get("uw-autosave-min") ?? "10");
+        return parseFloat(this.prefs.get("autosave") ?? this.autosaveSession ?? "10");
       }
       set autosaveMinutes(n5) {
-        store2.set("uw-autosave-min", String(n5));
+        this.autosaveSession = String(n5);
+        this.prefs.set("autosave", String(n5));
         const L3 = this.ui?.L;
         if (L3) this.ui?.flash(n5 <= 0 ? L3.autosaveOff : L3.autosaveEvery(String(n5)));
       }
       /** Salvamento automático (AutoRecuperação do Word: 10 min por padrão). */
+      autosaveSession = null;
+      get autosaveEnabled() {
+        return !this.ed.hasAttribute("noautosave") && !this.hostOwnsSave;
+      }
       checkAutosave() {
+        if (!this.autosaveEnabled) return;
         const min = this.autosaveMinutes;
         if (min <= 0 || !this.dirty || !this.ui) return;
         if (Date.now() - this.lastAutosave < min * 6e4) return;
@@ -22638,7 +22729,7 @@ var init_chrome_app = __esm({
         this.ed.focusEditor();
       }
       get lang() {
-        return this.ui?.L.decimal === "," ? "pt" : "en";
+        return uiLang(this.ed);
       }
       // ───── comparar ─────
       async pickForCompare() {
@@ -22959,7 +23050,7 @@ async function paragraphDialog(env) {
   const pt = (tw2) => String(Math.round((tw2 ?? 0) / 2) / 10);
   const before = el2("input", { type: "number", name: "before", min: "0", step: "6", value: pt(p3.spaceBeforeTwips) });
   const after = el2("input", { type: "number", name: "after", min: "0", step: "6", value: pt(p3.spaceAfterTwips) });
-  const dec = lang === "pt" ? "," : ".";
+  const dec = tr(lang, ".", ",");
   const line = select(
     "line",
     [["240", `1${dec}0`], ["259", `1${dec}08`], ["276", `1${dec}15`], ["360", `1${dec}5`], ["480", `2${dec}0`]],
@@ -23037,7 +23128,7 @@ async function pageDialog(env) {
 function wordCountDialog(env) {
   const L3 = env.app.ui.L;
   const s4 = env.ed.stats();
-  const fmt2 = (n5) => n5.toLocaleString(env.lang === "pt" ? "pt-BR" : "en-US");
+  const fmt2 = (n5) => n5.toLocaleString(tr(env.lang, "en-US", "pt-BR"));
   const grid = el2(
     "div",
     { className: "uo-dialog-grid" },
@@ -23084,7 +23175,7 @@ var init_chrome_dialogs = __esm({
       const i6 = el2("input", { type: "checkbox", name, checked: on });
       return el2("label", { className: "uo-check" }, i6, label);
     };
-    tr = (lang, en, pt) => lang === "pt" ? pt : en;
+    tr = (lang, en, pt) => pickLabels(lang, { en, pt });
     SHORTCUTS = [
       ["Ctrl+O", "Open", "Abrir"],
       ["Ctrl+S", "Save", "Salvar"],
@@ -23302,7 +23393,10 @@ function btn(cls, id, title) {
   return b5;
 }
 function setMode(env, m2) {
-  env.app.mode = m2;
+  env.app.chosenMode = m2;
+  env.app.prefs.set("mode", m2 ?? "");
+  if (m2 === null) env.ed.removeAttribute("theme");
+  else if (env.ed.hasAttribute("theme")) env.ed.setAttribute("theme", m2);
   env.ctl.applyTheme();
 }
 var t4, canEdit, titleWidget, saveWidget, styleWidget, fontWidget, SIZES, sizeWidget, zoomItem, moreColors, colorMenu, highlightMenu, shadingMenu, lineSpacingMenu, paragraphSpacingMenu, charSpacingMenu, specialIndentMenu, pageItems, orientationMenu, sizeMenu, marginsMenu, caseMenu, fieldsMenu, SYMBOL_CHARS, symbolMenu, tableMenu, themeMenu, accentMenu;
@@ -23761,20 +23855,33 @@ var init_chrome_widgets = __esm({
       }
     }];
     themeMenu = (env, ctx) => [
-      ["auto", "Automatic", "Autom\xE1tico", "brightness_auto"],
-      ["light", "Light", "Claro", "light_mode"],
-      ["dark", "Dark", "Escuro", "dark_mode"],
-      ["black", "Black (dark page)", "Escuro total (p\xE1gina escura)", "bedtime"]
-    ].map(([m2, en, pt, icon]) => ({
-      id: `theme:${m2}`,
-      label: { en, pt },
-      icon,
-      checked: env.app.mode === m2,
-      onClick: () => {
-        setMode(env, m2);
-        ctx.after();
-      }
-    }));
+      {
+        id: "theme:page",
+        label: { en: "Follow the page", pt: "Seguir a p\xE1gina" },
+        icon: "web_asset",
+        checked: env.app.mode === null,
+        onClick: () => {
+          setMode(env, null);
+          ctx.after();
+        }
+      },
+      "-",
+      ...[
+        ["auto", "Automatic", "Autom\xE1tico", "brightness_auto"],
+        ["light", "Light", "Claro", "light_mode"],
+        ["dark", "Dark", "Escuro", "dark_mode"],
+        ["black", "Black (dark page)", "Escuro total (p\xE1gina escura)", "bedtime"]
+      ].map(([m2, en, pt, icon]) => ({
+        id: `theme:${m2}`,
+        label: { en, pt },
+        icon,
+        checked: env.app.mode === m2,
+        onClick: () => {
+          setMode(env, m2);
+          ctx.after();
+        }
+      }))
+    ];
     accentMenu = (env, ctx) => [{
       content: (close) => colorGrid({
         colors: ACCENTS.map((a3) => ({ value: a3.id, css: a3.id === "neutral" ? "linear-gradient(135deg,#111 0 50%,#fff 50% 100%)" : a3.seed, title: ctx.registry.text(a3.label) })),
@@ -23782,8 +23889,11 @@ var init_chrome_widgets = __esm({
         selected: env.app.accent,
         close,
         onPick: (id) => {
-          env.app.accent = id;
-          env.ctl.applyTheme();
+          env.app.chosenAccent = id;
+          env.app.prefs.set("accent", id);
+          if (env.ed.hasAttribute("accent")) env.ed.setAttribute("accent", id);
+          if (env.app.mode === null) setMode(env, "auto");
+          else env.ctl.applyTheme();
           ctx.after();
         }
       })
@@ -25722,6 +25832,11 @@ __export(chrome_exports, {
   setupChrome: () => setupChrome,
   teardownChrome: () => teardownChrome
 });
+function isField(t5) {
+  if (!(t5 instanceof HTMLElement)) return false;
+  if (t5.isContentEditable) return true;
+  return /^(INPUT|TEXTAREA|SELECT)$/.test(t5.tagName) && !t5.classList.contains("proxy");
+}
 function comboOf(e6) {
   const code = e6.code;
   let k2 = code.startsWith("Key") ? code.slice(3) : code.startsWith("Digit") ? code.slice(5) : { Equal: "=", Minus: "-", BracketLeft: "[", BracketRight: "]", Slash: "/", Space: "Space", Enter: "Enter", IntlRo: "/" }[code] ?? e6.key;
@@ -25738,7 +25853,7 @@ function teardownChrome(editor) {
   chromes.get(editor)?.destroy();
   chromes.delete(editor);
 }
-var CHROME_CSS, EDITOR_KEYS, WriteChrome, chromes;
+var CHROME_CSS, EDITOR_KEYS, APP_SHORTCUTS, lastFocused, WriteChrome, chromes;
 var init_chrome = __esm({
   "src/chrome.ts"() {
     "use strict";
@@ -25847,6 +25962,8 @@ var init_chrome = __esm({
 .uw-drop[hidden] { display: none; }
 `;
     EDITOR_KEYS = /* @__PURE__ */ new Set(["Ctrl+C", "Ctrl+X", "Ctrl+V", "Ctrl+Shift+V", "Ctrl+Z", "Ctrl+Y", "Ctrl+A", "Ctrl+B", "Ctrl+I", "Ctrl+U", "Ctrl+E", "Ctrl+L", "Ctrl+R", "Ctrl+J", "Ctrl+Enter"]);
+    APP_SHORTCUTS = /* @__PURE__ */ new Set(["open", "save", "saveAs", "print", "find", "replace"]);
+    lastFocused = null;
     WriteChrome = class {
       constructor(ed, topEl, bottomEl, opts) {
         this.ed = ed;
@@ -25856,13 +25973,13 @@ var init_chrome = __esm({
         this.lang = opts.lang;
         this.L = pickLabels(opts.lang, LABELS3);
         ensureBarStyles(this.root);
-        if (!this.root.querySelector(":scope > style[data-uw-chrome]")) {
+        if (!this.root.querySelector("style[data-uw-chrome]")) {
           const s4 = document.createElement("style");
           s4.dataset["uwChrome"] = "";
           s4.textContent = CHROME_CSS;
           this.root.appendChild(s4);
         }
-        this.layer = this.root.querySelector(":scope > .uw-layer") ?? this.makeLayer();
+        this.layer = this.root.querySelector(".uw-layer") ?? this.makeLayer();
         this.layer.replaceChildren();
         const app = this.app = appFor(ed);
         app.ui = {
@@ -25880,9 +25997,10 @@ var init_chrome = __esm({
           }
         };
         if (!app.title) app.title = this.L.untitled;
+        app.attach();
         app.bindHost();
         bindHostFonts(hostOf(ed));
-        this.applyTheme(false);
+        this.applyTheme();
         this.reg = new CommandRegistry(opts.lang);
         this.reg.afterRun = () => this.after();
         this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after() };
@@ -25899,10 +26017,23 @@ var init_chrome = __esm({
         }
         if (opts.bottombar) this.status = new StatusBar(ed, app, bottomEl, this.ctx);
         this.bindEvents();
-        const mo = new MutationObserver(() => {
-          if (!ed.hasAttribute("topbar") && !ed.hasAttribute("bottombar")) teardownChrome(ed);
+        const mo = new MutationObserver((recs) => {
+          if (!ed.hasAttribute("topbar") && !ed.hasAttribute("bottombar")) {
+            teardownChrome(ed);
+            return;
+          }
+          if (recs.some((r5) => r5.attributeName === "theme" || r5.attributeName === "accent")) {
+            this.applyTheme();
+            this.sync();
+          }
         });
-        mo.observe(ed, { attributes: true, attributeFilter: ["topbar", "bottombar"] });
+        mo.observe(ed, { attributes: true, attributeFilter: ["topbar", "bottombar", "theme", "accent"] });
+        if (typeof matchMedia !== "undefined") {
+          matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+            const m2 = this.app.mode;
+            if (m2 === "auto" || m2 === null) hostOf(ed)?.setTitleTheme?.(isDark2(m2));
+          }, { signal: this.ac.signal });
+        }
         this.ac.signal.addEventListener("abort", () => mo.disconnect());
         void ed.listAvailableFonts().then((f3) => {
           this.families = f3;
@@ -25941,11 +26072,7 @@ var init_chrome = __esm({
       mode() {
         const a3 = this.ed.getAttribute("toolbar");
         if (a3 === "ribbon" || a3 === "compact") return a3;
-        try {
-          return localStorage.getItem("uw-toolbar") === "ribbon" ? "ribbon" : "compact";
-        } catch {
-          return "compact";
-        }
+        return this.app.prefs.get("toolbar") === "ribbon" ? "ribbon" : "compact";
       }
       ctl() {
         const d3 = () => ({ ed: this.ed, app: this.app, layer: this.layer, lang: this.lang, state: () => this.state() });
@@ -25978,34 +26105,31 @@ var init_chrome = __esm({
           inFocusMode: () => this.ed.classList.contains("uw-focus"),
           toolbarMode: () => this.mode(),
           setToolbarMode: (m2) => {
-            try {
-              localStorage.setItem("uw-toolbar", m2);
-            } catch {
-            }
+            this.app.prefs.set("toolbar", m2);
             this.ed.setAttribute("toolbar", m2);
           },
           toggleComments: () => {
             this.app.commentsVisible = !this.app.commentsVisible;
-            try {
-              localStorage.setItem("uw-inline-comments", this.app.commentsVisible ? "1" : "0");
-            } catch {
-            }
+            this.app.prefs.set("comments", this.app.commentsVisible ? "1" : "0");
             this.cards?.render();
           },
           requestFonts: () => this.requestFonts(),
           flash: (m2) => this.flash(m2),
-          applyTheme: () => this.applyTheme(true)
+          applyTheme: () => this.applyTheme()
         };
       }
       state() {
         return this.stateCache ??= this.ed.getSelectionState();
       }
-      applyTheme(persist) {
-        applyTheme(this.ed, this.root, this.app.accent, this.app.mode, persist);
-        hostOf(this.ed)?.setTitleTheme?.(isDark2(this.app.mode));
+      /** Tema só quando pedido (atributo `theme` ou escolha no menu); senão herda a página. */
+      applyTheme() {
+        const mode = this.app.mode;
+        applyTheme(this.ed, this.root, this.app.accent, mode);
+        hostOf(this.ed)?.setTitleTheme?.(isDark2(mode));
       }
       /** Depois de qualquer ação: foco de volta ao documento (se não abriu painel) e sincroniza. */
       after() {
+        if (this.ac.signal.aborted) return;
         const a3 = this.root.activeElement;
         const inLayer = !!a3 && this.layer.contains(a3);
         const inBar = !!a3 && this.topEl.contains(a3) && a3.tagName === "INPUT";
@@ -26013,7 +26137,16 @@ var init_chrome = __esm({
         if (!inLayer && !inBar && !isMenuOpen()) this.ed.focusEditor();
         this.sync();
       }
+      /** Um sync por quadro, venha de onde vier (seleção, eventos, ações). */
       sync() {
+        if (this.raf || this.ac.signal.aborted) return;
+        this.raf = requestAnimationFrame(() => {
+          this.raf = 0;
+          this.syncNow();
+        });
+      }
+      raf = 0;
+      syncNow() {
         this.stateCache = null;
         this.app.bindHost();
         this.topEl.classList.toggle("uo-wco", !!hostOf(this.ed)?.windowControlsOverlay);
@@ -26027,14 +26160,19 @@ var init_chrome = __esm({
       }
       destroy() {
         this.ac.abort();
+        cancelAnimationFrame(this.raf);
         closeMenus();
+        closePopover();
+        closeDialogs(this.layer);
         this.bar?.destroy();
         this.cards?.destroy();
         this.layer.replaceChildren();
-        this.root.querySelector(":scope > .uw-compare")?.remove();
+        this.root.querySelector(".uw-compare")?.remove();
         this.topEl.classList.remove("uo-wco");
+        this.topEl.replaceChildren();
+        this.bottomEl.replaceChildren();
         this.ed.classList.remove("uw-comparing", "uw-focus");
-        if (this.app.ui?.layer === this.layer) this.app.ui = null;
+        if (this.app.ui?.layer === this.layer) this.app.detach();
       }
       // ───── Modo Protegido ─────
       makeProtectedBar() {
@@ -26099,6 +26237,7 @@ var init_chrome = __esm({
         this.after();
       }
       // ───── comparar ─────
+      closeCompare = null;
       async compare() {
         const other = await this.app.pickForCompare();
         if (!other) return;
@@ -26110,7 +26249,7 @@ var init_chrome = __esm({
           return;
         }
         await Promise.resolve().then(() => (init_src4(), src_exports));
-        let box = this.root.querySelector(":scope > .uw-compare");
+        let box = this.root.querySelector(".uw-compare");
         if (!box) {
           box = document.createElement("div");
           box.className = "uw-compare";
@@ -26118,6 +26257,12 @@ var init_chrome = __esm({
           for (const t5 of ["mousedown", "dblclick", "contextmenu", "keydown", "wheel"]) {
             box.addEventListener(t5, (e6) => e6.stopPropagation(), { passive: t5 === "wheel" });
           }
+          box.addEventListener("keydown", (e6) => {
+            if (e6.key === "Escape" && !e6.defaultPrevented && !isMenuOpen()) {
+              e6.preventDefault();
+              this.closeCompare?.();
+            }
+          });
           const wd2 = document.createElement("universal-write-diff");
           wd2.setAttribute("lang", this.lang);
           wd2.style.cssText = "flex:1;min-height:0;display:flex";
@@ -26130,11 +26275,13 @@ var init_chrome = __esm({
           box.style.height = `${Math.max(200, h3)}px`;
         };
         const close = () => {
+          this.closeCompare = null;
           this.app.comparing = false;
           this.ed.classList.remove("uw-comparing");
           ro.disconnect();
           this.after();
         };
+        this.closeCompare = close;
         const ro = new ResizeObserver(fit);
         this.ac.signal.addEventListener("abort", () => ro.disconnect());
         try {
@@ -26159,7 +26306,7 @@ var init_chrome = __esm({
         const { ed } = this;
         const signal = this.ac.signal;
         const resync = () => this.sync();
-        for (const t5 of ["uw-zoom", "uw-change", "uw-hfmode", "uw-cellmode", "uw-tbmode", "uw-protected", "uw-ready"]) {
+        for (const t5 of ["uw-hfmode", "uw-cellmode", "uw-tbmode", "uw-protected", "uw-ready"]) {
           ed.addEventListener(t5, resync, { signal });
         }
         let tick = false;
@@ -26199,18 +26346,36 @@ var init_chrome = __esm({
           const sc = this.reg.get(id).shortcut;
           if (sc && !EDITOR_KEYS.has(sc)) byShortcut.set(sc, id);
         }
+        const run = (e6, id) => {
+          e6.preventDefault();
+          e6.stopPropagation();
+          void this.reg.run(id);
+        };
         ed.addEventListener("keydown", (e6) => {
           if (e6.defaultPrevented) return;
           if (e6.key === "Escape" && this.app.comparing) {
             e6.preventDefault();
-            this.root.querySelector("universal-write-diff")?.dispatchEvent(new CustomEvent("close-request"));
+            this.closeCompare?.();
             return;
           }
           const id = byShortcut.get(comboOf(e6));
           if (!id || !this.reg.supported(id)) return;
-          e6.preventDefault();
-          e6.stopPropagation();
-          void this.reg.run(id);
+          if (isField(e6.composedPath()[0]) && !APP_SHORTCUTS.has(id)) return;
+          run(e6, id);
+        }, { signal });
+        ed.addEventListener("focusin", () => {
+          lastFocused = new WeakRef(ed);
+        }, { signal });
+        document.addEventListener("keydown", (e6) => {
+          if (e6.defaultPrevented) return;
+          const path = e6.composedPath();
+          if (path.some((n5) => n5 instanceof HTMLElement && n5.localName === "universal-write")) return;
+          if (isField(path[0])) return;
+          const id = byShortcut.get(comboOf(e6));
+          if (!id || !APP_SHORTCUTS.has(id) || !this.reg.supported(id)) return;
+          const last = lastFocused?.deref();
+          const mine = last?.isConnected ? last === ed : document.querySelectorAll("universal-write[topbar]").length === 1;
+          if (mine) run(e6, id);
         }, { signal });
         ed.addEventListener("contextmenu", (e6) => {
           if (e6.composedPath().some((n5) => n5 === this.topEl || n5 === this.bottomEl || n5 === this.layer)) return;
@@ -26310,10 +26475,10 @@ function gposKernInLatin(view, gposOffset) {
   }
   const script = latn >= 0 ? latn : dflt2;
   if (script < 0 || !u162(script)) return false;
-  const ls = script + u162(script);
+  const ls2 = script + u162(script);
   const isKern = (fi) => fi !== 65535 && tagAt(featureListOff + 2 + fi * 6) === "kern";
-  if (isKern(u162(ls + 2))) return true;
-  for (let k2 = 0, n5 = u162(ls + 4); k2 < n5; k2++) if (isKern(u162(ls + 6 + k2 * 2))) return true;
+  if (isKern(u162(ls2 + 2))) return true;
+  for (let k2 = 0, n5 = u162(ls2 + 4); k2 < n5; k2++) if (isKern(u162(ls2 + 6 + k2 * 2))) return true;
   return false;
 }
 function parseGposKern(view, gposOffset, class0) {
@@ -26484,11 +26649,11 @@ function parseGsubLigatures(view, off) {
   }
   const script = latn >= 0 ? latn : dflt2;
   if (script < 0 || !u162(script)) return { features, lookups };
-  const ls = script + u162(script);
+  const ls2 = script + u162(script);
   const fidx = [];
-  const req = u162(ls + 2);
+  const req = u162(ls2 + 2);
   if (req !== 65535) fidx.push(req);
-  for (let k2 = 0, n5 = u162(ls + 4); k2 < n5; k2++) fidx.push(u162(ls + 6 + k2 * 2));
+  for (let k2 = 0, n5 = u162(ls2 + 4); k2 < n5; k2++) fidx.push(u162(ls2 + 6 + k2 * 2));
   for (const fi of fidx) {
     const tag2 = tagAt(featureList + 2 + fi * 6);
     const fo = featureList + u162(featureList + 2 + fi * 6 + 4);
@@ -27052,7 +27217,7 @@ function breakRich(spans, fonts, opts) {
   const chars = [];
   spans.forEach((span, si) => {
     const font = fonts.resolve(span.family, span.variant);
-    const ls = span.letterSpacingTwips ?? 0;
+    const ls2 = span.letterSpacingTwips ?? 0;
     for (let i7 = 0; i7 < span.text.length; i7++) {
       const ch = span.text[i7];
       const isTab = ch === "	";
@@ -27060,7 +27225,7 @@ function breakRich(spans, fonts, opts) {
       if (span.imageWidthTwips !== void 0) adv = span.imageWidthTwips;
       else if (isTab || ch === "\n" || ch === "\f") adv = 0;
       else {
-        adv = font.advanceTwips(ch.codePointAt(0), span.sizePt) + ls;
+        adv = font.advanceTwips(ch.codePointAt(0), span.sizePt) + ls2;
         const next = span.text[i7 + 1];
         if (next && next !== " " && next !== "	" && ch !== " ") {
           adv += font.kernTwips(ch.codePointAt(0), next.codePointAt(0), span.sizePt);
@@ -32119,12 +32284,12 @@ function nestedRowCut(c5, cut) {
     const k2 = s4.slice(0, base + 2).join("/");
     (rows.get(k2) ?? rows.set(k2, []).get(k2)).push(l3);
   }
-  for (const ls of rows.values()) {
-    const above = ls.filter((l3) => l3.y < cut);
-    if (!above.length || above.length === ls.length) continue;
-    const cells = new Set(ls.map((l3) => segs(l3.ref).slice(0, base + 3).join("/")));
+  for (const ls2 of rows.values()) {
+    const above = ls2.filter((l3) => l3.y < cut);
+    if (!above.length || above.length === ls2.length) continue;
+    const cells = new Set(ls2.map((l3) => segs(l3.ref).slice(0, base + 3).join("/")));
     if (![...cells].some((ck) => !above.some((l3) => l3.ref.startsWith(ck + "/")))) continue;
-    const top = Math.min(...ls.map((l3) => l3.y));
+    const top = Math.min(...ls2.map((l3) => l3.y));
     let prev = 0;
     for (const l3 of c5.lines) if (l3.y + l3.height <= top + 0.5) prev = Math.max(prev, l3.y + l3.height);
     cut = Math.min(cut, prev, top);
@@ -34626,21 +34791,21 @@ var Engine = class {
     if (this.atTop && !this.firstInDoc) gap = keepAfter !== null ? Math.max(0, this.collapse(keepAfter, before) - keepAfter) : 0;
     let tailAt = -1;
     if (p3.keepLines || p3.keepNext) {
-      const ls = this.paragraphLines(p3, frameBase.w);
-      const lastL = ls[ls.length - 1];
-      const fullH = ls.reduce((a3, l3) => a3 + l3.height, this.borderTopExtent(p3, null) + this.borderBottomExtent(p3));
+      const ls2 = this.paragraphLines(p3, frameBase.w);
+      const lastL = ls2[ls2.length - 1];
+      const fullH = ls2.reduce((a3, l3) => a3 + l3.height, this.borderTopExtent(p3, null) + this.borderBottomExtent(p3));
       const closedH = fullH - lastL.height + this.closingFit(p3, lastL);
       const need = gap + (p3.keepNext ? fullH + this.nextBlockLead(blockIdx, g2, frameBase.w) : closedH);
       const full = this.cur.bodyBottom - this.colTop;
       if (need > avail() && need <= full && !this.atTop) {
         if (!p3.keepLines && gap + closedH > avail()) {
-        } else if (!p3.keepLines && this.ctx.fmt.settings.compatibilityMode >= 15 && ls.length > 1) {
+        } else if (!p3.keepLines && this.ctx.fmt.settings.compatibilityMode >= 15 && ls2.length > 1) {
           const widowOn = p3.widowControl || p3.ppr.widowControl === void 0;
-          const m2 = widowOn ? ls.length - 2 >= 2 ? 2 : ls.length : 1;
-          if (m2 >= ls.length) {
+          const m2 = widowOn ? ls2.length - 2 >= 2 ? 2 : ls2.length : 1;
+          if (m2 >= ls2.length) {
             this.breakColumn();
             gap = 0;
-          } else tailAt = ls.length - m2;
+          } else tailAt = ls2.length - m2;
         } else {
           this.breakColumn();
           gap = 0;
@@ -35075,11 +35240,11 @@ var Engine = class {
   /** Linhas de um parágrafo (sem quebra de página), p/ keepLines/keepNext. */
   paragraphLines(p3, width) {
     const br = new LineBreaker(this.ctx, p3, this.gridFor(p3));
-    const ls = [];
+    const ls2 = [];
     do
-      ls.push(br.next({ left: p3.indLeft, right: width - p3.indRight }));
+      ls2.push(br.next({ left: p3.indLeft, right: width - p3.indRight }));
     while (!br.done());
-    return ls;
+    return ls2;
   }
   /** Altura com que a linha que fecha um bloco precisa caber: a entrelinha extra
    *  (múltipla > 1) fica abaixo do texto e pode passar da margem (oráculos pagefit, keepfit). */
@@ -35132,9 +35297,9 @@ var Engine = class {
       const gap = ctxAfter !== null ? Math.max(0, this.collapse(ctxAfter, before) - ctxAfter) : this.collapse(after, before);
       if (q.keepNext) return gap + this.paragraphHeight(q, width) + this.nextBlockLead(blockIdx + 1, g2, width);
       if (q.keepLines) {
-        const ls = this.paragraphLines(q, width);
-        const lastL = ls[ls.length - 1];
-        return gap + ls.reduce((a3, l3) => a3 + l3.height, this.borderTopExtent(q, null)) - lastL.height + this.closingFit(q, lastL);
+        const ls2 = this.paragraphLines(q, width);
+        const lastL = ls2[ls2.length - 1];
+        return gap + ls2.reduce((a3, l3) => a3 + l3.height, this.borderTopExtent(q, null)) - lastL.height + this.closingFit(q, lastL);
       }
       const br = new LineBreaker(this.ctx, q, this.gridFor(q));
       const qs = [];
@@ -38212,6 +38377,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       if (this.initialized && !this.hasAttribute("lang")) void this.updateChrome();
     });
     if (this.initialized) this.startCaret();
+    if (this.initialized && !this.chromeSync && (this.topbar || this.bottombar)) void this.updateChrome();
     if (!this.hasAttribute("manual-init")) await this.initialize();
   }
   disconnectedCallback() {
@@ -38222,6 +38388,12 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     window.removeEventListener("resize", this.handleWindowResize);
     window.clearInterval(this.caretTimer);
     this.caretTimer = 0;
+    if (this.chromeSync) {
+      this.chromeSync = null;
+      void Promise.resolve().then(() => (init_chrome(), chrome_exports)).then((m2) => {
+        if (!this.isConnected) m2.teardownChrome(this);
+      });
+    }
   }
   /**
    * Inicializa o componente. Com fonts + document em memória, não executa
@@ -41191,7 +41363,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
    *  símbolos em tamanho cheio; minúsculas → MAIÚSCULAS em ~0.8 do tamanho.
    *  Preserva o nº de caracteres (offset do caret) — se maiúscula mudar o
    *  comprimento (ex.: ß→SS), mantém o char original. */
-  smallCapsSpans(text, family, variant, size, ls, runIndex) {
+  smallCapsSpans(text, family, variant, size, ls2, runIndex) {
     const isLower = (c5) => c5.toLowerCase() === c5 && c5.toUpperCase() !== c5;
     const out = [];
     let i6 = 0;
@@ -41207,7 +41379,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         t5 = up.length === seg.length ? up : seg;
         sz = size * _UniversalWriteElement.SMALL_CAPS_SCALE;
       }
-      out.push({ text: t5, family, variant, sizePt: sz, letterSpacingTwips: ls, runIndex });
+      out.push({ text: t5, family, variant, sizePt: sz, letterSpacingTwips: ls2, runIndex });
       i6 = j;
     }
     return out.length ? out : [{ text: "", family, variant, sizePt: size, runIndex }];
@@ -41271,14 +41443,14 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
           runIndex: ri
         };
       }
-      const ls = r5.props.charSpacingTwips;
+      const ls2 = r5.props.charSpacingTwips;
       const allCaps = r5.props.allCaps || st?.allCaps;
       const smallCaps = r5.props.smallCaps || st?.smallCaps;
       if (smallCaps && !allCaps) {
-        return this.smallCapsSpans(r5.text, family, variant, size, ls, ri);
+        return this.smallCapsSpans(r5.text, family, variant, size, ls2, ri);
       }
       const text = allCaps || smallCaps ? r5.text.toUpperCase() : r5.text;
-      return { text, family, variant, sizePt: size, letterSpacingTwips: ls, runIndex: ri };
+      return { text, family, variant, sizePt: size, letterSpacingTwips: ls2, runIndex: ri };
     });
     if (spans.length === 0) spans.push({ text: "", variant: "regular", sizePt: st?.sizePt ?? 11 });
     return spans;
@@ -43032,20 +43204,20 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   /** Confere (antes da edição) que o parágrafo isolado reproduz o layout real. */
   fastBefore(pi) {
     const eng = this.eng;
-    const ls = this.layoutCache[pi]?.lines ?? [];
-    const first = ls[0]?.eng;
-    if (!first || ls.some((l3) => l3.page !== ls[0].page || !l3.eng)) return null;
-    const pg = ls[0].page;
+    const ls2 = this.layoutCache[pi]?.lines ?? [];
+    const first = ls2[0]?.eng;
+    if (!first || ls2.some((l3) => l3.page !== ls2[0].page || !l3.eng)) return null;
+    const pg = ls2[0].page;
     const page = eng.result.pages[pg];
     const para = this.model.paragraphs[pi];
     const synth = this.synthLayout(para, this.pageSections[pg] ?? 0);
     if (!synth || synth.pages.length !== 1) return null;
     const sp = synth.pages[0];
-    if (sp.lines.length !== ls.length) return null;
+    if (sp.lines.length !== ls2.length) return null;
     const dx = first.x - sp.lines[0].x, dy = first.y - sp.lines[0].y;
     const eq3 = (a3, b5) => Math.abs(a3 - b5) < 0.01;
-    for (let i6 = 0; i6 < ls.length; i6++) {
-      const a3 = ls[i6].eng, b5 = sp.lines[i6];
+    for (let i6 = 0; i6 < ls2.length; i6++) {
+      const a3 = ls2[i6].eng, b5 = sp.lines[i6];
       if (a3.start !== b5.start || a3.end !== b5.end || !eq3(a3.height, b5.height) || !eq3(a3.x, b5.x + dx) || !eq3(a3.y, b5.y + dy)) return null;
       const ca = a3.chars ?? [], cb = b5.chars ?? [];
       if (ca.length !== cb.length || ca.some((c5, k2) => c5.o !== cb[k2].o || !eq3(c5.x, cb[k2].x + dx) || !eq3(c5.w, cb[k2].w))) return null;
@@ -43185,10 +43357,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       });
     }
     paras.forEach((p3, pi) => {
-      const ls = this.layoutCache[pi].lines;
-      if (!ls.length) return;
-      ls[0].rich.start = 0;
-      ls[ls.length - 1].rich.end = paraLength(p3);
+      const ls2 = this.layoutCache[pi].lines;
+      if (!ls2.length) return;
+      ls2[0].rich.start = 0;
+      ls2[ls2.length - 1].rich.end = paraLength(p3);
     });
   }
   /** Instala o resultado: páginas, linhas do modelo em edição, camadas de HF. */
@@ -45352,7 +45524,7 @@ function setupMentionAutocomplete(editor, options, prefix) {
     selected = Math.min(selected, Math.max(0, items.length - 1));
     render();
   };
-  function open() {
+  function open2() {
     active2 = true;
     query = "";
     items = [];
@@ -45376,7 +45548,7 @@ function setupMentionAutocomplete(editor, options, prefix) {
     if (!active2) {
       if (text === prefix) {
         event.preventDefault();
-        open();
+        open2();
       }
       return;
     }

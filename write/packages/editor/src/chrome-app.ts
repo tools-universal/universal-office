@@ -4,12 +4,13 @@
 // confiáveis, exportações e comparação. Um por elemento — sobrevive à troca
 // de barra (compacta ↔ ribbon) e à mudança de idioma.
 import { isOdt } from '@universal-office/docx-core';
-import { describeFontEmbedding, openDialog, openFontEmbeddingDialog, showToast } from '@universal-office/ui';
+import { describeFontEmbedding, openDialog, openFontEmbeddingDialog, showToast, uiLang, type UiLang } from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
 import { hostOf, type UniversalWriteHostFile } from './chrome-host.js';
 import type { ChromeLabels } from './chrome-labels.js';
 import { listRecents, recentsSupported, rememberRecent, ensureReadable, forgetRecent, type RecentFile } from './chrome-recents.js';
-import { savedAccent, savedMode, type ColorMode } from './chrome-theme.js';
+import { isColorMode, type ColorMode } from './chrome-theme.js';
+import { instanceStore, originStore as store } from './chrome-store.js';
 
 export type DocFormat = 'docx' | 'odt';
 const MIME: Record<DocFormat, string> = {
@@ -22,11 +23,6 @@ type Picker = {
   showSaveFilePicker?: (o: object) => Promise<FileSystemFileHandle>;
 };
 const picker = (): Picker => (typeof window !== 'undefined' ? window as unknown as Picker : {});
-
-const store = {
-  get: (k: string): string | null => { try { return localStorage.getItem(k); } catch { return null; } },
-  set: (k: string, v: string): void => { try { localStorage.setItem(k, v); } catch { /* privado */ } },
-};
 
 export function download(data: BlobPart, name: string, type: string): void {
   const a = document.createElement('a');
@@ -57,9 +53,11 @@ export class WriteApp {
   dirty = false;
   comparing = false;
   recents: RecentFile[] = [];
-  mode: ColorMode = savedMode();
-  accent = savedAccent();
-  commentsVisible = store.get('uw-inline-comments') !== '0';
+  /** modo de cor ESCOLHIDO no menu (null = não escolhido; vale o atributo `theme`) */
+  chosenMode: ColorMode | null;
+  chosenAccent: string | null;
+  commentsVisible: boolean;
+  readonly prefs: ReturnType<typeof instanceStore>;
   activeCommentIds: number[] = [];
   lastColor = 'C00000';
   lastHighlight = 'yellow';
@@ -74,18 +72,48 @@ export class WriteApp {
   private fontNote = '';
   private boundHost: unknown = undefined;
 
+  private detachFn: (() => void) | null = null;
+  /** o hospedeiro tratou um uw-save-request: ele é dono do salvar (sem autosave nem aviso ao sair) */
+  hostOwnsSave = false;
+
   constructor(readonly ed: UniversalWriteElement) {
+    this.prefs = instanceStore(ed);
+    const m = this.prefs.get('mode');
+    this.chosenMode = isColorMode(m) ? m : null;
+    this.chosenAccent = this.prefs.get('accent');
+    this.commentsVisible = this.prefs.get('comments') !== '0';
+  }
+
+  /** Modo efetivo: o atributo `theme` manda; senão a escolha no menu; senão nenhum (herda a página). */
+  get mode(): ColorMode | null {
+    const a = this.ed.getAttribute('theme');
+    return isColorMode(a) ? a : this.chosenMode;
+  }
+  get accent(): string { return this.ed.getAttribute('accent') || this.chosenAccent || 'blue'; }
+
+  /**
+   * Liga os ouvintes de aplicativo (barra montada e elemento no documento).
+   * detach() tira TODOS — intervalo, beforeunload e eventos — para o elemento
+   * (e este objeto, no WeakMap) poder ser coletado ao sair da página.
+   */
+  attach(): void {
+    if (this.detachFn) return;
+    const ed = this.ed;
+    const ac = new AbortController();
+    const signal = ac.signal;
+    let autosaveTimer = 0;
     ed.addEventListener('uw-change', () => {
       this.changeSeq++;
       this.setDirty(true);
-      // além do timer: pouco depois de cada edição (timers de fundo sofrem throttling)
-      window.setTimeout(() => this.checkAutosave(), 800);
-    });
-    window.setInterval(() => this.checkAutosave(), 15000);
-    window.addEventListener('beforeunload', (e) => { if (this.dirty && !hostOf(ed)?.setDirty && this.ui) e.preventDefault(); });
+      // além do intervalo: pouco depois de cada edição (timers de fundo sofrem throttling)
+      window.clearTimeout(autosaveTimer);
+      autosaveTimer = window.setTimeout(() => this.checkAutosave(), 800);
+    }, { signal });
+    const interval = window.setInterval(() => this.checkAutosave(), 15000);
+    window.addEventListener('beforeunload', (e) => { if (this.wantsUnloadPrompt()) e.preventDefault(); }, { signal });
     ed.addEventListener('uw-font-embedding', ((e: CustomEvent) => {
       this.fontNote = describeFontEmbedding(e.detail, ed);
-    }) as EventListener);
+    }) as EventListener, { signal });
     ed.addEventListener('uw-protected', ((e: CustomEvent<{ active: boolean; hasFields?: boolean }>) => {
       this.ui?.protectedChanged(e.detail.active);
       if (this.enabledByUser && e.detail.hasFields) void this.askUpdateFields();
@@ -97,9 +125,39 @@ export class WriteApp {
         }
       }
       this.wasProtected = e.detail.active;
-    }) as EventListener);
-    ed.addEventListener('uw-blocked', () => { this.ui?.pulseEnable(); this.ui?.flash(this.ui.L.blocked); });
-    void listRecents().then((r) => { this.recents = r; this.ui?.sync(); });
+    }) as EventListener, { signal });
+    ed.addEventListener('uw-blocked', () => { this.ui?.pulseEnable(); this.ui?.flash(this.ui.L.blocked); }, { signal });
+    void listRecents().then((r) => { if (!signal.aborted) { this.recents = r; this.ui?.sync(); } });
+    this.detachFn = () => {
+      ac.abort();
+      window.clearInterval(interval);
+      window.clearTimeout(autosaveTimer);
+    };
+  }
+
+  detach(): void {
+    this.detachFn?.();
+    this.detachFn = null;
+    this.ui = null;
+  }
+
+  get attached(): boolean { return this.detachFn !== null; }
+
+  /** Aviso do navegador ao sair com alterações: só quando ninguém mais cuida disso. */
+  private wantsUnloadPrompt(): boolean {
+    return this.dirty && !!this.ui && !this.ed.hasAttribute('nounloadprompt')
+      && !hostOf(this.ed)?.setDirty && !this.hostOwnsSave;
+  }
+
+  /**
+   * Pergunta ao hospedeiro se ELE trata a ação (evento cancelável
+   * `uw-save-request` / `uw-open-request`). Tratou → a barra não faz nada.
+   */
+  requestFromHost(kind: 'save' | 'open', detail: object = {}): boolean {
+    const ev = new CustomEvent(`uw-${kind}-request`, { detail, cancelable: true, bubbles: true, composed: true });
+    this.ed.dispatchEvent(ev);
+    if (ev.defaultPrevented && kind === 'save') this.hostOwnsSave = true;
+    return ev.defaultPrevented;
   }
 
   /** Liga o host (pode ser atribuído depois de a barra montar). */
@@ -107,8 +165,11 @@ export class WriteApp {
     const host = hostOf(this.ed);
     if (host === this.boundHost) return;
     this.boundHost = host;
+    // a ponte do host não tem "off": o callback guarda só uma referência fraca
+    const ref = new WeakRef(this);
     host?.onSaveBeforeClose?.(() => {
-      void this.save(false).then((ok) => { if (ok && !this.dirty) hostOf(this.ed)?.closeWindow?.(); });
+      const app = ref.deref();
+      void app?.save(false).then((ok) => { if (ok && !app.dirty) hostOf(app.ed)?.closeWindow?.(); });
     });
     this.syncDirty();
   }
@@ -181,6 +242,7 @@ export class WriteApp {
   }
 
   async open(): Promise<void> {
+    if (this.requestFromHost('open')) return;
     const host = hostOf(this.ed);
     if (host?.openFile) {
       let r: UniversalWriteHostFile | null = null;
@@ -234,6 +296,7 @@ export class WriteApp {
 
   /** Salva; true = gravado (cancelado/falhou: false, segue pendente). */
   async save(saveAs: boolean): Promise<boolean> {
+    if (this.requestFromHost('save', { saveAs, format: this.format })) return true;
     const L = this.ui?.L;
     let fmt = this.format;
     const host = hostOf(this.ed);
@@ -286,15 +349,21 @@ export class WriteApp {
     return true;
   }
 
-  get autosaveMinutes(): number { return parseFloat(store.get('uw-autosave-min') ?? '10'); }
+  get autosaveMinutes(): number { return parseFloat(this.prefs.get('autosave') ?? this.autosaveSession ?? '10'); }
   set autosaveMinutes(n: number) {
-    store.set('uw-autosave-min', String(n));
+    this.autosaveSession = String(n);
+    this.prefs.set('autosave', String(n));
     const L = this.ui?.L;
     if (L) this.ui?.flash(n <= 0 ? L.autosaveOff : L.autosaveEvery(String(n)));
   }
 
   /** Salvamento automático (AutoRecuperação do Word: 10 min por padrão). */
+  private autosaveSession: string | null = null;
+
+  get autosaveEnabled(): boolean { return !this.ed.hasAttribute('noautosave') && !this.hostOwnsSave; }
+
   private checkAutosave(): void {
+    if (!this.autosaveEnabled) return;
     const min = this.autosaveMinutes;
     if (min <= 0 || !this.dirty || !this.ui) return;
     if (Date.now() - this.lastAutosave < min * 60000) return;
@@ -350,7 +419,7 @@ export class WriteApp {
     this.ed.focusEditor();
   }
 
-  get lang(): 'en' | 'pt' { return this.ui?.L.decimal === ',' ? 'pt' : 'en'; }
+  get lang(): UiLang { return uiLang(this.ed); }
 
   // ───── comparar ─────
   async pickForCompare(): Promise<{ name: string; bytes: Uint8Array } | null> {
