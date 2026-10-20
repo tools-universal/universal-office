@@ -16,7 +16,7 @@ import {
 import type { UniversalWriteElement } from './universal-write.js';
 import { appFor, type WriteApp } from './chrome-app.js';
 import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
-import { aboutDialog, commentDialog, fontDialog, linkDialog, pageDialog, paragraphDialog, shortcutsDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
+import { aboutDialog, commentDialog, fontDialog, linkDialog, pageDialog, paragraphDialog, shortcutsDialog, spellingDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { bindHostFonts, hostOf } from './chrome-host.js';
 import { LABELS } from './chrome-labels.js';
 import { compactLayout, ribbonLayout } from './chrome-layout.js';
@@ -275,6 +275,7 @@ class WriteChrome {
       paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
       pageDialog: () => { void pageDialog(d()).then(() => this.after()); },
       wordCount: () => wordCountDialog(d()),
+      spelling: () => { void spellingDialog(d()).then(() => this.after()); },
       shortcuts: () => shortcutsDialog(d()),
       about: () => aboutDialog(d()),
       compare: () => { void this.compare(); },
@@ -561,11 +562,24 @@ class WriteChrome {
       if (e.composedPath().some((n) => n === this.topEl || n === this.bottomEl || n === this.layer)) return;
       if (this.app.comparing) return;
       e.preventDefault();
+      const at = { x: e.clientX, y: e.clientY };
       const items: MenuEntry[] = ['cut', 'copy', 'paste', 'pastePlain', '-', 'bold', 'italic', 'underline', '-',
         'link', 'comment', '-', 'list:bullet', 'list:decimal', '-', 'find', 'selectAll'];
-      openMenu(items, { x: e.clientX, y: e.clientY }, {
-        lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after(),
-      });
+      const open = (pre: MenuEntry[]): void => {
+        openMenu([...pre, ...items], at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
+      };
+      // palavra errada sob o clique: sugestões no topo, como o Word
+      const m = ed.spellingAtCaret();
+      if (!m) { open([]); return; }
+      void ed.spellingSuggestions(m).then((sug) => {
+        const pre: MenuEntry[] = sug.length
+          ? sug.map((s): MenuEntry => ({ label: s, onClick: () => { ed.replaceSpelling(m, s); this.after(); } }))
+          : [{ label: { en: '(no suggestions)', pt: '(sem sugestões)' }, disabled: true }];
+        open([...pre, '-',
+          { icon: 'visibility_off', label: { en: 'Ignore All', pt: 'Ignorar tudo' }, onClick: () => ed.ignoreSpelling(m.word) },
+          { icon: 'library_add', label: { en: 'Add to Dictionary', pt: 'Adicionar ao dicionário' }, onClick: () => { void ed.addToDictionary(m.word); } },
+          '-']);
+      }, () => open([]));
     }, { signal });
 
     // arrastar e soltar um .docx/.odt para abrir

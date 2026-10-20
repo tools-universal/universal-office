@@ -35,7 +35,7 @@
         "from": "../../packages/editor/demo",
         "to": "packages/editor/demo",
         "filter": [
-          "index.html", "bundle.js",
+          "index.html", "bundle.js", "chunks/*.js",
           "fonts/liberationsans-*.ttf", "fonts/poppins-*.woff2", "fonts/material-symbols-*.woff2", "fonts/LICENSE-*"
         ]
       },

@@ -631,9 +631,20 @@ function serve() {
         res.writeHead(404).end('not found');
       }
     });
-    server.listen(0, '127.0.0.1', () => resolve(server.address().port));
+    // porta FIXA preferida: o localStorage/IndexedDB do renderer é por origem —
+    // com porta aleatória, dicionário do usuário, Documentos Confiáveis, recentes
+    // e preferências sumiriam a cada execução. Ocupada: a próxima; por fim, qualquer.
+    const ports = [...Array.from({ length: 10 }, (_, i) => PREFERRED_PORT + i), 0];
+    const tryNext = () => {
+      const p = ports.shift();
+      server.once('error', (err) => { if (err.code === 'EADDRINUSE' && ports.length) tryNext(); else throw err; });
+      server.listen(p, '127.0.0.1', () => { server.removeAllListeners('error'); resolve(server.address().port); });
+    };
+    tryNext();
   });
 }
+
+const PREFERRED_PORT = 47810;
 
 let iconPath;
 
@@ -658,6 +669,9 @@ async function createWindow() {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       sandbox: true,
+      // revisão ortográfica só pelo motor Hunspell do componente (shared/spell),
+      // igual no navegador e no desktop — o corretor do Chromium fica desligado
+      spellcheck: false,
     },
   });
   win.removeMenu();

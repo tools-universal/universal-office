@@ -75,6 +75,7 @@ import { readOdt, writeOdt } from '@universal-office/docx-core';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
 import { guardRuns } from './edit-guard.js';
+import { LangResolver, ParagraphSpell, misspellingAt, wavePath, type Misspelling, type SpellEngine } from './spell.js';
 import {
   buildEngineDoc, locateRef, resolveCell, cellBlocks, sameHops, caretXIn, offsetAtX, reconcileBlocks,
   shiftPageItem, findItems, hfBlocksFor, paragraphAtPath,
@@ -463,6 +464,14 @@ export class UniversalWriteElement extends HTMLElement {
   private engVersion = 0;
   /** o motor lançou exceção neste documento: legado até a próxima carga */
   private engineFailed = false;
+  /** Revisão ortográfica: motor compartilhado (carregado na 1ª pintura) e o
+   *  cache dos erros por parágrafo. `spellOff` = desligada no menu (sessão). */
+  private spell: ParagraphSpell | null = null;
+  private spellEngine: SpellEngine | null = null;
+  private spellLoading = false;
+  private spellOff = false;
+  private spellLangs: LangResolver | null = null;
+  private spellRepaint = 0;
   /** pintura das páginas do motor em cache (o caret pisca sem repintar glifos) */
   private engPageCache = new Map<number, { key: string; canvas: HTMLCanvasElement }>();
   /** imagens decodificadas desde a última pintura (invalida o cache) */
@@ -582,13 +591,15 @@ export class UniversalWriteElement extends HTMLElement {
   // ─────────────────────── chrome (barras) ───────────────────────
 
   static get observedAttributes(): string[] {
-    return ['topbar', 'bottombar', 'toolbar', 'layout', 'lang'];
+    return ['topbar', 'bottombar', 'toolbar', 'layout', 'lang', 'nospellcheck'];
   }
 
   attributeChangedCallback(name: string): void {
     // lang: idioma da interface (barras); sem ele, o do navegador — inglês por padrão
     // toolbar="compact|ribbon": estilo da barra superior (compacta é o padrão)
     if ((name === 'topbar' || name === 'bottombar' || name === 'toolbar' || name === 'lang') && this.initialized) void this.updateChrome();
+    // nospellcheck: sem revisão ortográfica (o sublinhado some na hora)
+    if (name === 'nospellcheck' && this.model) this.paint();
     // layout="legacy": volta ao layout antigo do canvas (o motor é o padrão)
     if (name === 'layout' && this.model) {
       if (this.legacyRequested() && this.cellEdit) this.exitCell();
@@ -655,6 +666,11 @@ export class UniversalWriteElement extends HTMLElement {
     window.removeEventListener('resize', this.handleWindowResize);
     window.clearInterval(this.caretTimer);
     this.caretTimer = 0;
+    // revisão: solta a referência ao motor compartilhado (cai com o último app)
+    this.spell?.dispose();
+    this.spell = null;
+    this.spellEngine?.dispose();
+    this.spellEngine = null;
     // barras: tira intervalos e ouvintes em document/window (o elemento pode ser coletado)
     if (this.chromeSync) {
       this.chromeSync = null;
@@ -6044,6 +6060,7 @@ export class UniversalWriteElement extends HTMLElement {
         ctx.save();
         ctx.setTransform(scale, 0, 0, scale, 0, 0);
         this.paintEngineMarks(ctx, i);
+        this.paintEngineSpelling(ctx, i);
         if (hasSel) this.paintEngineSelection(ctx, i, sel);
         ctx.restore();
       }
@@ -6115,6 +6132,141 @@ export class UniversalWriteElement extends HTMLElement {
         ctx.fillRect(x1, el.line.y, x2 - x1, el.line.height);
       }
     }
+  }
+
+  // ───────────────────────── revisão ortográfica ─────────────────────────
+
+  /** A revisão vale agora? (atributo nospellcheck, menu, Modo Protegido, leitura) */
+  private spellActive(): boolean {
+    return !this.spellOff && !this.hasAttribute('nospellcheck') && !this.protectedMode && this.view !== 'read';
+  }
+
+  /** Idioma/noProof efetivos: os estilos do documento aberto (refeito a cada documento). */
+  private spellLangResolver(): LangResolver {
+    const sheet = this.fullDoc?.formatting?.styles;
+    if (!this.spellLangs || (this.spellLangs as unknown as { sheet?: unknown }).sheet !== sheet) this.spellLangs = new LangResolver(sheet);
+    return this.spellLangs;
+  }
+
+  /** O motor sob demanda: o import (chunk) só acontece na 1ª pintura com texto. */
+  private ensureSpell(): ParagraphSpell | null {
+    if (this.spell || this.spellLoading) return this.spell;
+    this.spellLoading = true;
+    void import('@universal-office/spell').then(({ SpellChecker }) => {
+      if (!this.isConnected) return;
+      const engine = SpellChecker.shared() as unknown as SpellEngine;
+      this.spellEngine = engine;
+      this.spell = new ParagraphSpell(engine, () => this.spellLangResolver(), () => this.queueSpellRepaint());
+      this.queueSpellRepaint();
+    }).catch(() => { /* sem o motor (bundle sem o chunk): sem revisão */ }).finally(() => { this.spellLoading = false; });
+    return null;
+  }
+
+  private queueSpellRepaint(): void {
+    if (this.spellRepaint) return;
+    this.spellRepaint = requestAnimationFrame(() => { this.spellRepaint = 0; if (this.eng && this.isConnected) this.paint(); });
+  }
+
+  /** Sublinhado ondulado vermelho nas palavras erradas (adorno de tela: não vai
+   *  para o PDF, a impressão nem o viewer). */
+  private paintEngineSpelling(ctx: CanvasRenderingContext2D, pg: number): void {
+    if (!this.spellActive()) return;
+    const spell = this.ensureSpell();
+    if (!spell) return;
+    ctx.save();
+    ctx.strokeStyle = this.pageDark ? '#ff6b6b' : '#e81123';
+    ctx.lineWidth = 11;
+    for (const el of this.eng!.lines) {
+      if (el.page !== pg || el.loc.kind === 'other' || !el.para) continue;
+      const list = spell.get(el.para);
+      if (!list?.length) continue;
+      const chars = el.line.chars ?? [];
+      for (const m of list) {
+        let x1 = Infinity, x2 = -Infinity;
+        for (const c of chars) {
+          if (c.o < m.start || c.o >= m.end) continue;
+          x1 = Math.min(x1, c.x);
+          x2 = Math.max(x2, c.x + c.w);
+        }
+        if (!(x2 > x1)) continue;
+        wavePath(ctx, x1, x2, el.line.baseline + 50);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  /** A revisão ortográfica está ligada (menu "Verificar ortografia ao digitar"). */
+  spellCheckEnabled(): boolean { return !this.spellOff && !this.hasAttribute('nospellcheck'); }
+
+  /** Liga/desliga a revisão nesta sessão (o atributo nospellcheck desliga de vez). */
+  toggleSpellCheck(on?: boolean): void {
+    this.spellOff = on === undefined ? !this.spellOff : !on;
+    this.paint();
+    this.chromeSync?.();
+  }
+
+  /** Palavra errada no cursor (do que já foi revisado; null = nenhuma / ainda não revisado). */
+  spellingAtCaret(): (Misspelling & { para: number }) | null {
+    if (!this.model || !this.spellActive()) return null;
+    const pos = this.selection.focus;
+    const para = this.model.paragraphs[pos.para];
+    const m = para && misspellingAt(this.ensureSpell()?.get(para), pos.offset);
+    return m ? { ...m, para: pos.para } : null;
+  }
+
+  /** Sugestões do Hunspell para a palavra (até `limit`, como o menu do Word). */
+  async spellingSuggestions(m: Misspelling, limit = 5): Promise<string[]> {
+    if (!this.spellEngine) return [];
+    return (await this.spellEngine.suggest(m.word, m.lang)).slice(0, limit);
+  }
+
+  /** Troca a palavra errada (se ela ainda está lá) — desfazível. */
+  replaceSpelling(m: Misspelling & { para: number }, text: string): boolean {
+    if (!this.model || this.locked()) return false;
+    const para = this.model.paragraphs[m.para];
+    if (!para || paraText(para).slice(m.start, m.end) !== m.word) return false;
+    this.snapshot();
+    const pos = deleteRange(this.model, { start: { para: m.para, offset: m.start }, end: { para: m.para, offset: m.end } });
+    const end = insertText(this.model, pos, text);
+    this.selection = { anchor: end, focus: end };
+    this.refresh();
+    return true;
+  }
+
+  /** "Ignorar tudo" (nesta sessão, em todos os documentos). */
+  ignoreSpelling(word: string): void { this.spellEngine?.ignore(word); }
+
+  /** "Adicionar ao dicionário" do usuário (persistido pelo motor). */
+  async addToDictionary(word: string): Promise<void> { await this.spellEngine?.add(word); }
+
+  /**
+   * Próxima palavra errada a partir do cursor (diálogo Ortografia): revisa os
+   * parágrafos na hora, seleciona a palavra e a traz para a vista. `skip`: as
+   * "ignorar uma vez" do diálogo. null = nada mais (dá a volta no documento).
+   */
+  async nextMisspelling(skip: ReadonlySet<string> = new Set()): Promise<(Misspelling & { para: number }) | null> {
+    if (!this.model) return null;
+    this.ensureSpell();
+    for (let i = 0; i < 100 && !this.spell; i++) await new Promise((r) => setTimeout(r, 30));
+    const spell = this.spell;
+    if (!spell) return null;
+    const paras = this.model.paragraphs;
+    const startP = Math.min(this.selection.focus.para, paras.length - 1);
+    const startO = normalizeRange(this.range()).end.offset;
+    for (let k = 0; k <= paras.length; k++) {
+      const pi = (startP + k) % paras.length;
+      const list = await spell.check(paras[pi]!);
+      if (this.model?.paragraphs !== paras) return null; // documento trocou no meio
+      const m = list.find((x) => (k > 0 || pi !== startP || x.start >= startO) && !skip.has(`${pi}:${x.start}:${x.word}`));
+      if (m) {
+        this.selection = { anchor: { para: pi, offset: m.start }, focus: { para: pi, offset: m.end } };
+        this.refreshSelection();
+        this.scrollCaretIntoView();
+        return { ...m, para: pi };
+      }
+    }
+    return null;
   }
 
   /** Inlines de plugin com desenho próprio: na caixa do texto de reserva que o

@@ -19,6 +19,8 @@ export interface ChromeCtl {
   paragraphDialog(): void;
   pageDialog(): void;
   wordCount(): void;
+  /** diálogo Ortografia (F7) */
+  spelling(): void;
   shortcuts(): void;
   about(): void;
   compare(): void;
@@ -157,7 +159,8 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'comment:deleteAll', label: { en: 'Delete all comments', pt: 'Excluir todos os comentários' }, icon: 'delete_sweep', run: () => { for (const c of ed.getComments()) ed.removeComment(c.id); }, isEnabled: () => ed.getComments().length > 0 }),
     { id: 'enableEditing', label: { en: 'Enable Editing', pt: 'Habilitar Edição' }, icon: 'edit_document', run: () => app.enableEditing(), isEnabled: () => ed.isProtected(), supports: () => true },
     { id: 'wordCount', label: { en: 'Word count', pt: 'Contar Palavras' }, icon: 'numbers', shortcut: 'Ctrl+Shift+G', run: () => ctl.wordCount() },
-    { id: 'spelling', label: { en: 'Spelling & grammar', pt: 'Ortografia e gramática' }, icon: 'spellcheck', shortcut: 'F7', supports: has('toggleSpellCheck'), run: () => call('toggleSpellCheck'), isChecked: () => typeof api['spellCheckEnabled'] === 'function' && !!call('spellCheckEnabled') },
+    { id: 'spelling', label: { en: 'Spelling & grammar', pt: 'Ortografia e gramática' }, icon: 'spellcheck', shortcut: 'F7', supports: has('nextMisspelling'), run: () => ctl.spelling(), isEnabled: canEdit },
+    { id: 'spellAsYouType', label: { en: 'Check spelling as you type', pt: 'Verificar ortografia ao digitar' }, icon: 'spellcheck', supports: has('toggleSpellCheck'), run: () => call('toggleSpellCheck'), isChecked: () => typeof api['spellCheckEnabled'] === 'function' && !!call('spellCheckEnabled') },
     edit({ id: 'trackChanges', label: { en: 'Track changes', pt: 'Controlar alterações' }, icon: 'track_changes', shortcut: 'Ctrl+Shift+E', supports: has('toggleTrackChanges'), run: () => call('toggleTrackChanges'), isChecked: () => typeof api['isTrackingChanges'] === 'function' && !!call('isTrackingChanges') }),
     edit({ id: 'change:accept', label: { en: 'Accept', pt: 'Aceitar' }, icon: 'check_circle', supports: has('acceptChange'), run: () => call('acceptChange') }),
     edit({ id: 'change:reject', label: { en: 'Reject', pt: 'Rejeitar' }, icon: 'cancel', supports: has('rejectChange'), run: () => call('rejectChange') }),

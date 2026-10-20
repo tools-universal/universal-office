@@ -179,3 +179,70 @@ export function aboutDialog(env: Env): void {
 }
 
 export type DialogEnv = Env;
+
+/**
+ * Ortografia (F7), como o painel do Word: percorre as palavras erradas a partir
+ * do cursor (dá a volta no documento), com as sugestões do Hunspell. Não modal:
+ * o documento continua editável enquanto ele está aberto.
+ */
+export async function spellingDialog(env: Env): Promise<void> {
+  const lang = env.lang, ed = env.ed;
+  const done = tr(lang, 'The spelling check is complete.', 'A verificação ortográfica foi concluída.');
+  const skip = new Set<string>();
+  const always = new Map<string, string>();
+  let cur = await ed.nextMisspelling(skip);
+  if (!cur) { env.app.ui!.flash(done); return; }
+  const word = el('div', { style: 'font-size:18px;font-weight:600;color:#e81123;margin-bottom:2px' });
+  const info = el('div', { style: 'opacity:.7;font-size:12px;margin-bottom:10px' });
+  const list = el('select', { size: 6, style: 'width:100%;box-sizing:border-box;height:auto;min-height:132px;padding:4px' });
+  const show = async (m: NonNullable<typeof cur>): Promise<void> => {
+    word.textContent = m.word;
+    info.textContent = tr(lang, `Not in dictionary (${m.lang})`, `Não consta no dicionário (${m.lang})`);
+    const sug = await ed.spellingSuggestions(m, 8);
+    list.replaceChildren(...(sug.length ? sug.map((x) => el('option', { value: x, textContent: x }))
+      : [el('option', { value: '', disabled: true, textContent: tr(lang, '(no suggestions)', '(sem sugestões)') })]));
+    list.selectedIndex = sug.length ? 0 : -1;
+  };
+  await show(cur);
+  const body = el('div', {}, word, info, el('div', { style: 'font-size:12px;margin-bottom:4px' }, tr(lang, 'Suggestions', 'Sugestões')), list);
+  const next = async (): Promise<void> => {
+    cur = await ed.nextMisspelling(skip);
+    // "Alterar todas": as próximas ocorrências trocam sozinhas
+    while (cur && always.has(cur.word)) {
+      if (!ed.replaceSpelling(cur, always.get(cur.word)!)) skip.add(`${cur.para}:${cur.start}:${cur.word}`);
+      cur = await ed.nextMisspelling(skip);
+    }
+    if (!cur) { h.close(); env.app.ui!.flash(done); return; }
+    await show(cur);
+  };
+  let busy = false;
+  const step = async (id: string): Promise<void> => {
+    if (!cur || busy) return;
+    busy = true;
+    try {
+      const choice = list.value;
+      if (id === 'ignore') skip.add(`${cur.para}:${cur.start}:${cur.word}`);
+      else if (id === 'ignoreAll') ed.ignoreSpelling(cur.word);
+      else if (id === 'add') await ed.addToDictionary(cur.word);
+      else if (id === 'change' || id === 'changeAll') {
+        if (!choice) return;
+        if (id === 'changeAll') always.set(cur.word, choice);
+        if (!ed.replaceSpelling(cur, choice)) skip.add(`${cur.para}:${cur.start}:${cur.word}`);
+      }
+      await next();
+    } finally { busy = false; }
+  };
+  list.addEventListener('dblclick', () => { void step('change'); });
+  const h = openDialog({
+    title: tr(lang, 'Spelling', 'Ortografia'), icon: 'spellcheck', body, layer: env.layer, lang, width: 400, modal: false,
+    actions: [
+      { id: 'ignore', label: { en: 'Ignore Once', pt: 'Ignorar uma vez' } },
+      { id: 'ignoreAll', label: { en: 'Ignore All', pt: 'Ignorar tudo' } },
+      { id: 'add', label: { en: 'Add to Dictionary', pt: 'Adicionar ao dicionário' } },
+      { id: 'changeAll', label: { en: 'Change All', pt: 'Alterar todas' } },
+      { id: 'change', label: { en: 'Change', pt: 'Alterar' }, primary: true },
+    ],
+    onAction: (id) => { void step(id); return false; },
+  });
+  await h.result;
+}

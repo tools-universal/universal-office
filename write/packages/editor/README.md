@@ -68,6 +68,7 @@ Give the element a size with CSS — it fills its box and scrolls inside.
 | `storage-key` | string | Remembers this instance's bar choices (toolbar style, theme, comments, autosave interval) in `localStorage`. Falls back to `id`; with neither, choices last only for the session. |
 | `noautosave` | boolean | No autosave and no "autosave pending" notice. |
 | `nounloadprompt` | boolean | No browser "leave page?" prompt for unsaved changes. |
+| `nospellcheck` | boolean | No spell checking (no red squiggles, no suggestions). |
 | `lang` | `en` · `pt` | UI language of the bars and popups. Without it: Portuguese if the browser prefers it, otherwise English. |
 | `manual-init` | boolean | Do not initialize on connect; call `initialize()` yourself (offline use). |
 | `layout` | `legacy` | Use the previous canvas layout instead of the Word-fidelity engine. The editor also falls back to it on its own if the engine fails on a document. |
@@ -136,6 +137,16 @@ never while typing in another element's field. Removing the element from the
 document tears the bars down completely (timers and window/document
 listeners); putting it back rebuilds them.
 
+## Spelling
+
+Words are checked as you type with Hunspell (open LibreOffice dictionaries:
+pt-BR and en-US, loaded on demand) in a Web Worker, by the language of each
+run (`w:lang`, then character style, paragraph style and document defaults;
+`w:noProof` is skipped). Misspellings get a red squiggle on screen only (never
+in PDF, print or the viewer); right-click one for suggestions, **Ignore All**
+and **Add to Dictionary** (kept in `localStorage`). **Tools › Spelling & grammar**
+(F7) walks through the errors. Languages without a dictionary are not checked.
+
 ## Loading and saving
 
 | Method | Description |
@@ -157,6 +168,7 @@ listeners); putting it back rebuilds them.
 | Page | `setPageSetup({ orientation, size: 'A4' \| 'Letter', margins: 'normal' \| 'narrow' \| 'wide', customMargins })` |
 | Edit | `undo()`, `redo()`, `cut()`, `copy()`, `paste()`, `pastePlain()`, `pasteText(text)`, `selectAll()`, `selectedText()` |
 | Find | `findNext(text)`, `replaceAll(text, replacement)` (case-insensitive) |
+| Spelling | `spellCheckEnabled()`, `toggleSpellCheck(on?)`, `spellingAtCaret()`, `spellingSuggestions(m)`, `replaceSpelling(m, text)`, `ignoreSpelling(word)`, `addToDictionary(word)`, `nextMisspelling()` |
 | Comments | `getComments()`, `addComment(text, author)`, `removeComment(id)`, `goToComment(id)` |
 | Headers/footers | `enterHeaderFooter('header' \| 'footer')`, `exitHeaderFooter()` |
 | View | `setView('print' \| 'web' \| 'read' \| 'draft' \| 'outline')`, `getView()`, `setZoom(z)`, `getZoom()`, `toggleMarks()`, `setDarkPage(dark)`, `navigateTo('#bookmark')` |
@@ -243,7 +255,7 @@ Ctrl/⌘ + B · I · U (format), Z · Y (undo, redo), A (select all), E · L · 
 (alignment), C · X · V (clipboard), Shift+V (paste plain text), Enter (page
 break), ← → (word), Home · End (document). With `topbar`, also O (open), S ·
 Shift+S (save, save as), P (print), F · H (find, replace), K (link), D (font
-dialog), ] · [ (font size), Alt+M (comment), Shift+8 (formatting marks), / (shortcuts). Tab / Shift+Tab move between table
+dialog), ] · [ (font size), F7 (spelling), Alt+M (comment), Shift+8 (formatting marks), / (shortcuts). Tab / Shift+Tab move between table
 cells and list levels. Ctrl+wheel zooms; Ctrl+click follows a link;
 double-click the top or bottom margin to edit the header or footer.
 
