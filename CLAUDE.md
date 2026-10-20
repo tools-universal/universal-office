@@ -94,12 +94,24 @@ e usa `pickLabels`/`uiLang`. Isso é só a interface: números, datas e nomes de
 função do Sheet seguem `formula-locale` (as mensagens de erro de fórmula
 também, como no Excel), e a fidelidade dos dados continua pt-BR.
 
+## Revisão ortográfica: um lugar só
+
+A revisão ortográfica de todos os apps fica em `shared/spell`
+(`@universal-office/spell`): Hunspell 1.7.2 em WASM num Worker, dicionários
+abertos do LibreOffice (pt-BR VERO, en-US SCOWL) carregados sob demanda
+(chunks), idioma por etiqueta BCP 47 (`w:lang`) e dicionário do usuário
+guardado pelo hospedeiro. Regra combinada com o usuário: SÓ Hunspell, também no
+Electron — quando a integração entrar, o shell desliga o corretor do Chromium e
+usa este motor (hoje ainda não desliga). Medido: o
+nspell não carrega o .aff do VERO (mais de 5 min e mais de 1 GB); a escolha e os
+números estão no README do pacote.
+
 ## Pacotes: fronteira só com motivo
 
-São 14 pacotes (consolidados em 2026-10-19 a partir de 21). Pacote novo só
+São 15 pacotes (consolidados em 2026-10-19 a partir de 21; `spell` entrou depois). Pacote novo só
 entra com um motivo real: (1) é um PRODUTO separado — um web component com
 licença própria (gratuito × `-pro`); ou (2) é um motor usado por mais de um
-app ou sem DOM fora dos apps (`fonts`, `charts`, `ui`, `sheet-calc`). O resto
+app ou sem DOM fora dos apps (`fonts`, `charts`, `ui`, `spell`, `sheet-calc`). O resto
 fica como pasta dentro do pacote dono: conversões de formato em
 `<app>-core/src/export` (e `docx-core/src/odf`), base tipográfica e PDF do
 Write em `docx-layout/src/typography` e `src/pdf-writer`. Módulos movidos para
@@ -113,7 +125,7 @@ Publicação: só os 6 PRODUTOS vão para o registro (`write`, `document-viewer`
 — `npm run build:pkg` (`tools/build-pkg.mjs`) gera `<pacote>/publish/` (fora
 do git) com tudo dentro: pacotes internos pelo src, dependências npm, partes
 sob demanda em `chunks/`, `index.d.ts` único e package.json sem dependências.
-Publicar de dentro de `publish/`. Os 8 internos são `private` e nunca são
+Publicar de dentro de `publish/`. Os 9 internos são `private` e nunca são
 publicados. O `dist/` é outra coisa: saída do tsc que os pacotes do monorepo
 consomem entre si (ordem de build: write → slides → sheet; o Sheet usa o
 `dist/` do slides-core).

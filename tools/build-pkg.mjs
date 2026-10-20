@@ -12,9 +12,12 @@
  *   - index.d.ts: tipos num arquivo só (os dos pacotes internos embutidos);
  *   - fonts/: as fontes ABERTAS (Liberation, Carlito, Caladea — OFL) que o
  *     resolvedor usa como substitutas; o host serve a pasta e aponta para ela;
+ *   - licenses/<pacote>/: os textos de licença de terceiros que os pacotes
+ *     internos EMBUTIDOS no bundle declaram em `licenseFiles` no package.json
+ *     (dicionários e Hunspell do spell, por exemplo);
  *   - package.json publicável (sem dependencies) + README.md.
  *
- * Os pacotes internos (fonts, charts, ui, docx-core, docx-layout, sheet-core,
+ * Os pacotes internos (fonts, charts, ui, spell, docx-core, docx-layout, sheet-core,
  * sheet-calc, slides-core) são `private` e NUNCA são publicados: só existem
  * dentro desses bundles. O bloco `publish` do package.json de cada produto dá
  * a descrição/palavras-chave/licença do manifesto publicado.
@@ -45,6 +48,7 @@ const INTERNAL = {
   '@universal-office/fonts': 'shared/fonts/src/index.ts',
   '@universal-office/charts': 'shared/charts/src/index.ts',
   '@universal-office/ui': 'shared/ui/src/index.ts',
+  '@universal-office/spell': 'shared/spell/src/index.ts',
   '@universal-office/docx-core': 'write/packages/docx-core/src/index.ts',
   '@universal-office/docx-layout': 'write/packages/docx-layout/src/index.ts',
   '@universal-office/compare': 'write/packages/compare/src/index.ts',
@@ -66,7 +70,8 @@ async function buildProduct(id) {
 
   // 1. JS: tudo dentro, partes sob demanda em chunks/
   const alias = Object.fromEntries(Object.entries(INTERNAL).filter(([n]) => n !== src.name).map(([n, f]) => [n, p(f)]));
-  await esbuild.build({
+  const built = await esbuild.build({
+    metafile: true,
     entryPoints: { index: path.join(pkgDir, 'src', 'index.ts') },
     outdir: dist, bundle: true, format: 'esm', platform: 'browser', target: 'es2022',
     minify: true, splitting: true, chunkNames: 'chunks/[name]-[hash]', legalComments: 'linked',
@@ -105,7 +110,23 @@ async function buildProduct(id) {
     }
   }
 
-  // 4. Manifesto publicável: sem dependências (tudo está no bundle)
+  // 4. Licenças de terceiros dos pacotes internos que entraram no bundle: cada
+  //    um declara os textos em `licenseFiles` (package.json) → licenses/<nome>/
+  const inputs = Object.keys(built.metafile.inputs).map((f) => path.resolve(pkgDir, f));
+  let withLicenses = false;
+  for (const [name, entry] of Object.entries(INTERNAL)) {
+    const dir = path.dirname(path.dirname(p(entry))); // <pacote>/src/index.ts → <pacote>
+    if (!inputs.some((f) => f.startsWith(dir + path.sep))) continue;
+    const files = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')).licenseFiles ?? [];
+    for (const lf of files) {
+      const to = path.join(dist, 'licenses', name.replace(/^@universal-office\//, ''), path.basename(lf));
+      mkdirSync(path.dirname(to), { recursive: true });
+      copyFileSync(path.join(dir, lf), to);
+      withLicenses = true;
+    }
+  }
+
+  // 5. Manifesto publicável: sem dependências (tudo está no bundle)
   const manifest = {
     name: src.name,
     version: src.version,
@@ -117,7 +138,7 @@ async function buildProduct(id) {
     exports: { '.': { types: './index.d.ts', import: './index.js' } },
     // o componente se auto-registra (customElements.define) ao importar
     sideEffects: true,
-    files: ['index.js', 'index.d.ts', 'chunks', ...(withFonts ? ['fonts'] : []), '*.LEGAL.txt', 'media', 'README.md'],
+    files: ['index.js', 'index.d.ts', 'chunks', ...(withFonts ? ['fonts'] : []), '*.LEGAL.txt', ...(withLicenses ? ['licenses'] : []), 'media', 'README.md'],
     ...(publish.keywords ? { keywords: publish.keywords } : {}),
     ...(publish.license ? { license: publish.license } : {}),
   };

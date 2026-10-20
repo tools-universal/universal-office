@@ -1,0 +1,5 @@
+node_modules/
+dist/
+# originais baixados do LibreOffice (scripts/gen.mjs gera src/dicts/*.ts a partir deles)
+dicts-src/
+demo/build/
