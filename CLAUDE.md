@@ -162,7 +162,11 @@ pacotes de `publish/`, documentos de exemplo em inglês gerados na hora); o
 ## Funcionalidades do editor do Write: backlog e fluxo
 
 As lacunas do `<universal-write>` em relação ao Word e o fluxo combinado para
-fechá-las (escopo → medir no oráculo → API → render → salvar sem perdas →
-interface → testes → docs → commit) ficam em `write/BACKLOG.md`. Uma frente
-de código por vez; em paralelo, só medição no oráculo (leitura). Ao fechar uma
-frente, atualizar o estado lá.
+fechá-las ficam em `write/BACKLOG.md`: cada frente numa sessão com worktree
+próprio (escopo aprovado → medir no oráculo → API → render → salvar sem perdas
+→ interface → testes → docs → entrega), até 4 em paralelo. Worktree se monta
+com `node tools/parallel/worktree-setup.mjs --build` e se desmonta com
+`worktree-teardown.mjs` (nunca `rm -rf`); todo uso do Office via COM passa
+por `tools/parallel/word-lock.mjs`. As frentes não commitam bundles
+versionados nem editam o BACKLOG: a sessão coordenadora junta na main,
+recompila e atualiza o estado.

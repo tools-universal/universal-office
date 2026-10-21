@@ -13,6 +13,7 @@ import { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync } from 
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { acquireWordLock, releaseWordLock } from '../../../tools/parallel/word-lock.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const writeRoot = join(here, '..', '..');
@@ -47,6 +48,9 @@ console.log(`${n} caso(s) para o Word`);
 // --fresh: uma sessão do Word POR caso — a substituição de fontes ausentes fica
 // memorizada na sessão (um documento com altName muda a dos seguintes)
 const fresh = argv.includes('--fresh');
+// trava global: sessões paralelas não usam o Word ao mesmo tempo
+if (n > 0) acquireWordLock(`layout-oracle ${group}`);
+try {
 if (n > 0 && !fresh) {
   execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(here, 'word-export.ps1'),
     '-InDir', docxTmp, '-OutDir', pdfDir], { stdio: 'inherit', windowsHide: true });
@@ -60,6 +64,7 @@ if (n > 0 && !fresh) {
       '-InDir', one, '-OutDir', pdfDir], { stdio: 'inherit', windowsHide: true });
   }
 }
+} finally { if (n > 0) releaseWordLock(); }
 // extração (python/pdfium) de todos os PDFs presentes do grupo
 const py = join(writeRoot, 'tools', 'corpus-lab', 'oracle_extract.py');
 execFileSync('python', ['-I', py, pdfDir, fixDir], { stdio: 'inherit', windowsHide: true });
