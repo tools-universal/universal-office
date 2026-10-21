@@ -32,7 +32,7 @@ const esc = (s: string): string =>
 const escAttr = (s: string): string => esc(s).replace(/"/g, '&quot;');
 
 /** Coletadas durante a serialização; viram media parts + rels. */
-interface MediaOut { rid: string; path: string; data: Uint8Array; ext: string }
+interface MediaOut { rid: string; path: string; data: Uint8Array; ext: string; relType?: string; mime?: string }
 let mediaOut: MediaOut[] = [];
 let drawingId = 0;
 
@@ -79,6 +79,38 @@ function drawingXml(run: Run): string {
     `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
     `</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`
   );
+}
+
+const REL_PACKAGE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package';
+const OLE_MIME: Record<string, string> = {
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+};
+
+/**
+ * Objeto OLE incorporado (Planilha do Excel…) como o Word grava: w:object com
+ * a forma VML da prévia (v:imagedata) e o o:OLEObject apontando para o pacote
+ * em word/embeddings. Namespaces VML declarados no próprio elemento.
+ */
+function oleObjectXml(run: Run): string {
+  const img = run.image!, ole = img.ole!;
+  const n = ++drawingId;
+  const ridImg = `rIdWnImg${n}`, ridOle = `rIdWnOle${n}`;
+  mediaOut.push({ rid: ridImg, path: `word/media/wnimage${n}.${img.ext}`, data: img.data, ext: img.ext });
+  mediaOut.push({ rid: ridOle, path: `word/embeddings/wnobject${n}.${ole.ext}`, data: ole.data, ext: ole.ext, relType: REL_PACKAGE, mime: OLE_MIME[ole.ext] ?? 'application/octet-stream' });
+  const w = Math.round(img.widthTwips / 2) / 10, h = Math.round(img.heightTwips / 2) / 10;
+  const shape = `_x0000_i${1025 + n}`;
+  const objId = `_${String(1800000000 + n * 7919).slice(0, 10)}`;
+  return `<w:object xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" w:dxaOrig="${Math.round(img.widthTwips)}" w:dyaOrig="${Math.round(img.heightTwips)}">` +
+    '<v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" o:preferrelative="t" path="m@4@5l@4@11@9@11@9@5xe" filled="f" stroked="f">' +
+    '<v:stroke joinstyle="miter"/><v:formulas><v:f eqn="if lineDrawn pixelLineWidth 0"/><v:f eqn="sum @0 1 0"/><v:f eqn="sum 0 0 @1"/>' +
+    '<v:f eqn="prod @2 1 2"/><v:f eqn="prod @3 21600 pixelWidth"/><v:f eqn="prod @3 21600 pixelHeight"/><v:f eqn="sum @0 0 1"/>' +
+    '<v:f eqn="prod @6 1 2"/><v:f eqn="prod @7 21600 pixelWidth"/><v:f eqn="sum @8 21600 0"/><v:f eqn="prod @7 21600 pixelHeight"/>' +
+    '<v:f eqn="sum @10 21600 0"/></v:formulas><v:path o:extrusionok="f" gradientshapeok="t" o:connecttype="rect"/><o:lock v:ext="edit" aspectratio="t"/></v:shapetype>' +
+    `<v:shape id="${shape}" type="#_x0000_t75" style="width:${w}pt;height:${h}pt" o:ole=""><v:imagedata r:id="${ridImg}" o:title=""/></v:shape>` +
+    `<o:OLEObject Type="Embed" ProgID="${escAttr(ole.progId)}" ShapeID="${shape}" DrawAspect="Content" ObjectID="${objId}" r:id="${ridOle}"/>` +
+    '</w:object>';
 }
 
 /** Atualiza a GEOMETRIA (tamanho/posição) do <w:drawing> cru a partir dos
@@ -135,6 +167,7 @@ function objectXml(run: Run): string | undefined {
   const head = headSid !== undefined ? lossless.store.runs.get(headSid) : undefined;
   const rpr = rPrXml(run);
   if (!head?.obj) {
+    if (run.image?.ole && !run.image.rawDrawingXml) return `<w:r>${rpr}${oleObjectXml(run)}</w:r>`;
     if (run.image?.rawDrawingXml) return `<w:r>${rpr}${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
     if (run.image) return `<w:r>${drawingXml(run)}</w:r>`;
     if (run.textbox?.rawDrawingXml) {
@@ -244,6 +277,7 @@ function runXml(run: Run): string {
     if (run.image.rawDrawingXml) {
       return `<w:r>${patchDrawingGeometry(run.image.rawDrawingXml, run.image)}</w:r>`;
     }
+    if (run.image.ole) return `<w:r>${oleObjectXml(run)}</w:r>`;
     return `<w:r>${drawingXml(run)}</w:r>`;
   }
   // caixa de texto: reemite o <w:drawing> CRU com a geometria atual, trocando só
@@ -1135,9 +1169,10 @@ function writeParts(
     };
     const existingMedia = pkg.partNames().filter((p) => p.startsWith('word/media/'));
     const exts = new Set<string>();
+    const mimes = new Map<string, string>();
     for (const m of mediaOut) {
-      let target = `media/${m.path.split('/').pop()}`;
-      const dup = existingMedia.find((p) => sameBytes(pkg.getPart(p)!, m.data));
+      let target = m.path.replace(/^word\//, '');
+      const dup = m.relType ? undefined : existingMedia.find((p) => sameBytes(pkg.getPart(p)!, m.data));
       if (dup) {
         target = dup.replace(/^word\//, '');
       } else {
@@ -1146,13 +1181,14 @@ function writeParts(
       if (!rels.includes(`"${m.rid}"`)) {
         rels = rels.replace(
           '</Relationships>',
-          `<Relationship Id="${m.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${target}"/></Relationships>`,
+          `<Relationship Id="${m.rid}" Type="${m.relType ?? 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'}" Target="${target}"/></Relationships>`,
         );
       }
       exts.add(m.ext);
+      if (m.mime) mimes.set(m.ext, m.mime);
     }
     for (const ext of exts) {
-      const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+      const mime = mimes.get(ext) ?? (ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : ext === 'emf' ? 'image/x-emf' : `image/${ext}`);
       if (ct && !ct.includes(`Extension="${ext}"`)) {
         ct = ct.replace('</Types>', `<Default Extension="${ext}" ContentType="${mime}"/></Types>`);
       }

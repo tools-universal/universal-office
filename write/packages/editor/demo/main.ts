@@ -38,6 +38,8 @@ FontResolver.shared().configure({
 
 const wn = document.getElementById('wn') as UniversalWriteElement;
 wn.use(createMentionPlugin());
+// Planilha do Excel incorporada: o <universal-sheet> (produto Sheet) só quando for usado
+wn.sheetLoader = () => import(new URL('./sheet-bundle.js', import.meta.url).href);
 
 if (bridge) {
   const host: UniversalWriteHost = {

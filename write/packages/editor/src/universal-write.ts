@@ -113,6 +113,7 @@ import type { PlacedCell } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
 import { guardRuns } from './edit-guard.js';
+import { blankXlsx, editSpreadsheet, sheetAvailable } from './ole-sheet.js';
 import { LangResolver, ParagraphSpell, misspellingAt, wavePath, type Misspelling, type SpellEngine } from './spell.js';
 import {
   buildEngineDoc, locateRef, resolveCell, cellBlocks, cellAtGrid, sameHops, caretXIn, offsetAtX, reconcileBlocks,
@@ -3374,14 +3375,17 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Insere imagem no caret. Dimensões naturais a 96dpi, limitada à coluna. */
-  async insertImage(data: Uint8Array, ext: string): Promise<void> {
+  async insertImage(data: Uint8Array, ext: string, obj?: { ole: NonNullable<InlineImage['ole']>; widthTwips: number; heightTwips: number }): Promise<void> {
     if (!this.model || this.locked()) return;
     const copy = new Uint8Array(data);
-    const bmp = await createImageBitmap(
-      new Blob([copy.buffer], { type: `image/${ext === 'jpg' ? 'jpeg' : ext}` }),
-    );
-    let w = bmp.width * 15;  // px@96dpi → twips
-    let h = bmp.height * 15;
+    let w: number, h: number;
+    if (obj) { w = obj.widthTwips; h = obj.heightTwips; } else {
+      const bmp = await createImageBitmap(
+        new Blob([copy.buffer], { type: `image/${ext === 'jpg' ? 'jpeg' : ext}` }),
+      );
+      w = bmp.width * 15;  // px@96dpi → twips
+      h = bmp.height * 15;
+    }
     const maxW = this.contentWidthTwips();
     if (w > maxW) { h = (h * maxW) / w; w = maxW; }
     this.snapshot();
@@ -3402,7 +3406,7 @@ export class UniversalWriteElement extends HTMLElement {
         const imageRun = {
           text: '￼',
           props: run ? { ...run.props } : { ...DEFAULT_RUN_PROPS },
-          image: { data: copy, ext, widthTwips: w, heightTwips: h },
+          image: { data: copy, ext, widthTwips: w, heightTwips: h, ...(obj ? { ole: obj.ole } : {}) },
         };
         if (!run) {
           p.runs.push(imageRun);
@@ -4392,6 +4396,11 @@ export class UniversalWriteElement extends HTMLElement {
         if (region && (region.kind !== this.hfEdit.kind || region.page !== this.hfActivePage)) {
           this.switchHfFocus(region.kind, region.page);
         }
+      }
+      // duplo-clique numa planilha incorporada → edita no <universal-sheet>
+      if (!this.tbEdit && this.model && !this.protectedMode) {
+        const ole = this.oleRunAt(e);
+        if (ole && this.canEmbedSpreadsheet()) { e.preventDefault(); void this.editEmbeddedObject(ole); return; }
       }
       // duplo-clique numa IMAGEM flutuante (logo) → trocar a imagem, mantendo
       // posição/tamanho (como o Word: "Alterar Imagem").
@@ -8579,6 +8588,159 @@ export class UniversalWriteElement extends HTMLElement {
       return best;
     }
     return null;
+  }
+
+  // ───────────────── Planilha do Excel incorporada ─────────────────
+
+  /**
+   * Carregador do <universal-sheet> (produto Sheet) para a Planilha do Excel
+   * incorporada — a página o fornece (ex.: `() => import('@universal-office/sheet')`);
+   * sem ele, vale o componente já registrado na página.
+   */
+  sheetLoader: (() => Promise<unknown>) | null = null;
+
+  /** Dá para inserir/editar planilhas incorporadas (o componente existe ou é carregável). */
+  canEmbedSpreadsheet(): boolean { return !!customElements.get('universal-sheet') || !!this.sheetLoader; }
+
+  /** Camada dos diálogos (a das barras; sem barras, o próprio documento). */
+  private dialogLayer(): HTMLElement {
+    return (this.shadowRoot?.querySelector('.uw-layer') as HTMLElement | null) ?? document.body;
+  }
+
+  /** Inserir › Tabela › Planilha do Excel: uma pasta em branco, editada já no diálogo; OK insere o objeto. */
+  async insertSpreadsheet(): Promise<boolean> {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
+    if (!(await sheetAvailable(this.sheetLoader ?? undefined))) return false;
+    const lang = uiLang(this);
+    const sel = { ...this.selection };
+    const r = await editSpreadsheet(this.dialogLayer(), lang, blankXlsx(lang));
+    if (!r) return false;
+    this.selection = sel;
+    await this.insertImage(r.png, 'png', { ole: { progId: 'Excel.Sheet.12', data: r.xlsx, ext: 'xlsx' }, widthTwips: r.widthTwips, heightTwips: r.heightTwips });
+    return true;
+  }
+
+  /** Edita a planilha incorporada (duplo clique no objeto); o objeto passa a ser gravado como novo. */
+  async editEmbeddedObject(run: Run): Promise<boolean> {
+    const img = run.image;
+    if (!img?.ole || !/^Excel\.Sheet/i.test(img.ole.progId) || img.ole.ext !== 'xlsx' || this.locked()) return false;
+    if (!(await sheetAvailable(this.sheetLoader ?? undefined))) return false;
+    const r = await editSpreadsheet(this.dialogLayer(), uiLang(this), img.ole.data);
+    if (!r) return false;
+    this.snapshot();
+    img.ole = { ...img.ole, data: r.xlsx };
+    img.data = r.png;
+    img.ext = 'png';
+    img.widthTwips = r.widthTwips;
+    img.heightTwips = r.heightTwips;
+    delete img.vml;
+    delete img.rawDrawingXml;
+    // sai do cru de origem: o objeto é regravado (prévia e pacote novos)
+    delete run.props.src;
+    this.bitmaps.delete(img as object);
+    this.refresh();
+    return true;
+  }
+
+  /** Run de objeto OLE sob o mouse (inline). */
+  private oleRunAt(e: MouseEvent): Run | null {
+    const pos = this.hitTest(e);
+    const p = pos && this.model?.paragraphs[pos.para];
+    if (!p) return null;
+    let acc = 0;
+    for (const run of p.runs) {
+      const end = acc + run.text.length;
+      if (run.image?.ole && (pos!.offset === acc || pos!.offset === end)) return run;
+      acc = end;
+    }
+    return null;
+  }
+
+  // ───────────────── Tabelas Rápidas ─────────────────
+
+  /** Tabelas Rápidas (conteúdo próprio, no idioma da interface): calendário do mês, lista tabular, matriz, com subtítulos e tabela dupla. */
+  quickTables(): { id: string; label: { en: string; pt: string } }[] {
+    return [
+      { id: 'calendar', label: { en: 'Calendar (this month)', pt: 'Calendário (este mês)' } },
+      { id: 'tabular', label: { en: 'Tabular List', pt: 'Lista Tabular' } },
+      { id: 'matrix', label: { en: 'Matrix', pt: 'Matriz' } },
+      { id: 'subheads', label: { en: 'With Subheads', pt: 'Com Subtítulos' } },
+      { id: 'double', label: { en: 'Double Table', pt: 'Tabela Dupla' } },
+    ];
+  }
+
+  /** Insere uma Tabela Rápida no cursor (como Inserir Tabela, já com conteúdo e estilo). */
+  async insertQuickTable(id: string): Promise<boolean> {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
+    const pt = uiLang(this) === 'pt';
+    const tr = (en: string, p: string): string => (pt ? p : en);
+    let rows: string[][];
+    let style: string;
+    let merge: { r: number; c1: number; c2: number }[] = [];
+    switch (id) {
+      case 'calendar': {
+        const now = new Date();
+        const y = now.getFullYear(), mo = now.getMonth();
+        const month = new Intl.DateTimeFormat(pt ? 'pt-BR' : 'en-US', { month: 'long', year: 'numeric' }).format(now);
+        const days = pt ? ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        const first = new Date(y, mo, 1).getDay(), n = new Date(y, mo + 1, 0).getDate();
+        rows = [[month.charAt(0).toUpperCase() + month.slice(1), '', '', '', '', '', ''], days];
+        let week: string[] = Array(7).fill('');
+        for (let d = 1, wd = first; d <= n; d++, wd++) {
+          if (wd === 7) { rows.push(week); week = Array(7).fill(''); wd = 0; }
+          week[wd] = String(d);
+        }
+        rows.push(week);
+        merge = [{ r: 0, c1: 0, c2: 6 }];
+        style = 'Grid Table 1 Light';
+        break;
+      }
+      case 'tabular':
+        rows = [[tr('Item', 'Item'), tr('Needed', 'Necessário')],
+          [tr('Notebooks', 'Cadernos'), '12'], [tr('Pens', 'Canetas'), '30'], [tr('Folders', 'Pastas'), '8'],
+          [tr('Sticky notes', 'Blocos adesivos'), '15'], [tr('Staplers', 'Grampeadores'), '3']];
+        style = 'List Table 4 Accent 1';
+        break;
+      case 'matrix':
+        rows = [[tr('Region', 'Região'), 'T1', 'T2', 'T3', 'T4'],
+          [tr('North', 'Norte'), '120', '135', '150', '162'], [tr('South', 'Sul'), '98', '104', '117', '125'],
+          [tr('East', 'Leste'), '143', '139', '151', '170'], [tr('West', 'Oeste'), '87', '96', '101', '110']];
+        style = 'Grid Table 4 Accent 1';
+        break;
+      case 'subheads':
+        rows = [[tr('Course', 'Curso'), tr('Students', 'Alunos'), tr('Change', 'Variação')],
+          [tr('Undergraduate', 'Graduação'), '', ''], [tr('Engineering', 'Engenharia'), '420', '+12'], [tr('Design', 'Design'), '185', '+4'],
+          [tr('Graduate', 'Pós-graduação'), '', ''], [tr('Data science', 'Ciência de dados'), '96', '+21'], [tr('Management', 'Gestão'), '133', '-3'],
+          [tr('Total', 'Total'), '834', '+34']];
+        style = 'Plain Table 2';
+        break;
+      case 'double':
+        rows = [[tr('Team', 'Equipe'), tr('Points', 'Pontos'), '', tr('Team', 'Equipe'), tr('Points', 'Pontos')],
+          ['A', '18', '', 'E', '12'], ['B', '16', '', 'F', '11'], ['C', '14', '', 'G', '9'], ['D', '13', '', 'H', '7']];
+        style = 'List Table 1 Light Accent 1';
+        break;
+      default: return false;
+    }
+    if (!this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
+    this.insertTable(rows.length, rows[0]!.length);
+    const tg = this.tableTarget();
+    if (!tg) return false;
+    // preenche no mesmo passo de desfazer da inserção
+    const t = tg.table;
+    const sid = this.tableStyleId(style);
+    if (sid) TOps.setTableProps(t, { tblStyle: sid });
+    if (id === 'double' || id === 'calendar') TOps.setLook(t, { firstColumn: false });
+    rows.forEach((row, r) => row.forEach((text, c) => {
+      const cell = t.rows[r]?.cells[c];
+      if (cell && text) TOps.setCellContent(cell, [{ type: 'paragraph', paragraph: { runs: [{ text, props: { ...DEFAULT_RUN_PROPS } }], props: {} } }]);
+    }));
+    for (const mg of merge) TOps.mergeCells(t, { r1: mg.r, c1: mg.c1, r2: mg.r, c2: mg.c2 }, { normalSpacing: this.normalSpacing() });
+    if (id === 'calendar') for (let r = 1; r < t.rows.length; r++) for (const c of t.rows[r]!.cells) for (const p of c.paragraphs) p.props.alignment = 'center';
+    TOps.syncLegacy(t);
+    if (this.cellEdit) this.exitCell();
+    this.enterCellAt(tg.anchor, tg.path, 0, 0, false, false);
+    this.refresh();
+    return true;
   }
 
   // ───────────────── tabelas: área de transferência ─────────────────

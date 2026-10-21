@@ -95,6 +95,9 @@ export interface InlineImage {
   /** Ajustes de cor (VML gain/blacklevel/grayscale/bilevel, DrawingML
    *  a:lum/a:grayscl/a:biLevel) — o Word os aplica aos pixels ao exportar. */
   effects?: ImageEffects;
+  /** Objeto OLE incorporado (w:object/o:OLEObject Type="Embed"): o arquivo
+   *  (planilha .xlsx…) e o ProgID; a imagem é a prévia que o Word mostra. */
+  ole?: { progId: string; data: Uint8Array; ext: string };
 }
 
 /**
@@ -572,7 +575,7 @@ function findDeep(el: XmlElement, name: string): XmlElement | undefined {
   return undefined;
 }
 
-export type ImageResolver = (rid: string) => { data: Uint8Array; ext: string } | undefined;
+export type ImageResolver = (rid: string) => { data: Uint8Array; ext: string; path?: string } | undefined;
 export type LinkResolver = (rid: string) => string | undefined;
 
 /** Campo complexo aberto (fldChar begin…end), possivelmente aninhado. */
@@ -1127,7 +1130,16 @@ function readVmlRuns(container: XmlElement, ctx: ReadContext, inline: boolean): 
       const r = shapeOf(el);
       if (r) {
         // w:object: a imagem do OLE é inline
-        if (inline && r.image) { delete r.image.floating; delete r.image.anchor; }
+        if (inline && r.image) {
+          delete r.image.floating; delete r.image.anchor;
+          // o arquivo incorporado (planilha…) vai junto da prévia
+          const oo = findDeep(container, 'o:OLEObject');
+          const rid = oo?.attrs['r:id'];
+          if (oo && rid && oo.attrs['Type'] !== 'Link') {
+            const part = ctx.resolveImage(rid);
+            if (part) r.image.ole = { progId: oo.attrs['ProgID'] ?? '', data: part.data, ext: part.ext };
+          }
+        }
         out.push(r);
       }
     }
@@ -1694,7 +1706,7 @@ export function buildReadContext(pkg: DocxPackage, relsPath: string): ReadContex
       const data = pkg.getPart(path);
       if (!data) return undefined;
       const ext = path.split('.').pop()?.toLowerCase() ?? 'png';
-      return { data, ext };
+      return { data, ext, path };
     },
     resolveLink: (rid) => {
       const rel = relMap.get(rid);

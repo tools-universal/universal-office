@@ -41,6 +41,8 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
     // ── Inserir ──
     { id: 'table', label: L('Table', 'Tabela'), tip: L('Insert table', 'Inserir tabela'), icon: 'table', supports: has('insertTable'), run: () => ctl.tableDialog('insert'), isEnabled: canEdit },
     { id: 'table:insertDlg', label: L('Insert Table…', 'Inserir Tabela…'), icon: 'table', supports: has('insertTable'), run: () => ctl.tableDialog('insert'), isEnabled: canEdit },
+    { id: 'table:excel', label: L('Excel Spreadsheet', 'Planilha do Excel'), icon: 'table_view', supports: () => typeof (ed as unknown as { canEmbedSpreadsheet?: () => boolean }).canEmbedSpreadsheet === 'function' && ed.canEmbedSpreadsheet(),
+      isEnabled: () => canEdit() && !tbl(), run: () => { void ed.insertSpreadsheet().then(() => ctl.flash('')); } },
     { id: 'table:fromText', label: L('Convert Text to Table…', 'Converter Texto em Tabela…'), icon: 'table_convert', supports: has('convertTextToTable'), run: () => ctl.tableDialog('fromText'), isEnabled: () => canEdit() && !tbl() },
     // ── Layout da Tabela: Tabela ──
     t({ id: 'table:select:cell', label: L('Select Cell', 'Selecionar Célula'), icon: 'crop_square', supports: has('selectCell'), run: () => ed.selectCell() }),
@@ -386,7 +388,14 @@ export const tableMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
     box.append(cap, g);
     return box;
   },
-}, '-', 'table:insertDlg', 'table:fromText'];
+}, '-', 'table:insertDlg', 'table:fromText', 'table:excel', '-', {
+  id: 'table:quickMenu', label: L('Quick Tables', 'Tabelas Rápidas'), icon: 'table_view',
+  hidden: typeof (env.ed as unknown as { insertQuickTable?: unknown }).insertQuickTable !== 'function',
+  submenu: () => env.ed.quickTables().map((q): MenuItem => ({
+    id: `table:quick:${q.id}`, label: q.label, icon: 'table',
+    onClick: () => { void env.ed.insertQuickTable(q.id).then(() => ctx.after()); },
+  })),
+}];
 
 /** Medida da célula (Altura/Largura) com setas — cm, como o Word pt-BR. */
 const measureWidget = (env: WidgetEnv, which: 'height' | 'width'): BarItem => ({

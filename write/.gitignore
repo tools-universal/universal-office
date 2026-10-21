@@ -1,5 +1,7 @@
 node_modules/
 packages/editor/demo/offline-bundle.js
+# <universal-sheet> do demo (planilha incorporada): gerado por build:demo-sheet
+packages/editor/demo/sheet-bundle.js
 dist/
 temp/
 samples/
