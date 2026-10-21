@@ -71,7 +71,9 @@ public static class ModelOps
         a.VertAlign == b.VertAlign && a.SzHalfPt == b.SzHalfPt &&
         a.Color == b.Color && a.Highlight == b.Highlight && a.FontAscii == b.FontAscii &&
         a.AllCaps == b.AllCaps && a.SmallCaps == b.SmallCaps &&
-        SameComments(a.CommentIds, b.CommentIds);
+        SameComments(a.CommentIds, b.CommentIds) &&
+        // revisões: só a mesma (autor, data, movimentação) se funde — o Word grava um w:ins por autoria
+        DeepEquals(a.Ins, b.Ins) && DeepEquals(a.Del, b.Del) && DeepEquals(a.Fmt, b.Fmt);
 
     private static bool SameComments(List<int>? a, List<int>? b)
     {
@@ -89,7 +91,8 @@ public static class ModelOps
     /// </summary>
     private static bool SameRPr(Run a, Run b) => ReferenceEquals(a.Rpr, b.Rpr) || DeepEquals(a.Rpr, b.Rpr);
 
-    private static bool DeepEquals(object? a, object? b)
+    /// <summary>Igualdade estrutural (o JSON.stringify(a) === JSON.stringify(b) do JS, sem a ordem das chaves).</summary>
+    internal static bool DeepEquals(object? a, object? b)
     {
         if (ReferenceEquals(a, b)) return true;
         if (a is null || b is null || a.GetType() != b.GetType()) return false;
@@ -165,7 +168,9 @@ public static class ModelOps
         return p.Runs.Count;
     }
 
-    /// <summary>Props efetivas no ponto de inserção (herda do caractere anterior).</summary>
+    /// <summary>Props efetivas no ponto de inserção (herda do caractere anterior).
+    /// Revisões não passam adiante: texto novo junto de uma inserção/exclusão/formatação
+    /// controlada sai comum (medido no Word) — com o controle ligado, quem insere põe a dele.</summary>
     public static RunProps PropsAt(DocumentModel model, DocPosition pos)
     {
         if (pos.Para >= model.Paragraphs.Count) return new RunProps();
@@ -174,10 +179,20 @@ public static class ModelOps
         int acc = 0;
         foreach (var run in p.Runs)
         {
-            if (pos.Offset <= acc + run.Text.Length) return run.Props.Clone();
+            if (pos.Offset <= acc + run.Text.Length) return WithoutRevisions(run.Props);
             acc += run.Text.Length;
         }
-        return p.Runs[^1].Props.Clone();
+        return WithoutRevisions(p.Runs[^1].Props);
+    }
+
+    /// <summary>Cópia das props sem as marcas de revisão (Ins/Del/Fmt).</summary>
+    public static RunProps WithoutRevisions(RunProps props)
+    {
+        var o = props.Clone();
+        o.Ins = null;
+        o.Del = null;
+        o.Fmt = null;
+        return o;
     }
 
     /// <summary>rPr do run onde o texto entra (o anterior, como PropsAt).</summary>
@@ -215,6 +230,13 @@ public static class ModelOps
         var tailRuns = p.Runs.Skip(idx).ToList();
         p.Runs = p.Runs.Take(idx).ToList();
         var tail = new Paragraph { Runs = tailRuns, Props = p.Props.Clone() };
+        // a marca original (e a revisão dela) também é da segunda metade; a da primeira é nova
+        if (p.Props.MarkIns is not null || p.Props.MarkDel is not null)
+        {
+            p.Props = p.Props.Clone();
+            p.Props.MarkIns = null;
+            p.Props.MarkDel = null;
+        }
         model.Paragraphs.Insert(pos.Para + 1, tail);
         NormalizeParagraph(p);
         NormalizeParagraph(tail);

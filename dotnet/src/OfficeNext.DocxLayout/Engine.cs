@@ -16,6 +16,14 @@ public static class LayoutEngine
 {
     public static LayoutResult LayoutDocument(FullDocument full0, IFontProvider provider, LayoutOptions? opts = null)
     {
+        // revisões: cor por autor na ordem de leitura do documento (a ordem de encontro do Word)
+        if (opts?.Revisions is { } rv && rv.Mode != "final" && rv.Order is null)
+        {
+            var view = rv.ShallowClone();
+            view.Order = Revisions.RevisionAuthors(full0);
+            opts = opts.ShallowClone();
+            opts.Revisions = view;
+        }
         var fmt = full0.Formatting ?? DocContext.EmptyFormatting();
         // molduras (w:framePr) saem do fluxo: viram caixas ancoradas no parágrafo seguinte
         var lifted = Frames.LiftFrames(full0.Blocks, new HashSet<int>(full0.Sections.Select(s => s.BlockEnd)));
@@ -554,6 +562,13 @@ internal sealed class Engine
             items.AddRange(CullOffPage(body, ps.Page.WidthTw, ps.Page.HeightTw));
             if (!pbBack) items.AddRange(pbItems);
             ps.Page.Items = items;
+            // barras de alteração (controle de alterações): na frente, na margem esquerda
+            string? barColor = _ctx.Rev.BarColor();
+            if (barColor is not null && ps.Page.Lines.Any(l => l.Rev is not null))
+            {
+                double ml = ps.Geom.Index < full.Sections.Count ? full.Sections[ps.Geom.Index].SectPr.MarginLeftTwips : 1701;
+                ps.Page.Items.AddRange(RevisionBarItems(ps.Page.Lines, RevisionLayout.BarX(ml), barColor));
+            }
             ps.Page.HfItems = hfLayer.Count;
             if (bg is not null && bg.ToUpperInvariant() != "FFFFFF" && bg != "auto") ps.Page.Background = bg;
             return ps.Page;
@@ -1048,13 +1063,13 @@ internal sealed class Engine
                 }
                 // marca excluída (revisão): o texto vai para o parágrafo seguinte, com as
                 // propriedades dele (oráculo delmark); todo o texto excluído: some (numbering3, del-mark)
-                if (pblk.Paragraph.Ppr?.MarkDeleted == true && join is null && bi < n - 1 && blocks[bi + 1] is ParagraphBlock)
+                if (_ctx.Rev.MarkGone(pblk.Paragraph) && join is null && bi < n - 1 && blocks[bi + 1] is ParagraphBlock)
                 {
                     delRuns = (delRuns ?? new List<Run>()).Concat(pblk.Paragraph.Runs).ToList();
                     continue;
                 }
-                if (pblk.Paragraph.Ppr?.MarkDeleted == true && pblk.Paragraph.Runs.Count == 0 && join is null && delRuns is null) continue;
-                var merged = delRuns is not null ? new Paragraph { Runs = delRuns.Concat(pblk.Paragraph.Runs).ToList(), Props = pblk.Paragraph.Props, Ppr = pblk.Paragraph.Ppr } : pblk.Paragraph;
+                if (_ctx.Rev.MarkGone(pblk.Paragraph) && NoShownRuns(pblk.Paragraph) && join is null && delRuns is null) continue;
+                var merged = delRuns is not null ? RevisionLayout.JoinDeleted(delRuns, pblk.Paragraph) : pblk.Paragraph;
                 delRuns = null;
                 var para = join is not null ? JoinHidden(join, merged, env) : merged;
                 ParaEnv penv = envNoBreaks;
@@ -1423,8 +1438,14 @@ internal sealed class Engine
         if (n?.NumId is { } nid && nid != 0 && !double.IsNaN(nid) && env.Numbering != false) _ctx.Numbering.Next(nid, n.Ilvl ?? 0);
         var ppr = join.Para.Ppr?.Clone() ?? new PPr();
         ppr.RPr = next.Ppr?.RPr;
-        return new Paragraph { Runs = join.Para.Runs.Concat(next.Runs).ToList(), Props = join.Para.Props, Ppr = ppr };
+        var outp = new Paragraph { Runs = join.Para.Runs.Concat(next.Runs).ToList(), Props = join.Para.Props, Ppr = ppr };
+        // ({ ...join.para }: as junções de marca excluída do 1º vão junto)
+        RevisionLayout.CopyJoins(join.Para, outp);
+        return outp;
     }
+
+    /// <summary>Nenhum run aparece nesta visão (todo o texto excluído — ou parágrafo vazio).</summary>
+    private bool NoShownRuns(Paragraph p) => p.Runs.All(r => _ctx.Rev.Run(r)?.IsHide == true);
 
     // ───────────────────────── espaçamento contextual em volta de tabelas ─────────────────────────
     // (oráculos autosp/autosp2) Para o contextualSpacing, os parágrafos seguem a ordem do
@@ -1704,16 +1725,16 @@ internal sealed class Engine
         // as propriedades DELE (a marca que sobra) — estilo, recuos, numeração; o número
         // do excluído não conta (oráculo delmark). Todo o texto excluído: some (numbering3,
         // del-mark). O último da seção (quebra) fica como está.
-        if (para0.Ppr?.MarkDeleted == true && _pendingJoin is null && blockIdx < g.Blocks.End && blockIdx + 1 < _full.Blocks.Count && _full.Blocks[blockIdx + 1] is ParagraphBlock)
+        if (_ctx.Rev.MarkGone(para0) && _pendingJoin is null && blockIdx < g.Blocks.End && blockIdx + 1 < _full.Blocks.Count && _full.Blocks[blockIdx + 1] is ParagraphBlock)
         {
             _pendingDel = (_pendingDel ?? new List<Run>()).Concat(para0.Runs).ToList();
             return;
         }
-        if (para0.Ppr?.MarkDeleted == true && para0.Runs.Count == 0 && _pendingJoin is null && _pendingDel is null) return;
+        if (_ctx.Rev.MarkGone(para0) && NoShownRuns(para0) && _pendingJoin is null && _pendingDel is null) return;
         var join = _pendingJoin;
         _pendingJoin = null;
         var env = new ParaEnv { Field = FieldValue(_cur) };
-        var merged = _pendingDel is not null ? new Paragraph { Runs = _pendingDel.Concat(para0.Runs).ToList(), Props = para0.Props, Ppr = para0.Ppr } : para0;
+        var merged = _pendingDel is not null ? RevisionLayout.JoinDeleted(_pendingDel, para0) : para0;
         _pendingDel = null;
         var para = join is not null ? JoinHidden(join, merged, env) : merged;
         ParaEnv penv = env;
@@ -3874,11 +3895,44 @@ internal sealed class Engine
         var chars = line.Placed
             .Where(pg => pg.G.Kind != GlyphKind.Pb && pg.G.Kind != GlyphKind.Cb && !pg.G.AutoHyphen)
             .Select(pg => new LineChar(pg.G.Offset, frameX + pg.X, pg.W)).ToList();
+        // barra de alteração: a linha cruza uma revisão (inclusive texto excluído escondido)
+        var rb = p.RevBars;
+        bool firstLine = line.Start == 0, lastLine = line.End >= gs.Count;
+        // (texto escondido — exclusão na Marcação Simples — não tem glifo: vale encostar na linha)
+        bool rev = rb is not null && (rb.Whole || (rb.Mark && lastLine) || rb.Ranges.Any(r => r.Hidden ? r.A <= end && r.B >= start : r.A < end && r.B > start));
         return new LaidOutLine
         {
             Ref = reference, Start = start, End = end,
             X = frameX + line.XStart, Y = top, Height = line.Height, Baseline = top + line.Baseline, Width = line.Width,
             Chars = chars,
+            Rev = rev ? new LineRev(firstLine ? p.SpaceBefore : 0, lastLine ? p.SpaceAfter : 0) : null,
         };
+    }
+
+    /// <summary>
+    /// Barras de alteração de uma página (medido no Word, revisions-render): um
+    /// traço de 0,72 pt na margem esquerda por trecho de linhas seguidas com
+    /// revisão, cobrindo a caixa de cada linha mais o espaço antes/depois do
+    /// parágrafo — sem passar da linha vizinha.
+    /// </summary>
+    private static List<PageItem> RevisionBarItems(IReadOnlyList<LaidOutLine> lines, double x, string color)
+    {
+        // (ordenação estável, como o sort do JS)
+        var all = lines.OrderBy(l => l.Y).ToList();
+        var segs = new List<double[]>();
+        for (int i = 0; i < all.Count; i++)
+        {
+            var l = all[i];
+            if (l.Rev is null) continue;
+            double prevBottom = i > 0 ? all[i - 1].Y + all[i - 1].Height : double.NegativeInfinity;
+            double nextTop = i + 1 < all.Count ? all[i + 1].Y : double.PositiveInfinity;
+            double top = Math.Max(l.Y - l.Rev.Before, Math.Min(l.Y, prevBottom));
+            double bottom = Math.Min(l.Y + l.Height + l.Rev.After, Math.Max(l.Y + l.Height, nextTop));
+            var last = segs.Count > 0 ? segs[^1] : null;
+            // (a borda entre linhas de tabela não separa a barra — oráculo tbl)
+            if (last is not null && top <= last[1] + 20) last[1] = Math.Max(last[1], bottom);
+            else segs.Add(new[] { top, bottom });
+        }
+        return segs.Select(s => (PageItem)new RectItem { X = x, Y = s[0], W = RevisionLayout.BarWidth, H = s[1] - s[0], Fill = color }).ToList();
     }
 }

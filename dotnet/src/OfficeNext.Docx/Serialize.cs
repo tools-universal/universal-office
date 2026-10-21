@@ -9,6 +9,8 @@ namespace OfficeNext.Docx;
 /// rPr: rFonts → b → i → caps → smallCaps → strike → color → sz → highlight →
 /// u → vertAlign; pPr: pStyle → numPr → spacing → ind → jc).
 /// Imagens/headers/footers/comentários ficam fora do subset da fase 1.
+/// Revisões (w:ins/w:del/moveFrom/moveTo, marcas de parágrafo, w:rPrChange e
+/// w:pPrChange) saem das props, como no caminho sem fonte original do JS.
 /// </summary>
 public static class DocxSerialize
 {
@@ -19,9 +21,99 @@ public static class DocxSerialize
 
     private static readonly Regex SegmentRe = new(@"(\t|\n|\f)", RegexOptions.CultureInvariant);
 
-    private static string RunXml(Run run)
+    // ───────────── revisões geradas ao salvar (porta de rev-xml.ts) ─────────────
+
+    private const string W16duNs = "http://schemas.microsoft.com/office/word/2023/wordml/word16du";
+    private const string McNs = "http://schemas.openxmlformats.org/markup-compatibility/2006";
+    private static readonly Regex RevIdRe = new(@"\bw:id=""(-?\d+)""", RegexOptions.CultureInvariant);
+    private static readonly Regex XmlnsW16duRe = new(@"\sxmlns:w16du=", RegexOptions.CultureInvariant);
+    private static readonly Regex XmlnsMcRe = new(@"\sxmlns:mc=", RegexOptions.CultureInvariant);
+    private static readonly Regex IgnorableRe = new(@"\smc:Ignorable=""([^""]*)""", RegexOptions.CultureInvariant);
+    private static readonly Regex WsRe = new(@"\s+", RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// XML das revisões geradas num salvamento (w:ins, w:del, w:rPrChange, w:pPrChange,
+    /// marcas de parágrafo): w:id únicos acima dos que o pacote já usa, autor, data
+    /// (w:date como o Word grava — hora local com Z) e w16du:dateUtc. Quem usa o
+    /// w16du precisa declarar o namespace na raiz da parte (EnsureRevisionNamespaces).
+    /// </summary>
+    private sealed class RevXml
     {
-        var p = run.Props;
+        private double _nextId = 1;
+        /// <summary>algum w16du:dateUtc foi gerado</summary>
+        public bool UsedUtc;
+
+        /// <summary>Começo de um salvamento: ids novos acima do maior w:id dos textos dados.</summary>
+        public static RevXml Begin(IEnumerable<string?> xmls)
+        {
+            double max = 0;
+            foreach (var x in xmls)
+            {
+                if (x is null) continue;
+                foreach (Match m in RevIdRe.Matches(x)) max = Math.Max(max, double.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture));
+            }
+            return new RevXml { _nextId = max + 1 };
+        }
+
+        private static string EscRev(string s) => Esc(s).Replace("\"", "&quot;");
+
+        /// <summary>Atributos de uma revisão nova: w:id, w:author, w:date, w16du:dateUtc.</summary>
+        public string Attrs(RevisionInfo r)
+        {
+            string a = $" w:id=\"{Js.JsonNumber(_nextId++)}\" w:author=\"{EscRev(r.Author)}\"";
+            if (Js.Truthy(r.Date)) a += $" w:date=\"{EscRev(r.Date!)}\"";
+            if (Js.Truthy(r.DateUtc)) { a += $" w16du:dateUtc=\"{EscRev(r.DateUtc!)}\""; UsedUtc = true; }
+            return a;
+        }
+
+        private static string Tag(string kind, RevisionInfo r) => r.Move ? (kind == "ins" ? "w:moveTo" : "w:moveFrom") : $"w:{kind}";
+
+        /// <summary>Elemento de revisão vazio (marca de parágrafo): &lt;w:ins …/&gt;, &lt;w:del …/&gt;, moveFrom/To.</summary>
+        public string Mark(string kind, RevisionInfo r) => $"<{Tag(kind, r)}{Attrs(r)}/>";
+
+        /// <summary>Envoltório de runs: abertura e fecho de w:ins/w:del (ou moveTo/moveFrom).</summary>
+        public string Wrap(string kind, RevisionInfo r, string inner)
+        {
+            string tag = Tag(kind, r);
+            return $"<{tag}{Attrs(r)}>{inner}</{tag}>";
+        }
+    }
+
+    /// <summary>Declara w16du (e mc:Ignorable) na tag raiz de uma parte.</summary>
+    private static string EnsureRevisionNamespaces(string open, string rootName)
+    {
+        int at = open.IndexOf("<" + rootName, StringComparison.Ordinal);
+        if (at < 0) return open;
+        int end = open.IndexOf('>', at);
+        string tag = open[at..end];
+        if (!XmlnsW16duRe.IsMatch(tag)) tag += $" xmlns:w16du=\"{W16duNs}\"";
+        if (!XmlnsMcRe.IsMatch(tag)) tag += $" xmlns:mc=\"{McNs}\"";
+        var ign = IgnorableRe.Match(tag);
+        if (!ign.Success) tag += " mc:Ignorable=\"w16du\"";
+        else if (!WsRe.Split(ign.Groups[1].Value).Contains("w16du"))
+        {
+            string v = ign.Groups[1].Value;
+            int i = tag.IndexOf(ign.Value, StringComparison.Ordinal);
+            tag = tag[..i] + $" mc:Ignorable=\"{(v.Length > 0 ? v + " " : "")}w16du\"" + tag[(i + ign.Value.Length)..];
+        }
+        return open[..at] + tag + open[end..];
+    }
+
+    /// <summary>Elemento com conteúdo (vazio: autofechado, como o Word grava).</summary>
+    private static string WrapIn(string tag, string inner) => inner.Length > 0 ? $"<{tag}>{inner}</{tag}>" : $"<{tag}/>";
+
+    /// <summary>Conteúdo de um elemento serializado (sem a abertura e o fecho).</summary>
+    private static string InnerOf(string xml)
+    {
+        if (xml.Length == 0) return "";
+        int a = xml.IndexOf('>');
+        if (a > 0 && xml[a - 1] == '/') return "";
+        return xml[(a + 1)..xml.LastIndexOf("</", StringComparison.Ordinal)];
+    }
+
+    /// <summary>w:rPr gerado das props (subset; formatação controlada: o rPr de antes, por último).</summary>
+    private static string RPrFromProps(RunProps p, RevXml rx)
+    {
         var rpr = new List<string>();
         if (!string.IsNullOrEmpty(p.FontAscii))
             rpr.Add($"<w:rFonts w:ascii=\"{EscAttr(p.FontAscii!)}\" w:hAnsi=\"{EscAttr(p.FontAscii!)}\" w:cs=\"{EscAttr(p.FontAscii!)}\"/>");
@@ -41,11 +133,17 @@ public static class DocxSerialize
             rpr.Add($"<w:u w:val=\"{p.UnderlineStyle ?? "single"}\"{uColor}/>");
         }
         if (p.VertAlign is not null) rpr.Add($"<w:vertAlign w:val=\"{p.VertAlign}\"/>");
+        // formatação controlada: o rPr de antes, por último (CT_RPr)
+        if (p.Fmt is not null) rpr.Add($"<w:rPrChange{rx.Attrs(p.Fmt)}>{WrapIn("w:rPr", InnerOf(RPrFromProps(p.Fmt.Old, rx)))}</w:rPrChange>");
+        return rpr.Count > 0 ? $"<w:rPr>{string.Concat(rpr)}</w:rPr>" : "";
+    }
 
+    /// <summary>Texto do run (excluído em revisão: w:delText).</summary>
+    private static string TextXml(string text, bool deleted)
+    {
+        string t = deleted ? "w:delText" : "w:t";
         var parts = new List<string>();
-        if (rpr.Count > 0) parts.Add($"<w:rPr>{string.Concat(rpr)}</w:rPr>");
-        var segments = SegmentRe.Split(run.Text);
-        foreach (var seg in segments)
+        foreach (var seg in SegmentRe.Split(text))
         {
             if (seg == "\t") parts.Add("<w:tab/>");
             else if (seg == "\n") parts.Add("<w:br/>");
@@ -53,26 +151,71 @@ public static class DocxSerialize
             else if (seg.Length > 0)
             {
                 string space = seg != seg.Trim() ? " xml:space=\"preserve\"" : "";
-                parts.Add($"<w:t{space}>{Esc(seg)}</w:t>");
+                parts.Add($"<{t}{space}>{Esc(seg)}</{t}>");
             }
         }
-        return $"<w:r>{string.Concat(parts)}</w:r>";
+        return string.Concat(parts);
     }
 
-    private static string ParaXml(Paragraph para)
+    private static string RunXml(Run run, RevXml rx)
     {
-        var runParts = new List<string>();
-        foreach (var r in para.Runs)
-        {
-            // run de CAMPO: emite fldSimple com o cache atual
-            if (r.Field is not null)
-                runParts.Add($"<w:fldSimple w:instr=\"{EscAttr(r.Field)}\">{RunXml(r)}</w:fldSimple>");
-            else runParts.Add(RunXml(r));
-        }
-        return ParaXmlInner(para, string.Concat(runParts));
+        string rpr = RPrFromProps(run.Props, rx);
+        return $"<w:r>{rpr}{TextXml(run.Text, run.Props.Del is not null)}</w:r>";
     }
 
-    private static string ParaXmlInner(Paragraph para, string runsXml)
+    /// <summary>Run de CAMPO: fldSimple com o cache atual (o Word o atualiza sozinho). Dentro
+    /// de uma revisão (w:ins/w:del só contêm runs) o campo sai na forma complexa.</summary>
+    private static string FieldOrRunXml(Run r, RevXml rx)
+    {
+        if (r.Field is null) return RunXml(r, rx);
+        if (r.Props.Ins is null && r.Props.Del is null) return $"<w:fldSimple w:instr=\"{EscAttr(r.Field)}\">{RunXml(r, rx)}</w:fldSimple>";
+        string rpr = RPrFromProps(r.Props, rx);
+        string Ch(string type) => $"<w:r>{rpr}<w:fldChar w:fldCharType=\"{type}\"/></w:r>";
+        string it = r.Props.Del is not null ? "w:delInstrText" : "w:instrText";
+        string begin = Ch("begin");
+        string instr = $"<w:r>{rpr}<{it} xml:space=\"preserve\">{Esc(r.Field)}</{it}></w:r>";
+        string sep = Ch("separate");
+        string result = RunXml(r, rx);
+        return begin + instr + sep + result + Ch("end");
+    }
+
+    /// <summary>Runs nos envoltórios de revisão, pelas props: w:ins por fora, w:del por dentro
+    /// (a inserção de outro autor excluída é &lt;w:ins&gt;&lt;w:del&gt;…, como o Word grava).</summary>
+    private static string RevisionRuns(List<Run> items, RevXml rx)
+    {
+        string Plain(List<Run> xs) => string.Concat(xs.Select(r => FieldOrRunXml(r, rx)));
+        string Dels(List<Run> xs)
+        {
+            var sb = new StringBuilder();
+            for (int i = 0; i < xs.Count;)
+            {
+                var d = xs[i].Props.Del;
+                int j = i + 1;
+                while (j < xs.Count && Revisions.SameJson(xs[j].Props.Del, d)) j++;
+                string inner = Plain(xs.GetRange(i, j - i));
+                sb.Append(d is not null ? rx.Wrap("del", d, inner) : inner);
+                i = j;
+            }
+            return sb.ToString();
+        }
+        var outp = new StringBuilder();
+        for (int i = 0; i < items.Count;)
+        {
+            var ins = items[i].Props.Ins;
+            int j = i + 1;
+            while (j < items.Count && Revisions.SameJson(items[j].Props.Ins, ins)) j++;
+            string inner = Dels(items.GetRange(i, j - i));
+            outp.Append(ins is not null ? rx.Wrap("ins", ins, inner) : inner);
+            i = j;
+        }
+        return outp.ToString();
+    }
+
+    private static string ParaXml(Paragraph para, RevXml rx) => ParaXmlInner(para, RevisionRuns(para.Runs, rx), rx);
+
+    private static readonly Regex PPrInnerRe = new(@"^<w:p><w:pPr>([\s\S]*)</w:pPr></w:p>\z", RegexOptions.CultureInvariant);
+
+    private static string ParaXmlInner(Paragraph para, string runsXml, RevXml rx)
     {
         var pp = para.Props;
         var ppr = new List<string>();
@@ -131,6 +274,16 @@ public static class DocxSerialize
             ppr.Add($"<w:ind{attrs}/>");
         }
         if (pp.Alignment is not null && pp.Alignment != "left") ppr.Add($"<w:jc w:val=\"{pp.Alignment}\"/>");
+        // revisões: marca de parágrafo (w:rPr) e formatação controlada (w:pPrChange, a última)
+        string mark = (pp.MarkIns is not null ? rx.Mark("ins", pp.MarkIns) : "") + (pp.MarkDel is not null ? rx.Mark("del", pp.MarkDel) : "");
+        if (mark.Length > 0) ppr.Add($"<w:rPr>{mark}</w:rPr>");
+        if (pp.Pfmt is not null)
+        {
+            string old = ParaXmlInner(new Paragraph { Props = pp.Pfmt.Old }, "", rx);
+            var m = PPrInnerRe.Match(old);
+            string oldInner = m.Success ? m.Groups[1].Value : "";
+            ppr.Add($"<w:pPrChange{rx.Attrs(pp.Pfmt)}>{(oldInner.Length > 0 ? $"<w:pPr>{oldInner}</w:pPr>" : "<w:pPr/>")}</w:pPrChange>");
+        }
 
         string inner = (ppr.Count > 0 ? $"<w:pPr>{string.Concat(ppr)}</w:pPr>" : "") + runsXml;
         return $"<w:p>{inner}</w:p>";
@@ -156,16 +309,21 @@ public static class DocxSerialize
             $"w:header=\"708\" w:footer=\"708\" w:gutter=\"0\"/>{cols}";
     }
 
-    public static string SerializeDocument(DocumentModel model)
+    public static string SerializeDocument(DocumentModel model) => SerializeDocument(model, new RevXml());
+
+    private static string SerializeDocument(DocumentModel model, RevXml rx)
     {
         string sect = $"<w:sectPr>{SectPrInner(model.SectPr)}</w:sectPr>";
+        string body = string.Concat(model.Paragraphs.Select(p => ParaXml(p, rx)));
+        // raiz da parte com o namespace w16du se alguma revisão gerada o usou
+        string open = $"<w:document {WNs}>";
+        if (rx.UsedUtc) open = EnsureRevisionNamespaces(open, "w:document");
         return
             "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
-            $"<w:document {WNs}><w:body>" +
-            string.Concat(model.Paragraphs.Select(ParaXml)) +
-            sect +
-            "</w:body></w:document>";
+            open + "<w:body>" + body + sect + "</w:body></w:document>";
     }
+
+    private static readonly Regex RevPartRe = new(@"^word/(?:document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml\z", RegexOptions.CultureInvariant);
 
     private static string NumberingXml()
     {
@@ -204,7 +362,9 @@ public static class DocxSerialize
     /// </summary>
     public static void WriteDocument(DocxPackage pkg, DocumentModel model)
     {
-        pkg.SetPartText("word/document.xml", SerializeDocument(model));
+        // ids das revisões novas: acima dos que o pacote já usa
+        var rx = RevXml.Begin(pkg.PartNames().Where(p => RevPartRe.IsMatch(p)).Select(p => pkg.GetPartText(p)).ToList());
+        pkg.SetPartText("word/document.xml", SerializeDocument(model, rx));
 
         bool hasLists = model.Paragraphs.Any(p => p.Props.Numbering is not null);
         if (!hasLists) return;

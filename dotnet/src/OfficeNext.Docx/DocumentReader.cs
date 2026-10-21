@@ -80,7 +80,21 @@ public static class DocumentReader
         if (rpr.RFonts is not null) p.FontAscii = rpr.RFonts.Ascii;
         if (rpr.Spacing is { } sp && sp != 0) p.CharSpacingTwips = double.IsFinite(sp) ? (int)sp : null;
         if (Js.Truthy(rpr.RStyle)) p.CharStyle = rpr.RStyle;
+        if (rpr.Change is not null) p.Fmt = CopyRevInfo(rpr.Change, new FormatChange { Old = RunPropsFromRPr(rpr.Change.RPr) });
         return p;
+    }
+
+    /// <summary>Só a autoria de uma revisão (sem o conteúdo antigo).</summary>
+    public static RevisionInfo RevInfo(RevisionInfo r) => CopyRevInfo(r, new RevisionInfo());
+
+    /// <summary>Copia a autoria (autor, datas, movimentação) de uma revisão para outra.</summary>
+    private static T CopyRevInfo<T>(RevisionInfo r, T into) where T : RevisionInfo
+    {
+        into.Author = r.Author;
+        into.Date = r.Date;
+        into.DateUtc = r.DateUtc;
+        into.Move = r.Move;
+        return into;
     }
 
     /// <summary>Props de parágrafo de EDIÇÃO derivadas do w:pPr tipado (paraPropsFromPPr).</summary>
@@ -153,6 +167,9 @@ public static class DocumentReader
         }
         if (ppr.PageBreakBefore == true) props.PageBreakBefore = true;
         if (Js.Truthy(ppr.FramePr?.DropCap) && ppr.FramePr!.DropCap != "none") props.DropCap = true;
+        if (ppr.MarkIns is not null) props.MarkIns = RevInfo(ppr.MarkIns);
+        if (ppr.MarkDel is not null) props.MarkDel = RevInfo(ppr.MarkDel);
+        if (ppr.Change is not null) props.Pfmt = CopyRevInfo(ppr.Change, new ParaFormatChange { Old = ParaPropsFromPPr(ppr.Change.PPr) });
         return props;
     }
 
@@ -892,10 +909,16 @@ public static class DocumentReader
         RunTarget(ctx, runs)?.Add(run);
     }
 
+    /// <summary>O que um envoltório passa aos runs de dentro (hyperlink, campo, revisão).</summary>
     private sealed class Inherit
     {
         public string? Link;
         public string? Field;
+        public RevisionInfo? Ins;
+        public RevisionInfo? Del;
+
+        /// <summary>{ ...inherit } (raso).</summary>
+        public static Inherit From(Inherit? i) => new() { Link = i?.Link, Field = i?.Field, Ins = i?.Ins, Del = i?.Del };
     }
 
     /// <summary>Lê os runs de um container (w:r diretos, w:hyperlink, m:oMath, w:fldSimple…).</summary>
@@ -931,7 +954,9 @@ public static class DocumentReader
                         string? anchor = child.Attr("w:anchor");
                         string? link = Js.Truthy(rid) ? ctx.ResolveLink(rid!) : null;
                         if (!Js.Truthy(link)) link = anchor is not null ? "#" + anchor : null;
-                        ReadRunsInto(runs, child, ctx, new Inherit { Link = link, Field = inherit?.Field });
+                        var hi = Inherit.From(inherit);
+                        hi.Link = link;
+                        ReadRunsInto(runs, child, ctx, hi);
                         break;
                     }
                 case "w:fldSimple":
@@ -1000,14 +1025,29 @@ public static class DocumentReader
                         break;
                     }
                 case "w:smartTag":
-                case "w:ins":
-                case "w:moveTo":
                 case "w:customXml":
                 case "w:dir":
                 case "w:bdo":
                     ReadRunsInto(runs, child, ctx, inherit);
                     break;
-                    // w:del / w:moveFrom: texto excluído (visão "final") — fora do fluxo
+                // revisões: o texto inserido E o excluído ficam no modelo, marcados nas props
+                // (a visão final esconde o excluído — motor de layout)
+                case "w:ins":
+                case "w:moveTo":
+                    {
+                        var ri = Inherit.From(inherit);
+                        ri.Ins = OoxmlProps.ReadRevisionInfo(child);
+                        ReadRunsInto(runs, child, ctx, ri);
+                        break;
+                    }
+                case "w:del":
+                case "w:moveFrom":
+                    {
+                        var rd = Inherit.From(inherit);
+                        rd.Del = OoxmlProps.ReadRevisionInfo(child);
+                        ReadRunsInto(runs, child, ctx, rd);
+                        break;
+                    }
             }
         }
     }
@@ -1136,6 +1176,8 @@ public static class DocumentReader
         {
             var props = rProps.Clone();
             if (ctx.ActiveComments is { Count: > 0 }) props.CommentIds = new List<int>(ctx.ActiveComments);
+            if (inherit?.Ins is not null) props.Ins = inherit.Ins;
+            if (inherit?.Del is not null) props.Del = inherit.Del;
             var run = extra ?? new Run();
             run.Text = text;
             run.Props = props;
@@ -1167,6 +1209,8 @@ public static class DocumentReader
                 if (type == "begin")
                 {
                     var frame = new FieldFrame { Props = rProps.Clone() };
+                    if (inherit?.Ins is not null) frame.Props.Ins = inherit.Ins;
+                    if (inherit?.Del is not null) frame.Props.Del = inherit.Del;
                     if (rpr is not null) frame.Rpr = rpr;
                     var ff = FirstChild(child, "w:ffData");
                     if (ff is not null)
@@ -1211,7 +1255,7 @@ public static class DocumentReader
                 }
                 continue;
             }
-            if (child.Name == "w:instrText")
+            if (child.Name is "w:instrText" or "w:delInstrText")
             {
                 var top = stack.Count > 0 ? stack[^1] : null;
                 if (top is not null && top.Phase == "instr") top.Instr += TextContentOf(child);
@@ -1220,6 +1264,7 @@ public static class DocumentReader
             switch (child.Name)
             {
                 case "w:t":
+                case "w:delText":
                     // U+00AD LITERAL no texto não é hífen opcional para o Word: aparece
                     // sempre (hífen da própria fonte) e não quebra a linha — igual ao
                     // w:noBreakHyphen (oráculo hidetext/shy-literal). Opcional é só w:softHyphen.

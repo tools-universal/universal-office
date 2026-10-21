@@ -33,6 +33,13 @@ public sealed class RunProps
     public bool IsMath;
     /// <summary>Comentários cujo intervalo cobre este run.</summary>
     public List<int>? CommentIds;
+    /// <summary>Texto inserido em revisão (w:ins; w:moveTo com Move).</summary>
+    public RevisionInfo? Ins;
+    /// <summary>Texto EXCLUÍDO em revisão (w:del; w:moveFrom com Move): fica no modelo e
+    /// no texto do parágrafo (offsets); a visão final o esconde.</summary>
+    public RevisionInfo? Del;
+    /// <summary>Formatação controlada (w:rPrChange): autoria e as props ANTES da mudança.</summary>
+    public FormatChange? Fmt;
 
     public RunProps Clone() => new()
     {
@@ -43,7 +50,21 @@ public sealed class RunProps
         AllCaps = AllCaps, SmallCaps = SmallCaps, CharSpacingTwips = CharSpacingTwips,
         Link = Link, CharStyle = CharStyle, IsMath = IsMath,
         CommentIds = CommentIds is null ? null : new List<int>(CommentIds),
+        Ins = Ins, Del = Del, Fmt = Fmt,
     };
+}
+
+/// <summary>w:rPrChange no modelo de edição: <c>Old</c> são as props de formatação de antes
+/// (sem as de origem/revisão/comentário/link) — rejeitar volta a elas.</summary>
+public sealed class FormatChange : RevisionInfo
+{
+    public RunProps Old = new();
+}
+
+/// <summary>w:pPrChange no modelo de edição (ver FormatChange).</summary>
+public sealed class ParaFormatChange : RevisionInfo
+{
+    public ParaProps Old = new();
 }
 
 public sealed class InlineImage
@@ -397,6 +418,13 @@ public sealed class ParaProps
     public bool PageBreakBefore;
     public bool DropCap;
     public SectionBreakInfo? SectionBreak;
+    /// <summary>Marca de parágrafo (¶) inserida em revisão (w:pPr/w:rPr/w:ins ou w:moveTo).</summary>
+    public RevisionInfo? MarkIns;
+    /// <summary>Marca de parágrafo excluída em revisão (w:pPr/w:rPr/w:del ou w:moveFrom): na
+    /// visão final o parágrafo se junta ao seguinte.</summary>
+    public RevisionInfo? MarkDel;
+    /// <summary>Formatação de parágrafo controlada (w:pPrChange).</summary>
+    public ParaFormatChange? Pfmt;
 
     public ParaProps Clone() => new()
     {
@@ -408,6 +436,7 @@ public sealed class ParaProps
         TocInstr = TocInstr, TocEntry = TocEntry, TabStops = TabStops?.ToList(),
         ShadingHex = ShadingHex, BoxBorder = BoxBorder, Borders = Borders,
         PageBreakBefore = PageBreakBefore, DropCap = DropCap, SectionBreak = SectionBreak,
+        MarkIns = MarkIns, MarkDel = MarkDel, Pfmt = Pfmt,
     };
 }
 
@@ -475,6 +504,9 @@ public sealed class TableCell
     public TcPr? TcPr;
     /// <summary>Conteúdo da célula NA ORDEM (parágrafos e tabelas aninhadas intercalados).</summary>
     public List<Block>? Blocks;
+
+    /// <summary>Cópia rasa ({ ...cell }).</summary>
+    public TableCell ShallowClone() => (TableCell)MemberwiseClone();
 }
 
 public sealed class TableRow
@@ -484,6 +516,9 @@ public sealed class TableRow
     public TrPr? TrPr;
     /// <summary>w:tblPrEx — exceções de propriedades da tabela nesta linha.</summary>
     public TblPr? TblPrEx;
+
+    /// <summary>Cópia rasa ({ ...row }).</summary>
+    public TableRow ShallowClone() => (TableRow)MemberwiseClone();
 }
 
 public abstract class Block { }
@@ -500,6 +535,9 @@ public sealed class TableBlock : Block
     public TableBorders? Borders;
     /// <summary>w:tblPr completo (tri-estado) — motor de layout.</summary>
     public TblPr? TblPr;
+
+    /// <summary>Cópia rasa ({ ...table }).</summary>
+    public TableBlock ShallowClone() => (TableBlock)MemberwiseClone();
 }
 
 public sealed class HeaderFooterSet

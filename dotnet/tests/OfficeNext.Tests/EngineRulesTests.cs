@@ -13,7 +13,7 @@ namespace OfficeNext.Tests;
 /// </summary>
 public class EngineRulesTests
 {
-    private static readonly Lazy<IFontProvider> Carlito = new(() =>
+    internal static readonly Lazy<IFontProvider> Carlito = new(() =>
     {
         string dir = Path.Combine(LayoutParityTests.RepoRoot.Value, "shared", "fonts", "files");
         PdfFontSource Src(string f, bool b, bool i) => new() { Bytes = File.ReadAllBytes(Path.Combine(dir, f)), Bold = b, Italic = i, Name = "Carlito" };

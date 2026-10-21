@@ -121,6 +121,7 @@ public static class DocxMarkdown
 
     public static string ToMarkdown(ExportDoc doc, DocxMarkdownOptions? opts = null)
     {
+        doc = DocxExportModel.FinalExportDoc(doc);
         opts ??= new DocxMarkdownOptions();
         var ctx = new Ctx
         {

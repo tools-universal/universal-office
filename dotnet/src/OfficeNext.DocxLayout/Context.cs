@@ -35,6 +35,11 @@ public sealed class LayoutOptions
     /// <summary>só hifeniza estes idiomas (etiquetas BCP 47 ou prefixos: "pt-BR", "en"…): o Word
     /// só hifeniza os idiomas com revisores instalados — padrão: todos com padrões</summary>
     public List<string>? HyphenationLanguages;
+    /// <summary>exibição das revisões (controle de alterações) — padrão: visão final, sem marcas</summary>
+    public RevisionView? Revisions;
+
+    /// <summary>Cópia rasa ({ ...opts }).</summary>
+    public LayoutOptions ShallowClone() => (LayoutOptions)MemberwiseClone();
 }
 
 /// <summary>Dados de uma decisão de quebra (twips): para medir a regra do Word no corpus.</summary>
@@ -92,6 +97,8 @@ public sealed class DocContext
     private readonly List<string> _warnings = new();
     private readonly HashSet<string> _warnSet = new(StringComparer.Ordinal);
     public readonly ResolvedLayoutOptions Opts;
+    /// <summary>como as revisões aparecem (modo, filtros, cores)</summary>
+    public readonly RevisionDisplay Rev;
 
     public DocContext(DocFormatting fmt, IFontProvider provider, LayoutOptions? opts = null)
     {
@@ -112,6 +119,7 @@ public sealed class DocContext
             HyphenationLanguages = opts.HyphenationLanguages,
         };
         Numbering = new NumberingState(fmt.Numbering, fmt.Styles.Styles, Opts.Lang);
+        Rev = new RevisionDisplay(opts.Revisions, opts.Revisions?.Order ?? Array.Empty<string>());
     }
 
     /// <summary>Avisos na ordem de inserção (Set do JS).</summary>

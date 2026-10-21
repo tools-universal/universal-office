@@ -49,13 +49,17 @@ public class LayoutParityTests
         Assert.True(File.Exists(expPath), $"dump JS ausente: {expPath} — rode node tools/gen-parity-layout.mjs");
         using var exp = JsonDocument.Parse(File.ReadAllText(expPath));
         byte[] docx = File.ReadAllBytes(Path.Combine(OracleDir, caseId + ".docx"));
+        // casos mk-* (controle de alterações): Todas as Marcações — como o gerador JS
+        var opts = caseId.Split('/')[^1].StartsWith("mk-", StringComparison.Ordinal)
+            ? new LayoutOptions { Revisions = new RevisionView { Mode = "all" } }
+            : null;
         if (exp.RootElement.TryGetProperty("error", out var err))
         {
-            Assert.ThrowsAny<Exception>(() => DocxLayoutPipeline.Layout(docx, SystemFontProvider.Shared));
+            Assert.ThrowsAny<Exception>(() => DocxLayoutPipeline.Layout(docx, SystemFontProvider.Shared, opts));
             _out.WriteLine($"JS também falha: {err.GetString()}");
             return;
         }
-        var res = DocxLayoutPipeline.Layout(docx, SystemFontProvider.Shared);
+        var res = DocxLayoutPipeline.Layout(docx, SystemFontProvider.Shared, opts);
         using var act = JsonDocument.Parse(LayoutDump.Normalize(res));
         string? diff = JsonDiff.First(exp.RootElement, act.RootElement, "$", 0.05);
         Assert.True(diff is null, $"{caseId}: {diff}");

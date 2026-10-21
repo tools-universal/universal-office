@@ -284,6 +284,7 @@ hr { border: none; border-top: 1px solid #ccc; margin: 2rem 0 .5rem; }
 
     public static string ToHtml(ExportDoc doc, DocxHtmlOptions? opts = null)
     {
+        doc = DocxExportModel.FinalExportDoc(doc);
         opts ??= new DocxHtmlOptions();
         var ctx = new Ctx
         {

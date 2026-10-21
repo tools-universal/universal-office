@@ -150,6 +150,8 @@ public sealed class PreparedPara
     public bool PageBreakBefore;
     /// <summary>só contém quebra de página/seção (parágrafo "vazio" de quebra)</summary>
     public bool Empty;
+    /// <summary>revisões que pedem barra de alteração nesta visão (offsets; parágrafo inteiro; marca)</summary>
+    public RevBars? RevBars;
 }
 
 public sealed class ParaEnv
@@ -769,8 +771,9 @@ public static class Para
     /// Texto oculto (w:vanish) sem diagramar e sem efeitos colaterais (numeração):
     /// a marca do parágrafo está oculta? há algum run visível com conteúdo?
     /// </summary>
-    public static (bool MarkHidden, bool Visible) ParaVisibility(DocContext ctx, Paragraph para, ParaEnv env)
+    public static (bool MarkHidden, bool Visible) ParaVisibility(DocContext ctx, Paragraph para0, ParaEnv env)
     {
+        var para = ctx.Rev.Paragraph(para0);
         var (ppr, _, styleRPr) = ResolvePPr(ctx, para, env);
         var dd = ctx.Resolver.DocDefaults;
         RPr RunRPr(RPr rpr) => Resolve.CascadeRPr(dd.RPr, new[] { env.TableRPr, styleRPr, ctx.Resolver.CharStyle(rpr.RStyle) }, rpr);
@@ -779,12 +782,14 @@ public static class Para
         bool visible = DisplayRuns(para, env).Any(d =>
             (d.Run.Text.Length > 0 || d.Run.Image is not null || d.Run.Shape is not null || d.Run.Group is not null || d.Run.Textbox is not null
              || d.Run.FormField?.Type == "checkBox" || d.Run.Custom is not null || d.Run.Ptab is not null || d.Run.NoteRef is not null)
-            && !Hidden(RunRPr(DocContext.DirectRPr(d.Run))));
+            && ctx.Rev.Run(d.Run)?.IsHide != true && !Hidden(RunRPr(ctx.Rev.DirectRPr(d.Run))));
         return (markHidden, visible);
     }
 
-    public static PreparedPara PrepareParagraph(DocContext ctx, Paragraph para, ParaEnv env0)
+    public static PreparedPara PrepareParagraph(DocContext ctx, Paragraph para0, ParaEnv env0)
     {
+        // modo Original: a formatação de parágrafo de antes da revisão
+        var para = ctx.Rev.Paragraph(para0);
         var (ppr, styleId, styleRPr) = ResolvePPr(ctx, para, env0);
         // sombreamento escuro no parágrafo: o texto de cor automática vira branco
         var pshd = ppr.Shd;
@@ -964,7 +969,11 @@ public static class Para
 
         foreach (var (run, idx, offset) in DisplayRuns(para, env))
         {
-            var direct = DocContext.DirectRPr(run);
+            // revisões: o texto que a visão esconde (excluído na final, inserido na
+            // original) sai como o oculto — sem glifo, offsets intactos
+            var rev = ctx.Rev.Run(run);
+            if (rev?.IsHide == true) continue;
+            var direct = ctx.Rev.DirectRPr(run);
             // referência de nota: o leitor põe sobrescrito nas props (editor); no layout vale a
             // formatação do documento — estilo do caractere ou rPr direto (oráculo fnrefsup)
             if (run.NoteRef is not null && run.Rpr?.VertAlign is null) direct.VertAlign = null;
@@ -973,6 +982,15 @@ public static class Para
             var rpr = RunRPr(direct);
             var style = ResolveRunStyle(ctx, rpr, env, run.Props.Link);
             if (style.Hidden) continue;
+            if (rev is not null)
+            {
+                // marcação: a cor do autor vence a do run; inserção sublinhada, exclusão tachada
+                // (movimentação: duplos) — oráculo revisions-render
+                style.Color = rev.Color;
+                style.AutoColor = false;
+                if (rev.Kind == "ins") style.Underline = new UnderlineStyle { Val = rev.Move ? "double" : "single" };
+                else { style.Strike = !rev.Move; style.Dstrike = rev.Move; }
+            }
             if (run.Image is not null || run.Shape is not null || run.Group is not null || run.Textbox is not null)
             {
                 bool floating = (run.Image?.Floating ?? run.Shape?.Floating ?? run.Group?.Floating ?? run.Textbox?.Floating) == true;
@@ -1221,9 +1239,11 @@ public static class Para
             jc = mathJc == "left" ? "left" : mathJc == "right" ? "right" : "center";
             firstLine = 0;
         }
+        var revBars = RevisionLayout.RevisionRanges(ctx.Rev, para);
         return new PreparedPara
         {
             Para = para, Ppr = ppr, StyleId = styleId, MarkStyle = markStyle, MarkFace = markFace, Glyphs = glyphs, Marker = marker,
+            RevBars = revBars,
             IndLeft = ind.Left ?? 0,
             IndRight = ind.Right ?? 0,
             FirstLine = firstLine,

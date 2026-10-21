@@ -96,7 +96,11 @@ public class LayoutOracleTests
         if (!LayoutParityTests.HasFonts.Value) { _out.WriteLine("fontes Arial/Calibri/Times New Roman ausentes — caso não avaliado"); return; }
         string g = caseId[..caseId.IndexOf('/')];
         var word = OracleCompare.ReadOracle(Path.Combine(LayoutParityTests.OracleDir, caseId + ".word.json"));
-        var res = DocxLayoutPipeline.Layout(File.ReadAllBytes(Path.Combine(LayoutParityTests.OracleDir, caseId + ".docx")), SystemFontProvider.Shared);
+        // casos mk-* (controle de alterações): o PDF do Word "com marcação" = Todas as Marcações
+        var opts = caseId.Split('/')[^1].StartsWith("mk-", StringComparison.Ordinal)
+            ? new LayoutOptions { Revisions = new RevisionView { Mode = "all" } }
+            : null;
+        var res = DocxLayoutPipeline.Layout(File.ReadAllBytes(Path.Combine(LayoutParityTests.OracleDir, caseId + ".docx")), SystemFontProvider.Shared, opts);
         var r = OracleCompare.CompareLines(word, OracleCompare.EngineLines(res), ExactLeaders.Contains(g));
         _out.WriteLine($"páginas W/O {r.PagesW}/{r.PagesO}, linhas {r.Matched}/{r.LinesW}, mesma página {r.SamePage}, Δy máx {r.MaxDy:0.###} pt");
         if (Sweeps.Contains(g) || g == "vertalign")

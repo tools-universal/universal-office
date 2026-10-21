@@ -26,6 +26,31 @@ public sealed class OrderedTable : OrderedBlock { public TableBlock T = new(); }
 
 public static class DocxExportModel
 {
+    /// <summary>O documento na visão FINAL do controle de alterações (sem o texto excluído;
+    /// parágrafo de marca excluída junto do seguinte) — o que as exportações gravam.</summary>
+    public static ExportDoc FinalExportDoc(ExportDoc doc)
+    {
+        var (paras, index) = Revisions.FinalParagraphs(doc.Paragraphs);
+        static Dictionary<int, List<Paragraph>> Notes(Dictionary<int, List<Paragraph>> m)
+        {
+            var o = new Dictionary<int, List<Paragraph>>();
+            foreach (var (k, v) in m) o[k] = Revisions.FinalParagraphs(v).Paras;
+            return o;
+        }
+        return new ExportDoc
+        {
+            Title = doc.Title,
+            Paragraphs = paras,
+            TableAnchors = doc.TableAnchors
+                .Select(a => (a.BeforePara < doc.Paragraphs.Count ? index[a.BeforePara] : paras.Count, (TableBlock)Revisions.FinalBlocks(new List<Block> { a.Table })[0]))
+                .ToList(),
+            Comments = doc.Comments,
+            Footnotes = Notes(doc.Footnotes),
+            Endnotes = Notes(doc.Endnotes),
+            SectPr = doc.SectPr,
+        };
+    }
+
     /// <summary>Intercala parágrafos e tabelas na ordem original do documento.</summary>
     public static List<OrderedBlock> OrderedBlocks(ExportDoc doc)
     {

@@ -105,6 +105,32 @@ public sealed class LangSpec
     };
 }
 
+/// <summary>
+/// Autoria de uma revisão (w:ins, w:del, w:moveFrom/To, w:rPrChange, w:pPrChange
+/// e as marcas de parágrafo). <c>Date</c> fica como está no arquivo — o Word grava a
+/// hora LOCAL com sufixo Z — e <c>DateUtc</c> é o w16du:dateUtc (o instante real).
+/// </summary>
+public class RevisionInfo
+{
+    public string Author = "";
+    public string? Date;
+    public string? DateUtc;
+    /// <summary>movimentação (w:moveFrom / w:moveTo)</summary>
+    public bool Move;
+}
+
+/// <summary>w:rPrChange — formatação controlada: autoria e o rPr ANTERIOR.</summary>
+public sealed class RPrChange : RevisionInfo
+{
+    public RPr RPr = new();
+}
+
+/// <summary>w:pPrChange — formatação de parágrafo controlada: autoria e o pPr ANTERIOR.</summary>
+public sealed class PPrChange : RevisionInfo
+{
+    public PPr PPr = new();
+}
+
 /// <summary>w14:shadow: desfoque e deslocamento (pt), direção (graus).</summary>
 public sealed class TextShadowSpec
 {
@@ -168,6 +194,8 @@ public sealed class RPr
     /// <summary>w14:ligatures (Word 2010+): ligaduras OpenType — standard, contextual, historical,
     /// discretional, combinações ou all; none = desligadas</summary>
     public string? Ligatures;
+    /// <summary>w:rPrChange — formatação controlada: autoria e o rPr ANTERIOR.</summary>
+    public RPrChange? Change;
 
     public RPr Clone() => (RPr)MemberwiseClone();
 
@@ -204,6 +232,7 @@ public sealed class RPr
         if (over.TextOutline is not null) o.TextOutline = over.TextOutline;
         if (over.TextShadow is not null) o.TextShadow = over.TextShadow;
         if (over.Ligatures is not null) o.Ligatures = over.Ligatures;
+        if (over.Change is not null) o.Change = over.Change;
         return o;
     }
 
@@ -489,6 +518,12 @@ public sealed class PPr
     /// <summary>marca de parágrafo excluída em revisão (w:rPr/w:del ou w:moveFrom): na
     /// visão final o parágrafo se junta ao seguinte.</summary>
     public bool? MarkDeleted;
+    /// <summary>autoria da marca de parágrafo inserida (w:rPr/w:ins ou w:moveTo)</summary>
+    public RevisionInfo? MarkIns;
+    /// <summary>autoria da marca de parágrafo excluída (acompanha MarkDeleted)</summary>
+    public RevisionInfo? MarkDel;
+    /// <summary>w:pPrChange — formatação de parágrafo controlada: autoria e o pPr ANTERIOR.</summary>
+    public PPrChange? Change;
 
     public PPr Clone() => (PPr)MemberwiseClone();
 
@@ -527,6 +562,9 @@ public sealed class PPr
         if (over.OutlineLvl is not null) o.OutlineLvl = over.OutlineLvl;
         if (over.RPr is not null) o.RPr = over.RPr;
         if (over.MarkDeleted is not null) o.MarkDeleted = over.MarkDeleted;
+        if (over.MarkIns is not null) o.MarkIns = over.MarkIns;
+        if (over.MarkDel is not null) o.MarkDel = over.MarkDel;
+        if (over.Change is not null) o.Change = over.Change;
         return o;
     }
 }
@@ -891,6 +929,18 @@ public static class OoxmlProps
         return double.IsFinite(n) ? n : null;
     }
 
+    public static RevisionInfo ReadRevisionInfo(XmlElement el) => FillRevisionInfo(new RevisionInfo(), el);
+
+    /// <summary>Autoria (w:author, w:date, w16du:dateUtc, movimentação) num objeto de revisão.</summary>
+    private static T FillRevisionInfo<T>(T info, XmlElement el) where T : RevisionInfo
+    {
+        info.Author = el.Attr("w:author") ?? "";
+        if (Js.Truthy(el.Attr("w:date"))) info.Date = el.Attr("w:date");
+        if (Js.Truthy(el.Attr("w16du:dateUtc"))) info.DateUtc = el.Attr("w16du:dateUtc");
+        if (el.Name is "w:moveFrom" or "w:moveTo") info.Move = true;
+        return info;
+    }
+
     private static readonly Regex MeasureRe = new(@"^(-?[0-9.]+)(mm|cm|in|pt|pc|pi)?\z",RegexOptions.CultureInvariant);
 
     /// <summary>Medida de "universal measure" (twips por padrão; aceita "12pt", "1in"…).</summary>
@@ -1033,6 +1083,9 @@ public static class OoxmlProps
                     }
                 case "w14:ligatures":
                     p.Ligatures = el.Attr("w14:val") ?? "standard";
+                    break;
+                case "w:rPrChange":
+                    p.Change = FillRevisionInfo(new RPrChange { RPr = ReadRPr(FirstChild(el, "w:rPr")) ?? new RPr() }, el);
                     break;
                 case "w14:shadow":
                     {
@@ -1219,7 +1272,14 @@ public static class OoxmlProps
                     }
                 case "w:rPr":
                     p.RPr = ReadRPr(el);
-                    if (ChildElements(el).Any(c => c.Name is "w:del" or "w:moveFrom")) p.MarkDeleted = true;
+                    foreach (var c in ChildElements(el))
+                    {
+                        if (c.Name is "w:del" or "w:moveFrom") { p.MarkDeleted = true; p.MarkDel = ReadRevisionInfo(c); }
+                        else if (c.Name is "w:ins" or "w:moveTo") p.MarkIns = ReadRevisionInfo(c);
+                    }
+                    break;
+                case "w:pPrChange":
+                    p.Change = FillRevisionInfo(new PPrChange { PPr = ReadPPr(FirstChild(el, "w:pPr")) ?? new PPr() }, el);
                     break;
             }
         }

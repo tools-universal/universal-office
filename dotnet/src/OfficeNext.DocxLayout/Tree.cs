@@ -193,9 +193,15 @@ public sealed class LaidOutLine
     /// <summary>posição de cada caractere (offset no parágrafo → x absoluto e largura):
     /// o editor mapeia cursor/seleção/clique por aqui</summary>
     public List<LineChar>? Chars;
+    /// <summary>a linha tem revisão que pede barra de alteração: o espaço antes (1ª linha do
+    /// parágrafo) e depois (última) que a barra também cobre (twips)</summary>
+    public LineRev? Rev;
 
     public LaidOutLine ShallowClone() => (LaidOutLine)MemberwiseClone();
 }
+
+/// <summary>Barra de alteração de uma linha: espaço antes/depois que ela também cobre (twips).</summary>
+public sealed record LineRev(double Before, double After);
 
 public sealed class LayoutPage
 {
