@@ -1,0 +1,26 @@
+{
+    "name":  "tab-last2",
+    "selBefore":  {
+                      "start":  16,
+                      "end":  16,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  2,
+                      "col":  2,
+                      "cells":  1,
+                      "text":  "r"
+                  },
+    "selAfter":  {
+                     "start":  22,
+                     "end":  22,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  3,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

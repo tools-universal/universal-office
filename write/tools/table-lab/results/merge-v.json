@@ -1,0 +1,26 @@
+{
+    "name":  "merge-v",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  21,
+                      "type":  4,
+                      "inTable":  true,
+                      "row":  1,
+                      "col":  1,
+                      "cells":  2,
+                      "text":  "r1c1\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  10,
+                     "type":  4,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "r1c1\rr2c1\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

@@ -15,7 +15,7 @@
  * mesma regra de `directRPr`/`directPPr` do motor de layout).
  */
 import type { Paragraph, Run } from './document.js';
-import type { TableBlock } from './fulldoc.js';
+import type { TableBlock, TableRow, TableCell } from './fulldoc.js';
 import { splitElement } from './lossless.js';
 
 /** Filho de topo de um w:p (run, hyperlink, campo inteiro, indicador…) e os
@@ -64,8 +64,22 @@ export interface TableSource {
   at?: number;
   tblPr?: string;
   tblGrid?: string;
-  rows: { open: string; trPr?: string; tblPrEx?: string; cells: { open: string; tcPr?: string }[] }[];
   sig?: number;
+}
+
+/** Linha de tabela lida (`TableRow.src`): a fonte acompanha a LINHA, não o
+ *  índice — inserir/excluir linhas não troca o trPr de lugar. */
+export interface RowSource {
+  /** Tag de abertura do w:tr (w14:paraId, rsids…). */
+  open: string;
+  trPr?: string;
+  tblPrEx?: string;
+}
+
+/** Célula lida (`TableCell.src`). */
+export interface CellSource {
+  open: string;
+  tcPr?: string;
 }
 
 /** Filho de topo de uma parte (corpo, cabeçalho…) e os blocos que produziu. */
@@ -122,6 +136,8 @@ export class SourceStore {
   readonly paras = new Map<number, ParaSource>();
   readonly runs = new Map<number, RunSource>();
   readonly tables = new Map<number, TableSource>();
+  readonly trs = new Map<number, RowSource>();
+  readonly tcs = new Map<number, CellSource>();
   /** Por caminho da parte (word/document.xml, word/header1.xml…). */
   readonly stories = new Map<string, StorySource>();
   /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
@@ -160,6 +176,20 @@ export class SourceStore {
     this.tables.set(id, src);
     t.src = id;
     this.tableRefs.push(t);
+    return id;
+  }
+
+  addRow(row: TableRow, src: RowSource): number {
+    const id = this.id();
+    this.trs.set(id, src);
+    row.src = id;
+    return id;
+  }
+
+  addCell(cell: TableCell, src: CellSource): number {
+    const id = this.id();
+    this.tcs.set(id, src);
+    cell.src = id;
     return id;
   }
 

@@ -96,3 +96,6 @@ export {
   type StyleMeta, type LatentMeta, type StyleType, type NewStyle, type StyleHead, type StyleFormat, type Change, type BuiltinStyle,
 } from './style-sheet.js';
 export { isWordBinary, convertDocToDocx, DocFormatError } from './doc/index.js';
+export * as tableOps from './table-ops.js';
+export type { CellRect, GridCell, TableMap, NewTableOptions, BorderKind, TextSeparator, MergeOptions, SplitOptions } from './table-ops.js';
+export { tblPrXml, trPrXml, tcPrXml as tcPrTypedXml, patchTblPr, patchTrPr, patchTcPr, deepEq } from './table-xml.js';

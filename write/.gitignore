@@ -15,3 +15,6 @@ tools/layout-oracle/.out/
 
 # cache do Python dos labs
 __pycache__/
+
+# Oráculo das tabelas — .docx brutos do Word (os XML extraídos em results/ SÃO versionados)
+tools/table-lab/.out/

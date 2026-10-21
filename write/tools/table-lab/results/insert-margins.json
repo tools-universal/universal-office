@@ -1,0 +1,23 @@
+{
+    "name":  "insert-margins",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  0,
+                      "type":  1,
+                      "inTable":  false,
+                      "text":  "\r"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  0,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

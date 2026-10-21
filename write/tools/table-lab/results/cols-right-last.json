@@ -1,0 +1,26 @@
+{
+    "name":  "cols-right-last",
+    "selBefore":  {
+                      "start":  26,
+                      "end":  26,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  2,
+                      "col":  3,
+                      "cells":  1,
+                      "text":  "r"
+                  },
+    "selAfter":  {
+                     "start":  15,
+                     "end":  50,
+                     "type":  4,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  4,
+                     "cells":  3,
+                     "text":  "\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

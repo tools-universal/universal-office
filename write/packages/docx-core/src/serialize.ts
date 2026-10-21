@@ -3,6 +3,10 @@ import { EMU_PER_TWIP, type DocumentModel, type Paragraph, type Run, type SectPr
 import type { TableBlock, TableBorders, Block } from './fulldoc.js';
 import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource } from './source.js';
 import { patchRPr, patchPPr, patchSectPr, pPrFromProps, rPrFromProps, splitElement, colsXml, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
+import {
+  patchTblPr, patchTblPrEx, patchTrPr, patchTcPr,
+  tblPrXml as tblPrTyped, tblPrExXml as tblPrExTyped, trPrXml as trPrTyped, tcPrXml as tcPrTyped,
+} from './table-xml.js';
 
 /**
  * Grava o modelo em word/document.xml (e cabeçalhos/rodapés, numbering,
@@ -487,6 +491,13 @@ function paraXmlRuns(para: Paragraph): string {
     const marks = commentMarks(para.runs, active?.store.commentIds);
     const items = para.runs.map((run, i) => ({ run, before: marks.before[i]!, after: marks.after[i]! }));
     if (!active) return paraXmlInner(para, items.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join(''));
+    // formatação copiada de um parágrafo lido: o w:pPr cru dele com as diferenças
+    const fmt = para.props.fmtSrc !== undefined ? active.store.paras.get(para.props.fmtSrc) : undefined;
+    if (fmt) {
+      const ppr = patchPPr(fmt.pPr, para, paraSectPr(para, fmt.pPr), active.numIds);
+      if (ppr.genNumbering) active.genNumbering = true;
+      return `<w:p>${ppr.xml}${genRuns(items)}</w:p>`;
+    }
     const ppr = pPrFromProps(para.props, para.props.sectionBreak ? sectionBreakXml(para.props.sectionBreak) : '', active.numIds);
     if (ppr.genNumbering) active.genNumbering = true;
     return `<w:p>${ppr.xml}${genRuns(items)}</w:p>`;
@@ -640,25 +651,39 @@ export function tableXml(t: TableBlock): string {
     const owner = !active.claimed.has(t.src!);
     active.claimed.add(t.src!);
     if (owner && active.store.tablePristine(t)) return src.raw;
-    // conteúdo mudou: a estrutura e as propriedades cruas continuam (onde a forma bate)
+    // mudou: o cru de cada parte (tabela, linha, célula — pelo id, não pelo
+    // índice) com só as diferenças das props tipadas aplicadas
     const sameGrid = src.tblGrid !== undefined && gridOf(src.tblGrid) === t.gridColsTwips.join(',');
-    const rows = t.rows.map((row, ri) => {
-      const sr = src.rows[ri];
-      const sameShape = sr !== undefined && sr.cells.length === row.cells.length;
-      const cells = row.cells.map((cell, ci) => {
-        const sc = sameShape ? sr.cells[ci] : undefined;
-        return sc ? `${sc.open}${sc.tcPr ?? ''}${cellBodyXml(cell)}</w:tc>` : `<w:tc>${tcPrXml(cell)}${cellBodyXml(cell)}</w:tc>`;
-      }).join('');
-      return sameShape ? `${sr.open}${sr.tblPrEx ?? ''}${sr.trPr ?? ''}${cells}</w:tr>` : `<w:tr>${cells}</w:tr>`;
-    }).join('');
-    return `${src.open}${src.tblPr ?? tblPrXml(t)}${sameGrid ? src.tblGrid : gridXml(t)}${rows}</w:tbl>`;
+    const tblPr = src.tblPr !== undefined ? patchTblPr(src.tblPr, t.tblPr) : legacyOrTypedTblPr(t);
+    return `${owner ? src.open : '<w:tbl>'}${tblPr}${sameGrid ? src.tblGrid : gridXml(t)}${rowsXml(t)}</w:tbl>`;
   }
-  const rows = t.rows.map((row) => {
-    const cells = row.cells.map((cell) => `<w:tc>${tcPrXml(cell)}${cellBodyXml(cell)}</w:tc>`).join('');
-    return `<w:tr>${cells}</w:tr>`;
-  }).join('');
-  return `<w:tbl>${tblPrXml(t)}${gridXml(t)}${rows}</w:tbl>`;
+  return `<w:tbl>${legacyOrTypedTblPr(t)}${gridXml(t)}${rowsXml(t)}</w:tbl>`;
 }
+
+function rowsXml(t: TableBlock): string {
+  const store = active?.store;
+  return t.rows.map((row) => {
+    const rs = store && row.src !== undefined ? store.trs.get(row.src) : undefined;
+    // a 1ª cópia de uma linha leva a abertura original (w14:paraId é único)
+    const rowOwner = rs !== undefined && !active!.claimed.has(row.src!);
+    if (rs) active!.claimed.add(row.src!);
+    const ex = rs?.tblPrEx !== undefined ? patchTblPrEx(rs.tblPrEx, row.tblPrEx) : (row.tblPrEx ? tblPrExTyped(row.tblPrEx) : '');
+    const trPr = rs?.trPr !== undefined ? patchTrPr(rs.trPr, row.trPr) : (row.trPr ? trPrTyped(row.trPr) : '');
+    const cells = row.cells.map((cell) => {
+      const cs = store && cell.src !== undefined ? store.tcs.get(cell.src) : undefined;
+      const cellOwner = cs !== undefined && !active!.claimed.has(cell.src!);
+      if (cs) active!.claimed.add(cell.src!);
+      const tcPr = cs?.tcPr !== undefined ? patchTcPr(cs.tcPr, cell.tcPr)
+        : cell.tcPr ? tcPrTyped(cell.tcPr) : cs ? '' : tcPrXml(cell);
+      return `${cellOwner ? cs!.open : '<w:tc>'}${tcPr}${cellBodyXml(cell)}</w:tc>`;
+    }).join('');
+    return `${rowOwner ? rs!.open : '<w:tr>'}${ex}${trPr}${cells}</w:tr>`;
+  }).join('');
+}
+
+/** Tabela sem w:tblPr de origem: das props tipadas (tabela criada pelo
+ *  editor) ou dos campos simples (tabela montada por outro caminho). */
+const legacyOrTypedTblPr = (t: TableBlock): string => (t.tblPr ? tblPrTyped(t.tblPr) : tblPrXml(t));
 
 const gridOf = (raw: string): string => [...raw.matchAll(/<w:gridCol\b[^>]*w:w="(\d+)"/g)].map((m) => m[1]).join(',');
 

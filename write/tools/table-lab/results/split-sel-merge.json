@@ -1,0 +1,26 @@
+{
+    "name":  "split-sel-merge",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  10,
+                      "type":  4,
+                      "inTable":  true,
+                      "row":  1,
+                      "col":  1,
+                      "cells":  2,
+                      "text":  "r1c1\r\u0007r1c2\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  11,
+                     "type":  4,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  3,
+                     "text":  "r1c1\r\u0007r1c2\r\u0007\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

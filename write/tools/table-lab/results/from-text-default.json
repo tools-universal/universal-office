@@ -1,0 +1,23 @@
+{
+    "name":  "from-text-default",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  12,
+                      "type":  2,
+                      "inTable":  false,
+                      "text":  "a;b;c\rd;e;f\r"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  14,
+                     "type":  5,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  2,
+                     "text":  "a;b;c\r\u0007\r\u0007d;e;f\r\u0007\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

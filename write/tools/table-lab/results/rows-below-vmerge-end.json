@@ -1,0 +1,26 @@
+{
+    "name":  "rows-below-vmerge-end",
+    "selBefore":  {
+                      "start":  39,
+                      "end":  39,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  3,
+                      "col":  2,
+                      "cells":  1,
+                      "text":  "r"
+                  },
+    "selAfter":  {
+                     "start":  50,
+                     "end":  54,
+                     "type":  5,
+                     "inTable":  true,
+                     "row":  4,
+                     "col":  1,
+                     "cells":  3,
+                     "text":  "\r\u0007\r\u0007\r\u0007\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

@@ -1,0 +1,26 @@
+{
+    "name":  "merge-block",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  26,
+                      "type":  4,
+                      "inTable":  true,
+                      "row":  1,
+                      "col":  1,
+                      "cells":  4,
+                      "text":  "r1c1\r\u0007r1c2\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  20,
+                     "type":  4,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "r1c1\rr1c2\rr2c1\rr2c2\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

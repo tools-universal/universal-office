@@ -1,0 +1,26 @@
+{
+    "name":  "split-paras-2to3",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  0,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  1,
+                      "col":  1,
+                      "cells":  1,
+                      "text":  "p"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  7,
+                     "type":  4,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  3,
+                     "text":  "p1\r\u0007p2\r\u0007\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

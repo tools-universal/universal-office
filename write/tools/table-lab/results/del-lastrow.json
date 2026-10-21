@@ -1,0 +1,23 @@
+{
+    "name":  "del-lastrow",
+    "selBefore":  {
+                      "start":  37,
+                      "end":  37,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  3,
+                      "col":  2,
+                      "cells":  1,
+                      "text":  "r"
+                  },
+    "selAfter":  {
+                     "start":  32,
+                     "end":  32,
+                     "type":  1,
+                     "inTable":  false,
+                     "text":  "\r"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

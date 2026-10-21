@@ -1,0 +1,23 @@
+{
+    "name":  "del-table",
+    "selBefore":  {
+                      "start":  28,
+                      "end":  28,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  2,
+                      "col":  2,
+                      "cells":  1,
+                      "text":  "r"
+                  },
+    "selAfter":  {
+                     "start":  7,
+                     "end":  7,
+                     "type":  1,
+                     "inTable":  false,
+                     "text":  "A"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

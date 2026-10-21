@@ -1,0 +1,1012 @@
+{
+    "name":  "styles-all",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  0,
+                      "type":  1,
+                      "inTable":  false,
+                      "text":  "\r"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  0,
+                     "type":  1,
+                     "inTable":  false,
+                     "text":  "\r"
+                 },
+    "extra":  {
+                  "styles":  [
+                                 {
+                                     "local":  "Grade Clara",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Clara - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Clara - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Clara - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Clara - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Clara - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Clara - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Colorida",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Colorida - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Colorida - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Colorida - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Colorida - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Colorida - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Colorida - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 1 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 1 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 1 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 1 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 1 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 1 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 2 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 2 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 2 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 2 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 2 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 2 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 3 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 3 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 3 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 3 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 3 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Grade Média 3 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Clara",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Clara - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Clara - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Clara - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Clara - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Clara - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Clara - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Colorida",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Colorida - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Colorida - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Colorida - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Colorida - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Colorida - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Colorida - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Escura",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Escura - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Escura - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Escura - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Escura - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Escura - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Escura - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 1 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 1 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 1 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 1 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 1 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 1 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 2 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 2 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 2 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 2 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 2 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Lista Média 2 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Simples Tabela 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Simples Tabela 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Simples Tabela 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Claro",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Claro - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Claro - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Claro - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Claro - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Claro - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Claro - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Colorido",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Colorido - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Colorido - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Colorido - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Colorido - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Colorido - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Escuro - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 1 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 1 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 1 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 1 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 1 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 1 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 2 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 2 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 2 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 2 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 2 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Sombreamento Médio 2 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela clássica 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela clássica 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela clássica 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela clássica 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela colorida 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela colorida 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela colorida 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com efeitos 3D 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com efeitos 3D 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com efeitos 3D 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com grade",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com grade 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com grade 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com grade 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com grade 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com grade 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com grade 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com grade 7",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com grade 8",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela com tema",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela contemporânea",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela da Web 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela da Web 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela da Web 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 1 Clara",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 1 Clara - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 1 Clara - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 1 Clara - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 1 Clara - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 1 Clara - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 1 Clara - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 2 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 2 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 2 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 2 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 2 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 2 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 3 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 3 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 3 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 3 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 3 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 3 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 4 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 4 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 4 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 4 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 4 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 4 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 5 Escura",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 5 Escura - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 5 Escura - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 5 Escura - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 5 Escura - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 5 Escura - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 5 Escura - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 6 Colorida",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 6 Colorida - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 6 Colorida - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 6 Colorida - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 6 Colorida - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 6 Colorida - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 6 Colorida - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 7 Colorida",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 7 Colorida - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 7 Colorida - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 7 Colorida - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 7 Colorida - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 7 Colorida - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade 7 Colorida - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Grade Clara",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 1 Clara",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 1 Clara - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 1 Clara - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 1 Clara - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 1 Clara - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 1 Clara - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 1 Clara - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 2 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 2 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 2 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 2 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 2 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 2 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 3 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 3 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 3 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 3 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 3 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 3 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 4 - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 4 - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 4 - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 4 - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 4 - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 4 - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 5 Escura",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 5 Escura - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 5 Escura - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 5 Escura - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 5 Escura - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 5 Escura - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 5 Escura - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 6 Colorida",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 6 Colorida - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 6 Colorida - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 6 Colorida - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 6 Colorida - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 6 Colorida - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 6 Colorida - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 7 Colorida",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 7 Colorida - Ênfase 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 7 Colorida - Ênfase 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 7 Colorida - Ênfase 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 7 Colorida - Ênfase 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 7 Colorida - Ênfase 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela de Lista 7 Colorida - Ênfase 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela elegante",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em colunas 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em colunas 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em colunas 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em colunas 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em colunas 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em lista 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em lista 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em lista 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em lista 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em lista 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em lista 6",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em lista 7",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela em lista 8",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela normal",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela profissional",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela Simples - 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela Simples - 2",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela Simples - 3",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela Simples 4",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela Simples 5",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela sutil 1",
+                                     "builtIn":  true
+                                 },
+                                 {
+                                     "local":  "Tabela sutil 2",
+                                     "builtIn":  true
+                                 }
+                             ]
+              },
+    "changed":  true,
+    "undoSteps":  6,
+    "undoRestores":  false
+}

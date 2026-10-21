@@ -13,7 +13,7 @@ import {
 import { readStyles, type StylesMap } from './styles.js';
 import { readTblPr, readTrPr, readTcPr, readBorder, type TblPr, type TrPr, type TcPr, type BorderSpec } from './ooxml/props.js';
 import { readDocFormatting, type DocFormatting } from './ooxml/parts.js';
-import { SourceStore, type StoryGroup, type StorySource, type TableSource } from './source.js';
+import { SourceStore, type StoryGroup, type StorySource } from './source.js';
 
 /**
  * Modelo completo do documento: blocos (parágrafos E tabelas), seções
@@ -44,6 +44,8 @@ export interface TableCell {
   tcPr?: TcPr;
   /** Conteúdo da célula NA ORDEM (parágrafos e tabelas aninhadas intercalados). */
   blocks?: Block[];
+  /** Id da fonte XML original da célula (source.ts) — salvamento sem perdas. */
+  src?: number;
 }
 
 export interface TableRow {
@@ -52,6 +54,8 @@ export interface TableRow {
   trPr?: TrPr;
   /** w:tblPrEx — exceções de propriedades da tabela nesta linha. */
   tblPrEx?: TblPr;
+  /** Id da fonte XML original da linha (source.ts) — salvamento sem perdas. */
+  src?: number;
 }
 
 export interface TableBlock {
@@ -208,7 +212,6 @@ function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
   const xml = ctx.sources && tblEl.s !== undefined ? ctx.sourceXml : undefined;
   const slice = (el: XmlElement | undefined): string | undefined => (el && xml !== undefined ? xml.slice(el.s, el.e) : undefined);
   const openOf = (el: XmlElement): string => xml!.slice(el.s, el.cs === el.e ? el.e : el.cs).replace(/\s*\/>$/, '>');
-  const srcRows: TableSource['rows'] = [];
   const grid = firstChild(tblEl, 'w:tblGrid');
   const gridColsTwips = grid
     ? childElements(grid, 'w:gridCol').map((c) => parseInt(c.attrs['w:w'] ?? '0', 10) || 0)
@@ -218,12 +221,7 @@ function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
   const rows: TableRow[] = [];
   for (const trEl of unwrap(tblEl, 'w:tr')) {
     const cells: TableCell[] = [];
-    const srcCells: TableSource['rows'][number]['cells'] = [];
     for (const tcEl of unwrap(trEl, 'w:tc')) {
-      if (xml !== undefined) {
-        const tcPrRaw = slice(firstChild(tcEl, 'w:tcPr'));
-        srcCells.push({ open: openOf(tcEl), ...(tcPrRaw ? { tcPr: tcPrRaw } : {}) });
-      }
       const tcPrEl = firstChild(tcEl, 'w:tcPr');
       const tcPr = readTcPr(tcPrEl);
       const shd = tcPrEl && firstChild(tcPrEl, 'w:shd')?.attrs['w:fill'];
@@ -244,19 +242,23 @@ function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
         blocks,
       };
       if (tcPr) cell.tcPr = tcPr;
+      if (xml !== undefined) {
+        const tcPrRaw = slice(tcPrEl);
+        ctx.sources!.addCell(cell, { open: openOf(tcEl), ...(tcPrRaw ? { tcPr: tcPrRaw } : {}) });
+      }
       cells.push(cell);
     }
     if (cells.length > 0) {
-      if (xml !== undefined) {
-        const trPrRaw = slice(firstChild(trEl, 'w:trPr'));
-        const exRaw = slice(firstChild(trEl, 'w:tblPrEx'));
-        srcRows.push({ open: openOf(trEl), cells: srcCells, ...(trPrRaw ? { trPr: trPrRaw } : {}), ...(exRaw ? { tblPrEx: exRaw } : {}) });
-      }
       const row: TableRow = { cells };
       const trPr = readTrPr(firstChild(trEl, 'w:trPr'));
       if (trPr) row.trPr = trPr;
       const ex = readTblPr(firstChild(trEl, 'w:tblPrEx'));
       if (ex) row.tblPrEx = ex;
+      if (xml !== undefined) {
+        const trPrRaw = slice(firstChild(trEl, 'w:trPr'));
+        const exRaw = slice(firstChild(trEl, 'w:tblPrEx'));
+        ctx.sources!.addRow(row, { open: openOf(trEl), ...(trPrRaw ? { trPr: trPrRaw } : {}), ...(exRaw ? { tblPrEx: exRaw } : {}) });
+      }
       rows.push(row);
     }
   }
@@ -270,7 +272,6 @@ function readTable(tblEl: XmlElement, ctx: ReadContext): TableBlock {
       raw: xml.slice(tblEl.s, tblEl.e),
       at: tblEl.s,
       open: openOf(tblEl),
-      rows: srcRows,
       ...(tblPrRaw ? { tblPr: tblPrRaw } : {}),
       ...(gridRaw ? { tblGrid: gridRaw } : {}),
     });

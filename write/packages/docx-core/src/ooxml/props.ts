@@ -276,6 +276,9 @@ export interface TblPr {
   tblLayout?: 'fixed' | 'autofit';
   tblCellMar?: CellMargins;
   tblLook?: TblLook;
+  /** Texto Alt: título e descrição. */
+  tblCaption?: string;
+  tblDescription?: string;
 }
 
 export interface TrPr {
@@ -683,6 +686,8 @@ export function readTblPr(tblPr: XmlElement | undefined): TblPr | undefined {
       case 'w:tblBorders': p.tblBorders = readBorders(el); break;
       case 'w:shd': p.shd = readShading(el); break;
       case 'w:tblLayout': p.tblLayout = el.attrs['w:type'] === 'fixed' ? 'fixed' : 'autofit'; break;
+      case 'w:tblCaption': if (val !== undefined) p.tblCaption = val; break;
+      case 'w:tblDescription': if (val !== undefined) p.tblDescription = val; break;
       case 'w:tblCellMar': p.tblCellMar = readCellMar(el); break;
       case 'w:tblLook': {
         const a = el.attrs;

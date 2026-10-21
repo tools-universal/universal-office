@@ -1,0 +1,26 @@
+{
+    "name":  "merge-v-2paras",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  23,
+                      "type":  4,
+                      "inTable":  true,
+                      "row":  1,
+                      "col":  1,
+                      "cells":  2,
+                      "text":  "a1\ra2\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  12,
+                     "type":  4,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "a1\ra2\rb1\rb2\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

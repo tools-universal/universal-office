@@ -1,0 +1,23 @@
+{
+    "name":  "insert-midpara",
+    "selBefore":  {
+                      "start":  5,
+                      "end":  5,
+                      "type":  1,
+                      "inTable":  false,
+                      "text":  " "
+                  },
+    "selAfter":  {
+                     "start":  6,
+                     "end":  6,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

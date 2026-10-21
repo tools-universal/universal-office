@@ -1,0 +1,23 @@
+{
+    "name":  "from-text-paras",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  6,
+                      "type":  2,
+                      "inTable":  false,
+                      "text":  "x\ry\rz\r"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  9,
+                     "type":  5,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  3,
+                     "text":  "x\r\u0007\r\u0007y\r\u0007\r\u0007z\r\u0007\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

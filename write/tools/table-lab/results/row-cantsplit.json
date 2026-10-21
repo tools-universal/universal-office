@@ -1,0 +1,24 @@
+{
+    "name":  "row-cantsplit",
+    "selBefore":  {
+                      "start":  16,
+                      "end":  16,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  2,
+                      "col":  1,
+                      "cells":  1,
+                      "text":  "r"
+                  },
+    "selAfter":  {
+                     "start":  16,
+                     "end":  16,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  2,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "r"
+                 },
+    "changed":  false
+}

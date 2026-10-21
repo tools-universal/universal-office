@@ -1,0 +1,23 @@
+{
+    "name":  "from-text-tabs",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  18,
+                      "type":  2,
+                      "inTable":  false,
+                      "text":  "a\tb\tc\rd\te\tf\rg\th\ti\r"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  21,
+                     "type":  5,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  9,
+                     "text":  "a\r\u0007b\r\u0007c\r\u0007\r\u0007d\r\u0007e\r\u0007f\r\u0007\r\u0007g\r\u0007h\r\u0007i\r\u0007\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

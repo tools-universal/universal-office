@@ -338,6 +338,10 @@ export interface ParaProps {
   dropCap?: boolean;
   /** Id da fonte XML original do parágrafo (source.ts) — salvamento sem perdas. */
   src?: number;
+  /** Parágrafo NOVO com a formatação copiada de um lido (célula de linha/coluna
+   *  inserida, como o Word faz): o w:pPr sai do cru dele com as diferenças —
+   *  sem os runs nem os marcadores dele. */
+  fmtSrc?: number;
   /** Quebra de seção: este parágrafo encerra uma seção (w:pPr/w:sectPr).
    *  Preserva geometria/orientação e refs de header/footer da seção. */
   sectionBreak?: {
