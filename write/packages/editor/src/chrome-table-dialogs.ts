@@ -5,11 +5,11 @@
 // como o Word pt-BR.
 import { dialogTabs, openDialog, pickLabels, type UiLang } from '@universal-office/ui';
 import { FORMULA_FUNCTIONS, type TblPr, type TblpPr, type TcPr, type TextSeparator, type WidthSpec } from '@universal-office/docx-core';
-import type { TablePropertiesInput } from './universal-write.js';
+import type { SortRequest, TablePropertiesInput } from './universal-write.js';
 import type { DialogEnv } from './chrome-dialogs.js';
 
 export type TableDialogKind = 'insert' | 'fromText' | 'toText' | 'insertCells' | 'deleteCells' | 'split' | 'margins' | 'formula'
-  | 'properties' | 'properties:row' | 'properties:column' | 'properties:cell' | 'properties:alt';
+  | 'properties' | 'properties:row' | 'properties:column' | 'properties:cell' | 'properties:alt' | 'sort';
 
 /** Formatos numéricos da lista do diálogo Fórmula (os do Word pt-BR; os dados seguem o pt-BR). */
 const NUMBER_FORMATS = ['#.##0', '#.##0,00', 'R$ #.##0,00;(R$ #.##0,00)', '0', '0%', '0,00', '0,00%'];
@@ -204,6 +204,8 @@ export async function tableDialog(env: DialogEnv, kind: TableDialogKind): Promis
       );
       return;
     }
+    case 'sort':
+      return sortDialog(env);
     case 'properties': case 'properties:row': case 'properties:column': case 'properties:cell': case 'properties:alt':
       return propertiesDialog(env, kind === 'properties' ? 'table' : kind.slice(11));
     case 'formula': {
@@ -487,4 +489,97 @@ async function cellOptionsDialog(env: DialogEnv, cp: TcPr, t: TblPr): Promise<Ce
     margins: same.box.checked ? null : { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
     wrap: wrap.box.checked, fitText: fit.box.checked,
   };
+}
+
+// ───────────────────────── Classificar ─────────────────────────
+
+/** Diálogo Classificar (tabela ou parágrafos): até três chaves, cabeçalho e opções. */
+async function sortDialog(env: DialogEnv): Promise<void> {
+  const lang = env.lang, ed = env.ed;
+  let separator: SortRequest['separator'] = undefined;
+  let caseSensitive = false;
+  let info = ed.sortInfo();
+  if (!info) return;
+  if (info.mergeError) {
+    const h = openDialog({
+      title: tr(lang, 'Sort', 'Classificar'), icon: 'warning', layer: env.layer, lang,
+      body: tr(lang, 'Cannot sort a table that contains merged cells.', 'Não é possível classificar uma tabela que contém células mescladas.'),
+    });
+    await h.result;
+    return;
+  }
+  const types: [string, string][] = [['text', tr(lang, 'Text', 'Texto')], ['number', tr(lang, 'Number', 'Número')], ['date', tr(lang, 'Date', 'Data')]];
+  const none = tr(lang, '(none)', '(nenhum)');
+  const header = radiosRow('hdr', [['yes', tr(lang, 'Header row', 'Linha de cabeçalho')], ['no', tr(lang, 'No header row', 'Nenhuma linha de cabeçalho')]], info.header ? 'yes' : 'no');
+  const isHeader = (): boolean => header.value() === 'yes';
+  // rótulos: o texto do cabeçalho (se houver) ou Coluna N / Campo N / Parágrafos
+  const labels = (): string[] => info!.columns.map((c, i) => {
+    if (info!.kind === 'paragraphs') return info!.columns.length === 1 ? tr(lang, 'Paragraphs', 'Parágrafos') : tr(lang, `Field ${i + 1}`, `Campo ${i + 1}`);
+    return isHeader() && c.text ? c.text : tr(lang, `Column ${i + 1}`, `Coluna ${i + 1}`);
+  });
+  const keyRow = (n: number) => {
+    const col = el('select', { name: `k${n}-col`, style: 'min-width:160px' });
+    const type = sel(`k${n}-type`, types, 'text');
+    const dir = radiosRow(`k${n}-dir`, [['asc', tr(lang, 'Ascending', 'Crescente')], ['desc', tr(lang, 'Descending', 'Decrescente')]], 'asc');
+    const fill = (): void => {
+      const cur = col.value;
+      col.replaceChildren(...(n > 0 ? [el('option', { value: '' }, none)] : []), ...labels().map((l, i) => el('option', { value: String(i) }, l)));
+      col.value = cur && [...col.options].some((o) => o.value === cur) ? cur : n > 0 ? '' : '0';
+    };
+    const sync = (): void => {
+      type.disabled = col.value === '';
+      for (const i of dir.el.querySelectorAll('input')) (i as HTMLInputElement).disabled = col.value === '';
+    };
+    // o tipo sugerido pela coluna (todos números → Número; todas datas → Data)
+    const guess = (): void => { const c = info!.columns[+col.value]; if (col.value !== '' && c) type.value = c.guess; };
+    fill();
+    guess();
+    sync();
+    col.addEventListener('change', () => { guess(); sync(); });
+    const title = n === 0 ? tr(lang, 'Sort by', 'Classificar por') : tr(lang, 'Then by', 'E depois por');
+    return {
+      el: section(title, line(col, el('span', {}, tr(lang, 'Type:', 'Tipo:')), type), dir.el),
+      fill: (): void => { fill(); sync(); },
+      read: (): SortRequest['keys'][number] | null =>
+        (col.value === '' ? null : { column: +col.value, type: type.value as 'text' | 'number' | 'date', desc: dir.value() === 'desc' }),
+    };
+  };
+  const keys = [keyRow(0), keyRow(1), keyRow(2)];
+  header.el.addEventListener('change', () => keys.forEach((k) => k.fill()));
+  const opts = el('button', { type: 'button', className: 'uo-pill', textContent: tr(lang, 'Options…', 'Opções…') });
+  opts.addEventListener('click', () => {
+    void sortOptionsDialog(env, info!.kind === 'paragraphs', separator, caseSensitive).then((r) => {
+      if (!r) return;
+      separator = r.separator;
+      caseSensitive = r.caseSensitive;
+      info = ed.sortInfo(separator) ?? info;
+      keys.forEach((k) => k.fill());
+    });
+  });
+  const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
+    ...keys.map((k) => k.el),
+    section(tr(lang, 'My list has', 'Minha lista tem'), header.el),
+    el('div', { style: 'display:flex;justify-content:flex-end' }, opts));
+  if (!(await ask(env, tr(lang, 'Sort', 'Classificar'), body, 460))) return;
+  const ks = keys.map((k) => k.read()).filter((k): k is NonNullable<typeof k> => !!k);
+  if (ks.length) ed.sort({ keys: ks, header: isHeader(), caseSensitive, separator });
+}
+
+/** Opções de Classificação: separador de campos (parágrafos) e diferenciar maiúsculas. */
+async function sortOptionsDialog(env: DialogEnv, paragraphs: boolean, sep: SortRequest['separator'], cs: boolean)
+  : Promise<{ separator: SortRequest['separator']; caseSensitive: boolean } | null> {
+  const lang = env.lang;
+  const cur = sep === undefined ? 'tab' : typeof sep === 'string' ? sep : 'other';
+  const r = radiosRow('ssep', [['tab', tr(lang, 'Tabs', 'Tabulações')], ['comma', tr(lang, 'Commas', 'Vírgulas')], ['other', tr(lang, 'Other:', 'Outro:')]], cur);
+  const other = el('input', { type: 'text', name: 'ssep-other', maxLength: 1, value: typeof sep === 'object' ? sep.char : '', style: 'width:40px' });
+  other.addEventListener('input', () => { (r.el.querySelector('input[value="other"]') as HTMLInputElement).checked = true; });
+  const use = check('fields', sep !== undefined, tr(lang, 'Sort by fields', 'Classificar por campos'));
+  const csBox = check('case', cs, tr(lang, 'Case sensitive', 'Diferenciar maiúsculas de minúsculas'));
+  const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
+    ...(paragraphs ? [section(tr(lang, 'Separate fields at', 'Separar campos em'), use.el, line(r.el, other))] : []),
+    section(tr(lang, 'Sort options', 'Opções de classificação'), csBox.el));
+  if (!(await ask(env, tr(lang, 'Sort Options', 'Opções de Classificação'), body, 380))) return null;
+  const v = r.value();
+  const separator: SortRequest['separator'] = !paragraphs || !use.box.checked ? undefined : v === 'other' ? { char: other.value || '-' } : v as 'tab' | 'comma';
+  return { separator, caseSensitive: csBox.box.checked };
 }

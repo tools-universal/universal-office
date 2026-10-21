@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@universal-office/ui': fileURLToPath(new URL('../../../shared/ui/src/index.ts', import.meta.url)),
+      // a colação do Windows do Sheet (Classificar): só o arquivo, sem o motor de cálculo
+      '@universal-office/collation': fileURLToPath(new URL('../../../sheet/packages/calc/src/collation.ts', import.meta.url)),
     },
   },
 });

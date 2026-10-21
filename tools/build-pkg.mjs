@@ -54,6 +54,8 @@ const INTERNAL = {
   '@universal-office/compare': 'write/packages/compare/src/index.ts',
   '@universal-office/sheet-core': 'sheet/packages/sheet-core/src/index.ts',
   '@universal-office/sheet-calc': 'sheet/packages/calc/src/index.ts',
+  // só a colação do Windows do sheet-calc (Classificar do Write), sem o motor de cálculo
+  '@universal-office/collation': 'sheet/packages/calc/src/collation.ts',
   '@universal-office/slides-core': 'slides/packages/slides-core/src/index.ts',
   '@universal-office/presentation-viewer': 'slides/packages/viewer/src/index.ts',
 };

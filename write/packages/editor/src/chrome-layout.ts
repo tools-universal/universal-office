@@ -91,7 +91,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'focus', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', 'bookmark', 'textbox', m.symbols] },
       { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', m.charSpacing, '-', tableFormatMenu(), '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
-      { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
+      { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', 'sort', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
     ],
     groups: [
@@ -150,7 +150,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           ] },
           { id: 'paragraph', label: L('Paragraph', 'Parágrafo'), icon: 'format_align_left', prio: 7, launcher: 'dlg:paragraph', cells: [
             { rows: [
-              ['list:bullet', 'list:decimal', 'outdent', 'indent', 'marks'],
+              ['list:bullet', 'list:decimal', 'outdent', 'indent', 'sort', 'marks'],
               ['align:left', 'align:center', 'align:right', 'align:both',
                 { menu: () => lineSpacingMenu(env, ctx), id: 'spacing', label: L('Line & paragraph spacing', 'Espaçamento entre linhas e parágrafos'), icon: 'format_line_spacing' },
                 { split: 'shading', menu: () => shadingMenu(env, ctx) }, 'borders'],

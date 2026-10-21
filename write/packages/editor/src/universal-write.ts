@@ -104,7 +104,10 @@ import {
   type TblLook, type TblPr, type TblpPr, type TrPr, type TcPr, type WidthSpec, type DocFormatting,
   ensureTableStyle, addStylesXml, loadBuiltinTableStyles, styleIdByName, themeHex, putStyle, type BuiltinTableStyle,
   defaultFormula, formulaInstr, formulaResultText, type FormulaEnv,
+  sortTable, sortParagraphsOrder, canSortTable, parseSortNumber, parseSortDate, cellText, SORT_MERGED_ERROR, type SortOptions,
 } from '@universal-office/docx-core';
+// a colação do Windows (a mesma do Sheet): só o arquivo dela, não o motor de cálculo
+import { compareText } from '@universal-office/collation';
 import type { PlacedCell } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
@@ -323,6 +326,34 @@ export interface TableStyleInfo {
   group: 'custom' | 'plain' | 'grid' | 'list';
   /** id no documento (se já está nele) */
   id?: string;
+}
+
+/** Pedido do Classificar (colunas a partir de 0). */
+export interface SortRequest {
+  keys: { column: number; type: 'text' | 'number' | 'date'; desc?: boolean }[];
+  /** a 1ª linha é cabeçalho (fica no lugar) */
+  header?: boolean;
+  caseSensitive?: boolean;
+  /** parágrafos com campos: o separador (sem ele, o parágrafo inteiro) */
+  separator?: 'tab' | 'comma' | { char: string };
+}
+
+/** O que o Classificar ordenaria (diálogo): colunas/campos com o rótulo do cabeçalho e o tipo provável. */
+export interface SortInfo {
+  kind: 'table' | 'paragraphs';
+  columns: { text: string; guess: 'text' | 'number' | 'date' }[];
+  header: boolean;
+  /** tabela com células mescladas (o Word não classifica) */
+  mergeError: boolean;
+}
+
+/** Tipo provável de uma coluna (como o diálogo do Word sugere): todos números → número; todas datas → data. */
+function guessSortType(texts: string[]): 'text' | 'number' | 'date' {
+  const xs = texts.map((t) => t.trim()).filter(Boolean);
+  if (!xs.length) return 'text';
+  if (xs.every((t) => parseSortDate(t) !== null)) return 'date';
+  if (xs.every((t) => parseSortNumber(t) !== null)) return 'number';
+  return 'text';
 }
 
 /** Estado da tabela do cursor/seleção (barras, diálogos). */
@@ -8037,6 +8068,84 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Converter em Texto: a tabela vira parágrafos (separador: tabulação, parágrafo, ; ou outro). */
+  // ───────────────── classificar ─────────────────
+
+  /** O que o Classificar ordenaria agora: linhas da tabela (do cursor/seleção) ou parágrafos. */
+  sortInfo(separator?: SortOptions['separator']): SortInfo | null {
+    if (!this.model || this.locked()) return null;
+    const tg = this.tableTarget();
+    if (tg) {
+      const t = tg.table, m = TOps.mapTable(t);
+      const rows = this.tableSel ? [tg.rect.r1, tg.rect.r2] : [0, t.rows.length - 1];
+      const header = !!t.rows[rows[0]!]?.trPr?.tblHeader;
+      const cols = Array.from({ length: m.nCols }, (_, c) => {
+        const g = TOps.cellAt(m, rows[0]!, c);
+        const text = g && g.col === c ? cellText(g.cell).trim() : '';
+        return { text, guess: guessSortType(t.rows.slice(rows[0]! + 1, rows[1]! + 1).map((_, i) => {
+          const h = TOps.cellAt(m, rows[0]! + 1 + i, c);
+          return h ? cellText(h.cell) : '';
+        })) };
+      });
+      return { kind: 'table', columns: cols, header, mergeError: !canSortTable(t) };
+    }
+    const { start, end } = normalizeRange(this.range());
+    const ps = this.hasSelection() ? this.model.paragraphs.slice(start.para, end.para + 1) : this.model.paragraphs;
+    const ch = separator === 'comma' ? ',' : separator && typeof separator === 'object' ? separator.char : '\t';
+    const nf = Math.max(1, ...ps.map((p) => paraText(p).split(ch).length));
+    const field = (k: number): string[] => ps.map((p) => (k < 0 ? paraText(p) : paraText(p).split(ch)[k] ?? ''));
+    return {
+      kind: 'paragraphs', header: false, mergeError: false,
+      columns: nf > 1 ? Array.from({ length: nf }, (_, k) => ({ text: '', guess: guessSortType(field(k).slice(1)) })) : [{ text: '', guess: guessSortType(field(-1)) }],
+    };
+  }
+
+  /**
+   * Classificar: as linhas da tabela do cursor (todas, ou as da seleção de
+   * células) ou os parágrafos selecionados (sem seleção: todos). Colunas
+   * contam a partir de 0 (na tabela, colunas da grade; nos parágrafos com
+   * separador, campos). Devolve false se nada mudou ou se a tabela tem células
+   * mescladas (o Word recusa) — o evento uw-sort-error avisa.
+   */
+  sort(req: SortRequest): boolean {
+    if (!this.model || this.locked() || !req.keys.length) return false;
+    const opts: SortOptions = {
+      keys: req.keys.map((k) => ({ col: k.column, type: k.type, desc: k.desc })),
+      caseSensitive: req.caseSensitive, compare: compareText, separator: req.separator,
+    };
+    const tg = this.tableTarget();
+    if (tg) {
+      if (!canSortTable(tg.table)) {
+        this.dispatchEvent(new CustomEvent('uw-sort-error', { detail: { reason: 'merged', message: SORT_MERGED_ERROR } }));
+        return false;
+      }
+      const sel = !!this.tableSel;
+      return this.editTable((t) => {
+        let r1 = sel ? t.rect.r1 : 0;
+        const r2 = sel ? t.rect.r2 : t.table.rows.length - 1;
+        if (req.header) r1++;
+        if (r1 >= r2) return false;
+        sortTable(t.table, r1, r2, opts);
+        return sel ? { select: { ...t.rect } } : { caret: { r: 0, c: 0 } };
+      });
+    }
+    // parágrafos (com campos: separador)
+    const m = this.model;
+    const { start, end } = normalizeRange(this.range());
+    const a = this.hasSelection() ? start.para : 0;
+    const b = this.hasSelection() ? (end.offset === 0 && end.para > start.para ? end.para - 1 : end.para) : m.paragraphs.length - 1;
+    if (b <= a) return false;
+    // tabelas no meio dos parágrafos: o Word também não as reordena junto
+    if (!this.cellEdit && !this.hfEdit && !this.tbEdit && this.tableAnchors.some((t) => t.beforePara > a && t.beforePara <= b)) return false;
+    const ps = m.paragraphs.slice(a, b + 1);
+    const order = sortParagraphsOrder(ps, { ...opts, keys: opts.keys.map((k) => ({ ...k, col: req.separator ? k.col + 1 : 0 })) });
+    if (order.every((v, i) => v === i)) return false;
+    this.snapshot();
+    m.paragraphs.splice(a, ps.length, ...order.map((i) => ps[i]!));
+    this.selection = { anchor: { para: a, offset: 0 }, focus: { para: b, offset: paraLength(m.paragraphs[b]!) } };
+    this.refresh();
+    return true;
+  }
+
   convertTableToText(separator: TextSeparator = 'tab'): void {
     this.editTable((tg) => {
       const paras = TOps.tableToText(tg.table, separator);

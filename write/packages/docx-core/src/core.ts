@@ -101,6 +101,10 @@ export type { CellRect, GridCell, TableMap, NewTableOptions, BorderKind, TextSep
 export { tblPrXml, trPrXml, tcPrXml as tcPrTypedXml, patchTblPr, patchTrPr, patchTcPr, deepEq } from './table-xml.js';
 export {
   evaluateFormula, formatFormulaResult, formatPicture, parseCellNumber, defaultFormula, formulaInstr, parseFormulaInstr,
-  formulaResultText, FORMULA_ERRORS, FORMULA_FUNCTIONS, type CellNumber, type FormulaEnv,
+  formulaResultText, cellText, FORMULA_ERRORS, FORMULA_FUNCTIONS, type CellNumber, type FormulaEnv,
 } from './table-formula.js';
+export {
+  sortTable, sortParagraphsOrder, canSortTable, parseSortDate, parseSortNumber, SORT_MERGED_ERROR,
+  type SortKey, type SortOptions, type SortType,
+} from './table-sort.js';
 export { CORE_TABLE_STYLES, ensureTableStyle, addStylesXml, localStyleId, styleDefOf, styleIdByName, loadBuiltinTableStyles, materializeStyleXml, themeHex, type BuiltinTableStyle } from './table-styles.js';

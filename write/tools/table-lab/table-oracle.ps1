@@ -577,6 +577,92 @@ $E['styles-all'] = @{
   }
 }
 
+# ---- lote 4: classificar (Table.Sort / Selection.Sort) ----
+# linhas separadas por '|', colunas por ';'
+function New-SortTable($app, $doc, [string]$spec) {
+  $rows = $spec -split '\|'
+  $nc = ($rows[0] -split ';').Count
+  $t = $doc.Tables.Add($app.Selection.Range, $rows.Count, $nc, 1, 0)
+  for ($r = 0; $r -lt $rows.Count; $r++) {
+    $cs = $rows[$r] -split ';'
+    for ($c = 0; $c -lt $cs.Count; $c++) { if ($cs[$c] -ne '') { $t.Cell($r + 1, $c + 1).Range.Text = $cs[$c] } }
+  }
+  $t.Cell(1, 1).Select()
+  return $t
+}
+$M = [Type]::Missing
+# nome = (tabela, cabecalho, campo1, tipo1, ordem1, campo2, tipo2, ordem2, maiusc)
+$SORT = [ordered]@{
+  'sort-text'      = @(('b|B|a' + [char]0xE1 + '|a|' + [char]0xC1 + '|c|' + [char]0xE7 + '|10|9||Zeta|' + [char]0xE1 + 'baco|abacate|_x|(a)'), $false, 1, 0, 0, 0, 0, 0, $false)
+  'sort-text-case' = @(('b|B|a|A|' + [char]0xE1 + '|' + [char]0xC1 + '|bb|Bb'), $false, 1, 0, 0, 0, 0, 0, $true)
+  'sort-text-desc' = @('b|a|c||10|9', $false, 1, 0, 1, 0, 0, 0, $false)
+  'sort-num'       = @('10|9|1,5|abc|-2|R$ 3||1.000|2 itens|(4)|5%|x7', $false, 1, 1, 0, 0, 0, 0, $false)
+  'sort-num-desc'  = @('10|9|abc||-2|3', $false, 1, 1, 1, 0, 0, 0, $false)
+  'sort-date'      = @(('15/01/2020|01/02/2020|2019-12-31|x||31/12/2019|1 de mar' + [char]0xE7 + 'o de 2020|02/01/20|3/1/2020'), $false, 1, 2, 0, 0, 0, 0, $false)
+  'sort-header'    = @('Nome|pera|banana|abacaxi', $true, 1, 0, 0, 0, 0, 0, $false)
+  'sort-noheader'  = @('Nome|pera|banana|abacaxi', $false, 1, 0, 0, 0, 0, 0, $false)
+  'sort-multi'     = @('b;2|a;3|b;1|a;1|a;2', $false, 1, 0, 0, 2, 1, 0, $false)
+  'sort-stable'    = @('x;1|y;2|x;3|y;4|x;5', $false, 1, 0, 0, 0, 0, 0, $false)
+  'sort-col2'      = @('k1;c|k2;a|k3;b', $false, 2, 0, 0, 0, 0, 0, $false)
+  'sort-multipara' = @('b|a', $false, 1, 0, 0, 0, 0, 0, $false)
+}
+foreach ($k in $SORT.Keys) {
+  $spec = $SORT[$k]
+  $E[$k] = @{ Spec = $spec
+    Setup = { param($app, $doc) New-SortTable $app $doc $x.Spec[0] | Out-Null }
+    Op = { param($app, $doc)
+      $s = $x.Spec
+      $t = $app.Selection.Tables.Item(1)
+      if ($s[5] -gt 0) { $t.Sort($s[1], $s[2], $s[3], $s[4], $s[5], $s[6], $s[7], $M, $M, $M, $s[8]) }
+      else { $t.Sort($s[1], $s[2], $s[3], $s[4], $M, $M, $M, $M, $M, $M, $s[8]) }
+    }
+  }
+}
+# a linha leva a formatacao junto (altura, sombreamento, negrito)
+$E['sort-format'] = @{
+  Setup = { param($app, $doc)
+    $t = New-SortTable $app $doc 'c|a|b'
+    $t.Rows.Item(1).HeightRule = 2; $t.Rows.Item(1).Height = 30
+    $t.Cell(1, 1).Shading.BackgroundPatternColor = 65535
+    $t.Cell(3, 1).Range.Font.Bold = $true
+  }
+  Op = { param($app, $doc) $app.Selection.Tables.Item(1).Sort($false, 1, 0, 0) }
+}
+# celula com dois paragrafos: a chave e o texto todo?
+$E['sort-cellparas'] = @{
+  Setup = { param($app, $doc)
+    $t = New-SortTable $app $doc 'b|a|c'
+    $t.Cell(2, 1).Range.Text = "z`ra"
+  }
+  Op = { param($app, $doc) $app.Selection.Tables.Item(1).Sort($false, 1, 0, 0) }
+}
+# mesclagem vertical: o Word recusa?
+$E['sort-vmerge'] = @{
+  Setup = { param($app, $doc)
+    $t = New-SortTable $app $doc 'c;1|b;2|a;3'
+    $t.Cell(1, 2).Merge($t.Cell(2, 2))
+    $t.Cell(1, 1).Select()
+  }
+  Op = { param($app, $doc) $app.Selection.Tables.Item(1).Sort($false, 1, 0, 0) }
+}
+# paragrafos fora de tabela
+$E['sort-paras'] = @{
+  Setup = { param($app, $doc) $doc.Content.Text = "pera`rbanana`rAbacaxi`r`rma" + [char]0xE7 + "a`r10`r9"; $doc.Content.Select() }
+  Op = { param($app, $doc) $app.Selection.Sort($false, 1, 0, 0) }
+}
+$E['sort-paras-num'] = @{
+  Setup = { param($app, $doc) $doc.Content.Text = "10 itens`r9`rabc`r1,5"; $doc.Content.Select() }
+  Op = { param($app, $doc) $app.Selection.Sort($false, 1, 1, 0) }
+}
+# selecao parcial de linhas da tabela: so as selecionadas
+$E['sort-partial'] = @{
+  Setup = { param($app, $doc)
+    $t = New-SortTable $app $doc 'd|c|b|a'
+    $doc.Range($t.Cell(2, 1).Range.Start, $t.Cell(3, 1).Range.End).Select()
+  }
+  Op = { param($app, $doc) $app.Selection.Sort($false, 1, 0, 0) }
+}
+
 # ---- execucao ----
 $w = New-WordApp
 $prevSec = $null

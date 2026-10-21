@@ -13,7 +13,7 @@ import { mapTable, cellAt, cellContent, vMergeOf, type TableMap } from './table-
 /** Número lido de uma célula, com o formato que ele passa ao resultado. */
 export interface CellNumber { n: number; decimals: number; thousands: boolean; prefix?: string; suffix?: string }
 
-const cellText = (cell: TableCell): string =>
+export const cellText = (cell: TableCell): string =>
   cellContent(cell).map((b) => (b.type === 'paragraph' ? b.paragraph.runs.map((r) => r.text).join('') : '')).join('\n');
 
 /** Número no INÍCIO do texto da célula (pt-BR); null = vazia ou sem número. */

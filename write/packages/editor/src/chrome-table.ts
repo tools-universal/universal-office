@@ -86,6 +86,7 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
     // ── Dados ──
     t({ id: 'table:headerRows', label: L('Repeat Header Rows', 'Repetir Linhas de Cabeçalho'), icon: 'view_headline', supports: has('toggleRepeatHeaderRows'), run: () => ed.toggleRepeatHeaderRows(), isChecked: () => !!tbl()?.headerRow }),
     t({ id: 'table:toText', label: L('Convert to Text', 'Converter em Texto'), icon: 'text_snippet', supports: has('convertTableToText'), run: () => ctl.tableDialog('toText') }),
+    { id: 'sort', label: L('Sort', 'Classificar'), tip: L('Sort (rows of the table or the selected paragraphs)', 'Classificar (linhas da tabela ou os parágrafos selecionados)'), icon: 'sort_by_alpha', supports: has('sort'), isEnabled: canEdit, run: () => ctl.tableDialog('sort') },
     t({ id: 'table:formula', label: L('Formula', 'Fórmula'), tip: L('Formula (F9 updates)', 'Fórmula (F9 atualiza)'), icon: 'functions', supports: has('insertFormula'), run: () => ctl.tableDialog('formula'), isEnabled: () => !tbl()?.cells }),
     { id: 'fields:update', label: L('Update Fields', 'Atualizar Campos'), icon: 'autorenew', shortcut: 'F9', supports: has('updateFields'), isEnabled: canEdit,
       run: () => { if (!ed.updateFields()) ctl.flash(pickLabels(app.lang, L('No fields to update', 'Nenhum campo para atualizar'))); } },
@@ -407,7 +408,7 @@ export function tableLayoutGroups(env: WidgetEnv): BarGroup[] {
       alignGrid, big('cell:textdir'), big('cell:margins'),
     ] },
     { id: 'tl-data', label: L('Data', 'Dados'), icon: 'functions', prio: 2, cells: [
-      { rows: [[{ cmd: 'table:headerRows', label: true }], [{ cmd: 'table:toText', label: true }], [{ cmd: 'table:formula', label: true }]] },
+      big('sort'), { rows: [[{ cmd: 'table:headerRows', label: true }], [{ cmd: 'table:toText', label: true }], [{ cmd: 'table:formula', label: true }]] },
     ] },
   ];
 }
@@ -423,7 +424,7 @@ export const tableFormatMenu = (): MenuItem => ({
     { id: 'tableFmt:autofit', label: L('AutoFit', 'AutoAjuste'), icon: 'fit_width', submenu: autofitMenu },
     'rows:distribute', 'cols:distribute', '-',
     { id: 'tableFmt:align', label: L('Cell alignment', 'Alinhamento da célula'), icon: 'vertical_align_center', submenu: () => ALIGN.map(([id]) => `cell:align:${id}`) },
-    'cell:textdir', 'cell:margins', '-', 'table:headerRows', 'table:toText', 'table:formula', '-', 'table:gridlines', 'table:propertiesDlg',
+    'cell:textdir', 'cell:margins', '-', 'table:headerRows', 'table:toText', 'table:formula', 'sort', '-', 'table:gridlines', 'table:propertiesDlg',
   ],
 });
 

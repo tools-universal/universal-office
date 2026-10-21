@@ -1,0 +1,26 @@
+{
+    "name":  "sort-cellparas",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  2,
+                      "type":  4,
+                      "inTable":  true,
+                      "row":  1,
+                      "col":  1,
+                      "cells":  1,
+                      "text":  "b\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  0,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "b"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

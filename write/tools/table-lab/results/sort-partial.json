@@ -1,0 +1,26 @@
+{
+    "name":  "sort-partial",
+    "selBefore":  {
+                      "start":  3,
+                      "end":  8,
+                      "type":  4,
+                      "inTable":  true,
+                      "row":  2,
+                      "col":  1,
+                      "cells":  2,
+                      "text":  "c\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  3,
+                     "end":  9,
+                     "type":  5,
+                     "inTable":  true,
+                     "row":  2,
+                     "col":  1,
+                     "cells":  2,
+                     "text":  "b\r\u0007\r\u0007c\r\u0007\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

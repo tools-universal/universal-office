@@ -9,7 +9,8 @@
       "@universal-office/docx-core": ["../docx-core/src/index.ts"],
       "@universal-office/docx-layout": ["../docx-layout/src/index.ts"],
       "@universal-office/fonts": ["../../../shared/fonts/src/index.ts"],
-      "@universal-office/ui": ["../../../shared/ui/src/index.ts"]
+      "@universal-office/ui": ["../../../shared/ui/src/index.ts"],
+      "@universal-office/collation": ["../../../sheet/packages/calc/src/collation.ts"]
     }
   },
   "include": ["src", "demo"]

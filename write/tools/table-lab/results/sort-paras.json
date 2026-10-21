@@ -1,0 +1,20 @@
+{
+    "name":  "sort-paras",
+    "selBefore":  {
+                      "start":  0,
+                      "end":  31,
+                      "type":  2,
+                      "inTable":  false,
+                      "text":  "pera\rbanana\rAbacaxi\r\rmaça\r10\r9\r"
+                  },
+    "selAfter":  {
+                     "start":  0,
+                     "end":  31,
+                     "type":  2,
+                     "inTable":  false,
+                     "text":  "\r10\r9\rAbacaxi\rbanana\rmaça\rpera\r"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}
