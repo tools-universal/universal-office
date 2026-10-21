@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /** Pastas locais (fora do git) que o worktree recebe por junção da principal. */
-export const EXTRA = ['write/tools/word-lab'];
+export const EXTRA = ['write/tools/word-lab', 'write/samples'];
 
 const SKIP = new Set(['node_modules', '.git', '.claude', 'vendor', 'dist', 'publish', '.wt', '.out', 'results']);
 
