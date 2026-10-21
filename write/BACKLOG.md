@@ -66,11 +66,11 @@ Estado: `—` a fazer · `em curso` · `feito`.
 
 | Frente | Inclui | Estado |
 |---|---|---|
-| Tabela | ◐ inserir; desenhar; converter texto↔tabela; Design da Tabela (estilos, sombreamento, bordas); Layout (dimensionar, distribuir, alinhar na célula, direção do texto, repetir cabeçalho, fórmula) | — |
-| Controle de alterações | ◐ ligar/desligar; ◐ aceitar/rejeitar (uma e todas); anterior/próxima; modo de marcação (Simples/Todas/Nenhuma/Original); Mostrar Marcação; Painel de Revisão | — |
+| Tabela | ◐ inserir; desenhar; converter texto↔tabela; Design da Tabela (estilos, sombreamento, bordas); Layout (dimensionar, distribuir, alinhar na célula, direção do texto, repetir cabeçalho, fórmula) | em curso |
+| Controle de alterações | ◐ ligar/desligar; ◐ aceitar/rejeitar (uma e todas); anterior/próxima; modo de marcação (Simples/Todas/Nenhuma/Original); Mostrar Marcação; Painel de Revisão | em curso |
 | Notas | ◐ nota de rodapé e de fim; próxima nota; mostrar notas | — |
-| Seções e colunas | ◐ quebra de seção e de coluna; Colunas | — |
-| Estilos | galeria com miniaturas; painel de estilos; criar/modificar estilo; Inspetor de Estilo | — |
+| Seções e colunas | ◐ quebra de seção e de coluna; Colunas | em curso |
+| Estilos | galeria com miniaturas; painel de estilos; criar/modificar estilo; Inspetor de Estilo | em curso |
 | Navegação | Painel de Navegação; Régua; Linhas de Grade | — |
 
 ### Fase B — documento
