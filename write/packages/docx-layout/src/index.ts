@@ -11,7 +11,7 @@ export { NumberingState, formatNumber } from './numbering.js';
 export { renderPdf, type PdfRenderOptions } from './pdf.js';
 export type {
   LayoutResult, LayoutPage, PageItem, GlyphRunItem, RectItem, LineItem, ImageItem, ShapeItem, ClipItem, LaidOutLine,
-  PathItem, PathCmdTw, XformItem, PlacedObject,
+  PathItem, PathCmdTw, XformItem, PlacedObject, PlacedCell,
 } from './tree.js';
 export { documentHyphenationLanguages } from './hyphenate.js';
 export { paintItems, type EnginePaintEnv } from './canvas.js';

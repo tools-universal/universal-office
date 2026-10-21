@@ -348,37 +348,6 @@ export const symbolMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
   },
 }];
 
-/** Grade "inserir tabela" (aparece quando o editor tiver insertTable). */
-export const tableMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
-  content: (close) => {
-    const box = document.createElement('div');
-    const cap = document.createElement('div');
-    cap.style.cssText = 'font-size:12.5px;margin-bottom:6px';
-    cap.textContent = env.app.ui!.L.rows(1, 1);
-    const g = document.createElement('div');
-    g.style.cssText = 'display:grid;grid-template-columns:repeat(10,18px);gap:3px';
-    const cells: HTMLElement[] = [];
-    for (let r = 1; r <= 8; r++) for (let c = 1; c <= 10; c++) {
-      const cell = document.createElement('div');
-      cell.style.cssText = 'width:18px;height:18px;border:1px solid currentColor;opacity:.35;border-radius:2px;cursor:pointer';
-      cell.addEventListener('mouseenter', () => {
-        cap.textContent = env.app.ui!.L.rows(r, c);
-        cells.forEach((x, i) => { const rr = Math.floor(i / 10) + 1, cc = (i % 10) + 1; x.style.opacity = rr <= r && cc <= c ? '1' : '.35'; });
-      });
-      cell.addEventListener('mousedown', (e) => e.preventDefault());
-      cell.addEventListener('click', () => {
-        close();
-        (env.ed as unknown as { insertTable: (r: number, c: number) => void }).insertTable(r, c);
-        ctx.after();
-      });
-      cells.push(cell);
-      g.appendChild(cell);
-    }
-    box.append(cap, g);
-    return box;
-  },
-}];
-
 // ── tema ── (opt-in: sem atributo `theme` nem escolha, o componente segue a página)
 export const themeMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [
   {

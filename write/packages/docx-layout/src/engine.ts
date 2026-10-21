@@ -2480,6 +2480,7 @@ class Engine {
       for (const it of row.items) out.push(shiftItem(it, y - yOrigin, refX));
       for (const it of row.borderItems) out.push(shiftItem(it, y - yOrigin, refX));
       for (const l of row.lines) ps.page.lines.push({ ...l, x: l.x + refX, y: l.y + y, baseline: l.baseline + y, ...(l.chars ? { chars: l.chars.map((c) => ({ ...c, x: c.x + refX })) } : {}) });
+      if (row.cells && !this.inHf) for (const c of row.cells) (ps.page.cells ??= []).push({ ref: c.ref, x: c.x + refX, y, w: c.w, h: row.height, span: c.span });
       y += row.height + (grow > 0.5 ? grow : 0);
       n++;
       // linha partida: o resto vai inteiro para a página seguinte (oráculo ftwidow)
@@ -2561,6 +2562,7 @@ class Engine {
     for (const it of row.items) if (!skip?.has(it)) this.cur.body.push(shiftItem(it, this.y));
     for (const it of row.borderItems) this.cur.body.push(shiftItem(it, this.y));
     for (const l of row.lines) this.cur.page.lines.push({ ...l, y: l.y + this.y, baseline: l.baseline + this.y });
+    if (row.cells && !this.inHf) for (const c of row.cells) (this.cur.page.cells ??= []).push({ ref: c.ref, x: c.x, y: this.y, w: c.w, h: row.height, span: c.span });
     this.y += row.height;
     this.atTop = false;
     this.noteColContent(this.y);
@@ -3208,7 +3210,7 @@ type NoteCut = { id: number; first: CellContent; rest: CellContent };
 /** Cópia descartável do estado da página (medições que posicionam flutuantes). */
 function scratchPage(ps: PageState): PageState {
   return {
-    ...ps, page: { ...ps.page, items: [], lines: [], objects: [] },
+    ...ps, page: { ...ps.page, items: [], lines: [], objects: [], cells: [] },
     behind: [], hf: [], body: [], front: [], hfBehind: [], hfFront: [], floats: [...ps.floats], notes: [],
   };
 }

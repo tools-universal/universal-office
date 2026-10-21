@@ -7,8 +7,9 @@ import type { WidgetEnv } from './chrome-widgets.js';
 import {
   accentMenu, caseMenu, charSpacingMenu, colorMenu, fieldsMenu, fontWidget, highlightMenu, lineSpacingMenu,
   marginsMenu, orientationMenu, paragraphSpacingMenu, saveWidget, shadingMenu, sizeMenu, sizeWidget,
-  specialIndentMenu, styleWidget, symbolMenu, tableMenu, themeMenu, titleWidget, zoomItem,
+  specialIndentMenu, styleWidget, symbolMenu, themeMenu, titleWidget, zoomItem,
 } from './chrome-widgets.js';
+import { tableFormatMenu, tableLayoutGroups, tableMenu } from './chrome-table.js';
 import { ZOOMS } from './chrome-commands.js';
 
 /** Submenus compartilhados pelas duas barras. */
@@ -66,6 +67,7 @@ function menus(env: WidgetEnv, ctx: BarContext) {
     ], 'page'),
     trackChanges: sub({ en: 'Track changes', pt: 'Controlar alterações' }, 'track_changes', () => ['trackChanges', '-', 'change:accept', 'change:reject', 'change:acceptAll', 'change:rejectAll'], 'tracking'),
     comments: sub({ en: 'Comments', pt: 'Comentários' }, 'comment', () => ['comment', 'comment:prev', 'comment:next', 'comment:delete', 'comment:deleteAll', '-', 'comments'], 'commentsMenu'),
+    table: { ...sub({ en: 'Table', pt: 'Tabela' }, 'table', () => tableMenu(env, ctx), 'tableMenu'), hidden: typeof (env.ed as unknown as { insertTable?: unknown }).insertTable !== 'function' },
   };
 }
 
@@ -87,8 +89,8 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'file', label: { en: 'File', pt: 'Arquivo' }, items: () => fileMenu(m) },
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'focus', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
-      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', 'table', 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', 'bookmark', 'textbox', m.symbols] },
-      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', m.charSpacing, '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
+      { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', m.table, 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', 'bookmark', 'textbox', m.symbols] },
+      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', m.charSpacing, '-', tableFormatMenu(), '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
     ],
@@ -249,13 +251,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
         ],
       },
       {
-        id: 'table-tools', label: L('Table', 'Tabela'), contextual: () => env.ed.editingTableCell(), groups: [
-          { id: 'rows', label: L('Rows & Columns', 'Linhas e Colunas'), icon: 'table_rows', prio: 5, cells: [
-            large('row:above'), large('row:below'), large('col:left'), large('col:right'),
-            { rows: [['row:delete'], ['col:delete'], ['table:delete']] },
-          ] },
-          { id: 'merge', label: L('Merge', 'Mesclar'), icon: 'cell_merge', prio: 4, cells: [large('cells:merge'), large('cells:split')] },
-        ],
+        id: 'table-layout', label: L('Table Layout', 'Layout da Tabela'), contextual: () => env.ed.editingTableCell(), groups: tableLayoutGroups(env),
       },
       {
         id: 'image-tools', label: L('Picture', 'Imagem'),

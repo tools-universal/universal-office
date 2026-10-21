@@ -1121,6 +1121,28 @@ export function tableToText(t: TableBlock, sep: TextSeparator): Paragraph[] {
 
 // ───────────────────────── utilidades para o editor ─────────────────────────
 
+/**
+ * Depois de JSON (desfazer): `paragraphs`/`tables` de cada célula voltam a ser
+ * os MESMOS objetos dos `blocks` (o JSON duplica as referências). Os blocos
+ * precisam estar alinhados aos parágrafos quando o estado foi tirado.
+ */
+export function relink(t: TableBlock): TableBlock {
+  for (const row of t.rows) {
+    for (const cell of row.cells) {
+      if (!cell.blocks?.length) { cell.tables.forEach(relink); continue; }
+      let k = 0;
+      cell.blocks = cell.blocks.map((b): Block => {
+        if (b.type === 'table') return relink(b);
+        const p = cell.paragraphs[k++];
+        return p ? { type: 'paragraph', paragraph: p } : b;
+      });
+      if (k < cell.paragraphs.length) for (const p of cell.paragraphs.slice(k)) cell.blocks.push({ type: 'paragraph', paragraph: p });
+      cell.tables = cell.blocks.filter((b): b is TableBlock => b.type === 'table');
+    }
+  }
+  return t;
+}
+
 /** Cópia profunda (estrutura e props) de uma tabela, sem os ids de origem. */
 export function cloneTable(t: TableBlock): TableBlock {
   const c = clone(t);

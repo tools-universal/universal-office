@@ -98,12 +98,19 @@ import {
   type LayoutResult, type LayoutPage, type LaidOutLine, type LayoutOptions,
 } from '@universal-office/docx-layout';
 import { readOdt, writeOdt } from '@universal-office/docx-core';
+import {
+  tableOps as TOps,
+  type CellRect as TableRect, type TableCell, type TextSeparator, type BorderKind, type BorderSpec, type ShadingSpec,
+  type TblLook, type TblPr, type TrPr, type TcPr, type WidthSpec, type DocFormatting,
+  ensureTableStyle, addStylesXml,
+} from '@universal-office/docx-core';
+import type { PlacedCell } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
 import { guardRuns } from './edit-guard.js';
 import { LangResolver, ParagraphSpell, misspellingAt, wavePath, type Misspelling, type SpellEngine } from './spell.js';
 import {
-  buildEngineDoc, locateRef, resolveCell, cellBlocks, sameHops, caretXIn, offsetAtX, reconcileBlocks,
+  buildEngineDoc, locateRef, resolveCell, cellBlocks, cellAtGrid, sameHops, caretXIn, offsetAtX, reconcileBlocks,
   shiftPageItem, findItems, hfBlocksFor, paragraphAtPath,
   type EngineDoc, type LineLoc, type CellHop, type HfKind,
 } from './engine-doc.js';
@@ -274,13 +281,57 @@ interface CellEdit {
   anchor: number;
   hops: CellHop[];
   cell: import('@universal-office/docx-core').TableCell;
-  /** corpo guardado (as âncoras de tabela/seção continuam as do corpo) */
+  /** corpo guardado (as âncoras de tabela/seção continuam as do corpo; a pilha
+   *  de desfazer é a do corpo — o snapshot leva as tabelas e a célula ativa) */
   saved: {
     model: DocumentModel;
     selection: { anchor: DocPosition; focus: DocPosition };
-    undoStack: string[];
-    redoStack: string[];
   };
+}
+
+/** Seleção de CÉLULAS: retângulo (linhas × colunas da grade) de uma tabela do
+ *  corpo — `path` leva às tabelas aninhadas (hops até a célula que a contém). */
+interface TableSel {
+  anchor: number;
+  path: CellHop[];
+  rect: TableRect;
+  /** canto fixo (onde o arrasto/Shift+seta começou) */
+  origin: { r: number; c: number };
+}
+
+/** Onde fica o cursor depois de uma operação de tabela. */
+interface TableAfter {
+  /** cursor no corpo */
+  body?: DocPosition;
+  /** cursor numa célula de outra tabela do caminho (aninhada → a de fora) */
+  enter?: { path: CellHop[]; r: number; c: number; end?: boolean };
+  /** células selecionadas (o Word deixa as linhas/colunas novas selecionadas) */
+  select?: TableRect;
+  /** cursor no início (ou fim) da célula */
+  caret?: { r: number; c: number; end?: boolean };
+  /** a operação já posicionou o cursor */
+  keep?: true;
+}
+
+/** Estado da tabela do cursor/seleção (barras, diálogos). */
+export interface TableState {
+  rows: number;
+  /** colunas da grade */
+  cols: number;
+  rect: TableRect;
+  /** há seleção de células (não só o cursor) */
+  cells: boolean;
+  nested: boolean;
+  canMerge: boolean;
+  style?: string;
+  look: TblLook;
+  vAlign: string;
+  textDirection: string;
+  headerRow: boolean;
+  rowHeight?: { twips: number; rule: string };
+  colWidth: number;
+  shading?: string;
+  tblPr: TblPr;
 }
 
 /** Referência ao w:rPr original guardada nas props do run (ver syncRunRPr):
@@ -1661,7 +1712,7 @@ export class UniversalWriteElement extends HTMLElement {
   getZoom(): number { return this.zoom; }
   toggleMarks(): boolean { this.showMarks = !this.showMarks; this.refreshView(); return this.showMarks; }
 
-  getSelectionState(): { run: RunProps; para: ParaProps; view: ViewMode; marks: boolean } {
+  getSelectionState(): { run: RunProps; para: ParaProps; view: ViewMode; marks: boolean; table: TableState | null } {
     const run: RunProps = { ...(this.pendingProps ?? this.currentProps()) };
     const p = this.model?.paragraphs[this.selection.focus.para];
     const st = p ? this.styleOf(p) : undefined;
@@ -1680,7 +1731,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (run.szHalfPt === undefined) {
       run.szHalfPt = look ? Math.round(look.sizePt * 2) : st?.sizePt !== undefined ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
     }
-    return { run, para, view: this.view, marks: this.showMarks };
+    return { run, para, view: this.view, marks: this.showMarks, table: this.getTableState() };
   }
 
   toggleRunProp(key: 'bold' | 'italic' | 'underline' | 'strike' | 'allCaps' | 'smallCaps'): void {
@@ -3243,6 +3294,9 @@ export class UniversalWriteElement extends HTMLElement {
   saveDocx(): Uint8Array {
     if (!this.model) throw new Error('no document');
     if (this.hfEdit) this.exitHeaderFooter(); // salva sempre a partir do corpo
+    // na célula de tabela o modelo é o DELA: o corpo vem de bodyState
+    if (this.cellEdit?.cell.blocks) this.cellEdit.cell.blocks = reconcileBlocks(this.cellEdit.cell.blocks, this.cellEdit.cell.paragraphs, false);
+    const body = this.bodyState().model;
     const pkg = this.pkg ?? DocxPackage.empty();
     this.syncSections();
     const sections = this.bodyState().sectionStarts.map((s) => s.section);
@@ -3278,18 +3332,18 @@ export class UniversalWriteElement extends HTMLElement {
 
     // reconstrói o fluxo de blocos: parágrafos + tabelas ancoradas, na ordem
     const blocks: Block[] = [];
-    this.model.paragraphs.forEach((paragraph, pi) => {
+    body.paragraphs.forEach((paragraph, pi) => {
       for (const a of this.tableAnchors) {
         if (a.beforePara === pi) blocks.push(a.table);
       }
       blocks.push({ type: 'paragraph', paragraph });
     });
     for (const a of this.tableAnchors) {
-      if (a.beforePara >= this.model!.paragraphs.length) blocks.push(a.table);
+      if (a.beforePara >= body.paragraphs.length) blocks.push(a.table);
     }
 
     // body sectPr = ÚLTIMA seção (paisagem do catálogo mora aqui)
-    const saveModel: DocumentModel = { paragraphs: this.model.paragraphs, sectPr: lastSec?.sectPr ?? this.model.sectPr };
+    const saveModel: DocumentModel = { paragraphs: body.paragraphs, sectPr: lastSec?.sectPr ?? body.sectPr };
 
     writeDocument(pkg, saveModel, hfParts, {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : undefined,
@@ -3299,6 +3353,8 @@ export class UniversalWriteElement extends HTMLElement {
     });
     // folha de estilos: só regrava a parte se algum estilo mudou (o resto byte a byte)
     if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
+    // estilos de tabela internos que as tabelas passaram a usar
+    addStylesXml(pkg, this.pendingTableStyles);
     return pkg.save();
   }
 
@@ -3588,17 +3644,28 @@ export class UniversalWriteElement extends HTMLElement {
   private imgPoolIdx = new WeakMap<Uint8Array, number>();
 
   private stringifyState(): string {
+    // cabeçalho/rodapé e caixa de texto têm pilha própria (o modelo é o deles);
+    // corpo e célula de tabela dividem a do corpo: o estado leva o corpo, as
+    // TABELAS e a célula ativa (desfazer uma operação de tabela, ou texto
+    // digitado numa célula depois de sair dela, como no Word)
+    const own = this.hfEdit || this.tbEdit;
+    const ce = own ? null : this.cellEdit;
+    // blocos da célula em edição alinhados aos parágrafos (relink ao desfazer)
+    if (ce?.cell.blocks) ce.cell.blocks = reconcileBlocks(ce.cell.blocks, ce.cell.paragraphs, false);
     return JSON.stringify({
-      m: this.model,
-      s: this.selection,
+      m: ce ? ce.saved.model : this.model,
+      s: ce ? ce.saved.selection : this.selection,
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
       // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
       // seções (sectPr, refs) moram no modelo e voltam com ele
-      anc: this.cellEdit || this.hfEdit || this.tbEdit ? undefined : {
+      anc: own ? undefined : {
         t: this.tableAnchors.map((a) => a.beforePara),
         b: [...this.bookmarkParas],
       },
+      tb: own ? undefined : this.tableAnchors.map((a) => a.table),
+      ce: ce ? { a: ce.anchor, h: ce.hops, s: this.selection } : undefined,
+      ts: own ? undefined : this.tableSel ?? undefined,
     }, (key, value) => {
       if (value instanceof Uint8Array) {
         let idx = this.imgPoolIdx.get(value);
@@ -3617,6 +3684,9 @@ export class UniversalWriteElement extends HTMLElement {
     s: { anchor: DocPosition; focus: DocPosition };
     anc?: { t: number[]; b: [string, number][] };
     sv?: number;
+    tb?: TableBlock[];
+    ce?: { a: number; h: CellHop[]; s: { anchor: DocPosition; focus: DocPosition } };
+    ts?: TableSel;
   } {
     return JSON.parse(json, (key, value) =>
       value && typeof value === 'object' && '__imgPool' in value
@@ -3648,19 +3718,39 @@ export class UniversalWriteElement extends HTMLElement {
     this.floatSel = null; // o modelo é recriado → referência de run fica obsoleta
     to.push(this.stringifyState());
     const state = this.parseState(from.pop()!);
-    if (this.cellEdit || this.hfEdit || this.tbEdit) {
-      // célula/cabeçalho/caixa: o array de parágrafos É o do documento (célula,
-      // parte do HF, caixa de texto) — restaura no lugar para não desligá-lo
+    if (this.hfEdit || this.tbEdit) {
+      // cabeçalho/caixa: o array de parágrafos É o do documento (parte do HF,
+      // caixa de texto) — restaura no lugar para não desligá-lo
       const linked = this.model.paragraphs;
       linked.splice(0, linked.length, ...state.m.paragraphs);
       this.model = { ...state.m, paragraphs: linked };
-    } else this.model = state.m;
-    this.selection = state.s;
-    // âncoras de tabela/seção/indicador acompanham o desfazer (Enter desfeito
-    // não pode deixar a tabela um parágrafo abaixo)
-    if (state.anc && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
-      state.anc.t.forEach((v, i) => { const a = this.tableAnchors[i]; if (a) a.beforePara = v; });
-      this.bookmarkParas = new Map(state.anc.b);
+      this.selection = state.s;
+    } else {
+      const wasCell = !!this.cellEdit;
+      this.cellEdit = null;
+      this.model = state.m;
+      this.selection = state.s;
+      this.tableSel = state.ts ?? null;
+      // âncoras de tabela/indicador acompanham o desfazer (Enter desfeito não
+      // pode deixar a tabela um parágrafo abaixo); as tabelas voltam inteiras
+      if (state.anc) {
+        if (state.tb) {
+          this.tableAnchors = state.tb.map((table, i) => ({ beforePara: state.anc!.t[i] ?? 0, table: TOps.relink(table) }));
+          for (const a of this.tableAnchors) this.syncTableRPr(a.table);
+        } else state.anc.t.forEach((v, i) => { const a = this.tableAnchors[i]; if (a) a.beforePara = v; });
+        this.bookmarkParas = new Map(state.anc.b);
+      }
+      // de volta à célula em que o estado foi tirado
+      if (state.ce) {
+        const t = this.tableAnchors[state.ce.a]?.table;
+        const cell = t ? resolveCell(t, state.ce.h) : null;
+        if (cell) {
+          this.cellEdit = { anchor: state.ce.a, hops: state.ce.h, cell, saved: { model: this.model, selection: this.selection } };
+          this.model = { paragraphs: cell.paragraphs, sectPr: this.model.sectPr };
+          this.selection = state.ce.s;
+        }
+      }
+      if (wasCell !== !!this.cellEdit) this.dispatchEvent(new CustomEvent('uw-cellmode', { detail: { active: !!this.cellEdit } }));
     }
     if (state.sv !== undefined && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     this.refresh();
@@ -3670,6 +3760,10 @@ export class UniversalWriteElement extends HTMLElement {
   private deleteSelection(): DocPosition {
     const { start, end } = normalizeRange(this.range());
     const delta = end.para - start.para;
+    // tabelas entre os parágrafos selecionados saem com eles (como no Word)
+    if (delta > 0 && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
+      this.tableAnchors = this.tableAnchors.filter((a) => a.beforePara <= start.para || a.beforePara > end.para);
+    }
     const pos = deleteRange(this.model!, this.range());
     if (delta > 0) this.shiftAnchors(start.para, -delta);
     return pos;
@@ -3683,7 +3777,9 @@ export class UniversalWriteElement extends HTMLElement {
     });
     if (!this.dispatchEvent(before)) return;
     this.snapshot();
-    if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
+    // células selecionadas: o Word limpa o conteúdo e digita na 1ª
+    if (this.tableSel) { this.clearSelectedCells(false); this.tableSel = null; }
+    else if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
@@ -3814,6 +3910,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   private moveCaret(dir: 'left' | 'right' | 'up' | 'down' | 'home' | 'end', extend: boolean): void {
     if (!this.model) return;
+    if (this.tableNavigate(dir, extend)) { this.pendingProps = null; return; }
     let { para, offset } = this.selection.focus;
     const len = (i: number) => paraLength(this.model!.paragraphs[i]!);
     if (dir === 'left') {
@@ -3951,6 +4048,13 @@ export class UniversalWriteElement extends HTMLElement {
           return;
         }
       }
+      // Shift+clique em outra célula da mesma tabela: seleção de células
+      if (e.button === 0 && e.shiftKey && this.cellEdit) {
+        const ce = this.cellEdit;
+        if (this.dragCellSel({ anchor: ce.anchor, hops: ce.hops }, e)) { e.preventDefault(); this.focusEditor(); return; }
+      }
+      // clique comum desfaz a seleção de células
+      if (e.button === 0 && this.tableSel && !e.shiftKey) this.tableSel = null;
       // motor: clicar numa célula de tabela entra na edição dela; no corpo, sai
       if (e.button === 0 && !e.shiftKey) this.routeEngineClick(e);
       const hit = this.hitTest(e);
@@ -4006,7 +4110,10 @@ export class UniversalWriteElement extends HTMLElement {
         : { anchor: hit, focus: hit };
       this.pendingProps = null;
       this.refreshSelection();
+      // arrasto que começa numa célula e passa para outra: seleção de células
+      const startCell = this.cellEdit ? { anchor: this.cellEdit.anchor, hops: this.cellEdit.hops.map((x) => ({ ...x })) } : null;
       const move = (ev: MouseEvent) => {
+        if (startCell && this.dragCellSel(startCell, ev)) return;
         const h = this.hitTest(ev);
         if (h) { this.selection.focus = h; this.refreshSelection(); }
       };
@@ -4166,6 +4273,18 @@ export class UniversalWriteElement extends HTMLElement {
     this.input.addEventListener('keydown', (e) => {
       const ctrl = e.ctrlKey || e.metaKey;
       const k = e.key;
+      // células selecionadas: setas/Shift+setas, Delete/Backspace, Esc
+      if (this.tableSel && this.tableSelKey(e)) return;
+      if (this.cellEdit && !this.locked()) {
+        // Ctrl+Shift+Enter: dividir a tabela; Alt+Shift+↑/↓: mover a linha
+        if (ctrl && e.shiftKey && k === 'Enter') { e.preventDefault(); this.splitTable(); this.onSelectionChange?.(); this.chromeSync?.(); return; }
+        if (e.altKey && e.shiftKey && (k === 'ArrowUp' || k === 'ArrowDown')) {
+          e.preventDefault();
+          this.moveTableRow(k === 'ArrowUp' ? -1 : 1);
+          this.onSelectionChange?.(); this.chromeSync?.();
+          return;
+        }
+      }
       if (ctrl) {
         if (k === 'ArrowLeft' || k === 'ArrowRight') {
           e.preventDefault();
@@ -6247,6 +6366,9 @@ export class UniversalWriteElement extends HTMLElement {
     this.engPageCache.clear();
     this.bookmarkParas = new Map();
     this.cellEdit = null;
+    this.tableSel = null;
+    this.pendingTableStyles = new Map();
+    this.newFormatting = null;
     this.engMissing.clear();
     this.engFontsAttempted.clear();
   }
@@ -6275,10 +6397,13 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.cellEdit?.cell.blocks) this.cellEdit.cell.blocks = reconcileBlocks(this.cellEdit.cell.blocks, this.cellEdit.cell.paragraphs, false);
     const tb = this.tbEdit?.hostRun.textbox;
     if (tb?.blocks) tb.blocks = reconcileBlocks(tb.blocks, tb.paras, true);
-    return buildEngineDoc({
+    const doc = buildEngineDoc({
       fullDoc: this.fullDoc, paragraphs: b.model.paragraphs, tableAnchors: b.tableAnchors,
       sectionStarts: b.sectionStarts, sectPr: b.model.sectPr, bookmarkParas: this.bookmarkParas,
     });
+    // documento novo: os estilos de tabela usados (o motor lê da formatação)
+    if (!doc.full.formatting && this.newFormatting) doc.full.formatting = this.newFormatting;
+    return doc;
   }
 
   /** Guarda nas props de cada run uma referência ao w:rPr ORIGINAL e, nos runs
@@ -6827,7 +6952,8 @@ export class UniversalWriteElement extends HTMLElement {
         ctx.setTransform(scale, 0, 0, scale, 0, 0);
         this.paintEngineMarks(ctx, i);
         this.paintEngineSpelling(ctx, i);
-        if (hasSel) this.paintEngineSelection(ctx, i, sel);
+        if (this.tableSel) this.paintTableSel(ctx, i);
+        else if (hasSel) this.paintEngineSelection(ctx, i, sel);
         ctx.restore();
       }
       return ctx;
@@ -6840,7 +6966,7 @@ export class UniversalWriteElement extends HTMLElement {
       const sp = this.sectionOfPage(hp)?.sectPr ?? this.bodyState().model.sectPr;
       this.paintHfBands(ctxs[hp]!, scales[hp]!, sp, dpr, hp);
     }
-    this.paintFloatAndCaret(ctxs, scales, dpr, hasSel);
+    this.paintFloatAndCaret(ctxs, scales, dpr, hasSel || !!this.tableSel);
     this.engineStats.paintMs = performance.now() - t0;
   }
 
@@ -7147,6 +7273,17 @@ export class UniversalWriteElement extends HTMLElement {
     }
   }
 
+  /** Fundo das células selecionadas (caixas do motor dentro do retângulo). */
+  private paintTableSel(ctx: CanvasRenderingContext2D, pg: number): void {
+    const ts = this.tableSel;
+    if (!ts) return;
+    ctx.fillStyle = 'rgba(58,114,196,0.35)';
+    for (const b of this.tableBoxes(ts.anchor, ts.path)) {
+      if (b.pg !== pg || b.r < ts.rect.r1 || b.r > ts.rect.r2 || b.c + b.box.span - 1 < ts.rect.c1 || b.c > ts.rect.c2) continue;
+      ctx.fillRect(b.box.x, b.box.y, b.box.w, b.box.h);
+    }
+  }
+
   /** Fundo da seleção nas linhas do modelo em edição. */
   private paintEngineSelection(ctx: CanvasRenderingContext2D, pg: number, sel: DocRange): void {
     ctx.fillStyle = 'rgba(58,114,196,0.35)';
@@ -7275,7 +7412,7 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Entra na edição da célula (o modelo passa a ser os parágrafos dela). */
-  private enterCell(anchor: number, hops: CellHop[], caret?: DocPosition): boolean {
+  private enterCell(anchor: number, hops: CellHop[], caret?: DocPosition, paint = true): boolean {
     const t = this.tableAnchors[anchor]?.table;
     const cell = t ? resolveCell(t, hops) : null;
     if (!cell || !this.model) return false;
@@ -7288,16 +7425,14 @@ export class UniversalWriteElement extends HTMLElement {
     this.floatSel = null;
     this.cellEdit = {
       anchor, hops: hops.map((h) => ({ ...h })), cell,
-      saved: { model: this.model, selection: this.selection, undoStack: this.undoStack, redoStack: this.redoStack },
+      saved: { model: this.model, selection: this.selection },
     };
     this.model = { paragraphs: cell.paragraphs, sectPr: this.model.sectPr };
     const start = caret ?? { para: 0, offset: 0 };
     this.selection = { anchor: start, focus: start };
     this.pendingProps = null;
-    this.undoStack = [];
-    this.redoStack = [];
     // o layout não muda: só as linhas do modelo em edição (as da célula)
-    if (this.eng) { this.rebuildEditLines(); this.refreshSelection(); } else this.refresh();
+    if (!paint) { /* quem chamou refaz o layout */ } else if (this.eng) { this.rebuildEditLines(); this.refreshSelection(); } else this.refresh();
     this.dispatchEvent(new CustomEvent('uw-cellmode', { detail: { active: true } }));
     return true;
   }
@@ -7310,8 +7445,6 @@ export class UniversalWriteElement extends HTMLElement {
     this.cellEdit = null;
     this.model = ce.saved.model;
     this.selection = ce.saved.selection;
-    this.undoStack = ce.saved.undoStack;
-    this.redoStack = ce.saved.redoStack;
     this.pendingProps = null;
     this.rebuildEditLines();
     this.dispatchEvent(new CustomEvent('uw-cellmode', { detail: { active: false } }));
@@ -7337,6 +7470,8 @@ export class UniversalWriteElement extends HTMLElement {
     const me = ce.hops[ce.hops.length - 1]!;
     const idx = seen.findIndex((s) => s.r === me.r && s.c === me.c);
     const next = seen[idx + dir];
+    // Tab na última célula: linha nova (como o Word)
+    if (idx >= 0 && !next && dir === 1 && !this.locked()) return this.tabNewRow();
     if (idx < 0 || !next) return false;
     const hops = [...prefix.map((h) => ({ ...h })), { r: next.r, c: next.c }];
     if (!this.enterCell(ce.anchor, hops)) return false;
@@ -7345,6 +7480,827 @@ export class UniversalWriteElement extends HTMLElement {
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: ps.length - 1, offset: paraLength(ps[ps.length - 1]!) } };
     this.refreshSelection();
     return true;
+  }
+
+  // ───────────── tabelas: seleção de células, operações e API ─────────────
+
+  /** Seleção de células (retângulo da grade) — null = cursor/seleção de texto. */
+  private tableSel: TableSel | null = null;
+  /** Estilos de tabela internos acrescentados ao documento (vão para o styles.xml ao salvar). */
+  private pendingTableStyles = new Map<string, string>();
+  /** Formatação do documento novo (sem styles.xml) — os estilos de tabela usados. */
+  private newFormatting: DocFormatting | null = null;
+
+  /** Folha de estilos que o motor lê (a do documento ou a do documento novo). */
+  private formattingForTables(): DocFormatting {
+    if (this.fullDoc) return (this.fullDoc.formatting ??= emptyFormatting());
+    return (this.newFormatting ??= emptyFormatting());
+  }
+
+  /** id do estilo de tabela interno (pelo nome inglês) neste documento; acrescenta a definição se faltar. */
+  private tableStyleId(name: string): string | undefined {
+    return ensureTableStyle(this.formattingForTables(), name, this.pendingTableStyles);
+  }
+
+  /** Tabela no fim do caminho: `path` = passos até a célula que CONTÉM a tabela (vazio = do corpo). */
+  private tableAt(anchor: number, path: readonly CellHop[]): TableBlock | null {
+    let t: TableBlock | null = this.bodyState().tableAnchors[anchor]?.table ?? null;
+    for (const h of path) {
+      if (!t) return null;
+      const cell = cellAtGrid(t, h.r, h.c);
+      const blk = cell ? cellBlocks(cell)[h.b ?? -1] : undefined;
+      t = blk?.type === 'table' ? blk : null;
+    }
+    return t;
+  }
+
+  /** Alvo das operações de tabela: a seleção de células ou a célula do cursor. */
+  private tableTarget(): { anchor: number; path: CellHop[]; table: TableBlock; rect: TableRect } | null {
+    if (this.hfEdit || this.tbEdit || !this.model) return null;
+    const ts = this.tableSel;
+    if (ts) {
+      const table = this.tableAt(ts.anchor, ts.path);
+      return table ? { anchor: ts.anchor, path: ts.path, table, rect: ts.rect } : null;
+    }
+    const ce = this.cellEdit;
+    if (!ce) return null;
+    const path = ce.hops.slice(0, -1);
+    const me = ce.hops[ce.hops.length - 1]!;
+    const table = this.tableAt(ce.anchor, path);
+    if (!table) return null;
+    return { anchor: ce.anchor, path, table, rect: TOps.normRect(TOps.mapTable(table), { r1: me.r, c1: me.c, r2: me.r, c2: me.c }) };
+  }
+
+  /** Entra na célula (linha r, coluna da grade c); cursor no início ou no fim. */
+  private enterCellAt(anchor: number, path: readonly CellHop[], r: number, c: number, atEnd = false, paint = true): boolean {
+    const t = this.tableAt(anchor, path);
+    if (!t || !t.rows.length) return false;
+    const m = TOps.mapTable(t);
+    const ri = Math.max(0, Math.min(r, t.rows.length - 1));
+    const g = TOps.cellAt(m, ri, c) ?? m.rows[ri]?.[m.rows[ri]!.length - 1];
+    if (!g) return false;
+    const cell = g.cell;
+    const last = Math.max(0, cell.paragraphs.length - 1);
+    const caret = atEnd && cell.paragraphs[last] ? { para: last, offset: paraLength(cell.paragraphs[last]!) } : undefined;
+    return this.enterCell(anchor, [...path.map((h) => ({ ...h })), { r: g.ri, c: g.col }], caret, paint);
+  }
+
+  /** Referência do motor da tabela ("b3", "b3/r0/c1/b2"…) — caixas de célula e linhas. */
+  private tableRefOf(anchor: number, path: readonly CellHop[]): string | null {
+    const eng = this.eng;
+    if (!eng) return null;
+    const bi = eng.doc.origins.findIndex((o) => o.kind === 'table' && o.anchor === anchor);
+    if (bi < 0) return null;
+    return `b${bi}` + path.map((h) => `/r${h.r}/c${h.c}/b${h.b ?? 0}`).join('');
+  }
+
+  /** Caixas das células da tabela no layout atual: { página, linha, coluna, caixa }. */
+  private tableBoxes(anchor: number, path: readonly CellHop[]): { pg: number; r: number; c: number; box: PlacedCell }[] {
+    const pre = this.tableRefOf(anchor, path);
+    const out: { pg: number; r: number; c: number; box: PlacedCell }[] = [];
+    if (!pre || !this.eng) return out;
+    this.eng.result.pages.forEach((p, pg) => {
+      for (const box of p.cells ?? []) {
+        if (!box.ref.startsWith(pre + '/r')) continue;
+        const m = /^\/r(\d+)\/c(\d+)$/.exec(box.ref.slice(pre.length));
+        if (m) out.push({ pg, r: +m[1]!, c: +m[2]!, box });
+      }
+    });
+    return out;
+  }
+
+  /** Altura exibida de cada linha r1..r2 (soma das partes em cada página). */
+  private rowHeights(anchor: number, path: readonly CellHop[], r1: number, r2: number): number[] {
+    const boxes = this.tableBoxes(anchor, path);
+    const out: number[] = [];
+    for (let r = r1; r <= r2; r++) {
+      const perPage = new Map<number, number>();
+      for (const b of boxes) if (b.r === r) perPage.set(b.pg, Math.max(perPage.get(b.pg) ?? 0, b.box.h));
+      out.push([...perPage.values()].reduce((a, b) => a + b, 0));
+    }
+    return out;
+  }
+
+  /** Executa uma operação de tabela: UM passo de desfazer, fora da célula (o
+   *  corpo é o modelo durante a operação), layout completo e o resultado. */
+  private editTable(fn: (tg: { anchor: number; path: CellHop[]; table: TableBlock; rect: TableRect }) => TableAfter | false): boolean {
+    if (!this.model || this.locked()) return false;
+    const tg = this.tableTarget();
+    if (!tg) return false;
+    this.snapshot();
+    if (this.cellEdit) this.exitCell();
+    const after = fn(tg);
+    if (after === false) { this.undoStack.pop(); this.refresh(); return false; }
+    TOps.syncLegacy(tg.table);
+    this.afterTableEdit(tg.anchor, tg.path, after);
+    return true;
+  }
+
+  /** Cursor/seleção depois de uma operação de tabela. */
+  private afterTableEdit(anchor: number, path: CellHop[], a: TableAfter): void {
+    this.tableSel = null;
+    this.pendingProps = null;
+    if (a.body) {
+      if (this.cellEdit) this.exitCell();
+      this.selection = { anchor: a.body, focus: a.body };
+    } else if (a.enter) {
+      this.enterCellAt(anchor, a.enter.path, a.enter.r, a.enter.c, a.enter.end, false);
+    } else if (a.select) {
+      const r = a.select;
+      this.enterCellAt(anchor, path, r.r1, r.c1, false, false);
+      const t = this.tableAt(anchor, path);
+      const n = t ? TOps.cellsIn(TOps.mapTable(t), r).filter((g) => TOps.vMergeOf(g.cell) !== 'continue').length : 0;
+      if (n > 1) this.tableSel = { anchor, path, rect: r, origin: { r: r.r1, c: r.c1 } };
+      else if (this.model) {
+        // uma célula só (mesclar): o conteúdo dela fica selecionado, como no Word
+        const ps = this.model.paragraphs;
+        this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: ps.length - 1, offset: paraLength(ps[ps.length - 1]!) } };
+      }
+    } else if (a.caret) {
+      this.enterCellAt(anchor, path, a.caret.r, a.caret.c, a.caret.end, false);
+    }
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+
+  /** Remove a tabela (do corpo ou da célula que a contém). */
+  private removeTableAt(anchor: number, path: CellHop[]): TableAfter {
+    if (!path.length) {
+      const a = this.tableAnchors[anchor]!;
+      this.tableAnchors.splice(anchor, 1);
+      const body = this.model!.paragraphs;
+      return { body: { para: Math.min(a.beforePara, body.length - 1), offset: 0 } };
+    }
+    const outer = this.tableAt(anchor, path.slice(0, -1));
+    const h = path[path.length - 1]!;
+    const cell = outer ? cellAtGrid(outer, h.r, h.c) : null;
+    if (cell) TOps.setCellContent(cell, TOps.cellContent(cell).filter((_, i) => i !== h.b));
+    return { enter: { path: path.slice(0, -1), r: h.r, c: h.c } };
+  }
+
+  /** Cursor logo depois da tabela (no corpo, ou na célula de fora). */
+  private afterTableTarget(anchor: number, path: CellHop[]): TableAfter {
+    if (!path.length) {
+      const a = this.tableAnchors[anchor]!;
+      return { body: { para: Math.min(a.beforePara, this.model!.paragraphs.length - 1), offset: 0 } };
+    }
+    const h = path[path.length - 1]!;
+    return { enter: { path: path.slice(0, -1), r: h.r, c: h.c, end: true } };
+  }
+
+  /** Recuo esquerdo efetivo do parágrafo (direto ou do estilo). */
+  private paraIndent(p: Paragraph): number {
+    return p.props.indentLeftTwips ?? (this.styleOf(p) as { indentLeftTwips?: number } | undefined)?.indentLeftTwips ?? 0;
+  }
+
+  /**
+   * Insere uma tabela no cursor, como o botão Inserir Tabela: estilo "Tabela com
+   * grade", colunas iguais na largura disponível e o cursor na 1ª célula. No
+   * meio de um parágrafo, ele é dividido; dentro de uma célula, a tabela fica
+   * aninhada. `autofit`/`colWidthTwips` = opções do diálogo Inserir Tabela.
+   */
+  insertTable(rows: number, cols: number, opts: { autofit?: 'fixed' | 'content' | 'window'; colWidthTwips?: number } = {}): void {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return;
+    rows = Math.max(1, Math.min(32767, Math.floor(rows) || 1));
+    cols = Math.max(1, Math.min(63, Math.floor(cols) || 1));
+    this.snapshot();
+    this.tableSel = null;
+    if (this.hasSelection()) {
+      const pos = this.deleteSelection();
+      this.selection = { anchor: pos, focus: pos };
+    }
+    const styleId = this.tableStyleId('Table Grid') ?? null;
+    let { para, offset } = this.selection.focus;
+    if (offset > 0) { splitParagraph(this.model, { para, offset }); this.shiftAnchors(para, 1); para++; }
+    const ce = this.cellEdit;
+    if (ce) {
+      // aninhada: o bloco entra antes do parágrafo do cursor, na célula
+      const me = ce.hops[ce.hops.length - 1]!;
+      const path = ce.hops.slice(0, -1);
+      const target = ce.cell.paragraphs[para];
+      this.exitCell();
+      const outer = this.tableAt(ce.anchor, path);
+      const g = outer ? TOps.cellAt(TOps.mapTable(outer), me.r, me.c) : undefined;
+      if (!outer || !g) return;
+      const avail = TOps.gridWidth(outer, g.col, g.span) - 216;
+      const t = TOps.newTable(rows, cols, { availTwips: avail, styleId, autofit: opts.autofit, colTwips: opts.colWidthTwips });
+      const blocks = [...TOps.cellContent(g.cell)];
+      let bi = blocks.findIndex((b) => b.type === 'paragraph' && b.paragraph === target);
+      if (bi < 0) bi = blocks.length - 1;
+      blocks.splice(bi, 0, t);
+      TOps.setCellContent(g.cell, blocks);
+      this.enterCellAt(ce.anchor, [...path, { r: me.r, c: me.c, b: bi }], 0, 0, false, false);
+      this.refresh();
+      return;
+    }
+    const p = this.model.paragraphs[para]!;
+    const ind = this.paraIndent(p);
+    const t = TOps.newTable(rows, cols, {
+      availTwips: this.contentWidthTwips() - ind, indTwips: ind > 0 ? ind : undefined,
+      styleId, autofit: opts.autofit, colTwips: opts.colWidthTwips,
+    });
+    let at = this.tableAnchors.findIndex((a) => a.beforePara > para);
+    if (at < 0) at = this.tableAnchors.length;
+    this.tableAnchors.splice(at, 0, { beforePara: para, table: t });
+    this.enterCellAt(at, [], 0, 0, false, false);
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+
+  insertRowAbove(): void { this.editTable((tg) => ({ select: TOps.insertRows(tg.table, tg.rect, 'above') })); }
+  insertRowBelow(): void { this.editTable((tg) => ({ select: TOps.insertRows(tg.table, tg.rect, 'below') })); }
+  insertColumnLeft(): void { this.editTable((tg) => ({ select: TOps.insertColumns(tg.table, tg.rect, 'left') })); }
+  insertColumnRight(): void { this.editTable((tg) => ({ select: TOps.insertColumns(tg.table, tg.rect, 'right') })); }
+
+  /** Inserir Células: deslocar à direita/para baixo, ou linha/coluna inteira. */
+  insertCells(shift: 'right' | 'down' | 'row' | 'column' = 'down'): void {
+    if (shift === 'row') { this.insertRowAbove(); return; }
+    if (shift === 'column') { this.insertColumnLeft(); return; }
+    this.editTable((tg) => ({ select: TOps.insertCells(tg.table, tg.rect, shift) }));
+  }
+
+  deleteRow(): void {
+    this.editTable((tg) => {
+      const { r1, r2 } = tg.rect;
+      if (!TOps.deleteRows(tg.table, r1, r2)) return this.removeTableAt(tg.anchor, tg.path);
+      // cursor na 1ª célula da linha que ocupou o lugar; sem ela, depois da tabela
+      return r1 < tg.table.rows.length ? { caret: { r: r1, c: 0 } } : this.afterTableTarget(tg.anchor, tg.path);
+    });
+  }
+
+  deleteColumn(): void {
+    this.editTable((tg) => {
+      if (!TOps.deleteColumns(tg.table, tg.rect.c1, tg.rect.c2)) return this.removeTableAt(tg.anchor, tg.path);
+      // topo da coluna que ocupou o lugar (medido)
+      return { caret: { r: 0, c: Math.min(tg.rect.c1, TOps.mapTable(tg.table).nCols - 1) } };
+    });
+  }
+
+  deleteTable(): void { this.editTable((tg) => this.removeTableAt(tg.anchor, tg.path)); }
+
+  /** Excluir Células: deslocar à esquerda/para cima, ou linha/coluna inteira. */
+  deleteCells(shift: 'left' | 'up' | 'row' | 'column' = 'left'): void {
+    if (shift === 'row') { this.deleteRow(); return; }
+    if (shift === 'column') { this.deleteColumn(); return; }
+    this.editTable((tg) => {
+      TOps.deleteCells(tg.table, tg.rect, shift);
+      return { caret: { r: tg.rect.r1, c: tg.rect.c1 } };
+    });
+  }
+
+  /** Espaçamento do Normal sem o do estilo de tabela (peculiaridade medida da mescla vertical). */
+  private normalSpacing(): { after?: number; line?: number } {
+    const d = this.docDefaults().para;
+    return { after: d.spaceAfterTwips, line: d.lineTwentieths };
+  }
+
+  mergeCells(): void {
+    this.editTable((tg) => {
+      if (!TOps.canMerge(tg.table, tg.rect)) return false;
+      return { select: TOps.mergeCells(tg.table, tg.rect, { normalSpacing: this.normalSpacing() }) };
+    });
+  }
+
+  /** Dividir Células em `cols` × `rows` (padrão do diálogo: 2 × 1, mesclar antes). */
+  splitCell(cols = 2, rows = 1, mergeFirst = true): void {
+    this.editTable((tg) => ({
+      select: TOps.splitCells(tg.table, tg.rect, cols, rows, {
+        mergeFirst, normalSpacing: this.normalSpacing(),
+        rowHeights: this.rowHeights(tg.anchor, tg.path, tg.rect.r1, tg.rect.r2),
+      }),
+    }));
+  }
+
+  /** Dividir Tabela antes da linha do cursor (parágrafo vazio entre as partes;
+   *  na 1ª linha, o parágrafo entra antes da tabela, como Ctrl+Shift+Enter). */
+  splitTable(): void {
+    this.editTable((tg) => {
+      const r = tg.rect.r1;
+      const empty = (): Paragraph => ({ runs: [], props: {} });
+      if (!tg.path.length) {
+        const a = this.tableAnchors[tg.anchor]!;
+        const k = a.beforePara;
+        this.model!.paragraphs.splice(k, 0, empty());
+        this.shiftAnchors(k - 1, 1);
+        if (r === 0) return { body: { para: k, offset: 0 } };
+        a.beforePara = k;
+        const t2 = TOps.splitTable(tg.table, r);
+        if (t2) this.tableAnchors.splice(tg.anchor + 1, 0, { beforePara: k + 1, table: t2 });
+        return { body: { para: k, offset: 0 } };
+      }
+      // aninhada: parágrafo e a 2ª parte entram na célula de fora
+      const h = tg.path[tg.path.length - 1]!;
+      const outer = this.tableAt(tg.anchor, tg.path.slice(0, -1));
+      const cell = outer ? cellAtGrid(outer, h.r, h.c) : null;
+      if (!cell) return false;
+      const blocks = [...TOps.cellContent(cell)];
+      const bi = h.b ?? 0;
+      if (r === 0) blocks.splice(bi, 0, { type: 'paragraph', paragraph: empty() });
+      else {
+        const t2 = TOps.splitTable(tg.table, r);
+        blocks.splice(bi + 1, 0, { type: 'paragraph', paragraph: empty() }, ...(t2 ? [t2] : []));
+      }
+      TOps.setCellContent(cell, blocks);
+      return { enter: { path: tg.path.slice(0, -1), r: h.r, c: h.c } };
+    });
+  }
+
+  /** Selecionar célula / linha / coluna / tabela (como o menu Selecionar). */
+  selectCell(): void { this.selectTablePart('cell'); }
+  selectRow(): void { this.selectTablePart('row'); }
+  selectColumn(): void { this.selectTablePart('column'); }
+  selectTable(): void { this.selectTablePart('table'); }
+
+  private selectTablePart(which: 'cell' | 'row' | 'column' | 'table'): void {
+    const tg = this.tableTarget();
+    if (!tg) return;
+    const m = TOps.mapTable(tg.table);
+    let r = tg.rect;
+    if (which === 'row') r = { ...r, c1: 0, c2: m.nCols - 1 };
+    else if (which === 'column') r = { ...r, r1: 0, r2: tg.table.rows.length - 1 };
+    else if (which === 'table') r = TOps.wholeRect(tg.table);
+    r = TOps.normRect(m, r);
+    if (!this.cellEdit) this.enterCellAt(tg.anchor, tg.path, r.r1, r.c1, false, false);
+    this.tableSel = { anchor: tg.anchor, path: tg.path, rect: r, origin: { r: r.r1, c: r.c1 } };
+    if (which === 'cell' && this.model) {
+      // uma célula: o Word seleciona a célula inteira (a marca de célula junto)
+      const ps = this.model.paragraphs;
+      this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: ps.length - 1, offset: paraLength(ps[ps.length - 1]!) } };
+    }
+    this.refreshSelection();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Distribuir Linhas: as selecionadas (ou todas) com a média das alturas exibidas. */
+  distributeRows(): void {
+    this.editTable((tg) => {
+      let { r1, r2 } = tg.rect;
+      if (r1 === r2) { r1 = 0; r2 = tg.table.rows.length - 1; }
+      TOps.distributeRows(tg.table, r1, r2, this.rowHeights(tg.anchor, tg.path, r1, r2));
+      return { select: { ...tg.rect } };
+    });
+  }
+
+  /** Distribuir Colunas: as selecionadas (com o cursor numa célula, todas). */
+  distributeColumns(): void {
+    this.editTable((tg) => {
+      let { c1, c2 } = tg.rect;
+      if (c1 === c2) { c1 = 0; c2 = TOps.mapTable(tg.table).nCols - 1; }
+      TOps.distributeColumns(tg.table, c1, c2);
+      return { select: { ...tg.rect } };
+    });
+  }
+
+  /** Altura das linhas selecionadas (twips; 0 = automática). */
+  setRowHeight(twips: number, rule: 'atLeast' | 'exact' = 'atLeast'): void {
+    this.editTable((tg) => { TOps.setRowHeight(tg.table, tg.rect.r1, tg.rect.r2, twips, rule); return { select: { ...tg.rect } }; });
+  }
+
+  /** Largura das colunas selecionadas (twips) — a tabela alarga/encolhe, como no Word. */
+  setColumnWidth(twips: number): void {
+    if (!(twips > 0)) return;
+    this.editTable((tg) => { TOps.setColumnWidth(tg.table, tg.rect.c1, tg.rect.c2, twips); return { select: { ...tg.rect } }; });
+  }
+
+  /** AutoAjuste: ao conteúdo, à janela ou largura fixa da coluna. */
+  autoFitTable(mode: 'content' | 'window' | 'fixed'): void {
+    this.editTable((tg) => {
+      const ind = tg.table.tblPr?.tblInd?.type === 'dxa' ? tg.table.tblPr.tblInd.w : 0;
+      TOps.autoFit(tg.table, mode, this.contentWidthTwips() - ind);
+      return { select: { ...tg.rect } };
+    });
+  }
+
+  /** Alinhamento na célula (os 9 botões): horizontal nos parágrafos + vAlign. */
+  setCellAlignment(h: 'left' | 'center' | 'right' | 'both', v: 'top' | 'center' | 'bottom'): void {
+    this.editTable((tg) => {
+      const m = TOps.mapTable(tg.table);
+      TOps.setCellProps(tg.table, tg.rect, { vAlign: v === 'top' ? undefined : v });
+      for (const g of TOps.cellsIn(m, TOps.normRect(m, tg.rect))) {
+        for (const p of g.cell.paragraphs) {
+          const st = (this.styleOf(p) as { alignment?: string } | undefined)?.alignment ?? 'left';
+          if (h === 'left' && st === 'left') delete p.props.alignment; else p.props.alignment = h;
+        }
+      }
+      return { select: { ...tg.rect } };
+    });
+  }
+
+  /** Direção do texto das células: vertical acrescenta não-dividir e altura
+   *  mínima de 2 cm na linha e recuo de 0,2 cm nos parágrafos (medido). */
+  setTextDirection(dir: 'lrTb' | 'tbRl' | 'btLr'): void {
+    this.editTable((tg) => {
+      TOps.setTextDirection(tg.table, tg.rect, dir);
+      if (dir !== 'lrTb') {
+        const m = TOps.mapTable(tg.table);
+        for (const g of TOps.cellsIn(m, TOps.normRect(m, tg.rect))) {
+          for (const p of g.cell.paragraphs) { p.props.indentLeftTwips = 113; p.props.indentRightTwips = 113; }
+        }
+      }
+      return { select: { ...tg.rect } };
+    });
+  }
+
+  /** O botão Direção do Texto: horizontal → para baixo (tbRl) → para cima (btLr) → horizontal. */
+  cycleTextDirection(): void {
+    const s = this.getTableState();
+    if (!s) return;
+    this.setTextDirection(s.textDirection === 'tbRl' ? 'btLr' : s.textDirection === 'btLr' ? 'lrTb' : 'tbRl');
+  }
+
+  /** Repetir Linhas de Cabeçalho: liga/desliga nas linhas da 1ª até a seleção. */
+  toggleRepeatHeaderRows(): void {
+    this.editTable((tg) => {
+      const on = !this.getTableState()?.headerRow;
+      TOps.setRowProps(tg.table, 0, tg.rect.r2, { tblHeader: on ? true : undefined });
+      return { select: { ...tg.rect } };
+    });
+  }
+
+  /** Margens padrão das células (twips), espaçamento entre células e redimensionar automaticamente. */
+  setTableCellMargins(m: { top?: number; left?: number; bottom?: number; right?: number }, spacingTwips?: number, autoResize?: boolean): void {
+    this.editTable((tg) => {
+      const w = (v: number | undefined): WidthSpec | undefined => (v === undefined ? undefined : { w: Math.round(v), type: 'dxa' });
+      const mar = { top: w(m.top), left: w(m.left), bottom: w(m.bottom), right: w(m.right) };
+      TOps.setTableProps(tg.table, { tblCellMar: Object.values(mar).some(Boolean) ? JSON.parse(JSON.stringify(mar)) : undefined });
+      if (spacingTwips !== undefined) TOps.setCellSpacing(tg.table, spacingTwips);
+      if (autoResize !== undefined) TOps.setTableProps(tg.table, { tblLayout: autoResize ? undefined : 'fixed' });
+      return { select: { ...tg.rect } };
+    });
+  }
+
+  /** Converter em Texto: a tabela vira parágrafos (separador: tabulação, parágrafo, ; ou outro). */
+  convertTableToText(separator: TextSeparator = 'tab'): void {
+    this.editTable((tg) => {
+      const paras = TOps.tableToText(tg.table, separator);
+      if (!paras.length) paras.push({ runs: [], props: {} });
+      for (const p of paras) this.syncRunRPr([p]);
+      if (!tg.path.length) {
+        const a = this.tableAnchors[tg.anchor]!;
+        const k = a.beforePara;
+        this.tableAnchors.splice(tg.anchor, 1);
+        this.model!.paragraphs.splice(k, 0, ...paras);
+        this.shiftAnchors(k - 1, paras.length);
+        // o texto convertido fica selecionado
+        const last = k + paras.length - 1;
+        this.tableSel = null;
+        this.selection = { anchor: { para: k, offset: 0 }, focus: { para: last, offset: paraLength(this.model!.paragraphs[last]!) } };
+        return { keep: true };
+      }
+      const h = tg.path[tg.path.length - 1]!;
+      const outer = this.tableAt(tg.anchor, tg.path.slice(0, -1));
+      const cell = outer ? cellAtGrid(outer, h.r, h.c) : null;
+      if (!cell) return false;
+      const blocks = [...TOps.cellContent(cell)];
+      blocks.splice(h.b ?? 0, 1, ...paras.map((paragraph) => ({ type: 'paragraph' as const, paragraph })));
+      TOps.setCellContent(cell, blocks);
+      return { enter: { path: tg.path.slice(0, -1), r: h.r, c: h.c } };
+    });
+  }
+
+  /**
+   * Converter Texto em Tabela: os parágrafos da seleção viram linhas (cortadas
+   * no separador; com separador de parágrafo, `cols` por linha). Sem separador,
+   * detecta como o diálogo (tabulação, ponto e vírgula, parágrafos). A tabela
+   * nova fica selecionada. Devolve false sem seleção no corpo.
+   */
+  convertTextToTable(opts: { separator?: TextSeparator; cols?: number; autofit?: 'fixed' | 'content' | 'window'; colWidthTwips?: number } = {}): boolean {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit || this.cellEdit) return false;
+    const { start, end } = normalizeRange(this.range());
+    const p1 = start.para;
+    const p2 = end.offset === 0 && end.para > start.para ? end.para - 1 : end.para;
+    const paras = this.model.paragraphs.slice(p1, p2 + 1);
+    if (!paras.length) return false;
+    const sep = opts.separator ?? TOps.guessSeparator(paras);
+    this.snapshot();
+    const ind = this.paraIndent(paras[0]!);
+    const t = TOps.textToTable(paras, sep, {
+      cols: opts.cols ?? (sep === 'paragraph' ? 1 : TOps.columnsFor(paras, sep)),
+      availTwips: this.contentWidthTwips() - ind, indTwips: ind > 0 ? ind : undefined,
+      styleId: this.tableStyleId('Table Grid') ?? null, autofit: opts.autofit, colTwips: opts.colWidthTwips,
+    });
+    const n = p2 - p1 + 1;
+    this.model.paragraphs.splice(p1, n);
+    if (p1 >= this.model.paragraphs.length) this.model.paragraphs.push({ runs: [], props: {} });
+    // tabelas que estavam entre os parágrafos convertidos ficam antes da nova
+    for (const a of this.tableAnchors) {
+      if (a.beforePara > p1 && a.beforePara <= p2) a.beforePara = p1;
+      else if (a.beforePara > p2) a.beforePara -= n;
+    }
+    for (const s of this.sectionStarts) if (s.startPara > p2) s.startPara -= n;
+    let at = this.tableAnchors.findIndex((a) => a.beforePara > p1);
+    if (at < 0) at = this.tableAnchors.length;
+    this.tableAnchors.splice(at, 0, { beforePara: p1, table: t });
+    this.syncTableRPr(t);
+    this.afterTableEdit(at, [], { select: TOps.wholeRect(t) });
+    return true;
+  }
+
+  // ───────────── tabelas: mouse e teclado ─────────────
+
+  /** Caixa de célula do motor sob o ponteiro (tabelas do corpo). */
+  private cellBoxAt(e: MouseEvent): { anchor: number; path: CellHop[]; r: number; c: number; box: PlacedCell; pg: number } | null {
+    const eng = this.eng;
+    if (!eng) return null;
+    const scale = PX_PER_TWIP * this.zoom;
+    for (let pg = 0; pg < this.canvases.length; pg++) {
+      const rc = this.canvases[pg]!.getBoundingClientRect();
+      if (e.clientY < rc.top || e.clientY > rc.bottom || e.clientX < rc.left || e.clientX > rc.right) continue;
+      const xT = (e.clientX - rc.left) / scale, yT = (e.clientY - rc.top) / scale;
+      let best: { anchor: number; path: CellHop[]; r: number; c: number; box: PlacedCell; pg: number } | null = null;
+      for (const box of eng.result.pages[pg]?.cells ?? []) {
+        if (xT < box.x || xT > box.x + box.w || yT < box.y || yT > box.y + box.h) continue;
+        const loc = locateRef(box.ref + '/b0', eng.doc.origins);
+        if (loc.kind !== 'cell') continue;
+        const last = loc.hops[loc.hops.length - 1]!;
+        // a mais interna (tabela aninhada por cima da célula de fora)
+        if (!best || loc.hops.length > best.path.length + 1) best = { anchor: loc.anchor, path: loc.hops.slice(0, -1), r: last.r, c: last.c, box, pg };
+      }
+      return best;
+    }
+    return null;
+  }
+
+  /** Arrasto que começou numa célula e passou para outra da mesma tabela: seleção de células. */
+  private dragCellSel(start: { anchor: number; hops: CellHop[] }, ev: MouseEvent): boolean {
+    const hit = this.cellBoxAt(ev);
+    const path = start.hops.slice(0, -1);
+    const me = start.hops[start.hops.length - 1]!;
+    if (!hit || hit.anchor !== start.anchor || hit.path.length !== path.length || !sameHops([...hit.path, { r: 0, c: 0 }], [...path, { r: 0, c: 0 }])) return !!this.tableSel;
+    if (hit.r === me.r && hit.c === me.c) {
+      if (this.tableSel) { this.tableSel = null; this.refreshSelection(); this.onSelectionChange?.(); this.chromeSync?.(); }
+      return false;
+    }
+    const t = this.tableAt(start.anchor, path);
+    if (!t) return false;
+    const rect = TOps.normRect(TOps.mapTable(t), { r1: Math.min(me.r, hit.r), c1: Math.min(me.c, hit.c), r2: Math.max(me.r, hit.r), c2: Math.max(me.c, hit.c) });
+    this.tableSel = { anchor: start.anchor, path, rect, origin: { r: me.r, c: me.c } };
+    this.refreshSelection();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return true;
+  }
+
+  /** Limpa o conteúdo das células selecionadas (Delete; ou antes de digitar por cima). */
+  private clearSelectedCells(snapshot = true): void {
+    const ts = this.tableSel;
+    const t = ts ? this.tableAt(ts.anchor, ts.path) : null;
+    if (!ts || !t || this.locked()) return;
+    if (snapshot) this.snapshot();
+    if (this.cellEdit) this.exitCell();
+    const m = TOps.mapTable(t);
+    for (const g of TOps.cellsIn(m, ts.rect)) {
+      if (TOps.vMergeOf(g.cell) === 'continue') continue;
+      TOps.setCellContent(g.cell, [{ type: 'paragraph', paragraph: TOps.formatLike(g.cell.paragraphs[0]) }]);
+    }
+    this.enterCellAt(ts.anchor, ts.path, ts.rect.r1, ts.rect.c1, false, false);
+  }
+
+  /** Teclas com células selecionadas. */
+  private tableSelKey(e: KeyboardEvent): boolean {
+    const ts = this.tableSel!;
+    const t = this.tableAt(ts.anchor, ts.path);
+    if (!t) { this.tableSel = null; return false; }
+    const k = e.key;
+    const arrows = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+    if (arrows.includes(k) && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      const m = TOps.mapTable(t);
+      if (e.shiftKey) {
+        // move o canto oposto à origem
+        const o = ts.origin;
+        let r = o.r === ts.rect.r1 ? ts.rect.r2 : ts.rect.r1;
+        let c = o.c === ts.rect.c1 ? ts.rect.c2 : ts.rect.c1;
+        if (k === 'ArrowUp') r = Math.max(0, r - 1);
+        else if (k === 'ArrowDown') r = Math.min(t.rows.length - 1, r + 1);
+        else if (k === 'ArrowLeft') c = Math.max(0, (TOps.cellAt(m, r, c)?.col ?? c) - 1);
+        else { const g = TOps.cellAt(m, r, c); c = Math.min(m.nCols - 1, g ? g.col + g.span : c + 1); }
+        const rect = TOps.normRect(m, { r1: Math.min(o.r, r), c1: Math.min(o.c, c), r2: Math.max(o.r, r), c2: Math.max(o.c, c) });
+        const single = TOps.cellsIn(m, rect).filter((g) => TOps.vMergeOf(g.cell) !== 'continue').length <= 1;
+        this.tableSel = single ? null : { ...ts, rect };
+      } else {
+        // colapsa no início (←/↑) ou no fim (→/↓)
+        this.tableSel = null;
+        const end = k === 'ArrowRight' || k === 'ArrowDown';
+        if (this.cellEdit) this.exitCell();
+        this.enterCellAt(ts.anchor, ts.path, end ? ts.rect.r2 : ts.rect.r1, end ? ts.rect.c2 : ts.rect.c1, end, false);
+      }
+      this.refreshSelection();
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return true;
+    }
+    if (k === 'Escape') { e.preventDefault(); this.tableSel = null; this.refreshSelection(); this.onSelectionChange?.(); this.chromeSync?.(); return true; }
+    if (k === 'Delete' || k === 'Backspace') {
+      e.preventDefault();
+      const m = TOps.mapTable(t);
+      const fullRows = ts.rect.c1 === 0 && ts.rect.c2 >= m.nCols - 1;
+      // Backspace com linhas inteiras exclui as linhas (a tabela toda: a tabela)
+      if (k === 'Backspace' && fullRows) {
+        if (ts.rect.r1 === 0 && ts.rect.r2 >= t.rows.length - 1) this.deleteTable(); else this.deleteRow();
+      } else {
+        this.clearSelectedCells();
+        this.tableSel = ts;
+        this.refresh();
+      }
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return true;
+    }
+    if (k === 'Tab') { this.tableSel = null; return false; }
+    return false;
+  }
+
+  /** Setas entre células e entre o corpo e as tabelas (como o Word). true = tratou. */
+  private tableNavigate(dir: 'left' | 'right' | 'up' | 'down' | 'home' | 'end', extend: boolean): boolean {
+    if (dir === 'home' || dir === 'end' || this.hfEdit || this.tbEdit || !this.model || !this.eng) return false;
+    const pos = this.selection.focus;
+    const ps = this.model.paragraphs;
+    const line = this.lineOf(pos);
+    const lines = this.allLines();
+    const x = line ? this.caretX(pos, line) : 0;
+    const ce = this.cellEdit;
+    if (ce) {
+      const atStart = pos.para === 0 && pos.offset === 0;
+      const atEnd = pos.para === ps.length - 1 && pos.offset === paraLength(ps[pos.para]!);
+      const leaving = (dir === 'left' && atStart) || (dir === 'right' && atEnd)
+        || (dir === 'up' && (!line || lines[0] === line)) || (dir === 'down' && (!line || lines[lines.length - 1] === line));
+      if (!leaving) return false;
+      const path = ce.hops.slice(0, -1);
+      const me = ce.hops[ce.hops.length - 1]!;
+      const t = this.tableAt(ce.anchor, path);
+      if (!t) return false;
+      const m = TOps.mapTable(t);
+      if (extend) {
+        // Shift+seta saindo da célula: começa a seleção de células
+        const g = TOps.cellAt(m, me.r, me.c);
+        let r = me.r, c = me.c;
+        if (dir === 'up') r = Math.max(0, TOps.vExtent(m, me.r, me.c)[0] - 1);
+        else if (dir === 'down') r = Math.min(t.rows.length - 1, TOps.vExtent(m, me.r, me.c)[1] + 1);
+        else if (dir === 'left') c = Math.max(0, me.c - 1);
+        else c = Math.min(m.nCols - 1, (g ? g.col + g.span : me.c + 1));
+        const rect = TOps.normRect(m, { r1: Math.min(me.r, r), c1: Math.min(me.c, c), r2: Math.max(me.r, r), c2: Math.max(me.c, c) });
+        if (TOps.cellsIn(m, rect).filter((x2) => TOps.vMergeOf(x2.cell) !== 'continue').length > 1) {
+          this.tableSel = { anchor: ce.anchor, path, rect, origin: { r: me.r, c: me.c } };
+          this.refreshSelection();
+        }
+        return true;
+      }
+      if (dir === 'left' || dir === 'right') {
+        const order = m.rows.flat().filter((g) => TOps.vMergeOf(g.cell) !== 'continue');
+        const i = order.findIndex((g) => g.ri === me.r && g.col === me.c);
+        const nx = order[i + (dir === 'right' ? 1 : -1)];
+        if (nx) { this.enterCellAt(ce.anchor, path, nx.ri, nx.col, dir === 'left'); this.scrollCaretIntoView(); return true; }
+        return this.leaveTable(ce.anchor, path, dir === 'right' ? 'after' : 'before');
+      }
+      const [a, b] = TOps.vExtent(m, me.r, me.c);
+      const r = dir === 'down' ? b + 1 : a - 1;
+      if (r >= 0 && r < t.rows.length) { this.enterRowAt(ce.anchor, path, r, x, dir === 'up'); return true; }
+      return this.leaveTable(ce.anchor, path, dir === 'down' ? 'after' : 'before', x);
+    }
+    if (extend) return false;
+    // corpo → tabela vizinha do parágrafo do cursor
+    const p = pos.para;
+    const pl = this.layoutCache[p]?.lines ?? [];
+    const lastLine = !line || pl[pl.length - 1] === line;
+    const firstLine = !line || pl[0] === line;
+    if ((dir === 'down' && lastLine) || (dir === 'right' && pos.offset === paraLength(ps[p]!))) {
+      const ai = this.tableAnchors.findIndex((a) => a.beforePara === p + 1);
+      if (ai < 0 || p + 1 > ps.length - 1 + 1) return false;
+      if (dir === 'down') this.enterRowAt(ai, [], 0, x, false);
+      else { this.enterCellAt(ai, [], 0, 0); this.scrollCaretIntoView(); }
+      return true;
+    }
+    if ((dir === 'up' && firstLine) || (dir === 'left' && pos.offset === 0)) {
+      let ai = -1;
+      this.tableAnchors.forEach((a, i) => { if (a.beforePara === p) ai = i; });
+      if (ai < 0) return false;
+      const t = this.tableAnchors[ai]!.table;
+      if (dir === 'up') this.enterRowAt(ai, [], t.rows.length - 1, x, true);
+      else {
+        const m = TOps.mapTable(t);
+        const lastRow = m.rows[m.rows.length - 1]!;
+        const g = lastRow[lastRow.length - 1]!;
+        this.enterCellAt(ai, [], g.ri, g.col, true);
+        this.scrollCaretIntoView();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /** Entra na linha r da tabela na célula sob x (twips), na 1ª ou na última linha de texto dela. */
+  private enterRowAt(anchor: number, path: CellHop[], r: number, x: number, fromBelow: boolean): void {
+    let c = 0;
+    for (const b of this.tableBoxes(anchor, path)) if (b.r === r && x >= b.box.x && x <= b.box.x + b.box.w) { c = b.c; break; }
+    const t = this.tableAt(anchor, path);
+    if (t && TOps.vMergeOf(TOps.cellAt(TOps.mapTable(t), r, c)?.cell ?? { paragraphs: [], tables: [], gridSpan: 1 }) === 'continue') r = TOps.vExtent(TOps.mapTable(t), r, c)[0];
+    if (!this.enterCellAt(anchor, path, r, c)) return;
+    const ls = this.allLines();
+    const target = fromBelow ? ls[ls.length - 1] : ls[0];
+    if (target) {
+      const pos = { para: target.para, offset: this.hitLineX(target, x) };
+      this.selection = { anchor: pos, focus: pos };
+      this.refreshSelection();
+    }
+    this.scrollCaretIntoView();
+  }
+
+  /** Sai da tabela pela frente/por trás: para o parágrafo vizinho (ou a tabela vizinha). */
+  private leaveTable(anchor: number, path: CellHop[], where: 'before' | 'after', x?: number): boolean {
+    if (path.length) {
+      // aninhada: volta para a célula de fora
+      const h = path[path.length - 1]!;
+      this.enterCellAt(anchor, path.slice(0, -1), h.r, h.c, where === 'after');
+      return true;
+    }
+    const a = this.tableAnchors[anchor]!;
+    // outra tabela colada (mesmo parágrafo âncora)
+    const nb = where === 'after' ? this.tableAnchors.findIndex((o, i) => i > anchor && o.beforePara === a.beforePara)
+      : [...this.tableAnchors.keys()].reverse().find((i) => i < anchor && this.tableAnchors[i]!.beforePara === a.beforePara) ?? -1;
+    if (nb >= 0) {
+      const t = this.tableAnchors[nb]!.table;
+      if (x !== undefined) this.enterRowAt(nb, [], where === 'after' ? 0 : t.rows.length - 1, x, where === 'before');
+      else if (where === 'after') this.enterCellAt(nb, [], 0, 0);
+      else { const m = TOps.mapTable(t); const g = m.rows[m.rows.length - 1]!.at(-1)!; this.enterCellAt(nb, [], g.ri, g.col, true); }
+      return true;
+    }
+    const para = where === 'after' ? a.beforePara : a.beforePara - 1;
+    if (para < 0 || !this.cellEdit) return true;
+    this.exitCell();
+    const ps = this.model!.paragraphs;
+    const p = Math.min(para, ps.length - 1);
+    let offset = where === 'after' ? 0 : paraLength(ps[p]!);
+    const pl = this.layoutCache[p]?.lines ?? [];
+    const line = where === 'after' ? pl[0] : pl[pl.length - 1];
+    if (x !== undefined && line) offset = this.hitLineX(line, x);
+    this.selection = { anchor: { para: p, offset }, focus: { para: p, offset } };
+    this.refreshSelection();
+    this.scrollCaretIntoView();
+    return true;
+  }
+
+  /** Tab na última célula: linha nova abaixo (formatação da última) e o cursor na 1ª célula dela. */
+  private tabNewRow(): boolean {
+    return this.editTable((tg) => {
+      const last = tg.table.rows.length - 1;
+      const sel = TOps.insertRows(tg.table, { ...tg.rect, r1: last, r2: last }, 'below', 1);
+      return { caret: { r: sel.r1, c: 0 } };
+    });
+  }
+
+  /** Alt+Shift+↑/↓ numa célula: move a linha (sem mesclas verticais). */
+  private moveTableRow(dir: -1 | 1): boolean {
+    const tg = this.tableTarget();
+    if (!tg) return false;
+    const { r1, r2 } = tg.rect;
+    const to = dir < 0 ? r1 - 1 : r2 + 1;
+    if (to < 0 || to >= tg.table.rows.length) return true;
+    const m = TOps.mapTable(tg.table);
+    const merged = (r: number): boolean => m.rows[r]!.some((g) => !!TOps.vMergeOf(g.cell));
+    for (let r = Math.min(r1, to); r <= Math.max(r2, to); r++) if (merged(r)) return true;
+    const me = this.cellEdit?.hops[this.cellEdit.hops.length - 1];
+    return this.editTable((t) => {
+      const rows = t.table.rows.splice(r1, r2 - r1 + 1);
+      t.table.rows.splice(dir < 0 ? r1 - 1 : r1 + 1, 0, ...rows);
+      return { caret: { r: (me?.r ?? r1) + dir, c: me?.c ?? 0 } };
+    });
+  }
+
+  /** O que o Converter Texto em Tabela daria com a seleção: separador (detectado
+   *  como o diálogo, se não vier), colunas e linhas. null numa tabela/cabeçalho. */
+  textToTableGuess(separator?: TextSeparator, cols?: number): { separator: TextSeparator; cols: number; rows: number } | null {
+    if (!this.model || this.cellEdit || this.hfEdit || this.tbEdit) return null;
+    const { start, end } = normalizeRange(this.range());
+    const p2 = end.offset === 0 && end.para > start.para ? end.para - 1 : end.para;
+    const paras = this.model.paragraphs.slice(start.para, p2 + 1);
+    if (!paras.length) return null;
+    const sep = separator ?? TOps.guessSeparator(paras);
+    const c = sep === 'paragraph' ? Math.max(1, cols ?? 1) : TOps.columnsFor(paras, sep);
+    return { separator: sep, cols: c, rows: sep === 'paragraph' ? Math.ceil(paras.length / c) : paras.length };
+  }
+
+  /** Estado da tabela do cursor/seleção (null fora de tabela) — barras e diálogos. */
+  getTableState(): TableState | null {
+    const tg = this.tableTarget();
+    if (!tg) return null;
+    const t = tg.table;
+    const m = TOps.mapTable(t);
+    const g = TOps.cellAt(m, tg.rect.r1, tg.rect.c1);
+    const tcPr = g?.cell.tcPr ?? {};
+    const rows = t.rows.slice(tg.rect.r1, tg.rect.r2 + 1);
+    const trh = rows[0]?.trPr?.trHeight;
+    const style = t.tblPr?.tblStyle;
+    return {
+      rows: t.rows.length, cols: m.nCols, rect: { ...tg.rect }, cells: !!this.tableSel,
+      nested: tg.path.length > 0,
+      canMerge: TOps.canMerge(t, tg.rect),
+      style, look: { ...TOps.DEFAULT_LOOK, ...(t.tblPr?.tblLook ?? {}) },
+      vAlign: tcPr.vAlign ?? 'top', textDirection: tcPr.textDirection ?? 'lrTb',
+      headerRow: t.rows.slice(0, tg.rect.r2 + 1).every((r) => !!r.trPr?.tblHeader),
+      // sem altura definida, a exibida (como a caixa Altura do Word)
+      rowHeight: trh ? { twips: trh.val, rule: trh.hRule } : { twips: this.rowHeights(tg.anchor, tg.path, tg.rect.r1, tg.rect.r1)[0] ?? 0, rule: 'auto' },
+      colWidth: TOps.gridWidth(t, tg.rect.c1, tg.rect.c2 - tg.rect.c1 + 1),
+      shading: tcPr.shd?.fill && tcPr.shd.fill !== 'auto' ? tcPr.shd.fill : undefined,
+      tblPr: t.tblPr ? JSON.parse(JSON.stringify(t.tblPr)) as TblPr : {},
+    };
   }
 
   /** Mudou só a apresentação (zoom, tema, marcas, proteção): com o motor o

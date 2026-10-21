@@ -161,6 +161,18 @@ export interface LayoutPage {
   background?: string;
   /** objetos flutuantes posicionados (seleção/arrasto no editor) */
   objects?: PlacedObject[];
+  /** caixas das células de tabela do corpo (seleção de células, alças e
+   *  arrasto de bordas no editor) — uma por parte de linha nesta página */
+  cells?: PlacedCell[];
+}
+
+/** Caixa de uma célula de tabela na página (twips). `ref` = "b3/r0/c1" (linha
+ *  e coluna da GRADE, como as referências das linhas de texto). */
+export interface PlacedCell {
+  ref: string;
+  x: number; y: number; w: number; h: number;
+  /** colunas da grade cobertas */
+  span: number;
 }
 
 /** Objeto flutuante posicionado na página (twips). */

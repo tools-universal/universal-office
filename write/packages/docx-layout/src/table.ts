@@ -82,6 +82,8 @@ export interface RowLayout {
   /** fundo de mescla vertical que começa nesta linha (retângulo com a altura somada) e a
    *  linha em que ela termina: no fluxo, o motor pinta uma faixa por página (oráculo vmshd) */
   mergeFills?: { item: Extract<PageItem, { t: 'rect' }>; end: number }[];
+  /** caixas das células desta linha (x absoluto, altura = a da linha) — editor */
+  cells?: { ref: string; x: number; w: number; span: number }[];
 }
 
 /** Parte um conteúdo de célula num corte vertical (fim da última linha que cabe). */
@@ -1021,6 +1023,8 @@ export function layoutTable(
       if (need > spanned) h += need - spanned;
     }
     rowHeights.push(bandTop + h + bandBottom);
+    // caixas das células (editor: seleção de células, alças, arrasto de bordas)
+    const cellBoxes = (): NonNullable<RowLayout['cells']> => cellInfos.map((ci) => ({ ref: `${ref}/r${ri}/c${ci.slot.col}`, x: x + ci.bx0, w: ci.bx1 - ci.bx0, span: ci.slot.span }));
     const paintRow = (ch: number, contents: Map<CellSlot, CellContent | undefined>, vTop: boolean, drawTop: boolean, bTop: number, bBottom: number): RowLayout => {
       const its: PageItem[] = [];
       const lns: LaidOutLine[] = [];
@@ -1066,7 +1070,7 @@ export function layoutTable(
         if (ri === 0 && drawTop) paintBorder(ctx, brd, oT, xl - borderWidth(oL) / 2, borderWidth(oT) / 2, xr + borderWidth(oR) / 2, borderWidth(oT) / 2);
         if (ri === nRows - 1 && bBottom > 0) paintBorder(ctx, brd, oB, xl - borderWidth(oL) / 2, rh - borderWidth(oB) / 2, xr + borderWidth(oR) / 2, rh - borderWidth(oB) / 2);
         return {
-          height: rh, items: its, lines: lns, borderItems: brd, breakBorderItems: brk, cantSplit: !!trp.cantSplit, header: !!trp.tblHeader,
+          height: rh, items: its, lines: lns, borderItems: brd, breakBorderItems: brk, cantSplit: !!trp.cantSplit, header: !!trp.tblHeader, cells: cellBoxes(),
           ...(mergeAt.length ? { mergeAt } : {}),
           ...(rowKeepNext ? { keepNext: true } : {}), natural: bTop + Math.min(ch, contentH) + bBottom,
         };
@@ -1114,7 +1118,7 @@ export function layoutTable(
         if (tcb?.tr2bl) paintBorder(ctx, brd, tcb.tr2bl, x + ci.x1, bTop, x + ci.x0, rh - bBottom);
       }
       return {
-        height: rh, items: its, lines: lns, borderItems: brd, breakBorderItems: brk, cantSplit: !!trp.cantSplit, header: !!trp.tblHeader,
+        height: rh, items: its, lines: lns, borderItems: brd, breakBorderItems: brk, cantSplit: !!trp.cantSplit, header: !!trp.tblHeader, cells: cellBoxes(),
         ...(mergeAt.length ? { mergeAt } : {}),
         ...(rowKeepNext ? { keepNext: true } : {}), natural: bTop + Math.min(ch, contentH) + bBottom,
         ...(drawTop && ri > 0 && bTop - ownBand > 0.5 ? { topCut: bTop - ownBand, topBorders: topBrd, ownTopBorders: ownBrd } : {}),

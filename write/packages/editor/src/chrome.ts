@@ -18,6 +18,8 @@ import { appFor, type WriteApp } from './chrome-app.js';
 import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
 import { aboutDialog, columnsDialog, commentDialog, fontDialog, linkDialog, pageDialog, paragraphDialog, shortcutsDialog, spellingDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { bindHostFonts, hostOf } from './chrome-host.js';
+import { tableDialog } from './chrome-table-dialogs.js';
+import { tableContextItems } from './chrome-table.js';
 import { LABELS } from './chrome-labels.js';
 import { compactLayout, ribbonLayout } from './chrome-layout.js';
 import { CommentCards, FindPanel, StatusBar } from './chrome-panels.js';
@@ -354,6 +356,7 @@ class WriteChrome {
       inspectorOpen: () => !!this.styles?.inspectorOpen,
       newStyle: () => { void this.styles?.styleDialog('new'); },
       modifyStyle: () => { const c = this.ed.currentStyles(); void this.styles?.styleDialog('modify', c.character ?? c.paragraph); },
+      tableDialog: (kind) => { void tableDialog(d(), kind).then(() => this.after()); },
     };
   }
 
@@ -635,7 +638,7 @@ class WriteChrome {
       if (this.app.comparing) return;
       e.preventDefault();
       const at = { x: e.clientX, y: e.clientY };
-      const items: MenuEntry[] = ['cut', 'copy', 'paste', 'pastePlain', '-', 'bold', 'italic', 'underline', '-',
+      const items: MenuEntry[] = ['cut', 'copy', 'paste', 'pastePlain', '-', ...(ed.getTableState() ? tableContextItems() : []), 'bold', 'italic', 'underline', '-',
         'link', 'comment', '-', 'list:bullet', 'list:decimal', '-', 'find', 'selectAll'];
       const open = (pre: MenuEntry[]): void => {
         openMenu([...pre, ...items], at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });

@@ -5,6 +5,8 @@
 import { HIGHLIGHT_COLORS, type CommandRegistry, type Command } from '@universal-office/ui';
 import type { UniversalWriteElement, ViewMode } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
+import type { TableDialogKind } from './chrome-table-dialogs.js';
+import { registerTableCommands } from './chrome-table.js';
 
 type SelState = ReturnType<UniversalWriteElement['getSelectionState']>;
 
@@ -42,6 +44,8 @@ export interface ChromeCtl {
   inspectorOpen(): boolean;
   newStyle(): void;
   modifyStyle(): void;
+  /** diálogos de tabela (Inserir Tabela, Dividir Células…) */
+  tableDialog(kind: TableDialogKind): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -119,8 +123,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'footer', label: { en: 'Footer', pt: 'Rodapé' }, icon: 'vertical_align_bottom', run: () => ed.enterHeaderFooter('footer') }),
     { id: 'hf:close', label: { en: 'Close Header and Footer', pt: 'Fechar Cabeçalho e Rodapé' }, icon: 'close', run: () => ed.exitHeaderFooter() },
     edit({ id: 'toc', label: { en: 'Update table of contents', pt: 'Atualizar sumário' }, icon: 'toc', run: () => ctl.flash(ed.updateToc() ? L.tocUpdated : L.noToc) }),
-    // frentes futuras: aparecem quando o método existir
-    edit({ id: 'table', label: { en: 'Table', pt: 'Tabela' }, tip: { en: 'Insert table', pt: 'Inserir tabela' }, icon: 'table', supports: has('insertTable'), run: () => call('insertTable', 3, 3) }),
+    // frentes futuras: aparecem quando o método existir (tabela: chrome-table.ts)
     edit({ id: 'footnote', label: { en: 'Footnote', pt: 'Nota de rodapé' }, tip: { en: 'Insert footnote', pt: 'Inserir nota de rodapé' }, icon: 'notes', shortcut: 'Ctrl+Alt+F', supports: has('insertFootnote'), run: () => call('insertFootnote') }),
     edit({ id: 'endnote', label: { en: 'Endnote', pt: 'Nota de fim' }, tip: { en: 'Insert endnote', pt: 'Inserir nota de fim' }, icon: 'short_text', shortcut: 'Ctrl+Alt+D', supports: has('insertEndnote'), run: () => call('insertEndnote') }),
     edit({ id: 'bookmark', label: { en: 'Bookmark', pt: 'Indicador' }, icon: 'bookmark', supports: has('insertBookmark'), run: () => call('insertBookmark') }),
@@ -211,13 +214,6 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'change:rejectAll', label: { en: 'Reject all changes', pt: 'Rejeitar todas as alterações' }, icon: 'remove_done', supports: has('rejectAllChanges'), run: () => call('rejectAllChanges') }),
     edit({ id: 'mailmerge', label: { en: 'Start Mail Merge', pt: 'Iniciar Mala Direta' }, icon: 'mail', supports: has('startMailMerge'), run: () => call('startMailMerge') }),
     edit({ id: 'mergefield', label: { en: 'Insert Merge Field', pt: 'Inserir Campo de Mesclagem' }, icon: 'data_object', supports: has('insertMergeField'), run: () => call('insertMergeField') }),
-    // tabela (guia contextual)
-    ...([['row:above', 'Insert above', 'Inserir acima', 'insertRowAbove', 'add_row_above'], ['row:below', 'Insert below', 'Inserir abaixo', 'insertRowBelow', 'add_row_below'],
-      ['col:left', 'Insert left', 'Inserir à esquerda', 'insertColumnLeft', 'add_column_left'], ['col:right', 'Insert right', 'Inserir à direita', 'insertColumnRight', 'add_column_right'],
-      ['row:delete', 'Delete row', 'Excluir linha', 'deleteRow', 'delete'], ['col:delete', 'Delete column', 'Excluir coluna', 'deleteColumn', 'delete'],
-      ['table:delete', 'Delete table', 'Excluir tabela', 'deleteTable', 'delete_forever'], ['cells:merge', 'Merge cells', 'Mesclar células', 'mergeCells', 'cell_merge'],
-      ['cells:split', 'Split cells', 'Dividir células', 'splitCell', 'splitscreen_vertical_add']] as const).map(([id, en, pt, m, icon]) =>
-      edit({ id, label: { en, pt }, icon, supports: has(m), run: () => call(m) })),
     edit({ id: 'image:delete', label: { en: 'Delete image', pt: 'Excluir imagem' }, icon: 'delete', supports: has('deleteSelectedImage'), run: () => call('deleteSelectedImage') }),
 
     // ── Ferramentas / Ajuda ──
@@ -226,6 +222,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     { id: 'about', label: { en: 'About Universal Write', pt: 'Sobre o Universal Write' }, icon: 'info', run: () => ctl.about() },
   ];
   reg.add(...cmds);
+  registerTableCommands(reg, ed, app, ctl);
 
   function stepComment(dir: 1 | -1): void {
     const cs = ed.getComments();
