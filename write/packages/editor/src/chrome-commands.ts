@@ -126,7 +126,7 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'image', label: { en: 'Image…', pt: 'Imagem…' }, tip: { en: 'Insert image', pt: 'Inserir imagem' }, icon: 'image', run: () => ctl.image() }),
     edit({ id: 'link', label: { en: 'Link…', pt: 'Link…' }, tip: { en: 'Insert link', pt: 'Inserir link' }, icon: 'link', shortcut: 'Ctrl+K', run: () => ctl.link(), isChecked: () => !!run().link }),
     edit({ id: 'comment', label: { en: 'Comment', pt: 'Comentário' }, tip: { en: 'New comment', pt: 'Novo comentário' }, icon: 'add_comment', shortcut: 'Ctrl+Alt+M', run: () => ctl.comment() }),
-    edit({ id: 'pagebreak', label: { en: 'Page break', pt: 'Quebra de página' }, icon: 'insert_page_break', shortcut: 'Ctrl+Enter', run: () => ed.insertPageBreak() }),
+    edit({ id: 'pagebreak', label: { en: 'Page break', pt: 'Quebra de página' }, icon: 'insert_page_break', shortcut: 'Ctrl+Enter', run: () => ed.insertPageBreak(), isEnabled: () => bodyOnly() }),
     edit({ id: 'field:page', label: { en: 'Page number', pt: 'Número da página' }, icon: 'numbers', run: () => ed.insertField('PAGE') }),
     edit({ id: 'field:numpages', label: { en: 'Page count', pt: 'Número de páginas' }, icon: 'filter_none', run: () => ed.insertField('NUMPAGES') }),
     edit({ id: 'field:date', label: { en: 'Date', pt: 'Data' }, tip: { en: 'Insert date field', pt: 'Inserir campo de data' }, icon: 'calendar_today', run: () => ed.insertField('DATE') }),

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DocxPackage, readFullDocument, writeDocument, markSectionBreaks, parseXml, firstChild,
-  insertSectionBreak, sectionRanges, columnsFor, presetColumns, columnsPresetOf, columnWidths, maxColumns, setOrientation,
+  insertSectionBreak, insertPageBreakParagraph, sectionRanges, columnsFor, presetColumns, columnsPresetOf, columnWidths, maxColumns, setOrientation,
   deleteRange, type DocumentModel, type FullDocument, type Paragraph, type Block, type HfPartInfo, type SectPr,
 } from '../src/index.js';
 import { patchSectPr } from '../src/lossless.js';
@@ -122,6 +122,35 @@ describe('insertSectionBreak (regras do Word)', () => {
     expect(texts(m)).toEqual(['Alpha beta', 'Gamma delta', 'Epsilon zeta']);
     expect(sectionRanges(m)).toHaveLength(1);
     expect(m.sectPr.type).toBe('continuous');
+  });
+});
+
+describe('insertPageBreakParagraph (regras do Word)', () => {
+  const blank = (): DocumentModel => open(make(three, `<w:sectPr>${A4}</w:sectPr>`)).model;
+  it('no meio: divide e a quebra fica num parágrafo próprio entre as metades (pb-mid)', () => {
+    const m = blank();
+    const r = insertPageBreakParagraph(m, { para: 1, offset: 6 });
+    expect(texts(m)).toEqual(['Alpha beta', 'Gamma ', '\f', 'delta', 'Epsilon zeta']);
+    expect(r).toEqual({ index: 2, at: { para: 3, offset: 0 } });
+    expect(m.paragraphs[2]!.props).toEqual({});
+  });
+  it('no início não divide; no fim a metade de depois é um parágrafo vazio (pb-start, pb-end, pb-docstart)', () => {
+    const a = blank();
+    expect(insertPageBreakParagraph(a, { para: 1, offset: 0 }).at).toEqual({ para: 2, offset: 0 });
+    expect(texts(a)).toEqual(['Alpha beta', '\f', 'Gamma delta', 'Epsilon zeta']);
+    const b = blank();
+    expect(insertPageBreakParagraph(b, { para: 0, offset: 10 }).at).toEqual({ para: 2, offset: 0 });
+    expect(texts(b)).toEqual(['Alpha beta', '\f', '', 'Gamma delta', 'Epsilon zeta']);
+    const c = blank();
+    insertPageBreakParagraph(c, { para: 0, offset: 0 });
+    expect(texts(c)).toEqual(['\f', 'Alpha beta', 'Gamma delta', 'Epsilon zeta']);
+  });
+  it('grava como o Word: <w:br w:type="page"/> sozinho no parágrafo, sem pPr', () => {
+    const pkg = make(three, `<w:sectPr>${A4}</w:sectPr>`);
+    const { full, model } = open(pkg);
+    insertPageBreakParagraph(model, { para: 1, offset: 6 });
+    const xml = save(pkg, full, model);
+    expect(xml).toContain('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
   });
 });
 

@@ -79,7 +79,7 @@ export {
   withoutRevisions,
 } from './model-ops.js';
 export {
-  sectionRanges, sectionIndexAt, sectionSectPr, sectionRefs, insertSectionBreak, columnsFor, presetColumns,
+  sectionRanges, sectionIndexAt, sectionSectPr, sectionRefs, insertSectionBreak, insertPageBreakParagraph, columnsFor, presetColumns,
   columnsPresetOf, columnWidths, contentWidth, maxColumns, setOrientation, COLUMN_SPACE_DEFAULT, COLUMN_MIN_WIDTH,
   type SectionRange, type InsertSectionBreakOptions, type ColumnSpec, type ColumnPreset,
 } from './section-ops.js';

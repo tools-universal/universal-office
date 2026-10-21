@@ -231,7 +231,7 @@ editor.host = {
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>insertPageBreak()</code></td><td>Inserts a page break.</td></tr>
+          <tr><td><code>insertPageBreak()</code></td><td>Inserts a page break (Ctrl+Enter) in a paragraph of its own: in the middle of a paragraph it is split and the break goes between the halves; a selection is replaced; the caret goes to the start of the next paragraph. Not available in headers/footers, text boxes or table cells.</td></tr>
           <tr><td><code>insertColumnBreak()</code></td><td>Inserts a column break (Ctrl+Shift+Enter). In the middle of a paragraph it splits it and the break opens the next one; a selection is replaced.</td></tr>
           <tr><td><code>insertSectionBreak(type?)</code></td><td>Inserts a section break at the caret (with a selection: at its start, keeping the text). <code>type</code> — <code>'nextPage'</code> (default) | <code>'continuous'</code> | <code>'evenPage'</code> | <code>'oddPage'</code> | <code>'nextColumn'</code> — is how the section after the break starts. The paragraph is split; the new section before the caret is a copy of the current one and takes its headers and footers (the section after stays linked to it). Not available in headers/footers, text boxes or table cells.</td></tr>
           <tr><td><code>insertField(kind)</code></td><td>Inserts a <code>'PAGE' | 'NUMPAGES' | 'DATE'</code> field.</td></tr>

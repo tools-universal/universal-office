@@ -13,7 +13,7 @@
  *    a galeria);
  *  - orientação gira as margens (retrato→paisagem: T'=L, R'=T, B'=R, L'=B).
  */
-import type { DocumentModel, Paragraph, SectPr, SectionType } from './document.js';
+import { DEFAULT_RUN_PROPS, type DocumentModel, type Paragraph, type SectPr, type SectionType } from './document.js';
 import { splitParagraph as coreSplit, type DocPosition } from './model-ops.js';
 
 type SectionBreak = NonNullable<Paragraph['props']['sectionBreak']>;
@@ -101,6 +101,20 @@ export function insertSectionBreak(model: DocumentModel, pos: DocPosition, type:
   if (range.sb) { range.sb.headerRefs = []; range.sb.footerRefs = []; }
   else model.bodyRefs = { headerRefs: [], footerRefs: [] };
   return next;
+}
+
+/**
+ * Quebra de página como o Word (Ctrl+Enter): num parágrafo PRÓPRIO
+ * (`<w:p><w:r><w:br w:type="page"/></w:r></w:p>`, estilo Normal, sem formatação
+ * de parágrafo). No meio (ou no fim) do parágrafo ele é dividido e a quebra vai
+ * entre as metades; no início, o parágrafo da quebra entra antes dele, sem
+ * dividir (oráculo pb-*). Devolve o índice do parágrafo da quebra e onde o
+ * cursor fica (início do parágrafo de depois).
+ */
+export function insertPageBreakParagraph(model: DocumentModel, pos: DocPosition, split: (m: DocumentModel, pos: DocPosition) => DocPosition = coreSplit): { index: number; at: DocPosition } {
+  const at = pos.offset > 0 ? split(model, pos) : pos;
+  model.paragraphs.splice(at.para, 0, { runs: [{ text: '\f', props: { ...DEFAULT_RUN_PROPS } }], props: {} });
+  return { index: at.para, at: { para: at.para + 1, offset: 0 } };
 }
 
 export interface ColumnSpec {

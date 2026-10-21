@@ -684,6 +684,22 @@ if (want('sections')) {
   s = await S();
   const cbText = await ev('text', 7);
   check('Ctrl+Shift+Enter insere a quebra de coluna como o Word', s.paras === p0 + 1 && cbText.startsWith('\u000B') && s.sel.para === 7 && s.sel.offset === 1, { paras: [p0, s.paras], sel: s.sel, head: cbText.slice(0, 3) });
+  // Ctrl+Enter: quebra de página num parágrafo próprio (Word, oráculo pb-*)
+  {
+    await at(9, 12);
+    const before = await ev('text', 9);
+    const p1 = (await S()).paras;
+    await page.keyboard.press('Control+Enter');
+    const r = await page.evaluate(() => {
+      const e = document.querySelector('universal-write');
+      const t = (i) => e.model.paragraphs[i].runs.map((x) => x.text).join('');
+      return { a: t(9), b: t(10), c: t(11), sel: e.selection.focus, paras: e.model.paragraphs.length, page: e.lineOf(e.selection.focus)?.page, pageOfA: e.layoutCache[9].lines.at(-1)?.page, props: e.model.paragraphs[10].props };
+    });
+    check('Ctrl+Enter: quebra de página num parágrafo próprio entre as metades', r.paras === p1 + 2 && r.a === before.slice(0, 12) && r.b === '\f' && r.c === before.slice(12) && r.sel.para === 11 && r.sel.offset === 0 && !Object.keys(r.props).length, r);
+    check('o texto depois da quebra de página vai para a página seguinte', r.page === r.pageOfA + 1, { page: r.page, pageOfA: r.pageOfA });
+    await page.keyboard.press('Control+z');
+    check('desfazer a quebra de página num passo', (await S()).paras === p1 && (await ev('text', 9)) === before);
+  }
   // Backspace logo depois da quebra de seção não a apaga (apaga o caractere antes dela)
   const t3 = await ev('text', 3);
   await at(4, 0);

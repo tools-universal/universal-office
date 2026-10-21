@@ -1,0 +1,8 @@
+# pb-in-header
+sel=35..35 sections=1->1 undoSteps=1 parts=[word/header1.xml word/header2.xml word/footer1.xml word/footer2.xml word/header3.xml word/footer3.xml]
+log: ERRO Este método ou propriedade não está disponível porque o objeto refere-se a um cabeçalho ou rodapé.
+<w:body>
+<w:p><w:r><w:t>Alpha beta</w:t></w:r></w:p>
+<w:p><w:r><w:t>Gamma delta</w:t></w:r></w:p>
+<w:p><w:r><w:t>Epsilon zeta</w:t></w:r></w:p>
+  <w:sectPr><w:headerReference w:type="even" r:id="rId6"/><w:headerReference w:type="default" r:id="rId7"/><w:footerReference w:type="even" r:id="rId8"/><w:footerReference w:type="default" r:id="rId9"/><w:headerReference w:type="first" r:id="rId10"/><w:footerReference w:type="first" r:id="rId11"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:body>

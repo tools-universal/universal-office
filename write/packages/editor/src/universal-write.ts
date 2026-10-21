@@ -29,6 +29,7 @@ import {
   sectionIndexAt,
   sectionSectPr,
   insertSectionBreak as coreInsertSectionBreak,
+  insertPageBreakParagraph,
   columnsFor,
   presetColumns,
   columnsPresetOf,
@@ -3141,9 +3142,30 @@ export class UniversalWriteElement extends HTMLElement {
   undo(): void { this.popHistory(this.undoStack, this.redoStack); }
   redo(): void { this.popHistory(this.redoStack, this.undoStack); }
 
-  /** Insere quebra de página no caret (Ctrl+Enter). */
+  /**
+   * Quebra de página no cursor (Ctrl+Enter), como o Word: num parágrafo PRÓPRIO
+   * (estilo Normal) — no meio do parágrafo ele é dividido e a quebra vai entre as
+   * metades; a seleção é substituída; o cursor vai ao início do parágrafo de
+   * depois. Só no corpo (o Word recusa em cabeçalho/rodapé e divide a tabela).
+   */
   insertPageBreak(): void {
-    this.type('\f');
+    if (!this.canInsertSectionBreak()) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const p = this.deleteSelection();
+      this.selection = { anchor: p, focus: p };
+    }
+    const from = this.selection.focus;
+    const { index, at } = insertPageBreakParagraph(this.model!, from, (m, p) => {
+      const tail = splitParagraph(m, p);
+      this.shiftAnchors(p.para, 1);
+      return tail;
+    });
+    // o parágrafo da quebra entra em `index`: tabela ancorada antes dele fica antes dele
+    this.shiftAnchors(index, 1);
+    this.selection = { anchor: at, focus: at };
+    this.refresh();
+    this.scrollCaretIntoView();
   }
 
   /** Insere um CAMPO no caret (variáveis de cabeçalho/rodapé do app de referência).
@@ -5240,7 +5262,7 @@ export class UniversalWriteElement extends HTMLElement {
         Home: () => this.moveCaret('home', e.shiftKey),
         End: () => this.moveCaret('end', e.shiftKey),
         // Ctrl+Enter = quebra de página; Ctrl+Shift+Enter = quebra de coluna (como no app de referência)
-        Enter: () => (ctrl && e.shiftKey ? this.insertColumnBreak() : ctrl ? this.type('\f') : this.pressEnter()),
+        Enter: () => (ctrl && e.shiftKey ? this.insertColumnBreak() : ctrl ? this.insertPageBreak() : this.pressEnter()),
         Backspace: () => this.pressBackspace(),
         Delete: () => this.pressDelete(),
       };
@@ -7835,9 +7857,11 @@ export class UniversalWriteElement extends HTMLElement {
             if (ch === ' ' || ch === '\u00A0') ctx.fillText(ch === ' ' ? '·' : '°', c.x + c.w / 2, line.baselineTwips);
             else if (ch === '\t') ctx.fillText('→', c.x + c.w / 2, line.baselineTwips);
           }
-          // quebra de página/coluna no meio do parágrafo: do fim do texto até a
-          // margem (no início do parágrafo ela sai depois do ¶ do anterior)
-          for (let o = Math.max(1, line.rich.start); o < Math.min(line.rich.end, text.length); o++) {
+          // quebra de página/coluna no meio do parágrafo (ou sozinha nele, como o
+          // Word insere a de página): do fim do texto até a margem; no início de um
+          // parágrafo com texto ela sai depois do ¶ do anterior
+          const breakOnly = text === '\f' || text === '\u000B';
+          for (let o = breakOnly ? 0 : Math.max(1, line.rich.start); o < Math.min(line.rich.end, text.length); o++) {
             const ch = text[o];
             if (ch !== '\f' && ch !== '\u000B') continue;
             const bx = this.caretX({ para: pi, offset: o }, line);
@@ -7850,6 +7874,8 @@ export class UniversalWriteElement extends HTMLElement {
             const nextType = (k: number): SectionType => this.sectionStarts[this.sectionIndexForPara(k) + 1]?.section.sectPr.type ?? 'nextPage';
             if (body && para.props.sectionBreak) {
               this.paintBreakMark(ctx, x + 20, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, nextType(pi), true);
+            } else if (breakOnly) {
+              // a marca da quebra já ocupa a linha
             } else {
               ctx.fillText('¶', x + 20, line.baselineTwips);
               // o parágrafo VAZIO seguinte só carrega a quebra (seção contínua: não
@@ -7861,7 +7887,7 @@ export class UniversalWriteElement extends HTMLElement {
               } else {
                 // o seguinte abre com quebra de página/coluna (como o Word a insere):
                 // a quebra fica no fim desta coluna/página, onde o texto terminou
-                const c0 = nx ? paraText(nx)[0] : undefined;
+                const nt = nx ? paraText(nx) : '', c0 = nt.length > 1 ? nt[0] : undefined;
                 if (c0 === '\f' || c0 === '\u000B') this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, c0 === '\f' ? 'page' : 'column', false);
               }
             }
