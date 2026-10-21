@@ -18,6 +18,8 @@ export interface ChromeCtl {
   fontDialog(): void;
   paragraphDialog(): void;
   pageDialog(): void;
+  /** diálogo Mais Colunas */
+  columnsDialog(): void;
   wordCount(): void;
   /** diálogo Ortografia (F7) */
   spelling(): void;
@@ -49,6 +51,10 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
 
   const edit = (c: Omit<Command, 'isEnabled'> & { isEnabled?: () => boolean }): Command =>
     ({ ...c, isEnabled: c.isEnabled ? () => canEdit() && c.isEnabled!() : canEdit });
+  /** quebras de seção/coluna valem no corpo (não em cabeçalho/rodapé, caixa ou célula) */
+  const bodyOnly = (): boolean => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
+  const section = (): ReturnType<UniversalWriteElement['getSection']> | null =>
+    typeof api['getSection'] === 'function' ? (call('getSection') as ReturnType<UniversalWriteElement['getSection']>) : null;
 
   const cmds: Command[] = [
     // ── Arquivo ──
@@ -112,8 +118,24 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'endnote', label: { en: 'Endnote', pt: 'Nota de fim' }, tip: { en: 'Insert endnote', pt: 'Inserir nota de fim' }, icon: 'short_text', shortcut: 'Ctrl+Alt+D', supports: has('insertEndnote'), run: () => call('insertEndnote') }),
     edit({ id: 'bookmark', label: { en: 'Bookmark', pt: 'Indicador' }, icon: 'bookmark', supports: has('insertBookmark'), run: () => call('insertBookmark') }),
     edit({ id: 'textbox', label: { en: 'Text box', pt: 'Caixa de texto' }, icon: 'text_fields', supports: has('insertTextbox'), run: () => call('insertTextbox') }),
-    edit({ id: 'sectionbreak', label: { en: 'Section break (next page)', pt: 'Quebra de seção (próxima página)' }, icon: 'insert_page_break', supports: has('insertSectionBreak'), run: () => call('insertSectionBreak', 'nextPage') }),
-    edit({ id: 'columnbreak', label: { en: 'Column break', pt: 'Quebra de coluna' }, icon: 'view_column', supports: has('insertColumnBreak'), run: () => call('insertColumnBreak') }),
+    // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
+    ...([['sectionbreak', 'nextPage', 'Section break (next page)', 'Quebra de seção (próxima página)', 'Start the new section on the next page', 'Começa a seção nova na próxima página', 'insert_page_break'],
+      ['sectionbreak:continuous', 'continuous', 'Section break (continuous)', 'Quebra de seção (contínua)', 'Start the new section on the same page', 'Começa a seção nova na mesma página', 'horizontal_split'],
+      ['sectionbreak:evenPage', 'evenPage', 'Section break (even page)', 'Quebra de seção (página par)', 'Start the new section on the next even-numbered page', 'Começa a seção nova na próxima página par', 'looks_two'],
+      ['sectionbreak:oddPage', 'oddPage', 'Section break (odd page)', 'Quebra de seção (página ímpar)', 'Start the new section on the next odd-numbered page', 'Começa a seção nova na próxima página ímpar', 'looks_one']] as const)
+      .map(([id, type, en, pt, ten, tpt, icon]) => edit({
+        id, label: { en, pt }, tip: { en: ten, pt: tpt }, icon, supports: has('insertSectionBreak'),
+        run: () => call('insertSectionBreak', type), isEnabled: bodyOnly,
+      })),
+    edit({ id: 'columnbreak', label: { en: 'Column break', pt: 'Quebra de coluna' }, tip: { en: 'Text after the break starts in the next column', pt: 'O texto depois da quebra começa na próxima coluna' }, icon: 'view_column', shortcut: 'Ctrl+Shift+Enter', supports: has('insertColumnBreak'), run: () => call('insertColumnBreak'), isEnabled: bodyOnly }),
+    // colunas (galeria do grupo Configurar Página)
+    ...([['one', 'One', 'Uma', 'crop_portrait'], ['two', 'Two', 'Duas', 'view_column_2'], ['three', 'Three', 'Três', 'view_column'],
+      ['left', 'Left', 'Esquerda', 'splitscreen_left'], ['right', 'Right', 'Direita', 'splitscreen_right']] as const)
+      .map(([p, en, pt, icon]) => edit({
+        id: `columns:${p}`, label: { en, pt }, icon, supports: has('setColumns'), run: () => call('setColumns', p),
+        isChecked: () => section()?.columns.preset === p,
+      })),
+    edit({ id: 'dlg:columns', label: { en: 'More Columns…', pt: 'Mais Colunas…' }, tip: { en: 'Number, width and spacing of the columns', pt: 'Número, largura e espaçamento das colunas' }, icon: 'view_week', supports: has('setColumns'), run: () => ctl.columnsDialog() }),
 
     // ── Formatar: fonte ──
     edit({ id: 'bold', label: { en: 'Bold', pt: 'Negrito' }, icon: 'format_bold', shortcut: 'Ctrl+B', run: () => ed.toggleRunProp('bold'), isChecked: () => !!run().bold }),

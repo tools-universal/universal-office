@@ -16,7 +16,7 @@ import {
 import type { UniversalWriteElement } from './universal-write.js';
 import { appFor, type WriteApp } from './chrome-app.js';
 import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
-import { aboutDialog, commentDialog, fontDialog, linkDialog, pageDialog, paragraphDialog, shortcutsDialog, spellingDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
+import { aboutDialog, columnsDialog, commentDialog, fontDialog, linkDialog, pageDialog, paragraphDialog, shortcutsDialog, spellingDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
 import { bindHostFonts, hostOf } from './chrome-host.js';
 import { LABELS } from './chrome-labels.js';
 import { compactLayout, ribbonLayout } from './chrome-layout.js';
@@ -274,6 +274,7 @@ class WriteChrome {
       fontDialog: () => { void fontDialog(d(), this.families).then(() => this.after()); },
       paragraphDialog: () => { void paragraphDialog(d()).then(() => this.after()); },
       pageDialog: () => { void pageDialog(d()).then(() => this.after()); },
+      columnsDialog: () => { void columnsDialog(d()).then(() => this.after()); },
       wordCount: () => wordCountDialog(d()),
       spelling: () => { void spellingDialog(d()).then(() => this.after()); },
       shortcuts: () => shortcutsDialog(d()),

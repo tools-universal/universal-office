@@ -38,7 +38,8 @@ function menus(env: WidgetEnv, ctx: BarContext) {
     toolbar: sub({ en: 'Toolbar', pt: 'Barra de ferramentas' }, 'toolbar', () => ['toolbar:compact', 'toolbar:ribbon', '-', 'statusbar'], 'toolbar'),
     fields: sub({ en: 'Field', pt: 'Campo' }, 'data_object', fieldsMenu, 'fields'),
     symbols: sub({ en: 'Special characters', pt: 'Caracteres especiais' }, 'special_character', () => symbolMenu(env, ctx), 'symbols'),
-    breaks: sub({ en: 'Break', pt: 'Quebra' }, 'insert_page_break', () => ['pagebreak', 'columnbreak', 'sectionbreak'], 'breaks'),
+    breaks: sub({ en: 'Break', pt: 'Quebra' }, 'insert_page_break', breaksMenu, 'breaks'),
+    columns: sub({ en: 'Columns', pt: 'Colunas' }, 'view_column_2', columnsMenu, 'columns'),
     hf: sub({ en: 'Headers & footers', pt: 'Cabeçalhos e rodapés' }, 'call_to_action', () => ['header', 'footer'], 'hf'),
     text: sub({ en: 'Text', pt: 'Texto' }, 'format_bold', () => ['bold', 'italic', 'underline', 'strike', 'sup', 'sub', '-', 'grow', 'shrink', '-', 'allCaps', 'smallCaps', 'case:upper', 'case:lower'], 'text'),
     color: sub({ en: 'Font color', pt: 'Cor da fonte' }, 'format_color_text', () => colorMenu(env, ctx), 'color'),
@@ -67,6 +68,11 @@ function menus(env: WidgetEnv, ctx: BarContext) {
   };
 }
 
+/** Quebras: de página e coluna; de seção pelos quatro tipos (como o menu Quebras). */
+const breaksMenu = (): MenuEntry[] => ['pagebreak', 'columnbreak', '-', 'sectionbreak', 'sectionbreak:continuous', 'sectionbreak:evenPage', 'sectionbreak:oddPage'];
+/** Galeria Colunas: predefinições + Mais Colunas. */
+const columnsMenu = (): MenuEntry[] => ['columns:one', 'columns:two', 'columns:three', 'columns:left', 'columns:right', '-', 'dlg:columns'];
+
 const fileMenu = (m: ReturnType<typeof menus>): MenuEntry[] => [
   'new', 'open', m.recent, '-', 'save', 'saveAs', m.exportAs, 'fontsInFile', '-', 'compare', '-', 'print', '-', m.autosave,
 ];
@@ -81,7 +87,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'focus', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', 'table', 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', 'bookmark', 'textbox', m.symbols] },
-      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, '-', m.align, m.spacing, m.lists, m.shading, 'borders', m.charSpacing, '-', m.page, '-', 'dlg:font', 'dlg:paragraph', '-', 'clear'] },
+      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, '-', m.align, m.spacing, m.lists, m.shading, 'borders', m.charSpacing, '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', '-', 'clear'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
     ],
@@ -157,7 +163,10 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
       },
       {
         id: 'insert', label: L('Insert', 'Inserir'), groups: [
-          { id: 'pages', label: L('Pages', 'Páginas'), icon: 'insert_page_break', prio: 4, cells: [large('pagebreak'), { rows: [['columnbreak'], ['sectionbreak']] }] },
+          { id: 'pages', label: L('Pages', 'Páginas'), icon: 'insert_page_break', prio: 4, cells: [
+            large('pagebreak'),
+            { menu: breaksMenu, id: 'breaks', label: L('Breaks', 'Quebras'), icon: 'insert_page_break', size: 'large', supports: has('insertSectionBreak') },
+          ] },
           { id: 'objects', label: L('Illustrations', 'Ilustrações'), icon: 'image', prio: 6, cells: [
             { menu: () => tableMenu(env, ctx), id: 'table:menu', label: L('Table', 'Tabela'), icon: 'table', size: 'large', supports: has('insertTable') },
             large('image'),
@@ -182,8 +191,8 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
             { menu: () => marginsMenu(env, ctx), id: 'margins', label: L('Margins', 'Margens'), icon: 'margin', size: 'large' },
             { menu: () => orientationMenu(env, ctx), id: 'orientation', label: L('Orientation', 'Orientação'), icon: 'crop_rotate', size: 'large' },
             { menu: () => sizeMenu(env, ctx), id: 'pageSize', label: L('Size', 'Tamanho'), icon: 'aspect_ratio', size: 'large' },
-            { menu: () => ['pagebreak', 'columnbreak', 'sectionbreak'], id: 'breaks', label: L('Breaks', 'Quebras'), icon: 'insert_page_break', size: 'large' },
-            { rows: [['hyphenation']] },
+            { menu: columnsMenu, id: 'columns', label: L('Columns', 'Colunas'), icon: 'view_column_2', size: 'large', supports: has('setColumns') },
+            { rows: [[{ menu: breaksMenu, id: 'breaks', label: L('Breaks', 'Quebras'), icon: 'insert_page_break', showLabel: true }], ['hyphenation']] },
           ] },
           { id: 'paragraph', label: L('Paragraph', 'Parágrafo'), icon: 'format_indent_increase', prio: 5, launcher: 'dlg:paragraph', cells: [
             { menu: () => paragraphSpacingMenu(env, ctx), id: 'pspacing', label: L('Paragraph Spacing', 'Espaçamento entre Parágrafos'), icon: 'format_line_spacing', size: 'large' },

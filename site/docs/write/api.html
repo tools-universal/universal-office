@@ -203,6 +203,8 @@ editor.host = {
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td><code>insertPageBreak()</code></td><td>Inserts a page break.</td></tr>
+          <tr><td><code>insertColumnBreak()</code></td><td>Inserts a column break (Ctrl+Shift+Enter). In the middle of a paragraph it splits it and the break opens the next one; a selection is replaced.</td></tr>
+          <tr><td><code>insertSectionBreak(type?)</code></td><td>Inserts a section break at the caret (with a selection: at its start, keeping the text). <code>type</code> — <code>'nextPage'</code> (default) | <code>'continuous'</code> | <code>'evenPage'</code> | <code>'oddPage'</code> | <code>'nextColumn'</code> — is how the section after the break starts. The paragraph is split; the new section before the caret is a copy of the current one and takes its headers and footers (the section after stays linked to it). Not available in headers/footers, text boxes or table cells.</td></tr>
           <tr><td><code>insertField(kind)</code></td><td>Inserts a <code>'PAGE' | 'NUMPAGES' | 'DATE'</code> field.</td></tr>
           <tr><td><code>insertImage(data, ext): Promise&lt;void&gt;</code></td><td>Inserts an image (<code>'png' | 'jpeg' | 'gif'</code>).</td></tr>
           <tr><td><code>insertCustomInline(type, data, opts?)</code></td><td>Inserts an atomic plugin inline (see <a href="plugins.html">Plugins</a>).</td></tr>
@@ -248,7 +250,9 @@ editor.host = {
         <tbody>
           <tr><td><code>updateToc(): boolean</code></td><td>Updates the table of contents from headings; <code>true</code> if the document had a TOC.</td></tr>
           <tr><td><code>navigateTo(link): boolean</code></td><td>Navigates to <code>'#bookmarkName'</code> or <code>'#para:N'</code>; <code>true</code> if found.</td></tr>
-          <tr><td><code>setPageSetup(opts)</code></td><td><code>{ orientation?: 'portrait' | 'landscape', size?: 'A4' | 'Letter', margins?: 'normal' | 'narrow' | 'wide', customMargins?: { top, right, bottom, left } }</code> (custom margins in twips).</td></tr>
+          <tr><td><code>setPageSetup(opts)</code></td><td><code>{ orientation?: 'portrait' | 'landscape', size?: 'A4' | 'Letter', margins?: 'normal' | 'narrow' | 'wide', customMargins?: { top, right, bottom, left }, applyTo?: 'section' | 'document' | 'forward' | 'selection' }</code> (custom margins in twips). Applies to the section(s) the selection touches; <code>'forward'</code> inserts a next-page section break at the caret and <code>'selection'</code> one before and one after the selection. Changing the orientation rotates the margins.</td></tr>
+          <tr><td><code>setColumns(spec)</code></td><td>Columns of the caret's section. A preset — <code>'one' | 'two' | 'three' | 'left' | 'right'</code> — applies only to the selected text when there is a selection (continuous breaks before and after it). Or <code>{ count, spaceTwips?, widths?: { widthTwips, spaceTwips }[], sep?, applyTo?, startNewColumn? }</code>: <code>widths</code> for unequal columns, <code>sep</code> for a line between them, <code>applyTo</code> as in <code>setPageSetup</code> (<code>'forward'</code> and <code>'selection'</code> insert continuous breaks; <code>startNewColumn</code> with <code>'forward'</code> starts the new section in the next column). Columns are at least 720 twips wide; the spacing shrinks when they would not fit.</td></tr>
+          <tr><td><code>getSection()</code></td><td>The caret's section: <code>{ index, count, type, orientation, pageWidthTwips, pageHeightTwips, margins, columns: { count, spaceTwips, sep, equalWidth, widths, preset, max, contentWidthTwips } }</code>.</td></tr>
         </tbody>
       </table>
 

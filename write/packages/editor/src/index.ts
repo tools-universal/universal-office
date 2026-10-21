@@ -1,4 +1,5 @@
-export { UniversalWriteElement, type FileFormat, type ViewMode } from './universal-write.js';
+export { UniversalWriteElement, type FileFormat, type ViewMode, type SectionApplyTo, type SectionInfo } from './universal-write.js';
+export type { SectionType, ColumnSpec, ColumnPreset } from '@universal-office/docx-core';
 // barras (topbar/bottombar/toolbar): integração opcional com o app hospedeiro
 export type { UniversalWriteHost, UniversalWriteHostFile } from './chrome-host.js';
 import type { UniversalWriteElement } from './universal-write.js';

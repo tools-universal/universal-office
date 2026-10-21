@@ -24,6 +24,21 @@ import {
   type SectPr,
   readFullDocument,
   markSectionBreaks,
+  sectionRanges,
+  sectionIndexAt,
+  sectionSectPr,
+  insertSectionBreak as coreInsertSectionBreak,
+  columnsFor,
+  presetColumns,
+  columnsPresetOf,
+  columnWidths,
+  contentWidth,
+  maxColumns,
+  setOrientation,
+  COLUMN_SPACE_DEFAULT,
+  type SectionType,
+  type ColumnSpec,
+  type ColumnPreset,
   readEmbeddedFonts,
   isWordBinary,
   convertDocToDocx,
@@ -40,7 +55,7 @@ import {
   FontResolver, METRIC_SUBSTITUTES, DEFAULT_EMBEDDING, planFontEmbedding, readDocxEmbedding, writeDocxEmbedding,
   type ResolvedFont, type FontEmbeddingSettings, type FontUsage, type EmbeddingPlan,
 } from '@universal-office/fonts';
-import { onBrowserLangChange, uiLang } from '@universal-office/ui';
+import { onBrowserLangChange, uiLang, pickLabels } from '@universal-office/ui';
 import {
   SfntFont,
   type LayoutFont,
@@ -118,7 +133,46 @@ const DEFAULT_FONT = 'Liberation Sans';
 /** Mesmo nome já entre aspas p/ uso em ctx.font (família com espaço). */
 const DEFAULT_FONT_CSS = `"${DEFAULT_FONT}"`;
 
+/** Nomes das quebras nas marcas de formatação (adorno de tela; idioma da interface). */
+const BREAK_MARK_LABELS: Record<'en' | 'pt', Record<'page' | 'column' | 'section' | SectionType, string>> = {
+  en: { page: 'Page Break', column: 'Column Break', section: 'Section Break', nextPage: 'Next Page', continuous: 'Continuous', evenPage: 'Even Page', oddPage: 'Odd Page', nextColumn: 'Next Column' },
+  pt: { page: 'Quebra de página', column: 'Quebra de coluna', section: 'Quebra de seção', nextPage: 'Próxima página', continuous: 'Contínua', evenPage: 'Página par', oddPage: 'Página ímpar', nextColumn: 'Próxima coluna' },
+};
+
 export type ViewMode = 'print' | 'web' | 'draft' | 'read' | 'outline';
+
+/** A que parte do documento uma configuração de página/colunas se aplica
+ *  ("Aplicar a" dos diálogos): seção(ões) da seleção, documento inteiro, deste
+ *  ponto em diante (quebra de seção no cursor) ou texto selecionado (quebras
+ *  antes e depois). */
+export type SectionApplyTo = 'section' | 'document' | 'forward' | 'selection';
+
+/** A seção do cursor (getSection). Medidas em twips. */
+export interface SectionInfo {
+  index: number;
+  count: number;
+  /** como a seção começa (w:type) */
+  type: SectionType;
+  orientation: 'portrait' | 'landscape';
+  pageWidthTwips: number;
+  pageHeightTwips: number;
+  margins: { top: number; right: number; bottom: number; left: number };
+  columns: {
+    count: number;
+    spaceTwips: number;
+    /** linha entre colunas */
+    sep: boolean;
+    equalWidth: boolean;
+    /** largura e espaço depois de cada coluna */
+    widths: { widthTwips: number; spaceTwips: number }[];
+    /** predefinição da galeria que as colunas são, se alguma */
+    preset: ColumnPreset | null;
+    /** quantas colunas cabem (largura mínima 720 tw) */
+    max: number;
+    /** largura útil entre as margens */
+    contentWidthTwips: number;
+  };
+}
 
 /** Formato de arquivo para load()/save(). 'auto' detecta na carga e, ao salvar,
  *  usa o formato originalmente carregado. */
@@ -172,6 +226,14 @@ interface LaidLine {
   /** linha do MOTOR (visão de impressão): cursor/clique pelos caracteres dela */
   eng?: LaidOutLine;
 }
+
+/** Refs de cabeçalho/rodapé de uma seção no modelo (sectionBreak ou bodyRefs). */
+type SectionRefs = NonNullable<DocumentModel['bodyRefs']>;
+type SectionBreak = NonNullable<ParaProps['sectionBreak']>;
+const refsOfSection = (s: Section): SectionRefs => ({
+  headerRefs: s.headerRefs.map((r) => ({ kind: 'header' as const, type: r.type, rid: r.rid })),
+  footerRefs: s.footerRefs.map((r) => ({ kind: 'footer' as const, type: r.type, rid: r.rid })),
+});
 
 /** Linha do motor com a página e a localização no estado de edição. */
 interface EngLine {
@@ -406,8 +468,26 @@ export class UniversalWriteElement extends HTMLElement {
   private fullDoc: FullDocument | null = null;
   /** Tabelas ancoradas antes do parágrafo de índice beforePara. */
   private tableAnchors: { beforePara: number; table: TableBlock }[] = [];
-  /** Seções: a partir de qual parágrafo cada uma vale. */
+  /** Seções: a partir de qual parágrafo cada uma vale — DERIVADAS do modelo
+   *  (syncSections): o sectPr de cada uma mora no sectionBreak do parágrafo que a
+   *  encerra (a última, em model.sectPr), assim Enter, Backspace, colar e
+   *  desfazer não descolam o que se desenha do que se salva. */
   private sectionStarts: { startPara: number; section: Section }[] = [];
+  /** props do w:sectPr que o modelo não representa (grade, bordas de página…)
+   *  por id da quebra (sectionBreak.id); 0 = a última seção */
+  private sectionProps = new Map<number, import('@universal-office/docx-core').SectionProps | undefined>();
+  private nextSectionId = 1;
+  /** partes de cabeçalho/rodapé conhecidas ("header:rId7" → caminho, conteúdo):
+   *  cada seção mostra as que as refs DELA no modelo apontam */
+  private hfParts = new Map<string, { path: string; paras?: Paragraph[]; blocks?: Block[] }>();
+  /** seção efetiva em cache por id (refeita quando o sectPr ou as refs mudam) */
+  private sectionEff = new Map<number, { sp: SectPr; key: string; props: unknown; sec: Section }>();
+  /** id de cada seção efetiva (cabeçalho novo grava a ref na seção certa) */
+  private sectionIds = new WeakMap<Section, number>();
+  /** ids e refs da última derivação: quebra apagada → as refs dela passam para a
+   *  seção que agora cobre o texto (o Word mantém o cabeçalho — oráculo hdr-del-*) */
+  private lastSectionIds: number[] = [];
+  private lastSectionRefs = new Map<number, SectionRefs>();
   private floatImages: FloatImage[] = [];
   private tableLayouts: TableLayout[] = [];
   private footnoteHits: FootnoteHit[] = [];
@@ -1090,18 +1170,21 @@ export class UniversalWriteElement extends HTMLElement {
       for (const set of [s.headers, s.footers]) for (const ps of [set.default, set.first, set.even]) if (ps) this.syncRunRPr(ps);
     }
 
-    // seções → startPara (bloco inicial mapeado p/ índice de parágrafo)
-    this.sectionStarts = this.fullDoc.sections.map((section) => {
-      let startPara = 0;
-      for (let b = 0; b < section.blockStart; b++) {
-        if (this.fullDoc!.blocks[b]!.type === 'paragraph') startPara++;
-      }
-      return { startPara, section };
-    });
-
     // o ÚLTIMO parágrafo de cada seção (exceto a final) leva sectionBreak, para
-    // que o salvar preserve as seções + orientação + refs de header/footer
+    // que o salvar preserve as seções + orientação + refs de header/footer; as
+    // seções do editor são derivadas desses sectionBreak (syncSections)
     markSectionBreaks(this.fullDoc);
+    const secs = this.fullDoc.sections;
+    this.resetSections();
+    for (const s of secs) this.indexHfParts(s);
+    for (const p of paragraphs) {
+      const sb = p.props.sectionBreak;
+      if (!sb) continue;
+      sb.id = this.nextSectionId++;
+      this.sectionProps.set(sb.id, secs.find((s) => s.sectPr === sb.sectPr)?.sect);
+    }
+    const lastSec = secs[secs.length - 1];
+    this.sectionProps.set(0, lastSec?.sect);
 
     // pré-processa runs: campos DATE viram texto; noteRef ganha o número;
     // imagens flutuantes saem do fluxo
@@ -1122,12 +1205,15 @@ export class UniversalWriteElement extends HTMLElement {
 
     this.model = {
       paragraphs,
-      sectPr: this.fullDoc.sections[0]?.sectPr ?? {
+      // o sectPr do corpo é o da ÚLTIMA seção (como no .docx)
+      sectPr: lastSec?.sectPr ?? {
         pageWidthTwips: 11906, pageHeightTwips: 16838,
         marginLeftTwips: 1701, marginRightTwips: 1701,
         marginTopTwips: 1417, marginBottomTwips: 1417,
       },
+      ...(lastSec ? { bodyRefs: refsOfSection(lastSec) } : {}),
     };
+    this.syncSections();
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
     this.undoStack = [];
     this.redoStack = [];
@@ -1150,7 +1236,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = null;
     this.tableAnchors = [];
-    this.sectionStarts = [];
+    this.resetSections();
     this.floatImages = [];
     this.model = {
       paragraphs: [{ runs: [], props: {} }],
@@ -1160,6 +1246,7 @@ export class UniversalWriteElement extends HTMLElement {
         marginTopTwips: 1417, marginBottomTwips: 1417,
       },
     };
+    this.syncSections();
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
     this.undoStack = [];
     this.redoStack = [];
@@ -1335,6 +1422,7 @@ export class UniversalWriteElement extends HTMLElement {
       refs.push(ref);
       this.dirtyHf.add(ref.path); // parte nova: sempre gravar
     }
+    this.registerHfPart(sec, kind, ref, part);
     // Layout legado: fundo esmaecido = SÓ o CORPO (ambos HF suprimidos; header
     // e footer são repintados na composição da edição). Fundo TRANSPARENTE p/
     // compor sobre a imagem behindDoc (capa) sem véu branco. Ver
@@ -1480,12 +1568,12 @@ export class UniversalWriteElement extends HTMLElement {
     this.dispatchEvent(new CustomEvent('uw-tbmode', { detail: { active: false } }));
   }
 
-  /** Desloca âncoras de tabela/seção quando parágrafos entram/saem. */
+  /** Desloca âncoras de tabela quando parágrafos entram/saem (as seções saem do
+   *  modelo — syncSections). */
   private shiftAnchors(fromPara: number, delta: number): void {
     // na célula de tabela os parágrafos são os DELA: âncoras do corpo ficam
     if (this.cellEdit) return;
     for (const a of this.tableAnchors) if (a.beforePara > fromPara) a.beforePara += delta;
-    for (const s of this.sectionStarts) if (s.startPara > fromPara) s.startPara += delta;
     for (const f of this.floatImages) if (f.para > fromPara) f.para += delta;
     if (!this.hfEdit && !this.tbEdit) {
       for (const [k, v] of this.bookmarkParas) if (v > fromPara) this.bookmarkParas.set(k, Math.max(0, v + delta));
@@ -2127,32 +2215,31 @@ export class UniversalWriteElement extends HTMLElement {
   setSpaceAfter(twips: number | undefined): void { this.formatPara({ spaceAfterTwips: twips }); }
   setSpaceBefore(twips: number | undefined): void { this.formatPara({ spaceBeforeTwips: twips }); }
 
+  /**
+   * Configurar Página da seção do cursor (ou das seções que a seleção toca),
+   * como as galerias Margens/Orientação/Tamanho. `applyTo` como no diálogo:
+   * 'section' (padrão), 'document', 'forward' (quebra de seção "próxima página"
+   * no cursor e a seção de depois muda) ou 'selection' (quebras "próxima página"
+   * antes e depois da seleção). Mudar a orientação gira as margens (Word).
+   */
   setPageSetup(opts: {
     orientation?: 'portrait' | 'landscape';
     size?: 'A4' | 'Letter';
     margins?: 'normal' | 'narrow' | 'wide';
     /** margens personalizadas em twips (sobrepõe o preset). */
     customMargins?: { top: number; right: number; bottom: number; left: number };
+    applyTo?: SectionApplyTo;
   }): void {
-    if (!this.model || this.locked()) return;
+    if (!this.model || this.locked() || (opts.applyTo && opts.applyTo !== 'section' && opts.applyTo !== 'document' && !this.canInsertSectionBreak())) return;
     this.snapshot();
-    // aplica também a TODAS as seções (docs multi-seção como o catálogo
-    // usam a geometria das seções, não a do model.sectPr)
-    const targets = [this.model.sectPr, ...this.sectionStarts.map((ss) => ss.section.sectPr)];
-    for (const s of targets) {
+    for (const s of this.sectionTargets(opts.applyTo ?? 'section', 'nextPage')) {
       if (opts.size) {
         const [w, h] = opts.size === 'A4' ? [11906, 16838] : [12240, 15840];
         const landscape = s.pageWidthTwips > s.pageHeightTwips;
         s.pageWidthTwips = landscape ? h : w;
         s.pageHeightTwips = landscape ? w : h;
       }
-      if (opts.orientation) {
-        const [a, b] = [s.pageWidthTwips, s.pageHeightTwips];
-        const isLandscape = a > b;
-        if ((opts.orientation === 'landscape') !== isLandscape) {
-          s.pageWidthTwips = b; s.pageHeightTwips = a;
-        }
-      }
+      if (opts.orientation) setOrientation(s, opts.orientation);
       if (opts.margins) {
         const m = { normal: [1417, 1701], narrow: [720, 720], wide: [1417, 2880] }[opts.margins]!;
         s.marginTopTwips = s.marginBottomTwips = m[0]!;
@@ -2166,6 +2253,144 @@ export class UniversalWriteElement extends HTMLElement {
       }
     }
     this.refresh();
+  }
+
+  // ───────────────── seções e colunas ─────────────────
+
+  /** Quebras de seção/coluna valem no corpo (o Word as desabilita em
+   *  cabeçalho/rodapé e caixa de texto; em tabela ele divide a tabela). */
+  private canInsertSectionBreak(): boolean {
+    return !!this.model && !this.locked() && !this.hfEdit && !this.tbEdit && !this.cellEdit;
+  }
+
+  /**
+   * Insere uma quebra de seção no cursor (com seleção: no início dela, sem
+   * apagar o texto — Word). Divide o parágrafo; a seção nova (antes) é uma
+   * cópia da seção do cursor e leva os cabeçalhos/rodapés; a de depois começa
+   * pelo `type` (próxima página, contínua, página par/ímpar, próxima coluna).
+   */
+  insertSectionBreak(type: SectionType = 'nextPage'): void {
+    if (!this.canInsertSectionBreak()) return;
+    this.snapshot();
+    const pos = this.insertSectionBreakAt(normalizeRange(this.range()).start, type);
+    this.selection = { anchor: pos, focus: pos };
+    this.pendingProps = null;
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+
+  /** Quebra de coluna (Ctrl+Shift+Enter): no meio do parágrafo ele é dividido e a
+   *  quebra abre o de depois (Word); a seleção é substituída. */
+  insertColumnBreak(): void {
+    if (!this.canInsertSectionBreak()) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const p = this.deleteSelection();
+      this.selection = { anchor: p, focus: p };
+    }
+    let pos = this.selection.focus;
+    if (pos.offset > 0) {
+      pos = splitParagraph(this.model!, pos);
+      this.shiftAnchors(pos.para - 1, 1);
+    }
+    pos = insertText(this.model!, pos, '\u000B', this.pendingProps ?? undefined);
+    this.pendingProps = null;
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+
+  /** Quebra de seção num ponto do corpo (dentro de um passo de desfazer já aberto). */
+  private insertSectionBreakAt(pos: DocPosition, type: SectionType): DocPosition {
+    const m = this.model!;
+    const range = sectionRanges(m)[sectionIndexAt(m, pos.para)]!;
+    const closing = range.sb ? m.paragraphs[range.end] : undefined;
+    const id = this.nextSectionId++;
+    this.sectionProps.set(id, this.sectionProps.get(range.sb?.id ?? 0));
+    const raw = this.fullDoc?.sources?.sectPrRaw(closing);
+    const next = coreInsertSectionBreak(m, pos, type, { split: (mm, p) => splitParagraph(mm, p), id, ...(raw ? { raw } : {}) });
+    this.shiftAnchors(pos.para, 1);
+    return next;
+  }
+
+  /**
+   * sectPrs que uma configuração atinge (abre as quebras que 'forward' e
+   * 'selection' pedem — o tipo é o do Word: contínua para colunas, próxima
+   * página para Configurar Página).
+   */
+  private sectionTargets(applyTo: SectionApplyTo, breakType: SectionType): SectPr[] {
+    const m = this.model!;
+    const { start, end } = normalizeRange(this.range());
+    if (applyTo === 'document') return sectionRanges(m).map((r) => r.sb?.sectPr ?? m.sectPr);
+    if (applyTo === 'forward') {
+      const at = this.insertSectionBreakAt(start, breakType);
+      this.selection = { anchor: at, focus: at };
+      return [sectionSectPr(m, sectionIndexAt(m, at.para))];
+    }
+    if (applyTo === 'selection' && comparePos(start, end) !== 0) {
+      // fim primeiro (o início não se desloca); a seção do meio é a da seleção
+      this.insertSectionBreakAt(end, breakType);
+      const at = this.insertSectionBreakAt(start, breakType);
+      const k = sectionIndexAt(m, at.para);
+      const r = sectionRanges(m)[k]!;
+      const last = m.paragraphs[r.end]!;
+      this.selection = { anchor: at, focus: { para: r.end, offset: paraLength(last) } };
+      return [sectionSectPr(m, k)];
+    }
+    const k0 = sectionIndexAt(m, start.para), k1 = sectionIndexAt(m, end.para);
+    const out: SectPr[] = [];
+    for (let k = k0; k <= k1; k++) out.push(sectionSectPr(m, k));
+    return out;
+  }
+
+  /**
+   * Colunas da seção do cursor. Predefinição (galeria): 'one' | 'two' | 'three'
+   * | 'left' | 'right' — com texto selecionado, valem só para ele (quebras
+   * contínuas antes e depois, Word). Especificação (Mais Colunas): número,
+   * espaço, larguras próprias, linha entre colunas, `applyTo` e
+   * `startNewColumn` (com 'forward', a seção nova começa na próxima coluna).
+   */
+  setColumns(spec: ColumnPreset | (ColumnSpec & { applyTo?: SectionApplyTo; startNewColumn?: boolean })): void {
+    if (!this.model || this.locked()) return;
+    const preset = typeof spec === 'string' ? spec : null;
+    const applyTo: SectionApplyTo = preset ? (this.hasSelection() ? 'selection' : 'section') : (spec as { applyTo?: SectionApplyTo }).applyTo ?? 'section';
+    if ((applyTo === 'forward' || applyTo === 'selection') && !this.canInsertSectionBreak()) return;
+    this.snapshot();
+    const newCol = !preset && (spec as { startNewColumn?: boolean }).startNewColumn;
+    const targets = this.sectionTargets(applyTo, applyTo === 'forward' && newCol ? 'nextColumn' : 'continuous');
+    for (const sp of targets) {
+      const s = preset ? presetColumns(sp, preset) : (spec as ColumnSpec);
+      // (uma coluna: sem w:cols no modelo — o w:space e a linha do cru ficam, como no Word)
+      sp.cols = columnsFor(sp, s);
+    }
+    this.refresh();
+  }
+
+  /** A seção do cursor: posição, tipo de início, página e colunas. */
+  getSection(): SectionInfo | null {
+    const m = this.bodyModel();
+    if (!m) return null;
+    const para = this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
+    const k = sectionIndexAt(m, para);
+    const sp = sectionSectPr(m, k);
+    return {
+      index: k,
+      count: sectionRanges(m).length,
+      type: sp.type ?? 'nextPage',
+      orientation: sp.pageWidthTwips > sp.pageHeightTwips ? 'landscape' : 'portrait',
+      pageWidthTwips: sp.pageWidthTwips, pageHeightTwips: sp.pageHeightTwips,
+      margins: { top: sp.marginTopTwips, right: sp.marginRightTwips, bottom: sp.marginBottomTwips, left: sp.marginLeftTwips },
+      columns: {
+        count: sp.cols?.count ?? 1,
+        spaceTwips: sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT,
+        sep: !!sp.cols?.sep,
+        equalWidth: !sp.cols?.widths,
+        widths: columnWidths(sp),
+        preset: columnsPresetOf(sp),
+        max: maxColumns(sp),
+        contentWidthTwips: contentWidth(sp),
+      },
+    };
   }
 
   undo(): void { this.popHistory(this.undoStack, this.redoStack); }
@@ -2615,11 +2840,13 @@ export class UniversalWriteElement extends HTMLElement {
     if (!this.model) throw new Error('no document');
     if (this.hfEdit) this.exitHeaderFooter(); // salva sempre a partir do corpo
     const pkg = this.pkg ?? DocxPackage.empty();
+    this.syncSections();
+    const sections = this.bodyState().sectionStarts.map((s) => s.section);
     // cabeçalhos/rodapés de TODAS as seções (refs únicas por path); a última
     // seção referencia no sectPr do body, as demais no pPr/sectPr (sectionBreak)
     const hfParts: HfPartInfo[] = [];
     const seenPath = new Set<string>();
-    for (const section of this.fullDoc?.sections ?? []) {
+    for (const section of sections) {
       for (const [kind, refs, set, blockSet] of [
         ['header', section.headerRefs, section.headers, section.headerBlocks],
         ['footer', section.footerRefs, section.footers, section.footerBlocks],
@@ -2639,7 +2866,7 @@ export class UniversalWriteElement extends HTMLElement {
       }
     }
     // refs do body = última seção (as outras vão nos sectionBreak dos parágrafos)
-    const lastSec = this.fullDoc?.sections[this.fullDoc.sections.length - 1];
+    const lastSec = sections[sections.length - 1];
     const bodyParts = lastSec
       ? hfParts.filter((h) =>
           [...lastSec.headerRefs, ...lastSec.footerRefs].some((r) => r.path === h.path))
@@ -2658,9 +2885,7 @@ export class UniversalWriteElement extends HTMLElement {
     }
 
     // body sectPr = ÚLTIMA seção (paisagem do catálogo mora aqui)
-    const saveModel: DocumentModel = lastSec
-      ? { paragraphs: this.model.paragraphs, sectPr: lastSec.sectPr }
-      : this.model;
+    const saveModel: DocumentModel = { paragraphs: this.model.paragraphs, sectPr: lastSec?.sectPr ?? this.model.sectPr };
 
     writeDocument(pkg, saveModel, hfParts, {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : undefined,
@@ -2960,12 +3185,10 @@ export class UniversalWriteElement extends HTMLElement {
     return JSON.stringify({
       m: this.model,
       s: this.selection,
-      // sectPrs das seções (margens/orientação) — fora do model, mas undoáveis
-      sect: this.sectionStarts.map((ss) => ({ ...ss.section.sectPr })),
-      // âncoras de tabela/seção e indicadores (deslocados por Enter/Backspace)
+      // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
+      // seções (sectPr, refs) moram no modelo e voltam com ele
       anc: this.cellEdit || this.hfEdit || this.tbEdit ? undefined : {
         t: this.tableAnchors.map((a) => a.beforePara),
-        s: this.sectionStarts.map((x) => x.startPara),
         b: [...this.bookmarkParas],
       },
     }, (key, value) => {
@@ -2984,8 +3207,7 @@ export class UniversalWriteElement extends HTMLElement {
   private parseState(json: string): {
     m: DocumentModel;
     s: { anchor: DocPosition; focus: DocPosition };
-    sect?: DocumentModel['sectPr'][];
-    anc?: { t: number[]; s: number[]; b: [string, number][] };
+    anc?: { t: number[]; b: [string, number][] };
   } {
     return JSON.parse(json, (key, value) =>
       value && typeof value === 'object' && '__imgPool' in value
@@ -3029,14 +3251,7 @@ export class UniversalWriteElement extends HTMLElement {
     // não pode deixar a tabela um parágrafo abaixo)
     if (state.anc && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
       state.anc.t.forEach((v, i) => { const a = this.tableAnchors[i]; if (a) a.beforePara = v; });
-      state.anc.s.forEach((v, i) => { const s = this.sectionStarts[i]; if (s) s.startPara = v; });
       this.bookmarkParas = new Map(state.anc.b);
-    }
-    if (state.sect) {
-      state.sect.forEach((sp, i) => {
-        const target = this.sectionStarts[i]?.section.sectPr;
-        if (target) Object.assign(target, sp);
-      });
     }
     this.refresh();
   }
@@ -3096,10 +3311,21 @@ export class UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos, focus: pos };
     } else {
       const { para, offset } = this.selection.focus;
+      const prev = para > 0 ? this.model.paragraphs[para - 1]! : null;
       if (offset > 0) {
         const pos = deleteRange(this.model, {
           start: { para, offset: offset - 1 }, end: { para, offset },
         });
+        this.selection = { anchor: pos, focus: pos };
+      } else if (prev?.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
+        // logo depois de uma quebra de seção o Word NÃO a apaga: pula a marca e
+        // apaga o caractere antes dela — o fim do parágrafo da quebra, ou (vazio)
+        // a marca do parágrafo anterior, que se funde a ele (oráculo bs-same, del-break-backspace)
+        const len = paraLength(prev);
+        let pos: DocPosition;
+        if (len > 0) pos = deleteRange(this.model, { start: { para: para - 1, offset: len - 1 }, end: { para: para - 1, offset: len } });
+        else if (para > 1) { pos = mergeWithPrevious(this.model, para - 1); this.shiftAnchors(para - 2, -1); }
+        else pos = { para: para - 1, offset: 0 };
         this.selection = { anchor: pos, focus: pos };
       } else if (para > 0) {
         const pos = mergeWithPrevious(this.model, para);
@@ -3649,8 +3875,8 @@ export class UniversalWriteElement extends HTMLElement {
         ArrowDown: () => this.moveCaret('down', e.shiftKey),
         Home: () => this.moveCaret('home', e.shiftKey),
         End: () => this.moveCaret('end', e.shiftKey),
-        // Ctrl+Enter = quebra de página (como no app de referência)
-        Enter: () => (ctrl ? this.type('\f') : this.pressEnter()),
+        // Ctrl+Enter = quebra de página; Ctrl+Shift+Enter = quebra de coluna (como no app de referência)
+        Enter: () => (ctrl && e.shiftKey ? this.insertColumnBreak() : ctrl ? this.type('\f') : this.pressEnter()),
         Backspace: () => this.pressBackspace(),
         Delete: () => this.pressDelete(),
       };
@@ -3859,6 +4085,137 @@ export class UniversalWriteElement extends HTMLElement {
   sectPrAt(sectionIdx: number) {
     const s = this.sectionStarts[sectionIdx]?.section.sectPr;
     return s ?? this.model!.sectPr;
+  }
+
+  // ───────────────── seções derivadas do modelo ─────────────────
+
+  private resetSections(): void {
+    this.sectionStarts = [];
+    this.sectionProps = new Map([[0, undefined]]);
+    this.nextSectionId = 1;
+    this.hfParts = new Map();
+    this.sectionEff = new Map();
+    this.lastSectionIds = [];
+    this.lastSectionRefs = new Map();
+  }
+
+  /** Cabeçalho/rodapé que a edição criou (ou cujo conteúdo faltava): a parte
+   *  entra no índice e a ref, nas refs da seção no modelo do corpo. */
+  private registerHfPart(sec: Section, kind: 'header' | 'footer', ref: import('@universal-office/docx-core').HfRef, paras: Paragraph[]): void {
+    const key = `${kind}:${ref.rid}`;
+    const cur = this.hfParts.get(key);
+    if (cur) cur.paras = paras; else this.hfParts.set(key, { path: ref.path, paras });
+    const id = this.sectionIds.get(sec);
+    const m = this.model;
+    if (id === undefined || !m) return;
+    const holder: SectionRefs | undefined = id === 0
+      ? (m.bodyRefs ??= { headerRefs: [], footerRefs: [] })
+      : m.paragraphs.find((p) => p.props.sectionBreak?.id === id)?.props.sectionBreak;
+    if (!holder) return;
+    if (kind === 'header') { if (!holder.headerRefs.some((r) => r.rid === ref.rid)) holder.headerRefs.push({ kind, type: ref.type, rid: ref.rid }); }
+    else if (!holder.footerRefs.some((r) => r.rid === ref.rid)) holder.footerRefs.push({ kind, type: ref.type, rid: ref.rid });
+  }
+
+  /** Registra as partes de cabeçalho/rodapé de uma seção lida (conteúdo por rId). */
+  private indexHfParts(s: Section): void {
+    for (const [kind, refs, set, blocks] of [
+      ['header', s.headerRefs, s.headers, s.headerBlocks],
+      ['footer', s.footerRefs, s.footers, s.footerBlocks],
+    ] as const) {
+      for (const r of refs) {
+        const key = `${kind}:${r.rid}`;
+        if (this.hfParts.has(key)) continue;
+        this.hfParts.set(key, { path: r.path, ...(set[r.type] ? { paras: set[r.type] } : {}), ...(blocks?.[r.type] ? { blocks: blocks[r.type] } : {}) });
+      }
+    }
+  }
+
+  /**
+   * Refaz as seções a partir do MODELO do corpo (fonte única): cada parágrafo
+   * com sectionBreak encerra uma; a última é model.sectPr. A quebra que sumiu
+   * numa edição passa as refs de cabeçalho/rodapé para a seção que agora cobre o
+   * texto dela, nos tipos que ela não define (o Word mantém o cabeçalho).
+   */
+  private syncSections(): void {
+    const m = this.model;
+    if (!m || this.hfEdit || this.tbEdit || this.cellEdit) return;
+    const breaks: { pi: number; sb: SectionBreak }[] = [];
+    const seen = new Set<number>();
+    m.paragraphs.forEach((p, pi) => {
+      const sb = p.props.sectionBreak;
+      if (!sb) return;
+      // quebra sem registro (ou id repetido): props da seção seguinte, como o Word
+      if (sb.id === undefined || !this.sectionProps.has(sb.id) || seen.has(sb.id)) {
+        const id = this.nextSectionId++;
+        this.sectionProps.set(id, this.sectionProps.get(0));
+        p.props = { ...p.props, sectionBreak: { ...sb, id } };
+      }
+      seen.add(p.props.sectionBreak!.id!);
+      breaks.push({ pi, sb: p.props.sectionBreak! });
+    });
+    const ids = [...breaks.map((b) => b.sb.id!), 0];
+    const holder = (id: number): SectionRefs => id === 0
+      ? (m.bodyRefs ??= { headerRefs: [], footerRefs: [] })
+      : breaks.find((b) => b.sb.id === id)!.sb;
+    const prev = this.lastSectionIds;
+    prev.forEach((x, k) => {
+      if (ids.includes(x)) return;
+      const gone = this.lastSectionRefs.get(x);
+      if (!gone || (!gone.headerRefs.length && !gone.footerRefs.length)) return;
+      const y = prev.slice(k + 1).find((id) => ids.includes(id)) ?? 0;
+      const h = holder(y);
+      for (const r of gone.headerRefs) if (!h.headerRefs.some((t) => t.type === r.type)) h.headerRefs.push({ ...r });
+      for (const r of gone.footerRefs) if (!h.footerRefs.some((t) => t.type === r.type)) h.footerRefs.push({ ...r });
+    });
+    const starts: { startPara: number; section: Section }[] = [];
+    let start = 0;
+    for (const b of breaks) {
+      starts.push({ startPara: start, section: this.effectiveSection(b.sb.id!, b.sb.sectPr, b.sb) });
+      start = b.pi + 1;
+    }
+    starts.push({ startPara: start, section: this.effectiveSection(0, m.sectPr, m.bodyRefs) });
+    this.sectionStarts = starts;
+    if (this.fullDoc) this.fullDoc.sections = starts.map((s) => s.section);
+    this.lastSectionIds = ids;
+    this.lastSectionRefs = new Map(ids.map((id) => {
+      const r = id === 0 ? m.bodyRefs : breaks.find((b) => b.sb.id === id)!.sb;
+      return [id, { headerRefs: [...(r?.headerRefs ?? [])], footerRefs: [...(r?.footerRefs ?? [])] }];
+    }));
+  }
+
+  /** Seção como o motor e a pintura a usam: geometria do modelo, props do
+   *  sectPr guardadas (tipo e colunas do modelo valem) e cabeçalhos/rodapés das
+   *  refs da seção no modelo. */
+  private effectiveSection(id: number, sp: SectPr, refs: SectionRefs | undefined): Section {
+    const props = this.sectionProps.get(id);
+    const key = JSON.stringify([refs?.headerRefs ?? null, refs?.footerRefs ?? null, sp.type ?? '', sp.cols ?? null]);
+    const c = this.sectionEff.get(id);
+    if (c && c.sp === sp && c.key === key && c.props === props) return c.sec;
+    const sect: import('@universal-office/docx-core').SectionProps = { ...(props ?? { type: 'nextPage' }), type: sp.type ?? 'nextPage' };
+    if (sp.cols?.widths) {
+      sect.colDefs = sp.cols.widths.map((w) => ({ w: w.widthTwips, space: w.spaceTwips }));
+      sect.equalWidth = false;
+    } else {
+      delete sect.colDefs;
+      delete sect.equalWidth;
+    }
+    const sec: Section = {
+      sectPr: sp, sect, blockStart: 0, blockEnd: 0,
+      headers: {}, footers: {}, headerBlocks: {}, footerBlocks: {}, headerRefs: [], footerRefs: [],
+    };
+    for (const [kind, list] of [['header', refs?.headerRefs ?? []], ['footer', refs?.footerRefs ?? []]] as const) {
+      for (const r of list) {
+        const part = this.hfParts.get(`${kind}:${r.rid}`);
+        if (!part) continue;
+        const type = r.type as 'default' | 'first' | 'even';
+        (kind === 'header' ? sec.headerRefs : sec.footerRefs).push({ type, rid: r.rid, path: part.path });
+        if (part.paras) (kind === 'header' ? sec.headers : sec.footers)[type] = part.paras;
+        if (part.blocks) (kind === 'header' ? sec.headerBlocks! : sec.footerBlocks!)[type] = part.blocks;
+      }
+    }
+    this.sectionEff.set(id, { sp, key, props, sec });
+    this.sectionIds.set(sec, id);
+    return sec;
   }
 
   /** Layout do modo de edição de HF: PRESERVA a paginação do corpo (mesmo
@@ -4124,6 +4481,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   private layout(): void {
     if (!this.model || !this.fonts) return;
+    this.syncSections();
     // visão de impressão: o motor de layout do Word (o mesmo do PDF) —
     // incremental quando a edição ficou num parágrafo/tabela, senão completo
     if (this.engineActive()) {
@@ -6087,8 +6445,11 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.showMarks && this.model) {
       ctx.fillStyle = this.pageDark ? '#9aa0a6' : '#888';
       ctx.textAlign = 'center';
+      const body = !this.cellEdit && !this.hfEdit && !this.tbEdit;
+      const secOf = (k: number): number => (body ? this.sectionIndexForPara(k) : this.pageSections[pg] ?? 0);
       this.layoutCache.forEach((pl, pi) => {
-        const text = paraText(this.model!.paragraphs[pi]!);
+        const para = this.model!.paragraphs[pi]!;
+        const text = paraText(para);
         pl.lines.forEach((line, li) => {
           if (line.page !== pg || !line.eng) return;
           const fs = Math.max(160, line.heightTwips * 0.6);
@@ -6098,10 +6459,36 @@ export class UniversalWriteElement extends HTMLElement {
             if (ch === ' ' || ch === '\u00A0') ctx.fillText(ch === ' ' ? '·' : '°', c.x + c.w / 2, line.baselineTwips);
             else if (ch === '\t') ctx.fillText('→', c.x + c.w / 2, line.baselineTwips);
           }
+          // quebra de página/coluna no meio do parágrafo: do fim do texto até a
+          // margem (no início do parágrafo ela sai depois do ¶ do anterior)
+          for (let o = Math.max(1, line.rich.start); o < Math.min(line.rich.end, text.length); o++) {
+            const ch = text[o];
+            if (ch !== '\f' && ch !== '\u000B') continue;
+            const bx = this.caretX({ para: pi, offset: o }, line);
+            this.paintBreakMark(ctx, bx, this.columnRightAt(secOf(pi), bx), line.baselineTwips, fs, ch === '\f' ? 'page' : 'column', false);
+          }
           if (li === pl.lines.length - 1) {
             ctx.textAlign = 'left';
-            const x = this.caretX({ para: pi, offset: paraLength(this.model!.paragraphs[pi]!) }, line);
-            ctx.fillText('¶', x + 20, line.baselineTwips);
+            const x = this.caretX({ para: pi, offset: paraLength(para) }, line);
+            // marca do parágrafo que encerra a seção: a quebra, com o tipo da seção seguinte
+            const nextType = (k: number): SectionType => this.sectionStarts[this.sectionIndexForPara(k) + 1]?.section.sectPr.type ?? 'nextPage';
+            if (body && para.props.sectionBreak) {
+              this.paintBreakMark(ctx, x + 20, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, nextType(pi), true);
+            } else {
+              ctx.fillText('¶', x + 20, line.baselineTwips);
+              // o parágrafo VAZIO seguinte só carrega a quebra (seção contínua: não
+              // ocupa linha no layout) — a marca dele vem depois deste ¶
+              const nx = this.model!.paragraphs[pi + 1];
+              const x0 = x + 20 + ctx.measureText('¶').width + 60;
+              if (body && nx?.props.sectionBreak && !this.layoutCache[pi + 1]?.lines.length) {
+                this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, nextType(pi + 1), true);
+              } else {
+                // o seguinte abre com quebra de página/coluna (como o Word a insere):
+                // a quebra fica no fim desta coluna/página, onde o texto terminou
+                const c0 = nx ? paraText(nx)[0] : undefined;
+                if (c0 === '\f' || c0 === '\u000B') this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, c0 === '\f' ? 'page' : 'column', false);
+              }
+            }
             ctx.textAlign = 'center';
           }
         });
@@ -6132,6 +6519,45 @@ export class UniversalWriteElement extends HTMLElement {
         ctx.fillRect(x1, el.line.y, x2 - x1, el.line.height);
       }
     }
+  }
+
+  /** Marca de quebra com "mostrar marcas": linha pontilhada (dupla na de seção)
+   *  até o fim da coluna com o nome no meio — adorno de tela (não vai ao PDF). */
+  private paintBreakMark(ctx: CanvasRenderingContext2D, x0: number, x1: number, baseline: number, fs: number, kind: SectionType | 'page' | 'column', double: boolean): void {
+    const L = pickLabels(this, BREAK_MARK_LABELS);
+    const label = kind === 'page' ? L.page : kind === 'column' ? L.column : `${L.section} (${L[kind]})`;
+    const right = Math.max(x1, x0 + 600);
+    ctx.save();
+    ctx.font = `400 ${fs * 0.8}px ${DEFAULT_FONT_CSS}`;
+    ctx.textAlign = 'center';
+    const tw = ctx.measureText(label).width + 120;
+    const mid = (x0 + right) / 2;
+    const y = baseline - fs * 0.3;
+    ctx.strokeStyle = ctx.fillStyle as string;
+    ctx.lineWidth = 8;
+    ctx.setLineDash([16, 24]);
+    for (const dy of double ? [-14, 14] : [0]) {
+      ctx.beginPath();
+      if (tw < right - x0) {
+        ctx.moveTo(x0, y + dy); ctx.lineTo(mid - tw / 2, y + dy);
+        ctx.moveTo(mid + tw / 2, y + dy); ctx.lineTo(right, y + dy);
+      } else { ctx.moveTo(x0, y + dy); ctx.lineTo(right, y + dy); }
+      ctx.stroke();
+    }
+    if (tw < right - x0) ctx.fillText(label, mid, baseline);
+    ctx.restore();
+  }
+
+  /** Borda direita da coluna (da seção) em que está x. */
+  private columnRightAt(sectionIdx: number, x: number): number {
+    const sp = this.sectPrAt(sectionIdx);
+    const left = sp.marginLeftTwips;
+    const frames = columnWidths(sp).map((c, i, all) => {
+      const x0 = left + all.slice(0, i).reduce((a, w) => a + w.widthTwips + w.spaceTwips, 0);
+      return { x0, x1: x0 + c.widthTwips };
+    });
+    const f = frames.find((r) => x <= r.x1 + 30) ?? frames[frames.length - 1]!;
+    return f.x1;
   }
 
   // ───────────────────────── revisão ortográfica ─────────────────────────

@@ -165,7 +165,8 @@ and **Add to Dictionary** (kept in `localStorage`). **Tools › Spelling & gramm
 | Paragraphs | `applyStyle(styleId)`, `paragraphStyles()`, `setAlignment('left' \| 'center' \| 'right' \| 'both')`, `toggleList('bullet' \| 'decimal')`, `indent(±1)`, `setLineSpacing(line)`, `setSpaceBefore(twips)`, `setSpaceAfter(twips)`, `setSpecialIndent(...)`, `setIndentRight(twips)`, `setShading(hex)`, `toggleBorder()` |
 | Format painter | `copyFormat()`, `painterActive()` |
 | Insert | `insertImage(bytes, ext)`, `insertPageBreak()`, `insertField('PAGE' \| 'NUMPAGES' \| 'DATE')`, `updateToc()` |
-| Page | `setPageSetup({ orientation, size: 'A4' \| 'Letter', margins: 'normal' \| 'narrow' \| 'wide', customMargins })` |
+| Page | `setPageSetup({ orientation, size: 'A4' \| 'Letter', margins: 'normal' \| 'narrow' \| 'wide', customMargins, applyTo })` — for the section(s) the selection touches; `applyTo`: `'section'` (default) · `'document'` · `'forward'` (next-page section break at the caret) · `'selection'` (breaks before and after the selection). Changing the orientation rotates the margins. |
+| Sections and columns | `insertSectionBreak('nextPage' \| 'continuous' \| 'evenPage' \| 'oddPage' \| 'nextColumn')` (splits the paragraph; the new section before the caret copies the current one and takes its headers/footers), `insertColumnBreak()`, `setColumns('one' \| 'two' \| 'three' \| 'left' \| 'right')` (with selected text, only for it) or `setColumns({ count, spaceTwips, widths, sep, applyTo, startNewColumn })`, `getSection()` → `{ index, count, type, orientation, margins, columns }` |
 | Edit | `undo()`, `redo()`, `cut()`, `copy()`, `paste()`, `pastePlain()`, `pasteText(text)`, `selectAll()`, `selectedText()` |
 | Find | `findNext(text)`, `replaceAll(text, replacement)` (case-insensitive) |
 | Spelling | `spellCheckEnabled()`, `toggleSpellCheck(on?)`, `spellingAtCaret()`, `spellingSuggestions(m)`, `replaceSpelling(m, text)`, `ignoreSpelling(word)`, `addToDictionary(word)`, `nextMisspelling()` |
@@ -253,7 +254,7 @@ Type `@` to open the suggestions (only when `source` is given).
 
 Ctrl/⌘ + B · I · U (format), Z · Y (undo, redo), A (select all), E · L · R · J
 (alignment), C · X · V (clipboard), Shift+V (paste plain text), Enter (page
-break), ← → (word), Home · End (document). With `topbar`, also O (open), S ·
+break), Shift+Enter (column break), ← → (word), Home · End (document). With `topbar`, also O (open), S ·
 Shift+S (save, save as), P (print), F · H (find, replace), K (link), D (font
 dialog), ] · [ (font size), F7 (spelling), Alt+M (comment), Shift+8 (formatting marks), / (shortcuts). Tab / Shift+Tab move between table
 cells and list levels. Ctrl+wheel zooms; Ctrl+click follows a link;

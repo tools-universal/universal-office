@@ -132,3 +132,10 @@ visibility
 web_asset
 zoom_in
 zoom_out
+view_column_2
+splitscreen_left
+splitscreen_right
+horizontal_split
+looks_one
+looks_two
+view_week

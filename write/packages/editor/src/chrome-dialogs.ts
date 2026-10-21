@@ -3,7 +3,7 @@
 // atalhos e sobre. Todos sobre o openDialog de @universal-office/ui (<dialog>
 // nativo — sem a trava de animação do u-dialog).
 import { openDialog, pickLabels, promptDialog, type UiLang } from '@universal-office/ui';
-import type { UniversalWriteElement } from './universal-write.js';
+import type { SectionApplyTo, UniversalWriteElement } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
 
 type Env = { ed: UniversalWriteElement; app: WriteApp; layer: HTMLElement; lang: UiLang; state: () => ReturnType<UniversalWriteElement['getSelectionState']> };
@@ -115,29 +115,198 @@ export async function paragraphDialog(env: Env): Promise<void> {
   ed.setLineSpacing(Number(line.value));
 }
 
+/** "Aplicar a" dos diálogos de página e colunas (texto selecionado só com seleção). */
+const applyToSelect = (lang: UiLang, hasSel: boolean, value: SectionApplyTo): HTMLSelectElement => select('applyTo', [
+  ['section', tr(lang, 'This section', 'Esta seção')],
+  ['forward', tr(lang, 'This point forward', 'Deste ponto em diante')],
+  ['document', tr(lang, 'Whole document', 'No documento inteiro')],
+  ...(hasSel ? [['selection', tr(lang, 'Selected text', 'Texto selecionado')] as const] : []),
+], value);
+
 export async function pageDialog(env: Env): Promise<void> {
   const L = env.app.ui!.L, lang = env.lang;
   const orient = select('orientation', [['portrait', tr(lang, 'Portrait', 'Retrato')], ['landscape', tr(lang, 'Landscape', 'Paisagem')]], 'portrait');
   const size = select('size', [['A4', 'A4'], ['Letter', tr(lang, 'Letter', 'Carta')]], 'A4');
   const margins = select('margins', [['normal', 'Normal'], ['narrow', tr(lang, 'Narrow', 'Estreita')], ['wide', tr(lang, 'Wide', 'Larga')]], 'normal');
-  // estado atual pela geometria da 1ª seção; margens pelo preset mais próximo
-  try {
-    const s = env.ed.sectPrAt(0);
-    const w = s.pageWidthTwips, hgt = s.pageHeightTwips;
-    orient.value = w > hgt ? 'landscape' : 'portrait';
-    size.value = Math.abs(Math.min(w, hgt) - 12240) < 60 ? 'Letter' : 'A4';
-    const m = s.marginLeftTwips;
+  // estado atual pela seção do cursor; margens pelo preset mais próximo
+  const s = env.ed.getSection();
+  if (s) {
+    orient.value = s.orientation;
+    size.value = Math.abs(Math.min(s.pageWidthTwips, s.pageHeightTwips) - 12240) < 60 ? 'Letter' : 'A4';
+    const m = s.orientation === 'landscape' ? s.margins.top : s.margins.left;
     margins.value = m < 1000 ? 'narrow' : m > 2200 ? 'wide' : 'normal';
-  } catch { /* sem documento */ }
+  }
+  const start = { orientation: orient.value, size: size.value, margins: margins.value };
+  const applyTo = applyToSelect(lang, env.ed.selectedText().length > 0, 'section');
   const grid = el('div', { className: 'uo-dialog-grid' },
-    el('span', {}, L.orientation), orient, el('span', {}, L.paper), size, el('span', {}, L.margins), margins);
-  const h = openDialog({ title: L.pageDlg, body: grid, layer: env.layer, lang, width: 380,
+    el('span', {}, L.orientation), orient, el('span', {}, L.paper), size, el('span', {}, L.margins), margins,
+    el('span', {}, tr(lang, 'Apply to', 'Aplicar a')), applyTo);
+  const h = openDialog({ title: L.pageDlg, body: grid, layer: env.layer, lang, width: 400,
     actions: [{ id: 'cancel', label: L.cancel }, { id: 'ok', label: L.apply, primary: true }] });
   if ((await h.result) !== 'ok') return;
+  // na seção do cursor só o que mudou; fora dela (deste ponto, documento, seleção) tudo vale
+  const all = applyTo.value !== 'section';
   env.ed.setPageSetup({
-    orientation: orient.value as 'portrait' | 'landscape',
-    size: size.value as 'A4' | 'Letter',
-    margins: margins.value as 'normal' | 'narrow' | 'wide',
+    ...(all || orient.value !== start.orientation ? { orientation: orient.value as 'portrait' | 'landscape' } : {}),
+    ...(all || size.value !== start.size ? { size: size.value as 'A4' | 'Letter' } : {}),
+    ...(all || margins.value !== start.margins ? { margins: margins.value as 'normal' | 'narrow' | 'wide' } : {}),
+    applyTo: applyTo.value as SectionApplyTo,
+  });
+}
+
+/**
+ * Mais Colunas: predefinições, número, largura e espaçamento de cada coluna,
+ * mesma largura, linha entre colunas, "Aplicar a" e iniciar nova coluna (com
+ * "deste ponto em diante" a seção nova começa na próxima coluna). Medidas em
+ * cm (pt) ou polegadas (en), como a régua.
+ */
+export async function columnsDialog(env: Env): Promise<void> {
+  const lang = env.lang, ed = env.ed;
+  const s = ed.getSection();
+  if (!s) return;
+  const W = s.columns.contentWidthTwips;
+  const unit = lang === 'pt' ? { tw: 1440 / 2.54, name: 'cm', step: '0.01' } : { tw: 1440, name: '"', step: '0.01' };
+  const fmt = (tw: number): string => String(Math.round((tw / unit.tw) * 100) / 100);
+  const parse = (v: string): number => Math.round(parseFloat(v.replace(',', '.')) * unit.tw);
+  const MIN = 720;
+  const st = {
+    count: s.columns.count, equal: s.columns.equalWidth, sep: s.columns.sep,
+    widths: s.columns.widths.map((w) => ({ ...w })),
+    space: s.columns.count > 1 ? s.columns.spaceTwips : 708,
+  };
+  /** colunas iguais com o espaço pedido (o espaço encolhe se a largura passaria do mínimo) */
+  const equalize = (): void => {
+    const n = st.count;
+    if ((W - st.space * (n - 1)) / n < MIN) st.space = n > 1 ? Math.max(0, Math.floor((W - n * MIN) / (n - 1))) : st.space;
+    const w = Math.round((W - st.space * (n - 1)) / n);
+    st.widths = Array.from({ length: n }, (_, i) => ({ widthTwips: w, spaceTwips: i < n - 1 ? st.space : 0 }));
+  };
+  const presets = el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' });
+  const PRESETS = [['one', 'One', 'Uma', 1], ['two', 'Two', 'Duas', 2], ['three', 'Three', 'Três', 3], ['left', 'Left', 'Esquerda', 2], ['right', 'Right', 'Direita', 2]] as const;
+  const presetBtns = PRESETS.map(([id, en, pt, n]) => {
+    const b = el('button', { type: 'button', textContent: tr(lang, en, pt), style: 'min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit' });
+    b.addEventListener('click', () => {
+      st.count = n;
+      if (id === 'left' || id === 'right') {
+        const narrow = Math.round((W - 2 * st.space) / 3), wide = W - narrow - st.space;
+        const ws = id === 'left' ? [narrow, wide] : [wide, narrow];
+        st.equal = false;
+        st.widths = ws.map((w, i) => ({ widthTwips: w, spaceTwips: i === 0 ? st.space : 0 }));
+      } else { st.equal = true; equalize(); }
+      render();
+    });
+    presets.append(b);
+    return [id, b] as const;
+  });
+  const count = el('input', { type: 'number', name: 'count', min: '1', max: String(s.columns.max), step: '1', value: String(st.count), style: 'width:72px' });
+  const sep = check('sep', tr(lang, 'Line between', 'Linha entre colunas'), st.sep);
+  const equal = check('equal', tr(lang, 'Equal column width', 'Colunas de mesma largura'), st.equal);
+  const rows = el('div', { style: 'display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center' });
+  const applyTo = applyToSelect(lang, ed.selectedText().length > 0, 'section');
+  const newCol = check('newCol', tr(lang, 'Start new column', 'Iniciar nova coluna'), false);
+  const preview = el('div', { style: 'display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0' });
+  const box = (k: string): HTMLInputElement => (k === 'sep' ? sep : k === 'equal' ? equal : newCol).querySelector('input')!;
+
+  function render(): void {
+    count.value = String(st.count);
+    box('equal').checked = st.equal;
+    box('equal').disabled = st.count < 2;
+    box('sep').disabled = st.count < 2;
+    box('newCol').disabled = applyTo.value !== 'forward';
+    if (box('newCol').disabled) box('newCol').checked = false;
+    for (const [id, b] of presetBtns) {
+      const on = id === 'one' ? st.count === 1
+        : id === 'two' || id === 'three' ? st.equal && st.count === (id === 'two' ? 2 : 3)
+        : !st.equal && st.count === 2 && Math.abs(st.widths[0]!.widthTwips - st.widths[1]!.widthTwips) > 40
+          && (id === 'left') === (st.widths[0]!.widthTwips < st.widths[1]!.widthTwips);
+      b.style.background = on ? 'var(--uo-accent-soft, rgba(26,115,232,.14))' : 'transparent';
+      b.setAttribute('aria-pressed', String(on));
+    }
+    rows.replaceChildren(el('strong', {}, '#'), el('strong', {}, tr(lang, 'Width', 'Largura')), el('strong', {}, tr(lang, 'Spacing', 'Espaçamento')));
+    st.widths.slice(0, Math.max(1, st.count)).forEach((c, i) => {
+      const last = i === st.count - 1;
+      const wIn = el('input', { type: 'number', step: unit.step, min: '0', value: fmt(c.widthTwips), disabled: st.count < 2 || (st.equal && i > 0), style: 'width:96px' });
+      const sIn = el('input', { type: 'number', step: unit.step, min: '0', value: last ? '' : fmt(c.spaceTwips), disabled: last || st.count < 2 || (st.equal && i > 0), style: 'width:96px' });
+      wIn.setAttribute('aria-label', `${tr(lang, 'Width', 'Largura')} ${i + 1}`);
+      sIn.setAttribute('aria-label', `${tr(lang, 'Spacing', 'Espaçamento')} ${i + 1}`);
+      wIn.addEventListener('change', () => setWidth(i, parse(wIn.value)));
+      sIn.addEventListener('change', () => setSpace(i, parse(sIn.value)));
+      rows.append(el('span', {}, `${i + 1}:`), el('span', { style: 'display:flex;gap:4px;align-items:center' }, wIn, unit.name), el('span', { style: 'display:flex;gap:4px;align-items:center' }, sIn, last ? '' : unit.name));
+    });
+    preview.replaceChildren(...st.widths.slice(0, Math.max(1, st.count)).flatMap((c, i) => {
+      const col = el('div', { style: `flex:${c.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
+      if (i === st.count - 1) return [col];
+      const gap = el('div', { style: `flex:${Math.max(1, c.spaceTwips)} 0 0;display:flex;justify-content:center` });
+      if (box('sep').checked) gap.append(el('div', { style: 'width:1px;background:currentColor' }));
+      return [col, gap];
+    }));
+  }
+  /** mesma largura: largura ⇄ espaço; desiguais: a coluna seguinte (ou a anterior) compensa */
+  function setWidth(i: number, w: number): void {
+    if (!(w > 0)) { render(); return; }
+    if (st.equal) {
+      const n = st.count;
+      const ww = Math.max(MIN, Math.min(w, Math.floor(W / n)));
+      st.space = n > 1 ? Math.max(0, Math.floor((W - n * ww) / (n - 1))) : 0;
+      st.widths = st.widths.map((c, k) => ({ widthTwips: ww, spaceTwips: k < n - 1 ? st.space : 0 }));
+    } else {
+      const j = i < st.count - 1 ? i + 1 : i - 1;
+      const total = st.widths[i]!.widthTwips + st.widths[j]!.widthTwips;
+      const ww = Math.max(MIN, Math.min(w, total - MIN));
+      st.widths[i]!.widthTwips = ww;
+      st.widths[j]!.widthTwips = total - ww;
+    }
+    render();
+  }
+  function setSpace(i: number, sp: number): void {
+    if (!(sp >= 0)) { render(); return; }
+    if (st.equal) {
+      const n = st.count;
+      st.space = Math.min(sp, Math.floor((W - n * MIN) / Math.max(1, n - 1)));
+      equalize();
+    } else {
+      const j = i + 1;
+      const total = st.widths[i]!.spaceTwips + st.widths[j]!.widthTwips;
+      const ss = Math.max(0, Math.min(sp, total - MIN));
+      st.widths[i]!.spaceTwips = ss;
+      st.widths[j]!.widthTwips = total - ss;
+    }
+    render();
+  }
+  count.addEventListener('change', () => {
+    const n = Math.max(1, Math.min(s.columns.max, Math.round(Number(count.value) || 1)));
+    st.count = n;
+    if (n < 2) st.equal = true;
+    if (st.equal || st.widths.length !== n) { st.equal = true; equalize(); }
+    render();
+  });
+  box('equal').addEventListener('change', () => {
+    st.equal = box('equal').checked;
+    if (st.equal) { st.space = st.widths[0]?.spaceTwips || st.space; equalize(); }
+    render();
+  });
+  box('sep').addEventListener('change', () => { st.sep = box('sep').checked; render(); });
+  applyTo.addEventListener('change', render);
+  if (st.count < 2) { st.count = 1; equalize(); }
+  render();
+
+  const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' },
+    el('strong', {}, tr(lang, 'Presets', 'Predefinições')), presets,
+    el('div', { style: 'display:flex;gap:16px;align-items:center;flex-wrap:wrap' },
+      el('label', { style: 'display:flex;gap:8px;align-items:center' }, tr(lang, 'Number of columns', 'Número de colunas'), count), sep),
+    el('strong', {}, tr(lang, 'Width and spacing', 'Largura e espaçamento')), rows, equal,
+    el('div', { className: 'uo-dialog-grid' }, el('span', {}, tr(lang, 'Apply to', 'Aplicar a')), applyTo), newCol,
+    el('strong', {}, tr(lang, 'Preview', 'Visualização')), preview);
+  const h = openDialog({ title: tr(lang, 'Columns', 'Colunas'), icon: 'view_column_2', body, layer: env.layer, lang, width: 460,
+    actions: [{ id: 'cancel', label: env.app.ui!.L.cancel }, { id: 'ok', label: env.app.ui!.L.apply, primary: true }] });
+  if ((await h.result) !== 'ok') return;
+  ed.setColumns({
+    count: st.count,
+    spaceTwips: st.space,
+    ...(st.equal || st.count < 2 ? {} : { widths: st.widths.slice(0, st.count) }),
+    sep: st.sep,
+    applyTo: applyTo.value as SectionApplyTo,
+    startNewColumn: box('newCol').checked,
   });
 }
 
@@ -160,6 +329,7 @@ const SHORTCUTS: [string, string, string][] = [
   ['Ctrl+L / E / R / J', 'Align left / center / right / justify', 'Alinhar à esquerda / centralizar / à direita / justificar'],
   ['Ctrl+] / Ctrl+[', 'Increase / decrease font size', 'Aumentar / diminuir fonte'], ['Ctrl+K', 'Insert link', 'Inserir link'],
   ['Ctrl+Alt+M', 'New comment', 'Novo comentário'], ['Ctrl+Enter', 'Page break', 'Quebra de página'],
+  ['Ctrl+Shift+Enter', 'Column break', 'Quebra de coluna'],
   ['Ctrl+D', 'Font dialog', 'Diálogo Fonte'], ['Ctrl+Shift+8', 'Formatting marks', 'Marcas de formatação'],
   ['Ctrl+scroll', 'Zoom', 'Zoom'],
 ];
