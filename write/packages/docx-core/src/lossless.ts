@@ -281,6 +281,23 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
 
 export interface HfRefXml { kind: 'header' | 'footer'; type: string; rid: string }
 
+/**
+ * w:cols como o Word grava (oráculo tools/sections-lab): atributos na ordem num,
+ * sep="1", space, equalWidth="0" e uma w:col por coluna desigual. Uma coluna:
+ * o w:space (e a linha, se havia) do cru ficam, sem o número nem as larguras.
+ */
+export function colsXml(cols: SectPr['cols'], raw?: string): string {
+  if (cols && cols.count > 1) {
+    const head = `<w:cols w:num="${cols.count}"${cols.sep ? ' w:sep="1"' : ''} w:space="${cols.spaceTwips}"`;
+    if (!cols.widths?.length) return `${head}/>`;
+    return `${head} w:equalWidth="0">${cols.widths.map((c) => `<w:col w:w="${c.widthTwips}" w:space="${c.spaceTwips}"/>`).join('')}</w:cols>`;
+  }
+  const el = raw ? splitElement(raw).el : undefined;
+  const sep = el?.attrs['w:sep'];
+  const space = el?.attrs['w:space'] ?? '708';
+  return `<w:cols${sep && sep !== '0' && sep !== 'false' ? ' w:sep="1"' : ''} w:space="${esc(space)}"/>`;
+}
+
 /** w:sectPr cru com a geometria/refs atuais (só o que mudou é tocado). */
 export function patchSectPr(raw: string, cur: SectPr, refs: HfRefXml[] | undefined): string {
   const { open, close, kids, el } = splitElement(raw);
@@ -316,11 +333,10 @@ export function patchSectPr(raw: string, cur: SectPr, refs: HfRefXml[] | undefin
       ...(pgMar ? {} : { 'w:gutter': 0 }),
     }));
   }
-  if (!eq(cur.cols, base.cols)) {
-    set('w:cols', cur.cols
-      ? withAttrs(kidRaw(kids, 'w:cols'), 'w:cols', { 'w:num': cur.cols.count, 'w:space': cur.cols.spaceTwips, 'w:sep': cur.cols.sep ? 'true' : undefined })
-      : withAttrs(kidRaw(kids, 'w:cols'), 'w:cols', { 'w:num': undefined }));
+  if ((cur.type ?? 'nextPage') !== (base.type ?? 'nextPage')) {
+    set('w:type', cur.type && cur.type !== 'nextPage' ? `<w:type w:val="${cur.type}"/>` : null);
   }
+  if (!eq(cur.cols, base.cols)) set('w:cols', colsXml(cur.cols, kidRaw(kids, 'w:cols') || undefined));
   if (!!cur.titlePg !== !!base.titlePg) set('w:titlePg', cur.titlePg ? '<w:titlePg/>' : null);
   if (cur.pgNumStart !== base.pgNumStart) {
     set('w:pgNumType', withAttrs(kidRaw(kids, 'w:pgNumType'), 'w:pgNumType', { 'w:start': cur.pgNumStart }));

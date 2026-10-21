@@ -11,6 +11,7 @@ export {
   type ParaProps,
   type NumberingProps,
   type SectPr,
+  type SectionType,
   type InlineImage,
   type DrawingTextbox,
   type NoteRef,
@@ -68,6 +69,11 @@ export {
   type DocPosition,
   type DocRange,
 } from './model-ops.js';
+export {
+  sectionRanges, sectionIndexAt, sectionSectPr, sectionRefs, insertSectionBreak, columnsFor, presetColumns,
+  columnsPresetOf, columnWidths, contentWidth, maxColumns, setOrientation, COLUMN_SPACE_DEFAULT, COLUMN_MIN_WIDTH,
+  type SectionRange, type InsertSectionBreakOptions, type ColumnSpec, type ColumnPreset,
+} from './section-ops.js';
 export {
   serializeDocument,
   serializeBlocks,

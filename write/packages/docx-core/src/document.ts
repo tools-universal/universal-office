@@ -339,6 +339,12 @@ export interface ParaProps {
     sectPr: SectPr;
     headerRefs: { kind: 'header'; type: string; rid: string }[];
     footerRefs: { kind: 'footer'; type: string; rid: string }[];
+    /** quebra NOVA (do editor): o w:sectPr cru da seção de onde ela foi copiada —
+     *  o que o modelo não representa (grade, bordas de página, numeração de
+     *  linhas…) vai junto, como no Word (salvamento sem perdas) */
+    raw?: string;
+    /** chave da seção no editor (props do sectPr que o modelo não representa) — não vai para o XML */
+    id?: number;
   };
 }
 
@@ -380,6 +386,9 @@ export interface Paragraph {
   ppr?: PPr;
 }
 
+/** w:type — como a seção começa em relação à anterior (ausente = próxima página). */
+export type SectionType = 'nextPage' | 'continuous' | 'evenPage' | 'oddPage' | 'nextColumn';
+
 export interface SectPr {
   pageWidthTwips: number;
   pageHeightTwips: number;
@@ -387,6 +396,8 @@ export interface SectPr {
   marginRightTwips: number;
   marginTopTwips: number;
   marginBottomTwips: number;
+  /** w:type — início da seção; ausente = próxima página. */
+  type?: SectionType;
   /** w:cols — colunas de texto (>1 = layout em colunas). */
   cols?: {
     count: number;
@@ -394,6 +405,9 @@ export interface SectPr {
     spaceTwips: number;
     /** w:sep — linha separadora entre colunas. */
     sep: boolean;
+    /** w:equalWidth="0" + w:col: largura de cada coluna e o espaço DEPOIS dela
+     *  (ausente = colunas de mesma largura). */
+    widths?: { widthTwips: number; spaceTwips: number }[];
   };
   /** w:titlePg — a 1ª página usa header/footer "first". Sem isto, a 1ª
    *  página usa o header/footer default (regra do Word). */
@@ -409,7 +423,15 @@ export interface SectPr {
 
 export interface DocumentModel {
   paragraphs: Paragraph[];
+  /** geometria da ÚLTIMA seção (w:sectPr do corpo) — as outras moram no
+   *  sectionBreak do parágrafo que as encerra */
   sectPr: SectPr;
+  /** refs de cabeçalho/rodapé da última seção (no modelo para o desfazer
+   *  acompanhar as quebras de seção novas, que as levam para a seção de antes) */
+  bodyRefs?: {
+    headerRefs: { kind: 'header'; type: string; rid: string }[];
+    footerRefs: { kind: 'footer'; type: string; rid: string }[];
+  };
 }
 
 /** Props de EDIÇÃO (achatadas) derivadas da formatação direta tipada. É a
@@ -1690,6 +1712,8 @@ export function readSectPr(sectEl: XmlElement | undefined): SectPr {
     headerDistanceTwips: tw(pgMar, 'w:header', 720),
     footerDistanceTwips: tw(pgMar, 'w:footer', 720),
   };
+  const type = sectEl && firstChild(sectEl, 'w:type')?.attrs['w:val'];
+  if (type === 'continuous' || type === 'evenPage' || type === 'oddPage' || type === 'nextColumn') sect.type = type;
   const num = colsEl ? parseInt(colsEl.attrs['w:num'] ?? '1', 10) : 1;
   if (num > 1) {
     sect.cols = {
@@ -1697,6 +1721,15 @@ export function readSectPr(sectEl: XmlElement | undefined): SectPr {
       spaceTwips: parseInt(colsEl!.attrs['w:space'] ?? '720', 10),
       sep: colsEl!.attrs['w:sep'] === 'true' || colsEl!.attrs['w:sep'] === '1',
     };
+    // larguras próprias: só com w:equalWidth explícito em falso e uma w:col por coluna (como o motor)
+    const eq = colsEl!.attrs['w:equalWidth'];
+    const defs = childElements(colsEl!, 'w:col');
+    if ((eq === '0' || eq === 'false') && defs.length >= num) {
+      sect.cols.widths = defs.slice(0, num).map((c) => ({
+        widthTwips: parseInt(c.attrs['w:w'] ?? '0', 10) || 0,
+        spaceTwips: parseInt(c.attrs['w:space'] ?? '0', 10) || 0,
+      }));
+    }
   }
   const titlePg = sectEl && firstChild(sectEl, 'w:titlePg');
   if (titlePg && titlePg.attrs['w:val'] !== '0' && titlePg.attrs['w:val'] !== 'false') {

@@ -16,6 +16,7 @@
  */
 import type { Paragraph, Run } from './document.js';
 import type { TableBlock } from './fulldoc.js';
+import { splitElement } from './lossless.js';
 
 /** Filho de topo de um w:p (run, hyperlink, campo inteiro, indicador…) e os
  *  runs do modelo que ele produziu. Sem runs = marcador (bookmark, comentário,
@@ -177,6 +178,19 @@ export class SourceStore {
     }
     this.paraRefs = [];
     this.tableRefs = [];
+  }
+
+  /**
+   * w:sectPr cru de uma seção: o do parágrafo que a encerra (a quebra nova
+   * copiada leva o dela em sectionBreak.raw; senão o do pPr de origem) ou, sem
+   * parágrafo, o do corpo (última seção). Base da cópia que uma quebra de seção
+   * nova grava — o Word copia o sectPr inteiro (oráculo tools/sections-lab).
+   */
+  sectPrRaw(closing?: Paragraph): string | undefined {
+    if (!closing) return this.stories.get('word/document.xml')?.sectPr;
+    if (closing.props.sectionBreak?.raw) return closing.props.sectionBreak.raw;
+    const pPr = closing.props.src !== undefined ? this.paras.get(closing.props.src)?.pPr : undefined;
+    return pPr ? splitElement(pPr).kids.find((k) => k.name === 'w:sectPr')?.raw : undefined;
   }
 
   /** Parágrafo igual à linha de base (mesmos runs, mesmas props). */

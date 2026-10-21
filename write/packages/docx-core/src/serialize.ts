@@ -2,7 +2,7 @@ import { DocxPackage } from './package.js';
 import { EMU_PER_TWIP, type DocumentModel, type Paragraph, type Run, type SectPr, type BorderEdge } from './document.js';
 import type { TableBlock, TableBorders, Block } from './fulldoc.js';
 import { runSig, type SourceStore, type StorySource, type StoryGroup, type ParaSource, type SegSource } from './source.js';
-import { patchRPr, patchPPr, patchSectPr, pPrFromProps, rPrFromProps, splitElement, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
+import { patchRPr, patchPPr, patchSectPr, pPrFromProps, rPrFromProps, splitElement, colsXml, DEFAULT_NUM_IDS, type GenNumIds } from './lossless.js';
 
 /**
  * Grava o modelo em word/document.xml (e cabeçalhos/rodapés, numbering,
@@ -463,8 +463,15 @@ function paraSectPr(para: Paragraph, rawPPr: string | undefined): string | null 
   const rawSect = rawPPr ? splitElement(rawPPr).kids.find((k) => k.name === 'w:sectPr')?.raw : undefined;
   const sb = para.props.sectionBreak;
   if (!sb) return rawSect ? null : undefined;
+  return sectionBreakXml(sb, rawSect);
+}
+
+/** w:sectPr de uma quebra de seção: o cru do parágrafo (ou o da seção de onde a
+ *  quebra nova foi copiada — sb.raw) com as diferenças; sem cru, gerado. */
+function sectionBreakXml(sb: NonNullable<Paragraph['props']['sectionBreak']>, rawSect?: string): string {
   const refs = [...sb.headerRefs, ...sb.footerRefs];
-  return rawSect ? patchSectPr(rawSect, sb.sectPr, refs) : `<w:sectPr>${sectPrInner(sb.sectPr, refs)}</w:sectPr>`;
+  const base = rawSect ?? sb.raw;
+  return base ? patchSectPr(base, sb.sectPr, refs) : `<w:sectPr>${sectPrInner(sb.sectPr, refs)}</w:sectPr>`;
 }
 
 function paraXml(para: Paragraph): string {
@@ -480,9 +487,7 @@ function paraXmlRuns(para: Paragraph): string {
     const marks = commentMarks(para.runs, active?.store.commentIds);
     const items = para.runs.map((run, i) => ({ run, before: marks.before[i]!, after: marks.after[i]! }));
     if (!active) return paraXmlInner(para, items.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join(''));
-    const ppr = pPrFromProps(para.props, para.props.sectionBreak
-      ? `<w:sectPr>${sectPrInner(para.props.sectionBreak.sectPr, [...para.props.sectionBreak.headerRefs, ...para.props.sectionBreak.footerRefs])}</w:sectPr>`
-      : '', active.numIds);
+    const ppr = pPrFromProps(para.props, para.props.sectionBreak ? sectionBreakXml(para.props.sectionBreak) : '', active.numIds);
     if (ppr.genNumbering) active.genNumbering = true;
     return `<w:p>${ppr.xml}${genRuns(items)}</w:p>`;
   }
@@ -591,17 +596,16 @@ export function sectPrInner(s: SectPr, refs: HfRefXml[] = []): string {
     .map((h) => `<w:${h.kind}Reference w:type="${h.type}" r:id="${h.rid}"/>`)
     .join('');
   const orient = s.pageWidthTwips > s.pageHeightTwips ? ' w:orient="landscape"' : '';
-  const cols = s.cols
-    ? `<w:cols w:space="${s.cols.spaceTwips}" w:num="${s.cols.count}"` +
-      `${s.cols.sep ? ' w:sep="true"' : ''} w:equalWidth="true"/>`
-    : '';
+  // ordem do CT_SectPr: type, pgSz, pgMar, pgNumType, cols, titlePg
+  const type = s.type && s.type !== 'nextPage' ? `<w:type w:val="${s.type}"/>` : '';
+  const cols = s.cols ? colsXml(s.cols) : '';
   const titlePg = s.titlePg ? '<w:titlePg/>' : '';
   const pgNumType = s.pgNumStart !== undefined ? `<w:pgNumType w:start="${s.pgNumStart}"/>` : '';
   return (
-    `${refsXml}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/>` +
+    `${refsXml}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/>` +
     `<w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" ` +
     `w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" ` +
-    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${cols}${pgNumType}${titlePg}`
+    `w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgNumType}${cols}${titlePg}`
   );
 }
 
