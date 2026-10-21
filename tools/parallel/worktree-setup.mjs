@@ -15,7 +15,7 @@
 // commitam do worktree: quem junta na main recompila.
 // NUNCA apagar o worktree com rm -rf: as junções levam à cópia principal.
 // Desmontar com tools/parallel/worktree-teardown.mjs.
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { findNodeModules, EXTRA } from './nm.mjs';
@@ -86,7 +86,7 @@ const all = process.argv.includes('--build-all');
 if (all || process.argv.includes('--build')) {
   const run = (script) => {
     console.log(`> npm run ${script}`);
-    execFileSync('npm', ['run', script], { cwd: wt, stdio: 'inherit', shell: true, windowsHide: true });
+    execSync(`npm run ${script}`, { cwd: wt, stdio: 'inherit', windowsHide: true });
   };
   run('fonts:sync');
   for (const p of ['fonts', 'charts', 'ui', 'spell', 'write']) run(`build:${p}`);
