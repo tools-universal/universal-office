@@ -2,7 +2,7 @@
 // Inserir > Tabela, a guia contextual "Layout da Tabela", Formatar > Tabela e
 // o menu de contexto dentro de uma tabela. Só DECLARA sobre a API pública do
 // <universal-write>; comando cuja API não existe fica oculto (supports).
-import { symbol, colorGrid, themePaletteColors, parseThemePick, STANDARD_COLORS, type BarContext, type BarItem, type BarGroup, type Command, type CommandRegistry, type MenuEntry, type MenuItem, type RibbonCell } from '@universal-office/ui';
+import { pickLabels, symbol, colorGrid, themePaletteColors, parseThemePick, STANDARD_COLORS, type BarContext, type BarItem, type BarGroup, type Command, type CommandRegistry, type MenuEntry, type MenuItem, type RibbonCell } from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
 import type { ChromeCtl } from './chrome-commands.js';
@@ -81,6 +81,9 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
     // ── Dados ──
     t({ id: 'table:headerRows', label: L('Repeat Header Rows', 'Repetir Linhas de Cabeçalho'), icon: 'view_headline', supports: has('toggleRepeatHeaderRows'), run: () => ed.toggleRepeatHeaderRows(), isChecked: () => !!tbl()?.headerRow }),
     t({ id: 'table:toText', label: L('Convert to Text', 'Converter em Texto'), icon: 'text_snippet', supports: has('convertTableToText'), run: () => ctl.tableDialog('toText') }),
+    t({ id: 'table:formula', label: L('Formula', 'Fórmula'), tip: L('Formula (F9 updates)', 'Fórmula (F9 atualiza)'), icon: 'functions', supports: has('insertFormula'), run: () => ctl.tableDialog('formula'), isEnabled: () => !tbl()?.cells }),
+    { id: 'fields:update', label: L('Update Fields', 'Atualizar Campos'), icon: 'autorenew', shortcut: 'F9', supports: has('updateFields'), isEnabled: canEdit,
+      run: () => { if (!ed.updateFields()) ctl.flash(pickLabels(app.lang, L('No fields to update', 'Nenhum campo para atualizar'))); } },
     // ── Design da Tabela: Opções de Estilo ──
     ...LOOK.map(([id, key, en, pt]) => t({
       id: `table:look:${id}`, label: L(en, pt), icon: 'check_box_outline_blank', supports: has('setTableStyleOptions'),
@@ -401,7 +404,7 @@ export function tableLayoutGroups(env: WidgetEnv): BarGroup[] {
       alignGrid, big('cell:textdir'), big('cell:margins'),
     ] },
     { id: 'tl-data', label: L('Data', 'Dados'), icon: 'functions', prio: 2, cells: [
-      { rows: [[{ cmd: 'table:headerRows', label: true }], [{ cmd: 'table:toText', label: true }]] },
+      { rows: [[{ cmd: 'table:headerRows', label: true }], [{ cmd: 'table:toText', label: true }], [{ cmd: 'table:formula', label: true }]] },
     ] },
   ];
 }
@@ -417,7 +420,7 @@ export const tableFormatMenu = (): MenuItem => ({
     { id: 'tableFmt:autofit', label: L('AutoFit', 'AutoAjuste'), icon: 'fit_width', submenu: autofitMenu },
     'rows:distribute', 'cols:distribute', '-',
     { id: 'tableFmt:align', label: L('Cell alignment', 'Alinhamento da célula'), icon: 'vertical_align_center', submenu: () => ALIGN.map(([id]) => `cell:align:${id}`) },
-    'cell:textdir', 'cell:margins', '-', 'table:headerRows', 'table:toText',
+    'cell:textdir', 'cell:margins', '-', 'table:headerRows', 'table:toText', 'table:formula',
   ],
 });
 

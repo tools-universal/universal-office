@@ -103,6 +103,7 @@ import {
   type CellRect as TableRect, type TableCell, type TextSeparator, type BorderKind, type BorderSpec, type ShadingSpec,
   type TblLook, type TblPr, type TrPr, type TcPr, type WidthSpec, type DocFormatting,
   ensureTableStyle, addStylesXml, loadBuiltinTableStyles, styleIdByName, themeHex, type BuiltinTableStyle,
+  defaultFormula, formulaInstr, formulaResultText, type FormulaEnv,
 } from '@universal-office/docx-core';
 import type { PlacedCell } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
@@ -2872,13 +2873,19 @@ export class UniversalWriteElement extends HTMLElement {
    *  fldSimple e o próprio app de referência passa a atualizá-lo. */
   insertField(kind: 'PAGE' | 'NUMPAGES' | 'DATE'): void {
     if (!this.model || this.locked()) return;
+    const display = kind === 'DATE' ? new Date().toLocaleDateString('pt-BR') : kind;
+    const instr = kind === 'DATE' ? ' DATE \\@ "dd/MM/yyyy" ' : ` ${kind} `;
+    this.insertFieldRun(instr, display);
+  }
+
+  /** Run de campo no caret (substitui a seleção): instrução e resultado exibido. */
+  private insertFieldRun(instr: string, display: string, extraProps?: Partial<RunProps>): void {
+    if (!this.model) return;
     this.snapshot();
     if (this.hasSelection()) {
       const pos = this.deleteSelection();
       this.selection = { anchor: pos, focus: pos };
     }
-    const display = kind === 'DATE' ? new Date().toLocaleDateString('pt-BR') : kind;
-    const instr = kind === 'DATE' ? ' DATE \\@ "dd/MM/yyyy" ' : ` ${kind} `;
     const { para, offset } = this.selection.focus;
     const p = this.model.paragraphs[para]!;
     // insere como run separado com field (não funde com vizinhos)
@@ -2890,7 +2897,7 @@ export class UniversalWriteElement extends HTMLElement {
       if (offset <= re || ri === p.runs.length) {
         const fieldRun: Run = {
           text: display,
-          props: run ? { ...run.props } : { ...DEFAULT_RUN_PROPS },
+          props: { ...(run ? run.props : DEFAULT_RUN_PROPS), ...extraProps },
           field: instr,
         };
         if (!run) p.runs.push(fieldRun);
@@ -4286,6 +4293,13 @@ export class UniversalWriteElement extends HTMLElement {
       const k = e.key;
       // células selecionadas: setas/Shift+setas, Delete/Backspace, Esc
       if (this.tableSel && this.tableSelKey(e)) return;
+      // F9: atualiza os campos de fórmula
+      if (k === 'F9' && !ctrl && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        this.updateFields();
+        this.onSelectionChange?.(); this.chromeSync?.();
+        return;
+      }
       if (this.cellEdit && !this.locked()) {
         // Ctrl+Shift+Enter: dividir a tabela; Alt+Shift+↑/↓: mover a linha
         if (ctrl && e.shiftKey && k === 'Enter') { e.preventDefault(); this.splitTable(); this.onSelectionChange?.(); this.chromeSync?.(); return; }
@@ -8459,6 +8473,74 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Estado da tabela do cursor/seleção (null fora de tabela) — barras e diálogos. */
+  // ───────────────── fórmula de tabela ─────────────────
+
+  /** Tabela e célula (linha, coluna da grade) do cursor, para as fórmulas. */
+  private formulaEnv(): FormulaEnv | null {
+    const ce = this.cellEdit;
+    if (!ce || this.tableSel) return null;
+    const table = this.tableAt(ce.anchor, ce.hops.slice(0, -1));
+    const me = ce.hops[ce.hops.length - 1]!;
+    return table ? { table, r: me.r, c: me.c } : null;
+  }
+
+  /** Fórmula sugerida para a célula do cursor ("=SUM(ABOVE)", "=SUM(LEFT)" ou "="). */
+  suggestFormula(): string {
+    const env = this.formulaEnv();
+    return env ? defaultFormula(env.table, env.r, env.c) : '=';
+  }
+
+  /** Resultado que a fórmula daria na célula do cursor (sem inserir). */
+  previewFormula(formula: string, numberFormat?: string): string {
+    return formulaResultText(formulaInstr(formula, numberFormat), this.formulaEnv() ?? { table: { type: 'table', rows: [], gridColsTwips: [] } as unknown as TableBlock, r: 0, c: 0 });
+  }
+
+  /** Insere um campo de fórmula (= …) no cursor, com o resultado já calculado.
+   *  `numberFormat` é a imagem numérica \# do Word ("#.##0,00", "0%"…). */
+  insertFormula(formula?: string, numberFormat?: string): boolean {
+    if (!this.model || this.locked() || this.hfEdit || this.tbEdit) return false;
+    const f = (formula ?? this.suggestFormula()).trim();
+    if (!/^=/.test(f)) return false;
+    const instr = formulaInstr(f, numberFormat || undefined);
+    this.tableSel = null;
+    this.insertFieldRun(instr, this.previewFormula(f, numberFormat || undefined));
+    return true;
+  }
+
+  /** Atualiza os campos de fórmula de todas as tabelas (F9): devolve quantos mudaram. */
+  updateFields(): number {
+    if (!this.model || this.locked()) return 0;
+    const work: { run: Run; text: string }[] = [];
+    const visit = (t: TableBlock): void => {
+      const m = TOps.mapTable(t);
+      for (const row of m.rows) {
+        for (const g of row) {
+          for (const b of TOps.cellContent(g.cell)) {
+            if (b.type === 'table') { visit(b); continue; }
+            for (const run of b.paragraph.runs) {
+              if (!run.field || !/^\s*=/.test(run.field)) continue;
+              const text = formulaResultText(run.field, { table: t, r: g.ri, c: g.col });
+              if (text !== run.text) work.push({ run, text });
+            }
+          }
+        }
+      }
+    };
+    for (const a of this.bodyState().tableAnchors) visit(a.table);
+    if (!work.length) return 0;
+    this.snapshot();
+    for (const w of work) {
+      w.run.text = w.text;
+      delete w.run.fieldResult;
+    }
+    // o texto do resultado mudou de tamanho: o cursor fica dentro do parágrafo
+    const ps = this.model.paragraphs;
+    const fit = (q: DocPosition): DocPosition => ({ para: q.para, offset: Math.min(q.offset, paraLength(ps[q.para] ?? ps[0]!)) });
+    this.selection = { anchor: fit(this.selection.anchor), focus: fit(this.selection.focus) };
+    this.refresh();
+    return work.length;
+  }
+
   getTableState(): TableState | null {
     const tg = this.tableTarget();
     if (!tg) return null;

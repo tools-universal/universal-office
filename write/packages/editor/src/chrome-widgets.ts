@@ -325,7 +325,7 @@ export const marginsMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [
 
 export const caseMenu = (): MenuEntry[] => ['case:upper', 'case:lower', '-', 'allCaps', 'smallCaps'];
 
-export const fieldsMenu = (): MenuEntry[] => ['field:page', 'field:numpages', 'field:date'];
+export const fieldsMenu = (): MenuEntry[] => ['field:page', 'field:numpages', 'field:date', '-', 'fields:update'];
 
 const SYMBOL_CHARS = '©®™§¶€£¥¢°±×÷≠≤≥≈∞µ–—…“”‘’«»•·†‡→←↑↓✓✗½¼¾αβπΩΣ';
 export const symbolMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{

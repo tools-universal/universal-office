@@ -1,13 +1,16 @@
 // Diálogos de TABELA das barras do Write: Inserir Tabela, Converter Texto em
 // Tabela, Converter em Texto, Inserir/Excluir Células, Dividir Células e
-// Margens da Célula (Opções de Tabela). Sobre o openDialog de
+// Margens da Célula (Opções de Tabela) e Fórmula. Sobre o openDialog de
 // @universal-office/ui; textos { en, pt } (inglês por padrão); medidas em cm,
 // como o Word pt-BR.
 import { openDialog, pickLabels, type UiLang } from '@universal-office/ui';
-import type { TextSeparator } from '@universal-office/docx-core';
+import { FORMULA_FUNCTIONS, type TextSeparator } from '@universal-office/docx-core';
 import type { DialogEnv } from './chrome-dialogs.js';
 
-export type TableDialogKind = 'insert' | 'fromText' | 'toText' | 'insertCells' | 'deleteCells' | 'split' | 'margins';
+export type TableDialogKind = 'insert' | 'fromText' | 'toText' | 'insertCells' | 'deleteCells' | 'split' | 'margins' | 'formula';
+
+/** Formatos numéricos da lista do diálogo Fórmula (os do Word pt-BR; os dados seguem o pt-BR). */
+const NUMBER_FORMATS = ['#.##0', '#.##0,00', 'R$ #.##0,00;(R$ #.##0,00)', '0', '0%', '0,00', '0,00%'];
 
 type Props<K extends keyof HTMLElementTagNameMap> = Partial<Omit<HTMLElementTagNameMap[K], 'style'>> & { style?: string };
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, props: Props<K> = {}, ...kids: (Node | string)[]): HTMLElementTagNameMap[K] => {
@@ -197,6 +200,34 @@ export async function tableDialog(env: DialogEnv, kind: TableDialogKind): Promis
         { top: twOf(top.value), left: twOf(left.value), bottom: twOf(bottom.value), right: twOf(right.value) },
         allow.checked ? twOf(spacing.value) ?? 0 : 0, resize.checked,
       );
+      return;
+    }
+    case 'formula': {
+      const formula = el('input', { type: 'text', name: 'formula', value: ed.suggestFormula(), style: 'width:100%;box-sizing:border-box' });
+      const fmt = el('input', { type: 'text', name: 'format', value: '', style: 'flex:1;min-width:0' });
+      const fmtList = el('select', { name: 'format-list', style: 'width:28px' }, el('option', { value: '' }, ''),
+        ...NUMBER_FORMATS.map((f) => el('option', { value: f }, f)));
+      fmtList.addEventListener('change', () => { fmt.value = fmtList.value; fmtList.value = ''; });
+      // Colar função: o nome com parênteses no cursor da fórmula
+      const fn = el('select', { name: 'function' }, el('option', { value: '' }, tr(lang, 'Paste function', 'Colar função')),
+        ...FORMULA_FUNCTIONS.map((f) => el('option', { value: f }, f)));
+      fn.addEventListener('change', () => {
+        if (!fn.value) return;
+        const a = formula.selectionStart ?? formula.value.length, b = formula.selectionEnd ?? a;
+        const ins = `${fn.value}()`;
+        formula.value = formula.value.slice(0, a) + ins + formula.value.slice(b);
+        formula.focus();
+        formula.setSelectionRange(a + ins.length - 1, a + ins.length - 1);
+        fn.value = '';
+      });
+      const body = el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
+        el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Formula:', 'Fórmula:'), formula),
+        el('label', { style: 'display:flex;flex-direction:column;gap:4px' }, tr(lang, 'Number format:', 'Formato do número:'),
+          el('div', { style: 'display:flex;gap:4px' }, fmt, fmtList)),
+        el('div', { style: 'display:flex;gap:8px;align-items:center' }, fn));
+      queueMicrotask(() => { formula.focus(); formula.setSelectionRange(formula.value.length, formula.value.length); });
+      if (!(await ask(env, tr(lang, 'Formula', 'Fórmula'), body, 380))) return;
+      ed.insertFormula(formula.value, fmt.value.trim() || undefined);
       return;
     }
   }

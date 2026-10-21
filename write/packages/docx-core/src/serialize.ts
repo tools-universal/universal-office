@@ -283,9 +283,30 @@ function runXml(run: Run): string {
 
 /** Campo: fldSimple com o resultado atual (o Word o atualiza sozinho). */
 function fieldOrRunXml(r: Run): string {
+  if (r.field && /^\s*=/.test(r.field)) return formulaFieldXml(r);
   return r.field && !(active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field))
     ? `<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>`
     : runXml(r);
+}
+
+/** Campo de fórmula (= …): campo complexo como o Word grava — o resultado leva w:noProof. */
+function formulaFieldXml(r: Run): string {
+  const rpr = rPrXml(r);
+  const wrap = (inner: string, pr = rpr): string => `<w:r>${pr}${inner}</w:r>`;
+  return wrap('<w:fldChar w:fldCharType="begin"/>') +
+    wrap(`<w:instrText xml:space="preserve">${esc(r.field!)}</w:instrText>`) +
+    wrap('<w:fldChar w:fldCharType="separate"/>') +
+    wrap(textXml(r.text), withNoProof(rpr)) +
+    wrap('<w:fldChar w:fldCharType="end"/>');
+}
+
+/** w:noProof no lugar do esquema dentro de um w:rPr (ou um w:rPr novo). */
+function withNoProof(rpr: string): string {
+  if (!rpr || rpr === '<w:rPr/>') return '<w:rPr><w:noProof/></w:rPr>';
+  if (/<w:noProof\b/.test(rpr)) return rpr;
+  const m = /<w:(snapToGrid|vanish|webHidden|color|spacing|w|kern|position|sz|szCs|highlight|u|effect|bdr|shd|fitText|vertAlign|rtl|cs|em|lang|eastAsianLayout|specVanish|oMath|rPrChange)\b/.exec(rpr);
+  const at = m ? m.index : rpr.lastIndexOf('</w:rPr>');
+  return rpr.slice(0, at) + '<w:noProof/>' + rpr.slice(at);
 }
 
 /** Rel de hyperlink externo na parte atual (reusa o existente com o mesmo alvo). */
