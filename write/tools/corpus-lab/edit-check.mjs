@@ -116,7 +116,7 @@ function check(name, ok, info) {
 const st = () => ev('state');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const groups = (opt('only', 'body,table,fields,hf,fuzz,perf')).split(',');
+const groups = (opt('only', 'body,table,fields,hf,fuzz,sections,perf')).split(',');
 const want = (g) => groups.includes(g);
 if (want('body')) {
   // ───────────── corpo: demo.docx ─────────────
@@ -619,6 +619,105 @@ if (want('fuzz')) {
     check(`células: incremental = completo (${doc.split('/').pop()})`, bad === 0 && fast > 3, { fast, full, bad });
     for (const x of errs) console.log('   diff:', x);
   }
+}
+
+// ───────────── seções e colunas (documento sintético) ─────────────
+if (want('sections')) {
+  await ev('synthetic', 14, 70);
+  const S = () => page.evaluate(() => {
+    const e = document.querySelector('universal-write');
+    return { secs: e.sectionStarts.map((s) => [s.startPara, s.section.sectPr.type ?? 'nextPage', s.section.sectPr.cols?.count ?? 1]), paras: e.model.paragraphs.length, sel: e.selection.focus };
+  });
+  const at = (para, offset = 0) => page.evaluate(({ para, offset }) => { document.querySelector('universal-write').selection = { anchor: { para, offset }, focus: { para, offset } }; }, { para, offset });
+  await at(3, 10);
+  await call('insertSectionBreak', 'continuous');
+  let s = await S();
+  check('quebra contínua no meio do parágrafo: divide e abre a 2ª seção', s.paras === 15 && s.secs.length === 2 && s.secs[1][0] === 4 && s.secs[1][1] === 'continuous' && s.sel.para === 4 && s.sel.offset === 0, s);
+  await call('setColumns', 'two');
+  s = await S();
+  check('Duas colunas na seção do cursor', s.secs[1][2] === 2 && s.secs[0][2] === 1, s);
+  // linhas da 2ª seção em duas colunas: x à esquerda e à direita
+  const xs = await page.evaluate(() => {
+    const e = document.querySelector('universal-write');
+    const set = new Set();
+    for (let pi = 4; pi < e.model.paragraphs.length; pi++) for (const l of e.layoutCache[pi].lines) if (l.page === 0) set.add(Math.round(l.xTwips / 100));
+    return [...set].sort((a, b) => a - b);
+  });
+  check('o texto da seção flui em duas colunas', xs.length >= 2 && xs[xs.length - 1] - xs[0] > 30, xs);
+  let cg = await ev('caretVsGlyphs');
+  check('cursor = glifos nas colunas', cg.bad.length === 0 && cg.checked > 100, cg);
+  // clique na 2ª coluna posiciona o caret lá
+  const target = await page.evaluate(() => {
+    const e = document.querySelector('universal-write');
+    for (let pi = 4; pi < e.model.paragraphs.length; pi++) for (const l of e.layoutCache[pi].lines) if (l.page === 0 && l.xTwips > 5000) return { pi, x: l.xTwips + 300, y: l.yTwips + l.heightTwips / 2, start: l.rich.start, end: l.rich.end };
+    return null;
+  });
+  if (target) {
+    const p = await ev('client', 0, target.x, target.y);
+    await page.mouse.click(p.x, p.y);
+    s = await S();
+    check('clique na 2ª coluna leva o caret à linha clicada', s.sel.para === target.pi && s.sel.offset >= target.start && s.sel.offset <= target.end, { sel: s.sel, target });
+    const before = await ev('text', target.pi);
+    await page.keyboard.type('ZQ');
+    const after = await ev('text', target.pi);
+    check('digitar na 2ª coluna insere e redesenha', after.length === before.length + 2 && (await ev('caretVsGlyphs', target.pi)).bad.length === 0, { len: [before.length, after.length] });
+    await page.keyboard.press('Control+z');
+  }
+  // ↓ no fim da 1ª coluna vai para o topo da 2ª (ordem do texto)
+  const lastCol1 = await page.evaluate(() => {
+    const e = document.querySelector('universal-write');
+    let best = null;
+    for (let pi = 4; pi < e.model.paragraphs.length; pi++) for (const l of e.layoutCache[pi].lines) if (l.page === 0 && l.xTwips < 5000 && (!best || l.yTwips > best.y)) best = { pi, o: l.rich.start, y: l.yTwips };
+    return best;
+  });
+  if (lastCol1) {
+    await at(lastCol1.pi, lastCol1.o);
+    await page.keyboard.press('ArrowDown');
+    const c = await ev('caret');
+    check('↓ na última linha da 1ª coluna vai para a 2ª', c && c.x > 5000 * (96 / 1440) * 0.5, c);
+  }
+  // Ctrl+Shift+Enter: quebra de coluna (divide o parágrafo; a quebra abre o seguinte)
+  await at(6, 15);
+  const p0 = (await S()).paras;
+  await page.keyboard.press('Control+Shift+Enter');
+  s = await S();
+  const cbText = await ev('text', 7);
+  check('Ctrl+Shift+Enter insere a quebra de coluna como o Word', s.paras === p0 + 1 && cbText.startsWith('\u000B') && s.sel.para === 7 && s.sel.offset === 1, { paras: [p0, s.paras], sel: s.sel, head: cbText.slice(0, 3) });
+  // Backspace logo depois da quebra de seção não a apaga (apaga o caractere antes dela)
+  const t3 = await ev('text', 3);
+  await at(4, 0);
+  await page.keyboard.press('Backspace');
+  s = await S();
+  check('Backspace depois da quebra de seção mantém a quebra (Word)', s.secs.length === 2 && (await ev('text', 3)) === t3.slice(0, -1) && s.sel.para === 3, { secs: s.secs, sel: s.sel });
+  // Delete antes da marca apaga a quebra: fica a seção de depois
+  await at(3, (await ev('text', 3)).length);
+  await page.keyboard.press('Delete');
+  s = await S();
+  check('Delete na marca da quebra funde as seções', s.secs.length === 1 && s.secs[0][2] === 2, s.secs);
+  // desfazer tudo volta a uma seção sem colunas
+  for (let k = 0; k < 6; k++) await page.keyboard.press('Control+z');
+  s = await S();
+  check('desfazer volta ao documento de uma seção', s.secs.length === 1 && s.secs[0][2] === 1 && s.paras === 14, s);
+  for (let k = 0; k < 2; k++) await page.keyboard.press('Control+y');
+  s = await S();
+  check('refazer: quebra e colunas de volta', s.secs.length === 2 && s.secs[1][2] === 2, s.secs);
+  // marcas de formatação (quebras desenhadas) e o .docx salvo
+  await call('toggleMarks');
+  await sleep(30);
+  const saved = await page.evaluate(() => {
+    const e = document.querySelector('universal-write');
+    const b = e.saveDocx();
+    return { len: b.length, n: b[0] };
+  });
+  await call('toggleMarks');
+  check('salva o .docx com seções', saved.len > 1000, saved);
+  // por seção: orientação só na seção do cursor (girando as margens)
+  await at(10, 0);
+  await call('setPageSetup', { orientation: 'landscape' });
+  const geo = await page.evaluate(() => document.querySelector('universal-write').sectionStarts.map((x) => [x.section.sectPr.pageWidthTwips > x.section.sectPr.pageHeightTwips, x.section.sectPr.marginTopTwips]));
+  check('Orientação vale só para a seção do cursor e gira as margens', geo.length === 2 && !geo[0][0] && geo[1][0] && geo[1][1] === 1701, geo);
+  const pages = (await st()).pages;
+  check('contínua para outra orientação começa página nova (Word)', pages >= 2, pages);
 }
 
 // ───────────── desempenho ─────────────

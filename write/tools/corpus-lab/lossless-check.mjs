@@ -28,6 +28,8 @@ const outDir = opt('--out');
 // filho do corpo onde a contagem da tag mudou (original × salvo)
 const only = opt('--only');
 const show = opt('--show');
+// --sections: além das edições de texto, quebra de seção + colunas + quebra de coluna + paisagem
+const sectionsMode = args.includes('--sections');
 
 function* walk(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -66,6 +68,28 @@ function save(pkg, full, dirtyAllHf) {
   writeDocument(pkg, { paragraphs: paras(full.blocks), sectPr: last.sectPr }, hfParts, {
     comments: full.comments.length ? full.comments : undefined,
     bodySectRefs: hfParts.filter((h) => lastRefs.includes(h.path)).map((h) => ({ kind: h.kind, type: h.type, rid: h.rid })),
+    blocks: full.blocks,
+    sources: full.sources,
+  });
+  return pkg.save();
+}
+
+/** Salva como o editor depois de mexer nas seções: a geometria e as refs do corpo vêm do modelo. */
+function saveModel(pkg, full, model) {
+  const hfParts = [];
+  const seen = new Set();
+  for (const s of full.sections) {
+    for (const [kind, refs, set, blocks] of [['header', s.headerRefs, s.headers, s.headerBlocks], ['footer', s.footerRefs, s.footers, s.footerBlocks]]) {
+      for (const r of refs) {
+        if (seen.has(r.path) || !set[r.type]) continue;
+        seen.add(r.path);
+        hfParts.push({ kind, type: r.type, rid: r.rid, path: r.path, paragraphs: set[r.type], blocks: blocks?.[r.type], dirty: false });
+      }
+    }
+  }
+  writeDocument(pkg, { paragraphs: model.paragraphs, sectPr: model.sectPr }, hfParts, {
+    comments: full.comments.length ? full.comments : undefined,
+    bodySectRefs: [...model.bodyRefs.headerRefs, ...model.bodyRefs.footerRefs],
     blocks: full.blocks,
     sources: full.sources,
   });
@@ -130,7 +154,37 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
       b.full.blocks.splice(bi + 1, 0, { type: 'paragraph', paragraph: tail });
       edited.push(p);
     }
-    const out = save(b.pkg, b.full, false);
+    // --sections: quebra de seção contínua no meio de um 4º parágrafo, a seção nova
+    // com duas colunas e linha, quebra de coluna num 5º e a última em paisagem (as
+    // regras do Word em section-ops; o salvar é o do editor: refs do corpo do modelo)
+    let secEdits = 0;
+    if (sectionsMode) {
+      const last = b.full.sections[b.full.sections.length - 1];
+      model.sectPr = last.sectPr;
+      model.bodyRefs = { headerRefs: last.headerRefs.map((r) => ({ kind: 'header', type: r.type, rid: r.rid })), footerRefs: last.footerRefs.map((r) => ({ kind: 'footer', type: r.type, rid: r.rid })) };
+    }
+    if (sectionsMode && cands[3]) {
+      const p = cands[3][0];
+      const pi = ps.indexOf(p);
+      const range = core.sectionRanges(model)[core.sectionIndexAt(model, pi)];
+      const raw = b.full.sources.sectPrRaw(range.sb ? ps[range.end] : undefined);
+      core.insertSectionBreak(model, { para: pi, offset: 9 }, 'continuous', raw ? { raw } : {});
+      const bi = b.full.blocks.findIndex((x) => x.type === 'paragraph' && x.paragraph === p);
+      b.full.blocks.splice(bi + 1, 0, { type: 'paragraph', paragraph: ps[pi + 1] });
+      const sp = core.sectionSectPr(model, core.sectionIndexAt(model, pi + 1));
+      sp.cols = core.columnsFor(sp, { count: 2, sep: true });
+      edited.push(p);
+      // a metade nova, o parágrafo que encerra a seção (refs e tipo) e o sectPr do corpo (paisagem)
+      secEdits += 3;
+      if (cands[4]) {
+        const q = cands[4][0];
+        const qi = ps.indexOf(q);
+        insertText(model, { para: qi, offset: 4 }, '\u000B');
+        edited.push(q);
+      }
+      core.setOrientation(model.sectPr, 'landscape');
+    }
+    const out = sectionsMode ? saveModel(b.pkg, b.full, model) : save(b.pkg, b.full, false);
     const re = DocxPackage.load(out);
     const xml = re.documentXml();
     readFullDocument(re); // relê
@@ -142,9 +196,11 @@ for (const file of walk(join(CORPUS_ROOT, 'Documents'))) {
     const changed = kb.filter((k) => !ka.includes(k)).length;
     res.edits = edited.length;
     res.changedKids = changed;
-    if (changed > edited.length + (cands[2] ? 1 : 0)) res.issues.push(`changed:${changed}>${edited.length + 1}`);
+    const allowed = edited.length + (cands[2] ? 1 : 0) + secEdits;
+    if (changed > allowed) res.issues.push(`changed:${changed}>${allowed}`);
     if (!xml.includes('XYZ') && cands[0]) res.issues.push('missing-edit');
-    if (outDir && cands[0]) { mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`; }
+    // (--sections: só os que receberam a quebra de seção — o word-open-check confere uma seção a mais)
+    if (outDir && cands[0] && (!sectionsMode || secEdits > 0)) { mkdirSync(outDir, { recursive: true }); writeFileSync(join(outDir, `${n}.docx`), out); res.out = `${n}.docx`; }
   } catch (e) {
     res.issues.push(`error:${String(e?.message ?? e).slice(0, 200)}`);
   }

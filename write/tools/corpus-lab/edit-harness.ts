@@ -326,7 +326,8 @@ w.ed = {
   fastEqualsFull(): { mode: string; equal: boolean; pages: number; diff?: string } {
     const e = need();
     const ser = () => JSON.stringify(e.eng!.result.pages.map((p) => ({
-      items: p.items.map((it) => ({ ...it, face: it.face ? `${it.face.family}|${it.face.bold}|${it.face.italic}` : undefined, image: undefined, style: undefined })),
+      // (lineBox.line é um contador global de linhas pintadas — difere entre duas diagramações)
+      items: p.items.map((it) => ({ ...it, face: it.face ? `${it.face.family}|${it.face.bold}|${it.face.italic}` : undefined, image: undefined, style: undefined, lineBox: (it as { lineBox?: object }).lineBox ? { ...(it as { lineBox: object }).lineBox, line: undefined } : undefined })),
       lines: p.lines,
     })), (_k, v) => (typeof v === 'number' ? Math.round(v * 10) / 10 : v));
     const mode = String(e.engineStats.mode);
