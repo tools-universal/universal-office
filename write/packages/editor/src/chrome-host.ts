@@ -45,6 +45,9 @@ export interface UniversalWriteHost {
   closeWindow?(): void;
   /** Tema efetivo (controles da janela sobrepostos à barra de título). */
   setTitleTheme?(dark: boolean): void;
+  /** Nome do usuário (Electron: o do sistema) — autor das revisões e dos
+   *  comentários quando o elemento não tem o atributo `author`. */
+  userName?(): string | Promise<string>;
   /** Título do documento mudou. */
   setTitle?(title: string): void;
   /**

@@ -57,6 +57,27 @@ import {
   clearParaFormatting,
   clearPara,
   type StyleFormat,
+  trackInsertText as coreTrackInsertText,
+  trackInsertRun as coreTrackInsertRun,
+  trackSplitParagraph as coreTrackSplitParagraph,
+  trackDelete as coreTrackDelete,
+  trackApplyRunProps as coreTrackApplyRunProps,
+  trackApplyParaProps,
+  acceptRevisions,
+  rejectRevisions,
+  collectRevisions,
+  revisionAt,
+  spanScope,
+  revisionAuthors,
+  newRevision,
+  readTrackRevisions,
+  paraFormatting,
+  paragraphHasRevisions,
+  withoutRevisions,
+  type RevisionInfo,
+  type RevisionSpan,
+  type RevisionScope,
+  type TrackedDelete,
 } from '@universal-office/docx-core';
 import {
   DocStyles, listStyles, styleLook, ensureDefined, resolveStyleId, createStyleXml, modifyStyleXml, renameStyleXml, deleteStyleXml, setQuickXml, displayName,
@@ -97,7 +118,9 @@ import {
   layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, emptyFormatting,
   type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,
   type LayoutResult, type LayoutPage, type LaidOutLine, type LayoutOptions,
+  RevisionDisplay, authorColor, type RevisionView,
 } from '@universal-office/docx-layout';
+import { DEFAULT_MARKUP, formatDescription, type MarkupMode, type MarkupOptions, type WriteRevision } from './revisions.js';
 import { readOdt, writeOdt } from '@universal-office/docx-core';
 import {
   tableOps as TOps,
@@ -448,11 +471,34 @@ export interface TablePropertiesInput {
   };
 }
 
+/** Uma revisão do documento com onde ela mora (lista de parágrafos e dono). */
+interface RevisionEntry {
+  span: RevisionSpan;
+  para: Paragraph;
+  story: WriteRevision['story'];
+  /** a lista de parágrafos (corpo, célula, cabeçalho…) e o índice nela */
+  list: Paragraph[];
+  idx: number;
+  owner: { cell?: import('@universal-office/docx-core').TableCell; hfPath?: string };
+}
+
 /** Referência ao w:rPr original guardada nas props do run (ver syncRunRPr):
  *  símbolo — copiado pelo spread das props, invisível ao JSON e ao toolbar. */
 const RPR_REF = Symbol('uw-rpr');
 /** o rpr da referência foi limpo pelo editor (vai junto para o texto digitado ao lado) */
 const RPR_EDITED = Symbol('uw-rpr-edited');
+
+/** Limpar formatação com o controle ligado (revisões de formatação): o run sem formatação
+ *  direta nem estilo de caractere e o parágrafo sem formatação direta. */
+const CLEARED_RUN: Partial<RunProps> = {
+  ...DEFAULT_RUN_PROPS, szHalfPt: undefined, color: undefined, highlight: undefined, fontAscii: undefined, vertAlign: undefined,
+  charSpacingTwips: undefined, charStyle: undefined,
+};
+const CLEARED_PARA: Partial<ParaProps> = {
+  numbering: undefined, alignment: undefined, spaceBeforeTwips: undefined, spaceAfterTwips: undefined,
+  lineTwentieths: undefined, indentLeftTwips: undefined, indentRightTwips: undefined, indentFirstLineTwips: undefined,
+  borders: undefined, shadingHex: undefined,
+};
 
 // Operações de edição do docx-core protegidas (guardRuns): preservam o w:rPr
 // e os extras dos runs e não fundem runs de formatação original diferente —
@@ -472,6 +518,21 @@ const mergeWithPrevious = (m: DocumentModel, para: number): DocPosition =>
 const applyRunProps = (m: DocumentModel, range: DocRange, patch: Partial<RunProps>): void => {
   const r = normalizeRange(range);
   guardRuns(m, r.start.para, r.end.para, () => coreApplyRunProps(m, range, patch));
+};
+// …e as mesmas com o controle de alterações ligado (docx-core/revisions.ts)
+const trackInsertText = (m: DocumentModel, pos: DocPosition, text: string, rev: RevisionInfo, props?: RunProps): DocPosition =>
+  guardRuns(m, pos.para, pos.para, () => coreTrackInsertText(m, pos, text, rev, props));
+const trackInsertRun = (m: DocumentModel, pos: DocPosition, run: Run, rev: RevisionInfo): DocPosition =>
+  guardRuns(m, pos.para, pos.para, () => coreTrackInsertRun(m, pos, run, rev));
+const trackSplitParagraph = (m: DocumentModel, pos: DocPosition, rev: RevisionInfo): DocPosition =>
+  guardRuns(m, pos.para, pos.para, () => coreTrackSplitParagraph(m, pos, rev));
+const trackDelete = (m: DocumentModel, range: DocRange, rev: RevisionInfo): TrackedDelete => {
+  const r = normalizeRange(range);
+  return guardRuns(m, r.start.para, r.end.para, () => coreTrackDelete(m, range, rev));
+};
+const trackApplyRunProps = (m: DocumentModel, range: DocRange, patch: Partial<RunProps>, rev: RevisionInfo): void => {
+  const r = normalizeRange(range);
+  guardRuns(m, r.start.para, r.end.para, () => coreTrackApplyRunProps(m, range, patch, rev));
 };
 
 /** Família CSS entre aspas. */
@@ -1114,7 +1175,7 @@ export class UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: deleted, focus: deleted };
     }
     const props = { ...(this.pendingProps ?? this.currentProps()) };
-    const pos = insertRun(this.model, this.selection.focus, {
+    const pos = this.insertWholeRun(this.selection.focus, {
       text: '\uFFFC',
       props,
       custom: { type, data, fallbackText },
@@ -1191,6 +1252,8 @@ export class UniversalWriteElement extends HTMLElement {
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText(stylesPartPath(this.pkg)) ?? null);
     this.loadedFormat = 'docx';
+    // controle de alterações: o documento abre como foi salvo (w:trackRevisions)
+    this.tracking = readTrackRevisions(this.pkg);
     this.installFullDoc();
     void this.registerEmbeddedFonts(this.pkg); // fontes embedadas → FontFace + métricas
   }
@@ -1237,6 +1300,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.docStyles = new DocStyles(null);
     this.loadedBytes = null;
     this.loadedFormat = 'odt';
+    this.tracking = false;
     this.installFullDoc();
   }
 
@@ -1400,6 +1464,8 @@ export class UniversalWriteElement extends HTMLElement {
     this.undoStack = [];
     this.redoStack = [];
     this.editsSinceLoad = 0;
+    // cores das revisões: os autores na ordem de leitura do documento
+    this.revAuthors = revisionAuthors(this.fullDoc);
     // linha de base do salvamento sem perdas: o documento como instalado
     this.fullDoc.sources?.baseline();
     this.refresh();
@@ -1419,6 +1485,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
     this.docStyles = new DocStyles(this.pkg.getPartText('word/styles.xml') ?? null);
+    this.tracking = false;
     this.installFullDoc();
   }
 
@@ -2048,13 +2115,23 @@ export class UniversalWriteElement extends HTMLElement {
   clearFormatting(): void {
     if (!this.model || this.locked()) return;
     this.snapshot();
-    if (this.hasSelection()) clearRunFormatting(this.model, this.range(), { charStyle: undefined });
-    else this.pendingProps = { ...DEFAULT_RUN_PROPS };
-    clearParaFormatting(this.model, this.range());
-    const { start, end } = normalizeRange(this.range());
-    for (let pi = start.para; pi <= end.para; pi++) delete this.model.paragraphs[pi]!.props.styleId;
+    if (this.tracking) this.clearFormattingTracked();
+    else {
+      if (this.hasSelection()) clearRunFormatting(this.model, this.range(), { charStyle: undefined });
+      else this.pendingProps = { ...DEFAULT_RUN_PROPS };
+      clearParaFormatting(this.model, this.range());
+      const { start, end } = normalizeRange(this.range());
+      for (let pi = start.para; pi <= end.para; pi++) delete this.model.paragraphs[pi]!.props.styleId;
+    }
     this.refresh();
     this.onSelectionChange?.(); this.chromeSync?.();
+  }
+  /** Limpar Toda a Formatação com o controle ligado: as mesmas mudanças, como revisões de
+   *  formatação (a revisão guarda as props; o w:rPr/w:pPr cru fica). */
+  private clearFormattingTracked(): void {
+    if (this.hasSelection()) this.applyRun(this.range(), CLEARED_RUN);
+    else this.pendingProps = { ...DEFAULT_RUN_PROPS };
+    this.applyPara(this.range(), { ...CLEARED_PARA, styleId: undefined });
   }
   changeCase(mode: 'upper' | 'lower'): void {
     if (!this.model || !this.hasSelection() || this.locked()) return;
@@ -2085,7 +2162,7 @@ export class UniversalWriteElement extends HTMLElement {
       applyRunProps(this.model, this.range(), { link: url || undefined });
     } else if (url) {
       const start = this.selection.focus;
-      const pos = insertText(this.model, start, url);
+      const pos = this.insertTyped(start, url);
       applyRunProps(this.model, { start, end: pos }, { link: url });
       this.selection = { anchor: pos, focus: pos };
     }
@@ -2207,6 +2284,20 @@ export class UniversalWriteElement extends HTMLElement {
     for (let pi = start.para; pi <= end.para; pi++) {
       const p = this.model!.paragraphs[pi];
       if (!p) continue;
+      if (this.tracking) {
+        // com o controle ligado: as mesmas mudanças, como revisões de formatação
+        const rev = this.newRev();
+        const at = { start: { para: pi, offset: 0 }, end: { para: pi, offset: 0 } };
+        trackApplyParaProps(this.model!, at, { ...CLEARED_PARA, styleId: id }, rev);
+        const runs = p.runs.filter((rn) => !rn.props.del);
+        const patch: Partial<RunProps> = {};
+        if (runs.length) for (const key of RUN_KEYS) {
+          const first = runs[0]!.props[key];
+          if (first !== undefined && runs.every((rn) => rn.props[key] === first)) (patch as Record<string, unknown>)[key] = key in DEFAULT_RUN_PROPS ? (DEFAULT_RUN_PROPS as unknown as Record<string, unknown>)[key] : undefined;
+        }
+        if (Object.keys(patch).length) trackApplyRunProps(this.model!, { start: { para: pi, offset: 0 }, end: { para: pi, offset: paraLength(p) } }, patch, rev);
+        continue;
+      }
       // formatação direta de PARÁGRAFO cede ao estilo
       clearPara(p);
       p.props.styleId = id;
@@ -2227,7 +2318,8 @@ export class UniversalWriteElement extends HTMLElement {
   private applyCharStyle(id: string | undefined): void {
     const r = this.hasSelection() ? this.range() : this.wordRangeAt(this.selection.focus, false);
     if (!r) { this.pendingProps = { ...DEFAULT_RUN_PROPS, ...(id ? { charStyle: id } : {}) }; return; }
-    clearRunFormatting(this.model!, r, { charStyle: id });
+    if (this.tracking) this.applyRun(r, { ...CLEARED_RUN, charStyle: id });
+    else clearRunFormatting(this.model!, r, { charStyle: id });
     this.ensureStyleUsed(id);
   }
 
@@ -2582,8 +2674,8 @@ export class UniversalWriteElement extends HTMLElement {
     const { run, para } = this.painterProps;
     this.painterProps = null;
     this.snapshot();
-    if (this.hasSelection()) applyRunProps(this.model, this.range(), run);
-    applyParaProps(this.model, this.range(), para);
+    if (this.hasSelection()) this.applyRun(this.range(), withoutRevisions(run));
+    this.applyPara(this.range(), paraFormatting(para));
     this.refresh();
   }
 
@@ -2621,12 +2713,18 @@ export class UniversalWriteElement extends HTMLElement {
         const text = paraText(this.model.paragraphs[pi]!).toLowerCase();
         const idx = text.indexOf(needle.toLowerCase(), from);
         if (idx < 0) break;
-        const pos = deleteRange(this.model, {
-          start: { para: pi, offset: idx },
-          end: { para: pi, offset: idx + needle.length },
-        });
-        insertText(this.model, pos, replacement);
-        from = idx + replacement.length;
+        const range = { start: { para: pi, offset: idx }, end: { para: pi, offset: idx + needle.length } };
+        // texto já excluído (controle de alterações) não conta
+        if (this.rangeHasDeleted(range)) { from = idx + 1; continue; }
+        if (this.tracking) {
+          const pos = this.trackedDelete(range, 'end');
+          this.insertTyped(pos, replacement);
+          from = pos.offset + replacement.length;
+        } else {
+          const pos = deleteRange(this.model, range);
+          insertText(this.model, pos, replacement);
+          from = idx + replacement.length;
+        }
         count++;
       }
     }
@@ -2784,7 +2882,7 @@ export class UniversalWriteElement extends HTMLElement {
     clip.paras.forEach((cp, i) => {
       if (i > 0) {
         this.shiftAnchors(pos.para, 1);
-        pos = splitParagraph(this.model!, pos);
+        pos = this.splitAt(pos);
         // tabela que estava entre os parágrafos copiados: antes deste
         for (const t of clip.tables ?? []) {
           if (t.before !== i || !body) continue;
@@ -2793,7 +2891,7 @@ export class UniversalWriteElement extends HTMLElement {
           this.tableAnchors.splice(at, 0, { beforePara: pos.para, table: TOps.cloneTable(t.table) });
         }
       }
-      for (const run of cp.runs) if (run.text) pos = insertText(this.model!, pos, run.text, { ...run.props });
+      for (const run of cp.runs) if (run.text) pos = this.insertTyped(pos, run.text, withoutRevisions(run.props));
     });
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -2811,8 +2909,8 @@ export class UniversalWriteElement extends HTMLElement {
     const paras = text.replace(/\r\n?/g, '\n').split('\n');
     let pos = this.selection.focus;
     paras.forEach((part, i) => {
-      if (i > 0) { this.shiftAnchors(pos.para, 1); pos = splitParagraph(this.model!, pos); }
-      if (part) pos = insertText(this.model!, pos, part); // sem props ⇒ herda o destino
+      if (i > 0) { this.shiftAnchors(pos.para, 1); pos = this.splitAt(pos); }
+      if (part) pos = this.insertTyped(pos, part); // sem props ⇒ herda o destino
     });
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -3077,7 +3175,7 @@ export class UniversalWriteElement extends HTMLElement {
       if (offset <= re || ri === p.runs.length) {
         const fieldRun: Run = {
           text: display,
-          props: { ...(run ? run.props : DEFAULT_RUN_PROPS), ...extraProps },
+          props: { ...this.newRunProps(run?.props), ...extraProps },
           field: instr,
         };
         if (!run) p.runs.push(fieldRun);
@@ -3266,7 +3364,7 @@ export class UniversalWriteElement extends HTMLElement {
 
 
   /** Comenta a seleção atual. Retorna o id (ou null sem seleção). */
-  addComment(text: string, author = 'You'): number | null {
+  addComment(text: string, author = this.author): number | null {
     if (!this.model || !this.hasSelection() || !text.trim() || this.locked()) return null;
     if (!this.fullDoc) {
       this.fullDoc = {
@@ -3317,6 +3415,368 @@ export class UniversalWriteElement extends HTMLElement {
         acc += run.text.length;
       }
     }
+  }
+
+  // ───────────────────────── controle de alterações ─────────────────────────
+  // Regras de edição/aceitar/rejeitar: docx-core (revisions.ts, medidas no
+  // Word); exibição (modos, cores, barras): docx-layout (revisions.ts).
+
+  private tracking = false;
+  private markupMode: MarkupMode = 'all';
+  private markup: MarkupOptions = { ...DEFAULT_MARKUP };
+  /** autores na ordem de encontro (cor da paleta): os do documento, depois os novos */
+  private revAuthors: string[] = [];
+  private authorName = '';
+
+  /** Nome do autor das revisões e dos comentários novos: o atributo `author`, a
+   *  propriedade ou — sem nenhum dos dois — "Author"/"Autor" no idioma da interface. */
+  get author(): string {
+    return this.getAttribute('author') || this.authorName || (uiLang(this) === 'pt' ? 'Autor' : 'Author');
+  }
+  set author(v: string) { this.authorName = v ?? ''; }
+  /** O autor foi informado (atributo ou propriedade)? Sem ele a interface pergunta. */
+  hasAuthor(): boolean { return !!(this.getAttribute('author') || this.authorName); }
+
+  /** Liga/desliga o controle de alterações (sem argumento: alterna). Gravado no
+   *  .docx (w:trackRevisions): o documento abre como foi salvo. */
+  toggleTrackChanges(on?: boolean): void {
+    const next = on ?? !this.tracking;
+    if (next === this.tracking) return;
+    this.tracking = next;
+    this.editsSinceLoad++;
+    this.dispatchEvent(new CustomEvent('uw-change'));
+    this.dispatchEvent(new CustomEvent('uw-track-changes', { detail: { on: next } }));
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+  isTrackingChanges(): boolean { return this.tracking; }
+
+  /** Exibir para Revisão: 'simple' (Marcação Simples), 'all' (Todas as Marcações),
+   *  'none' (Sem Marcação) ou 'original'. O PDF e a impressão seguem o modo. */
+  setMarkupMode(mode: MarkupMode): void {
+    if (mode === this.markupMode) return;
+    this.markupMode = mode;
+    this.selection = { anchor: this.canonPos(this.selection.anchor), focus: this.canonPos(this.selection.focus) };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-markup', { detail: { mode } }));
+  }
+  getMarkupMode(): MarkupMode { return this.markupMode; }
+
+  /** Mostrar Marcação (tipos, balões, pessoas específicas). */
+  setMarkupOptions(opts: Partial<MarkupOptions>): void {
+    this.markup = { ...this.markup, ...opts };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-markup', { detail: { mode: this.markupMode } }));
+  }
+  getMarkupOptions(): MarkupOptions { return { ...this.markup, authors: this.markup.authors ? [...this.markup.authors] : null }; }
+
+  /** Autores com revisões no documento (e os que revisaram nesta sessão). */
+  revisionAuthors(): string[] {
+    const now = new Set(this.revisionSpans().map((r) => r.span.author));
+    return this.revAuthors.filter((a) => now.has(a));
+  }
+
+  /** Cor da marcação de um autor (RRGGBB) — a mesma do texto e da barra. */
+  authorColor(author: string): string {
+    return authorColor(this.revAuthors, author);
+  }
+
+  /** Visão do motor para o modo atual. */
+  private revisionView(): RevisionView {
+    return {
+      mode: this.markupMode === 'none' ? 'final' : this.markupMode,
+      insDel: this.markup.insertionsDeletions,
+      formatting: this.markup.formatting,
+      authors: this.markup.authors,
+      order: this.revAuthors,
+    };
+  }
+  private revDisplayCache: { key: string; rd: RevisionDisplay } | null = null;
+  private revDisplay(): RevisionDisplay {
+    const v = this.revisionView();
+    const key = JSON.stringify(v);
+    if (this.revDisplayCache?.key !== key) this.revDisplayCache = { key, rd: new RevisionDisplay(v, this.revAuthors) };
+    return this.revDisplayCache.rd;
+  }
+  private layoutOpts(): LayoutOptions {
+    return { ...ENGINE_LAYOUT_OPTS, revisions: this.revisionView() };
+  }
+
+  /** Autoria de uma revisão feita agora (e o autor entra na ordem de cores). */
+  private newRev(): RevisionInfo {
+    const r = newRevision(this.author);
+    if (!this.revAuthors.includes(r.author)) this.revAuthors.push(r.author);
+    return r;
+  }
+
+  /** O caractere em `offset` está escondido nesta visão (excluído na final/simples,
+   *  inserido na original)? */
+  private hiddenChar(p: Paragraph | undefined, offset: number): boolean {
+    if (!p || this.markupMode === 'all' && this.markup.insertionsDeletions && !this.markup.authors) return false;
+    let acc = 0;
+    for (const r of p.runs) {
+      if (offset < acc + r.text.length) return offset >= acc && this.revDisplay().run(r) === 'hide';
+      acc += r.text.length;
+    }
+    return false;
+  }
+
+  /** Posição canônica do cursor: a primeira das posições visualmente iguais
+   *  (texto escondido logo antes dela é pulado). */
+  private canonPos(pos: DocPosition): DocPosition {
+    const p = this.model?.paragraphs[pos.para];
+    let k = pos.offset;
+    while (k > 0 && this.hiddenChar(p, k - 1)) k--;
+    return k === pos.offset ? pos : { para: pos.para, offset: k };
+  }
+
+  /** Revisões do modelo ativo (corpo, célula, cabeçalho…), na ordem do texto. */
+  private activeSpans(): RevisionSpan[] {
+    return this.model ? collectRevisions(this.model.paragraphs) : [];
+  }
+
+  /** Revisões de todo o documento, com o parágrafo de cada uma (balões, painel). */
+  revisionSpans(): RevisionEntry[] {
+    const out: RevisionEntry[] = [];
+    const add = (list: Paragraph[], story: WriteRevision['story'], owner: RevisionEntry['owner']): void => {
+      for (const span of collectRevisions(list)) out.push({ span, para: list[span.para]!, story, list, idx: span.para, owner });
+    };
+    const body = this.bodyState();
+    const anchors = [...body.tableAnchors].sort((a, b) => a.beforePara - b.beforePara);
+    const cells = (t: TableBlock): void => {
+      for (const r of t.rows) for (const c of r.cells) { add(c.paragraphs, 'table', { cell: c }); c.tables.forEach(cells); }
+    };
+    let ai = 0;
+    const list = body.model.paragraphs;
+    // as do corpo (juntas através das marcas, como o Word), com as das tabelas no lugar delas
+    for (const span of collectRevisions(list)) {
+      for (; ai < anchors.length && anchors[ai]!.beforePara <= span.para; ai++) cells(anchors[ai]!.table);
+      out.push({ span, para: list[span.para]!, story: 'body', list, idx: span.para, owner: {} });
+    }
+    for (; ai < anchors.length; ai++) cells(anchors[ai]!.table);
+    const seen = new Set<Paragraph[]>();
+    for (const sec of this.fullDoc?.sections ?? []) {
+      for (const [set, refs, story] of [[sec.headers, sec.headerRefs, 'header'], [sec.footers, sec.footerRefs, 'footer']] as const) {
+        for (const ref of refs) {
+          const ps = set[ref.type];
+          if (ps && !seen.has(ps)) { seen.add(ps); add(ps, story, { hfPath: ref.path }); }
+        }
+      }
+    }
+    return out;
+  }
+
+  /** Aceita a revisão de índice `index` (a ordem de getRevisions). */
+  acceptRevisionAt(index: number): boolean { return this.resolveEntry(index, true); }
+  /** Rejeita a revisão de índice `index` (a ordem de getRevisions). */
+  rejectRevisionAt(index: number): boolean { return this.resolveEntry(index, false); }
+
+  private resolveEntry(index: number, accept: boolean): boolean {
+    if (!this.model || this.locked()) return false;
+    const e = this.revisionSpans()[index];
+    if (!e) return false;
+    const active = e.list === this.model.paragraphs;
+    this.snapshot(!active);
+    const changed = this.applyRevisionScope(e.list, spanScope({ ...e.span, para: e.idx }), accept, e.story === 'body');
+    if (!changed) { this.undoStack.pop(); return false; }
+    if (e.owner.cell) e.owner.cell.blocks = reconcileBlocks(e.owner.cell.blocks, e.owner.cell.paragraphs, false);
+    if (e.owner.hfPath) this.dirtyHf.add(e.owner.hfPath);
+    this.selection = { anchor: this.clampPos(this.selection.anchor), focus: this.clampPos(this.selection.focus) };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-revisions-changed'));
+    return true;
+  }
+
+  /** Seleciona a revisão de índice `index` (no corpo) ou rola até ela. */
+  selectRevision(index: number): boolean {
+    const e = this.revisionSpans()[index];
+    if (!e || !this.model) return false;
+    if (e.story === 'body' && e.list === this.model.paragraphs) {
+      const a = { para: e.idx, offset: e.span.start };
+      const b = this.spanEndPos(e.span);
+      this.selection = { anchor: a, focus: b };
+      this.pendingProps = null;
+      this.refreshSelection();
+      this.navigateTo(`#para:${e.idx}`);
+      this.scrollCaretIntoView();
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return true;
+    }
+    const at = this.revisionAnchors().find((x) => x.index === index);
+    if (at) this.scrollTo({ top: Math.max(0, at.topPx - this.clientHeight / 3), behavior: 'smooth' });
+    return !!at;
+  }
+
+  /** A revisão no cursor (para o menu de contexto), com o índice de getRevisions. */
+  revisionAtCaret(): (WriteRevision & { index: number }) | null {
+    if (!this.model) return null;
+    const all = this.revisionSpans();
+    const span = revisionAt(this.activeSpans(), this.selection.focus);
+    if (!span) return null;
+    const index = all.findIndex((e) => e.list === this.model!.paragraphs && e.idx === span.para && e.span.kind === span.kind && e.span.start === span.start && e.span.end === span.end);
+    return index < 0 ? null : { ...this.getRevisions()[index]!, index };
+  }
+
+  /** Revisões do documento (Painel de Revisão), na ordem do texto. */
+  getRevisions(): WriteRevision[] {
+    const lang = uiLang(this) === 'pt' ? 'pt' : 'en';
+    const names = new Map(this.paragraphStyles().map((s) => [s.id, s.name]));
+    return this.revisionSpans().map(({ span: s, story }) => ({
+      kind: s.kind, author: s.author,
+      ...(s.date ? { date: s.date } : {}), ...(s.dateUtc ? { dateUtc: s.dateUtc } : {}),
+      ...(s.move ? { move: true } : {}), ...(s.mark ? { mark: true } : {}),
+      text: s.text,
+      ...(s.kind === 'format' || s.kind === 'paraFormat' ? { description: formatDescription(s, lang, (id) => names.get(id) ?? id) } : {}),
+      story,
+      color: this.authorColor(s.author),
+    }));
+  }
+
+  /** Aceita a revisão do cursor (ou as da seleção) e vai para a próxima, como o
+   *  botão Aceitar do Word. Sem revisão no cursor: só vai para a próxima. */
+  acceptChange(opts: { moveNext?: boolean } = {}): boolean {
+    return this.resolveChange(true, opts.moveNext ?? true);
+  }
+  /** Rejeita a revisão do cursor (ou as da seleção) e vai para a próxima. */
+  rejectChange(opts: { moveNext?: boolean } = {}): boolean {
+    return this.resolveChange(false, opts.moveNext ?? true);
+  }
+
+  private resolveChange(accept: boolean, moveNext: boolean): boolean {
+    if (!this.model || this.locked()) return false;
+    let scope: RevisionScope;
+    if (this.hasSelection()) scope = { range: this.range() };
+    else {
+      const span = revisionAt(this.activeSpans(), this.selection.focus);
+      if (!span) return moveNext ? this.nextChange() : false;
+      scope = spanScope(span);
+    }
+    this.snapshot();
+    const at = normalizeRange(this.range()).start;
+    const changed = this.applyRevisionScope(this.model.paragraphs, scope, accept, true);
+    if (!changed) { this.undoStack.pop(); return moveNext ? this.nextChange() : false; }
+    const pos = this.clampPos(at);
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-revisions-changed'));
+    if (moveNext) this.nextChange();
+    return true;
+  }
+
+  /** Aceita todas as revisões (as mostradas, com `shown`; e para o controle, com
+   *  `stopTracking`) — corpo, tabelas, cabeçalhos e rodapés. */
+  acceptAllChanges(opts: { shown?: boolean; stopTracking?: boolean } = {}): number {
+    return this.resolveAll(true, opts);
+  }
+  /** Rejeita todas as revisões (ver acceptAllChanges). */
+  rejectAllChanges(opts: { shown?: boolean; stopTracking?: boolean } = {}): number {
+    return this.resolveAll(false, opts);
+  }
+
+  private resolveAll(accept: boolean, opts: { shown?: boolean; stopTracking?: boolean }): number {
+    if (!this.model || this.locked()) return 0;
+    const n = this.revisionSpans().length;
+    if (opts.stopTracking) this.toggleTrackChanges(false);
+    if (!n) return 0;
+    if (this.cellEdit) this.exitCell();
+    if (this.tbEdit) this.exitTextbox();
+    if (this.hfEdit) this.exitHeaderFooter();
+    const scope: RevisionScope = opts.shown ? this.shownScope() : {};
+    this.snapshot(true);
+    this.applyRevisionScope(this.model.paragraphs, scope, accept, true);
+    const cells = (t: TableBlock): void => {
+      for (const row of t.rows) for (const cell of row.cells) {
+        if (this.applyRevisionScope(cell.paragraphs, scope, accept, false)) cell.blocks = reconcileBlocks(cell.blocks, cell.paragraphs, false);
+        cell.tables.forEach(cells);
+      }
+    };
+    for (const a of this.tableAnchors) cells(a.table);
+    for (const s of this.fullDoc?.sections ?? []) {
+      for (const [set, refs] of [[s.headers, s.headerRefs], [s.footers, s.footerRefs]] as const) {
+        for (const ref of refs) {
+          const ps = set[ref.type];
+          if (ps && this.applyRevisionScope(ps, scope, accept, false)) this.dirtyHf.add(ref.path);
+        }
+      }
+    }
+    this.selection = { anchor: this.clampPos(this.selection.anchor), focus: this.clampPos(this.selection.focus) };
+    this.refresh();
+    this.dispatchEvent(new CustomEvent('uw-revisions-changed'));
+    return n - this.revisionSpans().length;
+  }
+
+  /** Escopo "as mostradas": os tipos e os autores ligados em Mostrar Marcação. */
+  private shownScope(): RevisionScope {
+    const kinds = new Set<RevisionSpan['kind']>();
+    if (this.markup.insertionsDeletions) { kinds.add('insert'); kinds.add('delete'); }
+    if (this.markup.formatting) { kinds.add('format'); kinds.add('paraFormat'); }
+    return { kinds, ...(this.markup.authors ? { authors: new Set(this.markup.authors) } : {}) };
+  }
+
+  /** Aceita/rejeita num parágrafo da lista; no corpo, as âncoras acompanham a junção. */
+  private applyRevisionScope(paras: Paragraph[], scope: RevisionScope, accept: boolean, body: boolean): boolean {
+    const fn = accept ? acceptRevisions : rejectRevisions;
+    const onMerge = body && paras === this.model?.paragraphs && !this.cellEdit && !this.hfEdit && !this.tbEdit
+      ? (removed: number) => this.shiftAnchors(removed - 1, -1) : undefined;
+    const lo = 0, hi = paras.length - 1;
+    return guardRuns({ paragraphs: paras, sectPr: this.model!.sectPr }, lo, hi, () => fn(paras, scope, onMerge));
+  }
+
+  private clampPos(p: DocPosition): DocPosition {
+    const paras = this.model!.paragraphs;
+    const para = Math.min(p.para, paras.length - 1);
+    return this.canonPos({ para, offset: Math.min(para === p.para ? p.offset : 0, paraLength(paras[para]!)) });
+  }
+
+  /** Seleciona a próxima revisão depois do cursor (recomeça do início). */
+  nextChange(): boolean { return this.stepChange(1); }
+  /** Seleciona a revisão anterior ao cursor (recomeça do fim). */
+  previousChange(): boolean { return this.stepChange(-1); }
+
+  private stepChange(dir: 1 | -1): boolean {
+    if (!this.model) return false;
+    const spans = this.activeSpans();
+    if (!spans.length) return false;
+    const { start } = normalizeRange(this.range());
+    const sel = this.hasSelection();
+    const at = (s: RevisionSpan): number => comparePos({ para: s.para, offset: s.start }, start);
+    // próxima: a que começa depois do cursor (com seleção, depois do começo dela);
+    // anterior: a última que começa antes
+    const target = dir === 1
+      ? spans.find((s) => (sel ? at(s) > 0 : at(s) >= 0)) ?? spans[0]!
+      : [...spans].reverse().find((s) => at(s) < 0) ?? spans[spans.length - 1]!;
+    const a = { para: target.para, offset: target.start };
+    const b = this.spanEndPos(target);
+    this.selection = { anchor: a, focus: b };
+    this.pendingProps = null;
+    this.refreshSelection();
+    this.navigateTo(`#para:${target.para}`);
+    this.scrollCaretIntoView();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return true;
+  }
+
+  /** Fim da seleção de uma revisão: com a marca de parágrafo, o começo do seguinte. */
+  private spanEndPos(s: RevisionSpan): DocPosition {
+    const p = s.endPara ?? s.para;
+    return s.mark && p + 1 < this.model!.paragraphs.length ? { para: p + 1, offset: 0 } : { para: p, offset: s.end };
+  }
+
+  /** Posição (px, no espaço de rolagem) de cada revisão do documento — balões. */
+  revisionAnchors(): { index: number; topPx: number; heightPx: number; page: number }[] {
+    const out: { index: number; topPx: number; heightPx: number; page: number }[] = [];
+    if (!this.eng) return out;
+    const scale = PX_PER_TWIP * this.zoom;
+    this.revisionSpans().forEach(({ span, para }, index) => {
+      for (const el of this.eng!.lines) {
+        if (el.para !== para) continue;
+        if (!span.mark && span.kind !== 'paraFormat' && (el.line.end < span.start || el.line.start > Math.max(span.start, span.end - 1))) continue;
+        const canvas = this.canvases[el.page];
+        if (!canvas) break;
+        out.push({ index, topPx: canvas.offsetTop + el.line.y * scale, heightPx: el.line.height * scale, page: el.page });
+        break;
+      }
+    });
+    return out;
   }
 
   selectAll(): void {
@@ -3406,7 +3866,7 @@ export class UniversalWriteElement extends HTMLElement {
       if (offset <= re || ri === p.runs.length) {
         const imageRun = {
           text: '￼',
-          props: run ? { ...run.props } : { ...DEFAULT_RUN_PROPS },
+          props: this.newRunProps(run?.props),
           image: { data: copy, ext, widthTwips: w, heightTwips: h, ...(obj ? { ole: obj.ole } : {}) },
         };
         if (!run) {
@@ -3551,6 +4011,7 @@ export class UniversalWriteElement extends HTMLElement {
       bodySectRefs: bodyParts.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid })),
       blocks: this.tableAnchors.length || this.fullDoc?.sources ? blocks : undefined,
       sources: this.fullDoc?.sources,
+      trackRevisions: this.tracking,
     });
     // folha de estilos: só regrava a parte se algum estilo mudou (o resto byte a byte)
     if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
@@ -3825,7 +4286,7 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.hasSelection()) {
       this.snapshot();
       if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
-      applyRunProps(this.model, this.range(), patch);
+      this.applyRun(this.range(), patch);
       this.refresh();
     } else {
       this.pendingProps = { ...(this.pendingProps ?? this.currentProps()), ...patch };
@@ -3835,8 +4296,40 @@ export class UniversalWriteElement extends HTMLElement {
   private formatPara(patch: Partial<ParaProps>): void {
     if (!this.model || this.locked()) return;
     this.snapshot();
-    applyParaProps(this.model, this.range(), patch);
+    this.applyPara(this.range(), patch);
     this.refresh();
+  }
+
+  /** Props de um run novo (campo, imagem): as do vizinho sem as revisões dele;
+   *  com o controle ligado, inserção da autoria. */
+  private newRunProps(base?: RunProps): RunProps {
+    return { ...withoutRevisions(base ?? DEFAULT_RUN_PROPS), ...(this.tracking ? { ins: this.newRev() } : {}) };
+  }
+
+  /** Algum caractere do intervalo está excluído em revisão? */
+  private rangeHasDeleted(range: DocRange): boolean {
+    const { start, end } = normalizeRange(range);
+    for (let pi = start.para; pi <= end.para; pi++) {
+      let acc = 0;
+      for (const r of this.model!.paragraphs[pi]!.runs) {
+        const rs = acc;
+        acc += r.text.length;
+        const from = pi === start.para ? start.offset : 0, to = pi === end.para ? end.offset : Infinity;
+        if (r.props.del && rs < to && acc > from) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Formata runs (com o controle ligado vira w:rPrChange). */
+  private applyRun(range: DocRange, patch: Partial<RunProps>): void {
+    if (this.tracking) trackApplyRunProps(this.model!, range, patch, this.newRev());
+    else applyRunProps(this.model!, range, patch);
+  }
+  /** Formata parágrafos (com o controle ligado vira w:pPrChange). */
+  private applyPara(range: DocRange, patch: Partial<ParaProps>): void {
+    if (this.tracking) trackApplyParaProps(this.model!, range, patch, this.newRev());
+    else applyParaProps(this.model!, range, patch);
   }
 
   // imagens são imutáveis: o snapshot guarda só um índice no pool em vez
@@ -3844,7 +4337,8 @@ export class UniversalWriteElement extends HTMLElement {
   private imgPool: Uint8Array[] = [];
   private imgPoolIdx = new WeakMap<Uint8Array, number>();
 
-  private stringifyState(): string {
+  /** `deep`: também os cabeçalhos/rodapés (aceitar/rejeitar todas; as tabelas vão sempre). */
+  private stringifyState(deep = false): string {
     // cabeçalho/rodapé e caixa de texto têm pilha própria (o modelo é o deles);
     // corpo e célula de tabela dividem a do corpo: o estado leva o corpo, as
     // TABELAS e a célula ativa (desfazer uma operação de tabela, ou texto
@@ -3858,6 +4352,10 @@ export class UniversalWriteElement extends HTMLElement {
       s: ce ? ce.saved.selection : this.selection,
       // versão da folha de estilos (as versões ficam em DocStyles)
       sv: this.docStyles.version,
+      // aceitar/rejeitar todas: os cabeçalhos/rodapés também voltam
+      ...(deep ? {
+        hf: (this.fullDoc?.sections ?? []).map((sec) => [sec.headers.default, sec.headers.first, sec.headers.even, sec.footers.default, sec.footers.first, sec.footers.even]),
+      } : {}),
       // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
       // seções (sectPr, refs) moram no modelo e voltam com ele
       anc: own ? undefined : {
@@ -3888,6 +4386,7 @@ export class UniversalWriteElement extends HTMLElement {
     tb?: TableBlock[];
     ce?: { a: number; h: CellHop[]; s: { anchor: DocPosition; focus: DocPosition } };
     ts?: TableSel;
+    hf?: (Paragraph[] | undefined)[][];
   } {
     return JSON.parse(json, (key, value) =>
       value && typeof value === 'object' && '__imgPool' in value
@@ -3903,11 +4402,11 @@ export class UniversalWriteElement extends HTMLElement {
   private editsSinceLoad = 0;
   private loadedBytes: Uint8Array | null = null;
 
-  private snapshot(): void {
+  private snapshot(deep = false): void {
     if (!this.model) return;
     this.editsSinceLoad++;
     if (this.hfEdit) this.dirtyHf.add(this.hfEdit.path);
-    this.undoStack.push(this.stringifyState());
+    this.undoStack.push(this.stringifyState(deep));
     if (this.undoStack.length > 200) this.undoStack.shift();
     this.redoStack.length = 0;
     if (!this.quietChange) {
@@ -3917,8 +4416,21 @@ export class UniversalWriteElement extends HTMLElement {
   private popHistory(from: string[], to: string[]): void {
     if (!this.model || from.length === 0) return;
     this.floatSel = null; // o modelo é recriado → referência de run fica obsoleta
-    to.push(this.stringifyState());
     const state = this.parseState(from.pop()!);
+    to.push(this.stringifyState(!!state.hf));
+    // aceitar/rejeitar todas: os cabeçalhos/rodapés voltam no lugar
+    if (state.hf) {
+      state.hf.forEach((sets, si) => {
+        const sec = this.fullDoc?.sections[si];
+        if (!sec) return;
+        const slots = [[sec.headers, 'default'], [sec.headers, 'first'], [sec.headers, 'even'], [sec.footers, 'default'], [sec.footers, 'first'], [sec.footers, 'even']] as const;
+        slots.forEach(([set, k], j) => {
+          const cur = set[k], old = sets[j];
+          if (cur && old) cur.splice(0, cur.length, ...old);
+        });
+        for (const r of [...sec.headerRefs, ...sec.footerRefs]) this.dirtyHf.add(r.path);
+      });
+    }
     if (this.hfEdit || this.tbEdit) {
       // cabeçalho/caixa: o array de parágrafos É o do documento (parte do HF,
       // caixa de texto) — restaura no lugar para não desligá-lo
@@ -3959,6 +4471,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** deleteRange com ajuste de âncoras de tabela/seção. */
   private deleteSelection(): DocPosition {
+    if (this.tracking) return this.trackedDelete(this.range(), 'end');
     const { start, end } = normalizeRange(this.range());
     const delta = end.para - start.para;
     // tabelas entre os parágrafos selecionados saem com eles (como no Word)
@@ -3968,6 +4481,28 @@ export class UniversalWriteElement extends HTMLElement {
     const pos = deleteRange(this.model!, this.range());
     if (delta > 0) this.shiftAnchors(start.para, -delta);
     return pos;
+  }
+
+  /** Apaga com o controle ligado (o texto fica, excluído); as âncoras acompanham
+   *  as marcas inseridas pela mesma autoria que somem de verdade. Devolve onde o
+   *  cursor fica: no começo (Backspace) ou no fim do trecho (Delete, digitar por cima). */
+  private trackedDelete(range: DocRange, caret: 'start' | 'end'): DocPosition {
+    const r = trackDelete(this.model!, range, this.newRev());
+    for (const removed of r.merged) this.shiftAnchors(removed - 1, -1);
+    return this.canonPos(caret === 'start' ? r.start : r.end);
+  }
+
+  /** Insere texto (com o controle ligado, como inserção da autoria). */
+  private insertTyped(pos: DocPosition, text: string, props?: RunProps): DocPosition {
+    return this.tracking ? trackInsertText(this.model!, pos, text, this.newRev(), props) : insertText(this.model!, pos, text, props);
+  }
+  /** Insere um run inteiro (imagem, campo, quebra…), controlado se ligado. */
+  private insertWholeRun(pos: DocPosition, run: Run): DocPosition {
+    return this.tracking ? trackInsertRun(this.model!, pos, run, this.newRev()) : insertRun(this.model!, pos, run);
+  }
+  /** Enter (com o controle ligado, a marca nova entra como inserção). */
+  private splitAt(pos: DocPosition): DocPosition {
+    return this.tracking ? trackSplitParagraph(this.model!, pos, this.newRev()) : splitParagraph(this.model!, pos);
   }
 
   private type(text: string): void {
@@ -3986,7 +4521,7 @@ export class UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos, focus: pos };
     }
     const props = this.pendingProps ?? undefined;
-    const pos = insertText(this.model, this.selection.focus, text, props);
+    const pos = this.insertTyped(this.selection.focus, text, props);
     this.pendingProps = null;
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
@@ -4003,7 +4538,7 @@ export class UniversalWriteElement extends HTMLElement {
     }
     const at = this.selection.focus.para;
     const atEnd = this.selection.focus.offset >= paraLength(this.model.paragraphs[at]!);
-    const pos = splitParagraph(this.model, this.selection.focus);
+    const pos = this.splitAt(this.selection.focus);
     this.shiftAnchors(at, 1);
     // Enter no FIM de um parágrafo cujo estilo tem w:next: o novo vem com o
     // próximo estilo e sem formatação direta (oráculo: probe D)
@@ -4015,6 +4550,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   private pressBackspace(): void {
     if (!this.model || this.locked()) return;
+    if (this.tracking && !this.hasSelection()) { this.trackedKey(-1); return; }
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset > 0)) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
@@ -4050,6 +4586,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   private pressDelete(): void {
     if (!this.model || this.locked()) return;
+    if (this.tracking && !this.hasSelection()) { this.trackedKey(1); return; }
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para && (this.hasSelection() || this.selection.focus.offset < paraLength(this.model.paragraphs[this.selection.focus.para]!))) this.noteParaEdit(this.selection.focus.para);
     if (this.hasSelection()) {
@@ -4065,6 +4602,66 @@ export class UniversalWriteElement extends HTMLElement {
       } else { this.undoStack.pop(); return; }
     }
     this.refresh();
+  }
+
+  /**
+   * Backspace (-1) / Delete (1) sem seleção com o controle ligado (medido no Word):
+   * o caractere vira exclusão — o cursor fica antes dele (Backspace) ou passa por
+   * ele (Delete); sobre texto já excluído só anda (escondido: é pulado); na marca
+   * de parágrafo, a marca é excluída.
+   */
+  private trackedKey(dir: 1 | -1): void {
+    const paras = this.model!.paragraphs;
+    const { para } = this.selection.focus;
+    let k = this.selection.focus.offset;
+    const p = paras[para]!;
+    const len = paraLength(p);
+    const deleted = (i: number): boolean => {
+      let acc = 0;
+      for (const r of p.runs) { if (i < acc + r.text.length) return i >= acc && !!r.props.del; acc += r.text.length; }
+      return false;
+    };
+    const go = (pos: DocPosition): void => {
+      const c = this.canonPos(pos);
+      this.selection = { anchor: c, focus: c };
+      this.refreshSelection();
+      this.scrollCaretIntoView();
+    };
+    // texto já excluído do lado: escondido é pulado; visível (Todas as Marcações) só anda
+    if (dir < 0) {
+      if (k > 0 && deleted(k - 1) && !this.hiddenChar(p, k - 1)) { go({ para, offset: k - 1 }); return; }
+      while (k > 0 && this.hiddenChar(p, k - 1)) k--;
+    } else {
+      if (k < len && deleted(k) && !this.hiddenChar(p, k)) { go({ para, offset: k + 1 }); return; }
+      while (k < len && this.hiddenChar(p, k)) k++;
+    }
+    let range: DocRange;
+    if (dir < 0 && k > 0) range = { start: { para, offset: k - 1 }, end: { para, offset: k } };
+    else if (dir > 0 && k < len) range = { start: { para, offset: k }, end: { para, offset: k + 1 } };
+    else if (dir < 0 && para > 0) {
+      const prev = paras[para - 1]!;
+      const pl = paraLength(prev);
+      if (prev.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
+        // logo depois de uma quebra de seção o Word também a pula com o controle ligado:
+        // exclui o último caractere antes dela ou, vazio, a marca do parágrafo anterior
+        // (oráculo revisions-xml sect-bksp, sect-bksp-empty)
+        if (pl > 0) range = { start: { para: para - 1, offset: pl - 1 }, end: { para: para - 1, offset: pl } };
+        else if (para > 1 && !paras[para - 2]!.props.markDel) range = { start: { para: para - 2, offset: paraLength(paras[para - 2]!) }, end: { para: para - 1, offset: 0 } };
+        else return;
+      } else {
+        if (prev.props.markDel) { go({ para: para - 1, offset: pl }); return; }
+        range = { start: { para: para - 1, offset: pl }, end: { para, offset: 0 } };
+      }
+    } else if (dir > 0 && para < paras.length - 1) {
+      if (p.props.markDel) { go({ para: para + 1, offset: 0 }); return; }
+      range = { start: { para, offset: len }, end: { para: para + 1, offset: 0 } };
+    } else return;
+    this.snapshot();
+    if (range.start.para === range.end.para) this.noteParaEdit(para);
+    const pos = this.trackedDelete(range, dir < 0 ? 'start' : 'end');
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    this.scrollCaretIntoView();
   }
 
   /** Próxima fronteira de palavra a partir do caret. */
@@ -4104,7 +4701,7 @@ export class UniversalWriteElement extends HTMLElement {
     }
     this.snapshot();
     if (this.selection.anchor.para === this.selection.focus.para) this.noteParaEdit(this.selection.focus.para);
-    const pos = deleteRange(this.model, this.range());
+    const pos = this.tracking ? this.trackedDelete(this.range(), dir < 0 ? 'start' : 'end') : deleteRange(this.model, this.range());
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
   }
@@ -4114,10 +4711,13 @@ export class UniversalWriteElement extends HTMLElement {
     if (this.tableNavigate(dir, extend)) { this.pendingProps = null; return; }
     let { para, offset } = this.selection.focus;
     const len = (i: number) => paraLength(this.model!.paragraphs[i]!);
+    // texto escondido pela visão das revisões (excluído na final/simples) é pulado
+    const hid = (i: number, o: number): boolean => this.hiddenChar(this.model!.paragraphs[i], o);
     if (dir === 'left') {
-      if (offset > 0) offset--;
+      if (offset > 0) { offset--; while (offset > 0 && hid(para, offset - 1)) offset--; }
       else if (para > 0) { para--; offset = len(para); }
     } else if (dir === 'right') {
+      while (offset < len(para) && hid(para, offset)) offset++;
       if (offset < len(para)) offset++;
       else if (para < this.model.paragraphs.length - 1) { para++; offset = 0; }
     } else if (dir === 'home' || dir === 'end') {
@@ -4136,7 +4736,7 @@ export class UniversalWriteElement extends HTMLElement {
         }
       }
     }
-    const focus = { para, offset };
+    const focus = this.canonPos({ para, offset });
     this.selection = extend ? { anchor: this.selection.anchor, focus } : { anchor: focus, focus };
     this.pendingProps = null;
     this.refreshSelection();
@@ -6446,6 +7046,11 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   private hitTest(e: MouseEvent): DocPosition | null {
+    const p = this.hitTestRaw(e);
+    return p && this.canonPos(p);
+  }
+
+  private hitTestRaw(e: MouseEvent): DocPosition | null {
     if (!this.model) return null;
     // com páginas lado a lado, escolhe a página pelo X E pelo Y;
     // clique no vão entre páginas vai para a mais próxima na horizontal
@@ -6720,7 +7325,7 @@ export class UniversalWriteElement extends HTMLElement {
       // (que o motor lê) acompanham a lista de parágrafos da edição
       const doc = this.liveEngineDoc();
       const t1 = performance.now();
-      const result = layoutDocument(doc.full, this.liveFontProvider(), ENGINE_LAYOUT_OPTS);
+      const result = layoutDocument(doc.full, this.liveFontProvider(), this.layoutOpts());
       const t2 = performance.now();
       this.installEngineResult(doc, result);
       this.engineStats = { ...this.engineStats, buildMs: t1 - t0, layoutMs: t2 - t1, pages: result.pages.length, mode: 'full' };
@@ -6756,6 +7361,9 @@ export class UniversalWriteElement extends HTMLElement {
     this.fastTable = null;
     // cabeçalho/rodapé: repete em várias páginas — layout completo
     if (!this.eng || !this.model || this.forceLegacy || this.hfEdit) return;
+    // revisões com barra de alteração (o layout isolado não refaz as barras da página)
+    if ((this.markupMode === 'all' || this.markupMode === 'simple')
+      && (this.tracking || (this.model.paragraphs[pi] && paragraphHasRevisions(this.model.paragraphs[pi]!)))) return;
     try {
       // na célula a unidade é a tabela inteira (do corpo) que a contém
       if (this.cellEdit) this.fastTable = { anchor: this.cellEdit.anchor, before: this.fastBeforeTable(this.cellEdit.anchor) };
@@ -6858,7 +7466,7 @@ export class UniversalWriteElement extends HTMLElement {
       }],
       bookmarks: new Map(),
     };
-    return layoutDocument(full, this.liveFontProvider(), ENGINE_LAYOUT_OPTS);
+    return layoutDocument(full, this.liveFontProvider(), this.layoutOpts());
   }
 
   /** Confere (antes da edição) que o parágrafo isolado reproduz o layout real. */
@@ -7415,8 +8023,9 @@ export class UniversalWriteElement extends HTMLElement {
     const para = this.model.paragraphs[m.para];
     if (!para || paraText(para).slice(m.start, m.end) !== m.word) return false;
     this.snapshot();
-    const pos = deleteRange(this.model, { start: { para: m.para, offset: m.start }, end: { para: m.para, offset: m.end } });
-    const end = insertText(this.model, pos, text);
+    const range = { start: { para: m.para, offset: m.start }, end: { para: m.para, offset: m.end } };
+    const pos = this.tracking ? this.trackedDelete(range, 'end') : deleteRange(this.model, range);
+    const end = this.insertTyped(pos, text);
     this.selection = { anchor: end, focus: end };
     this.refresh();
     return true;
@@ -10404,7 +11013,12 @@ export class UniversalWriteElement extends HTMLElement {
     for (const seg of line.rich.segments) {
       const span = pl.spans[seg.spanIndex]!;
       const run = para.runs[span.runIndex ?? seg.spanIndex];
-      const props = run?.props;
+      // layout legado (Web/Rascunho): o texto revisado sai marcado na cor do autor
+      // (inserção sublinhada, exclusão tachada) — esta visão não esconde texto
+      const rv = run?.props.del ?? run?.props.ins;
+      const props = run && rv && this.markupMode !== 'original'
+        ? { ...run.props, color: this.authorColor(rv.author), ...(run.props.del ? { strike: true } : { underline: true, underlineStyle: undefined }) }
+        : run?.props;
 
       // inline customizado: ocupa um único U+FFFC no modelo/layout e delega
       // a pintura ao plugin. Sem plugin, desenha fallback textual legível.
@@ -10639,7 +11253,7 @@ export class UniversalWriteElement extends HTMLElement {
     try { await loadHyphenation(hyphenationLangs(full)); } catch { /* sem padrões: sem hifenização */ }
     const layout = (): ReturnType<typeof layoutDocument> => {
       const prov = withEmbeddedFonts(this.engineFontProvider(missing), embedded, (b) => new SfntFont(b));
-      return layoutDocument(full, prov, ENGINE_LAYOUT_OPTS);
+      return layoutDocument(full, prov, this.layoutOpts());
     };
     // 1ª passada registra as famílias/variantes que o motor pediu e o editor
     // ainda não tinha; resolve-as (rede/SO) e diagrama de novo

@@ -66,7 +66,13 @@ function menus(env: WidgetEnv, ctx: BarContext) {
       sub({ en: 'Margins', pt: 'Margens' }, 'margin', () => marginsMenu(env, ctx), 'margins'),
       '-', 'dlg:pageBorders',
     ], 'page'),
-    trackChanges: sub({ en: 'Track changes', pt: 'Controlar alterações' }, 'track_changes', () => ['trackChanges', '-', 'change:accept', 'change:reject', 'change:acceptAll', 'change:rejectAll'], 'tracking'),
+    trackChanges: sub({ en: 'Track Changes', pt: 'Controlar Alterações' }, 'track_changes', () => ['trackChanges', '-',
+      sub({ en: 'Display for Review', pt: 'Exibir para Revisão' }, 'visibility', markupModes, 'markupMode'),
+      sub({ en: 'Show Markup', pt: 'Mostrar Marcação' }, 'notes', () => showMarkup(env, ctx), 'showMarkup'),
+      'reviewPane', '-', 'change:prev', 'change:next', '-',
+      sub({ en: 'Accept', pt: 'Aceitar' }, 'check_circle', acceptItems, 'acceptMenu'),
+      sub({ en: 'Reject', pt: 'Rejeitar' }, 'cancel', rejectItems, 'rejectMenu'),
+    ], 'tracking'),
     comments: sub({ en: 'Comments', pt: 'Comentários' }, 'comment', () => ['comment', 'comment:prev', 'comment:next', 'comment:delete', 'comment:deleteAll', '-', 'comments'], 'commentsMenu'),
     table: { ...sub({ en: 'Table', pt: 'Tabela' }, 'table', () => tableMenu(env, ctx), 'tableMenu'), hidden: typeof (env.ed as unknown as { insertTable?: unknown }).insertTable !== 'function' },
   };
@@ -76,6 +82,36 @@ function menus(env: WidgetEnv, ctx: BarContext) {
 const breaksMenu = (): MenuEntry[] => ['pagebreak', 'columnbreak', '-', 'sectionbreak', 'sectionbreak:continuous', 'sectionbreak:evenPage', 'sectionbreak:oddPage'];
 /** Galeria Colunas: predefinições + Mais Colunas. */
 const columnsMenu = (): MenuEntry[] => ['columns:one', 'columns:two', 'columns:three', 'columns:left', 'columns:right', '-', 'dlg:columns'];
+
+// ── controle de alterações (guia Revisão do Word) ──
+const markupModes = (): MenuEntry[] => ['markup:simple', 'markup:all', 'markup:none', 'markup:original'];
+const acceptItems = (): MenuEntry[] => ['change:acceptNext', 'change:acceptOne', 'change:acceptShown', 'change:acceptAll', 'change:acceptAllStop'];
+const rejectItems = (): MenuEntry[] => ['change:rejectNext', 'change:rejectOne', 'change:rejectShown', 'change:rejectAll', 'change:rejectAllStop'];
+const MODE_LABELS: Record<string, { en: string; pt: string }> = {
+  simple: { en: 'Simple Markup', pt: 'Marcação Simples' }, all: { en: 'All Markup', pt: 'Todas as Marcações' },
+  none: { en: 'No Markup', pt: 'Sem Marcação' }, original: { en: 'Original', pt: 'Original' },
+};
+
+/** Mostrar Marcação: tipos, balões e pessoas específicas (autores do documento). */
+function showMarkup(env: WidgetEnv, ctx: BarContext): MenuEntry[] {
+  const ed = env.ed;
+  const people = (): MenuEntry[] => {
+    const all = ed.revisionAuthors();
+    const sel = ed.getMarkupOptions().authors;
+    return ['people:all', '-', ...all.map((a): MenuItem => ({
+      id: `people:${a}`, label: a, swatch: `#${ed.authorColor(a)}`, checked: !sel || sel.includes(a),
+      onClick: () => {
+        const cur = ed.getMarkupOptions().authors ?? all;
+        const next = cur.includes(a) ? cur.filter((x) => x !== a) : [...cur, a];
+        ed.setMarkupOptions({ authors: all.every((x) => next.includes(x)) ? null : next });
+        ctx.after();
+      },
+    }))];
+  };
+  return ['comments', 'show:insdel', 'show:formatting', '-',
+    { id: 'balloons', label: { en: 'Balloons', pt: 'Balões' }, submenu: () => ['balloons:revisions', 'balloons:inline', 'balloons:mixed'] },
+    { id: 'people', label: { en: 'Specific People', pt: 'Pessoas Específicas' }, submenu: people }];
+}
 
 const fileMenu = (m: ReturnType<typeof menus>): MenuEntry[] => [
   'new', 'open', m.recent, '-', 'save', 'saveAs', m.exportAs, 'fontsInFile', '-', 'compare', '-', 'print', '-', m.autosave,
@@ -225,7 +261,19 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
             { rows: [[{ cmd: 'comment:delete', label: true }], [{ cmd: 'comment:prev', label: true }], [{ cmd: 'comment:next', label: true }]] },
             { cmd: 'comments', size: 'large' },
           ] },
-          { id: 'changes', label: L('Changes', 'Alterações'), icon: 'track_changes', prio: 4, cells: [large('trackChanges'), large('change:accept'), large('change:reject')] },
+          { id: 'tracking', label: L('Tracking', 'Controle'), icon: 'track_changes', prio: 4, cells: [
+            large('trackChanges'),
+            { rows: [
+              [{ menu: markupModes, id: 'markupMode', label: L('Display for Review', 'Exibir para Revisão'), icon: 'visibility', text: () => MODE_LABELS[env.ed.getMarkupMode()]![ctx.lang], supports: () => typeof env.ed.setMarkupMode === 'function' }],
+              [{ menu: () => showMarkup(env, ctx), id: 'showMarkup', label: L('Show Markup', 'Mostrar Marcação'), icon: 'notes', showLabel: true, supports: () => typeof env.ed.setMarkupOptions === 'function' }],
+              [{ cmd: 'reviewPane', label: true }, { menu: () => ['reviewPane:vertical', 'reviewPane:horizontal'], id: 'reviewPaneDir', label: { en: 'Reviewing Pane', pt: 'Painel de Revisão' }, icon: 'arrow_drop_down', supports: () => typeof env.ed.getRevisions === 'function' }],
+            ] },
+          ] },
+          { id: 'changes', label: L('Changes', 'Alterações'), icon: 'check_circle', prio: 4, cells: [
+            { split: 'change:accept', menu: acceptItems, size: 'large' },
+            { split: 'change:reject', menu: rejectItems, size: 'large' },
+            { rows: [[{ cmd: 'change:prev', label: true }], [{ cmd: 'change:next', label: true }]] },
+          ] },
           { id: 'document', label: L('Compare & Protect', 'Comparar e Proteger'), icon: 'compare', prio: 3, cells: [large('compare'), large('enableEditing')] },
         ],
       },

@@ -7,7 +7,7 @@ import {
   patchTblPr, patchTblPrEx, patchTrPr, patchTcPr,
   tblPrXml as tblPrTyped, tblPrExXml as tblPrExTyped, trPrXml as trPrTyped, tcPrXml as tcPrTyped, pgBordersXml,
 } from './table-xml.js';
-import { beginRevisionIds, ensureRevisionNamespaces, markRevisionXml, revisionAttrs, takeUsedDateUtc, wrapRevision } from './rev-xml.js';
+import { beginRevisionIds, ensureRevisionNamespaces, markRevisionXml, revisionAttrs, takeUsedDateUtc, wrapRevision, writeTrackRevisions } from './rev-xml.js';
 
 /**
  * Grava o modelo em word/document.xml (e cabeçalhos/rodapés, numbering,
@@ -1050,6 +1050,8 @@ export interface WriteOptions {
   blocks?: Block[];
   /** XML original lido (readFullDocument com `sources`) — gravação sem perdas. */
   sources?: SourceStore;
+  /** controle de alterações ligado/desligado (w:settings/w:trackRevisions); ausente = não mexe */
+  trackRevisions?: boolean;
 }
 
 const commentXml = (c: CommentOut): string =>
@@ -1111,6 +1113,7 @@ export function writeDocument(
   active = store ? { store, pkg, relsPath: 'word/_rels/document.xml.rels', claimed: new Set(), genNumbering: false, claimedSegs: new Set(), remaining: new Map(), paraRuns: [], emittedObj: new Set(), numIds: store.genNumIds! } : null;
   try {
     writeParts(pkg, model, hfParts, opts, store);
+    if (opts.trackRevisions !== undefined) writeTrackRevisions(pkg, opts.trackRevisions);
   } finally {
     active = null;
   }

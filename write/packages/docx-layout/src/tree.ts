@@ -146,6 +146,9 @@ export interface LaidOutLine {
   /** caracteres da linha: offset no parágrafo, x absoluto (twips) e largura
    *  (justificação/tabs incluídos) — cursor, seleção e clique no editor */
   chars?: { o: number; x: number; w: number }[];
+  /** a linha tem revisão que pede barra de alteração: o espaço antes (1ª linha do
+   *  parágrafo) e depois (última) que a barra também cobre (twips) */
+  rev?: { before: number; after: number };
 }
 
 export interface LayoutPage {

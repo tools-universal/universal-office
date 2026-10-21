@@ -1,7 +1,7 @@
 import type {
   FullDocument, Block, Paragraph, TableBlock, Section, SectPr, Run, PBdr, DrawingAnchor, TableCell,
 } from '@universal-office/docx-core';
-import { runPropsFromRPr, paraPropsFromPPr } from '@universal-office/docx-core';
+import { runPropsFromRPr, paraPropsFromPPr, revisionAuthors } from '@universal-office/docx-core';
 import { DocContext, emptyFormatting, directPPr, type LayoutOptions, type FlowState } from './context.js';
 import { faceMetrics, type FontProvider } from './fonts.js';
 import { prepareParagraph, resolvePPr, isDark, paraVisibility, type PreparedPara, type ParaEnv } from './para.js';
@@ -10,6 +10,7 @@ import { paintLine, paintParaBox, borderWidth, pageBorderItems } from './paint.j
 import { dateFieldValue } from './datefmt.js';
 import { layoutTable, shiftItem, isHiddenRow, mergeTextFirst, dropMoved, splitContent, atPageTop, LATE_ITEMS, type TableLayout, type CellContent, type ParaSplitInfo, type NestRow } from './table.js';
 import type { LayoutPage, LayoutResult, PageItem, LaidOutLine, PlacedObject } from './tree.js';
+import { BAR_WIDTH, barX, joinDeleted } from './revisions.js';
 import { resolveColor, resolveDrawingColor, shadingFill } from './resolve.js';
 import { formatNumber } from './numbering.js';
 import { NumberingState } from './numbering.js';
@@ -120,6 +121,8 @@ const COL_SEP_W = 16.8;
 interface HiddenJoin { para: Paragraph; marker: PreparedPara['marker'] }
 
 export function layoutDocument(full0: FullDocument, provider: FontProvider, opts: LayoutOptions = {}): LayoutResult {
+  // revisões: cor por autor na ordem de leitura do documento (a ordem de encontro do Word)
+  if (opts.revisions && opts.revisions.mode !== 'final' && !opts.revisions.order) opts = { ...opts, revisions: { ...opts.revisions, order: revisionAuthors(full0) } };
   const fmt = full0.formatting ?? emptyFormatting();
   // molduras (w:framePr) saem do fluxo: viram caixas ancoradas no parágrafo seguinte
   const lifted = liftFrames(full0.blocks, new Set(full0.sections.map((s) => s.blockEnd)));
@@ -455,6 +458,12 @@ class Engine {
       const pbItems = pb ? this.pageBorders(ps, pb) : [];
       const pbBack = pb?.zOrder === 'back';
       ps.page.items = [...hfLayer, ...(pbBack ? pbItems : []), ...cullOffPage([...zItems([...bB, ...lb.back]), ...lb.keep, ...zItems([...bF, ...lb.front])], ps.page.widthTw, ps.page.heightTw), ...(pbBack ? [] : pbItems)];
+      // barras de alteração (controle de alterações): na frente, na margem esquerda
+      const barColor = this.ctx.rev.barColor();
+      if (barColor && ps.page.lines.some((l) => l.rev)) {
+        const ml = this.full.sections[ps.geom.index]?.sectPr.marginLeftTwips ?? 1701;
+        ps.page.items.push(...revisionBarItems(ps.page.lines, barX(ml), barColor));
+      }
       ps.page.hfItems = hfLayer.length;
       if (bg && bg.toUpperCase() !== 'FFFFFF' && bg !== 'auto') ps.page.background = bg;
       return ps.page;
@@ -878,12 +887,12 @@ class Engine {
         }
         // marca excluída (revisão): o texto vai para o parágrafo seguinte, com as
         // propriedades dele (oráculo delmark); todo o texto excluído: some (numbering3, del-mark)
-        if (b.paragraph.ppr?.markDeleted && !join && bi < n - 1 && blocks[bi + 1]!.type === 'paragraph') {
+        if (this.ctx.rev.markGone(b.paragraph) && !join && bi < n - 1 && blocks[bi + 1]!.type === 'paragraph') {
           delRuns = [...(delRuns ?? []), ...b.paragraph.runs];
           return;
         }
-        if (b.paragraph.ppr?.markDeleted && !b.paragraph.runs.length && !join && !delRuns) return;
-        const merged = delRuns ? { ...b.paragraph, runs: [...delRuns, ...b.paragraph.runs] } : b.paragraph;
+        if (this.ctx.rev.markGone(b.paragraph) && this.noShownRuns(b.paragraph) && !join && !delRuns) return;
+        const merged = delRuns ? joinDeleted(delRuns, b.paragraph) : b.paragraph;
         delRuns = null;
         const para = join ? this.joinHidden(join, merged, env) : merged;
         const p = prepareParagraph(this.ctx, para, { ...env, noPageBreaks: true, ...(join ? { numbering: false } : {}) });
@@ -1336,6 +1345,11 @@ class Engine {
     return { ...join.para, ppr, runs: [...join.para.runs, ...next.runs] };
   }
 
+  /** Nenhum run aparece nesta visão (todo o texto excluído — ou parágrafo vazio). */
+  private noShownRuns(p: Paragraph): boolean {
+    return p.runs.every((r) => this.ctx.rev.run(r) === 'hide');
+  }
+
   private placeParagraph(para0: Paragraph, ref: string, blockIdx: number, g: SectGeom): void {
     // moldura: fora do fluxo (a caixa vai com o parágrafo âncora; sem âncora, fica aqui)
     if (FRAME_SKIP.has(para0)) {
@@ -1347,15 +1361,15 @@ class Engine {
     // as propriedades DELE (a marca que sobra) — estilo, recuos, numeração; o número
     // do excluído não conta (oráculo delmark). Todo o texto excluído: some (numbering3,
     // del-mark). O último da seção (quebra) fica como está.
-    if (para0.ppr?.markDeleted && !this.pendingJoin && blockIdx < g.blocks[1] && this.full.blocks[blockIdx + 1]?.type === 'paragraph') {
+    if (this.ctx.rev.markGone(para0) && !this.pendingJoin && blockIdx < g.blocks[1] && this.full.blocks[blockIdx + 1]?.type === 'paragraph') {
       this.pendingDel = [...(this.pendingDel ?? []), ...para0.runs];
       return;
     }
-    if (para0.ppr?.markDeleted && !para0.runs.length && !this.pendingJoin && !this.pendingDel) return;
+    if (this.ctx.rev.markGone(para0) && this.noShownRuns(para0) && !this.pendingJoin && !this.pendingDel) return;
     const join = this.pendingJoin;
     this.pendingJoin = null;
     const env: ParaEnv = { field: this.fieldValue(this.cur) };
-    const merged = this.pendingDel ? { ...para0, runs: [...this.pendingDel, ...para0.runs] } : para0;
+    const merged = this.pendingDel ? joinDeleted(this.pendingDel, para0) : para0;
     this.pendingDel = null;
     const para = join ? this.joinHidden(join, merged, env) : merged;
     const p = prepareParagraph(this.ctx, para, join ? { ...env, numbering: false } : env);
@@ -3093,11 +3107,40 @@ function lineRecord(ref: string, p: PreparedPara, line: Line, frameX: number, to
   const chars = line.placed
     .filter((pg) => pg.g.kind !== 'pb' && pg.g.kind !== 'cb' && !pg.g.autoHyphen)
     .map((pg) => ({ o: pg.g.offset, x: frameX + pg.x, w: pg.w }));
+  // barra de alteração: a linha cruza uma revisão (inclusive texto excluído escondido)
+  const rb = p.revBars;
+  const firstLine = line.start === 0, lastLine = line.end >= gs.length;
+  // (texto escondido — exclusão na Marcação Simples — não tem glifo: vale encostar na linha)
+  const rev = !!rb && (rb.whole || (rb.mark && lastLine) || rb.ranges.some(([a, b, hidden]) => (hidden ? a <= end && b >= start : a < end && b > start)));
   return {
     ref, start, end,
     x: frameX + line.xStart, y: top, height: line.height, baseline: top + line.baseline, width: line.width,
     chars,
+    ...(rev ? { rev: { before: firstLine ? p.spaceBefore : 0, after: lastLine ? p.spaceAfter : 0 } } : {}),
   };
+}
+
+/**
+ * Barras de alteração de uma página (medido no Word, revisions-render): um
+ * traço de 0,72 pt na margem esquerda por trecho de linhas seguidas com
+ * revisão, cobrindo a caixa de cada linha mais o espaço antes/depois do
+ * parágrafo — sem passar da linha vizinha.
+ */
+function revisionBarItems(lines: readonly LaidOutLine[], x: number, color: string): PageItem[] {
+  const all = [...lines].sort((a, b) => a.y - b.y);
+  const segs: [number, number][] = [];
+  all.forEach((l, i) => {
+    if (!l.rev) return;
+    const prevBottom = i > 0 ? all[i - 1]!.y + all[i - 1]!.height : -Infinity;
+    const nextTop = i + 1 < all.length ? all[i + 1]!.y : Infinity;
+    const top = Math.max(l.y - l.rev.before, Math.min(l.y, prevBottom));
+    const bottom = Math.min(l.y + l.height + l.rev.after, Math.max(l.y + l.height, nextTop));
+    const last = segs[segs.length - 1];
+    // (a borda entre linhas de tabela não separa a barra — oráculo tbl)
+    if (last && top <= last[1] + 20) last[1] = Math.max(last[1], bottom);
+    else segs.push([top, bottom]);
+  });
+  return segs.map(([y0, y1]) => ({ t: 'rect' as const, x, y: y0, w: BAR_WIDTH, h: y1 - y0, fill: color }));
 }
 
 export { EMPTY_LINES, resolveColor };

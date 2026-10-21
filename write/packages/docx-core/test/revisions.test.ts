@@ -221,6 +221,18 @@ describe('revisões: aceitar e rejeitar = Word', () => {
     expect(left).toContain('Ana');
   });
 
+  it('inserção que atravessa a marca de parágrafo é uma revisão só (como o Word lista)', () => {
+    const d = hello();
+    const p = trackSplitParagraph(d.model, at(0, 11), ME);
+    trackInsertText(d.model, p, 'Second', ME);
+    const spans = collectRevisions(d.model.paragraphs);
+    expect(spans).toHaveLength(1);
+    expect(spans[0]).toMatchObject({ kind: 'insert', para: 0, start: 11, endPara: 1, end: 6, text: '\nSecond' });
+    expect(revisionAt(spans, at(1, 3))).toBe(spans[0]);
+    rejectRevisions(d.model.paragraphs, spanScope(spans[0]!));
+    expect(d.model.paragraphs.map(text)).toEqual(['Hello world']);
+  });
+
   it('juntar parágrafos ao aceitar avisa o índice que saiu', () => {
     const d = marks();
     const out: number[] = [];

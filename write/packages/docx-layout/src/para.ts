@@ -7,6 +7,7 @@ import { faceMetrics, deviceEmPt, superscriptRaiseFor, subscriptDropPt, isSymbol
 import type { NumberMarker } from './numbering.js';
 import { mathAtoms, mathTextMetrics, type MathBox, type MathEnv } from './math.js';
 import { markHyphenation } from './hyphenate.js';
+import { revisionRanges } from './revisions.js';
 
 /**
  * Parágrafo pronto para quebrar em linhas: propriedades resolvidas (cascata
@@ -135,6 +136,8 @@ export interface PreparedPara {
   pageBreakBefore: boolean;
   /** só contém quebra de página/seção (parágrafo "vazio" de quebra) */
   empty: boolean;
+  /** revisões que pedem barra de alteração nesta visão (offsets; parágrafo inteiro; marca) */
+  revBars?: { ranges: [number, number, boolean][]; whole: boolean; mark: boolean };
 }
 
 export interface ParaEnv {
@@ -642,7 +645,8 @@ export function resolvePPr(ctx: DocContext, para: Paragraph, env: ParaEnv): { pp
  * Texto oculto (w:vanish) sem diagramar e sem efeitos colaterais (numeração):
  * a marca do parágrafo está oculta? há algum run visível com conteúdo?
  */
-export function paraVisibility(ctx: DocContext, para: Paragraph, env: ParaEnv): { markHidden: boolean; visible: boolean } {
+export function paraVisibility(ctx: DocContext, para0: Paragraph, env: ParaEnv): { markHidden: boolean; visible: boolean } {
+  const para = ctx.rev.paragraph(para0);
   const { ppr, styleRPr } = resolvePPr(ctx, para, env);
   const dd = ctx.resolver.docDefaults;
   const runRPr = (rpr: RPr): RPr => cascadeRPr(dd.rPr, [env.tableRPr, styleRPr, ctx.resolver.charStyle(rpr.rStyle)], rpr);
@@ -650,11 +654,13 @@ export function paraVisibility(ctx: DocContext, para: Paragraph, env: ParaEnv): 
   const markHidden = hidden(runRPr(ppr.rPr ?? {}));
   const visible = displayRuns(para, env).some(({ run }) =>
     !!(run.text || run.image || run.shape || run.group || run.textbox || run.formField?.type === 'checkBox' || run.custom || run.ptab || run.noteRef)
-    && !hidden(runRPr(directRPr(run))));
+    && ctx.rev.run(run) !== 'hide' && !hidden(runRPr(ctx.rev.directRPr(run))));
   return { markHidden, visible };
 }
 
-export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv): PreparedPara {
+export function prepareParagraph(ctx: DocContext, para0: Paragraph, env0: ParaEnv): PreparedPara {
+  // modo Original: a formatação de parágrafo de antes da revisão
+  const para = ctx.rev.paragraph(para0);
   const { ppr, styleId, styleRPr } = resolvePPr(ctx, para, env0);
   // sombreamento escuro no parágrafo: o texto de cor automática vira branco
   const shd = ppr.shd;
@@ -816,14 +822,26 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
   };
 
   for (const { run, idx, offset } of displayRuns(para, env)) {
+    // revisões: o texto que a visão esconde (excluído na final, inserido na
+    // original) sai como o oculto — sem glifo, offsets intactos
+    const rev = ctx.rev.run(run);
+    if (rev === 'hide') continue;
     // (referência de nota: o sobrescrito que o leitor põe nas props não é
     // formatação — editBaseProps; vale o estilo/rPr do documento, oráculo fnrefsup)
-    const direct = directRPr(run);
+    const direct = ctx.rev.directRPr(run);
     // entradas de sumário (TOC): o Word não aplica o estilo Hyperlink
     if (run.inToc && direct.rStyle && isHyperlinkStyle(ctx, direct.rStyle)) delete direct.rStyle;
     const rpr = runRPr(direct);
     const style = resolveRunStyle(ctx, rpr, env, run.props.link);
     if (style.hidden) continue;
+    if (rev) {
+      // marcação: a cor do autor vence a do run; inserção sublinhada, exclusão tachada
+      // (movimentação: duplos) — oráculo revisions-render
+      style.color = rev.color;
+      style.autoColor = false;
+      if (rev.kind === 'ins') style.underline = { val: rev.move ? 'double' : 'single' };
+      else { style.strike = !rev.move; style.dstrike = rev.move; }
+    }
     if (run.image || run.shape || run.group || run.textbox) {
       const floating = run.image?.floating ?? run.shape?.floating ?? run.group?.floating ?? run.textbox?.floating;
       const face = faceFor(ctx, rpr, 0x20, style);
@@ -1031,8 +1049,10 @@ export function prepareParagraph(ctx: DocContext, para: Paragraph, env0: ParaEnv
     jc = mathJc === 'left' ? 'left' : mathJc === 'right' ? 'right' : 'center';
     firstLine = 0;
   }
+  const revBars = revisionRanges(ctx.rev, para);
   return {
     para, ppr, styleId, markStyle, markFace, glyphs, marker,
+    ...(revBars ? { revBars } : {}),
     indLeft: ind.left ?? 0,
     indRight: ind.right ?? 0,
     firstLine,

@@ -70,9 +70,9 @@ export class LangResolver {
 }
 
 /** Runs que não se revisam: campos (o resultado é do Word), marcas de nota,
- *  objetos e inlines de plugin. */
+ *  objetos, inlines de plugin e texto excluído em revisão. */
 const skipRun = (r: Run): boolean =>
-  !!(r.field || r.fieldResult || r.noteRef || r.custom || r.image || r.textbox || r.shape || r.group || r.math || r.props.isMath || r.formField);
+  !!(r.field || r.fieldResult || r.noteRef || r.custom || r.image || r.textbox || r.shape || r.group || r.math || r.props.isMath || r.formField || r.props.del);
 
 /** Trechos por idioma de um parágrafo: um texto por idioma, do tamanho do
  *  parágrafo, com espaço no lugar do que é de outro idioma ou não se revisa. */

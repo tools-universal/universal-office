@@ -69,6 +69,10 @@ $exps = [ordered]@{
   'bksp-own-mark'    = { $s.TypeText('Hello world'); $d.TrackRevisions = $true; $s.SetRange(5, 5); $s.TypeParagraph(); $s.TypeBackspace() }
   'caret-bksp-del'   = { $s.TypeText('Hello world'); $d.TrackRevisions = $true; $s.SetRange(11, 11); $s.TypeBackspace(); $s.InsertAfter('[' + $s.Start + ']') }
   'caret-delfwd'     = { $s.TypeText('Hello world'); $d.TrackRevisions = $true; $s.SetRange(6, 6); $s.Delete() | Out-Null; $s.InsertAfter('[' + $s.Start + ']') }
+  # quebra de secao (proxima pagina = 2): Backspace logo depois dela / Delete antes dela
+  'sect-bksp'        = { $s.TypeText('One'); $s.InsertBreak(2); $s.TypeText('Two'); $d.TrackRevisions = $true; $s.SetRange(4, 4); $s.TypeBackspace(); $s.InsertAfter('[' + $s.Start + ']') }
+  'sect-bksp-empty'  = { $s.TypeText('One'); $s.TypeParagraph(); $s.InsertBreak(2); $s.TypeText('Two'); $d.TrackRevisions = $true; $s.SetRange(5, 5); $s.TypeBackspace(); $s.InsertAfter('[' + $s.Start + ']') }
+  'sect-delete'      = { $s.TypeText('One'); $s.InsertBreak(2); $s.TypeText('Two'); $d.TrackRevisions = $true; $s.SetRange(3, 3); $s.Delete() | Out-Null; $s.InsertAfter('[' + $s.Start + ']') }
 }
 
 # experimentos sobre fixtures (.docx de -FixDir): nome = fixture-<op>

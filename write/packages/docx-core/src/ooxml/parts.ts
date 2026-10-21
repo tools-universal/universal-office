@@ -464,7 +464,7 @@ export interface DocFormatting {
 }
 
 /** Caminho de uma parte pelo tipo de relacionamento do document.xml. */
-function partByRelType(pkg: DocxPackage, type: string, fallback: string): string {
+export function partByRelType(pkg: DocxPackage, type: string, fallback: string): string {
   const rels = pkg.getPartText('word/_rels/document.xml.rels');
   if (rels) {
     for (const rel of childElements(parseXml(rels), 'Relationship')) {

@@ -109,6 +109,7 @@ export {
   type RevisionScope,
   type TrackedDelete,
 } from './revisions.js';
+export { readTrackRevisions, writeTrackRevisions } from './rev-xml.js';
 export {
   serializeDocument,
   serializeBlocks,

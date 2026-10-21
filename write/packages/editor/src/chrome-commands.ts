@@ -33,6 +33,11 @@ export interface ChromeCtl {
   toolbarMode(): 'compact' | 'ribbon';
   setToolbarMode(m: 'compact' | 'ribbon'): void;
   toggleComments(): void;
+  /** Controlar Alterações (pergunta o nome do autor na 1ª vez, se o host não o deu) */
+  trackChanges(): void;
+  /** Painel de Revisão: abre/fecha (sem argumento: alterna) ou muda a orientação */
+  reviewPane(dir?: 'vertical' | 'horizontal'): void;
+  reviewPaneOpen(): false | 'vertical' | 'horizontal';
   requestFonts(): void;
   flash(msg: string): void;
   /** destaque/modo mudaram em app.accent/app.mode */
@@ -59,6 +64,12 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
   const run = (): SelState['run'] => ctl.state().run;
   const para = (): SelState['para'] => ctl.state().para;
   const L = app.ui!.L;
+
+  // controle de alterações
+  const markup = (): { insertionsDeletions: boolean; formatting: boolean; balloons: string; authors: string[] | null } =>
+    (typeof api['getMarkupOptions'] === 'function' ? call('getMarkupOptions') : { insertionsDeletions: true, formatting: true, balloons: 'mixed', authors: null }) as ReturnType<typeof markup>;
+  const hasRevisions = (): boolean => typeof api['getRevisions'] === 'function' && (call('getRevisions') as unknown[]).length > 0;
+  const resolved = (n: unknown, accept: boolean): void => { ctl.flash(accept ? L.revAccepted(Number(n) || 0) : L.revRejected(Number(n) || 0)); };
 
   const edit = (c: Omit<Command, 'isEnabled'> & { isEnabled?: () => boolean }): Command =>
     ({ ...c, isEnabled: c.isEnabled ? () => canEdit() && c.isEnabled!() : canEdit });
@@ -207,11 +218,32 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     { id: 'wordCount', label: { en: 'Word count', pt: 'Contar Palavras' }, icon: 'numbers', shortcut: 'Ctrl+Shift+G', run: () => ctl.wordCount() },
     { id: 'spelling', label: { en: 'Spelling & grammar', pt: 'Ortografia e gramática' }, icon: 'spellcheck', shortcut: 'F7', supports: has('nextMisspelling'), run: () => ctl.spelling(), isEnabled: canEdit },
     { id: 'spellAsYouType', label: { en: 'Check spelling as you type', pt: 'Verificar ortografia ao digitar' }, icon: 'spellcheck', supports: has('toggleSpellCheck'), run: () => call('toggleSpellCheck'), isChecked: () => typeof api['spellCheckEnabled'] === 'function' && !!call('spellCheckEnabled') },
-    edit({ id: 'trackChanges', label: { en: 'Track changes', pt: 'Controlar alterações' }, icon: 'track_changes', shortcut: 'Ctrl+Shift+E', supports: has('toggleTrackChanges'), run: () => call('toggleTrackChanges'), isChecked: () => typeof api['isTrackingChanges'] === 'function' && !!call('isTrackingChanges') }),
-    edit({ id: 'change:accept', label: { en: 'Accept', pt: 'Aceitar' }, icon: 'check_circle', supports: has('acceptChange'), run: () => call('acceptChange') }),
-    edit({ id: 'change:reject', label: { en: 'Reject', pt: 'Rejeitar' }, icon: 'cancel', supports: has('rejectChange'), run: () => call('rejectChange') }),
-    edit({ id: 'change:acceptAll', label: { en: 'Accept all changes', pt: 'Aceitar todas as alterações' }, icon: 'done_all', supports: has('acceptAllChanges'), run: () => call('acceptAllChanges') }),
-    edit({ id: 'change:rejectAll', label: { en: 'Reject all changes', pt: 'Rejeitar todas as alterações' }, icon: 'remove_done', supports: has('rejectAllChanges'), run: () => call('rejectAllChanges') }),
+    // controle de alterações (rótulos do Word 365 pt-BR, guia Revisão)
+    edit({ id: 'trackChanges', label: { en: 'Track Changes', pt: 'Controlar Alterações' }, icon: 'track_changes', shortcut: 'Ctrl+Shift+E', supports: has('toggleTrackChanges'), run: () => ctl.trackChanges(), isChecked: () => typeof api['isTrackingChanges'] === 'function' && !!call('isTrackingChanges') }),
+    ...([['simple', 'Simple Markup', 'Marcação Simples'], ['all', 'All Markup', 'Todas as Marcações'], ['none', 'No Markup', 'Sem Marcação'], ['original', 'Original', 'Original']] as const).map(([m, en, pt]): Command =>
+      ({ id: `markup:${m}`, label: { en, pt }, supports: has('setMarkupMode'), run: () => call('setMarkupMode', m), isChecked: () => typeof api['getMarkupMode'] === 'function' && call('getMarkupMode') === m })),
+    ...([['insdel', 'Insertions and Deletions', 'Inserções e Exclusões', 'insertionsDeletions'], ['formatting', 'Formatting', 'Formatação', 'formatting']] as const).map(([k, en, pt, opt]): Command =>
+      ({ id: `show:${k}`, label: { en, pt }, supports: has('setMarkupOptions'), run: () => call('setMarkupOptions', { [opt]: !markup()[opt] }), isChecked: () => !!markup()[opt] })),
+    ...([['revisions', 'Show Revisions in Balloons', 'Mostrar Revisões em Balões'], ['inline', 'Show All Revisions Inline', 'Mostrar Todas as Revisões Embutidas'], ['mixed', 'Show Only Comments and Formatting in Balloons', 'Mostrar Somente Comentários e Formatação em Balões']] as const).map(([b, en, pt]): Command =>
+      ({ id: `balloons:${b}`, label: { en, pt }, supports: has('setMarkupOptions'), run: () => call('setMarkupOptions', { balloons: b }), isChecked: () => markup().balloons === b })),
+    { id: 'people:all', label: { en: 'All Reviewers', pt: 'Todos os Revisores' }, supports: has('setMarkupOptions'), run: () => call('setMarkupOptions', { authors: markup().authors ? null : [] }), isChecked: () => !markup().authors },
+    { id: 'reviewPane', label: { en: 'Reviewing Pane', pt: 'Painel de Revisão' }, icon: 'view_column', supports: has('getRevisions'), run: () => ctl.reviewPane(), isChecked: () => !!ctl.reviewPaneOpen() },
+    { id: 'reviewPane:vertical', label: { en: 'Reviewing Pane Vertical…', pt: 'Painel de Revisão Vertical...' }, supports: has('getRevisions'), run: () => ctl.reviewPane('vertical'), isChecked: () => ctl.reviewPaneOpen() === 'vertical' },
+    { id: 'reviewPane:horizontal', label: { en: 'Reviewing Pane Horizontal…', pt: 'Painel de Revisão Horizontal...' }, supports: has('getRevisions'), run: () => ctl.reviewPane('horizontal'), isChecked: () => ctl.reviewPaneOpen() === 'horizontal' },
+    edit({ id: 'change:accept', label: { en: 'Accept', pt: 'Aceitar' }, tip: { en: 'Accept and Move to Next', pt: 'Aceitar e Mover para a Próxima' }, icon: 'check_circle', supports: has('acceptChange'), run: () => call('acceptChange'), isEnabled: hasRevisions }),
+    edit({ id: 'change:acceptNext', label: { en: 'Accept and Move to Next', pt: 'Aceitar e Mover para a Próxima' }, icon: 'check_circle', supports: has('acceptChange'), run: () => call('acceptChange'), isEnabled: hasRevisions }),
+    edit({ id: 'change:acceptOne', label: { en: 'Accept This Change', pt: 'Aceitar Esta Alteração' }, supports: has('acceptChange'), run: () => call('acceptChange', { moveNext: false }), isEnabled: hasRevisions }),
+    edit({ id: 'change:acceptShown', label: { en: 'Accept All Changes Shown', pt: 'Aceitar Todas as Alterações Mostradas' }, supports: has('acceptAllChanges'), run: () => resolved(call('acceptAllChanges', { shown: true }), true), isEnabled: hasRevisions }),
+    edit({ id: 'change:acceptAll', label: { en: 'Accept All Changes', pt: 'Aceitar Todas as Alterações' }, icon: 'done_all', supports: has('acceptAllChanges'), run: () => resolved(call('acceptAllChanges'), true), isEnabled: hasRevisions }),
+    edit({ id: 'change:acceptAllStop', label: { en: 'Accept All Changes and Stop Tracking', pt: 'Aceitar Todas as Alterações e Parar o Controle' }, supports: has('acceptAllChanges'), run: () => resolved(call('acceptAllChanges', { stopTracking: true }), true) }),
+    edit({ id: 'change:reject', label: { en: 'Reject', pt: 'Rejeitar' }, tip: { en: 'Reject and Move to Next', pt: 'Rejeitar e Mover para a Próxima' }, icon: 'cancel', supports: has('rejectChange'), run: () => call('rejectChange'), isEnabled: hasRevisions }),
+    edit({ id: 'change:rejectNext', label: { en: 'Reject and Move to Next', pt: 'Rejeitar e Mover para a Próxima' }, icon: 'cancel', supports: has('rejectChange'), run: () => call('rejectChange'), isEnabled: hasRevisions }),
+    edit({ id: 'change:rejectOne', label: { en: 'Reject Change', pt: 'Rejeitar Alteração' }, supports: has('rejectChange'), run: () => call('rejectChange', { moveNext: false }), isEnabled: hasRevisions }),
+    edit({ id: 'change:rejectShown', label: { en: 'Reject All Changes Shown', pt: 'Rejeitar Todas as Alterações Mostradas' }, supports: has('rejectAllChanges'), run: () => resolved(call('rejectAllChanges', { shown: true }), false), isEnabled: hasRevisions }),
+    edit({ id: 'change:rejectAll', label: { en: 'Reject All Changes', pt: 'Rejeitar Todas as Alterações' }, icon: 'remove_done', supports: has('rejectAllChanges'), run: () => resolved(call('rejectAllChanges'), false), isEnabled: hasRevisions }),
+    edit({ id: 'change:rejectAllStop', label: { en: 'Reject All Changes and Stop Tracking', pt: 'Rejeitar Todas as Alterações e Parar o Controle' }, supports: has('rejectAllChanges'), run: () => resolved(call('rejectAllChanges', { stopTracking: true }), false) }),
+    { id: 'change:prev', label: { en: 'Previous', pt: 'Anterior' }, tip: { en: 'Previous Change', pt: 'Alteração Anterior' }, icon: 'navigate_before', supports: has('previousChange'), run: () => { if (!call('previousChange')) ctl.flash(L.noMoreRevisions); }, isEnabled: hasRevisions },
+    { id: 'change:next', label: { en: 'Next', pt: 'Próximo' }, tip: { en: 'Next Change', pt: 'Próxima Alteração' }, icon: 'navigate_next', supports: has('nextChange'), run: () => { if (!call('nextChange')) ctl.flash(L.noMoreRevisions); }, isEnabled: hasRevisions },
     edit({ id: 'mailmerge', label: { en: 'Start Mail Merge', pt: 'Iniciar Mala Direta' }, icon: 'mail', supports: has('startMailMerge'), run: () => call('startMailMerge') }),
     edit({ id: 'mergefield', label: { en: 'Insert Merge Field', pt: 'Inserir Campo de Mesclagem' }, icon: 'data_object', supports: has('insertMergeField'), run: () => call('insertMergeField') }),
     edit({ id: 'image:delete', label: { en: 'Delete image', pt: 'Excluir imagem' }, icon: 'delete', supports: has('deleteSelectedImage'), run: () => call('deleteSelectedImage') }),

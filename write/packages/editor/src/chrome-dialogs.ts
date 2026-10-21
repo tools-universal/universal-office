@@ -5,6 +5,7 @@
 import { openDialog, pickLabels, promptDialog, type UiLang } from '@universal-office/ui';
 import type { SectionApplyTo, UniversalWriteElement } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
+import { originStore } from './chrome-store.js';
 
 type Env = { ed: UniversalWriteElement; app: WriteApp; layer: HTMLElement; lang: UiLang; state: () => ReturnType<UniversalWriteElement['getSelectionState']> };
 
@@ -38,9 +39,23 @@ export async function linkDialog(env: Env): Promise<void> {
   env.ed.setLink(v && v !== 'https://' ? v : undefined);
 }
 
+/** Nome do autor das revisões e dos comentários: sem atributo `author` nem host,
+ *  pergunta uma vez (e a origem lembra — como o nome de usuário do Office, por
+ *  máquina). false = cancelado. */
+export async function authorDialog(env: Env): Promise<boolean> {
+  if (env.ed.hasAuthor()) return true;
+  const L = env.app.ui!.L;
+  const name = await promptDialog({ title: L.authorTitle, label: L.authorText, ok: L.authorOk, layer: env.layer, lang: env.lang });
+  if (!name?.trim()) return false;
+  env.ed.author = name.trim();
+  originStore.set('uw-author', env.ed.author);
+  return true;
+}
+
 export async function commentDialog(env: Env): Promise<void> {
   const L = env.app.ui!.L;
   if (!env.ed.selectedText()) { env.app.ui!.flash(L.selectToComment); return; }
+  if (!(await authorDialog(env))) return;
   const text = await promptDialog({ title: L.commentTitle, label: L.commentText, multiline: true, ok: L.commentAdd, layer: env.layer, lang: env.lang });
   if (!text?.trim()) return;
   env.app.ui!.flash(env.ed.addComment(text.trim()) === null ? L.selectToComment : L.commentAdded);

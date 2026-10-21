@@ -5,6 +5,63 @@
  * w16du precisa declarar o namespace na raiz da parte (ensureRevisionNamespaces).
  */
 import type { RevisionInfo } from './ooxml/props.js';
+import { partByRelType } from './ooxml/parts.js';
+import { parseXml, childElements } from './xml.js';
+import type { DocxPackage } from './package.js';
+
+/** Elementos de CT_Settings que vêm ANTES de w:trackRevisions. */
+const BEFORE_TRACK = new Set([
+  'w:writeProtection', 'w:view', 'w:zoom', 'w:removePersonalInformation', 'w:removeDateAndTime',
+  'w:doNotDisplayPageBoundaries', 'w:displayBackgroundShape', 'w:printPostScriptOverText',
+  'w:printFractionalCharacterWidth', 'w:printFormsData', 'w:embedTrueTypeFonts', 'w:embedSystemFonts',
+  'w:saveSubsetFonts', 'w:saveFormsData', 'w:mirrorMargins', 'w:alignBordersAndEdges',
+  'w:bordersDoNotSurroundHeader', 'w:bordersDoNotSurroundFooter', 'w:gutterAtTop', 'w:hideSpellingErrors',
+  'w:hideGrammaticalErrors', 'w:activeWritingStyle', 'w:proofState', 'w:formsDesign', 'w:attachedTemplate',
+  'w:linkStyles', 'w:stylePaneFormatFilter', 'w:stylePaneSortMethod', 'w:documentType', 'w:mailMerge',
+  'w:revisionView',
+]);
+
+/** O documento grava o controle de alterações LIGADO (w:settings/w:trackRevisions)? */
+export function readTrackRevisions(pkg: DocxPackage): boolean {
+  const xml = pkg.getPartText(partByRelType(pkg, 'settings', 'word/settings.xml')) ?? '';
+  const m = /<w:trackRevisions\b([^>]*?)\/?>/.exec(xml);
+  return !!m && !/w:val="(?:false|0|off)"/.test(m[1]!);
+}
+
+/** Grava o estado do controle de alterações no settings.xml (cria a parte se faltar). */
+export function writeTrackRevisions(pkg: DocxPackage, on: boolean): void {
+  if (readTrackRevisions(pkg) === on) return;
+  let path = partByRelType(pkg, 'settings', '');
+  let xml = path ? pkg.getPartText(path) : undefined;
+  if (!xml) {
+    if (!on) return;
+    path = 'word/settings.xml';
+    xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:settings>';
+    const relsPath = 'word/_rels/document.xml.rels';
+    const rels = pkg.getPartText(relsPath) ?? '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+    pkg.setPartText(relsPath, rels.replace('</Relationships>', () => '<Relationship Id="rIdWnSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/></Relationships>'));
+    const ct = pkg.getPartText('[Content_Types].xml');
+    if (ct && !ct.includes('/word/settings.xml')) {
+      pkg.setPartText('[Content_Types].xml', ct.replace('</Types>', () => '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/></Types>'));
+    }
+  }
+  // tira o que houver e, ligado, põe na posição do schema
+  xml = xml.replace(/<w:trackRevisions\b[^>]*?(?:\/>|>[\s\S]*?<\/w:trackRevisions>)/g, '');
+  if (on) {
+    const root = parseXml(xml, { positions: true });
+    let at = -1;
+    if (root.cs === root.e) {
+      // <w:settings …/> vazio
+      const open = xml.slice(root.s, root.e).replace(/\s*\/>$/, '>');
+      xml = xml.slice(0, root.s) + open + '<w:trackRevisions/></w:settings>' + xml.slice(root.e);
+    } else {
+      at = root.cs!;
+      for (const k of childElements(root)) if (BEFORE_TRACK.has(k.name)) at = Math.max(at, k.e!);
+      xml = xml.slice(0, at) + '<w:trackRevisions/>' + xml.slice(at);
+    }
+  }
+  pkg.setPartText(path, xml);
+}
 
 export const W16DU_NS = 'http://schemas.microsoft.com/office/word/2023/wordml/word16du';
 const MC_NS = 'http://schemas.openxmlformats.org/markup-compatibility/2006';

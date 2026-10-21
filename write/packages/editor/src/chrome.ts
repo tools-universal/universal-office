@@ -16,7 +16,9 @@ import {
 import type { UniversalWriteElement } from './universal-write.js';
 import { appFor, type WriteApp } from './chrome-app.js';
 import { registerWriteCommands, type ChromeCtl } from './chrome-commands.js';
-import { aboutDialog, columnsDialog, commentDialog, fontDialog, linkDialog, pageDialog, paragraphDialog, shortcutsDialog, spellingDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
+import { aboutDialog, authorDialog, columnsDialog, commentDialog, fontDialog, linkDialog, pageDialog, paragraphDialog, shortcutsDialog, spellingDialog, wordCountDialog, type DialogEnv } from './chrome-dialogs.js';
+import { ReviewPane, type PaneDir } from './chrome-review.js';
+import { originStore } from './chrome-store.js';
 import { bindHostFonts, hostOf } from './chrome-host.js';
 import { tableDialog } from './chrome-table-dialogs.js';
 import { tableContextItems } from './chrome-table.js';
@@ -159,6 +161,38 @@ export const CHROME_CSS = /* css */ `
 .uw-card .uo-ic { width: 16px; height: 16px; }
 .uw-card .txt { white-space: pre-wrap; word-break: break-word; }
 
+/* balões de revisão: o cartão dos comentários, na cor do autor */
+.uw-rev-card::before { background: var(--uw-rev); }
+.uw-rev-card.anchored::after { border-top-color: var(--uw-rev); }
+.uw-card .when { flex: 1 1 auto; margin-left: 6px; font-size: 11px; opacity: .7; white-space: nowrap; }
+.uw-rev-card .txt b { font-weight: 600; }
+
+/* Painel de Revisão (vertical à esquerda; horizontal acima da barra de status) */
+:host(.uw-review-v) .pages { padding-left: 324px; }
+.uw-review {
+  position: sticky; left: 0; z-index: 6; box-sizing: border-box; display: flex; flex-direction: column;
+  width: 300px; overflow: hidden; font-family: var(--uo-font); font-size: 13px;
+  background: var(--u-color-surface-container-low, #f6f4f8); color: var(--u-color-on-surface, #1b1b1f);
+  border-right: 1px solid var(--u-color-outline-variant, #c4c6d0);
+}
+.uw-review.h { width: 100%; height: 220px; bottom: 0; border-right: 0; border-top: 1px solid var(--u-color-outline-variant, #c4c6d0); }
+.uw-review-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 8px 2px 12px; }
+.uw-review-head .uo-btn { height: 26px; min-width: 26px; }
+.uw-review-sum { padding: 0 12px 8px; font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); border-bottom: 1px solid var(--u-color-outline-variant, #c4c6d0); }
+.uw-review-list { list-style: none; margin: 0; padding: 4px 0; overflow: auto; flex: 1 1 auto; }
+.uw-rev { padding: 6px 8px 6px 12px; cursor: pointer; border-left: 3px solid var(--uw-rev, rgba(255,187,0,.6)); margin: 2px 6px; border-radius: 4px; }
+.uw-rev:hover { background: var(--u-color-surface-container-high, #e9e7ec); }
+.uw-rev-head { display: flex; align-items: center; gap: 6px; }
+.uw-rev-head .who { font-weight: 600; font-size: 12px; }
+.uw-rev-head .what { font-size: 12px; color: var(--uw-rev, inherit); }
+.uw-rev-head .gap { flex: 1 1 auto; }
+.uw-rev .when { font-size: 11px; opacity: .7; }
+.uw-rev-head .uo-btn { height: 22px; min-width: 22px; visibility: hidden; }
+.uw-rev:hover .uo-btn { visibility: visible; }
+.uw-rev .uo-ic { width: 16px; height: 16px; }
+.uw-rev .txt { white-space: pre-wrap; word-break: break-word; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.uw-rev-empty { padding: 12px; color: var(--u-color-on-surface-variant, #44474f); }
+
 /* comparar */
 .uw-compare { display: none; }
 :host(.uw-comparing) .uw-compare { display: flex; flex-direction: column; }
@@ -214,6 +248,7 @@ class WriteChrome {
   private bar: BarHandle | null = null;
   private status: StatusBar | null = null;
   private cards: CommentCards | null = null;
+  private review: ReviewPane | null = null;
   private find: FindPanel | null = null;
   private styles: StylesUI | null = null;
   private protbar: HTMLElement | null = null;
@@ -276,6 +311,9 @@ class WriteChrome {
       this.protbar = this.makeProtectedBar();
       topEl.appendChild(this.protbar);
       this.cards = new CommentCards(ed, app, this.root, () => this.after());
+      this.review = new ReviewPane(ed, app, this.root, () => this.after());
+      const pane = app.prefs.get('reviewPane');
+      if (pane === 'vertical' || pane === 'horizontal') this.review.open(pane);
       this.bindDocumentFeatures();
     }
     if (opts.bottombar) this.status = new StatusBar(ed, app, bottomEl, this.ctx);
@@ -295,6 +333,13 @@ class WriteChrome {
       }, { signal: this.ac.signal });
     }
     this.ac.signal.addEventListener('abort', () => mo.disconnect());
+    if (!ed.hasAuthor()) {
+      void Promise.resolve(hostOf(ed)?.userName?.()).then((n) => {
+        if (ed.hasAuthor()) return;
+        const name = n || originStore.get('uw-author');
+        if (name) ed.author = name;
+      }, () => { /* host sem nome: pergunta no 1º uso */ });
+    }
     void ed.listAvailableFonts().then((f) => { this.families = f; });
     this.sync();
     this.cards?.schedule();
@@ -342,10 +387,28 @@ class WriteChrome {
         this.app.prefs.set('toolbar', m);
         this.ed.setAttribute('toolbar', m);
       },
+      trackChanges: () => {
+        void (async () => {
+          if (!this.ed.isTrackingChanges() && !(await authorDialog(d()))) return;
+          this.ed.toggleTrackChanges();
+          this.flash(this.ed.isTrackingChanges() ? this.L.trackOn : this.L.trackOff);
+          this.after();
+        })();
+      },
+      reviewPane: (dir?: PaneDir) => {
+        const r = this.review;
+        if (!r) return;
+        if (!dir && r.dir) r.close();
+        else { r.close(); r.open(dir ?? 'vertical'); }
+        this.app.prefs.set('reviewPane', r.dir ?? '');
+        this.cards?.schedule();
+      },
+      reviewPaneOpen: () => this.review?.dir ?? false,
       toggleComments: () => {
         this.app.commentsVisible = !this.app.commentsVisible;
         this.app.prefs.set('comments', this.app.commentsVisible ? '1' : '0');
         this.cards?.render();
+        this.review?.schedule();
       },
       requestFonts: () => this.requestFonts(),
       flash: (m) => this.flash(m),
@@ -425,6 +488,7 @@ class WriteChrome {
     this.styles?.close();
     this.bar?.destroy();
     this.cards?.destroy();
+    this.review?.destroy();
     this.layer.replaceChildren();
     this.root.querySelector('.uw-compare')?.remove();
     this.topEl.classList.remove('uo-wco');
@@ -578,7 +642,9 @@ class WriteChrome {
     if (this.cards) {
       const cards = this.cards;
       // uw-protected sai a cada carga de documento
-      for (const t of ['uw-comments-changed', 'uw-change', 'uw-zoom', 'uw-ready', 'uw-protected']) ed.addEventListener(t, () => cards.schedule(), { signal });
+      for (const t of ['uw-comments-changed', 'uw-change', 'uw-zoom', 'uw-ready', 'uw-protected', 'uw-markup', 'uw-revisions-changed']) ed.addEventListener(t, () => cards.schedule(), { signal });
+      const review = this.review;
+      if (review) for (const t of ['uw-comments-changed', 'uw-change', 'uw-ready', 'uw-protected', 'uw-markup', 'uw-revisions-changed', 'uw-track-changes']) ed.addEventListener(t, () => review.schedule(), { signal });
       const cro = new ResizeObserver(() => cards.schedule());
       cro.observe(ed);
       signal.addEventListener('abort', () => cro.disconnect());
@@ -643,9 +709,19 @@ class WriteChrome {
       const open = (pre: MenuEntry[]): void => {
         openMenu([...pre, ...items], at, { lang: this.lang, registry: this.reg, layer: this.layer, onClose: () => this.after() });
       };
+      // revisão sob o clique: Aceitar/Rejeitar no topo, como o Word
+      const rv = typeof ed.revisionAtCaret === 'function' ? ed.revisionAtCaret() : null;
+      const revItems: MenuEntry[] = rv ? (() => {
+        const k = rv.move ? this.L.kMove : rv.kind === 'insert' ? this.L.kInsertion : rv.kind === 'delete' ? this.L.kDeletion : this.L.kFormat;
+        return [
+          { icon: 'check_circle', label: this.L.acceptAt(k), onClick: () => { ed.acceptRevisionAt(rv.index); this.after(); } },
+          { icon: 'cancel', label: this.L.rejectAt(k), onClick: () => { ed.rejectRevisionAt(rv.index); this.after(); } },
+          '-',
+        ];
+      })() : [];
       // palavra errada sob o clique: sugestões no topo, como o Word
       const m = ed.spellingAtCaret();
-      if (!m) { open([]); return; }
+      if (!m) { open(revItems); return; }
       void ed.spellingSuggestions(m).then((sug) => {
         const pre: MenuEntry[] = sug.length
           ? sug.map((s): MenuEntry => ({ label: s, onClick: () => { ed.replaceSpelling(m, s); this.after(); } }))
@@ -653,8 +729,8 @@ class WriteChrome {
         open([...pre, '-',
           { icon: 'visibility_off', label: { en: 'Ignore All', pt: 'Ignorar tudo' }, onClick: () => ed.ignoreSpelling(m.word) },
           { icon: 'library_add', label: { en: 'Add to Dictionary', pt: 'Adicionar ao dicionário' }, onClick: () => { void ed.addToDictionary(m.word); } },
-          '-']);
-      }, () => open([]));
+          '-', ...revItems]);
+      }, () => open(revItems));
     }, { signal });
 
     // arrastar e soltar um .docx/.odt para abrir

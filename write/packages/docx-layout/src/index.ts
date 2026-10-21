@@ -16,3 +16,4 @@ export type {
 export { documentHyphenationLanguages } from './hyphenate.js';
 export { paintItems, type EnginePaintEnv } from './canvas.js';
 export { paragraphAtPath, cellAtGrid, cellBlocks } from './refs.js';
+export { AUTHOR_PALETTE, MOVE_COLOR, RevisionDisplay, authorColor, type RevisionMode, type RevisionView } from './revisions.js';

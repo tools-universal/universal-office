@@ -31,7 +31,11 @@ export function guardRuns<T>(model: DocumentModel, lo: number, hi: number, op: (
     for (const r of paras[i]!.runs) {
       const key = MARK + n++;
       orig.set(key, { run: r, font: r.props.fontAscii });
-      r.props = { ...r.props, fontAscii: key };
+      // formatação controlada com a MESMA fonte de antes: a marca vale nela também
+      // (desfazer a formatação continua comparando igual)
+      const f = r.props.fmt;
+      const fmt = f && f.old.fontAscii === r.props.fontAscii ? { fmt: { ...f, old: { ...f.old, fontAscii: key } } } : {};
+      r.props = { ...r.props, fontAscii: key, ...fmt };
     }
   }
   try {
@@ -56,6 +60,14 @@ function setFont(r: Run, font: string | undefined): void {
 
 function restore(p: Paragraph, orig: Map<string, { run: Run; font: string | undefined }>): void {
   for (const r of p.runs) {
+    // formatação controlada criada na operação: as props "de antes" levaram a marca
+    const old = r.props.fmt?.old;
+    if (old?.fontAscii?.startsWith(MARK)) {
+      const font = orig.get(old.fontAscii)?.font;
+      const o = { ...old };
+      if (font === undefined) delete o.fontAscii; else o.fontAscii = font;
+      r.props = { ...r.props, fmt: { ...r.props.fmt!, old: o } };
+    }
     const key = r.props.fontAscii;
     if (!key?.startsWith(MARK)) continue;
     const o = orig.get(key);

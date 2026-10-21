@@ -3,6 +3,7 @@ import { editBaseProps, paraPropsFromPPr } from '@universal-office/docx-core';
 import { StyleResolver, fontOfSlot } from './resolve.js';
 import { FaceResolver, type FontProvider } from './fonts.js';
 import { NumberingState } from './numbering.js';
+import { RevisionDisplay, type RevisionView } from './revisions.js';
 
 /** Opções do motor. */
 export interface LayoutOptions {
@@ -29,6 +30,8 @@ export interface LayoutOptions {
   /** só hifeniza estes idiomas (etiquetas BCP 47 ou prefixos: 'pt-BR', 'en'…): o Word
    *  só hifeniza os idiomas com revisores instalados — padrão: todos com padrões */
   hyphenationLanguages?: string[];
+  /** exibição das revisões (controle de alterações) — padrão: visão final, sem marcas */
+  revisions?: RevisionView;
 }
 
 /** Dados de uma decisão de quebra (twips): para medir a regra do Word no corpus. */
@@ -67,7 +70,9 @@ export class DocContext {
   readonly faces: FaceResolver;
   numbering: NumberingState;
   readonly warnings = new Set<string>();
-  readonly opts: Required<Omit<LayoutOptions, 'onWordFit' | 'hyphenationLanguages'>> & Pick<LayoutOptions, 'onWordFit' | 'hyphenationLanguages'>;
+  readonly opts: Required<Omit<LayoutOptions, 'onWordFit' | 'hyphenationLanguages' | 'revisions'>> & Pick<LayoutOptions, 'onWordFit' | 'hyphenationLanguages'>;
+  /** como as revisões aparecem (modo, filtros, cores) */
+  readonly rev: RevisionDisplay;
 
   constructor(readonly fmt: DocFormatting, provider: FontProvider, opts: LayoutOptions = {}) {
     this.resolver = new StyleResolver(fmt);
@@ -75,6 +80,7 @@ export class DocContext {
     this.faces = new FaceResolver(provider, fmt.fontTable, undefined, fontOfSlot(ddFonts, 'ascii', fmt.theme) ?? fmt.theme.minor.latin);
     this.opts = { advanceEm: opts.advanceEm ?? 'nominal', advanceRound: opts.advanceRound ?? 'word', justifyShrink: opts.justifyShrink ?? { ratio: 0.25, expandRatio: 0.5 }, lang: opts.lang ?? 'pt-BR', now: opts.now ?? new Date(), ...(opts.onWordFit ? { onWordFit: opts.onWordFit } : {}), hyphenation: opts.hyphenation ?? true, ...(opts.hyphenationLanguages ? { hyphenationLanguages: opts.hyphenationLanguages } : {}) };
     this.numbering = new NumberingState(fmt.numbering, fmt.styles.styles, this.opts.lang);
+    this.rev = new RevisionDisplay(opts.revisions, opts.revisions?.order ?? []);
   }
 
   warn(msg: string): void { this.warnings.add(msg); }

@@ -142,10 +142,13 @@ export interface RevisionSpan {
   dateUtc?: string;
   /** movimentação (w:moveFrom/To): delete = origem, insert = destino */
   move?: boolean;
-  /** marca de parágrafo (¶) inserida/excluída: start = end = fim do parágrafo */
+  /** termina numa marca de parágrafo (¶) inserida/excluída — sozinha: start = end
+   *  = fim do parágrafo */
   mark?: boolean;
-  /** parágrafo e offsets [start, end) no texto dele */
+  /** parágrafo e offsets [start, end) no texto dele; atravessando marcas, `end`
+   *  é no parágrafo `endPara` */
   para: number;
+  endPara?: number;
   start: number;
   end: number;
   /** texto inserido/excluído (formatação: o texto formatado) */
@@ -192,22 +195,45 @@ export function collectRevisions(paras: readonly Paragraph[]): RevisionSpan[] {
     if (p.props.markIns) out.push({ kind: 'insert', mark: true, ...revInfo(p.props.markIns), para: pi, start: len, end: len, text: '' });
     if (p.props.markDel) out.push({ kind: 'delete', mark: true, ...revInfo(p.props.markDel), para: pi, start: len, end: len, text: '' });
   });
-  return out.sort((a, b) => a.para - b.para || a.start - b.start || KIND_ORDER[a.kind] - KIND_ORDER[b.kind]);
+  out.sort((a, b) => a.para - b.para || a.start - b.start || KIND_ORDER[a.kind] - KIND_ORDER[b.kind]);
+  // inserção/exclusão que atravessa marcas de parágrafo da mesma autoria: uma
+  // revisão só, como o Word lista (texto até o fim + ¶ + texto do começo do seguinte)
+  const merged: RevisionSpan[] = [];
+  for (const s of out) {
+    const last = merged[merged.length - 1];
+    if (last && (s.kind === 'insert' || s.kind === 'delete') && last.kind === s.kind && same(revInfo(last), revInfo(s))) {
+      const lp = last.endPara ?? last.para;
+      const joins = last.mark ? s.para === lp + 1 && s.start === 0 : s.mark && s.para === lp && last.end === s.start;
+      if (joins) {
+        if (last.mark) last.text += '\n';
+        last.text += s.text;
+        last.endPara = s.para;
+        last.end = s.end;
+        if (s.mark) last.mark = true; else delete last.mark;
+        continue;
+      }
+    }
+    merged.push(s);
+  }
+  return merged;
 }
 
-/** Revisão no cursor (a que contém o offset; na falta, a que termina nele). */
+/** Fim de uma revisão no documento (marca: o offset além do texto do parágrafo). */
+const spanEnd = (s: RevisionSpan): DocPosition => ({ para: s.endPara ?? s.para, offset: s.mark ? s.end + 1 : s.end });
+
+/** Revisão no cursor (a que contém a posição; na falta, a que termina nela). */
 export function revisionAt(spans: readonly RevisionSpan[], pos: DocPosition): RevisionSpan | undefined {
-  const here = spans.filter((s) => s.para === pos.para && s.kind !== 'paraFormat');
-  return here.find((s) => !s.mark && s.start <= pos.offset && pos.offset < s.end)
-    ?? here.find((s) => !s.mark && s.end === pos.offset)
-    ?? here.find((s) => s.mark && s.start === pos.offset)
+  const cmp = (a: DocPosition, b: DocPosition): number => a.para - b.para || a.offset - b.offset;
+  const text = spans.filter((s) => s.kind !== 'paraFormat');
+  return text.find((s) => cmp({ para: s.para, offset: s.start }, pos) <= 0 && cmp(pos, spanEnd(s)) < 0)
+    ?? text.find((s) => cmp(pos, { para: s.endPara ?? s.para, offset: s.end }) === 0)
     ?? spans.find((s) => s.para === pos.para && s.kind === 'paraFormat');
 }
 
 /** Intervalo de uma revisão para aceitar/rejeitar SÓ ela (marca: o ¶ — offset além do texto). */
 export function spanScope(s: RevisionSpan): RevisionScope {
   return {
-    range: { start: { para: s.para, offset: s.start }, end: { para: s.para, offset: s.mark ? s.end + 1 : s.end } },
+    range: { start: { para: s.para, offset: s.start }, end: spanEnd(s) },
     kinds: new Set([s.kind]),
     authors: new Set([s.author]),
     ...(s.kind === 'paraFormat' ? {} : { runsOnly: true }),
