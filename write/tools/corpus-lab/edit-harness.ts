@@ -94,6 +94,60 @@ w.ed = {
     return { pages: el.pageCount, engine: !!el.eng, ms: Math.round(performance.now() - t0) };
   },
 
+  /** Documento novo em branco (estilos do documento em branco do Word). */
+  async blank(): Promise<{ pages: number; engine: boolean }> {
+    document.body.replaceChildren();
+    el = document.createElement('universal-write') as El;
+    el.setAttribute('manual-init', '');
+    el.setAttribute('fonts', FONTS_BASE);
+    el.style.cssText = 'display:block;width:1200px;height:900px';
+    document.body.append(el);
+    await el.initialize();
+    await el.settleDocumentFonts();
+    el.refresh();
+    return { pages: el.pageCount, engine: !!el.eng };
+  },
+
+  /** Bytes do .docx salvo (base64, para o node gravar). */
+  saveBase64(): string {
+    const b = (need() as unknown as { saveDocx(): Uint8Array }).saveDocx();
+    let s = '';
+    for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+    return btoa(s);
+  },
+
+  /** Abre um .docx a partir de base64 (o que o node leu). */
+  async openBase64(b64: string): Promise<{ pages: number; engine: boolean }> {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    document.body.replaceChildren();
+    el = document.createElement('universal-write') as El;
+    el.setAttribute('manual-init', '');
+    el.setAttribute('fonts', FONTS_BASE);
+    el.style.cssText = 'display:block;width:1200px;height:900px';
+    document.body.append(el);
+    await el.initialize();
+    el.load(bytes, 'auto', { protected: false });
+    await el.settleDocumentFonts();
+    el.refresh();
+    return { pages: el.pageCount, engine: !!el.eng };
+  },
+
+  /** Parágrafos do modelo: estilo, texto e os runs (charStyle/props diretas). */
+  paras(): { style?: string; text: string; runs: { text: string; charStyle?: string; bold?: boolean; color?: string }[]; props: Record<string, unknown> }[] {
+    return (need().model?.paragraphs ?? []).map((p) => ({
+      style: p.props['styleId'] as string | undefined, text: paraText(p), props: { ...p.props, src: undefined },
+      runs: p.runs.map((r) => ({ text: r.text, charStyle: r.props['charStyle'] as string | undefined, bold: r.props['bold'] as boolean, color: r.props['color'] as string | undefined })),
+    }));
+  },
+
+  /** Posiciona a seleção (anchor/focus). */
+  select(ap: number, ao: number, fp = ap, fo = ao): void {
+    const e = need();
+    e.selection = { anchor: { para: ap, offset: ao }, focus: { para: fp, offset: fo } };
+  },
+
   /** Documento novo com N parágrafos de texto corrido (medição de desempenho). */
   async synthetic(paras: number, words = 60): Promise<{ pages: number; engine: boolean }> {
     document.body.replaceChildren();

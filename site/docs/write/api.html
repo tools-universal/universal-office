@@ -119,7 +119,7 @@ editor.host = {
         <tbody>
           <tr><td><code>load(bytes, format?, opts?)</code></td><td>Loads a document. <code>format</code>: <code>'auto'</code> (default — detects <code>.docx</code> vs <code>.odt</code> from the bytes; Word 97–2003 <code>.doc</code> is detected and converted), <code>'docx'</code>, or <code>'odt'</code>. <code>opts.protected</code> (default <code>true</code>) opens in Protected View.</td></tr>
           <tr><td><code>save(format?, opts?): Promise&lt;Uint8Array | string&gt;</code></td><td>Saves/exports the document. <code>format</code>: <code>'auto'</code> (default — the format it was loaded as), <code>'docx'</code>, <code>'odt'</code>, <code>'pdf'</code>, <code>'html'</code>, <code>'markdown'</code>, <code>'xps'</code>. Returns bytes for binary formats and a string for <code>html</code>/<code>markdown</code>. <code>opts</code>: <code>{ images?: boolean, title? }</code>.</td></tr>
-          <tr><td><code>newDocument()</code></td><td>Creates an empty, editable document.</td></tr>
+          <tr><td><code>newDocument()</code></td><td>Creates an empty, editable A4 document with Word&rsquo;s blank-document styles, theme and settings (Normal, headings, quotes&hellip;; built-in styles are written on first use).</td></tr>
           <tr><td><code>initialize(options)</code></td><td>Initializes with fonts/document as bytes (offline mode). Called automatically on connect unless <code>manual-init</code> is set; calling it again does nothing. Returns <code>Promise&lt;void&gt;</code>.</td></tr>
           <tr><td><code>getFontEmbedding() · setFontEmbedding(settings)</code></td><td>Fonts in the saved <code>.docx</code>: <code>{ embed, subset, skipCommonFonts }</code>. Default: off. <code>uw-font-embedding</code> reports what was embedded.</td></tr>
           <tr><td><code>requestSystemFonts(): Promise&lt;boolean&gt;</code></td><td>Asks for Local Font Access (Chromium) so installed fonts can be measured and embedded. Call from a user gesture.</td></tr>
@@ -179,7 +179,7 @@ editor.host = {
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>
           <tr><td><code>setAlignment(a)</code></td><td><code>'left' | 'center' | 'right' | 'both'</code> (justified).</td></tr>
-          <tr><td><code>applyStyle(styleId?)</code></td><td>Applies a paragraph style (e.g. <code>'Heading1'</code>).</td></tr>
+          <tr><td><code>applyStyle(styleId?)</code></td><td>Applies a paragraph, character or linked style &mdash; see <a href="#styles">Styles</a>. No argument = Normal.</td></tr>
           <tr><td><code>toggleList(kind)</code></td><td>Toggles a <code>'bullet' | 'decimal'</code> list.</td></tr>
           <tr><td><code>indent(delta)</code></td><td>Grows/shrinks the left indent (<code>1 | -1</code>; step of 720 twips = 0.5").</td></tr>
           <tr><td><code>setSpecialIndent(kind)</code></td><td><code>'none' | 'firstLine' | 'hanging'</code>.</td></tr>
@@ -197,6 +197,34 @@ editor.host = {
           Conversions to pixels happen only at render time.
         </p>
       </div>
+
+      <h2 id="styles">Styles</h2>
+      <p>
+        The document&rsquo;s <code>styles.xml</code> is edited in place: each operation rewrites only the
+        <code>w:style</code> elements it touches and leaves the rest byte for byte. New and modified styles are
+        written the way Word writes them (a new paragraph style is <em>linked</em>, with a <code>&hellip;Char</code>
+        twin; its id is the name without accents or spaces; a built-in style used for the first time gets Word&rsquo;s
+        full definition). Built-in names follow the UI language (<code>heading 1</code> &rarr; &ldquo;Heading 1&rdquo; /
+        &ldquo;T&iacute;tulo 1&rdquo;). With <code>topbar</code>, the ribbon&rsquo;s Styles group is a thumbnail gallery,
+        its launcher opens the Styles pane, and Format &rsaquo; Styles (compact bar) has the pane, the Style Inspector
+        and the Create/Modify Style dialog.
+      </p>
+      <table>
+        <thead><tr><th>Method</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>listStyles(filter?): StyleInfo[]</code></td><td>Styles in Word&rsquo;s order (priority, then name): <code>{ id, name, rawName, kind, builtIn, defined, quick, hidden, priority, inUse, isDefault, basedOn?, next?, link?, autoUpdate }</code>. <code>kind</code>: <code>'paragraph' | 'character' | 'linked'</code>. <code>filter</code>: <code>'gallery' | 'recommended'</code> (default) <code>| 'inUse' | 'document' | 'all'</code>; latent built-ins are included with the id they will get.</td></tr>
+          <tr><td><code>styleFormatting(id): StyleLook | null</code></td><td>Effective formatting (document defaults &rarr; based-on chain &rarr; style): <code>fontFamily, sizePt, bold, italic, underline, strike, allCaps, smallCaps, color, charSpacingTwips, alignment, spaceBeforeTwips, spaceAfterTwips, lineTwentieths, indentLeftTwips, indentRightTwips, indentFirstLineTwips, shadingHex, borderTop, borderBottom</code>.</td></tr>
+          <tr><td><code>applyStyle(id?)</code></td><td>Paragraph style: replaces it and clears direct paragraph formatting plus character formatting that is uniform across the paragraph (partial formatting, such as one bold word, stays). Character style: on the selection &mdash; or the word at the caret &mdash; removing its direct formatting. Linked style on part of one paragraph: its character twin.</td></tr>
+          <tr><td><code>createStyle(opts): string | null</code></td><td><code>{ name, type?, basedOn?, next?, quick?, autoUpdate?, format?, fromSelection?, apply? }</code>. Defaults: linked, in the gallery, based on the current paragraph style, formatted like the selection&rsquo;s first character and paragraph, applied to the selection. Returns the new id, or <code>null</code> when the name is taken.</td></tr>
+          <tr><td><code>modifyStyle(id, opts): boolean</code></td><td><code>{ name?, basedOn?, next?, quick?, autoUpdate?, format? }</code>. <code>format</code> (<code>StyleFormat</code>): a value sets it on the style, <code>null</code> inherits again. Re-lays out the whole document in one undo step.</td></tr>
+          <tr><td><code>updateStyleFromSelection(id?): boolean</code></td><td>&ldquo;Update to Match Selection&rdquo;: the current paragraph&rsquo;s direct formatting moves into the style (default: the paragraph&rsquo;s style).</td></tr>
+          <tr><td><code>renameStyle(id, name) &middot; deleteStyle(id) &middot; setStyleInGallery(id, on)</code></td><td>A renamed custom style gets a new id and the document follows; a built-in gets an alias. Deleting a custom style returns its text to Normal; built-ins cannot be deleted. Gallery membership is <code>w:qFormat</code>.</td></tr>
+          <tr><td><code>inspectStyle()</code></td><td>Style Inspector: <code>{ paragraph: { id, name, direct }, text: { id, name, direct } }</code> &mdash; the styles and the direct formatting at the caret.</td></tr>
+          <tr><td><code>clearParagraphStyle() &middot; clearParagraphFormatting() &middot; clearCharacterStyle() &middot; clearCharacterFormatting()</code></td><td>The Inspector&rsquo;s erasers. At the caret, character operations act on the word.</td></tr>
+          <tr><td><code>currentStyles() &middot; selectionStyleFormat() &middot; stylesVersion()</code></td><td>Paragraph/character style ids at the caret; the selection&rsquo;s direct formatting as a <code>StyleFormat</code>; a counter that changes with the style sheet (<code>uw-styles-change</code> fires too).</td></tr>
+        </tbody>
+      </table>
+      <p>Enter at the end of a paragraph whose style has a <em>next style</em> (Heading 1 &rarr; Normal) starts the new paragraph in that style, without direct formatting.</p>
 
       <h2 id="insert">Inserting content</h2>
       <table>

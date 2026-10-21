@@ -35,6 +35,13 @@ export interface ChromeCtl {
   flash(msg: string): void;
   /** destaque/modo mudaram em app.accent/app.mode */
   applyTheme(): void;
+  /** Painel de Estilos e Inspetor de Estilo (chrome-styles.ts) */
+  stylesPane(): void;
+  stylesPaneOpen(): boolean;
+  styleInspector(): void;
+  inspectorOpen(): boolean;
+  newStyle(): void;
+  modifyStyle(): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];
@@ -152,8 +159,22 @@ export function registerWriteCommands(reg: CommandRegistry, ed: UniversalWriteEl
     edit({ id: 'shrink', label: { en: 'Decrease font size', pt: 'Diminuir Fonte' }, icon: 'text_decrease', shortcut: 'Ctrl+[', run: () => ed.growFont(-1) }),
     edit({ id: 'color', label: { en: 'Font color', pt: 'Cor da Fonte' }, icon: 'format_color_text', run: () => ed.setColor(app.lastColor), color: () => `#${app.lastColor}` }),
     edit({ id: 'highlight', label: { en: 'Text highlight color', pt: 'Cor do Realce do Texto' }, icon: 'format_ink_highlighter', run: () => ed.setHighlight(app.lastHighlight), color: () => HL_CSS[app.lastHighlight] }),
-    edit({ id: 'clear', label: { en: 'Clear formatting', pt: 'Limpar Toda a Formatação' }, icon: 'format_clear', shortcut: 'Ctrl+Space', run: () => ed.clearFormatting() }),
+    edit({ id: 'clear', label: { en: 'Clear All Formatting', pt: 'Limpar Toda a Formatação' }, icon: 'format_clear', run: () => ed.clearFormatting() }),
     edit({ id: 'dlg:font', label: { en: 'Font…', pt: 'Fonte…' }, tip: { en: 'Font settings', pt: 'Configurações de fonte' }, icon: 'text_format', shortcut: 'Ctrl+D', run: () => ctl.fontDialog() }),
+
+    // ── Estilos (chrome-styles.ts) ──
+    { id: 'styles:pane', label: { en: 'Styles pane', pt: 'Painel de Estilos' }, tip: { en: 'Styles (Ctrl+Alt+Shift+S)', pt: 'Estilos (Ctrl+Alt+Shift+S)' }, icon: 'view_sidebar', shortcut: 'Ctrl+Alt+Shift+S', supports: has('listStyles'), run: () => ctl.stylesPane(), isChecked: () => ctl.stylesPaneOpen() },
+    { id: 'style:inspector', label: { en: 'Style Inspector', pt: 'Inspetor de Estilo' }, icon: 'manage_search', supports: has('inspectStyle'), run: () => ctl.styleInspector(), isChecked: () => ctl.inspectorOpen() },
+    edit({ id: 'style:new', label: { en: 'New style…', pt: 'Novo estilo…' }, tip: { en: 'Create a style from the formatting of the selection', pt: 'Cria um estilo com a formatação da seleção' }, icon: 'add', supports: has('createStyle'), run: () => ctl.newStyle() }),
+    edit({ id: 'style:modifyCurrent', label: { en: 'Modify style…', pt: 'Modificar estilo…' }, tip: { en: 'Modify the style of the current paragraph', pt: 'Modifica o estilo do parágrafo atual' }, icon: 'edit', supports: has('modifyStyle'), run: () => ctl.modifyStyle() }),
+    edit({ id: 'style:updateCurrent', label: { en: 'Update style to match selection', pt: 'Atualizar estilo para corresponder à seleção' }, icon: 'refresh', supports: has('updateStyleFromSelection'), run: () => ed.updateStyleFromSelection() }),
+    edit({ id: 'style:normal', label: { en: 'Normal style', pt: 'Estilo Normal' }, icon: 'format_paragraph', shortcut: 'Ctrl+Shift+N', supports: has('applyStyle'), run: () => ed.applyStyle(undefined) }),
+    ...[1, 2, 3].map((n) => edit({
+      id: `style:h${n}`, label: { en: `Heading ${n}`, pt: `Título ${n}` }, icon: `format_h${n}`, shortcut: `Ctrl+Alt+${n}`, supports: has('listStyles'),
+      run: () => ed.applyStyle(ed.listStyles('all').find((s) => s.rawName.toLowerCase() === `heading ${n}`)?.id),
+    })),
+    edit({ id: 'style:clearChar', label: { en: 'Clear character formatting', pt: 'Limpar formatação de caractere' }, icon: 'format_clear', shortcut: 'Ctrl+Space', supports: has('clearCharacterFormatting'), run: () => ed.clearCharacterFormatting() }),
+    edit({ id: 'style:clearPara', label: { en: 'Clear paragraph formatting', pt: 'Limpar formatação de parágrafo' }, icon: 'format_clear', shortcut: 'Ctrl+Q', supports: has('clearParagraphFormatting'), run: () => ed.clearParagraphFormatting() }),
 
     // ── Formatar: parágrafo ──
     ...([['left', 'Align left', 'Alinhar à Esquerda', 'Ctrl+L'], ['center', 'Center', 'Centralizar', 'Ctrl+E'],

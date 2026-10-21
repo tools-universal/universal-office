@@ -52,6 +52,7 @@ function menus(env: WidgetEnv, ctx: BarContext) {
         onClick: () => { env.ed.applyStyle(s.id === 'Normal' ? undefined : s.id); ctx.after(); },
       }));
     }, 'styles'),
+    styleTools: sub({ en: 'Styles', pt: 'Estilos' }, 'view_sidebar', () => ['styles:pane', 'style:inspector', '-', 'style:new', 'style:modifyCurrent', 'style:updateCurrent', '-', 'style:normal', 'style:h1', 'style:h2', 'style:h3'], 'styleTools'),
     align: sub({ en: 'Align & indent', pt: 'Alinhar e recuar' }, 'format_align_left', () => ['align:left', 'align:center', 'align:right', 'align:both', '-', 'indent', 'outdent', '-',
       sub({ en: 'Special indent', pt: 'Recuo especial' }, undefined, () => specialIndentMenu(env, ctx), 'specialIndent')], 'align'),
     spacing: sub({ en: 'Line & paragraph spacing', pt: 'Espaçamento entre linhas e parágrafos' }, 'format_line_spacing', () => lineSpacingMenu(env, ctx), 'spacing'),
@@ -87,7 +88,7 @@ export function compactLayout(env: WidgetEnv, ctx: BarContext): CompactConfig {
       { id: 'edit', label: { en: 'Edit', pt: 'Editar' }, items: ['undo', 'redo', '-', 'cut', 'copy', 'paste', 'pastePlain', '-', 'selectAll', '-', 'find', 'replace'] },
       { id: 'view', label: { en: 'View', pt: 'Ver' }, items: () => ['view:print', 'view:web', 'view:read', 'focus', '-', 'marks', 'comments', '-', m.zoom, '-', m.theme, m.accent, m.toolbar] },
       { id: 'insert', label: { en: 'Insert', pt: 'Inserir' }, items: () => ['image', 'table', 'link', 'comment', '-', m.breaks, m.hf, m.fields, 'toc', '-', 'footnote', 'endnote', 'bookmark', 'textbox', m.symbols] },
-      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, '-', m.align, m.spacing, m.lists, m.shading, 'borders', m.charSpacing, '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', '-', 'clear'] },
+      { id: 'format', label: { en: 'Format', pt: 'Formatar' }, items: () => [m.text, m.color, m.highlight, m.styles, m.styleTools, '-', m.align, m.spacing, m.lists, m.shading, 'borders', m.charSpacing, '-', m.page, m.columns, '-', 'dlg:font', 'dlg:paragraph', '-', 'clear', 'style:clearChar', 'style:clearPara'] },
       { id: 'tools', label: { en: 'Tools', pt: 'Ferramentas' }, items: () => ['spelling', 'spellAsYouType', 'wordCount', '-', m.trackChanges, m.comments, '-', 'compare', 'mailmerge', '-', 'fontAccess', 'hyphenation', '-', 'enableEditing'] },
       { id: 'help', label: { en: 'Help', pt: 'Ajuda' }, items: ['shortcuts', 'about'] },
     ],
@@ -141,7 +142,7 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           ] },
           { id: 'font', label: L('Font', 'Fonte'), icon: 'text_format', prio: 8, launcher: 'dlg:font', cells: [
             { rows: [
-              [fontWidget(env, 140), sizeWidget(env, 'dropdown'), 'grow', 'shrink', { menu: caseMenu, id: 'case', label: L('Change case', 'Maiúsculas e minúsculas'), icon: 'match_case' }],
+              [fontWidget(env, 140), sizeWidget(env, 'dropdown'), 'grow', 'shrink', { menu: caseMenu, id: 'case', label: L('Change case', 'Maiúsculas e minúsculas'), icon: 'match_case' }, 'clear'],
               ['bold', 'italic', 'underline', 'strike', 'sub', 'sup', { split: 'color', menu: () => colorMenu(env, ctx) }, { split: 'highlight', menu: () => highlightMenu(env, ctx) }],
             ] },
           ] },
@@ -153,9 +154,10 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
                 { split: 'shading', menu: () => shadingMenu(env, ctx) }, 'borders'],
             ] },
           ] },
-          { id: 'styles', label: L('Styles', 'Estilos'), icon: 'style', prio: 5, cells: [
-            { rows: [[styleWidget(env, 150)], [{ cmd: 'clear', label: true }]] },
-          ] },
+          // galeria com miniaturas (widget de galeria do framework; elástica) + ↘ Painel de Estilos
+          { id: 'styles', label: L('Styles', 'Estilos'), icon: 'style', prio: 5, launcher: 'styles:pane', cells: env.styles
+            ? [env.styles.galleryItem()]
+            : [{ rows: [[styleWidget(env, 150)]] }] },
           { id: 'editing', label: L('Editing', 'Edição'), icon: 'search', prio: 4, cells: [
             { rows: [[{ cmd: 'find', label: true }], [{ cmd: 'replace', label: true }], [{ cmd: 'selectAll', label: true }]] },
           ] },

@@ -10,7 +10,7 @@ import type { WriteApp } from './chrome-app.js';
 import { ZOOMS, type ChromeCtl } from './chrome-commands.js';
 import { ACCENTS, type ColorMode } from './chrome-theme.js';
 
-export interface WidgetEnv { ed: UniversalWriteElement; app: WriteApp; ctl: ChromeCtl; root: ShadowRoot }
+export interface WidgetEnv { ed: UniversalWriteElement; app: WriteApp; ctl: ChromeCtl; root: ShadowRoot; styles?: import('./chrome-styles.js').StylesUI }
 
 function btn(cls: string, id: string, title: string): HTMLButtonElement {
   const b = document.createElement('button');

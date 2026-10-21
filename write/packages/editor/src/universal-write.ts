@@ -50,7 +50,18 @@ import {
   type DrawingTextbox,
   type HfPartInfo,
   type Block,
+  readStylesXml,
+  blankDocxPackage,
+  clearRunFormatting,
+  clearParaFormatting,
+  clearPara,
+  type StyleFormat,
 } from '@universal-office/docx-core';
+import {
+  DocStyles, listStyles, styleLook, ensureDefined, resolveStyleId, createStyleXml, modifyStyleXml, renameStyleXml, deleteStyleXml, setQuickXml, displayName,
+  type StyleInfo, type StyleLook, type StyleFilter, type CreateStyleOptions, type ModifyStyleOptions,
+  stylesPartPath, writeStylesPart,
+} from './styles.js';
 import {
   FontResolver, METRIC_SUBSTITUTES, DEFAULT_EMBEDDING, planFontEmbedding, readDocxEmbedding, writeDocxEmbedding,
   type ResolvedFont, type FontEmbeddingSettings, type FontUsage, type EmbeddingPlan,
@@ -82,7 +93,7 @@ import {
 } from '@universal-office/docx-layout';
 import { toHtml, toMarkdown, type ExportDoc } from '@universal-office/docx-core';
 import {
-  layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages,
+  layoutDocument, renderPdf, withEmbeddedFonts, documentHyphenationLanguages, emptyFormatting,
   type FontProvider as EngineFontProvider, type FontFace as EngineFontFace,
   type LayoutResult, type LayoutPage, type LaidOutLine, type LayoutOptions,
 } from '@universal-office/docx-layout';
@@ -275,6 +286,8 @@ interface CellEdit {
 /** Referência ao w:rPr original guardada nas props do run (ver syncRunRPr):
  *  símbolo — copiado pelo spread das props, invisível ao JSON e ao toolbar. */
 const RPR_REF = Symbol('uw-rpr');
+/** o rpr da referência foi limpo pelo editor (vai junto para o texto digitado ao lado) */
+const RPR_EDITED = Symbol('uw-rpr-edited');
 
 // Operações de edição do docx-core protegidas (guardRuns): preservam o w:rPr
 // e os extras dos runs e não fundem runs de formatação original diferente —
@@ -466,6 +479,8 @@ export class UniversalWriteElement extends HTMLElement {
   private model: DocumentModel | null = null;
   private pkg: DocxPackage | null = null;
   private fullDoc: FullDocument | null = null;
+  /** word/styles.xml editável — fonte única da galeria, do painel e do salvar */
+  private docStyles = new DocStyles(null);
   /** Tabelas ancoradas antes do parágrafo de índice beforePara. */
   private tableAnchors: { beforePara: number; table: TableBlock }[] = [];
   /** Seções: a partir de qual parágrafo cada uma vale — DERIVADAS do modelo
@@ -1009,6 +1024,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write, ...readDocxEmbedding(this.pkg).settings };
     // com a fonte XML original: o salvar devolve cru tudo o que não for editado
     this.fullDoc = readFullDocument(this.pkg, { sources: true });
+    this.docStyles = new DocStyles(this.pkg.getPartText(stylesPartPath(this.pkg)) ?? null);
     this.loadedFormat = 'docx';
     this.installFullDoc();
     void this.registerEmbeddedFonts(this.pkg); // fontes embedadas → FontFace + métricas
@@ -1053,6 +1069,7 @@ export class UniversalWriteElement extends HTMLElement {
     this.pkg = null;
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = readOdt(bytes);
+    this.docStyles = new DocStyles(null);
     this.loadedBytes = null;
     this.loadedFormat = 'odt';
     this.installFullDoc();
@@ -1226,31 +1243,18 @@ export class UniversalWriteElement extends HTMLElement {
     }));
   }
 
+  /** Documento novo como o Word grava um em branco: estilos (Normal, títulos,
+   *  citações… e os latentes), tema do Office, configurações e A4 com margens
+   *  3/2,5 cm (docx-core/blank.ts, medido no oráculo). */
   newDocument(): void {
-    this.resetEngineState();
     this.protectedMode = false; // documento novo nasce editável
     this.loadedBytes = null;
-    this.editsSinceLoad = 0;
     this.loadedFormat = 'docx';
-    this.pkg = null;
+    this.pkg = blankDocxPackage();
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
-    this.fullDoc = null;
-    this.tableAnchors = [];
-    this.resetSections();
-    this.floatImages = [];
-    this.model = {
-      paragraphs: [{ runs: [], props: {} }],
-      sectPr: {
-        pageWidthTwips: 11906, pageHeightTwips: 16838,
-        marginLeftTwips: 1701, marginRightTwips: 1701,
-        marginTopTwips: 1417, marginBottomTwips: 1417,
-      },
-    };
-    this.syncSections();
-    this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
-    this.undoStack = [];
-    this.redoStack = [];
-    this.refresh();
+    this.fullDoc = readFullDocument(this.pkg, { sources: true });
+    this.docStyles = new DocStyles(this.pkg.getPartText('word/styles.xml') ?? null);
+    this.installFullDoc();
   }
 
   setDarkPage(dark: boolean): void {
@@ -1668,9 +1672,13 @@ export class UniversalWriteElement extends HTMLElement {
     // BRANCO em texto sem formatação direta (o comum).
     const para: ParaProps = { ...(p?.props ?? {}) };
     if (para.alignment === undefined) para.alignment = st?.alignment;
-    if (run.fontAscii === undefined) run.fontAscii = st?.fontAscii ?? dd.run.fontAscii ?? DEFAULT_FONT;
+    // com styles.xml: a cascata do motor (fontes de TEMA incluídas — "Aptos", não a substituta)
+    const look = this.docStyles.xml && (run.fontAscii === undefined || run.szHalfPt === undefined)
+      ? styleLook(this.docStyles, this.fullDoc?.formatting?.theme ?? emptyFormatting().theme, run.charStyle ?? p?.props.styleId ?? this.docStyles.defaultParagraph())
+      : null;
+    if (run.fontAscii === undefined) run.fontAscii = look?.fontFamily ?? st?.fontAscii ?? dd.run.fontAscii ?? DEFAULT_FONT;
     if (run.szHalfPt === undefined) {
-      run.szHalfPt = st?.sizePt !== undefined ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
+      run.szHalfPt = look ? Math.round(look.sizePt * 2) : st?.sizePt !== undefined ? Math.round(st.sizePt * 2) : dd.run.szHalfPt ?? 22;
     }
     return { run, para, view: this.view, marks: this.showMarks };
   }
@@ -1869,29 +1877,19 @@ export class UniversalWriteElement extends HTMLElement {
   }
   setColor(hex: string | undefined): void { this.formatRuns({ color: hex }); }
   setHighlight(name: string | undefined): void { this.formatRuns({ highlight: name }); }
+  /** Limpar Toda a Formatação (Word: Selection.ClearFormatting): o trecho perde
+   *  a formatação direta e o estilo de caractere; os parágrafos tocados voltam ao
+   *  Normal sem formatação direta. No cursor: o parágrafo. */
   clearFormatting(): void {
+    if (!this.model || this.locked()) return;
     this.snapshot();
-    if (this.hasSelection()) {
-      applyRunProps(this.model!, this.range(), { ...DEFAULT_RUN_PROPS, szHalfPt: undefined, color: undefined, highlight: undefined, fontAscii: undefined, vertAlign: undefined });
-      applyParaProps(this.model!, this.range(), { styleId: undefined, alignment: undefined });
-      // o motor lê o w:rPr original: limpar também tira estilo de caractere,
-      // fontes/cores de tema etc. (como o Limpar Formatação do Word)
-      const { start, end } = normalizeRange(this.range());
-      for (let pi = start.para; pi <= end.para; pi++) {
-        let acc = 0;
-        for (const r of this.model!.paragraphs[pi]!.runs) {
-          const a = acc;
-          acc += r.text.length;
-          const from = pi === start.para ? start.offset : 0;
-          const to = pi === end.para ? end.offset : Infinity;
-          if (a < from || acc > to) continue;
-          delete r.rpr;
-          r.props = { ...r.props };
-          delete (r.props as RunProps & { [RPR_REF]?: unknown })[RPR_REF];
-        }
-      }
-    }
+    if (this.hasSelection()) clearRunFormatting(this.model, this.range(), { charStyle: undefined });
+    else this.pendingProps = { ...DEFAULT_RUN_PROPS };
+    clearParaFormatting(this.model, this.range());
+    const { start, end } = normalizeRange(this.range());
+    for (let pi = start.para; pi <= end.para; pi++) delete this.model.paragraphs[pi]!.props.styleId;
     this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
   }
   changeCase(mode: 'upper' | 'lower'): void {
     if (!this.model || !this.hasSelection() || this.locked()) return;
@@ -1941,53 +1939,459 @@ export class UniversalWriteElement extends HTMLElement {
     this.formatPara({ indentLeftTwips: Math.max(0, cur + delta * 720) || undefined });
   }
   setLineSpacing(line: number): void { this.formatPara({ lineTwentieths: line }); }
-  /** Aplica um estilo de parágrafo replicando o Word: além de setar o styleId,
-   *  LIMPA a formatação direta que impediria o estilo de aparecer — props de
-   *  parágrafo (numeração/bullet, alinhamento, espaçamento, recuos, bordas) e
-   *  props de run UNIFORMES no parágrafo (tamanho/fonte/cor/negrito iguais em
-   *  todos os runs). Formatação de run PARCIAL (ex.: uma palavra em negrito) é
-   *  preservada — exatamente como o Word faz. */
+  // ───────────────────────── estilos ─────────────────────────
+  // A folha (word/styles.xml) é editada sem perdas por DocStyles/styles.ts; o
+  // modelo só leva styleId (parágrafo) e charStyle (run). Regras do Word medidas
+  // no oráculo (write/tools/styles-oracle; memória word-styles-oracle-facts).
+
+  /** Estilos da galeria/painel: definidos + latentes built-in, na ordem do Word
+   *  (prioridade, nome). `filter`: 'gallery' (galeria), 'recommended' (padrão),
+   *  'inUse', 'document' (definidos no arquivo) ou 'all'. */
+  listStyles(filter: StyleFilter = 'recommended'): StyleInfo[] {
+    const lang = uiLang(this);
+    if (!this.docStyles.xml && this.loadedFormat === 'odt') {
+      // .odt: os estilos do ODF (só leitura nesta frente)
+      const out: StyleInfo[] = [];
+      this.fullDoc?.styles.forEach((v, id) => {
+        if (id === 'docDefaults' || (v.type && v.type !== 'paragraph')) return;
+        out.push({ id, name: v.name ?? id, rawName: v.name ?? id, kind: 'paragraph', builtIn: false, defined: true, quick: true, hidden: false,
+          priority: 0, inUse: false, isDefault: false, autoUpdate: false });
+      });
+      return out.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return listStyles(this.docStyles, lang, this.stylesInUse(), filter);
+  }
+
+  /** Formatação EFETIVA de um estilo (cascata docDefaults → basedOn → estilo):
+   *  fonte, tamanho, cor, alinhamento, espaçamentos… — miniaturas e diálogos. */
+  styleFormatting(id: string): StyleLook | null {
+    if (!this.docStyles.xml && !this.stylesEditable()) return null;
+    return styleLook(this.docStyles, this.fullDoc?.formatting?.theme ?? emptyFormatting().theme, resolveStyleId(this.docStyles.xml, id));
+  }
+
+  /** Formatação DIRETA da seleção (1º caractere + 1º parágrafo) no formato do
+   *  diálogo de estilo — o ponto de partida de "Criar estilo". */
+  selectionStyleFormat(): StyleFormat {
+    if (!this.model) return {};
+    return this.selectionFormat('linked');
+  }
+
+  /** Fonte CSS com que a TELA desenha uma família (a mesma face do canvas: o
+   *  arquivo da fonte ou a substituta métrico-compatível) — miniaturas de
+   *  estilo e prévias. Família ainda não carregada é pedida ao resolvedor. */
+  canvasFont(family: string, bold = false, italic = false): { family: string; weight: number; italic: boolean } {
+    const face = this.fonts ? this.liveFontProvider().face(family, bold, italic) : null;
+    const css = face ? this.engFaceCss.get(face) : undefined;
+    if (!css) void this.ensureFontLoaded(family);
+    return css ?? { family: DEFAULT_FONT_CSS, weight: bold ? 700 : 400, italic };
+  }
+
+  /** Versão da folha de estilos (muda a cada criar/modificar/excluir/desfazer). */
+  stylesVersion(): number { return this.docStyles.version; }
+
+  /** Muda quando a lista de estilos pode ter mudado (folha, uso no documento, idioma). */
+  stylesKey(): string {
+    return `${this.docStyles.version}:${this.editsSinceLoad}:${this.undoStack.length}:${this.redoStack.length}:${this.hfEdit ? 1 : 0}:${uiLang(this)}`;
+  }
+
+  /** Estilo de parágrafo e de caractere no cursor (ids). */
+  currentStyles(): { paragraph: string; character?: string } {
+    const p = this.model?.paragraphs[this.selection.focus.para];
+    const run = this.pendingProps ?? this.currentProps();
+    return { paragraph: p?.props.styleId ?? this.docStyles.defaultParagraph(), character: run.charStyle };
+  }
+
+  /** Aplica um estilo como o Word (oráculo):
+   *  - PARÁGRAFO: troca o estilo dos parágrafos da seleção, LIMPA a formatação
+   *    direta de parágrafo e a de caractere UNIFORME no parágrafo; a parcial
+   *    (uma palavra em negrito) fica;
+   *  - CARACTERE: no trecho selecionado (no cursor, a palavra), tirando toda a
+   *    formatação direta dele;
+   *  - VINCULADO em parte de UM parágrafo: vale o par de caractere ("… Char").
+   *  Estilo latente built-in entra no styles.xml com a definição do Word.
+   *  `undefined` = Normal. */
   applyStyle(styleId: string | undefined): void {
     if (!this.model || this.locked()) return;
     this.snapshot();
-    const r = this.range();
-    const lo = Math.min(r.start.para, r.end.para);
-    const hi = Math.max(r.start.para, r.end.para);
+    this.applyStyleCore(styleId);
+    this.pendingProps = null;
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  private applyStyleCore(styleId: string | undefined): void {
+    const ds = this.docStyles;
+    const defPara = ds.defaultParagraph();
+    const sid = styleId === undefined ? undefined : resolveStyleId(ds.xml, styleId);
+    const id = sid === undefined || sid === defPara ? undefined : sid;
+    if (id && this.stylesEditable()) this.commitStyles(ensureDefined(ds, ds.base(), id, true));
+    const meta = id ? ds.meta(id) : undefined;
+    const { start, end } = normalizeRange(this.range());
+    if (meta?.type === 'character') { this.applyCharStyle(id!); return; }
+    const twin = meta?.link ? ds.meta(meta.link) : undefined;
+    if (twin?.type === 'character' && this.hasSelection() && start.para === end.para
+      && !(start.offset === 0 && end.offset >= paraLength(this.model!.paragraphs[start.para]!))) {
+      this.applyCharStyle(twin.id);
+      return;
+    }
     const RUN_KEYS: (keyof RunProps)[] = [
       'szHalfPt', 'fontAscii', 'color', 'bold', 'italic', 'underline',
       'underlineStyle', 'underlineColor', 'strike', 'doubleStrike',
       'allCaps', 'smallCaps', 'vertAlign', 'highlight', 'charSpacingTwips',
     ];
-    for (let pi = lo; pi <= hi; pi++) {
-      const p = this.model.paragraphs[pi];
+    for (let pi = start.para; pi <= end.para; pi++) {
+      const p = this.model!.paragraphs[pi];
       if (!p) continue;
-      p.props.styleId = styleId;
       // formatação direta de PARÁGRAFO cede ao estilo
-      p.props.numbering = undefined;
-      p.props.alignment = undefined;
-      p.props.spaceBeforeTwips = undefined;
-      p.props.spaceAfterTwips = undefined;
-      p.props.lineTwentieths = undefined;
-      p.props.indentLeftTwips = undefined;
-      p.props.indentRightTwips = undefined;
-      p.props.indentFirstLineTwips = undefined;
-      p.props.borders = undefined;
-      p.props.shadingHex = undefined;
+      clearPara(p);
+      p.props.styleId = id;
       // props de run UNIFORMES no parágrafo cedem ao estilo; as que VARIAM ficam
       const runs = p.runs;
       if (runs.length) {
-        for (const key of RUN_KEYS) {
+        const uniform = RUN_KEYS.filter((key) => {
           const first = runs[0]!.props[key];
-          if (first === undefined) continue;
-          if (runs.every((rn) => rn.props[key] === first)) {
-            for (const rn of runs) delete (rn.props as unknown as Record<string, unknown>)[key];
-          }
-        }
+          return first !== undefined && first !== false && runs.every((rn) => rn.props[key] === first);
+        });
+        if (uniform.length) clearRunFormatting(this.model!, { start: { para: pi, offset: 0 }, end: { para: pi, offset: paraLength(p) } }, { fields: uniform, charStyle: null });
       }
     }
+  }
+
+  /** Estilo de caractere no trecho (no cursor: a palavra; fora de palavra: o
+   *  texto que for digitado). Tira a formatação direta do trecho (Word). */
+  private applyCharStyle(id: string | undefined): void {
+    const r = this.hasSelection() ? this.range() : this.wordRangeAt(this.selection.focus, false);
+    if (!r) { this.pendingProps = { ...DEFAULT_RUN_PROPS, ...(id ? { charStyle: id } : {}) }; return; }
+    clearRunFormatting(this.model!, r, { charStyle: id });
+    this.ensureStyleUsed(id);
+  }
+
+  /** Palavra sob o cursor ([letras/dígitos]); `space` inclui os espaços depois
+   *  (é o que o Word limpa no cursor). null = cursor fora de palavra. */
+  private wordRangeAt(pos: DocPosition, space: boolean): DocRange | null {
+    const p = this.model?.paragraphs[pos.para];
+    if (!p) return null;
+    const t = paraText(p);
+    const w = (i: number): boolean => i >= 0 && i < t.length && /[\p{L}\p{N}_]/u.test(t[i]!);
+    if (!w(pos.offset) && !w(pos.offset - 1)) return null;
+    let a = pos.offset, b = pos.offset;
+    while (w(a - 1)) a--;
+    while (w(b)) b++;
+    if (space) while (b < t.length && t[b] === ' ') b++;
+    return { start: { para: pos.para, offset: a }, end: { para: pos.para, offset: b } };
+  }
+
+  /** Usar um estilo tira o semiHidden (unhideWhenUsed), como o Word. */
+  private ensureStyleUsed(id: string | undefined): void {
+    if (id && this.stylesEditable()) this.commitStyles(ensureDefined(this.docStyles, this.docStyles.base(), id, true));
+  }
+
+  /** Formatação do 1º caractere e do 1º parágrafo da seleção (criar estilo). */
+  private selectionFormat(type: 'paragraph' | 'character' | 'linked'): StyleFormat {
+    const { start } = normalizeRange(this.range());
+    const run = this.hasSelection() ? propsAt(this.model!, { para: start.para, offset: start.offset + 1 }) : (this.pendingProps ?? this.currentProps());
+    const f: StyleFormat = {};
+    if (run.fontAscii) f.fontAscii = run.fontAscii;
+    if (run.szHalfPt !== undefined) f.szHalfPt = run.szHalfPt;
+    if (run.bold) f.bold = true;
+    if (run.italic) f.italic = true;
+    if (run.underline && !run.link) f.underline = true;
+    if (run.strike) f.strike = true;
+    if (run.allCaps) f.allCaps = true;
+    if (run.smallCaps) f.smallCaps = true;
+    if (run.color && !(run.link && run.color === '0563C1')) f.color = run.color;
+    if (run.charSpacingTwips) f.charSpacingTwips = run.charSpacingTwips;
+    if (type === 'character') return f;
+    const pp = this.model!.paragraphs[start.para]!.props;
+    if (pp.alignment && pp.alignment !== 'left') f.alignment = pp.alignment;
+    if (pp.spaceBeforeTwips !== undefined) f.spaceBeforeTwips = pp.spaceBeforeTwips;
+    if (pp.spaceAfterTwips !== undefined) f.spaceAfterTwips = pp.spaceAfterTwips;
+    if (pp.lineTwentieths !== undefined) f.lineTwentieths = pp.lineTwentieths;
+    if (pp.indentLeftTwips) f.indentLeftTwips = pp.indentLeftTwips;
+    if (pp.indentRightTwips) f.indentRightTwips = pp.indentRightTwips;
+    if (pp.indentFirstLineTwips) f.indentFirstLineTwips = pp.indentFirstLineTwips;
+    return f;
+  }
+
+  /** Cria um estilo (padrão: VINCULADO, na galeria, baseado no estilo do
+   *  parágrafo atual, com a formatação do 1º caractere/parágrafo da seleção —
+   *  como "Criar um Estilo") e o aplica à seleção. Devolve o styleId (como o Word
+   *  gera: o nome sem acentos/espaços) ou null se o nome já existe. */
+  createStyle(opts: CreateStyleOptions & { fromSelection?: boolean; apply?: boolean }): string | null {
+    if (!this.model || this.locked() || !this.stylesEditable()) return null;
+    const name = opts.name.trim();
+    if (!name || this.styleNameTaken(name)) return null;
+    const type = opts.type ?? 'linked';
+    const format = opts.format ?? (opts.fromSelection !== false ? this.selectionFormat(type) : {});
+    const basedOn = opts.basedOn ?? (type === 'character' ? undefined
+      : this.model.paragraphs[this.selection.focus.para]?.props.styleId ?? this.docStyles.defaultParagraph());
+    this.snapshot();
+    const { xml, id } = createStyleXml(this.docStyles, this.docStyles.base(), { ...opts, name, type, basedOn, format });
+    this.commitStyles(xml);
+    if (opts.apply !== false) this.applyStyleCore(id);
     this.pendingProps = null;
     this.refresh();
     this.onSelectionChange?.(); this.chromeSync?.();
+    return id;
+  }
+
+  /** Modifica um estilo — nome, baseado em, próximo, galeria, atualizar
+   *  automaticamente e a formatação (`format`: valor = definir no estilo, null =
+   *  herdar). O documento inteiro refaz o layout; um passo de desfazer. */
+  modifyStyle(id: string, opts: ModifyStyleOptions): boolean {
+    if (!this.model || this.locked() || !this.stylesEditable()) return false;
+    if (opts.name !== undefined && opts.name.trim() && this.styleNameTaken(opts.name.trim(), id)) return false;
+    id = resolveStyleId(this.docStyles.xml, id);
+    this.snapshot();
+    const { xml, renamed } = modifyStyleXml(this.docStyles, this.docStyles.base(), id, opts);
+    if (xml === this.docStyles.xml) { this.undoStack.pop(); return false; }
+    this.commitStyles(xml);
+    this.retargetStyles(renamed, []);
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return true;
+  }
+
+  /** "Atualizar <estilo> para Corresponder à Seleção": a formatação direta do
+   *  parágrafo atual (a de parágrafo e a de caractere uniforme) entra no estilo
+   *  e sai do parágrafo. Padrão: o estilo do parágrafo atual. */
+  updateStyleFromSelection(id?: string): boolean {
+    if (!this.model || this.locked() || !this.stylesEditable()) return false;
+    const pi = this.selection.focus.para;
+    const p = this.model.paragraphs[pi]!;
+    const target = resolveStyleId(this.docStyles.xml, id ?? p.props.styleId ?? this.docStyles.defaultParagraph());
+    const pp = p.props;
+    const format: StyleFormat = {};
+    if (pp.alignment) format.alignment = pp.alignment;
+    if (pp.spaceBeforeTwips !== undefined) format.spaceBeforeTwips = pp.spaceBeforeTwips;
+    if (pp.spaceAfterTwips !== undefined) format.spaceAfterTwips = pp.spaceAfterTwips;
+    if (pp.lineTwentieths !== undefined) format.lineTwentieths = pp.lineTwentieths;
+    if (pp.indentLeftTwips !== undefined) format.indentLeftTwips = pp.indentLeftTwips;
+    if (pp.indentRightTwips !== undefined) format.indentRightTwips = pp.indentRightTwips;
+    if (pp.indentFirstLineTwips !== undefined) format.indentFirstLineTwips = pp.indentFirstLineTwips;
+    const runs = p.runs;
+    const uniform = <K extends keyof RunProps>(k: K): RunProps[K] | undefined => {
+      const v = runs[0]?.props[k];
+      return v !== undefined && runs.every((r) => r.props[k] === v) ? v : undefined;
+    };
+    const fields: (keyof RunProps)[] = [];
+    const take = <K extends keyof RunProps & keyof StyleFormat>(k: K, onlyTrue = false): void => {
+      const v = uniform(k);
+      if (v === undefined || (onlyTrue && v === false)) return;
+      (format as Record<string, unknown>)[k] = v;
+      fields.push(k);
+    };
+    take('fontAscii'); take('szHalfPt'); take('color'); take('charSpacingTwips');
+    take('bold', true); take('italic', true); take('underline', true); take('strike', true); take('allCaps', true); take('smallCaps', true);
+    this.snapshot();
+    const { xml } = modifyStyleXml(this.docStyles, this.docStyles.base(), target, { format });
+    this.commitStyles(xml);
+    clearPara(p);
+    if (target !== this.docStyles.defaultParagraph()) p.props.styleId = target;
+    if (fields.length && runs.length) clearRunFormatting(this.model, { start: { para: pi, offset: 0 }, end: { para: pi, offset: paraLength(p) } }, { fields, charStyle: null });
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return true;
+  }
+
+  /** Renomeia. Personalizado troca nome E styleId (o documento acompanha);
+   *  built-in ganha um alias (w:aliases), como o Word. */
+  renameStyle(id: string, name: string): boolean {
+    if (!this.model || this.locked() || !this.stylesEditable() || !name.trim() || this.styleNameTaken(name.trim(), id)) return false;
+    id = resolveStyleId(this.docStyles.xml, id);
+    this.snapshot();
+    const { xml, renamed } = renameStyleXml(this.docStyles, this.docStyles.base(), id, name.trim());
+    if (xml === this.docStyles.xml) { this.undoStack.pop(); return false; }
+    this.commitStyles(xml);
+    this.retargetStyles(renamed, []);
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return true;
+  }
+
+  /** Exclui um estilo PERSONALIZADO: os parágrafos voltam ao Normal e os runs
+   *  perdem o estilo de caractere (Word). Built-in não se exclui → false. */
+  deleteStyle(id: string): boolean {
+    if (!this.model || this.locked() || !this.stylesEditable() || !this.docStyles.xml) return false;
+    const r = deleteStyleXml(this.docStyles.xml, id);
+    if (!r) return false;
+    this.snapshot();
+    this.commitStyles(r.xml);
+    this.retargetStyles({}, r.removed);
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+    return true;
+  }
+
+  /** Mostra (true) ou tira (false) o estilo da galeria (w:qFormat). */
+  setStyleInGallery(id: string, on: boolean): void {
+    if (!this.model || this.locked() || !this.stylesEditable()) return;
+    const xml = setQuickXml(this.docStyles, this.docStyles.base(), resolveStyleId(this.docStyles.xml, id), on);
+    if (xml === this.docStyles.xml) return;
+    this.snapshot();
+    this.commitStyles(xml);
+    this.refresh();
+    this.chromeSync?.();
+  }
+
+  /** Inspetor de Estilo: o estilo e a formatação DIRETA de parágrafo e de texto
+   *  no cursor (só as propriedades presentes). */
+  inspectStyle(): {
+    paragraph: { id: string; name: string; direct: Partial<ParaProps> };
+    text: { id: string; name: string; direct: Partial<RunProps> };
+  } {
+    const lang = uiLang(this);
+    const ds = this.docStyles;
+    const p = this.model?.paragraphs[this.selection.focus.para];
+    const run = this.hasSelection()
+      ? propsAt(this.model!, { para: normalizeRange(this.range()).start.para, offset: normalizeRange(this.range()).start.offset + 1 })
+      : (this.pendingProps ?? this.currentProps());
+    const nameOf = (id: string): string => {
+      const m = ds.meta(id);
+      return m ? displayName(m, lang) : this.listStyles('all').find((s) => s.id === id)?.name ?? id;
+    };
+    const pid = p?.props.styleId ?? ds.defaultParagraph();
+    const cid = run.charStyle ?? ds.defaultCharacter();
+    const pd: Partial<ParaProps> = {};
+    for (const k of ['alignment', 'spaceBeforeTwips', 'spaceAfterTwips', 'lineTwentieths', 'indentLeftTwips', 'indentRightTwips',
+      'indentFirstLineTwips', 'numbering', 'borders', 'shadingHex', 'tabStops', 'pageBreakBefore'] as const) {
+      const v = p?.props[k];
+      if (v !== undefined && v !== false) (pd as Record<string, unknown>)[k] = v;
+    }
+    const rd: Partial<RunProps> = {};
+    for (const k of ['fontAscii', 'szHalfPt', 'bold', 'italic', 'underline', 'strike', 'doubleStrike', 'allCaps', 'smallCaps',
+      'color', 'highlight', 'vertAlign', 'charSpacingTwips'] as const) {
+      const v = run[k];
+      if (v === undefined || v === false) continue;
+      if (run.link && ((k === 'underline' && !run.underlineStyle) || (k === 'color' && v === '0563C1'))) continue;
+      (rd as Record<string, unknown>)[k] = v;
+    }
+    return { paragraph: { id: pid, name: nameOf(pid), direct: pd }, text: { id: cid, name: nameOf(cid), direct: rd } };
+  }
+
+  /** Inspetor: "Redefinir para o estilo Normal de parágrafo" (mantém o direto). */
+  clearParagraphStyle(): void {
+    this.styleEdit(() => {
+      const { start, end } = normalizeRange(this.range());
+      for (let pi = start.para; pi <= end.para; pi++) delete this.model!.paragraphs[pi]!.props.styleId;
+    });
+  }
+  /** Inspetor: limpar a formatação DIRETA de parágrafo (mantém o estilo). */
+  clearParagraphFormatting(): void {
+    this.styleEdit(() => clearParaFormatting(this.model!, this.range()));
+  }
+  /** Inspetor: limpar o estilo de CARACTERE (mantém o direto). No cursor: a palavra. */
+  clearCharacterStyle(): void {
+    this.styleEdit(() => {
+      const r = this.hasSelection() ? this.range() : this.wordRangeAt(this.selection.focus, false);
+      if (r) coreApplyRunProps(this.model!, r, { charStyle: undefined });
+      else if (this.pendingProps) delete this.pendingProps.charStyle;
+    });
+  }
+  /** Inspetor: limpar a formatação DIRETA de caractere (mantém o estilo de
+   *  caractere). No cursor: a palavra e o espaço depois (Word). */
+  clearCharacterFormatting(): void {
+    this.styleEdit(() => {
+      const r = this.hasSelection() ? this.range() : this.wordRangeAt(this.selection.focus, true);
+      if (r) clearRunFormatting(this.model!, r, { charStyle: null });
+      else this.pendingProps = { ...DEFAULT_RUN_PROPS, ...(this.currentProps().charStyle ? { charStyle: this.currentProps().charStyle } : {}) };
+    });
+  }
+
+  private styleEdit(fn: () => void): void {
+    if (!this.model || this.locked()) return;
+    this.snapshot();
+    fn();
+    this.refresh();
+    this.onSelectionChange?.(); this.chromeSync?.();
+  }
+
+  /** Enter no fim do parágrafo: o novo leva o "próximo estilo" (w:next), sem
+   *  formatação direta — se o estilo tem um próximo diferente dele mesmo. */
+  private applyNextStyle(prev: Paragraph, next: Paragraph): void {
+    const ds = this.docStyles;
+    const sid = prev.props.styleId ?? ds.defaultParagraph();
+    const meta = ds.meta(sid);
+    if (!meta?.next || meta.next === sid) return;
+    clearPara(next);
+    next.props.styleId = meta.next === ds.defaultParagraph() ? undefined : meta.next;
+    this.ensureStyleUsed(next.props.styleId);
+    this.pendingProps = { ...DEFAULT_RUN_PROPS };
+  }
+
+  /** Há folha de estilos editável (docx; .odt não). */
+  private stylesEditable(): boolean { return this.loadedFormat !== 'odt'; }
+
+  private styleNameTaken(name: string, except?: string): boolean {
+    const k = name.toLowerCase();
+    return this.listStyles('all').some((s) => s.id !== except && (s.name.toLowerCase() === k || s.rawName.toLowerCase() === k));
+  }
+
+  /** Nova versão do styles.xml: relê a folha (motor + editor) e refaz o layout. */
+  private commitStyles(xml: string): void {
+    if (xml === this.docStyles.xml) return;
+    this.docStyles.commit(xml);
+    this.syncStyleSheet();
+  }
+
+  private syncStyleSheet(): void {
+    const xml = this.docStyles.xml ?? undefined;
+    if (this.fullDoc) {
+      this.fullDoc.styles = readStylesXml(xml);
+      this.fullDoc.formatting = { ...(this.fullDoc.formatting ?? emptyFormatting()), styles: this.docStyles.sheet() };
+    }
+    this.engPageCache.clear();
+    this.dispatchEvent(new CustomEvent('uw-styles-change'));
+  }
+
+  /** Todos os parágrafos do documento (corpo, tabelas, cabeçalhos/rodapés, notas, caixas). */
+  private allParagraphs(): Paragraph[] {
+    const out: Paragraph[] = [];
+    const visit = (ps: readonly Paragraph[]): void => {
+      for (const p of ps) {
+        out.push(p);
+        for (const r of p.runs) if (r.textbox) visit(r.textbox.paras);
+      }
+    };
+    const table = (t: TableBlock): void => { for (const row of t.rows) for (const c of row.cells) { visit(c.paragraphs); c.tables.forEach(table); } };
+    const body = this.bodyState();
+    visit(body.model.paragraphs);
+    body.tableAnchors.forEach((a) => table(a.table));
+    for (const s of this.fullDoc?.sections ?? []) {
+      for (const set of [s.headers, s.footers]) for (const ps of [set.default, set.first, set.even]) if (ps) visit(ps);
+    }
+    for (const m of [this.fullDoc?.footnotes, this.fullDoc?.endnotes]) m?.forEach((ps) => visit(ps));
+    return [...new Set(out)];
+  }
+
+  private inUseCache: { key: string; set: Set<string> } | null = null;
+  /** Ids de estilo em uso (styleId dos parágrafos, charStyle dos runs). */
+  private stylesInUse(): Set<string> {
+    const key = this.stylesKey();
+    if (this.inUseCache?.key === key) return this.inUseCache.set;
+    const used = new Set<string>();
+    this.inUseCache = { key, set: used };
+    for (const p of this.allParagraphs()) {
+      if (p.props.styleId) used.add(p.props.styleId);
+      for (const r of p.runs) if (r.props.charStyle) used.add(r.props.charStyle);
+    }
+    return used;
+  }
+
+  /** Renomeados/excluídos: os parágrafos e runs acompanham. */
+  private retargetStyles(renamed: Record<string, string>, removed: readonly string[]): void {
+    if (!Object.keys(renamed).length && !removed.length) return;
+    const gone = new Set(removed);
+    for (const p of this.allParagraphs()) {
+      const s = p.props.styleId;
+      if (s && renamed[s]) p.props.styleId = renamed[s];
+      else if (s && gone.has(s)) delete p.props.styleId;
+      for (const r of p.runs) {
+        const c = r.props.charStyle;
+        if (c && renamed[c]) r.props = { ...r.props, charStyle: renamed[c] };
+        else if (c && gone.has(c)) { r.props = { ...r.props }; delete r.props.charStyle; }
+      }
+    }
   }
   setShading(hex: string | undefined): void { this.formatPara({ shadingHex: hex }); }
   setCharSpacing(twips: number | undefined): void { this.formatRuns({ charSpacingTwips: twips }); }
@@ -2893,6 +3297,8 @@ export class UniversalWriteElement extends HTMLElement {
       blocks: this.tableAnchors.length || this.fullDoc?.sources ? blocks : undefined,
       sources: this.fullDoc?.sources,
     });
+    // folha de estilos: só regrava a parte se algum estilo mudou (o resto byte a byte)
+    if (this.docStyles.dirty && this.docStyles.xml) writeStylesPart(pkg, this.docStyles.xml);
     return pkg.save();
   }
 
@@ -3185,6 +3591,8 @@ export class UniversalWriteElement extends HTMLElement {
     return JSON.stringify({
       m: this.model,
       s: this.selection,
+      // versão da folha de estilos (as versões ficam em DocStyles)
+      sv: this.docStyles.version,
       // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
       // seções (sectPr, refs) moram no modelo e voltam com ele
       anc: this.cellEdit || this.hfEdit || this.tbEdit ? undefined : {
@@ -3208,6 +3616,7 @@ export class UniversalWriteElement extends HTMLElement {
     m: DocumentModel;
     s: { anchor: DocPosition; focus: DocPosition };
     anc?: { t: number[]; b: [string, number][] };
+    sv?: number;
   } {
     return JSON.parse(json, (key, value) =>
       value && typeof value === 'object' && '__imgPool' in value
@@ -3253,6 +3662,7 @@ export class UniversalWriteElement extends HTMLElement {
       state.anc.t.forEach((v, i) => { const a = this.tableAnchors[i]; if (a) a.beforePara = v; });
       this.bookmarkParas = new Map(state.anc.b);
     }
+    if (state.sv !== undefined && this.docStyles.restore(state.sv)) this.syncStyleSheet();
     this.refresh();
   }
 
@@ -3295,8 +3705,12 @@ export class UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos, focus: pos };
     }
     const at = this.selection.focus.para;
+    const atEnd = this.selection.focus.offset >= paraLength(this.model.paragraphs[at]!);
     const pos = splitParagraph(this.model, this.selection.focus);
     this.shiftAnchors(at, 1);
+    // Enter no FIM de um parágrafo cujo estilo tem w:next: o novo vem com o
+    // próximo estilo e sem formatação direta (oráculo: probe D)
+    if (atEnd) this.applyNextStyle(this.model.paragraphs[at]!, this.model.paragraphs[at + 1]!);
     this.selection = { anchor: pos, focus: pos };
     this.refresh();
     this.scrollCaretIntoView();
@@ -3917,19 +4331,10 @@ export class UniversalWriteElement extends HTMLElement {
     return (this.fullDoc?.styles.size ?? 0) > 0;
   }
 
-  /** Estilos de PARÁGRAFO do documento (id + nome de exibição), para a lista
-   *  de estilos da barra. Vazio se não há styles.xml (documento novo). */
+  /** Estilos de PARÁGRAFO recomendados do documento (id + nome na língua da
+   *  interface), na ordem do Word — a lista de estilos da barra compacta. */
   paragraphStyles(): { id: string; name: string }[] {
-    const styles = this.fullDoc?.styles;
-    if (!styles) return [];
-    const out: { id: string; name: string }[] = [];
-    styles.forEach((v, id) => {
-      if (id === 'docDefaults') return;
-      if (v.type && v.type !== 'paragraph') return;
-      out.push({ id, name: v.name ?? id });
-    });
-    out.sort((a, b) => a.name.localeCompare(b.name));
-    return out;
+    return this.listStyles('recommended').filter((s) => s.kind !== 'character').map((s) => ({ id: s.id, name: s.name }));
   }
 
   private styleOf(p: Paragraph): StyleDef | undefined {
@@ -5884,8 +6289,11 @@ export class UniversalWriteElement extends HTMLElement {
   private syncRunRPr(paras: readonly Paragraph[]): void {
     for (const p of paras) {
       for (const r of p.runs) {
-        const props = r.props as RunProps & { [RPR_REF]?: Run['rpr'] };
-        if (r.rpr) { if (props[RPR_REF] !== r.rpr) props[RPR_REF] = r.rpr; } else if (props[RPR_REF]) r.rpr = props[RPR_REF];
+        const props = r.props as RunProps & { [RPR_REF]?: Run['rpr']; [RPR_EDITED]?: boolean };
+        if (r.rpr) {
+          if (props[RPR_REF] !== r.rpr) props[RPR_REF] = r.rpr;
+          if (r.rprEdited) props[RPR_EDITED] = true; else if (props[RPR_EDITED]) r.rprEdited = true;
+        } else if (props[RPR_REF]) { r.rpr = props[RPR_REF]; if (props[RPR_EDITED]) r.rprEdited = true; }
         if (r.textbox) this.syncRunRPr(r.textbox.paras);
       }
     }

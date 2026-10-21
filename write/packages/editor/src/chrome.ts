@@ -23,6 +23,7 @@ import { compactLayout, ribbonLayout } from './chrome-layout.js';
 import { CommentCards, FindPanel, StatusBar } from './chrome-panels.js';
 import { applyTheme, isDark } from './chrome-theme.js';
 import type { WidgetEnv } from './chrome-widgets.js';
+import { StylesUI } from './chrome-styles.js';
 
 export type { UniversalWriteHost, UniversalWriteHostFile } from './chrome-host.js';
 
@@ -36,6 +37,56 @@ export const CHROME_CSS = /* css */ `
 :host(.uw-focus) .uw-topbar, :host(.uw-focus) .uw-bottombar { display: none !important; }
 :host(.uw-comparing) .pages { display: none !important; }
 :host(.uw-has-comments) .pages { padding-right: 300px; }
+
+/* estilos: miniaturas da galeria, painel de estilos, inspetor, diálogo */
+:host(.uw-has-pane) .pages { padding-right: 304px; }
+:host(.uw-has-pane.uw-has-comments) .pages { padding-right: 604px; }
+.uo-gal-tile { display: flex; flex-direction: column; align-items: stretch; }
+.uw-style-sample { display: block; margin: 2px 2px 0; border-radius: 4px; flex: none; }
+.uw-style-cap {
+  display: block; padding: 2px 5px 0; font-size: 11px; line-height: 15px; color: var(--u-color-on-surface-variant, #44474f);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
+}
+.uw-styles { display: flex; flex-direction: column; gap: 6px; }
+.uw-styles-opts { display: flex; gap: 6px; }
+.uw-styles-opts select, .uw-style-dlg select, .uw-style-dlg input[type="text"], .uw-style-dlg input[type="number"], .uw-style-sub input[type="number"] {
+  height: 30px; border: 1px solid var(--u-color-outline, #74777f); border-radius: 8px; padding: 0 6px;
+  background: transparent; color: inherit; font: inherit; font-size: 13px; min-width: 0;
+}
+.uw-styles-opts select { flex: 1 1 0; }
+.uw-styles-list { display: flex; flex-direction: column; gap: 1px; }
+.uw-style-row {
+  display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 2px 0 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.uw-style-row:hover { background: var(--u-color-surface-container-highest, #e3e2e6); }
+.uw-style-row.uo-on { border-color: var(--u-color-primary, #005bc0); }
+.uw-style-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uw-style-name canvas { display: block; }
+.uw-style-kind { flex: none; font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); min-width: 18px; text-align: center; }
+.uw-style-more { height: 26px; min-width: 22px; padding: 0; visibility: hidden; }
+.uw-style-row:hover .uw-style-more, .uw-style-row.uo-on .uw-style-more { visibility: visible; }
+.uw-styles-prev { margin-top: 4px; font-size: 13px; }
+.uw-insp { display: flex; flex-direction: column; gap: 4px; }
+.uw-insp-h { font-size: 12px; font-weight: 600; color: var(--u-color-on-surface-variant, #44474f); margin-top: 6px; }
+.uw-insp-row { display: flex; align-items: center; gap: 4px; }
+.uw-insp-val {
+  flex: 1 1 auto; min-width: 0; min-height: 30px; padding: 5px 8px; border: 1px solid var(--u-color-outline-variant, #c4c6d0);
+  border-radius: 8px; font-size: 12.5px; line-height: 1.35; overflow-wrap: anywhere;
+}
+.uw-insp-pane { border: 1px solid var(--u-color-outline-variant, #c4c6d0); border-radius: 16px; }
+.uw-style-dlg { display: flex; flex-direction: column; gap: 10px; }
+.uw-style-dlg .uo-dialog-grid select, .uw-style-dlg .uo-dialog-grid input { width: 100%; }
+.uw-style-fmt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12.5px; }
+.uw-style-fmt select[name="font"] { width: 180px; }
+.uw-style-prev { display: block; border: 1px solid var(--u-color-outline-variant, #c4c6d0); border-radius: 8px; max-width: 100%; }
+.uw-style-desc { font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); line-height: 1.4; }
+.uw-style-checks { display: flex; gap: 18px; flex-wrap: wrap; }
+.uw-style-msg { color: var(--u-color-error, #ba1a1a); font-size: 12.5px; min-height: 16px; }
+.uw-style-quick { display: flex; flex-direction: column; gap: 10px; }
+.uw-style-quick canvas { border: 1px solid var(--u-color-outline-variant, #c4c6d0); border-radius: 8px; }
+.uw-style-sub { display: flex; flex-direction: column; gap: 12px; }
+.uw-style-fx { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
 
 /* camada flutuante (menus, popovers, diálogos, localizar, avisos) */
 .uw-layer { position: absolute; top: 0; left: 0; width: 0; height: 0; z-index: 60; }
@@ -162,6 +213,7 @@ class WriteChrome {
   private status: StatusBar | null = null;
   private cards: CommentCards | null = null;
   private find: FindPanel | null = null;
+  private styles: StylesUI | null = null;
   private protbar: HTMLElement | null = null;
   private stateCache: ReturnType<UniversalWriteElement['getSelectionState']> | null = null;
   private families: string[] = [];
@@ -209,9 +261,10 @@ class WriteChrome {
     this.reg = new CommandRegistry(opts.lang);
     this.reg.afterRun = () => this.after();
     this.ctx = { registry: this.reg, lang: opts.lang, layer: this.layer, after: () => this.after() };
+    this.styles = new StylesUI({ ed, app, lang: opts.lang, layer: this.layer, frame: () => this.docFrame(), after: () => this.after() });
     registerWriteCommands(this.reg, ed, app, this.ctl());
 
-    const env: WidgetEnv = { ed, app, ctl: this.ctl(), root: this.root };
+    const env: WidgetEnv = { ed, app, ctl: this.ctl(), root: this.root, styles: this.styles };
     topEl.replaceChildren();
     bottomEl.replaceChildren();
     if (opts.topbar) {
@@ -295,6 +348,12 @@ class WriteChrome {
       requestFonts: () => this.requestFonts(),
       flash: (m) => this.flash(m),
       applyTheme: () => this.applyTheme(),
+      stylesPane: () => this.styles?.togglePane(),
+      stylesPaneOpen: () => !!this.styles?.paneOpen,
+      styleInspector: () => this.styles?.toggleInspector(),
+      inspectorOpen: () => !!this.styles?.inspectorOpen,
+      newStyle: () => { void this.styles?.styleDialog('new'); },
+      modifyStyle: () => { const c = this.ed.currentStyles(); void this.styles?.styleDialog('modify', c.character ?? c.paragraph); },
     };
   }
 
@@ -335,6 +394,17 @@ class WriteChrome {
     if (this.protbar) this.protbar.hidden = !this.ed.isProtected();
     this.bar?.sync();
     this.status?.sync();
+    this.styles?.sync();
+  }
+
+  /** Área do documento entre as barras (o painel lateral acopla à direita, sem cobrir a rolagem). */
+  private docFrame(): DOMRect {
+    const r = this.ed.getBoundingClientRect();
+    const top = this.topEl.getBoundingClientRect(), bot = this.bottomEl.getBoundingClientRect();
+    const t = top.height ? top.bottom : r.top;
+    const b = bot.height ? bot.top : r.bottom;
+    const right = r.left + this.ed.clientLeft + this.ed.clientWidth;
+    return new DOMRect(r.left, t, right - r.left, b - t);
   }
 
   flash(msg: string): void {
@@ -349,6 +419,7 @@ class WriteChrome {
     closePopover();
     // diálogos abertos resolvem como cancelados ANTES de a camada sumir
     closeDialogs(this.layer);
+    this.styles?.close();
     this.bar?.destroy();
     this.cards?.destroy();
     this.layer.replaceChildren();

@@ -85,14 +85,19 @@ Give the element a size with CSS — it fills its box and scrolls inside.
   Insert · Design · Layout · References · Mailings · Review · View tabs,
   groups with dialog launchers (Font, Paragraph, Page Setup) and contextual
   tabs (Header & Footer while editing them; Table and Picture as soon as the
-  editor exposes their commands).
+  editor exposes their commands). The Styles group is a **gallery** of
+  thumbnails drawn with each style's real formatting (scroll by row, expand,
+  right-click to update, modify, rename or remove from the gallery); its
+  launcher opens the **Styles pane**.
 - Both: find and replace, comments as cards beside the page, link/comment
   dialogs, font and paragraph dialogs, word count, theme (automatic, light,
   dark, dark page) and accent color, focus mode (full screen) and read mode,
   context menu, drag and drop of .docx/.odt, autosave (with a file opened
   through the File System Access API), recent files, Protected View with
   trusted documents and the "update fields" prompt, "Compare with…" and
-  "Fonts in the file…".
+  "Fonts in the file…". Styles: the Styles pane (filter, sort, preview, apply,
+  per-style menu), the Create/Modify Style dialog and the Style Inspector
+  (Format › Styles in the compact bar).
 - A command whose API the editor does not have yet stays hidden, so new
   editor features only need the method to show up in the bars.
 
@@ -152,7 +157,7 @@ and **Add to Dictionary** (kept in `localStorage`). **Tools › Spelling & gramm
 | Method | Description |
 |---|---|
 | `load(bytes, format = 'auto', { protected })` | Opens .docx, .doc (converted) or .odt; `'auto'` detects the format. .docx opens protected (read-only) unless `protected: false`. |
-| `newDocument()` | Empty A4 document. |
+| `newDocument()` | Empty A4 document with Word's blank-document styles, theme and settings (Normal, headings, quotes… and the built-in styles applied on first use). |
 | `save(format = 'auto', { images, title })` | `'docx'` · `'odt'` · `'pdf'` · `'xps'` → `Uint8Array`; `'html'` · `'markdown'` → `string`. `'auto'` = the format that was loaded. |
 | `print()` | Browser print dialog with the pages (call from a user gesture). |
 | `isProtected()` · `enableEditing()` | Protected View. `uw-protected` reports changes. |
@@ -175,6 +180,33 @@ and **Add to Dictionary** (kept in `localStorage`). **Tools › Spelling & gramm
 | View | `setView('print' \| 'web' \| 'read' \| 'draft' \| 'outline')`, `getView()`, `setZoom(z)`, `getZoom()`, `toggleMarks()`, `setDarkPage(dark)`, `navigateTo('#bookmark')` |
 | State | `stats()` → `{ pages, words, chars, page, paragraph }`, `getSelectionState()`, `currentPage()`, `focusEditor()` |
 
+## Styles
+
+The document's `styles.xml` is edited in place: each operation rewrites only
+the `w:style` elements it touches (in schema order) and leaves the rest of the
+part byte for byte. Created and modified styles are written the way Word
+writes them — a new paragraph style is **linked** (`w:customStyle`, `w:link`
+to a `…Char` twin), its id is the name without accents or spaces
+(`Ação & Reação` → `AoReao`, collisions get `0`, `1`…), a built-in style used
+for the first time gets Word's full definition. Style names are shown in the
+UI language (`heading 1` → "Heading 1" / "Título 1").
+
+| Method | Description |
+|---|---|
+| `listStyles(filter = 'recommended')` | `StyleInfo[]` (`id`, `name`, `kind`: paragraph · character · linked, `builtIn`, `defined`, `quick`, `hidden`, `priority`, `inUse`, `basedOn`, `next`, `link`, `autoUpdate`) in Word's order. `filter`: `'gallery'` · `'recommended'` · `'inUse'` · `'document'` · `'all'`. |
+| `styleFormatting(id)` | Effective formatting of a style (`StyleLook`: font, size, colors, bold…, alignment, spacing, indents, shading, borders). |
+| `applyStyle(id)` | Paragraph style: replaces the style and clears direct paragraph formatting and the character formatting that is uniform in the paragraph (partial formatting stays). Character style: on the selection (at the caret, the word), removing its direct formatting. Linked style on part of one paragraph: its character twin. `undefined` = Normal. |
+| `createStyle({ name, type, basedOn, next, quick, autoUpdate, format, fromSelection, apply })` | Creates a style (default: linked, in the gallery, based on the current paragraph style, with the formatting of the selection's first character and paragraph) and applies it. Returns the id, or `null` if the name is taken. |
+| `modifyStyle(id, { name, basedOn, next, quick, autoUpdate, format })` | Changes a style; `format` keys set a value on the style, `null` inherits again. The whole document is laid out again; one undo step. |
+| `updateStyleFromSelection(id?)` | "Update to Match Selection": the current paragraph's direct formatting moves into the style. |
+| `renameStyle(id, name)` · `deleteStyle(id)` · `setStyleInGallery(id, on)` | Custom styles get a new id when renamed (the document follows); built-ins get an alias. Deleting a custom style returns its paragraphs to Normal; built-ins cannot be deleted. |
+| `inspectStyle()` | `{ paragraph: { id, name, direct }, text: { id, name, direct } }` — the Style Inspector. |
+| `clearParagraphStyle()` · `clearParagraphFormatting()` · `clearCharacterStyle()` · `clearCharacterFormatting()` · `clearFormatting()` | The Inspector's erasers and Clear All Formatting. |
+| `currentStyles()` · `selectionStyleFormat()` · `stylesVersion()` | Styles at the caret, the selection's direct formatting as a `StyleFormat`, and a counter that changes with the style sheet. |
+
+Enter at the end of a paragraph whose style has a *next style* (Heading 1 →
+Normal) starts the new paragraph in that style, without direct formatting.
+
 ## Events
 
 | Event | `detail` | When |
@@ -184,6 +216,7 @@ and **Add to Dictionary** (kept in `localStorage`). **Tools › Spelling & gramm
 | `uw-protected` | `{ active, hasFields }` | Protected View turned on or off. |
 | `uw-blocked` | `{ reason: 'protected' }` | Header/footer editing was refused because the document is protected. |
 | `uw-zoom` | `{ zoom }` | Zoom changed. |
+| `uw-styles-change` | — | The style sheet changed (create, modify, rename, delete, undo). |
 | `uw-hfmode` | `{ active, kind }` | Entered or left header/footer editing. |
 | `uw-before-input` | `{ text }` | Text is about to be typed. **Cancelable.** |
 | `uw-input` | `{ text }` | Text was typed. |
@@ -256,7 +289,9 @@ Ctrl/⌘ + B · I · U (format), Z · Y (undo, redo), A (select all), E · L · 
 (alignment), C · X · V (clipboard), Shift+V (paste plain text), Enter (page
 break), Shift+Enter (column break), ← → (word), Home · End (document). With `topbar`, also O (open), S ·
 Shift+S (save, save as), P (print), F · H (find, replace), K (link), D (font
-dialog), ] · [ (font size), F7 (spelling), Alt+M (comment), Shift+8 (formatting marks), / (shortcuts). Tab / Shift+Tab move between table
+dialog), ] · [ (font size), F7 (spelling), Alt+M (comment), Shift+8 (formatting marks), / (shortcuts),
+Alt+1 · 2 · 3 (Heading 1–3), Shift+N (Normal), Space (clear character
+formatting), Q (clear paragraph formatting), Alt+Shift+S (Styles pane). Tab / Shift+Tab move between table
 cells and list levels. Ctrl+wheel zooms; Ctrl+click follows a link;
 double-click the top or bottom margin to edit the header or footer.
 
