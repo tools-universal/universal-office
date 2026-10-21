@@ -168,7 +168,7 @@ export const CHROME_CSS = /* css */ `
 .uw-rev-card .txt b { font-weight: 600; }
 
 /* Painel de Revisão (vertical à esquerda; horizontal acima da barra de status) */
-:host(.uw-review-v) .pages { padding-left: 324px; }
+:host(.uw-review-v) .pages { padding-left: 324px; justify-content: safe center; }
 .uw-review {
   position: sticky; left: 0; z-index: 6; box-sizing: border-box; display: flex; flex-direction: column;
   width: 300px; overflow: hidden; font-family: var(--uo-font); font-size: 13px;

@@ -3596,8 +3596,7 @@ export class UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: a, focus: b };
       this.pendingProps = null;
       this.refreshSelection();
-      this.navigateTo(`#para:${e.idx}`);
-      this.scrollCaretIntoView();
+      this.scrollToSelection();
       this.onSelectionChange?.(); this.chromeSync?.();
       return true;
     }
@@ -3749,10 +3748,17 @@ export class UniversalWriteElement extends HTMLElement {
     this.selection = { anchor: a, focus: b };
     this.pendingProps = null;
     this.refreshSelection();
-    this.navigateTo(`#para:${target.para}`);
-    this.scrollCaretIntoView();
+    this.scrollToSelection();
     this.onSelectionChange?.(); this.chromeSync?.();
     return true;
+  }
+
+  /** Rola até o começo da seleção, a um terço da altura visível (abaixo das barras). */
+  private scrollToSelection(): void {
+    const line = this.lineOf(this.selection.anchor);
+    const canvas = line ? this.canvases[line.page] : undefined;
+    if (!line || !canvas) { this.scrollCaretIntoView(); return; }
+    this.animateScrollTo(Math.max(0, canvas.offsetTop + line.yTwips * PX_PER_TWIP * this.zoom - this.clientHeight / 3));
   }
 
   /** Fim da seleção de uma revisão: com a marca de parágrafo, o começo do seguinte. */
