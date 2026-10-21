@@ -1,0 +1,9 @@
+# orient-asym
+sel=35..35 sections=1->1 undoSteps=7 parts=[]
+log: land T=65 R=50 B=55 L=60
+log: back T=50 R=55 B=60 L=65
+<w:body>
+<w:p><w:r><w:t>Alpha beta</w:t></w:r></w:p>
+<w:p><w:r><w:t>Gamma delta</w:t></w:r></w:p>
+<w:p><w:r><w:t>Epsilon zeta</w:t></w:r></w:p>
+  <w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1300" w:right="1000" w:bottom="1100" w:left="1200" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:body>

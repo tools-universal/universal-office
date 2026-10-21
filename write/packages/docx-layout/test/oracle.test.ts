@@ -86,6 +86,22 @@ for (const g of groups) {
           const ob = [...new Set(res.pages[0]!.items.filter((it) => it.t === 'rect').map((it) => band(it.y / 20, (it.y + it.h) / 20)))].sort();
           expect(ob, 'faixas preenchidas (pt)').toEqual(wb);
         }
+        if (g === 'sections') {
+          // linha entre colunas (w:sep): o Word grava um retângulo preto estreito por
+          // vão com conteúdo à direita — posição e extensão (±0,3 pt)
+          word.pages.forEach((wp, i) => {
+            const objs = ((wp as { objs?: { t: string; x0: number; x1: number; y0: number; y1: number }[] }).objs ?? []).filter((o) => o.t === 'path');
+            const ours = (res.pages[i]?.items ?? []).filter((it) => it.t === 'rect' && it.w < 20 && it.h > 200);
+            expect(ours.length, `linhas entre colunas na página ${i + 1}`).toBe(objs.length);
+            objs.forEach((o, k) => {
+              const r = ours[k]!;
+              if (r.t !== 'rect') return;
+              expect(Math.abs((r.x + r.w / 2) / 20 - (o.x0 + o.x1) / 2), 'x da linha (pt)').toBeLessThan(0.3);
+              expect(Math.abs(r.y / 20 - o.y0), 'topo da linha (pt)').toBeLessThan(0.3);
+              expect(Math.abs((r.y + r.h) / 20 - o.y1), 'fim da linha (pt)').toBeLessThan(0.3);
+            });
+          });
+        }
         if (g === 'hfgroup') {
           // ordem de pintura: a caixa (caminho preenchido) sai depois da imagem da
           // faixa no Word (objs na ordem do PDF)? A nossa tem de ser a mesma

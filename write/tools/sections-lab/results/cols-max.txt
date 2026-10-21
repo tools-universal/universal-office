@@ -1,0 +1,13 @@
+# cols-max
+sel=35..35 sections=1->1 undoSteps=0 parts=[]
+log: set 12 -> ERRO As definições das margens esquerda e direita, espaçamento entre colunas ou recuos de parágrafos são muito grandes para a largura da página em algumas seções.
+log: set 13 -> ERRO As definições das margens esquerda e direita, espaçamento entre colunas ou recuos de parágrafos são muito grandes para a largura da página em algumas seções.
+log: set 14 -> ERRO As definições das margens esquerda e direita, espaçamento entre colunas ou recuos de parágrafos são muito grandes para a largura da página em algumas seções.
+log: set 15 -> ERRO As definições das margens esquerda e direita, espaçamento entre colunas ou recuos de parágrafos são muito grandes para a largura da página em algumas seções.
+log: set 20 -> ERRO As definições das margens esquerda e direita, espaçamento entre colunas ou recuos de parágrafos são muito grandes para a largura da página em algumas seções.
+log: set 45 -> ERRO As definições das margens esquerda e direita, espaçamento entre colunas ou recuos de parágrafos são muito grandes para a largura da página em algumas seções.
+<w:body>
+<w:p><w:r><w:t>Alpha beta</w:t></w:r></w:p>
+<w:p><w:r><w:t>Gamma delta</w:t></w:r></w:p>
+<w:p><w:r><w:t>Epsilon zeta</w:t></w:r></w:p>
+  <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:body>

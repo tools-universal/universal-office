@@ -1,0 +1,8 @@
+# size-letter-land
+sel=35..35 sections=1->1 undoSteps=2 parts=[]
+log: W=792 H=612 T=85.05 L=70.85
+<w:body>
+<w:p><w:r><w:t>Alpha beta</w:t></w:r></w:p>
+<w:p><w:r><w:t>Gamma delta</w:t></w:r></w:p>
+<w:p><w:r><w:t>Epsilon zeta</w:t></w:r></w:p>
+  <w:sectPr><w:pgSz w:w="15840" w:h="12240" w:orient="landscape"/><w:pgMar w:top="1701" w:right="1417" w:bottom="1701" w:left="1417" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:body>

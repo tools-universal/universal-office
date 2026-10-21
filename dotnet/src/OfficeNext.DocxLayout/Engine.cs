@@ -80,7 +80,9 @@ public static class LayoutEngine
             bool Fits(double h)
             {
                 var bal = new Dictionary<int, BalanceSpec>(balance) { [s] = new BalanceSpec(info.Page, h) };
-                return RunWith(bal).BalanceFound.TryGetValue(s, out var bi) && bi.Page == info.Page;
+                // cabe na página e a última coluna não fica mais comprida que a 1ª: o Word deixa
+                // a linha que passa da média na 1ª coluna (oráculo sections, cont-2col-after0, sep-cont)
+                return RunWith(bal).BalanceFound.TryGetValue(s, out var bi) && bi.Page == info.Page && bi.Used[^1] <= bi.Used[0] + 1;
             }
             if (!Fits(hi)) continue;
             while (hi - lo > 1)
@@ -127,7 +129,7 @@ internal sealed record LateTable(int Page, double FlowY);
 internal sealed record BalanceSpec(int Page, double H);
 
 /// <summary>Conteúdo da seção na sua última página (passada sem equilíbrio): soma das alturas usadas.</summary>
-internal sealed record BalanceInfo(int Page, double ColTop, double Bottom, double Sum, int N);
+internal sealed record BalanceInfo(int Page, double ColTop, double Bottom, double Sum, int N, List<double> Used);
 
 internal sealed class SectGeom
 {
@@ -189,6 +191,9 @@ internal sealed class PageState
     /// <summary>altura reservada no pé (separador + notas) e o fundo do corpo sem notas</summary>
     public double NoteArea;
     public double BodyBottomBase;
+    /// <summary>colunas da página quando a seção seguinte entrou por "próxima coluna": o
+    /// resto da página fica com as colunas de antes (oráculo sections, nc-2to2-margin)</summary>
+    public List<(double X, double W)>? Cols;
 }
 
 /// <summary>Parágrafo vizinho de uma célula na ordem do documento (espaçamento contextual).</summary>
@@ -469,7 +474,8 @@ internal sealed class Engine
         // de 2026-10-18, numera em sequência — oráculo numbering3, pg2-*)
         foreach (var g in _geoms)
         {
-            if (g.Index == 0 || g.Type != "continuous")
+            if (g.Index > 0 && g.Type == "nextColumn" && NextColumnFits(g)) NextColumnSection(g);
+            else if (g.Index == 0 || g.Type != "continuous")
             {
                 double lastAfter = _prev is not null ? _prev.After : 0;
                 NewPage(g, g.Type);
@@ -487,7 +493,7 @@ internal sealed class Engine
         }
         // tabela flutuante dividida no fim do documento: as linhas restantes ganham páginas
         for (int k = 0; k < 100 && _floatCarry.Count > 0 && _cur is not null; k++) NewPage(_cur.Geom);
-        if (_cur is not null) PaintNotes(_cur);
+        if (_cur is not null) { CloseColumns(); PaintNotes(_cur); }
         // finaliza páginas (cabeçalhos/rodapés já entram na criação)
         // fundo da página (w:background): o Word o grava no PDF (corpus); branco = nada
         var bgSpec = full.Background;
@@ -711,7 +717,7 @@ internal sealed class Engine
             Page = page, Geom = g, BodyTop = g.MarT, BodyBottom = g.PageH - g.MarB,
             SectPage = sectPage, NoteArea = 0, BodyBottomBase = g.PageH - g.MarB,
         };
-        if (_cur is not null) PaintNotes(_cur);
+        if (_cur is not null) { CloseColumns(); PaintNotes(_cur); }
         _pages.Add(ps);
         _cur = ps;
         _colMaxY = 0;
@@ -738,15 +744,28 @@ internal sealed class Engine
         if (ending.Cols.Count > 1)
         {
             var used = new List<double>(_colUsed) { _y - _colTop };
-            BalanceFound[ending.Index] = new BalanceInfo(_pages.Count - 1, _colTop, _balanceSaved ?? _cur.BodyBottom, used.Aggregate(0.0, (a, b) => a + Math.Max(0, b)), ending.Cols.Count);
+            BalanceFound[ending.Index] = new BalanceInfo(_pages.Count - 1, _colTop, _balanceSaved ?? _cur.BodyBottom, used.Aggregate(0.0, (a, b) => a + Math.Max(0, b)), ending.Cols.Count, used);
         }
         if (_balanceSaved is { } bs) { _cur.BodyBottom = bs; _balanceSaved = null; }
+        CloseColumns();
         _colUsed = new List<double>();
+        // colunas antes ou depois da quebra: o "depois" do último parágrafo da seção
+        // anterior fica ACIMA do topo das colunas novas (a 2ª coluna começa na altura
+        // da 1ª sem o "antes" do 1º parágrafo) e o fim de colunas encerradas inclui o
+        // "depois" do último parágrafo; o 1º parágrafo daqui só leva o que o "antes"
+        // passa dele (oráculo sections, cont-*)
+        double lastAfter = _prev is not null && !_atTop ? _prev.After : 0;
+        if ((ending.Cols.Count > 1 || g.Cols.Count > 1) && lastAfter > 0 && _sectGapAfter is null)
+        {
+            _y = Math.Min(_y + lastAfter, _cur.BodyBottom);
+            _sectGapAfter = lastAfter;
+        }
         // mesma página; nova geometria de colunas a partir do fim da coluna mais
         // ALTA da seção anterior (corpus t89)
         _y = Math.Max(_y, _colMaxY);
         _colMaxY = 0;
         _cur.Geom = g;
+        _cur.Cols = null;
         _col = 0;
         _colTop = _y;
         ApplyBalance();
@@ -760,18 +779,87 @@ internal sealed class Engine
     /// desconta (oráculo colbreak)</summary>
     private double? _sectGapAfter;
 
+    /// <summary>"Próxima coluna" continua na mesma página: mesmo nº de colunas e não estamos
+    /// na última (senão vale como próxima página — oráculo sections, nc-*)</summary>
+    private bool NextColumnFits(SectGeom g)
+    {
+        if (_cur is null || g.Cols.Count < 2) return false;
+        var cols = PageCols();
+        return cols.Count == g.Cols.Count && _col < cols.Count - 1;
+    }
+
+    /// <summary>Seção "próxima coluna": a seção nova começa no topo da coluna seguinte, com as
+    /// colunas da página de antes (as dela valem da próxima página em diante); o 1º
+    /// parágrafo leva o "antes" descontado do "depois" anterior, como numa seção nova
+    /// (oráculo sections, nc-2to2-before). A seção que termina não é equilibrada.</summary>
+    private void NextColumnSection(SectGeom g)
+    {
+        double lastAfter = _prev is not null ? _prev.After : 0;
+        if (_balanceSaved is { } bs) { _cur.BodyBottom = bs; _balanceSaved = null; }
+        var cols = PageCols();
+        _cur.Cols = cols;
+        _cur.Geom = g;
+        _colUsed.Add(_y - _colTop);
+        _colMaxY = Math.Max(_colMaxY, _y);
+        _col++;
+        _y = _colTop;
+        _atTop = true;
+        _prev = null;
+        _topGapPrevAfter = lastAfter;
+    }
+
+    /// <summary>Colunas da página corrente (as da seção, salvo "próxima coluna").</summary>
+    private List<(double X, double W)> PageCols() => _cur.Cols ?? _cur.Geom.Cols;
+
     private (double X, double W) ColFrame()
     {
-        var cols = _cur.Geom.Cols;
+        var cols = PageCols();
         var c = _col < cols.Count ? cols[_col] : cols[0];
         return (c.X, c.W);
     }
+
+    /// <summary>fim do conteúdo de cada coluna da área de colunas corrente (com o "depois"
+    /// do último parágrafo); ausente = coluna vazia</summary>
+    private Dictionary<int, double> _colBottoms = new();
+
+    /// <summary>Conteúdo na coluna corrente até <paramref name="bottom"/> (linha entre colunas).</summary>
+    private void NoteColContent(double bottom)
+    {
+        // (limite: o fundo real do corpo — na passada equilibrada a última linha passa do limite)
+        double v = Math.Min(bottom, _balanceSaved ?? _cur.BodyBottom);
+        _colBottoms[_col] = _colBottoms.TryGetValue(_col, out var o) ? Math.Max(o, v) : v;
+    }
+
+    /// <summary>Fecha a área de colunas corrente (nova página, seção contínua, fim): com
+    /// w:sep, a linha entre colunas — retângulo preto de 0,84 pt no meio do vão, do topo
+    /// das colunas até o fim da coluna mais comprida, só antes das colunas que têm
+    /// conteúdo nesta página (oráculo sections, sep-*).</summary>
+    private void CloseColumns()
+    {
+        var ps = _cur;
+        var b = _colBottoms;
+        _colBottoms = new Dictionary<int, double>();
+        if (ps is null || !ps.Geom.ColSep || b.Count == 0) return;
+        var cols = PageCols();
+        if (cols.Count < 2) return;
+        double bottom = b.Values.Max();
+        if (!(bottom > _colTop)) return;
+        for (int c = 1; c < cols.Count; c++)
+        {
+            if (!b.ContainsKey(c)) continue;
+            double x = (cols[c - 1].X + cols[c - 1].W + cols[c].X) / 2;
+            ps.Body.Add(new RectItem { X = x - ColSepW / 2, Y = _colTop, W = ColSepW, H = bottom - _colTop, Fill = "000000" });
+        }
+    }
+
+    /// <summary>Espessura da linha entre colunas (w:sep) no PDF do Word: 0,84 pt (oráculo sections, sep-*).</summary>
+    private const double ColSepW = 16.8;
 
     /// <summary>Fim da coluna: próxima coluna ou nova página.</summary>
     private void BreakColumn()
     {
         var g = _cur.Geom;
-        if (_col < g.Cols.Count - 1)
+        if (_col < PageCols().Count - 1)
         {
             _colUsed.Add(_y - _colTop);
             _colMaxY = Math.Max(_colMaxY, _y);
@@ -1787,6 +1875,7 @@ internal sealed class Engine
             }
             var last = frag[^1];
             double bottom = last.Y + last.Line.Height;
+            NoteColContent(bottom);
             if (isLast) bottom += BorderBottomExtent(p, groupedNext);
             PaintBox(_cur.Body, p, frameX, ColFrame().W, boxTop, bottom, _prev, boxAt, isLast && groupedNext);
             frag = new List<Frag>();
@@ -2107,6 +2196,8 @@ internal sealed class Engine
         } while (!br.Done());
         FlushFrag(true);
         _y += BorderBottomExtent(p, groupedNext);
+        // a coluna termina no fim do parágrafo: o "depois" conta na linha entre colunas
+        if (!_atTop) NoteColContent(_y + (p.AfterAuto ? 280 : p.SpaceAfter));
         // objetos flutuantes ancorados neste parágrafo
         foreach (var r in earlyRuns) _prePlaced.Add(r);
         PlaceFloats(p, anchorAt.Ps, anchorAt.X, anchorAt.W, anchorAt.Top, anchorAt.Ps.Body, 0, anchorAt.Ref);
@@ -3136,6 +3227,7 @@ internal sealed class Engine
         }
         _y += row.Height;
         _atTop = false;
+        NoteColContent(_y);
     }
 
     // ───────────────────────── objetos flutuantes ─────────────────────────

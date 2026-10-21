@@ -86,6 +86,9 @@ interface PageState {
   /** altura reservada no pé (separador + notas) e o fundo do corpo sem notas */
   noteArea: number;
   bodyBottomBase: number;
+  /** colunas da página quando a seção seguinte entrou por "próxima coluna": o
+   *  resto da página fica com as colunas de antes (oráculo sections, nc-2to2-margin) */
+  cols?: { x: number; w: number }[];
 }
 
 /** Objeto flutuante com sua ordem z (wp:anchor relativeHeight / VML z-index). */
@@ -110,6 +113,8 @@ interface CtxNeighbor { styleId?: string }
 interface CellNeighbors { prev?: CtxNeighbor; next?: CtxNeighbor }
 
 const EMPTY_LINES: LaidOutLine[] = [];
+/** Espessura da linha entre colunas (w:sep) no PDF do Word: 0,84 pt (oráculo sections, sep-*). */
+const COL_SEP_W = 16.8;
 
 /** parágrafo de marca oculta (com texto visível) à espera do seguinte */
 interface HiddenJoin { para: Paragraph; marker: PreparedPara['marker'] }
@@ -166,7 +171,12 @@ export function layoutDocument(full0: FullDocument, provider: FontProvider, opts
     done.add(s);
     let lo = Math.max(0, Math.floor(info.sum / info.n) - 1), hi = Math.ceil(info.bottom - info.colTop);
     if (hi <= lo + 1) continue;
-    const fits = (h: number): boolean => runWith(new Map([...balance, [s, { page: info.page, h }]])).balanceFound.get(s)?.page === info.page;
+    // cabe na página e a última coluna não fica mais comprida que a 1ª: o Word deixa
+    // a linha que passa da média na 1ª coluna (oráculo sections, cont-2col-after0, sep-cont)
+    const fits = (h: number): boolean => {
+      const f = runWith(new Map([...balance, [s, { page: info.page, h }]])).balanceFound.get(s);
+      return f?.page === info.page && f.used[f.used.length - 1]! <= f.used[0]! + 1;
+    };
     if (!fits(hi)) continue;
     while (hi - lo > 1) {
       const mid = Math.floor((lo + hi) / 2);
@@ -181,7 +191,7 @@ export function layoutDocument(full0: FullDocument, provider: FontProvider, opts
 /** Coluna equilibrada: página (índice) da última página da seção e altura das colunas. */
 interface BalanceSpec { page: number; h: number }
 /** Conteúdo da seção na sua última página (passada sem equilíbrio): soma das alturas usadas. */
-interface BalanceInfo { page: number; colTop: number; bottom: number; sum: number; n: number }
+interface BalanceInfo { page: number; colTop: number; bottom: number; sum: number; n: number; used: number[] }
 
 /** Tabela flutuante tardia: página (índice) e y do fluxo de referência da âncora. */
 interface LateTable { page: number; flowY: number }
@@ -391,7 +401,8 @@ class Engine {
     // startOverride depois do bloco que abre a 2ª página; o Word 16.0.20430,
     // de 2026-10-18, numera em sequência — oráculo numbering3, pg2-*)
     for (const g of this.geoms) {
-      if (g.index === 0 || g.type !== 'continuous') {
+      if (g.index > 0 && g.type === 'nextColumn' && this.nextColumnFits(g)) this.nextColumnSection(g);
+      else if (g.index === 0 || g.type !== 'continuous') {
         const lastAfter = this.prev ? this.prev.after : 0;
         this.newPage(g, g.type);
         // seção nova (próxima página/par/ímpar): o 1º parágrafo mantém o espaço
@@ -406,7 +417,7 @@ class Engine {
     }
     // tabela flutuante dividida no fim do documento: as linhas restantes ganham páginas
     for (let k = 0; k < 100 && this.floatCarry.length && this.cur; k++) this.newPage(this.cur.geom);
-    if (this.cur) this.paintNotes(this.cur);
+    if (this.cur) { this.closeColumns(); this.paintNotes(this.cur); }
     // finaliza páginas (cabeçalhos/rodapés já entram na criação)
     // fundo da página (w:background): o Word o grava no PDF (corpus); branco = nada
     const bgSpec = full.background;
@@ -579,7 +590,7 @@ class Engine {
       behind: [], hf: [], body: [], front: [], hfBehind: [], hfFront: [], floats: [], sectPage,
       notes: [], noteArea: 0, bodyBottomBase: g.pageH - g.marB,
     };
-    if (this.cur) this.paintNotes(this.cur);
+    if (this.cur) { this.closeColumns(); this.paintNotes(this.cur); }
     this.pages.push(ps);
     this.cur = ps;
     this.colMaxY = 0;
@@ -602,15 +613,27 @@ class Engine {
     const ending = this.cur.geom;
     if (ending.cols.length > 1) {
       const used = [...this.colUsed, this.y - this.colTop];
-      this.balanceFound.set(ending.index, { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length });
+      this.balanceFound.set(ending.index, { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length, used });
     }
     if (this.balanceSaved !== null) { this.cur.bodyBottom = this.balanceSaved; this.balanceSaved = null; }
+    this.closeColumns();
     this.colUsed = [];
+    // colunas antes ou depois da quebra: o "depois" do último parágrafo da seção
+    // anterior fica ACIMA do topo das colunas novas (a 2ª coluna começa na altura
+    // da 1ª sem o "antes" do 1º parágrafo) e o fim de colunas encerradas inclui o
+    // "depois" do último parágrafo; o 1º parágrafo daqui só leva o que o "antes"
+    // passa dele (oráculo sections, cont-*)
+    const lastAfter = this.prev && !this.atTop ? this.prev.after : 0;
+    if ((ending.cols.length > 1 || g.cols.length > 1) && lastAfter > 0 && this.sectGapAfter === null) {
+      this.y = Math.min(this.y + lastAfter, this.cur.bodyBottom);
+      this.sectGapAfter = lastAfter;
+    }
     // mesma página; nova geometria de colunas a partir do fim da coluna mais
     // ALTA da seção anterior (corpus t89)
     this.y = Math.max(this.y, this.colMaxY);
     this.colMaxY = 0;
     this.cur.geom = g;
+    delete this.cur.cols;
     this.col = 0;
     this.colTop = this.y;
     this.applyBalance();
@@ -618,15 +641,48 @@ class Engine {
     // "antes" do 1º desta, como entre parágrafos (oráculo colbreak, cb-textsect-*)
   }
 
+  /** "Próxima coluna" continua na mesma página: mesmo nº de colunas e não estamos
+   *  na última (senão vale como próxima página — oráculo sections, nc-*) */
+  private nextColumnFits(g: SectGeom): boolean {
+    if (!this.cur || g.cols.length < 2) return false;
+    const cols = this.pageCols();
+    return cols.length === g.cols.length && this.col < cols.length - 1;
+  }
+
+  /** Seção "próxima coluna": a seção nova começa no topo da coluna seguinte, com as
+   *  colunas da página de antes (as dela valem da próxima página em diante); o 1º
+   *  parágrafo leva o "antes" descontado do "depois" anterior, como numa seção nova
+   *  (oráculo sections, nc-2to2-before). A seção que termina não é equilibrada. */
+  private nextColumnSection(g: SectGeom): void {
+    const lastAfter = this.prev ? this.prev.after : 0;
+    if (this.balanceSaved !== null) { this.cur.bodyBottom = this.balanceSaved; this.balanceSaved = null; }
+    const cols = this.pageCols();
+    this.cur.cols = cols;
+    this.cur.geom = g;
+    this.colUsed.push(this.y - this.colTop);
+    this.colMaxY = Math.max(this.colMaxY, this.y);
+    this.col++;
+    this.y = this.colTop;
+    this.atTop = true;
+    this.prev = null;
+    this.topGapPrevAfter = lastAfter;
+  }
+
+  /** Colunas da página corrente (as da seção, salvo "próxima coluna"). */
+  private pageCols(): { x: number; w: number }[] {
+    return this.cur.cols ?? this.cur.geom.cols;
+  }
+
   private colFrame(): { x: number; w: number } {
-    const c = this.cur.geom.cols[this.col] ?? this.cur.geom.cols[0]!;
+    const cols = this.pageCols();
+    const c = cols[this.col] ?? cols[0]!;
     return { x: c.x, w: c.w };
   }
 
   /** Fim da coluna: próxima coluna ou nova página. */
   private breakColumn(): void {
     const g = this.cur.geom;
-    if (this.col < g.cols.length - 1) {
+    if (this.col < this.pageCols().length - 1) {
       this.colUsed.push(this.y - this.colTop);
       this.colMaxY = Math.max(this.colMaxY, this.y);
       this.col++;
@@ -634,6 +690,36 @@ class Engine {
       this.atTop = true;
       this.prev = null;
     } else this.newPage(g);
+  }
+
+  /** fim do conteúdo de cada coluna da área de colunas corrente (com o "depois"
+   *  do último parágrafo); ausente = coluna vazia */
+  private colBottoms: number[] = [];
+
+  /** Conteúdo na coluna corrente até `bottom` (linha entre colunas). */
+  private noteColContent(bottom: number): void {
+    // (limite: o fundo real do corpo — na passada equilibrada a última linha passa do limite)
+    const c = this.col;
+    this.colBottoms[c] = Math.max(this.colBottoms[c] ?? -Infinity, Math.min(bottom, this.balanceSaved ?? this.cur.bodyBottom));
+  }
+
+  /**
+   * Fecha a área de colunas corrente (nova página, seção contínua, fim): com
+   * w:sep, a linha entre colunas — retângulo preto de 0,84 pt no meio do vão,
+   * do topo das colunas até o fim da coluna mais comprida, só antes das colunas
+   * que têm conteúdo nesta página (oráculo sections, sep-*).
+   */
+  private closeColumns(): void {
+    const ps = this.cur, cols = this.pageCols(), b = this.colBottoms;
+    this.colBottoms = [];
+    if (!ps || !ps.geom.colSep || cols.length < 2 || !b.length) return;
+    const bottom = Math.max(...b.filter((v) => v !== undefined));
+    if (!(bottom > this.colTop)) return;
+    for (let c = 1; c < cols.length; c++) {
+      if (b[c] === undefined) continue;
+      const x = (cols[c - 1]!.x + cols[c - 1]!.w + cols[c]!.x) / 2;
+      ps.body.push({ t: 'rect', x: x - COL_SEP_W / 2, y: this.colTop, w: COL_SEP_W, h: bottom - this.colTop, fill: '000000' });
+    }
   }
 
   // ───────────────────────── cabeçalho / rodapé ─────────────────────────
@@ -1414,6 +1500,7 @@ class Engine {
       }
       const last = frag[frag.length - 1]!;
       let bottom = last.y + last.line.height;
+      this.noteColContent(bottom);
       if (isLast) bottom += this.borderBottomExtent(p, groupedNext);
       this.paintBox(this.cur.body, p, frameX, this.colFrame().w, boxTop, bottom, frag === null ? null : this.prev, boxAt, isLast && groupedNext);
       frag = [];
@@ -1688,6 +1775,8 @@ class Engine {
     } while (!br.done());
     flushFrag(true);
     this.y += this.borderBottomExtent(p, groupedNext);
+    // a coluna termina no fim do parágrafo: o "depois" conta na linha entre colunas
+    if (!this.atTop) this.noteColContent(this.y + (p.afterAuto ? 280 : p.spaceAfter));
     // objetos flutuantes ancorados neste parágrafo
     for (const r of earlyRuns) this.prePlaced.add(r);
     this.placeFloats(p, anchorAt.ps, anchorAt.x, anchorAt.w, anchorAt.top, anchorAt.ps.body, 0, anchorAt.ref);
@@ -2471,6 +2560,7 @@ class Engine {
     for (const l of row.lines) this.cur.page.lines.push({ ...l, y: l.y + this.y, baseline: l.baseline + this.y });
     this.y += row.height;
     this.atTop = false;
+    this.noteColContent(this.y);
   }
 
   // ───────────────────────── objetos flutuantes ─────────────────────────

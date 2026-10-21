@@ -1,0 +1,14 @@
+# sb-in-table
+sel=7..7 sections=1->2 undoSteps=1 parts=[]
+log: at 10 intable=True
+<w:body>
+<w:p><w:r><w:t>Antes</w:t></w:r></w:p>
+<w:p><w:pPr>
+  <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:pPr></w:p>
+<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="70" w:type="dxa"/><w:right w:w="70" w:type="dxa"/></w:tblCellMar><w:tblLook w:val="0000" w:firstRow="0" w:lastRow="0" w:firstColumn="0" w:lastColumn="0" w:noHBand="0" w:noVBand="0"/></w:tblPr><w:tblGrid><w:gridCol w:w="4252"/><w:gridCol w:w="4252"/></w:tblGrid><w:tr><w:tblPrEx><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPrEx><w:tc><w:tcPr><w:tcW w:w="4252" w:type="dxa"/></w:tcPr>
+<w:p><w:r><w:lastRenderedPageBreak/><w:t>A1</w:t></w:r></w:p></w:tc><w:tc><w:tcPr><w:tcW w:w="4252" w:type="dxa"/></w:tcPr>
+<w:p><w:r><w:t>B1</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tblPrEx><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/></w:tblCellMar></w:tblPrEx><w:tc><w:tcPr><w:tcW w:w="4252" w:type="dxa"/></w:tcPr>
+<w:p/></w:tc><w:tc><w:tcPr><w:tcW w:w="4252" w:type="dxa"/></w:tcPr>
+<w:p/></w:tc></w:tr></w:tbl>
+<w:p/>
+  <w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" w:header="708" w:footer="708" w:gutter="0"/><w:cols w:space="708"/><w:docGrid w:linePitch="360"/></w:sectPr></w:body>
