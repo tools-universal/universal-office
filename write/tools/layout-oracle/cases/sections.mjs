@@ -77,3 +77,11 @@ cases.push(
   { name: 'sep-bottom', docx: doc(many(16, 70, 52), sect(undefined, sepCols(2)).replace('w:bottom="1417"', 'w:bottom="2835"')) },
   { name: 'sep-cont', docx: doc(para(40, 13) + endSect('Antes Hxg', sect(undefined)) + many(3, 60, 53) + endSect('Fim das colunas Hxg', sect('continuous', sepCols(2))) + para(40, 17), sect('continuous')) },
 );
+
+// contínua para uma seção de outro tamanho/orientação (o Word começa página nova?) e
+// só com outras margens (muda no meio da página?)
+const land = '<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1701" w:right="1417" w:bottom="1701" w:left="1417" w:header="708" w:footer="708" w:gutter="0"/>';
+cases.push(
+  { name: 'cont-landscape', docx: doc(para(40, 60) + endSect('Fim retrato Hxg', sect(undefined)) + para(40, 61), `<w:sectPr><w:type w:val="continuous"/>${land}<w:cols w:space="708"/></w:sectPr>`) },
+  { name: 'cont-margins', docx: doc(para(40, 60) + endSect('Fim Hxg', sect(undefined)) + para(40, 61), sect('continuous').replace('w:left="1701"', 'w:left="3402"')) },
+);

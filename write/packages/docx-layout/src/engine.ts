@@ -401,8 +401,11 @@ class Engine {
     // startOverride depois do bloco que abre a 2ª página; o Word 16.0.20430,
     // de 2026-10-18, numera em sequência — oráculo numbering3, pg2-*)
     for (const g of this.geoms) {
-      if (g.index > 0 && g.type === 'nextColumn' && this.nextColumnFits(g)) this.nextColumnSection(g);
-      else if (g.index === 0 || g.type !== 'continuous') {
+      // contínua (ou próxima coluna) para outro tamanho/orientação de papel: o Word
+      // começa página nova (oráculo sections, cont-landscape); só margens mudam na mesma
+      const samePaper = !!this.cur && this.cur.page.widthTw === g.pageW && this.cur.page.heightTw === g.pageH;
+      if (g.index > 0 && g.type === 'nextColumn' && samePaper && this.nextColumnFits(g)) this.nextColumnSection(g);
+      else if (g.index === 0 || g.type !== 'continuous' || !samePaper) {
         const lastAfter = this.prev ? this.prev.after : 0;
         this.newPage(g, g.type);
         // seção nova (próxima página/par/ímpar): o 1º parágrafo mantém o espaço

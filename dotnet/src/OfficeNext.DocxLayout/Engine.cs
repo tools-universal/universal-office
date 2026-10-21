@@ -474,8 +474,11 @@ internal sealed class Engine
         // de 2026-10-18, numera em sequência — oráculo numbering3, pg2-*)
         foreach (var g in _geoms)
         {
-            if (g.Index > 0 && g.Type == "nextColumn" && NextColumnFits(g)) NextColumnSection(g);
-            else if (g.Index == 0 || g.Type != "continuous")
+            // contínua (ou próxima coluna) para outro tamanho/orientação de papel: o Word
+            // começa página nova (oráculo sections, cont-landscape); só margens mudam na mesma
+            bool samePaper = _cur is not null && _cur.Page.WidthTw == g.PageW && _cur.Page.HeightTw == g.PageH;
+            if (g.Index > 0 && g.Type == "nextColumn" && samePaper && NextColumnFits(g)) NextColumnSection(g);
+            else if (g.Index == 0 || g.Type != "continuous" || !samePaper)
             {
                 double lastAfter = _prev is not null ? _prev.After : 0;
                 NewPage(g, g.Type);
