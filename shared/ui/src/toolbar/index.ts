@@ -11,7 +11,10 @@ export { renderItem, toggleMenu, ripple, esc, type RenderedItem } from './items.
 export { openPopover, closePopover } from './popover.js';
 export { createCompactBar } from './compact.js';
 export { createRibbon } from './ribbon.js';
-export { colorGrid, OFFICE_COLORS, HIGHLIGHT_COLORS, type ColorGridOptions } from './colors.js';
+export {
+  colorGrid, OFFICE_COLORS, HIGHLIGHT_COLORS, THEME_SLOTS, STANDARD_COLORS, themePaletteColors, themeVariants, themeTintHex, parseThemePick,
+  type ColorGridOptions, type ThemeColorPick,
+} from './colors.js';
 export { renderGallery, closeGallery, type GalleryConfig, type GalleryItem, type RenderedGallery } from './gallery.js';
 export { openPane, closePanes, paneOpen, type PaneOptions, type PaneHandle } from './pane.js';
 export { BAR_CSS, ensureBarStyles } from './css.js';

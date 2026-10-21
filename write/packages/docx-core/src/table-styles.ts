@@ -25,6 +25,83 @@ export const CORE_TABLE_STYLES: Record<string, { id: string; local: string; xml:
 /** id do Word pt-BR a partir do nome local. */
 export const localStyleId = (local: string): string => local.replace(/[^A-Za-z0-9-]/g, '');
 
+/** Estilo interno pronto para usar (modelo expandido). */
+export interface BuiltinTableStyle {
+  /** w:name (inglês) */
+  name: string;
+  /** nome local do Word pt-BR */
+  local: string;
+  id: string;
+  /** galeria moderna (compatibilidade 15) */
+  modern: boolean;
+  /** w:style com "~" no lugar do hex das cores de tema */
+  xml: string;
+}
+
+let builtinCache: Promise<BuiltinTableStyle[]> | null = null;
+
+/** Os 247 estilos internos (carregados sob demanda — o módulo de dados é grande). */
+export function loadBuiltinTableStyles(): Promise<BuiltinTableStyle[]> {
+  return (builtinCache ??= import('./table-styles-builtin.js').then(({ BUILTIN_TABLE_STYLES }) => {
+    const out: BuiltinTableStyle[] = [];
+    for (const s of BUILTIN_TABLE_STYLES) {
+      for (const a of s.accents ?? [null]) {
+        const sub = (x: string): string => (a === null ? x : x.replace(/\{A\}/g, String(a)));
+        const local = sub(s.local);
+        const id = localStyleId(local);
+        out.push({ name: sub(s.name), local, id, modern: !!s.modern, xml: sub(s.xml).replace('{ID}', id) });
+      }
+    }
+    return out;
+  }));
+}
+
+const THEME_KEY: Record<string, string> = {
+  text1: 'dk1', background1: 'lt1', text2: 'dk2', background2: 'lt2', dark1: 'dk1', light1: 'lt1', dark2: 'dk2', light2: 'lt2',
+  hyperlink: 'hlink', followedHyperlink: 'folHlink',
+};
+/** Tema do Office 2023 (o Word usa sem theme1.xml). */
+const OFFICE_THEME: Record<string, string> = {
+  dk1: '000000', lt1: 'FFFFFF', dk2: '0E2841', lt2: 'E8E8E8', accent1: '156082', accent2: 'E97132', accent3: '196B24',
+  accent4: '0F9ED5', accent5: 'A02B93', accent6: '4EA72E', hlink: '467886', folHlink: '96607D',
+};
+
+/** Cor de tema com tint/shade como o Word (HSL, canais truncados — mesmo algoritmo do motor). */
+export function themeHex(colors: Record<string, string>, themeColor: string, tint?: string, shade?: string): string {
+  const key = THEME_KEY[themeColor] ?? themeColor;
+  const base = colors[key] ?? OFFICE_THEME[key] ?? '000000';
+  if (!tint && !shade) return base.toUpperCase();
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(base.slice(i, i + 2), 16) / 255) as [number, number, number];
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let l = (mx + mn) / 2;
+  let h = 0, s = 0;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = (mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) / 6;
+  }
+  if (shade) l *= parseInt(shade, 16) / 255;
+  if (tint) { const t = parseInt(tint, 16) / 255; l = l * t + 1 - t; }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const ch = (x: number): string => {
+    if (x < 0) x += 1;
+    if (x > 1) x -= 1;
+    const v = x < 1 / 6 ? p + (q - p) * 6 * x : x < 1 / 2 ? q : x < 2 / 3 ? p + (q - p) * (2 / 3 - x) * 6 : p;
+    return Math.max(0, Math.min(255, Math.floor(v * 255))).toString(16).padStart(2, '0');
+  };
+  return (ch(h + 1 / 3) + ch(h) + ch(h - 1 / 3)).toUpperCase();
+}
+
+/** w:style interno com o hex das cores de tema calculado do tema do documento. */
+export function materializeStyleXml(xml: string, colors: Record<string, string>): string {
+  const attr = (tag: string, name: string): string | undefined => new RegExp(`${name}="([^"]*)"`).exec(tag)?.[1];
+  return xml
+    .replace(/w:color="~"([^/>]*)/g, (_m, rest: string) =>
+      `w:color="${themeHex(colors, attr(rest, 'w:themeColor') ?? 'text1', attr(rest, 'w:themeTint'), attr(rest, 'w:themeShade'))}"${rest}`)
+    .replace(/w:fill="~"([^/>]*)/g, (_m, rest: string) =>
+      `w:fill="${themeHex(colors, attr(rest, 'w:themeFill') ?? 'background1', attr(rest, 'w:themeFillTint'), attr(rest, 'w:themeFillShade'))}"${rest}`);
+}
+
 /** Definição tipada de um w:style cru (para o motor de layout). */
 export function styleDefOf(xml: string): StyleDef | undefined {
   const sheet = readStyleSheet(`<w:styles ${W}>${xml}</w:styles>`);
@@ -44,28 +121,27 @@ export function styleIdByName(f: DocFormatting | undefined, name: string): strin
  * que o salvar acrescenta ao styles.xml). O "Normal Table" de base vem junto.
  */
 export function ensureTableStyle(
-  f: DocFormatting, name: string, pending: Map<string, string>,
-  defs: Record<string, { id: string; xml: string }> = CORE_TABLE_STYLES,
+  f: DocFormatting, name: string, pending: Map<string, string>, builtins: readonly BuiltinTableStyle[] = [],
 ): string | undefined {
   const have = styleIdByName(f, name);
   if (have) return have;
-  const d = defs[name] ?? CORE_TABLE_STYLES[name];
+  const d = CORE_TABLE_STYLES[name] ?? builtins.find((b) => b.name === name);
   if (!d) return undefined;
-  const def = styleDefOf(d.xml);
-  if (!def) return undefined;
-  if (def.basedOn && !f.styles.styles[def.basedOn]) {
-    const base = Object.values(CORE_TABLE_STYLES).find((x) => x.id === def.basedOn);
-    if (base) {
-      const bd = styleDefOf(base.xml);
-      if (bd) {
-        f.styles.styles[bd.styleId] = bd;
-        if (bd.isDefault && !f.styles.defaults.table) f.styles.defaults.table = bd.styleId;
-        pending.set(bd.styleId, base.xml);
-      }
-    }
+  let xml = materializeStyleXml(d.xml, f.theme?.colors ?? {});
+  // id já usado por outro estilo: sufixo
+  let id = d.id;
+  while (f.styles.styles[id]) id += '1';
+  if (id !== d.id) xml = xml.replace(`w:styleId="${d.id}"`, () => `w:styleId="${id}"`);
+  // a base ("Normal Table") é a do documento, com o id dele
+  if (name !== 'Normal Table') {
+    const baseId = styleIdByName(f, 'Normal Table') ?? ensureTableStyle(f, 'Normal Table', pending, builtins);
+    if (baseId) xml = xml.replace(/<w:basedOn w:val="[^"]*"\/>/, () => `<w:basedOn w:val="${baseId}"/>`);
   }
+  const def = styleDefOf(xml);
+  if (!def) return undefined;
   f.styles.styles[def.styleId] = def;
-  pending.set(def.styleId, d.xml);
+  if (def.isDefault && !f.styles.defaults.table) f.styles.defaults.table = def.styleId;
+  pending.set(def.styleId, xml);
   return def.styleId;
 }
 

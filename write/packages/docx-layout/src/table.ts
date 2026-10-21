@@ -1058,17 +1058,17 @@ export function layoutTable(
             else if (content) placeContent(its, lns, content, vTop ? 'top' : vaOf(content, ci.tcPr.vAlign), ch, ci.marT, ci.marB, bTop);
           }
           const bT = edge(s, 'top'), bB = edge(s, 'bottom'), bL = edge(s, 'left'), bR = edge(s, 'right');
-          if (drawTop && bT) paintBorder(ctx, brd, bT, x + ci.bx0, cy0 + borderWidth(bT) / 2, x + ci.bx1, cy0 + borderWidth(bT) / 2);
-          if (bBottom > 0 && bB) paintBorder(ctx, brd, bB, x + ci.bx0, cy1 - borderWidth(bB) / 2, x + ci.bx1, cy1 - borderWidth(bB) / 2);
-          if (bL) paintBorder(ctx, brd, bL, x + ci.bx0 + borderWidth(bL) / 2, cy0, x + ci.bx0 + borderWidth(bL) / 2, cy1);
-          if (bR) paintBorder(ctx, brd, bR, x + ci.bx1 - borderWidth(bR) / 2, cy0, x + ci.bx1 - borderWidth(bR) / 2, cy1);
+          if (drawTop && bT) paintBorder(ctx, brd, bT, x + ci.bx0, cy0 + borderWidth(bT) / 2, x + ci.bx1, cy0 + borderWidth(bT) / 2, 'top');
+          if (bBottom > 0 && bB) paintBorder(ctx, brd, bB, x + ci.bx0, cy1 - borderWidth(bB) / 2, x + ci.bx1, cy1 - borderWidth(bB) / 2, 'bottom');
+          if (bL) paintBorder(ctx, brd, bL, x + ci.bx0 + borderWidth(bL) / 2, cy0, x + ci.bx0 + borderWidth(bL) / 2, cy1, 'left');
+          if (bR) paintBorder(ctx, brd, bR, x + ci.bx1 - borderWidth(bR) / 2, cy0, x + ci.bx1 - borderWidth(bR) / 2, cy1, 'right');
         }
         const oL = outerB(ri, 'left'), oR = outerB(ri, 'right'), oT = outerB(ri, 'top'), oB = outerB(ri, 'bottom');
         const xl = x + g0, xr = x + gn;
-        paintBorder(ctx, brd, oL, xl, 0, xl, rh);
-        paintBorder(ctx, brd, oR, xr, 0, xr, rh);
-        if (ri === 0 && drawTop) paintBorder(ctx, brd, oT, xl - borderWidth(oL) / 2, borderWidth(oT) / 2, xr + borderWidth(oR) / 2, borderWidth(oT) / 2);
-        if (ri === nRows - 1 && bBottom > 0) paintBorder(ctx, brd, oB, xl - borderWidth(oL) / 2, rh - borderWidth(oB) / 2, xr + borderWidth(oR) / 2, rh - borderWidth(oB) / 2);
+        paintBorder(ctx, brd, oL, xl, 0, xl, rh, 'left');
+        paintBorder(ctx, brd, oR, xr, 0, xr, rh, 'right');
+        if (ri === 0 && drawTop) paintBorder(ctx, brd, oT, xl - borderWidth(oL) / 2, borderWidth(oT) / 2, xr + borderWidth(oR) / 2, borderWidth(oT) / 2, 'top');
+        if (ri === nRows - 1 && bBottom > 0) paintBorder(ctx, brd, oB, xl - borderWidth(oL) / 2, rh - borderWidth(oB) / 2, xr + borderWidth(oR) / 2, rh - borderWidth(oB) / 2, 'bottom');
         return {
           height: rh, items: its, lines: lns, borderItems: brd, breakBorderItems: brk, cantSplit: !!trp.cantSplit, header: !!trp.tblHeader, cells: cellBoxes(),
           ...(mergeAt.length ? { mergeAt } : {}),
@@ -1093,27 +1093,31 @@ export function layoutTable(
         // topo: na faixa de cima (continuação de linha partida: a borda de cima da célula)
         const top = drawTop ? (s.merged ? undefined : topWinner(s)) : (edge(s, 'top') ?? edge(s, 'bottom'));
         const nb = brd.length;
-        if (top) paintBorder(ctx, brd, top, x + ci.x0, borderWidth(top) / 2, x + ci.x1, borderWidth(top) / 2);
+        if (top) paintBorder(ctx, brd, top, x + ci.x0, borderWidth(top) / 2, x + ci.x1, borderWidth(top) / 2, 'top');
         if (drawTop && ri > 0) {
           topBrd.push(...brd.slice(nb));
           const own = edge(s, 'top');
           ownBand = Math.max(ownBand, borderWidth(own));
-          if (own && !s.merged) paintBorder(ctx, ownBrd, own, x + ci.x0, borderWidth(own) / 2, x + ci.x1, borderWidth(own) / 2);
+          if (own && !s.merged) paintBorder(ctx, ownBrd, own, x + ci.x0, borderWidth(own) / 2, x + ci.x1, borderWidth(own) / 2, 'top');
         }
         const bottom = edge(s, 'bottom');
         const lastOfMerge = !slots[ri + 1]?.some((o) => o.col === s.col && o.merged);
         if (bBottom > 0) {
           const b = bottom ?? edge(s, 'top');
-          paintBorder(ctx, brd, b, x + ci.x0, rh - bBottom + borderWidth(b) / 2, x + ci.x1, rh - bBottom + borderWidth(b) / 2);
+          paintBorder(ctx, brd, b, x + ci.x0, rh - bBottom + borderWidth(b) / 2, x + ci.x1, rh - bBottom + borderWidth(b) / 2, 'bottom');
         } else if (lastOfMerge) {
           // fim de página entre esta linha e a próxima: o Word fecha a linha com a borda da divisa
           let w = bottom;
           for (const d of covering(ri + 1, s.col, s.col + s.span)) w = heavier(w, edge(d, 'top'));
-          if (w) paintBorder(ctx, brk, w, x + ci.x0, rh + borderWidth(w) / 2, x + ci.x1, rh + borderWidth(w) / 2);
+          if (w) paintBorder(ctx, brk, w, x + ci.x0, rh + borderWidth(w) / 2, x + ci.x1, rh + borderWidth(w) / 2, 'bottom');
         }
-        const left = edge(s, 'left'), right = edge(s, 'right');
-        paintBorder(ctx, brd, left, x + ci.x0, 0, x + ci.x0, rh);
-        paintBorder(ctx, brd, right, x + ci.x1, 0, x + ci.x1, rh);
+        // divisa vertical: SÓ a mais grossa das duas células (empate: a da esquerda),
+        // mesmo contra a insideV da tabela — medido (sonda vc do table-lab)
+        const prev = slots[ri]?.find((o) => o.col + o.span === s.col);
+        const next = slots[ri]?.some((o) => o.col === s.col + s.span);
+        const left = prev ? heavier(edge(prev, 'right'), edge(s, 'left')) : edge(s, 'left'), right = edge(s, 'right');
+        paintBorder(ctx, brd, left, x + ci.x0, 0, x + ci.x0, rh, 'left');
+        if (!next) paintBorder(ctx, brd, right, x + ci.x1, 0, x + ci.x1, rh, 'right');
         if (tcb?.tl2br) paintBorder(ctx, brd, tcb.tl2br, x + ci.x0, bTop, x + ci.x1, rh - bBottom);
         if (tcb?.tr2bl) paintBorder(ctx, brd, tcb.tr2bl, x + ci.x1, bTop, x + ci.x0, rh - bBottom);
       }

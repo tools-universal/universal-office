@@ -62,6 +62,10 @@ export class WriteApp {
   lastColor = 'C00000';
   lastHighlight = 'yellow';
   lastShading = 'FFFF00';
+  /** último sombreamento de célula (cor do tema ou hex) e a cor do chip */
+  lastTableShading: string | { themeColor: string; tint?: string; shade?: string } = { themeColor: 'accent1', tint: '33' };
+  lastTableShadingCss = '#C1E4F5';
+  lastTableBorder: import('@universal-office/docx-core').BorderKind = 'all';
   private fileHandle: FileSystemFileHandle | null = null;
   /** onde o host guarda o documento aberto/salvo por ele (Electron: caminho) */
   private hostPath: string | null = null;

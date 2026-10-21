@@ -75,7 +75,7 @@ public sealed class LineItem : PageItem
     public string Color = "000000";
     /// <summary>espessura em pontos</summary>
     public double WidthPt;
-    /// <summary>dotted | dashed | dashDot | dashDotDot (nulo = sólida)</summary>
+    /// <summary>dotted | dashed | dashDot | dashDotDot | bdrDot | bdrDash | bdrDashDot | bdrDashDotDot | bdrDashSmall (nulo = sólida)</summary>
     public string? Dash;
 }
 

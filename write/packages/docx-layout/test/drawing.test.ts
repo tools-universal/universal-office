@@ -154,7 +154,34 @@ describe('bordas no PDF (oráculo bdrw)', () => {
     paintBorder(ctxStub, out, { val: 'dotted', sz: 6 }, 1000, 5000, 5000, 5000);
     expect(rects(out)).toEqual([[1000, 2000 - 7.2, 4000, 14.4], [1000 - 21.6, 3000, 14.4, 1000], [1000 + 7.2, 3000, 14.4, 1000]]);
     const dot = out.find((i) => i.t === 'line') as Extract<PageItem, { t: 'line' }>;
-    expect([dot.dash, Math.round(dot.widthPt * 100) / 100]).toEqual(['dotted', 0.72]);
+    // pontilhada de borda: padrão [w w] (sonda de bordas do table-lab)
+    expect([dot.dash, Math.round(dot.widthPt * 100) / 100]).toEqual(['bdrDot', 0.72]);
+  });
+  // sonda de bordas (write/tools/table-lab/gen-border-probe.mjs): faixas do PDF do
+  // Word na borda de CIMA, de fora para dentro, w:sz 12 (w = 1,44 pt = 28,8 tw)
+  const bands = (val: string, outer: 'top' | 'bottom' = 'top'): [number, number, string][] => {
+    const out: PageItem[] = [];
+    paintBorder(ctxStub, out, { val, sz: 12, color: '000000' }, 0, 1000, 3000, 1000, outer);
+    return out.filter((i): i is Extract<PageItem, { t: 'rect' }> => i.t === 'rect')
+      .map((r) => [Math.round(r.y * 10) / 10, Math.round(r.h * 10) / 10, r.fill]);
+  };
+  it('tripla: três traços de w com vãos de w', () => {
+    expect(bands('triple')).toEqual([[928, 28.8, '000000'], [985.6, 28.8, '000000'], [1043.2, 28.8, '000000']]);
+  });
+  it('fina-grossa SmallGap: grossa (w) por fora, vão e fina de 0,72 pt; embaixo, espelhada', () => {
+    const t = bands('thinThickSmallGap');
+    expect(t.map((x) => x[1])).toEqual([28.8, 14.4]);
+    expect(t[1]![0] - (t[0]![0] + t[0]![1])).toBeCloseTo(14.4, 5);
+    expect(bands('thinThickSmallGap', 'bottom').map((x) => x[1])).toEqual([14.4, 28.8]);
+  });
+  it('LargeGap: grossa de 1,44 pt, vão = w, fina de 0,72 pt', () => {
+    const t = bands('thinThickLargeGap');
+    expect(t.map((x) => x[1])).toEqual([28.8, 14.4]);
+    expect(t[1]![0] - (t[0]![0] + t[0]![1])).toBeCloseTo(28.8, 5);
+  });
+  it('relevo 3D: clara, média e escura (preto → C0C0C0 / 606060)', () => {
+    expect(bands('threeDEmboss').map((x) => [x[1], x[2]])).toEqual([[14.4, 'C0C0C0'], [28.8, '606060'], [14.4, '000000']]);
+    expect(bands('threeDEngrave').map((x) => x[2])).toEqual(['000000', '606060', 'C0C0C0']);
   });
 });
 

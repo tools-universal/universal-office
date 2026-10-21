@@ -313,18 +313,34 @@ function toHex(r: number, g: number, b: number): string {
   return (c(r) + c(g) + c(b)).toUpperCase();
 }
 
-/** themeTint/themeShade do WordprocessingML (aplicados em RGB, como o Word). */
+/**
+ * themeTint/themeShade do WordprocessingML: o Word mexe na LUMINOSIDADE em HSL
+ * (shade: L·s; tint: L·t + 1 − t) a partir da cor do TEMA — o hex gravado ao
+ * lado é ignorado — e trunca os canais (medido no PDF do Word: accent1 #156082
+ * tint 33 → C1E4F5, tint 99 → 45B0E1, shade BF → 0F4761; ±1 num canal em
+ * alguns tons).
+ */
 export function applyTintShade(hex: string, tint?: string, shade?: string): string {
-  let [r, g, b] = rgb(hex);
-  if (shade) {
-    const s = parseInt(shade, 16) / 255;
-    r *= s; g *= s; b *= s;
+  if (!tint && !shade) return hex.toUpperCase();
+  const [r, g, b] = rgb(hex).map((v) => v / 255) as [number, number, number];
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let l = (mx + mn) / 2;
+  let h = 0, s = 0;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = (mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) / 6;
   }
-  if (tint) {
-    const t = parseInt(tint, 16) / 255;
-    r = 255 - (255 - r) * t; g = 255 - (255 - g) * t; b = 255 - (255 - b) * t;
-  }
-  return toHex(r, g, b);
+  if (shade) l *= parseInt(shade, 16) / 255;
+  if (tint) { const t = parseInt(tint, 16) / 255; l = l * t + 1 - t; }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const ch = (x: number): number => {
+    if (x < 0) x += 1;
+    if (x > 1) x -= 1;
+    const v = x < 1 / 6 ? p + (q - p) * 6 * x : x < 1 / 2 ? q : x < 2 / 3 ? p + (q - p) * (2 / 3 - x) * 6 : p;
+    return Math.floor(v * 255);
+  };
+  return toHex(ch(h + 1 / 3), ch(h), ch(h - 1 / 3));
 }
 
 /** Cor efetiva (RRGGBB) de val/themeColor/tint/shade; undefined = automática. */

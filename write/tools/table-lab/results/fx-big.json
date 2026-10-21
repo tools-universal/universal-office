@@ -1,0 +1,26 @@
+{
+    "name":  "fx-big",
+    "selBefore":  {
+                      "start":  14,
+                      "end":  14,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  2,
+                      "col":  1,
+                      "cells":  1,
+                      "text":  "\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  33,
+                     "end":  33,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  2,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

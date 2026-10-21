@@ -1,0 +1,26 @@
+{
+    "name":  "fx-syntax",
+    "selBefore":  {
+                      "start":  4,
+                      "end":  4,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  2,
+                      "col":  1,
+                      "cells":  1,
+                      "text":  "\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  4,
+                     "end":  4,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  2,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "!"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

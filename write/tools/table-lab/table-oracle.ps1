@@ -495,6 +495,50 @@ $E['row-height-multi'] = @{
   Op = { param($app, $doc) $app.Selection.Cells.DistributeHeight() }
 }
 
+# ---- lote 3: formulas (ABOVE/LEFT com vazio/texto, funcoes, formatos) ----
+function New-Col($app, $doc, [string[]]$vals) {
+  $t = $doc.Tables.Add($app.Selection.Range, $vals.Count + 1, 2, 1, 0)
+  for ($i = 0; $i -lt $vals.Count; $i++) { if ($vals[$i] -ne '') { $t.Cell($i + 1, 1).Range.Text = $vals[$i] } }
+  Put $app $t ($vals.Count + 1) 1
+  return $t
+}
+$FX = [ordered]@{
+  'fx-above-gap'    = @(@('10', '', '20'), '=SUM(ABOVE)', '')
+  'fx-above-text'   = @(@('Total', '10', 'abc', '20'), '=SUM(ABOVE)', '')
+  'fx-above-header' = @(@('Valor', '10', '20'), '=SUM(ABOVE)', '')
+  'fx-currency'     = @(@('R$ 10,00', '5'), '=SUM(ABOVE)', '')
+  'fx-mixedtext'    = @(@('10 itens', '2,5 kg'), '=SUM(ABOVE)', '')
+  'fx-avg'          = @(@('1', '2', '4'), '=AVERAGE(ABOVE)', '')
+  'fx-count'        = @(@('1', 'x', '4'), '=COUNT(ABOVE)', '')
+  'fx-maxmin'       = @(@('1', '9', '4'), '=MAX(ABOVE)-MIN(ABOVE)', '')
+  'fx-product'      = @(@('2', '3', '4'), '=PRODUCT(ABOVE)', '')
+  'fx-if'           = @(@('6', '7'), '=IF(SUM(ABOVE)>10;1;0)', '')
+  'fx-neg-fmt'      = @(@('-5', '3'), '=SUM(ABOVE)', '#.##0,00;(#.##0,00)')
+  'fx-pct'          = @(@('0,25'), '=A1*100', '0%')
+  'fx-int-fmt'      = @(@('1234,567'), '=A1', '0')
+  'fx-currency-fmt' = @(@('1234,5'), '=A1', 'R$ #.##0,00')
+  'fx-div0'         = @(@('5', '0'), '=A1/A2', '')
+  'fx-syntax'       = @(@('5'), '=A1+', '')
+  'fx-round-neg'    = @(@('-2,5'), '=ROUND(A1;0)', '')
+  'fx-big'          = @(@('1234567,891'), '=A1', '')
+}
+foreach ($k in $FX.Keys) {
+  $spec = $FX[$k]
+  $E[$k] = @{ Spec = $spec; Setup = { param($app, $doc) New-Col $app $doc $x.Spec[0] | Out-Null }; Op = { param($app, $doc) $app.Selection.InsertFormula($x.Spec[1], $x.Spec[2]) } }
+}
+$E['fx-left'] = @{
+  Setup = { param($app, $doc) $t = $doc.Tables.Add($app.Selection.Range, 1, 4, 1, 0); $t.Cell(1, 1).Range.Text = 'abc'; $t.Cell(1, 2).Range.Text = '3'; $t.Cell(1, 3).Range.Text = '4'; Put $app $t 1 4 }
+  Op = { param($app, $doc) $app.Selection.InsertFormula('=SUM(LEFT)', '') }
+}
+$E['fx-left-gap'] = @{
+  Setup = { param($app, $doc) $t = $doc.Tables.Add($app.Selection.Range, 1, 4, 1, 0); $t.Cell(1, 1).Range.Text = '1'; $t.Cell(1, 3).Range.Text = '4'; Put $app $t 1 4 }
+  Op = { param($app, $doc) $app.Selection.InsertFormula('=SUM(LEFT)', '') }
+}
+$E['fx-default-left'] = @{
+  Setup = { param($app, $doc) $t = $doc.Tables.Add($app.Selection.Range, 1, 3, 1, 0); $t.Cell(1, 1).Range.Text = '1'; $t.Cell(1, 2).Range.Text = '2'; Put $app $t 1 3 }
+  Op = { param($app, $doc) $app.Selection.InsertFormula() }
+}
+
 # Padroes da aplicacao (sem operacao): caneta, linhas de grade, estilo padrao
 $E['defaults'] = @{
   Op = { param($app, $doc) }

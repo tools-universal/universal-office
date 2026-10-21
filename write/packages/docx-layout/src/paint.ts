@@ -269,10 +269,63 @@ export function borderWidth(b: BorderSpec | undefined): number {
   if (!b || b.val === 'none' || b.val === 'nil') return 0;
   // a espessura vai para twips INTEIROS, truncada: w:sz 1 → 2 tw, 3 → 7 tw (oráculo bdrthin)
   const tw = Math.floor(Math.max(1, b.sz ?? 4) * 2.5 + 1e-9);
-  if (b.val === 'double') return tw * 3;
-  if (b.val === 'thinThickSmallGap' || b.val === 'thickThinSmallGap') return tw + 40;
-  return tw;
+  switch (b.val) {
+    case 'double': return tw * 3;
+    case 'thinThickSmallGap': case 'thickThinSmallGap': return tw + 40;
+    // as outras compostas: a soma das faixas que o Word desenha (sonda de bordas do table-lab)
+    case 'triple': return tw * 5;
+    case 'thinThickThinSmallGap': return tw + 58;
+    case 'thinThickMediumGap': case 'thickThinMediumGap': return tw * 2;
+    case 'thinThickThinMediumGap': return tw * 3;
+    case 'thinThickLargeGap': case 'thickThinLargeGap': return tw + 43;
+    case 'thinThickThinLargeGap': return tw * 2 + 58;
+    case 'threeDEmboss': case 'threeDEngrave': return tw + 2 * Math.max(14, Math.floor(tw / 2));
+    default: return tw;
+  }
 }
+
+/** Faixa de uma borda composta: espessura (twips) e cor (undefined = vão). */
+type Band = { t: number; c?: 'ink' | 'light' | 'mid' };
+
+/**
+ * Faixas de uma borda, de FORA para dentro, como o Word as desenha (medido no
+ * PDF — sonda de bordas do table-lab): fina = 0,72 pt e vão de 0,72 pt nas
+ * SmallGap; fina e vão = w/2 nas MediumGap; grossa de 1,44 pt e vão = w nas
+ * LargeGap; relevo 3D = clara/média/escura com a fina = max(0,72 pt, w/2).
+ * `w` = espessura de pintura (quantizada em 2,4 tw).
+ */
+function borderBands(val: string, w: number): Band[] {
+  const q = (x: number): number => Math.max(2.4, Math.floor(x / 2.4 + 1e-9) * 2.4);
+  const thin = 14.4, half = q(w / 2), thick = 28.8, gap = (t: number): Band => ({ t });
+  const ink = (t: number): Band => ({ t, c: 'ink' });
+  switch (val) {
+    case 'double': return [ink(w), gap(w), ink(w)];
+    case 'triple': return [ink(w), gap(w), ink(w), gap(w), ink(w)];
+    case 'thinThickSmallGap': return [ink(w), gap(thin), ink(thin)];
+    case 'thickThinSmallGap': return [ink(thin), gap(thin), ink(w)];
+    case 'thinThickThinSmallGap': return [ink(thin), gap(thin), ink(w), gap(thin), ink(thin)];
+    case 'thinThickMediumGap': return [ink(w), gap(half), ink(half)];
+    case 'thickThinMediumGap': return [ink(half), gap(half), ink(w)];
+    case 'thinThickThinMediumGap': return [ink(half), gap(half), ink(w), gap(half), ink(half)];
+    case 'thinThickLargeGap': return [ink(thick), gap(w), ink(thin)];
+    case 'thickThinLargeGap': return [ink(thin), gap(w), ink(thick)];
+    case 'thinThickThinLargeGap': return [ink(thin), gap(w), ink(thick), gap(w), ink(thin)];
+    case 'threeDEmboss': { const t = Math.max(thin, half); return [{ t, c: 'light' }, { t: w, c: 'mid' }, { t, c: 'ink' }]; }
+    case 'threeDEngrave': { const t = Math.max(thin, half); return [{ t, c: 'ink' }, { t: w, c: 'mid' }, { t, c: 'light' }]; }
+    default: return [ink(w)];
+  }
+}
+
+/** Mistura com o branco (relevo 3D: preto → C0C0C0 / 606060, medido). */
+const toWhite = (hex: string, f: number): string => {
+  const n = parseInt(hex, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(v + (255 - v) * f).toString(16).padStart(2, '0')).join('').toUpperCase();
+};
+
+/** Padrão dos tracejados de borda (múltiplos de w — medido: [w w], [3w w]…). */
+const BORDER_DASH: Record<string, import('./tree.js').LineItem['dash']> = {
+  dotted: 'bdrDot', dashed: 'bdrDash', dotDash: 'bdrDashDot', dotDotDash: 'bdrDashDotDot', dashSmallGap: 'bdrDashSmall', dashDotStroked: 'bdrDashDot',
+};
 
 /**
  * Espessura (twips) com que o Word GRAVA uma borda no PDF (oráculo bdrw): w:sz
@@ -292,23 +345,54 @@ export function borderPaintWidth(b: BorderSpec): number {
  */
 export function paintBorder(
   ctx: DocContext, out: PageItem[], b: BorderSpec | undefined, x1: number, y1: number, x2: number, y2: number,
+  /** lado de FORA da borda (as compostas assimétricas: fina/grossa) */
+  outer?: 'top' | 'bottom' | 'left' | 'right',
 ): void {
   if (!b || b.val === 'none' || b.val === 'nil') return;
   const color = resolveColor({ val: b.color, themeColor: b.themeColor, themeTint: b.themeTint, themeShade: b.themeShade }, ctx.fmt.theme) ?? '000000';
   const w = borderPaintWidth(b);
-  const dash = b.val === 'dotted' ? 'dotted' as const : b.val === 'dashed' || b.val === 'dashSmallGap' ? 'dashed' as const
-    : b.val === 'dotDash' ? 'dashDot' as const : b.val === 'dotDotDash' ? 'dashDotDot' as const : undefined;
+  const dash = BORDER_DASH[b.val];
   if (dash) { out.push({ t: 'line', x1, y1, x2, y2, color, widthPt: w / 20, dash }); return; }
   // diagonal (tl2br/tr2bl da célula): traço
   if (x1 !== x2 && y1 !== y2) { out.push({ t: 'line', x1, y1, x2, y2, color, widthPt: w / 20 }); return; }
   const horizontal = Math.abs(y2 - y1) < Math.abs(x2 - x1);
-  // faixas [de, até] relativas ao centro: double = traço, vão, traço de w cada
-  const bands: [number, number][] = b.val === 'double' ? [[-1.5 * w, -0.5 * w], [0.5 * w, 1.5 * w]] : [[-0.5 * w, 0.5 * w]];
-  for (const [a, z] of bands) {
-    if (horizontal) out.push({ t: 'rect', x: Math.min(x1, x2), y: y1 + a, w: Math.abs(x2 - x1), h: z - a, fill: color });
-    else out.push({ t: 'rect', x: x1 + a, y: Math.min(y1, y2), w: z - a, h: Math.abs(y2 - y1), fill: color });
+  if (b.val === 'wave' || b.val === 'doubleWave') { paintWave(out, b.val === 'doubleWave', color, w, horizontal, x1, y1, x2, y2); return; }
+  const bands = borderBands(b.val, w);
+  const total = bands.reduce((s, x) => s + x.t, 0);
+  // de fora para dentro: de cima (ou da esquerda) quando o lado de fora é top/left
+  const flip = outer === 'bottom' || outer === 'right';
+  let pos = -total / 2;
+  for (const band of flip ? [...bands].reverse() : bands) {
+    if (band.c) {
+      const fill = band.c === 'light' ? toWhite(color, 192 / 255) : band.c === 'mid' ? toWhite(color, 96 / 255) : color;
+      if (horizontal) out.push({ t: 'rect', x: Math.min(x1, x2), y: y1 + pos, w: Math.abs(x2 - x1), h: band.t, fill });
+      else out.push({ t: 'rect', x: x1 + pos, y: Math.min(y1, y2), w: band.t, h: Math.abs(y2 - y1), fill });
+    }
+    pos += band.t;
   }
   void BORDER_SINGLE_LIKE;
+}
+
+/**
+ * Ondulada (o Word usa ladrilhos de bitmap): zigue-zague de altura 3 pt e
+ * período 6 pt (ladrilho medido em w:sz 4), escalado com a espessura; a dupla
+ * leva duas ondas.
+ */
+function paintWave(out: PageItem[], double: boolean, color: string, w: number, horizontal: boolean, x1: number, y1: number, x2: number, y2: number): void {
+  const h = Math.max(60, w * 3), period = h * 2, lw = Math.max(0.5, w / 20 / 1.5);
+  const len = horizontal ? Math.abs(x2 - x1) : Math.abs(y2 - y1);
+  const waves = double ? [-h / 4, h / 4] : [0];
+  for (const off of waves) {
+    const cmds: { op: 'M' | 'L'; x: number; y: number }[] = [];
+    for (let s = 0; s <= len + 0.01; s += period / 2) {
+      const d = (Math.round(s / (period / 2)) % 2 ? 1 : -1) * (h / (double ? 4 : 2));
+      const a = Math.min(s, len);
+      cmds.push(horizontal
+        ? { op: cmds.length ? 'L' : 'M', x: Math.min(x1, x2) + a, y: y1 + off + d }
+        : { op: cmds.length ? 'L' : 'M', x: x1 + off + d, y: Math.min(y1, y2) + a });
+    }
+    out.push({ t: 'path', cmds, stroke: { color, widthPt: lw } } as PageItem);
+  }
 }
 
 /**

@@ -1,3 +1,4 @@
+import { BORDER_DASHES } from './tree.js';
 import { PdfDocument, hexColor, type EmbeddedFont, type PdfImage, type PdfPage, type PathCmd, type PdfShading } from './pdf-writer/index.js';
 import type { InlineImage } from '@universal-office/docx-core';
 import type { LayoutResult, PageItem, PathCmdTw } from './tree.js';
@@ -206,7 +207,8 @@ function paintItem(
       return;
     case 'line': {
       const dash = it.dash === 'dotted' ? [it.widthPt, it.widthPt * 2] : it.dash === 'dashed' ? [it.widthPt * 4, it.widthPt * 3]
-        : it.dash === 'dashDot' ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash === 'dashDotDot' ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2, it.widthPt, it.widthPt * 2] : undefined;
+        : it.dash === 'dashDot' ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2] : it.dash === 'dashDotDot' ? [it.widthPt * 4, it.widthPt * 2, it.widthPt, it.widthPt * 2, it.widthPt, it.widthPt * 2]
+        : it.dash ? BORDER_DASHES[it.dash]?.(it.widthPt) : undefined;
       page.line(it.x1 / T, it.y1 / T, it.x2 / T, it.y2 / T, hexColor(it.color), it.widthPt, dash);
       return;
     }

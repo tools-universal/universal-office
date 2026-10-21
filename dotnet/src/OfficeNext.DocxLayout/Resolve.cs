@@ -231,20 +231,32 @@ public static class Resolve
     internal static string ToHex(double r, double g, double b) => (C2(r) + C2(g) + C2(b)).ToUpperInvariant();
 
     /// <summary>themeTint/themeShade do WordprocessingML (aplicados em RGB, como o Word).</summary>
+    /// <summary>themeTint/themeShade: luminosidade em HSL a partir da cor do tema
+    /// (shade: L·s; tint: L·t + 1 − t), canais truncados — medido no PDF do Word.</summary>
     public static string ApplyTintShade(string hex, string? tint, string? shade)
     {
-        var (r, g, b) = Rgb(hex);
-        if (!string.IsNullOrEmpty(shade))
+        if (string.IsNullOrEmpty(tint) && string.IsNullOrEmpty(shade)) return hex.ToUpperInvariant();
+        var (r0, g0, b0) = Rgb(hex);
+        double r = r0 / 255, g = g0 / 255, b = b0 / 255;
+        double mx = Math.Max(r, Math.Max(g, b)), mn = Math.Min(r, Math.Min(g, b));
+        double l = (mx + mn) / 2, h = 0, s = 0;
+        if (mx != mn)
         {
-            double s = OfficeNext.Core.JsNumber.ParseInt(shade, 16) / 255;
-            r *= s; g *= s; b *= s;
+            double d = mx - mn;
+            s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+            h = (mx == r ? (g - b) / d + (g < b ? 6 : 0) : mx == g ? (b - r) / d + 2 : (r - g) / d + 4) / 6;
         }
-        if (!string.IsNullOrEmpty(tint))
+        if (!string.IsNullOrEmpty(shade)) l *= OfficeNext.Core.JsNumber.ParseInt(shade, 16) / 255;
+        if (!string.IsNullOrEmpty(tint)) { double t = OfficeNext.Core.JsNumber.ParseInt(tint, 16) / 255; l = l * t + 1 - t; }
+        double q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+        double Ch(double x)
         {
-            double t = OfficeNext.Core.JsNumber.ParseInt(tint, 16) / 255;
-            r = 255 - (255 - r) * t; g = 255 - (255 - g) * t; b = 255 - (255 - b) * t;
+            if (x < 0) x += 1;
+            if (x > 1) x -= 1;
+            double v = x < 1.0 / 6 ? p + (q - p) * 6 * x : x < 1.0 / 2 ? q : x < 2.0 / 3 ? p + (q - p) * (2.0 / 3 - x) * 6 : p;
+            return Math.Floor(v * 255);
         }
-        return ToHex(r, g, b);
+        return ToHex(Ch(h + 1.0 / 3), Ch(h), Ch(h - 1.0 / 3));
     }
 
     private static readonly Regex Hex6 = new(@"^[0-9a-fA-F]{6}\z", RegexOptions.CultureInvariant);

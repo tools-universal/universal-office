@@ -102,7 +102,7 @@ import {
   tableOps as TOps,
   type CellRect as TableRect, type TableCell, type TextSeparator, type BorderKind, type BorderSpec, type ShadingSpec,
   type TblLook, type TblPr, type TrPr, type TcPr, type WidthSpec, type DocFormatting,
-  ensureTableStyle, addStylesXml,
+  ensureTableStyle, addStylesXml, loadBuiltinTableStyles, styleIdByName, themeHex, type BuiltinTableStyle,
 } from '@universal-office/docx-core';
 import type { PlacedCell } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
@@ -311,6 +311,17 @@ interface TableAfter {
   caret?: { r: number; c: number; end?: boolean };
   /** a operação já posicionou o cursor */
   keep?: true;
+}
+
+/** Estilo de tabela na galeria. */
+export interface TableStyleInfo {
+  /** w:name (inglês) — o que setTableStyle recebe */
+  name: string;
+  label: { en: string; pt: string };
+  /** Personalizado, Tabelas Simples, de Grade, de Lista */
+  group: 'custom' | 'plain' | 'grid' | 'list';
+  /** id no documento (se já está nele) */
+  id?: string;
 }
 
 /** Estado da tabela do cursor/seleção (barras, diálogos). */
@@ -7493,8 +7504,11 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Folha de estilos que o motor lê (a do documento ou a do documento novo). */
   private formattingForTables(): DocFormatting {
-    if (this.fullDoc) return (this.fullDoc.formatting ??= emptyFormatting());
-    return (this.newFormatting ??= emptyFormatting());
+    const f = this.fullDoc ? (this.fullDoc.formatting ??= emptyFormatting()) : (this.newFormatting ??= emptyFormatting());
+    // sem theme1.xml o Word usa o tema padrão do Office: as cores de tema dos
+    // estilos de tabela (themeFill accent1…) resolvem por ele
+    if (!Object.keys(f.theme.colors).length) f.theme.colors = this.documentThemeColors();
+    return f;
   }
 
   /** id do estilo de tabela interno (pelo nome inglês) neste documento; acrescenta a definição se faltar. */
@@ -7994,6 +8008,173 @@ export class UniversalWriteElement extends HTMLElement {
     this.syncTableRPr(t);
     this.afterTableEdit(at, [], { select: TOps.wholeRect(t) });
     return true;
+  }
+
+  // ───────────── tabelas: Design da Tabela ─────────────
+
+  /** Estilos internos carregados (sob demanda). */
+  private builtinTableStyles: BuiltinTableStyle[] = [];
+
+  /**
+   * Estilos para a galeria Estilos de Tabela, na ordem do Word: os do
+   * documento que não são internos (Personalizado) e os internos — os modernos
+   * (Tabelas Simples, de Grade, de Lista) ou, em documento em modo de
+   * compatibilidade, os do Word 2010.
+   */
+  async tableStyleList(): Promise<TableStyleInfo[]> {
+    this.builtinTableStyles = await loadBuiltinTableStyles();
+    const f = this.formattingForTables();
+    const builtinNames = new Set(this.builtinTableStyles.map((b) => b.name.toLowerCase()));
+    const out: TableStyleInfo[] = [];
+    for (const s of Object.values(f.styles.styles)) {
+      if (s.type !== 'table' || !s.name || builtinNames.has(s.name.toLowerCase())) continue;
+      out.push({ name: s.name, label: { en: s.name, pt: s.name }, group: 'custom', id: s.styleId });
+    }
+    const modern = (f.settings?.compatibilityMode ?? 15) >= 15;
+    const en = (n: string): string => n.replace(/ Accent (\d)$/, ' - Accent $1');
+    for (const b of this.builtinTableStyles) {
+      if (b.name === 'Normal Table' || b.modern !== modern) continue;
+      const group = /^Grid Table \d/.test(b.name) ? 'grid' : /^List Table/.test(b.name) ? 'list' : 'plain';
+      out.push({ name: b.name, label: { en: en(b.name), pt: b.local }, group, id: styleIdByName(f, b.name) });
+    }
+    const rank = (i: TableStyleInfo): number => {
+      if (i.group !== 'plain') return 0;
+      return i.name === 'Table Grid' ? 0 : i.name === 'Grid Table Light' ? 1 : 2;
+    };
+    return out.sort((a, b) => (a.group === b.group && a.group === 'plain' ? rank(a) - rank(b) || a.name.localeCompare(b.name) : 0));
+  }
+
+  /** Aplica o estilo de tabela (nome inglês do w:name; null = Limpar). Como o
+   *  Word, apaga o sombreamento direto das células; a formatação do texto fica. */
+  async setTableStyle(name: string | null): Promise<void> {
+    if (name && !this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
+    this.editTable((tg) => {
+      const id = name ? ensureTableStyle(this.formattingForTables(), name, this.pendingTableStyles, this.builtinTableStyles) : undefined;
+      if (name && !id) return false;
+      TOps.setTableProps(tg.table, { tblStyle: id });
+      for (const row of tg.table.rows) {
+        if (row.trPr) delete row.trPr.cnfStyle;
+        for (const c of row.cells) if (c.tcPr) { delete c.tcPr.shd; delete c.tcPr.cnfStyle; TOps.syncLegacyCell(c); }
+      }
+      return { select: this.tableSel ? { ...tg.rect } : undefined, caret: this.tableSel ? undefined : { r: tg.rect.r1, c: tg.rect.c1 } } as TableAfter;
+    });
+  }
+
+  /** Opções de Estilo de Tabela (as caixas do Design da Tabela). */
+  setTableStyleOptions(o: { headerRow?: boolean; totalRow?: boolean; bandedRows?: boolean; firstColumn?: boolean; lastColumn?: boolean; bandedColumns?: boolean }): void {
+    this.editTable((tg) => {
+      const patch: Partial<TblLook> = {};
+      if (o.headerRow !== undefined) patch.firstRow = o.headerRow;
+      if (o.totalRow !== undefined) patch.lastRow = o.totalRow;
+      if (o.firstColumn !== undefined) patch.firstColumn = o.firstColumn;
+      if (o.lastColumn !== undefined) patch.lastColumn = o.lastColumn;
+      if (o.bandedRows !== undefined) patch.noHBand = !o.bandedRows;
+      if (o.bandedColumns !== undefined) patch.noVBand = !o.bandedColumns;
+      TOps.setLook(tg.table, patch);
+      for (const row of tg.table.rows) {
+        if (row.trPr) delete row.trPr.cnfStyle;
+        for (const c of row.cells) if (c.tcPr) delete c.tcPr.cnfStyle;
+      }
+      return this.keepTableSel(tg);
+    });
+  }
+
+  /** Cores do tema do documento (chaves do theme1.xml; sem tema, o do Office 2023) — paletas da interface. */
+  documentThemeColors(): Record<string, string> {
+    const c = (this.fullDoc?.formatting ?? this.newFormatting)?.theme?.colors ?? {};
+    return Object.keys(c).length ? { ...c } : {
+      dk1: '000000', lt1: 'FFFFFF', dk2: '0E2841', lt2: 'E8E8E8', accent1: '156082', accent2: 'E97132',
+      accent3: '196B24', accent4: '0F9ED5', accent5: 'A02B93', accent6: '4EA72E', hlink: '467886', folHlink: '96607D',
+    };
+  }
+
+  /** Mantém a seleção (de células ou o cursor) depois de uma operação que não muda a estrutura. */
+  private keepTableSel(tg: { rect: TableRect }): TableAfter {
+    return this.tableSel ? { select: { ...tg.rect } } : { caret: { r: tg.rect.r1, c: tg.rect.c1 } };
+  }
+
+  /**
+   * Sombreamento das células: "RRGGBB", uma cor do tema
+   * ({ themeColor: 'accent1', tint?: '33', shade?: 'BF' } — grava themeFill como
+   * o Word) ou null (Sem Cor). Tabela inteira selecionada: também o tblPr.
+   */
+  setCellShading(color: string | { themeColor: string; tint?: string; shade?: string } | null): void {
+    this.editTable((tg) => {
+      let shd: ShadingSpec | null = null;
+      if (typeof color === 'string') shd = { val: 'clear', color: 'auto', fill: color.replace(/^#/, '').toUpperCase() };
+      else if (color) {
+        const f = this.formattingForTables();
+        shd = {
+          val: 'clear', color: 'auto', fill: themeHex(f.theme?.colors ?? {}, color.themeColor, color.tint, color.shade), themeFill: color.themeColor,
+          ...(color.tint ? { themeFillTint: color.tint } : {}), ...(color.shade ? { themeFillShade: color.shade } : {}),
+        };
+      }
+      const whole = this.isWholeTable(tg);
+      TOps.setShading(tg.table, tg.rect, shd, whole);
+      return this.keepTableSel(tg);
+    });
+  }
+
+  /** A seleção cobre a tabela inteira? */
+  private isWholeTable(tg: { table: TableBlock; rect: TableRect }): boolean {
+    const w = TOps.wholeRect(tg.table);
+    return !!this.tableSel && tg.rect.r1 === 0 && tg.rect.c1 === 0 && tg.rect.r2 >= w.r2 && tg.rect.c2 >= w.c2;
+  }
+
+  /** Caneta das bordas (Estilo, Espessura e Cor da Caneta): o padrão do Word é simples, ½ pt, automática. */
+  private borderPen: BorderSpec = { val: 'single', sz: 4, space: 0, color: 'auto' };
+  getBorderPen(): BorderSpec { return { ...this.borderPen }; }
+  setBorderPen(p: Partial<BorderSpec>): void {
+    this.borderPen = { ...this.borderPen, ...p };
+    this.dispatchEvent(new CustomEvent('uw-borderpen', { detail: this.getBorderPen() }));
+  }
+
+  /**
+   * Bordas (o menu Bordas): aplica a caneta (ou `spec`) aos lados pedidos da
+   * seleção. Tabela inteira → w:tblBorders como diferença do estilo; células
+   * → w:tcBorders nas duas células de cada aresta (medido).
+   */
+  setCellBorders(kind: BorderKind, spec?: BorderSpec | null): void {
+    this.editTable((tg) => {
+      const pen = spec === undefined ? this.borderPen : spec;
+      const whole = this.isWholeTable(tg);
+      const style = tg.table.tblPr?.tblStyle ? this.formattingForTables().styles.styles[tg.table.tblPr.tblStyle] : undefined;
+      TOps.setBorders(tg.table, tg.rect, kind, kind === 'none' ? null : pen, { wholeTable: whole, styleBorders: style?.tblPr?.tblBorders });
+      return this.keepTableSel(tg);
+    });
+  }
+
+  /**
+   * Miniatura de um estilo de tabela (galeria): tabela 5 × 5 com as opções de
+   * estilo atuais, diagramada e pintada pelo próprio motor no canvas dado.
+   */
+  async renderTableStyleThumb(canvas: HTMLCanvasElement, name: string, look?: TblLook): Promise<void> {
+    if (!this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
+    const f0 = this.formattingForTables();
+    const f: DocFormatting = { ...f0, styles: { ...f0.styles, styles: { ...f0.styles.styles } } };
+    const id = ensureTableStyle(f, name, new Map(), this.builtinTableStyles);
+    const W = 1440 * 1.2, rowH = 150;
+    const t = TOps.newTable(5, 5, { availTwips: W + 10, styleId: id ?? null });
+    if (look) t.tblPr!.tblLook = { ...look };
+    for (const row of t.rows) row.trPr = { trHeight: { val: rowH, hRule: 'exact' } };
+    const sectPr = { pageWidthTwips: W + 240, pageHeightTwips: rowH * 5 + 240, marginLeftTwips: 120, marginRightTwips: 120, marginTopTwips: 120, marginBottomTwips: 120 } as SectPr;
+    const full = {
+      blocks: [t, { type: 'paragraph', paragraph: { runs: [], props: {} } }],
+      sections: [{ sectPr, blockStart: 0, blockEnd: 1, headers: {}, footers: {}, headerRefs: [], footerRefs: [] }],
+      footnotes: new Map(), endnotes: new Map(), comments: [], styles: new Map(), bookmarks: new Map(), formatting: f,
+    } as unknown as FullDocument;
+    const res = layoutDocument(full, this.liveFontProvider(), ENGINE_LAYOUT_OPTS);
+    const page = res.pages[0];
+    const ctx = canvas.getContext('2d');
+    if (!page || !ctx) return;
+    const scale = Math.min(canvas.width / (W + 240), canvas.height / (rowH * 5 + 240));
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(scale, 0, 0, scale, -120 * scale + (canvas.width - W * scale) / 2, -120 * scale + (canvas.height - rowH * 5 * scale) / 2);
+    paintItems(ctx, page.items, this.enginePaintEnv());
+    // traços de "texto" como nas miniaturas do Word (cor do texto de cada célula)
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   // ───────────── tabelas: mouse e teclado ─────────────

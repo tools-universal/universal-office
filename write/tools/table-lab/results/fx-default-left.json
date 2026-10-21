@@ -1,0 +1,26 @@
+{
+    "name":  "fx-default-left",
+    "selBefore":  {
+                      "start":  4,
+                      "end":  4,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  1,
+                      "col":  3,
+                      "cells":  1,
+                      "text":  "\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  20,
+                     "end":  20,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  3,
+                     "cells":  1,
+                     "text":  "\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

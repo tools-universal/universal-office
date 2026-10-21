@@ -1,0 +1,26 @@
+{
+    "name":  "fx-round-neg",
+    "selBefore":  {
+                      "start":  7,
+                      "end":  7,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  2,
+                      "col":  1,
+                      "cells":  1,
+                      "text":  "\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  26,
+                     "end":  26,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  2,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

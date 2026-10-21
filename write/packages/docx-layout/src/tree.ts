@@ -55,7 +55,9 @@ export interface LineItem {
   /** espessura em pontos */
   widthPt: number;
   /** solid | dotted | dashed | dashDot | double (desenhado como 2 linhas pelo motor) */
-  dash?: 'dotted' | 'dashed' | 'dashDot' | 'dashDotDot';
+  dash?: 'dotted' | 'dashed' | 'dashDot' | 'dashDotDot'
+    /** tracejados de BORDA (múltiplos de w, medidos): [w w], [3w w], [3w w w w], [3w w w w w w], [25w/6 5w/6] */
+    | 'bdrDot' | 'bdrDash' | 'bdrDashDot' | 'bdrDashDotDot' | 'bdrDashSmall';
 }
 
 export interface ImageItem {
@@ -189,3 +191,9 @@ export interface LayoutResult {
   /** avisos (recursos não suportados encontrados) */
   warnings: string[];
 }
+
+/** Tracejados de borda (Word: múltiplos da espessura). */
+export const BORDER_DASHES: Record<string, (w: number) => number[]> = {
+  bdrDot: (w) => [w, w], bdrDash: (w) => [3 * w, w], bdrDashDot: (w) => [3 * w, w, w, w],
+  bdrDashDotDot: (w) => [3 * w, w, w, w, w, w], bdrDashSmall: (w) => [(25 * w) / 6, (5 * w) / 6],
+};

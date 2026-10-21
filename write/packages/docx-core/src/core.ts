@@ -99,4 +99,4 @@ export { isWordBinary, convertDocToDocx, DocFormatError } from './doc/index.js';
 export * as tableOps from './table-ops.js';
 export type { CellRect, GridCell, TableMap, NewTableOptions, BorderKind, TextSeparator, MergeOptions, SplitOptions } from './table-ops.js';
 export { tblPrXml, trPrXml, tcPrXml as tcPrTypedXml, patchTblPr, patchTrPr, patchTcPr, deepEq } from './table-xml.js';
-export { CORE_TABLE_STYLES, ensureTableStyle, addStylesXml, localStyleId, styleDefOf, styleIdByName } from './table-styles.js';
+export { CORE_TABLE_STYLES, ensureTableStyle, addStylesXml, localStyleId, styleDefOf, styleIdByName, loadBuiltinTableStyles, materializeStyleXml, themeHex, type BuiltinTableStyle } from './table-styles.js';

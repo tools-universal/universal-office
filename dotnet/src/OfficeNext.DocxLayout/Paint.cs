@@ -323,10 +323,67 @@ public static class Paint
         if (b is null || b.Val is "none" or "nil") return 0;
         // a espessura vai para twips INTEIROS, truncada: w:sz 1 → 2 tw, 3 → 7 tw (oráculo bdrthin)
         double tw = Math.Floor(Math.Max(1, b.Sz ?? 4) * 2.5 + 1e-9);
-        if (b.Val == "double") return tw * 3;
-        if (b.Val is "thinThickSmallGap" or "thickThinSmallGap") return tw + 40;
-        return tw;
+        switch (b.Val)
+        {
+            case "double": return tw * 3;
+            case "thinThickSmallGap": case "thickThinSmallGap": return tw + 40;
+            // as outras compostas: a soma das faixas que o Word desenha (sonda de bordas do table-lab)
+            case "triple": return tw * 5;
+            case "thinThickThinSmallGap": return tw + 58;
+            case "thinThickMediumGap": case "thickThinMediumGap": return tw * 2;
+            case "thinThickThinMediumGap": return tw * 3;
+            case "thinThickLargeGap": case "thickThinLargeGap": return tw + 43;
+            case "thinThickThinLargeGap": return tw * 2 + 58;
+            case "threeDEmboss": case "threeDEngrave": return tw + 2 * Math.Max(14, Math.Floor(tw / 2));
+            default: return tw;
+        }
     }
+
+    /// <summary>Faixa de uma borda composta: espessura (twips) e cor (nulo = vão; "ink"/"light"/"mid").</summary>
+    private readonly record struct Band(double T, string? C);
+
+    /// <summary>Faixas de uma borda, de FORA para dentro, como o Word as desenha (porta de paint.ts).</summary>
+    private static Band[] BorderBands(string val, double w)
+    {
+        static double Q(double x) => Math.Max(2.4, Math.Floor(x / 2.4 + 1e-9) * 2.4);
+        double thin = 14.4, half = Q(w / 2), thick = 28.8;
+        static Band Gap(double t) => new(t, null);
+        static Band Ink(double t) => new(t, "ink");
+        switch (val)
+        {
+            case "double": return new[] { Ink(w), Gap(w), Ink(w) };
+            case "triple": return new[] { Ink(w), Gap(w), Ink(w), Gap(w), Ink(w) };
+            case "thinThickSmallGap": return new[] { Ink(w), Gap(thin), Ink(thin) };
+            case "thickThinSmallGap": return new[] { Ink(thin), Gap(thin), Ink(w) };
+            case "thinThickThinSmallGap": return new[] { Ink(thin), Gap(thin), Ink(w), Gap(thin), Ink(thin) };
+            case "thinThickMediumGap": return new[] { Ink(w), Gap(half), Ink(half) };
+            case "thickThinMediumGap": return new[] { Ink(half), Gap(half), Ink(w) };
+            case "thinThickThinMediumGap": return new[] { Ink(half), Gap(half), Ink(w), Gap(half), Ink(half) };
+            case "thinThickLargeGap": return new[] { Ink(thick), Gap(w), Ink(thin) };
+            case "thickThinLargeGap": return new[] { Ink(thin), Gap(w), Ink(thick) };
+            case "thinThickThinLargeGap": return new[] { Ink(thin), Gap(w), Ink(thick), Gap(w), Ink(thin) };
+            case "threeDEmboss": { double t = Math.Max(thin, half); return new[] { new Band(t, "light"), new Band(w, "mid"), new Band(t, "ink") }; }
+            case "threeDEngrave": { double t = Math.Max(thin, half); return new[] { new Band(t, "ink"), new Band(w, "mid"), new Band(t, "light") }; }
+            default: return new[] { Ink(w) };
+        }
+    }
+
+    /// <summary>Mistura com o branco (relevo 3D: preto → C0C0C0 / 606060).</summary>
+    private static string ToWhite(string hex, double f)
+    {
+        int n = Convert.ToInt32(hex, 16);
+        int[] ch = { (n >> 16) & 255, (n >> 8) & 255, n & 255 };
+        var sb = new System.Text.StringBuilder();
+        foreach (int v in ch) sb.Append(((int)Math.Round(v + (255 - v) * f, MidpointRounding.AwayFromZero)).ToString("X2"));
+        return sb.ToString();
+    }
+
+    /// <summary>Tracejados de borda (múltiplos de w — medido).</summary>
+    private static string? BorderDash(string val) => val switch
+    {
+        "dotted" => "bdrDot", "dashed" => "bdrDash", "dotDash" => "bdrDashDot", "dotDotDash" => "bdrDashDotDot",
+        "dashSmallGap" => "bdrDashSmall", "dashDotStroked" => "bdrDashDot", _ => null,
+    };
 
     /// <summary>
     /// Espessura (twips) com que o Word GRAVA uma borda no PDF (oráculo bdrw): w:sz
@@ -342,25 +399,63 @@ public static class Paint
     /// pixels e some; o retângulo fino o leitor de PDF alinha ao pixel. Pontilhadas/
     /// tracejadas seguem como traço (o Word também as grava assim).
     /// </summary>
-    public static void PaintBorder(DocContext ctx, List<PageItem> outp, BorderSpec? b, double x1, double y1, double x2, double y2)
+    public static void PaintBorder(DocContext ctx, List<PageItem> outp, BorderSpec? b, double x1, double y1, double x2, double y2, string? outer = null)
     {
         if (b is null || b.Val is "none" or "nil") return;
         string color = Resolve.ResolveColor(b.Color, b.ThemeColor, b.ThemeTint, b.ThemeShade, ctx.Fmt.Theme) ?? "000000";
         double w = BorderPaintWidth(b);
-        string? dash = b.Val == "dotted" ? "dotted" : b.Val is "dashed" or "dashSmallGap" ? "dashed"
-            : b.Val == "dotDash" ? "dashDot" : b.Val == "dotDotDash" ? "dashDotDot" : null;
+        string? dash = BorderDash(b.Val);
         if (dash is not null) { outp.Add(new LineItem { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Color = color, WidthPt = w / 20, Dash = dash }); return; }
         // diagonal (tl2br/tr2bl da célula): traço
         if (x1 != x2 && y1 != y2) { outp.Add(new LineItem { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Color = color, WidthPt = w / 20 }); return; }
         bool horizontal = Math.Abs(y2 - y1) < Math.Abs(x2 - x1);
-        // faixas [de, até] relativas ao centro: double = traço, vão, traço de w cada
-        var bands = b.Val == "double" ? new[] { (-1.5 * w, -0.5 * w), (0.5 * w, 1.5 * w) } : new[] { (-0.5 * w, 0.5 * w) };
-        foreach (var (a, z) in bands)
+        if (b.Val is "wave" or "doubleWave") { PaintWave(outp, b.Val == "doubleWave", color, w, horizontal, x1, y1, x2, y2); return; }
+        var bands = BorderBands(b.Val, w);
+        double total = 0;
+        foreach (var bd in bands) total += bd.T;
+        // de fora para dentro: de cima (ou da esquerda) quando o lado de fora é top/left
+        bool flip = outer is "bottom" or "right";
+        double pos = -total / 2;
+        var order = flip ? bands.Reverse().ToArray() : bands;
+        foreach (var band in order)
         {
-            if (horizontal) outp.Add(new RectItem { X = Math.Min(x1, x2), Y = y1 + a, W = Math.Abs(x2 - x1), H = z - a, Fill = color });
-            else outp.Add(new RectItem { X = x1 + a, Y = Math.Min(y1, y2), W = z - a, H = Math.Abs(y2 - y1), Fill = color });
+            if (band.C is not null)
+            {
+                string fill = band.C == "light" ? ToWhite(color, 192.0 / 255) : band.C == "mid" ? ToWhite(color, 96.0 / 255) : color;
+                if (horizontal) outp.Add(new RectItem { X = Math.Min(x1, x2), Y = y1 + pos, W = Math.Abs(x2 - x1), H = band.T, Fill = fill });
+                else outp.Add(new RectItem { X = x1 + pos, Y = Math.Min(y1, y2), W = band.T, H = Math.Abs(y2 - y1), Fill = fill });
+            }
+            pos += band.T;
         }
     }
+
+    /// <summary>Ondulada: zigue-zague de altura 3 pt e período 6 pt, escalado com a espessura (porta de paint.ts).</summary>
+    private static void PaintWave(List<PageItem> outp, bool dbl, string color, double w, bool horizontal, double x1, double y1, double x2, double y2)
+    {
+        double h = Math.Max(60, w * 3), period = h * 2, lw = Math.Max(0.5, w / 20 / 1.5);
+        double len = horizontal ? Math.Abs(x2 - x1) : Math.Abs(y2 - y1);
+        double[] waves = dbl ? new[] { -h / 4, h / 4 } : new[] { 0.0 };
+        foreach (double off in waves)
+        {
+            var cmds = new List<PathCmdTw>();
+            for (double s = 0; s <= len + 0.01; s += period / 2)
+            {
+                double d = ((long)Math.Round(s / (period / 2), MidpointRounding.AwayFromZero) % 2 != 0 ? 1 : -1) * (h / (dbl ? 4 : 2));
+                double a = Math.Min(s, len);
+                double px = horizontal ? Math.Min(x1, x2) + a : x1 + off + d;
+                double py = horizontal ? y1 + off + d : Math.Min(y1, y2) + a;
+                cmds.Add(cmds.Count == 0 ? PathCmdTw.M(px, py) : PathCmdTw.L(px, py));
+            }
+            outp.Add(new PathItem { Cmds = cmds, Stroke = new StrokeSpec { Color = color, WidthPt = lw } });
+        }
+    }
+
+    /// <summary>Tracejados de borda (Word: múltiplos da espessura) — porta de tree.ts BORDER_DASHES.</summary>
+    public static double[]? BorderDashes(string? dash, double w) => dash switch
+    {
+        "bdrDot" => new[] { w, w }, "bdrDash" => new[] { 3 * w, w }, "bdrDashDot" => new[] { 3 * w, w, w, w },
+        "bdrDashDotDot" => new[] { 3 * w, w, w, w, w, w }, "bdrDashSmall" => new[] { 25 * w / 6, 5 * w / 6 }, _ => null,
+    };
 
     /// <summary>Caixa de bordas/sombreamento de um bloco de parágrafos com bordas iguais.</summary>
     public static void PaintParaBox(

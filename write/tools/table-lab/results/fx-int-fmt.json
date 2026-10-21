@@ -1,0 +1,26 @@
+{
+    "name":  "fx-int-fmt",
+    "selBefore":  {
+                      "start":  11,
+                      "end":  11,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  2,
+                      "col":  1,
+                      "cells":  1,
+                      "text":  "\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  30,
+                     "end":  30,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  2,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

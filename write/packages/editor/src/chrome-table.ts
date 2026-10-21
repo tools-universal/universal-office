@@ -2,7 +2,7 @@
 // Inserir > Tabela, a guia contextual "Layout da Tabela", Formatar > Tabela e
 // o menu de contexto dentro de uma tabela. Só DECLARA sobre a API pública do
 // <universal-write>; comando cuja API não existe fica oculto (supports).
-import { symbol, type BarContext, type BarItem, type BarGroup, type Command, type CommandRegistry, type MenuEntry, type MenuItem, type RibbonCell } from '@universal-office/ui';
+import { symbol, colorGrid, themePaletteColors, parseThemePick, STANDARD_COLORS, type BarContext, type BarItem, type BarGroup, type Command, type CommandRegistry, type MenuEntry, type MenuItem, type RibbonCell } from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
 import type { ChromeCtl } from './chrome-commands.js';
@@ -81,8 +81,205 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
     // ── Dados ──
     t({ id: 'table:headerRows', label: L('Repeat Header Rows', 'Repetir Linhas de Cabeçalho'), icon: 'view_headline', supports: has('toggleRepeatHeaderRows'), run: () => ed.toggleRepeatHeaderRows(), isChecked: () => !!tbl()?.headerRow }),
     t({ id: 'table:toText', label: L('Convert to Text', 'Converter em Texto'), icon: 'text_snippet', supports: has('convertTableToText'), run: () => ctl.tableDialog('toText') }),
+    // ── Design da Tabela: Opções de Estilo ──
+    ...LOOK.map(([id, key, en, pt]) => t({
+      id: `table:look:${id}`, label: L(en, pt), icon: 'check_box_outline_blank', supports: has('setTableStyleOptions'),
+      run: () => ed.setTableStyleOptions({ [key]: !lookOn(tbl()?.look, key) }),
+      isChecked: () => lookOn(tbl()?.look, key),
+    })),
+    // ── Estilos de Tabela ──
+    t({ id: 'table:style:clear', label: L('Clear', 'Limpar'), icon: 'format_clear', supports: has('setTableStyle'), run: () => { void ed.setTableStyle(null); } }),
+    t({ id: 'table:shading', label: L('Shading', 'Sombreamento'), icon: 'format_color_fill', supports: has('setCellShading'),
+      run: () => ed.setCellShading(app.lastTableShading), color: () => app.lastTableShadingCss }),
+    // ── Bordas ──
+    ...BORDERS.map(([kind, en, pt, icon]) => t({
+      id: `table:border:${kind}`, label: L(en, pt), icon, supports: has('setCellBorders'),
+      run: () => { app.lastTableBorder = kind; ed.setCellBorders(kind); },
+    })),
+    t({ id: 'table:borders', label: L('Borders', 'Bordas'), icon: 'border_all', supports: has('setCellBorders'),
+      run: () => ed.setCellBorders(app.lastTableBorder) }),
   ];
   reg.add(...cmds);
+}
+
+type LookKey = 'headerRow' | 'totalRow' | 'bandedRows' | 'firstColumn' | 'lastColumn' | 'bandedColumns';
+const LOOK: [string, LookKey, string, string][] = [
+  ['header', 'headerRow', 'Header Row', 'Linha de Cabeçalho'], ['first', 'firstColumn', 'First Column', 'Primeira Coluna'],
+  ['total', 'totalRow', 'Total Row', 'Linha de Total'], ['last', 'lastColumn', 'Last Column', 'Última Coluna'],
+  ['bandedRows', 'bandedRows', 'Banded Rows', 'Linhas em Tiras'], ['bandedCols', 'bandedColumns', 'Banded Columns', 'Colunas em Tiras'],
+];
+const lookOn = (look: import('@universal-office/docx-core').TblLook | undefined, k: LookKey): boolean => {
+  if (!look) return false;
+  switch (k) {
+    case 'headerRow': return !!look.firstRow;
+    case 'totalRow': return !!look.lastRow;
+    case 'firstColumn': return !!look.firstColumn;
+    case 'lastColumn': return !!look.lastColumn;
+    case 'bandedRows': return !look.noHBand;
+    case 'bandedColumns': return !look.noVBand;
+  }
+};
+
+type BorderKind = import('@universal-office/docx-core').BorderKind;
+const BORDERS: [BorderKind, string, string, string][] = [
+  ['bottom', 'Bottom Border', 'Borda Inferior', 'border_bottom'], ['top', 'Top Border', 'Borda Superior', 'border_top'],
+  ['left', 'Left Border', 'Borda Esquerda', 'border_left'], ['right', 'Right Border', 'Borda Direita', 'border_right'],
+  ['none', 'No Border', 'Sem Borda', 'border_clear'], ['all', 'All Borders', 'Todas as Bordas', 'border_all'],
+  ['outside', 'Outside Borders', 'Bordas Externas', 'border_outer'], ['inside', 'Inside Borders', 'Bordas Internas', 'border_inner'],
+  ['insideH', 'Inside Horizontal Border', 'Borda Horizontal Interna', 'border_horizontal'], ['insideV', 'Inside Vertical Border', 'Borda Vertical Interna', 'border_vertical'],
+  ['tl2br', 'Diagonal Down Border', 'Borda Diagonal Inferior', 'south_east'], ['tr2bl', 'Diagonal Up Border', 'Borda Diagonal Superior', 'rotate_90_degrees_ccw'],
+];
+
+/** Galeria de estilos de tabela (provisória: grade num menu — a galeria do framework de barras a substitui). */
+export const tableStylesMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
+  content: (close) => {
+    const box = document.createElement('div');
+    box.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:min(520px,70vh);overflow:auto;padding:2px';
+    const look = env.ctl.state().table?.look;
+    const cur = env.ctl.state().table?.style;
+    const dpr = window.devicePixelRatio || 1;
+    const queue: (() => Promise<void>)[] = [];
+    const titles: Record<string, { en: string; pt: string }> = {
+      custom: L('Custom', 'Personalizado'), plain: L('Plain Tables', 'Tabelas Simples'),
+      grid: L('Grid Tables', 'Tabelas de Grade'), list: L('List Tables', 'Tabelas de Lista'),
+    };
+    void env.ed.tableStyleList().then((list) => {
+      let grid: HTMLElement | null = null;
+      let group = '';
+      for (const s of list) {
+        if (s.group !== group) {
+          group = s.group;
+          const h = document.createElement('div');
+          h.textContent = ctx.registry.text(titles[group]!);
+          h.style.cssText = 'font-size:12px;font-weight:600;opacity:.8;margin:4px 2px 0';
+          grid = document.createElement('div');
+          grid.style.cssText = 'display:grid;grid-template-columns:repeat(7,60px);gap:3px';
+          box.append(h, grid);
+        }
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.title = ctx.registry.text(s.label);
+        b.style.cssText = `width:60px;height:44px;padding:1px;border-radius:4px;border:2px solid ${s.id && s.id === cur ? 'var(--u-color-primary,#3a72c4)' : 'transparent'};background:transparent;cursor:pointer`;
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(54 * dpr); cv.height = Math.round(38 * dpr);
+        cv.style.cssText = 'width:54px;height:38px;display:block';
+        b.append(cv);
+        b.addEventListener('mousedown', (e) => e.preventDefault());
+        b.addEventListener('click', () => { close(); void env.ed.setTableStyle(s.name).then(() => ctx.after()); });
+        grid!.append(b);
+        queue.push(() => env.ed.renderTableStyleThumb(cv, s.name, look));
+      }
+      // miniaturas em lotes (cada uma é um layout do motor)
+      const step = (): void => {
+        const batch = queue.splice(0, 12);
+        if (!batch.length || !box.isConnected) return;
+        void Promise.all(batch.map((f) => f())).then(() => requestAnimationFrame(step));
+      };
+      requestAnimationFrame(step);
+      const clear = document.createElement('button');
+      clear.type = 'button';
+      clear.className = 'uo-mi';
+      clear.innerHTML = symbol('format_clear');
+      clear.append(ctx.registry.text(L('Clear', 'Limpar')));
+      clear.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit';
+      clear.addEventListener('mousedown', (e) => e.preventDefault());
+      clear.addEventListener('click', () => { close(); void env.ed.setTableStyle(null).then(() => ctx.after()); });
+      box.append(clear);
+    });
+    return box;
+  },
+}];
+
+/** Sombreamento: cores do tema (com a referência), padrão e Sem Cor. */
+export const tableShadingMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
+  content: (close) => {
+    const colors = env.ed.documentThemeColors();
+    const box = document.createElement('div');
+    const theme = colorGrid({
+      colors: themePaletteColors(colors), columns: 10, close,
+      onPick: (v) => {
+        const p = parseThemePick(v, colors);
+        if (!p) return;
+        env.app.lastTableShading = { themeColor: p.themeColor, tint: p.tint, shade: p.shade };
+        env.app.lastTableShadingCss = `#${p.hex}`;
+        env.ed.setCellShading(env.app.lastTableShading);
+        ctx.after();
+      },
+    });
+    const std = colorGrid({
+      colors: STANDARD_COLORS.map((h) => ({ value: h, css: `#${h}` })), columns: 10, close,
+      onPick: (h) => { env.app.lastTableShading = h; env.app.lastTableShadingCss = `#${h}`; env.ed.setCellShading(h); ctx.after(); },
+    });
+    const cap = (en: string, pt: string): HTMLElement => {
+      const d = document.createElement('div');
+      d.textContent = ctx.registry.text(L(en, pt));
+      d.style.cssText = 'font-size:12px;opacity:.8;margin:6px 0 4px';
+      return d;
+    };
+    box.append(cap('Theme Colors', 'Cores do Tema'), theme, cap('Standard Colors', 'Cores Padrão'), std);
+    return box;
+  },
+}, '-', { id: 'table:shading:none', label: L('No Color', 'Sem Cor'), icon: 'format_color_reset', onClick: () => { env.ed.setCellShading(null); ctx.after(); } }];
+
+/** Menu Bordas. */
+const bordersMenu = (): MenuEntry[] => BORDERS.map(([k]) => `table:border:${k}`);
+
+/** Caneta: estilo, espessura e cor (aplicada pelo menu Bordas). */
+const PEN_STYLES: [string, string, string][] = [
+  ['single', 'Single', 'Simples'], ['dotted', 'Dotted', 'Pontilhada'], ['dashSmallGap', 'Dashed (small gap)', 'Tracejada (intervalo curto)'],
+  ['dashed', 'Dashed', 'Tracejada'], ['dotDash', 'Dash dot', 'Traço e ponto'], ['dotDotDash', 'Dash dot dot', 'Traço e dois pontos'],
+  ['double', 'Double', 'Dupla'], ['triple', 'Triple', 'Tripla'], ['thinThickSmallGap', 'Thin-thick', 'Fina-grossa'],
+  ['thickThinSmallGap', 'Thick-thin', 'Grossa-fina'], ['thinThickThinSmallGap', 'Thin-thick-thin', 'Fina-grossa-fina'],
+  ['wave', 'Wave', 'Ondulada'], ['doubleWave', 'Double wave', 'Ondulada dupla'], ['dashDotStroked', 'Dash dot stroked', 'Traço e ponto inclinado'],
+  ['threeDEmboss', '3-D emboss', 'Relevo 3D'], ['threeDEngrave', '3-D engrave', 'Baixo relevo 3D'], ['outset', 'Outset', 'Alto relevo'], ['inset', 'Inset', 'Baixo relevo'],
+];
+const PEN_WIDTHS: [number, string][] = [[2, '¼'], [4, '½'], [6, '¾'], [8, '1'], [12, '1½'], [18, '2¼'], [24, '3'], [36, '4½'], [48, '6']];
+
+export const penStyleMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => PEN_STYLES.map(([v, en, pt]): MenuItem => ({
+  id: `pen:${v}`, label: L(en, pt), checked: env.ed.getBorderPen().val === v,
+  onClick: () => { env.ed.setBorderPen({ val: v }); ctx.after(); },
+}));
+export const penWidthMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => PEN_WIDTHS.map(([sz, t]): MenuItem => ({
+  id: `penw:${sz}`, label: `${t} pt`, checked: env.ed.getBorderPen().sz === sz,
+  onClick: () => { env.ed.setBorderPen({ sz }); ctx.after(); },
+}));
+export const penColorMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
+  id: 'pen:auto', label: L('Automatic', 'Automático'), icon: 'format_color_text', onClick: () => { env.ed.setBorderPen({ color: 'auto', themeColor: undefined, themeTint: undefined, themeShade: undefined }); ctx.after(); },
+}, '-', {
+  content: (close) => {
+    const colors = env.ed.documentThemeColors();
+    return colorGrid({
+      colors: [...themePaletteColors(colors), ...STANDARD_COLORS.map((h) => ({ value: h, css: `#${h}` }))], columns: 10, close,
+      onPick: (v) => {
+        const p = parseThemePick(v, colors);
+        env.ed.setBorderPen(p ? { color: p.hex, themeColor: p.themeColor, themeTint: p.tint, themeShade: p.shade } : { color: v, themeColor: undefined, themeTint: undefined, themeShade: undefined });
+        ctx.after();
+      },
+    });
+  },
+}];
+
+/** Guia contextual "Design da Tabela" da ribbon. */
+export function tableDesignGroups(env: WidgetEnv, ctx: BarContext): BarGroup[] {
+  const has = (m: string) => (): boolean => typeof (env.ed as unknown as Record<string, unknown>)[m] === 'function';
+  return [
+    { id: 'td-options', label: L('Table Style Options', 'Opções de Estilo de Tabela'), icon: 'check_box', prio: 4, cells: [
+      { rows: [[{ cmd: 'table:look:header', label: true }], [{ cmd: 'table:look:total', label: true }], [{ cmd: 'table:look:bandedRows', label: true }]] },
+      { rows: [[{ cmd: 'table:look:first', label: true }], [{ cmd: 'table:look:last', label: true }], [{ cmd: 'table:look:bandedCols', label: true }]] },
+    ] },
+    { id: 'td-styles', label: L('Table Styles', 'Estilos de Tabela'), icon: 'table_view', prio: 6, cells: [
+      { menu: () => tableStylesMenu(env, ctx), id: 'table:styles', label: L('Table Styles', 'Estilos de Tabela'), icon: 'table_view', size: 'large', supports: has('tableStyleList') },
+      { split: 'table:shading', menu: () => tableShadingMenu(env, ctx), size: 'large' },
+    ] },
+    { id: 'td-borders', label: L('Borders', 'Bordas'), icon: 'border_all', prio: 5, cells: [
+      { rows: [
+        [{ menu: () => penStyleMenu(env, ctx), id: 'pen:style', label: L('Pen Style', 'Estilo da Caneta'), icon: 'line_style', showLabel: true, supports: has('setBorderPen') }],
+        [{ menu: () => penWidthMenu(env, ctx), id: 'pen:width', label: L('Pen Weight', 'Espessura da Caneta'), icon: 'line_weight', showLabel: true, supports: has('setBorderPen') }],
+        [{ menu: () => penColorMenu(env, ctx), id: 'pen:color', label: L('Pen Color', 'Cor da Caneta'), icon: 'border_color', showLabel: true, supports: has('setBorderPen') }],
+      ] },
+      { split: 'table:borders', menu: bordersMenu, size: 'large' },
+    ] },
+  ];
 }
 
 /** Grade "inserir tabela" + os itens do menu Tabela (Inserir). */

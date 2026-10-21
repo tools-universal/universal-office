@@ -1,0 +1,26 @@
+{
+    "name":  "fx-left-gap",
+    "selBefore":  {
+                      "start":  5,
+                      "end":  5,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  1,
+                      "col":  4,
+                      "cells":  1,
+                      "text":  "\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  21,
+                     "end":  21,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  1,
+                     "col":  4,
+                     "cells":  1,
+                     "text":  "\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

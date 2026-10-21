@@ -9,7 +9,7 @@ import {
   marginsMenu, orientationMenu, paragraphSpacingMenu, saveWidget, shadingMenu, sizeMenu, sizeWidget,
   specialIndentMenu, styleWidget, symbolMenu, themeMenu, titleWidget, zoomItem,
 } from './chrome-widgets.js';
-import { tableFormatMenu, tableLayoutGroups, tableMenu } from './chrome-table.js';
+import { tableDesignGroups, tableFormatMenu, tableLayoutGroups, tableMenu } from './chrome-table.js';
 import { ZOOMS } from './chrome-commands.js';
 
 /** Submenus compartilhados pelas duas barras. */
@@ -249,6 +249,9 @@ export function ribbonLayout(env: WidgetEnv, ctx: BarContext): RibbonConfig {
           { id: 'hf-insert', label: L('Insert', 'Inserir'), icon: 'numbers', prio: 5, cells: [large('field:page'), large('field:numpages'), large('field:date')] },
           { id: 'hf-close', label: L('Close', 'Fechar'), icon: 'close', prio: 9, cells: [large('hf:close')] },
         ],
+      },
+      {
+        id: 'table-design', label: L('Table Design', 'Design da Tabela'), contextual: () => env.ed.editingTableCell(), groups: tableDesignGroups(env, ctx),
       },
       {
         id: 'table-layout', label: L('Table Layout', 'Layout da Tabela'), contextual: () => env.ed.editingTableCell(), groups: tableLayoutGroups(env),

@@ -1,0 +1,26 @@
+{
+    "name":  "fx-neg-fmt",
+    "selBefore":  {
+                      "start":  9,
+                      "end":  9,
+                      "type":  1,
+                      "inTable":  true,
+                      "row":  3,
+                      "col":  1,
+                      "cells":  1,
+                      "text":  "\r\u0007"
+                  },
+    "selAfter":  {
+                     "start":  59,
+                     "end":  59,
+                     "type":  1,
+                     "inTable":  true,
+                     "row":  3,
+                     "col":  1,
+                     "cells":  1,
+                     "text":  "\r\u0007"
+                 },
+    "changed":  true,
+    "undoSteps":  1,
+    "undoRestores":  true
+}

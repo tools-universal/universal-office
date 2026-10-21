@@ -1,4 +1,5 @@
 import type { InlineImage } from '@universal-office/docx-core';
+import { BORDER_DASHES } from './tree.js';
 import type { PageItem, GlyphRunItem, ShapeItem } from './tree.js';
 import type { FontFace as EngineFontFace } from './fonts.js';
 
@@ -73,7 +74,8 @@ export function paintItems(
         if (!HEX6.test(it.color)) break;
         const w = it.widthPt;
         const dash = it.dash === 'dotted' ? [w, w * 2] : it.dash === 'dashed' ? [w * 4, w * 3]
-          : it.dash === 'dashDot' ? [w * 4, w * 2, w, w * 2] : it.dash === 'dashDotDot' ? [w * 4, w * 2, w, w * 2, w, w * 2] : [];
+          : it.dash === 'dashDot' ? [w * 4, w * 2, w, w * 2] : it.dash === 'dashDotDot' ? [w * 4, w * 2, w, w * 2, w, w * 2]
+          : it.dash ? BORDER_DASHES[it.dash]!(w) : [];
         let { x1, y1, x2, y2 } = it;
         let lw = w * 20;
         // ajuste de traço (como os rasterizadores de PDF e o Word na tela):

@@ -373,3 +373,21 @@ describe('gravação sem perdas de tabela editada', () => {
     expect(rowsOf(xml)).toEqual(orig);
   });
 });
+
+describe('estilos de tabela internos', () => {
+  it('Grid Table 4 Accent 1 materializado = o que o Word gravou (hex do tema em HSL)', async () => {
+    const { loadBuiltinTableStyles, ensureTableStyle, readStyleSheet } = await import('../src/index.js');
+    const builtins = await loadBuiltinTableStyles();
+    expect(builtins).toHaveLength(247);
+    expect(builtins.filter((b) => b.modern)).toHaveLength(106); // Normal + Tabela com Grade + Grade Clara + Simples 1–5 + Grade/Lista 1–7 × 7
+    const word = readFileSync(join(RESULTS, 'style-apply-grid4.xml'), 'utf8').replace(/\n\s*/g, '');
+    const want = /<w:style w:type="table" w:styleId="TabeladeGrade4-nfase1">[\s\S]*?<\/w:style>/.exec(word)![0].replace(/<w:rsid w:val="[^"]*"\/>/g, '');
+    const f = { styles: readStyleSheet(undefined), theme: { major: { scripts: {} }, minor: { scripts: {} }, colors: {} } } as never;
+    const pending = new Map<string, string>();
+    const id = ensureTableStyle(f, 'Grid Table 4 Accent 1', pending, builtins);
+    expect(id).toBe('TabeladeGrade4-nfase1');
+    expect(pending.get(id!)).toBe(want);
+    // a base vem junto
+    expect([...pending.keys()]).toEqual(['Tabelanormal', 'TabeladeGrade4-nfase1']);
+  });
+});

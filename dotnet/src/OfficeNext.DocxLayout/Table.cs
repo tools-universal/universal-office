@@ -1319,17 +1319,17 @@ public static class TableEngine
                             else if (content is not null) PlaceContent(its, lns, content, vTop ? "top" : VaOf(content, ci.TcPr.VAlign), ch, ci.MarT, ci.MarB, bTop);
                         }
                         BorderSpec? bT = Edge(s, "top"), bB = Edge(s, "bottom"), bL = Edge(s, "left"), bR = Edge(s, "right");
-                        if (drawTop && bT is not null) Paint.PaintBorder(ctx, brd, bT, x + ci.Bx0, cy0 + Paint.BorderWidth(bT) / 2, x + ci.Bx1, cy0 + Paint.BorderWidth(bT) / 2);
-                        if (bBottom > 0 && bB is not null) Paint.PaintBorder(ctx, brd, bB, x + ci.Bx0, cy1 - Paint.BorderWidth(bB) / 2, x + ci.Bx1, cy1 - Paint.BorderWidth(bB) / 2);
-                        if (bL is not null) Paint.PaintBorder(ctx, brd, bL, x + ci.Bx0 + Paint.BorderWidth(bL) / 2, cy0, x + ci.Bx0 + Paint.BorderWidth(bL) / 2, cy1);
-                        if (bR is not null) Paint.PaintBorder(ctx, brd, bR, x + ci.Bx1 - Paint.BorderWidth(bR) / 2, cy0, x + ci.Bx1 - Paint.BorderWidth(bR) / 2, cy1);
+                        if (drawTop && bT is not null) Paint.PaintBorder(ctx, brd, bT, x + ci.Bx0, cy0 + Paint.BorderWidth(bT) / 2, x + ci.Bx1, cy0 + Paint.BorderWidth(bT) / 2, "top");
+                        if (bBottom > 0 && bB is not null) Paint.PaintBorder(ctx, brd, bB, x + ci.Bx0, cy1 - Paint.BorderWidth(bB) / 2, x + ci.Bx1, cy1 - Paint.BorderWidth(bB) / 2, "bottom");
+                        if (bL is not null) Paint.PaintBorder(ctx, brd, bL, x + ci.Bx0 + Paint.BorderWidth(bL) / 2, cy0, x + ci.Bx0 + Paint.BorderWidth(bL) / 2, cy1, "left");
+                        if (bR is not null) Paint.PaintBorder(ctx, brd, bR, x + ci.Bx1 - Paint.BorderWidth(bR) / 2, cy0, x + ci.Bx1 - Paint.BorderWidth(bR) / 2, cy1, "right");
                     }
                     BorderSpec? oL = OuterB(riC, "left"), oR = OuterB(riC, "right"), oT = OuterB(riC, "top"), oB = OuterB(riC, "bottom");
                     double xl = x + g0, xr = x + gn;
-                    Paint.PaintBorder(ctx, brd, oL, xl, 0, xl, rh);
-                    Paint.PaintBorder(ctx, brd, oR, xr, 0, xr, rh);
-                    if (riC == 0 && drawTop) Paint.PaintBorder(ctx, brd, oT, xl - Paint.BorderWidth(oL) / 2, Paint.BorderWidth(oT) / 2, xr + Paint.BorderWidth(oR) / 2, Paint.BorderWidth(oT) / 2);
-                    if (riC == nRows - 1 && bBottom > 0) Paint.PaintBorder(ctx, brd, oB, xl - Paint.BorderWidth(oL) / 2, rh - Paint.BorderWidth(oB) / 2, xr + Paint.BorderWidth(oR) / 2, rh - Paint.BorderWidth(oB) / 2);
+                    Paint.PaintBorder(ctx, brd, oL, xl, 0, xl, rh, "left");
+                    Paint.PaintBorder(ctx, brd, oR, xr, 0, xr, rh, "right");
+                    if (riC == 0 && drawTop) Paint.PaintBorder(ctx, brd, oT, xl - Paint.BorderWidth(oL) / 2, Paint.BorderWidth(oT) / 2, xr + Paint.BorderWidth(oR) / 2, Paint.BorderWidth(oT) / 2, "top");
+                    if (riC == nRows - 1 && bBottom > 0) Paint.PaintBorder(ctx, brd, oB, xl - Paint.BorderWidth(oL) / 2, rh - Paint.BorderWidth(oB) / 2, xr + Paint.BorderWidth(oR) / 2, rh - Paint.BorderWidth(oB) / 2, "bottom");
                     return new RowLayout
                     {
                         Height = rh, Items = its, Lines = lns, BorderItems = brd, BreakBorderItems = brk, CantSplit = trp.CantSplit == true, Header = trp.TblHeader == true,
@@ -1357,32 +1357,35 @@ public static class TableEngine
                     // topo: na faixa de cima (continuação de linha partida: a borda de cima da célula)
                     var top = drawTop ? (s.Merged ? null : TopWinner(s)) : (Edge(s, "top") ?? Edge(s, "bottom"));
                     int nbBrd = brd.Count;
-                    if (top is not null) Paint.PaintBorder(ctx, brd, top, x + ci.X0, Paint.BorderWidth(top) / 2, x + ci.X1, Paint.BorderWidth(top) / 2);
+                    if (top is not null) Paint.PaintBorder(ctx, brd, top, x + ci.X0, Paint.BorderWidth(top) / 2, x + ci.X1, Paint.BorderWidth(top) / 2, "top");
                     if (drawTop && riC > 0)
                     {
                         topBrd.AddRange(brd.Skip(nbBrd));
                         var own = Edge(s, "top");
                         ownBand = Math.Max(ownBand, Paint.BorderWidth(own));
-                        if (own is not null && !s.Merged) Paint.PaintBorder(ctx, ownBrd, own, x + ci.X0, Paint.BorderWidth(own) / 2, x + ci.X1, Paint.BorderWidth(own) / 2);
+                        if (own is not null && !s.Merged) Paint.PaintBorder(ctx, ownBrd, own, x + ci.X0, Paint.BorderWidth(own) / 2, x + ci.X1, Paint.BorderWidth(own) / 2, "top");
                     }
                     var bottom = Edge(s, "bottom");
                     bool lastOfMerge = !(riC + 1 < slots.Count && slots[riC + 1].Any(o => o.Col == s.Col && o.Merged));
                     if (bBottom > 0)
                     {
                         var b = bottom ?? Edge(s, "top");
-                        Paint.PaintBorder(ctx, brd, b, x + ci.X0, rh - bBottom + Paint.BorderWidth(b) / 2, x + ci.X1, rh - bBottom + Paint.BorderWidth(b) / 2);
+                        Paint.PaintBorder(ctx, brd, b, x + ci.X0, rh - bBottom + Paint.BorderWidth(b) / 2, x + ci.X1, rh - bBottom + Paint.BorderWidth(b) / 2, "bottom");
                     }
                     else if (lastOfMerge)
                     {
                         // fim de página entre esta linha e a próxima: o Word fecha a linha com a borda da divisa
                         var w = bottom;
                         foreach (var d in Covering(riC + 1, s.Col, s.Col + s.Span)) w = Heavier(w, Edge(d, "top"));
-                        if (w is not null) Paint.PaintBorder(ctx, brk, w, x + ci.X0, rh + Paint.BorderWidth(w) / 2, x + ci.X1, rh + Paint.BorderWidth(w) / 2);
+                        if (w is not null) Paint.PaintBorder(ctx, brk, w, x + ci.X0, rh + Paint.BorderWidth(w) / 2, x + ci.X1, rh + Paint.BorderWidth(w) / 2, "bottom");
                     }
-                    var left = Edge(s, "left");
+                    // divisa vertical: SÓ a mais grossa das duas células (empate: a da esquerda) — medido
+                    var prevSlot = slots[riC].FirstOrDefault(o => o.Col + o.Span == s.Col);
+                    bool hasNext = slots[riC].Any(o => o.Col == s.Col + s.Span);
+                    var left = prevSlot is not null ? Heavier(Edge(prevSlot, "right"), Edge(s, "left")) : Edge(s, "left");
                     var right = Edge(s, "right");
-                    Paint.PaintBorder(ctx, brd, left, x + ci.X0, 0, x + ci.X0, rh);
-                    Paint.PaintBorder(ctx, brd, right, x + ci.X1, 0, x + ci.X1, rh);
+                    Paint.PaintBorder(ctx, brd, left, x + ci.X0, 0, x + ci.X0, rh, "left");
+                    if (!hasNext) Paint.PaintBorder(ctx, brd, right, x + ci.X1, 0, x + ci.X1, rh, "right");
                     if (tcb?.Tl2br is not null) Paint.PaintBorder(ctx, brd, tcb.Tl2br, x + ci.X0, bTop, x + ci.X1, rh - bBottom);
                     if (tcb?.Tr2bl is not null) Paint.PaintBorder(ctx, brd, tcb.Tr2bl, x + ci.X1, bTop, x + ci.X0, rh - bBottom);
                 }

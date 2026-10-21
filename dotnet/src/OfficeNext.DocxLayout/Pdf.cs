@@ -250,7 +250,8 @@ public static class PdfRenderer
                 {
                     double w = it.WidthPt;
                     double[]? dash = it.Dash == "dotted" ? new[] { w, w * 2 } : it.Dash == "dashed" ? new[] { w * 4, w * 3 }
-                        : it.Dash == "dashDot" ? new[] { w * 4, w * 2, w, w * 2 } : it.Dash == "dashDotDot" ? new[] { w * 4, w * 2, w, w * 2, w, w * 2 } : null;
+                        : it.Dash == "dashDot" ? new[] { w * 4, w * 2, w, w * 2 } : it.Dash == "dashDotDot" ? new[] { w * 4, w * 2, w, w * 2, w, w * 2 }
+                        : Paint.BorderDashes(it.Dash, w);
                     page.Line(it.X1 / T, it.Y1 / T, it.X2 / T, it.Y2 / T, HexColor(it.Color), it.WidthPt, dash);
                     return;
                 }
