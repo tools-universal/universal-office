@@ -24,11 +24,11 @@ import {
   showToast,
   symbol,
   toggleMenu
-} from "./chunk-ZZIX4OLI.js";
-import "./chunk-2OGOPGPS.js";
+} from "./chunk-4IXP7PHD.js";
+import "./chunk-WO4O3KWW.js";
 import {
   pickLabels
-} from "./chunk-WKEEN2RM.js";
+} from "./chunk-3WJOR5B3.js";
 
 // ../../node_modules/tslib/tslib.es6.mjs
 function __decorate(decorators, target, key, desc) {
@@ -855,6 +855,8 @@ function registerWriteCommands(reg, ed, app, ctl) {
   const para = () => ctl.state().para;
   const L3 = app.ui.L;
   const edit = (c4) => ({ ...c4, isEnabled: c4.isEnabled ? () => canEdit2() && c4.isEnabled() : canEdit2 });
+  const bodyOnly = () => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
+  const section = () => typeof api["getSection"] === "function" ? call("getSection") : null;
   const cmds = [
     // ── Arquivo ──
     { id: "new", label: { en: "New", pt: "Novo" }, tip: { en: "New document", pt: "Novo documento" }, icon: "note_add", run: () => app.newDocument(), isEnabled: notComparing },
@@ -918,8 +920,38 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "endnote", label: { en: "Endnote", pt: "Nota de fim" }, tip: { en: "Insert endnote", pt: "Inserir nota de fim" }, icon: "short_text", shortcut: "Ctrl+Alt+D", supports: has("insertEndnote"), run: () => call("insertEndnote") }),
     edit({ id: "bookmark", label: { en: "Bookmark", pt: "Indicador" }, icon: "bookmark", supports: has("insertBookmark"), run: () => call("insertBookmark") }),
     edit({ id: "textbox", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", supports: has("insertTextbox"), run: () => call("insertTextbox") }),
-    edit({ id: "sectionbreak", label: { en: "Section break (next page)", pt: "Quebra de se\xE7\xE3o (pr\xF3xima p\xE1gina)" }, icon: "insert_page_break", supports: has("insertSectionBreak"), run: () => call("insertSectionBreak", "nextPage") }),
-    edit({ id: "columnbreak", label: { en: "Column break", pt: "Quebra de coluna" }, icon: "view_column", supports: has("insertColumnBreak"), run: () => call("insertColumnBreak") }),
+    // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
+    ...[
+      ["sectionbreak", "nextPage", "Section break (next page)", "Quebra de se\xE7\xE3o (pr\xF3xima p\xE1gina)", "Start the new section on the next page", "Come\xE7a a se\xE7\xE3o nova na pr\xF3xima p\xE1gina", "insert_page_break"],
+      ["sectionbreak:continuous", "continuous", "Section break (continuous)", "Quebra de se\xE7\xE3o (cont\xEDnua)", "Start the new section on the same page", "Come\xE7a a se\xE7\xE3o nova na mesma p\xE1gina", "horizontal_split"],
+      ["sectionbreak:evenPage", "evenPage", "Section break (even page)", "Quebra de se\xE7\xE3o (p\xE1gina par)", "Start the new section on the next even-numbered page", "Come\xE7a a se\xE7\xE3o nova na pr\xF3xima p\xE1gina par", "looks_two"],
+      ["sectionbreak:oddPage", "oddPage", "Section break (odd page)", "Quebra de se\xE7\xE3o (p\xE1gina \xEDmpar)", "Start the new section on the next odd-numbered page", "Come\xE7a a se\xE7\xE3o nova na pr\xF3xima p\xE1gina \xEDmpar", "looks_one"]
+    ].map(([id, type, en, pt, ten, tpt, icon]) => edit({
+      id,
+      label: { en, pt },
+      tip: { en: ten, pt: tpt },
+      icon,
+      supports: has("insertSectionBreak"),
+      run: () => call("insertSectionBreak", type),
+      isEnabled: bodyOnly
+    })),
+    edit({ id: "columnbreak", label: { en: "Column break", pt: "Quebra de coluna" }, tip: { en: "Text after the break starts in the next column", pt: "O texto depois da quebra come\xE7a na pr\xF3xima coluna" }, icon: "view_column", shortcut: "Ctrl+Shift+Enter", supports: has("insertColumnBreak"), run: () => call("insertColumnBreak"), isEnabled: bodyOnly }),
+    // colunas (galeria do grupo Configurar Página)
+    ...[
+      ["one", "One", "Uma", "crop_portrait"],
+      ["two", "Two", "Duas", "view_column_2"],
+      ["three", "Three", "Tr\xEAs", "view_column"],
+      ["left", "Left", "Esquerda", "splitscreen_left"],
+      ["right", "Right", "Direita", "splitscreen_right"]
+    ].map(([p3, en, pt, icon]) => edit({
+      id: `columns:${p3}`,
+      label: { en, pt },
+      icon,
+      supports: has("setColumns"),
+      run: () => call("setColumns", p3),
+      isChecked: () => section()?.columns.preset === p3
+    })),
+    edit({ id: "dlg:columns", label: { en: "More Columns\u2026", pt: "Mais Colunas\u2026" }, tip: { en: "Number, width and spacing of the columns", pt: "N\xFAmero, largura e espa\xE7amento das colunas" }, icon: "view_week", supports: has("setColumns"), run: () => ctl.columnsDialog() }),
     // ── Formatar: fonte ──
     edit({ id: "bold", label: { en: "Bold", pt: "Negrito" }, icon: "format_bold", shortcut: "Ctrl+B", run: () => ed.toggleRunProp("bold"), isChecked: () => !!run().bold }),
     edit({ id: "italic", label: { en: "Italic", pt: "It\xE1lico" }, icon: "format_italic", shortcut: "Ctrl+I", run: () => ed.toggleRunProp("italic"), isChecked: () => !!run().italic }),
@@ -1169,20 +1201,26 @@ async function paragraphDialog(env) {
   ed.setSpaceAfter(Math.round(Number(after.value) * 20));
   ed.setLineSpacing(Number(line.value));
 }
+var applyToSelect = (lang, hasSel, value) => select("applyTo", [
+  ["section", tr(lang, "This section", "Esta se\xE7\xE3o")],
+  ["forward", tr(lang, "This point forward", "Deste ponto em diante")],
+  ["document", tr(lang, "Whole document", "No documento inteiro")],
+  ...hasSel ? [["selection", tr(lang, "Selected text", "Texto selecionado")]] : []
+], value);
 async function pageDialog(env) {
   const L3 = env.app.ui.L, lang = env.lang;
   const orient = select("orientation", [["portrait", tr(lang, "Portrait", "Retrato")], ["landscape", tr(lang, "Landscape", "Paisagem")]], "portrait");
   const size = select("size", [["A4", "A4"], ["Letter", tr(lang, "Letter", "Carta")]], "A4");
   const margins = select("margins", [["normal", "Normal"], ["narrow", tr(lang, "Narrow", "Estreita")], ["wide", tr(lang, "Wide", "Larga")]], "normal");
-  try {
-    const s4 = env.ed.sectPrAt(0);
-    const w2 = s4.pageWidthTwips, hgt = s4.pageHeightTwips;
-    orient.value = w2 > hgt ? "landscape" : "portrait";
-    size.value = Math.abs(Math.min(w2, hgt) - 12240) < 60 ? "Letter" : "A4";
-    const m2 = s4.marginLeftTwips;
+  const s4 = env.ed.getSection();
+  if (s4) {
+    orient.value = s4.orientation;
+    size.value = Math.abs(Math.min(s4.pageWidthTwips, s4.pageHeightTwips) - 12240) < 60 ? "Letter" : "A4";
+    const m2 = s4.orientation === "landscape" ? s4.margins.top : s4.margins.left;
     margins.value = m2 < 1e3 ? "narrow" : m2 > 2200 ? "wide" : "normal";
-  } catch {
   }
+  const start = { orientation: orient.value, size: size.value, margins: margins.value };
+  const applyTo = applyToSelect(lang, env.ed.selectedText().length > 0, "section");
   const grid = el(
     "div",
     { className: "uo-dialog-grid" },
@@ -1191,21 +1229,209 @@ async function pageDialog(env) {
     el("span", {}, L3.paper),
     size,
     el("span", {}, L3.margins),
-    margins
+    margins,
+    el("span", {}, tr(lang, "Apply to", "Aplicar a")),
+    applyTo
   );
   const h3 = openDialog({
     title: L3.pageDlg,
     body: grid,
     layer: env.layer,
     lang,
-    width: 380,
+    width: 400,
     actions: [{ id: "cancel", label: L3.cancel }, { id: "ok", label: L3.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
+  const all = applyTo.value !== "section";
   env.ed.setPageSetup({
-    orientation: orient.value,
-    size: size.value,
-    margins: margins.value
+    ...all || orient.value !== start.orientation ? { orientation: orient.value } : {},
+    ...all || size.value !== start.size ? { size: size.value } : {},
+    ...all || margins.value !== start.margins ? { margins: margins.value } : {},
+    applyTo: applyTo.value
+  });
+}
+async function columnsDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const s4 = ed.getSection();
+  if (!s4) return;
+  const W = s4.columns.contentWidthTwips;
+  const unit = lang === "pt" ? { tw: 1440 / 2.54, name: "cm", step: "0.01" } : { tw: 1440, name: '"', step: "0.01" };
+  const fmt = (tw) => String(Math.round(tw / unit.tw * 100) / 100);
+  const parse = (v2) => Math.round(parseFloat(v2.replace(",", ".")) * unit.tw);
+  const MIN = 720;
+  const st = {
+    count: s4.columns.count,
+    equal: s4.columns.equalWidth,
+    sep: s4.columns.sep,
+    widths: s4.columns.widths.map((w2) => ({ ...w2 })),
+    space: s4.columns.count > 1 ? s4.columns.spaceTwips : 708
+  };
+  const equalize = () => {
+    const n5 = st.count;
+    if ((W - st.space * (n5 - 1)) / n5 < MIN) st.space = n5 > 1 ? Math.max(0, Math.floor((W - n5 * MIN) / (n5 - 1))) : st.space;
+    const w2 = Math.round((W - st.space * (n5 - 1)) / n5);
+    st.widths = Array.from({ length: n5 }, (_2, i5) => ({ widthTwips: w2, spaceTwips: i5 < n5 - 1 ? st.space : 0 }));
+  };
+  const presets = el("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
+  const PRESETS = [["one", "One", "Uma", 1], ["two", "Two", "Duas", 2], ["three", "Three", "Tr\xEAs", 3], ["left", "Left", "Esquerda", 2], ["right", "Right", "Direita", 2]];
+  const presetBtns = PRESETS.map(([id, en, pt, n5]) => {
+    const b3 = el("button", { type: "button", textContent: tr(lang, en, pt), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
+    b3.addEventListener("click", () => {
+      st.count = n5;
+      if (id === "left" || id === "right") {
+        const narrow = Math.round((W - 2 * st.space) / 3), wide = W - narrow - st.space;
+        const ws = id === "left" ? [narrow, wide] : [wide, narrow];
+        st.equal = false;
+        st.widths = ws.map((w2, i5) => ({ widthTwips: w2, spaceTwips: i5 === 0 ? st.space : 0 }));
+      } else {
+        st.equal = true;
+        equalize();
+      }
+      render();
+    });
+    presets.append(b3);
+    return [id, b3];
+  });
+  const count = el("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
+  const sep = check("sep", tr(lang, "Line between", "Linha entre colunas"), st.sep);
+  const equal = check("equal", tr(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
+  const rows = el("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
+  const applyTo = applyToSelect(lang, ed.selectedText().length > 0, "section");
+  const newCol = check("newCol", tr(lang, "Start new column", "Iniciar nova coluna"), false);
+  const preview = el("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
+  const box = (k2) => (k2 === "sep" ? sep : k2 === "equal" ? equal : newCol).querySelector("input");
+  function render() {
+    count.value = String(st.count);
+    box("equal").checked = st.equal;
+    box("equal").disabled = st.count < 2;
+    box("sep").disabled = st.count < 2;
+    box("newCol").disabled = applyTo.value !== "forward";
+    if (box("newCol").disabled) box("newCol").checked = false;
+    for (const [id, b3] of presetBtns) {
+      const on = id === "one" ? st.count === 1 : id === "two" || id === "three" ? st.equal && st.count === (id === "two" ? 2 : 3) : !st.equal && st.count === 2 && Math.abs(st.widths[0].widthTwips - st.widths[1].widthTwips) > 40 && id === "left" === st.widths[0].widthTwips < st.widths[1].widthTwips;
+      b3.style.background = on ? "var(--uo-accent-soft, rgba(26,115,232,.14))" : "transparent";
+      b3.setAttribute("aria-pressed", String(on));
+    }
+    rows.replaceChildren(el("strong", {}, "#"), el("strong", {}, tr(lang, "Width", "Largura")), el("strong", {}, tr(lang, "Spacing", "Espa\xE7amento")));
+    st.widths.slice(0, Math.max(1, st.count)).forEach((c4, i5) => {
+      const last = i5 === st.count - 1;
+      const wIn = el("input", { type: "number", step: unit.step, min: "0", value: fmt(c4.widthTwips), disabled: st.count < 2 || st.equal && i5 > 0, style: "width:96px" });
+      const sIn = el("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt(c4.spaceTwips), disabled: last || st.count < 2 || st.equal && i5 > 0, style: "width:96px" });
+      wIn.setAttribute("aria-label", `${tr(lang, "Width", "Largura")} ${i5 + 1}`);
+      sIn.setAttribute("aria-label", `${tr(lang, "Spacing", "Espa\xE7amento")} ${i5 + 1}`);
+      wIn.addEventListener("change", () => setWidth(i5, parse(wIn.value)));
+      sIn.addEventListener("change", () => setSpace(i5, parse(sIn.value)));
+      rows.append(el("span", {}, `${i5 + 1}:`), el("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
+    });
+    preview.replaceChildren(...st.widths.slice(0, Math.max(1, st.count)).flatMap((c4, i5) => {
+      const col = el("div", { style: `flex:${c4.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
+      if (i5 === st.count - 1) return [col];
+      const gap = el("div", { style: `flex:${Math.max(1, c4.spaceTwips)} 0 0;display:flex;justify-content:center` });
+      if (box("sep").checked) gap.append(el("div", { style: "width:1px;background:currentColor" }));
+      return [col, gap];
+    }));
+  }
+  function setWidth(i5, w2) {
+    if (!(w2 > 0)) {
+      render();
+      return;
+    }
+    if (st.equal) {
+      const n5 = st.count;
+      const ww = Math.max(MIN, Math.min(w2, Math.floor(W / n5)));
+      st.space = n5 > 1 ? Math.max(0, Math.floor((W - n5 * ww) / (n5 - 1))) : 0;
+      st.widths = st.widths.map((c4, k2) => ({ widthTwips: ww, spaceTwips: k2 < n5 - 1 ? st.space : 0 }));
+    } else {
+      const j = i5 < st.count - 1 ? i5 + 1 : i5 - 1;
+      const total = st.widths[i5].widthTwips + st.widths[j].widthTwips;
+      const ww = Math.max(MIN, Math.min(w2, total - MIN));
+      st.widths[i5].widthTwips = ww;
+      st.widths[j].widthTwips = total - ww;
+    }
+    render();
+  }
+  function setSpace(i5, sp) {
+    if (!(sp >= 0)) {
+      render();
+      return;
+    }
+    if (st.equal) {
+      const n5 = st.count;
+      st.space = Math.min(sp, Math.floor((W - n5 * MIN) / Math.max(1, n5 - 1)));
+      equalize();
+    } else {
+      const j = i5 + 1;
+      const total = st.widths[i5].spaceTwips + st.widths[j].widthTwips;
+      const ss = Math.max(0, Math.min(sp, total - MIN));
+      st.widths[i5].spaceTwips = ss;
+      st.widths[j].widthTwips = total - ss;
+    }
+    render();
+  }
+  count.addEventListener("change", () => {
+    const n5 = Math.max(1, Math.min(s4.columns.max, Math.round(Number(count.value) || 1)));
+    st.count = n5;
+    if (n5 < 2) st.equal = true;
+    if (st.equal || st.widths.length !== n5) {
+      st.equal = true;
+      equalize();
+    }
+    render();
+  });
+  box("equal").addEventListener("change", () => {
+    st.equal = box("equal").checked;
+    if (st.equal) {
+      st.space = st.widths[0]?.spaceTwips || st.space;
+      equalize();
+    }
+    render();
+  });
+  box("sep").addEventListener("change", () => {
+    st.sep = box("sep").checked;
+    render();
+  });
+  applyTo.addEventListener("change", render);
+  if (st.count < 2) {
+    st.count = 1;
+    equalize();
+  }
+  render();
+  const body = el(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:14px" },
+    el("strong", {}, tr(lang, "Presets", "Predefini\xE7\xF5es")),
+    presets,
+    el(
+      "div",
+      { style: "display:flex;gap:16px;align-items:center;flex-wrap:wrap" },
+      el("label", { style: "display:flex;gap:8px;align-items:center" }, tr(lang, "Number of columns", "N\xFAmero de colunas"), count),
+      sep
+    ),
+    el("strong", {}, tr(lang, "Width and spacing", "Largura e espa\xE7amento")),
+    rows,
+    equal,
+    el("div", { className: "uo-dialog-grid" }, el("span", {}, tr(lang, "Apply to", "Aplicar a")), applyTo),
+    newCol,
+    el("strong", {}, tr(lang, "Preview", "Visualiza\xE7\xE3o")),
+    preview
+  );
+  const h3 = openDialog({
+    title: tr(lang, "Columns", "Colunas"),
+    icon: "view_column_2",
+    body,
+    layer: env.layer,
+    lang,
+    width: 460,
+    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: env.app.ui.L.apply, primary: true }]
+  });
+  if (await h3.result !== "ok") return;
+  ed.setColumns({
+    count: st.count,
+    spaceTwips: st.space,
+    ...st.equal || st.count < 2 ? {} : { widths: st.widths.slice(0, st.count) },
+    sep: st.sep,
+    applyTo: applyTo.value,
+    startNewColumn: box("newCol").checked
   });
 }
 function wordCountDialog(env) {
@@ -1239,6 +1465,7 @@ var SHORTCUTS = [
   ["Ctrl+K", "Insert link", "Inserir link"],
   ["Ctrl+Alt+M", "New comment", "Novo coment\xE1rio"],
   ["Ctrl+Enter", "Page break", "Quebra de p\xE1gina"],
+  ["Ctrl+Shift+Enter", "Column break", "Quebra de coluna"],
   ["Ctrl+D", "Font dialog", "Di\xE1logo Fonte"],
   ["Ctrl+Shift+8", "Formatting marks", "Marcas de formata\xE7\xE3o"],
   ["Ctrl+scroll", "Zoom", "Zoom"]
@@ -2068,7 +2295,8 @@ function menus(env, ctx) {
     toolbar: sub({ en: "Toolbar", pt: "Barra de ferramentas" }, "toolbar", () => ["toolbar:compact", "toolbar:ribbon", "-", "statusbar"], "toolbar"),
     fields: sub({ en: "Field", pt: "Campo" }, "data_object", fieldsMenu, "fields"),
     symbols: sub({ en: "Special characters", pt: "Caracteres especiais" }, "special_character", () => symbolMenu(env, ctx), "symbols"),
-    breaks: sub({ en: "Break", pt: "Quebra" }, "insert_page_break", () => ["pagebreak", "columnbreak", "sectionbreak"], "breaks"),
+    breaks: sub({ en: "Break", pt: "Quebra" }, "insert_page_break", breaksMenu, "breaks"),
+    columns: sub({ en: "Columns", pt: "Colunas" }, "view_column_2", columnsMenu, "columns"),
     hf: sub({ en: "Headers & footers", pt: "Cabe\xE7alhos e rodap\xE9s" }, "call_to_action", () => ["header", "footer"], "hf"),
     text: sub({ en: "Text", pt: "Texto" }, "format_bold", () => ["bold", "italic", "underline", "strike", "sup", "sub", "-", "grow", "shrink", "-", "allCaps", "smallCaps", "case:upper", "case:lower"], "text"),
     color: sub({ en: "Font color", pt: "Cor da fonte" }, "format_color_text", () => colorMenu(env, ctx), "color"),
@@ -2110,6 +2338,8 @@ function menus(env, ctx) {
     comments: sub({ en: "Comments", pt: "Coment\xE1rios" }, "comment", () => ["comment", "comment:prev", "comment:next", "comment:delete", "comment:deleteAll", "-", "comments"], "commentsMenu")
   };
 }
+var breaksMenu = () => ["pagebreak", "columnbreak", "-", "sectionbreak", "sectionbreak:continuous", "sectionbreak:evenPage", "sectionbreak:oddPage"];
+var columnsMenu = () => ["columns:one", "columns:two", "columns:three", "columns:left", "columns:right", "-", "dlg:columns"];
 var fileMenu = (m2) => [
   "new",
   "open",
@@ -2136,7 +2366,7 @@ function compactLayout(env, ctx) {
       { id: "edit", label: { en: "Edit", pt: "Editar" }, items: ["undo", "redo", "-", "cut", "copy", "paste", "pastePlain", "-", "selectAll", "-", "find", "replace"] },
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "focus", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
       { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", "table", "link", "comment", "-", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", "bookmark", "textbox", m2.symbols] },
-      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", m2.charSpacing, "-", m2.page, "-", "dlg:font", "dlg:paragraph", "-", "clear"] },
+      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", m2.charSpacing, "-", m2.page, m2.columns, "-", "dlg:font", "dlg:paragraph", "-", "clear"] },
       { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
     ],
@@ -2233,7 +2463,10 @@ function ribbonLayout(env, ctx) {
         id: "insert",
         label: L2("Insert", "Inserir"),
         groups: [
-          { id: "pages", label: L2("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [large("pagebreak"), { rows: [["columnbreak"], ["sectionbreak"]] }] },
+          { id: "pages", label: L2("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
+            large("pagebreak"),
+            { menu: breaksMenu, id: "breaks", label: L2("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
+          ] },
           { id: "objects", label: L2("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
             { menu: () => tableMenu(env, ctx), id: "table:menu", label: L2("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
             large("image")
@@ -2262,8 +2495,8 @@ function ribbonLayout(env, ctx) {
             { menu: () => marginsMenu(env, ctx), id: "margins", label: L2("Margins", "Margens"), icon: "margin", size: "large" },
             { menu: () => orientationMenu(env, ctx), id: "orientation", label: L2("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
             { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L2("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
-            { menu: () => ["pagebreak", "columnbreak", "sectionbreak"], id: "breaks", label: L2("Breaks", "Quebras"), icon: "insert_page_break", size: "large" },
-            { rows: [["hyphenation"]] }
+            { menu: columnsMenu, id: "columns", label: L2("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
+            { rows: [[{ menu: breaksMenu, id: "breaks", label: L2("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"]] }
           ] },
           { id: "paragraph", label: L2("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
             { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L2("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
@@ -2867,6 +3100,9 @@ var WriteChrome = class {
       pageDialog: () => {
         void pageDialog(d3()).then(() => this.after());
       },
+      columnsDialog: () => {
+        void columnsDialog(d3()).then(() => this.after());
+      },
       wordCount: () => wordCountDialog(d3()),
       spelling: () => {
         void spellingDialog(d3()).then(() => this.after());
@@ -3023,7 +3259,7 @@ var WriteChrome = class {
       this.flash(`\u26A0 ${this.L.stillLoading}`);
       return;
     }
-    await import("./src-HQY56LPT.js");
+    await import("./src-BJ4FBHBT.js");
     let box = this.root.querySelector(".uw-compare");
     if (!box) {
       box = document.createElement("div");

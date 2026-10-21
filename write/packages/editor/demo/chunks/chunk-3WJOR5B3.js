@@ -3634,6 +3634,8 @@ function readSectPr(sectEl) {
     headerDistanceTwips: tw(pgMar, "w:header", 720),
     footerDistanceTwips: tw(pgMar, "w:footer", 720)
   };
+  const type = sectEl && firstChild(sectEl, "w:type")?.attrs["w:val"];
+  if (type === "continuous" || type === "evenPage" || type === "oddPage" || type === "nextColumn") sect.type = type;
   const num = colsEl ? parseInt(colsEl.attrs["w:num"] ?? "1", 10) : 1;
   if (num > 1) {
     sect.cols = {
@@ -3641,6 +3643,14 @@ function readSectPr(sectEl) {
       spaceTwips: parseInt(colsEl.attrs["w:space"] ?? "720", 10),
       sep: colsEl.attrs["w:sep"] === "true" || colsEl.attrs["w:sep"] === "1"
     };
+    const eq2 = colsEl.attrs["w:equalWidth"];
+    const defs = childElements(colsEl, "w:col");
+    if ((eq2 === "0" || eq2 === "false") && defs.length >= num) {
+      sect.cols.widths = defs.slice(0, num).map((c) => ({
+        widthTwips: parseInt(c.attrs["w:w"] ?? "0", 10) || 0,
+        spaceTwips: parseInt(c.attrs["w:space"] ?? "0", 10) || 0
+      }));
+    }
   }
   const titlePg = sectEl && firstChild(sectEl, "w:titlePg");
   if (titlePg && titlePg.attrs["w:val"] !== "0" && titlePg.attrs["w:val"] !== "false") {
@@ -4089,6 +4099,409 @@ function readDocFormatting(pkg) {
   };
 }
 
+// ../docx-core/src/lossless.ts
+var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+var RPR_ORDER = [
+  "w:rStyle",
+  "w:rFonts",
+  "w:b",
+  "w:bCs",
+  "w:i",
+  "w:iCs",
+  "w:caps",
+  "w:smallCaps",
+  "w:strike",
+  "w:dstrike",
+  "w:outline",
+  "w:shadow",
+  "w:emboss",
+  "w:imprint",
+  "w:noProof",
+  "w:snapToGrid",
+  "w:vanish",
+  "w:webHidden",
+  "w:color",
+  "w:spacing",
+  "w:w",
+  "w:kern",
+  "w:position",
+  "w:sz",
+  "w:szCs",
+  "w:highlight",
+  "w:u",
+  "w:effect",
+  "w:bdr",
+  "w:shd",
+  "w:fitText",
+  "w:vertAlign",
+  "w:rtl",
+  "w:cs",
+  "w:em",
+  "w:lang",
+  "w:eastAsianLayout",
+  "w:specVanish",
+  "w:oMath",
+  "w:rPrChange"
+];
+var PPR_ORDER = [
+  "w:pStyle",
+  "w:keepNext",
+  "w:keepLines",
+  "w:pageBreakBefore",
+  "w:framePr",
+  "w:widowControl",
+  "w:numPr",
+  "w:suppressLineNumbers",
+  "w:pBdr",
+  "w:shd",
+  "w:tabs",
+  "w:suppressAutoHyphens",
+  "w:kinsoku",
+  "w:wordWrap",
+  "w:overflowPunct",
+  "w:topLinePunct",
+  "w:autoSpaceDE",
+  "w:autoSpaceDN",
+  "w:bidi",
+  "w:adjustRightInd",
+  "w:snapToGrid",
+  "w:spacing",
+  "w:ind",
+  "w:contextualSpacing",
+  "w:mirrorIndents",
+  "w:suppressOverlap",
+  "w:jc",
+  "w:textDirection",
+  "w:textAlignment",
+  "w:textboxTightWrap",
+  "w:outlineLvl",
+  "w:divId",
+  "w:cnfStyle",
+  "w:rPr",
+  "w:sectPr",
+  "w:pPrChange"
+];
+var SECT_ORDER = [
+  "w:headerReference",
+  "w:footerReference",
+  "w:footnotePr",
+  "w:endnotePr",
+  "w:type",
+  "w:pgSz",
+  "w:pgMar",
+  "w:paperSrc",
+  "w:pgBorders",
+  "w:lnNumType",
+  "w:pgNumType",
+  "w:cols",
+  "w:formProt",
+  "w:vAlign",
+  "w:noEndnote",
+  "w:titlePg",
+  "w:textDirection",
+  "w:bidi",
+  "w:rtlGutter",
+  "w:docGrid",
+  "w:printerSettings",
+  "w:sectPrChange"
+];
+function splitElement(raw) {
+  const el2 = parseXml(raw, { positions: true });
+  if (el2.cs === el2.e) {
+    const open = raw.replace(/\s*\/>\s*$/, ">");
+    return { open, close: `</${el2.name}>`, kids: [], el: el2 };
+  }
+  const kids = childElements(el2).map((k) => ({ name: k.name, raw: raw.slice(k.s, k.e), el: k }));
+  return { open: raw.slice(0, el2.cs), close: raw.slice(el2.ce), kids, el: el2 };
+}
+function setKid(kids, order, name, xml) {
+  const at = kids.findIndex((k) => k.name === name);
+  for (let i2 = kids.length - 1; i2 >= 0; i2--) if (kids[i2].name === name && i2 !== at) kids.splice(i2, 1);
+  if (at >= 0) {
+    if (xml === null) kids.splice(at, 1);
+    else kids[at] = { name, raw: xml, el: kids[at].el };
+    return;
+  }
+  if (xml === null) return;
+  const rank = order.indexOf(name);
+  let pos = kids.length;
+  for (let i2 = 0; i2 < kids.length; i2++) {
+    const r = order.indexOf(kids[i2].name);
+    if (r > rank) {
+      pos = i2;
+      break;
+    }
+  }
+  kids.splice(pos, 0, { name, raw: xml, el: { name, attrs: {}, children: [] } });
+}
+function withAttrs(raw, name, changes) {
+  if (!raw) {
+    const attrs3 = Object.entries(changes).filter(([, v]) => v !== void 0).map(([k, v]) => ` ${k}="${esc(String(v))}"`).join("");
+    return `<${name}${attrs3}/>`;
+  }
+  const m = /^<([^\s/>]+)([^>]*?)(\/?)>/.exec(raw);
+  let attrs2 = m[2];
+  for (const [k, v] of Object.entries(changes)) {
+    const re = new RegExp(`\\s${k.replace(":", "\\:")}\\s*=\\s*("[^"]*"|'[^']*')`);
+    if (v === void 0) attrs2 = attrs2.replace(re, "");
+    else if (re.test(attrs2)) attrs2 = attrs2.replace(re, () => ` ${k}="${esc(String(v))}"`);
+    else attrs2 += ` ${k}="${esc(String(v))}"`;
+  }
+  return `<${m[1]}${attrs2}${m[3]}>${raw.slice(m[0].length)}`;
+}
+var kidRaw = (kids, name) => kids.find((k) => k.name === name)?.raw ?? "";
+var onOff2 = (name, v) => v ? `<${name}/>` : `<${name} w:val="0"/>`;
+var join = (open, kids, close) => kids.length ? open + kids.map((k) => k.raw).join("") + close : "";
+function rPrFromProps(p, linkAware = true) {
+  const rpr = [];
+  if (p.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc(p.fontAscii)}" w:hAnsi="${esc(p.fontAscii)}" w:cs="${esc(p.fontAscii)}"/>`);
+  if (p.bold) rpr.push("<w:b/>");
+  if (p.italic) rpr.push("<w:i/>");
+  if (p.allCaps) rpr.push("<w:caps/>");
+  if (p.smallCaps) rpr.push("<w:smallCaps/>");
+  if (p.strike) rpr.push("<w:strike/>");
+  if (p.doubleStrike) rpr.push("<w:dstrike/>");
+  const linkLook = linkAware && !!p.link && !p.underlineStyle && !p.underlineColor;
+  if (p.color && !(linkAware && p.link && p.color === "0563C1")) rpr.push(`<w:color w:val="${esc(p.color)}"/>`);
+  if (p.charSpacingTwips) rpr.push(`<w:spacing w:val="${p.charSpacingTwips}"/>`);
+  if (p.szHalfPt !== void 0) rpr.push(`<w:sz w:val="${p.szHalfPt}"/><w:szCs w:val="${p.szHalfPt}"/>`);
+  if (p.highlight) rpr.push(`<w:highlight w:val="${esc(p.highlight)}"/>`);
+  if (p.underline && !linkLook) {
+    rpr.push(`<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc(p.underlineColor)}"` : ""}/>`);
+  }
+  if (p.vertAlign) rpr.push(`<w:vertAlign w:val="${p.vertAlign}"/>`);
+  return rpr.length ? `<w:rPr>${rpr.join("")}</w:rPr>` : "";
+}
+function patchRPr(raw, run) {
+  const p = run.props;
+  if (raw === void 0) return rPrFromProps(p);
+  const { open, close, kids, el: el2 } = splitElement(raw);
+  const base = editBaseProps(run, readRPr(el2));
+  let changed = false;
+  const set = (name, xml) => {
+    changed = true;
+    setKid(kids, RPR_ORDER, name, xml);
+  };
+  if (p.bold !== base.bold) {
+    set("w:b", onOff2("w:b", p.bold));
+    set("w:bCs", onOff2("w:bCs", p.bold));
+  }
+  if (p.italic !== base.italic) {
+    set("w:i", onOff2("w:i", p.italic));
+    set("w:iCs", onOff2("w:iCs", p.italic));
+  }
+  if (p.underline !== base.underline || p.underlineStyle !== base.underlineStyle || p.underlineColor !== base.underlineColor) {
+    set("w:u", p.underline ? `<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc(p.underlineColor)}"` : ""}/>` : '<w:u w:val="none"/>');
+  }
+  if (p.strike !== base.strike) set("w:strike", onOff2("w:strike", p.strike));
+  if (!!p.doubleStrike !== !!base.doubleStrike) set("w:dstrike", onOff2("w:dstrike", !!p.doubleStrike));
+  if (p.allCaps !== base.allCaps) set("w:caps", onOff2("w:caps", p.allCaps));
+  if (p.smallCaps !== base.smallCaps) set("w:smallCaps", onOff2("w:smallCaps", p.smallCaps));
+  if (p.vertAlign !== base.vertAlign) set("w:vertAlign", `<w:vertAlign w:val="${p.vertAlign ?? "baseline"}"/>`);
+  if (p.szHalfPt !== base.szHalfPt) {
+    set("w:sz", p.szHalfPt === void 0 ? null : `<w:sz w:val="${p.szHalfPt}"/>`);
+    set("w:szCs", p.szHalfPt === void 0 ? null : `<w:szCs w:val="${p.szHalfPt}"/>`);
+  }
+  if (p.color !== base.color) set("w:color", p.color === void 0 ? null : `<w:color w:val="${esc(p.color)}"/>`);
+  if (p.highlight !== base.highlight) set("w:highlight", p.highlight === void 0 ? null : `<w:highlight w:val="${esc(p.highlight)}"/>`);
+  if (p.fontAscii !== base.fontAscii) {
+    set("w:rFonts", p.fontAscii === void 0 ? null : withAttrs(kidRaw(kids, "w:rFonts"), "w:rFonts", {
+      "w:ascii": p.fontAscii,
+      "w:hAnsi": p.fontAscii,
+      "w:cs": p.fontAscii,
+      "w:asciiTheme": void 0,
+      "w:hAnsiTheme": void 0,
+      "w:cstheme": void 0
+    }));
+  }
+  if ((p.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
+    set("w:spacing", p.charSpacingTwips ? `<w:spacing w:val="${p.charSpacingTwips}"/>` : null);
+  }
+  return changed ? join(open, kids, close) : raw;
+}
+var eq = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+var DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
+function pprBits(pp, ids) {
+  const out = {};
+  out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc(pp.styleId)}"/>` : null;
+  out["w:pageBreakBefore"] = pp.pageBreakBefore ? "<w:pageBreakBefore/>" : null;
+  out["w:tabs"] = pp.tabStops?.length ? "<w:tabs>" + pp.tabStops.map((t) => `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ""} w:pos="${t.posTwips}"/>`).join("") + "</w:tabs>" : null;
+  out["w:numPr"] = pp.numbering ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === "decimal" ? ids.decimal : ids.bullet}"/></w:numPr>` : null;
+  if (pp.borders) {
+    let inner = "";
+    for (const side of ["top", "left", "bottom", "right"]) {
+      const e = pp.borders[side];
+      if (e) inner += `<w:${side} w:val="${esc(e.style)}" w:sz="${e.sizeEighthPt}" w:space="${e.spacePt}" w:color="${e.color ? esc(e.color) : "auto"}"/>`;
+    }
+    out["w:pBdr"] = inner ? `<w:pBdr>${inner}</w:pBdr>` : null;
+  } else if (pp.boxBorder) {
+    const b = (side) => `<w:${side} w:val="single" w:sz="4" w:space="1" w:color="auto"/>`;
+    out["w:pBdr"] = `<w:pBdr>${b("top")}${b("left")}${b("bottom")}${b("right")}</w:pBdr>`;
+  } else out["w:pBdr"] = null;
+  out["w:shd"] = pp.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${esc(pp.shadingHex)}"/>` : null;
+  return out;
+}
+function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
+  const bits2 = pprBits(pp, ids);
+  const ppr = [];
+  const add = (name) => {
+    const x2 = bits2[name];
+    if (x2) ppr.push(x2);
+  };
+  add("w:pStyle");
+  add("w:pageBreakBefore");
+  add("w:numPr");
+  add("w:pBdr");
+  add("w:shd");
+  add("w:tabs");
+  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
+    const line = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
+    const before = pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "";
+    const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
+    ppr.push(`<w:spacing${before}${after}${line}/>`);
+  }
+  if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
+    let attrs2 = "";
+    if (pp.indentLeftTwips) attrs2 += ` w:left="${pp.indentLeftTwips}"`;
+    if (pp.indentRightTwips) attrs2 += ` w:right="${pp.indentRightTwips}"`;
+    if (pp.indentFirstLineTwips) {
+      attrs2 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
+    }
+    ppr.push(`<w:ind${attrs2}/>`);
+  }
+  if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  if (sectPrXml) ppr.push(sectPrXml);
+  return { xml: ppr.length ? `<w:pPr>${ppr.join("")}</w:pPr>` : "", genNumbering: !!pp.numbering };
+}
+function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
+  const p = para.props;
+  if (raw === void 0) return pPrFromProps(p, sect ?? "", ids);
+  const { open, close, kids, el: el2 } = splitElement(raw);
+  const base = paraPropsFromPPr(readPPr(el2));
+  let changed = false;
+  let genNumbering = false;
+  const set = (name, xml) => {
+    changed = true;
+    setKid(kids, PPR_ORDER, name, xml);
+  };
+  const bits2 = pprBits(p, ids);
+  if (p.styleId !== base.styleId) set("w:pStyle", bits2["w:pStyle"]);
+  if (!!p.pageBreakBefore !== !!base.pageBreakBefore) set("w:pageBreakBefore", p.pageBreakBefore ? "<w:pageBreakBefore/>" : '<w:pageBreakBefore w:val="0"/>');
+  if (!eq(p.tabStops, base.tabStops)) set("w:tabs", bits2["w:tabs"]);
+  if (!eq(p.borders, base.borders) || !!p.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
+  if (p.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
+  if (!eq(p.numbering, base.numbering)) {
+    const numPr = el2.children.find((c) => typeof c !== "string" && c.name === "w:numPr");
+    const numId = numPr && childElements(numPr, "w:numId")[0]?.attrs["w:val"];
+    if (!p.numbering) set("w:numPr", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>');
+    else if (numId && numId !== "0" && base.numbering && base.numbering.kind === p.numbering.kind) {
+      set("w:numPr", `<w:numPr><w:ilvl w:val="${p.numbering.ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
+    } else {
+      set("w:numPr", bits2["w:numPr"]);
+      genNumbering = true;
+    }
+  }
+  if (p.indentLeftTwips !== base.indentLeftTwips || p.indentRightTwips !== base.indentRightTwips || p.indentFirstLineTwips !== base.indentFirstLineTwips) {
+    const f = p.indentFirstLineTwips;
+    set("w:ind", withAttrs(kidRaw(kids, "w:ind"), "w:ind", {
+      "w:left": p.indentLeftTwips,
+      "w:start": void 0,
+      "w:right": p.indentRightTwips,
+      "w:end": void 0,
+      "w:firstLine": f !== void 0 && f >= 0 ? f : void 0,
+      "w:hanging": f !== void 0 && f < 0 ? -f : void 0,
+      "w:firstLineChars": void 0,
+      "w:hangingChars": void 0,
+      "w:leftChars": void 0,
+      "w:rightChars": void 0
+    }));
+  }
+  if (p.lineTwentieths !== base.lineTwentieths || p.spaceAfterTwips !== base.spaceAfterTwips || p.spaceBeforeTwips !== base.spaceBeforeTwips) {
+    const ch = {};
+    if (p.lineTwentieths !== base.lineTwentieths) {
+      ch["w:line"] = p.lineTwentieths;
+      ch["w:lineRule"] = p.lineTwentieths !== void 0 ? "auto" : void 0;
+    }
+    if (p.spaceAfterTwips !== base.spaceAfterTwips) {
+      ch["w:after"] = p.spaceAfterTwips;
+      ch["w:afterLines"] = void 0;
+      ch["w:afterAutospacing"] = void 0;
+    }
+    if (p.spaceBeforeTwips !== base.spaceBeforeTwips) {
+      ch["w:before"] = p.spaceBeforeTwips;
+      ch["w:beforeLines"] = void 0;
+      ch["w:beforeAutospacing"] = void 0;
+    }
+    set("w:spacing", withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch));
+  }
+  if (p.alignment !== base.alignment) set("w:jc", p.alignment ? `<w:jc w:val="${p.alignment}"/>` : null);
+  if (sect !== void 0) {
+    const cur = kidRaw(kids, "w:sectPr");
+    if ((sect ?? "") !== cur) set("w:sectPr", sect);
+  }
+  return { xml: changed ? join(open, kids, close) : raw, genNumbering };
+}
+function colsXml(cols, raw) {
+  if (cols && cols.count > 1) {
+    const head = `<w:cols w:num="${cols.count}"${cols.sep ? ' w:sep="1"' : ""} w:space="${cols.spaceTwips}"`;
+    if (!cols.widths?.length) return `${head}/>`;
+    return `${head} w:equalWidth="0">${cols.widths.map((c) => `<w:col w:w="${c.widthTwips}" w:space="${c.spaceTwips}"/>`).join("")}</w:cols>`;
+  }
+  const el2 = raw ? splitElement(raw).el : void 0;
+  const sep = el2?.attrs["w:sep"];
+  const space = el2?.attrs["w:space"] ?? "708";
+  return `<w:cols${sep && sep !== "0" && sep !== "false" ? ' w:sep="1"' : ""} w:space="${esc(space)}"/>`;
+}
+function patchSectPr(raw, cur, refs) {
+  const { open, close, kids, el: el2 } = splitElement(raw);
+  const base = readSectPr(el2);
+  let changed = false;
+  const set = (name, xml) => {
+    changed = true;
+    setKid(kids, SECT_ORDER, name, xml);
+  };
+  if (refs) {
+    const now = kids.filter((k) => k.name === "w:headerReference" || k.name === "w:footerReference").map((k) => `${k.name}|${k.el.attrs["w:type"] ?? "default"}|${k.el.attrs["r:id"]}`).sort().join(",");
+    const want = refs.map((r) => `w:${r.kind}Reference|${r.type}|${r.rid}`).sort().join(",");
+    if (now !== want) {
+      changed = true;
+      for (let i2 = kids.length - 1; i2 >= 0; i2--) if (kids[i2].name === "w:headerReference" || kids[i2].name === "w:footerReference") kids.splice(i2, 1);
+      kids.unshift(...refs.map((r) => {
+        const x2 = `<w:${r.kind}Reference w:type="${r.type}" r:id="${r.rid}"/>`;
+        return { name: `w:${r.kind}Reference`, raw: x2, el: { name: "", attrs: {}, children: [] } };
+      }));
+    }
+  }
+  if (cur.pageWidthTwips !== base.pageWidthTwips || cur.pageHeightTwips !== base.pageHeightTwips) {
+    set("w:pgSz", withAttrs(kidRaw(kids, "w:pgSz"), "w:pgSz", {
+      "w:w": cur.pageWidthTwips,
+      "w:h": cur.pageHeightTwips,
+      "w:orient": cur.pageWidthTwips > cur.pageHeightTwips ? "landscape" : void 0
+    }));
+  }
+  if (cur.marginTopTwips !== base.marginTopTwips || cur.marginBottomTwips !== base.marginBottomTwips || cur.marginLeftTwips !== base.marginLeftTwips || cur.marginRightTwips !== base.marginRightTwips || (cur.headerDistanceTwips ?? 720) !== base.headerDistanceTwips || (cur.footerDistanceTwips ?? 720) !== base.footerDistanceTwips) {
+    const pgMar = kidRaw(kids, "w:pgMar");
+    set("w:pgMar", withAttrs(pgMar, "w:pgMar", {
+      "w:top": cur.marginTopTwips,
+      "w:right": cur.marginRightTwips,
+      "w:bottom": cur.marginBottomTwips,
+      "w:left": cur.marginLeftTwips,
+      "w:header": cur.headerDistanceTwips ?? 720,
+      "w:footer": cur.footerDistanceTwips ?? 720,
+      ...pgMar ? {} : { "w:gutter": 0 }
+    }));
+  }
+  if ((cur.type ?? "nextPage") !== (base.type ?? "nextPage")) {
+    set("w:type", cur.type && cur.type !== "nextPage" ? `<w:type w:val="${cur.type}"/>` : null);
+  }
+  if (!eq(cur.cols, base.cols)) set("w:cols", colsXml(cur.cols, kidRaw(kids, "w:cols") || void 0));
+  if (!!cur.titlePg !== !!base.titlePg) set("w:titlePg", cur.titlePg ? "<w:titlePg/>" : null);
+  if (cur.pgNumStart !== base.pgNumStart) {
+    set("w:pgNumType", withAttrs(kidRaw(kids, "w:pgNumType"), "w:pgNumType", { "w:start": cur.pgNumStart }));
+  }
+  return changed ? join(open, kids, close) || `${open}${close}` : raw;
+}
+
 // ../docx-core/src/source.ts
 function runSig(run) {
   return sigHash(JSON.stringify(run, sigReplacer));
@@ -4168,6 +4581,18 @@ var SourceStore = class {
     }
     this.paraRefs = [];
     this.tableRefs = [];
+  }
+  /**
+   * w:sectPr cru de uma seção: o do parágrafo que a encerra (a quebra nova
+   * copiada leva o dela em sectionBreak.raw; senão o do pPr de origem) ou, sem
+   * parágrafo, o do corpo (última seção). Base da cópia que uma quebra de seção
+   * nova grava — o Word copia o sectPr inteiro (oráculo tools/sections-lab).
+   */
+  sectPrRaw(closing) {
+    if (!closing) return this.stories.get("word/document.xml")?.sectPr;
+    if (closing.props.sectionBreak?.raw) return closing.props.sectionBreak.raw;
+    const pPr = closing.props.src !== void 0 ? this.paras.get(closing.props.src)?.pPr : void 0;
+    return pPr ? splitElement(pPr).kids.find((k) => k.name === "w:sectPr")?.raw : void 0;
   }
   /** Parágrafo igual à linha de base (mesmos runs, mesmas props). */
   pristine(p) {
@@ -4856,395 +5281,117 @@ function applyParaProps(model, range, patch) {
   }
 }
 
-// ../docx-core/src/lossless.ts
-var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-var RPR_ORDER = [
-  "w:rStyle",
-  "w:rFonts",
-  "w:b",
-  "w:bCs",
-  "w:i",
-  "w:iCs",
-  "w:caps",
-  "w:smallCaps",
-  "w:strike",
-  "w:dstrike",
-  "w:outline",
-  "w:shadow",
-  "w:emboss",
-  "w:imprint",
-  "w:noProof",
-  "w:snapToGrid",
-  "w:vanish",
-  "w:webHidden",
-  "w:color",
-  "w:spacing",
-  "w:w",
-  "w:kern",
-  "w:position",
-  "w:sz",
-  "w:szCs",
-  "w:highlight",
-  "w:u",
-  "w:effect",
-  "w:bdr",
-  "w:shd",
-  "w:fitText",
-  "w:vertAlign",
-  "w:rtl",
-  "w:cs",
-  "w:em",
-  "w:lang",
-  "w:eastAsianLayout",
-  "w:specVanish",
-  "w:oMath",
-  "w:rPrChange"
-];
-var PPR_ORDER = [
-  "w:pStyle",
-  "w:keepNext",
-  "w:keepLines",
-  "w:pageBreakBefore",
-  "w:framePr",
-  "w:widowControl",
-  "w:numPr",
-  "w:suppressLineNumbers",
-  "w:pBdr",
-  "w:shd",
-  "w:tabs",
-  "w:suppressAutoHyphens",
-  "w:kinsoku",
-  "w:wordWrap",
-  "w:overflowPunct",
-  "w:topLinePunct",
-  "w:autoSpaceDE",
-  "w:autoSpaceDN",
-  "w:bidi",
-  "w:adjustRightInd",
-  "w:snapToGrid",
-  "w:spacing",
-  "w:ind",
-  "w:contextualSpacing",
-  "w:mirrorIndents",
-  "w:suppressOverlap",
-  "w:jc",
-  "w:textDirection",
-  "w:textAlignment",
-  "w:textboxTightWrap",
-  "w:outlineLvl",
-  "w:divId",
-  "w:cnfStyle",
-  "w:rPr",
-  "w:sectPr",
-  "w:pPrChange"
-];
-var SECT_ORDER = [
-  "w:headerReference",
-  "w:footerReference",
-  "w:footnotePr",
-  "w:endnotePr",
-  "w:type",
-  "w:pgSz",
-  "w:pgMar",
-  "w:paperSrc",
-  "w:pgBorders",
-  "w:lnNumType",
-  "w:pgNumType",
-  "w:cols",
-  "w:formProt",
-  "w:vAlign",
-  "w:noEndnote",
-  "w:titlePg",
-  "w:textDirection",
-  "w:bidi",
-  "w:rtlGutter",
-  "w:docGrid",
-  "w:printerSettings",
-  "w:sectPrChange"
-];
-function splitElement(raw) {
-  const el2 = parseXml(raw, { positions: true });
-  if (el2.cs === el2.e) {
-    const open = raw.replace(/\s*\/>\s*$/, ">");
-    return { open, close: `</${el2.name}>`, kids: [], el: el2 };
-  }
-  const kids = childElements(el2).map((k) => ({ name: k.name, raw: raw.slice(k.s, k.e), el: k }));
-  return { open: raw.slice(0, el2.cs), close: raw.slice(el2.ce), kids, el: el2 };
-}
-function setKid(kids, order, name, xml) {
-  const at = kids.findIndex((k) => k.name === name);
-  for (let i2 = kids.length - 1; i2 >= 0; i2--) if (kids[i2].name === name && i2 !== at) kids.splice(i2, 1);
-  if (at >= 0) {
-    if (xml === null) kids.splice(at, 1);
-    else kids[at] = { name, raw: xml, el: kids[at].el };
-    return;
-  }
-  if (xml === null) return;
-  const rank = order.indexOf(name);
-  let pos = kids.length;
-  for (let i2 = 0; i2 < kids.length; i2++) {
-    const r = order.indexOf(kids[i2].name);
-    if (r > rank) {
-      pos = i2;
-      break;
-    }
-  }
-  kids.splice(pos, 0, { name, raw: xml, el: { name, attrs: {}, children: [] } });
-}
-function withAttrs(raw, name, changes) {
-  if (!raw) {
-    const attrs3 = Object.entries(changes).filter(([, v]) => v !== void 0).map(([k, v]) => ` ${k}="${esc(String(v))}"`).join("");
-    return `<${name}${attrs3}/>`;
-  }
-  const m = /^<([^\s/>]+)([^>]*?)(\/?)>/.exec(raw);
-  let attrs2 = m[2];
-  for (const [k, v] of Object.entries(changes)) {
-    const re = new RegExp(`\\s${k.replace(":", "\\:")}\\s*=\\s*("[^"]*"|'[^']*')`);
-    if (v === void 0) attrs2 = attrs2.replace(re, "");
-    else if (re.test(attrs2)) attrs2 = attrs2.replace(re, () => ` ${k}="${esc(String(v))}"`);
-    else attrs2 += ` ${k}="${esc(String(v))}"`;
-  }
-  return `<${m[1]}${attrs2}${m[3]}>${raw.slice(m[0].length)}`;
-}
-var kidRaw = (kids, name) => kids.find((k) => k.name === name)?.raw ?? "";
-var onOff2 = (name, v) => v ? `<${name}/>` : `<${name} w:val="0"/>`;
-var join = (open, kids, close) => kids.length ? open + kids.map((k) => k.raw).join("") + close : "";
-function rPrFromProps(p, linkAware = true) {
-  const rpr = [];
-  if (p.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc(p.fontAscii)}" w:hAnsi="${esc(p.fontAscii)}" w:cs="${esc(p.fontAscii)}"/>`);
-  if (p.bold) rpr.push("<w:b/>");
-  if (p.italic) rpr.push("<w:i/>");
-  if (p.allCaps) rpr.push("<w:caps/>");
-  if (p.smallCaps) rpr.push("<w:smallCaps/>");
-  if (p.strike) rpr.push("<w:strike/>");
-  if (p.doubleStrike) rpr.push("<w:dstrike/>");
-  const linkLook = linkAware && !!p.link && !p.underlineStyle && !p.underlineColor;
-  if (p.color && !(linkAware && p.link && p.color === "0563C1")) rpr.push(`<w:color w:val="${esc(p.color)}"/>`);
-  if (p.charSpacingTwips) rpr.push(`<w:spacing w:val="${p.charSpacingTwips}"/>`);
-  if (p.szHalfPt !== void 0) rpr.push(`<w:sz w:val="${p.szHalfPt}"/><w:szCs w:val="${p.szHalfPt}"/>`);
-  if (p.highlight) rpr.push(`<w:highlight w:val="${esc(p.highlight)}"/>`);
-  if (p.underline && !linkLook) {
-    rpr.push(`<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc(p.underlineColor)}"` : ""}/>`);
-  }
-  if (p.vertAlign) rpr.push(`<w:vertAlign w:val="${p.vertAlign}"/>`);
-  return rpr.length ? `<w:rPr>${rpr.join("")}</w:rPr>` : "";
-}
-function patchRPr(raw, run) {
-  const p = run.props;
-  if (raw === void 0) return rPrFromProps(p);
-  const { open, close, kids, el: el2 } = splitElement(raw);
-  const base = editBaseProps(run, readRPr(el2));
-  let changed = false;
-  const set = (name, xml) => {
-    changed = true;
-    setKid(kids, RPR_ORDER, name, xml);
-  };
-  if (p.bold !== base.bold) {
-    set("w:b", onOff2("w:b", p.bold));
-    set("w:bCs", onOff2("w:bCs", p.bold));
-  }
-  if (p.italic !== base.italic) {
-    set("w:i", onOff2("w:i", p.italic));
-    set("w:iCs", onOff2("w:iCs", p.italic));
-  }
-  if (p.underline !== base.underline || p.underlineStyle !== base.underlineStyle || p.underlineColor !== base.underlineColor) {
-    set("w:u", p.underline ? `<w:u w:val="${p.underlineStyle ?? "single"}"${p.underlineColor ? ` w:color="${esc(p.underlineColor)}"` : ""}/>` : '<w:u w:val="none"/>');
-  }
-  if (p.strike !== base.strike) set("w:strike", onOff2("w:strike", p.strike));
-  if (!!p.doubleStrike !== !!base.doubleStrike) set("w:dstrike", onOff2("w:dstrike", !!p.doubleStrike));
-  if (p.allCaps !== base.allCaps) set("w:caps", onOff2("w:caps", p.allCaps));
-  if (p.smallCaps !== base.smallCaps) set("w:smallCaps", onOff2("w:smallCaps", p.smallCaps));
-  if (p.vertAlign !== base.vertAlign) set("w:vertAlign", `<w:vertAlign w:val="${p.vertAlign ?? "baseline"}"/>`);
-  if (p.szHalfPt !== base.szHalfPt) {
-    set("w:sz", p.szHalfPt === void 0 ? null : `<w:sz w:val="${p.szHalfPt}"/>`);
-    set("w:szCs", p.szHalfPt === void 0 ? null : `<w:szCs w:val="${p.szHalfPt}"/>`);
-  }
-  if (p.color !== base.color) set("w:color", p.color === void 0 ? null : `<w:color w:val="${esc(p.color)}"/>`);
-  if (p.highlight !== base.highlight) set("w:highlight", p.highlight === void 0 ? null : `<w:highlight w:val="${esc(p.highlight)}"/>`);
-  if (p.fontAscii !== base.fontAscii) {
-    set("w:rFonts", p.fontAscii === void 0 ? null : withAttrs(kidRaw(kids, "w:rFonts"), "w:rFonts", {
-      "w:ascii": p.fontAscii,
-      "w:hAnsi": p.fontAscii,
-      "w:cs": p.fontAscii,
-      "w:asciiTheme": void 0,
-      "w:hAnsiTheme": void 0,
-      "w:cstheme": void 0
-    }));
-  }
-  if ((p.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
-    set("w:spacing", p.charSpacingTwips ? `<w:spacing w:val="${p.charSpacingTwips}"/>` : null);
-  }
-  return changed ? join(open, kids, close) : raw;
-}
-var eq = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-var DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
-function pprBits(pp, ids) {
-  const out = {};
-  out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc(pp.styleId)}"/>` : null;
-  out["w:pageBreakBefore"] = pp.pageBreakBefore ? "<w:pageBreakBefore/>" : null;
-  out["w:tabs"] = pp.tabStops?.length ? "<w:tabs>" + pp.tabStops.map((t) => `<w:tab w:val="${t.align}"${t.leader ? ` w:leader="${t.leader}"` : ""} w:pos="${t.posTwips}"/>`).join("") + "</w:tabs>" : null;
-  out["w:numPr"] = pp.numbering ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === "decimal" ? ids.decimal : ids.bullet}"/></w:numPr>` : null;
-  if (pp.borders) {
-    let inner = "";
-    for (const side of ["top", "left", "bottom", "right"]) {
-      const e = pp.borders[side];
-      if (e) inner += `<w:${side} w:val="${esc(e.style)}" w:sz="${e.sizeEighthPt}" w:space="${e.spacePt}" w:color="${e.color ? esc(e.color) : "auto"}"/>`;
-    }
-    out["w:pBdr"] = inner ? `<w:pBdr>${inner}</w:pBdr>` : null;
-  } else if (pp.boxBorder) {
-    const b = (side) => `<w:${side} w:val="single" w:sz="4" w:space="1" w:color="auto"/>`;
-    out["w:pBdr"] = `<w:pBdr>${b("top")}${b("left")}${b("bottom")}${b("right")}</w:pBdr>`;
-  } else out["w:pBdr"] = null;
-  out["w:shd"] = pp.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${esc(pp.shadingHex)}"/>` : null;
+// ../docx-core/src/section-ops.ts
+var COLUMN_SPACE_DEFAULT = 708;
+var COLUMN_MIN_WIDTH = 720;
+function sectionRanges(model) {
+  const out = [];
+  let start = 0;
+  model.paragraphs.forEach((p, i2) => {
+    const sb = p.props.sectionBreak;
+    if (!sb) return;
+    out.push({ start, end: i2, sb });
+    start = i2 + 1;
+  });
+  out.push({ start, end: Math.max(start, model.paragraphs.length - 1) });
   return out;
 }
-function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
-  const bits2 = pprBits(pp, ids);
-  const ppr = [];
-  const add = (name) => {
-    const x2 = bits2[name];
-    if (x2) ppr.push(x2);
-  };
-  add("w:pStyle");
-  add("w:pageBreakBefore");
-  add("w:numPr");
-  add("w:pBdr");
-  add("w:shd");
-  add("w:tabs");
-  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
-    const line = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
-    const before = pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "";
-    const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
-    ppr.push(`<w:spacing${before}${after}${line}/>`);
-  }
-  if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
-    let attrs2 = "";
-    if (pp.indentLeftTwips) attrs2 += ` w:left="${pp.indentLeftTwips}"`;
-    if (pp.indentRightTwips) attrs2 += ` w:right="${pp.indentRightTwips}"`;
-    if (pp.indentFirstLineTwips) {
-      attrs2 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
-    }
-    ppr.push(`<w:ind${attrs2}/>`);
-  }
-  if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
-  if (sectPrXml) ppr.push(sectPrXml);
-  return { xml: ppr.length ? `<w:pPr>${ppr.join("")}</w:pPr>` : "", genNumbering: !!pp.numbering };
+function sectionIndexAt(model, para) {
+  const rs = sectionRanges(model);
+  const k = rs.findIndex((r) => para <= r.end);
+  return k < 0 ? rs.length - 1 : k;
 }
-function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
-  const p = para.props;
-  if (raw === void 0) return pPrFromProps(p, sect ?? "", ids);
-  const { open, close, kids, el: el2 } = splitElement(raw);
-  const base = paraPropsFromPPr(readPPr(el2));
-  let changed = false;
-  let genNumbering = false;
-  const set = (name, xml) => {
-    changed = true;
-    setKid(kids, PPR_ORDER, name, xml);
-  };
-  const bits2 = pprBits(p, ids);
-  if (p.styleId !== base.styleId) set("w:pStyle", bits2["w:pStyle"]);
-  if (!!p.pageBreakBefore !== !!base.pageBreakBefore) set("w:pageBreakBefore", p.pageBreakBefore ? "<w:pageBreakBefore/>" : '<w:pageBreakBefore w:val="0"/>');
-  if (!eq(p.tabStops, base.tabStops)) set("w:tabs", bits2["w:tabs"]);
-  if (!eq(p.borders, base.borders) || !!p.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
-  if (p.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
-  if (!eq(p.numbering, base.numbering)) {
-    const numPr = el2.children.find((c) => typeof c !== "string" && c.name === "w:numPr");
-    const numId = numPr && childElements(numPr, "w:numId")[0]?.attrs["w:val"];
-    if (!p.numbering) set("w:numPr", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>');
-    else if (numId && numId !== "0" && base.numbering && base.numbering.kind === p.numbering.kind) {
-      set("w:numPr", `<w:numPr><w:ilvl w:val="${p.numbering.ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
-    } else {
-      set("w:numPr", bits2["w:numPr"]);
-      genNumbering = true;
-    }
-  }
-  if (p.indentLeftTwips !== base.indentLeftTwips || p.indentRightTwips !== base.indentRightTwips || p.indentFirstLineTwips !== base.indentFirstLineTwips) {
-    const f = p.indentFirstLineTwips;
-    set("w:ind", withAttrs(kidRaw(kids, "w:ind"), "w:ind", {
-      "w:left": p.indentLeftTwips,
-      "w:start": void 0,
-      "w:right": p.indentRightTwips,
-      "w:end": void 0,
-      "w:firstLine": f !== void 0 && f >= 0 ? f : void 0,
-      "w:hanging": f !== void 0 && f < 0 ? -f : void 0,
-      "w:firstLineChars": void 0,
-      "w:hangingChars": void 0,
-      "w:leftChars": void 0,
-      "w:rightChars": void 0
-    }));
-  }
-  if (p.lineTwentieths !== base.lineTwentieths || p.spaceAfterTwips !== base.spaceAfterTwips || p.spaceBeforeTwips !== base.spaceBeforeTwips) {
-    const ch = {};
-    if (p.lineTwentieths !== base.lineTwentieths) {
-      ch["w:line"] = p.lineTwentieths;
-      ch["w:lineRule"] = p.lineTwentieths !== void 0 ? "auto" : void 0;
-    }
-    if (p.spaceAfterTwips !== base.spaceAfterTwips) {
-      ch["w:after"] = p.spaceAfterTwips;
-      ch["w:afterLines"] = void 0;
-      ch["w:afterAutospacing"] = void 0;
-    }
-    if (p.spaceBeforeTwips !== base.spaceBeforeTwips) {
-      ch["w:before"] = p.spaceBeforeTwips;
-      ch["w:beforeLines"] = void 0;
-      ch["w:beforeAutospacing"] = void 0;
-    }
-    set("w:spacing", withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch));
-  }
-  if (p.alignment !== base.alignment) set("w:jc", p.alignment ? `<w:jc w:val="${p.alignment}"/>` : null);
-  if (sect !== void 0) {
-    const cur = kidRaw(kids, "w:sectPr");
-    if ((sect ?? "") !== cur) set("w:sectPr", sect);
-  }
-  return { xml: changed ? join(open, kids, close) : raw, genNumbering };
+function sectionSectPr(model, k) {
+  return sectionRanges(model)[k]?.sb?.sectPr ?? model.sectPr;
 }
-function patchSectPr(raw, cur, refs) {
-  const { open, close, kids, el: el2 } = splitElement(raw);
-  const base = readSectPr(el2);
-  let changed = false;
-  const set = (name, xml) => {
-    changed = true;
-    setKid(kids, SECT_ORDER, name, xml);
+var cloneSectPr = (s) => JSON.parse(JSON.stringify(s));
+function insertSectionBreak(model, pos, type = "nextPage", opts = {}) {
+  const k = sectionIndexAt(model, pos.para);
+  const range = sectionRanges(model)[k];
+  const sp = range.sb ? range.sb.sectPr : model.sectPr;
+  const refs = range.sb ?? model.bodyRefs ?? { headerRefs: [], footerRefs: [] };
+  const sb = {
+    sectPr: cloneSectPr(sp),
+    headerRefs: refs.headerRefs.map((r) => ({ ...r })),
+    footerRefs: refs.footerRefs.map((r) => ({ ...r })),
+    ...opts.raw ? { raw: opts.raw } : {},
+    ...opts.id !== void 0 ? { id: opts.id } : {}
   };
-  if (refs) {
-    const now = kids.filter((k) => k.name === "w:headerReference" || k.name === "w:footerReference").map((k) => `${k.name}|${k.el.attrs["w:type"] ?? "default"}|${k.el.attrs["r:id"]}`).sort().join(",");
-    const want = refs.map((r) => `w:${r.kind}Reference|${r.type}|${r.rid}`).sort().join(",");
-    if (now !== want) {
-      changed = true;
-      for (let i2 = kids.length - 1; i2 >= 0; i2--) if (kids[i2].name === "w:headerReference" || kids[i2].name === "w:footerReference") kids.splice(i2, 1);
-      kids.unshift(...refs.map((r) => {
-        const x2 = `<w:${r.kind}Reference w:type="${r.type}" r:id="${r.rid}"/>`;
-        return { name: `w:${r.kind}Reference`, raw: x2, el: { name: "", attrs: {}, children: [] } };
-      }));
-    }
-  }
-  if (cur.pageWidthTwips !== base.pageWidthTwips || cur.pageHeightTwips !== base.pageHeightTwips) {
-    set("w:pgSz", withAttrs(kidRaw(kids, "w:pgSz"), "w:pgSz", {
-      "w:w": cur.pageWidthTwips,
-      "w:h": cur.pageHeightTwips,
-      "w:orient": cur.pageWidthTwips > cur.pageHeightTwips ? "landscape" : void 0
+  const next = (opts.split ?? splitParagraph)(model, pos);
+  const first = model.paragraphs[pos.para];
+  first.props = { ...first.props, sectionBreak: sb };
+  if (type === "nextPage") delete sp.type;
+  else sp.type = type;
+  if (range.sb) {
+    range.sb.headerRefs = [];
+    range.sb.footerRefs = [];
+  } else model.bodyRefs = { headerRefs: [], footerRefs: [] };
+  return next;
+}
+var contentWidth = (sp) => sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+var maxColumns = (sp) => Math.max(1, Math.floor(contentWidth(sp) / COLUMN_MIN_WIDTH));
+function columnsFor(sp, spec) {
+  const W = contentWidth(sp);
+  const n = Math.max(1, Math.min(Math.round(spec.count), maxColumns(sp)));
+  if (n < 2) return void 0;
+  let space = Math.max(0, Math.round(spec.spaceTwips ?? sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT));
+  if ((W - space * (n - 1)) / n < COLUMN_MIN_WIDTH) space = Math.max(0, Math.floor((W - n * COLUMN_MIN_WIDTH) / (n - 1)));
+  const cols = { count: n, spaceTwips: space, sep: !!spec.sep };
+  if (spec.widths && spec.widths.length >= n) {
+    cols.widths = spec.widths.slice(0, n).map((c, i2) => ({
+      widthTwips: Math.max(COLUMN_MIN_WIDTH, Math.round(c.widthTwips)),
+      // o Word grava o w:space da última coluna com o espaço geral
+      spaceTwips: i2 === n - 1 ? space : Math.max(0, Math.round(c.spaceTwips))
     }));
   }
-  if (cur.marginTopTwips !== base.marginTopTwips || cur.marginBottomTwips !== base.marginBottomTwips || cur.marginLeftTwips !== base.marginLeftTwips || cur.marginRightTwips !== base.marginRightTwips || (cur.headerDistanceTwips ?? 720) !== base.headerDistanceTwips || (cur.footerDistanceTwips ?? 720) !== base.footerDistanceTwips) {
-    const pgMar = kidRaw(kids, "w:pgMar");
-    set("w:pgMar", withAttrs(pgMar, "w:pgMar", {
-      "w:top": cur.marginTopTwips,
-      "w:right": cur.marginRightTwips,
-      "w:bottom": cur.marginBottomTwips,
-      "w:left": cur.marginLeftTwips,
-      "w:header": cur.headerDistanceTwips ?? 720,
-      "w:footer": cur.footerDistanceTwips ?? 720,
-      ...pgMar ? {} : { "w:gutter": 0 }
-    }));
+  return cols;
+}
+function presetColumns(sp, preset) {
+  const sep = !!sp.cols?.sep;
+  const space = sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT;
+  if (preset === "one") return { count: 1, sep };
+  if (preset === "two" || preset === "three") return { count: preset === "two" ? 2 : 3, spaceTwips: space, sep };
+  const W = contentWidth(sp);
+  const narrow = Math.round((W - 2 * space) / 3);
+  const wide = W - narrow - space;
+  const ws = preset === "left" ? [narrow, wide] : [wide, narrow];
+  return { count: 2, spaceTwips: space, sep, widths: ws.map((w) => ({ widthTwips: w, spaceTwips: space })) };
+}
+function columnsPresetOf(sp) {
+  const c = sp.cols;
+  if (!c || c.count < 2) return "one";
+  if (!c.widths) return c.count === 2 ? "two" : c.count === 3 ? "three" : null;
+  if (c.count !== 2) return null;
+  for (const p of ["left", "right"]) {
+    const ref = presetColumns(sp, p).widths;
+    if (ref.every((w, i2) => Math.abs(w.widthTwips - c.widths[i2].widthTwips) <= 20)) return p;
   }
-  if (!eq(cur.cols, base.cols)) {
-    set("w:cols", cur.cols ? withAttrs(kidRaw(kids, "w:cols"), "w:cols", { "w:num": cur.cols.count, "w:space": cur.cols.spaceTwips, "w:sep": cur.cols.sep ? "true" : void 0 }) : withAttrs(kidRaw(kids, "w:cols"), "w:cols", { "w:num": void 0 }));
+  return null;
+}
+function columnWidths(sp) {
+  const c = sp.cols;
+  const W = contentWidth(sp);
+  if (!c || c.count < 2) return [{ widthTwips: W, spaceTwips: 0 }];
+  if (c.widths) return c.widths.map((w2) => ({ ...w2 }));
+  const w = Math.round((W - c.spaceTwips * (c.count - 1)) / c.count);
+  return Array.from({ length: c.count }, (_, i2) => ({ widthTwips: w, spaceTwips: i2 < c.count - 1 ? c.spaceTwips : 0 }));
+}
+function setOrientation(sp, orientation) {
+  const land = sp.pageWidthTwips > sp.pageHeightTwips;
+  if (orientation === "landscape" === land) return;
+  [sp.pageWidthTwips, sp.pageHeightTwips] = [sp.pageHeightTwips, sp.pageWidthTwips];
+  const { marginTopTwips: t, marginRightTwips: r, marginBottomTwips: b, marginLeftTwips: l } = sp;
+  if (orientation === "landscape") {
+    sp.marginTopTwips = l;
+    sp.marginRightTwips = t;
+    sp.marginBottomTwips = r;
+    sp.marginLeftTwips = b;
+  } else {
+    sp.marginTopTwips = r;
+    sp.marginRightTwips = b;
+    sp.marginBottomTwips = l;
+    sp.marginLeftTwips = t;
   }
-  if (!!cur.titlePg !== !!base.titlePg) set("w:titlePg", cur.titlePg ? "<w:titlePg/>" : null);
-  if (cur.pgNumStart !== base.pgNumStart) {
-    set("w:pgNumType", withAttrs(kidRaw(kids, "w:pgNumType"), "w:pgNumType", { "w:start": cur.pgNumStart }));
-  }
-  return changed ? join(open, kids, close) || `${open}${close}` : raw;
 }
 
 // ../docx-core/src/serialize.ts
@@ -5574,8 +5721,12 @@ function paraSectPr(para, rawPPr) {
   const rawSect = rawPPr ? splitElement(rawPPr).kids.find((k) => k.name === "w:sectPr")?.raw : void 0;
   const sb = para.props.sectionBreak;
   if (!sb) return rawSect ? null : void 0;
+  return sectionBreakXml(sb, rawSect);
+}
+function sectionBreakXml(sb, rawSect) {
   const refs = [...sb.headerRefs, ...sb.footerRefs];
-  return rawSect ? patchSectPr(rawSect, sb.sectPr, refs) : `<w:sectPr>${sectPrInner(sb.sectPr, refs)}</w:sectPr>`;
+  const base = rawSect ?? sb.raw;
+  return base ? patchSectPr(base, sb.sectPr, refs) : `<w:sectPr>${sectPrInner(sb.sectPr, refs)}</w:sectPr>`;
 }
 function paraXml(para) {
   if (!active) return paraXmlRuns(para);
@@ -5593,7 +5744,7 @@ function paraXmlRuns(para) {
     const marks = commentMarks(para.runs, active?.store.commentIds);
     const items = para.runs.map((run, i2) => ({ run, before: marks.before[i2], after: marks.after[i2] }));
     if (!active) return paraXmlInner(para, items.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join(""));
-    const ppr2 = pPrFromProps(para.props, para.props.sectionBreak ? `<w:sectPr>${sectPrInner(para.props.sectionBreak.sectPr, [...para.props.sectionBreak.headerRefs, ...para.props.sectionBreak.footerRefs])}</w:sectPr>` : "", active.numIds);
+    const ppr2 = pPrFromProps(para.props, para.props.sectionBreak ? sectionBreakXml(para.props.sectionBreak) : "", active.numIds);
     if (ppr2.genNumbering) active.genNumbering = true;
     return `<w:p>${ppr2.xml}${genRuns(items)}</w:p>`;
   }
@@ -5666,10 +5817,11 @@ var W_NS = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/mai
 function sectPrInner(s, refs = []) {
   const refsXml = refs.map((h) => `<w:${h.kind}Reference w:type="${h.type}" r:id="${h.rid}"/>`).join("");
   const orient = s.pageWidthTwips > s.pageHeightTwips ? ' w:orient="landscape"' : "";
-  const cols = s.cols ? `<w:cols w:space="${s.cols.spaceTwips}" w:num="${s.cols.count}"${s.cols.sep ? ' w:sep="true"' : ""} w:equalWidth="true"/>` : "";
+  const type = s.type && s.type !== "nextPage" ? `<w:type w:val="${s.type}"/>` : "";
+  const cols = s.cols ? colsXml(s.cols) : "";
   const titlePg = s.titlePg ? "<w:titlePg/>" : "";
   const pgNumType = s.pgNumStart !== void 0 ? `<w:pgNumType w:start="${s.pgNumStart}"/>` : "";
-  return `${refsXml}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/><w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${cols}${pgNumType}${titlePg}`;
+  return `${refsXml}${type}<w:pgSz w:w="${s.pageWidthTwips}" w:h="${s.pageHeightTwips}"${orient}/><w:pgMar w:top="${s.marginTopTwips}" w:right="${s.marginRightTwips}" w:bottom="${s.marginBottomTwips}" w:left="${s.marginLeftTwips}" w:header="${s.headerDistanceTwips ?? 720}" w:footer="${s.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgNumType}${cols}${titlePg}`;
 }
 function borderXml(tag, e) {
   return `<w:${tag} w:val="${escAttr(e.style)}" w:sz="${e.sizeEighthPt}" w:space="0" w:color="${e.color ? escAttr(e.color) : "auto"}"/>`;
@@ -12198,6 +12350,18 @@ export {
   mergeWithPrevious,
   applyRunProps,
   applyParaProps,
+  COLUMN_SPACE_DEFAULT,
+  sectionRanges,
+  sectionIndexAt,
+  sectionSectPr,
+  insertSectionBreak,
+  contentWidth,
+  maxColumns,
+  columnsFor,
+  presetColumns,
+  columnsPresetOf,
+  columnWidths,
+  setOrientation,
   writeDocument,
   isWordBinary,
   convertDocToDocx,

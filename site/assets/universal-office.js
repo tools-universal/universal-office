@@ -3709,6 +3709,8 @@ function readSectPr(sectEl) {
     headerDistanceTwips: tw(pgMar, "w:header", 720),
     footerDistanceTwips: tw(pgMar, "w:footer", 720)
   };
+  const type = sectEl && firstChild(sectEl, "w:type")?.attrs["w:val"];
+  if (type === "continuous" || type === "evenPage" || type === "oddPage" || type === "nextColumn") sect.type = type;
   const num = colsEl ? parseInt(colsEl.attrs["w:num"] ?? "1", 10) : 1;
   if (num > 1) {
     sect.cols = {
@@ -3716,6 +3718,14 @@ function readSectPr(sectEl) {
       spaceTwips: parseInt(colsEl.attrs["w:space"] ?? "720", 10),
       sep: colsEl.attrs["w:sep"] === "true" || colsEl.attrs["w:sep"] === "1"
     };
+    const eq3 = colsEl.attrs["w:equalWidth"];
+    const defs = childElements(colsEl, "w:col");
+    if ((eq3 === "0" || eq3 === "false") && defs.length >= num) {
+      sect.cols.widths = defs.slice(0, num).map((c5) => ({
+        widthTwips: parseInt(c5.attrs["w:w"] ?? "0", 10) || 0,
+        spaceTwips: parseInt(c5.attrs["w:space"] ?? "0", 10) || 0
+      }));
+    }
   }
   const titlePg = sectEl && firstChild(sectEl, "w:titlePg");
   if (titlePg && titlePg.attrs["w:val"] !== "0" && titlePg.attrs["w:val"] !== "false") {
@@ -4213,6 +4223,418 @@ var init_styles = __esm({
   }
 });
 
+// ../docx-core/src/lossless.ts
+function splitElement(raw) {
+  const el3 = parseXml(raw, { positions: true });
+  if (el3.cs === el3.e) {
+    const open2 = raw.replace(/\s*\/>\s*$/, ">");
+    return { open: open2, close: `</${el3.name}>`, kids: [], el: el3 };
+  }
+  const kids = childElements(el3).map((k2) => ({ name: k2.name, raw: raw.slice(k2.s, k2.e), el: k2 }));
+  return { open: raw.slice(0, el3.cs), close: raw.slice(el3.ce), kids, el: el3 };
+}
+function setKid(kids, order, name, xml) {
+  const at = kids.findIndex((k2) => k2.name === name);
+  for (let i7 = kids.length - 1; i7 >= 0; i7--) if (kids[i7].name === name && i7 !== at) kids.splice(i7, 1);
+  if (at >= 0) {
+    if (xml === null) kids.splice(at, 1);
+    else kids[at] = { name, raw: xml, el: kids[at].el };
+    return;
+  }
+  if (xml === null) return;
+  const rank = order.indexOf(name);
+  let pos = kids.length;
+  for (let i7 = 0; i7 < kids.length; i7++) {
+    const r6 = order.indexOf(kids[i7].name);
+    if (r6 > rank) {
+      pos = i7;
+      break;
+    }
+  }
+  kids.splice(pos, 0, { name, raw: xml, el: { name, attrs: {}, children: [] } });
+}
+function withAttrs(raw, name, changes) {
+  if (!raw) {
+    const attrs3 = Object.entries(changes).filter(([, v2]) => v2 !== void 0).map(([k2, v2]) => ` ${k2}="${esc(String(v2))}"`).join("");
+    return `<${name}${attrs3}/>`;
+  }
+  const m2 = /^<([^\s/>]+)([^>]*?)(\/?)>/.exec(raw);
+  let attrs2 = m2[2];
+  for (const [k2, v2] of Object.entries(changes)) {
+    const re = new RegExp(`\\s${k2.replace(":", "\\:")}\\s*=\\s*("[^"]*"|'[^']*')`);
+    if (v2 === void 0) attrs2 = attrs2.replace(re, "");
+    else if (re.test(attrs2)) attrs2 = attrs2.replace(re, () => ` ${k2}="${esc(String(v2))}"`);
+    else attrs2 += ` ${k2}="${esc(String(v2))}"`;
+  }
+  return `<${m2[1]}${attrs2}${m2[3]}>${raw.slice(m2[0].length)}`;
+}
+function rPrFromProps(p3, linkAware = true) {
+  const rpr = [];
+  if (p3.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc(p3.fontAscii)}" w:hAnsi="${esc(p3.fontAscii)}" w:cs="${esc(p3.fontAscii)}"/>`);
+  if (p3.bold) rpr.push("<w:b/>");
+  if (p3.italic) rpr.push("<w:i/>");
+  if (p3.allCaps) rpr.push("<w:caps/>");
+  if (p3.smallCaps) rpr.push("<w:smallCaps/>");
+  if (p3.strike) rpr.push("<w:strike/>");
+  if (p3.doubleStrike) rpr.push("<w:dstrike/>");
+  const linkLook = linkAware && !!p3.link && !p3.underlineStyle && !p3.underlineColor;
+  if (p3.color && !(linkAware && p3.link && p3.color === "0563C1")) rpr.push(`<w:color w:val="${esc(p3.color)}"/>`);
+  if (p3.charSpacingTwips) rpr.push(`<w:spacing w:val="${p3.charSpacingTwips}"/>`);
+  if (p3.szHalfPt !== void 0) rpr.push(`<w:sz w:val="${p3.szHalfPt}"/><w:szCs w:val="${p3.szHalfPt}"/>`);
+  if (p3.highlight) rpr.push(`<w:highlight w:val="${esc(p3.highlight)}"/>`);
+  if (p3.underline && !linkLook) {
+    rpr.push(`<w:u w:val="${p3.underlineStyle ?? "single"}"${p3.underlineColor ? ` w:color="${esc(p3.underlineColor)}"` : ""}/>`);
+  }
+  if (p3.vertAlign) rpr.push(`<w:vertAlign w:val="${p3.vertAlign}"/>`);
+  return rpr.length ? `<w:rPr>${rpr.join("")}</w:rPr>` : "";
+}
+function patchRPr(raw, run) {
+  const p3 = run.props;
+  if (raw === void 0) return rPrFromProps(p3);
+  const { open: open2, close, kids, el: el3 } = splitElement(raw);
+  const base = editBaseProps(run, readRPr(el3));
+  let changed = false;
+  const set = (name, xml) => {
+    changed = true;
+    setKid(kids, RPR_ORDER, name, xml);
+  };
+  if (p3.bold !== base.bold) {
+    set("w:b", onOff2("w:b", p3.bold));
+    set("w:bCs", onOff2("w:bCs", p3.bold));
+  }
+  if (p3.italic !== base.italic) {
+    set("w:i", onOff2("w:i", p3.italic));
+    set("w:iCs", onOff2("w:iCs", p3.italic));
+  }
+  if (p3.underline !== base.underline || p3.underlineStyle !== base.underlineStyle || p3.underlineColor !== base.underlineColor) {
+    set("w:u", p3.underline ? `<w:u w:val="${p3.underlineStyle ?? "single"}"${p3.underlineColor ? ` w:color="${esc(p3.underlineColor)}"` : ""}/>` : '<w:u w:val="none"/>');
+  }
+  if (p3.strike !== base.strike) set("w:strike", onOff2("w:strike", p3.strike));
+  if (!!p3.doubleStrike !== !!base.doubleStrike) set("w:dstrike", onOff2("w:dstrike", !!p3.doubleStrike));
+  if (p3.allCaps !== base.allCaps) set("w:caps", onOff2("w:caps", p3.allCaps));
+  if (p3.smallCaps !== base.smallCaps) set("w:smallCaps", onOff2("w:smallCaps", p3.smallCaps));
+  if (p3.vertAlign !== base.vertAlign) set("w:vertAlign", `<w:vertAlign w:val="${p3.vertAlign ?? "baseline"}"/>`);
+  if (p3.szHalfPt !== base.szHalfPt) {
+    set("w:sz", p3.szHalfPt === void 0 ? null : `<w:sz w:val="${p3.szHalfPt}"/>`);
+    set("w:szCs", p3.szHalfPt === void 0 ? null : `<w:szCs w:val="${p3.szHalfPt}"/>`);
+  }
+  if (p3.color !== base.color) set("w:color", p3.color === void 0 ? null : `<w:color w:val="${esc(p3.color)}"/>`);
+  if (p3.highlight !== base.highlight) set("w:highlight", p3.highlight === void 0 ? null : `<w:highlight w:val="${esc(p3.highlight)}"/>`);
+  if (p3.fontAscii !== base.fontAscii) {
+    set("w:rFonts", p3.fontAscii === void 0 ? null : withAttrs(kidRaw(kids, "w:rFonts"), "w:rFonts", {
+      "w:ascii": p3.fontAscii,
+      "w:hAnsi": p3.fontAscii,
+      "w:cs": p3.fontAscii,
+      "w:asciiTheme": void 0,
+      "w:hAnsiTheme": void 0,
+      "w:cstheme": void 0
+    }));
+  }
+  if ((p3.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
+    set("w:spacing", p3.charSpacingTwips ? `<w:spacing w:val="${p3.charSpacingTwips}"/>` : null);
+  }
+  return changed ? join(open2, kids, close) : raw;
+}
+function pprBits(pp, ids) {
+  const out = {};
+  out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc(pp.styleId)}"/>` : null;
+  out["w:pageBreakBefore"] = pp.pageBreakBefore ? "<w:pageBreakBefore/>" : null;
+  out["w:tabs"] = pp.tabStops?.length ? "<w:tabs>" + pp.tabStops.map((t6) => `<w:tab w:val="${t6.align}"${t6.leader ? ` w:leader="${t6.leader}"` : ""} w:pos="${t6.posTwips}"/>`).join("") + "</w:tabs>" : null;
+  out["w:numPr"] = pp.numbering ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === "decimal" ? ids.decimal : ids.bullet}"/></w:numPr>` : null;
+  if (pp.borders) {
+    let inner = "";
+    for (const side of ["top", "left", "bottom", "right"]) {
+      const e8 = pp.borders[side];
+      if (e8) inner += `<w:${side} w:val="${esc(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="${e8.spacePt}" w:color="${e8.color ? esc(e8.color) : "auto"}"/>`;
+    }
+    out["w:pBdr"] = inner ? `<w:pBdr>${inner}</w:pBdr>` : null;
+  } else if (pp.boxBorder) {
+    const b5 = (side) => `<w:${side} w:val="single" w:sz="4" w:space="1" w:color="auto"/>`;
+    out["w:pBdr"] = `<w:pBdr>${b5("top")}${b5("left")}${b5("bottom")}${b5("right")}</w:pBdr>`;
+  } else out["w:pBdr"] = null;
+  out["w:shd"] = pp.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${esc(pp.shadingHex)}"/>` : null;
+  return out;
+}
+function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
+  const bits2 = pprBits(pp, ids);
+  const ppr = [];
+  const add = (name) => {
+    const x3 = bits2[name];
+    if (x3) ppr.push(x3);
+  };
+  add("w:pStyle");
+  add("w:pageBreakBefore");
+  add("w:numPr");
+  add("w:pBdr");
+  add("w:shd");
+  add("w:tabs");
+  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
+    const line = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
+    const before = pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "";
+    const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
+    ppr.push(`<w:spacing${before}${after}${line}/>`);
+  }
+  if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
+    let attrs2 = "";
+    if (pp.indentLeftTwips) attrs2 += ` w:left="${pp.indentLeftTwips}"`;
+    if (pp.indentRightTwips) attrs2 += ` w:right="${pp.indentRightTwips}"`;
+    if (pp.indentFirstLineTwips) {
+      attrs2 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
+    }
+    ppr.push(`<w:ind${attrs2}/>`);
+  }
+  if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  if (sectPrXml) ppr.push(sectPrXml);
+  return { xml: ppr.length ? `<w:pPr>${ppr.join("")}</w:pPr>` : "", genNumbering: !!pp.numbering };
+}
+function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
+  const p3 = para.props;
+  if (raw === void 0) return pPrFromProps(p3, sect ?? "", ids);
+  const { open: open2, close, kids, el: el3 } = splitElement(raw);
+  const base = paraPropsFromPPr(readPPr(el3));
+  let changed = false;
+  let genNumbering = false;
+  const set = (name, xml) => {
+    changed = true;
+    setKid(kids, PPR_ORDER, name, xml);
+  };
+  const bits2 = pprBits(p3, ids);
+  if (p3.styleId !== base.styleId) set("w:pStyle", bits2["w:pStyle"]);
+  if (!!p3.pageBreakBefore !== !!base.pageBreakBefore) set("w:pageBreakBefore", p3.pageBreakBefore ? "<w:pageBreakBefore/>" : '<w:pageBreakBefore w:val="0"/>');
+  if (!eq(p3.tabStops, base.tabStops)) set("w:tabs", bits2["w:tabs"]);
+  if (!eq(p3.borders, base.borders) || !!p3.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
+  if (p3.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
+  if (!eq(p3.numbering, base.numbering)) {
+    const numPr = el3.children.find((c5) => typeof c5 !== "string" && c5.name === "w:numPr");
+    const numId = numPr && childElements(numPr, "w:numId")[0]?.attrs["w:val"];
+    if (!p3.numbering) set("w:numPr", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>');
+    else if (numId && numId !== "0" && base.numbering && base.numbering.kind === p3.numbering.kind) {
+      set("w:numPr", `<w:numPr><w:ilvl w:val="${p3.numbering.ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
+    } else {
+      set("w:numPr", bits2["w:numPr"]);
+      genNumbering = true;
+    }
+  }
+  if (p3.indentLeftTwips !== base.indentLeftTwips || p3.indentRightTwips !== base.indentRightTwips || p3.indentFirstLineTwips !== base.indentFirstLineTwips) {
+    const f3 = p3.indentFirstLineTwips;
+    set("w:ind", withAttrs(kidRaw(kids, "w:ind"), "w:ind", {
+      "w:left": p3.indentLeftTwips,
+      "w:start": void 0,
+      "w:right": p3.indentRightTwips,
+      "w:end": void 0,
+      "w:firstLine": f3 !== void 0 && f3 >= 0 ? f3 : void 0,
+      "w:hanging": f3 !== void 0 && f3 < 0 ? -f3 : void 0,
+      "w:firstLineChars": void 0,
+      "w:hangingChars": void 0,
+      "w:leftChars": void 0,
+      "w:rightChars": void 0
+    }));
+  }
+  if (p3.lineTwentieths !== base.lineTwentieths || p3.spaceAfterTwips !== base.spaceAfterTwips || p3.spaceBeforeTwips !== base.spaceBeforeTwips) {
+    const ch = {};
+    if (p3.lineTwentieths !== base.lineTwentieths) {
+      ch["w:line"] = p3.lineTwentieths;
+      ch["w:lineRule"] = p3.lineTwentieths !== void 0 ? "auto" : void 0;
+    }
+    if (p3.spaceAfterTwips !== base.spaceAfterTwips) {
+      ch["w:after"] = p3.spaceAfterTwips;
+      ch["w:afterLines"] = void 0;
+      ch["w:afterAutospacing"] = void 0;
+    }
+    if (p3.spaceBeforeTwips !== base.spaceBeforeTwips) {
+      ch["w:before"] = p3.spaceBeforeTwips;
+      ch["w:beforeLines"] = void 0;
+      ch["w:beforeAutospacing"] = void 0;
+    }
+    set("w:spacing", withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch));
+  }
+  if (p3.alignment !== base.alignment) set("w:jc", p3.alignment ? `<w:jc w:val="${p3.alignment}"/>` : null);
+  if (sect !== void 0) {
+    const cur = kidRaw(kids, "w:sectPr");
+    if ((sect ?? "") !== cur) set("w:sectPr", sect);
+  }
+  return { xml: changed ? join(open2, kids, close) : raw, genNumbering };
+}
+function colsXml(cols, raw) {
+  if (cols && cols.count > 1) {
+    const head = `<w:cols w:num="${cols.count}"${cols.sep ? ' w:sep="1"' : ""} w:space="${cols.spaceTwips}"`;
+    if (!cols.widths?.length) return `${head}/>`;
+    return `${head} w:equalWidth="0">${cols.widths.map((c5) => `<w:col w:w="${c5.widthTwips}" w:space="${c5.spaceTwips}"/>`).join("")}</w:cols>`;
+  }
+  const el3 = raw ? splitElement(raw).el : void 0;
+  const sep = el3?.attrs["w:sep"];
+  const space = el3?.attrs["w:space"] ?? "708";
+  return `<w:cols${sep && sep !== "0" && sep !== "false" ? ' w:sep="1"' : ""} w:space="${esc(space)}"/>`;
+}
+function patchSectPr(raw, cur, refs) {
+  const { open: open2, close, kids, el: el3 } = splitElement(raw);
+  const base = readSectPr(el3);
+  let changed = false;
+  const set = (name, xml) => {
+    changed = true;
+    setKid(kids, SECT_ORDER, name, xml);
+  };
+  if (refs) {
+    const now = kids.filter((k2) => k2.name === "w:headerReference" || k2.name === "w:footerReference").map((k2) => `${k2.name}|${k2.el.attrs["w:type"] ?? "default"}|${k2.el.attrs["r:id"]}`).sort().join(",");
+    const want = refs.map((r6) => `w:${r6.kind}Reference|${r6.type}|${r6.rid}`).sort().join(",");
+    if (now !== want) {
+      changed = true;
+      for (let i7 = kids.length - 1; i7 >= 0; i7--) if (kids[i7].name === "w:headerReference" || kids[i7].name === "w:footerReference") kids.splice(i7, 1);
+      kids.unshift(...refs.map((r6) => {
+        const x3 = `<w:${r6.kind}Reference w:type="${r6.type}" r:id="${r6.rid}"/>`;
+        return { name: `w:${r6.kind}Reference`, raw: x3, el: { name: "", attrs: {}, children: [] } };
+      }));
+    }
+  }
+  if (cur.pageWidthTwips !== base.pageWidthTwips || cur.pageHeightTwips !== base.pageHeightTwips) {
+    set("w:pgSz", withAttrs(kidRaw(kids, "w:pgSz"), "w:pgSz", {
+      "w:w": cur.pageWidthTwips,
+      "w:h": cur.pageHeightTwips,
+      "w:orient": cur.pageWidthTwips > cur.pageHeightTwips ? "landscape" : void 0
+    }));
+  }
+  if (cur.marginTopTwips !== base.marginTopTwips || cur.marginBottomTwips !== base.marginBottomTwips || cur.marginLeftTwips !== base.marginLeftTwips || cur.marginRightTwips !== base.marginRightTwips || (cur.headerDistanceTwips ?? 720) !== base.headerDistanceTwips || (cur.footerDistanceTwips ?? 720) !== base.footerDistanceTwips) {
+    const pgMar = kidRaw(kids, "w:pgMar");
+    set("w:pgMar", withAttrs(pgMar, "w:pgMar", {
+      "w:top": cur.marginTopTwips,
+      "w:right": cur.marginRightTwips,
+      "w:bottom": cur.marginBottomTwips,
+      "w:left": cur.marginLeftTwips,
+      "w:header": cur.headerDistanceTwips ?? 720,
+      "w:footer": cur.footerDistanceTwips ?? 720,
+      ...pgMar ? {} : { "w:gutter": 0 }
+    }));
+  }
+  if ((cur.type ?? "nextPage") !== (base.type ?? "nextPage")) {
+    set("w:type", cur.type && cur.type !== "nextPage" ? `<w:type w:val="${cur.type}"/>` : null);
+  }
+  if (!eq(cur.cols, base.cols)) set("w:cols", colsXml(cur.cols, kidRaw(kids, "w:cols") || void 0));
+  if (!!cur.titlePg !== !!base.titlePg) set("w:titlePg", cur.titlePg ? "<w:titlePg/>" : null);
+  if (cur.pgNumStart !== base.pgNumStart) {
+    set("w:pgNumType", withAttrs(kidRaw(kids, "w:pgNumType"), "w:pgNumType", { "w:start": cur.pgNumStart }));
+  }
+  return changed ? join(open2, kids, close) || `${open2}${close}` : raw;
+}
+var esc, RPR_ORDER, PPR_ORDER, SECT_ORDER, kidRaw, onOff2, join, eq, DEFAULT_NUM_IDS;
+var init_lossless = __esm({
+  "../docx-core/src/lossless.ts"() {
+    "use strict";
+    init_xml();
+    init_props();
+    init_document();
+    esc = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    RPR_ORDER = [
+      "w:rStyle",
+      "w:rFonts",
+      "w:b",
+      "w:bCs",
+      "w:i",
+      "w:iCs",
+      "w:caps",
+      "w:smallCaps",
+      "w:strike",
+      "w:dstrike",
+      "w:outline",
+      "w:shadow",
+      "w:emboss",
+      "w:imprint",
+      "w:noProof",
+      "w:snapToGrid",
+      "w:vanish",
+      "w:webHidden",
+      "w:color",
+      "w:spacing",
+      "w:w",
+      "w:kern",
+      "w:position",
+      "w:sz",
+      "w:szCs",
+      "w:highlight",
+      "w:u",
+      "w:effect",
+      "w:bdr",
+      "w:shd",
+      "w:fitText",
+      "w:vertAlign",
+      "w:rtl",
+      "w:cs",
+      "w:em",
+      "w:lang",
+      "w:eastAsianLayout",
+      "w:specVanish",
+      "w:oMath",
+      "w:rPrChange"
+    ];
+    PPR_ORDER = [
+      "w:pStyle",
+      "w:keepNext",
+      "w:keepLines",
+      "w:pageBreakBefore",
+      "w:framePr",
+      "w:widowControl",
+      "w:numPr",
+      "w:suppressLineNumbers",
+      "w:pBdr",
+      "w:shd",
+      "w:tabs",
+      "w:suppressAutoHyphens",
+      "w:kinsoku",
+      "w:wordWrap",
+      "w:overflowPunct",
+      "w:topLinePunct",
+      "w:autoSpaceDE",
+      "w:autoSpaceDN",
+      "w:bidi",
+      "w:adjustRightInd",
+      "w:snapToGrid",
+      "w:spacing",
+      "w:ind",
+      "w:contextualSpacing",
+      "w:mirrorIndents",
+      "w:suppressOverlap",
+      "w:jc",
+      "w:textDirection",
+      "w:textAlignment",
+      "w:textboxTightWrap",
+      "w:outlineLvl",
+      "w:divId",
+      "w:cnfStyle",
+      "w:rPr",
+      "w:sectPr",
+      "w:pPrChange"
+    ];
+    SECT_ORDER = [
+      "w:headerReference",
+      "w:footerReference",
+      "w:footnotePr",
+      "w:endnotePr",
+      "w:type",
+      "w:pgSz",
+      "w:pgMar",
+      "w:paperSrc",
+      "w:pgBorders",
+      "w:lnNumType",
+      "w:pgNumType",
+      "w:cols",
+      "w:formProt",
+      "w:vAlign",
+      "w:noEndnote",
+      "w:titlePg",
+      "w:textDirection",
+      "w:bidi",
+      "w:rtlGutter",
+      "w:docGrid",
+      "w:printerSettings",
+      "w:sectPrChange"
+    ];
+    kidRaw = (kids, name) => kids.find((k2) => k2.name === name)?.raw ?? "";
+    onOff2 = (name, v2) => v2 ? `<${name}/>` : `<${name} w:val="0"/>`;
+    join = (open2, kids, close) => kids.length ? open2 + kids.map((k2) => k2.raw).join("") + close : "";
+    eq = (a3, b5) => JSON.stringify(a3 ?? null) === JSON.stringify(b5 ?? null);
+    DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
+  }
+});
+
 // ../docx-core/src/source.ts
 function runSig(run) {
   return sigHash(JSON.stringify(run, sigReplacer));
@@ -4241,6 +4663,7 @@ var SourceStore;
 var init_source = __esm({
   "../docx-core/src/source.ts"() {
     "use strict";
+    init_lossless();
     SourceStore = class {
       next = 1;
       paras = /* @__PURE__ */ new Map();
@@ -4299,6 +4722,18 @@ var init_source = __esm({
         }
         this.paraRefs = [];
         this.tableRefs = [];
+      }
+      /**
+       * w:sectPr cru de uma seção: o do parágrafo que a encerra (a quebra nova
+       * copiada leva o dela em sectionBreak.raw; senão o do pPr de origem) ou, sem
+       * parágrafo, o do corpo (última seção). Base da cópia que uma quebra de seção
+       * nova grava — o Word copia o sectPr inteiro (oráculo tools/sections-lab).
+       */
+      sectPrRaw(closing) {
+        if (!closing) return this.stories.get("word/document.xml")?.sectPr;
+        if (closing.props.sectionBreak?.raw) return closing.props.sectionBreak.raw;
+        const pPr = closing.props.src !== void 0 ? this.paras.get(closing.props.src)?.pPr : void 0;
+        return pPr ? splitElement(pPr).kids.find((k2) => k2.name === "w:sectPr")?.raw : void 0;
       }
       /** Parágrafo igual à linha de base (mesmos runs, mesmas props). */
       pristine(p3) {
@@ -4952,403 +5387,123 @@ var init_model_ops = __esm({
   }
 });
 
-// ../docx-core/src/lossless.ts
-function splitElement(raw) {
-  const el3 = parseXml(raw, { positions: true });
-  if (el3.cs === el3.e) {
-    const open2 = raw.replace(/\s*\/>\s*$/, ">");
-    return { open: open2, close: `</${el3.name}>`, kids: [], el: el3 };
-  }
-  const kids = childElements(el3).map((k2) => ({ name: k2.name, raw: raw.slice(k2.s, k2.e), el: k2 }));
-  return { open: raw.slice(0, el3.cs), close: raw.slice(el3.ce), kids, el: el3 };
-}
-function setKid(kids, order, name, xml) {
-  const at = kids.findIndex((k2) => k2.name === name);
-  for (let i7 = kids.length - 1; i7 >= 0; i7--) if (kids[i7].name === name && i7 !== at) kids.splice(i7, 1);
-  if (at >= 0) {
-    if (xml === null) kids.splice(at, 1);
-    else kids[at] = { name, raw: xml, el: kids[at].el };
-    return;
-  }
-  if (xml === null) return;
-  const rank = order.indexOf(name);
-  let pos = kids.length;
-  for (let i7 = 0; i7 < kids.length; i7++) {
-    const r6 = order.indexOf(kids[i7].name);
-    if (r6 > rank) {
-      pos = i7;
-      break;
-    }
-  }
-  kids.splice(pos, 0, { name, raw: xml, el: { name, attrs: {}, children: [] } });
-}
-function withAttrs(raw, name, changes) {
-  if (!raw) {
-    const attrs3 = Object.entries(changes).filter(([, v2]) => v2 !== void 0).map(([k2, v2]) => ` ${k2}="${esc(String(v2))}"`).join("");
-    return `<${name}${attrs3}/>`;
-  }
-  const m2 = /^<([^\s/>]+)([^>]*?)(\/?)>/.exec(raw);
-  let attrs2 = m2[2];
-  for (const [k2, v2] of Object.entries(changes)) {
-    const re = new RegExp(`\\s${k2.replace(":", "\\:")}\\s*=\\s*("[^"]*"|'[^']*')`);
-    if (v2 === void 0) attrs2 = attrs2.replace(re, "");
-    else if (re.test(attrs2)) attrs2 = attrs2.replace(re, () => ` ${k2}="${esc(String(v2))}"`);
-    else attrs2 += ` ${k2}="${esc(String(v2))}"`;
-  }
-  return `<${m2[1]}${attrs2}${m2[3]}>${raw.slice(m2[0].length)}`;
-}
-function rPrFromProps(p3, linkAware = true) {
-  const rpr = [];
-  if (p3.fontAscii) rpr.push(`<w:rFonts w:ascii="${esc(p3.fontAscii)}" w:hAnsi="${esc(p3.fontAscii)}" w:cs="${esc(p3.fontAscii)}"/>`);
-  if (p3.bold) rpr.push("<w:b/>");
-  if (p3.italic) rpr.push("<w:i/>");
-  if (p3.allCaps) rpr.push("<w:caps/>");
-  if (p3.smallCaps) rpr.push("<w:smallCaps/>");
-  if (p3.strike) rpr.push("<w:strike/>");
-  if (p3.doubleStrike) rpr.push("<w:dstrike/>");
-  const linkLook = linkAware && !!p3.link && !p3.underlineStyle && !p3.underlineColor;
-  if (p3.color && !(linkAware && p3.link && p3.color === "0563C1")) rpr.push(`<w:color w:val="${esc(p3.color)}"/>`);
-  if (p3.charSpacingTwips) rpr.push(`<w:spacing w:val="${p3.charSpacingTwips}"/>`);
-  if (p3.szHalfPt !== void 0) rpr.push(`<w:sz w:val="${p3.szHalfPt}"/><w:szCs w:val="${p3.szHalfPt}"/>`);
-  if (p3.highlight) rpr.push(`<w:highlight w:val="${esc(p3.highlight)}"/>`);
-  if (p3.underline && !linkLook) {
-    rpr.push(`<w:u w:val="${p3.underlineStyle ?? "single"}"${p3.underlineColor ? ` w:color="${esc(p3.underlineColor)}"` : ""}/>`);
-  }
-  if (p3.vertAlign) rpr.push(`<w:vertAlign w:val="${p3.vertAlign}"/>`);
-  return rpr.length ? `<w:rPr>${rpr.join("")}</w:rPr>` : "";
-}
-function patchRPr(raw, run) {
-  const p3 = run.props;
-  if (raw === void 0) return rPrFromProps(p3);
-  const { open: open2, close, kids, el: el3 } = splitElement(raw);
-  const base = editBaseProps(run, readRPr(el3));
-  let changed = false;
-  const set = (name, xml) => {
-    changed = true;
-    setKid(kids, RPR_ORDER, name, xml);
-  };
-  if (p3.bold !== base.bold) {
-    set("w:b", onOff2("w:b", p3.bold));
-    set("w:bCs", onOff2("w:bCs", p3.bold));
-  }
-  if (p3.italic !== base.italic) {
-    set("w:i", onOff2("w:i", p3.italic));
-    set("w:iCs", onOff2("w:iCs", p3.italic));
-  }
-  if (p3.underline !== base.underline || p3.underlineStyle !== base.underlineStyle || p3.underlineColor !== base.underlineColor) {
-    set("w:u", p3.underline ? `<w:u w:val="${p3.underlineStyle ?? "single"}"${p3.underlineColor ? ` w:color="${esc(p3.underlineColor)}"` : ""}/>` : '<w:u w:val="none"/>');
-  }
-  if (p3.strike !== base.strike) set("w:strike", onOff2("w:strike", p3.strike));
-  if (!!p3.doubleStrike !== !!base.doubleStrike) set("w:dstrike", onOff2("w:dstrike", !!p3.doubleStrike));
-  if (p3.allCaps !== base.allCaps) set("w:caps", onOff2("w:caps", p3.allCaps));
-  if (p3.smallCaps !== base.smallCaps) set("w:smallCaps", onOff2("w:smallCaps", p3.smallCaps));
-  if (p3.vertAlign !== base.vertAlign) set("w:vertAlign", `<w:vertAlign w:val="${p3.vertAlign ?? "baseline"}"/>`);
-  if (p3.szHalfPt !== base.szHalfPt) {
-    set("w:sz", p3.szHalfPt === void 0 ? null : `<w:sz w:val="${p3.szHalfPt}"/>`);
-    set("w:szCs", p3.szHalfPt === void 0 ? null : `<w:szCs w:val="${p3.szHalfPt}"/>`);
-  }
-  if (p3.color !== base.color) set("w:color", p3.color === void 0 ? null : `<w:color w:val="${esc(p3.color)}"/>`);
-  if (p3.highlight !== base.highlight) set("w:highlight", p3.highlight === void 0 ? null : `<w:highlight w:val="${esc(p3.highlight)}"/>`);
-  if (p3.fontAscii !== base.fontAscii) {
-    set("w:rFonts", p3.fontAscii === void 0 ? null : withAttrs(kidRaw(kids, "w:rFonts"), "w:rFonts", {
-      "w:ascii": p3.fontAscii,
-      "w:hAnsi": p3.fontAscii,
-      "w:cs": p3.fontAscii,
-      "w:asciiTheme": void 0,
-      "w:hAnsiTheme": void 0,
-      "w:cstheme": void 0
-    }));
-  }
-  if ((p3.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
-    set("w:spacing", p3.charSpacingTwips ? `<w:spacing w:val="${p3.charSpacingTwips}"/>` : null);
-  }
-  return changed ? join(open2, kids, close) : raw;
-}
-function pprBits(pp, ids) {
-  const out = {};
-  out["w:pStyle"] = pp.styleId ? `<w:pStyle w:val="${esc(pp.styleId)}"/>` : null;
-  out["w:pageBreakBefore"] = pp.pageBreakBefore ? "<w:pageBreakBefore/>" : null;
-  out["w:tabs"] = pp.tabStops?.length ? "<w:tabs>" + pp.tabStops.map((t6) => `<w:tab w:val="${t6.align}"${t6.leader ? ` w:leader="${t6.leader}"` : ""} w:pos="${t6.posTwips}"/>`).join("") + "</w:tabs>" : null;
-  out["w:numPr"] = pp.numbering ? `<w:numPr><w:ilvl w:val="${pp.numbering.ilvl}"/><w:numId w:val="${pp.numbering.kind === "decimal" ? ids.decimal : ids.bullet}"/></w:numPr>` : null;
-  if (pp.borders) {
-    let inner = "";
-    for (const side of ["top", "left", "bottom", "right"]) {
-      const e8 = pp.borders[side];
-      if (e8) inner += `<w:${side} w:val="${esc(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="${e8.spacePt}" w:color="${e8.color ? esc(e8.color) : "auto"}"/>`;
-    }
-    out["w:pBdr"] = inner ? `<w:pBdr>${inner}</w:pBdr>` : null;
-  } else if (pp.boxBorder) {
-    const b5 = (side) => `<w:${side} w:val="single" w:sz="4" w:space="1" w:color="auto"/>`;
-    out["w:pBdr"] = `<w:pBdr>${b5("top")}${b5("left")}${b5("bottom")}${b5("right")}</w:pBdr>`;
-  } else out["w:pBdr"] = null;
-  out["w:shd"] = pp.shadingHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${esc(pp.shadingHex)}"/>` : null;
+// ../docx-core/src/section-ops.ts
+function sectionRanges(model) {
+  const out = [];
+  let start = 0;
+  model.paragraphs.forEach((p3, i7) => {
+    const sb = p3.props.sectionBreak;
+    if (!sb) return;
+    out.push({ start, end: i7, sb });
+    start = i7 + 1;
+  });
+  out.push({ start, end: Math.max(start, model.paragraphs.length - 1) });
   return out;
 }
-function pPrFromProps(pp, sectPrXml, ids = DEFAULT_NUM_IDS) {
-  const bits2 = pprBits(pp, ids);
-  const ppr = [];
-  const add = (name) => {
-    const x3 = bits2[name];
-    if (x3) ppr.push(x3);
-  };
-  add("w:pStyle");
-  add("w:pageBreakBefore");
-  add("w:numPr");
-  add("w:pBdr");
-  add("w:shd");
-  add("w:tabs");
-  if (pp.lineTwentieths !== void 0 || pp.spaceAfterTwips !== void 0 || pp.spaceBeforeTwips !== void 0) {
-    const line = pp.lineTwentieths !== void 0 ? ` w:line="${pp.lineTwentieths}" w:lineRule="auto"` : "";
-    const before = pp.spaceBeforeTwips !== void 0 ? ` w:before="${pp.spaceBeforeTwips}"` : "";
-    const after = pp.spaceAfterTwips !== void 0 ? ` w:after="${pp.spaceAfterTwips}"` : "";
-    ppr.push(`<w:spacing${before}${after}${line}/>`);
-  }
-  if (pp.indentLeftTwips || pp.indentRightTwips || pp.indentFirstLineTwips) {
-    let attrs2 = "";
-    if (pp.indentLeftTwips) attrs2 += ` w:left="${pp.indentLeftTwips}"`;
-    if (pp.indentRightTwips) attrs2 += ` w:right="${pp.indentRightTwips}"`;
-    if (pp.indentFirstLineTwips) {
-      attrs2 += pp.indentFirstLineTwips > 0 ? ` w:firstLine="${pp.indentFirstLineTwips}"` : ` w:hanging="${-pp.indentFirstLineTwips}"`;
-    }
-    ppr.push(`<w:ind${attrs2}/>`);
-  }
-  if (pp.alignment && pp.alignment !== "left") ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
-  if (sectPrXml) ppr.push(sectPrXml);
-  return { xml: ppr.length ? `<w:pPr>${ppr.join("")}</w:pPr>` : "", genNumbering: !!pp.numbering };
+function sectionIndexAt(model, para) {
+  const rs = sectionRanges(model);
+  const k2 = rs.findIndex((r6) => para <= r6.end);
+  return k2 < 0 ? rs.length - 1 : k2;
 }
-function patchPPr(raw, para, sect, ids = DEFAULT_NUM_IDS) {
-  const p3 = para.props;
-  if (raw === void 0) return pPrFromProps(p3, sect ?? "", ids);
-  const { open: open2, close, kids, el: el3 } = splitElement(raw);
-  const base = paraPropsFromPPr(readPPr(el3));
-  let changed = false;
-  let genNumbering = false;
-  const set = (name, xml) => {
-    changed = true;
-    setKid(kids, PPR_ORDER, name, xml);
+function sectionSectPr(model, k2) {
+  return sectionRanges(model)[k2]?.sb?.sectPr ?? model.sectPr;
+}
+function insertSectionBreak(model, pos, type = "nextPage", opts = {}) {
+  const k2 = sectionIndexAt(model, pos.para);
+  const range = sectionRanges(model)[k2];
+  const sp = range.sb ? range.sb.sectPr : model.sectPr;
+  const refs = range.sb ?? model.bodyRefs ?? { headerRefs: [], footerRefs: [] };
+  const sb = {
+    sectPr: cloneSectPr(sp),
+    headerRefs: refs.headerRefs.map((r6) => ({ ...r6 })),
+    footerRefs: refs.footerRefs.map((r6) => ({ ...r6 })),
+    ...opts.raw ? { raw: opts.raw } : {},
+    ...opts.id !== void 0 ? { id: opts.id } : {}
   };
-  const bits2 = pprBits(p3, ids);
-  if (p3.styleId !== base.styleId) set("w:pStyle", bits2["w:pStyle"]);
-  if (!!p3.pageBreakBefore !== !!base.pageBreakBefore) set("w:pageBreakBefore", p3.pageBreakBefore ? "<w:pageBreakBefore/>" : '<w:pageBreakBefore w:val="0"/>');
-  if (!eq(p3.tabStops, base.tabStops)) set("w:tabs", bits2["w:tabs"]);
-  if (!eq(p3.borders, base.borders) || !!p3.boxBorder !== !!base.boxBorder) set("w:pBdr", bits2["w:pBdr"]);
-  if (p3.shadingHex !== base.shadingHex) set("w:shd", bits2["w:shd"]);
-  if (!eq(p3.numbering, base.numbering)) {
-    const numPr = el3.children.find((c5) => typeof c5 !== "string" && c5.name === "w:numPr");
-    const numId = numPr && childElements(numPr, "w:numId")[0]?.attrs["w:val"];
-    if (!p3.numbering) set("w:numPr", '<w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>');
-    else if (numId && numId !== "0" && base.numbering && base.numbering.kind === p3.numbering.kind) {
-      set("w:numPr", `<w:numPr><w:ilvl w:val="${p3.numbering.ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`);
-    } else {
-      set("w:numPr", bits2["w:numPr"]);
-      genNumbering = true;
-    }
-  }
-  if (p3.indentLeftTwips !== base.indentLeftTwips || p3.indentRightTwips !== base.indentRightTwips || p3.indentFirstLineTwips !== base.indentFirstLineTwips) {
-    const f3 = p3.indentFirstLineTwips;
-    set("w:ind", withAttrs(kidRaw(kids, "w:ind"), "w:ind", {
-      "w:left": p3.indentLeftTwips,
-      "w:start": void 0,
-      "w:right": p3.indentRightTwips,
-      "w:end": void 0,
-      "w:firstLine": f3 !== void 0 && f3 >= 0 ? f3 : void 0,
-      "w:hanging": f3 !== void 0 && f3 < 0 ? -f3 : void 0,
-      "w:firstLineChars": void 0,
-      "w:hangingChars": void 0,
-      "w:leftChars": void 0,
-      "w:rightChars": void 0
+  const next = (opts.split ?? splitParagraph)(model, pos);
+  const first = model.paragraphs[pos.para];
+  first.props = { ...first.props, sectionBreak: sb };
+  if (type === "nextPage") delete sp.type;
+  else sp.type = type;
+  if (range.sb) {
+    range.sb.headerRefs = [];
+    range.sb.footerRefs = [];
+  } else model.bodyRefs = { headerRefs: [], footerRefs: [] };
+  return next;
+}
+function columnsFor(sp, spec) {
+  const W = contentWidth(sp);
+  const n5 = Math.max(1, Math.min(Math.round(spec.count), maxColumns(sp)));
+  if (n5 < 2) return void 0;
+  let space = Math.max(0, Math.round(spec.spaceTwips ?? sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT));
+  if ((W - space * (n5 - 1)) / n5 < COLUMN_MIN_WIDTH) space = Math.max(0, Math.floor((W - n5 * COLUMN_MIN_WIDTH) / (n5 - 1)));
+  const cols = { count: n5, spaceTwips: space, sep: !!spec.sep };
+  if (spec.widths && spec.widths.length >= n5) {
+    cols.widths = spec.widths.slice(0, n5).map((c5, i7) => ({
+      widthTwips: Math.max(COLUMN_MIN_WIDTH, Math.round(c5.widthTwips)),
+      // o Word grava o w:space da última coluna com o espaço geral
+      spaceTwips: i7 === n5 - 1 ? space : Math.max(0, Math.round(c5.spaceTwips))
     }));
   }
-  if (p3.lineTwentieths !== base.lineTwentieths || p3.spaceAfterTwips !== base.spaceAfterTwips || p3.spaceBeforeTwips !== base.spaceBeforeTwips) {
-    const ch = {};
-    if (p3.lineTwentieths !== base.lineTwentieths) {
-      ch["w:line"] = p3.lineTwentieths;
-      ch["w:lineRule"] = p3.lineTwentieths !== void 0 ? "auto" : void 0;
-    }
-    if (p3.spaceAfterTwips !== base.spaceAfterTwips) {
-      ch["w:after"] = p3.spaceAfterTwips;
-      ch["w:afterLines"] = void 0;
-      ch["w:afterAutospacing"] = void 0;
-    }
-    if (p3.spaceBeforeTwips !== base.spaceBeforeTwips) {
-      ch["w:before"] = p3.spaceBeforeTwips;
-      ch["w:beforeLines"] = void 0;
-      ch["w:beforeAutospacing"] = void 0;
-    }
-    set("w:spacing", withAttrs(kidRaw(kids, "w:spacing"), "w:spacing", ch));
-  }
-  if (p3.alignment !== base.alignment) set("w:jc", p3.alignment ? `<w:jc w:val="${p3.alignment}"/>` : null);
-  if (sect !== void 0) {
-    const cur = kidRaw(kids, "w:sectPr");
-    if ((sect ?? "") !== cur) set("w:sectPr", sect);
-  }
-  return { xml: changed ? join(open2, kids, close) : raw, genNumbering };
+  return cols;
 }
-function patchSectPr(raw, cur, refs) {
-  const { open: open2, close, kids, el: el3 } = splitElement(raw);
-  const base = readSectPr(el3);
-  let changed = false;
-  const set = (name, xml) => {
-    changed = true;
-    setKid(kids, SECT_ORDER, name, xml);
-  };
-  if (refs) {
-    const now = kids.filter((k2) => k2.name === "w:headerReference" || k2.name === "w:footerReference").map((k2) => `${k2.name}|${k2.el.attrs["w:type"] ?? "default"}|${k2.el.attrs["r:id"]}`).sort().join(",");
-    const want = refs.map((r6) => `w:${r6.kind}Reference|${r6.type}|${r6.rid}`).sort().join(",");
-    if (now !== want) {
-      changed = true;
-      for (let i7 = kids.length - 1; i7 >= 0; i7--) if (kids[i7].name === "w:headerReference" || kids[i7].name === "w:footerReference") kids.splice(i7, 1);
-      kids.unshift(...refs.map((r6) => {
-        const x3 = `<w:${r6.kind}Reference w:type="${r6.type}" r:id="${r6.rid}"/>`;
-        return { name: `w:${r6.kind}Reference`, raw: x3, el: { name: "", attrs: {}, children: [] } };
-      }));
-    }
-  }
-  if (cur.pageWidthTwips !== base.pageWidthTwips || cur.pageHeightTwips !== base.pageHeightTwips) {
-    set("w:pgSz", withAttrs(kidRaw(kids, "w:pgSz"), "w:pgSz", {
-      "w:w": cur.pageWidthTwips,
-      "w:h": cur.pageHeightTwips,
-      "w:orient": cur.pageWidthTwips > cur.pageHeightTwips ? "landscape" : void 0
-    }));
-  }
-  if (cur.marginTopTwips !== base.marginTopTwips || cur.marginBottomTwips !== base.marginBottomTwips || cur.marginLeftTwips !== base.marginLeftTwips || cur.marginRightTwips !== base.marginRightTwips || (cur.headerDistanceTwips ?? 720) !== base.headerDistanceTwips || (cur.footerDistanceTwips ?? 720) !== base.footerDistanceTwips) {
-    const pgMar = kidRaw(kids, "w:pgMar");
-    set("w:pgMar", withAttrs(pgMar, "w:pgMar", {
-      "w:top": cur.marginTopTwips,
-      "w:right": cur.marginRightTwips,
-      "w:bottom": cur.marginBottomTwips,
-      "w:left": cur.marginLeftTwips,
-      "w:header": cur.headerDistanceTwips ?? 720,
-      "w:footer": cur.footerDistanceTwips ?? 720,
-      ...pgMar ? {} : { "w:gutter": 0 }
-    }));
-  }
-  if (!eq(cur.cols, base.cols)) {
-    set("w:cols", cur.cols ? withAttrs(kidRaw(kids, "w:cols"), "w:cols", { "w:num": cur.cols.count, "w:space": cur.cols.spaceTwips, "w:sep": cur.cols.sep ? "true" : void 0 }) : withAttrs(kidRaw(kids, "w:cols"), "w:cols", { "w:num": void 0 }));
-  }
-  if (!!cur.titlePg !== !!base.titlePg) set("w:titlePg", cur.titlePg ? "<w:titlePg/>" : null);
-  if (cur.pgNumStart !== base.pgNumStart) {
-    set("w:pgNumType", withAttrs(kidRaw(kids, "w:pgNumType"), "w:pgNumType", { "w:start": cur.pgNumStart }));
-  }
-  return changed ? join(open2, kids, close) || `${open2}${close}` : raw;
+function presetColumns(sp, preset) {
+  const sep = !!sp.cols?.sep;
+  const space = sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT;
+  if (preset === "one") return { count: 1, sep };
+  if (preset === "two" || preset === "three") return { count: preset === "two" ? 2 : 3, spaceTwips: space, sep };
+  const W = contentWidth(sp);
+  const narrow = Math.round((W - 2 * space) / 3);
+  const wide = W - narrow - space;
+  const ws = preset === "left" ? [narrow, wide] : [wide, narrow];
+  return { count: 2, spaceTwips: space, sep, widths: ws.map((w2) => ({ widthTwips: w2, spaceTwips: space })) };
 }
-var esc, RPR_ORDER, PPR_ORDER, SECT_ORDER, kidRaw, onOff2, join, eq, DEFAULT_NUM_IDS;
-var init_lossless = __esm({
-  "../docx-core/src/lossless.ts"() {
+function columnsPresetOf(sp) {
+  const c5 = sp.cols;
+  if (!c5 || c5.count < 2) return "one";
+  if (!c5.widths) return c5.count === 2 ? "two" : c5.count === 3 ? "three" : null;
+  if (c5.count !== 2) return null;
+  for (const p3 of ["left", "right"]) {
+    const ref = presetColumns(sp, p3).widths;
+    if (ref.every((w2, i7) => Math.abs(w2.widthTwips - c5.widths[i7].widthTwips) <= 20)) return p3;
+  }
+  return null;
+}
+function columnWidths(sp) {
+  const c5 = sp.cols;
+  const W = contentWidth(sp);
+  if (!c5 || c5.count < 2) return [{ widthTwips: W, spaceTwips: 0 }];
+  if (c5.widths) return c5.widths.map((w3) => ({ ...w3 }));
+  const w2 = Math.round((W - c5.spaceTwips * (c5.count - 1)) / c5.count);
+  return Array.from({ length: c5.count }, (_2, i7) => ({ widthTwips: w2, spaceTwips: i7 < c5.count - 1 ? c5.spaceTwips : 0 }));
+}
+function setOrientation(sp, orientation) {
+  const land = sp.pageWidthTwips > sp.pageHeightTwips;
+  if (orientation === "landscape" === land) return;
+  [sp.pageWidthTwips, sp.pageHeightTwips] = [sp.pageHeightTwips, sp.pageWidthTwips];
+  const { marginTopTwips: t6, marginRightTwips: r6, marginBottomTwips: b5, marginLeftTwips: l3 } = sp;
+  if (orientation === "landscape") {
+    sp.marginTopTwips = l3;
+    sp.marginRightTwips = t6;
+    sp.marginBottomTwips = r6;
+    sp.marginLeftTwips = b5;
+  } else {
+    sp.marginTopTwips = r6;
+    sp.marginRightTwips = b5;
+    sp.marginBottomTwips = l3;
+    sp.marginLeftTwips = t6;
+  }
+}
+var COLUMN_SPACE_DEFAULT, COLUMN_MIN_WIDTH, cloneSectPr, contentWidth, maxColumns;
+var init_section_ops = __esm({
+  "../docx-core/src/section-ops.ts"() {
     "use strict";
-    init_xml();
-    init_props();
-    init_document();
-    esc = (s4) => s4.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    RPR_ORDER = [
-      "w:rStyle",
-      "w:rFonts",
-      "w:b",
-      "w:bCs",
-      "w:i",
-      "w:iCs",
-      "w:caps",
-      "w:smallCaps",
-      "w:strike",
-      "w:dstrike",
-      "w:outline",
-      "w:shadow",
-      "w:emboss",
-      "w:imprint",
-      "w:noProof",
-      "w:snapToGrid",
-      "w:vanish",
-      "w:webHidden",
-      "w:color",
-      "w:spacing",
-      "w:w",
-      "w:kern",
-      "w:position",
-      "w:sz",
-      "w:szCs",
-      "w:highlight",
-      "w:u",
-      "w:effect",
-      "w:bdr",
-      "w:shd",
-      "w:fitText",
-      "w:vertAlign",
-      "w:rtl",
-      "w:cs",
-      "w:em",
-      "w:lang",
-      "w:eastAsianLayout",
-      "w:specVanish",
-      "w:oMath",
-      "w:rPrChange"
-    ];
-    PPR_ORDER = [
-      "w:pStyle",
-      "w:keepNext",
-      "w:keepLines",
-      "w:pageBreakBefore",
-      "w:framePr",
-      "w:widowControl",
-      "w:numPr",
-      "w:suppressLineNumbers",
-      "w:pBdr",
-      "w:shd",
-      "w:tabs",
-      "w:suppressAutoHyphens",
-      "w:kinsoku",
-      "w:wordWrap",
-      "w:overflowPunct",
-      "w:topLinePunct",
-      "w:autoSpaceDE",
-      "w:autoSpaceDN",
-      "w:bidi",
-      "w:adjustRightInd",
-      "w:snapToGrid",
-      "w:spacing",
-      "w:ind",
-      "w:contextualSpacing",
-      "w:mirrorIndents",
-      "w:suppressOverlap",
-      "w:jc",
-      "w:textDirection",
-      "w:textAlignment",
-      "w:textboxTightWrap",
-      "w:outlineLvl",
-      "w:divId",
-      "w:cnfStyle",
-      "w:rPr",
-      "w:sectPr",
-      "w:pPrChange"
-    ];
-    SECT_ORDER = [
-      "w:headerReference",
-      "w:footerReference",
-      "w:footnotePr",
-      "w:endnotePr",
-      "w:type",
-      "w:pgSz",
-      "w:pgMar",
-      "w:paperSrc",
-      "w:pgBorders",
-      "w:lnNumType",
-      "w:pgNumType",
-      "w:cols",
-      "w:formProt",
-      "w:vAlign",
-      "w:noEndnote",
-      "w:titlePg",
-      "w:textDirection",
-      "w:bidi",
-      "w:rtlGutter",
-      "w:docGrid",
-      "w:printerSettings",
-      "w:sectPrChange"
-    ];
-    kidRaw = (kids, name) => kids.find((k2) => k2.name === name)?.raw ?? "";
-    onOff2 = (name, v2) => v2 ? `<${name}/>` : `<${name} w:val="0"/>`;
-    join = (open2, kids, close) => kids.length ? open2 + kids.map((k2) => k2.raw).join("") + close : "";
-    eq = (a3, b5) => JSON.stringify(a3 ?? null) === JSON.stringify(b5 ?? null);
-    DEFAULT_NUM_IDS = { bullet: 1001, decimal: 1002 };
+    init_model_ops();
+    COLUMN_SPACE_DEFAULT = 708;
+    COLUMN_MIN_WIDTH = 720;
+    cloneSectPr = (s4) => JSON.parse(JSON.stringify(s4));
+    contentWidth = (sp) => sp.pageWidthTwips - sp.marginLeftTwips - sp.marginRightTwips;
+    maxColumns = (sp) => Math.max(1, Math.floor(contentWidth(sp) / COLUMN_MIN_WIDTH));
   }
 });
 
@@ -5671,8 +5826,12 @@ function paraSectPr(para, rawPPr) {
   const rawSect = rawPPr ? splitElement(rawPPr).kids.find((k2) => k2.name === "w:sectPr")?.raw : void 0;
   const sb = para.props.sectionBreak;
   if (!sb) return rawSect ? null : void 0;
+  return sectionBreakXml(sb, rawSect);
+}
+function sectionBreakXml(sb, rawSect) {
   const refs = [...sb.headerRefs, ...sb.footerRefs];
-  return rawSect ? patchSectPr(rawSect, sb.sectPr, refs) : `<w:sectPr>${sectPrInner(sb.sectPr, refs)}</w:sectPr>`;
+  const base = rawSect ?? sb.raw;
+  return base ? patchSectPr(base, sb.sectPr, refs) : `<w:sectPr>${sectPrInner(sb.sectPr, refs)}</w:sectPr>`;
 }
 function paraXml(para) {
   if (!active) return paraXmlRuns(para);
@@ -5690,7 +5849,7 @@ function paraXmlRuns(para) {
     const marks = commentMarks(para.runs, active?.store.commentIds);
     const items = para.runs.map((run, i7) => ({ run, before: marks.before[i7], after: marks.after[i7] }));
     if (!active) return paraXmlInner(para, items.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join(""));
-    const ppr2 = pPrFromProps(para.props, para.props.sectionBreak ? `<w:sectPr>${sectPrInner(para.props.sectionBreak.sectPr, [...para.props.sectionBreak.headerRefs, ...para.props.sectionBreak.footerRefs])}</w:sectPr>` : "", active.numIds);
+    const ppr2 = pPrFromProps(para.props, para.props.sectionBreak ? sectionBreakXml(para.props.sectionBreak) : "", active.numIds);
     if (ppr2.genNumbering) active.genNumbering = true;
     return `<w:p>${ppr2.xml}${genRuns(items)}</w:p>`;
   }
@@ -5762,10 +5921,11 @@ function paraXmlInner(para, runsXml) {
 function sectPrInner(s4, refs = []) {
   const refsXml = refs.map((h3) => `<w:${h3.kind}Reference w:type="${h3.type}" r:id="${h3.rid}"/>`).join("");
   const orient = s4.pageWidthTwips > s4.pageHeightTwips ? ' w:orient="landscape"' : "";
-  const cols = s4.cols ? `<w:cols w:space="${s4.cols.spaceTwips}" w:num="${s4.cols.count}"${s4.cols.sep ? ' w:sep="true"' : ""} w:equalWidth="true"/>` : "";
+  const type = s4.type && s4.type !== "nextPage" ? `<w:type w:val="${s4.type}"/>` : "";
+  const cols = s4.cols ? colsXml(s4.cols) : "";
   const titlePg = s4.titlePg ? "<w:titlePg/>" : "";
   const pgNumType = s4.pgNumStart !== void 0 ? `<w:pgNumType w:start="${s4.pgNumStart}"/>` : "";
-  return `${refsXml}<w:pgSz w:w="${s4.pageWidthTwips}" w:h="${s4.pageHeightTwips}"${orient}/><w:pgMar w:top="${s4.marginTopTwips}" w:right="${s4.marginRightTwips}" w:bottom="${s4.marginBottomTwips}" w:left="${s4.marginLeftTwips}" w:header="${s4.headerDistanceTwips ?? 720}" w:footer="${s4.footerDistanceTwips ?? 720}" w:gutter="0"/>${cols}${pgNumType}${titlePg}`;
+  return `${refsXml}${type}<w:pgSz w:w="${s4.pageWidthTwips}" w:h="${s4.pageHeightTwips}"${orient}/><w:pgMar w:top="${s4.marginTopTwips}" w:right="${s4.marginRightTwips}" w:bottom="${s4.marginBottomTwips}" w:left="${s4.marginLeftTwips}" w:header="${s4.headerDistanceTwips ?? 720}" w:footer="${s4.footerDistanceTwips ?? 720}" w:gutter="0"/>${pgNumType}${cols}${titlePg}`;
 }
 function borderXml(tag2, e8) {
   return `<w:${tag2} w:val="${escAttr(e8.style)}" w:sz="${e8.sizeEighthPt}" w:space="0" w:color="${e8.color ? escAttr(e8.color) : "auto"}"/>`;
@@ -12455,6 +12615,7 @@ var init_core = __esm({
     init_parts();
     init_fulldoc();
     init_model_ops();
+    init_section_ops();
     init_serialize();
     init_doc();
   }
@@ -16033,6 +16194,7 @@ var init_symbols = __esm({
       "gpp_maybe": "M480-320Q497-320 508.5-331.5Q520-343 520-360Q520-377 508.5-388.5Q497-400 480-400Q463-400 451.5-388.5Q440-377 440-360Q440-343 451.5-331.5Q463-320 480-320ZM520-520V-640Q520-657 508.5-668.5Q497-680 480-680Q463-680 451.5-668.5Q440-657 440-640V-520Q440-503 451.5-491.5Q463-480 480-480Q497-480 508.5-491.5Q520-503 520-520ZM455-88Q320-133 240-254.5Q160-376 160-516V-705Q160-730 174.5-750Q189-770 212-779L452-869Q466-874 480-874Q494-874 508-869L748-779Q771-770 785.5-750Q800-730 800-705V-516Q800-376 720-254.5Q640-133 505-88Q499-86 493-85Q487-84 480-84Q473-84 467-85Q461-86 455-88ZM480-164Q584-197 652-296Q720-395 720-516V-705Q720-705 720-705Q720-705 720-705L480-795Q480-795 480-795Q480-795 480-795L240-705Q240-705 240-705Q240-705 240-705V-516Q240-395 308-296Q376-197 480-164ZM480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Z",
       "history": "M480-120Q354-120 257-196.5Q160-273 131-392Q127-407 137-419.5Q147-432 164-434Q180-436 193-428Q206-420 211-404Q235-314 310-257Q385-200 480-200Q597-200 678.5-281.5Q760-363 760-480Q760-597 678.5-678.5Q597-760 480-760Q411-760 351-728Q291-696 250-640H320Q337-640 348.5-628.5Q360-617 360-600Q360-583 348.5-571.5Q337-560 320-560H160Q143-560 131.5-571.5Q120-583 120-600V-760Q120-777 131.5-788.5Q143-800 160-800Q177-800 188.5-788.5Q200-777 200-760V-706Q251-770 324.5-805Q398-840 480-840Q555-840 620.5-811.5Q686-783 734.5-734.5Q783-686 811.5-620.5Q840-555 840-480Q840-405 811.5-339.5Q783-274 734.5-225.5Q686-177 620.5-148.5Q555-120 480-120ZM520-496 620-396Q631-385 631-368Q631-351 620-340Q609-329 592-329Q575-329 564-340L452-452Q446-458 443-465.5Q440-473 440-481V-640Q440-657 451.5-668.5Q463-680 480-680Q497-680 508.5-668.5Q520-657 520-640Z",
       "horizontal_rule": "M200-440Q183-440 171.5-451.5Q160-463 160-480Q160-497 171.5-508.5Q183-520 200-520H760Q777-520 788.5-508.5Q800-497 800-480Q800-463 788.5-451.5Q777-440 760-440Z",
+      "horizontal_split": "M160-200Q143-200 131.5-211.5Q120-223 120-240V-400Q120-417 131.5-428.5Q143-440 160-440H800Q817-440 828.5-428.5Q840-417 840-400V-240Q840-223 828.5-211.5Q817-200 800-200ZM160-520Q143-520 131.5-531.5Q120-543 120-560Q120-577 131.5-588.5Q143-600 160-600H800Q817-600 828.5-588.5Q840-577 840-560Q840-543 828.5-531.5Q817-520 800-520ZM160-680Q143-680 131.5-691.5Q120-703 120-720Q120-737 131.5-748.5Q143-760 160-760H800Q817-760 828.5-748.5Q840-737 840-720Q840-703 828.5-691.5Q817-680 800-680Z",
       "html": "M0-390V-570Q0-583 8.5-591.5Q17-600 30-600Q43-600 51.5-591.5Q60-583 60-570V-520H140V-570Q140-583 148.5-591.5Q157-600 170-600Q183-600 191.5-591.5Q200-583 200-570V-390Q200-377 191.5-368.5Q183-360 170-360Q157-360 148.5-368.5Q140-377 140-390V-460H60V-390Q60-377 51.5-368.5Q43-360 30-360Q17-360 8.5-368.5Q0-377 0-390ZM310-390V-540H270Q257-540 248.5-548.5Q240-557 240-570Q240-583 248.5-591.5Q257-600 270-600H410Q423-600 431.5-591.5Q440-583 440-570Q440-557 431.5-548.5Q423-540 410-540H370V-390Q370-377 361.5-368.5Q353-360 340-360Q327-360 318.5-368.5Q310-377 310-390ZM480-390V-560Q480-577 491.5-588.5Q503-600 520-600H700Q717-600 728.5-588.5Q740-577 740-560V-390Q740-377 731.5-368.5Q723-360 710-360Q697-360 688.5-368.5Q680-377 680-390V-540H640V-430Q640-417 631.5-408.5Q623-400 610-400Q597-400 588.5-408.5Q580-417 580-430V-540H540V-390Q540-377 531.5-368.5Q523-360 510-360Q497-360 488.5-368.5Q480-377 480-390ZM830-360Q817-360 808.5-368.5Q800-377 800-390V-570Q800-583 808.5-591.5Q817-600 830-600Q843-600 851.5-591.5Q860-583 860-570V-420H930Q943-420 951.5-411.5Q960-403 960-390Q960-377 951.5-368.5Q943-360 930-360Z",
       "image": "M200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM200-200H760Q760-200 760-200Q760-200 760-200V-760Q760-760 760-760Q760-760 760-760H200Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200ZM200-200Q200-200 200-200Q200-200 200-200V-760Q200-760 200-760Q200-760 200-760Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200ZM280-280H680Q692-280 698-291Q704-302 696-312L586-459Q580-467 570-467Q560-467 554-459L450-320L376-419Q370-427 360-427Q350-427 344-419L264-312Q256-302 262-291Q268-280 280-280Z",
       "info": "M520-320V-480Q520-497 508.5-508.5Q497-520 480-520Q463-520 451.5-508.5Q440-497 440-480V-320Q440-303 451.5-291.5Q463-280 480-280Q497-280 508.5-291.5Q520-303 520-320ZM520-640Q520-657 508.5-668.5Q497-680 480-680Q463-680 451.5-668.5Q440-657 440-640Q440-623 451.5-611.5Q463-600 480-600Q497-600 508.5-611.5Q520-623 520-640ZM480-80Q397-80 324-111.5Q251-143 197-197Q143-251 111.5-324Q80-397 80-480Q80-563 111.5-636Q143-709 197-763Q251-817 324-848.5Q397-880 480-880Q563-880 636-848.5Q709-817 763-763Q817-709 848.5-636Q880-563 880-480Q880-397 848.5-324Q817-251 763-197Q709-143 636-111.5Q563-80 480-80ZM480-160Q614-160 707-253Q800-346 800-480Q800-614 707-707Q614-800 480-800Q346-800 253-707Q160-614 160-480Q160-346 253-253Q346-160 480-160ZM480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Z",
@@ -16043,6 +16205,8 @@ var init_symbols = __esm({
       "language": "M480.5-80Q398-80 325-111.5Q252-143 197.5-197.5Q143-252 111.5-325Q80-398 80-480.5Q80-563 111.5-635.5Q143-708 197.5-762.5Q252-817 325-848.5Q398-880 480.5-880Q563-880 635.5-848.5Q708-817 762.5-762.5Q817-708 848.5-635.5Q880-563 880-480.5Q880-398 848.5-325Q817-252 762.5-197.5Q708-143 635.5-111.5Q563-80 480.5-80ZM480-162Q506-198 525-237Q544-276 556-320H404Q416-276 435-237Q454-198 480-162ZM376-178Q358-211 344.5-246.5Q331-282 322-320H204Q233-270 276.5-233Q320-196 376-178ZM584-178Q640-196 683.5-233Q727-270 756-320H638Q629-282 615.5-246.5Q602-211 584-178ZM170-400H306Q303-420 301.5-439.5Q300-459 300-480Q300-501 301.5-520.5Q303-540 306-560H170Q165-540 162.5-520.5Q160-501 160-480Q160-459 162.5-439.5Q165-420 170-400ZM386-400H574Q577-420 578.5-439.5Q580-459 580-480Q580-501 578.5-520.5Q577-540 574-560H386Q383-540 381.5-520.5Q380-501 380-480Q380-459 381.5-439.5Q383-420 386-400ZM654-400H790Q795-420 797.5-439.5Q800-459 800-480Q800-501 797.5-520.5Q795-540 790-560H654Q657-540 658.5-520.5Q660-501 660-480Q660-459 658.5-439.5Q657-420 654-400ZM638-640H756Q727-690 683.5-727Q640-764 584-782Q602-749 615.5-713.5Q629-678 638-640ZM404-640H556Q544-684 525-723Q506-762 480-798Q454-762 435-723Q416-684 404-640ZM204-640H322Q331-678 344.5-713.5Q358-749 376-782Q320-764 276.5-727Q233-690 204-640Z",
       "light_mode": "M480-360Q530-360 565-395Q600-430 600-480Q600-530 565-565Q530-600 480-600Q430-600 395-565Q360-530 360-480Q360-430 395-395Q430-360 480-360ZM480-280Q397-280 338.5-338.5Q280-397 280-480Q280-563 338.5-621.5Q397-680 480-680Q563-680 621.5-621.5Q680-563 680-480Q680-397 621.5-338.5Q563-280 480-280ZM80-440Q63-440 51.5-451.5Q40-463 40-480Q40-497 51.5-508.5Q63-520 80-520H160Q177-520 188.5-508.5Q200-497 200-480Q200-463 188.5-451.5Q177-440 160-440ZM800-440Q783-440 771.5-451.5Q760-463 760-480Q760-497 771.5-508.5Q783-520 800-520H880Q897-520 908.5-508.5Q920-497 920-480Q920-463 908.5-451.5Q897-440 880-440ZM440-800V-880Q440-897 451.5-908.5Q463-920 480-920Q497-920 508.5-908.5Q520-897 520-880V-800Q520-783 508.5-771.5Q497-760 480-760Q463-760 451.5-771.5Q440-783 440-800ZM440-80V-160Q440-177 451.5-188.5Q463-200 480-200Q497-200 508.5-188.5Q520-177 520-160V-80Q520-63 508.5-51.5Q497-40 480-40Q463-40 451.5-51.5Q440-63 440-80ZM226-678 183-720Q171-731 171.5-748Q172-765 183-777Q195-789 212-789Q229-789 240-777L282-734Q293-722 293-706Q293-690 282-678Q271-666 254.5-666.5Q238-667 226-678ZM720-183 678-226Q667-238 667-254.5Q667-271 678-282Q689-294 705.5-293.5Q722-293 734-282L777-240Q789-229 788.5-212Q788-195 777-183Q765-171 748-171Q731-171 720-183ZM678-678Q666-689 666.5-705.5Q667-722 678-734L720-777Q731-789 748-788.5Q765-788 777-777Q789-765 789-748Q789-731 777-720L734-678Q722-667 706-667Q690-667 678-678ZM183-183Q171-195 171-212Q171-229 183-240L226-282Q238-293 254.5-293Q271-293 282-282Q294-271 293.5-254.5Q293-238 282-226L240-183Q229-171 212-171.5Q195-172 183-183ZM480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Q480-480 480-480Z",
       "link": "M280-280Q197-280 138.5-338.5Q80-397 80-480Q80-563 138.5-621.5Q197-680 280-680H400Q417-680 428.5-668.5Q440-657 440-640Q440-623 428.5-611.5Q417-600 400-600H280Q230-600 195-565Q160-530 160-480Q160-430 195-395Q230-360 280-360H400Q417-360 428.5-348.5Q440-337 440-320Q440-303 428.5-291.5Q417-280 400-280ZM360-440Q343-440 331.5-451.5Q320-463 320-480Q320-497 331.5-508.5Q343-520 360-520H600Q617-520 628.5-508.5Q640-497 640-480Q640-463 628.5-451.5Q617-440 600-440ZM560-280Q543-280 531.5-291.5Q520-303 520-320Q520-337 531.5-348.5Q543-360 560-360H680Q730-360 765-395Q800-430 800-480Q800-530 765-565Q730-600 680-600H560Q543-600 531.5-611.5Q520-623 520-640Q520-657 531.5-668.5Q543-680 560-680H680Q763-680 821.5-621.5Q880-563 880-480Q880-397 821.5-338.5Q763-280 680-280Z",
+      "looks_one": "M480-600V-320Q480-303 491.5-291.5Q503-280 520-280Q537-280 548.5-291.5Q560-303 560-320V-640Q560-657 548.5-668.5Q537-680 520-680H440Q423-680 411.5-668.5Q400-657 400-640Q400-623 411.5-611.5Q423-600 440-600ZM200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM200-200H760Q760-200 760-200Q760-200 760-200V-760Q760-760 760-760Q760-760 760-760H200Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200ZM200-760Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200Q200-200 200-200Q200-200 200-200V-760Q200-760 200-760Q200-760 200-760Z",
+      "looks_two": "M440-360V-440Q440-440 440-440Q440-440 440-440H520Q553-440 576.5-463.5Q600-487 600-520V-600Q600-633 576.5-656.5Q553-680 520-680H400Q383-680 371.5-668.5Q360-657 360-640Q360-623 371.5-611.5Q383-600 400-600H520Q520-600 520-600Q520-600 520-600V-520Q520-520 520-520Q520-520 520-520H440Q407-520 383.5-496.5Q360-473 360-440V-320Q360-303 371.5-291.5Q383-280 400-280H560Q577-280 588.5-291.5Q600-303 600-320Q600-337 588.5-348.5Q577-360 560-360ZM200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM200-200H760Q760-200 760-200Q760-200 760-200V-760Q760-760 760-760Q760-760 760-760H200Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200ZM200-760Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200Q200-200 200-200Q200-200 200-200V-760Q200-760 200-760Q200-760 200-760Z",
       "mail": "M160-160Q127-160 103.5-183.5Q80-207 80-240V-720Q80-753 103.5-776.5Q127-800 160-800H800Q833-800 856.5-776.5Q880-753 880-720V-240Q880-207 856.5-183.5Q833-160 800-160ZM800-640 501-453Q496-450 490.5-448.5Q485-447 480-447Q475-447 469.5-448.5Q464-450 459-453L160-640V-240Q160-240 160-240Q160-240 160-240H800Q800-240 800-240Q800-240 800-240ZM480-520 800-720H160ZM160-640V-630Q160-635 160-642.5Q160-650 160-659Q160-679 160-689Q160-699 160-688V-720V-688Q160-699 160-688.5Q160-678 160-659Q160-649 160-641.5Q160-634 160-630V-640V-240Q160-240 160-240Q160-240 160-240Q160-240 160-240Q160-240 160-240Z",
       "margin": "M200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM200-200H760Q760-200 760-200Q760-200 760-200V-760Q760-760 760-760Q760-760 760-760H200Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200ZM200-760Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200Q200-200 200-200Q200-200 200-200V-760Q200-760 200-760Q200-760 200-760ZM320-600Q337-600 348.5-611.5Q360-623 360-640Q360-657 348.5-668.5Q337-680 320-680Q303-680 291.5-668.5Q280-657 280-640Q280-623 291.5-611.5Q303-600 320-600ZM480-600Q497-600 508.5-611.5Q520-623 520-640Q520-657 508.5-668.5Q497-680 480-680Q463-680 451.5-668.5Q440-657 440-640Q440-623 451.5-611.5Q463-600 480-600ZM640-600Q657-600 668.5-611.5Q680-623 680-640Q680-657 668.5-668.5Q657-680 640-680Q623-680 611.5-668.5Q600-657 600-640Q600-623 611.5-611.5Q623-600 640-600ZM640-440Q657-440 668.5-451.5Q680-463 680-480Q680-497 668.5-508.5Q657-520 640-520Q623-520 611.5-508.5Q600-497 600-480Q600-463 611.5-451.5Q623-440 640-440ZM480-440Q497-440 508.5-451.5Q520-463 520-480Q520-497 508.5-508.5Q497-520 480-520Q463-520 451.5-508.5Q440-497 440-480Q440-463 451.5-451.5Q463-440 480-440ZM320-440Q337-440 348.5-451.5Q360-463 360-480Q360-497 348.5-508.5Q337-520 320-520Q303-520 291.5-508.5Q280-497 280-480Q280-463 291.5-451.5Q303-440 320-440Z",
       "markdown": "M610-475 583-502Q574-511 562-510.5Q550-510 541-501Q532-492 532-480Q532-468 541-459L612-388Q624-376 640-376Q656-376 668-388L739-459Q748-468 748-480Q748-492 739-501Q730-510 717.5-510Q705-510 696-501L670-475V-570Q670-583 661.5-591.5Q653-600 640-600Q627-600 618.5-591.5Q610-583 610-570ZM160-160Q127-160 103.5-183.5Q80-207 80-240V-720Q80-753 103.5-776.5Q127-800 160-800H800Q833-800 856.5-776.5Q880-753 880-720V-240Q880-207 856.5-183.5Q833-160 800-160ZM160-240H800Q800-240 800-240Q800-240 800-240V-720Q800-720 800-720Q800-720 800-720H160Q160-720 160-720Q160-720 160-720V-240Q160-240 160-240Q160-240 160-240ZM160-240Q160-240 160-240Q160-240 160-240V-720Q160-720 160-720Q160-720 160-720Q160-720 160-720Q160-720 160-720V-240Q160-240 160-240Q160-240 160-240ZM280-540H320V-450Q320-437 328.5-428.5Q337-420 350-420Q363-420 371.5-428.5Q380-437 380-450V-540H420V-390Q420-377 428.5-368.5Q437-360 450-360Q463-360 471.5-368.5Q480-377 480-390V-560Q480-577 468.5-588.5Q457-600 440-600H260Q243-600 231.5-588.5Q220-577 220-560V-390Q220-377 228.5-368.5Q237-360 250-360Q263-360 271.5-368.5Q280-377 280-390Z",
@@ -16071,6 +16235,8 @@ var init_symbols = __esm({
       "south_east": "M624-280 188-716Q177-727 177-744Q177-761 188-772Q199-783 216-783Q233-783 244-772L680-336V-560Q680-577 691.5-588.5Q703-600 720-600Q737-600 748.5-588.5Q760-577 760-560V-240Q760-223 748.5-211.5Q737-200 720-200H400Q383-200 371.5-211.5Q360-223 360-240Q360-257 371.5-268.5Q383-280 400-280Z",
       "special_character": "M260-540Q260-477 293-424Q326-371 383-343Q407-331 423.5-310.5Q440-290 440-264V-180Q440-155 422.5-137.5Q405-120 380-120H180Q155-120 137.5-137.5Q120-155 120-180Q120-205 137.5-222.5Q155-240 180-240H320Q236-285 188-365Q140-445 140-540Q140-682 239-781Q338-880 480-880Q622-880 721-781Q820-682 820-540Q820-445 772-365Q724-285 640-240H780Q805-240 822.5-222.5Q840-205 840-180Q840-155 822.5-137.5Q805-120 780-120H580Q555-120 537.5-137.5Q520-155 520-180V-264Q520-290 536.5-310.5Q553-331 577-343Q634-371 667-424Q700-477 700-540Q700-632 636-696Q572-760 480-760Q388-760 324-696Q260-632 260-540Z",
       "spellcheck": "M564-192 762-390Q773-401 790-401Q807-401 818-390Q829-379 829-362Q829-345 818-334L621-137Q609-125 594-119Q579-113 564-113Q549-113 534-119Q519-125 507-137L422-222Q411-233 411-250Q411-267 422-278Q433-289 450-289Q467-289 478-278ZM254-452 217-347Q212-335 202-327.5Q192-320 179-320Q157-320 145-338Q133-356 141-376L303-811Q308-824 319.5-832Q331-840 345-840H377Q391-840 402.5-832Q414-824 419-811L581-377Q589-356 576.5-338Q564-320 541-320Q527-320 516-328Q505-336 500-349L464-452ZM282-528H438L362-744H358Z",
+      "splitscreen_left": "M200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H360Q393-840 416.5-816.5Q440-793 440-760V-200Q440-167 416.5-143.5Q393-120 360-120ZM600-120Q567-120 543.5-143.5Q520-167 520-200V-760Q520-793 543.5-816.5Q567-840 600-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM760-760Q760-760 760-760Q760-760 760-760H600Q600-760 600-760Q600-760 600-760V-200Q600-200 600-200Q600-200 600-200H760Q760-200 760-200Q760-200 760-200Z",
+      "splitscreen_right": "M600-120Q567-120 543.5-143.5Q520-167 520-200V-760Q520-793 543.5-816.5Q567-840 600-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H360Q393-840 416.5-816.5Q440-793 440-760V-200Q440-167 416.5-143.5Q393-120 360-120ZM200-760V-200Q200-200 200-200Q200-200 200-200H360Q360-200 360-200Q360-200 360-200V-760Q360-760 360-760Q360-760 360-760H200Q200-760 200-760Q200-760 200-760Z",
       "splitscreen_vertical_add": "M760-760H759Q690-760 644.5-760Q599-760 599-760Q599-760 600.5-760Q602-760 604-760H600Q600-760 600-760Q600-760 600-760H760Q760-760 760-760Q760-760 760-760ZM520-760Q520-793 543.5-816.5Q567-840 600-840H760Q793-840 816.5-816.5Q840-793 840-760V-400Q840-383 828.5-371.5Q817-360 800-360Q783-360 771.5-371.5Q760-383 760-400V-760Q760-760 760-760Q760-760 760-760H600Q600-760 600-760Q600-760 600-760V-120Q567-120 543.5-143.5Q520-167 520-200ZM200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H360Q393-840 416.5-816.5Q440-793 440-760V-200Q440-167 416.5-143.5Q393-120 360-120ZM360-760Q360-760 360-760Q360-760 360-760H200Q200-760 200-760Q200-760 200-760V-200Q200-200 200-200Q200-200 200-200H360Q360-200 360-200Q360-200 360-200ZM360-760Q360-760 360-760Q360-760 360-760H200Q200-760 200-760Q200-760 200-760Q200-760 200-760Q200-760 200-760H360Q360-760 360-760Q360-760 360-760ZM760-120H720Q703-120 691.5-131.5Q680-143 680-160Q680-177 691.5-188.5Q703-200 720-200H760V-240Q760-257 771.5-268.5Q783-280 800-280Q817-280 828.5-268.5Q840-257 840-240V-200H880Q897-200 908.5-188.5Q920-177 920-160Q920-143 908.5-131.5Q897-120 880-120H840V-80Q840-63 828.5-51.5Q817-40 800-40Q783-40 771.5-51.5Q760-63 760-80Z",
       "style": "M159-168 125-182Q94-195 83.5-227Q73-259 87-290L159-446ZM319-80Q286-80 262.5-103.5Q239-127 239-160V-400L345-106Q348-99 351-92.5Q354-86 359-80ZM525-84Q493-72 463-87Q433-102 421-134L243-622Q231-654 245-684.5Q259-715 291-726L593-836Q625-848 655-833Q685-818 697-786L875-298Q887-266 873-235.5Q859-205 827-194ZM439-560Q456-560 467.5-571.5Q479-583 479-600Q479-617 467.5-628.5Q456-640 439-640Q422-640 410.5-628.5Q399-617 399-600Q399-583 410.5-571.5Q422-560 439-560ZM497-160 799-270 621-760 319-650ZM319-650 621-760Z",
       "subscript": "M800-160Q783-160 771.5-171.5Q760-183 760-200V-240Q760-257 771.5-268.5Q783-280 800-280H880V-320H780Q772-320 766-326Q760-332 760-340Q760-348 766-354Q772-360 780-360H880Q897-360 908.5-348.5Q920-337 920-320V-280Q920-263 908.5-251.5Q897-240 880-240H800V-200H900Q908-200 914-194Q920-188 920-180Q920-172 914-166Q908-160 900-160ZM317-240Q290-240 277.5-263Q265-286 279-309L420-531L292-732Q278-754 290.5-777Q303-800 329-800Q341-800 351-794.5Q361-789 367-779L478-600H482L592-779Q598-789 608.5-794.5Q619-800 630-800Q657-800 669-777Q681-754 667-731L539-531L681-309Q695-286 682-263Q669-240 643-240Q631-240 621-245.5Q611-251 605-261L482-457H478L355-261Q349-251 338.5-245.5Q328-240 317-240Z",
@@ -16089,7 +16255,9 @@ var init_symbols = __esm({
       "vertical_align_bottom": "M200-120Q183-120 171.5-131.5Q160-143 160-160Q160-177 171.5-188.5Q183-200 200-200H760Q777-200 788.5-188.5Q800-177 800-160Q800-143 788.5-131.5Q777-120 760-120ZM452-308 308-452Q297-463 297-480Q297-497 308-508Q319-519 336-519Q353-519 364-508L440-432V-800Q440-817 451.5-828.5Q463-840 480-840Q497-840 508.5-828.5Q520-817 520-800V-432L596-508Q607-519 624-519Q641-519 652-508Q663-497 663-480Q663-463 652-452L508-308Q502-302 495-299.5Q488-297 480-297Q472-297 465-299.5Q458-302 452-308Z",
       "vertical_align_top": "M200-760Q183-760 171.5-771.5Q160-783 160-800Q160-817 171.5-828.5Q183-840 200-840H760Q777-840 788.5-828.5Q800-817 800-800Q800-783 788.5-771.5Q777-760 760-760ZM440-160V-528L364-452Q353-441 336-441Q319-441 308-452Q297-463 297-480Q297-497 308-508L452-652Q458-658 465-660.5Q472-663 480-663Q488-663 495-660.5Q502-658 508-652L652-508Q663-497 663-480Q663-463 652-452Q641-441 624-441Q607-441 596-452L520-528V-160Q520-143 508.5-131.5Q497-120 480-120Q463-120 451.5-131.5Q440-143 440-160Z",
       "view_column": "M121-280V-680Q121-713 144.5-736.5Q168-760 201-760H760Q793-760 816.5-736.5Q840-713 840-680V-280Q840-247 816.5-223.5Q793-200 760-200H201Q168-200 144.5-223.5Q121-247 121-280ZM200-280H333Q333-280 333-280Q333-280 333-280V-680Q333-680 333-680Q333-680 333-680H200Q200-680 200-680Q200-680 200-680V-280Q200-280 200-280Q200-280 200-280ZM413-280H546Q546-280 546-280Q546-280 546-280V-680Q546-680 546-680Q546-680 546-680H413Q413-680 413-680Q413-680 413-680V-280Q413-280 413-280Q413-280 413-280ZM626-280H759Q759-280 759-280Q759-280 759-280V-680Q759-680 759-680Q759-680 759-680H626Q626-680 626-680Q626-680 626-680V-280Q626-280 626-280Q626-280 626-280Z",
+      "view_column_2": "M600-120Q567-120 543.5-143.5Q520-167 520-200V-760Q520-793 543.5-816.5Q567-840 600-840H760Q793-840 816.5-816.5Q840-793 840-760V-200Q840-167 816.5-143.5Q793-120 760-120ZM600-760V-200Q600-200 600-200Q600-200 600-200H760Q760-200 760-200Q760-200 760-200V-760Q760-760 760-760Q760-760 760-760H600Q600-760 600-760Q600-760 600-760ZM200-120Q167-120 143.5-143.5Q120-167 120-200V-760Q120-793 143.5-816.5Q167-840 200-840H360Q393-840 416.5-816.5Q440-793 440-760V-200Q440-167 416.5-143.5Q393-120 360-120ZM200-760V-200Q200-200 200-200Q200-200 200-200H360Q360-200 360-200Q360-200 360-200V-760Q360-760 360-760Q360-760 360-760H200Q200-760 200-760Q200-760 200-760ZM760-760Q760-760 760-760Q760-760 760-760H600Q600-760 600-760Q600-760 600-760Q600-760 600-760Q600-760 600-760H760Q760-760 760-760Q760-760 760-760ZM360-760Q360-760 360-760Q360-760 360-760H200Q200-760 200-760Q200-760 200-760Q200-760 200-760Q200-760 200-760H360Q360-760 360-760Q360-760 360-760Z",
       "view_compact_alt": "M340-300H420Q437-300 448.5-311.5Q460-323 460-340V-420Q460-437 448.5-448.5Q437-460 420-460H340Q323-460 311.5-448.5Q300-437 300-420V-340Q300-323 311.5-311.5Q323-300 340-300ZM340-500H420Q437-500 448.5-511.5Q460-523 460-540V-620Q460-637 448.5-648.5Q437-660 420-660H340Q323-660 311.5-648.5Q300-637 300-620V-540Q300-523 311.5-511.5Q323-500 340-500ZM540-300H620Q637-300 648.5-311.5Q660-323 660-340V-420Q660-437 648.5-448.5Q637-460 620-460H540Q523-460 511.5-448.5Q500-437 500-420V-340Q500-323 511.5-311.5Q523-300 540-300ZM540-500H620Q637-500 648.5-511.5Q660-523 660-540V-620Q660-637 648.5-648.5Q637-660 620-660H540Q523-660 511.5-648.5Q500-637 500-620V-540Q500-523 511.5-511.5Q523-500 540-500ZM160-160Q127-160 103.5-183.5Q80-207 80-240V-720Q80-753 103.5-776.5Q127-800 160-800H800Q833-800 856.5-776.5Q880-753 880-720V-240Q880-207 856.5-183.5Q833-160 800-160ZM160-240H800Q800-240 800-240Q800-240 800-240V-720Q800-720 800-720Q800-720 800-720H160Q160-720 160-720Q160-720 160-720V-240Q160-240 160-240Q160-240 160-240ZM160-240Q160-240 160-240Q160-240 160-240V-720Q160-720 160-720Q160-720 160-720Q160-720 160-720Q160-720 160-720V-240Q160-240 160-240Q160-240 160-240Z",
+      "view_week": "M160-240H320Q320-240 320-240Q320-240 320-240V-720Q320-720 320-720Q320-720 320-720H160Q160-720 160-720Q160-720 160-720V-240Q160-240 160-240Q160-240 160-240ZM400-240H560Q560-240 560-240Q560-240 560-240V-720Q560-720 560-720Q560-720 560-720H400Q400-720 400-720Q400-720 400-720V-240Q400-240 400-240Q400-240 400-240ZM640-240H800Q800-240 800-240Q800-240 800-240V-720Q800-720 800-720Q800-720 800-720H640Q640-720 640-720Q640-720 640-720V-240Q640-240 640-240Q640-240 640-240ZM160-160Q127-160 103.5-183.5Q80-207 80-240V-720Q80-753 103.5-776.5Q127-800 160-800H800Q833-800 856.5-776.5Q880-753 880-720V-240Q880-207 856.5-183.5Q833-160 800-160Z",
       "visibility": "M480-320Q555-320 607.5-372.5Q660-425 660-500Q660-575 607.5-627.5Q555-680 480-680Q405-680 352.5-627.5Q300-575 300-500Q300-425 352.5-372.5Q405-320 480-320ZM480-392Q435-392 403.5-423.5Q372-455 372-500Q372-545 403.5-576.5Q435-608 480-608Q525-608 556.5-576.5Q588-545 588-500Q588-455 556.5-423.5Q525-392 480-392ZM61-462Q56-471 53.5-480.5Q51-490 51-500Q51-510 53.5-519.5Q56-529 61-538Q125-656 235.5-728Q346-800 480-800Q614-800 724.5-728Q835-656 899-538Q904-529 906.5-519.5Q909-510 909-500Q909-490 906.5-480.5Q904-471 899-462Q835-344 724.5-272Q614-200 480-200Q346-200 235.5-272Q125-344 61-462ZM480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500Q480-500 480-500ZM832-500Q782-601 687.5-660.5Q593-720 480-720Q367-720 272.5-660.5Q178-601 128-500Q178-399 272.5-339.5Q367-280 480-280Q593-280 687.5-339.5Q782-399 832-500Z",
       "web_asset": "M160-160Q127-160 103.5-183.5Q80-207 80-240V-720Q80-753 103.5-776.5Q127-800 160-800H800Q833-800 856.5-776.5Q880-753 880-720V-240Q880-207 856.5-183.5Q833-160 800-160ZM160-240H800Q800-240 800-240Q800-240 800-240V-640H160V-240Q160-240 160-240Q160-240 160-240Z",
       "zoom_in": "M340-540H300Q283-540 271.5-551.5Q260-563 260-580Q260-597 271.5-608.5Q283-620 300-620H340V-660Q340-677 351.5-688.5Q363-700 380-700Q397-700 408.5-688.5Q420-677 420-660V-620H460Q477-620 488.5-608.5Q500-597 500-580Q500-563 488.5-551.5Q477-540 460-540H420V-500Q420-483 408.5-471.5Q397-460 380-460Q363-460 351.5-471.5Q340-483 340-500ZM380-320Q271-320 195.5-395.5Q120-471 120-580Q120-689 195.5-764.5Q271-840 380-840Q489-840 564.5-764.5Q640-689 640-580Q640-536 626-497Q612-458 588-428L812-204Q823-193 823-176Q823-159 812-148Q801-137 784-137Q767-137 756-148L532-372Q502-348 463-334Q424-320 380-320ZM380-400Q455-400 507.5-452.5Q560-505 560-580Q560-655 507.5-707.5Q455-760 380-760Q305-760 252.5-707.5Q200-655 200-580Q200-505 252.5-452.5Q305-400 380-400Z",
@@ -22816,6 +22984,8 @@ function registerWriteCommands(reg, ed, app, ctl) {
   const para = () => ctl.state().para;
   const L3 = app.ui.L;
   const edit = (c5) => ({ ...c5, isEnabled: c5.isEnabled ? () => canEdit2() && c5.isEnabled() : canEdit2 });
+  const bodyOnly = () => ed.editingHeaderFooter() === null && !ed.editingTextbox() && !ed.editingTableCell();
+  const section = () => typeof api["getSection"] === "function" ? call("getSection") : null;
   const cmds = [
     // ── Arquivo ──
     { id: "new", label: { en: "New", pt: "Novo" }, tip: { en: "New document", pt: "Novo documento" }, icon: "note_add", run: () => app.newDocument(), isEnabled: notComparing },
@@ -22879,8 +23049,38 @@ function registerWriteCommands(reg, ed, app, ctl) {
     edit({ id: "endnote", label: { en: "Endnote", pt: "Nota de fim" }, tip: { en: "Insert endnote", pt: "Inserir nota de fim" }, icon: "short_text", shortcut: "Ctrl+Alt+D", supports: has("insertEndnote"), run: () => call("insertEndnote") }),
     edit({ id: "bookmark", label: { en: "Bookmark", pt: "Indicador" }, icon: "bookmark", supports: has("insertBookmark"), run: () => call("insertBookmark") }),
     edit({ id: "textbox", label: { en: "Text box", pt: "Caixa de texto" }, icon: "text_fields", supports: has("insertTextbox"), run: () => call("insertTextbox") }),
-    edit({ id: "sectionbreak", label: { en: "Section break (next page)", pt: "Quebra de se\xE7\xE3o (pr\xF3xima p\xE1gina)" }, icon: "insert_page_break", supports: has("insertSectionBreak"), run: () => call("insertSectionBreak", "nextPage") }),
-    edit({ id: "columnbreak", label: { en: "Column break", pt: "Quebra de coluna" }, icon: "view_column", supports: has("insertColumnBreak"), run: () => call("insertColumnBreak") }),
+    // quebras de seção/coluna: só no corpo (cabeçalho/rodapé, caixa e célula não)
+    ...[
+      ["sectionbreak", "nextPage", "Section break (next page)", "Quebra de se\xE7\xE3o (pr\xF3xima p\xE1gina)", "Start the new section on the next page", "Come\xE7a a se\xE7\xE3o nova na pr\xF3xima p\xE1gina", "insert_page_break"],
+      ["sectionbreak:continuous", "continuous", "Section break (continuous)", "Quebra de se\xE7\xE3o (cont\xEDnua)", "Start the new section on the same page", "Come\xE7a a se\xE7\xE3o nova na mesma p\xE1gina", "horizontal_split"],
+      ["sectionbreak:evenPage", "evenPage", "Section break (even page)", "Quebra de se\xE7\xE3o (p\xE1gina par)", "Start the new section on the next even-numbered page", "Come\xE7a a se\xE7\xE3o nova na pr\xF3xima p\xE1gina par", "looks_two"],
+      ["sectionbreak:oddPage", "oddPage", "Section break (odd page)", "Quebra de se\xE7\xE3o (p\xE1gina \xEDmpar)", "Start the new section on the next odd-numbered page", "Come\xE7a a se\xE7\xE3o nova na pr\xF3xima p\xE1gina \xEDmpar", "looks_one"]
+    ].map(([id, type, en, pt, ten, tpt, icon]) => edit({
+      id,
+      label: { en, pt },
+      tip: { en: ten, pt: tpt },
+      icon,
+      supports: has("insertSectionBreak"),
+      run: () => call("insertSectionBreak", type),
+      isEnabled: bodyOnly
+    })),
+    edit({ id: "columnbreak", label: { en: "Column break", pt: "Quebra de coluna" }, tip: { en: "Text after the break starts in the next column", pt: "O texto depois da quebra come\xE7a na pr\xF3xima coluna" }, icon: "view_column", shortcut: "Ctrl+Shift+Enter", supports: has("insertColumnBreak"), run: () => call("insertColumnBreak"), isEnabled: bodyOnly }),
+    // colunas (galeria do grupo Configurar Página)
+    ...[
+      ["one", "One", "Uma", "crop_portrait"],
+      ["two", "Two", "Duas", "view_column_2"],
+      ["three", "Three", "Tr\xEAs", "view_column"],
+      ["left", "Left", "Esquerda", "splitscreen_left"],
+      ["right", "Right", "Direita", "splitscreen_right"]
+    ].map(([p3, en, pt, icon]) => edit({
+      id: `columns:${p3}`,
+      label: { en, pt },
+      icon,
+      supports: has("setColumns"),
+      run: () => call("setColumns", p3),
+      isChecked: () => section()?.columns.preset === p3
+    })),
+    edit({ id: "dlg:columns", label: { en: "More Columns\u2026", pt: "Mais Colunas\u2026" }, tip: { en: "Number, width and spacing of the columns", pt: "N\xFAmero, largura e espa\xE7amento das colunas" }, icon: "view_week", supports: has("setColumns"), run: () => ctl.columnsDialog() }),
     // ── Formatar: fonte ──
     edit({ id: "bold", label: { en: "Bold", pt: "Negrito" }, icon: "format_bold", shortcut: "Ctrl+B", run: () => ed.toggleRunProp("bold"), isChecked: () => !!run().bold }),
     edit({ id: "italic", label: { en: "Italic", pt: "It\xE1lico" }, icon: "format_italic", shortcut: "Ctrl+I", run: () => ed.toggleRunProp("italic"), isChecked: () => !!run().italic }),
@@ -23125,15 +23325,15 @@ async function pageDialog(env) {
   const orient = select("orientation", [["portrait", tr(lang, "Portrait", "Retrato")], ["landscape", tr(lang, "Landscape", "Paisagem")]], "portrait");
   const size = select("size", [["A4", "A4"], ["Letter", tr(lang, "Letter", "Carta")]], "A4");
   const margins = select("margins", [["normal", "Normal"], ["narrow", tr(lang, "Narrow", "Estreita")], ["wide", tr(lang, "Wide", "Larga")]], "normal");
-  try {
-    const s4 = env.ed.sectPrAt(0);
-    const w2 = s4.pageWidthTwips, hgt = s4.pageHeightTwips;
-    orient.value = w2 > hgt ? "landscape" : "portrait";
-    size.value = Math.abs(Math.min(w2, hgt) - 12240) < 60 ? "Letter" : "A4";
-    const m2 = s4.marginLeftTwips;
+  const s4 = env.ed.getSection();
+  if (s4) {
+    orient.value = s4.orientation;
+    size.value = Math.abs(Math.min(s4.pageWidthTwips, s4.pageHeightTwips) - 12240) < 60 ? "Letter" : "A4";
+    const m2 = s4.orientation === "landscape" ? s4.margins.top : s4.margins.left;
     margins.value = m2 < 1e3 ? "narrow" : m2 > 2200 ? "wide" : "normal";
-  } catch {
   }
+  const start = { orientation: orient.value, size: size.value, margins: margins.value };
+  const applyTo = applyToSelect(lang, env.ed.selectedText().length > 0, "section");
   const grid = el2(
     "div",
     { className: "uo-dialog-grid" },
@@ -23142,21 +23342,209 @@ async function pageDialog(env) {
     el2("span", {}, L3.paper),
     size,
     el2("span", {}, L3.margins),
-    margins
+    margins,
+    el2("span", {}, tr(lang, "Apply to", "Aplicar a")),
+    applyTo
   );
   const h3 = openDialog({
     title: L3.pageDlg,
     body: grid,
     layer: env.layer,
     lang,
-    width: 380,
+    width: 400,
     actions: [{ id: "cancel", label: L3.cancel }, { id: "ok", label: L3.apply, primary: true }]
   });
   if (await h3.result !== "ok") return;
+  const all = applyTo.value !== "section";
   env.ed.setPageSetup({
-    orientation: orient.value,
-    size: size.value,
-    margins: margins.value
+    ...all || orient.value !== start.orientation ? { orientation: orient.value } : {},
+    ...all || size.value !== start.size ? { size: size.value } : {},
+    ...all || margins.value !== start.margins ? { margins: margins.value } : {},
+    applyTo: applyTo.value
+  });
+}
+async function columnsDialog(env) {
+  const lang = env.lang, ed = env.ed;
+  const s4 = ed.getSection();
+  if (!s4) return;
+  const W = s4.columns.contentWidthTwips;
+  const unit = lang === "pt" ? { tw: 1440 / 2.54, name: "cm", step: "0.01" } : { tw: 1440, name: '"', step: "0.01" };
+  const fmt2 = (tw2) => String(Math.round(tw2 / unit.tw * 100) / 100);
+  const parse = (v2) => Math.round(parseFloat(v2.replace(",", ".")) * unit.tw);
+  const MIN = 720;
+  const st = {
+    count: s4.columns.count,
+    equal: s4.columns.equalWidth,
+    sep: s4.columns.sep,
+    widths: s4.columns.widths.map((w2) => ({ ...w2 })),
+    space: s4.columns.count > 1 ? s4.columns.spaceTwips : 708
+  };
+  const equalize = () => {
+    const n5 = st.count;
+    if ((W - st.space * (n5 - 1)) / n5 < MIN) st.space = n5 > 1 ? Math.max(0, Math.floor((W - n5 * MIN) / (n5 - 1))) : st.space;
+    const w2 = Math.round((W - st.space * (n5 - 1)) / n5);
+    st.widths = Array.from({ length: n5 }, (_2, i7) => ({ widthTwips: w2, spaceTwips: i7 < n5 - 1 ? st.space : 0 }));
+  };
+  const presets = el2("div", { style: "display:flex;gap:8px;flex-wrap:wrap" });
+  const PRESETS = [["one", "One", "Uma", 1], ["two", "Two", "Duas", 2], ["three", "Three", "Tr\xEAs", 3], ["left", "Left", "Esquerda", 2], ["right", "Right", "Direita", 2]];
+  const presetBtns = PRESETS.map(([id, en, pt, n5]) => {
+    const b5 = el2("button", { type: "button", textContent: tr(lang, en, pt), style: "min-width:72px;padding:6px 10px;border-radius:8px;border:1px solid var(--uo-border, #c7c7c7);background:transparent;color:inherit;cursor:pointer;font:inherit" });
+    b5.addEventListener("click", () => {
+      st.count = n5;
+      if (id === "left" || id === "right") {
+        const narrow = Math.round((W - 2 * st.space) / 3), wide = W - narrow - st.space;
+        const ws = id === "left" ? [narrow, wide] : [wide, narrow];
+        st.equal = false;
+        st.widths = ws.map((w2, i7) => ({ widthTwips: w2, spaceTwips: i7 === 0 ? st.space : 0 }));
+      } else {
+        st.equal = true;
+        equalize();
+      }
+      render();
+    });
+    presets.append(b5);
+    return [id, b5];
+  });
+  const count = el2("input", { type: "number", name: "count", min: "1", max: String(s4.columns.max), step: "1", value: String(st.count), style: "width:72px" });
+  const sep = check("sep", tr(lang, "Line between", "Linha entre colunas"), st.sep);
+  const equal = check("equal", tr(lang, "Equal column width", "Colunas de mesma largura"), st.equal);
+  const rows = el2("div", { style: "display:grid;grid-template-columns:auto 1fr 1fr;gap:6px 10px;align-items:center" });
+  const applyTo = applyToSelect(lang, ed.selectedText().length > 0, "section");
+  const newCol = check("newCol", tr(lang, "Start new column", "Iniciar nova coluna"), false);
+  const preview = el2("div", { style: "display:flex;height:84px;border:1px solid var(--uo-border, #c7c7c7);border-radius:6px;padding:8px;box-sizing:border-box;gap:0" });
+  const box = (k2) => (k2 === "sep" ? sep : k2 === "equal" ? equal : newCol).querySelector("input");
+  function render() {
+    count.value = String(st.count);
+    box("equal").checked = st.equal;
+    box("equal").disabled = st.count < 2;
+    box("sep").disabled = st.count < 2;
+    box("newCol").disabled = applyTo.value !== "forward";
+    if (box("newCol").disabled) box("newCol").checked = false;
+    for (const [id, b5] of presetBtns) {
+      const on = id === "one" ? st.count === 1 : id === "two" || id === "three" ? st.equal && st.count === (id === "two" ? 2 : 3) : !st.equal && st.count === 2 && Math.abs(st.widths[0].widthTwips - st.widths[1].widthTwips) > 40 && id === "left" === st.widths[0].widthTwips < st.widths[1].widthTwips;
+      b5.style.background = on ? "var(--uo-accent-soft, rgba(26,115,232,.14))" : "transparent";
+      b5.setAttribute("aria-pressed", String(on));
+    }
+    rows.replaceChildren(el2("strong", {}, "#"), el2("strong", {}, tr(lang, "Width", "Largura")), el2("strong", {}, tr(lang, "Spacing", "Espa\xE7amento")));
+    st.widths.slice(0, Math.max(1, st.count)).forEach((c5, i7) => {
+      const last = i7 === st.count - 1;
+      const wIn = el2("input", { type: "number", step: unit.step, min: "0", value: fmt2(c5.widthTwips), disabled: st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
+      const sIn = el2("input", { type: "number", step: unit.step, min: "0", value: last ? "" : fmt2(c5.spaceTwips), disabled: last || st.count < 2 || st.equal && i7 > 0, style: "width:96px" });
+      wIn.setAttribute("aria-label", `${tr(lang, "Width", "Largura")} ${i7 + 1}`);
+      sIn.setAttribute("aria-label", `${tr(lang, "Spacing", "Espa\xE7amento")} ${i7 + 1}`);
+      wIn.addEventListener("change", () => setWidth(i7, parse(wIn.value)));
+      sIn.addEventListener("change", () => setSpace(i7, parse(sIn.value)));
+      rows.append(el2("span", {}, `${i7 + 1}:`), el2("span", { style: "display:flex;gap:4px;align-items:center" }, wIn, unit.name), el2("span", { style: "display:flex;gap:4px;align-items:center" }, sIn, last ? "" : unit.name));
+    });
+    preview.replaceChildren(...st.widths.slice(0, Math.max(1, st.count)).flatMap((c5, i7) => {
+      const col = el2("div", { style: `flex:${c5.widthTwips} 0 0;background:repeating-linear-gradient(to bottom, currentColor 0 2px, transparent 2px 7px);opacity:.45` });
+      if (i7 === st.count - 1) return [col];
+      const gap = el2("div", { style: `flex:${Math.max(1, c5.spaceTwips)} 0 0;display:flex;justify-content:center` });
+      if (box("sep").checked) gap.append(el2("div", { style: "width:1px;background:currentColor" }));
+      return [col, gap];
+    }));
+  }
+  function setWidth(i7, w2) {
+    if (!(w2 > 0)) {
+      render();
+      return;
+    }
+    if (st.equal) {
+      const n5 = st.count;
+      const ww = Math.max(MIN, Math.min(w2, Math.floor(W / n5)));
+      st.space = n5 > 1 ? Math.max(0, Math.floor((W - n5 * ww) / (n5 - 1))) : 0;
+      st.widths = st.widths.map((c5, k2) => ({ widthTwips: ww, spaceTwips: k2 < n5 - 1 ? st.space : 0 }));
+    } else {
+      const j = i7 < st.count - 1 ? i7 + 1 : i7 - 1;
+      const total = st.widths[i7].widthTwips + st.widths[j].widthTwips;
+      const ww = Math.max(MIN, Math.min(w2, total - MIN));
+      st.widths[i7].widthTwips = ww;
+      st.widths[j].widthTwips = total - ww;
+    }
+    render();
+  }
+  function setSpace(i7, sp) {
+    if (!(sp >= 0)) {
+      render();
+      return;
+    }
+    if (st.equal) {
+      const n5 = st.count;
+      st.space = Math.min(sp, Math.floor((W - n5 * MIN) / Math.max(1, n5 - 1)));
+      equalize();
+    } else {
+      const j = i7 + 1;
+      const total = st.widths[i7].spaceTwips + st.widths[j].widthTwips;
+      const ss = Math.max(0, Math.min(sp, total - MIN));
+      st.widths[i7].spaceTwips = ss;
+      st.widths[j].widthTwips = total - ss;
+    }
+    render();
+  }
+  count.addEventListener("change", () => {
+    const n5 = Math.max(1, Math.min(s4.columns.max, Math.round(Number(count.value) || 1)));
+    st.count = n5;
+    if (n5 < 2) st.equal = true;
+    if (st.equal || st.widths.length !== n5) {
+      st.equal = true;
+      equalize();
+    }
+    render();
+  });
+  box("equal").addEventListener("change", () => {
+    st.equal = box("equal").checked;
+    if (st.equal) {
+      st.space = st.widths[0]?.spaceTwips || st.space;
+      equalize();
+    }
+    render();
+  });
+  box("sep").addEventListener("change", () => {
+    st.sep = box("sep").checked;
+    render();
+  });
+  applyTo.addEventListener("change", render);
+  if (st.count < 2) {
+    st.count = 1;
+    equalize();
+  }
+  render();
+  const body = el2(
+    "div",
+    { style: "display:flex;flex-direction:column;gap:14px" },
+    el2("strong", {}, tr(lang, "Presets", "Predefini\xE7\xF5es")),
+    presets,
+    el2(
+      "div",
+      { style: "display:flex;gap:16px;align-items:center;flex-wrap:wrap" },
+      el2("label", { style: "display:flex;gap:8px;align-items:center" }, tr(lang, "Number of columns", "N\xFAmero de colunas"), count),
+      sep
+    ),
+    el2("strong", {}, tr(lang, "Width and spacing", "Largura e espa\xE7amento")),
+    rows,
+    equal,
+    el2("div", { className: "uo-dialog-grid" }, el2("span", {}, tr(lang, "Apply to", "Aplicar a")), applyTo),
+    newCol,
+    el2("strong", {}, tr(lang, "Preview", "Visualiza\xE7\xE3o")),
+    preview
+  );
+  const h3 = openDialog({
+    title: tr(lang, "Columns", "Colunas"),
+    icon: "view_column_2",
+    body,
+    layer: env.layer,
+    lang,
+    width: 460,
+    actions: [{ id: "cancel", label: env.app.ui.L.cancel }, { id: "ok", label: env.app.ui.L.apply, primary: true }]
+  });
+  if (await h3.result !== "ok") return;
+  ed.setColumns({
+    count: st.count,
+    spaceTwips: st.space,
+    ...st.equal || st.count < 2 ? {} : { widths: st.widths.slice(0, st.count) },
+    sep: st.sep,
+    applyTo: applyTo.value,
+    startNewColumn: box("newCol").checked
   });
 }
 function wordCountDialog(env) {
@@ -23266,7 +23654,7 @@ async function spellingDialog(env) {
   });
   await h3.result;
 }
-var el2, select, check, tr, SHORTCUTS;
+var el2, select, check, tr, applyToSelect, SHORTCUTS;
 var init_chrome_dialogs = __esm({
   "src/chrome-dialogs.ts"() {
     "use strict";
@@ -23289,6 +23677,12 @@ var init_chrome_dialogs = __esm({
       return el2("label", { className: "uo-check" }, i7, label);
     };
     tr = (lang, en, pt) => pickLabels(lang, { en, pt });
+    applyToSelect = (lang, hasSel, value) => select("applyTo", [
+      ["section", tr(lang, "This section", "Esta se\xE7\xE3o")],
+      ["forward", tr(lang, "This point forward", "Deste ponto em diante")],
+      ["document", tr(lang, "Whole document", "No documento inteiro")],
+      ...hasSel ? [["selection", tr(lang, "Selected text", "Texto selecionado")]] : []
+    ], value);
     SHORTCUTS = [
       ["Ctrl+O", "Open", "Abrir"],
       ["Ctrl+S", "Save", "Salvar"],
@@ -23304,6 +23698,7 @@ var init_chrome_dialogs = __esm({
       ["Ctrl+K", "Insert link", "Inserir link"],
       ["Ctrl+Alt+M", "New comment", "Novo coment\xE1rio"],
       ["Ctrl+Enter", "Page break", "Quebra de p\xE1gina"],
+      ["Ctrl+Shift+Enter", "Column break", "Quebra de coluna"],
       ["Ctrl+D", "Font dialog", "Di\xE1logo Fonte"],
       ["Ctrl+Shift+8", "Formatting marks", "Marcas de formata\xE7\xE3o"],
       ["Ctrl+scroll", "Zoom", "Zoom"]
@@ -24059,7 +24454,8 @@ function menus(env, ctx) {
     toolbar: sub({ en: "Toolbar", pt: "Barra de ferramentas" }, "toolbar", () => ["toolbar:compact", "toolbar:ribbon", "-", "statusbar"], "toolbar"),
     fields: sub({ en: "Field", pt: "Campo" }, "data_object", fieldsMenu, "fields"),
     symbols: sub({ en: "Special characters", pt: "Caracteres especiais" }, "special_character", () => symbolMenu(env, ctx), "symbols"),
-    breaks: sub({ en: "Break", pt: "Quebra" }, "insert_page_break", () => ["pagebreak", "columnbreak", "sectionbreak"], "breaks"),
+    breaks: sub({ en: "Break", pt: "Quebra" }, "insert_page_break", breaksMenu, "breaks"),
+    columns: sub({ en: "Columns", pt: "Colunas" }, "view_column_2", columnsMenu, "columns"),
     hf: sub({ en: "Headers & footers", pt: "Cabe\xE7alhos e rodap\xE9s" }, "call_to_action", () => ["header", "footer"], "hf"),
     text: sub({ en: "Text", pt: "Texto" }, "format_bold", () => ["bold", "italic", "underline", "strike", "sup", "sub", "-", "grow", "shrink", "-", "allCaps", "smallCaps", "case:upper", "case:lower"], "text"),
     color: sub({ en: "Font color", pt: "Cor da fonte" }, "format_color_text", () => colorMenu(env, ctx), "color"),
@@ -24111,7 +24507,7 @@ function compactLayout(env, ctx) {
       { id: "edit", label: { en: "Edit", pt: "Editar" }, items: ["undo", "redo", "-", "cut", "copy", "paste", "pastePlain", "-", "selectAll", "-", "find", "replace"] },
       { id: "view", label: { en: "View", pt: "Ver" }, items: () => ["view:print", "view:web", "view:read", "focus", "-", "marks", "comments", "-", m2.zoom, "-", m2.theme, m2.accent, m2.toolbar] },
       { id: "insert", label: { en: "Insert", pt: "Inserir" }, items: () => ["image", "table", "link", "comment", "-", m2.breaks, m2.hf, m2.fields, "toc", "-", "footnote", "endnote", "bookmark", "textbox", m2.symbols] },
-      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", m2.charSpacing, "-", m2.page, "-", "dlg:font", "dlg:paragraph", "-", "clear"] },
+      { id: "format", label: { en: "Format", pt: "Formatar" }, items: () => [m2.text, m2.color, m2.highlight, m2.styles, "-", m2.align, m2.spacing, m2.lists, m2.shading, "borders", m2.charSpacing, "-", m2.page, m2.columns, "-", "dlg:font", "dlg:paragraph", "-", "clear"] },
       { id: "tools", label: { en: "Tools", pt: "Ferramentas" }, items: () => ["spelling", "spellAsYouType", "wordCount", "-", m2.trackChanges, m2.comments, "-", "compare", "mailmerge", "-", "fontAccess", "hyphenation", "-", "enableEditing"] },
       { id: "help", label: { en: "Help", pt: "Ajuda" }, items: ["shortcuts", "about"] }
     ],
@@ -24206,7 +24602,10 @@ function ribbonLayout(env, ctx) {
         id: "insert",
         label: L2("Insert", "Inserir"),
         groups: [
-          { id: "pages", label: L2("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [large("pagebreak"), { rows: [["columnbreak"], ["sectionbreak"]] }] },
+          { id: "pages", label: L2("Pages", "P\xE1ginas"), icon: "insert_page_break", prio: 4, cells: [
+            large("pagebreak"),
+            { menu: breaksMenu, id: "breaks", label: L2("Breaks", "Quebras"), icon: "insert_page_break", size: "large", supports: has("insertSectionBreak") }
+          ] },
           { id: "objects", label: L2("Illustrations", "Ilustra\xE7\xF5es"), icon: "image", prio: 6, cells: [
             { menu: () => tableMenu(env, ctx), id: "table:menu", label: L2("Table", "Tabela"), icon: "table", size: "large", supports: has("insertTable") },
             large("image")
@@ -24235,8 +24634,8 @@ function ribbonLayout(env, ctx) {
             { menu: () => marginsMenu(env, ctx), id: "margins", label: L2("Margins", "Margens"), icon: "margin", size: "large" },
             { menu: () => orientationMenu(env, ctx), id: "orientation", label: L2("Orientation", "Orienta\xE7\xE3o"), icon: "crop_rotate", size: "large" },
             { menu: () => sizeMenu(env, ctx), id: "pageSize", label: L2("Size", "Tamanho"), icon: "aspect_ratio", size: "large" },
-            { menu: () => ["pagebreak", "columnbreak", "sectionbreak"], id: "breaks", label: L2("Breaks", "Quebras"), icon: "insert_page_break", size: "large" },
-            { rows: [["hyphenation"]] }
+            { menu: columnsMenu, id: "columns", label: L2("Columns", "Colunas"), icon: "view_column_2", size: "large", supports: has("setColumns") },
+            { rows: [[{ menu: breaksMenu, id: "breaks", label: L2("Breaks", "Quebras"), icon: "insert_page_break", showLabel: true }], ["hyphenation"]] }
           ] },
           { id: "paragraph", label: L2("Paragraph", "Par\xE1grafo"), icon: "format_indent_increase", prio: 5, launcher: "dlg:paragraph", cells: [
             { menu: () => paragraphSpacingMenu(env, ctx), id: "pspacing", label: L2("Paragraph Spacing", "Espa\xE7amento entre Par\xE1grafos"), icon: "format_line_spacing", size: "large" },
@@ -24329,12 +24728,14 @@ function ribbonLayout(env, ctx) {
     ]
   };
 }
-var fileMenu, L2, large;
+var breaksMenu, columnsMenu, fileMenu, L2, large;
 var init_chrome_layout = __esm({
   "src/chrome-layout.ts"() {
     "use strict";
     init_chrome_widgets();
     init_chrome_commands();
+    breaksMenu = () => ["pagebreak", "columnbreak", "-", "sectionbreak", "sectionbreak:continuous", "sectionbreak:evenPage", "sectionbreak:oddPage"];
+    columnsMenu = () => ["columns:one", "columns:two", "columns:three", "columns:left", "columns:right", "-", "dlg:columns"];
     fileMenu = (m2) => [
       "new",
       "open",
@@ -26192,6 +26593,9 @@ var init_chrome = __esm({
           },
           pageDialog: () => {
             void pageDialog(d3()).then(() => this.after());
+          },
+          columnsDialog: () => {
+            void columnsDialog(d3()).then(() => this.after());
           },
           wordCount: () => wordCountDialog(d3()),
           spelling: () => {
@@ -32523,7 +32927,7 @@ function fixedMins(cells, w2) {
   }
   return out;
 }
-function columnWidths(cells, nCols, docGrid, tblW, fixed, base, avail) {
+function columnWidths2(cells, nCols, docGrid, tblW, fixed, base, avail) {
   return columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail).map((x3) => Math.round(x3));
 }
 function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
@@ -32904,7 +33308,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const jc = floating ? void 0 : tblPr.jc ?? table.rows[0]?.trPr?.jc;
   const indent = floating || jc === "center" || jc === "right" || jc === "end" ? 0 : widthTw(tblPr.tblInd, frameWidth) ?? 0;
   const maxInd = legacy && jc === "center" && !floating ? widthTw(tblPr.tblInd, frameWidth) ?? 0 : indent;
-  const grid = columnWidths(geoCells, nCols, docGrid, tblPr.tblW, tblPr.tblLayout === "fixed", base, base - maxInd);
+  const grid = columnWidths2(geoCells, nCols, docGrid, tblPr.tblW, tblPr.tblLayout === "fixed", base, base - maxInd);
   const width = grid.reduce((a3, b5) => a3 + b5, 0);
   const colX = [0];
   for (const g2 of grid) colX.push(colX[colX.length - 1] + g2);
@@ -33780,6 +34184,7 @@ function liftFrames(blocks, stops) {
 
 // ../docx-layout/src/engine.ts
 var zItems = (objs) => [...objs].sort((a3, b5) => a3.z - b5.z || a3.seq - b5.seq).flatMap((o7) => o7.items);
+var COL_SEP_W = 16.8;
 function layoutDocument(full0, provider, opts = {}) {
   const fmt2 = full0.formatting ?? emptyFormatting();
   const lifted = liftFrames(full0.blocks, new Set(full0.sections.map((s4) => s4.blockEnd)));
@@ -33819,7 +34224,10 @@ function layoutDocument(full0, provider, opts = {}) {
     done.add(s4);
     let lo = Math.max(0, Math.floor(info.sum / info.n) - 1), hi = Math.ceil(info.bottom - info.colTop);
     if (hi <= lo + 1) continue;
-    const fits = (h3) => runWith(new Map([...balance, [s4, { page: info.page, h: h3 }]])).balanceFound.get(s4)?.page === info.page;
+    const fits = (h3) => {
+      const f3 = runWith(new Map([...balance, [s4, { page: info.page, h: h3 }]])).balanceFound.get(s4);
+      return f3?.page === info.page && f3.used[f3.used.length - 1] <= f3.used[0] + 1;
+    };
     if (!fits(hi)) continue;
     while (hi - lo > 1) {
       const mid = Math.floor((lo + hi) / 2);
@@ -34029,7 +34437,9 @@ var Engine = class {
       }, 0));
     }
     for (const g2 of this.geoms) {
-      if (g2.index === 0 || g2.type !== "continuous") {
+      const samePaper = !!this.cur && this.cur.page.widthTw === g2.pageW && this.cur.page.heightTw === g2.pageH;
+      if (g2.index > 0 && g2.type === "nextColumn" && samePaper && this.nextColumnFits(g2)) this.nextColumnSection(g2);
+      else if (g2.index === 0 || g2.type !== "continuous" || !samePaper) {
         const lastAfter = this.prev ? this.prev.after : 0;
         this.newPage(g2, g2.type);
         if (g2.index > 0) this.topGapPrevAfter = lastAfter;
@@ -34041,7 +34451,10 @@ var Engine = class {
       }
     }
     for (let k2 = 0; k2 < 100 && this.floatCarry.length && this.cur; k2++) this.newPage(this.cur.geom);
-    if (this.cur) this.paintNotes(this.cur);
+    if (this.cur) {
+      this.closeColumns();
+      this.paintNotes(this.cur);
+    }
     const bgSpec = full.background;
     const bg = bgSpec ? resolveColor({ ...bgSpec.color ? { val: bgSpec.color } : {}, ...bgSpec.themeColor ? { themeColor: bgSpec.themeColor } : {}, ...bgSpec.themeTint ? { themeTint: bgSpec.themeTint } : {}, ...bgSpec.themeShade ? { themeShade: bgSpec.themeShade } : {} }, this.ctx.fmt.theme) : void 0;
     const pages = this.pages.map((ps) => {
@@ -34223,7 +34636,10 @@ var Engine = class {
       noteArea: 0,
       bodyBottomBase: g2.pageH - g2.marB
     };
-    if (this.cur) this.paintNotes(this.cur);
+    if (this.cur) {
+      this.closeColumns();
+      this.paintNotes(this.cur);
+    }
     this.pages.push(ps);
     this.cur = ps;
     this.colMaxY = 0;
@@ -34243,28 +34659,68 @@ var Engine = class {
     const ending = this.cur.geom;
     if (ending.cols.length > 1) {
       const used = [...this.colUsed, this.y - this.colTop];
-      this.balanceFound.set(ending.index, { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a3, b5) => a3 + Math.max(0, b5), 0), n: ending.cols.length });
+      this.balanceFound.set(ending.index, { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a3, b5) => a3 + Math.max(0, b5), 0), n: ending.cols.length, used });
     }
     if (this.balanceSaved !== null) {
       this.cur.bodyBottom = this.balanceSaved;
       this.balanceSaved = null;
     }
+    this.closeColumns();
     this.colUsed = [];
+    const lastAfter = this.prev && !this.atTop ? this.prev.after : 0;
+    if ((ending.cols.length > 1 || g2.cols.length > 1) && lastAfter > 0 && this.sectGapAfter === null) {
+      this.y = Math.min(this.y + lastAfter, this.cur.bodyBottom);
+      this.sectGapAfter = lastAfter;
+    }
     this.y = Math.max(this.y, this.colMaxY);
     this.colMaxY = 0;
     this.cur.geom = g2;
+    delete this.cur.cols;
     this.col = 0;
     this.colTop = this.y;
     this.applyBalance();
   }
+  /** "Próxima coluna" continua na mesma página: mesmo nº de colunas e não estamos
+   *  na última (senão vale como próxima página — oráculo sections, nc-*) */
+  nextColumnFits(g2) {
+    if (!this.cur || g2.cols.length < 2) return false;
+    const cols = this.pageCols();
+    return cols.length === g2.cols.length && this.col < cols.length - 1;
+  }
+  /** Seção "próxima coluna": a seção nova começa no topo da coluna seguinte, com as
+   *  colunas da página de antes (as dela valem da próxima página em diante); o 1º
+   *  parágrafo leva o "antes" descontado do "depois" anterior, como numa seção nova
+   *  (oráculo sections, nc-2to2-before). A seção que termina não é equilibrada. */
+  nextColumnSection(g2) {
+    const lastAfter = this.prev ? this.prev.after : 0;
+    if (this.balanceSaved !== null) {
+      this.cur.bodyBottom = this.balanceSaved;
+      this.balanceSaved = null;
+    }
+    const cols = this.pageCols();
+    this.cur.cols = cols;
+    this.cur.geom = g2;
+    this.colUsed.push(this.y - this.colTop);
+    this.colMaxY = Math.max(this.colMaxY, this.y);
+    this.col++;
+    this.y = this.colTop;
+    this.atTop = true;
+    this.prev = null;
+    this.topGapPrevAfter = lastAfter;
+  }
+  /** Colunas da página corrente (as da seção, salvo "próxima coluna"). */
+  pageCols() {
+    return this.cur.cols ?? this.cur.geom.cols;
+  }
   colFrame() {
-    const c5 = this.cur.geom.cols[this.col] ?? this.cur.geom.cols[0];
+    const cols = this.pageCols();
+    const c5 = cols[this.col] ?? cols[0];
     return { x: c5.x, w: c5.w };
   }
   /** Fim da coluna: próxima coluna ou nova página. */
   breakColumn() {
     const g2 = this.cur.geom;
-    if (this.col < g2.cols.length - 1) {
+    if (this.col < this.pageCols().length - 1) {
       this.colUsed.push(this.y - this.colTop);
       this.colMaxY = Math.max(this.colMaxY, this.y);
       this.col++;
@@ -34272,6 +34728,32 @@ var Engine = class {
       this.atTop = true;
       this.prev = null;
     } else this.newPage(g2);
+  }
+  /** fim do conteúdo de cada coluna da área de colunas corrente (com o "depois"
+   *  do último parágrafo); ausente = coluna vazia */
+  colBottoms = [];
+  /** Conteúdo na coluna corrente até `bottom` (linha entre colunas). */
+  noteColContent(bottom) {
+    const c5 = this.col;
+    this.colBottoms[c5] = Math.max(this.colBottoms[c5] ?? -Infinity, Math.min(bottom, this.balanceSaved ?? this.cur.bodyBottom));
+  }
+  /**
+   * Fecha a área de colunas corrente (nova página, seção contínua, fim): com
+   * w:sep, a linha entre colunas — retângulo preto de 0,84 pt no meio do vão,
+   * do topo das colunas até o fim da coluna mais comprida, só antes das colunas
+   * que têm conteúdo nesta página (oráculo sections, sep-*).
+   */
+  closeColumns() {
+    const ps = this.cur, cols = this.pageCols(), b5 = this.colBottoms;
+    this.colBottoms = [];
+    if (!ps || !ps.geom.colSep || cols.length < 2 || !b5.length) return;
+    const bottom = Math.max(...b5.filter((v2) => v2 !== void 0));
+    if (!(bottom > this.colTop)) return;
+    for (let c5 = 1; c5 < cols.length; c5++) {
+      if (b5[c5] === void 0) continue;
+      const x3 = (cols[c5 - 1].x + cols[c5 - 1].w + cols[c5].x) / 2;
+      ps.body.push({ t: "rect", x: x3 - COL_SEP_W / 2, y: this.colTop, w: COL_SEP_W, h: bottom - this.colTop, fill: "000000" });
+    }
   }
   // ───────────────────────── cabeçalho / rodapé ─────────────────────────
   fieldValue(ps) {
@@ -34966,6 +35448,7 @@ var Engine = class {
       }
       const last = frag[frag.length - 1];
       let bottom = last.y + last.line.height;
+      this.noteColContent(bottom);
       if (isLast) bottom += this.borderBottomExtent(p3, groupedNext);
       this.paintBox(this.cur.body, p3, frameX, this.colFrame().w, boxTop, bottom, frag === null ? null : this.prev, boxAt, isLast && groupedNext);
       frag = [];
@@ -35198,6 +35681,7 @@ var Engine = class {
     } while (!br.done());
     flushFrag(true);
     this.y += this.borderBottomExtent(p3, groupedNext);
+    if (!this.atTop) this.noteColContent(this.y + (p3.afterAuto ? 280 : p3.spaceAfter));
     for (const r6 of earlyRuns) this.prePlaced.add(r6);
     this.placeFloats(p3, anchorAt.ps, anchorAt.x, anchorAt.w, anchorAt.top, anchorAt.ps.body, 0, anchorAt.ref);
     for (const r6 of earlyRuns) this.prePlaced.delete(r6);
@@ -35902,6 +36386,7 @@ var Engine = class {
     for (const l3 of row.lines) this.cur.page.lines.push({ ...l3, y: l3.y + this.y, baseline: l3.baseline + this.y });
     this.y += row.height;
     this.atTop = false;
+    this.noteColContent(this.y);
   }
   // ───────────────────────── objetos flutuantes ─────────────────────────
   /** Quadro de uma linha descontando floats com contorno (wrap) que a cruzam. */
@@ -38336,6 +38821,10 @@ var hyphenationLangs = (full) => documentHyphenationLanguages(full).filter((l3) 
 });
 var DEFAULT_FONT = "Liberation Sans";
 var DEFAULT_FONT_CSS = `"${DEFAULT_FONT}"`;
+var BREAK_MARK_LABELS = {
+  en: { page: "Page Break", column: "Column Break", section: "Section Break", nextPage: "Next Page", continuous: "Continuous", evenPage: "Even Page", oddPage: "Odd Page", nextColumn: "Next Column" },
+  pt: { page: "Quebra de p\xE1gina", column: "Quebra de coluna", section: "Quebra de se\xE7\xE3o", nextPage: "Pr\xF3xima p\xE1gina", continuous: "Cont\xEDnua", evenPage: "P\xE1gina par", oddPage: "P\xE1gina \xEDmpar", nextColumn: "Pr\xF3xima coluna" }
+};
 var STYLES = {
   "Ttulo1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
   "Heading1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
@@ -38356,6 +38845,10 @@ var HIGHLIGHTS3 = {
   darkYellow: "#808000",
   lightGray: "#c0c0c0"
 };
+var refsOfSection = (s4) => ({
+  headerRefs: s4.headerRefs.map((r6) => ({ kind: "header", type: r6.type, rid: r6.rid })),
+  footerRefs: s4.footerRefs.map((r6) => ({ kind: "footer", type: r6.type, rid: r6.rid }))
+});
 var RPR_REF = /* @__PURE__ */ Symbol("uw-rpr");
 var insertText2 = (m2, pos, text, props) => guardRuns(m2, pos.para, pos.para, () => insertText(m2, pos, text, props));
 var insertRun2 = (m2, pos, run) => guardRuns(m2, pos.para, pos.para, () => insertRun(m2, pos, run));
@@ -38442,8 +38935,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   fullDoc = null;
   /** Tabelas ancoradas antes do parágrafo de índice beforePara. */
   tableAnchors = [];
-  /** Seções: a partir de qual parágrafo cada uma vale. */
+  /** Seções: a partir de qual parágrafo cada uma vale — DERIVADAS do modelo
+   *  (syncSections): o sectPr de cada uma mora no sectionBreak do parágrafo que a
+   *  encerra (a última, em model.sectPr), assim Enter, Backspace, colar e
+   *  desfazer não descolam o que se desenha do que se salva. */
   sectionStarts = [];
+  /** props do w:sectPr que o modelo não representa (grade, bordas de página…)
+   *  por id da quebra (sectionBreak.id); 0 = a última seção */
+  sectionProps = /* @__PURE__ */ new Map();
+  nextSectionId = 1;
+  /** partes de cabeçalho/rodapé conhecidas ("header:rId7" → caminho, conteúdo):
+   *  cada seção mostra as que as refs DELA no modelo apontam */
+  hfParts = /* @__PURE__ */ new Map();
+  /** seção efetiva em cache por id (refeita quando o sectPr ou as refs mudam) */
+  sectionEff = /* @__PURE__ */ new Map();
+  /** id de cada seção efetiva (cabeçalho novo grava a ref na seção certa) */
+  sectionIds = /* @__PURE__ */ new WeakMap();
+  /** ids e refs da última derivação: quebra apagada → as refs dela passam para a
+   *  seção que agora cobre o texto (o Word mantém o cabeçalho — oráculo hdr-del-*) */
+  lastSectionIds = [];
+  lastSectionRefs = /* @__PURE__ */ new Map();
   floatImages = [];
   tableLayouts = [];
   footnoteHits = [];
@@ -39097,14 +39608,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (const s4 of this.fullDoc.sections) {
       for (const set of [s4.headers, s4.footers]) for (const ps of [set.default, set.first, set.even]) if (ps) this.syncRunRPr(ps);
     }
-    this.sectionStarts = this.fullDoc.sections.map((section) => {
-      let startPara = 0;
-      for (let b5 = 0; b5 < section.blockStart; b5++) {
-        if (this.fullDoc.blocks[b5].type === "paragraph") startPara++;
-      }
-      return { startPara, section };
-    });
     markSectionBreaks(this.fullDoc);
+    const secs = this.fullDoc.sections;
+    this.resetSections();
+    for (const s4 of secs) this.indexHfParts(s4);
+    for (const p3 of paragraphs) {
+      const sb = p3.props.sectionBreak;
+      if (!sb) continue;
+      sb.id = this.nextSectionId++;
+      this.sectionProps.set(sb.id, secs.find((s4) => s4.sectPr === sb.sectPr)?.sect);
+    }
+    const lastSec = secs[secs.length - 1];
+    this.sectionProps.set(0, lastSec?.sect);
     this.floatImages = [];
     paragraphs.forEach((p3, pi) => {
       for (const run of p3.runs) {
@@ -39121,15 +39636,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     });
     this.model = {
       paragraphs,
-      sectPr: this.fullDoc.sections[0]?.sectPr ?? {
+      // o sectPr do corpo é o da ÚLTIMA seção (como no .docx)
+      sectPr: lastSec?.sectPr ?? {
         pageWidthTwips: 11906,
         pageHeightTwips: 16838,
         marginLeftTwips: 1701,
         marginRightTwips: 1701,
         marginTopTwips: 1417,
         marginBottomTwips: 1417
-      }
+      },
+      ...lastSec ? { bodyRefs: refsOfSection(lastSec) } : {}
     };
+    this.syncSections();
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
     this.undoStack = [];
     this.redoStack = [];
@@ -39150,7 +39668,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = null;
     this.tableAnchors = [];
-    this.sectionStarts = [];
+    this.resetSections();
     this.floatImages = [];
     this.model = {
       paragraphs: [{ runs: [], props: {} }],
@@ -39163,6 +39681,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         marginBottomTwips: 1417
       }
     };
+    this.syncSections();
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
     this.undoStack = [];
     this.redoStack = [];
@@ -39317,6 +39836,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       refs.push(ref);
       this.dirtyHf.add(ref.path);
     }
+    this.registerHfPart(sec, kind, ref, part);
     if (!engPart) {
       this.hfCapturing = true;
       this.paint();
@@ -39438,11 +39958,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.refresh();
     this.dispatchEvent(new CustomEvent("uw-tbmode", { detail: { active: false } }));
   }
-  /** Desloca âncoras de tabela/seção quando parágrafos entram/saem. */
+  /** Desloca âncoras de tabela quando parágrafos entram/saem (as seções saem do
+   *  modelo — syncSections). */
   shiftAnchors(fromPara, delta) {
     if (this.cellEdit) return;
     for (const a3 of this.tableAnchors) if (a3.beforePara > fromPara) a3.beforePara += delta;
-    for (const s4 of this.sectionStarts) if (s4.startPara > fromPara) s4.startPara += delta;
     for (const f3 of this.floatImages) if (f3.para > fromPara) f3.para += delta;
     if (!this.hfEdit && !this.tbEdit) {
       for (const [k2, v2] of this.bookmarkParas) if (v2 > fromPara) this.bookmarkParas.set(k2, Math.max(0, v2 + delta));
@@ -40104,25 +40624,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   setSpaceBefore(twips) {
     this.formatPara({ spaceBeforeTwips: twips });
   }
+  /**
+   * Configurar Página da seção do cursor (ou das seções que a seleção toca),
+   * como as galerias Margens/Orientação/Tamanho. `applyTo` como no diálogo:
+   * 'section' (padrão), 'document', 'forward' (quebra de seção "próxima página"
+   * no cursor e a seção de depois muda) ou 'selection' (quebras "próxima página"
+   * antes e depois da seleção). Mudar a orientação gira as margens (Word).
+   */
   setPageSetup(opts) {
-    if (!this.model || this.locked()) return;
+    if (!this.model || this.locked() || opts.applyTo && opts.applyTo !== "section" && opts.applyTo !== "document" && !this.canInsertSectionBreak()) return;
     this.snapshot();
-    const targets = [this.model.sectPr, ...this.sectionStarts.map((ss) => ss.section.sectPr)];
-    for (const s4 of targets) {
+    for (const s4 of this.sectionTargets(opts.applyTo ?? "section", "nextPage")) {
       if (opts.size) {
         const [w2, h3] = opts.size === "A4" ? [11906, 16838] : [12240, 15840];
         const landscape = s4.pageWidthTwips > s4.pageHeightTwips;
         s4.pageWidthTwips = landscape ? h3 : w2;
         s4.pageHeightTwips = landscape ? w2 : h3;
       }
-      if (opts.orientation) {
-        const [a3, b5] = [s4.pageWidthTwips, s4.pageHeightTwips];
-        const isLandscape = a3 > b5;
-        if (opts.orientation === "landscape" !== isLandscape) {
-          s4.pageWidthTwips = b5;
-          s4.pageHeightTwips = a3;
-        }
-      }
+      if (opts.orientation) setOrientation(s4, opts.orientation);
       if (opts.margins) {
         const m2 = { normal: [1417, 1701], narrow: [720, 720], wide: [1417, 2880] }[opts.margins];
         s4.marginTopTwips = s4.marginBottomTwips = m2[0];
@@ -40136,6 +40655,135 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     }
     this.refresh();
+  }
+  // ───────────────── seções e colunas ─────────────────
+  /** Quebras de seção/coluna valem no corpo (o Word as desabilita em
+   *  cabeçalho/rodapé e caixa de texto; em tabela ele divide a tabela). */
+  canInsertSectionBreak() {
+    return !!this.model && !this.locked() && !this.hfEdit && !this.tbEdit && !this.cellEdit;
+  }
+  /**
+   * Insere uma quebra de seção no cursor (com seleção: no início dela, sem
+   * apagar o texto — Word). Divide o parágrafo; a seção nova (antes) é uma
+   * cópia da seção do cursor e leva os cabeçalhos/rodapés; a de depois começa
+   * pelo `type` (próxima página, contínua, página par/ímpar, próxima coluna).
+   */
+  insertSectionBreak(type = "nextPage") {
+    if (!this.canInsertSectionBreak()) return;
+    this.snapshot();
+    const pos = this.insertSectionBreakAt(normalizeRange(this.range()).start, type);
+    this.selection = { anchor: pos, focus: pos };
+    this.pendingProps = null;
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+  /** Quebra de coluna (Ctrl+Shift+Enter): no meio do parágrafo ele é dividido e a
+   *  quebra abre o de depois (Word); a seleção é substituída. */
+  insertColumnBreak() {
+    if (!this.canInsertSectionBreak()) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const p3 = this.deleteSelection();
+      this.selection = { anchor: p3, focus: p3 };
+    }
+    let pos = this.selection.focus;
+    if (pos.offset > 0) {
+      pos = splitParagraph2(this.model, pos);
+      this.shiftAnchors(pos.para - 1, 1);
+    }
+    pos = insertText2(this.model, pos, "\v", this.pendingProps ?? void 0);
+    this.pendingProps = null;
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+  /** Quebra de seção num ponto do corpo (dentro de um passo de desfazer já aberto). */
+  insertSectionBreakAt(pos, type) {
+    const m2 = this.model;
+    const range = sectionRanges(m2)[sectionIndexAt(m2, pos.para)];
+    const closing = range.sb ? m2.paragraphs[range.end] : void 0;
+    const id = this.nextSectionId++;
+    this.sectionProps.set(id, this.sectionProps.get(range.sb?.id ?? 0));
+    const raw = this.fullDoc?.sources?.sectPrRaw(closing);
+    const next = insertSectionBreak(m2, pos, type, { split: (mm, p3) => splitParagraph2(mm, p3), id, ...raw ? { raw } : {} });
+    this.shiftAnchors(pos.para, 1);
+    return next;
+  }
+  /**
+   * sectPrs que uma configuração atinge (abre as quebras que 'forward' e
+   * 'selection' pedem — o tipo é o do Word: contínua para colunas, próxima
+   * página para Configurar Página).
+   */
+  sectionTargets(applyTo, breakType) {
+    const m2 = this.model;
+    const { start, end } = normalizeRange(this.range());
+    if (applyTo === "document") return sectionRanges(m2).map((r6) => r6.sb?.sectPr ?? m2.sectPr);
+    if (applyTo === "forward") {
+      const at = this.insertSectionBreakAt(start, breakType);
+      this.selection = { anchor: at, focus: at };
+      return [sectionSectPr(m2, sectionIndexAt(m2, at.para))];
+    }
+    if (applyTo === "selection" && comparePos(start, end) !== 0) {
+      this.insertSectionBreakAt(end, breakType);
+      const at = this.insertSectionBreakAt(start, breakType);
+      const k2 = sectionIndexAt(m2, at.para);
+      const r6 = sectionRanges(m2)[k2];
+      const last = m2.paragraphs[r6.end];
+      this.selection = { anchor: at, focus: { para: r6.end, offset: paraLength(last) } };
+      return [sectionSectPr(m2, k2)];
+    }
+    const k0 = sectionIndexAt(m2, start.para), k1 = sectionIndexAt(m2, end.para);
+    const out = [];
+    for (let k2 = k0; k2 <= k1; k2++) out.push(sectionSectPr(m2, k2));
+    return out;
+  }
+  /**
+   * Colunas da seção do cursor. Predefinição (galeria): 'one' | 'two' | 'three'
+   * | 'left' | 'right' — com texto selecionado, valem só para ele (quebras
+   * contínuas antes e depois, Word). Especificação (Mais Colunas): número,
+   * espaço, larguras próprias, linha entre colunas, `applyTo` e
+   * `startNewColumn` (com 'forward', a seção nova começa na próxima coluna).
+   */
+  setColumns(spec) {
+    if (!this.model || this.locked()) return;
+    const preset = typeof spec === "string" ? spec : null;
+    const applyTo = preset ? this.hasSelection() ? "selection" : "section" : spec.applyTo ?? "section";
+    if ((applyTo === "forward" || applyTo === "selection") && !this.canInsertSectionBreak()) return;
+    this.snapshot();
+    const newCol = !preset && spec.startNewColumn;
+    const targets = this.sectionTargets(applyTo, applyTo === "forward" && newCol ? "nextColumn" : "continuous");
+    for (const sp of targets) {
+      const s4 = preset ? presetColumns(sp, preset) : spec;
+      sp.cols = columnsFor(sp, s4);
+    }
+    this.refresh();
+  }
+  /** A seção do cursor: posição, tipo de início, página e colunas. */
+  getSection() {
+    const m2 = this.bodyModel();
+    if (!m2) return null;
+    const para = this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
+    const k2 = sectionIndexAt(m2, para);
+    const sp = sectionSectPr(m2, k2);
+    return {
+      index: k2,
+      count: sectionRanges(m2).length,
+      type: sp.type ?? "nextPage",
+      orientation: sp.pageWidthTwips > sp.pageHeightTwips ? "landscape" : "portrait",
+      pageWidthTwips: sp.pageWidthTwips,
+      pageHeightTwips: sp.pageHeightTwips,
+      margins: { top: sp.marginTopTwips, right: sp.marginRightTwips, bottom: sp.marginBottomTwips, left: sp.marginLeftTwips },
+      columns: {
+        count: sp.cols?.count ?? 1,
+        spaceTwips: sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT,
+        sep: !!sp.cols?.sep,
+        equalWidth: !sp.cols?.widths,
+        widths: columnWidths(sp),
+        preset: columnsPresetOf(sp),
+        max: maxColumns(sp),
+        contentWidthTwips: contentWidth(sp)
+      }
+    };
   }
   undo() {
     this.popHistory(this.undoStack, this.redoStack);
@@ -40570,9 +41218,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.model) throw new Error("no document");
     if (this.hfEdit) this.exitHeaderFooter();
     const pkg = this.pkg ?? DocxPackage.empty();
+    this.syncSections();
+    const sections = this.bodyState().sectionStarts.map((s4) => s4.section);
     const hfParts = [];
     const seenPath = /* @__PURE__ */ new Set();
-    for (const section of this.fullDoc?.sections ?? []) {
+    for (const section of sections) {
       for (const [kind, refs, set, blockSet] of [
         ["header", section.headerRefs, section.headers, section.headerBlocks],
         ["footer", section.footerRefs, section.footers, section.footerBlocks]
@@ -40595,7 +41245,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         }
       }
     }
-    const lastSec = this.fullDoc?.sections[this.fullDoc.sections.length - 1];
+    const lastSec = sections[sections.length - 1];
     const bodyParts = lastSec ? hfParts.filter((h3) => [...lastSec.headerRefs, ...lastSec.footerRefs].some((r6) => r6.path === h3.path)) : hfParts;
     const blocks = [];
     this.model.paragraphs.forEach((paragraph, pi) => {
@@ -40607,7 +41257,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (const a3 of this.tableAnchors) {
       if (a3.beforePara >= this.model.paragraphs.length) blocks.push(a3.table);
     }
-    const saveModel = lastSec ? { paragraphs: this.model.paragraphs, sectPr: lastSec.sectPr } : this.model;
+    const saveModel = { paragraphs: this.model.paragraphs, sectPr: lastSec?.sectPr ?? this.model.sectPr };
     writeDocument(pkg, saveModel, hfParts, {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : void 0,
       bodySectRefs: bodyParts.map((h3) => ({ kind: h3.kind, type: h3.type, rid: h3.rid })),
@@ -40898,12 +41548,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return JSON.stringify({
       m: this.model,
       s: this.selection,
-      // sectPrs das seções (margens/orientação) — fora do model, mas undoáveis
-      sect: this.sectionStarts.map((ss) => ({ ...ss.section.sectPr })),
-      // âncoras de tabela/seção e indicadores (deslocados por Enter/Backspace)
+      // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
+      // seções (sectPr, refs) moram no modelo e voltam com ele
       anc: this.cellEdit || this.hfEdit || this.tbEdit ? void 0 : {
         t: this.tableAnchors.map((a3) => a3.beforePara),
-        s: this.sectionStarts.map((x3) => x3.startPara),
         b: [...this.bookmarkParas]
       }
     }, (key, value) => {
@@ -40958,17 +41606,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const a3 = this.tableAnchors[i7];
         if (a3) a3.beforePara = v2;
       });
-      state2.anc.s.forEach((v2, i7) => {
-        const s4 = this.sectionStarts[i7];
-        if (s4) s4.startPara = v2;
-      });
       this.bookmarkParas = new Map(state2.anc.b);
-    }
-    if (state2.sect) {
-      state2.sect.forEach((sp, i7) => {
-        const target = this.sectionStarts[i7]?.section.sectPr;
-        if (target) Object.assign(target, sp);
-      });
     }
     this.refresh();
   }
@@ -41024,11 +41662,21 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos, focus: pos };
     } else {
       const { para, offset } = this.selection.focus;
+      const prev = para > 0 ? this.model.paragraphs[para - 1] : null;
       if (offset > 0) {
         const pos = deleteRange2(this.model, {
           start: { para, offset: offset - 1 },
           end: { para, offset }
         });
+        this.selection = { anchor: pos, focus: pos };
+      } else if (prev?.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
+        const len = paraLength(prev);
+        let pos;
+        if (len > 0) pos = deleteRange2(this.model, { start: { para: para - 1, offset: len - 1 }, end: { para: para - 1, offset: len } });
+        else if (para > 1) {
+          pos = mergeWithPrevious2(this.model, para - 1);
+          this.shiftAnchors(para - 2, -1);
+        } else pos = { para: para - 1, offset: 0 };
         this.selection = { anchor: pos, focus: pos };
       } else if (para > 0) {
         const pos = mergeWithPrevious2(this.model, para);
@@ -41600,8 +42248,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         ArrowDown: () => this.moveCaret("down", e8.shiftKey),
         Home: () => this.moveCaret("home", e8.shiftKey),
         End: () => this.moveCaret("end", e8.shiftKey),
-        // Ctrl+Enter = quebra de página (como no app de referência)
-        Enter: () => ctrl ? this.type("\f") : this.pressEnter(),
+        // Ctrl+Enter = quebra de página; Ctrl+Shift+Enter = quebra de coluna (como no app de referência)
+        Enter: () => ctrl && e8.shiftKey ? this.insertColumnBreak() : ctrl ? this.type("\f") : this.pressEnter(),
         Backspace: () => this.pressBackspace(),
         Delete: () => this.pressDelete()
       };
@@ -41791,6 +42439,136 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   sectPrAt(sectionIdx) {
     const s4 = this.sectionStarts[sectionIdx]?.section.sectPr;
     return s4 ?? this.model.sectPr;
+  }
+  // ───────────────── seções derivadas do modelo ─────────────────
+  resetSections() {
+    this.sectionStarts = [];
+    this.sectionProps = /* @__PURE__ */ new Map([[0, void 0]]);
+    this.nextSectionId = 1;
+    this.hfParts = /* @__PURE__ */ new Map();
+    this.sectionEff = /* @__PURE__ */ new Map();
+    this.lastSectionIds = [];
+    this.lastSectionRefs = /* @__PURE__ */ new Map();
+  }
+  /** Cabeçalho/rodapé que a edição criou (ou cujo conteúdo faltava): a parte
+   *  entra no índice e a ref, nas refs da seção no modelo do corpo. */
+  registerHfPart(sec, kind, ref, paras) {
+    const key = `${kind}:${ref.rid}`;
+    const cur = this.hfParts.get(key);
+    if (cur) cur.paras = paras;
+    else this.hfParts.set(key, { path: ref.path, paras });
+    const id = this.sectionIds.get(sec);
+    const m2 = this.model;
+    if (id === void 0 || !m2) return;
+    const holder = id === 0 ? m2.bodyRefs ??= { headerRefs: [], footerRefs: [] } : m2.paragraphs.find((p3) => p3.props.sectionBreak?.id === id)?.props.sectionBreak;
+    if (!holder) return;
+    if (kind === "header") {
+      if (!holder.headerRefs.some((r6) => r6.rid === ref.rid)) holder.headerRefs.push({ kind, type: ref.type, rid: ref.rid });
+    } else if (!holder.footerRefs.some((r6) => r6.rid === ref.rid)) holder.footerRefs.push({ kind, type: ref.type, rid: ref.rid });
+  }
+  /** Registra as partes de cabeçalho/rodapé de uma seção lida (conteúdo por rId). */
+  indexHfParts(s4) {
+    for (const [kind, refs, set, blocks] of [
+      ["header", s4.headerRefs, s4.headers, s4.headerBlocks],
+      ["footer", s4.footerRefs, s4.footers, s4.footerBlocks]
+    ]) {
+      for (const r6 of refs) {
+        const key = `${kind}:${r6.rid}`;
+        if (this.hfParts.has(key)) continue;
+        this.hfParts.set(key, { path: r6.path, ...set[r6.type] ? { paras: set[r6.type] } : {}, ...blocks?.[r6.type] ? { blocks: blocks[r6.type] } : {} });
+      }
+    }
+  }
+  /**
+   * Refaz as seções a partir do MODELO do corpo (fonte única): cada parágrafo
+   * com sectionBreak encerra uma; a última é model.sectPr. A quebra que sumiu
+   * numa edição passa as refs de cabeçalho/rodapé para a seção que agora cobre o
+   * texto dela, nos tipos que ela não define (o Word mantém o cabeçalho).
+   */
+  syncSections() {
+    const m2 = this.model;
+    if (!m2 || this.hfEdit || this.tbEdit || this.cellEdit) return;
+    const breaks = [];
+    const seen = /* @__PURE__ */ new Set();
+    m2.paragraphs.forEach((p3, pi) => {
+      const sb = p3.props.sectionBreak;
+      if (!sb) return;
+      if (sb.id === void 0 || !this.sectionProps.has(sb.id) || seen.has(sb.id)) {
+        const id = this.nextSectionId++;
+        this.sectionProps.set(id, this.sectionProps.get(0));
+        p3.props = { ...p3.props, sectionBreak: { ...sb, id } };
+      }
+      seen.add(p3.props.sectionBreak.id);
+      breaks.push({ pi, sb: p3.props.sectionBreak });
+    });
+    const ids = [...breaks.map((b5) => b5.sb.id), 0];
+    const holder = (id) => id === 0 ? m2.bodyRefs ??= { headerRefs: [], footerRefs: [] } : breaks.find((b5) => b5.sb.id === id).sb;
+    const prev = this.lastSectionIds;
+    prev.forEach((x3, k2) => {
+      if (ids.includes(x3)) return;
+      const gone = this.lastSectionRefs.get(x3);
+      if (!gone || !gone.headerRefs.length && !gone.footerRefs.length) return;
+      const y3 = prev.slice(k2 + 1).find((id) => ids.includes(id)) ?? 0;
+      const h3 = holder(y3);
+      for (const r6 of gone.headerRefs) if (!h3.headerRefs.some((t6) => t6.type === r6.type)) h3.headerRefs.push({ ...r6 });
+      for (const r6 of gone.footerRefs) if (!h3.footerRefs.some((t6) => t6.type === r6.type)) h3.footerRefs.push({ ...r6 });
+    });
+    const starts = [];
+    let start = 0;
+    for (const b5 of breaks) {
+      starts.push({ startPara: start, section: this.effectiveSection(b5.sb.id, b5.sb.sectPr, b5.sb) });
+      start = b5.pi + 1;
+    }
+    starts.push({ startPara: start, section: this.effectiveSection(0, m2.sectPr, m2.bodyRefs) });
+    this.sectionStarts = starts;
+    if (this.fullDoc) this.fullDoc.sections = starts.map((s4) => s4.section);
+    this.lastSectionIds = ids;
+    this.lastSectionRefs = new Map(ids.map((id) => {
+      const r6 = id === 0 ? m2.bodyRefs : breaks.find((b5) => b5.sb.id === id).sb;
+      return [id, { headerRefs: [...r6?.headerRefs ?? []], footerRefs: [...r6?.footerRefs ?? []] }];
+    }));
+  }
+  /** Seção como o motor e a pintura a usam: geometria do modelo, props do
+   *  sectPr guardadas (tipo e colunas do modelo valem) e cabeçalhos/rodapés das
+   *  refs da seção no modelo. */
+  effectiveSection(id, sp, refs) {
+    const props = this.sectionProps.get(id);
+    const key = JSON.stringify([refs?.headerRefs ?? null, refs?.footerRefs ?? null, sp.type ?? "", sp.cols ?? null]);
+    const c5 = this.sectionEff.get(id);
+    if (c5 && c5.sp === sp && c5.key === key && c5.props === props) return c5.sec;
+    const sect = { ...props ?? { type: "nextPage" }, type: sp.type ?? "nextPage" };
+    if (sp.cols?.widths) {
+      sect.colDefs = sp.cols.widths.map((w2) => ({ w: w2.widthTwips, space: w2.spaceTwips }));
+      sect.equalWidth = false;
+    } else {
+      delete sect.colDefs;
+      delete sect.equalWidth;
+    }
+    const sec = {
+      sectPr: sp,
+      sect,
+      blockStart: 0,
+      blockEnd: 0,
+      headers: {},
+      footers: {},
+      headerBlocks: {},
+      footerBlocks: {},
+      headerRefs: [],
+      footerRefs: []
+    };
+    for (const [kind, list] of [["header", refs?.headerRefs ?? []], ["footer", refs?.footerRefs ?? []]]) {
+      for (const r6 of list) {
+        const part = this.hfParts.get(`${kind}:${r6.rid}`);
+        if (!part) continue;
+        const type = r6.type;
+        (kind === "header" ? sec.headerRefs : sec.footerRefs).push({ type, rid: r6.rid, path: part.path });
+        if (part.paras) (kind === "header" ? sec.headers : sec.footers)[type] = part.paras;
+        if (part.blocks) (kind === "header" ? sec.headerBlocks : sec.footerBlocks)[type] = part.blocks;
+      }
+    }
+    this.sectionEff.set(id, { sp, key, props, sec });
+    this.sectionIds.set(sec, id);
+    return sec;
   }
   /** Layout do modo de edição de HF: PRESERVA a paginação do corpo (mesmo
    *  nº de páginas/panes) e posiciona o HF apenas na banda da página ativa. */
@@ -42038,6 +42816,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   layout() {
     if (!this.model || !this.fonts) return;
+    this.syncSections();
     if (this.engineActive()) {
       if (this.fastHint && this.tryFastLayout()) return;
       if (this.fastTable && this.tryFastTable()) return;
@@ -43861,8 +44640,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.showMarks && this.model) {
       ctx.fillStyle = this.pageDark ? "#9aa0a6" : "#888";
       ctx.textAlign = "center";
+      const body = !this.cellEdit && !this.hfEdit && !this.tbEdit;
+      const secOf = (k2) => body ? this.sectionIndexForPara(k2) : this.pageSections[pg] ?? 0;
       this.layoutCache.forEach((pl, pi) => {
-        const text = paraText(this.model.paragraphs[pi]);
+        const para = this.model.paragraphs[pi];
+        const text = paraText(para);
         pl.lines.forEach((line, li) => {
           if (line.page !== pg || !line.eng) return;
           const fs = Math.max(160, line.heightTwips * 0.6);
@@ -43872,10 +44654,29 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             if (ch === " " || ch === "\xA0") ctx.fillText(ch === " " ? "\xB7" : "\xB0", c5.x + c5.w / 2, line.baselineTwips);
             else if (ch === "	") ctx.fillText("\u2192", c5.x + c5.w / 2, line.baselineTwips);
           }
+          for (let o7 = Math.max(1, line.rich.start); o7 < Math.min(line.rich.end, text.length); o7++) {
+            const ch = text[o7];
+            if (ch !== "\f" && ch !== "\v") continue;
+            const bx = this.caretX({ para: pi, offset: o7 }, line);
+            this.paintBreakMark(ctx, bx, this.columnRightAt(secOf(pi), bx), line.baselineTwips, fs, ch === "\f" ? "page" : "column", false);
+          }
           if (li === pl.lines.length - 1) {
             ctx.textAlign = "left";
-            const x3 = this.caretX({ para: pi, offset: paraLength(this.model.paragraphs[pi]) }, line);
-            ctx.fillText("\xB6", x3 + 20, line.baselineTwips);
+            const x3 = this.caretX({ para: pi, offset: paraLength(para) }, line);
+            const nextType = (k2) => this.sectionStarts[this.sectionIndexForPara(k2) + 1]?.section.sectPr.type ?? "nextPage";
+            if (body && para.props.sectionBreak) {
+              this.paintBreakMark(ctx, x3 + 20, this.columnRightAt(secOf(pi), x3), line.baselineTwips, fs, nextType(pi), true);
+            } else {
+              ctx.fillText("\xB6", x3 + 20, line.baselineTwips);
+              const nx = this.model.paragraphs[pi + 1];
+              const x0 = x3 + 20 + ctx.measureText("\xB6").width + 60;
+              if (body && nx?.props.sectionBreak && !this.layoutCache[pi + 1]?.lines.length) {
+                this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x3), line.baselineTwips, fs, nextType(pi + 1), true);
+              } else {
+                const c0 = nx ? paraText(nx)[0] : void 0;
+                if (c0 === "\f" || c0 === "\v") this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x3), line.baselineTwips, fs, c0 === "\f" ? "page" : "column", false);
+              }
+            }
             ctx.textAlign = "center";
           }
         });
@@ -43904,6 +44705,48 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         ctx.fillRect(x1, el3.line.y, x22 - x1, el3.line.height);
       }
     }
+  }
+  /** Marca de quebra com "mostrar marcas": linha pontilhada (dupla na de seção)
+   *  até o fim da coluna com o nome no meio — adorno de tela (não vai ao PDF). */
+  paintBreakMark(ctx, x0, x1, baseline, fs, kind, double) {
+    const L3 = pickLabels(this, BREAK_MARK_LABELS);
+    const label = kind === "page" ? L3.page : kind === "column" ? L3.column : `${L3.section} (${L3[kind]})`;
+    const right = Math.max(x1, x0 + 600);
+    ctx.save();
+    ctx.font = `400 ${fs * 0.8}px ${DEFAULT_FONT_CSS}`;
+    ctx.textAlign = "center";
+    const tw2 = ctx.measureText(label).width + 120;
+    const mid = (x0 + right) / 2;
+    const y3 = baseline - fs * 0.3;
+    ctx.strokeStyle = ctx.fillStyle;
+    ctx.lineWidth = 8;
+    ctx.setLineDash([16, 24]);
+    for (const dy of double ? [-14, 14] : [0]) {
+      ctx.beginPath();
+      if (tw2 < right - x0) {
+        ctx.moveTo(x0, y3 + dy);
+        ctx.lineTo(mid - tw2 / 2, y3 + dy);
+        ctx.moveTo(mid + tw2 / 2, y3 + dy);
+        ctx.lineTo(right, y3 + dy);
+      } else {
+        ctx.moveTo(x0, y3 + dy);
+        ctx.lineTo(right, y3 + dy);
+      }
+      ctx.stroke();
+    }
+    if (tw2 < right - x0) ctx.fillText(label, mid, baseline);
+    ctx.restore();
+  }
+  /** Borda direita da coluna (da seção) em que está x. */
+  columnRightAt(sectionIdx, x3) {
+    const sp = this.sectPrAt(sectionIdx);
+    const left = sp.marginLeftTwips;
+    const frames = columnWidths(sp).map((c5, i7, all) => {
+      const x0 = left + all.slice(0, i7).reduce((a3, w2) => a3 + w2.widthTwips + w2.spaceTwips, 0);
+      return { x0, x1: x0 + c5.widthTwips };
+    });
+    const f3 = frames.find((r6) => x3 <= r6.x1 + 30) ?? frames[frames.length - 1];
+    return f3.x1;
   }
   // ───────────────────────── revisão ortográfica ─────────────────────────
   /** A revisão vale agora? (atributo nospellcheck, menu, Modo Protegido, leitura) */

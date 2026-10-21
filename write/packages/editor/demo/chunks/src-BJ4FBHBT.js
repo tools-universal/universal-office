@@ -4,7 +4,7 @@ import {
   paraText,
   pickLabels,
   readFullDocument
-} from "./chunk-WKEEN2RM.js";
+} from "./chunk-3WJOR5B3.js";
 
 // ../compare/src/myers.ts
 function myersDiff(n, m, eq) {

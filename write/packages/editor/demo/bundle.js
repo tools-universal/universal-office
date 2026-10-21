@@ -8,20 +8,27 @@ import {
   subsetTrueType,
   writeDocxEmbedding,
   writeOdt
-} from "./chunks/chunk-2OGOPGPS.js";
+} from "./chunks/chunk-WO4O3KWW.js";
 import {
+  COLUMN_SPACE_DEFAULT,
   DEFAULT_RUN_PROPS,
   DocxPackage,
   applyParaProps,
   applyRunProps,
+  columnWidths,
+  columnsFor,
+  columnsPresetOf,
   comparePos,
+  contentWidth,
   convertDocToDocx,
   deleteRange,
   editBaseProps,
   insertRun,
+  insertSectionBreak,
   insertText,
   isWordBinary,
   markSectionBreaks,
+  maxColumns,
   mergeWithPrevious,
   normalizeRange,
   onBrowserLangChange,
@@ -29,17 +36,22 @@ import {
   paraPropsFromPPr,
   paraText,
   pickLabels,
+  presetColumns,
   propsAt,
   readEmbeddedFonts,
   readFullDocument,
   runPropsFromRPr,
+  sectionIndexAt,
+  sectionRanges,
+  sectionSectPr,
+  setOrientation,
   splitParagraph,
   uiLang,
   unzlibSync,
   writeDocument,
   zipSync,
   zlibSync
-} from "./chunks/chunk-WKEEN2RM.js";
+} from "./chunks/chunk-3WJOR5B3.js";
 
 // ../docx-core/src/export/model.ts
 function orderedBlocks(doc) {
@@ -6382,7 +6394,7 @@ function fixedMins(cells, w) {
   }
   return out;
 }
-function columnWidths(cells, nCols, docGrid, tblW, fixed, base, avail) {
+function columnWidths2(cells, nCols, docGrid, tblW, fixed, base, avail) {
   return columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail).map((x) => Math.round(x));
 }
 function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
@@ -6763,7 +6775,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const jc = floating ? void 0 : tblPr.jc ?? table.rows[0]?.trPr?.jc;
   const indent = floating || jc === "center" || jc === "right" || jc === "end" ? 0 : widthTw(tblPr.tblInd, frameWidth) ?? 0;
   const maxInd = legacy && jc === "center" && !floating ? widthTw(tblPr.tblInd, frameWidth) ?? 0 : indent;
-  const grid = columnWidths(geoCells, nCols, docGrid, tblPr.tblW, tblPr.tblLayout === "fixed", base, base - maxInd);
+  const grid = columnWidths2(geoCells, nCols, docGrid, tblPr.tblW, tblPr.tblLayout === "fixed", base, base - maxInd);
   const width = grid.reduce((a, b) => a + b, 0);
   const colX = [0];
   for (const g of grid) colX.push(colX[colX.length - 1] + g);
@@ -7638,6 +7650,7 @@ function liftFrames(blocks, stops) {
 
 // ../docx-layout/src/engine.ts
 var zItems = (objs) => [...objs].sort((a, b) => a.z - b.z || a.seq - b.seq).flatMap((o) => o.items);
+var COL_SEP_W = 16.8;
 function layoutDocument(full0, provider, opts = {}) {
   const fmt2 = full0.formatting ?? emptyFormatting();
   const lifted = liftFrames(full0.blocks, new Set(full0.sections.map((s) => s.blockEnd)));
@@ -7677,7 +7690,10 @@ function layoutDocument(full0, provider, opts = {}) {
     done.add(s);
     let lo = Math.max(0, Math.floor(info.sum / info.n) - 1), hi = Math.ceil(info.bottom - info.colTop);
     if (hi <= lo + 1) continue;
-    const fits = (h) => runWith(new Map([...balance, [s, { page: info.page, h }]])).balanceFound.get(s)?.page === info.page;
+    const fits = (h) => {
+      const f = runWith(new Map([...balance, [s, { page: info.page, h }]])).balanceFound.get(s);
+      return f?.page === info.page && f.used[f.used.length - 1] <= f.used[0] + 1;
+    };
     if (!fits(hi)) continue;
     while (hi - lo > 1) {
       const mid = Math.floor((lo + hi) / 2);
@@ -7887,7 +7903,9 @@ var Engine = class {
       }, 0));
     }
     for (const g of this.geoms) {
-      if (g.index === 0 || g.type !== "continuous") {
+      const samePaper = !!this.cur && this.cur.page.widthTw === g.pageW && this.cur.page.heightTw === g.pageH;
+      if (g.index > 0 && g.type === "nextColumn" && samePaper && this.nextColumnFits(g)) this.nextColumnSection(g);
+      else if (g.index === 0 || g.type !== "continuous" || !samePaper) {
         const lastAfter = this.prev ? this.prev.after : 0;
         this.newPage(g, g.type);
         if (g.index > 0) this.topGapPrevAfter = lastAfter;
@@ -7899,7 +7917,10 @@ var Engine = class {
       }
     }
     for (let k = 0; k < 100 && this.floatCarry.length && this.cur; k++) this.newPage(this.cur.geom);
-    if (this.cur) this.paintNotes(this.cur);
+    if (this.cur) {
+      this.closeColumns();
+      this.paintNotes(this.cur);
+    }
     const bgSpec = full.background;
     const bg = bgSpec ? resolveColor({ ...bgSpec.color ? { val: bgSpec.color } : {}, ...bgSpec.themeColor ? { themeColor: bgSpec.themeColor } : {}, ...bgSpec.themeTint ? { themeTint: bgSpec.themeTint } : {}, ...bgSpec.themeShade ? { themeShade: bgSpec.themeShade } : {} }, this.ctx.fmt.theme) : void 0;
     const pages = this.pages.map((ps) => {
@@ -8081,7 +8102,10 @@ var Engine = class {
       noteArea: 0,
       bodyBottomBase: g.pageH - g.marB
     };
-    if (this.cur) this.paintNotes(this.cur);
+    if (this.cur) {
+      this.closeColumns();
+      this.paintNotes(this.cur);
+    }
     this.pages.push(ps);
     this.cur = ps;
     this.colMaxY = 0;
@@ -8101,28 +8125,68 @@ var Engine = class {
     const ending = this.cur.geom;
     if (ending.cols.length > 1) {
       const used = [...this.colUsed, this.y - this.colTop];
-      this.balanceFound.set(ending.index, { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length });
+      this.balanceFound.set(ending.index, { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length, used });
     }
     if (this.balanceSaved !== null) {
       this.cur.bodyBottom = this.balanceSaved;
       this.balanceSaved = null;
     }
+    this.closeColumns();
     this.colUsed = [];
+    const lastAfter = this.prev && !this.atTop ? this.prev.after : 0;
+    if ((ending.cols.length > 1 || g.cols.length > 1) && lastAfter > 0 && this.sectGapAfter === null) {
+      this.y = Math.min(this.y + lastAfter, this.cur.bodyBottom);
+      this.sectGapAfter = lastAfter;
+    }
     this.y = Math.max(this.y, this.colMaxY);
     this.colMaxY = 0;
     this.cur.geom = g;
+    delete this.cur.cols;
     this.col = 0;
     this.colTop = this.y;
     this.applyBalance();
   }
+  /** "Próxima coluna" continua na mesma página: mesmo nº de colunas e não estamos
+   *  na última (senão vale como próxima página — oráculo sections, nc-*) */
+  nextColumnFits(g) {
+    if (!this.cur || g.cols.length < 2) return false;
+    const cols = this.pageCols();
+    return cols.length === g.cols.length && this.col < cols.length - 1;
+  }
+  /** Seção "próxima coluna": a seção nova começa no topo da coluna seguinte, com as
+   *  colunas da página de antes (as dela valem da próxima página em diante); o 1º
+   *  parágrafo leva o "antes" descontado do "depois" anterior, como numa seção nova
+   *  (oráculo sections, nc-2to2-before). A seção que termina não é equilibrada. */
+  nextColumnSection(g) {
+    const lastAfter = this.prev ? this.prev.after : 0;
+    if (this.balanceSaved !== null) {
+      this.cur.bodyBottom = this.balanceSaved;
+      this.balanceSaved = null;
+    }
+    const cols = this.pageCols();
+    this.cur.cols = cols;
+    this.cur.geom = g;
+    this.colUsed.push(this.y - this.colTop);
+    this.colMaxY = Math.max(this.colMaxY, this.y);
+    this.col++;
+    this.y = this.colTop;
+    this.atTop = true;
+    this.prev = null;
+    this.topGapPrevAfter = lastAfter;
+  }
+  /** Colunas da página corrente (as da seção, salvo "próxima coluna"). */
+  pageCols() {
+    return this.cur.cols ?? this.cur.geom.cols;
+  }
   colFrame() {
-    const c = this.cur.geom.cols[this.col] ?? this.cur.geom.cols[0];
+    const cols = this.pageCols();
+    const c = cols[this.col] ?? cols[0];
     return { x: c.x, w: c.w };
   }
   /** Fim da coluna: próxima coluna ou nova página. */
   breakColumn() {
     const g = this.cur.geom;
-    if (this.col < g.cols.length - 1) {
+    if (this.col < this.pageCols().length - 1) {
       this.colUsed.push(this.y - this.colTop);
       this.colMaxY = Math.max(this.colMaxY, this.y);
       this.col++;
@@ -8130,6 +8194,32 @@ var Engine = class {
       this.atTop = true;
       this.prev = null;
     } else this.newPage(g);
+  }
+  /** fim do conteúdo de cada coluna da área de colunas corrente (com o "depois"
+   *  do último parágrafo); ausente = coluna vazia */
+  colBottoms = [];
+  /** Conteúdo na coluna corrente até `bottom` (linha entre colunas). */
+  noteColContent(bottom) {
+    const c = this.col;
+    this.colBottoms[c] = Math.max(this.colBottoms[c] ?? -Infinity, Math.min(bottom, this.balanceSaved ?? this.cur.bodyBottom));
+  }
+  /**
+   * Fecha a área de colunas corrente (nova página, seção contínua, fim): com
+   * w:sep, a linha entre colunas — retângulo preto de 0,84 pt no meio do vão,
+   * do topo das colunas até o fim da coluna mais comprida, só antes das colunas
+   * que têm conteúdo nesta página (oráculo sections, sep-*).
+   */
+  closeColumns() {
+    const ps = this.cur, cols = this.pageCols(), b = this.colBottoms;
+    this.colBottoms = [];
+    if (!ps || !ps.geom.colSep || cols.length < 2 || !b.length) return;
+    const bottom = Math.max(...b.filter((v) => v !== void 0));
+    if (!(bottom > this.colTop)) return;
+    for (let c = 1; c < cols.length; c++) {
+      if (b[c] === void 0) continue;
+      const x = (cols[c - 1].x + cols[c - 1].w + cols[c].x) / 2;
+      ps.body.push({ t: "rect", x: x - COL_SEP_W / 2, y: this.colTop, w: COL_SEP_W, h: bottom - this.colTop, fill: "000000" });
+    }
   }
   // ───────────────────────── cabeçalho / rodapé ─────────────────────────
   fieldValue(ps) {
@@ -8824,6 +8914,7 @@ var Engine = class {
       }
       const last = frag[frag.length - 1];
       let bottom = last.y + last.line.height;
+      this.noteColContent(bottom);
       if (isLast) bottom += this.borderBottomExtent(p, groupedNext);
       this.paintBox(this.cur.body, p, frameX, this.colFrame().w, boxTop, bottom, frag === null ? null : this.prev, boxAt, isLast && groupedNext);
       frag = [];
@@ -9056,6 +9147,7 @@ var Engine = class {
     } while (!br.done());
     flushFrag(true);
     this.y += this.borderBottomExtent(p, groupedNext);
+    if (!this.atTop) this.noteColContent(this.y + (p.afterAuto ? 280 : p.spaceAfter));
     for (const r of earlyRuns) this.prePlaced.add(r);
     this.placeFloats(p, anchorAt.ps, anchorAt.x, anchorAt.w, anchorAt.top, anchorAt.ps.body, 0, anchorAt.ref);
     for (const r of earlyRuns) this.prePlaced.delete(r);
@@ -9760,6 +9852,7 @@ var Engine = class {
     for (const l of row.lines) this.cur.page.lines.push({ ...l, y: l.y + this.y, baseline: l.baseline + this.y });
     this.y += row.height;
     this.atTop = false;
+    this.noteColContent(this.y);
   }
   // ───────────────────────── objetos flutuantes ─────────────────────────
   /** Quadro de uma linha descontando floats com contorno (wrap) que a cruzam. */
@@ -12188,6 +12281,10 @@ var hyphenationLangs = (full) => documentHyphenationLanguages(full).filter((l) =
 });
 var DEFAULT_FONT = "Liberation Sans";
 var DEFAULT_FONT_CSS = `"${DEFAULT_FONT}"`;
+var BREAK_MARK_LABELS = {
+  en: { page: "Page Break", column: "Column Break", section: "Section Break", nextPage: "Next Page", continuous: "Continuous", evenPage: "Even Page", oddPage: "Odd Page", nextColumn: "Next Column" },
+  pt: { page: "Quebra de p\xE1gina", column: "Quebra de coluna", section: "Quebra de se\xE7\xE3o", nextPage: "Pr\xF3xima p\xE1gina", continuous: "Cont\xEDnua", evenPage: "P\xE1gina par", oddPage: "P\xE1gina \xEDmpar", nextColumn: "Pr\xF3xima coluna" }
+};
 var STYLES = {
   "Ttulo1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
   "Heading1": { sizePt: 20, bold: false, color: "0F4761", spaceBeforeTwips: 360 },
@@ -12208,6 +12305,10 @@ var HIGHLIGHTS2 = {
   darkYellow: "#808000",
   lightGray: "#c0c0c0"
 };
+var refsOfSection = (s) => ({
+  headerRefs: s.headerRefs.map((r) => ({ kind: "header", type: r.type, rid: r.rid })),
+  footerRefs: s.footerRefs.map((r) => ({ kind: "footer", type: r.type, rid: r.rid }))
+});
 var RPR_REF = /* @__PURE__ */ Symbol("uw-rpr");
 var insertText2 = (m, pos, text, props) => guardRuns(m, pos.para, pos.para, () => insertText(m, pos, text, props));
 var insertRun2 = (m, pos, run) => guardRuns(m, pos.para, pos.para, () => insertRun(m, pos, run));
@@ -12294,8 +12395,26 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   fullDoc = null;
   /** Tabelas ancoradas antes do parágrafo de índice beforePara. */
   tableAnchors = [];
-  /** Seções: a partir de qual parágrafo cada uma vale. */
+  /** Seções: a partir de qual parágrafo cada uma vale — DERIVADAS do modelo
+   *  (syncSections): o sectPr de cada uma mora no sectionBreak do parágrafo que a
+   *  encerra (a última, em model.sectPr), assim Enter, Backspace, colar e
+   *  desfazer não descolam o que se desenha do que se salva. */
   sectionStarts = [];
+  /** props do w:sectPr que o modelo não representa (grade, bordas de página…)
+   *  por id da quebra (sectionBreak.id); 0 = a última seção */
+  sectionProps = /* @__PURE__ */ new Map();
+  nextSectionId = 1;
+  /** partes de cabeçalho/rodapé conhecidas ("header:rId7" → caminho, conteúdo):
+   *  cada seção mostra as que as refs DELA no modelo apontam */
+  hfParts = /* @__PURE__ */ new Map();
+  /** seção efetiva em cache por id (refeita quando o sectPr ou as refs mudam) */
+  sectionEff = /* @__PURE__ */ new Map();
+  /** id de cada seção efetiva (cabeçalho novo grava a ref na seção certa) */
+  sectionIds = /* @__PURE__ */ new WeakMap();
+  /** ids e refs da última derivação: quebra apagada → as refs dela passam para a
+   *  seção que agora cobre o texto (o Word mantém o cabeçalho — oráculo hdr-del-*) */
+  lastSectionIds = [];
+  lastSectionRefs = /* @__PURE__ */ new Map();
   floatImages = [];
   tableLayouts = [];
   footnoteHits = [];
@@ -12516,7 +12635,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       return;
     }
     const req = ++this.chromeReq;
-    const { setupChrome } = await import("./chunks/chrome-IC5RAF47.js");
+    const { setupChrome } = await import("./chunks/chrome-NRD2PJTC.js");
     if (req !== this.chromeReq) return;
     const handle = setupChrome(this, this.topbarEl, this.bottombarEl, { topbar, bottombar, lang: uiLang(this) });
     this.chromeSync = handle.sync;
@@ -12553,7 +12672,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.spellEngine = null;
     if (this.chromeSync) {
       this.chromeSync = null;
-      void import("./chunks/chrome-IC5RAF47.js").then((m) => {
+      void import("./chunks/chrome-NRD2PJTC.js").then((m) => {
         if (!this.isConnected) m.teardownChrome(this);
       });
     }
@@ -12949,14 +13068,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (const s of this.fullDoc.sections) {
       for (const set of [s.headers, s.footers]) for (const ps of [set.default, set.first, set.even]) if (ps) this.syncRunRPr(ps);
     }
-    this.sectionStarts = this.fullDoc.sections.map((section) => {
-      let startPara = 0;
-      for (let b = 0; b < section.blockStart; b++) {
-        if (this.fullDoc.blocks[b].type === "paragraph") startPara++;
-      }
-      return { startPara, section };
-    });
     markSectionBreaks(this.fullDoc);
+    const secs = this.fullDoc.sections;
+    this.resetSections();
+    for (const s of secs) this.indexHfParts(s);
+    for (const p of paragraphs) {
+      const sb = p.props.sectionBreak;
+      if (!sb) continue;
+      sb.id = this.nextSectionId++;
+      this.sectionProps.set(sb.id, secs.find((s) => s.sectPr === sb.sectPr)?.sect);
+    }
+    const lastSec = secs[secs.length - 1];
+    this.sectionProps.set(0, lastSec?.sect);
     this.floatImages = [];
     paragraphs.forEach((p, pi) => {
       for (const run of p.runs) {
@@ -12973,15 +13096,18 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     });
     this.model = {
       paragraphs,
-      sectPr: this.fullDoc.sections[0]?.sectPr ?? {
+      // o sectPr do corpo é o da ÚLTIMA seção (como no .docx)
+      sectPr: lastSec?.sectPr ?? {
         pageWidthTwips: 11906,
         pageHeightTwips: 16838,
         marginLeftTwips: 1701,
         marginRightTwips: 1701,
         marginTopTwips: 1417,
         marginBottomTwips: 1417
-      }
+      },
+      ...lastSec ? { bodyRefs: refsOfSection(lastSec) } : {}
     };
+    this.syncSections();
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
     this.undoStack = [];
     this.redoStack = [];
@@ -13002,7 +13128,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.fontEmbedding = { ...DEFAULT_EMBEDDING.write };
     this.fullDoc = null;
     this.tableAnchors = [];
-    this.sectionStarts = [];
+    this.resetSections();
     this.floatImages = [];
     this.model = {
       paragraphs: [{ runs: [], props: {} }],
@@ -13015,6 +13141,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         marginBottomTwips: 1417
       }
     };
+    this.syncSections();
     this.selection = { anchor: { para: 0, offset: 0 }, focus: { para: 0, offset: 0 } };
     this.undoStack = [];
     this.redoStack = [];
@@ -13169,6 +13296,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       refs.push(ref);
       this.dirtyHf.add(ref.path);
     }
+    this.registerHfPart(sec, kind, ref, part);
     if (!engPart) {
       this.hfCapturing = true;
       this.paint();
@@ -13290,11 +13418,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     this.refresh();
     this.dispatchEvent(new CustomEvent("uw-tbmode", { detail: { active: false } }));
   }
-  /** Desloca âncoras de tabela/seção quando parágrafos entram/saem. */
+  /** Desloca âncoras de tabela quando parágrafos entram/saem (as seções saem do
+   *  modelo — syncSections). */
   shiftAnchors(fromPara, delta) {
     if (this.cellEdit) return;
     for (const a of this.tableAnchors) if (a.beforePara > fromPara) a.beforePara += delta;
-    for (const s of this.sectionStarts) if (s.startPara > fromPara) s.startPara += delta;
     for (const f of this.floatImages) if (f.para > fromPara) f.para += delta;
     if (!this.hfEdit && !this.tbEdit) {
       for (const [k, v] of this.bookmarkParas) if (v > fromPara) this.bookmarkParas.set(k, Math.max(0, v + delta));
@@ -13956,25 +14084,24 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   setSpaceBefore(twips) {
     this.formatPara({ spaceBeforeTwips: twips });
   }
+  /**
+   * Configurar Página da seção do cursor (ou das seções que a seleção toca),
+   * como as galerias Margens/Orientação/Tamanho. `applyTo` como no diálogo:
+   * 'section' (padrão), 'document', 'forward' (quebra de seção "próxima página"
+   * no cursor e a seção de depois muda) ou 'selection' (quebras "próxima página"
+   * antes e depois da seleção). Mudar a orientação gira as margens (Word).
+   */
   setPageSetup(opts) {
-    if (!this.model || this.locked()) return;
+    if (!this.model || this.locked() || opts.applyTo && opts.applyTo !== "section" && opts.applyTo !== "document" && !this.canInsertSectionBreak()) return;
     this.snapshot();
-    const targets = [this.model.sectPr, ...this.sectionStarts.map((ss) => ss.section.sectPr)];
-    for (const s of targets) {
+    for (const s of this.sectionTargets(opts.applyTo ?? "section", "nextPage")) {
       if (opts.size) {
         const [w, h] = opts.size === "A4" ? [11906, 16838] : [12240, 15840];
         const landscape = s.pageWidthTwips > s.pageHeightTwips;
         s.pageWidthTwips = landscape ? h : w;
         s.pageHeightTwips = landscape ? w : h;
       }
-      if (opts.orientation) {
-        const [a, b] = [s.pageWidthTwips, s.pageHeightTwips];
-        const isLandscape = a > b;
-        if (opts.orientation === "landscape" !== isLandscape) {
-          s.pageWidthTwips = b;
-          s.pageHeightTwips = a;
-        }
-      }
+      if (opts.orientation) setOrientation(s, opts.orientation);
       if (opts.margins) {
         const m = { normal: [1417, 1701], narrow: [720, 720], wide: [1417, 2880] }[opts.margins];
         s.marginTopTwips = s.marginBottomTwips = m[0];
@@ -13988,6 +14115,135 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       }
     }
     this.refresh();
+  }
+  // ───────────────── seções e colunas ─────────────────
+  /** Quebras de seção/coluna valem no corpo (o Word as desabilita em
+   *  cabeçalho/rodapé e caixa de texto; em tabela ele divide a tabela). */
+  canInsertSectionBreak() {
+    return !!this.model && !this.locked() && !this.hfEdit && !this.tbEdit && !this.cellEdit;
+  }
+  /**
+   * Insere uma quebra de seção no cursor (com seleção: no início dela, sem
+   * apagar o texto — Word). Divide o parágrafo; a seção nova (antes) é uma
+   * cópia da seção do cursor e leva os cabeçalhos/rodapés; a de depois começa
+   * pelo `type` (próxima página, contínua, página par/ímpar, próxima coluna).
+   */
+  insertSectionBreak(type = "nextPage") {
+    if (!this.canInsertSectionBreak()) return;
+    this.snapshot();
+    const pos = this.insertSectionBreakAt(normalizeRange(this.range()).start, type);
+    this.selection = { anchor: pos, focus: pos };
+    this.pendingProps = null;
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+  /** Quebra de coluna (Ctrl+Shift+Enter): no meio do parágrafo ele é dividido e a
+   *  quebra abre o de depois (Word); a seleção é substituída. */
+  insertColumnBreak() {
+    if (!this.canInsertSectionBreak()) return;
+    this.snapshot();
+    if (this.hasSelection()) {
+      const p = this.deleteSelection();
+      this.selection = { anchor: p, focus: p };
+    }
+    let pos = this.selection.focus;
+    if (pos.offset > 0) {
+      pos = splitParagraph2(this.model, pos);
+      this.shiftAnchors(pos.para - 1, 1);
+    }
+    pos = insertText2(this.model, pos, "\v", this.pendingProps ?? void 0);
+    this.pendingProps = null;
+    this.selection = { anchor: pos, focus: pos };
+    this.refresh();
+    this.scrollCaretIntoView();
+  }
+  /** Quebra de seção num ponto do corpo (dentro de um passo de desfazer já aberto). */
+  insertSectionBreakAt(pos, type) {
+    const m = this.model;
+    const range = sectionRanges(m)[sectionIndexAt(m, pos.para)];
+    const closing = range.sb ? m.paragraphs[range.end] : void 0;
+    const id = this.nextSectionId++;
+    this.sectionProps.set(id, this.sectionProps.get(range.sb?.id ?? 0));
+    const raw = this.fullDoc?.sources?.sectPrRaw(closing);
+    const next = insertSectionBreak(m, pos, type, { split: (mm, p) => splitParagraph2(mm, p), id, ...raw ? { raw } : {} });
+    this.shiftAnchors(pos.para, 1);
+    return next;
+  }
+  /**
+   * sectPrs que uma configuração atinge (abre as quebras que 'forward' e
+   * 'selection' pedem — o tipo é o do Word: contínua para colunas, próxima
+   * página para Configurar Página).
+   */
+  sectionTargets(applyTo, breakType) {
+    const m = this.model;
+    const { start, end } = normalizeRange(this.range());
+    if (applyTo === "document") return sectionRanges(m).map((r) => r.sb?.sectPr ?? m.sectPr);
+    if (applyTo === "forward") {
+      const at = this.insertSectionBreakAt(start, breakType);
+      this.selection = { anchor: at, focus: at };
+      return [sectionSectPr(m, sectionIndexAt(m, at.para))];
+    }
+    if (applyTo === "selection" && comparePos(start, end) !== 0) {
+      this.insertSectionBreakAt(end, breakType);
+      const at = this.insertSectionBreakAt(start, breakType);
+      const k = sectionIndexAt(m, at.para);
+      const r = sectionRanges(m)[k];
+      const last = m.paragraphs[r.end];
+      this.selection = { anchor: at, focus: { para: r.end, offset: paraLength(last) } };
+      return [sectionSectPr(m, k)];
+    }
+    const k0 = sectionIndexAt(m, start.para), k1 = sectionIndexAt(m, end.para);
+    const out = [];
+    for (let k = k0; k <= k1; k++) out.push(sectionSectPr(m, k));
+    return out;
+  }
+  /**
+   * Colunas da seção do cursor. Predefinição (galeria): 'one' | 'two' | 'three'
+   * | 'left' | 'right' — com texto selecionado, valem só para ele (quebras
+   * contínuas antes e depois, Word). Especificação (Mais Colunas): número,
+   * espaço, larguras próprias, linha entre colunas, `applyTo` e
+   * `startNewColumn` (com 'forward', a seção nova começa na próxima coluna).
+   */
+  setColumns(spec) {
+    if (!this.model || this.locked()) return;
+    const preset = typeof spec === "string" ? spec : null;
+    const applyTo = preset ? this.hasSelection() ? "selection" : "section" : spec.applyTo ?? "section";
+    if ((applyTo === "forward" || applyTo === "selection") && !this.canInsertSectionBreak()) return;
+    this.snapshot();
+    const newCol = !preset && spec.startNewColumn;
+    const targets = this.sectionTargets(applyTo, applyTo === "forward" && newCol ? "nextColumn" : "continuous");
+    for (const sp of targets) {
+      const s = preset ? presetColumns(sp, preset) : spec;
+      sp.cols = columnsFor(sp, s);
+    }
+    this.refresh();
+  }
+  /** A seção do cursor: posição, tipo de início, página e colunas. */
+  getSection() {
+    const m = this.bodyModel();
+    if (!m) return null;
+    const para = this.cellEdit || this.hfEdit || this.tbEdit ? 0 : this.selection.focus.para;
+    const k = sectionIndexAt(m, para);
+    const sp = sectionSectPr(m, k);
+    return {
+      index: k,
+      count: sectionRanges(m).length,
+      type: sp.type ?? "nextPage",
+      orientation: sp.pageWidthTwips > sp.pageHeightTwips ? "landscape" : "portrait",
+      pageWidthTwips: sp.pageWidthTwips,
+      pageHeightTwips: sp.pageHeightTwips,
+      margins: { top: sp.marginTopTwips, right: sp.marginRightTwips, bottom: sp.marginBottomTwips, left: sp.marginLeftTwips },
+      columns: {
+        count: sp.cols?.count ?? 1,
+        spaceTwips: sp.cols?.spaceTwips ?? COLUMN_SPACE_DEFAULT,
+        sep: !!sp.cols?.sep,
+        equalWidth: !sp.cols?.widths,
+        widths: columnWidths(sp),
+        preset: columnsPresetOf(sp),
+        max: maxColumns(sp),
+        contentWidthTwips: contentWidth(sp)
+      }
+    };
   }
   undo() {
     this.popHistory(this.undoStack, this.redoStack);
@@ -14422,9 +14678,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (!this.model) throw new Error("no document");
     if (this.hfEdit) this.exitHeaderFooter();
     const pkg = this.pkg ?? DocxPackage.empty();
+    this.syncSections();
+    const sections = this.bodyState().sectionStarts.map((s) => s.section);
     const hfParts = [];
     const seenPath = /* @__PURE__ */ new Set();
-    for (const section of this.fullDoc?.sections ?? []) {
+    for (const section of sections) {
       for (const [kind, refs, set, blockSet] of [
         ["header", section.headerRefs, section.headers, section.headerBlocks],
         ["footer", section.footerRefs, section.footers, section.footerBlocks]
@@ -14447,7 +14705,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         }
       }
     }
-    const lastSec = this.fullDoc?.sections[this.fullDoc.sections.length - 1];
+    const lastSec = sections[sections.length - 1];
     const bodyParts = lastSec ? hfParts.filter((h) => [...lastSec.headerRefs, ...lastSec.footerRefs].some((r) => r.path === h.path)) : hfParts;
     const blocks = [];
     this.model.paragraphs.forEach((paragraph, pi) => {
@@ -14459,7 +14717,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     for (const a of this.tableAnchors) {
       if (a.beforePara >= this.model.paragraphs.length) blocks.push(a.table);
     }
-    const saveModel = lastSec ? { paragraphs: this.model.paragraphs, sectPr: lastSec.sectPr } : this.model;
+    const saveModel = { paragraphs: this.model.paragraphs, sectPr: lastSec?.sectPr ?? this.model.sectPr };
     writeDocument(pkg, saveModel, hfParts, {
       comments: this.fullDoc?.comments?.length ? this.fullDoc.comments : void 0,
       bodySectRefs: bodyParts.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid })),
@@ -14750,12 +15008,10 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     return JSON.stringify({
       m: this.model,
       s: this.selection,
-      // sectPrs das seções (margens/orientação) — fora do model, mas undoáveis
-      sect: this.sectionStarts.map((ss) => ({ ...ss.section.sectPr })),
-      // âncoras de tabela/seção e indicadores (deslocados por Enter/Backspace)
+      // âncoras de tabela e indicadores (deslocados por Enter/Backspace); as
+      // seções (sectPr, refs) moram no modelo e voltam com ele
       anc: this.cellEdit || this.hfEdit || this.tbEdit ? void 0 : {
         t: this.tableAnchors.map((a) => a.beforePara),
-        s: this.sectionStarts.map((x) => x.startPara),
         b: [...this.bookmarkParas]
       }
     }, (key, value) => {
@@ -14810,17 +15066,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         const a = this.tableAnchors[i];
         if (a) a.beforePara = v;
       });
-      state.anc.s.forEach((v, i) => {
-        const s = this.sectionStarts[i];
-        if (s) s.startPara = v;
-      });
       this.bookmarkParas = new Map(state.anc.b);
-    }
-    if (state.sect) {
-      state.sect.forEach((sp, i) => {
-        const target = this.sectionStarts[i]?.section.sectPr;
-        if (target) Object.assign(target, sp);
-      });
     }
     this.refresh();
   }
@@ -14876,11 +15122,21 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos, focus: pos };
     } else {
       const { para, offset } = this.selection.focus;
+      const prev = para > 0 ? this.model.paragraphs[para - 1] : null;
       if (offset > 0) {
         const pos = deleteRange2(this.model, {
           start: { para, offset: offset - 1 },
           end: { para, offset }
         });
+        this.selection = { anchor: pos, focus: pos };
+      } else if (prev?.props.sectionBreak && !this.cellEdit && !this.hfEdit && !this.tbEdit) {
+        const len = paraLength(prev);
+        let pos;
+        if (len > 0) pos = deleteRange2(this.model, { start: { para: para - 1, offset: len - 1 }, end: { para: para - 1, offset: len } });
+        else if (para > 1) {
+          pos = mergeWithPrevious2(this.model, para - 1);
+          this.shiftAnchors(para - 2, -1);
+        } else pos = { para: para - 1, offset: 0 };
         this.selection = { anchor: pos, focus: pos };
       } else if (para > 0) {
         const pos = mergeWithPrevious2(this.model, para);
@@ -15452,8 +15708,8 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         ArrowDown: () => this.moveCaret("down", e.shiftKey),
         Home: () => this.moveCaret("home", e.shiftKey),
         End: () => this.moveCaret("end", e.shiftKey),
-        // Ctrl+Enter = quebra de página (como no app de referência)
-        Enter: () => ctrl ? this.type("\f") : this.pressEnter(),
+        // Ctrl+Enter = quebra de página; Ctrl+Shift+Enter = quebra de coluna (como no app de referência)
+        Enter: () => ctrl && e.shiftKey ? this.insertColumnBreak() : ctrl ? this.type("\f") : this.pressEnter(),
         Backspace: () => this.pressBackspace(),
         Delete: () => this.pressDelete()
       };
@@ -15643,6 +15899,136 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   sectPrAt(sectionIdx) {
     const s = this.sectionStarts[sectionIdx]?.section.sectPr;
     return s ?? this.model.sectPr;
+  }
+  // ───────────────── seções derivadas do modelo ─────────────────
+  resetSections() {
+    this.sectionStarts = [];
+    this.sectionProps = /* @__PURE__ */ new Map([[0, void 0]]);
+    this.nextSectionId = 1;
+    this.hfParts = /* @__PURE__ */ new Map();
+    this.sectionEff = /* @__PURE__ */ new Map();
+    this.lastSectionIds = [];
+    this.lastSectionRefs = /* @__PURE__ */ new Map();
+  }
+  /** Cabeçalho/rodapé que a edição criou (ou cujo conteúdo faltava): a parte
+   *  entra no índice e a ref, nas refs da seção no modelo do corpo. */
+  registerHfPart(sec, kind, ref, paras) {
+    const key = `${kind}:${ref.rid}`;
+    const cur = this.hfParts.get(key);
+    if (cur) cur.paras = paras;
+    else this.hfParts.set(key, { path: ref.path, paras });
+    const id = this.sectionIds.get(sec);
+    const m = this.model;
+    if (id === void 0 || !m) return;
+    const holder = id === 0 ? m.bodyRefs ??= { headerRefs: [], footerRefs: [] } : m.paragraphs.find((p) => p.props.sectionBreak?.id === id)?.props.sectionBreak;
+    if (!holder) return;
+    if (kind === "header") {
+      if (!holder.headerRefs.some((r) => r.rid === ref.rid)) holder.headerRefs.push({ kind, type: ref.type, rid: ref.rid });
+    } else if (!holder.footerRefs.some((r) => r.rid === ref.rid)) holder.footerRefs.push({ kind, type: ref.type, rid: ref.rid });
+  }
+  /** Registra as partes de cabeçalho/rodapé de uma seção lida (conteúdo por rId). */
+  indexHfParts(s) {
+    for (const [kind, refs, set, blocks] of [
+      ["header", s.headerRefs, s.headers, s.headerBlocks],
+      ["footer", s.footerRefs, s.footers, s.footerBlocks]
+    ]) {
+      for (const r of refs) {
+        const key = `${kind}:${r.rid}`;
+        if (this.hfParts.has(key)) continue;
+        this.hfParts.set(key, { path: r.path, ...set[r.type] ? { paras: set[r.type] } : {}, ...blocks?.[r.type] ? { blocks: blocks[r.type] } : {} });
+      }
+    }
+  }
+  /**
+   * Refaz as seções a partir do MODELO do corpo (fonte única): cada parágrafo
+   * com sectionBreak encerra uma; a última é model.sectPr. A quebra que sumiu
+   * numa edição passa as refs de cabeçalho/rodapé para a seção que agora cobre o
+   * texto dela, nos tipos que ela não define (o Word mantém o cabeçalho).
+   */
+  syncSections() {
+    const m = this.model;
+    if (!m || this.hfEdit || this.tbEdit || this.cellEdit) return;
+    const breaks = [];
+    const seen = /* @__PURE__ */ new Set();
+    m.paragraphs.forEach((p, pi) => {
+      const sb = p.props.sectionBreak;
+      if (!sb) return;
+      if (sb.id === void 0 || !this.sectionProps.has(sb.id) || seen.has(sb.id)) {
+        const id = this.nextSectionId++;
+        this.sectionProps.set(id, this.sectionProps.get(0));
+        p.props = { ...p.props, sectionBreak: { ...sb, id } };
+      }
+      seen.add(p.props.sectionBreak.id);
+      breaks.push({ pi, sb: p.props.sectionBreak });
+    });
+    const ids = [...breaks.map((b) => b.sb.id), 0];
+    const holder = (id) => id === 0 ? m.bodyRefs ??= { headerRefs: [], footerRefs: [] } : breaks.find((b) => b.sb.id === id).sb;
+    const prev = this.lastSectionIds;
+    prev.forEach((x, k) => {
+      if (ids.includes(x)) return;
+      const gone = this.lastSectionRefs.get(x);
+      if (!gone || !gone.headerRefs.length && !gone.footerRefs.length) return;
+      const y = prev.slice(k + 1).find((id) => ids.includes(id)) ?? 0;
+      const h = holder(y);
+      for (const r of gone.headerRefs) if (!h.headerRefs.some((t) => t.type === r.type)) h.headerRefs.push({ ...r });
+      for (const r of gone.footerRefs) if (!h.footerRefs.some((t) => t.type === r.type)) h.footerRefs.push({ ...r });
+    });
+    const starts = [];
+    let start = 0;
+    for (const b of breaks) {
+      starts.push({ startPara: start, section: this.effectiveSection(b.sb.id, b.sb.sectPr, b.sb) });
+      start = b.pi + 1;
+    }
+    starts.push({ startPara: start, section: this.effectiveSection(0, m.sectPr, m.bodyRefs) });
+    this.sectionStarts = starts;
+    if (this.fullDoc) this.fullDoc.sections = starts.map((s) => s.section);
+    this.lastSectionIds = ids;
+    this.lastSectionRefs = new Map(ids.map((id) => {
+      const r = id === 0 ? m.bodyRefs : breaks.find((b) => b.sb.id === id).sb;
+      return [id, { headerRefs: [...r?.headerRefs ?? []], footerRefs: [...r?.footerRefs ?? []] }];
+    }));
+  }
+  /** Seção como o motor e a pintura a usam: geometria do modelo, props do
+   *  sectPr guardadas (tipo e colunas do modelo valem) e cabeçalhos/rodapés das
+   *  refs da seção no modelo. */
+  effectiveSection(id, sp, refs) {
+    const props = this.sectionProps.get(id);
+    const key = JSON.stringify([refs?.headerRefs ?? null, refs?.footerRefs ?? null, sp.type ?? "", sp.cols ?? null]);
+    const c = this.sectionEff.get(id);
+    if (c && c.sp === sp && c.key === key && c.props === props) return c.sec;
+    const sect = { ...props ?? { type: "nextPage" }, type: sp.type ?? "nextPage" };
+    if (sp.cols?.widths) {
+      sect.colDefs = sp.cols.widths.map((w) => ({ w: w.widthTwips, space: w.spaceTwips }));
+      sect.equalWidth = false;
+    } else {
+      delete sect.colDefs;
+      delete sect.equalWidth;
+    }
+    const sec = {
+      sectPr: sp,
+      sect,
+      blockStart: 0,
+      blockEnd: 0,
+      headers: {},
+      footers: {},
+      headerBlocks: {},
+      footerBlocks: {},
+      headerRefs: [],
+      footerRefs: []
+    };
+    for (const [kind, list] of [["header", refs?.headerRefs ?? []], ["footer", refs?.footerRefs ?? []]]) {
+      for (const r of list) {
+        const part = this.hfParts.get(`${kind}:${r.rid}`);
+        if (!part) continue;
+        const type = r.type;
+        (kind === "header" ? sec.headerRefs : sec.footerRefs).push({ type, rid: r.rid, path: part.path });
+        if (part.paras) (kind === "header" ? sec.headers : sec.footers)[type] = part.paras;
+        if (part.blocks) (kind === "header" ? sec.headerBlocks : sec.footerBlocks)[type] = part.blocks;
+      }
+    }
+    this.sectionEff.set(id, { sp, key, props, sec });
+    this.sectionIds.set(sec, id);
+    return sec;
   }
   /** Layout do modo de edição de HF: PRESERVA a paginação do corpo (mesmo
    *  nº de páginas/panes) e posiciona o HF apenas na banda da página ativa. */
@@ -15890,6 +16276,7 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
   }
   layout() {
     if (!this.model || !this.fonts) return;
+    this.syncSections();
     if (this.engineActive()) {
       if (this.fastHint && this.tryFastLayout()) return;
       if (this.fastTable && this.tryFastTable()) return;
@@ -17713,8 +18100,11 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
     if (this.showMarks && this.model) {
       ctx.fillStyle = this.pageDark ? "#9aa0a6" : "#888";
       ctx.textAlign = "center";
+      const body = !this.cellEdit && !this.hfEdit && !this.tbEdit;
+      const secOf = (k) => body ? this.sectionIndexForPara(k) : this.pageSections[pg] ?? 0;
       this.layoutCache.forEach((pl, pi) => {
-        const text = paraText(this.model.paragraphs[pi]);
+        const para = this.model.paragraphs[pi];
+        const text = paraText(para);
         pl.lines.forEach((line, li) => {
           if (line.page !== pg || !line.eng) return;
           const fs = Math.max(160, line.heightTwips * 0.6);
@@ -17724,10 +18114,29 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
             if (ch === " " || ch === "\xA0") ctx.fillText(ch === " " ? "\xB7" : "\xB0", c.x + c.w / 2, line.baselineTwips);
             else if (ch === "	") ctx.fillText("\u2192", c.x + c.w / 2, line.baselineTwips);
           }
+          for (let o = Math.max(1, line.rich.start); o < Math.min(line.rich.end, text.length); o++) {
+            const ch = text[o];
+            if (ch !== "\f" && ch !== "\v") continue;
+            const bx = this.caretX({ para: pi, offset: o }, line);
+            this.paintBreakMark(ctx, bx, this.columnRightAt(secOf(pi), bx), line.baselineTwips, fs, ch === "\f" ? "page" : "column", false);
+          }
           if (li === pl.lines.length - 1) {
             ctx.textAlign = "left";
-            const x = this.caretX({ para: pi, offset: paraLength(this.model.paragraphs[pi]) }, line);
-            ctx.fillText("\xB6", x + 20, line.baselineTwips);
+            const x = this.caretX({ para: pi, offset: paraLength(para) }, line);
+            const nextType = (k) => this.sectionStarts[this.sectionIndexForPara(k) + 1]?.section.sectPr.type ?? "nextPage";
+            if (body && para.props.sectionBreak) {
+              this.paintBreakMark(ctx, x + 20, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, nextType(pi), true);
+            } else {
+              ctx.fillText("\xB6", x + 20, line.baselineTwips);
+              const nx = this.model.paragraphs[pi + 1];
+              const x0 = x + 20 + ctx.measureText("\xB6").width + 60;
+              if (body && nx?.props.sectionBreak && !this.layoutCache[pi + 1]?.lines.length) {
+                this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, nextType(pi + 1), true);
+              } else {
+                const c0 = nx ? paraText(nx)[0] : void 0;
+                if (c0 === "\f" || c0 === "\v") this.paintBreakMark(ctx, x0, this.columnRightAt(secOf(pi), x), line.baselineTwips, fs, c0 === "\f" ? "page" : "column", false);
+              }
+            }
             ctx.textAlign = "center";
           }
         });
@@ -17756,6 +18165,48 @@ var UniversalWriteElement = class _UniversalWriteElement extends HTMLElement {
         ctx.fillRect(x1, el.line.y, x2 - x1, el.line.height);
       }
     }
+  }
+  /** Marca de quebra com "mostrar marcas": linha pontilhada (dupla na de seção)
+   *  até o fim da coluna com o nome no meio — adorno de tela (não vai ao PDF). */
+  paintBreakMark(ctx, x0, x1, baseline, fs, kind, double) {
+    const L = pickLabels(this, BREAK_MARK_LABELS);
+    const label = kind === "page" ? L.page : kind === "column" ? L.column : `${L.section} (${L[kind]})`;
+    const right = Math.max(x1, x0 + 600);
+    ctx.save();
+    ctx.font = `400 ${fs * 0.8}px ${DEFAULT_FONT_CSS}`;
+    ctx.textAlign = "center";
+    const tw = ctx.measureText(label).width + 120;
+    const mid = (x0 + right) / 2;
+    const y = baseline - fs * 0.3;
+    ctx.strokeStyle = ctx.fillStyle;
+    ctx.lineWidth = 8;
+    ctx.setLineDash([16, 24]);
+    for (const dy of double ? [-14, 14] : [0]) {
+      ctx.beginPath();
+      if (tw < right - x0) {
+        ctx.moveTo(x0, y + dy);
+        ctx.lineTo(mid - tw / 2, y + dy);
+        ctx.moveTo(mid + tw / 2, y + dy);
+        ctx.lineTo(right, y + dy);
+      } else {
+        ctx.moveTo(x0, y + dy);
+        ctx.lineTo(right, y + dy);
+      }
+      ctx.stroke();
+    }
+    if (tw < right - x0) ctx.fillText(label, mid, baseline);
+    ctx.restore();
+  }
+  /** Borda direita da coluna (da seção) em que está x. */
+  columnRightAt(sectionIdx, x) {
+    const sp = this.sectPrAt(sectionIdx);
+    const left = sp.marginLeftTwips;
+    const frames = columnWidths(sp).map((c, i, all) => {
+      const x0 = left + all.slice(0, i).reduce((a, w) => a + w.widthTwips + w.spaceTwips, 0);
+      return { x0, x1: x0 + c.widthTwips };
+    });
+    const f = frames.find((r) => x <= r.x1 + 30) ?? frames[frames.length - 1];
+    return f.x1;
   }
   // ───────────────────────── revisão ortográfica ─────────────────────────
   /** A revisão vale agora? (atributo nospellcheck, menu, Modo Protegido, leitura) */
@@ -19955,7 +20406,7 @@ function drawMention(context, options) {
 
 // src/index.ts
 async function openDocument(el, bytes, name, opts = {}) {
-  const { appFor } = await import("./chunks/chrome-app-GEQXQXK4.js");
+  const { appFor } = await import("./chunks/chrome-app-KKXTNAWX.js");
   return appFor(el).openBytes(bytes, name, null, opts);
 }
 

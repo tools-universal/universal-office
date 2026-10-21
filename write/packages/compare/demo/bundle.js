@@ -1084,7 +1084,8 @@ function decodeEntities(s) {
     return (Object.hasOwn(ENTITIES, e) ? ENTITIES[e] : void 0) ?? `&${e};`;
   });
 }
-function parseXml(xml) {
+function parseXml(xml, opts = {}) {
+  const pos = opts.positions === true;
   let i2 = 0;
   const n = xml.length;
   function error(msg) {
@@ -1145,6 +1146,12 @@ function parseXml(xml) {
         scope();
         const el = { name, attrs, children: [] };
         if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i2);
+        if (pos) {
+          el.s = elStart;
+          el.cs = i2;
+          el.ce = i2;
+          el.e = i2;
+        }
         return el;
       }
       if (xml[i2] === ">") {
@@ -1169,14 +1176,22 @@ function parseXml(xml) {
       if (aName.startsWith("xmlns:")) declares = true;
       i2++;
     }
+    const contentStart = i2;
     const children = [];
     for (; ; ) {
       if (i2 >= n) error(`</${name}> ausente`);
       if (xml.startsWith("</", i2)) {
+        const contentEnd = i2;
         const close = xml.indexOf(">", i2);
         i2 = close + 1;
         const el = { name, attrs, children };
         if (RAW_CAPTURE.has(name)) el.raw = xml.slice(elStart, i2);
+        if (pos) {
+          el.s = elStart;
+          el.cs = contentStart;
+          el.ce = contentEnd;
+          el.e = i2;
+        }
         return el;
       }
       if (xml.startsWith("<!--", i2)) {
@@ -2459,6 +2474,18 @@ function findDeep2(el, name) {
   }
   return void 0;
 }
+var RPR_EL = /* @__PURE__ */ Symbol("docx-rpr-el");
+var rPrElOf = (r) => r?.[RPR_EL];
+var setRPrEl = (r, el) => {
+  if (el) r[RPR_EL] = el;
+};
+var OBJ_EL = /* @__PURE__ */ Symbol("docx-obj-el");
+var objElOf = (r) => r[OBJ_EL];
+function tagObjectRuns(list, from, el) {
+  if (!list) return;
+  for (let i2 = from; i2 < list.length; i2++) list[i2][OBJ_EL] = i2 === from ? el : true;
+}
+var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:ins", "w:moveTo", "w:dir", "w:bdo"]);
 var OBJ = "\uFFFC";
 function readPic(pic, ctx, wTw, hTw) {
   const blip = findDeep2(pic, "a:blip");
@@ -2974,6 +3001,7 @@ function closeField(ctx, runs) {
   };
   const rpr = f.ff ? f.rpr : first?.rpr ?? f.rpr;
   if (rpr) run.rpr = rpr;
+  setRPrEl(run, f.ff ? f.rPrEl : rPrElOf(first) ?? f.rPrEl);
   if (f.ff) run.formField = f.ff;
   if (f.runs.length) run.fieldResult = f.runs;
   runTarget(ctx, runs)?.push(run);
@@ -3014,6 +3042,7 @@ function readRunsInto(runs, container, ctx, inherit) {
           field: instr
         };
         if (first?.rpr) run.rpr = first.rpr;
+        setRPrEl(run, rPrElOf(first));
         if (inner.length) run.fieldResult = inner;
         runTarget(ctx, runs)?.push(run);
         break;
@@ -3143,7 +3172,8 @@ function collectMathText(el) {
   return out;
 }
 function readSingleRun(runs, rEl, ctx, inherit) {
-  const rpr = readRPr(firstChild(rEl, "w:rPr"));
+  const rPrEl = firstChild(rEl, "w:rPr");
+  const rpr = readRPr(rPrEl);
   const rProps = runPropsFromRPr(rpr);
   if (inherit?.link) {
     rProps.link = inherit.link;
@@ -3157,6 +3187,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
     if (ctx.activeComments?.size) props.commentIds = [...ctx.activeComments];
     const run = { text: text2, props, ...inherit?.field ? { field: inherit.field } : {}, ...extra };
     if (rpr) run.rpr = rpr;
+    setRPrEl(run, rPrEl);
     if (stack.some((f) => f.phase === "result" && /^\s*TOC\b/i.test(f.instr))) run.inToc = true;
     return run;
   };
@@ -3178,6 +3209,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       if (type === "begin") {
         const frame2 = { instr: "", phase: "instr", runs: [], crossed: false, props: { ...rProps } };
         if (rpr) frame2.rpr = rpr;
+        if (rPrEl) frame2.rPrEl = rPrEl;
         const ff = firstChild(child, "w:ffData");
         if (ff) {
           const cb = firstChild(ff, "w:checkBox");
@@ -3274,17 +3306,24 @@ function readSingleRun(runs, rEl, ctx, inherit) {
         pushRun({ text: "", field: " PAGE " });
         break;
       case "w:drawing": {
+        flush();
+        const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
         const r = readDrawingRun(child, ctx);
         if (r) pushRun(r);
+        tagObjectRuns(tgt, k, child);
         break;
       }
       case "w:pict":
-        for (const r of readVmlRuns(child, ctx, false)) pushRun(r);
+      case "w:object": {
+        flush();
+        const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
+        for (const r of readVmlRuns(child, ctx, child.name === "w:object")) pushRun(r);
+        tagObjectRuns(tgt, k, child);
         break;
-      case "w:object":
-        for (const r of readVmlRuns(child, ctx, true)) pushRun(r);
-        break;
+      }
       case "mc:AlternateContent": {
+        flush();
+        const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
         const choice = firstChild(child, "mc:Choice");
         const drawing = choice && findDeep2(choice, "w:drawing");
         const r = drawing && readDrawingRun(drawing, ctx);
@@ -3294,6 +3333,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
           const pict = fb && (findDeep2(fb, "w:pict") ?? findDeep2(fb, "w:object"));
           if (pict) for (const v of readVmlRuns(pict, ctx, pict.name === "w:object")) pushRun(v);
         }
+        tagObjectRuns(tgt, k, child);
         break;
       }
       case "w:ruby": {
@@ -3309,10 +3349,48 @@ function readSingleRun(runs, rEl, ctx, inherit) {
   flush();
 }
 function readParagraph(pEl, ctx) {
-  const ppr = readPPr(firstChild(pEl, "w:pPr"));
+  const pPrEl = firstChild(pEl, "w:pPr");
+  const ppr = readPPr(pPrEl);
   const props = paraPropsFromPPr(ppr);
   const runs = [];
-  readRunsInto(runs, pEl, ctx);
+  const capture = ctx.sources !== void 0 && ctx.sourceXml !== void 0 && pEl.s !== void 0;
+  const segs = [];
+  if (!capture) readRunsInto(runs, pEl, ctx);
+  else {
+    const xml = ctx.sourceXml;
+    const openHere = () => (ctx.fieldStack ?? []).some((f) => !f.crossed);
+    let cur = null;
+    for (const child of childElements(pEl)) {
+      if (child.name === "w:pPr") continue;
+      const raw = xml.slice(child.s, child.e);
+      const before = runs.length;
+      const joining = cur !== null && openHere();
+      readRunsInto(runs, { name: pEl.name, attrs: {}, children: [child] }, ctx);
+      if (joining) {
+        cur.seg.raw += raw;
+        cur.to = runs.length;
+        delete cur.seg.wrapOpen;
+        delete cur.seg.wrapClose;
+      } else {
+        cur = { seg: { raw, sids: [] }, from: before, to: runs.length };
+        if (INLINE_WRAPPERS.has(child.name) && child.cs !== child.e && !openHere()) {
+          const content = child.name === "w:sdt" ? firstChild(child, "w:sdtContent") : child;
+          if (content && content.cs !== content.e) {
+            let start = content.cs;
+            if (content === child) {
+              for (const k of childElements(child)) {
+                if (k.name.endsWith("Pr")) start = k.e;
+                else break;
+              }
+            }
+            cur.seg.wrapOpen = xml.slice(child.s, start);
+            cur.seg.wrapClose = xml.slice(content.ce, child.e);
+          }
+        }
+        segs.push(cur);
+      }
+    }
+  }
   const stack = ctx.fieldStack ?? [];
   for (let i2 = stack.length - 1; i2 >= 0; i2--) {
     const f = stack[i2];
@@ -3337,7 +3415,40 @@ function readParagraph(pEl, ctx) {
   if (/\bTOC\b/.test(instr)) props.tocInstr = instr.trim();
   const para = { runs, props };
   if (ppr) para.ppr = ppr;
+  if (capture) captureParagraph(para, pEl, pPrEl, segs, ctx.sources, ctx.sourceXml);
   return para;
+}
+function captureParagraph(para, pEl, pPrEl, segs, store, xml) {
+  const last = segs[segs.length - 1];
+  if (last && last.to < para.runs.length) {
+    last.to = para.runs.length;
+    last.seg.open = true;
+  }
+  let objHead = 0;
+  for (const { seg, from, to } of segs) {
+    if (seg.wrapOpen !== void 0 && seg.raw.startsWith("<w:hyperlink")) seg.link = para.runs[from]?.props.link ?? "";
+    for (let i2 = from; i2 < to; i2++) {
+      const run = para.runs[i2];
+      const sid = store.id();
+      const el = rPrElOf(run);
+      const obj = objElOf(run);
+      store.runs.set(sid, {
+        ...el ? { rPr: xml.slice(el.s, el.e) } : {},
+        ...obj === true ? { objHead } : obj ? { obj: xml.slice(obj.s, obj.e) } : {}
+      });
+      if (obj && obj !== true) objHead = sid;
+      run.props.src = sid;
+      seg.sids.push(sid);
+    }
+  }
+  const selfClosing = pEl.cs === pEl.e;
+  store.addPara(para, {
+    raw: xml.slice(pEl.s, pEl.e),
+    at: pEl.s,
+    open: selfClosing ? xml.slice(pEl.s, pEl.e).replace(/\s*\/>$/, ">") : xml.slice(pEl.s, pEl.cs),
+    ...pPrEl ? { pPr: xml.slice(pPrEl.s, pPrEl.e) } : {},
+    segs: segs.map((x2) => x2.seg)
+  });
 }
 function collectInstrText(el) {
   let out = "";
@@ -3406,6 +3517,8 @@ function readSectPr(sectEl) {
     headerDistanceTwips: tw(pgMar, "w:header", 720),
     footerDistanceTwips: tw(pgMar, "w:footer", 720)
   };
+  const type = sectEl && firstChild(sectEl, "w:type")?.attrs["w:val"];
+  if (type === "continuous" || type === "evenPage" || type === "oddPage" || type === "nextColumn") sect.type = type;
   const num = colsEl ? parseInt(colsEl.attrs["w:num"] ?? "1", 10) : 1;
   if (num > 1) {
     sect.cols = {
@@ -3413,6 +3526,14 @@ function readSectPr(sectEl) {
       spaceTwips: parseInt(colsEl.attrs["w:space"] ?? "720", 10),
       sep: colsEl.attrs["w:sep"] === "true" || colsEl.attrs["w:sep"] === "1"
     };
+    const eq = colsEl.attrs["w:equalWidth"];
+    const defs = childElements(colsEl, "w:col");
+    if ((eq === "0" || eq === "false") && defs.length >= num) {
+      sect.cols.widths = defs.slice(0, num).map((c) => ({
+        widthTwips: parseInt(c.attrs["w:w"] ?? "0", 10) || 0,
+        spaceTwips: parseInt(c.attrs["w:space"] ?? "0", 10) || 0
+      }));
+    }
   }
   const titlePg = sectEl && firstChild(sectEl, "w:titlePg");
   if (titlePg && titlePg.attrs["w:val"] !== "0" && titlePg.attrs["w:val"] !== "false") {
@@ -3861,6 +3982,138 @@ function readStyles(pkg) {
   return out;
 }
 
+// ../docx-core/src/lossless.ts
+function splitElement(raw) {
+  const el = parseXml(raw, { positions: true });
+  if (el.cs === el.e) {
+    const open = raw.replace(/\s*\/>\s*$/, ">");
+    return { open, close: `</${el.name}>`, kids: [], el };
+  }
+  const kids = childElements(el).map((k) => ({ name: k.name, raw: raw.slice(k.s, k.e), el: k }));
+  return { open: raw.slice(0, el.cs), close: raw.slice(el.ce), kids, el };
+}
+
+// ../docx-core/src/source.ts
+function runSig(run) {
+  return sigHash(JSON.stringify(run, sigReplacer));
+}
+function propsSig(p) {
+  return sigHash(JSON.stringify(p.props, sigReplacer));
+}
+function sigHash(s) {
+  let h1 = 3735928559, h2 = 1103547991;
+  for (let i2 = 0; i2 < s.length; i2++) {
+    const c = s.charCodeAt(i2);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ h1 >>> 16, 2246822507) ^ Math.imul(h2 ^ h2 >>> 13, 3266489909);
+  h2 = Math.imul(h2 ^ h2 >>> 16, 2246822507) ^ Math.imul(h1 ^ h1 >>> 13, 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+function sigReplacer(_k, v) {
+  return v instanceof Uint8Array ? `#bytes:${v.length}` : v;
+}
+var SourceStore = class {
+  next = 1;
+  paras = /* @__PURE__ */ new Map();
+  runs = /* @__PURE__ */ new Map();
+  tables = /* @__PURE__ */ new Map();
+  /** Por caminho da parte (word/document.xml, word/header1.xml…). */
+  stories = /* @__PURE__ */ new Map();
+  /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
+  commentIds = /* @__PURE__ */ new Set();
+  /** comments.xml original, para regravar só se a lista mudar. */
+  commentsSig;
+  /** numIds livres escolhidos (no 1º salvar) para as listas que o editor cria. */
+  genNumIds;
+  /** Parágrafos e tabelas lidos — a linha de base é tirada deles. */
+  paraRefs = [];
+  tableRefs = [];
+  /** Resultado de pristine/tablePristine por objeto durante UM salvamento. */
+  memo = /* @__PURE__ */ new WeakMap();
+  id() {
+    return this.next++;
+  }
+  /** Começo de um salvamento: o modelo pode ter mudado desde o anterior. */
+  beginSave() {
+    this.memo = /* @__PURE__ */ new WeakMap();
+  }
+  /** Posição de origem de um bloco (parágrafo ou tabela) pelo id. */
+  atOf(id) {
+    return this.paras.get(id)?.at ?? this.tables.get(id)?.at;
+  }
+  addPara(p, src) {
+    const id = this.id();
+    this.paras.set(id, src);
+    p.props.src = id;
+    this.paraRefs.push(p);
+    return id;
+  }
+  addTable(t, src) {
+    const id = this.id();
+    this.tables.set(id, src);
+    t.src = id;
+    this.tableRefs.push(t);
+    return id;
+  }
+  /** Linha de base: chamada pelo hospedeiro DEPOIS de instalar o documento
+   *  (o editor ajusta runs ao instalar — texto de campos, quebras de seção). */
+  baseline() {
+    for (const p of this.paraRefs) {
+      const id = p.props.src;
+      const src = id !== void 0 ? this.paras.get(id) : void 0;
+      if (!src) continue;
+      src.sig = { props: propsSig(p), sids: p.runs.map((r) => r.props.src ?? 0), runs: p.runs.map(runSig) };
+    }
+    for (const t of this.tableRefs) {
+      const src = t.src !== void 0 ? this.tables.get(t.src) : void 0;
+      if (src) src.sig = tableSig(t);
+    }
+    this.paraRefs = [];
+    this.tableRefs = [];
+  }
+  /**
+   * w:sectPr cru de uma seção: o do parágrafo que a encerra (a quebra nova
+   * copiada leva o dela em sectionBreak.raw; senão o do pPr de origem) ou, sem
+   * parágrafo, o do corpo (última seção). Base da cópia que uma quebra de seção
+   * nova grava — o Word copia o sectPr inteiro (oráculo tools/sections-lab).
+   */
+  sectPrRaw(closing) {
+    if (!closing) return this.stories.get("word/document.xml")?.sectPr;
+    if (closing.props.sectionBreak?.raw) return closing.props.sectionBreak.raw;
+    const pPr = closing.props.src !== void 0 ? this.paras.get(closing.props.src)?.pPr : void 0;
+    return pPr ? splitElement(pPr).kids.find((k) => k.name === "w:sectPr")?.raw : void 0;
+  }
+  /** Parágrafo igual à linha de base (mesmos runs, mesmas props). */
+  pristine(p) {
+    let v = this.memo.get(p);
+    if (v === void 0) this.memo.set(p, v = this.computePristine(p));
+    return v;
+  }
+  computePristine(p) {
+    const id = p.props.src;
+    const s = id !== void 0 ? this.paras.get(id)?.sig : void 0;
+    if (!s || p.runs.length !== s.sids.length) return false;
+    for (let i2 = 0; i2 < p.runs.length; i2++) {
+      const r = p.runs[i2];
+      if (r.props.src !== s.sids[i2] || runSig(r) !== s.runs[i2]) return false;
+    }
+    return propsSig(p) === s.props;
+  }
+  tablePristine(t) {
+    let v = this.memo.get(t);
+    if (v === void 0) {
+      const s = t.src !== void 0 ? this.tables.get(t.src)?.sig : void 0;
+      this.memo.set(t, v = s !== void 0 && tableSig(t) === s);
+    }
+    return v;
+  }
+};
+function tableSig(t) {
+  return sigHash(JSON.stringify(t, sigReplacer));
+}
+
 // ../docx-core/src/fulldoc.ts
 function readBorderSet(el, inside) {
   if (!el) return void 0;
@@ -3900,6 +4153,10 @@ function readBlocksOf(container, ctx) {
   return out;
 }
 function readTable(tblEl, ctx) {
+  const xml = ctx.sources && tblEl.s !== void 0 ? ctx.sourceXml : void 0;
+  const slice = (el) => el && xml !== void 0 ? xml.slice(el.s, el.e) : void 0;
+  const openOf = (el) => xml.slice(el.s, el.cs === el.e ? el.e : el.cs).replace(/\s*\/>$/, ">");
+  const srcRows = [];
   const grid = firstChild(tblEl, "w:tblGrid");
   const gridColsTwips = grid ? childElements(grid, "w:gridCol").map((c) => parseInt(c.attrs["w:w"] ?? "0", 10) || 0) : [];
   const tblPrEl = firstChild(tblEl, "w:tblPr");
@@ -3907,7 +4164,12 @@ function readTable(tblEl, ctx) {
   const rows = [];
   for (const trEl of unwrap(tblEl, "w:tr")) {
     const cells = [];
+    const srcCells = [];
     for (const tcEl of unwrap(trEl, "w:tc")) {
+      if (xml !== void 0) {
+        const tcPrRaw = slice(firstChild(tcEl, "w:tcPr"));
+        srcCells.push({ open: openOf(tcEl), ...tcPrRaw ? { tcPr: tcPrRaw } : {} });
+      }
       const tcPrEl = firstChild(tcEl, "w:tcPr");
       const tcPr = readTcPr(tcPrEl);
       const shd = tcPrEl && firstChild(tcPrEl, "w:shd")?.attrs["w:fill"];
@@ -3930,6 +4192,11 @@ function readTable(tblEl, ctx) {
       cells.push(cell);
     }
     if (cells.length > 0) {
+      if (xml !== void 0) {
+        const trPrRaw = slice(firstChild(trEl, "w:trPr"));
+        const exRaw = slice(firstChild(trEl, "w:tblPrEx"));
+        srcRows.push({ open: openOf(trEl), cells: srcCells, ...trPrRaw ? { trPr: trPrRaw } : {}, ...exRaw ? { tblPrEx: exRaw } : {} });
+      }
       const row = { cells };
       const trPr = readTrPr(firstChild(trEl, "w:trPr"));
       if (trPr) row.trPr = trPr;
@@ -3941,16 +4208,69 @@ function readTable(tblEl, ctx) {
   const table = { type: "table", rows, gridColsTwips, borders: tblBorders };
   const tblPr = readTblPr(tblPrEl);
   if (tblPr) table.tblPr = tblPr;
+  if (xml !== void 0) {
+    const tblPrRaw = slice(tblPrEl);
+    const gridRaw = slice(grid);
+    ctx.sources.addTable(table, {
+      raw: xml.slice(tblEl.s, tblEl.e),
+      at: tblEl.s,
+      open: openOf(tblEl),
+      rows: srcRows,
+      ...tblPrRaw ? { tblPr: tblPrRaw } : {},
+      ...gridRaw ? { tblGrid: gridRaw } : {}
+    });
+  }
   return table;
 }
-function readHeaderFooterPart(pkg, path) {
+function blockSrc(b) {
+  return b.type === "paragraph" ? b.paragraph.props.src : b.src;
+}
+function storyOf(xml, container) {
+  return { open: xml.slice(0, container.cs), close: xml.slice(container.ce), groups: [] };
+}
+function groupOf(xml, child, produced, store) {
+  const ids = produced.map((b) => blockSrc(b) ?? 0);
+  const g = { raw: xml.slice(child.s, child.e), blocks: ids };
+  const content = child.name === "w:sdt" ? firstChild(child, "w:sdtContent") : child.name === "w:customXml" ? child : void 0;
+  if (content && content.cs !== void 0 && content.cs !== content.e) {
+    let start = content.cs;
+    if (content === child) for (const k of childElements(child)) {
+      if (k.name.endsWith("Pr")) start = k.e;
+      else break;
+    }
+    g.wrapOpen = xml.slice(child.s, start);
+    g.wrapClose = xml.slice(content.ce, child.e);
+    g.inner = childElements(content).filter((k) => !k.name.endsWith("Pr")).map((k) => {
+      const inside = produced.filter((b, i2) => {
+        const at = store.atOf(ids[i2]);
+        return at !== void 0 && at >= k.s && at < k.e;
+      });
+      return groupOf(xml, k, inside, store);
+    });
+  }
+  return g;
+}
+function readHeaderFooterPart(pkg, path, store) {
   const xml = pkg.getPartText(path);
   if (!xml) return void 0;
-  const root = parseXml(xml);
+  const root = parseXml(xml, { positions: !!store });
   const partName = path.split("/").pop();
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
-  const blocks = readBlocksOf(root, ctx);
+  let blocks;
+  if (!store) blocks = readBlocksOf(root, ctx);
+  else {
+    ctx.sources = store;
+    ctx.sourceXml = xml;
+    const story = storyOf(xml, root);
+    blocks = [];
+    for (const c of childElements(root)) {
+      const produced = readBlocksOf({ name: root.name, attrs: {}, children: [c] }, ctx);
+      story.groups.push(groupOf(xml, c, produced, store));
+      blocks.push(...produced);
+    }
+    store.stories.set(path, story);
+  }
   const paras = [];
   const walk = (bs) => {
     for (const bl of bs) {
@@ -3990,12 +4310,20 @@ function readComments(pkg) {
     text: childElements(c, "w:p").map((p) => readParagraph(p, ctx).runs.map((r) => r.text).join("")).join("\n")
   }));
 }
-function readFullDocument(pkg) {
-  const root = parseXml(pkg.documentXml());
+function readFullDocument(pkg, opts = {}) {
+  const docXml = pkg.documentXml();
+  const store = opts.sources ? new SourceStore() : void 0;
+  const root = parseXml(docXml, { positions: !!store });
   const body = firstChild(root, "w:body");
   if (!body) throw new Error("w:document sem w:body");
   const ctx = buildReadContext(pkg, "word/_rels/document.xml.rels");
   ctx.readBlocks = readBlocksOf;
+  const story = store ? storyOf(docXml, body) : void 0;
+  if (store) {
+    ctx.sources = store;
+    ctx.sourceXml = docXml;
+    store.stories.set("word/document.xml", story);
+  }
   const relsXml = pkg.getPartText("word/_rels/document.xml.rels");
   const relTargets = /* @__PURE__ */ new Map();
   if (relsXml) {
@@ -4015,7 +4343,7 @@ function readFullDocument(pkg) {
       const type = ref.attrs["w:type"] ?? "default";
       const target = rid && relTargets.get(rid);
       if (target && rid) {
-        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target));
+        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target, store));
         const part = hfCache.get(target);
         if (part) {
           set[type] = part.paras;
@@ -4069,7 +4397,9 @@ function readFullDocument(pkg) {
     }
     return out;
   };
-  for (const child of childElements(body)) {
+  const bodyKids = childElements(body);
+  for (const child of bodyKids) {
+    const before = blocks.length;
     if (child.name === "w:p") {
       const para = readParagraph(child, ctx);
       blocks.push({ type: "paragraph", paragraph: para });
@@ -4089,11 +4419,20 @@ function readFullDocument(pkg) {
         }
       }
     }
+    if (story) {
+      if (child.name === "w:sectPr" && child === bodyKids[bodyKids.length - 1]) story.sectPr = docXml.slice(child.s, child.e);
+      else story.groups.push(groupOf(docXml, child, blocks.slice(before), store));
+    }
   }
   if (sections.length === 0) {
     closeSection(firstChild(body, "w:sectPr") ?? { name: "w:sectPr", attrs: {}, children: [] }, blocks.length - 1);
   }
   if (blocks.length === 0) blocks.push({ type: "paragraph", paragraph: { runs: [], props: {} } });
+  const comments = readComments(pkg);
+  if (store) {
+    for (const c of comments) store.commentIds.add(c.id);
+    store.commentsSig = JSON.stringify(comments);
+  }
   const footnoteBlocks = /* @__PURE__ */ new Map();
   const endnoteBlocks = /* @__PURE__ */ new Map();
   return {
@@ -4101,7 +4440,7 @@ function readFullDocument(pkg) {
     sections,
     footnotes: readNotesPart(pkg, "word/footnotes.xml", "w:footnote", footnoteBlocks),
     endnotes: readNotesPart(pkg, "word/endnotes.xml", "w:endnote", endnoteBlocks),
-    comments: readComments(pkg),
+    comments,
     styles: readStyles(pkg),
     bookmarks,
     bookmarkOffsets,
@@ -4109,7 +4448,8 @@ function readFullDocument(pkg) {
     footnoteBlocks,
     endnoteBlocks,
     ...readCoreProps(pkg),
-    ...readBackground(root)
+    ...readBackground(root),
+    ...store ? { sources: store } : {}
   };
 }
 function readBackground(root) {
@@ -5454,6 +5794,7 @@ if (typeof customElements !== "undefined" && !customElements.get("universal-writ
 }
 export {
   DEFAULT_DOC_DIFF_OPTIONS,
+  DocxPackage,
   UniversalWriteDiffElement,
   bytesEqual,
   diffBlocks,
@@ -5462,6 +5803,7 @@ export {
   histogramDiff,
   intraWordMarks,
   myersDiff,
+  readFullDocument,
   tokenizeBlock,
   tokenizeBlocks,
   tokensEqual

@@ -1303,7 +1303,8 @@ function decodeEntities(s) {
     return (Object.hasOwn(ENTITIES, e) ? ENTITIES[e] : void 0) ?? `&${e};`;
   });
 }
-function parseXml(xml) {
+function parseXml(xml, opts = {}) {
+  const pos = opts.positions === true;
   let i2 = 0;
   const n = xml.length;
   function error(msg) {
@@ -1364,6 +1365,12 @@ function parseXml(xml) {
         scope();
         const el2 = { name, attrs: attrs2, children: [] };
         if (RAW_CAPTURE.has(name)) el2.raw = xml.slice(elStart, i2);
+        if (pos) {
+          el2.s = elStart;
+          el2.cs = i2;
+          el2.ce = i2;
+          el2.e = i2;
+        }
         return el2;
       }
       if (xml[i2] === ">") {
@@ -1388,14 +1395,22 @@ function parseXml(xml) {
       if (aName.startsWith("xmlns:")) declares = true;
       i2++;
     }
+    const contentStart = i2;
     const children2 = [];
     for (; ; ) {
       if (i2 >= n) error(`</${name}> ausente`);
       if (xml.startsWith("</", i2)) {
+        const contentEnd = i2;
         const close = xml.indexOf(">", i2);
         i2 = close + 1;
         const el2 = { name, attrs: attrs2, children: children2 };
         if (RAW_CAPTURE.has(name)) el2.raw = xml.slice(elStart, i2);
+        if (pos) {
+          el2.s = elStart;
+          el2.cs = contentStart;
+          el2.ce = contentEnd;
+          el2.e = i2;
+        }
         return el2;
       }
       if (xml.startsWith("<!--", i2)) {
@@ -2670,6 +2685,17 @@ function runPropsFromRPr(rpr) {
   if (rpr.spacing !== void 0 && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
   return p;
 }
+function editBaseProps(run, rpr) {
+  const base = runPropsFromRPr(rpr);
+  const p = run.props;
+  if (p.link && base.underline === false) {
+    base.underline = true;
+    base.color ??= "0563C1";
+  }
+  if (run.noteRef && base.vertAlign === void 0) base.vertAlign = "superscript";
+  if (run.symFont) base.fontAscii = run.symFont;
+  return base;
+}
 function paraPropsFromPPr(ppr) {
   const props = {};
   if (!ppr) return props;
@@ -2730,6 +2756,18 @@ function findDeep2(el2, name) {
   }
   return void 0;
 }
+var RPR_EL = /* @__PURE__ */ Symbol("docx-rpr-el");
+var rPrElOf = (r) => r?.[RPR_EL];
+var setRPrEl = (r, el2) => {
+  if (el2) r[RPR_EL] = el2;
+};
+var OBJ_EL = /* @__PURE__ */ Symbol("docx-obj-el");
+var objElOf = (r) => r[OBJ_EL];
+function tagObjectRuns(list2, from, el2) {
+  if (!list2) return;
+  for (let i2 = from; i2 < list2.length; i2++) list2[i2][OBJ_EL] = i2 === from ? el2 : true;
+}
+var INLINE_WRAPPERS = /* @__PURE__ */ new Set(["w:sdt", "w:hyperlink", "w:smartTag", "w:customXml", "w:ins", "w:moveTo", "w:dir", "w:bdo"]);
 var OBJ = "\uFFFC";
 function readPic(pic, ctx, wTw, hTw) {
   const blip = findDeep2(pic, "a:blip");
@@ -3245,6 +3283,7 @@ function closeField(ctx, runs) {
   };
   const rpr = f.ff ? f.rpr : first?.rpr ?? f.rpr;
   if (rpr) run.rpr = rpr;
+  setRPrEl(run, f.ff ? f.rPrEl : rPrElOf(first) ?? f.rPrEl);
   if (f.ff) run.formField = f.ff;
   if (f.runs.length) run.fieldResult = f.runs;
   runTarget(ctx, runs)?.push(run);
@@ -3285,6 +3324,7 @@ function readRunsInto(runs, container, ctx, inherit) {
           field: instr
         };
         if (first?.rpr) run.rpr = first.rpr;
+        setRPrEl(run, rPrElOf(first));
         if (inner.length) run.fieldResult = inner;
         runTarget(ctx, runs)?.push(run);
         break;
@@ -3414,7 +3454,8 @@ function collectMathText(el2) {
   return out;
 }
 function readSingleRun(runs, rEl, ctx, inherit) {
-  const rpr = readRPr(firstChild(rEl, "w:rPr"));
+  const rPrEl = firstChild(rEl, "w:rPr");
+  const rpr = readRPr(rPrEl);
   const rProps = runPropsFromRPr(rpr);
   if (inherit?.link) {
     rProps.link = inherit.link;
@@ -3428,6 +3469,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
     if (ctx.activeComments?.size) props.commentIds = [...ctx.activeComments];
     const run = { text: text2, props, ...inherit?.field ? { field: inherit.field } : {}, ...extra };
     if (rpr) run.rpr = rpr;
+    setRPrEl(run, rPrEl);
     if (stack.some((f) => f.phase === "result" && /^\s*TOC\b/i.test(f.instr))) run.inToc = true;
     return run;
   };
@@ -3449,6 +3491,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
       if (type === "begin") {
         const frame = { instr: "", phase: "instr", runs: [], crossed: false, props: { ...rProps } };
         if (rpr) frame.rpr = rpr;
+        if (rPrEl) frame.rPrEl = rPrEl;
         const ff = firstChild(child, "w:ffData");
         if (ff) {
           const cb = firstChild(ff, "w:checkBox");
@@ -3545,17 +3588,24 @@ function readSingleRun(runs, rEl, ctx, inherit) {
         pushRun({ text: "", field: " PAGE " });
         break;
       case "w:drawing": {
+        flush();
+        const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
         const r = readDrawingRun(child, ctx);
         if (r) pushRun(r);
+        tagObjectRuns(tgt, k, child);
         break;
       }
       case "w:pict":
-        for (const r of readVmlRuns(child, ctx, false)) pushRun(r);
+      case "w:object": {
+        flush();
+        const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
+        for (const r of readVmlRuns(child, ctx, child.name === "w:object")) pushRun(r);
+        tagObjectRuns(tgt, k, child);
         break;
-      case "w:object":
-        for (const r of readVmlRuns(child, ctx, true)) pushRun(r);
-        break;
+      }
       case "mc:AlternateContent": {
+        flush();
+        const tgt = runTarget(ctx, runs), k = tgt?.length ?? 0;
         const choice = firstChild(child, "mc:Choice");
         const drawing = choice && findDeep2(choice, "w:drawing");
         const r = drawing && readDrawingRun(drawing, ctx);
@@ -3565,6 +3615,7 @@ function readSingleRun(runs, rEl, ctx, inherit) {
           const pict = fb && (findDeep2(fb, "w:pict") ?? findDeep2(fb, "w:object"));
           if (pict) for (const v of readVmlRuns(pict, ctx, pict.name === "w:object")) pushRun(v);
         }
+        tagObjectRuns(tgt, k, child);
         break;
       }
       case "w:ruby": {
@@ -3580,10 +3631,48 @@ function readSingleRun(runs, rEl, ctx, inherit) {
   flush();
 }
 function readParagraph(pEl, ctx) {
-  const ppr = readPPr(firstChild(pEl, "w:pPr"));
+  const pPrEl = firstChild(pEl, "w:pPr");
+  const ppr = readPPr(pPrEl);
   const props = paraPropsFromPPr(ppr);
   const runs = [];
-  readRunsInto(runs, pEl, ctx);
+  const capture = ctx.sources !== void 0 && ctx.sourceXml !== void 0 && pEl.s !== void 0;
+  const segs = [];
+  if (!capture) readRunsInto(runs, pEl, ctx);
+  else {
+    const xml = ctx.sourceXml;
+    const openHere = () => (ctx.fieldStack ?? []).some((f) => !f.crossed);
+    let cur = null;
+    for (const child of childElements(pEl)) {
+      if (child.name === "w:pPr") continue;
+      const raw = xml.slice(child.s, child.e);
+      const before = runs.length;
+      const joining = cur !== null && openHere();
+      readRunsInto(runs, { name: pEl.name, attrs: {}, children: [child] }, ctx);
+      if (joining) {
+        cur.seg.raw += raw;
+        cur.to = runs.length;
+        delete cur.seg.wrapOpen;
+        delete cur.seg.wrapClose;
+      } else {
+        cur = { seg: { raw, sids: [] }, from: before, to: runs.length };
+        if (INLINE_WRAPPERS.has(child.name) && child.cs !== child.e && !openHere()) {
+          const content = child.name === "w:sdt" ? firstChild(child, "w:sdtContent") : child;
+          if (content && content.cs !== content.e) {
+            let start = content.cs;
+            if (content === child) {
+              for (const k of childElements(child)) {
+                if (k.name.endsWith("Pr")) start = k.e;
+                else break;
+              }
+            }
+            cur.seg.wrapOpen = xml.slice(child.s, start);
+            cur.seg.wrapClose = xml.slice(content.ce, child.e);
+          }
+        }
+        segs.push(cur);
+      }
+    }
+  }
   const stack = ctx.fieldStack ?? [];
   for (let i2 = stack.length - 1; i2 >= 0; i2--) {
     const f = stack[i2];
@@ -3608,7 +3697,40 @@ function readParagraph(pEl, ctx) {
   if (/\bTOC\b/.test(instr)) props.tocInstr = instr.trim();
   const para = { runs, props };
   if (ppr) para.ppr = ppr;
+  if (capture) captureParagraph(para, pEl, pPrEl, segs, ctx.sources, ctx.sourceXml);
   return para;
+}
+function captureParagraph(para, pEl, pPrEl, segs, store, xml) {
+  const last = segs[segs.length - 1];
+  if (last && last.to < para.runs.length) {
+    last.to = para.runs.length;
+    last.seg.open = true;
+  }
+  let objHead = 0;
+  for (const { seg, from, to } of segs) {
+    if (seg.wrapOpen !== void 0 && seg.raw.startsWith("<w:hyperlink")) seg.link = para.runs[from]?.props.link ?? "";
+    for (let i2 = from; i2 < to; i2++) {
+      const run = para.runs[i2];
+      const sid = store.id();
+      const el2 = rPrElOf(run);
+      const obj = objElOf(run);
+      store.runs.set(sid, {
+        ...el2 ? { rPr: xml.slice(el2.s, el2.e) } : {},
+        ...obj === true ? { objHead } : obj ? { obj: xml.slice(obj.s, obj.e) } : {}
+      });
+      if (obj && obj !== true) objHead = sid;
+      run.props.src = sid;
+      seg.sids.push(sid);
+    }
+  }
+  const selfClosing = pEl.cs === pEl.e;
+  store.addPara(para, {
+    raw: xml.slice(pEl.s, pEl.e),
+    at: pEl.s,
+    open: selfClosing ? xml.slice(pEl.s, pEl.e).replace(/\s*\/>$/, ">") : xml.slice(pEl.s, pEl.cs),
+    ...pPrEl ? { pPr: xml.slice(pPrEl.s, pPrEl.e) } : {},
+    segs: segs.map((x2) => x2.seg)
+  });
 }
 function collectInstrText(el2) {
   let out = "";
@@ -3677,6 +3799,8 @@ function readSectPr(sectEl) {
     headerDistanceTwips: tw(pgMar, "w:header", 720),
     footerDistanceTwips: tw(pgMar, "w:footer", 720)
   };
+  const type = sectEl && firstChild(sectEl, "w:type")?.attrs["w:val"];
+  if (type === "continuous" || type === "evenPage" || type === "oddPage" || type === "nextColumn") sect.type = type;
   const num = colsEl ? parseInt(colsEl.attrs["w:num"] ?? "1", 10) : 1;
   if (num > 1) {
     sect.cols = {
@@ -3684,6 +3808,14 @@ function readSectPr(sectEl) {
       spaceTwips: parseInt(colsEl.attrs["w:space"] ?? "720", 10),
       sep: colsEl.attrs["w:sep"] === "true" || colsEl.attrs["w:sep"] === "1"
     };
+    const eq2 = colsEl.attrs["w:equalWidth"];
+    const defs = childElements(colsEl, "w:col");
+    if ((eq2 === "0" || eq2 === "false") && defs.length >= num) {
+      sect.cols.widths = defs.slice(0, num).map((c) => ({
+        widthTwips: parseInt(c.attrs["w:w"] ?? "0", 10) || 0,
+        spaceTwips: parseInt(c.attrs["w:space"] ?? "0", 10) || 0
+      }));
+    }
   }
   const titlePg = sectEl && firstChild(sectEl, "w:titlePg");
   if (titlePg && titlePg.attrs["w:val"] !== "0" && titlePg.attrs["w:val"] !== "false") {
@@ -4132,6 +4264,138 @@ function readStyles(pkg) {
   return out;
 }
 
+// ../docx-core/src/lossless.ts
+function splitElement(raw) {
+  const el2 = parseXml(raw, { positions: true });
+  if (el2.cs === el2.e) {
+    const open = raw.replace(/\s*\/>\s*$/, ">");
+    return { open, close: `</${el2.name}>`, kids: [], el: el2 };
+  }
+  const kids = childElements(el2).map((k) => ({ name: k.name, raw: raw.slice(k.s, k.e), el: k }));
+  return { open: raw.slice(0, el2.cs), close: raw.slice(el2.ce), kids, el: el2 };
+}
+
+// ../docx-core/src/source.ts
+function runSig(run) {
+  return sigHash(JSON.stringify(run, sigReplacer));
+}
+function propsSig(p) {
+  return sigHash(JSON.stringify(p.props, sigReplacer));
+}
+function sigHash(s) {
+  let h1 = 3735928559, h2 = 1103547991;
+  for (let i2 = 0; i2 < s.length; i2++) {
+    const c = s.charCodeAt(i2);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ h1 >>> 16, 2246822507) ^ Math.imul(h2 ^ h2 >>> 13, 3266489909);
+  h2 = Math.imul(h2 ^ h2 >>> 16, 2246822507) ^ Math.imul(h1 ^ h1 >>> 13, 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+function sigReplacer(_k, v) {
+  return v instanceof Uint8Array ? `#bytes:${v.length}` : v;
+}
+var SourceStore = class {
+  next = 1;
+  paras = /* @__PURE__ */ new Map();
+  runs = /* @__PURE__ */ new Map();
+  tables = /* @__PURE__ */ new Map();
+  /** Por caminho da parte (word/document.xml, word/header1.xml…). */
+  stories = /* @__PURE__ */ new Map();
+  /** ids dos comentários existentes ao abrir (os marcadores deles ficam crus). */
+  commentIds = /* @__PURE__ */ new Set();
+  /** comments.xml original, para regravar só se a lista mudar. */
+  commentsSig;
+  /** numIds livres escolhidos (no 1º salvar) para as listas que o editor cria. */
+  genNumIds;
+  /** Parágrafos e tabelas lidos — a linha de base é tirada deles. */
+  paraRefs = [];
+  tableRefs = [];
+  /** Resultado de pristine/tablePristine por objeto durante UM salvamento. */
+  memo = /* @__PURE__ */ new WeakMap();
+  id() {
+    return this.next++;
+  }
+  /** Começo de um salvamento: o modelo pode ter mudado desde o anterior. */
+  beginSave() {
+    this.memo = /* @__PURE__ */ new WeakMap();
+  }
+  /** Posição de origem de um bloco (parágrafo ou tabela) pelo id. */
+  atOf(id) {
+    return this.paras.get(id)?.at ?? this.tables.get(id)?.at;
+  }
+  addPara(p, src) {
+    const id = this.id();
+    this.paras.set(id, src);
+    p.props.src = id;
+    this.paraRefs.push(p);
+    return id;
+  }
+  addTable(t, src) {
+    const id = this.id();
+    this.tables.set(id, src);
+    t.src = id;
+    this.tableRefs.push(t);
+    return id;
+  }
+  /** Linha de base: chamada pelo hospedeiro DEPOIS de instalar o documento
+   *  (o editor ajusta runs ao instalar — texto de campos, quebras de seção). */
+  baseline() {
+    for (const p of this.paraRefs) {
+      const id = p.props.src;
+      const src = id !== void 0 ? this.paras.get(id) : void 0;
+      if (!src) continue;
+      src.sig = { props: propsSig(p), sids: p.runs.map((r) => r.props.src ?? 0), runs: p.runs.map(runSig) };
+    }
+    for (const t of this.tableRefs) {
+      const src = t.src !== void 0 ? this.tables.get(t.src) : void 0;
+      if (src) src.sig = tableSig(t);
+    }
+    this.paraRefs = [];
+    this.tableRefs = [];
+  }
+  /**
+   * w:sectPr cru de uma seção: o do parágrafo que a encerra (a quebra nova
+   * copiada leva o dela em sectionBreak.raw; senão o do pPr de origem) ou, sem
+   * parágrafo, o do corpo (última seção). Base da cópia que uma quebra de seção
+   * nova grava — o Word copia o sectPr inteiro (oráculo tools/sections-lab).
+   */
+  sectPrRaw(closing) {
+    if (!closing) return this.stories.get("word/document.xml")?.sectPr;
+    if (closing.props.sectionBreak?.raw) return closing.props.sectionBreak.raw;
+    const pPr = closing.props.src !== void 0 ? this.paras.get(closing.props.src)?.pPr : void 0;
+    return pPr ? splitElement(pPr).kids.find((k) => k.name === "w:sectPr")?.raw : void 0;
+  }
+  /** Parágrafo igual à linha de base (mesmos runs, mesmas props). */
+  pristine(p) {
+    let v = this.memo.get(p);
+    if (v === void 0) this.memo.set(p, v = this.computePristine(p));
+    return v;
+  }
+  computePristine(p) {
+    const id = p.props.src;
+    const s = id !== void 0 ? this.paras.get(id)?.sig : void 0;
+    if (!s || p.runs.length !== s.sids.length) return false;
+    for (let i2 = 0; i2 < p.runs.length; i2++) {
+      const r = p.runs[i2];
+      if (r.props.src !== s.sids[i2] || runSig(r) !== s.runs[i2]) return false;
+    }
+    return propsSig(p) === s.props;
+  }
+  tablePristine(t) {
+    let v = this.memo.get(t);
+    if (v === void 0) {
+      const s = t.src !== void 0 ? this.tables.get(t.src)?.sig : void 0;
+      this.memo.set(t, v = s !== void 0 && tableSig(t) === s);
+    }
+    return v;
+  }
+};
+function tableSig(t) {
+  return sigHash(JSON.stringify(t, sigReplacer));
+}
+
 // ../docx-core/src/fulldoc.ts
 function readBorderSet(el2, inside) {
   if (!el2) return void 0;
@@ -4171,6 +4435,10 @@ function readBlocksOf(container, ctx) {
   return out;
 }
 function readTable(tblEl, ctx) {
+  const xml = ctx.sources && tblEl.s !== void 0 ? ctx.sourceXml : void 0;
+  const slice = (el2) => el2 && xml !== void 0 ? xml.slice(el2.s, el2.e) : void 0;
+  const openOf = (el2) => xml.slice(el2.s, el2.cs === el2.e ? el2.e : el2.cs).replace(/\s*\/>$/, ">");
+  const srcRows = [];
   const grid = firstChild(tblEl, "w:tblGrid");
   const gridColsTwips = grid ? childElements(grid, "w:gridCol").map((c) => parseInt(c.attrs["w:w"] ?? "0", 10) || 0) : [];
   const tblPrEl = firstChild(tblEl, "w:tblPr");
@@ -4178,7 +4446,12 @@ function readTable(tblEl, ctx) {
   const rows = [];
   for (const trEl of unwrap(tblEl, "w:tr")) {
     const cells = [];
+    const srcCells = [];
     for (const tcEl of unwrap(trEl, "w:tc")) {
+      if (xml !== void 0) {
+        const tcPrRaw = slice(firstChild(tcEl, "w:tcPr"));
+        srcCells.push({ open: openOf(tcEl), ...tcPrRaw ? { tcPr: tcPrRaw } : {} });
+      }
       const tcPrEl = firstChild(tcEl, "w:tcPr");
       const tcPr = readTcPr(tcPrEl);
       const shd = tcPrEl && firstChild(tcPrEl, "w:shd")?.attrs["w:fill"];
@@ -4201,6 +4474,11 @@ function readTable(tblEl, ctx) {
       cells.push(cell);
     }
     if (cells.length > 0) {
+      if (xml !== void 0) {
+        const trPrRaw = slice(firstChild(trEl, "w:trPr"));
+        const exRaw = slice(firstChild(trEl, "w:tblPrEx"));
+        srcRows.push({ open: openOf(trEl), cells: srcCells, ...trPrRaw ? { trPr: trPrRaw } : {}, ...exRaw ? { tblPrEx: exRaw } : {} });
+      }
       const row = { cells };
       const trPr = readTrPr(firstChild(trEl, "w:trPr"));
       if (trPr) row.trPr = trPr;
@@ -4212,16 +4490,69 @@ function readTable(tblEl, ctx) {
   const table = { type: "table", rows, gridColsTwips, borders: tblBorders };
   const tblPr = readTblPr(tblPrEl);
   if (tblPr) table.tblPr = tblPr;
+  if (xml !== void 0) {
+    const tblPrRaw = slice(tblPrEl);
+    const gridRaw = slice(grid);
+    ctx.sources.addTable(table, {
+      raw: xml.slice(tblEl.s, tblEl.e),
+      at: tblEl.s,
+      open: openOf(tblEl),
+      rows: srcRows,
+      ...tblPrRaw ? { tblPr: tblPrRaw } : {},
+      ...gridRaw ? { tblGrid: gridRaw } : {}
+    });
+  }
   return table;
 }
-function readHeaderFooterPart(pkg, path) {
+function blockSrc(b) {
+  return b.type === "paragraph" ? b.paragraph.props.src : b.src;
+}
+function storyOf(xml, container) {
+  return { open: xml.slice(0, container.cs), close: xml.slice(container.ce), groups: [] };
+}
+function groupOf(xml, child, produced, store) {
+  const ids = produced.map((b) => blockSrc(b) ?? 0);
+  const g = { raw: xml.slice(child.s, child.e), blocks: ids };
+  const content = child.name === "w:sdt" ? firstChild(child, "w:sdtContent") : child.name === "w:customXml" ? child : void 0;
+  if (content && content.cs !== void 0 && content.cs !== content.e) {
+    let start = content.cs;
+    if (content === child) for (const k of childElements(child)) {
+      if (k.name.endsWith("Pr")) start = k.e;
+      else break;
+    }
+    g.wrapOpen = xml.slice(child.s, start);
+    g.wrapClose = xml.slice(content.ce, child.e);
+    g.inner = childElements(content).filter((k) => !k.name.endsWith("Pr")).map((k) => {
+      const inside = produced.filter((b, i2) => {
+        const at = store.atOf(ids[i2]);
+        return at !== void 0 && at >= k.s && at < k.e;
+      });
+      return groupOf(xml, k, inside, store);
+    });
+  }
+  return g;
+}
+function readHeaderFooterPart(pkg, path, store) {
   const xml = pkg.getPartText(path);
   if (!xml) return void 0;
-  const root = parseXml(xml);
+  const root = parseXml(xml, { positions: !!store });
   const partName = path.split("/").pop();
   const ctx = buildReadContext(pkg, `word/_rels/${partName}.rels`);
   ctx.readBlocks = readBlocksOf;
-  const blocks = readBlocksOf(root, ctx);
+  let blocks;
+  if (!store) blocks = readBlocksOf(root, ctx);
+  else {
+    ctx.sources = store;
+    ctx.sourceXml = xml;
+    const story = storyOf(xml, root);
+    blocks = [];
+    for (const c of childElements(root)) {
+      const produced = readBlocksOf({ name: root.name, attrs: {}, children: [c] }, ctx);
+      story.groups.push(groupOf(xml, c, produced, store));
+      blocks.push(...produced);
+    }
+    store.stories.set(path, story);
+  }
   const paras = [];
   const walk = (bs) => {
     for (const bl of bs) {
@@ -4261,12 +4592,20 @@ function readComments(pkg) {
     text: childElements(c, "w:p").map((p) => readParagraph(p, ctx).runs.map((r) => r.text).join("")).join("\n")
   }));
 }
-function readFullDocument(pkg) {
-  const root = parseXml(pkg.documentXml());
+function readFullDocument(pkg, opts = {}) {
+  const docXml = pkg.documentXml();
+  const store = opts.sources ? new SourceStore() : void 0;
+  const root = parseXml(docXml, { positions: !!store });
   const body = firstChild(root, "w:body");
   if (!body) throw new Error("w:document sem w:body");
   const ctx = buildReadContext(pkg, "word/_rels/document.xml.rels");
   ctx.readBlocks = readBlocksOf;
+  const story = store ? storyOf(docXml, body) : void 0;
+  if (store) {
+    ctx.sources = store;
+    ctx.sourceXml = docXml;
+    store.stories.set("word/document.xml", story);
+  }
   const relsXml = pkg.getPartText("word/_rels/document.xml.rels");
   const relTargets = /* @__PURE__ */ new Map();
   if (relsXml) {
@@ -4286,7 +4625,7 @@ function readFullDocument(pkg) {
       const type = ref.attrs["w:type"] ?? "default";
       const target = rid && relTargets.get(rid);
       if (target && rid) {
-        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target));
+        if (!hfCache.has(target)) hfCache.set(target, readHeaderFooterPart(pkg, target, store));
         const part = hfCache.get(target);
         if (part) {
           set[type] = part.paras;
@@ -4340,7 +4679,9 @@ function readFullDocument(pkg) {
     }
     return out;
   };
-  for (const child of childElements(body)) {
+  const bodyKids = childElements(body);
+  for (const child of bodyKids) {
+    const before = blocks.length;
     if (child.name === "w:p") {
       const para = readParagraph(child, ctx);
       blocks.push({ type: "paragraph", paragraph: para });
@@ -4360,11 +4701,20 @@ function readFullDocument(pkg) {
         }
       }
     }
+    if (story) {
+      if (child.name === "w:sectPr" && child === bodyKids[bodyKids.length - 1]) story.sectPr = docXml.slice(child.s, child.e);
+      else story.groups.push(groupOf(docXml, child, blocks.slice(before), store));
+    }
   }
   if (sections.length === 0) {
     closeSection(firstChild(body, "w:sectPr") ?? { name: "w:sectPr", attrs: {}, children: [] }, blocks.length - 1);
   }
   if (blocks.length === 0) blocks.push({ type: "paragraph", paragraph: { runs: [], props: {} } });
+  const comments = readComments(pkg);
+  if (store) {
+    for (const c of comments) store.commentIds.add(c.id);
+    store.commentsSig = JSON.stringify(comments);
+  }
   const footnoteBlocks = /* @__PURE__ */ new Map();
   const endnoteBlocks = /* @__PURE__ */ new Map();
   return {
@@ -4372,7 +4722,7 @@ function readFullDocument(pkg) {
     sections,
     footnotes: readNotesPart(pkg, "word/footnotes.xml", "w:footnote", footnoteBlocks),
     endnotes: readNotesPart(pkg, "word/endnotes.xml", "w:endnote", endnoteBlocks),
-    comments: readComments(pkg),
+    comments,
     styles: readStyles(pkg),
     bookmarks,
     bookmarkOffsets,
@@ -4380,7 +4730,8 @@ function readFullDocument(pkg) {
     footnoteBlocks,
     endnoteBlocks,
     ...readCoreProps(pkg),
-    ...readBackground(root)
+    ...readBackground(root),
+    ...store ? { sources: store } : {}
   };
 }
 function readBackground(root) {
@@ -13663,17 +14014,6 @@ var NumberingState = class _NumberingState {
     for (const d of this.deferred) c.deferred.add(d);
     return c;
   }
-  /**
-   * Esquece quais w:num já foram usados: o próximo parágrafo de um w:num com
-   * startOverride reinicia de novo. Artefato do PDF do Word aberto e exportado
-   * direto (sem repaginar): os parágrafos formatados na abertura (1ª página e
-   * o bloco que transborda para a 2ª) guardam o número; o seguinte de uma lista
-   * com override recomeça. Chamado pelo motor após esse bloco (oráculo
-   * numbering3, pg2-*).
-   */
-  forgetFirstUse() {
-    this.seenNums.clear();
-  }
   /** Lista (abstractNum efetivo) de um w:num — espaçamento automático entre itens. */
   listKey(numId) {
     const a = numId ? this.abstractFor(numId) : null;
@@ -13857,11 +14197,7 @@ var eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 function directRPr(run) {
   const base = run.rpr ? { ...run.rpr } : {};
   const p = run.props;
-  const orig = runPropsFromRPr(run.rpr);
-  if (p.link && orig.underline === false) {
-    orig.underline = true;
-    orig.color ??= "0563C1";
-  }
+  const orig = editBaseProps(run, run.rpr);
   if (!run.rpr) {
     if (p.bold) base.b = true;
     if (p.italic) base.i = true;
@@ -13870,11 +14206,11 @@ function directRPr(run) {
     if (p.doubleStrike) base.dstrike = true;
     if (p.allCaps) base.caps = true;
     if (p.smallCaps) base.smallCaps = true;
-    if (p.vertAlign) base.vertAlign = p.vertAlign;
+    if (p.vertAlign && p.vertAlign !== orig.vertAlign) base.vertAlign = p.vertAlign;
     if (p.szHalfPt !== void 0) base.sz = p.szHalfPt;
     if (p.color && !(p.link && p.color === "0563C1")) base.color = { val: p.color };
     if (p.highlight) base.highlight = p.highlight;
-    if (p.fontAscii) base.rFonts = { ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii };
+    if (p.fontAscii && p.fontAscii !== orig.fontAscii) base.rFonts = { ascii: p.fontAscii, hAnsi: p.fontAscii, cs: p.fontAscii };
     if (p.charSpacingTwips) base.spacing = p.charSpacingTwips;
     return base;
   }
@@ -14378,6 +14714,7 @@ function chooseHyphenation(ctx, gs, u) {
 }
 
 // ../docx-layout/src/para.ts
+var GLUED_FIELD = /* @__PURE__ */ new WeakSet();
 var CJK = (cp) => cp >= 11904 && cp <= 40959 || cp >= 44032 && cp <= 55215 || cp >= 63744 && cp <= 64255 || cp >= 65280 && cp <= 65519 || cp >= 12288 && cp <= 12351;
 var NO_BREAK_AFTER_DASH = /^[\s\u00a0\u202f\u2000-\u200b\u3000\ufeff\u00ad]$/u;
 var CS = (cp) => cp >= 1424 && cp <= 2303 || cp >= 64285 && cp <= 65023 || cp >= 65136 && cp <= 65279;
@@ -14433,7 +14770,7 @@ function faceFor(ctx, rpr, cp, style, symFont) {
   const theme = ctx.fmt.theme;
   let family;
   let bold = style.bold, italic = style.italic;
-  if (symFont && cp >= 61440 && cp <= 61695) family = symFont;
+  if (symFont && (cp >= 61440 && cp <= 61695 || !CJK(cp))) family = symFont;
   else if (CJK(cp)) family = fontOfSlot(rpr.rFonts, "eastAsia", theme) ?? fontOfSlot(rpr.rFonts, "ascii", theme);
   else if (CS(cp) || rpr.cs || rpr.rtl) {
     family = fontOfSlot(rpr.rFonts, "cs", theme) ?? fontOfSlot(rpr.rFonts, "ascii", theme);
@@ -14650,7 +14987,9 @@ function fieldRuns(run, env) {
     const v = env.field?.(name, instr);
     if (v !== void 0) {
       const base = run.fieldResult?.find((r) => !r.image && !r.textbox) ?? run;
-      return [{ ...base, text: v, field: void 0, fieldResult: void 0 }];
+      const out = { ...base, text: v, field: void 0, fieldResult: void 0 };
+      if (env.hf && name === "PAGE") GLUED_FIELD.add(out);
+      return [out];
     }
   }
   if (run.fieldResult?.length) {
@@ -14900,7 +15239,6 @@ function prepareParagraph(ctx, para, env0) {
   };
   for (const { run, idx, offset } of displayRuns(para, env)) {
     const direct = directRPr(run);
-    if (run.noteRef && run.rpr?.vertAlign === void 0) delete direct.vertAlign;
     if (run.inToc && direct.rStyle && isHyperlinkStyle(ctx, direct.rStyle)) delete direct.rStyle;
     const rpr = runRPr(direct);
     const style = resolveRunStyle(ctx, rpr, env, run.props.link);
@@ -14973,16 +15311,18 @@ function prepareParagraph(ctx, para, env0) {
     }
     if (run.noteRef && !run.text) {
       const num = run.noteRef.kind === "footnote" ? ctx.footnoteNumber(run.noteRef.id) : ctx.endnoteNumber(run.noteRef.id);
-      const before = glyphs.length;
+      const before2 = glyphs.length;
       pushChars(String(num), run, rpr, style, offset, idx);
-      if (run.noteRef.kind === "footnote") for (let k = before; k < glyphs.length; k++) glyphs[k].noteId = run.noteRef.id;
+      if (run.noteRef.kind === "footnote") for (let k = before2; k < glyphs.length; k++) glyphs[k].noteId = run.noteRef.id;
       continue;
     }
     if (run.math) {
       pushMath(run, idx, offset);
       continue;
     }
+    const before = glyphs.length;
     pushChars(run.text, run, rpr, style, offset, idx, /^\s*FORMTEXT\b/i.test(para.runs[idx]?.field ?? ""));
+    if (GLUED_FIELD.has(run)) for (let k = before + 1; k < glyphs.length; k++) glyphs[k].glue = true;
   }
   for (let k = 1; k < glyphs.length; k++) {
     if (glyphs[k].kind !== "obj" || glyphs[k].adv <= 0) continue;
@@ -15207,7 +15547,13 @@ var LineBreaker = class {
       w += q.kind === "shy" ? 0 : q.adv;
       if (q.breakAfter) break;
     }
-    return w + (this.lineIdx === 0 ? Math.max(0, this.p.firstLine) : 0);
+    return w + (this.indentFirst() ? Math.max(0, this.p.firstLine) : 0);
+  }
+  /** Linha com o recuo da 1ª linha e o número da lista: a 1ª — ou, no parágrafo que
+   *  COMEÇA com quebra de coluna, a que vem depois dela, na coluna seguinte (a linha da
+   *  quebra fica sem os dois — oráculo brfirst, corpus t70). */
+  indentFirst() {
+    return this.lineIdx === (this.p.glyphs[0]?.kind === "cb" && this.p.glyphs.length > 1 ? 1 : 0);
   }
   mark() {
     return { pos: this.pos, lineIdx: this.lineIdx, trailingBreak: this.trailingBreak, hyphenRun: this.hyphenRun };
@@ -15230,17 +15576,17 @@ var LineBreaker = class {
   next(frame) {
     const p = this.p;
     const gs = p.glyphs;
-    const first = this.lineIdx === 0;
+    const indFirst = this.indentFirst();
     const start = this.pos;
-    const xStart = frame.left + (first ? p.firstLine : 0);
+    const xStart = frame.left + (indFirst ? p.firstLine : 0);
     let right = frame.right;
-    let rightQ = this.fitRight(frame, xStart, first);
+    let rightQ = this.fitRight(frame, xStart, indFirst);
     const placed = [];
     let x2 = xStart;
     let markerPlaced;
     const defaultTab = this.ctx.fmt.settings.defaultTabStop;
-    const hangingStop = first && p.firstLine < 0 ? frame.left : void 0;
-    if (first && p.marker) {
+    const hangingStop = indFirst && p.firstLine < 0 ? frame.left : void 0;
+    if (indFirst && p.marker) {
       const mk = p.marker;
       let mx = xStart;
       if (mk.jc === "right") mx -= mk.width;
@@ -15351,7 +15697,7 @@ var LineBreaker = class {
             spanned = true;
             x2 = frame.next.left;
             right = frame.next.right;
-            rightQ = this.fitRight({ left: frame.left, right }, xStart, first);
+            rightQ = this.fitRight({ left: frame.left, right }, xStart, indFirst);
             ({ pos, tab } = nx);
           } else if (i2 > start) {
             gapTab = "break";
@@ -15480,7 +15826,7 @@ var LineBreaker = class {
           pendTab = null;
           break;
         }
-        break;
+        if (!g.glue) break;
       }
       if (g.kind === "shy") {
         placed.push({ g, x: x2, w: 0 });
@@ -17325,7 +17671,7 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     const sp = sumOf(p, () => true);
     return sp > 0 && T2 > sp + 0.5 ? p.map((x2) => x2 * T2 / sp) : p;
   }
-  const R = T2 - sumOf(p, () => true);
+  let R = T2 - sumOf(p, () => true);
   const g3 = g3of(T2), g4 = g4of(T2);
   const S1 = sumOf(g1, np), S3 = sumOf(g3, np), S4 = sumOf(g4, np);
   const lerp = (a, b, t) => a.map((x2, j) => isPct[j] ? p[j] : x2 + (b[j] - x2) * t);
@@ -17346,7 +17692,11 @@ function columnWidthsExact(cells, nCols, docGrid, tblW, fixed, base, avail) {
     const si = inner.reduce((a, b) => a + b, 0), cut = S1 - avail;
     return g1.map((x2, j) => x2 - (si > 0 ? cut * inner[j] / si : cut / nCols));
   }
-  if (explicit) return g3.map((x2, j) => isPct[j] ? p[j] : x2);
+  if (explicit) {
+    if (!(S1 > avail + 0.5 && (tw2 === "pct" ? T2 <= avail + 0.5 : T2 < avail - 0.5))) return g3.map((x2, j) => isPct[j] ? p[j] : x2);
+    R += avail - T2;
+    T2 = avail;
+  }
   const sg = docGrid.reduce((a, b) => a + b, 0);
   if (!isPct.some(Boolean) && Math.abs(sg - T2) <= Math.max(20, 5e-3 * T2)) return docGrid.map((x2) => x2 * T2 / sg);
   return g1.map((x2, j) => isPct[j] ? p[j] : S1 > 0 ? x2 * R / S1 : x2);
@@ -17687,7 +18037,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const wl = separated ? borderWidth(edge(s, "left")) : 0, wr = separated ? borderWidth(edge(s, "right")) : 0;
       const x0 = !separated ? x0r : spTbl > 0 ? x0r + wl : x0r + Math.max(wl - marL, wl / 2);
       const x1 = !separated ? x1r : spTbl > 0 ? x1r - wr : x1r - Math.max(wr - marR, wr / 2);
-      const env = { tablePPr: pPr, tableRPr: rPr, ...isDark(cellFill(ctx, tcPr, tblPr, theme)) ? { darkBackground: true } : {} };
+      const env = { tablePPr: pPr, tableRPr: rPr, ...isDark(cellFill(tcPr, theme)) ? { darkBackground: true } : {} };
       const vertical = tcPr.textDirection === "btLr" || tcPr.textDirection === "tbRl" || tcPr.textDirection === "tbRlV" ? tcPr.textDirection : void 0;
       const info = { slot: s, tcPr, x0, x1, bx0, bx1, marT, marB, marL, marR, env, ...vertical ? { vertical } : {} };
       if (!s.merged) {
@@ -17761,10 +18111,25 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       const mergeAt = [];
       if (separated) {
         const cy0 = bTop - sepWT[ri], cy1 = bTop + ch + (bBottom > 0 ? sepWB[ri] : 0);
+        const tblFill = shdFill(tblPr.shd, theme);
+        if (tblFill) {
+          const xl2 = x2 + g0, xr2 = x2 + gn;
+          const strip = (x0, y0, x1, y1) => {
+            if (x1 - x0 > 0.01 && y1 - y0 > 0.01) its.push({ t: "rect", x: x0, y: y0, w: x1 - x0, h: y1 - y0, fill: tblFill });
+          };
+          strip(xl2, 0, xr2, cy0);
+          strip(xl2, cy1, xr2, rh);
+          let cx = xl2;
+          for (const ci of [...cellInfos].sort((a, b) => a.bx0 - b.bx0)) {
+            strip(cx, cy0, x2 + ci.bx0, cy1);
+            cx = Math.max(cx, x2 + ci.bx1);
+          }
+          strip(cx, cy0, xr2, cy1);
+        }
         for (const ci of cellInfos) {
           const s = ci.slot;
           if (s.merged) continue;
-          const fill = cellFill(ctx, ci.tcPr, tblPr, theme);
+          const fill = cellFill(ci.tcPr, theme);
           const content = contents.get(s);
           if (fill) its.push({ t: "rect", x: x2 + ci.bx0, y: cy0, w: ci.bx1 - ci.bx0, h: cy1 - cy0, fill });
           if (s.rowSpan > 1) mergeAt.push({ col: s.col, at: its.length, endRow: ri + s.rowSpan - 1 });
@@ -17801,7 +18166,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
       let ownBand = 0;
       for (const ci of cellInfos) {
         const s = ci.slot;
-        const fill = cellFill(ctx, ci.tcPr, tblPr, theme);
+        const fill = cellFill(ci.tcPr, theme);
         const content = contents.get(s);
         if (!s.merged && s.rowSpan > 1) mergeAt.push({ col: s.col, at: its.length, endRow: ri + s.rowSpan - 1 });
         if (!s.merged && s.rowSpan === 1) {
@@ -17906,7 +18271,7 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
     const h = rowHeights.slice(m.startRow, endRow + 1).reduce((a, b) => a + b, 0) - bandTopOf(m.startRow) - bandBottomOf(endRow);
     const first = rows[m.startRow];
     const target = rows[endRow] ?? first;
-    const fill = cellFill(ctx, m.tcPr, tblPr, theme);
+    const fill = cellFill(m.tcPr, theme);
     if (fill) {
       const item = { t: "rect", x: x2 + m.x0, y: 0, w: m.x1 - m.x0, h, fill };
       first.items.unshift(item);
@@ -17927,12 +18292,13 @@ function layoutTable(ctx, table0, frameX, frameWidth, layoutCell, ref) {
   const borderLeft = slots[0]?.[0] ? borderWidth(edge(slots[0][0], "left")) : 0;
   return { x: x2, width, rows, borderLeft, ...legacy ? { effR } : {}, ...tblPr.tblpPr ? { tblpPr: tblPr.tblpPr } : {} };
 }
-function cellFill(ctx, tcPr, tblPr, theme) {
-  const shd = tcPr.shd ?? tblPr.shd;
+function cellFill(tcPr, theme) {
+  return shdFill(tcPr.shd, theme);
+}
+function shdFill(shd, theme) {
   if (!shd) return void 0;
   if (shd.val === "solid") return resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
   const fill = shd.themeFill ? resolveColor({ themeColor: shd.themeFill, themeTint: shd.themeFillTint, themeShade: shd.themeFillShade }, theme) : shd.fill && shd.fill !== "auto" ? shd.fill.toUpperCase() : void 0;
-  void ctx;
   if (shd.val && /^pct(\d+)$/.test(shd.val)) {
     const pct = parseInt(shd.val.slice(3), 10) / 100;
     const fg = resolveColor({ val: shd.color, themeColor: shd.themeColor }, theme) ?? "000000";
@@ -18478,6 +18844,7 @@ function liftFrames(blocks, stops) {
 
 // ../docx-layout/src/engine.ts
 var zItems = (objs) => [...objs].sort((a, b) => a.z - b.z || a.seq - b.seq).flatMap((o) => o.items);
+var COL_SEP_W = 16.8;
 function layoutDocument(full0, provider, opts = {}) {
   const fmt2 = full0.formatting ?? emptyFormatting();
   const lifted = liftFrames(full0.blocks, new Set(full0.sections.map((s) => s.blockEnd)));
@@ -18517,7 +18884,10 @@ function layoutDocument(full0, provider, opts = {}) {
     done.add(s);
     let lo = Math.max(0, Math.floor(info.sum / info.n) - 1), hi = Math.ceil(info.bottom - info.colTop);
     if (hi <= lo + 1) continue;
-    const fits = (h) => runWith(new Map([...balance, [s, { page: info.page, h }]])).balanceFound.get(s)?.page === info.page;
+    const fits = (h) => {
+      const f = runWith(new Map([...balance, [s, { page: info.page, h }]])).balanceFound.get(s);
+      return f?.page === info.page && f.used[f.used.length - 1] <= f.used[0] + 1;
+    };
     if (!fits(hi)) continue;
     while (hi - lo > 1) {
       const mid = Math.floor((lo + hi) / 2);
@@ -18726,40 +19096,25 @@ var Engine = class {
         footerRefs: []
       }, 0));
     }
-    let numReopen = 0;
-    let openLimit = 0;
-    const toPage2 = () => {
-      const p1 = this.pages[0], p2 = this.pages[1];
-      openLimit = p2.bodyTop + Math.max(0, p1.bodyTop - p1.geom.marT);
-      numReopen = 1;
-    };
-    const pastOpen = () => {
-      if (numReopen === 1 && (this.cur !== this.pages[1] || this.y >= openLimit)) numReopen = 2;
-    };
     for (const g of this.geoms) {
-      if (g.index === 0 || g.type !== "continuous") {
+      const samePaper = !!this.cur && this.cur.page.widthTw === g.pageW && this.cur.page.heightTw === g.pageH;
+      if (g.index > 0 && g.type === "nextColumn" && samePaper && this.nextColumnFits(g)) this.nextColumnSection(g);
+      else if (g.index === 0 || g.type !== "continuous" || !samePaper) {
         const lastAfter = this.prev ? this.prev.after : 0;
         this.newPage(g, g.type);
         if (g.index > 0) this.topGapPrevAfter = lastAfter;
       } else this.continuousSection(g);
       for (let b = g.blocks[0]; b <= g.blocks[1] && b < full.blocks.length; b++) {
         const block = full.blocks[b];
-        if (numReopen === 0 && this.pages.length >= 2) {
-          toPage2();
-          pastOpen();
-        }
-        if (numReopen === 2) {
-          this.ctx.numbering.forgetFirstUse();
-          numReopen = 3;
-        }
         if (block.type === "paragraph") this.placeParagraph(block.paragraph, `b${b}`, b, g);
         else this.placeTable(block, `b${b}`, b);
-        if (numReopen === 0 && this.pages.length >= 2) toPage2();
-        pastOpen();
       }
     }
     for (let k = 0; k < 100 && this.floatCarry.length && this.cur; k++) this.newPage(this.cur.geom);
-    if (this.cur) this.paintNotes(this.cur);
+    if (this.cur) {
+      this.closeColumns();
+      this.paintNotes(this.cur);
+    }
     const bgSpec = full.background;
     const bg = bgSpec ? resolveColor({ ...bgSpec.color ? { val: bgSpec.color } : {}, ...bgSpec.themeColor ? { themeColor: bgSpec.themeColor } : {}, ...bgSpec.themeTint ? { themeTint: bgSpec.themeTint } : {}, ...bgSpec.themeShade ? { themeShade: bgSpec.themeShade } : {} }, this.ctx.fmt.theme) : void 0;
     const pages = this.pages.map((ps) => {
@@ -18941,7 +19296,10 @@ var Engine = class {
       noteArea: 0,
       bodyBottomBase: g.pageH - g.marB
     };
-    if (this.cur) this.paintNotes(this.cur);
+    if (this.cur) {
+      this.closeColumns();
+      this.paintNotes(this.cur);
+    }
     this.pages.push(ps);
     this.cur = ps;
     this.colMaxY = 0;
@@ -18961,28 +19319,68 @@ var Engine = class {
     const ending = this.cur.geom;
     if (ending.cols.length > 1) {
       const used = [...this.colUsed, this.y - this.colTop];
-      this.balanceFound.set(ending.index, { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length });
+      this.balanceFound.set(ending.index, { page: this.pages.length - 1, colTop: this.colTop, bottom: this.balanceSaved ?? this.cur.bodyBottom, sum: used.reduce((a, b) => a + Math.max(0, b), 0), n: ending.cols.length, used });
     }
     if (this.balanceSaved !== null) {
       this.cur.bodyBottom = this.balanceSaved;
       this.balanceSaved = null;
     }
+    this.closeColumns();
     this.colUsed = [];
+    const lastAfter = this.prev && !this.atTop ? this.prev.after : 0;
+    if ((ending.cols.length > 1 || g.cols.length > 1) && lastAfter > 0 && this.sectGapAfter === null) {
+      this.y = Math.min(this.y + lastAfter, this.cur.bodyBottom);
+      this.sectGapAfter = lastAfter;
+    }
     this.y = Math.max(this.y, this.colMaxY);
     this.colMaxY = 0;
     this.cur.geom = g;
+    delete this.cur.cols;
     this.col = 0;
     this.colTop = this.y;
     this.applyBalance();
   }
+  /** "Próxima coluna" continua na mesma página: mesmo nº de colunas e não estamos
+   *  na última (senão vale como próxima página — oráculo sections, nc-*) */
+  nextColumnFits(g) {
+    if (!this.cur || g.cols.length < 2) return false;
+    const cols = this.pageCols();
+    return cols.length === g.cols.length && this.col < cols.length - 1;
+  }
+  /** Seção "próxima coluna": a seção nova começa no topo da coluna seguinte, com as
+   *  colunas da página de antes (as dela valem da próxima página em diante); o 1º
+   *  parágrafo leva o "antes" descontado do "depois" anterior, como numa seção nova
+   *  (oráculo sections, nc-2to2-before). A seção que termina não é equilibrada. */
+  nextColumnSection(g) {
+    const lastAfter = this.prev ? this.prev.after : 0;
+    if (this.balanceSaved !== null) {
+      this.cur.bodyBottom = this.balanceSaved;
+      this.balanceSaved = null;
+    }
+    const cols = this.pageCols();
+    this.cur.cols = cols;
+    this.cur.geom = g;
+    this.colUsed.push(this.y - this.colTop);
+    this.colMaxY = Math.max(this.colMaxY, this.y);
+    this.col++;
+    this.y = this.colTop;
+    this.atTop = true;
+    this.prev = null;
+    this.topGapPrevAfter = lastAfter;
+  }
+  /** Colunas da página corrente (as da seção, salvo "próxima coluna"). */
+  pageCols() {
+    return this.cur.cols ?? this.cur.geom.cols;
+  }
   colFrame() {
-    const c = this.cur.geom.cols[this.col] ?? this.cur.geom.cols[0];
+    const cols = this.pageCols();
+    const c = cols[this.col] ?? cols[0];
     return { x: c.x, w: c.w };
   }
   /** Fim da coluna: próxima coluna ou nova página. */
   breakColumn() {
     const g = this.cur.geom;
-    if (this.col < g.cols.length - 1) {
+    if (this.col < this.pageCols().length - 1) {
       this.colUsed.push(this.y - this.colTop);
       this.colMaxY = Math.max(this.colMaxY, this.y);
       this.col++;
@@ -18990,6 +19388,32 @@ var Engine = class {
       this.atTop = true;
       this.prev = null;
     } else this.newPage(g);
+  }
+  /** fim do conteúdo de cada coluna da área de colunas corrente (com o "depois"
+   *  do último parágrafo); ausente = coluna vazia */
+  colBottoms = [];
+  /** Conteúdo na coluna corrente até `bottom` (linha entre colunas). */
+  noteColContent(bottom) {
+    const c = this.col;
+    this.colBottoms[c] = Math.max(this.colBottoms[c] ?? -Infinity, Math.min(bottom, this.balanceSaved ?? this.cur.bodyBottom));
+  }
+  /**
+   * Fecha a área de colunas corrente (nova página, seção contínua, fim): com
+   * w:sep, a linha entre colunas — retângulo preto de 0,84 pt no meio do vão,
+   * do topo das colunas até o fim da coluna mais comprida, só antes das colunas
+   * que têm conteúdo nesta página (oráculo sections, sep-*).
+   */
+  closeColumns() {
+    const ps = this.cur, cols = this.pageCols(), b = this.colBottoms;
+    this.colBottoms = [];
+    if (!ps || !ps.geom.colSep || cols.length < 2 || !b.length) return;
+    const bottom = Math.max(...b.filter((v) => v !== void 0));
+    if (!(bottom > this.colTop)) return;
+    for (let c = 1; c < cols.length; c++) {
+      if (b[c] === void 0) continue;
+      const x2 = (cols[c - 1].x + cols[c - 1].w + cols[c].x) / 2;
+      ps.body.push({ t: "rect", x: x2 - COL_SEP_W / 2, y: this.colTop, w: COL_SEP_W, h: bottom - this.colTop, fill: "000000" });
+    }
   }
   // ───────────────────────── cabeçalho / rodapé ─────────────────────────
   fieldValue(ps) {
@@ -19028,7 +19452,7 @@ var Engine = class {
     const even = settings.evenAndOddHeaders && ps.page.number % 2 === 0;
     const kind = first ? "first" : even ? "even" : "default";
     const pick = (set) => first ? set.first : even ? set.even : set.default;
-    const env = { field: this.fieldValue(ps) };
+    const env = { field: this.fieldValue(ps), hf: true };
     const width = g.pageW - g.marL - g.marR;
     const savedNum = this.ctx.numbering;
     this.ctx.numbering = new NumberingState(this.ctx.fmt.numbering, this.ctx.fmt.styles.styles, this.ctx.opts.lang);
@@ -19391,6 +19815,7 @@ var Engine = class {
     const blocks = cell.blocks ?? cell.paragraphs.map((paragraph) => ({ type: "paragraph", paragraph }));
     const penv = { ...env.tablePPr ? { tablePPr: env.tablePPr } : {}, ...env.tableRPr ? { tableRPr: env.tableRPr } : {}, ...env.darkBackground ? { darkBackground: true } : {} };
     if (ps) penv.field = this.fieldValue(ps);
+    if (this.inHf) penv.hf = true;
     const c = this.layoutStatic(blocks, x2, width, penv, ref, ps, 0, this.cellNb.get(cell));
     if (cell.tcPr?.hideMark && blocks.every((b) => b.type === "paragraph" && !paraVisibility(this.ctx, b.paragraph, penv).visible)) return { ...c, height: 0 };
     const lastB = blocks[blocks.length - 1];
@@ -19683,6 +20108,7 @@ var Engine = class {
       }
       const last = frag[frag.length - 1];
       let bottom = last.y + last.line.height;
+      this.noteColContent(bottom);
       if (isLast) bottom += this.borderBottomExtent(p, groupedNext);
       this.paintBox(this.cur.body, p, frameX, this.colFrame().w, boxTop, bottom, frag === null ? null : this.prev, boxAt, isLast && groupedNext);
       frag = [];
@@ -19915,6 +20341,7 @@ var Engine = class {
     } while (!br.done());
     flushFrag(true);
     this.y += this.borderBottomExtent(p, groupedNext);
+    if (!this.atTop) this.noteColContent(this.y + (p.afterAuto ? 280 : p.spaceAfter));
     for (const r of earlyRuns) this.prePlaced.add(r);
     this.placeFloats(p, anchorAt.ps, anchorAt.x, anchorAt.w, anchorAt.top, anchorAt.ps.body, 0, anchorAt.ref);
     for (const r of earlyRuns) this.prePlaced.delete(r);
@@ -20619,6 +21046,7 @@ var Engine = class {
     for (const l of row.lines) this.cur.page.lines.push({ ...l, y: l.y + this.y, baseline: l.baseline + this.y });
     this.y += row.height;
     this.atTop = false;
+    this.noteColContent(this.y);
   }
   // ───────────────────────── objetos flutuantes ─────────────────────────
   /** Quadro de uma linha descontando floats com contorno (wrap) que a cruzam. */
@@ -20626,8 +21054,17 @@ var Engine = class {
     const floats = ps.floats;
     if (!floats.length) return frame;
     const { left, right } = frame;
+    const crossed = right < left;
+    let tl = left, tr = right;
+    if (crossed) {
+      const col = this.colFrame();
+      if (Math.abs(frameX - col.x) < 0.5) {
+        tl = Math.min(left, 0);
+        tr = Math.max(left, col.w);
+      } else tr = left;
+    }
     let skipTo;
-    let free = [[left, right]];
+    let free = [[tl, tr]];
     let hit = false;
     let minBottom = Infinity;
     for (const f of floats) {
@@ -20636,7 +21073,7 @@ var Engine = class {
       const top = f.y - f.distT, bottom = f.y + f.h + f.distB;
       if (y + lineH <= top + 0.5 || y >= bottom - 0.5) continue;
       const fl2 = f.x - f.distL - frameX, fr = f.x + f.w + f.distR - frameX;
-      if (fr <= left || fl2 >= right) continue;
+      if (fr <= tl || fl2 >= tr) continue;
       if (f.wrap === "topAndBottom") {
         skipTo = Math.max(skipTo ?? 0, bottom);
         continue;
@@ -20648,7 +21085,7 @@ var Engine = class {
       if (side === "left") bh = Infinity;
       else if (side === "right") bl = -Infinity;
       else if (side === "largest") {
-        if (fl2 - left >= right - fr) bh = Infinity;
+        if (fl2 - tl >= tr - fr) bh = Infinity;
         else bl = -Infinity;
       }
       const next = [];
@@ -20665,7 +21102,7 @@ var Engine = class {
     if (hit) {
       const col = this.colFrame();
       const cR = Math.abs(frameX - col.x) < 0.5 ? col.w : Infinity, cL = cR === Infinity ? -Infinity : 0;
-      const ext = (a, b) => cR === Infinity ? [a, b] : [a <= left + 0.5 ? Math.min(a, cL) : a, b >= right - 0.5 ? Math.max(b, cR) : b];
+      const ext = (a, b) => cR === Infinity ? [a, b] : [a <= tl + 0.5 ? Math.min(a, cL) : a, b >= tr - 0.5 ? Math.max(b, cR) : b];
       free = free.filter(([a, b]) => {
         const [ea, eb] = ext(a, b);
         return Math.min(eb, cR) - Math.max(ea, cL) >= MIN_GAP;
@@ -20673,7 +21110,7 @@ var Engine = class {
       let best;
       for (const iv of free) if (!best || iv[1] - iv[0] > best[1] - best[0]) best = iv;
       if (!best) skipTo = Math.max(skipTo ?? 0, minBottom);
-      else if (skipTo === void 0) return { left: best[0], right: best[1], gap: true, ...free.length > 1 ? { segs: free } : {} };
+      else if (skipTo === void 0) return crossed ? { left, right } : { left: best[0], right: best[1], gap: true, ...free.length > 1 ? { segs: free } : {} };
     }
     if (skipTo !== void 0) return { ...frame, skipTo };
     return { left, right };
@@ -20721,14 +21158,15 @@ var Engine = class {
     const anchor = run.image?.anchor ?? run.shape?.anchor ?? run.group?.anchor ?? run.textbox?.anchor;
     let w = run.image?.widthTwips ?? run.shape?.widthTwips ?? run.group?.widthTwips ?? run.textbox?.widthTwips ?? 0;
     let h = run.image?.heightTwips ?? run.shape?.heightTwips ?? run.group?.heightTwips ?? run.textbox?.heightTwips ?? 0;
-    const behind = !!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc;
+    const wrapsText = !!anchor && anchor.wrap !== "none";
+    const behind = !(wrapsText && this.ctx.fmt.settings.compatibilityMode >= 15) && (!!anchor?.behindDoc || !!run.image?.behindDoc || !!run.textbox?.behindDoc);
     let tbContent = null;
     let tbFinal = null;
     if (run.textbox) {
       const tb = run.textbox;
       const ins = tbInsets(tb, this.ctx.fmt.theme, w, h);
       const blocks = tb.blocks ?? tb.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-      const env = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)) };
+      const env = { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(run.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} };
       let inner = w - ins.l - ins.r;
       const fi = FRAME_INFO.get(tb);
       if (fi?.autoWidth) {
@@ -20974,7 +21412,7 @@ var Engine = class {
         if (r.textbox) {
           const ins = tbInsets(r.textbox, this.ctx.fmt.theme, iw, ih);
           const blocks = r.textbox.blocks ?? r.textbox.paras.map((paragraph) => ({ type: "paragraph", paragraph }));
-          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)) }, "grp", ps);
+          tc = this.layoutStatic(blocks, 0, Math.max(1, iw - ins.l - ins.r), { field: this.fieldValue(ps), darkBackground: isDark(resolveDrawingColor(r.textbox.shape?.fill, this.ctx.fmt.theme)), ...this.inHf ? { hf: true } : {} }, "grp", ps);
         }
         out.push(...this.paintObject(r, ix, iy, iw, ih, tc, ps, true));
       }
