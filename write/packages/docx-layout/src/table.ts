@@ -604,7 +604,10 @@ function paraContentWidths(p: PreparedPara, defaultTab: number): { min: number; 
 
 interface CellSlot {
   cell: TableCell;
+  /** coluna da grade na TELA (tabela da direita para a esquerda: espelhada) */
   col: number;
+  /** coluna lógica (a do arquivo): condicionais e referências */
+  lcol: number;
   span: number;
   row: number;
   tcPr: TcPr;
@@ -668,11 +671,23 @@ export function layoutTable(
     for (const cell of row.cells) {
       const tc = cell.tcPr ?? {};
       const span = Math.max(1, tc.gridSpan ?? cell.gridSpan ?? 1);
-      rowSlots.push({ cell, col, span, row: ri, tcPr: tc, rowSpan: 1, merged: tc.vMerge === 'continue' });
+      // mescla horizontal antiga (w:hMerge): a continuação alarga a célula inicial
+      // (o Word a converte em gridSpan ao abrir; o conteúdo dela não aparece)
+      const prev = rowSlots[rowSlots.length - 1];
+      if (tc.hMerge === 'continue' && prev && prev.col + prev.span === col) { prev.span += span; col += span; continue; }
+      rowSlots.push({ cell, col, lcol: col, span, row: ri, tcPr: tc, rowSpan: 1, merged: tc.vMerge === 'continue' });
       col += span;
     }
     slots.push(rowSlots);
   });
+  // w:bidiVisual (tabela da direita para a esquerda): a 1ª coluna fica à direita —
+  // a grade é espelhada (colunas, larguras e os lados esquerdo/direito de bordas e
+  // margens); condicionais e referências continuam pela coluna lógica
+  const rtl = !!tblPr.bidiVisual;
+  if (rtl) {
+    for (const rs of slots) { for (const sl of rs) sl.col = nCols - sl.lcol - sl.span; rs.reverse(); }
+    docGrid.reverse();
+  }
   // amarra continuações à célula inicial
   for (let ri = 0; ri < slots.length; ri++) {
     for (const s of slots[ri]!) {
@@ -690,10 +705,10 @@ export function layoutTable(
     const out: TblStyleType[] = ['wholeTable'];
     const firstRow = look.firstRow && ri === 0 || !!table.rows[ri]?.trPr?.tblHeader && look.firstRow;
     const lastRow = look.lastRow && ri === nRows - 1;
-    const firstCol = look.firstColumn && s.col === 0;
-    const lastCol = look.lastColumn && s.col + s.span >= nCols;
+    const firstCol = look.firstColumn && s.lcol === 0;
+    const lastCol = look.lastColumn && s.lcol + s.span >= nCols;
     if (!look.noVBand) {
-      const c0 = s.col - (look.firstColumn ? 1 : 0);
+      const c0 = s.lcol - (look.firstColumn ? 1 : 0);
       if (c0 >= 0 && !(lastCol && look.lastColumn)) out.push(Math.floor(c0 / colBand) % 2 === 0 ? 'band1Vert' : 'band2Vert');
     }
     if (!look.noHBand) {
@@ -725,17 +740,20 @@ export function layoutTable(
         pPr = mergePPr(pPr, part.pPr);
         rPr = mergeRPr(rPr, part.rPr);
       }
-      resolved.set(s, { tcPr: mergeTcPr(tcPr, s.tcPr), pPr, rPr });
+      const merged = mergeTcPr(tcPr, s.tcPr);
+      resolved.set(s, { tcPr: rtl ? { ...merged, ...(merged.tcBorders ? { tcBorders: swapLR(merged.tcBorders) } : {}), ...(merged.tcMar ? { tcMar: swapLR(merged.tcMar) } : {}) } : merged, pPr, rPr });
     }
   }
 
   // ── bordas ──
-  const tblBorders = tblPr.tblBorders ?? {};
+  const tblBorders = (rtl ? swapLR(tblPr.tblBorders) : tblPr.tblBorders) ?? {};
+  const exBorders = (ri: number): typeof tblBorders | undefined => (rtl ? swapLR(table.rows[ri]?.tblPrEx?.tblBorders) : table.rows[ri]?.tblPrEx?.tblBorders);
+  const cellMarOf = (m: typeof tblPr.tblCellMar): typeof tblPr.tblCellMar => (rtl ? swapLR(m) : m);
   const edge = (s: CellSlot, side: 'top' | 'bottom' | 'left' | 'right'): BorderSpec | undefined => {
     const own = resolved.get(s)?.tcPr.tcBorders?.[side];
     if (own) return own;
-    const ex = table.rows[s.row]?.tblPrEx;
-    const tb = ex?.tblBorders ? { ...tblBorders, ...ex.tblBorders } : tblBorders;
+    const exb = exBorders(s.row);
+    const tb = exb ? { ...tblBorders, ...exb } : tblBorders;
     const isOuter = side === 'top' ? s.row === 0 : side === 'bottom' ? s.row + s.rowSpan >= nRows
       : side === 'left' ? s.col === 0 : s.col + s.span >= nCols;
     return isOuter ? tb[side] : (side === 'top' || side === 'bottom' ? tb.insideH : tb.insideV);
@@ -777,7 +795,7 @@ export function layoutTable(
   const sFirst = row0[0], sLast = row0[row0.length - 1];
   const marOf = (s: CellSlot, side: 'left' | 'right'): number => {
     const ex = table.rows[s.row]?.tblPrEx;
-    const m = resolved.get(s)?.tcPr.tcMar?.[side] ?? ex?.tblCellMar?.[side] ?? tblPr.tblCellMar?.[side];
+    const m = resolved.get(s)?.tcPr.tcMar?.[side] ?? cellMarOf(ex?.tblCellMar)?.[side] ?? cellMarOf(tblPr.tblCellMar)?.[side];
     return widthTw(m, frameWidth) ?? defMar;
   };
   const bL = sFirst ? borderWidth(edge(sFirst, 'left')) : 0;
@@ -815,12 +833,12 @@ export function layoutTable(
       const noWrap = nw && prefOf(tcW0) !== 'dxa';
       const floorW = nw && prefOf(tcW0) === 'dxa' ? tcW0!.w : 0;
       const tdir = resolved.get(s)?.tcPr.textDirection;
-      const vertical = tdir === 'btLr' || tdir === 'tbRl' || tdir === 'tbRlV';
+      const vertical = !!verticalDir(tdir);
       const measure = () => {
         if (vertical) {
           // texto vertical: a largura é a "altura" do conteúdo sem quebrar (oráculo tblvert)
           const rr = resolved.get(s)!;
-          const c = ctx.pure(() => layoutCell(s.cell, 0, 31680, { tablePPr: rr.pPr, tableRPr: rr.rPr }, `${ref}/r${s.row}/c${s.col}`));
+          const c = ctx.pure(() => layoutCell(s.cell, 0, 31680, { tablePPr: rr.pPr, tableRPr: rr.rPr }, `${ref}/r${s.row}/c${s.lcol}`));
           // cada linha ocupa 37/36 da sua altura, em twips inteiros; espaçamentos como estão
           const linesH = c.lines.reduce((a, l) => a + l.height, 0);
           const vh = c.lines.reduce((a, l) => a + Math.round((l.height * 37) / 36), 0) + Math.max(0, c.height - linesH);
@@ -858,6 +876,9 @@ export function layoutTable(
   // centralizada: no meio do quadro; à direita: o espelho da esquerda (tblw a5/a9)
   if (jc === 'center') x = frameX + (frameWidth - width) / 2;
   else if (jc === 'right' || jc === 'end') x = frameX + frameWidth - width + (legacy ? effR : -bR / 2);
+  // da direita para a esquerda: o recuo e o alinhamento contam da margem direita
+  // (a borda de fora da última coluna lógica — a da direita — encosta no recuo, como no espelho)
+  if (rtl && !floating && jc !== 'center') x = jc === 'right' || jc === 'end' ? frameX + (legacy ? -effL : bL / 2) : frameX + frameWidth - indent - width + (legacy ? effR : -bR / 2);
   // w:alignTablesRowByRow (modos < 15): cada linha alinha sozinha pelo seu jc (o da linha ou
   // o da tabela) — centralizada ou à direita só as CÉLULAS, sem o vão do gridBefore/gridAfter
   // (oráculo rowjc; .doc convertido com linhas deslocadas)
@@ -881,7 +902,7 @@ export function layoutTable(
   const separated = !!tblPr.tblCellSpacing || table.rows.some((r) => !!r.trPr?.tblCellSpacing);
   const spRow = (ri: number) => widthTw(table.rows[ri]?.trPr?.tblCellSpacing ?? tblPr.tblCellSpacing, width) ?? 0;
   const spTbl = widthTw(tblPr.tblCellSpacing ?? table.rows.find((r) => r.trPr?.tblCellSpacing)?.trPr?.tblCellSpacing, width) ?? 0;
-  const outerB = (ri: number, side: 'top' | 'bottom' | 'left' | 'right'): BorderSpec | undefined => table.rows[ri]?.tblPrEx?.tblBorders?.[side] ?? tblBorders[side];
+  const outerB = (ri: number, side: 'top' | 'bottom' | 'left' | 'right'): BorderSpec | undefined => exBorders(ri)?.[side] ?? tblBorders[side];
   /** por linha: do topo da linha ao conteúdo / do conteúdo ao fim; espessuras das bordas das células */
   const sepTop: number[] = [], sepBottom: number[] = [], sepWT: number[] = [], sepWB: number[] = [];
   if (separated) {
@@ -933,7 +954,7 @@ export function layoutTable(
       const bx0 = (separated ? sepB(Math.min(s.col, nCols)) + spTbl : colX[Math.min(s.col, nCols)]!) + shiftR;
       const bx1 = (separated ? sepB(Math.min(s.col + s.span, nCols)) - spTbl : colX[Math.min(s.col + s.span, nCols)]!) + shiftR;
       const x0r = bx0, x1r = bx1;
-      const mar = { ...(tblPr.tblCellMar ?? {}), ...(ex?.tblCellMar ?? {}), ...(tcPr.tcMar ?? {}) };
+      const mar = { ...(cellMarOf(tblPr.tblCellMar) ?? {}), ...(cellMarOf(ex?.tblCellMar) ?? {}), ...(tcPr.tcMar ?? {}) };
       // bordas colapsadas: o texto fica pelo menos meia borda depois da linha da grade (tblw a11)
       const marL = Math.max(widthTw(mar.left, width) ?? defMar, separated ? 0 : borderWidth(edge(s, 'left')) / 2);
       const marR = Math.max(widthTw(mar.right, width) ?? defMar, separated ? 0 : borderWidth(edge(s, 'right')) / 2);
@@ -946,7 +967,7 @@ export function layoutTable(
       const x1 = !separated ? x1r : spTbl > 0 ? x1r - wr : x1r - Math.max(wr - marR, wr / 2);
       // fundo escuro na célula: texto de cor automática vira branco
       const env = { tablePPr: pPr, tableRPr: rPr, ...(isDark(cellFill(tcPr, theme)) ? { darkBackground: true } : {}) };
-      const vertical = tcPr.textDirection === 'btLr' || tcPr.textDirection === 'tbRl' || tcPr.textDirection === 'tbRlV' ? tcPr.textDirection : undefined;
+      const vertical = verticalDir(tcPr.textDirection);
       const info: (typeof cellInfos)[number] = { slot: s, tcPr, x0, x1, bx0, bx1, marT, marB, marL, marR, env, ...(vertical ? { vertical } : {}) };
       if (!s.merged) {
         if (vertical) {
@@ -954,7 +975,7 @@ export function layoutTable(
           if (s.rowSpan !== 1) pendingMerges.push({ slot: s, content: null, tcPr, x0, x1, startRow: ri, vertical, marL, marR, marT, marB, env });
         } else {
           // (t: do topo da linha ao do conteúdo — faixa de borda + margem de cima)
-          const content = layoutCell(s.cell, x + x0 + marL, Math.max(1, x1 - x0 - marL - marR), { ...env, cellMar: { l: marL, r: marR, t: bandTopOf(ri) + marT } }, `${ref}/r${ri}/c${s.col}`);
+          const content = layoutCell(s.cell, x + x0 + marL, Math.max(1, x1 - x0 - marL - marR), { ...env, cellMar: { l: marL, r: marR, t: bandTopOf(ri) + marT } }, `${ref}/r${ri}/c${s.lcol}`);
           info.content = content;
           if (s.rowSpan === 1) contentH = Math.max(contentH, content.height + marT + marB);
           else pendingMerges.push({ slot: s, content, tcPr, x0, x1, startRow: ri, marL, marR, marT, marB, env });
@@ -974,7 +995,8 @@ export function layoutTable(
     // mesclas que começam nesta linha: as margens de cima/baixo efetivas (da tabela ou
     // da célula, a maior da linha) — antes só as da célula (tcMar) contavam (oráculo cellpic)
     for (const m of pendingMerges) if (m.startRow === ri) { m.marT = rowMarT; m.marB = rowMarB; }
-    const th = row.trPr?.trHeight;
+    // w:hRule="auto": a altura é a do conteúdo — o Word ignora o w:val (sonda gen-hrule-probe)
+    const th = row.trPr?.trHeight?.hRule === 'auto' ? undefined : row.trPr?.trHeight;
     // altura mínima × margens da célula (oráculo tcell): a mínima vale para o TEXTO
     // e as margens de cima/baixo somam por fora — max(trHeight, texto) + mT + mB; na
     // exata só a margem de BAIXO soma (a de cima fica dentro da altura)
@@ -985,7 +1007,7 @@ export function layoutTable(
       if (!ci.vertical || ci.slot.merged || ci.slot.rowSpan !== 1) continue;
       const rowMin = th ? th.val + (th.hRule === 'exact' ? maxMarB : maxMar) : 0;
       const avail = Math.max(contentH, rowMin) - ci.marT - ci.marB;
-      const c = layoutVertical(ci.slot, avail, ci.env, `${ref}/r${ri}/c${ci.slot.col}`);
+      const c = layoutVertical(ci.slot, avail, ci.env, `${ref}/r${ri}/c${ci.slot.lcol}`);
       ci.content = c;
       if (th?.hRule !== 'exact') contentH = Math.max(contentH, maxLineW(c) + ci.marT + ci.marB);
     }
@@ -1024,7 +1046,7 @@ export function layoutTable(
     }
     rowHeights.push(bandTop + h + bandBottom);
     // caixas das células (editor: seleção de células, alças, arrasto de bordas)
-    const cellBoxes = (): NonNullable<RowLayout['cells']> => cellInfos.map((ci) => ({ ref: `${ref}/r${ri}/c${ci.slot.col}`, x: x + ci.bx0, w: ci.bx1 - ci.bx0, span: ci.slot.span }));
+    const cellBoxes = (): NonNullable<RowLayout['cells']> => cellInfos.map((ci) => ({ ref: `${ref}/r${ri}/c${ci.slot.lcol}`, x: x + ci.bx0, w: ci.bx1 - ci.bx0, span: ci.slot.span }));
     const paintRow = (ch: number, contents: Map<CellSlot, CellContent | undefined>, vTop: boolean, drawTop: boolean, bTop: number, bBottom: number): RowLayout => {
       const its: PageItem[] = [];
       const lns: LaidOutLine[] = [];
@@ -1207,7 +1229,7 @@ export function layoutTable(
     // topo da célula mesclada no sistema de coordenadas da linha-alvo
     const top = bandTopOf(m.startRow) - rowHeights.slice(m.startRow, Math.min(endRow, rows.length - 1)).reduce((a, b) => a + b, 0);
     if (m.vertical) {
-      const c = layoutVertical(m.slot, h - marT - marB, m.env, `${ref}/r${m.startRow}/c${m.slot.col}`);
+      const c = layoutVertical(m.slot, h - marT - marB, m.env, `${ref}/r${m.startRow}/c${m.slot.lcol}`);
       paintVertical(target.items, c, m.vertical, vaOf(c, m.tcPr.vAlign), x + m.x0 + m.marL, x + m.x1 - m.marR, top + marT, top + h - marB);
     } else if (m.content) {
       const i0 = target.items.length, l0 = target.lines.length;
@@ -1229,6 +1251,25 @@ function cellFill(tcPr: TcPr, theme: DocContext['fmt']['theme']): string | undef
 }
 
 const shdFill = (shd: TcPr['shd'], theme: DocContext['fmt']['theme']): string | undefined => shadingFill(shd, theme);
+
+/** Troca os lados esquerdo e direito (bordas, margens) — tabela da direita para a esquerda. */
+function swapLR<T extends { left?: unknown; right?: unknown }>(o: T | undefined): T | undefined {
+  if (!o) return o;
+  const { left, right, ...rest } = o;
+  return { ...rest, ...(right !== undefined ? { left: right } : {}), ...(left !== undefined ? { right: left } : {}) } as T;
+}
+
+/**
+ * Direção vertical do texto da célula (w:textDirection, transicional e
+ * estrito): de baixo para cima (btLr/lr) ou de cima para baixo (tbRl, tbRlV,
+ * tbLrV, rl, rlV, lrV — com uma linha de texto latino saem iguais); as
+ * horizontais (lrTb, lrTbV, tb, tbV) e o desconhecido ficam horizontais.
+ */
+export function verticalDir(td: string | undefined): 'btLr' | 'tbRl' | undefined {
+  if (td === 'btLr' || td === 'lr') return 'btLr';
+  if (td === 'tbRl' || td === 'tbRlV' || td === 'tbLrV' || td === 'rl' || td === 'rlV' || td === 'lrV') return 'tbRl';
+  return undefined;
+}
 
 /**
  * Pinta o conteúdo de uma célula de texto vertical: o conteúdo foi diagramado

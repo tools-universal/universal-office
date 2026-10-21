@@ -769,7 +769,10 @@ public static class TableEngine
     private sealed class CellSlot
     {
         public TableCell Cell = null!;
+        /// <summary>coluna da grade na TELA (tabela da direita para a esquerda: espelhada)</summary>
         public int Col;
+        /// <summary>coluna lógica (a do arquivo): condicionais e referências</summary>
+        public int LCol;
         public int Span;
         public int Row;
         public TcPr TcPr = null!;
@@ -878,10 +881,20 @@ public static class TableEngine
             {
                 var tc = cell.TcPr ?? new TcPr();
                 int span = ToIntSafe(Math.Max(1, tc.GridSpan ?? cell.GridSpan));
-                rowSlots.Add(new CellSlot { Cell = cell, Col = col, Span = span, Row = ri, TcPr = tc, RowSpan = 1, Merged = tc.VMerge == "continue" });
+                // mescla horizontal antiga (w:hMerge): a continuação alarga a célula inicial
+                var prevSlot = rowSlots.Count > 0 ? rowSlots[^1] : null;
+                if (tc.HMerge == "continue" && prevSlot is not null && prevSlot.Col + prevSlot.Span == col) { prevSlot.Span += span; col += span; continue; }
+                rowSlots.Add(new CellSlot { Cell = cell, Col = col, LCol = col, Span = span, Row = ri, TcPr = tc, RowSpan = 1, Merged = tc.VMerge == "continue" });
                 col += span;
             }
             slots.Add(rowSlots);
+        }
+        // w:bidiVisual (tabela da direita para a esquerda): grade espelhada — porta de table.ts
+        bool rtl = tblPr.BidiVisual == true;
+        if (rtl)
+        {
+            foreach (var rs0 in slots) { foreach (var sl in rs0) sl.Col = nCols - sl.LCol - sl.Span; rs0.Reverse(); }
+            docGrid.Reverse();
         }
         // amarra continuações à célula inicial
         for (int ri = 0; ri < slots.Count; ri++)
@@ -903,11 +916,11 @@ public static class TableEngine
             var outp = new List<string> { "wholeTable" };
             bool firstRow = look.FirstRow == true && ri == 0 || (table.Rows[ri].TrPr?.TblHeader == true) && look.FirstRow == true;
             bool lastRow = look.LastRow == true && ri == nRows - 1;
-            bool firstCol = look.FirstColumn == true && s.Col == 0;
-            bool lastCol = look.LastColumn == true && s.Col + s.Span >= nCols;
+            bool firstCol = look.FirstColumn == true && s.LCol == 0;
+            bool lastCol = look.LastColumn == true && s.LCol + s.Span >= nCols;
             if (look.NoVBand != true)
             {
-                int c0 = s.Col - (look.FirstColumn == true ? 1 : 0);
+                int c0 = s.LCol - (look.FirstColumn == true ? 1 : 0);
                 if (c0 >= 0 && !(lastCol && look.LastColumn == true)) outp.Add(Math.Floor(c0 / colBand) % 2 == 0 ? "band1Vert" : "band2Vert");
             }
             if (look.NoHBand != true)
@@ -942,18 +955,22 @@ public static class TableEngine
                     pPr = Resolve.MergePPr(pPr, part.PPr);
                     rPr = Resolve.MergeRPr(rPr, part.RPr);
                 }
-                resolved[s] = new Resolved { TcPr = Resolve.MergeTcPr(tcPr, s.TcPr), PPr = pPr, RPr = rPr };
+                var mergedTc = Resolve.MergeTcPr(tcPr, s.TcPr);
+                if (rtl) { mergedTc.TcBorders = SwapLR(mergedTc.TcBorders); mergedTc.TcMar = SwapLR(mergedTc.TcMar); }
+                resolved[s] = new Resolved { TcPr = mergedTc, PPr = pPr, RPr = rPr };
             }
         }
 
         // ── bordas ──
-        var tblBorders = tblPr.TblBorders ?? new TblBorders();
+        var tblBorders = (rtl ? SwapLR(tblPr.TblBorders) : tblPr.TblBorders) ?? new TblBorders();
+        TblBorders? ExBorders(int ri) => ri < table.Rows.Count ? (rtl ? SwapLR(table.Rows[ri].TblPrEx?.TblBorders) : table.Rows[ri].TblPrEx?.TblBorders) : null;
+        CellMargins? CellMarOf(CellMargins? m) => rtl ? SwapLR(m) : m;
         BorderSpec? Edge(CellSlot s, string side)
         {
             var own = resolved.TryGetValue(s, out var rs) ? rs.TcPr.TcBorders?.Get(side) : null;
             if (own is not null) return own;
-            var ex = s.Row < table.Rows.Count ? table.Rows[s.Row].TblPrEx : null;
-            var tb = ex?.TblBorders is not null ? tblBorders.With(ex.TblBorders) : tblBorders;
+            var exb = ExBorders(s.Row);
+            var tb = exb is not null ? tblBorders.With(exb) : tblBorders;
             bool isOuter = side == "top" ? s.Row == 0 : side == "bottom" ? s.Row + s.RowSpan >= nRows
                 : side == "left" ? s.Col == 0 : s.Col + s.Span >= nCols;
             return isOuter ? tb.Get(side) : (side is "top" or "bottom" ? tb.InsideH : tb.InsideV);
@@ -999,7 +1016,8 @@ public static class TableEngine
         {
             var ex = s.Row < table.Rows.Count ? table.Rows[s.Row].TblPrEx : null;
             var rtm = resolved.TryGetValue(s, out var rr) ? rr.TcPr.TcMar : null;
-            var m = (side == "left" ? rtm?.Left : rtm?.Right) ?? (side == "left" ? ex?.TblCellMar?.Left : ex?.TblCellMar?.Right) ?? (side == "left" ? tblPr.TblCellMar?.Left : tblPr.TblCellMar?.Right);
+            var exm = CellMarOf(ex?.TblCellMar); var tbm = CellMarOf(tblPr.TblCellMar);
+            var m = (side == "left" ? rtm?.Left : rtm?.Right) ?? (side == "left" ? exm?.Left : exm?.Right) ?? (side == "left" ? tbm?.Left : tbm?.Right);
             return WidthTw(m, frameWidth) ?? defMar;
         }
         double bL = sFirst is not null ? Paint.BorderWidth(Edge(sFirst, "left")) : 0;
@@ -1043,7 +1061,7 @@ public static class TableEngine
                 bool noWrap = nw && PrefOf(tcW0) != "dxa";
                 double floorW = nw && PrefOf(tcW0) == "dxa" ? tcW0!.W : 0;
                 string? tdir = resolved[s].TcPr.TextDirection;
-                bool vertical = tdir is "btLr" or "tbRl" or "tbRlV";
+                bool vertical = VerticalDir(tdir) is not null;
                 var rsC = rs;
                 (double Min, double Max) Measure()
                 {
@@ -1051,7 +1069,7 @@ public static class TableEngine
                     {
                         // texto vertical: a largura é a "altura" do conteúdo sem quebrar (oráculo tblvert)
                         var rr = resolved[sc];
-                        var c = ctx.Pure(() => layoutCell(sc.Cell, 0, 31680, new CellEnv { TablePPr = rr.PPr, TableRPr = rr.RPr }, $"{reference}/r{sc.Row}/c{sc.Col}"));
+                        var c = ctx.Pure(() => layoutCell(sc.Cell, 0, 31680, new CellEnv { TablePPr = rr.PPr, TableRPr = rr.RPr }, $"{reference}/r{sc.Row}/c{sc.LCol}"));
                         // cada linha ocupa 37/36 da sua altura, em twips inteiros; espaçamentos como estão
                         double linesH = c.Lines.Aggregate(0.0, (a, l) => a + l.Height);
                         double vh = c.Lines.Aggregate(0.0, (a, l) => a + Js.Round((l.Height * 37) / 36)) + Math.Max(0, c.Height - linesH);
@@ -1092,6 +1110,9 @@ public static class TableEngine
         // centralizada: no meio do quadro; à direita: o espelho da esquerda (tblw a5/a9)
         if (jc == "center") x = frameX + (frameWidth - width) / 2;
         else if (jc is "right" or "end") x = frameX + frameWidth - width + (legacy ? effR : -bR / 2);
+        // da direita para a esquerda: o recuo e o alinhamento contam da margem direita
+        if (rtl && !floating && jc != "center")
+            x = jc is "right" or "end" ? frameX + (legacy ? -effL : bL / 2) : frameX + frameWidth - indent - width + (legacy ? effR : -bR / 2);
         // w:alignTablesRowByRow (modos < 15): cada linha alinha sozinha pelo seu jc (o da linha ou
         // o da tabela) — centralizada ou à direita só as CÉLULAS, sem o vão do gridBefore/gridAfter
         // (oráculo rowjc; .doc convertido com linhas deslocadas)
@@ -1116,7 +1137,7 @@ public static class TableEngine
         bool separated = tblPr.TblCellSpacing is not null || table.Rows.Any(r => r.TrPr?.TblCellSpacing is not null);
         double SpRow(int ri) => WidthTw((ri < table.Rows.Count ? table.Rows[ri].TrPr?.TblCellSpacing : null) ?? tblPr.TblCellSpacing, width) ?? 0;
         double spTbl = WidthTw(tblPr.TblCellSpacing ?? table.Rows.FirstOrDefault(r => r.TrPr?.TblCellSpacing is not null)?.TrPr?.TblCellSpacing, width) ?? 0;
-        BorderSpec? OuterB(int ri, string side) => (ri < table.Rows.Count ? table.Rows[ri].TblPrEx?.TblBorders?.Get(side) : null) ?? tblBorders.Get(side);
+        BorderSpec? OuterB(int ri, string side) => ExBorders(ri)?.Get(side) ?? tblBorders.Get(side);
         // por linha: do topo da linha ao conteúdo / do conteúdo ao fim; espessuras das bordas das células
         var sepTop = new List<double>();
         var sepBottom = new List<double>();
@@ -1177,7 +1198,7 @@ public static class TableEngine
                 double bx0 = (separated ? SepB(Math.Min(s.Col, nCols)) + spTbl : ColAt(Math.Min(s.Col, nCols))) + shiftR;
                 double bx1 = (separated ? SepB(Math.Min(s.Col + s.Span, nCols)) - spTbl : ColAt(Math.Min(s.Col + s.Span, nCols))) + shiftR;
                 double x0r = bx0, x1r = bx1;
-                var mar = (tblPr.TblCellMar ?? new CellMargins()).With(ex?.TblCellMar).With(rs.TcPr.TcMar);
+                var mar = (CellMarOf(tblPr.TblCellMar) ?? new CellMargins()).With(CellMarOf(ex?.TblCellMar)).With(rs.TcPr.TcMar);
                 // bordas colapsadas: o texto fica pelo menos meia borda depois da linha da grade (tblw a11)
                 double marL = Math.Max(WidthTw(mar.Left, width) ?? defMar, separated ? 0 : Paint.BorderWidth(Edge(s, "left")) / 2);
                 double marR = Math.Max(WidthTw(mar.Right, width) ?? defMar, separated ? 0 : Paint.BorderWidth(Edge(s, "right")) / 2);
@@ -1191,7 +1212,7 @@ public static class TableEngine
                 // fundo escuro na célula: texto de cor automática vira branco
                 var env = new CellEnv { TablePPr = rs.PPr, TableRPr = rs.RPr, DarkBackground = Para.IsDark(CellFill(rs.TcPr, theme)) };
                 string? td = rs.TcPr.TextDirection;
-                string? vertical = td is "btLr" or "tbRl" or "tbRlV" ? td : null;
+                string? vertical = VerticalDir(td);
                 var info = new CellInfo { Slot = s, TcPr = rs.TcPr, X0 = x0, X1 = x1, Bx0 = bx0, Bx1 = bx1, MarT = marT, MarB = marB, MarL = marL, MarR = marR, Env = env, Vertical = vertical };
                 if (!s.Merged)
                 {
@@ -1202,7 +1223,7 @@ public static class TableEngine
                     }
                     else
                     {
-                        var content = layoutCell(s.Cell, x + x0 + marL, Math.Max(1, x1 - x0 - marL - marR), new CellEnv { TablePPr = env.TablePPr, TableRPr = env.TableRPr, DarkBackground = env.DarkBackground, CellMar = (marL, marR, BandTopOf(ri) + marT) }, $"{reference}/r{ri}/c{s.Col}");
+                        var content = layoutCell(s.Cell, x + x0 + marL, Math.Max(1, x1 - x0 - marL - marR), new CellEnv { TablePPr = env.TablePPr, TableRPr = env.TableRPr, DarkBackground = env.DarkBackground, CellMar = (marL, marR, BandTopOf(ri) + marT) }, $"{reference}/r{ri}/c{s.LCol}");
                         info.Content = content;
                         if (s.RowSpan == 1) contentH = Math.Max(contentH, content.Height + marT + marB);
                         else pendingMerges.Add(new PendingMerge { Slot = s, Content = content, TcPr = rs.TcPr, X0 = x0, X1 = x1, StartRow = ri, MarL = marL, MarR = marR, MarT = marT, MarB = marB, Env = env });
@@ -1223,7 +1244,8 @@ public static class TableEngine
             // mesclas que começam nesta linha: as margens de cima/baixo efetivas (da tabela ou
             // da célula, a maior da linha) — antes só as da célula (tcMar) contavam (oráculo cellpic)
             foreach (var m in pendingMerges) if (m.StartRow == ri) { m.MarT = rowMarT; m.MarB = rowMarB; }
-            var th = row.TrPr?.TrHeight;
+            // w:hRule="auto": a altura é a do conteúdo — o Word ignora o w:val (sonda gen-hrule-probe)
+            var th = row.TrPr?.TrHeight is { HRule: "auto" } ? null : row.TrPr?.TrHeight;
             // altura mínima × margens da célula (oráculo tcell): a mínima vale para o TEXTO
             // e as margens de cima/baixo somam por fora — max(trHeight, texto) + mT + mB; na
             // exata só a margem de BAIXO soma (a de cima fica dentro da altura)
@@ -1235,7 +1257,7 @@ public static class TableEngine
                 if (ci.Vertical is null || ci.Slot.Merged || ci.Slot.RowSpan != 1) continue;
                 double rowMin = th is not null ? th.Val + (th.HRule == "exact" ? maxMarB : maxMar) : 0;
                 double availV = Math.Max(contentH, rowMin) - ci.MarT - ci.MarB;
-                var cv = LayoutVertical(ci.Slot, availV, ci.Env, $"{reference}/r{ri}/c{ci.Slot.Col}");
+                var cv = LayoutVertical(ci.Slot, availV, ci.Env, $"{reference}/r{ri}/c{ci.Slot.LCol}");
                 ci.Content = cv;
                 if (th?.HRule != "exact") contentH = Math.Max(contentH, MaxLineW(cv) + ci.MarT + ci.MarB);
             }
@@ -1491,7 +1513,7 @@ public static class TableEngine
             double top = BandTopOf(m.StartRow) - rowHeights.Skip(m.StartRow).Take(Math.Max(0, sliceEnd - m.StartRow)).Aggregate(0.0, (a, b) => a + b);
             if (m.Vertical is not null)
             {
-                var c = LayoutVertical(m.Slot, h - marT - marB, m.Env, $"{reference}/r{m.StartRow}/c{m.Slot.Col}");
+                var c = LayoutVertical(m.Slot, h - marT - marB, m.Env, $"{reference}/r{m.StartRow}/c{m.Slot.LCol}");
                 PaintVertical(target.Items, c, m.Vertical, VaOf(c, m.TcPr.VAlign), x + m.X0 + m.MarL, x + m.X1 - m.MarR, top + marT, top + h - marB);
             }
             else if (m.Content is not null)
@@ -1520,6 +1542,30 @@ public static class TableEngine
     private static string? CellFill(TcPr tcPr, Theme theme) => ShdFill(tcPr.Shd, theme);
 
     private static string? ShdFill(ShadingSpec? shd, Theme theme) => Resolve.ShadingFill(shd, theme);
+
+    /// <summary>Troca esquerda e direita (tabela da direita para a esquerda) — porta de table.ts swapLR.</summary>
+    private static TblBorders? SwapLR(TblBorders? o)
+    {
+        if (o is null) return null;
+        var n = o.With(null);
+        n.Left = o.Right; n.Right = o.Left;
+        return n;
+    }
+    private static CellMargins? SwapLR(CellMargins? o)
+    {
+        if (o is null) return null;
+        var n = o.With(null);
+        n.Left = o.Right; n.Right = o.Left;
+        return n;
+    }
+
+    /// <summary>Direção vertical do texto da célula (transicional e estrito) — porta de table.ts verticalDir.</summary>
+    public static string? VerticalDir(string? td) => td switch
+    {
+        "btLr" or "lr" => "btLr",
+        "tbRl" or "tbRlV" or "tbLrV" or "rl" or "rlV" or "lrV" => "tbRl",
+        _ => null,
+    };
 
     /// <summary>
     /// Pinta o conteúdo de uma célula de texto vertical: o conteúdo foi diagramado
