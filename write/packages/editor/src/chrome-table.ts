@@ -134,64 +134,58 @@ const BORDERS: [BorderKind, string, string, string][] = [
 ];
 
 /** Galeria de estilos de tabela (provisória: grade num menu — a galeria do framework de barras a substitui). */
-export const tableStylesMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
-  content: (close) => {
-    const box = document.createElement('div');
-    box.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:min(520px,70vh);overflow:auto;padding:2px';
-    const look = env.ctl.state().table?.look;
-    const cur = env.ctl.state().table?.style;
-    const dpr = window.devicePixelRatio || 1;
-    const queue: (() => Promise<void>)[] = [];
-    const titles: Record<string, { en: string; pt: string }> = {
-      custom: L('Custom', 'Personalizado'), plain: L('Plain Tables', 'Tabelas Simples'),
-      grid: L('Grid Tables', 'Tabelas de Grade'), list: L('List Tables', 'Tabelas de Lista'),
-    };
-    void env.ed.tableStyleList().then((list) => {
-      let grid: HTMLElement | null = null;
-      let group = '';
-      for (const s of list) {
-        if (s.group !== group) {
-          group = s.group;
-          const h = document.createElement('div');
-          h.textContent = ctx.registry.text(titles[group]!);
-          h.style.cssText = 'font-size:12px;font-weight:600;opacity:.8;margin:4px 2px 0';
-          grid = document.createElement('div');
-          grid.style.cssText = 'display:grid;grid-template-columns:repeat(7,60px);gap:3px';
-          box.append(h, grid);
-        }
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.title = ctx.registry.text(s.label);
-        b.style.cssText = `width:60px;height:44px;padding:1px;border-radius:4px;border:2px solid ${s.id && s.id === cur ? 'var(--u-color-primary,#3a72c4)' : 'transparent'};background:transparent;cursor:pointer`;
+/** Fila das miniaturas de estilo de tabela (cada uma é um layout do motor): em lotes por quadro. */
+const thumbQueue: (() => Promise<void>)[] = [];
+let thumbBusy = false;
+function queueThumb(f: () => Promise<void>): void {
+  thumbQueue.push(f);
+  if (thumbBusy) return;
+  thumbBusy = true;
+  const step = (): void => {
+    const batch = thumbQueue.splice(0, 8);
+    if (!batch.length) { thumbBusy = false; return; }
+    void Promise.all(batch.map((g) => g().catch(() => undefined))).then(() => requestAnimationFrame(step));
+  };
+  requestAnimationFrame(step);
+}
+
+const STYLE_SECTIONS = [
+  { id: 'custom', label: L('Custom', 'Personalizado') }, { id: 'plain', label: L('Plain Tables', 'Tabelas Simples') },
+  { id: 'grid', label: L('Grid Tables', 'Tabelas de Grade') }, { id: 'list', label: L('List Tables', 'Tabelas de Lista') },
+];
+
+/** Galeria Estilos de Tabela (Design da Tabela): miniaturas 5 × 5 pintadas pelo motor com as opções de estilo atuais. */
+export function tableStyleGallery(env: WidgetEnv): BarItem {
+  const W = 72, H = 52;
+  const list = () => env.ed.tableStyleListNow() ?? [];
+  const lookKey = (): string => JSON.stringify(env.ctl.state().table?.look ?? {});
+  return {
+    gallery: {
+      id: 'table:styles', label: L('Table Styles', 'Estilos de Tabela'), icon: 'table_view',
+      tile: { w: W, h: H }, rows: 1, maxCols: 7, minCols: 3, expandCols: 7,
+      sections: STYLE_SECTIONS,
+      supports: () => typeof env.ed.tableStyleListNow === 'function',
+      isEnabled: () => !!env.ctl.state().table && !env.ed.isProtected(),
+      items: () => list().map((s) => ({ id: s.name, label: s.label, section: s.group })),
+      version: () => `${env.ed.stylesVersion()}|${lookKey()}|${list().length}`,
+      selected: () => {
+        const cur = env.ctl.state().table?.style;
+        return cur ? list().find((s) => s.id === cur)?.name : undefined;
+      },
+      render: (tile, it) => {
+        const dpr = window.devicePixelRatio || 1;
         const cv = document.createElement('canvas');
-        cv.width = Math.round(54 * dpr); cv.height = Math.round(38 * dpr);
-        cv.style.cssText = 'width:54px;height:38px;display:block';
-        b.append(cv);
-        b.addEventListener('mousedown', (e) => e.preventDefault());
-        b.addEventListener('click', () => { close(); void env.ed.setTableStyle(s.name).then(() => ctx.after()); });
-        grid!.append(b);
-        queue.push(() => env.ed.renderTableStyleThumb(cv, s.name, look));
-      }
-      // miniaturas em lotes (cada uma é um layout do motor)
-      const step = (): void => {
-        const batch = queue.splice(0, 12);
-        if (!batch.length || !box.isConnected) return;
-        void Promise.all(batch.map((f) => f())).then(() => requestAnimationFrame(step));
-      };
-      requestAnimationFrame(step);
-      const clear = document.createElement('button');
-      clear.type = 'button';
-      clear.className = 'uo-mi';
-      clear.innerHTML = symbol('format_clear');
-      clear.append(ctx.registry.text(L('Clear', 'Limpar')));
-      clear.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit';
-      clear.addEventListener('mousedown', (e) => e.preventDefault());
-      clear.addEventListener('click', () => { close(); void env.ed.setTableStyle(null).then(() => ctx.after()); });
-      box.append(clear);
-    });
-    return box;
-  },
-}];
+        cv.width = Math.round((W - 6) * dpr); cv.height = Math.round((H - 6) * dpr);
+        cv.style.cssText = `width:${W - 6}px;height:${H - 6}px;display:block;margin:auto`;
+        tile.replaceChildren(cv);
+        const look = env.ctl.state().table?.look;
+        queueThumb(() => (cv.isConnected ? env.ed.renderTableStyleThumb(cv, it.id, look) : Promise.resolve()));
+      },
+      onPick: (name) => { void env.ed.setTableStyle(name).then(() => env.app.ui?.sync()); },
+      footer: () => ['table:style:clear'],
+    },
+  };
+}
 
 /** Sombreamento: cores do tema (com a referência), padrão e Sem Cor. */
 export const tableShadingMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
@@ -271,7 +265,7 @@ export function tableDesignGroups(env: WidgetEnv, ctx: BarContext): BarGroup[] {
       { rows: [[{ cmd: 'table:look:first', label: true }], [{ cmd: 'table:look:last', label: true }], [{ cmd: 'table:look:bandedCols', label: true }]] },
     ] },
     { id: 'td-styles', label: L('Table Styles', 'Estilos de Tabela'), icon: 'table_view', prio: 6, cells: [
-      { menu: () => tableStylesMenu(env, ctx), id: 'table:styles', label: L('Table Styles', 'Estilos de Tabela'), icon: 'table_view', size: 'large', supports: has('tableStyleList') },
+      tableStyleGallery(env),
       { split: 'table:shading', menu: () => tableShadingMenu(env, ctx), size: 'large' },
     ] },
     { id: 'td-borders', label: L('Borders', 'Bordas'), icon: 'border_all', prio: 5, cells: [

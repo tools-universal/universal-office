@@ -565,7 +565,7 @@ class WriteChrome {
     const signal = this.ac.signal;
     const resync = (): void => this.sync();
     // uw-zoom e uw-change o próprio elemento já repassa (chromeSync)
-    for (const t of ['uw-hfmode', 'uw-cellmode', 'uw-tbmode', 'uw-protected', 'uw-ready']) {
+    for (const t of ['uw-hfmode', 'uw-cellmode', 'uw-tbmode', 'uw-protected', 'uw-ready', 'uw-styles-change']) {
       ed.addEventListener(t, resync, { signal });
     }
     // página atual enquanto rola

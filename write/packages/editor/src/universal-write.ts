@@ -102,7 +102,7 @@ import {
   tableOps as TOps,
   type CellRect as TableRect, type TableCell, type TextSeparator, type BorderKind, type BorderSpec, type ShadingSpec,
   type TblLook, type TblPr, type TrPr, type TcPr, type WidthSpec, type DocFormatting,
-  ensureTableStyle, addStylesXml, loadBuiltinTableStyles, styleIdByName, themeHex, type BuiltinTableStyle,
+  ensureTableStyle, addStylesXml, loadBuiltinTableStyles, styleIdByName, themeHex, putStyle, type BuiltinTableStyle,
   defaultFormula, formulaInstr, formulaResultText, type FormulaEnv,
 } from '@universal-office/docx-core';
 import type { PlacedCell } from '@universal-office/docx-layout';
@@ -7525,9 +7525,19 @@ export class UniversalWriteElement extends HTMLElement {
     return f;
   }
 
-  /** id do estilo de tabela interno (pelo nome inglês) neste documento; acrescenta a definição se faltar. */
+  /** id do estilo de tabela (pelo nome inglês) neste documento; a definição
+   *  que faltar (interno e o Normal Table em que se baseia) entra no
+   *  styles.xml pela folha de estilos do editor (DocStyles: desfaz junto). */
   private tableStyleId(name: string): string | undefined {
-    return ensureTableStyle(this.formattingForTables(), name, this.pendingTableStyles);
+    const pending = new Map<string, string>();
+    const id = ensureTableStyle(this.formattingForTables(), name, pending, this.builtinTableStyles.length ? this.builtinTableStyles : undefined);
+    if (!pending.size) return id;
+    if (this.stylesEditable() && this.docStyles.xml !== null) {
+      let xml = this.docStyles.base();
+      for (const [sid, sx] of pending) xml = putStyle(xml, sid, sx);
+      this.commitStyles(xml);
+    } else for (const [sid, sx] of pending) this.pendingTableStyles.set(sid, sx);
+    return id;
   }
 
   /** Tabela no fim do caminho: `path` = passos até a célula que CONTÉM a tabela (vazio = do corpo). */
@@ -8028,6 +8038,7 @@ export class UniversalWriteElement extends HTMLElement {
 
   /** Estilos internos carregados (sob demanda). */
   private builtinTableStyles: BuiltinTableStyle[] = [];
+  private builtinLoad: Promise<void> | null = null;
 
   /**
    * Estilos para a galeria Estilos de Tabela, na ordem do Word: os do
@@ -8036,7 +8047,20 @@ export class UniversalWriteElement extends HTMLElement {
    * compatibilidade, os do Word 2010.
    */
   async tableStyleList(): Promise<TableStyleInfo[]> {
-    this.builtinTableStyles = await loadBuiltinTableStyles();
+    if (!this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
+    return this.tableStyleListNow()!;
+  }
+
+  /** A mesma lista, já (null enquanto os estilos internos carregam — ao
+   *  terminar, uw-styles-change avisa as barras). */
+  tableStyleListNow(): TableStyleInfo[] | null {
+    if (!this.builtinTableStyles.length) {
+      this.builtinLoad ??= loadBuiltinTableStyles().then((b) => {
+        this.builtinTableStyles = b;
+        this.dispatchEvent(new CustomEvent('uw-styles-change'));
+      });
+      return null;
+    }
     const f = this.formattingForTables();
     const builtinNames = new Set(this.builtinTableStyles.map((b) => b.name.toLowerCase()));
     const out: TableStyleInfo[] = [];
@@ -8063,7 +8087,7 @@ export class UniversalWriteElement extends HTMLElement {
   async setTableStyle(name: string | null): Promise<void> {
     if (name && !this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
     this.editTable((tg) => {
-      const id = name ? ensureTableStyle(this.formattingForTables(), name, this.pendingTableStyles, this.builtinTableStyles) : undefined;
+      const id = name ? this.tableStyleId(name) : undefined;
       if (name && !id) return false;
       TOps.setTableProps(tg.table, { tblStyle: id });
       for (const row of tg.table.rows) {
