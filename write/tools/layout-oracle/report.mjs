@@ -33,7 +33,7 @@ for (const g of readdirSync(oracleDir)) {
     let r;
     try {
       const full = core.readFullDocument(core.DocxPackage.load(new Uint8Array(readFileSync(join(dir, f)))));
-      const res = eng.layoutDocument(full, provider, { advanceEm, advanceRound: process.env.ADV_ROUND ?? 'none', ...(process.env.SHRINK ? { justifyShrink: JSON.parse(process.env.SHRINK) } : {}) });
+      const res = eng.layoutDocument(full, provider, { ...(f.startsWith('mk-') ? { revisions: { mode: 'all' } } : {}), advanceEm, advanceRound: process.env.ADV_ROUND ?? 'none', ...(process.env.SHRINK ? { justifyShrink: JSON.parse(process.env.SHRINK) } : {}) });
       r = compareLines(word, engineLines(res));
     } catch (e) {
       console.log(`${g}/${f}: ERRO ${String(e?.stack ?? e).split('\n').slice(0, 3).join(' | ')}`);

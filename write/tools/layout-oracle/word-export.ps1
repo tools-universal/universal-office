@@ -22,7 +22,9 @@ foreach ($f in $files) {
   $out = [string](Join-Path $OutDir ($f.BaseName + $ext))
   try {
     $doc = $word.Documents.Open($p, $false, $true, $false)
-    $doc.ExportAsFixedFormat($out, [int]$fmt)
+    # casos mk-* (controle de alteracoes): PDF "com marcacao" (Item 7 = wdExportDocumentWithMarkup)
+    if ($f.BaseName.StartsWith('mk-')) { $doc.ExportAsFixedFormat($out, [int]$fmt, $false, 0, 0, 1, 1, 7) }
+    else { $doc.ExportAsFixedFormat($out, [int]$fmt) }
     $doc.Close($false)
     Write-Host "ok $($f.Name)"
   } catch {

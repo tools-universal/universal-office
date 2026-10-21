@@ -1,0 +1,39 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 85.82,
+"x0": 85.1,
+"x1": 231.48,
+"size": 15.96,
+"text": "Textoformatadodepois."
+},
+{
+"y": 99.62,
+"x0": 157.82,
+"x1": 509.06,
+"size": 11.04,
+"text": "Osdeéempresasegurançaoperaçãonãodocumentooanáliseserviço"
+},
+{
+"y": 112.22,
+"x0": 169.34,
+"x1": 497.38,
+"size": 11.04,
+"text": "áreaexecuçãoprocessoparaqualidadeaprovaçãogestãocontrole"
+},
+{
+"y": 124.94,
+"x0": 302.45,
+"x1": 363.95,
+"size": 11.04,
+"text": "responsável."
+}
+],
+"objs": []
+}
+]
+}

@@ -54,7 +54,9 @@ for (const g of groups) {
         const pkg = DocxPackage.load(new Uint8Array(readFileSync(join(dir, f))));
         const full = readFullDocument(pkg);
         // fontes embutidas no documento (oráculo emwidth: fonte aberta renomeada) — como o app
-        const res = layoutDocument(full, withEmbeddedFonts(provider, readEmbeddedFonts(pkg), (b) => new SfntFont(b)));
+        // casos mk-* (controle de alterações): o PDF do Word "com marcação" = Todas as Marcações
+        const opts = f.startsWith('mk-') ? { revisions: { mode: 'all' as const } } : {};
+        const res = layoutDocument(full, withEmbeddedFonts(provider, readEmbeddedFonts(pkg), (b) => new SfntFont(b)), opts);
         const r = compareLines(word, engineLines(res), EXACT_LEADERS.has(g));
         if (SWEEPS.has(g) || g === 'vertalign') {
           // vertalign: o deslocamento do sobrescrito muda o agrupamento em linhas da extração

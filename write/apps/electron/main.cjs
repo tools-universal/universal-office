@@ -13,7 +13,7 @@ const {
   appendFileSync, renameSync, unlinkSync, mkdtempSync, rmSync,
 } = require('node:fs');
 const { join, normalize, extname, basename, dirname, resolve } = require('node:path');
-const { tmpdir } = require('node:os');
+const { tmpdir, userInfo } = require('node:os');
 const { pathToFileURL } = require('node:url');
 
 const APP_ID = 'com.tools-universal.universal-write'; // = build.appId (package.json)
@@ -548,6 +548,9 @@ function confirmCloseWhenDirty(win) {
     }, () => { st.asking = false; });
   });
 }
+
+// Usuário do sistema: autor das revisões e dos comentários (o Word usa o nome do Office)
+handle('wn:user-name', () => { try { return userInfo().username; } catch { return ''; } });
 
 // Mantém os controles de janela do SO (titleBarOverlay) em sintonia com o tema
 // do app, para a barra de título "mesclar" também no modo escuro.

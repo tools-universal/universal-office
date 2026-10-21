@@ -106,7 +106,9 @@ function saveModel(pkg, full, model) {
 
 const text = (p) => p.runs.map((r) => r.text).join('');
 const COUNT = ['<w:hyperlink', '<w:bookmarkStart', 'fldCharType="begin"', '<w:fldSimple', '<w:footnoteReference', '<w:endnoteReference',
-  '<w:sdt>', '<m:oMath', '<w:drawing', '<w:pict', 'commentRangeStart', '<w:tbl>'];
+  '<w:sdt>', '<m:oMath', '<w:drawing', '<w:pict', 'commentRangeStart', '<w:tbl>',
+  // controle de alterações: as revisões não podem sumir ao salvar
+  '<w:ins ', '<w:del ', '<w:moveFrom ', '<w:moveTo ', '<w:rPrChange', '<w:pPrChange'];
 const counts = (xml) => Object.fromEntries(COUNT.map((t) => [t, xml.split(t).length - 1]));
 
 function bodyKids(xml) {

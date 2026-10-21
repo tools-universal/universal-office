@@ -58,6 +58,8 @@
 //       "Salvar" na confirmação: o renderer salva e, dando certo, closeWindow().
 //   closeWindow(): void  — fecha sem nova confirmação.
 //   setTitleTheme(dark: boolean): Promise<void>
+//   userName(): Promise<string>
+//       Usuário do sistema — autor das revisões e dos comentários do Write.
 //       Cor dos controles de janela (titleBarOverlay) em sintonia com o tema.
 //
 // O main só atende frames da origem do app (http://127.0.0.1:<porta>);
@@ -116,4 +118,5 @@ contextBridge.exposeInMainWorld('wordnext', {
   onSaveBeforeClose: (cb) => { ipcRenderer.on('wn:save-before-close', () => cb()); },
   closeWindow: () => ipcRenderer.send('wn:close-window'),
   setTitleTheme: (dark) => ipcRenderer.invoke('wn:title-theme', !!dark),
+  userName: () => ipcRenderer.invoke('wn:user-name'),
 });

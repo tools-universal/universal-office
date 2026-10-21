@@ -83,6 +83,7 @@
           <tr><td><code>storage-key</code></td><td>string</td><td>Remembers this instance's bar choices (toolbar style, theme, comments, autosave) in <code>localStorage</code>; falls back to <code>id</code>, otherwise session-only.</td></tr>
           <tr><td><code>noautosave</code> · <code>nounloadprompt</code></td><td>boolean attributes</td><td>Turn off autosave / the leave-page prompt. Handling the cancelable <code>uw-save-request</code> / <code>uw-open-request</code> events (<code>preventDefault()</code>) hands saving and opening to the host.</td></tr>
           <tr><td><code>bottombar</code></td><td>boolean attribute</td><td>Bottom status bar: page/word count, view switch, zoom.</td></tr>
+          <tr><td><code>author</code></td><td>string</td><td>Name recorded on tracked changes and new comments. Without it the bars use the host's user name (<code>host.userName()</code>; Electron: the OS user) or ask once and remember the answer.</td></tr>
         </tbody>
       </table>
       <pre><code>&lt;universal-write topbar bottombar&gt;&lt;/universal-write&gt;
@@ -308,11 +309,35 @@ editor.host = {
       <table>
         <thead><tr><th>Method</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>addComment(text, author?): number | null</code></td><td>Comments the current selection; returns the ID (or <code>null</code> if the selection is empty).</td></tr>
+          <tr><td><code>addComment(text, author = this.author): number | null</code></td><td>Comments the current selection; returns the ID (or <code>null</code> if the selection is empty).</td></tr>
           <tr><td><code>removeComment(id)</code></td><td>Removes the comment.</td></tr>
           <tr><td><code>getComments()</code></td><td>Lists <code>{ id, author?, text }[]</code>.</td></tr>
           <tr><td><code>goToComment(id)</code></td><td>Navigates to and selects the commented range.</td></tr>
           <tr><td><code>commentAnchorPx(id)</code></td><td>Anchor position in pixels — <code>{ topPx, heightPx, page } | null</code> — for drawing UI alongside.</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="track-changes">Track changes</h2>
+      <p>
+        With tracking on, typing, deleting, Enter and formatting become revisions with
+        author and date, written as Word writes them (<code>w:ins</code>, <code>w:del</code>,
+        <code>w:rPrChange</code>, <code>w:pPrChange</code>, paragraph marks). The state is saved in the
+        .docx (<code>w:trackRevisions</code>). PDF export and printing follow the markup mode on screen.
+      </p>
+      <table>
+        <thead><tr><th>Method / property</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>toggleTrackChanges(on?)</code> · <code>isTrackingChanges()</code></td><td>Turns Track Changes on/off (without an argument: toggles).</td></tr>
+          <tr><td><code>author</code> · <code>hasAuthor()</code></td><td>Name recorded on revisions and new comments: the <code>author</code> attribute, the property, or "Author"/"Autor". <code>hasAuthor()</code> tells whether one was given (the built-in bars ask otherwise).</td></tr>
+          <tr><td><code>acceptChange({ moveNext = true })</code> · <code>rejectChange(…)</code></td><td>Accepts/rejects the revisions in the selection, or the one at the cursor, then selects the next one (like Word's Accept and Reject buttons). Returns whether something changed.</td></tr>
+          <tr><td><code>acceptAllChanges({ shown?, stopTracking? })</code> · <code>rejectAllChanges(…)</code></td><td>All revisions — body, tables, headers and footers — or only those shown (Show Markup types and people). Returns how many were resolved. One undo step.</td></tr>
+          <tr><td><code>nextChange()</code> · <code>previousChange()</code></td><td>Selects the next/previous revision (wraps around). <code>false</code> if there is none.</td></tr>
+          <tr><td><code>getRevisions()</code></td><td><code>{ kind: 'insert' | 'delete' | 'format' | 'paraFormat', author, date?, dateUtc?, text, description?, mark?, move?, story, color }[]</code> in document order. <code>description</code> is the balloon text ("Formatted: Font: Bold").</td></tr>
+          <tr><td><code>acceptRevisionAt(i)</code> · <code>rejectRevisionAt(i)</code> · <code>selectRevision(i)</code></td><td>Acts on the i-th item of <code>getRevisions()</code>.</td></tr>
+          <tr><td><code>revisionAtCaret()</code></td><td>The revision under the cursor with its index, or <code>null</code>.</td></tr>
+          <tr><td><code>revisionAuthors()</code> · <code>authorColor(name)</code></td><td>Authors with revisions; the RRGGBB color of an author's markup (Word's palette, in order of appearance).</td></tr>
+          <tr><td><code>setMarkupMode('simple' | 'all' | 'none' | 'original')</code> · <code>getMarkupMode()</code></td><td>Display for Review: Simple Markup (final text, red change bars), All Markup (default), No Markup, Original.</td></tr>
+          <tr><td><code>setMarkupOptions({ insertionsDeletions, formatting, comments, balloons, authors })</code> · <code>getMarkupOptions()</code></td><td>Show Markup: types, balloons (<code>'revisions'</code> · <code>'inline'</code> · <code>'mixed'</code>) and specific people (<code>null</code> = everyone).</td></tr>
         </tbody>
       </table>
 

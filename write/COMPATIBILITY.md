@@ -28,7 +28,7 @@ paridade total ainda não está concluída.
 | TOC/bookmarks/hyperlinks | 🟡 | catálogo e atualização local | preservação incremental de todos os bookmarks/campos complexos |
 | Equações | ❌ | apenas fallback textual | OMML 1:1, edição e layout matemático |
 | Shapes/WordArt/SmartArt/gráficos | ❌ | não modelados | parser, layout, edição e round-trip |
-| Track changes | ❌ | não modelado | `w:ins`, `w:del`, propriedades e UI de revisão |
+| Track changes | 🟡 | `revisions.test.ts` (46 operações refeitas e comparadas com o XML do Word; aceitar/rejeitar = Word), oráculo `revisions` (visão final e Todas as Marcações), cores/barras medidas no PDF do Word, `Doc.Revisions` do Word lê o que gravamos | numeração de lista na marcação (número antigo tachado), revisões de propriedade de tabela/célula/seção (só preservadas), movimentação criada pela edição |
 | Content controls comuns | 🟡 | leitura genérica; `w:sdt` de plugins; envoltório preservado na edição | dropdown/date/checkbox/repeating section do Word; controle com `w:dataBinding` editado não atualiza o XML ligado (o Word repõe o valor ao abrir) |
 | Plugins/custom inline | ✅ | API por instância, mention, `custom-inline.test.ts`, Word real | ampliar para blocos de nível de parágrafo/tabela |
 | Web Component sem backend | ✅ | `offline.html`: `fetch` bloqueado, fontes embutidas, canvas pronto | reduzir tamanho do bundle autocontido (atual: ~8,8 MB) |
@@ -100,7 +100,7 @@ de cada parte (`readFullDocument(pkg, { sources: true })`); o modelo só leva id
 (`props.src`, `TableBlock.src`), que sobrevivem ao undo e às cópias das props.
 Ao salvar, o que está igual à linha de base sai byte a byte; o que mudou aplica
 só as diferenças sobre o w:rPr/w:pPr/w:sectPr original (a regra de
-`directRPr`/`directPPr` do motor), reembrulha sdt/hyperlink/revisões e mantém
+`directRPr`/`directPPr` do motor), reembrulha sdt/hyperlink, refaz os envoltórios de revisão pelas props e mantém
 indicadores/comentários na posição relativa. Verificação:
 `node tools/corpus-lab/lossless-check.mjs [--out dir]` e
 `tools/corpus-lab/word-open-check.ps1 -Dir dir` (Word via COM, invisível).

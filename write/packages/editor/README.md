@@ -70,6 +70,7 @@ Give the element a size with CSS — it fills its box and scrolls inside.
 | `nounloadprompt` | boolean | No browser "leave page?" prompt for unsaved changes. |
 | `nospellcheck` | boolean | No spell checking (no red squiggles, no suggestions). |
 | `lang` | `en` · `pt` | UI language of the bars and popups. Without it: Portuguese if the browser prefers it, otherwise English. |
+| `author` | string | Name recorded on tracked changes and new comments. Without it the bars use the host's user name (Electron: the OS user) or ask once and remember the answer; the bare API falls back to "Author"/"Autor". |
 | `manual-init` | boolean | Do not initialize on connect; call `initialize()` yourself (offline use). |
 | `layout` | `legacy` | Use the previous canvas layout instead of the Word-fidelity engine. The editor also falls back to it on its own if the engine fails on a document. |
 
@@ -89,7 +90,8 @@ Give the element a size with CSS — it fills its box and scrolls inside.
   thumbnails drawn with each style's real formatting (scroll by row, expand,
   right-click to update, modify, rename or remove from the gallery); its
   launcher opens the **Styles pane**.
-- Both: find and replace, comments as cards beside the page, link/comment
+- Both: find and replace, comments and revision balloons as cards beside the
+  page, Track Changes (Review tab; Tools › Track Changes), the Reviewing Pane, link/comment
   dialogs, font and paragraph dialogs, word count, theme (automatic, light,
   dark, dark page) and accent color, focus mode (full screen) and read mode,
   context menu, drag and drop of .docx/.odt, autosave (with a file opened
@@ -105,7 +107,7 @@ Theme the bars with CSS variables on the element: `--uw-font` (UI font),
 `--uw-desk` (background behind the pages), `--uo-bar-bg`,
 `--uo-bar-container`, `--uo-accent`, `--uo-menu-bg`, `--uo-hover-bg`. Parts:
 `toolbar`, `titlebar`, `menubar`, `toolrow`, `tabs`, `ribbon`, `menu`,
-`popover`, `dialog`, `find`, `comments`, `statusbar`, `protected-bar`,
+`popover`, `dialog`, `find`, `comments`, `review-pane`, `statusbar`, `protected-bar`,
 `compare`.
 
 What only the host application can do comes in through the optional
@@ -123,6 +125,7 @@ editor.host = {
   closeWindow: () => bridge.close(),
   setTitleTheme: (dark) => bridge.setTitleTheme(dark),
   setTitle: (title) => { document.title = title; },
+  userName: () => bridge.userName(),        // author of tracked changes and comments
   windowControlsOverlay: true, // frameless window: reserve the OS window buttons
 };
 ```
@@ -152,6 +155,33 @@ in PDF, print or the viewer); right-click one for suggestions, **Ignore All**
 and **Add to Dictionary** (kept in `localStorage`). **Tools › Spelling & grammar**
 (F7) walks through the errors. Languages without a dictionary are not checked.
 
+## Track changes
+
+With **Track Changes** on (Review › Track Changes, Ctrl+Shift+E), typing,
+deleting, Enter and formatting become revisions with author and date, exactly
+as Word writes them (`w:ins`, `w:del`, `w:rPrChange`, `w:pPrChange`, paragraph
+marks; checked against Word 365 operation by operation). Your own insertions
+disappear when deleted; other authors' text stays, struck through. The state is
+saved in the .docx (`w:trackRevisions`), so a document opens the way it was
+saved, and revisions written by Word open as revisions.
+
+**Display for Review** has Word's four modes: **Simple Markup** (final text and
+red change bars), **All Markup** (default: insertions underlined and deletions
+struck in each author's color, black change bars, formatting changes in
+balloons beside the page), **No Markup** and **Original**. **Show Markup** picks
+the types (insertions and deletions, formatting, comments), the balloons
+(revisions in balloons, all inline, only comments and formatting) and specific
+people. PDF export and printing follow the mode on screen, without the balloon
+area. The **Reviewing Pane** (vertical or horizontal) lists every revision with
+counts by type; click to go there, ✓/✗ to accept or reject. Accept and Reject
+work on the selection or the revision at the cursor and move to the next one,
+like Word; their menus also have *This Change*, *All Changes Shown*, *All
+Changes* and *All Changes and Stop Tracking*.
+
+Not yet: list numbering changes in All Markup (Word shows the old number struck
+next to the new one), table/cell/section property revisions (kept as they are),
+and moves created by editing (cut and paste becomes a deletion plus an insertion).
+
 ## Loading and saving
 
 | Method | Description |
@@ -175,7 +205,9 @@ and **Add to Dictionary** (kept in `localStorage`). **Tools › Spelling & gramm
 | Edit | `undo()`, `redo()`, `cut()`, `copy()`, `paste()`, `pastePlain()`, `pasteText(text)`, `selectAll()`, `selectedText()` |
 | Find | `findNext(text)`, `replaceAll(text, replacement)` (case-insensitive) |
 | Spelling | `spellCheckEnabled()`, `toggleSpellCheck(on?)`, `spellingAtCaret()`, `spellingSuggestions(m)`, `replaceSpelling(m, text)`, `ignoreSpelling(word)`, `addToDictionary(word)`, `nextMisspelling()` |
-| Comments | `getComments()`, `addComment(text, author)`, `removeComment(id)`, `goToComment(id)` |
+| Comments | `getComments()`, `addComment(text, author = this.author)`, `removeComment(id)`, `goToComment(id)` |
+| Track changes | `toggleTrackChanges(on?)`, `isTrackingChanges()`, `author` (property), `hasAuthor()`, `acceptChange({ moveNext })`, `rejectChange({ moveNext })`, `acceptAllChanges({ shown, stopTracking })` / `rejectAllChanges(…)` → count, `nextChange()`, `previousChange()`, `getRevisions()` → `{ kind, author, date, dateUtc, text, description, mark, move, story, color }[]`, `acceptRevisionAt(i)`, `rejectRevisionAt(i)`, `selectRevision(i)`, `revisionAtCaret()`, `revisionAuthors()`, `authorColor(name)` |
+| Markup | `setMarkupMode('simple' \| 'all' \| 'none' \| 'original')`, `getMarkupMode()`, `setMarkupOptions({ insertionsDeletions, formatting, comments, balloons: 'revisions' \| 'inline' \| 'mixed', authors })`, `getMarkupOptions()` |
 | Headers/footers | `enterHeaderFooter('header' \| 'footer')`, `exitHeaderFooter()` |
 | View | `setView('print' \| 'web' \| 'read' \| 'draft' \| 'outline')`, `getView()`, `setZoom(z)`, `getZoom()`, `toggleMarks()`, `setDarkPage(dark)`, `navigateTo('#bookmark')` |
 | State | `stats()` → `{ pages, words, chars, page, paragraph }`, `getSelectionState()`, `currentPage()`, `focusEditor()` |
@@ -264,6 +296,9 @@ Normal) starts the new paragraph in that style, without direct formatting.
 | `uw-input` | `{ text }` | Text was typed. |
 | `uw-comments-changed` | — | A comment was added or removed. |
 | `uw-comment-click` | `{ ids }` | Commented text was clicked. |
+| `uw-track-changes` | `{ on }` | Track Changes was turned on or off. |
+| `uw-markup` | `{ mode }` | Display for Review or Show Markup changed. |
+| `uw-revisions-changed` | — | Revisions were accepted or rejected. |
 | `uw-font-embedding` | `{ embedded, skipped }` | After saving a .docx with font embedding on. |
 | `uw-save-request` | `{ saveAs, format }` | The bars are about to save. **Cancelable** — `preventDefault()` = the host saves. |
 | `uw-open-request` | — | The bars are about to show an open dialog. **Cancelable** — `preventDefault()` = the host opens. |

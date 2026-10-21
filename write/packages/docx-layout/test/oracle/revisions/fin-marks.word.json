@@ -1,0 +1,60 @@
+{
+"pages": [
+{
+"w": 595.32,
+"h": 841.92,
+"lines": [
+{
+"y": 81.12,
+"x0": 101.06,
+"x1": 509.84,
+"size": 11.04,
+"text": "Primeirocommarcaexcluidaetextoquevaiparaoseguinte.Seguinteaodamarca"
+},
+{
+"y": 93.86,
+"x0": 466.9,
+"x1": 509.34,
+"size": 11.04,
+"text": "excluida."
+},
+{
+"y": 106.46,
+"x0": 85.1,
+"x1": 138.68,
+"size": 11.04,
+"text": "Separador."
+},
+{
+"y": 119.18,
+"x0": 85.1,
+"x1": 254.82,
+"size": 11.04,
+"text": "Depoisdoparagrafotodoexcluido."
+},
+{
+"y": 131.78,
+"x0": 85.1,
+"x1": 180.51,
+"size": 11.04,
+"text": "Marcainseridaaqui"
+},
+{
+"y": 144.38,
+"x0": 85.1,
+"x1": 204.05,
+"size": 11.04,
+"text": "Paragrafonovoinserido."
+},
+{
+"y": 157.1,
+"x0": 85.1,
+"x1": 193.61,
+"size": 11.04,
+"text": "Voltaaotextocomum."
+}
+],
+"objs": []
+}
+]
+}

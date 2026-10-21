@@ -109,7 +109,8 @@ tools/
 3. **Editor** — caret, seleção, IME, clipboard, undo/redo e Web Component em uso.
 4. **Formatação/documento** — estilos, listas, tabelas, HF e seções parciais.
 5. **Objetos/formatos** — imagens, campos, notas, ODT/PDF/XPS/HTML/Markdown parciais.
-6. **Avançado** — plugins inline implementados; track changes, shapes e equações
+6. **Avançado** — plugins inline e controle de alterações implementados (revisões
+   no modelo, edição controlada e aceitar/rejeitar medidos no Word); shapes e equações
    permanecem no backlog.
 
 Consulte `COMPATIBILITY.md` para a matriz auditada e `PLUGINS.md` para plugins e

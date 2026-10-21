@@ -245,14 +245,15 @@ if (isMain) {
 
   // mesmo caminho do convert() de write/tools/corpus-lab/run-engine.mjs
   // (o oráculo só tem .docx; .odt não entra aqui)
-  const convert = (bytes) => {
+  // casos mk-* (controle de alterações): Todas as Marcações — o .NET faz o mesmo
+  const convert = (bytes, opts = {}) => {
     if (core.isWordBinary(bytes)) bytes = core.convertDocToDocx(bytes);
     const pkg = core.DocxPackage.load(bytes);
     const full = core.readFullDocument(pkg);
     let embedded = [];
     try { embedded = core.readEmbeddedFonts(pkg); } catch { /* sem fontes embutidas legíveis */ }
     const prov = eng.withEmbeddedFonts(provider, embedded, (b) => new layout.SfntFont(b));
-    return eng.layoutDocument(full, prov);
+    return eng.layoutDocument(full, prov, opts);
   };
 
   const all = listCases();
@@ -266,7 +267,7 @@ if (isMain) {
   for (const c of cases) {
     let norm;
     try {
-      const res = convert(new Uint8Array(readFileSync(join(oracleDir, `${c}.docx`))));
+      const res = convert(new Uint8Array(readFileSync(join(oracleDir, `${c}.docx`))), c.split('/').pop().startsWith('mk-') ? { revisions: { mode: 'all' } } : {});
       norm = normalizeLayout(res, (i) => {
         const m = issues.get(c) ?? new Map();
         const k = `${i.t}.${i.field}: ${i.kind}`;
