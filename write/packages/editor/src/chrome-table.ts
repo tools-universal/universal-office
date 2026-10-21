@@ -114,6 +114,13 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
       icon: 'draw', supports: has('setTableTool'), isEnabled: canEdit, run: () => ed.setTableTool('draw'), isChecked: () => ed.getTableTool() === 'draw' },
     { id: 'table:eraser', label: L('Eraser', 'Borracha'), tip: L('Eraser: click a border between cells to merge them (Esc ends)', 'Borracha: clique numa divisa entre células para mesclá-las (Esc encerra)'),
       icon: 'ink_eraser', supports: has('setTableTool'), isEnabled: canEdit, run: () => ed.setTableTool('eraser'), isChecked: () => ed.getTableTool() === 'eraser' },
+    // Opções de colagem de células (depois de copiar células)
+    ...([['overwrite', 'Overwrite Cells', 'Substituir Células', 'content_paste'], ['rows', 'Insert as New Rows', 'Inserir como Novas Linhas', 'add_row_above'],
+      ['nest', 'Nest Table', 'Aninhar Tabela', 'table'], ['text', 'Keep Text Only', 'Manter Somente Texto', 'text_snippet']] as const).map(([mode, en, pt, icon]): Command => ({
+      id: `paste:cells:${mode}`, label: L(en, pt), icon, supports: has('pasteCells'),
+      isEnabled: () => canEdit() && ed.hasCellsClip() && (mode === 'text' || mode === 'overwrite' || !!tbl()),
+      run: () => { ed.pasteCells(mode); },
+    })),
     { id: 'dlg:borders', label: L('Borders and Shading…', 'Bordas e Sombreamento…'), icon: 'border_style', supports: has('setParagraphBorders'), isEnabled: canEdit, run: () => ctl.tableDialog('borders') },
     { id: 'dlg:pageBorders', label: L('Page Borders', 'Bordas de Página'), tip: L('Page Borders (Borders and Shading)', 'Bordas de Página (Bordas e Sombreamento)'), icon: 'border_outer', supports: has('setPageBorders'), isEnabled: canEdit, run: () => ctl.tableDialog('pageBorders') },
   ];
@@ -496,6 +503,7 @@ export const tableFormatMenu = (): MenuItem => ({
 
 /** Itens do menu de contexto dentro de uma tabela. */
 export const tableContextItems = (): MenuEntry[] => [
+  { id: 'ctxTablePaste', label: L('Paste Options', 'Opções de Colagem'), icon: 'content_paste', submenu: () => ['paste:cells:overwrite', 'paste:cells:rows', 'paste:cells:nest', 'paste:cells:text'] },
   { id: 'ctxTableInsert', label: L('Insert', 'Inserir'), icon: 'add', submenu: () => ['row:above', 'row:below', 'col:left', 'col:right', 'cells:insertDlg'] },
   { id: 'ctxTableDelete', label: L('Delete', 'Excluir'), icon: 'delete', submenu: deleteMenu },
   'cells:merge', 'cells:split', '-',

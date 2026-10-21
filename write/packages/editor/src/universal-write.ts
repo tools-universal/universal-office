@@ -304,6 +304,16 @@ interface TableSel {
   origin: { r: number; c: number };
 }
 
+/** Cópia rica interna: parágrafos com as props de origem, tabelas inteiras do meio da seleção e células copiadas. */
+interface RichClip {
+  text: string;
+  paras: { runs: { text: string; props: RunProps }[] }[];
+  /** tabelas entre os parágrafos copiados: entram antes do parágrafo `before` do recorte */
+  tables?: { before: number; table: TableBlock }[];
+  /** células selecionadas (como tabela nova); rows = linhas inteiras; whole = a tabela toda */
+  cells?: { table: TableBlock; rows: boolean; whole: boolean };
+}
+
 /** Divisa de célula sob o mouse: de coluna (fronteira da grade) ou de linha (base da linha). */
 interface TableEdge { kind: 'col' | 'row'; anchor: number; path: CellHop[]; boundary: number; pos: number; pg: number; r: number; c: number }
 
@@ -759,7 +769,7 @@ export class UniversalWriteElement extends HTMLElement {
   private plainPasteNext = false; // próximo paste (Ctrl+Shift+V) cola sem formatação
   // clipboard RICO interno (o sistema só guarda texto): casado por texto, usado
   // pelo "Colar" para preservar a formatação dos runs da ORIGEM.
-  private richClip: { text: string; paras: { runs: { text: string; props: RunProps }[] }[] } | null = null;
+  private richClip: RichClip | null = null;
 
   onSelectionChange: (() => void) | null = null;
 
@@ -2663,7 +2673,7 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Extrai a seleção como parágrafos de runs (com props) — base do clipboard rico. */
-  private extractSelection(): { text: string; paras: { runs: { text: string; props: RunProps }[] }[] } | null {
+  private extractSelection(): RichClip | null {
     if (!this.model || !this.hasSelection()) return null;
     const { start, end } = normalizeRange(this.range());
     const paras: { runs: { text: string; props: RunProps }[] }[] = [];
@@ -2684,11 +2694,23 @@ export class UniversalWriteElement extends HTMLElement {
       paras.push({ runs });
     }
     const text = paras.map((pp) => pp.runs.map((r) => r.text).join('')).join('\n');
-    return { text, paras };
+    // tabelas inteiras entre os parágrafos da seleção (no corpo) vão junto
+    const tables = this.cellEdit || this.hfEdit || this.tbEdit ? [] : this.tableAnchors
+      .filter((a) => a.beforePara > start.para && a.beforePara <= end.para)
+      .map((a) => ({ before: a.beforePara - start.para, table: TOps.cloneTable(a.table) }));
+    return { text, paras, ...(tables.length ? { tables } : {}) };
   }
 
   /** Copia a seleção: texto p/ o sistema + cópia RICA interna (preserva origem). */
   async copy(): Promise<void> {
+    // células selecionadas: a tabela recortada (texto por tabulação + HTML)
+    const cells = this.cellsClip();
+    if (cells) {
+      const { text, html } = UniversalWriteElement.tableClipText(cells.table);
+      this.richClip = { text, paras: [], cells };
+      await this.writeClipboard(text, html);
+      return;
+    }
     const t = this.selectedText();
     if (!t) return;
     this.richClip = this.extractSelection();
@@ -2696,6 +2718,16 @@ export class UniversalWriteElement extends HTMLElement {
   }
   /** Recorta a seleção. */
   async cut(): Promise<void> {
+    // células: a tabela toda sai; linhas inteiras saem; senão o conteúdo é limpo (Word)
+    if (this.tableSel && !this.locked()) {
+      const c = this.cellsClip();
+      await this.copy();
+      if (c?.whole) this.deleteTable();
+      else if (c?.rows) this.deleteRow();
+      else { this.clearSelectedCells(true); this.refresh(); }
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return;
+    }
     if (!this.model || !this.hasSelection() || this.locked()) return;
     await this.copy();
     this.snapshot();
@@ -2712,11 +2744,24 @@ export class UniversalWriteElement extends HTMLElement {
       const t = await navigator.clipboard?.readText();
       if (!t) return;
       // o clipboard do SO normaliza p/ \r\n no Windows — comparar normalizado
-      if (this.richClip && this.richClip.text === t.replace(/\r\n?/g, '\n')) this.insertRich(this.richClip);
+      if (this.richClip && this.richClip.text === t.replace(/\r\n?/g, '\n')) this.pasteRich(this.richClip);
       else this.pasteText(t);
       this.onSelectionChange?.(); this.chromeSync?.();
     } catch { /* sem permissão de leitura */ }
   }
+
+  /** Cola a cópia rica: células (linhas inteiras numa tabela entram como linhas novas; senão substituem) ou parágrafos. */
+  private pasteRich(clip: RichClip): void {
+    if (clip.cells) {
+      const inTable = !!this.tableTarget();
+      this.pasteCells(inTable && clip.cells.rows && !this.tableSel ? 'rows' : 'overwrite', clip.cells);
+      return;
+    }
+    this.insertRich(clip);
+  }
+
+  /** Há células copiadas (opções de colagem de tabela). */
+  hasCellsClip(): boolean { return !!this.richClip?.cells; }
   /** Colar sem formatação (Ctrl+Shift+V): sempre texto plano, herdando o DESTINO. */
   async pastePlain(): Promise<void> {
     if (this.locked()) return;
@@ -2725,7 +2770,7 @@ export class UniversalWriteElement extends HTMLElement {
   }
 
   /** Insere os parágrafos/runs ricos preservando os props de cada run (origem). */
-  private insertRich(clip: { paras: { runs: { text: string; props: RunProps }[] }[] }): void {
+  private insertRich(clip: RichClip): void {
     if (!this.model || this.view === 'read') return;
     this.snapshot();
     if (this.hasSelection()) {
@@ -2733,8 +2778,19 @@ export class UniversalWriteElement extends HTMLElement {
       this.selection = { anchor: pos, focus: pos };
     }
     let pos = this.selection.focus;
+    const body = !this.cellEdit && !this.hfEdit && !this.tbEdit;
     clip.paras.forEach((cp, i) => {
-      if (i > 0) pos = splitParagraph(this.model!, pos);
+      if (i > 0) {
+        this.shiftAnchors(pos.para, 1);
+        pos = splitParagraph(this.model!, pos);
+        // tabela que estava entre os parágrafos copiados: antes deste
+        for (const t of clip.tables ?? []) {
+          if (t.before !== i || !body) continue;
+          let at = this.tableAnchors.findIndex((a) => a.beforePara > pos.para);
+          if (at < 0) at = this.tableAnchors.length;
+          this.tableAnchors.splice(at, 0, { beforePara: pos.para, table: TOps.cloneTable(t.table) });
+        }
+      }
       for (const run of cp.runs) if (run.text) pos = insertText(this.model!, pos, run.text, { ...run.props });
     });
     this.selection = { anchor: pos, focus: pos };
@@ -2753,7 +2809,7 @@ export class UniversalWriteElement extends HTMLElement {
     const paras = text.replace(/\r\n?/g, '\n').split('\n');
     let pos = this.selection.focus;
     paras.forEach((part, i) => {
-      if (i > 0) pos = splitParagraph(this.model!, pos);
+      if (i > 0) { this.shiftAnchors(pos.para, 1); pos = splitParagraph(this.model!, pos); }
       if (part) pos = insertText(this.model!, pos, part); // sem props ⇒ herda o destino
     });
     this.selection = { anchor: pos, focus: pos };
@@ -4283,7 +4339,9 @@ export class UniversalWriteElement extends HTMLElement {
       const text = e.clipboardData?.getData('text/plain') ?? '';
       const plain = this.plainPasteNext;
       this.plainPasteNext = false;
-      if (!plain && this.richClip && this.richClip.text === text.replace(/\r\n?/g, '\n')) this.insertRich(this.richClip);
+      const html = plain ? '' : e.clipboardData?.getData('text/html') ?? '';
+      if (!plain && this.richClip && this.richClip.text === text.replace(/\r\n?/g, '\n')) this.pasteRich(this.richClip);
+      else if (/<table[\s>]/i.test(html) && this.pasteHtmlTables(html)) { /* tabela do HTML */ }
       else if (text) this.pasteText(text);
       this.onSelectionChange?.(); this.chromeSync?.();
     });
@@ -8521,6 +8579,174 @@ export class UniversalWriteElement extends HTMLElement {
       return best;
     }
     return null;
+  }
+
+  // ───────────────── tabelas: área de transferência ─────────────────
+
+  /** Recorte da tabela selecionada (células da seleção) como tabela nova, sem as origens. */
+  private cellsClip(): RichClip['cells'] | undefined {
+    const ts = this.tableSel;
+    const t = ts ? this.tableAt(ts.anchor, ts.path) : null;
+    if (!ts || !t) return undefined;
+    const m = TOps.mapTable(t);
+    const r = TOps.normRect(m, ts.rect);
+    const whole = TOps.wholeRect(t);
+    const sub = TOps.cloneTable(t);
+    const keep = new Set(TOps.cellsIn(m, r).map((g) => `${g.ri}:${g.ci}`));
+    sub.rows = sub.rows.slice(r.r1, r.r2 + 1).map((row, i) => {
+      const ri = r.r1 + i;
+      row.cells = row.cells.filter((_, ci) => keep.has(`${ri}:${ci}`));
+      if (row.trPr) { delete row.trPr.gridBefore; delete row.trPr.gridAfter; delete row.trPr.wBefore; delete row.trPr.wAfter; }
+      return row;
+    });
+    // mescla vertical cortada no topo: a 1ª linha recomeça
+    for (const c of sub.rows[0]?.cells ?? []) if (c.tcPr?.vMerge === 'continue') c.tcPr.vMerge = 'restart';
+    sub.gridColsTwips = t.gridColsTwips.slice(r.c1, r.c2 + 1);
+    TOps.syncLegacy(sub);
+    return { table: sub, rows: r.c1 === 0 && r.c2 >= whole.c2, whole: r.r1 === 0 && r.c1 === 0 && r.r2 >= whole.r2 && r.c2 >= whole.c2 };
+  }
+
+  /** Texto e HTML de uma tabela (células por tabulação, linhas por quebra — como o Word põe no texto). */
+  private static tableClipText(t: TableBlock): { text: string; html: string } {
+    const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const text = t.rows.map((row) => row.cells.map((c) => cellText(c).replace(/\n/g, ' ')).join('\t')).join('\n');
+    const html = '<table border="1" style="border-collapse:collapse">' + t.rows.map((row) => '<tr>' + row.cells.map((c) => {
+      const span = (c.tcPr?.gridSpan ?? 1) > 1 ? ` colspan="${c.tcPr!.gridSpan}"` : '';
+      return `<td${span}>${c.paragraphs.map((p) => `<p>${esc(p.runs.map((r) => r.text).join(''))}</p>`).join('')}</td>`;
+    }).join('') + '</tr>').join('') + '</table>';
+    return { text, html };
+  }
+
+  /** Escreve texto (+ HTML, se o navegador deixa) na área de transferência do sistema. */
+  private async writeClipboard(text: string, html?: string): Promise<void> {
+    try {
+      const CI = (globalThis as { ClipboardItem?: typeof ClipboardItem }).ClipboardItem;
+      if (html && CI && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new CI({ 'text/plain': new Blob([text], { type: 'text/plain' }), 'text/html': new Blob([html], { type: 'text/html' }) })]);
+        return;
+      }
+      await navigator.clipboard?.writeText(text);
+    } catch { /* sem permissão */ }
+  }
+
+  /**
+   * Colar células: 'overwrite' substitui a partir da célula do cursor/seleção
+   * (cria linhas se faltar), 'rows' insere as linhas acima da linha do cursor,
+   * 'nest' aninha a tabela na célula, 'text' cola só o texto. Fora de tabela:
+   * a tabela entra no cursor ('merge'/'overwrite' viram tabela nova).
+   */
+  pasteCells(mode: 'overwrite' | 'rows' | 'nest' | 'text' = 'overwrite', clip: RichClip['cells'] = this.richClip?.cells): boolean {
+    if (!clip || !this.model || this.locked() || this.view === 'read') return false;
+    const src = clip.table;
+    if (mode === 'text') { this.pasteText(UniversalWriteElement.tableClipText(src).text); return true; }
+    const tg = this.tableTarget();
+    if (!tg) {
+      // no corpo: a tabela copiada entra como tabela nova no cursor
+      if (this.hfEdit || this.tbEdit) { this.pasteText(UniversalWriteElement.tableClipText(src).text); return true; }
+      this.snapshot();
+      if (this.hasSelection()) { const pos = this.deleteSelection(); this.selection = { anchor: pos, focus: pos }; }
+      let { para, offset } = this.selection.focus;
+      if (offset > 0) { splitParagraph(this.model, { para, offset }); this.shiftAnchors(para, 1); para++; }
+      let at = this.tableAnchors.findIndex((a) => a.beforePara > para);
+      if (at < 0) at = this.tableAnchors.length;
+      this.tableAnchors.splice(at, 0, { beforePara: para, table: TOps.cloneTable(src) });
+      this.enterCellAt(at, [], 0, 0, false, false);
+      this.refresh();
+      this.scrollCaretIntoView();
+      return true;
+    }
+    if (mode === 'nest') {
+      return this.editTable((t) => {
+        const g = TOps.cellAt(TOps.mapTable(t.table), t.rect.r1, t.rect.c1);
+        if (!g) return false;
+        const blocks = TOps.cellContent(g.cell);
+        TOps.setCellContent(g.cell, [{ ...TOps.cloneTable(src) }, ...blocks]);
+        return { caret: { r: t.rect.r1, c: t.rect.c1 } };
+      });
+    }
+    if (mode === 'rows') {
+      return this.editTable((t) => {
+        const add = TOps.cloneTable(src).rows;
+        // as linhas coladas se ajustam à grade da tabela de destino (mesmas colunas)
+        t.table.rows.splice(t.rect.r1, 0, ...add);
+        TOps.syncLegacy(t.table);
+        return { select: { r1: t.rect.r1, c1: 0, r2: t.rect.r1 + add.length - 1, c2: TOps.mapTable(t.table).nCols - 1 } };
+      });
+    }
+    // substituir células: conteúdo e formatação de célula, a partir do canto
+    return this.editTable((t) => {
+      const sm = TOps.mapTable(src);
+      let m = TOps.mapTable(t.table);
+      const need = t.rect.r1 + src.rows.length - t.table.rows.length;
+      if (need > 0) { TOps.insertRows(t.table, { r1: t.table.rows.length - 1, c1: 0, r2: t.table.rows.length - 1, c2: 0 }, 'below', need); m = TOps.mapTable(t.table); }
+      sm.rows.forEach((gs, i) => {
+        for (const sg of gs) {
+          const dg = TOps.cellAt(m, t.rect.r1 + i, t.rect.c1 + sg.col);
+          if (!dg) continue;
+          TOps.setCellContent(dg.cell, structuredClone(TOps.cellContent(sg.cell)));
+          const shd = sg.cell.tcPr?.shd, bd = sg.cell.tcPr?.tcBorders, va = sg.cell.tcPr?.vAlign;
+          TOps.setCellProps(t.table, { r1: dg.ri, c1: dg.col, r2: dg.ri, c2: dg.col }, { shd, tcBorders: bd, vAlign: va });
+        }
+      });
+      const r2 = Math.min(t.table.rows.length - 1, t.rect.r1 + src.rows.length - 1);
+      const c2 = Math.min(m.nCols - 1, t.rect.c1 + sm.nCols - 1);
+      return { select: TOps.normRect(TOps.mapTable(t.table), { r1: t.rect.r1, c1: t.rect.c1, r2, c2 }) };
+    });
+  }
+
+  /** Tabelas de um HTML colado (de navegador, planilha, outro editor) → tabelas do modelo (texto por célula, colspan/rowspan). */
+  private static tablesFromHtml(html: string, availTwips: number): TableBlock[] {
+    let doc: Document;
+    try { doc = new DOMParser().parseFromString(html, 'text/html'); } catch { return []; }
+    const out: TableBlock[] = [];
+    for (const tbl of [...doc.querySelectorAll('table')].filter((x) => !x.parentElement?.closest('table'))) {
+      const trs = [...tbl.querySelectorAll(':scope > tr, :scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr')];
+      if (!trs.length) continue;
+      // grade: ocupação com rowspan/colspan
+      const occ: boolean[][] = [];
+      let nCols = 0;
+      const cells: { r: number; c: number; cs: number; rs: number; paras: string[]; bold: boolean }[] = [];
+      trs.forEach((tr, r) => {
+        occ[r] ??= [];
+        let c = 0;
+        for (const td of [...tr.children].filter((x) => x.tagName === 'TD' || x.tagName === 'TH')) {
+          while (occ[r]![c]) c++;
+          const cs = Math.max(1, Math.min(63, parseInt(td.getAttribute('colspan') ?? '1', 10) || 1));
+          const rs = Math.max(1, parseInt(td.getAttribute('rowspan') ?? '1', 10) || 1);
+          for (let i = 0; i < rs; i++) for (let j = 0; j < cs; j++) ((occ[r + i] ??= [])[c + j] = true);
+          const blocks = [...td.querySelectorAll('p, div, li')];
+          const paras = blocks.length ? blocks.map((b) => (b.textContent ?? '').replace(/\s+/g, ' ').trim()) : (td.innerHTML.split(/<br\s*\/?>/i).map((h) => { const d = doc.createElement('div'); d.innerHTML = h; return (d.textContent ?? '').replace(/\s+/g, ' ').trim(); }));
+          cells.push({ r, c, cs, rs, paras: paras.length ? paras : [''], bold: td.tagName === 'TH' });
+          c += cs;
+          nCols = Math.max(nCols, c);
+        }
+      });
+      if (!nCols) continue;
+      const t = TOps.newTable(trs.length, nCols, { availTwips });
+      // cada célula do HTML: a 1ª da grade recebe o texto; as cobertas se mesclam
+      for (const x of [...cells].reverse()) {
+        if (x.cs > 1 || x.rs > 1) {
+          const rect = { r1: x.r, c1: x.c, r2: Math.min(trs.length - 1, x.r + x.rs - 1), c2: Math.min(nCols - 1, x.c + x.cs - 1) };
+          if (TOps.canMerge(t, rect)) TOps.mergeCells(t, rect, {});
+        }
+      }
+      const m = TOps.mapTable(t);
+      for (const x of cells) {
+        const g = TOps.cellAt(m, x.r, x.c);
+        if (!g) continue;
+        TOps.setCellContent(g.cell, x.paras.map((s) => ({ type: 'paragraph' as const, paragraph: { runs: s ? [{ text: s, props: x.bold ? { ...DEFAULT_RUN_PROPS, bold: true } : { ...DEFAULT_RUN_PROPS } }] : [], props: {} } })));
+      }
+      TOps.syncLegacy(t);
+      out.push(t);
+    }
+    return out;
+  }
+
+  /** Cola o HTML com tabela: na tabela, substitui células; fora, tabela nova. */
+  private pasteHtmlTables(html: string): boolean {
+    const tables = UniversalWriteElement.tablesFromHtml(html, this.contentWidthTwips());
+    if (!tables.length) return false;
+    return this.pasteCells('overwrite', { table: tables[0]!, rows: true, whole: true });
   }
 
   // ───────────── tabelas: mouse (bordas, alças, pincel, borracha, lápis) ─────────────
