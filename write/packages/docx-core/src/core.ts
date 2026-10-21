@@ -108,4 +108,8 @@ export {
   sortTable, sortParagraphsOrder, canSortTable, parseSortDate, parseSortNumber, SORT_MERGED_ERROR,
   type SortKey, type SortOptions, type SortType,
 } from './table-sort.js';
+export {
+  TABLE_STYLE_CONDS, patchTableStyleXml, newTableStyleXml, retitleTableStyleXml,
+  type TableStyleCond, type TableCondFormat, type TableStyleSide,
+} from './table-style-edit.js';
 export { CORE_TABLE_STYLES, ensureTableStyle, addStylesXml, localStyleId, styleDefOf, styleIdByName, loadBuiltinTableStyles, materializeStyleXml, themeHex, type BuiltinTableStyle } from './table-styles.js';

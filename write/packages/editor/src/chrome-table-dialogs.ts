@@ -7,11 +7,12 @@ import { dialogTabs, openDialog, pickLabels, type UiLang } from '@universal-offi
 import { FORMULA_FUNCTIONS, type TblPr, type TblpPr, type TcPr, type TextSeparator, type WidthSpec } from '@universal-office/docx-core';
 import type { SortRequest, TablePropertiesInput } from './universal-write.js';
 import { bordersShadingDialog } from './chrome-borders.js';
+import { tableStyleDialog } from './chrome-table-style.js';
 import type { DialogEnv } from './chrome-dialogs.js';
 
 export type TableDialogKind = 'insert' | 'fromText' | 'toText' | 'insertCells' | 'deleteCells' | 'split' | 'margins' | 'formula'
   | 'properties' | 'properties:row' | 'properties:column' | 'properties:cell' | 'properties:alt' | 'sort'
-  | 'borders' | 'pageBorders' | 'shading';
+  | 'borders' | 'pageBorders' | 'shading' | 'tableStyle:new' | 'tableStyle:modify';
 
 /** Formatos numéricos da lista do diálogo Fórmula (os do Word pt-BR; os dados seguem o pt-BR). */
 const NUMBER_FORMATS = ['#.##0', '#.##0,00', 'R$ #.##0,00;(R$ #.##0,00)', '0', '0%', '0,00', '0,00%'];
@@ -90,7 +91,7 @@ function autofitPicker(lang: UiLang, value: string, colTw?: number) {
   return { el: r.el, read };
 }
 
-export async function tableDialog(env: DialogEnv, kind: TableDialogKind): Promise<void> {
+export async function tableDialog(env: DialogEnv, kind: TableDialogKind, arg?: string): Promise<void> {
   const lang = env.lang, ed = env.ed;
   switch (kind) {
     case 'insert': {
@@ -211,6 +212,8 @@ export async function tableDialog(env: DialogEnv, kind: TableDialogKind): Promis
     case 'borders': return bordersShadingDialog(env, 'borders');
     case 'pageBorders': return bordersShadingDialog(env, 'page');
     case 'shading': return bordersShadingDialog(env, 'shading');
+    case 'tableStyle:new': return tableStyleDialog(env, 'new');
+    case 'tableStyle:modify': return tableStyleDialog(env, 'modify', arg);
     case 'properties': case 'properties:row': case 'properties:column': case 'properties:cell': case 'properties:alt':
       return propertiesDialog(env, kind === 'properties' ? 'table' : kind.slice(11));
     case 'formula': {

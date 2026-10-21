@@ -113,6 +113,7 @@ import type { PlacedCell } from '@universal-office/docx-layout';
 import { buildXps, type XpsPage, type XpsGlyphRun } from './xps.js';
 import { paintItems, type EnginePaintEnv } from '@universal-office/docx-layout';
 import { guardRuns } from './edit-guard.js';
+import { readStyleSheet, styleRaw, styleIdFromName } from '@universal-office/docx-core';
 import { blankXlsx, editSpreadsheet, sheetAvailable } from './ole-sheet.js';
 import { LangResolver, ParagraphSpell, misspellingAt, wavePath, type Misspelling, type SpellEngine } from './spell.js';
 import {
@@ -8541,11 +8542,38 @@ export class UniversalWriteElement extends HTMLElement {
     const f0 = this.formattingForTables();
     const f: DocFormatting = { ...f0, styles: { ...f0.styles, styles: { ...f0.styles.styles } } };
     const id = ensureTableStyle(f, name, new Map(), this.builtinTableStyles);
-    const W = 1440 * 1.2, rowH = 150;
+    this.paintStyleThumb(canvas, f, id, look);
+  }
+
+  /**
+   * Prévia de um estilo de tabela AINDA NÃO gravado (diálogo Novo/Modificar
+   * Estilo de Tabela): o w:style cru é lido como se estivesse no documento e a
+   * tabela de amostra (com texto, como a do Word) é pintada pelo motor.
+   */
+  renderTableStyleXmlThumb(canvas: HTMLCanvasElement, styleXml: string, look?: TblLook): void {
+    const f0 = this.formattingForTables();
+    const sheet = readStyleSheet('<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' + styleXml + '</w:styles>');
+    const id = Object.keys(sheet.styles)[0];
+    if (!id) return;
+    const f: DocFormatting = { ...f0, styles: { ...f0.styles, styles: { ...f0.styles.styles, [id]: sheet.styles[id]! } } };
+    const pt = uiLang(this) === 'pt';
+    const sample = pt
+      ? [['', 'Jan', 'Fev', 'Mar', 'Total'], ['Leste', '7', '7', '5', '19'], ['Oeste', '6', '4', '7', '17'], ['Sul', '8', '7', '9', '24'], ['Total', '21', '18', '21', '60']]
+      : [['', 'Jan', 'Feb', 'Mar', 'Total'], ['East', '7', '7', '5', '19'], ['West', '6', '4', '7', '17'], ['South', '8', '7', '9', '24'], ['Total', '21', '18', '21', '60']];
+    this.paintStyleThumb(canvas, f, id, look, sample);
+  }
+
+  /** Tabela 5 × 5 com o estilo `id`, diagramada e pintada no canvas (miniatura/prévia). */
+  private paintStyleThumb(canvas: HTMLCanvasElement, f: DocFormatting, id: string | undefined, look?: TblLook, sample?: string[][]): void {
+    const W = sample ? 1440 * 4 : 1440 * 1.2, rowH = sample ? 300 : 150;
     const t = TOps.newTable(5, 5, { availTwips: W + 10, styleId: id ?? null });
     if (look) t.tblPr!.tblLook = { ...look };
     for (const row of t.rows) row.trPr = { trHeight: { val: rowH, hRule: 'exact' } };
-    const sectPr = { pageWidthTwips: W + 240, pageHeightTwips: rowH * 5 + 240, marginLeftTwips: 120, marginRightTwips: 120, marginTopTwips: 120, marginBottomTwips: 120 } as SectPr;
+    sample?.forEach((row, r) => row.forEach((text, c) => {
+      const cell = t.rows[r]?.cells[c];
+      if (cell && text) TOps.setCellContent(cell, [{ type: 'paragraph', paragraph: { runs: [{ text, props: { ...DEFAULT_RUN_PROPS } }], props: { spaceAfterTwips: 0, lineTwentieths: 240 } } }]);
+    }));
+    const sectPr = { pageWidthTwips: W + 240, pageHeightTwips: rowH * 5 + 1200, marginLeftTwips: 120, marginRightTwips: 120, marginTopTwips: 120, marginBottomTwips: 120 } as SectPr;
     const full = {
       blocks: [t, { type: 'paragraph', paragraph: { runs: [], props: {} } }],
       sections: [{ sectPr, blockStart: 0, blockEnd: 1, headers: {}, footers: {}, headerRefs: [], footerRefs: [] }],
@@ -8563,6 +8591,60 @@ export class UniversalWriteElement extends HTMLElement {
     paintItems(ctx, page.items, this.enginePaintEnv());
     // traços de "texto" como nas miniaturas do Word (cor do texto de cada célula)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  // ───────────── Novo/Modificar Estilo de Tabela ─────────────
+
+  /** O w:style de tabela (pelo nome inglês/w:name ou id) como está — ou como entraria (interno ainda fora do documento). */
+  async tableStyleXml(nameOrId: string): Promise<{ id: string; xml: string; inDoc: boolean } | null> {
+    if (!this.builtinTableStyles.length) this.builtinTableStyles = await loadBuiltinTableStyles();
+    const f = this.formattingForTables();
+    const byId = f.styles.styles[nameOrId]?.type === 'table' ? nameOrId : styleIdByName(f, nameOrId);
+    if (byId && this.docStyles.xml) {
+      const raw = styleRaw(this.docStyles.xml, byId);
+      if (raw) return { id: byId, xml: raw, inDoc: true };
+    }
+    const fc: DocFormatting = { ...f, styles: { ...f.styles, styles: { ...f.styles.styles } } };
+    const pending = new Map<string, string>();
+    const id = ensureTableStyle(fc, nameOrId, pending, this.builtinTableStyles);
+    if (!id) return null;
+    const xml = pending.get(id);
+    return xml ? { id, xml, inDoc: false } : null;
+  }
+
+  /** Estilos de tabela do documento e internos (base do Novo Estilo): [id, nome]. */
+  tableStyleBases(): { id: string; name: string }[] {
+    const f = this.formattingForTables();
+    return Object.values(f.styles.styles).filter((s) => s.type === 'table' && s.name).map((s) => ({ id: s.styleId, name: s.name! }));
+  }
+
+  /** id livre para um estilo novo (regra do Word para o w:styleId). */
+  newTableStyleId(name: string): string {
+    const taken = new Set(Object.keys(this.formattingForTables().styles.styles));
+    return styleIdFromName(name, taken);
+  }
+
+  /**
+   * Grava um estilo de tabela (novo ou modificado) no styles.xml — um passo
+   * de desfazer junto com a folha — e, com `apply`, o aplica à tabela do cursor.
+   * Os estilos de que ele depende (base interna) entram antes.
+   */
+  saveTableStyle(xml: string, opts: { apply?: boolean; basedOnName?: string } = {}): boolean {
+    if (!this.model || this.locked() || !this.stylesEditable()) return false;
+    const id = /w:styleId="([^"]+)"/.exec(xml)?.[1];
+    if (!id) return false;
+    this.snapshot();
+    if (opts.basedOnName) this.tableStyleId(opts.basedOnName);
+    this.commitStyles(putStyle(this.docStyles.base(), id, xml));
+    if (opts.apply) {
+      const tg = this.tableTarget();
+      if (tg) {
+        TOps.setTableProps(tg.table, { tblStyle: id });
+        for (const row of tg.table.rows) for (const c of row.cells) if (c.tcPr) { delete c.tcPr.shd; delete c.tcPr.cnfStyle; TOps.syncLegacyCell(c); }
+      }
+    }
+    this.refresh();
+    return true;
   }
 
   // ───────────── tabelas: mouse e teclado ─────────────

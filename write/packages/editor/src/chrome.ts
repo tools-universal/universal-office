@@ -356,7 +356,7 @@ class WriteChrome {
       inspectorOpen: () => !!this.styles?.inspectorOpen,
       newStyle: () => { void this.styles?.styleDialog('new'); },
       modifyStyle: () => { const c = this.ed.currentStyles(); void this.styles?.styleDialog('modify', c.character ?? c.paragraph); },
-      tableDialog: (kind) => { void tableDialog(d(), kind).then(() => this.after()); },
+      tableDialog: (kind, arg) => { void tableDialog(d(), kind, arg).then(() => this.after()); },
     };
   }
 

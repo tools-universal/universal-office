@@ -45,7 +45,7 @@ export interface ChromeCtl {
   newStyle(): void;
   modifyStyle(): void;
   /** diálogos de tabela (Inserir Tabela, Dividir Células…) */
-  tableDialog(kind: TableDialogKind): void;
+  tableDialog(kind: TableDialogKind, arg?: string): void;
 }
 
 export const ZOOMS = [50, 75, 90, 100, 125, 150, 200];

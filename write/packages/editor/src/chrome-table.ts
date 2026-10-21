@@ -100,6 +100,8 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
       isChecked: () => lookOn(tbl()?.look, key),
     })),
     // ── Estilos de Tabela ──
+    { id: 'table:style:new', label: L('New Table Style…', 'Novo Estilo de Tabela…'), icon: 'add', supports: has('saveTableStyle'), isEnabled: canEdit, run: () => ctl.tableDialog('tableStyle:new') },
+    t({ id: 'table:style:modify', label: L('Modify Table Style…', 'Modificar Estilo de Tabela…'), icon: 'edit', supports: has('saveTableStyle'), run: () => ctl.tableDialog('tableStyle:modify') }),
     t({ id: 'table:style:clear', label: L('Clear', 'Limpar'), icon: 'format_clear', supports: has('setTableStyle'), run: () => { void ed.setTableStyle(null); } }),
     t({ id: 'table:shading', label: L('Shading', 'Sombreamento'), icon: 'format_color_fill', supports: has('setCellShading'),
       run: () => ed.setCellShading(app.lastTableShading), color: () => app.lastTableShadingCss }),
@@ -206,7 +208,11 @@ export function tableStyleGallery(env: WidgetEnv): BarItem {
         queueThumb(() => (cv.isConnected ? env.ed.renderTableStyleThumb(cv, it.id, look) : Promise.resolve()));
       },
       onPick: (name) => { void env.ed.setTableStyle(name).then(() => env.app.ui?.sync()); },
-      footer: () => ['table:style:clear'],
+      footer: () => ['table:style:modify', 'table:style:clear', 'table:style:new'],
+      context: (it) => [{
+        id: 'table:style:modifyItem', icon: 'edit', label: L('Modify Table Style…', 'Modificar Estilo de Tabela…'),
+        onClick: () => env.ctl.tableDialog('tableStyle:modify', it.id),
+      }],
     },
   };
 }
