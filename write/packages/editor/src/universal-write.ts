@@ -304,6 +304,18 @@ interface TableSel {
   origin: { r: number; c: number };
 }
 
+/** Divisa de célula sob o mouse: de coluna (fronteira da grade) ou de linha (base da linha). */
+interface TableEdge { kind: 'col' | 'row'; anchor: number; path: CellHop[]; boundary: number; pos: number; pg: number; r: number; c: number }
+
+/** Arrasto de tabela em curso: divisa, alça de mover/redimensionar ou o lápis. */
+interface TableDrag {
+  kind: 'col' | 'row' | 'move' | 'size' | 'draw';
+  anchor: number; path: CellHop[]; boundary: number; pg: number;
+  /** posição inicial e atual (twips, na página) */
+  sx: number; sy: number; x: number; y: number;
+  min?: number; max?: number;
+}
+
 /** Onde fica o cursor depois de uma operação de tabela. */
 interface TableAfter {
   /** cursor no corpo */
@@ -4127,6 +4139,8 @@ export class UniversalWriteElement extends HTMLElement {
 
     this.addEventListener('mousedown', (e) => {
       if (this.eventInChrome(e)) return;
+      // tabelas: ferramenta ativa (pincel, borracha, lápis), alças e divisas
+      if (this.tableMouseDown(e)) return;
       // objetos flutuantes + entrada em caixa de texto (CLIQUE ÚNICO):
       if (e.button === 0 && !this.protectedMode) {
         // 1) alça de redimensionamento do float ATIVO (imagem selecionada OU
@@ -4305,6 +4319,8 @@ export class UniversalWriteElement extends HTMLElement {
       // corpo de uma imagem flutuante → mover (durante edição de texto não)
       const fh = this.tbEdit ? null : this.hitFloat(e);
       if (fh) { this.style.cursor = 'move'; return; }
+      // tabelas: divisas (redimensionar), alças e a ferramenta ativa
+      if (this.tableMouseMove(e)) return;
       // sem objeto sob o mouse: se o cursor estava em modo objeto, limpa
       if (this.style.cursor === 'move' || this.style.cursor.endsWith('-resize')) this.style.cursor = '';
     });
@@ -4403,6 +4419,8 @@ export class UniversalWriteElement extends HTMLElement {
       const k = e.key;
       // células selecionadas: setas/Shift+setas, Delete/Backspace, Esc
       if (this.tableSel && this.tableSelKey(e)) return;
+      // Esc: sai do Pincel de Bordas / Borracha / Desenhar Tabela
+      if (k === 'Escape' && this.tableTool) { e.preventDefault(); this.setTableTool(null); return; }
       // F9: atualiza os campos de fórmula
       if (k === 'F9' && !ctrl && !e.altKey && !e.shiftKey) {
         e.preventDefault();
@@ -7091,6 +7109,7 @@ export class UniversalWriteElement extends HTMLElement {
         this.paintEngineSpelling(ctx, i);
         if (this.tableSel) this.paintTableSel(ctx, i);
         else if (hasSel) this.paintEngineSelection(ctx, i, sel);
+        this.paintTableAdorners(ctx, i);
         ctx.restore();
       }
       return ctx;
@@ -8502,6 +8521,376 @@ export class UniversalWriteElement extends HTMLElement {
       return best;
     }
     return null;
+  }
+
+  // ───────────── tabelas: mouse (bordas, alças, pincel, borracha, lápis) ─────────────
+
+  /** Arrasto em curso de uma divisa (coluna/linha), da alça de mover ou da de redimensionar. */
+  private tableDrag: TableDrag | null = null;
+  /** Tabela do corpo sob o mouse (mostra as alças de mover/redimensionar). */
+  private tableHover: number | null = null;
+  /** Ferramenta de tabela ativa: Pincel de Bordas, Borracha ou Desenhar Tabela. */
+  private tableTool: 'painter' | 'eraser' | 'draw' | null = null;
+
+  /** Ferramenta de tabela (Pincel de Bordas, Borracha, Desenhar Tabela); null desliga (Esc também). */
+  setTableTool(tool: 'painter' | 'eraser' | 'draw' | null): void {
+    this.tableTool = this.tableTool === tool ? null : tool;
+    this.style.cursor = this.tableTool ? 'crosshair' : '';
+    this.dispatchEvent(new CustomEvent('uw-tabletool', { detail: { tool: this.tableTool } }));
+    this.chromeSync?.();
+  }
+  getTableTool(): 'painter' | 'eraser' | 'draw' | null { return this.tableTool; }
+
+  /** Ponto do evento numa página do motor (twips). */
+  private engPoint(e: MouseEvent): { pg: number; x: number; y: number } | null {
+    if (!this.eng) return null;
+    const scale = PX_PER_TWIP * this.zoom;
+    for (let pg = 0; pg < this.canvases.length; pg++) {
+      const rc = this.canvases[pg]!.getBoundingClientRect();
+      if (e.clientY < rc.top || e.clientY > rc.bottom || e.clientX < rc.left || e.clientX > rc.right) continue;
+      return { pg, x: (e.clientX - rc.left) / scale, y: (e.clientY - rc.top) / scale };
+    }
+    return null;
+  }
+
+  /** Divisa de célula sob o mouse (até 4 px): de coluna (fronteira da grade) ou de linha (base da linha r). */
+  private tableEdgeAt(e: MouseEvent): TableEdge | null {
+    const p = this.engPoint(e);
+    if (!p || !this.eng) return null;
+    const tol = 4 / (PX_PER_TWIP * this.zoom);
+    let best: (TableEdge & { d: number }) | null = null;
+    for (const box of this.eng.result.pages[p.pg]?.cells ?? []) {
+      const loc = locateRef(box.ref + '/b0', this.eng.doc.origins);
+      if (loc.kind !== 'cell') continue;
+      const last = loc.hops[loc.hops.length - 1]!;
+      const base = { anchor: loc.anchor, path: loc.hops.slice(0, -1), pg: p.pg, r: last.r, c: last.c };
+      if (p.y >= box.y && p.y <= box.y + box.h) {
+        for (const [x, b] of [[box.x, last.c], [box.x + box.w, last.c + box.span]] as const) {
+          const d = Math.abs(p.x - x);
+          if (d <= tol && (!best || d < best.d)) best = { ...base, kind: 'col', boundary: b, pos: x, d };
+        }
+      }
+      if (p.x >= box.x && p.x <= box.x + box.w) {
+        const y = box.y + box.h, d = Math.abs(p.y - y);
+        if (d <= tol && (!best || d < best.d)) best = { ...base, kind: 'row', boundary: last.r, pos: y, d };
+      }
+    }
+    return best;
+  }
+
+  /** Caixa da tabela do corpo por página (para as alças): [primeira, última]. */
+  private tableBBox(anchor: number): { first: { pg: number; x: number; y: number }; last: { pg: number; x: number; y: number } } | null {
+    const boxes = this.tableBoxes(anchor, []);
+    if (!boxes.length) return null;
+    const pg0 = Math.min(...boxes.map((b) => b.pg)), pg1 = Math.max(...boxes.map((b) => b.pg));
+    const on0 = boxes.filter((b) => b.pg === pg0), on1 = boxes.filter((b) => b.pg === pg1);
+    return {
+      first: { pg: pg0, x: Math.min(...on0.map((b) => b.box.x)), y: Math.min(...on0.map((b) => b.box.y)) },
+      last: { pg: pg1, x: Math.max(...on1.map((b) => b.box.x + b.box.w)), y: Math.max(...on1.map((b) => b.box.y + b.box.h)) },
+    };
+  }
+
+  /** Alça sob o mouse da tabela em foco: mover (canto de cima à esquerda) ou redimensionar (canto de baixo à direita). */
+  private tableHandleAt(e: MouseEvent): { kind: 'move' | 'size'; anchor: number } | null {
+    if (this.tableHover === null) return null;
+    const bb = this.tableBBox(this.tableHover);
+    const p = this.engPoint(e);
+    if (!bb || !p) return null;
+    const px = 1 / (PX_PER_TWIP * this.zoom);
+    if (p.pg === bb.first.pg && p.x >= bb.first.x - 20 * px && p.x <= bb.first.x - 4 * px && p.y >= bb.first.y - 20 * px && p.y <= bb.first.y - 4 * px) return { kind: 'move', anchor: this.tableHover };
+    if (p.pg === bb.last.pg && p.x >= bb.last.x && p.x <= bb.last.x + 10 * px && p.y >= bb.last.y && p.y <= bb.last.y + 10 * px) return { kind: 'size', anchor: this.tableHover };
+    return null;
+  }
+
+  /** Adornos de tabela na tela: alças da tabela sob o mouse e a guia do arrasto. */
+  private paintTableAdorners(ctx: CanvasRenderingContext2D, pg: number): void {
+    const px = 1 / (PX_PER_TWIP * this.zoom);
+    const dark = this.pageDark;
+    if (this.tableHover !== null && !this.printRender && !this.tableTool) {
+      const bb = this.tableBBox(this.tableHover);
+      if (bb) {
+        ctx.save();
+        ctx.lineWidth = px;
+        ctx.strokeStyle = dark ? '#9aa0a6' : '#5f6368';
+        ctx.fillStyle = dark ? '#303134' : '#ffffff';
+        if (bb.first.pg === pg) {
+          const x = bb.first.x - 18 * px, y = bb.first.y - 18 * px, s = 13 * px;
+          ctx.fillRect(x, y, s, s); ctx.strokeRect(x, y, s, s);
+          // cruz com setas (mover)
+          const cx = x + s / 2, cy = y + s / 2, a = 4.5 * px;
+          ctx.beginPath(); ctx.moveTo(cx - a, cy); ctx.lineTo(cx + a, cy); ctx.moveTo(cx, cy - a); ctx.lineTo(cx, cy + a); ctx.stroke();
+        }
+        if (bb.last.pg === pg) {
+          const x = bb.last.x + 2 * px, y = bb.last.y + 2 * px, s = 7 * px;
+          ctx.fillRect(x, y, s, s); ctx.strokeRect(x, y, s, s);
+        }
+        ctx.restore();
+      }
+    }
+    const d = this.tableDrag;
+    if (!d || d.pg !== pg) return;
+    ctx.save();
+    ctx.strokeStyle = dark ? '#8ab4f8' : '#1a73e8';
+    ctx.lineWidth = px;
+    ctx.setLineDash([3 * px, 3 * px]);
+    ctx.beginPath();
+    if (d.kind === 'col') { ctx.moveTo(d.x, 0); ctx.lineTo(d.x, 100000); } else if (d.kind === 'row') { ctx.moveTo(0, d.y); ctx.lineTo(100000, d.y); } else ctx.rect(Math.min(d.sx, d.x), Math.min(d.sy, d.y), Math.abs(d.x - d.sx), Math.abs(d.y - d.sy));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** Executa uma operação numa tabela dada (não a do cursor): um passo de desfazer; o cursor volta para onde estava. */
+  private editTableAt(anchor: number, path: CellHop[], fn: (t: TableBlock) => boolean | void): boolean {
+    if (!this.model || this.locked()) return false;
+    const t = this.tableAt(anchor, path);
+    if (!t) return false;
+    this.snapshot();
+    const back = this.cellEdit ? { anchor: this.cellEdit.anchor, hops: this.cellEdit.hops.map((h) => ({ ...h })), sel: this.selection } : null;
+    if (this.cellEdit) this.exitCell();
+    if (fn(t) === false) { this.undoStack.pop(); this.refresh(); return false; }
+    TOps.syncLegacy(t);
+    this.tableSel = null;
+    if (back && this.tableAt(back.anchor, back.hops.slice(0, -1))) {
+      const h = back.hops[back.hops.length - 1]!;
+      this.enterCellAt(back.anchor, back.hops.slice(0, -1), h.r, h.c, false, false);
+    }
+    this.refresh();
+    return true;
+  }
+
+  /** Começa o arrasto de uma divisa de coluna/linha (como no Word: as duas colunas vizinhas trocam largura; a última alarga a tabela). */
+  private startTableEdgeDrag(edge: TableEdge, e: MouseEvent): void {
+    const t = this.tableAt(edge.anchor, edge.path);
+    if (!t) return;
+    const g = t.gridColsTwips, b = edge.boundary, MIN = 100;
+    let min = -Infinity, max = Infinity;
+    if (edge.kind === 'col') {
+      if (b > 0) min = edge.pos - (g[b - 1] ?? 0) + MIN;
+      if (b < g.length) max = edge.pos + (g[b] ?? 0) - MIN;
+    } else {
+      const h = this.rowHeights(edge.anchor, edge.path, edge.boundary, edge.boundary)[0] ?? 0;
+      min = edge.pos - h + MIN;
+    }
+    this.tableDrag = { kind: edge.kind, anchor: edge.anchor, path: edge.path, boundary: b, pg: edge.pg, sx: edge.pos, sy: edge.pos, x: edge.pos, y: edge.pos, min, max };
+    this.trackTableDrag(e);
+  }
+
+  /** Acompanha o arrasto (guia na tela) e aplica no fim. */
+  private trackTableDrag(e0: MouseEvent): void {
+    e0.preventDefault();
+    const move = (ev: MouseEvent): void => {
+      const d = this.tableDrag;
+      const p = this.engPoint(ev);
+      if (!d || !p || p.pg !== d.pg) return;
+      const clamp = (v: number): number => Math.max(d.min ?? -Infinity, Math.min(d.max ?? Infinity, v));
+      if (d.kind === 'col') d.x = clamp(p.x);
+      else if (d.kind === 'row') d.y = clamp(p.y);
+      else { d.x = p.x; d.y = p.y; }
+      this.paint();
+    };
+    const up = (ev: MouseEvent): void => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+      const d = this.tableDrag;
+      this.tableDrag = null;
+      if (!d) return;
+      this.finishTableDrag(d, ev);
+      this.onSelectionChange?.(); this.chromeSync?.();
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  }
+
+  private finishTableDrag(d: TableDrag, ev: MouseEvent): void {
+    const dx = Math.round(d.x - d.sx), dy = Math.round(d.y - d.sy);
+    if (d.kind === 'col') {
+      if (Math.abs(dx) < 2) { this.paint(); return; }
+      this.editTableAt(d.anchor, d.path, (t) => {
+        const g = t.gridColsTwips, b = d.boundary;
+        if (b > 0 && b < g.length) {
+          const l = g[b - 1]! + dx, r = g[b]! - dx;
+          TOps.setColumnWidth(t, b - 1, b - 1, l);
+          TOps.setColumnWidth(t, b, b, r);
+        } else if (b === g.length) TOps.setColumnWidth(t, b - 1, b - 1, g[b - 1]! + dx);
+        else {
+          // borda esquerda: o recuo da tabela anda e a 1ª coluna compensa
+          const ind = t.tblPr?.tblInd?.type === 'dxa' ? t.tblPr.tblInd.w : 0;
+          TOps.setTableProps(t, { tblInd: ind + dx ? { w: ind + dx, type: 'dxa' } : undefined });
+          TOps.setColumnWidth(t, 0, 0, g[0]! - dx);
+        }
+      });
+      return;
+    }
+    if (d.kind === 'row') {
+      if (Math.abs(dy) < 2) { this.paint(); return; }
+      const h = this.rowHeights(d.anchor, d.path, d.boundary, d.boundary)[0] ?? 0;
+      this.editTableAt(d.anchor, d.path, (t) => TOps.setRowHeight(t, d.boundary, d.boundary, Math.max(100, Math.round(h + dy)), 'atLeast'));
+      return;
+    }
+    if (d.kind === 'move') {
+      // clique na alça: seleciona a tabela; arrasto: a tabela passa a flutuar no ponto solto
+      if (Math.abs(dx) < 30 && Math.abs(dy) < 30) {
+        this.enterCellAt(d.anchor, [], 0, 0, false, false);
+        this.selectTable();
+        return;
+      }
+      this.editTableAt(d.anchor, [], (t) => {
+        const pp = t.tblPr?.tblpPr;
+        const ind = t.tblPr?.tblInd?.type === 'dxa' ? t.tblPr.tblInd.w : 0;
+        const x0 = pp?.tblpXSpec ? 0 : pp?.tblpX ?? ind, y0 = pp?.tblpYSpec ? 0 : pp?.tblpY ?? 0;
+        TOps.setTableProps(t, {
+          tblpPr: { leftFromText: 141, rightFromText: 141, ...(pp ?? {}), vertAnchor: pp?.vertAnchor ?? 'text', horzAnchor: pp?.horzAnchor, tblpX: x0 + dx, tblpY: y0 + dy, tblpXSpec: undefined, tblpYSpec: undefined },
+          tblOverlap: t.tblPr?.tblOverlap ?? 'never', tblInd: undefined,
+        });
+        const tp = t.tblPr!.tblpPr!;
+        for (const k of Object.keys(tp) as (keyof typeof tp)[]) if (tp[k] === undefined) delete tp[k];
+      });
+      return;
+    }
+    if (d.kind === 'size') {
+      const bb = this.tableBBox(d.anchor);
+      if (!bb || (Math.abs(dx) < 2 && Math.abs(dy) < 2)) { this.paint(); return; }
+      this.editTableAt(d.anchor, [], (t) => {
+        const W = t.gridColsTwips.reduce((a, b) => a + b, 0) || 1;
+        const fx = Math.max(0.1, (W + dx) / W);
+        const g = t.gridColsTwips.slice();
+        if (dx) g.forEach((w, c) => TOps.setColumnWidth(t, c, c, Math.max(100, Math.round(w * fx))));
+        if (dy && bb.first.pg === bb.last.pg) {
+          const hs = this.rowHeights(d.anchor, [], 0, t.rows.length - 1);
+          const H = hs.reduce((a, b) => a + b, 0) || 1;
+          const fy = Math.max(0.1, (H + dy) / H);
+          hs.forEach((h, r) => TOps.setRowHeight(t, r, r, Math.max(100, Math.round(h * fy)), 'atLeast'));
+        }
+      });
+      return;
+    }
+    if (d.kind === 'draw') this.finishDraw(d, ev);
+  }
+
+  /** Clique com o Pincel de Bordas ou a Borracha: o lado mais próximo da célula sob o mouse. */
+  private tableToolClick(e: MouseEvent): boolean {
+    const hit = this.cellBoxAt(e);
+    const p = this.engPoint(e);
+    if (!hit || !p) return false;
+    const b = hit.box;
+    const ds: ['top' | 'bottom' | 'left' | 'right', number][] = [['top', Math.abs(p.y - b.y)], ['bottom', Math.abs(p.y - b.y - b.h)], ['left', Math.abs(p.x - b.x)], ['right', Math.abs(p.x - b.x - b.w)]];
+    const side = ds.sort((a, z) => a[1] - z[1])[0]![0];
+    const rect = { r1: hit.r, c1: hit.c, r2: hit.r, c2: hit.c };
+    if (this.tableTool === 'painter') {
+      this.editTableAt(hit.anchor, hit.path, (t) => TOps.setBorders(t, TOps.normRect(TOps.mapTable(t), rect), side, this.borderPen));
+      return true;
+    }
+    // Borracha: divisa interna = mescla as duas células; externa = tira a borda
+    this.editTableAt(hit.anchor, hit.path, (t) => {
+      const m = TOps.mapTable(t);
+      const g = TOps.cellAt(m, hit.r, hit.c);
+      if (!g) return false;
+      const other = side === 'top' ? TOps.cellAt(m, hit.r - 1, g.col) : side === 'bottom' ? TOps.cellAt(m, TOps.vExtent(m, hit.r, g.col)[1] + 1, g.col)
+        : side === 'left' ? TOps.cellAt(m, hit.r, g.col - 1) : TOps.cellAt(m, hit.r, g.col + g.span);
+      if (!other) { TOps.setBorders(t, TOps.normRect(m, rect), side, null); return; }
+      const r2 = TOps.normRect(m, { r1: Math.min(hit.r, other.ri), c1: Math.min(g.col, other.col), r2: Math.max(hit.r, other.ri), c2: Math.max(g.col + g.span - 1, other.col + other.span - 1) });
+      if (!TOps.canMerge(t, r2)) return false;
+      TOps.mergeCells(t, r2, { normalSpacing: this.normalSpacing() });
+    });
+    return true;
+  }
+
+  /**
+   * Lápis (Desenhar Tabela): dentro de uma célula, um traço vertical a divide
+   * em duas colunas no ponto e um horizontal em duas linhas; fora de tabela, o
+   * retângulo vira uma tabela 1 × 1 com essa largura no parágrafo do ponto.
+   */
+  private finishDraw(d: TableDrag, ev: MouseEvent): void {
+    const w = Math.abs(d.x - d.sx), h = Math.abs(d.y - d.sy);
+    if (w < 60 && h < 60) { this.paint(); return; }
+    const startHit = this.cellBoxAtPoint(d.pg, d.sx, d.sy);
+    if (startHit) {
+      const vertical = h >= w;
+      const box = startHit.box;
+      this.editTableAt(startHit.anchor, startHit.path, (t) => {
+        const rect = { r1: startHit.r, c1: startHit.c, r2: startHit.r, c2: startHit.c };
+        const out = TOps.splitCells(t, rect, vertical ? 2 : 1, vertical ? 1 : 2, { mergeFirst: false, normalSpacing: this.normalSpacing(), rowHeights: this.rowHeights(startHit.anchor, startHit.path, startHit.r, startHit.r) });
+        if (vertical) {
+          // a divisa nova fica onde o traço foi feito
+          const left = Math.max(100, Math.min(box.w - 100, Math.round((d.sx + d.x) / 2 - box.x)));
+          TOps.setCellWidth(t, { r1: out.r1, c1: out.c1, r2: out.r1, c2: out.c1 }, left);
+          TOps.setCellWidth(t, { r1: out.r1, c1: out.c1 + 1, r2: out.r1, c2: out.c1 + 1 }, Math.round(box.w - left));
+        }
+      });
+      return;
+    }
+    // fora de tabela: tabela nova 1 × 1 do tamanho do retângulo
+    const pos = this.hitTest(ev);
+    if (pos && !this.cellEdit) this.selection = { anchor: pos, focus: pos };
+    this.insertTable(1, 1, { autofit: 'fixed', colWidthTwips: Math.max(200, Math.round(w)) });
+    if (h > 300) {
+      const tg = this.tableTarget();
+      if (tg) this.editTableAt(tg.anchor, tg.path, (t) => TOps.setRowHeight(t, 0, 0, Math.round(h), 'atLeast'));
+    }
+  }
+
+  /** Célula sob um ponto da página (twips). */
+  private cellBoxAtPoint(pg: number, x: number, y: number): { anchor: number; path: CellHop[]; r: number; c: number; box: PlacedCell } | null {
+    let best: { anchor: number; path: CellHop[]; r: number; c: number; box: PlacedCell } | null = null;
+    for (const box of this.eng?.result.pages[pg]?.cells ?? []) {
+      if (x < box.x || x > box.x + box.w || y < box.y || y > box.y + box.h) continue;
+      const loc = locateRef(box.ref + '/b0', this.eng!.doc.origins);
+      if (loc.kind !== 'cell') continue;
+      const last = loc.hops[loc.hops.length - 1]!;
+      if (!best || loc.hops.length > best.path.length + 1) best = { anchor: loc.anchor, path: loc.hops.slice(0, -1), r: last.r, c: last.c, box };
+    }
+    return best;
+  }
+
+  /** Mousedown das tabelas: ferramenta ativa, alças e divisas. true = tratado. */
+  private tableMouseDown(e: MouseEvent): boolean {
+    if (e.button !== 0 || this.locked() || this.view !== 'print' || this.hfEdit || this.tbEdit || !this.eng) return false;
+    if (this.tableTool === 'painter' || this.tableTool === 'eraser') {
+      e.preventDefault();
+      this.focusEditor();
+      this.tableToolClick(e);
+      this.onSelectionChange?.(); this.chromeSync?.();
+      return true;
+    }
+    if (this.tableTool === 'draw') {
+      const p = this.engPoint(e);
+      if (!p) return false;
+      this.tableDrag = { kind: 'draw', anchor: -1, path: [], boundary: 0, pg: p.pg, sx: p.x, sy: p.y, x: p.x, y: p.y };
+      this.focusEditor();
+      this.trackTableDrag(e);
+      return true;
+    }
+    const hd = this.tableHandleAt(e);
+    if (hd) {
+      const p = this.engPoint(e)!;
+      this.tableDrag = { kind: hd.kind, anchor: hd.anchor, path: [], boundary: 0, pg: p.pg, sx: p.x, sy: p.y, x: p.x, y: p.y };
+      this.focusEditor();
+      this.trackTableDrag(e);
+      return true;
+    }
+    const edge = this.tableEdgeAt(e);
+    if (edge) {
+      this.focusEditor();
+      this.startTableEdgeDrag(edge, e);
+      return true;
+    }
+    return false;
+  }
+
+  /** Mousemove das tabelas: cursor das divisas/alças e a tabela sob o mouse (alças). */
+  private tableMouseMove(e: MouseEvent): boolean {
+    if (this.tableDrag || this.view !== 'print' || this.hfEdit || !this.eng) return false;
+    if (this.tableTool) { this.style.cursor = 'crosshair'; return true; }
+    const hit = this.cellBoxAt(e);
+    const hover = hit && !hit.path.length ? hit.anchor : this.tableHandleAt(e)?.anchor ?? null;
+    if (hover !== this.tableHover) { this.tableHover = hover; this.paint(); }
+    if (this.locked()) return false;
+    const hd = this.tableHandleAt(e);
+    if (hd) { this.style.cursor = hd.kind === 'move' ? 'move' : 'nwse-resize'; return true; }
+    const edge = this.tableEdgeAt(e);
+    if (edge) { this.style.cursor = edge.kind === 'col' ? 'col-resize' : 'row-resize'; return true; }
+    if (this.style.cursor === 'col-resize' || this.style.cursor === 'row-resize' || this.style.cursor === 'nwse-resize' || this.style.cursor === 'crosshair') this.style.cursor = '';
+    return false;
   }
 
   /** Arrasto que começou numa célula e passou para outra da mesma tabela: seleção de células. */

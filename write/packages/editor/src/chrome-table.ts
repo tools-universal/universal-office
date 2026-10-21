@@ -108,6 +108,12 @@ export function registerTableCommands(reg: CommandRegistry, ed: UniversalWriteEl
     })),
     t({ id: 'table:borders', label: L('Borders', 'Bordas'), icon: 'border_all', supports: has('setCellBorders'),
       run: () => ed.setCellBorders(app.lastTableBorder) }),
+    { id: 'table:painter', label: L('Border Painter', 'Pincel de Bordas'), tip: L('Border Painter: click cell borders to apply the pen (Esc ends)', 'Pincel de Bordas: clique nas bordas das células para aplicar a caneta (Esc encerra)'),
+      icon: 'format_paint', supports: has('setTableTool'), isEnabled: canEdit, run: () => ed.setTableTool('painter'), isChecked: () => ed.getTableTool() === 'painter' },
+    { id: 'table:draw', label: L('Draw Table', 'Desenhar Tabela'), tip: L('Draw Table: drag inside a cell to split it, outside to create a table (Esc ends)', 'Desenhar Tabela: arraste numa célula para dividi-la, fora para criar uma tabela (Esc encerra)'),
+      icon: 'draw', supports: has('setTableTool'), isEnabled: canEdit, run: () => ed.setTableTool('draw'), isChecked: () => ed.getTableTool() === 'draw' },
+    { id: 'table:eraser', label: L('Eraser', 'Borracha'), tip: L('Eraser: click a border between cells to merge them (Esc ends)', 'Borracha: clique numa divisa entre células para mesclá-las (Esc encerra)'),
+      icon: 'ink_eraser', supports: has('setTableTool'), isEnabled: canEdit, run: () => ed.setTableTool('eraser'), isChecked: () => ed.getTableTool() === 'eraser' },
     { id: 'dlg:borders', label: L('Borders and Shading…', 'Bordas e Sombreamento…'), icon: 'border_style', supports: has('setParagraphBorders'), isEnabled: canEdit, run: () => ctl.tableDialog('borders') },
     { id: 'dlg:pageBorders', label: L('Page Borders', 'Bordas de Página'), tip: L('Page Borders (Borders and Shading)', 'Bordas de Página (Bordas e Sombreamento)'), icon: 'border_outer', supports: has('setPageBorders'), isEnabled: canEdit, run: () => ctl.tableDialog('pageBorders') },
   ];
@@ -288,10 +294,61 @@ export function tableDesignGroups(env: WidgetEnv, ctx: BarContext): BarGroup[] {
         [{ menu: () => penWidthMenu(env, ctx), id: 'pen:width', label: L('Pen Weight', 'Espessura da Caneta'), icon: 'line_weight', showLabel: true, supports: has('setBorderPen') }],
         [{ menu: () => penColorMenu(env, ctx), id: 'pen:color', label: L('Pen Color', 'Cor da Caneta'), icon: 'border_color', showLabel: true, supports: has('setBorderPen') }],
       ] },
+      { menu: () => borderStylesMenu(env, ctx), id: 'table:borderStyles', label: L('Border Styles', 'Estilos de Borda'), icon: 'style', size: 'large', supports: has('setBorderPen') },
       { split: 'table:borders', menu: bordersMenu, size: 'large' },
+      { cmd: 'table:painter', size: 'large' },
     ] },
   ];
 }
+
+/** Estilos de Borda: linhas do tema (Texto 1 e Ênfases) em espessuras e traços comuns + as usadas por último; escolher liga o Pincel. */
+const recentPens: { val: string; sz: number; color: string; themeColor?: string }[] = [];
+const BORDER_STYLE_ROWS: [string, number][] = [['single', 4], ['single', 12], ['single', 18], ['double', 4], ['double', 12], ['thinThickSmallGap', 18], ['dotted', 4], ['dashed', 4]];
+const borderStylesMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
+  content: (close) => {
+    const colors = env.ed.documentThemeColors();
+    const slots: [string, string][] = [['text1', colors['dk1'] ?? colors['text1'] ?? '000000'], ...[1, 2, 3, 4, 5, 6].map((i): [string, string] => [`accent${i}`, colors[`accent${i}`] ?? '808080'])];
+    const box = document.createElement('div');
+    box.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:2px;max-height:min(460px,65vh);overflow:auto';
+    const pick = (pen: { val: string; sz: number; color: string; themeColor?: string }): void => {
+      close();
+      env.ed.setBorderPen({ val: pen.val, sz: pen.sz, color: pen.color, themeColor: pen.themeColor, themeTint: undefined, themeShade: undefined });
+      const k = JSON.stringify(pen);
+      const i = recentPens.findIndex((x) => JSON.stringify(x) === k);
+      if (i >= 0) recentPens.splice(i, 1);
+      recentPens.unshift(pen);
+      recentPens.length = Math.min(recentPens.length, 7);
+      if (env.ed.getTableTool() !== 'painter') env.ed.setTableTool('painter');
+      ctx.after();
+    };
+    const grid = (pens: { val: string; sz: number; color: string; themeColor?: string }[]): HTMLElement => {
+      const g = document.createElement('div');
+      g.style.cssText = 'display:grid;grid-template-columns:repeat(7,64px);gap:3px';
+      for (const pen of pens) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'uo-mi';
+        b.title = `${ctx.registry.text(L(BORDER_STYLES.find(([v]) => v === pen.val)?.[1] ?? pen.val, BORDER_STYLES.find(([v]) => v === pen.val)?.[2] ?? pen.val))}, ${pen.sz / 8} pt`;
+        b.style.cssText = 'height:26px;padding:2px;border:1px solid color-mix(in srgb, currentColor 20%, transparent);border-radius:4px;background:#fff;cursor:pointer;display:flex;align-items:center';
+        b.innerHTML = borderSampleSvg(pen.val, `#${pen.color}`, 58, 14);
+        b.addEventListener('mousedown', (e) => e.preventDefault());
+        b.addEventListener('click', () => pick(pen));
+        g.append(b);
+      }
+      return g;
+    };
+    const head = (t: { en: string; pt: string }): HTMLElement => {
+      const h = document.createElement('div');
+      h.textContent = ctx.registry.text(t);
+      h.style.cssText = 'font-size:12px;font-weight:600;opacity:.8;margin:2px';
+      return h;
+    };
+    box.append(head(L('Theme Borders', 'Bordas do Tema')),
+      grid(BORDER_STYLE_ROWS.flatMap(([val, sz]) => slots.map(([slot, hex]) => ({ val, sz, color: hex, themeColor: slot })))));
+    if (recentPens.length) box.append(head(L('Recently Used Borders', 'Bordas Usadas Recentemente')), grid(recentPens));
+    return box;
+  },
+}];
 
 /** Grade "inserir tabela" + os itens do menu Tabela (Inserir). */
 export const tableMenu = (env: WidgetEnv, ctx: BarContext): MenuEntry[] => [{
@@ -400,6 +457,7 @@ export function tableLayoutGroups(env: WidgetEnv): BarGroup[] {
         [{ cmd: 'table:properties', label: true }],
       ] },
     ] },
+    { id: 'tl-draw', label: L('Draw', 'Desenhar'), icon: 'draw', prio: 1, cells: [big('table:draw'), big('table:eraser')] },
     { id: 'tl-rows', label: L('Rows & Columns', 'Linhas e Colunas'), icon: 'table_rows', prio: 6, launcher: 'cells:insertDlg', cells: [
       { menu: deleteMenu, id: 'table:deleteMenu', label: L('Delete', 'Excluir'), icon: 'delete', size: 'large', supports: has('deleteRow') },
       big('row:above'), { rows: [[{ cmd: 'row:below', label: true }], [{ cmd: 'col:left', label: true }], [{ cmd: 'col:right', label: true }]] },
