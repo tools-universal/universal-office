@@ -7,6 +7,7 @@ import {
   patchTblPr, patchTblPrEx, patchTrPr, patchTcPr,
   tblPrXml as tblPrTyped, tblPrExXml as tblPrExTyped, trPrXml as trPrTyped, tcPrXml as tcPrTyped, pgBordersXml,
 } from './table-xml.js';
+import { beginRevisionIds, ensureRevisionNamespaces, markRevisionXml, revisionAttrs, takeUsedDateUtc, wrapRevision } from './rev-xml.js';
 
 /**
  * Grava o modelo em word/document.xml (e cabeçalhos/rodapés, numbering,
@@ -227,7 +228,9 @@ function rPrXml(run: Run): string {
   return src ? patchRPr(src.rPr, run) : rPrFromProps(run.props, active !== null);
 }
 
-function textXml(text: string): string {
+/** Texto do run (excluído em revisão: w:delText). */
+function textXml(text: string, deleted = false): string {
+  const t = deleted ? 'w:delText' : 'w:t';
   const parts: string[] = [];
   for (const seg of text.split(/(\t|\n|\f|\u000B|\u2011|\u00AD|\u2028)/)) {
     if (seg === '\t') parts.push('<w:tab/>');
@@ -239,7 +242,7 @@ function textXml(text: string): string {
     else if (seg === '\u2028') parts.push('<w:br w:clear="all"/>');
     else if (seg.length > 0) {
       const space = seg !== seg.trim() ? ' xml:space="preserve"' : '';
-      parts.push(`<w:t${space}>${esc(seg)}</w:t>`);
+      parts.push(`<${t}${space}>${esc(seg)}</${t}>`);
     }
   }
   return parts.join('');
@@ -312,15 +315,49 @@ function runXml(run: Run): string {
   if (active && (run.math || run.props.isMath)) {
     return `<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:r><m:t>${esc(run.text)}</m:t></m:r></m:oMath>`;
   }
-  return `<w:r>${rpr}${textXml(run.text)}</w:r>`;
+  return `<w:r>${rpr}${textXml(run.text, !!run.props.del)}</w:r>`;
 }
 
-/** Campo: fldSimple com o resultado atual (o Word o atualiza sozinho). */
+/** Campo: fldSimple com o resultado atual (o Word o atualiza sozinho). Dentro de
+ *  uma revisão (w:ins/w:del só contêm runs) o campo sai na forma complexa. */
 function fieldOrRunXml(r: Run): string {
-  if (r.field && /^\s*=/.test(r.field)) return formulaFieldXml(r);
-  return r.field && !(active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field))
-    ? `<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>`
-    : runXml(r);
+  if (!r.field || (active && /^\s*(FOOTNOTE|ENDNOTE)REF_MARK\s*$/.test(r.field))) return runXml(r);
+  if (!r.props.ins && !r.props.del) {
+    if (/^\s*=/.test(r.field)) return formulaFieldXml(r);
+    return `<w:fldSimple w:instr="${escAttr(r.field)}">${runXml(r)}</w:fldSimple>`;
+  }
+  const rpr = rPrXml(r);
+  const ch = (type: string): string => `<w:r>${rpr}<w:fldChar w:fldCharType="${type}"/></w:r>`;
+  const it = r.props.del ? 'w:delInstrText' : 'w:instrText';
+  return ch('begin') + `<w:r>${rpr}<${it} xml:space="preserve">${esc(r.field)}</${it}></w:r>` + ch('separate') + runXml(r) + ch('end');
+}
+
+const revKey = (r: unknown): string => JSON.stringify(r ?? null);
+
+/** Runs nos envoltórios de revisão, pelas props: w:ins por fora, w:del por dentro
+ *  (a inserção de outro autor excluída é <w:ins><w:del>…, como o Word grava). */
+function revisionRuns(items: { run: Run; before: string; after: string }[]): string {
+  const plain = (xs: typeof items): string => xs.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join('');
+  const dels = (xs: typeof items): string => {
+    let out = '';
+    for (let i = 0; i < xs.length;) {
+      const d = xs[i]!.run.props.del;
+      let j = i + 1;
+      while (j < xs.length && revKey(xs[j]!.run.props.del) === revKey(d)) j++;
+      out += d ? wrapRevision('del', d, plain(xs.slice(i, j))) : plain(xs.slice(i, j));
+      i = j;
+    }
+    return out;
+  };
+  let out = '';
+  for (let i = 0; i < items.length;) {
+    const ins = items[i]!.run.props.ins;
+    let j = i + 1;
+    while (j < items.length && revKey(items[j]!.run.props.ins) === revKey(ins)) j++;
+    out += ins ? wrapRevision('ins', ins, dels(items.slice(i, j))) : dels(items.slice(i, j));
+    i = j;
+  }
+  return out;
 }
 
 /** Campo de fórmula (= …): campo complexo como o Word grava — o resultado leva w:noProof. */
@@ -373,13 +410,16 @@ function genRuns(items: { run: Run; before: string; after: string }[], inWrapper
   let i = 0;
   while (i < items.length) {
     const link = active && !inWrapper ? items[i]!.run.props.link : undefined;
-    if (!link) { const it = items[i++]!; out.push(it.before + fieldOrRunXml(it.run) + it.after); continue; }
-    let j = i;
-    let inner = '';
-    while (j < items.length && items[j]!.run.props.link === link) {
-      const it = items[j++]!;
-      inner += it.before + fieldOrRunXml(it.run) + it.after;
+    if (!link) {
+      let j = i + 1;
+      while (j < items.length && !(active && !inWrapper && items[j]!.run.props.link)) j++;
+      out.push(revisionRuns(items.slice(i, j)));
+      i = j;
+      continue;
     }
+    let j = i;
+    while (j < items.length && items[j]!.run.props.link === link) j++;
+    const inner = revisionRuns(items.slice(i, j));
     const attr = link.startsWith('#') ? ` w:anchor="${escAttr(link.slice(1))}"` : (() => {
       const id = linkRelId(link);
       return id ? ` r:id="${id}"` : '';
@@ -545,7 +585,7 @@ function paraXmlRuns(para: Paragraph): string {
   if (!active || !src) {
     const marks = commentMarks(para.runs, active?.store.commentIds);
     const items = para.runs.map((run, i) => ({ run, before: marks.before[i]!, after: marks.after[i]! }));
-    if (!active) return paraXmlInner(para, items.map((it) => it.before + fieldOrRunXml(it.run) + it.after).join(''));
+    if (!active) return paraXmlInner(para, revisionRuns(items));
     // formatação copiada de um parágrafo lido: o w:pPr cru dele com as diferenças
     const fmt = para.props.fmtSrc !== undefined ? active.store.paras.get(para.props.fmtSrc) : undefined;
     if (fmt) {
@@ -629,6 +669,14 @@ function paraXmlInner(para: Paragraph, runsXml: string): string {
     ppr.push(`<w:ind${attrs}/>`);
   }
   if (pp.alignment && pp.alignment !== 'left') ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  // revisões: marca de parágrafo (w:rPr) e formatação controlada (w:pPrChange, a última)
+  const mark = (pp.markIns ? markRevisionXml('ins', pp.markIns) : '') + (pp.markDel ? markRevisionXml('del', pp.markDel) : '');
+  if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
+  if (pp.pfmt) {
+    const old = paraXmlInner({ runs: [], props: pp.pfmt.old }, '');
+    const inner = /^<w:p><w:pPr>([\s\S]*)<\/w:pPr><\/w:p>$/.exec(old)?.[1] ?? '';
+    ppr.push(`<w:pPrChange${revisionAttrs(pp.pfmt)}>${inner ? `<w:pPr>${inner}</w:pPr>` : '<w:pPr/>'}</w:pPrChange>`);
+  }
 
   const inner =
     (ppr.length ? `<w:pPr>${ppr.join('')}</w:pPr>` : '') +
@@ -879,20 +927,23 @@ export function serializeBlocks(blocks: Block[], sectPr: SectPr, hfRefs: HfPartI
   const body = blocks.map(blockXml).join('');
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    `<w:document ${W_NS}><w:body>${body}${sect}</w:body></w:document>`
+    revRoot(`<w:document ${W_NS}>`, 'w:document') + `<w:body>${body}${sect}</w:body></w:document>`
   );
 }
 
 export function serializeDocument(model: DocumentModel, hfRefs: HfPartInfo[] = []): string {
   const bodyRefs: HfRefXml[] = hfRefs.map((h) => ({ kind: h.kind, type: h.type, rid: h.rid }));
   const sect = `<w:sectPr>${sectPrInner(model.sectPr, bodyRefs)}</w:sectPr>`;
+  const body = model.paragraphs.map(paraXml).join('');
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    `<w:document ${W_NS}><w:body>` +
-    model.paragraphs.map(paraXml).join('') +
-    sect +
-    '</w:body></w:document>'
+    revRoot(`<w:document ${W_NS}>`, 'w:document') + `<w:body>${body}${sect}</w:body></w:document>`
   );
+}
+
+/** Raiz da parte com o namespace w16du se alguma revisão gerada o usou. */
+function revRoot(open: string, rootName: string): string {
+  return takeUsedDateUtc() ? ensureRevisionNamespaces(open, rootName) : open;
 }
 
 /** Garante na tag raiz as declarações que o XML gerado usa (w, r, wp). */
@@ -973,11 +1024,11 @@ const W_NS_HF =
 /** Serializa uma parte de cabeçalho/rodapé (w:hdr / w:ftr). */
 export function serializeHfPart(kind: 'header' | 'footer', paragraphs: Paragraph[]): string {
   const tag = kind === 'header' ? 'w:hdr' : 'w:ftr';
+  takeUsedDateUtc();
+  const body = paragraphs.map(paraXml).join('');
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-    `<${tag} ${W_NS_HF}>` +
-    paragraphs.map(paraXml).join('') +
-    `</${tag}>`
+    revRoot(`<${tag} ${W_NS_HF}>`, tag) + body + `</${tag}>`
   );
 }
 
@@ -1055,6 +1106,8 @@ export function writeDocument(
     store.beginSave();
     store.genNumIds ??= freeNumIds(pkg.getPartText('word/numbering.xml'));
   }
+  // ids das revisões novas: acima dos que o pacote já usa
+  beginRevisionIds(...pkg.partNames().filter((p) => /^word\/(?:document|header\d*|footer\d*|footnotes|endnotes|comments)\.xml$/.test(p)).map((p) => pkg.getPartText(p)));
   active = store ? { store, pkg, relsPath: 'word/_rels/document.xml.rels', claimed: new Set(), genNumbering: false, claimedSegs: new Set(), remaining: new Map(), paraRuns: [], emittedObj: new Set(), numIds: store.genNumIds! } : null;
   try {
     writeParts(pkg, model, hfParts, opts, store);
@@ -1116,8 +1169,10 @@ function writeParts(
         if (active && story) {
           active.relsPath = `word/_rels/${hf.path.split('/').pop()}.rels`;
           const blocks = hf.blocks ?? hf.paragraphs.map((paragraph) => ({ type: 'paragraph' as const, paragraph }));
-          const xml = withNamespaces(story.open, hf.kind === 'header' ? 'w:hdr' : 'w:ftr') +
-            storyBlocksXml(story, blocks, store!) + story.close;
+          const root = hf.kind === 'header' ? 'w:hdr' : 'w:ftr';
+          takeUsedDateUtc();
+          const body = storyBlocksXml(story, blocks, store!);
+          const xml = revRoot(withNamespaces(story.open, root), root) + body + story.close;
           pkg.setPartText(hf.path, dropCommentMarks(xml, gone));
           active.relsPath = relsPath;
         } else {
@@ -1155,7 +1210,9 @@ function writeParts(
     const sect = story.sectPr
       ? patchSectPr(story.sectPr, model.sectPr, refs)
       : `<w:sectPr>${sectPrInner(model.sectPr, refs)}</w:sectPr>`;
-    const xml = withNamespaces(story.open, 'w:document') + storyBlocksXml(story, blocks, store!) + sect + story.close;
+    takeUsedDateUtc();
+    const body = storyBlocksXml(story, blocks, store!);
+    const xml = revRoot(withNamespaces(story.open, 'w:document'), 'w:document') + body + sect + story.close;
     pkg.setPartText('word/document.xml', dropCommentMarks(xml, gone));
   } else {
     pkg.setPartText('word/document.xml',

@@ -1,12 +1,14 @@
 // Tipos de entrada + helpers compartilhados pelos exportadores (HTML/Markdown).
 // O editor monta um ExportDoc a partir do seu estado vivo (model.paragraphs +
 // tableAnchors + fullDoc) e passa para toHtml()/toMarkdown().
-import type {
-  Paragraph,
-  Run,
-  TableBlock,
-  CommentInfo,
-  SectPr,
+import {
+  finalBlocks,
+  finalParagraphs,
+  type Paragraph,
+  type Run,
+  type TableBlock,
+  type CommentInfo,
+  type SectPr,
 } from '../core.js';
 
 export interface ExportDoc {
@@ -26,6 +28,26 @@ export interface ExportDoc {
    * exportadores precisem de DOM/canvas.
    */
   imageDataUris?: WeakMap<{ data: Uint8Array; ext: string }, string>;
+}
+
+/** O documento na visão FINAL do controle de alterações (sem o texto excluído;
+ *  parágrafo de marca excluída junto do seguinte) — o que as exportações gravam. */
+export function finalExportDoc(doc: ExportDoc): ExportDoc {
+  const { paras, index } = finalParagraphs(doc.paragraphs);
+  const notes = (m?: Map<number, Paragraph[]>): Map<number, Paragraph[]> | undefined =>
+    m && new Map([...m].map(([k, v]) => [k, finalParagraphs(v).paras]));
+  return {
+    ...doc,
+    paragraphs: paras,
+    ...(doc.tableAnchors ? {
+      tableAnchors: doc.tableAnchors.map((a) => ({
+        beforePara: a.beforePara < doc.paragraphs.length ? index[a.beforePara]! : paras.length,
+        table: finalBlocks([a.table])[0] as TableBlock,
+      })),
+    } : {}),
+    ...(doc.footnotes ? { footnotes: notes(doc.footnotes) } : {}),
+    ...(doc.endnotes ? { endnotes: notes(doc.endnotes) } : {}),
+  };
 }
 
 export type OrderedBlock =

@@ -1,6 +1,6 @@
 import { DocxPackage } from './package.js';
 import { parseXml, childElements, firstChild, type XmlElement } from './xml.js';
-import { readRPr, readPPr, readBorder, type RPr, type PPr, type BorderSpec } from './ooxml/props.js';
+import { readRPr, readPPr, readBorder, readRevisionInfo, type RPr, type PPr, type BorderSpec, type RevisionInfo } from './ooxml/props.js';
 import type { SourceStore, SegSource } from './source.js';
 import {
   readWpAnchor, readSpPr, parseVmlStyle, vmlAnchor, vmlLenTwips, vmlShapeStyle,
@@ -45,9 +45,29 @@ export interface RunProps {
   isMath?: boolean;
   /** Comentários cujo intervalo cobre este run. */
   commentIds?: number[];
+  /** Texto inserido em revisão (w:ins; w:moveTo com `move`). */
+  ins?: RevisionInfo;
+  /** Texto EXCLUÍDO em revisão (w:del; w:moveFrom com `move`): fica no modelo e
+   *  no texto do parágrafo (offsets); a visão final o esconde. */
+  del?: RevisionInfo;
+  /** Formatação controlada (w:rPrChange): autoria e as props ANTES da mudança. */
+  fmt?: FormatChange;
   /** Id da fonte XML original do run (source.ts) — salvamento sem perdas. */
   src?: number;
 }
+
+/** w:rPrChange no modelo de edição: `old` são as props de formatação de antes
+ *  (sem as de origem/revisão/comentário/link) — rejeitar volta a elas. */
+export interface FormatChange extends RevisionInfo {
+  old: RunProps;
+}
+
+/** w:pPrChange no modelo de edição (ver FormatChange). */
+export interface ParaFormatChange extends RevisionInfo {
+  old: ParaProps;
+}
+
+export type { RevisionInfo };
 
 export const DEFAULT_RUN_PROPS: RunProps = {
   bold: false,
@@ -345,6 +365,13 @@ export interface ParaProps {
    *  inserida, como o Word faz): o w:pPr sai do cru dele com as diferenças —
    *  sem os runs nem os marcadores dele. */
   fmtSrc?: number;
+  /** Marca de parágrafo (¶) inserida em revisão (w:pPr/w:rPr/w:ins ou w:moveTo). */
+  markIns?: RevisionInfo;
+  /** Marca de parágrafo excluída em revisão (w:pPr/w:rPr/w:del ou w:moveFrom): na
+   *  visão final o parágrafo se junta ao seguinte. */
+  markDel?: RevisionInfo;
+  /** Formatação de parágrafo controlada (w:pPrChange). */
+  pfmt?: ParaFormatChange;
   /** Quebra de seção: este parágrafo encerra uma seção (w:pPr/w:sectPr).
    *  Preserva geometria/orientação e refs de header/footer da seção. */
   sectionBreak?: {
@@ -490,7 +517,18 @@ export function runPropsFromRPr(rpr: RPr | undefined): RunProps {
   if (rpr.rFonts) p.fontAscii = rpr.rFonts.ascii;
   if (rpr.spacing !== undefined && rpr.spacing !== 0) p.charSpacingTwips = rpr.spacing;
   if (rpr.rStyle) p.charStyle = rpr.rStyle;
+  if (rpr.change) p.fmt = { ...revInfo(rpr.change), old: runPropsFromRPr(rpr.change.rPr) };
   return p;
+}
+
+/** Só a autoria de uma revisão (sem o conteúdo antigo). */
+export function revInfo(r: RevisionInfo): RevisionInfo {
+  return {
+    author: r.author,
+    ...(r.date !== undefined ? { date: r.date } : {}),
+    ...(r.dateUtc !== undefined ? { dateUtc: r.dateUtc } : {}),
+    ...(r.move ? { move: true } : {}),
+  };
 }
 
 /**
@@ -563,6 +601,9 @@ export function paraPropsFromPPr(ppr: PPr | undefined): ParaProps {
   }
   if (ppr.pageBreakBefore) props.pageBreakBefore = true;
   if (ppr.framePr?.dropCap && ppr.framePr.dropCap !== 'none') props.dropCap = true;
+  if (ppr.markIns) props.markIns = revInfo(ppr.markIns);
+  if (ppr.markDel) props.markDel = revInfo(ppr.markDel);
+  if (ppr.change) props.pfmt = { ...revInfo(ppr.change), old: paraPropsFromPPr(ppr.change.pPr) };
   return props;
 }
 
@@ -610,9 +651,10 @@ function tagObjectRuns(list: Run[] | null, from: number, el: XmlElement): void {
   for (let i = from; i < list.length; i++) (list[i] as WithObjEl)[OBJ_EL] = i === from ? el : true;
 }
 
-/** Contêineres inline cujo envoltório (sdt, hyperlink, revisão…) o salvar
- *  reaproveita quando o conteúdo muda. */
-const INLINE_WRAPPERS = new Set(['w:sdt', 'w:hyperlink', 'w:smartTag', 'w:customXml', 'w:ins', 'w:moveTo', 'w:dir', 'w:bdo']);
+/** Contêineres inline cujo envoltório (sdt, hyperlink…) o salvar reaproveita
+ *  quando o conteúdo muda. As revisões (w:ins/w:del/w:moveTo/w:moveFrom) não:
+ *  o envoltório delas sai das props dos runs (aceitar/rejeitar o tiram). */
+const INLINE_WRAPPERS = new Set(['w:sdt', 'w:hyperlink', 'w:smartTag', 'w:customXml', 'w:dir', 'w:bdo']);
 
 export interface ReadContext {
   resolveImage: ImageResolver;
@@ -1186,12 +1228,15 @@ function closeField(ctx: ReadContext, runs: Run[]): void {
   runTarget(ctx, runs)?.push(run);
 }
 
+/** O que um envoltório passa aos runs de dentro (hyperlink, campo, revisão). */
+interface RunInherit { link?: string; field?: string; ins?: RevisionInfo; del?: RevisionInfo }
+
 /** Lê os runs de um container (w:r diretos, w:hyperlink, m:oMath, w:fldSimple…). */
 function readRunsInto(
   runs: Run[],
   container: XmlElement,
   ctx: ReadContext,
-  inherit?: { link?: string; field?: string },
+  inherit?: RunInherit,
 ): void {
   for (const child of childElements(container)) {
     switch (child.name) {
@@ -1273,14 +1318,21 @@ function readRunsInto(
         break;
       }
       case 'w:smartTag':
-      case 'w:ins':
-      case 'w:moveTo':
       case 'w:customXml':
       case 'w:dir':
       case 'w:bdo':
         readRunsInto(runs, child, ctx, inherit);
         break;
-      // w:del / w:moveFrom: texto excluído (visão "final") — fora do fluxo
+      // revisões: o texto inserido E o excluído ficam no modelo, marcados nas props
+      // (a visão final esconde o excluído — motor de layout)
+      case 'w:ins':
+      case 'w:moveTo':
+        readRunsInto(runs, child, ctx, { ...inherit, ins: readRevisionInfo(child) });
+        break;
+      case 'w:del':
+      case 'w:moveFrom':
+        readRunsInto(runs, child, ctx, { ...inherit, del: readRevisionInfo(child) });
+        break;
     }
   }
 }
@@ -1369,7 +1421,7 @@ function readSingleRun(
   runs: Run[],
   rEl: XmlElement,
   ctx: ReadContext,
-  inherit?: { link?: string; field?: string },
+  inherit?: RunInherit,
 ): void {
   const rPrEl = firstChild(rEl, 'w:rPr');
   const rpr = readRPr(rPrEl);
@@ -1384,6 +1436,8 @@ function readSingleRun(
   const make = (text: string, extra?: Partial<Run>): Run => {
     const props = { ...rProps };
     if (ctx.activeComments?.size) props.commentIds = [...ctx.activeComments];
+    if (inherit?.ins) props.ins = inherit.ins;
+    if (inherit?.del) props.del = inherit.del;
     const run: Run = { text, props, ...(inherit?.field ? { field: inherit.field } : {}), ...extra };
     if (rpr) run.rpr = rpr;
     setRPrEl(run, rPrEl);
@@ -1407,7 +1461,10 @@ function readSingleRun(
       flush();
       const type = child.attrs['w:fldCharType'];
       if (type === 'begin') {
-        const frame: FieldFrame = { instr: '', phase: 'instr', runs: [], crossed: false, props: { ...rProps } };
+        const frame: FieldFrame = {
+          instr: '', phase: 'instr', runs: [], crossed: false,
+          props: { ...rProps, ...(inherit?.ins ? { ins: inherit.ins } : {}), ...(inherit?.del ? { del: inherit.del } : {}) },
+        };
         if (rpr) frame.rpr = rpr;
         if (rPrEl) frame.rPrEl = rPrEl;
         const ff = firstChild(child, 'w:ffData');
@@ -1445,13 +1502,14 @@ function readSingleRun(
       }
       continue;
     }
-    if (child.name === 'w:instrText') {
+    if (child.name === 'w:instrText' || child.name === 'w:delInstrText') {
       const top = stack[stack.length - 1];
       if (top && top.phase === 'instr') top.instr += textContentOf(child);
       continue;
     }
     switch (child.name) {
       case 'w:t':
+      case 'w:delText':
         // U+00AD LITERAL no texto não é hífen opcional para o Word: aparece
         // sempre (hífen da própria fonte) e não quebra a linha — igual ao
         // w:noBreakHyphen (oráculo hidetext/shy-literal). Opcional é só w:softHyphen.

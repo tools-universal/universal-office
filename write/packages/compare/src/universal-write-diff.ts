@@ -19,6 +19,7 @@
 
 import {
   DocxPackage,
+  finalBlocks,
   readFullDocument,
   type FullDocument,
   type Paragraph,
@@ -287,6 +288,9 @@ export class UniversalWriteDiffElement extends Base {
 
   /** Compara dois documentos já parseados. */
   loadDocuments(aDoc: FullDocument, bDoc: FullDocument, opts: LoadOpts = {}): void {
+    // controle de alterações: compara e mostra a visão final (como o diff do Word)
+    aDoc = { ...aDoc, blocks: finalBlocks(aDoc.blocks) };
+    bDoc = { ...bDoc, blocks: finalBlocks(bDoc.blocks) };
     this._aDoc = aDoc;
     this._bDoc = bDoc;
     if (opts.leftLabel !== undefined) this.setAttribute('left-label', opts.leftLabel);

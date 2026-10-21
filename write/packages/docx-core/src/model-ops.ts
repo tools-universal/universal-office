@@ -64,7 +64,11 @@ const sameProps = (a: RunProps, b: RunProps): boolean =>
   a.allCaps === b.allCaps && a.smallCaps === b.smallCaps &&
   // runs de elementos de origem diferentes (dentro × fora de um sdt/hyperlink…) não se fundem
   a.src === b.src &&
-  sameComments(a.commentIds, b.commentIds);
+  sameComments(a.commentIds, b.commentIds) &&
+  // revisões: só a mesma (autor, data, movimentação) se funde — o Word grava um w:ins por autoria
+  sameJson(a.ins, b.ins) && sameJson(a.del, b.del) && sameJson(a.fmt, b.fmt);
+
+const sameJson = (a: unknown, b: unknown): boolean => a === b || JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
 const sameComments = (a?: number[], b?: number[]): boolean => {
   if (a === b) return true;
@@ -92,7 +96,7 @@ export function normalizeParagraph(p: Paragraph): void {
 }
 
 /** Divide o run que contém offset, retornando o índice do run que começa ali. */
-function splitAt(p: Paragraph, offset: number): number {
+export function splitAt(p: Paragraph, offset: number): number {
   let acc = 0;
   for (let i = 0; i < p.runs.length; i++) {
     const run = p.runs[i]!;
@@ -109,16 +113,27 @@ function splitAt(p: Paragraph, offset: number): number {
   return p.runs.length;
 }
 
-/** Props efetivas no ponto de inserção (herda do caractere anterior, como o app de referência). */
+/** Props efetivas no ponto de inserção (herda do caractere anterior, como o app de referência).
+ *  Revisões não passam adiante: texto novo junto de uma inserção/exclusão/formatação
+ *  controlada sai comum (medido no Word) — com o controle ligado, quem insere põe a dele. */
 export function propsAt(model: DocumentModel, pos: DocPosition): RunProps {
   const p = model.paragraphs[pos.para];
   if (!p || p.runs.length === 0) return { ...DEFAULT_RUN_PROPS };
   let acc = 0;
   for (const run of p.runs) {
-    if (pos.offset <= acc + run.text.length) return { ...run.props };
+    if (pos.offset <= acc + run.text.length) return withoutRevisions(run.props);
     acc += run.text.length;
   }
-  return { ...p.runs[p.runs.length - 1]!.props };
+  return withoutRevisions(p.runs[p.runs.length - 1]!.props);
+}
+
+/** Cópia das props sem as marcas de revisão (ins/del/fmt). */
+export function withoutRevisions(props: RunProps): RunProps {
+  const out = { ...props };
+  delete out.ins;
+  delete out.del;
+  delete out.fmt;
+  return out;
 }
 
 /** rPr do run onde o texto entra (o anterior, como propsAt). */
@@ -172,6 +187,8 @@ export function splitParagraph(model: DocumentModel, pos: DocPosition): DocPosit
   if (p.ppr) tail.ppr = p.ppr;
   if (p.pprEdited) tail.pprEdited = true;
   if (p.props.sectionBreak) { p.props = { ...p.props }; delete p.props.sectionBreak; }
+  // a marca original (e a revisão dela) também é da segunda metade; a da primeira é nova
+  if (p.props.markIns || p.props.markDel) { p.props = { ...p.props }; delete p.props.markIns; delete p.props.markDel; }
   model.paragraphs.splice(pos.para + 1, 0, tail);
   normalizeParagraph(p);
   normalizeParagraph(tail);

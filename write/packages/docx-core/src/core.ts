@@ -28,6 +28,9 @@ export {
   runPropsFromRPr,
   editBaseProps,
   paraPropsFromPPr,
+  revInfo,
+  type FormatChange,
+  type ParaFormatChange,
 } from './document.js';
 export * from './ooxml/props.js';
 export * from './ooxml/parts.js';
@@ -73,12 +76,39 @@ export {
   normalizeRange,
   type DocPosition,
   type DocRange,
+  withoutRevisions,
 } from './model-ops.js';
 export {
   sectionRanges, sectionIndexAt, sectionSectPr, sectionRefs, insertSectionBreak, columnsFor, presetColumns,
   columnsPresetOf, columnWidths, contentWidth, maxColumns, setOrientation, COLUMN_SPACE_DEFAULT, COLUMN_MIN_WIDTH,
   type SectionRange, type InsertSectionBreakOptions, type ColumnSpec, type ColumnPreset,
 } from './section-ops.js';
+export {
+  newRevision,
+  runFormatting,
+  paraFormatting,
+  isDeletedRun,
+  finalRuns,
+  finalParagraphs,
+  finalBlocks,
+  paragraphHasRevisions,
+  collectRevisions,
+  revisionAt,
+  spanScope,
+  acceptRevisions,
+  rejectRevisions,
+  trackInsertText,
+  trackInsertRun,
+  trackSplitParagraph,
+  trackDelete,
+  trackApplyRunProps,
+  trackApplyParaProps,
+  revisionAuthors,
+  type RevisionKind,
+  type RevisionSpan,
+  type RevisionScope,
+  type TrackedDelete,
+} from './revisions.js';
 export {
   serializeDocument,
   serializeBlocks,

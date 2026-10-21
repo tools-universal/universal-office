@@ -16,7 +16,7 @@
 //  - pares 'change' de tabela ganham diff aninhado de linhas.
 
 import type { Block, FullDocument } from '@universal-office/docx-core';
-import { paraText } from '@universal-office/docx-core';
+import { finalBlocks, paraText } from '@universal-office/docx-core';
 import { myersDiff, type DiffOp } from './myers.js';
 import { histogramDiff } from './histogram.js';
 import {
@@ -397,11 +397,12 @@ export function diffBlocks(
   return { edits, stats };
 }
 
-/** Diff dos corpos de dois documentos carregados com readFullDocument. */
+/** Diff dos corpos de dois documentos carregados com readFullDocument — na visão
+ *  final do controle de alterações (o texto excluído em revisão não conta). */
 export function diffDocuments(
   a: FullDocument,
   b: FullDocument,
   opts: DocDiffOptions = {},
 ): DocDiff {
-  return diffBlocks(a.blocks, b.blocks, opts);
+  return diffBlocks(finalBlocks(a.blocks), finalBlocks(b.blocks), opts);
 }

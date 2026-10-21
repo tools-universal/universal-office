@@ -13,6 +13,8 @@ import {
   type Run, type Paragraph, type RunProps, type ParaProps, type SectPr,
 } from './document.js';
 import { pgBordersXml } from './table-xml.js';
+import { paraFormatting, runFormatting } from './revisions.js';
+import { markRevisionXml, revisionAttrs } from './rev-xml.js';
 
 const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -119,6 +121,8 @@ export function rPrFromProps(p: RunProps, linkAware = true): string {
     rpr.push(`<w:u w:val="${p.underlineStyle ?? 'single'}"${p.underlineColor ? ` w:color="${esc(p.underlineColor)}"` : ''}/>`);
   }
   if (p.vertAlign) rpr.push(`<w:vertAlign w:val="${p.vertAlign}"/>`);
+  // formatação controlada: o rPr de antes, por último (CT_RPr)
+  if (p.fmt) rpr.push(`<w:rPrChange${revisionAttrs(p.fmt)}>${wrapIn('w:rPr', innerOf(rPrFromProps(p.fmt.old, linkAware)))}</w:rPrChange>`);
   return rpr.length ? `<w:rPr>${rpr.join('')}</w:rPr>` : '';
 }
 
@@ -171,6 +175,25 @@ function dropCleared(kids: Kid[], map: Record<string, string>, cur: object): boo
   return n > 0;
 }
 
+/** Elemento com conteúdo (vazio: autofechado, como o Word grava). */
+const wrapIn = (tag: string, inner: string): string => (inner ? `<${tag}>${inner}</${tag}>` : `<${tag}/>`);
+
+/** Conteúdo de um elemento serializado (sem a abertura e o fecho). */
+function innerOf(xml: string): string {
+  if (!xml) return '';
+  const a = xml.indexOf('>');
+  if (xml[a - 1] === '/') return '';
+  return xml.slice(a + 1, xml.lastIndexOf('</'));
+}
+
+/** O w:rPr que um w:rPrChange cru guarda (o de antes), cru. */
+function changeRPrRaw(kids: Kid[]): { raw: string; el: XmlElement } | undefined {
+  const k = kids.find((x) => x.name === 'w:rPrChange');
+  if (!k) return undefined;
+  const inner = splitElement(k.raw).kids.find((x) => x.name === 'w:rPr');
+  return inner ? { raw: inner.raw, el: inner.el } : { raw: '<w:rPr/>', el: { name: 'w:rPr', attrs: {}, children: [] } };
+}
+
 /** w:rPr do run: o cru de origem com as diferenças das props aplicadas. */
 export function patchRPr(raw: string | undefined, run: Run): string {
   const p = run.props;
@@ -179,6 +202,11 @@ export function patchRPr(raw: string | undefined, run: Run): string {
   // rpr trocado pelo editor (limpar formatação): ele é a base, e o que saiu dele sai do XML
   const edited = run.rprEdited && run.rpr ? run.rpr : undefined;
   const base = editBaseProps(run, edited ?? readRPr(el));
+  if (base.fmt && !p.fmt) {
+    // formatação controlada rejeitada: o rPr volta ao de antes, cru, do próprio arquivo
+    const old = changeRPrRaw(kids);
+    if (old && sameJson(runFormatting(p), runFormatting(editBaseProps(run, readRPr(old.el))))) return patchRPr(old.raw, run);
+  }
   let changed = edited ? dropCleared(kids, RPR_FIELD, edited) : false;
   const set = (name: string, xml: string | null): void => { changed = true; setKid(kids, RPR_ORDER, name, xml); };
   if (p.bold !== base.bold) { set('w:b', onOff('w:b', p.bold)); set('w:bCs', onOff('w:bCs', p.bold)); }
@@ -209,10 +237,21 @@ export function patchRPr(raw: string | undefined, run: Run): string {
   if ((p.charSpacingTwips ?? 0) !== (base.charSpacingTwips ?? 0)) {
     set('w:spacing', p.charSpacingTwips ? `<w:spacing w:val="${p.charSpacingTwips}"/>` : null);
   }
+  if (!sameJson(p.fmt, base.fmt)) {
+    // formatação controlada nova (o rPr de antes = o cru sem a revisão, com as props
+    // antigas) ou aceita (sai a revisão)
+    if (!p.fmt) set('w:rPrChange', null);
+    else {
+      const rest = kids.filter((k) => k.name !== 'w:rPrChange');
+      const before = rest.length ? patchRPr(join(open, rest, close), { ...run, props: { ...p.fmt.old, ...(p.link ? { link: p.link } : {}) } }) : rPrFromProps(p.fmt.old);
+      set('w:rPrChange', `<w:rPrChange${revisionAttrs(p.fmt)}>${wrapIn('w:rPr', innerOf(before))}</w:rPrChange>`);
+    }
+  }
   return changed ? join(open, kids, close) : raw;
 }
 
-const eq = (a: unknown, b: unknown): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+const eq = sameJson;
 
 /** numIds das listas que o editor cria (marcador / decimal). */
 export interface GenNumIds { bullet: number; decimal: number }
@@ -274,8 +313,32 @@ export function pPrFromProps(pp: ParaProps, sectPrXml: string, ids: GenNumIds = 
     ppr.push(`<w:ind${attrs}/>`);
   }
   if (pp.alignment && pp.alignment !== 'left') ppr.push(`<w:jc w:val="${pp.alignment}"/>`);
+  const mark = markXml(pp);
+  if (mark) ppr.push(`<w:rPr>${mark}</w:rPr>`);
   if (sectPrXml) ppr.push(sectPrXml);
-  return { xml: ppr.length ? `<w:pPr>${ppr.join('')}</w:pPr>` : '', genNumbering: !!pp.numbering };
+  if (pp.pfmt) ppr.push(pPrChangeXml(pp, pPrFromProps(pp.pfmt.old, '', ids).xml));
+  return { xml: ppr.length ? `<w:pPr>${ppr.join('')}</w:pPr>` : '', genNumbering: !!pp.numbering || !!pp.pfmt?.old.numbering };
+}
+
+/** Revisões da marca de parágrafo (filhos de w:pPr/w:rPr, os primeiros de CT_ParaRPr). */
+function markXml(pp: ParaProps): string {
+  return (pp.markIns ? markRevisionXml('ins', pp.markIns) : '') + (pp.markDel ? markRevisionXml('del', pp.markDel) : '');
+}
+
+/** w:pPrChange com o pPr de antes (sem rPr/sectPr/pPrChange — CT_PPrBase). */
+function pPrChangeXml(pp: ParaProps, oldPPr: string): string {
+  return `<w:pPrChange${revisionAttrs(pp.pfmt!)}>${wrapIn('w:pPr', innerOf(oldPPr))}</w:pPrChange>`;
+}
+
+const MARK_REVS = new Set(['w:ins', 'w:del', 'w:moveFrom', 'w:moveTo']);
+
+/** w:rPr da marca de parágrafo com as revisões dela trocadas (null = some). */
+function markRPr(raw: string, pp: ParaProps): string | null {
+  const mark = markXml(pp);
+  if (!raw) return mark ? `<w:rPr>${mark}</w:rPr>` : null;
+  const { open, close, kids } = splitElement(raw);
+  const rest = kids.filter((k) => !MARK_REVS.has(k.name)).map((k) => k.raw).join('');
+  return mark || rest ? `${open}${mark}${rest}${close}` : null;
 }
 
 /**
@@ -289,6 +352,20 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
   const { open, close, kids, el } = splitElement(raw);
   const edited = para.pprEdited && para.ppr ? para.ppr : undefined;
   const base = paraPropsFromPPr(edited ?? readPPr(el));
+  if (base.pfmt && !p.pfmt) {
+    // formatação de parágrafo controlada rejeitada: volta ao pPr de antes, cru (com
+    // a marca e a quebra de seção de agora)
+    const ch = kids.find((k) => k.name === 'w:pPrChange');
+    const old = ch && splitElement(ch.raw).kids.find((k) => k.name === 'w:pPr');
+    const oldEl = old?.el ?? { name: 'w:pPr', attrs: {}, children: [] };
+    if (ch && sameJson(paraFormatting(p), paraFormatting(paraPropsFromPPr(readPPr(oldEl))))) {
+      const oldKids = old ? splitElement(old.raw).kids : [];
+      const keep = kids.filter((k) => k.name === 'w:rPr' || k.name === 'w:sectPr');
+      const all = [...oldKids, ...keep];
+      if (!all.length) return pPrFromProps(p, sect ?? '', ids);
+      return patchPPr(`<w:pPr>${all.map((k) => k.raw).join('')}</w:pPr>`, para, sect, ids);
+    }
+  }
   let changed = edited ? dropCleared(kids, PPR_FIELD, edited) : false;
   let genNumbering = false;
   const set = (name: string, xml: string | null): void => { changed = true; setKid(kids, PPR_ORDER, name, xml); };
@@ -330,6 +407,17 @@ export function patchPPr(raw: string | undefined, para: Paragraph, sect: string 
   if (sect !== undefined) {
     const cur = kidRaw(kids, 'w:sectPr');
     if ((sect ?? '') !== cur) set('w:sectPr', sect);
+  }
+  if (!sameJson(p.markIns, base.markIns) || !sameJson(p.markDel, base.markDel)) set('w:rPr', markRPr(kidRaw(kids, 'w:rPr'), p));
+  if (!sameJson(p.pfmt, base.pfmt)) {
+    if (!p.pfmt) set('w:pPrChange', null);
+    else {
+      // o pPr de antes: o cru sem rPr/sectPr/pPrChange, com as props antigas
+      const rest = kids.filter((k) => k.name !== 'w:rPr' && k.name !== 'w:sectPr' && k.name !== 'w:pPrChange');
+      const before = rest.length ? patchPPr(join(open, rest, close), { runs: [], props: p.pfmt.old }, undefined, ids) : pPrFromProps(p.pfmt.old, '', ids);
+      if (before.genNumbering) genNumbering = true;
+      set('w:pPrChange', pPrChangeXml(p, before.xml));
+    }
   }
   return { xml: changed ? join(open, kids, close) : raw, genNumbering };
 }

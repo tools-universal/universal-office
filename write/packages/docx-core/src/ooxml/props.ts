@@ -66,6 +66,27 @@ export interface UnderlineSpec {
   themeColor?: string;
 }
 
+/**
+ * Autoria de uma revisão (w:ins, w:del, w:moveFrom/To, w:rPrChange, w:pPrChange
+ * e as marcas de parágrafo). `date` fica como está no arquivo — o Word grava a
+ * hora LOCAL com sufixo Z — e `dateUtc` é o w16du:dateUtc (o instante real).
+ */
+export interface RevisionInfo {
+  author: string;
+  date?: string;
+  dateUtc?: string;
+  /** movimentação (w:moveFrom / w:moveTo) */
+  move?: boolean;
+}
+
+export function readRevisionInfo(el: XmlElement): RevisionInfo {
+  const info: RevisionInfo = { author: el.attrs['w:author'] ?? '' };
+  if (el.attrs['w:date']) info.date = el.attrs['w:date'];
+  if (el.attrs['w16du:dateUtc']) info.dateUtc = el.attrs['w16du:dateUtc'];
+  if (el.name === 'w:moveFrom' || el.name === 'w:moveTo') info.move = true;
+  return info;
+}
+
 export interface RPr {
   rStyle?: string;
   rFonts?: RFonts;
@@ -119,6 +140,8 @@ export interface RPr {
   /** w14:ligatures (Word 2010+): ligaduras OpenType — standard, contextual, historical,
    *  discretional, combinações ou all; none = desligadas */
   ligatures?: string;
+  /** w:rPrChange — formatação controlada: autoria e o rPr ANTERIOR. */
+  change?: RevisionInfo & { rPr: RPr };
 }
 
 export type TabAlign = 'left' | 'center' | 'right' | 'decimal' | 'bar' | 'clear' | 'num';
@@ -214,6 +237,12 @@ export interface PPr {
   /** marca de parágrafo excluída em revisão (w:rPr/w:del ou w:moveFrom): na
    *  visão final o parágrafo se junta ao seguinte. */
   markDeleted?: boolean;
+  /** autoria da marca de parágrafo inserida (w:rPr/w:ins ou w:moveTo) */
+  markIns?: RevisionInfo;
+  /** autoria da marca de parágrafo excluída (acompanha markDeleted) */
+  markDel?: RevisionInfo;
+  /** w:pPrChange — formatação de parágrafo controlada: autoria e o pPr ANTERIOR. */
+  change?: RevisionInfo & { pPr: PPr };
 }
 
 export interface WidthSpec {
@@ -446,6 +475,9 @@ export function readRPr(rPr: XmlElement | undefined): RPr | undefined {
       case 'w14:ligatures':
         p.ligatures = el.attrs['w14:val'] ?? 'standard';
         break;
+      case 'w:rPrChange':
+        p.change = { ...readRevisionInfo(el), rPr: readRPr(firstChild(el, 'w:rPr')) ?? {} };
+        break;
       case 'w14:shadow': {
         const emu = (k: string) => (parseInt(el.attrs[k] ?? '0', 10) || 0) / 12700;
         p.textShadow = { blur: emu('w14:blurRad'), dist: emu('w14:dist'), dir: (parseInt(el.attrs['w14:dir'] ?? '0', 10) || 0) / 60000 };
@@ -614,7 +646,13 @@ export function readPPr(pPr: XmlElement | undefined): PPr | undefined {
       }
       case 'w:rPr':
         p.rPr = readRPr(el);
-        if (childElements(el).some((c) => c.name === 'w:del' || c.name === 'w:moveFrom')) p.markDeleted = true;
+        for (const c of childElements(el)) {
+          if (c.name === 'w:del' || c.name === 'w:moveFrom') { p.markDeleted = true; p.markDel = readRevisionInfo(c); }
+          else if (c.name === 'w:ins' || c.name === 'w:moveTo') p.markIns = readRevisionInfo(c);
+        }
+        break;
+      case 'w:pPrChange':
+        p.change = { ...readRevisionInfo(el), pPr: readPPr(firstChild(el, 'w:pPr')) ?? {} };
         break;
     }
   }

@@ -4,6 +4,7 @@
 import type { Paragraph, Run, TableBlock, TableCell, CommentInfo } from '../core.js';
 import {
   type ExportDoc,
+  finalExportDoc,
   orderedBlocks,
   headingLevel,
   resolveImageUri,
@@ -91,6 +92,7 @@ function tableMd(t: TableBlock, ctx: Ctx): string {
 }
 
 export function toMarkdown(doc: ExportDoc, opts: MarkdownOptions = {}): string {
+  doc = finalExportDoc(doc);
   const ctx: Ctx = {
     comments: new Map((doc.comments ?? []).map((c) => [c.id, c])),
     footnotes: doc.footnotes ?? new Map(),

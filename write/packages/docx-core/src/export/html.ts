@@ -4,6 +4,7 @@
 import type { Paragraph, Run, TableBlock, CommentInfo, BorderEdge } from '../core.js';
 import {
   type ExportDoc,
+  finalExportDoc,
   orderedBlocks,
   headingLevel,
   escapeHtml,
@@ -240,6 +241,7 @@ hr { border: none; border-top: 1px solid #ccc; margin: 2rem 0 .5rem; }
 `;
 
 export function toHtml(doc: ExportDoc, opts: HtmlOptions = {}): string {
+  doc = finalExportDoc(doc);
   const ctx: Ctx = {
     comments: new Map((doc.comments ?? []).map((c) => [c.id, c])),
     usedComments: new Set(),

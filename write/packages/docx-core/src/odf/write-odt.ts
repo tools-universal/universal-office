@@ -13,6 +13,7 @@
 // referencia por text:style-name. Headings emitem text:h com text:outline-level.
 
 import { writeZip } from './zip.js';
+import { finalBlocks } from '../core.js';
 import type {
   FullDocument,
   Paragraph,
@@ -531,6 +532,8 @@ function manifestXml(pictures: { path: string; ext: string }[]): string {
 // ───────────────────────── entrypoint ─────────────────────────
 
 export function writeOdt(doc: FullDocument, options: WriteOdtOptions = {}): Uint8Array {
+  // controle de alterações: o .odt sai na visão final (sem o texto excluído)
+  doc = { ...doc, blocks: finalBlocks(doc.blocks) };
   const ctx: Ctx = {
     paraStyles: new Map(),
     runStyles: new Map(),
