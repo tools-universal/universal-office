@@ -1,6 +1,6 @@
 // PAINEL LATERAL dos editores (Painel de Estilos, de Revisão, de Navegação…):
 // título, fechar, corpo livre e rodapé opcional, acoplado à DIREITA da área que
-// o app indica (`frame`). O app reserva o espaço (ex.: padding das páginas) e
+// o app indica (`frame`) — ou à esquerda, ou embaixo na largura toda (`dock`). O app reserva o espaço (ex.: padding das páginas) e
 // chama place() quando o layout muda; o painel se reposiciona sozinho em
 // resize/scroll da janela. Um painel por id.
 import { DEFAULT_UI_LANG, pickLabels, type UiLang } from '../i18n.js';
@@ -15,10 +15,14 @@ export interface PaneOptions {
   lang?: UiLang;
   /** onde pendurar o painel (precisa do CSS das barras) */
   layer: HTMLElement;
-  /** área onde o painel acopla (à direita, de cima a baixo) */
+  /** área onde o painel acopla */
   frame: () => DOMRect;
-  /** largura (px, padrão 300) */
+  /** lado da área: à direita (padrão) ou à esquerda, de cima a baixo; embaixo, na largura toda */
+  dock?: 'right' | 'left' | 'bottom';
+  /** largura (px, padrão 300) — à direita/esquerda */
   width?: number;
+  /** altura (px, padrão 220) — embaixo */
+  height?: number;
   body: HTMLElement;
   footer?: HTMLElement;
   /** depois de fechar (× ou close()) */
@@ -52,12 +56,15 @@ export function openPane(o: PaneOptions): PaneHandle {
   const L = pickLabels(lang, LABELS);
   const txt = (l: Lbl): string => (typeof l === 'string' ? l : pickLabels(lang, l));
   const width = o.width ?? 300;
+  const height = o.height ?? 220;
+  const dock = o.dock ?? 'right';
   const el = document.createElement('aside');
   el.className = 'uo-pane';
   el.dataset['pane'] = o.id;
+  el.dataset['dock'] = dock;
   el.setAttribute('part', 'pane');
   el.setAttribute('role', 'complementary');
-  el.style.width = `${width}px`;
+  if (dock !== 'bottom') el.style.width = `${width}px`;
   const head = document.createElement('div');
   head.className = 'uo-pane-head';
   const title = document.createElement('span');
@@ -80,9 +87,18 @@ export function openPane(o: PaneOptions): PaneHandle {
 
   const place = (): void => {
     const r = o.frame();
-    el.style.top = `${Math.max(0, r.top)}px`;
-    el.style.height = `${Math.max(120, Math.min(r.bottom, window.innerHeight) - Math.max(0, r.top))}px`;
-    el.style.left = `${Math.max(0, r.right - width)}px`;
+    const top = Math.max(0, r.top), bottom = Math.min(r.bottom, window.innerHeight);
+    if (dock === 'bottom') {
+      const h = Math.min(height, Math.max(120, bottom - top));
+      el.style.top = `${bottom - h}px`;
+      el.style.height = `${h}px`;
+      el.style.left = `${Math.max(0, r.left)}px`;
+      el.style.width = `${r.width}px`;
+      return;
+    }
+    el.style.top = `${top}px`;
+    el.style.height = `${Math.max(120, bottom - top)}px`;
+    el.style.left = `${Math.max(0, dock === 'left' ? r.left : r.right - width)}px`;
   };
   let open = true;
   const onWin = (): void => place();

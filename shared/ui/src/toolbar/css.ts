@@ -286,6 +286,8 @@ export const BAR_CSS = /* css */ `
   font-family: var(--uo-font, "Segoe UI", system-ui, -apple-system, sans-serif); font-size: 13.5px; color: ${ON};
   background: ${SURFACE}; border-left: 1px solid ${OUTLINE_VAR}; box-shadow: -4px 0 16px ${SHADOW}; box-sizing: border-box;
 }
+.uo-pane[data-dock="left"] { border-left: 0; border-right: 1px solid ${OUTLINE_VAR}; box-shadow: 4px 0 16px ${SHADOW}; }
+.uo-pane[data-dock="bottom"] { border-left: 0; border-top: 1px solid ${OUTLINE_VAR}; box-shadow: 0 -4px 16px ${SHADOW}; }
 .uo-pane * { box-sizing: border-box; }
 .uo-pane [hidden] { display: none !important; }
 .uo-pane-head { display: flex; align-items: center; gap: 8px; padding: 10px 6px 6px 16px; flex: none; }

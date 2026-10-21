@@ -167,19 +167,12 @@ export const CHROME_CSS = /* css */ `
 .uw-card .when { flex: 1 1 auto; margin-left: 6px; font-size: 11px; opacity: .7; white-space: nowrap; }
 .uw-rev-card .txt b { font-weight: 600; }
 
-/* Painel de Revisão (vertical à esquerda; horizontal acima da barra de status) */
-:host(.uw-review-v) .pages { padding-left: 324px; justify-content: safe center; }
-.uw-review {
-  position: sticky; left: 0; z-index: 6; box-sizing: border-box; display: flex; flex-direction: column;
-  width: 300px; overflow: hidden; font-family: var(--uo-font); font-size: 13px;
-  background: var(--u-color-surface-container-low, #f6f4f8); color: var(--u-color-on-surface, #1b1b1f);
-  border-right: 1px solid var(--u-color-outline-variant, #c4c6d0);
-}
-.uw-review.h { width: 100%; height: 220px; bottom: 0; border-right: 0; border-top: 1px solid var(--u-color-outline-variant, #c4c6d0); }
-.uw-review-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 8px 2px 12px; }
-.uw-review-head .uo-btn { height: 26px; min-width: 26px; }
-.uw-review-sum { padding: 0 12px 8px; font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); border-bottom: 1px solid var(--u-color-outline-variant, #c4c6d0); }
-.uw-review-list { list-style: none; margin: 0; padding: 4px 0; overflow: auto; flex: 1 1 auto; }
+/* Painel de Revisão (painel das barras: vertical à esquerda; horizontal acima da barra de status) */
+:host(.uw-review-v) .pages { padding-left: 304px; justify-content: safe center; }
+:host(.uw-review-h) .pages { padding-bottom: 224px; }
+.uw-review.uo-pane-body { display: flex; flex-direction: column; padding: 0; overflow: hidden; font-size: 13px; }
+.uw-review-sum { flex: none; padding: 0 16px 8px; font-size: 12px; color: var(--u-color-on-surface-variant, #44474f); border-bottom: 1px solid var(--u-color-outline-variant, #c4c6d0); }
+.uw-review-list { list-style: none; margin: 0; padding: 4px 0; overflow: auto; flex: 1 1 auto; min-height: 0; }
 .uw-rev { padding: 6px 8px 6px 12px; cursor: pointer; border-left: 3px solid var(--uw-rev, rgba(255,187,0,.6)); margin: 2px 6px; border-radius: 4px; }
 .uw-rev:hover { background: var(--u-color-surface-container-high, #e9e7ec); }
 .uw-rev-head { display: flex; align-items: center; gap: 6px; }
@@ -311,7 +304,7 @@ class WriteChrome {
       this.protbar = this.makeProtectedBar();
       topEl.appendChild(this.protbar);
       this.cards = new CommentCards(ed, app, this.root, () => this.after());
-      this.review = new ReviewPane(ed, app, this.root, () => this.after());
+      this.review = new ReviewPane(ed, app, { layer: this.layer, frame: () => this.docFrame(), lang: opts.lang }, () => this.after());
       const pane = app.prefs.get('reviewPane');
       if (pane === 'vertical' || pane === 'horizontal') this.review.open(pane);
       this.bindDocumentFeatures();
@@ -461,9 +454,11 @@ class WriteChrome {
     this.bar?.sync();
     this.status?.sync();
     this.styles?.sync();
+    this.review?.place();
   }
 
-  /** Área do documento entre as barras (o painel lateral acopla à direita, sem cobrir a rolagem). */
+  /** Área do documento entre as barras (os painéis acoplam nela — Estilos à direita, sem
+   *  cobrir a rolagem; Revisão à esquerda ou embaixo). */
   private docFrame(): DOMRect {
     const r = this.ed.getBoundingClientRect();
     const top = this.topEl.getBoundingClientRect(), bot = this.bottomEl.getBoundingClientRect();
@@ -654,6 +649,10 @@ class WriteChrome {
         this.sync();
       }) as EventListener, { signal });
     }
+    // painéis laterais: a área entre as barras muda (guia da ribbon, barra recolhida, janela)
+    const pro = new ResizeObserver(() => { this.review?.place(); this.styles?.sync(); });
+    for (const t of [this.topEl, this.bottomEl, ed]) pro.observe(t);
+    signal.addEventListener('abort', () => pro.disconnect());
     document.addEventListener('fullscreenchange', () => {
       if (!document.fullscreenElement && ed.classList.contains('uw-focus')) { ed.classList.remove('uw-focus'); this.sync(); }
     }, { signal });

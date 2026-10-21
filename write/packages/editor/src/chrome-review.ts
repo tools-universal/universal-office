@@ -1,48 +1,58 @@
 // Painel de Revisão do Write: lista as revisões (e os comentários) do
 // documento, com o total por tipo; clicar leva à revisão, ✓/✗ aceita/rejeita.
-// Vertical (à esquerda das páginas) ou horizontal (acima da barra de status),
-// preso na área visível enquanto o documento rola.
-import { symbol, uiLang } from '@universal-office/ui';
+// É o painel lateral das barras (openPane): vertical à esquerda das páginas ou
+// horizontal acima da barra de status, como no Word.
+import { openPane, symbol, uiLang, type PaneHandle, type UiLang } from '@universal-office/ui';
 import type { UniversalWriteElement } from './universal-write.js';
 import type { WriteApp } from './chrome-app.js';
 import { revisionTime } from './chrome-panels.js';
 
 export type PaneDir = 'vertical' | 'horizontal';
 
-export class ReviewPane {
-  readonly el: HTMLElement;
-  dir: PaneDir | null = null;
-  private raf = 0;
-  private readonly ro: ResizeObserver;
+export interface ReviewPaneEnv {
+  layer: HTMLElement;
+  /** área entre as barras */
+  frame: () => DOMRect;
+  lang?: UiLang;
+}
 
-  constructor(private readonly ed: UniversalWriteElement, private readonly app: WriteApp, private readonly root: ShadowRoot, private readonly after: () => void) {
-    const el = document.createElement('div');
-    el.className = 'uw-review';
-    el.setAttribute('part', 'review-pane');
-    el.setAttribute('role', 'complementary');
-    for (const t of ['mousedown', 'dblclick', 'contextmenu', 'keydown', 'wheel'] as const) {
-      el.addEventListener(t, (e) => { if (t !== 'wheel') e.stopPropagation(); }, { passive: t === 'wheel' });
-    }
-    this.el = el;
-    this.ro = new ResizeObserver(() => this.fit());
-  }
+export class ReviewPane {
+  dir: PaneDir | null = null;
+  private pane: PaneHandle | null = null;
+  private raf = 0;
+
+  constructor(private readonly ed: UniversalWriteElement, private readonly app: WriteApp, private readonly env: ReviewPaneEnv, private readonly after: () => void) {}
 
   open(dir: PaneDir): void {
+    this.close();
     this.dir = dir;
-    const pages = this.root.querySelector('.pages');
-    if (!pages) return;
-    if (dir === 'vertical') pages.before(this.el); else pages.after(this.el);
-    this.el.classList.toggle('h', dir === 'horizontal');
+    const body = document.createElement('div');
+    body.className = 'uw-review';
+    const pane = openPane({
+      id: 'revisions', title: this.app.ui!.L.revPane, lang: this.env.lang, layer: this.env.layer, frame: this.env.frame,
+      dock: dir === 'vertical' ? 'left' : 'bottom', width: 300, height: 220, body,
+      // fechado pelo ×: o painel não volta na próxima abertura
+      onClose: () => {
+        if (this.pane !== pane) return;
+        this.pane = null;
+        this.dir = null;
+        this.ed.classList.remove('uw-review-v', 'uw-review-h');
+        this.app.prefs.set('reviewPane', '');
+        this.after();
+      },
+    });
+    pane.el.setAttribute('part', 'pane review-pane');
+    this.pane = pane;
     this.ed.classList.toggle('uw-review-v', dir === 'vertical');
     this.ed.classList.toggle('uw-review-h', dir === 'horizontal');
-    this.ro.observe(this.ed);
     this.render();
   }
 
   close(): void {
+    const pane = this.pane;
+    this.pane = null;
     this.dir = null;
-    this.el.remove();
-    this.ro.disconnect();
+    pane?.close();
     this.ed.classList.remove('uw-review-v', 'uw-review-h');
   }
 
@@ -56,22 +66,13 @@ export class ReviewPane {
     this.raf = requestAnimationFrame(() => { this.raf = 0; this.render(); });
   }
 
-  /** Altura do painel vertical: a área visível entre as barras. */
-  private fit(): void {
-    const top = this.root.querySelector<HTMLElement>('.uw-topbar')?.offsetHeight ?? 0;
-    const bottom = this.root.querySelector<HTMLElement>('.uw-bottombar')?.offsetHeight ?? 0;
-    if (this.dir === 'horizontal') {
-      this.el.style.cssText = `bottom: ${bottom}px`;
-      return;
-    }
-    // preso entre as barras, sem ocupar lugar no fluxo (as páginas abrem a calha)
-    const h = Math.max(120, this.ed.clientHeight - top - bottom);
-    this.el.style.cssText = `top: ${top}px; height: ${h}px; margin-bottom: ${-h}px`;
-  }
+  /** Reposiciona (a área entre as barras mudou). */
+  place(): void { this.pane?.place(); }
 
   render(): void {
-    if (!this.dir) return;
-    this.fit();
+    const pane = this.pane;
+    if (!pane) return;
+    pane.place();
     const L = this.app.ui!.L;
     const lang = uiLang(this.ed);
     const revs = this.ed.getRevisions();
@@ -83,17 +84,7 @@ export class ReviewPane {
       else if (r.kind === 'delete') n.del++;
       else n.fmt++;
     }
-    const head = document.createElement('div');
-    head.className = 'uw-review-head';
-    const title = document.createElement('strong');
-    title.textContent = `${L.revPane}: ${L.revCount(revs.length)}`;
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.className = 'uo-btn';
-    close.title = L.revClose;
-    close.innerHTML = symbol('close');
-    close.addEventListener('click', () => { this.close(); this.after(); });
-    head.append(title, close);
+    pane.setTitle(`${L.revPane}: ${L.revCount(revs.length)}`);
     const sum = document.createElement('div');
     sum.className = 'uw-review-sum';
     sum.textContent = [`${L.revInsertions}: ${n.ins}`, `${L.revDeletions}: ${n.del}`, `${L.revMoves}: ${n.move}`, `${L.revFormatting}: ${n.fmt}`, `${L.revComments}: ${comments.length}`].join(' · ');
@@ -137,6 +128,6 @@ export class ReviewPane {
       li.textContent = L.revNone;
       list.appendChild(li);
     }
-    this.el.replaceChildren(head, sum, list);
+    pane.body.replaceChildren(sum, list);
   }
 }
