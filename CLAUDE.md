@@ -158,3 +158,11 @@ páginas de docs); só as páginas do `<universal-write>` e do diff são escrita
 `npm run docs:gifs` (`tools/gifs/record.mjs`: Chromium headless sobre os
 pacotes de `publish/`, documentos de exemplo em inglês gerados na hora); o
 `build:pkg` copia cada GIF para `publish/media/` do pacote.
+
+## Funcionalidades do editor do Write: backlog e fluxo
+
+As lacunas do `<universal-write>` em relação ao Word e o fluxo combinado para
+fechá-las (escopo → medir no oráculo → API → render → salvar sem perdas →
+interface → testes → docs → commit) ficam em `write/BACKLOG.md`. Uma frente
+de código por vez; em paralelo, só medição no oráculo (leitura). Ao fechar uma
+frente, atualizar o estado lá.
